@@ -1,0 +1,33 @@
+{
+  "parent": "hogwartsmagic:hp/first_flight",
+  "display": {
+    "icon": {
+      "id": "hogwartsmagic:nimbus_2000",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancement.hogwartsmagic.nimbus_rider.title"
+    },
+    "description": {
+      "translate": "advancement.hogwartsmagic.nimbus_rider.description"
+    },
+    "x": 8.0,
+    "y": 0.0,
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "has_nimbus_2000": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "hogwartsmagic:nimbus_2000"
+          }
+        ]
+      }
+    }
+  }
+}

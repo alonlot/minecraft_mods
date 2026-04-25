@@ -1,0 +1,6 @@
+{
+  "type": "forge:add_features",
+  "biomes": "#hogwartsmagic:has_gillyweed",
+  "features": "hogwartsmagic:placed_gillyweed_swamp",
+  "step": "vegetal_decoration"
+}

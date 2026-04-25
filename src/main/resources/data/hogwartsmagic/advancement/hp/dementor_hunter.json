@@ -1,0 +1,29 @@
+{
+  "parent": "hogwartsmagic:hp/spider_slayer",
+  "display": {
+    "icon": {
+      "id": "hogwartsmagic:dementor_spawn_egg",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancement.hogwartsmagic.dementor_hunter.title"
+    },
+    "description": {
+      "translate": "advancement.hogwartsmagic.dementor_hunter.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "killed_dementor": {
+      "trigger": "minecraft:player_killed_entity",
+      "conditions": {
+        "entity": {
+          "type": "hogwartsmagic:dementor"
+        }
+      }
+    }
+  }
+}

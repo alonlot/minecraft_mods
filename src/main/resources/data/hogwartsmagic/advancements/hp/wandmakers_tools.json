@@ -1,0 +1,33 @@
+{
+  "parent": "hogwartsmagic:hp/root",
+  "display": {
+    "icon": {
+      "id": "hogwartsmagic:wand_workbench",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancement.hogwartsmagic.wandmakers_tools.title"
+    },
+    "description": {
+      "translate": "advancement.hogwartsmagic.wandmakers_tools.description"
+    },
+    "x": 2.0,
+    "y": 2.0,
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "has_wand_bench": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "hogwartsmagic:wand_workbench"
+          }
+        ]
+      }
+    }
+  }
+}

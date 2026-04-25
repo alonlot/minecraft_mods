@@ -1,0 +1,33 @@
+{
+  "parent": "block/block",
+  "textures": {
+    "particle": "hogwartsmagic:block/owl_perch",
+    "texture": "hogwartsmagic:block/owl_perch"
+  },
+  "elements": [
+    {
+      "from": [7, 0, 7],
+      "to": [9, 14, 9],
+      "faces": {
+        "north": { "uv": [0, 2, 2, 16], "texture": "#texture" },
+        "south": { "uv": [0, 2, 2, 16], "texture": "#texture" },
+        "west": { "uv": [0, 2, 2, 16], "texture": "#texture" },
+        "east": { "uv": [0, 2, 2, 16], "texture": "#texture" },
+        "up": { "uv": [7, 7, 9, 9], "texture": "#texture" },
+        "down": { "uv": [7, 7, 9, 9], "texture": "#texture" }
+      }
+    },
+    {
+      "from": [3, 8, 7],
+      "to": [13, 10, 9],
+      "faces": {
+        "north": { "uv": [0, 6, 10, 8], "texture": "#texture" },
+        "south": { "uv": [0, 6, 10, 8], "texture": "#texture" },
+        "west": { "uv": [0, 6, 2, 8], "texture": "#texture" },
+        "east": { "uv": [0, 6, 2, 8], "texture": "#texture" },
+        "up": { "uv": [0, 0, 10, 2], "texture": "#texture" },
+        "down": { "uv": [0, 0, 10, 2], "texture": "#texture" }
+      }
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "multipart": [
+    {
+      "apply": {
+        "model": "hogwartsmagic:block/fine_wood_leaves"
+      }
+    }
+  ]
+}

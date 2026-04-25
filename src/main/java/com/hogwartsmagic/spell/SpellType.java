@@ -1,0 +1,497 @@
+package com.hogwartsmagic.spell;
+
+import com.hogwartsmagic.ModSounds;
+import com.hogwartsmagic.event.ModEvents;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.DustParticleOptions;
+import net.minecraft.core.particles.ParticleOptions;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.sounds.SoundEvent;
+import org.joml.Vector3f;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
+import com.hogwartsmagic.ExampleMod;
+import com.hogwartsmagic.entity.DarkMarkEntity;
+import com.hogwartsmagic.sorting.HousePerks;
+import net.minecraft.server.level.ServerPlayer;
+
+/**
+ * Defines spell types with colors, particles, and hit effects.
+ */
+public enum SpellType {
+    EXPELLIARMUS("expelliarmus", 0xFF4444, 0.9f, 0.2f, 0.2f, ParticleTypes.FLAME, ParticleTypes.LARGE_SMOKE, 40, 20, SpellLootRarity.UNCOMMON),
+    GLACIUS("glacius", 0x88FFFF, 0.5f, 1.0f, 1.0f, ParticleTypes.SNOWFLAKE, ParticleTypes.ITEM_SNOWBALL, 60, 25, SpellLootRarity.UNCOMMON),
+    CONFRINGO("confringo", 0xFF8800, 1.0f, 0.5f, 0.0f, ParticleTypes.LAVA, ParticleTypes.EXPLOSION, 80, 35, SpellLootRarity.UNCOMMON),
+    PROTEGO("protego", 0x88CCFF, 0.5f, 0.8f, 1.0f, ParticleTypes.END_ROD, ParticleTypes.FLASH, 100, 40, SpellLootRarity.UNCOMMON),
+    PROTEGO_MAXIMA("protego_maxima", 0xB3F2FF, 0.70f, 0.95f, 1.0f, ParticleTypes.END_ROD, ParticleTypes.FLASH, 180, 65, SpellLootRarity.RARE),
+    LUMOS("lumos", 0xFFFFAA, 1.0f, 1.0f, 0.67f, ParticleTypes.END_ROD, ParticleTypes.ELECTRIC_SPARK, 20, 5, SpellLootRarity.COMMON),
+    ACCIO("accio", 0x4488FF, 0.27f, 0.53f, 1.0f, ParticleTypes.CLOUD, ParticleTypes.SWEEP_ATTACK, 40, 15, SpellLootRarity.COMMON),
+    WINGARDIUM_LEVIOSA("wingardium_leviosa", 0xAA44FF, 0.67f, 0.27f, 1.0f, ParticleTypes.ENCHANT, ParticleTypes.WITCH, 60, 15, SpellLootRarity.UNCOMMON),
+    ALOHOMORA("alohomora", 0xFFDD44, 1.0f, 0.87f, 0.27f, ParticleTypes.HAPPY_VILLAGER, ParticleTypes.GLOW, 40, 10, SpellLootRarity.COMMON),
+    INCENDIO("incendio", 0xFF4400, 1.0f, 0.27f, 0.0f, ParticleTypes.FLAME, ParticleTypes.LAVA, 40, 20, SpellLootRarity.UNCOMMON),
+    STUPEFY("stupefy", 0xFF0000, 1.0f, 0.0f, 0.0f, ParticleTypes.ELECTRIC_SPARK, ParticleTypes.FLASH, 60, 30, SpellLootRarity.UNCOMMON),
+    REVELIO("revelio", 0x44FFFF, 0.27f, 1.0f, 1.0f, ParticleTypes.ENCHANT, ParticleTypes.INSTANT_EFFECT, 100, 25, SpellLootRarity.UNCOMMON),
+    AVADA_KEDAVRA("avada_kedavra", 0x00FF00, 0.0f, 1.0f, 0.0f, ParticleTypes.WITCH, ParticleTypes.FLASH, 12000, 100, SpellLootRarity.EPIC),
+    CRUCIO("crucio", 0xFF0000, 1.0f, 0.0f, 0.0f, ParticleTypes.CRIT, ParticleTypes.DAMAGE_INDICATOR, 100, 60, SpellLootRarity.EPIC),
+    IMPERIO("imperio", 0x88FF88, 0.53f, 1.0f, 0.53f, ParticleTypes.HAPPY_VILLAGER, ParticleTypes.GLOW, 200, 80, SpellLootRarity.EPIC),
+    FIENDFYRE("fiendfyre", 0xFF8800, 1.0f, 0.53f, 0.0f, ParticleTypes.FLAME, ParticleTypes.DRIPPING_LAVA, 300, 85, SpellLootRarity.EPIC),
+    SECTUMSEMPRA("sectumsempra", 0x440000, 0.27f, 0.0f, 0.0f, ParticleTypes.SWEEP_ATTACK, ParticleTypes.CRIT, 60, 45, SpellLootRarity.RARE),
+    MORSMORDRE("morsmordre", 0x004400, 0.0f, 0.27f, 0.0f, ParticleTypes.SQUID_INK, ParticleTypes.LARGE_SMOKE, 1200, 90, SpellLootRarity.EPIC),
+    DOLOHOV_CURSE("dolohov_curse", 0xAA00AA, 0.67f, 0.0f, 0.67f, ParticleTypes.DRAGON_BREATH, ParticleTypes.FLASH, 100, 50, SpellLootRarity.RARE),
+    INCARCEROUS("incarcerous", 0x444444, 0.27f, 0.27f, 0.27f, ParticleTypes.SQUID_INK, ParticleTypes.ITEM_SLIME, 80, 35, SpellLootRarity.UNCOMMON),
+    HEAL("heal", 0x55FF55, 0.4f, 1.0f, 0.4f, ParticleTypes.HEART, ParticleTypes.ENCHANT, 100, 40, SpellLootRarity.UNCOMMON),
+    TENEBRIS_FLIGHT("tenebris_flight", 0x111111, 0.1f, 0.1f, 0.1f, ParticleTypes.SQUID_INK, ParticleTypes.LARGE_SMOKE, 400, 50, SpellLootRarity.EPIC),
+    EXPECTO_PATRONUM("expecto_patronum", 0x44FFFF, 0.27f, 1.0f, 1.0f, ParticleTypes.END_ROD, ParticleTypes.FLASH, 1200, 90, SpellLootRarity.EPIC),
+    BOMBARDA("bombarda", 0xFF0055, 1.0f, 0.0f, 0.33f, ParticleTypes.EXPLOSION, ParticleTypes.EXPLOSION_EMITTER, 100, 50, SpellLootRarity.RARE),
+    DEPULSO("depulso", 0xDDDDDD, 0.86f, 0.86f, 0.86f, ParticleTypes.CLOUD, ParticleTypes.SWEEP_ATTACK, 40, 20, SpellLootRarity.COMMON),
+    LEVICORPUS("levicorpus", 0x8844FF, 0.53f, 0.27f, 1.0f, ParticleTypes.SQUID_INK, ParticleTypes.ENCHANT, 80, 25, SpellLootRarity.UNCOMMON),
+    DIFFINDO("diffindo", 0xFFFFAA, 1.0f, 1.0f, 0.67f, ParticleTypes.CRIT, ParticleTypes.ENCHANTED_HIT, 40, 25, SpellLootRarity.COMMON),
+    PETRIFICUS_TOTALUS("petrificus_totalus", 0xAAAAAA, 0.67f, 0.67f, 0.67f, ParticleTypes.SOUL_FIRE_FLAME, ParticleTypes.FLASH, 100, 45, SpellLootRarity.UNCOMMON),
+    AQUA_ERUCTO("aqua_eructo", 0x0088FF, 0.0f, 0.53f, 1.0f, ParticleTypes.SPLASH, ParticleTypes.BUBBLE, 40, 20, SpellLootRarity.UNCOMMON),
+    OBLIVIATE("obliviate", 0xAAFFAA, 0.67f, 1.0f, 0.67f, ParticleTypes.ENCHANT, ParticleTypes.FLASH, 100, 60, SpellLootRarity.RARE),
+    ASCENDIO("ascendio", 0xFFFFFF, 1.0f, 1.0f, 1.0f, ParticleTypes.CLOUD, ParticleTypes.CAMPFIRE_COSY_SMOKE, 60, 20, SpellLootRarity.COMMON),
+    CONFUNDO("confundo", 0xFFAAAA, 1.0f, 0.67f, 0.67f, ParticleTypes.SMOKE, ParticleTypes.NAUTILUS, 80, 40, SpellLootRarity.UNCOMMON),
+    CAVE_INIMICUM("cave_inimicum", 0x7AF0E0, 0.48f, 0.94f, 0.88f, ParticleTypes.END_ROD, ParticleTypes.ENCHANT, 200, 60, SpellLootRarity.RARE),
+    /** Awakens flight magic in a broom frame on the Broom Workbench (requires correct ingredients first). */
+    ALATUS("alatus", 0xD4C4A8, 0.83f, 0.75f, 0.53f, ParticleTypes.CLOUD, ParticleTypes.ENCHANT, 55, 24, SpellLootRarity.UNCOMMON),
+    SERPENSORTIA("serpensortia", 0x005500, 0.0f, 0.33f, 0.0f, ParticleTypes.SQUID_INK, ParticleTypes.WITCH, 200, 60, SpellLootRarity.RARE),
+    ARRESTO_MOMENTUM("arresto_momentum", 0xCFE8FF, 0.81f, 0.91f, 1.0f, ParticleTypes.CLOUD, ParticleTypes.GLOW, 50, 18, SpellLootRarity.UNCOMMON),
+    REPARO("reparo", 0x8CF3D7, 0.55f, 0.95f, 0.84f, ParticleTypes.ENCHANT, ParticleTypes.WAX_ON, 80, 22, SpellLootRarity.UNCOMMON);
+
+    private final String id;
+    private final int color;
+    private final float r;
+    private final float g;
+    private final float b;
+    private final ParticleOptions trailParticle;
+    private final ParticleOptions impactParticle;
+    private final int cooldownTicks;
+    private final int manaCost;
+    private final SpellLootRarity lootRarity;
+
+    SpellType(String id, int color, float r, float g, float b,
+              ParticleOptions trailParticle, ParticleOptions impactParticle, int cooldownTicks, int manaCost,
+              SpellLootRarity lootRarity) {
+        this.id = id;
+        this.color = color;
+        this.r = r;
+        this.g = g;
+        this.b = b;
+        this.trailParticle = trailParticle;
+        this.impactParticle = impactParticle;
+        this.cooldownTicks = cooldownTicks;
+        this.manaCost = manaCost;
+        this.lootRarity = lootRarity;
+    }
+
+    public SpellLootRarity getLootRarity() {
+        return lootRarity;
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    public int getColor() {
+        return color;
+    }
+
+    public float getR() {
+        return r;
+    }
+
+    public float getG() {
+        return g;
+    }
+
+    public float getB() {
+        return b;
+    }
+
+    public ParticleOptions getTrailParticle() {
+        return trailParticle;
+    }
+
+    public ParticleOptions getImpactParticle() {
+        return impactParticle;
+    }
+
+    public int getCooldownTicks() {
+        return cooldownTicks;
+    }
+
+    public int getManaCost() {
+        // Global tuning: reduce every spell's mana cost by 25% (use 75% of base cost).
+        return Math.max(1, Math.round(manaCost * 0.75f));
+    }
+
+    /** Colored dust particle for beam trail - creates actual colored beam effect */
+    public DustParticleOptions getDustParticle() {
+        return new DustParticleOptions(new Vector3f(r, g, b), 1.0f);
+    }
+
+    public void applyHitEffect(LivingEntity target, Entity caster) {
+        switch (this) {
+            case EXPELLIARMUS -> {
+                if (!target.getMainHandItem().isEmpty()) {
+                    target.spawnAtLocation(target.getMainHandItem().copy());
+                    target.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, net.minecraft.world.item.ItemStack.EMPTY);
+                }
+                // Knockback
+                if (caster != null) {
+                    target.knockback(0.5, caster.getX() - target.getX(), caster.getZ() - target.getZ());
+                }
+                // Disarmed effect (2-3 seconds) - Mining fatigue as a placeholder for "cannot hold items" 
+                // but usually, we'd need a custom effect to truly prevent holding.
+                // For now, let's use weakness and slowness.
+                target.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 60, 1));
+            }
+            case GLACIUS -> {
+                int freezeDuration = 200;
+                int slowDuration = 100;
+                if (isColdEnvironment(target)) {
+                    freezeDuration += 80;
+                    slowDuration += 40;
+                }
+                target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, slowDuration, 10)); // Freeze in place
+                target.setTicksFrozen(freezeDuration);
+                if (target.isOnFire()) {
+                    triggerSteamCombo(target);
+                    target.clearFire();
+                }
+            }
+            case CONFRINGO -> {
+                target.igniteForSeconds(5);
+                float power = target.level().isRainingAt(target.blockPosition()) ? 1.15f : 1.5f;
+                target.level().explode(caster, target.getX(), target.getY(), target.getZ(), power, Level.ExplosionInteraction.NONE);
+                if (target.getTicksFrozen() > 0 || target.hasEffect(MobEffects.MOVEMENT_SLOWDOWN)) {
+                    triggerSteamCombo(target);
+                    target.setTicksFrozen(Math.max(0, target.getTicksFrozen() - 120));
+                }
+            }
+            case PROTEGO -> target.addEffect(new MobEffectInstance(ExampleMod.PROTEGO_EFFECT.getHolder().get(), 100, 0));
+            case LUMOS -> target.addEffect(new MobEffectInstance(ExampleMod.LUMOS_EFFECT.getHolder().get(), 12000, 0));
+            case ACCIO -> {
+                net.minecraft.world.phys.Vec3 toward = target.position().vectorTo(
+                        caster != null ? caster.getEyePosition(1) : target.position().add(0, 0, 5))
+                        .normalize().scale(0.8);
+                target.push(toward.x, 0.3, toward.z);
+            }
+            case WINGARDIUM_LEVIOSA -> {
+            }
+            case ALOHOMORA -> {
+                // No longer just haste, but potentially other effects if we want
+            }
+            case INCENDIO -> {
+                int burnTime = target.level().isRainingAt(target.blockPosition()) ? 2 : 5;
+                target.igniteForSeconds(burnTime);
+                if (target.getTicksFrozen() > 0 || target.hasEffect(MobEffects.MOVEMENT_SLOWDOWN)) {
+                    triggerSteamCombo(target);
+                    target.setTicksFrozen(Math.max(0, target.getTicksFrozen() - 80));
+                }
+            }
+            case STUPEFY -> {
+                interruptActiveCasting(target);
+                target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 60, 4));
+                target.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 60, 0));
+                // For "stun", we'd ideally prevent movement/attack, but slowness 4 is very close.
+            }
+            case REVELIO -> {
+                // Revelio logic handled in SpellBeamEntity for blocks, 
+                // but let's reveal invisible mobs here.
+                if (target.isInvisible()) {
+                    target.setInvisible(false);
+                    target.addEffect(new MobEffectInstance(MobEffects.GLOWING, 200, 0));
+                }
+            }
+            case AVADA_KEDAVRA -> {
+                target.hurt(target.damageSources().magic(), Float.MAX_VALUE);
+                if (caster instanceof LivingEntity livingCaster) {
+                    livingCaster.hurt(livingCaster.damageSources().magic(), scaledSpellDamage(caster, 2.0f)); // Dark magic cost
+                }
+            }
+            case CRUCIO -> {
+                target.addEffect(new MobEffectInstance(MobEffects.WITHER, 100, 1));
+                target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 100, 2));
+                target.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 100, 2));
+            }
+            case IMPERIO -> {
+                interruptActiveCasting(target);
+                if (caster instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+                    net.minecraft.nbt.CompoundTag playerData = serverPlayer.getPersistentData();
+                    playerData.putUUID("hogwartsmagic:imperio_recent_hit_target", target.getUUID());
+                    playerData.putLong("hogwartsmagic:imperio_recent_hit_expiry", serverPlayer.level().getGameTime() + 60L);
+                }
+                if (target instanceof net.minecraft.world.entity.Mob mob) {
+                    // Turn mob into ally by making it attack other hostile mobs
+                    net.minecraft.world.phys.AABB area = mob.getBoundingBox().inflate(16.0);
+                    java.util.List<net.minecraft.world.entity.Mob> nearby = mob.level().getEntitiesOfClass(net.minecraft.world.entity.Mob.class, area, 
+                        e -> e != mob && e != caster && (e instanceof net.minecraft.world.entity.monster.Enemy));
+                    
+                    if (!nearby.isEmpty()) {
+                        net.minecraft.world.entity.Mob allyTarget = nearby.get(mob.level().random.nextInt(nearby.size()));
+                        mob.setTarget(allyTarget);
+                    }
+
+                    // For some mobs, we can set them to be "allies" more explicitly if they support it
+                    // but for most, just clearing their current target if it was the caster is good
+                    if (mob.getTarget() == caster) {
+                        mob.setTarget(null);
+                    }
+                    
+                    mob.addEffect(new MobEffectInstance(MobEffects.CONFUSION, 600, 0));
+                    mob.addEffect(new MobEffectInstance(MobEffects.DAMAGE_BOOST, 600, 1));
+                    
+                    // Add a glowing effect to allied mobs so the player knows who is on their side
+                    mob.addEffect(new MobEffectInstance(MobEffects.GLOWING, 600, 0));
+                    
+                    // Add a tag to mark as allied
+                    mob.addTag("hogwartsmagic:allied");
+                }
+            }
+            case FIENDFYRE -> {
+                target.igniteForSeconds(20);
+                float dmg = target.level().isRainingAt(target.blockPosition()) ? 6.0f : 8.0f;
+                target.hurt(target.damageSources().onFire(), scaledSpellDamage(caster, dmg));
+                // Spawn Fiendfyre management entity at target location
+                com.hogwartsmagic.entity.FiendfyreEntity fiendfyre = new com.hogwartsmagic.entity.FiendfyreEntity(com.hogwartsmagic.entity.ModEntities.FIENDFYRE.get(), target.level());
+                fiendfyre.moveTo(target.getX(), target.getY(), target.getZ());
+                target.level().addFreshEntity(fiendfyre);
+            }
+            case SECTUMSEMPRA -> {
+                target.hurt(target.damageSources().magic(), scaledSpellDamage(caster, 10.0f));
+                target.addEffect(new MobEffectInstance(MobEffects.WITHER, 100, 2)); // Bleeding
+            }
+            case MORSMORDRE -> {
+                if (target.level() instanceof ServerLevel serverLevel) {
+                    DarkMarkEntity mark = new DarkMarkEntity(serverLevel, target.getX(), target.getY() + 18, target.getZ(), 2400);
+                    serverLevel.addFreshEntity(mark);
+                }
+                target.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 100, 0));
+            }
+            case DOLOHOV_CURSE -> {
+                target.hurt(target.damageSources().magic(), scaledSpellDamage(caster, 8.0f));
+                // Reduced healing via custom effect or long-lasting effect?
+                // Let's use Wither for now as a "curse"
+                target.addEffect(new MobEffectInstance(MobEffects.WITHER, 200, 0));
+            }
+            case INCARCEROUS -> {
+                final int mainBindTicks = 100;
+                final int nearbyBindTicks = 70;
+                var chains = ExampleMod.INCARCEROUS_CHAINS.getHolder().get();
+                target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, mainBindTicks, 10)); // Trap
+                target.addEffect(new MobEffectInstance(chains, mainBindTicks, 0, false, false, false));
+                if (target.level() instanceof ServerLevel server) {
+                    net.minecraft.world.phys.AABB area = target.getBoundingBox().inflate(2.6);
+                    java.util.List<LivingEntity> trapped = server.getEntitiesOfClass(LivingEntity.class, area, e -> e != target);
+                    for (LivingEntity nearby : trapped) {
+                        nearby.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, nearbyBindTicks, 4));
+                        nearby.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, nearbyBindTicks, 1));
+                        nearby.addEffect(new MobEffectInstance(chains, nearbyBindTicks, 0, false, false, false));
+                        IncarcerousChainAnimation.schedule(server, nearby);
+                    }
+
+                    IncarcerousChainAnimation.schedule(server, target);
+                }
+            }
+            case TENEBRIS_FLIGHT -> {
+                // effect lasts only 2 seconds (40 ticks)
+                if (caster instanceof LivingEntity livingCaster) {
+                    livingCaster.addEffect(new MobEffectInstance(ExampleMod.TENEBRIS_FLIGHT_EFFECT.getHolder().get(), 40, 0));
+                    if (livingCaster instanceof com.hogwartsmagic.entity.WizardEntity wz) {
+                        wz.setFlying(true); // set flying flag (invisibility via effect)
+                    }
+                }
+                target.addEffect(new MobEffectInstance(ExampleMod.TENEBRIS_FLIGHT_EFFECT.getHolder().get(), 40, 0));
+                if (target instanceof com.hogwartsmagic.entity.WizardEntity wz2) {
+                    wz2.setFlying(true);
+                }
+            }
+            case BOMBARDA -> {
+                target.level().explode(caster, target.getX(), target.getY(), target.getZ(), 2.5f, Level.ExplosionInteraction.NONE);
+                target.hurt(target.damageSources().explosion(null), scaledSpellDamage(caster, 12.0f));
+                if (target.getTicksFrozen() > 0 || target.hasEffect(MobEffects.MOVEMENT_SLOWDOWN)) {
+                    triggerSteamCombo(target);
+                }
+            }
+            case DEPULSO -> {
+                net.minecraft.world.phys.Vec3 away = target.position().vectorTo(
+                        caster != null ? caster.position() : target.position().add(0, 0, -5))
+                        .normalize().scale(-1.5); // Negative scale for push away, strong force
+                target.push(away.x, 0.5, away.z);
+            }
+            case LEVICORPUS -> {
+                target.addEffect(new MobEffectInstance(MobEffects.LEVITATION, 100, 1, false, false, false));
+                target.addEffect(new MobEffectInstance(ExampleMod.LEVICORPUS_EFFECT.getHolder().get(), 100, 0, false, false, false));
+                target.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 100, 2));
+            }
+            case DIFFINDO -> {
+                target.hurt(target.damageSources().magic(), scaledSpellDamage(caster, 15.0f)); // High sharp damage
+            }
+            case PETRIFICUS_TOTALUS -> {
+                interruptActiveCasting(target);
+                target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 200, 10)); // Total immobility
+                target.addEffect(new MobEffectInstance(MobEffects.JUMP, 200, 250)); // Prevent jumping (level 250 makes jump height 0)
+                target.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 200, 10)); // Prevent attacking impactfully
+            }
+            case AQUA_ERUCTO -> {
+                boolean wasBurning = target.isOnFire();
+                net.minecraft.world.phys.Vec3 push = target.position().vectorTo(
+                        caster != null ? caster.position() : target.position().add(0, 0, -5))
+                        .normalize().scale(-1.15);
+                if (wasBurning) {
+                    triggerSteamCombo(target);
+                }
+                target.clearFire(); // Extinguish target
+                target.push(push.x, 0.28, push.z);
+                target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 50, 1));
+                if (target instanceof net.minecraft.world.entity.monster.Blaze || target instanceof net.minecraft.world.entity.monster.MagmaCube) {
+                    target.hurt(target.damageSources().drown(), scaledSpellDamage(caster, 15.0f)); // Super effective against fire mobs
+                }
+                if (target.level().isRainingAt(target.blockPosition())) {
+                    target.push(push.x * 0.35, 0.1, push.z * 0.35);
+                }
+            }
+            case OBLIVIATE -> {
+                interruptActiveCasting(target);
+                if (target instanceof net.minecraft.world.entity.Mob mob) {
+                    mob.setTarget(null); // Make them forget who they were attacking
+                }
+                target.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 100, 0));
+                target.addEffect(new MobEffectInstance(MobEffects.CONFUSION, 200, 0));
+            }
+            case ASCENDIO -> {
+                target.setDeltaMovement(target.getDeltaMovement().add(0, 1.5, 0));
+                if (target.level() instanceof ServerLevel server) {
+                    net.minecraft.world.phys.AABB area = target.getBoundingBox().inflate(2.4);
+                    java.util.List<LivingEntity> launched = server.getEntitiesOfClass(LivingEntity.class, area, e -> e != target);
+                    for (LivingEntity nearby : launched) {
+                        nearby.setDeltaMovement(nearby.getDeltaMovement().add(0, 1.1, 0));
+                        nearby.fallDistance = 0.0f;
+                    }
+                }
+            }
+            case CONFUNDO -> {
+                interruptActiveCasting(target);
+                target.addEffect(new MobEffectInstance(MobEffects.CONFUSION, 300, 0));
+                target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 100, 1));
+                if (target instanceof net.minecraft.world.entity.Mob mob) {
+                    // Make them attack a random nearby entity (not just allies/enemies, anyone)
+                    net.minecraft.world.phys.AABB area = mob.getBoundingBox().inflate(10.0);
+                    java.util.List<LivingEntity> nearby = mob.level().getEntitiesOfClass(LivingEntity.class, area, e -> e != mob);
+                    if (!nearby.isEmpty()) {
+                        mob.setTarget(nearby.get(mob.level().random.nextInt(nearby.size())));
+                    }
+                }
+            }
+            case SERPENSORTIA -> {
+                if (target.level() instanceof ServerLevel serverLevel) {
+                    for (int i = 0; i < 3; i++) {
+                        net.minecraft.world.entity.monster.CaveSpider snake = new net.minecraft.world.entity.monster.CaveSpider(net.minecraft.world.entity.EntityType.CAVE_SPIDER, serverLevel);
+                        snake.moveTo(target.getX() + (serverLevel.random.nextDouble() - 0.5) * 2, target.getY(), target.getZ() + (serverLevel.random.nextDouble() - 0.5) * 2, serverLevel.random.nextFloat() * 360F, 0.0F);
+                        if (caster instanceof LivingEntity livingCaster) {
+                            snake.setTarget(null);
+                            // Set allied to caster by making them target what caster targets or attack who hurts caster (vanilla behavior doesn't support easy allies for spiders, we can add tag and ignore in Wizard logic)
+                            snake.addTag("hogwartsmagic:allied");
+                        }
+                        serverLevel.addFreshEntity(snake);
+                    }
+                }
+            }
+            case ARRESTO_MOMENTUM -> {
+                target.addEffect(new MobEffectInstance(MobEffects.SLOW_FALLING, caster == target ? 100 : 80, 0, false, true, true));
+                if (caster != target) {
+                    target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 40, 0, false, true, true));
+                }
+                net.minecraft.world.phys.Vec3 motion = target.getDeltaMovement();
+                double dampedX = motion.x * (caster == target ? 0.8 : 0.35);
+                double dampedZ = motion.z * (caster == target ? 0.8 : 0.35);
+                double minY = caster == target ? -0.15 : -0.12;
+                target.setDeltaMovement(dampedX, Math.max(motion.y, minY), dampedZ);
+                target.fallDistance = 0.0f;
+                target.hurtMarked = true;
+            }
+            case REPARO -> {
+            }
+            case ALATUS -> {
+            }
+        }
+    }
+
+    public static SpellType fromId(String id) {
+        for (SpellType s : values()) {
+            if (s.id.equals(id)) return s;
+        }
+        return WINGARDIUM_LEVIOSA;
+    }
+
+    public SoundEvent getSoundEvent() {
+        return switch (this) {
+            case EXPELLIARMUS -> ModSounds.SPELL_EXPELLIARMUS.get();
+            case GLACIUS -> ModSounds.SPELL_GLACIUS.get();
+            case CONFRINGO -> ModSounds.SPELL_CONFRINGO.get();
+            case PROTEGO, PROTEGO_MAXIMA -> ModSounds.SPELL_PROTEGO.get();
+            case LUMOS -> ModSounds.SPELL_LUMOS.get();
+            case ACCIO -> ModSounds.SPELL_ACCIO.get();
+            case WINGARDIUM_LEVIOSA -> ModSounds.SPELL_WINGARDIUM_LEVIOSA.get();
+            case ALOHOMORA -> ModSounds.SPELL_ALOHOMORA.get();
+            case INCENDIO -> ModSounds.SPELL_INCENDIO.get();
+            case STUPEFY -> ModSounds.SPELL_STUPEFY.get();
+            case REVELIO -> ModSounds.SPELL_REVELIO.get();
+            case AVADA_KEDAVRA -> ModSounds.SPELL_AVADA_KEDAVRA.get();
+            case CRUCIO -> ModSounds.SPELL_CRUCIO.get();
+            case IMPERIO -> ModSounds.SPELL_IMPERIO.get();
+            case FIENDFYRE -> ModSounds.SPELL_FIENDFYRE.get();
+            case SECTUMSEMPRA -> ModSounds.SPELL_SECTUMSEMPRA.get();
+            case MORSMORDRE -> ModSounds.SPELL_MORSMORDRE.get();
+            case DOLOHOV_CURSE -> ModSounds.SPELL_DOLOHOV_CURSE.get();
+            case INCARCEROUS -> ModSounds.SPELL_INCARCEROUS.get();
+            case HEAL -> ModSounds.SPELL_LUMOS.get();
+            case TENEBRIS_FLIGHT -> ModSounds.SPELL_MORSMORDRE.get();
+            case EXPECTO_PATRONUM -> ModSounds.SPELL_REVELIO.get();
+            case BOMBARDA -> ModSounds.SPELL_CONFRINGO.get(); // Use similar explosive sound
+            case DEPULSO -> ModSounds.SPELL_EXPELLIARMUS.get(); // Swift sound
+            case LEVICORPUS -> ModSounds.SPELL_WINGARDIUM_LEVIOSA.get();
+            case DIFFINDO -> ModSounds.SPELL_SECTUMSEMPRA.get(); // Sharp sound
+            case PETRIFICUS_TOTALUS -> ModSounds.SPELL_STUPEFY.get(); // Stun sound
+            case AQUA_ERUCTO -> ModSounds.SPELL_GLACIUS.get();
+            case OBLIVIATE -> ModSounds.SPELL_REVELIO.get();
+            case ASCENDIO -> ModSounds.SPELL_ACCIO.get(); // Whoosh sound
+            case CONFUNDO -> ModSounds.SPELL_IMPERIO.get();
+            case CAVE_INIMICUM -> ModSounds.SPELL_PROTEGO.get();
+            case ALATUS -> ModSounds.SPELL_WINGARDIUM_LEVIOSA.get();
+            case SERPENSORTIA -> ModSounds.SPELL_MORSMORDRE.get(); // Dark-ish sounding
+            case ARRESTO_MOMENTUM -> ModSounds.SPELL_ACCIO.get();
+            case REPARO -> ModSounds.SPELL_REVELIO.get();
+        };
+    }
+
+    private float scaledSpellDamage(Entity caster, float base) {
+        return base * HousePerks.getSpellDamageMultiplier(caster);
+    }
+
+    private boolean isColdEnvironment(LivingEntity target) {
+        return target.level().getBiome(target.blockPosition()).value().getBaseTemperature() < 0.15f;
+    }
+
+    private void triggerSteamCombo(LivingEntity target) {
+        target.hurt(target.damageSources().magic(), 2.0f);
+        target.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 40, 0));
+        if (target.level() instanceof ServerLevel sl) {
+            sl.sendParticles(ParticleTypes.CLOUD, target.getX(), target.getY() + 1.0, target.getZ(), 20, 0.35, 0.25, 0.35, 0.01);
+            sl.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, target.getX(), target.getY() + 0.8, target.getZ(), 12, 0.25, 0.2, 0.25, 0.01);
+        }
+    }
+
+    private static void interruptActiveCasting(LivingEntity target) {
+        if (target instanceof ServerPlayer serverPlayer) {
+            ModEvents.interruptActiveCasting(serverPlayer);
+        }
+    }
+}

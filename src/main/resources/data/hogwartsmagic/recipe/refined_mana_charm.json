@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "ACA",
+    "DMD",
+    "ANA"
+  ],
+  "key": {
+    "A": { "item": "hogwartsmagic:arcane_core" },
+    "C": { "item": "minecraft:amethyst_cluster" },
+    "D": { "item": "minecraft:diamond" },
+    "M": { "item": "hogwartsmagic:minor_mana_charm" },
+    "N": { "item": "minecraft:nether_star" }
+  },
+  "result": { "id": "hogwartsmagic:refined_mana_charm", "count": 1 }
+}

@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " B ",
+    "BBB",
+    " P "
+  ],
+  "key": {
+    "B": { "item": "minecraft:book" },
+    "P": { "item": "minecraft:paper" }
+  },
+  "result": { "id": "hogwartsmagic:enchanted_book_pile", "count": 1 }
+}

@@ -1,0 +1,33 @@
+{
+  "parent": "hogwartsmagic:hp/first_spellbook",
+  "display": {
+    "icon": {
+      "id": "hogwartsmagic:broom_workbench",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancement.hogwartsmagic.broomwright.title"
+    },
+    "description": {
+      "translate": "advancement.hogwartsmagic.broomwright.description"
+    },
+    "x": 4.0,
+    "y": 0.0,
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "has_broom_bench": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "hogwartsmagic:broom_workbench"
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "GGG",
+    "GPG",
+    "GGG"
+  ],
+  "key": {
+    "G": { "item": "minecraft:gold_nugget" },
+    "P": { "item": "minecraft:painting" }
+  },
+  "result": { "id": "hogwartsmagic:moving_portrait", "count": 1 }
+}

@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " W ",
+    "WBW",
+    " W "
+  ],
+  "key": {
+    "W": { "item": "minecraft:blue_wool" },
+    "B": { "item": "minecraft:amethyst_shard" }
+  },
+  "result": { "id": "hogwartsmagic:ravenclaw_banner_block", "count": 1 }
+}

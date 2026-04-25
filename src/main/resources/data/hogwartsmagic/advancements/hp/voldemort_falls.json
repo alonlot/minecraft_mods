@@ -1,0 +1,31 @@
+{
+  "parent": "hogwartsmagic:hp/dark_wizard_down",
+  "display": {
+    "icon": {
+      "id": "hogwartsmagic:harry_potter_wand",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancement.hogwartsmagic.voldemort_falls.title"
+    },
+    "description": {
+      "translate": "advancement.hogwartsmagic.voldemort_falls.description"
+    },
+    "x": 6.0,
+    "y": 8.0,
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "killed_voldemort": {
+      "trigger": "minecraft:player_killed_entity",
+      "conditions": {
+        "entity": {
+          "type": "hogwartsmagic:voldemort"
+        }
+      }
+    }
+  }
+}

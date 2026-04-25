@@ -1,0 +1,234 @@
+package com.hogwartsmagic.entity;
+
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.ai.control.FlyingMoveControl;
+import net.minecraft.world.entity.ai.goal.FloatGoal;
+import net.minecraft.world.entity.ai.goal.Goal;
+import net.minecraft.world.entity.ai.goal.MeleeAttackGoal;
+import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomFlyingGoal;
+import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
+import net.minecraft.world.entity.ai.navigation.FlyingPathNavigation;
+import net.minecraft.world.entity.ai.navigation.PathNavigation;
+import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.entity.PathfinderMob;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
+
+import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+
+public class PatronusEntity extends PathfinderMob {
+
+    private int lifespan = 600; // 30 seconds
+    private net.minecraft.core.BlockPos lastLightPos = null;
+    private final Map<net.minecraft.core.BlockPos, Integer> pulseLightBlocks = new HashMap<>();
+
+    public PatronusEntity(EntityType<? extends PathfinderMob> entityType, Level level) {
+        super(entityType, level);
+        this.moveControl = new FlyingMoveControl(this, 10, false);
+        this.getTags().add("patronus");
+    }
+
+    public static AttributeSupplier.Builder createAttributes() {
+        return PathfinderMob.createMobAttributes()
+                .add(Attributes.MAX_HEALTH, 100.0D)
+                .add(Attributes.FLYING_SPEED, 0.8D)
+                .add(Attributes.MOVEMENT_SPEED, 0.5D)
+                .add(Attributes.ATTACK_DAMAGE, 20.0D) // High damage to Dementors
+                .add(Attributes.FOLLOW_RANGE, 64.0D);
+    }
+
+    @Override
+    protected void registerGoals() {
+        this.goalSelector.addGoal(1, new FloatGoal(this));
+        // Hunt down Dementors!
+        this.goalSelector.addGoal(2, new MeleeAttackGoal(this, 1.25D, true));
+        this.goalSelector.addGoal(5, new WaterAvoidingRandomFlyingGoal(this, 1.0D));
+
+        this.targetSelector.addGoal(1, new NearestAttackableTargetGoal<>(this, DementorEntity.class, true));
+    }
+
+    @Override
+    protected PathNavigation createNavigation(Level level) {
+        FlyingPathNavigation nav = new FlyingPathNavigation(this, level) {
+            @Override
+            public boolean isStableDestination(net.minecraft.core.BlockPos pos) {
+                return true;
+            }
+        };
+        nav.setCanOpenDoors(false);
+        nav.setCanFloat(true);
+        nav.setCanPassDoors(true);
+        return nav;
+    }
+
+    @Override
+    public boolean causeFallDamage(float fallDistance, float multiplier, net.minecraft.world.damagesource.DamageSource source) {
+        return false;
+    }
+
+    @Override
+    protected void checkFallDamage(double y, boolean onGround, BlockState state, net.minecraft.core.BlockPos pos) {
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+        this.setNoGravity(true);
+
+        if (!this.level().isClientSide) {
+            this.lifespan--;
+            if (this.lifespan <= 0) {
+                this.cleanupLight();
+                this.cleanupPulseLights();
+                this.discard();
+            }
+            
+            this.updateLightBlock();
+            this.tickPulseLights();
+            
+            // Radiate light/damage to nearby dementors. The damage radius grows over time.
+            double auraRadius = Math.min(32.0D, 8.0D + (this.tickCount * 0.15D));
+            
+            // Continuous burn
+            if (this.tickCount % 10 == 0) {
+                List<DementorEntity> dementors = this.level().getEntitiesOfClass(DementorEntity.class, this.getBoundingBox().inflate(auraRadius));
+                for (DementorEntity d : dementors) {
+                    d.hurt(this.damageSources().magic(), 10.0F); // Burns dementors
+                }
+            }
+            
+            // Pulse ring extends farther every pulse.
+            if (this.tickCount % 40 == 0) {
+                int pulseRadius = (int) Math.ceil(Math.min(30.0D, 8.0D + (this.tickCount * 0.15D)));
+                createPulseRingAtRadius(pulseRadius);
+                pushDementorsNearRing(pulseRadius);
+                
+                // Auditory pulse cue.
+                if (this.level() instanceof net.minecraft.server.level.ServerLevel sl) {
+                    sl.playSound(null, this.blockPosition(), net.minecraft.sounds.SoundEvents.BEACON_ACTIVATE, net.minecraft.sounds.SoundSource.NEUTRAL, 2.0F, 1.5F);
+                }
+            }
+        }
+    }
+    
+    @Override
+    public boolean hurt(net.minecraft.world.damagesource.DamageSource source, float amount) {
+        return false;
+    }
+
+    @Override
+    public boolean isPushable() {
+        return false;
+    }
+
+    @Override
+    protected void doPush(net.minecraft.world.entity.Entity entity) {
+    }
+
+    @Override
+    public void remove(net.minecraft.world.entity.Entity.RemovalReason reason) {
+        if (!this.level().isClientSide) {
+            this.cleanupLight();
+            this.cleanupPulseLights();
+        }
+        super.remove(reason);
+    }
+
+    private void updateLightBlock() {
+        net.minecraft.core.BlockPos currentPos = this.blockPosition();
+        
+        // If we moved to a new block
+        if (lastLightPos == null || !lastLightPos.equals(currentPos)) {
+            // Remove old light
+            cleanupLight();
+            
+            // Try to place new light if the block is air
+            if (this.level().getBlockState(currentPos).isAir()) {
+                this.level().setBlock(currentPos, com.hogwartsmagic.ExampleMod.PATRONUS_LIGHT_BLOCK.get().defaultBlockState(), 3);
+                this.lastLightPos = currentPos;
+            }
+        }
+    }
+
+    private void cleanupLight() {
+        if (this.lastLightPos != null) {
+            if (this.level().getBlockState(this.lastLightPos).is(com.hogwartsmagic.ExampleMod.PATRONUS_LIGHT_BLOCK.get())) {
+                // Restore air
+                this.level().removeBlock(this.lastLightPos, false);
+            }
+            this.lastLightPos = null;
+        }
+    }
+
+    private void createPulseRingAtRadius(int radius) {
+        net.minecraft.core.BlockPos center = this.blockPosition();
+        for (int x = -radius; x <= radius; x++) {
+            for (int y = -1; y <= 1; y++) {
+                for (int z = -radius; z <= radius; z++) {
+                    double distance = Math.sqrt((x * x) + (z * z));
+                    if (distance > radius - 0.6D && distance < radius + 0.6D) {
+                        net.minecraft.core.BlockPos p = center.offset(x, y, z);
+                        if (this.level().getBlockState(p).isAir()) {
+                            this.level().setBlock(p, com.hogwartsmagic.ExampleMod.PATRONUS_LIGHT_BLOCK.get().defaultBlockState(), 3);
+                            pulseLightBlocks.put(p, 6); // brief flash on moving ring only
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private void pushDementorsNearRing(int radius) {
+        List<DementorEntity> dementors = this.level().getEntitiesOfClass(DementorEntity.class, this.getBoundingBox().inflate(radius + 2.0D));
+        for (DementorEntity d : dementors) {
+            double dx = d.getX() - this.getX();
+            double dz = d.getZ() - this.getZ();
+            double horizontalDist = Math.sqrt(dx * dx + dz * dz);
+            if (horizontalDist < radius - 1.0D || horizontalDist > radius + 1.0D) {
+                continue; // only affect the outer wavefront ring
+            }
+            if (horizontalDist > 0.1D) {
+                double force = Math.min(2.8D, 1.0D + (this.tickCount * 0.008D));
+                d.setDeltaMovement(d.getDeltaMovement().add((dx / horizontalDist) * force, 0.28D, (dz / horizontalDist) * force));
+                d.hurtMarked = true;
+            }
+        }
+    }
+
+    private void tickPulseLights() {
+        Iterator<Map.Entry<net.minecraft.core.BlockPos, Integer>> it = pulseLightBlocks.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry<net.minecraft.core.BlockPos, Integer> entry = it.next();
+            int ttl = entry.getValue() - 1;
+            if (ttl <= 0) {
+                net.minecraft.core.BlockPos pos = entry.getKey();
+                if (this.level().getBlockState(pos).is(com.hogwartsmagic.ExampleMod.PATRONUS_LIGHT_BLOCK.get())) {
+                    this.level().removeBlock(pos, false);
+                }
+                it.remove();
+            } else {
+                entry.setValue(ttl);
+            }
+        }
+    }
+
+    private void cleanupPulseLights() {
+        for (net.minecraft.core.BlockPos pos : pulseLightBlocks.keySet()) {
+            if (this.level().getBlockState(pos).is(com.hogwartsmagic.ExampleMod.PATRONUS_LIGHT_BLOCK.get())) {
+                this.level().removeBlock(pos, false);
+            }
+        }
+        pulseLightBlocks.clear();
+    }
+}

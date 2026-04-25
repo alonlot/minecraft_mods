@@ -1,0 +1,17 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "#minecraft:is_forest",
+      "required": false
+    },
+    {
+      "id": "#minecraft:is_taiga",
+      "required": false
+    },
+    "hogwartsmagic:forbidden_forest",
+    "minecraft:forest",
+    "minecraft:birch_forest",
+    "minecraft:taiga"
+  ]
+}

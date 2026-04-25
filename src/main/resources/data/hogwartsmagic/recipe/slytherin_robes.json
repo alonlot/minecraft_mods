@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "G G",
+    "GCG",
+    " G "
+  ],
+  "key": {
+    "G": {
+      "item": "minecraft:green_wool"
+    },
+    "C": {
+      "item": "minecraft:leather_chestplate"
+    }
+  },
+  "result": {
+    "id": "hogwartsmagic:slytherin_robes",
+    "count": 1
+  }
+}

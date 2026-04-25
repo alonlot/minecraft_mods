@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "hogwartsmagic:block/wand_workbench"
+    }
+  }
+}

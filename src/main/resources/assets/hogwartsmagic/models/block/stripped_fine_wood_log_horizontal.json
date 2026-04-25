@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column_horizontal",
+  "textures": {
+    "end": "hogwartsmagic:block/log_fine_top",
+    "side": "hogwartsmagic:block/planks_fine"
+  }
+}

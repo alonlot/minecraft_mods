@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/handheld",
+  "textures": {
+    "layer0": "hogwartsmagic:item/unicorn_core_wand"
+  }
+}

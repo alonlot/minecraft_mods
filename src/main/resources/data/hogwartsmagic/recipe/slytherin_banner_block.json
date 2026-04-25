@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " W ",
+    "WBW",
+    " W "
+  ],
+  "key": {
+    "W": { "item": "minecraft:green_wool" },
+    "B": { "item": "minecraft:slime_ball" }
+  },
+  "result": { "id": "hogwartsmagic:slytherin_banner_block", "count": 1 }
+}

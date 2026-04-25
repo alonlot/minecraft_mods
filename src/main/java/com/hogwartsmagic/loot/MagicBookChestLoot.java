@@ -1,0 +1,157 @@
+package com.hogwartsmagic.loot;
+
+import com.hogwartsmagic.spell.SpellType;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.RandomSource;
+
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+
+/**
+ * Maps vanilla chest loot tables to spell pools and weighted spell rolls for magic books.
+ */
+public final class MagicBookChestLoot {
+    private static final Map<ResourceLocation, SpellType[]> TABLE_POOLS = new HashMap<>();
+    private static final Set<ResourceLocation> GUARANTEED_MAGIC_BOOK_TABLES = new HashSet<>();
+
+    private static final SpellType[] VILLAGE = {
+            SpellType.LUMOS, SpellType.HEAL, SpellType.ACCIO, SpellType.ALOHOMORA,
+            SpellType.WINGARDIUM_LEVIOSA, SpellType.PROTEGO, SpellType.DEPULSO, SpellType.DIFFINDO,
+            SpellType.ALATUS, SpellType.ARRESTO_MOMENTUM, SpellType.REPARO
+    };
+    private static final SpellType[] WATER = {
+            SpellType.AQUA_ERUCTO, SpellType.GLACIUS, SpellType.REVELIO, SpellType.ASCENDIO
+    };
+    private static final SpellType[] ANCIENT_CITY = {
+            SpellType.AVADA_KEDAVRA, SpellType.CRUCIO, SpellType.IMPERIO, SpellType.MORSMORDRE,
+            SpellType.DOLOHOV_CURSE, SpellType.SECTUMSEMPRA, SpellType.TENEBRIS_FLIGHT, SpellType.SERPENSORTIA,
+            SpellType.OBLIVIATE, SpellType.LEVICORPUS, SpellType.INCARCEROUS, SpellType.FIENDFYRE,
+            SpellType.CAVE_INIMICUM, SpellType.PROTEGO_MAXIMA
+    };
+    private static final SpellType[] ANCIENT_CITY_ICE = {
+            SpellType.GLACIUS, SpellType.AVADA_KEDAVRA, SpellType.CRUCIO, SpellType.IMPERIO, SpellType.MORSMORDRE,
+            SpellType.DOLOHOV_CURSE, SpellType.SECTUMSEMPRA, SpellType.TENEBRIS_FLIGHT, SpellType.SERPENSORTIA,
+            SpellType.OBLIVIATE, SpellType.LEVICORPUS, SpellType.INCARCEROUS, SpellType.FIENDFYRE,
+            SpellType.CAVE_INIMICUM
+    };
+    private static final SpellType[] NETHER_FIRE = {
+            SpellType.INCENDIO, SpellType.CONFRINGO, SpellType.FIENDFYRE, SpellType.BOMBARDA,
+            SpellType.STUPEFY, SpellType.EXPELLIARMUS, SpellType.DEPULSO
+    };
+    private static final SpellType[] STRONGHOLD_LIBRARY = {
+            SpellType.ALOHOMORA, SpellType.REVELIO, SpellType.CONFUNDO, SpellType.WINGARDIUM_LEVIOSA,
+            SpellType.ACCIO, SpellType.DEPULSO, SpellType.DIFFINDO, SpellType.PETRIFICUS_TOTALUS, SpellType.REPARO,
+            SpellType.CAVE_INIMICUM, SpellType.PROTEGO_MAXIMA, SpellType.EXPECTO_PATRONUM
+    };
+    private static final SpellType[] DUNGEON_MIX = {
+            SpellType.STUPEFY, SpellType.REVELIO, SpellType.LUMOS, SpellType.GLACIUS,
+            SpellType.INCENDIO, SpellType.EXPELLIARMUS, SpellType.ALOHOMORA, SpellType.ARRESTO_MOMENTUM
+    };
+    /**
+     * Fallback for vanilla loot tables we do not explicitly map.
+     * Keep this to broadly useful early/mid-game spells so random vanilla chests
+     * do not leak dark arts or late-game progression skips.
+     */
+    private static final SpellType[] DEFAULT_POOL = {
+            SpellType.LUMOS,
+            SpellType.ACCIO,
+            SpellType.ALOHOMORA,
+            SpellType.DIFFINDO,
+            SpellType.HEAL,
+            SpellType.REVELIO,
+            SpellType.ARRESTO_MOMENTUM,
+            SpellType.WINGARDIUM_LEVIOSA,
+            SpellType.PROTEGO,
+            SpellType.EXPELLIARMUS,
+            SpellType.STUPEFY,
+            SpellType.DEPULSO,
+            SpellType.GLACIUS,
+            SpellType.INCENDIO,
+            SpellType.AQUA_ERUCTO,
+            SpellType.REPARO
+    };
+
+    static {
+        put("minecraft:chests/village/village_plains_house", VILLAGE);
+        put("minecraft:chests/village/village_desert_house", VILLAGE);
+        put("minecraft:chests/village/village_savanna_house", VILLAGE);
+        put("minecraft:chests/village/village_snowy_house", VILLAGE);
+        put("minecraft:chests/village/village_taiga_house", VILLAGE);
+
+        put("minecraft:chests/shipwreck_supply", WATER);
+        put("minecraft:chests/shipwreck_treasure", WATER);
+        put("minecraft:chests/shipwreck_map", WATER);
+        put("minecraft:chests/underwater_ruin_big", WATER);
+        put("minecraft:chests/underwater_ruin_small", WATER);
+        put("minecraft:chests/buried_treasure", WATER);
+
+        put("minecraft:chests/ancient_city", ANCIENT_CITY);
+        put("minecraft:chests/ancient_city_ice_box", ANCIENT_CITY_ICE);
+
+        put("minecraft:chests/bastion_bridge", NETHER_FIRE);
+        put("minecraft:chests/bastion_hoglin_stable", NETHER_FIRE);
+        put("minecraft:chests/bastion_other", NETHER_FIRE);
+        put("minecraft:chests/bastion_treasure", NETHER_FIRE);
+        put("minecraft:chests/ruined_portal", NETHER_FIRE);
+        put("minecraft:chests/nether_bridge", NETHER_FIRE);
+
+        put("minecraft:chests/stronghold_library", STRONGHOLD_LIBRARY);
+
+        put("minecraft:chests/simple_dungeon", DUNGEON_MIX);
+        put("minecraft:chests/abandoned_mineshaft", DUNGEON_MIX);
+        put("minecraft:chests/desert_pyramid", DUNGEON_MIX);
+        put("minecraft:chests/jungle_temple", DUNGEON_MIX);
+
+    }
+
+    private static void put(String id, SpellType[] pool) {
+        TABLE_POOLS.put(ResourceLocation.parse(id), pool);
+    }
+
+    private static void putGuaranteed(String id, SpellType[] pool) {
+        ResourceLocation location = ResourceLocation.parse(id);
+        TABLE_POOLS.put(location, pool);
+        GUARANTEED_MAGIC_BOOK_TABLES.add(location);
+    }
+
+    private MagicBookChestLoot() {
+    }
+
+    /**
+     * Spell pool for this loot table, or a safe vanilla fallback for other {@code minecraft:chests/...} tables.
+     */
+    public static SpellType[] spellPoolFor(ResourceLocation lootTableId) {
+        SpellType[] exact = TABLE_POOLS.get(lootTableId);
+        if (exact != null) {
+            return exact;
+        }
+        return DEFAULT_POOL;
+    }
+
+    public static boolean isGuaranteedSpellBookChest(ResourceLocation lootTableId) {
+        return GUARANTEED_MAGIC_BOOK_TABLES.contains(lootTableId);
+    }
+
+    public static SpellType pickWeightedSpell(SpellType[] pool, RandomSource random) {
+        if (pool == null || pool.length == 0) {
+            return SpellType.LUMOS;
+        }
+        int total = 0;
+        for (SpellType s : pool) {
+            total += s.getLootRarity().getLootWeight();
+        }
+        if (total <= 0) {
+            return pool[random.nextInt(pool.length)];
+        }
+        int roll = random.nextInt(total);
+        for (SpellType s : pool) {
+            roll -= s.getLootRarity().getLootWeight();
+            if (roll < 0) {
+                return s;
+            }
+        }
+        return pool[pool.length - 1];
+    }
+}

@@ -1,0 +1,33 @@
+{
+  "parent": "hogwartsmagic:hp/fine_wood_found",
+  "display": {
+    "icon": {
+      "id": "hogwartsmagic:fine_wood_stick",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancement.hogwartsmagic.wand_blank.title"
+    },
+    "description": {
+      "translate": "advancement.hogwartsmagic.wand_blank.description"
+    },
+    "x": 6.0,
+    "y": 2.0,
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "has_wand_blank": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "hogwartsmagic:fine_wood_stick"
+          }
+        ]
+      }
+    }
+  }
+}

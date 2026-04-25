@@ -1,0 +1,12 @@
+{
+  "type": "forge:add_spawns",
+  "biomes": "#hogwartsmagic:has_owl",
+  "spawners": [
+    {
+      "type": "hogwartsmagic:owl",
+      "weight": 30,
+      "minCount": 1,
+      "maxCount": 3
+    }
+  ]
+}

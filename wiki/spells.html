@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Spells - Harry Potter Mod Wiki</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="theme-spells">
+  <div class="shell">
+    <header class="hero">
+      <div class="hero-inner">
+        <div class="hero-copy">
+          <div class="crest">Spell Archive</div>
+          <div class="hero-kicker">Official Encyclopedia Style</div>
+          <h1>Every spell, curse, charm, and conjuration.</h1>
+          <p>The full implemented spell roster, presented more like a wizarding encyclopedia than a raw mod checklist. Filter by school, track rarity color, and jump into dedicated spell entries.</p>
+        </div>
+      </div>
+    </header>
+    <main class="main">
+      <div class="layout">
+        <aside class="sidebar">
+          <h2>Spellbook</h2>
+          <ul class="nav-list">
+            <li><a class="nav-link" data-nav href="index.html">Overview</a></li>
+            <li><a class="nav-link" data-nav href="systems.html">Systems</a></li>
+            <li><a class="nav-link" data-nav href="spells.html">Spells</a></li>
+            <li><a class="nav-link" data-nav href="mobs.html">Mobs</a></li>
+            <li><a class="nav-link" data-nav href="blocks.html">Blocks</a></li>
+            <li><a class="nav-link" data-nav href="items.html">Items and Potions</a></li>
+            <li><a class="nav-link" data-nav href="recipes.html">Recipes</a></li>
+          </ul>
+          <div class="search-box">
+            <input class="search-input" data-search-input type="search" placeholder="Search spells, effects, schools">
+          </div>
+          <div id="spell-school-filters"></div>
+          <div id="spell-rarity-filters"></div>
+          <div class="sidebar-note">
+            Some spells are taught for light, some for craft, some for defense, and some should perhaps never have been written down at all.
+          </div>
+        </aside>
+
+        <div class="content">
+          <section class="page-head">
+            <span class="eyebrow">Spellbook</span>
+            <h2>Implemented spell roster</h2>
+            <p>Here are gathered the charms, hexes, wards, summoning arts, and forbidden curses known to this world. Browse by school, follow rarity, or open an entry and study it as though from a proper spell archive.</p>
+            <div class="badge-row">
+              <span class="badge">Common utility</span>
+              <span class="badge">Uncommon control</span>
+              <span class="badge">Rare ward and curse magic</span>
+              <span class="badge">Epic dark arts</span>
+            </div>
+          </section>
+
+          <section class="content-section">
+            <div class="showcase-grid">
+              <article class="showcase-card">
+                <img src="assets/patronus-hero.jpg" alt="Official Patronus-themed Harry Potter artwork">
+                <div class="showcase-card-body">
+                  <span class="eyebrow">Defensive Magic</span>
+                  <h3>Protection and light</h3>
+                  <p>Protego, Expecto Patronum, Revelio, and kindred magic belong to the brighter side of the spellbook, where protection, sight, and hope still prevail.</p>
+                </div>
+              </article>
+              <article class="showcase-card">
+                <img src="assets/acromantula.jpg" alt="Official Harry Potter creature artwork representing danger">
+                <div class="showcase-card-body">
+                  <span class="eyebrow">Dark Arts</span>
+                  <h3>High-risk spellwork</h3>
+                  <p>Avada Kedavra, Crucio, Fiendfyre, and Morsmordre sit among the most perilous incantations in the archive, feared for good reason.</p>
+                </div>
+              </article>
+            </div>
+          </section>
+
+          <section class="topic-page">
+            <div class="topic-list" id="spell-list"></div>
+            <div class="empty-state" id="spell-empty" hidden>No spells match the current search and category filters.</div>
+          </section>
+        </div>
+      </div>
+    </main>
+    <footer class="footer">Spellbook archive: a catalogue of charms, curses, and secret arts.</footer>
+  </div>
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

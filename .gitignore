@@ -1,0 +1,58 @@
+# eclipse
+bin/
+*.launch
+.settings/
+.metadata
+.classpath
+.project
+
+# idea
+out/
+*.ipr
+*.iws
+*.iml
+.idea/
+.vscode/
+
+# gradle
+build/
+.gradle/
+
+# other
+eclipse/
+run/
+run-data/
+
+# Files from Forge MDK
+forge*changelog.txt
+
+# Generated repositories and publish outputs
+mcmodsrepo/
+
+# Logs and local diagnostics
+*.log
+*_log.txt
+*error*.txt
+build_out*.txt
+build_output*.txt
+compile_errors.txt
+class_dump.txt
+cp.txt
+events.txt
+gui_*.txt
+layer_details.txt
+melee_attack_goal.txt
+overlay_classes.txt
+reg_gui*.txt
+register_gui_overlay.txt
+
+# Python/editor caches
+__pycache__/
+*.py[cod]
+*.tmp
+
+# Scratch/extracted workspaces
+tmp/
+tmp_*/
+tmpclaude-*-cwd
+hogwarts_magic_mod/

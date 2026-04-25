@@ -1,0 +1,8 @@
+{
+  "parent": "block/cube_bottom_top",
+  "textures": {
+    "top": "hogwartsmagic:block/horcrux_top",
+    "bottom": "hogwartsmagic:block/horcrux_bottom",
+    "side": "hogwartsmagic:block/horcrux_side"
+  }
+}

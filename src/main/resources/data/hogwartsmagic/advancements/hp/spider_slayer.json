@@ -1,0 +1,31 @@
+{
+  "parent": "hogwartsmagic:hp/dark_wizard_down",
+  "display": {
+    "icon": {
+      "id": "hogwartsmagic:acromantula_spawn_egg",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancement.hogwartsmagic.spider_slayer.title"
+    },
+    "description": {
+      "translate": "advancement.hogwartsmagic.spider_slayer.description"
+    },
+    "x": 6.0,
+    "y": 6.0,
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "killed_acromantula": {
+      "trigger": "minecraft:player_killed_entity",
+      "conditions": {
+        "entity": {
+          "type": "hogwartsmagic:acromantula"
+        }
+      }
+    }
+  }
+}

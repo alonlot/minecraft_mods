@@ -1,0 +1,33 @@
+{
+  "parent": "hogwartsmagic:hp/wandmakers_tools",
+  "display": {
+    "icon": {
+      "id": "hogwartsmagic:fine_wood_log",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancement.hogwartsmagic.fine_wood_found.title"
+    },
+    "description": {
+      "translate": "advancement.hogwartsmagic.fine_wood_found.description"
+    },
+    "x": 4.0,
+    "y": 2.0,
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "has_fine_wood": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "hogwartsmagic:fine_wood_log"
+          }
+        ]
+      }
+    }
+  }
+}

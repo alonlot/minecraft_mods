@@ -1,0 +1,224 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "hogwartsmagic:item/magic_book"
+  },
+  "overrides": [
+    {
+      "predicate": {
+        "custom_model_data": 1.0
+      },
+      "model": "hogwartsmagic:item/magic_book_expelliarmus"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 2.0
+      },
+      "model": "hogwartsmagic:item/magic_book_glacius"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 3.0
+      },
+      "model": "hogwartsmagic:item/magic_book_confringo"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 4.0
+      },
+      "model": "hogwartsmagic:item/magic_book_protego"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 5.0
+      },
+      "model": "hogwartsmagic:item/magic_book_lumos"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 6.0
+      },
+      "model": "hogwartsmagic:item/magic_book_accio"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 7.0
+      },
+      "model": "hogwartsmagic:item/magic_book_wingardium_leviosa"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 8.0
+      },
+      "model": "hogwartsmagic:item/magic_book_alohomora"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 9.0
+      },
+      "model": "hogwartsmagic:item/magic_book_incendio"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 10.0
+      },
+      "model": "hogwartsmagic:item/magic_book_stupefy"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 11.0
+      },
+      "model": "hogwartsmagic:item/magic_book_revelio"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 12.0
+      },
+      "model": "hogwartsmagic:item/magic_book_avada_kedavra"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 13.0
+      },
+      "model": "hogwartsmagic:item/magic_book_crucio"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 14.0
+      },
+      "model": "hogwartsmagic:item/magic_book_imperio"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 15.0
+      },
+      "model": "hogwartsmagic:item/magic_book_fiendfyre"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 16.0
+      },
+      "model": "hogwartsmagic:item/magic_book_sectumsempra"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 17.0
+      },
+      "model": "hogwartsmagic:item/magic_book_morsmordre"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 18.0
+      },
+      "model": "hogwartsmagic:item/magic_book_dolohov_curse"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 19.0
+      },
+      "model": "hogwartsmagic:item/magic_book_incarcerous"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 20.0
+      },
+      "model": "hogwartsmagic:item/magic_book_heal"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 21.0
+      },
+      "model": "hogwartsmagic:item/magic_book_tenebris_flight"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 22.0
+      },
+      "model": "hogwartsmagic:item/magic_book_expecto_patronum"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 23.0
+      },
+      "model": "hogwartsmagic:item/magic_book_petrificus_totalus"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 24.0
+      },
+      "model": "hogwartsmagic:item/magic_book_protego_maxima"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 25.0
+      },
+      "model": "hogwartsmagic:item/magic_book_bombarda"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 26.0
+      },
+      "model": "hogwartsmagic:item/magic_book_depulso"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 27.0
+      },
+      "model": "hogwartsmagic:item/magic_book_diffindo"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 28.0
+      },
+      "model": "hogwartsmagic:item/magic_book_aqua_eructo"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 29.0
+      },
+      "model": "hogwartsmagic:item/magic_book_obliviate"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 30.0
+      },
+      "model": "hogwartsmagic:item/magic_book_ascendio"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 31.0
+      },
+      "model": "hogwartsmagic:item/magic_book_confundo"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 32.0
+      },
+      "model": "hogwartsmagic:item/magic_book_cave_inimicum"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 33.0
+      },
+      "model": "hogwartsmagic:item/magic_book_alatus"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 34.0
+      },
+      "model": "hogwartsmagic:item/magic_book_serpensortia"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 35.0
+      },
+      "model": "hogwartsmagic:item/magic_book_arresto_momentum"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 36.0
+      },
+      "model": "hogwartsmagic:item/magic_book_reparo"
+    }
+  ]
+}

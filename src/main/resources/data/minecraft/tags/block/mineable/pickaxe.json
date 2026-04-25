@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    "hogwartsmagic:wizard_cauldron",
+    "hogwartsmagic:ward",
+    "hogwartsmagic:horcrux",
+    "hogwartsmagic:arcane_cluster"
+  ]
+}

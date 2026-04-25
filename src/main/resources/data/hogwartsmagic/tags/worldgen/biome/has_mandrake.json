@@ -1,0 +1,16 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "#c:is_swamp",
+      "required": false
+    },
+    "minecraft:swamp",
+    "minecraft:mangrove_swamp",
+    "minecraft:dark_forest",
+    {
+      "id": "hogwartsmagic:forbidden_forest",
+      "required": false
+    }
+  ]
+}

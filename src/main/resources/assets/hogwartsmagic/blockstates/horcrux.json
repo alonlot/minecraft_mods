@@ -1,0 +1,6 @@
+{
+  "variants": {
+    "lit=false": { "model": "hogwartsmagic:block/horcrux" },
+    "lit=true": { "model": "hogwartsmagic:block/horcrux" }
+  }
+}

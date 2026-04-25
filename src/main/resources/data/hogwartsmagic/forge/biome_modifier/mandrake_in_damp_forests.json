@@ -1,0 +1,6 @@
+{
+  "type": "forge:add_features",
+  "biomes": "#hogwartsmagic:has_mandrake",
+  "features": "hogwartsmagic:placed_mandrake_patch",
+  "step": "vegetal_decoration"
+}

@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "axis=y": {
+      "model": "hogwartsmagic:block/fine_wood_log"
+    },
+    "axis=z": {
+      "model": "hogwartsmagic:block/fine_wood_log_horizontal",
+      "x": 90
+    },
+    "axis=x": {
+      "model": "hogwartsmagic:block/fine_wood_log_horizontal",
+      "x": 90,
+      "y": 90
+    }
+  }
+}

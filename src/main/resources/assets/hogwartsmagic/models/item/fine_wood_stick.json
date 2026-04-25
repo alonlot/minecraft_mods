@@ -1,0 +1,6 @@
+{
+  "parent": "item/generated",
+  "textures": {
+    "layer0": "hogwartsmagic:item/fine_wood_stick"
+  }
+}

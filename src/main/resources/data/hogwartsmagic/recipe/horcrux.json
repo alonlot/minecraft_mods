@@ -1,0 +1,32 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "OTO",
+    "ACA",
+    "EWE"
+  ],
+  "key": {
+    "O": {
+      "item": "minecraft:obsidian"
+    },
+    "T": {
+      "item": "minecraft:ghast_tear"
+    },
+    "A": {
+      "item": "hogwartsmagic:arcane_core"
+    },
+    "C": {
+      "item": "hogwartsmagic:acromantula_venom"
+    },
+    "E": {
+      "item": "minecraft:ender_pearl"
+    },
+    "W": {
+      "item": "hogwartsmagic:ward"
+    }
+  },
+  "result": {
+    "id": "hogwartsmagic:horcrux",
+    "count": 1
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " W ",
+    "WBW",
+    " W "
+  ],
+  "key": {
+    "W": { "item": "minecraft:red_wool" },
+    "B": { "item": "minecraft:gold_nugget" }
+  },
+  "result": { "id": "hogwartsmagic:gryffindor_banner_block", "count": 1 }
+}

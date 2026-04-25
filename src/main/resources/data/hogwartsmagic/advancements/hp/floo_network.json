@@ -1,0 +1,51 @@
+{
+  "parent": "hogwartsmagic:hp/owl_post",
+  "display": {
+    "icon": {
+      "id": "hogwartsmagic:floo_fireplace",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancement.hogwartsmagic.floo_network.title"
+    },
+    "description": {
+      "translate": "advancement.hogwartsmagic.floo_network.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "has_floo_fireplace": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": [
+              "hogwartsmagic:floo_fireplace"
+            ]
+          }
+        ]
+      }
+    },
+    "has_floo_powder": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": [
+              "hogwartsmagic:floo_powder"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "has_floo_fireplace",
+      "has_floo_powder"
+    ]
+  ]
+}

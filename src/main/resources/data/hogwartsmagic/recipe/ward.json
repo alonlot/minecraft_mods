@@ -1,0 +1,26 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "ADA",
+    "DTD",
+    "AWA"
+  ],
+  "key": {
+    "A": {
+      "item": "minecraft:amethyst_shard"
+    },
+    "D": {
+      "item": "hogwartsmagic:arcane_dust"
+    },
+    "T": {
+      "item": "hogwartsmagic:centaur_talisman"
+    },
+    "W": {
+      "item": "hogwartsmagic:fine_wood_planks"
+    }
+  },
+  "result": {
+    "id": "hogwartsmagic:ward",
+    "count": 1
+  }
+}

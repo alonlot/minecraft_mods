@@ -1,0 +1,9 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    { "item": "minecraft:gunpowder" },
+    { "item": "minecraft:soul_sand" },
+    { "item": "hogwartsmagic:arcane_dust" }
+  ],
+  "result": { "id": "hogwartsmagic:floo_powder", "count": 3 }
+}

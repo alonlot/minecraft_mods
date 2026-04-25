@@ -1,0 +1,42 @@
+{
+  "parent": "block/block",
+  "textures": {
+    "particle": "hogwartsmagic:block/wizard_cauldron",
+    "texture": "hogwartsmagic:block/wizard_cauldron"
+  },
+  "elements": [
+    {
+      "from": [2, 0, 2],
+      "to": [14, 2, 14],
+      "faces": {
+        "up": { "uv": [2, 2, 14, 14], "texture": "#texture" },
+        "down": { "uv": [2, 2, 14, 14], "texture": "#texture" },
+        "north": { "uv": [2, 0, 14, 2], "texture": "#texture" },
+        "south": { "uv": [2, 0, 14, 2], "texture": "#texture" },
+        "west": { "uv": [2, 0, 14, 2], "texture": "#texture" },
+        "east": { "uv": [2, 0, 14, 2], "texture": "#texture" }
+      }
+    },
+    {
+      "from": [2, 2, 2],
+      "to": [14, 10, 14],
+      "faces": {
+        "north": { "uv": [2, 2, 14, 10], "texture": "#texture" },
+        "south": { "uv": [2, 2, 14, 10], "texture": "#texture" },
+        "west": { "uv": [2, 2, 14, 10], "texture": "#texture" },
+        "east": { "uv": [2, 2, 14, 10], "texture": "#texture" }
+      }
+    },
+    {
+      "from": [4, 10, 4],
+      "to": [12, 12, 12],
+      "faces": {
+        "up": { "uv": [4, 4, 12, 12], "texture": "#texture" },
+        "north": { "uv": [4, 0, 12, 2], "texture": "#texture" },
+        "south": { "uv": [4, 0, 12, 2], "texture": "#texture" },
+        "west": { "uv": [4, 0, 12, 2], "texture": "#texture" },
+        "east": { "uv": [4, 0, 12, 2], "texture": "#texture" }
+      }
+    }
+  ]
+}

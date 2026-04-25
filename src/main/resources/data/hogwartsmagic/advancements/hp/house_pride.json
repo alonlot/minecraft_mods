@@ -1,0 +1,77 @@
+{
+  "parent": "hogwartsmagic:hp/sorted_at_hogwarts",
+  "display": {
+    "icon": {
+      "id": "hogwartsmagic:gryffindor_robes",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancement.hogwartsmagic.house_pride.title"
+    },
+    "description": {
+      "translate": "advancement.hogwartsmagic.house_pride.description"
+    },
+    "x": 4.0,
+    "y": -2.0,
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "has_gryffindor_robes": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "hogwartsmagic:gryffindor_robes"
+          }
+        ]
+      }
+    },
+    "has_ravenclaw_robes": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "hogwartsmagic:ravenclaw_robes"
+          }
+        ]
+      }
+    },
+    "has_hufflepuff_robes": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "hogwartsmagic:hufflepuff_robes"
+          }
+        ]
+      }
+    },
+    "has_slytherin_robes": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "hogwartsmagic:slytherin_robes"
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "has_gryffindor_robes"
+    ],
+    [
+      "has_ravenclaw_robes"
+    ],
+    [
+      "has_hufflepuff_robes"
+    ],
+    [
+      "has_slytherin_robes"
+    ]
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "AEA",
+    "ESE",
+    "AEA"
+  ],
+  "key": {
+    "A": { "item": "hogwartsmagic:arcane_dust" },
+    "E": { "item": "minecraft:emerald" },
+    "S": { "item": "hogwartsmagic:fine_wood_stick" }
+  },
+  "result": { "id": "hogwartsmagic:floo_binding_token", "count": 1 }
+}

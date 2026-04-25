@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/leaves",
+  "textures": {
+    "all": "hogwartsmagic:block/fine_wood_leaves"
+  }
+}

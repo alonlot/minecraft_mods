@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "entries": [
+    "hogwartsmagic:magic_books_in_chests",
+    "hogwartsmagic:sorting_hat_in_chests",
+    "hogwartsmagic:invisibility_cloak_in_chests",
+    "hogwartsmagic:magical_silk_in_chests"
+  ]
+}

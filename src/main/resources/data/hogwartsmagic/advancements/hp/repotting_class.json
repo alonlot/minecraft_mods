@@ -1,0 +1,33 @@
+{
+  "parent": "hogwartsmagic:hp/cauldron_class",
+  "display": {
+    "icon": {
+      "id": "hogwartsmagic:mandrake_root",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancement.hogwartsmagic.repotting_class.title"
+    },
+    "description": {
+      "translate": "advancement.hogwartsmagic.repotting_class.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "has_mandrake_root": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": [
+              "hogwartsmagic:mandrake_root"
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

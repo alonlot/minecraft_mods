@@ -1,0 +1,33 @@
+{
+  "parent": "hogwartsmagic:hp/broomwright",
+  "display": {
+    "icon": {
+      "id": "hogwartsmagic:broom",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancement.hogwartsmagic.first_flight.title"
+    },
+    "description": {
+      "translate": "advancement.hogwartsmagic.first_flight.description"
+    },
+    "x": 6.0,
+    "y": 0.0,
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "has_broom": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "hogwartsmagic:broom"
+          }
+        ]
+      }
+    }
+  }
+}

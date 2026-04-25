@@ -1,0 +1,11 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "down": "hogwartsmagic:block/broom_workbench_bottom",
+    "up": "hogwartsmagic:block/broom_workbench_top",
+    "north": "hogwartsmagic:block/broom_workbench_front",
+    "south": "hogwartsmagic:block/broom_workbench_back",
+    "west": "hogwartsmagic:block/broom_workbench_left",
+    "east": "hogwartsmagic:block/broom_workbench_right"
+  }
+}

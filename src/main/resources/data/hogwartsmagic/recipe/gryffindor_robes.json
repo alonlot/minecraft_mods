@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "R R",
+    "RCR",
+    " R "
+  ],
+  "key": {
+    "R": {
+      "item": "minecraft:red_wool"
+    },
+    "C": {
+      "item": "minecraft:leather_chestplate"
+    }
+  },
+  "result": {
+    "id": "hogwartsmagic:gryffindor_robes",
+    "count": 1
+  }
+}

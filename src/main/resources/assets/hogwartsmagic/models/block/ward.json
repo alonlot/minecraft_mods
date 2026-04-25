@@ -1,0 +1,8 @@
+{
+  "parent": "block/cube_bottom_top",
+  "textures": {
+    "top": "hogwartsmagic:block/ward_top",
+    "bottom": "hogwartsmagic:block/ward_bottom",
+    "side": "hogwartsmagic:block/ward_side"
+  }
+}

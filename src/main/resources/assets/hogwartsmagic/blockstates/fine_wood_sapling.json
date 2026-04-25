@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "stage=0": {
+      "model": "hogwartsmagic:block/fine_wood_sapling"
+    },
+    "stage=1": {
+      "model": "hogwartsmagic:block/fine_wood_sapling"
+    }
+  }
+}

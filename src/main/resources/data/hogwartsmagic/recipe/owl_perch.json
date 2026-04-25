@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " F ",
+    " S ",
+    " P "
+  ],
+  "key": {
+    "F": { "item": "minecraft:feather" },
+    "S": { "item": "minecraft:stick" },
+    "P": { "item": "minecraft:oak_planks" }
+  },
+  "result": { "id": "hogwartsmagic:owl_perch", "count": 1 }
+}

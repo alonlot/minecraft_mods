@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "pulling=false": {
+      "model": "hogwartsmagic:block/mandrake_plant"
+    },
+    "pulling=true": {
+      "model": "hogwartsmagic:block/mandrake_plant_pulling"
+    }
+  }
+}

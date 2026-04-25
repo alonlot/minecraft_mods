@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " S ",
+    " B ",
+    " N "
+  ],
+  "key": {
+    "S": {
+      "item": "minecraft:shears"
+    },
+    "B": {
+      "item": "minecraft:glass_bottle"
+    },
+    "N": {
+      "item": "minecraft:iron_nugget"
+    }
+  },
+  "result": {
+    "id": "hogwartsmagic:sample_collector",
+    "count": 1
+  }
+}

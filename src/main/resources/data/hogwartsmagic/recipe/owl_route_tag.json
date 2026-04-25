@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " F ",
+    "PNP",
+    " S "
+  ],
+  "key": {
+    "F": { "item": "minecraft:feather" },
+    "P": { "item": "minecraft:paper" },
+    "N": { "item": "minecraft:name_tag" },
+    "S": { "item": "minecraft:string" }
+  },
+  "result": { "id": "hogwartsmagic:owl_route_tag", "count": 1 }
+}

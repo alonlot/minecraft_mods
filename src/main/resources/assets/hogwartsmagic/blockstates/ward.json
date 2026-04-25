@@ -1,0 +1,6 @@
+{
+  "variants": {
+    "lit=false": { "model": "hogwartsmagic:block/ward_off" },
+    "lit=true": { "model": "hogwartsmagic:block/ward_on" }
+  }
+}

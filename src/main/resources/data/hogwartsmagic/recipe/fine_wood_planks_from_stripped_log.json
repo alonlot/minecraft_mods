@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {
+      "item": "hogwartsmagic:stripped_fine_wood_log"
+    }
+  ],
+  "result": {
+    "id": "hogwartsmagic:fine_wood_planks",
+    "count": 4
+  }
+}

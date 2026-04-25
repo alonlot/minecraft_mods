@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " W ",
+    "WBW",
+    " W "
+  ],
+  "key": {
+    "W": { "item": "minecraft:yellow_wool" },
+    "B": { "item": "minecraft:honeycomb" }
+  },
+  "result": { "id": "hogwartsmagic:hufflepuff_banner_block", "count": 1 }
+}

@@ -1,0 +1,31 @@
+{
+  "parent": "hogwartsmagic:hp/spider_slayer",
+  "display": {
+    "icon": {
+      "id": "hogwartsmagic:minator_spawn_egg",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancement.hogwartsmagic.minator_down.title"
+    },
+    "description": {
+      "translate": "advancement.hogwartsmagic.minator_down.description"
+    },
+    "x": 8.0,
+    "y": 5.0,
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "killed_minator": {
+      "trigger": "minecraft:player_killed_entity",
+      "conditions": {
+        "entity": {
+          "type": "hogwartsmagic:minator"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "parent": "hogwartsmagic:hp/chosen_wand",
+  "display": {
+    "icon": {
+      "id": "hogwartsmagic:cave_inimicum_totem",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancement.hogwartsmagic.hidden_haven.title"
+    },
+    "description": {
+      "translate": "advancement.hogwartsmagic.hidden_haven.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "has_ward": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": [
+              "hogwartsmagic:ward"
+            ]
+          }
+        ]
+      }
+    },
+    "has_cave_inimicum_totem": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": [
+              "hogwartsmagic:cave_inimicum_totem"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "has_ward",
+      "has_cave_inimicum_totem"
+    ]
+  ]
+}

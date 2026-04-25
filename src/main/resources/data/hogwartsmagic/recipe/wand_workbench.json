@@ -1,0 +1,26 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "III",
+    "ACA",
+    "PPP"
+  ],
+  "key": {
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "A": {
+      "item": "hogwartsmagic:arcane_dust"
+    },
+    "C": {
+      "item": "minecraft:crafting_table"
+    },
+    "P": {
+      "item": "minecraft:stripped_oak_log"
+    }
+  },
+  "result": {
+    "id": "hogwartsmagic:wand_workbench",
+    "count": 1
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    { "item": "minecraft:nether_star" },
+    { "item": "hogwartsmagic:arcane_core" },
+    { "item": "hogwartsmagic:arcane_dust" },
+    { "item": "hogwartsmagic:arcane_dust" },
+    { "item": "hogwartsmagic:arcane_dust" },
+    { "item": "hogwartsmagic:arcane_dust" },
+    { "item": "minecraft:echo_shard" },
+    { "item": "minecraft:gold_ingot" }
+  ],
+  "result": {
+    "id": "hogwartsmagic:unicorn_hair_core",
+    "count": 1
+  }
+}

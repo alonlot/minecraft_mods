@@ -1,0 +1,16 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "#minecraft:is_jungle",
+      "required": false
+    },
+    {
+      "id": "#minecraft:is_forest",
+      "required": false
+    },
+    "hogwartsmagic:forbidden_forest",
+    "minecraft:jungle",
+    "minecraft:bamboo_jungle"
+  ]
+}

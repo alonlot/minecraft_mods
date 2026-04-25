@@ -1,0 +1,33 @@
+{
+  "parent": "hogwartsmagic:hp/arcane_spark",
+  "display": {
+    "icon": {
+      "id": "hogwartsmagic:arcane_core",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancement.hogwartsmagic.arcane_heart.title"
+    },
+    "description": {
+      "translate": "advancement.hogwartsmagic.arcane_heart.description"
+    },
+    "x": 6.0,
+    "y": 4.0,
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "has_arcane_core": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "hogwartsmagic:arcane_core"
+          }
+        ]
+      }
+    }
+  }
+}

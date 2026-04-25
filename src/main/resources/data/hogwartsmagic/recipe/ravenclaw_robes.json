@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "B B",
+    "BCB",
+    " B "
+  ],
+  "key": {
+    "B": {
+      "item": "minecraft:blue_wool"
+    },
+    "C": {
+      "item": "minecraft:leather_chestplate"
+    }
+  },
+  "result": {
+    "id": "hogwartsmagic:ravenclaw_robes",
+    "count": 1
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " C ",
+    "CCC",
+    " B "
+  ],
+  "key": {
+    "C": { "item": "minecraft:candle" },
+    "B": { "item": "minecraft:honeycomb" }
+  },
+  "result": { "id": "hogwartsmagic:candle_cluster", "count": 1 }
+}

@@ -1,0 +1,33 @@
+{
+  "parent": "hogwartsmagic:hp/fine_wood_found",
+  "display": {
+    "icon": {
+      "id": "hogwartsmagic:arcane_dust",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancement.hogwartsmagic.arcane_spark.title"
+    },
+    "description": {
+      "translate": "advancement.hogwartsmagic.arcane_spark.description"
+    },
+    "x": 4.0,
+    "y": 4.0,
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "has_arcane_dust": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "hogwartsmagic:arcane_dust"
+          }
+        ]
+      }
+    }
+  }
+}

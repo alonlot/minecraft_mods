@@ -134,6 +134,13 @@ public class ModEntities {
                             .clientTrackingRange(12)
                             .build("basilisk"));
 
+    public static final RegistryObject<EntityType<TrollEntity>> TROLL =
+            ENTITY_TYPES.register("troll",
+                    () -> EntityType.Builder.<TrollEntity>of(TrollEntity::new, MobCategory.MONSTER)
+                            .sized(1.75F, 3.25F)
+                            .clientTrackingRange(12)
+                            .build("troll"));
+
     public static final RegistryObject<EntityType<PetrifiedRemainsEntity>> PETRIFIED_REMAINS =
             ENTITY_TYPES.register("petrified_remains",
                     () -> EntityType.Builder.<PetrifiedRemainsEntity>of(PetrifiedRemainsEntity::new, MobCategory.MISC)

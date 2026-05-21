@@ -8,6 +8,7 @@ import com.hogwartsmagic.entity.MinatorEntity;
 import com.hogwartsmagic.entity.ModEntities;
 import com.hogwartsmagic.entity.OwlEntity;
 import com.hogwartsmagic.entity.HippogriffEntity;
+import com.hogwartsmagic.entity.TrollEntity;
 import net.minecraft.world.entity.SpawnPlacementTypes;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraftforge.event.entity.SpawnPlacementRegisterEvent;
@@ -36,6 +37,12 @@ public class ModSpawnPlacements {
                 SpawnPlacementTypes.ON_GROUND,
                 Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
                 BasiliskEntity::canSpawn,
+                SpawnPlacementRegisterEvent.Operation.REPLACE);
+        event.register(
+                ModEntities.TROLL.get(),
+                SpawnPlacementTypes.ON_GROUND,
+                Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                TrollEntity::canSpawn,
                 SpawnPlacementRegisterEvent.Operation.REPLACE);
         event.register(
                 ModEntities.LYCANTHROPE_VILLAGER.get(),

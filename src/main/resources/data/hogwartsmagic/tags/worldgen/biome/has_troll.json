@@ -1,0 +1,14 @@
+{
+  "replace": false,
+  "values": [
+    "hogwartsmagic:forbidden_forest",
+    {
+      "id": "#minecraft:is_taiga",
+      "required": false
+    },
+    {
+      "id": "#minecraft:is_mountain",
+      "required": false
+    }
+  ]
+}

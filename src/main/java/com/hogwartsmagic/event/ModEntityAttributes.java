@@ -14,6 +14,7 @@ import com.hogwartsmagic.entity.WizardEntity;
 import com.hogwartsmagic.entity.DementorEntity;
 import com.hogwartsmagic.entity.LycanthropeVillagerEntity;
 import com.hogwartsmagic.entity.PatronusEntity;
+import com.hogwartsmagic.entity.TrollEntity;
 import net.minecraftforge.event.entity.EntityAttributeCreationEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -34,6 +35,7 @@ public class ModEntityAttributes {
         event.put(ModEntities.PATRONUS.get(), PatronusEntity.createAttributes().build());
         event.put(ModEntities.MINATOR.get(), MinatorEntity.createAttributes().build());
         event.put(ModEntities.BASILISK.get(), BasiliskEntity.createAttributes().build());
+        event.put(ModEntities.TROLL.get(), TrollEntity.createAttributes().build());
         event.put(ModEntities.LYCANTHROPE_VILLAGER.get(), LycanthropeVillagerEntity.createAttributes().build());
     }
 }

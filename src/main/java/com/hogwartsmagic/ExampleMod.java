@@ -456,6 +456,9 @@ public class ExampleMod
     public static final RegistryObject<Item> BASILISK_SPAWN_EGG = ITEMS.register("basilisk_spawn_egg",
             () -> new net.minecraftforge.common.ForgeSpawnEggItem(ModEntities.BASILISK, 0x23361B, 0xA5D05D, new Item.Properties()));
 
+    public static final RegistryObject<Item> TROLL_SPAWN_EGG = ITEMS.register("troll_spawn_egg",
+            () -> new net.minecraftforge.common.ForgeSpawnEggItem(ModEntities.TROLL, 0x777365, 0x3F6A2E, new Item.Properties()));
+
     public static final RegistryObject<CreativeModeTab> MAIN_TAB = CREATIVE_MODE_TABS.register("main_tab", () -> CreativeModeTab.builder()
             .withTabsBefore(CreativeModeTabs.COMBAT)
             .icon(() -> HARRY_POTTER_WAND.get().getDefaultInstance())
@@ -531,6 +534,7 @@ public class ExampleMod
                 output.accept(DEMENTOR_SPAWN_EGG.get()); // Dementor Spawn Egg
                 output.accept(MINATOR_SPAWN_EGG.get()); // Minator Spawn Egg
                 output.accept(BASILISK_SPAWN_EGG.get()); // Basilisk Spawn Egg
+                output.accept(TROLL_SPAWN_EGG.get()); // Troll Spawn Egg
                 // Add books for all spells
                 for (com.hogwartsmagic.spell.SpellType spell : com.hogwartsmagic.spell.SpellType.values()) {
                     output.accept(com.hogwartsmagic.item.MagicBookItem.createBook(spell));

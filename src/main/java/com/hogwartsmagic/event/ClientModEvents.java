@@ -38,6 +38,8 @@ import com.hogwartsmagic.client.model.WhulvkWerewolfLycanModel;
 import com.hogwartsmagic.client.model.MinatorModel;
 import com.hogwartsmagic.client.renderer.LycanthropeVillagerRenderer;
 import com.hogwartsmagic.client.renderer.MinatorRenderer;
+import com.hogwartsmagic.client.model.TrollModel;
+import com.hogwartsmagic.client.renderer.TrollRenderer;
 import com.hogwartsmagic.entity.ModEntities;
 import com.hogwartsmagic.item.MagicWandItem;
 import com.hogwartsmagic.entity.StudentModel;
@@ -534,6 +536,7 @@ public class ClientModEvents {
         event.registerLayerDefinition(PatronusModel.LAYER_LOCATION, PatronusModel::createBodyLayer);
         event.registerLayerDefinition(SortingHatArmorModel.LAYER_LOCATION, SortingHatArmorModel::createBodyLayer);
         event.registerLayerDefinition(MinatorModel.LAYER_LOCATION, MinatorModel::createBodyLayer);
+        event.registerLayerDefinition(TrollModel.LAYER_LOCATION, TrollModel::createBodyLayer);
         event.registerLayerDefinition(WhulvkWerewolfLycanModel.LAYER_LOCATION, WhulvkWerewolfLycanModel::createBodyLayer);
         event.registerLayerDefinition(GillyweedGillsModel.LAYER_LOCATION, GillyweedGillsModel::createBodyLayer);
     }
@@ -566,6 +569,7 @@ public class ClientModEvents {
         event.registerEntityRenderer(ModEntities.DEMENTOR.get(), DementorRenderer::new);
         event.registerEntityRenderer(ModEntities.PATRONUS.get(), PatronusRenderer::new);
         event.registerEntityRenderer(ModEntities.MINATOR.get(), MinatorRenderer::new);
+        event.registerEntityRenderer(ModEntities.TROLL.get(), TrollRenderer::new);
         event.registerEntityRenderer(ModEntities.PETRIFIED_REMAINS.get(), PetrifiedRemainsRenderer::new);
         event.registerEntityRenderer(ModEntities.HORCRUX_SOUL.get(), HorcruxSoulRenderer::new);
         event.registerEntityRenderer(ModEntities.LYCANTHROPE_VILLAGER.get(), LycanthropeVillagerRenderer::new);

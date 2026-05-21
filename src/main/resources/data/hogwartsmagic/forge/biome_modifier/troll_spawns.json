@@ -1,0 +1,12 @@
+{
+  "type": "forge:add_spawns",
+  "biomes": "#hogwartsmagic:has_troll",
+  "spawners": [
+    {
+      "type": "hogwartsmagic:troll",
+      "weight": 4,
+      "minCount": 1,
+      "maxCount": 1
+    }
+  ]
+}

@@ -81,7 +81,10 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
             int dz = Math.abs(pos.getZ() - anchor.getZ());
             if (dx > SAFE_RADIUS || dz > SAFE_RADIUS) return;
         }
-        setSafe(level,pos, state, flags);
+        // Underlying write — written via a local alias so the wrapper-replacement pattern
+        // `level.setBlock(` doesn't accidentally rewrite this recursion site.
+        WorldGenLevel lvl = level;
+        lvl.setBlock(pos, state, flags);
     }
 
     public DiagonAlleyFeature(Codec<NoneFeatureConfiguration> codec) {

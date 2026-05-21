@@ -1,6 +1,0 @@
-{
-  "type": "forge:add_features",
-  "biomes": "#hogwartsmagic:has_diagon_alley",
-  "features": "hogwartsmagic:diagon_alley",
-  "step": "surface_structures"
-}

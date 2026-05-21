@@ -89,30 +89,29 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
 
     @Override
     public boolean place(FeaturePlaceContext<NoneFeatureConfiguration> context) {
-        WorldGenLevel level = context.level();
-        BlockPos origin = context.origin();
-        RandomSource rng = context.random();
-
-        int surfaceY = level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, origin.getX(), origin.getZ());
-        BlockPos base = new BlockPos(origin.getX(), surfaceY, origin.getZ());
-
-        // Anchor every setSafe write to the placement origin so out-of-window blocks get
-        // silently dropped instead of spamming "far chunk" errors and corrupting worldgen.
-        SAFE_ANCHOR.set(origin);
-        try {
-            return placeAt(level, base, rng);
-        } finally {
-            SAFE_ANCHOR.remove();
-        }
+        // Diagon Alley is much larger than a single feature-decoration chunk. Placing it
+        // here causes "Detected setBlock in a far chunk" spam and can stall chunk loading
+        // on both integrated and dedicated servers, so automatic biome placement is
+        // intentionally disabled until this is converted to a real Structure. Use
+        // /spawnalley to drop one at the player's location instead.
+        return false;
     }
 
-    private boolean placeAt(WorldGenLevel level, BlockPos base, RandomSource rng) {
-        // Tighter footprint check — we still want the spot to be flat, but writes outside
-        // the 3x3 chunk window get clipped by setSafe anyway.
-        if (!isReasonablyFlat(level, base, 44, 44, 3)) {
-            return false;
-        }
+    /**
+     * Manually drop a Diagon Alley centered on {@code at}, using the server level
+     * directly. No SAFE_ANCHOR is set, so writes are unrestricted — this is safe
+     * because {@code ServerLevel.setBlock} outside worldgen has no chunk window.
+     * Returns the recorded center position (for /findalley), or {@code null} if the
+     * surface couldn't be sampled.
+     */
+    public static BlockPos spawnManually(ServerLevel level, BlockPos at) {
+        int y = level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, at.getX(), at.getZ());
+        BlockPos base = new BlockPos(at.getX(), y, at.getZ());
+        DiagonAlleyFeature inst = new DiagonAlleyFeature(NoneFeatureConfiguration.CODEC);
+        return inst.buildAt(level, base, level.getRandom()) ? base : null;
+    }
 
+    private boolean buildAt(WorldGenLevel level, BlockPos base, RandomSource rng) {
         int y = base.getY();
         int x0 = base.getX() - 22;
         int z0 = base.getZ() - 22;
@@ -209,20 +208,6 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
     // =================================================================================
     // Site preparation
     // =================================================================================
-
-    private boolean isReasonablyFlat(WorldGenLevel level, BlockPos base, int sx, int sz, int tolerance) {
-        int by = base.getY();
-        int minY = by, maxY = by;
-        for (int dx = 0; dx < sx; dx += 4) {
-            for (int dz = 0; dz < sz; dz += 4) {
-                int h = level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, base.getX() + dx, base.getZ() + dz);
-                if (h < minY) minY = h;
-                if (h > maxY) maxY = h;
-                if (maxY - minY > tolerance) return false;
-            }
-        }
-        return true;
-    }
 
     private void clearAndFoundation(WorldGenLevel level, int x0, int y, int z0, int sx, int sz) {
         for (int dx = 0; dx < sx; dx++) {

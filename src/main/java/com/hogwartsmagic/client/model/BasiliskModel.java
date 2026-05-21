@@ -23,6 +23,7 @@ public class BasiliskModel extends EntityModel<BasiliskEntity> {
     private final ModelPart root;
     private final ModelPart head;
     private final ModelPart jaw;
+    private final ModelPart tongue;
     private final ModelPart neck;
     private final ModelPart body1;
     private final ModelPart body2;
@@ -33,6 +34,7 @@ public class BasiliskModel extends EntityModel<BasiliskEntity> {
         this.root = root.getChild("root");
         this.head = this.root.getChild("head");
         this.jaw = this.head.getChild("jaw");
+        this.tongue = this.jaw.getChild("tongue");
         this.neck = this.root.getChild("neck");
         this.body1 = this.root.getChild("body1");
         this.body2 = this.root.getChild("body2");
@@ -54,10 +56,16 @@ public class BasiliskModel extends EntityModel<BasiliskEntity> {
                         .addBox(-2.5F, -4.5F, -9.0F, 5.0F, 1.0F, 6.0F, new CubeDeformation(0.0F)),
                 PartPose.offset(0.0F, -1.5F, -14.0F));
 
-        head.addOrReplaceChild("jaw", CubeListBuilder.create()
+        PartDefinition jaw = head.addOrReplaceChild("jaw", CubeListBuilder.create()
                         .texOffs(36, 8)
                         .addBox(-4.0F, 0.0F, -12.5F, 8.0F, 2.0F, 12.0F, new CubeDeformation(0.0F)),
                 PartPose.offset(0.0F, 0.7F, -0.2F));
+
+        // Forked tongue inside the mouth — animates flicking in/out.
+        jaw.addOrReplaceChild("tongue", CubeListBuilder.create()
+                        .texOffs(110, 0)
+                        .addBox(-0.5F, -0.1F, -4.0F, 1.0F, 0.2F, 4.0F, new CubeDeformation(0.0F)),
+                PartPose.offset(0.0F, 0.0F, -10.0F));
 
         head.addOrReplaceChild("left_fang", CubeListBuilder.create()
                         .texOffs(0, 27)
@@ -113,7 +121,18 @@ public class BasiliskModel extends EntityModel<BasiliskEntity> {
 
         this.head.yRot = headYawRad * 0.65F + neckWave * 0.55F;
         this.head.xRot = headPitchRad * 0.4F + idle;
-        this.jaw.xRot = 0.12F + Mth.sin(ageInTicks * 0.18F) * 0.05F;
+
+        // Jaw opens wider when the basilisk has a target (aggressive); subtle drift when idle.
+        // A second slow wave at 0.04Hz creates an occasional menacing maw-gape rather than constant motion.
+        float jawBase = 0.10F + Mth.sin(ageInTicks * 0.18F) * 0.04F;
+        float jawAgro = entity.isAggressive() ? (0.25F + Math.max(0.0F, Mth.sin(ageInTicks * 0.13F)) * 0.35F) : 0.0F;
+        this.jaw.xRot = jawBase + jawAgro;
+
+        // Tongue flick: extends and retracts on a sine cycle, visible mostly when jaw is open.
+        float tongueCycle = Mth.sin(ageInTicks * 0.5F);
+        float extend = tongueCycle > 0.3F ? (tongueCycle - 0.3F) / 0.7F : 0.0F;
+        this.tongue.z = -10.0F + -3.0F * extend; // slides forward out of the mouth
+        this.tongue.xRot = -0.10F + extend * 0.15F;
 
         this.neck.yRot = neckWave;
         this.neck.xRot = idle * 0.8F;

@@ -14,6 +14,8 @@ import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.LivingEntity;
 
 public class DementorModel extends EntityModel<DementorEntity> {
     public static final ModelLayerLocation LAYER_LOCATION = new ModelLayerLocation(ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "dementor"), "main");
@@ -70,28 +72,68 @@ public class DementorModel extends EntityModel<DementorEntity> {
 
     @Override
     public void setupAnim(DementorEntity entity, float limbSwing, float limbSwingAmount, float ageInTicks, float netHeadYaw, float headPitch) {
-        this.head.yRot = netHeadYaw * ((float)Math.PI / 180F);
-        this.head.xRot = headPitch * ((float)Math.PI / 180F);
+        this.head.yRot = netHeadYaw * Mth.DEG_TO_RAD;
+        this.head.xRot = headPitch * Mth.DEG_TO_RAD;
 
-        // Hovering gently
-        float floatAnim = (float) Math.sin(ageInTicks * 0.1F) * 0.1F;
-        this.body.y = -12.0F + floatAnim * 5.0F;
-        this.head.y = -12.0F + floatAnim * 5.0F;
-        this.rightArm.y = -10.0F + floatAnim * 5.0F;
-        this.leftArm.y = -10.0F + floatAnim * 5.0F;
-        this.lowerCloak.y = 4.0F + floatAnim * 5.0F;
+        // ---- Hover + drift ----
+        // Multi-frequency vertical bob (large slow wave + small flutter) and a side-to-side pendulum.
+        float bigBob = Mth.sin(ageInTicks * 0.10F) * 0.55F;
+        float flutter = Mth.sin(ageInTicks * 0.35F + 1.2F) * 0.12F;
+        float vertical = bigBob + flutter;
+        float pendulum = Mth.sin(ageInTicks * 0.07F) * 0.06F;  // body sway (radians)
 
-        // "Sucking" animation raises the arms more towards the player
-        if (entity.getTarget() != null && entity.distanceToSqr(entity.getTarget()) < 256.0D) {
-            this.rightArm.xRot = (float) Math.toRadians(-80) + (float)Math.sin(ageInTicks * 0.3) * 0.1F;
-            this.leftArm.xRot = (float) Math.toRadians(-80) + (float)Math.sin(ageInTicks * 0.3 + 1.0) * 0.1F;
-        } else {
-            this.rightArm.xRot = (float) Math.toRadians(-20);
-            this.leftArm.xRot = (float) Math.toRadians(-20);
+        this.body.y = -12.0F + vertical;
+        this.head.y = -12.0F + vertical;
+        this.rightArm.y = -10.0F + vertical;
+        this.leftArm.y = -10.0F + vertical;
+        this.lowerCloak.y = 4.0F + vertical * 0.8F;
+
+        // Wraith sway — slight zRot pendulum on everything except the head (head pivots independently).
+        this.body.zRot = pendulum;
+        this.lowerCloak.zRot = pendulum * 1.4F + Mth.sin(ageInTicks * 0.18F) * 0.04F;
+
+        // ---- Target awareness intensity ----
+        // 0 = no target/far away, 1 = right on top of victim. Drives sucking arm reach + tremor speed.
+        float intensity = 0.0F;
+        LivingEntity target = entity.getTarget();
+        if (target != null) {
+            double distSq = entity.distanceToSqr(target);
+            if (distSq < 256.0D) {
+                intensity = (float) (1.0 - Math.sqrt(distSq) / 16.0);
+                intensity = Mth.clamp(intensity, 0.0F, 1.0F);
+            }
         }
 
-        // Cloak trails backwards slightly based on flying
-        this.lowerCloak.xRot = (float) Math.toRadians(15) + (float) Math.sin(ageInTicks * 0.05F) * 0.1F;
+        // ---- Arms ----
+        // Idle: hang loose with subtle drift.
+        // Hunting: claw forward and spread, with rising tremor frequency as intensity climbs.
+        float idleX = -0.35F;  // base droop
+        float reachX = -1.55F; // hands-forward-and-up
+        float armX = Mth.lerp(intensity, idleX, reachX);
+        float tremorSpeed = 0.18F + intensity * 0.45F;
+        float tremor = Mth.sin(ageInTicks * tremorSpeed) * (0.05F + intensity * 0.10F);
+
+        this.rightArm.xRot = armX + tremor;
+        this.leftArm.xRot = armX + Mth.sin(ageInTicks * tremorSpeed + 1.3F) * (0.05F + intensity * 0.10F);
+
+        // Spread the arms outward (zRot) as the dementor reaches.
+        this.rightArm.zRot = Mth.lerp(intensity, 0.10F, 0.45F);
+        this.leftArm.zRot = Mth.lerp(intensity, -0.10F, -0.45F);
+
+        // And forward yaw — arms come around to embrace.
+        this.rightArm.yRot = Mth.lerp(intensity, 0.0F, -0.30F);
+        this.leftArm.yRot = Mth.lerp(intensity, 0.0F, 0.30F);
+
+        // ---- Torso lean toward target ----
+        // When closing on a victim, body pitches forward; relaxes when idle.
+        this.body.xRot = Mth.lerp(intensity, 0.0F, 0.22F);
+
+        // ---- Cloak ----
+        // Multi-frequency ripple on the trailing hem + intensity-driven backward flare during the rush.
+        float baseTrail = 0.26F;  // ~15 degrees rest tilt
+        float ripple = Mth.sin(ageInTicks * 0.08F) * 0.10F + Mth.sin(ageInTicks * 0.22F + 0.7F) * 0.05F;
+        this.lowerCloak.xRot = baseTrail + ripple + Mth.lerp(intensity, 0.0F, 0.18F);
+        this.lowerCloak.yRot = Mth.sin(ageInTicks * 0.11F) * 0.06F;
     }
 
     @Override

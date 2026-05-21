@@ -168,6 +168,23 @@ public class MinatorModel extends EntityModel<MinatorEntity> implements ArmedMod
         float partialTick = ageInTicks - (float) entity.tickCount;
         float attackSwing = entity.getAttackAnim(partialTick);
 
+        // Horse-half locomotion: 4-beat trot at walk speed, broadens at higher limbSwingAmount.
+        float walk = Mth.cos(limbSwing * 0.6662F) * 1.2F * limbSwingAmount;
+        this.frontLeftLeg.xRot = walk;
+        this.frontRightLeg.xRot = -walk;
+        this.backLeftLeg.xRot = -walk;
+        this.backRightLeg.xRot = walk;
+
+        // Pillager torso bobs vertically with footfalls so the humanoid half doesn't look pasted on
+        // top of a moving horse. Idle breathing on top.
+        float bob = Mth.sin(limbSwing * 1.3324F) * 0.6F * limbSwingAmount;
+        this.pillager.y = -6.0F + bob;
+        this.pillager.xRot = bob * 0.04F + Mth.sin(ageInTicks * 0.06F) * 0.02F;
+
+        // Tail: subtle idle sway + amplified swish when galloping.
+        this.tail.xRot = 0.25F + Mth.sin(ageInTicks * 0.12F) * 0.07F;
+        this.tail.yRot = Mth.cos(limbSwing * 0.6662F) * 0.30F * limbSwingAmount;
+
         if (attackSwing > 0.0F) {
             float[] fr = new float[2];
             frontLegStompAngles(attackSwing, fr);
@@ -183,40 +200,73 @@ public class MinatorModel extends EntityModel<MinatorEntity> implements ArmedMod
             this.leftArm.xRot = -0.55F * coil;
             this.rightArm.yRot = 0.0F;
             this.leftArm.yRot = 0.0F;
-        } else {
-            float walk = Mth.cos(limbSwing * 0.6662F) * 1.2F * limbSwingAmount;
-            this.frontLeftLeg.xRot = walk;
-            this.frontRightLeg.xRot = -walk;
-            this.backLeftLeg.xRot = -walk;
-            this.backRightLeg.xRot = walk;
-
-            boolean bowMain = entity.getMainHandItem().is(Items.BOW);
-            if (bowMain) {
-                if (entity.isAggressive()) {
-                    this.rightArm.xRot = -1.18F;
-                    this.leftArm.xRot = -1.02F;
-                    this.rightArm.yRot = -0.12F;
-                    this.leftArm.yRot = 0.18F;
-                } else {
-                    float wobble = Mth.cos(limbSwing * 0.6662F) * 0.12F * limbSwingAmount;
-                    this.rightArm.xRot = -0.58F + wobble;
-                    this.leftArm.xRot = -0.44F - wobble;
-                    this.rightArm.yRot = 0.0F;
-                    this.leftArm.yRot = 0.0F;
-                }
-                this.rightArm.zRot = 0.0F;
-                this.leftArm.zRot = 0.0F;
-            } else {
-                this.rightArm.yRot = 0.0F;
-                this.leftArm.yRot = 0.0F;
-                this.rightArm.zRot = 0.0F;
-                this.leftArm.zRot = 0.0F;
-                this.rightArm.xRot = Mth.cos(limbSwing * 0.6662F + (float) Math.PI) * 0.6F * limbSwingAmount;
-                this.leftArm.xRot = Mth.cos(limbSwing * 0.6662F) * 0.6F * limbSwingAmount;
-            }
+            this.rightArm.zRot = 0.0F;
+            this.leftArm.zRot = 0.0F;
+            return;
         }
 
-        this.tail.xRot = 0.25F + Mth.sin(ageInTicks * 0.12F) * 0.07F;
+        boolean bowMain = entity.getMainHandItem().is(Items.BOW);
+        if (!bowMain) {
+            // No bow: arms swing opposite to legs.
+            this.rightArm.yRot = 0.0F;
+            this.leftArm.yRot = 0.0F;
+            this.rightArm.zRot = 0.0F;
+            this.leftArm.zRot = 0.0F;
+            this.rightArm.xRot = Mth.cos(limbSwing * 0.6662F + (float) Math.PI) * 0.6F * limbSwingAmount;
+            this.leftArm.xRot = Mth.cos(limbSwing * 0.6662F) * 0.6F * limbSwingAmount;
+            return;
+        }
+
+        // Bow path. Two states:
+        //   1) isUsingItem()  -> drawing the bowstring (the actual aim/charge)
+        //   2) isAggressive() -> nocking / ready (between draws)
+        //   3) otherwise      -> casual carry, wobbles with gait
+        if (entity.isUsingItem()) {
+            int drawTicks = entity.getTicksUsingItem();
+            float draw = Math.min(1.0F, drawTicks / 18.0F);
+            float ease = smoothstep(draw);
+
+            // Right arm holds the bow up and forward (the entity is left-handed=false → main hand right).
+            // Bow pose: arm raised horizontally toward target, slight outward yaw.
+            this.rightArm.xRot = -1.45F;
+            this.rightArm.yRot = -0.20F;
+            this.rightArm.zRot = -0.05F;
+
+            // Left arm pulls the string back: starts at the bow grip and retreats toward the shoulder.
+            // xRot rotates further forward as the draw deepens; yRot pulls across the chest.
+            this.leftArm.xRot = Mth.lerp(ease, -1.10F, -1.55F);
+            this.leftArm.yRot = Mth.lerp(ease, -0.10F, -0.55F);
+            this.leftArm.zRot = Mth.lerp(ease, 0.05F, 0.18F);
+
+            // Brace: torso rotates slightly toward the bow side.
+            this.pillager.yRot = -0.10F * ease;
+
+            // Tiny aim-jitter at full draw, like holding tension on the string.
+            if (ease > 0.85F) {
+                float jitter = Mth.sin(ageInTicks * 1.5F) * 0.015F;
+                this.rightArm.xRot += jitter;
+                this.leftArm.xRot += jitter * 0.5F;
+            }
+        } else if (entity.isAggressive()) {
+            // Ready stance: bow up but string relaxed.
+            this.rightArm.xRot = -1.18F;
+            this.leftArm.xRot = -1.02F;
+            this.rightArm.yRot = -0.12F;
+            this.leftArm.yRot = 0.18F;
+            this.rightArm.zRot = 0.0F;
+            this.leftArm.zRot = 0.0F;
+            this.pillager.yRot = 0.0F;
+        } else {
+            // Casual carry with subtle gait wobble.
+            float wobble = Mth.cos(limbSwing * 0.6662F) * 0.12F * limbSwingAmount;
+            this.rightArm.xRot = -0.58F + wobble;
+            this.leftArm.xRot = -0.44F - wobble;
+            this.rightArm.yRot = 0.0F;
+            this.leftArm.yRot = 0.0F;
+            this.rightArm.zRot = 0.0F;
+            this.leftArm.zRot = 0.0F;
+            this.pillager.yRot = 0.0F;
+        }
     }
 
     @Override

@@ -242,6 +242,11 @@ public class StudentEntity extends AbstractIllager implements DisarmableWandUser
     public net.minecraft.world.entity.SpawnGroupData finalizeSpawn(net.minecraft.world.level.ServerLevelAccessor p_33282_, net.minecraft.world.DifficultyInstance p_33283_, net.minecraft.world.entity.MobSpawnType p_33284_, @javax.annotation.Nullable net.minecraft.world.entity.SpawnGroupData p_33285_) {
         net.minecraft.world.entity.SpawnGroupData data = super.finalizeSpawn(p_33282_, p_33283_, p_33284_, p_33285_);
 
+        // Vanilla Mob.finalizeSpawn does NOT invoke populateDefaultEquipmentSlots automatically —
+        // subclasses like Pillager/Zombie call it explicitly. Without this line our wand-setup
+        // override was never running, so students spawned bare-handed.
+        this.populateDefaultEquipmentSlots(this.random, p_33283_);
+
         // Randomly assign house
         this.setHouse(this.random.nextInt(HOUSE_COUNT));
 

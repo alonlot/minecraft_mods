@@ -615,6 +615,7 @@ public class ExampleMod
     @SubscribeEvent
     public void onRegisterCommands(net.minecraftforge.event.RegisterCommandsEvent event) {
         com.hogwartsmagic.command.WizardRaidCommand.register(event.getDispatcher());
+        com.hogwartsmagic.command.FindDiagonAlleyCommand.register(event.getDispatcher());
     }
 
     private static ArmorMaterial createRobeMaterial(String textureName) {

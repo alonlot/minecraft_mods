@@ -133,13 +133,18 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
         // East lantern tower — landmark visible from far away.
         buildTower(level, new BlockPos(x0 + 46, y, z0 + 14));
 
-        // Announce to all online players so they can /tp to find it.
+        // Record location in persistent saved data so /findalley can locate it later.
         ServerLevel serverLevel = level.getLevel();
         BlockPos announcePos = new BlockPos(x0 + 25, y, z0 + 16);
+        DiagonAlleyTracker tracker = DiagonAlleyTracker.get(serverLevel);
+        tracker.add(announcePos);
+
+        // Announce to all online players so they can /tp or /findalley immediately.
         MinecraftServer server = serverLevel.getServer();
         if (server != null) {
             Component msg = Component.literal("[Hogwarts Magic] Diagon Alley generated at "
-                    + announcePos.getX() + ", " + announcePos.getY() + ", " + announcePos.getZ());
+                    + announcePos.getX() + ", " + announcePos.getY() + ", " + announcePos.getZ()
+                    + " — try /findalley");
             for (ServerPlayer p : server.getPlayerList().getPlayers()) {
                 p.sendSystemMessage(msg);
             }

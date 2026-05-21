@@ -27,17 +27,20 @@ import net.minecraft.world.entity.ai.goal.Goal;
 import com.hogwartsmagic.ModSounds;
 import com.hogwartsmagic.event.ModEvents;
 
+import net.minecraft.world.entity.Mob;
+
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.EnumMap;
 import java.util.ArrayList;
 import java.util.List;
 
-public class WizardEntity extends AbstractIllager {
+public class WizardEntity extends AbstractIllager implements DisarmableWandUser {
 
     private static final EntityDataAccessor<Boolean> DATA_IS_CASTING = SynchedEntityData.defineId(WizardEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Boolean> DATA_IS_FLYING = SynchedEntityData.defineId(WizardEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Boolean> DATA_IS_RAID_LEADER = SynchedEntityData.defineId(WizardEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> DATA_IS_DISARMED = SynchedEntityData.defineId(WizardEntity.class, EntityDataSerializers.BOOLEAN);
 
     // per-wizard cooldown tracking to mimic player wand behavior
     protected final Map<SpellType, Long> spellCooldowns = new EnumMap<>(SpellType.class);
@@ -138,6 +141,8 @@ public class WizardEntity extends AbstractIllager {
     @Override
     protected void registerGoals() {
         this.goalSelector.addGoal(0, new FloatGoal(this));
+        // Retrieving a dropped wand outranks everything — a disarmed wizard's only objective.
+        this.goalSelector.addGoal(0, new RetrieveDroppedWandGoal(this, 1.2D));
         this.goalSelector.addGoal(1, new WizardRaidLeaderGoal(this));
         this.goalSelector.addGoal(2, new WizardSpellCastGoal(this));
         this.goalSelector.addGoal(5, new WaterAvoidingRandomStrollGoal(this, 1.0D));
@@ -166,6 +171,26 @@ public class WizardEntity extends AbstractIllager {
         builder.define(DATA_IS_CASTING, false);
         builder.define(DATA_IS_FLYING, false);
         builder.define(DATA_IS_RAID_LEADER, false);
+        builder.define(DATA_IS_DISARMED, false);
+    }
+
+    @Override
+    public boolean isDisarmed() {
+        return this.entityData.get(DATA_IS_DISARMED);
+    }
+
+    @Override
+    public void setDisarmed(boolean disarmed) {
+        this.entityData.set(DATA_IS_DISARMED, disarmed);
+        if (disarmed) {
+            this.setCasting(false);
+            this.getNavigation().stop();
+        }
+    }
+
+    @Override
+    public Mob asMob() {
+        return this;
     }
 
     public void setCasting(boolean casting) {
@@ -198,6 +223,24 @@ public class WizardEntity extends AbstractIllager {
     public void addAdditionalSaveData(net.minecraft.nbt.CompoundTag p_33353_) {
         super.addAdditionalSaveData(p_33353_);
         p_33353_.putBoolean("RaidLeader", this.isRaidLeader());
+        p_33353_.putBoolean("Disarmed", this.isDisarmed());
+    }
+
+    @Override
+    public void readAdditionalSaveData(net.minecraft.nbt.CompoundTag tag) {
+        super.readAdditionalSaveData(tag);
+        if (tag.contains("RaidLeader")) this.setRaidLeader(tag.getBoolean("RaidLeader"));
+        if (tag.contains("Disarmed")) this.setDisarmed(tag.getBoolean("Disarmed"));
+    }
+
+    @Override
+    public void onAddedToWorld() {
+        super.onAddedToWorld();
+        // Guarantee a wand even when /summon skips finalizeSpawn / populateDefaultEquipmentSlots —
+        // but only if we're not currently disarmed (otherwise this would magic the wand back).
+        if (!this.level().isClientSide && !this.isDisarmed() && this.getMainHandItem().isEmpty()) {
+            this.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(ExampleMod.HARRY_POTTER_WAND.get()));
+        }
     }
 
     @Override
@@ -350,6 +393,7 @@ public class WizardEntity extends AbstractIllager {
 
         @Override
         public boolean canUse() {
+            if (this.wizard.isDisarmed()) return false;
             LivingEntity livingentity = this.wizard.getTarget();
             return livingentity != null && livingentity.isAlive() && this.wizard.canAttack(livingentity);
         }

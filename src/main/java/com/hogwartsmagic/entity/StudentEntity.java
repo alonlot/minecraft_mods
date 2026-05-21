@@ -37,11 +37,12 @@ import java.util.EnumMap;
  * Hogwarts students - peaceful NPCs that defend villages and attack monsters/death eaters
  * Each student is randomly assigned to a house (Gryffindor, Hufflepuff, Ravenclaw, Slytherin)
  */
-public class StudentEntity extends AbstractIllager {
+public class StudentEntity extends AbstractIllager implements DisarmableWandUser {
 
     private static final EntityDataAccessor<Boolean> DATA_IS_CASTING = SynchedEntityData.defineId(StudentEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Boolean> DATA_IS_FLYING = SynchedEntityData.defineId(StudentEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Integer> DATA_HOUSE = SynchedEntityData.defineId(StudentEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Boolean> DATA_IS_DISARMED = SynchedEntityData.defineId(StudentEntity.class, EntityDataSerializers.BOOLEAN);
 
     // per-student cooldown tracking
     private final Map<SpellType, Long> spellCooldowns = new EnumMap<>(SpellType.class);
@@ -145,6 +146,8 @@ public class StudentEntity extends AbstractIllager {
     @Override
     protected void registerGoals() {
         this.goalSelector.addGoal(0, new FloatGoal(this));
+        // Retrieving a dropped wand outranks everything else — a disarmed student's only objective.
+        this.goalSelector.addGoal(0, new RetrieveDroppedWandGoal(this, 1.2D));
         // Flee when hurt, similar to villagers
         this.goalSelector.addGoal(1, new PanicGoal(this, 0.5D));
         // At night, path to a village bed and sleep (like villagers)
@@ -174,6 +177,35 @@ public class StudentEntity extends AbstractIllager {
         builder.define(DATA_IS_CASTING, false);
         builder.define(DATA_IS_FLYING, false);
         builder.define(DATA_HOUSE, 0); // Default to Gryffindor
+        builder.define(DATA_IS_DISARMED, false);
+    }
+
+    @Override
+    public boolean isDisarmed() {
+        return this.entityData.get(DATA_IS_DISARMED);
+    }
+
+    @Override
+    public void setDisarmed(boolean disarmed) {
+        this.entityData.set(DATA_IS_DISARMED, disarmed);
+        if (disarmed) {
+            this.setCasting(false);
+            this.getNavigation().stop();
+        }
+    }
+
+    @Override
+    public net.minecraft.world.entity.Mob asMob() {
+        return this;
+    }
+
+    @Override
+    public void onAddedToWorld() {
+        super.onAddedToWorld();
+        // Guarantee a wand even when /summon skips populateDefaultEquipmentSlots.
+        if (!this.level().isClientSide && !this.isDisarmed() && this.getMainHandItem().isEmpty()) {
+            this.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(ExampleMod.HARRY_POTTER_WAND.get()));
+        }
     }
 
     public void setCasting(boolean casting) {
@@ -220,6 +252,7 @@ public class StudentEntity extends AbstractIllager {
     public void addAdditionalSaveData(net.minecraft.nbt.CompoundTag p_33353_) {
         super.addAdditionalSaveData(p_33353_);
         p_33353_.putInt("House", this.getHouseId());
+        p_33353_.putBoolean("Disarmed", this.isDisarmed());
     }
 
     @Override
@@ -228,6 +261,7 @@ public class StudentEntity extends AbstractIllager {
         if (p_33354_.contains("House")) {
             this.setHouse(p_33354_.getInt("House"));
         }
+        if (p_33354_.contains("Disarmed")) this.setDisarmed(p_33354_.getBoolean("Disarmed"));
     }
 
     /**
@@ -381,7 +415,7 @@ public class StudentEntity extends AbstractIllager {
 
         @Override
         public boolean canUse() {
-            if (this.student.isSleeping()) {
+            if (this.student.isSleeping() || this.student.isDisarmed()) {
                 return false;
             }
             LivingEntity livingentity = this.student.getTarget();

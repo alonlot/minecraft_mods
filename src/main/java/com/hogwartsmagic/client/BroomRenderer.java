@@ -43,9 +43,12 @@ public class BroomRenderer extends EntityRenderer<BroomEntity> {
         // Use lerp for rotations for smoother visual orientation
         float lerpY = net.minecraft.util.Mth.lerp(partialTicks, entity.yRotO, entity.getYRot());
         float lerpX = net.minecraft.util.Mth.lerp(partialTicks, entity.xRotO, entity.getXRot());
+        float lerpRoll = net.minecraft.util.Mth.lerp(partialTicks, entity.prevDisplayRoll, entity.displayRoll);
 
         poseStack.mulPose(Axis.YP.rotationDegrees(180.0F - lerpY));
         poseStack.mulPose(Axis.XP.rotationDegrees(-lerpX));
+        // Banking roll: broom local +Z runs along the handle, so roll is about the Z axis.
+        poseStack.mulPose(Axis.ZP.rotationDegrees(lerpRoll));
         
         // Flip the baked model, then lift it so the broom body sits around the entity origin
         // instead of rendering mostly below the ground plane.

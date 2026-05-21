@@ -1,9 +1,13 @@
 package com.hogwartsmagic.entity;
 
+import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
@@ -21,7 +25,11 @@ public class BroomEntity extends Entity {
 
     public boolean isBoosting = false;
     private float currentVisualOffset = 0.0F;
+    public float displayRoll = 0.0F;
+    public float prevDisplayRoll = 0.0F;
+    private boolean wasBoostingLast = false;
     private static final EntityDataAccessor<Integer> DATA_TYPE = SynchedEntityData.defineId(BroomEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Boolean> DATA_BOOSTING = SynchedEntityData.defineId(BroomEntity.class, EntityDataSerializers.BOOLEAN);
 
     public BroomEntity(EntityType<?> type, Level level) {
         super(type, level);
@@ -41,6 +49,15 @@ public class BroomEntity extends Entity {
     @Override
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
         builder.define(DATA_TYPE, 0); // 0 = Basic, 1 = Nimbus 2000, 2 = Firebolt
+        builder.define(DATA_BOOSTING, false);
+    }
+
+    public boolean isBoostingSynced() {
+        return this.entityData.get(DATA_BOOSTING);
+    }
+
+    public void setBoostingSynced(boolean v) {
+        this.entityData.set(DATA_BOOSTING, v);
     }
 
     @Override
@@ -80,11 +97,14 @@ public class BroomEntity extends Entity {
 
     @Override
     public void tick() {
+        this.prevDisplayRoll = this.displayRoll;
+        float yawBefore = this.getYRot();
+
         if (this.isVehicle()) {
             this.setNoGravity(true);
             Entity passenger = this.getFirstPassenger();
             if (passenger instanceof LivingEntity living) {
-                // Smoothly pull the broom's yaw towards the player's body yaw, 
+                // Smoothly pull the broom's yaw towards the player's body yaw,
                 // avoiding instant snapping to prevent camera flickering.
                 this.yRotO = this.getYRot();
                 this.xRotO = this.getXRot();
@@ -151,9 +171,99 @@ public class BroomEntity extends Entity {
             this.setDeltaMovement(this.getDeltaMovement().scale(0.94));
         }
 
-        // Particles for effect
-        if (this.level().isClientSide && this.getDeltaMovement().lengthSqr() > 0.01) {
-            this.level().addParticle(ParticleTypes.SMOKE, this.getX(), this.getY(), this.getZ(), 0, 0, 0);
+        // Banking roll: lean into turns proportional to yaw-delta scaled by horizontal speed.
+        // Computed on both sides (deterministic from yaw + velocity) so client visuals match server.
+        float yawDelta = Mth.wrapDegrees(this.getYRot() - yawBefore);
+        float horizSpeed = (float) this.getDeltaMovement().horizontalDistance();
+        float targetRoll = Mth.clamp(-yawDelta * (1.2F + horizSpeed * 0.6F), -45.0F, 45.0F);
+        // No passenger → relax to level.
+        if (!this.isVehicle()) {
+            targetRoll = 0.0F;
+        }
+        this.displayRoll += (targetRoll - this.displayRoll) * 0.22F;
+
+        // Server-side: sync boost state and fire transition effects.
+        if (!this.level().isClientSide) {
+            if (this.isBoostingSynced() != this.isBoosting) {
+                this.setBoostingSynced(this.isBoosting);
+            }
+            if (this.isBoosting && !this.wasBoostingLast) {
+                // Boost-on whoosh — firework launch hiss has the right "punch up" character.
+                this.level().playSound(null, this.getX(), this.getY(), this.getZ(),
+                        SoundEvents.FIREWORK_ROCKET_LAUNCH, SoundSource.PLAYERS, 0.9F, 1.25F);
+            }
+            this.wasBoostingLast = this.isBoosting;
+        }
+
+        // Client-side particle effects.
+        if (this.level().isClientSide) {
+            spawnFlightParticles(horizSpeed);
+        }
+    }
+
+    private void spawnFlightParticles(float horizSpeed) {
+        if (horizSpeed < 0.06F) {
+            return;
+        }
+        int type = this.getBroomType();
+        boolean boosting = this.isBoostingSynced();
+
+        // Trail emitter sits at the twigs end (behind the broom in entity-local +Z).
+        float yawRad = this.getYRot() * ((float) Math.PI / 180F);
+        double sin = Math.sin(yawRad);
+        double cos = Math.cos(yawRad);
+        // Local +Z (twigs end) in world: when broom yaw=0 the model points -Z, so +Z local is behind.
+        double trailX = this.getX() + sin * 1.3D;
+        double trailZ = this.getZ() - cos * 1.3D;
+        double trailY = this.getY() + 0.1D;
+
+        // Backward velocity to streak particles behind us.
+        Vec3 vel = this.getDeltaMovement();
+        double backX = -vel.x * 0.55D;
+        double backZ = -vel.z * 0.55D;
+        double backY = -vel.y * 0.25D;
+
+        // Density scales with speed; capped so we don't flood at boost.
+        float intensity = Mth.clamp(horizSpeed * 0.55F + (boosting ? 0.6F : 0.0F), 0.0F, 1.6F);
+        int trailEmits = 1 + (int) (intensity * 2.5F);
+
+        ParticleOptions trail;
+        if (type == 2) {
+            trail = ParticleTypes.FLAME; // Firebolt — orange flame.
+        } else if (type == 1) {
+            trail = ParticleTypes.SOUL_FIRE_FLAME; // Nimbus 2000 — blue magical wisp.
+        } else {
+            trail = ParticleTypes.CAMPFIRE_COSY_SMOKE; // Training — wispy smoke.
+        }
+
+        for (int i = 0; i < trailEmits; i++) {
+            double jx = (this.random.nextDouble() - 0.5D) * 0.25D;
+            double jy = (this.random.nextDouble() - 0.5D) * 0.18D;
+            double jz = (this.random.nextDouble() - 0.5D) * 0.25D;
+            this.level().addParticle(trail, trailX + jx, trailY + jy, trailZ + jz, backX, backY, backZ);
+        }
+
+        // Speed-line streaks while boosting — bright end-rod pixels shooting straight backward.
+        if (boosting) {
+            int streakEmits = 2 + (int) (horizSpeed * 0.6F);
+            for (int i = 0; i < streakEmits; i++) {
+                double offX = (this.random.nextDouble() - 0.5D) * 1.4D;
+                double offY = (this.random.nextDouble() - 0.5D) * 0.6D + 0.15D;
+                double offZ = (this.random.nextDouble() - 0.5D) * 1.4D;
+                this.level().addParticle(
+                        ParticleTypes.END_ROD,
+                        trailX + offX, trailY + offY, trailZ + offZ,
+                        backX * 2.6D, backY, backZ * 2.6D);
+            }
+            // Crit sparkles around the rider for extra punch.
+            if (this.random.nextFloat() < 0.4F) {
+                this.level().addParticle(
+                        ParticleTypes.CRIT,
+                        this.getX() + (this.random.nextDouble() - 0.5D) * 0.6D,
+                        this.getY() + 0.5D + (this.random.nextDouble() - 0.5D) * 0.4D,
+                        this.getZ() + (this.random.nextDouble() - 0.5D) * 0.6D,
+                        backX, backY, backZ);
+            }
         }
     }
 

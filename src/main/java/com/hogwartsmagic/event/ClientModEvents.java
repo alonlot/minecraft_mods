@@ -104,6 +104,8 @@ public class ClientModEvents {
 
         @Nullable
         private static BroomFlightSoundInstance broomFlightSound;
+        /** Client-tracked decaying counter for the boost FOV punch (ticks remaining of bonus FOV). */
+        private static int boostFovPunchTicks = 0;
 
         @SubscribeEvent
         public static void onClientTick(TickEvent.ClientTickEvent event) {
@@ -120,9 +122,16 @@ public class ClientModEvents {
                     if (isBoosting != wasBoosting) {
                         wasBoosting = isBoosting;
                         SpellPackets.CHANNEL.send(new SpellPackets.BroomBoostPacket(isBoosting), PacketDistributor.SERVER.noArg());
+                        if (isBoosting) {
+                            // Brief FOV punch on boost-on transition; decays over ~14 ticks.
+                            boostFovPunchTicks = 14;
+                        }
                     }
                 } else {
                     wasBoosting = false;
+                }
+                if (boostFovPunchTicks > 0) {
+                    boostFovPunchTicks--;
                 }
 
                 boolean radialDown = InputConstants.isKeyDown(
@@ -305,9 +314,29 @@ public class ClientModEvents {
                 // Base modifier is 1.0. We want to scale FOV up as speed reaches 10.0 (Firebolt boost).
                 // Max FOV modifier addition: ~0.5 at 10.0 speed.
                 float modifier = 1.0F + (horizontalSpeed * 0.04F);
+                // Brief punch on boost-on transition — decays linearly over 14 ticks.
+                if (boostFovPunchTicks > 0) {
+                    modifier += 0.18F * (boostFovPunchTicks / 14.0F);
+                }
                 // The minimum should be 1.0
                 event.setNewFovModifier(Math.max(1.0F, modifier));
             }
+        }
+
+        @SubscribeEvent
+        public static void onComputeCameraAngles(net.minecraftforge.client.event.ViewportEvent.ComputeCameraAngles event) {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.player == null) {
+                return;
+            }
+            if (!(mc.player.getVehicle() instanceof com.hogwartsmagic.entity.BroomEntity broom)) {
+                return;
+            }
+            // Match the renderer's lerp so the camera banks in lockstep with the broom mesh.
+            float partial = (float) event.getPartialTick();
+            float bankDeg = net.minecraft.util.Mth.lerp(partial, broom.prevDisplayRoll, broom.displayRoll);
+            // Damp slightly so first-person feels less nauseating than the visual model bank.
+            event.setRoll(event.getRoll() + bankDeg * 0.55F);
         }
 
         @SubscribeEvent(priority = EventPriority.HIGHEST)

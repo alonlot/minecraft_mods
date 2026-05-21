@@ -2,6 +2,8 @@ package com.hogwartsmagic.worldgen;
 
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.entity.ModVillagers;
+import com.hogwartsmagic.item.MagicBookItem;
+import com.hogwartsmagic.spell.SpellType;
 import com.mojang.serialization.Codec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -15,9 +17,14 @@ import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.npc.VillagerData;
 import net.minecraft.world.entity.npc.VillagerProfession;
 import net.minecraft.world.entity.npc.VillagerType;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.WorldGenLevel;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.ChestBlock;
 import net.minecraft.world.level.block.LanternBlock;
+import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
@@ -30,6 +37,9 @@ import net.minecraft.world.level.levelgen.feature.FeaturePlaceContext;
 import net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Diagon Alley — a small wizarding district built into the world. Unlike the earlier
@@ -126,6 +136,26 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
 
         // Tall lantern tower at far east, behind Gringotts — visible from far away.
         buildLanternTower(level, new BlockPos(x0 + 74, y, z0 + 22));
+
+        // Themed loot chests in each shop — one or two per building, scattered in interiors.
+        placeLootChest(level, new BlockPos(x0 + 4, y + 1, z0 + 21),  Direction.EAST,  LootTheme.LEAKY_CAULDRON_FOOD, rng);
+        placeLootChest(level, new BlockPos(x0 + 17, y + 1, z0 + 14), Direction.SOUTH, LootTheme.EEYLOPS_FEATHERS, rng);
+        placeLootChest(level, new BlockPos(x0 + 31, y + 1, z0 + 13), Direction.SOUTH, LootTheme.FLOURISH_BOOKS, rng);
+        placeLootChest(level, new BlockPos(x0 + 46, y + 1, z0 + 11), Direction.SOUTH, LootTheme.OLLIVANDERS_WANDS, rng);
+        placeLootChest(level, new BlockPos(x0 + 17, y + 1, z0 + 31), Direction.NORTH, LootTheme.QUIDDITCH_BROOMS, rng);
+        placeLootChest(level, new BlockPos(x0 + 29, y + 1, z0 + 31), Direction.NORTH, LootTheme.MALKINS_CLOTHES, rng);
+        placeLootChest(level, new BlockPos(x0 + 40, y + 1, z0 + 31), Direction.NORTH, LootTheme.APOTHECARY_INGREDIENTS, rng);
+        placeLootChest(level, new BlockPos(x0 + 51, y + 1, z0 + 31), Direction.NORTH, LootTheme.WHEEZES_PRANKS, rng);
+        placeLootChest(level, new BlockPos(x0 + 63, y + 1, z0 + 31), Direction.NORTH, LootTheme.FORTESCUES_SWEETS, rng);
+        // Two chests in the Gringotts vault behind the iron bars.
+        placeLootChest(level, new BlockPos(x0 + 66, y + 1, z0 + 23), Direction.NORTH, LootTheme.GRINGOTTS_VAULT, rng);
+        placeLootChest(level, new BlockPos(x0 + 68, y + 1, z0 + 23), Direction.NORTH, LootTheme.GRINGOTTS_VAULT, rng);
+
+        // Mod-block flourishes: bring the shop interiors to life with the mod's own decor.
+        decorateWithModBlocks(level, x0, y, z0);
+
+        // Knockturn Alley — a darker side-fork branching south from the avenue midpoint.
+        buildKnockturnAlley(level, new BlockPos(avenueX0 + 22, y, avenueZ0 + 6), rng);
 
         // Persistent locator: record center position.
         ServerLevel serverLevel = level.getLevel();
@@ -1333,6 +1363,440 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
                 Blocks.LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, true), 2);
         level.setBlock(new BlockPos(doorX + 2, awningY - 1, outZ),
                 Blocks.LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, true), 2);
+    }
+
+    // =================================================================================
+    // Knockturn Alley — darker side fork (Borgin & Burkes)
+    // =================================================================================
+
+    private void buildKnockturnAlley(WorldGenLevel level, BlockPos start, RandomSource rng) {
+        int x0 = start.getX();
+        int y = start.getY();
+        int z0 = start.getZ();
+        // A 4-wide deepslate-brick alley running 18 blocks south.
+        for (int dz = 0; dz < 18; dz++) {
+            for (int dx = 0; dx < 4; dx++) {
+                BlockPos p = new BlockPos(x0 + dx, y, z0 + dz);
+                BlockState paving = ((dx + dz) % 5 == 0) ? Blocks.CRACKED_DEEPSLATE_BRICKS.defaultBlockState()
+                        : ((dx + dz) % 3 == 0) ? Blocks.COBBLED_DEEPSLATE.defaultBlockState()
+                        : Blocks.DEEPSLATE_BRICKS.defaultBlockState();
+                level.setBlock(p, paving, 2);
+                // Clear air above.
+                for (int dy = 1; dy < 18; dy++) {
+                    BlockPos pp = new BlockPos(x0 + dx, y + dy, z0 + dz);
+                    if (!level.isEmptyBlock(pp)) level.setBlock(pp, Blocks.AIR.defaultBlockState(), 2);
+                }
+            }
+        }
+        // Soul-lantern poles every 5 blocks for the eerie blue glow.
+        for (int dz = 3; dz < 18; dz += 5) {
+            for (int dy = 0; dy < 3; dy++) {
+                level.setBlock(new BlockPos(x0 - 1, y + 1 + dy, z0 + dz), Blocks.POLISHED_BLACKSTONE_BRICK_WALL.defaultBlockState(), 2);
+                level.setBlock(new BlockPos(x0 + 4, y + 1 + dy, z0 + dz), Blocks.POLISHED_BLACKSTONE_BRICK_WALL.defaultBlockState(), 2);
+            }
+            level.setBlock(new BlockPos(x0 - 1, y + 4, z0 + dz),
+                    Blocks.SOUL_LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, true), 2);
+            level.setBlock(new BlockPos(x0 + 4, y + 4, z0 + dz),
+                    Blocks.SOUL_LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, true), 2);
+        }
+        // West building: Borgin & Burkes — dark wizards' antique shop.
+        buildBorginAndBurkes(level, new BlockPos(x0 - 9, y, z0 + 4), rng);
+        // East building: Cursed Curio Shop.
+        buildCursedCurioShop(level, new BlockPos(x0 + 5, y, z0 + 4), rng);
+        // Dead-end at the far south: a blackstone arch with cobwebs.
+        for (int dy = 0; dy < 5; dy++) {
+            level.setBlock(new BlockPos(x0 - 1, y + dy, z0 + 17), Blocks.POLISHED_BLACKSTONE_BRICKS.defaultBlockState(), 2);
+            level.setBlock(new BlockPos(x0 + 4, y + dy, z0 + 17), Blocks.POLISHED_BLACKSTONE_BRICKS.defaultBlockState(), 2);
+        }
+        for (int dx = 0; dx < 4; dx++) {
+            level.setBlock(new BlockPos(x0 + dx, y + 4, z0 + 17), Blocks.POLISHED_BLACKSTONE_BRICKS.defaultBlockState(), 2);
+            level.setBlock(new BlockPos(x0 + dx, y + 5, z0 + 17), Blocks.CHISELED_POLISHED_BLACKSTONE.defaultBlockState(), 2);
+        }
+        for (int dx = 0; dx < 4; dx++) {
+            level.setBlock(new BlockPos(x0 + dx, y + 1, z0 + 16), Blocks.COBWEB.defaultBlockState(), 2);
+            level.setBlock(new BlockPos(x0 + dx, y + 2, z0 + 16), Blocks.COBWEB.defaultBlockState(), 2);
+        }
+        // Add a couple of cobwebs along the walls for atmosphere.
+        level.setBlock(new BlockPos(x0, y + 3, z0 + 8), Blocks.COBWEB.defaultBlockState(), 2);
+        level.setBlock(new BlockPos(x0 + 3, y + 3, z0 + 12), Blocks.COBWEB.defaultBlockState(), 2);
+    }
+
+    private void buildBorginAndBurkes(WorldGenLevel level, BlockPos corner, RandomSource rng) {
+        int x0 = corner.getX();
+        int y0 = corner.getY();
+        int z0 = corner.getZ();
+        int sx = 9, sz = 9, h = 6;
+        BlockState wall = Blocks.BLACKSTONE.defaultBlockState();
+        BlockState accent = Blocks.POLISHED_BLACKSTONE_BRICKS.defaultBlockState();
+        BlockState floor = Blocks.DARK_OAK_PLANKS.defaultBlockState();
+        BlockState window = Blocks.PURPLE_STAINED_GLASS_PANE.defaultBlockState();
+
+        fillRect(level, x0, y0, z0, sx, 1, sz, floor);
+        for (int dy = 1; dy <= h; dy++) {
+            for (int dx = 0; dx < sx; dx++) {
+                for (int dz = 0; dz < sz; dz++) {
+                    boolean edge = dx == 0 || dx == sx - 1 || dz == 0 || dz == sz - 1;
+                    if (!edge) continue;
+                    boolean isCorner = (dx == 0 || dx == sx - 1) && (dz == 0 || dz == sz - 1);
+                    boolean band = dy == 4;
+                    level.setBlock(new BlockPos(x0 + dx, y0 + dy, z0 + dz),
+                            isCorner || band ? accent : wall, 2);
+                }
+            }
+        }
+        // Front door faces east (toward the Knockturn alley path).
+        int frontX = x0 + sx - 1;
+        for (int dz = 2; dz < sz - 2; dz++) {
+            if (dz == sz / 2) continue;
+            level.setBlock(new BlockPos(frontX, y0 + 2, z0 + dz), window, 2);
+        }
+        BlockState doorLower = Blocks.DARK_OAK_DOOR.defaultBlockState()
+                .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.WEST)
+                .setValue(BlockStateProperties.DOUBLE_BLOCK_HALF, DoubleBlockHalf.LOWER);
+        BlockState doorUpper = doorLower.setValue(BlockStateProperties.DOUBLE_BLOCK_HALF, DoubleBlockHalf.UPPER);
+        level.setBlock(new BlockPos(frontX, y0 + 1, z0 + sz / 2), doorLower, 2);
+        level.setBlock(new BlockPos(frontX, y0 + 2, z0 + sz / 2), doorUpper, 2);
+        // Sinister hanging soul lantern over the door.
+        level.setBlock(new BlockPos(frontX, y0 + 4, z0 + sz / 2),
+                Blocks.SOUL_LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, true), 2);
+
+        // Slanted blackstone roof.
+        for (int dx = 0; dx < sx; dx++) {
+            for (int dz = 0; dz < sz; dz++) {
+                level.setBlock(new BlockPos(x0 + dx, y0 + h + 1, z0 + dz), accent, 2);
+            }
+        }
+        // Spires at corners.
+        for (int dy = 0; dy < 3; dy++) {
+            level.setBlock(new BlockPos(x0, y0 + h + 2 + dy, z0), Blocks.POLISHED_BLACKSTONE.defaultBlockState(), 2);
+            level.setBlock(new BlockPos(x0 + sx - 1, y0 + h + 2 + dy, z0), Blocks.POLISHED_BLACKSTONE.defaultBlockState(), 2);
+            level.setBlock(new BlockPos(x0, y0 + h + 2 + dy, z0 + sz - 1), Blocks.POLISHED_BLACKSTONE.defaultBlockState(), 2);
+            level.setBlock(new BlockPos(x0 + sx - 1, y0 + h + 2 + dy, z0 + sz - 1), Blocks.POLISHED_BLACKSTONE.defaultBlockState(), 2);
+        }
+
+        // INTERIOR: skull displays, withered shelves, cursed object on pedestal, cobwebs.
+        for (int dx = 1; dx < sx - 1; dx++) {
+            level.setBlock(new BlockPos(x0 + dx, y0 + 1, z0 + 1), Blocks.SOUL_SAND.defaultBlockState(), 2);
+            if (dx % 2 == 0)
+                level.setBlock(new BlockPos(x0 + dx, y0 + 2, z0 + 1), Blocks.SKELETON_SKULL.defaultBlockState(), 2);
+        }
+        // Pedestal with cursed item.
+        level.setBlock(new BlockPos(x0 + sx / 2, y0 + 1, z0 + sz / 2), Blocks.CHISELED_POLISHED_BLACKSTONE.defaultBlockState(), 2);
+        level.setBlock(new BlockPos(x0 + sx / 2, y0 + 2, z0 + sz / 2), Blocks.WITHER_SKELETON_SKULL.defaultBlockState(), 2);
+        // Cobwebs in corners.
+        level.setBlock(new BlockPos(x0 + 1, y0 + h - 1, z0 + 1), Blocks.COBWEB.defaultBlockState(), 2);
+        level.setBlock(new BlockPos(x0 + sx - 2, y0 + h - 1, z0 + sz - 2), Blocks.COBWEB.defaultBlockState(), 2);
+        // Purple carpet runner.
+        for (int dz = 1; dz < sz - 1; dz++) {
+            level.setBlock(new BlockPos(x0 + sx / 2, y0 + 1, z0 + dz), Blocks.PURPLE_CARPET.defaultBlockState(), 2);
+        }
+        // Loot chest.
+        placeLootChest(level, new BlockPos(x0 + 2, y0 + 1, z0 + sz - 2), Direction.WEST, LootTheme.BORGIN_DARK, rng);
+
+        spawnNamedVillager(level, new BlockPos(x0 + sx / 2 - 1, y0 + 1, z0 + sz - 2),
+                VillagerProfession.WEAPONSMITH, "Mr. Borgin");
+    }
+
+    private void buildCursedCurioShop(WorldGenLevel level, BlockPos corner, RandomSource rng) {
+        int x0 = corner.getX();
+        int y0 = corner.getY();
+        int z0 = corner.getZ();
+        int sx = 8, sz = 9, h = 5;
+        BlockState wall = Blocks.BASALT.defaultBlockState();
+        BlockState floor = Blocks.DARK_OAK_PLANKS.defaultBlockState();
+        BlockState window = Blocks.RED_STAINED_GLASS_PANE.defaultBlockState();
+
+        fillRect(level, x0, y0, z0, sx, 1, sz, floor);
+        for (int dy = 1; dy <= h; dy++) {
+            for (int dx = 0; dx < sx; dx++) {
+                for (int dz = 0; dz < sz; dz++) {
+                    boolean edge = dx == 0 || dx == sx - 1 || dz == 0 || dz == sz - 1;
+                    if (!edge) continue;
+                    level.setBlock(new BlockPos(x0 + dx, y0 + dy, z0 + dz),
+                            dy == h ? Blocks.POLISHED_BASALT.defaultBlockState() : wall, 2);
+                }
+            }
+        }
+        // Door faces west (toward the alley path).
+        BlockState doorLower = Blocks.DARK_OAK_DOOR.defaultBlockState()
+                .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.EAST)
+                .setValue(BlockStateProperties.DOUBLE_BLOCK_HALF, DoubleBlockHalf.LOWER);
+        BlockState doorUpper = doorLower.setValue(BlockStateProperties.DOUBLE_BLOCK_HALF, DoubleBlockHalf.UPPER);
+        level.setBlock(new BlockPos(x0, y0 + 1, z0 + sz / 2), doorLower, 2);
+        level.setBlock(new BlockPos(x0, y0 + 2, z0 + sz / 2), doorUpper, 2);
+        for (int dz = 2; dz < sz - 2; dz++) {
+            if (dz == sz / 2) continue;
+            level.setBlock(new BlockPos(x0, y0 + 2, z0 + dz), window, 2);
+        }
+        level.setBlock(new BlockPos(x0, y0 + 4, z0 + sz / 2),
+                Blocks.SOUL_LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, true), 2);
+        // Roof.
+        for (int dx = 0; dx < sx; dx++) {
+            for (int dz = 0; dz < sz; dz++) {
+                level.setBlock(new BlockPos(x0 + dx, y0 + h + 1, z0 + dz), Blocks.POLISHED_BASALT.defaultBlockState(), 2);
+            }
+        }
+        // Interior: glass display cases (panes around air), random "cursed" blocks.
+        for (int dx = 2; dx < sx - 2; dx++) {
+            level.setBlock(new BlockPos(x0 + dx, y0 + 1, z0 + sz - 2), Blocks.CHISELED_POLISHED_BLACKSTONE.defaultBlockState(), 2);
+            if (dx % 2 == 0)
+                level.setBlock(new BlockPos(x0 + dx, y0 + 2, z0 + sz - 2), Blocks.BONE_BLOCK.defaultBlockState(), 2);
+        }
+        // Cobweb in the doorway corner.
+        level.setBlock(new BlockPos(x0 + sx - 2, y0 + h - 1, z0 + 1), Blocks.COBWEB.defaultBlockState(), 2);
+        // Red carpet.
+        for (int dz = 1; dz < sz - 1; dz++) {
+            level.setBlock(new BlockPos(x0 + sx / 2, y0 + 1, z0 + dz), Blocks.RED_CARPET.defaultBlockState(), 2);
+        }
+        placeLootChest(level, new BlockPos(x0 + sx - 2, y0 + 1, z0 + sz - 2), Direction.WEST, LootTheme.BORGIN_DARK, rng);
+        spawnNamedVillager(level, new BlockPos(x0 + sx / 2, y0 + 1, z0 + sz - 3),
+                VillagerProfession.MASON, "Caretaker");
+    }
+
+    // =================================================================================
+    // Mod-block flourishes (Floo Fireplace, Owl Perch, etc.)
+    // =================================================================================
+
+    private void decorateWithModBlocks(WorldGenLevel level, int x0, int y, int z0) {
+        // Floo Fireplace in the Leaky Cauldron, replacing the indoor campfire location.
+        BlockState floo = optionalBlock("FLOO_FIREPLACE");
+        if (floo != null) {
+            level.setBlock(new BlockPos(x0 + 1, y + 1, z0 + 16), floo, 2);
+        }
+        // Owl Perches in Eeylops (in front of each hay-fence stand we placed).
+        BlockState owlPerch = optionalBlock("OWL_PERCH");
+        if (owlPerch != null) {
+            for (int dx = 18; dx <= 24; dx += 2) {
+                level.setBlock(new BlockPos(x0 + dx, y + 2, z0 + 18), owlPerch, 2);
+            }
+        }
+        // Wizard Cauldrons in the Apothecary.
+        BlockState wizardCauldron = optionalBlock("WIZARD_CAULDRON");
+        if (wizardCauldron != null) {
+            level.setBlock(new BlockPos(x0 + 41, y + 1, z0 + 32), wizardCauldron, 2);
+            level.setBlock(new BlockPos(x0 + 46, y + 1, z0 + 32), wizardCauldron, 2);
+        }
+        // Enchanted Book Piles in Flourish & Blotts (on the centre book table).
+        BlockState bookPile = optionalBlock("ENCHANTED_BOOK_PILE");
+        if (bookPile != null) {
+            level.setBlock(new BlockPos(x0 + 33, y + 2, z0 + 18), bookPile, 2);
+            level.setBlock(new BlockPos(x0 + 35, y + 2, z0 + 18), bookPile, 2);
+        }
+        // Candle Clusters dotted in interiors for cozy lighting.
+        BlockState candles = optionalBlock("CANDLE_CLUSTER");
+        if (candles != null) {
+            level.setBlock(new BlockPos(x0 + 19, y + 1, z0 + 14), candles, 2);
+            level.setBlock(new BlockPos(x0 + 33, y + 1, z0 + 14), candles, 2);
+            level.setBlock(new BlockPos(x0 + 48, y + 1, z0 + 13), candles, 2);
+        }
+        // Moving Portraits as wall art in shops with internal back-wall space.
+        BlockState portrait = optionalBlock("MOVING_PORTRAIT");
+        if (portrait != null) {
+            level.setBlock(new BlockPos(x0 + 33, y + 3, z0 + 12), portrait, 2);
+            level.setBlock(new BlockPos(x0 + 49, y + 3, z0 + 10), portrait, 2);
+        }
+        // Hogwarts house banners along the Gringotts colonnade interior.
+        BlockState gryf = optionalBlock("GRYFFINDOR_BANNER_BLOCK");
+        BlockState raven = optionalBlock("RAVENCLAW_BANNER_BLOCK");
+        BlockState huff = optionalBlock("HUFFLEPUFF_BANNER_BLOCK");
+        BlockState slyth = optionalBlock("SLYTHERIN_BANNER_BLOCK");
+        if (gryf != null)  level.setBlock(new BlockPos(x0 + 62, y + 4, z0 + 11), gryf, 2);
+        if (raven != null) level.setBlock(new BlockPos(x0 + 66, y + 4, z0 + 11), raven, 2);
+        if (huff != null)  level.setBlock(new BlockPos(x0 + 70, y + 4, z0 + 11), huff, 2);
+        if (slyth != null) level.setBlock(new BlockPos(x0 + 72, y + 4, z0 + 11), slyth, 2);
+    }
+
+    private BlockState optionalBlock(String fieldName) {
+        try {
+            java.lang.reflect.Field f = ExampleMod.class.getField(fieldName);
+            Object regObject = f.get(null);
+            if (regObject instanceof net.minecraftforge.registries.RegistryObject<?> ro) {
+                Object value = ro.get();
+                if (value instanceof net.minecraft.world.level.block.Block block) {
+                    return block.defaultBlockState();
+                }
+            }
+        } catch (Throwable ignored) {}
+        return null;
+    }
+
+    // =================================================================================
+    // Custom loot chests
+    // =================================================================================
+
+    /** Themed loot for each shop. Items chosen from the mod's own item registry where possible. */
+    private enum LootTheme {
+        OLLIVANDERS_WANDS,
+        FLOURISH_BOOKS,
+        QUIDDITCH_BROOMS,
+        APOTHECARY_INGREDIENTS,
+        MALKINS_CLOTHES,
+        FORTESCUES_SWEETS,
+        WHEEZES_PRANKS,
+        EEYLOPS_FEATHERS,
+        GRINGOTTS_VAULT,
+        LEAKY_CAULDRON_FOOD,
+        BORGIN_DARK
+    }
+
+    private void placeLootChest(WorldGenLevel level, BlockPos pos, Direction facing, LootTheme theme, RandomSource rng) {
+        BlockState chestState = Blocks.CHEST.defaultBlockState()
+                .setValue(ChestBlock.FACING, facing);
+        level.setBlock(pos, chestState, 2);
+        // ChestBlockEntity.setItem inherits from BaseContainerBlockEntity.setItem which only modifies
+        // the items list + calls setChanged() (which is null-safe when the BE's level is null during
+        // worldgen). Safe to populate directly.
+        if (!(level.getBlockEntity(pos) instanceof ChestBlockEntity chest)) return;
+        List<ItemStack> rolled = rollLoot(theme, rng);
+        int slot = rng.nextInt(3);
+        for (ItemStack stack : rolled) {
+            if (slot >= 27) break;
+            chest.setItem(slot, stack);
+            slot += 1 + rng.nextInt(3); // scatter across slots so it looks lived-in
+        }
+    }
+
+    private List<ItemStack> rollLoot(LootTheme theme, RandomSource rng) {
+        List<ItemStack> out = new ArrayList<>();
+        switch (theme) {
+            case OLLIVANDERS_WANDS -> {
+                // Spare wand cores, fine wood sticks, and a chance at a real wand.
+                addStack(out, optionalItem("FINE_WOOD_STICK"), 3 + rng.nextInt(5));
+                addStack(out, optionalItem("ARCANE_DUST"), 2 + rng.nextInt(4));
+                addStack(out, optionalItem("ARCANE_CORE"), 1 + rng.nextInt(2));
+                if (rng.nextFloat() < 0.30F) addStack(out, optionalItem("PHOENIX_CORE_WAND"), 1);
+                if (rng.nextFloat() < 0.15F) addStack(out, optionalItem("UNICORN_CORE_WAND"), 1);
+                if (rng.nextFloat() < 0.08F) addStack(out, optionalItem("DRAGON_CORE_WAND"), 1);
+                // A starter spell book.
+                addBook(out, SpellType.LUMOS);
+                if (rng.nextFloat() < 0.5F) addBook(out, SpellType.ALOHOMORA);
+            }
+            case FLOURISH_BOOKS -> {
+                // Magic books — Flourish & Blotts is THE bookshop. Lots of spell books.
+                SpellType[] commons = {SpellType.LUMOS, SpellType.ALOHOMORA, SpellType.REVELIO,
+                        SpellType.INCENDIO, SpellType.ARRESTO_MOMENTUM, SpellType.WINGARDIUM_LEVIOSA};
+                SpellType[] advanced = {SpellType.PROTEGO, SpellType.STUPEFY, SpellType.EXPELLIARMUS,
+                        SpellType.REPARO};
+                for (int i = 0; i < 3 + rng.nextInt(4); i++) {
+                    addBook(out, commons[rng.nextInt(commons.length)]);
+                }
+                for (int i = 0; i < 1 + rng.nextInt(2); i++) {
+                    addBook(out, advanced[rng.nextInt(advanced.length)]);
+                }
+                addStack(out, Items.BOOK, 4 + rng.nextInt(6));
+                addStack(out, Items.WRITABLE_BOOK, 1 + rng.nextInt(2));
+                addStack(out, Items.PAPER, 6 + rng.nextInt(8));
+            }
+            case QUIDDITCH_BROOMS -> {
+                addStack(out, optionalItem("BROOM"), 1);
+                if (rng.nextFloat() < 0.35F) addStack(out, optionalItem("NIMBUS_2000"), 1);
+                if (rng.nextFloat() < 0.10F) addStack(out, optionalItem("FIREBOLT"), 1);
+                addStack(out, Items.FEATHER, 4 + rng.nextInt(6));
+                addStack(out, Items.STICK, 6 + rng.nextInt(6));
+                addStack(out, Items.LEATHER, 2 + rng.nextInt(3));
+                addStack(out, Items.GOLD_NUGGET, 3 + rng.nextInt(4));
+            }
+            case APOTHECARY_INGREDIENTS -> {
+                addStack(out, optionalItem("GILLYWEED"), 1 + rng.nextInt(3));
+                addStack(out, optionalItem("MANDRAKE_ROOT"), 1 + rng.nextInt(2));
+                addStack(out, optionalItem("ACROMANTULA_VENOM"), rng.nextInt(2));
+                addStack(out, optionalItem("ARCANE_DUST"), 2 + rng.nextInt(4));
+                addStack(out, optionalItem("WOLF_FANG"), rng.nextInt(2));
+                addStack(out, Items.GLASS_BOTTLE, 4 + rng.nextInt(4));
+                addStack(out, Items.SPIDER_EYE, 2 + rng.nextInt(3));
+                addStack(out, Items.BLAZE_POWDER, 1 + rng.nextInt(3));
+                addStack(out, Items.NETHER_WART, 2 + rng.nextInt(3));
+            }
+            case MALKINS_CLOTHES -> {
+                // Robes: leather armor + dyed leather.
+                addStack(out, Items.LEATHER_HELMET, 1);
+                addStack(out, Items.LEATHER_CHESTPLATE, 1);
+                addStack(out, Items.LEATHER_LEGGINGS, 1);
+                addStack(out, Items.LEATHER_BOOTS, 1);
+                addStack(out, Items.WHITE_WOOL, 4 + rng.nextInt(4));
+                addStack(out, Items.STRING, 4 + rng.nextInt(8));
+                addStack(out, Items.PINK_DYE, 2 + rng.nextInt(3));
+                if (rng.nextFloat() < 0.25F) addStack(out, optionalItem("INVISIBILITY_CLOAK"), 1);
+            }
+            case FORTESCUES_SWEETS -> {
+                addStack(out, Items.CAKE, 1);
+                addStack(out, Items.PUMPKIN_PIE, 1 + rng.nextInt(2));
+                addStack(out, Items.COOKIE, 4 + rng.nextInt(6));
+                addStack(out, Items.SWEET_BERRIES, 4 + rng.nextInt(6));
+                addStack(out, Items.HONEY_BOTTLE, 1 + rng.nextInt(2));
+                addStack(out, Items.SUGAR, 4 + rng.nextInt(4));
+                addStack(out, Items.MILK_BUCKET, 1);
+            }
+            case WHEEZES_PRANKS -> {
+                addStack(out, Items.TNT, 2 + rng.nextInt(3));
+                addStack(out, Items.GUNPOWDER, 4 + rng.nextInt(6));
+                addStack(out, Items.REDSTONE, 8 + rng.nextInt(8));
+                addStack(out, Items.SLIME_BALL, 2 + rng.nextInt(3));
+                addStack(out, Items.FIREWORK_ROCKET, 4 + rng.nextInt(4));
+                addStack(out, Items.MAGMA_CREAM, 1 + rng.nextInt(2));
+                // Random music disc.
+                if (rng.nextFloat() < 0.4F) addStack(out, Items.MUSIC_DISC_CAT, 1);
+            }
+            case EEYLOPS_FEATHERS -> {
+                addStack(out, Items.FEATHER, 8 + rng.nextInt(8));
+                addStack(out, Items.EGG, 4 + rng.nextInt(4));
+                addStack(out, Items.LEATHER, 2 + rng.nextInt(3));
+                addStack(out, Items.STRING, 4 + rng.nextInt(4));
+                addStack(out, optionalItem("OWL_PERCH_ITEM"), 1 + rng.nextInt(2));
+            }
+            case GRINGOTTS_VAULT -> {
+                addStack(out, Items.GOLD_INGOT, 8 + rng.nextInt(8));
+                addStack(out, Items.GOLD_NUGGET, 16 + rng.nextInt(16));
+                addStack(out, Items.EMERALD, 6 + rng.nextInt(8));
+                addStack(out, Items.DIAMOND, 1 + rng.nextInt(3));
+                if (rng.nextFloat() < 0.05F) addStack(out, optionalItem("ELDER_WAND"), 1);
+                if (rng.nextFloat() < 0.15F) addStack(out, optionalItem("HORCRUX_ITEM"), 1);
+            }
+            case LEAKY_CAULDRON_FOOD -> {
+                addStack(out, Items.BREAD, 4 + rng.nextInt(6));
+                addStack(out, Items.COOKED_BEEF, 2 + rng.nextInt(4));
+                addStack(out, Items.GOLDEN_CARROT, 1 + rng.nextInt(2));
+                addStack(out, Items.MUSHROOM_STEW, 1 + rng.nextInt(3));
+                addStack(out, Items.GLASS_BOTTLE, 4);
+                addStack(out, Items.POTION, 1);
+            }
+            case BORGIN_DARK -> {
+                // Cursed items: bones, rotten flesh, soul-flavored stuff, withered loot.
+                addStack(out, Items.BONE, 4 + rng.nextInt(6));
+                addStack(out, Items.ROTTEN_FLESH, 4 + rng.nextInt(6));
+                addStack(out, Items.SKELETON_SKULL, rng.nextInt(2));
+                addStack(out, Items.WITHER_SKELETON_SKULL, rng.nextFloat() < 0.20F ? 1 : 0);
+                addStack(out, Items.SOUL_SAND, 2 + rng.nextInt(3));
+                addStack(out, Items.OBSIDIAN, 1 + rng.nextInt(3));
+                addStack(out, optionalItem("ACROMANTULA_VENOM"), 1 + rng.nextInt(2));
+                if (rng.nextFloat() < 0.20F) addStack(out, optionalItem("HORCRUX_ITEM"), 1);
+            }
+        }
+        return out;
+    }
+
+    /** Looks up a registered mod item by its ExampleMod field name; returns null if missing. */
+    private Item optionalItem(String fieldName) {
+        try {
+            java.lang.reflect.Field f = ExampleMod.class.getField(fieldName);
+            Object regObject = f.get(null);
+            if (regObject instanceof net.minecraftforge.registries.RegistryObject<?> ro) {
+                Object value = ro.get();
+                if (value instanceof Item item) return item;
+            }
+        } catch (Throwable ignored) {}
+        return null;
+    }
+
+    private void addStack(List<ItemStack> out, Item item, int count) {
+        if (item == null || count <= 0) return;
+        out.add(new ItemStack(item, count));
+    }
+
+    private void addBook(List<ItemStack> out, SpellType spell) {
+        try {
+            out.add(MagicBookItem.createBook(spell));
+        } catch (Throwable ignored) {}
     }
 
     private void spawnNamedVillager(WorldGenLevel level, BlockPos pos, VillagerProfession profession, String name) {

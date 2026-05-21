@@ -111,6 +111,16 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
             buildLanternPole(level, new BlockPos(avenueX0 + dx, y + 1, avenueZ0 + 7));
         }
 
+        // Benches + flower planters tucked between the lantern poles for street life.
+        for (int dx = 6; dx < 38; dx += 8) {
+            placeBench(level, new BlockPos(avenueX0 + dx, y + 1, avenueZ0 - 2));
+            placeBench(level, new BlockPos(avenueX0 + dx, y + 1, avenueZ0 + 7));
+        }
+        for (int dx = 4; dx < 40; dx += 4) {
+            placeFlowerPlanter(level, new BlockPos(avenueX0 + dx, y, avenueZ0 - 3));
+            placeFlowerPlanter(level, new BlockPos(avenueX0 + dx, y, avenueZ0 + 8));
+        }
+
         // Fountain at center of the avenue (avenue dx 18..23, dz 0..5).
         buildFountain(level, new BlockPos(avenueX0 + 19, y, avenueZ0 + 1));
 
@@ -127,8 +137,8 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
         buildShop(level, new BlockPos(x0 + 26, y, z0 + 21),  9, 7, ShopType.WEASLEY_WHEEZES, false);
         buildShop(level, new BlockPos(x0 + 36, y, z0 + 22), 10, 6, ShopType.GRINGOTTS,      false);
 
-        // West entrance arch.
-        buildArch(level, new BlockPos(avenueX0 - 1, y, avenueZ0 + 2));
+        // West entrance: the iconic brick-wall passage from The Leaky Cauldron — depicted mid-magical-open.
+        buildBrickWallPassage(level, new BlockPos(avenueX0 - 1, y, avenueZ0 + 2));
 
         // East lantern tower — landmark visible from far away.
         buildTower(level, new BlockPos(x0 + 46, y, z0 + 14));
@@ -209,11 +219,12 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
             }
         }
 
-        // Windows along side walls.
+        // Windows along side walls — themed stained-glass panes for shop personality.
         int windowY = y0 + 2;
+        BlockState windowPane = stainedPaneFor(shopType);
         for (int dz = 2; dz < sz - 2; dz += 2) {
-            level.setBlock(new BlockPos(x0, windowY, z0 + dz), Blocks.GLASS_PANE.defaultBlockState(), 2);
-            level.setBlock(new BlockPos(x0 + sx - 1, windowY, z0 + dz), Blocks.GLASS_PANE.defaultBlockState(), 2);
+            level.setBlock(new BlockPos(x0, windowY, z0 + dz), windowPane, 2);
+            level.setBlock(new BlockPos(x0 + sx - 1, windowY, z0 + dz), windowPane, 2);
         }
 
         // Front wall (faces avenue).
@@ -232,9 +243,14 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
         level.setBlock(new BlockPos(doorX, y0 + 1, frontZ), doorLower, 2);
         level.setBlock(new BlockPos(doorX, y0 + 2, frontZ), doorUpper, 2);
 
-        // Front windows flanking the door.
-        level.setBlock(new BlockPos(doorX - 2, windowY, frontZ), Blocks.GLASS_PANE.defaultBlockState(), 2);
-        level.setBlock(new BlockPos(doorX + 2, windowY, frontZ), Blocks.GLASS_PANE.defaultBlockState(), 2);
+        // Front windows flanking the door — stained glass matching the shop's theme.
+        level.setBlock(new BlockPos(doorX - 2, windowY, frontZ), windowPane, 2);
+        level.setBlock(new BlockPos(doorX + 2, windowY, frontZ), windowPane, 2);
+        // Front sills with bottom slabs to break up the wall.
+        level.setBlock(new BlockPos(doorX - 2, y0 + 1, frontZ), Blocks.STONE_BRICK_SLAB.defaultBlockState()
+                .setValue(BlockStateProperties.SLAB_TYPE, SlabType.BOTTOM), 2);
+        level.setBlock(new BlockPos(doorX + 2, y0 + 1, frontZ), Blocks.STONE_BRICK_SLAB.defaultBlockState()
+                .setValue(BlockStateProperties.SLAB_TYPE, SlabType.BOTTOM), 2);
 
         // Lantern on each side of the door, hanging from the front wall above.
         level.setBlock(new BlockPos(doorX - 2, y0 + 4, frontZ),
@@ -246,6 +262,31 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
         BlockState banner = bannerWoolFor(shopType);
         level.setBlock(new BlockPos(doorX, y0 + height, frontZ), banner, 2);
         level.setBlock(new BlockPos(doorX, y0 + height + 1, frontZ), banner, 2);
+
+        // Awning over the doorway — stair blocks projecting outward from the wall, capped
+        // with a slab on top so the silhouette reads as a proper shop overhang.
+        int awningZ = frontIsSouth ? frontZ + 1 : frontZ - 1;
+        Direction awningFacing = frontIsSouth ? Direction.NORTH : Direction.SOUTH;
+        BlockState awningStair = roofStair
+                .setValue(BlockStateProperties.HORIZONTAL_FACING, awningFacing)
+                .setValue(BlockStateProperties.HALF, Half.TOP);
+        for (int dx = -2; dx <= 2; dx++) {
+            level.setBlock(new BlockPos(doorX + dx, y0 + 3, awningZ), awningStair, 2);
+        }
+        // Side returns so the awning has end-caps.
+        BlockState sideReturnLeft = roofStair
+                .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.EAST)
+                .setValue(BlockStateProperties.HALF, Half.TOP);
+        BlockState sideReturnRight = roofStair
+                .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.WEST)
+                .setValue(BlockStateProperties.HALF, Half.TOP);
+        level.setBlock(new BlockPos(doorX - 3, y0 + 3, awningZ), sideReturnLeft, 2);
+        level.setBlock(new BlockPos(doorX + 3, y0 + 3, awningZ), sideReturnRight, 2);
+
+        // Doorstep: a single bottom slab tile at the threshold for street-level transition.
+        int stepZ = frontIsSouth ? frontZ + 1 : frontZ - 1;
+        level.setBlock(new BlockPos(doorX, y0, stepZ), Blocks.STONE_BRICK_SLAB.defaultBlockState()
+                .setValue(BlockStateProperties.SLAB_TYPE, SlabType.TOP), 2);
 
         // Flat-and-gabled roof: solid layer at top, then ridge stairs along the long axis.
         int roofY = y0 + height + 1;
@@ -333,6 +374,28 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
         return Blocks.DARK_OAK_PLANKS.defaultBlockState();
     }
 
+    private BlockState stainedPaneFor(ShopType s) {
+        if (s == ShopType.OLLIVANDERS) return Blocks.BROWN_STAINED_GLASS_PANE.defaultBlockState();
+        if (s == ShopType.QUIDDITCH) return Blocks.RED_STAINED_GLASS_PANE.defaultBlockState();
+        if (s == ShopType.APOTHECARY) return Blocks.GREEN_STAINED_GLASS_PANE.defaultBlockState();
+        if (s == ShopType.MALKINS) return Blocks.PINK_STAINED_GLASS_PANE.defaultBlockState();
+        if (s == ShopType.FORTESCUES) return Blocks.LIGHT_BLUE_STAINED_GLASS_PANE.defaultBlockState();
+        if (s == ShopType.WEASLEY_WHEEZES) return Blocks.ORANGE_STAINED_GLASS_PANE.defaultBlockState();
+        if (s == ShopType.GRINGOTTS) return Blocks.YELLOW_STAINED_GLASS_PANE.defaultBlockState();
+        return Blocks.LIME_STAINED_GLASS_PANE.defaultBlockState();
+    }
+
+    private BlockState carpetFor(ShopType s) {
+        if (s == ShopType.OLLIVANDERS) return Blocks.BROWN_CARPET.defaultBlockState();
+        if (s == ShopType.QUIDDITCH) return Blocks.RED_CARPET.defaultBlockState();
+        if (s == ShopType.APOTHECARY) return Blocks.GREEN_CARPET.defaultBlockState();
+        if (s == ShopType.MALKINS) return Blocks.PINK_CARPET.defaultBlockState();
+        if (s == ShopType.FORTESCUES) return Blocks.LIGHT_BLUE_CARPET.defaultBlockState();
+        if (s == ShopType.WEASLEY_WHEEZES) return Blocks.ORANGE_CARPET.defaultBlockState();
+        if (s == ShopType.GRINGOTTS) return Blocks.YELLOW_CARPET.defaultBlockState();
+        return Blocks.LIME_CARPET.defaultBlockState();
+    }
+
     private BlockState bannerWoolFor(ShopType s) {
         if (s == ShopType.OLLIVANDERS) return Blocks.BROWN_WOOL.defaultBlockState();
         if (s == ShopType.QUIDDITCH) return Blocks.RED_WOOL.defaultBlockState();
@@ -347,6 +410,11 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
     private void placeInterior(WorldGenLevel level, int x0, int y0, int z0, int sx, int sz, ShopType s) {
         int cx = x0 + sx / 2;
         int cz = z0 + sz / 2;
+        // Themed carpet runner down the centre of the shop, door-to-counter, for instant warmth.
+        BlockState carpet = carpetFor(s);
+        for (int dz = 1; dz < sz - 1; dz++) {
+            level.setBlock(new BlockPos(cx, y0 + 1, z0 + dz), carpet, 2);
+        }
         if (s == ShopType.OLLIVANDERS) {
             // Two banks of bookshelves + lecterns + central display.
             for (int dx = 1; dx < sx - 1; dx++) {
@@ -495,23 +563,110 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
         level.setBlock(pillar2.above(3), Blocks.SEA_LANTERN.defaultBlockState(), 2);
     }
 
-    private void buildArch(WorldGenLevel level, BlockPos base) {
-        // 4-block-wide arch over the avenue entrance.
+    /**
+     * The iconic Leaky Cauldron entrance: a brick wall mid-magical-open. Hagrid taps three
+     * up, two across from the bin — here we depict the wall with the bricks already spiralled
+     * aside into the passage. Stone-brick stairs angled inward suggest the swirl; the centre
+     * of the wall is hollow so the avenue is walk-through.
+     */
+    private void buildBrickWallPassage(WorldGenLevel level, BlockPos base) {
         int x = base.getX();
         int y = base.getY();
         int z0 = base.getZ();
-        for (int dy = 0; dy < 5; dy++) {
-            level.setBlock(new BlockPos(x, y + dy, z0 - 1), Blocks.STONE_BRICKS.defaultBlockState(), 2);
-            level.setBlock(new BlockPos(x, y + dy, z0 + 4), Blocks.STONE_BRICKS.defaultBlockState(), 2);
+
+        // 1-thick brick wall, 8 tall, spanning the avenue width plus 1-block returns on each side.
+        // The wall is two blocks thick (x and x-1) for a chunkier feel.
+        for (int wallX = x - 1; wallX <= x; wallX++) {
+            for (int dz = -2; dz < 6; dz++) {
+                for (int dy = 0; dy < 8; dy++) {
+                    BlockPos p = new BlockPos(wallX, y + dy, z0 + dz);
+                    // Carve out a 4-wide × 5-tall central opening.
+                    boolean opening = dz >= 0 && dz <= 3 && dy >= 0 && dy < 5;
+                    if (opening) {
+                        level.setBlock(p, Blocks.AIR.defaultBlockState(), 2);
+                        continue;
+                    }
+                    // Mix bricks with mossy stone for weathering.
+                    BlockState block = ((dz + dy) % 3 == 0) ? Blocks.MOSSY_STONE_BRICKS.defaultBlockState()
+                            : Blocks.BRICKS.defaultBlockState();
+                    level.setBlock(p, block, 2);
+                }
+            }
         }
-        for (int dz = 0; dz < 4; dz++) {
-            level.setBlock(new BlockPos(x, y + 5, z0 + dz), Blocks.CHISELED_STONE_BRICKS.defaultBlockState(), 2);
+
+        // Capstone with chiseled stone-brick and a row of cracked stone for ancient feel.
+        for (int dz = -2; dz < 6; dz++) {
+            level.setBlock(new BlockPos(x, y + 8, z0 + dz),
+                    (dz % 2 == 0 ? Blocks.CHISELED_STONE_BRICKS : Blocks.CRACKED_STONE_BRICKS).defaultBlockState(), 2);
+            level.setBlock(new BlockPos(x - 1, y + 8, z0 + dz), Blocks.CHISELED_STONE_BRICKS.defaultBlockState(), 2);
         }
-        // Hanging lanterns under the arch.
+        // Top rampart: stair blocks crowning the wall.
+        for (int dz = -2; dz < 6; dz++) {
+            BlockState stair = Blocks.STONE_BRICK_STAIRS.defaultBlockState()
+                    .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.WEST)
+                    .setValue(BlockStateProperties.HALF, Half.BOTTOM);
+            level.setBlock(new BlockPos(x + 1, y + 8, z0 + dz), stair, 2);
+        }
+
+        // "Swirl reveal" — stair blocks inside the opening curling outward, as if the bricks
+        // had spiralled aside. Each stair points away from the centre of the doorway.
+        int cx = x;
+        int cy = y + 2;
+        int cz = z0 + 1;
+        // Inner cornice: angled stairs around the perimeter of the opening.
+        placeSwirlStair(level, new BlockPos(cx - 1, cy + 2, cz - 1), Direction.SOUTH);
+        placeSwirlStair(level, new BlockPos(cx - 1, cy + 2, cz + 2), Direction.NORTH);
+        placeSwirlStair(level, new BlockPos(cx - 1, cy - 1, cz - 1), Direction.SOUTH);
+        placeSwirlStair(level, new BlockPos(cx - 1, cy - 1, cz + 2), Direction.NORTH);
+
+        // The "key" brick — a single chiseled stone block on the right side of the doorway,
+        // visually distinct so it reads as the brick Hagrid tapped. We can't easily make it
+        // interactive in worldgen, but it sells the reference.
+        level.setBlock(new BlockPos(x, y + 3, z0 + 5), Blocks.CHISELED_STONE_BRICKS.defaultBlockState(), 2);
+        level.setBlock(new BlockPos(x, y + 3, z0 - 2), Blocks.CHISELED_STONE_BRICKS.defaultBlockState(), 2);
+
+        // Hanging lanterns inside the passage.
         level.setBlock(new BlockPos(x, y + 4, z0 + 1),
                 Blocks.LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, true), 2);
         level.setBlock(new BlockPos(x, y + 4, z0 + 2),
                 Blocks.LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, true), 2);
+
+        // A trash bin (cauldron) next to the wall — a nod to the bin Hagrid counts from in the movies.
+        level.setBlock(new BlockPos(x - 2, y + 1, z0 + 6), Blocks.CAULDRON.defaultBlockState(), 2);
+        // A barrel for stacked-crate flavor on the other side.
+        level.setBlock(new BlockPos(x - 2, y + 1, z0 - 3), Blocks.BARREL.defaultBlockState(), 2);
+        level.setBlock(new BlockPos(x - 2, y + 2, z0 - 3), Blocks.BARREL.defaultBlockState(), 2);
+
+        // Small flower planters flanking the entrance for life.
+        placeFlowerPlanter(level, new BlockPos(x - 3, y, z0 + 1));
+        placeFlowerPlanter(level, new BlockPos(x - 3, y, z0 + 3));
+    }
+
+    private void placeSwirlStair(WorldGenLevel level, BlockPos pos, Direction facing) {
+        BlockState stair = Blocks.STONE_BRICK_STAIRS.defaultBlockState()
+                .setValue(BlockStateProperties.HORIZONTAL_FACING, facing)
+                .setValue(BlockStateProperties.HALF, Half.BOTTOM);
+        level.setBlock(pos, stair, 2);
+    }
+
+    private void placeBench(WorldGenLevel level, BlockPos pos) {
+        // Stone-brick stairs as a bench seat (back-to-back), supported by oak slabs below.
+        BlockState seat = Blocks.STONE_BRICK_STAIRS.defaultBlockState()
+                .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.NORTH)
+                .setValue(BlockStateProperties.HALF, Half.TOP);
+        level.setBlock(pos, seat, 2);
+    }
+
+    private void placeFlowerPlanter(WorldGenLevel level, BlockPos pos) {
+        // Hay block topped with a random potted plant for street flavor.
+        level.setBlock(pos, Blocks.HAY_BLOCK.defaultBlockState(), 2);
+        BlockState plant = switch ((pos.getX() + pos.getZ()) & 3) {
+            case 0 -> Blocks.POTTED_POPPY.defaultBlockState();
+            case 1 -> Blocks.POTTED_ALLIUM.defaultBlockState();
+            case 2 -> Blocks.POTTED_DANDELION.defaultBlockState();
+            default -> Blocks.POTTED_AZURE_BLUET.defaultBlockState();
+        };
+        level.setBlock(pos.above(), plant, 2);
     }
 
     private void buildTower(WorldGenLevel level, BlockPos base) {

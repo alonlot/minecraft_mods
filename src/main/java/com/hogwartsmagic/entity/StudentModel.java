@@ -182,10 +182,9 @@ public class StudentModel<T extends Entity> extends EntityModel<T> implements ne
 
 	@Override
 	public void translateToHand(HumanoidArm arm, PoseStack poseStack) {
+		// Vanilla ItemInHandLayer already applies the standard rotations + hand offset for a
+		// 12-pixel-style arm. An extra translate + rotation here was flipping the wand upside
+		// down and floating it off the hand. Vanilla Villager uses just this call.
 		this.arms.translateAndRotate(poseStack);
-		// Move the item to the hand
-		poseStack.translate(0.0D, 0.7D, 0.0D);
-		// Rotate it to point forward (like a wand)
-		poseStack.mulPose(com.mojang.math.Axis.XP.rotationDegrees(-90.0F));
 	}
 }

@@ -185,14 +185,14 @@ public class WizardModel<T extends WizardEntity> extends EntityModel<T> implemen
 
 	@Override
 	public void translateToHand(net.minecraft.world.entity.HumanoidArm arm, PoseStack poseStack) {
+		// Vanilla ItemInHandLayer already applies the standard -90X / 180Y rotation and the
+		// (±1/16, 0.125, -0.625) offset to place the item at the hand of a 12-pixel arm. Doing
+		// our own extra translate + rotate on top of that flipped the wand upside-down and
+		// floated it off the hand. Pillager has the same arm geometry and uses just this call.
 		if (arm == net.minecraft.world.entity.HumanoidArm.RIGHT) {
 			this.right_arm.translateAndRotate(poseStack);
 		} else {
 			this.left_arm.translateAndRotate(poseStack);
 		}
-		// Move the item to the end of the long arm (12 pixels down)
-		poseStack.translate(0.0D, 0.7D, 0.0D);
-		// Rotate it to point forward (Harry Potter style)
-		poseStack.mulPose(com.mojang.math.Axis.XP.rotationDegrees(-90.0F));
 	}
 }

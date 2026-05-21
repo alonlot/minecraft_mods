@@ -110,6 +110,11 @@ public class SpellPackets {
                 .decoder(buf -> new BroomBoostPacket(buf.readBoolean()))
                 .consumerMainThread(BroomBoostPacket::handle)
                 .add();
+        CHANNEL.messageBuilder(BroomTrickPacket.class)
+                .encoder((p, buf) -> buf.writeByte(p.trickType))
+                .decoder(buf -> new BroomTrickPacket(buf.readByte()))
+                .consumerMainThread(BroomTrickPacket::handle)
+                .add();
         CHANNEL.messageBuilder(SyncRelicsPacket.class)
                 .encoder((p, buf) -> {
                     buf.writeUtf(writeItemId(p.capacityRelic));
@@ -342,6 +347,18 @@ public class SpellPackets {
                 net.minecraft.server.level.ServerPlayer player = ctx.getSender();
                 if (player != null && player.getVehicle() instanceof com.hogwartsmagic.entity.BroomEntity broom) {
                     broom.isBoosting = p.isBoosting;
+                }
+            });
+            ctx.setPacketHandled(true);
+        }
+    }
+
+    public record BroomTrickPacket(byte trickType) {
+        public static void handle(BroomTrickPacket p, CustomPayloadEvent.Context ctx) {
+            ctx.enqueueWork(() -> {
+                net.minecraft.server.level.ServerPlayer player = ctx.getSender();
+                if (player != null && player.getVehicle() instanceof com.hogwartsmagic.entity.BroomEntity broom) {
+                    broom.tryStartTrick(p.trickType);
                 }
             });
             ctx.setPacketHandled(true);

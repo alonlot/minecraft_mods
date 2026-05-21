@@ -28,8 +28,27 @@ public class BroomEntity extends Entity {
     public float displayRoll = 0.0F;
     public float prevDisplayRoll = 0.0F;
     private boolean wasBoostingLast = false;
+    // Trick state: 0 = none, 1 = barrel roll left, 2 = barrel roll right, 3 = forward loop.
+    // Both sides tick down trickTicks deterministically once tryStartTrick syncs the start.
+    public static final byte TRICK_NONE = 0;
+    public static final byte TRICK_BARREL_LEFT = 1;
+    public static final byte TRICK_BARREL_RIGHT = 2;
+    public static final byte TRICK_LOOP = 3;
+    public static final int TRICK_BARREL_DURATION = 16;
+    public static final int TRICK_LOOP_DURATION = 28;
+    public static final int TRICK_COOLDOWN = 25;
+    private int trickCooldown = 0;
+    public int prevTrickTicks = 0; // client-side cache for render lerp
+    // Stamina: 0..100. Drains while boosting, recovers when not. Below 0 = boost locked until > 30.
+    public static final int STAMINA_MAX = 100;
+    public static final int STAMINA_RECOVERY_THRESHOLD = 30;
+    private float staminaF = STAMINA_MAX; // server-authoritative; the synced byte mirrors floor(staminaF).
+    private boolean boostLocked = false;
     private static final EntityDataAccessor<Integer> DATA_TYPE = SynchedEntityData.defineId(BroomEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Boolean> DATA_BOOSTING = SynchedEntityData.defineId(BroomEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Byte> DATA_TRICK = SynchedEntityData.defineId(BroomEntity.class, EntityDataSerializers.BYTE);
+    private static final EntityDataAccessor<Integer> DATA_TRICK_TICKS = SynchedEntityData.defineId(BroomEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Byte> DATA_STAMINA = SynchedEntityData.defineId(BroomEntity.class, EntityDataSerializers.BYTE);
 
     public BroomEntity(EntityType<?> type, Level level) {
         super(type, level);
@@ -50,6 +69,9 @@ public class BroomEntity extends Entity {
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
         builder.define(DATA_TYPE, 0); // 0 = Basic, 1 = Nimbus 2000, 2 = Firebolt
         builder.define(DATA_BOOSTING, false);
+        builder.define(DATA_TRICK, TRICK_NONE);
+        builder.define(DATA_TRICK_TICKS, 0);
+        builder.define(DATA_STAMINA, (byte) STAMINA_MAX);
     }
 
     public boolean isBoostingSynced() {
@@ -58,6 +80,39 @@ public class BroomEntity extends Entity {
 
     public void setBoostingSynced(boolean v) {
         this.entityData.set(DATA_BOOSTING, v);
+    }
+
+    public byte getTrickType() {
+        return this.entityData.get(DATA_TRICK);
+    }
+
+    public int getTrickTicksSynced() {
+        return this.entityData.get(DATA_TRICK_TICKS);
+    }
+
+    public int getStaminaPercent() {
+        return this.entityData.get(DATA_STAMINA) & 0xFF;
+    }
+
+    /** Returns true when there is enough stamina available to engage boost. */
+    public boolean canBoost() {
+        return !this.boostLocked && this.getStaminaPercent() > 0;
+    }
+
+    public void tryStartTrick(byte trickType) {
+        if (trickType <= TRICK_NONE || trickType > TRICK_LOOP) return;
+        if (this.trickCooldown > 0 || this.getTrickTicksSynced() > 0) return;
+        if (!this.isVehicle()) return;
+        int dur = trickDurationFor(trickType);
+        this.entityData.set(DATA_TRICK, trickType);
+        this.entityData.set(DATA_TRICK_TICKS, dur);
+        // Whoosh on trick start.
+        this.level().playSound(null, this.getX(), this.getY(), this.getZ(),
+                SoundEvents.PHANTOM_FLAP, SoundSource.PLAYERS, 0.6F, 1.4F);
+    }
+
+    public static int trickDurationFor(byte trickType) {
+        return trickType == TRICK_LOOP ? TRICK_LOOP_DURATION : TRICK_BARREL_DURATION;
     }
 
     @Override
@@ -182,8 +237,45 @@ public class BroomEntity extends Entity {
         }
         this.displayRoll += (targetRoll - this.displayRoll) * 0.22F;
 
-        // Server-side: sync boost state and fire transition effects.
+        // Snapshot trickTicks for client-side render lerp (must happen before server decrement).
+        this.prevTrickTicks = this.getTrickTicksSynced();
         if (!this.level().isClientSide) {
+            int t = this.getTrickTicksSynced();
+            if (t > 0) {
+                t--;
+                this.entityData.set(DATA_TRICK_TICKS, t);
+                if (t == 0) {
+                    this.entityData.set(DATA_TRICK, TRICK_NONE);
+                    this.trickCooldown = TRICK_COOLDOWN;
+                }
+            } else if (this.trickCooldown > 0) {
+                this.trickCooldown--;
+            }
+        }
+
+        // Server-side: sync boost state, manage stamina, fire transition effects, weather hazards.
+        if (!this.level().isClientSide) {
+            // Stamina: drain while actually moving under boost; recover otherwise.
+            boolean activelyBoosting = this.isBoosting && this.isVehicle() && horizSpeed > 0.5F;
+            if (activelyBoosting) {
+                this.staminaF = Math.max(0.0F, this.staminaF - 1.0F);
+                if (this.staminaF <= 0.0F) {
+                    this.boostLocked = true;
+                    this.isBoosting = false; // force-release boost when empty
+                }
+            } else {
+                // Faster recovery while not boosting at all; slow recovery while still holding boost but stationary.
+                float rate = this.isBoosting ? 0.35F : 0.7F;
+                this.staminaF = Math.min(STAMINA_MAX, this.staminaF + rate);
+                if (this.boostLocked && this.staminaF >= STAMINA_RECOVERY_THRESHOLD) {
+                    this.boostLocked = false;
+                }
+            }
+            byte staminaByte = (byte) Mth.clamp((int) this.staminaF, 0, STAMINA_MAX);
+            if (this.entityData.get(DATA_STAMINA) != staminaByte) {
+                this.entityData.set(DATA_STAMINA, staminaByte);
+            }
+
             if (this.isBoostingSynced() != this.isBoosting) {
                 this.setBoostingSynced(this.isBoosting);
             }
@@ -192,7 +284,25 @@ public class BroomEntity extends Entity {
                 this.level().playSound(null, this.getX(), this.getY(), this.getZ(),
                         SoundEvents.FIREWORK_ROCKET_LAUNCH, SoundSource.PLAYERS, 0.9F, 1.25F);
             }
+            if (!this.isBoosting && this.wasBoostingLast && this.boostLocked) {
+                // Stamina-out sound: low fizz when boost cuts out from overheat.
+                this.level().playSound(null, this.getX(), this.getY(), this.getZ(),
+                        SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS, 0.5F, 1.6F);
+            }
             this.wasBoostingLast = this.isBoosting;
+
+            // Weather hazard: at high altitude during a thunderstorm, low chance of lightning strike.
+            if (this.isVehicle()
+                    && this.level().isThundering()
+                    && this.getY() > 180.0D
+                    && this.random.nextFloat() < 0.0006F
+                    && this.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+                net.minecraft.world.entity.LightningBolt bolt = net.minecraft.world.entity.EntityType.LIGHTNING_BOLT.create(serverLevel);
+                if (bolt != null) {
+                    bolt.moveTo(this.getX(), this.getY(), this.getZ());
+                    serverLevel.addFreshEntity(bolt);
+                }
+            }
         }
 
         // Client-side particle effects.
@@ -303,6 +413,13 @@ public class BroomEntity extends Entity {
         double targetSpeed = isTurbo ? boostSpeed : baseSpeed;
         double speedLerp = isTurbo ? accelPhase : 0.1; // Smoothly ramp up over time, or slow down quickly
 
+        // Weather: rain saps top speed and dampens acceleration. Thunderstorm makes it worse.
+        if (this.level().isRaining()) {
+            double weatherMul = this.level().isThundering() ? 0.7 : 0.82;
+            targetSpeed *= weatherMul;
+            speedLerp *= 0.85;
+        }
+
         double currentLen = this.getDeltaMovement().horizontalDistance();
         // Approach the target speed if moving input
         if (Math.abs(forward) > 0.01f || Math.abs(strafe) > 0.01f) {
@@ -332,8 +449,12 @@ public class BroomEntity extends Entity {
         // DRIFT PHYSICS:
         // Instead of instantly changing our velocity to `desired`, we blend it over time.
         // `momentumRetention` defines how "slippery" the broom is. High = drifty, Low = snappy.
-        double momentumRetention = 0.85; 
-        
+        double momentumRetention = 0.85;
+        // Rain pushes steering toward sluggish: more momentum retained → less responsive.
+        if (this.level().isRaining()) {
+            momentumRetention = this.level().isThundering() ? 0.93 : 0.90;
+        }
+
         Vec3 next = current.scale(momentumRetention).add(desired.scale(1.0 - momentumRetention));
 
         // Cap absolute maximum speed

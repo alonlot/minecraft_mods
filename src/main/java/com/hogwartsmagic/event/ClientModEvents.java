@@ -79,6 +79,7 @@ import javax.annotation.Nullable;
 public class ClientModEvents {
 
     private static boolean wasBoosting = false;
+    private static boolean wasJumpDownForTrick = false;
     private static boolean wasRadialDown = false;
     private static boolean wasProtegoMaximaChannelKeyDown = false;
     private static boolean protegoMaximaChannelActive = false;
@@ -117,8 +118,10 @@ public class ClientModEvents {
                 }
                 HorcruxClientState.tick(mc);
                 // Sprint/boost packets first so nothing in the broom sound path can prevent them from sending.
-                if (mc.player != null && mc.player.getVehicle() instanceof com.hogwartsmagic.entity.BroomEntity) {
-                    boolean isBoosting = mc.options.keySprint.isDown();
+                if (mc.player != null && mc.player.getVehicle() instanceof com.hogwartsmagic.entity.BroomEntity broom) {
+                    // Respect stamina lock: if broom is overheated, suppress boost input client-side
+                    // so the player doesn't keep re-triggering against a locked engine.
+                    boolean isBoosting = mc.options.keySprint.isDown() && broom.canBoost();
                     if (isBoosting != wasBoosting) {
                         wasBoosting = isBoosting;
                         SpellPackets.CHANNEL.send(new SpellPackets.BroomBoostPacket(isBoosting), PacketDistributor.SERVER.noArg());
@@ -127,8 +130,29 @@ public class ClientModEvents {
                             boostFovPunchTicks = 14;
                         }
                     }
+
+                    // Trick input: jump key transitions onto-down.
+                    // Strafe (xxa != 0) → barrel roll in that direction; pure forward → loop.
+                    boolean jumpDown = mc.options.keyJump.isDown();
+                    if (jumpDown && !wasJumpDownForTrick) {
+                        byte trick = com.hogwartsmagic.entity.BroomEntity.TRICK_NONE;
+                        float xxa = mc.player.xxa;
+                        float zza = mc.player.zza;
+                        if (xxa > 0.3F) {
+                            trick = com.hogwartsmagic.entity.BroomEntity.TRICK_BARREL_RIGHT;
+                        } else if (xxa < -0.3F) {
+                            trick = com.hogwartsmagic.entity.BroomEntity.TRICK_BARREL_LEFT;
+                        } else if (zza > 0.3F) {
+                            trick = com.hogwartsmagic.entity.BroomEntity.TRICK_LOOP;
+                        }
+                        if (trick != com.hogwartsmagic.entity.BroomEntity.TRICK_NONE) {
+                            SpellPackets.CHANNEL.send(new SpellPackets.BroomTrickPacket(trick), PacketDistributor.SERVER.noArg());
+                        }
+                    }
+                    wasJumpDownForTrick = jumpDown;
                 } else {
                     wasBoosting = false;
+                    wasJumpDownForTrick = false;
                 }
                 if (boostFovPunchTicks > 0) {
                     boostFovPunchTicks--;
@@ -300,6 +324,11 @@ public class ClientModEvents {
         @SubscribeEvent
         public static void onRenderGui(net.minecraftforge.client.event.CustomizeGuiOverlayEvent.Chat event) {
             com.hogwartsmagic.client.ManaOverlay.render(
+                event.getGuiGraphics(),
+                event.getWindow().getGuiScaledWidth(),
+                event.getWindow().getGuiScaledHeight()
+            );
+            com.hogwartsmagic.client.BroomHudOverlay.render(
                 event.getGuiGraphics(),
                 event.getWindow().getGuiScaledWidth(),
                 event.getWindow().getGuiScaledHeight()

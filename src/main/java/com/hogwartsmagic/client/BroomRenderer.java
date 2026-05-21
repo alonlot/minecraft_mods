@@ -11,6 +11,7 @@ import net.minecraft.client.renderer.MultiBufferSource;
 import com.mojang.math.Axis;
 
 import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.util.Mth;
 
 public class BroomRenderer extends EntityRenderer<BroomEntity> {
     private static final ResourceLocation TRAINING_TEXTURE = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "textures/entity/broom_training.png");
@@ -47,6 +48,23 @@ public class BroomRenderer extends EntityRenderer<BroomEntity> {
 
         poseStack.mulPose(Axis.YP.rotationDegrees(180.0F - lerpY));
         poseStack.mulPose(Axis.XP.rotationDegrees(-lerpX));
+
+        // Trick: barrel roll (Z axis) or loop (X axis). Progress = 1 - ticksLeft/duration.
+        byte trick = entity.getTrickType();
+        if (trick != com.hogwartsmagic.entity.BroomEntity.TRICK_NONE) {
+            int duration = com.hogwartsmagic.entity.BroomEntity.trickDurationFor(trick);
+            float lerpTicks = net.minecraft.util.Mth.lerp(partialTicks, entity.prevTrickTicks, entity.getTrickTicksSynced());
+            float progress = 1.0F - Mth.clamp(lerpTicks / duration, 0.0F, 1.0F);
+            float spinDeg = progress * 360.0F;
+            if (trick == com.hogwartsmagic.entity.BroomEntity.TRICK_BARREL_LEFT) {
+                poseStack.mulPose(Axis.ZP.rotationDegrees(-spinDeg));
+            } else if (trick == com.hogwartsmagic.entity.BroomEntity.TRICK_BARREL_RIGHT) {
+                poseStack.mulPose(Axis.ZP.rotationDegrees(spinDeg));
+            } else if (trick == com.hogwartsmagic.entity.BroomEntity.TRICK_LOOP) {
+                poseStack.mulPose(Axis.XP.rotationDegrees(spinDeg));
+            }
+        }
+
         // Banking roll: broom local +Z runs along the handle, so roll is about the Z axis.
         poseStack.mulPose(Axis.ZP.rotationDegrees(lerpRoll));
         

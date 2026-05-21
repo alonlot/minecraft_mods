@@ -64,6 +64,26 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("HogwartsMagic-DiagonAlley");
 
+    /**
+     * Vanilla forbids feature placement from touching blocks beyond the 3x3 chunk window
+     * (≈48 blocks) around the placement chunk. Our footprint can drift to the edge of
+     * that envelope, so all writes go through {@link #setSafe} which silently skips
+     * anything outside a {@value #SAFE_RADIUS}-block square around the anchor.
+     * ThreadLocal because worldgen worker threads can run place() concurrently.
+     */
+    private static final int SAFE_RADIUS = 22;
+    private static final ThreadLocal<BlockPos> SAFE_ANCHOR = ThreadLocal.withInitial(() -> null);
+
+    private static void setSafe(WorldGenLevel level, BlockPos pos, BlockState state, int flags) {
+        BlockPos anchor = SAFE_ANCHOR.get();
+        if (anchor != null) {
+            int dx = Math.abs(pos.getX() - anchor.getX());
+            int dz = Math.abs(pos.getZ() - anchor.getZ());
+            if (dx > SAFE_RADIUS || dz > SAFE_RADIUS) return;
+        }
+        setSafe(level,pos, state, flags);
+    }
+
     public DiagonAlleyFeature(Codec<NoneFeatureConfiguration> codec) {
         super(codec);
     }
@@ -77,14 +97,26 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
         int surfaceY = level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, origin.getX(), origin.getZ());
         BlockPos base = new BlockPos(origin.getX(), surfaceY, origin.getZ());
 
-        // Footprint is 78 × 52; require reasonably flat ground so we don't half-bury buildings.
-        if (!isReasonablyFlat(level, base, 78, 52, 3)) {
+        // Anchor every setSafe write to the placement origin so out-of-window blocks get
+        // silently dropped instead of spamming "far chunk" errors and corrupting worldgen.
+        SAFE_ANCHOR.set(origin);
+        try {
+            return placeAt(level, base, rng);
+        } finally {
+            SAFE_ANCHOR.remove();
+        }
+    }
+
+    private boolean placeAt(WorldGenLevel level, BlockPos base, RandomSource rng) {
+        // Tighter footprint check — we still want the spot to be flat, but the actual
+        // structure is clipped to the SAFE_RADIUS envelope anyway.
+        if (!isReasonablyFlat(level, base, 44, 44, 3)) {
             return false;
         }
 
         int y = base.getY();
-        int x0 = base.getX();
-        int z0 = base.getZ();
+        int x0 = base.getX() - 22;
+        int z0 = base.getZ() - 22;
 
         clearAndFoundation(level, x0, y, z0, 78, 52);
 
@@ -199,13 +231,13 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
                 for (int dy = 0; dy < 26; dy++) {
                     BlockPos p = new BlockPos(x0 + dx, y + dy, z0 + dz);
                     if (!level.isEmptyBlock(p)) {
-                        level.setBlock(p, Blocks.AIR.defaultBlockState(), 2);
+                        setSafe(level,p, Blocks.AIR.defaultBlockState(), 2);
                     }
                 }
                 // Cobblestone + stone foundation: cobble surface, packed stone below.
-                level.setBlock(new BlockPos(x0 + dx, y - 1, z0 + dz), Blocks.COBBLESTONE.defaultBlockState(), 2);
-                level.setBlock(new BlockPos(x0 + dx, y - 2, z0 + dz), Blocks.STONE.defaultBlockState(), 2);
-                level.setBlock(new BlockPos(x0 + dx, y - 3, z0 + dz), Blocks.STONE.defaultBlockState(), 2);
+                setSafe(level,new BlockPos(x0 + dx, y - 1, z0 + dz), Blocks.COBBLESTONE.defaultBlockState(), 2);
+                setSafe(level,new BlockPos(x0 + dx, y - 2, z0 + dz), Blocks.STONE.defaultBlockState(), 2);
+                setSafe(level,new BlockPos(x0 + dx, y - 3, z0 + dz), Blocks.STONE.defaultBlockState(), 2);
             }
         }
     }
@@ -221,7 +253,7 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
                 else if (v == 2) paving = Blocks.CRACKED_STONE_BRICKS.defaultBlockState();
                 else if (v == 3) paving = Blocks.DEEPSLATE_BRICKS.defaultBlockState();
                 else paving = Blocks.STONE_BRICKS.defaultBlockState();
-                level.setBlock(new BlockPos(x0 + dx, y, z0 + dz), paving, 2);
+                setSafe(level,new BlockPos(x0 + dx, y, z0 + dz), paving, 2);
             }
         }
     }
@@ -230,8 +262,8 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
         BlockState curb = Blocks.POLISHED_ANDESITE_SLAB.defaultBlockState()
                 .setValue(BlockStateProperties.SLAB_TYPE, SlabType.BOTTOM);
         for (int dx = 0; dx < sx; dx++) {
-            level.setBlock(new BlockPos(x0 + dx, y, z0), curb, 2);
-            level.setBlock(new BlockPos(x0 + dx, y, z0 + sz - 1), curb, 2);
+            setSafe(level,new BlockPos(x0 + dx, y, z0), curb, 2);
+            setSafe(level,new BlockPos(x0 + dx, y, z0 + sz - 1), curb, 2);
         }
     }
 
@@ -255,7 +287,7 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
             for (int dz = 0; dz < 9; dz++) {
                 BlockPos p = new BlockPos(x0 + dx, y0, z0 + dz);
                 boolean edge = dx == 0 || dx == 7 || dz == 0 || dz == 8;
-                level.setBlock(p, edge ? wall : floor, 2);
+                setSafe(level,p, edge ? wall : floor, 2);
             }
         }
         // Walls + corner logs as Tudor framing.
@@ -267,18 +299,18 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
                     boolean isCorner = (dx == 0 || dx == 7) && (dz == 0 || dz == 8);
                     // Vertical timber strip at door, and Tudor crosspiece at y0+3.
                     boolean timber = isCorner || (dy == 3 && (dx == 2 || dx == 5)) || (dx == 4 && dy < 3);
-                    level.setBlock(new BlockPos(x0 + dx, y0 + dy, z0 + dz), timber ? frame : wall, 2);
+                    setSafe(level,new BlockPos(x0 + dx, y0 + dy, z0 + dz), timber ? frame : wall, 2);
                 }
             }
         }
         // Diamond windows on front (east face).
-        level.setBlock(new BlockPos(x0 + 7, y0 + 2, z0 + 2), Blocks.BROWN_STAINED_GLASS_PANE.defaultBlockState(), 2);
-        level.setBlock(new BlockPos(x0 + 7, y0 + 2, z0 + 6), Blocks.BROWN_STAINED_GLASS_PANE.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + 7, y0 + 2, z0 + 2), Blocks.BROWN_STAINED_GLASS_PANE.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + 7, y0 + 2, z0 + 6), Blocks.BROWN_STAINED_GLASS_PANE.defaultBlockState(), 2);
 
         // Sloped roof — double-tier gabled stairs.
         for (int dz = 0; dz < 9; dz++) {
             for (int dx = 0; dx < 8; dx++) {
-                level.setBlock(new BlockPos(x0 + dx, y0 + 5, z0 + dz), Blocks.DARK_OAK_PLANKS.defaultBlockState(), 2);
+                setSafe(level,new BlockPos(x0 + dx, y0 + 5, z0 + dz), Blocks.DARK_OAK_PLANKS.defaultBlockState(), 2);
             }
         }
         // Ridge with stair pairs.
@@ -287,38 +319,38 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
                     .setValue(BlockStateProperties.HALF, Half.BOTTOM);
             BlockState northStair = roof.setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.NORTH)
                     .setValue(BlockStateProperties.HALF, Half.BOTTOM);
-            level.setBlock(new BlockPos(x0 + 3, y0 + 6, z0 + dz), southStair, 2);
-            level.setBlock(new BlockPos(x0 + 4, y0 + 6, z0 + dz), northStair, 2);
+            setSafe(level,new BlockPos(x0 + 3, y0 + 6, z0 + dz), southStair, 2);
+            setSafe(level,new BlockPos(x0 + 4, y0 + 6, z0 + dz), northStair, 2);
         }
 
         // Chimney with smoke (campfire on top → light + smoke).
         for (int dy = 5; dy <= 8; dy++) {
-            level.setBlock(new BlockPos(x0 + 1, y0 + dy, z0 + 1), Blocks.BRICKS.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + 1, y0 + dy, z0 + 1), Blocks.BRICKS.defaultBlockState(), 2);
         }
-        level.setBlock(new BlockPos(x0 + 1, y0 + 9, z0 + 1), Blocks.CAMPFIRE.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + 1, y0 + 9, z0 + 1), Blocks.CAMPFIRE.defaultBlockState(), 2);
 
         // Door on east face (toward the brick wall passage on east).
         BlockState doorLower = Blocks.DARK_OAK_DOOR.defaultBlockState()
                 .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.WEST)
                 .setValue(BlockStateProperties.DOUBLE_BLOCK_HALF, DoubleBlockHalf.LOWER);
         BlockState doorUpper = doorLower.setValue(BlockStateProperties.DOUBLE_BLOCK_HALF, DoubleBlockHalf.UPPER);
-        level.setBlock(new BlockPos(x0 + 7, y0 + 1, z0 + 4), doorLower, 2);
-        level.setBlock(new BlockPos(x0 + 7, y0 + 2, z0 + 4), doorUpper, 2);
+        setSafe(level,new BlockPos(x0 + 7, y0 + 1, z0 + 4), doorLower, 2);
+        setSafe(level,new BlockPos(x0 + 7, y0 + 2, z0 + 4), doorUpper, 2);
         // Hanging lantern over the door.
-        level.setBlock(new BlockPos(x0 + 7, y0 + 4, z0 + 4),
+        setSafe(level,new BlockPos(x0 + 7, y0 + 4, z0 + 4),
                 Blocks.LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, true), 2);
 
         // Pub interior: a bar counter + barrels of ale + a fire.
         for (int dx = 1; dx < 7; dx++) {
-            level.setBlock(new BlockPos(x0 + dx, y0 + 1, z0 + 7), Blocks.DARK_OAK_SLAB.defaultBlockState()
+            setSafe(level,new BlockPos(x0 + dx, y0 + 1, z0 + 7), Blocks.DARK_OAK_SLAB.defaultBlockState()
                     .setValue(BlockStateProperties.SLAB_TYPE, SlabType.TOP), 2);
         }
-        level.setBlock(new BlockPos(x0 + 1, y0 + 1, z0 + 7), Blocks.BARREL.defaultBlockState(), 2);
-        level.setBlock(new BlockPos(x0 + 6, y0 + 1, z0 + 7), Blocks.BARREL.defaultBlockState(), 2);
-        level.setBlock(new BlockPos(x0 + 1, y0 + 1, z0 + 2), Blocks.CAMPFIRE.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + 1, y0 + 1, z0 + 7), Blocks.BARREL.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + 6, y0 + 1, z0 + 7), Blocks.BARREL.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + 1, y0 + 1, z0 + 2), Blocks.CAMPFIRE.defaultBlockState(), 2);
         // Interior table + stools.
         for (int dx = 3; dx <= 4; dx++) {
-            level.setBlock(new BlockPos(x0 + dx, y0 + 1, z0 + 3), Blocks.DARK_OAK_PLANKS.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + dx, y0 + 1, z0 + 3), Blocks.DARK_OAK_PLANKS.defaultBlockState(), 2);
         }
 
         // Now the famous brick wall passage at +X +9.
@@ -340,22 +372,22 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
                     BlockPos p = new BlockPos(wallX, y + dy, z0 + dz);
                     boolean opening = dz >= 0 && dz <= 3 && dy >= 0 && dy < 5;
                     if (opening) {
-                        level.setBlock(p, Blocks.AIR.defaultBlockState(), 2);
+                        setSafe(level,p, Blocks.AIR.defaultBlockState(), 2);
                         continue;
                     }
                     BlockState block = ((dz + dy + wallX) % 4 == 0) ? Blocks.MOSSY_STONE_BRICKS.defaultBlockState()
                             : ((dz + dy) % 5 == 0) ? Blocks.CRACKED_STONE_BRICKS.defaultBlockState()
                             : Blocks.BRICKS.defaultBlockState();
-                    level.setBlock(p, block, 2);
+                    setSafe(level,p, block, 2);
                 }
             }
         }
 
         // Crown: chiseled brick capstone + rampart stairs.
         for (int dz = -2; dz < 6; dz++) {
-            level.setBlock(new BlockPos(x, y + 8, z0 + dz), Blocks.CHISELED_STONE_BRICKS.defaultBlockState(), 2);
-            level.setBlock(new BlockPos(x + 1, y + 8, z0 + dz), Blocks.CHISELED_STONE_BRICKS.defaultBlockState(), 2);
-            level.setBlock(new BlockPos(x + 2, y + 8, z0 + dz),
+            setSafe(level,new BlockPos(x, y + 8, z0 + dz), Blocks.CHISELED_STONE_BRICKS.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x + 1, y + 8, z0 + dz), Blocks.CHISELED_STONE_BRICKS.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x + 2, y + 8, z0 + dz),
                     Blocks.STONE_BRICK_STAIRS.defaultBlockState()
                             .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.WEST)
                             .setValue(BlockStateProperties.HALF, Half.BOTTOM), 2);
@@ -368,29 +400,29 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
         BlockState northStair = Blocks.STONE_BRICK_STAIRS.defaultBlockState()
                 .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.NORTH)
                 .setValue(BlockStateProperties.HALF, Half.BOTTOM);
-        level.setBlock(new BlockPos(x, y + 4, z0 - 1), southStair, 2);
-        level.setBlock(new BlockPos(x, y + 4, z0 + 4), northStair, 2);
-        level.setBlock(new BlockPos(x + 1, y + 4, z0 - 1), southStair, 2);
-        level.setBlock(new BlockPos(x + 1, y + 4, z0 + 4), northStair, 2);
+        setSafe(level,new BlockPos(x, y + 4, z0 - 1), southStair, 2);
+        setSafe(level,new BlockPos(x, y + 4, z0 + 4), northStair, 2);
+        setSafe(level,new BlockPos(x + 1, y + 4, z0 - 1), southStair, 2);
+        setSafe(level,new BlockPos(x + 1, y + 4, z0 + 4), northStair, 2);
 
         // Key bricks (Hagrid's tap pattern hint): chiseled blocks at right side, 3 up + 2 across.
         for (int marker = 0; marker < 3; marker++) {
-            level.setBlock(new BlockPos(x + 1, y + 1 + marker, z0 + 5), Blocks.CHISELED_STONE_BRICKS.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x + 1, y + 1 + marker, z0 + 5), Blocks.CHISELED_STONE_BRICKS.defaultBlockState(), 2);
         }
         for (int marker = 0; marker < 2; marker++) {
-            level.setBlock(new BlockPos(x + 1, y + 3, z0 + 5 + marker), Blocks.CHISELED_STONE_BRICKS.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x + 1, y + 3, z0 + 5 + marker), Blocks.CHISELED_STONE_BRICKS.defaultBlockState(), 2);
         }
 
         // Hanging lanterns inside the passage.
-        level.setBlock(new BlockPos(x, y + 4, z0 + 1),
+        setSafe(level,new BlockPos(x, y + 4, z0 + 1),
                 Blocks.LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, true), 2);
-        level.setBlock(new BlockPos(x + 1, y + 4, z0 + 2),
+        setSafe(level,new BlockPos(x + 1, y + 4, z0 + 2),
                 Blocks.LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, true), 2);
 
         // Bin (cauldron) reference + stacked barrels.
-        level.setBlock(new BlockPos(x - 1, y + 1, z0 + 6), Blocks.CAULDRON.defaultBlockState(), 2);
-        level.setBlock(new BlockPos(x - 1, y + 1, z0 - 3), Blocks.BARREL.defaultBlockState(), 2);
-        level.setBlock(new BlockPos(x - 1, y + 2, z0 - 3), Blocks.BARREL.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x - 1, y + 1, z0 + 6), Blocks.CAULDRON.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x - 1, y + 1, z0 - 3), Blocks.BARREL.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x - 1, y + 2, z0 - 3), Blocks.BARREL.defaultBlockState(), 2);
     }
 
     // =================================================================================
@@ -424,7 +456,7 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
                     else if (dy == h) block = log;
                     else if ((dy == 2 || dy == 5) && !isCorner) block = log;
                     else block = planks;
-                    level.setBlock(new BlockPos(x0 + dx, y0 + dy, z0 + dz), block, 2);
+                    setSafe(level,new BlockPos(x0 + dx, y0 + dy, z0 + dz), block, 2);
                 }
             }
         }
@@ -432,13 +464,13 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
         int frontZ = (front == Direction.NORTH) ? z0 : z0 + sz - 1;
         for (int dx = 1; dx < sx - 1; dx++) {
             if (dx == sx / 2) continue;
-            level.setBlock(new BlockPos(x0 + dx, y0 + 3, z0), window, 2);
-            level.setBlock(new BlockPos(x0 + dx, y0 + 4, z0), window, 2);
+            setSafe(level,new BlockPos(x0 + dx, y0 + 3, z0), window, 2);
+            setSafe(level,new BlockPos(x0 + dx, y0 + 4, z0), window, 2);
         }
         // Front display window — dramatic floor-to-ceiling pane on the front.
         for (int dy = 2; dy <= h - 1; dy++) {
-            level.setBlock(new BlockPos(x0 + 1, y0 + dy, z0 + sz - 1), window, 2);
-            level.setBlock(new BlockPos(x0 + sx - 2, y0 + dy, z0 + sz - 1), window, 2);
+            setSafe(level,new BlockPos(x0 + 1, y0 + dy, z0 + sz - 1), window, 2);
+            setSafe(level,new BlockPos(x0 + sx - 2, y0 + dy, z0 + sz - 1), window, 2);
         }
 
         // Doorway in center front.
@@ -451,7 +483,7 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
         // Sloped roof — TWO peaks (mansard style) for a leaning Diagon look.
         for (int dx = 0; dx < sx; dx++) {
             for (int dz = 0; dz < sz; dz++) {
-                level.setBlock(new BlockPos(x0 + dx, y0 + h + 1, z0 + dz), planks, 2);
+                setSafe(level,new BlockPos(x0 + dx, y0 + h + 1, z0 + dz), planks, 2);
             }
         }
         for (int dz = 0; dz < sz; dz++) {
@@ -461,41 +493,41 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
             BlockState westStair = Blocks.SPRUCE_STAIRS.defaultBlockState()
                     .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.WEST)
                     .setValue(BlockStateProperties.HALF, Half.BOTTOM);
-            level.setBlock(new BlockPos(x0 + 3, y0 + h + 2, z0 + dz), eastStair, 2);
-            level.setBlock(new BlockPos(x0 + 5, y0 + h + 2, z0 + dz), westStair, 2);
-            level.setBlock(new BlockPos(x0 + 4, y0 + h + 2, z0 + dz), planks, 2);
+            setSafe(level,new BlockPos(x0 + 3, y0 + h + 2, z0 + dz), eastStair, 2);
+            setSafe(level,new BlockPos(x0 + 5, y0 + h + 2, z0 + dz), westStair, 2);
+            setSafe(level,new BlockPos(x0 + 4, y0 + h + 2, z0 + dz), planks, 2);
         }
         // Chimney.
         for (int dy = h + 1; dy < h + 4; dy++) {
-            level.setBlock(new BlockPos(x0 + 1, y0 + dy, z0 + 1), Blocks.BRICKS.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + 1, y0 + dy, z0 + 1), Blocks.BRICKS.defaultBlockState(), 2);
         }
-        level.setBlock(new BlockPos(x0 + 1, y0 + h + 4, z0 + 1), Blocks.CAMPFIRE.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + 1, y0 + h + 4, z0 + 1), Blocks.CAMPFIRE.defaultBlockState(), 2);
 
         // Interior: dense bookshelves stacked tall (wand boxes), lecterns, wand workbench.
         for (int dz = 2; dz < sz - 1; dz++) {
             for (int dy = 1; dy <= 4; dy++) {
                 if (dz == sz / 2) continue;
-                level.setBlock(new BlockPos(x0 + 1, y0 + dy, z0 + dz), Blocks.BOOKSHELF.defaultBlockState(), 2);
-                level.setBlock(new BlockPos(x0 + sx - 2, y0 + dy, z0 + dz), Blocks.BOOKSHELF.defaultBlockState(), 2);
+                setSafe(level,new BlockPos(x0 + 1, y0 + dy, z0 + dz), Blocks.BOOKSHELF.defaultBlockState(), 2);
+                setSafe(level,new BlockPos(x0 + sx - 2, y0 + dy, z0 + dz), Blocks.BOOKSHELF.defaultBlockState(), 2);
             }
         }
         // Lecterns in center.
-        level.setBlock(new BlockPos(x0 + sx / 2 - 1, y0 + 1, z0 + 2), Blocks.LECTERN.defaultBlockState(), 2);
-        level.setBlock(new BlockPos(x0 + sx / 2 + 1, y0 + 1, z0 + 2), Blocks.LECTERN.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + sx / 2 - 1, y0 + 1, z0 + 2), Blocks.LECTERN.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + sx / 2 + 1, y0 + 1, z0 + 2), Blocks.LECTERN.defaultBlockState(), 2);
         // Wand Workbench — backs Wandmaker villager into the WANDMAKER profession via POI.
-        level.setBlock(new BlockPos(x0 + sx / 2, y0 + 1, z0 + sz - 2), ExampleMod.WAND_WORKBENCH.get().defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + sx / 2, y0 + 1, z0 + sz - 2), ExampleMod.WAND_WORKBENCH.get().defaultBlockState(), 2);
         // Counter slabs flanking the workbench.
-        level.setBlock(new BlockPos(x0 + sx / 2 - 1, y0 + 1, z0 + sz - 2), Blocks.SPRUCE_SLAB.defaultBlockState()
+        setSafe(level,new BlockPos(x0 + sx / 2 - 1, y0 + 1, z0 + sz - 2), Blocks.SPRUCE_SLAB.defaultBlockState()
                 .setValue(BlockStateProperties.SLAB_TYPE, SlabType.TOP), 2);
-        level.setBlock(new BlockPos(x0 + sx / 2 + 1, y0 + 1, z0 + sz - 2), Blocks.SPRUCE_SLAB.defaultBlockState()
+        setSafe(level,new BlockPos(x0 + sx / 2 + 1, y0 + 1, z0 + sz - 2), Blocks.SPRUCE_SLAB.defaultBlockState()
                 .setValue(BlockStateProperties.SLAB_TYPE, SlabType.TOP), 2);
 
         // Carpet runner.
         for (int dz = 1; dz < sz - 1; dz++) {
-            level.setBlock(new BlockPos(x0 + sx / 2, y0 + 1, z0 + dz), Blocks.BROWN_CARPET.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + sx / 2, y0 + 1, z0 + dz), Blocks.BROWN_CARPET.defaultBlockState(), 2);
         }
         // Hanging lantern.
-        level.setBlock(new BlockPos(x0 + sx / 2, y0 + h, z0 + sz / 2),
+        setSafe(level,new BlockPos(x0 + sx / 2, y0 + h, z0 + sz / 2),
                 Blocks.LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, true), 2);
 
         // Wandmaker villager — needs the wand_workbench POI nearby (which we just placed).
@@ -525,7 +557,7 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
                 BlockState s = Blocks.STONE_BRICK_STAIRS.defaultBlockState()
                         .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.SOUTH)
                         .setValue(BlockStateProperties.HALF, Half.BOTTOM);
-                level.setBlock(new BlockPos(x0 + dx, y0 + step, z0 - step - 1), s, 2);
+                setSafe(level,new BlockPos(x0 + dx, y0 + step, z0 - step - 1), s, 2);
             }
         }
 
@@ -541,7 +573,7 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
                     boolean isPillar = (dx == 0 || dx == sx - 1 || dx == 4 || dx == 9) && (dz == 0 || dz == sz - 1)
                             || (dz == 0 && (dx == 3 || dx == 10));
                     BlockState block = isPillar ? pillar : marble;
-                    level.setBlock(new BlockPos(x0 + dx, y0 + dy, z0 + dz), block, 2);
+                    setSafe(level,new BlockPos(x0 + dx, y0 + dy, z0 + dz), block, 2);
                 }
             }
         }
@@ -549,26 +581,26 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
         // Grand colonnade across the south face — 6 columns at y0+1..y0+hLow.
         for (int col : new int[]{1, 3, 5, 8, 10, 12}) {
             for (int dy = 1; dy <= hLow; dy++) {
-                level.setBlock(new BlockPos(x0 + col, y0 + dy, z0), pillar, 2);
+                setSafe(level,new BlockPos(x0 + col, y0 + dy, z0), pillar, 2);
             }
             // Column base + cap.
-            level.setBlock(new BlockPos(x0 + col, y0 + 1, z0), Blocks.SMOOTH_QUARTZ.defaultBlockState(), 2);
-            level.setBlock(new BlockPos(x0 + col, y0 + hLow, z0), Blocks.CHISELED_QUARTZ_BLOCK.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + col, y0 + 1, z0), Blocks.SMOOTH_QUARTZ.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + col, y0 + hLow, z0), Blocks.CHISELED_QUARTZ_BLOCK.defaultBlockState(), 2);
         }
         // Gap between columns is open (passage into porch).
         for (int dx = 0; dx < sx; dx++) {
             boolean isPillar = (dx == 1 || dx == 3 || dx == 5 || dx == 8 || dx == 10 || dx == 12);
             if (!isPillar) {
                 for (int dy = 1; dy <= hLow - 1; dy++) {
-                    level.setBlock(new BlockPos(x0 + dx, y0 + dy, z0), Blocks.AIR.defaultBlockState(), 2);
+                    setSafe(level,new BlockPos(x0 + dx, y0 + dy, z0), Blocks.AIR.defaultBlockState(), 2);
                 }
             }
         }
 
         // Pediment above the colonnade — chiseled quartz frieze + gold trim.
         for (int dx = 0; dx < sx; dx++) {
-            level.setBlock(new BlockPos(x0 + dx, y0 + hLow + 1, z0), Blocks.CHISELED_QUARTZ_BLOCK.defaultBlockState(), 2);
-            level.setBlock(new BlockPos(x0 + dx, y0 + hLow + 2, z0), accent, 2);
+            setSafe(level,new BlockPos(x0 + dx, y0 + hLow + 1, z0), Blocks.CHISELED_QUARTZ_BLOCK.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + dx, y0 + hLow + 2, z0), accent, 2);
         }
 
         // Second story — narrower than first, set in 1 block.
@@ -579,7 +611,7 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
                     if (edge) {
                         // Windows every other block on second story.
                         boolean window = (dx % 2 == 0) && dy == hLow + 4;
-                        level.setBlock(new BlockPos(x0 + dx, y0 + dy, z0 + dz),
+                        setSafe(level,new BlockPos(x0 + dx, y0 + dy, z0 + dz),
                                 window ? Blocks.YELLOW_STAINED_GLASS_PANE.defaultBlockState() : marble, 2);
                     }
                 }
@@ -588,7 +620,7 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
         // Inner roof at hHigh+1 + golden pyramid cap.
         for (int dx = 1; dx < sx - 1; dx++) {
             for (int dz = 1; dz < sz - 1; dz++) {
-                level.setBlock(new BlockPos(x0 + dx, y0 + hHigh + 1, z0 + dz), roof, 2);
+                setSafe(level,new BlockPos(x0 + dx, y0 + hHigh + 1, z0 + dz), roof, 2);
             }
         }
         // Stepped pyramid roof — three tiers shrinking inward, gold-block crown.
@@ -596,48 +628,48 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
             int inset = tier + 2;
             for (int dx = inset; dx < sx - inset; dx++) {
                 for (int dz = inset; dz < sz - inset; dz++) {
-                    level.setBlock(new BlockPos(x0 + dx, y0 + hHigh + 2 + tier, z0 + dz),
+                    setSafe(level,new BlockPos(x0 + dx, y0 + hHigh + 2 + tier, z0 + dz),
                             tier == 2 ? accent : marble, 2);
                 }
             }
         }
         // Golden spire on top.
-        level.setBlock(new BlockPos(x0 + sx / 2, y0 + hHigh + 5, z0 + sz / 2), accent, 2);
-        level.setBlock(new BlockPos(x0 + sx / 2, y0 + hHigh + 6, z0 + sz / 2),
+        setSafe(level,new BlockPos(x0 + sx / 2, y0 + hHigh + 5, z0 + sz / 2), accent, 2);
+        setSafe(level,new BlockPos(x0 + sx / 2, y0 + hHigh + 6, z0 + sz / 2),
                 Blocks.LIGHTNING_ROD.defaultBlockState(), 2);
 
         // INTERIOR: marble floor, gold-block vault wall at back, iron-bar teller counter.
         for (int dx = 1; dx < sx - 1; dx++) {
             for (int dz = 1; dz < sz - 1; dz++) {
-                level.setBlock(new BlockPos(x0 + dx, y0 + 1, z0 + dz), floor, 2);
+                setSafe(level,new BlockPos(x0 + dx, y0 + 1, z0 + dz), floor, 2);
             }
         }
         // Vault gold blocks across back wall.
         for (int dx = 2; dx < sx - 2; dx++) {
-            level.setBlock(new BlockPos(x0 + dx, y0 + 1, z0 + sz - 2), accent, 2);
-            level.setBlock(new BlockPos(x0 + dx, y0 + 2, z0 + sz - 2), accent, 2);
-            level.setBlock(new BlockPos(x0 + dx, y0 + 3, z0 + sz - 2), accent, 2);
+            setSafe(level,new BlockPos(x0 + dx, y0 + 1, z0 + sz - 2), accent, 2);
+            setSafe(level,new BlockPos(x0 + dx, y0 + 2, z0 + sz - 2), accent, 2);
+            setSafe(level,new BlockPos(x0 + dx, y0 + 3, z0 + sz - 2), accent, 2);
         }
         // Iron bars in front of vault as a teller barrier.
         for (int dx = 1; dx < sx - 1; dx++) {
             for (int dy = 1; dy <= 3; dy++) {
-                level.setBlock(new BlockPos(x0 + dx, y0 + dy, z0 + sz - 4), Blocks.IRON_BARS.defaultBlockState(), 2);
+                setSafe(level,new BlockPos(x0 + dx, y0 + dy, z0 + sz - 4), Blocks.IRON_BARS.defaultBlockState(), 2);
             }
         }
         // Marble counter in front of bars with teller windows.
         for (int dx = 2; dx < sx - 2; dx++) {
-            level.setBlock(new BlockPos(x0 + dx, y0 + 1, z0 + sz - 5), Blocks.SMOOTH_QUARTZ_SLAB.defaultBlockState()
+            setSafe(level,new BlockPos(x0 + dx, y0 + 1, z0 + sz - 5), Blocks.SMOOTH_QUARTZ_SLAB.defaultBlockState()
                     .setValue(BlockStateProperties.SLAB_TYPE, SlabType.TOP), 2);
         }
         // Long red carpet from entrance to vault.
         for (int dz = 1; dz < sz - 1; dz++) {
-            level.setBlock(new BlockPos(x0 + sx / 2, y0 + 1, z0 + dz), Blocks.RED_CARPET.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + sx / 2, y0 + 1, z0 + dz), Blocks.RED_CARPET.defaultBlockState(), 2);
         }
 
         // Chandeliers — hanging lanterns from the ceiling.
         for (int dx : new int[]{3, sx / 2, sx - 4}) {
             for (int dz : new int[]{3, sz / 2, sz - 4}) {
-                level.setBlock(new BlockPos(x0 + dx, y0 + hLow - 1, z0 + dz),
+                setSafe(level,new BlockPos(x0 + dx, y0 + hLow - 1, z0 + dz),
                         Blocks.LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, true), 2);
             }
         }
@@ -672,7 +704,7 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
                     boolean edge = dx == 0 || dx == sx - 1 || dz == 0 || dz == sz - 1;
                     if (!edge) continue;
                     boolean corner2 = (dx == 0 || dx == sx - 1) && (dz == 0 || dz == sz - 1);
-                    level.setBlock(new BlockPos(x0 + dx, y0 + dy, z0 + dz), corner2 || dy == h ? log : planks, 2);
+                    setSafe(level,new BlockPos(x0 + dx, y0 + dy, z0 + dz), corner2 || dy == h ? log : planks, 2);
                 }
             }
         }
@@ -680,8 +712,8 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
         int frontZ = (front == Direction.SOUTH) ? z0 + sz - 1 : z0;
         for (int dx = 2; dx < sx - 2; dx++) {
             if (dx == sx / 2) continue;
-            level.setBlock(new BlockPos(x0 + dx, y0 + 2, z0), window, 2);
-            level.setBlock(new BlockPos(x0 + dx, y0 + 3, z0), window, 2);
+            setSafe(level,new BlockPos(x0 + dx, y0 + 2, z0), window, 2);
+            setSafe(level,new BlockPos(x0 + dx, y0 + 3, z0), window, 2);
         }
         // Door.
         placeDoor(level, x0 + sx / 2, y0 + 1, frontZ, front, Blocks.BIRCH_DOOR);
@@ -690,30 +722,30 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
         // Mansard roof (two-pitch).
         for (int dx = 0; dx < sx; dx++) {
             for (int dz = 0; dz < sz; dz++) {
-                level.setBlock(new BlockPos(x0 + dx, y0 + h + 1, z0 + dz), planks, 2);
+                setSafe(level,new BlockPos(x0 + dx, y0 + h + 1, z0 + dz), planks, 2);
             }
         }
         for (int dx = 1; dx < sx - 1; dx++) {
-            level.setBlock(new BlockPos(x0 + dx, y0 + h + 2, z0 + sz / 2), Blocks.BIRCH_PLANKS.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + dx, y0 + h + 2, z0 + sz / 2), Blocks.BIRCH_PLANKS.defaultBlockState(), 2);
         }
 
         // INTERIOR: rows of owl perches (oak fences) on hay bale stands, scatter of feathers.
         for (int dx = 2; dx < sx - 2; dx += 2) {
-            level.setBlock(new BlockPos(x0 + dx, y0 + 1, z0 + sz - 2), Blocks.HAY_BLOCK.defaultBlockState(), 2);
-            level.setBlock(new BlockPos(x0 + dx, y0 + 2, z0 + sz - 2), Blocks.OAK_FENCE.defaultBlockState(), 2);
-            level.setBlock(new BlockPos(x0 + dx, y0 + 3, z0 + sz - 2), Blocks.OAK_FENCE.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + dx, y0 + 1, z0 + sz - 2), Blocks.HAY_BLOCK.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + dx, y0 + 2, z0 + sz - 2), Blocks.OAK_FENCE.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + dx, y0 + 3, z0 + sz - 2), Blocks.OAK_FENCE.defaultBlockState(), 2);
             // Spawn an owl on top of perch.
         }
         // Cages stacked (display).
-        level.setBlock(new BlockPos(x0 + 1, y0 + 1, z0 + 1), Blocks.IRON_BARS.defaultBlockState(), 2);
-        level.setBlock(new BlockPos(x0 + 1, y0 + 2, z0 + 1), Blocks.IRON_BARS.defaultBlockState(), 2);
-        level.setBlock(new BlockPos(x0 + sx - 2, y0 + 1, z0 + 1), Blocks.IRON_BARS.defaultBlockState(), 2);
-        level.setBlock(new BlockPos(x0 + sx - 2, y0 + 2, z0 + 1), Blocks.IRON_BARS.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + 1, y0 + 1, z0 + 1), Blocks.IRON_BARS.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + 1, y0 + 2, z0 + 1), Blocks.IRON_BARS.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + sx - 2, y0 + 1, z0 + 1), Blocks.IRON_BARS.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + sx - 2, y0 + 2, z0 + 1), Blocks.IRON_BARS.defaultBlockState(), 2);
         // Carpet runner.
         for (int dz = 1; dz < sz - 1; dz++) {
-            level.setBlock(new BlockPos(x0 + sx / 2, y0 + 1, z0 + dz), Blocks.WHITE_CARPET.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + sx / 2, y0 + 1, z0 + dz), Blocks.WHITE_CARPET.defaultBlockState(), 2);
         }
-        level.setBlock(new BlockPos(x0 + sx / 2, y0 + h, z0 + sz / 2),
+        setSafe(level,new BlockPos(x0 + sx / 2, y0 + h, z0 + sz / 2),
                 Blocks.LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, true), 2);
 
         // Spawn an actual owl entity!
@@ -745,7 +777,7 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
                     if (!edge) continue;
                     boolean corner2 = (dx == 0 || dx == sx - 1) && (dz == 0 || dz == sz - 1);
                     boolean beam = dy == 3 || dy == h || corner2 || (dx == 4 && dy < 6) || (dx == sx - 5 && dy < 6);
-                    level.setBlock(new BlockPos(x0 + dx, y0 + dy, z0 + dz), beam ? log : wall, 2);
+                    setSafe(level,new BlockPos(x0 + dx, y0 + dy, z0 + dz), beam ? log : wall, 2);
                 }
             }
         }
@@ -753,9 +785,9 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
         int frontZ = (front == Direction.SOUTH) ? z0 + sz - 1 : z0;
         for (int dx = 1; dx < sx - 1; dx++) {
             if (dx >= sx / 2 - 1 && dx <= sx / 2 + 1) continue; // skip door area
-            level.setBlock(new BlockPos(x0 + dx, y0 + 2, z0), window, 2);
-            level.setBlock(new BlockPos(x0 + dx, y0 + 3, z0), window, 2);
-            level.setBlock(new BlockPos(x0 + dx, y0 + 4, z0), window, 2);
+            setSafe(level,new BlockPos(x0 + dx, y0 + 2, z0), window, 2);
+            setSafe(level,new BlockPos(x0 + dx, y0 + 3, z0), window, 2);
+            setSafe(level,new BlockPos(x0 + dx, y0 + 4, z0), window, 2);
         }
         placeDoor(level, x0 + sx / 2, y0 + 1, frontZ, front, Blocks.DARK_OAK_DOOR);
         placeAwning(level, x0 + sx / 2, y0 + 4, frontZ, front, Blocks.DARK_OAK_STAIRS);
@@ -763,43 +795,43 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
         // Two-tier mansard roof.
         for (int dx = 0; dx < sx; dx++) {
             for (int dz = 0; dz < sz; dz++) {
-                level.setBlock(new BlockPos(x0 + dx, y0 + h + 1, z0 + dz), planks, 2);
+                setSafe(level,new BlockPos(x0 + dx, y0 + h + 1, z0 + dz), planks, 2);
             }
         }
         for (int dx = 1; dx < sx - 1; dx++) {
             for (int dz = 1; dz < sz - 1; dz++) {
-                level.setBlock(new BlockPos(x0 + dx, y0 + h + 2, z0 + dz), planks, 2);
+                setSafe(level,new BlockPos(x0 + dx, y0 + h + 2, z0 + dz), planks, 2);
             }
         }
         // Bell tower spire on top.
         for (int dy = 0; dy < 3; dy++) {
-            level.setBlock(new BlockPos(x0 + sx / 2, y0 + h + 3 + dy, z0 + sz / 2), Blocks.DARK_OAK_FENCE.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + sx / 2, y0 + h + 3 + dy, z0 + sz / 2), Blocks.DARK_OAK_FENCE.defaultBlockState(), 2);
         }
-        level.setBlock(new BlockPos(x0 + sx / 2, y0 + h + 6, z0 + sz / 2), Blocks.BELL.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + sx / 2, y0 + h + 6, z0 + sz / 2), Blocks.BELL.defaultBlockState(), 2);
 
         // INTERIOR: walls of bookshelves stacked floor-to-ceiling, lecterns at counters, hanging lanterns.
         for (int dz = 2; dz < sz - 1; dz++) {
             for (int dy = 1; dy <= 5; dy++) {
                 if (dz == sz / 2) continue;
-                level.setBlock(new BlockPos(x0 + 1, y0 + dy, z0 + dz), Blocks.BOOKSHELF.defaultBlockState(), 2);
-                level.setBlock(new BlockPos(x0 + sx - 2, y0 + dy, z0 + dz), Blocks.BOOKSHELF.defaultBlockState(), 2);
+                setSafe(level,new BlockPos(x0 + 1, y0 + dy, z0 + dz), Blocks.BOOKSHELF.defaultBlockState(), 2);
+                setSafe(level,new BlockPos(x0 + sx - 2, y0 + dy, z0 + dz), Blocks.BOOKSHELF.defaultBlockState(), 2);
             }
         }
         // Centre book table (planks + lecterns).
         for (int dx = 4; dx < sx - 4; dx++) {
-            level.setBlock(new BlockPos(x0 + dx, y0 + 1, z0 + sz - 3), Blocks.DARK_OAK_SLAB.defaultBlockState()
+            setSafe(level,new BlockPos(x0 + dx, y0 + 1, z0 + sz - 3), Blocks.DARK_OAK_SLAB.defaultBlockState()
                     .setValue(BlockStateProperties.SLAB_TYPE, SlabType.TOP), 2);
         }
-        level.setBlock(new BlockPos(x0 + sx / 2 - 1, y0 + 2, z0 + sz - 3), Blocks.LECTERN.defaultBlockState(), 2);
-        level.setBlock(new BlockPos(x0 + sx / 2 + 1, y0 + 2, z0 + sz - 3), Blocks.LECTERN.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + sx / 2 - 1, y0 + 2, z0 + sz - 3), Blocks.LECTERN.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + sx / 2 + 1, y0 + 2, z0 + sz - 3), Blocks.LECTERN.defaultBlockState(), 2);
         // Green carpet runner.
         for (int dz = 1; dz < sz - 1; dz++) {
-            level.setBlock(new BlockPos(x0 + sx / 2, y0 + 1, z0 + dz), Blocks.LIME_CARPET.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + sx / 2, y0 + 1, z0 + dz), Blocks.LIME_CARPET.defaultBlockState(), 2);
         }
         // Hanging lanterns.
-        level.setBlock(new BlockPos(x0 + 3, y0 + h - 1, z0 + sz / 2),
+        setSafe(level,new BlockPos(x0 + 3, y0 + h - 1, z0 + sz / 2),
                 Blocks.LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, true), 2);
-        level.setBlock(new BlockPos(x0 + sx - 4, y0 + h - 1, z0 + sz / 2),
+        setSafe(level,new BlockPos(x0 + sx - 4, y0 + h - 1, z0 + sz / 2),
                 Blocks.LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, true), 2);
 
         spawnNamedVillager(level, new BlockPos(x0 + sx / 2, y0 + 1, z0 + sz - 4),
@@ -827,7 +859,7 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
                     boolean edge = dx == 0 || dx == sx - 1 || dz == 0 || dz == sz - 1;
                     if (!edge) continue;
                     boolean corner2 = (dx == 0 || dx == sx - 1) && (dz == 0 || dz == sz - 1);
-                    level.setBlock(new BlockPos(x0 + dx, y0 + dy, z0 + dz), (corner2 || dy == h) ? log : planks, 2);
+                    setSafe(level,new BlockPos(x0 + dx, y0 + dy, z0 + dz), (corner2 || dy == h) ? log : planks, 2);
                 }
             }
         }
@@ -835,18 +867,18 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
         int frontZ = (front == Direction.NORTH) ? z0 : z0 + sz - 1;
         for (int dx = 1; dx < sx - 1; dx++) {
             if (dx == sx / 2) continue;
-            level.setBlock(new BlockPos(x0 + dx, y0 + 2, frontZ), window, 2);
-            level.setBlock(new BlockPos(x0 + dx, y0 + 3, frontZ), window, 2);
+            setSafe(level,new BlockPos(x0 + dx, y0 + 2, frontZ), window, 2);
+            setSafe(level,new BlockPos(x0 + dx, y0 + 3, frontZ), window, 2);
         }
         placeDoor(level, x0 + sx / 2, y0 + 1, frontZ, front, Blocks.DARK_OAK_DOOR);
         placeAwning(level, x0 + sx / 2, y0 + 4, frontZ, front, Blocks.DARK_OAK_STAIRS);
         // Red banner over door.
-        level.setBlock(new BlockPos(x0 + sx / 2, y0 + h, frontZ), Blocks.RED_WOOL.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + sx / 2, y0 + h, frontZ), Blocks.RED_WOOL.defaultBlockState(), 2);
 
         // Pitched roof.
         for (int dx = 0; dx < sx; dx++) {
             for (int dz = 0; dz < sz; dz++) {
-                level.setBlock(new BlockPos(x0 + dx, y0 + h + 1, z0 + dz), planks, 2);
+                setSafe(level,new BlockPos(x0 + dx, y0 + h + 1, z0 + dz), planks, 2);
             }
         }
         for (int dx = 1; dx < sx - 1; dx++) {
@@ -854,33 +886,33 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
                     .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.NORTH);
             BlockState s = Blocks.DARK_OAK_STAIRS.defaultBlockState()
                     .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.SOUTH);
-            level.setBlock(new BlockPos(x0 + dx, y0 + h + 2, z0 + sz / 2 - 1), s, 2);
-            level.setBlock(new BlockPos(x0 + dx, y0 + h + 2, z0 + sz / 2 + 1), n, 2);
-            level.setBlock(new BlockPos(x0 + dx, y0 + h + 2, z0 + sz / 2), planks, 2);
+            setSafe(level,new BlockPos(x0 + dx, y0 + h + 2, z0 + sz / 2 - 1), s, 2);
+            setSafe(level,new BlockPos(x0 + dx, y0 + h + 2, z0 + sz / 2 + 1), n, 2);
+            setSafe(level,new BlockPos(x0 + dx, y0 + h + 2, z0 + sz / 2), planks, 2);
         }
 
         // INTERIOR: broom rack display, counter with golden snitch (gold block in the air).
         for (int dx = 2; dx < sx - 2; dx++) {
-            level.setBlock(new BlockPos(x0 + dx, y0 + 1, z0 + sz - 2), Blocks.SPRUCE_FENCE.defaultBlockState(), 2);
-            level.setBlock(new BlockPos(x0 + dx, y0 + 2, z0 + sz - 2), Blocks.STRIPPED_OAK_LOG.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + dx, y0 + 1, z0 + sz - 2), Blocks.SPRUCE_FENCE.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + dx, y0 + 2, z0 + sz - 2), Blocks.STRIPPED_OAK_LOG.defaultBlockState(), 2);
         }
         // Snitch in a glass cage.
-        level.setBlock(new BlockPos(x0 + sx / 2, y0 + 2, z0 + 2), Blocks.GOLD_BLOCK.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + sx / 2, y0 + 2, z0 + 2), Blocks.GOLD_BLOCK.defaultBlockState(), 2);
         for (Direction d : Direction.Plane.HORIZONTAL) {
-            level.setBlock(new BlockPos(x0 + sx / 2, y0 + 2, z0 + 2).relative(d), Blocks.GLASS_PANE.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + sx / 2, y0 + 2, z0 + 2).relative(d), Blocks.GLASS_PANE.defaultBlockState(), 2);
         }
-        level.setBlock(new BlockPos(x0 + sx / 2, y0 + 3, z0 + 2), Blocks.GLASS_PANE.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + sx / 2, y0 + 3, z0 + 2), Blocks.GLASS_PANE.defaultBlockState(), 2);
 
         // Counter.
         for (int dx = 1; dx < sx - 1; dx++) {
-            level.setBlock(new BlockPos(x0 + dx, y0 + 1, z0 + 4), Blocks.DARK_OAK_SLAB.defaultBlockState()
+            setSafe(level,new BlockPos(x0 + dx, y0 + 1, z0 + 4), Blocks.DARK_OAK_SLAB.defaultBlockState()
                     .setValue(BlockStateProperties.SLAB_TYPE, SlabType.TOP), 2);
         }
         // Red carpet runner.
         for (int dz = 1; dz < sz - 1; dz++) {
-            level.setBlock(new BlockPos(x0 + sx / 2, y0 + 1, z0 + dz), Blocks.RED_CARPET.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + sx / 2, y0 + 1, z0 + dz), Blocks.RED_CARPET.defaultBlockState(), 2);
         }
-        level.setBlock(new BlockPos(x0 + sx / 2, y0 + h, z0 + sz / 2),
+        setSafe(level,new BlockPos(x0 + sx / 2, y0 + h, z0 + sz / 2),
                 Blocks.LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, true), 2);
 
         spawnNamedVillager(level, new BlockPos(x0 + sx / 2, y0 + 1, z0 + sz - 3),
@@ -909,7 +941,7 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
                     if (!edge) continue;
                     boolean corner2 = (dx == 0 || dx == sx - 1) && (dz == 0 || dz == sz - 1);
                     boolean midFloor = dy == 4;
-                    level.setBlock(new BlockPos(x0 + dx, y0 + dy, z0 + dz),
+                    setSafe(level,new BlockPos(x0 + dx, y0 + dy, z0 + dz),
                             corner2 ? log : (midFloor ? log : (dy == h ? log : wall)), 2);
                 }
             }
@@ -918,42 +950,42 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
         int frontZ = (front == Direction.NORTH) ? z0 : z0 + sz - 1;
         for (int dx = 1; dx < sx - 1; dx++) {
             if (dx == sx / 2) continue;
-            level.setBlock(new BlockPos(x0 + dx, y0 + 2, frontZ), window, 2);
-            level.setBlock(new BlockPos(x0 + dx, y0 + 3, frontZ), window, 2);
+            setSafe(level,new BlockPos(x0 + dx, y0 + 2, frontZ), window, 2);
+            setSafe(level,new BlockPos(x0 + dx, y0 + 3, frontZ), window, 2);
         }
         // Second-story windows.
         for (int dx = 1; dx < sx - 1; dx += 2) {
-            level.setBlock(new BlockPos(x0 + dx, y0 + 5, frontZ), window, 2);
-            level.setBlock(new BlockPos(x0 + dx, y0 + 6, frontZ), window, 2);
+            setSafe(level,new BlockPos(x0 + dx, y0 + 5, frontZ), window, 2);
+            setSafe(level,new BlockPos(x0 + dx, y0 + 6, frontZ), window, 2);
         }
         placeDoor(level, x0 + sx / 2, y0 + 1, frontZ, front, Blocks.OAK_DOOR);
         placeAwning(level, x0 + sx / 2, y0 + 4, frontZ, front, Blocks.OAK_STAIRS);
         // Pink banner.
-        level.setBlock(new BlockPos(x0 + sx / 2, y0 + h, frontZ), Blocks.PINK_WOOL.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + sx / 2, y0 + h, frontZ), Blocks.PINK_WOOL.defaultBlockState(), 2);
 
         // Pitched roof.
         for (int dx = 0; dx < sx; dx++) {
             for (int dz = 0; dz < sz; dz++) {
-                level.setBlock(new BlockPos(x0 + dx, y0 + h + 1, z0 + dz), planks, 2);
+                setSafe(level,new BlockPos(x0 + dx, y0 + h + 1, z0 + dz), planks, 2);
             }
         }
         for (int dx = 1; dx < sx - 1; dx++) {
-            level.setBlock(new BlockPos(x0 + dx, y0 + h + 2, z0 + sz / 2), planks, 2);
+            setSafe(level,new BlockPos(x0 + dx, y0 + h + 2, z0 + sz / 2), planks, 2);
         }
 
         // INTERIOR: armor stands (wool stacks) + loom + curtained dressing room.
         for (int dx = 1; dx < sx - 1; dx++) {
             if (dx % 2 == 0) {
-                level.setBlock(new BlockPos(x0 + dx, y0 + 1, z0 + 1), Blocks.PINK_WOOL.defaultBlockState(), 2);
-                level.setBlock(new BlockPos(x0 + dx, y0 + 2, z0 + 1), Blocks.MAGENTA_WOOL.defaultBlockState(), 2);
+                setSafe(level,new BlockPos(x0 + dx, y0 + 1, z0 + 1), Blocks.PINK_WOOL.defaultBlockState(), 2);
+                setSafe(level,new BlockPos(x0 + dx, y0 + 2, z0 + 1), Blocks.MAGENTA_WOOL.defaultBlockState(), 2);
             }
         }
-        level.setBlock(new BlockPos(x0 + sx / 2, y0 + 1, z0 + sz - 2), Blocks.LOOM.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + sx / 2, y0 + 1, z0 + sz - 2), Blocks.LOOM.defaultBlockState(), 2);
         // Pink carpet runner.
         for (int dz = 1; dz < sz - 1; dz++) {
-            level.setBlock(new BlockPos(x0 + sx / 2, y0 + 1, z0 + dz), Blocks.PINK_CARPET.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + sx / 2, y0 + 1, z0 + dz), Blocks.PINK_CARPET.defaultBlockState(), 2);
         }
-        level.setBlock(new BlockPos(x0 + sx / 2, y0 + 3, z0 + sz / 2),
+        setSafe(level,new BlockPos(x0 + sx / 2, y0 + 3, z0 + sz / 2),
                 Blocks.LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, true), 2);
 
         spawnNamedVillager(level, new BlockPos(x0 + sx / 2, y0 + 1, z0 + sz - 3),
@@ -981,47 +1013,47 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
                     boolean edge = dx == 0 || dx == sx - 1 || dz == 0 || dz == sz - 1;
                     if (!edge) continue;
                     boolean band = dy == 4;
-                    level.setBlock(new BlockPos(x0 + dx, y0 + dy, z0 + dz), band ? accent : wall, 2);
+                    setSafe(level,new BlockPos(x0 + dx, y0 + dy, z0 + dz), band ? accent : wall, 2);
                 }
             }
         }
         int frontZ = (front == Direction.NORTH) ? z0 : z0 + sz - 1;
         for (int dx = 1; dx < sx - 1; dx++) {
             if (dx == sx / 2) continue;
-            level.setBlock(new BlockPos(x0 + dx, y0 + 2, frontZ), window, 2);
-            level.setBlock(new BlockPos(x0 + dx, y0 + 3, frontZ), window, 2);
+            setSafe(level,new BlockPos(x0 + dx, y0 + 2, frontZ), window, 2);
+            setSafe(level,new BlockPos(x0 + dx, y0 + 3, frontZ), window, 2);
         }
         placeDoor(level, x0 + sx / 2, y0 + 1, frontZ, front, Blocks.SPRUCE_DOOR);
         placeAwning(level, x0 + sx / 2, y0 + 4, frontZ, front, Blocks.SPRUCE_STAIRS);
-        level.setBlock(new BlockPos(x0 + sx / 2, y0 + h, frontZ), Blocks.GREEN_WOOL.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + sx / 2, y0 + h, frontZ), Blocks.GREEN_WOOL.defaultBlockState(), 2);
 
         // Sloped slate roof.
         for (int dx = 0; dx < sx; dx++) {
             for (int dz = 0; dz < sz; dz++) {
-                level.setBlock(new BlockPos(x0 + dx, y0 + h + 1, z0 + dz), Blocks.DEEPSLATE_TILES.defaultBlockState(), 2);
+                setSafe(level,new BlockPos(x0 + dx, y0 + h + 1, z0 + dz), Blocks.DEEPSLATE_TILES.defaultBlockState(), 2);
             }
         }
         // Chimney on roof.
         for (int dy = h + 1; dy < h + 5; dy++) {
-            level.setBlock(new BlockPos(x0 + 1, y0 + dy, z0 + 1), Blocks.BRICKS.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + 1, y0 + dy, z0 + 1), Blocks.BRICKS.defaultBlockState(), 2);
         }
-        level.setBlock(new BlockPos(x0 + 1, y0 + h + 5, z0 + 1), Blocks.CAMPFIRE.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + 1, y0 + h + 5, z0 + 1), Blocks.CAMPFIRE.defaultBlockState(), 2);
 
         // INTERIOR: brewing stand wall + cauldrons + flower pots of ingredients.
         for (int dx = 2; dx < sx - 2; dx++) {
-            level.setBlock(new BlockPos(x0 + dx, y0 + 1, z0 + sz - 2), Blocks.BREWING_STAND.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + dx, y0 + 1, z0 + sz - 2), Blocks.BREWING_STAND.defaultBlockState(), 2);
         }
-        level.setBlock(new BlockPos(x0 + 2, y0 + 1, z0 + 2), Blocks.CAULDRON.defaultBlockState(), 2);
-        level.setBlock(new BlockPos(x0 + sx - 3, y0 + 1, z0 + 2), Blocks.CAULDRON.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + 2, y0 + 1, z0 + 2), Blocks.CAULDRON.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + sx - 3, y0 + 1, z0 + 2), Blocks.CAULDRON.defaultBlockState(), 2);
         for (int dx : new int[]{2, 4, sx - 3}) {
-            level.setBlock(new BlockPos(x0 + dx, y0 + 2, z0 + 1),
+            setSafe(level,new BlockPos(x0 + dx, y0 + 2, z0 + 1),
                     (dx % 2 == 0 ? Blocks.POTTED_FERN : Blocks.POTTED_AZURE_BLUET).defaultBlockState(), 2);
         }
         // Green carpet.
         for (int dz = 1; dz < sz - 1; dz++) {
-            level.setBlock(new BlockPos(x0 + sx / 2, y0 + 1, z0 + dz), Blocks.GREEN_CARPET.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + sx / 2, y0 + 1, z0 + dz), Blocks.GREEN_CARPET.defaultBlockState(), 2);
         }
-        level.setBlock(new BlockPos(x0 + sx / 2, y0 + h, z0 + sz / 2),
+        setSafe(level,new BlockPos(x0 + sx / 2, y0 + h, z0 + sz / 2),
                 Blocks.LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, true), 2);
 
         spawnNamedVillager(level, new BlockPos(x0 + sx / 2, y0 + 1, z0 + sz - 3),
@@ -1053,50 +1085,50 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
                     boolean stripe = ((dx + dy + dz) & 1) == 0;
                     BlockState block = corner2 || band ? frame
                             : (stripe ? wall : Blocks.YELLOW_TERRACOTTA.defaultBlockState());
-                    level.setBlock(new BlockPos(x0 + dx, y0 + dy, z0 + dz), block, 2);
+                    setSafe(level,new BlockPos(x0 + dx, y0 + dy, z0 + dz), block, 2);
                 }
             }
         }
         int frontZ = (front == Direction.NORTH) ? z0 : z0 + sz - 1;
         for (int dx = 1; dx < sx - 1; dx += 2) {
-            level.setBlock(new BlockPos(x0 + dx, y0 + 2, frontZ), window, 2);
-            level.setBlock(new BlockPos(x0 + dx, y0 + 6, frontZ), window, 2);
+            setSafe(level,new BlockPos(x0 + dx, y0 + 2, frontZ), window, 2);
+            setSafe(level,new BlockPos(x0 + dx, y0 + 6, frontZ), window, 2);
         }
         placeDoor(level, x0 + sx / 2, y0 + 1, frontZ, front, Blocks.ACACIA_DOOR);
         placeAwning(level, x0 + sx / 2, y0 + 4, frontZ, front, Blocks.ACACIA_STAIRS);
-        level.setBlock(new BlockPos(x0 + sx / 2, y0 + 7, frontZ), Blocks.ORANGE_WOOL.defaultBlockState(), 2);
-        level.setBlock(new BlockPos(x0 + sx / 2, y0 + h, frontZ), Blocks.YELLOW_WOOL.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + sx / 2, y0 + 7, frontZ), Blocks.ORANGE_WOOL.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + sx / 2, y0 + h, frontZ), Blocks.YELLOW_WOOL.defaultBlockState(), 2);
 
         // Roof with chaotic angles.
         for (int dx = 0; dx < sx; dx++) {
             for (int dz = 0; dz < sz; dz++) {
-                level.setBlock(new BlockPos(x0 + dx, y0 + h + 1, z0 + dz), Blocks.ACACIA_PLANKS.defaultBlockState(), 2);
+                setSafe(level,new BlockPos(x0 + dx, y0 + h + 1, z0 + dz), Blocks.ACACIA_PLANKS.defaultBlockState(), 2);
             }
         }
         // Giant top hat on roof (the iconic Weasley sign): tower of orange wool.
         for (int dy = 0; dy < 3; dy++) {
-            level.setBlock(new BlockPos(x0 + sx / 2, y0 + h + 2 + dy, z0 + sz / 2), Blocks.ORANGE_WOOL.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + sx / 2, y0 + h + 2 + dy, z0 + sz / 2), Blocks.ORANGE_WOOL.defaultBlockState(), 2);
         }
         for (Direction d : Direction.Plane.HORIZONTAL) {
-            level.setBlock(new BlockPos(x0 + sx / 2, y0 + h + 2, z0 + sz / 2).relative(d), Blocks.ORANGE_WOOL.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + sx / 2, y0 + h + 2, z0 + sz / 2).relative(d), Blocks.ORANGE_WOOL.defaultBlockState(), 2);
         }
-        level.setBlock(new BlockPos(x0 + sx / 2, y0 + h + 5, z0 + sz / 2), Blocks.YELLOW_WOOL.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + sx / 2, y0 + h + 5, z0 + sz / 2), Blocks.YELLOW_WOOL.defaultBlockState(), 2);
 
         // INTERIOR: chaos shelves — wool blocks, TNT (defused), jukebox, redstone lamps.
         for (int dx = 1; dx < sx - 1; dx++) {
-            level.setBlock(new BlockPos(x0 + dx, y0 + 1, z0 + 1),
+            setSafe(level,new BlockPos(x0 + dx, y0 + 1, z0 + 1),
                     ((dx + 1) % 3 == 0 ? Blocks.TNT : Blocks.YELLOW_WOOL).defaultBlockState(), 2);
-            level.setBlock(new BlockPos(x0 + dx, y0 + 2, z0 + 1),
+            setSafe(level,new BlockPos(x0 + dx, y0 + 2, z0 + 1),
                     ((dx % 2 == 0) ? Blocks.PINK_WOOL : Blocks.LIME_WOOL).defaultBlockState(), 2);
         }
-        level.setBlock(new BlockPos(x0 + sx / 2, y0 + 1, z0 + sz / 2), Blocks.JUKEBOX.defaultBlockState(), 2);
-        level.setBlock(new BlockPos(x0 + sx / 2 - 1, y0 + 1, z0 + sz / 2), Blocks.REDSTONE_LAMP.defaultBlockState(), 2);
-        level.setBlock(new BlockPos(x0 + sx / 2 + 1, y0 + 1, z0 + sz / 2), Blocks.REDSTONE_LAMP.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + sx / 2, y0 + 1, z0 + sz / 2), Blocks.JUKEBOX.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + sx / 2 - 1, y0 + 1, z0 + sz / 2), Blocks.REDSTONE_LAMP.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + sx / 2 + 1, y0 + 1, z0 + sz / 2), Blocks.REDSTONE_LAMP.defaultBlockState(), 2);
         // Carpet.
         for (int dz = 1; dz < sz - 1; dz++) {
-            level.setBlock(new BlockPos(x0 + sx / 2, y0 + 1, z0 + dz), Blocks.ORANGE_CARPET.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + sx / 2, y0 + 1, z0 + dz), Blocks.ORANGE_CARPET.defaultBlockState(), 2);
         }
-        level.setBlock(new BlockPos(x0 + sx / 2, y0 + h, z0 + sz / 2),
+        setSafe(level,new BlockPos(x0 + sx / 2, y0 + h, z0 + sz / 2),
                 Blocks.LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, true), 2);
 
         spawnNamedVillager(level, new BlockPos(x0 + sx / 2 - 1, y0 + 1, z0 + sz - 2),
@@ -1125,7 +1157,7 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
                     boolean edge = dx == 0 || dx == sx - 1 || dz == 0 || dz == sz - 1;
                     if (!edge) continue;
                     boolean band = dy == 3;
-                    level.setBlock(new BlockPos(x0 + dx, y0 + dy, z0 + dz),
+                    setSafe(level,new BlockPos(x0 + dx, y0 + dy, z0 + dz),
                             band ? Blocks.LIGHT_BLUE_TERRACOTTA.defaultBlockState() : wall, 2);
                 }
             }
@@ -1134,8 +1166,8 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
         // Big shop window taking up most of the front.
         for (int dx = 1; dx < sx - 1; dx++) {
             if (dx == sx / 2) continue;
-            level.setBlock(new BlockPos(x0 + dx, y0 + 2, frontZ), window, 2);
-            level.setBlock(new BlockPos(x0 + dx, y0 + 3, frontZ), window, 2);
+            setSafe(level,new BlockPos(x0 + dx, y0 + 2, frontZ), window, 2);
+            setSafe(level,new BlockPos(x0 + dx, y0 + 3, frontZ), window, 2);
         }
         placeDoor(level, x0 + sx / 2, y0 + 1, frontZ, front, Blocks.BIRCH_DOOR);
         // Striped awning (light blue / white wool checkered).
@@ -1145,19 +1177,19 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
                 .setValue(BlockStateProperties.HALF, Half.TOP);
         int awnZ = (front == Direction.NORTH) ? frontZ - 1 : frontZ + 1;
         for (int dx = -3; dx <= 3; dx++) {
-            level.setBlock(new BlockPos(x0 + sx / 2 + dx, y0 + 4, awnZ), awningStair, 2);
-            level.setBlock(new BlockPos(x0 + sx / 2 + dx, y0 + 5, awnZ),
+            setSafe(level,new BlockPos(x0 + sx / 2 + dx, y0 + 4, awnZ), awningStair, 2);
+            setSafe(level,new BlockPos(x0 + sx / 2 + dx, y0 + 5, awnZ),
                     (dx % 2 == 0) ? Blocks.LIGHT_BLUE_WOOL.defaultBlockState() : Blocks.WHITE_WOOL.defaultBlockState(), 2);
         }
         // Flat roof with railing.
         for (int dx = 0; dx < sx; dx++) {
             for (int dz = 0; dz < sz; dz++) {
-                level.setBlock(new BlockPos(x0 + dx, y0 + h + 1, z0 + dz), Blocks.SMOOTH_QUARTZ.defaultBlockState(), 2);
+                setSafe(level,new BlockPos(x0 + dx, y0 + h + 1, z0 + dz), Blocks.SMOOTH_QUARTZ.defaultBlockState(), 2);
             }
         }
         for (int dx = 0; dx < sx; dx++) {
-            level.setBlock(new BlockPos(x0 + dx, y0 + h + 2, z0), Blocks.QUARTZ_PILLAR.defaultBlockState(), 2);
-            level.setBlock(new BlockPos(x0 + dx, y0 + h + 2, z0 + sz - 1), Blocks.QUARTZ_PILLAR.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + dx, y0 + h + 2, z0), Blocks.QUARTZ_PILLAR.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + dx, y0 + h + 2, z0 + sz - 1), Blocks.QUARTZ_PILLAR.defaultBlockState(), 2);
         }
 
         // OUTDOOR SEATING — tables (oak slabs on fence posts) with stools in front of the shop.
@@ -1168,21 +1200,21 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
 
         // INTERIOR: counter with cake (ice cream stand-in) + packed-ice freezer + blue ice display.
         for (int dx = 1; dx < sx - 1; dx++) {
-            level.setBlock(new BlockPos(x0 + dx, y0 + 1, z0 + 2), Blocks.SMOOTH_QUARTZ_SLAB.defaultBlockState()
+            setSafe(level,new BlockPos(x0 + dx, y0 + 1, z0 + 2), Blocks.SMOOTH_QUARTZ_SLAB.defaultBlockState()
                     .setValue(BlockStateProperties.SLAB_TYPE, SlabType.TOP), 2);
         }
-        level.setBlock(new BlockPos(x0 + sx / 2 - 1, y0 + 2, z0 + 2), Blocks.CAKE.defaultBlockState(), 2);
-        level.setBlock(new BlockPos(x0 + sx / 2 + 1, y0 + 2, z0 + 2), Blocks.CAKE.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + sx / 2 - 1, y0 + 2, z0 + 2), Blocks.CAKE.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + sx / 2 + 1, y0 + 2, z0 + 2), Blocks.CAKE.defaultBlockState(), 2);
         for (int dx = 1; dx < sx - 1; dx++) {
-            level.setBlock(new BlockPos(x0 + dx, y0 + 1, z0 + sz - 2), Blocks.PACKED_ICE.defaultBlockState(), 2);
-            level.setBlock(new BlockPos(x0 + dx, y0 + 2, z0 + sz - 2),
+            setSafe(level,new BlockPos(x0 + dx, y0 + 1, z0 + sz - 2), Blocks.PACKED_ICE.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + dx, y0 + 2, z0 + sz - 2),
                     (dx % 2 == 0 ? Blocks.BLUE_ICE : Blocks.PACKED_ICE).defaultBlockState(), 2);
         }
         // Light-blue carpet.
         for (int dz = 1; dz < sz - 1; dz++) {
-            level.setBlock(new BlockPos(x0 + sx / 2, y0 + 1, z0 + dz), Blocks.LIGHT_BLUE_CARPET.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + sx / 2, y0 + 1, z0 + dz), Blocks.LIGHT_BLUE_CARPET.defaultBlockState(), 2);
         }
-        level.setBlock(new BlockPos(x0 + sx / 2, y0 + h, z0 + sz / 2),
+        setSafe(level,new BlockPos(x0 + sx / 2, y0 + h, z0 + sz / 2),
                 Blocks.LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, true), 2);
 
         spawnNamedVillager(level, new BlockPos(x0 + sx / 2, y0 + 1, z0 + sz - 3),
@@ -1191,13 +1223,13 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
 
     private void placeCafeTable(WorldGenLevel level, BlockPos at) {
         // Fence post + slab top = café table.
-        level.setBlock(at, Blocks.SPRUCE_FENCE.defaultBlockState(), 2);
-        level.setBlock(at.above(), Blocks.SPRUCE_PRESSURE_PLATE.defaultBlockState(), 2);
+        setSafe(level,at, Blocks.SPRUCE_FENCE.defaultBlockState(), 2);
+        setSafe(level,at.above(), Blocks.SPRUCE_PRESSURE_PLATE.defaultBlockState(), 2);
         // Stools on either side.
-        level.setBlock(at.east(), Blocks.SPRUCE_FENCE.defaultBlockState(), 2);
-        level.setBlock(at.east().above(), Blocks.SPRUCE_PRESSURE_PLATE.defaultBlockState(), 2);
-        level.setBlock(at.west(), Blocks.SPRUCE_FENCE.defaultBlockState(), 2);
-        level.setBlock(at.west().above(), Blocks.SPRUCE_PRESSURE_PLATE.defaultBlockState(), 2);
+        setSafe(level,at.east(), Blocks.SPRUCE_FENCE.defaultBlockState(), 2);
+        setSafe(level,at.east().above(), Blocks.SPRUCE_PRESSURE_PLATE.defaultBlockState(), 2);
+        setSafe(level,at.west(), Blocks.SPRUCE_FENCE.defaultBlockState(), 2);
+        setSafe(level,at.west().above(), Blocks.SPRUCE_PRESSURE_PLATE.defaultBlockState(), 2);
     }
 
     // =================================================================================
@@ -1216,31 +1248,31 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
                 if (r > radius + 1) continue;
                 BlockPos p = new BlockPos(x0 + dx, y, z0 + dz);
                 if (r == radius + 1) {
-                    level.setBlock(p, Blocks.POLISHED_ANDESITE.defaultBlockState(), 2);
+                    setSafe(level,p, Blocks.POLISHED_ANDESITE.defaultBlockState(), 2);
                 } else if (r == radius) {
-                    level.setBlock(p, Blocks.CHISELED_STONE_BRICKS.defaultBlockState(), 2);
+                    setSafe(level,p, Blocks.CHISELED_STONE_BRICKS.defaultBlockState(), 2);
                 } else {
-                    level.setBlock(p, Blocks.AIR.defaultBlockState(), 2);
-                    level.setBlock(p.below(), Blocks.WATER.defaultBlockState(), 2);
+                    setSafe(level,p, Blocks.AIR.defaultBlockState(), 2);
+                    setSafe(level,p.below(), Blocks.WATER.defaultBlockState(), 2);
                 }
             }
         }
         // Tiered pillar with sea-lantern crown.
         BlockPos pillar = new BlockPos(x0, y, z0);
         for (int dy = 0; dy < 3; dy++) {
-            level.setBlock(pillar.above(dy), Blocks.CHISELED_STONE_BRICKS.defaultBlockState(), 2);
+            setSafe(level,pillar.above(dy), Blocks.CHISELED_STONE_BRICKS.defaultBlockState(), 2);
         }
         for (Direction d : Direction.Plane.HORIZONTAL) {
-            level.setBlock(pillar.above(2).relative(d), Blocks.STONE_BRICK_STAIRS.defaultBlockState()
+            setSafe(level,pillar.above(2).relative(d), Blocks.STONE_BRICK_STAIRS.defaultBlockState()
                     .setValue(BlockStateProperties.HORIZONTAL_FACING, d)
                     .setValue(BlockStateProperties.HALF, Half.TOP), 2);
         }
-        level.setBlock(pillar.above(3), Blocks.SEA_LANTERN.defaultBlockState(), 2);
-        level.setBlock(pillar.above(4), Blocks.GOLD_BLOCK.defaultBlockState(), 2);
-        level.setBlock(pillar.above(5), Blocks.LIGHTNING_ROD.defaultBlockState(), 2);
+        setSafe(level,pillar.above(3), Blocks.SEA_LANTERN.defaultBlockState(), 2);
+        setSafe(level,pillar.above(4), Blocks.GOLD_BLOCK.defaultBlockState(), 2);
+        setSafe(level,pillar.above(5), Blocks.LIGHTNING_ROD.defaultBlockState(), 2);
         // Water sources above to pour from the column (decorative).
-        level.setBlock(pillar.above(2).north().above(), Blocks.WATER.defaultBlockState(), 2);
-        level.setBlock(pillar.above(2).south().above(), Blocks.WATER.defaultBlockState(), 2);
+        setSafe(level,pillar.above(2).north().above(), Blocks.WATER.defaultBlockState(), 2);
+        setSafe(level,pillar.above(2).south().above(), Blocks.WATER.defaultBlockState(), 2);
     }
 
     private void buildLanternTower(WorldGenLevel level, BlockPos base) {
@@ -1252,7 +1284,7 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
         for (int dx = -1; dx <= 5; dx++) {
             for (int dz = -1; dz <= 5; dz++) {
                 for (int dy = -3; dy < 0; dy++) {
-                    level.setBlock(new BlockPos(x0 + dx, y0 + dy, z0 + dz), Blocks.DEEPSLATE_BRICKS.defaultBlockState(), 2);
+                    setSafe(level,new BlockPos(x0 + dx, y0 + dy, z0 + dz), Blocks.DEEPSLATE_BRICKS.defaultBlockState(), 2);
                 }
             }
         }
@@ -1265,7 +1297,7 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
                     BlockState b = ((dx + dz + dy) % 7 == 0) ? Blocks.MOSSY_STONE_BRICKS.defaultBlockState()
                             : ((dy % 4 == 3 && (dx == 2 || dz == 2)) ? Blocks.YELLOW_STAINED_GLASS_PANE.defaultBlockState()
                             : ((dy % 7 == 6) ? Blocks.CHISELED_STONE_BRICKS.defaultBlockState() : Blocks.STONE_BRICKS.defaultBlockState()));
-                    level.setBlock(new BlockPos(x0 + dx, y0 + dy, z0 + dz), b, 2);
+                    setSafe(level,new BlockPos(x0 + dx, y0 + dy, z0 + dz), b, 2);
                 }
             }
         }
@@ -1274,25 +1306,25 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
             for (int dz = 0; dz < 5; dz++) {
                 boolean edge = dx == 0 || dx == 4 || dz == 0 || dz == 4;
                 if (edge && (dx + dz) % 2 == 0) {
-                    level.setBlock(new BlockPos(x0 + dx, y0 + height, z0 + dz), Blocks.STONE_BRICKS.defaultBlockState(), 2);
+                    setSafe(level,new BlockPos(x0 + dx, y0 + height, z0 + dz), Blocks.STONE_BRICKS.defaultBlockState(), 2);
                 }
             }
         }
         // Bright crown — visible from far away.
-        level.setBlock(new BlockPos(x0 + 2, y0 + height, z0 + 2), Blocks.SEA_LANTERN.defaultBlockState(), 2);
-        level.setBlock(new BlockPos(x0 + 2, y0 + height + 1, z0 + 2), Blocks.GLOWSTONE.defaultBlockState(), 2);
-        level.setBlock(new BlockPos(x0 + 2, y0 + height + 2, z0 + 2), Blocks.JACK_O_LANTERN.defaultBlockState(), 2);
-        level.setBlock(new BlockPos(x0 + 2, y0 + height + 3, z0 + 2),
+        setSafe(level,new BlockPos(x0 + 2, y0 + height, z0 + 2), Blocks.SEA_LANTERN.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + 2, y0 + height + 1, z0 + 2), Blocks.GLOWSTONE.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + 2, y0 + height + 2, z0 + 2), Blocks.JACK_O_LANTERN.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + 2, y0 + height + 3, z0 + 2),
                 Blocks.LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, true), 2);
-        level.setBlock(new BlockPos(x0 + 2, y0 + height + 4, z0 + 2), Blocks.LIGHTNING_ROD.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + 2, y0 + height + 4, z0 + 2), Blocks.LIGHTNING_ROD.defaultBlockState(), 2);
     }
 
     private void buildLanternPole(WorldGenLevel level, BlockPos base) {
         for (int dy = 0; dy < 3; dy++) {
-            level.setBlock(base.above(dy), Blocks.DARK_OAK_FENCE.defaultBlockState(), 2);
+            setSafe(level,base.above(dy), Blocks.DARK_OAK_FENCE.defaultBlockState(), 2);
         }
-        level.setBlock(base.above(3), Blocks.DARK_OAK_FENCE.defaultBlockState(), 2);
-        level.setBlock(base.above(2),
+        setSafe(level,base.above(3), Blocks.DARK_OAK_FENCE.defaultBlockState(), 2);
+        setSafe(level,base.above(2),
                 Blocks.LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, true), 2);
     }
 
@@ -1300,18 +1332,18 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
         BlockState seat = Blocks.STONE_BRICK_STAIRS.defaultBlockState()
                 .setValue(BlockStateProperties.HORIZONTAL_FACING, facing)
                 .setValue(BlockStateProperties.HALF, Half.TOP);
-        level.setBlock(pos, seat, 2);
+        setSafe(level,pos, seat, 2);
     }
 
     private void placeFlowerPlanter(WorldGenLevel level, BlockPos pos) {
-        level.setBlock(pos, Blocks.HAY_BLOCK.defaultBlockState(), 2);
+        setSafe(level,pos, Blocks.HAY_BLOCK.defaultBlockState(), 2);
         BlockState plant = switch ((pos.getX() + pos.getZ()) & 3) {
             case 0 -> Blocks.POTTED_POPPY.defaultBlockState();
             case 1 -> Blocks.POTTED_ALLIUM.defaultBlockState();
             case 2 -> Blocks.POTTED_DANDELION.defaultBlockState();
             default -> Blocks.POTTED_AZURE_BLUET.defaultBlockState();
         };
-        level.setBlock(pos.above(), plant, 2);
+        setSafe(level,pos.above(), plant, 2);
     }
 
     // =================================================================================
@@ -1322,7 +1354,7 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
         for (int dx = 0; dx < sx; dx++) {
             for (int dy = 0; dy < sy; dy++) {
                 for (int dz = 0; dz < sz; dz++) {
-                    level.setBlock(new BlockPos(x0 + dx, y0 + dy, z0 + dz), block, 2);
+                    setSafe(level,new BlockPos(x0 + dx, y0 + dy, z0 + dz), block, 2);
                 }
             }
         }
@@ -1336,8 +1368,8 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
         BlockState upper = doorBlock.defaultBlockState()
                 .setValue(BlockStateProperties.HORIZONTAL_FACING, outward.getOpposite())
                 .setValue(BlockStateProperties.DOUBLE_BLOCK_HALF, DoubleBlockHalf.UPPER);
-        level.setBlock(new BlockPos(doorX, doorY, doorZ), lower, 2);
-        level.setBlock(new BlockPos(doorX, doorY + 1, doorZ), upper, 2);
+        setSafe(level,new BlockPos(doorX, doorY, doorZ), lower, 2);
+        setSafe(level,new BlockPos(doorX, doorY + 1, doorZ), upper, 2);
     }
 
     private void placeAwning(WorldGenLevel level, int doorX, int awningY, int doorZ, Direction front, net.minecraft.world.level.block.Block stairBlock) {
@@ -1348,7 +1380,7 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
         // Step outward by 1 from the door.
         int outZ = doorZ + (front == Direction.NORTH ? -1 : 1);
         for (int dx = -2; dx <= 2; dx++) {
-            level.setBlock(new BlockPos(doorX + dx, awningY, outZ), s, 2);
+            setSafe(level,new BlockPos(doorX + dx, awningY, outZ), s, 2);
         }
         BlockState leftCap = stairBlock.defaultBlockState()
                 .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.EAST)
@@ -1356,12 +1388,12 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
         BlockState rightCap = stairBlock.defaultBlockState()
                 .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.WEST)
                 .setValue(BlockStateProperties.HALF, Half.TOP);
-        level.setBlock(new BlockPos(doorX - 3, awningY, outZ), leftCap, 2);
-        level.setBlock(new BlockPos(doorX + 3, awningY, outZ), rightCap, 2);
+        setSafe(level,new BlockPos(doorX - 3, awningY, outZ), leftCap, 2);
+        setSafe(level,new BlockPos(doorX + 3, awningY, outZ), rightCap, 2);
         // Lantern hanging from the awning.
-        level.setBlock(new BlockPos(doorX - 2, awningY - 1, outZ),
+        setSafe(level,new BlockPos(doorX - 2, awningY - 1, outZ),
                 Blocks.LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, true), 2);
-        level.setBlock(new BlockPos(doorX + 2, awningY - 1, outZ),
+        setSafe(level,new BlockPos(doorX + 2, awningY - 1, outZ),
                 Blocks.LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, true), 2);
     }
 
@@ -1380,23 +1412,23 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
                 BlockState paving = ((dx + dz) % 5 == 0) ? Blocks.CRACKED_DEEPSLATE_BRICKS.defaultBlockState()
                         : ((dx + dz) % 3 == 0) ? Blocks.COBBLED_DEEPSLATE.defaultBlockState()
                         : Blocks.DEEPSLATE_BRICKS.defaultBlockState();
-                level.setBlock(p, paving, 2);
+                setSafe(level,p, paving, 2);
                 // Clear air above.
                 for (int dy = 1; dy < 18; dy++) {
                     BlockPos pp = new BlockPos(x0 + dx, y + dy, z0 + dz);
-                    if (!level.isEmptyBlock(pp)) level.setBlock(pp, Blocks.AIR.defaultBlockState(), 2);
+                    if (!level.isEmptyBlock(pp)) setSafe(level,pp, Blocks.AIR.defaultBlockState(), 2);
                 }
             }
         }
         // Soul-lantern poles every 5 blocks for the eerie blue glow.
         for (int dz = 3; dz < 18; dz += 5) {
             for (int dy = 0; dy < 3; dy++) {
-                level.setBlock(new BlockPos(x0 - 1, y + 1 + dy, z0 + dz), Blocks.POLISHED_BLACKSTONE_BRICK_WALL.defaultBlockState(), 2);
-                level.setBlock(new BlockPos(x0 + 4, y + 1 + dy, z0 + dz), Blocks.POLISHED_BLACKSTONE_BRICK_WALL.defaultBlockState(), 2);
+                setSafe(level,new BlockPos(x0 - 1, y + 1 + dy, z0 + dz), Blocks.POLISHED_BLACKSTONE_BRICK_WALL.defaultBlockState(), 2);
+                setSafe(level,new BlockPos(x0 + 4, y + 1 + dy, z0 + dz), Blocks.POLISHED_BLACKSTONE_BRICK_WALL.defaultBlockState(), 2);
             }
-            level.setBlock(new BlockPos(x0 - 1, y + 4, z0 + dz),
+            setSafe(level,new BlockPos(x0 - 1, y + 4, z0 + dz),
                     Blocks.SOUL_LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, true), 2);
-            level.setBlock(new BlockPos(x0 + 4, y + 4, z0 + dz),
+            setSafe(level,new BlockPos(x0 + 4, y + 4, z0 + dz),
                     Blocks.SOUL_LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, true), 2);
         }
         // West building: Borgin & Burkes — dark wizards' antique shop.
@@ -1405,20 +1437,20 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
         buildCursedCurioShop(level, new BlockPos(x0 + 5, y, z0 + 4), rng);
         // Dead-end at the far south: a blackstone arch with cobwebs.
         for (int dy = 0; dy < 5; dy++) {
-            level.setBlock(new BlockPos(x0 - 1, y + dy, z0 + 17), Blocks.POLISHED_BLACKSTONE_BRICKS.defaultBlockState(), 2);
-            level.setBlock(new BlockPos(x0 + 4, y + dy, z0 + 17), Blocks.POLISHED_BLACKSTONE_BRICKS.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 - 1, y + dy, z0 + 17), Blocks.POLISHED_BLACKSTONE_BRICKS.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + 4, y + dy, z0 + 17), Blocks.POLISHED_BLACKSTONE_BRICKS.defaultBlockState(), 2);
         }
         for (int dx = 0; dx < 4; dx++) {
-            level.setBlock(new BlockPos(x0 + dx, y + 4, z0 + 17), Blocks.POLISHED_BLACKSTONE_BRICKS.defaultBlockState(), 2);
-            level.setBlock(new BlockPos(x0 + dx, y + 5, z0 + 17), Blocks.CHISELED_POLISHED_BLACKSTONE.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + dx, y + 4, z0 + 17), Blocks.POLISHED_BLACKSTONE_BRICKS.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + dx, y + 5, z0 + 17), Blocks.CHISELED_POLISHED_BLACKSTONE.defaultBlockState(), 2);
         }
         for (int dx = 0; dx < 4; dx++) {
-            level.setBlock(new BlockPos(x0 + dx, y + 1, z0 + 16), Blocks.COBWEB.defaultBlockState(), 2);
-            level.setBlock(new BlockPos(x0 + dx, y + 2, z0 + 16), Blocks.COBWEB.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + dx, y + 1, z0 + 16), Blocks.COBWEB.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + dx, y + 2, z0 + 16), Blocks.COBWEB.defaultBlockState(), 2);
         }
         // Add a couple of cobwebs along the walls for atmosphere.
-        level.setBlock(new BlockPos(x0, y + 3, z0 + 8), Blocks.COBWEB.defaultBlockState(), 2);
-        level.setBlock(new BlockPos(x0 + 3, y + 3, z0 + 12), Blocks.COBWEB.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0, y + 3, z0 + 8), Blocks.COBWEB.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + 3, y + 3, z0 + 12), Blocks.COBWEB.defaultBlockState(), 2);
     }
 
     private void buildBorginAndBurkes(WorldGenLevel level, BlockPos corner, RandomSource rng) {
@@ -1439,7 +1471,7 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
                     if (!edge) continue;
                     boolean isCorner = (dx == 0 || dx == sx - 1) && (dz == 0 || dz == sz - 1);
                     boolean band = dy == 4;
-                    level.setBlock(new BlockPos(x0 + dx, y0 + dy, z0 + dz),
+                    setSafe(level,new BlockPos(x0 + dx, y0 + dy, z0 + dz),
                             isCorner || band ? accent : wall, 2);
                 }
             }
@@ -1448,47 +1480,47 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
         int frontX = x0 + sx - 1;
         for (int dz = 2; dz < sz - 2; dz++) {
             if (dz == sz / 2) continue;
-            level.setBlock(new BlockPos(frontX, y0 + 2, z0 + dz), window, 2);
+            setSafe(level,new BlockPos(frontX, y0 + 2, z0 + dz), window, 2);
         }
         BlockState doorLower = Blocks.DARK_OAK_DOOR.defaultBlockState()
                 .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.WEST)
                 .setValue(BlockStateProperties.DOUBLE_BLOCK_HALF, DoubleBlockHalf.LOWER);
         BlockState doorUpper = doorLower.setValue(BlockStateProperties.DOUBLE_BLOCK_HALF, DoubleBlockHalf.UPPER);
-        level.setBlock(new BlockPos(frontX, y0 + 1, z0 + sz / 2), doorLower, 2);
-        level.setBlock(new BlockPos(frontX, y0 + 2, z0 + sz / 2), doorUpper, 2);
+        setSafe(level,new BlockPos(frontX, y0 + 1, z0 + sz / 2), doorLower, 2);
+        setSafe(level,new BlockPos(frontX, y0 + 2, z0 + sz / 2), doorUpper, 2);
         // Sinister hanging soul lantern over the door.
-        level.setBlock(new BlockPos(frontX, y0 + 4, z0 + sz / 2),
+        setSafe(level,new BlockPos(frontX, y0 + 4, z0 + sz / 2),
                 Blocks.SOUL_LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, true), 2);
 
         // Slanted blackstone roof.
         for (int dx = 0; dx < sx; dx++) {
             for (int dz = 0; dz < sz; dz++) {
-                level.setBlock(new BlockPos(x0 + dx, y0 + h + 1, z0 + dz), accent, 2);
+                setSafe(level,new BlockPos(x0 + dx, y0 + h + 1, z0 + dz), accent, 2);
             }
         }
         // Spires at corners.
         for (int dy = 0; dy < 3; dy++) {
-            level.setBlock(new BlockPos(x0, y0 + h + 2 + dy, z0), Blocks.POLISHED_BLACKSTONE.defaultBlockState(), 2);
-            level.setBlock(new BlockPos(x0 + sx - 1, y0 + h + 2 + dy, z0), Blocks.POLISHED_BLACKSTONE.defaultBlockState(), 2);
-            level.setBlock(new BlockPos(x0, y0 + h + 2 + dy, z0 + sz - 1), Blocks.POLISHED_BLACKSTONE.defaultBlockState(), 2);
-            level.setBlock(new BlockPos(x0 + sx - 1, y0 + h + 2 + dy, z0 + sz - 1), Blocks.POLISHED_BLACKSTONE.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0, y0 + h + 2 + dy, z0), Blocks.POLISHED_BLACKSTONE.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + sx - 1, y0 + h + 2 + dy, z0), Blocks.POLISHED_BLACKSTONE.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0, y0 + h + 2 + dy, z0 + sz - 1), Blocks.POLISHED_BLACKSTONE.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + sx - 1, y0 + h + 2 + dy, z0 + sz - 1), Blocks.POLISHED_BLACKSTONE.defaultBlockState(), 2);
         }
 
         // INTERIOR: skull displays, withered shelves, cursed object on pedestal, cobwebs.
         for (int dx = 1; dx < sx - 1; dx++) {
-            level.setBlock(new BlockPos(x0 + dx, y0 + 1, z0 + 1), Blocks.SOUL_SAND.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + dx, y0 + 1, z0 + 1), Blocks.SOUL_SAND.defaultBlockState(), 2);
             if (dx % 2 == 0)
-                level.setBlock(new BlockPos(x0 + dx, y0 + 2, z0 + 1), Blocks.SKELETON_SKULL.defaultBlockState(), 2);
+                setSafe(level,new BlockPos(x0 + dx, y0 + 2, z0 + 1), Blocks.SKELETON_SKULL.defaultBlockState(), 2);
         }
         // Pedestal with cursed item.
-        level.setBlock(new BlockPos(x0 + sx / 2, y0 + 1, z0 + sz / 2), Blocks.CHISELED_POLISHED_BLACKSTONE.defaultBlockState(), 2);
-        level.setBlock(new BlockPos(x0 + sx / 2, y0 + 2, z0 + sz / 2), Blocks.WITHER_SKELETON_SKULL.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + sx / 2, y0 + 1, z0 + sz / 2), Blocks.CHISELED_POLISHED_BLACKSTONE.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + sx / 2, y0 + 2, z0 + sz / 2), Blocks.WITHER_SKELETON_SKULL.defaultBlockState(), 2);
         // Cobwebs in corners.
-        level.setBlock(new BlockPos(x0 + 1, y0 + h - 1, z0 + 1), Blocks.COBWEB.defaultBlockState(), 2);
-        level.setBlock(new BlockPos(x0 + sx - 2, y0 + h - 1, z0 + sz - 2), Blocks.COBWEB.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + 1, y0 + h - 1, z0 + 1), Blocks.COBWEB.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + sx - 2, y0 + h - 1, z0 + sz - 2), Blocks.COBWEB.defaultBlockState(), 2);
         // Purple carpet runner.
         for (int dz = 1; dz < sz - 1; dz++) {
-            level.setBlock(new BlockPos(x0 + sx / 2, y0 + 1, z0 + dz), Blocks.PURPLE_CARPET.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + sx / 2, y0 + 1, z0 + dz), Blocks.PURPLE_CARPET.defaultBlockState(), 2);
         }
         // Loot chest.
         placeLootChest(level, new BlockPos(x0 + 2, y0 + 1, z0 + sz - 2), Direction.WEST, LootTheme.BORGIN_DARK, rng);
@@ -1512,7 +1544,7 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
                 for (int dz = 0; dz < sz; dz++) {
                     boolean edge = dx == 0 || dx == sx - 1 || dz == 0 || dz == sz - 1;
                     if (!edge) continue;
-                    level.setBlock(new BlockPos(x0 + dx, y0 + dy, z0 + dz),
+                    setSafe(level,new BlockPos(x0 + dx, y0 + dy, z0 + dz),
                             dy == h ? Blocks.POLISHED_BASALT.defaultBlockState() : wall, 2);
                 }
             }
@@ -1522,31 +1554,31 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
                 .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.EAST)
                 .setValue(BlockStateProperties.DOUBLE_BLOCK_HALF, DoubleBlockHalf.LOWER);
         BlockState doorUpper = doorLower.setValue(BlockStateProperties.DOUBLE_BLOCK_HALF, DoubleBlockHalf.UPPER);
-        level.setBlock(new BlockPos(x0, y0 + 1, z0 + sz / 2), doorLower, 2);
-        level.setBlock(new BlockPos(x0, y0 + 2, z0 + sz / 2), doorUpper, 2);
+        setSafe(level,new BlockPos(x0, y0 + 1, z0 + sz / 2), doorLower, 2);
+        setSafe(level,new BlockPos(x0, y0 + 2, z0 + sz / 2), doorUpper, 2);
         for (int dz = 2; dz < sz - 2; dz++) {
             if (dz == sz / 2) continue;
-            level.setBlock(new BlockPos(x0, y0 + 2, z0 + dz), window, 2);
+            setSafe(level,new BlockPos(x0, y0 + 2, z0 + dz), window, 2);
         }
-        level.setBlock(new BlockPos(x0, y0 + 4, z0 + sz / 2),
+        setSafe(level,new BlockPos(x0, y0 + 4, z0 + sz / 2),
                 Blocks.SOUL_LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, true), 2);
         // Roof.
         for (int dx = 0; dx < sx; dx++) {
             for (int dz = 0; dz < sz; dz++) {
-                level.setBlock(new BlockPos(x0 + dx, y0 + h + 1, z0 + dz), Blocks.POLISHED_BASALT.defaultBlockState(), 2);
+                setSafe(level,new BlockPos(x0 + dx, y0 + h + 1, z0 + dz), Blocks.POLISHED_BASALT.defaultBlockState(), 2);
             }
         }
         // Interior: glass display cases (panes around air), random "cursed" blocks.
         for (int dx = 2; dx < sx - 2; dx++) {
-            level.setBlock(new BlockPos(x0 + dx, y0 + 1, z0 + sz - 2), Blocks.CHISELED_POLISHED_BLACKSTONE.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + dx, y0 + 1, z0 + sz - 2), Blocks.CHISELED_POLISHED_BLACKSTONE.defaultBlockState(), 2);
             if (dx % 2 == 0)
-                level.setBlock(new BlockPos(x0 + dx, y0 + 2, z0 + sz - 2), Blocks.BONE_BLOCK.defaultBlockState(), 2);
+                setSafe(level,new BlockPos(x0 + dx, y0 + 2, z0 + sz - 2), Blocks.BONE_BLOCK.defaultBlockState(), 2);
         }
         // Cobweb in the doorway corner.
-        level.setBlock(new BlockPos(x0 + sx - 2, y0 + h - 1, z0 + 1), Blocks.COBWEB.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + sx - 2, y0 + h - 1, z0 + 1), Blocks.COBWEB.defaultBlockState(), 2);
         // Red carpet.
         for (int dz = 1; dz < sz - 1; dz++) {
-            level.setBlock(new BlockPos(x0 + sx / 2, y0 + 1, z0 + dz), Blocks.RED_CARPET.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + sx / 2, y0 + 1, z0 + dz), Blocks.RED_CARPET.defaultBlockState(), 2);
         }
         placeLootChest(level, new BlockPos(x0 + sx - 2, y0 + 1, z0 + sz - 2), Direction.WEST, LootTheme.BORGIN_DARK, rng);
         spawnNamedVillager(level, new BlockPos(x0 + sx / 2, y0 + 1, z0 + sz - 3),
@@ -1561,49 +1593,49 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
         // Floo Fireplace in the Leaky Cauldron, replacing the indoor campfire location.
         BlockState floo = optionalBlock("FLOO_FIREPLACE");
         if (floo != null) {
-            level.setBlock(new BlockPos(x0 + 1, y + 1, z0 + 16), floo, 2);
+            setSafe(level,new BlockPos(x0 + 1, y + 1, z0 + 16), floo, 2);
         }
         // Owl Perches in Eeylops (in front of each hay-fence stand we placed).
         BlockState owlPerch = optionalBlock("OWL_PERCH");
         if (owlPerch != null) {
             for (int dx = 18; dx <= 24; dx += 2) {
-                level.setBlock(new BlockPos(x0 + dx, y + 2, z0 + 18), owlPerch, 2);
+                setSafe(level,new BlockPos(x0 + dx, y + 2, z0 + 18), owlPerch, 2);
             }
         }
         // Wizard Cauldrons in the Apothecary.
         BlockState wizardCauldron = optionalBlock("WIZARD_CAULDRON");
         if (wizardCauldron != null) {
-            level.setBlock(new BlockPos(x0 + 41, y + 1, z0 + 32), wizardCauldron, 2);
-            level.setBlock(new BlockPos(x0 + 46, y + 1, z0 + 32), wizardCauldron, 2);
+            setSafe(level,new BlockPos(x0 + 41, y + 1, z0 + 32), wizardCauldron, 2);
+            setSafe(level,new BlockPos(x0 + 46, y + 1, z0 + 32), wizardCauldron, 2);
         }
         // Enchanted Book Piles in Flourish & Blotts (on the centre book table).
         BlockState bookPile = optionalBlock("ENCHANTED_BOOK_PILE");
         if (bookPile != null) {
-            level.setBlock(new BlockPos(x0 + 33, y + 2, z0 + 18), bookPile, 2);
-            level.setBlock(new BlockPos(x0 + 35, y + 2, z0 + 18), bookPile, 2);
+            setSafe(level,new BlockPos(x0 + 33, y + 2, z0 + 18), bookPile, 2);
+            setSafe(level,new BlockPos(x0 + 35, y + 2, z0 + 18), bookPile, 2);
         }
         // Candle Clusters dotted in interiors for cozy lighting.
         BlockState candles = optionalBlock("CANDLE_CLUSTER");
         if (candles != null) {
-            level.setBlock(new BlockPos(x0 + 19, y + 1, z0 + 14), candles, 2);
-            level.setBlock(new BlockPos(x0 + 33, y + 1, z0 + 14), candles, 2);
-            level.setBlock(new BlockPos(x0 + 48, y + 1, z0 + 13), candles, 2);
+            setSafe(level,new BlockPos(x0 + 19, y + 1, z0 + 14), candles, 2);
+            setSafe(level,new BlockPos(x0 + 33, y + 1, z0 + 14), candles, 2);
+            setSafe(level,new BlockPos(x0 + 48, y + 1, z0 + 13), candles, 2);
         }
         // Moving Portraits as wall art in shops with internal back-wall space.
         BlockState portrait = optionalBlock("MOVING_PORTRAIT");
         if (portrait != null) {
-            level.setBlock(new BlockPos(x0 + 33, y + 3, z0 + 12), portrait, 2);
-            level.setBlock(new BlockPos(x0 + 49, y + 3, z0 + 10), portrait, 2);
+            setSafe(level,new BlockPos(x0 + 33, y + 3, z0 + 12), portrait, 2);
+            setSafe(level,new BlockPos(x0 + 49, y + 3, z0 + 10), portrait, 2);
         }
         // Hogwarts house banners along the Gringotts colonnade interior.
         BlockState gryf = optionalBlock("GRYFFINDOR_BANNER_BLOCK");
         BlockState raven = optionalBlock("RAVENCLAW_BANNER_BLOCK");
         BlockState huff = optionalBlock("HUFFLEPUFF_BANNER_BLOCK");
         BlockState slyth = optionalBlock("SLYTHERIN_BANNER_BLOCK");
-        if (gryf != null)  level.setBlock(new BlockPos(x0 + 62, y + 4, z0 + 11), gryf, 2);
-        if (raven != null) level.setBlock(new BlockPos(x0 + 66, y + 4, z0 + 11), raven, 2);
-        if (huff != null)  level.setBlock(new BlockPos(x0 + 70, y + 4, z0 + 11), huff, 2);
-        if (slyth != null) level.setBlock(new BlockPos(x0 + 72, y + 4, z0 + 11), slyth, 2);
+        if (gryf != null)  setSafe(level,new BlockPos(x0 + 62, y + 4, z0 + 11), gryf, 2);
+        if (raven != null) setSafe(level,new BlockPos(x0 + 66, y + 4, z0 + 11), raven, 2);
+        if (huff != null)  setSafe(level,new BlockPos(x0 + 70, y + 4, z0 + 11), huff, 2);
+        if (slyth != null) setSafe(level,new BlockPos(x0 + 72, y + 4, z0 + 11), slyth, 2);
     }
 
     private BlockState optionalBlock(String fieldName) {
@@ -1642,7 +1674,7 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
     private void placeLootChest(WorldGenLevel level, BlockPos pos, Direction facing, LootTheme theme, RandomSource rng) {
         BlockState chestState = Blocks.CHEST.defaultBlockState()
                 .setValue(ChestBlock.FACING, facing);
-        level.setBlock(pos, chestState, 2);
+        setSafe(level,pos, chestState, 2);
         // ChestBlockEntity.setItem inherits from BaseContainerBlockEntity.setItem which only modifies
         // the items list + calls setChanged() (which is null-safe when the BE's level is null during
         // worldgen). Safe to populate directly.

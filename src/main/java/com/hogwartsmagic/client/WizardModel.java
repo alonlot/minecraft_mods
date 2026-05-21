@@ -117,13 +117,21 @@ public class WizardModel<T extends WizardEntity> extends EntityModel<T> implemen
 		// reused, but we still wipe stale keys when neither flag fires for an entity that disappears.
 		// (Done implicitly: maps are static and short-lived per-client.)
 
+		// Aim the wand at the target by matching the arm pitch to where the head is looking.
+		// The AI keeps the wizard's head locked on the target every tick via getLookControl, so
+		// headPitch passed into setupAnim reflects current aim; converting to radians and adding
+		// to a base-horizontal-forward angle (-π/2) gives an arm direction that tracks the target.
+		float headPitchRad = headPitch * ((float) Math.PI / 180F);
+		float aimX = -Mth.HALF_PI + headPitchRad;
+		float headYawRad = netHeadYaw * ((float) Math.PI / 180F);
+
 		if (casting) {
 			int elapsed = Math.max(0, entity.tickCount - CAST_START_TICK.getOrDefault(id, entity.tickCount));
-			applyCastPose(elapsed, ageInTicks);
+			applyCastPose(elapsed, ageInTicks, aimX, headYawRad);
 		} else if (CAST_END_TICK.containsKey(id)) {
 			int sinceEnd = entity.tickCount - CAST_END_TICK.get(id);
 			if (sinceEnd < RELEASE_RECOIL_DURATION) {
-				applyReleaseRecoil(sinceEnd);
+				applyReleaseRecoil(sinceEnd, aimX, headYawRad);
 			} else {
 				CAST_END_TICK.remove(id);
 				if (entity.isAggressive()) applyAggressivePose();
@@ -133,21 +141,22 @@ public class WizardModel<T extends WizardEntity> extends EntityModel<T> implemen
 		}
 	}
 
-	/** Cast windup: right (wand) arm rises forward over ~6 ticks, then holds with a channeling tremor.
-	 * Left arm gives subtle counterbalance. Body leans slightly into the cast. */
-	private void applyCastPose(int elapsed, float ageInTicks) {
+	/** Cast windup: right (wand) arm rises forward over ~6 ticks aiming at the target, then
+	 * holds with a channeling tremor. Left arm gives subtle counterbalance. Body leans into the cast. */
+	private void applyCastPose(int elapsed, float ageInTicks, float aimX, float headYawRad) {
 		float windup = Math.min(1.0F, elapsed / 6.0F);
 		float ease = windup * windup * (3.0F - 2.0F * windup); // smoothstep
 
-		// Right arm: rotate forward (xRot negative = forward in Minecraft model space) and slightly inward.
-		float rightTarget = -1.85F;
-		this.right_arm.xRot = rightTarget * ease;
+		// Right arm aims wherever the head is looking — that's the target, since the AI keeps
+		// the head locked on it. Eases in from the hanging-down rest pose during windup.
+		this.right_arm.xRot = aimX * ease;
+		this.right_arm.yRot = headYawRad * 0.6F * ease;
 		this.right_arm.zRot = -0.12F * ease;
 
 		// Channeling tremor — visible only after windup completes.
 		float tremor = Mth.sin(ageInTicks * 0.9F) * 0.06F * ease;
 		this.right_arm.xRot += tremor;
-		this.right_arm.yRot = -0.12F * ease + Mth.cos(ageInTicks * 0.7F) * 0.04F * ease;
+		this.right_arm.yRot += Mth.cos(ageInTicks * 0.7F) * 0.04F * ease;
 
 		// Left arm: small counterbalance lift, rotated to the side.
 		this.left_arm.xRot = -0.55F * ease;
@@ -157,12 +166,14 @@ public class WizardModel<T extends WizardEntity> extends EntityModel<T> implemen
 		this.body.yRot = -0.10F * ease;
 	}
 
-	/** Release recoil: brief snap forward then quick settle as the spell launches. */
-	private void applyReleaseRecoil(int sinceEnd) {
+	/** Release recoil: brief snap forward then quick settle as the spell launches.
+	 * Aim is preserved through the recoil so the wand still points at the target during the flourish. */
+	private void applyReleaseRecoil(int sinceEnd, float aimX, float headYawRad) {
 		float p = Math.min(1.0F, sinceEnd / (float) RELEASE_RECOIL_DURATION);
 		// Bell curve peaking early — sharp thrust then fast decay.
 		float snap = (float) Math.sin(Math.min(1.0F, p * 1.6F) * Mth.PI);
-		this.right_arm.xRot = -1.85F + snap * 0.55F;   // arm thrusts further forward then relaxes
+		this.right_arm.xRot = aimX + snap * 0.55F;   // arm thrusts further forward then relaxes — still aimed
+		this.right_arm.yRot = headYawRad * 0.6F * (1.0F - p);
 		this.right_arm.zRot = -0.12F * (1.0F - p);
 		this.left_arm.xRot = -0.55F * (1.0F - p);
 		this.left_arm.zRot = 0.25F * (1.0F - p);

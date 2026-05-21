@@ -356,8 +356,33 @@ public class ClientModEvents {
 
         @SubscribeEvent
         public static void onRenderLivingPre(net.minecraftforge.client.event.RenderLivingEvent.Pre<?, ?> event) {
+            // Skip players here — RenderPlayerEvent handles them so we don't double-push.
+            if (event.getEntity() instanceof net.minecraft.world.entity.player.Player) {
+                return;
+            }
+            applyTrickPosePre(event.getEntity(), event.getPartialTick(), event.getPoseStack());
+        }
+
+        @SubscribeEvent
+        public static void onRenderLivingPost(net.minecraftforge.client.event.RenderLivingEvent.Post<?, ?> event) {
+            if (event.getEntity() instanceof net.minecraft.world.entity.player.Player) {
+                return;
+            }
+            applyTrickPosePost(event.getPoseStack());
+        }
+
+        @SubscribeEvent
+        public static void onRenderPlayerPreTrick(net.minecraftforge.client.event.RenderPlayerEvent.Pre event) {
+            applyTrickPosePre(event.getEntity(), event.getPartialTick(), event.getPoseStack());
+        }
+
+        @SubscribeEvent
+        public static void onRenderPlayerPostTrick(net.minecraftforge.client.event.RenderPlayerEvent.Post event) {
+            applyTrickPosePost(event.getPoseStack());
+        }
+
+        private static void applyTrickPosePre(net.minecraft.world.entity.LivingEntity ent, float partialTick, com.mojang.blaze3d.vertex.PoseStack pose) {
             trickPushedPose = false;
-            net.minecraft.world.entity.LivingEntity ent = event.getEntity();
             if (!(ent.getVehicle() instanceof com.hogwartsmagic.entity.BroomEntity broom)) {
                 return;
             }
@@ -366,18 +391,20 @@ public class ClientModEvents {
                 return;
             }
             int duration = com.hogwartsmagic.entity.BroomEntity.trickDurationFor(trick);
-            float lerpTicks = net.minecraft.util.Mth.lerp(event.getPartialTick(), broom.prevTrickTicks, broom.getTrickTicksSynced());
+            float lerpTicks = net.minecraft.util.Mth.lerp(partialTick, broom.prevTrickTicks, broom.getTrickTicksSynced());
             float progress = 1.0F - net.minecraft.util.Mth.clamp(lerpTicks / duration, 0.0F, 1.0F);
             float spinDeg = progress * 360.0F;
+            float lerpBroomYaw = net.minecraft.util.Mth.lerp(partialTick, broom.yRotO, broom.getYRot());
 
-            // PoseStack here is at rider's feet in world-axis orientation (player yaw applied later inside the renderer).
-            // Translate up to broom center, rotate into broom yaw frame to align spin axis with broom's local axes,
-            // apply trick rotation, rotate back, then drop down.
-            com.mojang.blaze3d.vertex.PoseStack pose = event.getPoseStack();
+            // Pivot is at the broom center, which is ~0.45 BELOW the rider's feet in rider-local space
+            // (passenger attachment is (0, +0.45, 0) on the broom, so rider feet are 0.45 above the broom).
+            // Standard "rotate around point p in broom-aligned frame":
+            //   T(p) * R_y(-broomYaw) * R_trick * R_y(+broomYaw) * T(-p)
+            // For p = (0, -0.45, 0), PoseStack calls go in matrix order, so we issue them as:
+            //   translate(p), mulPose(R_y(-yaw)), mulPose(R_trick), mulPose(R_y(+yaw)), translate(-p).
             pose.pushPose();
             trickPushedPose = true;
-            float lerpBroomYaw = net.minecraft.util.Mth.lerp(event.getPartialTick(), broom.yRotO, broom.getYRot());
-            pose.translate(0.0D, 0.5D, 0.0D);
+            pose.translate(0.0D, -0.45D, 0.0D);
             pose.mulPose(com.mojang.math.Axis.YP.rotationDegrees(-lerpBroomYaw));
             if (trick == com.hogwartsmagic.entity.BroomEntity.TRICK_BARREL_LEFT) {
                 pose.mulPose(com.mojang.math.Axis.ZP.rotationDegrees(-spinDeg));
@@ -387,13 +414,12 @@ public class ClientModEvents {
                 pose.mulPose(com.mojang.math.Axis.XP.rotationDegrees(spinDeg));
             }
             pose.mulPose(com.mojang.math.Axis.YP.rotationDegrees(lerpBroomYaw));
-            pose.translate(0.0D, -0.5D, 0.0D);
+            pose.translate(0.0D, 0.45D, 0.0D);
         }
 
-        @SubscribeEvent
-        public static void onRenderLivingPost(net.minecraftforge.client.event.RenderLivingEvent.Post<?, ?> event) {
+        private static void applyTrickPosePost(com.mojang.blaze3d.vertex.PoseStack pose) {
             if (trickPushedPose) {
-                event.getPoseStack().popPose();
+                pose.popPose();
                 trickPushedPose = false;
             }
         }

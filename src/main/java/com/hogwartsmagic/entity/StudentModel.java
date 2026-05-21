@@ -152,8 +152,13 @@ public class StudentModel<T extends Entity> extends EntityModel<T> implements ne
 		float windup = Math.min(1.0F, elapsed / 6.0F);
 		float ease = windup * windup * (3.0F - 2.0F * windup);
 
-		// Arms group rotates further forward from rest (REST is already -0.75).
-		float castTarget = -2.30F;
+		// Arms-group local +Y points down (the linked-arm cubes extend in +Y from the arms-group
+		// origin), so rotating by -π/2 about X swings them to point straight forward. We aim a
+		// touch above horizontal (-1.65) so the wand reads as a level aim, not a downward jab.
+		// REST_ARMS_X_ROT = -0.7505 (arms hang slightly down-forward) is the resting baseline.
+		// Going past -π (e.g., the previous -2.30) flips the arms backward over the head, which
+		// is why the wand looked like it was floating above the student.
+		float castTarget = -1.65F;
 		this.arms.xRot = Mth.lerp(ease, REST_ARMS_X_ROT, castTarget);
 
 		// Channeling tremor on top.
@@ -169,7 +174,7 @@ public class StudentModel<T extends Entity> extends EntityModel<T> implements ne
 	private void applyReleaseRecoil(int sinceEnd) {
 		float p = Math.min(1.0F, sinceEnd / (float) RELEASE_RECOIL_DURATION);
 		float snap = (float) Math.sin(Math.min(1.0F, p * 1.6F) * Mth.PI);
-		this.arms.xRot = -2.30F + snap * 0.55F;
+		this.arms.xRot = -1.65F + snap * 0.35F;
 		this.body.yRot += -0.06F * (1.0F - p);
 	}
 

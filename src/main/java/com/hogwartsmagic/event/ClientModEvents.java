@@ -107,6 +107,8 @@ public class ClientModEvents {
         private static BroomFlightSoundInstance broomFlightSound;
         /** Client-tracked decaying counter for the boost FOV punch (ticks remaining of bonus FOV). */
         private static int boostFovPunchTicks = 0;
+        /** Set in RenderLivingEvent.Pre so the Post handler knows whether it pushed a pose. */
+        private static boolean trickPushedPose = false;
 
         @SubscribeEvent
         public static void onClientTick(TickEvent.ClientTickEvent event) {
@@ -349,6 +351,50 @@ public class ClientModEvents {
                 }
                 // The minimum should be 1.0
                 event.setNewFovModifier(Math.max(1.0F, modifier));
+            }
+        }
+
+        @SubscribeEvent
+        public static void onRenderLivingPre(net.minecraftforge.client.event.RenderLivingEvent.Pre<?, ?> event) {
+            trickPushedPose = false;
+            net.minecraft.world.entity.LivingEntity ent = event.getEntity();
+            if (!(ent.getVehicle() instanceof com.hogwartsmagic.entity.BroomEntity broom)) {
+                return;
+            }
+            byte trick = broom.getTrickType();
+            if (trick == com.hogwartsmagic.entity.BroomEntity.TRICK_NONE) {
+                return;
+            }
+            int duration = com.hogwartsmagic.entity.BroomEntity.trickDurationFor(trick);
+            float lerpTicks = net.minecraft.util.Mth.lerp(event.getPartialTick(), broom.prevTrickTicks, broom.getTrickTicksSynced());
+            float progress = 1.0F - net.minecraft.util.Mth.clamp(lerpTicks / duration, 0.0F, 1.0F);
+            float spinDeg = progress * 360.0F;
+
+            // PoseStack here is at rider's feet in world-axis orientation (player yaw applied later inside the renderer).
+            // Translate up to broom center, rotate into broom yaw frame to align spin axis with broom's local axes,
+            // apply trick rotation, rotate back, then drop down.
+            com.mojang.blaze3d.vertex.PoseStack pose = event.getPoseStack();
+            pose.pushPose();
+            trickPushedPose = true;
+            float lerpBroomYaw = net.minecraft.util.Mth.lerp(event.getPartialTick(), broom.yRotO, broom.getYRot());
+            pose.translate(0.0D, 0.5D, 0.0D);
+            pose.mulPose(com.mojang.math.Axis.YP.rotationDegrees(-lerpBroomYaw));
+            if (trick == com.hogwartsmagic.entity.BroomEntity.TRICK_BARREL_LEFT) {
+                pose.mulPose(com.mojang.math.Axis.ZP.rotationDegrees(-spinDeg));
+            } else if (trick == com.hogwartsmagic.entity.BroomEntity.TRICK_BARREL_RIGHT) {
+                pose.mulPose(com.mojang.math.Axis.ZP.rotationDegrees(spinDeg));
+            } else if (trick == com.hogwartsmagic.entity.BroomEntity.TRICK_LOOP) {
+                pose.mulPose(com.mojang.math.Axis.XP.rotationDegrees(spinDeg));
+            }
+            pose.mulPose(com.mojang.math.Axis.YP.rotationDegrees(lerpBroomYaw));
+            pose.translate(0.0D, -0.5D, 0.0D);
+        }
+
+        @SubscribeEvent
+        public static void onRenderLivingPost(net.minecraftforge.client.event.RenderLivingEvent.Post<?, ?> event) {
+            if (trickPushedPose) {
+                event.getPoseStack().popPose();
+                trickPushedPose = false;
             }
         }
 

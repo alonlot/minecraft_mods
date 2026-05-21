@@ -236,6 +236,7 @@ public class HippogriffModel extends HierarchicalModel<HippogriffEntity> {
         float flight = entity.getFlightProgress(1.0F);
         float flap = Mth.sin(entity.getWingFlap(1.0F)) * (0.2F + flight * 0.8F);
         float attackSwing = entity.getAttackAnim(partialTick);
+        float landing = entity.getLandingImpulse(partialTick);
 
         this.body.xRot = 0.03F - walkAmount * 0.04F - flight * 0.24F;
         this.chest.xRot = -0.03F + flight * 0.14F;
@@ -244,17 +245,21 @@ public class HippogriffModel extends HierarchicalModel<HippogriffEntity> {
         this.neck.xRot = -0.2F - flight * 0.16F + headPitchRad * 0.12F + idle;
         this.head.xRot = 0.02F + headPitchRad * 0.28F + idle;
         this.lowerBeak.xRot = 0.04F;
-        this.crest.xRot = -0.04F;
+        // Crest: raises (rotates further back, away from skull) when aggressive — alarmed/ruffled feathers.
+        float crestRaise = entity.isAggressive() ? 0.35F : 0.0F;
+        this.crest.xRot = -0.04F - crestRaise;
         this.mane.xRot = 0.04F + idle;
 
         float wingBaseFold = Mth.lerp(flight, 0.5F, 1.25F);
         float wingTipFold = Mth.lerp(flight, 0.7F, 1.4F);
-        this.leftWing.zRot = -(wingBaseFold + flap * 0.85F);
-        this.rightWing.zRot = wingBaseFold + flap * 0.85F;
+        // Idle wing micro-twitch when grounded: small irregular shudder so the wings look alive.
+        float idleTwitch = (1.0F - flight) * (Mth.sin(ageInTicks * 0.17F) * 0.02F + Mth.sin(ageInTicks * 0.41F + 1.7F) * 0.012F);
+        this.leftWing.zRot = -(wingBaseFold + flap * 0.85F + idleTwitch);
+        this.rightWing.zRot = wingBaseFold + flap * 0.85F + idleTwitch;
         this.leftWing.xRot = -0.08F + flight * 0.18F;
         this.rightWing.xRot = -0.08F + flight * 0.18F;
-        this.leftWingTip.zRot = -(wingTipFold + flap * 0.45F);
-        this.rightWingTip.zRot = wingTipFold + flap * 0.45F;
+        this.leftWingTip.zRot = -(wingTipFold + flap * 0.45F + idleTwitch * 1.4F);
+        this.rightWingTip.zRot = wingTipFold + flap * 0.45F + idleTwitch * 1.4F;
 
         float frontWalk = Mth.cos(walkCycle) * 0.85F * walkAmount;
         float backWalk = Mth.cos(walkCycle + (float) Math.PI) * 0.75F * walkAmount;
@@ -270,6 +275,50 @@ public class HippogriffModel extends HierarchicalModel<HippogriffEntity> {
         this.tail.xRot = 0.25F - flight * 0.12F + Mth.sin(ageInTicks * 0.1F) * 0.05F;
         this.tail.yRot = Mth.cos(walkCycle) * 0.05F * walkAmount;
         this.tailFan.xRot = 0.08F;
+
+        // Landing absorption: when we just touched down, briefly compress all four legs so the model
+        // doesn't snap to a stiff standing pose. Lasts ~10 ticks via the decaying impulse.
+        if (landing > 0.0F) {
+            float absorb = landing * 0.55F;
+            this.frontLeftLeg.xRot += absorb * 0.5F;
+            this.frontRightLeg.xRot += absorb * 0.5F;
+            this.frontLeftShin.xRot += absorb;
+            this.frontRightShin.xRot += absorb;
+            this.backLeftLeg.xRot -= absorb * 0.3F;
+            this.backRightLeg.xRot -= absorb * 0.3F;
+            this.backLeftShin.xRot += absorb * 0.7F;
+            this.backRightShin.xRot += absorb * 0.7F;
+            this.body.xRot += landing * 0.10F;
+            this.chest.xRot -= landing * 0.05F;
+        }
+
+        // Bowing greeting: head dips deeply, front legs bend, body pitches forward.
+        // Driven by the entity's BOWING state with a bell-curve ease so the bow rises and falls.
+        if (entity.getInteractionState() == HippogriffEntity.InteractionState.BOWING) {
+            int bt = entity.getInteractionTicks();
+            float p = Mth.clamp(bt / (float) HippogriffEntity.BOW_DURATION_TICKS, 0.0F, 1.0F);
+            // Stay near peak across the middle, with eased in/out at the edges.
+            float bowAmt;
+            if (p < 0.25F) {
+                bowAmt = smoothstep(p / 0.25F);
+            } else if (p > 0.75F) {
+                bowAmt = 1.0F - smoothstep((p - 0.75F) / 0.25F);
+            } else {
+                bowAmt = 1.0F;
+            }
+            this.body.xRot += bowAmt * 0.30F;
+            this.chest.xRot += bowAmt * 0.25F;
+            this.neck.xRot += bowAmt * 0.55F;
+            this.head.xRot += bowAmt * 0.25F;
+            this.frontLeftLeg.xRot += bowAmt * 0.55F;
+            this.frontRightLeg.xRot += bowAmt * 0.55F;
+            this.frontLeftShin.xRot += bowAmt * 0.35F;
+            this.frontRightShin.xRot += bowAmt * 0.35F;
+            this.backLeftLeg.xRot -= bowAmt * 0.15F;
+            this.backRightLeg.xRot -= bowAmt * 0.15F;
+            this.tail.xRot -= bowAmt * 0.20F;
+            this.crest.xRot += bowAmt * 0.10F;
+        }
 
         if (attackSwing > 0.0F && flight < 0.7F) {
             float rear;

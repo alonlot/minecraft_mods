@@ -58,10 +58,34 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
     public final AnimationState idleAnimationState = new AnimationState();
     public final AnimationState flyingAnimationState = new AnimationState();
 
+    private static final net.minecraft.network.syncher.EntityDataAccessor<Byte> DATA_INTERACTION_STATE =
+            net.minecraft.network.syncher.SynchedEntityData.defineId(HippogriffEntity.class, net.minecraft.network.syncher.EntityDataSerializers.BYTE);
+    private static final net.minecraft.network.syncher.EntityDataAccessor<Integer> DATA_INTERACTION_TICKS =
+            net.minecraft.network.syncher.SynchedEntityData.defineId(HippogriffEntity.class, net.minecraft.network.syncher.EntityDataSerializers.INT);
+
+    public enum InteractionState {
+        NONE, BOWING;
+
+        private static final InteractionState[] VALUES = values();
+
+        public static InteractionState fromByte(byte b) {
+            if (b < 0 || b >= VALUES.length) return NONE;
+            return VALUES[b];
+        }
+    }
+
+    public static final int BOW_DURATION_TICKS = 50;
+    private static final int BOW_COOLDOWN_TICKS = 100;
+    private static final double BOW_TRIGGER_RANGE_SQR = 16.0D;
+
+    private int bowCooldown;
     private float wingFlap;
     private float wingFlapO;
     private float flightProgress;
     private float flightProgressO;
+    private float lastFlightProgress;
+    private float landingImpulse;     // 0..1, briefly spikes when transitioning flight→ground
+    private float landingImpulseO;
     private float playerJumpStrength;
     private int warningSoundCooldown;
     private int playerJumpCooldown;
@@ -69,6 +93,56 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
     public HippogriffEntity(EntityType<? extends TamableAnimal> type, Level level) {
         super(type, level);
         this.moveControl = new FlyingMoveControl(this, 14, false);
+    }
+
+    @Override
+    protected void defineSynchedData(net.minecraft.network.syncher.SynchedEntityData.Builder builder) {
+        super.defineSynchedData(builder);
+        builder.define(DATA_INTERACTION_STATE, (byte) InteractionState.NONE.ordinal());
+        builder.define(DATA_INTERACTION_TICKS, 0);
+    }
+
+    public InteractionState getInteractionState() {
+        return InteractionState.fromByte(this.entityData.get(DATA_INTERACTION_STATE));
+    }
+
+    public int getInteractionTicks() {
+        return this.entityData.get(DATA_INTERACTION_TICKS);
+    }
+
+    private void setInteractionState(InteractionState state) {
+        this.entityData.set(DATA_INTERACTION_STATE, (byte) state.ordinal());
+        this.entityData.set(DATA_INTERACTION_TICKS, 0);
+    }
+
+    /** Lore-accurate respect bow: triggers on a tame hippogriff when a player approaches calmly within range. */
+    private void tryBowToCalmPlayer() {
+        if (this.bowCooldown > 0 || this.getInteractionState() != InteractionState.NONE) return;
+        if (this.isOrderedToSit() || this.isVehicle() || !this.onGround()) return;
+        Player nearestPlayer = this.level().getNearestPlayer(this, 4.0D);
+        if (nearestPlayer == null) return;
+        if (this.distanceToSqr(nearestPlayer) > BOW_TRIGGER_RANGE_SQR) return;
+        if (!this.isCalmApproach(nearestPlayer)) return;
+        if (!this.hasLineOfSight(nearestPlayer)) return;
+        // Tamed hippogriffs always bow back to their owner's calm approach; wild ones bow once
+        // when a player is calm-approaching for tameing (signaling acceptance).
+        if (this.isTame() && !this.isOwnedBy(nearestPlayer)) return;
+        setInteractionState(InteractionState.BOWING);
+        this.bowCooldown = BOW_COOLDOWN_TICKS + BOW_DURATION_TICKS;
+        this.playSound(SoundEvents.PARROT_AMBIENT, 0.85F, 0.95F + this.random.nextFloat() * 0.15F);
+    }
+
+    private void tickInteractionState() {
+        if (this.bowCooldown > 0) this.bowCooldown--;
+        InteractionState state = getInteractionState();
+        int t = getInteractionTicks();
+        if (state == InteractionState.BOWING) {
+            if (t >= BOW_DURATION_TICKS) {
+                setInteractionState(InteractionState.NONE);
+            } else {
+                this.entityData.set(DATA_INTERACTION_TICKS, t + 1);
+            }
+        }
     }
 
     public static AttributeSupplier.Builder createAttributes() {
@@ -177,11 +251,29 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
 
         this.wingFlapO = this.wingFlap;
         this.flightProgressO = this.flightProgress;
+        this.landingImpulseO = this.landingImpulse;
+        this.lastFlightProgress = this.flightProgress;
 
         boolean airborne = this.isAirbornePose();
         float speed = (float) this.getDeltaMovement().horizontalDistance();
         this.flightProgress = Mth.approach(this.flightProgress, airborne ? 1.0F : 0.0F, airborne ? 0.12F : 0.16F);
+        // Landing impulse: spikes briefly when we transition from airborne to grounded so the model
+        // can compress its legs as if absorbing impact.
+        if (this.lastFlightProgress > 0.6F && this.flightProgress < 0.4F) {
+            this.landingImpulse = 1.0F;
+        } else {
+            this.landingImpulse = Math.max(0.0F, this.landingImpulse - 0.10F);
+        }
         this.wingFlap += airborne ? 0.55F + speed * 2.4F : 0.04F + speed * 0.35F;
+
+        if (!this.level().isClientSide) {
+            tickInteractionState();
+            // Wild OR tame: bow on calm approach (lore: respect the hippogriff and it respects you back).
+            // Throttle the check to every 10 ticks for efficiency.
+            if (this.tickCount % 10 == 0) {
+                tryBowToCalmPlayer();
+            }
+        }
         if (this.warningSoundCooldown > 0) {
             this.warningSoundCooldown--;
         }
@@ -220,6 +312,10 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
 
     public float getFlightProgress(float partialTick) {
         return Mth.lerp(partialTick, this.flightProgressO, this.flightProgress);
+    }
+
+    public float getLandingImpulse(float partialTick) {
+        return Mth.lerp(partialTick, this.landingImpulseO, this.landingImpulse);
     }
 
     public boolean isAirbornePose() {
@@ -347,8 +443,10 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
 
             double speed = this.getAttributeValue(Attributes.FLYING_SPEED) * (forward > 0.0F ? 1.05D : 0.8D);
             if (desired.lengthSqr() > 1.0E-4D) {
+                // Snappier blend than before (0.78/0.24 vs 0.86/0.17) so rider input feels responsive
+                // rather than sluggish, while still keeping inertia for natural-looking flight.
                 Vec3 desiredVel = desired.normalize().scale(speed).add(0.0D, verticalBias, 0.0D);
-                this.setDeltaMovement(this.getDeltaMovement().scale(0.86D).add(desiredVel.scale(0.17D)));
+                this.setDeltaMovement(this.getDeltaMovement().scale(0.78D).add(desiredVel.scale(0.24D)));
             } else {
                 Vec3 slowed = this.getDeltaMovement().scale(0.9D);
                 if (!this.onGround()) {

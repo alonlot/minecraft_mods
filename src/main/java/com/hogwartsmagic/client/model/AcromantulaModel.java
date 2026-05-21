@@ -123,17 +123,23 @@ public class AcromantulaModel<T extends Entity> extends EntityModel<T> {
         applyWalkGait(limbSwing, limbSwingAmount);
 
         // State-driven overlays.
+        // Use if/else (not switch-on-enum) to avoid the synthetic $1 helper class that the
+        // Java compiler generates for enum switches — Forge/Mixin dev environments have been
+        // observed to fail to load that helper, producing a NoClassDefFoundError at render time.
         if (entity instanceof AcromantulaEntity spider) {
             AcromantulaEntity.AttackState state = spider.getAttackState();
             int t = spider.getClientStateTicks();
 
-            switch (state) {
-                case ALERT -> applyAlert(t);
-                case LUNGE_WINDUP -> applyLungeWindup(t);
-                case LUNGE_STRIKE -> applyLungeStrike(t);
-                case WEB_SPIT -> applyWebSpit(t);
-                case NONE -> { /* idle only */ }
+            if (state == AcromantulaEntity.AttackState.ALERT) {
+                applyAlert(t);
+            } else if (state == AcromantulaEntity.AttackState.LUNGE_WINDUP) {
+                applyLungeWindup(t);
+            } else if (state == AcromantulaEntity.AttackState.LUNGE_STRIKE) {
+                applyLungeStrike(t);
+            } else if (state == AcromantulaEntity.AttackState.WEB_SPIT) {
+                applyWebSpit(t);
             }
+            // AttackState.NONE: idle pose already applied above.
 
             if (spider.isClimbing()) {
                 thorax.xRot += 0.3F;

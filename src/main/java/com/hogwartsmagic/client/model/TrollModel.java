@@ -162,14 +162,21 @@ public class TrollModel extends EntityModel<TrollEntity> {
         TrollEntity.AttackState state = entity.getAttackState();
         int t = entity.getStateTick();
 
-        switch (state) {
-            case ROAR -> applyRoar(t);
-            case SLAM_WINDUP -> applySlamWindup(t);
-            case SLAM_STRIKE -> applySlamStrike(t);
-            case SWEEP -> applySweep(t);
-            case STAGGER -> applyStagger(t);
-            case NONE -> { /* idle pose already applied above */ }
+        // Use if/else (not switch-on-enum) to avoid the synthetic $1 switch-map helper class
+        // that has been observed to fail to load in Forge/Mixin dev environments, producing
+        // a NoClassDefFoundError at render time.
+        if (state == TrollEntity.AttackState.ROAR) {
+            applyRoar(t);
+        } else if (state == TrollEntity.AttackState.SLAM_WINDUP) {
+            applySlamWindup(t);
+        } else if (state == TrollEntity.AttackState.SLAM_STRIKE) {
+            applySlamStrike(t);
+        } else if (state == TrollEntity.AttackState.SWEEP) {
+            applySweep(t);
+        } else if (state == TrollEntity.AttackState.STAGGER) {
+            applyStagger(t);
         }
+        // AttackState.NONE: idle pose already applied above.
 
         // Rage adds an idle tremor and lower stance.
         if (entity.isRaging() && state == TrollEntity.AttackState.NONE) {

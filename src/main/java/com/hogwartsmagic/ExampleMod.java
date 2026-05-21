@@ -115,6 +115,8 @@ public class ExampleMod
             FEATURES.register("gillyweed_swamp", () -> new com.hogwartsmagic.worldgen.GillyweedSwampFeature(net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration.CODEC));
     public static final RegistryObject<net.minecraft.world.level.levelgen.feature.Feature<net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration>> MANDRAKE_PATCH_FEATURE =
             FEATURES.register("mandrake_patch", () -> new com.hogwartsmagic.worldgen.MandrakePatchFeature(net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration.CODEC));
+    public static final RegistryObject<net.minecraft.world.level.levelgen.feature.Feature<net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration>> DIAGON_ALLEY_FEATURE =
+            FEATURES.register("diagon_alley", () -> new com.hogwartsmagic.worldgen.DiagonAlleyFeature(net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration.CODEC));
     // Lumos Effect
     public static final RegistryObject<net.minecraft.world.effect.MobEffect> LUMOS_EFFECT = MOB_EFFECTS.register("lumos",
             () -> new net.minecraft.world.effect.MobEffect(net.minecraft.world.effect.MobEffectCategory.BENEFICIAL, 0xFFFFAA) {

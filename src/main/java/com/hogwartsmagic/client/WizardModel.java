@@ -12,7 +12,18 @@ import net.minecraft.client.model.geom.builders.*;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public class WizardModel<T extends WizardEntity> extends EntityModel<T> implements net.minecraft.client.model.ArmedModel {
+	// Per-entity client-side cast tracking. Records the entity.tickCount at which casting started
+	// (for the rising windup) and at which casting ended (for the release recoil). Keyed by entity id
+	// so multiple wizards on screen animate independently.
+	private static final Map<Integer, Integer> CAST_START_TICK = new HashMap<>();
+	private static final Map<Integer, Integer> CAST_END_TICK = new HashMap<>();
+	private static final Map<Integer, Boolean> LAST_CASTING = new HashMap<>();
+	private static final int RELEASE_RECOIL_DURATION = 8;
+
 	public static final ModelLayerLocation LAYER_LOCATION = new ModelLayerLocation(ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "wizard"), "main");
 	private final ModelPart head;
 	private final ModelPart nose;
@@ -76,23 +87,88 @@ public class WizardModel<T extends WizardEntity> extends EntityModel<T> implemen
 
 		this.left_leg.xRot = Mth.cos(limbSwing * 0.6662F) * 1.4F * limbSwingAmount;
 		this.right_leg.xRot = Mth.cos(limbSwing * 0.6662F + (float)Math.PI) * 1.4F * limbSwingAmount;
-		
-		if (entity.isCasting()) {
-			this.right_arm.xRot = -1.5F;
-			this.left_arm.xRot = -1.5F;
-			this.left_arm.visible = true;
-			this.right_arm.visible = true;
-		} else if (entity.isAggressive()) {
-			this.right_arm.xRot = -0.8F;
-			this.left_arm.xRot = -0.8F;
-			this.left_arm.visible = true;
-			this.right_arm.visible = true;
-		} else {
-			this.left_arm.visible = true;
-			this.right_arm.visible = true;
-			this.left_arm.xRot = 0.0F;
-			this.right_arm.xRot = 0.0F;
+
+		this.left_arm.visible = true;
+		this.right_arm.visible = true;
+		this.left_arm.xRot = 0.0F;
+		this.right_arm.xRot = 0.0F;
+		this.left_arm.yRot = 0.0F;
+		this.right_arm.yRot = 0.0F;
+		this.left_arm.zRot = 0.0F;
+		this.right_arm.zRot = 0.0F;
+		this.body.yRot = 0.0F;
+
+		int id = entity.getId();
+		boolean casting = entity.isCasting();
+		boolean wasCasting = LAST_CASTING.getOrDefault(id, false);
+		if (casting && !wasCasting) {
+			CAST_START_TICK.put(id, entity.tickCount);
+			CAST_END_TICK.remove(id);
+		} else if (!casting && wasCasting) {
+			CAST_END_TICK.put(id, entity.tickCount);
+			CAST_START_TICK.remove(id);
 		}
+		LAST_CASTING.put(id, casting);
+		// Prune dropped entities so the maps don't leak — entity ids over a session are bounded and
+		// reused, but we still wipe stale keys when neither flag fires for an entity that disappears.
+		// (Done implicitly: maps are static and short-lived per-client.)
+
+		if (casting) {
+			int elapsed = Math.max(0, entity.tickCount - CAST_START_TICK.getOrDefault(id, entity.tickCount));
+			applyCastPose(elapsed, ageInTicks);
+		} else if (CAST_END_TICK.containsKey(id)) {
+			int sinceEnd = entity.tickCount - CAST_END_TICK.get(id);
+			if (sinceEnd < RELEASE_RECOIL_DURATION) {
+				applyReleaseRecoil(sinceEnd);
+			} else {
+				CAST_END_TICK.remove(id);
+				if (entity.isAggressive()) applyAggressivePose();
+			}
+		} else if (entity.isAggressive()) {
+			applyAggressivePose();
+		}
+	}
+
+	/** Cast windup: right (wand) arm rises forward over ~6 ticks, then holds with a channeling tremor.
+	 * Left arm gives subtle counterbalance. Body leans slightly into the cast. */
+	private void applyCastPose(int elapsed, float ageInTicks) {
+		float windup = Math.min(1.0F, elapsed / 6.0F);
+		float ease = windup * windup * (3.0F - 2.0F * windup); // smoothstep
+
+		// Right arm: rotate forward (xRot negative = forward in Minecraft model space) and slightly inward.
+		float rightTarget = -1.85F;
+		this.right_arm.xRot = rightTarget * ease;
+		this.right_arm.zRot = -0.12F * ease;
+
+		// Channeling tremor — visible only after windup completes.
+		float tremor = Mth.sin(ageInTicks * 0.9F) * 0.06F * ease;
+		this.right_arm.xRot += tremor;
+		this.right_arm.yRot = -0.12F * ease + Mth.cos(ageInTicks * 0.7F) * 0.04F * ease;
+
+		// Left arm: small counterbalance lift, rotated to the side.
+		this.left_arm.xRot = -0.55F * ease;
+		this.left_arm.zRot = 0.25F * ease;
+
+		// Body leans into the cast.
+		this.body.yRot = -0.10F * ease;
+	}
+
+	/** Release recoil: brief snap forward then quick settle as the spell launches. */
+	private void applyReleaseRecoil(int sinceEnd) {
+		float p = Math.min(1.0F, sinceEnd / (float) RELEASE_RECOIL_DURATION);
+		// Bell curve peaking early — sharp thrust then fast decay.
+		float snap = (float) Math.sin(Math.min(1.0F, p * 1.6F) * Mth.PI);
+		this.right_arm.xRot = -1.85F + snap * 0.55F;   // arm thrusts further forward then relaxes
+		this.right_arm.zRot = -0.12F * (1.0F - p);
+		this.left_arm.xRot = -0.55F * (1.0F - p);
+		this.left_arm.zRot = 0.25F * (1.0F - p);
+		this.body.yRot = -0.10F * (1.0F - p);
+	}
+
+	/** Neutral aggressive pose when not currently casting/recoiling. */
+	private void applyAggressivePose() {
+		this.right_arm.xRot = -0.8F;
+		this.left_arm.xRot = -0.8F;
 	}
 
 	@Override

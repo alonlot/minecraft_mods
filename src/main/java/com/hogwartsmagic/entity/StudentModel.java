@@ -96,11 +96,18 @@ public class StudentModel<T extends Entity> extends EntityModel<T> implements ne
 
 	@Override
 	public void setupAnim(Entity entity, float limbSwing, float limbSwingAmount, float ageInTicks, float netHeadYaw, float headPitch) {
-		// Head + nose track look direction.
+		// Head + nose track look direction. The nose is a SIBLING of head (not a child like in
+		// vanilla VillagerModel), so we have to sync its rotation manually. Don't use
+		// ModelPart.copyFrom — that also copies the position fields and overwrites the nose's
+		// own (0, -2, 0) offset, which would shift it 2 units onto the chin instead of the face.
 		this.head.yRot = netHeadYaw * Mth.DEG_TO_RAD;
 		this.head.xRot = headPitch * Mth.DEG_TO_RAD;
-		this.nose.copyFrom(this.head);
-		this.headwear.copyFrom(this.head);
+		this.nose.xRot = this.head.xRot;
+		this.nose.yRot = this.head.yRot;
+		this.nose.zRot = this.head.zRot;
+		this.headwear.xRot = this.head.xRot;
+		this.headwear.yRot = this.head.yRot;
+		this.headwear.zRot = this.head.zRot;
 
 		// Walk: legs swing opposite, slight body sway with footfalls.
 		float walk = Mth.cos(limbSwing * 0.6662F) * 1.4F * limbSwingAmount;
@@ -182,9 +189,10 @@ public class StudentModel<T extends Entity> extends EntityModel<T> implements ne
 
 	@Override
 	public void translateToHand(HumanoidArm arm, PoseStack poseStack) {
-		// Vanilla ItemInHandLayer already applies the standard rotations + hand offset for a
-		// 12-pixel-style arm. An extra translate + rotation here was flipping the wand upside
-		// down and floating it off the hand. Vanilla Villager uses just this call.
+		// Vanilla VillagerModel pre-translates by (0, 0.4, 0) before applying the arms-group
+		// transform — this puts the item at chest level in front of the villager instead of
+		// jutting out of the rotated arms pivot at a steep downward angle. Match that.
+		poseStack.translate(0.0F, 0.4F, 0.0F);
 		this.arms.translateAndRotate(poseStack);
 	}
 }

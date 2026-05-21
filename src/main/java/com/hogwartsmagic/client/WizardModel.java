@@ -83,7 +83,11 @@ public class WizardModel<T extends WizardEntity> extends EntityModel<T> implemen
 		this.isFlying = entity.isFlying();
 		this.head.yRot = netHeadYaw * ((float)Math.PI / 180F);
 		this.head.xRot = headPitch * ((float)Math.PI / 180F);
-		this.nose.copyFrom(this.head);
+		// Nose is a sibling of head (not a child), so sync rotation only. copyFrom would also
+		// copy the position fields and overwrite the nose's own (0, -2, 0) offset.
+		this.nose.xRot = this.head.xRot;
+		this.nose.yRot = this.head.yRot;
+		this.nose.zRot = this.head.zRot;
 
 		this.left_leg.xRot = Mth.cos(limbSwing * 0.6662F) * 1.4F * limbSwingAmount;
 		this.right_leg.xRot = Mth.cos(limbSwing * 0.6662F + (float)Math.PI) * 1.4F * limbSwingAmount;

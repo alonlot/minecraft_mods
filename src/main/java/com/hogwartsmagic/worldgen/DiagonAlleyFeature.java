@@ -64,22 +64,18 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("HogwartsMagic-DiagonAlley");
 
-    /**
-     * Vanilla forbids feature placement from touching blocks beyond the 3x3 chunk window
-     * (≈48 blocks) around the placement chunk. Our footprint can drift to the edge of
-     * that envelope, so all writes go through {@link #setSafe} which silently skips
-     * anything outside a {@value #SAFE_RADIUS}-block square around the anchor.
-     * ThreadLocal because worldgen worker threads can run place() concurrently.
-     */
-    private static final int SAFE_RADIUS = 22;
+    // Vanilla forbids feature writes outside the 3x3 chunk window around the generating
+    // chunk. Clip by *chunk coordinate* — a fixed block radius can spill into a 4th
+    // chunk if the anchor sits near a chunk edge. ThreadLocal because worldgen worker
+    // threads can run place() concurrently.
     private static final ThreadLocal<BlockPos> SAFE_ANCHOR = ThreadLocal.withInitial(() -> null);
 
     private static void setSafe(WorldGenLevel level, BlockPos pos, BlockState state, int flags) {
         BlockPos anchor = SAFE_ANCHOR.get();
         if (anchor != null) {
-            int dx = Math.abs(pos.getX() - anchor.getX());
-            int dz = Math.abs(pos.getZ() - anchor.getZ());
-            if (dx > SAFE_RADIUS || dz > SAFE_RADIUS) return;
+            int dcx = (pos.getX() >> 4) - (anchor.getX() >> 4);
+            int dcz = (pos.getZ() >> 4) - (anchor.getZ() >> 4);
+            if (dcx < -1 || dcx > 1 || dcz < -1 || dcz > 1) return;
         }
         // Underlying write — written via a local alias so the wrapper-replacement pattern
         // `level.setBlock(` doesn't accidentally rewrite this recursion site.
@@ -111,8 +107,8 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
     }
 
     private boolean placeAt(WorldGenLevel level, BlockPos base, RandomSource rng) {
-        // Tighter footprint check — we still want the spot to be flat, but the actual
-        // structure is clipped to the SAFE_RADIUS envelope anyway.
+        // Tighter footprint check — we still want the spot to be flat, but writes outside
+        // the 3x3 chunk window get clipped by setSafe anyway.
         if (!isReasonablyFlat(level, base, 44, 44, 3)) {
             return false;
         }

@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./gradlew compileJava --no-daemon -q)",
+      "Bash(zcat run/logs/debug-1.log.gz)",
+      "Bash(stat -c '%y' run/logs/debug.log run/logs/latest.log; echo \"---\"; date)",
+      "Bash(awk '/13:23:09|13:25:33/{print NR\": \"$0}' run/logs/debug.log)",
+      "Bash(python -c \"from PIL import Image; print\\('PIL ok'\\)\")",
+      "Bash(python tools/gen_acromantula_texture.py)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(./gradlew compileJava)",
+      "Bash(./gradlew compileJava -q)"
+    ]
+  }
+}

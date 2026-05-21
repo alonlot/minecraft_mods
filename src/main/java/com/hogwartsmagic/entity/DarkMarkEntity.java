@@ -122,162 +122,156 @@ public class DarkMarkEntity extends Entity {
         serverLevel.addFreshEntity(lightning);
     }
 
+    // ---- visuals ---------------------------------------------------------------------
+    // The mark is built as a flat skull-and-snake silhouette in a vertical plane that
+    // faces the nearest player. Outline particles are SOUL_FIRE_FLAME (greenish, emits
+    // light); shadow accents are SQUID_INK. Eye sockets, nasal cavity and the mouth are
+    // *carved out* — left empty so the dark sky reads through them, which is what gives
+    // the film mark its skull-like silhouette instead of a sparkly green blob.
+
+    private static final double SKULL_HALF_WIDTH = 3.6D;   // horizontal extent at scale=1
+    private static final double SKULL_HALF_HEIGHT = 4.5D;  // vertical extent at scale=1
+    private static final double SKULL_Y_OFFSET = 2.0D;     // lift skull above entity Y
+
     private void spawnParticles() {
         double growth = Math.min(1.0D, this.tickCount / FULL_SCALE_TICKS);
         double fade = Math.min(1.0D, this.entityData.get(DATA_DURATION) / 80.0D);
         double scale = MAX_SCALE * growth * Math.max(0.45D, fade);
-        double time = this.tickCount * 0.075D;
-        double pulse = 1.0D + Math.sin(time * 0.6D) * 0.05D;
-        scale *= pulse;
 
-        spawnAmbientCloud(scale, time);
-        spawnSkullOutline(scale, time);
-        spawnFacialFeatures(scale, time);
-        spawnJawAndTeeth(scale, time);
-        spawnSnake(scale, time);
-        spawnAura(scale, time);
+        // Orient the silhouette toward whichever player is closest, so it always reads.
+        net.minecraft.world.entity.player.Player nearest = this.level().getNearestPlayer(this, 256.0D);
+        double fx = 0.0D, fz = 1.0D;
+        if (nearest != null) {
+            double dx = nearest.getX() - this.getX();
+            double dz = nearest.getZ() - this.getZ();
+            double len = Math.sqrt(dx * dx + dz * dz);
+            if (len > 0.01D) { fx = dx / len; fz = dz / len; }
+        }
+        // "Right" axis of the skull plane — perpendicular to face in XZ.
+        double rx = -fz, rz = fx;
+
+        spawnAmbientCloud(scale);
+        spawnSkullSilhouette(scale, rx, rz);
+        spawnSnake(scale, rx, rz);
     }
 
-    private void spawnAmbientCloud(double scale, double time) {
-        for (int i = 0; i < 24; i++) {
+    private void spawnAmbientCloud(double scale) {
+        // Dark smoky halo well outside the skull silhouette.
+        for (int i = 0; i < 6; i++) {
             double angle = this.random.nextDouble() * Math.PI * 2.0D;
-            double radius = (3.5D + this.random.nextDouble() * 3.0D) * scale;
+            double radius = (5.0D + this.random.nextDouble() * 3.0D) * scale;
             double x = this.getX() + Math.cos(angle) * radius;
             double y = this.getY() + (this.random.nextDouble() * 9.0D - 2.0D) * scale;
             double z = this.getZ() + Math.sin(angle) * radius;
-            this.level().addParticle(ParticleTypes.LARGE_SMOKE, x, y, z, 0.0D, 0.01D, 0.0D);
-            if (i % 3 == 0) {
-                this.level().addParticle(ParticleTypes.SQUID_INK, x, y + 0.4D * scale, z, 0.0D, 0.015D, 0.0D);
-            }
+            this.level().addParticle(ParticleTypes.LARGE_SMOKE, x, y, z, 0.0D, 0.004D, 0.0D);
         }
     }
 
-    private void spawnSkullOutline(double scale, double time) {
-        for (int ring = 0; ring < 16; ring++) {
-            double v = ring / 15.0D;
-            double y = this.getY() + (1.6D + v * 6.6D) * scale;
-            double horizontal = Math.sin(v * Math.PI) * 4.2D * scale;
-            double depth = Math.max(0.9D * scale, horizontal * 0.72D);
-            for (int i = 0; i < 34; i++) {
-                double angle = (Math.PI * 2.0D * i) / 34.0D;
-                double x = this.getX() + Math.cos(angle) * horizontal;
-                double z = this.getZ() + Math.sin(angle) * depth;
-                this.level().addParticle(ParticleTypes.SQUID_INK, x, y, z, 0.0D, 0.004D, 0.0D);
-                if ((i + ring) % 6 == 0) {
-                    this.level().addParticle(ParticleTypes.SMOKE, x, y, z, 0.0D, 0.0D, 0.0D);
+    private void spawnSkullSilhouette(double scale, double rx, double rz) {
+        // Sample random points in the [-1, 1]^2 skull-local box. Accept only those
+        // inside the skull mask and outside the feature carve-outs. Edge points get
+        // the bright SOUL_FIRE_FLAME glow; interior gets sparse smoky fill.
+        int samples = 220;
+        for (int i = 0; i < samples; i++) {
+            double u = this.random.nextDouble() * 2.0D - 1.0D;
+            double v = this.random.nextDouble() * 2.0D - 1.0D;
+            if (!isInsideSkull(u, v)) continue;
+            if (isCarveOut(u, v)) {
+                // Sparse dark accent inside carve-outs to deepen the shadow.
+                if (this.random.nextFloat() < 0.08f) {
+                    spawnInPlane(u, v, scale, rx, rz, ParticleTypes.SQUID_INK);
                 }
+                continue;
+            }
+            if (isNearEdge(u, v)) {
+                spawnInPlane(u, v, scale, rx, rz, ParticleTypes.SOUL_FIRE_FLAME);
+            } else if (this.random.nextFloat() < 0.35f) {
+                spawnInPlane(u, v, scale, rx, rz, ParticleTypes.CAMPFIRE_COSY_SMOKE);
+            }
+        }
+        // Teeth: thin vertical bars bridging the mouth opening, top and bottom rows.
+        for (int i = -3; i <= 3; i++) {
+            double u = i * 0.075D;
+            for (double dv = 0.0D; dv < 0.04D; dv += 0.014D) {
+                spawnInPlane(u, -0.205D - dv, scale, rx, rz, ParticleTypes.SOUL_FIRE_FLAME);
+                spawnInPlane(u, -0.295D + dv, scale, rx, rz, ParticleTypes.SOUL_FIRE_FLAME);
             }
         }
     }
 
-    private void spawnFacialFeatures(double scale, double time) {
-        double eyeY = this.getY() + 5.1D * scale;
-        spawnEye(-1.55D * scale, eyeY, scale, time, true);
-        spawnEye(1.55D * scale, eyeY, scale, time, false);
-
-        for (int row = 0; row < 8; row++) {
-            double progress = row / 7.0D;
-            double y = this.getY() + (3.8D - progress * 1.7D) * scale;
-            double width = (0.12D + progress * 0.65D) * scale;
-            this.level().addParticle(ParticleTypes.SMOKE, this.getX() - width, y, this.getZ(), 0.0D, 0.0D, 0.0D);
-            this.level().addParticle(ParticleTypes.SMOKE, this.getX() + width, y, this.getZ(), 0.0D, 0.0D, 0.0D);
-            if (row > 1) {
-                this.level().addParticle(ParticleTypes.SQUID_INK, this.getX(), y - 0.05D * scale, this.getZ(), 0.0D, 0.0D, 0.0D);
-            }
+    private boolean isInsideSkull(double u, double v) {
+        // Cranium: ellipse centered (0, 0.35), radii (0.85, 0.6).
+        double cu = u / 0.85D;
+        double cv = (v - 0.35D) / 0.6D;
+        if (cu * cu + cv * cv <= 1.0D) return true;
+        // Jaw: trapezoid tapering from width 1.1 at y=-0.05 to width 0.6 at y=-0.55.
+        if (v >= -0.55D && v <= -0.05D) {
+            double t = (v + 0.05D) / -0.5D;
+            double halfWidth = 0.55D - t * 0.25D;
+            if (Math.abs(u) <= halfWidth) return true;
         }
+        return false;
     }
 
-    private void spawnEye(double centerX, double eyeY, double scale, double time, boolean left) {
-        for (int i = 0; i < 18; i++) {
-            double angle = (Math.PI * 2.0D * i) / 18.0D;
-            double x = this.getX() + centerX + Math.cos(angle) * 0.95D * scale;
-            double y = eyeY + Math.sin(angle) * 0.75D * scale;
-            double z = this.getZ() + Math.sin(angle) * 0.35D * scale;
-            this.level().addParticle(ParticleTypes.SMOKE, x, y, z, 0.0D, 0.0D, 0.0D);
-        }
-
-        double flicker = 0.12D + 0.08D * Math.sin(time * 1.4D + (left ? 0.0D : Math.PI));
-        for (int i = 0; i < 3; i++) {
-            this.level().addParticle(ParticleTypes.HAPPY_VILLAGER,
-                    this.getX() + centerX + (this.random.nextDouble() - 0.5D) * 0.35D * scale,
-                    eyeY + (this.random.nextDouble() - 0.5D) * 0.3D * scale,
-                    this.getZ() + (this.random.nextDouble() - 0.5D) * 0.25D * scale,
-                    0.0D, flicker, 0.0D);
-        }
+    private boolean isCarveOut(double u, double v) {
+        // Eye sockets — two large dark ellipses high on the face.
+        double ex = u + 0.30D, ey = v - 0.45D;
+        if (ex * ex / 0.04D + ey * ey / 0.025D <= 1.0D) return true;
+        ex = u - 0.30D;
+        if (ex * ex / 0.04D + ey * ey / 0.025D <= 1.0D) return true;
+        // Nasal cavity — small inverted triangle below the brow.
+        if (v >= 0.05D && v <= 0.25D && Math.abs(u) <= 0.04D + (v - 0.05D) * 0.25D) return true;
+        // Mouth opening — wide low ellipse.
+        double mu = u / 0.30D;
+        double mv = (v + 0.25D) / 0.07D;
+        return mu * mu + mv * mv <= 1.0D;
     }
 
-    private void spawnJawAndTeeth(double scale, double time) {
-        for (int i = 0; i <= 24; i++) {
-            double progress = i / 24.0D;
-            double angle = Math.PI + progress * Math.PI;
-            double x = this.getX() + Math.cos(angle) * 3.5D * scale;
-            double y = this.getY() + (1.2D - Math.sin(progress * Math.PI) * 2.35D) * scale;
-            double z = this.getZ() + Math.sin(angle) * 2.0D * scale;
-            this.level().addParticle(ParticleTypes.SQUID_INK, x, y, z, 0.0D, 0.003D, 0.0D);
-            if (i > 3 && i < 21 && i % 3 == 0) {
-                this.level().addParticle(ParticleTypes.SMOKE, x, y + 0.55D * scale, z, 0.0D, 0.0D, 0.0D);
-            }
-        }
-
-        for (int tooth = -4; tooth <= 4; tooth++) {
-            double x = this.getX() + tooth * 0.42D * scale;
-            double topY = this.getY() + 1.05D * scale;
-            for (int seg = 0; seg < 3; seg++) {
-                double y = topY - seg * 0.42D * scale;
-                this.level().addParticle(ParticleTypes.SQUID_INK, x, y, this.getZ() + 1.9D * scale, 0.0D, 0.0D, 0.0D);
-            }
-        }
+    private boolean isNearEdge(double u, double v) {
+        // 4-neighbour silhouette test: if any neighbour is outside the skull or
+        // inside a carve-out, we're on a visible edge.
+        double s = 0.04D;
+        return !isInsideSkull(u + s, v) || isCarveOut(u + s, v)
+            || !isInsideSkull(u - s, v) || isCarveOut(u - s, v)
+            || !isInsideSkull(u, v + s) || isCarveOut(u, v + s)
+            || !isInsideSkull(u, v - s) || isCarveOut(u, v - s);
     }
 
-    private void spawnSnake(double scale, double time) {
-        int segments = (int) (110 * Math.max(0.8D, scale / MAX_SCALE));
+    private void spawnInPlane(double u, double v, double scale, double rx, double rz,
+                              net.minecraft.core.particles.ParticleOptions particle) {
+        double x = this.getX() + rx * u * SKULL_HALF_WIDTH * scale;
+        double y = this.getY() + v * SKULL_HALF_HEIGHT * scale + SKULL_Y_OFFSET * scale;
+        double z = this.getZ() + rz * u * SKULL_HALF_WIDTH * scale;
+        this.level().addParticle(particle, x, y, z, 0.0D, 0.0D, 0.0D);
+    }
+
+    private void spawnSnake(double scale, double rx, double rz) {
+        // S-curve emerging from the mouth (u=0, v=-0.25), descending below the skull
+        // with a sideways sway. Body tapers from thicker near the head to a thin tail.
+        int segments = 56;
         for (int i = 0; i < segments; i++) {
-            double progress = i / (double) segments;
-            double coil = time + progress * 10.0D;
-            double radius = (0.5D + (1.0D - progress) * 0.85D) * scale;
-            double x = this.getX() + Math.sin(coil) * radius;
-            double y = this.getY() + (0.5D - progress * 13.0D) * scale;
-            double z = this.getZ() + 2.2D * scale + Math.cos(coil * 0.85D) * radius * 0.85D;
-
-            this.level().addParticle(ParticleTypes.SQUID_INK, x, y, z, 0.0D, 0.0D, 0.0D);
-            if (i % 2 == 0) {
-                this.level().addParticle(ParticleTypes.LARGE_SMOKE, x, y, z, 0.0D, 0.005D, 0.0D);
+            double t = i / (double) segments;
+            double v = -0.30D - t * 2.2D;
+            double u = Math.sin(t * Math.PI * 1.8D) * 0.55D * (0.35D + t * 0.65D);
+            double bodyHalf = (1.0D - t) * 0.09D + 0.035D;
+            for (double w = -bodyHalf; w <= bodyHalf; w += 0.035D) {
+                spawnInPlane(u + w, v, scale, rx, rz, ParticleTypes.SOUL_FIRE_FLAME);
             }
-            if (i % 10 == 0) {
-                this.level().addParticle(ParticleTypes.HAPPY_VILLAGER, x, y, z, 0.0D, 0.02D, 0.0D);
+            if (i % 5 == 0) {
+                spawnInPlane(u, v - 0.045D, scale, rx, rz, ParticleTypes.SQUID_INK);
             }
         }
-
-        double headX = this.getX() + Math.sin(time + 10.0D) * 0.55D * scale;
-        double headY = this.getY() - 12.2D * scale;
-        double headZ = this.getZ() + 2.2D * scale + Math.cos((time + 10.0D) * 0.85D) * 0.45D * scale;
-        for (int i = 0; i < 8; i++) {
-            this.level().addParticle(ParticleTypes.SQUID_INK,
-                    headX + (this.random.nextDouble() - 0.5D) * 0.4D * scale,
-                    headY + (this.random.nextDouble() - 0.5D) * 0.25D * scale,
-                    headZ + (this.random.nextDouble() - 0.5D) * 0.3D * scale,
-                    0.0D, 0.0D, 0.0D);
+        // Snake head — a small bulbous cluster at the tail-end of the curve.
+        double headU = Math.sin(Math.PI * 1.8D) * 0.55D * 1.0D;
+        double headV = -0.30D - 2.2D - 0.06D;
+        for (int i = 0; i < 14; i++) {
+            double a = (Math.PI * 2.0D * i) / 14.0D;
+            spawnInPlane(headU + Math.cos(a) * 0.10D, headV + Math.sin(a) * 0.07D,
+                    scale, rx, rz, ParticleTypes.SOUL_FIRE_FLAME);
         }
-        this.level().addParticle(ParticleTypes.WITCH, headX, headY, headZ, 0.0D, 0.0D, 0.0D);
-        this.level().addParticle(ParticleTypes.WITCH, headX + 0.22D * scale, headY - 0.05D * scale, headZ + 0.18D * scale, 0.0D, 0.0D, 0.0D);
-        this.level().addParticle(ParticleTypes.WITCH, headX - 0.22D * scale, headY - 0.05D * scale, headZ + 0.18D * scale, 0.0D, 0.0D, 0.0D);
-    }
-
-    private void spawnAura(double scale, double time) {
-        for (int i = 0; i < 12; i++) {
-            double x = this.getX() + (this.random.nextDouble() - 0.5D) * 6.0D * scale;
-            double y = this.getY() + this.random.nextDouble() * 8.5D * scale;
-            double z = this.getZ() + (this.random.nextDouble() - 0.5D) * 4.8D * scale;
-            this.level().addParticle(ParticleTypes.HAPPY_VILLAGER, x, y, z, 0.0D, 0.02D, 0.0D);
-        }
-
-        for (int i = 0; i < 10; i++) {
-            double angle = time * 0.45D + (Math.PI * 2.0D * i) / 10.0D;
-            double x = this.getX() + Math.cos(angle) * 2.6D * scale;
-            double y = this.getY() + 4.0D * scale + Math.sin(angle * 1.3D) * 0.65D * scale;
-            double z = this.getZ() + Math.sin(angle) * 2.0D * scale;
-            this.level().addParticle(ParticleTypes.SMOKE, x, y, z, 0.0D, 0.01D, 0.0D);
-        }
+        // Two slit eyes on the snake head.
+        spawnInPlane(headU - 0.035D, headV + 0.012D, scale, rx, rz, ParticleTypes.WARPED_SPORE);
+        spawnInPlane(headU + 0.035D, headV + 0.012D, scale, rx, rz, ParticleTypes.WARPED_SPORE);
     }
 
     private void applyBuffs() {

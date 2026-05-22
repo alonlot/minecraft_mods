@@ -128,6 +128,8 @@ public class VoldemortEntity extends WizardEntity {
                 this.lightningCooldown = 14 + this.getRandom().nextInt(18);
                 spawnThreatLightning(serverLevel);
             }
+
+            emitAura(serverLevel);
         }
 
         if (isCastingLockedOut() && this.queuedSpell != null) {
@@ -206,6 +208,19 @@ public class VoldemortEntity extends WizardEntity {
         }
     }
 
+    /** True while the Tenebris-Flight evasion effect is active. Used by the renderer
+     *  to drop into a hover pose (legs hanging, slight forward lean) instead of the
+     *  default walk cycle. */
+    public boolean isHovering() {
+        return this.hasEffect(ExampleMod.TENEBRIS_FLIGHT_EFFECT.getHolder().get());
+    }
+
+    /** True while the AK windup is queued. Renderer uses this to trigger a more
+     *  theatrical pose (head tilts back, both arms slowly raise) than a normal cast. */
+    public boolean isChargingAvadaKedavra() {
+        return this.queuedSpell == SpellType.AVADA_KEDAVRA && this.queuedSpellTicks > 0;
+    }
+
     public boolean tryEvadeAvada(@Nullable Entity attacker) {
         if (isCastingLockedOut()) {
             return false;
@@ -259,6 +274,40 @@ public class VoldemortEntity extends WizardEntity {
         this.queuedSpellTicks = warmupTicks;
         this.setCasting(true);
         this.swing(InteractionHand.MAIN_HAND);
+    }
+
+    /**
+     * Continuous dark aura — a thin smoky halo of soul-fire and squid-ink particles
+     * that orbits Voldemort and trails a wisp upward. Drastically cheaper than the
+     * casting warning particles since it ticks every server tick. Density doubles
+     * while the AK windup is queued so the cast feels visibly more dangerous.
+     */
+    private void emitAura(ServerLevel serverLevel) {
+        boolean charging = this.queuedSpell == SpellType.AVADA_KEDAVRA;
+        // Orbiting ring around the chest.
+        int ringCount = charging ? 6 : 3;
+        for (int i = 0; i < ringCount; i++) {
+            double angle = (this.tickCount * 0.18D) + (Math.PI * 2.0D * i) / ringCount;
+            double r = 0.55D + (charging ? 0.15D * Math.sin(this.tickCount * 0.3D) : 0.0D);
+            double x = this.getX() + Math.cos(angle) * r;
+            double y = this.getY() + 1.2D;
+            double z = this.getZ() + Math.sin(angle) * r;
+            serverLevel.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, x, y, z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
+        }
+        // Wispy ground smoke that drifts upward — gives a "robe trailing dark mist" look.
+        if (this.tickCount % 2 == 0) {
+            serverLevel.sendParticles(ParticleTypes.SQUID_INK,
+                    this.getX() + (this.getRandom().nextDouble() - 0.5D) * 0.6D,
+                    this.getY() + 0.15D,
+                    this.getZ() + (this.getRandom().nextDouble() - 0.5D) * 0.6D,
+                    1, 0.0D, 0.02D, 0.0D, 0.01D);
+        }
+        // While AK is charging, a vertical column of warning sparks rises from the wand.
+        if (charging && this.tickCount % 4 == 0) {
+            serverLevel.sendParticles(ParticleTypes.SOUL,
+                    this.getX(), this.getY() + 1.5D, this.getZ(),
+                    2, 0.1D, 0.1D, 0.1D, 0.04D);
+        }
     }
 
     private void spawnThreatLightning(ServerLevel serverLevel) {

@@ -2337,6 +2337,25 @@ public class ModEvents {
                 .handlePotentialBlockChanges(java.util.List.of(event.getPos().immutable())));
     }
 
+    /**
+     * Mob-driven block breaks aren't covered by BlockEvent.BreakEvent (player-only) or
+     * ExplosionEvent.Detonate. LivingDestroyBlockEvent fires for things like zombies
+     * breaking doors, ravagers chewing through crops, withers boring tunnels, and the
+     * Ender Dragon crashing through walls. Mirror those into RecentlyBrokenTracker +
+     * ReparoManager so students will repair the damage just like player-broken or
+     * explosion-broken blocks.
+     */
+    @SubscribeEvent
+    public static void onLivingDestroyBlock(net.minecraftforge.event.entity.living.LivingDestroyBlockEvent event) {
+        if (event.isCanceled()) return;
+        if (!(event.getEntity().level() instanceof ServerLevel level)) return;
+        net.minecraft.world.level.block.state.BlockState state = event.getState();
+        if (state == null || state.isAir()) return;
+        net.minecraft.core.BlockPos pos = event.getPos();
+        com.hogwartsmagic.util.RecentlyBrokenTracker.record(level, pos, state);
+        ReparoManager.recordBrokenBlock(level, pos, state);
+    }
+
     @SubscribeEvent
     public static void onBlockPlace(net.minecraftforge.event.level.BlockEvent.EntityPlaceEvent event) {
         if (!(event.getLevel() instanceof ServerLevel level)) {

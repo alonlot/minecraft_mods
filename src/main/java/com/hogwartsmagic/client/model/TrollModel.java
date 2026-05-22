@@ -123,7 +123,11 @@ public class TrollModel extends EntityModel<TrollEntity> {
                         .texOffs(84, 112).addBox(-2.0F, 13.0F, -12.0F, 3.0F, 2.0F, 3.0F, new CubeDeformation(0.0F)),
                 PartPose.offset(-4.0F, 7.0F, 0.0F));
 
-        return LayerDefinition.create(mesh, 128, 128);
+        // 256x256 atlas: several cubes here (the body slab, the legs, parts of the
+        // club) have unwraps that would overflow a 128x128 sheet and end up sampling
+        // garbage by wrap-around. Doubling to 256 gives every cube its own non-
+        // overlapping region without having to re-pack the existing texOffs values.
+        return LayerDefinition.create(mesh, 256, 256);
     }
 
     @Override

@@ -86,15 +86,15 @@ public final class ReparoManager {
             if (payment.isEmpty()) {
                 continue;
             }
-            // Consume the cost from either the caster's inventory OR a matching item drop
-            // lying near the broken block. The latter handles the common case of casting
-            // Reparo right after the break — the rubble is still on the ground and that
-            // physical drop is what re-becomes the block.
-            if (!creative
-                    && !consumeMatchingBlock(player, payment)
-                    && !com.hogwartsmagic.util.RecentlyBrokenTracker.tryConsumeNearbyDrop(
-                            level, record.pos, record.state, 5.0D)) {
-                continue;
+            // Cost can come from inventory OR a real ItemEntity drop lying near the
+            // broken block. The visual flight differs: inventory → a new count-1 item
+            // spawns at the player's eye and flies in; ground drop → the existing
+            // rubble lifts off the floor and flies to the broken spot.
+            boolean fromInventory = !creative && consumeMatchingBlock(player, payment);
+            ItemEntity sourceDrop = null;
+            if (!creative && !fromInventory) {
+                sourceDrop = findGroundDropFor(level, record.pos, record.state, 5.0D);
+                if (sourceDrop == null) continue;
             }
             if (!creative && availableMana < EXTRA_MANA_PER_BLOCK) {
                 break;
@@ -102,7 +102,11 @@ public final class ReparoManager {
             if (!creative) {
                 availableMana -= EXTRA_MANA_PER_BLOCK;
             }
-            startRepairFlight(level, player, record, payment);
+            if (sourceDrop != null) {
+                startGroundDropFlight(level, sourceDrop, record.pos, record.state);
+            } else {
+                startRepairFlight(level, player, record, payment);
+            }
             RECORDS.remove(key(level, record.pos));
             RECORD_ORDER.remove(key(level, record.pos));
             repairedCount++;
@@ -156,6 +160,62 @@ public final class ReparoManager {
             itemEntity.setDeltaMovement(velocity);
             itemEntity.hurtMarked = true;
         }
+    }
+
+    /**
+     * Find an {@link ItemEntity} near {@code center} whose stack matches the
+     * block-item form of {@code state}. Doesn't mutate it — that's the caller's job
+     * (either consuming immediately or, preferably, starting a flight to the target
+     * via {@link #startGroundDropFlight}).
+     */
+    public static ItemEntity findGroundDropFor(ServerLevel level, BlockPos center, BlockState state, double radius) {
+        Item item = state.getBlock().asItem();
+        if (item == net.minecraft.world.item.Items.AIR) return null;
+        java.util.List<ItemEntity> drops = level.getEntitiesOfClass(ItemEntity.class,
+                new net.minecraft.world.phys.AABB(center).inflate(radius),
+                ie -> ie.isAlive() && ie.getItem().is(item));
+        if (drops.isEmpty()) return null;
+        // Closest first so the visual flight is the shortest path.
+        drops.sort(java.util.Comparator.comparingDouble(ie -> ie.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(center))));
+        return drops.get(0);
+    }
+
+    /**
+     * Start the Reparo flight from a real dropped {@link ItemEntity} on the ground.
+     * Takes one item off the source stack (discards the source if it's now empty)
+     * and spawns a new count-1 flying copy at the source's current position so it
+     * physically lifts off the rubble pile and homes onto the target block. Once
+     * the flight tick lands, {@code state} is set at {@code target} and the flying
+     * copy is discarded — identical to the inventory-path arrival.
+     */
+    public static boolean startGroundDropFlight(ServerLevel level, ItemEntity source,
+                                                BlockPos target, BlockState state) {
+        if (source == null || !source.isAlive() || source.getItem().isEmpty()) return false;
+        ItemStack stack = source.getItem();
+        Item item = state.getBlock().asItem();
+        if (item == net.minecraft.world.item.Items.AIR || !stack.is(item)) return false;
+
+        Vec3 start = source.position();
+        // Detach one item from the rubble pile.
+        stack.shrink(1);
+        if (stack.isEmpty()) {
+            source.discard();
+        } else {
+            source.setItem(stack);
+        }
+
+        ItemEntity flier = new ItemEntity(level, start.x, start.y, start.z, new ItemStack(item, 1));
+        flier.setNoGravity(true);
+        flier.setPickUpDelay(32767);
+        flier.setInvulnerable(true);
+        flier.setGlowingTag(true);
+        level.addFreshEntity(flier);
+        ACTIVE_FLIGHTS.put(flier.getUUID(),
+                new ActiveRepairFlight(level.dimension().location().toString(), target.immutable(), state));
+
+        level.sendParticles(ParticleTypes.WITCH, start.x, start.y, start.z, 6, 0.1, 0.1, 0.1, 0.01);
+        level.playSound(null, target, SoundEvents.ENCHANTMENT_TABLE_USE, SoundSource.PLAYERS, 0.45f, 1.35f);
+        return true;
     }
 
     private static void startRepairFlight(ServerLevel level, Player player, TrackedBreakRecord record, ItemStack payment) {

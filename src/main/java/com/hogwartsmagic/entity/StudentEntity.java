@@ -516,19 +516,24 @@ public class StudentEntity extends AbstractIllager implements DisarmableWandUser
                     com.hogwartsmagic.util.RecentlyBrokenTracker.findNearby(
                             this.student.level(), this.student.blockPosition(), 6.0D);
             if (records.isEmpty()) return;
-            // Walk records freshest-first and pick the first one whose drops are still
-            // physically nearby (as ItemEntities the student can absorb back into form).
-            // Skipping records with no drops avoids "magic free repair" of blocks whose
-            // rubble has been picked up or despawned.
+            // Walk records freshest-first and grab the first one whose rubble is still
+            // lying on the ground as an ItemEntity. Students have no inventory, so the
+            // dropped item IS the cost — it physically flies to the broken spot via
+            // ReparoManager.startGroundDropFlight and the flight's tick handler places
+            // the block on arrival.
+            if (!(this.student.level() instanceof net.minecraft.server.level.ServerLevel sl)) return;
             com.hogwartsmagic.util.RecentlyBrokenTracker.Record r = null;
+            net.minecraft.world.entity.item.ItemEntity drop = null;
             for (com.hogwartsmagic.util.RecentlyBrokenTracker.Record cand : records) {
-                if (!this.student.level().getBlockState(cand.pos).isAir()) {
-                    com.hogwartsmagic.util.RecentlyBrokenTracker.consume(this.student.level(), cand.pos);
+                if (!sl.getBlockState(cand.pos).isAir()) {
+                    com.hogwartsmagic.util.RecentlyBrokenTracker.consume(sl, cand.pos);
                     continue;
                 }
-                if (com.hogwartsmagic.util.RecentlyBrokenTracker.tryConsumeNearbyDrop(
-                        this.student.level(), cand.pos, cand.state, 5.0D)) {
+                net.minecraft.world.entity.item.ItemEntity d =
+                        com.hogwartsmagic.util.ReparoManager.findGroundDropFor(sl, cand.pos, cand.state, 5.0D);
+                if (d != null) {
                     r = cand;
+                    drop = d;
                     break;
                 }
             }
@@ -536,20 +541,10 @@ public class StudentEntity extends AbstractIllager implements DisarmableWandUser
 
             this.student.getLookControl().setLookAt(r.pos.getX() + 0.5D, r.pos.getY() + 0.5D, r.pos.getZ() + 0.5D);
             this.student.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
-            this.student.level().setBlock(r.pos, r.state, 3);
             this.student.level().playSound(null, r.pos, SpellType.REPARO.getSoundEvent(),
                     net.minecraft.sounds.SoundSource.NEUTRAL, 0.9f, 1.1f);
-            this.student.level().playSound(null, r.pos, net.minecraft.sounds.SoundEvents.AMETHYST_BLOCK_CHIME,
-                    net.minecraft.sounds.SoundSource.NEUTRAL, 0.7f, 1.2f);
-            if (this.student.level() instanceof net.minecraft.server.level.ServerLevel sl) {
-                sl.sendParticles(net.minecraft.core.particles.ParticleTypes.WAX_ON,
-                        r.pos.getX() + 0.5D, r.pos.getY() + 0.5D, r.pos.getZ() + 0.5D,
-                        18, 0.35D, 0.35D, 0.35D, 0.02D);
-                sl.sendParticles(net.minecraft.core.particles.ParticleTypes.ENCHANT,
-                        r.pos.getX() + 0.5D, r.pos.getY() + 0.5D, r.pos.getZ() + 0.5D,
-                        12, 0.5D, 0.5D, 0.5D, 0.5D);
-            }
-            com.hogwartsmagic.util.RecentlyBrokenTracker.consume(this.student.level(), r.pos);
+            com.hogwartsmagic.util.ReparoManager.startGroundDropFlight(sl, drop, r.pos, r.state);
+            com.hogwartsmagic.util.RecentlyBrokenTracker.consume(sl, r.pos);
             this.student.setSpellCooldown(SpellType.REPARO, now + SpellType.REPARO.getCooldownTicks());
         }
     }
@@ -916,40 +911,32 @@ public class StudentEntity extends AbstractIllager implements DisarmableWandUser
                     com.hogwartsmagic.util.RecentlyBrokenTracker.findNearby(this.student.level(), here, 6.0D);
             if (records.isEmpty()) return false;
 
-            // Pick the freshest record whose dropped rubble is still on the ground so
-            // Reparo costs material — see {@link RecentlyBrokenTracker#tryConsumeNearbyDrop}.
+            // Pick the freshest record whose rubble ItemEntity is still on the ground;
+            // the dropped item flies to the broken spot and becomes the block on arrival.
+            if (!(this.student.level() instanceof net.minecraft.server.level.ServerLevel sl)) return false;
             com.hogwartsmagic.util.RecentlyBrokenTracker.Record r = null;
+            net.minecraft.world.entity.item.ItemEntity drop = null;
             for (com.hogwartsmagic.util.RecentlyBrokenTracker.Record cand : records) {
-                if (!this.student.level().getBlockState(cand.pos).isAir()) {
-                    com.hogwartsmagic.util.RecentlyBrokenTracker.consume(this.student.level(), cand.pos);
+                if (!sl.getBlockState(cand.pos).isAir()) {
+                    com.hogwartsmagic.util.RecentlyBrokenTracker.consume(sl, cand.pos);
                     continue;
                 }
-                if (com.hogwartsmagic.util.RecentlyBrokenTracker.tryConsumeNearbyDrop(
-                        this.student.level(), cand.pos, cand.state, 5.0D)) {
+                net.minecraft.world.entity.item.ItemEntity d =
+                        com.hogwartsmagic.util.ReparoManager.findGroundDropFor(sl, cand.pos, cand.state, 5.0D);
+                if (d != null) {
                     r = cand;
+                    drop = d;
                     break;
                 }
             }
             if (r == null) return false;
 
-            // Aim at the broken block while the wand is raised.
             this.student.getLookControl().setLookAt(r.pos.getX() + 0.5D, r.pos.getY() + 0.5D, r.pos.getZ() + 0.5D);
             this.student.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
-            this.student.level().setBlock(r.pos, r.state, 3);
             this.student.level().playSound(null, r.pos, SpellType.REPARO.getSoundEvent(),
                     net.minecraft.sounds.SoundSource.NEUTRAL, 0.9f, 1.1f);
-            this.student.level().playSound(null, r.pos, net.minecraft.sounds.SoundEvents.AMETHYST_BLOCK_CHIME,
-                    net.minecraft.sounds.SoundSource.NEUTRAL, 0.7f, 1.2f);
-
-            if (this.student.level() instanceof net.minecraft.server.level.ServerLevel sl) {
-                sl.sendParticles(net.minecraft.core.particles.ParticleTypes.WAX_ON,
-                        r.pos.getX() + 0.5D, r.pos.getY() + 0.5D, r.pos.getZ() + 0.5D,
-                        18, 0.35D, 0.35D, 0.35D, 0.02D);
-                sl.sendParticles(net.minecraft.core.particles.ParticleTypes.ENCHANT,
-                        r.pos.getX() + 0.5D, r.pos.getY() + 0.5D, r.pos.getZ() + 0.5D,
-                        12, 0.5D, 0.5D, 0.5D, 0.5D);
-            }
-            com.hogwartsmagic.util.RecentlyBrokenTracker.consume(this.student.level(), r.pos);
+            com.hogwartsmagic.util.ReparoManager.startGroundDropFlight(sl, drop, r.pos, r.state);
+            com.hogwartsmagic.util.RecentlyBrokenTracker.consume(sl, r.pos);
             this.student.setSpellCooldown(SpellType.REPARO, now + SpellType.REPARO.getCooldownTicks());
             return true;
         }

@@ -86,18 +86,21 @@ public final class ReparoManager {
             if (payment.isEmpty()) {
                 continue;
             }
-            // Cost can come from inventory OR a real ItemEntity drop lying near the
-            // broken block. The visual flight differs: inventory → a new count-1 item
-            // spawns at the player's eye and flies in; ground drop → the existing
-            // rubble lifts off the floor and flies to the broken spot.
-            boolean fromInventory = !creative && consumeMatchingBlock(player, payment);
-            ItemEntity sourceDrop = null;
-            if (!creative && !fromInventory) {
-                sourceDrop = findGroundDropFor(level, record.pos, record.state, 5.0D);
-                if (sourceDrop == null) continue;
-            }
+            // Find the cost source. Ground rubble is *preferred* over inventory when both
+            // exist, because the rubble visibly lifting off the floor reads as the spell
+            // doing its job. Inventory is the fallback when nothing dropped (or drops were
+            // already picked up / despawned).
+            //
+            // Mana is checked first so we don't consume an inventory item and then fail.
             if (!creative && availableMana < EXTRA_MANA_PER_BLOCK) {
                 break;
+            }
+            ItemEntity sourceDrop = creative ? null
+                    : findGroundDropFor(level, record.pos, record.state, 5.0D);
+            boolean fromInventory = false;
+            if (sourceDrop == null && !creative) {
+                fromInventory = consumeMatchingBlock(player, payment);
+                if (!fromInventory) continue;
             }
             if (!creative) {
                 availableMana -= EXTRA_MANA_PER_BLOCK;

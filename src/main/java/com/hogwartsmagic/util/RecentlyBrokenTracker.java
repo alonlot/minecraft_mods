@@ -90,4 +90,37 @@ public final class RecentlyBrokenTracker {
         if (deq == null) return;
         deq.removeIf(r -> r.pos.equals(pos));
     }
+
+    /**
+     * Search for an {@link net.minecraft.world.entity.item.ItemEntity} within {@code radius}
+     * of {@code center} whose stack item matches the {@link BlockState}'s block item, and
+     * consume exactly one count from it. Returns {@code true} on a successful consume.
+     *
+     * <p>This is what makes "Reparo only fixes blocks whose drops are still nearby" work:
+     * if the rubble dropped a stone and that stone is still lying on the ground, the spell
+     * can use it; if a player has already picked the rubble up, Reparo just fizzles.</p>
+     */
+    public static boolean tryConsumeNearbyDrop(net.minecraft.world.level.Level level,
+                                               BlockPos center, BlockState state, double radius) {
+        net.minecraft.world.item.Item item = state.getBlock().asItem();
+        if (item == net.minecraft.world.item.Items.AIR) {
+            // No item form (e.g. flowing fluids, fire) — nothing to consume, treat as
+            // un-repairable so Reparo doesn't silently rebuild things that have no drops.
+            return false;
+        }
+        net.minecraft.world.phys.AABB area = new net.minecraft.world.phys.AABB(center).inflate(radius);
+        java.util.List<net.minecraft.world.entity.item.ItemEntity> drops =
+                level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, area,
+                        ie -> ie.isAlive() && ie.getItem().is(item));
+        if (drops.isEmpty()) return false;
+        net.minecraft.world.entity.item.ItemEntity ie = drops.get(0);
+        net.minecraft.world.item.ItemStack stack = ie.getItem();
+        stack.shrink(1);
+        if (stack.isEmpty()) {
+            ie.discard();
+        } else {
+            ie.setItem(stack);
+        }
+        return true;
+    }
 }

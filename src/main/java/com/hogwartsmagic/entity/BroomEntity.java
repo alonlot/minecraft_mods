@@ -256,9 +256,12 @@ public class BroomEntity extends Entity {
         // Server-side: sync boost state, manage stamina, fire transition effects, weather hazards.
         if (!this.level().isClientSide) {
             // Stamina: drain while actually moving under boost; recover otherwise.
+            // Drain rate 0.555/tick → 100 stamina lasts ~180 ticks (~9s) before forced
+            // cutoff, which is ~1.8x the original 5s duration. Bar UI still maps 0..100,
+            // so the HUD numbers stay intuitive — just each tick costs a bit less than 1.
             boolean activelyBoosting = this.isBoosting && this.isVehicle() && horizSpeed > 0.5F;
             if (activelyBoosting) {
-                this.staminaF = Math.max(0.0F, this.staminaF - 1.0F);
+                this.staminaF = Math.max(0.0F, this.staminaF - 0.555F);
                 if (this.staminaF <= 0.0F) {
                     this.boostLocked = true;
                     this.isBoosting = false; // force-release boost when empty

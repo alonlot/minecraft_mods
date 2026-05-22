@@ -86,7 +86,14 @@ public final class ReparoManager {
             if (payment.isEmpty()) {
                 continue;
             }
-            if (!creative && !consumeMatchingBlock(player, payment)) {
+            // Consume the cost from either the caster's inventory OR a matching item drop
+            // lying near the broken block. The latter handles the common case of casting
+            // Reparo right after the break — the rubble is still on the ground and that
+            // physical drop is what re-becomes the block.
+            if (!creative
+                    && !consumeMatchingBlock(player, payment)
+                    && !com.hogwartsmagic.util.RecentlyBrokenTracker.tryConsumeNearbyDrop(
+                            level, record.pos, record.state, 5.0D)) {
                 continue;
             }
             if (!creative && availableMana < EXTRA_MANA_PER_BLOCK) {

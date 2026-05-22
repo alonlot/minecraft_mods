@@ -406,12 +406,16 @@ public class ClientModEvents {
             trickPushedPose = true;
             pose.translate(0.0D, -0.45D, 0.0D);
             pose.mulPose(com.mojang.math.Axis.YP.rotationDegrees(-lerpBroomYaw));
+            // BroomRenderer applies its trick rotation INSIDE a scale(-1, -1, 1) mirror so
+            // its Z/X axis spins look "correct" on the mirrored mesh. The player model is
+            // rendered without that mirror, so using the same signs here makes the player
+            // roll opposite to the broom. Negate them so player and broom rotate together.
             if (trick == com.hogwartsmagic.entity.BroomEntity.TRICK_BARREL_LEFT) {
-                pose.mulPose(com.mojang.math.Axis.ZP.rotationDegrees(-spinDeg));
-            } else if (trick == com.hogwartsmagic.entity.BroomEntity.TRICK_BARREL_RIGHT) {
                 pose.mulPose(com.mojang.math.Axis.ZP.rotationDegrees(spinDeg));
+            } else if (trick == com.hogwartsmagic.entity.BroomEntity.TRICK_BARREL_RIGHT) {
+                pose.mulPose(com.mojang.math.Axis.ZP.rotationDegrees(-spinDeg));
             } else if (trick == com.hogwartsmagic.entity.BroomEntity.TRICK_LOOP) {
-                pose.mulPose(com.mojang.math.Axis.XP.rotationDegrees(spinDeg));
+                pose.mulPose(com.mojang.math.Axis.XP.rotationDegrees(-spinDeg));
             }
             pose.mulPose(com.mojang.math.Axis.YP.rotationDegrees(lerpBroomYaw));
             pose.translate(0.0D, 0.45D, 0.0D);

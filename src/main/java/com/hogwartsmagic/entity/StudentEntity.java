@@ -516,11 +516,24 @@ public class StudentEntity extends AbstractIllager implements DisarmableWandUser
                     com.hogwartsmagic.util.RecentlyBrokenTracker.findNearby(
                             this.student.level(), this.student.blockPosition(), 6.0D);
             if (records.isEmpty()) return;
-            com.hogwartsmagic.util.RecentlyBrokenTracker.Record r = records.get(0);
-            if (!this.student.level().getBlockState(r.pos).isAir()) {
-                com.hogwartsmagic.util.RecentlyBrokenTracker.consume(this.student.level(), r.pos);
-                return;
+            // Walk records freshest-first and pick the first one whose drops are still
+            // physically nearby (as ItemEntities the student can absorb back into form).
+            // Skipping records with no drops avoids "magic free repair" of blocks whose
+            // rubble has been picked up or despawned.
+            com.hogwartsmagic.util.RecentlyBrokenTracker.Record r = null;
+            for (com.hogwartsmagic.util.RecentlyBrokenTracker.Record cand : records) {
+                if (!this.student.level().getBlockState(cand.pos).isAir()) {
+                    com.hogwartsmagic.util.RecentlyBrokenTracker.consume(this.student.level(), cand.pos);
+                    continue;
+                }
+                if (com.hogwartsmagic.util.RecentlyBrokenTracker.tryConsumeNearbyDrop(
+                        this.student.level(), cand.pos, cand.state, 5.0D)) {
+                    r = cand;
+                    break;
+                }
             }
+            if (r == null) return;
+
             this.student.getLookControl().setLookAt(r.pos.getX() + 0.5D, r.pos.getY() + 0.5D, r.pos.getZ() + 0.5D);
             this.student.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
             this.student.level().setBlock(r.pos, r.state, 3);
@@ -903,12 +916,21 @@ public class StudentEntity extends AbstractIllager implements DisarmableWandUser
                     com.hogwartsmagic.util.RecentlyBrokenTracker.findNearby(this.student.level(), here, 6.0D);
             if (records.isEmpty()) return false;
 
-            com.hogwartsmagic.util.RecentlyBrokenTracker.Record r = records.get(0);
-            // Defensive recheck (state may have been replaced between find and cast).
-            if (!this.student.level().getBlockState(r.pos).isAir()) {
-                com.hogwartsmagic.util.RecentlyBrokenTracker.consume(this.student.level(), r.pos);
-                return false;
+            // Pick the freshest record whose dropped rubble is still on the ground so
+            // Reparo costs material — see {@link RecentlyBrokenTracker#tryConsumeNearbyDrop}.
+            com.hogwartsmagic.util.RecentlyBrokenTracker.Record r = null;
+            for (com.hogwartsmagic.util.RecentlyBrokenTracker.Record cand : records) {
+                if (!this.student.level().getBlockState(cand.pos).isAir()) {
+                    com.hogwartsmagic.util.RecentlyBrokenTracker.consume(this.student.level(), cand.pos);
+                    continue;
+                }
+                if (com.hogwartsmagic.util.RecentlyBrokenTracker.tryConsumeNearbyDrop(
+                        this.student.level(), cand.pos, cand.state, 5.0D)) {
+                    r = cand;
+                    break;
+                }
             }
+            if (r == null) return false;
 
             // Aim at the broken block while the wand is raised.
             this.student.getLookControl().setLookAt(r.pos.getX() + 0.5D, r.pos.getY() + 0.5D, r.pos.getZ() + 0.5D);

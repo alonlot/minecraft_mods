@@ -2374,7 +2374,13 @@ public class ModEvents {
             return;
         }
         for (BlockPos pos : event.getAffectedBlocks()) {
-            ReparoManager.recordBrokenBlock(level, pos, level.getBlockState(pos));
+            net.minecraft.world.level.block.state.BlockState state = level.getBlockState(pos);
+            ReparoManager.recordBrokenBlock(level, pos, state);
+            // Also mirror into the broader RecentlyBrokenTracker so students can Reparo
+            // explosion craters (Bombarda / TNT / creepers), not just player mining.
+            if (!state.isAir()) {
+                com.hogwartsmagic.util.RecentlyBrokenTracker.record(level, pos, state);
+            }
         }
         java.util.List<BlockPos> changed = event.getAffectedBlocks().stream().map(BlockPos::immutable).toList();
         level.getServer().execute(() -> com.hogwartsmagic.caveinimicum.CaveInimicumManager.get(level)

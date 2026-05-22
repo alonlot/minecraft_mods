@@ -153,6 +153,11 @@ public class StudentEntity extends AbstractIllager implements DisarmableWandUser
         // At night, path to a village bed and sleep (like villagers)
         this.goalSelector.addGoal(2, new StudentSleepGoal(this));
         this.goalSelector.addGoal(3, new StudentSpellCastGoal(this));
+        // Out-of-combat utility casts (rescue + repair). Sits at priority 4 — below
+        // panic/sleep/spell-cast so combat still takes precedence, but above wander
+        // so a student standing idle next to a falling friend or rubble will actually
+        // act on it.
+        this.goalSelector.addGoal(4, new StudentUtilityCastGoal(this));
         this.goalSelector.addGoal(5, new WaterAvoidingRandomStrollGoal(this, 0.5D));
         this.goalSelector.addGoal(6, new LookAtPlayerGoal(this, Player.class, 8.0F));
         this.goalSelector.addGoal(7, new RandomLookAroundGoal(this));
@@ -401,6 +406,131 @@ public class StudentEntity extends AbstractIllager implements DisarmableWandUser
             } else {
                 student.getNavigation().moveTo(bedCenter.x, bedCenter.y, bedCenter.z, 0.45D);
             }
+        }
+    }
+
+    /**
+     * Out-of-combat utility caster. Runs whenever the student is alive and unarmed-status
+     * permits, and triggers on situational cues independent of any combat target:
+     *
+     * <ul>
+     *   <li>A nearby ally is falling fast → Arresto Momentum on them.</li>
+     *   <li>There's a tracked broken block within range → Reparo on it.</li>
+     * </ul>
+     *
+     * Protego Maxima stays inside {@link StudentSpellCastGoal} because it's a reactive
+     * combat shield — needing a recent hit / incoming beam to fire — so it only makes
+     * sense once the student has already been engaged.
+     */
+    static class StudentUtilityCastGoal extends net.minecraft.world.entity.ai.goal.Goal {
+        private final StudentEntity student;
+        private int checkCooldown;
+
+        StudentUtilityCastGoal(StudentEntity student) {
+            this.student = student;
+            this.setFlags(EnumSet.of(Goal.Flag.LOOK));
+        }
+
+        @Override
+        public boolean canUse() {
+            if (this.student.isSleeping() || this.student.isDisarmed()) return false;
+            // Cheap throttle — scanning entities every tick is wasteful for an idle student.
+            if (--this.checkCooldown > 0) return false;
+            this.checkCooldown = 10;
+            long now = this.student.level().getGameTime();
+            return canCastArresto(now) || canCastReparo(now);
+        }
+
+        @Override
+        public boolean canContinueToUse() {
+            return false; // one-shot per activation; canUse re-evaluates next throttle window
+        }
+
+        @Override
+        public void start() {
+            long now = this.student.level().getGameTime();
+            if (canCastArresto(now)) {
+                doArresto(now);
+                return;
+            }
+            if (canCastReparo(now)) {
+                doReparo(now);
+            }
+        }
+
+        private boolean canCastArresto(long now) {
+            return !this.student.isSpellOnCooldown(SpellType.ARRESTO_MOMENTUM, now)
+                    && findFallingAlly() != null;
+        }
+
+        private boolean canCastReparo(long now) {
+            if (this.student.isSpellOnCooldown(SpellType.REPARO, now)) return false;
+            return !com.hogwartsmagic.util.RecentlyBrokenTracker
+                    .findNearby(this.student.level(), this.student.blockPosition(), 6.0D)
+                    .isEmpty();
+        }
+
+        private LivingEntity findFallingAlly() {
+            net.minecraft.world.phys.AABB area = this.student.getBoundingBox().inflate(6.0D, 12.0D, 6.0D);
+            java.util.List<LivingEntity> nearby = this.student.level()
+                    .getEntitiesOfClass(LivingEntity.class, area, e -> e != this.student
+                            && (e instanceof StudentEntity || e instanceof net.minecraft.world.entity.player.Player));
+            LivingEntity best = null;
+            double bestScore = 0.0D;
+            for (LivingEntity e : nearby) {
+                double yVel = e.getDeltaMovement().y;
+                float fallDist = e.fallDistance;
+                if (yVel < -0.45D || fallDist > 4.0F) {
+                    double score = Math.max(-yVel, 0.0D) + fallDist * 0.05D;
+                    if (score > bestScore) { bestScore = score; best = e; }
+                }
+            }
+            return best;
+        }
+
+        private void doArresto(long now) {
+            LivingEntity falling = findFallingAlly();
+            if (falling == null) return;
+            this.student.getLookControl().setLookAt(falling, 30.0F, 30.0F);
+            SpellType.ARRESTO_MOMENTUM.applyHitEffect(this.student, falling);
+            this.student.setSpellCooldown(SpellType.ARRESTO_MOMENTUM, now + SpellType.ARRESTO_MOMENTUM.getCooldownTicks());
+            this.student.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+            this.student.level().playSound(null, this.student.getX(), this.student.getY(), this.student.getZ(),
+                    SpellType.ARRESTO_MOMENTUM.getSoundEvent(), net.minecraft.sounds.SoundSource.NEUTRAL, 1.0f, 1.05f);
+            if (this.student.level() instanceof net.minecraft.server.level.ServerLevel sl) {
+                sl.sendParticles(net.minecraft.core.particles.ParticleTypes.CLOUD,
+                        falling.getX(), falling.getY() + 0.4D, falling.getZ(),
+                        16, 0.4D, 0.4D, 0.4D, 0.04D);
+            }
+        }
+
+        private void doReparo(long now) {
+            java.util.List<com.hogwartsmagic.util.RecentlyBrokenTracker.Record> records =
+                    com.hogwartsmagic.util.RecentlyBrokenTracker.findNearby(
+                            this.student.level(), this.student.blockPosition(), 6.0D);
+            if (records.isEmpty()) return;
+            com.hogwartsmagic.util.RecentlyBrokenTracker.Record r = records.get(0);
+            if (!this.student.level().getBlockState(r.pos).isAir()) {
+                com.hogwartsmagic.util.RecentlyBrokenTracker.consume(this.student.level(), r.pos);
+                return;
+            }
+            this.student.getLookControl().setLookAt(r.pos.getX() + 0.5D, r.pos.getY() + 0.5D, r.pos.getZ() + 0.5D);
+            this.student.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+            this.student.level().setBlock(r.pos, r.state, 3);
+            this.student.level().playSound(null, r.pos, SpellType.REPARO.getSoundEvent(),
+                    net.minecraft.sounds.SoundSource.NEUTRAL, 0.9f, 1.1f);
+            this.student.level().playSound(null, r.pos, net.minecraft.sounds.SoundEvents.AMETHYST_BLOCK_CHIME,
+                    net.minecraft.sounds.SoundSource.NEUTRAL, 0.7f, 1.2f);
+            if (this.student.level() instanceof net.minecraft.server.level.ServerLevel sl) {
+                sl.sendParticles(net.minecraft.core.particles.ParticleTypes.WAX_ON,
+                        r.pos.getX() + 0.5D, r.pos.getY() + 0.5D, r.pos.getZ() + 0.5D,
+                        18, 0.35D, 0.35D, 0.35D, 0.02D);
+                sl.sendParticles(net.minecraft.core.particles.ParticleTypes.ENCHANT,
+                        r.pos.getX() + 0.5D, r.pos.getY() + 0.5D, r.pos.getZ() + 0.5D,
+                        12, 0.5D, 0.5D, 0.5D, 0.5D);
+            }
+            com.hogwartsmagic.util.RecentlyBrokenTracker.consume(this.student.level(), r.pos);
+            this.student.setSpellCooldown(SpellType.REPARO, now + SpellType.REPARO.getCooldownTicks());
         }
     }
 

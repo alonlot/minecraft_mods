@@ -2326,6 +2326,13 @@ public class ModEvents {
             horcrux.handleForcedDestruction(level, event.getPlayer());
         }
         ReparoManager.recordBrokenBlock(level, event.getPos(), event.getState());
+        // Mirror into the broader-radius / longer-TTL tracker used by the StudentEntity AI
+        // for "rebuild what just got smashed" Reparo casts. Independent because
+        // ReparoManager prunes aggressively when no Reparo-learner player is nearby,
+        // which would defeat student-driven repairs.
+        if (event.getPlayer() != null && !event.getPlayer().isCreative()) {
+            com.hogwartsmagic.util.RecentlyBrokenTracker.record(level, event.getPos(), event.getState());
+        }
         level.getServer().execute(() -> com.hogwartsmagic.caveinimicum.CaveInimicumManager.get(level)
                 .handlePotentialBlockChanges(java.util.List.of(event.getPos().immutable())));
     }

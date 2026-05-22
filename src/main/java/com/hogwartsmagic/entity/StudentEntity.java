@@ -546,6 +546,14 @@ public class StudentEntity extends AbstractIllager implements DisarmableWandUser
                 this.student.setSpellCooldown(SpellType.HEAL, now + SpellType.HEAL.getCooldownTicks());
                 return;
             }
+
+            // Utility spells take precedence over the offensive pick when their trigger
+            // condition is met. Order is rescue → group shield → cleanup, matching how
+            // a student in the films would react: save the falling friend first, then
+            // shield the group, then patch the battlefield up.
+            if (tryArrestoMomentumForFallingAlly(now)) return;
+            if (tryProtegoMaximaGroupShield(now)) return;
+            if (tryReparoNearbyBrokenBlock(now)) return;
             
             // Reactive Protego casting: only if attacked recently or a spell is incoming
             boolean needsShield = false;
@@ -621,6 +629,163 @@ public class StudentEntity extends AbstractIllager implements DisarmableWandUser
             }
 
             this.student.setSpellCooldown(spell, now + spell.getCooldownTicks());
+        }
+
+        // ---- utility spell triggers ----------------------------------------------------
+
+        /**
+         * Catch a nearby ally that's falling fast. Casts Arresto Momentum on them,
+         * which {@link SpellType#applyHitEffect} maps to slow-falling + damped horizontal
+         * velocity. Looks for students or other players (anything LivingEntity that the
+         * student isn't currently targeting and isn't itself).
+         */
+        private boolean tryArrestoMomentumForFallingAlly(long now) {
+            if (this.student.isSpellOnCooldown(SpellType.ARRESTO_MOMENTUM, now)) return false;
+            LivingEntity falling = findFallingAlly();
+            if (falling == null) return false;
+            // Server-side direct effect — no beam needed since the ally is right next to us.
+            SpellType.ARRESTO_MOMENTUM.applyHitEffect(this.student, falling);
+            this.student.setSpellCooldown(SpellType.ARRESTO_MOMENTUM, now + SpellType.ARRESTO_MOMENTUM.getCooldownTicks());
+            this.student.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+            this.student.level().playSound(null, this.student.getX(), this.student.getY(), this.student.getZ(),
+                    SpellType.ARRESTO_MOMENTUM.getSoundEvent(), net.minecraft.sounds.SoundSource.NEUTRAL, 1.0f, 1.05f);
+            if (this.student.level() instanceof net.minecraft.server.level.ServerLevel sl) {
+                sl.sendParticles(net.minecraft.core.particles.ParticleTypes.CLOUD,
+                        falling.getX(), falling.getY() + 0.4D, falling.getZ(),
+                        16, 0.4D, 0.4D, 0.4D, 0.04D);
+            }
+            return true;
+        }
+
+        private LivingEntity findFallingAlly() {
+            net.minecraft.world.phys.AABB area = this.student.getBoundingBox().inflate(6.0D, 12.0D, 6.0D);
+            java.util.List<LivingEntity> nearby = this.student.level()
+                    .getEntitiesOfClass(LivingEntity.class, area, e -> e != this.student
+                            && !e.equals(this.student.getTarget())
+                            && (e instanceof StudentEntity || e instanceof net.minecraft.world.entity.player.Player));
+            LivingEntity best = null;
+            double bestScore = 0.0D;
+            for (LivingEntity e : nearby) {
+                double yVel = e.getDeltaMovement().y;
+                float fallDist = e.fallDistance;
+                // Treat strong downward velocity OR a built-up fall as "in trouble".
+                double score = Math.max(-yVel, 0.0D) + fallDist * 0.05D;
+                if (yVel < -0.45D || fallDist > 4.0F) {
+                    if (score > bestScore) { bestScore = score; best = e; }
+                }
+            }
+            return best;
+        }
+
+        /**
+         * Group shield. Triggers when at least two ally students are within 6 blocks AND
+         * the caster has been recently hurt or a hostile beam is incoming. The student
+         * raises their wand (look-up animation via the LookControl), then applies the
+         * existing PROTEGO_EFFECT to themselves and every ally in 8 blocks — a longer
+         * duration than a single Protego so the buff "feels" like the larger spell.
+         */
+        private boolean tryProtegoMaximaGroupShield(long now) {
+            if (this.student.isSpellOnCooldown(SpellType.PROTEGO_MAXIMA, now)) return false;
+
+            net.minecraft.world.phys.AABB nearby = this.student.getBoundingBox().inflate(6.0D);
+            java.util.List<StudentEntity> allies = this.student.level().getEntitiesOfClass(
+                    StudentEntity.class, nearby, e -> e != this.student && e.isAlive());
+            if (allies.size() < 2) return false;
+
+            boolean threatened = this.student.wasRecentlyHit(now);
+            if (!threatened) {
+                java.util.List<SpellBeamEntity> beams = this.student.level().getEntitiesOfClass(
+                        SpellBeamEntity.class, this.student.getBoundingBox().inflate(10.0D));
+                for (SpellBeamEntity b : beams) {
+                    if (b.getOwner() != this.student && !(b.getOwner() instanceof StudentEntity)) {
+                        threatened = true;
+                        break;
+                    }
+                }
+            }
+            if (!threatened) return false;
+
+            // Look straight up while raising the wand — mirrors the film's group-shield casting pose.
+            this.student.getLookControl().setLookAt(this.student.getX(),
+                    this.student.getY() + 20.0D, this.student.getZ());
+            this.student.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+            this.student.level().playSound(null, this.student.getX(), this.student.getY(), this.student.getZ(),
+                    SpellType.PROTEGO_MAXIMA.getSoundEvent(), net.minecraft.sounds.SoundSource.NEUTRAL, 1.2f, 0.85f);
+
+            // Shield self + allies. Longer duration than a regular Protego (15s vs 12s)
+            // and higher amplifier so the group can soak more incoming fire.
+            int durationTicks = 300;
+            int amplifier = 2;
+            this.student.addEffect(new net.minecraft.world.effect.MobEffectInstance(
+                    ExampleMod.PROTEGO_EFFECT.getHolder().get(), durationTicks, amplifier));
+            net.minecraft.world.phys.AABB shieldArea = this.student.getBoundingBox().inflate(8.0D);
+            java.util.List<LivingEntity> protectees = this.student.level().getEntitiesOfClass(
+                    LivingEntity.class, shieldArea, e -> e instanceof StudentEntity || e instanceof net.minecraft.world.entity.player.Player);
+            for (LivingEntity p : protectees) {
+                p.addEffect(new net.minecraft.world.effect.MobEffectInstance(
+                        ExampleMod.PROTEGO_EFFECT.getHolder().get(), durationTicks, amplifier));
+            }
+
+            if (this.student.level() instanceof net.minecraft.server.level.ServerLevel sl) {
+                // Dome of end-rod sparks at the caster's head + a flash burst, then a ring
+                // of sparks rolling outward to read as the shield expanding to cover allies.
+                sl.sendParticles(net.minecraft.core.particles.ParticleTypes.FLASH,
+                        this.student.getX(), this.student.getY() + 1.6D, this.student.getZ(), 1, 0, 0, 0, 0);
+                for (int i = 0; i < 36; i++) {
+                    double a = (Math.PI * 2.0D * i) / 36.0D;
+                    double r = 5.5D;
+                    sl.sendParticles(net.minecraft.core.particles.ParticleTypes.END_ROD,
+                            this.student.getX() + Math.cos(a) * r,
+                            this.student.getY() + 1.0D,
+                            this.student.getZ() + Math.sin(a) * r,
+                            1, 0.0D, 0.05D, 0.0D, 0.02D);
+                }
+            }
+
+            this.student.setSpellCooldown(SpellType.PROTEGO_MAXIMA, now + SpellType.PROTEGO_MAXIMA.getCooldownTicks());
+            return true;
+        }
+
+        /**
+         * Repair the freshest broken block within a short radius using the global
+         * {@link com.hogwartsmagic.util.RecentlyBrokenTracker}. Only one block per cast
+         * so it doesn't trivialise large-scale destruction, but a student standing in
+         * the rubble of a raid will steadily patch the village back together.
+         */
+        private boolean tryReparoNearbyBrokenBlock(long now) {
+            if (this.student.isSpellOnCooldown(SpellType.REPARO, now)) return false;
+            net.minecraft.core.BlockPos here = this.student.blockPosition();
+            java.util.List<com.hogwartsmagic.util.RecentlyBrokenTracker.Record> records =
+                    com.hogwartsmagic.util.RecentlyBrokenTracker.findNearby(this.student.level(), here, 6.0D);
+            if (records.isEmpty()) return false;
+
+            com.hogwartsmagic.util.RecentlyBrokenTracker.Record r = records.get(0);
+            // Defensive recheck (state may have been replaced between find and cast).
+            if (!this.student.level().getBlockState(r.pos).isAir()) {
+                com.hogwartsmagic.util.RecentlyBrokenTracker.consume(this.student.level(), r.pos);
+                return false;
+            }
+
+            // Aim at the broken block while the wand is raised.
+            this.student.getLookControl().setLookAt(r.pos.getX() + 0.5D, r.pos.getY() + 0.5D, r.pos.getZ() + 0.5D);
+            this.student.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+            this.student.level().setBlock(r.pos, r.state, 3);
+            this.student.level().playSound(null, r.pos, SpellType.REPARO.getSoundEvent(),
+                    net.minecraft.sounds.SoundSource.NEUTRAL, 0.9f, 1.1f);
+            this.student.level().playSound(null, r.pos, net.minecraft.sounds.SoundEvents.AMETHYST_BLOCK_CHIME,
+                    net.minecraft.sounds.SoundSource.NEUTRAL, 0.7f, 1.2f);
+
+            if (this.student.level() instanceof net.minecraft.server.level.ServerLevel sl) {
+                sl.sendParticles(net.minecraft.core.particles.ParticleTypes.WAX_ON,
+                        r.pos.getX() + 0.5D, r.pos.getY() + 0.5D, r.pos.getZ() + 0.5D,
+                        18, 0.35D, 0.35D, 0.35D, 0.02D);
+                sl.sendParticles(net.minecraft.core.particles.ParticleTypes.ENCHANT,
+                        r.pos.getX() + 0.5D, r.pos.getY() + 0.5D, r.pos.getZ() + 0.5D,
+                        12, 0.5D, 0.5D, 0.5D, 0.5D);
+            }
+            com.hogwartsmagic.util.RecentlyBrokenTracker.consume(this.student.level(), r.pos);
+            this.student.setSpellCooldown(SpellType.REPARO, now + SpellType.REPARO.getCooldownTicks());
+            return true;
         }
     }
 }

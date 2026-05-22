@@ -390,10 +390,19 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
         private int castPhaseTime; // Time spent with arms raised before firing
         private int escapeTime; // Time to spend fleeing after flight effect ends
 
+        // Fiendfyre charged cast. When the wizard rolls Fiendfyre, instead of firing
+        // immediately we hold the wand aloft for FIENDFYRE_CHARGE_TICKS, emitting flame
+        // particles around the wand to broadcast the danger. After the charge finishes,
+        // a fast spell beam launches and the existing FIENDFYRE.applyHitEffect spawns
+        // the spreading fire-serpent (FiendfyreEntity) at the impact point.
+        private static final int FIENDFYRE_CHARGE_TICKS = 36;
+        private int fiendfyreChargeTicks;
+
         public WizardSpellCastGoal(WizardEntity wizard) {
             this.wizard = wizard;
             this.setFlags(EnumSet.of(Goal.Flag.MOVE, Goal.Flag.LOOK));
             this.escapeTime = 0;
+            this.fiendfyreChargeTicks = 0;
         }
 
         @Override
@@ -419,6 +428,7 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
         public void stop() {
             this.wizard.setCasting(false);
             this.castPhaseTime = 0;
+            this.fiendfyreChargeTicks = 0;
         }
 
         @Override
@@ -438,6 +448,29 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
             if (isFlying) {
                 this.wizard.getNavigation().stop();
                 this.wizard.setCasting(false);
+                this.fiendfyreChargeTicks = 0;
+                return;
+            }
+
+            // Fiendfyre charge takes precedence over any other behaviour. The wizard
+            // freezes in place with arms raised, emits flame around the wand each
+            // tick, and only fires when the charge counter hits zero.
+            if (this.fiendfyreChargeTicks > 0) {
+                LivingEntity chargeTarget = this.wizard.getTarget();
+                if (chargeTarget == null || !chargeTarget.isAlive()) {
+                    this.fiendfyreChargeTicks = 0;
+                    this.wizard.setCasting(false);
+                    return;
+                }
+                this.wizard.getNavigation().stop();
+                this.wizard.getLookControl().setLookAt(chargeTarget, 30.0F, 30.0F);
+                this.wizard.setCasting(true);
+                emitFiendfyreChargeParticles();
+                if (--this.fiendfyreChargeTicks <= 0) {
+                    releaseFiendfyreSerpent(chargeTarget);
+                    this.wizard.setCasting(false);
+                    this.attackTime = 60 + this.wizard.getRandom().nextInt(40);
+                }
                 return;
             }
 
@@ -646,7 +679,17 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
             }
 
             // perform spell
-            if (spell == SpellType.TENEBRIS_FLIGHT) {
+            if (spell == SpellType.FIENDFYRE) {
+                // Begin the charged windup — actual fire-serpent launches once the
+                // counter ticks down to zero in the goal's tick loop.
+                this.fiendfyreChargeTicks = FIENDFYRE_CHARGE_TICKS;
+                this.wizard.setCasting(true);
+                this.wizard.swing(InteractionHand.MAIN_HAND);
+                this.wizard.level().playSound(null, this.wizard.getX(), this.wizard.getY(), this.wizard.getZ(),
+                        net.minecraft.sounds.SoundEvents.BLAZE_SHOOT, SoundSource.HOSTILE, 1.6f, 0.55f);
+                this.wizard.setSpellCooldown(SpellType.FIENDFYRE, now + SpellType.FIENDFYRE.getCooldownTicks());
+                return;
+            } else if (spell == SpellType.TENEBRIS_FLIGHT) {
                 spell.applyHitEffect(this.wizard, this.wizard);
             } else if (spell == SpellType.HEAL) {
                 // heal self
@@ -678,6 +721,71 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
             }
             // apply cooldown for the spell
             this.wizard.setSpellCooldown(spell, now + spell.getCooldownTicks());
+        }
+
+        // ---- fiendfyre charged cast ----------------------------------------------------
+
+        /**
+         * Spawn flame, lava-drip and soul-flame particles each tick of the charge so
+         * the windup reads as the wizard barely containing the fire. Particle density
+         * ramps up as the charge nears completion.
+         */
+        private void emitFiendfyreChargeParticles() {
+            if (!(this.wizard.level() instanceof net.minecraft.server.level.ServerLevel sl)) return;
+            float progress = 1.0f - (this.fiendfyreChargeTicks / (float) FIENDFYRE_CHARGE_TICKS);
+            double handX = this.wizard.getX();
+            double handY = this.wizard.getY() + 1.45D;
+            double handZ = this.wizard.getZ();
+            int flameCount = Math.max(2, (int) (2 + progress * 6));
+
+            sl.sendParticles(net.minecraft.core.particles.ParticleTypes.FLAME,
+                    handX, handY, handZ, flameCount, 0.25D, 0.25D, 0.25D, 0.02D);
+            sl.sendParticles(net.minecraft.core.particles.ParticleTypes.SMALL_FLAME,
+                    handX, handY, handZ, flameCount, 0.20D, 0.20D, 0.20D, 0.0D);
+            if (this.fiendfyreChargeTicks % 4 == 0) {
+                sl.sendParticles(net.minecraft.core.particles.ParticleTypes.DRIPPING_LAVA,
+                        handX, handY + 0.2D, handZ, 1, 0.15D, 0.05D, 0.15D, 0.0D);
+            }
+            // Audible heartbeat / fire roar that quickens as the charge fills.
+            if (this.fiendfyreChargeTicks % Math.max(2, 10 - (int)(progress * 8)) == 0) {
+                this.wizard.level().playSound(null, this.wizard.getX(), this.wizard.getY(), this.wizard.getZ(),
+                        net.minecraft.sounds.SoundEvents.FIRE_AMBIENT, SoundSource.HOSTILE,
+                        0.5f + progress * 0.5f, 0.7f + progress * 0.4f);
+            }
+        }
+
+        /**
+         * Launch the fire-serpent. Implemented as a high-velocity FIENDFYRE
+         * SpellBeamEntity — its existing on-hit path spawns the spreading
+         * FiendfyreEntity, so the serpent reads as a flaming projectile that
+         * leaves a real fiendfyre at the strike point.
+         */
+        private void releaseFiendfyreSerpent(LivingEntity target) {
+            this.wizard.swing(InteractionHand.MAIN_HAND);
+            this.wizard.level().playSound(null, this.wizard.getX(), this.wizard.getY(), this.wizard.getZ(),
+                    SpellType.FIENDFYRE.getSoundEvent(), SoundSource.HOSTILE, 1.4f, 0.85f);
+            this.wizard.level().playSound(null, this.wizard.getX(), this.wizard.getY(), this.wizard.getZ(),
+                    net.minecraft.sounds.SoundEvents.GHAST_SHOOT, SoundSource.HOSTILE, 1.2f, 0.65f);
+
+            // Mark the beam so we can recognise it as a charged serpent (renderer-side
+            // can add an extra trail if it cares — at minimum the spawn-burst here
+            // gives it a distinct visual signature on launch).
+            if (this.wizard.level() instanceof net.minecraft.server.level.ServerLevel sl) {
+                sl.sendParticles(net.minecraft.core.particles.ParticleTypes.LAVA,
+                        this.wizard.getX(), this.wizard.getY() + 1.4D, this.wizard.getZ(),
+                        12, 0.4D, 0.4D, 0.4D, 0.05D);
+                sl.sendParticles(net.minecraft.core.particles.ParticleTypes.FLAME,
+                        this.wizard.getX(), this.wizard.getY() + 1.4D, this.wizard.getZ(),
+                        30, 0.5D, 0.5D, 0.5D, 0.25D);
+            }
+
+            SpellBeamEntity beam = new SpellBeamEntity(this.wizard.level(), this.wizard, SpellType.FIENDFYRE);
+            double d0 = target.getX() - this.wizard.getX();
+            double d1 = target.getY(0.5D) - beam.getY();
+            double d2 = target.getZ() - this.wizard.getZ();
+            // Faster than the regular beam — the charge converted into speed.
+            beam.shoot(d0, d1, d2, 2.1F, 0.5F);
+            this.wizard.level().addFreshEntity(beam);
         }
     }
 }

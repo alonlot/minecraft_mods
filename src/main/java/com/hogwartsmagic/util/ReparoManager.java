@@ -57,10 +57,25 @@ public final class ReparoManager {
         pruneOverflow();
     }
 
+    /**
+     * Area Reparo around {@code impactPos}. Works for both player and mob casters:
+     *
+     * <ul>
+     *   <li>For any caster, ground rubble (matching ItemEntity within 5 blocks of each
+     *       record) is the preferred cost source — the rubble lifts off and flies to the
+     *       broken slot.</li>
+     *   <li>For a {@link ServerPlayer} caster, if no rubble exists for a record we fall
+     *       back to consuming an inventory stack and spawning a flying item from the
+     *       player's eye. Mana is also charged per repaired block.</li>
+     *   <li>For mob casters (students), the inventory fallback is unavailable, so a
+     *       record with no nearby rubble is just skipped.</li>
+     * </ul>
+     *
+     * Up to {@link #MAX_REPAIRS_PER_CAST} blocks are repaired per cast, sorted closest
+     * to impact first.
+     */
     public static boolean castReparo(ServerLevel level, net.minecraft.world.entity.LivingEntity caster, BlockPos impactPos) {
-        if (!(caster instanceof ServerPlayer player)) {
-            return false;
-        }
+        if (caster == null) return false;
 
         prune(level);
 
@@ -76,9 +91,10 @@ public final class ReparoManager {
             return false;
         }
 
-        boolean creative = player.isCreative();
-        float availableMana = getCurrentMana(player);
-        float maxMana = PlayerMagicData.getMaxMana(player);
+        ServerPlayer player = caster instanceof ServerPlayer p ? p : null;
+        boolean creative = player != null && player.isCreative();
+        float availableMana = player != null ? getCurrentMana(player) : 0f;
+        float maxMana = player != null ? PlayerMagicData.getMaxMana(player) : 0f;
         int repairedCount = 0;
 
         for (TrackedBreakRecord record : candidates) {
@@ -86,28 +102,28 @@ public final class ReparoManager {
             if (payment.isEmpty()) {
                 continue;
             }
-            // Find the cost source. Ground rubble is *preferred* over inventory when both
-            // exist, because the rubble visibly lifting off the floor reads as the spell
-            // doing its job. Inventory is the fallback when nothing dropped (or drops were
-            // already picked up / despawned).
-            //
-            // Mana is checked first so we don't consume an inventory item and then fail.
-            if (!creative && availableMana < EXTRA_MANA_PER_BLOCK) {
+            // Mana check first so we don't consume from inventory then fail. Mobs have
+            // no mana — they pay only with on-the-ground rubble.
+            if (player != null && !creative && availableMana < EXTRA_MANA_PER_BLOCK) {
                 break;
             }
             ItemEntity sourceDrop = creative ? null
                     : findGroundDropFor(level, record.pos, record.state, 5.0D);
             boolean fromInventory = false;
             if (sourceDrop == null && !creative) {
+                // Only players can pay from inventory; mobs without rubble just skip.
+                if (player == null) continue;
                 fromInventory = consumeMatchingBlock(player, payment);
                 if (!fromInventory) continue;
             }
-            if (!creative) {
+            if (player != null && !creative) {
                 availableMana -= EXTRA_MANA_PER_BLOCK;
             }
             if (sourceDrop != null) {
                 startGroundDropFlight(level, sourceDrop, record.pos, record.state);
             } else {
+                // Only reachable when player != null (or creative with player != null),
+                // since mob casters with no ground drop hit `continue` above.
                 startRepairFlight(level, player, record, payment);
             }
             RECORDS.remove(key(level, record.pos));
@@ -115,10 +131,42 @@ public final class ReparoManager {
             repairedCount++;
         }
 
-        if (!creative && repairedCount > 0) {
+        if (player != null && !creative && repairedCount > 0) {
             setCurrentMana(player, availableMana, maxMana);
         }
+        if (repairedCount > 0) {
+            playCinematicBurst(level, impactPos, repairedCount);
+        }
         return repairedCount > 0;
+    }
+
+    /**
+     * Cinematic flourish at the impact point — a flash, a ring of end-rod sparks,
+     * a swirl of enchantment glyphs and a chord of chimes. Density scales with the
+     * number of blocks being repaired so a single-block fix doesn't fire the full
+     * spectacle but a sweep through a creeper crater absolutely does.
+     */
+    private static void playCinematicBurst(ServerLevel level, BlockPos impactPos, int repairedCount) {
+        Vec3 c = Vec3.atCenterOf(impactPos);
+        int intensity = Math.min(repairedCount, 8);
+        level.sendParticles(ParticleTypes.FLASH, c.x, c.y, c.z, 1, 0, 0, 0, 0);
+        level.sendParticles(ParticleTypes.END_ROD, c.x, c.y, c.z, 30 + intensity * 6, 0.45, 0.45, 0.45, 0.04);
+        level.sendParticles(ParticleTypes.ENCHANT, c.x, c.y, c.z, 24 + intensity * 4, 0.8, 0.8, 0.8, 0.6);
+        level.sendParticles(ParticleTypes.WAX_ON, c.x, c.y, c.z, 18 + intensity * 3, 0.6, 0.6, 0.6, 0.04);
+        // Outward shockwave ring of sparkles so the spell visibly *reaches* the rubble.
+        int ringSteps = 24;
+        double ringRadius = 1.8 + 0.18 * intensity;
+        for (int i = 0; i < ringSteps; i++) {
+            double a = (Math.PI * 2.0 * i) / ringSteps;
+            level.sendParticles(ParticleTypes.END_ROD,
+                    c.x + Math.cos(a) * ringRadius, c.y + 0.2, c.z + Math.sin(a) * ringRadius,
+                    1, 0, 0, 0, 0);
+        }
+        level.playSound(null, impactPos, SoundEvents.ENCHANTMENT_TABLE_USE, SoundSource.PLAYERS, 0.9f, 1.25f);
+        level.playSound(null, impactPos, SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 1.0f, 1.4f);
+        if (repairedCount >= 3) {
+            level.playSound(null, impactPos, SoundEvents.BEACON_ACTIVATE, SoundSource.PLAYERS, 0.45f, 1.7f);
+        }
     }
 
     public static void tick(ServerLevel level) {
@@ -162,6 +210,15 @@ public final class ReparoManager {
             Vec3 velocity = delta.normalize().scale(Mth.clamp(distance * 0.22D, 0.12D, 0.5D));
             itemEntity.setDeltaMovement(velocity);
             itemEntity.hurtMarked = true;
+
+            // Magical comet trail behind the flying rubble — golden sparkle every other tick
+            // gives a clear visual of the spell pulling the piece into its old slot.
+            if ((flight.ticks & 1) == 0) {
+                level.sendParticles(ParticleTypes.WAX_ON,
+                        current.x, current.y + 0.1, current.z, 2, 0.05, 0.05, 0.05, 0.01);
+                level.sendParticles(ParticleTypes.END_ROD,
+                        current.x, current.y + 0.1, current.z, 1, 0.04, 0.04, 0.04, 0.005);
+            }
         }
     }
 

@@ -516,35 +516,39 @@ public class StudentEntity extends AbstractIllager implements DisarmableWandUser
                     com.hogwartsmagic.util.RecentlyBrokenTracker.findNearby(
                             this.student.level(), this.student.blockPosition(), 6.0D);
             if (records.isEmpty()) return;
-            // Walk records freshest-first and grab the first one whose rubble is still
-            // lying on the ground as an ItemEntity. Students have no inventory, so the
-            // dropped item IS the cost — it physically flies to the broken spot via
-            // ReparoManager.startGroundDropFlight and the flight's tick handler places
-            // the block on arrival.
+            // Pick the closest record whose rubble is still on the ground — that's the
+            // visible target the beam will fly toward. The beam's onHit triggers an area
+            // Reparo, which sweeps every nearby broken record with available rubble in
+            // one cast (up to ReparoManager.MAX_REPAIRS_PER_CAST), so multiple blocks
+            // get rebuilt per cast rather than the previous one-block-at-a-time.
             if (!(this.student.level() instanceof net.minecraft.server.level.ServerLevel sl)) return;
-            com.hogwartsmagic.util.RecentlyBrokenTracker.Record r = null;
-            net.minecraft.world.entity.item.ItemEntity drop = null;
+            com.hogwartsmagic.util.RecentlyBrokenTracker.Record target = null;
             for (com.hogwartsmagic.util.RecentlyBrokenTracker.Record cand : records) {
                 if (!sl.getBlockState(cand.pos).isAir()) {
                     com.hogwartsmagic.util.RecentlyBrokenTracker.consume(sl, cand.pos);
                     continue;
                 }
-                net.minecraft.world.entity.item.ItemEntity d =
-                        com.hogwartsmagic.util.ReparoManager.findGroundDropFor(sl, cand.pos, cand.state, 5.0D);
-                if (d != null) {
-                    r = cand;
-                    drop = d;
+                if (com.hogwartsmagic.util.ReparoManager.findGroundDropFor(sl, cand.pos, cand.state, 5.0D) != null) {
+                    target = cand;
                     break;
                 }
             }
-            if (r == null) return;
+            if (target == null) return;
 
-            this.student.getLookControl().setLookAt(r.pos.getX() + 0.5D, r.pos.getY() + 0.5D, r.pos.getZ() + 0.5D);
+            this.student.getLookControl().setLookAt(target.pos.getX() + 0.5D, target.pos.getY() + 0.5D, target.pos.getZ() + 0.5D);
             this.student.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
-            this.student.level().playSound(null, r.pos, SpellType.REPARO.getSoundEvent(),
-                    net.minecraft.sounds.SoundSource.NEUTRAL, 0.9f, 1.1f);
-            com.hogwartsmagic.util.ReparoManager.startGroundDropFlight(sl, drop, r.pos, r.state);
-            com.hogwartsmagic.util.RecentlyBrokenTracker.consume(sl, r.pos);
+            this.student.level().playSound(null, this.student.getX(), this.student.getY(), this.student.getZ(),
+                    SpellType.REPARO.getSoundEvent(), net.minecraft.sounds.SoundSource.NEUTRAL, 1.0f, 1.05f);
+
+            // Fire the visible Reparo beam. SpellBeamEntity.onHit dispatches into
+            // ReparoManager.castReparo(level, student, impactPos) which handles the
+            // multi-block sweep, ground-drop flights and cinematic impact burst.
+            SpellBeamEntity beam = new SpellBeamEntity(this.student.level(), this.student, SpellType.REPARO);
+            double d0 = target.pos.getX() + 0.5D - this.student.getX();
+            double d1 = target.pos.getY() + 0.5D - beam.getY();
+            double d2 = target.pos.getZ() + 0.5D - this.student.getZ();
+            beam.shoot(d0, d1, d2, 2.0F, 0.3F);
+            this.student.level().addFreshEntity(beam);
             this.student.setSpellCooldown(SpellType.REPARO, now + SpellType.REPARO.getCooldownTicks());
         }
     }
@@ -911,32 +915,33 @@ public class StudentEntity extends AbstractIllager implements DisarmableWandUser
                     com.hogwartsmagic.util.RecentlyBrokenTracker.findNearby(this.student.level(), here, 6.0D);
             if (records.isEmpty()) return false;
 
-            // Pick the freshest record whose rubble ItemEntity is still on the ground;
-            // the dropped item flies to the broken spot and becomes the block on arrival.
+            // Fire a visible Reparo beam at the freshest record with available rubble;
+            // beam onHit dispatches into ReparoManager.castReparo which sweeps the area.
             if (!(this.student.level() instanceof net.minecraft.server.level.ServerLevel sl)) return false;
-            com.hogwartsmagic.util.RecentlyBrokenTracker.Record r = null;
-            net.minecraft.world.entity.item.ItemEntity drop = null;
+            com.hogwartsmagic.util.RecentlyBrokenTracker.Record target = null;
             for (com.hogwartsmagic.util.RecentlyBrokenTracker.Record cand : records) {
                 if (!sl.getBlockState(cand.pos).isAir()) {
                     com.hogwartsmagic.util.RecentlyBrokenTracker.consume(sl, cand.pos);
                     continue;
                 }
-                net.minecraft.world.entity.item.ItemEntity d =
-                        com.hogwartsmagic.util.ReparoManager.findGroundDropFor(sl, cand.pos, cand.state, 5.0D);
-                if (d != null) {
-                    r = cand;
-                    drop = d;
+                if (com.hogwartsmagic.util.ReparoManager.findGroundDropFor(sl, cand.pos, cand.state, 5.0D) != null) {
+                    target = cand;
                     break;
                 }
             }
-            if (r == null) return false;
+            if (target == null) return false;
 
-            this.student.getLookControl().setLookAt(r.pos.getX() + 0.5D, r.pos.getY() + 0.5D, r.pos.getZ() + 0.5D);
+            this.student.getLookControl().setLookAt(target.pos.getX() + 0.5D, target.pos.getY() + 0.5D, target.pos.getZ() + 0.5D);
             this.student.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
-            this.student.level().playSound(null, r.pos, SpellType.REPARO.getSoundEvent(),
-                    net.minecraft.sounds.SoundSource.NEUTRAL, 0.9f, 1.1f);
-            com.hogwartsmagic.util.ReparoManager.startGroundDropFlight(sl, drop, r.pos, r.state);
-            com.hogwartsmagic.util.RecentlyBrokenTracker.consume(sl, r.pos);
+            this.student.level().playSound(null, this.student.getX(), this.student.getY(), this.student.getZ(),
+                    SpellType.REPARO.getSoundEvent(), net.minecraft.sounds.SoundSource.NEUTRAL, 1.0f, 1.05f);
+
+            SpellBeamEntity beam = new SpellBeamEntity(this.student.level(), this.student, SpellType.REPARO);
+            double d0 = target.pos.getX() + 0.5D - this.student.getX();
+            double d1 = target.pos.getY() + 0.5D - beam.getY();
+            double d2 = target.pos.getZ() + 0.5D - this.student.getZ();
+            beam.shoot(d0, d1, d2, 2.0F, 0.3F);
+            this.student.level().addFreshEntity(beam);
             this.student.setSpellCooldown(SpellType.REPARO, now + SpellType.REPARO.getCooldownTicks());
             return true;
         }

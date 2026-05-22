@@ -712,10 +712,12 @@ public class StudentEntity extends AbstractIllager implements DisarmableWandUser
             this.student.level().playSound(null, this.student.getX(), this.student.getY(), this.student.getZ(),
                     SpellType.PROTEGO_MAXIMA.getSoundEvent(), net.minecraft.sounds.SoundSource.NEUTRAL, 1.2f, 0.85f);
 
-            // Shield self + allies. Longer duration than a regular Protego (15s vs 12s)
-            // and higher amplifier so the group can soak more incoming fire.
+            // Shield self + allies. Amplifier >= 3 is the trigger that makes
+            // ProtegoEffect.applyEffectTick switch from the small per-entity sparkle
+            // to the larger 4.5-block "maximaBarrier" bubble shell rendering — that's
+            // the iconic dome the film cast looks like, so use amplifier 3 here.
             int durationTicks = 300;
-            int amplifier = 2;
+            int amplifier = 3;
             this.student.addEffect(new net.minecraft.world.effect.MobEffectInstance(
                     ExampleMod.PROTEGO_EFFECT.getHolder().get(), durationTicks, amplifier));
             net.minecraft.world.phys.AABB shieldArea = this.student.getBoundingBox().inflate(8.0D);

@@ -333,11 +333,11 @@ public final class ReparoManager {
     }
 
     private static void prune(ServerLevel level) {
+        // TTL-only pruning. The previous version also called shouldForgetEarly() to drop
+        // records when no nearby player had learned Reparo — but mob casters (students)
+        // use this tracker too and don't care about a player having the spell. The
+        // overflow cap (MAX_RECORDS_PER_LEVEL) keeps memory bounded.
         long now = level.getGameTime();
-        List<ServerPlayer> nearbyReparoPlayers = level.players().stream()
-                .filter(player -> MagicBookItem.isSpellLearned(player, SpellType.REPARO))
-                .toList();
-
         Iterator<Map.Entry<String, TrackedBreakRecord>> iterator = RECORDS.entrySet().iterator();
         while (iterator.hasNext()) {
             Map.Entry<String, TrackedBreakRecord> entry = iterator.next();
@@ -345,24 +345,11 @@ public final class ReparoManager {
             if (!record.dimensionKey.equals(level.dimension().location().toString())) {
                 continue;
             }
-
-            if (now - record.gameTime > RECORD_LIFETIME_TICKS || shouldForgetEarly(record, nearbyReparoPlayers)) {
+            if (now - record.gameTime > RECORD_LIFETIME_TICKS) {
                 iterator.remove();
                 RECORD_ORDER.remove(entry.getKey());
             }
         }
-    }
-
-    private static boolean shouldForgetEarly(TrackedBreakRecord record, List<ServerPlayer> nearbyReparoPlayers) {
-        if (nearbyReparoPlayers.isEmpty()) {
-            return true;
-        }
-        for (ServerPlayer player : nearbyReparoPlayers) {
-            if (player.blockPosition().closerThan(record.pos, RETENTION_RADIUS)) {
-                return false;
-            }
-        }
-        return true;
     }
 
     private static void pruneOverflow() {

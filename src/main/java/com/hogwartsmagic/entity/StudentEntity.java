@@ -471,7 +471,7 @@ public class StudentEntity extends AbstractIllager implements DisarmableWandUser
         }
 
         private LivingEntity findFallingAlly() {
-            net.minecraft.world.phys.AABB area = this.student.getBoundingBox().inflate(6.0D, 12.0D, 6.0D);
+            net.minecraft.world.phys.AABB area = this.student.getBoundingBox().inflate(10.0D, 30.0D, 10.0D);
             java.util.List<LivingEntity> nearby = this.student.level()
                     .getEntitiesOfClass(LivingEntity.class, area, e -> e != this.student
                             && (e instanceof StudentEntity || e instanceof net.minecraft.world.entity.player.Player));
@@ -492,16 +492,23 @@ public class StudentEntity extends AbstractIllager implements DisarmableWandUser
             LivingEntity falling = findFallingAlly();
             if (falling == null) return;
             this.student.getLookControl().setLookAt(falling, 30.0F, 30.0F);
-            SpellType.ARRESTO_MOMENTUM.applyHitEffect(this.student, falling);
-            this.student.setSpellCooldown(SpellType.ARRESTO_MOMENTUM, now + SpellType.ARRESTO_MOMENTUM.getCooldownTicks());
             this.student.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
             this.student.level().playSound(null, this.student.getX(), this.student.getY(), this.student.getZ(),
                     SpellType.ARRESTO_MOMENTUM.getSoundEvent(), net.minecraft.sounds.SoundSource.NEUTRAL, 1.0f, 1.05f);
-            if (this.student.level() instanceof net.minecraft.server.level.ServerLevel sl) {
-                sl.sendParticles(net.minecraft.core.particles.ParticleTypes.CLOUD,
-                        falling.getX(), falling.getY() + 0.4D, falling.getZ(),
-                        16, 0.4D, 0.4D, 0.4D, 0.04D);
-            }
+
+            // Fire a real beam with a homing target so the falling ally sees the spell
+            // coming at them. SpellBeamEntity.onHit calls applyHitEffect with the correct
+            // (target, caster) argument order — calling it manually here had the args
+            // swapped, which is what was applying slow-falling to the *student* instead
+            // of the falling ally.
+            SpellBeamEntity beam = new SpellBeamEntity(this.student.level(), this.student, SpellType.ARRESTO_MOMENTUM);
+            beam.setHomingTarget(falling);
+            double d0 = falling.getX() - this.student.getX();
+            double d1 = falling.getY(0.5D) - beam.getY();
+            double d2 = falling.getZ() - this.student.getZ();
+            beam.shoot(d0, d1, d2, 2.2F, 0.4F);
+            this.student.level().addFreshEntity(beam);
+            this.student.setSpellCooldown(SpellType.ARRESTO_MOMENTUM, now + SpellType.ARRESTO_MOMENTUM.getCooldownTicks());
         }
 
         private void doReparo(long now) {
@@ -773,22 +780,27 @@ public class StudentEntity extends AbstractIllager implements DisarmableWandUser
             if (this.student.isSpellOnCooldown(SpellType.ARRESTO_MOMENTUM, now)) return false;
             LivingEntity falling = findFallingAlly();
             if (falling == null) return false;
-            // Server-side direct effect — no beam needed since the ally is right next to us.
-            SpellType.ARRESTO_MOMENTUM.applyHitEffect(this.student, falling);
-            this.student.setSpellCooldown(SpellType.ARRESTO_MOMENTUM, now + SpellType.ARRESTO_MOMENTUM.getCooldownTicks());
+            this.student.getLookControl().setLookAt(falling, 30.0F, 30.0F);
             this.student.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
             this.student.level().playSound(null, this.student.getX(), this.student.getY(), this.student.getZ(),
                     SpellType.ARRESTO_MOMENTUM.getSoundEvent(), net.minecraft.sounds.SoundSource.NEUTRAL, 1.0f, 1.05f);
-            if (this.student.level() instanceof net.minecraft.server.level.ServerLevel sl) {
-                sl.sendParticles(net.minecraft.core.particles.ParticleTypes.CLOUD,
-                        falling.getX(), falling.getY() + 0.4D, falling.getZ(),
-                        16, 0.4D, 0.4D, 0.4D, 0.04D);
-            }
+
+            // Fire a homing beam so the ally sees it coming. SpellBeamEntity.onHit calls
+            // applyHitEffect(target, caster) with the right argument order — calling it
+            // manually here used to swap them, applying slow-falling to the student.
+            SpellBeamEntity beam = new SpellBeamEntity(this.student.level(), this.student, SpellType.ARRESTO_MOMENTUM);
+            beam.setHomingTarget(falling);
+            double d0 = falling.getX() - this.student.getX();
+            double d1 = falling.getY(0.5D) - beam.getY();
+            double d2 = falling.getZ() - this.student.getZ();
+            beam.shoot(d0, d1, d2, 2.2F, 0.4F);
+            this.student.level().addFreshEntity(beam);
+            this.student.setSpellCooldown(SpellType.ARRESTO_MOMENTUM, now + SpellType.ARRESTO_MOMENTUM.getCooldownTicks());
             return true;
         }
 
         private LivingEntity findFallingAlly() {
-            net.minecraft.world.phys.AABB area = this.student.getBoundingBox().inflate(6.0D, 12.0D, 6.0D);
+            net.minecraft.world.phys.AABB area = this.student.getBoundingBox().inflate(10.0D, 30.0D, 10.0D);
             java.util.List<LivingEntity> nearby = this.student.level()
                     .getEntitiesOfClass(LivingEntity.class, area, e -> e != this.student
                             && !e.equals(this.student.getTarget())

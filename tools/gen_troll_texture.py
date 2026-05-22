@@ -198,31 +198,42 @@ def scatter_moss(x, y, w, h, density=0.18, seed=0):
 # ---------------------------------------------------------------------------
 def paint_head_face(fx, fy, w, h):
     """fx,fy = top-left of the head's FRONT face (w×h). Width 12, height 11.
-    Paint a brutish troll face: brow ridge, sunken yellow eyes, scrunched nose
-    line. Mouth lives on the jaw/snout cubes below; here we just do the eyes
-    and brow."""
-    # Brow ridge (darker band)
-    for px in range(fx, fx + w):
+    The brow ridges and ears are now separate small cubes, so this face just
+    needs to look like a face: heavy brow shadow, sunken little eyes set deep
+    on either side of the nose, and cheek shading. Mouth lives on the jaw."""
+    # Forehead shadow band running across the top under the brow shelf cubes.
+    for px in range(fx + 1, fx + w - 1):
         img.putpixel((px, fy + 2), SKIN_DEEP)
-        img.putpixel((px, fy + 3), SKIN_SHADE)
-    # Sunken eye sockets
+        img.putpixel((px, fy + 3), _darker(SKIN_SHADE, 8))
+
+    # Eye sockets — small, sunken, set wide. Each socket is a 2x2 dark pit
+    # with a single yellow iris pixel and a darker pupil dot.
+    left_eye_x  = fx + 2
+    right_eye_x = fx + w - 4
     eye_y = fy + 4
-    for ex in (fx + 2, fx + 8):
-        fill_rect(ex, eye_y, 3, 2, SKIN_DEEP)
-        # Iris yellow
-        img.putpixel((ex + 1, eye_y + 1), EYE_YELLOW)
-        # Pupil
-        img.putpixel((ex + 1, eye_y + 1), PUPIL)
-        # Tiny eye gleam to the right of the pupil
-        if ex + 2 < fx + w:
-            img.putpixel((ex + 2, eye_y), EYE_DARK)
-    # Wrinkle running down the nose bridge
-    for py in range(fy + 5, fy + h):
-        img.putpixel((fx + w // 2, py), SKIN_SHADE)
-        img.putpixel((fx + w // 2 - 1, py), _darker(SKIN, 12))
-    # Cheek shadow patches
-    fill_rect(fx + 1, fy + 7, 2, 2, SKIN_SHADE)
-    fill_rect(fx + w - 3, fy + 7, 2, 2, SKIN_SHADE)
+    for ex in (left_eye_x, right_eye_x):
+        fill_rect(ex, eye_y, 2, 2, SKIN_DEEP)
+        # Iris (yellow), then pupil (dark) sitting in the middle of it
+        img.putpixel((ex,     eye_y),     EYE_YELLOW)
+        img.putpixel((ex + 1, eye_y),     EYE_YELLOW)
+        img.putpixel((ex,     eye_y + 1), PUPIL)
+        img.putpixel((ex + 1, eye_y + 1), EYE_DARK)
+    # Tiny crows-feet wrinkles at the outer corners
+    img.putpixel((fx + 1,         eye_y),     SKIN_SHADE)
+    img.putpixel((fx + w - 2,     eye_y),     SKIN_SHADE)
+
+    # Nose bridge wrinkle running down between the eyes
+    bridge_x = fx + w // 2
+    for py in range(fy + 4, fy + h - 2):
+        img.putpixel((bridge_x,     py), SKIN_SHADE)
+        img.putpixel((bridge_x - 1, py), _darker(SKIN, 10))
+
+    # Cheek hollows
+    fill_rect(fx + 1,         fy + 7, 2, 2, SKIN_SHADE)
+    fill_rect(fx + w - 3,     fy + 7, 2, 2, SKIN_SHADE)
+    # A couple of warts / dirt smudges
+    img.putpixel((fx + 3,         fy + 8), SKIN_DEEP)
+    img.putpixel((fx + w - 4,     fy + 9), SKIN_DEEP)
 
 
 def paint_head_top(tx, ty, w, d):
@@ -239,73 +250,70 @@ def paint_head_top(tx, ty, w, d):
 paint_cube(0, 0, 12, 11, 9, SKIN, SKIN, bottom=SKIN_SHADE,
            front_painter=paint_head_face, top_painter=paint_head_top, seed=100)
 
-# head jaw extension: (36, 0) 14x5x5 — bottom jaw, paint with mouth/teeth
+# head jaw extension: (36, 0) 12x4x5 — upper-lip / mouth line with two tusks
 def paint_jaw_front(fx, fy, w, h):
-    # Mouth gash across the front of the jaw
+    # Mouth band: a dark closed-mouth gash across the middle of the jaw cube
     mouth_y = fy + 1
-    fill_rect(fx + 1, mouth_y, w - 2, 2, _darker(SKIN_FLESH, 40))
-    # Teeth — 3 squarish tusks
-    for i, tx_off in enumerate((2, 6, 10)):
-        if tx_off + 1 < w:
+    fill_rect(fx + 1, mouth_y, w - 2, 1, _darker(SKIN_FLESH, 50))
+    # A few teeth peeking out along the mouth line
+    for tx_off in (2, 4, 7, 9):
+        if 0 < tx_off < w - 1:
             img.putpixel((fx + tx_off, mouth_y), TOOTH)
-            img.putpixel((fx + tx_off, mouth_y + 1), TOOTH_SHADE)
-    # Lower lip line
+    # Lower lip shading
     for px in range(fx + 1, fx + w - 1):
-        img.putpixel((px, fy + h - 1), SKIN_SHADE)
+        img.putpixel((px, fy + 2), SKIN_SHADE)
+    # Cheek shading on both ends so the jaw doesn't read as a flat bar
+    img.putpixel((fx,         fy),         SKIN_DEEP)
+    img.putpixel((fx + w - 1, fy),         SKIN_DEEP)
+    img.putpixel((fx,         fy + h - 1), SKIN_DEEP)
+    img.putpixel((fx + w - 1, fy + h - 1), SKIN_DEEP)
 
-paint_cube(36, 0, 14, 5, 5, SKIN, SKIN, bottom=SKIN_SHADE,
+paint_cube(36, 0, 12, 4, 5, SKIN, SKIN, bottom=SKIN_SHADE,
            front_painter=paint_jaw_front, seed=110)
 
-# chin/snout: (0, 18) 10x6x5 — paint with a single big tusk
+# chin/snout: (0, 18) 8x4x5 — chin with two upward tusks
 def paint_snout_front(fx, fy, w, h):
-    # Snout shading: darker rim
+    # Chin shading
     for px in range(fx, fx + w):
         img.putpixel((px, fy + h - 1), SKIN_SHADE)
-    # Big lower tusk on the right side
-    tusk_x = fx + w - 3
-    fill_rect(tusk_x, fy + 1, 2, 3, TOOTH)
-    img.putpixel((tusk_x, fy + 3), TOOTH_SHADE)
-    img.putpixel((tusk_x + 1, fy + 3), TOOTH_SHADE)
-    img.putpixel((tusk_x, fy + 4), TOOTH_SHADE)
+    # Two upward-poking tusks (lower jaw tusks)
+    for tusk_x in (fx + 1, fx + w - 3):
+        fill_rect(tusk_x, fy, 2, 2, TOOTH)
+        img.putpixel((tusk_x,         fy + 1), TOOTH_SHADE)
+        img.putpixel((tusk_x + 1,     fy + 1), TOOTH_SHADE)
+    # Center dimple
+    img.putpixel((fx + w // 2,     fy + h - 2), SKIN_DEEP)
 
-paint_cube(0, 18, 10, 6, 5, SKIN_BELLY, SKIN, bottom=SKIN_DEEP,
+paint_cube(0, 18, 8, 4, 5, SKIN_BELLY, SKIN, bottom=SKIN_DEEP,
            front_painter=paint_snout_front, seed=120)
 
-# nose: (66, 0) 4x5x4
-paint_cube(66, 0, 4, 5, 4, SKIN_FLESH, SKIN, bottom=SKIN_SHADE, seed=130)
-# Darken the two front nostril dots
-fill_rect(66 + 4 + 1, 0 + 4 + 2, 1, 1, SKIN_DEEP)
-fill_rect(66 + 4 + 2, 0 + 4 + 2, 1, 1, SKIN_DEEP)
+# nose: (66, 0) 3x3x3 — wart nose
+def paint_nose_front(fx, fy, w, h):
+    # Two nostril holes
+    img.putpixel((fx,         fy + h - 1), SKIN_DEEP)
+    img.putpixel((fx + w - 1, fy + h - 1), SKIN_DEEP)
 
-# left brow: (36, 8) 3x3x2
-paint_cube(36, 8, 3, 3, 2, SKIN_DEEP, SKIN_SHADE, bottom=SKIN_DEEP, seed=140)
-# right brow: (42, 8) 3x3x2
-paint_cube(42, 8, 3, 3, 2, SKIN_DEEP, SKIN_SHADE, bottom=SKIN_DEEP, seed=141)
+paint_cube(66, 0, 3, 3, 3, SKIN_FLESH, SKIN, bottom=SKIN_SHADE,
+           front_painter=paint_nose_front, seed=130)
 
-# eye highlight 1: (48, 8) 1x1x1
-paint_cube(48, 8, 1, 1, 1, EYE_YELLOW, EYE_DARK, bottom=PUPIL, seed=150)
-# eye highlight 2: (52, 8) 1x1x1
-paint_cube(52, 8, 1, 1, 1, EYE_YELLOW, EYE_DARK, bottom=PUPIL, seed=151)
+# brows: (36, 8) and (42, 8) — now 3x1x2, thin shelves above the eyes
+paint_cube(36, 8, 3, 1, 2, SKIN_DEEP, SKIN_DEEP, bottom=SKIN_DEEP, seed=140)
+paint_cube(42, 8, 3, 1, 2, SKIN_DEEP, SKIN_DEEP, bottom=SKIN_DEEP, seed=141)
 
-# tooth row band: (56, 8) 8x2x2 — paint as teeth
-def paint_tooth_band_front(fx, fy, w, h):
-    speckle(fx, fy, w, h, TOOTH, TOOTH_SHADE, None,
-            shade_density=0.25, highlight_density=0.0, seed=999)
-    # Tooth gaps
-    for gap in (2, 4, 6):
-        if gap < w:
-            img.putpixel((fx + gap, fy), SKIN_DEEP)
-            if h > 1:
-                img.putpixel((fx + gap, fy + 1), SKIN_DEEP)
+# ear nubs: (80, 20) and (88, 20) — matched 3x3x3 on each side of the head
+def paint_ear_outside(fx, fy, w, h):
+    # Slightly fleshier outside face so the ear reads as an ear, not a brick
+    speckle(fx, fy, w, h, SKIN_FLESH, _darker(SKIN_FLESH, 22), None,
+            shade_density=0.25, highlight_density=0.0, seed=900)
+    # Inner ear groove
+    if w >= 3 and h >= 3:
+        img.putpixel((fx + 1,     fy + 1),     SKIN_DEEP)
+        img.putpixel((fx + 1,     fy + h - 2), SKIN_DEEP)
 
-paint_cube(56, 8, 8, 2, 2, TOOTH, TOOTH_SHADE, bottom=SKIN_DEEP,
-           front_painter=paint_tooth_band_front, seed=160)
-
-# left horn/ear: (80, 20) 2x9x2 — small horn nub
-paint_cube(80, 20, 2, 9, 2, SKIN_SHADE, SKIN_DEEP, bottom=SKIN_DEEP, seed=170)
-
-# right ear flap: (88, 20) 5x2x4
-paint_cube(88, 20, 5, 2, 4, SKIN_FLESH, SKIN, bottom=SKIN_SHADE, seed=171)
+paint_cube(80, 20, 3, 3, 3, SKIN_FLESH, SKIN, bottom=SKIN_SHADE,
+           front_painter=paint_ear_outside, seed=170)
+paint_cube(88, 20, 3, 3, 3, SKIN_FLESH, SKIN, bottom=SKIN_SHADE,
+           front_painter=paint_ear_outside, seed=171)
 
 
 # ---------------------------------------------------------------------------

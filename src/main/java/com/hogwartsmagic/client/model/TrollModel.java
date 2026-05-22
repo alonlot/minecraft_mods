@@ -36,7 +36,10 @@ public class TrollModel extends EntityModel<TrollEntity> {
     private static final float REST_RIGHT_ARM_X = 0.0F;
     private static final float REST_RIGHT_ARM_Y = 0.0F;
     private static final float REST_RIGHT_ARM_Z = 0.18F;
-    private static final float REST_CLUB_Z = -0.62F;
+    // -0.62 rad (~35°) flung the club out sideways from the arm like a flag pole;
+    // a small negative is enough to keep it gripped close to the body so it reads
+    // as "held" instead of "thrown."
+    private static final float REST_CLUB_Z = -0.10F;
     private static final float REST_BODY_X = 0.08F;
 
     public TrollModel(ModelPart root) {
@@ -68,18 +71,22 @@ public class TrollModel extends EntityModel<TrollEntity> {
                         .texOffs(80, 9).addBox(3.0F, -35.0F, -6.6F, 7.0F, 1.0F, 8.0F, new CubeDeformation(0.0F)),
                 PartPose.ZERO);
 
+        // Head rebuilt to read as a brutish troll instead of the previous floating-
+        // tooth-bar / unicorn-horn assemblage:
+        //  - Removed the 8x2x2 "tooth row" band; tusks are painted on the snout.
+        //  - Removed the two 1x1x1 "eye dot" cubes; eyes are painted on the face.
+        //  - Flattened the brow ridges from 3x3x2 to 3x1x2 (thin shelf, not blocks).
+        //  - Reshaped the tall left horn (2x9x2) and right ear flap (5x2x4) into a
+        //    matching pair of small 3x3x3 ear nubs at the top sides of the head.
         root.addOrReplaceChild("head", CubeListBuilder.create()
                         .texOffs(0, 0).addBox(-6.0F, -8.0F, -6.0F, 12.0F, 11.0F, 9.0F, new CubeDeformation(0.0F))
-                        .texOffs(36, 0).addBox(-7.0F, -3.0F, -8.0F, 14.0F, 5.0F, 5.0F, new CubeDeformation(0.0F))
-                        .texOffs(0, 18).addBox(-5.0F, 0.0F, -9.0F, 10.0F, 6.0F, 5.0F, new CubeDeformation(0.0F))
-                        .texOffs(66, 0).addBox(-2.0F, -3.0F, -12.0F, 4.0F, 5.0F, 4.0F, new CubeDeformation(0.0F))
-                        .texOffs(36, 8).addBox(-5.0F, -2.0F, -11.0F, 3.0F, 3.0F, 2.0F, new CubeDeformation(0.0F))
-                        .texOffs(42, 8).addBox(2.0F, -2.0F, -11.0F, 3.0F, 3.0F, 2.0F, new CubeDeformation(0.0F))
-                        .texOffs(48, 8).addBox(-4.0F, -1.0F, -12.0F, 1.0F, 1.0F, 1.0F, new CubeDeformation(0.0F))
-                        .texOffs(52, 8).addBox(3.0F, -1.0F, -12.0F, 1.0F, 1.0F, 1.0F, new CubeDeformation(0.0F))
-                        .texOffs(56, 8).addBox(-4.0F, 3.0F, -10.0F, 8.0F, 2.0F, 2.0F, new CubeDeformation(0.0F))
-                        .texOffs(80, 20).addBox(-6.0F, -7.0F, -9.0F, 2.0F, 9.0F, 2.0F, new CubeDeformation(0.0F))
-                        .texOffs(88, 20).addBox(2.0F, -8.0F, -8.5F, 5.0F, 2.0F, 4.0F, new CubeDeformation(0.0F)),
+                        .texOffs(36, 0).addBox(-6.0F, -3.0F, -8.0F, 12.0F, 5.0F, 5.0F, new CubeDeformation(0.0F))
+                        .texOffs(0, 18).addBox(-4.0F, 0.0F, -9.0F, 8.0F, 4.0F, 5.0F, new CubeDeformation(0.0F))
+                        .texOffs(66, 0).addBox(-1.5F, -2.0F, -10.0F, 3.0F, 3.0F, 3.0F, new CubeDeformation(0.0F))
+                        .texOffs(36, 8).addBox(-5.0F, -4.0F, -10.0F, 3.0F, 1.0F, 2.0F, new CubeDeformation(0.0F))
+                        .texOffs(42, 8).addBox(2.0F, -4.0F, -10.0F, 3.0F, 1.0F, 2.0F, new CubeDeformation(0.0F))
+                        .texOffs(80, 20).addBox(-9.0F, -8.0F, -3.0F, 3.0F, 3.0F, 3.0F, new CubeDeformation(0.0F))
+                        .texOffs(88, 20).addBox(6.0F, -8.0F, -3.0F, 3.0F, 3.0F, 3.0F, new CubeDeformation(0.0F)),
                 PartPose.offset(0.0F, -11.0F, -6.0F));
 
         PartDefinition leftArm = root.addOrReplaceChild("left_arm", CubeListBuilder.create()

@@ -102,7 +102,12 @@ public class ModEntities {
     public static final RegistryObject<EntityType<AcromantulaEntity>> ACROMANTULA =
             ENTITY_TYPES.register("acromantula",
                     () -> EntityType.Builder.<AcromantulaEntity>of(AcromantulaEntity::new, MobCategory.MONSTER)
-                            .sized(3.5f, 3.0f)
+                            // Base dims for a scale-1.0 spider. The legs splay much wider than
+                            // the body, but only the body should block player melee, so we keep
+                            // the hitbox tight to the body. AcromantulaEntity#getDimensions
+                            // multiplies this by the per-instance spider scale so tiny spiders
+                            // have a tiny hitbox and huge ones grow appropriately.
+                            .sized(1.6f, 1.2f)
                             .clientTrackingRange(8)
                             .build("acromantula"));
 

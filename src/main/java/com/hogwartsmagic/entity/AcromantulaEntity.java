@@ -214,8 +214,12 @@ public class AcromantulaEntity extends Monster {
             }
             victim.hurt(this.damageSources().mobAttack(this), dmg);
             victim.addEffect(new MobEffectInstance(MobEffects.POISON, 100, 0));
+            // Gentle nudge instead of the previous 0.6/0.2 shove — the old value kited
+            // the player ~1.5 blocks back each hit and out of their own attack reach,
+            // making melee against the spider effectively impossible. Keep enough to
+            // sell the impact without removing the player from the fight.
             Vec3 push = flat.lengthSqr() < 1.0E-4D ? forward : flat.normalize();
-            victim.push(push.x * 0.6D, 0.2D, push.z * 0.6D);
+            victim.push(push.x * 0.2D, 0.08D, push.z * 0.2D);
             victim.hurtMarked = true;
         }
 
@@ -294,6 +298,29 @@ public class AcromantulaEntity extends Monster {
 
     public float getSpiderScale() {
         return this.entityData.get(DATA_SCALE);
+    }
+
+    /**
+     * Per-instance hitbox: scale the entity-type base dimensions by {@link #getSpiderScale()}.
+     * Without this every spider would share the same fixed hitbox regardless of how big the
+     * model rendered, which is what was previously pushing players outside their own attack
+     * reach (a baby-sized scale-0.2 acromantula with an oversized adult hitbox).
+     */
+    @Override
+    public net.minecraft.world.entity.EntityDimensions getDefaultDimensions(net.minecraft.world.entity.Pose pose) {
+        return super.getDefaultDimensions(pose).scale(Math.max(0.2F, this.getSpiderScale()));
+    }
+
+    /**
+     * The scale is set via SynchedEntityData (so the client also knows it). When it changes
+     * we must refresh dimensions so the bounding box updates on both sides.
+     */
+    @Override
+    public void onSyncedDataUpdated(EntityDataAccessor<?> key) {
+        super.onSyncedDataUpdated(key);
+        if (DATA_SCALE.equals(key)) {
+            this.refreshDimensions();
+        }
     }
 
     @Override

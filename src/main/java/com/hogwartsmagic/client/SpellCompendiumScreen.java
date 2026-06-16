@@ -173,6 +173,12 @@ public class SpellCompendiumScreen extends Screen {
     }
 
     @Override
+    protected void renderBlurredBackground(float partialTick) {
+        // Hard no-op: never run the GameRenderer menu-blur post effect for this screen,
+        // regardless of how the background gets drawn.
+    }
+
+    @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         // Use the plain dark dim rather than renderBackground(), which also applies the
         // menu blur shader — matches WandRadialMenuScreen and keeps the world crisp behind.

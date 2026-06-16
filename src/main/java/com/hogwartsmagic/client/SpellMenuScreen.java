@@ -89,6 +89,11 @@ public class SpellMenuScreen extends Screen {
                         button -> openRelicScreen())
                 .bounds(left + 132, top + 104, 90, 20)
                 .build());
+        addRenderableWidget(Button.builder(
+                        Component.translatable("gui." + ExampleMod.MODID + ".grimoire"),
+                        button -> Minecraft.getInstance().setScreen(new SpellCompendiumScreen(player)))
+                .bounds(left + 228, top + 104, 90, 20)
+                .build());
 
         // Learned spells list (click a spell to assign it to the selected slot).
         int cols = 4;

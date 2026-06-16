@@ -126,7 +126,19 @@ public class MagicBookItem extends Item {
     public static boolean isSpellLearned(Player player, SpellType spell) {
         net.minecraft.nbt.CompoundTag modData = player.getPersistentData().getCompound("PlayerPersisted").getCompound(ExampleMod.MODID);
         String learned = modData.getString(LEARNED_SPELLS_KEY);
-        return learned.contains(spell.getId());
+        // Match whole comma-separated tokens, not substrings: a bare contains() would treat
+        // "protego" as learned the moment "protego_maxima" is known (and break on any future
+        // id that is a prefix of another).
+        if (learned.isEmpty()) {
+            return false;
+        }
+        String target = spell.getId();
+        for (String token : learned.split(",")) {
+            if (token.equals(target)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static boolean learnSpellIfAbsent(Player player, SpellType spell) {

@@ -98,6 +98,12 @@ public class ClientModEvents {
             GLFW.GLFW_KEY_R,
             "key.categories.hogwartsmagic"
     );
+    private static final KeyMapping GRIMOIRE_KEY = new KeyMapping(
+            "key.hogwartsmagic.grimoire",
+            GLFW.GLFW_KEY_G,
+            "key.categories.hogwartsmagic"
+    );
+    private static boolean wasGrimoireDown = false;
     private static final KeyMapping[] SPELL_SLOT_KEYS = createSpellSlotKeys();
 
     @Mod.EventBusSubscriber(modid = ExampleMod.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
@@ -176,6 +182,15 @@ public class ClientModEvents {
                     }
                 }
                 wasRadialDown = radialDown;
+
+                boolean grimoireDown = InputConstants.isKeyDown(
+                        mc.getWindow().getWindow(),
+                        GRIMOIRE_KEY.getKey().getValue()
+                );
+                if (grimoireDown && !wasGrimoireDown && mc.player != null && mc.screen == null) {
+                    mc.setScreen(new com.hogwartsmagic.client.SpellCompendiumScreen(mc.player));
+                }
+                wasGrimoireDown = grimoireDown;
 
                 if (mc.player != null && mc.screen == null) {
                     handleSpellSlotKeybinds(mc);
@@ -550,6 +565,7 @@ public class ClientModEvents {
 
             net.minecraftforge.client.settings.KeyConflictContext context = net.minecraftforge.client.settings.KeyConflictContext.IN_GAME;
             WAND_RADIAL_MENU_KEY.setKeyConflictContext(context);
+            GRIMOIRE_KEY.setKeyConflictContext(context);
             for (KeyMapping spellSlotKey : SPELL_SLOT_KEYS) {
                 spellSlotKey.setKeyConflictContext(context);
             }
@@ -559,6 +575,7 @@ public class ClientModEvents {
     @SubscribeEvent
     public static void onRegisterKeyMappings(net.minecraftforge.client.event.RegisterKeyMappingsEvent event) {
         event.register(WAND_RADIAL_MENU_KEY);
+        event.register(GRIMOIRE_KEY);
         for (KeyMapping spellSlotKey : SPELL_SLOT_KEYS) {
             event.register(spellSlotKey);
         }

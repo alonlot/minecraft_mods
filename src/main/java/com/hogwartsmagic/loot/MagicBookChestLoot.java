@@ -4,8 +4,12 @@ import com.hogwartsmagic.spell.SpellType;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.RandomSource;
 
+import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -104,6 +108,45 @@ public final class MagicBookChestLoot {
         put("minecraft:chests/desert_pyramid", DUNGEON_MIX);
         put("minecraft:chests/jungle_temple", DUNGEON_MIX);
 
+    }
+
+    /**
+     * Friendly "where to find this spell's book" labels, keyed by spell. Built by reverse-indexing
+     * the same pools used for chest rolls, so the in-game Grimoire hints stay accurate to the loot.
+     * Values are lang-key suffixes under {@code gui.hogwartsmagic.grimoire.source.}.
+     */
+    private static final String SOURCE_PREFIX = "gui.hogwartsmagic.grimoire.source.";
+    private static final Map<SpellType, Set<String>> SOURCE_HINTS = new EnumMap<>(SpellType.class);
+
+    static {
+        indexSource("village", VILLAGE);
+        indexSource("water", WATER);
+        indexSource("ancient_city", ANCIENT_CITY);
+        indexSource("ancient_city", ANCIENT_CITY_ICE);
+        indexSource("nether", NETHER_FIRE);
+        indexSource("stronghold", STRONGHOLD_LIBRARY);
+        indexSource("dungeon", DUNGEON_MIX);
+        indexSource("common_chests", DEFAULT_POOL);
+    }
+
+    private static void indexSource(String labelSuffix, SpellType[] pool) {
+        String key = SOURCE_PREFIX + labelSuffix;
+        for (SpellType spell : pool) {
+            SOURCE_HINTS.computeIfAbsent(spell, s -> new LinkedHashSet<>()).add(key);
+        }
+    }
+
+    /**
+     * Lang keys describing where this spell's book can be found, in stable order.
+     * Returns a single "unknown source" key for spells not placed in any chest pool
+     * (e.g. those obtained only through other means).
+     */
+    public static List<String> getSourceHintKeys(SpellType spell) {
+        Set<String> hints = SOURCE_HINTS.get(spell);
+        if (hints == null || hints.isEmpty()) {
+            return List.of(SOURCE_PREFIX + "unknown");
+        }
+        return new ArrayList<>(hints);
     }
 
     private static void put(String id, SpellType[] pool) {

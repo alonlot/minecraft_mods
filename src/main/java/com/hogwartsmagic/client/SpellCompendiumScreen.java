@@ -174,7 +174,9 @@ public class SpellCompendiumScreen extends Screen {
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        renderBackground(g, mouseX, mouseY, partialTick);
+        // Use the plain dark dim rather than renderBackground(), which also applies the
+        // menu blur shader — matches WandRadialMenuScreen and keeps the world crisp behind.
+        this.renderTransparentBackground(g);
 
         int right = panelLeft + PANEL_WIDTH;
         int bottom = panelTop + PANEL_HEIGHT;

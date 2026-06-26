@@ -405,5 +405,104 @@
         "stream": false
       }
     ]
+  },
+  "owl.ambient": {
+    "subtitle": "subtitles.hogwartsmagic.owl.ambient",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:owl/ambient",
+        "stream": false
+      }
+    ]
+  },
+  "owl.hurt": {
+    "subtitle": "subtitles.hogwartsmagic.owl.hurt",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:owl/hurt",
+        "stream": false
+      }
+    ]
+  },
+  "owl.death": {
+    "subtitle": "subtitles.hogwartsmagic.owl.death",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:owl/death",
+        "stream": false
+      }
+    ]
+  },
+  "hippogriff.ambient": {
+    "subtitle": "subtitles.hogwartsmagic.hippogriff.ambient",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:hippogriff/ambient",
+        "stream": false
+      }
+    ]
+  },
+  "hippogriff.hurt": {
+    "subtitle": "subtitles.hogwartsmagic.hippogriff.hurt",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:hippogriff/hurt",
+        "stream": false
+      }
+    ]
+  },
+  "hippogriff.death": {
+    "subtitle": "subtitles.hogwartsmagic.hippogriff.death",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:hippogriff/death",
+        "stream": false
+      }
+    ]
+  },
+  "werewolf.ambient": {
+    "subtitle": "subtitles.hogwartsmagic.werewolf.ambient",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:werewolf/ambient",
+        "stream": false
+      }
+    ]
+  },
+  "werewolf.hurt": {
+    "subtitle": "subtitles.hogwartsmagic.werewolf.hurt",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:werewolf/hurt",
+        "stream": false
+      }
+    ]
+  },
+  "werewolf.death": {
+    "subtitle": "subtitles.hogwartsmagic.werewolf.death",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:werewolf/death",
+        "stream": false
+      }
+    ]
+  },
+  "werewolf.howl": {
+    "subtitle": "subtitles.hogwartsmagic.werewolf.howl",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:werewolf/howl",
+        "stream": false
+      }
+    ]
+  },
+  "patronus.ambient": {
+    "subtitle": "subtitles.hogwartsmagic.patronus.ambient",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:patronus/ambient",
+        "stream": false
+      }
+    ]
   }
 }

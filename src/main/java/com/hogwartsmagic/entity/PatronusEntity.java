@@ -39,6 +39,16 @@ public class PatronusEntity extends PathfinderMob {
         this.getTags().add("patronus");
     }
 
+    @Override
+    protected net.minecraft.sounds.SoundEvent getAmbientSound() {
+        return com.hogwartsmagic.ModSounds.PATRONUS_AMBIENT.get();
+    }
+
+    @Override
+    protected float getSoundVolume() {
+        return 0.5F;
+    }
+
     public static AttributeSupplier.Builder createAttributes() {
         return PathfinderMob.createMobAttributes()
                 .add(Attributes.MAX_HEALTH, 100.0D)

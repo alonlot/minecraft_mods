@@ -430,5 +430,16 @@
   "subtitles.hogwartsmagic.centaur.death": "Centaur falls",
   "subtitles.hogwartsmagic.dementor.ambient": "Dementor rasps",
   "subtitles.hogwartsmagic.dementor.hurt": "Dementor shrieks",
-  "subtitles.hogwartsmagic.dementor.death": "Dementor fades"
+  "subtitles.hogwartsmagic.dementor.death": "Dementor fades",
+  "subtitles.hogwartsmagic.owl.ambient": "Owl hoots",
+  "subtitles.hogwartsmagic.owl.hurt": "Owl screeches",
+  "subtitles.hogwartsmagic.owl.death": "Owl dies",
+  "subtitles.hogwartsmagic.hippogriff.ambient": "Hippogriff screeches",
+  "subtitles.hogwartsmagic.hippogriff.hurt": "Hippogriff cries out",
+  "subtitles.hogwartsmagic.hippogriff.death": "Hippogriff falls",
+  "subtitles.hogwartsmagic.werewolf.ambient": "Werewolf growls",
+  "subtitles.hogwartsmagic.werewolf.hurt": "Werewolf snarls",
+  "subtitles.hogwartsmagic.werewolf.death": "Werewolf dies",
+  "subtitles.hogwartsmagic.werewolf.howl": "Werewolf howls",
+  "subtitles.hogwartsmagic.patronus.ambient": "Patronus shimmers"
 }

@@ -193,7 +193,7 @@ public class LycanthropeVillagerEntity extends PathfinderMob {
                 this.setHealth(Math.min(this.getHealth() + WOLF_TRANSFORM_HEAL, (float) WOLF_MAX_HEALTH));
                 this.lastWolfTransformHealAtTick = this.tickCount;
             }
-            this.playSound(SoundEvents.WOLF_GROWL, 1.0F, 0.7F + this.random.nextFloat() * 0.2F);
+            this.playSound(com.hogwartsmagic.ModSounds.WEREWOLF_AMBIENT.get(), 1.0F, 0.7F + this.random.nextFloat() * 0.2F);
         }
     }
 
@@ -337,7 +337,7 @@ public class LycanthropeVillagerEntity extends PathfinderMob {
                         0.02);
             }
             if (this.random.nextInt(220) == 0) {
-                this.playSound(SoundEvents.WOLF_HOWL, 1.2F, 0.75F + this.random.nextFloat() * 0.15F);
+                this.playSound(com.hogwartsmagic.ModSounds.WEREWOLF_HOWL.get(), 1.2F, 0.75F + this.random.nextFloat() * 0.15F);
             }
         }
     }
@@ -492,7 +492,7 @@ public class LycanthropeVillagerEntity extends PathfinderMob {
     @Override
     protected SoundEvent getAmbientSound() {
         if (isWerewolfForm()) {
-            return SoundEvents.WOLF_AMBIENT;
+            return com.hogwartsmagic.ModSounds.WEREWOLF_AMBIENT.get();
         }
         return SoundEvents.VILLAGER_AMBIENT;
     }
@@ -500,7 +500,7 @@ public class LycanthropeVillagerEntity extends PathfinderMob {
     @Override
     protected SoundEvent getHurtSound(DamageSource damageSource) {
         if (isWerewolfForm()) {
-            return SoundEvents.WOLF_HURT;
+            return com.hogwartsmagic.ModSounds.WEREWOLF_HURT.get();
         }
         return SoundEvents.VILLAGER_HURT;
     }
@@ -508,7 +508,7 @@ public class LycanthropeVillagerEntity extends PathfinderMob {
     @Override
     protected SoundEvent getDeathSound() {
         if (isWerewolfForm()) {
-            return SoundEvents.WOLF_DEATH;
+            return com.hogwartsmagic.ModSounds.WEREWOLF_DEATH.get();
         }
         return SoundEvents.VILLAGER_DEATH;
     }

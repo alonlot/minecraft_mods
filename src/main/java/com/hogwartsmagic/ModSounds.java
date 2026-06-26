@@ -67,6 +67,17 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> DEMENTOR_AMBIENT = register("dementor.ambient");
     public static final RegistryObject<SoundEvent> DEMENTOR_HURT = register("dementor.hurt");
     public static final RegistryObject<SoundEvent> DEMENTOR_DEATH = register("dementor.death");
+    public static final RegistryObject<SoundEvent> OWL_AMBIENT = register("owl.ambient");
+    public static final RegistryObject<SoundEvent> OWL_HURT = register("owl.hurt");
+    public static final RegistryObject<SoundEvent> OWL_DEATH = register("owl.death");
+    public static final RegistryObject<SoundEvent> HIPPOGRIFF_AMBIENT = register("hippogriff.ambient");
+    public static final RegistryObject<SoundEvent> HIPPOGRIFF_HURT = register("hippogriff.hurt");
+    public static final RegistryObject<SoundEvent> HIPPOGRIFF_DEATH = register("hippogriff.death");
+    public static final RegistryObject<SoundEvent> WEREWOLF_AMBIENT = register("werewolf.ambient");
+    public static final RegistryObject<SoundEvent> WEREWOLF_HURT = register("werewolf.hurt");
+    public static final RegistryObject<SoundEvent> WEREWOLF_DEATH = register("werewolf.death");
+    public static final RegistryObject<SoundEvent> WEREWOLF_HOWL = register("werewolf.howl");
+    public static final RegistryObject<SoundEvent> PATRONUS_AMBIENT = register("patronus.ambient");
 
     private static RegistryObject<SoundEvent> register(String name) {
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, name);

@@ -129,7 +129,7 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
         if (this.isTame() && !this.isOwnedBy(nearestPlayer)) return;
         setInteractionState(InteractionState.BOWING);
         this.bowCooldown = BOW_COOLDOWN_TICKS + BOW_DURATION_TICKS;
-        this.playSound(SoundEvents.PARROT_AMBIENT, 0.85F, 0.95F + this.random.nextFloat() * 0.15F);
+        this.playSound(com.hogwartsmagic.ModSounds.HIPPOGRIFF_AMBIENT.get(), 0.85F, 0.95F + this.random.nextFloat() * 0.15F);
     }
 
     private void tickInteractionState() {
@@ -338,7 +338,7 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
         this.setOrderedToSit(false);
         this.setTarget(player);
         if (this.warningSoundCooldown <= 0) {
-            this.playSound(SoundEvents.HORSE_ANGRY, 0.9F, 0.95F + this.random.nextFloat() * 0.15F);
+            this.playSound(com.hogwartsmagic.ModSounds.HIPPOGRIFF_HURT.get(), 0.9F, 0.95F + this.random.nextFloat() * 0.15F);
             this.warningSoundCooldown = 50;
         }
     }
@@ -346,7 +346,7 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
     @Override
     public boolean doHurtTarget(Entity target) {
         this.swing(InteractionHand.MAIN_HAND);
-        this.playSound(SoundEvents.HORSE_BREATHE, 0.9F, 0.8F + this.random.nextFloat() * 0.25F);
+        this.playSound(com.hogwartsmagic.ModSounds.HIPPOGRIFF_AMBIENT.get(), 0.9F, 0.8F + this.random.nextFloat() * 0.25F);
         return super.doHurtTarget(target);
     }
 
@@ -484,17 +484,17 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
 
     @Override
     protected SoundEvent getAmbientSound() {
-        return SoundEvents.PARROT_AMBIENT;
+        return com.hogwartsmagic.ModSounds.HIPPOGRIFF_AMBIENT.get();
     }
 
     @Override
     protected SoundEvent getHurtSound(net.minecraft.world.damagesource.DamageSource source) {
-        return SoundEvents.HORSE_HURT;
+        return com.hogwartsmagic.ModSounds.HIPPOGRIFF_HURT.get();
     }
 
     @Override
     protected SoundEvent getDeathSound() {
-        return SoundEvents.HORSE_DEATH;
+        return com.hogwartsmagic.ModSounds.HIPPOGRIFF_DEATH.get();
     }
 
     private static class HippogriffRandomFlyingGoal extends WaterAvoidingRandomFlyingGoal {

@@ -131,17 +131,17 @@ public class OwlEntity extends TamableAnimal implements FlyingAnimal {
 
     @Override
     protected net.minecraft.sounds.SoundEvent getAmbientSound() {
-        return net.minecraft.sounds.SoundEvents.PARROT_AMBIENT;
+        return com.hogwartsmagic.ModSounds.OWL_AMBIENT.get();
     }
 
     @Override
     protected net.minecraft.sounds.SoundEvent getHurtSound(net.minecraft.world.damagesource.DamageSource source) {
-        return net.minecraft.sounds.SoundEvents.PARROT_HURT;
+        return com.hogwartsmagic.ModSounds.OWL_HURT.get();
     }
 
     @Override
     protected net.minecraft.sounds.SoundEvent getDeathSound() {
-        return net.minecraft.sounds.SoundEvents.PARROT_DEATH;
+        return com.hogwartsmagic.ModSounds.OWL_DEATH.get();
     }
 
     @Override

@@ -42,6 +42,21 @@ public class DementorEntity extends Monster {
         this.targetSelector.addGoal(3, new NearestAttackableTargetGoal<>(this, StudentEntity.class, true));
     }
 
+    @Override
+    protected net.minecraft.sounds.SoundEvent getAmbientSound() {
+        return com.hogwartsmagic.ModSounds.DEMENTOR_AMBIENT.get();
+    }
+
+    @Override
+    protected net.minecraft.sounds.SoundEvent getHurtSound(net.minecraft.world.damagesource.DamageSource source) {
+        return com.hogwartsmagic.ModSounds.DEMENTOR_HURT.get();
+    }
+
+    @Override
+    protected net.minecraft.sounds.SoundEvent getDeathSound() {
+        return com.hogwartsmagic.ModSounds.DEMENTOR_DEATH.get();
+    }
+
     public static AttributeSupplier.Builder createAttributes() {
         return Monster.createMonsterAttributes()
                 .add(Attributes.MAX_HEALTH, 120.0D)

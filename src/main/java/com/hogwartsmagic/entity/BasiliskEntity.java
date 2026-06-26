@@ -351,17 +351,17 @@ public class BasiliskEntity extends Monster {
 
     @Override
     protected SoundEvent getAmbientSound() {
-        return SoundEvents.SPIDER_AMBIENT;
+        return com.hogwartsmagic.ModSounds.BASILISK_AMBIENT.get();
     }
 
     @Override
     protected SoundEvent getHurtSound(net.minecraft.world.damagesource.DamageSource damageSource) {
-        return SoundEvents.WARDEN_HURT;
+        return com.hogwartsmagic.ModSounds.BASILISK_HURT.get();
     }
 
     @Override
     protected SoundEvent getDeathSound() {
-        return SoundEvents.WARDEN_DEATH;
+        return com.hogwartsmagic.ModSounds.BASILISK_DEATH.get();
     }
 
     @Override

@@ -270,5 +270,140 @@
         "stream": false
       }
     ]
+  },
+  "acromantula.ambient": {
+    "subtitle": "subtitles.hogwartsmagic.acromantula.ambient",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:acromantula/ambient",
+        "stream": false
+      }
+    ]
+  },
+  "acromantula.hurt": {
+    "subtitle": "subtitles.hogwartsmagic.acromantula.hurt",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:acromantula/hurt",
+        "stream": false
+      }
+    ]
+  },
+  "acromantula.death": {
+    "subtitle": "subtitles.hogwartsmagic.acromantula.death",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:acromantula/death",
+        "stream": false
+      }
+    ]
+  },
+  "basilisk.ambient": {
+    "subtitle": "subtitles.hogwartsmagic.basilisk.ambient",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:basilisk/ambient",
+        "stream": false
+      }
+    ]
+  },
+  "basilisk.hurt": {
+    "subtitle": "subtitles.hogwartsmagic.basilisk.hurt",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:basilisk/hurt",
+        "stream": false
+      }
+    ]
+  },
+  "basilisk.death": {
+    "subtitle": "subtitles.hogwartsmagic.basilisk.death",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:basilisk/death",
+        "stream": false
+      }
+    ]
+  },
+  "troll.ambient": {
+    "subtitle": "subtitles.hogwartsmagic.troll.ambient",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:troll/ambient",
+        "stream": false
+      }
+    ]
+  },
+  "troll.hurt": {
+    "subtitle": "subtitles.hogwartsmagic.troll.hurt",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:troll/hurt",
+        "stream": false
+      }
+    ]
+  },
+  "troll.death": {
+    "subtitle": "subtitles.hogwartsmagic.troll.death",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:troll/death",
+        "stream": false
+      }
+    ]
+  },
+  "centaur.ambient": {
+    "subtitle": "subtitles.hogwartsmagic.centaur.ambient",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:centaur/ambient",
+        "stream": false
+      }
+    ]
+  },
+  "centaur.hurt": {
+    "subtitle": "subtitles.hogwartsmagic.centaur.hurt",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:centaur/hurt",
+        "stream": false
+      }
+    ]
+  },
+  "centaur.death": {
+    "subtitle": "subtitles.hogwartsmagic.centaur.death",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:centaur/death",
+        "stream": false
+      }
+    ]
+  },
+  "dementor.ambient": {
+    "subtitle": "subtitles.hogwartsmagic.dementor.ambient",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:dementor/ambient",
+        "stream": false
+      }
+    ]
+  },
+  "dementor.hurt": {
+    "subtitle": "subtitles.hogwartsmagic.dementor.hurt",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:dementor/hurt",
+        "stream": false
+      }
+    ]
+  },
+  "dementor.death": {
+    "subtitle": "subtitles.hogwartsmagic.dementor.death",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:dementor/death",
+        "stream": false
+      }
+    ]
   }
 }

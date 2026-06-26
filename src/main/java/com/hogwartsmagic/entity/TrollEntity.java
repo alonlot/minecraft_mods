@@ -362,17 +362,17 @@ public class TrollEntity extends Monster {
 
     @Override
     protected SoundEvent getAmbientSound() {
-        return SoundEvents.WARDEN_AMBIENT;
+        return com.hogwartsmagic.ModSounds.TROLL_AMBIENT.get();
     }
 
     @Override
     protected SoundEvent getHurtSound(DamageSource source) {
-        return SoundEvents.WARDEN_HURT;
+        return com.hogwartsmagic.ModSounds.TROLL_HURT.get();
     }
 
     @Override
     protected SoundEvent getDeathSound() {
-        return SoundEvents.WARDEN_DEATH;
+        return com.hogwartsmagic.ModSounds.TROLL_DEATH.get();
     }
 
     @Override

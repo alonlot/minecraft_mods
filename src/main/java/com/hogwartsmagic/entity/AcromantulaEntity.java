@@ -156,13 +156,13 @@ public class AcromantulaEntity extends Monster {
         switch (state) {
             case ALERT -> {
                 if (t == 2) {
-                    this.playSound(SoundEvents.SPIDER_AMBIENT, 1.1F, 0.7F);
+                    this.playSound(com.hogwartsmagic.ModSounds.ACROMANTULA_AMBIENT.get(), 1.1F, 0.7F);
                 }
                 if (t >= ALERT_DURATION) setAttackState(AttackState.NONE);
             }
             case LUNGE_WINDUP -> {
                 if (t == 2) {
-                    this.playSound(SoundEvents.SPIDER_AMBIENT, 0.8F, 1.4F);
+                    this.playSound(com.hogwartsmagic.ModSounds.ACROMANTULA_AMBIENT.get(), 0.8F, 1.4F);
                 }
                 if (t >= LUNGE_WINDUP_DURATION) {
                     setAttackState(AttackState.LUNGE_STRIKE);
@@ -223,7 +223,7 @@ public class AcromantulaEntity extends Monster {
             victim.hurtMarked = true;
         }
 
-        this.playSound(SoundEvents.SPIDER_HURT, 1.2F, 0.55F + this.random.nextFloat() * 0.15F);
+        this.playSound(com.hogwartsmagic.ModSounds.ACROMANTULA_HURT.get(), 1.2F, 0.55F + this.random.nextFloat() * 0.15F);
         sl.sendParticles(ParticleTypes.CRIT,
                 this.getX() + forward.x * 1.6D, this.getY() + 0.5D, this.getZ() + forward.z * 1.6D,
                 10, 0.4D, 0.3D, 0.4D, 0.05D);
@@ -349,6 +349,21 @@ public class AcromantulaEntity extends Monster {
         if (tag.contains("SpiderScale")) {
             this.entityData.set(DATA_SCALE, tag.getFloat("SpiderScale"));
         }
+    }
+
+    @Override
+    protected net.minecraft.sounds.SoundEvent getAmbientSound() {
+        return com.hogwartsmagic.ModSounds.ACROMANTULA_AMBIENT.get();
+    }
+
+    @Override
+    protected net.minecraft.sounds.SoundEvent getHurtSound(net.minecraft.world.damagesource.DamageSource source) {
+        return com.hogwartsmagic.ModSounds.ACROMANTULA_HURT.get();
+    }
+
+    @Override
+    protected net.minecraft.sounds.SoundEvent getDeathSound() {
+        return com.hogwartsmagic.ModSounds.ACROMANTULA_DEATH.get();
     }
 
     /** Picks ALERT on first engagement, LUNGE at close range, WEB_SPIT at medium range. */

@@ -51,6 +51,23 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> HORNTAIL_BITE = register("horntail.bite");
     public static final RegistryObject<SoundEvent> HORNTAIL_TAIL_WHIP = register("horntail.tail_whip");
 
+    // Creature mobs (custom SFX)
+    public static final RegistryObject<SoundEvent> ACROMANTULA_AMBIENT = register("acromantula.ambient");
+    public static final RegistryObject<SoundEvent> ACROMANTULA_HURT = register("acromantula.hurt");
+    public static final RegistryObject<SoundEvent> ACROMANTULA_DEATH = register("acromantula.death");
+    public static final RegistryObject<SoundEvent> BASILISK_AMBIENT = register("basilisk.ambient");
+    public static final RegistryObject<SoundEvent> BASILISK_HURT = register("basilisk.hurt");
+    public static final RegistryObject<SoundEvent> BASILISK_DEATH = register("basilisk.death");
+    public static final RegistryObject<SoundEvent> TROLL_AMBIENT = register("troll.ambient");
+    public static final RegistryObject<SoundEvent> TROLL_HURT = register("troll.hurt");
+    public static final RegistryObject<SoundEvent> TROLL_DEATH = register("troll.death");
+    public static final RegistryObject<SoundEvent> CENTAUR_AMBIENT = register("centaur.ambient");
+    public static final RegistryObject<SoundEvent> CENTAUR_HURT = register("centaur.hurt");
+    public static final RegistryObject<SoundEvent> CENTAUR_DEATH = register("centaur.death");
+    public static final RegistryObject<SoundEvent> DEMENTOR_AMBIENT = register("dementor.ambient");
+    public static final RegistryObject<SoundEvent> DEMENTOR_HURT = register("dementor.hurt");
+    public static final RegistryObject<SoundEvent> DEMENTOR_DEATH = register("dementor.death");
+
     private static RegistryObject<SoundEvent> register(String name) {
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, name);
         return SOUND_EVENTS.register(name, () -> SoundEvent.createVariableRangeEvent(id));

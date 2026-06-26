@@ -125,17 +125,17 @@ public class MinatorEntity extends Monster implements RangedAttackMob {
 
     @Override
     protected SoundEvent getAmbientSound() {
-        return SoundEvents.PILLAGER_AMBIENT;
+        return com.hogwartsmagic.ModSounds.CENTAUR_AMBIENT.get();
     }
 
     @Override
     protected SoundEvent getHurtSound(net.minecraft.world.damagesource.DamageSource source) {
-        return SoundEvents.PILLAGER_HURT;
+        return com.hogwartsmagic.ModSounds.CENTAUR_HURT.get();
     }
 
     @Override
     protected SoundEvent getDeathSound() {
-        return SoundEvents.PILLAGER_DEATH;
+        return com.hogwartsmagic.ModSounds.CENTAUR_DEATH.get();
     }
 
     private static final class MinatorStompMeleeGoal extends MeleeAttackGoal {

@@ -47,7 +47,7 @@ public final class MagicBookChestLoot {
     private static final SpellType[] STRONGHOLD_LIBRARY = {
             SpellType.ALOHOMORA, SpellType.REVELIO, SpellType.CONFUNDO, SpellType.WINGARDIUM_LEVIOSA,
             SpellType.ACCIO, SpellType.DEPULSO, SpellType.DIFFINDO, SpellType.PETRIFICUS_TOTALUS, SpellType.REPARO,
-            SpellType.CAVE_INIMICUM, SpellType.PROTEGO_MAXIMA, SpellType.EXPECTO_PATRONUM
+            SpellType.CAVE_INIMICUM, SpellType.PROTEGO_MAXIMA, SpellType.EXPECTO_PATRONUM, SpellType.APPARITION
     };
     private static final SpellType[] DUNGEON_MIX = {
             SpellType.STUPEFY, SpellType.REVELIO, SpellType.LUMOS, SpellType.GLACIUS,

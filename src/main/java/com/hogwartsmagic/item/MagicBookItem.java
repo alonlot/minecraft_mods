@@ -58,7 +58,8 @@ public class MagicBookItem extends Item {
             "alatus",
             "serpensortia",
             "arresto_momentum",
-            "reparo"
+            "reparo",
+            "apparition"
     );
 
     public MagicBookItem(Properties properties) {

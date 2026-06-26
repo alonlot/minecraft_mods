@@ -273,6 +273,33 @@ public class SpellPackets {
                 .decoder(buf -> new CloakTransitionPacket(buf.readUUID(), buf.readBoolean()))
                 .consumerMainThread(CloakTransitionPacket::handle)
                 .add();
+        CHANNEL.messageBuilder(OpenApparitionMapPacket.class)
+                .encoder((p, buf) -> {
+                    buf.writeBlockPos(p.origin);
+                    buf.writeVarInt(p.radius);
+                    buf.writeVarInt(p.durationTicks);
+                })
+                .decoder(buf -> new OpenApparitionMapPacket(buf.readBlockPos(), buf.readVarInt(), buf.readVarInt()))
+                .consumerMainThread(OpenApparitionMapPacket::handle)
+                .add();
+        CHANNEL.messageBuilder(CloseApparitionMapPacket.class)
+                .encoder((p, buf) -> {})
+                .decoder(buf -> new CloseApparitionMapPacket())
+                .consumerMainThread(CloseApparitionMapPacket::handle)
+                .add();
+        CHANNEL.messageBuilder(ChooseApparitionDestinationPacket.class)
+                .encoder((p, buf) -> {
+                    buf.writeInt(p.targetX);
+                    buf.writeInt(p.targetZ);
+                })
+                .decoder(buf -> new ChooseApparitionDestinationPacket(buf.readInt(), buf.readInt()))
+                .consumerMainThread(ChooseApparitionDestinationPacket::handle)
+                .add();
+        CHANNEL.messageBuilder(CancelApparitionPacket.class)
+                .encoder((p, buf) -> {})
+                .decoder(buf -> new CancelApparitionPacket())
+                .consumerMainThread(CancelApparitionPacket::handle)
+                .add();
     }
 
     public static void syncRelics(ServerPlayer player) {
@@ -527,6 +554,12 @@ public class SpellPackets {
             // Check if spell is learned
             if (!com.hogwartsmagic.item.MagicBookItem.isSpellLearned(player, spell)) {
                 player.displayClientMessage(net.minecraft.network.chat.Component.translatable("gui.hogwartsmagic.spell_not_learned"), true);
+                return;
+            }
+
+            // Apparition is its own channel: it opens a destination minimap rather than casting immediately.
+            if (spell == SpellType.APPARITION && !p.selfCastProtego && !p.releaseChannel && !p.channelHeartbeat) {
+                com.hogwartsmagic.event.ModEvents.startApparitionChannel(player, wand);
                 return;
             }
 
@@ -1078,6 +1111,40 @@ public class SpellPackets {
     public record CloakTransitionPacket(UUID playerId, boolean hiding) {
         public static void handle(CloakTransitionPacket p, CustomPayloadEvent.Context ctx) {
             enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("cloakTransition", p));
+        }
+    }
+
+    /** Server → client: open the Apparition destination minimap, centered on {@code origin}. */
+    public record OpenApparitionMapPacket(BlockPos origin, int radius, int durationTicks) {
+        public static void handle(OpenApparitionMapPacket p, CustomPayloadEvent.Context ctx) {
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("openApparitionMap", p));
+        }
+    }
+
+    /** Server → client: force-close the Apparition map (channel ended on the server). */
+    public record CloseApparitionMapPacket() {
+        public static void handle(CloseApparitionMapPacket p, CustomPayloadEvent.Context ctx) {
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("closeApparitionMap", p));
+        }
+    }
+
+    /** Client → server: the player clicked a destination on the map. Coordinates are re-validated server-side. */
+    public record ChooseApparitionDestinationPacket(int targetX, int targetZ) {
+        public static void handle(ChooseApparitionDestinationPacket p, CustomPayloadEvent.Context ctx) {
+            ServerPlayer player = ctx.getSender();
+            if (player != null) {
+                com.hogwartsmagic.event.ModEvents.completeApparition(player, p.targetX, p.targetZ);
+            }
+        }
+    }
+
+    /** Client → server: the player closed the map without choosing — cancel the channel now (full cooldown). */
+    public record CancelApparitionPacket() {
+        public static void handle(CancelApparitionPacket p, CustomPayloadEvent.Context ctx) {
+            ServerPlayer player = ctx.getSender();
+            if (player != null) {
+                com.hogwartsmagic.event.ModEvents.cancelApparitionChannel(player, player.getMainHandItem());
+            }
         }
     }
 }

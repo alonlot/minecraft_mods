@@ -38,6 +38,8 @@ public final class ClientRuntimeBridge {
             case "startHorcruxDeathSequence" -> startHorcruxDeathSequence((SpellPackets.StartHorcruxDeathSequencePacket) payload);
             case "finishHorcruxDeathSequence" -> finishHorcruxDeathSequence();
             case "cloakTransition" -> cloakTransition((SpellPackets.CloakTransitionPacket) payload);
+            case "openApparitionMap" -> openApparitionMap((SpellPackets.OpenApparitionMapPacket) payload);
+            case "closeApparitionMap" -> closeApparitionMap();
             default -> throw new IllegalArgumentException("Unknown client packet action: " + action);
         }
     }
@@ -172,6 +174,18 @@ public final class ClientRuntimeBridge {
 
     private static void openHogwartsGuideScreen() {
         net.minecraft.client.Minecraft.getInstance().setScreen(new HogwartsGuideScreen());
+    }
+
+    private static void openApparitionMap(SpellPackets.OpenApparitionMapPacket packet) {
+        net.minecraft.client.Minecraft.getInstance().setScreen(
+                new ApparitionMapScreen(packet.origin(), packet.radius(), packet.durationTicks()));
+    }
+
+    private static void closeApparitionMap() {
+        net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+        if (mc.screen instanceof ApparitionMapScreen apparitionMap) {
+            apparitionMap.closeFromServer();
+        }
     }
 
     private static void syncCaveInimicumRegion(SpellPackets.CaveInimicumRegionSyncPacket packet) {

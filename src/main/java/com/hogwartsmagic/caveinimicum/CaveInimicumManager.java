@@ -427,6 +427,19 @@ public final class CaveInimicumManager {
         return illusionWards;
     }
 
+    /**
+     * True if {@code pos} lies inside any active ward. Used by Apparition as the
+     * Hogwarts-style anti-Apparition jinx: you cannot vanish into or out of a warded area.
+     */
+    public boolean isWardedAt(BlockPos pos) {
+        for (CaveInimicumWardBlockEntity ward : trackedWards()) {
+            if (ward.isActive() && ward.bounds().contains(pos)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private List<CaveInimicumWardBlockEntity> wardsContaining(BlockPos pos) {
         List<CaveInimicumWardBlockEntity> wards = new ArrayList<>();
         for (CaveInimicumWardBlockEntity ward : trackedWards()) {

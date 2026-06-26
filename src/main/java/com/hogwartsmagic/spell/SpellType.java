@@ -62,7 +62,10 @@ public enum SpellType {
     ALATUS("alatus", 0xD4C4A8, 0.83f, 0.75f, 0.53f, ParticleTypes.CLOUD, ParticleTypes.ENCHANT, 55, 24, SpellLootRarity.UNCOMMON),
     SERPENSORTIA("serpensortia", 0x005500, 0.0f, 0.33f, 0.0f, ParticleTypes.SQUID_INK, ParticleTypes.WITCH, 200, 60, SpellLootRarity.RARE),
     ARRESTO_MOMENTUM("arresto_momentum", 0xCFE8FF, 0.81f, 0.91f, 1.0f, ParticleTypes.CLOUD, ParticleTypes.GLOW, 50, 18, SpellLootRarity.UNCOMMON),
-    REPARO("reparo", 0x8CF3D7, 0.55f, 0.95f, 0.84f, ParticleTypes.ENCHANT, ParticleTypes.WAX_ON, 80, 22, SpellLootRarity.UNCOMMON);
+    REPARO("reparo", 0x8CF3D7, 0.55f, 0.95f, 0.84f, ParticleTypes.ENCHANT, ParticleTypes.WAX_ON, 80, 22, SpellLootRarity.UNCOMMON),
+    /** Channeled self-teleport to a known location picked on a minimap. Handled entirely in the cast/channel
+     *  pipeline (see ModEvents.startApparitionChannel); it never hits a target, so it has no beam or hit effect. */
+    APPARITION("apparition", 0x9B5BD6, 0.61f, 0.36f, 0.84f, ParticleTypes.PORTAL, ParticleTypes.REVERSE_PORTAL, 1200, 133, SpellLootRarity.EPIC);
 
     private final String id;
     private final int color;
@@ -426,6 +429,9 @@ public enum SpellType {
             }
             case ALATUS -> {
             }
+            case APPARITION -> {
+                // No hit effect: Apparition is a self-cast channeled teleport, resolved in the channel pipeline.
+            }
         }
     }
 
@@ -474,6 +480,7 @@ public enum SpellType {
             case SERPENSORTIA -> ModSounds.SPELL_MORSMORDRE.get(); // Dark-ish sounding
             case ARRESTO_MOMENTUM -> ModSounds.SPELL_ACCIO.get();
             case REPARO -> ModSounds.SPELL_REVELIO.get();
+            case APPARITION -> ModSounds.SPELL_ACCIO.get(); // placeholder; the real CRACK is played in the channel logic
         };
     }
 

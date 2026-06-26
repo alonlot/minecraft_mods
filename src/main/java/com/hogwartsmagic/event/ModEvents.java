@@ -162,6 +162,15 @@ public class ModEvents {
     private static final int IMPERIO_UPKEEP_INTERVAL = 10;
     private static final int IMPERIO_HEARTBEAT_TIMEOUT = 4;
     private static final int IMPERIO_ATTACK_COOLDOWN = 10;
+    // ── Apparition (channeled self-teleport with a minimap destination picker) ──
+    private static final String TAG_APPARITION_CHANNELING = "hogwartsmagic:apparition_channeling";
+    private static final String TAG_APPARITION_START = "hogwartsmagic:apparition_start";
+    private static final int APPARITION_CHANNEL_TICKS = 80;          // 4 seconds of "Determination/Deliberation"
+    private static final int APPARITION_MANA_COST = 100;
+    private static final double APPARITION_MAX_RANGE = 48.0D;        // matches the minimap radius (blocks)
+    private static final double APPARITION_SIDEALONG_RADIUS = 1.0D;  // side-along: who comes with you
+    private static final ResourceLocation APPARITION_IMPLODE_MODIFIER_ID =
+            ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "apparition_implode");
     private static final String TAG_HOGWARTS_INVITE_DELIVERED = "HogwartsInviteDelivered";
     private static final ResourceLocation WAND_ADVANCEMENT_ID = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "hp/root");
     private static void syncPolyjuice(ServerPlayer player) {
@@ -775,6 +784,7 @@ public class ModEvents {
             tickFiendfyreChannel(player, modData);
             tickWingardiumChannel(player, modData);
             tickImperioChannel(player, modData);
+            tickApparitionChannel(player, modData);
             tickHorcruxRitual(player);
 
             trySpawnInsomniaDementor(player);
@@ -1403,6 +1413,10 @@ public class ModEvents {
         if (player.getPersistentData().getBoolean(TAG_WINGARDIUM_CHANNELING)) {
             stopWingardiumChannel(player, wand);
         }
+        if (player.getPersistentData().getBoolean(TAG_APPARITION_CHANNELING)) {
+            // Getting hit mid-focus splinches your concentration: cancel and pay the full cooldown.
+            cancelApparitionChannel(player, wand);
+        }
     }
 
     public static LivingEntity consumeRecentImperioHitTarget(ServerPlayer player) {
@@ -1596,6 +1610,264 @@ public class ModEvents {
 
     private static float getFiendfyreUpkeepCost(ItemStack wand) {
         return Math.max(1.25f, (SpellType.FIENDFYRE.getManaCost() * MagicWandItem.getManaCostMultiplier(wand)) / 14.0f);
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    //  Apparition: a 4-second channel during which the caster picks a known spot
+    //  on a minimap; on confirm they Disapparate (with a CRACK) and reappear there.
+    //  Everything authoritative — teleport, mana, splinch, side-along, ward checks —
+    //  lives here on the server. The client only renders the map and sends the pick.
+    // ──────────────────────────────────────────────────────────────────────────
+
+    /** Begins the channel: validates ward/cooldown/mana, spends 100 mana up front, and opens the map client-side. */
+    public static void startApparitionChannel(ServerPlayer player, ItemStack wand) {
+        if (!MagicWandItem.isAnyWand(wand)) {
+            return;
+        }
+        net.minecraft.nbt.CompoundTag playerData = player.getPersistentData();
+        if (playerData.getBoolean(TAG_APPARITION_CHANNELING)) {
+            return; // already channeling — ignore duplicate cast packets
+        }
+        boolean creative = player.isCreative();
+        long now = player.level().getGameTime();
+
+        if (!creative && MagicWandItem.isOnCooldown(wand, SpellType.APPARITION, now)) {
+            return;
+        }
+
+        // Anti-Apparition jinx: you cannot Disapparate from inside an active Cave Inimicum ward.
+        if (player.level() instanceof ServerLevel serverLevel
+                && com.hogwartsmagic.caveinimicum.CaveInimicumManager.get(serverLevel).isWardedAt(player.blockPosition())) {
+            player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                    "message.hogwartsmagic.apparition.warded").withStyle(net.minecraft.ChatFormatting.LIGHT_PURPLE), true);
+            return;
+        }
+
+        net.minecraft.nbt.CompoundTag modData = playerData.getCompound("PlayerPersisted").getCompound(ExampleMod.MODID);
+        float maxMana = PlayerMagicData.getMaxMana(player);
+        float currentMana = modData.contains("Mana") ? modData.getFloat("Mana") : maxMana;
+        if (!creative && currentMana < APPARITION_MANA_COST) {
+            player.displayClientMessage(net.minecraft.network.chat.Component.literal("Not enough mana!")
+                    .withStyle(net.minecraft.ChatFormatting.RED), true);
+            return;
+        }
+        if (!creative) {
+            currentMana -= APPARITION_MANA_COST;
+            modData.putFloat("Mana", currentMana);
+            playerData.getCompound("PlayerPersisted").put(ExampleMod.MODID, modData);
+            SpellPackets.CHANNEL.send(new SpellPackets.SyncManaPacket(currentMana, maxMana), PacketDistributor.PLAYER.with(player));
+        }
+
+        playerData.putBoolean(TAG_APPARITION_CHANNELING, true);
+        playerData.putLong(TAG_APPARITION_START, now);
+        revealInvisibilityCloak(player);
+        player.level().playSound(null, player.blockPosition(),
+                net.minecraft.sounds.SoundEvents.BEACON_DEACTIVATE, SoundSource.PLAYERS, 0.6f, 1.6f);
+        SpellPackets.CHANNEL.send(
+                new SpellPackets.OpenApparitionMapPacket(player.blockPosition(), (int) APPARITION_MAX_RANGE, APPARITION_CHANNEL_TICKS),
+                PacketDistributor.PLAYER.with(player));
+    }
+
+    private static void tickApparitionChannel(ServerPlayer player, net.minecraft.nbt.CompoundTag modData) {
+        net.minecraft.nbt.CompoundTag playerData = player.getPersistentData();
+        if (!playerData.getBoolean(TAG_APPARITION_CHANNELING)) {
+            return;
+        }
+        ItemStack wand = player.getMainHandItem();
+        if (!MagicWandItem.isAnyWand(wand)) {
+            cancelApparitionChannel(player, wand);
+            return;
+        }
+
+        long now = player.level().getGameTime();
+        int elapsed = (int) (now - playerData.getLong(TAG_APPARITION_START));
+        float progress = Math.min(1.0f, elapsed / (float) APPARITION_CHANNEL_TICKS);
+
+        // Implode: shrink the caster over the channel so onlookers see them compress into themselves.
+        applyImplodeScale(player, progress);
+
+        if (player.level() instanceof ServerLevel serverLevel) {
+            int count = 2 + Math.round(progress * 6.0f);
+            serverLevel.sendParticles(ParticleTypes.PORTAL,
+                    player.getX(), player.getY() + 1.0, player.getZ(), count, 0.6, 0.8, 0.6, -0.05);
+            if (elapsed % 10 == 0) {
+                serverLevel.playSound(null, player.blockPosition(),
+                        net.minecraft.sounds.SoundEvents.CONDUIT_AMBIENT, SoundSource.PLAYERS, 0.5f, 0.7f + progress);
+            }
+        }
+
+        // Timed out with no destination chosen → cancel and pay the full cooldown.
+        if (elapsed >= APPARITION_CHANNEL_TICKS) {
+            cancelApparitionChannel(player, wand);
+        }
+    }
+
+    /** Client picked a destination — validate it server-side and (maybe) Apparate there. */
+    public static void completeApparition(ServerPlayer player, int targetX, int targetZ) {
+        net.minecraft.nbt.CompoundTag playerData = player.getPersistentData();
+        if (!playerData.getBoolean(TAG_APPARITION_CHANNELING)) {
+            return;
+        }
+        ItemStack wand = player.getMainHandItem();
+        if (!(player.level() instanceof ServerLevel level)) {
+            cancelApparitionChannel(player, wand);
+            return;
+        }
+
+        Vec3 from = player.position();
+        double dist = Math.hypot((targetX + 0.5) - from.x, (targetZ + 0.5) - from.z);
+        Vec3 dest = findApparitionLanding(level, targetX, targetZ);
+        com.hogwartsmagic.caveinimicum.CaveInimicumManager wards =
+                com.hogwartsmagic.caveinimicum.CaveInimicumManager.get(level);
+        boolean warded = dest != null && wards.isWardedAt(BlockPos.containing(dest.x, dest.y, dest.z));
+
+        if (dest == null || dist > APPARITION_MAX_RANGE + 4.0D || warded) {
+            player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                    "message.hogwartsmagic.apparition.blocked").withStyle(net.minecraft.ChatFormatting.LIGHT_PURPLE), true);
+            cancelApparitionChannel(player, wand);
+            return;
+        }
+
+        // End the channel cleanly (success path applies its own cooldown below).
+        playerData.remove(TAG_APPARITION_CHANNELING);
+        playerData.remove(TAG_APPARITION_START);
+        clearImplodeScale(player);
+        SpellPackets.CHANNEL.send(new SpellPackets.CloseApparitionMapPacket(), PacketDistributor.PLAYER.with(player));
+
+        // Side-along: anyone within a block comes with you. Gather BEFORE moving.
+        java.util.List<LivingEntity> passengers = level.getEntitiesOfClass(LivingEntity.class,
+                player.getBoundingBox().inflate(APPARITION_SIDEALONG_RADIUS), e -> e != player && e.isAlive());
+
+        // Splinch risk scales with distance; a botched jump lands you short.
+        float risk = 0.04f + 0.30f * (float) Math.min(1.0, dist / APPARITION_MAX_RANGE);
+        boolean splinched = !player.isCreative() && player.getRandom().nextFloat() < risk;
+        Vec3 landing = dest;
+        if (splinched) {
+            int sx = (int) Math.floor(from.x + ((targetX + 0.5) - from.x) * 0.65);
+            int sz = (int) Math.floor(from.z + ((targetZ + 0.5) - from.z) * 0.65);
+            Vec3 shortLanding = findApparitionLanding(level, sx, sz);
+            if (shortLanding != null) {
+                landing = shortLanding;
+            }
+        }
+
+        crackEffect(level, from.x, from.y, from.z, true);
+        player.teleportTo(landing.x, landing.y, landing.z);
+        player.fallDistance = 0.0f;
+        crackEffect(level, landing.x, landing.y, landing.z, false);
+
+        for (LivingEntity passenger : passengers) {
+            passenger.teleportTo(landing.x + (player.getRandom().nextDouble() - 0.5) * 1.5,
+                    landing.y, landing.z + (player.getRandom().nextDouble() - 0.5) * 1.5);
+            passenger.fallDistance = 0.0f;
+        }
+
+        if (splinched) {
+            applySplinch(player);
+            for (LivingEntity passenger : passengers) {
+                passenger.hurt(passenger.damageSources().magic(), 4.0f);
+            }
+            player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                    "message.hogwartsmagic.apparition.splinched").withStyle(net.minecraft.ChatFormatting.RED), true);
+        }
+
+        revealInvisibilityCloak(player);
+        applyApparitionCooldown(player, wand);
+    }
+
+    /** Cancel for any reason (timeout, hit while channeling, lost wand, closed map): clears state and applies the full cooldown. */
+    public static void cancelApparitionChannel(ServerPlayer player, ItemStack wand) {
+        net.minecraft.nbt.CompoundTag playerData = player.getPersistentData();
+        if (!playerData.getBoolean(TAG_APPARITION_CHANNELING)) {
+            return;
+        }
+        playerData.remove(TAG_APPARITION_CHANNELING);
+        playerData.remove(TAG_APPARITION_START);
+        clearImplodeScale(player);
+        SpellPackets.CHANNEL.send(new SpellPackets.CloseApparitionMapPacket(), PacketDistributor.PLAYER.with(player));
+        player.level().playSound(null, player.blockPosition(),
+                net.minecraft.sounds.SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS, 0.5f, 0.8f);
+        applyApparitionCooldown(player, wand);
+    }
+
+    private static void applyApparitionCooldown(ServerPlayer player, ItemStack wand) {
+        if (!player.isCreative() && MagicWandItem.isAnyWand(wand)) {
+            long now = player.level().getGameTime();
+            long cooldownTicks = Math.max(1L, Math.round(SpellType.APPARITION.getCooldownTicks()
+                    * HousePerks.getCooldownMultiplier(player) * MagicWandItem.getCooldownMultiplier(wand)));
+            MagicWandItem.setSpellCooldown(wand, SpellType.APPARITION, now + cooldownTicks);
+        }
+    }
+
+    private static void applyImplodeScale(ServerPlayer player, float progress) {
+        AttributeInstance scale = player.getAttribute(Attributes.SCALE);
+        if (scale == null) {
+            return;
+        }
+        float factor = 1.0f - 0.65f * progress; // shrink down to 0.35x at full focus
+        scale.removeModifier(APPARITION_IMPLODE_MODIFIER_ID);
+        scale.addTransientModifier(new net.minecraft.world.entity.ai.attributes.AttributeModifier(
+                APPARITION_IMPLODE_MODIFIER_ID, factor - 1.0f,
+                net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
+    }
+
+    private static void clearImplodeScale(ServerPlayer player) {
+        AttributeInstance scale = player.getAttribute(Attributes.SCALE);
+        if (scale != null) {
+            scale.removeModifier(APPARITION_IMPLODE_MODIFIER_ID);
+        }
+    }
+
+    private static void applySplinch(ServerPlayer player) {
+        player.hurt(player.damageSources().magic(), 8.0f);
+        player.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.WITHER, 120, 1));
+        player.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.CONFUSION, 160, 0));
+        player.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN, 80, 2));
+        // "Leave part of yourself behind": drop one random carried item stack.
+        net.minecraft.world.entity.player.Inventory inv = player.getInventory();
+        java.util.List<Integer> filled = new java.util.ArrayList<>();
+        for (int i = 0; i < inv.getContainerSize(); i++) {
+            if (!inv.getItem(i).isEmpty()) {
+                filled.add(i);
+            }
+        }
+        if (!filled.isEmpty()) {
+            int slot = filled.get(player.getRandom().nextInt(filled.size()));
+            ItemStack dropped = inv.removeItem(slot, 1);
+            if (!dropped.isEmpty()) {
+                player.drop(dropped, true, false);
+            }
+        }
+    }
+
+    private static void crackEffect(ServerLevel level, double x, double y, double z, boolean departure) {
+        level.sendParticles(departure ? ParticleTypes.PORTAL : ParticleTypes.REVERSE_PORTAL,
+                x, y + 1.0, z, 60, 0.5, 1.0, 0.5, departure ? -0.2 : 0.8);
+        level.sendParticles(ParticleTypes.CLOUD, x, y + 1.0, z, 12, 0.3, 0.5, 0.3, 0.02);
+        level.playSound(null, BlockPos.containing(x, y, z),
+                net.minecraft.sounds.SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 1.2f, 0.7f);
+    }
+
+    /** Find a safe feet position (2-high air gap on solid, dry ground) in the target column, or null. */
+    private static Vec3 findApparitionLanding(ServerLevel level, int targetX, int targetZ) {
+        BlockPos probe = new BlockPos(targetX, level.getMinBuildHeight() + 1, targetZ);
+        if (!level.isLoaded(probe)) {
+            return null;
+        }
+        int surface = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, targetX, targetZ);
+        int top = Math.min(surface + 2, level.getMaxBuildHeight() - 2);
+        for (int y = top; y > level.getMinBuildHeight() + 1; y--) {
+            BlockPos feet = new BlockPos(targetX, y, targetZ);
+            BlockPos below = feet.below();
+            if (level.getBlockState(below).isSolidRender(level, below)
+                    && level.getBlockState(feet).getCollisionShape(level, feet).isEmpty()
+                    && level.getBlockState(feet.above()).getCollisionShape(level, feet.above()).isEmpty()
+                    && level.getFluidState(feet).isEmpty()
+                    && level.getFluidState(below).isEmpty()) {
+                return new Vec3(targetX + 0.5, y, targetZ + 0.5);
+            }
+        }
+        return null;
     }
 
     private static void spawnProtegoMaximaSkyBeam(ServerLevel level, ServerPlayer player) {

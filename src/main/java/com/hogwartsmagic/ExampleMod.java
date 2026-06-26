@@ -617,6 +617,8 @@ public class ExampleMod
         com.hogwartsmagic.command.WizardRaidCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.FindDiagonAlleyCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.SpawnDiagonAlleyCommand.register(event.getDispatcher());
+        com.hogwartsmagic.command.FindMiniHogwartsCommand.register(event.getDispatcher());
+        com.hogwartsmagic.command.SpawnMiniHogwartsCommand.register(event.getDispatcher());
     }
 
     private static ArmorMaterial createRobeMaterial(String textureName) {

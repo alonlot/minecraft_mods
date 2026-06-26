@@ -788,6 +788,12 @@ public class ModEvents {
             tickHorcruxRitual(player);
 
             trySpawnInsomniaDementor(player);
+
+            // Once every 5s, check if the player is standing in a Forbidden Forest with no castle
+            // nearby — if so, raise a Mini Hogwarts. Placement runs outside worldgen (no far-chunk crash).
+            if (player.tickCount % 100 == 0) {
+                com.hogwartsmagic.worldgen.MiniHogwartsManager.maybeAutoSpawn(player);
+            }
         } else if (event.side.isClient() && event.phase == net.minecraftforge.event.TickEvent.Phase.END) {
             Player player = event.player;
             com.hogwartsmagic.util.ClientSideBridge.onClientPlayerTick(
@@ -2534,6 +2540,10 @@ public class ModEvents {
 
     @SubscribeEvent
     public static void onServerTick(net.minecraftforge.event.TickEvent.ServerTickEvent event) {
+        if (event.phase == net.minecraftforge.event.TickEvent.Phase.END) {
+            // Advance any in-progress Mini Hogwarts build (spread across ticks).
+            com.hogwartsmagic.worldgen.MiniHogwartsManager.tick(event.getServer());
+        }
         if (event.phase != net.minecraftforge.event.TickEvent.Phase.END || ACTIVE_WIZARD_RAIDS.isEmpty()) {
             return;
         }

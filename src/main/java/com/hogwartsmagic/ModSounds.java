@@ -79,6 +79,12 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> WEREWOLF_HOWL = register("werewolf.howl");
     public static final RegistryObject<SoundEvent> PATRONUS_AMBIENT = register("patronus.ambient");
 
+    // Item / gear SFX
+    public static final RegistryObject<SoundEvent> BROOM_BOOST = register("broom.boost");
+    public static final RegistryObject<SoundEvent> BROOM_STALL = register("broom.stall");
+    public static final RegistryObject<SoundEvent> CLOAK_VANISH = register("cloak.vanish");
+    public static final RegistryObject<SoundEvent> CLOAK_REVEAL = register("cloak.reveal");
+
     private static RegistryObject<SoundEvent> register(String name) {
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, name);
         return SOUND_EVENTS.register(name, () -> SoundEvent.createVariableRangeEvent(id));

@@ -45,7 +45,7 @@ public class InvisibilityCloakItem extends Item {
 
         if (!level.isClientSide && cloakActive && player instanceof ServerPlayer serverPlayer) {
             deactivate(serverPlayer);
-            level.playSound(null, player.blockPosition(), SoundEvents.ILLUSIONER_MIRROR_MOVE, SoundSource.PLAYERS, 0.7f, 0.9f);
+            level.playSound(null, player.blockPosition(), com.hogwartsmagic.ModSounds.CLOAK_REVEAL.get(), SoundSource.PLAYERS, 0.8f, 1.0f);
             return InteractionResultHolder.sidedSuccess(stack, false);
         }
 
@@ -58,7 +58,7 @@ public class InvisibilityCloakItem extends Item {
 
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             activate(serverPlayer, stack);
-            level.playSound(null, player.blockPosition(), SoundEvents.ILLUSIONER_CAST_SPELL, SoundSource.PLAYERS, 0.8f, 1.15f);
+            level.playSound(null, player.blockPosition(), com.hogwartsmagic.ModSounds.CLOAK_VANISH.get(), SoundSource.PLAYERS, 0.8f, 1.0f);
         }
         return InteractionResultHolder.sidedSuccess(stack, level.isClientSide());
     }

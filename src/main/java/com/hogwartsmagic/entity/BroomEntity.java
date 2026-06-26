@@ -283,14 +283,14 @@ public class BroomEntity extends Entity {
                 this.setBoostingSynced(this.isBoosting);
             }
             if (this.isBoosting && !this.wasBoostingLast) {
-                // Boost-on whoosh — firework launch hiss has the right "punch up" character.
+                // Boost-on whoosh — custom magical broom acceleration surge.
                 this.level().playSound(null, this.getX(), this.getY(), this.getZ(),
-                        SoundEvents.FIREWORK_ROCKET_LAUNCH, SoundSource.PLAYERS, 0.9F, 1.25F);
+                        com.hogwartsmagic.ModSounds.BROOM_BOOST.get(), SoundSource.PLAYERS, 0.9F, 1.0F);
             }
             if (!this.isBoosting && this.wasBoostingLast && this.boostLocked) {
-                // Stamina-out sound: low fizz when boost cuts out from overheat.
+                // Stamina-out sound: the broom's boost sputters and winds down.
                 this.level().playSound(null, this.getX(), this.getY(), this.getZ(),
-                        SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS, 0.5F, 1.6F);
+                        com.hogwartsmagic.ModSounds.BROOM_STALL.get(), SoundSource.PLAYERS, 0.7F, 1.0F);
             }
             this.wasBoostingLast = this.isBoosting;
 

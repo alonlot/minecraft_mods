@@ -441,5 +441,9 @@
   "subtitles.hogwartsmagic.werewolf.hurt": "Werewolf snarls",
   "subtitles.hogwartsmagic.werewolf.death": "Werewolf dies",
   "subtitles.hogwartsmagic.werewolf.howl": "Werewolf howls",
-  "subtitles.hogwartsmagic.patronus.ambient": "Patronus shimmers"
+  "subtitles.hogwartsmagic.patronus.ambient": "Patronus shimmers",
+  "subtitles.hogwartsmagic.broom.boost": "Broom surges forward",
+  "subtitles.hogwartsmagic.broom.stall": "Broom sputters out",
+  "subtitles.hogwartsmagic.cloak.vanish": "Cloak shimmers away",
+  "subtitles.hogwartsmagic.cloak.reveal": "Cloak shimmers back"
 }

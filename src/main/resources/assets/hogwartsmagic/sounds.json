@@ -504,5 +504,41 @@
         "stream": false
       }
     ]
+  },
+  "broom.boost": {
+    "subtitle": "subtitles.hogwartsmagic.broom.boost",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:broom/boost",
+        "stream": false
+      }
+    ]
+  },
+  "broom.stall": {
+    "subtitle": "subtitles.hogwartsmagic.broom.stall",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:broom/stall",
+        "stream": false
+      }
+    ]
+  },
+  "cloak.vanish": {
+    "subtitle": "subtitles.hogwartsmagic.cloak.vanish",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:cloak/vanish",
+        "stream": false
+      }
+    ]
+  },
+  "cloak.reveal": {
+    "subtitle": "subtitles.hogwartsmagic.cloak.reveal",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:cloak/reveal",
+        "stream": false
+      }
+    ]
   }
 }

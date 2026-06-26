@@ -12,7 +12,11 @@
       "Bash(git push *)",
       "Bash(./gradlew compileJava)",
       "Bash(./gradlew compileJava -q)",
-      "Bash(python -c \"from PIL import Image; print\\('PIL OK'\\)\")"
+      "Bash(python -c \"from PIL import Image; print\\('PIL OK'\\)\")",
+      "Bash(python tools/gen_troll_texture.py)",
+      "Bash(mkdir -p \"/c/Users/alonl/OneDrive/Desktop/harry potter mod neoforge\")",
+      "Bash(tar -cf - --exclude=./build --exclude=./.gradle --exclude=./.git --exclude=./run --exclude=./run-data --exclude=./tmp --exclude=./tmp_extract --exclude=./tmp_sources --exclude=./__pycache__ --exclude=./tmpclaude-*-cwd --exclude=*.log --exclude=./build_*.txt --exclude=./build_*.log --exclude=./build_output.* --exclude=./error*.log --exclude=./class_dump.txt --exclude=./compile_*.txt --exclude=./gui_*.txt --exclude=./reg_gui*.txt --exclude=./register_gui_*.txt --exclude=./events.txt --exclude=./cp.txt .)",
+      "Bash(tar -xf - -C \"/c/Users/alonl/OneDrive/Desktop/harry potter mod neoforge/\")"
     ]
   }
 }

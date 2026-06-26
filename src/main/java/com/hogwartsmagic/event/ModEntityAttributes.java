@@ -5,6 +5,7 @@ import com.hogwartsmagic.entity.AcromantulaEntity;
 import com.hogwartsmagic.entity.BasiliskEntity;
 import com.hogwartsmagic.entity.FlyingMobEntity;
 import com.hogwartsmagic.entity.HippogriffEntity;
+import com.hogwartsmagic.entity.HungarianHorntailEntity;
 import com.hogwartsmagic.entity.MinatorEntity;
 import com.hogwartsmagic.entity.ModEntities;
 import com.hogwartsmagic.entity.OwlEntity;
@@ -36,6 +37,7 @@ public class ModEntityAttributes {
         event.put(ModEntities.MINATOR.get(), MinatorEntity.createAttributes().build());
         event.put(ModEntities.BASILISK.get(), BasiliskEntity.createAttributes().build());
         event.put(ModEntities.TROLL.get(), TrollEntity.createAttributes().build());
+        event.put(ModEntities.HUNGARIAN_HORNTAIL.get(), HungarianHorntailEntity.createAttributes().build());
         event.put(ModEntities.LYCANTHROPE_VILLAGER.get(), LycanthropeVillagerEntity.createAttributes().build());
     }
 }

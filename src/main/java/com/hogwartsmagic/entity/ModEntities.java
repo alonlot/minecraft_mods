@@ -146,6 +146,14 @@ public class ModEntities {
                             .clientTrackingRange(12)
                             .build("troll"));
 
+    public static final RegistryObject<EntityType<HungarianHorntailEntity>> HUNGARIAN_HORNTAIL =
+            ENTITY_TYPES.register("hungarian_horntail",
+                    () -> EntityType.Builder.<HungarianHorntailEntity>of(HungarianHorntailEntity::new, MobCategory.MONSTER)
+                            .sized(3.0F, 3.2F)
+                            .clientTrackingRange(16)
+                            .fireImmune()
+                            .build("hungarian_horntail"));
+
     public static final RegistryObject<EntityType<PetrifiedRemainsEntity>> PETRIFIED_REMAINS =
             ENTITY_TYPES.register("petrified_remains",
                     () -> EntityType.Builder.<PetrifiedRemainsEntity>of(PetrifiedRemainsEntity::new, MobCategory.MISC)

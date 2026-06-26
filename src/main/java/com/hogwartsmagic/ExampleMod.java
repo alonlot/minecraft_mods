@@ -461,6 +461,9 @@ public class ExampleMod
     public static final RegistryObject<Item> TROLL_SPAWN_EGG = ITEMS.register("troll_spawn_egg",
             () -> new net.minecraftforge.common.ForgeSpawnEggItem(ModEntities.TROLL, 0x777365, 0x3F6A2E, new Item.Properties()));
 
+    public static final RegistryObject<Item> HUNGARIAN_HORNTAIL_SPAWN_EGG = ITEMS.register("hungarian_horntail_spawn_egg",
+            () -> new net.minecraftforge.common.ForgeSpawnEggItem(ModEntities.HUNGARIAN_HORNTAIL, 0x12100E, 0xC79A3A, new Item.Properties()));
+
     public static final RegistryObject<CreativeModeTab> MAIN_TAB = CREATIVE_MODE_TABS.register("main_tab", () -> CreativeModeTab.builder()
             .withTabsBefore(CreativeModeTabs.COMBAT)
             .icon(() -> HARRY_POTTER_WAND.get().getDefaultInstance())
@@ -537,6 +540,7 @@ public class ExampleMod
                 output.accept(MINATOR_SPAWN_EGG.get()); // Minator Spawn Egg
                 output.accept(BASILISK_SPAWN_EGG.get()); // Basilisk Spawn Egg
                 output.accept(TROLL_SPAWN_EGG.get()); // Troll Spawn Egg
+                output.accept(HUNGARIAN_HORNTAIL_SPAWN_EGG.get()); // Hungarian Horntail Spawn Egg
                 // Add books for all spells
                 for (com.hogwartsmagic.spell.SpellType spell : com.hogwartsmagic.spell.SpellType.values()) {
                     output.accept(com.hogwartsmagic.item.MagicBookItem.createBook(spell));
@@ -619,6 +623,7 @@ public class ExampleMod
         com.hogwartsmagic.command.SpawnDiagonAlleyCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.FindMiniHogwartsCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.SpawnMiniHogwartsCommand.register(event.getDispatcher());
+        com.hogwartsmagic.command.SummonHorntailCommand.register(event.getDispatcher());
     }
 
     private static ArmorMaterial createRobeMaterial(String textureName) {

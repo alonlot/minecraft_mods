@@ -120,6 +120,8 @@
   "entity.hogwartsmagic.basilisk": "Basilisk",
   "item.hogwartsmagic.troll_spawn_egg": "Mountain Troll Spawn Egg",
   "entity.hogwartsmagic.troll": "Mountain Troll",
+  "item.hogwartsmagic.hungarian_horntail_spawn_egg": "Hungarian Horntail Spawn Egg",
+  "entity.hogwartsmagic.hungarian_horntail": "Hungarian Horntail",
   "entity.hogwartsmagic.lycanthrope_villager": "Villager",
   "spell.hogwartsmagic.expecto_patronum": "Expecto Patronum",
   "spell.hogwartsmagic.expecto_patronum.desc": "Summons a majestic glowing Patronus to repel evil Dementors and light up the darkness.",

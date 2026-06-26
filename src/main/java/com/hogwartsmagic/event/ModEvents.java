@@ -785,6 +785,7 @@ public class ModEvents {
             tickWingardiumChannel(player, modData);
             tickImperioChannel(player, modData);
             tickApparitionChannel(player, modData);
+            tickAccioPull(player);
             tickHorcruxRitual(player);
 
             trySpawnInsomniaDementor(player);
@@ -1672,6 +1673,50 @@ public class ModEvents {
         SpellPackets.CHANNEL.send(
                 new SpellPackets.OpenApparitionMapPacket(player.blockPosition(), (int) APPARITION_MAX_RANGE, APPARITION_CHANNEL_TICKS),
                 PacketDistributor.PLAYER.with(player));
+    }
+
+    // --- Accio: continuously reel a struck target in toward the caster until it arrives ---
+    private static final String TAG_ACCIO_TARGET = "hogwartsmagic:accio_target";
+    private static final String TAG_ACCIO_UNTIL = "hogwartsmagic:accio_until";
+    private static final int ACCIO_PULL_TICKS = 70;
+
+    /** Called when Accio strikes a target: registers it to be pulled in over the next few seconds. */
+    public static void startAccioPull(ServerPlayer caster, net.minecraft.world.entity.LivingEntity target) {
+        if (target == null || target == caster) return;
+        caster.getPersistentData().putUUID(TAG_ACCIO_TARGET, target.getUUID());
+        caster.getPersistentData().putLong(TAG_ACCIO_UNTIL, caster.level().getGameTime() + ACCIO_PULL_TICKS);
+    }
+
+    private static void tickAccioPull(ServerPlayer player) {
+        net.minecraft.nbt.CompoundTag data = player.getPersistentData();
+        if (!data.hasUUID(TAG_ACCIO_TARGET)) return;
+        long now = player.level().getGameTime();
+        net.minecraft.world.entity.Entity raw = player.serverLevel().getEntity(data.getUUID(TAG_ACCIO_TARGET));
+        if (raw == null || !raw.isAlive() || !player.isAlive() || now > data.getLong(TAG_ACCIO_UNTIL)) {
+            data.remove(TAG_ACCIO_TARGET);
+            data.remove(TAG_ACCIO_UNTIL);
+            return;
+        }
+        net.minecraft.world.phys.Vec3 toPlayer = player.position()
+                .add(0.0D, player.getBbHeight() * 0.5D, 0.0D).subtract(raw.position());
+        double dist = toPlayer.length();
+        if (dist < 1.8D) { // arrived
+            data.remove(TAG_ACCIO_TARGET);
+            data.remove(TAG_ACCIO_UNTIL);
+            return;
+        }
+        net.minecraft.world.phys.Vec3 dir = toPlayer.scale(1.0D / dist);
+        double speed = Math.min(1.1D, 0.35D + dist * 0.12D);
+        raw.setDeltaMovement(dir.x * speed, dir.y * speed + 0.08D, dir.z * speed);
+        raw.hurtMarked = true; // force the server to sync the new velocity to clients
+        raw.fallDistance = 0.0F;
+        if (raw instanceof net.minecraft.world.entity.Mob mob) {
+            mob.getNavigation().stop();
+        }
+        if (player.level() instanceof ServerLevel sl && now % 2 == 0) {
+            sl.sendParticles(net.minecraft.core.particles.ParticleTypes.CLOUD,
+                    raw.getX(), raw.getY() + raw.getBbHeight() * 0.5D, raw.getZ(), 2, 0.1D, 0.1D, 0.1D, 0.01D);
+        }
     }
 
     private static void tickApparitionChannel(ServerPlayer player, net.minecraft.nbt.CompoundTag modData) {

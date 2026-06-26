@@ -186,10 +186,15 @@ public enum SpellType {
             case PROTEGO -> target.addEffect(new MobEffectInstance(ExampleMod.PROTEGO_EFFECT.getHolder().get(), 100, 0));
             case LUMOS -> target.addEffect(new MobEffectInstance(ExampleMod.LUMOS_EFFECT.getHolder().get(), 12000, 0));
             case ACCIO -> {
-                net.minecraft.world.phys.Vec3 toward = target.position().vectorTo(
-                        caster != null ? caster.getEyePosition(1) : target.position().add(0, 0, 5))
-                        .normalize().scale(0.8);
-                target.push(toward.x, 0.3, toward.z);
+                // Continuously reel the target in toward the caster until it reaches them.
+                if (caster instanceof net.minecraft.server.level.ServerPlayer sp) {
+                    com.hogwartsmagic.event.ModEvents.startAccioPull(sp, target);
+                } else {
+                    net.minecraft.world.phys.Vec3 toward = target.position().vectorTo(
+                            caster != null ? caster.getEyePosition(1) : target.position().add(0, 0, 5))
+                            .normalize().scale(0.8);
+                    target.push(toward.x, 0.3, toward.z);
+                }
             }
             case WINGARDIUM_LEVIOSA -> {
             }

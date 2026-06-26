@@ -1,6 +1,10 @@
 package com.hogwartsmagic.worldgen;
 
+import com.hogwartsmagic.ExampleMod;
+import com.hogwartsmagic.item.MagicBookItem;
+import com.hogwartsmagic.spell.SpellType;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
@@ -8,12 +12,21 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.ChestBlock;
+import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.Heightmap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Builds the {@link MiniHogwartsSchematic} into the world at runtime, OUTSIDE the worldgen feature
@@ -101,6 +114,7 @@ public final class MiniHogwartsManager {
             return;
         }
         if (activeJob.advance(BLOCKS_PER_TICK)) {
+            activeJob.furnish(); // one-shot: themed chests + decorations in the landmark rooms
             LOGGER.info("Mini Hogwarts placement complete ({} blocks)", activeJob.total);
             activeJob = null;
         }
@@ -156,6 +170,13 @@ public final class MiniHogwartsManager {
         private final int total;
         /** Lowest non-air schematic Y per column (z*width + x), or -1 if the column is all air. */
         private final int[] lowestSolidY;
+        // Landmark locals found during analysis (-1 / 0-count when absent).
+        private int enchantX = -1, enchantY = -1, enchantZ = -1;
+        private long bookSumX, bookSumY, bookSumZ;
+        private int bookCount;
+        private long ironSumX, ironSumY, ironSumZ;
+        private int ironCount;
+        private int topX = -1, topY = -1, topZ = -1; // highest solid block (for a tower treasure)
         private final BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
         private int cursor;       // phase 1: cell index
         private int columnCursor; // phase 2: column index
@@ -167,27 +188,47 @@ public final class MiniHogwartsManager {
             this.width = schem.width();
             this.length = schem.length();
             this.total = schem.volume();
-            this.lowestSolidY = computeLowestSolid(schem);
+            this.lowestSolidY = new int[width * length];
+            analyze();
         }
 
-        private static int[] computeLowestSolid(MiniHogwartsSchematic schem) {
-            int w = schem.width();
-            int l = schem.length();
-            int wl = w * l;
-            int[] lowest = new int[wl];
-            java.util.Arrays.fill(lowest, -1);
-            int total = schem.volume();
-            // Cells iterate y-ascending, so the first non-air cell seen per column is its lowest block.
+        /** Single pass: lowest-solid per column + landmark locations (enchanting room, library, dungeon, tower). */
+        private void analyze() {
+            int wl = width * length;
+            java.util.Arrays.fill(lowestSolidY, -1);
             for (int idx = 0; idx < total; idx++) {
-                int col = idx % wl;
-                if (lowest[col] != -1) {
+                BlockState state = schem.blockAt(idx);
+                if (state.isAir()) {
                     continue;
                 }
-                if (!schem.blockAt(idx).isAir()) {
-                    lowest[col] = idx / wl;
+                int col = idx % wl;
+                int y = idx / wl;
+                if (lowestSolidY[col] == -1) {
+                    lowestSolidY[col] = y; // y-ascending iteration → first hit is lowest
+                }
+                int x = col % width;
+                int z = col / width;
+                if (state.is(Blocks.ENCHANTING_TABLE) && enchantX == -1) {
+                    enchantX = x;
+                    enchantY = y;
+                    enchantZ = z;
+                } else if (state.is(Blocks.BOOKSHELF)) {
+                    bookSumX += x;
+                    bookSumY += y;
+                    bookSumZ += z;
+                    bookCount++;
+                } else if (state.is(Blocks.IRON_BARS)) {
+                    ironSumX += x;
+                    ironSumY += y;
+                    ironSumZ += z;
+                    ironCount++;
+                }
+                if (y > topY) {
+                    topY = y;
+                    topX = x;
+                    topZ = z;
                 }
             }
-            return lowest;
         }
 
         /** Place up to roughly {@code budget} blocks; returns true when the whole castle (and skirt) is done. */
@@ -234,6 +275,240 @@ public final class MiniHogwartsManager {
                 columnCursor++;
             }
             return columnCursor >= wl;
+        }
+
+        // ── Furnishing: themed chests + decorations in the landmark rooms ──────────────────
+
+        /** Runs once after the castle is fully placed. Each item only lands on an empty floor tile. */
+        void furnish() {
+            RandomSource rng = level.getRandom();
+            int placed = 0;
+
+            // Library — wherever the bookshelves cluster.
+            if (bookCount > 0) {
+                BlockPos spot = floorSpotNear(bookSumX / bookCount, bookSumY / bookCount, bookSumZ / bookCount, 6);
+                if (placeChest(spot, Theme.LIBRARY, rng)) {
+                    placed++;
+                    decoNear(spot, Blocks.LECTERN.defaultBlockState());
+                    decoNear(spot, Blocks.LANTERN.defaultBlockState());
+                }
+            }
+            // Spell study — beside the enchanting table.
+            if (enchantX >= 0) {
+                BlockPos spot = floorSpotNear(enchantX, enchantY, enchantZ, 5);
+                if (placeChest(spot, Theme.SPELL_STUDY, rng)) {
+                    placed++;
+                    decoNear(spot, Blocks.LECTERN.defaultBlockState());
+                    decoNear(spot, Blocks.LANTERN.defaultBlockState());
+                }
+            }
+            // Dungeon — among the iron bars.
+            if (ironCount > 0) {
+                BlockPos spot = floorSpotNear(ironSumX / ironCount, ironSumY / ironCount, ironSumZ / ironCount, 6);
+                if (placeChest(spot, Theme.DUNGEON, rng)) {
+                    placed++;
+                    decoNear(spot, Blocks.COBWEB.defaultBlockState());
+                    decoNear(spot, Blocks.TORCH.defaultBlockState());
+                }
+            }
+            // Great Hall — the ground floor at the footprint center, with a short carpet runner.
+            BlockPos hall = floorSpotNear(width / 2, 1, length / 2, 10);
+            if (placeChest(hall, Theme.GREAT_HALL, rng)) {
+                placed++;
+                layCarpetRunner(hall);
+                decoNear(hall, Blocks.LANTERN.defaultBlockState());
+                decoNear(hall, Blocks.FLOWER_POT.defaultBlockState());
+            }
+            // Tower treasure — a hidden pocket near the very top.
+            if (topX >= 0) {
+                BlockPos spot = floorSpotNear(topX, topY - 2, topZ, 6);
+                if (placeChest(spot, Theme.TOWER, rng)) {
+                    placed++;
+                    decoNear(spot, Blocks.LANTERN.defaultBlockState());
+                }
+            }
+            LOGGER.info("Mini Hogwarts furnished with {} themed chests", placed);
+        }
+
+        /** Find an empty floor tile (air with a solid block below) near a local position, or null. */
+        private BlockPos floorSpotNear(long localX, long localY, long localZ, int radius) {
+            for (int r = 0; r <= radius; r++) {
+                for (int dx = -r; dx <= r; dx++) {
+                    for (int dz = -r; dz <= r; dz++) {
+                        if (Math.max(Math.abs(dx), Math.abs(dz)) != r) {
+                            continue; // only the ring at exactly distance r
+                        }
+                        for (int dy : new int[]{0, 1, -1, 2}) {
+                            int wx = anchor.getX() + (int) localX + dx;
+                            int wy = anchor.getY() + (int) localY + dy;
+                            int wz = anchor.getZ() + (int) localZ + dz;
+                            mutable.set(wx, wy, wz);
+                            if (!level.getBlockState(mutable).isAir()) {
+                                continue;
+                            }
+                            mutable.set(wx, wy - 1, wz);
+                            if (!level.getBlockState(mutable).isAir()) {
+                                return new BlockPos(wx, wy, wz);
+                            }
+                        }
+                    }
+                }
+            }
+            return null;
+        }
+
+        private boolean placeChest(BlockPos pos, Theme theme, RandomSource rng) {
+            if (pos == null || !level.getBlockState(pos).isAir()) {
+                return false;
+            }
+            level.setBlock(pos, Blocks.CHEST.defaultBlockState().setValue(ChestBlock.FACING, Direction.NORTH), SETBLOCK_FLAGS);
+            if (!(level.getBlockEntity(pos) instanceof ChestBlockEntity chest)) {
+                return false;
+            }
+            List<ItemStack> loot = rollLoot(theme, rng);
+            int slot = rng.nextInt(3);
+            for (ItemStack stack : loot) {
+                if (slot >= 27) {
+                    break;
+                }
+                chest.setItem(slot, stack);
+                slot += 1 + rng.nextInt(3);
+            }
+            return true;
+        }
+
+        /** Place a decoration on the nearest empty floor tile around a spot (no-op if none / not air). */
+        private void decoNear(BlockPos near, BlockState deco) {
+            if (near == null) {
+                return;
+            }
+            BlockPos spot = floorSpotNear(near.getX() - anchor.getX(), near.getY() - anchor.getY(),
+                    near.getZ() - anchor.getZ(), 3);
+            if (spot != null && level.getBlockState(spot).isAir() && !spot.equals(near)) {
+                level.setBlock(spot, deco, SETBLOCK_FLAGS);
+            }
+        }
+
+        private void layCarpetRunner(BlockPos start) {
+            BlockState[] colors = {
+                    Blocks.RED_CARPET.defaultBlockState(), Blocks.BLUE_CARPET.defaultBlockState(),
+                    Blocks.YELLOW_CARPET.defaultBlockState(), Blocks.GREEN_CARPET.defaultBlockState()
+            };
+            for (int i = 0; i < 6; i++) {
+                mutable.set(start.getX() + i, start.getY(), start.getZ());
+                if (!level.getBlockState(mutable).isAir()) {
+                    continue;
+                }
+                mutable.set(start.getX() + i, start.getY() - 1, start.getZ());
+                if (level.getBlockState(mutable).isAir()) {
+                    continue;
+                }
+                level.setBlock(new BlockPos(start.getX() + i, start.getY(), start.getZ()), colors[i % colors.length], SETBLOCK_FLAGS);
+            }
+        }
+    }
+
+    // ── Loot tables (mirrors the Diagon Alley themed-chest approach) ──────────────────────
+
+    private enum Theme { LIBRARY, SPELL_STUDY, DUNGEON, GREAT_HALL, TOWER }
+
+    private static List<ItemStack> rollLoot(Theme theme, RandomSource rng) {
+        List<ItemStack> out = new ArrayList<>();
+        switch (theme) {
+            case LIBRARY -> {
+                SpellType[] commons = {SpellType.LUMOS, SpellType.ALOHOMORA, SpellType.REVELIO,
+                        SpellType.WINGARDIUM_LEVIOSA, SpellType.ARRESTO_MOMENTUM, SpellType.REPARO};
+                SpellType[] advanced = {SpellType.PROTEGO, SpellType.EXPELLIARMUS, SpellType.STUPEFY, SpellType.DIFFINDO};
+                for (int i = 0; i < 3 + rng.nextInt(4); i++) {
+                    addBook(out, commons[rng.nextInt(commons.length)]);
+                }
+                for (int i = 0; i < 1 + rng.nextInt(2); i++) {
+                    addBook(out, advanced[rng.nextInt(advanced.length)]);
+                }
+                addStack(out, Items.BOOK, 4 + rng.nextInt(6));
+                addStack(out, Items.WRITABLE_BOOK, 1 + rng.nextInt(2));
+                addStack(out, Items.PAPER, 6 + rng.nextInt(8));
+            }
+            case SPELL_STUDY -> {
+                SpellType[] study = {SpellType.PROTEGO, SpellType.STUPEFY, SpellType.REVELIO,
+                        SpellType.INCENDIO, SpellType.GLACIUS, SpellType.PETRIFICUS_TOTALUS};
+                for (int i = 0; i < 2 + rng.nextInt(3); i++) {
+                    addBook(out, study[rng.nextInt(study.length)]);
+                }
+                addStack(out, Items.LAPIS_LAZULI, 6 + rng.nextInt(10));
+                addStack(out, Items.ENCHANTED_BOOK, 1 + rng.nextInt(2));
+                addStack(out, Items.EXPERIENCE_BOTTLE, 3 + rng.nextInt(5));
+                addStack(out, Items.GLASS_BOTTLE, 3 + rng.nextInt(3));
+                addStack(out, optionalItem("ARCANE_DUST"), 2 + rng.nextInt(4));
+            }
+            case DUNGEON -> {
+                SpellType[] dark = {SpellType.SECTUMSEMPRA, SpellType.CRUCIO, SpellType.DOLOHOV_CURSE,
+                        SpellType.INCARCEROUS, SpellType.CONFRINGO};
+                addBook(out, dark[rng.nextInt(dark.length)]);
+                if (rng.nextFloat() < 0.25F) {
+                    addBook(out, dark[rng.nextInt(dark.length)]);
+                }
+                addStack(out, Items.BONE, 4 + rng.nextInt(6));
+                addStack(out, Items.ROTTEN_FLESH, 4 + rng.nextInt(6));
+                addStack(out, Items.SOUL_SAND, 2 + rng.nextInt(3));
+                addStack(out, Items.IRON_INGOT, 1 + rng.nextInt(3));
+                addStack(out, Items.COBWEB, 1 + rng.nextInt(3));
+                if (rng.nextFloat() < 0.20F) {
+                    addStack(out, Items.SKELETON_SKULL, 1);
+                }
+            }
+            case GREAT_HALL -> {
+                addStack(out, Items.BREAD, 4 + rng.nextInt(6));
+                addStack(out, Items.COOKED_BEEF, 2 + rng.nextInt(4));
+                addStack(out, Items.GOLDEN_CARROT, 1 + rng.nextInt(2));
+                addStack(out, Items.CAKE, 1);
+                addStack(out, Items.PUMPKIN_PIE, 1 + rng.nextInt(2));
+                addStack(out, Items.POTION, 1);
+                addStack(out, Items.GLASS_BOTTLE, 3);
+                addBook(out, SpellType.LUMOS);
+                if (rng.nextFloat() < 0.5F) {
+                    addBook(out, SpellType.ACCIO);
+                }
+            }
+            case TOWER -> {
+                SpellType[] rare = {SpellType.EXPECTO_PATRONUM, SpellType.PROTEGO_MAXIMA,
+                        SpellType.FIENDFYRE, SpellType.BOMBARDA, SpellType.APPARITION};
+                addBook(out, rare[rng.nextInt(rare.length)]);
+                addStack(out, Items.GOLD_INGOT, 4 + rng.nextInt(6));
+                addStack(out, Items.DIAMOND, 1 + rng.nextInt(3));
+                addStack(out, Items.EMERALD, 3 + rng.nextInt(5));
+                addStack(out, Items.EXPERIENCE_BOTTLE, 4 + rng.nextInt(4));
+                if (rng.nextFloat() < 0.05F) {
+                    addStack(out, optionalItem("ELDER_WAND"), 1);
+                }
+            }
+        }
+        return out;
+    }
+
+    /** Looks up a registered mod item by its ExampleMod field name; returns null if missing. */
+    private static Item optionalItem(String fieldName) {
+        try {
+            java.lang.reflect.Field f = ExampleMod.class.getField(fieldName);
+            Object regObject = f.get(null);
+            if (regObject instanceof net.minecraftforge.registries.RegistryObject<?> ro && ro.get() instanceof Item item) {
+                return item;
+            }
+        } catch (Throwable ignored) {
+        }
+        return null;
+    }
+
+    private static void addStack(List<ItemStack> out, Item item, int count) {
+        if (item != null && count > 0) {
+            out.add(new ItemStack(item, count));
+        }
+    }
+
+    private static void addBook(List<ItemStack> out, SpellType spell) {
+        try {
+            out.add(MagicBookItem.createBook(spell));
+        } catch (Throwable ignored) {
         }
     }
 }

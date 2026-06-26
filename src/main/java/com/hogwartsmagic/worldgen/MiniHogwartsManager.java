@@ -115,6 +115,7 @@ public final class MiniHogwartsManager {
         }
         if (activeJob.advance(BLOCKS_PER_TICK)) {
             activeJob.furnish(); // one-shot: themed chests + decorations in the landmark rooms
+            activeJob.spawnStudents(); // populate the finished castle with a crowd of students
             LOGGER.info("Mini Hogwarts placement complete ({} blocks)", activeJob.total);
             activeJob = null;
         }
@@ -328,6 +329,44 @@ public final class MiniHogwartsManager {
                 }
             }
             LOGGER.info("Mini Hogwarts furnished with {} themed chests", placed);
+        }
+
+        /** Populate the finished castle with a crowd of wandering Hogwarts students across its floors. */
+        void spawnStudents() {
+            RandomSource rng = level.getRandom();
+            final int target = 32;
+            int spawned = 0;
+            int h = schem.height();
+            int[] floorYs = { 2, Math.max(2, h / 4), Math.max(2, h / 2), Math.max(2, (h * 3) / 4) };
+            int stepX = Math.max(5, width / 7);
+            int stepZ = Math.max(5, length / 7);
+            outer:
+            for (int ly : floorYs) {
+                for (int lx = stepX / 2; lx < width; lx += stepX) {
+                    for (int lz = stepZ / 2; lz < length; lz += stepZ) {
+                        if (spawned >= target) {
+                            break outer;
+                        }
+                        BlockPos spot = floorSpotNear(lx, ly, lz, 5);
+                        if (spot == null || !level.getBlockState(spot.above()).isAir()) {
+                            continue; // need head room for the student
+                        }
+                        com.hogwartsmagic.entity.StudentEntity student =
+                                com.hogwartsmagic.entity.ModEntities.STUDENT.get().create(level);
+                        if (student == null) {
+                            continue;
+                        }
+                        student.moveTo(spot.getX() + 0.5D, spot.getY(), spot.getZ() + 0.5D,
+                                rng.nextFloat() * 360.0F, 0.0F);
+                        student.finalizeSpawn(level, level.getCurrentDifficultyAt(spot),
+                                net.minecraft.world.entity.MobSpawnType.STRUCTURE, null);
+                        student.setPersistenceRequired();
+                        level.addFreshEntity(student);
+                        spawned++;
+                    }
+                }
+            }
+            LOGGER.info("Mini Hogwarts populated with {} students", spawned);
         }
 
         /** Find an empty floor tile (air with a solid block below) near a local position, or null. */

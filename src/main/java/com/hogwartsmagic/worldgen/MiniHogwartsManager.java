@@ -37,8 +37,11 @@ public final class MiniHogwartsManager {
     private static final int AUTO_SPAWN_SPACING = 1500;
     /** How far from the triggering player to drop an auto-spawned castle (so it isn't on their head). */
     private static final int AUTO_SPAWN_OFFSET = 90;
-    /** Sink the schematic's base this far below the sampled surface so its foundation isn't floating. */
-    private static final int FOUNDATION_SINK = 4;
+    /** Tuck the base this far below the HIGHEST ground under the footprint so it sits on the hill, not buried. */
+    private static final int FOUNDATION_SINK = 2;
+    /** Max depth of the stone support skirt filled under floating parts (only fills air, stops at ground). */
+    private static final int MAX_SKIRT_DEPTH = 64;
+    private static final BlockState FOUNDATION_FILLER = Blocks.STONE.defaultBlockState();
     private static final int SETBLOCK_FLAGS = net.minecraft.world.level.block.Block.UPDATE_CLIENTS;
 
     private static PlacementJob activeJob;
@@ -63,9 +66,25 @@ public final class MiniHogwartsManager {
             return null;
         }
 
-        int surfaceY = level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, center.getX(), center.getZ());
-        int anchorY = Math.max(level.getMinBuildHeight() + 1, surfaceY - FOUNDATION_SINK);
-        BlockPos anchor = new BlockPos(center.getX() - schem.width() / 2, anchorY, center.getZ() - schem.length() / 2);
+        // Anchor the base to the HIGHEST ground under the footprint (sampled on a 3x3 grid), so the castle
+        // sits on top of the hill rather than burying its lower floors; the support skirt fills under the
+        // downhill side. Sample ground excluding tree leaves so we don't perch it on the canopy.
+        int w = schem.width();
+        int l = schem.length();
+        int maxGround = Integer.MIN_VALUE;
+        for (int sx = -w / 2; sx <= w / 2; sx += w / 2) {
+            for (int sz = -l / 2; sz <= l / 2; sz += l / 2) {
+                int h = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, center.getX() + sx, center.getZ() + sz);
+                if (h > level.getMinBuildHeight() + 1) {
+                    maxGround = Math.max(maxGround, h);
+                }
+            }
+        }
+        if (maxGround == Integer.MIN_VALUE) {
+            maxGround = level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, center.getX(), center.getZ());
+        }
+        int anchorY = Math.max(level.getMinBuildHeight() + 1, maxGround - FOUNDATION_SINK);
+        BlockPos anchor = new BlockPos(center.getX() - w / 2, anchorY, center.getZ() - l / 2);
 
         BlockPos recordedCenter = new BlockPos(center.getX(), anchorY + schem.height() / 3, center.getZ());
         activeJob = new PlacementJob(level, schem, anchor);
@@ -120,7 +139,14 @@ public final class MiniHogwartsManager {
         }
     }
 
-    /** A castle build in progress: walks the schematic cells, placing a budget of blocks per tick. */
+    /**
+     * A castle build in progress, run across ticks in two phases:
+     *   1. Solids — place every NON-air schematic block (air is skipped, so the surrounding terrain
+     *      is never carved into a box and nothing to the side is destroyed).
+     *   2. Skirt — under each footprint column, fill a stone support straight down from the castle's
+     *      lowest block until it meets the ground. Only AIR is filled, so the castle never floats and
+     *      no existing side terrain is replaced.
+     */
     private static final class PlacementJob {
         private final ServerLevel level;
         private final MiniHogwartsSchematic schem;
@@ -128,8 +154,11 @@ public final class MiniHogwartsManager {
         private final int width;
         private final int length;
         private final int total;
+        /** Lowest non-air schematic Y per column (z*width + x), or -1 if the column is all air. */
+        private final int[] lowestSolidY;
         private final BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
-        private int cursor;
+        private int cursor;       // phase 1: cell index
+        private int columnCursor; // phase 2: column index
 
         PlacementJob(ServerLevel level, MiniHogwartsSchematic schem, BlockPos anchor) {
             this.level = level;
@@ -138,21 +167,73 @@ public final class MiniHogwartsManager {
             this.width = schem.width();
             this.length = schem.length();
             this.total = schem.volume();
+            this.lowestSolidY = computeLowestSolid(schem);
         }
 
-        /** Place up to {@code budget} more blocks; returns true when the whole castle is placed. */
-        boolean advance(int budget) {
-            int end = Math.min(total, cursor + budget);
-            int wl = width * length;
-            for (; cursor < end; cursor++) {
-                int x = cursor % width;
-                int z = (cursor / width) % length;
-                int y = cursor / wl;
-                BlockState state = schem.blockAt(cursor);
-                mutable.set(anchor.getX() + x, anchor.getY() + y, anchor.getZ() + z);
-                level.setBlock(mutable, state, SETBLOCK_FLAGS);
+        private static int[] computeLowestSolid(MiniHogwartsSchematic schem) {
+            int w = schem.width();
+            int l = schem.length();
+            int wl = w * l;
+            int[] lowest = new int[wl];
+            java.util.Arrays.fill(lowest, -1);
+            int total = schem.volume();
+            // Cells iterate y-ascending, so the first non-air cell seen per column is its lowest block.
+            for (int idx = 0; idx < total; idx++) {
+                int col = idx % wl;
+                if (lowest[col] != -1) {
+                    continue;
+                }
+                if (!schem.blockAt(idx).isAir()) {
+                    lowest[col] = idx / wl;
+                }
             }
-            return cursor >= total;
+            return lowest;
+        }
+
+        /** Place up to roughly {@code budget} blocks; returns true when the whole castle (and skirt) is done. */
+        boolean advance(int budget) {
+            int wl = width * length;
+            int placed = 0;
+
+            // Phase 1: place solid blocks only.
+            while (cursor < total && placed < budget) {
+                BlockState state = schem.blockAt(cursor);
+                if (!state.isAir()) {
+                    int x = cursor % width;
+                    int z = (cursor / width) % length;
+                    int y = cursor / wl;
+                    mutable.set(anchor.getX() + x, anchor.getY() + y, anchor.getZ() + z);
+                    level.setBlock(mutable, state, SETBLOCK_FLAGS);
+                    placed++;
+                }
+                cursor++;
+            }
+            if (cursor < total) {
+                return false;
+            }
+
+            // Phase 2: foundation skirt. Whole columns at a time (small overshoot of budget is fine).
+            while (columnCursor < wl && placed < budget) {
+                int low = lowestSolidY[columnCursor];
+                if (low >= 0) {
+                    int x = columnCursor % width;
+                    int z = columnCursor / width;
+                    int wx = anchor.getX() + x;
+                    int wz = anchor.getZ() + z;
+                    int y = anchor.getY() + low - 1;
+                    int floor = level.getMinBuildHeight() + 1;
+                    for (int depth = 0; depth < MAX_SKIRT_DEPTH && y > floor; depth++, y--) {
+                        mutable.set(wx, y, wz);
+                        if (!level.getBlockState(mutable).isAir()) {
+                            break; // reached solid ground — stop, never replace existing terrain
+                        }
+                        level.setBlock(mutable, FOUNDATION_FILLER, SETBLOCK_FLAGS);
+                        placed++;
+                    }
+                }
+                columnCursor++;
+            }
+            return columnCursor >= wl;
         }
     }
 }

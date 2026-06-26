@@ -41,6 +41,16 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> WAND_ACHIEVEMENT_SOUND = register("wand_achievement_sound");
     public static final RegistryObject<SoundEvent> MANDRAKE_SCREAM = register("mandrake.scream");
 
+    // Hungarian Horntail dragon (custom SFX)
+    public static final RegistryObject<SoundEvent> HORNTAIL_AMBIENT = register("horntail.ambient");
+    public static final RegistryObject<SoundEvent> HORNTAIL_ROAR = register("horntail.roar");
+    public static final RegistryObject<SoundEvent> HORNTAIL_HURT = register("horntail.hurt");
+    public static final RegistryObject<SoundEvent> HORNTAIL_DEATH = register("horntail.death");
+    public static final RegistryObject<SoundEvent> HORNTAIL_FLAP = register("horntail.flap");
+    public static final RegistryObject<SoundEvent> HORNTAIL_FIRE_BREATH = register("horntail.fire_breath");
+    public static final RegistryObject<SoundEvent> HORNTAIL_BITE = register("horntail.bite");
+    public static final RegistryObject<SoundEvent> HORNTAIL_TAIL_WHIP = register("horntail.tail_whip");
+
     private static RegistryObject<SoundEvent> register(String name) {
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, name);
         return SOUND_EVENTS.register(name, () -> SoundEvent.createVariableRangeEvent(id));

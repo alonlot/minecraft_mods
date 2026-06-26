@@ -209,7 +209,7 @@ public class HungarianHorntailEntity extends Monster {
         // Rage threshold (one-way latch): faster, more aggressive, more fire.
         if (!isRaging() && this.getHealth() <= this.getMaxHealth() * RAGE_HP_FRACTION) {
             this.entityData.set(DATA_RAGING, true);
-            this.playSound(SoundEvents.ENDER_DRAGON_GROWL, 4.0F, 0.85F);
+            this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_ROAR.get(), 4.0F, 0.85F);
             if (this.level() instanceof ServerLevel sl) {
                 sl.sendParticles(ParticleTypes.FLAME,
                         this.getX(), this.getY() + this.getBbHeight() * 0.8D, this.getZ(),
@@ -228,38 +228,38 @@ public class HungarianHorntailEntity extends Monster {
 
     private void driveState(AttackState state, int t) {
         if (state == AttackState.ROAR) {
-            if (t == 6) this.playSound(SoundEvents.ENDER_DRAGON_GROWL, 5.0F, 0.75F);
+            if (t == 6) this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_ROAR.get(), 5.0F, 0.75F);
             if (t >= ROAR_DURATION) setAttackState(AttackState.NONE);
         } else if (state == AttackState.BITE) {
-            if (t == 2) this.playSound(SoundEvents.ENDER_DRAGON_HURT, 1.2F, 1.4F);
+            if (t == 2) this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_BITE.get(), 1.2F, 1.4F);
             if (t == BITE_STRIKE_TICK && struckThisState == 0) {
                 struckThisState = 1;
                 doBiteImpact();
             }
             if (t >= BITE_DURATION) setAttackState(AttackState.NONE);
         } else if (state == AttackState.TAIL_WHIP) {
-            if (t == 3) this.playSound(SoundEvents.RAVAGER_ATTACK, 1.4F, 0.7F);
+            if (t == 3) this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_TAIL_WHIP.get(), 1.4F, 0.7F);
             if (t == TAIL_WHIP_STRIKE_TICK && struckThisState == 0) {
                 struckThisState = 1;
                 doTailImpact();
             }
             if (t >= TAIL_WHIP_DURATION) setAttackState(AttackState.NONE);
         } else if (state == AttackState.BREATH_WINDUP) {
-            if (t == 2) this.playSound(SoundEvents.ENDER_DRAGON_GROWL, 2.0F, 1.2F);
+            if (t == 2) this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_ROAR.get(), 2.0F, 1.2F);
             if (this.level() instanceof ServerLevel sl) {
                 Vec3 mouth = mouthPos();
                 sl.sendParticles(ParticleTypes.SMALL_FLAME, mouth.x, mouth.y, mouth.z, 4, 0.15D, 0.15D, 0.15D, 0.01D);
             }
             if (t >= BREATH_WINDUP_DURATION) setAttackState(AttackState.BREATH);
         } else if (state == AttackState.BREATH) {
-            if (t == 1) this.playSound(SoundEvents.GHAST_SHOOT, 3.0F, 0.6F);
+            if (t == 1) this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_FIRE_BREATH.get(), 3.0F, 0.6F);
             if (t % 3 == 0) doBreathTick();
             if (t >= BREATH_DURATION) {
                 setAttackState(AttackState.NONE);
                 this.actionCooldown = isRaging() ? 14 : 26;
             }
         } else if (state == AttackState.WING_GUST) {
-            if (t == 4) this.playSound(SoundEvents.ENDER_DRAGON_FLAP, 3.0F, 0.8F);
+            if (t == 4) this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_FLAP.get(), 3.0F, 0.8F);
             if (t == WING_GUST_STRIKE_TICK && struckThisState == 0) {
                 struckThisState = 1;
                 doWingGust();
@@ -298,7 +298,7 @@ public class HungarianHorntailEntity extends Monster {
             victim.hurtMarked = true;
             interruptIfCaster(victim);
         }
-        this.playSound(SoundEvents.ENDER_DRAGON_HURT, 1.5F, 1.3F);
+        this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_BITE.get(), 1.5F, 1.3F);
         sl.sendParticles(ParticleTypes.CRIT, cx, cy, cz, 12, 0.4D, 0.4D, 0.4D, 0.1D);
     }
 
@@ -337,7 +337,7 @@ public class HungarianHorntailEntity extends Monster {
             victim.hurtMarked = true;
             interruptIfCaster(victim);
         }
-        this.playSound(SoundEvents.ENDER_DRAGON_FLAP, 4.0F, 1.0F);
+        this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_FLAP.get(), 4.0F, 1.0F);
         Vec3 c = this.position();
         sl.sendParticles(ParticleTypes.CLOUD, c.x + forward.x * 2.0D, c.y + 1.0D, c.z + forward.z * 2.0D,
                 60, 2.0D, 0.6D, 2.0D, 0.25D);
@@ -395,14 +395,14 @@ public class HungarianHorntailEntity extends Monster {
         this.getNavigation().stop();
         double ground = groundBelowY();
         this.hoverTargetY = ground + HOVER_HEIGHT;
-        this.playSound(SoundEvents.ENDER_DRAGON_FLAP, 5.0F, 0.7F);
+        this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_FLAP.get(), 5.0F, 0.7F);
     }
 
     private void tickTakeoff(int t) {
         Vec3 v = this.getDeltaMovement();
         double dy = Math.min(0.55D, (this.hoverTargetY - this.getY()) * 0.25D + 0.2D);
         this.setDeltaMovement(v.x * 0.8D, dy, v.z * 0.8D);
-        if (t % 6 == 0) this.playSound(SoundEvents.ENDER_DRAGON_FLAP, 3.0F, 0.9F);
+        if (t % 6 == 0) this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_FLAP.get(), 3.0F, 0.9F);
         if (this.getY() >= this.hoverTargetY - 1.0D || t >= TAKEOFF_DURATION) {
             setAttackState(AttackState.FLY);
         }
@@ -423,7 +423,7 @@ public class HungarianHorntailEntity extends Monster {
         double dy = MthClamp((desiredY - this.getY()) * 0.1D, -0.25D, 0.25D);
         this.setDeltaMovement(horiz.x, dy, horiz.z);
         faceTowards(target, 12.0F);
-        if (t % 8 == 0) this.playSound(SoundEvents.ENDER_DRAGON_FLAP, 2.5F, 1.0F);
+        if (t % 8 == 0) this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_FLAP.get(), 2.5F, 1.0F);
 
         // Mid-flight strafing fire on the target if roughly above and within range.
         if (isRaging() && t > 20 && t % 12 == 0) {
@@ -436,7 +436,7 @@ public class HungarianHorntailEntity extends Monster {
 
     private void beginDive(LivingEntity target) {
         setAttackState(AttackState.DIVE);
-        this.playSound(SoundEvents.ENDER_DRAGON_GROWL, 5.0F, 1.0F);
+        this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_ROAR.get(), 5.0F, 1.0F);
     }
 
     private void tickDive(int t) {
@@ -663,17 +663,17 @@ public class HungarianHorntailEntity extends Monster {
 
     @Override
     protected SoundEvent getAmbientSound() {
-        return SoundEvents.ENDER_DRAGON_AMBIENT;
+        return com.hogwartsmagic.ModSounds.HORNTAIL_AMBIENT.get();
     }
 
     @Override
     protected SoundEvent getHurtSound(DamageSource source) {
-        return SoundEvents.ENDER_DRAGON_HURT;
+        return com.hogwartsmagic.ModSounds.HORNTAIL_HURT.get();
     }
 
     @Override
     protected SoundEvent getDeathSound() {
-        return SoundEvents.ENDER_DRAGON_DEATH;
+        return com.hogwartsmagic.ModSounds.HORNTAIL_DEATH.get();
     }
 
     @Override

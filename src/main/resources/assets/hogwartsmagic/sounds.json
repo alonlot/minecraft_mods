@@ -142,5 +142,37 @@
     "sounds": [
       { "name": "hogwartsmagic:mandrake/scream", "stream": true }
     ]
+  },
+  "horntail.ambient": {
+    "subtitle": "subtitles.hogwartsmagic.horntail.ambient",
+    "sounds": [ { "name": "hogwartsmagic:horntail/ambient", "stream": false } ]
+  },
+  "horntail.roar": {
+    "subtitle": "subtitles.hogwartsmagic.horntail.roar",
+    "sounds": [ { "name": "hogwartsmagic:horntail/roar", "stream": false } ]
+  },
+  "horntail.hurt": {
+    "subtitle": "subtitles.hogwartsmagic.horntail.hurt",
+    "sounds": [ { "name": "hogwartsmagic:horntail/hurt", "stream": false } ]
+  },
+  "horntail.death": {
+    "subtitle": "subtitles.hogwartsmagic.horntail.death",
+    "sounds": [ { "name": "hogwartsmagic:horntail/death", "stream": false } ]
+  },
+  "horntail.flap": {
+    "subtitle": "subtitles.hogwartsmagic.horntail.flap",
+    "sounds": [ { "name": "hogwartsmagic:horntail/flap", "stream": false } ]
+  },
+  "horntail.fire_breath": {
+    "subtitle": "subtitles.hogwartsmagic.horntail.fire_breath",
+    "sounds": [ { "name": "hogwartsmagic:horntail/fire_breath", "stream": false } ]
+  },
+  "horntail.bite": {
+    "subtitle": "subtitles.hogwartsmagic.horntail.bite",
+    "sounds": [ { "name": "hogwartsmagic:horntail/bite", "stream": false } ]
+  },
+  "horntail.tail_whip": {
+    "subtitle": "subtitles.hogwartsmagic.horntail.tail_whip",
+    "sounds": [ { "name": "hogwartsmagic:horntail/tail_whip", "stream": false } ]
   }
 }

@@ -1,178 +1,274 @@
 {
   "spell.default": {
     "sounds": [
-      { "name": "hogwartsmagic:spells/default", "stream": false }
+      {
+        "name": "hogwartsmagic:spells/default",
+        "stream": false
+      }
     ]
   },
   "spell.expelliarmus": {
     "sounds": [
-      { "name": "hogwartsmagic:spells/expelliarmus", "stream": false },
-      { "name": "hogwartsmagic:spells/default", "stream": false }
+      {
+        "name": "hogwartsmagic:spells/expelliarmus",
+        "stream": false
+      }
     ]
   },
   "spell.lumos": {
     "sounds": [
-      { "name": "hogwartsmagic:spells/lumos", "stream": false },
-      { "name": "hogwartsmagic:spells/default", "stream": false }
+      {
+        "name": "hogwartsmagic:spells/lumos",
+        "stream": false
+      }
     ]
   },
   "spell.accio": {
     "sounds": [
-      { "name": "hogwartsmagic:spells/accio", "stream": false },
-      { "name": "hogwartsmagic:spells/default", "stream": false }
+      {
+        "name": "hogwartsmagic:spells/accio",
+        "stream": false
+      }
     ]
   },
   "spell.wingardium_leviosa": {
     "sounds": [
-      { "name": "hogwartsmagic:spells/wingardium_leviosa", "stream": false },
-      { "name": "hogwartsmagic:spells/default", "stream": false }
+      {
+        "name": "hogwartsmagic:spells/wingardium_leviosa",
+        "stream": false
+      }
     ]
   },
   "spell.alohomora": {
     "sounds": [
-      { "name": "hogwartsmagic:spells/alohomora", "stream": false },
-      { "name": "hogwartsmagic:spells/default", "stream": false }
+      {
+        "name": "hogwartsmagic:spells/alohomora",
+        "stream": false
+      }
     ]
   },
   "spell.glacius": {
     "sounds": [
-      { "name": "hogwartsmagic:spells/glacius", "stream": false },
-      { "name": "hogwartsmagic:spells/default", "stream": false }
+      {
+        "name": "hogwartsmagic:spells/glacius",
+        "stream": false
+      }
     ]
   },
   "spell.confringo": {
     "sounds": [
-      { "name": "hogwartsmagic:spells/confringo", "stream": false },
-      { "name": "hogwartsmagic:spells/default", "stream": false }
+      {
+        "name": "hogwartsmagic:spells/confringo",
+        "stream": false
+      }
     ]
   },
   "spell.protego": {
     "sounds": [
-      { "name": "hogwartsmagic:spells/protego", "stream": false },
-      { "name": "hogwartsmagic:spells/default", "stream": false }
+      {
+        "name": "hogwartsmagic:spells/protego",
+        "stream": false
+      }
     ]
   },
   "spell.incendio": {
     "sounds": [
-      { "name": "hogwartsmagic:spells/incendio", "stream": false },
-      { "name": "hogwartsmagic:spells/default", "stream": false }
+      {
+        "name": "hogwartsmagic:spells/incendio",
+        "stream": false
+      }
     ]
   },
   "spell.stupefy": {
     "sounds": [
-      { "name": "hogwartsmagic:spells/stupefy", "stream": false },
-      { "name": "hogwartsmagic:spells/default", "stream": false }
+      {
+        "name": "hogwartsmagic:spells/stupefy",
+        "stream": false
+      }
     ]
   },
   "spell.revelio": {
     "sounds": [
-      { "name": "hogwartsmagic:spells/revelio", "stream": false },
-      { "name": "hogwartsmagic:spells/default", "stream": false }
+      {
+        "name": "hogwartsmagic:spells/revelio",
+        "stream": false
+      }
     ]
   },
   "spell.avada_kedavra": {
     "sounds": [
-      { "name": "hogwartsmagic:spells/avada_kedavra", "stream": false },
-      { "name": "hogwartsmagic:spells/default", "stream": false }
+      {
+        "name": "hogwartsmagic:spells/avada_kedavra",
+        "stream": false
+      }
     ]
   },
   "spell.crucio": {
     "sounds": [
-      { "name": "hogwartsmagic:spells/crucio", "stream": false },
-      { "name": "hogwartsmagic:spells/default", "stream": false }
+      {
+        "name": "hogwartsmagic:spells/crucio",
+        "stream": false
+      }
     ]
   },
   "spell.imperio": {
     "sounds": [
-      { "name": "hogwartsmagic:spells/imperio", "stream": false },
-      { "name": "hogwartsmagic:spells/default", "stream": false }
+      {
+        "name": "hogwartsmagic:spells/imperio",
+        "stream": false
+      }
     ]
   },
   "spell.fiendfyre": {
     "sounds": [
-      { "name": "hogwartsmagic:spells/fiendfyre", "stream": false },
-      { "name": "hogwartsmagic:spells/default", "stream": false }
+      {
+        "name": "hogwartsmagic:spells/fiendfyre",
+        "stream": false
+      }
     ]
   },
   "spell.sectumsempra": {
     "sounds": [
-      { "name": "hogwartsmagic:spells/sectumsempra", "stream": false },
-      { "name": "hogwartsmagic:spells/default", "stream": false }
+      {
+        "name": "hogwartsmagic:spells/sectumsempra",
+        "stream": false
+      }
     ]
   },
   "spell.morsmordre": {
     "sounds": [
-      { "name": "hogwartsmagic:spells/morsmordre", "stream": false },
-      { "name": "hogwartsmagic:spells/default", "stream": false }
+      {
+        "name": "hogwartsmagic:spells/morsmordre",
+        "stream": false
+      }
     ]
   },
   "spell.dolohov_curse": {
     "sounds": [
-      { "name": "hogwartsmagic:spells/dolohov_curse", "stream": false },
-      { "name": "hogwartsmagic:spells/default", "stream": false }
+      {
+        "name": "hogwartsmagic:spells/dolohov_curse",
+        "stream": false
+      }
     ]
   },
   "spell.incarcerous": {
     "sounds": [
-      { "name": "hogwartsmagic:spells/incarcerous", "stream": false },
-      { "name": "hogwartsmagic:spells/default", "stream": false }
+      {
+        "name": "hogwartsmagic:spells/incarcerous",
+        "stream": false
+      }
     ]
   },
   "spell.fizzle": {
     "sounds": [
-      { "name": "hogwartsmagic:spells/default", "stream": false }
+      {
+        "name": "hogwartsmagic:spells/default",
+        "stream": false
+      }
     ]
   },
   "spells.learn_spell": {
     "sounds": [
-      { "name": "hogwartsmagic:spells/learn_spell", "stream": false }
+      {
+        "name": "hogwartsmagic:spells/learn_spell",
+        "stream": false
+      }
     ]
   },
   "sorted_sound": {
     "sounds": [
-      { "name": "hogwartsmagic:sorted_sound", "stream": false }
+      {
+        "name": "hogwartsmagic:sorted_sound",
+        "stream": false
+      }
     ]
   },
   "wand_achievement_sound": {
     "sounds": [
-      { "name": "hogwartsmagic:wand_achievement_sound", "stream": false }
+      {
+        "name": "hogwartsmagic:wand_achievement_sound",
+        "stream": false
+      }
     ]
   },
   "mandrake.scream": {
     "sounds": [
-      { "name": "hogwartsmagic:mandrake/scream", "stream": true }
+      {
+        "name": "hogwartsmagic:mandrake/scream",
+        "stream": true
+      }
     ]
   },
   "horntail.ambient": {
     "subtitle": "subtitles.hogwartsmagic.horntail.ambient",
-    "sounds": [ { "name": "hogwartsmagic:horntail/ambient", "stream": false } ]
+    "sounds": [
+      {
+        "name": "hogwartsmagic:horntail/ambient",
+        "stream": false
+      }
+    ]
   },
   "horntail.roar": {
     "subtitle": "subtitles.hogwartsmagic.horntail.roar",
-    "sounds": [ { "name": "hogwartsmagic:horntail/roar", "stream": false } ]
+    "sounds": [
+      {
+        "name": "hogwartsmagic:horntail/roar",
+        "stream": false
+      }
+    ]
   },
   "horntail.hurt": {
     "subtitle": "subtitles.hogwartsmagic.horntail.hurt",
-    "sounds": [ { "name": "hogwartsmagic:horntail/hurt", "stream": false } ]
+    "sounds": [
+      {
+        "name": "hogwartsmagic:horntail/hurt",
+        "stream": false
+      }
+    ]
   },
   "horntail.death": {
     "subtitle": "subtitles.hogwartsmagic.horntail.death",
-    "sounds": [ { "name": "hogwartsmagic:horntail/death", "stream": false } ]
+    "sounds": [
+      {
+        "name": "hogwartsmagic:horntail/death",
+        "stream": false
+      }
+    ]
   },
   "horntail.flap": {
     "subtitle": "subtitles.hogwartsmagic.horntail.flap",
-    "sounds": [ { "name": "hogwartsmagic:horntail/flap", "stream": false } ]
+    "sounds": [
+      {
+        "name": "hogwartsmagic:horntail/flap",
+        "stream": false
+      }
+    ]
   },
   "horntail.fire_breath": {
     "subtitle": "subtitles.hogwartsmagic.horntail.fire_breath",
-    "sounds": [ { "name": "hogwartsmagic:horntail/fire_breath", "stream": false } ]
+    "sounds": [
+      {
+        "name": "hogwartsmagic:horntail/fire_breath",
+        "stream": false
+      }
+    ]
   },
   "horntail.bite": {
     "subtitle": "subtitles.hogwartsmagic.horntail.bite",
-    "sounds": [ { "name": "hogwartsmagic:horntail/bite", "stream": false } ]
+    "sounds": [
+      {
+        "name": "hogwartsmagic:horntail/bite",
+        "stream": false
+      }
+    ]
   },
   "horntail.tail_whip": {
     "subtitle": "subtitles.hogwartsmagic.horntail.tail_whip",
-    "sounds": [ { "name": "hogwartsmagic:horntail/tail_whip", "stream": false } ]
+    "sounds": [
+      {
+        "name": "hogwartsmagic:horntail/tail_whip",
+        "stream": false
+      }
+    ]
   }
 }

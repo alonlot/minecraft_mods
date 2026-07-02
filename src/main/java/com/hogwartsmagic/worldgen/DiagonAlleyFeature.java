@@ -70,7 +70,7 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
     // threads can run place() concurrently.
     private static final ThreadLocal<BlockPos> SAFE_ANCHOR = ThreadLocal.withInitial(() -> null);
 
-    private static void setSafe(WorldGenLevel level, BlockPos pos, BlockState state, int flags) {
+    static void setSafe(WorldGenLevel level, BlockPos pos, BlockState state, int flags) {
         BlockPos anchor = SAFE_ANCHOR.get();
         if (anchor != null) {
             int dcx = (pos.getX() >> 4) - (anchor.getX() >> 4);
@@ -142,6 +142,16 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
             placeFlowerPlanter(level, new BlockPos(avenueX0 + dx, y, avenueZ0 - 3));
             placeFlowerPlanter(level, new BlockPos(avenueX0 + dx, y, avenueZ0 + 7));
         }
+
+        // Market stalls narrowing the street + merchant clutter in the gaps between shops,
+        // so the avenue reads as a working market rather than an empty promenade.
+        placeMarketStall(level, new BlockPos(avenueX0 + 12, y, avenueZ0), Blocks.ORANGE_WOOL, Blocks.WHITE_WOOL);
+        placeMarketStall(level, new BlockPos(avenueX0 + 44, y, avenueZ0 + 3), Blocks.LIME_WOOL, Blocks.WHITE_WOOL);
+        placeClutterCluster(level, new BlockPos(x0 + 27, y + 1, z0 + 19), 0);
+        placeClutterCluster(level, new BlockPos(x0 + 43, y + 1, z0 + 20), 1);
+        placeClutterCluster(level, new BlockPos(x0 + 37, y + 1, z0 + 29), 2);
+        placeClutterCluster(level, new BlockPos(x0 + 48, y + 1, z0 + 29), 1);
+        placeClutterCluster(level, new BlockPos(x0 + 60, y + 1, z0 + 29), 0);
 
         // West entrance: Leaky Cauldron facade + iconic brick wall passage.
         buildLeakyCauldron(level, new BlockPos(x0 + 0, y, z0 + 14));
@@ -226,19 +236,83 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
         }
     }
 
+    /**
+     * Worn market-street paving: a cobble/stone/andesite/gravel mix, a darker deepslate
+     * wheel-track worn down the center, and moss hugging the edges where the walls shade it.
+     * Reads "old and trodden", not "planned".
+     */
     private void paveAvenue(WorldGenLevel level, int x0, int y, int z0, int sx, int sz, RandomSource rng) {
         for (int dx = 0; dx < sx; dx++) {
             for (int dz = 0; dz < sz; dz++) {
-                BlockState paving;
                 int h = (dx * 31 + dz * 17) & 0x7FFFFFFF;
-                int v = h % 11;
-                if (v == 0) paving = Blocks.MOSSY_STONE_BRICKS.defaultBlockState();
-                else if (v == 1) paving = Blocks.CHISELED_STONE_BRICKS.defaultBlockState();
-                else if (v == 2) paving = Blocks.CRACKED_STONE_BRICKS.defaultBlockState();
-                else if (v == 3) paving = Blocks.DEEPSLATE_BRICKS.defaultBlockState();
+                int v = h % 100;
+                boolean center = dz == sz / 2;
+                boolean edge = dz == 0 || dz == sz - 1;
+                BlockState paving;
+                if (center && v < 45) paving = Blocks.COBBLED_DEEPSLATE.defaultBlockState();
+                else if (edge && v < 18) paving = Blocks.MOSSY_COBBLESTONE.defaultBlockState();
+                else if (v < 40) paving = Blocks.COBBLESTONE.defaultBlockState();
+                else if (v < 60) paving = Blocks.STONE.defaultBlockState();
+                else if (v < 75) paving = Blocks.ANDESITE.defaultBlockState();
+                else if (v < 85) paving = Blocks.GRAVEL.defaultBlockState();
+                else if (v < 92) paving = Blocks.COBBLED_DEEPSLATE.defaultBlockState();
                 else paving = Blocks.STONE_BRICKS.defaultBlockState();
                 setSafe(level,new BlockPos(x0 + dx, y, z0 + dz), paving, 2);
+                // Occasional pebble (floor button) for texture underfoot.
+                if (((h >> 5) % 53) == 0) {
+                    setSafe(level,new BlockPos(x0 + dx, y + 1, z0 + dz),
+                            Blocks.STONE_BUTTON.defaultBlockState()
+                                    .setValue(BlockStateProperties.ATTACH_FACE,
+                                            net.minecraft.world.level.block.state.properties.AttachFace.FLOOR), 2);
+                }
             }
+        }
+    }
+
+    /**
+     * A little canopied market stall: fence posts, a two-tone striped wool canopy,
+     * a barrel-and-hay counter and a lantern glowing underneath.
+     */
+    private void placeMarketStall(WorldGenLevel level, BlockPos corner,
+                                  net.minecraft.world.level.block.Block woolA,
+                                  net.minecraft.world.level.block.Block woolB) {
+        int x0 = corner.getX(), y = corner.getY(), z0 = corner.getZ();
+        for (int[] post : new int[][]{{0, 0}, {2, 0}, {0, 1}, {2, 1}}) {
+            setSafe(level,new BlockPos(x0 + post[0], y + 1, z0 + post[1]), Blocks.SPRUCE_FENCE.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + post[0], y + 2, z0 + post[1]), Blocks.SPRUCE_FENCE.defaultBlockState(), 2);
+        }
+        for (int dx = 0; dx <= 2; dx++) {
+            for (int dz = 0; dz <= 1; dz++) {
+                setSafe(level,new BlockPos(x0 + dx, y + 3, z0 + dz),
+                        ((dx & 1) == 0 ? woolA : woolB).defaultBlockState(), 2);
+            }
+        }
+        setSafe(level,new BlockPos(x0, y + 1, z0), Blocks.BARREL.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + 1, y + 1, z0), Blocks.HAY_BLOCK.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + 2, y + 1, z0), Blocks.BARREL.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + 1, y + 2, z0 + 1),
+                Blocks.LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, true), 2);
+    }
+
+    /** Small clusters of merchant clutter dropped into the gaps between shopfronts. */
+    private void placeClutterCluster(WorldGenLevel level, BlockPos at, int variant) {
+        if (variant == 0) {
+            // Stacked delivery barrels.
+            setSafe(level,at, Blocks.BARREL.defaultBlockState(), 2);
+            setSafe(level,at.above(), Blocks.BARREL.defaultBlockState(), 2);
+            setSafe(level,at.east(), Blocks.BARREL.defaultBlockState(), 2);
+        } else if (variant == 1) {
+            // Brewer's corner: cauldron, hay and a lamp on a post.
+            setSafe(level,at, Blocks.CAULDRON.defaultBlockState(), 2);
+            setSafe(level,at.east(), Blocks.HAY_BLOCK.defaultBlockState(), 2);
+            setSafe(level,at.west(), Blocks.SPRUCE_FENCE.defaultBlockState(), 2);
+            setSafe(level,at.west().above(), Blocks.LANTERN.defaultBlockState(), 2);
+        } else {
+            // Crate with a lid and a composter of scraps.
+            setSafe(level,at, Blocks.BARREL.defaultBlockState(), 2);
+            setSafe(level,at.above(), Blocks.SPRUCE_TRAPDOOR.defaultBlockState()
+                    .setValue(BlockStateProperties.HALF, Half.BOTTOM), 2);
+            setSafe(level,at.east(), Blocks.COMPOSTER.defaultBlockState(), 2);
         }
     }
 
@@ -417,75 +491,17 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
         int x0 = corner.getX();
         int y0 = corner.getY();
         int z0 = corner.getZ();
-        // Tall narrow shop: 9 wide × 9 deep × 8 tall. Window-heavy front, leaning roof.
-        BlockState log = Blocks.STRIPPED_SPRUCE_LOG.defaultBlockState();
-        BlockState planks = Blocks.SPRUCE_PLANKS.defaultBlockState();
-        BlockState window = Blocks.BROWN_STAINED_GLASS_PANE.defaultBlockState();
-        BlockState floor = Blocks.SPRUCE_PLANKS.defaultBlockState();
-        int sx = 9, sz = 9, h = 7;
-
-        // Floor.
-        fillRect(level, x0, y0, z0, sx, 1, sz, floor);
-
-        // Walls with corner timbers + window strip.
-        for (int dy = 0; dy <= h; dy++) {
-            for (int dx = 0; dx < sx; dx++) {
-                for (int dz = 0; dz < sz; dz++) {
-                    boolean edge = dx == 0 || dx == sx - 1 || dz == 0 || dz == sz - 1;
-                    if (!edge) continue;
-                    boolean isCorner = (dx == 0 || dx == sx - 1) && (dz == 0 || dz == sz - 1);
-                    BlockState block;
-                    if (isCorner) block = log;
-                    else if (dy == 0) block = log;
-                    else if (dy == h) block = log;
-                    else if ((dy == 2 || dy == 5) && !isCorner) block = log;
-                    else block = planks;
-                    setSafe(level,new BlockPos(x0 + dx, y0 + dy, z0 + dz), block, 2);
-                }
-            }
-        }
-        // Front face windows (faces -Z, south is +Z so front=NORTH means avenue is north).
-        int frontZ = (front == Direction.NORTH) ? z0 : z0 + sz - 1;
-        for (int dx = 1; dx < sx - 1; dx++) {
-            if (dx == sx / 2) continue;
-            setSafe(level,new BlockPos(x0 + dx, y0 + 3, z0), window, 2);
-            setSafe(level,new BlockPos(x0 + dx, y0 + 4, z0), window, 2);
-        }
-        // Front display window — dramatic floor-to-ceiling pane on the front.
-        for (int dy = 2; dy <= h - 1; dy++) {
-            setSafe(level,new BlockPos(x0 + 1, y0 + dy, z0 + sz - 1), window, 2);
-            setSafe(level,new BlockPos(x0 + sx - 2, y0 + dy, z0 + sz - 1), window, 2);
-        }
-
-        // Doorway in center front.
-        int doorX = x0 + sx / 2;
-        placeDoor(level, doorX, y0 + 1, frontZ, front, Blocks.DARK_OAK_DOOR);
-
-        // Awning over door.
-        placeAwning(level, doorX, y0 + 4, frontZ, front, Blocks.SPRUCE_STAIRS);
-
-        // Sloped roof — TWO peaks (mansard style) for a leaning Diagon look.
-        for (int dx = 0; dx < sx; dx++) {
-            for (int dz = 0; dz < sz; dz++) {
-                setSafe(level,new BlockPos(x0 + dx, y0 + h + 1, z0 + dz), planks, 2);
-            }
-        }
-        for (int dz = 0; dz < sz; dz++) {
-            BlockState eastStair = Blocks.SPRUCE_STAIRS.defaultBlockState()
-                    .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.EAST)
-                    .setValue(BlockStateProperties.HALF, Half.BOTTOM);
-            BlockState westStair = Blocks.SPRUCE_STAIRS.defaultBlockState()
-                    .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.WEST)
-                    .setValue(BlockStateProperties.HALF, Half.BOTTOM);
-            setSafe(level,new BlockPos(x0 + 3, y0 + h + 2, z0 + dz), eastStair, 2);
-            setSafe(level,new BlockPos(x0 + 5, y0 + h + 2, z0 + dz), westStair, 2);
-            setSafe(level,new BlockPos(x0 + 4, y0 + h + 2, z0 + dz), planks, 2);
-        }
-        // Chimney.
-        for (int dy = h + 1; dy < h + 4; dy++) {
-            setSafe(level,new BlockPos(x0 + 1, y0 + dy, z0 + 1), Blocks.BRICKS.defaultBlockState(), 2);
-        }
-        setSafe(level,new BlockPos(x0 + 1, y0 + h + 4, z0 + 1), Blocks.CAMPFIRE.defaultBlockState(), 2);
+        // Ollivanders: tall, dark and ancient — black plaster, aged copper belts, slate roof.
+        int sx = 9, sz = 9;
+        int floors = 3;
+        int h = TudorShopEngine.wallHeight(floors);
+        fillRect(level, x0, y0, z0, sx, 1, sz, Blocks.SPRUCE_PLANKS.defaultBlockState());
+        TudorShopEngine.Style style = new TudorShopEngine.Style(
+                Blocks.BLACK_TERRACOTTA, Blocks.GRAY_TERRACOTTA,
+                Blocks.STRIPPED_SPRUCE_LOG, Blocks.WAXED_EXPOSED_CUT_COPPER,
+                Blocks.DEEPSLATE_TILE_STAIRS, Blocks.COBBLED_DEEPSLATE_STAIRS, Blocks.DEEPSLATE_TILE_SLAB,
+                Blocks.BROWN_STAINED_GLASS_PANE, Blocks.DARK_OAK_DOOR, Blocks.SPRUCE_TRAPDOOR);
+        TudorShopEngine.buildShell(level, x0, y0, z0, sx, sz, front, floors, style);
 
         // Interior: dense bookshelves stacked tall (wand boxes), lecterns, wand workbench.
         for (int dz = 2; dz < sz - 1; dz++) {
@@ -674,44 +690,17 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
         int x0 = corner.getX();
         int y0 = corner.getY();
         int z0 = corner.getZ();
-        int sx = 11, sz = 8, h = 5;
-        BlockState log = Blocks.STRIPPED_BIRCH_LOG.defaultBlockState();
-        BlockState planks = Blocks.BIRCH_PLANKS.defaultBlockState();
-        BlockState floor = Blocks.SPRUCE_PLANKS.defaultBlockState();
-        BlockState window = Blocks.WHITE_STAINED_GLASS_PANE.defaultBlockState();
-
-        fillRect(level, x0, y0, z0, sx, 1, sz, floor);
-        // Walls.
-        for (int dy = 1; dy <= h; dy++) {
-            for (int dx = 0; dx < sx; dx++) {
-                for (int dz = 0; dz < sz; dz++) {
-                    boolean edge = dx == 0 || dx == sx - 1 || dz == 0 || dz == sz - 1;
-                    if (!edge) continue;
-                    boolean corner2 = (dx == 0 || dx == sx - 1) && (dz == 0 || dz == sz - 1);
-                    setSafe(level,new BlockPos(x0 + dx, y0 + dy, z0 + dz), corner2 || dy == h ? log : planks, 2);
-                }
-            }
-        }
-        // Front windows.
-        int frontZ = (front == Direction.SOUTH) ? z0 + sz - 1 : z0;
-        for (int dx = 2; dx < sx - 2; dx++) {
-            if (dx == sx / 2) continue;
-            setSafe(level,new BlockPos(x0 + dx, y0 + 2, z0), window, 2);
-            setSafe(level,new BlockPos(x0 + dx, y0 + 3, z0), window, 2);
-        }
-        // Door.
-        placeDoor(level, x0 + sx / 2, y0 + 1, frontZ, front, Blocks.BIRCH_DOOR);
-        placeAwning(level, x0 + sx / 2, y0 + 4, frontZ, front, Blocks.BIRCH_STAIRS);
-
-        // Mansard roof (two-pitch).
-        for (int dx = 0; dx < sx; dx++) {
-            for (int dz = 0; dz < sz; dz++) {
-                setSafe(level,new BlockPos(x0 + dx, y0 + h + 1, z0 + dz), planks, 2);
-            }
-        }
-        for (int dx = 1; dx < sx - 1; dx++) {
-            setSafe(level,new BlockPos(x0 + dx, y0 + h + 2, z0 + sz / 2), Blocks.BIRCH_PLANKS.defaultBlockState(), 2);
-        }
+        // Eeylops Owl Emporium: quiet cream-and-timber shop under a weathered spruce roof.
+        int sx = 11, sz = 8;
+        int floors = 2;
+        int h = TudorShopEngine.wallHeight(floors);
+        fillRect(level, x0, y0, z0, sx, 1, sz, Blocks.SPRUCE_PLANKS.defaultBlockState());
+        TudorShopEngine.Style eeylopsStyle = new TudorShopEngine.Style(
+                Blocks.WHITE_TERRACOTTA, Blocks.MUD_BRICKS,
+                Blocks.STRIPPED_DARK_OAK_LOG, Blocks.STRIPPED_DARK_OAK_LOG,
+                Blocks.SPRUCE_STAIRS, Blocks.DARK_OAK_STAIRS, Blocks.SPRUCE_SLAB,
+                Blocks.GLASS_PANE, Blocks.BIRCH_DOOR, Blocks.DARK_OAK_TRAPDOOR);
+        TudorShopEngine.buildShell(level, x0, y0, z0, sx, sz, front, floors, eeylopsStyle);
 
         // INTERIOR: rows of owl perches (oak fences) on hay bale stands, scatter of feathers.
         for (int dx = 2; dx < sx - 2; dx += 2) {
@@ -746,52 +735,17 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
         int x0 = corner.getX();
         int y0 = corner.getY();
         int z0 = corner.getZ();
-        int sx = 12, sz = 9, h = 8;
-        BlockState log = Blocks.STRIPPED_DARK_OAK_LOG.defaultBlockState();
-        BlockState planks = Blocks.DARK_OAK_PLANKS.defaultBlockState();
-        BlockState wall = Blocks.MOSSY_COBBLESTONE.defaultBlockState();
-        BlockState window = Blocks.LIME_STAINED_GLASS_PANE.defaultBlockState();
-
-        fillRect(level, x0, y0, z0, sx, 1, sz, planks);
-        // Walls — Tudor framing.
-        for (int dy = 1; dy <= h; dy++) {
-            for (int dx = 0; dx < sx; dx++) {
-                for (int dz = 0; dz < sz; dz++) {
-                    boolean edge = dx == 0 || dx == sx - 1 || dz == 0 || dz == sz - 1;
-                    if (!edge) continue;
-                    boolean corner2 = (dx == 0 || dx == sx - 1) && (dz == 0 || dz == sz - 1);
-                    boolean beam = dy == 3 || dy == h || corner2 || (dx == 4 && dy < 6) || (dx == sx - 5 && dy < 6);
-                    setSafe(level,new BlockPos(x0 + dx, y0 + dy, z0 + dz), beam ? log : wall, 2);
-                }
-            }
-        }
-        // Big bay window on the front showcasing books.
-        int frontZ = (front == Direction.SOUTH) ? z0 + sz - 1 : z0;
-        for (int dx = 1; dx < sx - 1; dx++) {
-            if (dx >= sx / 2 - 1 && dx <= sx / 2 + 1) continue; // skip door area
-            setSafe(level,new BlockPos(x0 + dx, y0 + 2, z0), window, 2);
-            setSafe(level,new BlockPos(x0 + dx, y0 + 3, z0), window, 2);
-            setSafe(level,new BlockPos(x0 + dx, y0 + 4, z0), window, 2);
-        }
-        placeDoor(level, x0 + sx / 2, y0 + 1, frontZ, front, Blocks.DARK_OAK_DOOR);
-        placeAwning(level, x0 + sx / 2, y0 + 4, frontZ, front, Blocks.DARK_OAK_STAIRS);
-
-        // Two-tier mansard roof.
-        for (int dx = 0; dx < sx; dx++) {
-            for (int dz = 0; dz < sz; dz++) {
-                setSafe(level,new BlockPos(x0 + dx, y0 + h + 1, z0 + dz), planks, 2);
-            }
-        }
-        for (int dx = 1; dx < sx - 1; dx++) {
-            for (int dz = 1; dz < sz - 1; dz++) {
-                setSafe(level,new BlockPos(x0 + dx, y0 + h + 2, z0 + dz), planks, 2);
-            }
-        }
-        // Bell tower spire on top.
-        for (int dy = 0; dy < 3; dy++) {
-            setSafe(level,new BlockPos(x0 + sx / 2, y0 + h + 3 + dy, z0 + sz / 2), Blocks.DARK_OAK_FENCE.defaultBlockState(), 2);
-        }
-        setSafe(level,new BlockPos(x0 + sx / 2, y0 + h + 6, z0 + sz / 2), Blocks.BELL.defaultBlockState(), 2);
+        // Flourish & Blotts: scholarly teal bookshop under a dark prismarine roof.
+        int sx = 12, sz = 9;
+        int floors = 3;
+        int h = TudorShopEngine.wallHeight(floors);
+        fillRect(level, x0, y0, z0, sx, 1, sz, Blocks.DARK_OAK_PLANKS.defaultBlockState());
+        TudorShopEngine.Style flourishStyle = new TudorShopEngine.Style(
+                Blocks.CYAN_TERRACOTTA, Blocks.WHITE_TERRACOTTA,
+                Blocks.STRIPPED_DARK_OAK_LOG, Blocks.STRIPPED_DARK_OAK_LOG,
+                Blocks.DARK_PRISMARINE_STAIRS, Blocks.PRISMARINE_BRICK_STAIRS, Blocks.DARK_PRISMARINE_SLAB,
+                Blocks.GLASS_PANE, Blocks.DARK_OAK_DOOR, Blocks.DARK_OAK_TRAPDOOR);
+        TudorShopEngine.buildShell(level, x0, y0, z0, sx, sz, front, floors, flourishStyle);
 
         // INTERIOR: walls of bookshelves stacked floor-to-ceiling, lecterns at counters, hanging lanterns.
         for (int dz = 2; dz < sz - 1; dz++) {
@@ -830,50 +784,17 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
         int x0 = corner.getX();
         int y0 = corner.getY();
         int z0 = corner.getZ();
-        int sx = 10, sz = 9, h = 5;
-        BlockState log = Blocks.STRIPPED_DARK_OAK_LOG.defaultBlockState();
-        BlockState planks = Blocks.DARK_OAK_PLANKS.defaultBlockState();
-        BlockState floor = Blocks.SPRUCE_PLANKS.defaultBlockState();
-        BlockState window = Blocks.RED_STAINED_GLASS_PANE.defaultBlockState();
-
-        fillRect(level, x0, y0, z0, sx, 1, sz, floor);
-        for (int dy = 1; dy <= h; dy++) {
-            for (int dx = 0; dx < sx; dx++) {
-                for (int dz = 0; dz < sz; dz++) {
-                    boolean edge = dx == 0 || dx == sx - 1 || dz == 0 || dz == sz - 1;
-                    if (!edge) continue;
-                    boolean corner2 = (dx == 0 || dx == sx - 1) && (dz == 0 || dz == sz - 1);
-                    setSafe(level,new BlockPos(x0 + dx, y0 + dy, z0 + dz), (corner2 || dy == h) ? log : planks, 2);
-                }
-            }
-        }
-        // Display windows along front (faces NORTH → frontZ = z0).
-        int frontZ = (front == Direction.NORTH) ? z0 : z0 + sz - 1;
-        for (int dx = 1; dx < sx - 1; dx++) {
-            if (dx == sx / 2) continue;
-            setSafe(level,new BlockPos(x0 + dx, y0 + 2, frontZ), window, 2);
-            setSafe(level,new BlockPos(x0 + dx, y0 + 3, frontZ), window, 2);
-        }
-        placeDoor(level, x0 + sx / 2, y0 + 1, frontZ, front, Blocks.DARK_OAK_DOOR);
-        placeAwning(level, x0 + sx / 2, y0 + 4, frontZ, front, Blocks.DARK_OAK_STAIRS);
-        // Red banner over door.
-        setSafe(level,new BlockPos(x0 + sx / 2, y0 + h, frontZ), Blocks.RED_WOOL.defaultBlockState(), 2);
-
-        // Pitched roof.
-        for (int dx = 0; dx < sx; dx++) {
-            for (int dz = 0; dz < sz; dz++) {
-                setSafe(level,new BlockPos(x0 + dx, y0 + h + 1, z0 + dz), planks, 2);
-            }
-        }
-        for (int dx = 1; dx < sx - 1; dx++) {
-            BlockState n = Blocks.DARK_OAK_STAIRS.defaultBlockState()
-                    .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.NORTH);
-            BlockState s = Blocks.DARK_OAK_STAIRS.defaultBlockState()
-                    .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.SOUTH);
-            setSafe(level,new BlockPos(x0 + dx, y0 + h + 2, z0 + sz / 2 - 1), s, 2);
-            setSafe(level,new BlockPos(x0 + dx, y0 + h + 2, z0 + sz / 2 + 1), n, 2);
-            setSafe(level,new BlockPos(x0 + dx, y0 + h + 2, z0 + sz / 2), planks, 2);
-        }
+        // Quality Quidditch Supplies: mud-brick and timber with scarlet windows.
+        int sx = 10, sz = 9;
+        int floors = 2;
+        int h = TudorShopEngine.wallHeight(floors);
+        fillRect(level, x0, y0, z0, sx, 1, sz, Blocks.SPRUCE_PLANKS.defaultBlockState());
+        TudorShopEngine.Style quidditchStyle = new TudorShopEngine.Style(
+                Blocks.MUD_BRICKS, Blocks.WHITE_TERRACOTTA,
+                Blocks.STRIPPED_DARK_OAK_LOG, Blocks.STRIPPED_DARK_OAK_LOG,
+                Blocks.DARK_OAK_STAIRS, Blocks.SPRUCE_STAIRS, Blocks.DARK_OAK_SLAB,
+                Blocks.RED_STAINED_GLASS_PANE, Blocks.DARK_OAK_DOOR, Blocks.SPRUCE_TRAPDOOR);
+        TudorShopEngine.buildShell(level, x0, y0, z0, sx, sz, front, floors, quidditchStyle);
 
         // INTERIOR: broom rack display, counter with golden snitch (gold block in the air).
         for (int dx = 2; dx < sx - 2; dx++) {
@@ -911,51 +832,17 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
         int x0 = corner.getX();
         int y0 = corner.getY();
         int z0 = corner.getZ();
-        int sx = 9, sz = 9, h = 7; // taller, two-story
-        BlockState log = Blocks.STRIPPED_OAK_LOG.defaultBlockState();
-        BlockState planks = Blocks.OAK_PLANKS.defaultBlockState();
-        BlockState wall = Blocks.PINK_TERRACOTTA.defaultBlockState();
-        BlockState window = Blocks.PINK_STAINED_GLASS_PANE.defaultBlockState();
-
-        fillRect(level, x0, y0, z0, sx, 1, sz, planks);
-        for (int dy = 1; dy <= h; dy++) {
-            for (int dx = 0; dx < sx; dx++) {
-                for (int dz = 0; dz < sz; dz++) {
-                    boolean edge = dx == 0 || dx == sx - 1 || dz == 0 || dz == sz - 1;
-                    if (!edge) continue;
-                    boolean corner2 = (dx == 0 || dx == sx - 1) && (dz == 0 || dz == sz - 1);
-                    boolean midFloor = dy == 4;
-                    setSafe(level,new BlockPos(x0 + dx, y0 + dy, z0 + dz),
-                            corner2 ? log : (midFloor ? log : (dy == h ? log : wall)), 2);
-                }
-            }
-        }
-        // Tall arched display window on front, ground floor.
-        int frontZ = (front == Direction.NORTH) ? z0 : z0 + sz - 1;
-        for (int dx = 1; dx < sx - 1; dx++) {
-            if (dx == sx / 2) continue;
-            setSafe(level,new BlockPos(x0 + dx, y0 + 2, frontZ), window, 2);
-            setSafe(level,new BlockPos(x0 + dx, y0 + 3, frontZ), window, 2);
-        }
-        // Second-story windows.
-        for (int dx = 1; dx < sx - 1; dx += 2) {
-            setSafe(level,new BlockPos(x0 + dx, y0 + 5, frontZ), window, 2);
-            setSafe(level,new BlockPos(x0 + dx, y0 + 6, frontZ), window, 2);
-        }
-        placeDoor(level, x0 + sx / 2, y0 + 1, frontZ, front, Blocks.OAK_DOOR);
-        placeAwning(level, x0 + sx / 2, y0 + 4, frontZ, front, Blocks.OAK_STAIRS);
-        // Pink banner.
-        setSafe(level,new BlockPos(x0 + sx / 2, y0 + h, frontZ), Blocks.PINK_WOOL.defaultBlockState(), 2);
-
-        // Pitched roof.
-        for (int dx = 0; dx < sx; dx++) {
-            for (int dz = 0; dz < sz; dz++) {
-                setSafe(level,new BlockPos(x0 + dx, y0 + h + 1, z0 + dz), planks, 2);
-            }
-        }
-        for (int dx = 1; dx < sx - 1; dx++) {
-            setSafe(level,new BlockPos(x0 + dx, y0 + h + 2, z0 + sz / 2), planks, 2);
-        }
+        // Madam Malkin's: plum-and-magenta boutique under a prismarine roof.
+        int sx = 9, sz = 9;
+        int floors = 3;
+        int h = TudorShopEngine.wallHeight(floors);
+        fillRect(level, x0, y0, z0, sx, 1, sz, Blocks.OAK_PLANKS.defaultBlockState());
+        TudorShopEngine.Style malkinsStyle = new TudorShopEngine.Style(
+                Blocks.PURPLE_TERRACOTTA, Blocks.MAGENTA_TERRACOTTA,
+                Blocks.STRIPPED_OAK_LOG, Blocks.STRIPPED_OAK_LOG,
+                Blocks.PRISMARINE_BRICK_STAIRS, Blocks.PURPUR_STAIRS, Blocks.PRISMARINE_BRICK_SLAB,
+                Blocks.MAGENTA_STAINED_GLASS_PANE, Blocks.OAK_DOOR, Blocks.OAK_TRAPDOOR);
+        TudorShopEngine.buildShell(level, x0, y0, z0, sx, sz, front, floors, malkinsStyle);
 
         // INTERIOR: armor stands (wool stacks) + loom + curtained dressing room.
         for (int dx = 1; dx < sx - 1; dx++) {
@@ -984,44 +871,17 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
         int x0 = corner.getX();
         int y0 = corner.getY();
         int z0 = corner.getZ();
-        int sx = 9, sz = 9, h = 6;
-        BlockState wall = Blocks.MOSSY_STONE_BRICKS.defaultBlockState();
-        BlockState accent = Blocks.MOSSY_COBBLESTONE.defaultBlockState();
-        BlockState floor = Blocks.SPRUCE_PLANKS.defaultBlockState();
-        BlockState window = Blocks.GREEN_STAINED_GLASS_PANE.defaultBlockState();
-
-        fillRect(level, x0, y0, z0, sx, 1, sz, floor);
-        for (int dy = 1; dy <= h; dy++) {
-            for (int dx = 0; dx < sx; dx++) {
-                for (int dz = 0; dz < sz; dz++) {
-                    boolean edge = dx == 0 || dx == sx - 1 || dz == 0 || dz == sz - 1;
-                    if (!edge) continue;
-                    boolean band = dy == 4;
-                    setSafe(level,new BlockPos(x0 + dx, y0 + dy, z0 + dz), band ? accent : wall, 2);
-                }
-            }
-        }
-        int frontZ = (front == Direction.NORTH) ? z0 : z0 + sz - 1;
-        for (int dx = 1; dx < sx - 1; dx++) {
-            if (dx == sx / 2) continue;
-            setSafe(level,new BlockPos(x0 + dx, y0 + 2, frontZ), window, 2);
-            setSafe(level,new BlockPos(x0 + dx, y0 + 3, frontZ), window, 2);
-        }
-        placeDoor(level, x0 + sx / 2, y0 + 1, frontZ, front, Blocks.SPRUCE_DOOR);
-        placeAwning(level, x0 + sx / 2, y0 + 4, frontZ, front, Blocks.SPRUCE_STAIRS);
-        setSafe(level,new BlockPos(x0 + sx / 2, y0 + h, frontZ), Blocks.GREEN_WOOL.defaultBlockState(), 2);
-
-        // Sloped slate roof.
-        for (int dx = 0; dx < sx; dx++) {
-            for (int dz = 0; dz < sz; dz++) {
-                setSafe(level,new BlockPos(x0 + dx, y0 + h + 1, z0 + dz), Blocks.DEEPSLATE_TILES.defaultBlockState(), 2);
-            }
-        }
-        // Chimney on roof.
-        for (int dy = h + 1; dy < h + 5; dy++) {
-            setSafe(level,new BlockPos(x0 + 1, y0 + dy, z0 + 1), Blocks.BRICKS.defaultBlockState(), 2);
-        }
-        setSafe(level,new BlockPos(x0 + 1, y0 + h + 5, z0 + 1), Blocks.CAMPFIRE.defaultBlockState(), 2);
+        // Slug & Jiggers Apothecary: herb-green plaster under a mossy stone roof.
+        int sx = 9, sz = 9;
+        int floors = 2;
+        int h = TudorShopEngine.wallHeight(floors);
+        fillRect(level, x0, y0, z0, sx, 1, sz, Blocks.SPRUCE_PLANKS.defaultBlockState());
+        TudorShopEngine.Style apothecaryStyle = new TudorShopEngine.Style(
+                Blocks.GREEN_TERRACOTTA, Blocks.MUD_BRICKS,
+                Blocks.STRIPPED_SPRUCE_LOG, Blocks.STRIPPED_SPRUCE_LOG,
+                Blocks.MOSSY_STONE_BRICK_STAIRS, Blocks.STONE_BRICK_STAIRS, Blocks.MOSSY_STONE_BRICK_SLAB,
+                Blocks.GREEN_STAINED_GLASS_PANE, Blocks.SPRUCE_DOOR, Blocks.SPRUCE_TRAPDOOR);
+        TudorShopEngine.buildShell(level, x0, y0, z0, sx, sz, front, floors, apothecaryStyle);
 
         // INTERIOR: brewing stand wall + cauldrons + flower pots of ingredients.
         for (int dx = 2; dx < sx - 2; dx++) {
@@ -1052,51 +912,29 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
         int x0 = corner.getX();
         int y0 = corner.getY();
         int z0 = corner.getZ();
-        int sx = 10, sz = 9, h = 8; // tallest of the shops
-        BlockState frame = Blocks.STRIPPED_ACACIA_LOG.defaultBlockState();
-        BlockState wall = Blocks.ORANGE_TERRACOTTA.defaultBlockState();
-        BlockState floor = Blocks.RED_NETHER_BRICKS.defaultBlockState();
-        BlockState window = Blocks.ORANGE_STAINED_GLASS_PANE.defaultBlockState();
+        // Weasleys' Wizard Wheezes: the loudest building on the street — four stories of
+        // orange and yellow with the giant top hat back on the ridge.
+        int sx = 10, sz = 9;
+        int floors = 4;
+        int h = TudorShopEngine.wallHeight(floors);
+        fillRect(level, x0, y0, z0, sx, 1, sz, Blocks.RED_NETHER_BRICKS.defaultBlockState());
+        TudorShopEngine.Style wheezesStyle = new TudorShopEngine.Style(
+                Blocks.ORANGE_TERRACOTTA, Blocks.YELLOW_TERRACOTTA,
+                Blocks.STRIPPED_ACACIA_LOG, Blocks.STRIPPED_ACACIA_LOG,
+                Blocks.ACACIA_STAIRS, Blocks.DARK_OAK_STAIRS, Blocks.ACACIA_SLAB,
+                Blocks.ORANGE_STAINED_GLASS_PANE, Blocks.ACACIA_DOOR, Blocks.ACACIA_TRAPDOOR);
+        TudorShopEngine.buildShell(level, x0, y0, z0, sx, sz, front, floors, wheezesStyle);
 
-        fillRect(level, x0, y0, z0, sx, 1, sz, floor);
-        for (int dy = 1; dy <= h; dy++) {
-            for (int dx = 0; dx < sx; dx++) {
-                for (int dz = 0; dz < sz; dz++) {
-                    boolean edge = dx == 0 || dx == sx - 1 || dz == 0 || dz == sz - 1;
-                    if (!edge) continue;
-                    boolean corner2 = (dx == 0 || dx == sx - 1) && (dz == 0 || dz == sz - 1);
-                    boolean band = dy == 3 || dy == 5;
-                    boolean stripe = ((dx + dy + dz) & 1) == 0;
-                    BlockState block = corner2 || band ? frame
-                            : (stripe ? wall : Blocks.YELLOW_TERRACOTTA.defaultBlockState());
-                    setSafe(level,new BlockPos(x0 + dx, y0 + dy, z0 + dz), block, 2);
-                }
-            }
-        }
-        int frontZ = (front == Direction.NORTH) ? z0 : z0 + sz - 1;
-        for (int dx = 1; dx < sx - 1; dx += 2) {
-            setSafe(level,new BlockPos(x0 + dx, y0 + 2, frontZ), window, 2);
-            setSafe(level,new BlockPos(x0 + dx, y0 + 6, frontZ), window, 2);
-        }
-        placeDoor(level, x0 + sx / 2, y0 + 1, frontZ, front, Blocks.ACACIA_DOOR);
-        placeAwning(level, x0 + sx / 2, y0 + 4, frontZ, front, Blocks.ACACIA_STAIRS);
-        setSafe(level,new BlockPos(x0 + sx / 2, y0 + 7, frontZ), Blocks.ORANGE_WOOL.defaultBlockState(), 2);
-        setSafe(level,new BlockPos(x0 + sx / 2, y0 + h, frontZ), Blocks.YELLOW_WOOL.defaultBlockState(), 2);
-
-        // Roof with chaotic angles.
-        for (int dx = 0; dx < sx; dx++) {
-            for (int dz = 0; dz < sz; dz++) {
-                setSafe(level,new BlockPos(x0 + dx, y0 + h + 1, z0 + dz), Blocks.ACACIA_PLANKS.defaultBlockState(), 2);
-            }
-        }
-        // Giant top hat on roof (the iconic Weasley sign): tower of orange wool.
+        // Giant top hat perched on the ridge (the iconic Weasley sign).
+        int hatY = y0 + h + 6;
+        int hatZ = z0 + sz / 2;
         for (int dy = 0; dy < 3; dy++) {
-            setSafe(level,new BlockPos(x0 + sx / 2, y0 + h + 2 + dy, z0 + sz / 2), Blocks.ORANGE_WOOL.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + sx / 2, hatY + dy, hatZ), Blocks.ORANGE_WOOL.defaultBlockState(), 2);
         }
         for (Direction d : Direction.Plane.HORIZONTAL) {
-            setSafe(level,new BlockPos(x0 + sx / 2, y0 + h + 2, z0 + sz / 2).relative(d), Blocks.ORANGE_WOOL.defaultBlockState(), 2);
+            setSafe(level,new BlockPos(x0 + sx / 2, hatY, hatZ).relative(d), Blocks.ORANGE_WOOL.defaultBlockState(), 2);
         }
-        setSafe(level,new BlockPos(x0 + sx / 2, y0 + h + 5, z0 + sz / 2), Blocks.YELLOW_WOOL.defaultBlockState(), 2);
+        setSafe(level,new BlockPos(x0 + sx / 2, hatY + 3, hatZ), Blocks.YELLOW_WOOL.defaultBlockState(), 2);
 
         // INTERIOR: chaos shelves — wool blocks, TNT (defused), jukebox, redstone lamps.
         for (int dx = 1; dx < sx - 1; dx++) {
@@ -1129,52 +967,17 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
         int x0 = corner.getX();
         int y0 = corner.getY();
         int z0 = corner.getZ();
-        int sx = 10, sz = 8, h = 5;
-        BlockState wall = Blocks.CALCITE.defaultBlockState();
-        BlockState floor = Blocks.SMOOTH_QUARTZ.defaultBlockState();
-        BlockState window = Blocks.LIGHT_BLUE_STAINED_GLASS_PANE.defaultBlockState();
-
-        fillRect(level, x0, y0, z0, sx, 1, sz, floor);
-        for (int dy = 1; dy <= h; dy++) {
-            for (int dx = 0; dx < sx; dx++) {
-                for (int dz = 0; dz < sz; dz++) {
-                    boolean edge = dx == 0 || dx == sx - 1 || dz == 0 || dz == sz - 1;
-                    if (!edge) continue;
-                    boolean band = dy == 3;
-                    setSafe(level,new BlockPos(x0 + dx, y0 + dy, z0 + dz),
-                            band ? Blocks.LIGHT_BLUE_TERRACOTTA.defaultBlockState() : wall, 2);
-                }
-            }
-        }
-        int frontZ = (front == Direction.NORTH) ? z0 : z0 + sz - 1;
-        // Big shop window taking up most of the front.
-        for (int dx = 1; dx < sx - 1; dx++) {
-            if (dx == sx / 2) continue;
-            setSafe(level,new BlockPos(x0 + dx, y0 + 2, frontZ), window, 2);
-            setSafe(level,new BlockPos(x0 + dx, y0 + 3, frontZ), window, 2);
-        }
-        placeDoor(level, x0 + sx / 2, y0 + 1, frontZ, front, Blocks.BIRCH_DOOR);
-        // Striped awning (light blue / white wool checkered).
-        Direction awningFacing = (front == Direction.NORTH) ? Direction.SOUTH : Direction.NORTH;
-        BlockState awningStair = Blocks.BIRCH_STAIRS.defaultBlockState()
-                .setValue(BlockStateProperties.HORIZONTAL_FACING, awningFacing)
-                .setValue(BlockStateProperties.HALF, Half.TOP);
-        int awnZ = (front == Direction.NORTH) ? frontZ - 1 : frontZ + 1;
-        for (int dx = -3; dx <= 3; dx++) {
-            setSafe(level,new BlockPos(x0 + sx / 2 + dx, y0 + 4, awnZ), awningStair, 2);
-            setSafe(level,new BlockPos(x0 + sx / 2 + dx, y0 + 5, awnZ),
-                    (dx % 2 == 0) ? Blocks.LIGHT_BLUE_WOOL.defaultBlockState() : Blocks.WHITE_WOOL.defaultBlockState(), 2);
-        }
-        // Flat roof with railing.
-        for (int dx = 0; dx < sx; dx++) {
-            for (int dz = 0; dz < sz; dz++) {
-                setSafe(level,new BlockPos(x0 + dx, y0 + h + 1, z0 + dz), Blocks.SMOOTH_QUARTZ.defaultBlockState(), 2);
-            }
-        }
-        for (int dx = 0; dx < sx; dx++) {
-            setSafe(level,new BlockPos(x0 + dx, y0 + h + 2, z0), Blocks.QUARTZ_PILLAR.defaultBlockState(), 2);
-            setSafe(level,new BlockPos(x0 + dx, y0 + h + 2, z0 + sz - 1), Blocks.QUARTZ_PILLAR.defaultBlockState(), 2);
-        }
+        // Florean Fortescue's: pastel parlour — white plaster, birch timber, cherry roof.
+        int sx = 10, sz = 8;
+        int floors = 2;
+        int h = TudorShopEngine.wallHeight(floors);
+        fillRect(level, x0, y0, z0, sx, 1, sz, Blocks.SMOOTH_QUARTZ.defaultBlockState());
+        TudorShopEngine.Style fortescuesStyle = new TudorShopEngine.Style(
+                Blocks.WHITE_TERRACOTTA, Blocks.CALCITE,
+                Blocks.STRIPPED_BIRCH_LOG, Blocks.STRIPPED_BIRCH_LOG,
+                Blocks.CHERRY_STAIRS, Blocks.BIRCH_STAIRS, Blocks.CHERRY_SLAB,
+                Blocks.LIGHT_BLUE_STAINED_GLASS_PANE, Blocks.BIRCH_DOOR, Blocks.BIRCH_TRAPDOOR);
+        TudorShopEngine.buildShell(level, x0, y0, z0, sx, sz, front, floors, fortescuesStyle);
 
         // OUTDOOR SEATING — tables (oak slabs on fence posts) with stools in front of the shop.
         int seatingZ = (front == Direction.NORTH) ? z0 - 4 : z0 + sz + 3;

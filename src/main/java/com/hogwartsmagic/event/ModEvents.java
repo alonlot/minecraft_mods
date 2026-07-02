@@ -786,6 +786,7 @@ public class ModEvents {
             tickImperioChannel(player, modData);
             tickApparitionChannel(player, modData);
             tickAccioPull(player);
+            com.hogwartsmagic.duel.DuelManager.tick(player);
             tickHorcruxRitual(player);
 
             trySpawnInsomniaDementor(player);

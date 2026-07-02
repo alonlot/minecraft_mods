@@ -148,8 +148,18 @@ public class StudentEntity extends AbstractIllager implements DisarmableWandUser
         this.goalSelector.addGoal(0, new FloatGoal(this));
         // Retrieving a dropped wand outranks everything else — a disarmed student's only objective.
         this.goalSelector.addGoal(0, new RetrieveDroppedWandGoal(this, 1.2D));
-        // Flee when hurt, similar to villagers
-        this.goalSelector.addGoal(1, new PanicGoal(this, 0.5D));
+        // Flee when hurt, similar to villagers — but a student mid-duel stands their ground.
+        this.goalSelector.addGoal(1, new PanicGoal(this, 0.5D) {
+            @Override
+            public boolean canUse() {
+                return !com.hogwartsmagic.duel.DuelManager.isDueling(StudentEntity.this) && super.canUse();
+            }
+
+            @Override
+            public boolean canContinueToUse() {
+                return !com.hogwartsmagic.duel.DuelManager.isDueling(StudentEntity.this) && super.canContinueToUse();
+            }
+        });
         // At night, path to a village bed and sleep (like villagers)
         this.goalSelector.addGoal(2, new StudentSleepGoal(this));
         this.goalSelector.addGoal(3, new StudentSpellCastGoal(this));
@@ -211,6 +221,18 @@ public class StudentEntity extends AbstractIllager implements DisarmableWandUser
         if (!this.level().isClientSide && !this.isDisarmed() && this.getMainHandItem().isEmpty()) {
             this.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(ExampleMod.HARRY_POTTER_WAND.get()));
         }
+    }
+
+    @Override
+    protected net.minecraft.world.InteractionResult mobInteract(Player player, net.minecraft.world.InteractionHand hand) {
+        // Sneak + right-click with a wand challenges the student to a formal duel.
+        if (player.isShiftKeyDown() && com.hogwartsmagic.item.MagicWandItem.isAnyWand(player.getItemInHand(hand))) {
+            if (!this.level().isClientSide && player instanceof net.minecraft.server.level.ServerPlayer sp) {
+                com.hogwartsmagic.duel.DuelManager.requestDuel(sp, this);
+            }
+            return net.minecraft.world.InteractionResult.sidedSuccess(this.level().isClientSide);
+        }
+        return super.mobInteract(player, hand);
     }
 
     public void setCasting(boolean casting) {

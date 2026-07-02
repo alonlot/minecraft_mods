@@ -244,6 +244,19 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
     }
 
     @Override
+    protected net.minecraft.world.InteractionResult mobInteract(Player player, InteractionHand hand) {
+        // Sneak + right-click with a wand challenges the Death Eater to a formal duel.
+        // Dark wizards respect dueling tradition — but they duel with dark magic.
+        if (player.isShiftKeyDown() && com.hogwartsmagic.item.MagicWandItem.isAnyWand(player.getItemInHand(hand))) {
+            if (!this.level().isClientSide && player instanceof net.minecraft.server.level.ServerPlayer sp) {
+                com.hogwartsmagic.duel.DuelManager.requestDuel(sp, this);
+            }
+            return net.minecraft.world.InteractionResult.sidedSuccess(this.level().isClientSide);
+        }
+        return super.mobInteract(player, hand);
+    }
+
+    @Override
     public void onSyncedDataUpdated(EntityDataAccessor<?> p_33340_) {
         super.onSyncedDataUpdated(p_33340_);
         if (DATA_IS_FLYING.equals(p_33340_)) {

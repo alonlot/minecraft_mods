@@ -151,6 +151,10 @@ public enum SpellType {
                 if (target instanceof com.hogwartsmagic.entity.DisarmableWandUser disarmable) {
                     disarmable.setDisarmed(true);
                 }
+                // A disarm during a formal duel decides it — win or lose.
+                if (!target.level().isClientSide) {
+                    com.hogwartsmagic.duel.DuelManager.onDisarmed(target);
+                }
                 // Knockback
                 if (caster != null) {
                     target.knockback(0.5, caster.getX() - target.getX(), caster.getZ() - target.getZ());

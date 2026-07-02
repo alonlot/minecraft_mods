@@ -85,6 +85,10 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> CLOAK_VANISH = register("cloak.vanish");
     public static final RegistryObject<SoundEvent> CLOAK_REVEAL = register("cloak.reveal");
 
+    // Quidditch SFX
+    public static final RegistryObject<SoundEvent> SNITCH_FLUTTER = register("snitch.flutter");
+    public static final RegistryObject<SoundEvent> SNITCH_CATCH = register("snitch.catch");
+
     private static RegistryObject<SoundEvent> register(String name) {
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, name);
         return SOUND_EVENTS.register(name, () -> SoundEvent.createVariableRangeEvent(id));

@@ -463,5 +463,13 @@
   "hogwartsmagic.duel.etiquette": "You attacked before the signal - the duel is voided!",
   "hogwartsmagic.duel.cancelled": "The duel was called off.",
   "hogwartsmagic.duel.too_far": "You walked away - the duel is forfeit.",
-  "hogwartsmagic.duel.draw": "Neither side prevailed. The duel ends in a draw."
+  "hogwartsmagic.duel.draw": "Neither side prevailed. The duel ends in a draw.",
+  "item.hogwartsmagic.golden_snitch": "Golden Snitch",
+  "entity.hogwartsmagic.golden_snitch": "Golden Snitch",
+  "hogwartsmagic.snitch.tooltip": "Release it, mount a broom, and catch it if you can!",
+  "hogwartsmagic.snitch.released": "The Snitch is loose!",
+  "hogwartsmagic.snitch.caught": "§6§lYOU CAUGHT THE SNITCH!",
+  "hogwartsmagic.snitch.chase_time": "Chase time: %s seconds",
+  "subtitles.hogwartsmagic.snitch.flutter": "Snitch flutters",
+  "subtitles.hogwartsmagic.snitch.catch": "Snitch caught"
 }

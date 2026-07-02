@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " f ",
+    "dgd",
+    " f "
+  ],
+  "key": {
+    "f": {
+      "item": "hogwartsmagic:magical_silk"
+    },
+    "d": {
+      "item": "hogwartsmagic:arcane_dust"
+    },
+    "g": {
+      "item": "minecraft:gold_ingot"
+    }
+  },
+  "result": {
+    "id": "hogwartsmagic:golden_snitch",
+    "count": 1
+  }
+}

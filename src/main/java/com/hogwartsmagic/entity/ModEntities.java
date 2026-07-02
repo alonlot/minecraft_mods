@@ -170,6 +170,14 @@ public class ModEntities {
                             .updateInterval(1)
                             .build("horcrux_soul"));
 
+    public static final RegistryObject<EntityType<GoldenSnitchEntity>> GOLDEN_SNITCH =
+            ENTITY_TYPES.register("golden_snitch",
+                    () -> EntityType.Builder.<GoldenSnitchEntity>of(GoldenSnitchEntity::new, MobCategory.MISC)
+                            .sized(0.35F, 0.35F)
+                            .clientTrackingRange(12)
+                            .updateInterval(1) // darts fast; interpolate every tick
+                            .build("golden_snitch"));
+
     public static final RegistryObject<EntityType<LycanthropeVillagerEntity>> LYCANTHROPE_VILLAGER =
             ENTITY_TYPES.register("lycanthrope_villager",
                     () -> EntityType.Builder.<LycanthropeVillagerEntity>of(LycanthropeVillagerEntity::new, MobCategory.CREATURE)

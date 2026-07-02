@@ -383,6 +383,8 @@ public class ExampleMod
             () -> new com.hogwartsmagic.relic.RelicItem(com.hogwartsmagic.relic.RelicType.ENCHANTED_INKWELL, new Item.Properties()));
     public static final RegistryObject<Item> MOONLIT_PHIAL = ITEMS.register("moonlit_phial",
             () -> new com.hogwartsmagic.relic.RelicItem(com.hogwartsmagic.relic.RelicType.MOONLIT_PHIAL, new Item.Properties()));
+    public static final RegistryObject<Item> GOLDEN_SNITCH = ITEMS.register("golden_snitch",
+            () -> new com.hogwartsmagic.item.GoldenSnitchItem(new Item.Properties().stacksTo(1).rarity(net.minecraft.world.item.Rarity.RARE)));
 
     public static final RegistryObject<ArmorMaterial> SORTING_HAT_MATERIAL = ARMOR_MATERIALS.register("sorting_hat",
             () -> new ArmorMaterial(
@@ -509,6 +511,7 @@ public class ExampleMod
                 output.accept(FLOO_POWDER.get());
                 output.accept(MAGICAL_SILK.get());
                 output.accept(INVISIBILITY_CLOAK.get());
+                output.accept(GOLDEN_SNITCH.get());
                 output.accept(MINOR_MANA_CHARM.get());
                 output.accept(REFINED_MANA_CHARM.get());
                 output.accept(ARCANE_FOCUS.get());

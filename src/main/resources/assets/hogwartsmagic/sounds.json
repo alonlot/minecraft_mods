@@ -540,5 +540,23 @@
         "stream": false
       }
     ]
+  },
+  "snitch.flutter": {
+    "subtitle": "subtitles.hogwartsmagic.snitch.flutter",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:snitch/flutter",
+        "stream": false
+      }
+    ]
+  },
+  "snitch.catch": {
+    "subtitle": "subtitles.hogwartsmagic.snitch.catch",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:snitch/catch",
+        "stream": false
+      }
+    ]
   }
 }

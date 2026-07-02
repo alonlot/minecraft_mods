@@ -693,6 +693,7 @@ public class ClientModEvents {
         event.registerLayerDefinition(HungarianHorntailModel.LAYER_LOCATION, HungarianHorntailModel::createBodyLayer);
         event.registerLayerDefinition(WhulvkWerewolfLycanModel.LAYER_LOCATION, WhulvkWerewolfLycanModel::createBodyLayer);
         event.registerLayerDefinition(GillyweedGillsModel.LAYER_LOCATION, GillyweedGillsModel::createBodyLayer);
+        event.registerLayerDefinition(com.hogwartsmagic.client.GoldenSnitchModel.LAYER_LOCATION, com.hogwartsmagic.client.GoldenSnitchModel::createBodyLayer);
     }
 
     @SubscribeEvent
@@ -728,6 +729,7 @@ public class ClientModEvents {
         event.registerEntityRenderer(ModEntities.PETRIFIED_REMAINS.get(), PetrifiedRemainsRenderer::new);
         event.registerEntityRenderer(ModEntities.HORCRUX_SOUL.get(), HorcruxSoulRenderer::new);
         event.registerEntityRenderer(ModEntities.LYCANTHROPE_VILLAGER.get(), LycanthropeVillagerRenderer::new);
+        event.registerEntityRenderer(ModEntities.GOLDEN_SNITCH.get(), com.hogwartsmagic.client.GoldenSnitchRenderer::new);
         
         event.registerEntityRenderer(ModEntities.DARK_MARK.get(), DarkMarkRenderer::new);
         event.registerEntityRenderer(ModEntities.VOLDEMORT_SUMMONING.get(),

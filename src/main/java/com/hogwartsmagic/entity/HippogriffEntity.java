@@ -111,16 +111,22 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
     private static final int GROUND_STUCK_TICKS = 30;
 
     // Flight feel. Descending trades height for speed like an elytra; climbing is work.
-    private static final double FLIGHT_CRUISE = 1.7D;
+    private static final double FLIGHT_CRUISE = 2.2D;
     /** Height traded for airspeed per tick when pointed straight down, and back on the climb. */
     private static final double FLIGHT_GRAVITY = 0.045D;
     /** Grows with the square of speed, so it sets her terminal dive speed. */
     private static final double FLIGHT_DRAG = 0.013D;
-    /** How fast her wings can make up a shortfall back to cruise. They cannot exceed it. */
-    private static final double FLAP_THRUST = 0.030D;
-    private static final double MIN_FLIGHT_SPEED = 0.14D;
+    /**
+     * How hard her wings pull, per tick, when she is below cruise. This has to beat
+     * FLIGHT_GRAVITY or she can never sustain a climb at all - she just decays to the
+     * minimum speed and crawls upward, which is exactly what it used to do.
+     */
+    private static final double FLAP_THRUST = 0.058D;
+    private static final double MIN_FLIGHT_SPEED = 0.30D;
     /** Hard ceiling on airspeed, so a long dive cannot run away with her. */
-    private static final double MAX_FLIGHT_SPEED = 1.5D;
+    private static final double MAX_FLIGHT_SPEED = 2.0D;
+    /** She wanders at an easier pace than she carries a rider. */
+    private static final double AI_CRUISE_SCALE = 0.55D;
     /** Low value = heavy inertia, so she banks through wide arcs instead of turning on a pin. */
     private static final double FLIGHT_RESPONSE = 0.11D;
     private static final float MAX_YAW_RATE = 5.5F;
@@ -129,7 +135,7 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
     /** Deliberately slow, so the roll reads as a decision rather than a twitch. */
     private static final float BANK_EASE = 0.035F;
     /** A shade snappier than her own flying, so rider input does not feel sluggish. */
-    private static final double RIDDEN_FLIGHT_RESPONSE = 0.17D;
+    private static final double RIDDEN_FLIGHT_RESPONSE = 0.24D;
     /** Degrees of body roll at full bank. Lives here, not in the model: common code needs it. */
     public static final float BANK_BODY_ROLL_DEGREES = 35.0F;
     /** Carrying somebody, she keeps it flatter - a rider does not lean with her. */
@@ -989,7 +995,7 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
             // Steered directly rather than pathfound. Asking the flying navigator for a
             // path to an empty point of sky mostly failed, which is why she never actually
             // left the ground; this drives her velocity toward it instead.
-            this.hippogriff.steerFlight(this.destination, 1.0D);
+            this.hippogriff.steerFlight(this.destination, AI_CRUISE_SCALE);
             if (this.hippogriff.position().distanceTo(this.destination) < ARRIVE_RANGE
                     && !pickDestination()) {
                 this.destination = null;

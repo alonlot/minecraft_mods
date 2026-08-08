@@ -187,9 +187,14 @@ public class GoblinModel<T extends Mob & GoblinAnimated> extends HierarchicalMod
         ModelPart limb = rightSide ? this.leftArm : this.rightArm;
         limb.translateAndRotate(poseStack);
 
-        // The arm pivot is the shoulder; the hand cube sits 8.5-10.5px further
-        // down the sleeve and is inset from the pivot on the outward side.
-        poseStack.translate((rightSide ? -1.5F : 1.5F) / 16.0F, 9.5F / 16.0F, 0.0F);
-        poseStack.scale(0.75F, 0.75F, 0.75F);
+        // ItemInHandLayer applies its own translate of 0.625 blocks AFTER this
+        // call, and once its -90/180 rotations are unwound that works out as
+        // 10px straight down the arm - vanilla's way of reaching a humanoid's
+        // fist. Scaled by 0.8 it covers 8px here. Our hand cube is centred 9.5px
+        // below the shoulder pivot, so only the remaining 1.5px is added.
+        // Adding the full 9.5px double-counted it and left the dagger hanging
+        // in front of the goblin's knees.
+        poseStack.translate(rightSide ? -0.044F : 0.044F, 1.5F / 16.0F, 0.0F);
+        poseStack.scale(0.8F, 0.8F, 0.8F);
     }
 }

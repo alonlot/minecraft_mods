@@ -104,7 +104,9 @@ public final class VillageGringottsBank {
             if (job.advance()) {
                 job.staff();
                 VillageBankTracker tracker = VillageBankTracker.get(job.level);
-                tracker.markVisited(job.villageCenter);
+                if (job.villageCenter != null) {
+                    tracker.markVisited(job.villageCenter);
+                }
                 tracker.addBank(job.locator());
                 announce(job.level, job.locator());
                 LOGGER.info("Gringotts bank complete at {}", job.locator());
@@ -193,50 +195,91 @@ public final class VillageGringottsBank {
      */
     @Nullable
     private static BlockPos findAnchor(ServerLevel level, BlockPos bell, GringottsSchematic schem) {
-        int w = schem.width();
-        int l = schem.length();
-
         for (int step = 0; step < 8; step++) {
             double angle = step * Math.PI / 4.0D;
             int cx = bell.getX() + (int) Math.round(Math.cos(angle) * OFFSET_FROM_BELL);
             int cz = bell.getZ() + (int) Math.round(Math.sin(angle) * OFFSET_FROM_BELL);
-
-            int minX = cx - w / 2;
-            int minZ = cz - l / 2;
-
-            // Every corner must already be resident; we never want to trigger
-            // synchronous chunk generation from a tick handler.
-            if (!resident(level, minX, minZ) || !resident(level, minX + w, minZ)
-                    || !resident(level, minX, minZ + l) || !resident(level, minX + w, minZ + l)
-                    || !resident(level, cx, cz)) {
-                continue;
+            BlockPos anchor = anchorAt(level, cx, cz, schem, true);
+            if (anchor != null) {
+                return anchor;
             }
-
-            int lowest = Integer.MAX_VALUE;
-            int highest = Integer.MIN_VALUE;
-            boolean wet = false;
-            for (int sx = 0; sx <= w; sx += w / 4) {
-                for (int sz = 0; sz <= l; sz += l / 4) {
-                    int x = minX + sx;
-                    int z = minZ + sz;
-                    int ground = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
-                    lowest = Math.min(lowest, ground);
-                    highest = Math.max(highest, ground);
-                    if (!level.getFluidState(new BlockPos(x, ground - 1, z)).is(Fluids.EMPTY)) {
-                        wet = true;
-                    }
-                }
-            }
-            if (wet || highest - lowest > MAX_GROUND_SPREAD) {
-                continue;
-            }
-
-            // Sit on the highest sampled ground so the bank crowns the rise and
-            // the skirt fills the downhill side, rather than burying its floor.
-            int anchorY = Math.max(level.getMinBuildHeight() + 1, highest - FOUNDATION_SINK);
-            return new BlockPos(minX, anchorY, minZ);
         }
         return null;
+    }
+
+    /**
+     * Works out the paste corner for a bank centred on (cx, cz).
+     *
+     * <p>{@code picky} controls whether uneven or waterlogged ground disqualifies
+     * the spot. Automatic village placement is picky because it has seven other
+     * compass points to try; an operator running the command has asked for it
+     * <em>here</em>, so only the chunk-residency check is enforced.
+     */
+    @Nullable
+    private static BlockPos anchorAt(ServerLevel level, int cx, int cz, GringottsSchematic schem, boolean picky) {
+        int w = schem.width();
+        int l = schem.length();
+        int minX = cx - w / 2;
+        int minZ = cz - l / 2;
+
+        // Every corner must already be resident; we never want to trigger
+        // synchronous chunk generation from a tick handler.
+        if (!resident(level, minX, minZ) || !resident(level, minX + w, minZ)
+                || !resident(level, minX, minZ + l) || !resident(level, minX + w, minZ + l)
+                || !resident(level, cx, cz)) {
+            return null;
+        }
+
+        int lowest = Integer.MAX_VALUE;
+        int highest = Integer.MIN_VALUE;
+        boolean wet = false;
+        for (int sx = 0; sx <= w; sx += w / 4) {
+            for (int sz = 0; sz <= l; sz += l / 4) {
+                int x = minX + sx;
+                int z = minZ + sz;
+                int ground = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+                lowest = Math.min(lowest, ground);
+                highest = Math.max(highest, ground);
+                if (!level.getFluidState(new BlockPos(x, ground - 1, z)).is(Fluids.EMPTY)) {
+                    wet = true;
+                }
+            }
+        }
+        if (picky && (wet || highest - lowest > MAX_GROUND_SPREAD)) {
+            return null;
+        }
+
+        // Sit on the highest sampled ground so the bank crowns the rise and
+        // the skirt fills the downhill side, rather than burying its floor.
+        int anchorY = Math.max(level.getMinBuildHeight() + 1, highest - FOUNDATION_SINK);
+        return new BlockPos(minX, anchorY, minZ);
+    }
+
+    /**
+     * Builds a bank centred on {@code center}, regardless of any village. Used by
+     * {@code /buildbank}. Returns the locator position, or null if a build is
+     * already running, the schematic is missing, or the chunks are not resident.
+     */
+    @Nullable
+    public static BlockPos requestSpawn(ServerLevel level, BlockPos center) {
+        if (activeJob != null) {
+            return null;
+        }
+        GringottsSchematic schem = GringottsSchematic.get();
+        if (schem == null) {
+            return null;
+        }
+        BlockPos anchor = anchorAt(level, center.getX(), center.getZ(), schem, false);
+        if (anchor == null) {
+            return null;
+        }
+        RandomSource rng = RandomSource.create(level.getSeed() ^ center.asLong());
+        // No village center: a hand-placed bank must not consume some nearby
+        // village's one chance at getting its own.
+        PlacementJob job = new PlacementJob(level, schem, anchor, null, rng);
+        activeJob = job;
+        LOGGER.info("Gringotts bank starting at {} (manual)", anchor);
+        return job.locator();
     }
 
     private static boolean resident(ServerLevel level, int x, int z) {
@@ -271,6 +314,8 @@ public final class VillageGringottsBank {
         private final ServerLevel level;
         private final GringottsSchematic schem;
         private final BlockPos anchor;
+        /** Null for a hand-placed bank, which belongs to no village. */
+        @Nullable
         private final BlockPos villageCenter;
         private final RandomSource rng;
         private final int width;
@@ -283,7 +328,7 @@ public final class VillageGringottsBank {
         private int columnCursor;
 
         PlacementJob(ServerLevel level, GringottsSchematic schem, BlockPos anchor,
-                     BlockPos villageCenter, RandomSource rng) {
+                     @Nullable BlockPos villageCenter, RandomSource rng) {
             this.level = level;
             this.schem = schem;
             this.anchor = anchor;

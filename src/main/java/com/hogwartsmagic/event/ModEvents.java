@@ -1243,25 +1243,54 @@ public class ModEvents {
         return heldOff;
     }
 
-    /** Rides one light block down the cone so the shield actually lights the ground like the film. */
+    /** Where light blocks ride along the beam, in blocks from the wand. */
+    private static final double[] PATRONUS_SHIELD_LIGHT_STOPS = {2.0D, 5.0D, 8.0D, 11.0D};
+
+    /**
+     * Rides a line of light blocks down the beam so the shield actually pours light onto the
+     * ground the way it does in the film, rather than only glowing in mid-air.
+     */
     private static void updatePatronusShieldLight(ServerLevel level, ServerPlayer player, Vec3 origin, Vec3 axis) {
-        Vec3 target = origin.add(axis.scale(4.0D));
-        BlockPos pos = BlockPos.containing(target);
         CompoundTag data = player.getPersistentData();
+        long[] wanted = new long[PATRONUS_SHIELD_LIGHT_STOPS.length];
+        int count = 0;
 
-        if (data.contains(TAG_PATRONUS_SHIELD_LIGHT)) {
-            BlockPos previous = BlockPos.of(data.getLong(TAG_PATRONUS_SHIELD_LIGHT));
-            if (previous.equals(pos)) {
-                return;
+        for (double distance : PATRONUS_SHIELD_LIGHT_STOPS) {
+            BlockPos pos = BlockPos.containing(origin.add(axis.scale(distance)));
+            boolean duplicate = false;
+            for (int i = 0; i < count; i++) {
+                if (wanted[i] == pos.asLong()) {
+                    duplicate = true;
+                    break;
+                }
             }
-            clearPatronusShieldLight(level, previous);
-            data.remove(TAG_PATRONUS_SHIELD_LIGHT);
+            if (!duplicate) {
+                wanted[count++] = pos.asLong();
+            }
+        }
+        long[] target = java.util.Arrays.copyOf(wanted, count);
+
+        long[] previous = data.contains(TAG_PATRONUS_SHIELD_LIGHT)
+                ? data.getLongArray(TAG_PATRONUS_SHIELD_LIGHT)
+                : new long[0];
+        if (java.util.Arrays.equals(previous, target)) {
+            return;
         }
 
-        if (level.getBlockState(pos).isAir()) {
-            level.setBlock(pos, ExampleMod.PATRONUS_LIGHT_BLOCK.get().defaultBlockState(), 3);
-            data.putLong(TAG_PATRONUS_SHIELD_LIGHT, pos.asLong());
+        for (long packed : previous) {
+            clearPatronusShieldLight(level, BlockPos.of(packed));
         }
+
+        long[] placed = new long[target.length];
+        int placedCount = 0;
+        for (long packed : target) {
+            BlockPos pos = BlockPos.of(packed);
+            if (level.getBlockState(pos).isAir()) {
+                level.setBlock(pos, ExampleMod.PATRONUS_LIGHT_BLOCK.get().defaultBlockState(), 3);
+                placed[placedCount++] = packed;
+            }
+        }
+        data.putLongArray(TAG_PATRONUS_SHIELD_LIGHT, java.util.Arrays.copyOf(placed, placedCount));
     }
 
     private static void clearPatronusShieldLight(ServerLevel level, BlockPos pos) {
@@ -1273,7 +1302,9 @@ public class ModEvents {
     public static void stopPatronusShieldChannel(ServerPlayer player, ItemStack wand) {
         CompoundTag data = player.getPersistentData();
         if (data.contains(TAG_PATRONUS_SHIELD_LIGHT) && player.level() instanceof ServerLevel serverLevel) {
-            clearPatronusShieldLight(serverLevel, BlockPos.of(data.getLong(TAG_PATRONUS_SHIELD_LIGHT)));
+            for (long packed : data.getLongArray(TAG_PATRONUS_SHIELD_LIGHT)) {
+                clearPatronusShieldLight(serverLevel, BlockPos.of(packed));
+            }
         }
         data.remove(TAG_PATRONUS_SHIELD_LIGHT);
         data.remove(TAG_PATRONUS_SHIELD_LOOP_AT);

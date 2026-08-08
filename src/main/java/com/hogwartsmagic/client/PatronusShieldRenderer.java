@@ -7,39 +7,48 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.client.event.RenderLevelStageEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.joml.Matrix4f;
 
 /**
- * Draws the non-corporeal Patronus as actual light rather than particles: a cone of nested,
- * additively blended shells that accumulate into a bright core with a soft volumetric edge,
- * the way a beam looks through mist.
+ * Draws the non-corporeal Patronus as a solid shaft of light thrown from the wand.
+ *
+ * <p>Nested hollow shells were the obvious way to build this and the wrong one: with additive
+ * blending you see every shell wall edge-on, so the beam read as a handful of separate ribbons.
+ * Smooth volumetric light needs geometry that never presents an edge to the camera, which means
+ * camera-facing surfaces carrying a soft gradient.
+ *
+ * <p>One billboard alone won't do either. A billboard is built perpendicular to the view, so when
+ * the caster looks down their own beam -- exactly the first-person case -- it collapses to nothing.
+ * So this draws two forms and cross-fades them on view alignment: a camera-facing ribbon that
+ * carries the beam when seen from the side, and a stack of soft discs that carries it when seen
+ * end-on. Both are gradients that fall to zero alpha at their edges, so wherever they overlap they
+ * blend instead of seaming.
  */
 @Mod.EventBusSubscriber(modid = ExampleMod.MODID, value = Dist.CLIENT)
 public final class PatronusShieldRenderer {
 
-    /** Shells from the axis outwards. More shells means a smoother falloff and more geometry. */
-    private static final int SHELLS = 5;
-    /** Rings along the cone's length; alpha is shaped per ring. */
-    private static final int RINGS = 10;
-    /** Radial subdivisions. */
-    private static final int SEGMENTS = 20;
+    private static final int RIBBON_SEGMENTS = 24;
+    private static final int DISCS = 16;
+    private static final int DISC_SEGMENTS = 24;
+    private static final int BLOOM_RINGS = 4;
+    private static final int BLOOM_SEGMENTS = 18;
 
-    /** Cold silver-white, a touch of blue. */
-    private static final float RED = 0.80f;
-    private static final float GREEN = 0.93f;
+    /** Width and strength of each ribbon layer: a hot core inside a broad soft halo. */
+    private static final float[] LAYER_WIDTH = {0.26f, 0.62f, 1.00f};
+    private static final float[] LAYER_ALPHA = {0.90f, 0.40f, 0.16f};
+
+    /** Near-white, barely cold. The core pushes to pure white. */
+    private static final float RED = 0.86f;
+    private static final float GREEN = 0.95f;
     private static final float BLUE = 1.00f;
-
-    /**
-     * The light is born a little in front of the wand rather than at the eye, so a
-     * first-person caster isn't staring into a wall of white.
-     */
-    private static final float NEAR_FADE = 0.14f;
 
     private PatronusShieldRenderer() {
     }
@@ -75,7 +84,11 @@ public final class PatronusShieldRenderer {
             if (!PatronusShieldClientState.isChanneling(player.getId()) || !player.isAlive()) {
                 continue;
             }
-            drawShield(consumer, matrix, player, partialTick);
+            // Your own beam points away from you, so in first person you are looking straight
+            // down its throat. Drawn at full strength that is a white-out over the crosshair.
+            boolean ownFirstPerson = player == minecraft.player
+                    && minecraft.options.getCameraType().isFirstPerson();
+            drawShield(consumer, matrix, player, cameraPos, partialTick, ownFirstPerson);
             drewAnything = true;
         }
 
@@ -86,14 +99,14 @@ public final class PatronusShieldRenderer {
 
     /** Stale casters must not survive into the next world. */
     @SubscribeEvent
-    public static void onLoggingOut(net.minecraftforge.client.event.ClientPlayerNetworkEvent.LoggingOut event) {
+    public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         PatronusShieldClientState.clear();
     }
 
-    private static void drawShield(VertexConsumer consumer, Matrix4f matrix, Player player, float partialTick) {
+    private static void drawShield(VertexConsumer consumer, Matrix4f matrix, Player player,
+                                   Vec3 cameraPos, float partialTick, boolean ownFirstPerson) {
         Vec3 axis = player.getViewVector(partialTick).normalize();
 
-        // Apex sits at the wand hand: eye height, pushed forward and out to the casting side.
         Vec3 side = axis.cross(new Vec3(0.0D, 1.0D, 0.0D));
         if (side.lengthSqr() < 1.0E-4D) {
             side = axis.cross(new Vec3(1.0D, 0.0D, 0.0D));
@@ -102,83 +115,208 @@ public final class PatronusShieldRenderer {
         Vec3 up = side.cross(axis).normalize();
 
         Vec3 eye = new Vec3(
-                net.minecraft.util.Mth.lerp(partialTick, player.xo, player.getX()),
-                net.minecraft.util.Mth.lerp(partialTick, player.yo, player.getY()) + player.getEyeHeight(),
-                net.minecraft.util.Mth.lerp(partialTick, player.zo, player.getZ())
+                Mth.lerp(partialTick, player.xo, player.getX()),
+                Mth.lerp(partialTick, player.yo, player.getY()) + player.getEyeHeight(),
+                Mth.lerp(partialTick, player.zo, player.getZ())
         );
-        Vec3 apex = eye.add(axis.scale(0.45D)).add(side.scale(-0.28D)).add(up.scale(-0.12D));
-
-        // A slow breath so the light never looks like a static cardboard cone.
-        float age = player.tickCount + partialTick;
-        float pulse = 0.88f + 0.12f * (float) Math.sin(age * 0.18f);
+        Vec3 apex = eye.add(axis.scale(0.5D)).add(side.scale(-0.30D)).add(up.scale(-0.12D));
 
         float length = (float) PatronusShield.RANGE;
         float mouth = (float) PatronusShield.MOUTH_RADIUS;
 
-        for (int shell = 0; shell < SHELLS; shell++) {
-            // Shell 0 is the tight core; the outermost is the wide, faint halo.
-            float shellT = (shell + 1) / (float) SHELLS;
-            float shellRadius = mouth * shellT;
-            // Core carries most of the brightness, the halo only suggests volume.
-            float shellAlpha = 0.30f * (float) Math.pow(1.0f - shellT, 1.7f) + 0.035f;
-            shellAlpha *= pulse;
+        // A slow breath, plus a faster shimmer, so the light never sits still.
+        float age = player.tickCount + partialTick;
+        float pulse = 0.90f + 0.10f * Mth.sin(age * 0.17f) + 0.035f * Mth.sin(age * 0.71f);
 
-            drawConeShell(consumer, matrix, apex, axis, side, up, length, shellRadius, shellAlpha);
+        // How end-on the beam is. 0 = seen fully from the side, 1 = looking straight down it.
+        Vec3 shaftMid = apex.add(axis.scale(length * 0.45D));
+        Vec3 toCamera = cameraPos.subtract(shaftMid);
+        double toCameraLen = toCamera.length();
+        float alignment = toCameraLen < 1.0E-4D
+                ? 1.0f
+                : (float) Math.abs(toCamera.scale(1.0D / toCameraLen).dot(axis));
+
+        // Cross-fade, weighted so the pair sums to roughly full strength at every angle.
+        float ribbonWeight = 1.0f - smoothstep(0.55f, 0.97f, alignment);
+        float discWeight = smoothstep(0.30f, 0.90f, alignment);
+
+        if (ribbonWeight > 0.01f) {
+            Vec3 perpendicular = axis.cross(toCamera);
+            if (perpendicular.lengthSqr() < 1.0E-6D) {
+                perpendicular = side;
+            }
+            perpendicular = perpendicular.normalize();
+
+            for (int layer = 0; layer < LAYER_WIDTH.length; layer++) {
+                drawRibbon(consumer, matrix, apex, axis, perpendicular, length,
+                        mouth * LAYER_WIDTH[layer], LAYER_ALPHA[layer] * pulse * ribbonWeight, layer == 0);
+            }
         }
-    }
 
-    /** One hollow cone of light, built as quad strips between rings along its length. */
-    private static void drawConeShell(VertexConsumer consumer, Matrix4f matrix,
-                                      Vec3 apex, Vec3 axis, Vec3 side, Vec3 up,
-                                      float length, float maxRadius, float alpha) {
-        for (int ring = 0; ring < RINGS; ring++) {
-            float t0 = ring / (float) RINGS;
-            float t1 = (ring + 1) / (float) RINGS;
+        if (discWeight > 0.01f) {
+            // Discs stack along the view ray, so looking down the beam accumulates all of them at
+            // once. Held well back in first person, where that ray is longest.
+            float discStrength = pulse * discWeight * (ownFirstPerson ? 0.45f : 1.0f);
+            drawDiscStack(consumer, matrix, apex, axis, side, up, length, mouth, discStrength);
+        }
 
-            float a0 = alpha * lengthProfile(t0);
-            float a1 = alpha * lengthProfile(t1);
-            if (a0 <= 0.001f && a1 <= 0.001f) {
-                continue;
-            }
-
-            float r0 = maxRadius * t0;
-            float r1 = maxRadius * t1;
-            Vec3 c0 = apex.add(axis.scale(length * t0));
-            Vec3 c1 = apex.add(axis.scale(length * t1));
-
-            for (int seg = 0; seg < SEGMENTS; seg++) {
-                double angle0 = (Math.PI * 2.0D / SEGMENTS) * seg;
-                double angle1 = (Math.PI * 2.0D / SEGMENTS) * (seg + 1);
-
-                Vec3 o0a = offset(side, up, angle0, r0);
-                Vec3 o0b = offset(side, up, angle1, r0);
-                Vec3 o1a = offset(side, up, angle0, r1);
-                Vec3 o1b = offset(side, up, angle1, r1);
-
-                vertex(consumer, matrix, c0.add(o0a), a0);
-                vertex(consumer, matrix, c1.add(o1a), a1);
-                vertex(consumer, matrix, c1.add(o1b), a1);
-                vertex(consumer, matrix, c0.add(o0b), a0);
-            }
+        // The hot spot at the wand tip, always facing the viewer. Skipped for your own first-person
+        // cast: the apex sits half a block from the camera, so the flare would cover the crosshair.
+        if (!ownFirstPerson) {
+            drawBloom(consumer, matrix, apex, cameraPos, 0.85f, 0.95f * pulse);
         }
     }
 
     /**
-     * Brightness along the cone: a quick ramp out of the wand so the caster isn't blinded,
-     * a long bright body, then a soft diffuse falloff at the mouth.
+     * A camera-facing sheet down the beam, transparent at both edges and brightest along its
+     * centreline. Because it always faces the viewer it can never be caught edge-on.
+     */
+    private static void drawRibbon(VertexConsumer consumer, Matrix4f matrix, Vec3 apex, Vec3 axis,
+                                   Vec3 perpendicular, float length, float maxHalfWidth,
+                                   float alpha, boolean core) {
+        for (int i = 0; i < RIBBON_SEGMENTS; i++) {
+            float t0 = i / (float) RIBBON_SEGMENTS;
+            float t1 = (i + 1) / (float) RIBBON_SEGMENTS;
+
+            float a0 = alpha * lengthProfile(t0);
+            float a1 = alpha * lengthProfile(t1);
+            if (a0 <= 0.002f && a1 <= 0.002f) {
+                continue;
+            }
+
+            float w0 = maxHalfWidth * widthProfile(t0);
+            float w1 = maxHalfWidth * widthProfile(t1);
+
+            Vec3 c0 = apex.add(axis.scale(length * t0));
+            Vec3 c1 = apex.add(axis.scale(length * t1));
+            Vec3 e0 = perpendicular.scale(w0);
+            Vec3 e1 = perpendicular.scale(w1);
+
+            // Left half: transparent outer edge into the bright centreline.
+            quad(consumer, matrix,
+                    c0.subtract(e0), 0.0f,
+                    c1.subtract(e1), 0.0f,
+                    c1, a1,
+                    c0, a0, core);
+            // Right half.
+            quad(consumer, matrix,
+                    c0, a0,
+                    c1, a1,
+                    c1.add(e1), 0.0f,
+                    c0.add(e0), 0.0f, core);
+        }
+    }
+
+    /**
+     * Soft discs stacked down the beam. Seen end-on these read as a glowing throat of light,
+     * which is what the ribbon cannot do.
+     */
+    private static void drawDiscStack(VertexConsumer consumer, Matrix4f matrix, Vec3 apex, Vec3 axis,
+                                      Vec3 side, Vec3 up, float length, float mouth, float strength) {
+        for (int d = 0; d < DISCS; d++) {
+            float t = (d + 0.5f) / DISCS;
+            // Every disc in front of the viewer contributes to the same pixel, so each one has to
+            // be far fainter than a ribbon layer or the stack blows out to solid white. The extra
+            // near fade keeps the first few from forming a wall right at the wand.
+            float alpha = strength * lengthProfile(t) * smoothstep(0.04f, 0.30f, t) * 0.06f;
+            if (alpha <= 0.002f) {
+                continue;
+            }
+
+            float radius = mouth * widthProfile(t);
+            Vec3 centre = apex.add(axis.scale(length * t));
+
+            for (int s = 0; s < DISC_SEGMENTS; s++) {
+                double angle0 = (Math.PI * 2.0D / DISC_SEGMENTS) * s;
+                double angle1 = (Math.PI * 2.0D / DISC_SEGMENTS) * (s + 1);
+
+                Vec3 rim0 = centre.add(ring(side, up, angle0, radius));
+                Vec3 rim1 = centre.add(ring(side, up, angle1, radius));
+
+                // Centre bright, rim transparent -- a radial gradient with no visible edge.
+                quad(consumer, matrix, centre, alpha, centre, alpha, rim1, 0.0f, rim0, 0.0f, false);
+            }
+        }
+    }
+
+    /** Camera-facing radial glow, for the flare at the wand tip. */
+    private static void drawBloom(VertexConsumer consumer, Matrix4f matrix, Vec3 centre,
+                                  Vec3 cameraPos, float radius, float alpha) {
+        Vec3 normal = cameraPos.subtract(centre);
+        if (normal.lengthSqr() < 1.0E-6D) {
+            return;
+        }
+        normal = normal.normalize();
+
+        Vec3 right = normal.cross(new Vec3(0.0D, 1.0D, 0.0D));
+        if (right.lengthSqr() < 1.0E-4D) {
+            right = normal.cross(new Vec3(1.0D, 0.0D, 0.0D));
+        }
+        right = right.normalize();
+        Vec3 top = right.cross(normal).normalize();
+
+        for (int ring = 0; ring < BLOOM_RINGS; ring++) {
+            float r0 = radius * (ring / (float) BLOOM_RINGS);
+            float r1 = radius * ((ring + 1) / (float) BLOOM_RINGS);
+            float a0 = alpha * falloff(ring / (float) BLOOM_RINGS);
+            float a1 = alpha * falloff((ring + 1) / (float) BLOOM_RINGS);
+
+            for (int s = 0; s < BLOOM_SEGMENTS; s++) {
+                double angle0 = (Math.PI * 2.0D / BLOOM_SEGMENTS) * s;
+                double angle1 = (Math.PI * 2.0D / BLOOM_SEGMENTS) * (s + 1);
+
+                quad(consumer, matrix,
+                        centre.add(ring(right, top, angle0, r0)), a0,
+                        centre.add(ring(right, top, angle1, r0)), a0,
+                        centre.add(ring(right, top, angle1, r1)), a1,
+                        centre.add(ring(right, top, angle0, r1)), a1, true);
+            }
+        }
+    }
+
+    private static float falloff(float t) {
+        float inv = 1.0f - t;
+        return inv * inv;
+    }
+
+    /** How wide the beam is at {@code t}: a tight throat at the wand flaring toward the mouth. */
+    private static float widthProfile(float t) {
+        return 0.05f + 0.95f * (float) Math.pow(t, 0.75D);
+    }
+
+    /**
+     * Brightness down the beam: a short ramp out of the wand so a first-person caster is not
+     * staring into white, a long bright body, then a soft diffuse mouth.
      */
     private static float lengthProfile(float t) {
-        float ramp = t <= NEAR_FADE ? (t / NEAR_FADE) * (t / NEAR_FADE) : 1.0f;
-        float fade = 1.0f - (t * t * 0.82f);
+        float ramp = t >= 0.07f ? 1.0f : (t / 0.07f) * (t / 0.07f);
+        float fade = 1.0f - 0.68f * (float) Math.pow(t, 1.4D);
         return Math.max(0.0f, ramp * fade);
     }
 
-    private static Vec3 offset(Vec3 side, Vec3 up, double angle, float radius) {
-        return side.scale(Math.cos(angle) * radius).add(up.scale(Math.sin(angle) * radius));
+    private static float smoothstep(float edge0, float edge1, float x) {
+        float t = Mth.clamp((x - edge0) / (edge1 - edge0), 0.0f, 1.0f);
+        return t * t * (3.0f - 2.0f * t);
     }
 
-    private static void vertex(VertexConsumer consumer, Matrix4f matrix, Vec3 pos, float alpha) {
+    private static Vec3 ring(Vec3 right, Vec3 top, double angle, float radius) {
+        return right.scale(Math.cos(angle) * radius).add(top.scale(Math.sin(angle) * radius));
+    }
+
+    private static void quad(VertexConsumer consumer, Matrix4f matrix,
+                             Vec3 p0, float a0, Vec3 p1, float a1,
+                             Vec3 p2, float a2, Vec3 p3, float a3, boolean core) {
+        vertex(consumer, matrix, p0, a0, core);
+        vertex(consumer, matrix, p1, a1, core);
+        vertex(consumer, matrix, p2, a2, core);
+        vertex(consumer, matrix, p3, a3, core);
+    }
+
+    private static void vertex(VertexConsumer consumer, Matrix4f matrix, Vec3 pos, float alpha, boolean core) {
+        // The core layer burns out to white; the halo keeps the cold silver tint.
+        float r = core ? Mth.lerp(0.75f, RED, 1.0f) : RED;
+        float g = core ? Mth.lerp(0.75f, GREEN, 1.0f) : GREEN;
         consumer.addVertex(matrix, (float) pos.x, (float) pos.y, (float) pos.z)
-                .setColor(RED, GREEN, BLUE, alpha);
+                .setColor(r, g, BLUE, alpha);
     }
 }

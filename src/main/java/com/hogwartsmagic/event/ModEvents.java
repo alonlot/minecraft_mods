@@ -815,6 +815,10 @@ public class ModEvents {
             if (player.tickCount % 100 == 0) {
                 com.hogwartsmagic.worldgen.MiniHogwartsManager.maybeAutoSpawn(player);
             }
+
+            // Give some villages a Gringotts branch the first time a player walks
+            // into one. Self-throttling, and each village is only ever judged once.
+            com.hogwartsmagic.worldgen.VillageGringottsBank.maybeBuild(player);
         } else if (event.side.isClient() && event.phase == net.minecraftforge.event.TickEvent.Phase.END) {
             Player player = event.player;
             com.hogwartsmagic.util.ClientSideBridge.onClientPlayerTick(

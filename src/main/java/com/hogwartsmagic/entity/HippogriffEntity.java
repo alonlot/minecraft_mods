@@ -29,7 +29,6 @@ import net.minecraft.world.entity.ai.goal.PanicGoal;
 import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
 import net.minecraft.world.entity.ai.goal.SitWhenOrderedToGoal;
 import net.minecraft.world.entity.ai.goal.TemptGoal;
-import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomFlyingGoal;
 import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
 import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
 import net.minecraft.world.entity.ai.navigation.FlyingPathNavigation;
@@ -171,8 +170,10 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
         this.goalSelector.addGoal(4, new TemptGoal(this, 1.1D, Ingredient.of(Items.RABBIT), false));
         // Intentionally no FollowOwnerGoal: tamed hippogriffs stay where you leave them.
         this.goalSelector.addGoal(6, new MeleeAttackGoal(this, 1.2D, true));
-        this.goalSelector.addGoal(7, new WaterAvoidingRandomStrollGoal(this, 1.0D));
-        this.goalSelector.addGoal(8, new HippogriffRandomFlyingGoal(this, 1.0D));
+        // Flight outranks strolling: when the flight goal decides to launch it wins the
+        // MOVE slot, and when it declines the stroll goal takes over as usual.
+        this.goalSelector.addGoal(7, new HippogriffFreeFlightGoal(this));
+        this.goalSelector.addGoal(8, new WaterAvoidingRandomStrollGoal(this, 1.0D));
         this.goalSelector.addGoal(9, new LookAtPlayerGoal(this, Player.class, 8.0F));
         this.goalSelector.addGoal(10, new RandomLookAroundGoal(this));
 
@@ -291,12 +292,20 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
         }
 
         if (!this.isVehicle()) {
-            boolean shouldAutofly = !this.isOrderedToSit() && (!this.navigation.isDone() || !this.onGround());
-            this.setNoGravity(shouldAutofly);
-            if (shouldAutofly && this.onGround() && this.tickCount % 12 == 0) {
+            // Powered flight only while it is actually going somewhere. Previously any time
+            // it was off the ground it kept zero gravity, so once a flight ended it hung in
+            // the air forever instead of coming down.
+            boolean poweredFlight = !this.isOrderedToSit() && !this.navigation.isDone();
+            this.setNoGravity(poweredFlight);
+            if (poweredFlight && this.onGround() && this.tickCount % 12 == 0) {
                 Vec3 motion = this.getDeltaMovement();
                 this.setDeltaMovement(motion.x, Math.max(motion.y, 0.42D), motion.z);
                 this.hasImpulse = true;
+            }
+            if (!poweredFlight && !this.onGround() && !this.isOrderedToSit()) {
+                // Glide down on spread wings rather than dropping like a stone.
+                Vec3 motion = this.getDeltaMovement();
+                this.setDeltaMovement(motion.x * 0.94D, Math.max(motion.y, -0.16D), motion.z * 0.94D);
             }
         }
 
@@ -539,35 +548,124 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
         return com.hogwartsmagic.ModSounds.HIPPOGRIFF_DEATH.get();
     }
 
-    private static class HippogriffRandomFlyingGoal extends WaterAvoidingRandomFlyingGoal {
-        private final HippogriffEntity hippogriff;
+    /**
+     * Takes the hippogriff into the air of her own accord and keeps her there.
+     *
+     * <p>The old goal only inherited vanilla's random-flying behaviour, which picked a
+     * single nearby point and gave up as soon as it was reached, so she almost never left
+     * the ground. This one launches deliberately, then chains aerial waypoints so she
+     * cruises for a stretch before settling back down and resting a while.
+     */
+    private static class HippogriffFreeFlightGoal extends net.minecraft.world.entity.ai.goal.Goal {
+        private static final int MAX_FLIGHT_TICKS = 500;      // ~25s aloft before landing
+        private static final int MIN_REST_TICKS = 400;
+        private static final int LAUNCH_CHANCE = 240;         // rolled per goal tick when grounded
+        private static final double KEEP_GROUNDED_RANGE = 5.0D;
 
-        private HippogriffRandomFlyingGoal(HippogriffEntity hippogriff, double speedModifier) {
-            super(hippogriff, speedModifier);
+        private final HippogriffEntity hippogriff;
+        private Vec3 destination;
+        private int airborneTicks;
+        private int restTicks;
+
+        private HippogriffFreeFlightGoal(HippogriffEntity hippogriff) {
             this.hippogriff = hippogriff;
+            this.setFlags(java.util.EnumSet.of(Flag.MOVE));
+        }
+
+        private boolean canFlyFreely() {
+            return !this.hippogriff.isOrderedToSit()
+                    && !this.hippogriff.isVehicle()
+                    && !this.hippogriff.isLeashed()
+                    && !this.hippogriff.isInWater()
+                    && this.hippogriff.getTarget() == null;
         }
 
         @Override
         public boolean canUse() {
-            if (this.hippogriff.isOrderedToSit() || this.hippogriff.isVehicle()) {
+            if (!canFlyFreely()) {
                 return false;
             }
-
-            if (this.hippogriff.onGround() && this.hippogriff.getRandom().nextInt(4) != 0) {
+            if (this.restTicks > 0) {
+                this.restTicks--;
+                // Still take over if something has put her in the air, so she flies home
+                // rather than hanging there.
+                return !this.hippogriff.onGround() && pickDestination();
+            }
+            if (!this.hippogriff.onGround()) {
+                return pickDestination();
+            }
+            // Stay put while somebody is right next to her, so she can still be bowed to,
+            // fed and mounted instead of bolting into the sky every time you walk up.
+            if (this.hippogriff.level().getNearestPlayer(this.hippogriff, KEEP_GROUNDED_RANGE) != null) {
                 return false;
             }
+            return this.hippogriff.getRandom().nextInt(LAUNCH_CHANCE) == 0 && pickDestination();
+        }
 
-            return super.canUse();
+        @Override
+        public boolean canContinueToUse() {
+            return canFlyFreely() && this.destination != null && this.airborneTicks < MAX_FLIGHT_TICKS;
         }
 
         @Override
         public void start() {
-            super.start();
+            this.airborneTicks = 0;
             if (this.hippogriff.onGround()) {
                 Vec3 motion = this.hippogriff.getDeltaMovement();
-                this.hippogriff.setDeltaMovement(motion.x, Math.max(motion.y, 0.42D), motion.z);
+                this.hippogriff.setDeltaMovement(motion.x, Math.max(motion.y, 0.55D), motion.z);
                 this.hippogriff.hasImpulse = true;
             }
+            travelToDestination();
+        }
+
+        @Override
+        public void stop() {
+            this.destination = null;
+            this.hippogriff.getNavigation().stop();
+            this.restTicks = MIN_REST_TICKS + this.hippogriff.getRandom().nextInt(400);
+        }
+
+        @Override
+        public void tick() {
+            this.airborneTicks++;
+            // Reached this waypoint (or the path failed): pick the next one and keep flying.
+            if (this.hippogriff.getNavigation().isDone()) {
+                if (pickDestination()) {
+                    travelToDestination();
+                } else {
+                    this.destination = null;
+                }
+            }
+        }
+
+        private void travelToDestination() {
+            if (this.destination != null) {
+                this.hippogriff.getNavigation().moveTo(
+                        this.destination.x, this.destination.y, this.destination.z, 1.0D);
+            }
+        }
+
+        /** Looks for an open point of sky a little way off and several blocks up. */
+        private boolean pickDestination() {
+            RandomSource random = this.hippogriff.getRandom();
+            for (int attempt = 0; attempt < 8; attempt++) {
+                double x = this.hippogriff.getX() + (random.nextDouble() - 0.5D) * 28.0D;
+                double z = this.hippogriff.getZ() + (random.nextDouble() - 0.5D) * 28.0D;
+                BlockPos ground = this.hippogriff.level().getHeightmapPos(
+                        net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                        BlockPos.containing(x, this.hippogriff.getY(), z));
+                double y = ground.getY() + 6.0D + random.nextDouble() * 10.0D;
+                if (y - this.hippogriff.getY() > 22.0D) {
+                    continue;   // don't ask for a climb she cannot make in one hop
+                }
+                Vec3 candidate = new Vec3(x, y, z);
+                if (this.hippogriff.level().noCollision(this.hippogriff,
+                        this.hippogriff.getBoundingBox().move(candidate.subtract(this.hippogriff.position())))) {
+                    this.destination = candidate;
+                    return true;
+                }
+            }
+            return false;
         }
     }
 }

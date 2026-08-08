@@ -26,52 +26,57 @@ SEED = 20260808
 
 
 # --- Palette ---------------------------------------------------------------------------------
-COAT_MID = (146, 144, 138)        # horse barrel / haunch
-COAT_DARK = (112, 110, 105)
-COAT_LIGHT = (180, 178, 171)
+COAT_MID = (146, 96, 56)          # chestnut barrel / haunch
+COAT_DARK = (112, 72, 40)
+COAT_LIGHT = (178, 126, 80)
 
-PLUME_MID = (188, 186, 179)       # breast, neck, shoulder feathering
-PLUME_DARK = (144, 142, 135)
-PLUME_LIGHT = (214, 212, 205)
+PLUME_MID = (232, 224, 204)       # cream breast, neck, shoulder feathering
+PLUME_DARK = (198, 186, 162)
+PLUME_LIGHT = (246, 240, 226)
 
-FACE_PALE = (222, 220, 213)       # skull, cheeks, throat, crest
-FACE_SHADE = (176, 174, 167)
+FACE_PALE = (246, 241, 228)       # skull, cheeks, throat
+FACE_SHADE = (226, 216, 196)      # brow and nape, only a shade off the face
 
-COVERT_MID = (128, 126, 120)      # wing coverts
-COVERT_DARK = (92, 90, 86)
+COVERT_MID = (154, 102, 58)       # wing coverts
+COVERT_DARK = (118, 76, 42)
 
-SECONDARY = (104, 102, 97)        # secondary feather sheet
-PRIMARY_MID = (72, 70, 67)        # the long flight feathers
-PRIMARY_TIP = (34, 33, 31)
-PRIMARY_SHAFT = (150, 148, 141)
+SECONDARY = (132, 86, 48)         # secondary feather sheet
+PRIMARY_MID = (120, 78, 44)       # the long flight feathers
+PRIMARY_TIP = (84, 54, 30)
+PRIMARY_SHAFT = (198, 158, 112)
 
-BEAK_MID = (146, 137, 122)
-BEAK_TIP = (48, 45, 42)
-BEAK_RIDGE = (192, 183, 166)
+BEAK_MID = (233, 182, 76)         # warm gold, the way it reads on screen
+BEAK_TIP = (198, 140, 48)
+BEAK_RIDGE = (250, 218, 138)
 
-SCALE_MID = (118, 113, 104)       # bird shank scales
-SCALE_DARK = (84, 80, 74)
-TALON = (30, 29, 28)
-HOOF = (54, 51, 48)
+SCALE_MID = (216, 190, 134)       # pale yellow bird shanks
+SCALE_DARK = (176, 148, 96)
+TALON = (74, 62, 50)
+HOOF = (84, 62, 44)
 
-HAIR_MID = (198, 196, 190)        # tail hair
-HAIR_DARK = (152, 150, 144)
+LOWER_LEG = (206, 186, 150)       # the pale socks on the hind legs
 
-EYE_AMBER = (226, 152, 44)
-EYE_AMBER_HOT = (250, 198, 96)
-EYE_PUPIL = (16, 13, 10)
+HAIR_MID = (176, 138, 96)         # tail hair
+HAIR_DARK = (138, 102, 66)
+
+EYE_IRIS = (168, 110, 56)
+EYE_PUPIL = (38, 26, 18)
+EYE_GLINT = (255, 252, 244)
+EYE_RIM = (250, 244, 232)
 
 
 # --- Which material each cube is painted with -------------------------------------------------
 def material_for(name):
     if name in ("barrel", "croup", "tail_dock"):
         return "fur", COAT_MID
-    if name.endswith("_haunch") or name.endswith("_gaskin"):
+    if name.endswith("_haunch"):
         return "fur", COAT_MID
+    if name.endswith("_gaskin"):
+        return "fur", COAT_LIGHT              # the coat fades out down the leg
     if name.endswith("_cannon"):
-        return "fur", COAT_DARK
+        return "fur", LOWER_LEG
     if name.endswith("_fetlock"):
-        return "hair", HAIR_DARK
+        return "hair", PLUME_DARK
     if name.endswith("_hoof"):
         return "hoof", HOOF
     if name in ("breast", "keel", "neck_lower", "neck_up"):
@@ -83,7 +88,7 @@ def material_for(name):
     if name in ("brow", "nape"):
         return "feather", FACE_SHADE       # the darker hood over brow and nape
     if name.startswith("crest"):
-        return "feather", mix(FACE_PALE, COVERT_MID, 0.38)   # darker tufts read as separate
+        return "feather", mix(FACE_PALE, COAT_LIGHT, 0.34)   # just enough to read as separate
     if name in ("beak_base", "jaw"):
         return "beak", BEAK_MID
     if name in ("beak_tip", "beak_hook"):
@@ -96,7 +101,7 @@ def material_for(name):
             or name.endswith("_wing_fore") or name.endswith("_wing_hand"):
         return "covert", COVERT_MID
     if name.endswith("_thigh"):
-        return "feather", PLUME_DARK
+        return "feather", mix(PLUME_MID, COAT_LIGHT, 0.30)
     if name.endswith("_shank") or name.endswith("_foot"):
         return "scale", SCALE_MID
     if "_toe_" in name:
@@ -127,6 +132,15 @@ def mix(a, b, t):
     return tuple(int(round(a[i] + (b[i] - a[i]) * t)) for i in range(3))
 
 
+# Feather and coat shadows are tinted toward a warm brown rather than pure black;
+# mixing toward black turns the cream plumage grey and makes the creature look cold.
+SHADOW = (74, 52, 34)
+
+
+def shade_down(color, amount):
+    return mix(color, SHADOW, amount)
+
+
 # --- Material painters ------------------------------------------------------------------------
 def paint_fur(img, x0, y0, w, h, base, rng):
     px = img.load()
@@ -145,16 +159,15 @@ def paint_fur(img, x0, y0, w, h, base, rng):
         for k in range(length):
             if sy + k < h:
                 px[x0 + sx, y0 + sy + k] = jitter(rng, tone, 5) + (255,)
-    # dappling: the grey-horse rosettes on the hindquarters
-    for _ in range(max(1, (w * h) // 90)):
+    # A soft sheen where the light catches the coat, rather than grey-horse dappling.
+    for _ in range(max(1, (w * h) // 110)):
         cx = rng.randrange(w)
         cy = rng.randrange(h)
         r = rng.randint(2, 3)
         for y in range(max(0, cy - r), min(h, cy + r + 1)):
             for x in range(max(0, cx - r), min(w, cx + r + 1)):
-                dist = math.hypot(x - cx, y - cy)
-                if r - 1 <= dist <= r:
-                    px[x0 + x, y0 + y] = jitter(rng, COAT_LIGHT, 6) + (255,)
+                if math.hypot(x - cx, y - cy) <= r:
+                    px[x0 + x, y0 + y] = jitter(rng, mix(base, COAT_LIGHT, 0.4), 5) + (255,)
 
 
 def paint_feather(img, x0, y0, w, h, base, rng):
@@ -164,7 +177,7 @@ def paint_feather(img, x0, y0, w, h, base, rng):
     the machine-regular horizontal banding that a fixed pitch produces at this scale.
     """
     px = img.load()
-    dark = mix(base, (0, 0, 0), 0.23)
+    dark = shade_down(base, 0.20)
     light = mix(base, (255, 255, 255), 0.18)
     for y in range(h):
         for x in range(w):
@@ -195,7 +208,7 @@ def paint_feather(img, x0, y0, w, h, base, rng):
 def paint_covert(img, x0, y0, w, h, base, rng):
     """Coverts: tighter, darker feather rows with the odd pale margin."""
     px = img.load()
-    dark = mix(base, (0, 0, 0), 0.34)
+    dark = shade_down(base, 0.32)
     light = mix(base, (255, 255, 255), 0.28)
     for y in range(h):
         for x in range(w):
@@ -229,7 +242,7 @@ def paint_primary(img, x0, y0, w, h, base, rng):
             elif (i + j * 2) % 7 == 0:
                 c = mix(col, (255, 255, 255), 0.12)
             elif (i + j * 3) % 5 == 0:
-                c = mix(col, (0, 0, 0), 0.22)
+                c = shade_down(col, 0.24)
             x, y = (i, j) if horizontal else (j, i)
             px[x0 + x, y0 + y] = jitter(rng, c, 4) + (255,)
 
@@ -316,35 +329,37 @@ def norm(uv):
 
 
 def draw_eye(img, rect, flip):
-    """Paints one amber eye onto the outward face of a cheek plate.
+    """Paints one large, soft eye right at the front of a cheek plate, beside the beak.
 
     The cheek plates sit proud of the skull, so the eye has to live on them or it is
-    buried. rect is (x0, y0, x1, y1) of that face; `flip` mirrors it for the far side.
+    buried. Kept big and round with a catchlight and a pale lid rather than a dark brow
+    stripe, which reads as a scowl. rect is (x0, y0, x1, y1) of that face; `flip` mirrors
+    it for the far side.
     """
     px = img.load()
     x0, y0, x1, y1 = rect
     w, h = x1 - x0, y1 - y0
-    ew, eh = 3, 2
-    # u runs back-to-front on the east face and front-to-back on the west one
-    ex = int(w * 0.14) if flip else (w - ew) - int(w * 0.14)
-    ey = max(0, int(h * 0.28))
+    ew, eh = 4, 3
+    # u runs back-to-front on the east face and front-to-back on the west one, so the
+    # forward end of the plate is u=0 on west and u=w on east.
+    ex = 1 if flip else max(0, w - ew - 1)
+    ey = max(0, int(h * 0.26))
+    glint_dx = 2 if flip else 1
     for dy in range(eh):
         for dx in range(ew):
             x, y = x0 + ex + dx, y0 + ey + dy
             if not (x0 <= x < x1 and y0 <= y < y1):
                 continue
-            if dy == 1 and dx == 1:
-                c = EYE_PUPIL
-            elif dy == 0 and dx == (0 if flip else 2):
-                c = EYE_AMBER_HOT
+            if dy >= 1 and 1 <= dx <= 2:
+                c = EYE_GLINT if (dy == 1 and dx == glint_dx) else EYE_PUPIL
             else:
-                c = EYE_AMBER
+                c = EYE_IRIS
             px[x, y] = c + (255,)
-    # dark feathered scowl line above the eye
+    # pale lid above the eye instead of a dark brow
     for dx in range(ew):
         x, y = x0 + ex + dx, y0 + ey - 1
         if x0 <= x < x1 and y0 <= y < y1:
-            px[x, y] = (78, 74, 68, 255)
+            px[x, y] = EYE_RIM + (255,)
 
 
 def draw_nostril(img, rect, flip):
@@ -355,7 +370,7 @@ def draw_nostril(img, rect, flip):
     nx = x0 + (1 if flip else w - 2)
     ny = y0 + max(1, int(h * 0.45))
     if x0 <= nx < x1 and y0 <= ny < y1:
-        px[nx, ny] = (86, 78, 68, 255)
+        px[nx, ny] = mix(BEAK_TIP, SHADOW, 0.35) + (255,)
 
 
 def main():

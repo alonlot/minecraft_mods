@@ -2,7 +2,6 @@ package com.hogwartsmagic.client;
 
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.spell.PatronusShield;
-import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
@@ -71,10 +70,13 @@ public final class PatronusShieldRenderer {
         Vec3 cameraPos = camera.getPosition();
         float partialTick = event.getPartialTick();
 
-        PoseStack poseStack = new PoseStack();
-        poseStack.mulPose(event.getPoseStack());
-        poseStack.translate(-cameraPos.x, -cameraPos.y, -cameraPos.z);
-        Matrix4f matrix = poseStack.last().pose();
+        // Identity, deliberately. LevelRenderer already pushed the camera rotation onto
+        // RenderSystem's modelview stack before this point, so multiplying in the event's matrix
+        // would apply that rotation a second time and swing the beam away as the caster turns.
+        // Vanilla does the same thing: the PoseStack it hands to entity renderers starts empty
+        // and carries only a camera-relative translation. Positions below are made camera-relative
+        // in double precision instead of baking a large translation into this float matrix.
+        Matrix4f matrix = new Matrix4f();
 
         MultiBufferSource.BufferSource buffer = minecraft.renderBuffers().bufferSource();
         VertexConsumer consumer = buffer.getBuffer(ModRenderTypes.PATRONUS_LIGHT);
@@ -119,7 +121,11 @@ public final class PatronusShieldRenderer {
                 Mth.lerp(partialTick, player.yo, player.getY()) + player.getEyeHeight(),
                 Mth.lerp(partialTick, player.zo, player.getZ())
         );
-        Vec3 apex = eye.add(axis.scale(0.5D)).add(side.scale(-0.30D)).add(up.scale(-0.12D));
+        // Everything from here on is relative to the camera, which sits at the origin. Doing the
+        // subtraction once here in double precision keeps the geometry exact however far from
+        // world origin the caster is; baking it into the float matrix would not.
+        Vec3 apex = eye.add(axis.scale(0.5D)).add(side.scale(-0.30D)).add(up.scale(-0.12D))
+                .subtract(cameraPos);
 
         float length = (float) PatronusShield.RANGE;
         float mouth = (float) PatronusShield.MOUTH_RADIUS;
@@ -129,8 +135,10 @@ public final class PatronusShieldRenderer {
         float pulse = 0.90f + 0.10f * Mth.sin(age * 0.17f) + 0.035f * Mth.sin(age * 0.71f);
 
         // How end-on the beam is. 0 = seen fully from the side, 1 = looking straight down it.
+        // The camera is the origin in this space, so the vector towards it is just the negated
+        // position of the shaft's midpoint.
         Vec3 shaftMid = apex.add(axis.scale(length * 0.45D));
-        Vec3 toCamera = cameraPos.subtract(shaftMid);
+        Vec3 toCamera = shaftMid.scale(-1.0D);
         double toCameraLen = toCamera.length();
         float alignment = toCameraLen < 1.0E-4D
                 ? 1.0f
@@ -163,7 +171,7 @@ public final class PatronusShieldRenderer {
         // The hot spot at the wand tip, always facing the viewer. Skipped for your own first-person
         // cast: the apex sits half a block from the camera, so the flare would cover the crosshair.
         if (!ownFirstPerson) {
-            drawBloom(consumer, matrix, apex, cameraPos, 0.85f, 0.95f * pulse);
+            drawBloom(consumer, matrix, apex, 0.85f, 0.95f * pulse);
         }
     }
 
@@ -239,10 +247,11 @@ public final class PatronusShieldRenderer {
         }
     }
 
-    /** Camera-facing radial glow, for the flare at the wand tip. */
+    /** Camera-facing radial glow, for the flare at the wand tip. Positions are camera-relative. */
     private static void drawBloom(VertexConsumer consumer, Matrix4f matrix, Vec3 centre,
-                                  Vec3 cameraPos, float radius, float alpha) {
-        Vec3 normal = cameraPos.subtract(centre);
+                                  float radius, float alpha) {
+        // The camera is the origin here, so the direction towards it is simply -centre.
+        Vec3 normal = centre.scale(-1.0D);
         if (normal.lengthSqr() < 1.0E-6D) {
             return;
         }

@@ -96,9 +96,46 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
     private int warningSoundCooldown;
     private int playerJumpCooldown;
 
+    private final net.minecraft.world.entity.ai.navigation.GroundPathNavigation groundNavigation;
+    private final FlyingPathNavigation airNavigation;
+    private final net.minecraft.world.entity.ai.control.MoveControl groundMoveControl;
+    private final net.minecraft.world.entity.ai.control.MoveControl airMoveControl;
+
+    /** True while she is actively driving herself through the air under her own power. */
+    private boolean poweredFlight;
+    private float bank;            // -1 hard left .. +1 hard right, eased slowly
+    private float bankO;
+    private float flapPower;       // 0 pure glide .. 1 hauling herself upward
+    private float flapPowerO;
+
+    // Flight feel. Descending trades height for speed like an elytra; climbing is work.
+    private static final double FLIGHT_CRUISE = 1.7D;
+    private static final double DIVE_BOOST = 1.0D;
+    private static final double CLIMB_DRAG = 0.55D;
+    /** Hard ceiling on airspeed, so a long dive cannot run away with her. */
+    private static final double MAX_FLIGHT_SPEED = 1.5D;
+    /** Low value = heavy inertia, so she banks through wide arcs instead of turning on a pin. */
+    private static final double FLIGHT_RESPONSE = 0.11D;
+    private static final float MAX_YAW_RATE = 5.5F;
+    /** Degrees of yaw change per tick that counts as a full-commitment bank. */
+    private static final float FULL_BANK_YAW_RATE = 3.2F;
+    /** Deliberately slow, so the roll reads as a decision rather than a twitch. */
+    private static final float BANK_EASE = 0.035F;
+    /** A shade snappier than her own flying, so rider input does not feel sluggish. */
+    private static final double RIDDEN_FLIGHT_RESPONSE = 0.17D;
+
     public HippogriffEntity(EntityType<? extends TamableAnimal> type, Level level) {
         super(type, level);
-        this.moveControl = new FlyingMoveControl(this, 14, false);
+        // Two movement rigs. On foot she walks and jumps like any land animal; only real
+        // flight swaps in the flying pair. Driving ground movement through the flying rig
+        // is what made her drift over obstacles instead of stepping and jumping over them.
+        this.groundNavigation = (net.minecraft.world.entity.ai.navigation.GroundPathNavigation) this.navigation;
+        this.groundMoveControl = this.moveControl;
+        this.airNavigation = new FlyingPathNavigation(this, level);
+        this.airNavigation.setCanOpenDoors(false);
+        this.airNavigation.setCanFloat(true);
+        this.airNavigation.setCanPassDoors(true);
+        this.airMoveControl = new FlyingMoveControl(this, 20, true);
     }
 
     @Override
@@ -201,11 +238,84 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
 
     @Override
     protected PathNavigation createNavigation(Level level) {
-        FlyingPathNavigation navigation = new FlyingPathNavigation(this, level);
+        // Ground rig by default: this is what lets her step and jump over a block rather
+        // than lifting off to clear it.
+        net.minecraft.world.entity.ai.navigation.GroundPathNavigation navigation =
+                new net.minecraft.world.entity.ai.navigation.GroundPathNavigation(this, level);
         navigation.setCanOpenDoors(false);
         navigation.setCanFloat(true);
         navigation.setCanPassDoors(true);
         return navigation;
+    }
+
+    /**
+     * Swaps her between the walking rig and the flying rig. Only real flight gets zero
+     * gravity; while she is on foot she is an ordinary heavy animal that has to jump.
+     */
+    public void setPoweredFlight(boolean value) {
+        if (this.poweredFlight == value) {
+            return;
+        }
+        this.poweredFlight = value;
+        this.navigation.stop();
+        this.navigation = value ? this.airNavigation : this.groundNavigation;
+        this.moveControl = value ? this.airMoveControl : this.groundMoveControl;
+        this.setNoGravity(value);
+    }
+
+    public boolean isPoweredFlight() {
+        return this.poweredFlight;
+    }
+
+    /**
+     * Bird-like steering toward a point in the air.
+     *
+     * <p>Speed is not constant: pointing downhill she accelerates the way an elytra does,
+     * and pointing uphill she bleeds speed and has to pay for the climb with wingbeats.
+     * The low blend factor gives her real mass, so she sweeps through turns.
+     */
+    public void steerFlight(Vec3 target, double speedScale) {
+        Vec3 delta = target.subtract(this.position());
+        double distance = delta.length();
+        if (distance < 1.0E-4D) {
+            return;
+        }
+        Vec3 direction = delta.scale(1.0D / distance);
+        double cruise = this.getAttributeValue(Attributes.FLYING_SPEED) * FLIGHT_CRUISE * speedScale;
+        double climb = direction.y;
+        double wantedSpeed = climb < 0.0D
+                ? cruise * (1.0D + -climb * DIVE_BOOST)
+                : cruise * (1.0D - climb * CLIMB_DRAG);
+        Vec3 wanted = direction.scale(wantedSpeed);
+        setDeltaMovementCapped(this.getDeltaMovement()
+                .scale(1.0D - FLIGHT_RESPONSE)
+                .add(wanted.scale(FLIGHT_RESPONSE)));
+        faceFlightPath();
+    }
+
+    private void setDeltaMovementCapped(Vec3 motion) {
+        double speed = motion.length();
+        this.setDeltaMovement(speed > MAX_FLIGHT_SPEED ? motion.scale(MAX_FLIGHT_SPEED / speed) : motion);
+    }
+
+    /** Points her along her own velocity, turning at a limited rate so the bank has time to build. */
+    private void faceFlightPath() {
+        Vec3 motion = this.getDeltaMovement();
+        double horizontal = motion.horizontalDistance();
+        if (horizontal < 1.0E-4D) {
+            return;
+        }
+        float wantedYaw = (float) (Mth.atan2(motion.z, motion.x) * (180.0D / Math.PI)) - 90.0F;
+        this.setYRot(approachDegrees(this.getYRot(), wantedYaw, MAX_YAW_RATE));
+        this.yBodyRot = this.getYRot();
+        this.yHeadRot = this.getYRot();
+        float wantedPitch = (float) (-(Mth.atan2(motion.y, horizontal) * (180.0D / Math.PI)));
+        this.setXRot(approachDegrees(this.getXRot(), Mth.clamp(wantedPitch, -60.0F, 60.0F), 4.0F));
+    }
+
+    private static float approachDegrees(float current, float target, float maxStep) {
+        float difference = Mth.degreesDifference(current, target);
+        return current + Mth.clamp(difference, -maxStep, maxStep);
     }
 
     @Override
@@ -275,10 +385,11 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
         this.flightProgressO = this.flightProgress;
         this.landingImpulseO = this.landingImpulse;
         this.sitProgressO = this.sitProgress;
+        this.bankO = this.bank;
+        this.flapPowerO = this.flapPower;
         this.lastFlightProgress = this.flightProgress;
 
         boolean airborne = this.isAirbornePose();
-        float speed = (float) this.getDeltaMovement().horizontalDistance();
         this.sitProgress = Mth.approach(this.sitProgress, this.isInSittingPose() ? 1.0F : 0.0F, 0.10F);
         this.flightProgress = Mth.approach(this.flightProgress, airborne ? 1.0F : 0.0F, airborne ? 0.12F : 0.16F);
         // Landing impulse: spikes briefly when we transition from airborne to grounded so the model
@@ -288,7 +399,9 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
         } else {
             this.landingImpulse = Math.max(0.0F, this.landingImpulse - 0.10F);
         }
-        this.wingFlap += airborne ? 0.55F + speed * 2.4F : 0.04F + speed * 0.35F;
+        // The beat only advances while she is actually working the air. On the ground it
+        // stops dead, so walking no longer looks like flapping on the spot.
+        this.wingFlap += airborne ? 0.22F + this.flapPower * 0.62F : 0.0F;
 
         if (!this.level().isClientSide) {
             tickInteractionState();
@@ -308,23 +421,14 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
             tickFlightSounds(airborne);
         }
 
-        if (!this.isVehicle()) {
-            // Powered flight only while it is actually going somewhere. Previously any time
-            // it was off the ground it kept zero gravity, so once a flight ended it hung in
-            // the air forever instead of coming down.
-            boolean poweredFlight = !this.isOrderedToSit() && !this.navigation.isDone();
-            this.setNoGravity(poweredFlight);
-            if (poweredFlight && this.onGround() && this.tickCount % 12 == 0) {
-                Vec3 motion = this.getDeltaMovement();
-                this.setDeltaMovement(motion.x, Math.max(motion.y, 0.42D), motion.z);
-                this.hasImpulse = true;
-            }
-            if (!poweredFlight && !this.onGround() && !this.isOrderedToSit()) {
-                // Glide down on spread wings rather than dropping like a stone.
-                Vec3 motion = this.getDeltaMovement();
-                this.setDeltaMovement(motion.x * 0.94D, Math.max(motion.y, -0.16D), motion.z * 0.94D);
-            }
+        if (!this.isVehicle() && !this.poweredFlight && !this.onGround() && !this.isOrderedToSit()) {
+            // Not under power but off the ground: spread wings and glide down instead of
+            // dropping like a stone.
+            Vec3 motion = this.getDeltaMovement();
+            this.setDeltaMovement(motion.x * 0.96D, Math.max(motion.y, -0.22D), motion.z * 0.96D);
         }
+
+        tickFlightPosture(airborne);
 
         if (this.level().isClientSide) {
             this.idleAnimationState.startIfStopped(this.tickCount);
@@ -385,8 +489,53 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
         return Mth.lerp(partialTick, this.sitProgressO, this.sitProgress);
     }
 
+    /** -1 hard bank left, +1 hard bank right. Eased slowly so the roll reads as deliberate. */
+    public float getBank(float partialTick) {
+        return Mth.lerp(partialTick, this.bankO, this.bank);
+    }
+
+    /** 0 while gliding on held wings, 1 while beating hard to climb. */
+    public float getFlapPower(float partialTick) {
+        return Mth.lerp(partialTick, this.flapPowerO, this.flapPower);
+    }
+
+    /** Degrees of body pitch for the renderer; positive is nose-up. */
+    public float getFlightPitch(float partialTick) {
+        return -Mth.rotLerp(partialTick, this.xRotO, this.getXRot());
+    }
+
+    /**
+     * Turns her actual motion into the two numbers the model animates from: how hard she is
+     * beating her wings, and how far she is rolled into a turn.
+     *
+     * <p>Both are heavily smoothed. A bird does not snap between gliding and flapping, and
+     * the roll in particular is meant to swing across slowly rather than twitch.
+     */
+    private void tickFlightPosture(boolean airborne) {
+        if (!airborne) {
+            this.flapPower = Mth.approach(this.flapPower, 0.0F, 0.12F);
+            this.bank = Mth.approach(this.bank, 0.0F, BANK_EASE * 2.0F);
+            return;
+        }
+
+        // Climbing costs effort, level flight ticks over, a descent is a free glide.
+        // Derived only from synced state, so the client works this out identically to the
+        // server rather than needing it sent over the wire.
+        float climbRate = (float) this.getDeltaMovement().y;
+        float wantedFlap = Mth.clamp(0.18F + climbRate * 3.4F, 0.0F, 1.0F);
+        this.flapPower = Mth.approach(this.flapPower, wantedFlap, 0.06F);
+
+        // Bank follows how sharply she is turning. Positive yaw change is a turn to the right.
+        float yawRate = Mth.degreesDifference(this.yRotO, this.getYRot());
+        float wantedBank = Mth.clamp(yawRate / FULL_BANK_YAW_RATE, -1.0F, 1.0F);
+        this.bank = Mth.approach(this.bank, wantedBank, BANK_EASE);
+    }
+
     public boolean isAirbornePose() {
-        return !this.onGround() || this.isVehicle();
+        // Purely a question of whether her feet are on the ground. Including isVehicle()
+        // here meant a hippogriff standing still with a rider on her back was animated as
+        // though she were in flight.
+        return !this.onGround();
     }
 
     private boolean isCalmApproach(Player player) {
@@ -501,21 +650,43 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
     public void travel(Vec3 travelVector) {
         LivingEntity rider = this.getControllingPassenger();
         if (this.isAlive() && rider instanceof Player player && this.isVehicle() && this.isTame() && this.isOwnedBy(player)) {
+            // Keep the previous yaw. This used to overwrite yRotO with the new yaw, which
+            // zeroed the per-tick turn rate and so flattened her out through every turn -
+            // the bank is measured from exactly that difference.
+            float previousYaw = this.getYRot();
             this.setYRot(rider.getYRot());
-            this.yRotO = this.getYRot();
+            this.yRotO = previousYaw;
             this.setXRot(rider.getXRot() * 0.55F);
-            this.setRot(this.getYRot(), this.getXRot());
             this.yBodyRot = this.getYRot();
             this.yHeadRot = this.yBodyRot;
 
             float forward = rider.zza;
             float strafe = rider.xxa * 0.75F;
-            float pitchFactor = Mth.clamp(-rider.getXRot() / 45.0F, -1.0F, 1.0F);
-
             Vec3 look = rider.getLookAngle();
-            Vec3 forwardDir = new Vec3(look.x, look.y * 0.85D, look.z).normalize();
-            Vec3 rightDir = new Vec3(look.z, 0.0D, -look.x).normalize();
 
+            boolean launching = this.playerJumpStrength > 0.0F && (this.onGround() || this.horizontalCollision);
+            if (launching) {
+                Vec3 motion = this.getDeltaMovement();
+                this.setDeltaMovement(motion.x, this.playerJumpStrength, motion.z);
+                this.playerJumpStrength = 0.0F;
+                this.playerJumpCooldown = PLAYER_JUMP_COOLDOWN_TICKS;
+                this.hasImpulse = true;
+            }
+
+            if (this.onGround() && !launching) {
+                // On her feet she gallops under normal physics, so she steps and jumps over
+                // obstacles rather than levitating over them.
+                this.setNoGravity(false);
+                this.setSpeed((float) this.getAttributeValue(Attributes.MOVEMENT_SPEED) * 1.9F);
+                super.travel(new Vec3(strafe, travelVector.y, forward));
+                return;
+            }
+
+            // Airborne. Heading comes from where the rider is looking, and speed from the
+            // angle of that heading: nose down and she accelerates like an elytra, nose up
+            // and the climb costs her.
+            Vec3 forwardDir = look.normalize();
+            Vec3 rightDir = new Vec3(look.z, 0.0D, -look.x).normalize();
             Vec3 desired = Vec3.ZERO;
             if (Math.abs(forward) > 0.01F) {
                 desired = desired.add(forwardDir.scale(forward));
@@ -524,44 +695,36 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
                 desired = desired.add(rightDir.scale(strafe));
             }
 
-            double lift = Math.max(0.0D, forward) * Math.max(0.0F, pitchFactor) * 0.16D;
-            double dive = Math.max(0.0D, forward) * Math.max(0.0F, -pitchFactor) * 0.12D;
-            double verticalBias = lift - dive;
-            if (this.playerJumpStrength > 0.0F && (this.onGround() || this.horizontalCollision)) {
-                verticalBias = Math.max(verticalBias, this.playerJumpStrength);
-                this.playerJumpStrength = 0.0F;
-                this.playerJumpCooldown = PLAYER_JUMP_COOLDOWN_TICKS;
-                this.hasImpulse = true;
-            }
-            if (this.onGround() && this.horizontalCollision && forward > 0.1F) {
-                verticalBias = Math.max(verticalBias, 0.42D);
-            }
-            if (Math.abs(forward) < 0.01F && !this.onGround()) {
-                verticalBias -= 0.035D;
-            }
-
-            double speed = this.getAttributeValue(Attributes.FLYING_SPEED) * (forward > 0.0F ? 1.05D : 0.8D);
+            double cruise = this.getAttributeValue(Attributes.FLYING_SPEED) * FLIGHT_CRUISE;
+            Vec3 heading;
+            double wantedSpeed;
             if (desired.lengthSqr() > 1.0E-4D) {
-                // Snappier blend than before (0.78/0.24 vs 0.86/0.17) so rider input feels responsive
-                // rather than sluggish, while still keeping inertia for natural-looking flight.
-                Vec3 desiredVel = desired.normalize().scale(speed).add(0.0D, verticalBias, 0.0D);
-                this.setDeltaMovement(this.getDeltaMovement().scale(0.78D).add(desiredVel.scale(0.24D)));
+                heading = desired.normalize();
+                double climb = heading.y;
+                wantedSpeed = climb < 0.0D
+                        ? cruise * (1.0D + -climb * DIVE_BOOST)
+                        : cruise * (1.0D - climb * CLIMB_DRAG);
             } else {
-                Vec3 slowed = this.getDeltaMovement().scale(0.9D);
-                if (!this.onGround()) {
-                    slowed = slowed.add(0.0D, -0.03D, 0.0D);
-                }
-                this.setDeltaMovement(slowed);
+                // Hands off the reins: she soars, trading a little height for airspeed.
+                heading = new Vec3(look.x, -0.22D, look.z).normalize();
+                wantedSpeed = cruise * 0.5D;
             }
 
-            this.setNoGravity(!this.onGround());
+            Vec3 wanted = heading.scale(wantedSpeed);
+            setDeltaMovementCapped(this.getDeltaMovement()
+                    .scale(1.0D - RIDDEN_FLIGHT_RESPONSE)
+                    .add(wanted.scale(RIDDEN_FLIGHT_RESPONSE)));
+
+            this.setNoGravity(true);
             this.move(MoverType.SELF, this.getDeltaMovement());
             this.calculateEntityAnimation(false);
             return;
         }
 
         this.playerJumpStrength = 0.0F;
-        this.setNoGravity(false);
+        if (!this.poweredFlight) {
+            this.setNoGravity(false);
+        }
         super.travel(travelVector);
     }
 
@@ -609,6 +772,7 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
         private static final int MIN_REST_TICKS = 400;
         private static final int LAUNCH_CHANCE = 240;         // rolled per goal tick when grounded
         private static final double KEEP_GROUNDED_RANGE = 5.0D;
+        private static final double ARRIVE_RANGE = 4.0D;
 
         private final HippogriffEntity hippogriff;
         private Vec3 destination;
@@ -634,12 +798,14 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
                 return false;
             }
             if (this.restTicks > 0) {
+                // Must not re-trigger here just because she is still airborne, or she would
+                // relaunch on the tick after landing approach and never touch down again.
                 this.restTicks--;
-                // Still take over if something has put her in the air, so she flies home
-                // rather than hanging there.
-                return !this.hippogriff.onGround() && pickDestination();
+                return false;
             }
             if (!this.hippogriff.onGround()) {
+                // Already in the air - walked off a ledge, knocked up - so fly properly
+                // rather than drifting.
                 return pickDestination();
             }
             // Stay put while somebody is right next to her, so she can still be bowed to,
@@ -658,38 +824,33 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
         @Override
         public void start() {
             this.airborneTicks = 0;
-            if (this.hippogriff.onGround()) {
-                Vec3 motion = this.hippogriff.getDeltaMovement();
-                this.hippogriff.setDeltaMovement(motion.x, Math.max(motion.y, 0.55D), motion.z);
-                this.hippogriff.hasImpulse = true;
-            }
-            travelToDestination();
+            this.hippogriff.setPoweredFlight(true);
+            // A real shove off the ground, not a hop.
+            Vec3 motion = this.hippogriff.getDeltaMovement();
+            this.hippogriff.setDeltaMovement(motion.x, Math.max(motion.y, 0.62D), motion.z);
+            this.hippogriff.hasImpulse = true;
         }
 
         @Override
         public void stop() {
             this.destination = null;
-            this.hippogriff.getNavigation().stop();
+            this.hippogriff.setPoweredFlight(false);
             this.restTicks = MIN_REST_TICKS + this.hippogriff.getRandom().nextInt(400);
         }
 
         @Override
         public void tick() {
             this.airborneTicks++;
-            // Reached this waypoint (or the path failed): pick the next one and keep flying.
-            if (this.hippogriff.getNavigation().isDone()) {
-                if (pickDestination()) {
-                    travelToDestination();
-                } else {
-                    this.destination = null;
-                }
+            if (this.destination == null) {
+                return;
             }
-        }
-
-        private void travelToDestination() {
-            if (this.destination != null) {
-                this.hippogriff.getNavigation().moveTo(
-                        this.destination.x, this.destination.y, this.destination.z, 1.0D);
+            // Steered directly rather than pathfound. Asking the flying navigator for a
+            // path to an empty point of sky mostly failed, which is why she never actually
+            // left the ground; this drives her velocity toward it instead.
+            this.hippogriff.steerFlight(this.destination, 1.0D);
+            if (this.hippogriff.position().distanceTo(this.destination) < ARRIVE_RANGE
+                    && !pickDestination()) {
+                this.destination = null;
             }
         }
 

@@ -44,6 +44,21 @@ public class HippogriffModel extends HierarchicalModel<HippogriffEntity> {
     private static final float OPEN_FORE_Z = -0.06F;
     private static final float OPEN_HAND_Z = -0.12F;
 
+    // Banking. Angles are in the body's own frame; the renderer rolls the body by
+    // BANK_BODY_ROLL as well, and the two together put the outer wing near 75 degrees above
+    // the horizon and the inner one near 25 below it at full bank.
+    // Chosen so that once the OPEN_WING_Z base dihedral and the body roll are added, the
+    // outer wing sits near 75 degrees above the horizon and the inner near 25 below it.
+    private static final float GLIDE_DIHEDRAL = 0.14F;   // ~8 degrees, a relaxed soaring V
+    private static final float BANK_OUTER = 0.60F;
+    private static final float BANK_INNER = 0.11F;
+    public static final float BANK_BODY_ROLL = 35.0F;    // degrees, applied by the renderer
+
+    // Blockbench mirrors X on export: the bone named "left_wing" sits on her right side.
+    // These carry the zRot sign that raises the wing on each physical side.
+    private static final float RIGHT_SIDE = 1.0F;
+    private static final float LEFT_SIDE = -1.0F;
+
     private static float smoothstep(float value) {
         value = Mth.clamp(value, 0.0F, 1.0F);
         return value * value * (3.0F - 2.0F * value);
@@ -272,30 +287,61 @@ public class HippogriffModel extends HierarchicalModel<HippogriffEntity> {
         // Folded at rest; flight unfurls them, and a grounded threat display half-mantles them.
         float mantle = (1.0F - flight) * (angry ? 0.5F : 0.0F);
         float open = Math.max(flight, mantle);
-        float flap = Mth.sin(entity.getWingFlap(partialTick)) * (0.12F + flight * 0.88F);
+        float flapPower = entity.getFlapPower(partialTick) * flight;
+        float bank = entity.getBank(partialTick) * flight;
+
+        // Beating only happens when she is working for height. Coming down she holds the
+        // wings out and glides, which is where the elytra-like speed comes from.
+        float beat = 0.06F + flapPower * 0.95F;
+        float flap = Mth.sin(entity.getWingFlap(partialTick)) * beat;
         // The forearm and hand trail the shoulder, so the wing whips rather than moving rigidly.
-        float flapFore = Mth.sin(entity.getWingFlap(partialTick) - 0.45F) * (0.08F + flight * 0.62F);
-        float flapHand = Mth.sin(entity.getWingFlap(partialTick) - 0.9F) * (0.06F + flight * 0.70F);
+        float flapFore = Mth.sin(entity.getWingFlap(partialTick) - 0.45F) * beat * 0.66F;
+        float flapHand = Mth.sin(entity.getWingFlap(partialTick) - 0.9F) * beat * 0.78F;
+
+        // Banking. The wing on the outside of the turn sweeps up to BANK_OUTER while the
+        // inside wing drops to BANK_INNER, and the renderer rolls her body by BANK_BODY_ROLL
+        // on top - which is what puts the pair at roughly 75 degrees above and 25 below the
+        // horizon at full commitment.
+        float bankAmount = Math.abs(bank);
+        float outerDihedral = Mth.lerp(bankAmount, GLIDE_DIHEDRAL, BANK_OUTER);
+        float innerDihedral = Mth.lerp(bankAmount, GLIDE_DIHEDRAL, BANK_INNER);
+        boolean turningRight = bank > 0.0F;
+        float rightRaise = turningRight ? innerDihedral : outerDihedral;
+        float leftRaise = turningRight ? outerDihedral : innerDihedral;
+        float glide = flight * (1.0F - flapPower);
+        rightRaise *= glide;
+        leftRaise *= glide;
 
         float wingY = Mth.lerp(open, REST_WING_Y, 0.0F);
-        float wingZ = Mth.lerp(open, REST_WING_Z, OPEN_WING_Z) + flap * 0.55F;
         float foreY = Mth.lerp(open, REST_FORE_Y, 0.0F);
-        float foreZ = Mth.lerp(open, REST_FORE_Z, OPEN_FORE_Z) + flapFore * 0.35F;
         float handY = Mth.lerp(open, REST_HAND_Y, 0.0F);
+        float foreZ = Mth.lerp(open, REST_FORE_Z, OPEN_FORE_Z) + flapFore * 0.35F;
         float handZ = Mth.lerp(open, REST_HAND_Z, OPEN_HAND_Z) + flapHand * 0.45F;
 
+        // Blockbench mirrors X on export, so the bone called "left_wing" is the one on her
+        // right-hand side. RIGHT_SIDE / LEFT_SIDE carry the sign that raises each of them.
+        float rightZ = (Mth.lerp(open, REST_WING_Z, OPEN_WING_Z) + flap * 0.55F) * RIGHT_SIDE
+                + rightRaise * RIGHT_SIDE;
+        float leftZ = (Mth.lerp(open, REST_WING_Z, OPEN_WING_Z) + flap * 0.55F) * LEFT_SIDE
+                + leftRaise * LEFT_SIDE;
+
         this.leftWing.yRot = wingY;
-        this.leftWing.zRot = wingZ;
+        this.leftWing.zRot = rightZ;
         this.leftWingFore.yRot = foreY;
         this.leftWingFore.zRot = foreZ;
         this.leftWingHand.yRot = handY;
         this.leftWingHand.zRot = handZ;
         this.rightWing.yRot = -wingY;
-        this.rightWing.zRot = -wingZ;
+        this.rightWing.zRot = leftZ;
         this.rightWingFore.yRot = -foreY;
         this.rightWingFore.zRot = -foreZ;
         this.rightWingHand.yRot = -handY;
         this.rightWingHand.zRot = -handZ;
+
+        // Gliding wings are not rigid: the tips flex a little in the airflow.
+        float airflow = glide * Mth.sin(ageInTicks * 0.21F) * 0.05F;
+        this.leftWingHand.zRot += airflow;
+        this.rightWingHand.zRot -= airflow;
 
         // A grounded hippogriff never holds perfectly still: the folded wings shudder faintly.
         float settle = (1.0F - open) * (Mth.sin(ageInTicks * 0.17F) * 0.02F

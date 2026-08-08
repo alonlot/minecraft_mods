@@ -1248,7 +1248,7 @@ public class ModEvents {
     }
 
     /** Where light blocks ride along the beam, in blocks from the wand. */
-    private static final double[] PATRONUS_SHIELD_LIGHT_STOPS = {2.0D, 5.0D, 8.0D, 11.0D};
+    private static final double[] PATRONUS_SHIELD_LIGHT_STOPS = {2.0D, 5.5D, 9.0D, 13.0D, 17.0D};
 
     /**
      * Rides a line of light blocks down the beam so the shield actually pours light onto the

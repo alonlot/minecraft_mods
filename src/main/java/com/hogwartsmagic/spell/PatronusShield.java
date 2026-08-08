@@ -8,10 +8,10 @@ package com.hogwartsmagic.spell;
 public final class PatronusShield {
 
     /** How far the light reaches, in blocks. */
-    public static final double RANGE = 12.0D;
+    public static final double RANGE = 20.0D;
 
-    /** Cosine of the cone's half-angle (20 degrees). */
-    public static final double COS_HALF_ANGLE = 0.9397D;
+    /** Cosine of the cone's half-angle (25 degrees). */
+    public static final double COS_HALF_ANGLE = 0.9063D;
 
     /** Radius of the cone's mouth at {@link #RANGE}. */
     public static final double MOUTH_RADIUS = RANGE * Math.tan(Math.acos(COS_HALF_ANGLE));

@@ -34,15 +34,18 @@ import org.joml.Matrix4f;
 @Mod.EventBusSubscriber(modid = ExampleMod.MODID, value = Dist.CLIENT)
 public final class PatronusShieldRenderer {
 
-    private static final int RIBBON_SEGMENTS = 24;
-    private static final int DISCS = 16;
+    private static final int RIBBON_SEGMENTS = 32;
+    private static final int DISCS = 20;
     private static final int DISC_SEGMENTS = 24;
-    private static final int BLOOM_RINGS = 4;
-    private static final int BLOOM_SEGMENTS = 18;
+    private static final int BLOOM_RINGS = 5;
+    private static final int BLOOM_SEGMENTS = 20;
 
     /** Width and strength of each ribbon layer: a hot core inside a broad soft halo. */
-    private static final float[] LAYER_WIDTH = {0.26f, 0.62f, 1.00f};
-    private static final float[] LAYER_ALPHA = {0.90f, 0.40f, 0.16f};
+    private static final float[] LAYER_WIDTH = {0.24f, 0.58f, 1.00f};
+    private static final float[] LAYER_ALPHA = {1.00f, 0.60f, 0.28f};
+
+    /** Radius of the flare at the wand tip, in blocks. */
+    private static final float BLOOM_RADIUS = 1.5f;
 
     /** Near-white, barely cold. The core pushes to pure white. */
     private static final float RED = 0.86f;
@@ -171,7 +174,7 @@ public final class PatronusShieldRenderer {
         // The hot spot at the wand tip, always facing the viewer. Skipped for your own first-person
         // cast: the apex sits half a block from the camera, so the flare would cover the crosshair.
         if (!ownFirstPerson) {
-            drawBloom(consumer, matrix, apex, 0.85f, 0.95f * pulse);
+            drawBloom(consumer, matrix, apex, BLOOM_RADIUS, 1.0f * pulse);
         }
     }
 
@@ -226,7 +229,7 @@ public final class PatronusShieldRenderer {
             // Every disc in front of the viewer contributes to the same pixel, so each one has to
             // be far fainter than a ribbon layer or the stack blows out to solid white. The extra
             // near fade keeps the first few from forming a wall right at the wand.
-            float alpha = strength * lengthProfile(t) * smoothstep(0.04f, 0.30f, t) * 0.06f;
+            float alpha = strength * lengthProfile(t) * smoothstep(0.04f, 0.30f, t) * 0.07f;
             if (alpha <= 0.002f) {
                 continue;
             }

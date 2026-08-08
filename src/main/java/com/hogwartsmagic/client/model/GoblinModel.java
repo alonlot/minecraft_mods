@@ -177,10 +177,19 @@ public class GoblinModel<T extends Mob & GoblinAnimated> extends HierarchicalMod
      */
     @Override
     public void translateToHand(HumanoidArm arm, PoseStack poseStack) {
-        ModelPart hand = arm == HumanoidArm.RIGHT ? this.leftArm : this.rightArm;
-        hand.translateAndRotate(poseStack);
-        // Drop to the fist at the bottom of the sleeve and turn the grip upright.
-        poseStack.translate(arm == HumanoidArm.RIGHT ? -0.09F : 0.09F, 0.58F, -0.03F);
-        poseStack.scale(0.7F, 0.7F, 0.7F);
+        // Walk the whole chain from the model root down to the fist. Vanilla
+        // humanoids can skip this because their arms sit at the top level; ours
+        // hang off "root", so leaving that transform out floats the held item a
+        // block and a half up, level with the goblin's face.
+        this.root.translateAndRotate(poseStack);
+
+        boolean rightSide = arm == HumanoidArm.RIGHT;
+        ModelPart limb = rightSide ? this.leftArm : this.rightArm;
+        limb.translateAndRotate(poseStack);
+
+        // The arm pivot is the shoulder; the hand cube sits 8.5-10.5px further
+        // down the sleeve and is inset from the pivot on the outward side.
+        poseStack.translate((rightSide ? -1.5F : 1.5F) / 16.0F, 9.5F / 16.0F, 0.0F);
+        poseStack.scale(0.75F, 0.75F, 0.75F);
     }
 }

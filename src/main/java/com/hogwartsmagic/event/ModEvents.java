@@ -145,6 +145,7 @@ public class ModEvents {
     private static final String TAG_PATRONUS_SHIELD_LAST_DRAIN = "hogwartsmagic:patronus_shield_last_drain";
     private static final String TAG_PATRONUS_SHIELD_LAST_SEEN = "hogwartsmagic:patronus_shield_last_seen";
     private static final String TAG_PATRONUS_SHIELD_LIGHT = "hogwartsmagic:patronus_shield_light";
+    private static final String TAG_PATRONUS_SHIELD_LOOP_AT = "hogwartsmagic:patronus_shield_loop_at";
     private static final int PATRONUS_SHIELD_UPKEEP_INTERVAL = 10;
     private static final int PATRONUS_SHIELD_HEARTBEAT_TIMEOUT = 4;
     /** Cone reach in blocks, and the cosine of its half-angle (~40 degrees). */
@@ -1154,9 +1155,19 @@ public class ModEvents {
         spawnPatronusShieldParticles(serverLevel, origin, axis, heldOff);
         updatePatronusShieldLight(serverLevel, player, origin, axis);
 
-        if (gameTime % 24L == 0L) {
-            serverLevel.playSound(null, player.blockPosition(), net.minecraft.sounds.SoundEvents.BEACON_AMBIENT,
-                    SoundSource.PLAYERS, 0.5f, 1.8f);
+        // The shield's own roar, retriggered just short of the clip's length so it reads as
+        // sustained. The deadline starts at zero, so the first tick of the channel fires it.
+        if (gameTime >= player.getPersistentData().getLong(TAG_PATRONUS_SHIELD_LOOP_AT)) {
+            serverLevel.playSound(null, player.getX(), player.getY(), player.getZ(),
+                    ModSounds.PATRONUS_SHIELD_LOOP.get(), SoundSource.PLAYERS, 0.9f, 1.0f);
+            player.getPersistentData().putLong(TAG_PATRONUS_SHIELD_LOOP_AT, gameTime + 100L);
+        }
+
+        // Dementors breaking against the leading edge, throttled so a swarm can't machine-gun it.
+        if (heldOff > 0 && gameTime % 20L == 0L) {
+            Vec3 edge = origin.add(axis.scale(PATRONUS_SHIELD_RANGE * 0.6D));
+            serverLevel.playSound(null, edge.x, edge.y, edge.z,
+                    ModSounds.PATRONUS_SHIELD_REPEL.get(), SoundSource.PLAYERS, 0.85f, 1.0f);
         }
 
         float maxMana = PlayerMagicData.getMaxMana(player);
@@ -1296,6 +1307,7 @@ public class ModEvents {
             clearPatronusShieldLight(serverLevel, BlockPos.of(data.getLong(TAG_PATRONUS_SHIELD_LIGHT)));
         }
         data.remove(TAG_PATRONUS_SHIELD_LIGHT);
+        data.remove(TAG_PATRONUS_SHIELD_LOOP_AT);
         data.remove(TAG_PATRONUS_SHIELD_CHANNELING);
         data.remove(TAG_PATRONUS_SHIELD_LAST_DRAIN);
         data.remove(TAG_PATRONUS_SHIELD_LAST_SEEN);

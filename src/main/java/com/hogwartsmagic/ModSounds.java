@@ -27,6 +27,7 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> SPELL_INCENDIO = register("spell.incendio");
     public static final RegistryObject<SoundEvent> SPELL_STUPEFY = register("spell.stupefy");
     public static final RegistryObject<SoundEvent> SPELL_REVELIO = register("spell.revelio");
+    public static final RegistryObject<SoundEvent> SPELL_EXPECTO_PATRONUM = register("spell.expecto_patronum");
     public static final RegistryObject<SoundEvent> SPELL_AVADA_KEDAVRA = register("spell.avada_kedavra");
     public static final RegistryObject<SoundEvent> SPELL_CRUCIO = register("spell.crucio");
     public static final RegistryObject<SoundEvent> SPELL_IMPERIO = register("spell.imperio");
@@ -67,6 +68,12 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> DEMENTOR_AMBIENT = register("dementor.ambient");
     public static final RegistryObject<SoundEvent> DEMENTOR_HURT = register("dementor.hurt");
     public static final RegistryObject<SoundEvent> DEMENTOR_DEATH = register("dementor.death");
+    /** The dragging inhale under the approach. */
+    public static final RegistryObject<SoundEvent> DEMENTOR_SUCK = register("dementor.suck");
+    /** Fires as the hood opens and it lunges. */
+    public static final RegistryObject<SoundEvent> DEMENTOR_KISS = register("dementor.kiss");
+    /** Driven back by a Patronus. */
+    public static final RegistryObject<SoundEvent> DEMENTOR_SHRIEK = register("dementor.shriek");
     public static final RegistryObject<SoundEvent> OWL_AMBIENT = register("owl.ambient");
     public static final RegistryObject<SoundEvent> OWL_HURT = register("owl.hurt");
     public static final RegistryObject<SoundEvent> OWL_DEATH = register("owl.death");
@@ -78,6 +85,8 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> WEREWOLF_DEATH = register("werewolf.death");
     public static final RegistryObject<SoundEvent> WEREWOLF_HOWL = register("werewolf.howl");
     public static final RegistryObject<SoundEvent> PATRONUS_AMBIENT = register("patronus.ambient");
+    public static final RegistryObject<SoundEvent> PATRONUS_SHIELD_LOOP = register("patronus.shield_loop");
+    public static final RegistryObject<SoundEvent> PATRONUS_SHIELD_REPEL = register("patronus.shield_repel");
 
     // Item / gear SFX
     public static final RegistryObject<SoundEvent> BROOM_BOOST = register("broom.boost");

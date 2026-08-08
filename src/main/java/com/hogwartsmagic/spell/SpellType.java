@@ -474,7 +474,7 @@ public enum SpellType {
             case INCARCEROUS -> ModSounds.SPELL_INCARCEROUS.get();
             case HEAL -> ModSounds.SPELL_LUMOS.get();
             case TENEBRIS_FLIGHT -> ModSounds.SPELL_MORSMORDRE.get();
-            case EXPECTO_PATRONUM -> ModSounds.SPELL_REVELIO.get();
+            case EXPECTO_PATRONUM -> ModSounds.SPELL_EXPECTO_PATRONUM.get();
             case BOMBARDA -> ModSounds.SPELL_CONFRINGO.get(); // Use similar explosive sound
             case DEPULSO -> ModSounds.SPELL_EXPELLIARMUS.get(); // Swift sound
             case LEVICORPUS -> ModSounds.SPELL_WINGARDIUM_LEVIOSA.get();

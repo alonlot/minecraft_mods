@@ -95,6 +95,14 @@
       }
     ]
   },
+  "spell.expecto_patronum": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:spells/expecto_patronum",
+        "stream": false
+      }
+    ]
+  },
   "spell.avada_kedavra": {
     "sounds": [
       {
@@ -505,6 +513,24 @@
       }
     ]
   },
+  "patronus.shield_loop": {
+    "subtitle": "subtitles.hogwartsmagic.patronus.shield_loop",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:patronus/shield_loop",
+        "stream": false
+      }
+    ]
+  },
+  "patronus.shield_repel": {
+    "subtitle": "subtitles.hogwartsmagic.patronus.shield_repel",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:patronus/shield_repel",
+        "stream": false
+      }
+    ]
+  },
   "broom.boost": {
     "subtitle": "subtitles.hogwartsmagic.broom.boost",
     "sounds": [
@@ -627,6 +653,33 @@
     "sounds": [
       {
         "name": "hogwartsmagic:goblin/angry",
+        "stream": false
+      }
+    ]
+  },
+  "dementor.suck": {
+    "subtitle": "subtitles.hogwartsmagic.dementor.suck",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:dementor/suck",
+        "stream": false
+      }
+    ]
+  },
+  "dementor.kiss": {
+    "subtitle": "subtitles.hogwartsmagic.dementor.kiss",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:dementor/kiss",
+        "stream": false
+      }
+    ]
+  },
+  "dementor.shriek": {
+    "subtitle": "subtitles.hogwartsmagic.dementor.shriek",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:dementor/shriek",
         "stream": false
       }
     ]

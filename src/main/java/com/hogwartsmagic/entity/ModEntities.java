@@ -184,4 +184,19 @@ public class ModEntities {
                             .sized(0.65F, 2.05F)
                             .clientTrackingRange(10)
                             .build("lycanthrope_villager"));
+
+    // Height matches the goblin model rendered at GoblinRenderer.MODEL_SCALE.
+    public static final RegistryObject<EntityType<GoblinEntity>> GOBLIN =
+            ENTITY_TYPES.register("goblin",
+                    () -> EntityType.Builder.<GoblinEntity>of(GoblinEntity::new, MobCategory.CREATURE)
+                            .sized(0.6F, 1.25F)
+                            .clientTrackingRange(10)
+                            .build("goblin"));
+
+    public static final RegistryObject<EntityType<GoblinGuardEntity>> GOBLIN_GUARD =
+            ENTITY_TYPES.register("goblin_guard",
+                    () -> EntityType.Builder.<GoblinGuardEntity>of(GoblinGuardEntity::new, MobCategory.CREATURE)
+                            .sized(0.6F, 1.25F)
+                            .clientTrackingRange(10)
+                            .build("goblin_guard"));
 }

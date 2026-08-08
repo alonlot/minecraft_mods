@@ -558,5 +558,77 @@
         "stream": false
       }
     ]
+  },
+  "goblin.ambient1": {
+    "subtitle": "subtitles.hogwartsmagic.goblin.ambient1",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:goblin/ambient1",
+        "stream": false
+      }
+    ]
+  },
+  "goblin.ambient2": {
+    "subtitle": "subtitles.hogwartsmagic.goblin.ambient2",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:goblin/ambient2",
+        "stream": false
+      }
+    ]
+  },
+  "goblin.ambient3": {
+    "subtitle": "subtitles.hogwartsmagic.goblin.ambient3",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:goblin/ambient3",
+        "stream": false
+      }
+    ]
+  },
+  "goblin.hurt": {
+    "subtitle": "subtitles.hogwartsmagic.goblin.hurt",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:goblin/hurt",
+        "stream": false
+      }
+    ]
+  },
+  "goblin.death": {
+    "subtitle": "subtitles.hogwartsmagic.goblin.death",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:goblin/death",
+        "stream": false
+      }
+    ]
+  },
+  "goblin.trade": {
+    "subtitle": "subtitles.hogwartsmagic.goblin.trade",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:goblin/trade",
+        "stream": false
+      }
+    ]
+  },
+  "goblin.no": {
+    "subtitle": "subtitles.hogwartsmagic.goblin.no",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:goblin/no",
+        "stream": false
+      }
+    ]
+  },
+  "goblin.angry": {
+    "subtitle": "subtitles.hogwartsmagic.goblin.angry",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:goblin/angry",
+        "stream": false
+      }
+    ]
   }
 }

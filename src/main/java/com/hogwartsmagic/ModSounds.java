@@ -89,6 +89,16 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> SNITCH_FLUTTER = register("snitch.flutter");
     public static final RegistryObject<SoundEvent> SNITCH_CATCH = register("snitch.catch");
 
+    // Gringotts goblins
+    public static final RegistryObject<SoundEvent> GOBLIN_AMBIENT1 = register("goblin.ambient1");
+    public static final RegistryObject<SoundEvent> GOBLIN_AMBIENT2 = register("goblin.ambient2");
+    public static final RegistryObject<SoundEvent> GOBLIN_AMBIENT3 = register("goblin.ambient3");
+    public static final RegistryObject<SoundEvent> GOBLIN_HURT = register("goblin.hurt");
+    public static final RegistryObject<SoundEvent> GOBLIN_DEATH = register("goblin.death");
+    public static final RegistryObject<SoundEvent> GOBLIN_TRADE = register("goblin.trade");
+    public static final RegistryObject<SoundEvent> GOBLIN_NO = register("goblin.no");
+    public static final RegistryObject<SoundEvent> GOBLIN_ANGRY = register("goblin.angry");
+
     private static RegistryObject<SoundEvent> register(String name) {
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, name);
         return SOUND_EVENTS.register(name, () -> SoundEvent.createVariableRangeEvent(id));

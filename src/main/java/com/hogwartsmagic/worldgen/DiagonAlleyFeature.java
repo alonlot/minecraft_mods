@@ -674,12 +674,11 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
             }
         }
 
-        // Goblin teller villager (weaponsmith for the gold-handling vibe).
-        spawnNamedVillager(level, new BlockPos(x0 + sx / 2, y0 + 1, z0 + sz - 6),
-                VillagerProfession.WEAPONSMITH, "Gringotts Goblin");
-        // Side guard (armorer).
-        spawnNamedVillager(level, new BlockPos(x0 + 2, y0 + 1, z0 + sz - 7),
-                VillagerProfession.ARMORER, "Vault Guard");
+        // Teller behind the counter, plus guards posted around the vault.
+        spawnGoblinTeller(level, new BlockPos(x0 + sx / 2, y0 + 1, z0 + sz - 6), "Gringotts Teller");
+        spawnGoblinGuard(level, new BlockPos(x0 + 2, y0 + 1, z0 + sz - 7), "Vault Guard");
+        spawnGoblinGuard(level, new BlockPos(x0 + sx - 3, y0 + 1, z0 + sz - 7), "Vault Guard");
+        spawnGoblinGuard(level, new BlockPos(x0 + sx / 2 + 3, y0 + 1, z0 + 22), "Vault Guard");
     }
 
     // =================================================================================
@@ -1627,6 +1626,31 @@ public class DiagonAlleyFeature extends Feature<NoneFeatureConfiguration> {
         villager.setCustomNameVisible(true);
         villager.setPersistenceRequired();
         level.addFreshEntity(villager);
+    }
+
+    /** Places a Gringotts teller behind the counter. */
+    private void spawnGoblinTeller(WorldGenLevel level, BlockPos pos, String name) {
+        try {
+            var goblin = com.hogwartsmagic.entity.ModEntities.GOBLIN.get().create(level.getLevel());
+            if (goblin == null) return;
+            goblin.setPos(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5);
+            goblin.makeTeller(name);
+            level.addFreshEntity(goblin);
+        } catch (Throwable ignored) {}
+    }
+
+    /** Stations an armed goblin guard. */
+    private void spawnGoblinGuard(WorldGenLevel level, BlockPos pos, String name) {
+        try {
+            var guard = com.hogwartsmagic.entity.ModEntities.GOBLIN_GUARD.get().create(level.getLevel());
+            if (guard == null) return;
+            guard.setPos(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5);
+            guard.makeGuard(name);
+            guard.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND,
+                    new net.minecraft.world.item.ItemStack(com.hogwartsmagic.ExampleMod.GOBLIN_SILVER_DAGGER.get()));
+            guard.setDropChance(net.minecraft.world.entity.EquipmentSlot.MAINHAND, 0.15F);
+            level.addFreshEntity(guard);
+        } catch (Throwable ignored) {}
     }
 
     private void spawnOwl(WorldGenLevel level, BlockPos pos) {

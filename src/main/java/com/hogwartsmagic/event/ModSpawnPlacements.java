@@ -62,5 +62,11 @@ public class ModSpawnPlacements {
                 Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
                 HippogriffEntity::canSpawn,
                 SpawnPlacementRegisterEvent.Operation.REPLACE);
+        event.register(
+                ModEntities.GOBLIN.get(),
+                SpawnPlacementTypes.ON_GROUND,
+                Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                com.hogwartsmagic.entity.GoblinEntity::canSpawn,
+                SpawnPlacementRegisterEvent.Operation.REPLACE);
     }
 }

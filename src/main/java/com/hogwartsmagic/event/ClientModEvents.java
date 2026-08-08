@@ -694,6 +694,7 @@ public class ClientModEvents {
         event.registerLayerDefinition(WhulvkWerewolfLycanModel.LAYER_LOCATION, WhulvkWerewolfLycanModel::createBodyLayer);
         event.registerLayerDefinition(GillyweedGillsModel.LAYER_LOCATION, GillyweedGillsModel::createBodyLayer);
         event.registerLayerDefinition(com.hogwartsmagic.client.GoldenSnitchModel.LAYER_LOCATION, com.hogwartsmagic.client.GoldenSnitchModel::createBodyLayer);
+        event.registerLayerDefinition(com.hogwartsmagic.client.model.GoblinModel.LAYER_LOCATION, com.hogwartsmagic.client.model.GoblinModel::createBodyLayer);
     }
 
     @SubscribeEvent
@@ -730,6 +731,12 @@ public class ClientModEvents {
         event.registerEntityRenderer(ModEntities.HORCRUX_SOUL.get(), HorcruxSoulRenderer::new);
         event.registerEntityRenderer(ModEntities.LYCANTHROPE_VILLAGER.get(), LycanthropeVillagerRenderer::new);
         event.registerEntityRenderer(ModEntities.GOLDEN_SNITCH.get(), com.hogwartsmagic.client.GoldenSnitchRenderer::new);
+        event.registerEntityRenderer(ModEntities.GOBLIN.get(),
+                context -> new com.hogwartsmagic.client.GoblinRenderer<com.hogwartsmagic.entity.GoblinEntity>(
+                        context, com.hogwartsmagic.client.GoblinRenderer.TELLER_TEXTURE));
+        event.registerEntityRenderer(ModEntities.GOBLIN_GUARD.get(),
+                context -> new com.hogwartsmagic.client.GoblinRenderer<com.hogwartsmagic.entity.GoblinGuardEntity>(
+                        context, com.hogwartsmagic.client.GoblinRenderer.GUARD_TEXTURE));
         
         event.registerEntityRenderer(ModEntities.DARK_MARK.get(), DarkMarkRenderer::new);
         event.registerEntityRenderer(ModEntities.VOLDEMORT_SUMMONING.get(),

@@ -471,5 +471,19 @@
   "hogwartsmagic.snitch.caught": "§6§lYOU CAUGHT THE SNITCH!",
   "hogwartsmagic.snitch.chase_time": "Chase time: %s seconds",
   "subtitles.hogwartsmagic.snitch.flutter": "Snitch flutters",
-  "subtitles.hogwartsmagic.snitch.catch": "Snitch caught"
+  "subtitles.hogwartsmagic.snitch.catch": "Snitch caught",
+  "item.hogwartsmagic.galleon": "Galleon",
+  "item.hogwartsmagic.goblin_silver_dagger": "Goblin-Forged Silver Dagger",
+  "item.hogwartsmagic.goblin_spawn_egg": "Gringotts Goblin Spawn Egg",
+  "item.hogwartsmagic.goblin_guard_spawn_egg": "Goblin Vault Guard Spawn Egg",
+  "entity.hogwartsmagic.goblin": "Gringotts Goblin",
+  "entity.hogwartsmagic.goblin_guard": "Goblin Vault Guard",
+  "subtitles.hogwartsmagic.goblin.ambient1": "Goblin grumbles",
+  "subtitles.hogwartsmagic.goblin.ambient2": "Goblin sniffs",
+  "subtitles.hogwartsmagic.goblin.ambient3": "Goblin counts coins",
+  "subtitles.hogwartsmagic.goblin.hurt": "Goblin yelps",
+  "subtitles.hogwartsmagic.goblin.death": "Goblin dies",
+  "subtitles.hogwartsmagic.goblin.trade": "Goblin agrees terms",
+  "subtitles.hogwartsmagic.goblin.no": "Goblin scoffs",
+  "subtitles.hogwartsmagic.goblin.angry": "Goblin shrieks"
 }

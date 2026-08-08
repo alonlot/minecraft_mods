@@ -40,5 +40,7 @@ public class ModEntityAttributes {
         event.put(ModEntities.HUNGARIAN_HORNTAIL.get(), HungarianHorntailEntity.createAttributes().build());
         event.put(ModEntities.LYCANTHROPE_VILLAGER.get(), LycanthropeVillagerEntity.createAttributes().build());
         event.put(ModEntities.GOLDEN_SNITCH.get(), com.hogwartsmagic.entity.GoldenSnitchEntity.createAttributes().build());
+        event.put(ModEntities.GOBLIN.get(), com.hogwartsmagic.entity.GoblinEntity.createAttributes().build());
+        event.put(ModEntities.GOBLIN_GUARD.get(), com.hogwartsmagic.entity.GoblinGuardEntity.createAttributes().build());
     }
 }

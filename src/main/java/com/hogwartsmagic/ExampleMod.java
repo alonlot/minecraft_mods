@@ -466,6 +466,29 @@ public class ExampleMod
     public static final RegistryObject<Item> HUNGARIAN_HORNTAIL_SPAWN_EGG = ITEMS.register("hungarian_horntail_spawn_egg",
             () -> new net.minecraftforge.common.ForgeSpawnEggItem(ModEntities.HUNGARIAN_HORNTAIL, 0x12100E, 0xC79A3A, new Item.Properties()));
 
+    // --- Gringotts ---------------------------------------------------------
+
+    /** Wizarding currency. Goblins exchange it against gold and mod goods. */
+    public static final RegistryObject<Item> GALLEON = ITEMS.register("galleon",
+            () -> new Item(new Item.Properties()));
+
+    /**
+     * Goblin-forged silver: a short blade that trades reach and burst damage for
+     * speed. 4 damage at 2.4 swings/second beats an iron sword's DPS but punishes
+     * a missed hit far less kindly.
+     */
+    public static final RegistryObject<Item> GOBLIN_SILVER_DAGGER = ITEMS.register("goblin_silver_dagger",
+            () -> new net.minecraft.world.item.SwordItem(net.minecraft.world.item.Tiers.IRON,
+                    new Item.Properties().attributes(
+                            net.minecraft.world.item.SwordItem.createAttributes(
+                                    net.minecraft.world.item.Tiers.IRON, 1, -1.6F))));
+
+    public static final RegistryObject<Item> GOBLIN_SPAWN_EGG = ITEMS.register("goblin_spawn_egg",
+            () -> new net.minecraftforge.common.ForgeSpawnEggItem(ModEntities.GOBLIN, 0x1A1A1F, 0xC4907A, new Item.Properties()));
+
+    public static final RegistryObject<Item> GOBLIN_GUARD_SPAWN_EGG = ITEMS.register("goblin_guard_spawn_egg",
+            () -> new net.minecraftforge.common.ForgeSpawnEggItem(ModEntities.GOBLIN_GUARD, 0x563A24, 0xC4907A, new Item.Properties()));
+
     public static final RegistryObject<CreativeModeTab> MAIN_TAB = CREATIVE_MODE_TABS.register("main_tab", () -> CreativeModeTab.builder()
             .withTabsBefore(CreativeModeTabs.COMBAT)
             .icon(() -> HARRY_POTTER_WAND.get().getDefaultInstance())
@@ -544,6 +567,10 @@ public class ExampleMod
                 output.accept(BASILISK_SPAWN_EGG.get()); // Basilisk Spawn Egg
                 output.accept(TROLL_SPAWN_EGG.get()); // Troll Spawn Egg
                 output.accept(HUNGARIAN_HORNTAIL_SPAWN_EGG.get()); // Hungarian Horntail Spawn Egg
+                output.accept(GOBLIN_SPAWN_EGG.get()); // Gringotts Goblin Spawn Egg
+                output.accept(GOBLIN_GUARD_SPAWN_EGG.get()); // Goblin Vault Guard Spawn Egg
+                output.accept(GALLEON.get()); // Galleon
+                output.accept(GOBLIN_SILVER_DAGGER.get()); // Goblin-Forged Silver Dagger
                 // Add books for all spells
                 for (com.hogwartsmagic.spell.SpellType spell : com.hogwartsmagic.spell.SpellType.values()) {
                     output.accept(com.hogwartsmagic.item.MagicBookItem.createBook(spell));

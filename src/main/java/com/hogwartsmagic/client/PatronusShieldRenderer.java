@@ -35,14 +35,22 @@ import org.joml.Matrix4f;
 public final class PatronusShieldRenderer {
 
     private static final int RIBBON_SEGMENTS = 32;
-    private static final int DISCS = 20;
-    private static final int DISC_SEGMENTS = 24;
     private static final int BLOOM_RINGS = 5;
     private static final int BLOOM_SEGMENTS = 20;
+    private static final int CAP_RINGS = 16;
+    private static final int CAP_SEGMENTS = 40;
 
-    /** Width and strength of each ribbon layer: a hot core inside a broad soft halo. */
+    /**
+     * The shield proper: curved barriers across the cone's mouth, nearest and brightest first.
+     * Fractions of the full reach, so the front barrier fills the view and the ones behind it
+     * show how deep the ward actually goes.
+     */
+    private static final float[] CAP_DISTANCE = {0.22f, 0.42f, 0.65f, 0.88f};
+    private static final float[] CAP_ALPHA = {1.00f, 0.55f, 0.32f, 0.18f};
+
+    /** Width and strength of each haze layer. Faint: this only fills volume between barriers. */
     private static final float[] LAYER_WIDTH = {0.24f, 0.58f, 1.00f};
-    private static final float[] LAYER_ALPHA = {1.00f, 0.60f, 0.28f};
+    private static final float[] LAYER_ALPHA = {0.30f, 0.18f, 0.09f};
 
     /** Radius of the flare at the wand tip, in blocks. */
     private static final float BLOOM_RADIUS = 1.5f;
@@ -137,9 +145,9 @@ public final class PatronusShieldRenderer {
         float age = player.tickCount + partialTick;
         float pulse = 0.90f + 0.10f * Mth.sin(age * 0.17f) + 0.035f * Mth.sin(age * 0.71f);
 
-        // How end-on the beam is. 0 = seen fully from the side, 1 = looking straight down it.
+        // How end-on the ward is. 0 = seen fully from the side, 1 = looking straight down the aim.
         // The camera is the origin in this space, so the vector towards it is just the negated
-        // position of the shaft's midpoint.
+        // position of the midpoint.
         Vec3 shaftMid = apex.add(axis.scale(length * 0.45D));
         Vec3 toCamera = shaftMid.scale(-1.0D);
         double toCameraLen = toCamera.length();
@@ -147,9 +155,9 @@ public final class PatronusShieldRenderer {
                 ? 1.0f
                 : (float) Math.abs(toCamera.scale(1.0D / toCameraLen).dot(axis));
 
-        // Cross-fade, weighted so the pair sums to roughly full strength at every angle.
+        // The haze is a camera-facing sheet, so it degenerates when viewed end-on. Faded out there
+        // and left to the barriers, which face you squarely at exactly that angle.
         float ribbonWeight = 1.0f - smoothstep(0.55f, 0.97f, alignment);
-        float discWeight = smoothstep(0.30f, 0.90f, alignment);
 
         if (ribbonWeight > 0.01f) {
             Vec3 perpendicular = axis.cross(toCamera);
@@ -164,11 +172,14 @@ public final class PatronusShieldRenderer {
             }
         }
 
-        if (discWeight > 0.01f) {
-            // Discs stack along the view ray, so looking down the beam accumulates all of them at
-            // once. Held well back in first person, where that ray is longest.
-            float discStrength = pulse * discWeight * (ownFirstPerson ? 0.45f : 1.0f);
-            drawDiscStack(consumer, matrix, apex, axis, side, up, length, mouth, discStrength);
+        // The shield itself: curved barriers spanning the cone, square-on to wherever you aim.
+        // Every point sits exactly one radius from the wand and the bright rim falls exactly on
+        // the cone's edge, so the barrier you see is the boundary that actually stops Dementors.
+        float halfAngle = (float) Math.acos(PatronusShield.COS_HALF_ANGLE);
+        float capStrength = pulse * (ownFirstPerson ? 0.55f : 1.0f);
+        for (int cap = 0; cap < CAP_DISTANCE.length; cap++) {
+            drawShieldCap(consumer, matrix, apex, axis, side, up,
+                    length * CAP_DISTANCE[cap], halfAngle, CAP_ALPHA[cap] * capStrength, age);
         }
 
         // The hot spot at the wand tip, always facing the viewer. Skipped for your own first-person
@@ -219,35 +230,65 @@ public final class PatronusShieldRenderer {
     }
 
     /**
-     * Soft discs stacked down the beam. Seen end-on these read as a glowing throat of light,
-     * which is what the ribbon cannot do.
+     * A curved barrier of light bulging out along the aim: a spherical cap centred on the wand,
+     * so it reads as a shield held in front of you rather than a shaft going away from you.
+     *
+     * <p>Because every vertex sits {@code radius} from the wand and the cap is swept out to the
+     * cone's own half-angle, the bright rim traces the exact edge of the volume that repels
+     * Dementors. What you see is the boundary, not an approximation of it.
      */
-    private static void drawDiscStack(VertexConsumer consumer, Matrix4f matrix, Vec3 apex, Vec3 axis,
-                                      Vec3 side, Vec3 up, float length, float mouth, float strength) {
-        for (int d = 0; d < DISCS; d++) {
-            float t = (d + 0.5f) / DISCS;
-            // Every disc in front of the viewer contributes to the same pixel, so each one has to
-            // be far fainter than a ribbon layer or the stack blows out to solid white. The extra
-            // near fade keeps the first few from forming a wall right at the wand.
-            float alpha = strength * lengthProfile(t) * smoothstep(0.04f, 0.30f, t) * 0.07f;
-            if (alpha <= 0.002f) {
+    private static void drawShieldCap(VertexConsumer consumer, Matrix4f matrix, Vec3 apex, Vec3 axis,
+                                      Vec3 side, Vec3 up, float radius, float halfAngle,
+                                      float alpha, float age) {
+        // Swept slightly past the rim so the edge glow feathers out instead of ending in a cut.
+        float overshoot = 1.20f;
+
+        for (int r = 0; r < CAP_RINGS; r++) {
+            float u0 = (r / (float) CAP_RINGS) * overshoot;
+            float u1 = ((r + 1) / (float) CAP_RINGS) * overshoot;
+
+            float a0 = alpha * capProfile(u0, age);
+            float a1 = alpha * capProfile(u1, age);
+            if (a0 <= 0.002f && a1 <= 0.002f) {
                 continue;
             }
 
-            float radius = mouth * widthProfile(t);
-            Vec3 centre = apex.add(axis.scale(length * t));
+            float theta0 = u0 * halfAngle;
+            float theta1 = u1 * halfAngle;
 
-            for (int s = 0; s < DISC_SEGMENTS; s++) {
-                double angle0 = (Math.PI * 2.0D / DISC_SEGMENTS) * s;
-                double angle1 = (Math.PI * 2.0D / DISC_SEGMENTS) * (s + 1);
+            for (int s = 0; s < CAP_SEGMENTS; s++) {
+                double phi0 = (Math.PI * 2.0D / CAP_SEGMENTS) * s;
+                double phi1 = (Math.PI * 2.0D / CAP_SEGMENTS) * (s + 1);
 
-                Vec3 rim0 = centre.add(ring(side, up, angle0, radius));
-                Vec3 rim1 = centre.add(ring(side, up, angle1, radius));
-
-                // Centre bright, rim transparent -- a radial gradient with no visible edge.
-                quad(consumer, matrix, centre, alpha, centre, alpha, rim1, 0.0f, rim0, 0.0f, false);
+                quad(consumer, matrix,
+                        capPoint(apex, axis, side, up, theta0, phi0, radius), a0,
+                        capPoint(apex, axis, side, up, theta1, phi0, radius), a1,
+                        capPoint(apex, axis, side, up, theta1, phi1, radius), a1,
+                        capPoint(apex, axis, side, up, theta0, phi1, radius), a0, false);
             }
         }
+    }
+
+    /** A point on the barrier: {@code theta} off the aim, {@code phi} around it, at {@code radius}. */
+    private static Vec3 capPoint(Vec3 apex, Vec3 axis, Vec3 side, Vec3 up,
+                                 float theta, double phi, float radius) {
+        double sin = Math.sin(theta);
+        Vec3 direction = axis.scale(Math.cos(theta))
+                .add(side.scale(Math.cos(phi) * sin))
+                .add(up.scale(Math.sin(phi) * sin));
+        return apex.add(direction.scale(radius));
+    }
+
+    /**
+     * Brightness across the barrier as a fraction of the way to its rim: a faint fill you can see
+     * through, a hard bright ring on the boundary itself, and ripples travelling outwards.
+     */
+    private static float capProfile(float u, float age) {
+        float rim = (float) Math.exp(-Math.pow((u - 1.0f) / 0.11f, 2.0D));
+        float interior = 0.14f * (1.0f - 0.45f * smoothstep(0.35f, 1.0f, u));
+        float ripple = 0.075f * (0.5f + 0.5f * Mth.sin(u * 15.0f - age * 0.26f));
+        float feather = 1.0f - smoothstep(1.02f, 1.20f, u);
+        return (interior + rim * 0.95f + ripple) * feather;
     }
 
     /** Camera-facing radial glow, for the flare at the wand tip. Positions are camera-relative. */

@@ -78,6 +78,9 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
     private static final double BOW_TRIGGER_RANGE_SQR = 16.0D;
 
     private int bowCooldown;
+    /** Player she has bowed back to. Cleared if they attack her. */
+    @Nullable
+    private java.util.UUID greetedPlayer;
     private float wingFlap;
     private float wingFlapO;
     private float flightProgress;
@@ -132,7 +135,20 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
         if (this.isTame() && !this.isOwnedBy(nearestPlayer)) return;
         setInteractionState(InteractionState.BOWING);
         this.bowCooldown = BOW_COOLDOWN_TICKS + BOW_DURATION_TICKS;
+        // Returning the bow *is* acceptance: she will not round on this player again unless
+        // they draw blood. Without this she would go for them the moment they stood up,
+        // because standing counts as a threatening approach.
+        this.greetedPlayer = nearestPlayer.getUUID();
+        if (this.getTarget() == nearestPlayer) {
+            this.setTarget(null);
+        }
+        this.setLastHurtByMob(null);
         this.playSound(com.hogwartsmagic.ModSounds.HIPPOGRIFF_BOW.get(), 0.9F, 0.95F + this.random.nextFloat() * 0.15F);
+    }
+
+    /** True once she has bowed back to this player and they have not attacked her since. */
+    public boolean hasGreeted(Player player) {
+        return this.greetedPlayer != null && this.greetedPlayer.equals(player.getUUID());
     }
 
     private void tickInteractionState() {
@@ -202,7 +218,8 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
         ItemStack stack = player.getItemInHand(hand);
 
         if (this.isFood(stack) && !this.isTame()) {
-            if (!this.isCalmApproach(player)) {
+            // A player she has already bowed to may feed her standing; everyone else must crouch.
+            if (!this.isCalmApproach(player) && !hasGreeted(player)) {
                 if (!this.level().isClientSide) {
                     this.reactToRudeApproach(player);
                 }
@@ -385,12 +402,43 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
     }
 
     private void reactToRudeApproach(Player player) {
+        // Once she has bowed back, the courtesy holds: no screech, no charge.
+        if (hasGreeted(player)) {
+            return;
+        }
+        // Nor does she break off a bow she is already halfway through.
+        if (this.getInteractionState() == InteractionState.BOWING) {
+            return;
+        }
         this.setOrderedToSit(false);
         this.setTarget(player);
         if (this.warningSoundCooldown <= 0) {
             this.playSound(com.hogwartsmagic.ModSounds.HIPPOGRIFF_SCREECH.get(), 1.0F, 0.95F + this.random.nextFloat() * 0.15F);
             this.warningSoundCooldown = 50;
         }
+    }
+
+    @Override
+    public boolean hurt(net.minecraft.world.damagesource.DamageSource source, float amount) {
+        // Draw blood and the bow no longer counts for anything.
+        if (source.getEntity() instanceof Player attacker && hasGreeted(attacker)) {
+            this.greetedPlayer = null;
+        }
+        return super.hurt(source, amount);
+    }
+
+    @Override
+    public void addAdditionalSaveData(net.minecraft.nbt.CompoundTag tag) {
+        super.addAdditionalSaveData(tag);
+        if (this.greetedPlayer != null) {
+            tag.putUUID("GreetedPlayer", this.greetedPlayer);
+        }
+    }
+
+    @Override
+    public void readAdditionalSaveData(net.minecraft.nbt.CompoundTag tag) {
+        super.readAdditionalSaveData(tag);
+        this.greetedPlayer = tag.hasUUID("GreetedPlayer") ? tag.getUUID("GreetedPlayer") : null;
     }
 
     @Override

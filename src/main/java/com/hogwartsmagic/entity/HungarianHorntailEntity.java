@@ -2,6 +2,7 @@ package com.hogwartsmagic.entity;
 
 import com.hogwartsmagic.event.ModEvents;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.EntityDataAccessor;
@@ -12,6 +13,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
+import net.minecraft.util.Mth;
 import net.minecraft.world.BossEvent;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
@@ -28,18 +30,27 @@ import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
 import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.EnumSet;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
- * The Hungarian Horntail — a boss-tier wyvern dragon (two hind legs, two wings) modelled on the
- * Triwizard Tournament dragon. It fights primarily on the ground with bites, a spiked-tail whip and
- * cone fire-breath, occasionally taking flight to hover and dive-bomb its target with fire.
+ * The Hungarian Horntail — a boss-tier wyvern dragon modelled on the Goblet of Fire Triwizard dragon.
+ *
+ * <p>It moves the way the film's Horntail does: a low, heavy knuckle-walking crawl (wings double as
+ * forelimbs), a snaking neck that tracks its prey, and a sweeping, tracking jet of fire rather than a
+ * single puff. On the ground it bites, spins its spiked tail through everything around it and gusts
+ * with its wings; when it wants distance it climbs, circles its prey, strafes it with fire from the
+ * air and finishes with a dive.
  *
  * <p>Everything authoritative (movement, damage, fire, flight, the boss bar) lives server-side; the
  * client only reads the synced attack state + tick to drive animation. See the project's
@@ -48,7 +59,9 @@ import java.util.List;
 public class HungarianHorntailEntity extends Monster {
 
     public enum AttackState {
-        NONE, ROAR, BITE, TAIL_WHIP, BREATH_WINDUP, BREATH, WING_GUST, TAKEOFF, FLY, DIVE, LAND, STAGGER;
+        // NOTE: append new constants at the END — the ordinal is what gets synced to clients.
+        NONE, ROAR, BITE, TAIL_WHIP, BREATH_WINDUP, BREATH, WING_GUST, TAKEOFF, FLY, DIVE, LAND, STAGGER,
+        AIR_BREATH;
 
         private static final AttackState[] VALUES = values();
 
@@ -66,35 +79,67 @@ public class HungarianHorntailEntity extends Monster {
             SynchedEntityData.defineId(HungarianHorntailEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Boolean> DATA_FLYING =
             SynchedEntityData.defineId(HungarianHorntailEntity.class, EntityDataSerializers.BOOLEAN);
+    /** Which way the body spins during a tail sweep — the model needs it to trail the tail correctly. */
+    private static final EntityDataAccessor<Boolean> DATA_SWEEP_LEFT =
+            SynchedEntityData.defineId(HungarianHorntailEntity.class, EntityDataSerializers.BOOLEAN);
 
     // --- State timings (ticks). "strike" frames are noted per-state. ---
-    public static final int ROAR_DURATION = 50;
-    public static final int BITE_DURATION = 18;
-    public static final int BITE_STRIKE_TICK = 8;
-    public static final int TAIL_WHIP_DURATION = 24;
-    public static final int TAIL_WHIP_STRIKE_TICK = 12;
-    public static final int BREATH_WINDUP_DURATION = 20;
-    public static final int BREATH_DURATION = 40;
+    public static final int ROAR_DURATION = 54;
+    public static final int BITE_DURATION = 20;
+    public static final int BITE_STRIKE_TICK = 9;
+    public static final int TAIL_WHIP_DURATION = 30;
+    public static final int BREATH_WINDUP_DURATION = 22;
+    public static final int BREATH_DURATION = 46;
     public static final int WING_GUST_DURATION = 26;
     public static final int WING_GUST_STRIKE_TICK = 11;
-    public static final int TAKEOFF_DURATION = 26;
-    public static final int FLY_DURATION = 90;
-    public static final int DIVE_DURATION = 34;
-    public static final int LAND_DURATION = 18;
-    public static final int STAGGER_DURATION = 16;
+    public static final int TAKEOFF_DURATION = 30;
+    public static final int DIVE_DURATION = 44;
+    public static final int LAND_DURATION = 22;
+    public static final int STAGGER_DURATION = 18;
+    public static final int AIR_BREATH_DURATION = 52;
+    public static final int AIR_BREATH_WINDUP = 12;
 
-    private static final double BITE_RANGE = 5.5D;
-    private static final double TAIL_RANGE = 6.5D;
-    private static final double WING_GUST_RANGE = 6.0D;
-    private static final double BREATH_RANGE = 16.0D;
-    private static final double BREATH_HALF_ANGLE = 0.55D; // cosine threshold for the cone
+    /** Total time spent airborne (FLY + AIR_BREATH) before the dragon commits to a dive. */
+    private static final int FLIGHT_BUDGET = 150;
+
+    // --- Tail sweep. The dragon pivots its whole body and the tail trails behind it, so the arc the
+    // model draws and the arc that deals damage are derived from the same functions below. ---
+    public static final float TAIL_WIND_END = 0.28F;   // fraction of the state spent winding up
+    public static final float TAIL_SWEEP_END = 0.72F;  // fraction at which the sweep finishes
+    /** Total body yaw (radians) the dragon spins through during the sweep. */
+    public static final float TAIL_BODY_SPIN = 3.5F;
+    /** How far (radians) the tail trails behind the body at the peak of the sweep. */
+    public static final float TAIL_TRAIL = 1.15F;
+
+    private static final double BITE_RANGE = 6.0D;
+    private static final double BITE_COS = 0.45D;      // ~63 degree half-cone in front of the snout
+    private static final double TAIL_INNER = 2.0D;
+    private static final double TAIL_RANGE = 8.0D;
+    private static final double TAIL_ARC_HALF = 0.55D; // radians of tail thickness for hit detection
+    private static final double WING_GUST_RANGE = 7.0D;
+    private static final double BREATH_RANGE = 18.0D;
+    /** Radius of the flame cone at the mouth, and how fast it widens per block travelled. */
+    private static final double BREATH_CONE_BASE = 0.9D;
+    private static final double BREATH_CONE_GROWTH = 0.13D;
     private static final float RAGE_HP_FRACTION = 0.45F;
-    private static final double HOVER_HEIGHT = 11.0D;
+    private static final double HOVER_HEIGHT = 12.0D;
+    private static final double CIRCLE_RADIUS = 14.0D;
 
     private boolean hasRoared;
     private int actionCooldown;
     private int struckThisState;
+    private final Set<Integer> hitThisState = new HashSet<>();
     private double hoverTargetY;
+    private int flightTicks;
+    private double circlePhase;
+    private int circleDir = 1;
+    private int airBreathCooldown;
+    /** Smoothed aim of the fire jet, so the flame sweeps across the ground instead of snapping. */
+    private Vec3 breathAim = new Vec3(0.0D, 0.0D, 1.0D);
+    /** Yaw the dragon spun to when the current tail sweep started. */
+    private float sweepStartYaw;
+    private AttackState lastGroundAttack = AttackState.NONE;
+    private int repeatedAttacks;
 
     private final ServerBossEvent bossEvent =
             new ServerBossEvent(this.getDisplayName(), BossEvent.BossBarColor.RED, BossEvent.BossBarOverlay.NOTCHED_10);
@@ -109,7 +154,7 @@ public class HungarianHorntailEntity extends Monster {
     public static AttributeSupplier.Builder createAttributes() {
         return Monster.createMonsterAttributes()
                 .add(Attributes.MAX_HEALTH, 320.0D)
-                .add(Attributes.MOVEMENT_SPEED, 0.26D)
+                .add(Attributes.MOVEMENT_SPEED, 0.30D)
                 .add(Attributes.ATTACK_DAMAGE, 18.0D)
                 .add(Attributes.FOLLOW_RANGE, 64.0D)
                 .add(Attributes.KNOCKBACK_RESISTANCE, 1.0D)
@@ -124,18 +169,30 @@ public class HungarianHorntailEntity extends Monster {
         builder.define(DATA_STATE_TICK, 0);
         builder.define(DATA_RAGING, false);
         builder.define(DATA_FLYING, false);
+        builder.define(DATA_SWEEP_LEFT, false);
     }
 
     @Override
     protected void registerGoals() {
         this.goalSelector.addGoal(0, new FloatGoal(this));
         this.goalSelector.addGoal(2, new HorntailCombatGoal(this));
-        this.goalSelector.addGoal(6, new WaterAvoidingRandomStrollGoal(this, 0.7D));
+        this.goalSelector.addGoal(6, new WaterAvoidingRandomStrollGoal(this, 0.5D, 0.7F));
         this.goalSelector.addGoal(7, new LookAtPlayerGoal(this, Player.class, 24.0F));
         this.goalSelector.addGoal(8, new RandomLookAroundGoal(this));
 
         this.targetSelector.addGoal(1, new HurtByTargetGoal(this));
         this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Player.class, true));
+    }
+
+    // A heavy animal does not snap its head around; it swings it.
+    @Override
+    public int getMaxHeadYRot() {
+        return 60;
+    }
+
+    @Override
+    public int getHeadRotSpeed() {
+        return 9;
     }
 
     // -------------------------------------------------------------------------------------------
@@ -158,15 +215,21 @@ public class HungarianHorntailEntity extends Monster {
         return this.entityData.get(DATA_FLYING);
     }
 
+    public boolean isSweepingLeft() {
+        return this.entityData.get(DATA_SWEEP_LEFT);
+    }
+
     private void setAttackState(AttackState state) {
         this.entityData.set(DATA_ATTACK_STATE, (byte) state.ordinal());
         this.entityData.set(DATA_STATE_TICK, 0);
         this.struckThisState = 0;
+        this.hitThisState.clear();
     }
 
     private boolean isAerial() {
         AttackState s = getAttackState();
-        return s == AttackState.TAKEOFF || s == AttackState.FLY || s == AttackState.DIVE || s == AttackState.LAND;
+        return s == AttackState.TAKEOFF || s == AttackState.FLY || s == AttackState.DIVE
+                || s == AttackState.LAND || s == AttackState.AIR_BREATH;
     }
 
     private boolean isBusy() {
@@ -202,8 +265,14 @@ public class HungarianHorntailEntity extends Monster {
         int t = getStateTick();
         this.entityData.set(DATA_STATE_TICK, t + 1);
 
-        if (this.actionCooldown > 0) {
-            this.actionCooldown--;
+        if (this.actionCooldown > 0) this.actionCooldown--;
+        if (this.airBreathCooldown > 0) this.airBreathCooldown--;
+
+        // Safety net: vanilla persists NoGravity but not the attack state, so a dragon saved in
+        // mid-air would reload hovering forever. Anything not in an aerial state falls.
+        if (!isAerial() && (this.isNoGravity() || isFlying())) {
+            this.setNoGravity(false);
+            this.entityData.set(DATA_FLYING, false);
         }
 
         // Rage threshold (one-way latch): faster, more aggressive, more fire.
@@ -218,57 +287,65 @@ public class HungarianHorntailEntity extends Monster {
         }
 
         driveState(state, t);
+        emitAmbientBreathSmoke();
+        footfalls();
 
         if (groundLocked()) {
             this.getNavigation().stop();
             Vec3 v = this.getDeltaMovement();
-            this.setDeltaMovement(v.x * 0.2D, v.y, v.z * 0.2D);
+            // Ease to a stop instead of slamming to zero — a 4-tonne animal has momentum.
+            this.setDeltaMovement(v.x * 0.62D, v.y, v.z * 0.62D);
         }
+    }
+
+    /** Nostril smoke while idle — the Horntail is always smouldering in the film. */
+    private void emitAmbientBreathSmoke() {
+        if (!(this.level() instanceof ServerLevel sl)) return;
+        if (isAerial()) return;
+        int period = isRaging() ? 4 : 9;
+        if (this.tickCount % period != 0) return;
+        Vec3 mouth = mouthPos();
+        Vec3 dir = this.getLookAngle();
+        sl.sendParticles(ParticleTypes.SMOKE,
+                mouth.x, mouth.y, mouth.z, 0,
+                dir.x * 0.06D, 0.03D, dir.z * 0.06D, 1.0D);
+        if (isRaging() && this.random.nextInt(3) == 0) {
+            sl.sendParticles(ParticleTypes.SMALL_FLAME,
+                    mouth.x, mouth.y, mouth.z, 0,
+                    dir.x * 0.08D, 0.02D, dir.z * 0.08D, 1.0D);
+        }
+    }
+
+    /** Ground shake + dust when a foot plants, so the walk reads as heavy. */
+    private void footfalls() {
+        if (!(this.level() instanceof ServerLevel sl)) return;
+        if (!this.onGround() || isAerial() || groundLocked()) return;
+        if (this.getDeltaMovement().horizontalDistanceSqr() < 0.0025D) return;
+        if (this.tickCount % 11 != 0) return;
+        this.playSound(SoundEvents.RAVAGER_STEP, 1.1F, 0.45F);
+        sl.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE,
+                this.getX(), this.getY() + 0.1D, this.getZ(), 3, 1.4D, 0.05D, 1.4D, 0.0D);
     }
 
     private void driveState(AttackState state, int t) {
         if (state == AttackState.ROAR) {
-            if (t == 6) this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_ROAR.get(), 5.0F, 0.75F);
-            if (t >= ROAR_DURATION) setAttackState(AttackState.NONE);
+            tickRoar(t);
         } else if (state == AttackState.BITE) {
-            if (t == 2) this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_BITE.get(), 1.2F, 1.4F);
-            if (t == BITE_STRIKE_TICK && struckThisState == 0) {
-                struckThisState = 1;
-                doBiteImpact();
-            }
-            if (t >= BITE_DURATION) setAttackState(AttackState.NONE);
+            tickBite(t);
         } else if (state == AttackState.TAIL_WHIP) {
-            if (t == 3) this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_TAIL_WHIP.get(), 1.4F, 0.7F);
-            if (t == TAIL_WHIP_STRIKE_TICK && struckThisState == 0) {
-                struckThisState = 1;
-                doTailImpact();
-            }
-            if (t >= TAIL_WHIP_DURATION) setAttackState(AttackState.NONE);
+            tickTailWhip(t);
         } else if (state == AttackState.BREATH_WINDUP) {
-            if (t == 2) this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_ROAR.get(), 2.0F, 1.2F);
-            if (this.level() instanceof ServerLevel sl) {
-                Vec3 mouth = mouthPos();
-                sl.sendParticles(ParticleTypes.SMALL_FLAME, mouth.x, mouth.y, mouth.z, 4, 0.15D, 0.15D, 0.15D, 0.01D);
-            }
-            if (t >= BREATH_WINDUP_DURATION) setAttackState(AttackState.BREATH);
+            tickBreathWindup(t);
         } else if (state == AttackState.BREATH) {
-            if (t == 1) this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_FIRE_BREATH.get(), 3.0F, 0.6F);
-            if (t % 3 == 0) doBreathTick();
-            if (t >= BREATH_DURATION) {
-                setAttackState(AttackState.NONE);
-                this.actionCooldown = isRaging() ? 14 : 26;
-            }
+            tickBreath(t);
         } else if (state == AttackState.WING_GUST) {
-            if (t == 4) this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_FLAP.get(), 3.0F, 0.8F);
-            if (t == WING_GUST_STRIKE_TICK && struckThisState == 0) {
-                struckThisState = 1;
-                doWingGust();
-            }
-            if (t >= WING_GUST_DURATION) setAttackState(AttackState.NONE);
+            tickWingGust(t);
         } else if (state == AttackState.TAKEOFF) {
             tickTakeoff(t);
         } else if (state == AttackState.FLY) {
             tickFly(t);
+        } else if (state == AttackState.AIR_BREATH) {
+            tickAirBreath(t);
         } else if (state == AttackState.DIVE) {
             tickDive(t);
         } else if (state == AttackState.LAND) {
@@ -282,104 +359,361 @@ public class HungarianHorntailEntity extends Monster {
     // Ground attacks
     // -------------------------------------------------------------------------------------------
 
-    private void doBiteImpact() {
-        if (!(this.level() instanceof ServerLevel sl)) return;
-        Vec3 forward = Vec3.directionFromRotation(0.0F, this.getYRot());
-        double cx = this.getX() + forward.x * 3.0D;
-        double cy = this.getY() + 1.2D;
-        double cz = this.getZ() + forward.z * 3.0D;
-        float dmg = (float) this.getAttributeValue(Attributes.ATTACK_DAMAGE) * (isRaging() ? 1.2F : 1.0F);
-        for (LivingEntity victim : sl.getEntitiesOfClass(LivingEntity.class,
-                new AABB(cx, cy, cz, cx, cy, cz).inflate(BITE_RANGE * 0.5D), e -> e != this && e.isAlive())) {
-            if (victim.distanceToSqr(cx, cy, cz) > BITE_RANGE * BITE_RANGE) continue;
-            victim.hurt(this.damageSources().mobAttack(this), dmg);
-            Vec3 away = victim.position().subtract(this.position()).normalize();
-            victim.push(away.x * 0.8D, 0.35D, away.z * 0.8D);
-            victim.hurtMarked = true;
-            interruptIfCaster(victim);
+    private void tickRoar(int t) {
+        if (t == 8) this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_ROAR.get(), 6.0F, 0.75F);
+        // The roar shoves loose dust and makes the ground shudder — pure theatre, no damage.
+        if (this.level() instanceof ServerLevel sl && t > 8 && t < 34 && t % 3 == 0) {
+            Vec3 mouth = mouthPos();
+            Vec3 dir = this.getLookAngle();
+            sl.sendParticles(ParticleTypes.CLOUD, mouth.x, mouth.y, mouth.z, 0,
+                    dir.x * 0.5D, dir.y * 0.5D, dir.z * 0.5D, 1.0D);
         }
-        this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_BITE.get(), 1.5F, 1.3F);
-        sl.sendParticles(ParticleTypes.CRIT, cx, cy, cz, 12, 0.4D, 0.4D, 0.4D, 0.1D);
+        LivingEntity target = this.getTarget();
+        if (target != null) faceTowards(target, 5.0F);
+        if (t >= ROAR_DURATION) setAttackState(AttackState.NONE);
     }
 
-    private void doTailImpact() {
+    private void tickBite(int t) {
+        LivingEntity target = this.getTarget();
+        // Keep tracking through the wind-up so the snap actually lands where the head is pointing.
+        if (target != null && t < BITE_STRIKE_TICK) faceTowards(target, 12.0F);
+        if (t == 2) this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_BITE.get(), 1.2F, 1.4F);
+        // Lunge: the whole body drives forward into the bite instead of the head floating out.
+        if (t >= 4 && t <= BITE_STRIKE_TICK) {
+            Vec3 fwd = Vec3.directionFromRotation(0.0F, this.getYRot());
+            double push = isRaging() ? 0.26D : 0.19D;
+            this.setDeltaMovement(this.getDeltaMovement().add(fwd.x * push, 0.0D, fwd.z * push));
+        }
+        if (t == BITE_STRIKE_TICK && struckThisState == 0) {
+            struckThisState = 1;
+            doBiteImpact();
+        }
+        if (t >= BITE_DURATION) setAttackState(AttackState.NONE);
+    }
+
+    private void doBiteImpact() {
         if (!(this.level() instanceof ServerLevel sl)) return;
-        // The spiked tail sweeps a wide arc all around the dragon — its signature "horntail" attack.
-        float dmg = (float) this.getAttributeValue(Attributes.ATTACK_DAMAGE) * (isRaging() ? 1.35F : 1.15F);
-        AABB area = this.getBoundingBox().inflate(TAIL_RANGE, 2.0D, TAIL_RANGE);
-        for (LivingEntity victim : sl.getEntitiesOfClass(LivingEntity.class, area, e -> e != this && e.isAlive())) {
-            Vec3 to = victim.position().subtract(this.position());
-            if (to.horizontalDistanceSqr() > TAIL_RANGE * TAIL_RANGE) continue;
+        Vec3 fwd = Vec3.directionFromRotation(0.0F, this.getYRot());
+        Vec3 flatFwd = new Vec3(fwd.x, 0.0D, fwd.z).normalize();
+        Vec3 jaw = mouthPos();
+        float dmg = (float) this.getAttributeValue(Attributes.ATTACK_DAMAGE) * (isRaging() ? 1.2F : 1.0F);
+        boolean connected = false;
+        for (LivingEntity victim : sl.getEntitiesOfClass(LivingEntity.class,
+                this.getBoundingBox().inflate(BITE_RANGE, 3.0D, BITE_RANGE), e -> e != this && e.isAlive())) {
+            Vec3 to = victim.getBoundingBox().getCenter().subtract(this.position());
+            Vec3 flat = new Vec3(to.x, 0.0D, to.z);
+            if (flat.lengthSqr() > BITE_RANGE * BITE_RANGE) continue;
+            // Only what is actually in front of the snout gets bitten.
+            if (flat.lengthSqr() > 1.0E-4D && flat.normalize().dot(flatFwd) < BITE_COS) continue;
             victim.hurt(this.damageSources().mobAttack(this), dmg);
-            Vec3 push = new Vec3(to.x, 0.0D, to.z).normalize();
-            victim.push(push.x * 2.2D, 0.6D, push.z * 2.2D);
+            Vec3 away = flat.lengthSqr() > 1.0E-4D ? flat.normalize() : flatFwd;
+            victim.push(away.x * 0.9D, 0.38D, away.z * 0.9D);
             victim.hurtMarked = true;
             interruptIfCaster(victim);
+            connected = true;
         }
-        this.playSound(SoundEvents.PLAYER_ATTACK_SWEEP, 1.6F, 0.5F);
-        Vec3 c = this.position();
-        sl.sendParticles(ParticleTypes.SWEEP_ATTACK, c.x, c.y + 0.6D, c.z, 6, TAIL_RANGE * 0.4D, 0.2D, TAIL_RANGE * 0.4D, 0.0D);
-        sl.sendParticles(ParticleTypes.POOF, c.x, c.y + 0.2D, c.z, 40, TAIL_RANGE * 0.5D, 0.2D, TAIL_RANGE * 0.5D, 0.05D);
+        this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_BITE.get(), 1.5F, 1.3F);
+        if (connected) {
+            sl.sendParticles(ParticleTypes.CRIT, jaw.x, jaw.y, jaw.z, 14, 0.5D, 0.5D, 0.5D, 0.15D);
+        } else {
+            // A missed snap still cracks shut — teeth clash, no crit sparks.
+            sl.sendParticles(ParticleTypes.SMOKE, jaw.x, jaw.y, jaw.z, 6, 0.3D, 0.2D, 0.3D, 0.02D);
+        }
+    }
+
+    private void beginTailWhipInternal() {
+        setAttackState(AttackState.TAIL_WHIP);
+        LivingEntity target = this.getTarget();
+        // Spin toward whichever side puts the tail through the target soonest.
+        boolean left = true;
+        if (target != null) {
+            Vec3 to = target.position().subtract(this.position());
+            Vec3 side = leftVector();
+            left = (to.x * side.x + to.z * side.z) >= 0.0D;
+        } else {
+            left = this.random.nextBoolean();
+        }
+        this.entityData.set(DATA_SWEEP_LEFT, left);
+        this.sweepStartYaw = this.getYRot();
+    }
+
+    /** Progress of the body spin (0..1 of TAIL_BODY_SPIN) at a given state fraction. */
+    public static float tailSpinProgress(float p) {
+        if (p <= TAIL_WIND_END) return 0.0F;
+        if (p >= TAIL_SWEEP_END) return 1.0F;
+        float w = (p - TAIL_WIND_END) / (TAIL_SWEEP_END - TAIL_WIND_END);
+        // Ease in, hold speed, ease out — a whip cracks, it does not rotate linearly.
+        return w * w * (3.0F - 2.0F * w);
+    }
+
+    /**
+     * How far the tail lags behind the body (radians, positive = trailing) at a given state fraction.
+     * The model and the hit detection both read this so the damage arc is exactly where the spikes are.
+     */
+    public static float tailTrail(float p) {
+        if (p < TAIL_WIND_END) {
+            // Coil: the tail winds the other way before the spin starts.
+            return -TAIL_TRAIL * 0.55F * (p / TAIL_WIND_END);
+        }
+        if (p < TAIL_SWEEP_END) {
+            float w = (p - TAIL_WIND_END) / (TAIL_SWEEP_END - TAIL_WIND_END);
+            return Mth.sin(w * Mth.PI) * TAIL_TRAIL - TAIL_TRAIL * 0.55F * (1.0F - w);
+        }
+        float w = (p - TAIL_SWEEP_END) / (1.0F - TAIL_SWEEP_END);
+        return TAIL_TRAIL * 0.25F * (1.0F - w);
+    }
+
+    private void tickTailWhip(int t) {
+        float p = (float) t / TAIL_WHIP_DURATION;
+        boolean left = isSweepingLeft();
+        float sign = left ? 1.0F : -1.0F;
+
+        if (t == 4) this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_TAIL_WHIP.get(), 1.6F, 0.7F);
+
+        // Drive the body yaw directly — the spin IS the attack.
+        float spin = tailSpinProgress(p) * TAIL_BODY_SPIN * Mth.RAD_TO_DEG * sign;
+        this.setYRot(this.sweepStartYaw + spin);
+        this.yBodyRot = this.getYRot();
+        this.yHeadRot = this.getYRot();
+
+        // During the sweep, damage whatever the spikes are actually passing through this tick.
+        if (p >= TAIL_WIND_END && p <= TAIL_SWEEP_END) {
+            doTailSweepTick(p, sign);
+        }
+        if (t >= TAIL_WHIP_DURATION) {
+            setAttackState(AttackState.NONE);
+            this.actionCooldown = isRaging() ? 10 : 18;
+        }
+    }
+
+    private void doTailSweepTick(float p, float sign) {
+        if (!(this.level() instanceof ServerLevel sl)) return;
+        // World direction the tail tip currently points: straight back, rotated by the trail angle.
+        Vec3 back = Vec3.directionFromRotation(0.0F, this.getYRot()).scale(-1.0D);
+        Vec3 leftV = leftVector();
+        double trail = -tailTrail(p) * sign; // trailing means rotated opposite the spin direction
+        Vec3 tailDir = back.scale(Math.cos(trail)).add(leftV.scale(Math.sin(trail))).normalize();
+
+        float dmg = (float) this.getAttributeValue(Attributes.ATTACK_DAMAGE) * (isRaging() ? 1.35F : 1.15F);
+        for (LivingEntity victim : sl.getEntitiesOfClass(LivingEntity.class,
+                this.getBoundingBox().inflate(TAIL_RANGE, 3.0D, TAIL_RANGE), e -> e != this && e.isAlive())) {
+            if (this.hitThisState.contains(victim.getId())) continue;
+            Vec3 to = victim.position().subtract(this.position());
+            Vec3 flat = new Vec3(to.x, 0.0D, to.z);
+            double d = flat.length();
+            if (d < TAIL_INNER || d > TAIL_RANGE) continue;
+            if (flat.normalize().dot(tailDir) < Math.cos(TAIL_ARC_HALF)) continue;
+            this.hitThisState.add(victim.getId());
+            victim.hurt(this.damageSources().mobAttack(this), dmg);
+            Vec3 push = flat.normalize();
+            victim.push(push.x * 2.4D, 0.65D, push.z * 2.4D);
+            victim.hurtMarked = true;
+            interruptIfCaster(victim);
+            this.playSound(SoundEvents.PLAYER_ATTACK_CRIT, 1.4F, 0.6F);
+        }
+
+        // Dust kicked up along the arc the spikes are carving.
+        for (int i = 1; i <= 3; i++) {
+            double d = TAIL_INNER + (TAIL_RANGE - TAIL_INNER) * (i / 3.0D);
+            Vec3 pnt = this.position().add(tailDir.scale(d));
+            sl.sendParticles(ParticleTypes.POOF, pnt.x, pnt.y + 0.3D, pnt.z, 2, 0.3D, 0.15D, 0.3D, 0.02D);
+        }
+    }
+
+    private void tickWingGust(int t) {
+        LivingEntity target = this.getTarget();
+        if (target != null && t < WING_GUST_STRIKE_TICK) faceTowards(target, 10.0F);
+        if (t == 4) this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_FLAP.get(), 3.0F, 0.8F);
+        if (t == WING_GUST_STRIKE_TICK && struckThisState == 0) {
+            struckThisState = 1;
+            doWingGust();
+        }
+        if (t >= WING_GUST_DURATION) setAttackState(AttackState.NONE);
     }
 
     private void doWingGust() {
         if (!(this.level() instanceof ServerLevel sl)) return;
         Vec3 forward = Vec3.directionFromRotation(0.0F, this.getYRot());
-        AABB area = this.getBoundingBox().inflate(WING_GUST_RANGE, 2.5D, WING_GUST_RANGE);
+        Vec3 flatFwd = new Vec3(forward.x, 0.0D, forward.z).normalize();
+        AABB area = this.getBoundingBox().inflate(WING_GUST_RANGE, 3.0D, WING_GUST_RANGE);
         for (LivingEntity victim : sl.getEntitiesOfClass(LivingEntity.class, area, e -> e != this && e.isAlive())) {
             Vec3 to = victim.position().subtract(this.position());
             Vec3 toFlat = new Vec3(to.x, 0.0D, to.z);
             if (toFlat.lengthSqr() < 1.0E-4D || toFlat.lengthSqr() > WING_GUST_RANGE * WING_GUST_RANGE) continue;
-            if (toFlat.normalize().dot(new Vec3(forward.x, 0.0D, forward.z).normalize()) < 0.0D) continue;
+            if (toFlat.normalize().dot(flatFwd) < 0.1D) continue;
             victim.hurt(this.damageSources().mobAttack(this), 6.0F);
             Vec3 push = toFlat.normalize();
-            victim.push(push.x * 2.6D, 0.85D, push.z * 2.6D);
+            victim.push(push.x * 2.8D, 0.9D, push.z * 2.8D);
             victim.hurtMarked = true;
             interruptIfCaster(victim);
         }
         this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_FLAP.get(), 4.0F, 1.0F);
-        Vec3 c = this.position();
-        sl.sendParticles(ParticleTypes.CLOUD, c.x + forward.x * 2.0D, c.y + 1.0D, c.z + forward.z * 2.0D,
-                60, 2.0D, 0.6D, 2.0D, 0.25D);
+        // A visible wall of dust rolling away from the wings.
+        for (int i = 1; i <= 5; i++) {
+            double d = i * 1.4D;
+            Vec3 pnt = this.position().add(flatFwd.scale(d));
+            sl.sendParticles(ParticleTypes.CLOUD, pnt.x, pnt.y + 0.7D, pnt.z, 0,
+                    flatFwd.x * 0.9D, 0.12D, flatFwd.z * 0.9D, 1.0D);
+            sl.sendParticles(ParticleTypes.POOF, pnt.x, pnt.y + 0.3D, pnt.z, 6, 0.9D, 0.25D, 0.9D, 0.06D);
+        }
     }
 
-    private void doBreathTick() {
+    // -------------------------------------------------------------------------------------------
+    // Fire breath
+    // -------------------------------------------------------------------------------------------
+
+    private void tickBreathWindup(int t) {
+        LivingEntity target = this.getTarget();
+        if (target != null) faceTowards(target, 9.0F);
+        if (t == 0) {
+            this.breathAim = this.getLookAngle();
+            if (target != null) this.breathAim = aimAt(target);
+        }
+        if (t == 2) this.playSound(SoundEvents.FIRECHARGE_USE, 2.5F, 0.5F);
+        if (this.level() instanceof ServerLevel sl) {
+            Vec3 mouth = mouthPos();
+            float charge = (float) t / BREATH_WINDUP_DURATION;
+            // Embers are pulled INTO the mouth as it inhales — the glow builds up behind the teeth.
+            int n = 2 + Math.round(charge * 6.0F);
+            for (int i = 0; i < n; i++) {
+                double a = this.random.nextDouble() * Math.PI * 2.0D;
+                double r = 1.0D + this.random.nextDouble() * 1.2D;
+                Vec3 off = new Vec3(Math.cos(a) * r, (this.random.nextDouble() - 0.5D) * r, Math.sin(a) * r);
+                Vec3 from = mouth.add(off);
+                Vec3 vel = off.normalize().scale(-0.22D);
+                sl.sendParticles(ParticleTypes.SMALL_FLAME, from.x, from.y, from.z, 0, vel.x, vel.y, vel.z, 1.0D);
+            }
+            sl.sendParticles(ParticleTypes.LARGE_SMOKE, mouth.x, mouth.y, mouth.z, 1, 0.2D, 0.2D, 0.2D, 0.01D);
+        }
+        if (t >= BREATH_WINDUP_DURATION) setAttackState(AttackState.BREATH);
+    }
+
+    private void tickBreath(int t) {
+        if (t == 1) this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_FIRE_BREATH.get(), 4.0F, 0.6F);
+        if (t % 11 == 0) this.playSound(SoundEvents.FIRE_AMBIENT, 3.0F, 0.5F);
+        LivingEntity target = this.getTarget();
+        // The whole animal turns to follow, slowly — that is what makes the jet visibly sweep.
+        if (target != null) faceTowards(target, isRaging() ? 5.5F : 3.5F);
+        breatheFire(t, target, false);
+        if (t >= BREATH_DURATION) {
+            setAttackState(AttackState.NONE);
+            this.actionCooldown = isRaging() ? 16 : 30;
+        }
+    }
+
+    /**
+     * One tick of fire. The jet is a real cone of moving particles emitted from the mouth, clipped to
+     * whatever block it hits, so it stops at walls instead of spraying through them.
+     */
+    private void breatheFire(int t, LivingEntity target, boolean airborne) {
         if (!(this.level() instanceof ServerLevel sl)) return;
+
+        // Ease the aim toward the target so the flame sweeps across the ground rather than snapping.
+        if (target != null) {
+            Vec3 want = aimAt(target);
+            double turn = airborne ? 0.16D : 0.11D;
+            this.breathAim = this.breathAim.add(want.subtract(this.breathAim).scale(turn)).normalize();
+        }
+        Vec3 dir = this.breathAim;
+        // Point the head where the fire actually goes, THEN read the muzzle position off it, so the
+        // jet leaves the snout the client is drawing rather than trailing it by a tick.
+        this.setXRot((float) (-Math.asin(Mth.clamp(dir.y, -1.0D, 1.0D)) * Mth.RAD_TO_DEG));
+        this.yHeadRot = (float) (Math.atan2(-dir.x, dir.z) * Mth.RAD_TO_DEG);
         Vec3 mouth = mouthPos();
-        Vec3 dir = lookDir();
-        float dmg = isRaging() ? 6.0F : 4.0F;
-        // Cone damage out to BREATH_RANGE.
-        AABB scan = new AABB(mouth, mouth).inflate(BREATH_RANGE);
+
+        double jet = jetLength(mouth, dir);
+        Vec3 side = dir.cross(new Vec3(0.0D, 1.0D, 0.0D));
+        if (side.lengthSqr() < 1.0E-5D) side = new Vec3(1.0D, 0.0D, 0.0D);
+        side = side.normalize();
+        Vec3 up = side.cross(dir).normalize();
+
+        float ramp = Math.min(1.0F, (t + 1) / 5.0F);
+        // Flame particles have friction 0.96, so travel ~= speed/0.04. Tune the muzzle velocity to the
+        // clipped jet length and the fire naturally stops where the world stops it.
+        double baseSpeed = Mth.clamp(jet * 0.052D, 0.30D, 1.05D);
+        // Each of these is its own particle packet (count=0 is the only form that carries a velocity),
+        // so the count is a deliberate bandwidth/density trade-off, not an arbitrary number.
+        int core = Math.max(1, Math.round((isRaging() ? 14 : 10) * ramp));
+
+        for (int i = 0; i < core; i++) {
+            double a = this.random.nextDouble() * Math.PI * 2.0D;
+            double r = Math.sqrt(this.random.nextDouble()) * 0.32D;
+            Vec3 p = mouth.add(dir.scale(0.35D + this.random.nextDouble() * 0.7D))
+                    .add(side.scale(Math.cos(a) * r)).add(up.scale(Math.sin(a) * r));
+            // Narrow near the mouth, spreading with distance -> a real cone, not a ball of fire.
+            double spread = 0.05D + this.random.nextDouble() * 0.15D;
+            Vec3 vel = dir.add(side.scale(Math.cos(a) * spread)).add(up.scale(Math.sin(a) * spread))
+                    .normalize().scale(baseSpeed * (0.7D + this.random.nextDouble() * 0.6D));
+            ParticleOptions type = this.random.nextInt(4) == 0 ? ParticleTypes.SMALL_FLAME : ParticleTypes.FLAME;
+            sl.sendParticles(type, p.x, p.y, p.z, 0, vel.x, vel.y, vel.z, 1.0D);
+        }
+
+        // Black smoke boiling off the back of the jet — the thing that sells it as fire and not sparks.
+        for (int i = 0; i < 2; i++) {
+            double f = 0.25D + this.random.nextDouble() * 0.75D;
+            double a = this.random.nextDouble() * Math.PI * 2.0D;
+            double r = (BREATH_CONE_BASE + jet * f * BREATH_CONE_GROWTH) * (0.6D + this.random.nextDouble() * 0.5D);
+            Vec3 p = mouth.add(dir.scale(jet * f))
+                    .add(side.scale(Math.cos(a) * r)).add(up.scale(Math.sin(a) * r));
+            Vec3 vel = dir.scale(0.10D).add(0.0D, 0.05D, 0.0D);
+            sl.sendParticles(ParticleTypes.LARGE_SMOKE, p.x, p.y, p.z, 0, vel.x, vel.y, vel.z, 1.0D);
+        }
+
+        // Splash where the jet lands: flame rolls out along the surface, embers spatter, smoke column.
+        Vec3 end = mouth.add(dir.scale(jet));
+        for (int i = 0; i < 3; i++) {
+            double a = this.random.nextDouble() * Math.PI * 2.0D;
+            Vec3 out = side.scale(Math.cos(a)).add(up.scale(Math.sin(a))).normalize();
+            Vec3 vel = out.scale(0.35D + this.random.nextDouble() * 0.35D).add(dir.scale(0.08D));
+            sl.sendParticles(ParticleTypes.FLAME, end.x, end.y, end.z, 0, vel.x, vel.y, vel.z, 1.0D);
+        }
+        sl.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, end.x, end.y + 0.2D, end.z, 1, 0.4D, 0.1D, 0.4D, 0.005D);
+        if (this.random.nextInt(3) == 0) {
+            sl.sendParticles(ParticleTypes.LAVA, end.x, end.y, end.z, 1, 0.3D, 0.2D, 0.3D, 0.0D);
+        }
+
+        // Damage on a slower cadence — LivingEntity invulnerability makes per-tick chip damage useless.
+        if (t % 8 == 4) applyBreathDamage(sl, mouth, dir, jet);
+
+        // Scorch the ground it is pointed at.
+        if (this.random.nextFloat() < (isRaging() ? 0.14F : 0.08F)) {
+            igniteAt(sl, end);
+        }
+    }
+
+    /** Distance the jet travels before something solid stops it. */
+    private double jetLength(Vec3 mouth, Vec3 dir) {
+        Vec3 far = mouth.add(dir.scale(BREATH_RANGE));
+        HitResult hit = this.level().clip(new ClipContext(mouth, far,
+                ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, this));
+        if (hit.getType() == HitResult.Type.MISS) return BREATH_RANGE;
+        return Math.max(1.5D, hit.getLocation().distanceTo(mouth));
+    }
+
+    private void applyBreathDamage(ServerLevel sl, Vec3 mouth, Vec3 dir, double jet) {
+        float dmg = isRaging() ? 9.0F : 6.0F;
+        AABB scan = new AABB(mouth, mouth.add(dir.scale(jet))).inflate(BREATH_CONE_BASE + jet * BREATH_CONE_GROWTH);
         for (LivingEntity victim : sl.getEntitiesOfClass(LivingEntity.class, scan, e -> e != this && e.isAlive())) {
             Vec3 to = victim.getBoundingBox().getCenter().subtract(mouth);
-            double dist = to.length();
-            if (dist > BREATH_RANGE || dist < 0.1D) continue;
-            if (to.normalize().dot(dir) < BREATH_HALF_ANGLE) continue;
+            double along = to.dot(dir);
+            if (along < 0.5D || along > jet) continue;
+            // Perpendicular distance from the jet axis, against a cone that widens with distance.
+            double perp = to.subtract(dir.scale(along)).length();
+            if (perp > BREATH_CONE_BASE + along * BREATH_CONE_GROWTH) continue;
             victim.hurt(this.damageSources().onFire(), dmg);
             victim.igniteForSeconds(isRaging() ? 8 : 5);
             interruptIfCaster(victim);
         }
-        // Visual flame jet — a line of flame particles from the mouth along the look direction.
-        int steps = 14;
-        for (int i = 1; i <= steps; i++) {
-            double f = (double) i / steps;
-            double px = mouth.x + dir.x * BREATH_RANGE * f;
-            double py = mouth.y + dir.y * BREATH_RANGE * f;
-            double pz = mouth.z + dir.z * BREATH_RANGE * f;
-            double spread = 0.15D + f * 1.1D;
-            sl.sendParticles(ParticleTypes.FLAME, px, py, pz, 3, spread, spread, spread, 0.02D);
-            if (i % 3 == 0) {
-                sl.sendParticles(ParticleTypes.LARGE_SMOKE, px, py, pz, 1, spread, spread, spread, 0.01D);
-            }
-        }
-        // Light grass fires sparsely at the cone's end for drama (server-only, guarded to air over solid).
-        if (this.random.nextFloat() < 0.5F) {
-            double f = 0.6D + this.random.nextDouble() * 0.4D;
-            BlockPos hit = BlockPos.containing(mouth.x + dir.x * BREATH_RANGE * f,
-                    mouth.y + dir.y * BREATH_RANGE * f, mouth.z + dir.z * BREATH_RANGE * f);
-            if (sl.isEmptyBlock(hit) && !sl.isEmptyBlock(hit.below())
-                    && sl.getGameRules().getBoolean(net.minecraft.world.level.GameRules.RULE_MOBGRIEFING)) {
-                sl.setBlock(hit, net.minecraft.world.level.block.Blocks.FIRE.defaultBlockState(), 11);
+    }
+
+    private void igniteAt(ServerLevel sl, Vec3 near) {
+        if (!sl.getGameRules().getBoolean(GameRules.RULE_MOBGRIEFING)) return;
+        BlockPos pos = BlockPos.containing(near.x, near.y, near.z);
+        for (BlockPos candidate : new BlockPos[]{pos, pos.above(), pos.below()}) {
+            if (sl.isEmptyBlock(candidate) && !sl.isEmptyBlock(candidate.below())
+                    && sl.getBlockState(candidate.below()).isSolidRender(sl, candidate.below())) {
+                sl.setBlock(candidate, Blocks.FIRE.defaultBlockState(), 11);
+                return;
             }
         }
     }
@@ -393,50 +727,120 @@ public class HungarianHorntailEntity extends Monster {
         this.entityData.set(DATA_FLYING, true);
         this.setNoGravity(true);
         this.getNavigation().stop();
-        double ground = groundBelowY();
-        this.hoverTargetY = ground + HOVER_HEIGHT;
+        this.hoverTargetY = groundBelowY() + HOVER_HEIGHT;
+        this.flightTicks = 0;
+        this.circleDir = this.random.nextBoolean() ? 1 : -1;
+        LivingEntity target = this.getTarget();
+        if (target != null) {
+            this.circlePhase = Math.atan2(this.getZ() - target.getZ(), this.getX() - target.getX());
+        }
+        this.airBreathCooldown = 20;
         this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_FLAP.get(), 5.0F, 0.7F);
     }
 
     private void tickTakeoff(int t) {
+        // Crouch, then explode upward on the third beat — not a constant elevator ride.
+        double thrust;
+        if (t < 6) {
+            thrust = -0.04D;                       // compress the legs
+        } else {
+            double climb = (this.hoverTargetY - this.getY()) * 0.22D;
+            thrust = Mth.clamp(climb, 0.18D, 0.72D);
+            // Pulse with the wingbeats so the rise is not perfectly smooth.
+            thrust *= 0.75D + 0.25D * Math.max(0.0D, Math.sin((t - 6) * 0.55D));
+        }
         Vec3 v = this.getDeltaMovement();
-        double dy = Math.min(0.55D, (this.hoverTargetY - this.getY()) * 0.25D + 0.2D);
-        this.setDeltaMovement(v.x * 0.8D, dy, v.z * 0.8D);
-        if (t % 6 == 0) this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_FLAP.get(), 3.0F, 0.9F);
-        if (this.getY() >= this.hoverTargetY - 1.0D || t >= TAKEOFF_DURATION) {
+        this.setDeltaMovement(v.x * 0.86D, thrust, v.z * 0.86D);
+        if (t == 7 || t == 15 || t == 23) {
+            this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_FLAP.get(), 4.0F, 0.85F);
+            if (this.level() instanceof ServerLevel sl && this.getY() < this.hoverTargetY - 6.0D) {
+                sl.sendParticles(ParticleTypes.POOF, this.getX(), this.getY() + 0.2D, this.getZ(),
+                        30, 2.0D, 0.2D, 2.0D, 0.12D);
+            }
+        }
+        LivingEntity target = this.getTarget();
+        if (target != null) this.getLookControl().setLookAt(target, 20.0F, 20.0F);
+        if (this.getY() >= this.hoverTargetY - 1.5D || t >= TAKEOFF_DURATION) {
             setAttackState(AttackState.FLY);
         }
     }
 
     private void tickFly(int t) {
+        this.flightTicks++;
         LivingEntity target = this.getTarget();
         if (target == null) {
-            if (t >= 20) beginLand();
+            if (t >= 25) beginLand();
             return;
         }
-        // Hover above and circle toward a point over the target, facing it.
-        double overX = target.getX();
-        double overZ = target.getZ();
-        double desiredY = Math.max(this.hoverTargetY, target.getY() + HOVER_HEIGHT);
-        Vec3 toOver = new Vec3(overX - this.getX(), 0.0D, overZ - this.getZ());
-        Vec3 horiz = toOver.lengthSqr() > 9.0D ? toOver.normalize().scale(isRaging() ? 0.42D : 0.32D) : toOver.scale(0.1D);
-        double dy = MthClamp((desiredY - this.getY()) * 0.1D, -0.25D, 0.25D);
-        this.setDeltaMovement(horiz.x, dy, horiz.z);
-        faceTowards(target, 12.0F);
-        if (t % 8 == 0) this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_FLAP.get(), 2.5F, 1.0F);
 
-        // Mid-flight strafing fire on the target if roughly above and within range.
-        if (isRaging() && t > 20 && t % 12 == 0) {
-            faceTowards(target, 30.0F);
+        // Circle the prey at altitude instead of parking overhead.
+        double speedScale = isRaging() ? 1.25D : 1.0D;
+        this.circlePhase += this.circleDir * 0.045D * speedScale;
+        double desiredY = Math.max(groundBelowY() + HOVER_HEIGHT, target.getY() + HOVER_HEIGHT);
+        Vec3 anchor = new Vec3(
+                target.getX() + Math.cos(this.circlePhase) * CIRCLE_RADIUS,
+                desiredY,
+                target.getZ() + Math.sin(this.circlePhase) * CIRCLE_RADIUS);
+
+        steerTowards(anchor, 0.55D * speedScale, 0.16D);
+        Vec3 vel = this.getDeltaMovement();
+        if (vel.horizontalDistanceSqr() > 0.004D) faceHeading(vel, 8.0F);
+        this.getLookControl().setLookAt(target, 30.0F, 30.0F);
+
+        if (t % 9 == 0) this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_FLAP.get(), 3.0F, 1.0F);
+
+        // Strafe the target with fire from the air once it has a clear line on it.
+        if (this.airBreathCooldown <= 0 && t > 22 && this.hasLineOfSight(target)
+                && this.distanceToSqr(target) < 26.0D * 26.0D) {
+            this.breathAim = aimAt(target);
+            setAttackState(AttackState.AIR_BREATH);
+            return;
         }
-        if (t >= FLY_DURATION) {
-            beginDive(target);
+        if (this.flightTicks >= FLIGHT_BUDGET) {
+            beginDive();
         }
     }
 
-    private void beginDive(LivingEntity target) {
+    private void tickAirBreath(int t) {
+        this.flightTicks++;
+        LivingEntity target = this.getTarget();
+        if (target == null) {
+            beginLand();
+            return;
+        }
+        // Hold station and hover while it pours fire down — wings hammering, body almost still.
+        double desiredY = Math.max(groundBelowY() + HOVER_HEIGHT * 0.85D, target.getY() + HOVER_HEIGHT * 0.85D);
+        Vec3 hold = new Vec3(this.getX(), desiredY, this.getZ());
+        steerTowards(hold, 0.18D, 0.22D);
+        if (t % 5 == 0) this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_FLAP.get(), 3.5F, 1.1F);
+
+        if (t < AIR_BREATH_WINDUP) {
+            faceTowards(target, 14.0F);
+            if (t == 1) this.playSound(SoundEvents.FIRECHARGE_USE, 2.5F, 0.5F);
+            if (this.level() instanceof ServerLevel sl) {
+                Vec3 mouth = mouthPos();
+                sl.sendParticles(ParticleTypes.SMALL_FLAME, mouth.x, mouth.y, mouth.z, 3, 0.2D, 0.2D, 0.2D, 0.02D);
+            }
+        } else {
+            int bt = t - AIR_BREATH_WINDUP;
+            if (bt == 0) this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_FIRE_BREATH.get(), 4.0F, 0.65F);
+            faceTowards(target, 6.0F);
+            breatheFire(bt, target, true);
+        }
+
+        if (t >= AIR_BREATH_DURATION) {
+            this.airBreathCooldown = isRaging() ? 50 : 90;
+            if (this.flightTicks >= FLIGHT_BUDGET) {
+                beginDive();
+            } else {
+                setAttackState(AttackState.FLY);
+            }
+        }
+    }
+
+    private void beginDive() {
         setAttackState(AttackState.DIVE);
-        this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_ROAR.get(), 5.0F, 1.0F);
+        this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_ROAR.get(), 6.0F, 1.0F);
     }
 
     private void tickDive(int t) {
@@ -445,17 +849,39 @@ public class HungarianHorntailEntity extends Monster {
             beginLand();
             return;
         }
-        Vec3 to = target.getBoundingBox().getCenter().subtract(this.position());
+        // Lead the target so it is a stoop at where they will be, not where they were.
+        Vec3 lead = target.getBoundingBox().getCenter().add(target.getDeltaMovement().scale(6.0D));
+        Vec3 to = lead.subtract(this.position());
         Vec3 dir = to.lengthSqr() > 1.0E-3D ? to.normalize() : lookDir();
-        double speed = isRaging() ? 1.15D : 0.9D;
-        this.setDeltaMovement(dir.scale(speed));
-        faceTowards(target, 25.0F);
-        if (this.level() instanceof ServerLevel sl) {
-            sl.sendParticles(ParticleTypes.FLAME, this.getX(), this.getY() + 1.0D, this.getZ(), 6, 0.6D, 0.6D, 0.6D, 0.02D);
+        double speed = isRaging() ? 1.05D : 0.85D;
+
+        // Flatten out just above the ground so it rakes across instead of drilling into the dirt.
+        double clearance = this.getY() - groundBelowY();
+        if (clearance < 4.0D) {
+            dir = new Vec3(dir.x, Math.max(dir.y, (2.5D - clearance) * 0.25D), dir.z).normalize();
         }
-        // Impact when close to the target or the ground.
-        boolean closeToTarget = this.distanceToSqr(target) < 9.0D;
-        boolean nearGround = this.getY() <= groundBelowY() + 1.5D;
+        Vec3 v = this.getDeltaMovement();
+        Vec3 want = dir.scale(speed);
+        this.setDeltaMovement(v.add(want.subtract(v).scale(0.35D)));
+        faceHeading(this.getDeltaMovement(), 18.0F);
+
+        if (this.level() instanceof ServerLevel sl) {
+            // A burning wake behind the stoop.
+            Vec3 back = this.getDeltaMovement().lengthSqr() > 1.0E-4D
+                    ? this.getDeltaMovement().normalize().scale(-0.25D) : Vec3.ZERO;
+            for (int i = 0; i < 3; i++) {
+                sl.sendParticles(ParticleTypes.FLAME,
+                        this.getX() + (this.random.nextDouble() - 0.5D) * 2.0D,
+                        this.getY() + 1.0D + (this.random.nextDouble() - 0.5D) * 1.5D,
+                        this.getZ() + (this.random.nextDouble() - 0.5D) * 2.0D,
+                        0, back.x, back.y + 0.05D, back.z, 1.0D);
+            }
+            sl.sendParticles(ParticleTypes.LARGE_SMOKE, this.getX(), this.getY() + 1.0D, this.getZ(),
+                    2, 0.8D, 0.5D, 0.8D, 0.01D);
+        }
+
+        boolean closeToTarget = this.distanceToSqr(target) < 12.0D;
+        boolean nearGround = clearance <= 1.6D;
         if (closeToTarget || nearGround || t >= DIVE_DURATION) {
             doDiveImpact();
             beginLand();
@@ -467,17 +893,28 @@ public class HungarianHorntailEntity extends Monster {
         Vec3 c = this.position();
         float dmg = (float) this.getAttributeValue(Attributes.ATTACK_DAMAGE) * (isRaging() ? 1.5F : 1.25F);
         for (LivingEntity victim : sl.getEntitiesOfClass(LivingEntity.class,
-                this.getBoundingBox().inflate(5.0D, 3.0D, 5.0D), e -> e != this && e.isAlive())) {
+                this.getBoundingBox().inflate(5.5D, 3.5D, 5.5D), e -> e != this && e.isAlive())) {
             victim.hurt(this.damageSources().mobAttack(this), dmg);
             victim.igniteForSeconds(5);
-            Vec3 away = victim.position().subtract(c).normalize();
-            victim.push(away.x * 1.8D, 0.7D, away.z * 1.8D);
+            Vec3 away = victim.position().subtract(c);
+            Vec3 flat = new Vec3(away.x, 0.0D, away.z);
+            if (flat.lengthSqr() > 1.0E-4D) flat = flat.normalize();
+            else flat = Vec3.directionFromRotation(0.0F, this.getYRot());
+            victim.push(flat.x * 2.0D, 0.75D, flat.z * 2.0D);
             victim.hurtMarked = true;
             interruptIfCaster(victim);
         }
-        this.playSound(SoundEvents.GENERIC_EXPLODE.value(), 3.0F, 0.6F);
-        sl.sendParticles(ParticleTypes.EXPLOSION, c.x, c.y + 0.5D, c.z, 4, 1.5D, 0.5D, 1.5D, 0.0D);
-        sl.sendParticles(ParticleTypes.FLAME, c.x, c.y + 0.3D, c.z, 60, 2.0D, 0.4D, 2.0D, 0.1D);
+        // A body-slam, not a TNT charge: heavy impact, dust ring, fire washing outward.
+        this.playSound(SoundEvents.GENERIC_EXPLODE.value(), 2.0F, 0.42F);
+        this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_FLAP.get(), 5.0F, 0.6F);
+        for (int i = 0; i < 22; i++) {
+            double a = i / 22.0D * Math.PI * 2.0D;
+            Vec3 out = new Vec3(Math.cos(a), 0.0D, Math.sin(a));
+            sl.sendParticles(ParticleTypes.FLAME, c.x, c.y + 0.3D, c.z, 0,
+                    out.x * 0.55D, 0.10D, out.z * 0.55D, 1.0D);
+            sl.sendParticles(ParticleTypes.POOF, c.x + out.x, c.y + 0.2D, c.z + out.z, 3, 0.4D, 0.2D, 0.4D, 0.05D);
+        }
+        sl.sendParticles(ParticleTypes.LARGE_SMOKE, c.x, c.y + 0.6D, c.z, 24, 2.0D, 0.6D, 2.0D, 0.05D);
     }
 
     private void beginLand() {
@@ -485,14 +922,22 @@ public class HungarianHorntailEntity extends Monster {
     }
 
     private void tickLand(int t) {
+        // Flare and brake: fall fast while high, then cushion the last couple of blocks.
+        double clearance = this.getY() - groundBelowY();
+        double descent = -Mth.clamp(clearance * 0.22D, 0.10D, 0.55D);
         Vec3 v = this.getDeltaMovement();
-        this.setDeltaMovement(v.x * 0.7D, -0.35D, v.z * 0.7D);
-        if (this.onGround() || this.getY() <= groundBelowY() + 0.5D || t >= LAND_DURATION) {
+        this.setDeltaMovement(v.x * 0.72D, Mth.lerp(0.4D, v.y, descent), v.z * 0.72D);
+        if (t == 1) this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_FLAP.get(), 4.5F, 0.75F);
+        if (this.onGround() || clearance <= 0.4D || t >= LAND_DURATION) {
             this.setNoGravity(false);
             this.entityData.set(DATA_FLYING, false);
             setAttackState(AttackState.NONE);
-            this.actionCooldown = isRaging() ? 20 : 40;
-            this.playSound(SoundEvents.RAVAGER_STEP, 3.0F, 0.5F);
+            this.actionCooldown = isRaging() ? 16 : 32;
+            this.playSound(SoundEvents.RAVAGER_STEP, 4.0F, 0.4F);
+            if (this.level() instanceof ServerLevel sl) {
+                sl.sendParticles(ParticleTypes.POOF, this.getX(), this.getY() + 0.1D, this.getZ(),
+                        40, 2.2D, 0.15D, 2.2D, 0.12D);
+            }
         }
     }
 
@@ -500,8 +945,17 @@ public class HungarianHorntailEntity extends Monster {
     // Helpers
     // -------------------------------------------------------------------------------------------
 
+    /** Blend the current velocity toward a velocity that heads for {@code point}. */
+    private void steerTowards(Vec3 point, double maxSpeed, double responsiveness) {
+        Vec3 to = point.subtract(this.position());
+        double len = to.length();
+        Vec3 want = len > 1.0E-4D ? to.scale(Math.min(maxSpeed, len * 0.22D) / len) : Vec3.ZERO;
+        Vec3 v = this.getDeltaMovement();
+        this.setDeltaMovement(v.add(want.subtract(v).scale(responsiveness)));
+    }
+
     private void faceTowards(Entity target, float speed) {
-        this.getLookControl().setLookAt(target, speed, speed);
+        this.getLookControl().setLookAt(target, speed * 2.0F, speed * 2.0F);
         double dx = target.getX() - this.getX();
         double dz = target.getZ() - this.getZ();
         float wanted = (float) (Math.atan2(dz, dx) * (180.0D / Math.PI)) - 90.0F;
@@ -509,14 +963,32 @@ public class HungarianHorntailEntity extends Monster {
         this.yBodyRot = this.getYRot();
     }
 
+    /** Point the body along a velocity vector — flying nose-first, the way a real flier moves. */
+    private void faceHeading(Vec3 velocity, float speed) {
+        if (velocity.horizontalDistanceSqr() < 1.0E-5D) return;
+        float wanted = (float) (Math.atan2(velocity.z, velocity.x) * (180.0D / Math.PI)) - 90.0F;
+        this.setYRot(rotateTowards(this.getYRot(), wanted, speed));
+        this.yBodyRot = this.getYRot();
+    }
+
     private static float rotateTowards(float from, float to, float max) {
-        float delta = net.minecraft.util.Mth.wrapDegrees(to - from);
-        delta = net.minecraft.util.Mth.clamp(delta, -max, max);
+        float delta = Mth.wrapDegrees(to - from);
+        delta = Mth.clamp(delta, -max, max);
         return from + delta;
     }
 
-    private static double MthClamp(double v, double lo, double hi) {
-        return v < lo ? lo : (v > hi ? hi : v);
+    /** Unit vector pointing out of the dragon's left flank. */
+    private Vec3 leftVector() {
+        double yaw = this.getYRot() * Mth.DEG_TO_RAD;
+        return new Vec3(Math.cos(yaw), 0.0D, Math.sin(yaw));
+    }
+
+    private Vec3 aimAt(LivingEntity target) {
+        Vec3 mouth = mouthPos();
+        // Aim at the chest, not the feet, so the cone washes over the player.
+        Vec3 point = target.position().add(0.0D, target.getBbHeight() * 0.5D, 0.0D);
+        Vec3 to = point.subtract(mouth);
+        return to.lengthSqr() > 1.0E-4D ? to.normalize() : lookDir();
     }
 
     private double groundBelowY() {
@@ -531,11 +1003,18 @@ public class HungarianHorntailEntity extends Monster {
         return this.getLookAngle();
     }
 
+    /**
+     * Where the fire actually leaves the head. Measured off the model: the neck roots 1.0 block in
+     * front of the entity origin at 1.65 blocks up, and the neck + skull run 3.05 blocks out from
+     * there along the head's aim.
+     */
     private Vec3 mouthPos() {
-        Vec3 look = this.getLookAngle();
-        return new Vec3(this.getX() + look.x * 3.2D,
-                this.getEyeY() + 0.4D + look.y * 2.0D,
-                this.getZ() + look.z * 3.2D);
+        float headYaw = this.yHeadRot * Mth.DEG_TO_RAD;
+        float pitch = this.getXRot() * Mth.DEG_TO_RAD;
+        Vec3 dir = new Vec3(-Mth.sin(headYaw) * Mth.cos(pitch), -Mth.sin(pitch), Mth.cos(headYaw) * Mth.cos(pitch));
+        Vec3 fwd = Vec3.directionFromRotation(0.0F, this.yBodyRot);
+        Vec3 neckBase = this.position().add(fwd.x * 1.0D, 1.65D, fwd.z * 1.0D);
+        return neckBase.add(dir.scale(3.05D));
     }
 
     private void interruptIfCaster(LivingEntity victim) {
@@ -547,7 +1026,7 @@ public class HungarianHorntailEntity extends Monster {
     // Action triggers used by the combat goal.
     void beginRoar() { setAttackState(AttackState.ROAR); hasRoared = true; }
     void beginBite() { setAttackState(AttackState.BITE); }
-    void beginTailWhip() { setAttackState(AttackState.TAIL_WHIP); }
+    void beginTailWhip() { beginTailWhipInternal(); }
     void beginBreath() { setAttackState(AttackState.BREATH_WINDUP); }
     void beginWingGust() { setAttackState(AttackState.WING_GUST); }
     void beginFlight() { beginTakeoff(); }
@@ -558,6 +1037,20 @@ public class HungarianHorntailEntity extends Monster {
 
     boolean inAerialSequence() {
         return isAerial();
+    }
+
+    /** Discourages picking the same move three times running — repetition is what reads as "robotic". */
+    private boolean overusing(AttackState move) {
+        return this.lastGroundAttack == move && this.repeatedAttacks >= 2;
+    }
+
+    private void noteAttack(AttackState move) {
+        if (this.lastGroundAttack == move) {
+            this.repeatedAttacks++;
+        } else {
+            this.lastGroundAttack = move;
+            this.repeatedAttacks = 1;
+        }
     }
 
     // -------------------------------------------------------------------------------------------
@@ -682,12 +1175,16 @@ public class HungarianHorntailEntity extends Monster {
     }
 
     // -------------------------------------------------------------------------------------------
-    // Combat goal — picks attacks by range / rage / situation, mirroring the Troll's brain.
+    // Combat goal — reads the situation instead of rolling dice on every option.
     // -------------------------------------------------------------------------------------------
 
     static class HorntailCombatGoal extends Goal {
         private final HungarianHorntailEntity dragon;
         private int decisionCooldown;
+        /** Non-zero while the dragon is deliberately giving ground to open up firing distance. */
+        private int backOffTicks;
+        private int strafeDir = 1;
+        private int strafeTicks;
 
         HorntailCombatGoal(HungarianHorntailEntity dragon) {
             this.dragon = dragon;
@@ -708,6 +1205,8 @@ public class HungarianHorntailEntity extends Monster {
         @Override
         public void stop() {
             dragon.getNavigation().stop();
+            this.backOffTicks = 0;
+            this.strafeTicks = 0;
         }
 
         @Override
@@ -722,6 +1221,10 @@ public class HungarianHorntailEntity extends Monster {
 
             dragon.getLookControl().setLookAt(target, 30.0F, 30.0F);
 
+            if (decisionCooldown > 0) decisionCooldown--;
+            if (backOffTicks > 0) backOffTicks--;
+            if (strafeTicks > 0) strafeTicks--;
+
             if (!dragon.canStartAction()) {
                 return; // committed to an action or on cooldown
             }
@@ -732,58 +1235,104 @@ public class HungarianHorntailEntity extends Monster {
                 return;
             }
 
-            double distSq = dragon.distanceToSqr(target);
-            double biteReach = BITE_RANGE * BITE_RANGE;
+            double dist = Math.sqrt(dragon.distanceToSqr(target));
+            int nearby = countNearby(target);
 
-            if (decisionCooldown > 0) {
-                decisionCooldown--;
-            }
-
-            // Close range: bite / tail whip / wing gust.
-            if (distSq <= biteReach) {
-                dragon.getNavigation().stop();
-                if (decisionCooldown > 0) return;
-                int roll = dragon.random.nextInt(100);
-                int nearby = countNearby(target);
-                if (nearby >= 2 || roll < 30) {
-                    dragon.beginTailWhip();
-                } else if (roll < 50) {
-                    dragon.beginWingGust();
-                } else if (roll < 78) {
-                    dragon.beginBite();
-                } else {
-                    dragon.beginBreath();
-                }
-                decisionCooldown = dragon.isRaging() ? 8 : 14;
+            // --- Backing off: after taking a beating up close, the dragon retreats to burn them. ---
+            if (backOffTicks > 0 && dist < 9.0D) {
+                retreatFrom(target);
                 return;
             }
 
-            // Mid range: fire breath if the target is roughly in front, else occasionally take flight.
-            if (distSq <= BREATH_RANGE * BREATH_RANGE) {
-                if (decisionCooldown <= 0 && facingTarget(target)) {
+            if (dist <= BITE_RANGE) {
+                dragon.getNavigation().stop();
+                if (decisionCooldown > 0) return;
+                chooseCloseAttack(target, nearby);
+                return;
+            }
+
+            if (dist <= 11.0D) {
+                // Just outside snapping distance: circle, size them up, tail-sweep or close in.
+                if (decisionCooldown <= 0 && !dragon.overusing(AttackState.TAIL_WHIP)
+                        && dragon.random.nextInt(100) < 30) {
+                    dragon.beginTailWhip();
+                    dragon.noteAttack(AttackState.TAIL_WHIP);
+                    decisionCooldown = dragon.isRaging() ? 14 : 24;
+                    return;
+                }
+                strafe(target);
+                return;
+            }
+
+            if (dist <= BREATH_RANGE) {
+                if (decisionCooldown <= 0 && facingTarget(target) && dragon.hasLineOfSight(target)) {
                     int roll = dragon.random.nextInt(100);
-                    int flyChance = dragon.isRaging() ? 28 : 16;
+                    int flyChance = dragon.isRaging() ? 26 : 15;
                     if (roll < flyChance) {
                         dragon.beginFlight();
                     } else {
                         dragon.beginBreath();
+                        dragon.noteAttack(AttackState.BREATH);
                     }
-                    decisionCooldown = dragon.isRaging() ? 16 : 28;
+                    decisionCooldown = dragon.isRaging() ? 18 : 30;
                     return;
                 }
-                // Close the gap while keeping the target in view.
-                dragon.getNavigation().moveTo(target, dragon.isRaging() ? 1.15D : 0.95D);
+                // Stalk in slowly — a predator closing, not a zombie sprinting.
+                dragon.getNavigation().moveTo(target, dragon.isRaging() ? 1.0D : 0.8D);
                 return;
             }
 
-            // Far: stalk toward the target, or launch into a dive-bomb run sometimes.
-            if (dragon.canStartAction() && decisionCooldown <= 0
-                    && dragon.random.nextInt(100) < (dragon.isRaging() ? 24 : 12)) {
+            // Far: charge in, or climb and hunt from the air.
+            if (decisionCooldown <= 0 && dragon.random.nextInt(100) < (dragon.isRaging() ? 26 : 14)) {
                 dragon.beginFlight();
-                decisionCooldown = 30;
+                decisionCooldown = 40;
                 return;
             }
-            dragon.getNavigation().moveTo(target, dragon.isRaging() ? 1.2D : 1.0D);
+            dragon.getNavigation().moveTo(target, dragon.isRaging() ? 1.25D : 1.05D);
+        }
+
+        private void chooseCloseAttack(LivingEntity target, int nearby) {
+            int roll = dragon.random.nextInt(100);
+            // Surrounded -> sweep. Otherwise favour the bite, with the odd gust to make room.
+            if ((nearby >= 2 || roll < 26) && !dragon.overusing(AttackState.TAIL_WHIP)) {
+                dragon.beginTailWhip();
+                dragon.noteAttack(AttackState.TAIL_WHIP);
+            } else if (roll < 44 && !dragon.overusing(AttackState.WING_GUST)) {
+                dragon.beginWingGust();
+                dragon.noteAttack(AttackState.WING_GUST);
+                // Blowing them away is a set-up for fire, so step back afterwards.
+                backOffTicks = 40;
+            } else if (roll < 88 && !dragon.overusing(AttackState.BITE)) {
+                dragon.beginBite();
+                dragon.noteAttack(AttackState.BITE);
+            } else {
+                dragon.beginBreath();
+                dragon.noteAttack(AttackState.BREATH);
+            }
+            decisionCooldown = dragon.isRaging() ? 8 : 16;
+        }
+
+        /** Walk backwards away from the target while keeping it in the sights. */
+        private void retreatFrom(LivingEntity target) {
+            Vec3 away = dragon.position().subtract(target.position());
+            if (away.lengthSqr() < 1.0E-4D) return;
+            Vec3 to = dragon.position().add(away.normalize().scale(8.0D));
+            dragon.getNavigation().moveTo(to.x, to.y, to.z, 1.0D);
+        }
+
+        /** Sidestep around the target — dragons circle their prey, they do not stand and stare. */
+        private void strafe(LivingEntity target) {
+            if (strafeTicks <= 0) {
+                strafeTicks = 30 + dragon.random.nextInt(30);
+                if (dragon.random.nextInt(3) == 0) strafeDir = -strafeDir;
+            }
+            Vec3 to = dragon.position().subtract(target.position());
+            if (to.lengthSqr() < 1.0E-4D) return;
+            double angle = Math.atan2(to.z, to.x) + strafeDir * 0.45D;
+            double radius = 8.5D;
+            double x = target.getX() + Math.cos(angle) * radius;
+            double z = target.getZ() + Math.sin(angle) * radius;
+            dragon.getNavigation().moveTo(x, target.getY(), z, 0.85D);
         }
 
         private boolean facingTarget(LivingEntity target) {

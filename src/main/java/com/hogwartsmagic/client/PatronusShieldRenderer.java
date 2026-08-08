@@ -37,8 +37,14 @@ public final class PatronusShieldRenderer {
     private static final int RIBBON_SEGMENTS = 32;
     private static final int BLOOM_RINGS = 5;
     private static final int BLOOM_SEGMENTS = 20;
-    private static final int CAP_RINGS = 16;
-    private static final int CAP_SEGMENTS = 40;
+    private static final int CAP_RINGS = 14;
+    private static final int CAP_SEGMENTS = 32;
+    /** Travelling pulses are thin bands, so they need far fewer rings than a standing barrier. */
+    private static final int PULSE_RINGS = 7;
+
+    /** How many pulses are in flight at once, and how much of the reach they cross per tick. */
+    private static final int PULSE_SHELLS = 3;
+    private static final float PULSE_SPEED = 0.020f;
 
     /**
      * The shield proper: curved barriers across the cone's mouth, nearest and brightest first.
@@ -141,9 +147,9 @@ public final class PatronusShieldRenderer {
         float length = (float) PatronusShield.RANGE;
         float mouth = (float) PatronusShield.MOUTH_RADIUS;
 
-        // A slow breath, plus a faster shimmer, so the light never sits still.
+        // A slow breath under a faster shimmer, deep enough to actually read as alive.
         float age = player.tickCount + partialTick;
-        float pulse = 0.90f + 0.10f * Mth.sin(age * 0.17f) + 0.035f * Mth.sin(age * 0.71f);
+        float pulse = 0.84f + 0.16f * Mth.sin(age * 0.22f) + 0.065f * Mth.sin(age * 0.83f);
 
         // How end-on the ward is. 0 = seen fully from the side, 1 = looking straight down the aim.
         // The camera is the origin in this space, so the vector towards it is just the negated
@@ -168,7 +174,8 @@ public final class PatronusShieldRenderer {
 
             for (int layer = 0; layer < LAYER_WIDTH.length; layer++) {
                 drawRibbon(consumer, matrix, apex, axis, perpendicular, length,
-                        mouth * LAYER_WIDTH[layer], LAYER_ALPHA[layer] * pulse * ribbonWeight, layer == 0);
+                        mouth * LAYER_WIDTH[layer], LAYER_ALPHA[layer] * pulse * ribbonWeight,
+                        layer == 0, age);
             }
         }
 
@@ -178,14 +185,33 @@ public final class PatronusShieldRenderer {
         float halfAngle = (float) Math.acos(PatronusShield.COS_HALF_ANGLE);
         float capStrength = pulse * (ownFirstPerson ? 0.55f : 1.0f);
         for (int cap = 0; cap < CAP_DISTANCE.length; cap++) {
+            // A crest running outward through the standing barriers, so the near one lifts first
+            // and the far one last. Reads as the charm being fed from the wand rather than sitting.
+            float surge = 0.72f + 0.40f * Mth.sin(CAP_DISTANCE[cap] * 8.5f - age * 0.30f);
+            drawShieldCap(consumer, matrix, apex, axis, side, up, length * CAP_DISTANCE[cap],
+                    halfAngle, CAP_ALPHA[cap] * capStrength * surge, age, CAP_RINGS);
+        }
+
+        // Pulses born at the wand and driven out through the ward. These are what make the light
+        // look like it has a source: each one appears at the tip, swells, and dies at the rim.
+        for (int shell = 0; shell < PULSE_SHELLS; shell++) {
+            float phase = ((age * PULSE_SPEED) + shell / (float) PULSE_SHELLS) % 1.0f;
+            float born = smoothstep(0.0f, 0.16f, phase);
+            float spent = 1.0f - smoothstep(0.72f, 1.0f, phase);
+            float strength = 0.60f * born * spent * capStrength;
+            if (strength <= 0.004f) {
+                continue;
+            }
             drawShieldCap(consumer, matrix, apex, axis, side, up,
-                    length * CAP_DISTANCE[cap], halfAngle, CAP_ALPHA[cap] * capStrength, age);
+                    length * Mth.lerp(phase, 0.08f, 1.02f), halfAngle, strength, age, PULSE_RINGS);
         }
 
         // The hot spot at the wand tip, always facing the viewer. Skipped for your own first-person
         // cast: the apex sits half a block from the camera, so the flare would cover the crosshair.
         if (!ownFirstPerson) {
-            drawBloom(consumer, matrix, apex, BLOOM_RADIUS, 1.0f * pulse);
+            // The tip flares harder and faster than the ward it feeds -- this is the source.
+            float flare = 0.80f + 0.30f * Mth.sin(age * 0.46f) + 0.12f * Mth.sin(age * 1.30f);
+            drawBloom(consumer, matrix, apex, BLOOM_RADIUS * (0.88f + 0.18f * flare), flare);
         }
     }
 
@@ -195,13 +221,14 @@ public final class PatronusShieldRenderer {
      */
     private static void drawRibbon(VertexConsumer consumer, Matrix4f matrix, Vec3 apex, Vec3 axis,
                                    Vec3 perpendicular, float length, float maxHalfWidth,
-                                   float alpha, boolean core) {
+                                   float alpha, boolean core, float age) {
         for (int i = 0; i < RIBBON_SEGMENTS; i++) {
             float t0 = i / (float) RIBBON_SEGMENTS;
             float t1 = (i + 1) / (float) RIBBON_SEGMENTS;
 
-            float a0 = alpha * lengthProfile(t0);
-            float a1 = alpha * lengthProfile(t1);
+            // Same outward flow as the barriers, so the haze streams rather than hangs.
+            float a0 = alpha * lengthProfile(t0) * flow(t0, age);
+            float a1 = alpha * lengthProfile(t1) * flow(t1, age);
             if (a0 <= 0.002f && a1 <= 0.002f) {
                 continue;
             }
@@ -239,13 +266,13 @@ public final class PatronusShieldRenderer {
      */
     private static void drawShieldCap(VertexConsumer consumer, Matrix4f matrix, Vec3 apex, Vec3 axis,
                                       Vec3 side, Vec3 up, float radius, float halfAngle,
-                                      float alpha, float age) {
+                                      float alpha, float age, int rings) {
         // Swept slightly past the rim so the edge glow feathers out instead of ending in a cut.
         float overshoot = 1.20f;
 
-        for (int r = 0; r < CAP_RINGS; r++) {
-            float u0 = (r / (float) CAP_RINGS) * overshoot;
-            float u1 = ((r + 1) / (float) CAP_RINGS) * overshoot;
+        for (int r = 0; r < rings; r++) {
+            float u0 = (r / (float) rings) * overshoot;
+            float u1 = ((r + 1) / (float) rings) * overshoot;
 
             float a0 = alpha * capProfile(u0, age);
             float a1 = alpha * capProfile(u1, age);
@@ -345,6 +372,11 @@ public final class PatronusShieldRenderer {
         float ramp = t >= 0.07f ? 1.0f : (t / 0.07f) * (t / 0.07f);
         float fade = 1.0f - 0.68f * (float) Math.pow(t, 1.4D);
         return Math.max(0.0f, ramp * fade);
+    }
+
+    /** Brightness crests travelling away from the wand, shared by the haze and the barriers. */
+    private static float flow(float t, float age) {
+        return 0.70f + 0.42f * Mth.sin(t * 11.0f - age * 0.34f);
     }
 
     private static float smoothstep(float edge0, float edge1, float x) {

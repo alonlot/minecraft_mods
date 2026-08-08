@@ -1223,11 +1223,13 @@ public class ModEvents {
             // sweeps them down its own axis, so aiming actually steers where they end up.
             boolean pointBlank = distance < PATRONUS_SHIELD_STANDOFF;
             Vec3 pushDir = pointBlank ? relative.scale(1.0D / distance) : axis;
-            double strength = pointBlank ? 0.55D : 0.30D;
+            double strength = pointBlank ? 0.25D : 0.12D;
 
-            Vec3 velocity = dementor.getDeltaMovement().add(pushDir.scale(strength)).add(0.0D, 0.05D, 0.0D);
-            if (velocity.length() > 1.2D) {
-                velocity = velocity.normalize().scale(1.2D);
+            // The shove accumulates every tick a Dementor stays in the cone, so this cap is what
+            // actually decides how far it ends up -- it is a firm hold-off, not a launch.
+            Vec3 velocity = dementor.getDeltaMovement().add(pushDir.scale(strength)).add(0.0D, 0.02D, 0.0D);
+            if (velocity.length() > 0.30D) {
+                velocity = velocity.normalize().scale(0.30D);
             }
             dementor.setDeltaMovement(velocity);
             dementor.hurtMarked = true;

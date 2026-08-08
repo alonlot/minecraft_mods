@@ -107,11 +107,18 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
     private float bankO;
     private float flapPower;       // 0 pure glide .. 1 hauling herself upward
     private float flapPowerO;
+    private int groundStuckTicks;
+    private static final int GROUND_STUCK_TICKS = 30;
 
     // Flight feel. Descending trades height for speed like an elytra; climbing is work.
     private static final double FLIGHT_CRUISE = 1.7D;
-    private static final double DIVE_BOOST = 1.0D;
-    private static final double CLIMB_DRAG = 0.55D;
+    /** Height traded for airspeed per tick when pointed straight down, and back on the climb. */
+    private static final double FLIGHT_GRAVITY = 0.045D;
+    /** Grows with the square of speed, so it sets her terminal dive speed. */
+    private static final double FLIGHT_DRAG = 0.013D;
+    /** How fast her wings can make up a shortfall back to cruise. They cannot exceed it. */
+    private static final double FLAP_THRUST = 0.030D;
+    private static final double MIN_FLIGHT_SPEED = 0.14D;
     /** Hard ceiling on airspeed, so a long dive cannot run away with her. */
     private static final double MAX_FLIGHT_SPEED = 1.5D;
     /** Low value = heavy inertia, so she banks through wide arcs instead of turning on a pin. */
@@ -142,6 +149,28 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
         this.airNavigation.setCanFloat(true);
         this.airNavigation.setCanPassDoors(true);
         this.airMoveControl = new FlyingMoveControl(this, 20, true);
+        // The default look control zeroes xRot every tick, which would wipe out the body
+        // pitch that makes flight read as flight. Leave her pitch alone while she is flying.
+        this.lookControl = new net.minecraft.world.entity.ai.control.LookControl(this) {
+            @Override
+            protected boolean resetXRotOnTick() {
+                return !HippogriffEntity.this.isFlightPosture();
+            }
+        };
+    }
+
+    /** True when she is holding a flying attitude and her pitch/roll should be left alone. */
+    public boolean isFlightPosture() {
+        return this.poweredFlight || !this.onGround();
+    }
+
+    /**
+     * Whether she is free to glance about. While she is being ridden or is in the air she
+     * is not: LookAtPlayerGoal picks the nearest player, which when mounted is the rider at
+     * zero range, so she spent the whole flight craning her head round to stare backwards.
+     */
+    private boolean canLookAround() {
+        return !this.isVehicle() && !this.poweredFlight && this.onGround();
     }
 
     @Override
@@ -213,7 +242,10 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
                 .add(Attributes.MOVEMENT_SPEED, 0.30D)
                 .add(Attributes.FLYING_SPEED, 0.50D)
                 .add(Attributes.ATTACK_DAMAGE, 7.0D)
-                .add(Attributes.FOLLOW_RANGE, 28.0D);
+                .add(Attributes.FOLLOW_RANGE, 28.0D)
+                // Long-legged enough to walk straight up a block, like a horse. Without this
+                // she has to jump every kerb and wedges herself against them.
+                .add(Attributes.STEP_HEIGHT, 1.1D);
     }
 
     public static boolean canSpawn(EntityType<HippogriffEntity> type, ServerLevelAccessor level, MobSpawnType spawnType, BlockPos pos, RandomSource random) {
@@ -233,8 +265,28 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
         // MOVE slot, and when it declines the stroll goal takes over as usual.
         this.goalSelector.addGoal(7, new HippogriffFreeFlightGoal(this));
         this.goalSelector.addGoal(8, new WaterAvoidingRandomStrollGoal(this, 1.0D));
-        this.goalSelector.addGoal(9, new LookAtPlayerGoal(this, Player.class, 8.0F));
-        this.goalSelector.addGoal(10, new RandomLookAroundGoal(this));
+        this.goalSelector.addGoal(9, new LookAtPlayerGoal(this, Player.class, 8.0F) {
+            @Override
+            public boolean canUse() {
+                return HippogriffEntity.this.canLookAround() && super.canUse();
+            }
+
+            @Override
+            public boolean canContinueToUse() {
+                return HippogriffEntity.this.canLookAround() && super.canContinueToUse();
+            }
+        });
+        this.goalSelector.addGoal(10, new RandomLookAroundGoal(this) {
+            @Override
+            public boolean canUse() {
+                return HippogriffEntity.this.canLookAround() && super.canUse();
+            }
+
+            @Override
+            public boolean canContinueToUse() {
+                return HippogriffEntity.this.canLookAround() && super.canContinueToUse();
+            }
+        });
 
         this.targetSelector.addGoal(1, new HurtByTargetGoal(this));
         this.targetSelector.addGoal(2, new net.minecraft.world.entity.ai.goal.target.OwnerHurtByTargetGoal(this));
@@ -287,21 +339,38 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
             return;
         }
         Vec3 direction = delta.scale(1.0D / distance);
-        double cruise = this.getAttributeValue(Attributes.FLYING_SPEED) * FLIGHT_CRUISE * speedScale;
-        double climb = direction.y;
-        double wantedSpeed = climb < 0.0D
-                ? cruise * (1.0D + -climb * DIVE_BOOST)
-                : cruise * (1.0D - climb * CLIMB_DRAG);
-        Vec3 wanted = direction.scale(wantedSpeed);
-        setDeltaMovementCapped(this.getDeltaMovement()
-                .scale(1.0D - FLIGHT_RESPONSE)
-                .add(wanted.scale(FLIGHT_RESPONSE)));
+        applyFlightPhysics(direction,
+                this.getAttributeValue(Attributes.FLYING_SPEED) * FLIGHT_CRUISE * speedScale,
+                FLIGHT_RESPONSE);
         faceFlightPath();
     }
 
-    private void setDeltaMovementCapped(Vec3 motion) {
+    /**
+     * Energy-based flight, the way an elytra behaves.
+     *
+     * <p>Airspeed is carried from tick to tick rather than recomputed from the current
+     * heading, so a dive banks real momentum and pulling up afterwards spends it climbing
+     * instead of throwing it away. Steering only turns the velocity vector; it never
+     * rewrites its length.
+     */
+    private void applyFlightPhysics(Vec3 heading, double cruise, double turnResponse) {
+        Vec3 motion = this.getDeltaMovement();
         double speed = motion.length();
-        this.setDeltaMovement(speed > MAX_FLIGHT_SPEED ? motion.scale(MAX_FLIGHT_SPEED / speed) : motion);
+        Vec3 currentDirection = speed > 1.0E-4D ? motion.scale(1.0D / speed) : heading;
+
+        // Nose down converts height into speed; nose up spends it again.
+        speed += -heading.y * FLIGHT_GRAVITY;
+        speed -= speed * speed * FLIGHT_DRAG;
+        if (speed < cruise) {
+            speed = Math.min(cruise, speed + FLAP_THRUST);
+        }
+        speed = Mth.clamp(speed, MIN_FLIGHT_SPEED, MAX_FLIGHT_SPEED);
+
+        Vec3 blended = currentDirection.scale(1.0D - turnResponse).add(heading.scale(turnResponse));
+        if (blended.lengthSqr() < 1.0E-6D) {
+            blended = heading;
+        }
+        this.setDeltaMovement(blended.normalize().scale(speed));
     }
 
     /** Points her along her own velocity, turning at a limited rate so the bank has time to build. */
@@ -434,6 +503,9 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
             this.setDeltaMovement(motion.x * 0.96D, Math.max(motion.y, -0.22D), motion.z * 0.96D);
         }
 
+        if (!this.level().isClientSide) {
+            tickGroundStuck();
+        }
         tickFlightPosture(airborne);
 
         if (this.level().isClientSide) {
@@ -538,6 +610,31 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
      * <p>Both are heavily smoothed. A bird does not snap between gliding and flapping, and
      * the roll in particular is meant to swing across slowly rather than twitch.
      */
+    /**
+     * Notices when she is shoving into something she cannot get round on foot.
+     *
+     * <p>She is wide and tall, and the ground pathfinder will happily route her at gaps she
+     * does not fit through, leaving her grinding against a tree trunk. Rather than let her
+     * stand there shuffling, being stuck earns her a flight over the top of it.
+     */
+    private void tickGroundStuck() {
+        if (!this.onGround() || this.isVehicle() || this.isInSittingPose() || this.poweredFlight) {
+            this.groundStuckTicks = 0;
+            return;
+        }
+        boolean tryingToMove = !this.navigation.isDone();
+        if (tryingToMove && this.horizontalCollision
+                && this.getDeltaMovement().horizontalDistanceSqr() < 0.0016D) {
+            this.groundStuckTicks++;
+        } else {
+            this.groundStuckTicks = Math.max(0, this.groundStuckTicks - 2);
+        }
+    }
+
+    public boolean isGroundStuck() {
+        return this.groundStuckTicks > GROUND_STUCK_TICKS;
+    }
+
     private void tickFlightPosture(boolean airborne) {
         if (!airborne) {
             this.flapPower = Mth.approach(this.flapPower, 0.0F, 0.12F);
@@ -718,10 +815,10 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
             }
 
             if (this.onGround() && !launching) {
-                // On her feet she gallops under normal physics, so she steps and jumps over
-                // obstacles rather than levitating over them.
+                // On her feet she moves at her own walking speed under normal physics, so
+                // she steps and jumps over obstacles rather than levitating over them.
                 this.setNoGravity(false);
-                this.setSpeed((float) this.getAttributeValue(Attributes.MOVEMENT_SPEED) * 1.9F);
+                this.setSpeed((float) this.getAttributeValue(Attributes.MOVEMENT_SPEED));
                 super.travel(new Vec3(strafe, travelVector.y, forward));
                 return;
             }
@@ -740,16 +837,9 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
             }
 
             if (desired.lengthSqr() > 1.0E-4D) {
-                double cruise = this.getAttributeValue(Attributes.FLYING_SPEED) * FLIGHT_CRUISE;
-                Vec3 heading = desired.normalize();
-                double climb = heading.y;
-                double wantedSpeed = climb < 0.0D
-                        ? cruise * (1.0D + -climb * DIVE_BOOST)
-                        : cruise * (1.0D - climb * CLIMB_DRAG);
-                Vec3 wanted = heading.scale(wantedSpeed);
-                setDeltaMovementCapped(this.getDeltaMovement()
-                        .scale(1.0D - RIDDEN_FLIGHT_RESPONSE)
-                        .add(wanted.scale(RIDDEN_FLIGHT_RESPONSE)));
+                applyFlightPhysics(desired.normalize(),
+                        this.getAttributeValue(Attributes.FLYING_SPEED) * FLIGHT_CRUISE,
+                        RIDDEN_FLIGHT_RESPONSE);
             } else {
                 // Hands off the reins: she holds station on beating wings. She used to keep
                 // coasting forward here, so letting go of the controls never stopped her.
@@ -764,9 +854,15 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
         }
 
         this.playerJumpStrength = 0.0F;
-        if (!this.poweredFlight) {
-            this.setNoGravity(false);
+        if (this.poweredFlight) {
+            // Her own flight is entirely velocity-driven by the flight goal. Routing it
+            // through the normal travel path would stack vanilla's air friction on top and
+            // bleed away the momentum a dive just earned.
+            this.move(MoverType.SELF, this.getDeltaMovement());
+            this.calculateEntityAnimation(false);
+            return;
         }
+        this.setNoGravity(false);
         super.travel(travelVector);
     }
 
@@ -838,6 +934,10 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
         public boolean canUse() {
             if (!canFlyFreely()) {
                 return false;
+            }
+            // Wedged against terrain she cannot walk round: fly over it, rest timer or not.
+            if (this.hippogriff.isGroundStuck()) {
+                return pickDestination();
             }
             if (this.restTicks > 0) {
                 // Must not re-trigger here just because she is still airborne, or she would

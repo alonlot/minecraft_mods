@@ -89,6 +89,10 @@ public final class ModEventsClientHooks {
             com.hogwartsmagic.event.ClientModEvents.startFiendfyreHold();
             return true;
         }
+        if (selected == SpellType.EXPECTO_PATRONUM) {
+            com.hogwartsmagic.event.ClientModEvents.startPatronusHold();
+            return true;
+        }
         if (selected == SpellType.WINGARDIUM_LEVIOSA) {
             com.hogwartsmagic.event.ClientModEvents.startWingardiumHold();
             SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(false, false, false, false), PacketDistributor.SERVER.noArg());

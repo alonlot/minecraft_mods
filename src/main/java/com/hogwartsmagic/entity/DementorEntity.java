@@ -23,9 +23,33 @@ import java.util.List;
 
 public class DementorEntity extends Monster {
 
+    /** Persistent-data flag set on a player channelling the non-corporeal Patronus shield. */
+    public static final String TAG_PATRONUS_SHIELD_CHANNELING = "hogwartsmagic:patronus_shield_channeling";
+
+    /** Game time until which the Patronus shield keeps this Dementor cowed. Server-side only. */
+    private long shieldRepelledUntil = 0L;
+
     public DementorEntity(EntityType<? extends Monster> entityType, Level level) {
         super(entityType, level);
         this.moveControl = new FlyingMoveControl(this, 10, false);
+    }
+
+    /**
+     * Called by the Patronus shield each tick a Dementor sits inside the cone. A non-corporeal
+     * Patronus can't hurt a Dementor, but it holds it off: the soul-suck breaks for a second.
+     */
+    public void markShieldRepelled(long gameTime) {
+        this.shieldRepelledUntil = gameTime + 20L;
+    }
+
+    public boolean isShieldRepelled() {
+        return this.level().getGameTime() < this.shieldRepelledUntil;
+    }
+
+    /** A caster holding the shield up is behind it, so the aura of dread can't reach them. */
+    private static boolean isShieldedFromAura(LivingEntity entity) {
+        return entity.getTags().contains("patronus")
+                || entity.getPersistentData().getBoolean(TAG_PATRONUS_SHIELD_CHANNELING);
     }
 
     @Override
@@ -101,7 +125,7 @@ public class DementorEntity extends Monster {
             // Apply blindness and slowness to all living things nearby
             List<LivingEntity> nearby = this.level().getEntitiesOfClass(LivingEntity.class, this.getBoundingBox().inflate(9.0D));
             for (LivingEntity e : nearby) {
-                if (!(e instanceof DementorEntity) && !(e.getTags().contains("patronus"))) { // Exclude other Dementors and Patronuses
+                if (!(e instanceof DementorEntity) && !isShieldedFromAura(e)) { // Exclude other Dementors, Patronuses and shielded casters
                     e.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 60, 1, false, false));
                 }
             }
@@ -136,6 +160,10 @@ public class DementorEntity extends Monster {
         public boolean canUse() {
             // Immediately stop trying to suck souls if a Patronus is nearby (Panic mode)
             if (!this.dementor.level().getEntitiesOfClass(PatronusEntity.class, this.dementor.getBoundingBox().inflate(24.0D)).isEmpty()) {
+                return false;
+            }
+            // Held off by a non-corporeal shield: it can't hurt us, but we can't feed through it either.
+            if (this.dementor.isShieldRepelled()) {
                 return false;
             }
             return this.dementor.getTarget() != null && this.dementor.distanceToSqr(this.dementor.getTarget()) < 2304.0D; // 48 blocks

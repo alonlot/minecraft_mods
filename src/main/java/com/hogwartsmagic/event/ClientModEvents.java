@@ -91,6 +91,8 @@ public class ClientModEvents {
     private static final int FIENDFYRE_HOLD_THRESHOLD_TICKS = 8;
     private static boolean wingardiumHoldPending = false;
     private static boolean wingardiumChannelActive = false;
+    private static boolean patronusHoldPending = false;
+    private static boolean patronusChannelActive = false;
     private static boolean imperioHoldPending = false;
     private static boolean imperioChannelActive = false;
     private static int imperioHoldTicks = 0;
@@ -213,6 +215,8 @@ public class ClientModEvents {
                             && selected == com.hogwartsmagic.spell.SpellType.WINGARDIUM_LEVIOSA;
                     boolean imperioSelected = holdingWand
                             && selected == com.hogwartsmagic.spell.SpellType.IMPERIO;
+                    boolean patronusSelected = holdingWand
+                            && selected == com.hogwartsmagic.spell.SpellType.EXPECTO_PATRONUM;
 
                     if (protegoMaximaChannelActive && (!useDown || !protegoMaximaSkyCast)) {
                         SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(false, true, false, false), PacketDistributor.SERVER.noArg());
@@ -276,6 +280,29 @@ public class ClientModEvents {
                         }
                     }
 
+                    // Expecto Patronum is held: the shield lives only as long as the key is down.
+                    if (patronusHoldPending && (!holdingWand || !patronusSelected)) {
+                        if (patronusChannelActive) {
+                            SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(false, true, false, false), PacketDistributor.SERVER.noArg());
+                        }
+                        patronusHoldPending = false;
+                        patronusChannelActive = false;
+                    } else if (patronusHoldPending) {
+                        if (useDown) {
+                            SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(false, false, true, false), PacketDistributor.SERVER.noArg());
+                            if (!patronusChannelActive) {
+                                patronusChannelActive = true;
+                                mc.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+                            }
+                        } else {
+                            if (patronusChannelActive) {
+                                SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(false, true, false, false), PacketDistributor.SERVER.noArg());
+                            }
+                            patronusHoldPending = false;
+                            patronusChannelActive = false;
+                        }
+                    }
+
                     if (imperioHoldPending && (!holdingWand || !imperioSelected)) {
                         if (imperioChannelActive) {
                             SpellPackets.CHANNEL.send(new SpellPackets.ImperioControlPacket(false, true, 0.0f, 0.0f, false, false, mc.player.getYRot(), mc.player.getXRot()), PacketDistributor.SERVER.noArg());
@@ -314,6 +341,8 @@ public class ClientModEvents {
                     fiendfyreHoldTicks = 0;
                     wingardiumHoldPending = false;
                     wingardiumChannelActive = false;
+                    patronusHoldPending = false;
+                    patronusChannelActive = false;
                     imperioHoldPending = false;
                     imperioChannelActive = false;
                     imperioHoldTicks = 0;
@@ -649,6 +678,16 @@ public class ClientModEvents {
         }
     }
 
+    /** Returns true only on the tick the hold actually begins, so the caster swings once. */
+    public static boolean startPatronusHold() {
+        if (patronusHoldPending) {
+            return false;
+        }
+        patronusHoldPending = true;
+        patronusChannelActive = false;
+        return true;
+    }
+
     public static void startImperioHold() {
         if (!imperioHoldPending) {
             imperioHoldPending = true;
@@ -681,6 +720,9 @@ public class ClientModEvents {
         event.registerLayerDefinition(HippogriffModel.LAYER_LOCATION, HippogriffModel::createBodyLayer);
         event.registerLayerDefinition(FlyingMobModel.LAYER_LOCATION, FlyingMobModel::createBodyLayer);
         event.registerLayerDefinition(BroomModel.LAYER_LOCATION, BroomModel::createBodyLayer);
+        event.registerLayerDefinition(com.hogwartsmagic.client.BroomModelV2.TRAINING_LAYER, com.hogwartsmagic.client.BroomModelV2::createTrainingLayer);
+        event.registerLayerDefinition(com.hogwartsmagic.client.BroomModelV2.NIMBUS_LAYER, com.hogwartsmagic.client.BroomModelV2::createNimbusLayer);
+        event.registerLayerDefinition(com.hogwartsmagic.client.BroomModelV2.FIREBOLT_LAYER, com.hogwartsmagic.client.BroomModelV2::createFireboltLayer);
         event.registerLayerDefinition(WizardModel.LAYER_LOCATION, WizardModel::createBodyLayer);
         event.registerLayerDefinition(StudentModel.LAYER_LOCATION, StudentModel::createBodyLayer);
         event.registerLayerDefinition(AcromantulaModel.LAYER_LOCATION, AcromantulaModel::createBodyLayer);

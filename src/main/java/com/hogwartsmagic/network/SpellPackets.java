@@ -531,6 +531,18 @@ public class SpellPackets {
         private static final String TAG_FIENDFYRE_LAST_SEEN = "hogwartsmagic:fiendfyre_last_seen";
         private static final String TAG_FIENDFYRE_ENTITY = "hogwartsmagic:fiendfyre_entity";
         private static final String TAG_FIENDFYRE_ADVANCE = "hogwartsmagic:fiendfyre_advance";
+        private static final String TAG_PATRONUS_SHIELD_CHANNELING = com.hogwartsmagic.entity.DementorEntity.TAG_PATRONUS_SHIELD_CHANNELING;
+        private static final String TAG_PATRONUS_SHIELD_LAST_DRAIN = "hogwartsmagic:patronus_shield_last_drain";
+        private static final String TAG_PATRONUS_SHIELD_LAST_SEEN = "hogwartsmagic:patronus_shield_last_seen";
+        /**
+         * Game time a cast last resolved into a corporeal stag. Heartbeats keep refreshing it
+         * while the key is held, so the hold can't re-roll; it lapses on its own once released,
+         * which means a missed release packet can never wedge the spell shut.
+         */
+        private static final String TAG_PATRONUS_CAST_SPENT = "hogwartsmagic:patronus_cast_spent_at";
+        private static final long PATRONUS_CAST_SPENT_GRACE = 10L;
+        /** How often the charm answers in full rather than as a bare shield of light. */
+        private static final float CORPOREAL_PATRONUS_CHANCE = 0.15f;
         private static final String TAG_WINGARDIUM_CHANNELING = "hogwartsmagic:wingardium_channeling";
         private static final String TAG_WINGARDIUM_TARGET = "hogwartsmagic:wingardium_target";
         private static final String TAG_WINGARDIUM_LAST_SEEN = "hogwartsmagic:wingardium_last_seen";
@@ -573,10 +585,14 @@ public class SpellPackets {
                 if (playerData.getBoolean(TAG_FIENDFYRE_CHANNELING)) {
                     stopFiendfyreChannel(player, wand, now, creative);
                 }
+                if (playerData.getBoolean(TAG_PATRONUS_SHIELD_CHANNELING)) {
+                    com.hogwartsmagic.event.ModEvents.stopPatronusShieldChannel(player, wand);
+                }
                 if (playerData.getBoolean(TAG_WINGARDIUM_CHANNELING)) {
                     com.hogwartsmagic.event.ModEvents.stopWingardiumChannel(player, wand);
                 }
                 playerData.remove(TAG_FIENDFYRE_ADVANCE);
+                playerData.remove(TAG_PATRONUS_CAST_SPENT);
                 return;
             }
 
@@ -685,6 +701,57 @@ public class SpellPackets {
                 return;
             }
 
+            if (p.channelHeartbeat && spell == SpellType.EXPECTO_PATRONUM) {
+                // Already holding the shield up: just keep it alive.
+                if (playerData.getBoolean(TAG_PATRONUS_SHIELD_CHANNELING)) {
+                    playerData.putLong(TAG_PATRONUS_SHIELD_LAST_SEEN, now);
+                    return;
+                }
+                // A stag already answered this cast; it hunts on its own and ignores the held key.
+                if (now - playerData.getLong(TAG_PATRONUS_CAST_SPENT) <= PATRONUS_CAST_SPENT_GRACE) {
+                    playerData.putLong(TAG_PATRONUS_CAST_SPENT, now);
+                    return;
+                }
+                if (!creative && MagicWandItem.isOnCooldown(wand, spell, now)) return;
+
+                net.minecraft.nbt.CompoundTag modData = playerData.getCompound("PlayerPersisted").getCompound(ExampleMod.MODID);
+                float maxMana = PlayerMagicData.getMaxMana(player);
+                float currentMana = modData.contains("Mana") ? modData.getFloat("Mana") : maxMana;
+
+                if (player.getRandom().nextFloat() < CORPOREAL_PATRONUS_CHANCE) {
+                    int fullCost = Math.max(1, Math.round(spell.getManaCost() * MagicWandItem.getManaCostMultiplier(wand)));
+                    if (!creative && currentMana < fullCost) {
+                        player.displayClientMessage(net.minecraft.network.chat.Component.literal("Not enough mana!").withStyle(net.minecraft.ChatFormatting.RED), true);
+                        return;
+                    }
+                    if (!creative) {
+                        currentMana -= fullCost;
+                        modData.putFloat("Mana", currentMana);
+                        playerData.getCompound("PlayerPersisted").put(ExampleMod.MODID, modData);
+                        CHANNEL.send(new SyncManaPacket(currentMana, maxMana), net.minecraftforge.network.PacketDistributor.PLAYER.with(player));
+                        MagicWandItem.rollManaRefund(player, wand, fullCost);
+                    }
+                    playerData.putLong(TAG_PATRONUS_CAST_SPENT, now);
+                    summonCorporealPatronus(player);
+                    if (!creative) {
+                        long stagCooldown = Math.max(1L, Math.round(
+                                spell.getCooldownTicks() * HousePerks.getCooldownMultiplier(player) * MagicWandItem.getCooldownMultiplier(wand)
+                        ));
+                        MagicWandItem.setSpellCooldown(wand, spell, now + stagCooldown);
+                    }
+                    return;
+                }
+
+                float upkeepCost = com.hogwartsmagic.event.ModEvents.getPatronusShieldUpkeepCost(wand);
+                if (!creative && currentMana < upkeepCost) {
+                    player.displayClientMessage(net.minecraft.network.chat.Component.literal("Not enough mana!").withStyle(net.minecraft.ChatFormatting.RED), true);
+                    return;
+                }
+
+                startPatronusShieldChannel(player, now);
+                return;
+            }
+
             if (!creative && MagicWandItem.isOnCooldown(wand, spell, now)) return;
 
             // Mana Check
@@ -764,17 +831,15 @@ public class SpellPackets {
             }
 
             if (spell == SpellType.EXPECTO_PATRONUM) {
-                com.hogwartsmagic.entity.PatronusEntity patronus = new com.hogwartsmagic.entity.PatronusEntity(com.hogwartsmagic.entity.ModEntities.PATRONUS.get(), player.level());
-                patronus.setPos(player.getX(), player.getY(), player.getZ());
-                player.level().addFreshEntity(patronus);
-                
-                // Play cast sound; Patronus handles ongoing light pulses and dementor repulsion.
-                com.hogwartsmagic.event.ModEvents.revealInvisibilityCloak(player);
-                player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
-                        spell.getSoundEvent(), SoundSource.PLAYERS, 1.0f, 1.0f);
-
-                if (!creative) {
-                    MagicWandItem.setSpellCooldown(wand, spell, now + cooldownTicks);
+                // Full mana was already taken above, so either outcome is paid for here.
+                if (player.getRandom().nextFloat() < CORPOREAL_PATRONUS_CHANCE) {
+                    playerData.putLong(TAG_PATRONUS_CAST_SPENT, now);
+                    summonCorporealPatronus(player);
+                    if (!creative) {
+                        MagicWandItem.setSpellCooldown(wand, spell, now + cooldownTicks);
+                    }
+                } else {
+                    startPatronusShieldChannel(player, now);
                 }
                 return;
             }
@@ -845,6 +910,30 @@ public class SpellPackets {
                             && (living.isInvisible() || living.hasEffect(net.minecraft.world.effect.MobEffects.INVISIBILITY))
             );
             return hit != null ? hit.getEntity() : null;
+        }
+
+        /** The charm answering in full: a corporeal stag that hunts Dementors down. */
+        private static void summonCorporealPatronus(ServerPlayer player) {
+            com.hogwartsmagic.entity.PatronusEntity patronus = new com.hogwartsmagic.entity.PatronusEntity(
+                    ModEntities.PATRONUS.get(), player.level());
+            patronus.setPos(player.getX(), player.getY(), player.getZ());
+            player.level().addFreshEntity(patronus);
+
+            com.hogwartsmagic.event.ModEvents.revealInvisibilityCloak(player);
+            player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+                    SpellType.EXPECTO_PATRONUM.getSoundEvent(), SoundSource.PLAYERS, 1.0f, 1.0f);
+        }
+
+        /** The weaker half of the charm: a wisp of silver held between you and them. */
+        private static void startPatronusShieldChannel(ServerPlayer player, long now) {
+            net.minecraft.nbt.CompoundTag playerData = player.getPersistentData();
+            playerData.putBoolean(TAG_PATRONUS_SHIELD_CHANNELING, true);
+            playerData.putLong(TAG_PATRONUS_SHIELD_LAST_DRAIN, now);
+            playerData.putLong(TAG_PATRONUS_SHIELD_LAST_SEEN, now);
+
+            com.hogwartsmagic.event.ModEvents.revealInvisibilityCloak(player);
+            player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+                    SpellType.EXPECTO_PATRONUM.getSoundEvent(), SoundSource.PLAYERS, 1.0f, 1.22f);
         }
 
         private static float getFiendfyreStartupCost(ItemStack wand) {

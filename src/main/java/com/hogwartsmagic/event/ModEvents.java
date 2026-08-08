@@ -140,6 +140,20 @@ public class ModEvents {
     private static final float PROTEGO_MAXIMA_MAX_HEALTH = 100.0f;
     private static final int PROTEGO_MAXIMA_REGEN_DELAY = 20;
     private static final float PROTEGO_MAXIMA_REGEN_PER_TICK = 0.7f;
+    /** Non-corporeal Patronus: a held cone of light that halts Dementors but cannot hurt them. */
+    private static final String TAG_PATRONUS_SHIELD_CHANNELING = com.hogwartsmagic.entity.DementorEntity.TAG_PATRONUS_SHIELD_CHANNELING;
+    private static final String TAG_PATRONUS_SHIELD_LAST_DRAIN = "hogwartsmagic:patronus_shield_last_drain";
+    private static final String TAG_PATRONUS_SHIELD_LAST_SEEN = "hogwartsmagic:patronus_shield_last_seen";
+    private static final String TAG_PATRONUS_SHIELD_LIGHT = "hogwartsmagic:patronus_shield_light";
+    private static final int PATRONUS_SHIELD_UPKEEP_INTERVAL = 10;
+    private static final int PATRONUS_SHIELD_HEARTBEAT_TIMEOUT = 4;
+    /** Cone reach in blocks, and the cosine of its half-angle (~40 degrees). */
+    private static final double PATRONUS_SHIELD_RANGE = 12.0D;
+    private static final double PATRONUS_SHIELD_COS_HALF_ANGLE = 0.766D;
+    /** Dementors cannot close inside this many blocks while they are in the cone. */
+    private static final double PATRONUS_SHIELD_STANDOFF = 3.0D;
+    /** Extra mana per drain interval for each Dementor currently being held off. */
+    private static final float PATRONUS_SHIELD_PER_DEMENTOR_COST = 0.5f;
     private static final String TAG_FIENDFYRE_CHANNELING = "hogwartsmagic:fiendfyre_channeling";
     private static final String TAG_FIENDFYRE_LAST_DRAIN = "hogwartsmagic:fiendfyre_last_drain";
     private static final String TAG_FIENDFYRE_LAST_SEEN = "hogwartsmagic:fiendfyre_last_seen";
@@ -693,6 +707,10 @@ public class ModEvents {
     @SubscribeEvent
     public static void onPlayerLogout(net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
+            // Logging out mid-channel would otherwise strand the shield's light block in the world.
+            if (player.getPersistentData().getBoolean(TAG_PATRONUS_SHIELD_CHANNELING)) {
+                stopPatronusShieldChannel(player, player.getMainHandItem());
+            }
             com.hogwartsmagic.caveinimicum.CaveInimicumManager.get(player.serverLevel()).onPlayerLeft(player);
         }
     }
@@ -781,6 +799,7 @@ public class ModEvents {
             tickPolyjuiceMobReactions(player);
             tickPendingFlooTravel(player, modData);
             tickProtegoMaximaChannel(player, modData);
+            tickPatronusShieldChannel(player, modData);
             tickFiendfyreChannel(player, modData);
             tickWingardiumChannel(player, modData);
             tickImperioChannel(player, modData);
@@ -1100,6 +1119,202 @@ public class ModEvents {
         return Math.max(0.75f, (SpellType.PROTEGO_MAXIMA.getManaCost() * MagicWandItem.getManaCostMultiplier(wand)) / 24.0f);
     }
 
+    /**
+     * The non-corporeal Patronus. A fan of silver light thrown forward from the wand: it shoves
+     * Dementors back out of the cone and smothers their soul-suck, but deals no damage — killing
+     * them stays the corporeal stag's job. Costs mana continuously, and more while it is actually
+     * holding something off.
+     */
+    private static void tickPatronusShieldChannel(ServerPlayer player, net.minecraft.nbt.CompoundTag modData) {
+        if (!player.getPersistentData().getBoolean(TAG_PATRONUS_SHIELD_CHANNELING)) {
+            return;
+        }
+
+        ItemStack wand = player.getMainHandItem();
+        SpellType selected = MagicWandItem.isAnyWand(wand) ? MagicWandItem.getSelectedSpell(wand) : null;
+        if (!MagicWandItem.isAnyWand(wand) || selected != SpellType.EXPECTO_PATRONUM || !player.isAlive()) {
+            stopPatronusShieldChannel(player, wand);
+            return;
+        }
+
+        long gameTime = player.level().getGameTime();
+        if (gameTime - player.getPersistentData().getLong(TAG_PATRONUS_SHIELD_LAST_SEEN) > PATRONUS_SHIELD_HEARTBEAT_TIMEOUT) {
+            stopPatronusShieldChannel(player, wand);
+            return;
+        }
+
+        if (!(player.level() instanceof ServerLevel serverLevel)) {
+            return;
+        }
+
+        Vec3 origin = player.getEyePosition();
+        Vec3 axis = player.getLookAngle().normalize();
+
+        int heldOff = repelDementorsInCone(serverLevel, player, origin, axis, gameTime);
+        spawnPatronusShieldParticles(serverLevel, origin, axis, heldOff);
+        updatePatronusShieldLight(serverLevel, player, origin, axis);
+
+        if (gameTime % 24L == 0L) {
+            serverLevel.playSound(null, player.blockPosition(), net.minecraft.sounds.SoundEvents.BEACON_AMBIENT,
+                    SoundSource.PLAYERS, 0.5f, 1.8f);
+        }
+
+        float maxMana = PlayerMagicData.getMaxMana(player);
+        float currentMana = modData.contains("Mana") ? modData.getFloat("Mana") : maxMana;
+        float upkeepCost = getPatronusShieldUpkeepCost(wand) + (heldOff * PATRONUS_SHIELD_PER_DEMENTOR_COST);
+        long lastDrain = player.getPersistentData().getLong(TAG_PATRONUS_SHIELD_LAST_DRAIN);
+
+        if (!player.isCreative() && gameTime - lastDrain >= PATRONUS_SHIELD_UPKEEP_INTERVAL) {
+            if (currentMana < upkeepCost) {
+                stopPatronusShieldChannel(player, wand);
+                player.displayClientMessage(Component.literal("The shield gutters out").withStyle(net.minecraft.ChatFormatting.AQUA), true);
+                return;
+            }
+
+            float previousMana = currentMana;
+            currentMana -= upkeepCost;
+            modData.putFloat("Mana", currentMana);
+            player.getPersistentData().getCompound("PlayerPersisted").put(ExampleMod.MODID, modData);
+            player.getPersistentData().putLong(TAG_PATRONUS_SHIELD_LAST_DRAIN, gameTime);
+            if ((int) previousMana != (int) currentMana) {
+                SpellPackets.CHANNEL.send(new SpellPackets.SyncManaPacket(currentMana, maxMana), PacketDistributor.PLAYER.with(player));
+            }
+        }
+    }
+
+    /** Pushes every Dementor inside the cone back out of it. Returns how many were affected. */
+    private static int repelDementorsInCone(ServerLevel level, ServerPlayer player, Vec3 origin, Vec3 axis, long gameTime) {
+        net.minecraft.world.phys.AABB search = player.getBoundingBox().inflate(PATRONUS_SHIELD_RANGE + 2.0D);
+        int heldOff = 0;
+
+        for (com.hogwartsmagic.entity.DementorEntity dementor
+                : level.getEntitiesOfClass(com.hogwartsmagic.entity.DementorEntity.class, search)) {
+            Vec3 relative = dementor.getBoundingBox().getCenter().subtract(origin);
+            double distance = relative.length();
+            if (distance < 0.01D || distance > PATRONUS_SHIELD_RANGE) {
+                continue;
+            }
+            if (relative.scale(1.0D / distance).dot(axis) < PATRONUS_SHIELD_COS_HALF_ANGLE) {
+                continue;
+            }
+
+            // Point blank they get shoved straight away from the caster; further out the cone
+            // sweeps them down its own axis, so aiming actually steers where they end up.
+            boolean pointBlank = distance < PATRONUS_SHIELD_STANDOFF;
+            Vec3 pushDir = pointBlank ? relative.scale(1.0D / distance) : axis;
+            double strength = pointBlank ? 0.55D : 0.30D;
+
+            Vec3 velocity = dementor.getDeltaMovement().add(pushDir.scale(strength)).add(0.0D, 0.05D, 0.0D);
+            if (velocity.length() > 1.2D) {
+                velocity = velocity.normalize().scale(1.2D);
+            }
+            dementor.setDeltaMovement(velocity);
+            dementor.hurtMarked = true;
+            dementor.getNavigation().stop();
+            dementor.markShieldRepelled(gameTime);
+            heldOff++;
+
+            level.sendParticles(ParticleTypes.END_ROD,
+                    dementor.getX(), dementor.getY() + dementor.getBbHeight() * 0.5D, dementor.getZ(),
+                    6, 0.35D, 0.45D, 0.35D, 0.02D);
+        }
+
+        return heldOff;
+    }
+
+    /** The film look: a tight flare at the wand tip fanning out into a wall of silver light. */
+    private static void spawnPatronusShieldParticles(ServerLevel level, Vec3 origin, Vec3 axis, int heldOff) {
+        Vec3 side = axis.cross(new Vec3(0.0D, 1.0D, 0.0D));
+        if (side.lengthSqr() < 1.0E-4D) {
+            side = axis.cross(new Vec3(1.0D, 0.0D, 0.0D));
+        }
+        side = side.normalize();
+        Vec3 up = side.cross(axis).normalize();
+
+        double maxSpread = Math.tan(Math.acos(PATRONUS_SHIELD_COS_HALF_ANGLE));
+        net.minecraft.util.RandomSource random = level.getRandom();
+
+        // Volume fill, biased outward so the cone reads as widening rather than as a blob.
+        for (int i = 0; i < 16; i++) {
+            double along = Math.sqrt(random.nextDouble()) * PATRONUS_SHIELD_RANGE;
+            double radius = Math.sqrt(random.nextDouble()) * maxSpread * along;
+            double angle = random.nextDouble() * Math.PI * 2.0D;
+
+            Vec3 point = origin
+                    .add(axis.scale(along))
+                    .add(side.scale(Math.cos(angle) * radius))
+                    .add(up.scale(Math.sin(angle) * radius));
+
+            level.sendParticles(i % 3 == 0 ? SpellType.EXPECTO_PATRONUM.getDustParticle() : ParticleTypes.END_ROD,
+                    point.x, point.y, point.z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
+        }
+
+        // Brighter leading edge where the Dementors break against it.
+        int edgePoints = heldOff > 0 ? 26 : 16;
+        double edgeRadius = maxSpread * PATRONUS_SHIELD_RANGE;
+        Vec3 edgeCentre = origin.add(axis.scale(PATRONUS_SHIELD_RANGE));
+        for (int i = 0; i < edgePoints; i++) {
+            double angle = (Math.PI * 2.0D / edgePoints) * i;
+            Vec3 point = edgeCentre
+                    .add(side.scale(Math.cos(angle) * edgeRadius))
+                    .add(up.scale(Math.sin(angle) * edgeRadius));
+            level.sendParticles(SpellType.EXPECTO_PATRONUM.getDustParticle(),
+                    point.x, point.y, point.z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
+        }
+    }
+
+    /** Rides one light block down the cone so the shield actually lights the ground like the film. */
+    private static void updatePatronusShieldLight(ServerLevel level, ServerPlayer player, Vec3 origin, Vec3 axis) {
+        Vec3 target = origin.add(axis.scale(4.0D));
+        BlockPos pos = BlockPos.containing(target);
+        CompoundTag data = player.getPersistentData();
+
+        if (data.contains(TAG_PATRONUS_SHIELD_LIGHT)) {
+            BlockPos previous = BlockPos.of(data.getLong(TAG_PATRONUS_SHIELD_LIGHT));
+            if (previous.equals(pos)) {
+                return;
+            }
+            clearPatronusShieldLight(level, previous);
+            data.remove(TAG_PATRONUS_SHIELD_LIGHT);
+        }
+
+        if (level.getBlockState(pos).isAir()) {
+            level.setBlock(pos, ExampleMod.PATRONUS_LIGHT_BLOCK.get().defaultBlockState(), 3);
+            data.putLong(TAG_PATRONUS_SHIELD_LIGHT, pos.asLong());
+        }
+    }
+
+    private static void clearPatronusShieldLight(ServerLevel level, BlockPos pos) {
+        if (level.getBlockState(pos).is(ExampleMod.PATRONUS_LIGHT_BLOCK.get())) {
+            level.removeBlock(pos, false);
+        }
+    }
+
+    public static void stopPatronusShieldChannel(ServerPlayer player, ItemStack wand) {
+        CompoundTag data = player.getPersistentData();
+        if (data.contains(TAG_PATRONUS_SHIELD_LIGHT) && player.level() instanceof ServerLevel serverLevel) {
+            clearPatronusShieldLight(serverLevel, BlockPos.of(data.getLong(TAG_PATRONUS_SHIELD_LIGHT)));
+        }
+        data.remove(TAG_PATRONUS_SHIELD_LIGHT);
+        data.remove(TAG_PATRONUS_SHIELD_CHANNELING);
+        data.remove(TAG_PATRONUS_SHIELD_LAST_DRAIN);
+        data.remove(TAG_PATRONUS_SHIELD_LAST_SEEN);
+
+        if (!player.isCreative() && MagicWandItem.isAnyWand(wand)) {
+            // The shield is the weaker half of the charm and is already mana-gated, so it comes
+            // back far sooner than a full corporeal Patronus does.
+            SpellType spell = SpellType.EXPECTO_PATRONUM;
+            long cooldownTicks = Math.max(1L, Math.round(
+                    (spell.getCooldownTicks() / 4.0D) * HousePerks.getCooldownMultiplier(player) * MagicWandItem.getCooldownMultiplier(wand)
+            ));
+            MagicWandItem.setSpellCooldown(wand, spell, player.level().getGameTime() + cooldownTicks);
+        }
+    }
+
+    public static float getPatronusShieldUpkeepCost(ItemStack wand) {
+        return Math.max(1.5f, (SpellType.EXPECTO_PATRONUM.getManaCost() * MagicWandItem.getManaCostMultiplier(wand)) / 30.0f);
+    }
+
     private static void tickFiendfyreChannel(ServerPlayer player, net.minecraft.nbt.CompoundTag modData) {
         if (!player.getPersistentData().getBoolean(TAG_FIENDFYRE_CHANNELING)) {
             return;
@@ -1417,6 +1632,9 @@ public class ModEvents {
         }
         if (player.getPersistentData().getBoolean(TAG_FIENDFYRE_CHANNELING)) {
             stopFiendfyreChannel(player, wand);
+        }
+        if (player.getPersistentData().getBoolean(TAG_PATRONUS_SHIELD_CHANNELING)) {
+            stopPatronusShieldChannel(player, wand);
         }
         if (player.getPersistentData().getBoolean(TAG_WINGARDIUM_CHANNELING)) {
             stopWingardiumChannel(player, wand);
@@ -3654,6 +3872,10 @@ public class ModEvents {
                     }
                     fiendfyreUseLatched = true;
                     com.hogwartsmagic.event.ClientModEvents.startFiendfyreHold();
+                    return true;
+                }
+                if (selected == SpellType.EXPECTO_PATRONUM) {
+                    com.hogwartsmagic.util.ClientSideBridge.startPatronusHold(player);
                     return true;
                 }
                 if (selected == SpellType.WINGARDIUM_LEVIOSA) {

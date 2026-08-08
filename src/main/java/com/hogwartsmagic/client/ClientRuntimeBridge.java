@@ -62,6 +62,12 @@ public final class ClientRuntimeBridge {
         ModEventsClientHooks.openSpellMenu(player);
     }
 
+    public static void startPatronusHold(net.minecraft.world.entity.player.Player player) {
+        if (com.hogwartsmagic.event.ClientModEvents.startPatronusHold()) {
+            player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+        }
+    }
+
     public static void playNearMissFeedback(SpellBeamEntity beam) {
         net.minecraft.client.Minecraft minecraft = net.minecraft.client.Minecraft.getInstance();
         if (beam.hogwartsmagic$hasNearMissWhooshPlayed() || minecraft.player == null) {

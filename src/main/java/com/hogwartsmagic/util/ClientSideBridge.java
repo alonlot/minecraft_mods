@@ -44,6 +44,10 @@ public final class ClientSideBridge {
         invoke("openSpellMenu", new Class<?>[]{net.minecraft.world.entity.player.Player.class}, player);
     }
 
+    public static void startPatronusHold(net.minecraft.world.entity.player.Player player) {
+        invoke("startPatronusHold", new Class<?>[]{net.minecraft.world.entity.player.Player.class}, player);
+    }
+
     public static void playNearMissFeedback(com.hogwartsmagic.entity.SpellBeamEntity beam) {
         invoke("playNearMissFeedback", new Class<?>[]{com.hogwartsmagic.entity.SpellBeamEntity.class}, beam);
     }

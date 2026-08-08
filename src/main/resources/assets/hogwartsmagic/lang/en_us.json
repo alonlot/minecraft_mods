@@ -132,7 +132,7 @@
   "subtitles.hogwartsmagic.horntail.tail_whip": "Tail crashes",
   "entity.hogwartsmagic.lycanthrope_villager": "Villager",
   "spell.hogwartsmagic.expecto_patronum": "Expecto Patronum",
-  "spell.hogwartsmagic.expecto_patronum.desc": "Summons a majestic glowing Patronus to repel evil Dementors and light up the darkness.",
+  "spell.hogwartsmagic.expecto_patronum.desc": "Hold to throw a shield of silver light that holds Dementors back while it drains your mana. Rarely, the charm answers in full and a corporeal Patronus takes the field.",
   "item.hogwartsmagic.magic_book": "Spellbook",
   "spell.hogwartsmagic.bombarda": "Bombarda",
   "spell.hogwartsmagic.bombarda.desc": "Creates a powerful explosion at the target's location without destroying blocks.",

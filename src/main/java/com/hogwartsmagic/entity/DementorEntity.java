@@ -3,6 +3,7 @@ package com.hogwartsmagic.entity;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.AnimationState;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
@@ -29,9 +30,58 @@ public class DementorEntity extends Monster {
     /** Game time until which the Patronus shield keeps this Dementor cowed. Server-side only. */
     private long shieldRepelledUntil = 0L;
 
+    /** Broadcast to clients to start the Kiss - the only clip that uncovers the face. */
+    private static final byte EVENT_KISS = 62;
+    /** Broadcast to clients when a Patronus drives it back. */
+    private static final byte EVENT_RECOIL = 63;
+
+    /** Length of {@code DementorAnimations.KISS} in ticks (4.0s). */
+    private static final int KISS_TICKS = 80;
+    /** Length of {@code DementorAnimations.RECOIL} in ticks (1.4s), plus a breath. */
+    private static final int RECOIL_TICKS = 34;
+
+    /**
+     * Animation states live here rather than in the renderer so nothing
+     * client-only leaks into common code; {@link AnimationState} itself is a
+     * common class and is safe on a dedicated server.
+     */
+    private final AnimationState floatState = new AnimationState();
+    private final AnimationState kissState = new AnimationState();
+    private final AnimationState recoilState = new AnimationState();
+
+    /** Server-side lockouts so a clip cannot be retriggered while it is still playing. */
+    private int kissCooldown;
+    private int recoilCooldown;
+
     public DementorEntity(EntityType<? extends Monster> entityType, Level level) {
         super(entityType, level);
         this.moveControl = new FlyingMoveControl(this, 10, false);
+    }
+
+    /** Ambient hover. Runs for the entity's whole life. */
+    public AnimationState dementorFloatState() {
+        return this.floatState;
+    }
+
+    /** The soul-drinking lunge, during which the hood opens. */
+    public AnimationState dementorKissState() {
+        return this.kissState;
+    }
+
+    /** The shrieking flinch away from a Patronus. */
+    public AnimationState dementorRecoilState() {
+        return this.recoilState;
+    }
+
+    @Override
+    public void handleEntityEvent(byte id) {
+        if (id == EVENT_KISS) {
+            this.kissState.start(this.tickCount);
+        } else if (id == EVENT_RECOIL) {
+            this.recoilState.start(this.tickCount);
+        } else {
+            super.handleEntityEvent(id);
+        }
     }
 
     /**
@@ -44,6 +94,11 @@ public class DementorEntity extends Monster {
 
     public boolean isShieldRepelled() {
         return this.level().getGameTime() < this.shieldRepelledUntil;
+    }
+
+    /** True while a corporeal Patronus is close enough to panic it. Server-side. */
+    private boolean isPatronusNear() {
+        return !this.level().getEntitiesOfClass(PatronusEntity.class, this.getBoundingBox().inflate(16.0D)).isEmpty();
     }
 
     /** A caster holding the shield up is behind it, so the aura of dread can't reach them. */
@@ -116,9 +171,28 @@ public class DementorEntity extends Monster {
     @Override
     public void tick() {
         super.tick();
-        
+
         // Disable gravity entirely
         this.setNoGravity(true);
+
+        if (this.level().isClientSide) {
+            this.floatState.startIfStopped(this.tickCount);
+        } else {
+            if (this.kissCooldown > 0) {
+                this.kissCooldown--;
+            }
+            if (this.recoilCooldown > 0) {
+                this.recoilCooldown--;
+            }
+            // A Patronus in view, or a shield held in its face, makes it recoil and
+            // shriek. Driven from tick rather than the flee goal so it fires even
+            // when the Dementor has no target to abandon.
+            if (this.recoilCooldown == 0 && (this.isShieldRepelled() || this.isPatronusNear())) {
+                this.recoilCooldown = RECOIL_TICKS;
+                this.level().broadcastEntityEvent(this, EVENT_RECOIL);
+                this.playSound(com.hogwartsmagic.ModSounds.DEMENTOR_SHRIEK.get(), 1.4F, 1.0F);
+            }
+        }
 
         // Ambient Dementor Aura of Dread and Cold Space
         if (!this.level().isClientSide && this.tickCount % 20 == 0) {
@@ -182,6 +256,16 @@ public class DementorEntity extends Monster {
                 
                 double distSq = this.dementor.distanceToSqr(target);
 
+                if (distSq < 9.0D && !this.dementor.level().isClientSide
+                        && this.dementor.kissCooldown == 0) {
+                    // Close enough to feed: throw the hood open and lunge. This is
+                    // the only thing that ever exposes the face, so it is gated on
+                    // its own cooldown rather than the damage tick.
+                    this.dementor.kissCooldown = KISS_TICKS;
+                    this.dementor.level().broadcastEntityEvent(this.dementor, EVENT_KISS);
+                    this.dementor.playSound(com.hogwartsmagic.ModSounds.DEMENTOR_KISS.get(), 1.5F, 1.0F);
+                }
+
                 if (distSq < 4.0D) {
                     // Kiss of Death: Huge damage
                     if (this.suckTime % 10 == 0) {
@@ -205,9 +289,9 @@ public class DementorEntity extends Monster {
                     target.hurtMarked = true;
                 }
                 
-                // Audio queue for sucking souls
-                if (this.suckTime % 40 == 0 && !this.dementor.level().isClientSide) {
-                    this.dementor.playSound(net.minecraft.sounds.SoundEvents.AMBIENT_CAVE.get(), 1.0F, 0.5F);
+                // The dragging inhale that runs under the whole approach.
+                if (this.suckTime % 60 == 0 && !this.dementor.level().isClientSide) {
+                    this.dementor.playSound(com.hogwartsmagic.ModSounds.DEMENTOR_SUCK.get(), 1.2F, 1.0F);
                 }
 
                 this.suckTime++;

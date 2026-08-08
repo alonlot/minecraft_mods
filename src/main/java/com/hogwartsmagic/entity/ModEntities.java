@@ -114,7 +114,7 @@ public class ModEntities {
     public static final RegistryObject<EntityType<DementorEntity>> DEMENTOR =
             ENTITY_TYPES.register("dementor",
                     () -> EntityType.Builder.<DementorEntity>of(DementorEntity::new, MobCategory.MONSTER)
-                            .sized(0.8F, 2.5F) // Tall, terrifying figure
+                            .sized(1.0F, 3.0F) // Roughly three metres, per the books
                             .clientTrackingRange(64) // Render from very far away
                             .build("dementor"));
 

@@ -86,6 +86,10 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
     private float lastFlightProgress;
     private float landingImpulse;     // 0..1, briefly spikes when transitioning flight→ground
     private float landingImpulseO;
+    private float sitProgress;        // 0..1, eases the model in and out of the folded sitting pose
+    private float sitProgressO;
+    private int wingBeatCooldown;
+    private int snortCooldown;
     private float playerJumpStrength;
     private int warningSoundCooldown;
     private int playerJumpCooldown;
@@ -129,7 +133,7 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
         if (this.isTame() && !this.isOwnedBy(nearestPlayer)) return;
         setInteractionState(InteractionState.BOWING);
         this.bowCooldown = BOW_COOLDOWN_TICKS + BOW_DURATION_TICKS;
-        this.playSound(com.hogwartsmagic.ModSounds.HIPPOGRIFF_AMBIENT.get(), 0.85F, 0.95F + this.random.nextFloat() * 0.15F);
+        this.playSound(com.hogwartsmagic.ModSounds.HIPPOGRIFF_BOW.get(), 0.9F, 0.95F + this.random.nextFloat() * 0.15F);
     }
 
     private void tickInteractionState() {
@@ -252,10 +256,12 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
         this.wingFlapO = this.wingFlap;
         this.flightProgressO = this.flightProgress;
         this.landingImpulseO = this.landingImpulse;
+        this.sitProgressO = this.sitProgress;
         this.lastFlightProgress = this.flightProgress;
 
         boolean airborne = this.isAirbornePose();
         float speed = (float) this.getDeltaMovement().horizontalDistance();
+        this.sitProgress = Mth.approach(this.sitProgress, this.isInSittingPose() ? 1.0F : 0.0F, 0.10F);
         this.flightProgress = Mth.approach(this.flightProgress, airborne ? 1.0F : 0.0F, airborne ? 0.12F : 0.16F);
         // Landing impulse: spikes briefly when we transition from airborne to grounded so the model
         // can compress its legs as if absorbing impact.
@@ -279,6 +285,9 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
         }
         if (this.playerJumpCooldown > 0) {
             this.playerJumpCooldown--;
+        }
+        if (!this.level().isClientSide) {
+            tickFlightSounds(airborne);
         }
 
         if (!this.isVehicle()) {
@@ -306,6 +315,34 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
         }
     }
 
+    /**
+     * Wing-beat whumps while airborne, a launch cue as it leaves the ground, and the odd
+     * equine snort while it is standing about. Server side only so the sound is broadcast.
+     */
+    private void tickFlightSounds(boolean airborne) {
+        if (this.wingBeatCooldown > 0) this.wingBeatCooldown--;
+        if (this.snortCooldown > 0) this.snortCooldown--;
+
+        if (airborne && this.lastFlightProgress < 0.25F && this.flightProgress >= 0.25F) {
+            this.playSound(com.hogwartsmagic.ModSounds.HIPPOGRIFF_TAKEOFF.get(), 1.0F,
+                    0.95F + this.random.nextFloat() * 0.12F);
+            this.wingBeatCooldown = 30;
+            return;
+        }
+
+        if (airborne) {
+            if (this.wingBeatCooldown <= 0) {
+                this.playSound(com.hogwartsmagic.ModSounds.HIPPOGRIFF_WINGS.get(), 0.7F,
+                        0.9F + this.random.nextFloat() * 0.2F);
+                this.wingBeatCooldown = 16 + this.random.nextInt(6);
+            }
+        } else if (!this.isInSittingPose() && this.snortCooldown <= 0 && this.random.nextInt(400) == 0) {
+            this.playSound(com.hogwartsmagic.ModSounds.HIPPOGRIFF_SNORT.get(), 0.75F,
+                    0.9F + this.random.nextFloat() * 0.2F);
+            this.snortCooldown = 200;
+        }
+    }
+
     public float getWingFlap(float partialTick) {
         return Mth.lerp(partialTick, this.wingFlapO, this.wingFlap);
     }
@@ -316,6 +353,10 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
 
     public float getLandingImpulse(float partialTick) {
         return Mth.lerp(partialTick, this.landingImpulseO, this.landingImpulse);
+    }
+
+    public float getSitProgress(float partialTick) {
+        return Mth.lerp(partialTick, this.sitProgressO, this.sitProgress);
     }
 
     public boolean isAirbornePose() {
@@ -338,7 +379,7 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
         this.setOrderedToSit(false);
         this.setTarget(player);
         if (this.warningSoundCooldown <= 0) {
-            this.playSound(com.hogwartsmagic.ModSounds.HIPPOGRIFF_HURT.get(), 0.9F, 0.95F + this.random.nextFloat() * 0.15F);
+            this.playSound(com.hogwartsmagic.ModSounds.HIPPOGRIFF_SCREECH.get(), 1.0F, 0.95F + this.random.nextFloat() * 0.15F);
             this.warningSoundCooldown = 50;
         }
     }
@@ -346,7 +387,7 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
     @Override
     public boolean doHurtTarget(Entity target) {
         this.swing(InteractionHand.MAIN_HAND);
-        this.playSound(com.hogwartsmagic.ModSounds.HIPPOGRIFF_AMBIENT.get(), 0.9F, 0.8F + this.random.nextFloat() * 0.25F);
+        this.playSound(com.hogwartsmagic.ModSounds.HIPPOGRIFF_SCREECH.get(), 1.0F, 0.9F + this.random.nextFloat() * 0.2F);
         return super.doHurtTarget(target);
     }
 
@@ -364,7 +405,8 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
 
     @Override
     protected Vec3 getPassengerAttachmentPoint(Entity passenger, EntityDimensions dimensions, float partialTick) {
-        return new Vec3(0.0D, 0.95D, -0.1D);
+        // The rebuilt model stands taller: its back sits ~1.5 blocks up, so the rider rides higher.
+        return new Vec3(0.0D, 1.45D, -0.1D);
     }
 
     @Override

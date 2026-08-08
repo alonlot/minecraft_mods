@@ -89,7 +89,8 @@ public class ModEntities {
     public static final RegistryObject<EntityType<HippogriffEntity>> HIPPOGRIFF =
             ENTITY_TYPES.register("hippogriff",
                     () -> EntityType.Builder.<HippogriffEntity>of(HippogriffEntity::new, MobCategory.CREATURE)
-                            .sized(1.6f, 1.9f)
+                            // The rebuilt model is film-scale: taller at the head than the old one.
+                            .sized(1.7f, 2.2f)
                             .clientTrackingRange(10)
                             .build("hippogriff"));
 

@@ -80,6 +80,11 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> HIPPOGRIFF_AMBIENT = register("hippogriff.ambient");
     public static final RegistryObject<SoundEvent> HIPPOGRIFF_HURT = register("hippogriff.hurt");
     public static final RegistryObject<SoundEvent> HIPPOGRIFF_DEATH = register("hippogriff.death");
+    public static final RegistryObject<SoundEvent> HIPPOGRIFF_SCREECH = register("hippogriff.screech");
+    public static final RegistryObject<SoundEvent> HIPPOGRIFF_BOW = register("hippogriff.bow");
+    public static final RegistryObject<SoundEvent> HIPPOGRIFF_WINGS = register("hippogriff.wings");
+    public static final RegistryObject<SoundEvent> HIPPOGRIFF_SNORT = register("hippogriff.snort");
+    public static final RegistryObject<SoundEvent> HIPPOGRIFF_TAKEOFF = register("hippogriff.takeoff");
     public static final RegistryObject<SoundEvent> WEREWOLF_AMBIENT = register("werewolf.ambient");
     public static final RegistryObject<SoundEvent> WEREWOLF_HURT = register("werewolf.hurt");
     public static final RegistryObject<SoundEvent> WEREWOLF_DEATH = register("werewolf.death");

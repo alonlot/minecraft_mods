@@ -437,9 +437,9 @@
   "subtitles.hogwartsmagic.owl.ambient": "Owl hoots",
   "subtitles.hogwartsmagic.owl.hurt": "Owl screeches",
   "subtitles.hogwartsmagic.owl.death": "Owl dies",
-  "subtitles.hogwartsmagic.hippogriff.ambient": "Hippogriff screeches",
-  "subtitles.hogwartsmagic.hippogriff.hurt": "Hippogriff cries out",
-  "subtitles.hogwartsmagic.hippogriff.death": "Hippogriff falls",
+  "subtitles.hogwartsmagic.hippogriff.ambient": "Hippogriff chirrups",
+  "subtitles.hogwartsmagic.hippogriff.hurt": "Hippogriff squawks",
+  "subtitles.hogwartsmagic.hippogriff.death": "Hippogriff dies",
   "subtitles.hogwartsmagic.werewolf.ambient": "Werewolf growls",
   "subtitles.hogwartsmagic.werewolf.hurt": "Werewolf snarls",
   "subtitles.hogwartsmagic.werewolf.death": "Werewolf dies",
@@ -490,5 +490,10 @@
   "subtitles.hogwartsmagic.goblin.death": "Goblin dies",
   "subtitles.hogwartsmagic.goblin.trade": "Goblin agrees terms",
   "subtitles.hogwartsmagic.goblin.no": "Goblin scoffs",
-  "subtitles.hogwartsmagic.goblin.angry": "Goblin shrieks"
+  "subtitles.hogwartsmagic.goblin.angry": "Goblin shrieks",
+  "subtitles.hogwartsmagic.hippogriff.screech": "Hippogriff screeches",
+  "subtitles.hogwartsmagic.hippogriff.bow": "Hippogriff bows",
+  "subtitles.hogwartsmagic.hippogriff.wings": "Hippogriff wings beat",
+  "subtitles.hogwartsmagic.hippogriff.snort": "Hippogriff snorts",
+  "subtitles.hogwartsmagic.hippogriff.takeoff": "Hippogriff takes off"
 }

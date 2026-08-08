@@ -683,5 +683,50 @@
         "stream": false
       }
     ]
+  },
+  "hippogriff.screech": {
+    "subtitle": "subtitles.hogwartsmagic.hippogriff.screech",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:hippogriff/screech",
+        "stream": false
+      }
+    ]
+  },
+  "hippogriff.bow": {
+    "subtitle": "subtitles.hogwartsmagic.hippogriff.bow",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:hippogriff/bow",
+        "stream": false
+      }
+    ]
+  },
+  "hippogriff.wings": {
+    "subtitle": "subtitles.hogwartsmagic.hippogriff.wings",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:hippogriff/wings",
+        "stream": false
+      }
+    ]
+  },
+  "hippogriff.snort": {
+    "subtitle": "subtitles.hogwartsmagic.hippogriff.snort",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:hippogriff/snort",
+        "stream": false
+      }
+    ]
+  },
+  "hippogriff.takeoff": {
+    "subtitle": "subtitles.hogwartsmagic.hippogriff.takeoff",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:hippogriff/takeoff",
+        "stream": false
+      }
+    ]
   }
 }

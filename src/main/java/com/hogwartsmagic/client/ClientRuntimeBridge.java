@@ -38,6 +38,7 @@ public final class ClientRuntimeBridge {
             case "startHorcruxDeathSequence" -> startHorcruxDeathSequence((SpellPackets.StartHorcruxDeathSequencePacket) payload);
             case "finishHorcruxDeathSequence" -> finishHorcruxDeathSequence();
             case "cloakTransition" -> cloakTransition((SpellPackets.CloakTransitionPacket) payload);
+            case "patronusShieldState" -> patronusShieldState((SpellPackets.PatronusShieldStatePacket) payload);
             case "openApparitionMap" -> openApparitionMap((SpellPackets.OpenApparitionMapPacket) payload);
             case "closeApparitionMap" -> closeApparitionMap();
             default -> throw new IllegalArgumentException("Unknown client packet action: " + action);
@@ -237,6 +238,10 @@ public final class ClientRuntimeBridge {
 
     private static void finishHorcruxDeathSequence() {
         HorcruxClientState.finish();
+    }
+
+    private static void patronusShieldState(SpellPackets.PatronusShieldStatePacket packet) {
+        PatronusShieldClientState.set(packet.casterId(), packet.active());
     }
 
     private static void cloakTransition(SpellPackets.CloakTransitionPacket packet) {

@@ -148,11 +148,10 @@ public class ModEvents {
     private static final String TAG_PATRONUS_SHIELD_LOOP_AT = "hogwartsmagic:patronus_shield_loop_at";
     private static final int PATRONUS_SHIELD_UPKEEP_INTERVAL = 10;
     private static final int PATRONUS_SHIELD_HEARTBEAT_TIMEOUT = 4;
-    /** Cone reach in blocks, and the cosine of its half-angle (~40 degrees). */
-    private static final double PATRONUS_SHIELD_RANGE = 12.0D;
-    private static final double PATRONUS_SHIELD_COS_HALF_ANGLE = 0.766D;
-    /** Dementors cannot close inside this many blocks while they are in the cone. */
-    private static final double PATRONUS_SHIELD_STANDOFF = 3.0D;
+    /** Cone geometry is shared with the renderer so the light always matches what it pushes. */
+    private static final double PATRONUS_SHIELD_RANGE = com.hogwartsmagic.spell.PatronusShield.RANGE;
+    private static final double PATRONUS_SHIELD_COS_HALF_ANGLE = com.hogwartsmagic.spell.PatronusShield.COS_HALF_ANGLE;
+    private static final double PATRONUS_SHIELD_STANDOFF = com.hogwartsmagic.spell.PatronusShield.STANDOFF;
     /** Extra mana per drain interval for each Dementor currently being held off. */
     private static final float PATRONUS_SHIELD_PER_DEMENTOR_COST = 0.5f;
     private static final String TAG_FIENDFYRE_CHANNELING = "hogwartsmagic:fiendfyre_channeling";
@@ -1151,8 +1150,15 @@ public class ModEvents {
         Vec3 origin = player.getEyePosition();
         Vec3 axis = player.getLookAngle().normalize();
 
+        // The cone itself is drawn client-side as real geometry (PatronusShieldRenderer), so
+        // nothing here spends packets on particles to fake it. Refresh the client's view of who
+        // is channelling; the entry lapses on its own if this stops arriving.
+        if (gameTime % 10L == 0L) {
+            SpellPackets.CHANNEL.send(new SpellPackets.PatronusShieldStatePacket(player.getId(), true),
+                    PacketDistributor.TRACKING_ENTITY_AND_SELF.with(player));
+        }
+
         int heldOff = repelDementorsInCone(serverLevel, player, origin, axis, gameTime);
-        spawnPatronusShieldParticles(serverLevel, origin, axis, heldOff);
         updatePatronusShieldLight(serverLevel, player, origin, axis);
 
         // The shield's own roar, retriggered just short of the clip's length so it reads as
@@ -1225,53 +1231,16 @@ public class ModEvents {
             dementor.markShieldRepelled(gameTime);
             heldOff++;
 
-            level.sendParticles(ParticleTypes.END_ROD,
-                    dementor.getX(), dementor.getY() + dementor.getBbHeight() * 0.5D, dementor.getZ(),
-                    6, 0.35D, 0.45D, 0.35D, 0.02D);
+            // Sparks off the Dementor itself, not the cone -- this is hit feedback, so it stays
+            // as particles. Throttled: at 20Hz a pinned swarm floods the connection for nothing.
+            if (gameTime % 3L == 0L) {
+                level.sendParticles(ParticleTypes.END_ROD,
+                        dementor.getX(), dementor.getY() + dementor.getBbHeight() * 0.5D, dementor.getZ(),
+                        4, 0.35D, 0.45D, 0.35D, 0.02D);
+            }
         }
 
         return heldOff;
-    }
-
-    /** The film look: a tight flare at the wand tip fanning out into a wall of silver light. */
-    private static void spawnPatronusShieldParticles(ServerLevel level, Vec3 origin, Vec3 axis, int heldOff) {
-        Vec3 side = axis.cross(new Vec3(0.0D, 1.0D, 0.0D));
-        if (side.lengthSqr() < 1.0E-4D) {
-            side = axis.cross(new Vec3(1.0D, 0.0D, 0.0D));
-        }
-        side = side.normalize();
-        Vec3 up = side.cross(axis).normalize();
-
-        double maxSpread = Math.tan(Math.acos(PATRONUS_SHIELD_COS_HALF_ANGLE));
-        net.minecraft.util.RandomSource random = level.getRandom();
-
-        // Volume fill, biased outward so the cone reads as widening rather than as a blob.
-        for (int i = 0; i < 16; i++) {
-            double along = Math.sqrt(random.nextDouble()) * PATRONUS_SHIELD_RANGE;
-            double radius = Math.sqrt(random.nextDouble()) * maxSpread * along;
-            double angle = random.nextDouble() * Math.PI * 2.0D;
-
-            Vec3 point = origin
-                    .add(axis.scale(along))
-                    .add(side.scale(Math.cos(angle) * radius))
-                    .add(up.scale(Math.sin(angle) * radius));
-
-            level.sendParticles(i % 3 == 0 ? SpellType.EXPECTO_PATRONUM.getDustParticle() : ParticleTypes.END_ROD,
-                    point.x, point.y, point.z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
-        }
-
-        // Brighter leading edge where the Dementors break against it.
-        int edgePoints = heldOff > 0 ? 26 : 16;
-        double edgeRadius = maxSpread * PATRONUS_SHIELD_RANGE;
-        Vec3 edgeCentre = origin.add(axis.scale(PATRONUS_SHIELD_RANGE));
-        for (int i = 0; i < edgePoints; i++) {
-            double angle = (Math.PI * 2.0D / edgePoints) * i;
-            Vec3 point = edgeCentre
-                    .add(side.scale(Math.cos(angle) * edgeRadius))
-                    .add(up.scale(Math.sin(angle) * edgeRadius));
-            level.sendParticles(SpellType.EXPECTO_PATRONUM.getDustParticle(),
-                    point.x, point.y, point.z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
-        }
     }
 
     /** Rides one light block down the cone so the shield actually lights the ground like the film. */
@@ -1311,6 +1280,9 @@ public class ModEvents {
         data.remove(TAG_PATRONUS_SHIELD_CHANNELING);
         data.remove(TAG_PATRONUS_SHIELD_LAST_DRAIN);
         data.remove(TAG_PATRONUS_SHIELD_LAST_SEEN);
+
+        SpellPackets.CHANNEL.send(new SpellPackets.PatronusShieldStatePacket(player.getId(), false),
+                PacketDistributor.TRACKING_ENTITY_AND_SELF.with(player));
 
         if (!player.isCreative() && MagicWandItem.isAnyWand(wand)) {
             // The shield is the weaker half of the charm and is already mana-gated, so it comes

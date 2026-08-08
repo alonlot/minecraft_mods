@@ -244,7 +244,8 @@ Each spell below lists the implemented gameplay behavior currently present in th
 
 - Held rather than tapped: the charm lasts only while the cast key is down.
 - 15% of casts produce a corporeal Patronus — the stag, which hunts Dementors, burns them in an expanding aura, and lights the area. This is a one-shot summon and pays the full cooldown.
-- The other 85% produce a non-corporeal shield: a cone of silver light thrown forward roughly 12 blocks, tracking where you look.
+- The other 85% produce a non-corporeal shield: a cone of silver light thrown forward roughly 12 blocks at a 20-degree half-angle, tracking where you look.
+- The cone is real rendered geometry, not particles — nested additively-blended shells that accumulate into a bright core with a soft volumetric edge. Server and client read the same cone constants, so what you see is exactly what pushes.
 - The shield shoves Dementors back out of the cone and smothers their soul-suck, but deals no damage — killing them stays the stag's job.
 - Dementors cannot close inside 3 blocks of you while they are in the cone, and their aura of dread cannot reach you while you hold it.
 - Drains mana continuously, and drains faster for every Dementor it is currently holding off. Running dry collapses the shield.

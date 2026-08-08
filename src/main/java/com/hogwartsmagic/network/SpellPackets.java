@@ -265,6 +265,14 @@ public class SpellPackets {
                 .decoder(buf -> new FinishHorcruxDeathSequencePacket())
                 .consumerMainThread(FinishHorcruxDeathSequencePacket::handle)
                 .add();
+        CHANNEL.messageBuilder(PatronusShieldStatePacket.class)
+                .encoder((p, buf) -> {
+                    buf.writeInt(p.casterId);
+                    buf.writeBoolean(p.active);
+                })
+                .decoder(buf -> new PatronusShieldStatePacket(buf.readInt(), buf.readBoolean()))
+                .consumerMainThread(PatronusShieldStatePacket::handle)
+                .add();
         CHANNEL.messageBuilder(CloakTransitionPacket.class)
                 .encoder((p, buf) -> {
                     buf.writeUUID(p.playerId);
@@ -931,6 +939,10 @@ public class SpellPackets {
             playerData.putLong(TAG_PATRONUS_SHIELD_LAST_DRAIN, now);
             playerData.putLong(TAG_PATRONUS_SHIELD_LAST_SEEN, now);
 
+            // Everyone who can see the caster needs to draw the light, not just the caster.
+            CHANNEL.send(new PatronusShieldStatePacket(player.getId(), true),
+                    net.minecraftforge.network.PacketDistributor.TRACKING_ENTITY_AND_SELF.with(player));
+
             com.hogwartsmagic.event.ModEvents.revealInvisibilityCloak(player);
             player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
                     SpellType.EXPECTO_PATRONUM.getSoundEvent(), SoundSource.PLAYERS, 1.0f, 1.22f);
@@ -1194,6 +1206,13 @@ public class SpellPackets {
     public record FinishHorcruxDeathSequencePacket() {
         public static void handle(FinishHorcruxDeathSequencePacket p, CustomPayloadEvent.Context ctx) {
             enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("finishHorcruxDeathSequence", p));
+        }
+    }
+
+    /** Server → client: {@code casterId} raised or dropped the Patronus shield. */
+    public record PatronusShieldStatePacket(int casterId, boolean active) {
+        public static void handle(PatronusShieldStatePacket p, CustomPayloadEvent.Context ctx) {
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("patronusShieldState", p));
         }
     }
 

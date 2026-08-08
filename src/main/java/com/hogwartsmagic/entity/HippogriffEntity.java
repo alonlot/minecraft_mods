@@ -123,6 +123,12 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
     private static final float BANK_EASE = 0.035F;
     /** A shade snappier than her own flying, so rider input does not feel sluggish. */
     private static final double RIDDEN_FLIGHT_RESPONSE = 0.17D;
+    /** Degrees of body roll at full bank. Lives here, not in the model: common code needs it. */
+    public static final float BANK_BODY_ROLL_DEGREES = 35.0F;
+    /** Carrying somebody, she keeps it flatter - a rider does not lean with her. */
+    private static final float RIDDEN_TILT_FRACTION = 0.45F;
+    private static final double SEAT_HEIGHT = 1.55D;
+    private static final double SEAT_OFFSET = -0.25D;
 
     public HippogriffEntity(EntityType<? extends TamableAnimal> type, Level level) {
         super(type, level);
@@ -505,6 +511,27 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
     }
 
     /**
+     * Degrees of body roll the renderer should apply; positive banks to her right.
+     *
+     * <p>The saddle position is derived from exactly this, so the two can never disagree
+     * and leave the rider hanging in space beside her.
+     */
+    public float getVisualRoll(float partialTick) {
+        return this.getBank(partialTick) * this.getFlightProgress(partialTick)
+                * BANK_BODY_ROLL_DEGREES * tiltFraction();
+    }
+
+    /** Degrees of body pitch the renderer should apply; positive is nose-up. */
+    public float getVisualPitch(float partialTick) {
+        return Mth.clamp(getFlightPitch(partialTick), -55.0F, 55.0F)
+                * this.getFlightProgress(partialTick) * tiltFraction();
+    }
+
+    private float tiltFraction() {
+        return this.isVehicle() ? RIDDEN_TILT_FRACTION : 1.0F;
+    }
+
+    /**
      * Turns her actual motion into the two numbers the model animates from: how hard she is
      * beating her wings, and how far she is rolled into a turn.
      *
@@ -523,6 +550,11 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
         // server rather than needing it sent over the wire.
         float climbRate = (float) this.getDeltaMovement().y;
         float wantedFlap = Mth.clamp(0.18F + climbRate * 3.4F, 0.0F, 1.0F);
+        // Hovering is as much work as climbing: with no forward speed to hold her up, her
+        // whole weight is on her wings.
+        if (this.getDeltaMovement().horizontalDistance() < 0.12D) {
+            wantedFlap = Math.max(wantedFlap, 0.75F);
+        }
         this.flapPower = Mth.approach(this.flapPower, wantedFlap, 0.06F);
 
         // Bank follows how sharply she is turning. Positive yaw change is a turn to the right.
@@ -611,8 +643,20 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
 
     @Override
     protected Vec3 getPassengerAttachmentPoint(Entity passenger, EntityDimensions dimensions, float partialTick) {
-        // The rebuilt model stands taller: its back sits ~1.5 blocks up, so the rider rides higher.
-        return new Vec3(0.0D, 1.45D, -0.1D);
+        // The saddle is a point on her back, so it has to travel with her: rolled by her
+        // bank, pitched along her flight path, then swung round by her yaw. This used to be
+        // a fixed world-space offset, which is why the rider hung in the air beside her the
+        // moment she tilted.
+        final float toRadians = (float) Math.PI / 180.0F;
+        float roll = getVisualRoll(partialTick) * toRadians;
+        float pitch = getVisualPitch(partialTick) * toRadians;
+        float yaw = Mth.rotLerp(partialTick, this.yRotO, this.getYRot()) * toRadians;
+        // zRot is negated: a positive Vec3.zRot tips the +X side down, which at yaw 0 is her
+        // left, the opposite of the renderer's convention that positive roll banks right.
+        return new Vec3(0.0D, SEAT_HEIGHT, SEAT_OFFSET)
+                .zRot(-roll)
+                .xRot(pitch)
+                .yRot(-yaw);
     }
 
     @Override
@@ -695,25 +739,23 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
                 desired = desired.add(rightDir.scale(strafe));
             }
 
-            double cruise = this.getAttributeValue(Attributes.FLYING_SPEED) * FLIGHT_CRUISE;
-            Vec3 heading;
-            double wantedSpeed;
             if (desired.lengthSqr() > 1.0E-4D) {
-                heading = desired.normalize();
+                double cruise = this.getAttributeValue(Attributes.FLYING_SPEED) * FLIGHT_CRUISE;
+                Vec3 heading = desired.normalize();
                 double climb = heading.y;
-                wantedSpeed = climb < 0.0D
+                double wantedSpeed = climb < 0.0D
                         ? cruise * (1.0D + -climb * DIVE_BOOST)
                         : cruise * (1.0D - climb * CLIMB_DRAG);
+                Vec3 wanted = heading.scale(wantedSpeed);
+                setDeltaMovementCapped(this.getDeltaMovement()
+                        .scale(1.0D - RIDDEN_FLIGHT_RESPONSE)
+                        .add(wanted.scale(RIDDEN_FLIGHT_RESPONSE)));
             } else {
-                // Hands off the reins: she soars, trading a little height for airspeed.
-                heading = new Vec3(look.x, -0.22D, look.z).normalize();
-                wantedSpeed = cruise * 0.5D;
+                // Hands off the reins: she holds station on beating wings. She used to keep
+                // coasting forward here, so letting go of the controls never stopped her.
+                Vec3 motion = this.getDeltaMovement();
+                this.setDeltaMovement(motion.x * 0.78D, motion.y * 0.70D, motion.z * 0.78D);
             }
-
-            Vec3 wanted = heading.scale(wantedSpeed);
-            setDeltaMovementCapped(this.getDeltaMovement()
-                    .scale(1.0D - RIDDEN_FLIGHT_RESPONSE)
-                    .add(wanted.scale(RIDDEN_FLIGHT_RESPONSE)));
 
             this.setNoGravity(true);
             this.move(MoverType.SELF, this.getDeltaMovement());

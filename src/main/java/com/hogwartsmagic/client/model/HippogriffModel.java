@@ -52,7 +52,6 @@ public class HippogriffModel extends HierarchicalModel<HippogriffEntity> {
     private static final float GLIDE_DIHEDRAL = 0.14F;   // ~8 degrees, a relaxed soaring V
     private static final float BANK_OUTER = 0.60F;
     private static final float BANK_INNER = 0.11F;
-    public static final float BANK_BODY_ROLL = 35.0F;    // degrees, applied by the renderer
 
     // Blockbench mirrors X on export: the bone named "left_wing" sits on her right side.
     // These carry the zRot sign that raises the wing on each physical side.

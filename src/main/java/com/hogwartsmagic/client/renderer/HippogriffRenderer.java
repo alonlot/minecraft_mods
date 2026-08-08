@@ -29,18 +29,15 @@ public class HippogriffRenderer extends MobRenderer<HippogriffEntity, Hippogriff
                                   float rotationYaw, float partialTick, float scale) {
         super.setupRotations(entity, poseStack, ageInTicks, rotationYaw, partialTick, scale);
 
-        float flight = entity.getFlightProgress(partialTick);
-        if (flight <= 0.001F) {
+        if (entity.getFlightProgress(partialTick) <= 0.001F) {
             return;
         }
 
-        // Positive pitch is nose-up; positive roll is a bank to her right. The signs below
-        // are the ones that hold in this space - flip them if she ever banks into her turns
-        // the wrong way round.
-        float pitch = entity.getFlightPitch(partialTick) * flight;
-        float roll = entity.getBank(partialTick) * flight * HippogriffModel.BANK_BODY_ROLL;
-        poseStack.mulPose(Axis.XP.rotationDegrees(Mth.clamp(pitch, -55.0F, 55.0F)));
-        poseStack.mulPose(Axis.ZP.rotationDegrees(-roll));
+        // Positive pitch is nose-up; positive roll is a bank to her right. These come from
+        // the entity rather than being worked out here, because the saddle position is
+        // derived from the same two numbers - otherwise the rider drifts off her back.
+        poseStack.mulPose(Axis.XP.rotationDegrees(entity.getVisualPitch(partialTick)));
+        poseStack.mulPose(Axis.ZP.rotationDegrees(-entity.getVisualRoll(partialTick)));
     }
 
     @Override

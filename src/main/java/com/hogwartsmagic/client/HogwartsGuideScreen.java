@@ -167,6 +167,18 @@ public class HogwartsGuideScreen extends Screen {
                         "If a foe commands spells, never stand still for long.",
                         "If a creature rules the sky, answer with movement or cover.",
                         "If a place feels ancient, cursed, or unwelcome, trust that feeling."
+                )),
+                page("On house elves", List.of(
+                        "A wild house elf keeps to itself deep in the Forbidden Forest, always alone. A few still keep the kitchens of the castle.",
+                        "It vanishes with a crack the instant it notices a wizard, so you must either go unnoticed - an Invisibility Cloak, an invisibility potion, Polyjuice worn as some beast, or a slow and patient crouch - or hold it fast where it stands.",
+                        "Cave Inimicum forbids Apparition within its bounds. Petrificus Totalus, Incarcerous, Glacius, Stupefy, Arresto Momentum and the Imperius Curse will each serve as well.",
+                        "Offer food to an elf that cannot flee and it will bind itself to you as master."
+                )),
+                page("On freeing an elf", List.of(
+                        "A bound elf serves, and blames itself with its own fists whenever harm comes to its master.",
+                        "Present it with clothing - any garment at all - and it is free.",
+                        "But it remembers how it was taken. One brought in gently stays on as a friend, Apparating to your side and hurling aside any who raise a hand to you.",
+                        "One taken by force takes the clothes, and is gone. Choose accordingly."
                 ))
         )),
         CRAFTING("gui.hogwartsmagic.hogwarts_guide.section.crafting", List.of(

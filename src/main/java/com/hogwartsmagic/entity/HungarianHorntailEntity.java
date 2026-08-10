@@ -19,6 +19,7 @@ import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.MobSpawnType;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.FloatGoal;
@@ -33,6 +34,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.ServerLevelAccessor;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.AABB;
@@ -147,8 +149,42 @@ public class HungarianHorntailEntity extends Monster {
     public HungarianHorntailEntity(EntityType<? extends HungarianHorntailEntity> type, Level level) {
         super(type, level);
         this.xpReward = 120;
-        this.setPersistenceRequired();
         this.moveControl = new net.minecraft.world.entity.ai.control.MoveControl(this);
+    }
+
+    /**
+     * Persistence is decided by <i>how</i> the dragon got here, not by what it is.
+     *
+     * <p>A Horntail you summoned — by command, by spawn egg, by any deliberate act — is the centre of
+     * whatever you are doing, so it is pinned in place and never despawns. A Horntail that generated on
+     * its own in {@code hogwartsmagic:horntail_peaks} is scenery, and scenery has to be allowed to go
+     * away again: a boss that both spawns naturally and never despawns would silently accumulate one
+     * more 320-HP dragon per visit until the region was unplayable.
+     */
+    @Override
+    public net.minecraft.world.entity.SpawnGroupData finalizeSpawn(
+            ServerLevelAccessor level,
+            net.minecraft.world.DifficultyInstance difficulty,
+            MobSpawnType spawnType,
+            @javax.annotation.Nullable net.minecraft.world.entity.SpawnGroupData groupData) {
+        if (spawnType != MobSpawnType.NATURAL && spawnType != MobSpawnType.CHUNK_GENERATION) {
+            this.setPersistenceRequired();
+        }
+        return super.finalizeSpawn(level, difficulty, spawnType, groupData);
+    }
+
+    /**
+     * Natural-spawn rule for the Horntail Peaks: high, open crags only. The height and sky checks are
+     * what keep the dragon out of the caves and gullies under the range — without them a MONSTER-category
+     * mob would happily pick the first dark pocket of rock it found. Light level is deliberately not
+     * checked; dragons are not afraid of daylight.
+     */
+    public static boolean canSpawn(EntityType<HungarianHorntailEntity> type, ServerLevelAccessor level,
+                                   MobSpawnType spawnType, BlockPos pos,
+                                   net.minecraft.util.RandomSource random) {
+        return pos.getY() >= 120
+                && level.canSeeSky(pos)
+                && checkAnyLightMonsterSpawnRules(type, level, spawnType, pos, random);
     }
 
     public static AttributeSupplier.Builder createAttributes() {
@@ -1116,7 +1152,9 @@ public class HungarianHorntailEntity extends Monster {
 
     @Override
     public boolean removeWhenFarAway(double distance) {
-        return false;
+        // Only consulted for dragons that are not persistence-required, i.e. the wild ones that
+        // generated in the peaks. Summoned dragons are pinned in finalizeSpawn and never reach here.
+        return true;
     }
 
     @Override

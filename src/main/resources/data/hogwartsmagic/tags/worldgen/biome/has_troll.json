@@ -3,6 +3,10 @@
   "values": [
     "hogwartsmagic:forbidden_forest",
     {
+      "id": "hogwartsmagic:horntail_peaks",
+      "required": false
+    },
+    {
       "id": "#minecraft:is_taiga",
       "required": false
     },

@@ -6,6 +6,14 @@
       "required": false
     },
     "minecraft:swamp",
-    "minecraft:mangrove_swamp"
+    "minecraft:mangrove_swamp",
+    {
+      "id": "hogwartsmagic:dementor_fen",
+      "required": false
+    },
+    {
+      "id": "hogwartsmagic:black_lake",
+      "required": false
+    }
   ]
 }

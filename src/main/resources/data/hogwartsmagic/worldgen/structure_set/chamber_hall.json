@@ -1,0 +1,14 @@
+{
+  "structures": [
+    {
+      "structure": "hogwartsmagic:chamber_hall",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "spacing": 10,
+    "separation": 4,
+    "salt": 741220004
+  }
+}

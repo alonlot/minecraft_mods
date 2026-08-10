@@ -1,0 +1,14 @@
+{
+  "structures": [
+    {
+      "structure": "hogwartsmagic:fen_gibbet",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "spacing": 12,
+    "separation": 5,
+    "salt": 741220001
+  }
+}

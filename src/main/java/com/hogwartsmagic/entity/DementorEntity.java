@@ -1,11 +1,13 @@
 package com.hogwartsmagic.entity;
 
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.AnimationState;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.MobSpawnType;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.control.FlyingMoveControl;
@@ -17,6 +19,7 @@ import net.minecraft.world.entity.ai.navigation.PathNavigation;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.ServerLevelAccessor;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
@@ -30,10 +33,16 @@ public class DementorEntity extends Monster {
     /** Game time until which the Patronus shield keeps this Dementor cowed. Server-side only. */
     private long shieldRepelledUntil = 0L;
 
+    // Entity-event ids must stay clear of vanilla's. ClientPacketListener.handleEntityEvent
+    // intercepts 21, 35 and 63 before per-entity dispatch and casts the entity to Guardian,
+    // Player and Sniffer respectively -- a Dementor sent id 63 crashed the client with a
+    // ClassCastException instead of ever reaching handleEntityEvent below. Vanilla's own
+    // EntityEvent table currently ends at 65 (BODY_BREAK), so 80+ is free with headroom.
+
     /** Broadcast to clients to start the Kiss - the only clip that uncovers the face. */
-    private static final byte EVENT_KISS = 62;
+    private static final byte EVENT_KISS = 80;
     /** Broadcast to clients when a Patronus drives it back. */
-    private static final byte EVENT_RECOIL = 63;
+    private static final byte EVENT_RECOIL = 81;
 
     /** Length of {@code DementorAnimations.KISS} in ticks (4.0s). */
     private static final int KISS_TICKS = 80;
@@ -134,6 +143,28 @@ public class DementorEntity extends Monster {
     @Override
     protected net.minecraft.sounds.SoundEvent getDeathSound() {
         return com.hogwartsmagic.ModSounds.DEMENTOR_DEATH.get();
+    }
+
+    /**
+     * Natural-spawn rule for the Dementor Fen.
+     *
+     * <p>Daylight is no protection from a Dementor — the whole point of the fen is that it stays
+     * oppressive at noon — so the usual darkness check is skipped and density is held down by the
+     * biome's {@code spawn_costs} instead of by light level.
+     *
+     * <p>Open sky <i>is</i> required, though. The fen owns the rock beneath it as well as the surface,
+     * so without this check the caves under the marsh would fill with Dementors: a dark enclosed space
+     * they can phase through the walls of, with no room to back away from and no daylight to escape
+     * into. They are meant to drift over the water, not lurk under it.
+     *
+     * <p>This only gates <i>natural</i> spawning. The insomnia event constructs Dementors directly and
+     * never consults this, so being indoors still will not save a sleepless player.
+     */
+    public static boolean canSpawn(EntityType<DementorEntity> type, ServerLevelAccessor level,
+                                   MobSpawnType spawnType, BlockPos pos,
+                                   net.minecraft.util.RandomSource random) {
+        return level.canSeeSky(pos)
+                && checkAnyLightMonsterSpawnRules(type, level, spawnType, pos, random);
     }
 
     public static AttributeSupplier.Builder createAttributes() {

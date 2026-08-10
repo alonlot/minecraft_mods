@@ -1,0 +1,25 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "hogwartsmagic:dementor_fen",
+      "required": false
+    },
+    {
+      "id": "hogwartsmagic:horntail_peaks",
+      "required": false
+    },
+    {
+      "id": "hogwartsmagic:black_lake",
+      "required": false
+    },
+    {
+      "id": "hogwartsmagic:chamber_depths",
+      "required": false
+    },
+    {
+      "id": "hogwartsmagic:goblin_undercity",
+      "required": false
+    }
+  ]
+}

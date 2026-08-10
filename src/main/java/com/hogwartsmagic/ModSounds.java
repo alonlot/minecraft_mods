@@ -124,6 +124,19 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> HOUSE_ELF_FREE = register("house_elf.free");
     public static final RegistryObject<SoundEvent> HOUSE_ELF_PUNISH = register("house_elf.punish");
 
+    // Giant
+    public static final RegistryObject<SoundEvent> GIANT_AMBIENT1 = register("giant.ambient1");
+    public static final RegistryObject<SoundEvent> GIANT_AMBIENT2 = register("giant.ambient2");
+    public static final RegistryObject<SoundEvent> GIANT_ANGRY = register("giant.angry");
+    public static final RegistryObject<SoundEvent> GIANT_ROAR = register("giant.roar");
+    public static final RegistryObject<SoundEvent> GIANT_STEP = register("giant.step");
+    public static final RegistryObject<SoundEvent> GIANT_SWIPE = register("giant.swipe");
+    public static final RegistryObject<SoundEvent> GIANT_KICK_SMASH = register("giant.kick_smash");
+    public static final RegistryObject<SoundEvent> GIANT_GRAB = register("giant.grab");
+    public static final RegistryObject<SoundEvent> GIANT_THROW = register("giant.throw");
+    public static final RegistryObject<SoundEvent> GIANT_HURT = register("giant.hurt");
+    public static final RegistryObject<SoundEvent> GIANT_DEATH = register("giant.death");
+
     private static RegistryObject<SoundEvent> register(String name) {
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, name);
         return SOUND_EVENTS.register(name, () -> SoundEvent.createVariableRangeEvent(id));

@@ -3,6 +3,8 @@ package com.hogwartsmagic.event;
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.entity.AcromantulaEntity;
 import com.hogwartsmagic.entity.BasiliskEntity;
+import com.hogwartsmagic.entity.DementorEntity;
+import com.hogwartsmagic.entity.HungarianHorntailEntity;
 import com.hogwartsmagic.entity.LycanthropeVillagerEntity;
 import com.hogwartsmagic.entity.MinatorEntity;
 import com.hogwartsmagic.entity.ModEntities;
@@ -73,6 +75,29 @@ public class ModSpawnPlacements {
                 SpawnPlacementTypes.ON_GROUND,
                 Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
                 com.hogwartsmagic.entity.HouseElfEntity::canSpawn,
+                SpawnPlacementRegisterEvent.Operation.REPLACE);
+        // Giants keep no hours, so this deliberately skips the darkness check that
+        // the other monsters use -- they want headroom, not night.
+        event.register(
+                ModEntities.GIANT.get(),
+                SpawnPlacementTypes.ON_GROUND,
+                Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                com.hogwartsmagic.entity.GiantEntity::canSpawn,
+                SpawnPlacementRegisterEvent.Operation.REPLACE);
+        // A Dementor flies, but it still needs solid ground to be placed on -- it drifts up from
+        // wherever the spawner drops it. Registered so the Dementor Fen can spawn them naturally
+        // instead of the insomnia event being the only source in the game.
+        event.register(
+                ModEntities.DEMENTOR.get(),
+                SpawnPlacementTypes.ON_GROUND,
+                Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                DementorEntity::canSpawn,
+                SpawnPlacementRegisterEvent.Operation.REPLACE);
+        event.register(
+                ModEntities.HUNGARIAN_HORNTAIL.get(),
+                SpawnPlacementTypes.ON_GROUND,
+                Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                HungarianHorntailEntity::canSpawn,
                 SpawnPlacementRegisterEvent.Operation.REPLACE);
     }
 }

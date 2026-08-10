@@ -174,6 +174,12 @@ public class HogwartsGuideScreen extends Screen {
                         "Cave Inimicum forbids Apparition within its bounds. Petrificus Totalus, Incarcerous, Glacius, Stupefy, Arresto Momentum and the Imperius Curse will each serve as well.",
                         "Offer food to an elf that cannot flee and it will bind itself to you as master."
                 )),
+                page("On giants", List.of(
+                        "A giant stands more than three men tall and wanders the deepest forest alone, muttering to itself and pulling at the trees.",
+                        "Left be, it will leave you be. Strike it, or linger too long at its feet, and it will announce itself with a roar you will feel through the soles of your boots.",
+                        "It swings a backhand that will throw you clear across a clearing, and kicks the ground apart - earth, timber, glass and thatch all give way, though good stone will not.",
+                        "Worst of all, it will simply pick you up and throw you. Do not count on the landing. It is no gentler with the beasts of the forest than it is with wizards."
+                )),
                 page("On freeing an elf", List.of(
                         "A bound elf serves, and blames itself with its own fists whenever harm comes to its master.",
                         "Present it with clothing - any garment at all - and it is free.",

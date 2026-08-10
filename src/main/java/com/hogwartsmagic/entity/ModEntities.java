@@ -147,6 +147,15 @@ public class ModEntities {
                             .clientTrackingRange(12)
                             .build("troll"));
 
+    // Height matches the model rendered at GiantRenderer.MODEL_SCALE. The hitbox
+    // is kept tight to the torso; the arms overhang it on both sides.
+    public static final RegistryObject<EntityType<GiantEntity>> GIANT =
+            ENTITY_TYPES.register("giant",
+                    () -> EntityType.Builder.<GiantEntity>of(GiantEntity::new, MobCategory.MONSTER)
+                            .sized(2.2F, 5.5F)
+                            .clientTrackingRange(16)
+                            .build("giant"));
+
     public static final RegistryObject<EntityType<HungarianHorntailEntity>> HUNGARIAN_HORNTAIL =
             ENTITY_TYPES.register("hungarian_horntail",
                     () -> EntityType.Builder.<HungarianHorntailEntity>of(HungarianHorntailEntity::new, MobCategory.MONSTER)

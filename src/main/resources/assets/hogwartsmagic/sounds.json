@@ -809,5 +809,104 @@
         "stream": false
       }
     ]
+  },
+  "giant.ambient1": {
+    "subtitle": "subtitles.hogwartsmagic.giant.ambient1",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:giant/ambient1",
+        "stream": false
+      }
+    ]
+  },
+  "giant.ambient2": {
+    "subtitle": "subtitles.hogwartsmagic.giant.ambient2",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:giant/ambient2",
+        "stream": false
+      }
+    ]
+  },
+  "giant.angry": {
+    "subtitle": "subtitles.hogwartsmagic.giant.angry",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:giant/angry",
+        "stream": false
+      }
+    ]
+  },
+  "giant.roar": {
+    "subtitle": "subtitles.hogwartsmagic.giant.roar",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:giant/roar",
+        "stream": false
+      }
+    ]
+  },
+  "giant.step": {
+    "subtitle": "subtitles.hogwartsmagic.giant.step",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:giant/step",
+        "stream": false
+      }
+    ]
+  },
+  "giant.swipe": {
+    "subtitle": "subtitles.hogwartsmagic.giant.swipe",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:giant/swipe",
+        "stream": false
+      }
+    ]
+  },
+  "giant.kick_smash": {
+    "subtitle": "subtitles.hogwartsmagic.giant.kick_smash",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:giant/kick_smash",
+        "stream": false
+      }
+    ]
+  },
+  "giant.grab": {
+    "subtitle": "subtitles.hogwartsmagic.giant.grab",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:giant/grab",
+        "stream": false
+      }
+    ]
+  },
+  "giant.throw": {
+    "subtitle": "subtitles.hogwartsmagic.giant.throw",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:giant/throw",
+        "stream": false
+      }
+    ]
+  },
+  "giant.hurt": {
+    "subtitle": "subtitles.hogwartsmagic.giant.hurt",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:giant/hurt",
+        "stream": false
+      }
+    ]
+  },
+  "giant.death": {
+    "subtitle": "subtitles.hogwartsmagic.giant.death",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:giant/death",
+        "stream": false
+      }
+    ]
   }
 }

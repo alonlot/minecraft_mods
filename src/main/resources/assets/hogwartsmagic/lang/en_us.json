@@ -10,6 +10,8 @@
   "item.hogwartsmagic.elder_wand": "Elder Wand",
   "item.hogwartsmagic.wand.playstyle.elder": "Elder Wand â€” refined power, faster recovery, and dominant beam clashes.",
   "biome.hogwartsmagic.forbidden_forest": "Forbidden Forest",
+  "biome.hogwartsmagic.dementor_fen": "Dementor Fen",
+  "biome.hogwartsmagic.horntail_peaks": "Horntail Peaks",
   "gui.hogwartsmagic.no_spell_selected": "You have no spell selected! Shift + Right Click to choose one.",
   "gui.hogwartsmagic.spell_menu": "Spell Menu",
   "gui.hogwartsmagic.spell_menu.assign_hint": "Configure your 9 radial slots, then hold R in combat.",
@@ -510,5 +512,18 @@
   "message.hogwartsmagic.house_elf.bound_forced": "The elf takes the food. It will not look at you.",
   "message.hogwartsmagic.house_elf.freed_friend": "The elf is free! It stays at your side, of its own will.",
   "message.hogwartsmagic.house_elf.freed_resentful": "The elf takes the clothes, and is gone.",
-  "item.hogwartsmagic.house_elf_spawn_egg": "House Elf Spawn Egg"
+  "item.hogwartsmagic.house_elf_spawn_egg": "House Elf Spawn Egg",
+  "entity.hogwartsmagic.giant": "Giant",
+  "item.hogwartsmagic.giant_spawn_egg": "Giant Spawn Egg",
+  "subtitles.hogwartsmagic.giant.ambient1": "Giant mutters",
+  "subtitles.hogwartsmagic.giant.ambient2": "Giant snuffles",
+  "subtitles.hogwartsmagic.giant.angry": "Giant snarls",
+  "subtitles.hogwartsmagic.giant.roar": "Giant roars",
+  "subtitles.hogwartsmagic.giant.step": "Giant stomps",
+  "subtitles.hogwartsmagic.giant.swipe": "Giant swings",
+  "subtitles.hogwartsmagic.giant.kick_smash": "Giant smashes",
+  "subtitles.hogwartsmagic.giant.grab": "Giant grabs",
+  "subtitles.hogwartsmagic.giant.throw": "Giant hurls",
+  "subtitles.hogwartsmagic.giant.hurt": "Giant hurts",
+  "subtitles.hogwartsmagic.giant.death": "Giant dies"
 }

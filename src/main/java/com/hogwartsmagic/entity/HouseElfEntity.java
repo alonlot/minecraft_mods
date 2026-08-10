@@ -79,9 +79,14 @@ public class HouseElfEntity extends PathfinderMob {
     private static final EntityDataAccessor<Boolean> DATA_COWERING =
             SynchedEntityData.defineId(HouseElfEntity.class, EntityDataSerializers.BOOLEAN);
 
+    // Entity event bytes must dodge two sets of reservations. ClientPacketListener
+    // intercepts 21, 35 and 63 and casts the entity to Guardian, Player and Sniffer
+    // respectively BEFORE handleEntityEvent is ever reached, so those three crash
+    // the client outright. LivingEntity and Entity additionally consume 3, 29, 30,
+    // 46-55, 60 and 65. 61, 62, 64, 66 and 67 are free.
     private static final byte EVENT_PUNISH = 61;
     private static final byte EVENT_JOY = 62;
-    private static final byte EVENT_DISAPPARATE = 63;
+    private static final byte EVENT_DISAPPARATE = 64;
 
     /** How close a noticed wizard may get before a wild elf bolts. */
     private static final double FLIGHT_RADIUS = 5.0D;

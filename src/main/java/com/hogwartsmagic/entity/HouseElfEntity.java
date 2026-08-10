@@ -85,8 +85,12 @@ public class HouseElfEntity extends PathfinderMob {
 
     /** How close a noticed wizard may get before a wild elf bolts. */
     private static final double FLIGHT_RADIUS = 5.0D;
-    /** A crouching player has to be at least this far off to go unnoticed. */
-    private static final double CROUCH_SAFE_DISTANCE = 2.5D;
+    /**
+     * A crouching player has to be at least this far off to go unnoticed. Kept
+     * well inside the roughly three-block entity reach, or there would be no
+     * range at which a careful player is both unseen and able to offer food.
+     */
+    private static final double CROUCH_SAFE_DISTANCE = 1.5D;
     /** Ticks between the crack starting and the elf actually leaving. */
     private static final int DISAPPARATE_WINDUP = 8;
     /** How far a Disapparating elf tries to land from where it stood. */
@@ -279,11 +283,6 @@ public class HouseElfEntity extends PathfinderMob {
             return false; // the ward's whole purpose: nobody Apparates in or out
         }
         return true;
-    }
-
-    /** True when the elf is cornered: a wizard is on it and it cannot get away. */
-    public boolean isPinned() {
-        return !this.canDisapparate();
     }
 
     // ------------------------------------------------------------ apparition

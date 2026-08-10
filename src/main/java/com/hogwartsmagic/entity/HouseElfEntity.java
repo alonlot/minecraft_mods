@@ -87,6 +87,7 @@ public class HouseElfEntity extends PathfinderMob {
     private static final byte EVENT_PUNISH = 61;
     private static final byte EVENT_JOY = 62;
     private static final byte EVENT_DISAPPARATE = 64;
+    private static final byte EVENT_APPARITION_FAILED = 66;
 
     /** How close a noticed wizard may get before a wild elf bolts. */
     private static final double FLIGHT_RADIUS = 5.0D;
@@ -106,6 +107,8 @@ public class HouseElfEntity extends PathfinderMob {
 
     /** How long the freed elf capers about before settling down, in milliseconds. */
     private static final long REJOICE_MILLIS = 3200L;
+    /** Length of the DISAPPARATE clip. It does not loop, so it has to be cut off by hand. */
+    private static final long DISAPPARATE_MILLIS = 500L;
 
     private static final int PROTECT_COOLDOWN_TICKS = 60;
     private static final double PROTECT_RADIUS = 8.0D;
@@ -320,6 +323,20 @@ public class HouseElfEntity extends PathfinderMob {
                 SoundSource.NEUTRAL, 0.8F, 1.0F);
     }
 
+    /** The Apparition fails: something is holding the elf here. */
+    private void abortDisapparation() {
+        this.disapparatingTicks = 0;
+        this.level().broadcastEntityEvent(this, EVENT_APPARITION_FAILED);
+        if (this.level() instanceof ServerLevel server) {
+            server.sendParticles(ParticleTypes.LARGE_SMOKE,
+                    this.getX(), this.getY() + 0.5D, this.getZ(), 14, 0.3D, 0.4D, 0.3D, 0.01D);
+            server.sendParticles(ParticleTypes.ELECTRIC_SPARK,
+                    this.getX(), this.getY() + 0.5D, this.getZ(), 18, 0.35D, 0.45D, 0.35D, 0.06D);
+            server.playSound(null, this.blockPosition(), ModSounds.HOUSE_ELF_CRACK.get(),
+                    SoundSource.NEUTRAL, 0.45F, 0.55F);
+        }
+    }
+
     @Nullable
     private BlockPos findReappearPos(ServerLevel server) {
         RandomSource random = this.getRandom();
@@ -467,6 +484,13 @@ public class HouseElfEntity extends PathfinderMob {
         }
 
         if (this.disapparatingTicks > 0) {
+            // A spell that pins lands a tick or two after the impact damage that
+            // startled the elf, so the crack has to be revocable: it strains,
+            // sparks, and stays exactly where it is.
+            if (!this.canDisapparate()) {
+                this.abortDisapparation();
+                return;
+            }
             this.disapparatingTicks--;
             if (this.disapparatingTicks == 0 && this.level() instanceof ServerLevel server) {
                 this.finishDisapparation(server);
@@ -554,6 +578,13 @@ public class HouseElfEntity extends PathfinderMob {
                 && this.joyAnimationState.getAccumulatedTime() > REJOICE_MILLIS) {
             this.joyAnimationState.stop();
         }
+        // DISAPPARATE ends with the root scaled to almost nothing, and a
+        // non-looping clip holds its last keyframe forever. Left running, an elf
+        // that reappeared elsewhere would stay the size of a mouse.
+        if (this.disapparateAnimationState.isStarted()
+                && this.disapparateAnimationState.getAccumulatedTime() > DISAPPARATE_MILLIS) {
+            this.disapparateAnimationState.stop();
+        }
     }
 
     @Override
@@ -562,6 +593,7 @@ public class HouseElfEntity extends PathfinderMob {
             case EVENT_PUNISH -> this.punishAnimationState.start(this.tickCount);
             case EVENT_JOY -> this.joyAnimationState.start(this.tickCount);
             case EVENT_DISAPPARATE -> this.disapparateAnimationState.start(this.tickCount);
+            case EVENT_APPARITION_FAILED -> this.disapparateAnimationState.stop();
             default -> super.handleEntityEvent(id);
         }
     }

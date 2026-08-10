@@ -240,6 +240,11 @@ public enum SpellType {
             }
             case IMPERIO -> {
                 interruptActiveCasting(target);
+                if (target instanceof com.hogwartsmagic.entity.HouseElfEntity elf) {
+                    // An elf under the Imperius Curse cannot will itself away, which
+                    // is the whole point: this is the dark road to binding one.
+                    elf.markSubdued(200);
+                }
                 if (caster instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
                     net.minecraft.nbt.CompoundTag playerData = serverPlayer.getPersistentData();
                     playerData.putUUID("hogwartsmagic:imperio_recent_hit_target", target.getUUID());

@@ -728,5 +728,86 @@
         "stream": false
       }
     ]
+  },
+  "house_elf.ambient1": {
+    "subtitle": "subtitles.hogwartsmagic.house_elf.ambient1",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:house_elf/ambient1",
+        "stream": false
+      }
+    ]
+  },
+  "house_elf.ambient2": {
+    "subtitle": "subtitles.hogwartsmagic.house_elf.ambient2",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:house_elf/ambient2",
+        "stream": false
+      }
+    ]
+  },
+  "house_elf.ambient3": {
+    "subtitle": "subtitles.hogwartsmagic.house_elf.ambient3",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:house_elf/ambient3",
+        "stream": false
+      }
+    ]
+  },
+  "house_elf.crack": {
+    "subtitle": "subtitles.hogwartsmagic.house_elf.crack",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:house_elf/crack",
+        "stream": false
+      }
+    ]
+  },
+  "house_elf.hurt": {
+    "subtitle": "subtitles.hogwartsmagic.house_elf.hurt",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:house_elf/hurt",
+        "stream": false
+      }
+    ]
+  },
+  "house_elf.death": {
+    "subtitle": "subtitles.hogwartsmagic.house_elf.death",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:house_elf/death",
+        "stream": false
+      }
+    ]
+  },
+  "house_elf.bind": {
+    "subtitle": "subtitles.hogwartsmagic.house_elf.bind",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:house_elf/bind",
+        "stream": false
+      }
+    ]
+  },
+  "house_elf.free": {
+    "subtitle": "subtitles.hogwartsmagic.house_elf.free",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:house_elf/free",
+        "stream": false
+      }
+    ]
+  },
+  "house_elf.punish": {
+    "subtitle": "subtitles.hogwartsmagic.house_elf.punish",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:house_elf/punish",
+        "stream": false
+      }
+    ]
   }
 }

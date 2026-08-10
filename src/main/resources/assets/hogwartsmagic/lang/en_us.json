@@ -495,5 +495,20 @@
   "subtitles.hogwartsmagic.hippogriff.bow": "Hippogriff bows",
   "subtitles.hogwartsmagic.hippogriff.wings": "Hippogriff wings beat",
   "subtitles.hogwartsmagic.hippogriff.snort": "Hippogriff snorts",
-  "subtitles.hogwartsmagic.hippogriff.takeoff": "Hippogriff takes off"
+  "subtitles.hogwartsmagic.hippogriff.takeoff": "Hippogriff takes off",
+  "entity.hogwartsmagic.house_elf": "House Elf",
+  "subtitles.hogwartsmagic.house_elf.ambient1": "House Elf mutters",
+  "subtitles.hogwartsmagic.house_elf.ambient2": "House Elf whimpers",
+  "subtitles.hogwartsmagic.house_elf.ambient3": "House Elf shuffles",
+  "subtitles.hogwartsmagic.house_elf.crack": "Apparition cracks",
+  "subtitles.hogwartsmagic.house_elf.hurt": "House Elf yelps",
+  "subtitles.hogwartsmagic.house_elf.death": "House Elf dies",
+  "subtitles.hogwartsmagic.house_elf.bind": "House Elf bows",
+  "subtitles.hogwartsmagic.house_elf.free": "House Elf rejoices",
+  "subtitles.hogwartsmagic.house_elf.punish": "House Elf punishes itself",
+  "message.hogwartsmagic.house_elf.bound_willing": "The elf bows low and calls you Master.",
+  "message.hogwartsmagic.house_elf.bound_forced": "The elf takes the food. It will not look at you.",
+  "message.hogwartsmagic.house_elf.freed_friend": "The elf is free! It stays at your side, of its own will.",
+  "message.hogwartsmagic.house_elf.freed_resentful": "The elf takes the clothes, and is gone.",
+  "item.hogwartsmagic.house_elf_spawn_egg": "House Elf Spawn Egg"
 }

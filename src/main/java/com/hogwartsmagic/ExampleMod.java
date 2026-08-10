@@ -489,6 +489,9 @@ public class ExampleMod
     public static final RegistryObject<Item> GOBLIN_GUARD_SPAWN_EGG = ITEMS.register("goblin_guard_spawn_egg",
             () -> new net.minecraftforge.common.ForgeSpawnEggItem(ModEntities.GOBLIN_GUARD, 0x563A24, 0xC4907A, new Item.Properties()));
 
+    public static final RegistryObject<Item> HOUSE_ELF_SPAWN_EGG = ITEMS.register("house_elf_spawn_egg",
+            () -> new net.minecraftforge.common.ForgeSpawnEggItem(ModEntities.HOUSE_ELF, 0x9E8E76, 0xCEC9BA, new Item.Properties()));
+
     public static final RegistryObject<CreativeModeTab> MAIN_TAB = CREATIVE_MODE_TABS.register("main_tab", () -> CreativeModeTab.builder()
             .withTabsBefore(CreativeModeTabs.COMBAT)
             .icon(() -> HARRY_POTTER_WAND.get().getDefaultInstance())
@@ -569,6 +572,7 @@ public class ExampleMod
                 output.accept(HUNGARIAN_HORNTAIL_SPAWN_EGG.get()); // Hungarian Horntail Spawn Egg
                 output.accept(GOBLIN_SPAWN_EGG.get()); // Gringotts Goblin Spawn Egg
                 output.accept(GOBLIN_GUARD_SPAWN_EGG.get()); // Goblin Vault Guard Spawn Egg
+                output.accept(HOUSE_ELF_SPAWN_EGG.get()); // House Elf Spawn Egg
                 output.accept(GALLEON.get()); // Galleon
                 output.accept(GOBLIN_SILVER_DAGGER.get()); // Goblin-Forged Silver Dagger
                 // Add books for all spells

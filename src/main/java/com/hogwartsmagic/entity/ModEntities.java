@@ -194,6 +194,14 @@ public class ModEntities {
                             .clientTrackingRange(10)
                             .build("goblin"));
 
+    // Height matches the model rendered at HouseElfRenderer.MODEL_SCALE.
+    public static final RegistryObject<EntityType<HouseElfEntity>> HOUSE_ELF =
+            ENTITY_TYPES.register("house_elf",
+                    () -> EntityType.Builder.<HouseElfEntity>of(HouseElfEntity::new, MobCategory.CREATURE)
+                            .sized(0.6F, 0.85F)
+                            .clientTrackingRange(10)
+                            .build("house_elf"));
+
     public static final RegistryObject<EntityType<GoblinGuardEntity>> GOBLIN_GUARD =
             ENTITY_TYPES.register("goblin_guard",
                     () -> EntityType.Builder.<GoblinGuardEntity>of(GoblinGuardEntity::new, MobCategory.CREATURE)

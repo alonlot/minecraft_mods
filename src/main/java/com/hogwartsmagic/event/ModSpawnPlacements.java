@@ -68,5 +68,11 @@ public class ModSpawnPlacements {
                 Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
                 com.hogwartsmagic.entity.GoblinEntity::canSpawn,
                 SpawnPlacementRegisterEvent.Operation.REPLACE);
+        event.register(
+                ModEntities.HOUSE_ELF.get(),
+                SpawnPlacementTypes.ON_GROUND,
+                Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                com.hogwartsmagic.entity.HouseElfEntity::canSpawn,
+                SpawnPlacementRegisterEvent.Operation.REPLACE);
     }
 }

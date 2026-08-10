@@ -113,6 +113,17 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> GOBLIN_NO = register("goblin.no");
     public static final RegistryObject<SoundEvent> GOBLIN_ANGRY = register("goblin.angry");
 
+    // House elf
+    public static final RegistryObject<SoundEvent> HOUSE_ELF_AMBIENT1 = register("house_elf.ambient1");
+    public static final RegistryObject<SoundEvent> HOUSE_ELF_AMBIENT2 = register("house_elf.ambient2");
+    public static final RegistryObject<SoundEvent> HOUSE_ELF_AMBIENT3 = register("house_elf.ambient3");
+    public static final RegistryObject<SoundEvent> HOUSE_ELF_CRACK = register("house_elf.crack");
+    public static final RegistryObject<SoundEvent> HOUSE_ELF_HURT = register("house_elf.hurt");
+    public static final RegistryObject<SoundEvent> HOUSE_ELF_DEATH = register("house_elf.death");
+    public static final RegistryObject<SoundEvent> HOUSE_ELF_BIND = register("house_elf.bind");
+    public static final RegistryObject<SoundEvent> HOUSE_ELF_FREE = register("house_elf.free");
+    public static final RegistryObject<SoundEvent> HOUSE_ELF_PUNISH = register("house_elf.punish");
+
     private static RegistryObject<SoundEvent> register(String name) {
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, name);
         return SOUND_EVENTS.register(name, () -> SoundEvent.createVariableRangeEvent(id));

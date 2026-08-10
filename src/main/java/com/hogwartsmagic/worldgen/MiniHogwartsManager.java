@@ -116,6 +116,7 @@ public final class MiniHogwartsManager {
         if (activeJob.advance(BLOCKS_PER_TICK)) {
             activeJob.furnish(); // one-shot: themed chests + decorations in the landmark rooms
             activeJob.spawnStudents(); // populate the finished castle with a crowd of students
+            activeJob.spawnHouseElves(); // and a few elves below stairs
             LOGGER.info("Mini Hogwarts placement complete ({} blocks)", activeJob.total);
             activeJob = null;
         }
@@ -367,6 +368,46 @@ public final class MiniHogwartsManager {
                 }
             }
             LOGGER.info("Mini Hogwarts populated with {} students", spawned);
+        }
+
+        /**
+         * Tuck a few house elves into the castle. The kitchens are where they
+         * belong, and finding one indoors is a good deal kinder than hunting the
+         * Forbidden Forest for the single wild one. They spawn wild, so they can
+         * still be taken into service the hard way.
+         */
+        void spawnHouseElves() {
+            RandomSource rng = level.getRandom();
+            final int target = 3;
+            int spawned = 0;
+            // Ground floor only - that is where the kitchens would be.
+            int stepX = Math.max(7, width / 4);
+            int stepZ = Math.max(7, length / 4);
+            outer:
+            for (int lx = stepX / 2; lx < width; lx += stepX) {
+                for (int lz = stepZ / 2; lz < length; lz += stepZ) {
+                    if (spawned >= target) {
+                        break outer;
+                    }
+                    BlockPos spot = floorSpotNear(lx, 2, lz, 6);
+                    if (spot == null || !level.getBlockState(spot.above()).isAir()) {
+                        continue;
+                    }
+                    com.hogwartsmagic.entity.HouseElfEntity elf =
+                            com.hogwartsmagic.entity.ModEntities.HOUSE_ELF.get().create(level);
+                    if (elf == null) {
+                        continue;
+                    }
+                    elf.moveTo(spot.getX() + 0.5D, spot.getY(), spot.getZ() + 0.5D,
+                            rng.nextFloat() * 360.0F, 0.0F);
+                    elf.finalizeSpawn(level, level.getCurrentDifficultyAt(spot),
+                            net.minecraft.world.entity.MobSpawnType.STRUCTURE, null);
+                    elf.setPersistenceRequired();
+                    level.addFreshEntity(elf);
+                    spawned++;
+                }
+            }
+            LOGGER.info("Mini Hogwarts staffed with {} house elves", spawned);
         }
 
         /** Find an empty floor tile (air with a solid block below) near a local position, or null. */

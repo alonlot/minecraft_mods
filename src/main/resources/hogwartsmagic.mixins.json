@@ -4,12 +4,14 @@
   "package": "com.hogwartsmagic.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
-    "OverworldBiomeBuilderMixin"
+    "OverworldBiomeBuilderMixin",
+    "SurfaceRuleDataMixin"
   ],
   "client": [
     "client.InvisibilityCloakArmorLayerMixin",
     "client.CaveInimicumClientPacketListenerMixin",
-    "client.CaveInimicumEntityRenderDispatcherMixin"
+    "client.CaveInimicumEntityRenderDispatcherMixin",
+    "client.BasiliskGazeGuiMixin"
   ],
   "injectors": {
     "defaultRequire": 1

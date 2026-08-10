@@ -767,6 +767,8 @@ public class ClientModEvents {
         event.registerEntityRenderer(ModEntities.STUDENT.get(), StudentRenderer::new);
         event.registerEntityRenderer(ModEntities.ACROMANTULA.get(), AcromantulaRenderer::new);
         event.registerEntityRenderer(ModEntities.BASILISK.get(), BasiliskRenderer::new);
+        event.registerEntityRenderer(ModEntities.BASILISK_VENOM.get(),
+                context -> new net.minecraft.client.renderer.entity.ThrownItemRenderer<>(context, 1.4F, false));
         event.registerEntityRenderer(ModEntities.DEMENTOR.get(), DementorRenderer::new);
         event.registerEntityRenderer(ModEntities.PATRONUS.get(), PatronusRenderer::new);
         event.registerEntityRenderer(ModEntities.MINATOR.get(), MinatorRenderer::new);

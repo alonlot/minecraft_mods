@@ -57,6 +57,14 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> ACROMANTULA_HURT = register("acromantula.hurt");
     public static final RegistryObject<SoundEvent> ACROMANTULA_DEATH = register("acromantula.death");
     public static final RegistryObject<SoundEvent> BASILISK_AMBIENT = register("basilisk.ambient");
+    public static final RegistryObject<SoundEvent> BASILISK_AMBIENT2 = register("basilisk.ambient2");
+    public static final RegistryObject<SoundEvent> BASILISK_HISS_THREAT = register("basilisk.hiss_threat");
+    public static final RegistryObject<SoundEvent> BASILISK_STRIKE = register("basilisk.strike");
+    public static final RegistryObject<SoundEvent> BASILISK_SPIT = register("basilisk.spit");
+    public static final RegistryObject<SoundEvent> BASILISK_BITE = register("basilisk.bite");
+    public static final RegistryObject<SoundEvent> BASILISK_BURROW = register("basilisk.burrow");
+    public static final RegistryObject<SoundEvent> BASILISK_ERUPT = register("basilisk.erupt");
+    public static final RegistryObject<SoundEvent> BASILISK_GAZE_HEARTBEAT = register("basilisk.gaze_heartbeat");
     public static final RegistryObject<SoundEvent> BASILISK_HURT = register("basilisk.hurt");
     public static final RegistryObject<SoundEvent> BASILISK_DEATH = register("basilisk.death");
     public static final RegistryObject<SoundEvent> TROLL_AMBIENT = register("troll.ambient");

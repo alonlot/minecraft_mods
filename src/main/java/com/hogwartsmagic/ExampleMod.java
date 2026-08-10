@@ -168,6 +168,9 @@ public class ExampleMod
     public static final RegistryObject<net.minecraft.world.effect.MobEffect> BASILISK_PETRIFICATION = MOB_EFFECTS.register("basilisk_petrification",
             com.hogwartsmagic.spell.BasiliskPetrificationEffect::new);
 
+    public static final RegistryObject<net.minecraft.world.effect.MobEffect> BASILISK_GAZE = MOB_EFFECTS.register("basilisk_gaze",
+            com.hogwartsmagic.spell.BasiliskGazeEffect::new);
+
     public static final RegistryObject<Block> WAND_WORKBENCH = BLOCKS.register("wand_workbench",
             () -> new com.hogwartsmagic.block.WandWorkbenchBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.SMITHING_TABLE)));
 

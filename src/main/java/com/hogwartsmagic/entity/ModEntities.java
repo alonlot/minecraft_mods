@@ -136,9 +136,17 @@ public class ModEntities {
     public static final RegistryObject<EntityType<BasiliskEntity>> BASILISK =
             ENTITY_TYPES.register("basilisk",
                     () -> EntityType.Builder.<BasiliskEntity>of(BasiliskEntity::new, MobCategory.MONSTER)
-                            .sized(3.4F, 2.6F)
-                            .clientTrackingRange(12)
+                            .sized(3.5F, 3.0F)
+                            .clientTrackingRange(16)
                             .build("basilisk"));
+
+    public static final RegistryObject<EntityType<BasiliskVenomEntity>> BASILISK_VENOM =
+            ENTITY_TYPES.register("basilisk_venom",
+                    () -> EntityType.Builder.<BasiliskVenomEntity>of(BasiliskVenomEntity::new, MobCategory.MISC)
+                            .sized(0.4F, 0.4F)
+                            .clientTrackingRange(6)
+                            .updateInterval(10)
+                            .build("basilisk_venom"));
 
     public static final RegistryObject<EntityType<TrollEntity>> TROLL =
             ENTITY_TYPES.register("troll",

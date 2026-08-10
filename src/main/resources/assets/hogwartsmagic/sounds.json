@@ -908,5 +908,77 @@
         "stream": false
       }
     ]
+  },
+  "basilisk.ambient2": {
+    "subtitle": "subtitles.hogwartsmagic.basilisk.ambient2",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:basilisk/ambient2",
+        "stream": false
+      }
+    ]
+  },
+  "basilisk.hiss_threat": {
+    "subtitle": "subtitles.hogwartsmagic.basilisk.hiss_threat",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:basilisk/hiss_threat",
+        "stream": false
+      }
+    ]
+  },
+  "basilisk.strike": {
+    "subtitle": "subtitles.hogwartsmagic.basilisk.strike",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:basilisk/strike",
+        "stream": false
+      }
+    ]
+  },
+  "basilisk.spit": {
+    "subtitle": "subtitles.hogwartsmagic.basilisk.spit",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:basilisk/spit",
+        "stream": false
+      }
+    ]
+  },
+  "basilisk.bite": {
+    "subtitle": "subtitles.hogwartsmagic.basilisk.bite",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:basilisk/bite",
+        "stream": false
+      }
+    ]
+  },
+  "basilisk.burrow": {
+    "subtitle": "subtitles.hogwartsmagic.basilisk.burrow",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:basilisk/burrow",
+        "stream": false
+      }
+    ]
+  },
+  "basilisk.erupt": {
+    "subtitle": "subtitles.hogwartsmagic.basilisk.erupt",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:basilisk/erupt",
+        "stream": false
+      }
+    ]
+  },
+  "basilisk.gaze_heartbeat": {
+    "subtitle": "subtitles.hogwartsmagic.basilisk.gaze_heartbeat",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:basilisk/gaze_heartbeat",
+        "stream": false
+      }
+    ]
   }
 }

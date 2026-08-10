@@ -174,6 +174,12 @@ public class HogwartsGuideScreen extends Screen {
                         "Cave Inimicum forbids Apparition within its bounds. Petrificus Totalus, Incarcerous, Glacius, Stupefy, Arresto Momentum and the Imperius Curse will each serve as well.",
                         "Offer food to an elf that cannot flee and it will bind itself to you as master."
                 )),
+                page("On the basilisk", List.of(
+                        "The King of Serpents runs fourteen paces from snout to tail tip, and its stare is death. Not at once - it takes hold slowly, and the world goes grey at the edges while it works.",
+                        "Look away and the hold breaks. Break the line of sight and it breaks faster. Fight it by the edges of your vision, never square on, and never stand admiring it.",
+                        "It rears before it strikes, which is the only warning you are given. At a distance it spits venom that eats the ground where it lands, and if you keep out of reach it will simply go under the earth and come up beneath you.",
+                        "Blows landed on the head will in time put its eyes out, and a blinded basilisk cannot petrify at all. It hunts by sound thereafter - so walk, do not run, and crouch when it casts about for you."
+                )),
                 page("On giants", List.of(
                         "A giant stands more than three men tall and wanders the deepest forest alone, muttering to itself and pulling at the trees.",
                         "Left be, it will leave you be. Strike it, or linger too long at its feet, and it will announce itself with a roar you will feel through the soles of your boots.",

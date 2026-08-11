@@ -553,5 +553,13 @@
   "biome.hogwartsmagic.black_lake_shallows": "The Black Lake Shallows",
   "item.hogwartsmagic.merchieftainess_crown": "Merchieftainess's Crown",
   "item.hogwartsmagic.merchieftainess_crown.desc": "You breathe water, and see through it, for as long as you wear it.",
-  "item.hogwartsmagic.merchieftainess_crown.cost": "No merperson will suffer you to wear it."
+  "item.hogwartsmagic.merchieftainess_crown.cost": "No merperson will suffer you to wear it.",
+  "entity.hogwartsmagic.grindylow": "Grindylow",
+  "item.hogwartsmagic.grindylow_spawn_egg": "Grindylow Spawn Egg",
+  "subtitles.hogwartsmagic.grindylow.ambient": "Grindylow burbles",
+  "subtitles.hogwartsmagic.grindylow.shriek": "Grindylows shriek",
+  "subtitles.hogwartsmagic.grindylow.grab": "Grindylow seizes hold",
+  "subtitles.hogwartsmagic.grindylow.snap": "Grindylow's fingers snap",
+  "subtitles.hogwartsmagic.grindylow.hurt": "Grindylow hurts",
+  "subtitles.hogwartsmagic.grindylow.death": "Grindylow dies"
 }

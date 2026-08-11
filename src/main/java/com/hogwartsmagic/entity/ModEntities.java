@@ -228,6 +228,14 @@ public class ModEntities {
                             .clientTrackingRange(10)
                             .build("merperson"));
 
+    // Small enough to hide in a weed bed. The model renders at 0.7.
+    public static final RegistryObject<EntityType<GrindylowEntity>> GRINDYLOW =
+            ENTITY_TYPES.register("grindylow",
+                    () -> EntityType.Builder.<GrindylowEntity>of(GrindylowEntity::new, MobCategory.MONSTER)
+                            .sized(0.7F, 1.0F)
+                            .clientTrackingRange(8)
+                            .build("grindylow"));
+
     public static final RegistryObject<EntityType<GoblinGuardEntity>> GOBLIN_GUARD =
             ENTITY_TYPES.register("goblin_guard",
                     () -> EntityType.Builder.<GoblinGuardEntity>of(GoblinGuardEntity::new, MobCategory.CREATURE)

@@ -190,6 +190,13 @@ public class HogwartsGuideScreen extends Screen {
                         "In the hoard lies a crown of a chieftainess long drowned. Wear it and the lake is yours: you will breathe its water and see through it as though you were born to it, and you will never need Gillyweed again.",
                         "But wear it where they can see you and there is no rearing up, no screeching, no warning of any kind. You are wearing their chieftainess. They come at once, and they keep coming. You may have the freedom of the lake or the goodwill of the people in it. You will not have both."
                 )),
+                page("On grindylows", List.of(
+                        "A grindylow is a small horned water demon, sickly green, with a head too big for it, a mouth full of needles and six curling tentacles where its legs ought to be. The merpeople keep them the way a farmer keeps dogs.",
+                        "It will not duel you. It lies in the weed doing nothing whatever until something wakes it, and then it comes with its fellows, and what it does when it reaches you is not to wound you. It takes hold of your leg, drags you down and waits.",
+                        "There is a nest of them asleep around the hoard. Open that chest and you will find out exactly what they were put there for.",
+                        "Do not thrash. Their fingers are long and strong and they are also brittle: strike the thing holding you, however feebly, and it lets go at once. Then deal with the next one.",
+                        "You can see them before they see you, if you look. Their eyes carry a light of their own, and two green points low in the weed are the only warning you will get."
+                )),
                 page("On giants", List.of(
                         "A giant stands more than three men tall and wanders the deepest forest alone, muttering to itself and pulling at the trees.",
                         "Left be, it will leave you be. Strike it, or linger too long at its feet, and it will announce itself with a roar you will feel through the soles of your boots.",

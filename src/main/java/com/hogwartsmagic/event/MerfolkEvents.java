@@ -1,6 +1,7 @@
 package com.hogwartsmagic.event;
 
 import com.hogwartsmagic.ExampleMod;
+import com.hogwartsmagic.entity.GrindylowEntity;
 import com.hogwartsmagic.entity.MerpersonEntity;
 import com.hogwartsmagic.item.MerchieftainessCrownItem;
 import net.minecraft.core.BlockPos;
@@ -87,6 +88,10 @@ public final class MerfolkEvents {
             return;
         }
         MerpersonEntity.raiseAlarm(level, pos, player, ALARM_RADIUS);
+        // And the nest in the weed comes up with them. The grindylows are baked
+        // into the village template lying dormant right around this chest, so
+        // this is the moment they were put there for.
+        GrindylowEntity.rouseNest(level, pos, player, ALARM_RADIUS);
     }
 
     /**

@@ -44,9 +44,10 @@ import struct
 # Values are tagged tuples: ('int', v) ('string', s) ('list', elem_type, [values]) ('compound', {})
 
 TAG_END, TAG_BYTE, TAG_SHORT, TAG_INT = 0, 1, 2, 3
-TAG_STRING, TAG_LIST, TAG_COMPOUND = 8, 9, 10
+TAG_FLOAT, TAG_DOUBLE, TAG_STRING, TAG_LIST, TAG_COMPOUND = 5, 6, 8, 9, 10
 
 TYPE_IDS = {'byte': TAG_BYTE, 'short': TAG_SHORT, 'int': TAG_INT,
+            'float': TAG_FLOAT, 'double': TAG_DOUBLE,
             'string': TAG_STRING, 'list': TAG_LIST, 'compound': TAG_COMPOUND}
 
 
@@ -58,6 +59,10 @@ def _write_payload(out, value):
         out.write(struct.pack('>h', value[1]))
     elif kind == 'int':
         out.write(struct.pack('>i', value[1]))
+    elif kind == 'float':
+        out.write(struct.pack('>f', value[1]))
+    elif kind == 'double':
+        out.write(struct.pack('>d', value[1]))
     elif kind == 'string':
         data = value[1].encode('utf-8')
         out.write(struct.pack('>H', len(data)))
@@ -93,7 +98,25 @@ def write_nbt(path, root):
 DATA_VERSION = 3953  # 1.21
 
 
-def build_template(blocks):
+def entity(x, y, z, entity_id, tags=None):
+    """One baked-in entity for a structure template.
+
+    Coordinates are structure-local, same frame as the blocks, and may be
+    fractional. `tags` is merged into the entity's own NBT as typed tuples --
+    that is how a grindylow arrives already asleep in the weed rather than
+    having to be spawned by a spawn cycle that might never fire.
+    """
+    nbt = {'id': ('string', entity_id),
+           'Pos': ('list', 'double', [('double', x), ('double', y), ('double', z)])}
+    nbt.update(tags or {})
+    return {
+        'pos': ('list', 'double', [('double', x), ('double', y), ('double', z)]),
+        'blockPos': ('list', 'int', [('int', int(x)), ('int', int(y)), ('int', int(z))]),
+        'nbt': ('compound', nbt),
+    }
+
+
+def build_template(blocks, entities=None):
     """blocks: {(x,y,z): (name, props_dict_or_None, be_nbt_dict_or_None)} -> structure NBT root."""
     size = [max(p[i] for p in blocks) + 1 for i in range(3)]
 
@@ -121,7 +144,7 @@ def build_template(blocks):
         'size': ('list', 'int', [('int', c) for c in size]),
         'palette': ('list', 'compound', palette),
         'blocks': ('list', 'compound', block_tags),
-        'entities': ('list', 'compound', []),
+        'entities': ('list', 'compound', [('compound', e) for e in (entities or [])]),
     })
 
 
@@ -675,7 +698,18 @@ def merfolk_village():
     chest(b, (19, 1, 21), 'south', 'minecraft:chests/underwater_ruin_big')
 
     flood(b, W, H, D)
-    return b
+
+    # A nest of grindylows asleep in the weed around the hoard. Baked into the
+    # template rather than left to a spawn cycle, so the ambush is a property of
+    # the place and always happens. They wake when the chest is opened -- see
+    # MerfolkEvents -- or if you blunder right into one.
+    nest = []
+    for dx, dz in ((-2.4, -1.6), (2.4, -1.6), (-3.4, 1.4), (3.4, 1.4), (0.0, -3.4)):
+        nest.append(entity(cx + dx + 0.5, 1.1, cz - 4 + dz + 0.5, 'hogwartsmagic:grindylow', {
+            'Lurking': ('byte', 1),
+            'PersistenceRequired': ('byte', 1),
+        }))
+    return b, nest
 
 
 BUILDS = {
@@ -775,14 +809,16 @@ if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)
     failures = 0
     for name, builder in BUILDS.items():
-        blocks = builder()
+        built = builder()
+        blocks, entities = built if isinstance(built, tuple) else (built, [])
         problems = audit(name, blocks)
         path = os.path.join(OUT, name + '.nbt')
-        write_nbt(path, build_template(blocks))
+        write_nbt(path, build_template(blocks, entities))
         size = [max(p[i] for p in blocks) + 1 for i in range(3)]
         kinds = len({v[0] for v in blocks.values()})
-        print('%-18s %2dx%2dx%2d  %5d blocks  %2d block types  %6d bytes  %s'
-              % (name, size[0], size[1], size[2], len(blocks), kinds, os.path.getsize(path),
+        print('%-18s %2dx%2dx%2d  %5d blocks  %2d block types  %2d entities  %6d bytes  %s'
+              % (name, size[0], size[1], size[2], len(blocks), kinds, len(entities),
+                 os.path.getsize(path),
                  'ok' if not problems else '%d PROBLEMS' % len(problems)))
         for p in problems:
             print('    ' + p)

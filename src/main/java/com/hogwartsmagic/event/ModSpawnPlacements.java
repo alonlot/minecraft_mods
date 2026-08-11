@@ -102,6 +102,12 @@ public class ModSpawnPlacements {
                 com.hogwartsmagic.entity.MerpersonEntity::checkMerpersonSpawnRules,
                 SpawnPlacementRegisterEvent.Operation.REPLACE);
         event.register(
+                ModEntities.GRINDYLOW.get(),
+                SpawnPlacementTypes.IN_WATER,
+                Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                com.hogwartsmagic.entity.GrindylowEntity::checkGrindylowSpawnRules,
+                SpawnPlacementRegisterEvent.Operation.REPLACE);
+        event.register(
                 ModEntities.HUNGARIAN_HORNTAIL.get(),
                 SpawnPlacementTypes.ON_GROUND,
                 Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,

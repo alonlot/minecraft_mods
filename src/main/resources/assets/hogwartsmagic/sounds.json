@@ -1043,5 +1043,59 @@
         "stream": false
       }
     ]
+  },
+  "grindylow.ambient": {
+    "subtitle": "subtitles.hogwartsmagic.grindylow.ambient",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:grindylow/ambient",
+        "stream": false
+      }
+    ]
+  },
+  "grindylow.shriek": {
+    "subtitle": "subtitles.hogwartsmagic.grindylow.shriek",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:grindylow/shriek",
+        "stream": false
+      }
+    ]
+  },
+  "grindylow.grab": {
+    "subtitle": "subtitles.hogwartsmagic.grindylow.grab",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:grindylow/grab",
+        "stream": false
+      }
+    ]
+  },
+  "grindylow.snap": {
+    "subtitle": "subtitles.hogwartsmagic.grindylow.snap",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:grindylow/snap",
+        "stream": false
+      }
+    ]
+  },
+  "grindylow.hurt": {
+    "subtitle": "subtitles.hogwartsmagic.grindylow.hurt",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:grindylow/hurt",
+        "stream": false
+      }
+    ]
+  },
+  "grindylow.death": {
+    "subtitle": "subtitles.hogwartsmagic.grindylow.death",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:grindylow/death",
+        "stream": false
+      }
+    ]
   }
 }

@@ -87,6 +87,12 @@
     "misc": [],
     "monster": [
       {
+        "type": "hogwartsmagic:grindylow",
+        "maxCount": 4,
+        "minCount": 2,
+        "weight": 24
+      },
+      {
         "type": "minecraft:drowned",
         "maxCount": 3,
         "minCount": 1,

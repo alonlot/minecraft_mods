@@ -156,6 +156,14 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> MERPERSON_HURT = register("merperson.hurt");
     public static final RegistryObject<SoundEvent> MERPERSON_DEATH = register("merperson.death");
 
+    // Grindylows: small, wet and vicious. Nothing here is deep or heavy.
+    public static final RegistryObject<SoundEvent> GRINDYLOW_AMBIENT = register("grindylow.ambient");
+    public static final RegistryObject<SoundEvent> GRINDYLOW_SHRIEK = register("grindylow.shriek");
+    public static final RegistryObject<SoundEvent> GRINDYLOW_GRAB = register("grindylow.grab");
+    public static final RegistryObject<SoundEvent> GRINDYLOW_SNAP = register("grindylow.snap");
+    public static final RegistryObject<SoundEvent> GRINDYLOW_HURT = register("grindylow.hurt");
+    public static final RegistryObject<SoundEvent> GRINDYLOW_DEATH = register("grindylow.death");
+
     private static RegistryObject<SoundEvent> register(String name) {
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, name);
         return SOUND_EVENTS.register(name, () -> SoundEvent.createVariableRangeEvent(id));

@@ -503,6 +503,37 @@ public class ExampleMod
 
     // A barbed lakebed-stone spear. Unremarkable in air, nasty underwater --
     // see MerpersonSpearItem for where the bonus is applied.
+    // Nacre and lake pearl: soft as armour, which is not what it is for.
+    public static final RegistryObject<ArmorMaterial> MERCHIEFTAINESS_CROWN_MATERIAL =
+            ARMOR_MATERIALS.register("merchieftainess_crown",
+                    () -> new ArmorMaterial(
+                            Util.make(new java.util.EnumMap<>(ArmorItem.Type.class), map -> {
+                                map.put(ArmorItem.Type.BOOTS, 0);
+                                map.put(ArmorItem.Type.LEGGINGS, 0);
+                                map.put(ArmorItem.Type.CHESTPLATE, 0);
+                                map.put(ArmorItem.Type.HELMET, 2);
+                                map.put(ArmorItem.Type.BODY, 0);
+                            }),
+                            18,
+                            net.minecraft.sounds.SoundEvents.ARMOR_EQUIP_TURTLE,
+                            () -> net.minecraft.world.item.crafting.Ingredient.of(
+                                    net.minecraft.world.item.Items.NAUTILUS_SHELL),
+                            java.util.List.of(new ArmorMaterial.Layer(
+                                    net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(
+                                            MODID, "merchieftainess_crown"))),
+                            0.0f,
+                            0.0f));
+
+    public static final RegistryObject<Item> MERCHIEFTAINESS_CROWN = ITEMS.register("merchieftainess_crown",
+            () -> new com.hogwartsmagic.item.MerchieftainessCrownItem(
+                    MERCHIEFTAINESS_CROWN_MATERIAL.getHolder().orElseThrow(),
+                    ArmorItem.Type.HELMET,
+                    // Fire-resistant on purpose: the Black Lake seeds lava springs, and
+                    // losing a one-per-village artefact to a stray pocket is not a fair
+                    // way to lose it. ArmorItem sets the real durability from the material.
+                    new Item.Properties().stacksTo(1)
+                            .rarity(net.minecraft.world.item.Rarity.RARE).fireResistant()));
+
     public static final RegistryObject<Item> MERPERSON_SPEAR = ITEMS.register("merperson_spear",
             () -> new com.hogwartsmagic.item.MerpersonSpearItem(
                     net.minecraft.world.item.Tiers.IRON,

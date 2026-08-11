@@ -2,6 +2,15 @@
   "type": "minecraft:chest",
   "pools": [
     {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "hogwartsmagic:merchieftainess_crown"
+        }
+      ]
+    },
+    {
       "rolls": {
         "type": "minecraft:uniform",
         "min": 3,
@@ -15,7 +24,11 @@
           "functions": [
             {
               "function": "minecraft:set_count",
-              "count": { "type": "minecraft:uniform", "min": 4, "max": 12 }
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 4,
+                "max": 12
+              }
             }
           ]
         },
@@ -26,7 +39,11 @@
           "functions": [
             {
               "function": "minecraft:set_count",
-              "count": { "type": "minecraft:uniform", "min": 2, "max": 6 }
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 2,
+                "max": 6
+              }
             }
           ]
         },
@@ -37,7 +54,11 @@
           "functions": [
             {
               "function": "minecraft:set_count",
-              "count": { "type": "minecraft:uniform", "min": 1, "max": 3 }
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 1,
+                "max": 3
+              }
             }
           ]
         },
@@ -48,7 +69,11 @@
           "functions": [
             {
               "function": "minecraft:set_count",
-              "count": { "type": "minecraft:uniform", "min": 2, "max": 6 }
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 2,
+                "max": 6
+              }
             }
           ]
         },
@@ -59,7 +84,11 @@
           "functions": [
             {
               "function": "minecraft:set_count",
-              "count": { "type": "minecraft:uniform", "min": 1, "max": 4 }
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 1,
+                "max": 4
+              }
             }
           ]
         },
@@ -70,7 +99,11 @@
           "functions": [
             {
               "function": "minecraft:set_count",
-              "count": { "type": "minecraft:uniform", "min": 1, "max": 4 }
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 1,
+                "max": 4
+              }
             }
           ]
         },
@@ -81,7 +114,11 @@
           "functions": [
             {
               "function": "minecraft:set_count",
-              "count": { "type": "minecraft:uniform", "min": 1, "max": 3 }
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 1,
+                "max": 3
+              }
             }
           ]
         },
@@ -92,7 +129,11 @@
           "functions": [
             {
               "function": "minecraft:set_count",
-              "count": { "type": "minecraft:uniform", "min": 1, "max": 2 }
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 1,
+                "max": 2
+              }
             }
           ]
         }
@@ -108,7 +149,11 @@
           "functions": [
             {
               "function": "minecraft:set_count",
-              "count": { "type": "minecraft:uniform", "min": 1, "max": 2 }
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 1,
+                "max": 2
+              }
             }
           ]
         },
@@ -119,7 +164,11 @@
           "functions": [
             {
               "function": "minecraft:set_count",
-              "count": { "type": "minecraft:uniform", "min": 2, "max": 5 }
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 2,
+                "max": 5
+              }
             }
           ]
         },
@@ -135,7 +184,11 @@
           "functions": [
             {
               "function": "minecraft:enchant_with_levels",
-              "levels": { "type": "minecraft:uniform", "min": 20, "max": 30 }
+              "levels": {
+                "type": "minecraft:uniform",
+                "min": 20,
+                "max": 30
+              }
             }
           ]
         },

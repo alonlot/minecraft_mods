@@ -337,6 +337,18 @@ public class MerpersonEntity extends PathfinderMob implements NeutralMob {
             return;
         }
 
+        // Wearing their chieftainess's crown skips every rung of the ladder.
+        // There is nothing to warn about: you are already carrying the insult.
+        if (com.hogwartsmagic.item.MerchieftainessCrownItem.isWornBy(nearest)) {
+            setTarget(nearest);
+            setPersistentAngerTarget(nearest.getUUID());
+            setRemainingPersistentAngerTime(THEFT_ANGER_TICKS);
+            if (this.warnCooldown <= 0 && !isBusy()) {
+                warnOff(nearest);
+            }
+            return;
+        }
+
         if (!nearest.getUUID().equals(this.trespasser)) {
             this.trespasser = nearest.getUUID();
             this.trespassTicks = 0;

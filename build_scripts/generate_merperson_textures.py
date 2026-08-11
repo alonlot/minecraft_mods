@@ -519,6 +519,91 @@ def build_spear_item():
     print("wrote", path)
 
 
+def build_crown_armor():
+    """The worn crown: a 64x32 armour layer, and its 16x16 inventory icon.
+
+    The UV offsets here must stay in step with the texOffs calls in
+    MerchieftainessCrownModel. Footprint of a w/h/d box is 2*(w+d) by (h+d):
+
+        band        (0, 0)   8 x 2 x 8
+        front spike (33, 0)  2 x 6 x 2
+        left spike  (42, 0)  2 x 4 x 2
+        right spike (51, 0)  2 x 4 x 2
+        back left   (0, 11)  2 x 3 x 2
+        back right  (9, 11)  2 x 3 x 2
+    """
+    ARMOR_DIR = os.path.join(ROOT, "src", "main", "resources", "assets", "hogwartsmagic",
+                             "textures", "models", "armor")
+    ITEM_DIR = os.path.join(ROOT, "src", "main", "resources", "assets", "hogwartsmagic",
+                            "textures", "item")
+    rng = random.Random(4242)
+    pal = CHIEFTAINESS
+
+    img = Image.new("RGBA", (64, 32), (0, 0, 0, 0))
+    px = img.load()
+
+    def box(u, v, w, h, d):
+        """The six box-UV face rects for a cube at (u, v)."""
+        return {
+            "up":    (u + d,         v,     w, d),
+            "down":  (u + d + w,     v,     w, d),
+            "east":  (u,             v + d, d, h),
+            "north": (u + d,         v + d, w, h),
+            "west":  (u + d + w,     v + d, d, h),
+            "south": (u + 2 * d + w, v + d, w, h),
+        }
+
+    def nacre(rect, bright):
+        x0, y0, w, h = rect
+        for y in range(y0, y0 + h):
+            for x in range(x0, x0 + w):
+                base = pal.crown if bright else pal.crown_dark
+                # Fine banding, plus an occasional pearl highlight.
+                if (x + y) % 4 == 0:
+                    base = pal.crown_dark
+                elif rng.random() < 0.10:
+                    base = (250, 244, 228)
+                px[x, y] = jitter(base, rng, 0.05) + (255,)
+
+    for (u, v, w, h, d) in ((0, 0, 8, 2, 8), (33, 0, 2, 6, 2), (42, 0, 2, 4, 2),
+                            (51, 0, 2, 4, 2), (0, 11, 2, 3, 2), (9, 11, 2, 3, 2)):
+        faces = box(u, v, w, h, d)
+        for side, rect in faces.items():
+            nacre(rect, side != "down")
+
+    os.makedirs(ARMOR_DIR, exist_ok=True)
+    armor_path = os.path.join(ARMOR_DIR, "merchieftainess_crown_layer_1.png")
+    img.save(armor_path)
+    print("wrote", armor_path)
+
+    # Inventory icon: a circlet seen head-on, five points, pearl at the brow.
+    icon = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
+    ip = icon.load()
+
+    def put(x, y, c):
+        if 0 <= x < 16 and 0 <= y < 16:
+            ip[x, y] = c + (255,)
+
+    band, dark, hot = pal.crown, pal.crown_dark, (250, 244, 228)
+    for x in range(2, 14):
+        put(x, 10, band)
+        put(x, 11, dark)
+    for x, top in ((3, 8), (5, 6), (8, 4), (10, 6), (12, 8)):
+        for y in range(top, 10):
+            put(x, y, band)
+            put(x + 1, y, dark)
+        put(x, top, hot)
+    put(8, 3, hot)
+    put(9, 3, hot)
+    for x in (2, 13):
+        put(x, 9, dark)
+
+    os.makedirs(ITEM_DIR, exist_ok=True)
+    icon_path = os.path.join(ITEM_DIR, "merchieftainess_crown.png")
+    icon.save(icon_path)
+    print("wrote", icon_path)
+
+
 def build():
     tex_w, tex_h, cubes = load_layout()
     os.makedirs(OUT_DIR, exist_ok=True)
@@ -534,6 +619,7 @@ def build():
         print("wrote", eyes_path)
 
     build_spear_item()
+    build_crown_armor()
     print("layout: %d cubes on a %dx%d sheet" % (len(cubes), tex_w, tex_h))
 
 

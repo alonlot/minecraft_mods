@@ -550,5 +550,8 @@
   "subtitles.hogwartsmagic.merperson.spear": "Spear thrusts",
   "subtitles.hogwartsmagic.merperson.hurt": "Merperson hurts",
   "subtitles.hogwartsmagic.merperson.death": "Merperson dies",
-  "biome.hogwartsmagic.black_lake_shallows": "The Black Lake Shallows"
+  "biome.hogwartsmagic.black_lake_shallows": "The Black Lake Shallows",
+  "item.hogwartsmagic.merchieftainess_crown": "Merchieftainess's Crown",
+  "item.hogwartsmagic.merchieftainess_crown.desc": "You breathe water, and see through it, for as long as you wear it.",
+  "item.hogwartsmagic.merchieftainess_crown.cost": "No merperson will suffer you to wear it."
 }

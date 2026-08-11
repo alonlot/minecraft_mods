@@ -742,6 +742,8 @@ public class ClientModEvents {
         event.registerLayerDefinition(com.hogwartsmagic.client.model.HouseElfModel.LAYER_LOCATION, com.hogwartsmagic.client.model.HouseElfModel::createBodyLayer);
         event.registerLayerDefinition(com.hogwartsmagic.client.model.MerpersonModel.LAYER_LOCATION,
                 com.hogwartsmagic.client.model.MerpersonModel::createBodyLayer);
+        event.registerLayerDefinition(com.hogwartsmagic.client.model.MerchieftainessCrownModel.LAYER_LOCATION,
+                com.hogwartsmagic.client.model.MerchieftainessCrownModel::createBodyLayer);
     }
 
     @SubscribeEvent

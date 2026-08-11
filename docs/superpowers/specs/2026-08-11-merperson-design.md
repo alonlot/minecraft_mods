@@ -197,10 +197,33 @@ bottom in both a deep arm and a loch.
 ## The hoard
 
 A chest at the foot of the chieftainess, flanked by dark prismarine, on its own
-loot table `hogwartsmagic:chests/merfolk_hoard` — gold and lapis and prismarine
-taken off the drowned, and one good thing per chest: a nautilus shell, an
-enchanted book, a spear, an arcane core, or rarely a heart of the sea. A second,
-lesser stash sits behind one of the huts.
+loot table `hogwartsmagic:chests/merfolk_hoard`. Three pools: the crown
+(guaranteed), a handful of gold, lapis and prismarine taken off the drowned, and
+one good thing — a nautilus shell, an enchanted book, a spear, an arcane core, or
+rarely a heart of the sea. A second, lesser stash sits behind one of the huts.
+
+### The merchieftainess's crown
+
+**The one thing in the game that exists nowhere else**, and the reason to open
+the chest at all. Worn, it grants conduit power for as long as it stays on: you
+breathe water, see through it, and work in it without a diver's clumsiness. It is
+Gillyweed that never runs out, which is what makes the Black Lake somewhere you
+can live rather than somewhere you can visit.
+
+The cost is the point. **Every merperson that sees you wearing it attacks on
+sight** — `tickTerritory` checks for the crown before it checks anything else and
+skips every rung of the ladder: no rearing, no screech-and-wait, none of the five
+seconds of grace extended to anyone else, and the two-minute theft grudge rather
+than the twenty-second one. You may have the freedom of the lake or the goodwill
+of the people in it, not both. Wearing it into the village you took it from is a
+decision, not an oversight.
+
+It renders as real worn geometry (`MerchieftainessCrownModel`, five points on a
+circlet), following the Sorting Hat's pattern — everything parented to `head`,
+`hat` omitted from `bodyParts()` so it does not follow the torso transform chain.
+The conduit effect is applied from a player tick rather than `inventoryTick`,
+because the vanilla inventory tick walks the main inventory and never reaches the
+armour slots.
 
 **Opening or breaking either one turns the entire village on you at once**, with
 a grudge lasting two minutes rather than the twenty-odd seconds an ordinary

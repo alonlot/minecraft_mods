@@ -2,18 +2,22 @@ package com.hogwartsmagic.event;
 
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.entity.MerpersonEntity;
+import com.hogwartsmagic.item.MerchieftainessCrownItem;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.BarrelBlock;
 import net.minecraft.world.level.block.ChestBlock;
 import net.minecraft.world.level.block.ShulkerBoxBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.structure.Structure;
+import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.event.level.BlockEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -83,6 +87,30 @@ public final class MerfolkEvents {
             return;
         }
         MerpersonEntity.raiseAlarm(level, pos, player, ALARM_RADIUS);
+    }
+
+    /**
+     * The crown's gift: the sea's own conduit power for as long as it is worn.
+     *
+     * <p>Applied from a player tick rather than {@code inventoryTick}, because
+     * the vanilla inventory tick walks the main inventory and never reaches the
+     * armour slots. Re-applied once a second with a three-second duration so it
+     * never visibly lapses between ticks, hidden from the HUD and given no
+     * particles — it should feel like a property of the wearer, not a buff.
+     */
+    @SubscribeEvent
+    public static void onCrownWorn(TickEvent.PlayerTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) {
+            return;
+        }
+        Player player = event.player;
+        if (player.level().isClientSide || player.tickCount % 20 != 0) {
+            return;
+        }
+        if (!MerchieftainessCrownItem.isWornBy(player)) {
+            return;
+        }
+        player.addEffect(new MobEffectInstance(MobEffects.CONDUIT_POWER, 60, 0, true, false, false));
     }
 
     private static boolean isContainer(BlockState state) {

@@ -161,9 +161,57 @@ public class BasiliskEntity extends Monster {
     private float headDamage;
     private int burrowedTicks;
 
+    /**
+     * One hit volume per body section.
+     *
+     * @param distance     how far back along the spine the section sits, in blocks;
+     *                     negative is forward of the entity origin, i.e. the head
+     * @param axis         height of the body's centre line above the feet, in blocks
+     * @param damageScale  a blow to the head hurts more than one to the tail tip
+     */
+    private record PartAnchor(double distance, double axis, float width, float height,
+                              float damageScale, boolean head) {}
+
+    /**
+     * Sizes are a little wider than the cubes they cover, to absorb the lateral
+     * undulation the model adds on top of the path — otherwise a swinging tail
+     * would sometimes be visually in front of a sword and still not take the hit.
+     */
+    private static final PartAnchor[] PART_ANCHORS = {
+            new PartAnchor(-1.30D, 1.05D, 2.0F, 1.5F, 1.30F, true),
+            new PartAnchor(0.60D, 0.75D, 1.4F, 1.2F, 1.00F, false),
+            new PartAnchor(2.20D, 0.75D, 1.8F, 1.5F, 1.00F, false),
+            new PartAnchor(3.80D, 0.75D, 2.0F, 1.6F, 1.00F, false),
+            new PartAnchor(5.40D, 0.72D, 1.8F, 1.5F, 1.00F, false),
+            new PartAnchor(7.40D, 0.62D, 1.4F, 1.2F, 0.85F, false),
+            new PartAnchor(9.60D, 0.50D, 1.1F, 0.9F, 0.70F, false),
+            new PartAnchor(12.00D, 0.32D, 0.8F, 0.7F, 0.70F, false),
+    };
+
+    private final BasiliskPart[] bodyParts;
+    private final double[] partDistances = new double[PART_ANCHORS.length];
+    private final Vec3[] partPoints = new Vec3[PART_ANCHORS.length];
+
     public BasiliskEntity(EntityType<? extends BasiliskEntity> type, Level level) {
         super(type, level);
         this.xpReward = 40;
+
+        // Built here, in the constructor, on purpose: each part is an Entity and
+        // takes the next id from the global counter, so the basilisk reserves
+        // getId()+1 .. getId()+n and nothing else can claim them. setId below
+        // then reproduces exactly that layout on the client.
+        this.bodyParts = new BasiliskPart[PART_ANCHORS.length];
+        for (int i = 0; i < PART_ANCHORS.length; i++) {
+            PartAnchor anchor = PART_ANCHORS[i];
+            this.bodyParts[i] = new BasiliskPart(this, anchor.width(), anchor.height(),
+                    anchor.damageScale(), anchor.head());
+        }
+        // Entity ids are handed out by a counter shared across threads, so the
+        // ones the parts just took are not guaranteed to be consecutive. Restate
+        // the layout explicitly: the server keys its part lookup by these, and
+        // the client rebuilds them from the parent id, so they have to agree or
+        // every blow to the body lands on nothing.
+        setId(getId());
     }
 
     public static AttributeSupplier.Builder createAttributes() {
@@ -368,12 +416,110 @@ public class BasiliskEntity extends Monster {
         return this.position().add(forward.scale(1.3D)).add(0.0D, 1.05D, 0.0D);
     }
 
+    // --- multipart hitboxes ---------------------------------------------------
+
+    @Override
+    public boolean isMultipartEntity() {
+        return true;
+    }
+
+    @Override
+    public net.minecraftforge.entity.PartEntity<?>[] getParts() {
+        return this.bodyParts;
+    }
+
+    /**
+     * Reproduces the server's id layout on the client. The parts were built in
+     * the constructor immediately after the basilisk itself, so on the server
+     * they already hold {@code getId() + 1 + i}; the client arrives here through
+     * {@code recreateFromPacket} and must land on the same numbers or hits on
+     * the body resolve to nothing.
+     */
+    @Override
+    public void setId(int id) {
+        super.setId(id);
+        for (int i = 0; i < this.bodyParts.length; i++) {
+            this.bodyParts[i].setId(id + 1 + i);
+        }
+    }
+
+    /** Everything is struck through a part, so the parent itself is not a target. */
+    @Override
+    public boolean isPickable() {
+        return false;
+    }
+
+    /**
+     * Lays the hit volumes along the same path the model draws the spine on, so
+     * what you can see is what you can hit — including round a corner, where a
+     * single box would be nowhere near the tail.
+     */
+    private void tickParts() {
+        for (int i = 0; i < PART_ANCHORS.length; i++) {
+            this.partDistances[i] = Math.max(0.0D, PART_ANCHORS[i].distance());
+        }
+        samplePath(this.position(), this.partDistances, this.partPoints);
+
+        Vec3 forward = Vec3.directionFromRotation(0.0F, this.yBodyRot);
+        float rear = rearProgress(1.0F);
+        boolean hidden = isFullyBurrowed();
+
+        for (int i = 0; i < this.bodyParts.length; i++) {
+            BasiliskPart part = this.bodyParts[i];
+            PartAnchor anchor = PART_ANCHORS[i];
+            part.setOldPosAndRot();
+
+            if (hidden) {
+                // Underground: fold the whole animal onto its own origin so no
+                // stray box is left standing in the open.
+                part.setPos(this.getX(), this.getY(), this.getZ());
+                continue;
+            }
+
+            Vec3 point = this.partPoints[i];
+            double x = point.x;
+            double z = point.z;
+            if (anchor.distance() < 0.0D) {
+                // The head sits ahead of the origin, which the path cannot express.
+                x -= forward.x * anchor.distance();
+                z -= forward.z * anchor.distance();
+            }
+
+            // The same lift the model gives the front of the body when it rears,
+            // so a reared head is struck where it actually is.
+            double lift = rear * Math.max(0.0D, 1.0D - Math.max(0.0D, anchor.distance()) / 5.0D) * 1.6D;
+            double centreY = point.y + anchor.axis() + lift;
+            part.setPos(x, centreY - anchor.height() / 2.0D, z);
+        }
+    }
+
+    /**
+     * Damage routed in from a body section. Hits to the head count double toward
+     * blinding it, which is the whole point of aiming there.
+     */
+    public boolean hurtPart(BasiliskPart part, DamageSource source, float amount) {
+        if (isFullyBurrowed()) {
+            return false;
+        }
+        boolean hurt = super.hurt(source, amount);
+        if (hurt && !this.level().isClientSide && !isBlinded() && amount > 0.0F && part.isHead()) {
+            this.headDamage += amount;
+            if (this.headDamage >= BLIND_THRESHOLD) {
+                setBlinded();
+            }
+        }
+        return hurt;
+    }
+
     // --- ticking --------------------------------------------------------------
 
     @Override
     public void tick() {
         super.tick();
         recordTrail();
+        // Both sides: the server resolves the hit, but the client has to have the
+        // boxes in the right place to aim at them in the first place.
+        tickParts();
 
         if (this.level().isClientSide) {
             this.idleAnimationState.startIfStopped(this.tickCount);

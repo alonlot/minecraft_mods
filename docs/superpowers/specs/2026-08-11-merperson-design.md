@@ -194,6 +194,31 @@ for three blocks of water, below the surface, and **within ten blocks of the
 floor** — measured against the actual `OCEAN_FLOOR` heightmap, so they hug the
 bottom in both a deep arm and a loch.
 
+## The hoard
+
+A chest at the foot of the chieftainess, flanked by dark prismarine, on its own
+loot table `hogwartsmagic:chests/merfolk_hoard` — gold and lapis and prismarine
+taken off the drowned, and one good thing per chest: a nautilus shell, an
+enchanted book, a spear, an arcane core, or rarely a heart of the sea. A second,
+lesser stash sits behind one of the huts.
+
+**Opening or breaking either one turns the entire village on you at once**, with
+a grudge lasting two minutes rather than the twenty-odd seconds an ordinary
+provocation earns. The territorial ladder is skipped entirely: no warning, no
+five seconds of grace. That is the Goblet of Fire beat — they let Harry take his
+own hostage and swim away, and levelled spears the moment he reached for one
+that was not his.
+
+Membership is decided by a **structure tag** (`hogwartsmagic:merfolk_guarded`)
+rather than by proximity to a guard, which is how `GoblinEvents` does the same
+job at Gringotts. Merpeople swim; a pod scattered round a lakebed village is
+nowhere near its own treasure most of the time, and a radius check would let you
+rob the place whenever they happened to drift off. The tag also makes the hut
+stash count, so there is no "safe" chest.
+
+The alarm fires on **open**, not on taking an item, so they are already on you
+while you are still looking at the loot.
+
 ## Spear
 
 Iron tier, `+2` damage and `-2.6` speed — five damage and slow, on land.

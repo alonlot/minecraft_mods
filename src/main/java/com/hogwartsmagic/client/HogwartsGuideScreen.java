@@ -185,7 +185,8 @@ public class HogwartsGuideScreen extends Screen {
                         "They are Beings, not beasts, and they will let you pass. Linger over the village and one will rear up, spread its fins and cry out at you - a warning, and the only one you are given. Take it and go, and nothing happens at all.",
                         "Ignore it, or raise a hand to any one of them, and every merperson for twenty yards comes at once with a spear. They are faster than you in the water and they know it. Their chieftainess is larger, paler, and worse.",
                         "Their speech is a real language, though above the surface it is nothing but a hideous screeching. Put your head under and listen properly and you will hear them singing.",
-                        "A spear taken from one is a poor weapon in air and a wicked one below the water."
+                        "A spear taken from one is a poor weapon in air and a wicked one below the water.",
+                        "There is a hoard laid at the statue's feet, and a second stash behind the dwellings. Lift the lid of either and every merperson in the water knows it, at once, and they do not forget it quickly. Whatever is in there, decide first whether you can swim faster than they can."
                 )),
                 page("On giants", List.of(
                         "A giant stands more than three men tall and wanders the deepest forest alone, muttering to itself and pulling at the trees.",

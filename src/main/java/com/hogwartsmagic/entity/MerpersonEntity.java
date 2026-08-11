@@ -109,6 +109,9 @@ public class MerpersonEntity extends PathfinderMob implements NeutralMob {
     /** Long enough for the death clip to play out. Vanilla's is twenty. */
     private static final int DEATH_TICKS = 46;
 
+    /** Robbing the hoard buys a far longer grudge than merely loitering. */
+    private static final int THEFT_ANGER_TICKS = 2400;
+
     private static final byte EVENT_HURT = 62;
 
     private static final UniformInt PERSISTENT_ANGER_TIME = TimeUtil.rangeOfSeconds(20, 39);
@@ -502,6 +505,44 @@ public class MerpersonEntity extends PathfinderMob implements NeutralMob {
                 this.remove(net.minecraft.world.entity.Entity.RemovalReason.KILLED);
             }
         }
+    }
+
+    /**
+     * Somebody has opened the hoard.
+     *
+     * <p>Every merperson that can be reached turns on the thief at once, from
+     * anywhere in the village rather than only from within sight of the chest,
+     * and stays angry far longer than an ordinary provocation earns. This is the
+     * Goblet of Fire beat: they let Harry take his own hostage and leave, and
+     * levelled spears the moment he reached for something that was not his.
+     *
+     * @return how many of them answered, so the caller can skip the theatrics
+     *         if the village is empty.
+     */
+    public static int raiseAlarm(ServerLevel level, BlockPos pos, Player thief, double radius) {
+        if (thief.isCreative() || thief.isSpectator()) {
+            return 0;
+        }
+        AABB range = new AABB(pos).inflate(radius);
+        List<MerpersonEntity> pod = level.getEntitiesOfClass(MerpersonEntity.class, range,
+                MerpersonEntity::isAlive);
+        MerpersonEntity nearest = null;
+        double bestDistance = Double.MAX_VALUE;
+        for (MerpersonEntity merperson : pod) {
+            merperson.setTarget(thief);
+            merperson.setPersistentAngerTarget(thief.getUUID());
+            merperson.setRemainingPersistentAngerTime(THEFT_ANGER_TICKS);
+            double distance = merperson.distanceToSqr(pos.getX() + 0.5D, pos.getY() + 0.5D, pos.getZ() + 0.5D);
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                nearest = merperson;
+            }
+        }
+        if (nearest != null) {
+            nearest.setAction(ACTION_WARN, WARN_TICKS);
+            nearest.speak(ModSounds.MERPERSON_CALL.get(), ModSounds.MERPERSON_SCREECH.get(), 1.8F, 40.0D);
+        }
+        return pod.size();
     }
 
     @Override

@@ -661,6 +661,17 @@ def merfolk_village():
                 put(b, (x, 1, z), 'minecraft:seagrass')
 
     rubble(b, [(9, 1, 17), (16, 1, 8), (8, 1, 8), (17, 1, 17)], MERSTONE, 140)
+
+    # The hoard, laid at the chieftainess's feet where anyone can see it and
+    # nobody sensible touches it. Placed after the weed pass so nothing has
+    # grown over it, and the block it faces is cleared so the lid can open.
+    put(b, (cx, 1, cz - 4), 'minecraft:air')
+    put(b, (cx, 1, cz - 5), 'minecraft:air')
+    chest(b, (cx, 1, cz - 4), 'north', 'hogwartsmagic:chests/merfolk_hoard')
+    put(b, (cx - 1, 1, cz - 4), 'minecraft:dark_prismarine')
+    put(b, (cx + 1, 1, cz - 4), 'minecraft:dark_prismarine')
+
+    # A lesser stash tucked behind a hut. Taking from it is just as much theft.
     chest(b, (19, 1, 21), 'south', 'minecraft:chests/underwater_ruin_big')
 
     flood(b, W, H, D)

@@ -31,6 +31,21 @@ public final class ClimateSlices {
     /** Full {@code -1..1}, for a dimension a biome does not care about. */
     public static final Climate.Parameter ANY = Climate.Parameter.span(-1.0F, 1.0F);
 
+    /** Vanilla's lowest erosion band — the one that produces peaks. Claim it to get real mountains. */
+    public static final Climate.Parameter PEAKS_EROSION = Climate.Parameter.span(-1.0F, -0.78F);
+
+    /**
+     * Continentalness stopping just short of {@code 0.8}, where vanilla starts dripstone caves, and
+     * humidity stopping just short of {@code 0.7}, where it starts lush caves. A mod cave biome that
+     * crossed either line would displace a vanilla one rather than sit beside it.
+     *
+     * <p>These are wide on purpose. Vanilla makes its own cave biomes findable by constraining exactly
+     * <i>one</i> dimension to a band and leaving the rest open — dripstone is "continentalness above
+     * 0.8", lush is "humidity above 0.7", and nothing else. A cave biome that narrows three or four
+     * dimensions at once ends up somewhere you would have to go looking for on purpose.
+     */
+    public static final Climate.Parameter BELOW_DRIPSTONE = Climate.Parameter.span(-1.0F, 0.78F);
+
     /** A biome you walk on, which also owns the stone beneath it. */
     public static Climate.ParameterPoint[] surface(
             Climate.Parameter temperature,

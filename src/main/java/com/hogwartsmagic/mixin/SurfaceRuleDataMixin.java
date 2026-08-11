@@ -73,7 +73,12 @@ public abstract class SurfaceRuleDataMixin {
                                 SurfaceRules.state(Blocks.TUFF.defaultBlockState()))));
     }
 
-    /** Mined-out vault floors: loose gravel spoil over the tuff the goblins cut through. */
+    /**
+     * Mined-out vault floors: loose gravel spoil over cut deepslate. The blocks here deliberately match
+     * the biome's stone-replacing features, so the floor you walk on and the rock you tunnel through
+     * are the same material — a floor rule that disagreed with the surrounding stone would read as a
+     * texture bug rather than as a place.
+     */
     private static SurfaceRules.RuleSource hogwartsmagic$goblinUndercity() {
         return SurfaceRules.ifTrue(
                 SurfaceRules.isBiome(ModBiomes.GOBLIN_UNDERCITY),
@@ -82,9 +87,9 @@ public abstract class SurfaceRuleDataMixin {
                                 SurfaceRules.ifTrue(
                                         SurfaceRules.noiseCondition(Noises.SURFACE, 0.25D),
                                         SurfaceRules.state(Blocks.GRAVEL.defaultBlockState())),
-                                SurfaceRules.state(Blocks.TUFF.defaultBlockState()))),
+                                SurfaceRules.state(Blocks.DEEPSLATE_TILES.defaultBlockState()))),
                         SurfaceRules.ifTrue(UNDER_FLOOR,
-                                SurfaceRules.state(Blocks.TUFF.defaultBlockState()))));
+                                SurfaceRules.state(Blocks.DEEPSLATE.defaultBlockState()))));
     }
 
     /**

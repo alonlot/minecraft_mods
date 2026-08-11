@@ -5,16 +5,18 @@ import net.minecraft.world.level.biome.Climate;
 /**
  * Multi-noise parameter slice for {@code hogwartsmagic:chamber_depths}.
  *
- * <p><b>Goal: a cave biome that does not collide with vanilla's three.</b> Underground biomes are
- * chosen from the same parameter space as surface ones, so the only thing keeping them apart is that
- * each claims a different corner of it. Vanilla uses continentalness for dripstone caves
- * ({@code 0.8 .. 1.0}) and humidity for lush caves ({@code 0.7 .. 1.0}); this slice deliberately stops
- * short of both — continentalness caps at {@code 0.70} and humidity at {@code 0.55} — so the three
- * never fight over the same cell and no vanilla cave is displaced.
+ * <p><b>Goal: as findable as a vanilla cave biome, without displacing one.</b> Vanilla makes its cave
+ * biomes easy to come across by constraining exactly <i>one</i> dimension and leaving the rest open:
+ * dripstone is "continentalness above {@code 0.8}", lush is "humidity above {@code 0.7}", and nothing
+ * else. This slice follows the same shape — one humidity band, everything else open — and simply sits
+ * in the damp band immediately <i>below</i> lush, so the two sit beside each other rather than fight.
  *
- * <p>Within that corner it takes a cold, damp niche and leaves erosion and weirdness open, because
- * cave biomes are not shaped by terrain the way surface ones are: opening those dimensions just means
- * a chamber that does appear is a long connected system rather than a handful of disconnected pockets.
+ * <p>Erosion and weirdness stay open because cave biomes are not shaped by surface terrain the way
+ * surface ones are; opening them just means a chamber system runs a long way once it starts.
+ *
+ * <p>Being a biome does not by itself make a cavern — see the biome JSON, which pairs this with its
+ * own beefed-up carver and with stone-replacing features, because a cave biome laid over solid rock
+ * is otherwise just an invisible label on some ordinary stone.
  *
  * <p>Depth comes from {@link ClimateSlices#cave}, which keeps this strictly below the surface.
  *
@@ -23,9 +25,9 @@ import net.minecraft.world.level.biome.Climate;
 public final class ChamberDepthsClimateZones {
 
     public static final Climate.ParameterPoint[] POINTS = ClimateSlices.cave(
-            Climate.Parameter.span(-0.45F, -0.15F), // temperature: cold, still air
-            Climate.Parameter.span(0.20F, 0.55F),   // humidity: damp, but short of lush caves
-            Climate.Parameter.span(-0.11F, 0.70F),  // continentalness: inland, short of dripstone caves
+            ClimateSlices.ANY,                      // temperature: any -- humidity alone defines this one
+            Climate.Parameter.span(0.28F, 0.68F),   // humidity: the damp band just under lush caves
+            ClimateSlices.BELOW_DRIPSTONE,          // continentalness: stop short of dripstone caves
             ClimateSlices.ANY,                      // erosion: caves are not shaped by surface terrain
             ClimateSlices.ANY);                     // weirdness: open -> long connected systems
 

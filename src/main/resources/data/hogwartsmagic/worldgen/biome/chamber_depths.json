@@ -1,6 +1,7 @@
 {
   "carvers": {
     "air": [
+      "hogwartsmagic:chamber_cave",
       "minecraft:cave",
       "minecraft:cave_extra_underground",
       "minecraft:canyon"
@@ -82,7 +83,10 @@
       "minecraft:underwater_magma",
       "minecraft:disk_sand",
       "minecraft:disk_clay",
-      "minecraft:disk_gravel"
+      "minecraft:disk_gravel",
+      "hogwartsmagic:chamber_stone",
+      "hogwartsmagic:chamber_moss",
+      "hogwartsmagic:chamber_masonry"
     ],
     [
       "minecraft:dripstone_cluster",

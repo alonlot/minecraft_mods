@@ -178,7 +178,7 @@ deep; no parameter buys both. So the two need to differ in what they carry:
 |---|---|---|
 | Placement | Deep ocean band, coastal | River band, inland |
 | Depth | Past breath-hold range | A few blocks |
-| Merpeople | Pods of 2–4, one chieftainess | Ones and twos, no chieftainess |
+| Merpeople | Rare in open water; pods of 2–4 at the village | Rarer still, no chieftainess |
 | Merfolk village | Yes | **No** |
 | Black Lake ruin | Yes | **No** |
 | Guardians | Yes | No — they belong to a monument |
@@ -262,9 +262,21 @@ a negative hit. Drops at 12% from a player kill, or 6% off the hand slot.
 | Armour | 2 | 5 |
 | Follow range | 24 | 24 |
 
-`MobCategory.WATER_CREATURE`, weight 30 in the Black Lake, groups of 2–4,
-`SpawnPlacementTypes.IN_WATER`, and its own rule keeping them at least four
-blocks below sea level — they belong on the lakebed, not in the shallows.
+`MobCategory.WATER_CREATURE`, `SpawnPlacementTypes.IN_WATER`, and its own rule
+keeping them near the floor rather than at a fixed depth below sea level.
+
+**Watch the category cap.** `WATER_CREATURE` has a hard global limit of **5**,
+shared with squid. A first pass put merpeople at weight 30 in groups of 2–4,
+which took essentially the whole budget and made squid vanish from the Black
+Lake entirely. Weight alone is not the lever — one successful roll of a
+group-spawning mob fills most of five slots however rare the roll is.
+
+The fix is a split rather than a smaller number: merpeople are **rare in open
+water** (weight 10 against squid's 20, groups of 1–3) and **dense at the
+village**, where the structure's own `spawn_overrides` list them at weight 100
+as the only entry and the same cap of 5 becomes a well-sized pod. So the lake
+reads as ordinary lake life with merpeople as an occasional sighting, and the
+village reads as inhabited.
 Breathing underwater is the `minecraft:can_breathe_under_water` entity tag in
 1.21, not an override; `canBreatheUnderwater` is final.
 

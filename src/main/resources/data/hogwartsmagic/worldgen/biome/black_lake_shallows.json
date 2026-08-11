@@ -121,13 +121,13 @@
         "type": "hogwartsmagic:merperson",
         "maxCount": 2,
         "minCount": 1,
-        "weight": 16
+        "weight": 5
       },
       {
         "type": "minecraft:squid",
-        "maxCount": 2,
+        "maxCount": 3,
         "minCount": 1,
-        "weight": 6
+        "weight": 16
       }
     ]
   },

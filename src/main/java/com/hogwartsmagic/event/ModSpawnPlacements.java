@@ -93,6 +93,14 @@ public class ModSpawnPlacements {
                 Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
                 DementorEntity::canSpawn,
                 SpawnPlacementRegisterEvent.Operation.REPLACE);
+        // Merpeople are placed in the water column itself rather than on the
+        // lakebed, and their own rule keeps them out of the shallows.
+        event.register(
+                ModEntities.MERPERSON.get(),
+                SpawnPlacementTypes.IN_WATER,
+                Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                com.hogwartsmagic.entity.MerpersonEntity::checkMerpersonSpawnRules,
+                SpawnPlacementRegisterEvent.Operation.REPLACE);
         event.register(
                 ModEntities.HUNGARIAN_HORNTAIL.get(),
                 SpawnPlacementTypes.ON_GROUND,

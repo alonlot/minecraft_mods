@@ -123,6 +123,12 @@
     ],
     "water_creature": [
       {
+        "type": "hogwartsmagic:merperson",
+        "maxCount": 4,
+        "minCount": 2,
+        "weight": 30
+      },
+      {
         "type": "minecraft:squid",
         "maxCount": 4,
         "minCount": 1,

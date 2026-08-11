@@ -219,6 +219,15 @@ public class ModEntities {
                             .clientTrackingRange(10)
                             .build("house_elf"));
 
+    // Roughly three blocks nose to fluke, but the tail curls under when it is
+    // treading water, so the box is kept to the head, torso and upper tail.
+    public static final RegistryObject<EntityType<MerpersonEntity>> MERPERSON =
+            ENTITY_TYPES.register("merperson",
+                    () -> EntityType.Builder.<MerpersonEntity>of(MerpersonEntity::new, MobCategory.WATER_CREATURE)
+                            .sized(0.9F, 2.2F)
+                            .clientTrackingRange(10)
+                            .build("merperson"));
+
     public static final RegistryObject<EntityType<GoblinGuardEntity>> GOBLIN_GUARD =
             ENTITY_TYPES.register("goblin_guard",
                     () -> EntityType.Builder.<GoblinGuardEntity>of(GoblinGuardEntity::new, MobCategory.CREATURE)

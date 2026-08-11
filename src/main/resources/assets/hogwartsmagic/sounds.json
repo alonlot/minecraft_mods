@@ -980,5 +980,68 @@
         "stream": false
       }
     ]
+  },
+  "merperson.ambient": {
+    "subtitle": "subtitles.hogwartsmagic.merperson.ambient",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:merperson/ambient",
+        "stream": false
+      }
+    ]
+  },
+  "merperson.call": {
+    "subtitle": "subtitles.hogwartsmagic.merperson.call",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:merperson/call",
+        "stream": false
+      }
+    ]
+  },
+  "merperson.screech": {
+    "subtitle": "subtitles.hogwartsmagic.merperson.screech",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:merperson/screech",
+        "stream": false
+      }
+    ]
+  },
+  "merperson.song": {
+    "subtitle": "subtitles.hogwartsmagic.merperson.song",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:merperson/song",
+        "stream": true
+      }
+    ]
+  },
+  "merperson.spear": {
+    "subtitle": "subtitles.hogwartsmagic.merperson.spear",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:merperson/spear",
+        "stream": false
+      }
+    ]
+  },
+  "merperson.hurt": {
+    "subtitle": "subtitles.hogwartsmagic.merperson.hurt",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:merperson/hurt",
+        "stream": false
+      }
+    ]
+  },
+  "merperson.death": {
+    "subtitle": "subtitles.hogwartsmagic.merperson.death",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:merperson/death",
+        "stream": false
+      }
+    ]
   }
 }

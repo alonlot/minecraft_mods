@@ -44,5 +44,6 @@ public class ModEntityAttributes {
         event.put(ModEntities.GOBLIN.get(), com.hogwartsmagic.entity.GoblinEntity.createAttributes().build());
         event.put(ModEntities.GOBLIN_GUARD.get(), com.hogwartsmagic.entity.GoblinGuardEntity.createAttributes().build());
         event.put(ModEntities.HOUSE_ELF.get(), com.hogwartsmagic.entity.HouseElfEntity.createAttributes().build());
+        event.put(ModEntities.MERPERSON.get(), com.hogwartsmagic.entity.MerpersonEntity.createAttributes().build());
     }
 }

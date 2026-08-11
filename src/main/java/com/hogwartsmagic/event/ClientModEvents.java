@@ -740,6 +740,8 @@ public class ClientModEvents {
         event.registerLayerDefinition(com.hogwartsmagic.client.GoldenSnitchModel.LAYER_LOCATION, com.hogwartsmagic.client.GoldenSnitchModel::createBodyLayer);
         event.registerLayerDefinition(com.hogwartsmagic.client.model.GoblinModel.LAYER_LOCATION, com.hogwartsmagic.client.model.GoblinModel::createBodyLayer);
         event.registerLayerDefinition(com.hogwartsmagic.client.model.HouseElfModel.LAYER_LOCATION, com.hogwartsmagic.client.model.HouseElfModel::createBodyLayer);
+        event.registerLayerDefinition(com.hogwartsmagic.client.model.MerpersonModel.LAYER_LOCATION,
+                com.hogwartsmagic.client.model.MerpersonModel::createBodyLayer);
     }
 
     @SubscribeEvent
@@ -788,6 +790,8 @@ public class ClientModEvents {
                         context, com.hogwartsmagic.client.GoblinRenderer.GUARD_TEXTURE));
         event.registerEntityRenderer(ModEntities.HOUSE_ELF.get(),
                 com.hogwartsmagic.client.renderer.HouseElfRenderer::new);
+        event.registerEntityRenderer(ModEntities.MERPERSON.get(),
+                com.hogwartsmagic.client.renderer.MerpersonRenderer::new);
 
         event.registerEntityRenderer(ModEntities.DARK_MARK.get(), DarkMarkRenderer::new);
         event.registerEntityRenderer(ModEntities.VOLDEMORT_SUMMONING.get(),

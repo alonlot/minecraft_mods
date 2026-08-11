@@ -533,17 +533,152 @@ def black_lake_ruin():
     return b
 
 
+MERSTONE = [('minecraft:mossy_cobblestone', 7), ('minecraft:cobblestone', 5),
+            ('minecraft:prismarine', 4), ('minecraft:mossy_stone_bricks', 3)]
+MERSTATUE = [('minecraft:prismarine_bricks', 7), ('minecraft:dark_prismarine', 4),
+             ('minecraft:prismarine', 3)]
+
+
+def merhut(b, cx, cz, radius, height, door, salt):
+    """One crude merfolk dwelling: a weed-grown stone beehive with a low doorway.
+
+    Round rather than square on purpose. Every other build in this pack is
+    rectilinear because it was built by people with set squares; merpeople stack
+    lakebed rock, and a ring of it reads as a different civilisation from across
+    the water.
+    """
+    for y in range(1, height + 1):
+        # Shrink the ring toward the top so the hut closes into a dome.
+        r = radius - (0 if y <= height - 2 else 1)
+        for dx in range(-r, r + 1):
+            for dz in range(-r, r + 1):
+                dist = (dx * dx + dz * dz) ** 0.5
+                if dist < r - 0.6 or dist > r + 0.45:
+                    continue
+                put(b, (cx + dx, y, cz + dz), tex(MERSTONE, cx + dx, y, cz + dz, salt))
+    # Cap the dome.
+    for dx in (-1, 0, 1):
+        for dz in (-1, 0, 1):
+            if abs(dx) + abs(dz) <= 1:
+                slab(b, (cx + dx, height + 1, cz + dz), 'minecraft:mossy_cobblestone_slab')
+
+    # Hollow it out, then punch the doorway through the wall.
+    for y in range(1, height + 1):
+        for dx in range(-radius, radius + 1):
+            for dz in range(-radius, radius + 1):
+                if (dx * dx + dz * dz) ** 0.5 < radius - 0.6:
+                    put(b, (cx + dx, y, cz + dz), 'minecraft:air')
+    ddx, ddz = door
+    for step in range(radius, radius + 2):
+        for y in (1, 2):
+            put(b, (cx + ddx * step, y, cz + ddz * step), 'minecraft:air')
+
+    put(b, (cx, 1, cz), 'minecraft:sea_lantern')
+
+
+def merfolk_village():
+    """The Black Lake: the merfolk village, with its merchieftainess statue.
+
+    This is the place Harry swims into in Goblet of Fire -- "crude stone
+    dwellings daubed with algae" around a square, and a great statue of a
+    merperson looming over it. The statue is what has to carry the build: it is
+    the only thing down there that says the ruin has owners.
+
+    Merpeople spawn here through the structure's spawn_overrides, so the village
+    arrives already inhabited rather than waiting for a natural spawn cycle.
+    """
+    W, H, D = 25, 14, 25
+    b = {}
+
+    # Lakebed: patchy, weedy, broken through in places so it does not read as a
+    # laid floor. These are people who live on the bottom, not on a plaza.
+    for x in range(W):
+        for z in range(D):
+            n = noise(x, 0, z, 91)
+            if n < 0.18:
+                continue
+            if n < 0.40:
+                put(b, (x, 0, z), 'minecraft:gravel')
+            elif n < 0.55:
+                put(b, (x, 0, z), 'minecraft:sand')
+            else:
+                put(b, (x, 0, z), tex(MERSTONE, x, 0, z, 92))
+
+    # Four dwellings round the square, each facing inward.
+    merhut(b, 5, 5, 3, 4, (0, -1), 101)
+    merhut(b, 19, 5, 3, 5, (0, -1), 102)
+    merhut(b, 5, 19, 3, 5, (0, 1), 103)
+    merhut(b, 19, 19, 4, 5, (0, 1), 104)
+
+    # --- the merchieftainess ------------------------------------------------
+    # Read from the ground up: plinth, coiled tail, torso, spread arms, head. It
+    # stands nine blocks over a four-block hut, which is the whole point.
+    cx, cz = 12, 12
+    fill_tex(b, cx - 2, 1, cz - 2, cx + 2, 2, cz + 2, MERSTATUE, 110)
+    for dx, dz, facing in ((3, 0, 'west'), (-3, 0, 'east'), (0, 3, 'north'), (0, -3, 'south')):
+        stair(b, (cx + dx, 1, cz + dz), 'minecraft:prismarine_brick_stairs', facing)
+
+    fill_tex(b, cx - 1, 3, cz - 1, cx + 1, 5, cz + 1, MERSTATUE, 111)   # coiled tail
+    put(b, (cx + 2, 3, cz), tex(MERSTATUE, cx + 2, 3, cz, 111))         # a coil breaking out
+    put(b, (cx + 2, 4, cz + 1), tex(MERSTATUE, cx + 2, 4, cz + 1, 111))
+
+    fill_tex(b, cx - 1, 6, cz, cx + 1, 8, cz, MERSTATUE, 112)           # torso
+    put(b, (cx, 6, cz - 1), tex(MERSTATUE, cx, 6, cz - 1, 112))
+    put(b, (cx, 7, cz - 1), 'minecraft:dark_prismarine')
+
+    for side in (-1, 1):                                                # arms, spread wide
+        put(b, (cx + side * 2, 8, cz), tex(MERSTATUE, cx + side * 2, 8, cz, 113))
+        put(b, (cx + side * 3, 7, cz), tex(MERSTATUE, cx + side * 3, 7, cz, 113))
+        put(b, (cx + side * 3, 6, cz), 'minecraft:prismarine_wall')
+
+    put(b, (cx, 9, cz), 'minecraft:chiseled_stone_bricks')              # head
+    put(b, (cx, 10, cz), 'minecraft:dark_prismarine')                   # and her crown
+    for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+        put(b, (cx + dx, 10, cz + dz), 'minecraft:prismarine_wall')
+
+    # Her spear, planted: the silhouette that reads first from a distance.
+    for y in range(1, 12):
+        put(b, (cx + 4, y, cz - 1), 'minecraft:prismarine_wall')
+    put(b, (cx + 4, 12, cz - 1), 'minecraft:sea_lantern')
+
+    # Lamp posts round the square.
+    for px, pz in ((12, 4), (12, 20), (4, 12), (20, 12)):
+        for y in range(1, 4):
+            put(b, (px, y, pz), tex(MERSTATUE, px, y, pz, 120))
+        put(b, (px, 4, pz), 'minecraft:sea_lantern')
+
+    # Weed and clutter, thickest where nobody walks.
+    for x in range(W):
+        for z in range(D):
+            if (x, z) == (cx, cz) or b.get((x, 1, z), (None,))[0] not in (None, 'minecraft:air'):
+                continue
+            if b.get((x, 0, z), (None,))[0] is None:
+                continue
+            n = noise(x, 1, z, 130)
+            if n > 0.90:
+                put(b, (x, 1, z), 'minecraft:sea_pickle')
+            elif n > 0.80:
+                put(b, (x, 1, z), 'minecraft:seagrass')
+
+    rubble(b, [(9, 1, 17), (16, 1, 8), (8, 1, 8), (17, 1, 17)], MERSTONE, 140)
+    chest(b, (19, 1, 21), 'south', 'minecraft:chests/underwater_ruin_big')
+
+    flood(b, W, H, D)
+    return b
+
+
 BUILDS = {
     'fen_gibbet': fen_gibbet,
     'horntail_nest': horntail_nest,
     'chamber_hall': chamber_hall,
     'goblin_vault': goblin_vault,
     'black_lake_ruin': black_lake_ruin,
+    'merfolk_village': merfolk_village,
 }
 
 # Builds whose empty space is water rather than air. Anything waterloggable inside one has to say so,
 # or it keeps a pocket of air inside its own model and the ruin looks like it is full of bubbles.
-FLOODED = {'black_lake_ruin'}
+FLOODED = {'black_lake_ruin', 'merfolk_village'}
 
 
 # --- audit ---------------------------------------------------------------------------------------

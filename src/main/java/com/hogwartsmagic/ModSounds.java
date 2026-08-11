@@ -145,6 +145,17 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> GIANT_HURT = register("giant.hurt");
     public static final RegistryObject<SoundEvent> GIANT_DEATH = register("giant.death");
 
+    // Merpeople of the Black Lake. Mermish sounds like screeching above the
+    // water and like a real song below it, so the two are separate clips rather
+    // than one played at different pitches.
+    public static final RegistryObject<SoundEvent> MERPERSON_AMBIENT = register("merperson.ambient");
+    public static final RegistryObject<SoundEvent> MERPERSON_CALL = register("merperson.call");
+    public static final RegistryObject<SoundEvent> MERPERSON_SCREECH = register("merperson.screech");
+    public static final RegistryObject<SoundEvent> MERPERSON_SONG = register("merperson.song");
+    public static final RegistryObject<SoundEvent> MERPERSON_SPEAR = register("merperson.spear");
+    public static final RegistryObject<SoundEvent> MERPERSON_HURT = register("merperson.hurt");
+    public static final RegistryObject<SoundEvent> MERPERSON_DEATH = register("merperson.death");
+
     private static RegistryObject<SoundEvent> register(String name) {
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, name);
         return SOUND_EVENTS.register(name, () -> SoundEvent.createVariableRangeEvent(id));

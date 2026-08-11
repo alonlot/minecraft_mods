@@ -180,6 +180,13 @@ public class HogwartsGuideScreen extends Screen {
                         "It rears before it strikes, which is the only warning you are given. At a distance it spits venom that eats the ground where it lands, and if you keep out of reach it will simply go under the earth and come up beneath you.",
                         "Blows landed on the head will in time put its eyes out, and a blinded basilisk cannot petrify at all. It hunts by sound thereafter - so walk, do not run, and crouch when it casts about for you."
                 )),
+                page("On the merpeople", List.of(
+                        "The Black Lake is inhabited. Deep down, past where the light gives out, there is a village of stone dwellings under a great statue of a merchieftainess, and the people who built it are watching you swim over their roofs.",
+                        "They are Beings, not beasts, and they will let you pass. Linger over the village and one will rear up, spread its fins and cry out at you - a warning, and the only one you are given. Take it and go, and nothing happens at all.",
+                        "Ignore it, or raise a hand to any one of them, and every merperson for twenty yards comes at once with a spear. They are faster than you in the water and they know it. Their chieftainess is larger, paler, and worse.",
+                        "Their speech is a real language, though above the surface it is nothing but a hideous screeching. Put your head under and listen properly and you will hear them singing.",
+                        "A spear taken from one is a poor weapon in air and a wicked one below the water."
+                )),
                 page("On giants", List.of(
                         "A giant stands more than three men tall and wanders the deepest forest alone, muttering to itself and pulling at the trees.",
                         "Left be, it will leave you be. Strike it, or linger too long at its feet, and it will announce itself with a roar you will feel through the soles of your boots.",

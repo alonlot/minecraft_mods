@@ -2594,6 +2594,27 @@ public class ModEvents {
                 || disguiseType == net.minecraft.world.entity.EntityType.BOGGED;
     }
 
+    /**
+     * A merperson's spear only comes into its own underwater.
+     *
+     * <p>The bonus is added here rather than the land value being subtracted,
+     * because item attributes cannot see whether the wielder is submerged and a
+     * subtraction could be enchanted into a negative hit.
+     */
+    @SubscribeEvent
+    public static void onMerpersonSpearHit(LivingHurtEvent event) {
+        if (!(event.getSource().getEntity() instanceof LivingEntity attacker)) {
+            return;
+        }
+        if (!(attacker.getMainHandItem().getItem() instanceof com.hogwartsmagic.item.MerpersonSpearItem)) {
+            return;
+        }
+        if (attacker.isUnderWater()) {
+            event.setAmount(event.getAmount()
+                    + com.hogwartsmagic.item.MerpersonSpearItem.SUBMERGED_BONUS);
+        }
+    }
+
     @SubscribeEvent
     public static void onLivingHurt(LivingHurtEvent event) {
         if (!event.getEntity().level().isClientSide()

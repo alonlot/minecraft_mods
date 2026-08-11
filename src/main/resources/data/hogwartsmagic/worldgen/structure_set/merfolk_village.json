@@ -1,0 +1,14 @@
+{
+  "structures": [
+    {
+      "structure": "hogwartsmagic:merfolk_village",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "spacing": 26,
+    "separation": 11,
+    "salt": 741220017
+  }
+}

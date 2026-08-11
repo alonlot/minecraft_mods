@@ -498,6 +498,16 @@ public class ExampleMod
     public static final RegistryObject<Item> HOUSE_ELF_SPAWN_EGG = ITEMS.register("house_elf_spawn_egg",
             () -> new net.minecraftforge.common.ForgeSpawnEggItem(ModEntities.HOUSE_ELF, 0x9E8E76, 0xCEC9BA, new Item.Properties()));
 
+    public static final RegistryObject<Item> MERPERSON_SPAWN_EGG = ITEMS.register("merperson_spawn_egg",
+            () -> new net.minecraftforge.common.ForgeSpawnEggItem(ModEntities.MERPERSON, 0x5E6B5A, 0x223A26, new Item.Properties()));
+
+    // A barbed lakebed-stone spear. Unremarkable in air, nasty underwater --
+    // see MerpersonSpearItem for where the bonus is applied.
+    public static final RegistryObject<Item> MERPERSON_SPEAR = ITEMS.register("merperson_spear",
+            () -> new com.hogwartsmagic.item.MerpersonSpearItem(
+                    net.minecraft.world.item.Tiers.IRON,
+                    com.hogwartsmagic.item.MerpersonSpearItem.properties(net.minecraft.world.item.Tiers.IRON)));
+
     public static final RegistryObject<CreativeModeTab> MAIN_TAB = CREATIVE_MODE_TABS.register("main_tab", () -> CreativeModeTab.builder()
             .withTabsBefore(CreativeModeTabs.COMBAT)
             .icon(() -> HARRY_POTTER_WAND.get().getDefaultInstance())

@@ -538,5 +538,16 @@
   "subtitles.hogwartsmagic.basilisk.erupt": "Basilisk erupts",
   "subtitles.hogwartsmagic.basilisk.gaze_heartbeat": "Your heart pounds",
   "effect.hogwartsmagic.basilisk_gaze": "Basilisk's Gaze",
-  "entity.hogwartsmagic.basilisk_venom": "Basilisk Venom"
+  "entity.hogwartsmagic.basilisk_venom": "Basilisk Venom",
+  "entity.hogwartsmagic.merperson": "Merperson",
+  "item.hogwartsmagic.merperson_spawn_egg": "Merperson Spawn Egg",
+  "item.hogwartsmagic.merperson_spear": "Merperson's Spear",
+  "item.hogwartsmagic.merperson_spear.desc": "Deadly underwater. Clumsy in air.",
+  "subtitles.hogwartsmagic.merperson.ambient": "Merperson murmurs",
+  "subtitles.hogwartsmagic.merperson.call": "Merperson calls in Mermish",
+  "subtitles.hogwartsmagic.merperson.screech": "Merperson screeches",
+  "subtitles.hogwartsmagic.merperson.song": "Merpeople sing",
+  "subtitles.hogwartsmagic.merperson.spear": "Spear thrusts",
+  "subtitles.hogwartsmagic.merperson.hurt": "Merperson hurts",
+  "subtitles.hogwartsmagic.merperson.death": "Merperson dies"
 }

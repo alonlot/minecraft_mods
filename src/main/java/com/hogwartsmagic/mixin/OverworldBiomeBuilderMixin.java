@@ -1,6 +1,7 @@
 package com.hogwartsmagic.mixin;
 
 import com.hogwartsmagic.worldgen.BlackLakeClimateZones;
+import com.hogwartsmagic.worldgen.BlackLakeShallowsClimateZones;
 import com.hogwartsmagic.worldgen.ChamberDepthsClimateZones;
 import com.hogwartsmagic.worldgen.DementorFenClimateZones;
 import com.hogwartsmagic.worldgen.ForbiddenForestClimateZones;
@@ -40,6 +41,7 @@ public abstract class OverworldBiomeBuilderMixin {
         add(consumer, DementorFenClimateZones.POINTS, ModBiomes.DEMENTOR_FEN);
         add(consumer, HorntailPeaksClimateZones.POINTS, ModBiomes.HORNTAIL_PEAKS);
         add(consumer, BlackLakeClimateZones.POINTS, ModBiomes.BLACK_LAKE);
+        add(consumer, BlackLakeShallowsClimateZones.POINTS, ModBiomes.BLACK_LAKE_SHALLOWS);
         add(consumer, ChamberDepthsClimateZones.POINTS, ModBiomes.CHAMBER_DEPTHS);
         add(consumer, GoblinUndercityClimateZones.POINTS, ModBiomes.GOBLIN_UNDERCITY);
     }

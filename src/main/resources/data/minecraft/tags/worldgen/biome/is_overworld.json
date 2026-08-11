@@ -20,6 +20,10 @@
     {
       "id": "hogwartsmagic:goblin_undercity",
       "required": false
+    },
+    {
+      "id": "hogwartsmagic:black_lake_shallows",
+      "required": false
     }
   ]
 }

@@ -36,8 +36,14 @@ public final class ModBiomes {
     /** Cave biome: hot, gold-veined vaults full of goblins. */
     public static final ResourceKey<Biome> GOBLIN_UNDERCITY = key("goblin_undercity");
 
-    /** Deep, cold, black water — the reason to grow Gillyweed. */
+    /** Deep, cold, black water — the reason to grow Gillyweed. Generates as a coastal deep ocean. */
     public static final ResourceKey<Biome> BLACK_LAKE = key("black_lake");
+
+    /**
+     * The same black water, inland: sea lochs and enclosed lakes cut out of the river band. Shallow,
+     * so it carries merpeople but not the village. See {@link BlackLakeShallowsClimateZones}.
+     */
+    public static final ResourceKey<Biome> BLACK_LAKE_SHALLOWS = key("black_lake_shallows");
 
     private ModBiomes() {}
 }

@@ -152,6 +152,48 @@ Merpeople spawn inside it through `spawn_overrides`, so it arrives inhabited
 rather than waiting on a natural spawn cycle. Spacing 26 / separation 11, so it
 is markedly rarer than the existing `black_lake_ruin`.
 
+## The Black Lake, inland
+
+`hogwartsmagic:black_lake` claims a slice of the **deep ocean** continentalness
+band, which is the only way to get water deep enough to need Gillyweed — but it
+means the Black Lake only ever turns up on a coastline. It is an arm of the sea,
+not a lake.
+
+`hogwartsmagic:black_lake_shallows` puts the same black water inland. The
+mechanism is the **river band**: vanilla carves rivers by handing the two extreme
+weirdness bands (below −0.93333 and above +0.93333) to
+`OverworldBiomeBuilder#addValleys`, so a biome claiming part of that band gets a
+channel of open water cut through whatever land surrounds it. Taking the two
+flattest erosion bands as well (0.45–1.0, where vanilla puts swamps) turns a
+narrow gorge into a broad sheet. Continentalness runs from the coast band into
+mid-inland, so they appear both as sea lochs behind a shoreline and as fully
+enclosed lakes.
+
+**Why two biomes rather than one with two slices.** The inland version is
+shallow — a few blocks, like any river valley. Depth in 1.18+ terrain comes from
+continentalness, and continentalness high enough to be inland cannot also be
+deep; no parameter buys both. So the two need to differ in what they carry:
+
+| | `black_lake` | `black_lake_shallows` |
+|---|---|---|
+| Placement | Deep ocean band, coastal | River band, inland |
+| Depth | Past breath-hold range | A few blocks |
+| Merpeople | Pods of 2–4, one chieftainess | Ones and twos, no chieftainess |
+| Merfolk village | Yes | **No** |
+| Black Lake ruin | Yes | **No** |
+| Guardians | Yes | No — they belong to a monument |
+| Gillyweed | Yes | Yes |
+
+The structures are the reason for the split. A twelve-block merchieftainess
+statue standing in four blocks of water reads as a bug, so neither structure is
+tagged for the shallow biome.
+
+The merperson spawn rule had to change with it. It used to require
+`y < seaLevel - 4`, which excludes every shallow lake in the world; it now asks
+for three blocks of water, below the surface, and **within ten blocks of the
+floor** — measured against the actual `OCEAN_FLOOR` heightmap, so they hug the
+bottom in both a deep arm and a loch.
+
 ## Spear
 
 Iron tier, `+2` damage and `-2.6` speed — five damage and slow, on land.

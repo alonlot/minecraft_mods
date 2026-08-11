@@ -560,10 +560,19 @@ public class MerpersonEntity extends PathfinderMob implements NeutralMob {
     public static boolean checkMerpersonSpawnRules(EntityType<MerpersonEntity> type, ServerLevelAccessor level,
                                                    MobSpawnType reason, BlockPos pos,
                                                    net.minecraft.util.RandomSource random) {
-        // Deep water only - merpeople live on the lakebed, not in the shallows.
-        return level.getFluidState(pos).is(net.minecraft.tags.FluidTags.WATER)
-                && level.getFluidState(pos.above()).is(net.minecraft.tags.FluidTags.WATER)
-                && pos.getY() < level.getSeaLevel() - 4;
+        // Enough water to hold a two-and-a-bit-block animal, below the surface,
+        // and near the bottom. Measuring against the floor rather than against a
+        // fixed depth below sea level is what lets them live in an inland loch as
+        // well as in the deep arm - a flat "must be four blocks under sea level"
+        // test excludes every shallow lake in the world.
+        if (!level.getFluidState(pos).is(net.minecraft.tags.FluidTags.WATER)
+                || !level.getFluidState(pos.above()).is(net.minecraft.tags.FluidTags.WATER)
+                || !level.getFluidState(pos.above(2)).is(net.minecraft.tags.FluidTags.WATER)) {
+            return false;
+        }
+        int floor = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.OCEAN_FLOOR,
+                pos.getX(), pos.getZ());
+        return pos.getY() < level.getSeaLevel() && pos.getY() - floor <= 10;
     }
 
     @Override

@@ -14,6 +14,10 @@
     {
       "id": "hogwartsmagic:black_lake",
       "required": false
+    },
+    {
+      "id": "hogwartsmagic:black_lake_shallows",
+      "required": false
     }
   ]
 }

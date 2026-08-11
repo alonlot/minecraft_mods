@@ -14,9 +14,29 @@ two underground halls out of solid stone.
 Coordinates are structure-local with y=0 at the bottom of the build. For the surface structures the
 structure JSON projects y=0 onto the terrain heightmap; for the underground ones it is pinned to an
 absolute depth instead. See the structure JSON files for which.
+
+BUILDING NOTES
+--------------
+The first version of these builds was flat: single-material boxes with a couple of decorations
+dropped on top. The techniques below are what the rewrite applies, and they are why the helper
+functions look the way they do.
+
+  * Palette, not block. Each build picks 3-5 blocks that share a tone but differ in texture, and
+    blends them with `tex()` so no wall is one flat material. Mossy and cracked variants cluster low,
+    where damp and damage would actually be.
+  * Depth beats detail. A flat wall catches no light, so walls get pilasters that stand one block
+    proud of the surface and recessed bays between them. That single-block offset is what turns a
+    90-degree edge into a shadow line.
+  * Silhouette first. Ruins get uneven heights, collapsed corners and toppled columns; the outline
+    should be readable before any of the detail is.
+  * Stairs and slabs are texture. Arches, vaulted ceilings, roof trim and rubble are all half-blocks
+    -- they break up the cube grid that makes builds read as programmer-art.
+  * Light belongs to the structure. Lanterns sit on pilasters and hang from vault crowns rather than
+    being scattered where they happen to fit.
 """
 
 import gzip
+import io
 import os
 import struct
 
@@ -62,7 +82,6 @@ def _write_payload(out, value):
 
 def write_nbt(path, root):
     """Write a gzipped, unnamed root compound -- the shape Minecraft expects for a template."""
-    import io
     buf = io.BytesIO()
     buf.write(struct.pack('>b', TAG_COMPOUND))
     buf.write(struct.pack('>H', 0))  # empty root name
@@ -106,193 +125,411 @@ def build_template(blocks):
     })
 
 
-# --- helpers ------------------------------------------------------------------------------------
+# --- geometry helpers ----------------------------------------------------------------------------
 
-def box(blocks, x0, y0, z0, x1, y1, z1, name, props=None, hollow=False):
-    for x in range(x0, x1 + 1):
-        for y in range(y0, y1 + 1):
-            for z in range(z0, z1 + 1):
-                edge = x in (x0, x1) or y in (y0, y1) or z in (z0, z1)
-                if hollow and not edge:
-                    continue
-                blocks[(x, y, z)] = (name, props, None)
+def noise(x, y, z, salt=0):
+    """Deterministic 0..1 hash. Structures must be identical every run, so no RNG anywhere."""
+    h = (x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (salt * 2654435761)
+    h &= 0x7FFFFFFF
+    h = (h ^ (h >> 13)) * 1274126177 & 0x7FFFFFFF
+    return ((h ^ (h >> 16)) & 0xFFFF) / 65535.0
 
 
-def fill(blocks, x0, y0, z0, x1, y1, z1, name, props=None):
-    box(blocks, x0, y0, z0, x1, y1, z1, name, props, hollow=False)
+def tex(palette, x, y, z, salt=0):
+    """Pick from [(block, weight), ...] by position hash -- the texture-mixing technique."""
+    total = sum(w for _, w in palette)
+    roll = noise(x, y, z, salt) * total
+    for block, weight in palette:
+        roll -= weight
+        if roll < 0:
+            return block
+    return palette[-1][0]
 
 
-def chest(blocks, pos, facing, loot):
-    blocks[pos] = ('minecraft:chest', {'facing': facing},
-                   {'id': 'minecraft:chest', 'LootTable': loot})
+def put(b, pos, name, props=None):
+    b[pos] = (name, props, None)
 
 
-def checker(x, z, a, b, mod=3):
-    return a if (x * 7 + z * 5) % mod else b
+def fill(b, x0, y0, z0, x1, y1, z1, name, props=None):
+    for x in range(min(x0, x1), max(x0, x1) + 1):
+        for y in range(min(y0, y1), max(y0, y1) + 1):
+            for z in range(min(z0, z1), max(z0, z1) + 1):
+                b[(x, y, z)] = (name, props, None)
+
+
+def fill_tex(b, x0, y0, z0, x1, y1, z1, palette, salt=0, ground=None):
+    """Fill with a blended palette. `ground` biases a second palette in near y=ground (damp/damage)."""
+    for x in range(min(x0, x1), max(x0, x1) + 1):
+        for y in range(min(y0, y1), max(y0, y1) + 1):
+            for z in range(min(z0, z1), max(z0, z1) + 1):
+                pal = palette
+                if ground is not None and y - ground <= 1 and noise(x, y, z, salt + 7) < 0.55:
+                    pal = ground_palette(palette)
+                b[(x, y, z)] = (tex(pal, x, y, z, salt), None, None)
+
+
+def ground_palette(palette):
+    """Weight the mossy/cracked members of a palette up, for the damp bottom courses of a wall."""
+    return [(bl, w * (4 if ('mossy' in bl or 'cracked' in bl) else 1)) for bl, w in palette]
+
+
+def stair(b, pos, name, facing, half='bottom', shape='straight'):
+    b[pos] = (name, {'facing': facing, 'half': half, 'shape': shape, 'waterlogged': 'false'}, None)
+
+
+def slab(b, pos, name, kind='bottom'):
+    b[pos] = (name, {'type': kind, 'waterlogged': 'false'}, None)
+
+
+def chest(b, pos, facing, loot):
+    b[pos] = ('minecraft:chest', {'facing': facing},
+              {'id': 'minecraft:chest', 'LootTable': loot})
+
+
+def hall(b, w, h, d, shell, floor_pal, wall_pal, salt):
+    """A sealed underground room with a vaulted ceiling and pilastered walls.
+
+    Sealed on all six faces on purpose: these are placed at an absolute depth inside solid rock, so
+    the shell is what stops the room opening into whatever cave happens to be next door.
+    """
+    fill(b, 0, 0, 0, w - 1, h - 1, d - 1, shell)          # solid block...
+    fill(b, 1, 1, 1, w - 2, h - 2, d - 2, 'minecraft:air')  # ...hollowed out
+
+    fill_tex(b, 0, 0, 0, w - 1, 0, d - 1, floor_pal, salt)
+    for y in range(1, h - 1):
+        fill_tex(b, 0, y, 0, w - 1, y, 0, wall_pal, salt, ground=1)
+        fill_tex(b, 0, y, d - 1, w - 1, y, d - 1, wall_pal, salt, ground=1)
+        fill_tex(b, 0, y, 1, 0, y, d - 2, wall_pal, salt, ground=1)
+        fill_tex(b, w - 1, y, 1, w - 1, y, d - 2, wall_pal, salt, ground=1)
+    fill_tex(b, 0, h - 1, 0, w - 1, h - 1, d - 1, wall_pal, salt + 3)
+
+
+def vault(b, w, h, d, stairs):
+    """Upside-down stairs around the ceiling edge, so the roof reads as an arch not a lid."""
+    for x in range(1, w - 1):
+        stair(b, (x, h - 2, 1), stairs, 'south', 'top')
+        stair(b, (x, h - 2, d - 2), stairs, 'north', 'top')
+    for z in range(2, d - 2):
+        stair(b, (1, h - 2, z), stairs, 'east', 'top')
+        stair(b, (w - 2, h - 2, z), stairs, 'west', 'top')
+
+
+def pilasters(b, h, xs, zs, w, d, pal, cap, salt):
+    """Columns standing one block proud of the wall, with a capital -- the depth technique.
+
+    Returns the positions of the capitals so callers can hang lights off them.
+    """
+    caps = []
+    for x in xs:
+        for z in (1, d - 2):
+            for y in range(1, h - 2):
+                put(b, (x, y, z), tex(pal, x, y, z, salt))
+            put(b, (x, h - 3, z), cap)
+            caps.append((x, h - 4, z))
+    for z in zs:
+        for x in (1, w - 2):
+            for y in range(1, h - 2):
+                put(b, (x, y, z), tex(pal, x, y, z, salt))
+            put(b, (x, h - 3, z), cap)
+            caps.append((x, h - 4, z))
+    return caps
+
+
+def flood(b, w, h, d):
+    """Submerge a build: water in every empty cell, and waterlogged=true on everything that can be.
+
+    Doing this as one pass at the end rather than remembering it at each call site is deliberate.
+    Waterlogging is invisible while you are placing blocks and only shows up in-game as a stair with
+    a bubble of air trapped inside it, which is the single easiest thing to get wrong in an
+    underwater build.
+    """
+    for pos, (block, props, be) in list(b.items()):
+        if any(block.endswith(s) for s in WATERLOGGABLE):
+            props = dict(props or {})
+            props['waterlogged'] = 'true'
+            b[pos] = (block, props, be)
+    for x in range(w):
+        for y in range(1, h):
+            for z in range(d):
+                b.setdefault((x, y, z), ('minecraft:water', {'level': '0'}, None))
+
+
+def rubble(b, spots, palette, salt):
+    """Small collapse heaps. Ruins without rubble read as unfinished rather than old."""
+    for i, (x, y, z) in enumerate(spots):
+        put(b, (x, y, z), tex(palette, x, y, z, salt + i))
+        if noise(x, y, z, salt + i + 1) > 0.45:
+            slab(b, (x, y + 1, z), 'minecraft:cobblestone_slab')
 
 
 # --- the builds ---------------------------------------------------------------------------------
 
+DARK_OAK = [('minecraft:dark_oak_planks', 6), ('minecraft:dark_oak_log', 2), ('minecraft:spruce_planks', 2)]
+BOG_STONE = [('minecraft:mossy_cobblestone', 6), ('minecraft:cobblestone', 4), ('minecraft:mossy_stone_bricks', 3)]
+
+
 def fen_gibbet():
-    """Dementor Fen: a rotting gallows platform on stilts over the bog."""
+    """Dementor Fen: a rotting gallows on a sunken stone plinth, one corner already gone.
+
+    Silhouette does the work here -- the tall gibbet arm against a low deck, and the collapsed
+    north-east corner, are what make it read from across the marsh.
+    """
     b = {}
-    posts = [(1, 1), (7, 1), (1, 7), (7, 7)]
-    for x, z in posts:
-        fill(b, x, 0, z, x, 2, z, 'minecraft:dark_oak_log', {'axis': 'y'})
-
-    # Deck, with a few boards rotted through.
-    for x in range(1, 8):
-        for z in range(1, 8):
-            if (x * 3 + z * 5) % 11 == 0:
+    # Sunken plinth. Grounding a build on a stone footing stops it looking like it was dropped in.
+    for x in range(1, 10):
+        for z in range(1, 10):
+            if (x in (1, 9) and z in (1, 9)) or noise(x, 0, z, 5) < 0.12:
                 continue
-            b[(x, 3, z)] = ('minecraft:dark_oak_planks', None, None)
+            put(b, (x, 0, z), tex(BOG_STONE, x, 0, z, 1))
+            if noise(x, 0, z, 3) > 0.72:
+                put(b, (x, 1, z), tex(BOG_STONE, x, 1, z, 2))
 
-    # Railing, broken in places.
-    for x in range(1, 8):
-        for z in (1, 7):
-            if (x + z) % 4:
-                b[(x, 4, z)] = ('minecraft:dark_oak_fence', None, None)
-    for z in range(2, 7):
-        for x in (1, 7):
-            if (x + z) % 4:
-                b[(x, 4, z)] = ('minecraft:dark_oak_fence', None, None)
+    posts = [(2, 2), (8, 2), (2, 8), (8, 8)]
+    for px, pz in posts:
+        if (px, pz) == (8, 8):           # the collapsed corner -- stump only
+            put(b, (px, 2, pz), 'minecraft:dark_oak_log', {'axis': 'y'})
+            continue
+        fill(b, px, 2, pz, px, 4, pz, 'minecraft:dark_oak_log', {'axis': 'y'})
+        # Diagonal braces at the post heads: structural framing, and it kills the bare 90-degree edge.
+        stair(b, (px + (1 if px < 5 else -1), 4, pz), 'minecraft:dark_oak_stairs',
+              'west' if px < 5 else 'east', 'top')
+        stair(b, (px, 4, pz + (1 if pz < 5 else -1)), 'minecraft:dark_oak_stairs',
+              'north' if pz < 5 else 'south', 'top')
 
-    # The gibbet arm and its hanging cage.
-    fill(b, 4, 4, 1, 4, 8, 1, 'minecraft:dark_oak_log', {'axis': 'y'})
-    fill(b, 4, 8, 2, 4, 8, 4, 'minecraft:dark_oak_log', {'axis': 'z'})
-    fill(b, 4, 6, 4, 4, 7, 4, 'minecraft:chain', {'axis': 'y'})
-    box(b, 3, 4, 3, 5, 6, 5, 'minecraft:iron_bars', None, hollow=True)
-    fill(b, 4, 5, 4, 4, 5, 4, 'minecraft:air')
+    # Deck: mixed planks, slab patches worn thin, boards missing toward the fallen corner.
+    for x in range(2, 9):
+        for z in range(2, 9):
+            rot = noise(x, 5, z, 11) + (x + z) / 26.0     # decay gradient toward (8,8)
+            if rot > 1.05:
+                continue
+            if rot > 0.86:
+                slab(b, (x, 5, z), 'minecraft:dark_oak_slab')
+            else:
+                put(b, (x, 5, z), tex(DARK_OAK, x, 5, z, 4))
 
-    for pos in [(2, 4, 2), (6, 4, 6), (3, 4, 6), (4, 7, 2)]:
-        b[pos] = ('minecraft:cobweb', None, None)
-    b[(2, 5, 6)] = ('minecraft:soul_lantern', {'hanging': 'false'}, None)
-    chest(b, (6, 4, 2), 'south', 'minecraft:chests/simple_dungeon')
+    for x in range(2, 9):                                  # railings, broken in places
+        for z in (2, 8):
+            if noise(x, 6, z, 9) > 0.3 and (x, z) != (8, 8):
+                put(b, (x, 6, z), 'minecraft:dark_oak_fence')
+    for z in range(3, 8):
+        for x in (2, 8):
+            if noise(x, 6, z, 9) > 0.3:
+                put(b, (x, 6, z), 'minecraft:dark_oak_fence')
+
+    # The gibbet itself: post, braced arm, hanging cage.
+    fill(b, 3, 6, 3, 3, 11, 3, 'minecraft:dark_oak_log', {'axis': 'y'})
+    fill(b, 3, 11, 4, 3, 11, 6, 'minecraft:dark_oak_log', {'axis': 'z'})
+    stair(b, (3, 10, 4), 'minecraft:dark_oak_stairs', 'north', 'top')
+    slab(b, (3, 12, 3), 'minecraft:dark_oak_slab')
+    fill(b, 3, 9, 6, 3, 10, 6, 'minecraft:chain', {'axis': 'y'})
+
+    cage_y = 6
+    for y in (cage_y, cage_y + 1, cage_y + 2):             # 3x3 barred cage
+        for dx in (-1, 0, 1):
+            for dz in (-1, 0, 1):
+                if dx == 0 and dz == 0 and y != cage_y:
+                    continue
+                if abs(dx) == 1 or abs(dz) == 1 or y == cage_y:
+                    put(b, (3 + dx, y, 6 + dz), 'minecraft:iron_bars')
+    put(b, (3, cage_y + 1, 6), 'minecraft:air')
+    put(b, (3, cage_y + 2, 6), 'minecraft:air')
+
+    for pos in [(4, 6, 4), (7, 6, 7), (2, 7, 5), (3, 9, 5)]:
+        put(b, pos, 'minecraft:cobweb')
+    put(b, (7, 6, 3), 'minecraft:soul_lantern', {'hanging': 'false'})
+    put(b, (2, 7, 7), 'minecraft:soul_lantern', {'hanging': 'false'})
+    rubble(b, [(9, 1, 8), (8, 1, 9), (9, 1, 6)], BOG_STONE, 21)
+    chest(b, (6, 6, 3), 'south', 'minecraft:chests/simple_dungeon')
     return b
+
+
+CRAG = [('minecraft:blackstone', 6), ('minecraft:polished_blackstone', 3), ('minecraft:basalt', 3)]
 
 
 def horntail_nest():
-    """Horntail Peaks: a scorched nest ringed with basalt, picked bones in the middle."""
+    """Horntail Peaks: a scorched eyrie. An uneven, broken crest is what sells it as a nest."""
     b = {}
-    cx = cz = 5
-    for x in range(11):
-        for z in range(11):
+    cx = cz = 7
+    for x in range(15):
+        for z in range(15):
             d2 = (x - cx) ** 2 + (z - cz) ** 2
-            if d2 > 30:
+            if d2 > 46:
                 continue
-            b[(x, 0, z)] = ('minecraft:blackstone', None, None)
-            if 12 <= d2 <= 30:                      # raised rim
-                b[(x, 1, z)] = (checker(x, z, 'minecraft:basalt', 'minecraft:blackstone'),
-                                {'axis': 'y'} if checker(x, z, 1, 0) else None, None)
-                if d2 >= 22 and (x + z) % 3 == 0:
-                    b[(x, 2, z)] = ('minecraft:basalt', {'axis': 'y'}, None)
-            elif d2 <= 4:                           # hot centre
-                b[(x, 0, z)] = ('minecraft:magma_block', None, None)
+            put(b, (x, 0, z), tex(CRAG, x, 0, z, 1))
+            if d2 <= 6:                                    # hot centre
+                put(b, (x, 0, z), 'minecraft:magma_block' if noise(x, 0, z, 2) > 0.35
+                    else 'minecraft:blackstone')
+            elif 20 <= d2 <= 46:
+                # Rim height varies with angle so the crest is jagged, not a smooth donut.
+                crest = 1 + int(noise(x // 2, 0, z // 2, 8) * 3)
+                for y in range(1, crest + 1):
+                    put(b, (x, y, z), tex(CRAG, x, y, z, 3))
+                if noise(x, 0, z, 12) > 0.62:              # broken teeth along the crest
+                    put(b, (x, crest + 1, z), 'minecraft:basalt', {'axis': 'y'})
+                elif noise(x, 0, z, 13) > 0.72:
+                    stair(b, (x, crest + 1, z),
+                          'minecraft:polished_blackstone_stairs',
+                          'east' if x < cx else 'west', 'bottom')
 
-    for pos in [(4, 1, 4), (6, 1, 5), (5, 1, 6)]:   # eggs
-        b[pos] = ('minecraft:gilded_blackstone', None, None)
-    for pos in [(3, 1, 6), (7, 1, 3), (6, 1, 7)]:   # prey
-        b[pos] = ('minecraft:bone_block', {'axis': 'x'}, None)
-    chest(b, (3, 1, 3), 'south', 'minecraft:chests/nether_bridge')
+    for ex, ez in [(6, 6), (8, 7), (7, 9)]:                # eggs, on a scraped-up mound
+        put(b, (ex, 0, ez), 'minecraft:polished_blackstone')
+        put(b, (ex, 1, ez), 'minecraft:gilded_blackstone')
+        for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            if noise(ex + dx, 1, ez + dz, 17) > 0.55:
+                slab(b, (ex + dx, 1, ez + dz), 'minecraft:polished_blackstone_slab')
+
+    for bx, by, bz, axis in [(5, 1, 9, 'x'), (9, 1, 5, 'z'), (10, 1, 9, 'x'), (4, 1, 6, 'z')]:
+        put(b, (bx, by, bz), 'minecraft:bone_block', {'axis': axis})
+    put(b, (10, 2, 8), 'minecraft:magma_block')
+    chest(b, (4, 1, 8), 'east', 'minecraft:chests/nether_bridge')
     return b
+
+
+CHAMBER_WALL = [('minecraft:stone_bricks', 8), ('minecraft:mossy_stone_bricks', 4),
+                ('minecraft:cracked_stone_bricks', 3), ('minecraft:stone', 2)]
+CHAMBER_FLOOR = [('minecraft:stone_bricks', 6), ('minecraft:mossy_stone_bricks', 5),
+                 ('minecraft:cobblestone', 2), ('minecraft:mossy_cobblestone', 2)]
 
 
 def chamber_hall():
-    """Chamber Depths: a pillared serpent hall with a water channel down its spine.
-
-    Fully enclosed on all six sides -- this is placed at a fixed depth inside solid rock, so the
-    shell is what stops it opening into whatever cave happens to be next door."""
+    """Chamber Depths: a pillared serpent hall, vaulted, with a flooded channel down its spine."""
+    W, H, D = 15, 9, 17
     b = {}
-    box(b, 0, 0, 0, 12, 7, 12, 'minecraft:stone_bricks')          # solid shell
-    fill(b, 1, 1, 1, 11, 6, 11, 'minecraft:air')                  # hollowed out
+    hall(b, W, H, D, 'minecraft:stone_bricks', CHAMBER_FLOOR, CHAMBER_WALL, salt=31)
+    vault(b, W, H, D, 'minecraft:stone_brick_stairs')
 
-    for x in range(13):                                            # weathered floor + walls
-        for z in range(13):
-            b[(x, 0, z)] = (checker(x, z, 'minecraft:stone_bricks',
-                                    'minecraft:mossy_stone_bricks', 4), None, None)
-    for x in range(13):
-        for y in range(1, 7):
-            for z in (0, 12):
-                b[(x, y, z)] = (checker(x + y, z, 'minecraft:stone_bricks',
-                                        'minecraft:cracked_stone_bricks', 5), None, None)
-    for z in range(1, 12):
-        for y in range(1, 7):
-            for x in (0, 12):
-                b[(x, y, z)] = (checker(z + y, x, 'minecraft:stone_bricks',
-                                        'minecraft:mossy_stone_bricks', 5), None, None)
+    caps = pilasters(b, H, [3, 7, 11], [4, 8, 12], W, D, CHAMBER_WALL,
+                     'minecraft:chiseled_stone_bricks', salt=33)
+    for i, (x, y, z) in enumerate(caps):
+        if i % 2 == 0:
+            put(b, (x, y, z), 'minecraft:soul_lantern', {'hanging': 'true'})
 
-    for px, pz in [(3, 3), (9, 3), (3, 9), (9, 9)]:               # pillars
-        fill(b, px, 1, pz, px, 5, pz, 'minecraft:stone_bricks')
-        b[(px, 6, pz)] = ('minecraft:chiseled_stone_bricks', None, None)
+    # Recessed bays between the pilasters: pushing the wall back one block is what gives the
+    # colonnade its shadow line.
+    for z in (2, 3, 5, 6, 9, 10, 13, 14):
+        for y in range(2, H - 3):
+            for x in (1, W - 2):
+                put(b, (x, y, z), 'minecraft:air')
 
-    fill(b, 6, 0, 1, 6, 0, 11, 'minecraft:water')                 # channel
-    fill(b, 5, 0, 1, 5, 0, 11, 'minecraft:stone_brick_slab', {'type': 'bottom'})
-    fill(b, 7, 0, 1, 7, 0, 11, 'minecraft:stone_brick_slab', {'type': 'bottom'})
+    channel = D // 2
+    fill(b, 1, 0, channel, W - 2, 0, channel, 'minecraft:water', {'level': '0'})
+    for z in (channel - 1, channel + 1):
+        for x in range(1, W - 1):
+            slab(b, (x, 0, z), 'minecraft:stone_brick_slab', 'top')
 
-    fill(b, 4, 1, 11, 8, 4, 11, 'minecraft:iron_bars')            # serpent gate
-    for pos in [(1, 6, 1), (11, 6, 1), (1, 6, 11), (11, 6, 11), (6, 6, 6)]:
-        b[pos] = ('minecraft:soul_lantern', {'hanging': 'true'}, None)
-    for pos in [(2, 5, 2), (10, 5, 3), (2, 5, 10), (9, 5, 9)]:
-        b[pos] = ('minecraft:cobweb', None, None)
+    # Serpent gate at the far end: a barred arch rather than a flat grid of bars.
+    for x in range(4, 11):
+        put(b, (x, 1, D - 2), 'minecraft:iron_bars')
+        put(b, (x, 2, D - 2), 'minecraft:iron_bars')
+        if 5 <= x <= 9:
+            put(b, (x, 3, D - 2), 'minecraft:iron_bars')
+        if 6 <= x <= 8:
+            put(b, (x, 4, D - 2), 'minecraft:iron_bars')
+    put(b, (7, 5, D - 2), 'minecraft:chiseled_stone_bricks')
+    stair(b, (6, 5, D - 2), 'minecraft:stone_brick_stairs', 'west')
+    stair(b, (8, 5, D - 2), 'minecraft:stone_brick_stairs', 'east')
+
+    # Kept clear of the gate at z=15 -- a heap piled against the bars buries them.
+    rubble(b, [(2, 1, 7), (12, 1, 11), (4, 1, 12), (11, 1, 3), (5, 1, 2)], CHAMBER_FLOOR, 41)
+    for pos in [(2, 6, 2), (12, 6, 4), (3, 6, 13), (11, 6, 15)]:
+        put(b, pos, 'minecraft:cobweb')
     chest(b, (2, 1, 2), 'south', 'minecraft:chests/simple_dungeon')
-    chest(b, (10, 1, 10), 'north', 'minecraft:chests/stronghold_corridor')
+    chest(b, (12, 1, 15), 'north', 'minecraft:chests/stronghold_corridor')
     return b
+
+
+VAULT_WALL = [('minecraft:deepslate_bricks', 8), ('minecraft:cracked_deepslate_bricks', 3),
+              ('minecraft:deepslate_tiles', 3), ('minecraft:polished_deepslate', 2)]
+VAULT_FLOOR = [('minecraft:deepslate_tiles', 6), ('minecraft:polished_deepslate', 4),
+               ('minecraft:cracked_deepslate_tiles', 2), ('minecraft:gravel', 1)]
 
 
 def goblin_vault():
-    """Goblin Undercity: a barred vault row cut into the deepslate. Also fully enclosed."""
+    """Goblin Undercity: a barrel-vaulted vault row, arched strongboxes cut into one wall."""
+    W, H, D = 17, 8, 11
     b = {}
-    box(b, 0, 0, 0, 12, 6, 8, 'minecraft:deepslate_bricks')
-    fill(b, 1, 1, 1, 11, 5, 7, 'minecraft:air')
+    hall(b, W, H, D, 'minecraft:deepslate_bricks', VAULT_FLOOR, VAULT_WALL, salt=51)
+    vault(b, W, H, D, 'minecraft:deepslate_brick_stairs')
 
-    for x in range(13):
-        for z in range(9):
-            b[(x, 0, z)] = (checker(x, z, 'minecraft:polished_deepslate',
-                                    'minecraft:deepslate_tiles', 3), None, None)
+    caps = pilasters(b, H, [3, 8, 13], [], W, D, VAULT_WALL,
+                     'minecraft:chiseled_deepslate', salt=53)
+    for x, y, z in caps:
+        put(b, (x, y, z), 'minecraft:lantern', {'hanging': 'true'})
 
-    # Vault alcoves down the long wall: barred front, treasure behind.
-    for i, x in enumerate((2, 5, 8)):
-        fill(b, x, 1, 1, x + 1, 3, 1, 'minecraft:iron_bars')
-        fill(b, x, 1, 0, x + 1, 2, 0, 'minecraft:gold_block' if i != 1 else 'minecraft:emerald_block')
-        b[(x, 4, 1)] = ('minecraft:chiseled_deepslate', None, None)
-        b[(x + 1, 4, 1)] = ('minecraft:chiseled_deepslate', None, None)
+    # Arched strongboxes recessed into the north wall: bars in front, treasure behind, arch on top.
+    for i, x in enumerate((5, 10)):
+        fill(b, x, 1, 0, x + 2, 3, 0, 'minecraft:air')
+        metal = 'minecraft:gold_block' if i == 0 else 'minecraft:emerald_block'
+        for dx in range(3):
+            put(b, (x + dx, 1, 0), metal if noise(x + dx, 1, 0, 61) > 0.35
+                else 'minecraft:raw_gold_block')
+            put(b, (x + dx, 2, 0), 'minecraft:chiseled_deepslate')
+            put(b, (x + dx, 1, 1), 'minecraft:iron_bars')
+            put(b, (x + dx, 2, 1), 'minecraft:iron_bars')
+        stair(b, (x, 3, 1), 'minecraft:deepslate_brick_stairs', 'east', 'top')
+        stair(b, (x + 2, 3, 1), 'minecraft:deepslate_brick_stairs', 'west', 'top')
+        put(b, (x + 1, 3, 1), 'minecraft:chiseled_deepslate')
 
-    for x in range(1, 12):                                        # cart track
-        b[(x, 1, 4)] = ('minecraft:rail', {'shape': 'east_west'}, None)
-    for pos in [(1, 4, 2), (11, 4, 2), (1, 4, 6), (11, 4, 6), (6, 5, 4)]:
-        b[pos] = ('minecraft:lantern', {'hanging': 'true'}, None)
-    chest(b, (10, 1, 6), 'west', 'minecraft:chests/abandoned_mineshaft')
-    chest(b, (2, 1, 6), 'east', 'minecraft:chests/stronghold_crossing')
+    for x in range(1, W - 1):                              # cart track in a cut trough
+        put(b, (x, 0, D // 2), 'minecraft:polished_deepslate')
+        put(b, (x, 1, D // 2), 'minecraft:rail', {'shape': 'east_west'})
+    for z in (D // 2 - 1, D // 2 + 1):
+        for x in range(1, W - 1):
+            slab(b, (x, 1, z), 'minecraft:deepslate_tile_slab')
+
+    fill(b, 8, H - 3, D // 2, 8, H - 3, D // 2, 'minecraft:chain', {'axis': 'y'})
+    put(b, (8, H - 4, D // 2), 'minecraft:lantern', {'hanging': 'true'})
+    rubble(b, [(2, 1, 2), (15, 1, 8), (6, 1, 9), (13, 1, 2)], VAULT_FLOOR, 57)
+    chest(b, (15, 1, 2), 'west', 'minecraft:chests/abandoned_mineshaft')
+    chest(b, (2, 1, 8), 'east', 'minecraft:chests/stronghold_crossing')
     return b
 
 
+DROWNED = [('minecraft:stone_bricks', 6), ('minecraft:mossy_stone_bricks', 6),
+           ('minecraft:cracked_stone_bricks', 4), ('minecraft:prismarine', 2)]
+
+
 def black_lake_ruin():
-    """The Black Lake: a drowned colonnade on the lake floor. Flooded, not hollow."""
+    """The Black Lake: a broken colonnade on the lake floor, half of it already toppled.
+
+    Column heights are deliberately uneven and two are lying flat -- a colonnade of equal columns
+    reads as a fence. The gaps in the floor matter as much as the floor.
+    """
+    W, H, D = 15, 9, 15
     b = {}
-    for x in range(11):
-        for z in range(11):
-            if (x * 5 + z * 3) % 7 == 0:
+    for x in range(W):
+        for z in range(D):
+            if noise(x, 0, z, 71) < 0.22:                  # floor broken through
                 continue
-            b[(x, 0, z)] = (checker(x, z, 'minecraft:stone_bricks',
-                                    'minecraft:mossy_stone_bricks', 3), None, None)
+            put(b, (x, 0, z), tex(DROWNED, x, 0, z, 72))
 
-    for px, pz, h in [(1, 1, 4), (9, 1, 3), (1, 9, 5), (9, 9, 2), (5, 5, 4)]:
-        for y in range(1, h + 1):
-            b[(px, y, pz)] = ('minecraft:stone_bricks', None, None)
-        b[(px, h + 1, pz)] = ('minecraft:chiseled_stone_bricks', None, None)
+    columns = [(2, 2, 6), (7, 2, 4), (12, 2, 7), (2, 12, 3), (12, 12, 5), (7, 12, 6)]
+    for cx, cz, height in columns:
+        for y in range(1, height + 1):
+            put(b, (cx, y, cz), tex(DROWNED, cx, y, cz, 73))
+        put(b, (cx, height + 1, cz), 'minecraft:chiseled_stone_bricks')
+        for dx, dz, facing in ((1, 0, 'west'), (-1, 0, 'east'), (0, 1, 'north'), (0, -1, 'south')):
+            stair(b, (cx + dx, 1, cz + dz), 'minecraft:stone_brick_stairs', facing)
 
-    for pos in [(3, 1, 5), (7, 1, 5), (5, 1, 2)]:
-        b[pos] = ('minecraft:prismarine_bricks', None, None)
-    b[(5, 5, 5)] = ('minecraft:sea_lantern', None, None)
-    b[(1, 5, 9)] = ('minecraft:sea_lantern', None, None)
+    # An arch still standing between two of them: the one intact silhouette in the ruin.
+    for z in range(3, 12):
+        put(b, (2, 7, z), tex(DROWNED, 2, 7, z, 74))
+    stair(b, (2, 6, 2), 'minecraft:stone_brick_stairs', 'north')
+    stair(b, (2, 6, 12), 'minecraft:stone_brick_stairs', 'south')
 
-    # Everything the ruin does not occupy stays water: an air pocket on a lake floor reads as a bug.
-    for x in range(11):
-        for y in range(1, 7):
-            for z in range(11):
-                b.setdefault((x, y, z), ('minecraft:water', {'level': '0'}, None))
+    for tx, tz, axis in [(5, 9, 'x'), (6, 9, 'x'), (7, 9, 'x'), (9, 3, 'z'), (9, 4, 'z')]:
+        put(b, (tx, 1, tz), 'minecraft:stone_brick_wall')   # toppled shafts
 
-    chest(b, (3, 1, 3), 'south', 'minecraft:chests/underwater_ruin_big')
+    put(b, (7, 3, 7), 'minecraft:sea_lantern')
+    put(b, (2, 4, 6), 'minecraft:sea_lantern')
+    put(b, (12, 1, 12), 'minecraft:sea_lantern')
+    for px, pz in [(5, 5), (10, 6), (4, 11), (11, 9)]:
+        put(b, (px, 1, pz), 'minecraft:dark_prismarine' if noise(px, 1, pz, 77) > 0.5
+            else 'minecraft:prismarine_bricks')
+    rubble(b, [(4, 1, 3), (11, 1, 11), (8, 1, 12), (3, 1, 8)], DROWNED, 78)
+    chest(b, (5, 1, 3), 'south', 'minecraft:chests/underwater_ruin_big')
+
+    flood(b, W, H, D)
     return b
 
 
@@ -304,15 +541,104 @@ BUILDS = {
     'black_lake_ruin': black_lake_ruin,
 }
 
-OUT = os.path.join(os.path.dirname(__file__), '..', 'src', 'main', 'resources',
+# Builds whose empty space is water rather than air. Anything waterloggable inside one has to say so,
+# or it keeps a pocket of air inside its own model and the ruin looks like it is full of bubbles.
+FLOODED = {'black_lake_ruin'}
+
+
+# --- audit ---------------------------------------------------------------------------------------
+# These builds are written blind -- there is no way to look at them from in here -- and the things
+# that go wrong when you build blind are not geometry, they are BLOCK STATES. A lantern with nothing
+# above it, a chest facing into a wall, two chests that silently merge into one double chest, a stair
+# underwater that forgot to be waterlogged: every one of those places fine and looks broken. So the
+# rules that a player would notice by eye are checked here instead.
+
+NOT_SUPPORT = {'minecraft:air', 'minecraft:water', 'minecraft:cobweb', 'minecraft:rail'}
+# Only these two are the hanging/standing kind. sea_lantern and jack_o_lantern are ordinary full
+# cubes that happen to end in "lantern" and need no support at all.
+LANTERNS = {'minecraft:lantern', 'minecraft:soul_lantern'}
+DIRS = {'north': (0, 0, -1), 'south': (0, 0, 1), 'west': (-1, 0, 0), 'east': (1, 0, 0)}
+WATERLOGGABLE = ('_stairs', '_slab', '_wall', '_fence', 'iron_bars', 'chain')
+
+
+def see_through(block):
+    """True if you can see past this block. Bars next to bars is a cage, not a burial."""
+    if block is None or block in ('minecraft:air', 'minecraft:water'):
+        return True
+    return (block in LANTERNS
+            or block in ('minecraft:cobweb', 'minecraft:iron_bars', 'minecraft:chain',
+                         'minecraft:rail')
+            or any(block.endswith(s) for s in ('_stairs', '_slab', '_wall', '_fence')))
+
+
+def audit(name, blocks):
+    problems = []
+
+    def at(pos):
+        return blocks.get(pos, (None, None, None))[0]
+
+    flooded = name in FLOODED
+    chests = [p for p, v in blocks.items() if v[0] == 'minecraft:chest']
+
+    for pos, (block, props, _) in sorted(blocks.items()):
+        x, y, z = pos
+        props = props or {}
+
+        if block in LANTERNS:
+            if props.get('hanging') == 'true':
+                above = at((x, y + 1, z))
+                if above is None or above in NOT_SUPPORT:
+                    problems.append(f'{block} at {pos} hangs from {above or "nothing"}')
+            else:
+                below = at((x, y - 1, z))
+                if below is None or below in NOT_SUPPORT:
+                    problems.append(f'{block} at {pos} stands on {below or "nothing"}')
+
+        if block == 'minecraft:rail':
+            below = at((x, y - 1, z))
+            if below is None or below in NOT_SUPPORT:
+                problems.append(f'rail at {pos} sits on {below or "nothing"}')
+
+        if block == 'minecraft:chest':
+            dx, _, dz = DIRS[props['facing']]
+            front = at((x + dx, y, z + dz))
+            if front is not None and front not in ('minecraft:air', 'minecraft:water'):
+                problems.append(f'chest at {pos} faces {props["facing"]} into {front}')
+            for other in chests:
+                if other != pos and abs(other[0] - x) + abs(other[1] - y) + abs(other[2] - z) == 1:
+                    problems.append(f'chest at {pos} touches chest at {other} -- they merge')
+
+        if flooded and any(block.endswith(s) for s in WATERLOGGABLE):
+            if props.get('waterlogged') != 'true':
+                problems.append(f'{block} at {pos} is underwater but not waterlogged')
+
+        # Decoration walled in on all six sides is decoration nobody will ever see. Easy to do by
+        # accident, because the build dict lets a later write quietly bury an earlier one.
+        if block in LANTERNS | {'minecraft:cobweb', 'minecraft:chest', 'minecraft:iron_bars'}:
+            if not any(see_through(at((x + dx, y + dy, z + dz)))
+                       for dx, dy, dz in ((1, 0, 0), (-1, 0, 0), (0, 1, 0),
+                                          (0, -1, 0), (0, 0, 1), (0, 0, -1))):
+                problems.append(f'{block} at {pos} is sealed inside solid blocks')
+
+    return problems
+
+OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'src', 'main', 'resources',
                    'data', 'hogwartsmagic', 'structure')
 
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)
+    failures = 0
     for name, builder in BUILDS.items():
         blocks = builder()
+        problems = audit(name, blocks)
         path = os.path.join(OUT, name + '.nbt')
         write_nbt(path, build_template(blocks))
         size = [max(p[i] for p in blocks) + 1 for i in range(3)]
-        print('%-18s %2dx%2dx%2d  %5d blocks  %6d bytes'
-              % (name, size[0], size[1], size[2], len(blocks), os.path.getsize(path)))
+        kinds = len({v[0] for v in blocks.values()})
+        print('%-18s %2dx%2dx%2d  %5d blocks  %2d block types  %6d bytes  %s'
+              % (name, size[0], size[1], size[2], len(blocks), kinds, os.path.getsize(path),
+                 'ok' if not problems else '%d PROBLEMS' % len(problems)))
+        for p in problems:
+            print('    ' + p)
+        failures += len(problems)
+    raise SystemExit(1 if failures else 0)

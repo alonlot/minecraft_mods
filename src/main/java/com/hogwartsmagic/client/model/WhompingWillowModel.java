@@ -100,52 +100,52 @@ public class WhompingWillowModel extends HierarchicalModel<WhompingWillowEntity>
         PartDefinition willow = root.addOrReplaceChild("willow", CubeListBuilder.create(),
                 PartPose.offset(0.0F, 0.0F, 0.0F));
         PartDefinition roots = willow.addOrReplaceChild("roots", CubeListBuilder.create()
-            .texOffs(340, 524).addBox(-4.1828F, -7.3989F, -38.9772F, 12.2631F, 7.3989F, 12.7557F, new CubeDeformation(0.0F))
-            .texOffs(64, 566).addBox(23.79F, -6.6728F, -18.8409F, 11.1017F, 6.6728F, 15.6444F, new CubeDeformation(0.0F))
-            .texOffs(120, 566).addBox(-11.9212F, -9.5113F, -34.9474F, 16.5397F, 9.5113F, 11.6629F, new CubeDeformation(0.0F))
-            .texOffs(178, 566).addBox(-6.5562F, -8.7437F, 15.2888F, 16.052F, 8.7437F, 13.6791F, new CubeDeformation(0.0F))
-            .texOffs(240, 566).addBox(-31.3994F, -7.4179F, -18.9811F, 14.4533F, 7.4179F, 14.1041F, new CubeDeformation(0.0F))
-            .texOffs(300, 566).addBox(-5.9421F, -9.1201F, -39.646F, 16.318F, 9.1201F, 16.713F, new CubeDeformation(0.0F))
-            .texOffs(368, 566).addBox(-24.18F, -6.893F, -37.8643F, 13.7911F, 6.893F, 15.333F, new CubeDeformation(0.0F))
-            .texOffs(428, 566).addBox(-39.1098F, -7.084F, -13.7757F, 11.1637F, 7.084F, 17.1145F, new CubeDeformation(0.0F))
-            .texOffs(0, 593).addBox(15.3685F, -5.7961F, -5.6622F, 17.8967F, 5.7961F, 15.1981F, new CubeDeformation(0.0F))
-            .texOffs(392, 524).addBox(-29.2788F, -5.3664F, 18.7071F, 16.5376F, 5.3664F, 17.4707F, new CubeDeformation(0.0F))
-            .texOffs(0, 566).addBox(-22.7707F, -7.6279F, -32.134F, 17.3688F, 7.6279F, 13.6728F, new CubeDeformation(0.0F))
-            .texOffs(220, 483).addBox(-27.4815F, -19.1247F, -16.5226F, 20.1845F, 19.1247F, 17.5268F, new CubeDeformation(0.0F))
-            .texOffs(298, 483).addBox(-6.2606F, -14.6348F, 3.5546F, 24.7111F, 14.6348F, 18.1868F, new CubeDeformation(0.0F))
-            .texOffs(386, 483).addBox(-20.1645F, -20.0079F, -24.028F, 20.9603F, 20.0079F, 19.2384F, new CubeDeformation(0.0F))
-            .texOffs(0, 524).addBox(6.6918F, -15.2978F, -7.3684F, 22.0768F, 15.2978F, 17.0213F, new CubeDeformation(0.0F))
-            .texOffs(82, 524).addBox(-28.2885F, -15.0297F, -7.6867F, 25.6133F, 15.0297F, 18.6886F, new CubeDeformation(0.0F))
-            .texOffs(172, 524).addBox(-1.5892F, -20.2518F, -26.6811F, 18.2272F, 20.2518F, 20.5635F, new CubeDeformation(0.0F))
-            .texOffs(252, 524).addBox(-29.9359F, -19.46F, -14.1413F, 23.3538F, 19.46F, 19.0066F, new CubeDeformation(0.0F))
-            .texOffs(68, 593).addBox(-30.0F, -4.0F, -30.0F, 60.0F, 4.0F, 60.0F, new CubeDeformation(0.0F)),
+            .texOffs(168, 548).addBox(-4.1828F, -7.3989F, -38.9772F, 12.2631F, 7.3989F, 12.7557F, new CubeDeformation(0.0F))
+            .texOffs(354, 548).addBox(23.79F, -6.6728F, -18.8409F, 11.1017F, 6.6728F, 15.6444F, new CubeDeformation(0.0F))
+            .texOffs(410, 548).addBox(-11.9212F, -9.5113F, -34.9474F, 16.5397F, 9.5113F, 11.6629F, new CubeDeformation(0.0F))
+            .texOffs(0, 590).addBox(-6.5562F, -8.7437F, 15.2888F, 16.052F, 8.7437F, 13.6791F, new CubeDeformation(0.0F))
+            .texOffs(62, 590).addBox(-31.3994F, -7.4179F, -18.9811F, 14.4533F, 7.4179F, 14.1041F, new CubeDeformation(0.0F))
+            .texOffs(122, 590).addBox(-5.9421F, -9.1201F, -39.646F, 16.318F, 9.1201F, 16.713F, new CubeDeformation(0.0F))
+            .texOffs(190, 590).addBox(-24.18F, -6.893F, -37.8643F, 13.7911F, 6.893F, 15.333F, new CubeDeformation(0.0F))
+            .texOffs(250, 590).addBox(-39.1098F, -7.084F, -13.7757F, 11.1637F, 7.084F, 17.1145F, new CubeDeformation(0.0F))
+            .texOffs(310, 590).addBox(15.3685F, -5.7961F, -5.6622F, 17.8967F, 5.7961F, 15.1981F, new CubeDeformation(0.0F))
+            .texOffs(220, 548).addBox(-29.2788F, -5.3664F, 18.7071F, 16.5376F, 5.3664F, 17.4707F, new CubeDeformation(0.0F))
+            .texOffs(290, 548).addBox(-22.7707F, -7.6279F, -32.134F, 17.3688F, 7.6279F, 13.6728F, new CubeDeformation(0.0F))
+            .texOffs(92, 507).addBox(-27.4815F, -19.1247F, -16.5226F, 20.1845F, 19.1247F, 17.5268F, new CubeDeformation(0.0F))
+            .texOffs(170, 507).addBox(-6.2606F, -14.6348F, 3.5546F, 24.7111F, 14.6348F, 18.1868F, new CubeDeformation(0.0F))
+            .texOffs(258, 507).addBox(-20.1645F, -20.0079F, -24.028F, 20.9603F, 20.0079F, 19.2384F, new CubeDeformation(0.0F))
+            .texOffs(340, 507).addBox(6.6918F, -15.2978F, -7.3684F, 22.0768F, 15.2978F, 17.0213F, new CubeDeformation(0.0F))
+            .texOffs(422, 507).addBox(-28.2885F, -15.0297F, -7.6867F, 25.6133F, 15.0297F, 18.6886F, new CubeDeformation(0.0F))
+            .texOffs(0, 548).addBox(-1.5892F, -20.2518F, -26.6811F, 18.2272F, 20.2518F, 20.5635F, new CubeDeformation(0.0F))
+            .texOffs(80, 548).addBox(-29.9359F, -19.46F, -14.1413F, 23.3538F, 19.46F, 19.0066F, new CubeDeformation(0.0F))
+            .texOffs(0, 617).addBox(-30.0F, -4.0F, -30.0F, 60.0F, 4.0F, 60.0F, new CubeDeformation(0.0F)),
                 PartPose.offset(0.0F, 0.0F, 0.0F));
         PartDefinition trunk1 = willow.addOrReplaceChild("trunk1", CubeListBuilder.create()
-            .texOffs(0, 657).addBox(-31.1802F, -18.0F, -28.9921F, 60.0F, 18.0F, 60.0F, new CubeDeformation(0.0F))
-            .texOffs(240, 657).addBox(24.0F, -11.0F, -7.599F, 8.0F, 7.0F, 10.0F, new CubeDeformation(0.0F)),
+            .texOffs(240, 617).addBox(-31.1802F, -18.0F, -28.9921F, 60.0F, 18.0F, 60.0F, new CubeDeformation(0.0F))
+            .texOffs(0, 695).addBox(24.0F, -11.0F, -7.599F, 8.0F, 7.0F, 10.0F, new CubeDeformation(0.0F)),
                 PartPose.offsetAndRotation(0.0F, 0.0F, 0.0F, 0.0F, -0.0233F, 0.0F));
         PartDefinition trunk2 = trunk1.addOrReplaceChild("trunk2", CubeListBuilder.create()
-            .texOffs(276, 657).addBox(-26.8415F, -17.0F, -27.2453F, 54.0F, 17.0F, 54.0F, new CubeDeformation(0.0F)),
+            .texOffs(36, 695).addBox(-26.8415F, -17.0F, -27.2453F, 54.0F, 17.0F, 54.0F, new CubeDeformation(0.0F)),
                 PartPose.offsetAndRotation(0.0F, -18.0F, 0.0F, 0.0F, 0.0126F, 0.0F));
         PartDefinition trunk3 = trunk2.addOrReplaceChild("trunk3", CubeListBuilder.create()
-            .texOffs(0, 735).addBox(-24.8659F, -16.0F, -22.552F, 48.0F, 16.0F, 48.0F, new CubeDeformation(0.0F))
-            .texOffs(192, 735).addBox(-26.0F, -11.0F, -2.1395F, 8.0F, 7.0F, 10.0F, new CubeDeformation(0.0F)),
+            .texOffs(252, 695).addBox(-24.8659F, -16.0F, -22.552F, 48.0F, 16.0F, 48.0F, new CubeDeformation(0.0F))
+            .texOffs(444, 695).addBox(-26.0F, -11.0F, -2.1395F, 8.0F, 7.0F, 10.0F, new CubeDeformation(0.0F)),
                 PartPose.offsetAndRotation(0.0F, -17.0F, 0.0F, 0.0F, 0.0437F, 0.0F));
         PartDefinition trunk4 = trunk3.addOrReplaceChild("trunk4", CubeListBuilder.create()
-            .texOffs(228, 735).addBox(-21.2741F, -15.0F, -21.5847F, 42.0F, 15.0F, 42.0F, new CubeDeformation(0.0F)),
+            .texOffs(0, 766).addBox(-21.2741F, -15.0F, -21.5847F, 42.0F, 15.0F, 42.0F, new CubeDeformation(0.0F)),
                 PartPose.offsetAndRotation(0.0F, -16.0F, 0.0F, 0.0F, 0.0272F, 0.0F));
         PartDefinition trunk5 = trunk4.addOrReplaceChild("trunk5", CubeListBuilder.create()
-            .texOffs(0, 799).addBox(-16.6245F, -14.0F, -18.7966F, 36.0F, 14.0F, 36.0F, new CubeDeformation(0.0F))
-            .texOffs(144, 799).addBox(12.0F, -11.0F, -6.8904F, 8.0F, 7.0F, 10.0F, new CubeDeformation(0.0F)),
+            .texOffs(168, 766).addBox(-16.6245F, -14.0F, -18.7966F, 36.0F, 14.0F, 36.0F, new CubeDeformation(0.0F))
+            .texOffs(312, 766).addBox(12.0F, -11.0F, -6.8904F, 8.0F, 7.0F, 10.0F, new CubeDeformation(0.0F)),
                 PartPose.offsetAndRotation(0.0F, -15.0F, 0.0F, 0.0F, -0.0346F, 0.0F));
         PartDefinition trunk6 = trunk5.addOrReplaceChild("trunk6", CubeListBuilder.create()
-            .texOffs(180, 799).addBox(-16.5385F, -13.0F, -17.2713F, 32.0F, 13.0F, 32.0F, new CubeDeformation(0.0F)),
+            .texOffs(348, 766).addBox(-16.5385F, -13.0F, -17.2713F, 32.0F, 13.0F, 32.0F, new CubeDeformation(0.0F)),
                 PartPose.offsetAndRotation(0.0F, -14.0F, 0.0F, 0.0F, 0.0244F, 0.0F));
         PartDefinition trunk7 = trunk6.addOrReplaceChild("trunk7", CubeListBuilder.create()
-            .texOffs(308, 799).addBox(-13.7086F, -12.0F, -13.8554F, 28.0F, 12.0F, 28.0F, new CubeDeformation(0.0F)),
+            .texOffs(0, 823).addBox(-13.7086F, -12.0F, -13.8554F, 28.0F, 12.0F, 28.0F, new CubeDeformation(0.0F)),
                 PartPose.offsetAndRotation(0.0F, -13.0F, 0.0F, 0.0F, -0.0012F, 0.0F));
         PartDefinition trunk8 = trunk7.addOrReplaceChild("trunk8", CubeListBuilder.create()
-            .texOffs(0, 849).addBox(-10.9401F, -11.0F, -11.7587F, 24.0F, 11.0F, 24.0F, new CubeDeformation(0.0F)),
+            .texOffs(112, 823).addBox(-10.9401F, -11.0F, -11.7587F, 24.0F, 11.0F, 24.0F, new CubeDeformation(0.0F)),
                 PartPose.offsetAndRotation(0.0F, -12.0F, 0.0F, 0.0F, -0.0445F, 0.0F));
         PartDefinition crown = trunk8.addOrReplaceChild("crown", CubeListBuilder.create()
             .texOffs(416, 372).addBox(-3.1727F, -30.8F, -0.034F, 21.1997F, 27.8669F, 16.1853F, new CubeDeformation(0.0F))
@@ -363,12 +363,24 @@ public class WhompingWillowModel extends HierarchicalModel<WhompingWillowEntity>
             .texOffs(314, 51).addBox(-1.5F, 0.0F, 49.864F, 3.0F, 16.0F, 3.0F, new CubeDeformation(0.0F)),
                 PartPose.offsetAndRotation(0.0F, -4.6109F, 0.0F, 0.3487F, -7.1908F, 0.0F));
         PartDefinition maw = trunk3.addOrReplaceChild("maw", CubeListBuilder.create()
-            .texOffs(176, 483).addBox(-8.0F, -10.0F, -4.0F, 16.0F, 6.0F, 6.0F, new CubeDeformation(0.0F))
-            .texOffs(96, 483).addBox(-7.0F, -6.0F, -1.0F, 14.0F, 8.0F, 4.0F, new CubeDeformation(0.0F)),
-                PartPose.offset(0.0F, -6.0F, -24.0F));
+            .texOffs(220, 483).addBox(-10.0F, -9.0F, 2.0F, 20.0F, 14.0F, 10.0F, new CubeDeformation(0.0F))
+            .texOffs(20, 507).addBox(-13.0F, -14.0F, -7.0F, 26.0F, 7.0F, 10.0F, new CubeDeformation(0.0F))
+            .texOffs(96, 483).addBox(-11.0F, -17.0F, -5.0F, 22.0F, 5.0F, 8.0F, new CubeDeformation(0.0F))
+            .texOffs(156, 483).addBox(-15.0F, -11.0F, -5.0F, 8.0F, 15.0F, 8.0F, new CubeDeformation(0.0F))
+            .texOffs(188, 483).addBox(7.0F, -11.0F, -5.0F, 8.0F, 15.0F, 8.0F, new CubeDeformation(0.0F))
+            .texOffs(432, 483).addBox(-10.0F, -7.0F, -4.0F, 4.0F, 6.0F, 6.0F, new CubeDeformation(0.0F))
+            .texOffs(452, 483).addBox(-6.0F, -7.0F, -4.0F, 4.0F, 9.0F, 6.0F, new CubeDeformation(0.0F))
+            .texOffs(472, 483).addBox(-2.0F, -7.0F, -4.0F, 4.0F, 5.0F, 6.0F, new CubeDeformation(0.0F))
+            .texOffs(492, 483).addBox(2.0F, -7.0F, -4.0F, 4.0F, 8.0F, 6.0F, new CubeDeformation(0.0F))
+            .texOffs(0, 507).addBox(6.0F, -7.0F, -4.0F, 4.0F, 6.0F, 6.0F, new CubeDeformation(0.0F)),
+                PartPose.offset(0.0F, -8.0F, -24.0F));
         PartDefinition maw_jaw = maw.addOrReplaceChild("maw_jaw", CubeListBuilder.create()
-            .texOffs(132, 483).addBox(-8.0F, -1.0F, -4.0F, 16.0F, 5.0F, 6.0F, new CubeDeformation(0.0F)),
-                PartPose.offset(0.0F, 2.0F, 0.0F));
+            .texOffs(280, 483).addBox(-12.0F, -1.0F, -9.0F, 24.0F, 6.0F, 12.0F, new CubeDeformation(0.0F))
+            .texOffs(352, 483).addBox(-8.0F, -7.0F, -5.0F, 4.0F, 7.0F, 6.0F, new CubeDeformation(0.0F))
+            .texOffs(372, 483).addBox(-4.0F, -5.0F, -5.0F, 4.0F, 5.0F, 6.0F, new CubeDeformation(0.0F))
+            .texOffs(392, 483).addBox(0.0F, -8.0F, -5.0F, 4.0F, 8.0F, 6.0F, new CubeDeformation(0.0F))
+            .texOffs(412, 483).addBox(4.0F, -5.0F, -5.0F, 4.0F, 5.0F, 6.0F, new CubeDeformation(0.0F)),
+                PartPose.offset(0.0F, 4.0F, 0.0F));
         PartDefinition limb1 = trunk3.addOrReplaceChild("limb1", CubeListBuilder.create()
             .texOffs(56, 459).addBox(-3.025F, -3.025F, 22.0F, 6.05F, 6.05F, 14.3F, new CubeDeformation(0.0F))
             .texOffs(100, 459).addBox(-2.2F, -2.2F, 36.3F, 4.4F, 4.4F, 10.45F, new CubeDeformation(0.0F))
@@ -405,18 +417,42 @@ public class WhompingWillowModel extends HierarchicalModel<WhompingWillowEntity>
         AttackState state = entity.getAttackState();
         boolean dormant = state == AttackState.DORMANT || state == AttackState.FROZEN;
 
-        sway(entity, ageInTicks, dormant);
+        // Every willow shares one baked mesh, so without this a stand of them sways in perfect
+        // unison and the whole grove reads as one animated object. Offsetting the clock per entity
+        // is the cheapest possible fix and the difference is immediate.
+        float age = ageInTicks + (entity.getId() % 97) * 3.7F;
+
+        if (entity.deathTime > 0) {
+            death(entity, age);
+            return;
+        }
+
+        sway(entity, age, dormant);
 
         int active = entity.getActiveBranch();
         float sign = entity.getSweepSign();
         for (int b = 0; b < BRANCHES; b++) {
-            idleBranch(b, ageInTicks, dormant);
+            idleBranch(b, age, dormant);
             if (!dormant) {
-                poseBranch(entity, b, state, b == active, sign, ageInTicks);
+                poseBranch(entity, b, state, b == active, sign, age);
             }
         }
 
-        lean(entity, state, active, ageInTicks);
+        lean(entity, state, active, age);
+
+        // Being hit shakes the whole mass. hurtTime counts down from 10, so this is a fast decaying
+        // shudder rather than a pose, and it reads even when the tree is mid-swing.
+        if (entity.hurtTime > 0) {
+            float h = entity.hurtTime / 10.0F;
+            float shake = Mth.sin(entity.hurtTime * 1.9F) * h * h * 0.055F;
+            this.willow.zRot += shake;
+            this.willow.xRot += shake * 0.6F;
+            for (int b = 0; b < BRANCHES; b++) {
+                for (int seg = 0; seg < SEGS; seg++) {
+                    this.branch[b][seg].zRot += shake * SEG_WEIGHT[seg] * 2.2F;
+                }
+            }
+        }
 
         if (state == AttackState.WAKE) {
             // A shudder that runs up the whole tree, decaying as it goes.
@@ -427,6 +463,36 @@ public class WhompingWillowModel extends HierarchicalModel<WhompingWillowEntity>
             }
             this.mawJaw.xRot += (1.0F - p) * 0.5F;
         }
+    }
+
+    /**
+     * Falling.
+     *
+     * <p>{@code LivingEntityRenderer} already tips a dying mob over, but a twenty-tick flop that
+     * suits a chicken looks absurd on nine blocks of timber. This adds what mass would: the trunk
+     * gives at the base first and the fall accelerates rather than sweeping at a constant rate,
+     * every branch goes limp and trails behind the direction of travel, and the crown lags furthest
+     * because it is the end of the longest lever.
+     */
+    private void death(WhompingWillowEntity entity, float age) {
+        float t = Mth.clamp(entity.deathTime / 20.0F, 0.0F, 1.0F);
+        float fall = t * t;                       // accelerating, not linear
+        for (int i = 0; i < RINGS; i++) {
+            // The base gives first and the rest follows, so it hinges rather than pivoting rigidly.
+            float give = Mth.clamp((fall - i * 0.045F) / 0.6F, 0.0F, 1.0F);
+            this.trunk[i].zRot += give * 0.16F;
+        }
+        this.crown.zRot += fall * 0.34F;
+        this.crown.xRot += Mth.sin(age * 0.4F) * (1.0F - t) * 0.05F;
+        for (int b = 0; b < BRANCHES; b++) {
+            for (int s = 0; s < SEGS; s++) {
+                // Limp: the droop the rest pose holds against is released, and the tip trails.
+                this.branch[b][s].xRot += fall * SEG_WEIGHT[s] * 2.6F;
+                this.branch[b][s].zRot -= fall * SEG_WEIGHT[s] * 1.4F;
+                this.branch[b][s].yRot += Mth.sin(age * 0.22F + s) * (1.0F - t) * 0.06F;
+            }
+        }
+        this.mawJaw.xRot += fall * 0.7F;
     }
 
     /**

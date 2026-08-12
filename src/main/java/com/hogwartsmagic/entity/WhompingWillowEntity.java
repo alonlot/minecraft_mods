@@ -593,8 +593,13 @@ public class WhompingWillowEntity extends Monster {
             strike(victim, damage(1.0F), flat.normalize(), 1.9D, 0.42D);
         }
         if (p > SWEEP_WIND_END + 0.05F) {
-            Vec3 tip = position().add(dir.scale(BRANCH_RANGE * 0.95D)).add(0.0D, tipY - getY(), 0.0D);
-            sl.sendParticles(ParticleTypes.CRIT, tip.x, tip.y, tip.z, 3, 0.3D, 0.3D, 0.3D, 0.01D);
+            // Trail the whole outer half of the branch rather than puffing at the tip: the point of
+            // this is to show the player the ARC, which is the thing they have to learn to dodge.
+            for (int i = 0; i < 4; i++) {
+                double along = BRANCH_INNER + (BRANCH_RANGE - BRANCH_INNER) * (0.45D + i * 0.18D);
+                Vec3 at = position().add(dir.scale(along)).add(0.0D, tipY - getY(), 0.0D);
+                sl.sendParticles(ParticleTypes.COMPOSTER, at.x, at.y, at.z, 2, 0.25D, 0.25D, 0.25D, 0.02D);
+            }
         }
     }
 
@@ -629,7 +634,15 @@ public class WhompingWillowEntity extends Monster {
         }
         if (this.level() instanceof ServerLevel sl) {
             smashBlocks(sl, BlockPos.containing(c));
-            sl.sendParticles(ParticleTypes.EXPLOSION, c.x, c.y + 0.5D, c.z, 4, 1.2D, 0.2D, 1.2D, 0.0D);
+            // A shockwave ring reads the radius back to the player, so the danger decal drawn during
+            // the wind-up and the actual hit area visibly agree.
+            for (int i = 0; i < 22; i++) {
+                double a = i * Math.PI * 2.0 / 22.0;
+                sl.sendParticles(ParticleTypes.CLOUD,
+                        c.x + Math.cos(a) * SLAM_RADIUS, c.y + 0.3D, c.z + Math.sin(a) * SLAM_RADIUS,
+                        1, 0.1D, 0.05D, 0.1D, 0.04D);
+            }
+            sl.sendParticles(ParticleTypes.COMPOSTER, c.x, c.y + 0.6D, c.z, 18, 1.0D, 0.4D, 1.0D, 0.12D);
         }
     }
 
@@ -644,6 +657,12 @@ public class WhompingWillowEntity extends Monster {
             strike(victim, damage(1.2F), flat.normalize(), 2.6D, 0.55D);
         }
         if (this.level() instanceof ServerLevel sl) {
+            for (int i = 0; i < 30; i++) {
+                double a = i * Math.PI * 2.0 / 30.0;
+                sl.sendParticles(ParticleTypes.CLOUD,
+                        getX() + Math.cos(a) * STOMP_RANGE, getY() + 0.2D, getZ() + Math.sin(a) * STOMP_RANGE,
+                        1, 0.1D, 0.05D, 0.1D, 0.05D);
+            }
             sl.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, getX(), getY() + 0.2D, getZ(),
                     26, 2.4D, 0.1D, 2.4D, 0.02D);
         }
@@ -922,6 +941,11 @@ public class WhompingWillowEntity extends Monster {
         boolean hurt = super.hurt(source, amount);
         if (!hurt || this.level().isClientSide) return hurt;
 
+        if (this.level() instanceof ServerLevel sl) {
+            sl.sendParticles(ParticleTypes.COMPOSTER, getX(), getY() + 4.0D, getZ(),
+                    (int) Math.min(24.0F, 3.0F + amount), 2.2D, 2.5D, 2.2D, 0.03D);
+        }
+
         AttackState state = getAttackState();
         if (state == AttackState.FROZEN && this.frozenTicks > 0) {
             setAttackState(AttackState.NONE);   // wire-held freezes survive; a pressed knot does not
@@ -940,6 +964,13 @@ public class WhompingWillowEntity extends Monster {
     @Override
     public void die(DamageSource source) {
         dropVictim();
+        if (this.level() instanceof ServerLevel sl) {
+            // The whole canopy comes down with it.
+            sl.sendParticles(ParticleTypes.COMPOSTER, getX(), getY() + 6.0D, getZ(),
+                    140, 3.4D, 3.0D, 3.4D, 0.06D);
+            sl.sendParticles(ParticleTypes.CLOUD, getX(), getY() + 0.4D, getZ(),
+                    40, 3.0D, 0.3D, 3.0D, 0.05D);
+        }
         super.die(source);
     }
 

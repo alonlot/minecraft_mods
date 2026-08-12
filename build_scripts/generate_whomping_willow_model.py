@@ -230,12 +230,36 @@ def build_knot(trunk2):
 
 
 def build_maw(trunk3):
+    """A split in the trunk with teeth in it.
+
+    The first version was three boxes and would have read as a dark rectangle: an unlit hole has no
+    shape. What makes a mouth legible is the RIM -- a heavy overhanging brow above, a jaw that juts
+    below, and irregular splinters closing across the gap so the eye reads teeth rather than a
+    doorway. The hollow itself is set deep so it self-shadows.
+    """
     base = sum(RING_H[:2])
-    maw = trunk3.child("maw", (0, base + 6, -RING_HALF_W[2]))
-    maw.box("maw_upper", 0, base + 10, -RING_HALF_W[2] - 1, 8, 6, 3, "bark")
-    maw.box("maw_gum", 0, base + 4, -RING_HALF_W[2] + 1, 7, 8, 2, "maw")
-    jaw = maw.child("maw_jaw", (0, base + 4, -RING_HALF_W[2]))
-    jaw.box("maw_lower", 0, base, -RING_HALF_W[2] - 1, 8, 5, 3, "bark")
+    hw = RING_HALF_W[2]
+    maw = trunk3.child("maw", (0, base + 8, -hw))
+
+    # Recessed throat, well behind the trunk face so the opening is genuinely dark.
+    maw.box("maw_gum", 0, base + 3, -hw + 7, 10, 14, 5, "maw")
+
+    # Overhanging brow, and the cheeks that frame the split.
+    maw.box("maw_upper", 0, base + 15, -hw - 2, 13, 7, 5, "bark")
+    maw.box("maw_brow", 0, base + 20, -hw - 1, 11, 5, 4, "bark")
+    for side in (-1, 1):
+        maw.box("maw_cheek%s" % ("l" if side < 0 else "r"),
+                side * 11, base + 4, -hw - 1, 4, 15, 4, "bark")
+
+    # Upper teeth: irregular splinters hanging from the brow.
+    for i, (tx, tl) in enumerate(((-8, 6), (-4, 9), (0, 5), (4, 8), (8, 6))):
+        maw.box("maw_tooth_u%d" % (i + 1), tx, base + 15 - tl, -hw - 1, 2, tl, 3, "knot")
+
+    # Jaw: juts forward and down, and carries the lower teeth so they swing with it.
+    jaw = maw.child("maw_jaw", (0, base + 4, -hw))
+    jaw.box("maw_lower", 0, base - 1, -hw - 3, 12, 6, 6, "bark")
+    for i, (tx, tl) in enumerate(((-6, 7), (-2, 5), (2, 8), (6, 5))):
+        jaw.box("maw_tooth_l%d" % (i + 1), tx, base + 4, -hw - 2, 2, tl, 3, "knot")
     return maw
 
 

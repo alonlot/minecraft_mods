@@ -274,6 +274,9 @@ public class ExampleMod
             () -> new GillyweedPlantBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.SEAGRASS)));
     public static final RegistryObject<Block> MANDRAKE_PLANT = BLOCKS.register("mandrake_plant",
             () -> new MandrakePlantBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.POPPY).noCollission().instabreak()));
+    public static final RegistryObject<Block> WILLOW_SAPLING = BLOCKS.register("willow_sapling",
+            () -> new com.hogwartsmagic.block.WillowSaplingBlock(
+                    BlockBehaviour.Properties.ofFullCopy(Blocks.OAK_SAPLING)));
 
     // Custom Invisible Light Block for Patronus
     public static final RegistryObject<Block> PATRONUS_LIGHT_BLOCK = BLOCKS.register("patronus_light_block", 
@@ -296,6 +299,7 @@ public class ExampleMod
     public static final RegistryObject<Item> ARCANE_CLUSTER_ITEM = ITEMS.register("arcane_cluster", () -> new BlockItem(ARCANE_CLUSTER.get(), new Item.Properties()));
     public static final RegistryObject<Item> GILLYWEED_PLANT_ITEM = ITEMS.register("gillyweed_plant", () -> new BlockItem(GILLYWEED_PLANT.get(), new Item.Properties()));
     public static final RegistryObject<Item> MANDRAKE_PLANT_ITEM = ITEMS.register("mandrake_plant", () -> new BlockItem(MANDRAKE_PLANT.get(), new Item.Properties()));
+    public static final RegistryObject<Item> WILLOW_SAPLING_ITEM = ITEMS.register("willow_sapling", () -> new BlockItem(WILLOW_SAPLING.get(), new Item.Properties()));
     public static final RegistryObject<Item> MOVING_PORTRAIT_ITEM = ITEMS.register("moving_portrait", () -> new BlockItem(MOVING_PORTRAIT.get(), new Item.Properties()));
     public static final RegistryObject<Item> CANDLE_CLUSTER_ITEM = ITEMS.register("candle_cluster", () -> new BlockItem(CANDLE_CLUSTER.get(), new Item.Properties()));
     public static final RegistryObject<Item> ENCHANTED_BOOK_PILE_ITEM = ITEMS.register("enchanted_book_pile", () -> new BlockItem(ENCHANTED_BOOK_PILE.get(), new Item.Properties()));
@@ -569,6 +573,7 @@ public class ExampleMod
                 output.accept(ARCANE_CLUSTER_ITEM.get());
                 output.accept(GILLYWEED_PLANT_ITEM.get());
                 output.accept(MANDRAKE_PLANT_ITEM.get());
+                output.accept(WILLOW_SAPLING_ITEM.get());
                 output.accept(MOVING_PORTRAIT_ITEM.get());
                 output.accept(CANDLE_CLUSTER_ITEM.get());
                 output.accept(ENCHANTED_BOOK_PILE_ITEM.get());

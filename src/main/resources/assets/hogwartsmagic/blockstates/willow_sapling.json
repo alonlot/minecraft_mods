@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "age=0": {
+      "model": "hogwartsmagic:block/willow_sapling"
+    },
+    "age=1": {
+      "model": "hogwartsmagic:block/willow_sapling"
+    },
+    "age=2": {
+      "model": "hogwartsmagic:block/willow_sapling"
+    },
+    "age=3": {
+      "model": "hogwartsmagic:block/willow_sapling"
+    }
+  }
+}

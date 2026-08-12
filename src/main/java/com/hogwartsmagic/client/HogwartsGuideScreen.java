@@ -203,6 +203,14 @@ public class HogwartsGuideScreen extends Screen {
                         "It swings a backhand that will throw you clear across a clearing, and kicks the ground apart - earth, timber, glass and thatch all give way, though good stone will not.",
                         "Worst of all, it will simply pick you up and throw you. Do not count on the landing. It is no gentler with the beasts of the forest than it is with wizards."
                 )),
+                page("On the Whomping Willow", List.of(
+                        "There is a tree in the old woods that is not only a tree. It stands still while you are far off, and it is still standing still when you are close enough to regret it.",
+                        "It cannot follow you. That is the whole of the trick: everything it can reach, it can reach at once, and everything past that is safe. Watch which way a branch draws back - sideways for a sweep, straight up for a hammer, and all four at once when it means to shake the ground.",
+                        "Fly over it at your peril. It will pick a broom out of the air, though a rider so struck seems to fall more gently than they ought.",
+                        "Look low on the trunk for the knot. Press it and the whole tree goes slack, and stays so until something disturbs it. Those of a practical bent have been known to run a wire to it and lay a plate in the path, so that the tree sleeps for anyone who walks the road and wakes for anyone who does not.",
+                        "Fire is what it fears; an axe is next best. Arrows only lodge in the bark, and left alone it closes its own wounds.",
+                        "Cut one down and you may find a whip of it still living. Plant that, let it come up, and take it by the hand when it is grown - it will know you, and it will know everyone else is not you."
+                )),
                 page("On freeing an elf", List.of(
                         "A bound elf serves, and blames itself with its own fists whenever harm comes to its master.",
                         "Present it with clothing - any garment at all - and it is free.",

@@ -578,5 +578,7 @@
   "subtitles.hogwartsmagic.whomping_willow.groan": "Timber groans",
   "subtitles.hogwartsmagic.whomping_willow.roots": "Roots wrench",
   "subtitles.hogwartsmagic.whomping_willow.hurt": "Willow splinters",
-  "subtitles.hogwartsmagic.whomping_willow.death": "Willow falls"
+  "subtitles.hogwartsmagic.whomping_willow.death": "Willow falls",
+  "block.hogwartsmagic.willow_sapling": "Whomping Willow Sapling",
+  "block.hogwartsmagic.willow_sapling.no_room": "There is no room here for it to grow."
 }

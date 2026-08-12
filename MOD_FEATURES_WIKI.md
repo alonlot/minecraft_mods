@@ -349,6 +349,15 @@ Each spell below lists the implemented gameplay behavior currently present in th
 
 ## Mobs and Major Entities
 
+### Whomping Willow
+
+- Huge rooted hostile tree. Never moves; fights everything that comes within reach of its four branches.
+- Dormant until approached or struck, then sweeps, slams, stomps its roots, grabs, and swats broom riders out of the air.
+- Press the knot at its base, or feed a redstone signal to its roots, to hold it still.
+- Rare in dark and old-growth forests; one stands guaranteed in a `willow_clearing`.
+- Drops a sapling. Plant it, let it mature, then raise it by hand - a willow you raise ignores you and attacks everyone else.
+
+
 ### Death Eater
 
 - Hostile spellcasting humanoid.

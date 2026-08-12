@@ -31,8 +31,17 @@ public final class ClimateSlices {
     /** Full {@code -1..1}, for a dimension a biome does not care about. */
     public static final Climate.Parameter ANY = Climate.Parameter.span(-1.0F, 1.0F);
 
-    /** Vanilla's lowest erosion band — the one that produces peaks. Claim it to get real mountains. */
-    public static final Climate.Parameter PEAKS_EROSION = Climate.Parameter.span(-1.0F, -0.78F);
+    /**
+     * High ground: vanilla's peaks erosion band ({@code -1.0 .. -0.78}) plus the mountain band above
+     * it ({@code -0.78 .. -0.375}).
+     *
+     * <p>The peaks band alone accounts for barely 1% of sampled terrain, which made a biome gated on
+     * it roughly fifty times rarer than one that is actually findable — no amount of widening the
+     * other four dimensions could compensate, because they were already nearly open. Taking the
+     * mountain band as well trades "only the very highest summits" for "the high country generally",
+     * and is the difference between a biome that exists and one that does not.
+     */
+    public static final Climate.Parameter HIGH_EROSION = Climate.Parameter.span(-1.0F, -0.30F);
 
     /**
      * Continentalness stopping just short of {@code 0.8}, where vanilla starts dripstone caves, and

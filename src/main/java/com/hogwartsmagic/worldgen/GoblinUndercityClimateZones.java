@@ -22,7 +22,7 @@ import net.minecraft.world.level.biome.Climate;
 public final class GoblinUndercityClimateZones {
 
     public static final Climate.ParameterPoint[] POINTS = ClimateSlices.cave(
-            Climate.Parameter.span(0.45F, 1.00F),   // temperature: the hot band -- forges and deep stone
+            Climate.Parameter.span(0.30F, 1.00F),   // temperature: warm through hot -- forges and deep stone
             Climate.Parameter.span(-1.00F, 0.25F),  // humidity: dry, disjoint from the Chamber's band
             ClimateSlices.BELOW_DRIPSTONE,          // continentalness: stop short of dripstone caves
             ClimateSlices.ANY,                      // erosion: caves are not shaped by surface terrain

@@ -22,11 +22,11 @@ import net.minecraft.world.level.biome.Climate;
 public final class BlackLakeClimateZones {
 
     public static final Climate.ParameterPoint[] POINTS = ClimateSlices.surface(
-            Climate.Parameter.span(-0.45F, 0.20F),  // temperature: cold, but not freezing over
-            Climate.Parameter.span(-0.30F, 0.60F),  // humidity: a wide middle band
+            Climate.Parameter.span(-0.60F, 0.35F),  // temperature: cold, but not freezing over
+            Climate.Parameter.span(-0.50F, 0.70F),  // humidity: wide
             Climate.Parameter.span(-1.05F, -0.455F),// continentalness: vanilla's DEEP ocean band
             ClimateSlices.ANY,                      // erosion: the sea floor can be any shape
-            Climate.Parameter.span(-0.70F, 0.30F)); // weirdness: wide, but not the whole range
+            ClimateSlices.ANY);                     // weirdness: any
 
     private BlackLakeClimateZones() {}
 }

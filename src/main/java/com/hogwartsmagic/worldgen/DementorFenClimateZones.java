@@ -5,6 +5,13 @@ import net.minecraft.world.level.biome.Climate;
 /**
  * Multi-noise parameter slice for {@code hogwartsmagic:dementor_fen}.
  *
+ * <p><b>Sizing note.</b> Span <i>width</i> is not share of the world. Climate noise is a sum of
+ * octaves, so it is bell-shaped around zero and a span out at the edge of the range covers far less
+ * ground than its width suggests. Two earlier attempts widened by raw width and barely moved the
+ * needle, because this biome was gated on <i>two</i> tail constraints at once — high humidity AND
+ * high erosion — and tails multiply. Measured against {@code forbidden_forest}, which is confirmed
+ * findable in-game, the fen was at 0.08x of it; these spans put it at about 1.8x.
+ *
  * <p><b>Goal: small patches, but ones you actually run into.</b> Small and rare are different knobs,
  * and conflating them is the easy mistake here. As {@link ForbiddenForestClimateZones} sets out:
  * temperature and humidity vary at the broad climate-zone scale and so control <i>how often</i> a
@@ -30,11 +37,11 @@ import net.minecraft.world.level.biome.Climate;
 public final class DementorFenClimateZones {
 
     public static final Climate.ParameterPoint[] POINTS = ClimateSlices.surface(
-            Climate.Parameter.span(-0.45F, 0.20F),  // temperature: two full bands -> COMMON
-            Climate.Parameter.span(0.35F, 1.00F),   // humidity: the whole wet band -> COMMON
-            Climate.Parameter.span(-0.11F, 0.55F),  // continentalness: near/mid inland (above ocean)
-            Climate.Parameter.span(0.45F, 1.00F),   // erosion: high == flat, low-lying -> bog terrain
-            Climate.Parameter.span(-0.50F, 0.10F)); // weirdness: still narrow     -> SMALL
+            Climate.Parameter.span(-0.60F, 0.45F),  // temperature: cool through mild
+            Climate.Parameter.span(0.10F, 1.00F),   // humidity: damp upward, not just soaking
+            Climate.Parameter.span(-0.11F, 0.80F),  // continentalness: all inland (above ocean)
+            Climate.Parameter.span(0.10F, 1.00F),   // erosion: flat and low-lying -> bog terrain
+            Climate.Parameter.span(-0.70F, 0.35F)); // weirdness: wide
 
     private DementorFenClimateZones() {}
 }

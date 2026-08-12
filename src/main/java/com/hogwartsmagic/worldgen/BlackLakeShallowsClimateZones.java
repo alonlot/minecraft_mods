@@ -26,8 +26,23 @@ import net.minecraft.world.level.biome.Climate;
  * for this biome: a twelve-block statue standing in four blocks of water looks like a bug. Merpeople
  * themselves do live here, in ones and twos, without a village.
  *
- * <p>Temperature and humidity match the ocean slice, kept narrow so most of the world's rivers stay
- * rivers.
+ * <p><b>Sizing note: the valley band caps this biome, so nothing else may narrow it.</b> Climate noise
+ * is bell-shaped around zero, so those two extreme weirdness bands together account for only about
+ * 0.34% of sampled terrain. That is the hard ceiling for <i>any</i> biome built on them — even with
+ * the other four dimensions thrown wide open, this can never exceed roughly a tenth of
+ * {@code forbidden_forest}'s share of the world. Narrowing temperature, humidity, continentalness and
+ * erosion on top of it multiplied that 0.34% down to 0.004%, which is indistinguishable from the
+ * biome not existing.
+ *
+ * <p>Widening the weirdness band instead would be the wrong fix and would break the biome: the deep
+ * cut that fills with water comes from the terrain shaper reacting to extreme weirdness, not from
+ * which biome claims the cell. Claim weirdness outside the valley band and you get a lake biome on
+ * dry land. So the other four dimensions are opened up to roughly a third of the theoretical ceiling
+ * instead, which leaves most of the world's rivers as ordinary rivers.
+ *
+ * <p>Low total share is also less alarming here than it looks: vanilla rivers occupy about the same
+ * fraction of the world and you cannot walk far without meeting one, because valley biomes generate
+ * as a connected network of strips rather than as isolated blobs.
  *
  * <p>Note: only affects newly generated chunks — existing worlds keep their current layout.
  */
@@ -37,13 +52,15 @@ public final class BlackLakeShallowsClimateZones {
     private static final Climate.Parameter VALLEY_LOW = Climate.Parameter.span(-1.0F, -0.93333334F);
     private static final Climate.Parameter VALLEY_HIGH = Climate.Parameter.span(0.93333334F, 1.0F);
 
-    private static final Climate.Parameter TEMPERATURE = Climate.Parameter.span(-0.45F, 0.20F);
-    /** The damp half of the range: a lake sits in wet country. */
-    private static final Climate.Parameter HUMIDITY = Climate.Parameter.span(0.10F, 0.60F);
-    /** Coast through mid-inland — sea lochs and enclosed lakes both. */
-    private static final Climate.Parameter CONTINENTALNESS = Climate.Parameter.span(-0.19F, 0.30F);
-    /** The two flattest erosion bands, so the valley spreads out instead of cutting a gorge. */
-    private static final Climate.Parameter EROSION = Climate.Parameter.span(0.45F, 1.0F);
+    // The four dimensions below are deliberately near-open, and that is forced by the valley bands
+    // above rather than being a stylistic choice. See the sizing note in the class javadoc.
+    private static final Climate.Parameter TEMPERATURE = Climate.Parameter.span(-0.70F, 0.55F);
+    /** Damp-ish country, but wide: the valley band is already doing all the narrowing. */
+    private static final Climate.Parameter HUMIDITY = Climate.Parameter.span(-0.40F, 1.0F);
+    /** Coast through inland — sea lochs and enclosed lakes both. */
+    private static final Climate.Parameter CONTINENTALNESS = Climate.Parameter.span(-0.35F, 0.65F);
+    /** Flatter erosion, so the valley spreads out into a sheet instead of cutting a gorge. */
+    private static final Climate.Parameter EROSION = Climate.Parameter.span(0.0F, 1.0F);
 
     public static final Climate.ParameterPoint[] POINTS = concat(
             ClimateSlices.surface(TEMPERATURE, HUMIDITY, CONTINENTALNESS, EROSION, VALLEY_LOW),

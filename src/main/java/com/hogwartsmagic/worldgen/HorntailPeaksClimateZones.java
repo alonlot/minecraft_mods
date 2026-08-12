@@ -24,10 +24,10 @@ import net.minecraft.world.level.biome.Climate;
 public final class HorntailPeaksClimateZones {
 
     public static final Climate.ParameterPoint[] POINTS = ClimateSlices.surface(
-            Climate.Parameter.span(0.10F, 1.00F),   // temperature: the whole warm half
-            Climate.Parameter.span(-1.00F, -0.10F), // humidity: the whole dry half
-            Climate.Parameter.span(0.10F, 1.00F),   // continentalness: inland -> far inland
-            ClimateSlices.PEAKS_EROSION,            // erosion: vanilla's peaks band -> HIGH terrain
+            Climate.Parameter.span(-0.20F, 1.00F),  // temperature: mild through hot
+            Climate.Parameter.span(-1.00F, 0.15F),  // humidity: dry through middling
+            Climate.Parameter.span(-0.11F, 1.00F),  // continentalness: all inland (above ocean)
+            ClimateSlices.HIGH_EROSION,             // erosion: peaks AND mountains -> HIGH terrain
             ClimateSlices.ANY);                     // weirdness: any -> one continuous range
 
     private HorntailPeaksClimateZones() {}

@@ -49,22 +49,26 @@ OUT_BB = os.path.join(ROOT, "blockbench_models", "whomping_willow.bbmodel")
 OUT_JAVA = os.path.join(ROOT, "src", "main", "java", "com", "hogwartsmagic",
                         "client", "model", "WhompingWillowModel.java")
 
-TEX_W, TEX_H = 512, 512
+TEX_W, TEX_H = 512, 1024
 
 # --- shape parameters -----------------------------------------------------------------------------
 # Model is 180px tall and rendered at MODEL_SCALE 0.80 -> 180/16*0.80 = 9.00 blocks exactly.
 
 TRUNK_RINGS = 8
-RING_H      = [16, 16, 16, 16, 16, 16, 16, 14]      # 126px of trunk
-RING_HALF_W = [23, 21, 19, 17, 15, 13, 11,  9]      # taper 46 -> 18
+RING_H      = [18, 17, 16, 15, 14, 13, 12, 11]      # 116px of trunk
+RING_HALF_W = [30, 27, 24, 21, 18, 16, 14, 12]      # taper 60 -> 24: a trunk, not a pole
 
 BRANCHES     = 4
-BRANCH_YAW   = [0, 90, 180, 270]                    # degrees, compass
+# NOT b*90. Minecraft renders a model rotated by (180 - yaw), and Vec3.directionFromRotation maps a
+# yaw to a rotation of MINUS that yaw, so a bone's local yaw is the negated world bearing with a
+# half-turn on top. Using b*90 left branches 0 and 2 pointing exactly opposite the direction the
+# server swung them, which is why the branch you saw move was often not the branch that hit you.
+BRANCH_YAW   = [-(b * 90) - 180 for b in range(BRANCHES)]
 BRANCH_HOST  = [4, 6, 4, 6]                         # ring index (0-based): staggered, not a flat cross
 BRANCH_LIFT  = [6, 4, 6, 4]                         # px above the host ring's base
 SEGS         = 5
-SEG_LEN      = [34, 30, 26, 22, 18]                 # 130px chain
-SEG_THICK    = [10, 8, 7, 6, 5]
+SEG_LEN      = [33, 29, 25, 22, 18]                 # 127px chain -> ~7.1 blocks reach vs a 6.8 arc
+SEG_THICK    = [18, 15, 12, 10, 8]                  # heavy at the shoulder, whip-thin at the tip
 
 # Radians, baked into PartPose, and CUMULATIVE down the chain -- each segment inherits its parent's
 # angle. Positive is downward. The branch lifts slightly, carries out flat, then droops at the tip:
@@ -74,7 +78,7 @@ SEG_THICK    = [10, 8, 7, 6, 5]
 # visibly could not touch.
 REST_DROOP   = [-0.25, 0.15, 0.20, 0.30, 0.45]
 
-CROWN_H = 54                                        # 126 + 54 = 180
+CROWN_H = 64
 GEO_SEED = 0x77000D
 
 
@@ -160,19 +164,18 @@ def build():
 
     # Crown: gnarled masses plus leaf slabs, tip at y=180.
     crown = trunk_top.child("crown", (0, y, 0))
-    for i in range(6):
-        a = i * math.pi / 3.0 + 0.4
-        d = 9 + rnd(700 + i) * 9
-        crown.box("crown_m%d" % (i + 1), math.cos(a) * d, y + 2 + rnd(720 + i) * 16,
-                  math.sin(a) * d, 7 + rnd(740 + i) * 4, 10 + rnd(760 + i) * 12,
-                  7 + rnd(780 + i) * 4, "bark")
-    for i in range(10):
-        a = i * math.pi * 2.0 / 10.0 + 0.7
-        d = 12 + rnd(800 + i) * 14
-        crown.box("crown_leaf%d" % (i + 1), math.cos(a) * d, y + 18 + rnd(820 + i) * 30,
-                  math.sin(a) * d, 11, 3, 11, "leaf")
-    # the topmost mass defines the 180px silhouette
-    crown.box("crown_cap", 0, 172, 0, 10, 8, 10, "leaf")
+    for i in range(7):
+        a = i * math.pi * 2.0 / 7.0 + 0.4
+        d = 11 + rnd(700 + i) * 12
+        crown.box("crown_m%d" % (i + 1), math.cos(a) * d, y + 2 + rnd(720 + i) * 18,
+                  math.sin(a) * d, 9 + rnd(740 + i) * 5, 12 + rnd(760 + i) * 14,
+                  9 + rnd(780 + i) * 5, "bark")
+    for i in range(16):
+        a = i * math.pi * 2.0 / 16.0 + 0.7
+        d = 14 + rnd(800 + i) * 22
+        crown.box("crown_leaf%d" % (i + 1), math.cos(a) * d, y + 14 + rnd(820 + i) * 40,
+                  math.sin(a) * d, 15, 4, 15, "leaf")
+    crown.box("crown_cap", 0, 168, 0, 16, 12, 16, "leaf")
     return root
 
 
@@ -203,9 +206,16 @@ def build_branch(host, b, lift, host_hw):
         t = SEG_THICK[s]
         bone.box(name + "_c", 0, lift - t / 2.0, z + SEG_LEN[s] / 2.0,
                  t / 2.0, t, SEG_LEN[s] / 2.0, "twig" if s >= 3 else "bark")
-        if s >= 2:
-            bone.box("branch%d_leaf%d" % (b + 1, s - 1), 0, lift + 2, z + SEG_LEN[s] * 0.7,
-                     10, 3, 10, "leaf")
+        if s >= 1:
+            bone.box("branch%d_leaf%d" % (b + 1, s), 0, lift + 1, z + SEG_LEN[s] * 0.65,
+                     13 - s, 4, 13 - s, "leaf")
+        # Withes: thin strands hanging off the underside. A willow without these reads as an oak
+        # with its branches nailed on, which is exactly what the first pass looked like.
+        if s >= 1:
+            for k, (wx, wz, wl) in enumerate((
+                    (-7 + s, 0.30, 20 - s * 2), (6 - s, 0.55, 26 - s * 3), (0, 0.80, 22 - s * 2))):
+                bone.box("branch%d_withe%d_%d" % (b + 1, s, k),
+                         wx, lift - wl, z + SEG_LEN[s] * wz, 1.5, wl, 1.5, "leaf")
         parent, z = bone, z + SEG_LEN[s]
 
 
@@ -230,7 +240,7 @@ def walk(bone):
 # part of the hero silhouette share one footprint. The painter dedupes by uv_offset, so a shared
 # rect is painted once and the RNG stream stays stable.
 
-SHAREABLE = ("root", "leaf", "twig")
+SHAREABLE = ("root", "leaf", "twig", "bark")
 
 
 def pack(cubes):
@@ -238,7 +248,8 @@ def pack(cubes):
     for c in sorted(cubes, key=lambda c: c.name):
         w, h, d = [int(math.ceil(v)) for v in c.size()]
         fw, fh = 2 * d + 2 * w, d + h
-        key = (c.kind, w, h, d) if c.kind in SHAREABLE else ("!" + c.name,)
+        hero = c.name.startswith(("trunk", "crown_m", "maw")) and not c.name.startswith("crown_leaf")
+        key = ("!" + c.name,) if (hero or c.kind not in SHAREABLE) else (c.kind, w, h, d)
         if key in classes:
             c.uv = classes[key]
             continue

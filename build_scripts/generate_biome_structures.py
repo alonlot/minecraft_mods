@@ -37,7 +37,9 @@ functions look the way they do.
 
 import gzip
 import io
+import math
 import os
+import re
 import struct
 
 # --- minimal NBT writer -------------------------------------------------------------------------
@@ -363,7 +365,13 @@ def fen_gibbet():
     put(b, (2, 7, 7), 'minecraft:soul_lantern', {'hanging': 'false'})
     rubble(b, [(9, 1, 8), (8, 1, 9), (9, 1, 6)], BOG_STONE, 21)
     chest(b, (6, 6, 3), 'south', 'minecraft:chests/simple_dungeon')
-    return b
+
+    # Baked in rather than left to spawn_overrides. Overrides only change what the ongoing spawn
+    # cycle picks inside the bounds -- they do not populate the place when it generates, so they
+    # still wait on darkness, the mob cap and where the player happens to be standing. A gibbet
+    # with nothing hanging around it is not a gibbet.
+    return b, [entity(6.5, 6.0, 5.5, 'hogwartsmagic:dementor',
+                      {'PersistenceRequired': ('byte', 1)})]
 
 
 CRAG = [('minecraft:blackstone', 6), ('minecraft:polished_blackstone', 3), ('minecraft:basalt', 3)]
@@ -405,7 +413,10 @@ def horntail_nest():
         put(b, (bx, by, bz), 'minecraft:bone_block', {'axis': axis})
     put(b, (10, 2, 8), 'minecraft:magma_block')
     chest(b, (4, 1, 8), 'east', 'minecraft:chests/nether_bridge')
-    return b
+
+    # The dragon is fire-immune, so sitting it on the magma at the centre of its own nest is safe.
+    return b, [entity(7.5, 1.0, 4.5, 'hogwartsmagic:hungarian_horntail',
+                      {'PersistenceRequired': ('byte', 1)})]
 
 
 CHAMBER_WALL = [('minecraft:stone_bricks', 8), ('minecraft:mossy_stone_bricks', 4),
@@ -458,7 +469,12 @@ def chamber_hall():
         put(b, pos, 'minecraft:cobweb')
     chest(b, (2, 1, 2), 'south', 'minecraft:chests/simple_dungeon')
     chest(b, (12, 1, 15), 'north', 'minecraft:chests/stronghold_corridor')
-    return b
+
+    # The whole reason this structure exists: a basilisk is 3.5 blocks wide and natural cave
+    # worldgen almost never offers it a box that size, so the hall is the one place underground
+    # it reliably fits.
+    return b, [entity(7.5, 1.0, 6.5, 'hogwartsmagic:basilisk',
+                      {'PersistenceRequired': ('byte', 1)})]
 
 
 VAULT_WALL = [('minecraft:deepslate_bricks', 8), ('minecraft:cracked_deepslate_bricks', 3),
@@ -505,7 +521,15 @@ def goblin_vault():
     rubble(b, [(2, 1, 2), (15, 1, 8), (6, 1, 9), (13, 1, 2)], VAULT_FLOOR, 57)
     chest(b, (15, 1, 2), 'west', 'minecraft:chests/abandoned_mineshaft')
     chest(b, (2, 1, 8), 'east', 'minecraft:chests/stronghold_crossing')
-    return b
+
+    # Goblins keep the vaults; the troll is what they keep to guard them. The troll needs 3.25 of
+    # headroom and the hall gives it six.
+    crew = [entity(x + 0.5, 1.0, z + 0.5, 'hogwartsmagic:goblin',
+                   {'PersistenceRequired': ('byte', 1)})
+            for x, z in ((3, 3), (11, 7), (7, 2))]
+    crew.append(entity(13.5, 1.0, 8.5, 'hogwartsmagic:troll',
+                       {'PersistenceRequired': ('byte', 1)}))
+    return b, crew
 
 
 DROWNED = [('minecraft:stone_bricks', 6), ('minecraft:mossy_stone_bricks', 6),
@@ -553,7 +577,10 @@ def black_lake_ruin():
     chest(b, (5, 1, 3), 'south', 'minecraft:chests/underwater_ruin_big')
 
     flood(b, W, H, D)
-    return b
+
+    return b, [entity(x + 0.5, 2.0, z + 0.5, 'hogwartsmagic:grindylow',
+                      {'Lurking': ('byte', 1), 'PersistenceRequired': ('byte', 1)})
+               for x, z in ((5, 5), (10, 9), (7, 11))]
 
 
 MERSTONE = [('minecraft:mossy_cobblestone', 7), ('minecraft:cobblestone', 5),
@@ -751,6 +778,35 @@ def see_through(block):
             or any(block.endswith(s) for s in ('_stairs', '_slab', '_wall', '_fence')))
 
 
+# A mob can stand in any of these -- they have no collision box. Everything else underfoot means the
+# entity was baked inside a solid block and will be shoved somewhere unpredictable on placement.
+PASSABLE = re.compile(r'air|water|seagrass|kelp|grass|fern|_bush|vine|sapling|rail|torch|lantern'
+                      r'|cobweb|sea_pickle|coral|light|flower|lily')
+
+
+def audit_entities(blocks, entities, size):
+    """Baked entities have to stand somewhere they fit, and that is easy to get wrong by a block.
+
+    Both faults this caught on its first run were a single slab: a troll standing in the rail
+    trough and a dragon standing on the stone scraped up around its own eggs.
+    """
+    problems = []
+    for e in entities:
+        pos = [v[1] for v in e['pos'][2]]
+        bp = tuple(int(math.floor(v)) for v in pos)
+        eid = e['nbt'][1]['id'][1]
+        if not all(0 <= bp[i] < size[i] for i in range(3)):
+            problems.append('%s baked at %s is outside the %s template' % (eid, bp, size))
+            continue
+        feet = blocks.get(bp, ('minecraft:air',))[0]
+        head = blocks.get((bp[0], bp[1] + 1, bp[2]), ('minecraft:air',))[0]
+        if not PASSABLE.search(feet):
+            problems.append('%s baked at %s is standing inside %s' % (eid, bp, feet))
+        elif not PASSABLE.search(head):
+            problems.append('%s baked at %s has %s at head height' % (eid, bp, head))
+    return problems
+
+
 def audit(name, blocks):
     problems = []
 
@@ -811,10 +867,10 @@ if __name__ == '__main__':
     for name, builder in BUILDS.items():
         built = builder()
         blocks, entities = built if isinstance(built, tuple) else (built, [])
-        problems = audit(name, blocks)
+        size = [max(p[i] for p in blocks) + 1 for i in range(3)]
+        problems = audit(name, blocks) + audit_entities(blocks, entities, size)
         path = os.path.join(OUT, name + '.nbt')
         write_nbt(path, build_template(blocks, entities))
-        size = [max(p[i] for p in blocks) + 1 for i in range(3)]
         kinds = len({v[0] for v in blocks.values()})
         print('%-18s %2dx%2dx%2d  %5d blocks  %2d block types  %2d entities  %6d bytes  %s'
               % (name, size[0], size[1], size[2], len(blocks), kinds, len(entities),

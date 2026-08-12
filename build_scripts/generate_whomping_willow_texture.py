@@ -57,6 +57,9 @@ MAW_BLACK = (16, 13, 10)
 MAW_GUM = (72, 50, 36)
 TOOTH = (196, 172, 132)
 SAP = (86, 62, 20)
+KNOT_PALE = (156, 132, 96)
+KNOT_DARK = (74, 58, 38)
+KNOT_CORE = (40, 30, 20)
 
 DEBUG_FACE_COLOURS = {
     "north": (220, 40, 40), "south": (40, 200, 60), "west": (50, 90, 230),
@@ -79,6 +82,8 @@ def kind_of(name):
         return "leaf"
     if re.match(r"^maw_gum", name):
         return "maw"
+    if re.match(r"^knot_", name):
+        return "knot"
     if re.match(r"^root_", name):
         return "root"
     if re.match(r"^branch\d_s[45]_c$", name):
@@ -183,8 +188,25 @@ def paint_maw(px, x, y, w, h):
             px[x + i, y + j] = jitter(c, 4) + (255,)
 
 
+def paint_knot(px, x, y, w, h):
+    """Pale scarred wood in concentric rings. It has to be obviously different from the bark around
+    it: the guide tells the player to look low on the trunk for the knot, so it must be findable at
+    a glance rather than something you discover by right-clicking every face of a hostile tree."""
+    cx, cy = (w - 1) / 2.0, (h - 1) / 2.0
+    for i in range(w):
+        for j in range(h):
+            r = math.hypot((i - cx) / max(1.0, cx), (j - cy) / max(1.0, cy))
+            ring = math.sin(r * 7.0)
+            c = lerp(KNOT_PALE, KNOT_DARK, min(1.0, r * 0.7))
+            if ring > 0.35:
+                c = lerp(c, KNOT_DARK, 0.55)
+            if r < 0.18:
+                c = KNOT_CORE
+            px[x + i, y + j] = jitter(c, 4) + (255,)
+
+
 PAINTERS = {"bark": paint_bark, "twig": paint_twig, "root": paint_root,
-            "leaf": paint_leaf, "maw": paint_maw}
+            "leaf": paint_leaf, "maw": paint_maw, "knot": paint_knot}
 
 
 def main():
@@ -212,7 +234,8 @@ def main():
             continue
 
         # Flood the whole footprint with the darkest tone first so no seam can show through.
-        floor_colour = {"leaf": LEAF_DARK, "maw": MAW_BLACK, "root": ROOT_DARK}.get(kind, BARK_DARK)
+        floor_colour = {"leaf": LEAF_DARK, "maw": MAW_BLACK, "root": ROOT_DARK,
+                        "knot": KNOT_DARK}.get(kind, BARK_DARK)
         xs = [r[0] for r in rects.values()]
         ys = [r[1] for r in rects.values()]
         xe = [r[0] + r[2] for r in rects.values()]

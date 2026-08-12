@@ -95,8 +95,6 @@ public class WhompingWillowEntity extends Monster {
             SynchedEntityData.defineId(WhompingWillowEntity.class, EntityDataSerializers.BYTE);
     private static final EntityDataAccessor<Byte> DATA_SWEEP_SIGN =
             SynchedEntityData.defineId(WhompingWillowEntity.class, EntityDataSerializers.BYTE);
-    private static final EntityDataAccessor<Byte> DATA_KNOT_BRANCH =
-            SynchedEntityData.defineId(WhompingWillowEntity.class, EntityDataSerializers.BYTE);
     private static final EntityDataAccessor<Boolean> DATA_AWAKE =
             SynchedEntityData.defineId(WhompingWillowEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Boolean> DATA_ENRAGED =
@@ -130,8 +128,8 @@ public class WhompingWillowEntity extends Monster {
     public static final int STAGGER_DURATION = 20;
 
     // --- geometry, shared with the model ---------------------------------------------------------
-    /** Horizontal reach of the damage arc. The branch is visibly ~7.04 blocks long; the shortfall is
-     *  deliberate, so a near miss reads as a near miss. */
+    /** Horizontal reach of the damage arc. The branches visibly reach ~7.33 blocks; the shortfall is
+     *  deliberate, so a near miss reads as a near miss rather than a phantom hit. */
     public static final double BRANCH_RANGE = 6.8D;
     public static final double BRANCH_INNER = 2.4D;
     public static final double BRANCH_ARC_HALF = 0.50D;
@@ -200,10 +198,21 @@ public class WhompingWillowEntity extends Monster {
         return Mth.lerp(Mth.clamp(p, 0.0F, 1.0F), -0.55F, 1.30F);
     }
 
-    /** Compass bearing of branch {@code b}'s rest direction, in degrees, Minecraft yaw convention.
+    /**
+     * Bearings of the four limbs relative to the planted yaw, in degrees.
+     *
+     * <p>Deliberately not multiples of 90. Four branches on the exact compass points read as a
+     * manufactured cross from every angle, and this array is what lets the model hang them at odd
+     * angles instead. <b>It must stay identical to BRANCH_BEARING in
+     * {@code build_scripts/generate_whomping_willow_model.py}</b> — the model bakes these and the
+     * damage arc is built from them, so a disagreement swings a branch that is not where the hit is.
+     */
+    private static final float[] BRANCH_BEARING = {14.0F, 97.0F, 191.0F, 274.0F};
+
+    /** Bearing of branch {@code b}'s rest direction, in degrees, Minecraft yaw convention.
      *  The trunk never turns, so this is the only thing that decides where a branch points. */
     public static float branchWorldYaw(int b, float plantedYaw) {
-        return Mth.wrapDegrees(plantedYaw + b * 90.0F);
+        return Mth.wrapDegrees(plantedYaw + BRANCH_BEARING[Math.floorMod(b, 4)]);
     }
 
     /** Height above the entity's feet of branch {@code b}'s host joint, in blocks. Mirrors
@@ -242,7 +251,6 @@ public class WhompingWillowEntity extends Monster {
         builder.define(DATA_PLANTED_YAW, 0.0F);
         builder.define(DATA_ACTIVE_BRANCH, (byte) 0);
         builder.define(DATA_SWEEP_SIGN, (byte) 1);
-        builder.define(DATA_KNOT_BRANCH, (byte) 0);
         builder.define(DATA_AWAKE, false);
         builder.define(DATA_ENRAGED, false);
         builder.define(DATA_HELD_VICTIM, -1);
@@ -293,7 +301,7 @@ public class WhompingWillowEntity extends Monster {
         // of reach that is 0.17 blocks of drift between the branch you see and the arc that hurts.
         float yaw = Math.round(this.getYRot() / 90.0F) * 90.0F;
         this.entityData.set(DATA_PLANTED_YAW, yaw);
-        this.entityData.set(DATA_KNOT_BRANCH, (byte) this.random.nextInt(4));
+
         pinYaw(yaw);
         // Never ambient wildlife: a landmark tree that despawns is a bug report.
         this.setPersistenceRequired();
@@ -329,8 +337,15 @@ public class WhompingWillowEntity extends Monster {
         return this.entityData.get(DATA_SWEEP_SIGN);
     }
 
+    /**
+     * Always branch 0. The knot is a raised gnarl carved into the model, and the model is one baked
+     * mesh shared by every willow in the world, so it cannot move from tree to tree. Randomising it
+     * server-side — which is what this did — meant the visible gnarl and the interactive knot were
+     * on different sides three times out of four, and the guide's instruction to look for it was a
+     * lie. Fixed and findable beats varied and invisible.
+     */
     public int getKnotBranch() {
-        return this.entityData.get(DATA_KNOT_BRANCH);
+        return 0;
     }
 
     public boolean isAwake() {
@@ -1038,7 +1053,6 @@ public class WhompingWillowEntity extends Monster {
         super.addAdditionalSaveData(tag);
         // Losing plantedYaw would rotate the tree, its damage arcs and its knot on every reload.
         tag.putFloat("PlantedYaw", getPlantedYaw());
-        tag.putByte("KnotBranch", (byte) getKnotBranch());
         tag.putBoolean("Awake", isAwake());
         tag.putBoolean("Enraged", isEnraged());
         tag.putInt("AngryTicks", this.angryTicks);
@@ -1051,7 +1065,6 @@ public class WhompingWillowEntity extends Monster {
         float yaw = tag.getFloat("PlantedYaw");
         this.entityData.set(DATA_PLANTED_YAW, yaw);
         pinYaw(yaw);
-        this.entityData.set(DATA_KNOT_BRANCH, tag.getByte("KnotBranch"));
         this.entityData.set(DATA_AWAKE, tag.getBoolean("Awake"));
         this.entityData.set(DATA_ENRAGED, tag.getBoolean("Enraged"));
         this.angryTicks = tag.getInt("AngryTicks");
@@ -1148,11 +1161,24 @@ public class WhompingWillowEntity extends Monster {
         }
     }
 
-    /** Which branch owns the bearing to {@code at}. Partitions the compass into the same four
-     *  quadrants {@link #branchWorldYaw} lays out, so selection and geometry cannot disagree. */
+    /**
+     * Which branch owns the bearing to {@code at}: simply the nearest one.
+     *
+     * <p>This used to divide the compass into quadrants, which only worked while the branches sat
+     * on exact multiples of 90. Now that they hang at odd angles the nearest-bearing search is the
+     * only thing that keeps selection and geometry in agreement.
+     */
     private int branchFor(Vec3 at) {
         float bearing = (float) (Mth.atan2(at.z - getZ(), at.x - getX()) * Mth.RAD_TO_DEG) - 90.0F;
-        float rel = Mth.wrapDegrees(bearing - getPlantedYaw());
-        return Math.floorMod(Math.round(rel / 90.0F), 4);
+        int best = 0;
+        float bestOff = 360.0F;
+        for (int b = 0; b < 4; b++) {
+            float off = Math.abs(Mth.wrapDegrees(bearing - branchWorldYaw(b, getPlantedYaw())));
+            if (off < bestOff) {
+                bestOff = off;
+                best = b;
+            }
+        }
+        return best;
     }
 }

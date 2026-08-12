@@ -59,16 +59,28 @@ RING_H      = [18, 17, 16, 15, 14, 13, 12, 11]      # 116px of trunk
 RING_HALF_W = [30, 27, 24, 21, 18, 16, 14, 12]      # taper 60 -> 24: a trunk, not a pole
 
 BRANCHES     = 4
-# NOT b*90. Minecraft renders a model rotated by (180 - yaw), and Vec3.directionFromRotation maps a
-# yaw to a rotation of MINUS that yaw, so a bone's local yaw is the negated world bearing with a
-# half-turn on top. Using b*90 left branches 0 and 2 pointing exactly opposite the direction the
-# server swung them, which is why the branch you saw move was often not the branch that hit you.
-BRANCH_YAW   = [-(b * 90) - 180 for b in range(BRANCHES)]
-BRANCH_HOST  = [4, 6, 4, 6]                         # ring index (0-based): staggered, not a flat cross
-BRANCH_LIFT  = [6, 4, 6, 4]                         # px above the host ring's base
+# World bearings of the four limbs, in degrees. NOT multiples of 90: four branches on the exact
+# compass points read as a manufactured cross from every angle, which is most of why the first
+# version looked like a pole with planks nailed to it. These must match BRANCH_BEARING_OFFSET in
+# WhompingWillowEntity, which is what the damage arc is built from.
+BRANCH_BEARING = [14.0, 97.0, 191.0, 274.0]
+
+# A bone's local yaw is the NEGATED world bearing with a half-turn on top: Minecraft renders the
+# model rotated by (180 - yaw) and Vec3.directionFromRotation maps a yaw to a rotation of minus
+# that yaw. Getting this wrong points a branch 180 degrees away from the arc that swings it.
+BRANCH_YAW   = [-w - 180.0 for w in BRANCH_BEARING]
+
+BRANCH_HOST  = [3, 5, 4, 6]                         # four different rings: no paired heights
+BRANCH_LIFT  = [7, 3, 9, 5]
+BRANCH_SCALE = [1.00, 0.86, 1.08, 0.92]             # no two limbs the same length
 SEGS         = 5
-SEG_LEN      = [33, 29, 25, 22, 18]                 # 127px chain -> ~7.1 blocks reach vs a 6.8 arc
+SEG_LEN      = [33, 29, 25, 22, 18]                 # ~127px chain -> ~7.1 blocks reach vs a 6.8 arc
 SEG_THICK    = [18, 15, 12, 10, 8]                  # heavy at the shoulder, whip-thin at the tip
+
+# Small static limbs that carry no attack. Purely there so the crown is fed from the trunk at more
+# than four points -- a tree with exactly four branches is a diagram of a tree.
+DRESSING = [(2, 55.0, 0.55), (3, 232.0, 0.62), (4, 320.0, 0.5), (5, 152.0, 0.58),
+            (5, 20.0, 0.45), (6, 245.0, 0.52), (6, 118.0, 0.48)]
 
 # Radians, baked into PartPose, and CUMULATIVE down the chain -- each segment inherits its parent's
 # angle. Positive is downward. The branch lifts slightly, carries out flat, then droops at the tip:
@@ -128,13 +140,19 @@ def build():
     # Roots: a low plate plus radial buttresses, so the trunk sits in the ground
     # rather than on it. Nothing here moves independently.
     roots = willow.child("roots", (0, 0, 0))
-    for i in range(8):
-        a = i * math.pi / 4.0
-        d = 20 + rnd(500 + i) * 10
-        roots.box("root_k%d" % (i + 1),
-                  math.cos(a) * d, 0, math.sin(a) * d,
-                  6 + rnd(520 + i) * 3, 5 + rnd(540 + i) * 5, 6 + rnd(560 + i) * 3, "root")
-    roots.box("root_plate", 0, 0, 0, 26, 4, 26, "root")
+    # Buttresses in two rings at different radii and heights: a trunk that meets the ground in a
+    # flare rather than a stump is most of what makes the base read as grown rather than placed.
+    for i in range(11):
+        a = rnd(500 + i) * math.pi * 2.0
+        d = 22 + rnd(505 + i) * 14
+        roots.box("root_k%d" % (i + 1), math.cos(a) * d, 0, math.sin(a) * d,
+                  5 + rnd(520 + i) * 4, 4 + rnd(540 + i) * 6, 5 + rnd(560 + i) * 4, "root")
+    for i in range(7):
+        a = rnd(580 + i) * math.pi * 2.0
+        d = 12 + rnd(590 + i) * 9
+        roots.box("root_f%d" % (i + 1), math.cos(a) * d, 0, math.sin(a) * d,
+                  8 + rnd(600 + i) * 5, 12 + rnd(610 + i) * 10, 8 + rnd(620 + i) * 5, "root")
+    roots.box("root_plate", 0, 0, 0, 30, 4, 30, "root")
 
     # Trunk: a nested chain so a bend low down compounds all the way to the crown.
     parent, y = willow, 0
@@ -156,27 +174,59 @@ def build():
     # The maw, low and facing front. Three boxes: a hollow, an upper lip and a jaw.
     maw = build_maw(find(root, "trunk3"))
 
+    # The knot. The guide tells the player to look low on the trunk for it, so there has to be
+    # something to look at -- a raised gnarl with its own material, on branch 0's bearing, which is
+    # the side WhompingWillowEntity fixes the knot to.
+    build_knot(find(root, "trunk2"))
+
     # Branches hang off two different rings so they do not read as a flat cross.
     for b in range(BRANCHES):
         host = find(root, "trunk%d" % (BRANCH_HOST[b] + 1))
         host_base = sum(RING_H[:BRANCH_HOST[b]])
         build_branch(host, b, host_base + BRANCH_LIFT[b], RING_HALF_W[BRANCH_HOST[b]])
 
+    build_dressing(root)
+
     # Crown: gnarled masses plus leaf slabs, tip at y=180.
     crown = trunk_top.child("crown", (0, y, 0))
-    for i in range(7):
-        a = i * math.pi * 2.0 / 7.0 + 0.4
-        d = 11 + rnd(700 + i) * 12
-        crown.box("crown_m%d" % (i + 1), math.cos(a) * d, y + 2 + rnd(720 + i) * 18,
-                  math.sin(a) * d, 9 + rnd(740 + i) * 5, 12 + rnd(760 + i) * 14,
-                  9 + rnd(780 + i) * 5, "bark")
-    for i in range(16):
-        a = i * math.pi * 2.0 / 16.0 + 0.7
-        d = 14 + rnd(800 + i) * 22
-        crown.box("crown_leaf%d" % (i + 1), math.cos(a) * d, y + 14 + rnd(820 + i) * 40,
-                  math.sin(a) * d, 15, 4, 15, "leaf")
-    crown.box("crown_cap", 0, 168, 0, 16, 12, 16, "leaf")
+    # Boughs first: a few thick forks feeding the canopy, at scattered bearings and heights.
+    for i in range(5):
+        a = rnd(700 + i) * math.pi * 2.0
+        d = 8 + rnd(710 + i) * 10
+        crown.box("crown_m%d" % (i + 1), math.cos(a) * d, y + 1 + rnd(720 + i) * 14,
+                  math.sin(a) * d, 7 + rnd(740 + i) * 4, 14 + rnd(760 + i) * 16,
+                  7 + rnd(780 + i) * 4, "bark")
+
+    # Foliage as stacked layers of decreasing radius, so the canopy domes and tapers to a point.
+    # A single ring of equal slabs -- which is what this was -- reads as a flat disc from every
+    # angle, and that is what made the tree look like a lollipop.
+    LAYERS = [(y + 8, 34, 7), (y + 20, 32, 7), (y + 31, 27, 6),
+              (y + 41, 21, 5), (y + 50, 14, 4)]
+    n = 0
+    for li, (ly, radius, count) in enumerate(LAYERS):
+        for i in range(count):
+            a = i * math.pi * 2.0 / count + li * 0.7 + rnd(800 + li * 9 + i) * 0.5
+            d = radius * (0.45 + rnd(830 + li * 9 + i) * 0.55)
+            n += 1
+            crown.box("crown_leaf%d" % n,
+                      math.cos(a) * d, ly + rnd(850 + li * 9 + i) * 7, math.sin(a) * d,
+                      10 + rnd(870 + li * 9 + i) * 5, 5, 10 + rnd(880 + li * 9 + i) * 5, "leaf")
+    crown.box("crown_cap", 0, 170, 0, 11, 10, 11, "leaf")
     return root
+
+
+def build_knot(trunk2):
+    base = sum(RING_H[:1]) + 5
+    a = math.radians(BRANCH_BEARING[0])
+    # Blockbench +Z is bearing 0 and bearing increases toward -X, matching Minecraft yaw.
+    ox, oz = -math.sin(a), math.cos(a)
+    hw = RING_HALF_W[1]
+    knot = trunk2.child("knot", (ox * hw, base, oz * hw))
+    knot.box("knot_boss", ox * (hw + 1), base, oz * (hw + 1), 7, 9, 7, "knot")
+    knot.box("knot_eye", ox * (hw + 5), base + 3, oz * (hw + 5), 4, 4, 4, "knot")
+    for i in range(3):
+        knot.box("knot_ridge%d" % (i + 1), ox * (hw + 1) + (i - 1) * 6, base - 4 + i * 5,
+                 oz * (hw + 1) + (i - 1) * 3, 3, 4, 3, "knot")
 
 
 def build_maw(trunk3):
@@ -189,6 +239,29 @@ def build_maw(trunk3):
     return maw
 
 
+def build_dressing(root):
+    """Short forked limbs at odd bearings and heights. They never move; they exist so the
+    silhouette has more than four things coming out of it."""
+    for i, (ring, bearing, scale) in enumerate(DRESSING):
+        host = find(root, "trunk%d" % (ring + 1))
+        base = sum(RING_H[:ring]) + 4 + rnd(900 + i) * 6
+        hw = RING_HALF_W[ring]
+        bone = host.child("limb%d" % (i + 1), (0, base, 0),
+                          (math.degrees(-0.30 - rnd(910 + i) * 0.25), -bearing - 180.0, 0.0))
+        z = hw - 2
+        for s in range(3):
+            ln = (26 - s * 7) * scale
+            th = (11 - s * 3) * scale
+            bone.box("limb%d_s%d" % (i + 1, s + 1), 0, base - th / 2.0, z + ln / 2.0,
+                     th / 2.0, th, ln / 2.0, "twig" if s else "bark")
+            if s:
+                bone.box("limb%d_leaf%d" % (i + 1, s), 0, base - 1, z + ln * 0.7,
+                         9 - s, 3, 9 - s, "leaf")
+                bone.box("limb%d_withe%d" % (i + 1, s), 0, base - 16, z + ln * 0.6,
+                         1.5, 16, 1.5, "leaf")
+            z += ln
+
+
 def build_branch(host, b, lift, host_hw):
     """One branch: five segments, authored straight along +Z with the compass yaw in the group
     rotation, so all four branches share one local frame.
@@ -197,17 +270,21 @@ def build_branch(host, b, lift, host_hw):
     authoring each segment at its own local offset instead collapses all five onto the trunk.
     """
     yaw = BRANCH_YAW[b]
+    scale = BRANCH_SCALE[b]
     parent = host
     z = host_hw - 2
     for s in range(SEGS):
         name = "branch%d_s%d" % (b + 1, s + 1)
-        rot = (math.degrees(REST_DROOP[s]), yaw if s == 0 else 0.0, 0.0)
+        # Per-limb droop jitter, so the four do not hang in identical arcs.
+        droop = REST_DROOP[s] + jit(950 + b * 8 + s, 0.10)
+        rot = (math.degrees(droop), yaw if s == 0 else 0.0, math.degrees(jit(970 + b * 8 + s, 0.09)))
         bone = parent.child(name, (0, lift, z), rot)
-        t = SEG_THICK[s]
-        bone.box(name + "_c", 0, lift - t / 2.0, z + SEG_LEN[s] / 2.0,
-                 t / 2.0, t, SEG_LEN[s] / 2.0, "twig" if s >= 3 else "bark")
+        seg_len = SEG_LEN[s] * scale
+        t = SEG_THICK[s] * scale
+        bone.box(name + "_c", 0, lift - t / 2.0, z + seg_len / 2.0,
+                 t / 2.0, t, seg_len / 2.0, "twig" if s >= 3 else "bark")
         if s >= 1:
-            bone.box("branch%d_leaf%d" % (b + 1, s), 0, lift + 1, z + SEG_LEN[s] * 0.65,
+            bone.box("branch%d_leaf%d" % (b + 1, s), 0, lift + 1, z + seg_len * 0.65,
                      13 - s, 4, 13 - s, "leaf")
         # Withes: thin strands hanging off the underside. A willow without these reads as an oak
         # with its branches nailed on, which is exactly what the first pass looked like.
@@ -215,8 +292,8 @@ def build_branch(host, b, lift, host_hw):
             for k, (wx, wz, wl) in enumerate((
                     (-7 + s, 0.30, 20 - s * 2), (6 - s, 0.55, 26 - s * 3), (0, 0.80, 22 - s * 2))):
                 bone.box("branch%d_withe%d_%d" % (b + 1, s, k),
-                         wx, lift - wl, z + SEG_LEN[s] * wz, 1.5, wl, 1.5, "leaf")
-        parent, z = bone, z + SEG_LEN[s]
+                         wx, lift - wl, z + seg_len * wz, 1.5, wl, 1.5, "leaf")
+        parent, z = bone, z + seg_len
 
 
 def find(bone, name):

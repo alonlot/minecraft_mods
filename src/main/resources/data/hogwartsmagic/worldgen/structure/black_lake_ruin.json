@@ -2,7 +2,30 @@
   "type": "minecraft:jigsaw",
   "biomes": "#hogwartsmagic:has_structure/black_lake_ruin",
   "step": "surface_structures",
-  "spawn_overrides": {},
+  "spawn_overrides": {
+    "monster": {
+      "bounding_box": "full",
+      "spawns": [
+        {
+          "type": "hogwartsmagic:grindylow",
+          "weight": 100,
+          "minCount": 2,
+          "maxCount": 4
+        }
+      ]
+    },
+    "water_creature": {
+      "bounding_box": "full",
+      "spawns": [
+        {
+          "type": "hogwartsmagic:merperson",
+          "weight": 100,
+          "minCount": 1,
+          "maxCount": 2
+        }
+      ]
+    }
+  },
   "terrain_adaptation": "beard_thin",
   "start_pool": "hogwartsmagic:black_lake_ruin",
   "size": 1,

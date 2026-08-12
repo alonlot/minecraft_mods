@@ -2,7 +2,30 @@
   "type": "minecraft:jigsaw",
   "biomes": "#hogwartsmagic:has_structure/goblin_vault",
   "step": "underground_structures",
-  "spawn_overrides": {},
+  "spawn_overrides": {
+    "creature": {
+      "bounding_box": "piece",
+      "spawns": [
+        {
+          "type": "hogwartsmagic:goblin",
+          "weight": 100,
+          "minCount": 2,
+          "maxCount": 3
+        }
+      ]
+    },
+    "monster": {
+      "bounding_box": "piece",
+      "spawns": [
+        {
+          "type": "hogwartsmagic:troll",
+          "weight": 100,
+          "minCount": 1,
+          "maxCount": 1
+        }
+      ]
+    }
+  },
   "terrain_adaptation": "beard_box",
   "start_pool": "hogwartsmagic:goblin_vault",
   "size": 1,

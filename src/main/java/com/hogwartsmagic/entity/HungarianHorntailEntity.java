@@ -182,7 +182,12 @@ public class HungarianHorntailEntity extends Monster {
     public static boolean canSpawn(EntityType<HungarianHorntailEntity> type, ServerLevelAccessor level,
                                    MobSpawnType spawnType, BlockPos pos,
                                    net.minecraft.util.RandomSource random) {
-        return pos.getY() >= 120
+        // The floor was 120 when Horntail Peaks only claimed vanilla's peaks erosion band. Widening
+        // that band to take the mountains generally -- which is what made the biome findable at all --
+        // left most of its ground below 120, so the dragon had a habitat it could not legally stand
+        // in. Open sky is what actually keeps it out of the caves and gullies; the height floor is
+        // only there to stop it nesting on a hill.
+        return pos.getY() >= 96
                 && level.canSeeSky(pos)
                 && checkAnyLightMonsterSpawnRules(type, level, spawnType, pos, random);
     }

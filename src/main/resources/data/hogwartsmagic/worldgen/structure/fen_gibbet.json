@@ -2,7 +2,19 @@
   "type": "minecraft:jigsaw",
   "biomes": "#hogwartsmagic:has_structure/fen_gibbet",
   "step": "surface_structures",
-  "spawn_overrides": {},
+  "spawn_overrides": {
+    "monster": {
+      "bounding_box": "full",
+      "spawns": [
+        {
+          "type": "hogwartsmagic:dementor",
+          "weight": 100,
+          "minCount": 1,
+          "maxCount": 2
+        }
+      ]
+    }
+  },
   "terrain_adaptation": "beard_thin",
   "start_pool": "hogwartsmagic:fen_gibbet",
   "size": 1,

@@ -158,6 +158,23 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
 
 
 
+    /**
+     * Natural-spawn rule for Death Eaters.
+     *
+     * <p>This exists mostly so that one is <i>registered</i>. With no {@code SpawnPlacements} entry
+     * Minecraft falls back to {@code NO_RESTRICTIONS} and an always-true predicate, which means the
+     * mob skips the ground, fluid and difficulty checks entirely and can appear standing in the air
+     * or in a lake. Light is deliberately not checked — Death Eaters raid in daylight — so this is
+     * the any-light rule, not the ordinary monster one.
+     */
+    public static boolean canSpawn(EntityType<WizardEntity> type,
+                                   net.minecraft.world.level.ServerLevelAccessor level,
+                                   net.minecraft.world.entity.MobSpawnType spawnType,
+                                   net.minecraft.core.BlockPos pos,
+                                   net.minecraft.util.RandomSource random) {
+        return checkAnyLightMonsterSpawnRules(type, level, spawnType, pos, random);
+    }
+
     public static AttributeSupplier.Builder createAttributes() {
         return Monster.createMonsterAttributes()
                 .add(Attributes.MAX_HEALTH, 20.0D)

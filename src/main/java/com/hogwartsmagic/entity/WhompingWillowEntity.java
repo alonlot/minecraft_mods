@@ -1058,15 +1058,22 @@ public class WhompingWillowEntity extends Monster {
         if (tag.hasUUID("Owner")) setOwner(tag.getUUID("Owner"));
     }
 
-    /** Spawn rule: it needs headroom, and it does not care what time it is. */
+    /**
+     * Spawn rule: solid ground, a bit of sky, and no interest in the time of day.
+     *
+     * <p>Note what is deliberately <i>absent</i>: a full nine-block clearance test. The spawner
+     * already ends with {@code level.noCollision(type.getSpawnAABB(...))}, which tests the whole
+     * 3x9 box — so re-checking it here only adds a stricter, redundant filter. An earlier version
+     * demanded nine blocks of strict air in the column, which under a forest canopy is essentially
+     * never true, and the willow simply never spawned.
+     */
     public static boolean canSpawn(EntityType<WhompingWillowEntity> type, ServerLevelAccessor level,
                                    MobSpawnType spawnType, BlockPos pos,
                                    net.minecraft.util.RandomSource random) {
         if (!level.getBlockState(pos.below()).isSolidRender(level, pos.below())) return false;
-        for (int dy = 0; dy < 9; dy++) {
-            if (!level.getBlockState(pos.above(dy)).isAir()) return false;
-        }
-        return true;
+        // Enough headroom that it is standing in a clearing rather than wedged under the canopy;
+        // the engine's own box test does the rest.
+        return level.getBlockState(pos.above(4)).isAir() && level.getBlockState(pos.above(7)).isAir();
     }
 
     // --- the one goal ---------------------------------------------------------------------------------

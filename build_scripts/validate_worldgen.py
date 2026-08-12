@@ -23,6 +23,7 @@ biome sources to check against. That one still has to be done by hand.
 
 import json
 import os
+import re
 import sys
 import glob
 
@@ -75,6 +76,56 @@ def check_providers(node, where, parent=None):
     elif isinstance(node, list):
         for value in node:
             check_providers(value, where, parent)
+
+
+# The biome spawner list a mob is written into, and the MobCategory it was registered with, are two
+# independent facts that nothing in the game checks against each other. Disagree and the mob is
+# spawned during the wrong pass and counted against a cap it does not belong to.
+LIST_TO_CATEGORY = {
+    'monster': 'MONSTER', 'creature': 'CREATURE', 'ambient': 'AMBIENT', 'misc': 'MISC',
+    'water_creature': 'WATER_CREATURE', 'water_ambient': 'WATER_AMBIENT',
+    'underground_water_creature': 'UNDERGROUND_WATER_CREATURE', 'axolotls': 'AXOLOTLS',
+}
+JAVA = os.path.normpath(os.path.join(ROOT, '..', '..', 'java', 'com', 'hogwartsmagic'))
+
+
+def check_spawns():
+    """Cross-check biome spawn entries against how the entity was actually registered.
+
+    Both failures here are silent: a category mismatch spawns the mob on the wrong pass, and a
+    missing SpawnPlacements entry means Minecraft falls back to NO_RESTRICTIONS with an
+    always-true rule, so the mob ignores ground, light and fluid checks entirely.
+    """
+    entities = os.path.join(JAVA, 'entity', 'ModEntities.java')
+    placements = os.path.join(JAVA, 'event', 'ModSpawnPlacements.java')
+    if not (os.path.exists(entities) and os.path.exists(placements)):
+        return
+
+    src = open(entities, encoding='utf-8').read()
+    category = dict(re.findall(
+        r'ENTITY_TYPES\.register\("([a-z_]+)".*?MobCategory\.([A-Z_]+)', src, re.S))
+    constant = {c: i for c, i in re.findall(
+        r'RegistryObject<EntityType<\w+>>\s+([A-Z_]+)\s*=\s*\n?\s*ENTITY_TYPES\.register\("([a-z_]+)"', src)}
+    placed = {constant.get(c, c.lower()) for c in
+              re.findall(r'ModEntities\.([A-Z_]+)\.get\(\)', open(placements, encoding='utf-8').read())}
+
+    for path in sorted(glob.glob(os.path.join(WORLDGEN, 'biome', '*.json'))):
+        biome = os.path.basename(path)[:-5]
+        for listname, entries in load(path).get('spawners', {}).items():
+            for entry in entries:
+                name = local(entry['type'])
+                if not name:
+                    continue
+                want = LIST_TO_CATEGORY.get(listname)
+                got = category.get(name)
+                if got is None:
+                    err(f'biome/{biome}: spawns unknown mod entity {name}')
+                elif got != want:
+                    err(f'biome/{biome}: {name} is registered {got} but listed under '
+                        f'"{listname}" ({want}) -- it will spawn on the wrong pass')
+                if name not in placed:
+                    err(f'biome/{biome}: {name} has no ModSpawnPlacements entry, so it falls back '
+                        f'to NO_RESTRICTIONS and ignores ground/light/fluid checks')
 
 
 def main():
@@ -144,6 +195,8 @@ def main():
                 f'to the surface')
         if not underground and not projected:
             err(f'structure/{name}: surface structure with no project_start_to_heightmap')
+
+    check_spawns()
 
     salts = {}
     for path in glob.glob(os.path.join(WORLDGEN, 'structure_set', '*.json')):

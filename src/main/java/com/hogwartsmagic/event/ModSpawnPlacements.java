@@ -113,7 +113,13 @@ public class ModSpawnPlacements {
                 Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
                 HungarianHorntailEntity::canSpawn,
                 SpawnPlacementRegisterEvent.Operation.REPLACE);
-        // A nine-block tree needs nine blocks of sky, and it does not care what time it is --
+        event.register(
+                ModEntities.WIZARD.get(),
+                SpawnPlacementTypes.ON_GROUND,
+                Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                com.hogwartsmagic.entity.WizardEntity::canSpawn,
+                SpawnPlacementRegisterEvent.Operation.REPLACE);
+        // A nine-block tree needs headroom, and it does not care what time it is --
         // there is no darkness check here, only clearance.
         event.register(
                 ModEntities.WHOMPING_WILLOW.get(),

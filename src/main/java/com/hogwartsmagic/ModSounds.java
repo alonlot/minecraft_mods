@@ -70,6 +70,19 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> TROLL_AMBIENT = register("troll.ambient");
     public static final RegistryObject<SoundEvent> TROLL_HURT = register("troll.hurt");
     public static final RegistryObject<SoundEvent> TROLL_DEATH = register("troll.death");
+    /** The first-contact bellow, before it has swung at anything. */
+    public static final RegistryObject<SoundEvent> TROLL_ROAR = register("troll.roar");
+    /** One-way latch when it drops below the rage threshold. */
+    public static final RegistryObject<SoundEvent> TROLL_RAGE = register("troll.rage");
+    /** Straining grunt while the club goes up over its head. */
+    public static final RegistryObject<SoundEvent> TROLL_SLAM_WINDUP = register("troll.slam_windup");
+    /** The club landing on the ground, and everything that comes loose with it. */
+    public static final RegistryObject<SoundEvent> TROLL_SLAM_IMPACT = register("troll.slam_impact");
+    /** The club going through the air on a horizontal swing. */
+    public static final RegistryObject<SoundEvent> TROLL_SWEEP = register("troll.sweep");
+    /** The club connecting with something soft. */
+    public static final RegistryObject<SoundEvent> TROLL_CLUB_HIT = register("troll.club_hit");
+    public static final RegistryObject<SoundEvent> TROLL_STEP = register("troll.step");
     public static final RegistryObject<SoundEvent> CENTAUR_AMBIENT = register("centaur.ambient");
     public static final RegistryObject<SoundEvent> CENTAUR_HURT = register("centaur.hurt");
     public static final RegistryObject<SoundEvent> CENTAUR_DEATH = register("centaur.death");

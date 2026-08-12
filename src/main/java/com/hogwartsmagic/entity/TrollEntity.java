@@ -10,8 +10,8 @@ import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.AnimationState;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
@@ -69,6 +69,16 @@ public class TrollEntity extends Monster {
 
     private boolean hasRoared;
     private int sweepStruckThisState;
+
+    // Client-side clip drivers. These live here rather than in the renderer because
+    // AnimationState is a common class; nothing on this side of the wire pulls a
+    // client-only type onto a dedicated server.
+    public final AnimationState idleAnimationState = new AnimationState();
+    public final AnimationState roarAnimationState = new AnimationState();
+    public final AnimationState slamWindupAnimationState = new AnimationState();
+    public final AnimationState slamStrikeAnimationState = new AnimationState();
+    public final AnimationState sweepAnimationState = new AnimationState();
+    public final AnimationState staggerAnimationState = new AnimationState();
 
     public TrollEntity(EntityType<? extends TrollEntity> type, Level level) {
         super(type, level);
@@ -135,6 +145,11 @@ public class TrollEntity extends Monster {
         return s != AttackState.NONE && s != AttackState.STAGGER;
     }
 
+    /** True while a clip is throwing the head about, so the model damps head tracking. */
+    public boolean isPerformingAction() {
+        return getAttackState() != AttackState.NONE;
+    }
+
     private boolean canMoveWhileAttacking() {
         AttackState s = getAttackState();
         // Locked in place during windups/strikes/roar; stagger also halts.
@@ -145,6 +160,10 @@ public class TrollEntity extends Monster {
     public void tick() {
         super.tick();
 
+        if (this.level().isClientSide) {
+            this.idleAnimationState.startIfStopped(this.tickCount);
+        }
+
         if (!this.level().isClientSide) {
             // Advance per-state tick.
             AttackState state = getAttackState();
@@ -154,7 +173,7 @@ public class TrollEntity extends Monster {
             // Rage threshold (one-way latch).
             if (!isRaging() && this.getHealth() <= this.getMaxHealth() * RAGE_HP_FRACTION) {
                 this.entityData.set(DATA_RAGING, true);
-                this.playSound(SoundEvents.WARDEN_ANGRY, 1.4F, 0.7F);
+                this.playSound(com.hogwartsmagic.ModSounds.TROLL_RAGE.get(), 1.5F, 0.95F);
                 if (this.level() instanceof ServerLevel sl) {
                     sl.sendParticles(ParticleTypes.ANGRY_VILLAGER,
                             this.getX(), this.getY() + this.getBbHeight() * 0.9D, this.getZ(),
@@ -166,15 +185,15 @@ public class TrollEntity extends Monster {
             switch (state) {
                 case ROAR -> {
                     if (t == 4) {
-                        this.playSound(SoundEvents.WARDEN_ROAR, 1.5F, 0.55F);
+                        this.playSound(com.hogwartsmagic.ModSounds.TROLL_ROAR.get(), 1.6F, 1.0F);
                     }
                     if (t >= ROAR_DURATION) {
                         setAttackState(AttackState.NONE);
                     }
                 }
                 case SLAM_WINDUP -> {
-                    if (t == 4) {
-                        this.playSound(SoundEvents.IRON_GOLEM_ATTACK, 1.0F, 0.5F);
+                    if (t == 3) {
+                        this.playSound(com.hogwartsmagic.ModSounds.TROLL_SLAM_WINDUP.get(), 1.1F, 1.0F);
                     }
                     if (t >= SLAM_WINDUP_DURATION) {
                         setAttackState(AttackState.SLAM_STRIKE);
@@ -187,6 +206,11 @@ public class TrollEntity extends Monster {
                     }
                 }
                 case SWEEP -> {
+                    // The whoosh leads the hit box by half the swing, so you hear it
+                    // coming rather than at the moment it lands.
+                    if (t == 2) {
+                        this.playSound(com.hogwartsmagic.ModSounds.TROLL_SWEEP.get(), 1.3F, 1.0F);
+                    }
                     if (t == SWEEP_STRIKE_TICK && sweepStruckThisState == 0) {
                         sweepStruckThisState = 1;
                         doSweepImpact();
@@ -238,8 +262,7 @@ public class TrollEntity extends Monster {
         }
 
         // Visuals + audio.
-        this.playSound(SoundEvents.RAVAGER_STEP, 2.0F, 0.4F);
-        this.playSound(SoundEvents.GENERIC_EXPLODE.value(), 1.2F, 0.55F);
+        this.playSound(com.hogwartsmagic.ModSounds.TROLL_SLAM_IMPACT.get(), 1.8F, 1.0F);
         sl.sendParticles(ParticleTypes.EXPLOSION, cx, cy + 0.1D, cz, 1, 0.0D, 0.0D, 0.0D, 0.0D);
         sl.sendParticles(ParticleTypes.POOF, cx, cy + 0.1D, cz, 60, SLAM_RADIUS * 0.6D, 0.2D, SLAM_RADIUS * 0.6D, 0.05D);
         sl.sendParticles(ParticleTypes.CLOUD, cx, cy + 0.2D, cz, 40, SLAM_RADIUS * 0.5D, 0.1D, SLAM_RADIUS * 0.5D, 0.04D);
@@ -261,6 +284,7 @@ public class TrollEntity extends Monster {
         AABB area = this.getBoundingBox().inflate(SWEEP_RANGE, 1.5D, SWEEP_RANGE);
         List<LivingEntity> victims = sl.getEntitiesOfClass(LivingEntity.class, area,
                 e -> e != this && e.isAlive());
+        boolean connected = false;
         for (LivingEntity victim : victims) {
             Vec3 to = victim.position().subtract(this.position());
             if (to.lengthSqr() > SWEEP_RANGE * SWEEP_RANGE) continue;
@@ -274,9 +298,15 @@ public class TrollEntity extends Monster {
             victim.push(push.x * 1.4D, 0.35D, push.z * 1.4D);
             victim.hurtMarked = true;
             interruptIfCaster(victim);
+            connected = true;
         }
 
-        this.playSound(SoundEvents.PLAYER_ATTACK_SWEEP, 1.4F, 0.55F);
+        // Only the connecting swing gets the meaty thud; a whiff is just the whoosh
+        // already played at the start of the state.
+        if (connected) {
+            this.playSound(com.hogwartsmagic.ModSounds.TROLL_CLUB_HIT.get(), 1.3F, 0.95F);
+        }
+
         sl.sendParticles(ParticleTypes.SWEEP_ATTACK,
                 this.getX() + forward.x * 2.0D, this.getY() + 1.2D, this.getZ() + forward.z * 2.0D,
                 1, 0.0D, 0.0D, 0.0D, 0.0D);
@@ -307,7 +337,8 @@ public class TrollEntity extends Monster {
     public boolean doHurtTarget(Entity target) {
         boolean hit = super.doHurtTarget(target);
         if (hit) {
-            this.playSound(SoundEvents.WARDEN_ATTACK_IMPACT, 1.2F, 0.55F + this.random.nextFloat() * 0.12F);
+            this.playSound(com.hogwartsmagic.ModSounds.TROLL_CLUB_HIT.get(), 1.2F,
+                    0.95F + this.random.nextFloat() * 0.12F);
             if (target instanceof LivingEntity living) {
                 knockBackFromClub(living);
                 interruptIfCaster(living);
@@ -358,6 +389,40 @@ public class TrollEntity extends Monster {
         if (tag.contains("HasRoared")) {
             this.hasRoared = tag.getBoolean("HasRoared");
         }
+    }
+
+    @Override
+    public void onSyncedDataUpdated(EntityDataAccessor<?> key) {
+        super.onSyncedDataUpdated(key);
+        if (!this.level().isClientSide || !DATA_ATTACK_STATE.equals(key)) return;
+
+        // Restart the clip that matches the new state and stop the rest, so the
+        // client stays in sync off the synched state alone and never needs an
+        // entity event. Attacks always pass back through NONE, so a repeated
+        // attack still registers as a change here.
+        AttackState state = getAttackState();
+        this.roarAnimationState.stop();
+        this.slamWindupAnimationState.stop();
+        this.slamStrikeAnimationState.stop();
+        this.sweepAnimationState.stop();
+        this.staggerAnimationState.stop();
+
+        if (state == AttackState.ROAR) {
+            this.roarAnimationState.start(this.tickCount);
+        } else if (state == AttackState.SLAM_WINDUP) {
+            this.slamWindupAnimationState.start(this.tickCount);
+        } else if (state == AttackState.SLAM_STRIKE) {
+            this.slamStrikeAnimationState.start(this.tickCount);
+        } else if (state == AttackState.SWEEP) {
+            this.sweepAnimationState.start(this.tickCount);
+        } else if (state == AttackState.STAGGER) {
+            this.staggerAnimationState.start(this.tickCount);
+        }
+    }
+
+    @Override
+    protected void playStepSound(BlockPos pos, net.minecraft.world.level.block.state.BlockState state) {
+        this.playSound(com.hogwartsmagic.ModSounds.TROLL_STEP.get(), 0.9F, 0.9F + this.random.nextFloat() * 0.15F);
     }
 
     @Override

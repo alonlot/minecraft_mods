@@ -339,6 +339,77 @@
       {
         "name": "hogwartsmagic:troll/ambient",
         "stream": false
+      },
+      {
+        "name": "hogwartsmagic:troll/ambient2",
+        "stream": false
+      },
+      {
+        "name": "hogwartsmagic:troll/ambient3",
+        "stream": false
+      }
+    ]
+  },
+  "troll.roar": {
+    "subtitle": "subtitles.hogwartsmagic.troll.roar",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:troll/roar",
+        "stream": false
+      }
+    ]
+  },
+  "troll.rage": {
+    "subtitle": "subtitles.hogwartsmagic.troll.rage",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:troll/rage",
+        "stream": false
+      }
+    ]
+  },
+  "troll.slam_windup": {
+    "subtitle": "subtitles.hogwartsmagic.troll.slam_windup",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:troll/slam_windup",
+        "stream": false
+      }
+    ]
+  },
+  "troll.slam_impact": {
+    "subtitle": "subtitles.hogwartsmagic.troll.slam_impact",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:troll/slam_impact",
+        "stream": false
+      }
+    ]
+  },
+  "troll.sweep": {
+    "subtitle": "subtitles.hogwartsmagic.troll.sweep",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:troll/sweep",
+        "stream": false
+      }
+    ]
+  },
+  "troll.club_hit": {
+    "subtitle": "subtitles.hogwartsmagic.troll.club_hit",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:troll/club_hit",
+        "stream": false
+      }
+    ]
+  },
+  "troll.step": {
+    "subtitle": "subtitles.hogwartsmagic.troll.step",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:troll/step",
+        "stream": false
       }
     ]
   },

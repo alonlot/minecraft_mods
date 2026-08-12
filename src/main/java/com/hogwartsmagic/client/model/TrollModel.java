@@ -2,9 +2,7 @@ package com.hogwartsmagic.client.model;
 
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.entity.TrollEntity;
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexConsumer;
-import net.minecraft.client.model.EntityModel;
+import net.minecraft.client.model.HierarchicalModel;
 import net.minecraft.client.model.geom.ModelLayerLocation;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.PartPose;
@@ -16,299 +14,174 @@ import net.minecraft.client.model.geom.builders.PartDefinition;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 
-public class TrollModel extends EntityModel<TrollEntity> {
+/**
+ * The mountain troll: a small blunt head with tufted ears sunk between narrow
+ * sloping shoulders, an enormous sagging belly over a hide loincloth, long ropey
+ * arms that hang past the knee into clawed hands, short lumpy legs and broad flat
+ * feet. A gnarled club is carried in one fist, angled out from the body.
+ *
+ * <p>Geometry is generated in blockbench_models/mountain_troll_v2.bbmodel and
+ * exported through the Modded Entity codec; the keyframe clips live in
+ * {@link TrollAnimations}. Part names here must stay in sync with the bone names
+ * those clips address.
+ */
+public class TrollModel extends HierarchicalModel<TrollEntity> {
+
     public static final ModelLayerLocation LAYER_LOCATION = new ModelLayerLocation(
             ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "troll"), "main");
 
-    private final ModelPart root;
-    private final ModelPart head;
-    private final ModelPart body;
-    private final ModelPart leftArm;
-    private final ModelPart rightArm;
-    private final ModelPart club;
-    private final ModelPart leftLeg;
-    private final ModelPart rightLeg;
+    /** The permanent forward hunch, applied before the clips so they layer on top. */
+    private static final float REST_BODY_X = -0.11F;
+    /** Counter-tilt so the hunch does not bury the face in the chest. */
+    private static final float REST_HEAD_X = 0.08F;
 
-    // Resting/idle pose values — used as base before per-state offsets are layered on.
-    private static final float REST_LEFT_ARM_X = 0.0F;
-    private static final float REST_LEFT_ARM_Y = 0.0F;
-    private static final float REST_LEFT_ARM_Z = -0.12F;
-    private static final float REST_RIGHT_ARM_X = 0.0F;
-    private static final float REST_RIGHT_ARM_Y = 0.0F;
-    private static final float REST_RIGHT_ARM_Z = 0.18F;
-    // -0.62 rad (~35°) flung the club out sideways from the arm like a flag pole;
-    // a small negative is enough to keep it gripped close to the body so it reads
-    // as "held" instead of "thrown."
-    private static final float REST_CLUB_Z = -0.10F;
-    private static final float REST_BODY_X = 0.08F;
+    private final ModelPart root;
+    private final ModelPart body;
+    private final ModelPart head;
 
     public TrollModel(ModelPart root) {
-        this.root = root;
-        this.head = root.getChild("head");
-        this.body = root.getChild("body");
-        this.leftArm = root.getChild("left_arm");
-        this.rightArm = root.getChild("right_arm");
-        this.club = this.leftArm.getChild("club");
-        this.leftLeg = root.getChild("left_leg");
-        this.rightLeg = root.getChild("right_leg");
+        this.root = root.getChild("root");
+        this.body = this.root.getChild("body");
+        this.head = this.body.getChild("head");
     }
 
     public static LayerDefinition createBodyLayer() {
-        MeshDefinition mesh = new MeshDefinition();
-        PartDefinition root = mesh.getRoot();
+        MeshDefinition meshdefinition = new MeshDefinition();
+        PartDefinition partdefinition = meshdefinition.getRoot();
 
-        PartDefinition body = root.addOrReplaceChild("body", CubeListBuilder.create()
-                        .texOffs(0, 35).addBox(-10.0F, -25.0F, -6.0F, 20.0F, 19.0F, 12.0F, new CubeDeformation(0.0F))
-                        .texOffs(54, 34).addBox(-13.0F, -36.0F, -8.0F, 26.0F, 15.0F, 15.0F, new CubeDeformation(0.1F))
-                        .texOffs(0, 62).addBox(-9.0F, -28.0F, -8.0F, 18.0F, 4.0F, 2.0F, new CubeDeformation(0.0F))
-                        .texOffs(72, 0).addBox(2.0F, -32.0F, -8.0F, 3.0F, 9.0F, 2.0F, new CubeDeformation(0.0F))
-                        .texOffs(80, 0).addBox(-7.0F, -38.0F, -2.0F, 10.0F, 3.0F, 9.0F, new CubeDeformation(0.0F))
-                        .texOffs(80, 9).addBox(4.0F, -38.5F, -8.5F, 12.0F, 2.0F, 10.0F, new CubeDeformation(0.0F))
-                        .texOffs(80, 21).addBox(-13.0F, -37.5F, -8.5F, 8.0F, 2.0F, 9.0F, new CubeDeformation(0.0F)),
-                PartPose.offset(0.0F, 24.0F, 0.0F));
+        PartDefinition root = partdefinition.addOrReplaceChild("root", CubeListBuilder.create(), PartPose.offset(0.0F, 24.0F, 0.0F));
 
-        body.addOrReplaceChild("left_shoulder_moss", CubeListBuilder.create()
-                        .texOffs(80, 9).addBox(3.0F, -35.0F, -6.6F, 7.0F, 1.0F, 8.0F, new CubeDeformation(0.0F)),
-                PartPose.ZERO);
+        PartDefinition body = root.addOrReplaceChild("body", CubeListBuilder.create().texOffs(94, 51).addBox(-7.5F, 1.0F, -6.0F, 15.0F, 6.5F, 12.0F, new CubeDeformation(0.0F))
+        .texOffs(0, 0).addBox(-9.0F, -7.0F, -8.8F, 18.0F, 11.0F, 16.8F, new CubeDeformation(0.0F))
+        .texOffs(70, 0).addBox(-8.2F, -14.0F, -7.4F, 16.4F, 9.0F, 14.6F, new CubeDeformation(0.0F))
+        .texOffs(134, 0).addBox(-7.0F, -22.5F, -5.6F, 14.0F, 10.5F, 11.2F, new CubeDeformation(0.0F))
+        .texOffs(48, 71).addBox(-10.5F, -23.5F, -5.0F, 4.5F, 6.5F, 10.0F, new CubeDeformation(0.0F))
+        .texOffs(78, 71).addBox(6.0F, -23.5F, -5.0F, 4.5F, 6.5F, 10.0F, new CubeDeformation(0.0F))
+        .texOffs(36, 105).addBox(-6.0F, -25.0F, 3.6F, 12.0F, 6.0F, 3.9F, new CubeDeformation(0.0F))
+        .texOffs(108, 71).addBox(-7.4F, -23.5F, -6.6F, 5.6F, 13.5F, 2.0F, new CubeDeformation(0.0F))
+        .texOffs(124, 71).addBox(1.8F, -23.5F, -6.6F, 5.6F, 13.5F, 2.0F, new CubeDeformation(0.0F))
+        .texOffs(140, 71).addBox(-7.6F, -23.5F, 4.6F, 15.2F, 13.5F, 2.0F, new CubeDeformation(0.0F))
+        .texOffs(128, 28).addBox(-9.0F, -22.0F, -4.8F, 1.8F, 10.0F, 9.6F, new CubeDeformation(0.0F))
+        .texOffs(152, 28).addBox(7.2F, -22.0F, -4.8F, 1.8F, 10.0F, 9.6F, new CubeDeformation(0.0F))
+        .texOffs(22, 89).addBox(-11.2F, -25.4F, -5.6F, 5.8F, 3.0F, 11.2F, new CubeDeformation(0.0F))
+        .texOffs(58, 89).addBox(5.4F, -25.4F, -5.6F, 5.8F, 3.0F, 11.2F, new CubeDeformation(0.0F))
+        .texOffs(142, 89).addBox(-8.0F, 2.0F, -9.0F, 16.0F, 10.0F, 2.4F, new CubeDeformation(0.0F))
+        .texOffs(180, 89).addBox(-8.0F, 2.0F, 6.6F, 16.0F, 9.0F, 2.4F, new CubeDeformation(0.0F))
+        .texOffs(186, 0).addBox(-9.8F, 1.0F, -7.0F, 2.4F, 9.0F, 14.0F, new CubeDeformation(0.0F))
+        .texOffs(220, 0).addBox(7.4F, 1.0F, -7.0F, 2.4F, 9.0F, 14.0F, new CubeDeformation(0.0F))
+        .texOffs(126, 105).addBox(2.6F, 11.0F, -9.4F, 3.6F, 5.5F, 2.1F, new CubeDeformation(0.0F))
+        .texOffs(68, 105).addBox(-2.6F, 11.5F, -9.6F, 3.8F, 6.5F, 2.1F, new CubeDeformation(0.0F))
+        .texOffs(202, 105).addBox(-6.8F, 10.5F, -9.4F, 3.4F, 5.0F, 2.1F, new CubeDeformation(0.0F)), PartPose.offset(0.0F, -22.0F, 0.0F));
 
-        // Head rebuilt to read as a brutish troll instead of the previous floating-
-        // tooth-bar / unicorn-horn assemblage:
-        //  - Removed the 8x2x2 "tooth row" band; tusks are painted on the snout.
-        //  - Removed the two 1x1x1 "eye dot" cubes; eyes are painted on the face.
-        //  - Flattened the brow ridges from 3x3x2 to 3x1x2 (thin shelf, not blocks).
-        //  - Reshaped the tall left horn (2x9x2) and right ear flap (5x2x4) into a
-        //    matching pair of small 3x3x3 ear nubs at the top sides of the head.
-        root.addOrReplaceChild("head", CubeListBuilder.create()
-                        .texOffs(0, 0).addBox(-6.0F, -8.0F, -6.0F, 12.0F, 11.0F, 9.0F, new CubeDeformation(0.0F))
-                        .texOffs(36, 0).addBox(-6.0F, -3.0F, -8.0F, 12.0F, 5.0F, 5.0F, new CubeDeformation(0.0F))
-                        .texOffs(0, 18).addBox(-4.0F, 0.0F, -9.0F, 8.0F, 4.0F, 5.0F, new CubeDeformation(0.0F))
-                        .texOffs(66, 0).addBox(-1.5F, -2.0F, -10.0F, 3.0F, 3.0F, 3.0F, new CubeDeformation(0.0F))
-                        .texOffs(36, 8).addBox(-5.0F, -4.0F, -10.0F, 3.0F, 1.0F, 2.0F, new CubeDeformation(0.0F))
-                        .texOffs(42, 8).addBox(2.0F, -4.0F, -10.0F, 3.0F, 1.0F, 2.0F, new CubeDeformation(0.0F))
-                        .texOffs(80, 20).addBox(-9.0F, -8.0F, -3.0F, 3.0F, 3.0F, 3.0F, new CubeDeformation(0.0F))
-                        .texOffs(88, 20).addBox(6.0F, -8.0F, -3.0F, 3.0F, 3.0F, 3.0F, new CubeDeformation(0.0F)),
-                PartPose.offset(0.0F, -11.0F, -6.0F));
+        PartDefinition head = body.addOrReplaceChild("head", CubeListBuilder.create().texOffs(176, 28).addBox(-6.0F, -9.0F, -6.5F, 12.0F, 9.0F, 11.0F, new CubeDeformation(0.0F))
+        .texOffs(0, 105).addBox(-5.0F, -10.6F, -5.0F, 10.0F, 2.1F, 8.0F, new CubeDeformation(0.0F))
+        .texOffs(54, 116).addBox(-6.4F, -7.0F, -7.7F, 12.8F, 2.4F, 2.4F, new CubeDeformation(0.0F))
+        .texOffs(140, 105).addBox(-3.8F, -4.8F, -9.1F, 7.6F, 4.4F, 3.2F, new CubeDeformation(0.0F))
+        .texOffs(218, 89).addBox(-7.0F, -5.0F, -5.1F, 2.0F, 4.6F, 6.6F, new CubeDeformation(0.0F))
+        .texOffs(236, 89).addBox(5.0F, -5.0F, -5.1F, 2.0F, 4.6F, 6.6F, new CubeDeformation(0.0F))
+        .texOffs(194, 116).addBox(-4.8F, -9.2F, -5.9F, 2.0F, 2.0F, 2.0F, new CubeDeformation(0.0F)), PartPose.offset(0.0F, -21.0F, -1.5F));
 
-        PartDefinition leftArm = root.addOrReplaceChild("left_arm", CubeListBuilder.create()
-                        .texOffs(0, 68).addBox(-1.0F, -2.0F, -5.0F, 8.0F, 18.0F, 10.0F, new CubeDeformation(0.0F))
-                        .texOffs(30, 68).addBox(0.0F, 14.0F, -5.5F, 9.0F, 16.0F, 11.0F, new CubeDeformation(0.0F))
-                        .texOffs(64, 68).addBox(-0.5F, 29.0F, -6.0F, 10.0F, 6.0F, 12.0F, new CubeDeformation(0.0F))
-                        .texOffs(86, 20).addBox(5.0F, 15.0F, -6.2F, 3.0F, 10.0F, 2.0F, new CubeDeformation(0.0F))
-                        .texOffs(0, 112).addBox(0.0F, 34.5F, -7.0F, 3.0F, 2.0F, 3.0F, new CubeDeformation(0.0F))
-                        .texOffs(12, 112).addBox(3.0F, 34.5F, -7.0F, 3.0F, 2.0F, 3.0F, new CubeDeformation(0.0F)),
-                PartPose.offset(9.0F, -9.0F, 0.0F));
+        head.addOrReplaceChild("jaw", CubeListBuilder.create().texOffs(82, 105).addBox(-3.8F, -0.1F, -5.7F, 7.6F, 4.0F, 5.8F, new CubeDeformation(0.0F))
+        .texOffs(178, 116).addBox(-2.9F, -2.3F, -4.9F, 1.3F, 2.6F, 1.3F, new CubeDeformation(0.0F))
+        .texOffs(186, 116).addBox(1.6F, -2.3F, -4.9F, 1.3F, 2.6F, 1.3F, new CubeDeformation(0.0F)), PartPose.offset(0.0F, -1.5F, -3.0F));
 
-        leftArm.addOrReplaceChild("club", CubeListBuilder.create()
-                        .texOffs(0, 94).addBox(2.0F, 18.0F, -3.0F, 5.0F, 32.0F, 5.0F, new CubeDeformation(0.0F))
-                        .texOffs(20, 94).addBox(4.0F, 34.0F, -5.0F, 12.0F, 18.0F, 10.0F, new CubeDeformation(0.0F))
-                        .texOffs(64, 94).addBox(12.0F, 38.0F, -6.0F, 6.0F, 10.0F, 12.0F, new CubeDeformation(0.0F))
-                        .texOffs(96, 94).addBox(6.0F, 30.0F, -6.0F, 6.0F, 7.0F, 5.0F, new CubeDeformation(0.0F))
-                        .texOffs(96, 106).addBox(7.0F, 48.0F, -7.0F, 5.0F, 6.0F, 14.0F, new CubeDeformation(0.0F))
-                        .texOffs(0, 118).addBox(0.0F, 25.0F, -4.0F, 7.0F, 4.0F, 7.0F, new CubeDeformation(0.0F)),
-                PartPose.rotation(0.0F, 0.0F, -0.62F));
+        PartDefinition ear_left = head.addOrReplaceChild("ear_left", CubeListBuilder.create(), PartPose.offset(-5.5F, -6.0F, 1.5F));
 
-        root.addOrReplaceChild("right_arm", CubeListBuilder.create()
-                        .texOffs(0, 68).mirror().addBox(-7.0F, -2.0F, -5.0F, 8.0F, 18.0F, 10.0F, new CubeDeformation(0.0F)).mirror(false)
-                        .texOffs(30, 68).mirror().addBox(-9.0F, 14.0F, -5.5F, 9.0F, 16.0F, 11.0F, new CubeDeformation(0.0F)).mirror(false)
-                        .texOffs(64, 68).mirror().addBox(-9.5F, 29.0F, -6.0F, 10.0F, 6.0F, 12.0F, new CubeDeformation(0.0F)).mirror(false)
-                        .texOffs(24, 112).addBox(-6.0F, 34.5F, -7.0F, 3.0F, 2.0F, 3.0F, new CubeDeformation(0.0F))
-                        .texOffs(36, 112).addBox(-3.0F, 34.5F, -7.0F, 3.0F, 2.0F, 3.0F, new CubeDeformation(0.0F)),
-                PartPose.offset(-9.0F, -9.0F, 0.0F));
+        ear_left.addOrReplaceChild("ear_l_r1", CubeListBuilder.create().texOffs(164, 105).addBox(-1.5F, -4.5F, -2.0F, 1.6F, 4.5F, 4.0F, new CubeDeformation(0.0F)), PartPose.offsetAndRotation(0.0F, 0.0F, 0.0F, 0.0F, 0.0F, -0.5585F));
 
-        root.addOrReplaceChild("left_leg", CubeListBuilder.create()
-                        .texOffs(102, 62).addBox(-3.0F, 0.0F, -5.0F, 7.0F, 13.0F, 10.0F, new CubeDeformation(0.0F))
-                        .texOffs(102, 84).addBox(-5.0F, 12.0F, -10.0F, 10.0F, 5.0F, 15.0F, new CubeDeformation(0.0F))
-                        .texOffs(48, 112).addBox(3.0F, 13.0F, -12.0F, 3.0F, 2.0F, 3.0F, new CubeDeformation(0.0F))
-                        .texOffs(60, 112).addBox(-1.0F, 13.0F, -12.0F, 3.0F, 2.0F, 3.0F, new CubeDeformation(0.0F)),
-                PartPose.offset(4.0F, 7.0F, 0.0F));
+        PartDefinition ear_right = head.addOrReplaceChild("ear_right", CubeListBuilder.create(), PartPose.offset(5.5F, -6.0F, 1.5F));
 
-        root.addOrReplaceChild("right_leg", CubeListBuilder.create()
-                        .texOffs(102, 62).mirror().addBox(-4.0F, 0.0F, -5.0F, 7.0F, 13.0F, 10.0F, new CubeDeformation(0.0F)).mirror(false)
-                        .texOffs(102, 84).mirror().addBox(-5.0F, 12.0F, -10.0F, 10.0F, 5.0F, 15.0F, new CubeDeformation(0.0F)).mirror(false)
-                        .texOffs(94, 9).addBox(-4.5F, 4.0F, -5.8F, 3.0F, 8.0F, 2.0F, new CubeDeformation(0.0F))
-                        .texOffs(72, 112).addBox(-6.0F, 13.0F, -12.0F, 3.0F, 2.0F, 3.0F, new CubeDeformation(0.0F))
-                        .texOffs(84, 112).addBox(-2.0F, 13.0F, -12.0F, 3.0F, 2.0F, 3.0F, new CubeDeformation(0.0F)),
-                PartPose.offset(-4.0F, 7.0F, 0.0F));
+        ear_right.addOrReplaceChild("ear_r_r1", CubeListBuilder.create().texOffs(176, 105).addBox(-0.1F, -4.5F, -2.0F, 1.6F, 4.5F, 4.0F, new CubeDeformation(0.0F)), PartPose.offsetAndRotation(0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.5585F));
 
-        // 256x256 atlas: several cubes here (the body slab, the legs, parts of the
-        // club) have unwraps that would overflow a 128x128 sheet and end up sampling
-        // garbage by wrap-around. Doubling to 256 gives every cube its own non-
-        // overlapping region without having to re-pack the existing texOffs values.
-        return LayerDefinition.create(mesh, 256, 256);
+        PartDefinition arm_left = body.addOrReplaceChild("arm_left", CubeListBuilder.create().texOffs(80, 28).addBox(-2.7F, -1.0F, -3.2F, 5.0F, 13.5F, 6.4F, new CubeDeformation(0.0F)), PartPose.offset(-11.5F, -21.0F, 0.0F));
+
+        PartDefinition forearm_left = arm_left.addOrReplaceChild("forearm_left", CubeListBuilder.create().texOffs(222, 28).addBox(-2.2F, -0.5F, -3.0F, 4.4F, 13.5F, 6.0F, new CubeDeformation(0.0F)), PartPose.offset(-0.2F, 11.5F, 0.0F));
+
+        PartDefinition hand_left = forearm_left.addOrReplaceChild("hand_left", CubeListBuilder.create().texOffs(176, 71).addBox(-3.2F, -0.3F, -3.8F, 6.2F, 7.8F, 7.6F, new CubeDeformation(0.0F))
+        .texOffs(216, 105).addBox(0.8F, 7.1F, -3.5F, 2.0F, 4.2F, 2.9F, new CubeDeformation(0.0F))
+        .texOffs(226, 105).addBox(-1.4F, 7.1F, -3.5F, 2.0F, 4.8F, 2.9F, new CubeDeformation(0.0F))
+        .texOffs(14, 116).addBox(-3.2F, 7.1F, -3.5F, 1.6F, 3.8F, 2.9F, new CubeDeformation(0.0F))
+        .texOffs(24, 116).addBox(1.3F, 5.1F, 0.9F, 1.7F, 4.0F, 2.6F, new CubeDeformation(0.0F)), PartPose.offset(0.0F, 12.0F, 0.0F));
+
+        hand_left.addOrReplaceChild("club", CubeListBuilder.create().texOffs(0, 116).addBox(-1.4F, 4.4F, -1.9F, 2.8F, 3.1F, 3.8F, new CubeDeformation(0.0F))
+        .texOffs(94, 89).addBox(-1.7F, -4.0F, -2.3F, 3.4F, 9.5F, 4.6F, new CubeDeformation(0.0F))
+        .texOffs(0, 89).addBox(-2.1F, -13.0F, -2.8F, 4.2F, 10.0F, 5.6F, new CubeDeformation(0.0F))
+        .texOffs(148, 51).addBox(-2.8F, -22.0F, -3.9F, 5.6F, 10.5F, 7.8F, new CubeDeformation(0.0F))
+        .texOffs(110, 105).addBox(2.4F, -17.5F, -2.6F, 1.6F, 4.0F, 5.2F, new CubeDeformation(0.0F))
+        .texOffs(188, 105).addBox(-4.1F, -19.0F, -2.3F, 1.6F, 4.0F, 4.6F, new CubeDeformation(0.0F))
+        .texOffs(112, 89).addBox(-2.1F, -24.5F, -4.6F, 4.2F, 4.0F, 9.2F, new CubeDeformation(0.0F)), PartPose.offsetAndRotation(0.0F, 2.5F, 0.0F, 0.1047F, 0.0F, -0.3142F));
+
+        PartDefinition arm_right = body.addOrReplaceChild("arm_right", CubeListBuilder.create().texOffs(104, 28).addBox(-2.3F, -1.0F, -3.2F, 5.0F, 13.5F, 6.4F, new CubeDeformation(0.0F)), PartPose.offset(11.5F, -21.0F, 0.0F));
+
+        PartDefinition forearm_right = arm_right.addOrReplaceChild("forearm_right", CubeListBuilder.create().texOffs(0, 51).addBox(-2.2F, -0.5F, -3.0F, 4.4F, 13.5F, 6.0F, new CubeDeformation(0.0F)), PartPose.offset(0.2F, 11.5F, 0.0F));
+
+        forearm_right.addOrReplaceChild("hand_right", CubeListBuilder.create().texOffs(206, 71).addBox(-3.0F, -0.3F, -3.8F, 6.2F, 7.8F, 7.6F, new CubeDeformation(0.0F))
+        .texOffs(236, 105).addBox(-2.8F, 7.1F, -3.5F, 2.0F, 4.2F, 2.9F, new CubeDeformation(0.0F))
+        .texOffs(246, 105).addBox(-0.6F, 7.1F, -3.5F, 2.0F, 4.8F, 2.9F, new CubeDeformation(0.0F))
+        .texOffs(34, 116).addBox(1.6F, 7.1F, -3.5F, 1.6F, 3.8F, 2.9F, new CubeDeformation(0.0F))
+        .texOffs(44, 116).addBox(-3.0F, 5.1F, 0.9F, 1.7F, 4.0F, 2.6F, new CubeDeformation(0.0F)), PartPose.offset(0.0F, 12.0F, 0.0F));
+
+        PartDefinition leg_left = root.addOrReplaceChild("leg_left", CubeListBuilder.create().texOffs(0, 28).addBox(-4.4F, -1.5F, -5.2F, 8.6F, 11.5F, 10.8F, new CubeDeformation(0.0F)), PartPose.offset(-5.0F, -20.0F, 0.0F));
+
+        PartDefinition shin_left = leg_left.addOrReplaceChild("shin_left", CubeListBuilder.create().texOffs(22, 51).addBox(-4.0F, -0.5F, -4.6F, 7.6F, 9.1F, 9.6F, new CubeDeformation(0.0F))
+        .texOffs(86, 116).addBox(-5.1F, 3.8F, -2.0F, 1.5F, 2.2F, 2.6F, new CubeDeformation(0.0F))
+        .texOffs(202, 116).addBox(3.1F, 1.8F, -3.0F, 1.3F, 1.8F, 2.0F, new CubeDeformation(0.0F)), PartPose.offset(0.0F, 8.0F, 0.0F));
+
+        shin_left.addOrReplaceChild("foot_left", CubeListBuilder.create().texOffs(176, 51).addBox(-4.6F, -0.5F, -7.6F, 9.2F, 4.0F, 13.6F, new CubeDeformation(0.0F))
+        .texOffs(96, 116).addBox(1.8F, 0.9F, -9.6F, 2.3F, 2.6F, 2.4F, new CubeDeformation(0.0F))
+        .texOffs(108, 116).addBox(-0.9F, 0.9F, -10.1F, 2.3F, 2.6F, 2.9F, new CubeDeformation(0.0F))
+        .texOffs(120, 116).addBox(-3.5F, 0.9F, -9.6F, 2.2F, 2.6F, 2.4F, new CubeDeformation(0.0F)), PartPose.offset(0.0F, 8.5F, -1.0F));
+
+        PartDefinition leg_right = root.addOrReplaceChild("leg_right", CubeListBuilder.create().texOffs(40, 28).addBox(-4.2F, -1.5F, -5.2F, 8.6F, 11.5F, 10.8F, new CubeDeformation(0.0F)), PartPose.offset(5.0F, -20.0F, 0.0F));
+
+        PartDefinition shin_right = leg_right.addOrReplaceChild("shin_right", CubeListBuilder.create().texOffs(58, 51).addBox(-3.6F, -0.5F, -4.6F, 7.6F, 9.1F, 9.6F, new CubeDeformation(0.0F))
+        .texOffs(132, 116).addBox(3.6F, 3.8F, -2.0F, 1.5F, 2.2F, 2.6F, new CubeDeformation(0.0F))
+        .texOffs(210, 116).addBox(-4.4F, 1.8F, -3.0F, 1.3F, 1.8F, 2.0F, new CubeDeformation(0.0F)), PartPose.offset(0.0F, 8.0F, 0.0F));
+
+        shin_right.addOrReplaceChild("foot_right", CubeListBuilder.create().texOffs(0, 71).addBox(-4.6F, -0.5F, -7.6F, 9.2F, 4.0F, 13.6F, new CubeDeformation(0.0F))
+        .texOffs(142, 116).addBox(-4.1F, 0.9F, -9.6F, 2.3F, 2.6F, 2.4F, new CubeDeformation(0.0F))
+        .texOffs(154, 116).addBox(-1.4F, 0.9F, -10.1F, 2.3F, 2.6F, 2.9F, new CubeDeformation(0.0F))
+        .texOffs(166, 116).addBox(1.3F, 0.9F, -9.6F, 2.2F, 2.6F, 2.4F, new CubeDeformation(0.0F)), PartPose.offset(0.0F, 8.5F, -1.0F));
+
+        return LayerDefinition.create(meshdefinition, 256, 256);
+    }
+
+    @Override
+    public ModelPart root() {
+        return this.root;
     }
 
     @Override
     public void setupAnim(TrollEntity entity, float limbSwing, float limbSwingAmount, float ageInTicks,
                           float netHeadYaw, float headPitch) {
+        // Keyframe clips are additive, so every part has to start from its rest
+        // pose or last frame's offsets accumulate.
+        this.root().getAllParts().forEach(ModelPart::resetPose);
 
-        // -------- 1) Idle base pose: head, breathing body, resting arms/club. --------
-        this.head.yRot = netHeadYaw * Mth.DEG_TO_RAD;
-        this.head.xRot = headPitch * Mth.DEG_TO_RAD * 0.65F;
+        this.body.xRot = REST_BODY_X;
+        this.head.xRot = REST_HEAD_X;
 
-        // Heavy lumber walk: slower frequency, larger amplitude than vanilla.
-        float walkPhase = limbSwing * 0.42F;
-        float walkAmp = Math.min(limbSwingAmount, 1.0F);
-        float leg = Mth.cos(walkPhase) * walkAmp;
-        this.leftLeg.xRot = leg * 0.85F;
-        this.rightLeg.xRot = -leg * 0.85F;
-        // Subtle body bob with footfalls.
-        float bodyBobX = REST_BODY_X + Mth.sin(ageInTicks * 0.06F) * 0.025F;
-        float bodyBobY = Mth.sin(walkPhase * 2.0F) * 0.05F * walkAmp;
-        this.body.xRot = bodyBobX;
-        this.body.yRot = bodyBobY;
-
-        // Arms swing opposite to legs, more on the non-club side.
-        this.leftArm.xRot = REST_LEFT_ARM_X + (-leg * 0.18F);
-        this.leftArm.yRot = REST_LEFT_ARM_Y;
-        this.leftArm.zRot = REST_LEFT_ARM_Z;
-        this.rightArm.xRot = REST_RIGHT_ARM_X + (leg * 0.45F);
-        this.rightArm.yRot = REST_RIGHT_ARM_Y;
-        this.rightArm.zRot = REST_RIGHT_ARM_Z;
-
-        this.club.xRot = 0.0F;
-        this.club.yRot = 0.0F;
-        this.club.zRot = REST_CLUB_Z;
-
-        // -------- 2) State overlays. --------
-        TrollEntity.AttackState state = entity.getAttackState();
-        int t = entity.getStateTick();
-
-        // Use if/else (not switch-on-enum) to avoid the synthetic $1 switch-map helper class
-        // that has been observed to fail to load in Forge/Mixin dev environments, producing
-        // a NoClassDefFoundError at render time.
-        if (state == TrollEntity.AttackState.ROAR) {
-            applyRoar(t);
-        } else if (state == TrollEntity.AttackState.SLAM_WINDUP) {
-            applySlamWindup(t);
-        } else if (state == TrollEntity.AttackState.SLAM_STRIKE) {
-            applySlamStrike(t);
-        } else if (state == TrollEntity.AttackState.SWEEP) {
-            applySweep(t);
-        } else if (state == TrollEntity.AttackState.STAGGER) {
-            applyStagger(t);
-        }
-        // AttackState.NONE: idle pose already applied above.
-
-        // Rage adds an idle tremor and lower stance.
-        if (entity.isRaging() && state == TrollEntity.AttackState.NONE) {
-            float tremor = Mth.sin(ageInTicks * 0.9F) * 0.025F;
-            this.body.xRot += tremor;
-            this.head.xRot += tremor * 0.6F;
-        }
-    }
-
-    /** Roar: head back, chest out, arms slightly back, club steady. */
-    private void applyRoar(int t) {
-        float p = clamp01((float) t / (float) TrollEntity.ROAR_DURATION);
-        // Bell curve in/out so the roar peaks and settles.
-        float peak = Mth.sin(p * Mth.PI);
-        this.body.xRot = REST_BODY_X - 0.30F * peak;
-        this.head.xRot = -0.55F * peak;
-        this.head.yRot *= (1.0F - peak); // look forward during roar
-        this.leftArm.xRot = -0.35F * peak;
-        this.leftArm.zRot = REST_LEFT_ARM_Z - 0.30F * peak;
-        this.rightArm.xRot = -0.35F * peak;
-        this.rightArm.zRot = REST_RIGHT_ARM_Z + 0.30F * peak;
-        this.club.zRot = REST_CLUB_Z + 0.15F * peak;
-    }
-
-    /** Slam windup: rear back, raise club overhead. */
-    private void applySlamWindup(int t) {
-        float p = clamp01((float) t / (float) TrollEntity.SLAM_WINDUP_DURATION);
-        float eased = easeInOut(p);
-        this.body.xRot = REST_BODY_X - 0.45F * eased;
-        this.body.yRot = -0.22F * eased;
-        this.head.xRot += -0.35F * eased;
-        // Raise left arm overhead with club: arm rotates back-up, club pivots forward.
-        this.leftArm.xRot = -2.55F * eased;
-        this.leftArm.yRot = 0.45F * eased;
-        this.leftArm.zRot = REST_LEFT_ARM_Z - 0.50F * eased;
-        this.club.xRot = -0.45F * eased;
-        this.club.yRot = 0.10F * eased;
-        this.club.zRot = REST_CLUB_Z + 0.30F * eased;
-        // Right arm steadies for balance.
-        this.rightArm.xRot = -0.30F * eased;
-        this.rightArm.zRot = REST_RIGHT_ARM_Z - 0.10F * eased;
-    }
-
-    /** Slam strike: snap forward and down, then recover. */
-    private void applySlamStrike(int t) {
-        float p = clamp01((float) t / (float) TrollEntity.SLAM_STRIKE_DURATION);
-        // Fast strike (first 30%) then slow recover.
-        float strike;
-        if (p < 0.30F) {
-            strike = p / 0.30F;
+        // A troll that has worked itself into a rage drops into a hunched charge;
+        // otherwise it lumbers. Only one gait clip may drive the legs, so this is
+        // a choice, not a blend.
+        if (entity.isRaging()) {
+            this.animateWalk(TrollAnimations.CHARGE, limbSwing, limbSwingAmount, 1.5F, 2.6F);
         } else {
-            strike = 1.0F - (p - 0.30F) / 0.70F;
+            this.animateWalk(TrollAnimations.WALK, limbSwing, limbSwingAmount, 1.7F, 2.2F);
         }
-        // Body pitches forward sharply, then settles.
-        this.body.xRot = REST_BODY_X + 0.55F * strike;
-        this.body.yRot = -0.10F + 0.20F * (1.0F - strike);
-        this.head.xRot += 0.30F * strike;
-        // Arm rotates from overhead (~-2.55) toward fully down (~+0.40) at impact.
-        float armX = Mth.lerp(strike, -2.55F, 0.40F);
-        this.leftArm.xRot = armX;
-        this.leftArm.yRot = 0.10F;
-        this.leftArm.zRot = REST_LEFT_ARM_Z - 0.20F * (1.0F - strike);
-        // Club follows.
-        this.club.xRot = Mth.lerp(strike, -0.45F, 0.30F);
-        this.club.yRot = 0.0F;
-        this.club.zRot = REST_CLUB_Z + 0.25F * (1.0F - strike);
-        this.rightArm.xRot = -0.15F;
-    }
 
-    /** Sweep: rotate body and arc the club horizontally across the front. */
-    private void applySweep(int t) {
-        float p = clamp01((float) t / (float) TrollEntity.SWEEP_DURATION);
-        // Wind up in first 35%, sweep through to ~70%, recover after.
-        float sweep;
-        if (p < 0.35F) {
-            sweep = -0.6F * (p / 0.35F); // wind to the right
-        } else if (p < 0.70F) {
-            sweep = -0.6F + 2.0F * ((p - 0.35F) / 0.35F); // arc across
-        } else {
-            sweep = 1.4F * (1.0F - (p - 0.70F) / 0.30F); // hold then settle
-        }
-        this.body.yRot = sweep * 0.30F;
-        this.head.yRot += sweep * 0.20F;
-        // Left arm raises to shoulder height and arcs across.
-        this.leftArm.xRot = -1.20F;
-        this.leftArm.yRot = -0.20F + sweep * 0.60F;
-        this.leftArm.zRot = REST_LEFT_ARM_Z + sweep * 0.40F;
-        // Club rotates so it sweeps in a horizontal plane.
-        this.club.xRot = -1.10F;
-        this.club.yRot = sweep * 0.50F;
-        this.club.zRot = REST_CLUB_Z + 0.30F;
-        // Right arm counter-balance.
-        this.rightArm.xRot = -0.20F;
-        this.rightArm.yRot = -sweep * 0.20F;
-    }
+        this.animate(entity.idleAnimationState, TrollAnimations.IDLE, ageInTicks);
+        this.animate(entity.roarAnimationState, TrollAnimations.ROAR, ageInTicks);
+        this.animate(entity.slamWindupAnimationState, TrollAnimations.SLAM_WINDUP, ageInTicks);
+        this.animate(entity.slamStrikeAnimationState, TrollAnimations.SLAM_STRIKE, ageInTicks);
+        this.animate(entity.sweepAnimationState, TrollAnimations.SWEEP, ageInTicks);
+        this.animate(entity.staggerAnimationState, TrollAnimations.STAGGER, ageInTicks);
 
-    /** Stagger: arms up, head back, body recoiled. */
-    private void applyStagger(int t) {
-        float p = clamp01((float) t / (float) TrollEntity.STAGGER_DURATION);
-        float recoil = Mth.sin(p * Mth.PI);
-        this.body.xRot = REST_BODY_X - 0.20F * recoil;
-        this.head.xRot += -0.30F * recoil;
-        this.leftArm.xRot = -0.70F * recoil;
-        this.leftArm.zRot = REST_LEFT_ARM_Z - 0.20F * recoil;
-        this.rightArm.xRot = -0.70F * recoil;
-        this.rightArm.zRot = REST_RIGHT_ARM_Z + 0.20F * recoil;
-        // Hold club steady (don't fling it).
-        this.club.zRot = REST_CLUB_Z + 0.10F * recoil;
-    }
-
-    private static float clamp01(float v) {
-        return Mth.clamp(v, 0.0F, 1.0F);
-    }
-
-    private static float easeInOut(float t) {
-        return t * t * (3.0F - 2.0F * t);
-    }
-
-    @Override
-    public void renderToBuffer(PoseStack poseStack, VertexConsumer vertexConsumer, int packedLight, int packedOverlay,
-                               int color) {
-        this.root.render(poseStack, vertexConsumer, packedLight, packedOverlay, color);
+        // Head tracking last, and damped: the clips already throw the head around
+        // during a roar or a slam, and full tracking on top of that reads as a
+        // twitch rather than a look.
+        float track = entity.isPerformingAction() ? 0.2F : 0.7F;
+        this.head.yRot += Mth.clamp(netHeadYaw, -50.0F, 50.0F) * Mth.DEG_TO_RAD * track;
+        this.head.xRot += Mth.clamp(headPitch, -30.0F, 30.0F) * Mth.DEG_TO_RAD * track;
     }
 }

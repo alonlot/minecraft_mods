@@ -164,6 +164,17 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> GRINDYLOW_HURT = register("grindylow.hurt");
     public static final RegistryObject<SoundEvent> GRINDYLOW_DEATH = register("grindylow.death");
 
+    // Whomping Willow. All timber and weather -- nothing here is a voice, because the tree does not
+    // have one; every sound it makes is something a very large tree does under load.
+    public static final RegistryObject<SoundEvent> WILLOW_AMBIENT = register("whomping_willow.ambient");
+    public static final RegistryObject<SoundEvent> WILLOW_ALERT = register("whomping_willow.alert");
+    public static final RegistryObject<SoundEvent> WILLOW_WHIP = register("whomping_willow.whip");
+    public static final RegistryObject<SoundEvent> WILLOW_IMPACT = register("whomping_willow.impact");
+    public static final RegistryObject<SoundEvent> WILLOW_GROAN = register("whomping_willow.groan");
+    public static final RegistryObject<SoundEvent> WILLOW_ROOTS = register("whomping_willow.roots");
+    public static final RegistryObject<SoundEvent> WILLOW_HURT = register("whomping_willow.hurt");
+    public static final RegistryObject<SoundEvent> WILLOW_DEATH = register("whomping_willow.death");
+
     private static RegistryObject<SoundEvent> register(String name) {
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, name);
         return SOUND_EVENTS.register(name, () -> SoundEvent.createVariableRangeEvent(id));

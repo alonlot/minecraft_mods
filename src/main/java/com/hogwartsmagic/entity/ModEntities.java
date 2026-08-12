@@ -242,4 +242,14 @@ public class ModEntities {
                             .sized(0.6F, 1.25F)
                             .clientTrackingRange(10)
                             .build("goblin_guard"));
+
+    // The box is the trunk only. The branches reach seven blocks past it and are handled by the
+    // attack arcs, not by the hitbox -- see WhompingWillowEntity.BRANCH_RANGE. Tracking range is
+    // generous because it is a landmark you are meant to see before you are in reach of it.
+    public static final RegistryObject<EntityType<WhompingWillowEntity>> WHOMPING_WILLOW =
+            ENTITY_TYPES.register("whomping_willow",
+                    () -> EntityType.Builder.<WhompingWillowEntity>of(WhompingWillowEntity::new, MobCategory.MONSTER)
+                            .sized(3.0F, 9.0F)
+                            .clientTrackingRange(16)
+                            .build("whomping_willow"));
 }

@@ -15,6 +15,7 @@ import net.minecraft.world.item.alchemy.PotionContents;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
+import net.minecraftforge.entity.PartEntity;
 
 import java.util.List;
 import java.util.Optional;
@@ -64,11 +65,17 @@ public class BasiliskVenomEntity extends ThrowableItemProjectile {
     protected void onHitEntity(EntityHitResult result) {
         super.onHitEntity(result);
         Entity struck = result.getEntity();
-        if (struck instanceof BasiliskEntity) {
+        // Another basilisk is met through one of its body parts, never in
+        // person, and a part is not a BasiliskEntity — so both the "venom does
+        // not pass between basilisks" rule and the poison have to ask the hit
+        // box who owns it. The glob itself still lands on the box, which scales
+        // the damage on the way through.
+        Entity victim = struck instanceof PartEntity<?> part ? part.getParent() : struck;
+        if (victim instanceof BasiliskEntity) {
             return;
         }
         struck.hurt(this.damageSources().indirectMagic(this, this.getOwner()), IMPACT_DAMAGE);
-        if (struck instanceof LivingEntity living) {
+        if (victim instanceof LivingEntity living) {
             living.addEffect(new MobEffectInstance(MobEffects.POISON, 140, 1));
             living.addEffect(new MobEffectInstance(MobEffects.WITHER, 60, 0));
         }

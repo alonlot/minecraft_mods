@@ -42,6 +42,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
+import net.minecraftforge.entity.PartEntity;
 import net.minecraftforge.network.PacketDistributor;
 import java.util.UUID;
 
@@ -632,7 +633,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
                                 pos);
                     }
                 }
-            } else if (result instanceof EntityHitResult entityHit && entityHit.getEntity() instanceof LivingEntity living) {
+            } else if (result instanceof EntityHitResult entityHit && livingBehind(entityHit.getEntity()) instanceof LivingEntity living) {
                 // Intercept spell if the target has an active Protego shield
                 if (living.hasEffect(com.hogwartsmagic.ExampleMod.PROTEGO_EFFECT.getHolder().get()) && spell != SpellType.AVADA_KEDAVRA && spell != SpellType.HEAL) {
                     net.minecraft.world.effect.MobEffectInstance currentEffect = living.getEffect(com.hogwartsmagic.ExampleMod.PROTEGO_EFFECT.getHolder().get());
@@ -718,6 +719,27 @@ public class SpellBeamEntity extends ThrowableProjectile {
             }
             this.discard();
         }
+    }
+
+    /**
+     * The living thing standing behind a hit box.
+     *
+     * <p>A mob too long or too tall for one box — the basilisk — is covered by
+     * {@link PartEntity} hit volumes instead, and a part is a plain entity, not
+     * a {@link LivingEntity}. A beam that asked the struck entity directly found
+     * no living target, fell through the whole hit branch and was discarded a
+     * few lines later: every spell aimed at a basilisk simply vanished. Asking
+     * the part who it belongs to puts the spell back on the animal.
+     *
+     * <p>This hands the parent over rather than the part, so the part's own
+     * damage multiplier is skipped: the payload is delivered by
+     * {@code SpellType.applyHitEffect}, which needs a LivingEntity and cannot be
+     * pointed at a hit box. Aiming at the head still counts for something —
+     * the basilisk credits blows landed from in front toward its blinding
+     * whether they arrived through a part or not.
+     */
+    private static Entity livingBehind(Entity struck) {
+        return struck instanceof PartEntity<?> part ? part.getParent() : struck;
     }
 
     private void revealNearbySecrets(ServerLevel level, BlockPos origin) {

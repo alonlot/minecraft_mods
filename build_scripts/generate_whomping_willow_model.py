@@ -42,6 +42,7 @@ WhompingWillowModel is one loop with a phase offset because of that.
 import json
 import math
 import os
+import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -434,6 +435,11 @@ def emit_bbmodel(root, cubes):
 
 BEGIN = "    // <<< GENERATED GEOMETRY"
 END = "    // >>> GENERATED GEOMETRY"
+CONST_BEGIN = "    // <<< GENERATED CONSTANTS"
+CONST_END = "    // >>> GENERATED CONSTANTS"
+
+ENTITY_JAVA = os.path.join(ROOT, "src", "main", "java", "com", "hogwartsmagic",
+                           "entity", "WhompingWillowEntity.java")
 
 
 def f(v):
@@ -480,6 +486,44 @@ def java_body(root):
     emit(root, "partdefinition", [0, 0, 0])
     out += ["", "        return LayerDefinition.create(mesh, %d, %d);" % (TEX_W, TEX_H), "    }"]
     return "\n".join(out)
+
+
+def check_entity_agrees():
+    """The entity builds its damage arc from BRANCH_BEARING; this script builds the geometry from it.
+
+    They live in different files and different languages, so nothing but this check stops them
+    drifting -- and when they drift, the branch that swings is not the branch that hits, which is a
+    bug that looks like an animation problem and is not.
+    """
+    if not os.path.exists(ENTITY_JAVA):
+        return
+    src = open(ENTITY_JAVA, encoding="utf-8").read()
+    m = re.search(r"BRANCH_BEARING = \{([^}]+)\}", src)
+    if not m:
+        raise SystemExit("WhompingWillowEntity has no BRANCH_BEARING array to check against")
+    theirs = [float(v.strip().rstrip("Ff")) for v in m.group(1).split(",") if v.strip()]
+    if theirs != [float(v) for v in BRANCH_BEARING]:
+        raise SystemExit("BRANCH_BEARING disagrees between the generator and the entity:"
+                         "\n  generator: %s\n  entity   : %s" % (BRANCH_BEARING, theirs))
+
+
+def splice_constants():
+    """Write the shape constants the hand-written solver needs, so it cannot hold a stale copy.
+
+    BRANCH_HOST used to be typed into the model by hand as (b % 2 == 0) ? 4 : 6. Moving the limbs
+    onto four different rings here left that expression looking for a bone under the wrong parent,
+    and the model failed to build at all. Generating it removes the possibility.
+    """
+    if not os.path.exists(OUT_JAVA):
+        return
+    src = open(OUT_JAVA, encoding="utf-8").read()
+    if CONST_BEGIN not in src or CONST_END not in src:
+        return
+    body = ("    private static final int[] BRANCH_HOST = {%s};"
+            % ", ".join(str(h) for h in BRANCH_HOST))
+    head = src[:src.index(CONST_BEGIN) + len(CONST_BEGIN)]
+    tail = src[src.index(CONST_END):]
+    open(OUT_JAVA, "w", encoding="utf-8").write(head + chr(10) + body + chr(10) + tail)
 
 
 def splice(body):
@@ -585,7 +629,9 @@ if __name__ == "__main__":
         emit_bbmodel(root, cubes)
         print("wrote %s" % os.path.relpath(OUT_BB, ROOT))
     if do_java:
+        check_entity_agrees()
         splice(java_body(root))
+        splice_constants()
         print("wrote %s" % os.path.relpath(OUT_JAVA, ROOT))
 
     print("\n  %d cubes in %d bones   height %.0fpx (%.2f blocks at MODEL_SCALE 0.80)"

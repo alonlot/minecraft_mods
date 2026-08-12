@@ -48,6 +48,19 @@ public class WhompingWillowModel extends HierarchicalModel<WhompingWillowEntity>
     /** How much of a branch's motion each segment carries. Spreading the bend down the chain instead
      *  of pivoting at the shoulder is what makes it read as a whip rather than a plank. */
     private static final float[] SEG_WEIGHT = {0.22F, 0.26F, 0.30F, 0.36F, 0.44F};
+    /**
+     * Which trunk ring each limb hangs from. <b>Must match BRANCH_HOST in
+     * build_scripts/generate_whomping_willow_model.py.</b>
+     *
+     * <p>This was previously inlined as {@code (b % 2 == 0) ? 4 : 6}, which was correct only while
+     * the limbs were paired onto two rings. Spreading them across four to break the tree's symmetry
+     * left that expression looking for branch 1 under trunk5 when the generator had moved it to
+     * trunk4, and the model failed to build at all.
+     */
+    // <<< GENERATED CONSTANTS
+    private static final int[] BRANCH_HOST = {3, 5, 4, 6};
+    // >>> GENERATED CONSTANTS
+
     /** Ticks of lag per segment, so the tip trails the base through a swing. */
     private static final float[] SEG_LAG = {0.0F, 0.06F, 0.13F, 0.21F, 0.30F};
 
@@ -78,9 +91,8 @@ public class WhompingWillowModel extends HierarchicalModel<WhompingWillowEntity>
         this.crown = this.trunk[RINGS - 1].getChild("crown");
         this.mawJaw = this.trunk[2].getChild("maw").getChild("maw_jaw");
 
-        // Hosts mirror BRANCH_HOST in the generator: branches 0 and 2 on ring 5, 1 and 3 on ring 7.
         for (int b = 0; b < BRANCHES; b++) {
-            ModelPart host = this.trunk[(b % 2 == 0) ? 4 : 6];
+            ModelPart host = this.trunk[BRANCH_HOST[b]];
             ModelPart seg = host.getChild("branch" + (b + 1) + "_s1");
             this.branch[b][0] = seg;
             for (int s = 1; s < SEGS; s++) {

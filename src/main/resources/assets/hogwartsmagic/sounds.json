@@ -1168,5 +1168,77 @@
         "stream": false
       }
     ]
+  },
+  "whomping_willow.ambient": {
+    "subtitle": "subtitles.hogwartsmagic.whomping_willow.ambient",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:whomping_willow/ambient",
+        "stream": false
+      }
+    ]
+  },
+  "whomping_willow.alert": {
+    "subtitle": "subtitles.hogwartsmagic.whomping_willow.alert",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:whomping_willow/alert",
+        "stream": false
+      }
+    ]
+  },
+  "whomping_willow.whip": {
+    "subtitle": "subtitles.hogwartsmagic.whomping_willow.whip",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:whomping_willow/whip",
+        "stream": false
+      }
+    ]
+  },
+  "whomping_willow.impact": {
+    "subtitle": "subtitles.hogwartsmagic.whomping_willow.impact",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:whomping_willow/impact",
+        "stream": false
+      }
+    ]
+  },
+  "whomping_willow.groan": {
+    "subtitle": "subtitles.hogwartsmagic.whomping_willow.groan",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:whomping_willow/groan",
+        "stream": false
+      }
+    ]
+  },
+  "whomping_willow.roots": {
+    "subtitle": "subtitles.hogwartsmagic.whomping_willow.roots",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:whomping_willow/roots",
+        "stream": false
+      }
+    ]
+  },
+  "whomping_willow.hurt": {
+    "subtitle": "subtitles.hogwartsmagic.whomping_willow.hurt",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:whomping_willow/hurt",
+        "stream": false
+      }
+    ]
+  },
+  "whomping_willow.death": {
+    "subtitle": "subtitles.hogwartsmagic.whomping_willow.death",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:whomping_willow/death",
+        "stream": false
+      }
+    ]
   }
 }

@@ -746,6 +746,8 @@ public class ClientModEvents {
                 com.hogwartsmagic.client.model.MerchieftainessCrownModel::createBodyLayer);
         event.registerLayerDefinition(com.hogwartsmagic.client.model.GrindylowModel.LAYER_LOCATION,
                 com.hogwartsmagic.client.model.GrindylowModel::createBodyLayer);
+        event.registerLayerDefinition(com.hogwartsmagic.client.model.WhompingWillowModel.LAYER_LOCATION,
+                com.hogwartsmagic.client.model.WhompingWillowModel::createBodyLayer);
     }
 
     @SubscribeEvent
@@ -798,6 +800,8 @@ public class ClientModEvents {
                 com.hogwartsmagic.client.renderer.MerpersonRenderer::new);
         event.registerEntityRenderer(ModEntities.GRINDYLOW.get(),
                 com.hogwartsmagic.client.renderer.GrindylowRenderer::new);
+        event.registerEntityRenderer(ModEntities.WHOMPING_WILLOW.get(),
+                com.hogwartsmagic.client.renderer.WhompingWillowRenderer::new);
 
         event.registerEntityRenderer(ModEntities.DARK_MARK.get(), DarkMarkRenderer::new);
         event.registerEntityRenderer(ModEntities.VOLDEMORT_SUMMONING.get(),

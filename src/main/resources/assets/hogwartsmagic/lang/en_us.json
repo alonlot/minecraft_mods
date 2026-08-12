@@ -568,5 +568,15 @@
   "subtitles.hogwartsmagic.grindylow.grab": "Grindylow seizes hold",
   "subtitles.hogwartsmagic.grindylow.snap": "Grindylow's fingers snap",
   "subtitles.hogwartsmagic.grindylow.hurt": "Grindylow hurts",
-  "subtitles.hogwartsmagic.grindylow.death": "Grindylow dies"
+  "subtitles.hogwartsmagic.grindylow.death": "Grindylow dies",
+  "entity.hogwartsmagic.whomping_willow": "Whomping Willow",
+  "item.hogwartsmagic.whomping_willow_spawn_egg": "Whomping Willow Spawn Egg",
+  "subtitles.hogwartsmagic.whomping_willow.ambient": "Willow creaks",
+  "subtitles.hogwartsmagic.whomping_willow.alert": "Willow strains",
+  "subtitles.hogwartsmagic.whomping_willow.whip": "Branch whips",
+  "subtitles.hogwartsmagic.whomping_willow.impact": "Branch slams",
+  "subtitles.hogwartsmagic.whomping_willow.groan": "Timber groans",
+  "subtitles.hogwartsmagic.whomping_willow.roots": "Roots wrench",
+  "subtitles.hogwartsmagic.whomping_willow.hurt": "Willow splinters",
+  "subtitles.hogwartsmagic.whomping_willow.death": "Willow falls"
 }

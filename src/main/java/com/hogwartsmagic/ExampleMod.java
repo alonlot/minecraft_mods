@@ -504,6 +504,10 @@ public class ExampleMod
     public static final RegistryObject<Item> MERPERSON_SPAWN_EGG = ITEMS.register("merperson_spawn_egg",
             () -> new net.minecraftforge.common.ForgeSpawnEggItem(ModEntities.MERPERSON, 0x5E6B5A, 0x223A26, new Item.Properties()));
 
+    // Bark brown with a sickly leaf-green spot.
+    public static final RegistryObject<Item> WHOMPING_WILLOW_SPAWN_EGG = ITEMS.register("whomping_willow_spawn_egg",
+            () -> new net.minecraftforge.common.ForgeSpawnEggItem(ModEntities.WHOMPING_WILLOW, 0x42372A, 0x4A5C30, new Item.Properties()));
+
     // A barbed lakebed-stone spear. Unremarkable in air, nasty underwater --
     // see MerpersonSpearItem for where the bonus is applied.
     // Nacre and lake pearl: soft as armour, which is not what it is for.
@@ -626,6 +630,7 @@ public class ExampleMod
                 output.accept(HOUSE_ELF_SPAWN_EGG.get()); // House Elf Spawn Egg
                 output.accept(MERPERSON_SPAWN_EGG.get()); // Merperson Spawn Egg
                 output.accept(GRINDYLOW_SPAWN_EGG.get()); // Grindylow Spawn Egg
+                output.accept(WHOMPING_WILLOW_SPAWN_EGG.get()); // Whomping Willow Spawn Egg
                 output.accept(GALLEON.get()); // Galleon
                 output.accept(GOBLIN_SILVER_DAGGER.get()); // Goblin-Forged Silver Dagger
                 output.accept(MERPERSON_SPEAR.get()); // Merperson's Spear

@@ -1,0 +1,12 @@
+{
+  "type": "forge:add_spawns",
+  "biomes": "#hogwartsmagic:has_whomping_willow",
+  "spawners": [
+    {
+      "type": "hogwartsmagic:whomping_willow",
+      "weight": 1,
+      "minCount": 1,
+      "maxCount": 1
+    }
+  ]
+}

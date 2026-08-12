@@ -739,6 +739,47 @@ def merfolk_village():
     return b, nest
 
 
+CLEARING = [('minecraft:podzol', 6), ('minecraft:coarse_dirt', 5), ('minecraft:grass_block', 3),
+            ('minecraft:mossy_cobblestone', 2)]
+
+
+def willow_clearing():
+    """A ring of trodden, root-broken ground with the willow itself standing in the middle.
+
+    The tree is baked in rather than spawned: a landmark whose landmark is missing is just a bald
+    patch. The clearing is deliberately wider than the canopy so the silhouette reads from outside
+    the branches -- which is also the range at which the wind-up tells are still readable.
+    """
+    W, H, D = 23, 6, 23
+    b = {}
+    cx = cz = 11
+    for x in range(W):
+        for z in range(D):
+            d = math.hypot(x - cx, z - cz)
+            if d > 11.0:
+                continue
+            # Bare and beaten flat where the branches sweep; grass survives only at the fringe.
+            pal = CLEARING if d > 7.5 else [('minecraft:coarse_dirt', 7), ('minecraft:podzol', 4),
+                                            ('minecraft:dirt', 3)]
+            put(b, (x, 0, z), tex(pal, x, 0, z, 91))
+            if d > 8.5 and noise(x, 1, z, 92) > 0.86:
+                put(b, (x, 1, z), 'minecraft:fern')
+
+    # Roots breaking the surface, and the wreckage of whatever tried to stand here before.
+    for i in range(10):
+        a = i * math.pi / 5.0
+        r = 6.0 + noise(i, 0, 0, 93) * 3.0
+        rx, rz = int(cx + math.cos(a) * r), int(cz + math.sin(a) * r)
+        if 0 <= rx < W and 0 <= rz < D:
+            put(b, (rx, 1, rz), 'minecraft:oak_log', {'axis': 'x' if i % 2 else 'z'})
+    rubble(b, [(3, 1, 6), (18, 1, 15), (7, 1, 19), (16, 1, 4)],
+           [('minecraft:mossy_cobblestone', 5), ('minecraft:cobblestone', 4)], 94)
+    chest(b, (4, 1, 4), 'south', 'minecraft:chests/simple_dungeon')
+
+    return b, [entity(cx + 0.5, 1.0, cz + 0.5, 'hogwartsmagic:whomping_willow',
+                      {'PersistenceRequired': ('byte', 1)})]
+
+
 BUILDS = {
     'fen_gibbet': fen_gibbet,
     'horntail_nest': horntail_nest,
@@ -746,6 +787,7 @@ BUILDS = {
     'goblin_vault': goblin_vault,
     'black_lake_ruin': black_lake_ruin,
     'merfolk_village': merfolk_village,
+    'willow_clearing': willow_clearing,
 }
 
 # Builds whose empty space is water rather than air. Anything waterloggable inside one has to say so,

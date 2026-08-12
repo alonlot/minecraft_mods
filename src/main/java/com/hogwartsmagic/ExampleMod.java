@@ -624,8 +624,12 @@ public class ExampleMod
                 output.accept(GOBLIN_SPAWN_EGG.get()); // Gringotts Goblin Spawn Egg
                 output.accept(GOBLIN_GUARD_SPAWN_EGG.get()); // Goblin Vault Guard Spawn Egg
                 output.accept(HOUSE_ELF_SPAWN_EGG.get()); // House Elf Spawn Egg
+                output.accept(MERPERSON_SPAWN_EGG.get()); // Merperson Spawn Egg
+                output.accept(GRINDYLOW_SPAWN_EGG.get()); // Grindylow Spawn Egg
                 output.accept(GALLEON.get()); // Galleon
                 output.accept(GOBLIN_SILVER_DAGGER.get()); // Goblin-Forged Silver Dagger
+                output.accept(MERPERSON_SPEAR.get()); // Merperson's Spear
+                output.accept(MERCHIEFTAINESS_CROWN.get()); // Merchieftainess's Crown
                 // Add books for all spells
                 for (com.hogwartsmagic.spell.SpellType spell : com.hogwartsmagic.spell.SpellType.values()) {
                     output.accept(com.hogwartsmagic.item.MagicBookItem.createBook(spell));

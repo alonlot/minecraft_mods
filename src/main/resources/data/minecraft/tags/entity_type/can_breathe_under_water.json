@@ -1,6 +1,7 @@
 {
   "replace": false,
   "values": [
-    "hogwartsmagic:merperson"
+    "hogwartsmagic:merperson",
+    "hogwartsmagic:grindylow"
   ]
 }

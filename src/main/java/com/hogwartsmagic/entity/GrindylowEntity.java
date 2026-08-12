@@ -386,6 +386,13 @@ public class GrindylowEntity extends PathfinderMob {
         }
     }
 
+    // Breathing underwater is an entity_type tag in 1.21, not an override —
+    // LivingEntity#canBreatheUnderwater is final and reads
+    // minecraft:can_breathe_under_water. Leave a water mob out of
+    // data/minecraft/tags/entity_type/can_breathe_under_water.json and it
+    // quietly drowns fifteen seconds after it spawns, which is exactly what
+    // happened to these until it was noticed.
+
     @Override
     public boolean isPushedByFluid() {
         return false;

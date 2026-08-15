@@ -262,7 +262,10 @@ def build_template(blocks, entities=None):
             'state': ('int', palette_index[key]),
         }
         if be:
-            tag['nbt'] = ('compound', {k: ('string', v) for k, v in be.items()})
+            # Plain strings are the common case (a chest's LootTable), but a banner's patterns are a
+            # list of compounds, so a value that is already a typed tuple passes through untouched.
+            tag['nbt'] = ('compound', {k: (v if isinstance(v, tuple) else ('string', v))
+                                       for k, v in be.items()})
         block_tags.append(('compound', tag))
 
     return ('compound', {
@@ -924,7 +927,7 @@ def willow_clearing():
 CAMP_GROUND = [('minecraft:coarse_dirt', 8), ('minecraft:podzol', 5), ('minecraft:dirt', 3),
                ('minecraft:gravel', 1)]
 CAMP_TRODDEN = [('minecraft:coarse_dirt', 10), ('minecraft:dirt', 4), ('minecraft:podzol', 3),
-                ('minecraft:dirt_path', 2)]
+                ('minecraft:dirt_path', 1)]
 RITE_STONE = [('minecraft:deepslate_bricks', 6), ('minecraft:cracked_deepslate_bricks', 5),
               ('minecraft:cobbled_deepslate', 4), ('minecraft:blackstone', 3),
               ('minecraft:polished_blackstone', 2)]
@@ -957,43 +960,88 @@ def camp_clearing(b):
                     else 'minecraft:dead_bush')
 
 
-def camp_fire(b):
-    """A fire pit, not a paved square.
+DAIS = [('minecraft:polished_deepslate', 6), ('minecraft:deepslate_tiles', 5),
+        ('minecraft:polished_blackstone', 3), ('minecraft:cracked_deepslate_tiles', 2)]
 
-    The first version scraped a flat blackstone disc three blocks wide and stood a campfire on it,
-    which from any angle read as a courtyard with a spark in the middle -- no presence at all for the
-    one thing the whole camp is arranged around. What gives a fire pit presence is a raised kerb:
-    a ring of stone standing a block proud, so the fire sits down inside something.
+
+def dark_mark_banner(b, pos, facing):
+    """A black banner carrying vanilla's own skull pattern -- as close to the Mark as blocks get."""
+    b[pos] = ('minecraft:black_wall_banner', {'facing': facing},
+              {'id': 'minecraft:banner',
+               'patterns': ('list', 'compound', [
+                   ('compound', {'pattern': ('string', 'minecraft:skull'),
+                                 'color': ('string', 'white')}),
+               ])})
+
+
+def ritual_circle(b):
+    """The heart of the camp: a raised dais, a ring of standing stones, and runes cut into the floor.
+
+    This replaces a flat blackstone hearth with a campfire on it. A camp arranged around a fire needs
+    the fire to be the strongest thing in the clearing, and paving plus one campfire is not -- it
+    reads as a courtyard with a spark in it. What carries here is the same trick a real ritual site
+    uses: concentric structure. Dais, then stones, then an inscribed circle, each at its own radius,
+    so the eye is walked inward.
+
+    Green is done with light, not flame. Vanilla has no green fire; soul fire is blue-cyan and is as
+    close as the game gets, so the flame stays soul-blue and the GLOW around it is froglight.
     """
-    for x in range(CAMP_CX - 3, CAMP_CX + 4):
-        for z in range(CAMP_CZ - 3, CAMP_CZ + 4):
-            d = math.hypot(x - CAMP_CX, z - CAMP_CZ)
-            if d > 2.6:
+    # Raised dais.
+    for x in range(CAMP_CX - 2, CAMP_CX + 3):
+        for z in range(CAMP_CZ - 2, CAMP_CZ + 3):
+            if abs(x - CAMP_CX) + abs(z - CAMP_CZ) > 3:
                 continue
-            put(b, (x, 0, z), 'minecraft:blackstone' if noise(x, 0, z, 64) > 0.4
-                else 'minecraft:basalt')
-            # Kerb stones standing on the rim, broken in two places where they have been kicked out.
-            if 1.7 < d <= 2.6 and noise(x, 1, z, 641) > 0.24:
-                put(b, (x, 1, z), 'minecraft:polished_blackstone' if noise(x, 1, z, 642) > 0.5
-                    else 'minecraft:blackstone')
+            put(b, (x, 0, z), tex(DAIS, x, 0, z, 640))
+            put(b, (x, 1, z), tex(DAIS, x, 1, z, 641))
+    for dx, dz in ((0, 3), (0, -3), (3, 0), (-3, 0)):        # steps up to it
+        slab(b, (CAMP_CX + dx, 1, CAMP_CZ + dz), 'minecraft:polished_deepslate_slab')
 
-    put(b, (CAMP_CX, 1, CAMP_CZ), 'minecraft:soul_campfire',
+    # The brazier, and the green light pooling under it.
+    put(b, (CAMP_CX, 2, CAMP_CZ), 'minecraft:chiseled_deepslate')
+    put(b, (CAMP_CX, 3, CAMP_CZ), 'minecraft:soul_campfire',
         {'lit': 'true', 'signal_fire': 'false', 'waterlogged': 'false', 'facing': 'north'})
-    # Unburnt wood stacked against the kerb, so the fire looks kept rather than placed.
-    for wx, wz, axis in ((CAMP_CX - 1, CAMP_CZ + 1, 'x'), (CAMP_CX + 1, CAMP_CZ - 1, 'z')):
-        put(b, (wx, 1, wz), 'minecraft:stripped_dark_oak_log', {'axis': axis})
+    # Two, not four. Froglight is a full-bright block; ringing the brazier with it made the middle
+    # of the camp one white blob instead of a fire with light coming off it.
+    for dx, dz in ((1, 1), (-1, -1)):
+        put(b, (CAMP_CX + dx, 2, CAMP_CZ + dz), 'minecraft:verdant_froglight', {'axis': 'y'})
+    for dx, dz in ((1, -1), (-1, 1)):
+        put(b, (CAMP_CX + dx, 2, CAMP_CZ + dz), 'minecraft:sculk')
 
-    # Seating: felled logs laid tangentially around the hearth, one of them missing.
-    for i in range(6):
-        if i == 4:
-            continue
-        a = i * math.pi / 3.0
-        lx = CAMP_CX + int(round(math.cos(a) * 4.5))
-        lz = CAMP_CZ + int(round(math.sin(a) * 4.5))
-        axis = 'z' if abs(math.cos(a)) > abs(math.sin(a)) else 'x'
-        for k in (-1, 0, 1):
-            px, pz = (lx, lz + k) if axis == 'z' else (lx + k, lz)
-            put(b, (px, 1, pz), 'minecraft:stripped_dark_oak_log', {'axis': axis})
+    # Standing stones, each with a lit slit. The arrangement echoes the plate on the wall.
+    for i in range(8):
+        a = i * math.pi / 4.0 + 0.13
+        sx = CAMP_CX + int(round(math.cos(a) * 4.6))
+        sz = CAMP_CZ + int(round(math.sin(a) * 4.6))
+        height = 2 + (i % 3 == 0)
+        for y in range(1, height + 1):
+            put(b, (sx, y, sz), tex([('minecraft:deepslate', 5), ('minecraft:cobbled_deepslate', 4),
+                                     ('minecraft:blackstone', 2)], sx, y, sz, 642))
+        put(b, (sx, height, sz), 'minecraft:chiseled_deepslate')
+        # The lit rune sits at the stone's foot, not on its head. Capping the stones turned each one
+        # into a lamp on a post, and six full-bright blocks at eye level is a row of blobs rather
+        # than a ring of standing stones with something burning between them.
+        if i % 2 == 0:
+            fx = CAMP_CX + int(round(math.cos(a) * 5.9))
+            fz = CAMP_CZ + int(round(math.sin(a) * 5.9))
+            if (fx, 1, fz) not in b:
+                put(b, (fx, 0, fz), 'minecraft:verdant_froglight', {'axis': 'y'})
+
+    # Runes cut into the floor. Sparse on purpose: a solid ring of froglight is a lamp, not writing.
+    for radius, salt in ((6.4, 643), (7.6, 644)):
+        steps = int(2 * math.pi * radius * 1.5)
+        for i in range(steps):
+            a = i * 2 * math.pi / steps
+            x = int(round(CAMP_CX + math.cos(a) * radius))
+            z = int(round(CAMP_CZ + math.sin(a) * radius))
+            if (x, 1, z) in b or math.hypot(x - CAMP_CX, z - CAMP_CZ) < 5.5:
+                continue
+            roll = noise(x, 0, z, salt)
+            if roll > 0.93:
+                put(b, (x, 0, z), 'minecraft:verdant_froglight', {'axis': 'y'})
+            elif roll > 0.22:
+                # Mostly continuous. A ring that is half gaps reads as litter on the floor; the
+                # sculk is the ink and the froglight is only where the writing catches light.
+                put(b, (x, 0, z), 'minecraft:sculk')
 
 
 def camp_trunks(b):
@@ -1017,7 +1065,9 @@ def camp_trunks(b):
         if WALL_X0 - 2 <= tx <= WALL_X1 + 2 and 5 <= tz <= WALL_Z + 4:   # clear of wall and bench
             continue
 
-        height = 4 + int(noise(tx, 0, tz, 65) * 7)
+        # 7..11, not 4..10. The canopy sits a block or two above the trunk, so a short trunk hangs
+        # its leaves down into the clearing and roofs the camp instead of framing it.
+        height = 7 + int(noise(tx, 0, tz, 65) * 5)
         if i == 5:
             height = 2                            # one snapped to a stump
         wood = 'minecraft:dark_oak_log' if noise(tx, 1, tz, 66) > 0.35 \
@@ -1037,6 +1087,20 @@ def camp_trunks(b):
             put(b, (tx + inward_x, height, tz), 'minecraft:dark_oak_log', {'axis': 'x'})
             put(b, (tx, height, tz + inward_z), 'minecraft:dark_oak_log', {'axis': 'z'})
             put(b, (tx + inward_x * 2, height - 1, tz), 'minecraft:dark_oak_log', {'axis': 'x'})
+                # Canopy. The reference for this camp is a clearing under trees, not under a web, and
+            # bare poles were reading as scaffolding no matter how well the bases were flared.
+            # persistent=true matters: without it every one of these decays away after placement.
+            for lx in range(-2, 3):
+                for lz in range(-2, 3):
+                    for ly in (0, 1):
+                        if lx * lx + lz * lz + ly * 3 > 5:
+                            continue
+                        pos = (tx + lx, height + 1 + ly, tz + lz)
+                        if pos[1] < 8:            # hard floor: leaves belong overhead, not in the camp
+                            continue
+                        if pos not in b and noise(pos[0], pos[1], pos[2], 654) > 0.25:
+                            put(b, pos, 'minecraft:dark_oak_leaves',
+                                {'persistent': 'true', 'distance': '7', 'waterlogged': 'false'})
             tops.append((tx, height, tz))
     return tops
 
@@ -1091,7 +1155,7 @@ def camp_canopy(b, tops):
                 y = dome_y(d)
                 if y is None or d < CANOPY_INNER:
                     continue
-                if dx * dx + dz * dz > 5 or noise(x, y, z, 682) < 0.42:
+                if dx * dx + dz * dz > 5 or noise(x, y, z, 682) < 0.72:
                     continue
                 web(x, y, z)
 
@@ -1107,7 +1171,7 @@ def camp_canopy(b, tops):
             x = int(round(CAMP_CX + math.cos(ang) * r))
             z = int(round(CAMP_CZ + math.sin(ang) * r))
             y = dome_y(math.hypot(x - CAMP_CX, z - CAMP_CZ))
-            if y is not None and noise(x, y, z, 683) > 0.3:
+            if y is not None and noise(x, y, z, 683) > 0.62:
                 web(x, y, z)
 
 
@@ -1235,6 +1299,52 @@ def camp_kit(b):
         put(b, (x, 2, 21), tex(CANVAS, x, 2, 21, 88))
 
 
+def banner_frames(b):
+    """Standing frames around the perimeter, each carrying the Mark and a warm lantern.
+
+    These do most of the work of saying whose camp this is, and they set the colour story the whole
+    build runs on: ordinary lanterns out here are warm orange, and every magical thing inward of them
+    is cold green or soul-blue. Lighting the perimeter with soul lanterns too, which is what this
+    build did before, makes the camp one temperature and throws the contrast away.
+
+    A log, not a fence: a wall banner needs a solid face to hang on and will drop off a fence post.
+    """
+    for i in range(6):
+        a = i * math.pi / 3.0 + 0.45
+        px = CAMP_CX + int(round(math.cos(a) * 10.8))
+        pz = CAMP_CZ + int(round(math.sin(a) * 10.8))
+        if not (1 <= px < CAMP_W - 1 and 1 <= pz < CAMP_D - 1):
+            continue
+        if WALL_X0 - 2 <= px <= WALL_X1 + 2 and 5 <= pz <= WALL_Z + 4:
+            continue
+        fill(b, px, 1, pz, px, 4, pz, 'minecraft:dark_oak_log', {'axis': 'y'})
+
+        # The banner faces the fire, so it reads on the way in.
+        inward = 'east' if px < CAMP_CX else 'west'
+        bx = px + (1 if px < CAMP_CX else -1)
+        if (bx, 3, pz) not in b:
+            dark_mark_banner(b, (bx, 3, pz), inward)
+
+        arm_z = pz + (1 if pz < CAMP_CZ else -1)
+        put(b, (px, 4, arm_z), 'minecraft:dark_oak_log', {'axis': 'z'})
+        put(b, (px, 3, arm_z), 'minecraft:lantern', {'hanging': 'true', 'waterlogged': 'false'})
+
+
+def alchemy_bench(b):
+    """Where they work. Bottles and a brewing stand say occupied far better than another crate."""
+    x0, z = 16, 20
+    for x in range(x0, x0 + 4):
+        slab(b, (x, 1, z), 'minecraft:dark_oak_slab', 'top')
+        put(b, (x, 0, z), 'minecraft:dark_oak_fence')
+    put(b, (x0, 2, z), 'minecraft:brewing_stand',
+        {'has_bottle_0': 'true', 'has_bottle_1': 'false', 'has_bottle_2': 'true'})
+    put(b, (x0 + 1, 2, z), 'minecraft:candle', {'candles': '3', 'lit': 'true', 'waterlogged': 'false'})
+    put(b, (x0 + 2, 2, z), 'hogwartsmagic:wizard_cauldron')
+    put(b, (x0 + 3, 2, z), 'minecraft:green_candle',
+        {'candles': '2', 'lit': 'true', 'waterlogged': 'false'})
+    put(b, (x0 + 3, 1, z + 1), 'hogwartsmagic:enchanted_book_pile')
+
+
 def camp_throne(b):
     """A seat cut for one, across the fire from the wall, facing it."""
     z0 = 18
@@ -1283,7 +1393,7 @@ def death_eater_camp():
     b = {}
     camp_clearing(b)
     tops = camp_trunks(b)
-    camp_fire(b)
+    ritual_circle(b)
     rite_wall(b)
     camp_throne(b)
     camp_prisoner_post(b)
@@ -1293,6 +1403,8 @@ def death_eater_camp():
     camp_tent(b, 6, 10, +1, 86)          # west-north-west, opening toward the fire
     camp_tent(b, 19, 18, -1, 87)         # south-east, opening toward the fire
     camp_kit(b)
+    banner_frames(b)
+    alchemy_bench(b)
     camp_canopy(b, tops)
 
     entities = [

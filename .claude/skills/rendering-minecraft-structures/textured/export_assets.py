@@ -139,6 +139,20 @@ def main():
             continue
         definitions[block] = definition
 
+        # Banners are worse than the rest: the pattern is data, not a block id, so which texture is
+        # needed cannot be known from the blockstate. Take the whole (small) set whenever any banner
+        # is present rather than guess, and rather than fail silently on a pattern nobody listed.
+        if block.endswith('_banner'):
+            # The file sits BESIDE the pattern folder (entity/banner_base.png) but deepslate asks
+            # for it INSIDE (entity/banner/banner_base), so the key and the source path differ. The
+            # export map is keyed by what the renderer asks for, not by where the bytes live.
+            textures.setdefault('minecraft:entity/banner/banner_base',
+                                ('minecraft', 'entity/banner_base'))
+            for name in assets.names:
+                if name.startswith('assets/minecraft/textures/entity/banner/')                         and name.endswith('.png'):
+                    rel = name[len('assets/minecraft/textures/'):-4]
+                    textures.setdefault('minecraft:' + rel, ('minecraft', rel))
+
         for extra in SPECIAL_TEXTURES.get(block, []):
             tns, tpath = split(extra, 'block/')
             textures.setdefault('%s:%s' % (tns, tpath), (tns, tpath))

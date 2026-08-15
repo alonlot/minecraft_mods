@@ -927,6 +927,10 @@ RITE_STONE = [('minecraft:deepslate_bricks', 6), ('minecraft:cracked_deepslate_b
 CAMP_W = CAMP_D = 27
 CAMP_CX = CAMP_CZ = 13
 WALL_Z = 7            # south face of the rite wall; the painting hangs at WALL_Z + 1
+# The wall was 15 wide and 2 thick to begin with, which in a forest clearing read as a rampart
+# rather than as something raised in a hurry to hang a mark on. Eight wide, and two thick only
+# across the middle where the canvas needs backing. It brackets the 4x3 painting exactly.
+WALL_X0, WALL_X1 = 10, 17
 CANOPY_R = 12.0
 CANOPY_H = 11
 
@@ -949,16 +953,30 @@ def camp_clearing(b):
 
 
 def camp_fire(b):
-    """Soul fire on a scraped blackstone hearth, with logs dragged up to sit on."""
+    """A fire pit, not a paved square.
+
+    The first version scraped a flat blackstone disc three blocks wide and stood a campfire on it,
+    which from any angle read as a courtyard with a spark in the middle -- no presence at all for the
+    one thing the whole camp is arranged around. What gives a fire pit presence is a raised kerb:
+    a ring of stone standing a block proud, so the fire sits down inside something.
+    """
     for x in range(CAMP_CX - 3, CAMP_CX + 4):
         for z in range(CAMP_CZ - 3, CAMP_CZ + 4):
             d = math.hypot(x - CAMP_CX, z - CAMP_CZ)
-            if d > 3.2:
+            if d > 2.6:
                 continue
             put(b, (x, 0, z), 'minecraft:blackstone' if noise(x, 0, z, 64) > 0.4
                 else 'minecraft:basalt')
+            # Kerb stones standing on the rim, broken in two places where they have been kicked out.
+            if 1.7 < d <= 2.6 and noise(x, 1, z, 641) > 0.24:
+                put(b, (x, 1, z), 'minecraft:polished_blackstone' if noise(x, 1, z, 642) > 0.5
+                    else 'minecraft:blackstone')
+
     put(b, (CAMP_CX, 1, CAMP_CZ), 'minecraft:soul_campfire',
         {'lit': 'true', 'signal_fire': 'false', 'waterlogged': 'false', 'facing': 'north'})
+    # Unburnt wood stacked against the kerb, so the fire looks kept rather than placed.
+    for wx, wz, axis in ((CAMP_CX - 1, CAMP_CZ + 1, 'x'), (CAMP_CX + 1, CAMP_CZ - 1, 'z')):
+        put(b, (wx, 1, wz), 'minecraft:stripped_dark_oak_log', {'axis': axis})
 
     # Seating: felled logs laid tangentially around the hearth, one of them missing.
     for i in range(6):
@@ -974,29 +992,47 @@ def camp_fire(b):
 
 
 def camp_trunks(b):
-    """The ring of dead trunks the web was strung between. This is the silhouette."""
+    """The ring of dead trunks the web was strung between. This is the silhouette.
+
+    Three things stop these being fence posts, and the first draft had none of them: the angles and
+    radii are jittered so the ring is not eight spokes of a wheel, the heights spread much wider than
+    6-9, and each trunk gets a root flare -- two or three logs lying at its foot. The flare is what
+    actually does the work. A bare column meeting flat ground at ninety degrees reads as a post no
+    matter how tall it is; roots spreading into the dirt read as a tree.
+    """
     tops = []
-    for i in range(8):
-        a = i * math.pi / 4.0 + 0.2
-        tx = CAMP_CX + int(round(math.cos(a) * 10.5))
-        tz = CAMP_CZ + int(round(math.sin(a) * 10.5))
+    for i in range(9):
+        # Jitter both the angle and the radius. Even spacing is the tell.
+        a = i * (2 * math.pi / 9.0) + noise(i, 0, 0, 651) * 0.55
+        radius = 9.6 + noise(i, 1, 0, 652) * 2.2
+        tx = CAMP_CX + int(round(math.cos(a) * radius))
+        tz = CAMP_CZ + int(round(math.sin(a) * radius))
         if not (0 <= tx < CAMP_W and 0 <= tz < CAMP_D):
             continue
-        height = 6 + int(noise(tx, 0, tz, 65) * 4)
+        if WALL_X0 - 2 <= tx <= WALL_X1 + 2 and 5 <= tz <= WALL_Z + 4:   # clear of wall and bench
+            continue
+
+        height = 4 + int(noise(tx, 0, tz, 65) * 7)
         if i == 5:
-            height = 3                       # one snapped off, so the ring is not a colonnade
-        wood = 'minecraft:dark_oak_log' if noise(tx, 1, tz, 66) > 0.4 \
+            height = 2                            # one snapped to a stump
+        wood = 'minecraft:dark_oak_log' if noise(tx, 1, tz, 66) > 0.35 \
             else 'minecraft:stripped_dark_oak_log'
         fill(b, tx, 1, tz, tx, height, tz, wood, {'axis': 'y'})
+
+        # Root flare at the foot.
+        for j, (rx, rz, axis) in enumerate(((1, 0, 'x'), (-1, 0, 'x'), (0, 1, 'z'), (0, -1, 'z'))):
+            if noise(tx + rx, 1, tz + rz, 653) > 0.45:
+                continue
+            put(b, (tx + rx, 1, tz + rz), 'minecraft:dark_oak_log', {'axis': axis})
 
         # Branches reaching in over the camp -- they are what the canopy hangs from.
         inward_x = -1 if tx > CAMP_CX else 1
         inward_z = -1 if tz > CAMP_CZ else 1
-        put(b, (tx + inward_x, height, tz), 'minecraft:dark_oak_log', {'axis': 'x'})
-        put(b, (tx, height, tz + inward_z), 'minecraft:dark_oak_log', {'axis': 'z'})
-        if height > 4:
+        if height >= 4:
+            put(b, (tx + inward_x, height, tz), 'minecraft:dark_oak_log', {'axis': 'x'})
+            put(b, (tx, height, tz + inward_z), 'minecraft:dark_oak_log', {'axis': 'z'})
             put(b, (tx + inward_x * 2, height - 1, tz), 'minecraft:dark_oak_log', {'axis': 'x'})
-        tops.append((tx, height, tz))
+            tops.append((tx, height, tz))
     return tops
 
 
@@ -1013,40 +1049,61 @@ def camp_canopy(b, tops):
             return None
         return 1 + int(round(CANOPY_H * math.sqrt(max(0.0, 1.0 - (dist / CANOPY_R) ** 2))))
 
-    for tx, top, tz in tops:
-        # Each strand runs from a branch tip up to the lip of the hole above the fire.
-        ax_ = math.atan2(tz - CAMP_CZ, tx - CAMP_CX)
-        ex = CAMP_CX + math.cos(ax_) * 4.0
-        ez = CAMP_CZ + math.sin(ax_) * 4.0
-        steps = 14
-        for s in range(steps + 1):
-            t = s / float(steps)
-            x = int(round(tx + (ex - tx) * t))
-            z = int(round(tz + (ez - tz) * t))
-            y = dome_y(math.hypot(x - CAMP_CX, z - CAMP_CZ))
-            if y is None or not (0 <= x < CAMP_W and 0 <= z < CAMP_D):
-                continue
-            y = max(y, top + 1)
-            if (x, y, z) not in b and noise(x, y, z, 67) > 0.18:
-                put(b, (x, y, z), 'minecraft:cobweb')
+    def web(x, y, z):
+        if 0 <= x < CAMP_W and 0 <= z < CAMP_D and (x, y, z) not in b:
+            put(b, (x, y, z), 'minecraft:cobweb')
 
+    # Radial threads, one per anchor point, plus extras between them so the spacing at the fringe
+    # does not open up. UNBROKEN -- the first version gated every cell on noise, which turned the
+    # threads into dotted lines and was the main reason the canopy read as scattered litter.
+    spokes = [(math.atan2(tz - CAMP_CZ, tx - CAMP_CX), math.hypot(tx - CAMP_CX, tz - CAMP_CZ))
+              for tx, _, tz in tops]
+    for i in range(len(tops)):                       # a filler thread between each pair of anchors
+        a0, r0 = spokes[i]
+        a1, r1 = spokes[(i + 1) % len(tops)]
+        da = (a1 - a0 + math.pi) % (2 * math.pi) - math.pi
+        spokes.append((a0 + da / 2.0, (r0 + r1) / 2.0))
+
+    for ang, radius in spokes:
+        steps = max(1, int(radius * 3))
+        for s in range(steps + 1):
+            r = 3.4 + (radius - 3.4) * (s / float(steps))
+            x = int(round(CAMP_CX + math.cos(ang) * r))
+            z = int(round(CAMP_CZ + math.sin(ang) * r))
+            y = dome_y(math.hypot(x - CAMP_CX, z - CAMP_CZ))
+            if y is not None:
+                web(x, y, z)
+
+    # Concentric threads. This is the half that was missing, and it is the half that makes a web look
+    # like a web: radials alone are a starburst, and it is the rings crossing them that the eye reads
+    # as spun. Spacing widens outward, the way an orb-weaver's actually does.
+    r = 4.2
+    while r < CANOPY_R - 0.6:
+        circumference = int(2 * math.pi * r * 1.6)
+        for s in range(circumference):
+            ang = s * 2 * math.pi / circumference
+            x = int(round(CAMP_CX + math.cos(ang) * r))
+            z = int(round(CAMP_CZ + math.sin(ang) * r))
+            y = dome_y(math.hypot(x - CAMP_CX, z - CAMP_CZ))
+            # Rings are allowed gaps -- a torn web, and it keeps the dome from becoming a lid.
+            if y is not None and noise(x, y, z, 681) > 0.22:
+                web(x, y, z)
+        r *= 1.28
+
+    # Sheet fill between the threads, thickening toward the fringe where the web is still anchored
+    # and thinning to nothing at the lip of the hole they burned above the fire.
     for x in range(CAMP_W):
         for z in range(CAMP_D):
             d = math.hypot(x - CAMP_CX, z - CAMP_CZ)
             y = dome_y(d)
-            if y is None or d < 3.6:
+            if y is None or d < 4.0:
                 continue
-            # Thickest at the fringe, where the web is still anchored to the trunks, thinning to
-            # nothing at the lip of the hole. Reading this the other way round -- which is what the
-            # first version did -- puts a solid cap over the fire and leaves the skirt in tatters,
-            # exactly inverting the one thing the canopy is supposed to say.
-            density = 0.12 + (d / CANOPY_R) * 0.45
-            if noise(x, y, z, 68) < 1.0 - density or (x, y, z) in b:
+            density = 0.05 + (d / CANOPY_R) * 0.4
+            if noise(x, y, z, 68) < 1.0 - density:
                 continue
-            put(b, (x, y, z), 'minecraft:cobweb')
-            # A little sag under the sheet, so the underside is not one flat surface.
-            if noise(x, y - 1, z, 69) > 0.72 and (x, y - 1, z) not in b:
-                put(b, (x, y - 1, z), 'minecraft:cobweb')
+            web(x, y, z)
+            if noise(x, y - 1, z, 69) > 0.76:        # sag, so the underside is not one flat surface
+                web(x, y - 1, z)
 
 
 def rite_wall(b):
@@ -1060,12 +1117,14 @@ def rite_wall(b):
     backing = {(x, y) for x, y, _ in canvas}
 
     heights = {}
-    for x in range(6, 21):
+    for x in range(WALL_X0, WALL_X1 + 1):
         # Ruined profile: full height across the middle, falling away at both ends.
-        reach = min(x - 6, 20 - x)
-        heights[x] = min(7, 2 + reach + int(noise(x, 0, 0, 71) * 2))
+        reach = min(x - WALL_X0, WALL_X1 - x)
+        heights[x] = min(7, 2 + reach * 2 + int(noise(x, 0, 0, 71) * 2))
+        # Two thick only across the middle, where the canvas needs something behind it.
+        planes = (WALL_Z - 1, WALL_Z) if WALL_X0 < x < WALL_X1 else (WALL_Z,)
         for y in range(1, heights[x] + 1):
-            for z in (WALL_Z - 1, WALL_Z):
+            for z in planes:
                 # Blown-out stones, except directly behind the canvas. The audit passes either way
                 # on any one run, because whether a hole lands there is down to the hash -- and a
                 # painting that survives today and falls off after the next edit is worse than one
@@ -1075,22 +1134,19 @@ def rite_wall(b):
                 pal = RITE_STONE if y > 3 else ground_palette(RITE_STONE)
                 put(b, (x, y, z), tex(pal, x, y, z, 73))
 
-    # Pilasters standing a block proud of the face, capped, with a corbel carrying a lantern.
-    for x in (9, 18):
-        for y in range(1, 6):
-            put(b, (x, y, WALL_Z + 1), tex(RITE_STONE, x, y, 0, 74))
-        put(b, (x, 6, WALL_Z + 1), 'minecraft:chiseled_deepslate')
-        # A slab would look right here and fail: a hanging lantern wants a full face above it, and
-        # the underside of a top slab is not one.
-        put(b, (x, 6, WALL_Z + 2), 'minecraft:polished_blackstone')
-        put(b, (x, 5, WALL_Z + 2), 'minecraft:soul_lantern', {'hanging': 'true'})
-
     # Coping follows the broken top rather than a flat line, or it floats over the fallen ends.
-    for x in range(7, 20):
-        for z in (WALL_Z - 1, WALL_Z):
+    for x in range(WALL_X0, WALL_X1 + 1):
+        for z in ((WALL_Z - 1, WALL_Z) if WALL_X0 < x < WALL_X1 else (WALL_Z,)):
             slab(b, (x, heights[x] + 1, z), 'minecraft:blackstone_slab')
-    for x, y in ((11, 6), (16, 6)):
+    for x, y in ((11, 4), (16, 4)):
         put(b, (x, y, WALL_Z), 'hogwartsmagic:slytherin_banner_block')
+
+    # Lanterns on short posts at the ends of the bench rather than on pilasters up the wall face.
+    # The pilasters they replace stood six blocks tall against a wall whose ends only reach three,
+    # which looked less like depth and more like scaffolding left behind.
+    for x in (WALL_X0 - 1, WALL_X1 + 1):
+        fill(b, x, 1, WALL_Z + 2, x, 2, WALL_Z + 2, 'minecraft:polished_blackstone')
+        put(b, (x, 3, WALL_Z + 2), 'minecraft:soul_lantern', {'hanging': 'false'})
 
     # The canvas hangs at WALL_Z + 1, so that column has to be open however the terrain came out.
     for pos in canvas:
@@ -1108,6 +1164,70 @@ def rite_wall(b):
     put(b, (11, 1, WALL_Z + 3), 'hogwartsmagic:enchanted_book_pile')
     for pos in ((12, 1, WALL_Z + 3), (16, 1, WALL_Z + 3)):
         put(b, pos, 'minecraft:cobweb')
+
+
+CANVAS = [('minecraft:black_wool', 6), ('minecraft:gray_wool', 4)]
+
+
+def camp_tent(b, cx, cz, open_dir, salt):
+    """One A-frame tent: wool slopes on a log ridge, closed at the back, open toward the fire.
+
+    Death Eaters apparate and they held this clearing for a battle, not a season, so the camp gets
+    canvas rather than walls.
+
+    Five wide and four tall. The first cut was three tall, rising one block per block inward, and at
+    that pitch the roof was so shallow it read as a long dark beam lying on the ground rather than as
+    anything anyone could sleep under. A tent needs its ridge clear of the eaves by more than the
+    eaves are off the floor: wall to y=2, roof to y=3, ridge to y=4.
+
+    open_dir is -1 or +1 along x. The ridge runs along x either way; only which end is sewn shut
+    changes, and it is always the end facing away from the fire.
+    """
+    back = cx - open_dir * 2                     # the closed gable
+    for x in range(cx - 2, cx + 3):
+        gable = (x == back)
+        for dz in (-2, -1, 0, 1, 2):
+            z = cz + dz
+            if abs(dz) == 2:
+                fill(b, x, 1, z, x, 2, z, tex(CANVAS, x, 1, z, salt))
+            elif abs(dz) == 1:
+                put(b, (x, 3, z), tex(CANVAS, x, 3, z, salt))
+                if gable:
+                    fill(b, x, 1, z, x, 2, z, tex(CANVAS, x, 1, z, salt))
+            else:
+                put(b, (x, 4, z), 'minecraft:dark_oak_log', {'axis': 'x'})
+                if gable:
+                    fill(b, x, 1, z, x, 3, z, tex(CANVAS, x, 1, z, salt))
+
+    # One porch pole, at the open end only. Overhanging both ends put nearly half the ridge's length
+    # outside the canvas, and a beam that long reads as a felled trunk lying across a dark heap
+    # rather than as the spine of a tent. The back gable gets a flush ridge instead.
+    porch = cx + open_dir * 3
+    put(b, (porch, 4, cz), 'minecraft:dark_oak_log', {'axis': 'x'})
+    fill(b, porch, 1, cz, porch, 3, cz, 'minecraft:dark_oak_fence')
+
+    # Bedroll down the centre and a stash at the back.
+    for x in range(cx - 1, cx + 2):
+        put(b, (x, 1, cz), 'minecraft:black_carpet')
+    put(b, (back + open_dir, 1, cz + 1), 'minecraft:barrel', {'facing': 'up', 'open': 'false'})
+    put(b, (cx + open_dir * 2, 1, cz - 1), 'minecraft:cobweb')
+
+
+def camp_kit(b):
+    """The clutter an occupying force leaves lying about. Fills the scattered single cells that no
+    tent could ever use -- the bare ground in this camp is spread thin, not pooled."""
+    for x, z, axis in ((9, 15, 'x'), (10, 15, 'x'), (9, 16, 'z')):     # firewood, stacked
+        put(b, (x, 1, z), 'minecraft:stripped_dark_oak_log', {'axis': axis})
+    put(b, (9, 2, 15), 'minecraft:dark_oak_log', {'axis': 'x'})
+    for pos in ((16, 1, 8), (17, 1, 20), (5, 1, 13)):                  # crates dropped where handy
+        put(b, pos, 'minecraft:barrel', {'facing': 'up', 'open': 'false'})
+    # A drying rack: two posts and a rail, with canvas slung over it.
+    for x in (15, 18):
+        fill(b, x, 1, 21, x, 2, 21, 'minecraft:dark_oak_fence')
+    for x in range(15, 19):
+        put(b, (x, 3, 21), 'minecraft:dark_oak_log', {'axis': 'x'})
+    for x in (16, 17):
+        put(b, (x, 2, 21), tex(CANVAS, x, 2, 21, 88))
 
 
 def camp_throne(b):
@@ -1163,6 +1283,11 @@ def death_eater_camp():
     camp_throne(b)
     camp_prisoner_post(b)
     camp_supplies(b)
+    # Only two 5x5 pads in the whole clearing are actually clear -- the bare ground reads as 75% of
+    # the middle band but it is scattered cell by cell, not pooled, so two is the honest capacity.
+    camp_tent(b, 6, 10, +1, 86)          # west-north-west, opening toward the fire
+    camp_tent(b, 19, 18, -1, 87)         # south-east, opening toward the fire
+    camp_kit(b)
     camp_canopy(b, tops)
 
     entities = [
@@ -1173,9 +1298,9 @@ def death_eater_camp():
         # Spread roughly 120 degrees apart on bare earth outside the hearth. The audit only asks
         # whether an entity fits where it is put, and by that test the first draft passed while
         # standing two of them in the fire ring and the third on the blackstone of the altar bench.
-        entity(9.5, 1.0, 10.5, 'hogwartsmagic:wizard', {'PersistenceRequired': ('byte', 1)}),
-        entity(18.5, 1.0, 15.5, 'hogwartsmagic:wizard', {'PersistenceRequired': ('byte', 1)}),
-        entity(11.5, 1.0, 16.5, 'hogwartsmagic:wizard', {'PersistenceRequired': ('byte', 1)}),
+        entity(8.5, 1.0, 10.5, 'hogwartsmagic:wizard', {'PersistenceRequired': ('byte', 1)}),
+        entity(18.5, 1.0, 10.5, 'hogwartsmagic:wizard', {'PersistenceRequired': ('byte', 1)}),
+        entity(15.5, 1.0, 19.5, 'hogwartsmagic:wizard', {'PersistenceRequired': ('byte', 1)}),
     ]
     return b, entities
 

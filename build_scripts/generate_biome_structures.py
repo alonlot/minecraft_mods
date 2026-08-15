@@ -35,8 +35,10 @@ functions look the way they do.
     being scattered where they happen to fit.
 """
 
+import glob
 import gzip
 import io
+import json
 import math
 import os
 import re
@@ -88,13 +90,20 @@ def _write_payload(out, value):
 
 
 def write_nbt(path, root):
-    """Write a gzipped, unnamed root compound -- the shape Minecraft expects for a template."""
+    """Write a gzipped, unnamed root compound -- the shape Minecraft expects for a template.
+
+    mtime=0 because gzip otherwise stamps the current time into its header, which made every one of
+    these templates show up as modified in git after any run of this script even when not a single
+    block had changed. Minecraft ignores the field; six files of phantom diff per run is not worth
+    the wall-clock it records.
+    """
     buf = io.BytesIO()
     buf.write(struct.pack('>b', TAG_COMPOUND))
     buf.write(struct.pack('>H', 0))  # empty root name
     _write_payload(buf, root)
-    with gzip.open(path, 'wb') as fh:
-        fh.write(buf.getvalue())
+    with open(path, 'wb') as raw:
+        with gzip.GzipFile(filename='', mode='wb', fileobj=raw, mtime=0) as fh:
+            fh.write(buf.getvalue())
 
 
 DATA_VERSION = 3953  # 1.21
@@ -116,6 +125,121 @@ def entity(x, y, z, entity_id, tags=None):
         'blockPos': ('list', 'int', [('int', int(x)), ('int', int(y)), ('int', int(z))]),
         'nbt': ('compound', nbt),
     }
+
+
+# Direction.get2DDataValue(), which is what a painting's "facing" byte holds, and the horizontal
+# counter-clockwise turn Painting.calculateBoundingBox uses to lay the canvas out sideways.
+FACING_2D = {'south': 0, 'west': 1, 'north': 2, 'east': 3}
+STEP = {'north': (0, -1), 'south': (0, 1), 'west': (-1, 0), 'east': (1, 0)}
+COUNTER_CLOCKWISE = {'north': 'west', 'west': 'south', 'south': 'east', 'east': 'north'}
+
+
+RESOURCES = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..',
+                         'src', 'main', 'resources')
+
+
+def load_painting_sizes():
+    """Read the registered variants instead of restating their sizes here.
+
+    The size lives in the variant JSON, the anchor lives in the build, and the span the audit checks
+    depends on both. Keeping a second copy of the size in this file is how a painting ends up half
+    buried in a wall after somebody widens it.
+
+    The texture is checked at the same time because the size is declared in three places, not two:
+    a variant whose PNG is not exactly width*16 by height*16 fails to load, and the only symptom is
+    a missing painting.
+    """
+    sizes = {}
+    pattern = os.path.join(RESOURCES, 'data', 'hogwartsmagic', 'painting_variant', '*.json')
+    for path in sorted(glob.glob(pattern)):
+        with open(path, encoding='utf-8') as fh:
+            data = json.load(fh)
+        name = 'hogwartsmagic:' + os.path.splitext(os.path.basename(path))[0]
+        sizes[name] = (data['width'], data['height'], data['asset_id'], path)
+    return sizes
+
+
+def png_size(path):
+    """Width and height straight out of the IHDR chunk -- cheaper than depending on Pillow here."""
+    with open(path, 'rb') as fh:
+        head = fh.read(24)
+    if head[:8] != b'\x89PNG\r\n\x1a\n':
+        return None
+    return struct.unpack('>II', head[16:24])
+
+
+def audit_painting_variants():
+    problems = []
+    for name, (w, h, asset_id, _) in PAINTING_SIZES.items():
+        ns, _, rel = asset_id.partition(':')
+        texture = os.path.join(RESOURCES, 'assets', ns, 'textures', 'painting', rel + '.png')
+        if not os.path.exists(texture):
+            problems.append('%s: asset_id %s has no texture at %s'
+                            % (name, asset_id, os.path.normpath(texture)))
+            continue
+        actual = png_size(texture)
+        if actual != (w * 16, h * 16):
+            problems.append('%s: %dx%d variant needs a %dx%d texture, %s is %s'
+                            % (name, w, h, w * 16, h * 16, os.path.basename(texture), actual))
+    return problems
+
+
+PAINTING_SIZES = load_painting_sizes()
+
+
+def painting_span(ax, ay, az, facing, w, h):
+    """Which blocks a w x h painting anchored at (ax, ay, az) actually covers.
+
+    Worth doing in full rather than by eye. A painting's anchor is not its corner and not its middle:
+    Painting.calculateBoundingBox pushes the canvas half a block counter-clockwise when the width is
+    even and half a block up when the height is even, so a 4x3 hung at x=13 spans 12..15, which is
+    not a span anyone guesses right. Reimplemented here from that method so the audit can check the
+    canvas has air in front of it and solid wall behind, neither of which is visible from in here.
+    """
+    sx, sz = STEP[facing]
+    cx, cy, cz = ax + 0.5 - sx * 0.46875, ay + 0.5, az + 0.5 - sz * 0.46875
+
+    ccw_x, ccw_z = STEP[COUNTER_CLOCKWISE[facing]]
+    if w % 2 == 0:
+        cx, cz = cx + ccw_x * 0.5, cz + ccw_z * 0.5
+    if h % 2 == 0:
+        cy += 0.5
+
+    thin = 0.0625
+    size_x, size_y, size_z = (thin, h, w) if facing in ('east', 'west') else (w, h, thin)
+
+    def cells(centre, size):
+        lo, hi = centre - size / 2.0, centre + size / 2.0
+        return range(int(math.floor(lo + 1e-6)), int(math.ceil(hi - 1e-6)))
+
+    return [(x, y, z)
+            for x in cells(cx, size_x)
+            for y in cells(cy, size_y)
+            for z in cells(cz, size_z)]
+
+
+def painting(ax, ay, az, variant, facing, w, h):
+    """A painting baked into the template, hung on the wall one step behind (ax, ay, az).
+
+    Position is the anchor block's centre, not its corner, because the jigsaw rotates a pool element
+    at random: transforming a corner lands on a block boundary and BlockPos.containing would then
+    round it to the wrong block half the time. The facing byte needs no such care -- HangingEntity
+    .rotate() turns the direction with the template.
+
+    Vanilla logs one "Block-attached entity at invalid position" error per placement. That is
+    unavoidable and harmless: BlockAttachedEntity.readAdditionalSaveData compares the TileX/Y/Z below
+    against the world position StructureTemplate has already substituted into Pos, and template-local
+    coordinates can never be within its 16-block tolerance of that. The position it keeps is the one
+    Entity.load's reapplyPosition() derived from Pos, which is right, and moveTo overwrites it a
+    moment later anyway.
+    """
+    return entity(ax + 0.5, ay + 0.5, az + 0.5, 'minecraft:painting', {
+        'variant': ('string', variant),
+        'facing': ('byte', FACING_2D[facing]),
+        'TileX': ('int', ax),
+        'TileY': ('int', ay),
+        'TileZ': ('int', az),
+    })
 
 
 def build_template(blocks, entities=None):
@@ -287,9 +411,19 @@ def rubble(b, spots, palette, salt):
             slab(b, (x, y + 1, z), 'minecraft:cobblestone_slab')
 
 
+# BlockTags.DIRT, verbatim, because plants check it and it is narrower than it looks: gravel, sand,
+# stone and mossy cobblestone are all absent. A fern rooted in any of those places without complaint,
+# survives the audit that only looks at geometry, and then pops off as a dropped item the first time
+# anything updates the block. Builds consult this before planting; the audit re-checks afterwards.
+DIRT_TAG = {'minecraft:dirt', 'minecraft:grass_block', 'minecraft:podzol', 'minecraft:coarse_dirt',
+            'minecraft:mycelium', 'minecraft:rooted_dirt', 'minecraft:moss_block', 'minecraft:mud',
+            'minecraft:muddy_mangrove_roots'}
+SAND_TAG = {'minecraft:sand', 'minecraft:red_sand', 'minecraft:suspicious_sand'}
+
+
 # --- the builds ---------------------------------------------------------------------------------
 
-DARK_OAK = [('minecraft:dark_oak_planks', 6), ('minecraft:dark_oak_log', 2), ('minecraft:spruce_planks', 2)]
+DARK_OAK =[('minecraft:dark_oak_planks', 6), ('minecraft:dark_oak_log', 2), ('minecraft:spruce_planks', 2)]
 BOG_STONE = [('minecraft:mossy_cobblestone', 6), ('minecraft:cobblestone', 4), ('minecraft:mossy_stone_bricks', 3)]
 
 
@@ -762,7 +896,9 @@ def willow_clearing():
             pal = CLEARING if d > 7.5 else [('minecraft:coarse_dirt', 7), ('minecraft:podzol', 4),
                                             ('minecraft:dirt', 3)]
             put(b, (x, 0, z), tex(pal, x, 0, z, 91))
-            if d > 8.5 and noise(x, 1, z, 92) > 0.86:
+            # The mossy cobblestone in CLEARING is not soil, whatever it looks like -- a fern landing
+            # on one of those tiles drops itself as an item the moment the block updates.
+            if d > 8.5 and noise(x, 1, z, 92) > 0.86 and b[(x, 0, z)][0] in DIRT_TAG:
                 put(b, (x, 1, z), 'minecraft:fern')
 
     # Roots breaking the surface, and the wreckage of whatever tried to stand here before.
@@ -780,6 +916,270 @@ def willow_clearing():
                       {'PersistenceRequired': ('byte', 1)})]
 
 
+CAMP_GROUND = [('minecraft:podzol', 6), ('minecraft:coarse_dirt', 6), ('minecraft:dirt', 3),
+               ('minecraft:gravel', 2)]
+CAMP_TRODDEN = [('minecraft:coarse_dirt', 8), ('minecraft:dirt_path', 3), ('minecraft:gravel', 3),
+                ('minecraft:podzol', 2)]
+RITE_STONE = [('minecraft:deepslate_bricks', 6), ('minecraft:cracked_deepslate_bricks', 5),
+              ('minecraft:cobbled_deepslate', 4), ('minecraft:blackstone', 3),
+              ('minecraft:polished_blackstone', 2)]
+
+CAMP_W = CAMP_D = 27
+CAMP_CX = CAMP_CZ = 13
+WALL_Z = 7            # south face of the rite wall; the painting hangs at WALL_Z + 1
+CANOPY_R = 12.0
+CANOPY_H = 11
+
+
+def camp_clearing(b):
+    """Trodden ground, beaten bare where the camp actually stands and fraying at the edges."""
+    for x in range(CAMP_W):
+        for z in range(CAMP_D):
+            d = math.hypot(x - CAMP_CX, z - CAMP_CZ)
+            if d > 12.6:
+                continue
+            pal = CAMP_TRODDEN if d < 8.0 else CAMP_GROUND
+            put(b, (x, 0, z), tex(pal, x, 0, z, 61))
+            # Undergrowth survives only past the ring of trunks, which is what makes the inside of
+            # the ring read as occupied rather than as a gap in the trees. Skipped over the gravel
+            # in the palette -- neither plant can root in it.
+            if d > 9.5 and noise(x, 1, z, 62) > 0.82 and b[(x, 0, z)][0] in DIRT_TAG:
+                put(b, (x, 1, z), 'minecraft:fern' if noise(x, 1, z, 63) > 0.4
+                    else 'minecraft:dead_bush')
+
+
+def camp_fire(b):
+    """Soul fire on a scraped blackstone hearth, with logs dragged up to sit on."""
+    for x in range(CAMP_CX - 3, CAMP_CX + 4):
+        for z in range(CAMP_CZ - 3, CAMP_CZ + 4):
+            d = math.hypot(x - CAMP_CX, z - CAMP_CZ)
+            if d > 3.2:
+                continue
+            put(b, (x, 0, z), 'minecraft:blackstone' if noise(x, 0, z, 64) > 0.4
+                else 'minecraft:basalt')
+    put(b, (CAMP_CX, 1, CAMP_CZ), 'minecraft:soul_campfire',
+        {'lit': 'true', 'signal_fire': 'false', 'waterlogged': 'false', 'facing': 'north'})
+
+    # Seating: felled logs laid tangentially around the hearth, one of them missing.
+    for i in range(6):
+        if i == 4:
+            continue
+        a = i * math.pi / 3.0
+        lx = CAMP_CX + int(round(math.cos(a) * 4.5))
+        lz = CAMP_CZ + int(round(math.sin(a) * 4.5))
+        axis = 'z' if abs(math.cos(a)) > abs(math.sin(a)) else 'x'
+        for k in (-1, 0, 1):
+            px, pz = (lx, lz + k) if axis == 'z' else (lx + k, lz)
+            put(b, (px, 1, pz), 'minecraft:stripped_dark_oak_log', {'axis': axis})
+
+
+def camp_trunks(b):
+    """The ring of dead trunks the web was strung between. This is the silhouette."""
+    tops = []
+    for i in range(8):
+        a = i * math.pi / 4.0 + 0.2
+        tx = CAMP_CX + int(round(math.cos(a) * 10.5))
+        tz = CAMP_CZ + int(round(math.sin(a) * 10.5))
+        if not (0 <= tx < CAMP_W and 0 <= tz < CAMP_D):
+            continue
+        height = 6 + int(noise(tx, 0, tz, 65) * 4)
+        if i == 5:
+            height = 3                       # one snapped off, so the ring is not a colonnade
+        wood = 'minecraft:dark_oak_log' if noise(tx, 1, tz, 66) > 0.4 \
+            else 'minecraft:stripped_dark_oak_log'
+        fill(b, tx, 1, tz, tx, height, tz, wood, {'axis': 'y'})
+
+        # Branches reaching in over the camp -- they are what the canopy hangs from.
+        inward_x = -1 if tx > CAMP_CX else 1
+        inward_z = -1 if tz > CAMP_CZ else 1
+        put(b, (tx + inward_x, height, tz), 'minecraft:dark_oak_log', {'axis': 'x'})
+        put(b, (tx, height, tz + inward_z), 'minecraft:dark_oak_log', {'axis': 'z'})
+        if height > 4:
+            put(b, (tx + inward_x * 2, height - 1, tz), 'minecraft:dark_oak_log', {'axis': 'x'})
+        tops.append((tx, height, tz))
+    return tops
+
+
+def camp_canopy(b, tops):
+    """Aragog's web, still overhead and torn open above the fire.
+
+    Two passes, and both are needed. The radial strands are what make it read as one web: a patchy
+    dome of cobweb on its own reads as scattered litter, because there is nothing joining the pieces
+    to each other or to the trees. The fill then thickens it toward the fringe, where a real web
+    would still be anchored, and thins to nothing over the hearth, where they burned through it.
+    """
+    def dome_y(dist):
+        if dist >= CANOPY_R:
+            return None
+        return 1 + int(round(CANOPY_H * math.sqrt(max(0.0, 1.0 - (dist / CANOPY_R) ** 2))))
+
+    for tx, top, tz in tops:
+        # Each strand runs from a branch tip up to the lip of the hole above the fire.
+        ax_ = math.atan2(tz - CAMP_CZ, tx - CAMP_CX)
+        ex = CAMP_CX + math.cos(ax_) * 4.0
+        ez = CAMP_CZ + math.sin(ax_) * 4.0
+        steps = 14
+        for s in range(steps + 1):
+            t = s / float(steps)
+            x = int(round(tx + (ex - tx) * t))
+            z = int(round(tz + (ez - tz) * t))
+            y = dome_y(math.hypot(x - CAMP_CX, z - CAMP_CZ))
+            if y is None or not (0 <= x < CAMP_W and 0 <= z < CAMP_D):
+                continue
+            y = max(y, top + 1)
+            if (x, y, z) not in b and noise(x, y, z, 67) > 0.18:
+                put(b, (x, y, z), 'minecraft:cobweb')
+
+    for x in range(CAMP_W):
+        for z in range(CAMP_D):
+            d = math.hypot(x - CAMP_CX, z - CAMP_CZ)
+            y = dome_y(d)
+            if y is None or d < 3.6:
+                continue
+            # Thickest at the fringe, where the web is still anchored to the trunks, thinning to
+            # nothing at the lip of the hole. Reading this the other way round -- which is what the
+            # first version did -- puts a solid cap over the fire and leaves the skirt in tatters,
+            # exactly inverting the one thing the canopy is supposed to say.
+            density = 0.12 + (d / CANOPY_R) * 0.45
+            if noise(x, y, z, 68) < 1.0 - density or (x, y, z) in b:
+                continue
+            put(b, (x, y, z), 'minecraft:cobweb')
+            # A little sag under the sheet, so the underside is not one flat surface.
+            if noise(x, y - 1, z, 69) > 0.72 and (x, y - 1, z) not in b:
+                put(b, (x, y - 1, z), 'minecraft:cobweb')
+
+
+def rite_wall(b):
+    """A wall they raised out of the forest floor to hang the mark on.
+
+    Deepslate low into blackstone high, with the courses between the pilasters recessed a block --
+    the shadow gap is the only thing that keeps a flat slab of stone from reading as a backdrop.
+    Broken down at both ends so it looks raised in a hurry and left.
+    """
+    canvas = painting_span(13, 4, WALL_Z + 1, 'south', 4, 3)
+    backing = {(x, y) for x, y, _ in canvas}
+
+    heights = {}
+    for x in range(6, 21):
+        # Ruined profile: full height across the middle, falling away at both ends.
+        reach = min(x - 6, 20 - x)
+        heights[x] = min(7, 2 + reach + int(noise(x, 0, 0, 71) * 2))
+        for y in range(1, heights[x] + 1):
+            for z in (WALL_Z - 1, WALL_Z):
+                # Blown-out stones, except directly behind the canvas. The audit passes either way
+                # on any one run, because whether a hole lands there is down to the hash -- and a
+                # painting that survives today and falls off after the next edit is worse than one
+                # that never hung at all.
+                if noise(x, y, z, 72) < 0.06 and not (z == WALL_Z and (x, y) in backing):
+                    continue
+                pal = RITE_STONE if y > 3 else ground_palette(RITE_STONE)
+                put(b, (x, y, z), tex(pal, x, y, z, 73))
+
+    # Pilasters standing a block proud of the face, capped, with a corbel carrying a lantern.
+    for x in (9, 18):
+        for y in range(1, 6):
+            put(b, (x, y, WALL_Z + 1), tex(RITE_STONE, x, y, 0, 74))
+        put(b, (x, 6, WALL_Z + 1), 'minecraft:chiseled_deepslate')
+        # A slab would look right here and fail: a hanging lantern wants a full face above it, and
+        # the underside of a top slab is not one.
+        put(b, (x, 6, WALL_Z + 2), 'minecraft:polished_blackstone')
+        put(b, (x, 5, WALL_Z + 2), 'minecraft:soul_lantern', {'hanging': 'true'})
+
+    # Coping follows the broken top rather than a flat line, or it floats over the fallen ends.
+    for x in range(7, 20):
+        for z in (WALL_Z - 1, WALL_Z):
+            slab(b, (x, heights[x] + 1, z), 'minecraft:blackstone_slab')
+    for x, y in ((11, 6), (16, 6)):
+        put(b, (x, y, WALL_Z), 'hogwartsmagic:slytherin_banner_block')
+
+    # The canvas hangs at WALL_Z + 1, so that column has to be open however the terrain came out.
+    for pos in canvas:
+        put(b, pos, 'minecraft:air')
+
+    # Altar bench along the foot of the wall: low on purpose, so nothing stands in front of the mark.
+    for x in range(10, 18):
+        for z in (WALL_Z + 2, WALL_Z + 3):
+            put(b, (x, 0, z), tex([('minecraft:polished_blackstone', 5),
+                                   ('minecraft:blackstone', 3),
+                                   ('minecraft:polished_deepslate', 3)], x, 0, z, 75))
+    for x in (10, 13, 17):
+        put(b, (x, 1, WALL_Z + 2), 'hogwartsmagic:candle_cluster')
+    put(b, (15, 1, WALL_Z + 2), 'hogwartsmagic:wizard_cauldron')
+    put(b, (11, 1, WALL_Z + 3), 'hogwartsmagic:enchanted_book_pile')
+    for pos in ((12, 1, WALL_Z + 3), (16, 1, WALL_Z + 3)):
+        put(b, pos, 'minecraft:cobweb')
+
+
+def camp_throne(b):
+    """A seat cut for one, across the fire from the wall, facing it."""
+    z0 = 18
+    fill(b, 12, 1, z0, 14, 1, z0 + 1, 'minecraft:polished_blackstone')
+    fill(b, 12, 2, z0 + 1, 14, 4, z0 + 1, 'minecraft:blackstone')
+    put(b, (13, 5, z0 + 1), 'minecraft:chiseled_deepslate')
+    for x in (12, 14):
+        put(b, (x, 2, z0), 'minecraft:polished_blackstone_wall',
+            {'north': 'low', 'south': 'low', 'east': 'none', 'west': 'none',
+             'up': 'true', 'waterlogged': 'false'})
+    put(b, (11, 1, z0), 'minecraft:soul_lantern', {'hanging': 'false'})
+    put(b, (15, 1, z0), 'minecraft:soul_lantern', {'hanging': 'false'})
+
+
+def camp_prisoner_post(b):
+    """Where they kept whoever they caught. Left standing, and empty."""
+    px, pz = 20, 13
+    fill(b, px, 1, pz, px, 5, pz, 'minecraft:stripped_dark_oak_log', {'axis': 'y'})
+    fill(b, px - 1, 5, pz, px + 1, 5, pz, 'minecraft:dark_oak_log', {'axis': 'x'})
+    for dx in (-1, 1):
+        fill(b, px + dx, 3, pz, px + dx, 4, pz, 'minecraft:chain', {'axis': 'y'})
+    put(b, (px, 1, pz + 1), 'minecraft:cobweb')
+    put(b, (px + 1, 2, pz), 'minecraft:cobweb')
+    rubble(b, [(px + 1, 1, pz + 2), (px - 1, 1, pz - 2)], BOG_STONE, 76)
+
+
+def camp_supplies(b):
+    """The corner they dumped their gear in."""
+    chest(b, (7, 1, 16), 'south', 'minecraft:chests/pillager_outpost')
+    put(b, (6, 1, 15), 'hogwartsmagic:enchanted_book_pile')
+    put(b, (8, 1, 17), 'minecraft:barrel', {'facing': 'up', 'open': 'false'})
+    put(b, (7, 1, 18), 'minecraft:cauldron')
+    for pos in ((6, 1, 17), (8, 1, 15), (5, 1, 16)):
+        put(b, pos, 'minecraft:cobweb')
+    put(b, (9, 1, 18), 'minecraft:soul_lantern', {'hanging': 'false'})
+
+
+def death_eater_camp():
+    """The Death Eaters' camp in the Forbidden Forest -- the Acromantula lair they took off Aragog.
+
+    Everything here is arranged around one idea: they did not build this place, they moved into it.
+    The webs overhead and the dead trunks are the spiders'; the hearth, the wall, the throne and the
+    post are theirs, dropped inside a ring that already existed. So the stonework is deliberately the
+    only tidy thing in the clearing, and it is burned through the web above the fire to get here.
+    """
+    b = {}
+    camp_clearing(b)
+    tops = camp_trunks(b)
+    camp_fire(b)
+    rite_wall(b)
+    camp_throne(b)
+    camp_prisoner_post(b)
+    camp_supplies(b)
+    camp_canopy(b, tops)
+
+    entities = [
+        painting(13, 4, WALL_Z + 1, 'hogwartsmagic:summoning_rite', 'south', 4, 3),
+        # Baked in for the same reason the gibbet's dementor is: spawn_overrides only bias the
+        # ongoing spawn cycle, so a camp generated at noon would sit empty until nightfall.
+        #
+        # Spread roughly 120 degrees apart on bare earth outside the hearth. The audit only asks
+        # whether an entity fits where it is put, and by that test the first draft passed while
+        # standing two of them in the fire ring and the third on the blackstone of the altar bench.
+        entity(9.5, 1.0, 10.5, 'hogwartsmagic:wizard', {'PersistenceRequired': ('byte', 1)}),
+        entity(18.5, 1.0, 15.5, 'hogwartsmagic:wizard', {'PersistenceRequired': ('byte', 1)}),
+        entity(11.5, 1.0, 16.5, 'hogwartsmagic:wizard', {'PersistenceRequired': ('byte', 1)}),
+    ]
+    return b, entities
+
+
 BUILDS = {
     'fen_gibbet': fen_gibbet,
     'horntail_nest': horntail_nest,
@@ -788,6 +1188,7 @@ BUILDS = {
     'black_lake_ruin': black_lake_ruin,
     'merfolk_village': merfolk_village,
     'willow_clearing': willow_clearing,
+    'death_eater_camp': death_eater_camp,
 }
 
 # Builds whose empty space is water rather than air. Anything waterloggable inside one has to say so,
@@ -806,6 +1207,13 @@ NOT_SUPPORT = {'minecraft:air', 'minecraft:water', 'minecraft:cobweb', 'minecraf
 # Only these two are the hanging/standing kind. sea_lantern and jack_o_lantern are ordinary full
 # cubes that happen to end in "lantern" and need no support at all.
 LANTERNS = {'minecraft:lantern', 'minecraft:soul_lantern'}
+# What each plant will accept underneath it. BushBlock wants BlockTags.DIRT or farmland;
+# DeadBushBlock wants #dead_bush_may_place_on, which is dirt plus sand plus terracotta.
+NEEDS_SOIL = {'minecraft:fern': DIRT_TAG | {'minecraft:farmland'},
+              'minecraft:short_grass': DIRT_TAG | {'minecraft:farmland'},
+              'minecraft:large_fern': DIRT_TAG | {'minecraft:farmland'},
+              'minecraft:tall_grass': DIRT_TAG | {'minecraft:farmland'},
+              'minecraft:dead_bush': DIRT_TAG | SAND_TAG}
 DIRS = {'north': (0, 0, -1), 'south': (0, 0, 1), 'west': (-1, 0, 0), 'east': (1, 0, 0)}
 WATERLOGGABLE = ('_stairs', '_slab', '_wall', '_fence', 'iron_bars', 'chain')
 
@@ -824,6 +1232,42 @@ def see_through(block):
 # entity was baked inside a solid block and will be shoved somewhere unpredictable on placement.
 PASSABLE = re.compile(r'air|water|seagrass|kelp|grass|fern|_bush|vine|sapling|rail|torch|lantern'
                       r'|cobweb|sea_pickle|coral|light|flower|lily')
+
+
+def audit_paintings(blocks, entities):
+    """A hung painting fails in two ways that look identical from here and fatal in game.
+
+    HangingEntity.survives() drops the painting if anything collides with its canvas or if any block
+    behind it is not solid, and it is rechecked every 100 ticks -- so a wall one block too short does
+    not produce a painting sticking out over the edge, it produces a painting on the floor some
+    seconds after the chunk loads. Since the anchor is not the corner, being off by one is the
+    default outcome rather than an unlucky one.
+    """
+    problems = []
+    for e in entities:
+        nbt = e['nbt'][1]
+        if nbt['id'][1] != 'minecraft:painting':
+            continue
+        ax, ay, az = (nbt['TileX'][1], nbt['TileY'][1], nbt['TileZ'][1])
+        facing = next(k for k, v in FACING_2D.items() if v == nbt['facing'][1])
+        variant = nbt['variant'][1]
+
+        if variant not in PAINTING_SIZES:
+            problems.append('painting %s has no painting_variant JSON' % variant)
+            continue
+        w, h = PAINTING_SIZES[variant][:2]
+
+        sx, sz = STEP[facing]
+        for pos in painting_span(ax, ay, az, facing, w, h):
+            front = blocks.get(pos, ('minecraft:air',))[0]
+            if front != 'minecraft:air':
+                problems.append('painting %s covers %s at %s' % (variant, front, pos))
+            behind = (pos[0] - sx, pos[1], pos[2] - sz)
+            wall = blocks.get(behind, (None,))[0]
+            if wall is None or see_through(wall):
+                problems.append('painting %s hangs on %s at %s'
+                                % (variant, wall or 'nothing', behind))
+    return problems
 
 
 def audit_entities(blocks, entities, size):
@@ -872,6 +1316,12 @@ def audit(name, blocks):
                 if below is None or below in NOT_SUPPORT:
                     problems.append(f'{block} at {pos} stands on {below or "nothing"}')
 
+        soil = NEEDS_SOIL.get(block)
+        if soil is not None:
+            below = at((x, y - 1, z))
+            if below is None or not (below in soil or below.endswith('terracotta')):
+                problems.append(f'{block} at {pos} is rooted in {below or "nothing"}')
+
         if block == 'minecraft:rail':
             below = at((x, y - 1, z))
             if below is None or below in NOT_SUPPORT:
@@ -906,11 +1356,15 @@ OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'src', 'mai
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)
     failures = 0
+    for problem in audit_painting_variants():
+        print('painting_variant  ' + problem)
+        failures += 1
     for name, builder in BUILDS.items():
         built = builder()
         blocks, entities = built if isinstance(built, tuple) else (built, [])
         size = [max(p[i] for p in blocks) + 1 for i in range(3)]
-        problems = audit(name, blocks) + audit_entities(blocks, entities, size)
+        problems = (audit(name, blocks) + audit_entities(blocks, entities, size)
+                    + audit_paintings(blocks, entities))
         path = os.path.join(OUT, name + '.nbt')
         write_nbt(path, build_template(blocks, entities))
         kinds = len({v[0] for v in blocks.values()})

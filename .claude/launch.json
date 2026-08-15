@@ -1,0 +1,15 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "structure-viewer",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        ".claude/skills/rendering-minecraft-structures/textured/serve.py",
+        ".claude/skills/rendering-minecraft-structures/textured/build",
+        "8731"
+      ],
+      "port": 8731
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 ---
 name: rendering-minecraft-structures
-description: Use when a Minecraft structure template (.nbt) has been generated or edited and nobody has seen what it looks like — before committing a structure, after changing a build script, or when a build passes its block-level audits but its shape, scale and composition are still unverified.
+description: Use when a Minecraft structure template (.nbt) has been generated or edited and nobody has seen what it looks like — before committing a structure, after changing a build script, or when a build passes its block-level audits but its shape, scale, density and composition are still unverified.
 ---
 
 # Rendering Minecraft Structures
@@ -15,60 +15,84 @@ the build looks wrong.** Render it and look before calling it done.
 
 - A build script wrote or rewrote a `.nbt` and nobody has looked at the result
 - A structure passed its audits and is about to be committed
-- Judging proportion, silhouette, density, or whether a shape reads as the thing it is meant to be
+- Judging proportion, silhouette, **density**, or whether a shape reads as the thing it is meant to be
 - Reviewing a template saved in game with a structure block, or vanilla's own
 
-Not for block legality, blockstate validity or entity placement — those need a real audit, not a
-picture.
+Not for block legality, blockstate validity or entity placement — those need a real audit.
+
+## Two renderers, and they answer different questions
+
+| | `render_structure.py` | `textured/` (deepslate) |
+|---|---|---|
+| Draws | flat-shaded cubes | **real block models and real textures** |
+| Needs | Pillow | a browser tab + local server |
+| Good for | layout, extent, "is anything in the wrong place" | **density, tone, visual weight, does it read** |
+| Blind to | how loud a texture is; slab/stair/fence shapes | nothing much |
+
+**Use the textured one before committing.** The flat one is a fast check while iterating; it cannot
+answer the question that matters most, for the reason in Common Mistakes below.
 
 ## Quick Reference
 
 ```bash
-S=.claude/skills/rendering-minecraft-structures/render_structure.py
-python $S build.nbt                                 # iso + layers, into a temp dir
-python $S build.nbt --hide cobweb,leaves            # strip the roof off
-python $S build.nbt --crop 2,6,11,14 --cell 26      # close-up on one detail
-python $S build.nbt --section x=6                   # text cross-section; draws nothing
+S=.claude/skills/rendering-minecraft-structures
+python $S/render_structure.py build.nbt --hide cobweb        # fast, flat
+python $S/render_structure.py build.nbt --section x=6        # text cross-section
 ```
 
-| View | Answers |
-|---|---|
-| `iso` | Proportion, silhouette, composition. **The one that finds real faults.** |
-| `layers` | Whether a pattern holds — a dome, a ring, a spiral, a gradient |
-| `elevation` | What you see walking up to one side |
-| `--section` | Exactly which block sits at exactly which height |
+Textured — export once for **all** structures (one shared atlas), then drive the page:
 
-`--out` defaults to a temp folder. `--hide`, `--crop` and `--max-y` all shrink the drawn extent, so
-cropping really does zoom.
+```bash
+python $S/textured/export_assets.py data/.../structure/*.nbt \
+  --jar ~/.gradle/caches/forge_gradle/minecraft_repo/versions/1.21/client-extra.jar \
+  --mod src/main/resources/assets/<modid>
+```
 
-## Reading the Render
+Then `preview_start` the `structure-viewer` config and open
+`http://localhost:8731/?nbt=<name>.nbt`. URL params: `yaw`, `pitch`, `dist`, `w`, `h`, `hide=water`,
+`maxy=N`, `cut=x|z`. The page exposes `__renderer`, `__gl`, `__names` and `__missing`, so one script
+can re-render every structure from a single page load — navigating per structure destroys the
+calling script's own context. `POST /save?name.png` writes a render to `build/shots/`.
 
-Look for these four. Every one survived a fully passing audit in practice:
+## The cutaway is not optional
 
-1. **Something out of proportion** — one element eating the frame. A wall meant as a backdrop that
+Sealed builds are common — an underground hall is a solid shell hollowed out, a sunken ruin is
+flooded solid with water. **Four of the eight structures in this repo are opaque boxes from
+outside.** Use `cut=z` to drop the near half, and `hide=water` on anything flooded, or the renderer
+tells you nothing about exactly the builds whose interiors are the point.
+
+## What to look for
+
+Every one of these survived a fully passing audit:
+
+1. **Density of loud blocks** — see below. The most expensive mistake available.
+2. **Something out of proportion** — one element eating the frame. A wall meant as a backdrop that
    reads as a rampart.
-2. **A focal point with no presence** — the thing everything is arranged around, flat and invisible.
-   A fire pit needs a raised kerb; paving plus a campfire reads as a courtyard.
-3. **Scatter where structure was intended** — a web needs radial threads *and* concentric ones or it
-   reads as confetti. Noise-gating a line turns it into dots.
-4. **Mechanical regularity** — objects at equal angles and equal heights read as fence posts. Jitter
-   angle *and* radius, vary height widely, and flare the base where a column meets the ground.
+3. **A focal point with no presence** — a fire pit needs a raised kerb; paving plus a campfire reads
+   as a courtyard.
+4. **Scatter where structure was intended** — a web needs radial threads *and* concentric ones, or
+   it reads as confetti. Noise-gating a line turns it into dots.
+5. **Palette contrast at one-block frequency** — mixing blocks 60 luma apart is not texture, it is a
+   chessboard. Keep a ground mix inside roughly a 40 luma spread and one hue family.
+6. **Mechanical regularity** — objects at equal angles and equal heights read as fence posts. Jitter
+   angle *and* radius, vary height widely, flare the base where a column meets the ground.
 
 ## Common Mistakes
 
 | Mistake | Fix |
 |---|---|
-| Rendering with the canopy or roof on | `--hide` it. Anything overhead hides everything beneath it. |
-| Judging a detail from the whole-build view | `--crop` to it and raise `--cell`. Small cells cannot settle fine geometry. |
-| Guessing geometry from the picture | `--section` prints the actual blocks. Use it to settle "is this A-frame right". |
-| Treating blockiness as a fault | These are flat-shaded untextured cubes. In game, texture and lighting do work these images cannot show. |
-| Believing the render replaces the game | It catches composition. Standing in the build still catches more. |
-
-Unlisted blocks get a stable hashed colour and are named in a `hashed colours` line. If one matters
-to your judgement, add it to `PALETTE` first.
+| **Judging density from the flat renderer** | It draws cobweb, torches and plants as small dots. 367 cobwebs looked like a canopy there and were a **blizzard** in game. Anything with a bright busy texture on transparency carries far more weight than its block count. Check density textured, or in game. |
+| Rendering a sealed build without a cutaway | `cut=z`, plus `hide=water` when flooded. |
+| Rendering with the canopy or roof on | `--hide` / `hide=`. Anything overhead hides everything beneath it. |
+| Judging a detail from the whole-build view | `--crop` and raise `--cell`, or use `dist`. |
+| Guessing geometry from the picture | `--section` prints the actual blocks. |
+| Assuming a magenta cube means a broken block | Usually it means a texture the model walk never finds: **block-entity renderers** (chest, sign, bed, banner, bell, decorated pot) keep textures under `entity/`, **fluids** have no model at all, and **explicit `minecraft:air`** has no blockstate. All three are handled; the page reports anything else in `__missing`. |
+| Trusting a "no missing textures" check that never fires | deepslate returns the atlas's *invalid-texture* UV on a miss, which is truthy. Test whether a blob was supplied, not whether a UV came back. |
+| Believing any render replaces the game | It catches composition and density. Standing in the build still catches more. |
 
 ## Real-World Impact
 
-The Death Eater camp in this mod passed every audit — legal blocks, supported lanterns, a surviving
-painting, correct entity placement — and was wrong in all four ways above. None of it was visible
-until it was rendered isometrically.
+The Death Eater camp passed every audit, then was wrong four ways that only an isometric render
+showed, then was **still** wrong in a way only the game showed: 367 cobwebs, 81% coverage of the
+dome surface, 29% of every block in the build. Textured rendering would have caught it; flat did
+not. The canopy is 72 webs now.

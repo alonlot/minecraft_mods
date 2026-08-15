@@ -1,0 +1,167 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>structure viewer</title>
+<style>
+  html, body { margin: 0; background: #14141a; color: #ddd;
+               font: 12px ui-monospace, Consolas, monospace; }
+  canvas { display: block; }
+  #status { position: fixed; left: 8px; top: 8px; white-space: pre; text-shadow: 0 0 4px #000; }
+</style>
+<canvas id="c"></canvas>
+<div id="status">loading…</div>
+
+<script src="deepslate.umd.cjs"></script>
+<script src="gl-matrix.js"></script>
+<script>
+const { NbtFile, Structure, StructureRenderer, BlockDefinition, BlockModel, TextureAtlas,
+        Identifier, upperPowerOfTwo } = deepslate
+const { mat4 } = glMatrix
+
+const status = document.getElementById('status')
+const canvas = document.getElementById('c')
+
+// Read the camera off the URL so a screenshot can be taken from an exact, repeatable angle
+// instead of whatever the mouse happened to leave behind.
+const q = new URLSearchParams(location.search)
+const num = (k, d) => q.has(k) ? parseFloat(q.get(k)) : d
+const view = {
+  yaw:   num('yaw', 0.7),
+  pitch: num('pitch', 0.55),
+  dist:  num('dist', 0),          // 0 = fit the whole build
+  hide:  (q.get('hide') || '').split(',').filter(Boolean),
+  maxY:  q.has('maxy') ? parseInt(q.get('maxy')) : null,
+  cut:   q.get('cut') || '',      // 'x' or 'z': drop the near half to see inside
+  w:     num('w', 1280),
+  h:     num('h', 800),
+}
+
+// Half the structures in a typical set are sealed -- an underground hall is a solid shell hollowed
+// out, a sunken ruin is flooded solid with water -- and from outside every one of them is an opaque
+// box. Without a way to cut into it the renderer is useless on exactly the builds whose interiors
+// are the whole point.
+function cutaway(src, opts) {
+  if (!opts.hide.length && opts.maxY === null && !opts.cut) return src
+  const [sx, sy, sz] = src.getSize()
+  const out = new Structure([sx, sy, sz])
+  for (const b of src.getBlocks()) {
+    const [x, y, z] = b.pos
+    const name = b.state.getName().toString()
+    if (opts.hide.some(w => name.includes(w))) continue
+    if (opts.maxY !== null && y > opts.maxY) continue
+    if (opts.cut === 'x' && x > sx / 2) continue
+    if (opts.cut === 'z' && z > sz / 2) continue
+    out.addBlock([x, y, z], name, b.state.getProperties())
+  }
+  return out
+}
+
+function fail(e) {
+  status.textContent = 'ERROR: ' + (e && e.stack || e)
+  window.__ready = 'error'
+  throw e
+}
+
+async function main() {
+  canvas.width = view.w
+  canvas.height = view.h
+
+  const assets = await (await fetch('assets.json')).json()
+
+  // Blockstate definitions and models, straight from the game's own JSON.
+  const definitions = {}
+  for (const [id, json] of Object.entries(assets.blockstates)) {
+    definitions[id] = BlockDefinition.fromJson(json)
+  }
+  const models = {}
+  for (const [id, json] of Object.entries(assets.models)) {
+    models[id] = BlockModel.fromJson(json)
+  }
+
+  // Templates carry explicit air -- it is how a build carves a hollow, or keeps a wall clear in
+  // front of a painting -- and deepslate has no definition for it, so every one came out as a
+  // magenta missing-block cube. An empty model draws nothing, which is what air should do.
+  definitions['minecraft:air'] = BlockDefinition.fromJson(
+    { variants: { '': { model: 'minecraft:block/__empty' } } })
+  models['minecraft:block/__empty'] = BlockModel.fromJson({ elements: [] })
+
+  // Textures as blobs -> one atlas. fromBlobs draws each at 16x16, so animated strips use frame 0.
+  const blobs = {}
+  await Promise.all(Object.entries(assets.textures).map(async ([id, file]) => {
+    blobs[id] = await (await fetch('textures/' + file)).blob()
+  }))
+  const atlas = await TextureAtlas.fromBlobs(blobs)
+
+  // Parent chains have to be flattened before anything can be drawn.
+  // Anything the renderer asks for and does not get comes out as a magenta cube, which is easy to
+  // see and impossible to diagnose from the picture. Record the misses instead of squinting.
+  const missing = { definitions: new Set(), models: new Set(), textures: new Set() }
+  window.__missing = missing
+
+  const resources = {
+    getBlockDefinition(id) {
+      const v = definitions[id.toString()]
+      if (!v) missing.definitions.add(id.toString())
+      return v
+    },
+    getBlockModel(id) {
+      const v = models[id.toString()]
+      if (!v) missing.models.add(id.toString())
+      return v
+    },
+    getTextureUV(id) {
+      // Not `!atlas.getTextureUV(key)`: a miss returns the atlas's slot-0 invalid-texture UV, which
+      // is a perfectly truthy array, so that test never fires and the magenta cube stays a mystery.
+      // The only honest question is whether a blob was ever supplied for this id.
+      const key = id.toString()
+      if (!(key in blobs)) missing.textures.add(key)
+      return atlas.getTextureUV(id)
+    },
+    getTextureAtlas() { return atlas.getTextureAtlas() },
+    getPixelSize() { return atlas.getPixelSize ? atlas.getPixelSize() : 1 / 16 },
+    getBlockFlags(id) { return { opaque: false } },
+    getBlockProperties() { return null },
+    getDefaultBlockProperties() { return null },
+  }
+  Object.values(models).forEach(m => m.flatten(resources))
+
+  const which = q.get('nbt') || Object.keys(assets.structures)[0]
+  const buf = await (await fetch(which)).arrayBuffer()
+  const nbt = NbtFile.read(new Uint8Array(buf))
+  const structure = cutaway(Structure.fromNbt(nbt.root), view)
+  const [sx, sy, sz] = structure.getSize()
+
+  const gl = canvas.getContext('webgl', { preserveDrawingBuffer: true })
+  if (!gl) fail('no webgl context')
+  const renderer = new StructureRenderer(gl, structure, resources)
+
+  // Frame the whole build unless a distance was asked for. 0.85 rather than 1.5: at 1.5 a 26-wide
+  // build sat in the middle of the canvas surrounded by empty space, which wastes exactly the
+  // resolution the textures were fetched for.
+  const dist = view.dist || Math.max(sx, sy, sz) * 0.85
+  const m = mat4.create()
+  mat4.translate(m, m, [0, 0, -dist])
+  mat4.rotateX(m, m, view.pitch)
+  mat4.rotateY(m, m, view.yaw)
+  mat4.translate(m, m, [-sx / 2, -sy / 2, -sz / 2])
+
+  gl.viewport(0, 0, canvas.width, canvas.height)
+  // A dark ground, not the default white. Half of what these renders are for is judging whether a
+  // dark build reads, and white behind it destroys exactly that judgement.
+  gl.clearColor(0.055, 0.055, 0.07, 1)
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+  renderer.drawStructure(m)
+
+  status.textContent = `${which}  ${sx}x${sy}x${sz}  `
+    + `yaw=${view.yaw.toFixed(2)} pitch=${view.pitch.toFixed(2)}`
+  // Exposed so a driver can swap structures and re-render from one page load. Navigating per
+  // structure tears down the calling script's own execution context, and re-fetching the atlas each
+  // time is the slowest part of the whole job.
+  window.__names = Object.keys(assets.structures)
+  window.__renderer = renderer
+  window.__gl = gl
+  window.__deepslate = deepslate
+  window.__ready = 'ok'
+}
+
+main().catch(fail)
+</script>

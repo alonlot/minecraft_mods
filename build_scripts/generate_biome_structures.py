@@ -916,10 +916,15 @@ def willow_clearing():
                       {'PersistenceRequired': ('byte', 1)})]
 
 
-CAMP_GROUND = [('minecraft:podzol', 6), ('minecraft:coarse_dirt', 6), ('minecraft:dirt', 3),
-               ('minecraft:gravel', 2)]
-CAMP_TRODDEN = [('minecraft:coarse_dirt', 8), ('minecraft:dirt_path', 3), ('minecraft:gravel', 3),
-                ('minecraft:podzol', 2)]
+# Weighted for TONE, not just variety. The first mix put podzol (luma 66) next to gravel (128) and
+# dirt_path (122) at even weights, and at one-block frequency that is not texture, it is a
+# chessboard -- which only became obvious once the preview drew real textures instead of flat
+# average colours. Everything here now sits in one hue family inside a ~40 luma spread, with the two
+# bright outliers kept rare enough to read as incident rather than as pattern.
+CAMP_GROUND = [('minecraft:coarse_dirt', 8), ('minecraft:podzol', 5), ('minecraft:dirt', 3),
+               ('minecraft:gravel', 1)]
+CAMP_TRODDEN = [('minecraft:coarse_dirt', 10), ('minecraft:dirt', 4), ('minecraft:podzol', 3),
+                ('minecraft:dirt_path', 2)]
 RITE_STONE = [('minecraft:deepslate_bricks', 6), ('minecraft:cracked_deepslate_bricks', 5),
               ('minecraft:cobbled_deepslate', 4), ('minecraft:blackstone', 3),
               ('minecraft:polished_blackstone', 2)]
@@ -1036,74 +1041,74 @@ def camp_trunks(b):
     return tops
 
 
+CANOPY_INNER = 7.0    # nothing inside this: the hole they burned above the fire
+CANOPY_FLOOR = 6      # nothing below this: cobweb at head height is a wall you walk into
+
+
 def camp_canopy(b, tops):
     """Aragog's web, still overhead and torn open above the fire.
 
-    Two passes, and both are needed. The radial strands are what make it read as one web: a patchy
-    dome of cobweb on its own reads as scattered litter, because there is nothing joining the pieces
-    to each other or to the trees. The fill then thickens it toward the fringe, where a real web
-    would still be anchored, and thins to nothing over the hearth, where they burned through it.
+    THIS WAS THE WORST THING IN THE BUILD IN GAME, and the numbers say why. The first version put
+    367 cobwebs onto a dome whose surface is only about 450 cells -- 81% coverage, a solid white
+    ceiling, 29% of every block in the structure. Standing in it was a blizzard, not a clearing.
+
+    Two further faults hid inside that one. The radial threads ran all the way in to r=3.4, so they
+    roofed over the very hole they were meant to leave open. And at the fringe the dome falls to
+    y=4, which is head height, so you walked face-first into web before you ever saw the camp.
+
+    An annulus now, not a cap: nothing inside CANOPY_INNER, nothing below CANOPY_FLOOR, about a
+    quarter the density. What is left hangs between the trunk tops where a web would really be
+    anchored, and leaves open sky over the fire.
+
+    The lesson generalises past cobweb. A block with a bright, busy texture needs a fraction of the
+    coverage a plain one does -- and no top-down slice or dot-based preview will ever tell you that,
+    because both draw it as a mark rather than as the full-size surface it is. Only standing under
+    it does.
     """
     def dome_y(dist):
         if dist >= CANOPY_R:
             return None
-        return 1 + int(round(CANOPY_H * math.sqrt(max(0.0, 1.0 - (dist / CANOPY_R) ** 2))))
+        y = 1 + int(round(CANOPY_H * math.sqrt(max(0.0, 1.0 - (dist / CANOPY_R) ** 2))))
+        return y if y >= CANOPY_FLOOR else None
 
     def web(x, y, z):
         if 0 <= x < CAMP_W and 0 <= z < CAMP_D and (x, y, z) not in b:
             put(b, (x, y, z), 'minecraft:cobweb')
 
-    # Radial threads, one per anchor point, plus extras between them so the spacing at the fringe
-    # does not open up. UNBROKEN -- the first version gated every cell on noise, which turned the
-    # threads into dotted lines and was the main reason the canopy read as scattered litter.
-    spokes = [(math.atan2(tz - CAMP_CZ, tx - CAMP_CX), math.hypot(tx - CAMP_CX, tz - CAMP_CZ))
-              for tx, _, tz in tops]
-    for i in range(len(tops)):                       # a filler thread between each pair of anchors
-        a0, r0 = spokes[i]
-        a1, r1 = spokes[(i + 1) % len(tops)]
+    anchors = [(math.atan2(tz - CAMP_CZ, tx - CAMP_CX), math.hypot(tx - CAMP_CX, tz - CAMP_CZ))
+               for tx, _, tz in tops]
+
+    # A clump caught in each treetop. Cobweb's texture is a bright cross on transparency, so at real
+    # size it carries far more visual weight than its block count suggests -- the annulus that
+    # replaced the dome still read as one continuous white ring. Clumps with sky between them read
+    # as remnants, which is what a web nobody has maintained since the spiders left should look like.
+    for ang, radius in anchors:
+        for dx in (-2, -1, 0, 1, 2):
+            for dz in (-2, -1, 0, 1, 2):
+                x = int(round(CAMP_CX + math.cos(ang) * radius)) + dx
+                z = int(round(CAMP_CZ + math.sin(ang) * radius)) + dz
+                d = math.hypot(x - CAMP_CX, z - CAMP_CZ)
+                y = dome_y(d)
+                if y is None or d < CANOPY_INNER:
+                    continue
+                if dx * dx + dz * dz > 5 or noise(x, y, z, 682) < 0.42:
+                    continue
+                web(x, y, z)
+
+    # One thread slung between each neighbouring pair, so the clumps read as remains of a single web
+    # rather than as separate nests.
+    for i, (a0, r0) in enumerate(anchors):
+        a1, r1 = anchors[(i + 1) % len(anchors)]
         da = (a1 - a0 + math.pi) % (2 * math.pi) - math.pi
-        spokes.append((a0 + da / 2.0, (r0 + r1) / 2.0))
-
-    for ang, radius in spokes:
-        steps = max(1, int(radius * 3))
-        for s in range(steps + 1):
-            r = 3.4 + (radius - 3.4) * (s / float(steps))
+        for s_ in range(1, 8):
+            t = s_ / 8.0
+            ang = a0 + da * t
+            r = (r0 + (r1 - r0) * t) - 1.5
             x = int(round(CAMP_CX + math.cos(ang) * r))
             z = int(round(CAMP_CZ + math.sin(ang) * r))
             y = dome_y(math.hypot(x - CAMP_CX, z - CAMP_CZ))
-            if y is not None:
+            if y is not None and noise(x, y, z, 683) > 0.3:
                 web(x, y, z)
-
-    # Concentric threads. This is the half that was missing, and it is the half that makes a web look
-    # like a web: radials alone are a starburst, and it is the rings crossing them that the eye reads
-    # as spun. Spacing widens outward, the way an orb-weaver's actually does.
-    r = 4.2
-    while r < CANOPY_R - 0.6:
-        circumference = int(2 * math.pi * r * 1.6)
-        for s in range(circumference):
-            ang = s * 2 * math.pi / circumference
-            x = int(round(CAMP_CX + math.cos(ang) * r))
-            z = int(round(CAMP_CZ + math.sin(ang) * r))
-            y = dome_y(math.hypot(x - CAMP_CX, z - CAMP_CZ))
-            # Rings are allowed gaps -- a torn web, and it keeps the dome from becoming a lid.
-            if y is not None and noise(x, y, z, 681) > 0.22:
-                web(x, y, z)
-        r *= 1.28
-
-    # Sheet fill between the threads, thickening toward the fringe where the web is still anchored
-    # and thinning to nothing at the lip of the hole they burned above the fire.
-    for x in range(CAMP_W):
-        for z in range(CAMP_D):
-            d = math.hypot(x - CAMP_CX, z - CAMP_CZ)
-            y = dome_y(d)
-            if y is None or d < 4.0:
-                continue
-            density = 0.05 + (d / CANOPY_R) * 0.4
-            if noise(x, y, z, 68) < 1.0 - density:
-                continue
-            web(x, y, z)
-            if noise(x, y - 1, z, 69) > 0.76:        # sag, so the underside is not one flat surface
-                web(x, y - 1, z)
 
 
 def rite_wall(b):

@@ -495,6 +495,13 @@ public class SpellBeamEntity extends ThrowableProjectile {
                 BlockState state = this.level().getBlockState(pos);
                 if (spell == SpellType.ACCIO && state.is(ExampleMod.MANDRAKE_PLANT.get())) {
                     hitSuccessful = pullMandrakeWithAccio(pos);
+                } else if (spell == SpellType.SERPENSORTIA
+                        && state.getBlock() instanceof com.hogwartsmagic.block.ChamberDoorBlock) {
+                    // Parseltongue, as far as this mod has one. Serpensortia is the snake spell, and
+                    // the Chamber door is the one lock in the game that answers to being spoken to
+                    // rather than to being opened.
+                    hitSuccessful = this.level() instanceof ServerLevel serverLevel
+                            && com.hogwartsmagic.block.ChamberDoorBlock.speakTo(serverLevel, pos);
                 } else if (spell == SpellType.ALOHOMORA) {
                     if (state.getBlock() instanceof DoorBlock door) {
                         if (!state.getValue(DoorBlock.OPEN)) {
@@ -632,6 +639,14 @@ public class SpellBeamEntity extends ThrowableProjectile {
                                 getOwner() instanceof LivingEntity livingCaster ? livingCaster : null,
                                 pos);
                     }
+                } else if (spell == SpellType.PIERTOTUM_LOCOMOTOR) {
+                    if (this.level() instanceof ServerLevel sl) {
+                        // Owner narrowed to ServerPlayer, not LivingEntity: the statue is bound to a
+                        // player and LivingStatueEntity.bindTo takes one, so a mob caster has nobody
+                        // to bind to and the rite is a no-op for it.
+                        hitSuccessful = com.hogwartsmagic.util.StatueMultiblock.tryRaise(sl, pos,
+                                getOwner() instanceof ServerPlayer caster ? caster : null);
+                    }
                 }
             } else if (result instanceof EntityHitResult entityHit && livingBehind(entityHit.getEntity()) instanceof LivingEntity living) {
                 // Intercept spell if the target has an active Protego shield
@@ -662,7 +677,10 @@ public class SpellBeamEntity extends ThrowableProjectile {
                 } else {
                     // Normal hit
                     if (spell != SpellType.ALOHOMORA) {
-                        if (spell == SpellType.MORSMORDRE) {
+                        // Both of these only ever act on a block. Fizzling rather than falling through
+                        // to applyHitEffect keeps a living target from eating a "successful" impact
+                        // burst for a spell that did nothing to it.
+                        if (spell == SpellType.MORSMORDRE || spell == SpellType.PIERTOTUM_LOCOMOTOR) {
                             hitSuccessful = false;
                         } else if (spell == SpellType.AVADA_KEDAVRA && living instanceof VoldemortEntity voldemort && voldemort.tryEvadeAvada(getOwner())) {
                             if (this.level() instanceof ServerLevel sl) {

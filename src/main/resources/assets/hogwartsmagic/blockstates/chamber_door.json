@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "open=false": {
+      "model": "hogwartsmagic:block/chamber_door"
+    },
+    "open=true": {
+      "model": "hogwartsmagic:block/chamber_door_open"
+    }
+  }
+}

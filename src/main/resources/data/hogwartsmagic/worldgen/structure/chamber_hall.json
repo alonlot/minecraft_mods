@@ -5,14 +5,7 @@
   "spawn_overrides": {
     "monster": {
       "bounding_box": "piece",
-      "spawns": [
-        {
-          "type": "hogwartsmagic:basilisk",
-          "weight": 100,
-          "minCount": 1,
-          "maxCount": 1
-        }
-      ]
+      "spawns": []
     }
   },
   "terrain_adaptation": "beard_box",
@@ -21,12 +14,12 @@
   "start_height": {
     "type": "minecraft:uniform",
     "min_inclusive": {
-      "absolute": -40
+      "absolute": -54
     },
     "max_inclusive": {
-      "absolute": 8
+      "absolute": -28
     }
   },
-  "max_distance_from_center": 80,
+  "max_distance_from_center": 116,
   "use_expansion_hack": false
 }

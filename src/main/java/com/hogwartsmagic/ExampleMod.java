@@ -213,6 +213,25 @@ public class ExampleMod
                     .noOcclusion()
                     .lightLevel(state -> state.hasProperty(com.hogwartsmagic.block.HorcruxBlock.LIT)
                             && state.getValue(com.hogwartsmagic.block.HorcruxBlock.LIT) ? 8 : 1)));
+    // Deepslate bricks, not obsidian: this is quarried out of a ruin with an ordinary pickaxe, and
+    // an unbreakable-feeling core would make the ruin guardians' drop feel like a trophy you are not
+    // allowed to use. Light 7 matches ARCANE_CLUSTER -- enough to find one across a dark hall,
+    // not enough to light the hall for you.
+    public static final RegistryObject<Block> STATUE_HEART = BLOCKS.register("statue_heart",
+            () -> new com.hogwartsmagic.block.StatueHeartBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.DEEPSLATE_BRICKS)
+                    // Both numbers, not the one-argument form: that sets blast resistance to the
+                    // hardness as well, and softening the dig would have quietly made the core
+                    // easier to blow up than the deepslate it is copied from.
+                    .strength(3.0f, 6.0f)
+                    .lightLevel(state -> 7)));
+    // The lock at the centre of the Chamber of Secrets' round door. Strength is deliberately absurd:
+    // the whole point is that it opens to Parseltongue and to nothing else, and a door you can take
+    // out with a diamond pickaxe in four seconds is not a lock, it is a decoration.
+    public static final RegistryObject<Block> CHAMBER_DOOR = BLOCKS.register("chamber_door",
+            () -> new com.hogwartsmagic.block.ChamberDoorBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.CHISELED_DEEPSLATE)
+                    .strength(50.0f, 1200.0f)
+                    .lightLevel(state -> state.hasProperty(com.hogwartsmagic.block.ChamberDoorBlock.OPEN)
+                            && state.getValue(com.hogwartsmagic.block.ChamberDoorBlock.OPEN) ? 6 : 0)));
     public static final RegistryObject<Block> GRYFFINDOR_BANNER_BLOCK = BLOCKS.register("gryffindor_banner_block",
             () -> new Block(BlockBehaviour.Properties.ofFullCopy(Blocks.RED_WOOL)));
     public static final RegistryObject<Block> RAVENCLAW_BANNER_BLOCK = BLOCKS.register("ravenclaw_banner_block",
@@ -236,6 +255,11 @@ public class ExampleMod
             BLOCK_ENTITY_TYPES.register("ward", () -> BlockEntityType.Builder.of(
                     com.hogwartsmagic.block.entity.CaveInimicumWardBlockEntity::new,
                     WARD.get()
+            ).build(null));
+    public static final RegistryObject<BlockEntityType<com.hogwartsmagic.block.entity.ChamberDoorBlockEntity>> CHAMBER_DOOR_BLOCK_ENTITY =
+            BLOCK_ENTITY_TYPES.register("chamber_door", () -> BlockEntityType.Builder.of(
+                    com.hogwartsmagic.block.entity.ChamberDoorBlockEntity::new,
+                    CHAMBER_DOOR.get()
             ).build(null));
     public static final RegistryObject<BlockEntityType<com.hogwartsmagic.block.entity.HorcruxBlockEntity>> HORCRUX_BLOCK_ENTITY =
             BLOCK_ENTITY_TYPES.register("horcrux", () -> BlockEntityType.Builder.of(
@@ -308,6 +332,7 @@ public class ExampleMod
     public static final RegistryObject<Item> FLOO_FIREPLACE_ITEM = ITEMS.register("floo_fireplace", () -> new BlockItem(FLOO_FIREPLACE.get(), new Item.Properties()));
     public static final RegistryObject<Item> WARD_ITEM = ITEMS.register("ward", () -> new BlockItem(WARD.get(), new Item.Properties()));
     public static final RegistryObject<Item> HORCRUX_ITEM = ITEMS.register("horcrux", () -> new BlockItem(HORCRUX.get(), new Item.Properties().stacksTo(1)));
+    public static final RegistryObject<Item> STATUE_HEART_ITEM = ITEMS.register("statue_heart", () -> new BlockItem(STATUE_HEART.get(), new Item.Properties()));
     public static final RegistryObject<Item> GRYFFINDOR_BANNER_BLOCK_ITEM = ITEMS.register("gryffindor_banner_block", () -> new BlockItem(GRYFFINDOR_BANNER_BLOCK.get(), new Item.Properties()));
     public static final RegistryObject<Item> RAVENCLAW_BANNER_BLOCK_ITEM = ITEMS.register("ravenclaw_banner_block", () -> new BlockItem(RAVENCLAW_BANNER_BLOCK.get(), new Item.Properties()));
     public static final RegistryObject<Item> HUFFLEPUFF_BANNER_BLOCK_ITEM = ITEMS.register("hufflepuff_banner_block", () -> new BlockItem(HUFFLEPUFF_BANNER_BLOCK.get(), new Item.Properties()));
@@ -582,6 +607,7 @@ public class ExampleMod
                 output.accept(FLOO_FIREPLACE_ITEM.get());
                 output.accept(WARD_ITEM.get());
                 output.accept(HORCRUX_ITEM.get());
+                output.accept(STATUE_HEART_ITEM.get());
                 output.accept(GRYFFINDOR_BANNER_BLOCK_ITEM.get());
                 output.accept(RAVENCLAW_BANNER_BLOCK_ITEM.get());
                 output.accept(HUFFLEPUFF_BANNER_BLOCK_ITEM.get());

@@ -35,6 +35,7 @@ public final class ClientRuntimeBridge {
             case "syncCaveInimicumRegion" -> syncCaveInimicumRegion((SpellPackets.CaveInimicumRegionSyncPacket) payload);
             case "syncCaveInimicumBlockDelta" -> syncCaveInimicumBlockDelta((SpellPackets.CaveInimicumBlockDeltaPacket) payload);
             case "syncActiveWards" -> syncActiveWards((SpellPackets.CaveInimicumActiveWardsPacket) payload);
+            case "undercroftFog" -> undercroftFog((SpellPackets.UndercroftFogPacket) payload);
             case "startHorcruxDeathSequence" -> startHorcruxDeathSequence((SpellPackets.StartHorcruxDeathSequencePacket) payload);
             case "finishHorcruxDeathSequence" -> finishHorcruxDeathSequence();
             case "cloakTransition" -> cloakTransition((SpellPackets.CloakTransitionPacket) payload);
@@ -222,6 +223,10 @@ public final class ClientRuntimeBridge {
         if (level != null) {
             level.setBlock(packet.pos(), Block.stateById(packet.stateId()), 3);
         }
+    }
+
+    private static void undercroftFog(SpellPackets.UndercroftFogPacket p) {
+        UndercroftFogClientState.set(p.centre(), p.radius(), p.topY(), p.bottomY());
     }
 
     private static void syncActiveWards(SpellPackets.CaveInimicumActiveWardsPacket packet) {

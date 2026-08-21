@@ -821,6 +821,7 @@ public class ModEvents {
             com.hogwartsmagic.worldgen.VillageGringottsBank.maybeBuild(player);
             // Pick up any undercroft left half-dug by a restart or an unloaded chunk.
             com.hogwartsmagic.worldgen.undercroft.UndercroftBuilder.maybeResume(player);
+            com.hogwartsmagic.worldgen.undercroft.UndercroftBuilder.maybeSyncFog(player);
             // Bleed off a thief's heat once they are out of the bank.
             if (player.tickCount % 200 == 0) {
                 com.hogwartsmagic.gringotts.GringottsAlarm

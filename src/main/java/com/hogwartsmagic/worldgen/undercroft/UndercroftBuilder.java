@@ -161,6 +161,54 @@ public final class UndercroftBuilder {
         }
     }
 
+    /**
+     * Tells a player which undercroft they are standing in, so the client can fog it.
+     *
+     * <p>Sent on the change rather than every tick, and cleared the moment they walk out of one.
+     * Two packets per visit; the client works out the rest from its own depth.
+     */
+    public static void maybeSyncFog(ServerPlayer player) {
+        if (player.tickCount % 20 != 0) {
+            return;
+        }
+        UndercroftTracker.Undercroft near = null;
+        BlockPos at = player.blockPosition();
+        for (UndercroftTracker.Undercroft site : UndercroftTracker.get(player.serverLevel()).all()) {
+            if (site.stage != UndercroftTracker.COMPLETE) {
+                continue;
+            }
+            if (Math.abs(at.getX() - site.station.getX()) <= FOOTPRINT_HALF
+                    && Math.abs(at.getZ() - site.station.getZ()) <= FOOTPRINT_HALF
+                    && at.getY() <= site.station.getY() + 3) {
+                near = site;
+                break;
+            }
+        }
+
+        BlockPos was = FOGGED.get(player.getUUID());
+        BlockPos now = near == null ? null : near.station;
+        if (java.util.Objects.equals(was, now)) {
+            return;
+        }
+        if (now == null) {
+            FOGGED.remove(player.getUUID());
+            com.hogwartsmagic.network.SpellPackets.CHANNEL.send(
+                    new com.hogwartsmagic.network.SpellPackets.UndercroftFogPacket(
+                            BlockPos.ZERO, 0, 0, 0),
+                    net.minecraftforge.network.PacketDistributor.PLAYER.with(player));
+            return;
+        }
+        FOGGED.put(player.getUUID(), now);
+        int bottom = now.getY() - SHAFT_DROP - near.depth;
+        com.hogwartsmagic.network.SpellPackets.CHANNEL.send(
+                new com.hogwartsmagic.network.SpellPackets.UndercroftFogPacket(
+                        now, FOOTPRINT_HALF, now.getY(), bottom),
+                net.minecraftforge.network.PacketDistributor.PLAYER.with(player));
+    }
+
+    /** Which undercroft each player was last told they were in. */
+    private static final java.util.Map<java.util.UUID, BlockPos> FOGGED = new java.util.HashMap<>();
+
     /** Picks up anything left half-dug, when somebody wanders back into range of it. */
     public static void maybeResume(ServerPlayer player) {
         if (activeJob != null || player.tickCount % 100 != 0) {

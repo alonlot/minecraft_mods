@@ -228,6 +228,17 @@ public class SpellPackets {
                 .decoder(buf -> new CaveInimicumBlockDeltaPacket(buf.readBlockPos(), buf.readVarInt()))
                 .consumerMainThread(CaveInimicumBlockDeltaPacket::handle)
                 .add();
+        CHANNEL.messageBuilder(UndercroftFogPacket.class)
+                .encoder((p, buf) -> {
+                    buf.writeBlockPos(p.centre);
+                    buf.writeVarInt(p.radius);
+                    buf.writeVarInt(p.topY);
+                    buf.writeVarInt(p.bottomY);
+                })
+                .decoder(buf -> new UndercroftFogPacket(buf.readBlockPos(), buf.readVarInt(),
+                        buf.readVarInt(), buf.readVarInt()))
+                .consumerMainThread(UndercroftFogPacket::handle)
+                .add();
         CHANNEL.messageBuilder(CaveInimicumActiveWardsPacket.class)
                 .encoder((p, buf) -> {
                     buf.writeVarInt(p.wards.size());
@@ -1189,6 +1200,21 @@ public class SpellPackets {
     }
 
     public record CaveInimicumActiveWardData(BlockPos center, int edgeLength) {
+    }
+
+    /**
+     * Which undercroft the client is standing in, so the fog can be keyed on the region rather than
+     * on a biome. A radius of zero means "you have left one".
+     *
+     * <p>The Y values are varints and the corridor bottoms out below zero, so those two cost the
+     * full five bytes each. That is fine and deliberately not optimised: this is one packet when
+     * you arrive and one when you leave, not a stream.
+     */
+    public record UndercroftFogPacket(BlockPos centre, int radius, int topY, int bottomY) {
+        public static void handle(UndercroftFogPacket p, CustomPayloadEvent.Context ctx) {
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge
+                    .handlePacket("undercroftFog", p));
+        }
     }
 
     public record CaveInimicumActiveWardsPacket(List<CaveInimicumActiveWardData> wards) {

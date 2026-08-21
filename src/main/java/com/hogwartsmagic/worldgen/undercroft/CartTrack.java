@@ -41,8 +41,8 @@ import net.minecraft.world.phys.Vec3;
  */
 public final class CartTrack {
 
-    /** Bump when SEGMENTS or the sampling changes, so old saves rebuild instead of misaligning. */
-    public static final int VERSION = 1;
+    /** Bump when the layout or the sampling changes, so old saves rebuild instead of misaligning. */
+    public static final int VERSION = 2;
 
     /** Depth budget, station floor to chasm floor. Both ends measured; see the preview script. */
     public static final int DEPTH_MIN = 96;
@@ -57,39 +57,78 @@ public final class CartTrack {
     private static final float MAX_BANK_DEG = 35.0F;
 
     // --- the layout, mirroring preview_cart_track.py -------------------------------------
+    //
+    // ONE SPIRAL ABOUT ONE CENTRE, with a radius that breathes and a centre that drifts.
+    // Two other models were tried and each failed on one of two rocks:
+    //
+    //   * arcs about fixed axes stay contained but do not leave tangent to the line arriving
+    //     at them, so every segment join was a kink and two were near-cusps - seven blocks of
+    //     arc covering two blocks of ground. The corridor swept around one of those laid its
+    //     own deck through its own clearance, which is how it was caught.
+    //   * dead reckoning is tangent-continuous by construction but wanders: a half-turn at
+    //     radius 30 displaces the line 60 blocks on its own, and no combination of sweeps and
+    //     straights kept it inside the footprint.
+    //
+    // A spiral has neither problem: smooth everywhere because r and theta are smooth, and
+    // contained because every point is r from a centre that barely moves.
 
-    private static final double[][] AXES = {
-            {0.0D, 0.0D},      // A0: shaft head and station
-            {8.0D, 5.0D},      // A1: the chasm and the dragon
-            {4.0D, 2.0D},      // A2: the deep approach
-    };
-
-    private static final int LINE = 0;
-    private static final int ARC = 1;
+    /** Mean radius, and how far it breathes either side. */
+    private static final double R_BASE = 22.0D;
+    private static final double R_AMP = 9.0D;
+    private static final double R_CYCLES = 1.5D;
 
     /**
-     * {kind, axis, sweepDegrees, radius, dropFraction, dx, dz}. A radius of 0 on an arc means
-     * "hold whatever radius we arrive at". Every segment continues from the end of the previous
-     * one: an arc takes its start angle and radius from the current position rather than being
-     * given one, which is what makes the line continuous by construction.
+     * A second, faster, weaker breath.
+     *
+     * <p>One sine makes every lap the same circle at a slightly different radius, which in plan
+     * reads as concentric rings - the "it is just a spiral" failure the reference spec warns
+     * about. A second term on a deliberately non-multiple period makes each lap a different
+     * shape, bulging out against the rock in one place and pulling in over the void in another,
+     * and no two laps do it in the same place.
      */
-    private static final double[][] SEGMENTS = {
-            {LINE, 0, 0, 0, 0.00, 18.0, 0.0},     // station apron
-            {ARC, 0, -300, 0, 0.26, 0, 0},        // the plunge
-            {LINE, 0, 0, 0, 0.04, -4.0, 24.0},    // loading gallery
-            {ARC, 0, 105, 26, 0.05, 0, 0},        // stalactite bend
-            {ARC, 0, -85, 15, 0.05, 0, 0},        // stalactite S
-            {ARC, 1, 180, 29, 0.12, 0, 0},        // high chasm ledge
-            {ARC, 1, -120, 14, 0.15, 0, 0},       // downfall hairpin
-            {ARC, 1, 320, 24, 0.13, 0, 0},        // dragon lap
-            {ARC, 1, 250, 27, 0.13, 0, 0},        // low chasm ledge
-            {ARC, 2, 350, 12, 0.12, 0, 0},        // deep approach
-    };
+    private static final double R_HARMONIC = 0.45D;
+    private static final double R_HARMONIC_CYCLES = 4.3D;
+
+    /** How far the centre itself wanders. Capped by the footprint, not by taste. */
+    private static final double DRIFT = 6.0D;
+
+    /** The straight out of the station, so the cart is boarded somewhere that is not leaning. */
+    private static final double APRON = 16.0D;
+
+    /**
+     * Revolutions of descent, scaled so each turn drops about the same amount however deep the
+     * bank sits. A fixed turn count makes the gradient a function of depth - the same plunge
+     * carrying 44 blocks of drop under a sea-level bank and 65 under a mountain one, which puts
+     * it past 1:2 and the cart off the rail.
+     */
+    private static final double DROP_PER_TURN = 24.0D;
+    private static final double TURNS_MIN = 4.0D;
+    private static final double TURNS_MAX = 7.5D;
+
+    /** Fraction of the descent at which each named band ENDS, and its share of the drop. */
+    private static final double[] BAND_END = {0.00, 0.10, 0.22, 0.40, 0.56, 0.66, 0.80, 0.92, 1.00};
+    private static final double[] BAND_DROP = {0.00, 0.36, 0.04, 0.10, 0.12, 0.10, 0.12, 0.09, 0.07};
 
     public static final String[] SEGMENT_NAMES = {
-            "station apron", "the plunge", "loading gallery", "stalactite bend", "stalactite S",
-            "high chasm ledge", "downfall hairpin", "dragon lap", "low chasm ledge", "deep approach",
+            "station apron", "the plunge", "loading gallery", "stalactite reach",
+            "high chasm ledge", "thief's downfall", "dragon lap", "low chasm ledge",
+            "deep approach",
     };
+
+    private static double turnsFor(int depth) {
+        return Math.max(TURNS_MIN, Math.min(TURNS_MAX, depth / DROP_PER_TURN));
+    }
+
+    /** Plan position at t in [0, 1] along the descent, relative to the spiral's own origin. */
+    private static double[] spiralPoint(double t, double turns) {
+        double theta = -2.0D * Math.PI * turns * t;
+        double r = R_BASE
+                + R_AMP * Math.sin(2.0D * Math.PI * R_CYCLES * t + 0.6D)
+                + R_AMP * R_HARMONIC * Math.sin(2.0D * Math.PI * R_HARMONIC_CYCLES * t + 2.1D);
+        double cx = DRIFT * Math.sin(Math.PI * t);
+        double cz = DRIFT * Math.cos(Math.PI * t) - DRIFT;
+        return new double[]{cx + r * Math.cos(theta), cz + r * Math.sin(theta)};
+    }
 
     // --- the baked line ------------------------------------------------------------------
 
@@ -120,7 +159,7 @@ public final class CartTrack {
         this.curvature = new float[count];
         this.bank = new float[count];
         this.arc = new float[count];
-        this.segmentStart = new int[SEGMENTS.length + 1];
+        this.segmentStart = new int[BAND_END.length + 1];
     }
 
     public BlockPos origin() {
@@ -141,11 +180,11 @@ public final class CartTrack {
 
     /** Arc length at which a segment begins. */
     public double segmentStartLength(int segment) {
-        return this.arc[this.segmentStart[Mth.clamp(segment, 0, SEGMENTS.length)]];
+        return this.arc[this.segmentStart[Mth.clamp(segment, 0, BAND_END.length)]];
     }
 
     public static int segmentCount() {
-        return SEGMENTS.length;
+        return BAND_END.length;
     }
 
     // --- sampling ------------------------------------------------------------------------
@@ -248,49 +287,34 @@ public final class CartTrack {
         int clamped = Mth.clamp(depth, DEPTH_MIN, DEPTH_MAX);
 
         // 1. plan only. Height comes later, over arc length.
+        double turns = turnsFor(clamped);
         DoubleList knotX = new DoubleList();
         DoubleList knotZ = new DoubleList();
-        int[] knotSegmentEnd = new int[SEGMENTS.length];
-        knotX.add(0.0D);
-        knotZ.add(0.0D);
+        int[] knotSegmentEnd = new int[BAND_END.length];
 
-        for (int seg = 0; seg < SEGMENTS.length; seg++) {
-            double[] spec = SEGMENTS[seg];
-            double sx = knotX.last();
-            double sz = knotZ.last();
+        double[] entry = spiralPoint(0.0D, turns);
+        knotX.add(entry[0] - APRON);
+        knotZ.add(entry[1]);
+        int apronSteps = Math.max(2, (int) Math.round(APRON / KNOT_SPACING));
+        for (int i = 1; i <= apronSteps; i++) {
+            knotX.add(entry[0] - APRON * (1.0D - (double) i / apronSteps));
+            knotZ.add(entry[1]);
+        }
+        knotSegmentEnd[0] = knotX.size() - 1;
 
-            if ((int) spec[0] == LINE) {
-                double dx = spec[5];
-                double dz = spec[6];
-                int steps = Math.max(2, (int) Math.round(Math.hypot(dx, dz) / KNOT_SPACING));
-                for (int i = 1; i <= steps; i++) {
-                    double f = (double) i / steps;
-                    knotX.add(sx + dx * f);
-                    knotZ.add(sz + dz * f);
-                }
-            } else {
-                double cx = AXES[(int) spec[1]][0];
-                double cz = AXES[(int) spec[1]][1];
-                double r0 = Math.hypot(sx - cx, sz - cz);
-                double r1 = spec[3] > 0 ? spec[3] : r0;
-                double a0 = Math.atan2(sz - cz, sx - cx);
-                double sweep = Math.toRadians(spec[2]);
-                double span = Math.abs(sweep) * (r0 + r1) * 0.5D;
-                // Knot spacing scales with radius: at a fixed 9 blocks a tight helix gets a knot
-                // every 43 degrees and the spline ripples between them, which the cart feels as a
-                // surge twice per turn.
-                double spacing = Math.min(KNOT_SPACING, Math.max(2.5D, Math.min(r0, r1) * 0.42D));
-                int steps = Math.max(3, (int) Math.round(span / spacing));
-                for (int i = 1; i <= steps; i++) {
-                    double f = (double) i / steps;
-                    double ease = f * f * (3.0D - 2.0D * f);
-                    double r = r0 + (r1 - r0) * ease;
-                    double a = a0 + sweep * f;
-                    knotX.add(cx + r * Math.cos(a));
-                    knotZ.add(cz + r * Math.sin(a));
-                }
+        int steps = Math.max(64, (int) (turns * 2.0D * Math.PI * R_BASE / KNOT_SPACING));
+        int band = 1;
+        for (int i = 1; i <= steps; i++) {
+            double t = (double) i / steps;
+            double[] p = spiralPoint(t, turns);
+            knotX.add(p[0]);
+            knotZ.add(p[1]);
+            while (band < BAND_END.length && t >= BAND_END[band] - 1.0E-9D) {
+                knotSegmentEnd[band++] = knotX.size() - 1;
             }
-            knotSegmentEnd[seg] = knotX.size() - 1;
+        }
+        while (band < BAND_END.length) {
+            knotSegmentEnd[band++] = knotX.size() - 1;
         }
 
         // 2. dense-sample the spline
@@ -308,10 +332,10 @@ public final class CartTrack {
         // 4. frames, curvature and bank, all of which depend on the finished 3D line
         track.buildFrames();
 
-        for (int seg = 0; seg < SEGMENTS.length; seg++) {
-            track.segmentStart[seg + 1] =
-                    Math.min(knotSegmentEnd[seg] * SAMPLES_PER_KNOT, count - 1);
+        for (int seg = 0; seg < BAND_END.length; seg++) {
+            track.segmentStart[seg] = Math.min(knotSegmentEnd[seg] * SAMPLES_PER_KNOT, count - 1);
         }
+        track.segmentStart[BAND_END.length] = count - 1;
         return track;
     }
 
@@ -389,11 +413,11 @@ public final class CartTrack {
         int count = this.arc.length;
         float[] grade = new float[count];
         int previousEdge = 0;
-        for (int seg = 0; seg < SEGMENTS.length; seg++) {
+        for (int seg = 0; seg < BAND_DROP.length; seg++) {
             int edge = Math.min(knotSegmentEnd[seg] * SAMPLES_PER_KNOT, count - 1);
             double run = this.arc[edge] - this.arc[previousEdge];
             if (edge > previousEdge && run > 1.0E-6D) {
-                float g = (float) (SEGMENTS[seg][4] * depth / run);
+                float g = (float) (BAND_DROP[seg] * depth / run);
                 for (int i = previousEdge; i < edge; i++) {
                     grade[i] = g;
                 }

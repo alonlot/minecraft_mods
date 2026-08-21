@@ -43,33 +43,53 @@ import numpy as np
 # Three axes, not one. A single axis makes the whole thing a cylinder, and a cylinder is
 # the failure mode this build is most likely to fall into.
 
-AXES = {
-    'A0': (0.0, 0.0),      # shaft head and station
-    'A1': (8.0, 5.0),      # the chasm and the dragon
-    'A2': (4.0, 2.0),   # the deep approach
-}
-
-# Every segment CONTINUES FROM the last one. An arc takes its start angle and start
-# radius from wherever the previous segment ended, relative to the axis it turns about --
-# it is never given an absolute start angle. Specifying one meant each arc began at a
-# point of its own choosing, leaving a gap the spline then smoothed across as a jump: a
-# 1:1.1 gradient spike and a pair of samples 6 blocks apart that read as the track boring
-# through itself. Deriving the angle makes the line continuous by construction.
+# The line is ONE SPIRAL ABOUT ONE CENTRE, with a radius that breathes and a centre that
+# drifts slowly. Everything else was tried first and each failed on one of two rocks:
 #
-# kind: 'line'   -> a relative move by (dx, dz)
-#       'arc'    -> turn `sweep` degrees about an axis (+ve anticlockwise), holding radius
-#       'spiral' -> the same, easing the radius to `r` across the sweep
+#   * arcs about fixed axes stay contained but do not leave tangent to the line arriving at
+#     them, so every join was a kink and two were near-cusps -- seven blocks of arc covering
+#     two blocks of ground. The corridor swept around one of those laid its own deck through
+#     its own clearance.
+#   * dead reckoning is tangent-continuous by construction but wanders: a 180-degree turn at
+#     radius 30 displaces the line 60 blocks on its own, and no combination of sweeps and
+#     straights kept it inside a 96-block box.
+#
+# A spiral has neither problem. It is smooth everywhere because r and theta are smooth, and
+# it is contained because every point is r from a centre that barely moves. The variety comes
+# from the radius: swinging between 14 and 32 pushes the line out against the chasm wall and
+# pulls it back in over the void, which is where the ledges and trestles come from, and it
+# crosses over itself vertically the way a real mine road does. The centre's slow drift stops
+# it reading as a perfect cylinder.
+
+# Revolutions of descent, scaled so each turn drops about the same amount however deep the
+# bank happens to sit. Holding the turn count fixed makes the gradient a function of depth --
+# the same 104 blocks of plunge carrying 44 blocks of drop under a sea-level bank and 65
+# under a mountain one, which puts the steep bands past 1:2 and the cart off the rail.
+DROP_PER_TURN = 24.0
+TURNS_MIN, TURNS_MAX = 4.0, 7.5
+
+
+def turns_for(depth):
+    return max(TURNS_MIN, min(TURNS_MAX, depth / DROP_PER_TURN))
+R_BASE = 22.0           # mean radius
+R_AMP = 9.0             # how far the radius breathes either side of the mean
+R_CYCLES = 1.5          # breaths over the whole descent
+R_HARMONIC = 0.45       # strength of the second, faster breath
+R_HARMONIC_CYCLES = 4.3 # deliberately not a multiple of R_CYCLES
+DRIFT = 6.0             # how far the centre wanders, blocks
+APRON = 16.0            # the straight out of the station before the spiral takes over
+
+# Named bands of the descent. `at` is the fraction of the way down the band ENDS.
 SEGMENTS = [
-    dict(name='station apron',    kind='line',   to=(18.0, 0.0),                dy=0.00),
-    dict(name='the plunge',       kind='arc',    axis='A0', sweep=-300,         dy=0.26),
-    dict(name='loading gallery',  kind='line',   to=(-4.0, 24.0),               dy=0.04),
-    dict(name='stalactite bend',  kind='spiral', axis='A0', sweep=105,  r=26,   dy=0.05),
-    dict(name='stalactite S',     kind='spiral', axis='A0', sweep=-85,  r=15,   dy=0.05),
-    dict(name='high chasm ledge', kind='spiral', axis='A1', sweep=180,  r=29,   dy=0.12),
-    dict(name='downfall hairpin', kind='spiral', axis='A1', sweep=-120, r=14,   dy=0.15),
-    dict(name='dragon lap',       kind='spiral', axis='A1', sweep=320,  r=24,   dy=0.13),
-    dict(name='low chasm ledge',  kind='spiral', axis='A1', sweep=250,  r=27,   dy=0.13),
-    dict(name='deep approach',    kind='spiral', axis='A2', sweep=350, r=12,    dy=0.09),
+    dict(name='station apron',    at=0.00, dy=0.00),
+    dict(name='the plunge',       at=0.10, dy=0.36),
+    dict(name='loading gallery',  at=0.22, dy=0.04),
+    dict(name='stalactite reach', at=0.40, dy=0.10),
+    dict(name='high chasm ledge', at=0.56, dy=0.12),
+    dict(name="thief's downfall", at=0.66, dy=0.10),
+    dict(name='dragon lap',       at=0.80, dy=0.12),
+    dict(name='low chasm ledge',  at=0.92, dy=0.09),
+    dict(name='deep approach',    at=1.00, dy=0.07),
 ]
 
 FOOTPRINT = 96          # the carve's horizontal box, centred on the station
@@ -80,7 +100,17 @@ FOOTPRINT = 96          # the carve's horizontal box, centred on the station
 # flagged that stacking as a collision and sent me tuning away a feature.
 BORE_CLEARANCE_H = 9.0
 BORE_CLEARANCE_V = 8.0
-SELF_APPROACH_WINDOW = 40.0  # arc-length gap past which two samples count as different track
+# Arc-length gap past which two samples count as genuinely different track.
+#
+# This number is derived, not chosen, and getting it wrong twice cost real time. Two points
+# Ds apart along a turn of radius r are 2*r*sin(Ds/2r) apart in space, so ANY turn looks like
+# a near-miss if the window is short enough: at Ds=6 an r=13 turn is only 5.9 blocks across,
+# well inside the 9 blocks a corridor needs. Too long, though, and a genuine cusp hides inside
+# it -- at 40 the line doubled back within 7 blocks of arc and the check never looked.
+#
+# 12 is the window where the tightest turn the layout actually uses (r=12) is just clear at
+# 2*12*sin(0.5) = 11.5, while a cusp of effective radius 4 comes out at 7.6 and is caught.
+SELF_APPROACH_WINDOW = 12.0
 MAX_GRADE = 0.50        # |dy/ds|. 1:2 is the plunge; anything steeper and the cart leaves the rail
 KNOT_SPACING = 9.0      # target distance between control points
 VERTICAL_CURVE = 16.0   # blocks over which a grade change is eased in
@@ -98,52 +128,57 @@ DEPTH_MAX = 180
 
 # --- knot generation ------------------------------------------------------------------
 
+def spiral_point(t, turns):
+    """Plan position at t in [0, 1] along the descent."""
+    theta = -2.0 * math.pi * turns * t
+    # Two harmonics, not one. A single sine makes every lap the same circle at a slightly
+    # different radius, and in plan that reads as concentric rings -- which is the exact
+    # "it is just a spiral" failure the reference spec warns about. Adding a faster, weaker
+    # term makes each lap a different shape: the line bulges out against the chasm wall in
+    # one place and pulls in over the void in another, and no two laps do it in the same
+    # place. It costs almost nothing in reach because the second term is small.
+    r = (R_BASE
+         + R_AMP * math.sin(2.0 * math.pi * R_CYCLES * t + 0.6)
+         + R_AMP * R_HARMONIC * math.sin(2.0 * math.pi * R_HARMONIC_CYCLES * t + 2.1))
+    cx = DRIFT * math.sin(2.0 * math.pi * 0.5 * t)
+    cz = DRIFT * math.cos(2.0 * math.pi * 0.5 * t) - DRIFT
+    return cx + r * math.cos(theta), cz + r * math.sin(theta)
+
+
 def build_knots(depth):
     """Lay out the line in PLAN only. Height is applied afterwards, over arc length.
 
     Keeping Y out of here is deliberate. Distributing each segment's drop linearly across
     that segment makes dy/ds step at every junction, and because the curve also kinks
-    there, ds shrinks at the same moment and the gradient chart spikes to 1:1.1 -- a cart
-    would launch off the rail at a place the plan view shows as a perfectly ordinary
-    corner. Real track eases into a grade change with a vertical curve, and so does this.
+    there, ds shrinks at the same moment and the gradient chart spikes -- a cart would
+    launch off the rail at a place the plan view shows as a perfectly ordinary corner.
+    Real track eases into a grade change with a vertical curve, and so does this.
     """
-    knots = [(0.0, 0.0)]
-    bounds = []
-    drops = []
+    # The apron runs straight out of the station to where the spiral begins, so the cart
+    # has somewhere to sit and be boarded that is not already leaning over.
+    turns = turns_for(depth)
+    entry = spiral_point(0.0, turns)
+    knots = [(entry[0] - APRON, entry[1])]
+    apron_steps = max(2, int(round(APRON / KNOT_SPACING)))
+    for i in range(1, apron_steps + 1):
+        knots.append((entry[0] - APRON * (1 - i / apron_steps), entry[1]))
 
-    for seg in SEGMENTS:
-        sx, sz = knots[-1]
+    bounds = [len(knots) - 1]
+    drops = [SEGMENTS[0]['dy'] * depth]
 
-        if seg['kind'] == 'line':
-            dx, dz = seg['to']
-            span = math.hypot(dx, dz)
-            steps = max(2, int(round(span / KNOT_SPACING)))
-            for i in range(1, steps + 1):
-                f = i / steps
-                knots.append((sx + dx * f, sz + dz * f))
-        else:
-            cx, cz = AXES[seg['axis']]
-            # Start angle and radius come from where we already are, so a segment cannot
-            # begin anywhere except the end of the previous one.
-            r0 = math.hypot(sx - cx, sz - cz)
-            r1 = float(seg.get('r', r0))
-            a0 = math.atan2(sz - cz, sx - cx)
-            sweep = math.radians(seg['sweep'])
-            span = abs(sweep) * (r0 + r1) / 2.0
-            # Space knots by radius, not by a fixed distance. At a fixed 9 blocks an R12
-            # helix gets a knot every 43 degrees and the spline ripples between them,
-            # which reads on the gradient chart as the cart surging twice a turn.
-            spacing = min(KNOT_SPACING, max(2.5, min(r0, r1) * 0.42))
-            steps = max(3, int(round(span / spacing)))
-            for i in range(1, steps + 1):
-                f = i / steps
-                ease = f * f * (3 - 2 * f)      # smoothstep, so a radius change has no kink
-                r = r0 + (r1 - r0) * ease
-                a = a0 + sweep * f
-                knots.append((cx + r * math.cos(a), cz + r * math.sin(a)))
-
+    steps = max(64, int(turns * 2.0 * math.pi * R_BASE / KNOT_SPACING))
+    band = 1
+    for i in range(1, steps + 1):
+        t = i / steps
+        knots.append(spiral_point(t, turns))
+        while band < len(SEGMENTS) and t >= SEGMENTS[band]['at'] - 1e-9:
+            bounds.append(len(knots) - 1)
+            drops.append(SEGMENTS[band]['dy'] * depth)
+            band += 1
+    while band < len(SEGMENTS):
         bounds.append(len(knots) - 1)
-        drops.append(seg['dy'] * depth)
+        drops.append(SEGMENTS[band]['dy'] * depth)
+        band += 1
 
     return knots, bounds, drops
 
@@ -300,10 +335,6 @@ def draw(pts, s, bounds, knots, depth, out, stats):
         ax.plot([a[0], b[0]], [a[2], b[2]], color='#ff4040', linewidth=1.4, zorder=5)
         ax.scatter([a[0], b[0]], [a[2], b[2]], color='#ff4040', s=42, zorder=6,
                    marker='x', label='tightest gap %.0f%%' % (closest[0] * 100))
-    for tag, (ax_, az_) in AXES.items():
-        ax.plot(ax_, az_, marker='+', color='#8a8a98', markersize=9)
-        ax.annotate(tag, (ax_, az_), color='#8a8a98', fontsize=8,
-                    textcoords='offset points', xytext=(5, 4))
     ax.plot(0, 0, marker='o', color='#f0d060', markersize=7)
     ax.set_aspect('equal')
     ax.invert_yaxis()

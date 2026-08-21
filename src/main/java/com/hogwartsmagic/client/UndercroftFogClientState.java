@@ -43,8 +43,15 @@ public final class UndercroftFogClientState {
     private static final float FAR_BOTTOM = 96.0F;
     private static final float NEAR = 1.0F;
 
-    /** How far above the station the fog still applies, so it does not stop at the lift lip. */
-    private static final int HEADROOM = 3;
+    /**
+     * The fog stops at the rotunda floor, not at the region box.
+     *
+     * <p>The bank hall shares its floor level with the station, and the region is a column forty-
+     * eight blocks either side of it, so a headroom of even a couple of blocks fogs the banking
+     * hall - a lit marble room - in chasm black. Below the floor only, which is also the honest
+     * boundary: the fog starts the moment the lift does.
+     */
+    private static final int HEADROOM = 0;
 
     @Nullable
     private static BlockPos centre;
@@ -83,7 +90,7 @@ public final class UndercroftFogClientState {
         if (Math.abs(x - c.getX()) > radius || Math.abs(z - c.getZ()) > radius) {
             return -1.0F;
         }
-        if (y > topY + HEADROOM || y < bottomY - 32) {
+        if (y >= topY + HEADROOM || y < bottomY - 32) {
             return -1.0F;
         }
         int span = Math.max(1, topY - bottomY);

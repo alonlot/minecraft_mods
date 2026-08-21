@@ -1,6 +1,7 @@
 package com.hogwartsmagic.entity;
 
 import com.hogwartsmagic.ExampleMod;
+import com.hogwartsmagic.gringotts.GringottsDisguise;
 import com.hogwartsmagic.ModSounds;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -78,6 +79,9 @@ public class GoblinGuardEntity extends PathfinderMob implements NeutralMob, Gobl
                 .add(Attributes.FOLLOW_RANGE, 32.0D);
     }
 
+    /** Set on guards stationed below ground. See makeSentry. */
+    private boolean sentry;
+
     @Override
     protected void registerGoals() {
         this.goalSelector.addGoal(0, new FloatGoal(this));
@@ -87,9 +91,17 @@ public class GoblinGuardEntity extends PathfinderMob implements NeutralMob, Gobl
         this.goalSelector.addGoal(6, new RandomLookAroundGoal(this));
 
         this.targetSelector.addGoal(1, new HurtByTargetGoal(this).setAlertOthers(GoblinGuardEntity.class));
-        // Only ever targets players it is already angry at - never hostile on sight.
+        // Only ever targets players it is already angry at - never hostile on sight. A guard on the
+        // banking floor stands among customers all day, and one that swung at everybody who walked
+        // in would make the hall unusable.
         this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Player.class, 10, true, false,
                 this::isAngryAt));
+        // Below ground is the exception, and the reason the flag exists: there is no innocent
+        // reason to be standing in the vaults, so a sentry does not wait to be provoked. It still
+        // lets a goblin past, which is the entire point of going to the trouble of being one.
+        this.targetSelector.addGoal(3, new NearestAttackableTargetGoal<>(this, Player.class, 10, true, false,
+                living -> this.sentry && living instanceof Player p && !p.isCreative()
+                        && !p.isSpectator() && !GringottsDisguise.isGoblin(p)));
         this.targetSelector.addGoal(3, new ResetUniversalAngerTargetGoal<>(this, true));
     }
 
@@ -214,12 +226,14 @@ public class GoblinGuardEntity extends PathfinderMob implements NeutralMob, Gobl
     public void addAdditionalSaveData(CompoundTag tag) {
         super.addAdditionalSaveData(tag);
         this.addPersistentAngerSaveData(tag);
+        tag.putBoolean("Sentry", this.sentry);
     }
 
     @Override
     public void readAdditionalSaveData(CompoundTag tag) {
         super.readAdditionalSaveData(tag);
         this.readPersistentAngerSaveData(this.level(), tag);
+        this.sentry = tag.getBoolean("Sentry");
     }
 
     // ----------------------------------------------------------------- sound
@@ -241,6 +255,22 @@ public class GoblinGuardEntity extends PathfinderMob implements NeutralMob, Gobl
     @Override
     protected SoundEvent getDeathSound() {
         return ModSounds.GOBLIN_DEATH.get();
+    }
+
+    /**
+     * Turns this guard into an undercroft sentry: hostile on sight, and it stays put.
+     *
+     * <p>A plain field rather than synched data. Nothing about it is visible - a sentry and a hall
+     * guard look identical, which is rather the idea - so shipping it to the client would buy a
+     * tracker entry per guard and nothing else.
+     */
+    public void makeSentry() {
+        this.sentry = true;
+        setPersistenceRequired();
+    }
+
+    public boolean isSentry() {
+        return this.sentry;
     }
 
     /** Convenience used by worldgen when stationing guards inside the vault. */

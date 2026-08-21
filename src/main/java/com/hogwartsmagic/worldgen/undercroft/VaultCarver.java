@@ -266,13 +266,27 @@ public final class VaultCarver {
 
     /** Middle of the deepest chamber, where the dragon stands. */
     public Vec3 deepestChamberCentre() {
-        double s = this.track.length() * AT[AT.length - 1];
+        return chamberCentre(AT.length - 1);
+    }
+
+    /**
+     * Middle of one chamber, on its floor.
+     *
+     * <p>Derived from the same three numbers the carve used rather than remembered, so it cannot
+     * drift out of step with where the room actually ended up.
+     */
+    public Vec3 chamberCentre(int index) {
+        double s = this.track.length() * AT[index];
         Vec3 centre = this.track.positionAt(s);
         Vec3 up = this.track.upAt(s);
         Vec3 right = this.track.rightAt(s);
         double side = this.track.bankAt(s) < 0.0F ? 1.0D : -1.0D;
         return centre.add(right.scale(side).scale(CLEAR + THROAT + DEPTH * 0.5D))
                 .add(up.scale(-1.0D));
+    }
+
+    public int vaultCount() {
+        return AT.length;
     }
 
     /** Where each vault's door sits, for anything that needs to find them afterwards. */

@@ -266,6 +266,18 @@ public class ExampleMod
                                     && state.getValue(com.hogwartsmagic.block.GringottsVaultDoorBlock.OPEN) ? 7 : 0)));
 
     /**
+     * The screen across the back of the banking hall. Goblin-forged, so about twelve seconds a
+     * block with a pickaxe - long enough that breaking in is a decision rather than a reflex - and
+     * it drops nothing, so nobody carries a bank away one bar at a time.
+     */
+    public static final RegistryObject<Block> GRINGOTTS_GATE = BLOCKS.register("gringotts_gate",
+            () -> new com.hogwartsmagic.block.GringottsGateBlock(
+                    BlockBehaviour.Properties.ofFullCopy(Blocks.IRON_BARS)
+                            .strength(50.0f, 1200.0f)
+                            .noLootTable()
+                            .noOcclusion()));
+
+    /**
      * The Thief's Downfall. No collision - you ride and walk straight through it, and it takes
      * what you were hiding behind on the way past.
      */

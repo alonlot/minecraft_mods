@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/iron_bars_post",
+  "textures": {
+    "particle": "hogwartsmagic:block/gringotts_gate",
+    "bars": "hogwartsmagic:block/gringotts_gate"
+  }
+}

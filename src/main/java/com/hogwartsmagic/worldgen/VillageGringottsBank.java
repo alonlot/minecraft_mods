@@ -96,6 +96,11 @@ public final class VillageGringottsBank {
      */
     private static final int SKIRT_LOWEST_Y_LIMIT = 8;
 
+    /** How far up the rotunda screen runs. The bars stop well below the cone roof. */
+    private static final int GATE_HEIGHT = 12;
+    /** A doorway is about twenty cells; the cap only exists so a leak cannot fill the room. */
+    private static final int GATE_DOORWAY_CAP = 120;
+
     /** Sink the base slightly so the ground floor meets the terrain. */
     private static final int FOUNDATION_SINK = 1;
 
@@ -138,6 +143,7 @@ public final class VillageGringottsBank {
                 // and the player who triggered the build is still within 72 blocks. If the wider
                 // footprint is not loaded yet the request records itself as pending and gets
                 // picked up the next time somebody walks past.
+                lockGate(finished, anchor);
                 startUndercroft(finished, anchor);
             }
         } catch (Exception e) {
@@ -153,6 +159,80 @@ public final class VillageGringottsBank {
      * every branch gets one - or gets a recorded refusal, if the terrain there cannot give the
      * descent enough room to work.
      */
+    /**
+     * Turns the rotunda screen into a gate, and fills the doorway in it.
+     *
+     * <p>The schematic draws the screen as ordinary iron bars with a gap on the hall centre line,
+     * and a gap is not a gate. Two passes: swap every bar of the rear screen for the goblin-forged
+     * block, then flood the doorway void with the same thing so there is something to open.
+     *
+     * <p>Both are found rather than measured. The screen is whatever iron bars stand within the
+     * rotunda box, and the doorway is whatever air is reachable from the gate line inside it - so a
+     * bank placed at any elevation, and a schematic somebody re-exports with the doorway one block
+     * wider, both come out right. A hard-coded rectangle would come out sideways in a wall.
+     */
+    private static void lockGate(ServerLevel level, BlockPos anchor) {
+        GringottsSchematic schem = GringottsSchematic.get();
+        if (schem == null) {
+            return;
+        }
+        GringottsLandmarks marks = GringottsLandmarks.of(schem);
+        if (marks == null || marks.gateX < 0) {
+            return;
+        }
+        BlockState gate = ExampleMod.GRINGOTTS_GATE.get().defaultBlockState();
+        int floorY = anchor.getY() + marks.islandY;
+
+        int swapped = 0;
+        for (BlockPos pos : BlockPos.betweenClosed(
+                new BlockPos(anchor.getX() + marks.gateX - 2, floorY - 1,
+                        anchor.getZ() + marks.minZ - 3),
+                new BlockPos(anchor.getX() + marks.maxX + 2, floorY + GATE_HEIGHT,
+                        anchor.getZ() + marks.maxZ + 3))) {
+            if (level.getBlockState(pos).is(Blocks.IRON_BARS)) {
+                level.setBlock(pos.immutable(), gate, Block.UPDATE_CLIENTS);
+                swapped++;
+            }
+        }
+
+        int filled = fillDoorway(level,
+                new BlockPos(anchor.getX() + marks.gateX, floorY + 1,
+                        anchor.getZ() + marks.islandZ),
+                gate, floorY);
+        LOGGER.info("Gringotts gate locked: {} bars replaced, {} cells of doorway filled",
+                swapped, filled);
+    }
+
+    /**
+     * Floods the doorway void with gate, staying inside the plane of the screen.
+     *
+     * <p>Confined to one X column on purpose: the screen is one block thick, and a flood that can
+     * step in X would pour out of the doorway and fill the rotunda behind it.
+     */
+    private static int fillDoorway(ServerLevel level, BlockPos seed, BlockState gate, int floorY) {
+        if (!level.getBlockState(seed).isAir()) {
+            return 0;
+        }
+        java.util.ArrayDeque<BlockPos> queue = new java.util.ArrayDeque<>();
+        java.util.Set<BlockPos> seen = new java.util.HashSet<>();
+        queue.add(seed);
+        seen.add(seed);
+        int filled = 0;
+        while (!queue.isEmpty() && filled < GATE_DOORWAY_CAP) {
+            BlockPos pos = queue.poll();
+            level.setBlock(pos, gate, Block.UPDATE_CLIENTS);
+            filled++;
+            for (BlockPos next : new BlockPos[]{pos.above(), pos.below(), pos.north(), pos.south()}) {
+                if (next.getY() < floorY || next.getY() > floorY + GATE_HEIGHT
+                        || !seen.add(next.immutable()) || !level.getBlockState(next).isAir()) {
+                    continue;
+                }
+                queue.add(next.immutable());
+            }
+        }
+        return filled;
+    }
+
     private static void startUndercroft(ServerLevel level, BlockPos anchor) {
         GringottsSchematic schem = GringottsSchematic.get();
         if (schem == null) {

@@ -145,6 +145,7 @@ public final class UndercroftBuilder {
                         .progress(job.site, WORK_DONE, 0L, UndercroftTracker.COMPLETE);
                 spawnCart(job.level, job.trackOrigin, job.site.depth);
                 spawnDragon(job.level, job.vaults.deepestChamberCentre());
+                spawnSentries(job.level, job.site.station, job.vaults);
                 com.hogwartsmagic.gringotts.GringottsAlarm.get(job.level)
                         .addRegion(job.site.station, FOOTPRINT_HALF);
                 announce(job.level, job.site.station);
@@ -198,6 +199,46 @@ public final class UndercroftBuilder {
         dragon.setPersistenceRequired();
         level.addFreshEntity(dragon);
         LOGGER.info("Ironbelly chained in front of the deepest vault at {}", where);
+    }
+
+    /**
+     * Stations the guards who make this a break-in rather than a tour.
+     *
+     * <p>Two on the platform, so the very first thing at the bottom of the lift is somebody who
+     * objects to you, and one standing in each of the shallower vaults. The deepest is left to the
+     * dragon: a guard in that room would be eaten, and would also be redundant.
+     *
+     * <p>They are {@code makeSentry} guards, which means hostile on sight and persistent - and
+     * which also means a player wearing a goblin walks straight past every one of them.
+     */
+    private static void spawnSentries(ServerLevel level, BlockPos stationTop, VaultCarver vaults) {
+        Vec3 platform = stationPlatform(stationTop);
+        int placed = 0;
+        for (int i = 0; i < 2; i++) {
+            placed += sentry(level, platform.add(i == 0 ? 1.5D : -1.5D, 0.0D, i == 0 ? 1.5D : -1.5D))
+                    ? 1 : 0;
+        }
+        for (int i = 0; i < vaults.vaultCount() - 1; i += 2) {
+            placed += sentry(level, vaults.chamberCentre(i).add(0.0D, 1.0D, 0.0D)) ? 1 : 0;
+        }
+        LOGGER.info("{} sentries stationed under the bank", placed);
+    }
+
+    private static boolean sentry(ServerLevel level, Vec3 where) {
+        com.hogwartsmagic.entity.GoblinGuardEntity guard =
+                com.hogwartsmagic.entity.ModEntities.GOBLIN_GUARD.get().create(level);
+        if (guard == null) {
+            return false;
+        }
+        guard.moveTo(where.x, where.y, where.z, 0.0F, 0.0F);
+        guard.makeGuard("Vault Sentry");
+        guard.makeSentry();
+        guard.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND,
+                new net.minecraft.world.item.ItemStack(
+                        com.hogwartsmagic.ExampleMod.GOBLIN_SILVER_DAGGER.get()));
+        guard.setDropChance(net.minecraft.world.entity.EquipmentSlot.MAINHAND, 0.15F);
+        level.addFreshEntity(guard);
+        return true;
     }
 
     private static void announce(ServerLevel level, BlockPos station) {

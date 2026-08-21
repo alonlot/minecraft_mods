@@ -131,8 +131,12 @@ public class GringottsVaultDoorBlockEntity extends BlockEntity {
 
         level.playSound(null, this.worldPosition, ModSounds.VAULT_DOOR_TOUCH.get(),
                 SoundSource.BLOCKS, 1.1F, 1.0F);
-        // Opening a vault is the moment the bank turns on you, which is the whole heist.
-        if (opener != null) {
+        // Opening a vault is the moment the bank turns on you, which is the whole heist - unless
+        // the hand on the door was a goblin's, in which case as far as the bank is concerned a
+        // goblin opened a vault, which is what goblins are for. Polyjuice is not a key here, it is
+        // the difference between a robbery and a withdrawal, and the Thief's Downfall halfway down
+        // the line is what stops that being a free pass to the deepest vaults.
+        if (opener != null && !com.hogwartsmagic.gringotts.GringottsDisguise.isGoblin(opener)) {
             com.hogwartsmagic.gringotts.GringottsAlarm alarm =
                     com.hogwartsmagic.gringotts.GringottsAlarm.get(level);
             alarm.raise(level, opener, this.worldPosition, 2, "gringotts.alarm.vault");

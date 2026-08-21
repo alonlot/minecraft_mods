@@ -624,5 +624,9 @@
   "entity.hogwartsmagic.ukrainian_ironbelly.freed": "The last chain gives, and it knows.",
   "gringotts.alarm.chest": "A bell starts somewhere above you.",
   "gringotts.alarm.vault": "The vault is open, and Gringotts knows it.",
-  "gringotts.alarm.cooled": "Gringotts has stopped looking for you."
+  "gringotts.alarm.cooled": "Gringotts has stopped looking for you.",
+  "block.hogwartsmagic.gringotts_gate": "Gringotts Gate",
+  "block.hogwartsmagic.gringotts_gate.locked": "The gate does not know you.",
+  "gringotts.alarm.gate": "The gate is being forced, and Gringotts heard it.",
+  "gringotts.alarm.trespass": "You are not supposed to be down here."
 }

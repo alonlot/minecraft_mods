@@ -118,6 +118,25 @@ public class ClientModEvents {
         private static BroomFlightSoundInstance broomFlightSound;
         private static GringottsCartSoundInstance cartRumbleSound;
         private static GringottsCartSoundInstance cartScreechSound;
+
+        /**
+         * The ride camera, and the most important comfort call in the whole feature.
+         *
+         * <p>The broom couples camera roll straight to its bank and gets away with it because a
+         * broom bank is over in a second. A cart on a helix holds twenty-five degrees for forty
+         * seconds, and coupling that straight through would pin the horizon at a permanent tilt,
+         * which is a textbook way to make somebody ill.
+         *
+         * <p>So the camera follows the <b>change</b> in bank instead: {@code cartRollWashed} chases
+         * the real bank with a two-second lag, and what the camera shows is mostly the gap between
+         * them plus a small steady residue. Entering a spiral you lurch to the cap, it washes out
+         * to about five degrees within two seconds, and leaving it you get an equal and opposite
+         * lurch. Turns get felt at their boundaries, which is how the inner ear actually works.
+         */
+        private static float cartRollWashed;
+        private static float cartCameraRoll;
+        /** Hard cap. Past about twenty degrees the horizon stops being a horizon. */
+        private static final float CART_ROLL_CAP = 18.0F;
         /** Client-tracked decaying counter for the boost FOV punch (ticks remaining of bonus FOV). */
         private static int boostFovPunchTicks = 0;
         /** Set in RenderLivingEvent.Pre so the Post handler knows whether it pushed a pose. */
@@ -364,7 +383,12 @@ public class ClientModEvents {
                 }
 
                 if (mc.player != null
-                        && mc.player.getVehicle() instanceof com.hogwartsmagic.entity.GringottsCartEntity) {
+                        && mc.player.getVehicle() instanceof com.hogwartsmagic.entity.GringottsCartEntity cart) {
+                    float bank = cart.displayRoll;
+                    cartRollWashed += (bank - cartRollWashed) * 0.035F;
+                    cartCameraRoll = net.minecraft.util.Mth.clamp(
+                            (bank - cartRollWashed) * 1.6F + bank * 0.18F,
+                            -CART_ROLL_CAP, CART_ROLL_CAP);
                     if (cartRumbleSound == null || cartRumbleSound.isStopped()) {
                         cartRumbleSound = new GringottsCartSoundInstance(mc.player, false);
                         mc.getSoundManager().play(cartRumbleSound);
@@ -374,6 +398,8 @@ public class ClientModEvents {
                         mc.getSoundManager().play(cartScreechSound);
                     }
                 } else {
+                    cartRollWashed = 0.0F;
+                    cartCameraRoll = 0.0F;
                     if (cartRumbleSound != null) {
                         if (!cartRumbleSound.isStopped()) {
                             mc.getSoundManager().stop(cartRumbleSound);
@@ -413,6 +439,15 @@ public class ClientModEvents {
 
         @SubscribeEvent
         public static void onComputeFov(net.minecraftforge.client.event.ComputeFovModifierEvent event) {
+            if (event.getPlayer().getVehicle()
+                    instanceof com.hogwartsmagic.entity.GringottsCartEntity cart) {
+                // Straight speed, not the broom's boost-punch: a cart is fast the whole way down
+                // and what you want is the tunnel widening under you, not a kick at the top.
+                double f = cart.getSpeed() / com.hogwartsmagic.entity.GringottsCartEntity.maxSpeed();
+                event.setNewFovModifier(1.0F + (float) (Math.max(0.0D, f) * 0.22D
+                        * com.hogwartsmagic.Config.CART_CAMERA_FOV.get()));
+                return;
+            }
             if (event.getPlayer().getVehicle() instanceof com.hogwartsmagic.entity.BroomEntity broom) {
                 // Determine horizontal speed
                 float horizontalSpeed = (float) broom.getDeltaMovement().horizontalDistance();
@@ -506,6 +541,11 @@ public class ClientModEvents {
         public static void onComputeCameraAngles(net.minecraftforge.client.event.ViewportEvent.ComputeCameraAngles event) {
             Minecraft mc = Minecraft.getInstance();
             if (mc.player == null) {
+                return;
+            }
+            if (mc.player.getVehicle() instanceof com.hogwartsmagic.entity.GringottsCartEntity) {
+                event.setRoll(event.getRoll()
+                        + cartCameraRoll * com.hogwartsmagic.Config.CART_CAMERA_ROLL.get().floatValue());
                 return;
             }
             if (!(mc.player.getVehicle() instanceof com.hogwartsmagic.entity.BroomEntity broom)) {

@@ -26,7 +26,10 @@ public class MagicBookLootModifier extends LootModifier {
             ResourceLocation.parse("minecraft:chests/stronghold_library"),
             ResourceLocation.parse("hogwartsmagic:chests/forbidden_ruin"),
             ResourceLocation.parse("hogwartsmagic:chests/death_eaters_hideout"),
-            ResourceLocation.parse("hogwartsmagic:chests/dueling_hall")
+            ResourceLocation.parse("hogwartsmagic:chests/dueling_hall"),
+            // The deep Gringotts vaults, which is the one table on this list that actually exists
+            // and is reached by something as involved as a relic deserves.
+            ResourceLocation.parse("hogwartsmagic:chests/gringotts_vault")
     );
 
     public static final MapCodec<MagicBookLootModifier> CODEC = RecordCodecBuilder.mapCodec(inst ->

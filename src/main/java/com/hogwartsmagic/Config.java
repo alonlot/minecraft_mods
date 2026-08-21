@@ -89,6 +89,16 @@ public final class Config {
             .comment("Travel speed of the shattered Horcrux soul apparition.")
             .defineInRange("horcruxSoulSpeed", 0.28, 0.05, 2.0);
 
+    public static final ForgeConfigSpec.DoubleValue CART_CAMERA_ROLL = BUILDER
+            .comment("How much the Gringotts cart rolls the camera in the corners. 0 disables it.",
+                    "The roll follows the CHANGE in bank rather than the bank itself, so a long",
+                    "spiral does not pin the horizon over at a constant angle for a minute.")
+            .defineInRange("cartCameraRoll", 1.0, 0.0, 1.0);
+
+    public static final ForgeConfigSpec.DoubleValue CART_CAMERA_FOV = BUILDER
+            .comment("How much the Gringotts cart widens the field of view with speed. 0 disables it.")
+            .defineInRange("cartCameraFov", 1.0, 0.0, 1.0);
+
     static final ForgeConfigSpec SPEC = BUILDER.build();
 
     public static double baseMaxMana = 100;

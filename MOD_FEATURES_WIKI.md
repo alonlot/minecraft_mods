@@ -889,6 +889,64 @@ Only one relic of each type can be equipped.
 
 - Swamp-oriented underwater gillyweed generation.
 
+### Gringotts
+
+The wizarding bank, and the only multi-level structure in the mod. Roughly one village in three gets
+a branch; `/findgringotts` locates the nearest, `/buildbank` forces one.
+
+**Above ground.** A banking hall with goblin tellers behind gold-plated counters who will trade
+Galleons, and guards on the floor who ignore you unless you give them a reason. Behind the counters
+is a rotunda closed off by a goblin-forged screen.
+
+**The gate.** The screen is a real gate, not a doorway. Polyjuiced into a goblin, a bare hand swings
+it open for eight seconds and nobody looks up; otherwise it is about twelve seconds a block with a
+pickaxe and the first swing brings every guard in the hall. Alohomora does not work on it, which is
+canon and also the hint.
+
+**The lift.** The rotunda island is a platform, not a stair head. Stand on the plinth and it takes
+you down the shaft to the cart station.
+
+**The ride.** A cart on a generated 3D spline, not vanilla rails, which is what lets it do sheer
+drops, banked spirals and switchbacks. Around 700 blocks of track descending 96 to 180 blocks
+depending on what the terrain above allows - a bank whose ground cannot give 96 gets no undercroft
+and stays a bank. About a minute end to end. **W** launches it, **S** brakes. The line audits itself
+at generation time for headroom, floor, gradient and self-intersection, so it is rideable end to end
+or it is not built.
+
+The corridor changes shape as it goes - enclosed bore, open ledge, trestle over the void, and
+galleries where something happens - and no one profile runs more than about forty blocks. The stone
+is banded by depth, from the bank's own dressed masonry at the top to raw blackstone at the bottom,
+and the lamps turn from iron lanterns to soul lanterns as you pass out of the bank and into the
+caves. Nothing is lit below the last ledge, which is what keeps the chasm floor invisible.
+
+**The vaults.** Seven of them, cut into the rock side of the line. A vault is a door, a throat and a
+chamber, so "the door is open" and "you have the gold" are two different moments. The door opens the
+way the films open one: a bare hand on the leaf, then ten seconds of touch, ripple, mechanism, bolts
+and parting. Opening one as yourself wakes the bank and starts a one-minute reseal; opening one as a
+goblin does not.
+
+**Set pieces.**
+
+- **Thief's Downfall** - a curtain across the line you cannot ride around. It strips Polyjuice, the
+  invisibility cloak and every potion effect, including the Fire Resistance you were relying on. It
+  does not touch item enchantments. It also destroys cursed gold, so the trap on the way in is the
+  cure on the way out.
+- **The Ukrainian Ironbelly** - chained in front of the deepest vault, half-blind and hunting by
+  hearing rather than by sight, so you can walk past it if you walk. **Clankers** cow it for five
+  seconds, and the same noise brings every goblin guard within thirty-two blocks. Break the last
+  anchor stub and it leaves.
+- **Gemino and Flagrante** - the deepest hoard is cursed. Standing on it multiplies it, carrying it
+  sets you alight and multiplies it in your pockets, and Fire Resistance does not help because it is
+  a curse rather than a fire. Drop it, get in water, or ride back through the Downfall.
+- **The chasm** - a stalactite cavern the whole descent spirals through, with waterfalls that fall
+  into the dark and never arrive.
+
+**Getting caught.** The bank keeps per-player heat from 0 to 4 within its own territory - opening
+vaults, forcing the gate, killing staff - which escalates from every guard in the region searching
+for you to squads sent to the way out, and decays a step every ten minutes you spend outside. Six
+sentries stand below ground and are hostile on sight, unlike the guards upstairs. All of them let a
+goblin walk past.
+
 ### Spawn Modifiers
 
 - Owl biome spawns.
@@ -954,5 +1012,9 @@ The mod includes advancement progression for:
 - Some spell behavior is split across several systems.
   Example: `Protego Maxima`, `Reparo`, `Alatus`, `Revelio`, and `Cave Inimicum` rely on event handlers, workbench logic, or block entities in addition to the spell enum.
 - Several decorative items and house-reveal items are mostly cosmetic or thematic rather than deep active mechanics.
+- The Gringotts undercroft is generated procedurally rather than pasted from a template, so no two
+  branches have the same descent; what is fixed is the sequence of rooms and the audit it has to
+  pass. It is dug across server ticks after the bank goes up, and picked up where it left off if the
+  server stops mid-dig.
 - This document describes what is implemented in the current codebase, even where the fantasy presentation is bigger than the underlying technical implementation.
 

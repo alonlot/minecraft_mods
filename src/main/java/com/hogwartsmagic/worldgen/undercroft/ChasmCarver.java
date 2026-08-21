@@ -55,6 +55,8 @@ public final class ChasmCarver {
     private final int floorY;
     private final double axisX;
     private final double axisZ;
+    /** Radius the falls sit at: inside the narrowest point, so every one of them is in open air. */
+    private final double fallRadius;
 
     public ChasmCarver(CartTrack track, UndercroftPalette palette) {
         this.track = track;
@@ -68,6 +70,12 @@ public final class ChasmCarver {
         Vec3 mid2 = track.positionAt(track.length() * 0.7D + halfTurn());
         this.axisX = (mid.x + mid2.x) * 0.5D;
         this.axisZ = (mid.z + mid2.z) * 0.5D;
+
+        double narrowest = Double.MAX_VALUE;
+        for (int y = this.topY; y >= this.floorY; y--) {
+            narrowest = Math.min(narrowest, radiusAt(y));
+        }
+        this.fallRadius = Math.max(3.0D, narrowest - 2.0D);
     }
 
     private double halfTurn() {
@@ -138,8 +146,13 @@ public final class ChasmCarver {
         if (y < this.topY - 6 && y > this.floorY + 3) {
             for (int i = 0; i < FALLS; i++) {
                 double a = i * (2.0D * Math.PI / FALLS) + 0.4D;
-                double fx = this.axisX + (radius - 0.6D) * Math.cos(a);
-                double fz = this.axisZ + (radius - 0.6D) * Math.sin(a);
+                // Fixed in WORLD space, not at a fixed angle from a radius that breathes. Tying a
+                // fall to the wall makes it wander in and out with the wall, and what you get is
+                // three blue lines zigzagging across the ledges rather than water falling. Held at
+                // one XZ inside the narrowest point of the chasm, each fall is a vertical column
+                // in open air the whole way down, which is the thing worth looking at.
+                double fx = this.axisX + this.fallRadius * Math.cos(a);
+                double fz = this.axisZ + this.fallRadius * Math.sin(a);
                 sink.set((int) Math.floor(fx), y, (int) Math.floor(fz), WATER);
             }
         }

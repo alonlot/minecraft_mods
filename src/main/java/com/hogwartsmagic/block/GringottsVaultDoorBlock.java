@@ -11,6 +11,7 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
 import net.minecraft.world.level.block.RenderShape;
@@ -23,6 +24,9 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.Shapes;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 import javax.annotation.Nullable;
 
@@ -35,6 +39,11 @@ import javax.annotation.Nullable;
  *
  * <p>The leaf is unminable on purpose. A vault you can take out with a pickaxe is not a vault, and
  * the whole of the rest of the chamber is sealed rock, so the door is the only way in either way.
+ *
+ * <p><b>{@code OPEN} means <em>parted</em>, not <em>opening</em>.</b> A parted cell is invisible,
+ * has no collision, blocks no light and cannot be clicked - it reads as gone. It is still a block,
+ * which is what lets the door pull itself shut again a minute later, and what keeps the block
+ * entity running the sequence alive while its own cell dissolves.
  */
 public class GringottsVaultDoorBlock extends BaseEntityBlock {
 
@@ -54,7 +63,34 @@ public class GringottsVaultDoorBlock extends BaseEntityBlock {
 
     @Override
     protected RenderShape getRenderShape(BlockState state) {
-        return RenderShape.MODEL;
+        return state.getValue(OPEN) ? RenderShape.INVISIBLE : RenderShape.MODEL;
+    }
+
+    @Override
+    protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos,
+                                  CollisionContext context) {
+        return state.getValue(OPEN) ? Shapes.empty() : Shapes.block();
+    }
+
+    @Override
+    protected VoxelShape getCollisionShape(BlockState state, BlockGetter level, BlockPos pos,
+                                           CollisionContext context) {
+        return state.getValue(OPEN) ? Shapes.empty() : Shapes.block();
+    }
+
+    @Override
+    protected VoxelShape getOcclusionShape(BlockState state, BlockGetter level, BlockPos pos) {
+        return state.getValue(OPEN) ? Shapes.empty() : Shapes.block();
+    }
+
+    @Override
+    protected int getLightBlock(BlockState state, BlockGetter level, BlockPos pos) {
+        return state.getValue(OPEN) ? 0 : 15;
+    }
+
+    @Override
+    protected boolean propagatesSkylightDown(BlockState state, BlockGetter level, BlockPos pos) {
+        return state.getValue(OPEN);
     }
 
     @Override

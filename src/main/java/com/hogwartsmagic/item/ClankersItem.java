@@ -1,12 +1,12 @@
 package com.hogwartsmagic.item;
 
+import com.hogwartsmagic.ModSounds;
 import com.hogwartsmagic.entity.GoblinGuardEntity;
 import com.hogwartsmagic.entity.HungarianHorntailEntity;
 import com.hogwartsmagic.entity.UkrainianIronbellyEntity;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
@@ -49,10 +49,8 @@ public class ClankersItem extends Item {
             return InteractionResultHolder.sidedSuccess(stack, level.isClientSide);
         }
 
-        server.playSound(null, player.blockPosition(), SoundEvents.CHAIN_PLACE, SoundSource.PLAYERS,
-                2.4F, 1.9F);
-        server.playSound(null, player.blockPosition(), SoundEvents.ANVIL_LAND, SoundSource.PLAYERS,
-                0.8F, 2.0F);
+        server.playSound(null, player.blockPosition(), ModSounds.CLANKERS_RING.get(),
+                SoundSource.PLAYERS, 2.4F, 1.0F);
 
         UkrainianIronbellyEntity.cowerNearby(server, player.position(), COWER_RANGE);
 

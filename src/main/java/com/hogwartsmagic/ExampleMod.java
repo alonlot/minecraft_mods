@@ -258,6 +258,9 @@ public class ExampleMod
                     BlockBehaviour.Properties.ofFullCopy(Blocks.IRON_BLOCK)
                             .strength(-1.0f, 3600000.0f)
                             .noLootTable()
+                            // The parted state is invisible and passable, so occlusion has to be
+                            // decided per state rather than baked in as "iron block, always solid".
+                            .noOcclusion()
                             .lightLevel(state -> state.hasProperty(
                                     com.hogwartsmagic.block.GringottsVaultDoorBlock.OPEN)
                                     && state.getValue(com.hogwartsmagic.block.GringottsVaultDoorBlock.OPEN) ? 7 : 0)));

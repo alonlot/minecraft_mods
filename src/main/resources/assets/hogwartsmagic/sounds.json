@@ -1240,5 +1240,149 @@
         "stream": false
       }
     ]
+  },
+  "vault_door.touch": {
+    "subtitle": "subtitles.hogwartsmagic.vault_door.touch",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:vault_door/touch",
+        "stream": false
+      }
+    ]
+  },
+  "vault_door.ripple": {
+    "subtitle": "subtitles.hogwartsmagic.vault_door.ripple",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:vault_door/ripple",
+        "stream": false
+      }
+    ]
+  },
+  "vault_door.cogs": {
+    "subtitle": "subtitles.hogwartsmagic.vault_door.cogs",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:vault_door/cogs",
+        "stream": false
+      }
+    ]
+  },
+  "vault_door.bolts": {
+    "subtitle": "subtitles.hogwartsmagic.vault_door.bolts",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:vault_door/bolts",
+        "stream": false
+      }
+    ]
+  },
+  "vault_door.open": {
+    "subtitle": "subtitles.hogwartsmagic.vault_door.open",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:vault_door/open",
+        "stream": false
+      }
+    ]
+  },
+  "vault_door.seal": {
+    "subtitle": "subtitles.hogwartsmagic.vault_door.seal",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:vault_door/seal",
+        "stream": false
+      }
+    ]
+  },
+  "cart.rumble": {
+    "subtitle": "subtitles.hogwartsmagic.cart.rumble",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:cart/rumble",
+        "stream": false
+      }
+    ]
+  },
+  "cart.screech": {
+    "subtitle": "subtitles.hogwartsmagic.cart.screech",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:cart/screech",
+        "stream": false
+      }
+    ]
+  },
+  "cart.launch": {
+    "subtitle": "subtitles.hogwartsmagic.cart.launch",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:cart/launch",
+        "stream": false
+      }
+    ]
+  },
+  "cart.brake": {
+    "subtitle": "subtitles.hogwartsmagic.cart.brake",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:cart/brake",
+        "stream": false
+      }
+    ]
+  },
+  "cart.slam": {
+    "subtitle": "subtitles.hogwartsmagic.cart.slam",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:cart/slam",
+        "stream": false
+      }
+    ]
+  },
+  "ironbelly.ambient": {
+    "subtitle": "subtitles.hogwartsmagic.ironbelly.ambient",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:ironbelly/ambient",
+        "stream": false
+      }
+    ]
+  },
+  "ironbelly.roar": {
+    "subtitle": "subtitles.hogwartsmagic.ironbelly.roar",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:ironbelly/roar",
+        "stream": false
+      }
+    ]
+  },
+  "ironbelly.cower": {
+    "subtitle": "subtitles.hogwartsmagic.ironbelly.cower",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:ironbelly/cower",
+        "stream": false
+      }
+    ]
+  },
+  "ironbelly.chain": {
+    "subtitle": "subtitles.hogwartsmagic.ironbelly.chain",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:ironbelly/chain",
+        "stream": false
+      }
+    ]
+  },
+  "clankers.ring": {
+    "subtitle": "subtitles.hogwartsmagic.clankers.ring",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:clankers/ring",
+        "stream": false
+      }
+    ]
   }
 }

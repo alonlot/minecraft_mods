@@ -188,6 +188,33 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> WILLOW_HURT = register("whomping_willow.hurt");
     public static final RegistryObject<SoundEvent> WILLOW_DEATH = register("whomping_willow.death");
 
+    // Gringotts vault door. Four beats that have to read as one mechanism, which is why they are
+    // four clips and not one: a finger on cold iron, the metal going liquid, the lock waking, the
+    // bolts, and the whole thing parting.
+    public static final RegistryObject<SoundEvent> VAULT_DOOR_TOUCH = register("vault_door.touch");
+    public static final RegistryObject<SoundEvent> VAULT_DOOR_RIPPLE = register("vault_door.ripple");
+    public static final RegistryObject<SoundEvent> VAULT_DOOR_COGS = register("vault_door.cogs");
+    public static final RegistryObject<SoundEvent> VAULT_DOOR_BOLTS = register("vault_door.bolts");
+    public static final RegistryObject<SoundEvent> VAULT_DOOR_OPEN = register("vault_door.open");
+    public static final RegistryObject<SoundEvent> VAULT_DOOR_SEAL = register("vault_door.seal");
+
+    // The cart. The rumble and the screech are looping instances driven client-side: the screech is
+    // keyed on curvature, so it is silent on straights and rises through every switchback, which is
+    // most of what makes a spiral sound like a spiral.
+    public static final RegistryObject<SoundEvent> CART_RUMBLE = register("cart.rumble");
+    public static final RegistryObject<SoundEvent> CART_SCREECH = register("cart.screech");
+    public static final RegistryObject<SoundEvent> CART_LAUNCH = register("cart.launch");
+    public static final RegistryObject<SoundEvent> CART_BRAKE = register("cart.brake");
+    public static final RegistryObject<SoundEvent> CART_SLAM = register("cart.slam");
+
+    // The Ukrainian Ironbelly. Old and sick rather than a boss -- the cower especially has to sound
+    // pitiable, or Clankers reads as winning a fight instead of as bullying something.
+    public static final RegistryObject<SoundEvent> IRONBELLY_AMBIENT = register("ironbelly.ambient");
+    public static final RegistryObject<SoundEvent> IRONBELLY_ROAR = register("ironbelly.roar");
+    public static final RegistryObject<SoundEvent> IRONBELLY_COWER = register("ironbelly.cower");
+    public static final RegistryObject<SoundEvent> IRONBELLY_CHAIN = register("ironbelly.chain");
+    public static final RegistryObject<SoundEvent> CLANKERS_RING = register("clankers.ring");
+
     private static RegistryObject<SoundEvent> register(String name) {
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, name);
         return SOUND_EVENTS.register(name, () -> SoundEvent.createVariableRangeEvent(id));

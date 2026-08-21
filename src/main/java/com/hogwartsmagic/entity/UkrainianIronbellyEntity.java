@@ -147,8 +147,8 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
         this.setTarget(null);
         this.lastHeardAt = null;
         if (this.level() instanceof ServerLevel server) {
-            server.playSound(null, blockPosition(), com.hogwartsmagic.ModSounds.HORNTAIL_HURT.get(),
-                    SoundSource.HOSTILE, 2.0F, 1.5F);
+            server.playSound(null, blockPosition(), com.hogwartsmagic.ModSounds.IRONBELLY_COWER.get(),
+                    SoundSource.HOSTILE, 2.4F, 1.0F);
             server.sendParticles(ParticleTypes.SMOKE, getX(), getY() + getBbHeight() * 0.6D, getZ(),
                     24, 1.2D, 0.8D, 1.2D, 0.02D);
         }
@@ -171,9 +171,23 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
         this.leavingTicks = LEAVING_TICKS;
         this.setTarget(null);
         if (this.level() instanceof ServerLevel server) {
-            server.playSound(null, blockPosition(), com.hogwartsmagic.ModSounds.HORNTAIL_ROAR.get(),
-                    SoundSource.HOSTILE, 6.0F, 0.7F);
+            server.playSound(null, blockPosition(), com.hogwartsmagic.ModSounds.IRONBELLY_ROAR.get(),
+                    SoundSource.HOSTILE, 6.0F, 1.0F);
         }
+    }
+
+    @Override
+    protected net.minecraft.sounds.SoundEvent getAmbientSound() {
+        return com.hogwartsmagic.ModSounds.IRONBELLY_AMBIENT.get();
+    }
+
+    /**
+     * Half again the Horntail's interval. It is old and it is not hunting - the long gaps are what
+     * make the cavern feel like somewhere something is sleeping rather than somewhere a boss waits.
+     */
+    @Override
+    public int getAmbientSoundInterval() {
+        return 180;
     }
 
     @Override
@@ -200,8 +214,8 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
                 setDeltaMovement(getDeltaMovement().add(back.x, 0.0D, back.z));
                 if (this.tickCount % 20 == 0 && this.level() instanceof ServerLevel server) {
                     server.playSound(null, blockPosition(),
-                            net.minecraft.sounds.SoundEvents.CHAIN_PLACE, SoundSource.HOSTILE,
-                            1.6F, 0.5F);
+                            com.hogwartsmagic.ModSounds.IRONBELLY_CHAIN.get(), SoundSource.HOSTILE,
+                            2.0F, 1.0F);
                 }
             }
         }

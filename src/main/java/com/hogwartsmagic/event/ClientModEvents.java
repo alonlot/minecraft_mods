@@ -73,6 +73,7 @@ import com.hogwartsmagic.spell.SpellType;
 import net.minecraftforge.network.PacketDistributor;
 import com.hogwartsmagic.network.SpellPackets;
 import com.hogwartsmagic.client.sounds.BroomFlightSoundInstance;
+import com.hogwartsmagic.client.sounds.GringottsCartSoundInstance;
 import org.lwjgl.glfw.GLFW;
 
 import javax.annotation.Nullable;
@@ -115,6 +116,8 @@ public class ClientModEvents {
 
         @Nullable
         private static BroomFlightSoundInstance broomFlightSound;
+        private static GringottsCartSoundInstance cartRumbleSound;
+        private static GringottsCartSoundInstance cartScreechSound;
         /** Client-tracked decaying counter for the boost FOV punch (ticks remaining of bonus FOV). */
         private static int boostFovPunchTicks = 0;
         /** Set in RenderLivingEvent.Pre so the Post handler knows whether it pushed a pose. */
@@ -358,6 +361,31 @@ public class ClientModEvents {
                         mc.getSoundManager().stop(broomFlightSound);
                     }
                     broomFlightSound = null;
+                }
+
+                if (mc.player != null
+                        && mc.player.getVehicle() instanceof com.hogwartsmagic.entity.GringottsCartEntity) {
+                    if (cartRumbleSound == null || cartRumbleSound.isStopped()) {
+                        cartRumbleSound = new GringottsCartSoundInstance(mc.player, false);
+                        mc.getSoundManager().play(cartRumbleSound);
+                    }
+                    if (cartScreechSound == null || cartScreechSound.isStopped()) {
+                        cartScreechSound = new GringottsCartSoundInstance(mc.player, true);
+                        mc.getSoundManager().play(cartScreechSound);
+                    }
+                } else {
+                    if (cartRumbleSound != null) {
+                        if (!cartRumbleSound.isStopped()) {
+                            mc.getSoundManager().stop(cartRumbleSound);
+                        }
+                        cartRumbleSound = null;
+                    }
+                    if (cartScreechSound != null) {
+                        if (!cartScreechSound.isStopped()) {
+                            mc.getSoundManager().stop(cartScreechSound);
+                        }
+                        cartScreechSound = null;
+                    }
                 }
 
                 if (mc.level instanceof net.minecraft.client.multiplayer.ClientLevel clientLevel) {

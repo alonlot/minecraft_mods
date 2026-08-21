@@ -1,5 +1,6 @@
 package com.hogwartsmagic.entity;
 
+import com.hogwartsmagic.ModSounds;
 import com.hogwartsmagic.worldgen.undercroft.CartTrack;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
@@ -7,7 +8,6 @@ import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
@@ -154,6 +154,26 @@ public class GringottsCartEntity extends Entity {
         return this.level().isClientSide ? this.entityData.get(DATA_SPEED) : this.v;
     }
 
+    /** Top speed, blocks per tick. Exposed so client audio can normalise against it. */
+    public static double maxSpeed() {
+        return V_MAX;
+    }
+
+    /**
+     * Curvature where the cart is now.
+     *
+     * <p>This is what the flange screech is keyed on rather than speed, and it is the difference
+     * between a ride that sounds like a spiral and one that sounds like a long straight tunnel: on
+     * a straight it is zero and the screech is silent, and it rises through every switchback.
+     */
+    public double getCurvature() {
+        CartTrack line = track();
+        if (line == null) {
+            return 0.0D;
+        }
+        return line.curvatureAt(this.level().isClientSide ? this.clientT : this.t);
+    }
+
     // ------------------------------------------------------------------ riding
 
     @Override
@@ -280,6 +300,12 @@ public class GringottsCartEntity extends Entity {
                 brake = Math.min(1.0D, -rider.zza) * BRAKE;
             }
         }
+        // Re-struck rather than looped: the clip is most of two seconds, so one every thirty ticks
+        // is continuous drag without the two ever overlapping into a drone.
+        if (brake > 0.0D && this.tickCount % 30 == 0 && this.level() instanceof ServerLevel s) {
+            s.playSound(null, blockPosition(), ModSounds.CART_BRAKE.get(), SoundSource.BLOCKS,
+                    1.1F, 1.0F);
+        }
 
         double gravity = -GRAVITY * tangent.y;
         double drag = -this.v * this.v * DRAG;
@@ -292,8 +318,8 @@ public class GringottsCartEntity extends Entity {
             this.v = 0.0D;
             setStateByte(STATE_ARRIVED);
             if (this.level() instanceof ServerLevel server) {
-                server.playSound(null, blockPosition(), SoundEvents.IRON_DOOR_CLOSE,
-                        SoundSource.BLOCKS, 1.0F, 0.6F);
+                server.playSound(null, blockPosition(), ModSounds.CART_SLAM.get(),
+                        SoundSource.BLOCKS, 1.4F, 1.0F);
             }
         }
     }
@@ -327,8 +353,8 @@ public class GringottsCartEntity extends Entity {
         setStateByte(STATE_RIDING);
         this.v = Math.max(this.v, V_FLOOR);
         if (this.level() instanceof ServerLevel server) {
-            server.playSound(null, blockPosition(), SoundEvents.CHAIN_PLACE, SoundSource.BLOCKS,
-                    1.3F, 0.6F);
+            server.playSound(null, blockPosition(), ModSounds.CART_LAUNCH.get(), SoundSource.BLOCKS,
+                    1.5F, 1.0F);
         }
     }
 

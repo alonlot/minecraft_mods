@@ -4,6 +4,8 @@ import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.entity.GoblinEntity;
 import com.hogwartsmagic.entity.GoblinGuardEntity;
 import com.hogwartsmagic.entity.ModEntities;
+import com.hogwartsmagic.worldgen.undercroft.GringottsLandmarks;
+import com.hogwartsmagic.worldgen.undercroft.UndercroftBuilder;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
@@ -128,12 +130,41 @@ public final class VillageGringottsBank {
                 tracker.addBank(job.locator());
                 announce(job.level, job.locator());
                 LOGGER.info("Gringotts bank complete at {}", job.locator());
+                ServerLevel finished = job.level;
+                BlockPos anchor = job.anchor;
                 activeJob = null;
+                // Straight on to the undercroft, while this is the best moment it will ever get:
+                // the bank's chunks are provably resident (we just wrote 21,000 blocks into them)
+                // and the player who triggered the build is still within 72 blocks. If the wider
+                // footprint is not loaded yet the request records itself as pending and gets
+                // picked up the next time somebody walks past.
+                startUndercroft(finished, anchor);
             }
         } catch (Exception e) {
             LOGGER.error("Gringotts placement failed; abandoning job", e);
             activeJob = null;
         }
+    }
+
+    /**
+     * Opens up whatever is under a branch that has just gone up.
+     *
+     * <p>A Gringotts with nothing beneath it is the thing this whole feature exists to stop, so
+     * every branch gets one - or gets a recorded refusal, if the terrain there cannot give the
+     * descent enough room to work.
+     */
+    private static void startUndercroft(ServerLevel level, BlockPos anchor) {
+        GringottsSchematic schem = GringottsSchematic.get();
+        if (schem == null) {
+            return;
+        }
+        GringottsLandmarks marks = GringottsLandmarks.of(schem);
+        if (marks == null) {
+            LOGGER.warn("Bank built, but its landmarks could not be read; no undercroft dug");
+            return;
+        }
+        BlockPos station = anchor.offset(marks.islandX, marks.islandY, marks.islandZ);
+        UndercroftBuilder.request(level, station);
     }
 
     /** Throttled per-player check; the village test reads POI data only. */

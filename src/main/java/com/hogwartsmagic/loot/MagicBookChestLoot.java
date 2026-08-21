@@ -40,6 +40,11 @@ public final class MagicBookChestLoot {
             SpellType.OBLIVIATE, SpellType.LEVICORPUS, SpellType.INCARCEROUS, SpellType.FIENDFYRE,
             SpellType.CAVE_INIMICUM
     };
+    private static final SpellType[] CHAMBER = {
+            SpellType.AVADA_KEDAVRA, SpellType.CRUCIO, SpellType.IMPERIO, SpellType.MORSMORDRE,
+            SpellType.FIENDFYRE, SpellType.SECTUMSEMPRA, SpellType.DOLOHOV_CURSE,
+            SpellType.TENEBRIS_FLIGHT, SpellType.OBLIVIATE, SpellType.PROTEGO_MAXIMA
+    };
     private static final SpellType[] NETHER_FIRE = {
             SpellType.INCENDIO, SpellType.CONFRINGO, SpellType.FIENDFYRE, SpellType.BOMBARDA,
             SpellType.STUPEFY, SpellType.EXPELLIARMUS, SpellType.DEPULSO
@@ -47,7 +52,11 @@ public final class MagicBookChestLoot {
     private static final SpellType[] STRONGHOLD_LIBRARY = {
             SpellType.ALOHOMORA, SpellType.REVELIO, SpellType.CONFUNDO, SpellType.WINGARDIUM_LEVIOSA,
             SpellType.ACCIO, SpellType.DEPULSO, SpellType.DIFFINDO, SpellType.PETRIFICUS_TOTALUS, SpellType.REPARO,
-            SpellType.CAVE_INIMICUM, SpellType.PROTEGO_MAXIMA, SpellType.EXPECTO_PATRONUM, SpellType.APPARITION
+            SpellType.CAVE_INIMICUM, SpellType.PROTEGO_MAXIMA, SpellType.EXPECTO_PATRONUM, SpellType.APPARITION,
+            // A castle-defence charm belongs with the other things written down in a fortified library,
+            // and keeping it out of the village pool stops a starting player animating a sentry before
+            // they have any reason to want one.
+            SpellType.PIERTOTUM_LOCOMOTOR
     };
     private static final SpellType[] DUNGEON_MIX = {
             SpellType.STUPEFY, SpellType.REVELIO, SpellType.LUMOS, SpellType.GLACIUS,
@@ -100,6 +109,11 @@ public final class MagicBookChestLoot {
         put("minecraft:chests/bastion_treasure", NETHER_FIRE);
         put("minecraft:chests/ruined_portal", NETHER_FIRE);
         put("minecraft:chests/nether_bridge", NETHER_FIRE);
+
+        // Salazar's own chamber. The darkest pool in the mod, minus Serpensortia itself -- that is
+        // the spell the door answers to, so a book for it inside the room it unlocks would only ever
+        // be found by someone who already had one.
+        put("hogwartsmagic:chests/chamber_of_secrets", CHAMBER);
 
         put("minecraft:chests/stronghold_library", STRONGHOLD_LIBRARY);
 

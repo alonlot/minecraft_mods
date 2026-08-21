@@ -224,6 +224,19 @@ public class ExampleMod
                     // easier to blow up than the deepslate it is copied from.
                     .strength(3.0f, 6.0f)
                     .lightLevel(state -> 7)));
+    // The Chamber of Secrets is meant to have exactly one way in, and a room you can tunnel into
+    // through its own wall has none. Hardness -1 with bedrock's blast resistance makes the shell and
+    // the door leaf genuinely unminable, so the Parseltongue lock is the only route past them. Both
+    // are plain blocks with no block entity: they only ever need to sit there and refuse.
+    public static final RegistryObject<Block> CHAMBER_STONE = BLOCKS.register("chamber_stone",
+            () -> new Block(BlockBehaviour.Properties.ofFullCopy(Blocks.POLISHED_DEEPSLATE)
+                    .strength(-1.0f, 3600000.0f)
+                    .noLootTable()));
+    public static final RegistryObject<Block> CHAMBER_DOOR_LEAF = BLOCKS.register("chamber_door_leaf",
+            () -> new Block(BlockBehaviour.Properties.ofFullCopy(Blocks.CHISELED_TUFF)
+                    .strength(-1.0f, 3600000.0f)
+                    .noLootTable()));
+
     // The lock at the centre of the Chamber of Secrets' round door. Strength is deliberately absurd:
     // the whole point is that it opens to Parseltongue and to nothing else, and a door you can take
     // out with a diamond pickaxe in four seconds is not a lock, it is a decoration.

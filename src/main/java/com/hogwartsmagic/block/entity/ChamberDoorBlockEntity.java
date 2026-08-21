@@ -1,8 +1,8 @@
 package com.hogwartsmagic.block.entity;
 
 import com.hogwartsmagic.ExampleMod;
-import com.hogwartsmagic.block.ChamberDoorBlock;
 import com.hogwartsmagic.ModSounds;
+import com.hogwartsmagic.block.ChamberDoorBlock;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.particles.BlockParticleOption;
@@ -15,27 +15,33 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
 /**
- * Runs the Chamber door opening, once, over about five seconds.
+ * Opens the Chamber door, once, as a serpent rather than as a demolition.
  *
- * <p>Two phases, because the door in the film does two distinct things: the ring of serpent bolts
- * retracts one bolt at a time, and only then does the leaf itself roll away. Doing both at once
- * removes the same blocks in the same time and reads as the door simply evaporating.
+ * <p>Three beats, in the order the film plays them. A snake of light wakes and runs a full circuit
+ * of the rim, and each of the seven bolts draws back as the head reaches it -- so the bolts retract
+ * in sequence around the ring rather than in scan order, and something visibly causes each one. Then
+ * the leaf unwinds: blocks are taken in <em>spiral</em> order, angle plus a turn per unit of radius,
+ * so the stone peels from the rim inward the way a coiled snake straightens. The lock goes last.
  *
- * <p>The leaf is found by scanning for tuff around the lock rather than by walking a hard-coded
- * circle. The jigsaw may place the Chamber at any of four rotations, and offsets baked in template
- * coordinates would sweep the door open through the wall in three of them.
+ * <p>Everything is driven from polar coordinates in the door's own plane, and that plane is measured
+ * rather than assumed. The jigsaw may place the Chamber at any of four rotations; the axis the leaf
+ * barely varies along is the one the door faces, and the other two are the ones an angle can be
+ * measured in. Hard-coded offsets would spiral the door open through the wall in three rotations out
+ * of four -- which is also why the leaf is found by scanning for its own block rather than by walking
+ * a circle out from here.
  */
 public class ChamberDoorBlockEntity extends BlockEntity {
     private static final int SEARCH = 7;
-    private static final int BOLT_EVERY = 6;        // ticks between bolts; there are seven of them
-    private static final int LEAF_START = 46;       // once the last bolt has gone
+    private static final int RIM_TICKS = 56;        // one circuit of the rim, about three seconds
     private static final int LEAF_PER_TICK = 3;
+    private static final double SPIRAL_TURNS = 1.6; // extra turns added across the leaf's radius
     private static final String TICKS_KEY = "OpenTicks";
 
     private int ticks = -1;                         // -1 idle, else ticks since the Parseltongue
@@ -44,6 +50,9 @@ public class ChamberDoorBlockEntity extends BlockEntity {
     private int boltsTaken;
     private int leafTaken;
     private boolean surveyed;
+
+    private int uAxis = 0, vAxis = 1;               // the two axes the door's plane is spanned by
+    private double maxRadius = 1.0;
 
     public ChamberDoorBlockEntity(BlockPos pos, BlockState state) {
         super(ExampleMod.CHAMBER_DOOR_BLOCK_ENTITY.get(), pos, state);
@@ -61,10 +70,36 @@ public class ChamberDoorBlockEntity extends BlockEntity {
         return true;
     }
 
-    /**
-     * Collect what is going to move: the bolts are the lightning rods standing in the rim, the leaf
-     * is every piece of tuff within reach of the lock.
-     */
+    // --- the door's own plane ----------------------------------------------------------------
+
+    private static int axis(BlockPos p, int a) {
+        return a == 0 ? p.getX() : a == 1 ? p.getY() : p.getZ();
+    }
+
+    /** Offset of a block from the lock, along the two axes the door lies in. */
+    private double[] plane(BlockPos p) {
+        return new double[]{axis(p, uAxis) - axis(worldPosition, uAxis),
+                            axis(p, vAxis) - axis(worldPosition, vAxis)};
+    }
+
+    private double angleOf(BlockPos p) {
+        double[] d = plane(p);
+        return Math.atan2(d[1], d[0]);
+    }
+
+    private double radiusOf(BlockPos p) {
+        double[] d = plane(p);
+        return Math.hypot(d[0], d[1]);
+    }
+
+    /** A point in the door's plane, for drawing the serpent, which has no blocks of its own. */
+    private Vec3 at(double angle, double radius) {
+        double[] c = {worldPosition.getX() + 0.5, worldPosition.getY() + 0.5, worldPosition.getZ() + 0.5};
+        c[uAxis] += radius * Math.cos(angle);
+        c[vAxis] += radius * Math.sin(angle);
+        return new Vec3(c[0], c[1], c[2]);
+    }
+
     private void survey(ServerLevel level) {
         bolts.clear();
         leaf.clear();
@@ -73,23 +108,17 @@ public class ChamberDoorBlockEntity extends BlockEntity {
             BlockState state = level.getBlockState(pos);
             if (state.is(Blocks.LIGHTNING_ROD)) {
                 bolts.add(pos.immutable());
-            } else if (state.is(Blocks.TUFF_BRICKS) || state.is(Blocks.POLISHED_TUFF)
-                    || state.is(Blocks.CHISELED_TUFF)) {
+            } else if (state.is(ExampleMod.CHAMBER_DOOR_LEAF.get())) {
                 leaf.add(pos.immutable());
             }
         }
 
-        // The door lies in a plane, and which plane depends on the rotation it was placed at. The
-        // axis the leaf barely varies along is the one it faces; the other two are the ones an angle
-        // can be measured in, so the leaf peels away in one unwinding sweep rather than in scan
-        // order, which would wipe it off in flat rows.
         int[] lo = {Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE};
         int[] hi = {Integer.MIN_VALUE, Integer.MIN_VALUE, Integer.MIN_VALUE};
         for (BlockPos pos : leaf) {
-            int[] d = {pos.getX(), pos.getY(), pos.getZ()};
             for (int a = 0; a < 3; a++) {
-                lo[a] = Math.min(lo[a], d[a]);
-                hi[a] = Math.max(hi[a], d[a]);
+                lo[a] = Math.min(lo[a], axis(pos, a));
+                hi[a] = Math.max(hi[a], axis(pos, a));
             }
         }
         int normal = 0;
@@ -98,15 +127,19 @@ public class ChamberDoorBlockEntity extends BlockEntity {
                 normal = a;
             }
         }
-        final int u = normal == 0 ? 1 : 0;
-        final int v = normal == 2 ? 1 : 2;
-        Comparator<BlockPos> unwind = Comparator.comparingDouble(pos -> {
-            int[] d = {pos.getX() - worldPosition.getX(), pos.getY() - worldPosition.getY(),
-                       pos.getZ() - worldPosition.getZ()};
-            return Math.atan2(d[v], d[u]);
-        });
-        leaf.sort(unwind);
-        bolts.sort(unwind);
+        uAxis = normal == 0 ? 1 : 0;
+        vAxis = normal == 2 ? 1 : 2;
+
+        maxRadius = 1.0;
+        for (BlockPos pos : leaf) {
+            maxRadius = Math.max(maxRadius, radiusOf(pos));
+        }
+        // Spiral order: angle, plus a whole turn for every fraction of the radius. Sorting by angle
+        // alone strips the door in flat wedges like a cut cake; the radius term makes the same blocks
+        // leave as one continuous curve running from the rim inward.
+        leaf.sort(Comparator.comparingDouble(pos ->
+                angleOf(pos) + 2.0 * Math.PI * SPIRAL_TURNS * (1.0 - radiusOf(pos) / maxRadius)));
+        bolts.sort(Comparator.comparingDouble(this::angleOf));
         surveyed = true;
     }
 
@@ -120,6 +153,20 @@ public class ChamberDoorBlockEntity extends BlockEntity {
         level.removeBlock(pos, false);
     }
 
+    /** The snake itself: a bright head with a tail of dimmer segments weaving behind it. */
+    private void drawSerpent(ServerLevel level, double angle, double radius) {
+        Vec3 head = at(angle, radius);
+        level.sendParticles(ParticleTypes.SCULK_SOUL, head.x, head.y, head.z, 4, 0.08, 0.08, 0.08, 0.005);
+        level.sendParticles(ParticleTypes.ENCHANT, head.x, head.y, head.z, 6, 0.15, 0.15, 0.15, 0.02);
+        for (int seg = 1; seg <= 7; seg++) {
+            // The tail lags in angle and weaves in and out across the rim, so the body reads as a
+            // snake following its head rather than as a comet's straight streak.
+            Vec3 body = at(angle - seg * 0.17, radius + 0.5 * Math.sin(seg * 0.9 - angle * 2.0));
+            level.sendParticles(ParticleTypes.COMPOSTER, body.x, body.y, body.z,
+                    seg < 4 ? 2 : 1, 0.05, 0.05, 0.05, 0.0);
+        }
+    }
+
     public static void tick(Level level, BlockPos pos, BlockState state, ChamberDoorBlockEntity door) {
         if (door.ticks < 0 || !(level instanceof ServerLevel server)) {
             return;
@@ -129,35 +176,51 @@ public class ChamberDoorBlockEntity extends BlockEntity {
         }
         door.ticks++;
 
-        if (door.ticks <= LEAF_START) {
-            int due = Math.min(door.bolts.size(), door.ticks / BOLT_EVERY);
-            while (door.boltsTaken < due) {
-                door.dissolve(server, door.bolts.get(door.boltsTaken++));
-                server.playSound(null, pos, SoundEvents.IRON_TRAPDOOR_OPEN, SoundSource.BLOCKS, 0.9F, 0.6F);
+        // Beat one: the snake runs the rim, and each bolt draws back as the head arrives at it.
+        if (door.ticks <= RIM_TICKS) {
+            double angle = -Math.PI + (double) door.ticks / RIM_TICKS * 2.0 * Math.PI;
+            door.drawSerpent(server, angle, door.maxRadius);
+            if (door.ticks % 9 == 0) {
+                server.playSound(null, pos, SoundEvents.SNIFFER_HAPPY, SoundSource.BLOCKS, 0.35F, 2.0F);
+            }
+            while (door.boltsTaken < door.bolts.size()
+                    && door.angleOf(door.bolts.get(door.boltsTaken)) <= angle) {
+                BlockPos bolt = door.bolts.get(door.boltsTaken++);
+                door.dissolve(server, bolt);
+                server.sendParticles(ParticleTypes.CRIT, bolt.getX() + 0.5, bolt.getY() + 0.5,
+                        bolt.getZ() + 0.5, 14, 0.25, 0.25, 0.25, 0.12);
+                server.playSound(null, bolt, SoundEvents.IRON_TRAPDOOR_OPEN, SoundSource.BLOCKS, 1.0F, 0.55F);
+                server.playSound(null, bolt, ModSounds.BASILISK_HISS_THREAT.get(), SoundSource.BLOCKS, 0.5F, 1.7F);
             }
             return;
         }
 
-        if (door.leafTaken >= door.leaf.size()) {
-            // The lock goes last, and goes too. It sits dead centre so a spell can reach it, which
-            // means leaving it behind would strand one block floating in the middle of an open
-            // doorway. Removing the block here discards this block entity, so nothing may touch
-            // `door` afterwards.
-            door.ticks = -1;
-            server.playSound(null, pos, SoundEvents.PISTON_EXTEND, SoundSource.BLOCKS, 1.4F, 0.5F);
-            door.dissolve(server, pos);
+        // Beat two: the leaf unwinds, the snake still leading the stone that is leaving.
+        if (door.leafTaken < door.leaf.size()) {
+            if (door.leafTaken == 0) {
+                server.playSound(null, pos, SoundEvents.ANCIENT_DEBRIS_BREAK, SoundSource.BLOCKS, 1.6F, 0.4F);
+            }
+            BlockPos lead = door.leaf.get(door.leafTaken);
+            door.drawSerpent(server, door.angleOf(lead), door.radiusOf(lead));
+            for (int i = 0; i < LEAF_PER_TICK && door.leafTaken < door.leaf.size(); i++) {
+                door.dissolve(server, door.leaf.get(door.leafTaken++));
+            }
+            if (door.leafTaken % 12 < LEAF_PER_TICK) {
+                server.playSound(null, pos, SoundEvents.STONE_BREAK, SoundSource.BLOCKS, 1.1F, 0.5F);
+            }
+            door.setChanged();
             return;
         }
-        if (door.leafTaken == 0) {
-            server.playSound(null, pos, SoundEvents.ANCIENT_DEBRIS_BREAK, SoundSource.BLOCKS, 1.5F, 0.4F);
-        }
-        for (int i = 0; i < LEAF_PER_TICK && door.leafTaken < door.leaf.size(); i++) {
-            door.dissolve(server, door.leaf.get(door.leafTaken++));
-        }
-        if (door.leafTaken % 12 < LEAF_PER_TICK) {
-            server.playSound(null, pos, SoundEvents.STONE_BREAK, SoundSource.BLOCKS, 1.0F, 0.5F);
-        }
-        door.setChanged();
+
+        // Beat three: the lock. It sits dead centre so a spell can reach it, which means leaving it
+        // behind would strand one block floating in an open doorway. Removing the block discards this
+        // block entity, so nothing may touch `door` after this.
+        door.ticks = -1;
+        server.sendParticles(ParticleTypes.SCULK_SOUL, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5,
+                40, 0.6, 0.6, 0.6, 0.05);
+        server.playSound(null, pos, SoundEvents.PISTON_EXTEND, SoundSource.BLOCKS, 1.5F, 0.45F);
+        server.playSound(null, pos, ModSounds.BASILISK_HISS_THREAT.get(), SoundSource.BLOCKS, 1.4F, 0.85F);
+        door.dissolve(server, pos);
     }
 
     @Override

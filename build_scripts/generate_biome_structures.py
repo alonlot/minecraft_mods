@@ -579,10 +579,9 @@ CAUSEWAY = [('minecraft:stone_bricks', 7), ('minecraft:mossy_stone_bricks', 4),
 # blended palette stops reading as stone and starts reading as a chessboard. Cobblestone was in here
 # and came out again: its texture is busy enough that at statue scale it read as damage, not stone.
 SERPENT = [('minecraft:polished_andesite', 15), ('minecraft:andesite', 2)]
-# Tuff, and tuff nowhere else in the build: the door's block entity locates its own leaf by
-# scanning for these, so anything else made of tuff nearby would be torn off with it.
-DOOR_LEAF = [('minecraft:tuff_bricks', 7), ('minecraft:polished_tuff', 4),
-             ('minecraft:chiseled_tuff', 2)]
+# The leaf and the shell are the mod's own unbreakable blocks. The leaf being its own block is what
+# lets the door's block entity find itself unambiguously; both being unminable is what makes the
+# Parseltongue lock the only way in rather than merely the polite way in.
 SERPENT_DARK = [('minecraft:deepslate', 5), ('minecraft:polished_deepslate', 3),
                 ('minecraft:blackstone', 2)]
 
@@ -901,9 +900,9 @@ def round_door(b, cx, cy, cz, r):
             d = math.hypot(x - cx, (y - cy) * 1.02)
             for z in range(cz, cz + 3):
                 if d <= r:
-                    put(b, (x, y, z), tex(DOOR_LEAF, x, y, z, 71))
+                    put(b, (x, y, z), 'hogwartsmagic:chamber_door_leaf')
                 elif d <= r + 1.9:
-                    put(b, (x, y, z), 'minecraft:chiseled_deepslate')
+                    put(b, (x, y, z), 'hogwartsmagic:chamber_stone')
 
     # Seven serpent bolts around the rim -- the lock the film opens with a hiss. They stand one block
     # proud of the leaf on the antechamber side, so they are the first thing seen and the first thing
@@ -936,9 +935,11 @@ def face_depth(x, y):
     a nose because it stands proud of the cheeks -- hit the clamp and came out flat. The base masses
     stay shallow enough that the features on top of them still have somewhere to go.
 
-    The skull is also narrower than it wants to be. Fitted to the wall it read as an egg with eyes;
-    Salazar is gaunt, and it is the beard flaring out well below a narrow face that makes the
-    silhouette his rather than a skull's.
+    Proportions were tuned by rendering, and by overshooting first. A wider skull read as an egg with
+    eyes; a hairline band drawn round the dome read as blotches rather than as hair, and came out
+    again. What actually makes it Salazar rather than a skull is the beard: it is the largest element
+    in the composition, it hangs from the chin all the way down to the dais, and the tone-drawn
+    strands are what stop it reading as one slab.
     """
     dx = abs(x - FACE_CX)
     d = 0.0
@@ -946,12 +947,12 @@ def face_depth(x, y):
     skull = (dx / 12.0) ** 2 + ((y - 23.0) / 7.5) ** 2      # cranium and temples
     if skull <= 1.0:
         d = max(d, 3.0 + 6.0 * math.sqrt(1.0 - skull))
-    jaw = (dx / 10.0) ** 2 + ((y - 19.0) / 6.5) ** 2        # cheeks and jaw, narrower still
+    jaw = (dx / 10.0) ** 2 + ((y - 19.0) / 6.5) ** 2        # cheeks and jaw
     if jaw <= 1.0:
         d = max(d, 3.0 + 5.0 * math.sqrt(1.0 - jaw))
 
-    if 3.0 <= y <= 16.5:                                    # beard, hung from the chin and flaring
-        half = 4.5 + 11.0 * math.sin(math.pi * min(1.0, (y - 2.0) / 15.5))
+    if 3.0 <= y <= 16.5:                                    # beard, hung from the chin to the dais
+        half = 4.5 + 10.0 * math.sin(math.pi * min(1.0, (y - 2.0) / 15.5))
         if dx <= half:
             lobe = 3.5 + 4.0 * math.sqrt(max(0.0, 1.0 - (dx / half) ** 2))
             d = max(d, lobe + 1.6 * math.sin(dx * 1.05))    # strands, cut along its length
@@ -970,11 +971,11 @@ def face_depth(x, y):
 def beard_strand(x, y):
     """True in the valley between two strands of the beard.
 
-    The strands are cut as depth, but depth alone is only visible if something shades it, and a
-    hall lit by four lanterns shades very little. Darkening the valleys draws the same lines in
-    tone, which reads from the far end of the causeway where the relief on its own does not.
+    The strands are cut as depth, but depth alone is only visible if something shades it, and a hall
+    lit by four lanterns shades very little. Darkening the valleys draws the same lines in tone,
+    which reads from the far end of the causeway where the relief on its own does not.
     """
-    return 3.0 <= y <= 16.5 and math.sin(abs(x - FACE_CX) * 1.05) < -0.45
+    return 3.0 <= y <= 16.5 and math.sin(abs(x - FACE_CX) * 1.75) < -0.80
 
 
 def slytherin_face(b, w, z_wall, salt):
@@ -982,25 +983,34 @@ def slytherin_face(b, w, z_wall, salt):
     for x in range(4, w - 4):
         for y in range(4, 29):
             d = int(round(face_depth(x, y)))
+            if d <= 0:                                  # flat wall, or a socket cut back into it
+                continue
             for z in range(max(z_wall - d + 1, z_wall - 13), z_wall + 1):
                 put(b, (x, y, z), tex(SERPENT, x, y, z, salt))
 
-    # Strand lines down the beard, and a dark seam under the moustache. Without the seam the face
-    # and the beard are one continuous pale mass and the whole thing reads as a skull.
+    # Strand lines down the beard. A dark seam was drawn under the moustache as well, to separate
+    # the face from the beard, and it had to come out: seventeen blocks of unbroken dark across the
+    # widest part of the head read as a bar laid over the statue, not as a shadow under a lip. The
+    # moustache already separates them in depth, which is the honest way to do it.
     for x in range(4, w - 4):
         for y in range(3, 18):
             d = int(round(face_depth(x, y)))
             if d <= 0:
                 continue
-            if beard_strand(x, y) or (y == 17 and abs(x - FACE_CX) <= 11):
-                for z in range(z_wall - d + 1, min(z_wall - d + 3, z_wall + 1)):
+            if beard_strand(x, y):
+                for z in range(z_wall - d + 1, min(z_wall - d + 2, z_wall + 1)):
                     put(b, (x, y, z), tex(SERPENT_DARK, x, y, z, salt + 2))
 
     # Eyes: sunk sockets with a lit core -- the one place in the hall where the stone looks back.
+    # Guarded to the skull mass, because the socket is a disc in its own right and without the guard
+    # it paints dark blocks onto bare wall wherever it overhangs the head, which reads as two ragged
+    # wings stuck to the sides of the face.
     for sx in (-1, 1):
         for x in range(4, w - 4):
             for y in range(20, 30):
-                if math.hypot(abs(x - FACE_CX) - 6.5, y - 24.2) <= 3.2:
+                dx = abs(x - FACE_CX)
+                on_skull = (dx / 12.0) ** 2 + ((y - 23.0) / 7.5) ** 2 <= 1.0
+                if on_skull and math.hypot(dx - 6.5, y - 24.2) <= 3.2:
                     for z in range(z_wall - 6, z_wall + 1):
                         put(b, (x, y, z), tex(SERPENT_DARK, x, y, z, salt + 1))
         put(b, (FACE_CX + sx * 7, 24, z_wall - 5), 'minecraft:sea_lantern')
@@ -1061,7 +1071,7 @@ def chamber_hall():
     fill(b, 0, 0, 0, W - 1, H - 1, D - 1, 'minecraft:deepslate_bricks')
     fill(b, 1, 1, 1, W - 2, H - 2, D - 2, 'minecraft:air')
     fill(b, 1, 14, 1, W - 2, H - 2, ANTE_Z, 'minecraft:deepslate_bricks')   # antechamber's low ceiling
-    fill(b, 1, 1, DOOR_Z - 1, W - 2, H - 2, DOOR_Z + 1, 'minecraft:deepslate_bricks')  # door bulkhead
+    fill(b, 1, 1, DOOR_Z - 1, W - 2, H - 2, DOOR_Z + 1, 'hogwartsmagic:chamber_stone')  # bulkhead
 
     fill_tex(b, 0, 0, 0, W - 1, 0, D - 1, CHAMBER_FLOOR, 31)
     for y in range(1, H - 1):
@@ -1130,8 +1140,13 @@ def chamber_hall():
             put(b, (x + dx, 1, z), 'minecraft:bone_block', {'axis': 'x' if i % 2 else 'z'})
         if i % 2 == 0:
             put(b, (x, 2, z), 'minecraft:skeleton_skull', {'rotation': str(4 * i % 16)})
-    chest(b, (FACE_CX - 11, WALK + 1, BAY_Z + 2), 'north', 'minecraft:chests/stronghold_library')
-    chest(b, (FACE_CX + 11, WALK + 1, BAY_Z + 2), 'north', 'minecraft:chests/simple_dungeon')
+    # Both on the dais, both on the Chamber's own table. This is the deepest, best-defended room
+    # in the mod and it was handing out vanilla stronghold loot.
+    chest(b, (FACE_CX - 11, WALK + 1, BAY_Z + 2), 'north', 'hogwartsmagic:chests/chamber_of_secrets')
+    chest(b, (FACE_CX + 11, WALK + 1, BAY_Z + 2), 'north', 'hogwartsmagic:chests/chamber_of_secrets')
+    # One in the antechamber, beside the shed skin, as a consolation for anyone who gets this
+    # far and cannot open the door.
+    chest(b, (6, 5, 12), 'east', 'minecraft:chests/stronghold_corridor')
 
     # Waterlog everything standing in the channels. Doing this in one pass at the end rather than
     # remembering it at each call site is deliberate: waterlogging is invisible while you are placing
@@ -1143,11 +1158,33 @@ def chamber_hall():
                 props['waterlogged'] = 'true'
                 b[pos] = (block, props, be)
 
+    # Seal it. The Chamber is meant to have exactly one way in, and a room you can tunnel into
+    # through its own wall has none. So the whole build gets wrapped in a skin of unbreakable chamber
+    # stone one block outside the masonry the player actually sees -- which is the point of wrapping
+    # rather than just hardening the walls: the visible stonework stays a weathered four-way blend,
+    # and the boundary that refuses a pickaxe is the buried layer nobody ever looks at.
+    sealed = {}
+    fill(sealed, 0, 0, 0, W + 1, H + 1, D + 1, 'hogwartsmagic:chamber_stone')
+    # Every cell of the old box is copied explicitly, defaulting to air, and the default is the whole
+    # point. Carving here is done with b.pop() -- the mouth shaft, the entrance pipe -- which leaves
+    # no entry at all rather than an air one. Copying only the entries that exist let the wrap's
+    # chamber stone stand in every hole that had been deliberately cut, so the basilisk's mouth and
+    # the one way into the Chamber both came out plugged with unbreakable stone.
+    for x in range(W):
+        for y in range(H):
+            for z in range(D):
+                sealed[(x + 1, y + 1, z + 1)] = b.get((x, y, z), ('minecraft:air', None, None))
+    # The entrance pipe has to come through the new skin too, or the one way in is sealed as well.
+    for y in range(5, 13):
+        for x in range(FACE_CX - 4, FACE_CX + 5):
+            if math.hypot(x - FACE_CX, (y - 8.5) * 1.15) <= 3.2:
+                sealed.pop((x + 1, y + 1, 0), None)
+
     # One basilisk, on the dais under the mouth it came out of. Baked rather than spawned: the hall
     # is a single boss encounter, and the structure's spawn overrides are empty so that nothing else
     # wanders in behind it.
-    return b, [entity(FACE_CX + 0.5, WALK + 1.0, BAY_Z + 0.5, 'hogwartsmagic:basilisk',
-                      {'PersistenceRequired': ('byte', 1)})]
+    return sealed, [entity(FACE_CX + 1.5, WALK + 2.0, BAY_Z + 1.5, 'hogwartsmagic:basilisk',
+                           {'PersistenceRequired': ('byte', 1)})]
 
 
 VAULT_WALL = [('minecraft:deepslate_bricks', 8), ('minecraft:cracked_deepslate_bricks', 3),
@@ -2967,6 +3004,57 @@ def audit(name, blocks):
 
     return problems
 
+UNBREAKABLE = {'hogwartsmagic:chamber_stone', 'hogwartsmagic:chamber_door_leaf'}
+
+
+def audit_chamber_seal(blocks, size):
+    """The Chamber claims exactly one way in. This is what checks the claim is true.
+
+    Two things have to hold, and neither is visible in a render. Every block on the outside of the
+    template must be unbreakable, or a player simply mines through the wall next to the door; and
+    air reachable from the pipe mouth must stop at the door, or the shut door is decorative because
+    the hall is open round the side of it. Both were wrong at some point during this build -- the
+    water channels used to start inside the bulkhead and flooded straight past a closed door.
+    """
+    problems = []
+    W, H, D = size
+
+    for x in range(W):
+        for y in range(H):
+            for z in range(D):
+                if not (x in (0, W - 1) or y in (0, H - 1) or z in (0, D - 1)):
+                    continue
+                block = blocks.get((x, y, z))
+                if block is None:
+                    if z != 0:                      # z=0 is the pipe mouth, and is meant to be open
+                        problems.append('hull is open to the world at %s' % ((x, y, z),))
+                elif block[0] not in UNBREAKABLE:
+                    problems.append('hull at %s is breakable %s' % ((x, y, z), block[0]))
+
+    # Flood the air a player can actually walk into, starting from the pipe mouth.
+    mouth = [(x, y, 0) for x in range(W) for y in range(H) if (x, y, 0) not in blocks]
+    seen, queue = set(mouth), list(mouth)
+    while queue:
+        x, y, z = queue.pop()
+        for dx, dy, dz in ((1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)):
+            n = (x + dx, y + dy, z + dz)
+            if n in seen or not all(0 <= n[i] < size[i] for i in range(3)):
+                continue
+            here = blocks.get(n)
+            if here is None or here[0] in ('minecraft:air', 'minecraft:water'):
+                seen.add(n)
+                queue.append(n)
+    beyond = max((p[2] for p in seen), default=0)
+    if beyond > 22:
+        problems.append('the shut door is bypassable: reachable air runs to z=%d' % beyond)
+    # And the opposite failure, which is the one that actually happened: if the way in is itself
+    # blocked, nothing is reachable, `beyond` is 0, and the check above passes while reporting that
+    # a sealed lump of rock is a working Chamber. A test that cannot fail is not a test.
+    if beyond < 18:
+        problems.append('the way in is blocked: reachable air stops at z=%d, short of the door' % beyond)
+    return problems
+
+
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'src', 'main', 'resources',
                    'data', 'hogwartsmagic', 'structure')
 
@@ -2982,6 +3070,8 @@ if __name__ == '__main__':
         size = [max(p[i] for p in blocks) + 1 for i in range(3)]
         problems = (audit(name, blocks) + audit_entities(blocks, entities, size)
                     + audit_paintings(blocks, entities))
+        if name == 'chamber_hall':
+            problems += audit_chamber_seal(blocks, size)
         path = os.path.join(OUT, name + '.nbt')
         write_nbt(path, build_template(blocks, entities))
         kinds = len({v[0] for v in blocks.values()})

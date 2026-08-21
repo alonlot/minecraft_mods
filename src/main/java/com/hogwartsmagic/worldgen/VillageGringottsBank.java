@@ -76,6 +76,24 @@ public final class VillageGringottsBank {
     /** How far a support skirt will reach down before giving up. */
     private static final int MAX_SKIRT_DEPTH = 48;
 
+    /**
+     * Highest schematic Y a column's lowest solid block may sit at and still be
+     * treated as that column's floor.
+     *
+     * <p>{@code lowestSolidY} is just the lowest non-air cell in the column, with
+     * no notion of whether it is something to stand on or something overhead. For
+     * a column that is open all the way up - the rotunda's ring void, or anything
+     * under a roof overhang or a spire - the lowest solid is the *ceiling*, and
+     * skirting from just beneath it fills the room itself with stone brick rather
+     * than propping up a floor. 46 columns in the rotunda alone have their lowest
+     * solid at y=26-27 (the quartz cone), which buried it under ~1,170 blocks;
+     * 354 columns across the whole build are above this limit.
+     *
+     * <p>The building's real floor is at y=0-2 everywhere it matters, so anything
+     * this high up is an overhang and wants no skirt at all.
+     */
+    private static final int SKIRT_LOWEST_Y_LIMIT = 8;
+
     /** Sink the base slightly so the ground floor meets the terrain. */
     private static final int FOUNDATION_SINK = 1;
 
@@ -384,7 +402,9 @@ public final class VillageGringottsBank {
             int end = Math.min(this.columnCursor + SKIRT_COLUMNS_PER_TICK, columns);
             for (; this.columnCursor < end; this.columnCursor++) {
                 int lowest = this.lowestSolidY[this.columnCursor];
-                if (lowest < 0) {
+                // lowest < 0: nothing in this column at all. Above the limit: what we
+                // found is a roof, not a floor - see SKIRT_LOWEST_Y_LIMIT.
+                if (lowest < 0 || lowest > SKIRT_LOWEST_Y_LIMIT) {
                     continue;
                 }
                 int x = this.anchor.getX() + (this.columnCursor % this.width);

@@ -52,13 +52,22 @@ public final class VaultCarver {
     private static final BlockState LAMP = Blocks.LANTERN.defaultBlockState()
             .setValue(BlockStateProperties.HANGING, Boolean.TRUE);
 
-    /** The hoard, richest first. Weighted by index so the top of a heap is the good stuff. */
-    private static final BlockState[] HOARD = {
-            Blocks.GOLD_BLOCK.defaultBlockState(),
-            Blocks.GOLD_BLOCK.defaultBlockState(),
-            Blocks.RAW_GOLD_BLOCK.defaultBlockState(),
-            Blocks.EMERALD_BLOCK.defaultBlockState(),
-    };
+    /**
+     * The body of a hoard: gold, and gold in shadow.
+     *
+     * <p>Emerald is <b>not</b> in here, and that is the fix rather than an omission. The first
+     * version mixed gold and emerald blocks one in four through the whole heap, and rendered it
+     * came out as a green-and-yellow chessboard - maximum hue contrast at one-block frequency,
+     * which is the exact failure the render skill puts on its list. Raw gold is the shadow tone
+     * because it is the same hue two steps darker, so the heap gets modelling instead of noise.
+     */
+    private static final BlockState[] HOARD = weighted(
+            Blocks.GOLD_BLOCK.defaultBlockState(), 10,
+            Blocks.RAW_GOLD_BLOCK.defaultBlockState(), 5);
+
+    /** Gems sit ON the coin, in ones and twos, which is where a jewel in a hoard actually is. */
+    private static final BlockState GEM = Blocks.EMERALD_BLOCK.defaultBlockState();
+    private static final double GEM_CHANCE = 0.18D;
 
     private static final ResourceLocation LOOT =
             ResourceLocation.fromNamespaceAndPath("hogwartsmagic", "chests/gringotts_vault");
@@ -149,6 +158,8 @@ public final class VaultCarver {
                         // would breed into rock it can never escape, and the top is what a foot
                         // comes down on anyway.
                         state = ExampleMod.GEMINO_PILE.get().defaultBlockState();
+                    } else if (v == stack && UndercroftPalette.hash(d, v, u, 79) < GEM_CHANCE) {
+                        state = GEM;
                     } else {
                         state = HOARD[(int) (UndercroftPalette.hash(d, v, u, 73) * HOARD.length)
                                 % HOARD.length];
@@ -189,6 +200,15 @@ public final class VaultCarver {
                 sink.set((int) Math.floor(p.x), (int) Math.floor(p.y), (int) Math.floor(p.z), leaf);
             }
         }
+        // A pair on the corridor side of the door. Without them a vault is a slightly different
+        // shade of black going past at thirty metres a second, and you never know it was there.
+        for (int i = -1; i <= 1; i += 2) {
+            Vec3 p = centre.add(out.scale(CLEAR - 1.0D)).add(across.scale(i * 2.0D))
+                    .add(up.scale(1.0D));
+            sink.set((int) Math.floor(p.x), (int) Math.floor(p.y), (int) Math.floor(p.z),
+                    Blocks.SOUL_LANTERN.defaultBlockState()
+                            .setValue(BlockStateProperties.HANGING, Boolean.TRUE));
+        }
     }
 
     private void chest(CarveSink sink, BlockPos pos) {
@@ -200,6 +220,23 @@ public final class VaultCarver {
 
     private static Vec3 cross(Vec3 a, Vec3 b) {
         return a.cross(b).normalize();
+    }
+
+    /** Expands {block, weight, block, weight, ...} into a flat pick table. */
+    private static BlockState[] weighted(Object... pairs) {
+        int total = 0;
+        for (int i = 1; i < pairs.length; i += 2) {
+            total += (Integer) pairs[i];
+        }
+        BlockState[] table = new BlockState[total];
+        int at = 0;
+        for (int i = 0; i < pairs.length; i += 2) {
+            BlockState state = (BlockState) pairs[i];
+            for (int n = 0; n < (Integer) pairs[i + 1]; n++) {
+                table[at++] = state;
+            }
+        }
+        return table;
     }
 
     /**

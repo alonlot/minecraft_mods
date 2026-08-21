@@ -174,7 +174,13 @@ public final class ChasmCarver {
                 // in open air the whole way down, which is the thing worth looking at.
                 double fx = this.axisX + this.fallRadius * Math.cos(a);
                 double fz = this.axisZ + this.fallRadius * Math.sin(a);
-                sink.set((int) Math.floor(fx), y, (int) Math.floor(fz), WATER);
+                // Two by two, not one. A single column seventy blocks long reads as a blue wire at
+                // any distance worth looking from, and distance is the entire job these are doing.
+                for (int ox = 0; ox <= 1; ox++) {
+                    for (int oz = 0; oz <= 1; oz++) {
+                        sink.set((int) Math.floor(fx) + ox, y, (int) Math.floor(fz) + oz, WATER);
+                    }
+                }
             }
         }
     }

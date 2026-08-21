@@ -19,29 +19,37 @@ public final class UndercroftPalette {
 
     /** {@code {block, weight}} pairs, resolved by a position hash. */
     private static final BlockState[] TRANSITION = weighted(
-            Blocks.STONE_BRICKS.defaultBlockState(), 6,
-            Blocks.CRACKED_STONE_BRICKS.defaultBlockState(), 3,
-            Blocks.ANDESITE.defaultBlockState(), 3,
-            Blocks.POLISHED_ANDESITE.defaultBlockState(), 2,
-            Blocks.GRANITE.defaultBlockState(), 1);
+            Blocks.STONE_BRICKS.defaultBlockState(), 12,
+            Blocks.CRACKED_STONE_BRICKS.defaultBlockState(), 6,
+            Blocks.ANDESITE.defaultBlockState(), 6,
+            Blocks.POLISHED_ANDESITE.defaultBlockState(), 4,
+            Blocks.TUFF.defaultBlockState(), 3,
+            Blocks.GRANITE.defaultBlockState(), 2);
 
     private static final BlockState[] UPPER = weighted(
-            Blocks.DEEPSLATE_BRICKS.defaultBlockState(), 8,
-            Blocks.CRACKED_DEEPSLATE_BRICKS.defaultBlockState(), 3,
-            Blocks.DEEPSLATE_TILES.defaultBlockState(), 3,
-            Blocks.POLISHED_DEEPSLATE.defaultBlockState(), 2);
+            Blocks.DEEPSLATE_BRICKS.defaultBlockState(), 16,
+            Blocks.CRACKED_DEEPSLATE_BRICKS.defaultBlockState(), 6,
+            Blocks.DEEPSLATE_TILES.defaultBlockState(), 6,
+            Blocks.POLISHED_DEEPSLATE.defaultBlockState(), 4,
+            Blocks.CHISELED_DEEPSLATE.defaultBlockState(), 2);
 
+    // Weights are scaled up rather than kept small so the ore can be genuinely rare. At one part in
+    // sixteen a gold seam is a rash; at one in fifty it is a glint you notice on the third pass,
+    // and it is worth having because you are boring through the rock a goblin bank was dug into.
     private static final BlockState[] MIDDLE = weighted(
-            Blocks.DEEPSLATE.defaultBlockState(), 6,
-            Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 3,
-            Blocks.BLACKSTONE.defaultBlockState(), 4,
-            Blocks.BASALT.defaultBlockState(), 2,
-            Blocks.GILDED_BLACKSTONE.defaultBlockState(), 1);
+            Blocks.DEEPSLATE.defaultBlockState(), 18,
+            Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 9,
+            Blocks.BLACKSTONE.defaultBlockState(), 12,
+            Blocks.BASALT.defaultBlockState(), 6,
+            Blocks.GILDED_BLACKSTONE.defaultBlockState(), 4,
+            Blocks.DEEPSLATE_GOLD_ORE.defaultBlockState(), 1);
 
     private static final BlockState[] DEEP = weighted(
-            Blocks.BLACKSTONE.defaultBlockState(), 7,
-            Blocks.BASALT.defaultBlockState(), 3,
-            Blocks.POLISHED_BLACKSTONE.defaultBlockState(), 2);
+            Blocks.BLACKSTONE.defaultBlockState(), 21,
+            Blocks.BASALT.defaultBlockState(), 9,
+            Blocks.POLISHED_BLACKSTONE.defaultBlockState(), 6,
+            Blocks.GILDED_BLACKSTONE.defaultBlockState(), 2,
+            Blocks.DEEPSLATE_GOLD_ORE.defaultBlockState(), 1);
 
     /** The cart deck. Dark, flat and quiet, so the rails on top of it read. */
     public static final BlockState DECK = Blocks.POLISHED_DEEPSLATE.defaultBlockState();

@@ -53,9 +53,11 @@ public final class UndercroftBuilder {
     private static final int WORK_CORRIDOR_SHELL = 2;
     private static final int WORK_CORRIDOR_VOID = 3;
     private static final int WORK_CORRIDOR_FURNISH = 4;
-    // Vaults last, so they cut their mouths into a corridor wall that already exists.
+    // Vaults next, so they cut their mouths into a corridor wall that already exists.
     private static final int WORK_VAULTS = 5;
-    private static final int WORK_DONE = 6;
+    // Light last of all, so nothing can overwrite a lantern with the rock it was hung on.
+    private static final int WORK_LIGHT = 6;
+    private static final int WORK_DONE = 7;
 
     @Nullable
     private static Job activeJob;
@@ -222,6 +224,7 @@ public final class UndercroftBuilder {
         private final CorridorCarver corridor;
         private final VaultCarver vaults;
 
+        private final LightCarver light;
         private final BlockPos trackOrigin;
         private int item;
         private long cursor;
@@ -245,6 +248,7 @@ public final class UndercroftBuilder {
             this.chasm = new ChasmCarver(track, palette);
             this.corridor = new CorridorCarver(track, palette);
             this.vaults = new VaultCarver(track, palette);
+            this.light = new LightCarver(track, palette, top.getY());
 
             this.item = site.workItem;
             this.cursor = site.cursor;
@@ -279,7 +283,13 @@ public final class UndercroftBuilder {
             if (item == WORK_CHASM) {
                 return this.chasm.stepCount();
             }
-            return item == WORK_VAULTS ? this.vaults.stepCount() : this.corridor.stepCount();
+            if (item == WORK_VAULTS) {
+                return this.vaults.stepCount();
+            }
+            if (item == WORK_LIGHT) {
+                return this.light.stepCount();
+            }
+            return this.corridor.stepCount();
         }
 
         private void carve(int item, int step) {
@@ -289,6 +299,8 @@ public final class UndercroftBuilder {
                 this.chasm.carveStep(this.sink, step);
             } else if (item == WORK_VAULTS) {
                 this.vaults.carveStep(this.sink, step);
+            } else if (item == WORK_LIGHT) {
+                this.light.carveStep(this.sink, this.corridor, step);
             } else if (item == WORK_CORRIDOR_SHELL) {
                 this.corridor.carveStep(this.sink, CorridorCarver.PASS_SHELL, step);
             } else if (item == WORK_CORRIDOR_VOID) {

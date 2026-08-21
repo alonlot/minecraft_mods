@@ -76,6 +76,11 @@ public final class UndercroftDump {
             vaults.carveStep(sink, step);
         }
 
+        LightCarver light = new LightCarver(track, palette, station.getY());
+        for (int step = 0; step < light.stepCount(); step++) {
+            light.carveStep(sink, carver, step);
+        }
+
         List<String> problems = audit(sink, track, carver);
         return write(outDir, name, sink.blocks(), problems);
     }

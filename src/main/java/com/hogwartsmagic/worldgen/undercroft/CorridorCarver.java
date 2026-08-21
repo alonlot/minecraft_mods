@@ -57,6 +57,23 @@ public final class CorridorCarver {
     private static final BlockState AIR = Blocks.AIR.defaultBlockState();
     private static final BlockState PARAPET = Blocks.DEEPSLATE_BRICK_WALL.defaultBlockState();
 
+    /**
+     * The two lines the wheels run on, and the sleepers under them.
+     *
+     * <p>The deck was one uniform block for its whole length, which made the single most-seen
+     * surface in the feature - the one directly under the rider for a minute - a flat grey sheet,
+     * and it is most of why the first look at this in game came back as "flat grey".
+     *
+     * <p>They are laid <b>flush</b> rather than proud. A raised rail would read better standing
+     * still and is not worth it: the running surface is what the ride audit measures headroom and
+     * support against, and putting collision back into the trackbed to win a little relief is how
+     * a corridor that passes every check becomes a corridor that derails the cart. Smooth stone is
+     * pale enough to read as worked metal against near-black deepslate and worthless enough that
+     * nobody strips a mile of it for the iron.
+     */
+    private static final BlockState RAIL = Blocks.SMOOTH_STONE.defaultBlockState();
+    private static final BlockState SLEEPER = Blocks.DEEPSLATE_TILES.defaultBlockState();
+
     /** Where the Downfall hangs, as a fraction of the line, and how thick the curtain is. */
     private static final double DOWNFALL_AT = 0.605D;
     private static final double DOWNFALL_THICK = 2.5D;
@@ -205,9 +222,9 @@ public final class CorridorCarver {
     private static final int SUBGRADE = 1;
 
     /** The deck sits two below the line, so the rider's eye is roughly on it. */
-    private static final int FLOOR = -2;
+    static final int FLOOR = -2;
 
-    private static int halfWidth(int profile) {
+    static int halfWidth(int profile) {
         if (profile == GALLERY) {
             return 5;
         }
@@ -217,7 +234,7 @@ public final class CorridorCarver {
         return 3;
     }
 
-    private static int ceilingHeight(int profile) {
+    static int ceilingHeight(int profile) {
         if (profile == GALLERY) {
             return 6;
         }
@@ -259,11 +276,24 @@ public final class CorridorCarver {
         return true;
     }
 
+    /** The dressed running surface: two stringers, sleepers across them, ballast between. */
+    private static BlockState deck(double u, double s) {
+        double au = Math.abs(u);
+        if (au >= 0.5D && au <= 1.5D) {
+            return RAIL;
+        }
+        if (Math.floorMod((int) Math.floor(s), 3) == 0 && au <= 2.5D) {
+            return SLEEPER;
+        }
+        return UndercroftPalette.DECK;
+    }
+
     /** Deck and parapet, or null for "leave it as air". Runs after everything else. */
     private BlockState furnish(int profile, double u, double v, double halfW, int openSide,
                                int x, int y, int z, double s) {
         if (v <= FLOOR + 0.5D && v >= FLOOR - SUBGRADE - 0.5D) {
-            return UndercroftPalette.DECK;
+            // Only the running surface is dressed; the subgrade under it stays plain ballast.
+            return Math.abs(v - FLOOR) <= 0.5D ? deck(u, s) : UndercroftPalette.DECK;
         }
         // The Thief's Downfall hangs right across the bore, so there is no way past it but through.
         // Above the deck only, or it would be laid into the trackbed.

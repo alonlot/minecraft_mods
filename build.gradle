@@ -103,6 +103,16 @@ minecraft {
     }
 }
 
+// Let the dev server read its console from stdin, so a headless run can be driven by
+// piping commands into it. Without this Gradle hands JavaExec an empty stream and the
+// server sits there with no way to ask it anything, which makes every in-game check a
+// manual client launch.
+tasks.matching { it.name == 'runServer' }.configureEach {
+    if (it instanceof JavaExec) {
+        it.standardInput = System.in
+    }
+}
+
 mixin {
     add sourceSets.main, "${mod_id}.refmap.json"
     config "${mod_id}.mixins.json"

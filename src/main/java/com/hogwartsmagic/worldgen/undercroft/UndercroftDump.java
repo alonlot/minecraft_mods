@@ -71,6 +71,11 @@ public final class UndercroftDump {
             }
         }
 
+        VaultCarver vaults = new VaultCarver(track, palette);
+        for (int step = 0; step < vaults.stepCount(); step++) {
+            vaults.carveStep(sink, step);
+        }
+
         List<String> problems = audit(sink, track, carver);
         return write(outDir, name, sink.blocks(), problems);
     }

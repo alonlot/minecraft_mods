@@ -249,6 +249,19 @@ public class ExampleMod
      * The plinth in the bank's rear rotunda, and its opposite number on the platform below it.
      * Strong but not unbreakable: it is somewhere you stand, not part of the shell.
      */
+    /**
+     * The leaf of a vault door. Unminable on purpose: a vault you can take out with a pickaxe is
+     * not a vault, and the rest of the chamber is sealed rock either way.
+     */
+    public static final RegistryObject<Block> GRINGOTTS_VAULT_DOOR = BLOCKS.register("gringotts_vault_door",
+            () -> new com.hogwartsmagic.block.GringottsVaultDoorBlock(
+                    BlockBehaviour.Properties.ofFullCopy(Blocks.IRON_BLOCK)
+                            .strength(-1.0f, 3600000.0f)
+                            .noLootTable()
+                            .lightLevel(state -> state.hasProperty(
+                                    com.hogwartsmagic.block.GringottsVaultDoorBlock.OPEN)
+                                    && state.getValue(com.hogwartsmagic.block.GringottsVaultDoorBlock.OPEN) ? 7 : 0)));
+
     public static final RegistryObject<Block> GRINGOTTS_LIFT = BLOCKS.register("gringotts_lift",
             () -> new com.hogwartsmagic.block.GringottsLiftBlock(
                     BlockBehaviour.Properties.ofFullCopy(Blocks.POLISHED_DEEPSLATE)
@@ -284,6 +297,11 @@ public class ExampleMod
             BLOCK_ENTITY_TYPES.register("chamber_door", () -> BlockEntityType.Builder.of(
                     com.hogwartsmagic.block.entity.ChamberDoorBlockEntity::new,
                     CHAMBER_DOOR.get()
+            ).build(null));
+    public static final RegistryObject<BlockEntityType<com.hogwartsmagic.block.entity.GringottsVaultDoorBlockEntity>> GRINGOTTS_VAULT_DOOR_BLOCK_ENTITY =
+            BLOCK_ENTITY_TYPES.register("gringotts_vault_door", () -> BlockEntityType.Builder.of(
+                    com.hogwartsmagic.block.entity.GringottsVaultDoorBlockEntity::new,
+                    GRINGOTTS_VAULT_DOOR.get()
             ).build(null));
     public static final RegistryObject<BlockEntityType<com.hogwartsmagic.block.entity.GringottsLiftBlockEntity>> GRINGOTTS_LIFT_BLOCK_ENTITY =
             BLOCK_ENTITY_TYPES.register("gringotts_lift", () -> BlockEntityType.Builder.of(

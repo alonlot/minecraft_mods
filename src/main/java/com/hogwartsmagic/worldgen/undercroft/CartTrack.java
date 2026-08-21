@@ -42,7 +42,7 @@ import net.minecraft.world.phys.Vec3;
 public final class CartTrack {
 
     /** Bump when the layout or the sampling changes, so old saves rebuild instead of misaligning. */
-    public static final int VERSION = 2;
+    public static final int VERSION = 3;
 
     /** Depth budget, station floor to chasm floor. Both ends measured; see the preview script. */
     public static final int DEPTH_MIN = 96;
@@ -474,12 +474,19 @@ public final class CartTrack {
     }
 
     /**
-     * Tangents, a rotation-minimising up vector, curvature and the geometric bank.
+     * Tangents, curvature, the geometric bank, and a frame anchored to world up.
      *
-     * <p>The frame is parallel-transported rather than taken from the curve's own normal. A Frenet
-     * normal flips through 180 degrees at every inflection point, which on this line - a descent
-     * made almost entirely of reversing arcs - would snap-roll the cart upside down several times
-     * per ride.
+     * <p><b>Not</b> a rotation-minimising frame, which is what this used to be and what cost a
+     * whole build. Parallel transport is the right answer for a ribbon in free space, but around a
+     * helix it precesses by very nearly a full turn per lap - so five laps in, "up" was pointing
+     * anywhere at all, and the audit reported frames like {@code (-0.04, -0.97, -0.25)}: the
+     * corridor was being carved upside down with its deck on the ceiling. Nothing caught it,
+     * because every check was using the same frame and so agreed with it perfectly.
+     *
+     * <p>A railway is not a ribbon in free space. Its up is the world's up, tilted by however much
+     * the track is deliberately banked - so that is how it is built here: a horizontal right vector
+     * from the tangent and world up, then both rolled about the tangent by the bank angle. The only
+     * degenerate case is a vertical tangent, and the layout is audited to stay under 1:2.
      */
     private void buildFrames() {
         int count = this.arc.length;
@@ -494,20 +501,7 @@ public final class CartTrack {
             this.tz[i] = (float) t.z;
         }
 
-        Vec3 up = new Vec3(0.0D, 1.0D, 0.0D);
-        for (int i = 0; i < count; i++) {
-            Vec3 t = new Vec3(this.tx[i], this.ty[i], this.tz[i]);
-            // Remove any component along the tangent, then renormalise: that is the transport.
-            Vec3 transported = up.subtract(t.scale(up.dot(t)));
-            if (transported.lengthSqr() < 1.0E-8D) {
-                transported = new Vec3(0.0D, 1.0D, 0.0D).subtract(t.scale(t.y));
-            }
-            up = transported.normalize();
-            this.ux[i] = (float) up.x;
-            this.uy[i] = (float) up.y;
-            this.uz[i] = (float) up.z;
-        }
-
+        // Curvature and bank first: the frame is rolled by the bank, so the bank has to exist.
         for (int i = 0; i < count; i++) {
             int a = Math.max(0, i - 2);
             int b = Math.min(count - 1, i + 2);
@@ -520,20 +514,39 @@ public final class CartTrack {
             }
             this.curvature[i] = (float) k;
 
-            // Sign the bank by which way the line is turning, using the horizontal cross product.
-            Vec3 ta = new Vec3(this.tx[a], 0.0D, this.tz[a]);
-            Vec3 tb = new Vec3(this.tx[b], 0.0D, this.tz[b]);
-            double turn = ta.x * tb.z - ta.z * tb.x;
+            Vec3 ha = new Vec3(this.tx[a], 0.0D, this.tz[a]);
+            Vec3 hb = new Vec3(this.tx[b], 0.0D, this.tz[b]);
+            double turn = ha.x * hb.z - ha.z * hb.x;
             double geometric = Math.toDegrees(Math.atan(
                     DESIGN_SPEED * DESIGN_SPEED * k / 20.0D));
             this.bank[i] = Mth.clamp((float) (turn < 0 ? geometric : -geometric),
                     -MAX_BANK_DEG, MAX_BANK_DEG);
         }
 
-        // One smoothing pass: curvature from finite differences is noisy, and the bank is what the
-        // camera follows, so noise in it is felt directly as jitter.
+        // Smooth before the frame reads it: curvature from finite differences is noisy, and a
+        // noisy bank is a corridor whose walls jitter and a camera that shivers.
         System.arraycopy(boxBlur(this.bank, 9), 0, this.bank, 0, count);
         System.arraycopy(boxBlur(this.curvature, 9), 0, this.curvature, 0, count);
+
+        Vec3 worldUp = new Vec3(0.0D, 1.0D, 0.0D);
+        for (int i = 0; i < count; i++) {
+            Vec3 t = new Vec3(this.tx[i], this.ty[i], this.tz[i]);
+            Vec3 right = t.cross(worldUp);
+            if (right.lengthSqr() < 1.0E-8D) {
+                right = new Vec3(1.0D, 0.0D, 0.0D);   // only if the line ever goes truly vertical
+            }
+            right = right.normalize();
+            Vec3 up = right.cross(t).normalize();
+
+            // Roll both about the tangent by the bank, so the rock leans the way the cart does.
+            double roll = Math.toRadians(this.bank[i]);
+            double cos = Math.cos(roll);
+            double sin = Math.sin(roll);
+            Vec3 rolledUp = up.scale(cos).add(right.scale(sin));
+            this.ux[i] = (float) rolledUp.x;
+            this.uy[i] = (float) rolledUp.y;
+            this.uz[i] = (float) rolledUp.z;
+        }
     }
 
     private static Vec3 normalise(double x, double y, double z) {

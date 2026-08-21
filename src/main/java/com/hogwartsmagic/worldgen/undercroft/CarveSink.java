@@ -1,6 +1,7 @@
 package com.hogwartsmagic.worldgen.undercroft;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
@@ -32,6 +33,16 @@ public interface CarveSink {
 
     /** How many blocks have actually been written. */
     int written();
+
+    /**
+     * Marks a chest to fill itself from a loot table the first time it is opened.
+     *
+     * <p>Deferred rather than rolled now, which is how every structure in this repo does it: the
+     * contents are then decided by the player's own luck at the moment they open it, and the carve
+     * does not have to hold an RNG it would have to keep deterministic.
+     */
+    default void setLoot(int x, int y, int z, ResourceLocation table) {
+    }
 
     // ---------------------------------------------------------------------------------
 
@@ -71,6 +82,16 @@ public interface CarveSink {
         public boolean isAir(int x, int y, int z) {
             this.cursor.set(x, y, z);
             return this.level.getBlockState(this.cursor).isAir();
+        }
+
+        @Override
+        public void setLoot(int x, int y, int z, ResourceLocation table) {
+            this.cursor.set(x, y, z);
+            if (this.level.getBlockEntity(this.cursor)
+                    instanceof net.minecraft.world.level.block.entity.RandomizableContainerBlockEntity box) {
+                box.setLootTable(net.minecraft.resources.ResourceKey.create(
+                        net.minecraft.core.registries.Registries.LOOT_TABLE, table), this.level.random.nextLong());
+            }
         }
 
         @Override

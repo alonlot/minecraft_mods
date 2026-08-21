@@ -819,6 +819,8 @@ public class ModEvents {
             // Give some villages a Gringotts branch the first time a player walks
             // into one. Self-throttling, and each village is only ever judged once.
             com.hogwartsmagic.worldgen.VillageGringottsBank.maybeBuild(player);
+            // Pick up any undercroft left half-dug by a restart or an unloaded chunk.
+            com.hogwartsmagic.worldgen.undercroft.UndercroftBuilder.maybeResume(player);
         } else if (event.side.isClient() && event.phase == net.minecraftforge.event.TickEvent.Phase.END) {
             Player player = event.player;
             com.hogwartsmagic.util.ClientSideBridge.onClientPlayerTick(
@@ -2851,6 +2853,8 @@ public class ModEvents {
             com.hogwartsmagic.worldgen.MiniHogwartsManager.tick(event.getServer());
             // Same for a Gringotts village branch going up.
             com.hogwartsmagic.worldgen.VillageGringottsBank.tick(event.getServer());
+            // ...and for the undercroft being dug out underneath one.
+            com.hogwartsmagic.worldgen.undercroft.UndercroftBuilder.tick(event.getServer());
         }
         if (event.phase != net.minecraftforge.event.TickEvent.Phase.END || ACTIVE_WIZARD_RAIDS.isEmpty()) {
             return;

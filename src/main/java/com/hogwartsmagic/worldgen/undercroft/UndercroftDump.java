@@ -58,6 +58,12 @@ public final class UndercroftDump {
         UndercroftPalette palette = new UndercroftPalette(station.getY());
         CarveSink.Template sink = new CarveSink.Template(0, station.getY() + 12);
 
+        // Same order the world build uses: void first, then the corridor lines itself against it.
+        ChasmCarver chasm = new ChasmCarver(track, palette);
+        for (int step = 0; step < chasm.stepCount(); step++) {
+            chasm.carveStep(sink, step);
+        }
+
         CorridorCarver carver = new CorridorCarver(track, palette);
         for (int pass = 0; pass < CorridorCarver.PASSES; pass++) {
             for (int step = 0; step < carver.stepCount(); step++) {

@@ -765,6 +765,7 @@ public class ExampleMod
         com.hogwartsmagic.command.GringottsLandmarksCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.CartTrackCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.UndercroftDumpCommand.register(event.getDispatcher());
+        com.hogwartsmagic.command.BuildUndercroftCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.SpawnMiniHogwartsCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.SummonHorntailCommand.register(event.getDispatcher());
     }

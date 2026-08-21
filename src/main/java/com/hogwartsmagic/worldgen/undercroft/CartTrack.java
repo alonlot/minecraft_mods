@@ -282,6 +282,21 @@ public final class CartTrack {
 
     // --- construction --------------------------------------------------------------------
 
+    /**
+     * The origin to build at so the line's first block lands exactly on {@code start}.
+     *
+     * <p>The spiral does not begin at its own origin - it begins an apron's length outside the
+     * first lap - so a track built straight at the foot of the shaft would start off in the rock.
+     * Probing once and subtracting is cheaper than threading an offset through the layout, and it
+     * leaves the layout free to move without anything else caring.
+     */
+    public static BlockPos originForStart(BlockPos start, int depth) {
+        CartTrack probe = build(BlockPos.ZERO, depth);
+        Vec3 first = probe.positionAt(0.0D);
+        return new BlockPos(start.getX() - (int) Math.round(first.x), start.getY(),
+                start.getZ() - (int) Math.round(first.z));
+    }
+
     /** Builds the line for a station at {@code origin} with {@code depth} blocks beneath it. */
     public static CartTrack build(BlockPos origin, int depth) {
         int clamped = Mth.clamp(depth, DEPTH_MIN, DEPTH_MAX);

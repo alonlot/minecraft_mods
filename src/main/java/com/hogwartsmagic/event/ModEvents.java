@@ -821,6 +821,11 @@ public class ModEvents {
             com.hogwartsmagic.worldgen.VillageGringottsBank.maybeBuild(player);
             // Pick up any undercroft left half-dug by a restart or an unloaded chunk.
             com.hogwartsmagic.worldgen.undercroft.UndercroftBuilder.maybeResume(player);
+            // Bleed off a thief's heat once they are out of the bank.
+            if (player.tickCount % 200 == 0) {
+                com.hogwartsmagic.gringotts.GringottsAlarm
+                        .get(player.serverLevel()).decay(player.serverLevel(), player);
+            }
         } else if (event.side.isClient() && event.phase == net.minecraftforge.event.TickEvent.Phase.END) {
             Player player = event.player;
             com.hogwartsmagic.util.ClientSideBridge.onClientPlayerTick(

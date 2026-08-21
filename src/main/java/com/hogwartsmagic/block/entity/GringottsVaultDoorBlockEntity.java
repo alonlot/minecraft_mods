@@ -73,7 +73,8 @@ public class GringottsVaultDoorBlockEntity extends BlockEntity {
         super(ExampleMod.GRINGOTTS_VAULT_DOOR_BLOCK_ENTITY.get(), pos, state);
     }
 
-    public boolean beginOpening(ServerLevel level, Vec3 touchedAt) {
+    public boolean beginOpening(ServerLevel level, Vec3 touchedAt,
+                                @javax.annotation.Nullable net.minecraft.server.level.ServerPlayer opener) {
         if (this.ticks >= 0 || getBlockState().getValue(GringottsVaultDoorBlock.OPEN)) {
             return false;
         }
@@ -89,6 +90,11 @@ public class GringottsVaultDoorBlockEntity extends BlockEntity {
         }
         level.playSound(null, this.worldPosition, SoundEvents.NETHERITE_BLOCK_HIT,
                 SoundSource.BLOCKS, 1.0F, 1.6F);
+        // Opening a vault is the moment the bank turns on you, which is the whole heist.
+        if (opener != null) {
+            com.hogwartsmagic.gringotts.GringottsAlarm.get(level)
+                    .raise(level, opener, this.worldPosition, 2, "gringotts.alarm.vault");
+        }
         setChanged();
         return true;
     }

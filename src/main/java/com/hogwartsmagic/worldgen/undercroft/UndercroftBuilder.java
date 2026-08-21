@@ -143,6 +143,8 @@ public final class UndercroftBuilder {
                         .progress(job.site, WORK_DONE, 0L, UndercroftTracker.COMPLETE);
                 spawnCart(job.level, job.trackOrigin, job.site.depth);
                 spawnDragon(job.level, job.vaults.deepestChamberCentre());
+                com.hogwartsmagic.gringotts.GringottsAlarm.get(job.level)
+                        .addRegion(job.site.station, FOOTPRINT_HALF);
                 announce(job.level, job.site.station);
                 LOGGER.info("Undercroft complete at {}: {} blocks written",
                         job.site.station, job.written);

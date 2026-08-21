@@ -98,7 +98,8 @@ public class GringottsVaultDoorBlock extends BaseEntityBlock {
             return InteractionResult.CONSUME;
         }
         if (level.getBlockEntity(pos) instanceof GringottsVaultDoorBlockEntity door) {
-            door.beginOpening(server, hit.getLocation());
+            door.beginOpening(server, hit.getLocation(),
+                    player instanceof net.minecraft.server.level.ServerPlayer p ? p : null);
         }
         return InteractionResult.CONSUME;
     }

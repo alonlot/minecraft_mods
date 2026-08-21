@@ -605,5 +605,8 @@
   "item.hogwartsmagic.clankers.tip": "Cows a chained Ironbelly. Everything else in earshot will come looking.",
   "item.hogwartsmagic.clankers.heard": "Every goblin within thirty yards heard that.",
   "entity.hogwartsmagic.ukrainian_ironbelly.chain": "A chain gives. %s still hold.",
-  "entity.hogwartsmagic.ukrainian_ironbelly.freed": "The last chain gives, and it knows."
+  "entity.hogwartsmagic.ukrainian_ironbelly.freed": "The last chain gives, and it knows.",
+  "gringotts.alarm.chest": "A bell starts somewhere above you.",
+  "gringotts.alarm.vault": "The vault is open, and Gringotts knows it.",
+  "gringotts.alarm.cooled": "Gringotts has stopped looking for you."
 }

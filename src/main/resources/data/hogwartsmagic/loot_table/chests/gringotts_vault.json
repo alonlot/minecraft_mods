@@ -116,6 +116,11 @@
           "type": "minecraft:item",
           "name": "minecraft:netherite_scrap",
           "weight": 2
+        },
+        {
+          "type": "minecraft:item",
+          "name": "hogwartsmagic:clankers",
+          "weight": 4
         }
       ]
     }

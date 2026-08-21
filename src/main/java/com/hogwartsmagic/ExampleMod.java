@@ -572,6 +572,11 @@ public class ExampleMod
 
     // --- Gringotts ---------------------------------------------------------
 
+    /** The goblins' noisemakers. Durability, not stack size: enough for a careful heist. */
+    public static final RegistryObject<Item> CLANKERS = ITEMS.register("clankers",
+            () -> new com.hogwartsmagic.item.ClankersItem(
+                    new Item.Properties().stacksTo(1).durability(24)));
+
     /**
      * Gold off a cursed hoard. It burns, and there is always more of it than there was.
      * Deliberately NOT a Galleon: no goblin will take it at face value.
@@ -740,7 +745,8 @@ public class ExampleMod
                 output.accept(GRINDYLOW_SPAWN_EGG.get()); // Grindylow Spawn Egg
                 output.accept(WHOMPING_WILLOW_SPAWN_EGG.get()); // Whomping Willow Spawn Egg
                 output.accept(GALLEON.get());
-                output.accept(CURSED_GALLEON.get()); // Galleon
+                output.accept(CURSED_GALLEON.get());
+                output.accept(CLANKERS.get()); // Galleon
                 output.accept(GOBLIN_SILVER_DAGGER.get()); // Goblin-Forged Silver Dagger
                 output.accept(MERPERSON_SPEAR.get()); // Merperson's Spear
                 output.accept(MERCHIEFTAINESS_CROWN.get()); // Merchieftainess's Crown

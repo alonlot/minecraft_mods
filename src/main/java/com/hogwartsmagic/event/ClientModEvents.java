@@ -775,6 +775,8 @@ public class ClientModEvents {
         event.registerEntityRenderer(ModEntities.HIPPOGRIFF.get(), HippogriffRenderer::new);
         event.registerEntityRenderer(ModEntities.FLYING_MOB.get(), FlyingMobRenderer::new);
         event.registerEntityRenderer(ModEntities.SPELL_BEAM.get(), SpellBeamRenderer::new);
+        event.registerEntityRenderer(ModEntities.UKRAINIAN_IRONBELLY.get(),
+                com.hogwartsmagic.client.renderer.UkrainianIronbellyRenderer::new);
         event.registerEntityRenderer(ModEntities.GRINGOTTS_CART.get(),
                 com.hogwartsmagic.client.GringottsCartRenderer::new);
         event.registerEntityRenderer(ModEntities.BROOM.get(), BroomRenderer::new);

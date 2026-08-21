@@ -8,6 +8,7 @@ import com.hogwartsmagic.entity.HippogriffEntity;
 import com.hogwartsmagic.entity.HungarianHorntailEntity;
 import com.hogwartsmagic.entity.MinatorEntity;
 import com.hogwartsmagic.entity.ModEntities;
+import com.hogwartsmagic.entity.UkrainianIronbellyEntity;
 import com.hogwartsmagic.entity.OwlEntity;
 import com.hogwartsmagic.entity.StudentEntity;
 import com.hogwartsmagic.entity.VoldemortEntity;
@@ -39,6 +40,8 @@ public class ModEntityAttributes {
         event.put(ModEntities.TROLL.get(), TrollEntity.createAttributes().build());
         event.put(ModEntities.GIANT.get(), com.hogwartsmagic.entity.GiantEntity.createAttributes().build());
         event.put(ModEntities.HUNGARIAN_HORNTAIL.get(), HungarianHorntailEntity.createAttributes().build());
+        event.put(ModEntities.UKRAINIAN_IRONBELLY.get(),
+                UkrainianIronbellyEntity.createIronbellyAttributes().build());
         event.put(ModEntities.LYCANTHROPE_VILLAGER.get(), LycanthropeVillagerEntity.createAttributes().build());
         event.put(ModEntities.GOLDEN_SNITCH.get(), com.hogwartsmagic.entity.GoldenSnitchEntity.createAttributes().build());
         event.put(ModEntities.GOBLIN.get(), com.hogwartsmagic.entity.GoblinEntity.createAttributes().build());
@@ -47,5 +50,6 @@ public class ModEntityAttributes {
         event.put(ModEntities.MERPERSON.get(), com.hogwartsmagic.entity.MerpersonEntity.createAttributes().build());
         event.put(ModEntities.GRINDYLOW.get(), com.hogwartsmagic.entity.GrindylowEntity.createAttributes().build());
         event.put(ModEntities.WHOMPING_WILLOW.get(), com.hogwartsmagic.entity.WhompingWillowEntity.createAttributes().build());
+        event.put(ModEntities.LIVING_STATUE.get(), com.hogwartsmagic.entity.LivingStatueEntity.createAttributes().build());
     }
 }

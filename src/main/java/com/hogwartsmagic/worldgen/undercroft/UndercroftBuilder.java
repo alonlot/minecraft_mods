@@ -142,6 +142,7 @@ public final class UndercroftBuilder {
                 UndercroftTracker.get(job.level)
                         .progress(job.site, WORK_DONE, 0L, UndercroftTracker.COMPLETE);
                 spawnCart(job.level, job.trackOrigin, job.site.depth);
+                spawnDragon(job.level, job.vaults.deepestChamberCentre());
                 announce(job.level, job.site.station);
                 LOGGER.info("Undercroft complete at {}: {} blocks written",
                         job.site.station, job.written);
@@ -179,6 +180,20 @@ public final class UndercroftBuilder {
         level.addFreshEntity(cart);
         LOGGER.info("Cart waiting at the head of the line, bound to {} depth {}",
                 trackOrigin, depth);
+    }
+
+    /** Puts the Ironbelly in front of the deepest vault, chained to the spot it stands on. */
+    private static void spawnDragon(ServerLevel level, Vec3 where) {
+        com.hogwartsmagic.entity.UkrainianIronbellyEntity dragon =
+                com.hogwartsmagic.entity.ModEntities.UKRAINIAN_IRONBELLY.get().create(level);
+        if (dragon == null) {
+            return;
+        }
+        dragon.moveTo(where.x, where.y, where.z, 0.0F, 0.0F);
+        dragon.setAnchor(BlockPos.containing(where));
+        dragon.setPersistenceRequired();
+        level.addFreshEntity(dragon);
+        LOGGER.info("Ironbelly chained in front of the deepest vault at {}", where);
     }
 
     private static void announce(ServerLevel level, BlockPos station) {

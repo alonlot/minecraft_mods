@@ -114,7 +114,11 @@ public final class VaultCarver {
         }
 
         // The deepest vault is the cursed one, which is where the films put it too.
-        furnish(sink, centre, out, up, step, step == AT.length - 1);
+        boolean cursed = step == AT.length - 1;
+        furnish(sink, centre, out, up, step, cursed);
+        if (cursed) {
+            chains(sink, centre, out, up);
+        }
         door(sink, centre, out, up);
     }
 
@@ -196,6 +200,42 @@ public final class VaultCarver {
 
     private static Vec3 cross(Vec3 a, Vec3 b) {
         return a.cross(b).normalize();
+    }
+
+    /**
+     * The four anchor stubs the Ironbelly is chained to, and the chains hanging over them.
+     *
+     * <p>They are the only breakable blocks in the room, which is the whole puzzle: everything else
+     * is unminable shell, so the one thing you CAN break is the one thing worth breaking.
+     */
+    private void chains(CarveSink sink, Vec3 centre, Vec3 out, Vec3 up) {
+        Vec3 across = cross(out, up);
+        for (int i = 0; i < 4; i++) {
+            int u = (i % 2 == 0) ? -HALF_W + 1 : HALF_W - 1;
+            int d = CLEAR + THROAT + ((i < 2) ? 3 : DEPTH - 2);
+            Vec3 foot = centre.add(out.scale(d)).add(across.scale(u)).add(up.scale(-1.0D));
+            int bx = (int) Math.floor(foot.x);
+            int by = (int) Math.floor(foot.y);
+            int bz = (int) Math.floor(foot.z);
+            sink.set(bx, by, bz, Blocks.LIGHTNING_ROD.defaultBlockState()
+                    .setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties
+                            .FACING, Direction.UP));
+            // Chain running up from each stub, so it reads as tethered rather than decorated.
+            for (int v = 1; v <= HEIGHT - 2; v++) {
+                sink.set(bx, by + v, bz, Blocks.CHAIN.defaultBlockState());
+            }
+        }
+    }
+
+    /** Middle of the deepest chamber, where the dragon stands. */
+    public Vec3 deepestChamberCentre() {
+        double s = this.track.length() * AT[AT.length - 1];
+        Vec3 centre = this.track.positionAt(s);
+        Vec3 up = this.track.upAt(s);
+        Vec3 right = this.track.rightAt(s);
+        double side = this.track.bankAt(s) < 0.0F ? 1.0D : -1.0D;
+        return centre.add(right.scale(side).scale(CLEAR + THROAT + DEPTH * 0.5D))
+                .add(up.scale(-1.0D));
     }
 
     /** Where each vault's door sits, for anything that needs to find them afterwards. */

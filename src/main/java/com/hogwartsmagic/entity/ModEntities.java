@@ -32,6 +32,19 @@ public class ModEntities {
      * The Gringotts cart. Tracked every tick like the broom, because at 31 m/s down a banked
      * spiral anything less is visibly steppy.
      */
+    /**
+     * The Ironbelly. Bigger than the Horntail it subclasses, and it never leaves the ground until
+     * somebody frees it.
+     */
+    public static final RegistryObject<EntityType<UkrainianIronbellyEntity>> UKRAINIAN_IRONBELLY =
+            ENTITY_TYPES.register("ukrainian_ironbelly",
+                    () -> EntityType.Builder.<UkrainianIronbellyEntity>of(
+                                    UkrainianIronbellyEntity::new, MobCategory.MONSTER)
+                            .sized(3.6f, 3.8f)
+                            .clientTrackingRange(16)
+                            .fireImmune()
+                            .build("ukrainian_ironbelly"));
+
     public static final RegistryObject<EntityType<GringottsCartEntity>> GRINGOTTS_CART =
             ENTITY_TYPES.register("gringotts_cart",
                     () -> EntityType.Builder.<GringottsCartEntity>of(GringottsCartEntity::new, MobCategory.MISC)

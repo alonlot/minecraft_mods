@@ -29,6 +29,10 @@ Not for block legality, blockstate validity or entity placement — those need a
 | Good for | layout, extent, "is anything in the wrong place" | **density, tone, visual weight, does it read** |
 | Blind to | how loud a texture is; slab/stair/fence shapes | nothing much |
 
+A block-type census is the third tool and often the fastest: dump the palette counts out of the
+`.nbt` and read them. "Fourteen light sources in the whole build" and "emerald is a quarter of the
+hoard" are one-line findings there and a long squint in either renderer.
+
 **Use the textured one before committing.** The flat one is a fast check while iterating; it cannot
 answer the question that matters most, for the reason in Common Mistakes below.
 
@@ -86,6 +90,11 @@ Every one of these survived a fully passing audit:
 | Rendering with the canopy or roof on | `--hide` / `hide=`. Anything overhead hides everything beneath it. |
 | Judging a detail from the whole-build view | `--crop` and raise `--cell`, or use `dist`. |
 | Guessing geometry from the picture | `--section` prints the actual blocks. |
+| **Reading `yaw`/`pitch` as degrees** | They are **radians** (defaults 0.7 and 0.55). `yaw=35` is a legal but arbitrary angle, not 35 degrees, and the shot comes out from nowhere useful. |
+| POSTing a Blob to `/save` | The endpoint expects the **data-URL string** from `canvas.toDataURL('image/png')`. A Blob body fails with `TypeError: Failed to fetch`. |
+| Driving the page before it is built | A 150k-cell structure takes the best part of a minute to mesh, and JS calls into the page time out while it does. Poll `window.__ready` (`'ok'` / `'error'`) rather than assuming the load is finished. |
+| Reloading the page to move the camera | `?yaw=&pitch=&dist=` re-fetches and re-meshes the whole structure. Define a helper once against `window.__renderer` / `window.__gl` / `window.glMatrix` and re-`drawStructure` with your own matrix — you can then pan to any point (`mat4.translate(m, m, [-cx, -cy, -cz])`), which the URL parameters cannot do at all. |
+| Judging a procedural build from one whole-build shot | Fly the camera to the parts. A 700-block descent renders to a thread at full extent; the failures live at arm's length. |
 | Assuming a magenta cube means a broken block | Usually it means a texture the model walk never finds: **block-entity renderers** (chest, sign, bed, banner, bell, decorated pot) keep textures under `entity/`, **fluids** have no model at all, and **explicit `minecraft:air`** has no blockstate. All three are handled; the page reports anything else in `__missing`. |
 | Trusting a "no missing textures" check that never fires | deepslate returns the atlas's *invalid-texture* UV on a miss, which is truthy. Test whether a blob was supplied, not whether a UV came back. |
 | Believing any render replaces the game | It catches composition and density. Standing in the build still catches more. |

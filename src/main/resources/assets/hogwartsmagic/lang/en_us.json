@@ -596,5 +596,8 @@
   "block.hogwartsmagic.gringotts_vault_door.hand": "It answers to a hand, not to what is in one.",
   "block.hogwartsmagic.thiefs_downfall": "Thief's Downfall",
   "block.hogwartsmagic.thiefs_downfall.washed": "The water takes everything you were hiding behind.",
-  "block.hogwartsmagic.thiefs_downfall.nothing": "The water finds nothing on you worth taking."
+  "block.hogwartsmagic.thiefs_downfall.nothing": "The water finds nothing on you worth taking.",
+  "block.hogwartsmagic.gemino_pile": "Cursed Hoard",
+  "item.hogwartsmagic.cursed_galleon": "Cursed Galleon",
+  "item.hogwartsmagic.cursed_galleon.spreading": "It is hot, and there is more of it than there was."
 }

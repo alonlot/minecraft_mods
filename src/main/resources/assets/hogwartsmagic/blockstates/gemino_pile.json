@@ -1,0 +1,28 @@
+{
+  "variants": {
+    "generation=0": {
+      "model": "hogwartsmagic:block/gemino_pile"
+    },
+    "generation=1": {
+      "model": "hogwartsmagic:block/gemino_pile"
+    },
+    "generation=2": {
+      "model": "hogwartsmagic:block/gemino_pile"
+    },
+    "generation=3": {
+      "model": "hogwartsmagic:block/gemino_pile"
+    },
+    "generation=4": {
+      "model": "hogwartsmagic:block/gemino_pile"
+    },
+    "generation=5": {
+      "model": "hogwartsmagic:block/gemino_pile"
+    },
+    "generation=6": {
+      "model": "hogwartsmagic:block/gemino_pile"
+    },
+    "generation=7": {
+      "model": "hogwartsmagic:block/gemino_pile"
+    }
+  }
+}

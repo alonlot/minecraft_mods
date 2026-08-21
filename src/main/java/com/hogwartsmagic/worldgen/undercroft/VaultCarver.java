@@ -113,12 +113,14 @@ public final class VaultCarver {
             }
         }
 
-        furnish(sink, centre, out, up, step);
+        // The deepest vault is the cursed one, which is where the films put it too.
+        furnish(sink, centre, out, up, step, step == AT.length - 1);
         door(sink, centre, out, up);
     }
 
     /** The hoard, a kerb to hold it, lanterns, and the chests. */
-    private void furnish(CarveSink sink, Vec3 centre, Vec3 out, Vec3 up, int step) {
+    private void furnish(CarveSink sink, Vec3 centre, Vec3 out, Vec3 up, int step,
+                         boolean cursed) {
         Vec3 across = cross(out, up);
         int back = CLEAR + THROAT + DEPTH - 1;
 
@@ -135,10 +137,18 @@ public final class VaultCarver {
                 }
                 for (int v = 1; v <= Math.min(stack, 4); v++) {
                     Vec3 p = centre.add(out.scale(d)).add(across.scale(u)).add(up.scale(v - 2.0D));
-                    BlockState state = v == 1 && stack == 1
-                            ? KERB
-                            : HOARD[(int) (UndercroftPalette.hash(d, v, u, 73) * HOARD.length)
-                                    % HOARD.length];
+                    BlockState state;
+                    if (v == 1 && stack == 1) {
+                        state = KERB;
+                    } else if (cursed && v >= stack - 1) {
+                        // Cursed only on the surface of the heap. Buried coin nobody can stand on
+                        // would breed into rock it can never escape, and the top is what a foot
+                        // comes down on anyway.
+                        state = ExampleMod.GEMINO_PILE.get().defaultBlockState();
+                    } else {
+                        state = HOARD[(int) (UndercroftPalette.hash(d, v, u, 73) * HOARD.length)
+                                % HOARD.length];
+                    }
                     sink.set((int) Math.floor(p.x), (int) Math.floor(p.y), (int) Math.floor(p.z),
                             state);
                 }

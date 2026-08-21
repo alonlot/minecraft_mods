@@ -266,6 +266,14 @@ public class ExampleMod
      * The Thief's Downfall. No collision - you ride and walk straight through it, and it takes
      * what you were hiding behind on the way past.
      */
+    /** A heap of cursed coin. Touch it and there is more of it. */
+    public static final RegistryObject<Block> GEMINO_PILE = BLOCKS.register("gemino_pile",
+            () -> new com.hogwartsmagic.block.GeminoPileBlock(
+                    BlockBehaviour.Properties.ofFullCopy(Blocks.GOLD_BLOCK)
+                            .strength(0.6f)
+                            .noOcclusion()
+                            .lightLevel(state -> 3)));
+
     public static final RegistryObject<Block> THIEFS_DOWNFALL = BLOCKS.register("thiefs_downfall",
             () -> new com.hogwartsmagic.block.ThiefsDownfallBlock(
                     BlockBehaviour.Properties.of()
@@ -564,6 +572,14 @@ public class ExampleMod
 
     // --- Gringotts ---------------------------------------------------------
 
+    /**
+     * Gold off a cursed hoard. It burns, and there is always more of it than there was.
+     * Deliberately NOT a Galleon: no goblin will take it at face value.
+     */
+    public static final RegistryObject<Item> CURSED_GALLEON = ITEMS.register("cursed_galleon",
+            () -> new Item(new Item.Properties().rarity(net.minecraft.world.item.Rarity.EPIC)
+                    .fireResistant()));
+
     /** Wizarding currency. Goblins exchange it against gold and mod goods. */
     public static final RegistryObject<Item> GALLEON = ITEMS.register("galleon",
             () -> new Item(new Item.Properties()));
@@ -723,7 +739,8 @@ public class ExampleMod
                 output.accept(MERPERSON_SPAWN_EGG.get()); // Merperson Spawn Egg
                 output.accept(GRINDYLOW_SPAWN_EGG.get()); // Grindylow Spawn Egg
                 output.accept(WHOMPING_WILLOW_SPAWN_EGG.get()); // Whomping Willow Spawn Egg
-                output.accept(GALLEON.get()); // Galleon
+                output.accept(GALLEON.get());
+                output.accept(CURSED_GALLEON.get()); // Galleon
                 output.accept(GOBLIN_SILVER_DAGGER.get()); // Goblin-Forged Silver Dagger
                 output.accept(MERPERSON_SPEAR.get()); // Merperson's Spear
                 output.accept(MERCHIEFTAINESS_CROWN.get()); // Merchieftainess's Crown

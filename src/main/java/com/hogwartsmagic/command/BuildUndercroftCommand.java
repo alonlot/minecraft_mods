@@ -41,7 +41,8 @@ public final class BuildUndercroftCommand {
                 .then(Commands.argument("station", BlockPosArgument.blockPos())
                         .executes(ctx -> run(ctx, BlockPosArgument.getLoadedBlockPos(ctx, "station"))))
                 .then(Commands.literal("status").executes(BuildUndercroftCommand::status))
-                .then(Commands.literal("verify").executes(BuildUndercroftCommand::verify)));
+                .then(Commands.literal("verify").executes(BuildUndercroftCommand::verify))
+                .then(Commands.literal("redig").executes(BuildUndercroftCommand::redig)));
     }
 
     private static int run(CommandContext<CommandSourceStack> ctx, @Nullable BlockPos explicit) {
@@ -75,6 +76,47 @@ public final class BuildUndercroftCommand {
         source.sendSuccess(() -> Component.literal(
                         "Digging the undercroft under " + station.toShortString() + ", "
                                 + depth + " blocks deep. Give it a few seconds.")
+                .withStyle(Style.EMPTY.withColor(ChatFormatting.GOLD)), true);
+        return 1;
+    }
+
+    /**
+     * Forgets the nearest undercroft so it can be dug again.
+     *
+     * <p>Needed because the carve is versioned in practice if not in name: change the layout or the
+     * frame and every undercroft already in the ground is the old shape, while the tracker still
+     * says complete and refuses to touch it. This does not undo the old carve - the new one is
+     * written straight over it.
+     */
+    private static int redig(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack source = ctx.getSource();
+        ServerLevel level = source.getLevel();
+        BlockPos from = BlockPos.containing(source.getPosition());
+        UndercroftTracker.Undercroft nearest = null;
+        double best = Double.MAX_VALUE;
+        for (UndercroftTracker.Undercroft candidate : UndercroftTracker.get(level).all()) {
+            double d = candidate.station.distSqr(from);
+            if (d < best) {
+                best = d;
+                nearest = candidate;
+            }
+        }
+        if (nearest == null) {
+            source.sendFailure(Component.literal("No undercroft recorded in this dimension."));
+            return 0;
+        }
+        final BlockPos station = nearest.station;
+        nearest.stage = UndercroftTracker.PENDING;
+        nearest.workItem = 0;
+        nearest.cursor = 0L;
+        UndercroftTracker.get(level).setDirty();
+        if (UndercroftBuilder.request(level, station) == null) {
+            source.sendFailure(Component.literal(
+                    "Marked for re-digging, but could not start yet. Stand nearer and retry."));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal(
+                        "Re-digging the undercroft under " + station.toShortString())
                 .withStyle(Style.EMPTY.withColor(ChatFormatting.GOLD)), true);
         return 1;
     }

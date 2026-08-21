@@ -720,6 +720,8 @@ public class ClientModEvents {
         event.registerLayerDefinition(HippogriffModel.LAYER_LOCATION, HippogriffModel::createBodyLayer);
         event.registerLayerDefinition(FlyingMobModel.LAYER_LOCATION, FlyingMobModel::createBodyLayer);
         event.registerLayerDefinition(BroomModel.LAYER_LOCATION, BroomModel::createBodyLayer);
+        event.registerLayerDefinition(com.hogwartsmagic.client.model.GringottsCartModel.LAYER,
+                com.hogwartsmagic.client.model.GringottsCartModel::createBodyLayer);
         event.registerLayerDefinition(com.hogwartsmagic.client.BroomModelV2.TRAINING_LAYER, com.hogwartsmagic.client.BroomModelV2::createTrainingLayer);
         event.registerLayerDefinition(com.hogwartsmagic.client.BroomModelV2.NIMBUS_LAYER, com.hogwartsmagic.client.BroomModelV2::createNimbusLayer);
         event.registerLayerDefinition(com.hogwartsmagic.client.BroomModelV2.FIREBOLT_LAYER, com.hogwartsmagic.client.BroomModelV2::createFireboltLayer);
@@ -748,6 +750,10 @@ public class ClientModEvents {
                 com.hogwartsmagic.client.model.GrindylowModel::createBodyLayer);
         event.registerLayerDefinition(com.hogwartsmagic.client.model.WhompingWillowModel.LAYER_LOCATION,
                 com.hogwartsmagic.client.model.WhompingWillowModel::createBodyLayer);
+        // Named LAYER, not LAYER_LOCATION like its neighbours -- the statue's model is emitted by
+        // build_scripts/generate_living_statue_model.py, which uses its own naming.
+        event.registerLayerDefinition(com.hogwartsmagic.client.LivingStatueModel.LAYER,
+                com.hogwartsmagic.client.LivingStatueModel::createBodyLayer);
     }
 
     @SubscribeEvent
@@ -769,6 +775,8 @@ public class ClientModEvents {
         event.registerEntityRenderer(ModEntities.HIPPOGRIFF.get(), HippogriffRenderer::new);
         event.registerEntityRenderer(ModEntities.FLYING_MOB.get(), FlyingMobRenderer::new);
         event.registerEntityRenderer(ModEntities.SPELL_BEAM.get(), SpellBeamRenderer::new);
+        event.registerEntityRenderer(ModEntities.GRINGOTTS_CART.get(),
+                com.hogwartsmagic.client.GringottsCartRenderer::new);
         event.registerEntityRenderer(ModEntities.BROOM.get(), BroomRenderer::new);
         event.registerEntityRenderer(ModEntities.WIZARD.get(), WizardRenderer::new);
         event.registerEntityRenderer(ModEntities.VOLDEMORT.get(), context -> new WizardRenderer<com.hogwartsmagic.entity.VoldemortEntity>(context));
@@ -802,6 +810,8 @@ public class ClientModEvents {
                 com.hogwartsmagic.client.renderer.GrindylowRenderer::new);
         event.registerEntityRenderer(ModEntities.WHOMPING_WILLOW.get(),
                 com.hogwartsmagic.client.renderer.WhompingWillowRenderer::new);
+        event.registerEntityRenderer(ModEntities.LIVING_STATUE.get(),
+                com.hogwartsmagic.client.LivingStatueRenderer::new);
 
         event.registerEntityRenderer(ModEntities.DARK_MARK.get(), DarkMarkRenderer::new);
         event.registerEntityRenderer(ModEntities.VOLDEMORT_SUMMONING.get(),

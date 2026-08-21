@@ -1,5 +1,7 @@
 package com.hogwartsmagic.worldgen.undercroft;
 
+import com.hogwartsmagic.ExampleMod;
+import com.hogwartsmagic.block.GringottsLiftBlock;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.Blocks;
@@ -63,6 +65,8 @@ public final class StationCarver {
         }
         int cx = this.top.getX();
         int cz = this.top.getZ();
+        boolean atTop = y == this.top.getY();
+        boolean atBottom = y == this.bottomY;
 
         for (int dx = -HALF - 1; dx <= HALF + 1; dx++) {
             for (int dz = -HALF - 1; dz <= HALF + 1; dz++) {
@@ -89,12 +93,20 @@ public final class StationCarver {
             sink.set(cx + cell[0], y + 2, cz + cell[1], LAMP);
         }
 
-        if (y == this.bottomY) {
+        if (atBottom) {
             for (int dx = -HALF; dx <= HALF; dx++) {
                 for (int dz = -HALF; dz <= HALF; dz++) {
                     sink.set(cx + dx, y, cz + dz, LANDING);
                 }
             }
+        }
+
+        // The plinth at each end. The lift finds its opposite number by searching the shaft for
+        // this block rather than by a fixed drop, so the two ends do not have to agree about how
+        // deep the shaft turned out to be.
+        if (atTop || atBottom) {
+            sink.set(cx, y, cz, ExampleMod.GRINGOTTS_LIFT.get().defaultBlockState()
+                    .setValue(GringottsLiftBlock.DESCENDS, atTop));
         }
     }
 

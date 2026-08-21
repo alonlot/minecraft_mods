@@ -588,5 +588,8 @@
   "block.hogwartsmagic.chamber_door": "Chamber Door",
   "block.hogwartsmagic.chamber_door.hiss": "The carved serpents stir. They are waiting to be spoken to.",
   "block.hogwartsmagic.chamber_stone": "Chamber Stone",
-  "block.hogwartsmagic.chamber_door_leaf": "Chamber Door Leaf"
+  "block.hogwartsmagic.chamber_door_leaf": "Chamber Door Leaf",
+  "block.hogwartsmagic.gringotts_lift": "Gringotts Lift",
+  "block.hogwartsmagic.gringotts_lift.stuck": "The mechanism grinds, and nothing moves. Whatever this was meant to reach is not there.",
+  "entity.hogwartsmagic.gringotts_cart": "Gringotts Cart"
 }

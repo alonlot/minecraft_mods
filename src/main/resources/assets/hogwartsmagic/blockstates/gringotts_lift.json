@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "descends=true": {
+      "model": "hogwartsmagic:block/gringotts_lift"
+    },
+    "descends=false": {
+      "model": "hogwartsmagic:block/gringotts_lift"
+    }
+  }
+}

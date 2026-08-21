@@ -139,6 +139,7 @@ public final class UndercroftBuilder {
             if (job.advance()) {
                 UndercroftTracker.get(job.level)
                         .progress(job.site, WORK_DONE, 0L, UndercroftTracker.COMPLETE);
+                spawnCart(job.level, job.trackOrigin, job.site.depth);
                 announce(job.level, job.site.station);
                 LOGGER.info("Undercroft complete at {}: {} blocks written",
                         job.site.station, job.written);
@@ -165,6 +166,19 @@ public final class UndercroftBuilder {
         }
     }
 
+    /** Leaves a cart standing on the platform, bound to the line that was just dug. */
+    private static void spawnCart(ServerLevel level, BlockPos trackOrigin, int depth) {
+        com.hogwartsmagic.entity.GringottsCartEntity cart =
+                com.hogwartsmagic.entity.ModEntities.GRINGOTTS_CART.get().create(level);
+        if (cart == null) {
+            return;
+        }
+        cart.bind(trackOrigin, depth);
+        level.addFreshEntity(cart);
+        LOGGER.info("Cart waiting at the head of the line, bound to {} depth {}",
+                trackOrigin, depth);
+    }
+
     private static void announce(ServerLevel level, BlockPos station) {
         MinecraftServer server = level.getServer();
         if (server == null) {
@@ -188,6 +202,7 @@ public final class UndercroftBuilder {
         private final ChasmCarver chasm;
         private final CorridorCarver corridor;
 
+        private final BlockPos trackOrigin;
         private int item;
         private long cursor;
         private int written;
@@ -205,6 +220,7 @@ public final class UndercroftBuilder {
             // wherever the spiral happens to begin relative to its own origin.
             BlockPos origin = CartTrack.originForStart(
                     new BlockPos(top.getX(), bottomY, top.getZ()), site.depth);
+            this.trackOrigin = origin;
             CartTrack track = CartTrack.build(origin, site.depth);
             this.chasm = new ChasmCarver(track, palette);
             this.corridor = new CorridorCarver(track, palette);

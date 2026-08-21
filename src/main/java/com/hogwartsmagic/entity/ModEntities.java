@@ -28,6 +28,19 @@ public class ModEntities {
                             .updateInterval(1) // send updates every tick for smoother client-side interpolation
                             .build("broom"));
 
+    /**
+     * The Gringotts cart. Tracked every tick like the broom, because at 31 m/s down a banked
+     * spiral anything less is visibly steppy.
+     */
+    public static final RegistryObject<EntityType<GringottsCartEntity>> GRINGOTTS_CART =
+            ENTITY_TYPES.register("gringotts_cart",
+                    () -> EntityType.Builder.<GringottsCartEntity>of(GringottsCartEntity::new, MobCategory.MISC)
+                            .sized(1.2f, 0.9f)
+                            .clientTrackingRange(12)
+                            .updateInterval(1)
+                            .fireImmune()
+                            .build("gringotts_cart"));
+
     public static final RegistryObject<EntityType<FiendfyreEntity>> FIENDFYRE =
             ENTITY_TYPES.register("fiendfyre",
                     () -> EntityType.Builder.<FiendfyreEntity>of(FiendfyreEntity::new, MobCategory.MISC)
@@ -252,4 +265,19 @@ public class ModEntities {
                             .sized(3.0F, 9.0F)
                             .clientTrackingRange(16)
                             .build("whomping_willow"));
+
+    // The box is the armour: 1.2 wide across the pauldrons, 2.9 tall to the crest. The halberd
+    // stands about half a block proud of that and is deliberately left outside the box -- widening
+    // it to cover the weapon would mean arrows that pass a foot over the helm still register as
+    // hits. Tracking range matches the troll's: it has to be rendered before you are inside
+    // WAKE_RADIUS, or the rise happens off-screen and the tell is wasted.
+    public static final RegistryObject<EntityType<LivingStatueEntity>> LIVING_STATUE =
+            ENTITY_TYPES.register("living_statue",
+                    () -> EntityType.Builder.<LivingStatueEntity>of(LivingStatueEntity::new, MobCategory.MONSTER)
+                            .sized(1.2F, 2.9F)
+                            .clientTrackingRange(12)
+                            // Stone does not burn, and a guardian standing over a ruin's hearth or
+                            // in a lava-lit chamber would otherwise cook itself to death unattended.
+                            .fireImmune()
+                            .build("living_statue"));
 }

@@ -245,6 +245,17 @@ public class ExampleMod
                     .strength(50.0f, 1200.0f)
                     .lightLevel(state -> state.hasProperty(com.hogwartsmagic.block.ChamberDoorBlock.OPEN)
                             && state.getValue(com.hogwartsmagic.block.ChamberDoorBlock.OPEN) ? 6 : 0)));
+    /**
+     * The plinth in the bank's rear rotunda, and its opposite number on the platform below it.
+     * Strong but not unbreakable: it is somewhere you stand, not part of the shell.
+     */
+    public static final RegistryObject<Block> GRINGOTTS_LIFT = BLOCKS.register("gringotts_lift",
+            () -> new com.hogwartsmagic.block.GringottsLiftBlock(
+                    BlockBehaviour.Properties.ofFullCopy(Blocks.POLISHED_DEEPSLATE)
+                            .strength(25.0f, 1200.0f)
+                            .lightLevel(state -> 4)
+                            .noLootTable()));
+
     public static final RegistryObject<Block> GRYFFINDOR_BANNER_BLOCK = BLOCKS.register("gryffindor_banner_block",
             () -> new Block(BlockBehaviour.Properties.ofFullCopy(Blocks.RED_WOOL)));
     public static final RegistryObject<Block> RAVENCLAW_BANNER_BLOCK = BLOCKS.register("ravenclaw_banner_block",
@@ -273,6 +284,11 @@ public class ExampleMod
             BLOCK_ENTITY_TYPES.register("chamber_door", () -> BlockEntityType.Builder.of(
                     com.hogwartsmagic.block.entity.ChamberDoorBlockEntity::new,
                     CHAMBER_DOOR.get()
+            ).build(null));
+    public static final RegistryObject<BlockEntityType<com.hogwartsmagic.block.entity.GringottsLiftBlockEntity>> GRINGOTTS_LIFT_BLOCK_ENTITY =
+            BLOCK_ENTITY_TYPES.register("gringotts_lift", () -> BlockEntityType.Builder.of(
+                    com.hogwartsmagic.block.entity.GringottsLiftBlockEntity::new,
+                    GRINGOTTS_LIFT.get()
             ).build(null));
     public static final RegistryObject<BlockEntityType<com.hogwartsmagic.block.entity.HorcruxBlockEntity>> HORCRUX_BLOCK_ENTITY =
             BLOCK_ENTITY_TYPES.register("horcrux", () -> BlockEntityType.Builder.of(

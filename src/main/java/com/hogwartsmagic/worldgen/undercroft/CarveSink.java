@@ -24,6 +24,17 @@ public interface CarveSink {
 
     boolean isAir(int x, int y, int z);
 
+    /**
+     * True if a cart could pass through this cell.
+     *
+     * <p>Not the same question as "is it air". The Thief's Downfall hangs right across the line on
+     * purpose and has no collision at all, so an audit that only asked about air would report the
+     * one set piece the ride is built to go through as a wall across it.
+     */
+    default boolean isPassable(int x, int y, int z) {
+        return isAir(x, y, z);
+    }
+
     /** True if this column is somewhere we may write at all. */
     boolean available(int x, int z);
 
@@ -95,6 +106,12 @@ public interface CarveSink {
         }
 
         @Override
+        public boolean isPassable(int x, int y, int z) {
+            this.cursor.set(x, y, z);
+            return !this.level.getBlockState(this.cursor).blocksMotion();
+        }
+
+        @Override
         public boolean available(int x, int z) {
             return this.level.hasChunkAt(this.cursor.set(x, this.floor, z));
         }
@@ -146,6 +163,12 @@ public interface CarveSink {
         public boolean isAir(int x, int y, int z) {
             BlockState state = this.blocks.get(new BlockPos(x, y, z));
             return state != null && state.isAir();
+        }
+
+        @Override
+        public boolean isPassable(int x, int y, int z) {
+            BlockState state = this.blocks.get(new BlockPos(x, y, z));
+            return state != null && !state.blocksMotion();
         }
 
         @Override

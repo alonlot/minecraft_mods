@@ -57,6 +57,10 @@ public final class CorridorCarver {
     private static final BlockState AIR = Blocks.AIR.defaultBlockState();
     private static final BlockState PARAPET = Blocks.DEEPSLATE_BRICK_WALL.defaultBlockState();
 
+    /** Where the Downfall hangs, as a fraction of the line, and how thick the curtain is. */
+    private static final double DOWNFALL_AT = 0.605D;
+    private static final double DOWNFALL_THICK = 2.5D;
+
     /** Which profiles each segment is allowed to use, in the order the line meets them. */
     private static final int[][] SEGMENT_PROFILES = {
             {GALLERY},                        // station apron
@@ -176,7 +180,8 @@ public final class CorridorCarver {
                             sink.set(bx, by, bz, AIR);
                         }
                     } else if (furnishZone) {
-                        BlockState furniture = furnish(profile, u, v, halfW, openSide, bx, by, bz);
+                        BlockState furniture =
+                                furnish(profile, u, v, halfW, openSide, bx, by, bz, s);
                         if (furniture != null) {
                             sink.set(bx, by, bz, furniture);
                         }
@@ -256,9 +261,15 @@ public final class CorridorCarver {
 
     /** Deck and parapet, or null for "leave it as air". Runs after everything else. */
     private BlockState furnish(int profile, double u, double v, double halfW, int openSide,
-                               int x, int y, int z) {
+                               int x, int y, int z, double s) {
         if (v <= FLOOR + 0.5D && v >= FLOOR - SUBGRADE - 0.5D) {
             return UndercroftPalette.DECK;
+        }
+        // The Thief's Downfall hangs right across the bore, so there is no way past it but through.
+        // Above the deck only, or it would be laid into the trackbed.
+        double downfallAt = this.track.length() * DOWNFALL_AT;
+        if (s >= downfallAt && s <= downfallAt + DOWNFALL_THICK && v > FLOOR + 0.5D) {
+            return com.hogwartsmagic.ExampleMod.THIEFS_DOWNFALL.get().defaultBlockState();
         }
         // A one-block parapet at the open edge, and only one block: two reads as a rampart and
         // hides the drop, which is the entire reason for being out on a ledge.

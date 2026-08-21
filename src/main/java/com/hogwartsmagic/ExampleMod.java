@@ -262,6 +262,20 @@ public class ExampleMod
                                     com.hogwartsmagic.block.GringottsVaultDoorBlock.OPEN)
                                     && state.getValue(com.hogwartsmagic.block.GringottsVaultDoorBlock.OPEN) ? 7 : 0)));
 
+    /**
+     * The Thief's Downfall. No collision - you ride and walk straight through it, and it takes
+     * what you were hiding behind on the way past.
+     */
+    public static final RegistryObject<Block> THIEFS_DOWNFALL = BLOCKS.register("thiefs_downfall",
+            () -> new com.hogwartsmagic.block.ThiefsDownfallBlock(
+                    BlockBehaviour.Properties.of()
+                            .mapColor(net.minecraft.world.level.material.MapColor.WATER)
+                            .noCollission()
+                            .noOcclusion()
+                            .strength(-1.0f, 3600000.0f)
+                            .noLootTable()
+                            .lightLevel(state -> 7)));
+
     public static final RegistryObject<Block> GRINGOTTS_LIFT = BLOCKS.register("gringotts_lift",
             () -> new com.hogwartsmagic.block.GringottsLiftBlock(
                     BlockBehaviour.Properties.ofFullCopy(Blocks.POLISHED_DEEPSLATE)

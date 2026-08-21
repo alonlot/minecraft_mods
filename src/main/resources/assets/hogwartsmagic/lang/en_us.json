@@ -593,5 +593,8 @@
   "block.hogwartsmagic.gringotts_lift.stuck": "The mechanism grinds, and nothing moves. Whatever this was meant to reach is not there.",
   "entity.hogwartsmagic.gringotts_cart": "Gringotts Cart",
   "block.hogwartsmagic.gringotts_vault_door": "Gringotts Vault Door",
-  "block.hogwartsmagic.gringotts_vault_door.hand": "It answers to a hand, not to what is in one."
+  "block.hogwartsmagic.gringotts_vault_door.hand": "It answers to a hand, not to what is in one.",
+  "block.hogwartsmagic.thiefs_downfall": "Thief's Downfall",
+  "block.hogwartsmagic.thiefs_downfall.washed": "The water takes everything you were hiding behind.",
+  "block.hogwartsmagic.thiefs_downfall.nothing": "The water finds nothing on you worth taking."
 }

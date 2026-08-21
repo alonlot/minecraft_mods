@@ -105,7 +105,7 @@ public final class UndercroftDump {
                 int x = (int) Math.floor(centre.x + up.x * v);
                 int y = (int) Math.floor(centre.y + up.y * v);
                 int z = (int) Math.floor(centre.z + up.z * v);
-                if (!sink.isAir(x, y, z)) {
+                if (!sink.isPassable(x, y, z)) {
                     blocked.add(s);
                     if (examples.size() < 4) {
                         BlockState what = sink.at(x, y, z);

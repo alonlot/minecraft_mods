@@ -186,7 +186,7 @@ public final class BuildUndercroftCommand {
             for (int v = 0; v <= 2; v++) {
                 cursor.set(Math.floor(centre.x + up.x * v), Math.floor(centre.y + up.y * v),
                         Math.floor(centre.z + up.z * v));
-                if (!level.getBlockState(cursor).isAir()) {
+                if (level.getBlockState(cursor).blocksMotion()) {
                     blocked++;
                     if (firstBlocked < 0) {
                         firstBlocked = s;

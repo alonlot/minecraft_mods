@@ -46,6 +46,21 @@ public final class ChasmCarver {
     /** How many falls come down the wall. Three reads as weather; a dozen reads as plumbing. */
     private static final int FALLS = 3;
 
+    /**
+     * Stalactite clusters hung from the chasm roof.
+     *
+     * <p>Clusters of a few with a shared base and graded lengths, never evenly spaced singles.
+     * A noise-gated scatter of one-block spikes reads as confetti rather than as rock, which is
+     * the "scatter where structure was intended" failure in the rendering skill's own list, and
+     * the density cap is there because anything with a busy texture on transparency carries far
+     * more visual weight than its block count - the same thing that turned 367 cobwebs into a
+     * blizzard in this repo once already.
+     */
+    private static final int CLUSTERS = 16;
+    private static final int CLUSTER_MIN = 3;
+    private static final int CLUSTER_MAX = 7;
+    private static final int SPIKE_MAX = 6;
+
     /** Height above the floor below which nothing is lit, so the bottom is never visible. */
     public static final int DARK_BAND = 22;
 
@@ -138,6 +153,12 @@ public final class ChasmCarver {
             }
         }
 
+        // Hung on the LAST slice, not the first. The chasm is carved downwards, so anything
+        // placed at the roof on step one is quietly deleted by every level carved beneath it.
+        if (y == this.floorY) {
+            hangStalactites(sink, this.topY, radiusAt(this.topY));
+        }
+
         // Three falls down the wall, and they are CONTINUOUS. Gating each level on a hash made
         // them intermittent, and intermittent water is not a waterfall - it is blue confetti down
         // a cliff, which is the "scatter where structure was intended" failure in the skill's own
@@ -154,6 +175,46 @@ public final class ChasmCarver {
                 double fx = this.axisX + this.fallRadius * Math.cos(a);
                 double fz = this.axisZ + this.fallRadius * Math.sin(a);
                 sink.set((int) Math.floor(fx), y, (int) Math.floor(fz), WATER);
+            }
+        }
+    }
+
+    /** Clusters of dripstone hanging from the roof of the chasm. */
+    private void hangStalactites(CarveSink sink, int roofY, double radius) {
+        for (int c = 0; c < CLUSTERS; c++) {
+            double a = UndercroftPalette.hash(c, 0, 0, 201) * 2.0D * Math.PI;
+            // Jitter the radius as well as the angle: equal radii at equal angles is a ring of
+            // fence posts, which is the other half of the same failure.
+            double r = radius * (0.25D + 0.65D * UndercroftPalette.hash(c, 1, 0, 202));
+            double cx = this.axisX + r * Math.cos(a);
+            double cz = this.axisZ + r * Math.sin(a);
+
+            int spikes = CLUSTER_MIN + (int) (UndercroftPalette.hash(c, 2, 0, 203)
+                    * (CLUSTER_MAX - CLUSTER_MIN + 1));
+            for (int i = 0; i < spikes; i++) {
+                double sa = UndercroftPalette.hash(c, i, 3, 204) * 2.0D * Math.PI;
+                double sr = UndercroftPalette.hash(c, i, 4, 205) * 2.4D;
+                int bx = (int) Math.floor(cx + sr * Math.cos(sa));
+                int bz = (int) Math.floor(cz + sr * Math.sin(sa));
+                // Graded: the middle of a cluster hangs longest, the edges barely at all.
+                int length = 1 + (int) ((1.0D - sr / 2.4D) * SPIKE_MAX
+                        * (0.5D + 0.5D * UndercroftPalette.hash(bx, i, bz, 206)));
+                for (int d = 0; d < length; d++) {
+                    boolean tip = d == length - 1;
+                    sink.set(bx, roofY - d, bz, Blocks.POINTED_DRIPSTONE.defaultBlockState()
+                            .setValue(net.minecraft.world.level.block.state.properties
+                                    .BlockStateProperties.VERTICAL_DIRECTION,
+                                    net.minecraft.core.Direction.DOWN)
+                            .setValue(net.minecraft.world.level.block.state.properties
+                                    .BlockStateProperties.DRIPSTONE_THICKNESS,
+                                    tip ? net.minecraft.world.level.block.state.properties
+                                            .DripstoneThickness.TIP
+                                            : d == 0
+                                            ? net.minecraft.world.level.block.state.properties
+                                                    .DripstoneThickness.BASE
+                                            : net.minecraft.world.level.block.state.properties
+                                                    .DripstoneThickness.MIDDLE));
+                }
             }
         }
     }

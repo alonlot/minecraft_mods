@@ -919,10 +919,19 @@ def perimeter(b):
         ring.append((x0, z))
         ring.append((x1, z))
 
+    # The entrance face too, minus the gap the arch comes through. The player's own wall is only
+    # as wide as they built it -- seven or ten blocks, say -- while the alley is fifty-one across,
+    # so without this you can simply walk round the end of their wall and in through the side.
+    entry_z = ZC + curve(X_ALLEY0)
+    for z in range(min(zs), max(zs) + 1):
+        if abs(z - entry_z) <= 3:
+            continue                        # the way through, lined up with the street
+        ring.append((X_ALLEY0, z))
+
     laid = 0
     for x, z in ring:
-        # Leave the entrance end alone: that is where the player built their own wall, and the
-        # courtyard columns are skipped at placement time anyway.
+        # Leave the courtyard end alone: that is where the player built their own wall, and
+        # those columns are skipped at placement time anyway.
         if x < X_ALLEY0:
             continue
         for y in range(0, PERIMETER_HEIGHT + 1):

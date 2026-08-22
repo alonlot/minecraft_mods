@@ -47,6 +47,9 @@ OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'src', 'mai
 
 N = 64
 
+# How much of the ten-row head box the hat covers. The rest is the villager's face.
+HAT_ROWS = 4
+
 
 def faces(u, v, w, h, d):
     """The six face rectangles of a Minecraft box, as (x, y, w, h)."""
@@ -78,7 +81,7 @@ def shade(colour, amount):
     return tuple(max(0, min(255, int(c * (1.0 + amount)))) for c in colour[:3]) + (255,)
 
 
-def fill(im, rect, colour, grain=0.06, salt=0, top_light=True):
+def fill(im, rect, colour, grain=0.06, salt=0, top_light=True, rows=None):
     """Fill a face, with a little per-pixel grain and a vertical light gradient.
 
     Flat fills are what make a hand-made overlay look like a colour swatch; the gradient is what
@@ -87,6 +90,8 @@ def fill(im, rect, colour, grain=0.06, salt=0, top_light=True):
     x0, y0, w, h = rect
     px = im.load()
     for dy in range(h):
+        if rows is not None and dy >= rows:
+            continue                # leave the rest of the face bare -- see build()
         lift = (0.16 * (1.0 - dy / max(1, h - 1)) - 0.08) if top_light else 0.0
         for dx in range(w):
             g = (_hash(x0 + dx, y0 + dy, salt) - 0.5) * 2 * grain
@@ -196,10 +201,10 @@ LOOKS = [
          emblem=PAW, art_palette={'p': (210, 198, 174)}),
     Look('scribe', (48, 60, 96), (206, 198, 172), (38, 48, 78),
          emblem=QUILL, art_palette={'q': (226, 220, 196)}),
-    Look('cauldron_smith', (62, 62, 66), (176, 96, 44), (48, 48, 52),
+    Look('cauldron_smith', (112, 110, 116), (176, 96, 44), (86, 84, 90),
          emblem=POT, art_palette={'i': (176, 96, 44)}, sleeve=(96, 72, 52)),
     # Borgin and Burkes. Black on black, and the only red in the set.
-    Look('curio_dealer', (34, 30, 34), (128, 34, 34), (24, 22, 26), brim=(24, 22, 26),
+    Look('curio_dealer', (74, 68, 76), (128, 34, 34), (52, 48, 54), brim=(52, 48, 54),
          emblem=SKULL, art_palette={'r': (150, 44, 44)}),
 ]
 
@@ -226,9 +231,15 @@ def build(look):
         fill(im, XARMS[key], look.sleeve, salt=salt + 2)
 
     # --- hat ------------------------------------------------------------------------------------
+    # Only the crown. The head box is ten rows tall and the face lives in the lower six of them,
+    # so filling all ten -- which the first version did -- produced a solid block of colour with
+    # no eyes, no nose and no expression. Every vanilla profession leaves the face alone and
+    # draws a band or a cap; four rows is a cap.
     for key in ('front', 'back', 'left', 'right'):
-        fill(im, HAT[key], look.hat, salt=salt + 3)
-        band(im, HAT[key], shade(look.hat, -0.3)[:3], 1, from_bottom=True, salt=salt + 3)
+        fill(im, HAT[key], look.hat, salt=salt + 3, rows=HAT_ROWS)
+    for key in ('front', 'back', 'left', 'right'):
+        x0, y0, w, _h = HAT[key]
+        band(im, (x0, y0 + HAT_ROWS - 1, w, 1), shade(look.hat, -0.35)[:3], 1, salt=salt + 3)
     fill(im, HAT['top'], shade(look.hat, 0.12)[:3], salt=salt + 3, top_light=False)
     if look.brim:
         disc(im, RIM['front'], look.brim, 7.2, salt=salt + 4)

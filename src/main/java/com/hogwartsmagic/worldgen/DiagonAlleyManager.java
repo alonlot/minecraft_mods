@@ -63,6 +63,15 @@ public final class DiagonAlleyManager {
     private static final Logger LOGGER = LoggerFactory.getLogger("HogwartsMagic-DiagonAlley");
 
     /** Cells visited per tick. The clear phase is a cheap read-then-maybe-write, so this can be high. */
+    /** Clear air left above the highest ground, so the sky is unmistakably open. */
+    private static final int SKY_HEADROOM = 6;
+    /**
+     * A ceiling on how much world one visit may hold in memory. Not expected to bind on any
+     * real site; it exists so a wall opened at bedrock under a mountain fails to a low ceiling
+     * rather than to an out-of-memory.
+     */
+    private static final int MAX_REGION_CELLS = 4_000_000;
+
     private static final int CELLS_PER_TICK = 24000;
     /** Blocks actually placed per tick. Lower, because each one is a real write plus lighting. */
     private static final int BLOCKS_PER_TICK = 9000;
@@ -199,8 +208,8 @@ public final class DiagonAlleyManager {
     public static void tick(MinecraftServer server) {
         if (activeRestore != null) {
             if (activeRestore.advance()) {
-                LOGGER.info("Diagon Alley restore complete ({} blocks put back)",
-                        activeRestore.restored);
+                LOGGER.info("Diagon Alley restore complete ({} blocks put back, {} entities removed)",
+                        activeRestore.restored, activeRestore.despawned);
                 ServerLevel level = activeRestore.level;
                 DiagonAlleySnapshot snapshot = DiagonAlleySnapshot.get(level);
                 // Everyone goes back to seeing the truth. This has to happen while the snapshot is
@@ -533,7 +542,9 @@ public final class DiagonAlleyManager {
             int tz = template.sizeZ();
             int[] footprint = rotatedFootprint(tx, tz, rotation);
             this.fx = footprint[0];
-            this.fy = template.sizeY();
+            this.fy = snapshot == null ? template.sizeY()
+                    : template.sizeY() + shaftAbove(level, anchor, footprint[0], footprint[1],
+                            template.sizeY());
             this.fz = footprint[1];
 
             int kept = 0;
@@ -602,6 +613,41 @@ public final class DiagonAlleyManager {
             } else {
                 this.phase = 1;                 // nothing to record; go straight to clearing
             }
+        }
+
+        /**
+         * How much rock to take off the top so the street has sky over it.
+         *
+         * <p>The first version of this faked it: the region stopped at the roofline and whoever
+         * was inside was <em>sent</em> air for the space above. That does not work. Light is
+         * computed from the blocks that are actually there, so a street under a mountain stayed
+         * pitch dark however much air the client was told about, and being told about air you
+         * cannot see by is worse than being told nothing.
+         *
+         * <p>So the shaft is real: cleared for the visit, recorded in the snapshot like
+         * everything else, and put back on the way out. Outsiders never see it, because the
+         * concealment covers the whole region and the region now includes it.
+         *
+         * <p>Height is measured, not assumed: the surface is sampled across the footprint and
+         * the shaft clears the highest of it. Open a wall in a field and this costs almost
+         * nothing; open one inside a mountain and it costs the mountain, which is the price of
+         * standing in Diagon Alley under an open sky.
+         */
+        private static int shaftAbove(ServerLevel level, BlockPos anchor, int fx, int fz,
+                                     int roof) {
+            int highest = anchor.getY() + roof;
+            for (int x = 0; x <= fx; x += 8) {
+                for (int z = 0; z <= fz; z += 8) {
+                    highest = Math.max(highest, level.getHeight(
+                            net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING,
+                            anchor.getX() + Math.min(x, fx - 1),
+                            anchor.getZ() + Math.min(z, fz - 1)));
+                }
+            }
+            int wanted = (highest + SKY_HEADROOM) - (anchor.getY() + roof);
+            int toBuildHeight = level.getMaxBuildHeight() - 1 - (anchor.getY() + roof);
+            int cellCap = Math.max(0, MAX_REGION_CELLS / Math.max(1, fx * fz) - roof);
+            return Math.max(0, Math.min(Math.min(wanted, toBuildHeight), cellCap));
         }
 
         private int cellIndex(int lx, int ly, int lz) {
@@ -776,6 +822,10 @@ public final class DiagonAlleyManager {
                     entity.setYRot(entity.getYRot() + rotationDegrees(rotation));
                     if (level.addFreshEntity(entity)) {
                         spawned++;
+                        if (snapshot != null) {
+                            // Remembered so the restore can take them away again.
+                            snapshot.addSpawned(entity.getUUID());
+                        }
                     }
                 }
             }
@@ -820,7 +870,7 @@ public final class DiagonAlleyManager {
                 BlockPos bankAnchor = new BlockPos(anchor.getX() + rx[i] - off[0],
                         anchor.getY() + ry[i] - off[1],
                         anchor.getZ() + rz[i] - off[2]);
-                GringottsFurnishing.furnish(level, bankAnchor, level.getRandom());
+                GringottsFurnishing.furnish(level, bankAnchor, level.getRandom(), snapshot);
                 LOGGER.info("Staffed the alley's Gringotts, anchored at {}", bankAnchor);
                 return;
             }
@@ -864,10 +914,11 @@ public final class DiagonAlleyManager {
         /** One bit per cell: did the snapshot record something here? */
         private final long[] recorded;
 
-        private int phase;            // 0 wipe to air, 1 put the recorded blocks back
+        private int phase;            // 0 despawn, 1 wipe to air, 2 put the recorded blocks back
         private int wipeCursor;
         private int putCursor;
         int restored;
+        int despawned;
 
         RestoreJob(ServerLevel level, DiagonAlleySnapshot snapshot) {
             this.level = level;
@@ -881,13 +932,33 @@ public final class DiagonAlleyManager {
 
         boolean advance() {
             switch (phase) {
-                case 0 -> wipe();
-                case 1 -> put();
+                case 0 -> despawn();
+                case 1 -> wipe();
+                case 2 -> put();
                 default -> {
                     return true;
                 }
             }
-            return phase >= 2;
+            return phase >= 3;
+        }
+
+        /**
+         * Take the shopkeepers away with the shops.
+         *
+         * <p>By the identities recorded when they were spawned, not by sweeping the region for
+         * villagers and owls -- that would also take a player's own animals if the alley had
+         * happened to open over their farm, and putting the world back must not cost them their
+         * livestock.
+         */
+        private void despawn() {
+            for (java.util.UUID id : snapshot.spawned()) {
+                net.minecraft.world.entity.Entity e = level.getEntity(id);
+                if (e != null && !(e instanceof ServerPlayer)) {
+                    e.discard();
+                    despawned++;
+                }
+            }
+            phase = 1;
         }
 
         private void wipe() {
@@ -905,7 +976,7 @@ public final class DiagonAlleyManager {
             }
             wipeCursor = end;
             if (wipeCursor >= total) {
-                phase = 1;
+                phase = 2;
             }
         }
 
@@ -932,7 +1003,7 @@ public final class DiagonAlleyManager {
             }
             putCursor = end;
             if (putCursor >= total) {
-                phase = 2;
+                phase = 3;
             }
         }
     }

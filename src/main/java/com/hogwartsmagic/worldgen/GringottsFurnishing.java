@@ -55,12 +55,26 @@ public final class GringottsFurnishing {
      * a larger template.
      */
     public static void furnish(ServerLevel level, BlockPos anchor, RandomSource rng) {
-        staff(level, anchor, rng);
+        furnish(level, anchor, rng, null);
+    }
+
+    /**
+     * As above, but recording every goblin into {@code record} so an alley that is later put
+     * away takes its staff with it.
+     */
+    public static void furnish(ServerLevel level, BlockPos anchor, RandomSource rng,
+                               @Nullable DiagonAlleySnapshot record) {
+        staff(level, anchor, rng, record);
         VillageGringottsBank.lockGate(level, anchor);
     }
 
     /** A teller behind each counter, and a couple of guards loose in the hall. */
     public static void staff(ServerLevel level, BlockPos anchor, RandomSource rng) {
+        staff(level, anchor, rng, null);
+    }
+
+    public static void staff(ServerLevel level, BlockPos anchor, RandomSource rng,
+                             @Nullable DiagonAlleySnapshot record) {
         GringottsSchematic schem = GringottsSchematic.get();
         if (schem == null) {
             return;
@@ -81,7 +95,9 @@ public final class GringottsFurnishing {
             teller.moveTo(pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D,
                     yawTowardHall(schem, anchor, pos), 0.0F);
             teller.makeTeller("Gringotts Teller");
-            level.addFreshEntity(teller);
+            if (level.addFreshEntity(teller) && record != null) {
+                record.addSpawned(teller.getUUID());
+            }
         }
 
         for (BlockPos pos : findStandingRoom(schem, anchor, 2)) {
@@ -95,7 +111,9 @@ public final class GringottsFurnishing {
             guard.setItemSlot(EquipmentSlot.MAINHAND,
                     new ItemStack(ExampleMod.GOBLIN_SILVER_DAGGER.get()));
             guard.setDropChance(EquipmentSlot.MAINHAND, 0.15F);
-            level.addFreshEntity(guard);
+            if (level.addFreshEntity(guard) && record != null) {
+                record.addSpawned(guard.getUUID());
+            }
         }
     }
 

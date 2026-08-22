@@ -37,10 +37,12 @@ import java.util.UUID;
  *       {@link DiagonAlleySnapshot}, which was recorded for exactly this purpose. Where the alley
  *       was built on thin air they are sent air. So the street is invisible from without, and the
  *       hillside they remember is still standing.</li>
- *   <li><b>Whoever is inside</b> is sent air for the shaft above the street, so there is sky
- *       overhead even when the arch was opened under a mountain. The mountain is not removed — only
- *       not shown. That is what keeps the snapshot bounded to the alley's own box instead of
- *       swallowing half a hill.</li>
+ *   <li><b>Whoever is inside</b> is sent nothing at all. They see the real world, because it
+ *       really is Diagon Alley: the street, and the open shaft above it, are both actually
+ *       there. An earlier version faked the shaft and it did not work -- light comes from the
+ *       blocks that are present, so a street under a mountain stayed pitch dark no matter how
+ *       much air the client was told about. The shaft is cleared for real now, recorded in the
+ *       snapshot like everything else, and put back on the way out.</li>
  * </ul>
  *
  * <h2>Why this hangs off chunk-watch</h2>
@@ -59,11 +61,10 @@ import java.util.UUID;
  * <ul>
  *   <li>The blocks are real, so an outsider will walk into geometry they cannot see. No concealment
  *       scheme in a shared world avoids that.</li>
- *   <li>The sky shaft is {@value #SKY_SHAFT} blocks. Open a wall on the surface and you get real
- *       sky; open one deep inside a mountain and you get a very high ceiling instead.</li>
- *   <li>Lighting is computed from the real blocks. The client re-lights when blocks change, so the
- *       shaft should let daylight down, but under a thick mountain the street may still want its
- *       lamps.</li>
+ *   <li>A wall opened under a mountain really does take the mountain off, for as long as the
+ *       visit lasts. Outsiders are shown it still standing, and it is put back on the way out,
+ *       but the snapshot for such a site is large and the build and restore both take longer.
+ *       That is the honest cost of an open sky underground.</li>
  * </ul>
  */
 @Mod.EventBusSubscriber(modid = ExampleMod.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
@@ -72,7 +73,13 @@ public final class DiagonAlleyIllusion {
     private static final Logger LOGGER = LoggerFactory.getLogger("HogwartsMagic-DiagonAlley");
 
     /** How far above the street to pretend there is nothing. */
-    public static final int SKY_SHAFT = 48;
+    /**
+     * Nothing. The shaft over the street is really cleared now (see
+     * DiagonAlleyManager.shaftAbove) and is part of the region, so there is no longer anything
+     * above the region to pretend about. Kept as a named zero because the region packet still
+     * carries the field and the client still reads it.
+     */
+    public static final int SKY_SHAFT = 0;
     /** Slack around the footprint for deciding who counts as inside. */
     private static final int INSIDE_MARGIN = 6;
     /** How often to notice somebody has walked in or out. */
@@ -227,6 +234,9 @@ public final class DiagonAlleyIllusion {
      */
     private static void sendFor(ServerPlayer player, ServerLevel level,
                                 DiagonAlleySnapshot snapshot, ChunkPos chunk, boolean inside) {
+        if (inside) {
+            return;                 // whoever is in there sees the real world; it is real
+        }
         BlockPos origin = snapshot.origin();
         int x0 = Math.max(chunk.getMinBlockX(), origin.getX());
         int x1 = Math.min(chunk.getMaxBlockX(), origin.getX() + snapshot.sizeX() - 1);

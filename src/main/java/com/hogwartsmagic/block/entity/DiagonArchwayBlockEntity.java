@@ -83,7 +83,7 @@ import java.util.Set;
 public class DiagonArchwayBlockEntity extends BlockEntity {
 
     /** The light runs out through the mortar, and nothing moves yet. */
-    public static final int GLOW = 30;
+    public static final int GLOW = 14;
     /**
      * The shudder. The whole wall goes to the renderer and a shockwave rolls outward from the
      * tapped brick: every brick in the panel leans out and back as the crest passes, and nothing
@@ -93,20 +93,26 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
      * archway and left the other eighty-five standing dead still. That reads as a hole appearing in
      * a wall. A wall that goes liquid first, and only then opens, reads as magic doing it.
      */
-    public static final int SHUDDER = 25;
+    public static final int SHUDDER = 10;
     /** The spiral: bricks peel out of the archway into the flanking wall. */
-    public static final int PEEL = 80;
+    public static final int PEEL = 34;
     /** The head of the arch finishes. */
-    public static final int UNFOLD = 25;
+    public static final int UNFOLD = 12;
     /** The wall settles back, and the dust drops. */
-    public static final int SETTLE = 20;
+    public static final int SETTLE = 10;
     public static final int TOTAL = GLOW + SHUDDER + PEEL + UNFOLD + SETTLE;
 
     /** When the bricks of the arch itself start leaving. */
     public static final int PEEL_START = GLOW + SHUDDER;
 
+    /**
+     * Spread of the per-brick jitter the renderer adds. Declared here, not there, because the
+     * server needs it to know when a cell's last brick has actually left -- see freeCleared.
+     */
+    public static final float SUB_SPREAD = 7.0F;
+
     /** How long one brick takes to clear the opening. */
-    public static final int TRAVEL = 26;
+    public static final int TRAVEL = 12;
 
     /** Half-width of the opening, so the arch is five bricks wide. */
     public static final int HALF_WIDTH = 2;
@@ -236,11 +242,10 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
     public static float brickDelay(int du, int dv) {
         double dist = Math.sqrt((double) du * du + (double) dv * dv);
         double angle = (Math.atan2(dv, du) + Math.PI) / (Math.PI * 2.0);
-        // 8 and 10, not 11 and 16. Adding the shudder beat pushed the spiral's start back
-        // twenty-five ticks, and at the old spread the furthest brick was still in the air sixteen
-        // ticks after the sequence ended -- so it vanished mid-flight when the blocks went to OPEN.
-        // These leave about fifteen ticks of margin on the worst cell of a five-wide arch.
-        return (float) (dist * 8.0 + angle * 10.0);
+        // Scaled with the rest of the sequence when it came down from nine seconds to four.
+        // The worst cell of a five-wide arch is clear at PEEL_START + 28 + SUB_SPREAD + TRAVEL,
+        // about 71 of the 80 ticks, so nothing is still in the air when the wall settles.
+        return (float) (dist * 4.5 + angle * 4.0);
     }
 
     // ---------------------------------------------------------------- the tap
@@ -669,6 +674,7 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
                 server.playSound(null, pos, SoundEvents.PISTON_EXTEND, SoundSource.BLOCKS,
                         0.8F, 0.55F + 0.35F * p);
             }
+            brick.freeCleared(server);
             if (brick.ticks % 4 == 0) {
                 for (BlockPos cell : brick.arch) {
                     if (server.random.nextFloat() < 0.12F) {
@@ -734,6 +740,41 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
                 level.setBlock(p, s.setValue(DiagonArchwayBlock.LIT, false), Block.UPDATE_CLIENTS);
             }
         }
+    }
+
+    /**
+     * Turn each arch cell into a way through as soon as its own bricks have flown clear,
+     * rather than turning the whole opening to air when the sequence ends.
+     *
+     * <p>Blocks at MOVING are invisible but still solid, which is what lets the renderer move
+     * them. Holding all of them until the last one landed meant the arch looked open for a few
+     * seconds before you could walk through it, and an invisible wall you can see daylight
+     * through is worse than a slow door.
+     */
+    private void freeCleared(ServerLevel level) {
+        if (this.arch.isEmpty()) {
+            return;
+        }
+        int tapA = axisOf(this.worldPosition, this.acrossAxis);
+        int tapY = this.worldPosition.getY();
+        for (BlockPos cell : this.arch) {
+            BlockState at = level.getBlockState(cell);
+            if (!(at.getBlock() instanceof DiagonArchwayBlock)
+                    || at.getValue(DiagonArchwayBlock.PHASE) != DiagonArchwayBlock.MOVING) {
+                continue;
+            }
+            float gone = PEEL_START + brickDelay(axisOf(cell, this.acrossAxis) - tapA,
+                    cell.getY() - tapY) + SUB_SPREAD + TRAVEL;
+            if (this.ticks >= gone) {
+                level.setBlock(cell,
+                        at.setValue(DiagonArchwayBlock.PHASE, DiagonArchwayBlock.OPEN),
+                        Block.UPDATE_CLIENTS);
+            }
+        }
+    }
+
+    private static int axisOf(BlockPos pos, int axis) {
+        return axis == 0 ? pos.getX() : axis == 1 ? pos.getY() : pos.getZ();
     }
 
     private void setPhase(ServerLevel level, List<BlockPos> cells, int phase) {

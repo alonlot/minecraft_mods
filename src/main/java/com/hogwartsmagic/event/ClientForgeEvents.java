@@ -3,19 +3,16 @@ package com.hogwartsmagic.event;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.math.Axis;
 import com.hogwartsmagic.ExampleMod;
-import com.hogwartsmagic.entity.BroomEntity;
 import com.hogwartsmagic.worldgen.ModBiomes;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.client.event.ComputeFovModifierEvent;
 import net.minecraftforge.client.event.RenderLivingEvent;
 import net.minecraftforge.client.event.ViewportEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
-import net.minecraft.util.Mth;
 import net.minecraft.world.level.biome.Biome;
 
 @Mod.EventBusSubscriber(modid = ExampleMod.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
@@ -24,7 +21,7 @@ public class ClientForgeEvents {
     /**
      * Per-biome fog overrides, applied only while the camera is actually inside the biome.
      *
-     * <p>The biome JSON's own {@code fog_color} tints distant fog but cannot close the view down â€”
+     * <p>The biome JSON's own {@code fog_color} tints distant fog but cannot close the view down —
      * that is a render-distance decision, so it has to happen here. Each entry is
      * {@code (colour, near plane, far plane)}; a far plane below the player's render distance is what
      * makes a place feel enclosed.
@@ -73,47 +70,6 @@ public class ClientForgeEvents {
     }
 
     @SubscribeEvent
-    public static void onComputeFov(ComputeFovModifierEvent event) {
-        if (event.getPlayer().getVehicle() instanceof BroomEntity broom) {
-            // Calculate FOV increase based on broom velocity
-            double speed = broom.getDeltaMovement().horizontalDistance();
-            
-            // The broom can go up to 4.5. We stretch FOV up to 30% wider at max speed.
-            float fovBoost = (float)(speed * 0.08); 
-            
-            // Multiply the current base FOV modifier by our boost
-            event.setNewFovModifier(event.getFovModifier() * (1.0f + fovBoost));
-        }
-    }
-
-    @SubscribeEvent
-    public static void onCameraSetup(ViewportEvent.ComputeCameraAngles event) {
-        if (Minecraft.getInstance().player != null && Minecraft.getInstance().player.getVehicle() instanceof BroomEntity broom) {
-            // Apply a slight camera roll (tilt) when making sharp horizontal turns
-            float yawDiff = broom.getYRot() - broom.yRotO;
-            
-            // Normalize the yaw diff to deal with 360 degree wrapping
-            yawDiff = Mth.wrapDegrees(yawDiff);
-            
-            // Calculate speed to scale the tilt effect
-            double speed = broom.getDeltaMovement().horizontalDistance();
-            float speedScale = (float)Math.min(speed / 3.0, 1.5); // Max out scale at high speed
-            
-            // Invert yawDiff and scale by speed so camera leans INTO the turn like a motorcycle
-            float targetRoll = -yawDiff * 1.5f * speedScale; 
-            
-            // Also bank the camera when strafing sideways
-            float strafe = Minecraft.getInstance().player.xxa;
-            targetRoll += strafe * 10.0f * speedScale;
-            
-            // Clamp the roll so it doesn't get completely chaotic
-            float clampedRoll = Mth.clamp(targetRoll, -30f, 30f);
-            
-            event.setRoll(clampedRoll);
-        }
-    }
-
-    @SubscribeEvent
     public static void onRenderLivingPre(RenderLivingEvent.Pre<?, ?> event) {
         LivingEntity entity = event.getEntity();
         boolean levicorpus = hasLevicorpus(entity);
@@ -158,6 +114,12 @@ public class ClientForgeEvents {
 
     @SubscribeEvent
     public static void onFogColor(ViewportEvent.ComputeFogColor event) {
+        if (com.hogwartsmagic.client.DiagonAlleyClientState.cameraInside()) {
+            event.setRed(com.hogwartsmagic.client.DiagonAlleyClientState.FOG_R);
+            event.setGreen(com.hogwartsmagic.client.DiagonAlleyClientState.FOG_G);
+            event.setBlue(com.hogwartsmagic.client.DiagonAlleyClientState.FOG_B);
+            return;
+        }
         float depth = undercroftDepth();
         if (depth >= 0.0F) {
             event.setRed(com.hogwartsmagic.client.UndercroftFogClientState.red(depth));
@@ -177,6 +139,14 @@ public class ClientForgeEvents {
 
     @SubscribeEvent
     public static void onRenderFog(ViewportEvent.RenderFog event) {
+        if (com.hogwartsmagic.client.DiagonAlleyClientState.cameraInside()) {
+            event.setNearPlaneDistance(
+                    com.hogwartsmagic.client.DiagonAlleyClientState.FOG_NEAR);
+            event.setFarPlaneDistance(Math.max(event.getFarPlaneDistance(),
+                    com.hogwartsmagic.client.DiagonAlleyClientState.FOG_FAR));
+            event.setCanceled(true);
+            return;
+        }
         float depth = undercroftDepth();
         if (depth >= 0.0F) {
             event.setNearPlaneDistance(

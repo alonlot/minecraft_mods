@@ -63,6 +63,33 @@ public final class DiagonAlleyClientState {
      * standing a block inside the boundary should be hidden, but somebody standing a block outside
      * it should still count as in, or the whole street would flicker as they walked the threshold.
      */
+    /**
+     * Is the camera standing in the alley?
+     *
+     * <p>Used to take the local biome back out of the air. The alley is a street in London;
+     * whether the wall happened to be built in a swamp, a badlands or a snowfield is an
+     * accident of where the player was standing and has no business tinting the fog green,
+     * orange or white once they have walked through the arch.
+     */
+    public static boolean cameraInside() {
+        if (sizeX <= 0) {
+            return false;
+        }
+        Entity camera = Minecraft.getInstance().cameraEntity;
+        return camera != null && inside(camera.blockPosition(), 0);
+    }
+
+    /** Overcast London daylight: grey, very slightly blue. */
+    public static final float FOG_R = 0.60F;
+    public static final float FOG_G = 0.63F;
+    public static final float FOG_B = 0.68F;
+    /**
+     * Pushed a long way out. Diagon Alley is a narrow street closed at one end by Gringotts,
+     * and the whole point of the vista is that you can see the bank from the archway.
+     */
+    public static final float FOG_NEAR = 24.0F;
+    public static final float FOG_FAR = 320.0F;
+
     public static boolean shouldHideEntity(Entity entity) {
         if (sizeX <= 0) {
             return false;

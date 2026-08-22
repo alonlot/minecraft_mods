@@ -76,6 +76,15 @@ public class DiagonAlleySnapshot extends SavedData {
     private int[] states = new int[0];
     /** Block entities keyed by the same flat cell index — chests keep their contents. */
     private final Map<Integer, CompoundTag> blockEntities = new HashMap<>();
+    /**
+     * Everything the alley spawned: shopkeepers, goblins, owls.
+     *
+     * <p>Tracked by identity rather than found by type at removal time. Sweeping the region for
+     * "villagers and owls" would also take a player's own villagers and owls if the alley
+     * happened to open over their farm, and putting the world back is not allowed to cost
+     * somebody their livestock.
+     */
+    private final java.util.List<java.util.UUID> spawned = new ArrayList<>();
 
     public static DiagonAlleySnapshot get(ServerLevel level) {
         return level.getDataStorage().computeIfAbsent(
@@ -89,6 +98,15 @@ public class DiagonAlleySnapshot extends SavedData {
 
     public BlockPos origin() {
         return this.origin;
+    }
+
+    public void addSpawned(java.util.UUID id) {
+        this.spawned.add(id);
+        setDirty();
+    }
+
+    public java.util.List<java.util.UUID> spawned() {
+        return this.spawned;
     }
 
     public BlockPos archPos() {
@@ -271,6 +289,7 @@ public class DiagonAlleySnapshot extends SavedData {
         this.active = false;
         this.palette.clear();
         this.blockEntities.clear();
+        this.spawned.clear();
         this.cells = new int[0];
         this.states = new int[0];
         this.lookup = null;
@@ -300,6 +319,12 @@ public class DiagonAlleySnapshot extends SavedData {
             beTag.add(one);
         }
         tag.put("BlockEntities", beTag);
+
+        ListTag spawnedTag = new ListTag();
+        for (java.util.UUID id : this.spawned) {
+            spawnedTag.add(NbtUtils.createUUID(id));
+        }
+        tag.put("Spawned", spawnedTag);
         return tag;
     }
 
@@ -331,6 +356,10 @@ public class DiagonAlleySnapshot extends SavedData {
         for (int i = 0; i < beTag.size(); i++) {
             CompoundTag one = beTag.getCompound(i);
             snap.blockEntities.put(one.getInt("Cell"), one.getCompound("Nbt"));
+        }
+        ListTag spawnedTag = tag.getList("Spawned", Tag.TAG_INT_ARRAY);
+        for (int i = 0; i < spawnedTag.size(); i++) {
+            snap.spawned.add(NbtUtils.loadUUID(spawnedTag.get(i)));
         }
         return snap;
     }

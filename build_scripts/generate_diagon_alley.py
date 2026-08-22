@@ -421,11 +421,16 @@ def character(b, ents):
                 if (x, y, wzf + 2 + dz) in b:
                     put(b, (x, y, wzf + 2 + dz), 'minecraft:purple_terracotta')
 
-    # --- Quality Quidditch: the broom in the window on a stand ----------------------------------
-    q = _spec_of(NORTH, 'Quality Quidditch Supplies')
-    qx = (q[0] + q[1]) // 2
-    b[(qx, 2, q[2] + 1)] = ('minecraft:dark_oak_fence', None, None)
-    b[(qx + 1, 2, q[2] + 1)] = ('minecraft:dark_oak_fence', None, None)
+    # --- the broom shops: a broom on a stand in the window, and a bench to work at ---------------
+    # The bench is not decoration: it is the broom_merchant profession's point of interest, and a
+    # profession that has one needs the block present or a passing villager can never take the job.
+    for terrace, nm in ((NORTH, 'Quality Quidditch Supplies'), (SOUTH, 'Second Hand Brooms')):
+        q = _spec_of(terrace, nm)
+        sgn = 1 if terrace is NORTH else -1
+        qx = (q[0] + q[1]) // 2
+        b[(qx, 2, q[2] + sgn)] = ('minecraft:dark_oak_fence', None, None)
+        b[(qx + 1, 2, q[2] + sgn)] = ('minecraft:dark_oak_fence', None, None)
+        put(b, (qx - 2, 1, q[2] - sgn * 5), 'hogwartsmagic:broom_workbench')
 
     # --- Eeylops: cages, perches and owls --------------------------------------------------------
     e = _spec_of(NORTH, 'Eeylops Owl Emporium')

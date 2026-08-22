@@ -267,8 +267,14 @@ def chain_lamp(b, x, y, z, drop=1, soul=False):
 def villager(x, y, z, profession, name, level=5, biome='plains'):
     """A shopkeeper baked into the template, already at his counter and already at max level.
 
-    PersistenceRequired because a villager that despawns takes the shop with it, and NoAI left off
-    so they still turn to face a customer.
+    `Xp` is the important field and it is not decoration. Most of these professions deliberately
+    have no workstation block -- there are not twelve unclaimed ones to go round -- and a villager
+    with a profession but no job site loses the profession, *unless* it has traded at least once.
+    Non-zero Xp is what tells the game it has, so Madam Malkin stays Madam Malkin.
+
+    PersistenceRequired because a shopkeeper that despawns takes the shop with it, Invulnerable so
+    a wandering zombie cannot end the Ollivanders scene permanently, and NoAI left off so they still
+    turn to face a customer.
     """
     return entity(x + 0.5, y, z + 0.5, 'minecraft:villager', {
         'VillagerData': ('compound', {
@@ -276,6 +282,7 @@ def villager(x, y, z, profession, name, level=5, biome='plains'):
             'type': ('string', 'minecraft:' + biome),
             'level': ('int', level),
         }),
+        'Xp': ('int', 250),
         'CustomName': ('string', text_component(name)),
         'CustomNameVisible': ('byte', 1),
         'PersistenceRequired': ('byte', 1),

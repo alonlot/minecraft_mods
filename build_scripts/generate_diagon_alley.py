@@ -243,9 +243,10 @@ def courtyard(b):
     # decoration -- it is the instruction, and it has to be the most obvious object in the yard.
     dz = ZC + c + 2
     put(b, (X_WALL - 1, 1, dz), 'minecraft:cauldron')
-    slab(b, (X_WALL - 1, 2, dz), 'minecraft:iron_trapdoor')
+    # half=bottom, so the lid sits ON the bin. As a top-half trapdoor it hangs at the top of the
+    # block above and reads as a dinner plate floating a block over the rubbish.
     b[(X_WALL - 1, 2, dz)] = ('minecraft:iron_trapdoor',
-                              {'facing': 'west', 'half': 'top', 'open': 'false',
+                              {'facing': 'west', 'half': 'bottom', 'open': 'false',
                                'powered': 'false', 'waterlogged': 'false'}, None)
     # rubbish around its foot
     put(b, (X_WALL - 2, 1, dz + 1), 'minecraft:brown_carpet')
@@ -749,8 +750,26 @@ def gringotts(b, ents):
             'PersistenceRequired': ('byte', 1),
         }))
 
-    # roof
-    pitched_roof(b, x0 + 4, x1, z0, z1, plat + 18, 'lead', ridge_axis='x', overhang=1, hip=True)
+    # Roof: flat, behind a balustrade. A steep pitched roof on a neoclassical bank reads as a barn
+    # -- the pediment over the portico is meant to be the top of the silhouette, and a big dark
+    # gable rising behind it takes the eye off the one piece of architecture the building has.
+    for x in range(x0 + 4, x1 + 1):
+        for z in range(z0, z1 + 1):
+            put(b, (x, plat + 18, z), tex(MARBLE_TRIM, x, plat + 18, z, 89))
+    # cornice: one course standing proud all the way round
+    for x in range(x0 + 3, x1 + 2):
+        for z in (z0 - 1, z1 + 1):
+            slab(b, (x, plat + 18, z), 'minecraft:smooth_quartz_slab', 'top')
+    for z in range(z0 - 1, z1 + 2):
+        slab(b, (x1 + 1, plat + 18, z), 'minecraft:smooth_quartz_slab', 'top')
+    # balustrade, with a pier every fourth bay so it is not a picket fence
+    for x in range(x0 + 4, x1 + 1):
+        for z in (z0, z1):
+            put(b, (x, plat + 19, z), 'minecraft:quartz_block' if x % 4 == 0
+                else 'minecraft:polished_diorite_wall')
+    for z in range(z0, z1 + 1):
+        put(b, (x1, plat + 19, z), 'minecraft:quartz_block' if z % 4 == 0
+            else 'minecraft:polished_diorite_wall')
 
 
 # =================================================================================================

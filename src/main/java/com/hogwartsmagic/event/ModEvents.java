@@ -2857,6 +2857,8 @@ public class ModEvents {
         if (event.phase == net.minecraftforge.event.TickEvent.Phase.END) {
             // Advance any in-progress Mini Hogwarts build (spread across ticks).
             com.hogwartsmagic.worldgen.MiniHogwartsManager.tick(event.getServer());
+            // Same for Diagon Alley, which is eleven chunks long and cannot go in one tick.
+            com.hogwartsmagic.worldgen.DiagonAlleyManager.tick(event.getServer());
             // Same for a Gringotts village branch going up.
             com.hogwartsmagic.worldgen.VillageGringottsBank.tick(event.getServer());
             // ...and for the undercroft being dug out underneath one.

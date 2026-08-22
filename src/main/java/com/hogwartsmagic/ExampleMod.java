@@ -115,8 +115,10 @@ public class ExampleMod
             FEATURES.register("gillyweed_swamp", () -> new com.hogwartsmagic.worldgen.GillyweedSwampFeature(net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration.CODEC));
     public static final RegistryObject<net.minecraft.world.level.levelgen.feature.Feature<net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration>> MANDRAKE_PATCH_FEATURE =
             FEATURES.register("mandrake_patch", () -> new com.hogwartsmagic.worldgen.MandrakePatchFeature(net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration.CODEC));
-    public static final RegistryObject<net.minecraft.world.level.levelgen.feature.Feature<net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration>> DIAGON_ALLEY_FEATURE =
-            FEATURES.register("diagon_alley", () -> new com.hogwartsmagic.worldgen.DiagonAlleyFeature(net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration.CODEC));
+    // Diagon Alley is not a worldgen feature. It is eleven chunks long, and vanilla forbids a
+    // feature from writing outside the 3x3 chunk window around the chunk being generated, so the
+    // old one spammed "Detected setBlock in a far chunk" and could wedge chunk loading. It is now a
+    // structure template placed across ticks by DiagonAlleyManager, via /spawnalley.
     // Lumos Effect
     public static final RegistryObject<net.minecraft.world.effect.MobEffect> LUMOS_EFFECT = MOB_EFFECTS.register("lumos",
             () -> new net.minecraft.world.effect.MobEffect(net.minecraft.world.effect.MobEffectCategory.BENEFICIAL, 0xFFFFAA) {

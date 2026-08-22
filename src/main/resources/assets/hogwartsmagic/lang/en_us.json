@@ -628,5 +628,18 @@
   "block.hogwartsmagic.gringotts_gate": "Gringotts Gate",
   "block.hogwartsmagic.gringotts_gate.locked": "The gate does not know you.",
   "gringotts.alarm.gate": "The gate is being forced, and Gringotts heard it.",
-  "gringotts.alarm.trespass": "You are not supposed to be down here."
+  "gringotts.alarm.trespass": "You are not supposed to be down here.",
+  "block.hogwartsmagic.diagon_archway_brick": "Diagon Brick",
+  "block.hogwartsmagic.diagon_archway_brick.tooltip": "Build a wall of these at least 7 wide and 7 tall, stand a cauldron beside it, then cast Alohomora or Revelio on the wall. Tap the brick three up and two across from the cauldron, three times.",
+  "entity.minecraft.villager.hogwartsmagic.apothecary": "Apothecary",
+  "entity.minecraft.villager.hogwartsmagic.bookseller": "Bookseller",
+  "entity.minecraft.villager.hogwartsmagic.owl_merchant": "Owl Merchant",
+  "entity.minecraft.villager.hogwartsmagic.broom_merchant": "Broom Merchant",
+  "entity.minecraft.villager.hogwartsmagic.robemaker": "Robemaker",
+  "entity.minecraft.villager.hogwartsmagic.confectioner": "Confectioner",
+  "entity.minecraft.villager.hogwartsmagic.joke_merchant": "Joke Merchant",
+  "entity.minecraft.villager.hogwartsmagic.menagerist": "Menagerist",
+  "entity.minecraft.villager.hogwartsmagic.scribe": "Scribe",
+  "entity.minecraft.villager.hogwartsmagic.cauldron_smith": "Cauldron Smith",
+  "entity.minecraft.villager.hogwartsmagic.curio_dealer": "Curio Dealer"
 }

@@ -87,6 +87,10 @@ X_SQUARE1 = 132
 X_BANK0 = X_SQUARE1 + 1                 # local x=0 of the imported schematic
 X_BANK1 = X_BANK0 + 99                  # ...which is 100 long
 
+# How high the boundary wall stands. Above the terraces' eaves, so the alley reads as
+# enclosed, and well below Gringotts, which is meant to rise out of it.
+PERIMETER_HEIGHT = 24
+
 _GRINGOTTS_CACHE = None
 
 
@@ -350,41 +354,94 @@ def build_shops(b, ents):
 
 
 def _shop_interior(b, ents, s, profession, keeper):
-    """Counter, keeper, stock and a fire.  A shop you can see into through a lit window has to have
-    something behind the glass or the lantern trick reads as an empty box with a lamp in it."""
+    """Counter, shelves, stock and a fire.
+
+    The first version of this put a half-slab on the floor and called it a counter, stocked the back
+    wall with barrels, and left it there. Standing inside one, the counter read as nothing at all and
+    the barrels read as a solid brown wall -- the whole room was one brown, with no waist-height line
+    for the eye and nothing to look at behind the keeper.
+
+    So: the counter is a full block with a slab on top, which is the only way to get a waist-height
+    horizontal in Minecraft; the shelving is chosen per trade and set into the back wall rather than
+    stacked against it; and there is a runner on the floor and a second lamp, because a shop lit by
+    one lantern four blocks up is a cave.
+    """
     side = s.side
     fz = s.front_z(0)
-    inz = fz - side * 3                      # three back from the glass: the counter line
+    back = s.back_z
+    zlo, zhi = min(fz, back), max(fz, back)
     x0, x1 = s.x0 + 1, s.x1 - 1
     cx = (x0 + x1) // 2
+    inz = fz - side * 3                      # the counter line
+    bz = back + side                          # one in from the back wall
 
-    # counter across most of the width, with a gap to get behind it
+    # --- plaster and a pale floor --------------------------------------------------------
+    # Everything in here used to be dark oak: floor, counter, shelving, ceiling. A room made
+    # of one brown has nothing for the eye to catch on -- the counter vanished into the floor
+    # and the shelves vanished into the wall. Plastering the inside faces pale gives the brown
+    # furniture something to sit against, which is the whole reason a shop interior reads.
+    for z in range(zlo + 1, zhi):
+        for y in range(1, s.storeys[0]):
+            put(b, (s.x0, y, z), tex(PAINTS['plaster'], s.x0, y, z, s.salt + 21))
+            put(b, (s.x1, y, z), tex(PAINTS['plaster'], s.x1, y, z, s.salt + 21))
+    for x in range(x0, x1 + 1):
+        for y in range(1, s.storeys[0]):
+            put(b, (x, y, back), tex(PAINTS['plaster'], x, y, back, s.salt + 22))
+    for x in range(x0, x1 + 1):
+        for z in range(zlo + 1, zhi):
+            put(b, (x, 0, z), tex([('minecraft:spruce_planks', 6),
+                                   ('minecraft:oak_planks', 3)], x, 0, z, s.salt + 23))
+
+    # --- the counter --------------------------------------------------------------------------
+    # A full block with a slab on it: waist height, and the one strong horizontal in the room.
     for x in range(x0, x1 + 1):
         if x == cx:
-            continue
-        put(b, (x, 1, inz), 'minecraft:dark_oak_slab')
-        slab(b, (x, 1, inz), 'minecraft:dark_oak_slab', 'top')
-
-    # shelves and stock on the back wall
-    bz = s.back_z + side
+            continue                          # the gap the keeper walks through
+        put(b, (x, 1, inz), 'minecraft:dark_oak_planks')
+        slab(b, (x, 2, inz), 'minecraft:dark_oak_slab', 'bottom')
+    # a lip along the customer side, so it reads as a counter and not a bench
     for x in range(x0, x1 + 1):
-        for y in (2, 3):
-            if noise(x, y, bz, s.salt) > 0.25:
-                put(b, (x, y, bz), 'minecraft:bookshelf' if 'book' in profession
-                    else 'minecraft:barrel')
-    # hearth
-    put(b, (x0, 1, bz), 'minecraft:campfire')
+        if x != cx:
+            stair(b, (x, 1, inz + side), 'minecraft:dark_oak_stairs', s.facing_out, 'top')
+
+    # --- shelving, per trade -------------------------------------------------------------------
+    # chiseled_bookshelf is the one vanilla block with visible compartments, which is exactly what
+    # a wall of wand boxes or apothecary jars wants. Plain bookshelves for the booksellers.
+    if 'wandmaker' in profession or 'apothecary' in profession or 'scribe' in profession:
+        shelf = 'minecraft:chiseled_bookshelf'
+    elif 'book' in profession:
+        shelf = 'minecraft:bookshelf'
+    else:
+        shelf = 'minecraft:barrel'
+    for x in range(x0, x1 + 1):
+        for y in (2, 3, 4):
+            if noise(x, y, bz, s.salt) > 0.22:
+                if shelf == 'minecraft:chiseled_bookshelf':
+                    b[(x, y, bz)] = (shelf, {'facing': s.facing_out}, None)
+                else:
+                    put(b, (x, y, bz), shelf)
+
+    # --- floor, fire and light ------------------------------------------------------------------
+    # A runner down the middle: the one piece of colour in a room of brown, and it points at the
+    # counter.
+    runner = {'plum': 'minecraft:purple_carpet', 'teal': 'minecraft:cyan_carpet',
+              'maroon': 'minecraft:red_carpet', 'green': 'minecraft:green_carpet',
+              'navy': 'minecraft:blue_carpet', 'orange': 'minecraft:orange_carpet',
+              'dust': 'minecraft:brown_carpet', 'soot': 'minecraft:gray_carpet',
+              }.get(s.paint, 'minecraft:brown_carpet')
+    for z in range(zlo + 1, zhi):
+        if (cx, 1, z) not in b:
+            put(b, (cx, 1, z), runner)
+
     b[(x0, 1, bz)] = ('minecraft:campfire',
                       {'facing': s.facing_out, 'lit': 'true', 'signal_fire': 'false',
                        'waterlogged': 'false'}, None)
 
-    # ceiling lantern
-    chain_lamp(b, cx, s.storeys[0] - 1, inz - side, drop=1)
+    ceiling = s.storeys[0] - 1
+    chain_lamp(b, cx, ceiling, inz - side, drop=1)
+    chain_lamp(b, cx, ceiling, fz - side * 1, drop=1)
 
-    # the keeper, behind his counter
     ents.append(villager(cx, 1, inz - side, profession, keeper))
-
-    # a stock chest the player can actually loot
     loot_chest(b, (x1, 1, bz - side), s.facing_out, 'hogwartsmagic:chests/diagon_shop')
 
 
@@ -401,11 +458,19 @@ def character(b, ents):
     ox0, ox1, ozf, oside = o[0], o[1], o[2], -1
     inz = ozf + 3
     backz = ozf + TERRACE_DEPTH - 2
-    # thousands of boxes: barrels stacked floor to ceiling on both party walls
+    # Thousands of boxes, up both walls. chiseled_bookshelf rather than barrels: it is the one
+    # vanilla block with visible individual compartments, so a wall of it reads as a wall of
+    # boxes. Barrels stacked the same way read as a wall of brown.
+    # Three high, not four, and with gaps. Floor-to-ceiling on both walls with no break turned
+    # the shop into a slot you could not see down: the lantern lit nothing and the ladder and
+    # the workbench were hidden behind a solid brown mass. The gaps are where the ladder runs
+    # and where light gets in.
     for z in range(inz, backz + 1):
         for y in range(1, 4):
-            put(b, (ox0 + 1, y, z), 'minecraft:barrel')
-            put(b, (ox1 - 1, y, z), 'minecraft:barrel')
+            if noise(ox0, y, z, 31) > 0.18:
+                b[(ox0 + 1, y, z)] = ('minecraft:chiseled_bookshelf', {'facing': 'east'}, None)
+            if noise(ox1, y, z, 32) > 0.18:
+                b[(ox1 - 1, y, z)] = ('minecraft:chiseled_bookshelf', {'facing': 'west'}, None)
     # the ladder on its rail
     for y in range(1, 5):
         b[(ox0 + 2, y, backz)] = ('minecraft:ladder', {'facing': 'north', 'waterlogged': 'false'},
@@ -416,10 +481,11 @@ def character(b, ents):
     b[(wx, 1, ozf - 1)] = ('minecraft:purple_carpet', None, None)
     # the workbench, which is also the wandmaker's POI so he stays put
     put(b, (wx, 1, inz), 'hogwartsmagic:wand_workbench')
-    # dust: cobwebs, but eight of them, not eighty
-    for i, (dx, dy, dz) in enumerate([(1, 4, 2), (-1, 4, 3), (2, 4, 6), (-2, 4, 7),
-                                      (1, 4, 9), (-1, 4, 5), (0, 4, 8), (2, 4, 4)]):
-        put(b, (wx + dx, dy, ozf + dz), 'minecraft:cobweb')
+    # Dust, in the corners where the ceiling meets the wall. Hung in mid-air they read as
+    # snowflakes rather than as a shop nobody has swept in six hundred years.
+    for dz in (3, 6, 9):
+        put(b, (ox0 + 2, 4, ozf + dz), 'minecraft:cobweb')
+        put(b, (ox1 - 2, 4, ozf + dz), 'minecraft:cobweb')
 
     # --- Weasleys: the giant figure, and a facade that refuses to match anything -----------------
     w = _spec_of(NORTH, "Weasleys Wizard Wheezes")
@@ -824,6 +890,50 @@ def normalise(blocks, entities):
     return out, moved, (-mx, -my, -mz)
 
 
+def perimeter(b):
+    """A wall of the same magic brick right round the alley, joined to the entrance wall.
+
+    Diagon Alley is a pocket, not a clearing: the archway should be the only way in or out, and the
+    boundary should be made of the same brick you tapped to get through. Without this the terraces
+    enclose the middle of the street and the ends and corners are simply open, so you can walk out
+    of the side of the illusion and stand looking at it from a field.
+
+    This can be the archway block, and joined to the player's own wall, because floodPanel measures
+    the wall it is standing in and then trims itself to that plane. Before that it would have run
+    round the corner and off down the boundary, and the tapped wall would have been measured as two
+    hundred blocks wide with its arch somewhere out among the shops.
+
+    Existing blocks are never overwritten, so where a terrace or Gringotts already reaches the
+    boundary the wall simply stops and lets the building be the wall.
+    """
+    xs = [p[0] for p in b]
+    zs = [p[2] for p in b]
+    x0, x1 = min(xs), max(xs)
+    z0, z1 = min(zs), max(zs)
+
+    ring = []
+    for x in range(x0, x1 + 1):
+        ring.append((x, z0))
+        ring.append((x, z1))
+    for z in range(z0 + 1, z1):
+        ring.append((x0, z))
+        ring.append((x1, z))
+
+    laid = 0
+    for x, z in ring:
+        # Leave the entrance end alone: that is where the player built their own wall, and the
+        # courtyard columns are skipped at placement time anyway.
+        if x < X_ALLEY0:
+            continue
+        for y in range(0, PERIMETER_HEIGHT + 1):
+            pos = (x, y, z)
+            if pos in b:
+                continue                    # a building already closes the boundary here
+            b[pos] = (ARCH_BRICK, {'lit': 'false'}, None)
+            laid += 1
+    return laid
+
+
 def build():
     b, ents = {}, []
     pave(b)
@@ -834,6 +944,7 @@ def build():
     square(b)
     gringotts(b, ents)
     street_furniture(b)
+    perimeter(b)
     connect_all(b)
     return b, ents
 

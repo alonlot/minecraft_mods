@@ -20,7 +20,9 @@ West to east, along +X:
     x 15..117   the alley proper: eight shops on the north terrace, nine on the south, and the
                 mouth of Knockturn Alley two thirds of the way down
     x 118..132  the square, with the fountain
-    x 133..166  Gringotts, closing the vista
+    x 133..232  Gringotts -- the building the mod already ships, imported from its schematic
+                rather than hand-built here: a hundred blocks deep, thirty-four across, and a
+                cathedral inside
 
 Across, before the curve is applied, the section is:
 
@@ -59,6 +61,8 @@ from diagon_kit import (                                                        
     connect_all, pitched_roof, chimney, shopfront, ShopSpec, text_component, loot_chest, barrel,
     crate_pile, flower_box,
 )
+# blit is not re-exported by diagon_kit, so it comes straight from the other build script.
+from generate_biome_structures import blit                                      # noqa: E402
 
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'src', 'main', 'resources',
                    'data', 'hogwartsmagic', 'structure')
@@ -77,7 +81,13 @@ X_WALL = 14             # the brick wall
 X_ALLEY0 = 15
 X_ALLEY1 = 117
 X_SQUARE1 = 132
-X_BANK1 = 166
+# The bank is the imported building, and it is a hundred blocks deep -- three times the frontage it
+# shows the street. Its own aprons pave the ground under it, so the street's paving stops at the
+# square rather than running on underneath it.
+X_BANK0 = X_SQUARE1 + 1                 # local x=0 of the imported schematic
+X_BANK1 = X_BANK0 + 99                  # ...which is 100 long
+
+_GRINGOTTS_CACHE = None
 
 
 def curve(x):
@@ -106,7 +116,7 @@ def pave(b):
     very little gravel -- because paving is the largest single surface in the build and anything
     with real contrast in it turns the whole street into a chessboard.
     """
-    for x in range(0, X_BANK1 + 1):
+    for x in range(0, X_SQUARE1 + 1):
         c = curve(x)
         z0, z1 = ZC - 8 + c, ZC + 8 + c
         for z in range(z0, z1 + 1):
@@ -645,132 +655,133 @@ def square(b):
         lantern(b, (cx + dx, 5, cz + dz), hanging=False)
 
 
+def load_gringotts():
+    """The real Gringotts, read out of the schematic the mod itself ships.
+
+    Read from `gringotts.schem` and not from the `gringotts.nbt` sitting in the render skill's build
+    directory: that .nbt is gitignored and simply absent from a fresh clone, whereas the .schem is
+    the tracked source of truth `GringottsSchematic.java` loads at runtime. Same building, one of
+    them reproducible.
+
+    It was lifted out of a downloaded 1.12 world by `extract_gringotts.py` -- 100 x 44 x 34 and
+    21,286 blocks: a cathedral with a 59 x 23 banking hall, thirty-three blocks of clear height, a
+    colonnade, six teller booths a side and a glass dome. It replaces the 34 x 24 x 24 portico that
+    used to be hand-built here, which was a facade with a room behind it.
+    """
+    global _GRINGOTTS_CACHE
+    if _GRINGOTTS_CACHE is not None:
+        return _GRINGOTTS_CACHE
+
+    import schem_to_nbt
+
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'src', 'main',
+                        'resources', 'data', 'hogwartsmagic', 'schematic', 'gringotts.schem')
+    root = schem_to_nbt.read_nbt(path)
+    w, h, l, by_id, cells = schem_to_nbt.decode_schem(root)
+
+    blocks = {}
+    for index, state_id in enumerate(cells):
+        state = by_id.get(state_id)
+        if not state:
+            continue
+        name, props = schem_to_nbt.split_state(state)
+        if name == 'minecraft:air':
+            continue
+        # Sponge indexes cells x + z*width + y*width*length -- the same order
+        # GringottsSchematic.java reads them back in.
+        x = index % w
+        z = (index // w) % l
+        y = index // (w * l)
+        blocks[(x, y, z)] = (name, props or None, None)
+
+    _GRINGOTTS_CACHE = (blocks, w, h, l)
+    return _GRINGOTTS_CACHE
+
+
 def gringotts(b, ents):
-    """White marble, a portico of columns and a flight of steps -- and thirty blocks of it, against
-    an alley whose tallest shop is twenty-six.  Everything about it is a different order of building
-    from everything else in the street, because that is the job it does at the end of the vista."""
-    x0 = X_SQUARE1 + 1
-    x1 = X_BANK1
-    c = curve(x0)
-    z0, z1 = ZC - 16 + c, ZC + 16 + c
-    W = z1 - z0
+    """Paste the imported bank at the end of the street.
 
-    # the steps up to the portico
-    for i in range(4):
-        for z in range(z0 + i, z1 - i + 1):
-            put(b, (x0 + i, 1 + i, z), tex(MARBLE_TRIM, x0 + i, 1 + i, z, 81))
-            put(b, (x0 + i, 0, z), 'minecraft:stone')
-            for y in range(1, 1 + i):
-                put(b, (x0 + i, y, z), tex(MARBLE_TRIM, x0 + i, y, z, 81))
-    plat = 5                                     # floor level of the banking hall
+    Unrotated, because it already faces the right way. Its entrance is the -X face -- a three-wide,
+    eight-tall double door on the centreline at local z=15 -- and the alley runs west to east with
+    the bank closing the vista. So local x=0 goes at X_BANK0, the entrance-stair apron takes the
+    first ten blocks, and the door lands about ten blocks in.
 
-    # platform and the block of the building
-    fill_tex(b, x0 + 4, plat - 1, z0, x1, plat - 1, z1, MARBLE_TRIM, 82)
-    for y in range(plat, plat + 18):
-        for z in (z0, z1):
-            for x in range(x0 + 4, x1 + 1):
-                put(b, (x, y, z), tex(MARBLE, x, y, z, 83))
-        for z in range(z0, z1 + 1):
-            put(b, (x1, y, z), tex(MARBLE, x1, y, z, 83))
-    # hollow the hall
-    fill(b, x0 + 5, plat, z0 + 1, x1 - 1, plat + 16, z1 - 1, 'minecraft:air')
+    Local y=0 is the first course above the ground the build was cut from, so lining it up with the
+    street's top paving course puts the forecourt flush with the street and leaves the two shallow
+    steps at local x 2..9 to do the climb to the threshold.
 
-    # the portico: eight columns, two deep, with a pediment over them
-    col_x = (x0 + 5, x0 + 8)
-    cols = list(range(z0 + 3, z1 - 2, 4))
-    for cxp in col_x:
-        for cz in cols:
-            for y in range(plat, plat + 13):
-                put(b, (cxp, y, cz), tex(MARBLE, cxp, y, cz, 84))
-            put(b, (cxp, plat + 13, cz), 'minecraft:chiseled_quartz_block')
-            put(b, (cxp, plat - 1, cz), 'minecraft:chiseled_quartz_block')
-    # entablature across the columns
-    for x in range(x0 + 4, x0 + 10):
-        for z in range(z0, z1 + 1):
-            put(b, (x, plat + 14, z), tex(MARBLE_TRIM, x, plat + 14, z, 85))
-            put(b, (x, plat + 15, z), tex(MARBLE, x, plat + 15, z, 85))
-    # pediment: a shallow gable over the portico only
-    for i in range(9):
-        y = plat + 16 + i
-        za, zb = z0 + i * 2, z1 - i * 2
-        if za > zb:
-            break
-        for x in range(x0 + 4, x0 + 10):
-            stair(b, (x, y, za), 'minecraft:quartz_stairs', 'south')
-            stair(b, (x, y, zb), 'minecraft:quartz_stairs', 'north')
-            for z in range(za + 1, zb):
-                if i == 0:
-                    put(b, (x, y, z), tex(MARBLE_TRIM, x, y, z, 86))
+    Not mirrored, deliberately. `blit`'s mirror only rewrites `facing` and `shape`, and this
+    building is full of `axis=` pillars, doors with `hinge`, and iron bars -- all of which would
+    come out wrong.
+    """
+    src, w, h, l = load_gringotts()
 
-    # the bronze doors, and the plaque beside them
-    dz = ZC + c
-    for d in (-1, 1):
-        door(b, x0 + 9, plat, dz + d, 'minecraft:dark_oak_door', 'west',
-             hinge='left' if d < 0 else 'right')
-        for y in range(plat + 2, plat + 6):
-            put(b, (x0 + 9, y, dz + d), 'minecraft:waxed_oxidized_cut_copper')
-    for y in range(plat, plat + 6):
-        for z in (dz - 2, dz + 2):
-            put(b, (x0 + 9, y, z), tex(MARBLE_TRIM, x0 + 9, y, z, 87))
-    wall_sign(b, (x0 + 9, plat + 2, dz + 3), 'dark_oak', 'west',
-              ['GRINGOTTS', 'Wizarding Bank', 'Enter, stranger,', 'but take heed'], 'gold', True)
-    for d in (-4, 4):
-        chain_lamp(b, x0 + 8, plat + 6, dz + d, drop=2)
+    ox = X_BANK0
+    oy = 0                                   # the street's paving course, in build coordinates
+    oz = ZC + curve(X_BANK0) - 15            # local z=15 is the building's own centreline
 
-    # the banking hall: a long counter, high stools, chandeliers, goblins
-    hall_x0, hall_x1 = x0 + 10, x1 - 2
-    fill_tex(b, hall_x0, plat - 1, z0 + 1, hall_x1, plat - 1, z1 - 1,
-             [('minecraft:polished_diorite', 6), ('minecraft:quartz_block', 3),
-              ('minecraft:smooth_quartz', 2)], 88)
-    for z in (z0 + 4, z1 - 4):
-        for x in range(hall_x0 + 2, hall_x1 - 1):
-            put(b, (x, plat, z), 'minecraft:dark_oak_planks')
-            slab(b, (x, plat + 1, z), 'minecraft:dark_oak_slab', 'top')
-            if x % 3 == 0:
-                put(b, (x, plat, z + (1 if z < ZC + c else -1)), 'minecraft:dark_oak_fence')
-    # chandeliers
-    for x in range(hall_x0 + 3, hall_x1, 7):
-        for z in (ZC + c - 6, ZC + c + 6):
-            for dx, dz in ((0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)):
-                chain_lamp(b, x + dx, plat + 12, z + dz, drop=1 + (dx == 0 and dz == 0))
-    # the vault gate at the back
-    for z in range(ZC + c - 2, ZC + c + 3):
-        for y in range(plat, plat + 4):
-            put(b, (hall_x1, y, z), 'hogwartsmagic:gringotts_gate')
+    blit(b, src, ox, oy, oz)
 
-    # goblins: tellers along the counters, guards at the doors
-    for i, x in enumerate(range(hall_x0 + 3, hall_x1 - 2, 5)):
-        for z in (z0 + 5, z1 - 5):
-            ents.append(entity(x + 0.5, plat, z + 0.5, 'hogwartsmagic:goblin', {
-                'PersistenceRequired': ('byte', 1),
-                'CustomName': ('string', text_component('Gringotts Teller')),
-            }))
-    for d in (-3, 3):
-        ents.append(entity(x0 + 11.5, plat, dz + d + 0.5, 'hogwartsmagic:goblin_guard', {
-            'PersistenceRequired': ('byte', 1),
-        }))
+    # The apse floor is open at local x 92..96, z 11..21 -- the descent to the vaults. With no
+    # undercroft under the alley that is a pit in the middle of the banking hall floor, so deck it
+    # over, and leave it as the obvious place to reconnect one later.
+    #
+    # Except for the one block that must survive: the undercroft station marker is a single
+    # dark_prismarine at local (92, 2, 15), right in the middle of that hole, and
+    # GringottsLandmarks.of() locates the whole undercroft by requiring *exactly one* of them and
+    # refusing to guess otherwise. The first version of this decking paved straight over it and
+    # silently took the station with it. Deck around whatever is already there rather than trusting
+    # a hard-coded exception, so moving the marker in the schematic cannot break this again.
+    for lx in range(92, 97):
+        for lz in range(11, 22):
+            pos = (ox + lx, oy + 2, oz + lz)
+            if pos in b:
+                continue
+            put(b, pos, 'minecraft:polished_diorite')
 
-    # Roof: flat, behind a balustrade. A steep pitched roof on a neoclassical bank reads as a barn
-    # -- the pediment over the portico is meant to be the top of the silhouette, and a big dark
-    # gable rising behind it takes the eye off the one piece of architecture the building has.
-    for x in range(x0 + 4, x1 + 1):
-        for z in range(z0, z1 + 1):
-            put(b, (x, plat + 18, z), tex(MARBLE_TRIM, x, plat + 18, z, 89))
-    # cornice: one course standing proud all the way round
-    for x in range(x0 + 3, x1 + 2):
-        for z in (z0 - 1, z1 + 1):
-            slab(b, (x, plat + 18, z), 'minecraft:smooth_quartz_slab', 'top')
-    for z in range(z0 - 1, z1 + 2):
-        slab(b, (x1 + 1, plat + 18, z), 'minecraft:smooth_quartz_slab', 'top')
-    # balustrade, with a pier every fourth bay so it is not a picket fence
-    for x in range(x0 + 4, x1 + 1):
-        for z in (z0, z1):
-            put(b, (x, plat + 19, z), 'minecraft:quartz_block' if x % 4 == 0
-                else 'minecraft:polished_diorite_wall')
-    for z in range(z0, z1 + 1):
-        put(b, (x1, plat + 19, z), 'minecraft:quartz_block' if z % 4 == 0
-            else 'minecraft:polished_diorite_wall')
+    # The schematic carries no block entities -- the 1.12 tile entities were dropped during
+    # extraction -- so the sign and the strongroom chests have to be added back.
+    #
+    # Their positions are *found*, not hard-coded. This building was not designed here, and the
+    # first attempt at a wall sign beside the door would have overwritten its own quartz detailing:
+    # local x=9 is already quartz_stairs at z=12 and chiseled_quartz_block at z=18. So look for a
+    # cell that is genuinely empty with something solid under it, and put things only there.
+    def free_spots(x0, x1, ly, z0, z1, want, full_block_below=True):
+        """Empty cells with something to stand on. `full_block_below` because a chest on a half
+        block sits wrong, while a sign on the forecourt steps -- which are slabs the whole way --
+        is fine. Requiring a full block everywhere found nothing at all on the steps."""
+        found = []
+        for lx in range(x0, x1 + 1):
+            for lz in range(z0, z1 + 1):
+                here = (ox + lx, oy + ly, oz + lz)
+                below = (ox + lx, oy + ly - 1, oz + lz)
+                if here in b or below not in b:
+                    continue
+                partial = b[below][0].endswith(('_slab', '_stairs', '_pane', '_fence'))
+                if full_block_below and partial:
+                    continue
+                if found and min(abs(lx - f[0]) + abs(lz - f[2]) for f in found) < 6:
+                    continue                      # keep them apart
+                found.append((lx, ly, lz))
+                if len(found) >= want:
+                    return found
+        return found
 
+    # Strongroom chests, in the vestibule between the door and the hall.
+    for lx, ly, lz in free_spots(12, 24, 2, 10, 20, 4):
+        loot_chest(b, (ox + lx, oy + ly, oz + lz), 'west', 'hogwartsmagic:chests/diagon_shop')
+
+    # The sign, standing on the forecourt at the foot of the steps.
+    spot = free_spots(2, 8, 2, 8, 22, 1, full_block_below=False)
+    if spot:
+        lx, ly, lz = spot[0]
+        standing_sign(b, (ox + lx, oy + ly, oz + lz), 'dark_oak', 'west',
+                      ['GRINGOTTS', 'Wizarding Bank'], 'gold', True)
+
+    # No goblins are baked in. DiagonAlleyManager runs the bank's own furnishing pass after
+    # placement, and that finds its teller positions from the gold pressure plates in the desk tops;
+    # baking them here as well would staff the hall twice.
+    return ox, oy, oz
 
 # =================================================================================================
 # Assembly

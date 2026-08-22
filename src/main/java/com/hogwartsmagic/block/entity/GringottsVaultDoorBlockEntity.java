@@ -5,58 +5,69 @@ import com.hogwartsmagic.ModSounds;
 import com.hogwartsmagic.block.GringottsVaultDoorBlock;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
-import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientGamePacketListener;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
+import javax.annotation.Nullable;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
 /**
- * Opens a vault door, once, in five beats over ten seconds.
+ * Opens a vault door, once, in five beats over ten seconds, and <b>the blocks move</b>.
  *
  * <p>The order is the order the films play it, and each beat is doing a different job:
  *
  * <ol>
- *   <li><b>The touch</b> - a bright point runs down the seam from where the hand landed. Nothing has
- *       happened yet, and that is the point: it is the wind-up that makes the ripple land.</li>
- *   <li><b>The ripple</b> - rings travel out across the face of the door from the touch, and the
- *       iron sings. Drawn in particles rather than by swapping blocks: a wave of block changes
- *       across a door is a colour ramp at one-block resolution and a chunk-section rebuild every
- *       tick, and it reads as a stone door changing colour rather than as metal going liquid.</li>
- *   <li><b>The mechanism</b> - three cog rings turn behind the face and the frame vents steam. They
- *       <em>counter-rotate</em>, because three rings all turning the same way read as wallpaper,
- *       and they ease in over eight ticks, because a mechanism this size does not start at speed.</li>
- *   <li><b>The bolts</b> - twenty-four of them draw back around the rim <em>in angular order</em>,
- *       each one a clack a fraction above the last. Sorting them by angle rather than by scan order
- *       is what makes it a sequence instead of twenty-four identical noises.</li>
- *   <li><b>The parting</b> - the leaf goes, from the touch point outward, and the vault breathes
- *       out.</li>
+ *   <li><b>The touch</b> - a bright point runs down the seam from where the hand landed, and every
+ *       plate leans a degree or two toward it. Nothing has opened yet, and that is the point: it is
+ *       the wind-up that makes the ripple land.</li>
+ *   <li><b>The ripple</b> - the iron goes liquid. A crest with a trailing trough travels outward
+ *       from the touch and every plate it passes lifts a third of a block out of the door and tips
+ *       to catch the light. The crest draws at full brightness, which is the single trick that
+ *       makes iron read as molten rather than merely bumpy.</li>
+ *   <li><b>The mechanism</b> - three rings of plates turn behind the face, counter to each other,
+ *       because three rings turning the same way read as wallpaper. They ease in over eight ticks,
+ *       because a mechanism this size does not start at speed.</li>
+ *   <li><b>The bolts</b> - the rim plates withdraw one at a time in angular order, each screwing
+ *       about its own axis as it goes. Screwing reads as a lock; sliding reads as a drawer.</li>
+ *   <li><b>The parting</b> - the leaf splits down the middle and both halves fold back a hundred
+ *       degrees into the frame, seam first, and the vault breathes out.</li>
  * </ol>
  *
- * <p><b>The leaf is never removed, only made to part.</b> That is not a shortcut, it is the only
- * version that works: this block entity lives inside one of the leaf blocks, so deleting them
- * deletes the thing running the sequence, and the door would freeze half-dissolved with an
- * unminable remnant standing in the doorway forever. Setting {@code OPEN} keeps the block entity
- * alive - vanilla preserves a block entity across a state change on the same block - and the open
- * state is invisible, has no collision and blocks no light, so it reads as gone while still being
- * something the door can pull back.
+ * <h2>How a block moves</h2>
  *
- * <p>Which also buys the reseal for free. A vault opened by somebody the bank noticed shuts again a
- * minute later, and the only real hazard in that - a state change suffocating whoever is standing
- * in the doorway - is handled by skipping occupied cells and coming back for them. A door that
- * cannot shut keeps trying, which is also the correct behaviour.
+ * <p>It does not. Minecraft can only draw a block where its block is, so the whole animation is
+ * drawn by {@link com.hogwartsmagic.client.GringottsVaultDoorRenderer} - one textured cube per
+ * leaf cell, free to be anywhere - while the real blocks sit in {@code PHASE = MOVING}: invisible,
+ * so nothing is drawn twice, and still solid, so the doorway is not open until it is open. Only at
+ * the end do they become {@code PARTED}, which is when you can walk through.
+ *
+ * <p>Which means the client has to know the shape of the leaf. It is sent the whole thing once when
+ * the sequence starts and then <b>counts along on its own</b>, with a correction at each beat
+ * boundary - five or six packets for ten seconds rather than one a tick.
+ *
+ * <p>Only the block entity that was touched runs any of this. The rest of the leaf sits at
+ * {@code ticks = -1} and draws nothing, so there is exactly one animation per door however many
+ * blocks it is made of.
+ *
+ * <p>Not removing the leaf is also what makes the reseal possible, and not removing it is forced
+ * anyway: this block entity lives inside one of those cells, so deleting them deletes the thing
+ * running the sequence, and the door would freeze half-open with an unminable remnant in the
+ * doorway forever.
  *
  * <p>The door's plane is measured, never assumed. A vault can face any direction depending on which
  * way the line was banking when it passed, so the axis the leaf barely varies along is the one it
@@ -65,16 +76,17 @@ import java.util.List;
  */
 public class GringottsVaultDoorBlockEntity extends BlockEntity {
 
-    private static final int TOUCH = 20;
-    private static final int RIPPLE = 44;
-    private static final int COGS = 40;
-    private static final int BOLTS = 48;
-    private static final int PART = 48;
-    private static final int TOTAL = TOUCH + RIPPLE + COGS + BOLTS + PART;
+    public static final int TOUCH = 20;
+    public static final int RIPPLE = 44;
+    public static final int COGS = 40;
+    public static final int BOLTS = 48;
+    public static final int PART = 48;
+    public static final int TOTAL = TOUCH + RIPPLE + COGS + BOLTS + PART;
+
+    /** How many bolts go round the rim. The clacks climb in pitch so it reads as a sequence. */
+    public static final int BOLT_COUNT = 24;
 
     private static final int SEARCH = 6;
-    private static final int BOLT_COUNT = 24;
-    private static final int LEAF_PER_TICK = 5;
 
     /** How long an open vault stays open, once the bank has noticed. */
     private static final int RESEAL_DELAY = 20 * 60;
@@ -84,17 +96,20 @@ public class GringottsVaultDoorBlockEntity extends BlockEntity {
     private static final String TOUCH_KEY = "Touch";
     private static final String RESEAL_KEY = "ResealAt";
     private static final String RESEALING_KEY = "Resealing";
+    private static final String LEAF_KEY = "Leaf";
+    private static final String AXES_KEY = "Axes";
+    private static final String RADIUS_KEY = "Radius";
 
     private int ticks = -1;
     private Vec3 touch = Vec3.ZERO;
 
     private final List<BlockPos> leaf = new ArrayList<>();
-    private int leafTaken;
     private boolean surveyed;
 
     /** Game time the door should shut itself, or -1 for a vault nobody was caught opening. */
     private long resealAt = -1L;
     private boolean resealing;
+    private int resealTaken;
 
     private int uAxis = 0;
     private int vAxis = 1;
@@ -104,17 +119,68 @@ public class GringottsVaultDoorBlockEntity extends BlockEntity {
         super(ExampleMod.GRINGOTTS_VAULT_DOOR_BLOCK_ENTITY.get(), pos, state);
     }
 
+    // ------------------------------------------------------------------ what the renderer reads
+
+    public int ticks() {
+        return this.ticks;
+    }
+
+    public Vec3 touch() {
+        return this.touch;
+    }
+
+    public List<BlockPos> leafPositions() {
+        return this.leaf;
+    }
+
+    public int uAxis() {
+        return this.uAxis;
+    }
+
+    public int vAxis() {
+        return this.vAxis;
+    }
+
+    /** The axis the door faces: whichever one is neither u nor v. */
+    public int normalAxis() {
+        return 3 - this.uAxis - this.vAxis;
+    }
+
+    public double maxRadius() {
+        return this.maxRadius;
+    }
+
+    /** Plane coordinates of a cell relative to this one, in the door's own two axes. */
+    public double planeU(BlockPos pos) {
+        return axis(pos, this.uAxis) - axis(this.worldPosition, this.uAxis);
+    }
+
+    public double planeV(BlockPos pos) {
+        return axis(pos, this.vAxis) - axis(this.worldPosition, this.vAxis);
+    }
+
+    @Override
+    public AABB getRenderBoundingBox() {
+        // The animation throws plates well outside their own cells, and a block entity is culled
+        // against this box, so the default one-block bound would pop the whole door off screen.
+        return new AABB(this.worldPosition).inflate(SEARCH + 8);
+    }
+
+    // ------------------------------------------------------------------ starting
+
     public boolean beginOpening(ServerLevel level, Vec3 touchedAt,
-                                @javax.annotation.Nullable net.minecraft.server.level.ServerPlayer opener) {
+                                @Nullable net.minecraft.server.level.ServerPlayer opener) {
         if (this.ticks >= 0 || this.resealing
-                || getBlockState().getValue(GringottsVaultDoorBlock.OPEN)) {
+                || getBlockState().getValue(GringottsVaultDoorBlock.PHASE)
+                        != GringottsVaultDoorBlock.SHUT) {
             return false;
         }
         // Any block of the leaf can start it, so the lock-out has to be asked of the whole leaf
         // rather than of this one cell: somebody may already have a sequence running two blocks
         // over, and two sequences on one door would fight over the same cells.
         for (BlockPos pos : findLeaf(level)) {
-            if (level.getBlockState(pos).getValue(GringottsVaultDoorBlock.OPEN)) {
+            if (level.getBlockState(pos).getValue(GringottsVaultDoorBlock.PHASE)
+                    != GringottsVaultDoorBlock.SHUT) {
                 return false;
             }
             if (!pos.equals(this.worldPosition)
@@ -127,7 +193,13 @@ public class GringottsVaultDoorBlockEntity extends BlockEntity {
         this.ticks = 0;
         this.touch = touchedAt;
         this.surveyed = false;
-        this.leafTaken = 0;
+        survey(level);
+
+        // Hand the whole leaf over to the renderer at once: invisible, so it is not drawn twice,
+        // and still solid, so nobody walks through a door that has not opened yet.
+        for (BlockPos pos : this.leaf) {
+            setPhase(level, pos, GringottsVaultDoorBlock.MOVING);
+        }
 
         level.playSound(null, this.worldPosition, ModSounds.VAULT_DOOR_TOUCH.get(),
                 SoundSource.BLOCKS, 1.1F, 1.0F);
@@ -145,8 +217,24 @@ public class GringottsVaultDoorBlockEntity extends BlockEntity {
                 this.resealAt = level.getGameTime() + TOTAL + RESEAL_DELAY;
             }
         }
-        setChanged();
+        sync(level);
         return true;
+    }
+
+    private void setPhase(ServerLevel level, BlockPos pos, int phase) {
+        BlockState state = level.getBlockState(pos);
+        if (state.getBlock() instanceof GringottsVaultDoorBlock
+                && state.getValue(GringottsVaultDoorBlock.PHASE) != phase) {
+            level.setBlock(pos, state.setValue(GringottsVaultDoorBlock.PHASE, phase),
+                    Block.UPDATE_ALL);
+        }
+    }
+
+    /** Pushes the whole animation state to everyone watching. Called at beat boundaries only. */
+    private void sync(ServerLevel level) {
+        setChanged();
+        BlockState state = getBlockState();
+        level.sendBlockUpdated(this.worldPosition, state, state, Block.UPDATE_CLIENTS);
     }
 
     private List<BlockPos> findLeaf(ServerLevel level) {
@@ -165,14 +253,8 @@ public class GringottsVaultDoorBlockEntity extends BlockEntity {
         return a == 0 ? p.getX() : a == 1 ? p.getY() : p.getZ();
     }
 
-    private double[] plane(BlockPos p) {
-        return new double[]{axis(p, this.uAxis) - axis(this.worldPosition, this.uAxis),
-                axis(p, this.vAxis) - axis(this.worldPosition, this.vAxis)};
-    }
-
     private double radiusOf(BlockPos p) {
-        double[] d = plane(p);
-        return Math.hypot(d[0], d[1]);
+        return Math.hypot(planeU(p), planeV(p));
     }
 
     private Vec3 at(double angle, double radius) {
@@ -219,6 +301,8 @@ public class GringottsVaultDoorBlockEntity extends BlockEntity {
         this.surveyed = true;
     }
 
+    // ------------------------------------------------------------------ ticking
+
     public static void tick(Level level, BlockPos pos, BlockState state,
                             GringottsVaultDoorBlockEntity door) {
         if (!(level instanceof ServerLevel server)) {
@@ -233,11 +317,30 @@ public class GringottsVaultDoorBlockEntity extends BlockEntity {
         }
     }
 
+    /**
+     * The client's whole job: count.
+     *
+     * <p>It is told the leaf and the tick number when the sequence starts and corrected at every
+     * beat boundary, so this only ever has to carry it across a beat - a few seconds at worst, and
+     * the animation is a pure function of the count, so a correction never jumps.
+     */
+    public static void clientTick(Level level, BlockPos pos, BlockState state,
+                                  GringottsVaultDoorBlockEntity door) {
+        if (door.ticks >= 0 && door.ticks < TOTAL) {
+            door.ticks++;
+        }
+    }
+
     private void tickOpening(ServerLevel level) {
         if (!this.surveyed) {
             survey(level);
         }
         int t = this.ticks++;
+
+        if (t == TOUCH || t == TOUCH + RIPPLE || t == TOUCH + RIPPLE + COGS
+                || t == TOUCH + RIPPLE + COGS + BOLTS) {
+            sync(level);
+        }
 
         if (t < TOUCH) {
             beatTouch(level, t);
@@ -248,10 +351,14 @@ public class GringottsVaultDoorBlockEntity extends BlockEntity {
         } else if (t < TOUCH + RIPPLE + COGS + BOLTS) {
             beatBolts(level, t - TOUCH - RIPPLE - COGS);
         } else if (t < TOTAL) {
-            beatPart(level);
+            beatPart(level, t - TOUCH - RIPPLE - COGS - BOLTS);
         } else {
+            // The plates have folded back into the frame. Only now is the doorway a doorway.
+            for (BlockPos pos : this.leaf) {
+                setPhase(level, pos, GringottsVaultDoorBlock.PARTED);
+            }
             this.ticks = -1;
-            setChanged();
+            sync(level);
         }
     }
 
@@ -265,50 +372,28 @@ public class GringottsVaultDoorBlockEntity extends BlockEntity {
         }
     }
 
-    /** The iron goes liquid: rings travelling out from the touch, and the metal singing. */
+    /** The iron goes liquid. The plates themselves do the work; this is the spray off the crest. */
     private void beatRipple(ServerLevel level, int t) {
         if (t == 0) {
             level.playSound(null, this.worldPosition, ModSounds.VAULT_DOOR_RIPPLE.get(),
                     SoundSource.BLOCKS, 1.5F, 1.0F);
         }
-        double front = (t / (double) RIPPLE) * (this.maxRadius + 2.0D);
-        int points = 22;
-        for (int i = 0; i < points; i++) {
-            double a = i * 2.0D * Math.PI / points;
-            Vec3 p = at(a, front);
+        double front = (t / (double) RIPPLE) * (this.maxRadius + 3.0D);
+        for (int i = 0; i < 14; i++) {
+            Vec3 p = at(i * 2.0D * Math.PI / 14.0D, front);
             level.sendParticles(ParticleTypes.WAX_OFF, p.x, p.y, p.z, 1, 0.02D, 0.02D, 0.02D, 0.0D);
             if (i % 3 == 0) {
                 level.sendParticles(ParticleTypes.ELECTRIC_SPARK, p.x, p.y, p.z, 1,
                         0.05D, 0.05D, 0.05D, 0.0D);
             }
         }
-        // One trailing trough behind the crest, so it reads as a wave rather than as a ring.
-        double back = front - 1.6D;
-        if (back > 0.0D) {
-            for (int i = 0; i < points; i += 2) {
-                Vec3 p = at(i * 2.0D * Math.PI / points, back);
-                level.sendParticles(ParticleTypes.WAX_OFF, p.x, p.y, p.z, 1, 0.02D, 0.02D, 0.02D, 0.0D);
-            }
-        }
     }
 
-    /** Three cog rings turn behind the face, counter to each other, and the frame vents steam. */
+    /** Three rings turn behind the face, counter to each other, and the frame vents steam. */
     private void beatCogs(ServerLevel level, int t) {
         if (t == 0) {
             level.playSound(null, this.worldPosition, ModSounds.VAULT_DOOR_COGS.get(),
                     SoundSource.BLOCKS, 1.6F, 0.9F);
-        }
-        // Eased in over eight ticks. A mechanism this size does not start at speed.
-        double ease = Math.min(1.0D, t / 8.0D);
-        for (int ring = 0; ring < 3; ring++) {
-            double r = this.maxRadius * (0.34D + 0.28D * ring);
-            double dir = (ring % 2 == 0) ? 1.0D : -1.0D;
-            double spin = dir * ease * t * 0.09D;
-            int teeth = 6 + ring * 5;
-            for (int i = 0; i < teeth; i++) {
-                Vec3 p = at(spin + i * 2.0D * Math.PI / teeth, r);
-                level.sendParticles(ParticleTypes.CRIT, p.x, p.y, p.z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
-            }
         }
         if (t % 10 == 0) {
             // Four vents in the frame, on the diagonals so they do not line up with the bolts.
@@ -320,7 +405,7 @@ public class GringottsVaultDoorBlockEntity extends BlockEntity {
         }
     }
 
-    /** Twenty-four bolts draw back around the rim, in angular order, each above the last. */
+    /** The rim plates withdraw in angular order, each a fraction above the last. */
     private void beatBolts(ServerLevel level, int t) {
         if (t == 0) {
             level.playSound(null, this.worldPosition, ModSounds.VAULT_DOOR_BOLTS.get(),
@@ -334,34 +419,16 @@ public class GringottsVaultDoorBlockEntity extends BlockEntity {
         Vec3 p = at(a, this.maxRadius * 0.85D);
         level.sendParticles(ParticleTypes.CRIT, p.x, p.y, p.z, 8, 0.10D, 0.10D, 0.10D, 0.08D);
         level.sendParticles(ParticleTypes.SMOKE, p.x, p.y, p.z, 3, 0.08D, 0.08D, 0.08D, 0.01D);
-        // Each one screws as it withdraws rather than sliding: a short arc trailing off the bolt,
-        // because screwing reads as a lock and sliding reads as a drawer.
-        for (int k = 1; k <= 3; k++) {
-            Vec3 q = at(a + k * Math.toRadians(5.0D), this.maxRadius * (0.85D - 0.05D * k));
-            level.sendParticles(ParticleTypes.WAX_OFF, q.x, q.y, q.z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
-        }
         // Identical noise twenty-four times is a rattle. Climbing, it is a sequence.
         level.playSound(null, BlockPos.containing(p), SoundEvents.IRON_TRAPDOOR_OPEN,
                 SoundSource.BLOCKS, 0.55F, 0.5F + 0.02F * index);
     }
 
-    /** The leaf parts, from the touch outward, and the vault breathes out. */
-    private void beatPart(ServerLevel level) {
-        if (this.leafTaken == 0) {
+    /** Both halves fold back, and the vault breathes out. */
+    private void beatPart(ServerLevel level, int t) {
+        if (t == 0) {
             level.playSound(null, this.worldPosition, ModSounds.VAULT_DOOR_OPEN.get(),
                     SoundSource.BLOCKS, 2.0F, 1.0F);
-        }
-        for (int i = 0; i < LEAF_PER_TICK && this.leafTaken < this.leaf.size(); i++) {
-            BlockPos pos = this.leaf.get(this.leafTaken++);
-            BlockState was = level.getBlockState(pos);
-            if (!(was.getBlock() instanceof GringottsVaultDoorBlock)
-                    || was.getValue(GringottsVaultDoorBlock.OPEN)) {
-                continue;
-            }
-            level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, was),
-                    pos.getX() + 0.5D, pos.getY() + 0.5D, pos.getZ() + 0.5D, 5, 0.3D, 0.3D, 0.3D,
-                    0.02D);
-            level.setBlock(pos, was.setValue(GringottsVaultDoorBlock.OPEN, Boolean.TRUE), 3);
         }
         // Green vapour, pooling along the floor rather than rising: the vault has been shut a
         // long time and what comes out of it is heavier than air.
@@ -370,33 +437,42 @@ public class GringottsVaultDoorBlockEntity extends BlockEntity {
                 0.8D, 0.2D, 0.8D, 0.005D);
         level.sendParticles(ParticleTypes.COMPOSTER, mouth.x, mouth.y - 0.8D, mouth.z, 3,
                 1.0D, 0.1D, 1.0D, 0.002D);
+        if (t % 6 == 0) {
+            level.sendParticles(ParticleTypes.LARGE_SMOKE, mouth.x, mouth.y, mouth.z, 3,
+                    this.maxRadius * 0.5D, this.maxRadius * 0.5D, this.maxRadius * 0.5D, 0.01D);
+        }
     }
+
+    // ------------------------------------------------------------------ shutting again
 
     private void beginResealing(ServerLevel level) {
         this.resealing = true;
         this.resealAt = -1L;
+        this.resealTaken = 0;
         survey(level);
-        // Outside in, so the last thing to close is where the hand was.
-        Collections.reverse(this.leaf);
         level.playSound(null, this.worldPosition, ModSounds.VAULT_DOOR_SEAL.get(),
                 SoundSource.BLOCKS, 2.0F, 1.0F);
-        setChanged();
+        sync(level);
     }
 
     /**
      * Shuts the leaf again, five cells a tick, skipping anything anybody is standing in.
      *
-     * <p>The skip is the whole point: {@code setBlock} on an occupied cell suffocates whoever is in
-     * it, and the doorway is exactly where a fleeing player is. A door that cannot shut keeps
-     * trying rather than giving up or crushing them.
+     * <p>The skip is the whole point: putting a solid block back into an occupied cell suffocates
+     * whoever is in it, and the doorway is exactly where a fleeing player is. A door that cannot
+     * shut keeps trying rather than giving up or crushing them.
+     *
+     * <p>Outside in, so the last thing to close is the middle - the reverse of the way it opened.
      */
     private void tickResealing(ServerLevel level) {
         int done = 0;
         boolean anyLeft = false;
-        for (BlockPos pos : this.leaf) {
+        for (int i = this.leaf.size() - 1; i >= 0; i--) {
+            BlockPos pos = this.leaf.get(i);
             BlockState state = level.getBlockState(pos);
             if (!(state.getBlock() instanceof GringottsVaultDoorBlock)
-                    || !state.getValue(GringottsVaultDoorBlock.OPEN)) {
+                    || state.getValue(GringottsVaultDoorBlock.PHASE)
+                            == GringottsVaultDoorBlock.SHUT) {
                 continue;
             }
             anyLeft = true;
@@ -406,17 +482,18 @@ public class GringottsVaultDoorBlockEntity extends BlockEntity {
             if (!level.getEntities((Entity) null, new AABB(pos), e -> !e.isSpectator()).isEmpty()) {
                 continue;
             }
-            level.setBlock(pos, state.setValue(GringottsVaultDoorBlock.OPEN, Boolean.FALSE), 3);
+            setPhase(level, pos, GringottsVaultDoorBlock.SHUT);
             level.sendParticles(ParticleTypes.CRIT, pos.getX() + 0.5D, pos.getY() + 0.5D,
                     pos.getZ() + 0.5D, 4, 0.3D, 0.3D, 0.3D, 0.02D);
             done++;
         }
         if (!anyLeft) {
             this.resealing = false;
-            this.leafTaken = 0;
-            setChanged();
+            sync(level);
         }
     }
+
+    // ------------------------------------------------------------------ persistence and sync
 
     @Override
     protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
@@ -427,6 +504,13 @@ public class GringottsVaultDoorBlockEntity extends BlockEntity {
         tag.putDouble(TOUCH_KEY + "X", this.touch.x);
         tag.putDouble(TOUCH_KEY + "Y", this.touch.y);
         tag.putDouble(TOUCH_KEY + "Z", this.touch.z);
+        long[] cells = new long[this.leaf.size()];
+        for (int i = 0; i < cells.length; i++) {
+            cells[i] = this.leaf.get(i).asLong();
+        }
+        tag.putLongArray(LEAF_KEY, cells);
+        tag.putIntArray(AXES_KEY, new int[]{this.uAxis, this.vAxis});
+        tag.putDouble(RADIUS_KEY, this.maxRadius);
     }
 
     @Override
@@ -437,9 +521,31 @@ public class GringottsVaultDoorBlockEntity extends BlockEntity {
         this.resealing = tag.getBoolean(RESEALING_KEY);
         this.touch = new Vec3(tag.getDouble(TOUCH_KEY + "X"), tag.getDouble(TOUCH_KEY + "Y"),
                 tag.getDouble(TOUCH_KEY + "Z"));
-        // Whatever had already parted stays parted: the survey re-runs and simply finds the leaf
-        // already half open, and the cells it re-walks are skipped because they are already open.
+        this.leaf.clear();
+        for (long packed : tag.getLongArray(LEAF_KEY)) {
+            this.leaf.add(BlockPos.of(packed));
+        }
+        int[] axes = tag.getIntArray(AXES_KEY);
+        if (axes.length == 2) {
+            this.uAxis = axes[0];
+            this.vAxis = axes[1];
+        }
+        this.maxRadius = Math.max(1.0D, tag.getDouble(RADIUS_KEY));
+        // The server re-surveys before it does anything, so a door that reloads mid-sequence picks
+        // up whatever the leaf actually looks like now rather than what it looked like then.
         this.surveyed = false;
-        this.leafTaken = 0;
+    }
+
+    @Override
+    public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
+        CompoundTag tag = new CompoundTag();
+        saveAdditional(tag, registries);
+        return tag;
+    }
+
+    @Nullable
+    @Override
+    public Packet<ClientGamePacketListener> getUpdatePacket() {
+        return ClientboundBlockEntityDataPacket.create(this);
     }
 }

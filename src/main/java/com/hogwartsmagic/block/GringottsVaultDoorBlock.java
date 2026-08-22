@@ -21,8 +21,7 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
-import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
@@ -40,20 +39,35 @@ import javax.annotation.Nullable;
  * <p>The leaf is unminable on purpose. A vault you can take out with a pickaxe is not a vault, and
  * the whole of the rest of the chamber is sealed rock, so the door is the only way in either way.
  *
- * <p><b>{@code OPEN} means <em>parted</em>, not <em>opening</em>.</b> A parted cell is invisible,
- * has no collision, blocks no light and cannot be clicked - it reads as gone. It is still a block,
- * which is what lets the door pull itself shut again a minute later, and what keeps the block
- * entity running the sequence alive while its own cell dissolves.
+ * <h2>Three phases, because a moving block is not a block</h2>
+ *
+ * <p>Minecraft can only draw a block where its block is, so a door whose plates ripple, turn and
+ * fold back cannot be drawn by the world renderer at all - it has to be drawn by the block entity,
+ * which is free to put its geometry anywhere. That means the real block has to get out of the way
+ * without ceasing to exist, and one boolean cannot say both things:
+ *
+ * <ul>
+ *   <li><b>0 - shut.</b> Ordinary block: drawn from its model, solid, opaque.</li>
+ *   <li><b>1 - moving.</b> Invisible <em>and still solid</em>. The renderer is drawing this cell
+ *       somewhere else; the doorway is not open yet and must not be walked through.</li>
+ *   <li><b>2 - parted.</b> Invisible, no collision, no light. It reads as gone, but it is still a
+ *       block, which is what lets the vault shut itself again a minute later.</li>
+ * </ul>
  */
 public class GringottsVaultDoorBlock extends BaseEntityBlock {
 
     public static final MapCodec<GringottsVaultDoorBlock> CODEC =
             simpleCodec(GringottsVaultDoorBlock::new);
-    public static final BooleanProperty OPEN = BlockStateProperties.OPEN;
+
+    public static final int SHUT = 0;
+    public static final int MOVING = 1;
+    public static final int PARTED = 2;
+
+    public static final IntegerProperty PHASE = IntegerProperty.create("phase", SHUT, PARTED);
 
     public GringottsVaultDoorBlock(BlockBehaviour.Properties properties) {
         super(properties);
-        registerDefaultState(stateDefinition.any().setValue(OPEN, Boolean.FALSE));
+        registerDefaultState(stateDefinition.any().setValue(PHASE, SHUT));
     }
 
     @Override
@@ -63,40 +77,42 @@ public class GringottsVaultDoorBlock extends BaseEntityBlock {
 
     @Override
     protected RenderShape getRenderShape(BlockState state) {
-        return state.getValue(OPEN) ? RenderShape.INVISIBLE : RenderShape.MODEL;
+        return state.getValue(PHASE) == SHUT ? RenderShape.MODEL : RenderShape.INVISIBLE;
     }
 
     @Override
     protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos,
                                   CollisionContext context) {
-        return state.getValue(OPEN) ? Shapes.empty() : Shapes.block();
+        return state.getValue(PHASE) == PARTED ? Shapes.empty() : Shapes.block();
     }
 
     @Override
     protected VoxelShape getCollisionShape(BlockState state, BlockGetter level, BlockPos pos,
                                            CollisionContext context) {
-        return state.getValue(OPEN) ? Shapes.empty() : Shapes.block();
+        return state.getValue(PHASE) == PARTED ? Shapes.empty() : Shapes.block();
     }
 
     @Override
     protected VoxelShape getOcclusionShape(BlockState state, BlockGetter level, BlockPos pos) {
-        return state.getValue(OPEN) ? Shapes.empty() : Shapes.block();
+        // Never occludes, even shut: while the leaf is MOVING the renderer draws geometry outside
+        // these cells, and a cell that claims to be a full occluder would cull it away.
+        return Shapes.empty();
     }
 
     @Override
     protected int getLightBlock(BlockState state, BlockGetter level, BlockPos pos) {
-        return state.getValue(OPEN) ? 0 : 15;
+        return state.getValue(PHASE) == PARTED ? 0 : 15;
     }
 
     @Override
     protected boolean propagatesSkylightDown(BlockState state, BlockGetter level, BlockPos pos) {
-        return state.getValue(OPEN);
+        return state.getValue(PHASE) == PARTED;
     }
 
     @Override
     protected void createBlockStateDefinition(
             StateDefinition.Builder<net.minecraft.world.level.block.Block, BlockState> builder) {
-        builder.add(OPEN);
+        builder.add(PHASE);
     }
 
     @Nullable
@@ -109,15 +125,19 @@ public class GringottsVaultDoorBlock extends BaseEntityBlock {
     @Override
     public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level, BlockState state,
                                                                   BlockEntityType<T> type) {
-        return level.isClientSide ? null : createTickerHelper(type,
-                ExampleMod.GRINGOTTS_VAULT_DOOR_BLOCK_ENTITY.get(),
-                GringottsVaultDoorBlockEntity::tick);
+        // Both sides tick. The server runs the sequence; the client counts along with it between
+        // the handful of corrections it is sent, which is what lets the animation be smooth without
+        // a packet a tick.
+        return createTickerHelper(type, ExampleMod.GRINGOTTS_VAULT_DOOR_BLOCK_ENTITY.get(),
+                level.isClientSide
+                        ? GringottsVaultDoorBlockEntity::clientTick
+                        : GringottsVaultDoorBlockEntity::tick);
     }
 
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos,
                                                Player player, BlockHitResult hit) {
-        if (state.getValue(OPEN)) {
+        if (state.getValue(PHASE) != SHUT) {
             return InteractionResult.PASS;
         }
         if (!(level instanceof ServerLevel server)) {

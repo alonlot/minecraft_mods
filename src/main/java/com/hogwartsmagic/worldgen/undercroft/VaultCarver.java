@@ -98,8 +98,11 @@ public final class VaultCarver {
         // Throat, then chamber, both measured out along the same heading.
         for (int d = CLEAR; d <= CLEAR + THROAT + DEPTH; d++) {
             boolean inChamber = d > CLEAR + THROAT;
-            int halfW = inChamber ? HALF_W : 1;
-            int height = inChamber ? HEIGHT : 4;
+            // Five by five rather than three by four. The door is the headline of the feature and
+            // the animation needs room: a ripple crossing three plates is a flicker, and a leaf
+            // that folds back in two halves needs a middle to split down.
+            int halfW = inChamber ? HALF_W : 2;
+            int height = inChamber ? HEIGHT : 5;
 
             for (int u = -halfW - 1; u <= halfW + 1; u++) {
                 for (int v = -1; v <= height + 1; v++) {
@@ -194,8 +197,8 @@ public final class VaultCarver {
     private void door(CarveSink sink, Vec3 centre, Vec3 out, Vec3 up) {
         Vec3 across = cross(out, up);
         BlockState leaf = ExampleMod.GRINGOTTS_VAULT_DOOR.get().defaultBlockState();
-        for (int u = -1; u <= 1; u++) {
-            for (int v = 0; v <= 3; v++) {
+        for (int u = -2; u <= 2; u++) {
+            for (int v = 0; v <= 4; v++) {
                 Vec3 p = centre.add(out.scale(CLEAR)).add(across.scale(u)).add(up.scale(v - 2.0D));
                 sink.set((int) Math.floor(p.x), (int) Math.floor(p.y), (int) Math.floor(p.z), leaf);
             }
@@ -203,7 +206,7 @@ public final class VaultCarver {
         // A pair on the corridor side of the door. Without them a vault is a slightly different
         // shade of black going past at thirty metres a second, and you never know it was there.
         for (int i = -1; i <= 1; i += 2) {
-            Vec3 p = centre.add(out.scale(CLEAR - 1.0D)).add(across.scale(i * 2.0D))
+            Vec3 p = centre.add(out.scale(CLEAR - 1.0D)).add(across.scale(i * 3.5D))
                     .add(up.scale(1.0D));
             sink.set((int) Math.floor(p.x), (int) Math.floor(p.y), (int) Math.floor(p.z),
                     Blocks.SOUL_LANTERN.defaultBlockState()

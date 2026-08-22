@@ -836,6 +836,8 @@ public class ClientModEvents {
 
     @SubscribeEvent
     public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
+        event.registerBlockEntityRenderer(ExampleMod.GRINGOTTS_VAULT_DOOR_BLOCK_ENTITY.get(),
+                com.hogwartsmagic.client.GringottsVaultDoorRenderer::new);
         event.registerBlockEntityRenderer(ExampleMod.WAND_WORKBENCH_BLOCK_ENTITY.get(), WandWorkbenchRenderer::new);
         event.registerBlockEntityRenderer(ExampleMod.BROOM_WORKBENCH_BLOCK_ENTITY.get(), com.hogwartsmagic.client.BroomWorkbenchRenderer::new);
 

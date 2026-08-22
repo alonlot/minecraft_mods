@@ -262,8 +262,9 @@ public class ExampleMod
                             // decided per state rather than baked in as "iron block, always solid".
                             .noOcclusion()
                             .lightLevel(state -> state.hasProperty(
-                                    com.hogwartsmagic.block.GringottsVaultDoorBlock.OPEN)
-                                    && state.getValue(com.hogwartsmagic.block.GringottsVaultDoorBlock.OPEN) ? 7 : 0)));
+                                    com.hogwartsmagic.block.GringottsVaultDoorBlock.PHASE)
+                                    && state.getValue(com.hogwartsmagic.block.GringottsVaultDoorBlock.PHASE)
+                                            == com.hogwartsmagic.block.GringottsVaultDoorBlock.PARTED ? 7 : 0)));
 
     /**
      * The screen across the back of the banking hall. Goblin-forged, so about twelve seconds a

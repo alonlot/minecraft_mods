@@ -11,7 +11,8 @@
     "client.InvisibilityCloakArmorLayerMixin",
     "client.CaveInimicumClientPacketListenerMixin",
     "client.CaveInimicumEntityRenderDispatcherMixin",
-    "client.BasiliskGazeGuiMixin"
+    "client.BasiliskGazeGuiMixin",
+    "client.DiagonAlleyLevelRendererMixin"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -90,6 +90,28 @@ public final class DiagonAlleyClientState {
     public static final float FOG_NEAR = 24.0F;
     public static final float FOG_FAR = 320.0F;
 
+    /**
+     * Should this 16-block section of the world be drawn to somebody standing in the alley?
+     *
+     * <p>Only if it holds some of the alley. Everything else is the countryside the wall was
+     * built in, and the point of the arch is to have left it.
+     *
+     * <p>Touching counts, so the sections along the edge -- which hold the alley's own
+     * perimeter wall -- are drawn whole, at the cost of a sliver of real ground beside it.
+     * Cutting those would cut the wall too.
+     */
+    public static boolean sectionShown(BlockPos sectionOrigin) {
+        if (sizeX <= 0) {
+            return true;
+        }
+        int x0 = sectionOrigin.getX();
+        int y0 = sectionOrigin.getY();
+        int z0 = sectionOrigin.getZ();
+        return x0 + 16 > origin.getX() && x0 <= origin.getX() + sizeX
+                && y0 + 16 > origin.getY() && y0 <= origin.getY() + sizeY
+                && z0 + 16 > origin.getZ() && z0 <= origin.getZ() + sizeZ;
+    }
+
     public static boolean shouldHideEntity(Entity entity) {
         if (sizeX <= 0) {
             return false;
@@ -98,9 +120,11 @@ public final class DiagonAlleyClientState {
         if (local == null || entity == null || entity == local || !entity.isAlive()) {
             return false;
         }
-        if (!inside(entity.blockPosition(), 0)) {
-            return false;
-        }
-        return !inside(local.blockPosition(), 8);
+        boolean viewerIn = inside(local.blockPosition(), 8);
+        boolean subjectIn = inside(entity.blockPosition(), 0);
+        // Both ways round. A shopkeeper is hidden from the street outside, and the cows in
+        // that street are hidden from the shopkeeper -- the terrain they are standing on is
+        // not drawn to anyone in the alley, so an animal left visible would be floating.
+        return viewerIn != subjectIn;
     }
 }

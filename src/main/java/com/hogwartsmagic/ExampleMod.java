@@ -866,6 +866,7 @@ public class ExampleMod
         com.hogwartsmagic.command.WizardRaidCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.FindDiagonAlleyCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.SpawnDiagonAlleyCommand.register(event.getDispatcher());
+        com.hogwartsmagic.command.OllivandersCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.FindMiniHogwartsCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.FindGringottsCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.BuildBankCommand.register(event.getDispatcher());

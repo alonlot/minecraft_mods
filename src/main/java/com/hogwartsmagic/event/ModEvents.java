@@ -2859,6 +2859,8 @@ public class ModEvents {
             com.hogwartsmagic.worldgen.MiniHogwartsManager.tick(event.getServer());
             // Same for Diagon Alley, which is eleven chunks long and cannot go in one tick.
             com.hogwartsmagic.worldgen.DiagonAlleyManager.tick(event.getServer());
+            // And advance the Ollivanders scene, if anyone is in the middle of one.
+            OllivandersCeremony.tick(event.getServer());
             // Same for a Gringotts village branch going up.
             com.hogwartsmagic.worldgen.VillageGringottsBank.tick(event.getServer());
             // ...and for the undercroft being dug out underneath one.
@@ -4041,6 +4043,37 @@ public class ModEvents {
         ward.showOutlinePreview();
         serverPlayer.displayClientMessage(ward.getStatusMessage(), true);
         return true;
+    }
+
+    /**
+     * Buying a wand from a wandmaker, the first time, plays the Ollivanders scene.
+     *
+     * <p>Only the first: the scene is twenty-six seconds long, and one that fired on every purchase
+     * would stop being a set piece and start being a toll. The flag lives in the player's persistent
+     * data; {@code /ollivanders} replays it.
+     */
+    @SubscribeEvent
+    public static void onWandBought(net.minecraftforge.event.entity.player.TradeWithVillagerEvent event) {
+        if (!(event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player)) {
+            return;
+        }
+        if (!(event.getAbstractVillager() instanceof net.minecraft.world.entity.npc.Villager villager)) {
+            return;
+        }
+        if (villager.getVillagerData().getProfession()
+                != com.hogwartsmagic.entity.ModVillagers.WANDMAKER.get()) {
+            return;
+        }
+        net.minecraft.world.item.ItemStack bought = event.getMerchantOffer().getResult();
+        net.minecraft.resources.ResourceLocation id =
+                net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(bought.getItem());
+        if (id == null || !id.getPath().endsWith("_wand")) {
+            return;
+        }
+        if (OllivandersCeremony.hasHadCeremony(player) || OllivandersCeremony.isBusy(player)) {
+            return;
+        }
+        OllivandersCeremony.begin(player, villager);
     }
 
 }

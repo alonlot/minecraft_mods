@@ -555,6 +555,16 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
         if (brick.ticks < 0) {
             return;
         }
+
+        // Hold at the end of the shudder until the street behind the wall actually exists.
+        // The build normally finishes inside the wind-up, but on a slow server or a big clear
+        // it can run long, and an arch that opens onto a hole in the ground is worse than an
+        // arch that takes a moment longer. The wall keeps rippling while it waits.
+        if (brick.ticks >= PEEL_START
+                && com.hogwartsmagic.worldgen.DiagonAlleyManager.isBusy()) {
+            brick.ticks = PEEL_START;
+            return;
+        }
         brick.ticks++;
 
         if (brick.ticks <= GLOW) {

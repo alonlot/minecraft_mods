@@ -631,20 +631,35 @@ def square(b):
             put(b, (x, -1, z), 'minecraft:stone')
 
     cx, cz = (X_ALLEY1 + X_SQUARE1) // 2, ZC + curve((X_ALLEY1 + X_SQUARE1) // 2)
-    # fountain: a raised kerb, water, and a column.  A pool flush with the paving reads as a puddle.
-    for dx in range(-4, 5):
-        for dz in range(-4, 5):
-            if dx * dx + dz * dz <= 18:
-                put(b, (cx + dx, 1, cz + dz), 'minecraft:water')
-            if 18 < dx * dx + dz * dz <= 26:
-                put(b, (cx + dx, 1, cz + dz), tex(MARBLE_TRIM, cx + dx, 1, cz + dz, 72))
-                slab(b, (cx + dx, 2, cz + dz), 'minecraft:quartz_slab')
+
+    # The fountain, and the basin that actually holds it.
+    #
+    # The first version filled r2 <= 18 with water and laid a kerb over 18 < r2 <= 26, inside a
+    # loop that only ran dx,dz from -4 to 4. Water at (4,0) is r2 = 16, and its neighbour at (5,0)
+    # is a cell the loop never visited -- so the square flooded, out across the paving, round
+    # Gringotts, and down the street. Deriving the kerb from the water rather than from a second
+    # guessed radius means the basin cannot spring a leak however the pool is reshaped.
+    pool = {(dx, dz) for dx in range(-5, 6) for dz in range(-5, 6)
+            if dx * dx + dz * dz <= 12}
+    kerb = set()
+    for dx, dz in pool:
+        for ax, az in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            if (dx + ax, dz + az) not in pool:
+                kerb.add((dx + ax, dz + az))
+
+    for dx, dz in pool:
+        put(b, (cx + dx, 1, cz + dz), 'minecraft:water')
+    for dx, dz in kerb:
+        put(b, (cx + dx, 1, cz + dz), tex(MARBLE_TRIM, cx + dx, 1, cz + dz, 72))
+        slab(b, (cx + dx, 2, cz + dz), 'minecraft:quartz_slab', 'bottom')
+
+    # The column out of the middle of it. No water above the basin: a source block at y=2 with
+    # nothing round it is just another leak.
     for y in range(1, 6):
         put(b, (cx, y, cz), tex(MARBLE, cx, y, cz, 73))
     put(b, (cx, 6, cz), 'minecraft:quartz_stairs')
     for d, f in (('north', (0, -1)), ('south', (0, 1)), ('east', (1, 0)), ('west', (-1, 0))):
         stair(b, (cx + f[0], 5, cz + f[1]), 'minecraft:quartz_stairs', d, 'top')
-        put(b, (cx + f[0] * 2, 2, cz + f[1] * 2), 'minecraft:water')
     put(b, (cx, 7, cz), 'hogwartsmagic:arcane_cluster')
 
     # lamps around the square

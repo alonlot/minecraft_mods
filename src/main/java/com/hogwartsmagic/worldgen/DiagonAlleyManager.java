@@ -69,7 +69,13 @@ public final class DiagonAlleyManager {
     /** How deep a support skirt may run before giving up (a cliff edge, not a slope). */
     private static final int MAX_SKIRT_DEPTH = 48;
     private static final BlockState SKIRT = Blocks.STONE.defaultBlockState();
-    private static final int FLAGS = Block.UPDATE_CLIENTS;
+    /**
+     * Clients only, no neighbour updates, and <b>no drops</b>. Without SUPPRESS_DROPS, clearing
+     * ground that happens to hold a chest or a furnace makes its onRemove dump the contents --
+     * hundreds of item entities popping at once, which is both the noise heard while the alley
+     * goes up and a floor covered in somebody's belongings afterwards.
+     */
+    private static final int FLAGS = Block.UPDATE_CLIENTS | Block.UPDATE_SUPPRESS_DROPS;
 
     /**
      * Template x below this is the Leaky Cauldron courtyard and its brick wall. When the alley is
@@ -495,6 +501,8 @@ public final class DiagonAlleyManager {
         private final int count;
 
         private final long[] covered;
+        /** Rotated bounds of the template's courtyard, which must never be cleared. */
+        private int keepX0 = 1, keepX1 = 0, keepZ0 = 1, keepZ1 = 0;
         private final int[] lowestY;
 
         private final BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
@@ -569,6 +577,26 @@ public final class DiagonAlleyManager {
                 out++;
             }
 
+            if (skipCourtyard) {
+                // The template's courtyard columns are where the player's own wall is standing.
+                // They are deliberately not placed, which also means they are not 'covered' --
+                // so without this the clear phase set the player's wall to air and destroyed the
+                // only way back in.
+                keepX0 = Integer.MAX_VALUE;
+                keepX1 = Integer.MIN_VALUE;
+                keepZ0 = Integer.MAX_VALUE;
+                keepZ1 = Integer.MIN_VALUE;
+                for (int lx : new int[]{0, COURTYARD_END_X - 1}) {
+                    for (int lz : new int[]{0, tz - 1}) {
+                        int[] r = rotate(lx, 0, lz, tx, tz, rotation);
+                        keepX0 = Math.min(keepX0, r[0]);
+                        keepX1 = Math.max(keepX1, r[0]);
+                        keepZ0 = Math.min(keepZ0, r[2]);
+                        keepZ1 = Math.max(keepZ1, r[2]);
+                    }
+                }
+            }
+
             if (snapshot != null) {
                 snapshot.begin(anchor, fx, fy, fz);
             } else {
@@ -586,7 +614,13 @@ public final class DiagonAlleyManager {
                 case 0 -> capture();
                 case 1 -> clear();
                 case 2 -> place();
-                case 3 -> skirt();
+                case 3 -> {
+                    if (snapshot != null) {
+                        phase = 4;              // in place: no skirt, see skirt()'s comment
+                    } else {
+                        skirt();
+                    }
+                }
                 case 4 -> populate();
                 case 5 -> furnishBank();
                 default -> {
@@ -622,6 +656,9 @@ public final class DiagonAlleyManager {
                 int rest = idx / fx;
                 int lz = rest % fz;
                 int ly = rest / fz;
+                if (lx >= keepX0 && lx <= keepX1 && lz >= keepZ0 && lz <= keepZ1) {
+                    continue;                   // the player's wall and the ground behind it
+                }
                 cursor.set(anchor.getX() + lx, anchor.getY() + ly, anchor.getZ() + lz);
                 BlockState existing = level.getBlockState(cursor);
                 if (!existing.isAir()) {
@@ -662,6 +699,14 @@ public final class DiagonAlleyManager {
             }
         }
 
+        /**
+         * Stone under the build so it does not float on a slope.
+         *
+         * <p>Only for {@code /spawnalley}. An in-place opening skips this: the skirt goes below
+         * the anchor, which is below the snapshot region, so it would be neither recorded nor
+         * restored nor concealed -- and it showed up from a distance as a grey slab lying across
+         * the landscape with the world's terrain apparently gone.
+         */
         private void skirt() {
             int total = fx * fz;
             int end = Math.min(total, columnCursor + CELLS_PER_TICK / 8);

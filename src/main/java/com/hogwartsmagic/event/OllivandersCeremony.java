@@ -147,6 +147,14 @@ public final class OllivandersCeremony {
         camera.setInvulnerable(true);
         camera.setSilent(true);
         camera.setNoBasePlate(true);
+        // No collision box. ArmorStand#setMarker is private, so it goes in through NBT -- the
+        // same field /summon writes. Without this a solid stand spawns at the player's eye
+        // height and traps them inside it for the whole scene.
+        CompoundTag marker = camera.saveWithoutId(new CompoundTag());
+        marker.putBoolean("Marker", true);
+        marker.putBoolean("NoGravity", true);
+        marker.putBoolean("Invisible", true);
+        camera.load(marker);
         camera.moveTo(player.getX(), player.getEyeY(), player.getZ(), player.getYRot(), player.getXRot());
         level.addFreshEntity(camera);
 

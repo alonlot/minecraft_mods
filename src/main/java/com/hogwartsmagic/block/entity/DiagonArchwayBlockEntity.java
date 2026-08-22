@@ -133,6 +133,7 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
     private static final String ARCH_KEY = "Arch";
     private static final String PANEL_KEY = "Panel";
     private static final String ARMED_KEY = "Armed";
+    private static final String KEY_KEY = "KeyBrick";
     private static final String AXES_KEY = "Axes";
     private static final String CENTRE_KEY = "ArchCentre";
 
@@ -144,6 +145,13 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
      * dust off it however many times you do it, and however right the brick is.
      */
     private boolean armed;
+    /**
+     * Whether this is the brick to tap. Worked out once when the wall is armed and then kept
+     * lit, because a wall that gives no sign of where to knock is indistinguishable from one
+     * that is unarmed, too small, or has no dustbin in range -- four different problems with
+     * one symptom.
+     */
+    private boolean isKey;
     /** Countdown on the glow a spell leaves behind. Ticks down even when no sequence is running. */
     private int flashTicks;
 
@@ -330,15 +338,32 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
         }
 
         boolean changed = false;
+        BlockPos key = null;
         for (BlockPos p : found) {
-            if (level.getBlockEntity(p) instanceof DiagonArchwayBlockEntity brick && !brick.armed) {
-                brick.armed = true;
-                brick.setChanged();
+            if (!(level.getBlockEntity(p) instanceof DiagonArchwayBlockEntity brick)) {
+                continue;
+            }
+            if (!brick.armed) {
                 changed = true;
             }
+            brick.armed = true;
+            // Every brick gets the wall's axes, so each can judge for itself whether it is the
+            // one -- otherwise only the brick the spell happened to hit would know.
+            brick.acrossAxis = this.acrossAxis;
+            brick.normalAxis = this.normalAxis;
+            brick.isKey = brick.isKeyBrick(level);
+            if (brick.isKey) {
+                key = p;
+            }
+            brick.setChanged();
         }
         if (!changed) {
             return false;                       // already armed; the spell finds nothing to do
+        }
+        if (key == null && caster != null) {
+            caster.displayClientMessage(Component.literal(
+                    "The wall answers, but nothing marks it. Stand a cauldron against it "
+                            + "and cast again."), false);
         }
 
         // A pulse of light across the whole wall, so arming is unmistakable.
@@ -355,7 +380,8 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
                 SoundSource.BLOCKS, 0.7F, 0.8F);
         if (caster != null) {
             caster.displayClientMessage(Component.literal(
-                    "The mortar glows. Something in the wall is listening."), true);
+                    "The mortar glows, and one brick is glowing brighter. Tap it three times."),
+                    false);
         }
         return true;
     }
@@ -552,6 +578,24 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
                 brick.clearSeam(server);
             }
         }
+
+        // The marked brick stays lit and sparkles for as long as the wall is armed. This is the
+        // only thing telling the player where to knock, so it holds even while the wall is
+        // flashing, resealed, or reloaded from disk.
+        if (brick.armed && brick.isKey && brick.ticks < 0) {
+            BlockState here = brick.getBlockState();
+            if (here.getBlock() instanceof DiagonArchwayBlock
+                    && here.getValue(DiagonArchwayBlock.PHASE) == DiagonArchwayBlock.SHUT
+                    && !here.getValue(DiagonArchwayBlock.LIT)) {
+                server.setBlock(pos, here.setValue(DiagonArchwayBlock.LIT, true),
+                        Block.UPDATE_CLIENTS);
+            }
+            if (server.getGameTime() % 12 == 0) {
+                server.sendParticles(ParticleTypes.ENCHANT,
+                        pos.getX() + 0.5D, pos.getY() + 0.5D, pos.getZ() + 0.5D,
+                        3, 0.35D, 0.35D, 0.35D, 0.01D);
+            }
+        }
         if (brick.ticks < 0) {
             return;
         }
@@ -638,6 +682,11 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
 
     private void clearSeam(ServerLevel level) {
         for (BlockPos p : floodPanel(level)) {
+            // Never put out the marked brick: it is the instruction.
+            if (level.getBlockEntity(p) instanceof DiagonArchwayBlockEntity b
+                    && b.armed && b.isKey) {
+                continue;
+            }
             BlockState s = level.getBlockState(p);
             if (s.getBlock() instanceof DiagonArchwayBlock && s.getValue(DiagonArchwayBlock.LIT)) {
                 level.setBlock(p, s.setValue(DiagonArchwayBlock.LIT, false), Block.UPDATE_CLIENTS);
@@ -685,6 +734,7 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
         }
         tag.putLongArray(PANEL_KEY, all);
         tag.putBoolean(ARMED_KEY, this.armed);
+        tag.putBoolean(KEY_KEY, this.isKey);
     }
 
     @Override
@@ -710,6 +760,7 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
             this.panel.add(BlockPos.of(packed));
         }
         this.armed = tag.getBoolean(ARMED_KEY);
+        this.isKey = tag.getBoolean(KEY_KEY);
     }
 
     @Override

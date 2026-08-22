@@ -219,11 +219,12 @@ public final class DiagonAlleyManager {
                 case 1 -> place();
                 case 2 -> skirt();
                 case 3 -> populate();
+                case 4 -> furnishBank();
                 default -> {
                     return true;
                 }
             }
-            return phase >= 4;
+            return phase >= 5;
         }
 
         private void clear() {
@@ -347,6 +348,45 @@ public final class DiagonAlleyManager {
             if (entityCursor >= list.size()) {
                 phase = 4;
             }
+        }
+
+        /**
+         * Staff the bank at the end of the street, and turn its rotunda screen into a real gate.
+         *
+         * <p>The template carries the Gringotts building but no goblins, because
+         * {@link GringottsFurnishing} finds its own teller positions from the gold pressure plates
+         * in the desk tops — baking them into the template as well would staff the hall twice.
+         *
+         * <p>The bank's anchor is <b>derived, not hard-coded</b>. Both the schematic and the
+         * template contain exactly one {@code dark_prismarine}, the undercroft station marker, so
+         * lining those two up gives the offset the building was pasted at. An offset written down
+         * in Java would silently drift the first time the street's layout changed by a block.
+         */
+        private void furnishBank() {
+            phase = 5;
+            GringottsSchematic schem = GringottsSchematic.get();
+            if (schem == null) {
+                return;
+            }
+            com.hogwartsmagic.worldgen.undercroft.GringottsLandmarks marks =
+                    com.hogwartsmagic.worldgen.undercroft.GringottsLandmarks.of(schem);
+            if (marks == null) {
+                LOGGER.warn("No Gringotts landmarks; the alley's bank will go unstaffed");
+                return;
+            }
+            for (int i = 0; i < template.count(); i++) {
+                if (!template.stateAt(i).is(Blocks.DARK_PRISMARINE)) {
+                    continue;
+                }
+                BlockPos bankAnchor = new BlockPos(
+                        anchor.getX() + template.localX(i) - marks.islandX,
+                        anchor.getY() + template.localY(i) - marks.islandY,
+                        anchor.getZ() + template.localZ(i) - marks.islandZ);
+                GringottsFurnishing.furnish(level, bankAnchor, level.getRandom());
+                LOGGER.info("Staffed the alley's Gringotts, anchored at {}", bankAnchor);
+                return;
+            }
+            LOGGER.warn("No station marker in the Diagon Alley template; bank left unstaffed");
         }
     }
 }

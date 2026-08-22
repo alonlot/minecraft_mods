@@ -171,7 +171,8 @@ public final class VillageGringottsBank {
      * bank placed at any elevation, and a schematic somebody re-exports with the doorway one block
      * wider, both come out right. A hard-coded rectangle would come out sideways in a wall.
      */
-    private static void lockGate(ServerLevel level, BlockPos anchor) {
+    /** Package-private so GringottsFurnishing can run it for the alley's copy of the bank too. */
+    static void lockGate(ServerLevel level, BlockPos anchor) {
         GringottsSchematic schem = GringottsSchematic.get();
         if (schem == null) {
             return;
@@ -537,186 +538,16 @@ public final class VillageGringottsBank {
         }
 
         /**
-         * Populates the finished bank: a teller standing behind each counter,
-         * and a couple of guards loose in the hall.
+         * Populates the finished bank: a teller behind each counter, and a couple of guards loose
+         * in the hall.
          *
-         * <p>The counters are located from the build itself rather than
-         * hard-coded, by looking for the gold pressure plates set into the desk
-         * tops. Which side of a desk is "behind" is worked out by measuring how
-         * far open floor runs away from it in each direction - the public aisle
-         * is wide, the staff side is a narrow strip, so the shorter run wins.
+         * <p>The work moved to {@link GringottsFurnishing} when a second thing started pasting this
+         * same schematic — the copy baked into the Diagon Alley template. Both want the same
+         * tellers behind the same counters, and neither should own the code. Everything it needs is
+         * the schematic and the anchor it was pasted at, which is what made the extraction possible.
          */
         void staff() {
-            List<BlockPos> tellerSpots = findTellerSpots();
-            if (tellerSpots.isEmpty()) {
-                // No recognisable counters; fall back to any standing room.
-                LOGGER.warn("No teller counters found in the Gringotts schematic; using open floor");
-                tellerSpots = findStandingRoom(3);
-            }
-
-            for (BlockPos pos : tellerSpots) {
-                GoblinEntity teller = ModEntities.GOBLIN.get().create(this.level);
-                if (teller == null) {
-                    continue;
-                }
-                teller.moveTo(pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D,
-                        yawTowardHall(pos), 0.0F);
-                teller.makeTeller("Gringotts Teller");
-                this.level.addFreshEntity(teller);
-            }
-
-            for (BlockPos pos : findStandingRoom(2)) {
-                GoblinGuardEntity guard = ModEntities.GOBLIN_GUARD.get().create(this.level);
-                if (guard == null) {
-                    continue;
-                }
-                guard.moveTo(pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D,
-                        this.rng.nextInt(4) * 90.0F, 0.0F);
-                guard.makeGuard("Vault Guard");
-                guard.setItemSlot(EquipmentSlot.MAINHAND,
-                        new ItemStack(ExampleMod.GOBLIN_SILVER_DAGGER.get()));
-                guard.setDropChance(EquipmentSlot.MAINHAND, 0.15F);
-                this.level.addFreshEntity(guard);
-            }
-        }
-
-        /** Turns a teller to face the middle of the building, i.e. the customers. */
-        private float yawTowardHall(BlockPos pos) {
-            double dx = (this.anchor.getX() + this.width / 2.0D) - pos.getX();
-            double dz = (this.anchor.getZ() + this.length / 2.0D) - pos.getZ();
-            return (float) (Math.toDegrees(Math.atan2(-dx, dz)));
-        }
-
-        /** One standing position behind each gold-plated counter. */
-        private List<BlockPos> findTellerSpots() {
-            List<BlockPos> spots = new ArrayList<>();
-            for (int index = 0; index < this.total; index++) {
-                if (this.schem.isAir(index)
-                        || !this.schem.blockAt(index).is(Blocks.LIGHT_WEIGHTED_PRESSURE_PLATE)) {
-                    continue;
-                }
-                int x = index % this.width;
-                int z = (index / this.width) % this.length;
-                int y = index / (this.width * this.length);
-                int[] behind = behindCounter(x, y, z);
-                if (behind == null) {
-                    continue;
-                }
-                BlockPos pos = new BlockPos(this.anchor.getX() + behind[0],
-                        this.anchor.getY() + behind[1], this.anchor.getZ() + behind[2]);
-                if (farEnough(spots, pos, 4.0D)) {
-                    spots.add(pos);
-                }
-            }
-            return spots;
-        }
-
-        private static final int[][] HORIZONTAL = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
-
-        /**
-         * Picks the staff side of a counter: of the neighbouring cells a goblin
-         * could stand in, the one whose open floor runs out soonest.
-         */
-        @Nullable
-        private int[] behindCounter(int px, int py, int pz) {
-            int shortestRun = Integer.MAX_VALUE;
-            int[] best = null;
-            for (int[] dir : HORIZONTAL) {
-                int nx = px + dir[0];
-                int nz = pz + dir[1];
-                // The plate sits on the desk top, so the floor beside it is a
-                // block lower; allow one more in case the desk is two tall.
-                for (int footY = py - 1; footY >= py - 2; footY--) {
-                    if (!standable(nx, footY, nz)) {
-                        continue;
-                    }
-                    int run = openRun(nx, footY, nz, dir[0], dir[1]);
-                    if (run < shortestRun) {
-                        shortestRun = run;
-                        best = new int[]{nx, footY, nz};
-                    }
-                    break;
-                }
-            }
-            return best;
-        }
-
-        /** True if a goblin could stand at this schematic cell. */
-        private boolean standable(int x, int y, int z) {
-            if (x < 0 || z < 0 || x >= this.width || z >= this.length) {
-                return false;
-            }
-            if (y < 1 || y + 1 >= this.schem.height()) {
-                return false;
-            }
-            return !this.schem.isAir(this.schem.indexOf(x, y - 1, z))
-                    && this.schem.isAir(this.schem.indexOf(x, y, z))
-                    && this.schem.isAir(this.schem.indexOf(x, y + 1, z));
-        }
-
-        /** How many cells of open, head-high floor continue in one direction. */
-        private int openRun(int x, int y, int z, int dx, int dz) {
-            int run = 0;
-            for (int step = 1; step <= 12; step++) {
-                int nx = x + dx * step;
-                int nz = z + dz * step;
-                if (nx < 0 || nz < 0 || nx >= this.width || nz >= this.length) {
-                    break;
-                }
-                if (!this.schem.isAir(this.schem.indexOf(nx, y, nz))
-                        || !this.schem.isAir(this.schem.indexOf(nx, y + 1, nz))) {
-                    break;
-                }
-                run++;
-            }
-            return run;
-        }
-
-        /** Finds up to {@code wanted} well-separated spots with head room inside the build. */
-        private List<BlockPos> findStandingRoom(int wanted) {
-            List<BlockPos> found = new ArrayList<>();
-            int maxY = Math.min(this.schem.height() - 2, 12);
-            // Search outward from the horizontal centre so staff end up in the hall.
-            int centreX = this.width / 2;
-            int centreZ = this.length / 2;
-            for (int ring = 0; ring < Math.max(this.width, this.length) && found.size() < wanted; ring++) {
-                for (int dx = -ring; dx <= ring && found.size() < wanted; dx++) {
-                    for (int dz = -ring; dz <= ring && found.size() < wanted; dz++) {
-                        if (Math.max(Math.abs(dx), Math.abs(dz)) != ring) {
-                            continue;
-                        }
-                        int x = centreX + dx;
-                        int z = centreZ + dz;
-                        if (x < 0 || z < 0 || x >= this.width || z >= this.length) {
-                            continue;
-                        }
-                        for (int y = 1; y <= maxY; y++) {
-                            boolean floor = !this.schem.isAir(this.schem.indexOf(x, y - 1, z));
-                            boolean feet = this.schem.isAir(this.schem.indexOf(x, y, z));
-                            boolean head = this.schem.isAir(this.schem.indexOf(x, y + 1, z));
-                            if (floor && feet && head) {
-                                BlockPos pos = new BlockPos(this.anchor.getX() + x,
-                                        this.anchor.getY() + y, this.anchor.getZ() + z);
-                                if (farEnough(found, pos, 6.0D)) {
-                                    found.add(pos);
-                                }
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-            return found;
-        }
-
-        private static boolean farEnough(List<BlockPos> existing, BlockPos candidate, double minDistance) {
-            double minSqr = minDistance * minDistance;
-            for (BlockPos p : existing) {
-                if (p.distSqr(candidate) < minSqr) {
-                    return false;
-                }
-            }
-            return true;
+            GringottsFurnishing.staff(this.level, this.anchor, this.rng);
         }
     }
 }

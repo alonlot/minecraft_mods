@@ -63,6 +63,12 @@ public class DiagonAlleySnapshot extends SavedData {
     private int sizeX;
     private int sizeY;
     private int sizeZ;
+    /**
+     * The archway the alley was opened through, so it can be resealed when the world is put back.
+     * Stored here rather than in a static because it has to survive a restart: the whole point of
+     * this record is that it is still meaningful after a crash.
+     */
+    private BlockPos archPos = BlockPos.ZERO;
 
     /** Palette of distinct states, and one entry per recorded cell. */
     private final List<BlockState> palette = new ArrayList<>();
@@ -83,6 +89,15 @@ public class DiagonAlleySnapshot extends SavedData {
 
     public BlockPos origin() {
         return this.origin;
+    }
+
+    public BlockPos archPos() {
+        return this.archPos;
+    }
+
+    public void setArchPos(BlockPos pos) {
+        this.archPos = pos.immutable();
+        setDirty();
     }
 
     public int sizeX() {
@@ -234,6 +249,7 @@ public class DiagonAlleySnapshot extends SavedData {
         tag.putBoolean("Active", this.active);
         tag.putIntArray("Origin", new int[]{this.origin.getX(), this.origin.getY(), this.origin.getZ()});
         tag.putIntArray("Size", new int[]{this.sizeX, this.sizeY, this.sizeZ});
+        tag.putLong("Arch", this.archPos.asLong());
 
         ListTag paletteTag = new ListTag();
         for (BlockState state : this.palette) {
@@ -267,6 +283,7 @@ public class DiagonAlleySnapshot extends SavedData {
             snap.sizeY = size[1];
             snap.sizeZ = size[2];
         }
+        snap.archPos = BlockPos.of(tag.getLong("Arch"));
 
         HolderLookup<net.minecraft.world.level.block.Block> blocks =
                 provider.lookupOrThrow(Registries.BLOCK);

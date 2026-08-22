@@ -148,6 +148,18 @@ public class DiagonArchwayBlock extends BaseEntityBlock {
         return net.minecraft.world.ItemInteractionResult.CONSUME;
     }
 
+    /**
+     * A spell landed on this wall. Arms it, so the taps start counting.
+     *
+     * <p>Called from {@code SpellBeamEntity}'s Alohomora and Revelio arms — the same shape as
+     * {@code ChamberDoorBlock.speakTo}. Either spell works: the books do not say which charm opens
+     * the wall, and a player who reaches for the reasonable-but-other one should not be stuck.
+     */
+    public static boolean enchant(ServerLevel level, BlockPos pos, @Nullable ServerPlayer caster) {
+        return level.getBlockEntity(pos) instanceof DiagonArchwayBlockEntity brick
+                && brick.enchant(level, caster);
+    }
+
     private InteractionResult tap(Level level, BlockPos pos, Player player) {
         if (level.isClientSide) {
             return InteractionResult.SUCCESS;

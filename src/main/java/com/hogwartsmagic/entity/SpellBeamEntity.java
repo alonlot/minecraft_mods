@@ -503,7 +503,13 @@ public class SpellBeamEntity extends ThrowableProjectile {
                     hitSuccessful = this.level() instanceof ServerLevel serverLevel
                             && com.hogwartsmagic.block.ChamberDoorBlock.speakTo(serverLevel, pos);
                 } else if (spell == SpellType.ALOHOMORA) {
-                    if (state.getBlock() instanceof DoorBlock door) {
+                    if (state.getBlock() instanceof com.hogwartsmagic.block.DiagonArchwayBlock) {
+                        // The wall behind the Leaky Cauldron. Arming it is what makes the taps
+                        // start counting; until then it is just a wall.
+                        hitSuccessful = this.level() instanceof ServerLevel sl
+                                && com.hogwartsmagic.block.DiagonArchwayBlock.enchant(sl, pos,
+                                        getOwner() instanceof net.minecraft.server.level.ServerPlayer sp ? sp : null);
+                    } else if (state.getBlock() instanceof DoorBlock door) {
                         if (!state.getValue(DoorBlock.OPEN)) {
                             door.setOpen(getOwner(), this.level(), state, pos, true);
                             this.level().levelEvent(null, 1005, pos, 0);
@@ -549,6 +555,13 @@ public class SpellBeamEntity extends ThrowableProjectile {
                         hitSuccessful = true;
                     }
                 } else if (spell == SpellType.REVELIO) {
+                    if (state.getBlock() instanceof com.hogwartsmagic.block.DiagonArchwayBlock
+                            && this.level() instanceof ServerLevel archLevel) {
+                        // Revelio arms the wall too. The books never say which charm opens it, and a
+                        // player who reaches for revealing rather than unlocking has not guessed wrong.
+                        hitSuccessful = com.hogwartsmagic.block.DiagonArchwayBlock.enchant(archLevel, pos,
+                                getOwner() instanceof net.minecraft.server.level.ServerPlayer sp ? sp : null);
+                    }
                     if (this.level() instanceof ServerLevel sl) {
                         net.minecraft.world.level.block.entity.BlockEntity be = this.level().getBlockEntity(pos);
                         if (state.is(ExampleMod.WARD.get()) && be instanceof CaveInimicumWardBlockEntity ward) {

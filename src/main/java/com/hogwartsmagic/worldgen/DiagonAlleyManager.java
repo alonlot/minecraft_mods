@@ -78,8 +78,19 @@ public final class DiagonAlleyManager {
      */
     private static final int COURTYARD_END_X = 15;
 
+    /** How often to look for visitors once an alley is open. Cheap, but no need to do it a lot. */
+    private static final int OCCUPANCY_CHECK = 40;
+    /**
+     * How long the alley stays open after the last person walks out. Long enough not to slam shut
+     * behind somebody stepping back for a moment, short enough that a forgotten alley closes itself.
+     */
+    private static final int GRACE_TICKS = 20 * 30;
+    /** Slack around the footprint, so standing just outside a shop door still counts as inside. */
+    private static final int OCCUPANCY_MARGIN = 12;
+
     private static PlacementJob activeJob;
     private static RestoreJob activeRestore;
+    private static int emptyTicks;
 
     private DiagonAlleyManager() {
     }
@@ -184,19 +195,124 @@ public final class DiagonAlleyManager {
             if (activeRestore.advance()) {
                 LOGGER.info("Diagon Alley restore complete ({} blocks put back)",
                         activeRestore.restored);
-                DiagonAlleySnapshot.get(activeRestore.level).clear();
-                activeRestore.level.getDataStorage().save();
+                ServerLevel level = activeRestore.level;
+                DiagonAlleySnapshot snapshot = DiagonAlleySnapshot.get(level);
+                // Reseal before clearing: the arch position lives in the snapshot, and clear()
+                // throws it away along with everything else.
+                reseal(level, snapshot.archPos());
+                snapshot.clear();
+                level.getDataStorage().save();
                 activeRestore = null;
+                emptyTicks = 0;
             }
             return;
         }
-        if (activeJob == null) {
+        if (activeJob != null) {
+            if (activeJob.advance()) {
+                LOGGER.info("Diagon Alley placement complete ({} blocks, {} entities)",
+                        activeJob.placed, activeJob.spawned);
+                activeJob = null;
+                emptyTicks = 0;
+            }
             return;
         }
-        if (activeJob.advance()) {
-            LOGGER.info("Diagon Alley placement complete ({} blocks, {} entities)",
-                    activeJob.placed, activeJob.spawned);
-            activeJob = null;
+        if (server.getTickCount() % OCCUPANCY_CHECK == 0) {
+            checkForVisitors(server);
+        }
+    }
+
+    /**
+     * Close an alley nobody is in any more.
+     *
+     * <p>Left open, it would sit on somebody's world indefinitely — and the longer it sits, the
+     * longer the window in which a crash leaves it there. So once the last visitor has been gone
+     * for {@link #GRACE_TICKS}, the world goes back and the arch reseals.
+     */
+    private static void checkForVisitors(MinecraftServer server) {
+        for (ServerLevel level : server.getAllLevels()) {
+            DiagonAlleySnapshot snapshot = DiagonAlleySnapshot.get(level);
+            if (!snapshot.isActive()) {
+                continue;
+            }
+            BlockPos origin = snapshot.origin();
+            boolean occupied = false;
+            for (ServerPlayer player : level.players()) {
+                BlockPos p = player.blockPosition();
+                if (p.getX() >= origin.getX() - OCCUPANCY_MARGIN
+                        && p.getX() <= origin.getX() + snapshot.sizeX() + OCCUPANCY_MARGIN
+                        && p.getZ() >= origin.getZ() - OCCUPANCY_MARGIN
+                        && p.getZ() <= origin.getZ() + snapshot.sizeZ() + OCCUPANCY_MARGIN
+                        && p.getY() >= origin.getY() - OCCUPANCY_MARGIN
+                        && p.getY() <= origin.getY() + snapshot.sizeY() + OCCUPANCY_MARGIN) {
+                    occupied = true;
+                    break;
+                }
+            }
+            if (occupied) {
+                emptyTicks = 0;
+                return;
+            }
+            emptyTicks += OCCUPANCY_CHECK;
+            if (emptyTicks >= GRACE_TICKS) {
+                LOGGER.info("Nobody has been in the alley for {} ticks; closing it", emptyTicks);
+                emptyTicks = 0;
+                restore(level);
+            }
+            return;
+        }
+    }
+
+    /**
+     * Put the archway back to a plain wall, still armed.
+     *
+     * <p>Still armed on purpose: the spell was cast on this wall once and there is no reason to
+     * make somebody cast it again to get back in. Three taps is the price of re-entry.
+     */
+    private static void reseal(ServerLevel level, BlockPos archPos) {
+        if (archPos == null || BlockPos.ZERO.equals(archPos)) {
+            return;
+        }
+        java.util.Set<BlockPos> seen = new java.util.HashSet<>();
+        java.util.Deque<BlockPos> queue = new java.util.ArrayDeque<>();
+        // Start from the neighbourhood of the arch, because the arch's own cells may be OPEN and
+        // the ones that survived are around them.
+        for (BlockPos start : BlockPos.betweenClosed(archPos.offset(-2, -2, -2),
+                archPos.offset(2, 2, 2))) {
+            if (level.getBlockState(start).getBlock()
+                    instanceof com.hogwartsmagic.block.DiagonArchwayBlock) {
+                BlockPos p = start.immutable();
+                queue.add(p);
+                seen.add(p);
+                break;
+            }
+        }
+        int resealed = 0;
+        while (!queue.isEmpty() && resealed < 1024) {
+            BlockPos pos = queue.poll();
+            BlockState state = level.getBlockState(pos);
+            if (!(state.getBlock() instanceof com.hogwartsmagic.block.DiagonArchwayBlock)) {
+                continue;
+            }
+            if (state.getValue(com.hogwartsmagic.block.DiagonArchwayBlock.PHASE)
+                    != com.hogwartsmagic.block.DiagonArchwayBlock.SHUT) {
+                level.setBlock(pos, state
+                                .setValue(com.hogwartsmagic.block.DiagonArchwayBlock.PHASE,
+                                        com.hogwartsmagic.block.DiagonArchwayBlock.SHUT)
+                                .setValue(com.hogwartsmagic.block.DiagonArchwayBlock.LIT, false),
+                        Block.UPDATE_ALL);
+                resealed++;
+            }
+            for (Direction dir : Direction.values()) {
+                BlockPos next = pos.relative(dir);
+                if (seen.add(next)) {
+                    queue.add(next);
+                }
+            }
+        }
+        if (resealed > 0) {
+            level.playSound(null, archPos, net.minecraft.sounds.SoundEvents.ANCIENT_DEBRIS_BREAK,
+                    net.minecraft.sounds.SoundSource.BLOCKS, 1.0F, 0.6F);
+            LOGGER.info("Resealed the archway ({} bricks)", resealed);
         }
     }
 
@@ -255,6 +371,7 @@ public final class DiagonAlleyManager {
                 worldEntry.getZ() - entry[2]);
 
         activeJob = new PlacementJob(level, template, anchor, rotation, true, snapshot);
+        snapshot.setArchPos(archCentre);
         DiagonAlleyTracker.get(level).add(archCentre);
         LOGGER.info("Opening Diagon Alley in place: arch {} facing {}, anchor {}, rotation {}",
                 archCentre, facing, anchor, rotation);

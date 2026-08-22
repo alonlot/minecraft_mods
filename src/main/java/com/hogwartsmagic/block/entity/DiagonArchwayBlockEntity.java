@@ -3,6 +3,7 @@ package com.hogwartsmagic.block.entity;
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.block.DiagonArchwayBlock;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
@@ -33,21 +34,31 @@ import java.util.Set;
 /**
  * The wall behind the Leaky Cauldron, and how it opens.
  *
- * <p>Three taps on the right brick, and then eight seconds in four beats:
+ * <p>A spell to arm it, three taps on the right brick, and then nine seconds in five beats:
  *
  * <ol>
  *   <li><b>The seam</b> (30 ticks). Nothing moves. A ring of light spreads out from the tapped
  *       brick through the mortar, one course at a time, and that is all -- the wall is still whole.
  *       Holding the opening back until the light has crossed the whole panel is what makes the
  *       opening land; a wall that starts coming apart on the third tap is just a door.</li>
+ *   <li><b>The shudder</b> (25 ticks). The whole wall goes over to the renderer and a crest rolls
+ *       outward from the tap: every brick leans out and back as it passes. Still nothing has
+ *       opened. It is the wind-up.</li>
  *   <li><b>The peel</b> (80 ticks). The tapped brick goes first, alone, and a hole appears. Then
  *       the bricks around it follow in a spiral -- each one slides out of the archway into the wall
  *       beside it, screwing about its own axis as it goes and hopping slightly as it clears.
  *       Screwing reads as masonry giving way; sliding flat reads as a drawer.</li>
  *   <li><b>The unfold</b> (25 ticks). The last bricks of the arch head withdraw, so the shape
  *       finishes as an arch rather than as a hole that grew.</li>
- *   <li><b>The settle</b> (15 ticks). Dust, a last grind of stone, and the arch stands open.</li>
+ *   <li><b>The settle</b> (20 ticks). The surround settles back, the dust drops, and the arch
+ *       stands open.</li>
  * </ol>
+ *
+ * <p>Bricks, not blocks: each block of the panel is drawn as eight separate bricks, two across and
+ * four up, each with its own timing and spin. See {@code DiagonArchwayRenderer}.
+ *
+ * <p>The alley itself starts building the moment the sequence starts, not when it ends -- it needs
+ * a few seconds, and these nine are exactly the cover it wants.
  *
  * <h2>How a brick moves</h2>
  *
@@ -102,7 +113,16 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
     /** How high the straight jambs run before the head starts to curve in. */
     public static final int SPRING = 3;
 
-    /** How many taps, and how long a part-finished sequence of taps is remembered. */
+    /**
+     * The smallest wall an archway fits in. The opening is five wide with a rounded head on top, so
+     * anything narrower or shorter than this has nowhere to put it.
+     */
+    public static final int MIN_PANEL_WIDTH = 7;
+    public static final int MIN_PANEL_HEIGHT = 7;
+
+    /** How long the wall glows after a spell arms it. */
+    private static final int ARMED_FLASH = 30;
+
     private static final int TAPS_NEEDED = 3;
     private static final int TAP_MEMORY = 60;
 
@@ -112,12 +132,20 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
     private static final String TICKS_KEY = "OpenTicks";
     private static final String ARCH_KEY = "Arch";
     private static final String PANEL_KEY = "Panel";
+    private static final String ARMED_KEY = "Armed";
     private static final String AXES_KEY = "Axes";
     private static final String CENTRE_KEY = "ArchCentre";
 
     private int ticks = -1;
     private int taps;
     private long lastTapAt = Long.MIN_VALUE;
+    /**
+     * Whether a spell has been cast on this wall. Tapping an unarmed wall does nothing but knock
+     * dust off it however many times you do it, and however right the brick is.
+     */
+    private boolean armed;
+    /** Countdown on the glow a spell leaves behind. Ticks down even when no sequence is running. */
+    private int flashTicks;
 
     /** The cells that leave. Empty on every brick but the one running the sequence. */
     private final List<BlockPos> arch = new ArrayList<>();
@@ -227,6 +255,15 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
             }
         }
 
+        if (!this.armed) {
+            // Unarmed: a knock and dust, whatever brick it is. No message, because the wall being
+            // inert is not an error the player made -- it is the state every wall starts in.
+            level.playSound(null, this.worldPosition, SoundEvents.STONE_HIT, SoundSource.BLOCKS,
+                    0.7F, 0.75F);
+            dust(level, this.worldPosition, 2);
+            return;
+        }
+
         long now = level.getGameTime();
         if (now - this.lastTapAt > TAP_MEMORY) {
             this.taps = 0;
@@ -255,6 +292,76 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
         }
         this.taps = 0;
         beginOpening(level, player);
+    }
+
+    /**
+     * A spell has been cast at this wall. Arms every brick of it, so the taps start counting.
+     *
+     * <p>Returns false if the wall is too small to hold an archway, and says so — the one case
+     * where telling the player is right, because the magic worked and it is only the wall that is
+     * wrong. Everywhere else the wall stays silent on purpose: finding the brick is the puzzle.
+     */
+    public boolean enchant(ServerLevel level, @Nullable ServerPlayer caster) {
+        List<BlockPos> found = floodPanel(level);
+        if (found.isEmpty()) {
+            return false;
+        }
+        measureAxes(found);
+
+        int minA = Integer.MAX_VALUE, maxA = Integer.MIN_VALUE;
+        int minY = Integer.MAX_VALUE, maxY = Integer.MIN_VALUE;
+        for (BlockPos p : found) {
+            int a = axis(p, this.acrossAxis);
+            minA = Math.min(minA, a);
+            maxA = Math.max(maxA, a);
+            minY = Math.min(minY, p.getY());
+            maxY = Math.max(maxY, p.getY());
+        }
+        int wide = maxA - minA + 1;
+        int tall = maxY - minY + 1;
+        if (wide < MIN_PANEL_WIDTH || tall < MIN_PANEL_HEIGHT) {
+            if (caster != null) {
+                caster.displayClientMessage(Component.literal(
+                        "The wall is too small for an archway — it needs to be at least "
+                                + MIN_PANEL_WIDTH + " wide and " + MIN_PANEL_HEIGHT
+                                + " tall (this one is " + wide + " by " + tall + ")."), false);
+            }
+            return false;
+        }
+
+        boolean changed = false;
+        for (BlockPos p : found) {
+            if (level.getBlockEntity(p) instanceof DiagonArchwayBlockEntity brick && !brick.armed) {
+                brick.armed = true;
+                brick.setChanged();
+                changed = true;
+            }
+        }
+        if (!changed) {
+            return false;                       // already armed; the spell finds nothing to do
+        }
+
+        // A pulse of light across the whole wall, so arming is unmistakable.
+        for (BlockPos p : found) {
+            BlockState s = level.getBlockState(p);
+            if (s.getBlock() instanceof DiagonArchwayBlock) {
+                level.setBlock(p, s.setValue(DiagonArchwayBlock.LIT, true), Block.UPDATE_CLIENTS);
+            }
+        }
+        this.flashTicks = ARMED_FLASH;          // cleared by serverTick a moment later
+        level.playSound(null, this.worldPosition, SoundEvents.AMETHYST_BLOCK_CHIME,
+                SoundSource.BLOCKS, 0.9F, 1.1F);
+        level.playSound(null, this.worldPosition, SoundEvents.ENCHANTMENT_TABLE_USE,
+                SoundSource.BLOCKS, 0.7F, 0.8F);
+        if (caster != null) {
+            caster.displayClientMessage(Component.literal(
+                    "The mortar glows. Something in the wall is listening."), true);
+        }
+        return true;
+    }
+
+    public boolean isArmed() {
+        return this.armed;
     }
 
     /**
@@ -314,6 +421,34 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
         this.panel.clear();
         for (BlockPos p : panel) {
             this.panel.add(p.immutable());
+        }
+
+        // Which way the street runs: away from whoever is standing at the wall.
+        int wallN = axis(this.worldPosition, this.normalAxis);
+        int openerN = opener != null ? axis(opener.blockPosition(), this.normalAxis) : wallN - 1;
+        int sign = wallN >= openerN ? 1 : -1;
+        Direction facing = this.normalAxis == 0
+                ? (sign > 0 ? Direction.EAST : Direction.WEST)
+                : (sign > 0 ? Direction.SOUTH : Direction.NORTH);
+
+        // The middle of the opening, at its threshold.
+        BlockPos archCentrePos = new BlockPos(
+                this.acrossAxis == 0 ? this.archCentre : this.worldPosition.getX(),
+                this.archBottom,
+                this.acrossAxis == 2 ? this.archCentre : this.worldPosition.getZ());
+
+        // Start the alley building NOW, not when the animation ends. It needs a few seconds, and
+        // the nine the wall spends coming apart is exactly the cover it wants -- so by the time
+        // there is a hole to walk through, there is a street on the other side of it.
+        if (com.hogwartsmagic.worldgen.DiagonAlleyManager.openInPlace(level, archCentrePos, facing) == null) {
+            if (opener != null) {
+                opener.displayClientMessage(Component.literal(
+                        "The bricks shudder and go still. Somewhere, another archway is already open."),
+                        false);
+            }
+            this.arch.clear();
+            this.panel.clear();
+            return;
         }
 
         this.ticks = 0;
@@ -406,7 +541,18 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
 
     public static void serverTick(Level level, BlockPos pos, BlockState state,
                                   DiagonArchwayBlockEntity brick) {
-        if (brick.ticks < 0 || !(level instanceof ServerLevel server)) {
+        if (!(level instanceof ServerLevel server)) {
+            return;
+        }
+        // The arming glow fades on its own, and it has to be handled before the early return below:
+        // no sequence is running when a wall is merely armed, so nothing else would ever clear it.
+        if (brick.flashTicks > 0) {
+            brick.flashTicks--;
+            if (brick.flashTicks == 0) {
+                brick.clearSeam(server);
+            }
+        }
+        if (brick.ticks < 0) {
             return;
         }
         brick.ticks++;
@@ -528,6 +674,7 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
             all[i] = this.panel.get(i).asLong();
         }
         tag.putLongArray(PANEL_KEY, all);
+        tag.putBoolean(ARMED_KEY, this.armed);
     }
 
     @Override
@@ -552,6 +699,7 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
         for (long packed : tag.getLongArray(PANEL_KEY)) {
             this.panel.add(BlockPos.of(packed));
         }
+        this.armed = tag.getBoolean(ARMED_KEY);
     }
 
     @Override

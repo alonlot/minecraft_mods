@@ -98,6 +98,7 @@ public final class DiagonAlleyIllusion {
             return;
         }
         ServerPlayer player = event.getPlayer();
+        sendRegion(player, snapshot);
         sendFor(player, level, snapshot, pos, isInside(snapshot, player));
     }
 
@@ -127,6 +128,7 @@ public final class DiagonAlleyIllusion {
                 if (before != null && before == inside) {
                     continue;
                 }
+                sendRegion(player, snapshot);
                 resendAround(player, level, snapshot);
             }
         }
@@ -142,6 +144,11 @@ public final class DiagonAlleyIllusion {
         wasInside.clear();
         for (ServerPlayer player : level.players()) {
             resendTruth(player, level, snapshot);
+            // Zero size: the alley is gone, draw everything again.
+            com.hogwartsmagic.network.SpellPackets.CHANNEL.send(
+                    new com.hogwartsmagic.network.SpellPackets.DiagonAlleyRegionPacket(
+                            BlockPos.ZERO, 0, 0, 0, 0),
+                    net.minecraftforge.network.PacketDistributor.PLAYER.with(player));
         }
     }
 
@@ -177,6 +184,18 @@ public final class DiagonAlleyIllusion {
                 }
             }
         }
+    }
+
+    /**
+     * Tell a client where the alley is, so it can decline to draw the shopkeepers inside it.
+     * A zero size clears it.
+     */
+    private static void sendRegion(ServerPlayer player, DiagonAlleySnapshot snapshot) {
+        com.hogwartsmagic.network.SpellPackets.CHANNEL.send(
+                new com.hogwartsmagic.network.SpellPackets.DiagonAlleyRegionPacket(
+                        snapshot.origin(), snapshot.sizeX(), snapshot.sizeY(), snapshot.sizeZ(),
+                        SKY_SHAFT),
+                net.minecraftforge.network.PacketDistributor.PLAYER.with(player));
     }
 
     /** Undo the illusion for one player: show them what is really there. */

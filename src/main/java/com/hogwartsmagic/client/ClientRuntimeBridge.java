@@ -35,6 +35,7 @@ public final class ClientRuntimeBridge {
             case "syncCaveInimicumRegion" -> syncCaveInimicumRegion((SpellPackets.CaveInimicumRegionSyncPacket) payload);
             case "syncCaveInimicumBlockDelta" -> syncCaveInimicumBlockDelta((SpellPackets.CaveInimicumBlockDeltaPacket) payload);
             case "syncActiveWards" -> syncActiveWards((SpellPackets.CaveInimicumActiveWardsPacket) payload);
+            case "diagonAlleyRegion" -> diagonAlleyRegion((SpellPackets.DiagonAlleyRegionPacket) payload);
             case "undercroftFog" -> undercroftFog((SpellPackets.UndercroftFogPacket) payload);
             case "startHorcruxDeathSequence" -> startHorcruxDeathSequence((SpellPackets.StartHorcruxDeathSequencePacket) payload);
             case "finishHorcruxDeathSequence" -> finishHorcruxDeathSequence();
@@ -193,6 +194,15 @@ public final class ClientRuntimeBridge {
         net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
         if (mc.screen instanceof ApparitionMapScreen apparitionMap) {
             apparitionMap.closeFromServer();
+        }
+    }
+
+    private static void diagonAlleyRegion(SpellPackets.DiagonAlleyRegionPacket packet) {
+        if (packet.sizeX() <= 0) {
+            DiagonAlleyClientState.clear();
+        } else {
+            DiagonAlleyClientState.setRegion(packet.origin(), packet.sizeX(), packet.sizeY(),
+                    packet.sizeZ(), packet.skyShaft());
         }
     }
 

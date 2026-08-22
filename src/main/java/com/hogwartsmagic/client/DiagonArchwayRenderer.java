@@ -10,6 +10,7 @@ import net.minecraft.client.model.geom.PartPose;
 import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
+import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
@@ -131,6 +132,18 @@ public class DiagonArchwayRenderer implements BlockEntityRenderer<DiagonArchwayB
 
         VertexConsumer buffer = buffers.getBuffer(RenderType.entitySolid(TEXTURE));
 
+        // The `light` argument is sampled at the block entity's own position, which is inside a
+        // solid wall and therefore pitch dark -- so every brick drew black. Sample the air on
+        // either side of the wall instead and take the brighter, which is the light a brick
+        // pulled out of that wall would actually be standing in.
+        int[] nOff = new int[3];
+        nOff[nAxis] = 1;
+        BlockPos outA = origin.offset(nOff[0], nOff[1], nOff[2]);
+        BlockPos outB = origin.offset(-nOff[0], -nOff[1], -nOff[2]);
+        int lit = Math.max(light,
+                Math.max(LevelRenderer.getLightColor(wall.getLevel(), outA),
+                        LevelRenderer.getLightColor(wall.getLevel(), outB)));
+
         for (BlockPos cell : wall.panelCells()) {
             // Once a cell's real block has gone back to being drawn normally there is nothing left
             // for the renderer to do with it. This also covers a wall reloaded mid-sequence.
@@ -229,7 +242,7 @@ public class DiagonArchwayRenderer implements BlockEntityRenderer<DiagonArchwayB
                 // A brick draws at full brightness while the crest is on it, or for the first fifth
                 // of its travel. It is the trick the vault door uses on its ripple, and it is what
                 // stops the wall reading as blocks merely sliding about.
-                this.brick.render(pose, buffer, hot ? LightTexture.FULL_BRIGHT : light,
+                this.brick.render(pose, buffer, hot ? LightTexture.FULL_BRIGHT : lit,
                         OverlayTexture.NO_OVERLAY);
                 pose.popPose();
             }

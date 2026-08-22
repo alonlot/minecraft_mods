@@ -11,8 +11,15 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * Hides entities inside active Cave Inimicum wards from viewers who are still
- * outside the ward.
+ * Hides entities inside a concealed region from viewers who are outside it.
+ *
+ * <p>Two things use this: Cave Inimicum's wards, and Diagon Alley. Blocks can be withheld from
+ * a player -- the server sends them different ones -- but entities are tracked and broadcast to
+ * everybody nearby with no per-player filter, so the only place to stop them is here, on the
+ * client, at the moment something would have been drawn.
+ *
+ * <p>Which means it is render suppression rather than concealment: the entities are still sent,
+ * and a modified client would still see them.
  */
 @Mixin(EntityRenderDispatcher.class)
 public abstract class CaveInimicumEntityRenderDispatcherMixin {
@@ -32,7 +39,10 @@ public abstract class CaveInimicumEntityRenderDispatcherMixin {
             return;
         }
 
-        if (CaveInimicumClientState.shouldHideEntity(entity)) {
+        // Diagon Alley uses the same trick as Cave Inimicum, and shares this one injection
+        // rather than adding a second mixin to the same method.
+        if (CaveInimicumClientState.shouldHideEntity(entity)
+                || com.hogwartsmagic.client.DiagonAlleyClientState.shouldHideEntity(entity)) {
             cir.setReturnValue(false);
         }
     }

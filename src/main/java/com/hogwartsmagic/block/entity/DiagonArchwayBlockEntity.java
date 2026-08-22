@@ -251,7 +251,28 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
      */
     public void tapped(ServerLevel level, @Nullable ServerPlayer player) {
         BlockState state = getBlockState();
-        if (this.ticks >= 0 || state.getValue(DiagonArchwayBlock.PHASE) != DiagonArchwayBlock.SHUT) {
+        if (this.ticks >= 0) {
+            return;                             // a sequence is already running
+        }
+
+        // Tap to open, tap to close. An alley that could only be shut by walking away and
+        // waiting out a timer left the player with nothing to press and no way to undo it.
+        if (com.hogwartsmagic.worldgen.DiagonAlleySnapshot.get(level).isActive()) {
+            if (com.hogwartsmagic.worldgen.DiagonAlleyManager.isBusy()) {
+                return;
+            }
+            if (com.hogwartsmagic.worldgen.DiagonAlleyManager.restore(level)) {
+                level.playSound(null, this.worldPosition, SoundEvents.ANCIENT_DEBRIS_BREAK,
+                        SoundSource.BLOCKS, 1.0F, 0.55F);
+                if (player != null) {
+                    player.displayClientMessage(Component.literal(
+                            "The alley folds itself away, and the wall closes."), true);
+                }
+            }
+            return;
+        }
+
+        if (state.getValue(DiagonArchwayBlock.PHASE) != DiagonArchwayBlock.SHUT) {
             return;
         }
         // Somebody else may already be opening this same wall from another brick.
@@ -490,7 +511,17 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
         }
     }
 
-    /** Every archway brick reachable from this one. */
+    /**
+     * Every archway brick reachable from this one, <b>in the same plane</b>.
+     *
+     * <p>The plane filter is what lets the alley's perimeter wall be made of the same brick and
+     * joined to the entrance wall. Without it the flood runs round the corner and off down the
+     * boundary, and then the wall the player built is measured as being a couple of hundred
+     * blocks wide with its arch somewhere out in the terraces.
+     *
+     * <p>The flood itself is still three-dimensional -- the plane is not known until the shape
+     * has been measured, so it is measured first and the result trimmed to it.
+     */
     private List<BlockPos> floodPanel(Level level) {
         List<BlockPos> found = new ArrayList<>();
         Set<BlockPos> seen = new HashSet<>();
@@ -510,7 +541,18 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
                 }
             }
         }
-        return found;
+        if (found.size() < 2) {
+            return found;
+        }
+        measureAxes(found);
+        int mine = axis(this.worldPosition, this.normalAxis);
+        List<BlockPos> coplanar = new ArrayList<>();
+        for (BlockPos p : found) {
+            if (axis(p, this.normalAxis) == mine) {
+                coplanar.add(p);
+            }
+        }
+        return coplanar;
     }
 
     /** The axis the panel barely varies along is the one it faces. */

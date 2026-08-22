@@ -93,9 +93,60 @@ def entity_sheet(tile):
     return sheet
 
 
+def subbrick_sheet(lit=False):
+    """One single brick, as a 64x32 sheet for an 8 x 4 x 16 box.
+
+    The wall does not come apart into blocks -- it comes apart into *bricks*. Each block of the
+    panel is drawn as eight of these, two across and four up, and each one moves on its own. That
+    needs a texture cut for a box the shape of one brick rather than the shape of a block.
+
+    Minecraft unwraps a box of width w, height h and depth d at texture offset (0,0) as:
+
+        top    (d,     0)  w x d        right (0,       d)  d x h
+        bottom (d+w,   0)  w x d        front (d,       d)  w x h
+                                        left  (d+w,     d)  d x h
+                                        back  (d+w+d,   d)  w x h
+
+    so for 8 x 4 x 16 the faces land inside 48 x 32 and the sheet is padded to 64 x 32. Front and
+    back get the fired face; the four cut edges get mortar, because that is what you would actually
+    see if you pulled one brick out of a wall.
+    """
+    sheet = Image.new('RGBA', (64, 32), (0, 0, 0, 0))
+    px = sheet.load()
+
+    def face(x0, y0, w, h, kind):
+        for dy in range(h):
+            for dx in range(w):
+                if kind == 'face':
+                    shade = SHADES[int(_hash(dx, dy, 11) * len(SHADES)) % len(SHADES)]
+                    g = int((_hash(x0 + dx, y0 + dy, 12) - 0.5) * 20)
+                    soot = int(4 * dy)
+                    c = (shade[0] + g - soot, shade[1] + g - soot, shade[2] + g - soot)
+                else:
+                    base = MORTAR if _hash(x0 + dx, y0 + dy, 13) > 0.45 else MORTAR_DARK
+                    if lit:
+                        base = (255, min(255, base[1] + 120), 120)
+                    c = base
+                px[x0 + dx, y0 + dy] = (max(0, min(255, c[0])), max(0, min(255, c[1])),
+                                        max(0, min(255, c[2])), 255)
+
+    w, h, d = 8, 4, 16
+    face(d, 0, w, d, 'mortar')            # top
+    face(d + w, 0, w, d, 'mortar')        # bottom
+    face(0, d, d, h, 'mortar')            # right
+    face(d, d, w, h, 'face')              # front -- the fired face
+    face(d + w, d, d, h, 'mortar')        # left
+    face(d + w + d, d, w, h, 'face')      # back
+    return sheet
+
+
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)
     os.makedirs(ENTITY_OUT, exist_ok=True)
+    for name, lit in (('diagon_subbrick', False), ('diagon_subbrick_lit', True)):
+        path = os.path.join(ENTITY_OUT, name + '.png')
+        subbrick_sheet(lit).save(path)
+        print('wrote %s' % os.path.normpath(path))
     for name, lit in (('diagon_archway_brick', False), ('diagon_archway_brick_lit', True)):
         tile = build(lit)
         path = os.path.join(OUT, name + '.png')

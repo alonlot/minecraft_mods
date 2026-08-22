@@ -73,13 +73,26 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
 
     /** The light runs out through the mortar, and nothing moves yet. */
     public static final int GLOW = 30;
+    /**
+     * The shudder. The whole wall goes to the renderer and a shockwave rolls outward from the
+     * tapped brick: every brick in the panel leans out and back as the crest passes, and nothing
+     * has opened yet.
+     *
+     * <p>This beat exists because the first version animated only the twenty-five bricks of the
+     * archway and left the other eighty-five standing dead still. That reads as a hole appearing in
+     * a wall. A wall that goes liquid first, and only then opens, reads as magic doing it.
+     */
+    public static final int SHUDDER = 25;
     /** The spiral: bricks peel out of the archway into the flanking wall. */
     public static final int PEEL = 80;
     /** The head of the arch finishes. */
     public static final int UNFOLD = 25;
-    /** Dust settles. */
-    public static final int SETTLE = 15;
-    public static final int TOTAL = GLOW + PEEL + UNFOLD + SETTLE;
+    /** The wall settles back, and the dust drops. */
+    public static final int SETTLE = 20;
+    public static final int TOTAL = GLOW + SHUDDER + PEEL + UNFOLD + SETTLE;
+
+    /** When the bricks of the arch itself start leaving. */
+    public static final int PEEL_START = GLOW + SHUDDER;
 
     /** How long one brick takes to clear the opening. */
     public static final int TRAVEL = 26;
@@ -98,6 +111,7 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
 
     private static final String TICKS_KEY = "OpenTicks";
     private static final String ARCH_KEY = "Arch";
+    private static final String PANEL_KEY = "Panel";
     private static final String AXES_KEY = "Axes";
     private static final String CENTRE_KEY = "ArchCentre";
 
@@ -105,8 +119,13 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
     private int taps;
     private long lastTapAt = Long.MIN_VALUE;
 
-    /** The cells that move. Empty on every brick but the one running the sequence. */
+    /** The cells that leave. Empty on every brick but the one running the sequence. */
     private final List<BlockPos> arch = new ArrayList<>();
+    /**
+     * Every brick of the wall, including the ones that stay. The renderer needs all of them: the
+     * arch bricks to peel away, and the rest to ripple in place and settle back.
+     */
+    private final List<BlockPos> panel = new ArrayList<>();
     private int acrossAxis = 0;
     private int normalAxis = 2;
     /** Across-coordinate and bottom Y of the arch, so the renderer can place each brick. */
@@ -127,6 +146,24 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
 
     public List<BlockPos> archCells() {
         return this.arch;
+    }
+
+    /** Every brick of the wall — the ones that leave and the ones that only ripple. */
+    public List<BlockPos> panelCells() {
+        return this.panel;
+    }
+
+    /**
+     * Does this cell belong to the opening?
+     *
+     * <p>Shared with the renderer rather than sent, because both sides can work it out from the
+     * arch centre and the same shape, and a list that had to agree across the wire is a list that
+     * can disagree.
+     */
+    public static boolean isArchCell(int u, int v) {
+        double head = HALF_WIDTH + 0.5D;
+        return (Math.abs(u) <= HALF_WIDTH && v <= SPRING)
+                || (v > SPRING && u * u + (v - SPRING) * (v - SPRING) <= head * head);
     }
 
     public int acrossAxis() {
@@ -163,7 +200,11 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
     public static float brickDelay(int du, int dv) {
         double dist = Math.sqrt((double) du * du + (double) dv * dv);
         double angle = (Math.atan2(dv, du) + Math.PI) / (Math.PI * 2.0);
-        return (float) (dist * 11.0 + angle * 16.0);
+        // 8 and 10, not 11 and 16. Adding the shudder beat pushed the spiral's start back
+        // twenty-five ticks, and at the old spread the furthest brick was still in the air sixteen
+        // ticks after the sequence ended -- so it vanished mid-flight when the blocks went to OPEN.
+        // These leave about fifteen ticks of margin on the worst cell of a five-wide arch.
+        return (float) (dist * 8.0 + angle * 10.0);
     }
 
     // ---------------------------------------------------------------- the tap
@@ -267,6 +308,13 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
         if (this.arch.isEmpty()) {
             return;
         }
+        // Keep the whole wall, not only the part that leaves: the renderer ripples the bricks that
+        // stay, and a wall whose surround does not move reads as a hole appearing rather than as
+        // masonry giving way.
+        this.panel.clear();
+        for (BlockPos p : panel) {
+            this.panel.add(p.immutable());
+        }
 
         this.ticks = 0;
         this.litRadius = -1;
@@ -341,13 +389,10 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
         this.archCentre = centre;
         this.archBottom = minY;
 
-        double head = HALF_WIDTH + 0.5D;
         for (BlockPos p : panel) {
             int u = axis(p, this.acrossAxis) - centre;
             int v = p.getY() - minY;
-            boolean inside = (Math.abs(u) <= HALF_WIDTH && v <= SPRING)
-                    || (v > SPRING && u * u + (v - SPRING) * (v - SPRING) <= head * head);
-            if (inside) {
+            if (isArchCell(u, v)) {
                 this.arch.add(p.immutable());
             }
         }
@@ -370,7 +415,9 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
             brick.runSeam(server);
         } else if (brick.ticks == GLOW + 1) {
             brick.clearSeam(server);
-            brick.setArchPhase(server, DiagonArchwayBlock.MOVING);
+            // The WHOLE wall goes over to the renderer, not just the arch: invisible but still
+            // solid, so every brick can move and nothing is a way through until it is.
+            brick.setPhase(server, brick.panel, DiagonArchwayBlock.MOVING);
             server.playSound(null, pos, SoundEvents.ANCIENT_DEBRIS_BREAK, SoundSource.BLOCKS, 1.0F, 0.5F);
         } else if (brick.ticks < TOTAL) {
             // A grind of stone every half second while bricks are actually moving, so the sound
@@ -388,10 +435,20 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
                 }
             }
         } else {
-            brick.setArchPhase(server, DiagonArchwayBlock.OPEN);
+            // The arch becomes a way through; everything else in the wall comes back as ordinary
+            // brick, so the surround stops being drawn by the renderer and goes solid again.
+            List<BlockPos> stays = new ArrayList<>();
+            for (BlockPos p : brick.panel) {
+                if (!brick.arch.contains(p)) {
+                    stays.add(p);
+                }
+            }
+            brick.setPhase(server, stays, DiagonArchwayBlock.SHUT);
+            brick.setPhase(server, brick.arch, DiagonArchwayBlock.OPEN);
             server.playSound(null, pos, SoundEvents.IRON_DOOR_OPEN, SoundSource.BLOCKS, 1.0F, 0.6F);
             brick.ticks = -1;
             brick.arch.clear();
+            brick.panel.clear();
             brick.setChanged();
             brick.sync(server);
         }
@@ -432,8 +489,8 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
         }
     }
 
-    private void setArchPhase(ServerLevel level, int phase) {
-        for (BlockPos p : this.arch) {
+    private void setPhase(ServerLevel level, List<BlockPos> cells, int phase) {
+        for (BlockPos p : cells) {
             BlockState s = level.getBlockState(p);
             if (s.getBlock() instanceof DiagonArchwayBlock) {
                 level.setBlock(p, s.setValue(DiagonArchwayBlock.PHASE, phase)
@@ -466,6 +523,11 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
             cells[i] = this.arch.get(i).asLong();
         }
         tag.putLongArray(ARCH_KEY, cells);
+        long[] all = new long[this.panel.size()];
+        for (int i = 0; i < all.length; i++) {
+            all[i] = this.panel.get(i).asLong();
+        }
+        tag.putLongArray(PANEL_KEY, all);
     }
 
     @Override
@@ -485,6 +547,10 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
         this.arch.clear();
         for (long packed : tag.getLongArray(ARCH_KEY)) {
             this.arch.add(BlockPos.of(packed));
+        }
+        this.panel.clear();
+        for (long packed : tag.getLongArray(PANEL_KEY)) {
+            this.panel.add(BlockPos.of(packed));
         }
     }
 

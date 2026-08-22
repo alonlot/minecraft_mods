@@ -859,6 +859,13 @@ public class ExampleMod
     {
         // Do something when the server starts
         LOGGER.info("HELLO from server starting");
+
+        // If an alley was open when the server last went down, the world is still wearing seventy
+        // thousand blocks of Diagon Alley. The snapshot recording what was underneath is on disk
+        // and still flagged active, so put it back now -- before anybody can log in and find a
+        // street where their house used to be. This is the whole reason the snapshot is flushed
+        // before any block is placed rather than after.
+        com.hogwartsmagic.worldgen.DiagonAlleyManager.restoreOnBoot(event.getServer());
     }
 
     @SubscribeEvent

@@ -197,6 +197,9 @@ public final class DiagonAlleyManager {
                         activeRestore.restored);
                 ServerLevel level = activeRestore.level;
                 DiagonAlleySnapshot snapshot = DiagonAlleySnapshot.get(level);
+                // Everyone goes back to seeing the truth. This has to happen while the snapshot is
+                // still loaded, because it is what says which chunks were being lied about.
+                DiagonAlleyIllusion.clearAll(level, snapshot);
                 // Reseal before clearing: the arch position lives in the snapshot, and clear()
                 // throws it away along with everything else.
                 reseal(level, snapshot.archPos());

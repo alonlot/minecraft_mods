@@ -133,6 +133,36 @@ public class DiagonAlleySnapshot extends SavedData {
         return this.blockEntities.get(cell);
     }
 
+    /**
+     * What was at this world position before the alley covered it, or null if there was nothing.
+     *
+     * <p>Backed by a lazily-built cell-to-palette map. The illusion asks this once per block per
+     * chunk it sends, which over a region this size is tens of thousands of lookups — a linear scan
+     * of the parallel arrays would be hopeless, and building the map costs one pass.
+     */
+    @javax.annotation.Nullable
+    public BlockState originalAt(int wx, int wy, int wz) {
+        int lx = wx - this.origin.getX();
+        int ly = wy - this.origin.getY();
+        int lz = wz - this.origin.getZ();
+        if (lx < 0 || ly < 0 || lz < 0 || lx >= this.sizeX || ly >= this.sizeY || lz >= this.sizeZ) {
+            return null;
+        }
+        if (this.lookup == null) {
+            this.lookup = new HashMap<>(this.cells.length * 2);
+            for (int i = 0; i < this.cells.length; i++) {
+                this.lookup.put(this.cells[i], this.states[i]);
+            }
+        }
+        Integer id = this.lookup.get(cellIndex(lx, ly, lz));
+        if (id == null) {
+            return null;
+        }
+        return id < this.palette.size() ? this.palette.get(id) : null;
+    }
+
+    private transient Map<Integer, Integer> lookup;
+
     public BlockPos posOfCell(int cell) {
         int x = cell % this.sizeX;
         int rest = cell / this.sizeX;
@@ -167,6 +197,7 @@ public class DiagonAlleySnapshot extends SavedData {
         this.blockEntities.clear();
         this.cells = new int[0];
         this.states = new int[0];
+        this.lookup = null;
         this.paletteIndex = new HashMap<>();
         this.cellList = new ArrayList<>();
         this.stateList = new ArrayList<>();
@@ -224,6 +255,7 @@ public class DiagonAlleySnapshot extends SavedData {
             this.states[i] = this.stateList.get(i);
         }
         this.paletteIndex = null;
+        this.lookup = null;
         this.cellList = null;
         this.stateList = null;
         this.active = true;
@@ -241,6 +273,7 @@ public class DiagonAlleySnapshot extends SavedData {
         this.blockEntities.clear();
         this.cells = new int[0];
         this.states = new int[0];
+        this.lookup = null;
         setDirty();
     }
 

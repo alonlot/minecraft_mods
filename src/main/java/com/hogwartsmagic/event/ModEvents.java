@@ -712,6 +712,9 @@ public class ModEvents {
                 stopPatronusShieldChannel(player, player.getMainHandItem());
             }
             com.hogwartsmagic.caveinimicum.CaveInimicumManager.get(player.serverLevel()).onPlayerLeft(player);
+            // Drop their remembered inside/outside state, or the map grows for the life of the
+            // server and a returning player is judged against where they stood last week.
+            com.hogwartsmagic.worldgen.DiagonAlleyIllusion.forget(player);
         }
     }
 

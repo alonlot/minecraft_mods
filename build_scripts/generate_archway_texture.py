@@ -73,9 +73,34 @@ def build(lit=False):
     return im
 
 
+ENTITY_OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..',
+                          'src', 'main', 'resources', 'assets', 'hogwartsmagic', 'textures', 'entity')
+
+
+def entity_sheet(tile):
+    """The same brick as a 64x32 cube sheet, for the renderer.
+
+    While the wall is opening the real blocks are invisible and every moving brick is drawn as a
+    free cube by DiagonArchwayRenderer. A ModelPart cube does not sample a 16x16 block texture -- it
+    samples a sheet with the six faces laid out where the mesh expects them -- so the block texture
+    is stamped into all six slots of a 16x16x16 box at texOffs(0,0):
+
+        top (16,0)  bottom (32,0)          right (0,16)  front (16,16)  left (32,16)  back (48,16)
+    """
+    sheet = Image.new('RGBA', (64, 32), (0, 0, 0, 0))
+    for x, y in ((16, 0), (32, 0), (0, 16), (16, 16), (32, 16), (48, 16)):
+        sheet.paste(tile, (x, y))
+    return sheet
+
+
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)
+    os.makedirs(ENTITY_OUT, exist_ok=True)
     for name, lit in (('diagon_archway_brick', False), ('diagon_archway_brick_lit', True)):
+        tile = build(lit)
         path = os.path.join(OUT, name + '.png')
-        build(lit).save(path)
+        tile.save(path)
         print('wrote %s' % os.path.normpath(path))
+        epath = os.path.join(ENTITY_OUT, name + '.png')
+        entity_sheet(tile).save(epath)
+        print('wrote %s' % os.path.normpath(epath))

@@ -230,6 +230,17 @@ public class ExampleMod
     // through its own wall has none. Hardness -1 with bedrock's blast resistance makes the shell and
     // the door leaf genuinely unminable, so the Parseltongue lock is the only route past them. Both
     // are plain blocks with no block entity: they only ever need to sit there and refuse.
+    /**
+     * The wall behind the Leaky Cauldron. Ordinary brick strength on purpose -- a determined
+     * player with a pickaxe can always get through, and should be able to; the tap is the way in,
+     * not the only way in.
+     */
+    public static final RegistryObject<Block> DIAGON_ARCHWAY_BRICK = BLOCKS.register("diagon_archway_brick",
+            () -> new com.hogwartsmagic.block.DiagonArchwayBlock(
+                    BlockBehaviour.Properties.ofFullCopy(Blocks.BRICKS)
+                            .strength(2.0f, 6.0f)
+                            .lightLevel(state -> state.getValue(
+                                    com.hogwartsmagic.block.DiagonArchwayBlock.LIT) ? 10 : 0)));
     public static final RegistryObject<Block> CHAMBER_STONE = BLOCKS.register("chamber_stone",
             () -> new Block(BlockBehaviour.Properties.ofFullCopy(Blocks.POLISHED_DEEPSLATE)
                     .strength(-1.0f, 3600000.0f)
@@ -338,6 +349,11 @@ public class ExampleMod
                     com.hogwartsmagic.block.entity.ChamberDoorBlockEntity::new,
                     CHAMBER_DOOR.get()
             ).build(null));
+    public static final RegistryObject<BlockEntityType<com.hogwartsmagic.block.entity.DiagonArchwayBlockEntity>> DIAGON_ARCHWAY_BLOCK_ENTITY =
+            BLOCK_ENTITY_TYPES.register("diagon_archway_brick", () -> BlockEntityType.Builder.of(
+                    com.hogwartsmagic.block.entity.DiagonArchwayBlockEntity::new,
+                    DIAGON_ARCHWAY_BRICK.get()
+            ).build(null));
     public static final RegistryObject<BlockEntityType<com.hogwartsmagic.block.entity.GringottsVaultDoorBlockEntity>> GRINGOTTS_VAULT_DOOR_BLOCK_ENTITY =
             BLOCK_ENTITY_TYPES.register("gringotts_vault_door", () -> BlockEntityType.Builder.of(
                     com.hogwartsmagic.block.entity.GringottsVaultDoorBlockEntity::new,
@@ -414,6 +430,7 @@ public class ExampleMod
     public static final RegistryObject<Item> MOVING_PORTRAIT_ITEM = ITEMS.register("moving_portrait", () -> new BlockItem(MOVING_PORTRAIT.get(), new Item.Properties()));
     public static final RegistryObject<Item> CANDLE_CLUSTER_ITEM = ITEMS.register("candle_cluster", () -> new BlockItem(CANDLE_CLUSTER.get(), new Item.Properties()));
     public static final RegistryObject<Item> ENCHANTED_BOOK_PILE_ITEM = ITEMS.register("enchanted_book_pile", () -> new BlockItem(ENCHANTED_BOOK_PILE.get(), new Item.Properties()));
+    public static final RegistryObject<Item> DIAGON_ARCHWAY_BRICK_ITEM = ITEMS.register("diagon_archway_brick", () -> new BlockItem(DIAGON_ARCHWAY_BRICK.get(), new Item.Properties()));
     public static final RegistryObject<Item> WIZARD_CAULDRON_ITEM = ITEMS.register("wizard_cauldron", () -> new BlockItem(WIZARD_CAULDRON.get(), new Item.Properties()));
     public static final RegistryObject<Item> OWL_PERCH_ITEM = ITEMS.register("owl_perch", () -> new BlockItem(OWL_PERCH.get(), new Item.Properties()));
     public static final RegistryObject<Item> FLOO_FIREPLACE_ITEM = ITEMS.register("floo_fireplace", () -> new BlockItem(FLOO_FIREPLACE.get(), new Item.Properties()));
@@ -703,6 +720,7 @@ public class ExampleMod
                 output.accept(CANDLE_CLUSTER_ITEM.get());
                 output.accept(ENCHANTED_BOOK_PILE_ITEM.get());
                 output.accept(WIZARD_CAULDRON_ITEM.get());
+                output.accept(DIAGON_ARCHWAY_BRICK_ITEM.get());
                 output.accept(OWL_PERCH_ITEM.get());
                 output.accept(FLOO_FIREPLACE_ITEM.get());
                 output.accept(WARD_ITEM.get());

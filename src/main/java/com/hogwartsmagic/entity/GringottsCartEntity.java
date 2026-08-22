@@ -160,6 +160,17 @@ public class GringottsCartEntity extends Entity {
     }
 
     /**
+     * How far the wheels have rolled, in model units, so the renderer can turn them.
+     *
+     * <p>Arc length rather than accumulated movement: the cart is on a spline and {@code t} <em>is</em>
+     * the distance it has covered, so the wheels cannot drift out of step with the track no matter
+     * how the client interpolates.
+     */
+    public double rolledDistance() {
+        return (this.level().isClientSide ? this.clientT : this.t) * 16.0D;
+    }
+
+    /**
      * Curvature where the cart is now.
      *
      * <p>This is what the flange screech is keyed on rather than speed, and it is the difference
@@ -201,12 +212,14 @@ public class GringottsCartEntity extends Entity {
                                                float partialTick) {
         // Seat by type, not by index: Entity.addPassenger force-inserts a Player at index 0, so an
         // index-based seat swaps the two riders the moment a player climbs in behind a goblin.
-        double z = passenger instanceof Player ? 0.35D : -0.35D;
+        double z = passenger instanceof Player ? 0.30D : -0.30D;
         float toRad = (float) Math.PI / 180.0F;
         float roll = Mth.lerp(partialTick, this.prevDisplayRoll, this.displayRoll) * toRad;
         float pitch = Mth.lerp(partialTick, this.prevDisplayPitch, this.displayPitch) * toRad;
         float yaw = Mth.rotLerp(partialTick, this.yRotO, this.getYRot()) * toRad;
-        return new Vec3(0.0D, 0.32D, z).zRot(-roll).xRot(pitch).yRot(-yaw);
+        // On the bench, not hovering over the line. The model is anchored at the railhead a block
+        // and a half below the cart line, so the cushion is here and the rider goes on it.
+        return new Vec3(0.0D, -0.55D, z).zRot(-roll).xRot(pitch).yRot(-yaw);
     }
 
     @Override

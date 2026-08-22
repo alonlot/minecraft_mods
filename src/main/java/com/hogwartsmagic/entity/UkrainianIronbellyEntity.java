@@ -17,6 +17,7 @@ import net.minecraft.world.entity.ai.goal.FloatGoal;
 import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
 import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
 import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
+import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
@@ -62,6 +63,14 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
     public static final int COWER_TICKS = 100;
     /** How far a noise carries to it. Deliberately further than it can see. */
     public static final double HEARING = 18.0D;
+    /**
+     * How close is close enough that being half-blind stops helping you.
+     *
+     * <p>Sneaking past it is the whole game in that room, so this is the number that decides
+     * whether the game is fair. Eight blocks is about the width of the chamber floor either side of
+     * the track: hug the wall and you get by, walk down the middle and it has you.
+     */
+    private static final double SMELL = 8.0D;
     private static final int HEARD_MEMORY = 60;
     /** Ticks of the departure once it is freed. */
     private static final int LEAVING_TICKS = 200;
@@ -96,13 +105,23 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
 
     @Override
     protected void registerGoals() {
-        // Deliberately not the parent's goals: no stroll, and the target goal is replaced by one
-        // that will not pick somebody up across the cavern just because they are visible.
+        // Deliberately not the parent goal set: no stroll, no flight, and a target goal that will
+        // not pick somebody up across the cavern just because they happen to be visible.
         this.goalSelector.addGoal(0, new FloatGoal(this));
+        this.goalSelector.addGoal(1, new IronbellyCombatGoal(this));
         this.goalSelector.addGoal(2, new IronbellyGuardGoal(this));
         this.goalSelector.addGoal(7, new LookAtPlayerGoal(this, Player.class, 12.0F));
         this.goalSelector.addGoal(8, new RandomLookAroundGoal(this));
+
         this.targetSelector.addGoal(1, new HurtByTargetGoal(this));
+        // It cannot see you across the room, but it is a dragon and you are standing next to it.
+        // mustSee is false on purpose - this one hunts by hearing, so line of sight is not the
+        // question; being close, or having just made a noise, is.
+        this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Player.class,
+                10, false, false, living -> living instanceof Player player
+                        && !player.isCreative() && !player.isSpectator()
+                        && !isCowering()
+                        && (distanceToSqr(player) < SMELL * SMELL || recentlyHeard())));
     }
 
     public boolean isCowering() {
@@ -266,6 +285,127 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
     }
 
     /**
+     * What it does once it has decided you are the problem.
+     *
+     * <p>This did not exist, and its absence is why the dragon stood there. The parent is a flying
+     * boss whose entire combat machine lives in a goal that {@code registerGoals} above replaces,
+     * so overriding the goals removed the fight along with the flying - the Ironbelly could be hit,
+     * could take a target, and then had nothing whatsoever to do with it.
+     *
+     * <p>So it gets its own, built out of the parent primitives - bite, tail whip, wing gust,
+     * breath - with two differences that matter. <b>It never takes off.</b> Real flight AI in a
+     * cavern this shape is how a dragon ends up screaming inside a wall, and a chained dragon that
+     * flies is not chained. And <b>it will not leave its anchor</b>: pull back past the chain and
+     * it stops following and burns you instead, which turns the leash from a limitation into the
+     * reason the fight has a shape.
+     */
+    private static final class IronbellyCombatGoal
+            extends net.minecraft.world.entity.ai.goal.Goal {
+
+        /** Snapping distance. */
+        private static final double BITE = 6.0D;
+        /** Where it stops closing and starts breathing. */
+        private static final double BREATH = 18.0D;
+
+        private final UkrainianIronbellyEntity dragon;
+        private int cooldown;
+        private boolean roared;
+
+        IronbellyCombatGoal(UkrainianIronbellyEntity dragon) {
+            this.dragon = dragon;
+            setFlags(java.util.EnumSet.of(Flag.MOVE, Flag.LOOK));
+        }
+
+        @Override
+        public boolean canUse() {
+            LivingEntity target = this.dragon.getTarget();
+            return target != null && target.isAlive() && !this.dragon.isCowering();
+        }
+
+        @Override
+        public boolean canContinueToUse() {
+            return canUse();
+        }
+
+        @Override
+        public void stop() {
+            this.dragon.getNavigation().stop();
+            this.cooldown = 0;
+        }
+
+        @Override
+        public void tick() {
+            LivingEntity target = this.dragon.getTarget();
+            if (target == null || this.dragon.inAerialSequence()) {
+                return;
+            }
+            this.dragon.getLookControl().setLookAt(target, 30.0F, 30.0F);
+            if (this.cooldown > 0) {
+                this.cooldown--;
+            }
+            if (!this.dragon.canStartAction()) {
+                return;
+            }
+
+            // The first thing it does is tell you it is there. Everything after is easier to read
+            // once you have been told.
+            if (!this.roared) {
+                this.roared = true;
+                this.dragon.beginRoar();
+                this.cooldown = 30;
+                return;
+            }
+
+            double dist = this.dragon.distanceTo(target);
+
+            // Past the chain it stops trying to follow. Standing there straining is what a chained
+            // animal does, and breathing fire is what this one does about it.
+            if (this.dragon.isChained() && this.dragon.anchor() != null
+                    && Vec3.atCenterOf(this.dragon.anchor())
+                            .distanceTo(target.position()) > CHAIN_RADIUS + 2.0D) {
+                this.dragon.getNavigation().stop();
+                if (this.cooldown <= 0 && dist <= BREATH) {
+                    this.dragon.beginBreath();
+                    this.cooldown = 40;
+                }
+                return;
+            }
+
+            if (dist <= BITE) {
+                this.dragon.getNavigation().stop();
+                if (this.cooldown > 0) {
+                    return;
+                }
+                int roll = this.dragon.getRandom().nextInt(100);
+                if (roll < 24) {
+                    this.dragon.beginTailWhip();
+                } else if (roll < 38) {
+                    this.dragon.beginWingGust();
+                } else if (roll < 86) {
+                    this.dragon.beginBite();
+                } else {
+                    this.dragon.beginBreath();
+                }
+                this.cooldown = this.dragon.isRaging() ? 10 : 18;
+                return;
+            }
+
+            if (dist <= BREATH) {
+                if (this.cooldown <= 0 && this.dragon.getRandom().nextInt(100) < 45) {
+                    this.dragon.beginBreath();
+                    this.cooldown = this.dragon.isRaging() ? 24 : 40;
+                    return;
+                }
+                // Half-starved and chained, so it lumbers rather than charges.
+                this.dragon.getNavigation().moveTo(target, this.dragon.isRaging() ? 0.95D : 0.75D);
+                return;
+            }
+
+            this.dragon.getNavigation().moveTo(target, 0.85D);
+        }
+    }
+
+    /**
      * Keeps it near its anchor, and sends it after noises rather than after sightings.
      */
     private static final class IronbellyGuardGoal
@@ -294,9 +434,8 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
                 return;
             }
 
-            LivingEntity target = this.dragon.getTarget();
-            if (target != null && this.dragon.distanceTo(target) < HEARING) {
-                return;      // the parent's combat machine has it
+            if (this.dragon.getTarget() != null) {
+                return;      // IronbellyCombatGoal has it
             }
 
             if (this.dragon.recentlyHeard()) {

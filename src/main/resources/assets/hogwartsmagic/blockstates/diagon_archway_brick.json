@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "lit=false": {
+      "model": "hogwartsmagic:block/diagon_archway_brick"
+    },
+    "lit=true": {
+      "model": "hogwartsmagic:block/diagon_archway_brick_lit"
+    }
+  }
+}

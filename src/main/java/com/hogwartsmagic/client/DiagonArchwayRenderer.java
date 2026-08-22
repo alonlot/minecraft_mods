@@ -70,8 +70,6 @@ public class DiagonArchwayRenderer implements BlockEntityRenderer<DiagonArchwayB
     private static final float SCREW = 2.1F;
     private static final float TIP = 0.7F;
     private static final float FLASH = 0.2F;
-    /** How long one brick takes to clear, in ticks. */
-    private static final float TRAVEL = 26.0F;
     /** Spread of the per-brick start times inside one block, so a block never leaves as a lump. */
     private static final float SUB_SPREAD = 7.0F;
 
@@ -166,7 +164,7 @@ public class DiagonArchwayRenderer implements BlockEntityRenderer<DiagonArchwayB
                     float t0 = DiagonArchwayBlockEntity.PEEL_START
                             + DiagonArchwayBlockEntity.brickDelay(du, dv)
                             + jitter * SUB_SPREAD;
-                    float p = (t - t0) / TRAVEL;
+                    float p = (t - t0) / (float) DiagonArchwayBlockEntity.TRAVEL;
                     if (p >= 1.0F) {
                         continue;                   // gone into the flank
                     }

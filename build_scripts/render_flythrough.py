@@ -260,6 +260,17 @@ def render(args):
         shutil.rmtree(FRAME_DIR)
     os.makedirs(FRAME_DIR, exist_ok=True)
 
+    if args.stills:
+        # Named stills rather than a path. The in-session browser tools proved unreliable for
+        # this -- they silently stopped applying the camera matrix partway through a batch and
+        # returned sixteen copies of the same frame -- whereas this pipeline has already been
+        # verified over six hundred varied frames.
+        with open(args.stills, encoding='utf-8') as fh:
+            spec = json.load(fh)
+        path = [((r[1], r[2], r[3]), (r[4], r[5], r[6])) for r in spec]
+        names = [r[0] for r in spec]
+        return _run(args, path, names)
+
     street_x1 = street_end(open_cols, size)
     print('street runs to x=%d; the building at the end takes it from there' % street_x1)
     frames = int(args.seconds * args.fps)
@@ -268,6 +279,15 @@ def render(args):
         # Sample the full-length path so each shot is represented as it will actually look.
         path = [path[int(frames * f)] for f in (0.10, 0.45, 0.70, 0.90)]
 
+    return _run(args, path, None)
+
+
+def _run(args, path, names):
+    """Drive the page over a list of (eye, pivot) pairs and save one PNG each."""
+    from playwright.sync_api import sync_playwright
+    if os.path.isdir(FRAME_DIR):
+        shutil.rmtree(FRAME_DIR)
+    os.makedirs(FRAME_DIR, exist_ok=True)
     server = serve(VIEWER, args.port)
     started = time.time()
     try:
@@ -305,8 +325,9 @@ def render(args):
 
             t0 = time.time()
             for i, (eye, pivot) in enumerate(path):
+                label = (names[i] + '.png') if names else ('f%05d.png' % i)
                 page.evaluate('([e,p,n]) => window.__shot(e,p,n)',
-                              [list(eye), list(pivot), 'f%05d.png' % i])
+                              [list(eye), list(pivot), label])
                 if i and i % 25 == 0:
                     rate = (time.time() - t0) / i
                     print('  %4d/%d  %.2fs/frame  eta %.0fs'
@@ -317,6 +338,8 @@ def render(args):
 
     made = sorted(f for f in os.listdir(FRAME_DIR) if f.endswith('.png'))
     print('%d frames in %.0fs -> %s' % (len(made), time.time() - started, FRAME_DIR))
+    if names:
+        return 0                                  # stills only; nothing to encode
     if args.probe:
         print('probe only; look at the stills before rendering the rest')
         return 0
@@ -345,6 +368,9 @@ def main():
     ap.add_argument('--fps', type=int, default=30)
     ap.add_argument('--seconds', type=float, default=24.0)
     ap.add_argument('--port', type=int, default=8749)
+    ap.add_argument('--stills',
+                    help='JSON file of [name, eyeX, eyeY, eyeZ, atX, atY, atZ] rows: render '
+                         'those stills instead of a flythrough, and skip the video')
     ap.add_argument('--probe', action='store_true',
                     help='render three stills and report the per-frame cost')
     return render(ap.parse_args())

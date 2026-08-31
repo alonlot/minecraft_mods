@@ -12,6 +12,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -125,8 +126,11 @@ public final class DiagonAlleyPortal {
             boolean openOutside = archIsOpen(source, entry.arch());
             boolean openInside = archIsOpen(alley, entry.arch());
 
-            for (ServerPlayer player : source.players()) {
-                if (!near(player, entry.arch())) {
+            // Copied, not iterated live. cross() takes the player out of the level it is standing
+            // in, which is the very list being walked -- ConcurrentModificationException, and the
+            // server tick loop dies on the first step through an arch.
+            for (ServerPlayer player : new ArrayList<>(source.players())) {
+                if (player.serverLevel() != source || !near(player, entry.arch())) {
                     continue;
                 }
                 if (openOutside) {
@@ -139,8 +143,9 @@ public final class DiagonAlleyPortal {
                 }
             }
 
-            for (ServerPlayer player : alley.players()) {
-                if (!near(player, entry.arch()) || !entry.contains(player.blockPosition())) {
+            for (ServerPlayer player : new ArrayList<>(alley.players())) {
+                if (player.serverLevel() != alley || !near(player, entry.arch())
+                        || !entry.contains(player.blockPosition())) {
                     continue;
                 }
                 if (openInside && beyond(player, entry, false)) {

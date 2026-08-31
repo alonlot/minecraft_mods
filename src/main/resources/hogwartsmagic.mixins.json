@@ -5,14 +5,14 @@
   "compatibilityLevel": "JAVA_21",
   "mixins": [
     "OverworldBiomeBuilderMixin",
-    "SurfaceRuleDataMixin"
+    "SurfaceRuleDataMixin",
+    "PlayerChunkSenderMixin"
   ],
   "client": [
     "client.InvisibilityCloakArmorLayerMixin",
     "client.CaveInimicumClientPacketListenerMixin",
     "client.CaveInimicumEntityRenderDispatcherMixin",
-    "client.BasiliskGazeGuiMixin",
-    "client.DiagonAlleyLevelRendererMixin"
+    "client.BasiliskGazeGuiMixin"
   ],
   "injectors": {
     "defaultRequire": 1

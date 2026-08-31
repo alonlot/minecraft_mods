@@ -114,12 +114,6 @@ public class ClientForgeEvents {
 
     @SubscribeEvent
     public static void onFogColor(ViewportEvent.ComputeFogColor event) {
-        if (com.hogwartsmagic.client.DiagonAlleyClientState.cameraInside()) {
-            event.setRed(com.hogwartsmagic.client.DiagonAlleyClientState.FOG_R);
-            event.setGreen(com.hogwartsmagic.client.DiagonAlleyClientState.FOG_G);
-            event.setBlue(com.hogwartsmagic.client.DiagonAlleyClientState.FOG_B);
-            return;
-        }
         float depth = undercroftDepth();
         if (depth >= 0.0F) {
             event.setRed(com.hogwartsmagic.client.UndercroftFogClientState.red(depth));
@@ -139,14 +133,6 @@ public class ClientForgeEvents {
 
     @SubscribeEvent
     public static void onRenderFog(ViewportEvent.RenderFog event) {
-        if (com.hogwartsmagic.client.DiagonAlleyClientState.cameraInside()) {
-            event.setNearPlaneDistance(
-                    com.hogwartsmagic.client.DiagonAlleyClientState.FOG_NEAR);
-            event.setFarPlaneDistance(Math.max(event.getFarPlaneDistance(),
-                    com.hogwartsmagic.client.DiagonAlleyClientState.FOG_FAR));
-            event.setCanceled(true);
-            return;
-        }
         float depth = undercroftDepth();
         if (depth >= 0.0F) {
             event.setNearPlaneDistance(

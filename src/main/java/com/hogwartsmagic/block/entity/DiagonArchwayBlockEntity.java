@@ -140,6 +140,7 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
     private static final String PANEL_KEY = "Panel";
     private static final String ARMED_KEY = "Armed";
     private static final String KEY_KEY = "KeyBrick";
+    private static final String CLOSING_KEY = "Closing";
     private static final String AXES_KEY = "Axes";
     private static final String CENTRE_KEY = "ArchCentre";
 
@@ -160,6 +161,15 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
     private boolean isKey;
     /** Countdown on the glow a spell leaves behind. Ticks down even when no sequence is running. */
     private int flashTicks;
+    /**
+     * Running the sequence backwards.
+     *
+     * <p>Every pose the renderer draws is a pure function of the clock, so counting down
+     * instead of up flies every brick back into the wall for nothing. Doing it any other way --
+     * setting the blocks back and letting the client find out -- made the wall reassemble itself
+     * one block at a time, which read as the arch badly reopening rather than as it closing.
+     */
+    private boolean closing;
 
     /** The cells that leave. Empty on every brick but the one running the sequence. */
     private final List<BlockPos> arch = new ArrayList<>();
@@ -260,21 +270,18 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
             return;                             // a sequence is already running
         }
 
-        // Tap to open, tap to close. An alley that could only be shut by walking away and
-        // waiting out a timer left the player with nothing to press and no way to undo it.
-        if (com.hogwartsmagic.worldgen.DiagonAlleySnapshot.get(level).isActive()) {
-            if (com.hogwartsmagic.worldgen.DiagonAlleyManager.isBusy()) {
+        // Tap to open, tap to close. A wall that could only be shut by walking away and waiting
+        // out a timer left the player with nothing to press and no way to undo it.
+        List<BlockPos> wall = floodPanel(level);
+        for (BlockPos p : wall) {
+            BlockState cell = level.getBlockState(p);
+            if (cell.getBlock() instanceof DiagonArchwayBlock
+                    && cell.getValue(DiagonArchwayBlock.PHASE) == DiagonArchwayBlock.OPEN) {
+                if (!com.hogwartsmagic.worldgen.DiagonAlleyManager.isBusy()) {
+                    beginClosing(level, player, wall);
+                }
                 return;
             }
-            if (com.hogwartsmagic.worldgen.DiagonAlleyManager.restore(level)) {
-                level.playSound(null, this.worldPosition, SoundEvents.ANCIENT_DEBRIS_BREAK,
-                        SoundSource.BLOCKS, 1.0F, 0.55F);
-                if (player != null) {
-                    player.displayClientMessage(Component.literal(
-                            "The alley folds itself away, and the wall closes."), true);
-                }
-            }
-            return;
         }
 
         if (state.getValue(DiagonArchwayBlock.PHASE) != DiagonArchwayBlock.SHUT) {
@@ -326,6 +333,48 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
         }
         this.taps = 0;
         beginOpening(level, player);
+    }
+
+    /**
+     * Run the whole thing backwards.
+     *
+     * <p>The way through stops being a way through immediately -- both walls go solid on the first
+     * tick, before a single brick has moved -- and then the bricks fly back in over three seconds
+     * and the wall knits shut. Closing the door first and animating second is the order that reads
+     * as a door closing; the other way round is a door that is already shut pretending otherwise.
+     */
+    private void beginClosing(ServerLevel level, @Nullable ServerPlayer player,
+                              List<BlockPos> found) {
+        if (found.isEmpty()) {
+            return;
+        }
+        measureAxes(found);
+        buildArch(found);
+        this.panel.clear();
+        for (BlockPos p : found) {
+            this.panel.add(p.immutable());
+        }
+        setPhase(level, this.panel, DiagonArchwayBlock.MOVING);
+        com.hogwartsmagic.worldgen.DiagonAlleyPortal.mirrorArch(
+                level, archCentrePos(), this.arch, false);
+        this.closing = true;
+        this.ticks = TOTAL;
+        setChanged();
+        sync(level);
+        level.playSound(null, this.worldPosition, SoundEvents.ANCIENT_DEBRIS_BREAK,
+                SoundSource.BLOCKS, 1.0F, 0.55F);
+        if (player != null) {
+            player.displayClientMessage(Component.literal(
+                    "The bricks fold themselves back, and the wall knits shut."), true);
+        }
+    }
+
+    /** The middle of the opening, at its threshold -- the one cell that names this doorway. */
+    private BlockPos archCentrePos() {
+        return new BlockPos(
+                this.acrossAxis == 0 ? this.archCentre : this.worldPosition.getX(),
+                this.archBottom,
+                this.acrossAxis == 2 ? this.archCentre : this.worldPosition.getZ());
     }
 
     /**
@@ -492,10 +541,14 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
         // Start the alley building NOW, not when the animation ends. It needs a few seconds, and
         // the nine the wall spends coming apart is exactly the cover it wants -- so by the time
         // there is a hole to walk through, there is a street on the other side of it.
-        if (com.hogwartsmagic.worldgen.DiagonAlleyManager.openInPlace(level, archCentrePos, facing) == null) {
+        // Tapping from inside is the way out, and the street is already standing: there is nothing
+        // to build, only a hole to cut. Only a wall in somebody else world starts a build.
+        if (!com.hogwartsmagic.worldgen.DiagonAlleyDimension.isAlley(level)
+                && com.hogwartsmagic.worldgen.DiagonAlleyManager.open(level, archCentrePos, facing)
+                        == null) {
             if (opener != null) {
                 opener.displayClientMessage(Component.literal(
-                        "The bricks shudder and go still. Somewhere, another archway is already open."),
+                        "The bricks shudder and go still. Somewhere, another archway is already opening."),
                         false);
             }
             this.arch.clear();
@@ -656,6 +709,26 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
             brick.ticks = PEEL_START;
             return;
         }
+        if (brick.closing) {
+            brick.ticks--;
+            if (brick.ticks % 10 == 0) {
+                server.playSound(null, pos, SoundEvents.PISTON_CONTRACT, SoundSource.BLOCKS,
+                        0.8F, 0.6F);
+            }
+            if (brick.ticks <= GLOW) {
+                brick.setPhase(server, brick.panel, DiagonArchwayBlock.SHUT);
+                server.playSound(null, pos, SoundEvents.IRON_DOOR_CLOSE, SoundSource.BLOCKS,
+                        1.0F, 0.6F);
+                brick.closing = false;
+                brick.ticks = -1;
+                brick.arch.clear();
+                brick.panel.clear();
+                brick.setChanged();
+                brick.sync(server);
+            }
+            return;
+        }
+
         brick.ticks++;
 
         if (brick.ticks <= GLOW) {
@@ -693,6 +766,10 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
             }
             brick.setPhase(server, stays, DiagonArchwayBlock.SHUT);
             brick.setPhase(server, brick.arch, DiagonArchwayBlock.OPEN);
+            // The same hole has to be cut in the other world, or stepping through the open side
+            // would put somebody inside the solid wall standing at the same coordinates there.
+            com.hogwartsmagic.worldgen.DiagonAlleyPortal.mirrorArch(
+                    server, brick.archCentrePos(), brick.arch, true);
             server.playSound(null, pos, SoundEvents.IRON_DOOR_OPEN, SoundSource.BLOCKS, 1.0F, 0.6F);
             brick.ticks = -1;
             brick.arch.clear();
@@ -818,6 +895,7 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
         tag.putLongArray(PANEL_KEY, all);
         tag.putBoolean(ARMED_KEY, this.armed);
         tag.putBoolean(KEY_KEY, this.isKey);
+        tag.putBoolean(CLOSING_KEY, this.closing);
     }
 
     @Override
@@ -844,6 +922,7 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
         }
         this.armed = tag.getBoolean(ARMED_KEY);
         this.isKey = tag.getBoolean(KEY_KEY);
+        this.closing = tag.getBoolean(CLOSING_KEY);
     }
 
     @Override

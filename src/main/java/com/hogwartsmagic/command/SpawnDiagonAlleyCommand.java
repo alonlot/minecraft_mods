@@ -23,8 +23,7 @@ public class SpawnDiagonAlleyCommand {
         dispatcher.register(Commands.literal("spawnalley")
                 .requires(s -> s.hasPermission(2))
                 .executes(SpawnDiagonAlleyCommand::run)
-                .then(Commands.literal("here").executes(SpawnDiagonAlleyCommand::openHere))
-                .then(Commands.literal("restore").executes(SpawnDiagonAlleyCommand::restore)));
+                .then(Commands.literal("here").executes(SpawnDiagonAlleyCommand::openHere)));
     }
 
     private static int run(CommandContext<CommandSourceStack> ctx) {
@@ -56,7 +55,8 @@ public class SpawnDiagonAlleyCommand {
      * Open the alley in place, running away from the caller in the direction they are facing —
      * the same path the archway takes, minus the wall and the animation.
      *
-     * <p>The world underneath is recorded first, so {@code /spawnalley restore} can give it back.
+     * <p>Nothing of this world is touched: the street goes into the alley dimension, at these
+     * coordinates, and the arch is what carries you to it.
      */
     private static int openHere(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack src = ctx.getSource();
@@ -70,28 +70,17 @@ public class SpawnDiagonAlleyCommand {
         net.minecraft.core.Direction facing = net.minecraft.core.Direction
                 .fromYRot(src.getRotation().y);
 
-        BlockPos anchor = DiagonAlleyManager.openInPlace(level, at, facing);
+        BlockPos anchor = DiagonAlleyManager.open(level, at, facing);
         if (anchor == null) {
             src.sendFailure(Component.literal(
-                    "Could not open here — an alley is already open, or the template failed to load."));
+                    "Could not open here — the alley dimension or the template failed to load."));
             return 0;
         }
         src.sendSuccess(() -> Component.literal(
-                        "The bricks begin to shift. The street runs " + facing.getName()
-                                + " from here. /spawnalley restore puts the world back.")
+                        "The street is going up in the alley dimension, running " + facing.getName()
+                                + " from here.")
                 .withStyle(Style.EMPTY.withColor(ChatFormatting.GOLD)), true);
         return 1;
     }
 
-    /** Put the world back the way it was before the alley was opened over it. */
-    private static int restore(CommandContext<CommandSourceStack> ctx) {
-        CommandSourceStack src = ctx.getSource();
-        if (!DiagonAlleyManager.restore(src.getLevel())) {
-            src.sendFailure(Component.literal("Nothing to restore — no alley is open in this dimension."));
-            return 0;
-        }
-        src.sendSuccess(() -> Component.literal("Putting the world back...")
-                .withStyle(Style.EMPTY.withColor(ChatFormatting.GOLD)), true);
-        return 1;
-    }
 }

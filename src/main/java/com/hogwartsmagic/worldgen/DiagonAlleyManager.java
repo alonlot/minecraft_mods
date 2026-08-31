@@ -24,33 +24,27 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Builds Diagon Alley into a live world, spread across ticks.
+ * Builds Diagon Alley, spread across ticks.
  *
- * <p>The build is 168 x 40 x 50 -- about a third of a million cells and some 76,000 placed blocks.
+ * <p>The build is 233 x 45 x 51 -- about half a million cells and some 89,000 placed blocks.
  * Writing that in one go stalls the server for seconds and, on a dedicated server, is long enough
  * for the watchdog to notice. So it runs as a job that does a fixed slice per tick and reports when
  * it is done, the same shape as {@link MiniHogwartsManager}.
  *
  * <p>This is also why Diagon Alley is not a worldgen feature. Vanilla forbids a feature from writing
- * outside the 3x3 chunk window around the chunk being generated, and this build is eleven chunks
+ * outside the 3x3 chunk window around the chunk being generated, and this build is fifteen chunks
  * long; the old version spammed "Detected setBlock in a far chunk" and could wedge chunk loading.
  * Placing it from a command against a {@link ServerLevel} has no such window.
  *
- * <h2>The four phases</h2>
- * <ol>
- *   <li><b>Clear.</b> Every cell of the bounding box that the template does <i>not</i> place is set
- *       to air. Without this a hill runs straight through the shopfronts and a tree grows out of
- *       Gringotts: the template only describes the building, so anything the terrain already had
- *       inside the box has to go. Cells the template does cover are skipped here and written in
- *       phase two, so nothing is written twice.</li>
- *   <li><b>Place.</b> Walk the block list. Block entities -- the shop signs, which arrive with
- *       their text already on them, and the chests, which arrive with their loot tables -- are
- *       loaded straight after their block.</li>
- *   <li><b>Skirt.</b> Under each column, fill stone from the build's lowest block downward until it
- *       meets ground. A street on a slope otherwise ends with half of Knockturn Alley in mid-air.
- *       Only air is replaced, so nothing existing is destroyed.</li>
- *   <li><b>Populate.</b> Spawn the baked-in shopkeepers, goblins and owls.</li>
- * </ol>
+ * <h2>Two ways in, and only one of them clears anything</h2>
+ *
+ * <p>An alley opened through a wall is built into {@link DiagonAlleyDimension}, which is empty. That
+ * removes most of this class: there is nothing to record, because nothing of anybody's is being
+ * covered; nothing to clear, because there is nothing there; and no skirt to build, because the
+ * street is not standing on a hillside. The job runs one phase -- place -- and then staffs the shops.
+ *
+ * <p>{@code /spawnalley} still writes into whatever world it is run in, and still clears and skirts,
+ * because a street dropped onto real terrain needs both. It is a testing and rendering command.
  *
  * <p>Blocks are written with {@link Block#UPDATE_CLIENTS} alone -- deliberately no neighbour
  * updates. The template's glass panes, fences and walls already carry the connection states the
@@ -63,15 +57,6 @@ public final class DiagonAlleyManager {
     private static final Logger LOGGER = LoggerFactory.getLogger("HogwartsMagic-DiagonAlley");
 
     /** Cells visited per tick. The clear phase is a cheap read-then-maybe-write, so this can be high. */
-    /** Clear air left above the highest ground, so the sky is unmistakably open. */
-    private static final int SKY_HEADROOM = 6;
-    /**
-     * A ceiling on how much world one visit may hold in memory. Not expected to bind on any
-     * real site; it exists so a wall opened at bedrock under a mountain fails to a low ceiling
-     * rather than to an out-of-memory.
-     */
-    private static final int MAX_REGION_CELLS = 4_000_000;
-
     private static final int CELLS_PER_TICK = 24000;
     /** Blocks actually placed per tick. Lower, because each one is a real write plus lighting. */
     private static final int BLOCKS_PER_TICK = 9000;
@@ -87,31 +72,21 @@ public final class DiagonAlleyManager {
     private static final int FLAGS = Block.UPDATE_CLIENTS | Block.UPDATE_SUPPRESS_DROPS;
 
     /**
-     * Template x below this is the Leaky Cauldron courtyard and its brick wall. When the alley is
-     * opened in place the player has built their own wall and is standing where the courtyard would
-     * go, so those columns are skipped; {@code /spawnalley} still places them.
+     * Template x below this is the Leaky Cauldron courtyard and its brick wall.
+     *
+     * <p>It used to be dropped for an in-place opening, because the player had built their own wall
+     * and was standing where it would have gone. In the dimension it is wanted: it is the inside
+     * face of the same wall, and the way back out.
      */
     private static final int COURTYARD_END_X = 15;
 
-    /** How often to look for visitors once an alley is open. Cheap, but no need to do it a lot. */
-    private static final int OCCUPANCY_CHECK = 40;
-    /**
-     * How long the alley stays open after the last person walks out. Long enough not to slam shut
-     * behind somebody stepping back for a moment, short enough that a forgotten alley closes itself.
-     */
-    private static final int GRACE_TICKS = 20 * 30;
-    /** Slack around the footprint, so standing just outside a shop door still counts as inside. */
-    private static final int OCCUPANCY_MARGIN = 12;
-
     private static PlacementJob activeJob;
-    private static RestoreJob activeRestore;
-    private static int emptyTicks;
 
     private DiagonAlleyManager() {
     }
 
     public static boolean isBusy() {
-        return activeJob != null || activeRestore != null;
+        return activeJob != null;
     }
 
     /**
@@ -199,138 +174,12 @@ public final class DiagonAlleyManager {
         return recorded;
     }
 
-    /**
-     * Called every server tick to advance an in-progress build or restore.
-     *
-     * <p>Restoring wins if both are somehow pending: putting the world back is the operation that
-     * must not be starved.
-     */
+    /** Called every server tick to advance an in-progress build. */
     public static void tick(MinecraftServer server) {
-        if (activeRestore != null) {
-            if (activeRestore.advance()) {
-                LOGGER.info("Diagon Alley restore complete ({} blocks put back, {} entities removed)",
-                        activeRestore.restored, activeRestore.despawned);
-                ServerLevel level = activeRestore.level;
-                DiagonAlleySnapshot snapshot = DiagonAlleySnapshot.get(level);
-                // Everyone goes back to seeing the truth. This has to happen while the snapshot is
-                // still loaded, because it is what says which chunks were being lied about.
-                DiagonAlleyIllusion.clearAll(level, snapshot);
-                // Reseal before clearing: the arch position lives in the snapshot, and clear()
-                // throws it away along with everything else.
-                reseal(level, snapshot.archPos());
-                snapshot.clear();
-                level.getDataStorage().save();
-                activeRestore = null;
-                emptyTicks = 0;
-            }
-            return;
-        }
-        if (activeJob != null) {
-            if (activeJob.advance()) {
-                LOGGER.info("Diagon Alley placement complete ({} blocks, {} entities)",
-                        activeJob.placed, activeJob.spawned);
-                activeJob = null;
-                emptyTicks = 0;
-            }
-            return;
-        }
-        if (server.getTickCount() % OCCUPANCY_CHECK == 0) {
-            checkForVisitors(server);
-        }
-    }
-
-    /**
-     * Close an alley nobody is in any more.
-     *
-     * <p>Left open, it would sit on somebody's world indefinitely — and the longer it sits, the
-     * longer the window in which a crash leaves it there. So once the last visitor has been gone
-     * for {@link #GRACE_TICKS}, the world goes back and the arch reseals.
-     */
-    private static void checkForVisitors(MinecraftServer server) {
-        for (ServerLevel level : server.getAllLevels()) {
-            DiagonAlleySnapshot snapshot = DiagonAlleySnapshot.get(level);
-            if (!snapshot.isActive()) {
-                continue;
-            }
-            BlockPos origin = snapshot.origin();
-            boolean occupied = false;
-            for (ServerPlayer player : level.players()) {
-                BlockPos p = player.blockPosition();
-                if (p.getX() >= origin.getX() - OCCUPANCY_MARGIN
-                        && p.getX() <= origin.getX() + snapshot.sizeX() + OCCUPANCY_MARGIN
-                        && p.getZ() >= origin.getZ() - OCCUPANCY_MARGIN
-                        && p.getZ() <= origin.getZ() + snapshot.sizeZ() + OCCUPANCY_MARGIN
-                        && p.getY() >= origin.getY() - OCCUPANCY_MARGIN
-                        && p.getY() <= origin.getY() + snapshot.sizeY() + OCCUPANCY_MARGIN) {
-                    occupied = true;
-                    break;
-                }
-            }
-            if (occupied) {
-                emptyTicks = 0;
-                return;
-            }
-            emptyTicks += OCCUPANCY_CHECK;
-            if (emptyTicks >= GRACE_TICKS) {
-                LOGGER.info("Nobody has been in the alley for {} ticks; closing it", emptyTicks);
-                emptyTicks = 0;
-                restore(level);
-            }
-            return;
-        }
-    }
-
-    /**
-     * Put the archway back to a plain wall, still armed.
-     *
-     * <p>Still armed on purpose: the spell was cast on this wall once and there is no reason to
-     * make somebody cast it again to get back in. Three taps is the price of re-entry.
-     */
-    private static void reseal(ServerLevel level, BlockPos archPos) {
-        if (archPos == null || BlockPos.ZERO.equals(archPos)) {
-            return;
-        }
-        java.util.Set<BlockPos> seen = new java.util.HashSet<>();
-        java.util.Deque<BlockPos> queue = new java.util.ArrayDeque<>();
-        // Start from the neighbourhood of the arch, because the arch's own cells may be OPEN and
-        // the ones that survived are around them.
-        for (BlockPos start : BlockPos.betweenClosed(archPos.offset(-2, -2, -2),
-                archPos.offset(2, 2, 2))) {
-            if (level.getBlockState(start).getBlock()
-                    instanceof com.hogwartsmagic.block.DiagonArchwayBlock) {
-                BlockPos p = start.immutable();
-                queue.add(p);
-                seen.add(p);
-                break;
-            }
-        }
-        int resealed = 0;
-        while (!queue.isEmpty() && resealed < 1024) {
-            BlockPos pos = queue.poll();
-            BlockState state = level.getBlockState(pos);
-            if (!(state.getBlock() instanceof com.hogwartsmagic.block.DiagonArchwayBlock)) {
-                continue;
-            }
-            if (state.getValue(com.hogwartsmagic.block.DiagonArchwayBlock.PHASE)
-                    != com.hogwartsmagic.block.DiagonArchwayBlock.SHUT) {
-                level.setBlock(pos, state
-                                .setValue(com.hogwartsmagic.block.DiagonArchwayBlock.PHASE,
-                                        com.hogwartsmagic.block.DiagonArchwayBlock.SHUT)
-                                .setValue(com.hogwartsmagic.block.DiagonArchwayBlock.LIT, false),
-                        Block.UPDATE_ALL);
-                resealed++;
-            }
-            for (Direction dir : Direction.values()) {
-                BlockPos next = pos.relative(dir);
-                if (seen.add(next)) {
-                    queue.add(next);
-                }
-            }
-        }
-        if (resealed > 0) {
-            level.playSound(null, archPos, net.minecraft.sounds.SoundEvents.ANCIENT_DEBRIS_BREAK,
-                    net.minecraft.sounds.SoundSource.BLOCKS, 1.0F, 0.6F);
-            LOGGER.info("Resealed the archway ({} bricks)", resealed);
+        if (activeJob != null && activeJob.advance()) {
+            LOGGER.info("Diagon Alley placement complete ({} blocks, {} entities)",
+                    activeJob.placed, activeJob.spawned);
+            activeJob = null;
         }
     }
 
@@ -352,48 +201,73 @@ public final class DiagonAlleyManager {
     // ---------------------------------------------------------------------------------------
 
     /**
-     * Open the alley in place, through a wall the player built.
+     * Open the alley behind a wall the player built.
      *
-     * <p>No teleport, no dimension, no loading screen: the street is written into the world the
-     * player is already standing in, which is the only way looking back out through the arch can
-     * show the field they came from. The bill for that is {@link DiagonAlleySnapshot}, and the rule
-     * that keeps it payable is that the snapshot is captured and flushed <em>before</em> any block
-     * of the alley is placed. That is why capture is the job's first phase rather than something
-     * done alongside placement.
+     * <p>The street goes into {@link DiagonAlleyDimension}, at the coordinates of the wall itself.
+     * Not near them and not scaled to them -- the same numbers. That is what makes the crossing
+     * invisible: the client keeps the chunk cache it already has, centred where it already was, and
+     * the alley simply arrives in it. An alley anywhere else in the dimension would be a long jump,
+     * and a long jump cannot be hidden (see {@link DiagonAlleyPortal}).
      *
-     * <p>Returns the anchor the alley was placed at, or null if one is already open, a build is
-     * already running, or the template is missing.
+     * <p>Built once per wall. A wall that has been opened before is already standing behind itself,
+     * so this returns immediately and the arch opens onto a street that never went away.
+     *
+     * <p>Returns the anchor, or null if the dimension or the template is missing, or a build is
+     * already running.
      */
-    public static BlockPos openInPlace(ServerLevel level, BlockPos archCentre, Direction facing) {
-        if (isBusy()) {
+    public static BlockPos open(ServerLevel from, BlockPos archCentre, Direction facing) {
+        MinecraftServer server = from.getServer();
+        if (server == null || isBusy()) {
+            return null;
+        }
+        ServerLevel alley = DiagonAlleyDimension.level(server);
+        if (alley == null) {
+            LOGGER.error("The Diagon Alley dimension is missing; the wall cannot open");
             return null;
         }
         DiagonAlleyTemplate template = DiagonAlleyTemplate.get();
         if (template == null) {
             return null;
         }
-        DiagonAlleySnapshot snapshot = DiagonAlleySnapshot.get(level);
-        if (snapshot.isActive()) {
-            LOGGER.info("An alley is already open in this dimension; refusing to open a second");
-            return null;
+
+        DiagonAlleyRegistry registry = DiagonAlleyRegistry.get(alley);
+        DiagonAlleyRegistry.Entry already = registry.forArch(from, archCentre);
+        if (already != null) {
+            LOGGER.info("Reopening the alley behind {}; it is already built at {}",
+                    archCentre, already.anchor());
+            return already.anchor();
         }
 
         Rotation rotation = rotationFor(facing);
-        int entryZ = streetEntryZ(template);
-        int[] entry = rotate(COURTYARD_END_X, 1, entryZ, template.sizeX(), template.sizeZ(), rotation);
+        BlockPos anchor = anchorFor(template, archCentre, facing, rotation);
+        int[] footprint = rotatedFootprint(template.sizeX(), template.sizeZ(), rotation);
 
-        // The street's first cell sits one block through the arch, at the arch's own floor level.
-        BlockPos worldEntry = archCentre.relative(facing);
-        BlockPos anchor = new BlockPos(worldEntry.getX() - entry[0],
-                worldEntry.getY() - entry[1],
-                worldEntry.getZ() - entry[2]);
-
-        activeJob = new PlacementJob(level, template, anchor, rotation, true, snapshot);
-        snapshot.setArchPos(archCentre);
-        DiagonAlleyTracker.get(level).add(archCentre);
-        LOGGER.info("Opening Diagon Alley in place: arch {} facing {}, anchor {}, rotation {}",
+        activeJob = new PlacementJob(alley, template, anchor, rotation, true);
+        registry.record(new DiagonAlleyRegistry.Entry(
+                from.dimension().location().toString(), archCentre, anchor, facing,
+                footprint[0], template.sizeY(), footprint[1]));
+        alley.getDataStorage().save();
+        DiagonAlleyTracker.get(from).add(archCentre);
+        LOGGER.info("Building Diagon Alley: arch {} facing {}, anchor {}, rotation {}",
                 archCentre, facing, anchor, rotation);
         return anchor;
+    }
+
+    /**
+     * Where the template has to sit for its street to come out through this arch.
+     *
+     * <p>The template is authored with the courtyard at low x and the street leaving it at
+     * {@link #COURTYARD_END_X}; rotating that entry point and subtracting it from the world cell
+     * just through the arch puts the two together whichever way the wall faces.
+     */
+    public static BlockPos anchorFor(DiagonAlleyTemplate template, BlockPos archCentre,
+                                     Direction facing, Rotation rotation) {
+        int entryZ = streetEntryZ(template);
+        int[] entry = rotate(COURTYARD_END_X, 1, entryZ, template.sizeX(), template.sizeZ(), rotation);
+        BlockPos worldEntry = archCentre.relative(facing);
+        return new BlockPos(worldEntry.getX() - entry[0],
+                worldEntry.getY() - entry[1],
+                worldEntry.getZ() - entry[2]);
     }
 
     /**
@@ -442,40 +316,6 @@ public final class DiagonAlleyManager {
     }
 
     /**
-     * Put the world back. Safe to call when nothing is open -- it simply does nothing.
-     */
-    public static boolean restore(ServerLevel level) {
-        if (activeRestore != null) {
-            return false;
-        }
-        DiagonAlleySnapshot snapshot = DiagonAlleySnapshot.get(level);
-        if (!snapshot.isActive()) {
-            return false;
-        }
-        activeJob = null;                     // a half-finished build is abandoned, not completed
-        activeRestore = new RestoreJob(level, snapshot);
-        LOGGER.info("Restoring the world under Diagon Alley: {} blocks", snapshot.cellCount());
-        return true;
-    }
-
-    /**
-     * Called once at server start. If a snapshot is still flagged active then the server went down
-     * while an alley was open, and the world is still wearing it -- so put it back before anyone
-     * can log in and see.
-     */
-    public static void restoreOnBoot(MinecraftServer server) {
-        for (ServerLevel level : server.getAllLevels()) {
-            DiagonAlleySnapshot snapshot = DiagonAlleySnapshot.get(level);
-            if (snapshot.isActive()) {
-                LOGGER.warn("Found an alley still open in {} from a previous run -- restoring",
-                        level.dimension().location());
-                restore(level);
-                return;
-            }
-        }
-    }
-
-    /**
      * A build in progress.
      *
      * <p>The template is <b>rotated once, here, into a private copy</b> rather than rotated at every
@@ -492,9 +332,12 @@ public final class DiagonAlleyManager {
         private final DiagonAlleyTemplate template;
         private final BlockPos anchor;
         private final Rotation rotation;
-        /** Null for {@code /spawnalley}: only an in-place opening records what it covered. */
-        private final DiagonAlleySnapshot snapshot;
-        private final boolean skipCourtyard;
+        /**
+         * True when the target is the empty alley dimension, which is every opening through a
+         * wall. There is nothing there to clear and nothing under the street to hold it up, so
+         * both of those phases are skipped and the job is just a paste.
+         */
+        private final boolean intoVoid;
 
         /** Footprint after rotation. */
         private final int fx;
@@ -510,14 +353,11 @@ public final class DiagonAlleyManager {
         private final int count;
 
         private final long[] covered;
-        /** Rotated bounds of the template's courtyard, which must never be cleared. */
-        private int keepX0 = 1, keepX1 = 0, keepZ0 = 1, keepZ1 = 0;
         private final int[] lowestY;
 
         private final BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
 
         private int phase;           // 0 capture, 1 clear, 2 place, 3 skirt, 4 populate, 5 furnish
-        private int captureCursor;
         private int clearCursor;
         private int placeCursor;
         private int columnCursor;
@@ -526,33 +366,25 @@ public final class DiagonAlleyManager {
         int spawned;
 
         PlacementJob(ServerLevel level, DiagonAlleyTemplate template, BlockPos anchor) {
-            this(level, template, anchor, Rotation.NONE, false, null);
+            this(level, template, anchor, Rotation.NONE, false);
         }
 
         PlacementJob(ServerLevel level, DiagonAlleyTemplate template, BlockPos anchor,
-                     Rotation rotation, boolean skipCourtyard, DiagonAlleySnapshot snapshot) {
+                     Rotation rotation, boolean intoVoid) {
             this.level = level;
             this.template = template;
             this.anchor = anchor;
             this.rotation = rotation;
-            this.skipCourtyard = skipCourtyard;
-            this.snapshot = snapshot;
+            this.intoVoid = intoVoid;
 
             int tx = template.sizeX();
             int tz = template.sizeZ();
             int[] footprint = rotatedFootprint(tx, tz, rotation);
             this.fx = footprint[0];
-            this.fy = snapshot == null ? template.sizeY()
-                    : template.sizeY() + shaftAbove(level, anchor, footprint[0], footprint[1],
-                            template.sizeY());
+            this.fy = template.sizeY();
             this.fz = footprint[1];
 
-            int kept = 0;
-            for (int i = 0; i < template.count(); i++) {
-                if (!skipCourtyard || template.localX(i) >= COURTYARD_END_X) {
-                    kept++;
-                }
-            }
+            int kept = template.count();
             this.count = kept;
             this.rx = new int[kept];
             this.ry = new int[kept];
@@ -566,9 +398,6 @@ public final class DiagonAlleyManager {
 
             int out = 0;
             for (int i = 0; i < template.count(); i++) {
-                if (skipCourtyard && template.localX(i) < COURTYARD_END_X) {
-                    continue;                   // the player built their own wall; this is theirs
-                }
                 int[] r = rotate(template.localX(i), template.localY(i), template.localZ(i),
                         tx, tz, rotation);
                 this.rx[out] = r[0];
@@ -588,66 +417,11 @@ public final class DiagonAlleyManager {
                 out++;
             }
 
-            if (skipCourtyard) {
-                // The template's courtyard columns are where the player's own wall is standing.
-                // They are deliberately not placed, which also means they are not 'covered' --
-                // so without this the clear phase set the player's wall to air and destroyed the
-                // only way back in.
-                keepX0 = Integer.MAX_VALUE;
-                keepX1 = Integer.MIN_VALUE;
-                keepZ0 = Integer.MAX_VALUE;
-                keepZ1 = Integer.MIN_VALUE;
-                for (int lx : new int[]{0, COURTYARD_END_X - 1}) {
-                    for (int lz : new int[]{0, tz - 1}) {
-                        int[] r = rotate(lx, 0, lz, tx, tz, rotation);
-                        keepX0 = Math.min(keepX0, r[0]);
-                        keepX1 = Math.max(keepX1, r[0]);
-                        keepZ0 = Math.min(keepZ0, r[2]);
-                        keepZ1 = Math.max(keepZ1, r[2]);
-                    }
-                }
-            }
-
-            if (snapshot != null) {
-                snapshot.begin(anchor, fx, fy, fz);
+            if (intoVoid) {
+                this.phase = 2;                 // an empty world needs neither recording nor clearing
             } else {
-                this.phase = 1;                 // nothing to record; go straight to clearing
+                this.phase = 1;                 // /spawnalley writes into real terrain; clear first
             }
-        }
-
-        /**
-         * How much rock to take off the top so the street has sky over it.
-         *
-         * <p>The first version of this faked it: the region stopped at the roofline and whoever
-         * was inside was <em>sent</em> air for the space above. That does not work. Light is
-         * computed from the blocks that are actually there, so a street under a mountain stayed
-         * pitch dark however much air the client was told about, and being told about air you
-         * cannot see by is worse than being told nothing.
-         *
-         * <p>So the shaft is real: cleared for the visit, recorded in the snapshot like
-         * everything else, and put back on the way out. Outsiders never see it, because the
-         * concealment covers the whole region and the region now includes it.
-         *
-         * <p>Height is measured, not assumed: the surface is sampled across the footprint and
-         * the shaft clears the highest of it. Open a wall in a field and this costs almost
-         * nothing; open one inside a mountain and it costs the mountain, which is the price of
-         * standing in Diagon Alley under an open sky.
-         */
-        private static int shaftAbove(ServerLevel level, BlockPos anchor, int fx, int fz,
-                                     int roof) {
-            int highest = anchor.getY() + roof;
-            for (int x = 0; x <= fx; x += 8) {
-                for (int z = 0; z <= fz; z += 8) {
-                    highest = Math.max(highest, level.getHeight(
-                            net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING,
-                            anchor.getX() + Math.min(x, fx - 1),
-                            anchor.getZ() + Math.min(z, fz - 1)));
-                }
-            }
-            int wanted = (highest + SKY_HEADROOM) - (anchor.getY() + roof);
-            int toBuildHeight = level.getMaxBuildHeight() - 1 - (anchor.getY() + roof);
-            int cellCap = Math.max(0, MAX_REGION_CELLS / Math.max(1, fx * fz) - roof);
-            return Math.max(0, Math.min(Math.min(wanted, toBuildHeight), cellCap));
         }
 
         private int cellIndex(int lx, int ly, int lz) {
@@ -657,12 +431,11 @@ public final class DiagonAlleyManager {
         /** One tick's worth of work. Returns true when the whole job is finished. */
         boolean advance() {
             switch (phase) {
-                case 0 -> capture();
                 case 1 -> clear();
                 case 2 -> place();
                 case 3 -> {
-                    if (snapshot != null) {
-                        phase = 4;              // in place: no skirt, see skirt()'s comment
+                    if (intoVoid) {
+                        phase = 4;              // nothing under it to hold up; see skirt()
                     } else {
                         skirt();
                     }
@@ -676,21 +449,6 @@ public final class DiagonAlleyManager {
             return phase >= 6;
         }
 
-        /**
-         * Record what is about to be covered. Runs first and finishes before a single block is
-         * placed, so a crash during it leaves a world that was never touched.
-         */
-        private void capture() {
-            int total = fx * fy * fz;
-            int end = Math.min(total, captureCursor + CELLS_PER_TICK);
-            snapshot.captureSlice(level, captureCursor, end);
-            captureCursor = end;
-            if (captureCursor >= total) {
-                snapshot.commit(level);
-                phase = 1;
-            }
-        }
-
         private void clear() {
             int total = fx * fy * fz;
             int end = Math.min(total, clearCursor + CELLS_PER_TICK);
@@ -702,9 +460,6 @@ public final class DiagonAlleyManager {
                 int rest = idx / fx;
                 int lz = rest % fz;
                 int ly = rest / fz;
-                if (lx >= keepX0 && lx <= keepX1 && lz >= keepZ0 && lz <= keepZ1) {
-                    continue;                   // the player's wall and the ground behind it
-                }
                 cursor.set(anchor.getX() + lx, anchor.getY() + ly, anchor.getZ() + lz);
                 BlockState existing = level.getBlockState(cursor);
                 if (!existing.isAir()) {
@@ -748,10 +503,9 @@ public final class DiagonAlleyManager {
         /**
          * Stone under the build so it does not float on a slope.
          *
-         * <p>Only for {@code /spawnalley}. An in-place opening skips this: the skirt goes below
-         * the anchor, which is below the snapshot region, so it would be neither recorded nor
-         * restored nor concealed -- and it showed up from a distance as a grey slab lying across
-         * the landscape with the world's terrain apparently gone.
+         * <p>Only for {@code /spawnalley}. An alley built in its own dimension skips it: there is
+         * no slope to bridge, and a column of stone dropping away below the street would be visible
+         * from the upstairs windows as a plinth hanging in the void.
          */
         private void skirt() {
             int total = fx * fz;
@@ -797,9 +551,6 @@ public final class DiagonAlleyManager {
                 double lx = pos.getDouble(0);
                 double ly = pos.getDouble(1);
                 double lz = pos.getDouble(2);
-                if (skipCourtyard && lx < COURTYARD_END_X) {
-                    continue;
-                }
                 double[] r = rotateContinuous(lx, ly, lz, template.sizeX(), template.sizeZ(), rotation);
                 double ex = anchor.getX() + r[0];
                 double ey = anchor.getY() + r[1];
@@ -822,10 +573,6 @@ public final class DiagonAlleyManager {
                     entity.setYRot(entity.getYRot() + rotationDegrees(rotation));
                     if (level.addFreshEntity(entity)) {
                         spawned++;
-                        if (snapshot != null) {
-                            // Remembered so the restore can take them away again.
-                            snapshot.addSpawned(entity.getUUID());
-                        }
                     }
                 }
             }
@@ -870,7 +617,7 @@ public final class DiagonAlleyManager {
                 BlockPos bankAnchor = new BlockPos(anchor.getX() + rx[i] - off[0],
                         anchor.getY() + ry[i] - off[1],
                         anchor.getZ() + rz[i] - off[2]);
-                GringottsFurnishing.furnish(level, bankAnchor, level.getRandom(), snapshot);
+                GringottsFurnishing.furnish(level, bankAnchor, level.getRandom());
                 LOGGER.info("Staffed the alley's Gringotts, anchored at {}", bankAnchor);
                 return;
             }
@@ -896,115 +643,5 @@ public final class DiagonAlleyManager {
             case COUNTERCLOCKWISE_90 -> 270.0F;
             default -> 0.0F;
         };
-    }
-
-    /**
-     * Putting the world back.
-     *
-     * <p>Two things have to happen, and only doing the first is the bug that would leave the alley
-     * standing: every cell the snapshot recorded goes back to what it was, and <b>every cell it did
-     * not record goes back to air</b>. The second is what removes the alley, because most of the
-     * street was built where there had been nothing at all.
-     */
-    private static final class RestoreJob {
-        private final ServerLevel level;
-        private final DiagonAlleySnapshot snapshot;
-        private final BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
-
-        /** One bit per cell: did the snapshot record something here? */
-        private final long[] recorded;
-
-        private int phase;            // 0 despawn, 1 wipe to air, 2 put the recorded blocks back
-        private int wipeCursor;
-        private int putCursor;
-        int restored;
-        int despawned;
-
-        RestoreJob(ServerLevel level, DiagonAlleySnapshot snapshot) {
-            this.level = level;
-            this.snapshot = snapshot;
-            this.recorded = new long[(snapshot.volume() + 63) >> 6];
-            for (int i = 0; i < snapshot.cellCount(); i++) {
-                int cell = snapshot.cellAt(i);
-                this.recorded[cell >> 6] |= 1L << (cell & 63);
-            }
-        }
-
-        boolean advance() {
-            switch (phase) {
-                case 0 -> despawn();
-                case 1 -> wipe();
-                case 2 -> put();
-                default -> {
-                    return true;
-                }
-            }
-            return phase >= 3;
-        }
-
-        /**
-         * Take the shopkeepers away with the shops.
-         *
-         * <p>By the identities recorded when they were spawned, not by sweeping the region for
-         * villagers and owls -- that would also take a player's own animals if the alley had
-         * happened to open over their farm, and putting the world back must not cost them their
-         * livestock.
-         */
-        private void despawn() {
-            for (java.util.UUID id : snapshot.spawned()) {
-                net.minecraft.world.entity.Entity e = level.getEntity(id);
-                if (e != null && !(e instanceof ServerPlayer)) {
-                    e.discard();
-                    despawned++;
-                }
-            }
-            phase = 1;
-        }
-
-        private void wipe() {
-            int total = snapshot.volume();
-            int end = Math.min(total, wipeCursor + CELLS_PER_TICK);
-            for (int cell = wipeCursor; cell < end; cell++) {
-                if ((recorded[cell >> 6] & (1L << (cell & 63))) != 0) {
-                    continue;                       // phase 1 writes this one
-                }
-                BlockPos pos = snapshot.posOfCell(cell);
-                if (!level.getBlockState(pos).isAir()) {
-                    level.setBlock(pos, Blocks.AIR.defaultBlockState(), FLAGS);
-                    restored++;
-                }
-            }
-            wipeCursor = end;
-            if (wipeCursor >= total) {
-                phase = 2;
-            }
-        }
-
-        private void put() {
-            int total = snapshot.cellCount();
-            int end = Math.min(total, putCursor + BLOCKS_PER_TICK);
-            for (int i = putCursor; i < total && i < end; i++) {
-                int cell = snapshot.cellAt(i);
-                BlockPos pos = snapshot.posOfCell(cell);
-                level.setBlock(pos, snapshot.stateAt(i), FLAGS);
-                restored++;
-                CompoundTag be = snapshot.blockEntityAt(cell);
-                if (be != null) {
-                    BlockEntity entity = level.getBlockEntity(pos);
-                    if (entity != null) {
-                        CompoundTag tag = be.copy();
-                        tag.putInt("x", pos.getX());
-                        tag.putInt("y", pos.getY());
-                        tag.putInt("z", pos.getZ());
-                        entity.loadWithComponents(tag, level.registryAccess());
-                        entity.setChanged();
-                    }
-                }
-            }
-            putCursor = end;
-            if (putCursor >= total) {
-                phase = 3;
-            }
-        }
     }
 }

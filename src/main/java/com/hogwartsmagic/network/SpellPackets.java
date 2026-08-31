@@ -228,19 +228,6 @@ public class SpellPackets {
                 .decoder(buf -> new CaveInimicumBlockDeltaPacket(buf.readBlockPos(), buf.readVarInt()))
                 .consumerMainThread(CaveInimicumBlockDeltaPacket::handle)
                 .add();
-        CHANNEL.messageBuilder(DiagonAlleyRegionPacket.class)
-                .encoder((p, buf) -> {
-                    buf.writeBlockPos(p.origin);
-                    buf.writeVarInt(p.sizeX);
-                    buf.writeVarInt(p.sizeY);
-                    buf.writeVarInt(p.sizeZ);
-                    buf.writeVarInt(p.skyShaft);
-                })
-                .decoder(buf -> new DiagonAlleyRegionPacket(buf.readBlockPos(), buf.readVarInt(),
-                        buf.readVarInt(), buf.readVarInt(), buf.readVarInt()))
-                .consumerMainThread(DiagonAlleyRegionPacket::handle)
-                .add();
-
         CHANNEL.messageBuilder(UndercroftFogPacket.class)
                 .encoder((p, buf) -> {
                     buf.writeBlockPos(p.centre);
@@ -1223,18 +1210,6 @@ public class SpellPackets {
      * full five bytes each. That is fine and deliberately not optimised: this is one packet when
      * you arrive and one when you leave, not a stream.
      */
-    /**
-     * Where the alley is, so the client can decline to draw shopkeepers inside it to anyone
-     * standing outside. A zero size means no alley is open.
-     */
-    public record DiagonAlleyRegionPacket(BlockPos origin, int sizeX, int sizeY, int sizeZ,
-                                          int skyShaft) {
-        public static void handle(DiagonAlleyRegionPacket p, CustomPayloadEvent.Context ctx) {
-            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge
-                    .handlePacket("diagonAlleyRegion", p));
-        }
-    }
-
     public record UndercroftFogPacket(BlockPos centre, int radius, int topY, int bottomY) {
         public static void handle(UndercroftFogPacket p, CustomPayloadEvent.Context ctx) {
             enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge

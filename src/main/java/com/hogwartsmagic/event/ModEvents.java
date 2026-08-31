@@ -714,7 +714,7 @@ public class ModEvents {
             com.hogwartsmagic.caveinimicum.CaveInimicumManager.get(player.serverLevel()).onPlayerLeft(player);
             // Drop their remembered inside/outside state, or the map grows for the life of the
             // server and a returning player is judged against where they stood last week.
-            com.hogwartsmagic.worldgen.DiagonAlleyIllusion.forget(player);
+            com.hogwartsmagic.worldgen.DiagonAlleyPortal.forget(player);
         }
     }
 
@@ -2860,8 +2860,10 @@ public class ModEvents {
         if (event.phase == net.minecraftforge.event.TickEvent.Phase.END) {
             // Advance any in-progress Mini Hogwarts build (spread across ticks).
             com.hogwartsmagic.worldgen.MiniHogwartsManager.tick(event.getServer());
-            // Same for Diagon Alley, which is eleven chunks long and cannot go in one tick.
+            // Same for Diagon Alley, which is fifteen chunks long and cannot go in one tick.
             com.hogwartsmagic.worldgen.DiagonAlleyManager.tick(event.getServer());
+            // And carry whoever walks into an open archway across into the alley dimension.
+            com.hogwartsmagic.worldgen.DiagonAlleyPortal.tick(event.getServer());
             // And advance the Ollivanders scene, if anyone is in the middle of one.
             OllivandersCeremony.tick(event.getServer());
             // Same for a Gringotts village branch going up.

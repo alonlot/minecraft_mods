@@ -82,6 +82,9 @@ import java.util.Set;
  */
 public class DiagonArchwayBlockEntity extends BlockEntity {
 
+    private static final org.slf4j.Logger LOGGER =
+            org.slf4j.LoggerFactory.getLogger("HogwartsMagic-DiagonAlley");
+
     /** The light runs out through the mortar, and nothing moves yet. */
     public static final int GLOW = 14;
     /**
@@ -273,15 +276,34 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
         // Tap to open, tap to close. A wall that could only be shut by walking away and waiting
         // out a timer left the player with nothing to press and no way to undo it.
         List<BlockPos> wall = floodPanel(level);
+        boolean standingOpen = false;
         for (BlockPos p : wall) {
             BlockState cell = level.getBlockState(p);
             if (cell.getBlock() instanceof DiagonArchwayBlock
                     && cell.getValue(DiagonArchwayBlock.PHASE) == DiagonArchwayBlock.OPEN) {
-                if (!com.hogwartsmagic.worldgen.DiagonAlleyManager.isBusy()) {
-                    beginClosing(level, player, wall);
+                standingOpen = true;
+                break;
+            }
+        }
+        // Second opinion, because the two can disagree and an arch that cannot be shut is worse
+        // than one that shuts when you did not quite mean it.
+        if (!standingOpen
+                && com.hogwartsmagic.worldgen.DiagonAlleyPortal.openDoorwayNear(
+                        level, this.worldPosition) != null) {
+            standingOpen = true;
+        }
+        if (standingOpen) {
+            if (com.hogwartsmagic.worldgen.DiagonAlleyManager.isBusy()) {
+                if (player != null) {
+                    player.displayClientMessage(Component.literal(
+                            "The street is still going up. Give it a moment."), true);
                 }
                 return;
             }
+            LOGGER.info("Closing the archway at {} ({} bricks in the panel)",
+                    this.worldPosition, wall.size());
+            beginClosing(level, player, wall);
+            return;
         }
 
         if (state.getValue(DiagonArchwayBlock.PHASE) != DiagonArchwayBlock.SHUT) {

@@ -97,7 +97,42 @@ public final class DiagonAlleyPortal {
         if (!DiagonAlleyDimension.isAlley(alley)) {
             return true;
         }
-        return DiagonAlleyRegistry.get(alley).coveringChunk(pos.x, pos.z) != null;
+        DiagonAlleyRegistry.Entry entry = DiagonAlleyRegistry.get(alley).coveringChunk(pos.x, pos.z);
+        // Beyond the wall only. The near side is where the player came from, and their client is
+        // still holding it -- that is what they see when they turn round and look back out.
+        return entry != null && DiagonAlleyView.throughTheArch(pos.x, pos.z, entry);
+    }
+
+    /**
+     * The arch of a doorway standing open near this brick, or null.
+     *
+     * <p>A second way of answering "is this wall open", independent of flooding the panel. The
+     * flood decides which bricks are coplanar with the one that was hit, and if it ever disagrees
+     * with the wall that was actually opened -- a brick added since, a panel that measures its
+     * facing differently from a corner -- the tap silently does nothing and the player is left with
+     * an arch they cannot shut. Asking the registry instead cannot disagree with itself.
+     */
+    @javax.annotation.Nullable
+    public static BlockPos openDoorwayNear(ServerLevel level, BlockPos brick) {
+        MinecraftServer server = level.getServer();
+        if (server == null) {
+            return null;
+        }
+        ServerLevel alley = DiagonAlleyDimension.level(server);
+        if (alley == null) {
+            return null;
+        }
+        for (DiagonAlleyRegistry.Entry entry : DiagonAlleyRegistry.get(alley).all()) {
+            if (entry.arch().distSqr(brick) > 24 * 24) {
+                continue;
+            }
+            ServerLevel source = sourceLevel(server, entry);
+            if (archIsOpen(alley, entry.arch())
+                    || (source != null && archIsOpen(source, entry.arch()))) {
+                return entry.arch();
+            }
+        }
+        return null;
     }
 
     public static void forget(ServerPlayer player) {

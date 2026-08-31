@@ -72,10 +72,43 @@ public final class DiagonAlleyView {
         forEachChunk(viewer, entry, (cx, cz, straddles) -> sendWholeChunk(viewer, source, cx, cz));
     }
 
+    /** Is any part of this chunk through the arch? */
+    public static boolean throughTheArch(int chunkX, int chunkZ, DiagonAlleyRegistry.Entry entry) {
+        return sideOf(chunkX, chunkZ, entry) != NEAR;
+    }
+
     // ---------------------------------------------------------------------------------------
 
     private interface ChunkVisitor {
         void accept(int chunkX, int chunkZ, boolean straddlesWall);
+    }
+
+    /** Where a chunk sits relative to the wall. */
+    private static final int NEAR = 0;          // entirely on the viewer own side
+    private static final int STRADDLING = 1;    // the wall runs through it
+    private static final int BEYOND = 2;        // entirely through the arch
+
+    /**
+     * Which side of the wall a chunk is on, measured against the wall plane itself.
+     *
+     * <p>Getting this wrong is what put the Leaky Cauldron courtyard in somebody garden: the first
+     * version treated every chunk of the footprint except the arch own chunk as through the arch,
+     * and the footprint reaches back past the wall. Chunks on the near side were sent whole, which
+     * replaced the ground the player was standing on with the alley -- and with the void underneath
+     * it, which is why the world appeared to have a hole cut in it.
+     */
+    private static int sideOf(int chunkX, int chunkZ, DiagonAlleyRegistry.Entry entry) {
+        boolean alongX = entry.facing().getAxis() == Direction.Axis.X;
+        int step = entry.facing().getAxisDirection().getStep();
+        int wall = alongX ? entry.arch().getX() : entry.arch().getZ();
+        int lo = (alongX ? chunkX : chunkZ) << 4;
+        int hi = lo + 15;
+        boolean loBeyond = step * (lo - wall) > 0;
+        boolean hiBeyond = step * (hi - wall) > 0;
+        if (loBeyond && hiBeyond) {
+            return BEYOND;
+        }
+        return loBeyond || hiBeyond ? STRADDLING : NEAR;
     }
 
     /**
@@ -93,17 +126,16 @@ public final class DiagonAlleyView {
         int cx1 = (entry.anchor().getX() + entry.sizeX() - 1) >> 4;
         int cz0 = entry.anchor().getZ() >> 4;
         int cz1 = (entry.anchor().getZ() + entry.sizeZ() - 1) >> 4;
-        int archChunkX = entry.arch().getX() >> 4;
-        int archChunkZ = entry.arch().getZ() >> 4;
-        boolean alongX = entry.facing().getAxis() == Direction.Axis.X;
-
         for (int cx = cx0; cx <= cx1; cx++) {
             for (int cz = cz0; cz <= cz1; cz++) {
                 if (Math.abs(cx - at.x) > radius || Math.abs(cz - at.z) > radius) {
                     continue;
                 }
-                boolean straddles = alongX ? cx == archChunkX : cz == archChunkZ;
-                visitor.accept(cx, cz, straddles);
+                int side = sideOf(cx, cz, entry);
+                if (side == NEAR) {
+                    continue;               // the viewer own world; never touch it
+                }
+                visitor.accept(cx, cz, side == STRADDLING);
             }
         }
     }

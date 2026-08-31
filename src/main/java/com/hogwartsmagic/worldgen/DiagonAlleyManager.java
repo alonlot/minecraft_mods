@@ -80,6 +80,18 @@ public final class DiagonAlleyManager {
      */
     private static final int COURTYARD_END_X = 15;
 
+    /**
+     * The template column the brick wall itself stands in. Everything below it is the Leaky
+     * Cauldron courtyard, and an alley built into the dimension deliberately leaves that out.
+     *
+     * <p>The courtyard sits on the near side of the wall -- the side the player is standing on --
+     * so building it would put a second, wrong courtyard at the same coordinates as whatever they
+     * actually have there. Their own garden is the courtyard. What the dimension needs is the wall
+     * and everything through it, and nothing else, which is also what makes looking back out
+     * through the arch show the world they came from: there is simply nothing there to send.
+     */
+    private static final int WALL_X = 14;
+
     private static PlacementJob activeJob;
 
     private DiagonAlleyManager() {
@@ -384,7 +396,12 @@ public final class DiagonAlleyManager {
             this.fy = template.sizeY();
             this.fz = footprint[1];
 
-            int kept = template.count();
+            int kept = 0;
+            for (int i = 0; i < template.count(); i++) {
+                if (!intoVoid || template.localX(i) >= WALL_X) {
+                    kept++;
+                }
+            }
             this.count = kept;
             this.rx = new int[kept];
             this.ry = new int[kept];
@@ -398,6 +415,9 @@ public final class DiagonAlleyManager {
 
             int out = 0;
             for (int i = 0; i < template.count(); i++) {
+                if (intoVoid && template.localX(i) < WALL_X) {
+                    continue;               // the courtyard is the player own garden; leave it
+                }
                 int[] r = rotate(template.localX(i), template.localY(i), template.localZ(i),
                         tx, tz, rotation);
                 this.rx[out] = r[0];
@@ -551,6 +571,9 @@ public final class DiagonAlleyManager {
                 double lx = pos.getDouble(0);
                 double ly = pos.getDouble(1);
                 double lz = pos.getDouble(2);
+                if (intoVoid && lx < WALL_X) {
+                    continue;               // nobody stands in a courtyard that is not built
+                }
                 double[] r = rotateContinuous(lx, ly, lz, template.sizeX(), template.sizeZ(), rotation);
                 double ex = anchor.getX() + r[0];
                 double ey = anchor.getY() + r[1];

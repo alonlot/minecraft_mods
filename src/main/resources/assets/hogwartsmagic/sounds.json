@@ -1528,5 +1528,104 @@
         "stream": false
       }
     ]
+  },
+  "ollivanders.shop": {
+    "subtitle": "subtitles.hogwartsmagic.ollivanders.shop",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:ollivanders/shop",
+        "stream": false
+      }
+    ]
+  },
+  "ollivanders.door": {
+    "subtitle": "subtitles.hogwartsmagic.ollivanders.door",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:ollivanders/door",
+        "stream": false
+      }
+    ]
+  },
+  "ollivanders.ledger": {
+    "subtitle": "subtitles.hogwartsmagic.ollivanders.ledger",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:ollivanders/ledger",
+        "stream": false
+      }
+    ]
+  },
+  "ollivanders.measure": {
+    "subtitle": "subtitles.hogwartsmagic.ollivanders.measure",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:ollivanders/measure",
+        "stream": false
+      }
+    ]
+  },
+  "ollivanders.box": {
+    "subtitle": "subtitles.hogwartsmagic.ollivanders.box",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:ollivanders/box",
+        "stream": false
+      }
+    ]
+  },
+  "ollivanders.offer": {
+    "subtitle": "subtitles.hogwartsmagic.ollivanders.offer",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:ollivanders/offer",
+        "stream": false
+      }
+    ]
+  },
+  "ollivanders.chosen": {
+    "subtitle": "subtitles.hogwartsmagic.ollivanders.chosen",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:ollivanders/chosen",
+        "stream": false
+      }
+    ]
+  },
+  "ollivanders.curious": {
+    "subtitle": "subtitles.hogwartsmagic.ollivanders.curious",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:ollivanders/curious",
+        "stream": false
+      }
+    ]
+  },
+  "ollivanders.fail_paper": {
+    "subtitle": "subtitles.hogwartsmagic.ollivanders.fail_paper",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:ollivanders/fail_paper",
+        "stream": false
+      }
+    ]
+  },
+  "ollivanders.fail_bang": {
+    "subtitle": "subtitles.hogwartsmagic.ollivanders.fail_bang",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:ollivanders/fail_bang",
+        "stream": false
+      }
+    ]
+  },
+  "ollivanders.fail_fizzle": {
+    "subtitle": "subtitles.hogwartsmagic.ollivanders.fail_fizzle",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:ollivanders/fail_fizzle",
+        "stream": false
+      }
+    ]
   }
 }

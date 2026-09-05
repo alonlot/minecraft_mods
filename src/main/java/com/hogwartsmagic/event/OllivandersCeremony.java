@@ -11,7 +11,6 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
@@ -262,7 +261,7 @@ public final class OllivandersCeremony {
                 title(Component.literal("Ollivanders").withStyle(ChatFormatting.GOLD),
                         Component.literal("Makers of Fine Wands since 382 B.C.")
                                 .withStyle(ChatFormatting.GRAY), 10, 50, 20);
-                sound(level, SoundEvents.AMETHYST_BLOCK_CHIME, 0.7F, 0.6F);
+                sound(level, com.hogwartsmagic.ModSounds.OLLIVANDERS_SHOP.get(), 0.7F, 1.0F);
             }
 
             // Dust hanging in the light, all the way through -- the shop has not been swept in
@@ -274,12 +273,12 @@ public final class OllivandersCeremony {
 
             if (t == T_STILL) {
                 say(0, "I wondered how long it would be before you came in.");
-                sound(level, SoundEvents.WOODEN_DOOR_CLOSE, 0.6F, 0.7F);
+                sound(level, com.hogwartsmagic.ModSounds.OLLIVANDERS_DOOR.get(), 0.7F, 1.0F);
             } else if (t == T_STILL + 35) {
                 say(1, "Every wand that has left this shop, I remember. Whose hand it went to, and what it did there.");
             } else if (t == T_REMEMBER) {
                 say(2, "Now. Let us see what will have you.");
-                sound(level, SoundEvents.BOOK_PAGE_TURN, 0.9F, 0.9F);
+                sound(level, com.hogwartsmagic.ModSounds.OLLIVANDERS_LEDGER.get(), 1.0F, 1.0F);
             }
 
             // --- the tape measures him, on its own ------------------------------------------
@@ -291,7 +290,7 @@ public final class OllivandersCeremony {
                         stand.x + Math.cos(a) * r, stand.y + 0.2D + u * 1.9D, stand.z + Math.sin(a) * r,
                         1, 0.0D, 0.0D, 0.0D, 0.0D);
                 if (t % 12 == 0) {
-                    sound(level, SoundEvents.NOTE_BLOCK_CHIME.value(), 0.35F, 1.2F + (float) u);
+                    sound(level, com.hogwartsmagic.ModSounds.OLLIVANDERS_MEASURE.get(), 0.45F, 0.9F + (float) u * 0.7F);
                 }
             }
             if (t == T_REMEMBER + 20) {
@@ -319,7 +318,7 @@ public final class OllivandersCeremony {
             // --- the one that will --------------------------------------------------------------
             if (t == T_TRY3 + 4) {
                 say(10, "I wonder... yes, I rather think so.");
-                sound(level, SoundEvents.CHEST_OPEN, 0.8F, 0.8F);
+                sound(level, com.hogwartsmagic.ModSounds.OLLIVANDERS_BOX.get(), 0.9F, 1.0F);
             } else if (t == T_TRY3 + 26) {
                 say(11, "Holly. Phoenix feather. Eleven inches, and very supple indeed.");
             }
@@ -339,8 +338,7 @@ public final class OllivandersCeremony {
                             4, 0.35D, 0.5D, 0.35D, 0.01D);
                 }
                 if (t == T_TRY3 + 34) {
-                    sound(level, SoundEvents.BEACON_ACTIVATE, 1.0F, 1.3F);
-                    sound(level, SoundEvents.ELYTRA_FLYING, 0.5F, 0.6F);
+                    sound(level, com.hogwartsmagic.ModSounds.OLLIVANDERS_CHOSEN.get(), 1.0F, 1.0F);
                 }
             }
 
@@ -350,7 +348,7 @@ public final class OllivandersCeremony {
             if (t == T_CHOSEN + 10) {
                 title(Component.literal("Curious").withStyle(ChatFormatting.GOLD), null, 10, 45, 15);
                 say(12, "Curious. Very curious.");
-                sound(level, SoundEvents.AMETHYST_BLOCK_CHIME, 0.5F, 0.5F);
+                sound(level, com.hogwartsmagic.ModSounds.OLLIVANDERS_CURIOUS.get(), 0.6F, 1.0F);
             } else if (t == T_CHOSEN + 40) {
                 say(13, "The phoenix whose tail feather sits in your wand gave one other. Only one.");
             } else if (t == T_CHOSEN + 68) {
@@ -367,7 +365,7 @@ public final class OllivandersCeremony {
         /** A wand arrives out of the stacks and hangs in front of the customer. */
         private void offer(ServerLevel level, String line) {
             say(4, line);
-            sound(level, SoundEvents.ITEM_PICKUP, 0.8F, 0.7F);
+            sound(level, com.hogwartsmagic.ModSounds.OLLIVANDERS_OFFER.get(), 0.8F, 1.0F);
             Vec3 from = him.add(0.0D, 1.4D, 0.0D);
             for (int i = 0; i <= 12; i++) {
                 double u = i / 12.0D;
@@ -382,18 +380,16 @@ public final class OllivandersCeremony {
             switch (which) {
                 case 0 -> {         // paper, everywhere
                     level.sendParticles(ParticleTypes.ENCHANT, at.x, at.y, at.z, 60, 1.6D, 1.0D, 1.6D, 0.6D);
-                    sound(level, SoundEvents.BOOK_PAGE_TURN, 1.0F, 0.6F);
-                    sound(level, SoundEvents.ITEM_BREAK, 0.8F, 1.2F);
+                    sound(level, com.hogwartsmagic.ModSounds.OLLIVANDERS_FAIL_PAPER.get(), 1.0F, 1.0F);
                 }
                 case 1 -> {         // a bang
                     level.sendParticles(ParticleTypes.EXPLOSION, at.x, at.y, at.z, 3, 0.6D, 0.4D, 0.6D, 0.0D);
                     level.sendParticles(ParticleTypes.LARGE_SMOKE, at.x, at.y, at.z, 40, 1.2D, 0.8D, 1.2D, 0.05D);
-                    sound(level, SoundEvents.GENERIC_EXPLODE.value(), 0.7F, 1.6F);
-                    sound(level, SoundEvents.GLASS_BREAK, 1.0F, 0.9F);
+                    sound(level, com.hogwartsmagic.ModSounds.OLLIVANDERS_FAIL_BANG.get(), 1.0F, 1.0F);
                 }
                 default -> {        // a wretched fizzle, which is worse than the bang
                     level.sendParticles(ParticleTypes.SMOKE, at.x, at.y, at.z, 50, 0.5D, 0.5D, 0.5D, 0.02D);
-                    sound(level, SoundEvents.FIRE_EXTINGUISH, 1.0F, 1.4F);
+                    sound(level, com.hogwartsmagic.ModSounds.OLLIVANDERS_FAIL_FIZZLE.get(), 1.0F, 1.0F);
                 }
             }
         }

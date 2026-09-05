@@ -238,6 +238,21 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> STATUE_CRUMBLE = register("statue.crumble");
     public static final RegistryObject<SoundEvent> STATUE_BIND = register("statue.bind");
 
+    // Ollivanders. The scene is staged in beats with deliberate silences between them, so
+    // these stay small and dry; the one that matters is CHOSEN, which was a beacon plus
+    // ELYTRA_FLYING -- an elytra is the last thing a wand finding its wizard should sound like.
+    public static final RegistryObject<SoundEvent> OLLIVANDERS_SHOP = register("ollivanders.shop");
+    public static final RegistryObject<SoundEvent> OLLIVANDERS_DOOR = register("ollivanders.door");
+    public static final RegistryObject<SoundEvent> OLLIVANDERS_LEDGER = register("ollivanders.ledger");
+    public static final RegistryObject<SoundEvent> OLLIVANDERS_MEASURE = register("ollivanders.measure");
+    public static final RegistryObject<SoundEvent> OLLIVANDERS_BOX = register("ollivanders.box");
+    public static final RegistryObject<SoundEvent> OLLIVANDERS_OFFER = register("ollivanders.offer");
+    public static final RegistryObject<SoundEvent> OLLIVANDERS_CHOSEN = register("ollivanders.chosen");
+    public static final RegistryObject<SoundEvent> OLLIVANDERS_CURIOUS = register("ollivanders.curious");
+    public static final RegistryObject<SoundEvent> OLLIVANDERS_FAIL_PAPER = register("ollivanders.fail_paper");
+    public static final RegistryObject<SoundEvent> OLLIVANDERS_FAIL_BANG = register("ollivanders.fail_bang");
+    public static final RegistryObject<SoundEvent> OLLIVANDERS_FAIL_FIZZLE = register("ollivanders.fail_fizzle");
+
     private static RegistryObject<SoundEvent> register(String name) {
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, name);
         return SOUND_EVENTS.register(name, () -> SoundEvent.createVariableRangeEvent(id));

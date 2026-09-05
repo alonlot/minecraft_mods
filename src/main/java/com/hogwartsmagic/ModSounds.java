@@ -253,6 +253,19 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> OLLIVANDERS_FAIL_BANG = register("ollivanders.fail_bang");
     public static final RegistryObject<SoundEvent> OLLIVANDERS_FAIL_FIZZLE = register("ollivanders.fail_fizzle");
 
+    // The Diagon Alley archway. The wall was opening on PISTON_EXTEND and IRON_DOOR_OPEN,
+    // so an event made entirely of masonry sounded like redstone and a hinge. Every clip
+    // here was generated with "no metal, no machinery" said out loud in the prompt.
+    public static final RegistryObject<SoundEvent> ARCHWAY_KNOCK = register("archway.knock");
+    public static final RegistryObject<SoundEvent> ARCHWAY_TAP = register("archway.tap");
+    public static final RegistryObject<SoundEvent> ARCHWAY_ARM = register("archway.arm");
+    public static final RegistryObject<SoundEvent> ARCHWAY_SEAM = register("archway.seam");
+    public static final RegistryObject<SoundEvent> ARCHWAY_BEGIN = register("archway.begin");
+    public static final RegistryObject<SoundEvent> ARCHWAY_SHIFT = register("archway.shift");
+    public static final RegistryObject<SoundEvent> ARCHWAY_FOLD = register("archway.fold");
+    public static final RegistryObject<SoundEvent> ARCHWAY_OPEN = register("archway.open");
+    public static final RegistryObject<SoundEvent> ARCHWAY_SEAL = register("archway.seal");
+
     private static RegistryObject<SoundEvent> register(String name) {
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, name);
         return SOUND_EVENTS.register(name, () -> SoundEvent.createVariableRangeEvent(id));

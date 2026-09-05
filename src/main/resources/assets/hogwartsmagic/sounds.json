@@ -1627,5 +1627,86 @@
         "stream": false
       }
     ]
+  },
+  "archway.knock": {
+    "subtitle": "subtitles.hogwartsmagic.archway.knock",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:archway/knock",
+        "stream": false
+      }
+    ]
+  },
+  "archway.tap": {
+    "subtitle": "subtitles.hogwartsmagic.archway.tap",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:archway/tap",
+        "stream": false
+      }
+    ]
+  },
+  "archway.arm": {
+    "subtitle": "subtitles.hogwartsmagic.archway.arm",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:archway/arm",
+        "stream": false
+      }
+    ]
+  },
+  "archway.seam": {
+    "subtitle": "subtitles.hogwartsmagic.archway.seam",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:archway/seam",
+        "stream": false
+      }
+    ]
+  },
+  "archway.begin": {
+    "subtitle": "subtitles.hogwartsmagic.archway.begin",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:archway/begin",
+        "stream": false
+      }
+    ]
+  },
+  "archway.shift": {
+    "subtitle": "subtitles.hogwartsmagic.archway.shift",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:archway/shift",
+        "stream": false
+      }
+    ]
+  },
+  "archway.fold": {
+    "subtitle": "subtitles.hogwartsmagic.archway.fold",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:archway/fold",
+        "stream": false
+      }
+    ]
+  },
+  "archway.open": {
+    "subtitle": "subtitles.hogwartsmagic.archway.open",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:archway/open",
+        "stream": false
+      }
+    ]
+  },
+  "archway.seal": {
+    "subtitle": "subtitles.hogwartsmagic.archway.seal",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:archway/seal",
+        "stream": false
+      }
+    ]
   }
 }

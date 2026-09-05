@@ -14,7 +14,6 @@ import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -321,8 +320,8 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
         if (!this.armed) {
             // Unarmed: a knock and dust, whatever brick it is. No message, because the wall being
             // inert is not an error the player made -- it is the state every wall starts in.
-            level.playSound(null, this.worldPosition, SoundEvents.STONE_HIT, SoundSource.BLOCKS,
-                    0.7F, 0.75F);
+            level.playSound(null, this.worldPosition, com.hogwartsmagic.ModSounds.ARCHWAY_KNOCK.get(), SoundSource.BLOCKS,
+                    0.7F, 1.0F);
             dust(level, this.worldPosition, 2);
             return;
         }
@@ -337,8 +336,8 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
             // A dull knock and a little dust. Deliberately not a failure message: finding the brick
             // is the puzzle, and telling the player they got it wrong gives away that there is a
             // right one nearby.
-            level.playSound(null, this.worldPosition, SoundEvents.STONE_HIT, SoundSource.BLOCKS,
-                    0.7F, 0.8F);
+            level.playSound(null, this.worldPosition, com.hogwartsmagic.ModSounds.ARCHWAY_KNOCK.get(), SoundSource.BLOCKS,
+                    0.7F, 1.05F);
             dust(level, this.worldPosition, 3);
             this.taps = 0;
             return;
@@ -347,7 +346,7 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
         this.taps++;
         // The three taps climb in pitch, so the third one is audibly the last.
         float pitch = 0.9F + 0.25F * this.taps;
-        level.playSound(null, this.worldPosition, SoundEvents.STONE_HIT, SoundSource.BLOCKS, 1.0F, pitch);
+        level.playSound(null, this.worldPosition, com.hogwartsmagic.ModSounds.ARCHWAY_TAP.get(), SoundSource.BLOCKS, 1.0F, pitch);
         dust(level, this.worldPosition, 6);
 
         if (this.taps < TAPS_NEEDED) {
@@ -383,8 +382,8 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
         this.ticks = TOTAL;
         setChanged();
         sync(level);
-        level.playSound(null, this.worldPosition, SoundEvents.ANCIENT_DEBRIS_BREAK,
-                SoundSource.BLOCKS, 1.0F, 0.55F);
+        level.playSound(null, this.worldPosition, com.hogwartsmagic.ModSounds.ARCHWAY_SHIFT.get(),
+                SoundSource.BLOCKS, 1.0F, 0.95F);
         if (player != null) {
             player.displayClientMessage(Component.literal(
                     "The bricks fold themselves back, and the wall knits shut."), true);
@@ -471,10 +470,8 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
             }
         }
         this.flashTicks = ARMED_FLASH;          // cleared by serverTick a moment later
-        level.playSound(null, this.worldPosition, SoundEvents.AMETHYST_BLOCK_CHIME,
-                SoundSource.BLOCKS, 0.9F, 1.1F);
-        level.playSound(null, this.worldPosition, SoundEvents.ENCHANTMENT_TABLE_USE,
-                SoundSource.BLOCKS, 0.7F, 0.8F);
+        level.playSound(null, this.worldPosition, com.hogwartsmagic.ModSounds.ARCHWAY_ARM.get(),
+                SoundSource.BLOCKS, 1.0F, 1.0F);
         if (caster != null) {
             caster.displayClientMessage(Component.literal(
                     "The mortar glows, and one brick is glowing brighter. Tap it three times."),
@@ -583,8 +580,8 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
         setChanged();
         sync(level);
 
-        level.playSound(null, this.worldPosition, SoundEvents.BEACON_ACTIVATE, SoundSource.BLOCKS,
-                0.6F, 1.6F);
+        level.playSound(null, this.worldPosition, com.hogwartsmagic.ModSounds.ARCHWAY_BEGIN.get(), SoundSource.BLOCKS,
+                0.9F, 1.0F);
         if (opener != null) {
             opener.displayClientMessage(
                     Component.literal("The bricks begin to shift..."), true);
@@ -734,12 +731,12 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
         if (brick.closing) {
             brick.ticks--;
             if (brick.ticks % 10 == 0) {
-                server.playSound(null, pos, SoundEvents.PISTON_CONTRACT, SoundSource.BLOCKS,
-                        0.8F, 0.6F);
+                server.playSound(null, pos, com.hogwartsmagic.ModSounds.ARCHWAY_FOLD.get(), SoundSource.BLOCKS,
+                        0.8F, 0.92F);
             }
             if (brick.ticks <= GLOW) {
                 brick.setPhase(server, brick.panel, DiagonArchwayBlock.SHUT);
-                server.playSound(null, pos, SoundEvents.IRON_DOOR_CLOSE, SoundSource.BLOCKS,
+                server.playSound(null, pos, com.hogwartsmagic.ModSounds.ARCHWAY_SEAL.get(), SoundSource.BLOCKS,
                         1.0F, 0.6F);
                 brick.closing = false;
                 brick.ticks = -1;
@@ -760,14 +757,14 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
             // The WHOLE wall goes over to the renderer, not just the arch: invisible but still
             // solid, so every brick can move and nothing is a way through until it is.
             brick.setPhase(server, brick.panel, DiagonArchwayBlock.MOVING);
-            server.playSound(null, pos, SoundEvents.ANCIENT_DEBRIS_BREAK, SoundSource.BLOCKS, 1.0F, 0.5F);
+            server.playSound(null, pos, com.hogwartsmagic.ModSounds.ARCHWAY_SHIFT.get(), SoundSource.BLOCKS, 1.0F, 1.0F);
         } else if (brick.ticks < TOTAL) {
             // A grind of stone every half second while bricks are actually moving, so the sound
             // tracks the animation instead of being one hit at the start.
             if (brick.ticks % 10 == 0) {
                 float p = (brick.ticks - GLOW) / (float) (PEEL + UNFOLD);
-                server.playSound(null, pos, SoundEvents.PISTON_EXTEND, SoundSource.BLOCKS,
-                        0.8F, 0.55F + 0.35F * p);
+                server.playSound(null, pos, com.hogwartsmagic.ModSounds.ARCHWAY_FOLD.get(), SoundSource.BLOCKS,
+                        0.8F, 0.88F + 0.3F * p);
             }
             brick.freeCleared(server);
             if (brick.ticks % 4 == 0) {
@@ -792,7 +789,7 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
             // would put somebody inside the solid wall standing at the same coordinates there.
             com.hogwartsmagic.worldgen.DiagonAlleyPortal.mirrorArch(
                     server, brick.archCentrePos(), brick.arch, true);
-            server.playSound(null, pos, SoundEvents.IRON_DOOR_OPEN, SoundSource.BLOCKS, 1.0F, 0.6F);
+            server.playSound(null, pos, com.hogwartsmagic.ModSounds.ARCHWAY_OPEN.get(), SoundSource.BLOCKS, 1.0F, 1.0F);
             brick.ticks = -1;
             brick.arch.clear();
             brick.panel.clear();
@@ -823,8 +820,8 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
                 level.setBlock(p, s.setValue(DiagonArchwayBlock.LIT, lit), Block.UPDATE_CLIENTS);
             }
         }
-        level.playSound(null, this.worldPosition, SoundEvents.AMETHYST_BLOCK_CHIME,
-                SoundSource.BLOCKS, 0.35F, 0.7F + 0.08F * radius);
+        level.playSound(null, this.worldPosition, com.hogwartsmagic.ModSounds.ARCHWAY_SEAM.get(),
+                SoundSource.BLOCKS, 0.45F, 0.85F + 0.06F * radius);
     }
 
     private void clearSeam(ServerLevel level) {

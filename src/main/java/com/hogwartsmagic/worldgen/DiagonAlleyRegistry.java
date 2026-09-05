@@ -115,6 +115,28 @@ public class DiagonAlleyRegistry extends SavedData {
         return null;
     }
 
+    /** Every alley whose street would share space with this footprint. */
+    public List<Entry> overlapping(BlockPos anchor, int sx, int sy, int sz) {
+        List<Entry> hit = new ArrayList<>();
+        for (Entry e : entries) {
+            if (anchor.getX() < e.anchor().getX() + e.sizeX()
+                    && anchor.getX() + sx > e.anchor().getX()
+                    && anchor.getZ() < e.anchor().getZ() + e.sizeZ()
+                    && anchor.getZ() + sz > e.anchor().getZ()
+                    && anchor.getY() < e.anchor().getY() + e.sizeY()
+                    && anchor.getY() + sy > e.anchor().getY()) {
+                hit.add(e);
+            }
+        }
+        return hit;
+    }
+
+    public void remove(Entry entry) {
+        if (entries.remove(entry)) {
+            setDirty();
+        }
+    }
+
     public void record(Entry entry) {
         entries.removeIf(e -> e.arch().equals(entry.arch())
                 && e.sourceDimension().equals(entry.sourceDimension()));

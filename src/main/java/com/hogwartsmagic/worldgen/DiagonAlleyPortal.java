@@ -75,8 +75,16 @@ public final class DiagonAlleyPortal {
 
     /** Players in a transfer right now. Read by {@code PlayerChunkSenderMixin}. */
     private static final Set<UUID> moving = new HashSet<>();
-    /** Who has been handed the view through an arch, and through which one. */
-    private static final Map<UUID, BlockPos> shown = new HashMap<>();
+    /**
+     * Which arches each player has already been handed the view through.
+     *
+     * <p>A set, not one arch each, and that is not tidiness. With a single slot, two doorways in
+     * range of the same player took it in turns: each tick, entry A found the slot holding B and
+     * resent the whole street, then entry B found it holding A and did the same. Sixty chunk
+     * packets became two thousand a second, the outbound queue grew without limit, and the server
+     * died of an OutOfMemoryError a couple of minutes later.
+     */
+    private static final Map<UUID, Set<BlockPos>> shown = new HashMap<>();
 
     private DiagonAlleyPortal() {
     }
@@ -189,7 +197,10 @@ public final class DiagonAlleyPortal {
                     // holding it all along; but the straddling row was patched with alley blocks
                     // when they came in, so it has to be painted back.
                     DiagonAlleyView.showRealWorld(player, source, entry);
-                    shown.remove(player.getUUID());
+                    Set<BlockPos> seen = shown.get(player.getUUID());
+                    if (seen != null) {
+                        seen.remove(entry.arch());
+                    }
                 }
             }
         }
@@ -304,20 +315,20 @@ public final class DiagonAlleyPortal {
 
     private static void show(ServerPlayer player, ServerLevel alley,
                              DiagonAlleyRegistry.Entry entry) {
-        if (entry.arch().equals(shown.get(player.getUUID()))) {
+        Set<BlockPos> seen = shown.computeIfAbsent(player.getUUID(), id -> new HashSet<>());
+        if (!seen.add(entry.arch().immutable())) {
             return;
         }
         DiagonAlleyView.showAlley(player, alley, entry, entry.arch(), entry.facing());
-        shown.put(player.getUUID(), entry.arch().immutable());
     }
 
     private static void unshow(ServerPlayer player, ServerLevel source,
                                DiagonAlleyRegistry.Entry entry) {
-        if (!entry.arch().equals(shown.get(player.getUUID()))) {
+        Set<BlockPos> seen = shown.get(player.getUUID());
+        if (seen == null || !seen.remove(entry.arch())) {
             return;
         }
         DiagonAlleyView.showRealWorld(player, source, entry);
-        shown.remove(player.getUUID());
     }
 
     /**

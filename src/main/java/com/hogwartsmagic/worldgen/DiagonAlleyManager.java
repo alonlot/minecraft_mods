@@ -254,7 +254,29 @@ public final class DiagonAlleyManager {
         BlockPos anchor = anchorFor(template, archCentre, facing, rotation);
         int[] footprint = rotatedFootprint(template.sizeX(), template.sizeZ(), rotation);
 
-        activeJob = new PlacementJob(alley, template, anchor, rotation, true);
+        // A wall rebuilt a block or two over would otherwise leave its old street standing and,
+        // worse, its old doorway in the registry -- two doorways in range of one player is what
+        // made the view thrash badly enough to exhaust the heap.
+        java.util.List<DiagonAlleyRegistry.Entry> stale =
+                registry.overlapping(anchor, footprint[0], template.sizeY(), footprint[1]);
+        int[] clearBox = null;
+        if (!stale.isEmpty()) {
+            int x0 = anchor.getX(), y0 = anchor.getY(), z0 = anchor.getZ();
+            int x1 = x0 + footprint[0] - 1, y1 = y0 + template.sizeY() - 1, z1 = z0 + footprint[1] - 1;
+            for (DiagonAlleyRegistry.Entry old : stale) {
+                x0 = Math.min(x0, old.anchor().getX());
+                y0 = Math.min(y0, old.anchor().getY());
+                z0 = Math.min(z0, old.anchor().getZ());
+                x1 = Math.max(x1, old.anchor().getX() + old.sizeX() - 1);
+                y1 = Math.max(y1, old.anchor().getY() + old.sizeY() - 1);
+                z1 = Math.max(z1, old.anchor().getZ() + old.sizeZ() - 1);
+                registry.remove(old);
+                LOGGER.info("Dropping the alley behind {}; a new wall overlaps it", old.arch());
+            }
+            clearBox = new int[]{x0, y0, z0, x1, y1, z1};
+        }
+
+        activeJob = new PlacementJob(alley, template, anchor, rotation, true, clearBox);
         registry.record(new DiagonAlleyRegistry.Entry(
                 from.dimension().location().toString(), archCentre, anchor, facing,
                 footprint[0], template.sizeY(), footprint[1]));
@@ -350,6 +372,17 @@ public final class DiagonAlleyManager {
          * both of those phases are skipped and the job is just a paste.
          */
         private final boolean intoVoid;
+        /**
+         * A box of the alley dimension to empty before placing, as {x0,y0,z0,x1,y1,z1}, or null.
+         *
+         * <p>Only ever set when a wall is rebuilt a block or two from where it was. The old street
+         * is still standing at the old coordinates and the new one lands almost on top of it, so
+         * without this the dimension ends up with two streets a couple of blocks apart -- and, far
+         * worse, two doorways, which is what made the view code thrash and the server run out of
+         * memory.
+         */
+        private final int[] clearBox;
+        private int oldCursor;
 
         /** Footprint after rotation. */
         private final int fx;
@@ -383,6 +416,12 @@ public final class DiagonAlleyManager {
 
         PlacementJob(ServerLevel level, DiagonAlleyTemplate template, BlockPos anchor,
                      Rotation rotation, boolean intoVoid) {
+            this(level, template, anchor, rotation, intoVoid, null);
+        }
+
+        PlacementJob(ServerLevel level, DiagonAlleyTemplate template, BlockPos anchor,
+                     Rotation rotation, boolean intoVoid, int[] clearBox) {
+            this.clearBox = clearBox;
             this.level = level;
             this.template = template;
             this.anchor = anchor;
@@ -438,7 +477,7 @@ public final class DiagonAlleyManager {
             }
 
             if (intoVoid) {
-                this.phase = 2;                 // an empty world needs neither recording nor clearing
+                this.phase = clearBox != null ? 1 : 2;   // empty, unless an older street is in the way
             } else {
                 this.phase = 1;                 // /spawnalley writes into real terrain; clear first
             }
@@ -451,7 +490,13 @@ public final class DiagonAlleyManager {
         /** One tick's worth of work. Returns true when the whole job is finished. */
         boolean advance() {
             switch (phase) {
-                case 1 -> clear();
+                case 1 -> {
+                    if (intoVoid) {
+                        clearOld();
+                    } else {
+                        clear();
+                    }
+                }
                 case 2 -> place();
                 case 3 -> {
                     if (intoVoid) {
@@ -467,6 +512,29 @@ public final class DiagonAlleyManager {
                 }
             }
             return phase >= 6;
+        }
+
+        /** Empty the box an older street left behind, a slice per tick like everything else. */
+        private void clearOld() {
+            int sx = clearBox[3] - clearBox[0] + 1;
+            int sy = clearBox[4] - clearBox[1] + 1;
+            int sz = clearBox[5] - clearBox[2] + 1;
+            int total = sx * sy * sz;
+            int end = Math.min(total, oldCursor + CELLS_PER_TICK);
+            for (int idx = oldCursor; idx < end; idx++) {
+                int lx = idx % sx;
+                int rest = idx / sx;
+                int lz = rest % sz;
+                int ly = rest / sz;
+                cursor.set(clearBox[0] + lx, clearBox[1] + ly, clearBox[2] + lz);
+                if (!level.getBlockState(cursor).isAir()) {
+                    level.setBlock(cursor, Blocks.AIR.defaultBlockState(), FLAGS);
+                }
+            }
+            oldCursor = end;
+            if (oldCursor >= total) {
+                phase = 2;
+            }
         }
 
         private void clear() {

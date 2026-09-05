@@ -215,6 +215,14 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> IRONBELLY_CHAIN = register("ironbelly.chain");
     public static final RegistryObject<SoundEvent> CLANKERS_RING = register("clankers.ring");
 
+    // The Floo network. Five beats of one journey: the powder catching, the flue taking hold,
+    // the spin between hearths, the landing, and the flames giving up when the far end is gone.
+    public static final RegistryObject<SoundEvent> FLOO_IGNITE = register("floo.ignite");
+    public static final RegistryObject<SoundEvent> FLOO_DEPART = register("floo.depart");
+    public static final RegistryObject<SoundEvent> FLOO_TRAVEL = register("floo.travel");
+    public static final RegistryObject<SoundEvent> FLOO_ARRIVE = register("floo.arrive");
+    public static final RegistryObject<SoundEvent> FLOO_FIZZLE = register("floo.fizzle");
+
     private static RegistryObject<SoundEvent> register(String name) {
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, name);
         return SOUND_EVENTS.register(name, () -> SoundEvent.createVariableRangeEvent(id));

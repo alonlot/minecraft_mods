@@ -2421,6 +2421,11 @@ public class ModEvents {
         player.setDeltaMovement(Vec3.ZERO);
         player.hurtMarked = true;
 
+        if (ticks == 14) {
+            serverLevel.playSound(null, player.getX(), player.getY(), player.getZ(),
+                    com.hogwartsmagic.ModSounds.FLOO_TRAVEL.get(), SoundSource.PLAYERS, 0.9f, 1.0f);
+        }
+
         if (ticks > 0) {
             modData.putInt("FlooTravelTicks", ticks - 1);
             PlayerMagicData.saveModData(player, modData);
@@ -2432,6 +2437,8 @@ public class ModEvents {
                 || !(serverLevel.getBlockEntity(sourcePos) instanceof com.hogwartsmagic.block.entity.FlooFireplaceBlockEntity source)
                 || !(serverLevel.getBlockEntity(destinationPos) instanceof com.hogwartsmagic.block.entity.FlooFireplaceBlockEntity destination)
                 || !source.getLinkedPositions().contains(destinationPos)) {
+            serverLevel.playSound(null, player.getX(), player.getY(), player.getZ(),
+                    com.hogwartsmagic.ModSounds.FLOO_FIZZLE.get(), SoundSource.PLAYERS, 1.0f, 1.0f);
             modData.remove("FlooTravelPending");
             modData.remove("FlooSourcePos");
             modData.remove("FlooDestinationPos");
@@ -2457,8 +2464,8 @@ public class ModEvents {
         serverLevel.sendParticles(ParticleTypes.END_ROD,
                 player.getX(), player.getY() + 0.9, player.getZ(),
                 12, 0.3, 0.5, 0.3, 0.01);
-        player.level().playSound(null, player.getX(), player.getY(), player.getZ(), net.minecraft.sounds.SoundEvents.END_PORTAL_SPAWN, SoundSource.PLAYERS, 0.8f, 1.2f);
-        player.level().playSound(null, player.getX(), player.getY(), player.getZ(), net.minecraft.sounds.SoundEvents.RESPAWN_ANCHOR_CHARGE, SoundSource.PLAYERS, 0.7f, 1.5f);
+        serverLevel.playSound(null, player.getX(), player.getY(), player.getZ(),
+                com.hogwartsmagic.ModSounds.FLOO_ARRIVE.get(), SoundSource.PLAYERS, 1.0f, 1.0f);
         destination.ignite(serverLevel);
 
         modData.remove("FlooTravelPending");

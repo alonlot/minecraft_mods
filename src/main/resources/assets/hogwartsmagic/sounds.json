@@ -1384,5 +1384,50 @@
         "stream": false
       }
     ]
+  },
+  "floo.ignite": {
+    "subtitle": "subtitles.hogwartsmagic.floo.ignite",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:floo/ignite",
+        "stream": false
+      }
+    ]
+  },
+  "floo.depart": {
+    "subtitle": "subtitles.hogwartsmagic.floo.depart",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:floo/depart",
+        "stream": false
+      }
+    ]
+  },
+  "floo.travel": {
+    "subtitle": "subtitles.hogwartsmagic.floo.travel",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:floo/travel",
+        "stream": false
+      }
+    ]
+  },
+  "floo.arrive": {
+    "subtitle": "subtitles.hogwartsmagic.floo.arrive",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:floo/arrive",
+        "stream": false
+      }
+    ]
+  },
+  "floo.fizzle": {
+    "subtitle": "subtitles.hogwartsmagic.floo.fizzle",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:floo/fizzle",
+        "stream": false
+      }
+    ]
   }
 }

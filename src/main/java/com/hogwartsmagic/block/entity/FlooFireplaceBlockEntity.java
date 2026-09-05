@@ -15,7 +15,6 @@ import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
@@ -137,7 +136,7 @@ public class FlooFireplaceBlockEntity extends BlockEntity {
             itemEntity.discard();
         }
         ignite(level);
-        level.playSound(null, worldPosition, SoundEvents.FIRECHARGE_USE, SoundSource.BLOCKS, 0.9f, 0.7f);
+        level.playSound(null, worldPosition, com.hogwartsmagic.ModSounds.FLOO_IGNITE.get(), SoundSource.BLOCKS, 1.0f, 1.0f);
     }
 
     public void ignite(ServerLevel level) {

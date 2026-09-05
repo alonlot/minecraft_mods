@@ -1708,5 +1708,50 @@
         "stream": false
       }
     ]
+  },
+  "horcrux.prime": {
+    "subtitle": "subtitles.hogwartsmagic.horcrux.prime",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:horcrux/prime",
+        "stream": false
+      }
+    ]
+  },
+  "horcrux.bind": {
+    "subtitle": "subtitles.hogwartsmagic.horcrux.bind",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:horcrux/bind",
+        "stream": false
+      }
+    ]
+  },
+  "horcrux.shatter": {
+    "subtitle": "subtitles.hogwartsmagic.horcrux.shatter",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:horcrux/shatter",
+        "stream": false
+      }
+    ]
+  },
+  "horcrux.break": {
+    "subtitle": "subtitles.hogwartsmagic.horcrux.break",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:horcrux/break",
+        "stream": false
+      }
+    ]
+  },
+  "horcrux.scream": {
+    "subtitle": "subtitles.hogwartsmagic.horcrux.scream",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:horcrux/scream",
+        "stream": false
+      }
+    ]
   }
 }

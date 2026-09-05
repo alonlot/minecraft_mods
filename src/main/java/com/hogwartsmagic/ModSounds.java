@@ -266,6 +266,15 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> ARCHWAY_OPEN = register("archway.open");
     public static final RegistryObject<SoundEvent> ARCHWAY_SEAL = register("archway.seal");
 
+    // The Horcrux. It was speaking with the Warden's voice -- WARDEN_HEARTBEAT while it
+    // binds and WARDEN_ROAR when something gets out -- which is a loud, very specific mob
+    // to borrow for the mod's quietest and nastiest object.
+    public static final RegistryObject<SoundEvent> HORCRUX_PRIME = register("horcrux.prime");
+    public static final RegistryObject<SoundEvent> HORCRUX_BIND = register("horcrux.bind");
+    public static final RegistryObject<SoundEvent> HORCRUX_SHATTER = register("horcrux.shatter");
+    public static final RegistryObject<SoundEvent> HORCRUX_BREAK = register("horcrux.break");
+    public static final RegistryObject<SoundEvent> HORCRUX_SCREAM = register("horcrux.scream");
+
     private static RegistryObject<SoundEvent> register(String name) {
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, name);
         return SOUND_EVENTS.register(name, () -> SoundEvent.createVariableRangeEvent(id));

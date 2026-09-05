@@ -13,7 +13,6 @@ import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.MobSpawnType;
@@ -73,7 +72,7 @@ public class HorcruxBlockEntity extends BlockEntity {
         setChanged();
         syncToClients();
         level.setBlock(worldPosition, getBlockState().setValue(HorcruxBlock.LIT, true), 3);
-        level.playSound(null, worldPosition, SoundEvents.WARDEN_HEARTBEAT, SoundSource.BLOCKS, 0.9f, 0.55f);
+        level.playSound(null, worldPosition, com.hogwartsmagic.ModSounds.HORCRUX_PRIME.get(), SoundSource.BLOCKS, 0.9f, 1.0f);
         return true;
     }
 
@@ -87,8 +86,7 @@ public class HorcruxBlockEntity extends BlockEntity {
         setChanged();
         syncToClients();
         level.setBlock(worldPosition, getBlockState().setValue(HorcruxBlock.LIT, true), 3);
-        level.playSound(null, worldPosition, SoundEvents.RESPAWN_ANCHOR_SET_SPAWN, SoundSource.BLOCKS, 0.9f, 0.55f);
-        level.playSound(null, worldPosition, SoundEvents.BEACON_ACTIVATE, SoundSource.BLOCKS, 0.55f, 0.5f);
+        level.playSound(null, worldPosition, com.hogwartsmagic.ModSounds.HORCRUX_BIND.get(), SoundSource.BLOCKS, 1.0f, 1.0f);
         return true;
     }
 
@@ -104,8 +102,7 @@ public class HorcruxBlockEntity extends BlockEntity {
                 18, 0.28, 0.2, 0.28, 0.02);
         level.sendParticles(ParticleTypes.DRAGON_BREATH, worldPosition.getX() + 0.5, worldPosition.getY() + 0.75, worldPosition.getZ() + 0.5,
                 16, 0.25, 0.18, 0.25, 0.03);
-        level.playSound(null, worldPosition, SoundEvents.GLASS_BREAK, SoundSource.BLOCKS, 0.85f, 0.45f);
-        level.playSound(null, worldPosition, SoundEvents.RESPAWN_ANCHOR_DEPLETE.value(), SoundSource.BLOCKS, 0.9f, 0.65f);
+        level.playSound(null, worldPosition, com.hogwartsmagic.ModSounds.HORCRUX_SHATTER.get(), SoundSource.BLOCKS, 1.0f, 1.0f);
         level.destroyBlock(worldPosition, false);
     }
 
@@ -119,8 +116,7 @@ public class HorcruxBlockEntity extends BlockEntity {
                 30, 0.35, 0.24, 0.35, 0.03);
         level.sendParticles(ParticleTypes.LARGE_SMOKE, worldPosition.getX() + 0.5, worldPosition.getY() + 0.85, worldPosition.getZ() + 0.5,
                 20, 0.24, 0.18, 0.24, 0.02);
-        level.playSound(null, worldPosition, SoundEvents.GLASS_BREAK, SoundSource.BLOCKS, 1.0f, 0.35f);
-        level.playSound(null, worldPosition, SoundEvents.SOUL_ESCAPE.value(), SoundSource.BLOCKS, 0.9f, 0.55f);
+        level.playSound(null, worldPosition, com.hogwartsmagic.ModSounds.HORCRUX_BREAK.get(), SoundSource.BLOCKS, 1.0f, 1.0f);
         if (hostileBreak) {
             summonDementor(level, breaker);
         }
@@ -143,7 +139,7 @@ public class HorcruxBlockEntity extends BlockEntity {
         level.addFreshEntity(dementor);
         level.sendParticles(ParticleTypes.SOUL, worldPosition.getX() + 0.5, worldPosition.getY() + 1.1, worldPosition.getZ() + 0.5,
                 26, 0.35, 0.55, 0.35, 0.02);
-        level.playSound(null, worldPosition, SoundEvents.WARDEN_ROAR, SoundSource.HOSTILE, 0.7f, 0.45f);
+        level.playSound(null, worldPosition, com.hogwartsmagic.ModSounds.HORCRUX_SCREAM.get(), SoundSource.HOSTILE, 1.0f, 1.0f);
     }
 
     public boolean isActive() {

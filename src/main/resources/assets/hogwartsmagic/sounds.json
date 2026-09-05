@@ -1429,5 +1429,104 @@
         "stream": false
       }
     ]
+  },
+  "statue.wake": {
+    "subtitle": "subtitles.hogwartsmagic.statue.wake",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:statue/wake",
+        "stream": false
+      }
+    ]
+  },
+  "statue.rise": {
+    "subtitle": "subtitles.hogwartsmagic.statue.rise",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:statue/rise",
+        "stream": false
+      }
+    ]
+  },
+  "statue.step": {
+    "subtitle": "subtitles.hogwartsmagic.statue.step",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:statue/step",
+        "stream": false
+      }
+    ]
+  },
+  "statue.ambient": {
+    "subtitle": "subtitles.hogwartsmagic.statue.ambient",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:statue/ambient",
+        "stream": false
+      }
+    ]
+  },
+  "statue.swing": {
+    "subtitle": "subtitles.hogwartsmagic.statue.swing",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:statue/swing",
+        "stream": false
+      }
+    ]
+  },
+  "statue.impact": {
+    "subtitle": "subtitles.hogwartsmagic.statue.impact",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:statue/impact",
+        "stream": false
+      }
+    ]
+  },
+  "statue.slam": {
+    "subtitle": "subtitles.hogwartsmagic.statue.slam",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:statue/slam",
+        "stream": false
+      }
+    ]
+  },
+  "statue.hurt": {
+    "subtitle": "subtitles.hogwartsmagic.statue.hurt",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:statue/hurt",
+        "stream": false
+      }
+    ]
+  },
+  "statue.death": {
+    "subtitle": "subtitles.hogwartsmagic.statue.death",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:statue/death",
+        "stream": false
+      }
+    ]
+  },
+  "statue.crumble": {
+    "subtitle": "subtitles.hogwartsmagic.statue.crumble",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:statue/crumble",
+        "stream": false
+      }
+    ]
+  },
+  "statue.bind": {
+    "subtitle": "subtitles.hogwartsmagic.statue.bind",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:statue/bind",
+        "stream": false
+      }
+    ]
   }
 }

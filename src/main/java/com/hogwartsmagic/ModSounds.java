@@ -223,6 +223,21 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> FLOO_ARRIVE = register("floo.arrive");
     public static final RegistryObject<SoundEvent> FLOO_FIZZLE = register("floo.fizzle");
 
+    // The Living Statue. Every one of these was a pitched-down vanilla stone block sound --
+    // the step and the ambient are the ones that matter, since they are heard continuously
+    // rather than once per fight, and a block step never read as several tons of granite.
+    public static final RegistryObject<SoundEvent> STATUE_WAKE = register("statue.wake");
+    public static final RegistryObject<SoundEvent> STATUE_RISE = register("statue.rise");
+    public static final RegistryObject<SoundEvent> STATUE_STEP = register("statue.step");
+    public static final RegistryObject<SoundEvent> STATUE_AMBIENT = register("statue.ambient");
+    public static final RegistryObject<SoundEvent> STATUE_SWING = register("statue.swing");
+    public static final RegistryObject<SoundEvent> STATUE_IMPACT = register("statue.impact");
+    public static final RegistryObject<SoundEvent> STATUE_SLAM = register("statue.slam");
+    public static final RegistryObject<SoundEvent> STATUE_HURT = register("statue.hurt");
+    public static final RegistryObject<SoundEvent> STATUE_DEATH = register("statue.death");
+    public static final RegistryObject<SoundEvent> STATUE_CRUMBLE = register("statue.crumble");
+    public static final RegistryObject<SoundEvent> STATUE_BIND = register("statue.bind");
+
     private static RegistryObject<SoundEvent> register(String name) {
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, name);
         return SOUND_EVENTS.register(name, () -> SoundEvent.createVariableRangeEvent(id));

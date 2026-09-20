@@ -3055,7 +3055,7 @@ public class ModEvents {
         if (event.getEntity() instanceof Villager villager) {
             ServerLevel serverLevelVillager = resolveServerLevel(event.getLevel());
             if (serverLevelVillager != null
-                    && isNearStructure(serverLevelVillager, villager.blockPosition(), StructureTags.VILLAGE, LYCANTHROPE_VILLAGE_STRUCTURE_RADIUS)
+                    && isInsideStructurePiece(event.getLevel(), villager.blockPosition(), holder -> holder.is(StructureTags.VILLAGE))
                     && shouldReplaceVillageVillagerWithLycan()) {
                 MinecraftServer serverLycan = serverLevelVillager.getServer();
                 double lx = villager.getX();
@@ -3123,7 +3123,7 @@ public class ModEvents {
                 return;
             }
             BlockPos pos = pillager.blockPosition();
-            if (!isNearStructureKey(serverLevel, pos, BuiltinStructures.PILLAGER_OUTPOST, 96)) {
+            if (!isInsideStructurePiece(event.getLevel(), pos, holder -> holder.is(BuiltinStructures.PILLAGER_OUTPOST))) {
                 return;
             }
             MinecraftServer server = serverLevel.getServer();
@@ -3156,6 +3156,38 @@ public class ModEvents {
             return serverLevel;
         }
         return accessor.getLevel();
+    }
+
+    /**
+     * Structure lookup that is safe to call from a worldgen thread.
+     *
+     * <p>FinalizeSpawn fires from {@code StructureTemplate.placeEntities} while a chunk is still
+     * being generated, on a Worker-Main thread. {@link #isNearStructure} answers its question with
+     * {@code ChunkGenerator.findNearestMapStructure}, which loads chunks; off the server thread that
+     * dispatches to the main thread and joins, while the main thread is itself blocked waiting for
+     * the chunk this worker was generating. Both halt and the watchdog kills the server after a
+     * 120-second tick. Unwrapping the WorldGenRegion into the backing ServerLevel is what routes the
+     * query at the real chunk source instead of the region's already-loaded chunks.
+     *
+     * <p>So ask a question that never leaves the region: is this position inside a piece of a
+     * matching structure? During structure worldgen the mob is being placed by that very structure,
+     * so containment is also the more accurate question than a radius search. Reads only
+     * STRUCTURE_REFERENCES of the entity's own chunk, which is already present in the region.
+     */
+    private static boolean isInsideStructurePiece(ServerLevelAccessor accessor,
+                                                  BlockPos pos,
+                                                  java.util.function.Predicate<net.minecraft.core.Holder<net.minecraft.world.level.levelgen.structure.Structure>> matches) {
+        ServerLevel serverLevel = resolveServerLevel(accessor);
+        if (serverLevel == null) {
+            return false;
+        }
+        net.minecraft.world.level.StructureManager structureManager = serverLevel.structureManager();
+        if (accessor instanceof net.minecraft.server.level.WorldGenRegion region) {
+            structureManager = structureManager.forWorldGenRegion(region);
+        }
+        net.minecraft.world.level.levelgen.structure.StructureStart start =
+                structureManager.getStructureWithPieceAt(pos, matches);
+        return start != null && start.isValid();
     }
 
     private static void trySpawnStudentAtVillage(ServerLevel level, net.minecraft.server.level.ServerPlayer player) {

@@ -46,8 +46,12 @@ public final class MiniHogwartsManager {
 
     /** Blocks placed per server tick. ~1.5M / 15k ≈ 100 ticks (~5s), smooth enough for a one-time drop. */
     private static final int BLOCKS_PER_TICK = 15000;
-    /** Don't auto-spawn another castle within this XZ distance of an existing one. */
-    private static final int AUTO_SPAWN_SPACING = 1500;
+    /**
+     * Don't auto-spawn another castle within this XZ distance of an existing one. Wide on purpose:
+     * the Forbidden Forest now covers far more ground, so a short spacing would hand out a castle
+     * every time you crossed one. At this range finding a second is a journey, not a stroll.
+     */
+    private static final int AUTO_SPAWN_SPACING = 6000;
     /** How far from the triggering player to drop an auto-spawned castle (so it isn't on their head). */
     private static final int AUTO_SPAWN_OFFSET = 90;
     /** Tuck the base this far below the HIGHEST ground under the footprint so it sits on the hill, not buried. */

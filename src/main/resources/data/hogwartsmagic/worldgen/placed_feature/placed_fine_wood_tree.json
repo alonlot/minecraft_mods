@@ -10,7 +10,7 @@
     },
     {
       "type": "minecraft:rarity_filter",
-      "chance": 20
+      "chance": 5
     },
     {
       "type": "minecraft:surface_water_depth_filter",

@@ -17,8 +17,11 @@ import net.minecraft.world.level.biome.Climate;
  *       being chopped into small pieces by terrain-based biomes → one big contiguous forest.</li>
  * </ul>
  *
- * <p>So: temperature/humidity are kept tight (a cool, wet niche) to stay rare, while
- * continentalness/erosion/weirdness are opened up to make each forest that does spawn very large.
+ * <p>So: temperature/humidity stay a recognisable niche (cool and wet) so the forest is still
+ * something you travel to, while continentalness/erosion/weirdness are opened all the way up so the
+ * forest that does spawn claims its whole region instead of being diced up by terrain biomes. The
+ * climate niche is a touch wider than it was, which grows each forest as well as finding a few more
+ * of them — the deliberate trade for a forest you can get lost in.
  * Continentalness starts above the ocean threshold so the forest stays on land.
  *
  * <p>Note: only affects newly generated chunks — existing worlds keep their current layout.
@@ -29,12 +32,12 @@ public final class ForbiddenForestClimateZones {
 
     public static final Climate.ParameterPoint[] POINTS = new Climate.ParameterPoint[] {
             new Climate.ParameterPoint(
-                    Climate.Parameter.span(-0.45F, -0.05F), // temperature: narrow cool niche  -> RARE
-                    Climate.Parameter.span(0.28F, 0.72F),   // humidity: narrow humid/wet niche -> RARE
+                    Climate.Parameter.span(-0.55F, 0.10F),  // temperature: cool niche, widened  -> RARE-ish
+                    Climate.Parameter.span(0.18F, 0.85F),   // humidity: humid/wet niche, widened -> RARE-ish
                     Climate.Parameter.span(-0.11F, 1.00F),  // continentalness: coast -> deep inland -> LARGE (above ocean)
-                    Climate.Parameter.span(-1.00F, 0.55F),  // erosion: nearly all terrain shapes -> LARGE
+                    Climate.Parameter.span(-1.00F, 0.70F),  // erosion: nearly all terrain shapes -> LARGE
                     SURFACE_DEPTH,
-                    Climate.Parameter.span(-0.65F, 0.65F),  // weirdness: ridges + valleys -> LARGE
+                    Climate.Parameter.span(-1.00F, 1.00F),  // weirdness: every ridge and valley -> LARGE
                     0L)
     };
 

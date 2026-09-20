@@ -30,8 +30,9 @@ public class ClientForgeEvents {
                             float near, float far) {}
 
     private static final BiomeFog[] BIOME_FOG = {
-            // Old, close, and unfriendly: you can barely see the next tree.
-            new BiomeFog(ModBiomes.FORBIDDEN_FOREST, 0.07F, 0.09F, 0.08F, 4.0F, 44.0F),
+            // Old and unfriendly, but you can see a little way down the aisles of trunks now --
+            // enough to read the shape of the forest and spot what is moving in it.
+            new BiomeFog(ModBiomes.FORBIDDEN_FOREST, 0.07F, 0.09F, 0.08F, 12.0F, 80.0F),
             // Cold grey murk sitting on the water. Tighter than the forest -- the fen is meant to feel
             // like being lost, and it hides the Dementors until they are already close.
             new BiomeFog(ModBiomes.DEMENTOR_FEN, 0.29F, 0.32F, 0.31F, 1.0F, 30.0F),

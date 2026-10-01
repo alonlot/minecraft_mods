@@ -65,7 +65,13 @@ public enum SpellType {
     REPARO("reparo", 0x8CF3D7, 0.55f, 0.95f, 0.84f, ParticleTypes.ENCHANT, ParticleTypes.WAX_ON, 80, 22, SpellLootRarity.UNCOMMON),
     /** Channeled self-teleport to a known location picked on a minimap. Handled entirely in the cast/channel
      *  pipeline (see ModEvents.startApparitionChannel); it never hits a target, so it has no beam or hit effect. */
-    APPARITION("apparition", 0x9B5BD6, 0.61f, 0.36f, 0.84f, ParticleTypes.PORTAL, ParticleTypes.REVERSE_PORTAL, 1200, 133, SpellLootRarity.EPIC);
+    APPARITION("apparition", 0x9B5BD6, 0.61f, 0.36f, 0.84f, ParticleTypes.PORTAL, ParticleTypes.REVERSE_PORTAL, 1200, 133, SpellLootRarity.EPIC),
+    /** Raises a man-shaped stone build with a Statue Heart for a head into a sentry bound to the caster.
+     *  Everything happens on a block hit (see {@link com.hogwartsmagic.util.StatueMultiblock}), so it has
+     *  no entity hit effect. The trail is plain smoke rather than a stone {@code BlockParticleOption}:
+     *  these constants are built during this enum's class-init, and nothing in here should depend on the
+     *  block registry having been populated first. Real stone comes off the blocks the rite eats. */
+    PIERTOTUM_LOCOMOTOR("piertotum_locomotor", 0x9BA0A4, 0.61f, 0.63f, 0.64f, ParticleTypes.SMOKE, ParticleTypes.CAMPFIRE_COSY_SMOKE, 600, 90, SpellLootRarity.RARE);
 
     private final String id;
     private final int color;
@@ -446,6 +452,10 @@ public enum SpellType {
             case APPARITION -> {
                 // No hit effect: Apparition is a self-cast channeled teleport, resolved in the channel pipeline.
             }
+            case PIERTOTUM_LOCOMOTOR -> {
+                // No hit effect: the charm animates masonry, not creatures. A living target is a miss, and
+                // SpellBeamEntity.onHit fizzles the beam for it rather than routing through here.
+            }
         }
     }
 
@@ -495,6 +505,9 @@ public enum SpellType {
             case ARRESTO_MOMENTUM -> ModSounds.SPELL_ACCIO.get();
             case REPARO -> ModSounds.SPELL_REVELIO.get();
             case APPARITION -> ModSounds.SPELL_ACCIO.get(); // placeholder; the real CRACK is played in the channel logic
+            // The animating charm shares Wingardium's incantation sound; the grinding stone that sells the
+            // effect is played by StatueMultiblock at the statue, not at the wand.
+            case PIERTOTUM_LOCOMOTOR -> ModSounds.SPELL_WINGARDIUM_LEVIOSA.get();
         };
     }
 

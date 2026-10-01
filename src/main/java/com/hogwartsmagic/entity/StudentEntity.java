@@ -173,10 +173,16 @@ public class StudentEntity extends AbstractIllager implements DisarmableWandUser
         this.goalSelector.addGoal(7, new RandomLookAroundGoal(this));
 
         // Students attack monsters and death eaters, NOT players
-        this.targetSelector.addGoal(1, new HurtByTargetGoal(this, StudentEntity.class));
+        // Never retaliate against a living statue either: a bound sentry is on the students' side,
+        // and without this exemption one stray splash from a fight next to it starts a permanent
+        // war between two allies that neither can win -- the statue is knockback-immune with 70 HP
+        // and the students respawn with the structure.
+        this.targetSelector.addGoal(1, new HurtByTargetGoal(this, StudentEntity.class,
+                LivingStatueEntity.class));
         this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, WizardEntity.class, true)); // Attack death eaters
         this.targetSelector.addGoal(3, new NearestAttackableTargetGoal<>(this, Monster.class, 10, true, false,
-                target -> !(target instanceof StudentEntity))); // Attack monsters, but never other students
+                target -> !(target instanceof StudentEntity)
+                        && !(target instanceof LivingStatueEntity))); // monsters only -- not students, not statues
     }
 
     public static AttributeSupplier.Builder createAttributes() {

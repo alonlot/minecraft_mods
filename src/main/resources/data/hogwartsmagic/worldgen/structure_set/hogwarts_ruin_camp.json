@@ -1,0 +1,14 @@
+{
+  "structures": [
+    {
+      "structure": "hogwartsmagic:hogwarts_ruin_camp",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "spacing": 30,
+    "separation": 12,
+    "salt": 741220008
+  }
+}

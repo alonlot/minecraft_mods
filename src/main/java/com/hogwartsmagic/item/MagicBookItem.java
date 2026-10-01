@@ -59,7 +59,8 @@ public class MagicBookItem extends Item {
             "serpensortia",
             "arresto_momentum",
             "reparo",
-            "apparition"
+            "apparition",
+            "piertotum_locomotor"
     );
 
     public MagicBookItem(Properties properties) {

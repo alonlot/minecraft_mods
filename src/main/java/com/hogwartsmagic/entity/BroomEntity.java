@@ -152,6 +152,7 @@ public class BroomEntity extends Entity {
 
     @Override
     public void tick() {
+        this.debugTick(); // TEMPORARY DEBUG
         this.prevDisplayRoll = this.displayRoll;
         float yawBefore = this.getYRot();
 
@@ -203,15 +204,23 @@ public class BroomEntity extends Entity {
             this.setNoGravity(false);
             this.xRotO = this.getXRot();
             this.setXRot(this.getXRot() + (0.0F - this.getXRot()) * 0.2F);
-            this.setDeltaMovement(this.getDeltaMovement().add(0, -0.04, 0));
-            if (this.onGround()) {
-                this.setDeltaMovement(this.getDeltaMovement().multiply(0.8, 0, 0.8));
+            // Server-authoritative once riderless: with nobody driving, a client that keeps
+            // integrating its own gravity just re-diverges from the server between sync packets.
+            if (!this.level().isClientSide) {
+                this.setDeltaMovement(this.getDeltaMovement().add(0, -0.04, 0));
+                if (this.onGround()) {
+                    this.setDeltaMovement(this.getDeltaMovement().multiply(0.8, 0, 0.8));
+                }
             }
         }
 
         super.tick();
 
-        this.move(MoverType.SELF, this.getDeltaMovement());
+        // Only integrate movement on the side that owns it: the client while it is being ridden
+        // (it drives the vehicle), the server otherwise.
+        if (this.isVehicle() || !this.level().isClientSide) {
+            this.move(MoverType.SELF, this.getDeltaMovement());
+        }
 
         if (!this.isVehicle() && this.onGround()) {
             Vec3 landedMotion = this.getDeltaMovement();
@@ -256,12 +265,13 @@ public class BroomEntity extends Entity {
         // Server-side: sync boost state, manage stamina, fire transition effects, weather hazards.
         if (!this.level().isClientSide) {
             // Stamina: drain while actually moving under boost; recover otherwise.
-            // Drain rate 0.555/tick → 100 stamina lasts ~180 ticks (~9s) before forced
-            // cutoff, which is ~1.8x the original 5s duration. Bar UI still maps 0..100,
-            // so the HUD numbers stay intuitive — just each tick costs a bit less than 1.
+            // The tank is sized by the drain rate, not by STAMINA_MAX: the synced value is a byte
+            // the HUD reads as a percentage, so it has to stay 0..100 and a bigger tank means each
+            // tick costs less. 0.347/tick → 100 stamina lasts ~288 ticks (~14.4s) of boost,
+            // 60% longer than the 0.555/tick (~9s) it held before.
             boolean activelyBoosting = this.isBoosting && this.isVehicle() && horizSpeed > 0.5F;
             if (activelyBoosting) {
-                this.staminaF = Math.max(0.0F, this.staminaF - 0.555F);
+                this.staminaF = Math.max(0.0F, this.staminaF - 0.347F);
                 if (this.staminaF <= 0.0F) {
                     this.boostLocked = true;
                     this.isBoosting = false; // force-release boost when empty
@@ -580,12 +590,79 @@ public class BroomEntity extends Entity {
         super.addPassenger(passenger);
     }
 
+    // ---- TEMPORARY DEBUG: tracking down the broom vanishing after a mid-air dismount.
+    // Delete this block (and the two call sites in tick()) once the cause is found.
+    public static final boolean DEBUG_VANISH = true;
+    private static final org.slf4j.Logger DBG = com.mojang.logging.LogUtils.getLogger();
+    private int riderlessTicks = -1;
+
+    private String side() {
+        return this.level().isClientSide ? "CLIENT" : "SERVER";
+    }
+
+    /** The single most useful signal: if the broom disappears because it was removed,
+     *  this prints which side removed it and why. */
+    @Override
+    public void remove(RemovalReason reason) {
+        if (DEBUG_VANISH) {
+            DBG.warn("[BROOM-DBG] REMOVE side={} id={} reason={} pos=({}, {}, {}) riderless={} vehicle={}",
+                    side(), this.getId(), reason,
+                    String.format("%.2f", this.getX()), String.format("%.2f", this.getY()),
+                    String.format("%.2f", this.getZ()), this.riderlessTicks, this.isVehicle());
+        }
+        super.remove(reason);
+    }
+
+    private void debugTick() {
+        if (!DEBUG_VANISH) return;
+        if (this.isVehicle()) {
+            this.riderlessTicks = -1;
+            return;
+        }
+        this.riderlessTicks++;
+        // log the first ~8 seconds after a dismount, every other tick
+        if (this.riderlessTicks > 160 || (this.riderlessTicks % 2) != 0) return;
+        boolean tracked = !this.level().isClientSide
+                || this.level().getEntity(this.getId()) != null;
+        DBG.warn("[BROOM-DBG] TICK side={} id={} t={} pos=({}, {}, {}) vel={} onGround={} invis={} removed={} inClientLevel={}",
+                side(), this.getId(), this.riderlessTicks,
+                String.format("%.2f", this.getX()), String.format("%.2f", this.getY()),
+                String.format("%.2f", this.getZ()),
+                String.format("%.3f", this.getDeltaMovement().y), this.onGround(),
+                this.isInvisible(), this.isRemoved(), tracked);
+    }
+
+    /** Called by BroomRenderer so we can tell "not drawn" apart from "drawn in the wrong place". */
+    public void debugRendered(double camDistSqr) {
+        if (!DEBUG_VANISH || this.isVehicle()) return;
+        if (this.riderlessTicks < 0 || this.riderlessTicks > 160 || (this.riderlessTicks % 10) != 0) return;
+        DBG.warn("[BROOM-DBG] RENDER id={} t={} pos=({}, {}, {}) camDist={}",
+                this.getId(), this.riderlessTicks,
+                String.format("%.2f", this.getX()), String.format("%.2f", this.getY()),
+                String.format("%.2f", this.getZ()), String.format("%.1f", Math.sqrt(camDistSqr)));
+    }
+    // ---- end TEMPORARY DEBUG
+
     @Override
     protected void removePassenger(Entity passenger) {
         super.removePassenger(passenger);
         // Tenebris / smoke flight sets the broom invisible while the rider is hidden; clear immediately
         // on dismount so a falling or dropped broom stays visible on client and server.
         this.setInvisible(false);
+
+        // While a player rides, getControllingPassenger() makes the broom client-authoritative:
+        // the client ignores incoming position packets and drives via ServerboundMoveVehiclePacket.
+        // But the server ALSO integrates its own flight physics, so the two positions drift apart
+        // over a long flight -- measured at 153 blocks. The moment the rider leaves, authority flips
+        // back to the server while the client is still sitting at its stale position, so the broom
+        // appears to vanish until an ordinary sync packet happens to arrive seconds later.
+        // Force the correction through immediately instead of waiting for one.
+        if (this.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+            serverLevel.getChunkSource().broadcast(this,
+                    new net.minecraft.network.protocol.game.ClientboundTeleportEntityPacket(this));
+            serverLevel.getChunkSource().broadcast(this,
+                    new net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket(this));
+        }
     }
 
     @Override

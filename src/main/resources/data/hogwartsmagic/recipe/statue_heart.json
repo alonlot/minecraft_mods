@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "SDS",
+    "DCD",
+    "SDS"
+  ],
+  "key": {
+    "S": {
+      "item": "minecraft:polished_deepslate"
+    },
+    "D": {
+      "item": "hogwartsmagic:arcane_dust"
+    },
+    "C": {
+      "item": "hogwartsmagic:arcane_core"
+    }
+  },
+  "result": {
+    "id": "hogwartsmagic:statue_heart",
+    "count": 1
+  }
+}

@@ -14,14 +14,29 @@ import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.util.Mth;
 
 public class BroomRenderer extends EntityRenderer<BroomEntity> {
-    private static final ResourceLocation TRAINING_TEXTURE = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "textures/entity/broom_training.png");
-    private static final ResourceLocation NIMBUS_TEXTURE = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "textures/entity/broom_nimbus_2000.png");
-    private static final ResourceLocation FIREBOLT_TEXTURE = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "textures/entity/broom_firebolt.png");
-    private final BroomModel model;
+    private static final ResourceLocation TRAINING_TEXTURE = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "textures/entity/broom_shooting_star_v2.png");
+    private static final ResourceLocation NIMBUS_TEXTURE = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "textures/entity/broom_nimbus_2000_v2.png");
+    private static final ResourceLocation FIREBOLT_TEXTURE = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "textures/entity/broom_firebolt_v2.png");
+
+    // Each variant is its own mesh now, so there is a baked model per broom
+    // rather than one mesh with parts toggled on and off.
+    private final BroomModelV2 trainingModel;
+    private final BroomModelV2 nimbusModel;
+    private final BroomModelV2 fireboltModel;
 
     public BroomRenderer(EntityRendererProvider.Context context) {
         super(context);
-        this.model = new BroomModel(context.bakeLayer(BroomModel.LAYER_LOCATION));
+        this.trainingModel = new BroomModelV2(context.bakeLayer(BroomModelV2.TRAINING_LAYER));
+        this.nimbusModel = new BroomModelV2(context.bakeLayer(BroomModelV2.NIMBUS_LAYER));
+        this.fireboltModel = new BroomModelV2(context.bakeLayer(BroomModelV2.FIREBOLT_LAYER));
+    }
+
+    private BroomModelV2 modelFor(BroomEntity entity) {
+        return switch (entity.getBroomType()) {
+            case 1 -> nimbusModel;
+            case 2 -> fireboltModel;
+            default -> trainingModel;
+        };
     }
 
     @Override
@@ -33,6 +48,10 @@ public class BroomRenderer extends EntityRenderer<BroomEntity> {
 
     @Override
     public void render(BroomEntity entity, float entityYaw, float partialTicks, PoseStack poseStack, MultiBufferSource buffer, int packedLight) {
+        if (BroomEntity.DEBUG_VANISH) { // TEMPORARY DEBUG
+            net.minecraft.client.Camera cam = net.minecraft.client.Minecraft.getInstance().gameRenderer.getMainCamera();
+            entity.debugRendered(entity.distanceToSqr(cam.getPosition()));
+        }
         poseStack.pushPose();
         
         // Centering the model on the entity
@@ -76,9 +95,9 @@ public class BroomRenderer extends EntityRenderer<BroomEntity> {
         // Remove the extra arbitrary translation so it maps exactly 1:1 with the hitbox
         
         ResourceLocation texture = this.getTextureLocation(entity);
-        this.model.setVariant(entity.getBroomType());
-        this.model.setupAnim(entity, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F);
-        this.model.renderToBuffer(poseStack, buffer.getBuffer(this.model.renderType(texture)), packedLight, OverlayTexture.NO_OVERLAY, -1);
+        BroomModelV2 model = this.modelFor(entity);
+        model.setupAnim(entity, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F);
+        model.renderToBuffer(poseStack, buffer.getBuffer(model.renderType(texture)), packedLight, OverlayTexture.NO_OVERLAY, -1);
         
         poseStack.popPose();
         super.render(entity, entityYaw, partialTicks, poseStack, buffer, packedLight);

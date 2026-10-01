@@ -219,6 +219,12 @@
         "custom_model_data": 36.0
       },
       "model": "hogwartsmagic:item/magic_book_reparo"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 38.0
+      },
+      "model": "hogwartsmagic:item/magic_book_piertotum_locomotor"
     }
   ]
 }

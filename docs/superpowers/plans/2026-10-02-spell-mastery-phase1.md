@@ -1105,7 +1105,7 @@ git commit -m "Let spells earn mastery from casts that actually did something"
 - Modify: `src/main/java/com/hogwartsmagic/ExampleMod.java:870` (register next to `OllivandersCommand`)
 
 **Interfaces:**
-- Consumes: `SpellMasteryData.getXp/getRank/setXp/reset`, `SpellType.fromId`, `SpellType.values()`, `Config.getMasteryThresholds()`
+- Consumes: `SpellMasteryData.getXp/getRank/setXp/reset`, `SpellType.values()`, `Config.getMasteryThresholds()`
 
 - [ ] **Step 1: Create the command**
 ```java
@@ -1160,6 +1160,16 @@ public class SpellMasteryCommand {
                                 .executes(SpellMasteryCommand::reset))));
     }
 
+    /** SpellType.fromId falls back to Wingardium Leviosa on a typo; a debug command must not. */
+    private static SpellType strictSpell(String id) {
+        for (SpellType spell : SpellType.values()) {
+            if (spell.getId().equals(id)) {
+                return spell;
+            }
+        }
+        return null;
+    }
+
     private static int get(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         ServerPlayer player = EntityArgument.getPlayer(ctx, "player");
         StringBuilder out = new StringBuilder();
@@ -1178,7 +1188,7 @@ public class SpellMasteryCommand {
 
     private static int set(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         ServerPlayer player = EntityArgument.getPlayer(ctx, "player");
-        SpellType spell = SpellType.fromId(StringArgumentType.getString(ctx, "spell"));
+        SpellType spell = strictSpell(StringArgumentType.getString(ctx, "spell"));
         if (spell == null) {
             ctx.getSource().sendFailure(Component.literal("Unknown spell"));
             return 0;
@@ -1191,7 +1201,7 @@ public class SpellMasteryCommand {
 
     private static int setRank(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         ServerPlayer player = EntityArgument.getPlayer(ctx, "player");
-        SpellType spell = SpellType.fromId(StringArgumentType.getString(ctx, "spell"));
+        SpellType spell = strictSpell(StringArgumentType.getString(ctx, "spell"));
         if (spell == null) {
             ctx.getSource().sendFailure(Component.literal("Unknown spell"));
             return 0;
@@ -1210,7 +1220,7 @@ public class SpellMasteryCommand {
     }
 }
 ```
-Check that `SpellType.fromId` returns `null` for an unknown id (`SpellType.java:462`). If it returns a default instead, compare `getId()` against the input before accepting it.
+`SpellType.fromId` (`SpellType.java:462`) returns `WINGARDIUM_LEVIOSA` for an unknown id, which is why the command uses its own `strictSpell` lookup.
 
 - [ ] **Step 2: Register it.** In `ExampleMod.onRegisterCommands`, next to line 870, add:
 ```java

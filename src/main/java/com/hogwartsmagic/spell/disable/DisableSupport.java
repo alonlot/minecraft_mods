@@ -32,11 +32,18 @@ public final class DisableSupport {
     private DisableSupport() {
     }
 
-    /** The caster's mastery rank for this spell; NPCs, projectiles without a player owner and null are rank 1. */
+    /**
+     * The caster's mastery rank for this spell. Players use their own rank; boss NPCs (Voldemort and
+     * friends) cast at Expert (3) so the rank-scaled spells do not weaken them; other NPCs, projectiles
+     * without a player owner and null are rank 1.
+     */
     public static int casterRank(@Nullable Entity caster, SpellType spell) {
         Entity responsible = CombatEffects.responsible(caster);
-        if (responsible instanceof Player player && !player.level().isClientSide()) {
-            return SpellMasteryData.getRank(player, spell);
+        if (responsible instanceof Player player) {
+            return player.level().isClientSide() ? 1 : SpellMasteryData.getRank(player, spell);
+        }
+        if (CombatTags.isBoss(responsible)) {
+            return 3;
         }
         return 1;
     }

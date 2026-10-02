@@ -10,6 +10,11 @@ import java.util.UUID;
  * until {@link #WINDOW_TICKS} have passed since that second one. Attempts that land nothing do not
  * extend the window, so a target can always count on getting out. Without this, Stupefy into
  * Petrificus into Incarcerous locks someone down forever.
+ *
+ * <p>Callers MUST: {@code factor = peek(...)}, {@code ticks = CrowdControlMath.scaledTicks(base, factor, ...)},
+ * then {@code commit(...)} only if {@code ticks > 0}, so a hit that scales to nothing never counts.
+ *
+ * <p>Server-thread only; not synchronized.
  */
 public final class DiminishingReturns {
     public static final long WINDOW_TICKS = 120L;
@@ -21,21 +26,32 @@ public final class DiminishingReturns {
 
     private final Map<UUID, Entry> entries = new HashMap<>();
 
-    /** Records a hard-CC attempt on {@code target} and returns its duration factor: 1.0, 0.5 or 0.0. */
+    /**
+     * Compatibility shorthand: {@link #peek} then {@link #commit}. It records the hit even if the
+     * final duration rounds to 0, so new callers should follow the contract in the class doc instead.
+     */
     public double apply(UUID target, long now) {
+        double factor = peek(target, now);
+        if (factor > 0.0) {
+            commit(target, now);
+        }
+        return factor;
+    }
+
+    /**
+     * Records a hard CC that actually landed (scaled ticks above 0) on {@code target}. Attempts that
+     * are immune, or that scale down to 0 ticks, must not be committed.
+     */
+    public void commit(UUID target, long now) {
         Entry entry = live(target, now);
         if (entry == null) {
             if (entries.size() >= PRUNE_AT_SIZE) {
                 entries.values().removeIf(e -> now >= e.windowEnd());
             }
             entries.put(target, new Entry(1, now + WINDOW_TICKS));
-            return 1.0;
-        }
-        if (entry.landed() == 1) {
+        } else if (entry.landed() == 1) {
             entries.put(target, new Entry(2, now + WINDOW_TICKS));
-            return SECOND_HIT_FACTOR;
         }
-        return 0.0;
     }
 
     /** The factor {@link #apply} would return now, without recording anything. */

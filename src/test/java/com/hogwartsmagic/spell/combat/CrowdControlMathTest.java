@@ -48,4 +48,9 @@ class CrowdControlMathTest {
         assertEquals(2, CrowdControlMath.scaledTicks(3, 0.5, false, false, 0.6));
         assertEquals(1, CrowdControlMath.scaledTicks(1, 1.0, true, false, 0.6));
     }
+
+    @Test
+    void bossAndPvpTogether() {
+        assertEquals(18, CrowdControlMath.scaledTicks(60, 1.0, true, true, 0.6));
+    }
 }

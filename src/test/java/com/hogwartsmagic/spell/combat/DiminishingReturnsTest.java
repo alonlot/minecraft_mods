@@ -79,4 +79,25 @@ class DiminishingReturnsTest {
         dr.apply(A, 120L);
         assertEquals(1, dr.size());
     }
+
+    @Test
+    void uncommittedZeroTickHitLeavesTheChainAtOne() {
+        DiminishingReturns dr = new DiminishingReturns();
+        dr.commit(A, 0L);
+        double factor = dr.peek(A, 10L);
+        assertEquals(0.5, factor, 1e-9);
+        int ticks = CrowdControlMath.scaledTicks(1, factor, false, true, 0.0);
+        assertEquals(0, ticks);
+        // ticks == 0, so the caller does not commit; the target is still at landed == 1.
+        assertEquals(0.5, dr.peek(A, 20L), 1e-9);
+        assertEquals(0.5, dr.apply(A, 20L), 1e-9);
+    }
+
+    @Test
+    void peekAtTheLastTickOfTheWindowStillHalves() {
+        DiminishingReturns dr = new DiminishingReturns();
+        dr.commit(A, 0L);
+        assertEquals(0.5, dr.peek(A, 119L), 1e-9);
+        assertEquals(1.0, dr.peek(A, 120L), 1e-9);
+    }
 }

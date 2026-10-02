@@ -3,6 +3,9 @@ package com.hogwartsmagic.spell.combat;
 /**
  * How long a hard crowd-control effect lasts once diminishing returns, the boss rule and the PvP
  * rule are applied. Minecraft-free so it is unit-tested; {@link CrowdControl} feeds it real entities.
+ *
+ * <p>Call order: {@code factor = DiminishingReturns.peek(...)}, {@code ticks = scaledTicks(base, factor, ...)},
+ * then {@code DiminishingReturns.commit(...)} only if {@code ticks > 0}.
  */
 public final class CrowdControlMath {
     /** Bosses ({@code #hogwartsmagic:bosses}) shrug off half of every hard crowd control. */

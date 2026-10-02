@@ -85,7 +85,8 @@ public final class ProtegoSpell {
             return BeamOutcome.NOT_SHIELDED;
         }
         SpellType spell = beam.getSpellType();
-        if (spell == SpellType.AVADA_KEDAVRA || spell == SpellType.HEAL || spell == SpellType.PROTEGO) {
+        if (spell == SpellType.AVADA_KEDAVRA || spell == SpellType.HEAL || spell == SpellType.PROTEGO
+                || spell == SpellType.LUMOS) {
             return BeamOutcome.NOT_SHIELDED;
         }
         Vec3 look = holder.getLookAngle();

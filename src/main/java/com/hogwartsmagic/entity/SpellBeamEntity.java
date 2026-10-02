@@ -712,7 +712,8 @@ public class SpellBeamEntity extends ThrowableProjectile {
                 if (parry != com.hogwartsmagic.spell.support.ProtegoSpell.BeamOutcome.NOT_SHIELDED) {
                     hitSuccessful = false; // stopped at the shield; a reflected copy is already in flight
                 } else if (!com.hogwartsmagic.spell.support.ProtegoSpell.isRankedShield(living)
-                        && living.hasEffect(com.hogwartsmagic.ExampleMod.PROTEGO_EFFECT.getHolder().get()) && spell != SpellType.AVADA_KEDAVRA && spell != SpellType.HEAL) {
+                        && living.hasEffect(com.hogwartsmagic.ExampleMod.PROTEGO_EFFECT.getHolder().get()) && spell != SpellType.AVADA_KEDAVRA && spell != SpellType.HEAL
+                        && spell != SpellType.LUMOS) {
                     // NPC layer shields and Protego Maxima keep the old rule: the shield eats the beam.
                     net.minecraft.world.effect.MobEffectInstance currentEffect = living.getEffect(com.hogwartsmagic.ExampleMod.PROTEGO_EFFECT.getHolder().get());
                     if (currentEffect != null) {

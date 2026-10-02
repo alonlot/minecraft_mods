@@ -1,6 +1,7 @@
 package com.hogwartsmagic.spell.combat;
 
 import com.hogwartsmagic.ExampleMod;
+import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
@@ -24,9 +25,12 @@ public final class CombatDamage {
         return bleeding(level, null);
     }
 
-    /** As {@link #bleeding(Level)}, with {@code attacker} as the causing entity so a bleed-out kill is credited to them. */
+    /**
+     * As {@link #bleeding(Level)}, with {@code attacker} as the causing entity only (no direct entity) so a bleed-out
+     * kill is credited to them without every tick looking like a melee hit by them.
+     */
     public static DamageSource bleeding(Level level, @Nullable Entity attacker) {
-        return new DamageSource(level.registryAccess().registryOrThrow(Registries.DAMAGE_TYPE).getHolderOrThrow(BLEEDING),
-                attacker);
+        Holder<DamageType> type = level.registryAccess().registryOrThrow(Registries.DAMAGE_TYPE).getHolderOrThrow(BLEEDING);
+        return attacker == null ? new DamageSource(type) : new DamageSource(type, null, attacker);
     }
 }

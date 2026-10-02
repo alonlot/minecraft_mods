@@ -2615,6 +2615,9 @@ public class ModEvents {
      */
     @SubscribeEvent
     public static void onMerpersonSpearHit(LivingHurtEvent event) {
+        if (event.getSource().is(com.hogwartsmagic.spell.combat.CombatDamage.BLEEDING)) {
+            return;
+        }
         if (!(event.getSource().getEntity() instanceof LivingEntity attacker)) {
             return;
         }
@@ -2741,6 +2744,9 @@ public class ModEvents {
     }
 
     private static ServerPlayer resolveCloakAttacker(LivingHurtEvent event) {
+        if (event.getSource().is(com.hogwartsmagic.spell.combat.CombatDamage.BLEEDING)) {
+            return null;
+        }
         if (event.getSource().getEntity() instanceof ServerPlayer player) {
             return player;
         }

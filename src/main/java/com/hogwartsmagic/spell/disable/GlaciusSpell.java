@@ -24,6 +24,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.living.LivingEvent;
+import net.minecraftforge.event.entity.living.MobEffectEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -136,10 +137,8 @@ public final class GlaciusSpell {
         Holder<MobEffect> frozen = DisableSupport.holder(ExampleMod.GLACIUS_FROZEN);
         MobEffectInstance marker = target.getEffect(frozen);
         if (marker == null) {
-            // Only touch ForgeData when a tag could be there, so untouched mobs keep no empty tag.
-            if (target.getPersistentData().contains(FROZEN_BY_TAG)) {
-                target.getPersistentData().remove(FROZEN_BY_TAG);
-            }
+            // Never touch getPersistentData() here: it lazily creates an empty tag on every mob. The
+            // frozen-by tag is cleared when the marker expires or is removed (handlers below).
             return;
         }
         if (!target.isOnFire()) {
@@ -166,6 +165,24 @@ public final class GlaciusSpell {
         target.setTicksFrozen(0);
         level.sendParticles(ParticleTypes.CLOUD, target.getX(), target.getY() + 1.0, target.getZ(), 16, 0.35, 0.3, 0.35, 0.01);
         level.playSound(null, target.getX(), target.getY(), target.getZ(), SoundEvents.FIRE_EXTINGUISH, SoundSource.NEUTRAL, 0.8f, 1.2f);
+    }
+
+    /** The frozen marker ran out: the frozen-by tag has done its job. */
+    @SubscribeEvent
+    public static void onFrozenExpired(MobEffectEvent.Expired event) {
+        MobEffectInstance instance = event.getEffectInstance();
+        if (instance != null && instance.getEffect().value() == ExampleMod.GLACIUS_FROZEN.get()
+                && !event.getEntity().level().isClientSide()) {
+            event.getEntity().getPersistentData().remove(FROZEN_BY_TAG);
+        }
+    }
+
+    /** The frozen marker was removed (thaw, milk, /effect clear): same cleanup. */
+    @SubscribeEvent
+    public static void onFrozenRemoved(MobEffectEvent.Remove event) {
+        if (event.getEffect() == ExampleMod.GLACIUS_FROZEN.get() && !event.getEntity().level().isClientSide()) {
+            event.getEntity().getPersistentData().remove(FROZEN_BY_TAG);
+        }
     }
 
     /** Master: a target that dies while frozen solid shatters into shards that slow everything nearby. */

@@ -287,12 +287,7 @@ public enum SpellType {
                     triggerSteamCombo(target);
                 }
             }
-            case DEPULSO -> {
-                net.minecraft.world.phys.Vec3 away = target.position().vectorTo(
-                        caster != null ? caster.position() : target.position().add(0, 0, -5))
-                        .normalize().scale(-1.5); // Negative scale for push away, strong force
-                target.push(away.x, 0.5, away.z);
-            }
+            case DEPULSO -> com.hogwartsmagic.spell.support.DepulsoSpell.apply(target, caster, masteryEligible);
             case LEVICORPUS -> com.hogwartsmagic.spell.disable.LevicorpusSpell.apply(target, caster);
             case DIFFINDO -> com.hogwartsmagic.spell.damage.DiffindoSpell.apply(target, caster);
             case PETRIFICUS_TOTALUS -> com.hogwartsmagic.spell.disable.PetrificusSpell.apply(target, caster);

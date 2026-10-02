@@ -143,7 +143,7 @@
   "spell.hogwartsmagic.bombarda.desc": "Blasts open walls and tunnels, breaking blocks around the impact (never bedrock, spawners, containers or warded blocks). Weaker against creatures than Confringo. Higher ranks blast wider and break harder stone; at Master it breaks obsidian.",
   "message.hogwartsmagic.bombarda.no_griefing": "The blast leaves the ground alone here (mobGriefing is off).",
   "spell.hogwartsmagic.depulso": "Depulso",
-  "spell.hogwartsmagic.depulso.desc": "Banishes the target backwards with massive force.",
+  "spell.hogwartsmagic.depulso.desc": "Banishes the target backwards; slam it into a wall for extra damage (3, up to 8 at Master). Expert: also blasts back enemies around the impact and turns incoming arrows and fireballs around. Master: a target thrown into another mob hurts both.",
   "spell.hogwartsmagic.levicorpus": "Levicorpus",
   "spell.hogwartsmagic.levicorpus.desc": "Dangles the target in the air by their ankles: no items, no shield. At Master, cast it again to drop them hard.",
   "spell.hogwartsmagic.diffindo": "Diffindo",

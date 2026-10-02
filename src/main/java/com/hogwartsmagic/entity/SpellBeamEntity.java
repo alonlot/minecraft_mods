@@ -202,6 +202,9 @@ public class SpellBeamEntity extends ThrowableProjectile {
                 this.discard();
                 return;
             }
+            if (getSpellType() == SpellType.DEPULSO) {
+                com.hogwartsmagic.spell.support.DepulsoSpell.deflectProjectiles(this);
+            }
             if (getSpellType() == SpellType.AQUA_ERUCTO && hasExceededAquaRange()) {
                 this.discard();
                 return;
@@ -699,6 +702,12 @@ public class SpellBeamEntity extends ThrowableProjectile {
                     if (this.level() instanceof ServerLevel lumosLevel) {
                         hitSuccessful = com.hogwartsmagic.spell.support.LumosSpell.placeOrb(
                                 lumosLevel, pos.relative(blockHit.getDirection()), getOwner());
+                    }
+                } else if (spell == SpellType.DEPULSO) {
+                    // Expert and up: the banishing blast still throws back enemies around the impact.
+                    if (this.level() instanceof ServerLevel depulsoLevel) {
+                        hitSuccessful = com.hogwartsmagic.spell.support.DepulsoSpell.onBlockHit(
+                                depulsoLevel, this.position(), getOwner(), this.reflected);
                     }
                 } else if (spell == SpellType.REPARO) {
                     if (this.level() instanceof ServerLevel sl) {

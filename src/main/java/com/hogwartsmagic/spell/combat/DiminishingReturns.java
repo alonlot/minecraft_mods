@@ -30,7 +30,9 @@ public final class DiminishingReturns {
      * Compatibility shorthand: {@link #peek} then {@link #commit}. It records the hit even if the
      * final duration rounds to 0, so new callers should follow the contract in the class doc instead.
      */
-    public double apply(UUID target, long now) {
+    // Package-private on purpose: production code goes through peek/commit (see CrowdControl); only
+    // the tests in this package use this shorthand.
+    double apply(UUID target, long now) {
         double factor = peek(target, now);
         if (factor > 0.0) {
             commit(target, now);

@@ -14,7 +14,7 @@
 - Phase 2: `CombatEffects.responsible(@Nullable Entity)`, `CombatEffects.isCastingBlocked(LivingEntity)`, `CombatEffects.notifyCastBlocked(Player)`, `CombatTags.isBoss(@Nullable Entity)` → `boolean`.
 - Phase 3: `DisableSupport.casterRank(@Nullable Entity caster, SpellType spell)` → `int`, `DisableSupport.isEnemyOf(@Nullable Entity caster, LivingEntity candidate, LivingEntity mainTarget)` → `boolean`.
 - Phase 4: `DamageSupport.scaled(@Nullable Entity caster, float base)` → `float`, `DamageSupport.isSplashTarget(@Nullable Entity caster, LivingEntity candidate, @Nullable LivingEntity primary)` → `boolean`.
-- Phase 5a: `SupportMana.trySpend(ServerPlayer, float)` → `boolean`; package-private `RankIndex.of(int)` in `spell.support`; the private helper `ModEvents.isLeftClickSelfCast(SpellType)`; `HEAL` in `MasteryAwards.SELF_OR_CHANNEL`.
+- Phase 5a: `SupportMana.trySpend(ServerPlayer, float)` → `boolean`; package-private `RankIndex.of(int)` in `spell.support`; the public helper `ModEvents.isLeftClickSelfCast(SpellType)` (also the server-side self-cast whitelist in `CastSpellPacket.handle`; anything added to it becomes self-castable, so add only spells meant to be cast on yourself — Ascendio's self-launch uses the normal cast path and must NOT be added unless left-click Ascendio is intended); `HEAL` in `MasteryAwards.SELF_OR_CHANNEL`.
 - Phase 1: `SpellMasteryData.getRank(Player, SpellType)`, `SpellCosts.manaCost/masteryMultiplier/startCooldown`, `MasteryAwards.onBlockEffect(ServerPlayer, SpellType)`.
 
 Before Task 1, confirm they are in:
@@ -22,7 +22,7 @@ Before Task 1, confirm they are in:
 grep -n "public static int casterRank" src/main/java/com/hogwartsmagic/spell/disable/DisableSupport.java
 grep -n "public static boolean isSplashTarget" src/main/java/com/hogwartsmagic/spell/damage/DamageSupport.java
 grep -n "public static boolean trySpend" src/main/java/com/hogwartsmagic/spell/support/SupportMana.java
-grep -n "private static boolean isLeftClickSelfCast" src/main/java/com/hogwartsmagic/event/ModEvents.java
+grep -n "public static boolean isLeftClickSelfCast" src/main/java/com/hogwartsmagic/event/ModEvents.java
 ```
 Each must print one line. If any doesn't, stop: the phase it belongs to isn't merged.
 
@@ -917,6 +917,11 @@ public final class AccioSpell {
     }
 
     public static void onLivingHit(LivingEntity target, @Nullable Entity caster) {
+        onLivingHit(target, caster, true);
+    }
+
+    /** @param masteryEligible false for a Protego-reflected beam: the reflector never snatches the original caster's item */
+    public static void onLivingHit(LivingEntity target, @Nullable Entity caster, boolean masteryEligible) {
         if (target.level().isClientSide()) {
             return;
         }
@@ -928,7 +933,7 @@ public final class AccioSpell {
             }
             return;
         }
-        if (AccioRules.pullsPlayerItem(rank) && target instanceof ServerPlayer victim
+        if (masteryEligible && AccioRules.pullsPlayerItem(rank) && target instanceof ServerPlayer victim
                 && owner instanceof ServerPlayer thief && victim != thief && isPvp(thief, victim)) {
             pullMainHand(victim, thief);
         }
@@ -1012,7 +1017,11 @@ public final class AccioSpell {
             return false;
         }
         BlockHitResult hit = new BlockHitResult(Vec3.atCenterOf(pos), face, pos, false);
-        return !MinecraftForge.EVENT_BUS.post(new PlayerInteractEvent.RightClickBlock(player, InteractionHand.MAIN_HAND, pos, hit));
+        // Same claim pattern as AlohomoraSpell.mayUse: refuse a cancelled event or an explicit useBlock DENY.
+        PlayerInteractEvent.RightClickBlock event =
+                new PlayerInteractEvent.RightClickBlock(player, InteractionHand.MAIN_HAND, pos, hit);
+        return !MinecraftForge.EVENT_BUS.post(event)
+                && event.getUseBlock() != net.minecraftforge.eventbus.api.Event.Result.DENY;
     }
 
     private static void pullMainHand(ServerPlayer victim, ServerPlayer thief) {
@@ -1096,7 +1105,7 @@ public final class AccioSpell {
 ```
 with:
 ```java
-            case ACCIO -> com.hogwartsmagic.spell.support.AccioSpell.onLivingHit(target, caster);
+            case ACCIO -> com.hogwartsmagic.spell.support.AccioSpell.onLivingHit(target, caster, masteryEligible);
 ```
 
 - [ ] **Step 3: The block branch.** In `SpellBeamEntity.onHit`, directly above:

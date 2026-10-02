@@ -1,0 +1,12 @@
+{
+  "replace": false,
+  "values": [
+    "#minecraft:wither_immune",
+    "hogwartsmagic:mandrake_plant",
+    "hogwartsmagic:chamber_door",
+    "hogwartsmagic:gringotts_gate",
+    "hogwartsmagic:gringotts_lift",
+    "hogwartsmagic:diagon_archway_brick",
+    "hogwartsmagic:gemino_pile"
+  ]
+}

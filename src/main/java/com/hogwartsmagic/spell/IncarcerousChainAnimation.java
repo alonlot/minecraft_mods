@@ -71,6 +71,17 @@ public final class IncarcerousChainAnimation {
         }
     }
 
+    /** Master Incarcerous: a light chain from one bound target to another, re-drawn while both stay bound. */
+    public static void renderLink(ServerLevel level, LivingEntity a, LivingEntity b) {
+        if (!a.isAlive() || !b.isAlive()) {
+            return;
+        }
+        Vec3 from = a.position().add(0.0, a.getBbHeight() * 0.5, 0.0);
+        Vec3 to = b.position().add(0.0, b.getBbHeight() * 0.5, 0.0);
+        int segments = Mth.clamp((int) (from.distanceTo(to) * 10), 8, 30);
+        chainBetween(level, from, to, segments, 0.12, true);
+    }
+
     private static int sustainedDensity(Vec3 a, Vec3 b) {
         return Mth.clamp((int) (a.distanceTo(b) * 10), 10, 20);
     }

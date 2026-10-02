@@ -309,25 +309,7 @@ public enum SpellType {
                 // Let's use Wither for now as a "curse"
                 target.addEffect(new MobEffectInstance(MobEffects.WITHER, 200, 0));
             }
-            case INCARCEROUS -> {
-                final int mainBindTicks = 100;
-                final int nearbyBindTicks = 70;
-                var chains = ExampleMod.INCARCEROUS_CHAINS.getHolder().get();
-                target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, mainBindTicks, 10)); // Trap
-                target.addEffect(new MobEffectInstance(chains, mainBindTicks, 0, false, false, false));
-                if (target.level() instanceof ServerLevel server) {
-                    net.minecraft.world.phys.AABB area = target.getBoundingBox().inflate(2.6);
-                    java.util.List<LivingEntity> trapped = server.getEntitiesOfClass(LivingEntity.class, area, e -> e != target);
-                    for (LivingEntity nearby : trapped) {
-                        nearby.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, nearbyBindTicks, 4));
-                        nearby.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, nearbyBindTicks, 1));
-                        nearby.addEffect(new MobEffectInstance(chains, nearbyBindTicks, 0, false, false, false));
-                        IncarcerousChainAnimation.schedule(server, nearby);
-                    }
-
-                    IncarcerousChainAnimation.schedule(server, target);
-                }
-            }
+            case INCARCEROUS -> com.hogwartsmagic.spell.disable.IncarcerousTether.apply(target, caster);
             case TENEBRIS_FLIGHT -> {
                 // effect lasts only 2 seconds (40 ticks)
                 if (caster instanceof LivingEntity livingCaster) {

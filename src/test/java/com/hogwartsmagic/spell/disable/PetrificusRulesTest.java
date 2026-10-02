@@ -16,8 +16,10 @@ class PetrificusRulesTest {
     }
 
     @Test
-    void noviceBreaksOnAnyDamage() {
-        assertTrue(PetrificusRules.breaks(1, 0.1f));
+    void noviceBreaksOnRealDamageButNotTheBeamChip() {
+        assertFalse(PetrificusRules.breaks(1, 0.1f));
+        assertTrue(PetrificusRules.breaks(1, 0.5f));
+        assertTrue(PetrificusRules.breaks(1, 1.0f));
         assertFalse(PetrificusRules.breaks(1, 0.0f));
         assertFalse(PetrificusRules.breaks(1, Float.NaN));
     }

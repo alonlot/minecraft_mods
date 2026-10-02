@@ -89,6 +89,7 @@ public final class IncarcerousTether {
         tag.putDouble("X", target.getX());
         tag.putDouble("Y", pull ? groundY(level, target) : target.getY());
         tag.putDouble("Z", target.getZ());
+        tag.putString("Dim", level.dimension().location().toString());
         tag.putDouble("Leash", leash);
         tag.putBoolean("Pull", pull);
         if (group != null) {
@@ -129,6 +130,12 @@ public final class IncarcerousTether {
             return;
         }
         CompoundTag tag = data.getCompound(TAG);
+        if (!level.dimension().location().toString().equals(tag.getString("Dim"))) {
+            // The anchor belongs to another dimension; the leash would be meaningless here.
+            data.remove(TAG);
+            target.removeEffect(chains);
+            return;
+        }
         double ax = tag.getDouble("X");
         double ay = tag.getDouble("Y");
         double az = tag.getDouble("Z");
@@ -151,16 +158,29 @@ public final class IncarcerousTether {
         }
         Vec3 v = target.getDeltaMovement();
         boolean changed = false;
+        boolean isPlayer = target instanceof ServerPlayer;
         double dx = target.getX() - ax;
         double dz = target.getZ() - az;
         if (TetherMath.shouldSnap(dx, 0.0, dz, leash)) {
             double[] p = TetherMath.snapPoint(ax, target.getY(), az, dx, 0.0, dz, leash);
-            DisableSupport.snapTo(target, p[0], p[1], p[2]);
-            v = new Vec3(0.0, v.y, 0.0);
-            changed = true;
+            if (safeSnap(level, target, p[0], p[1], p[2])) {
+                v = new Vec3(0.0, v.y, 0.0);
+                changed = true;
+            } else if (!isPlayer) {
+                double[] c = TetherMath.correctedVelocity(dx, 0.0, dz, leash, v.x, v.y, v.z);
+                v = new Vec3(c[0], c[1], c[2]);
+                changed = true;
+            } else {
+                double[] c = TetherMath.correctedVelocity(dx, 0.0, dz, leash, 0.0, 0.0, 0.0);
+                v = new Vec3(c[0], v.y, c[2]);
+                changed = true;
+            }
         } else if (TetherMath.isOutside(dx, 0.0, dz, leash)) {
-            double[] c = TetherMath.correctedVelocity(dx, 0.0, dz, leash, v.x, v.y, v.z);
-            v = new Vec3(c[0], c[1], c[2]);
+            // A player's own motion is client-authoritative, so its server-side velocity is stale:
+            // derive the inward push from the position offset alone. Mobs keep their real velocity.
+            double[] c = TetherMath.correctedVelocity(dx, 0.0, dz, leash,
+                    isPlayer ? 0.0 : v.x, isPlayer ? 0.0 : v.y, isPlayer ? 0.0 : v.z);
+            v = new Vec3(c[0], isPlayer ? v.y : c[1], c[2]);
             changed = true;
         }
 
@@ -171,10 +191,12 @@ public final class IncarcerousTether {
             double above = target.getY() - ay;
             double slack = IncarcerousRules.PULL_DOWN_VERTICAL_SLACK;
             if (above > slack + TetherMath.SNAP_SLACK) {
-                DisableSupport.snapTo(target, target.getX(), ay + slack, target.getZ());
-                v = new Vec3(v.x, 0.0, v.z);
-                changed = true;
-            } else if (above > slack && v.y > -IncarcerousRules.PULL_DOWN_SPEED) {
+                if (safeSnap(level, target, target.getX(), ay + slack, target.getZ())) {
+                    v = new Vec3(v.x, 0.0, v.z);
+                    changed = true;
+                }
+            } else if (above > slack && v.y > -IncarcerousRules.PULL_DOWN_SPEED
+                    && !(isPlayer && (target.onGround() || v.y <= 0.0))) {
                 v = new Vec3(v.x, -IncarcerousRules.PULL_DOWN_SPEED, v.z);
                 changed = true;
             }
@@ -182,10 +204,24 @@ public final class IncarcerousTether {
 
         if (changed) {
             target.setDeltaMovement(v);
-            if (target instanceof ServerPlayer) {
+            if (isPlayer) {
                 target.hurtMarked = true;
             }
         }
+    }
+
+    /**
+     * Teleport onto the tether only to a collision-free spot: the destination, else 1 or 2 blocks higher.
+     * Returns false (and does nothing) when all three are blocked, so the caller falls back to velocity.
+     */
+    private static boolean safeSnap(ServerLevel level, LivingEntity target, double x, double y, double z) {
+        for (int up = 0; up <= 2; up++) {
+            if (level.noCollision(target, target.getBoundingBox().move(x - target.getX(), y + up - target.getY(), z - target.getZ()))) {
+                DisableSupport.snapTo(target, x, y + up, z);
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Master: knockback on one member of a bound group is passed to the others (they're chained together). */

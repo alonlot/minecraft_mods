@@ -15,7 +15,10 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.projectile.AbstractArrow;
+import net.minecraft.world.entity.projectile.AbstractHurtingProjectile;
 import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.entity.projectile.ThrownTrident;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -34,7 +37,7 @@ import java.util.UUID;
 /**
  * Depulso, the banishing charm. Its knockback slams targets into walls: a banished target that meets
  * a solid block within 10 ticks takes slam damage once. Expert: enemies within 2 blocks of the impact
- * are banished too (also on a block hit), and projectiles and enemy beams near the beam's path fly back,
+ * are banished too (also on a block hit), and arrows and fireballs near the beam's path fly back,
  * owned by the caster. Master: a target banished into another mob hurts both. Only a player caster gets
  * any of this; an NPC caster keeps the original plain push. A Protego-reflected beam acts as Novice and
  * earns nothing. Server only.
@@ -105,9 +108,9 @@ public final class DepulsoSpell {
     }
 
     /**
-     * Called every server tick of a Depulso beam. Expert and up: incoming projectiles and enemy beams turn
-     * around, now owned by the caster. A redirected beam is marked reflected so the redirector earns no XP
-     * from it. Never touches the caster's own projectiles or beams, and queries only a small box.
+     * Called every server tick of a Depulso beam. Expert and up: incoming arrows and fireballs turn around,
+     * now owned by the caster. Spell beams are never touched (Protego owns beam reflection), nor are
+     * tridents, ender pearls, hooks or thrown items. Queries only a small box.
      */
     public static int deflectProjectiles(SpellBeamEntity beam) {
         if (beam.isReflected() || !(beam.level() instanceof ServerLevel level)
@@ -120,16 +123,17 @@ public final class DepulsoSpell {
         int deflected = 0;
         for (Projectile projectile : level.getEntitiesOfClass(Projectile.class,
                 beam.getBoundingBox().inflate(DepulsoRules.DEFLECT_RADIUS),
-                p -> p != beam && p.isAlive() && p.getOwner() != owner
+                p -> p != beam && p.isAlive() && isCombatProjectile(p) && p.getOwner() != owner
                         && !(p.getOwner() != null && p.getOwner().isAlliedTo(owner))
-                        && !(p instanceof SpellBeamEntity other && other.isReflected())
                         && !p.getTags().contains(DEFLECTED_TAG) && p.getDeltaMovement().lengthSqr() > 0.01)) {
             projectile.setDeltaMovement(projectile.getDeltaMovement().scale(-1.0));
+            // setOwner flips a disallowed pickup to allowed for a player owner: keep it, no free items.
+            AbstractArrow.Pickup pickup = projectile instanceof AbstractArrow arrow ? arrow.pickup : null;
             projectile.setOwner(owner);
-            projectile.addTag(DEFLECTED_TAG);
-            if (projectile instanceof SpellBeamEntity redirected) {
-                redirected.markReflected();
+            if (pickup != null) {
+                ((AbstractArrow) projectile).pickup = pickup;
             }
+            projectile.addTag(DEFLECTED_TAG);
             projectile.hasImpulse = true;
             projectile.hurtMarked = true;
             level.sendParticles(ParticleTypes.CLOUD, projectile.getX(), projectile.getY(), projectile.getZ(), 4, 0.1, 0.1, 0.1, 0.02);
@@ -139,6 +143,10 @@ public final class DepulsoSpell {
             level.playSound(null, beam.getX(), beam.getY(), beam.getZ(), SoundEvents.SHIELD_BLOCK, SoundSource.PLAYERS, 0.8f, 1.6f);
         }
         return deflected;
+    }
+
+    private static boolean isCombatProjectile(Projectile p) {
+        return (p instanceof AbstractArrow && !(p instanceof ThrownTrident)) || p instanceof AbstractHurtingProjectile;
     }
 
     private static void banish(ServerLevel level, LivingEntity target, Vec3 from, int rank, ServerPlayer owner) {
@@ -159,10 +167,14 @@ public final class DepulsoSpell {
             return;
         }
         long now = level.getGameTime();
+        List<UUID> spent = new java.util.ArrayList<>(); // removed after the loop: no CME
         Iterator<Map.Entry<UUID, Slam>> it = SLAMS.entrySet().iterator();
         while (it.hasNext()) {
             Map.Entry<UUID, Slam> entry = it.next();
             Slam slam = entry.getValue();
+            if (spent.contains(entry.getKey())) {
+                continue; // already struck this tick as the other half of a pair
+            }
             if (slam.dimension() != level.dimension()) {
                 continue;
             }
@@ -174,6 +186,10 @@ public final class DepulsoSpell {
                 continue; // the tick of the banishing itself: collision flags are stale
             }
             Entity caster = slam.casterId() == null ? null : level.getEntity(slam.casterId());
+            if (caster == null || !caster.isAlive()) {
+                it.remove(); // caster gone: no slam rather than one with a weakened ally check
+                continue;
+            }
             float damage = DamageSupport.scaled(caster, DepulsoRules.slamDamage(slam.rank()));
             // A group banished together overlaps at first; contact with another mob only counts once apart.
             if (DepulsoRules.slamsIntoMobs(slam.rank()) && now > slam.start() + 2) {
@@ -182,19 +198,21 @@ public final class DepulsoSpell {
                         e -> e != target && e != caster && DisableSupport.isEnemyOf(caster, e, target));
                 if (!struck.isEmpty()) {
                     LivingEntity other = struck.get(0);
-                    other.hurt(other.damageSources().flyIntoWall(), damage);
+                    other.hurt(DamageSupport.magicFrom(other, caster), damage);
                     slamFeedback(level, target);
-                    target.hurt(target.damageSources().flyIntoWall(), damage);
+                    target.hurt(DamageSupport.magicFrom(target, caster), damage);
+                    spent.add(other.getUUID());
                     it.remove();
                     continue;
                 }
             }
             if (target.horizontalCollision || blockedAhead(level, target, slam)) {
-                target.hurt(target.damageSources().flyIntoWall(), damage);
+                target.hurt(DamageSupport.magicFrom(target, caster), damage);
                 slamFeedback(level, target);
                 it.remove();
             }
         }
+        spent.forEach(SLAMS::remove);
     }
 
     private static boolean blockedAhead(ServerLevel level, LivingEntity target, Slam slam) {

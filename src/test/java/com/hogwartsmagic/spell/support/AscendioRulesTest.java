@@ -41,6 +41,7 @@ class AscendioRulesTest {
         assertTrue(AscendioRules.wantsSelfCast(60f, false));
         assertTrue(AscendioRules.wantsSelfCast(10f, true));
         assertFalse(AscendioRules.wantsSelfCast(10f, false));
+        assertFalse(AscendioRules.wantsSelfCast(59.9f, false));
     }
 
     @Test

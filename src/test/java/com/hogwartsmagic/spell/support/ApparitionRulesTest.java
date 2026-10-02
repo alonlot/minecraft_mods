@@ -28,6 +28,8 @@ class ApparitionRulesTest {
         assertEquals(0.0, ApparitionRules.splinchChance(1, 0.10, false), 1e-9);
         assertEquals(1.0, ApparitionRules.splinchChance(1, 1.5, true), 1e-9);
         assertEquals(0.0, ApparitionRules.splinchChance(1, -1.0, true), 1e-9);
+        assertEquals(0.0, ApparitionRules.splinchChance(1, Double.NaN, true), 1e-9);
+        assertEquals(0.0, ApparitionRules.splinchChance(4, Double.NaN, true), 1e-9);
     }
 
     @Test

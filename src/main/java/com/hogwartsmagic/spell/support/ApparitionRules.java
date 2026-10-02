@@ -23,7 +23,7 @@ public final class ApparitionRules {
 
     /** The Novice chance comes from config; Adept halves it, Expert takes a fifth, Master never splinches. */
     public static double splinchChance(int rank, double baseChance, boolean enabled) {
-        if (!enabled) {
+        if (!enabled || Double.isNaN(baseChance)) {
             return 0.0;
         }
         double base = Math.max(0.0, Math.min(1.0, baseChance));

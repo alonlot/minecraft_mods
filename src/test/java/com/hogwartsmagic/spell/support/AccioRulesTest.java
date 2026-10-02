@@ -14,6 +14,8 @@ class AccioRulesTest {
         assertTrue(AccioRules.canReel(2, 40f, false));
         assertTrue(AccioRules.canReel(3, 80f, false));
         assertFalse(AccioRules.canReel(3, 100f, false));
+        assertFalse(AccioRules.canReel(2, 40.5f, false));
+        assertFalse(AccioRules.canReel(3, 80.5f, false));
         assertTrue(AccioRules.canReel(4, 500f, false));
         assertFalse(AccioRules.canReel(4, 20f, true));
     }

@@ -369,6 +369,14 @@ public class SpellPackets {
                 .decoder(buf -> new UseTomePacket(buf.readBoolean(), buf.readUtf(64)))
                 .consumerMainThread(UseTomePacket::handle)
                 .add();
+        CHANNEL.messageBuilder(RevealDisguisePacket.class)
+                .encoder((p, buf) -> {
+                    buf.writeUUID(p.playerId);
+                    buf.writeVarInt(p.ticks);
+                })
+                .decoder(buf -> new RevealDisguisePacket(buf.readUUID(), buf.readVarInt()))
+                .consumerMainThread(RevealDisguisePacket::handle)
+                .add();
     }
 
     public static void syncRelics(ServerPlayer player) {
@@ -1367,6 +1375,18 @@ public class SpellPackets {
             if (player != null) {
                 com.hogwartsmagic.event.ModEvents.cancelApparitionChannel(player, player.getMainHandItem());
             }
+        }
+    }
+
+    /** Server to client: Revelio at Master shows {@code playerId} undisguised for {@code ticks}. */
+    public record RevealDisguisePacket(UUID playerId, int ticks) {
+        public static void handle(RevealDisguisePacket p, CustomPayloadEvent.Context ctx) {
+            if (ctx.getSender() != null) {
+                // Server-to-client only: ignore anything a client sends.
+                ctx.setPacketHandled(true);
+                return;
+            }
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("revealDisguise", p));
         }
     }
 

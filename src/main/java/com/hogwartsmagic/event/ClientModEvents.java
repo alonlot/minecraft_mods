@@ -570,7 +570,9 @@ public class ClientModEvents {
                 event.setCanceled(true);
                 return;
             }
-            if (!PolyjuiceClientState.hasDisguise(event.getEntity().getUUID())) {
+            if (!PolyjuiceClientState.hasDisguise(event.getEntity().getUUID())
+                    || PolyjuiceClientState.isRevealed(event.getEntity().getUUID(), event.getEntity().level().getGameTime())) {
+                // No disguise, or Revelio (Master) is showing the real player: vanilla draws them, true name and all.
                 return;
             }
             // Cancel vanilla player render first — avoids one-frame flicker if surrogate setup lags.

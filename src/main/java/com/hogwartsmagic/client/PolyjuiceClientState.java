@@ -57,6 +57,25 @@ public final class PolyjuiceClientState {
         return tag != null && !tag.isEmpty();
     }
 
+    /** Client game time until which Revelio (Master) shows this player undisguised. */
+    private static final Map<UUID, Long> REVEALED_UNTIL = new ConcurrentHashMap<>();
+
+    public static void reveal(UUID playerId, long untilGameTime) {
+        REVEALED_UNTIL.merge(playerId, untilGameTime, Math::max);
+    }
+
+    public static boolean isRevealed(UUID playerId, long gameTime) {
+        Long until = REVEALED_UNTIL.get(playerId);
+        if (until == null) {
+            return false;
+        }
+        if (gameTime >= until) {
+            REVEALED_UNTIL.remove(playerId);
+            return false;
+        }
+        return true;
+    }
+
     public static Entity getOrCreateSurrogate(Player realPlayer, float partialTick) {
         CompoundTag disguise = ACTIVE_DISGUISES.get(realPlayer.getUUID());
         if (disguise == null || disguise.isEmpty()) {

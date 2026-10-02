@@ -56,7 +56,7 @@
   "spell.hogwartsmagic.stupefy": "Stupefy",
   "spell.hogwartsmagic.stupefy.desc": "A short, true stun that breaks any spell the target is casting. At Master it jumps to a second enemy.",
   "spell.hogwartsmagic.revelio": "Revelio",
-  "spell.hogwartsmagic.revelio.desc": "Reveals invisible mobs, highlights nearby ores through walls, and briefly breaks Cave Inimicum wards.",
+  "spell.hogwartsmagic.revelio.desc": "Reveals invisible mobs, highlights nearby ores and chests through walls (farther with each rank), and briefly breaks Cave Inimicum wards. At Master it unmasks every Polyjuice disguise and Invisibility Cloak within 20 blocks for 5 seconds.",
   "spell.hogwartsmagic.avada_kedavra": "Avada Kedavra",
   "spell.hogwartsmagic.avada_kedavra.desc": "The Killing Curse: Instantly kills the target. Costs some health to cast.",
   "spell.hogwartsmagic.crucio": "Crucio",

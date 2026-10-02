@@ -44,6 +44,7 @@ public final class ClientRuntimeBridge {
             case "openApparitionMap" -> openApparitionMap((SpellPackets.OpenApparitionMapPacket) payload);
             case "closeApparitionMap" -> closeApparitionMap();
             case "openTomePicker" -> openTomePicker((SpellPackets.OpenTomePickerPacket) payload);
+            case "revealDisguise" -> revealDisguise((SpellPackets.RevealDisguisePacket) payload);
             default -> throw new IllegalArgumentException("Unknown client packet action: " + action);
         }
     }
@@ -201,6 +202,13 @@ public final class ClientRuntimeBridge {
     private static void openApparitionMap(SpellPackets.OpenApparitionMapPacket packet) {
         net.minecraft.client.Minecraft.getInstance().setScreen(
                 new ApparitionMapScreen(packet.origin(), packet.radius(), packet.durationTicks()));
+    }
+
+    private static void revealDisguise(SpellPackets.RevealDisguisePacket packet) {
+        net.minecraft.client.multiplayer.ClientLevel level = net.minecraft.client.Minecraft.getInstance().level;
+        if (level != null) {
+            PolyjuiceClientState.reveal(packet.playerId(), level.getGameTime() + Math.max(0, packet.ticks()));
+        }
     }
 
     private static void openTomePicker(SpellPackets.OpenTomePickerPacket packet) {

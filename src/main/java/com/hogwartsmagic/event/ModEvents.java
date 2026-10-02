@@ -878,6 +878,11 @@ public class ModEvents {
     }
 
     public static void revealInvisibilityCloak(ServerPlayer player) {
+        revealInvisibilityCloak(player, Config.getInvisibilityCloakRevealTicks());
+    }
+
+    /** Reveals a cloaked player for {@code ticks} (Revelio at Master uses its own, longer window). */
+    public static void revealInvisibilityCloak(ServerPlayer player, int ticks) {
         net.minecraft.nbt.CompoundTag persisted = player.getPersistentData().getCompound(PlayerMagicData.PLAYER_PERSISTED);
         net.minecraft.nbt.CompoundTag modData = persisted.getCompound(ExampleMod.MODID);
         long gameTime = player.level().getGameTime();
@@ -885,7 +890,7 @@ public class ModEvents {
             return;
         }
 
-        long revealUntil = gameTime + Config.getInvisibilityCloakRevealTicks();
+        long revealUntil = gameTime + Math.max(1, ticks);
         if (revealUntil > modData.getLong(InvisibilityCloakItem.TAG_CLOAK_REVEAL_UNTIL)) {
             modData.putLong(InvisibilityCloakItem.TAG_CLOAK_REVEAL_UNTIL, revealUntil);
             persisted.put(ExampleMod.MODID, modData);

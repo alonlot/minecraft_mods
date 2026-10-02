@@ -49,8 +49,6 @@ import java.util.UUID;
  */
 public class SpellBeamEntity extends ThrowableProjectile {
     private static final int CAVE_INIMICUM_REVELIO_BREAK_TICKS = 20 * 10;
-    private static final int REVELIO_ORE_RADIUS = 12;
-    private static final int REVELIO_CHEST_RADIUS = 8;
     private static final int REVELIO_LIGHT_TICKS = 20 * 8;
     private static final double MORSMORDRE_MIN_SKY_HEIGHT = 20.0D;
     private static final double MORSMORDRE_MARK_MIN_HEIGHT_ABOVE_GROUND = -3.0D;
@@ -635,7 +633,9 @@ public class SpellBeamEntity extends ThrowableProjectile {
                         hitSuccessful = true;
                     }
                     if (this.level() instanceof ServerLevel sl) {
-                        revealNearbySecrets(sl, pos);
+                        revealNearbySecrets(sl, pos,
+                                com.hogwartsmagic.spell.disable.DisableSupport.casterRank(getOwner(), SpellType.REVELIO));
+                        com.hogwartsmagic.spell.support.RevelioSpell.revealHidden(sl, this.position(), getOwner());
                     }
                     hitSuccessful = true;
                 } else if (spell == SpellType.AQUA_ERUCTO) {
@@ -780,6 +780,9 @@ public class SpellBeamEntity extends ThrowableProjectile {
                             }
                             if (spell == SpellType.REVELIO) {
                                 com.hogwartsmagic.event.ModEvents.dispelIllusionsAndInvisibility(living);
+                                if (this.level() instanceof ServerLevel revelioLevel) {
+                                    com.hogwartsmagic.spell.support.RevelioSpell.revealHidden(revelioLevel, living.position(), getOwner());
+                                }
                             }
                             if (spell == SpellType.AQUA_ERUCTO) {
                                 applyAquaWaveAt(living.position(), getOwner());
@@ -843,20 +846,55 @@ public class SpellBeamEntity extends ThrowableProjectile {
         return struck instanceof PartEntity<?> part ? part.getParent() : struck;
     }
 
-    private void revealNearbySecrets(ServerLevel level, BlockPos origin) {
-        for (int x = -REVELIO_ORE_RADIUS; x <= REVELIO_ORE_RADIUS; x++) {
-            for (int y = -REVELIO_ORE_RADIUS; y <= REVELIO_ORE_RADIUS; y++) {
-                for (int z = -REVELIO_ORE_RADIUS; z <= REVELIO_ORE_RADIUS; z++) {
-                    BlockPos targetPos = origin.offset(x, y, z);
-                    if (origin.distSqr(targetPos) > (double) (REVELIO_ORE_RADIUS * REVELIO_ORE_RADIUS)) {
+    private void revealNearbySecrets(ServerLevel level, BlockPos origin, int rank) {
+        int oreRadius = com.hogwartsmagic.spell.support.RevelioRules.oreRadius(rank);
+        int chestRadius = com.hogwartsmagic.spell.support.RevelioRules.chestRadius(rank);
+        int oreSq = oreRadius * oreRadius;
+        int chestSq = chestRadius * chestRadius;
+        int minY = Math.max(level.getMinBuildHeight(), origin.getY() - oreRadius);
+        int maxY = Math.min(level.getMaxBuildHeight() - 1, origin.getY() + oreRadius);
+        java.util.function.Predicate<BlockState> interesting = st -> isRevealableOre(st) || isRevealableChest(st);
+        // Walk loaded chunks section by section: an unloaded chunk is never loaded for a highlight, and a
+        // section whose palette holds no ore or chest (all air, or plain stone) is skipped without a block read.
+        for (int cx = (origin.getX() - oreRadius) >> 4; cx <= (origin.getX() + oreRadius) >> 4; cx++) {
+            for (int cz = (origin.getZ() - oreRadius) >> 4; cz <= (origin.getZ() + oreRadius) >> 4; cz++) {
+                net.minecraft.world.level.chunk.LevelChunk chunk = level.getChunkSource().getChunkNow(cx, cz);
+                if (chunk == null) {
+                    continue;
+                }
+                for (int sy = minY >> 4; sy <= maxY >> 4; sy++) {
+                    int sectionIndex = chunk.getSectionIndexFromSectionY(sy);
+                    if (sectionIndex < 0 || sectionIndex >= chunk.getSections().length) {
                         continue;
                     }
-
-                    BlockState state = level.getBlockState(targetPos);
-                    if (isRevealableOre(state)) {
-                        revealOre(level, origin, targetPos);
-                    } else if (origin.distSqr(targetPos) <= (double) (REVELIO_CHEST_RADIUS * REVELIO_CHEST_RADIUS) && isRevealableChest(state)) {
-                        revealChest(level, origin, targetPos);
+                    net.minecraft.world.level.chunk.LevelChunkSection section = chunk.getSection(sectionIndex);
+                    if (section.hasOnlyAir() || !section.maybeHas(interesting)) {
+                        continue;
+                    }
+                    int x0 = Math.max(cx << 4, origin.getX() - oreRadius);
+                    int x1 = Math.min((cx << 4) + 15, origin.getX() + oreRadius);
+                    int z0 = Math.max(cz << 4, origin.getZ() - oreRadius);
+                    int z1 = Math.min((cz << 4) + 15, origin.getZ() + oreRadius);
+                    int y0 = Math.max(sy << 4, minY);
+                    int y1 = Math.min((sy << 4) + 15, maxY);
+                    for (int x = x0; x <= x1; x++) {
+                        int dx = x - origin.getX();
+                        for (int y = y0; y <= y1; y++) {
+                            int dy = y - origin.getY();
+                            for (int z = z0; z <= z1; z++) {
+                                int dz = z - origin.getZ();
+                                int distSq = dx * dx + dy * dy + dz * dz;
+                                if (distSq > oreSq) {
+                                    continue;
+                                }
+                                BlockState state = section.getBlockState(x & 15, y & 15, z & 15);
+                                if (isRevealableOre(state)) {
+                                    revealOre(level, origin, new BlockPos(x, y, z));
+                                } else if (distSq <= chestSq && isRevealableChest(state)) {
+                                    revealChest(level, origin, new BlockPos(x, y, z));
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -930,7 +968,8 @@ public class SpellBeamEntity extends ThrowableProjectile {
         for (net.minecraft.core.Direction direction : net.minecraft.core.Direction.values()) {
             BlockPos candidate = anchor.relative(direction);
             BlockState candidateState = level.getBlockState(candidate);
-            if (!(level.isEmptyBlock(candidate) || candidateState.is(Blocks.LIGHT))) {
+            if (!(level.isEmptyBlock(candidate) || candidateState.is(Blocks.LIGHT)
+                    || com.hogwartsmagic.block.LumosLightBlock.isTimedLight(candidateState))) {
                 continue;
             }
 

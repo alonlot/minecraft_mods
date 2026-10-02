@@ -2,6 +2,9 @@ package com.hogwartsmagic.block;
 
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.spell.support.LumosRules;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import net.minecraft.core.GlobalPos;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.particles.ParticleTypes;
@@ -43,6 +46,13 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * static map. Not an {@code air()} block on purpose: chunk sections only random-tick non-air blocks.
  */
 public class LumosLightBlock extends Block {
+    /**
+     * Later expiry for a timed light that was refreshed while its removal tick was pending. Transient on
+     * purpose: after a restart the saved tick simply fires at the original (earlier) time, which is the safe
+     * direction. Only ever read by the tick that removes the light, so it cannot keep one alive.
+     */
+    private static final Map<GlobalPos, Long> REFRESHED_UNTIL = new ConcurrentHashMap<>();
+
     public static final IntegerProperty LIGHT = BlockStateProperties.LEVEL;
     public static final BooleanProperty TIMED = BooleanProperty.create("timed");
 
@@ -87,7 +97,20 @@ public class LumosLightBlock extends Block {
 
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        if (state.getValue(TIMED) || !hasLumosHolderNear(level, pos)) {
+        if (state.getValue(TIMED)) {
+            // A refresh while a tick was already pending could not move it (vanilla keeps one tick per block
+            // and position), so the new expiry waits in REFRESHED_UNTIL; honour it by rescheduling.
+            Long until = REFRESHED_UNTIL.remove(GlobalPos.of(level.dimension(), pos));
+            long now = level.getGameTime();
+            if (until != null && until > now) {
+                REFRESHED_UNTIL.put(GlobalPos.of(level.dimension(), pos), until);
+                level.scheduleTick(pos, this, (int) Math.min(Integer.MAX_VALUE, until - now));
+                return;
+            }
+            level.removeBlock(pos, false);
+            return;
+        }
+        if (!hasLumosHolderNear(level, pos)) {
             level.removeBlock(pos, false);
             return;
         }
@@ -167,10 +190,25 @@ public class LumosLightBlock extends Block {
         if (!current.isAir() && !current.is(Blocks.LIGHT) && !current.is(ExampleMod.LUMOS_LIGHT.get())) {
             return false;
         }
-        level.setBlock(pos, ExampleMod.LUMOS_LIGHT.get().defaultBlockState()
+        BlockState wanted = ExampleMod.LUMOS_LIGHT.get().defaultBlockState()
                 .setValue(LIGHT, Mth.clamp(light, 0, 15))
-                .setValue(TIMED, true), Block.UPDATE_ALL);
-        level.scheduleTick(pos, ExampleMod.LUMOS_LIGHT.get(), ticks);
+                .setValue(TIMED, true);
+        GlobalPos key = GlobalPos.of(level.dimension(), pos);
+        long expiry = level.getGameTime() + ticks;
+        if (isTimedLight(current)) {
+            // Refresh: never shorten, and a pending removal tick cannot be moved, so record the later expiry.
+            REFRESHED_UNTIL.merge(key, expiry, Math::max);
+            if (REFRESHED_UNTIL.size() > 1024) {
+                long now = level.getGameTime();
+                REFRESHED_UNTIL.entrySet().removeIf(e -> e.getValue() <= now);
+            }
+        } else {
+            REFRESHED_UNTIL.remove(key);
+        }
+        if (!current.equals(wanted)) {
+            level.setBlock(pos, wanted, Block.UPDATE_ALL);
+        }
+        level.scheduleTick(pos, ExampleMod.LUMOS_LIGHT.get(), ticks); // no-op if one is already pending
         return true;
     }
 

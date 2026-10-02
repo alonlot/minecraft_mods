@@ -138,14 +138,16 @@ public final class DisableSupport {
      * excluded the caster, dead or spectating candidates, armour stands, the allied tag, team-mates
      * ({@code isAlliedTo}) and the caster's pets. Two perspectives, by what the candidate is:
      * <ul>
-     * <li><b>Non-player candidate:</b> a foe only if it is the main target, the caster's current target, or
+     * <li><b>Non-player candidate:</b> a foe only if it is the caster's current target or
      * its own target is the caster. A mob that merely shares the caster's target is an ally (Death Eaters
      * fighting the same player as Voldemort) and never qualifies.</li>
      * <li><b>Player candidate</b> (survival, not allied to the caster): a foe only if the caster is hostile
-     * (an {@code Enemy}), or the player is the caster's current or main target, or the player is fighting
+     * (an {@code Enemy} that is not a Student, see {@link #isHostileCaster}), or the player is the caster's current target, or the player is fighting
      * the caster (it last hurt the caster, or the caster was last hurt by it, as players have no AI
-     * target). A friendly NPC caster, such as a Student, therefore leaves bystander players alone.</li>
+     * target; hitting it counts only for the last 5 seconds). A friendly NPC caster, such as a Student, therefore leaves bystander players alone.</li>
      * </ul>
+     * {@code mainTarget} is unused: callers already exclude the main target or pass null. It stays in the
+     * signature so call sites are unchanged.
      */
     public static boolean npcFoe(Entity caster, LivingEntity candidate, @Nullable LivingEntity mainTarget) {
         if (candidate == caster || candidate.isAlliedTo(caster)) {
@@ -156,16 +158,23 @@ public final class DisableSupport {
             if (player.isCreative() || player.isSpectator()) {
                 return false;
             }
-            if (caster instanceof Enemy || player == casterTarget || player == mainTarget) {
+            if (isHostileCaster(caster) || player == casterTarget) {
                 return true;
             }
-            return player.getLastHurtMob() == caster
+            boolean recentlyHitCaster = player.getLastHurtMob() == caster
+                    && player.tickCount - player.getLastHurtMobTimestamp() <= 100;
+            return recentlyHitCaster
                     || (caster instanceof LivingEntity living && living.getLastHurtByMob() == player);
         }
-        if (candidate == mainTarget || candidate == casterTarget) {
+        if (candidate == casterTarget) {
             return true;
         }
         return candidate instanceof Mob mob && mob.getTarget() == caster;
+    }
+
+    /** Students are illagers, so vanilla makes them {@code Enemy}, but they are friendly casters. */
+    private static boolean isHostileCaster(Entity caster) {
+        return caster instanceof Enemy && !(caster instanceof StudentEntity);
     }
 
     /** Put a target back on its leash or anchor. Players need a real teleport packet; mobs just move. */

@@ -219,12 +219,7 @@ public enum SpellType {
                     target.setTicksFrozen(Math.max(0, target.getTicksFrozen() - 80));
                 }
             }
-            case STUPEFY -> {
-                interruptActiveCasting(target);
-                target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 60, 4));
-                target.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 60, 0));
-                // For "stun", we'd ideally prevent movement/attack, but slowness 4 is very close.
-            }
+            case STUPEFY -> com.hogwartsmagic.spell.disable.StupefySpell.apply(target, caster);
             case REVELIO -> {
                 // Revelio logic handled in SpellBeamEntity for blocks, 
                 // but let's reveal invisible mobs here.

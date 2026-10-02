@@ -54,7 +54,7 @@
   "spell.hogwartsmagic.incendio": "Incendio",
   "spell.hogwartsmagic.incendio.desc": "Sets blocks and mobs on fire.",
   "spell.hogwartsmagic.stupefy": "Stupefy",
-  "spell.hogwartsmagic.stupefy.desc": "Stuns mobs, making them blind and extremely slow.",
+  "spell.hogwartsmagic.stupefy.desc": "A short, true stun that breaks any spell the target is casting. At Master it jumps to a second enemy.",
   "spell.hogwartsmagic.revelio": "Revelio",
   "spell.hogwartsmagic.revelio.desc": "Reveals invisible mobs, highlights nearby ores through walls, and briefly breaks Cave Inimicum wards.",
   "spell.hogwartsmagic.avada_kedavra": "Avada Kedavra",

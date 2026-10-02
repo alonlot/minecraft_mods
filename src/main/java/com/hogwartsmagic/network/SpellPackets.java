@@ -941,6 +941,10 @@ public class SpellPackets {
             if (spell == SpellType.AQUA_ERUCTO) {
                 beamSpeed = 5.75f * HousePerks.getBeamSpeedMultiplier(player) * MagicWandItem.getBeamSpeedMultiplier(wand);
             }
+            if (spell == SpellType.STUPEFY) {
+                beamSpeed *= com.hogwartsmagic.spell.disable.StupefyRules.beamSpeedMultiplier(
+                        com.hogwartsmagic.spell.mastery.SpellMasteryData.getRank(player, spell));
+            }
             // Simple "charge tier": synced with the player's attack strength meter.
             float chargeTier = (0.6f + player.getAttackStrengthScale(0.0f)) * MagicWandItem.getSpellPowerMultiplier(wand);
             beam.setCharge(chargeTier);

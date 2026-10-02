@@ -81,11 +81,12 @@ nobody has felt yet.
 10. **Splinching is configurable:** 10% at Novice by default (not 20%), and it can be turned off.
 11. **Fiendfyre telegraphs before it turns.** A serpent about to go rogue glows red for 1s
     first. Without that, it just feels like a bug.
-12. **Imperio works on players and mobs** (the user's call; see "Imperio: Thrall and Possession"
-    below). At ranks I–III the victim acts as your tame dog: it follows you and fights whoever
-    you fight or whoever attacks you (players for a few seconds, mobs much longer). At Master you
-    hold right-click to possess it for up to 20 seconds, with its POV and controls, while your
-    own body freezes.
+12. **Imperio works on players, mobs and bosses** (the user's call; see "Imperio: Thrall and
+    Possession" below). At ranks I–III the victim acts as your tame dog: it follows you and
+    fights whoever you fight or whoever attacks you (players and bosses for 3/4/5s, mobs much
+    longer). At Master you hold right-click to possess it for up to 20 seconds (5 on a boss),
+    with its POV and controls, while your own body freezes. A possessed player's hotbar and
+    known spells are yours to use.
 
 ---
 
@@ -133,7 +134,8 @@ An item that **raises a spell by one rank instantly**. It comes in the four spel
 - **Diminishing returns** on hard crowd control: a second hit within 6s lasts 50%, a third does
   nothing.
 - **Bosses:** a `hogwartsmagic:bosses` entity tag (Voldemort, Horntail, Ironbelly, Basilisk).
-  Crowd control lasts half as long on them, and mind spells and the instant kill don't work.
+  Crowd control lasts half as long on them; Obliviate, Confundo and the instant kill don't work;
+  Imperio works but is capped at short durations (see Imperio below).
 - **PvP:** hard crowd control lasts 60% as long against players.
 
 ### Phase 3: Disabling spells (the biggest overlap fix)
@@ -186,29 +188,44 @@ corruption before this phase starts.**
 - **What you see:** thralls glow faintly green, and a small icon over the head shows who owns
   them.
 
-| Rank | Mob thrall | Player thrall | Max mob size |
+| Rank | Mob thrall | Player or boss thrall | Max mob size (bosses ignore this) |
 |---|---|---|---|
 | I Novice | 20s, 1 thrall | 3s | up to 40 max health |
 | II Adept | 30s, 1 thrall | 4s | up to 60, and the thrall gets Strength I |
 | III Expert | 45s, 2 thralls | 5s | up to 100 |
 
+**Bosses** (Voldemort, Hungarian Horntail, Ukrainian Ironbelly, Basilisk; the
+`hogwartsmagic:bosses` tag) *can* be enthralled, but only for the player durations above
+(3/4/5s). Turning Voldemort on his own Death Eaters for a few seconds is a great moment; forty
+seconds of it would be a free win.
+
 **Master: Possession.** The victim no longer acts as a dog. Instead **you take it over**:
-1. **Hold right-click on the target to possess it for up to 20 seconds.** Your camera jumps to the
-   victim's eyes and your controls drive *their* body: walking, looking, jumping, attacking and
-   their held item. Letting go ends it early.
+1. **Hold right-click on the target to possess it for up to 20 seconds** (**5 seconds on a boss**).
+   Your camera jumps to the victim's eyes and your controls drive *their* body: walking,
+   looking, jumping, attacking and their held item. Letting go ends it early.
+   - **Possessing a player:** you see **their hotbar** and can **scroll it** to pick their
+     weapon, then attack as them. If you select **their wand**, your spell wheel and
+     cast keys switch to **their learned spells**, at **their mastery ranks**, spending **their
+     mana** and putting **their wand's cooldowns** on hold. The wheel shows a "Puppet" header so
+     you know whose spells they are. Two spells can't be cast through a puppet:
+     **Imperio** (no puppet chains) and **Apparition** (no teleporting the victim away). Forced
+     casts earn the victim no mastery XP; you earn Imperio XP for the possession itself.
+   - **Possessing a mob or boss:** you control its body and its own attack (melee, the Horntail's
+     fire, and so on, through its existing attack method). Mobs have no hotbar or spells to use.
 2. **Your own body stops working.** It stands frozen in a trance and doesn't respond to your
    keys. It can still be hurt, and a hit of 4 or more damage throws you out. That's the
    counterplay for everyone nearby.
 3. **Resisting (players only):** they see *"Mash SPACE to resist!"* For the **first 8 seconds**
    resisting does nothing. After that, each half-second in which they press space fast enough
-   (≥6 presses) gives a 20% chance to break free. Thrall mode (ranks I–III) is too short to
-   resist.
+   (≥6 presses) gives a 20% chance to break free. Thrall mode (ranks I–III) and boss possession
+   (5s) are too short to resist.
 4. **When it ends** (you let go, 20s pass, they break free, your body is hit, either of you dies,
    logout or dimension change): the camera snaps back and both bodies get their controls back.
    A broken-free victim gets 3s of immunity to recasting; the caster gets Nausea for 3s.
 
-**For every rank:** bosses are immune; the cooldown starts when the effect ends; you can't make a
-victim drop or throw items or open their inventory or chests; a config toggle
+**For every rank:** bosses are capped at the short durations above; the cooldown starts when the effect ends; you can scroll a
+possessed player's hotbar but can't make them drop or throw items or open their inventory or
+chests; a config toggle
 (`imperioAffectsPlayers`, default on) controls player thralls and possession, and mobs are
 always allowed. Mob AI is restored afterwards, and a thrall goes back to its old behaviour.
 
@@ -223,7 +240,7 @@ always allowed. Mob AI is restored afterwards, and a thrall goes back to its old
   or attacker) and moves the player toward it, with the same sync caveats as possession.
 - **Possession:** builds on the existing Imperio hold-channel in `ModEvents`
   (`TAG_IMPERIO_CHANNELING`, a heartbeat via `TAG_IMPERIO_LAST_SEEN`, forward input) and
-  `ImperioControlPacket`. At Master, the server starts a possession session. The caster's
+  `ImperioControlPacket`. At Master, the server starts a possession session. Hotbar scrolling sends the victim's `setSelectedSlot`; while the victim holds a wand, the caster's client swaps its spell wheel and HUD to a snapshot of the victim's learned spells, ranks, mana and cooldowns (synced each second). Every cast still goes through the normal cast path *as the victim*, so the server checks learned spells, mana and cooldowns exactly as if the victim had cast it, with Imperio and Apparition refused. The caster's
   client calls `setCameraEntity(victim)` and streams its input; the caster's own body is zeroed
   server-side. The victim's client zeroes its input and reports space presses, which the server
   counts and caps so a macro can't escape instantly. Camera and input code live only in

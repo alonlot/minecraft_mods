@@ -973,6 +973,9 @@ public class SpellBeamEntity extends ThrowableProjectile {
         double bestDistance = Double.MAX_VALUE;
         for (net.minecraft.core.Direction direction : net.minecraft.core.Direction.values()) {
             BlockPos candidate = anchor.relative(direction);
+            if (!level.isLoaded(candidate)) {
+                continue; // never force-load a chunk just to place a reveal light
+            }
             BlockState candidateState = level.getBlockState(candidate);
             if (!(level.isEmptyBlock(candidate) || candidateState.is(Blocks.LIGHT)
                     || com.hogwartsmagic.block.LumosLightBlock.isTimedLight(candidateState))) {

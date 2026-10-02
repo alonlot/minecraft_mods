@@ -29,7 +29,7 @@ Each must print one line. If any doesn't, stop: the phase it belongs to isn't me
 
 ## Global Constraints
 
-- **Ranks:** every per-rank behaviour reads the caster's rank through `DisableSupport.casterRank(caster, spell)` (players: `SpellMasteryData.getRank`, 1..4). **NPC casters (Students, Death Eaters/`WizardEntity`, Voldemort) and ownerless beams are rank 1**, with one exception: an NPC's Avada backlash stays today's 2 damage × house multiplier.
+- **Ranks:** every per-rank behaviour reads the caster's rank through `DisableSupport.casterRank(caster, spell)` (players: `SpellMasteryData.getRank`, 1..4). **Boss NPC casters (`CombatTags.isBoss`, i.e. Voldemort) are rank 3; other NPC casters (Students, Death Eaters/`WizardEntity`) and ownerless beams are rank 1**, with one exception: an NPC's Avada backlash stays today's 2 damage × house multiplier.
 - **Per-rank numbers (ticks at 20/s):**
 
   | Spell | I Novice | II Adept | III Expert | IV Master |

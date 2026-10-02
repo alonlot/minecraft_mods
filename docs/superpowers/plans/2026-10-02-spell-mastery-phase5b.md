@@ -28,7 +28,7 @@ Each must print one line. If any doesn't, stop: the phase it belongs to isn't me
 
 ## Global Constraints
 
-- **Ranks:** every per-rank behaviour reads the caster's rank through `DisableSupport.casterRank(caster, spell)` or, for player-only paths, `SpellMasteryData.getRank(player, spell)` (1..4). **NPC casters are rank 1**, except that NPC Reparo keeps today's sweep (radius 6, up to 32 blocks) so the Students' rebuilding AI is not crippled.
+- **Ranks:** every per-rank behaviour reads the caster's rank through `DisableSupport.casterRank(caster, spell)` or, for player-only paths, `SpellMasteryData.getRank(player, spell)` (1..4). **Boss NPC casters (Voldemort) are rank 3 and other NPC casters rank 1** (so Voldemort's Depulso gets the Expert area push and projectile deflect; NPC area effects target only players and whatever the NPC is fighting, per the Phase 4 `isEnemyOf`/`isSplashTarget` fix), except that NPC Reparo keeps today's sweep (radius 6, up to 32 blocks) so the Students' rebuilding AI is not crippled.
 - **Per-rank numbers (ticks at 20/s):**
 
   | Spell | I Novice | II Adept | III Expert | IV Master |

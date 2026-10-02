@@ -27,7 +27,7 @@ Each must print one line. If any doesn't, stop: the phase it belongs to isn't me
 
 ## Global Constraints
 
-- **Ranks:** every per-rank behaviour reads the caster's rank through `DisableSupport.casterRank(caster, spell)` (players: `SpellMasteryData.getRank`, 1..4). **NPC casters (Students, Death Eaters/`WizardEntity`, Voldemort) and ownerless beams are rank 1.**
+- **Ranks:** every per-rank behaviour reads the caster's rank through `DisableSupport.casterRank(caster, spell)` (players: `SpellMasteryData.getRank`, 1..4). **Boss NPC casters (`CombatTags.isBoss`, i.e. Voldemort) are rank 3 (Expert); other NPC casters (Students, Death Eaters/`WizardEntity`) and ownerless beams are rank 1.** NPC area effects target only players and whatever the NPC is fighting (Phase 4 fix to `isEnemyOf`/`isSplashTarget`).
 - **Per-rank numbers (ticks at 20/s):**
 
   | Spell | I Novice | II Adept | III Expert | IV Master |
@@ -1539,6 +1539,8 @@ with:
                 if (getOwner() instanceof ServerPlayer masteryCaster && !this.reflected) {
 ```
 
+Bombarda grants its block XP later, from its queued job (`BombardaBlasts`, the `MasteryAwards.onBlockEffect` call at job end), straight to the job's caster, which for a reflected beam is the reflector. In that call, also require `com.hogwartsmagic.item.MagicBookItem.isSpellLearned(player, SpellType.BOMBARDA)` before awarding, so a reflector who doesn't know Bombarda earns nothing from a reflected blast.
+
 - [ ] **Step 5: The beam intercept.** In `SpellBeamEntity.onHit`, replace:
 ```java
                 // Intercept spell if the target has an active Protego shield
@@ -2700,14 +2702,15 @@ insert:
                                 lumosLevel, pos.relative(blockHit.getDirection()), getOwner());
                     }
 ```
-Then replace:
+Then replace (Phase 4 added the shearable-sheep exemption; keep it):
 ```java
-                            if (spell != SpellType.HEAL && spell != SpellType.AVADA_KEDAVRA && spell != SpellType.PROTEGO) {
+                            if (spell != SpellType.HEAL && spell != SpellType.AVADA_KEDAVRA && spell != SpellType.PROTEGO
+                                    && !shearableSheep) {
 ```
 with:
 ```java
                             if (spell != SpellType.HEAL && spell != SpellType.AVADA_KEDAVRA && spell != SpellType.PROTEGO
-                                    && spell != SpellType.LUMOS) {
+                                    && spell != SpellType.LUMOS && !shearableSheep) {
 ```
 
 - [ ] **Step 6: Left-click self-cast list in one place.** In `ModEvents.java`, the two left-click handlers (`onLeftClick` and `onLeftClickBlock`) contain the same three lines. Replace both occurrences (use replace-all) of:

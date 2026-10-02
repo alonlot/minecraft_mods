@@ -209,8 +209,7 @@ public enum SpellType {
                 // No longer just haste, but potentially other effects if we want
             }
             case INCENDIO -> {
-                int burnTime = target.level().isRainingAt(target.blockPosition()) ? 2 : 5;
-                target.igniteForSeconds(burnTime);
+                com.hogwartsmagic.spell.damage.IncendioSpell.apply(target, caster);
                 if (target.getTicksFrozen() > 0 || target.hasEffect(MobEffects.MOVEMENT_SLOWDOWN)) {
                     triggerSteamCombo(target);
                     target.setTicksFrozen(Math.max(0, target.getTicksFrozen() - 80));

@@ -52,7 +52,7 @@
   "spell.hogwartsmagic.alohomora": "Alohomora",
   "spell.hogwartsmagic.alohomora.desc": "Unlocks doors, trapdoors, and fence gates.",
   "spell.hogwartsmagic.incendio": "Incendio",
-  "spell.hogwartsmagic.incendio.desc": "Sets blocks and mobs on fire.",
+  "spell.hogwartsmagic.incendio.desc": "Sets creatures alight and lights campfires, candles, TNT and furnaces (ten seconds of fuel). From Adept the flames spread over flammable blocks around the impact, when fire spread and mob griefing are on.",
   "spell.hogwartsmagic.stupefy": "Stupefy",
   "spell.hogwartsmagic.stupefy.desc": "A short, true stun that breaks any spell the target is casting. At Master it jumps to a second enemy.",
   "spell.hogwartsmagic.revelio": "Revelio",

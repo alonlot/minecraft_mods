@@ -30,8 +30,6 @@ import net.minecraft.world.level.block.FenceGateBlock;
 import net.minecraft.world.level.block.EnderChestBlock;
 import net.minecraft.world.level.block.LiquidBlock;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.CampfireBlock;
-import net.minecraft.world.level.block.TntBlock;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
@@ -578,18 +576,10 @@ public class SpellBeamEntity extends ThrowableProjectile {
                     }
                     hitSuccessful = true;
                 } else if (spell == SpellType.INCENDIO) {
-                    if (state.getBlock() instanceof CampfireBlock) {
-                        if (!state.getValue(CampfireBlock.LIT)) {
-                            this.level().setBlockAndUpdate(pos, state.setValue(CampfireBlock.LIT, true));
-                            hitSuccessful = true;
-                        }
-                    } else if (state.getBlock() instanceof TntBlock) {
-                        TntBlock.explode(this.level(), pos);
-                        this.level().removeBlock(pos, false);
-                        hitSuccessful = true;
-                    } else if (this.level().isEmptyBlock(pos.relative(blockHit.getDirection()))) {
-                        this.level().setBlockAndUpdate(pos.relative(blockHit.getDirection()), Blocks.FIRE.defaultBlockState());
-                        hitSuccessful = true;
+                    // Campfires, candles, TNT, furnaces, flint-and-steel fire; a fire burst from Adept.
+                    if (this.level() instanceof ServerLevel incendioLevel) {
+                        hitSuccessful = com.hogwartsmagic.spell.damage.IncendioSpell.onBlockHit(
+                                incendioLevel, pos, blockHit.getDirection(), getOwner());
                     }
                 } else if (spell == SpellType.BOMBARDA) {
                     // The terrain breaker: blast now, blocks over the next few ticks (BombardaBlasts).

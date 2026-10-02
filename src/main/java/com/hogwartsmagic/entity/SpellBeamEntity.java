@@ -538,7 +538,8 @@ public class SpellBeamEntity extends ThrowableProjectile {
                         hitSuccessful = true;
                     }
                 } else if (spell == SpellType.CONFRINGO) {
-                    this.level().explode(getOwner(), this.getX(), this.getY(), this.getZ(), 1.5f, true, Level.ExplosionInteraction.BLOCK);
+                    // Confringo is the combat blast: fire and knockback, never terrain. Bombarda is the one that breaks blocks.
+                    this.level().explode(getOwner(), this.getX(), this.getY(), this.getZ(), 1.5f, true, Level.ExplosionInteraction.NONE);
                     hitSuccessful = true;
                 } else if (spell == SpellType.INCENDIO) {
                     if (state.getBlock() instanceof CampfireBlock) {

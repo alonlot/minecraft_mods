@@ -99,6 +99,14 @@ public class SpellPackets {
                 .decoder(buf -> new SyncLearnedSpellsPacket(buf.readUtf()))
                 .consumerMainThread(SyncLearnedSpellsPacket::handle)
                 .add();
+        CHANNEL.messageBuilder(SyncSpellMasteryPacket.class)
+                .encoder((p, buf) -> buf.writeNbt(p.mastery))
+                .decoder(buf -> {
+                    net.minecraft.nbt.CompoundTag tag = buf.readNbt();
+                    return new SyncSpellMasteryPacket(tag == null ? new net.minecraft.nbt.CompoundTag() : tag);
+                })
+                .consumerMainThread(SyncSpellMasteryPacket::handle)
+                .add();
         CHANNEL.messageBuilder(SyncManaPacket.class)
                 .encoder((p, buf) -> { buf.writeFloat(p.mana); buf.writeFloat(p.maxMana); })
                 .decoder(buf -> new SyncManaPacket(buf.readFloat(), buf.readFloat()))
@@ -498,6 +506,12 @@ public class SpellPackets {
     public record SyncLearnedSpellsPacket(String learnedSpells) {
         public static void handle(SyncLearnedSpellsPacket p, CustomPayloadEvent.Context ctx) {
             enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("syncLearnedSpells", p));
+        }
+    }
+
+    public record SyncSpellMasteryPacket(net.minecraft.nbt.CompoundTag mastery) {
+        public static void handle(SyncSpellMasteryPacket p, CustomPayloadEvent.Context ctx) {
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("syncSpellMastery", p));
         }
     }
 

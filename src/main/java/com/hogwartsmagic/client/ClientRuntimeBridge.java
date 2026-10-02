@@ -28,6 +28,7 @@ public final class ClientRuntimeBridge {
             case "syncMana" -> syncMana((SpellPackets.SyncManaPacket) payload);
             case "syncRelics" -> syncRelics((SpellPackets.SyncRelicsPacket) payload);
             case "syncLearnedSpells" -> syncLearnedSpells((SpellPackets.SyncLearnedSpellsPacket) payload);
+            case "syncSpellMastery" -> syncSpellMastery((SpellPackets.SyncSpellMasteryPacket) payload);
             case "openFlooScreen" -> openFlooScreen((SpellPackets.OpenFlooScreenPacket) payload);
             case "openFlooNamingScreen" -> openFlooNamingScreen((SpellPackets.OpenFlooNamingScreenPacket) payload);
             case "openHogwartsInviteScreen" -> openHogwartsInviteScreen((SpellPackets.OpenHogwartsInviteScreenPacket) payload);
@@ -161,6 +162,18 @@ public final class ClientRuntimeBridge {
         CompoundTag persisted = player.getPersistentData().getCompound("PlayerPersisted");
         CompoundTag modData = persisted.getCompound(ExampleMod.MODID);
         modData.putString("LearnedSpells", packet.learnedSpells());
+        persisted.put(ExampleMod.MODID, modData);
+        player.getPersistentData().put("PlayerPersisted", persisted);
+    }
+
+    private static void syncSpellMastery(SpellPackets.SyncSpellMasteryPacket packet) {
+        net.minecraft.client.player.LocalPlayer player = net.minecraft.client.Minecraft.getInstance().player;
+        if (player == null) {
+            return;
+        }
+        CompoundTag persisted = player.getPersistentData().getCompound("PlayerPersisted");
+        CompoundTag modData = persisted.getCompound(ExampleMod.MODID);
+        modData.put("SpellMastery", packet.mastery());
         persisted.put(ExampleMod.MODID, modData);
         player.getPersistentData().put("PlayerPersisted", persisted);
     }

@@ -542,6 +542,7 @@ public class ModEvents {
                 SpellPackets.CHANNEL.send(new SpellPackets.SyncLearnedSpellsPacket(learned),
                         PacketDistributor.PLAYER.with(player));
             }
+            com.hogwartsmagic.spell.mastery.SpellMasteryData.sync(player);
             HousePerks.applyHouseAttributes(player);
             HorcruxData.applyMaxHealthPenalty(player);
             // Sync initial mana
@@ -601,6 +602,7 @@ public class ModEvents {
                 SpellPackets.CHANNEL.send(new SpellPackets.SyncLearnedSpellsPacket(learned),
                         PacketDistributor.PLAYER.with(serverPlayer));
             }
+            com.hogwartsmagic.spell.mastery.SpellMasteryData.sync(serverPlayer);
             
             // Restore full mana on respawn
             float maxMana = PlayerMagicData.getMaxMana(serverPlayer);
@@ -731,6 +733,7 @@ public class ModEvents {
         String learned = modData.getString("LearnedSpells");
         SpellPackets.CHANNEL.send(new SpellPackets.SyncLearnedSpellsPacket(learned),
                 PacketDistributor.PLAYER.with(player));
+        com.hogwartsmagic.spell.mastery.SpellMasteryData.sync(player);
 
         float maxMana = PlayerMagicData.getMaxMana(player);
         float mana = modData.contains("Mana") ? Math.min(modData.getFloat("Mana"), maxMana) : maxMana;

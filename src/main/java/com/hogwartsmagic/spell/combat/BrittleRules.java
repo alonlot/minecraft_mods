@@ -1,8 +1,9 @@
 package com.hogwartsmagic.spell.combat;
 
 /**
- * Which hits shatter a brittle target, and by how much. "Physical" means a hit armour could stop:
- * an explosion, a projectile, or a melee blow from a living attacker that isn't magic or fire.
+ * Which hits shatter a brittle target, and by how much. An explosion always does. A projectile does
+ * unless it is fire or magic (a plain arrow counts, a fire arrow or a spell bolt does not). A melee blow
+ * from a living attacker does unless it is magic or fire. Magic is damage that bypasses armour.
  */
 public final class BrittleRules {
     public static final double BONUS_PER_LEVEL = 0.3;
@@ -13,8 +14,11 @@ public final class BrittleRules {
 
     public static boolean countsAsBrittleHit(boolean explosion, boolean projectile, boolean directLivingAttacker,
                                              boolean bypassesArmor, boolean fire) {
-        if (explosion || projectile) {
+        if (explosion) {
             return true;
+        }
+        if (projectile) {
+            return !fire && !bypassesArmor;
         }
         return directLivingAttacker && !bypassesArmor && !fire;
     }

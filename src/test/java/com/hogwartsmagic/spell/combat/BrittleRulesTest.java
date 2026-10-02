@@ -8,9 +8,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BrittleRulesTest {
     @Test
-    void explosionsAndProjectilesAlwaysCount() {
+    void explosionsAlwaysCount() {
         assertTrue(BrittleRules.countsAsBrittleHit(true, false, false, true, true));
-        assertTrue(BrittleRules.countsAsBrittleHit(false, true, false, false, true));
+        assertTrue(BrittleRules.countsAsBrittleHit(true, false, false, false, false));
+    }
+
+    @Test
+    void plainProjectilesCountButFireAndMagicProjectilesDoNot() {
+        assertTrue(BrittleRules.countsAsBrittleHit(false, true, false, false, false));
+        assertFalse(BrittleRules.countsAsBrittleHit(false, true, false, false, true));
+        assertFalse(BrittleRules.countsAsBrittleHit(false, true, false, true, false));
     }
 
     @Test

@@ -572,6 +572,16 @@ public class ExampleMod
     public static final RegistryObject<Item> MAGIC_BOOK = ITEMS.register("magic_book",
             () -> new com.hogwartsmagic.item.MagicBookItem(new Item.Properties().stacksTo(1)));
 
+    // Tomes of Mastery: loot-only, one rank per tome, tier-gated (see TomeOfMasteryItem)
+    public static final RegistryObject<Item> COMMON_TOME_OF_MASTERY = ITEMS.register("common_tome_of_mastery",
+            () -> new com.hogwartsmagic.item.TomeOfMasteryItem(com.hogwartsmagic.spell.SpellLootRarity.COMMON, new Item.Properties().stacksTo(16)));
+    public static final RegistryObject<Item> UNCOMMON_TOME_OF_MASTERY = ITEMS.register("uncommon_tome_of_mastery",
+            () -> new com.hogwartsmagic.item.TomeOfMasteryItem(com.hogwartsmagic.spell.SpellLootRarity.UNCOMMON, new Item.Properties().stacksTo(16)));
+    public static final RegistryObject<Item> RARE_TOME_OF_MASTERY = ITEMS.register("rare_tome_of_mastery",
+            () -> new com.hogwartsmagic.item.TomeOfMasteryItem(com.hogwartsmagic.spell.SpellLootRarity.RARE, new Item.Properties().stacksTo(16)));
+    public static final RegistryObject<Item> EPIC_TOME_OF_MASTERY = ITEMS.register("epic_tome_of_mastery",
+            () -> new com.hogwartsmagic.item.TomeOfMasteryItem(com.hogwartsmagic.spell.SpellLootRarity.EPIC, new Item.Properties().stacksTo(16)));
+
     public static final RegistryObject<Item> WIZARD_SPAWN_EGG = ITEMS.register("wizard_spawn_egg",
             () -> new net.minecraftforge.common.ForgeSpawnEggItem(ModEntities.WIZARD, 0x341906, 0xFFDD44, new Item.Properties()));
 
@@ -786,6 +796,10 @@ public class ExampleMod
                 output.accept(GOBLIN_SILVER_DAGGER.get()); // Goblin-Forged Silver Dagger
                 output.accept(MERPERSON_SPEAR.get()); // Merperson's Spear
                 output.accept(MERCHIEFTAINESS_CROWN.get()); // Merchieftainess's Crown
+                output.accept(COMMON_TOME_OF_MASTERY.get());
+                output.accept(UNCOMMON_TOME_OF_MASTERY.get());
+                output.accept(RARE_TOME_OF_MASTERY.get());
+                output.accept(EPIC_TOME_OF_MASTERY.get());
                 // Add books for all spells
                 for (com.hogwartsmagic.spell.SpellType spell : com.hogwartsmagic.spell.SpellType.values()) {
                     output.accept(com.hogwartsmagic.item.MagicBookItem.createBook(spell));

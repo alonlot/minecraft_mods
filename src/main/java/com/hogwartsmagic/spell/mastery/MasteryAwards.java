@@ -105,7 +105,8 @@ public final class MasteryAwards {
         }
     }
 
-    private static void celebrate(ServerPlayer caster, SpellType spell, int newRank) {
+    /** The rank-up moment: gold chat line, level-up chime, enchant and spell-coloured particles. Also used by Tomes of Mastery. */
+    public static void celebrate(ServerPlayer caster, SpellType spell, int newRank) {
         caster.sendSystemMessage(Component.translatable("gui." + ExampleMod.MODID + ".mastery.rank_up",
                         Component.translatable("spell." + ExampleMod.MODID + "." + spell.getId()),
                         MasteryMath.roman(newRank),

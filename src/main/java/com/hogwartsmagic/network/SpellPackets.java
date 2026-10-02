@@ -327,6 +327,35 @@ public class SpellPackets {
                 .decoder(buf -> new CancelApparitionPacket())
                 .consumerMainThread(CancelApparitionPacket::handle)
                 .add();
+        CHANNEL.messageBuilder(OpenTomePickerPacket.class)
+                .encoder((p, buf) -> {
+                    buf.writeBoolean(p.mainHand);
+                    buf.writeVarInt(p.tierOrdinal);
+                    buf.writeVarInt(p.spellIds.size());
+                    for (String id : p.spellIds) {
+                        buf.writeUtf(id, 64);
+                    }
+                })
+                .decoder(buf -> {
+                    boolean mainHand = buf.readBoolean();
+                    int tierOrdinal = buf.readVarInt();
+                    int size = clampDecodedSize(buf.readVarInt(), SpellType.values().length);
+                    List<String> ids = new ArrayList<>(size);
+                    for (int i = 0; i < size; i++) {
+                        ids.add(buf.readUtf(64));
+                    }
+                    return new OpenTomePickerPacket(mainHand, tierOrdinal, ids);
+                })
+                .consumerMainThread(OpenTomePickerPacket::handle)
+                .add();
+        CHANNEL.messageBuilder(UseTomePacket.class)
+                .encoder((p, buf) -> {
+                    buf.writeBoolean(p.mainHand);
+                    buf.writeUtf(p.spellId, 64);
+                })
+                .decoder(buf -> new UseTomePacket(buf.readBoolean(), buf.readUtf(64)))
+                .consumerMainThread(UseTomePacket::handle)
+                .add();
     }
 
     public static void syncRelics(ServerPlayer player) {
@@ -1281,6 +1310,23 @@ public class SpellPackets {
             ServerPlayer player = ctx.getSender();
             if (player != null) {
                 com.hogwartsmagic.event.ModEvents.cancelApparitionChannel(player, player.getMainHandItem());
+            }
+        }
+    }
+
+    /** Server to client: open the Tome of Mastery picker with the spells the server says are eligible. */
+    public record OpenTomePickerPacket(boolean mainHand, int tierOrdinal, List<String> spellIds) {
+        public static void handle(OpenTomePickerPacket p, CustomPayloadEvent.Context ctx) {
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("openTomePicker", p));
+        }
+    }
+
+    /** Client to server: the player picked a spell in the tome picker. Fully re-validated in TomeOfMasteryItem.tryRaise. */
+    public record UseTomePacket(boolean mainHand, String spellId) {
+        public static void handle(UseTomePacket p, CustomPayloadEvent.Context ctx) {
+            ServerPlayer player = ctx.getSender();
+            if (player != null) {
+                com.hogwartsmagic.item.TomeOfMasteryItem.tryRaise(player, p.mainHand, p.spellId);
             }
         }
     }

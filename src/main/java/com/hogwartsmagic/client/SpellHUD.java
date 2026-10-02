@@ -56,7 +56,7 @@ public class SpellHUD {
             long remaining = cooldownEnd - now;
 
             if (remaining > 0) {
-                float progress = 1.0f - ((float) remaining / (float) selected.getCooldownTicks());
+                float progress = 1.0f - ((float) remaining / (float) Math.max(1L, com.hogwartsmagic.spell.SpellCosts.cooldownTicks(player, stack, selected)));
                 int barWidth = 100;
                 int filledWidth = (int) (barWidth * progress);
 

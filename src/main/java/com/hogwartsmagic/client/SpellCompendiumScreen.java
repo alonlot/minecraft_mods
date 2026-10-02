@@ -306,9 +306,14 @@ public class SpellCompendiumScreen extends Screen {
         y += 8;
 
         // Stats: mana cost + cooldown in seconds.
+        Object manaCost;
+        if (selected == SpellType.APPARITION) {
+            manaCost = com.hogwartsmagic.event.ModEvents.APPARITION_MANA_COST;
+        } else {
+            manaCost = com.hogwartsmagic.spell.SpellCosts.manaCost(player, net.minecraft.world.item.ItemStack.EMPTY, selected);
+        }
         Component mana = Component.translatable(
-                "gui." + ExampleMod.MODID + ".grimoire.mana",
-                com.hogwartsmagic.spell.SpellCosts.manaCost(player, net.minecraft.world.item.ItemStack.EMPTY, selected));
+                "gui." + ExampleMod.MODID + ".grimoire.mana", manaCost);
         g.drawString(this.font, mana, x, y, 0xFF8FC9FF);
         y += 12;
         String cd = String.format("%.1f",

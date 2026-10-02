@@ -173,7 +173,7 @@ public final class ClientRuntimeBridge {
         }
         CompoundTag persisted = player.getPersistentData().getCompound("PlayerPersisted");
         CompoundTag modData = persisted.getCompound(ExampleMod.MODID);
-        modData.put("SpellMastery", packet.mastery());
+        modData.put(com.hogwartsmagic.spell.mastery.SpellMasteryData.KEY, packet.mastery());
         persisted.put(ExampleMod.MODID, modData);
         player.getPersistentData().put("PlayerPersisted", persisted);
     }

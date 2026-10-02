@@ -58,6 +58,9 @@ public final class MasteryAwards {
         if (!eligible(caster) || target == caster || SELF_OR_CHANNEL.contains(spell)) {
             return;
         }
+        if (!(target instanceof net.minecraft.world.entity.Mob) && !(target instanceof net.minecraft.world.entity.player.Player)) {
+            return; // armor stands and similar dummies give no XP
+        }
         double multiplier = MasteryRules.targetMultiplier(
                 isAllied(caster, target), isPassive(target), target.getTags().contains(SPAWNER_TAG));
         if (multiplier <= 0.0) {

@@ -820,7 +820,7 @@ public class SpellPackets {
                 
                 // Set per-spell cooldown on the wand
                 if (!creative) {
-                    MagicWandItem.setSpellCooldown(wand, spell, now + cooldownTicks);
+                    SpellCosts.startCooldown(player, wand, spell, now);
                 }
                 return;
             }
@@ -838,7 +838,7 @@ public class SpellPackets {
 
                 // Set per-spell cooldown on the wand
                 if (!creative) {
-                    MagicWandItem.setSpellCooldown(wand, spell, now + cooldownTicks);
+                    SpellCosts.startCooldown(player, wand, spell, now);
                 }
                 return;
             }
@@ -853,7 +853,7 @@ public class SpellPackets {
                 // Set per-spell cooldown on the wand
                 // Set per-spell cooldown on the wand
                 if (!creative) {
-                    MagicWandItem.setSpellCooldown(wand, spell, now + cooldownTicks);
+                    SpellCosts.startCooldown(player, wand, spell, now);
                 }
                 return;
             }
@@ -864,7 +864,7 @@ public class SpellPackets {
                     playerData.putLong(TAG_PATRONUS_CAST_SPENT, now);
                     summonCorporealPatronus(player);
                     if (!creative) {
-                        MagicWandItem.setSpellCooldown(wand, spell, now + cooldownTicks);
+                        SpellCosts.startCooldown(player, wand, spell, now);
                     }
                 } else {
                     startPatronusShieldChannel(player, now);
@@ -898,7 +898,7 @@ public class SpellPackets {
 
             // Imperio's control phase applies its cooldown when the channel ends.
             if (!creative && spell != SpellType.IMPERIO && spell != SpellType.WINGARDIUM_LEVIOSA) {
-                MagicWandItem.setSpellCooldown(wand, spell, now + cooldownTicks);
+                SpellCosts.startCooldown(player, wand, spell, now);
             }
         }
 

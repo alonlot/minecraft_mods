@@ -489,6 +489,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
         if (!this.level().isClientSide) {
             SpellType spell = getSpellType();
             boolean hitSuccessful = false;
+            boolean masteryEligible = true;
             LivingEntity masteryTarget = null;
 
             if (result instanceof BlockHitResult blockHit) {
@@ -645,6 +646,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
                                 sl.sendParticles(ParticleTypes.WITCH, hx, hy, hz, 5, 0.22, 0.08, 0.22, 0.01);
                                 this.level().playSound(null, hx, hy, hz, SoundEvents.ENCHANTMENT_TABLE_USE, SoundSource.BLOCKS, 0.22f, 0.55f);
                                 hitSuccessful = true;
+                                masteryEligible = false; // failed infusion earns no mastery
                             }
                         }
                     }
@@ -737,7 +739,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
                 if (getOwner() instanceof ServerPlayer masteryCaster) {
                     if (masteryTarget != null) {
                         com.hogwartsmagic.spell.mastery.MasteryAwards.onLivingHit(masteryCaster, spell, masteryTarget);
-                    } else if (result instanceof BlockHitResult) {
+                    } else if (result instanceof BlockHitResult && masteryEligible) {
                         com.hogwartsmagic.spell.mastery.MasteryAwards.onBlockEffect(masteryCaster, spell);
                     }
                 }

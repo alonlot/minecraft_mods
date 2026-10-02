@@ -181,7 +181,7 @@ public class ModEvents {
     private static final String TAG_APPARITION_CHANNELING = "hogwartsmagic:apparition_channeling";
     private static final String TAG_APPARITION_START = "hogwartsmagic:apparition_start";
     private static final int APPARITION_CHANNEL_TICKS = 80;          // 4 seconds of "Determination/Deliberation"
-    private static final int APPARITION_MANA_COST = 100;
+    public static final int APPARITION_MANA_COST = 100;
     private static final double APPARITION_MAX_RANGE = 48.0D;        // matches the minimap radius (blocks)
     private static final double APPARITION_SIDEALONG_RADIUS = 1.0D;  // side-along: who comes with you
     private static final ResourceLocation APPARITION_IMPLODE_MODIFIER_ID =

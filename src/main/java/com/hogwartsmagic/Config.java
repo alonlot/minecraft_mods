@@ -99,6 +99,34 @@ public final class Config {
             .comment("How much the Gringotts cart widens the field of view with speed. 0 disables it.")
             .defineInRange("cartCameraFov", 1.0, 0.0, 1.0);
 
+    public static final ForgeConfigSpec.IntValue MASTERY_XP_ADEPT = BUILDER
+            .comment("Spell mastery: cumulative XP to reach rank II (Adept).")
+            .defineInRange("masteryXpAdept", 30, 1, 100000);
+
+    public static final ForgeConfigSpec.IntValue MASTERY_XP_EXPERT = BUILDER
+            .comment("Spell mastery: cumulative XP to reach rank III (Expert). Must exceed masteryXpAdept.")
+            .defineInRange("masteryXpExpert", 120, 2, 100000);
+
+    public static final ForgeConfigSpec.IntValue MASTERY_XP_MASTER = BUILDER
+            .comment("Spell mastery: cumulative XP to reach rank IV (Master). Must exceed masteryXpExpert.")
+            .defineInRange("masteryXpMaster", 350, 3, 100000);
+
+    public static final ForgeConfigSpec.DoubleValue MASTERY_XP_MULTIPLIER = BUILDER
+            .comment("Spell mastery: multiplier on all XP earned. 0 disables progression.")
+            .defineInRange("masteryXpMultiplier", 1.0, 0.0, 100.0);
+
+    public static final ForgeConfigSpec.DoubleValue MASTERY_RANK_DISCOUNT = BUILDER
+            .comment("Spell mastery: mana cost and cooldown reduction per rank above Novice (0.08 = 8%, so 24% at Master).")
+            .defineInRange("masteryRankDiscount", 0.08, 0.0, 0.3);
+
+    public static final ForgeConfigSpec.DoubleValue MASTERY_MANA_PER_RANK = BUILDER
+            .comment("Spell mastery: permanent max mana gained per rank on any spell.")
+            .defineInRange("masteryManaPerRank", 1.0, 0.0, 100.0);
+
+    public static final ForgeConfigSpec.DoubleValue MASTERY_MANA_CAP = BUILDER
+            .comment("Spell mastery: ceiling on the total max mana bonus from ranks.")
+            .defineInRange("masteryManaCap", 50.0, 0.0, 100000.0);
+
     static final ForgeConfigSpec SPEC = BUILDER.build();
 
     public static double baseMaxMana = 100;
@@ -121,6 +149,13 @@ public final class Config {
     public static int caveInimicumSizeStep = 16;
     public static int horcruxRebirthDebuffTicks = 20 * 45;
     public static double horcruxSoulSpeed = 0.28;
+    public static int masteryXpAdept = 30;
+    public static int masteryXpExpert = 120;
+    public static int masteryXpMaster = 350;
+    public static double masteryXpMultiplier = 1.0;
+    public static double masteryRankDiscount = 0.08;
+    public static double masteryManaPerRank = 1.0;
+    public static double masteryManaCap = 50.0;
 
     private Config() {
     }
@@ -150,10 +185,41 @@ public final class Config {
         caveInimicumSizeStep = CAVE_INIMICUM_SIZE_STEP.get();
         horcruxRebirthDebuffTicks = HORCRUX_REBIRTH_DEBUFF_TICKS.get();
         horcruxSoulSpeed = HORCRUX_SOUL_SPEED.get();
+        masteryXpAdept = MASTERY_XP_ADEPT.get();
+        masteryXpExpert = MASTERY_XP_EXPERT.get();
+        masteryXpMaster = MASTERY_XP_MASTER.get();
+        masteryXpMultiplier = MASTERY_XP_MULTIPLIER.get();
+        masteryRankDiscount = MASTERY_RANK_DISCOUNT.get();
+        masteryManaPerRank = MASTERY_MANA_PER_RANK.get();
+        masteryManaCap = MASTERY_MANA_CAP.get();
     }
 
     public static float getBaseMaxMana() {
         return (float) baseMaxMana;
+    }
+
+    /** Cumulative XP per rank, index 0 = Novice. Falls back to defaults if the config isn't strictly rising. */
+    public static int[] getMasteryThresholds() {
+        if (masteryXpAdept < masteryXpExpert && masteryXpExpert < masteryXpMaster) {
+            return new int[]{0, masteryXpAdept, masteryXpExpert, masteryXpMaster};
+        }
+        return new int[]{0, 30, 120, 350};
+    }
+
+    public static double getMasteryXpMultiplier() {
+        return masteryXpMultiplier;
+    }
+
+    public static double getMasteryRankDiscount() {
+        return masteryRankDiscount;
+    }
+
+    public static double getMasteryManaPerRank() {
+        return masteryManaPerRank;
+    }
+
+    public static double getMasteryManaCap() {
+        return masteryManaCap;
     }
 
     public static float getManaRegenPerTick() {

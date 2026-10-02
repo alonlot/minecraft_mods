@@ -82,7 +82,8 @@ nobody has felt yet.
 11. **Fiendfyre telegraphs before it turns.** A serpent about to go rogue glows red for 1s
     first. Without that, it just feels like a bug.
 12. **Imperio Master is full possession** (the user's call; see "Imperio Master: Possession" below).
-    It works on players and mobs, lasts 10 seconds, and players can struggle free after 5.
+    Hold right-click to possess a player or mob for up to 10 seconds: you get their POV and
+    controls while your own body is frozen. Players can struggle free after 5 seconds.
 
 ---
 
@@ -96,6 +97,31 @@ UI, config and the debug command. **Every spell benefits, with zero per-spell wo
 **Done when:** you can play for 30 minutes, see ranks climb, feel spells get cheaper and faster,
 watch max mana grow, survive death with ranks intact, and `runServer` boots clean on a dedicated
 server.
+
+### Phase 1b: Tomes of Mastery
+An item that **raises a spell by one rank instantly**. It comes in the four spell rarities:
+
+| Tome | Can raise |
+|---|---|
+| Common Tome of Mastery | Common spells |
+| Uncommon Tome of Mastery | Uncommon and Common spells |
+| Rare Tome of Mastery | Rare, Uncommon and Common spells |
+| Epic Tome of Mastery | Any spell |
+
+- **Using it:** right-click the tome to open a picker listing your learned spells that the tome
+  can raise and that aren't Master yet. Click one: it goes up one rank, with the same chat line,
+  chime and particles as a normal rank-up, and the +1 max mana. The tome is consumed.
+- **The jump:** the spell's XP is set to the start of the next rank, so leftover progress isn't
+  doubled.
+- **Server checks everything:** spell learned, rarity allowed, not already Master. The picker is
+  only a menu.
+- **Tier colors:** the name is colored by tier (white, yellow, aqua, light purple), matching the
+  Grimoire's tier colors, and each tier has its own book texture.
+- **Where you find them:** chest loot only, rarer than spell books and weighted by tier like
+  `SpellLootRarity`. Epic tomes only come from endgame loot (Gringotts vaults, the Horntail nest,
+  the Chamber). No crafting recipe, so they stay a treasure rather than a shortcut.
+- **Needs:** Phase 1 storage (`SpellMasteryData.setXp`) and the rank-up feedback. A small
+  follow-up plan after Phase 1 ships.
 
 ### Phase 2: Shared combat rules
 - Five effects: `stunned` (server-side movement and attack lock, mob AI paused), `bleeding`
@@ -146,46 +172,41 @@ gets shorter and costs less backlash with rank; 20% max health against bosses). 
 corruption before this phase starts.**
 
 #### Imperio Master: Possession
-1. **Cast:** an Imperio beam hits a player or a non-boss mob. Instead of the usual effect, you
-   get a **Puppet Token** in your inventory: a head item showing the target's face (a player
-   head with their skin for players; a mob head or icon for mobs), named after the target. The
-   victim is marked and gets a faint green glow. The token expires after 20s if you don't use it.
-2. **Take control:** use the token (right-click it, or click it in the inventory). For
-   **10 seconds** your camera becomes the victim's eyes: you see their POV and drive their
-   movement, looking, jumping, attacking and their held item.
-3. **Your own body stays behind** in a trance: it stands still and is defenceless. Getting hit
-   hard (≥4 damage) snaps you back early. That's the counterplay for everyone nearby.
-4. **The victim's side (players):** their controls are taken away, and they see a green
+Ranks I–III keep today's control: **hold right-click** with Imperio on a mob to steer it. At
+**Master**, holding right-click on a player or non-boss mob becomes full possession:
+
+1. **Hold to possess.** While you hold right-click (up to **10 seconds**), your camera jumps to the
+   victim's eyes and your controls drive *their* body: walking, looking, jumping, attacking and
+   their held item. Letting go ends it early.
+2. **Your own body stops working.** It stands frozen in a trance and doesn't respond to your
+   keys while you're inside the victim. It can still be hurt, and a hit of 4 or more damage
+   throws you out. That's the counterplay for everyone nearby.
+3. **The victim's side (players):** their controls are taken away, and they see a green
    "Imperius" vignette and the prompt *"Mash SPACE to resist!"* For the **first 5 seconds**
    resisting does nothing. After that, each half-second in which they press space fast enough
-   (≥6 presses) gives a 20% chance to break free. Mashing usually frees you in the last few
-   seconds, but not always.
-5. **When it ends** (10s, broken free, caster hit, caster or victim dies, logout or dimension
-   change): control returns and the camera snaps back. A broken-free victim gets 3s of
-   immunity to recasting, and the caster gets Nausea for 3s.
-6. **Limits:** bosses are immune; an Imperio cooldown applies after possession ends; you can't
-   make the victim drop or throw their items, open their inventory or chests, or log them out;
-   a config toggle (`imperioPossessPlayers`, default on) controls player possession, and mobs
-   are always allowed.
-7. **Mobs can't resist,** but their AI is switched off for the duration and restored after.
+   (≥6 presses) gives a 20% chance to break free.
+4. **When it ends** (you let go, 10s pass, they break free, your body is hit, either of you dies,
+   logout or dimension change): the camera snaps back and both bodies get their controls back.
+   A broken-free victim gets 3s of immunity to recasting; the caster gets Nausea for 3s.
+5. **Limits:** bosses are immune; the Imperio cooldown starts when possession ends; you can't
+   drop or throw the victim's items or open their inventory or chests; a config toggle
+   (`imperioPossessPlayers`, default on) controls player possession, and mobs are always allowed.
+6. **Mobs can't resist,** but their AI is switched off for the duration and restored after.
 
-**How it works under the hood:**
-- **Server authoritative:** the server owns the possession session (caster, victim, start
-  tick, end tick).
+**How it works under the hood:** it builds on the existing Imperio channel in `ModEvents`, which
+already tracks the hold (`TAG_IMPERIO_CHANNELING`, a heartbeat via `TAG_IMPERIO_LAST_SEEN`, and
+forward input) and `ImperioControlPacket`.
+- **Rank check:** at Master, the server starts a possession session (caster, victim, start tick,
+  end tick) instead of the usual steering.
 - **Caster's client:** calls `setCameraEntity(victim)` and sends its movement keys, rotation,
-  jump, attack and use input every tick in a `PossessInputPacket`.
-- **Victim's client:** gets a `PossessedStatePacket` that zeroes its own movement input (so the
-  two clients don't fight over the body), shows the vignette and prompt, and reports space
-  presses in a `ResistPacket`.
-- **Applying the input:** the server applies the caster's input to the victim. For players, it
-  sets rotation and velocity and calls `attack()`/`useItem` server-side. For mobs, it drives
-  them through their `MoveControl` and `LookControl`.
-- **Rate-limiting:** the server counts space presses itself and caps them, so a macro can't
-  break free instantly.
-- **Client code stays client-side:** the camera and input-capture code lives only in `client/`.
+  jump, attack and use input every tick. The caster's own movement is zeroed server-side.
+- **Victim's client:** gets a packet that zeroes its own input, shows the vignette and prompt,
+  and reports space presses. The server counts the presses itself and caps them, so a macro
+  can't escape instantly.
+- **Client code stays client-side:** the camera and input capture live only in `client/`.
 - **Watch out for players:** movement is client-authoritative in vanilla, so forced movement
-  needs `hurtMarked`/teleport sync and will look slightly rubber-banded at high ping. Test it on
-  the dedicated server early.
+  needs `hurtMarked`/teleport sync and may rubber-band slightly at high ping. Test it on the
+  dedicated server early.
 
 ### Phase 7: The expensive features (each one a separate plan)
 Patronus forms (tinted vanilla models, chosen by UUID + house), a Serpensortia snake entity

@@ -144,6 +144,14 @@ public final class Config {
             .comment("Tomes of Mastery: chance (0-1) of an Epic Tome in endgame chests only (Gringotts vaults, the Horntail nest, the Chamber). A chest holds at most one tome; keep the four chances summing below 1.")
             .defineInRange("tomeEpicChestChance", 0.0015, 0.0, 1.0);
 
+    public static final ForgeConfigSpec.BooleanValue PVP_CROWD_CONTROL_REDUCTION = BUILDER
+            .comment("Combat: if true, hard crowd control (stuns, freezes, binds) one player puts on another lasts pvpCrowdControlMultiplier as long.")
+            .define("pvpCrowdControlReduction", true);
+
+    public static final ForgeConfigSpec.DoubleValue PVP_CROWD_CONTROL_MULTIPLIER = BUILDER
+            .comment("Combat: duration multiplier for hard crowd control between players while pvpCrowdControlReduction is on.")
+            .defineInRange("pvpCrowdControlMultiplier", 0.6, 0.0, 1.0);
+
     static final ForgeConfigSpec SPEC = BUILDER.build();
 
     public static double baseMaxMana = 100;
@@ -177,6 +185,9 @@ public final class Config {
     public static double tomeUncommonChestChance = 0.015;
     public static double tomeRareChestChance = 0.005;
     public static double tomeEpicChestChance = 0.0015;
+
+    public static boolean pvpCrowdControlReduction = true;
+    public static double pvpCrowdControlMultiplier = 0.6;
 
     private Config() {
     }
@@ -217,6 +228,8 @@ public final class Config {
         tomeUncommonChestChance = TOME_UNCOMMON_CHEST_CHANCE.get();
         tomeRareChestChance = TOME_RARE_CHEST_CHANCE.get();
         tomeEpicChestChance = TOME_EPIC_CHEST_CHANCE.get();
+        pvpCrowdControlReduction = PVP_CROWD_CONTROL_REDUCTION.get();
+        pvpCrowdControlMultiplier = PVP_CROWD_CONTROL_MULTIPLIER.get();
         if (!com.hogwartsmagic.spell.mastery.MasteryMath.thresholdsValid(masteryXpAdept, masteryXpExpert, masteryXpMaster)) {
             LOGGER.warn("Spell mastery XP thresholds {} / {} / {} are not strictly rising; using the defaults 30 / 120 / 350.",
                     masteryXpAdept, masteryXpExpert, masteryXpMaster);
@@ -321,5 +334,10 @@ public final class Config {
 
     public static double getHorcruxSoulSpeed() {
         return horcruxSoulSpeed;
+    }
+
+    /** Duration multiplier for hard crowd control between players; 1.0 when the reduction is switched off. */
+    public static double getPvpCrowdControlMultiplier() {
+        return pvpCrowdControlReduction ? pvpCrowdControlMultiplier : 1.0;
     }
 }

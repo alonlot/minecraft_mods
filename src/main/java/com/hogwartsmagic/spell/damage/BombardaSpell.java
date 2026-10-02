@@ -97,6 +97,9 @@ public final class BombardaSpell {
 
     private static int queueBlocks(ServerLevel level, BlockPos center, @Nullable Entity caster, int rank, double radius,
                                     boolean masteryEligible) {
+        if (!masteryEligible) {
+            return 0; // a reflected blast (NPC or player) never breaks terrain
+        }
         if (!(CombatEffects.responsible(caster) instanceof ServerPlayer player)) {
             return 0; // NPC Bombarda (Voldemort) never breaks terrain
         }

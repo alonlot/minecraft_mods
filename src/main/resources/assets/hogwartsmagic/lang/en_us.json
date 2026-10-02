@@ -169,7 +169,7 @@
   "spell.hogwartsmagic.reparo": "Reparo",
   "spell.hogwartsmagic.reparo.desc": "Rebuilds recently broken blocks near where it lands, paid with their rubble or matching blocks: 4 within 6 blocks at Novice, up to 48 within 20 at Master. From Expert, left-click mends the item in your off-hand (or your worn armour) by a tenth of its durability.",
   "spell.hogwartsmagic.apparition": "Apparition",
-  "spell.hogwartsmagic.apparition.desc": "Channel for four seconds and pick a known spot on a nearby map, then Disapparate with a crack and reappear there. Anyone within a block comes with you. Botch the focus — long range, or a hit while channeling — and you risk being Splinched. Cannot be cast inside an anti-Apparition ward.",
+  "spell.hogwartsmagic.apparition.desc": "Pick a spot on the map while you focus, then Disapparate with a crack and reappear there; anyone within a block comes with you. Range 48 blocks and 4 seconds of focus at Novice, 200 blocks and 1 second at Master. Novices risk being Splinched; Masters never are, and can Apparate to any Floo fireplace they have used in this dimension. A hit breaks your focus. Cannot be cast inside an anti-Apparition ward.",
   "gui.hogwartsmagic.apparition.title": "Apparition — Choose Your Destination",
   "gui.hogwartsmagic.apparition.hint": "Click a place you know. Hold still — focus is everything.",
   "message.hogwartsmagic.apparition.warded": "Anti-Apparition magic resists you here.",

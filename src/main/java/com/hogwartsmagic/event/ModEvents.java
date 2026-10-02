@@ -179,9 +179,7 @@ public class ModEvents {
     // ── Apparition (channeled self-teleport with a minimap destination picker) ──
     private static final String TAG_APPARITION_CHANNELING = "hogwartsmagic:apparition_channeling";
     private static final String TAG_APPARITION_START = "hogwartsmagic:apparition_start";
-    private static final int APPARITION_CHANNEL_TICKS = 80;          // 4 seconds of "Determination/Deliberation"
     public static final int APPARITION_MANA_COST = 100;
-    private static final double APPARITION_MAX_RANGE = 48.0D;        // matches the minimap radius (blocks)
     private static final double APPARITION_SIDEALONG_RADIUS = 1.0D;  // side-along: who comes with you
     private static final ResourceLocation APPARITION_IMPLODE_MODIFIER_ID =
             ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "apparition_implode");
@@ -1878,8 +1876,11 @@ public class ModEvents {
         revealInvisibilityCloak(player);
         player.level().playSound(null, player.blockPosition(),
                 net.minecraft.sounds.SoundEvents.BEACON_DEACTIVATE, SoundSource.PLAYERS, 0.6f, 1.6f);
+        int apparitionRank = com.hogwartsmagic.spell.mastery.SpellMasteryData.getRank(player, SpellType.APPARITION);
         SpellPackets.CHANNEL.send(
-                new SpellPackets.OpenApparitionMapPacket(player.blockPosition(), (int) APPARITION_MAX_RANGE, APPARITION_CHANNEL_TICKS),
+                new SpellPackets.OpenApparitionMapPacket(player.blockPosition(),
+                        com.hogwartsmagic.spell.support.ApparitionRules.range(apparitionRank),
+                        com.hogwartsmagic.spell.support.ApparitionRules.channelTicks(apparitionRank)),
                 PacketDistributor.PLAYER.with(player));
     }
 
@@ -1940,7 +1941,9 @@ public class ModEvents {
 
         long now = player.level().getGameTime();
         int elapsed = (int) (now - playerData.getLong(TAG_APPARITION_START));
-        float progress = Math.min(1.0f, elapsed / (float) APPARITION_CHANNEL_TICKS);
+        int channelTicks = com.hogwartsmagic.spell.support.ApparitionRules.channelTicks(
+                com.hogwartsmagic.spell.mastery.SpellMasteryData.getRank(player, SpellType.APPARITION));
+        float progress = Math.min(1.0f, elapsed / (float) channelTicks);
 
         // Implode: shrink the caster over the channel so onlookers see them compress into themselves.
         applyImplodeScale(player, progress);
@@ -1956,7 +1959,7 @@ public class ModEvents {
         }
 
         // Timed out with no destination chosen → cancel and pay the full cooldown.
-        if (elapsed >= APPARITION_CHANNEL_TICKS) {
+        if (elapsed >= channelTicks) {
             cancelApparitionChannel(player, wand);
         }
     }
@@ -1974,13 +1977,15 @@ public class ModEvents {
         }
 
         Vec3 from = player.position();
+        int rank = com.hogwartsmagic.spell.mastery.SpellMasteryData.getRank(player, SpellType.APPARITION);
+        int range = com.hogwartsmagic.spell.support.ApparitionRules.range(rank);
         double dist = Math.hypot((targetX + 0.5) - from.x, (targetZ + 0.5) - from.z);
         Vec3 dest = findApparitionLanding(level, targetX, targetZ);
         com.hogwartsmagic.caveinimicum.CaveInimicumManager wards =
                 com.hogwartsmagic.caveinimicum.CaveInimicumManager.get(level);
         boolean warded = dest != null && wards.isWardedAt(BlockPos.containing(dest.x, dest.y, dest.z));
 
-        if (dest == null || dist > APPARITION_MAX_RANGE + 4.0D || warded) {
+        if (dest == null || dist > range + com.hogwartsmagic.spell.support.ApparitionRules.RANGE_SLACK || warded) {
             player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
                     "message.hogwartsmagic.apparition.blocked").withStyle(net.minecraft.ChatFormatting.LIGHT_PURPLE), true);
             cancelApparitionChannel(player, wand);
@@ -1997,9 +2002,11 @@ public class ModEvents {
         java.util.List<LivingEntity> passengers = level.getEntitiesOfClass(LivingEntity.class,
                 player.getBoundingBox().inflate(APPARITION_SIDEALONG_RADIUS), e -> e != player && e.isAlive());
 
-        // Splinch risk scales with distance; a botched jump lands you short.
-        float risk = 0.04f + 0.30f * (float) Math.min(1.0, dist / APPARITION_MAX_RANGE);
-        boolean splinched = !player.isCreative() && player.getRandom().nextFloat() < risk;
+        // Splinch risk falls with rank and comes from config (10% at Novice by default, and it can be
+        // switched off); a botched jump still lands you short.
+        double risk = com.hogwartsmagic.spell.support.ApparitionRules.splinchChance(rank,
+                Config.getApparitionSplinchChance(), Config.isApparitionSplinching());
+        boolean splinched = !player.isCreative() && player.getRandom().nextDouble() < risk;
         Vec3 landing = dest;
         if (splinched) {
             int sx = (int) Math.floor(from.x + ((targetX + 0.5) - from.x) * 0.65);

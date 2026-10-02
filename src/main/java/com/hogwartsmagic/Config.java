@@ -152,6 +152,14 @@ public final class Config {
             .comment("Combat: duration multiplier for hard crowd control between players while pvpCrowdControlReduction is on.")
             .defineInRange("pvpCrowdControlMultiplier", 0.6, 0.0, 1.0);
 
+    public static final ForgeConfigSpec.BooleanValue APPARITION_SPLINCHING = BUILDER
+            .comment("Apparition: if false, nobody is ever Splinched.")
+            .define("apparitionSplinching", true);
+
+    public static final ForgeConfigSpec.DoubleValue APPARITION_SPLINCH_CHANCE = BUILDER
+            .comment("Apparition: Splinch chance (0-1) at Novice. Adept takes half of it, Expert a fifth, Master never splinches.")
+            .defineInRange("apparitionSplinchChance", 0.10, 0.0, 1.0);
+
     static final ForgeConfigSpec SPEC = BUILDER.build();
 
     public static double baseMaxMana = 100;
@@ -188,6 +196,8 @@ public final class Config {
 
     public static boolean pvpCrowdControlReduction = true;
     public static double pvpCrowdControlMultiplier = 0.6;
+    public static boolean apparitionSplinching = true;
+    public static double apparitionSplinchChance = 0.10;
 
     private Config() {
     }
@@ -230,6 +240,8 @@ public final class Config {
         tomeEpicChestChance = TOME_EPIC_CHEST_CHANCE.get();
         pvpCrowdControlReduction = PVP_CROWD_CONTROL_REDUCTION.get();
         pvpCrowdControlMultiplier = PVP_CROWD_CONTROL_MULTIPLIER.get();
+        apparitionSplinching = APPARITION_SPLINCHING.get();
+        apparitionSplinchChance = APPARITION_SPLINCH_CHANCE.get();
         if (!com.hogwartsmagic.spell.mastery.MasteryMath.thresholdsValid(masteryXpAdept, masteryXpExpert, masteryXpMaster)) {
             LOGGER.warn("Spell mastery XP thresholds {} / {} / {} are not strictly rising; using the defaults 30 / 120 / 350.",
                     masteryXpAdept, masteryXpExpert, masteryXpMaster);
@@ -339,5 +351,13 @@ public final class Config {
     /** Duration multiplier for hard crowd control between players; 1.0 when the reduction is switched off. */
     public static double getPvpCrowdControlMultiplier() {
         return pvpCrowdControlReduction ? pvpCrowdControlMultiplier : 1.0;
+    }
+
+    public static boolean isApparitionSplinching() {
+        return apparitionSplinching;
+    }
+
+    public static double getApparitionSplinchChance() {
+        return apparitionSplinchChance;
     }
 }

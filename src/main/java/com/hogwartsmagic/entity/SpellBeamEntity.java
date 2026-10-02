@@ -591,6 +591,14 @@ public class SpellBeamEntity extends ThrowableProjectile {
                         this.level().setBlockAndUpdate(pos.relative(blockHit.getDirection()), Blocks.FIRE.defaultBlockState());
                         hitSuccessful = true;
                     }
+                } else if (spell == SpellType.BOMBARDA) {
+                    // The terrain breaker: blast now, blocks over the next few ticks (BombardaBlasts).
+                    if (this.level() instanceof ServerLevel bombardaLevel) {
+                        com.hogwartsmagic.spell.damage.BombardaSpell.detonateAtBlock(
+                                bombardaLevel, pos, this.position(), getOwner());
+                        hitSuccessful = true;
+                        masteryEligible = false; // block XP is granted by BombardaBlasts once a block actually breaks
+                    }
                 } else if (spell == SpellType.DIFFINDO) {
                     // The magic shears: leaves, vines, webs, wool and grass come free as items.
                     if (this.level() instanceof ServerLevel diffindoLevel) {

@@ -308,8 +308,7 @@ public enum SpellType {
                 }
             }
             case BOMBARDA -> {
-                target.level().explode(caster, target.getX(), target.getY(), target.getZ(), 2.5f, Level.ExplosionInteraction.NONE);
-                target.hurt(target.damageSources().explosion(null), scaledSpellDamage(caster, 12.0f));
+                com.hogwartsmagic.spell.damage.BombardaSpell.onEntityHit(target, caster);
                 if (target.getTicksFrozen() > 0 || target.hasEffect(MobEffects.MOVEMENT_SLOWDOWN)) {
                     triggerSteamCombo(target);
                 }

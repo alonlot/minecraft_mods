@@ -71,6 +71,13 @@ public class WandRadialMenuScreen extends Screen {
                 drawFilledCircle(guiGraphics, sx, sy, iconRadius - 1, 0xFF000000 | spell.getColor());
                 String initials = initialsFor(spell);
                 guiGraphics.drawCenteredString(this.font, initials, sx, sy - 4, 0xFFFFFFFF);
+                if (this.minecraft != null && this.minecraft.player != null) {
+                    int rank = com.hogwartsmagic.spell.mastery.SpellMasteryData.getRank(this.minecraft.player, spell);
+                    if (rank > 1) {
+                        guiGraphics.drawCenteredString(this.font,
+                                com.hogwartsmagic.spell.mastery.MasteryMath.roman(rank), sx, sy + 5, 0xFFFFE08A);
+                    }
+                }
                 guiGraphics.drawCenteredString(this.font, keybindLabel(i), sx, sy - iconRadius - 11, hovered ? 0xFFFFF0B3 : 0xFFE2D8FF);
                 Component shortName = Component.translatable("spell." + ExampleMod.MODID + "." + spell.getId());
                 guiGraphics.drawCenteredString(this.font, shortName.getString(), sx, sy + iconRadius + 7, hovered ? 0xFFF2DFA8 : 0xFFD0C8E8);

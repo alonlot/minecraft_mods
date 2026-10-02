@@ -245,6 +245,36 @@ public class SpellCompendiumScreen extends Screen {
         g.drawString(this.font, status, x, y, learned ? COLOR_NOVICE : COLOR_MASTER);
         y += 16;
 
+        if (learned) {
+            float xp = com.hogwartsmagic.spell.mastery.SpellMasteryData.getXp(player, selected);
+            int[] thresholds = com.hogwartsmagic.Config.getMasteryThresholds();
+            int rank = com.hogwartsmagic.spell.mastery.MasteryMath.rankForXp(xp, thresholds);
+            int rankColor = rank >= 4 ? COLOR_MASTER : rank == 3 ? COLOR_ADEPT : rank == 2 ? COLOR_APPRENTICE : COLOR_NOVICE;
+            Component rankLine = Component.translatable("gui." + ExampleMod.MODID + ".mastery.rank_line",
+                    com.hogwartsmagic.spell.mastery.MasteryMath.roman(rank),
+                    Component.translatable(com.hogwartsmagic.spell.mastery.MasteryAwards.rankKey(rank)));
+            g.drawString(this.font, rankLine, x, y, rankColor);
+            y += 11;
+
+            int barWidth = Math.min(120, wrap);
+            float progress = com.hogwartsmagic.spell.mastery.MasteryMath.rankProgress(xp, thresholds);
+            g.fill(x, y, x + barWidth, y + 4, 0xFF2A2340);
+            g.fill(x, y, x + Math.round(barWidth * progress), y + 4, rankColor);
+            y += 7;
+
+            float toNext = com.hogwartsmagic.spell.mastery.MasteryMath.xpToNextRank(xp, thresholds);
+            Component next = toNext < 0
+                    ? Component.translatable("gui." + ExampleMod.MODID + ".mastery.maxed")
+                    : Component.translatable("gui." + ExampleMod.MODID + ".mastery.next",
+                            String.format("%.0f", Math.ceil(toNext)),
+                            Math.round(com.hogwartsmagic.Config.getMasteryRankDiscount() * 100));
+            for (FormattedCharSequence line : this.font.split(next, wrap)) {
+                g.drawString(this.font, line, x, y, COLOR_BODY);
+                y += 11;
+            }
+            y += 5;
+        }
+
         // Description (wrapped).
         Component desc = Component.translatable("spell." + ExampleMod.MODID + "." + selected.getId() + ".desc");
         for (FormattedCharSequence line : this.font.split(desc, wrap)) {
@@ -255,10 +285,12 @@ public class SpellCompendiumScreen extends Screen {
 
         // Stats: mana cost + cooldown in seconds.
         Component mana = Component.translatable(
-                "gui." + ExampleMod.MODID + ".grimoire.mana", selected.getManaCost());
+                "gui." + ExampleMod.MODID + ".grimoire.mana",
+                com.hogwartsmagic.spell.SpellCosts.manaCost(player, net.minecraft.world.item.ItemStack.EMPTY, selected));
         g.drawString(this.font, mana, x, y, 0xFF8FC9FF);
         y += 12;
-        String cd = String.format("%.1f", selected.getCooldownTicks() / 20.0F);
+        String cd = String.format("%.1f",
+                com.hogwartsmagic.spell.SpellCosts.cooldownTicks(player, net.minecraft.world.item.ItemStack.EMPTY, selected) / 20.0F);
         Component cooldown = Component.translatable(
                 "gui." + ExampleMod.MODID + ".grimoire.cooldown", cd);
         g.drawString(this.font, cooldown, x, y, 0xFFB8B8B8);

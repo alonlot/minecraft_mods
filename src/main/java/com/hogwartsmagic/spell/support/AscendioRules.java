@@ -12,7 +12,8 @@ public final class AscendioRules {
     public static final int SAFE_FALL_TICKS = 100;
     public static final double DOUBLE_CAST_HEIGHT_FACTOR = 0.5;
     public static final double SURGE_SPEED = 1.2;
-    public static final int SURGE_MAX_TICKS = 60;
+    public static final int SURGE_MAX_TICKS = 40;
+    public static final int SURGE_PUSH_INTERVAL = 4;
     public static final double PUSH_RADIUS = 2.0;
     public static final double PUSH_STRENGTH = 1.0;
     public static final double PUSH_LIFT = 0.3;
@@ -69,5 +70,10 @@ public final class AscendioRules {
 
     public static boolean pushesOnTakeoff(int rank) {
         return rank >= 4;
+    }
+
+    /** The midair second cast: Expert+, airborne and dry, this jump's charge unspent, casting on yourself. */
+    public static boolean canDoubleCast(int rank, boolean airborne, boolean inWater, boolean hasCharge, boolean aimedAtSelf) {
+        return doubleCasts(rank) && airborne && !inWater && hasCharge && aimedAtSelf;
     }
 }

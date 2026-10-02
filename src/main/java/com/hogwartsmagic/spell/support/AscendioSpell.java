@@ -40,10 +40,9 @@ public final class AscendioSpell {
 
     /** Expert and up, airborne, with this jump's charge unspent, and casting on yourself. */
     public static boolean canDoubleCast(ServerPlayer player) {
-        return !player.onGround()
-                && player.getPersistentData().getBoolean(TAG_AIR_CHARGE)
-                && AscendioRules.doubleCasts(SpellMasteryData.getRank(player, SpellType.ASCENDIO))
-                && wantsSelfCast(player);
+        return AscendioRules.canDoubleCast(SpellMasteryData.getRank(player, SpellType.ASCENDIO),
+                !player.onGround(), player.isInWater(),
+                player.getPersistentData().getBoolean(TAG_AIR_CHARGE), wantsSelfCast(player));
     }
 
     /** @return true if this was the midair double cast (the caller then leaves the cooldown alone). */
@@ -53,6 +52,8 @@ public final class AscendioSpell {
         ServerLevel level = player.serverLevel();
         if (AscendioRules.surges(rank) && player.isInWater()) {
             // Triwizard Task 2: straight up and out. The tick hook keeps pushing until the surface.
+            data.remove(TAG_AIR_CHARGE);
+            data.remove(TAG_LAUNCHED_AT);
             data.putLong(TAG_SURGE_UNTIL, now + AscendioRules.SURGE_MAX_TICKS);
             data.putLong(TAG_SAFE_UNTIL, now + AscendioRules.SURGE_MAX_TICKS + AscendioRules.SAFE_FALL_TICKS);
             Vec3 motion = player.getDeltaMovement();
@@ -62,18 +63,24 @@ public final class AscendioSpell {
             level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.BUBBLE_COLUMN_UPWARDS_INSIDE, SoundSource.PLAYERS, 1.0f, 1.0f);
             return false;
         }
-        boolean doubleCast = !player.onGround() && data.getBoolean(TAG_AIR_CHARGE) && AscendioRules.doubleCasts(rank);
+        boolean fromGround = player.onGround();
+        boolean doubleCast = AscendioRules.canDoubleCast(rank, !fromGround, player.isInWater(),
+                data.getBoolean(TAG_AIR_CHARGE), true);
         double blocks = AscendioRules.heightBlocks(rank) * (doubleCast ? AscendioRules.DOUBLE_CAST_HEIGHT_FACTOR : 1.0);
         Vec3 motion = player.getDeltaMovement();
         player.setDeltaMovement(motion.x, AscendioRules.launchVelocity(blocks), motion.z);
         player.hurtMarked = true;
-        player.fallDistance = 0.0f;
-        data.putLong(TAG_SAFE_UNTIL, now + AscendioRules.SAFE_FALL_TICKS);
-        data.putLong(TAG_LAUNCHED_AT, now);
         if (doubleCast) {
             data.remove(TAG_AIR_CHARGE);
-        } else if (AscendioRules.doubleCasts(rank)) {
-            data.putBoolean(TAG_AIR_CHARGE, true);
+            data.remove(TAG_LAUNCHED_AT);
+        } else if (fromGround) {
+            // Only a take-off from the ground grants fall immunity and the one midair recast.
+            player.fallDistance = 0.0f;
+            data.putLong(TAG_SAFE_UNTIL, now + AscendioRules.SAFE_FALL_TICKS);
+            if (AscendioRules.doubleCasts(rank)) {
+                data.putBoolean(TAG_AIR_CHARGE, true);
+                data.putLong(TAG_LAUNCHED_AT, now);
+            }
         }
         if (!doubleCast && AscendioRules.pushesOnTakeoff(rank)) {
             shoveAway(level, player);
@@ -104,10 +111,11 @@ public final class AscendioSpell {
             return; // nothing pending: the common case costs two key lookups
         }
         long now = player.level().getGameTime();
+        boolean inWater = player.isInWater();
         if (data.contains(TAG_SURGE_UNTIL)) {
-            if (now < data.getLong(TAG_SURGE_UNTIL) && player.isInWater()) {
-                Vec3 motion = player.getDeltaMovement();
-                if (motion.y < AscendioRules.SURGE_SPEED) {
+            if (now < data.getLong(TAG_SURGE_UNTIL) && inWater) {
+                if (now % AscendioRules.SURGE_PUSH_INTERVAL == 0) {
+                    Vec3 motion = player.getDeltaMovement();
                     player.setDeltaMovement(motion.x, AscendioRules.SURGE_SPEED, motion.z);
                     player.hurtMarked = true;
                 }
@@ -115,9 +123,10 @@ public final class AscendioSpell {
                 data.remove(TAG_SURGE_UNTIL);
             }
         }
-        if (data.getBoolean(TAG_AIR_CHARGE) && player.onGround()
-                && now - data.getLong(TAG_LAUNCHED_AT) > AscendioRules.AIR_CHARGE_GRACE_TICKS) {
-            data.remove(TAG_AIR_CHARGE); // landed: the next jump earns a fresh charge
+        if (data.contains(TAG_AIR_CHARGE)
+                && (inWater || (player.onGround() && now - data.getLong(TAG_LAUNCHED_AT) > AscendioRules.AIR_CHARGE_GRACE_TICKS))) {
+            data.remove(TAG_AIR_CHARGE); // landed or swimming: the next ground jump earns a fresh charge
+            data.remove(TAG_LAUNCHED_AT);
         }
     }
 

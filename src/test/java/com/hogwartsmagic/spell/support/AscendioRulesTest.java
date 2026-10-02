@@ -53,4 +53,14 @@ class AscendioRulesTest {
         assertFalse(AscendioRules.pushesOnTakeoff(3));
         assertTrue(AscendioRules.pushesOnTakeoff(4));
     }
+
+    @Test
+    void doubleCastNeedsExpertAirChargeDryAndSelfAim() {
+        assertTrue(AscendioRules.canDoubleCast(3, true, false, true, true));
+        assertFalse(AscendioRules.canDoubleCast(2, true, false, true, true));
+        assertFalse(AscendioRules.canDoubleCast(3, false, false, true, true));
+        assertFalse(AscendioRules.canDoubleCast(4, true, true, true, true));
+        assertFalse(AscendioRules.canDoubleCast(3, true, false, false, true));
+        assertFalse(AscendioRules.canDoubleCast(3, true, false, true, false));
+    }
 }

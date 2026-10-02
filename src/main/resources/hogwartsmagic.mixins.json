@@ -6,7 +6,10 @@
   "mixins": [
     "OverworldBiomeBuilderMixin",
     "SurfaceRuleDataMixin",
-    "PlayerChunkSenderMixin"
+    "PlayerChunkSenderMixin",
+    "LivingEntityStunMixin",
+    "FoodDataBleedingMixin",
+    "PlayerBleedingMixin"
   ],
   "client": [
     "client.InvisibilityCloakArmorLayerMixin",

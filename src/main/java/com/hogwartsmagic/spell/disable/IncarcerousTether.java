@@ -215,7 +215,10 @@ public final class IncarcerousTether {
             }
             double above = target.getY() - ay;
             double slack = IncarcerousRules.PULL_DOWN_VERTICAL_SLACK;
-            if (above > slack + TetherMath.SNAP_SLACK
+            boolean hanging = LevicorpusSpell.isHanging(target); // the Levicorpus hold owns the vertical axis
+            if (hanging) {
+                // no vertical pull while hanging
+            } else if (above > slack + TetherMath.SNAP_SLACK
                     && safeSnap(level, target, target.getX(), ay + slack, target.getZ())) {
                 v = new Vec3(v.x, 0.0, v.z);
                 changed = true;

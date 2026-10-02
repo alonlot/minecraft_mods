@@ -127,6 +127,9 @@ public final class LevicorpusSpell {
         if (target.level().isClientSide()) {
             return;
         }
+        if (!target.isNoGravity()) {
+            return; // the hang always sets no-gravity; don't touch persistent data on every other entity
+        }
         CompoundTag data = target.getPersistentData();
         if (!data.contains(ANCHOR_TAG)) {
             return;

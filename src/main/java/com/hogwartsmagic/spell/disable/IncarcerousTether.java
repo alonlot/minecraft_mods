@@ -10,12 +10,14 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.event.entity.living.LivingEvent;
 import net.minecraftforge.event.entity.living.LivingKnockBackEvent;
+import net.minecraftforge.event.entity.living.MobEffectEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
@@ -121,12 +123,17 @@ public final class IncarcerousTether {
         if (!(target.level() instanceof ServerLevel level)) {
             return;
         }
+        // Never touch getPersistentData() before this check: it lazily creates an empty tag on every
+        // mob. The tether tag is cleared when the chains effect expires or is removed (handlers below).
+        Holder<MobEffect> chains = DisableSupport.holder(ExampleMod.INCARCEROUS_CHAINS);
+        if (!target.hasEffect(chains)) {
+            return;
+        }
         CompoundTag data = target.getPersistentData();
         if (!data.contains(TAG)) {
             return;
         }
-        Holder<MobEffect> chains = DisableSupport.holder(ExampleMod.INCARCEROUS_CHAINS);
-        if (!target.isAlive() || !target.hasEffect(chains)) {
+        if (!target.isAlive()) {
             data.remove(TAG);
             return;
         }
@@ -235,6 +242,24 @@ public final class IncarcerousTether {
         return false;
     }
 
+    /** The chains ran out: the tether tag has done its job. */
+    @SubscribeEvent
+    public static void onChainsExpired(MobEffectEvent.Expired event) {
+        MobEffectInstance instance = event.getEffectInstance();
+        if (instance != null && instance.getEffect().value() == ExampleMod.INCARCEROUS_CHAINS.get()
+                && !event.getEntity().level().isClientSide()) {
+            event.getEntity().getPersistentData().remove(TAG);
+        }
+    }
+
+    /** The chains were removed (milk, /effect clear, dimension change): same cleanup. */
+    @SubscribeEvent
+    public static void onChainsRemoved(MobEffectEvent.Remove event) {
+        if (event.getEffect() == ExampleMod.INCARCEROUS_CHAINS.get() && !event.getEntity().level().isClientSide()) {
+            event.getEntity().getPersistentData().remove(TAG);
+        }
+    }
+
     /** Master: knockback on one member of a bound group is passed to the others (they're chained together). */
     @SubscribeEvent
     public static void onKnockBack(LivingKnockBackEvent event) {
@@ -242,12 +267,12 @@ public final class IncarcerousTether {
         if (sharingKnockback || !(target.level() instanceof ServerLevel level)) {
             return;
         }
-        UUID group = groupOf(target);
-        if (group == null) {
-            return;
-        }
         Holder<MobEffect> chains = DisableSupport.holder(ExampleMod.INCARCEROUS_CHAINS);
         if (!target.hasEffect(chains)) {
+            return;
+        }
+        UUID group = groupOf(target);
+        if (group == null) {
             return;
         }
         List<LivingEntity> members = level.getEntitiesOfClass(LivingEntity.class,
@@ -268,6 +293,9 @@ public final class IncarcerousTether {
 
     @Nullable
     private static UUID groupOf(LivingEntity entity) {
+        if (!entity.hasEffect(DisableSupport.holder(ExampleMod.INCARCEROUS_CHAINS))) {
+            return null; // no persistent-data access on entities that are not chained
+        }
         CompoundTag data = entity.getPersistentData();
         if (!data.contains(TAG)) {
             return null;

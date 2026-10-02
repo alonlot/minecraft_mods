@@ -96,8 +96,9 @@ public final class DisableSupport {
      * cast never stuns a nearby friend). Otherwise hostile mobs (except Students, which are illagers in
      * code but usually friendly) and any mob currently targeting the caster.</li>
      * <li><b>NPC caster (a Mob, e.g. Voldemort):</b> every {@code Enemy} is NOT a foe, because the
-     * caster's own Death Eaters are Enemies too. See {@link #npcFoe}: only players, the caster's own
-     * target, and mobs fighting the caster or its target qualify.</li>
+     * caster's own Death Eaters are Enemies too. See {@link #npcFoe}: only the caster's own
+     * target, mobs fighting the caster, and players (all of them for a hostile caster, otherwise only
+     * those it is fighting) qualify.</li>
      * </ul>
      */
     public static boolean isEnemyOf(@Nullable Entity caster, LivingEntity candidate, LivingEntity mainTarget) {
@@ -135,29 +136,36 @@ public final class DisableSupport {
     /**
      * NPC-perspective foe test, used when the responsible caster is a non-player. The caller has already
      * excluded the caster, dead or spectating candidates, armour stands, the allied tag, team-mates
-     * ({@code isAlliedTo}) and the caster's pets. A candidate qualifies only if it is a survival player,
-     * the caster's current target, the main target, or currently targeting the caster or the caster's
-     * target. Other {@code Enemy} mobs that are not fighting the caster never qualify.
+     * ({@code isAlliedTo}) and the caster's pets. Two perspectives, by what the candidate is:
+     * <ul>
+     * <li><b>Non-player candidate:</b> a foe only if it is the main target, the caster's current target, or
+     * its own target is the caster. A mob that merely shares the caster's target is an ally (Death Eaters
+     * fighting the same player as Voldemort) and never qualifies.</li>
+     * <li><b>Player candidate</b> (survival, not allied to the caster): a foe only if the caster is hostile
+     * (an {@code Enemy}), or the player is the caster's current or main target, or the player is fighting
+     * the caster (it last hurt the caster, or the caster was last hurt by it, as players have no AI
+     * target). A friendly NPC caster, such as a Student, therefore leaves bystander players alone.</li>
+     * </ul>
      */
     public static boolean npcFoe(Entity caster, LivingEntity candidate, @Nullable LivingEntity mainTarget) {
         if (candidate == caster || candidate.isAlliedTo(caster)) {
             return false;
         }
-        if (candidate instanceof Player player) {
-            return !player.isCreative() && !player.isSpectator();
-        }
-        if (candidate == mainTarget) {
-            return true;
-        }
         LivingEntity casterTarget = caster instanceof Mob m ? m.getTarget() : null;
-        if (casterTarget != null && casterTarget == candidate) {
+        if (candidate instanceof Player player) {
+            if (player.isCreative() || player.isSpectator()) {
+                return false;
+            }
+            if (caster instanceof Enemy || player == casterTarget || player == mainTarget) {
+                return true;
+            }
+            return player.getLastHurtMob() == caster
+                    || (caster instanceof LivingEntity living && living.getLastHurtByMob() == player);
+        }
+        if (candidate == mainTarget || candidate == casterTarget) {
             return true;
         }
-        if (candidate instanceof Mob mob) {
-            LivingEntity theirTarget = mob.getTarget();
-            return theirTarget != null && (theirTarget == caster || theirTarget == casterTarget);
-        }
-        return false;
+        return candidate instanceof Mob mob && mob.getTarget() == caster;
     }
 
     /** Put a target back on its leash or anchor. Players need a real teleport packet; mobs just move. */

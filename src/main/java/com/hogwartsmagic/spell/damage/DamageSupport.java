@@ -57,8 +57,8 @@ public final class DamageSupport {
      * <li><b>Player caster (or none):</b> never players, the caster, allied, owned or team-mate mobs,
      * armour stands; otherwise hostile mobs (not Students) and any mob targeting the caster.</li>
      * <li><b>NPC caster:</b> {@code Enemy} no longer means foe (Voldemort's Death Eaters are Enemies), so
-     * {@link DisableSupport#npcFoe} decides: survival players, the caster's target, and mobs fighting the
-     * caster or its target.</li>
+     * {@link DisableSupport#npcFoe} decides: the caster's target, mobs fighting the caster, and survival
+     * players (all of them for a hostile caster, only those fighting it for a friendly one).</li>
      * </ul>
      */
     public static boolean isSplashTarget(@Nullable Entity caster, LivingEntity candidate, @Nullable LivingEntity primary) {

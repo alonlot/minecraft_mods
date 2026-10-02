@@ -284,7 +284,7 @@
   "gui.hogwartsmagic.combat.cast_blocked_stunned": "You are stunned and can't cast!",
   "gui.hogwartsmagic.combat.cast_blocked_silenced": "You are silenced and can't cast!",
   "commands.hogwartsmagic.crowdcontrol.stunned": "Stunned %s for %s ticks",
-  "commands.hogwartsmagic.crowdcontrol.resisted": "%s resisted (diminishing returns or immunity)",
+  "commands.hogwartsmagic.crowdcontrol.resisted": "%s resisted the crowd control",
   "commands.hogwartsmagic.crowdcontrol.reset": "Cleared diminishing returns on %s targets",
   "gui.hogwartsmagic.wand_radial.stunned": "Stunned: no spells",
   "gui.hogwartsmagic.wand_radial.silenced": "Silenced: no spells",

@@ -43,32 +43,49 @@ public final class CrowdControl {
         if (target.level().isClientSide() || !target.isAlive() || baseTicks <= 0) {
             return 0;
         }
+        if (immuneByMode(target)) {
+            return 0;
+        }
         MobEffectInstance probe = new MobEffectInstance(effect, baseTicks, Math.max(0, amplifier), false, true, true);
         if (!target.canBeAffected(probe)) {
             return 0; // immune targets don't burn a diminishing-returns step
         }
-        int ticks = scaleDuration(target, baseTicks, source);
+        long now = target.level().getGameTime();
+        int ticks = scaledNow(target, baseTicks, source, now);
         if (ticks <= 0) {
             return 0;
         }
         boolean added = target.addEffect(new MobEffectInstance(effect, ticks, Math.max(0, amplifier), false, true, true),
                 CombatEffects.responsible(source));
-        return added ? ticks : 0;
+        if (!added) {
+            return 0; // a same-or-stronger, longer copy is already running: no step burned
+        }
+        DIMINISHING.commit(target.getUUID(), now);
+        return ticks;
     }
 
     /** Scaled duration for this target right now. Consumes one diminishing-returns step when it is above 0. */
     public static int scaleDuration(LivingEntity target, int baseTicks, @Nullable Entity source) {
-        if (target.level().isClientSide() || !target.isAlive() || baseTicks <= 0) {
+        if (target.level().isClientSide() || !target.isAlive() || baseTicks <= 0 || immuneByMode(target)) {
             return 0;
         }
         long now = target.level().getGameTime();
-        double factor = DIMINISHING.peek(target.getUUID(), now);
-        int ticks = CrowdControlMath.scaledTicks(baseTicks, factor, CombatTags.isBoss(target),
-                isPvp(target, source), Config.getPvpCrowdControlMultiplier());
+        int ticks = scaledNow(target, baseTicks, source, now);
         if (ticks > 0) {
             DIMINISHING.commit(target.getUUID(), now);
         }
         return ticks;
+    }
+
+    /** Peek and scale without recording anything. */
+    private static int scaledNow(LivingEntity target, int baseTicks, @Nullable Entity source, long now) {
+        double factor = DIMINISHING.peek(target.getUUID(), now);
+        return CrowdControlMath.scaledTicks(baseTicks, factor, CombatTags.isBoss(target),
+                isPvp(target, source), Config.getPvpCrowdControlMultiplier());
+    }
+
+    private static boolean immuneByMode(LivingEntity target) {
+        return target instanceof Player p && (p.isCreative() || p.isSpectator());
     }
 
     /** A player's crowd control landing on another player. NPC casters and self-casts don't count. */

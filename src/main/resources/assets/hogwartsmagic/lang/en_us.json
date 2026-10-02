@@ -289,6 +289,7 @@
   "commands.hogwartsmagic.crowdcontrol.reset": "Cleared diminishing returns on %s targets",
   "gui.hogwartsmagic.wand_radial.stunned": "Stunned: no spells",
   "gui.hogwartsmagic.wand_radial.silenced": "Silenced: no spells",
+  "block.hogwartsmagic.lumos_light": "Lumos Light",
   "effect.hogwartsmagic.petrified": "Petrificus Totalus",
   "effect.hogwartsmagic.glacius_chill": "Chilled",
   "effect.hogwartsmagic.glacius_frozen": "Frozen Solid",

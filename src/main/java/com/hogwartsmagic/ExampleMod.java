@@ -435,6 +435,18 @@ public class ExampleMod
             () -> new com.hogwartsmagic.block.WillowSaplingBlock(
                     BlockBehaviour.Properties.ofFullCopy(Blocks.OAK_SAPLING)));
 
+    // Lumos light (Spell Mastery Phase 5): removes itself, so it can never be left behind.
+    public static final RegistryObject<Block> LUMOS_LIGHT = BLOCKS.register("lumos_light",
+            () -> new com.hogwartsmagic.block.LumosLightBlock(
+                    BlockBehaviour.Properties.of()
+                            .replaceable()
+                            .noCollission()
+                            .noOcclusion()
+                            .noLootTable()
+                            .instabreak()
+                            .pushReaction(net.minecraft.world.level.material.PushReaction.DESTROY)
+                            .lightLevel(state -> state.getValue(com.hogwartsmagic.block.LumosLightBlock.LIGHT))));
+
     // Custom Invisible Light Block for Patronus
     public static final RegistryObject<Block> PATRONUS_LIGHT_BLOCK = BLOCKS.register("patronus_light_block", 
             () -> new com.hogwartsmagic.block.PatronusLightBlock(

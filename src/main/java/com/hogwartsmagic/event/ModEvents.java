@@ -87,7 +87,6 @@ public class ModEvents {
 
     // Track last placed LIGHT block position for Lumos per entity to avoid leaving trails
     private static final java.util.Map<java.util.UUID, net.minecraft.core.BlockPos> LUMOS_POS = new java.util.WeakHashMap<>();
-    private static final java.util.Map<net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>, java.util.Map<net.minecraft.core.BlockPos, Integer>> REVELIO_LIGHTS = new java.util.HashMap<>();
     private static final java.util.Map<net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>, java.util.Map<net.minecraft.core.BlockPos, Integer>> AQUA_ERUCTO_WATER = new java.util.HashMap<>();
     private static boolean serpensortiaUseLatched = false;
     private static boolean fiendfyreUseLatched = false;
@@ -195,52 +194,9 @@ public class ModEvents {
         );
     }
 
+    /** A timed Lumos light: its removal is a scheduled block tick saved with the chunk, so it survives no restart. */
     public static void addTemporaryRevelioLight(ServerLevel level, BlockPos pos, int ttlTicks) {
-        if (ttlTicks <= 0) {
-            return;
-        }
-        if (!(level.isEmptyBlock(pos) || level.getBlockState(pos).is(net.minecraft.world.level.block.Blocks.LIGHT))) {
-            return;
-        }
-
-        level.setBlock(pos, net.minecraft.world.level.block.Blocks.LIGHT.defaultBlockState()
-                .setValue(net.minecraft.world.level.block.LightBlock.LEVEL, 15), 3);
-        REVELIO_LIGHTS
-                .computeIfAbsent(level.dimension(), ignored -> new java.util.HashMap<>())
-                .merge(pos.immutable(), ttlTicks, Math::max);
-    }
-
-    private static void tickRevelioLights(ServerLevel level) {
-        java.util.Map<BlockPos, Integer> active = REVELIO_LIGHTS.get(level.dimension());
-        if (active == null || active.isEmpty()) {
-            return;
-        }
-
-        java.util.Set<BlockPos> lumosPositions = new java.util.HashSet<>(LUMOS_POS.values());
-        java.util.Iterator<java.util.Map.Entry<BlockPos, Integer>> it = active.entrySet().iterator();
-        while (it.hasNext()) {
-            java.util.Map.Entry<BlockPos, Integer> entry = it.next();
-            BlockPos pos = entry.getKey();
-            net.minecraft.world.level.block.state.BlockState state = level.getBlockState(pos);
-            if (!state.is(net.minecraft.world.level.block.Blocks.LIGHT)) {
-                it.remove();
-                continue;
-            }
-
-            int ttl = entry.getValue() - 1;
-            if (ttl <= 0) {
-                if (!lumosPositions.contains(pos)) {
-                    level.setBlock(pos, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 3);
-                }
-                it.remove();
-            } else {
-                entry.setValue(ttl);
-            }
-        }
-
-        if (active.isEmpty()) {
-            REVELIO_LIGHTS.remove(level.dimension());
-        }
+        com.hogwartsmagic.block.LumosLightBlock.placeTimedLight(level, pos, 15, ttlTicks);
     }
 
     public static void addTemporaryAquaWater(ServerLevel level, BlockPos pos, int ttlTicks, net.minecraft.world.level.block.state.BlockState state) {
@@ -2918,7 +2874,6 @@ public class ModEvents {
         }
         com.hogwartsmagic.caveinimicum.CaveInimicumManager.get(level).tick();
         ReparoManager.tick(level);
-        tickRevelioLights(level);
         tickTemporaryAquaWater(level);
         if (level.getGameTime() % STRUCTURE_SPAWN_CHECK_INTERVAL != 0) {
             return;
@@ -3870,23 +3825,24 @@ public class ModEvents {
         }
     }
 
+    /**
+     * Keeps a Lumos follow light above the holder's head. The light block removes itself when no
+     * holder is beside it (LumosLightBlock), so this map is only a fast path for moving it; losing an
+     * entry (logout, death, dimension change, restart) can no longer leave a light behind.
+     */
     private static void handleLumosLight(net.minecraft.world.entity.LivingEntity entity) {
         if (!entity.level().isClientSide && entity.tickCount % 3 == 0) {
             java.util.UUID id = entity.getUUID();
             net.minecraft.core.BlockPos desired = entity.blockPosition().above();
             net.minecraft.server.level.ServerLevel level = (net.minecraft.server.level.ServerLevel) entity.level();
+            net.minecraft.world.effect.MobEffectInstance lumos = entity.getEffect(ExampleMod.LUMOS_EFFECT.getHolder().get());
+            int light = com.hogwartsmagic.spell.support.LumosRules.lightForAmplifier(lumos == null ? 0 : lumos.getAmplifier());
 
             net.minecraft.core.BlockPos prev = LUMOS_POS.get(id);
             if (prev != null && !prev.equals(desired)) {
-                if (level.getBlockState(prev).is(net.minecraft.world.level.block.Blocks.LIGHT)) {
-                    level.setBlock(prev, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 3);
-                }
+                com.hogwartsmagic.block.LumosLightBlock.removeFollowLight(level, prev);
             }
-
-            // Place light at desired position if air or already light
-            if (level.isEmptyBlock(desired) || level.getBlockState(desired).is(net.minecraft.world.level.block.Blocks.LIGHT)) {
-                level.setBlock(desired, net.minecraft.world.level.block.Blocks.LIGHT.defaultBlockState()
-                        .setValue(net.minecraft.world.level.block.LightBlock.LEVEL, 15), 3);
+            if (com.hogwartsmagic.block.LumosLightBlock.placeFollowLight(level, desired, light)) {
                 LUMOS_POS.put(id, desired);
             }
         }
@@ -3897,9 +3853,7 @@ public class ModEvents {
             java.util.UUID id = entity.getUUID();
             net.minecraft.core.BlockPos prev = LUMOS_POS.remove(id);
             if (prev != null && entity.level() instanceof net.minecraft.server.level.ServerLevel level) {
-                if (level.getBlockState(prev).is(net.minecraft.world.level.block.Blocks.LIGHT)) {
-                    level.setBlock(prev, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 3);
-                }
+                com.hogwartsmagic.block.LumosLightBlock.removeFollowLight(level, prev);
             }
         }
     }

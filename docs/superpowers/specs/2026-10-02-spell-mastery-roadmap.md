@@ -81,9 +81,11 @@ nobody has felt yet.
 10. **Splinching is configurable:** 10% at Novice by default (not 20%), and it can be turned off.
 11. **Fiendfyre telegraphs before it turns.** A serpent about to go rogue glows red for 1s
     first. Without that, it just feels like a bug.
-12. **Imperio Master is full possession** (the user's call; see "Imperio Master: Possession" below).
-    Hold right-click to possess a player or mob for up to 10 seconds: you get their POV and
-    controls while your own body is frozen. Players can struggle free after 5 seconds.
+12. **Imperio works on players and mobs** (the user's call; see "Imperio: Thrall and Possession"
+    below). At ranks I–III the victim acts as your tame dog: it follows you and fights whoever
+    you fight or whoever attacks you (players for a few seconds, mobs much longer). At Master you
+    hold right-click to possess it for up to 20 seconds, with its POV and controls, while your
+    own body freezes.
 
 ---
 
@@ -166,47 +168,69 @@ to known Floo fireplaces).
 
 ### Phase 6: Mind spells and Unforgivables
 Obliviate (mob forgets you and leaves you alone; silences players), Confundo (friendly fire,
-contagious at Master), Imperio (ranks I–III command more and bigger mobs; Master is possession, see below), Crucio
+contagious at Master), Imperio (ranks I–III turn the target into a tame-dog thrall; Master is possession, see below), Crucio
 (a channel that locks both caster and target), Avada Kedavra (a windup that can be interrupted and
 gets shorter and costs less backlash with rank; 20% max health against bosses). **Decide on
 corruption before this phase starts.**
 
-#### Imperio Master: Possession
-Ranks I–III keep today's control: **hold right-click** with Imperio on a mob to steer it. At
-**Master**, holding right-click on a player or non-boss mob becomes full possession:
+#### Imperio: Thrall (ranks I–III) and Possession (Master)
 
-1. **Hold to possess.** While you hold right-click (up to **10 seconds**), your camera jumps to the
+**Ranks I–III: Thrall.** The victim becomes your loyal "tame dog" for a while:
+- **Following:** it follows you around and stays close (teleports to you if it falls far behind,
+  like a wolf).
+- **Attacking for you:** it attacks whatever *you* attack, and whatever attacks *you*. It never
+  attacks you or your other thralls.
+- **On players too:** a player victim loses control of their character and is driven the same
+  way (follow, guard, fight for you) for a few seconds. They see a green "Imperius" vignette and
+  their keys do nothing.
+- **What you see:** thralls glow faintly green, and a small icon over the head shows who owns
+  them.
+
+| Rank | Mob thrall | Player thrall | Max mob size |
+|---|---|---|---|
+| I Novice | 20s, 1 thrall | 3s | up to 40 max health |
+| II Adept | 30s, 1 thrall | 4s | up to 60, and the thrall gets Strength I |
+| III Expert | 45s, 2 thralls | 5s | up to 100 |
+
+**Master: Possession.** The victim no longer acts as a dog. Instead **you take it over**:
+1. **Hold right-click on the target to possess it for up to 20 seconds.** Your camera jumps to the
    victim's eyes and your controls drive *their* body: walking, looking, jumping, attacking and
    their held item. Letting go ends it early.
 2. **Your own body stops working.** It stands frozen in a trance and doesn't respond to your
-   keys while you're inside the victim. It can still be hurt, and a hit of 4 or more damage
-   throws you out. That's the counterplay for everyone nearby.
-3. **The victim's side (players):** their controls are taken away, and they see a green
-   "Imperius" vignette and the prompt *"Mash SPACE to resist!"* For the **first 5 seconds**
+   keys. It can still be hurt, and a hit of 4 or more damage throws you out. That's the
+   counterplay for everyone nearby.
+3. **Resisting (players only):** they see *"Mash SPACE to resist!"* For the **first 8 seconds**
    resisting does nothing. After that, each half-second in which they press space fast enough
-   (≥6 presses) gives a 20% chance to break free.
-4. **When it ends** (you let go, 10s pass, they break free, your body is hit, either of you dies,
+   (≥6 presses) gives a 20% chance to break free. Thrall mode (ranks I–III) is too short to
+   resist.
+4. **When it ends** (you let go, 20s pass, they break free, your body is hit, either of you dies,
    logout or dimension change): the camera snaps back and both bodies get their controls back.
    A broken-free victim gets 3s of immunity to recasting; the caster gets Nausea for 3s.
-5. **Limits:** bosses are immune; the Imperio cooldown starts when possession ends; you can't
-   drop or throw the victim's items or open their inventory or chests; a config toggle
-   (`imperioPossessPlayers`, default on) controls player possession, and mobs are always allowed.
-6. **Mobs can't resist,** but their AI is switched off for the duration and restored after.
 
-**How it works under the hood:** it builds on the existing Imperio channel in `ModEvents`, which
-already tracks the hold (`TAG_IMPERIO_CHANNELING`, a heartbeat via `TAG_IMPERIO_LAST_SEEN`, and
-forward input) and `ImperioControlPacket`.
-- **Rank check:** at Master, the server starts a possession session (caster, victim, start tick,
-  end tick) instead of the usual steering.
-- **Caster's client:** calls `setCameraEntity(victim)` and sends its movement keys, rotation,
-  jump, attack and use input every tick. The caster's own movement is zeroed server-side.
-- **Victim's client:** gets a packet that zeroes its own input, shows the vignette and prompt,
-  and reports space presses. The server counts the presses itself and caps them, so a macro
-  can't escape instantly.
-- **Client code stays client-side:** the camera and input capture live only in `client/`.
+**For every rank:** bosses are immune; the cooldown starts when the effect ends; you can't make a
+victim drop or throw items or open their inventory or chests; a config toggle
+(`imperioAffectsPlayers`, default on) controls player thralls and possession, and mobs are
+always allowed. Mob AI is restored afterwards, and a thrall goes back to its old behaviour.
+
+**How it works under the hood:**
+- **Thrall on mobs:** temporary goals, either cloned from vanilla `FollowOwnerGoal`,
+  `OwnerHurtByTargetGoal` and `OwnerHurtTargetGoal` or a mod version that works on any `Mob`
+  rather than only `TamableAnimal`. They're added on cast and removed on expiry. This replaces
+  today's "retarget a nearby hostile" behaviour, keeping the existing `hogwartsmagic:allied` tag
+  and glow.
+- **Thrall on players:** the victim's client gets a packet that zeroes its input. Each tick the
+  server picks a simple goal (follow the caster, or path to and hit the caster's current target
+  or attacker) and moves the player toward it, with the same sync caveats as possession.
+- **Possession:** builds on the existing Imperio hold-channel in `ModEvents`
+  (`TAG_IMPERIO_CHANNELING`, a heartbeat via `TAG_IMPERIO_LAST_SEEN`, forward input) and
+  `ImperioControlPacket`. At Master, the server starts a possession session. The caster's
+  client calls `setCameraEntity(victim)` and streams its input; the caster's own body is zeroed
+  server-side. The victim's client zeroes its input and reports space presses, which the server
+  counts and caps so a macro can't escape instantly. Camera and input code live only in
+  `client/`.
 - **Watch out for players:** movement is client-authoritative in vanilla, so forced movement
-  needs `hurtMarked`/teleport sync and may rubber-band slightly at high ping. Test it on the
-  dedicated server early.
+  (thrall and possession) needs `hurtMarked`/teleport sync and may rubber-band slightly at high
+  ping. Test it on the dedicated server early.
 
 ### Phase 7: The expensive features (each one a separate plan)
 Patronus forms (tinted vanilla models, chosen by UUID + house), a Serpensortia snake entity

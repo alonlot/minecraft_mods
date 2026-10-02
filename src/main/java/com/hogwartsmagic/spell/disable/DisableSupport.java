@@ -89,9 +89,16 @@ public final class DisableSupport {
 
     /**
      * Who a chain (Stupefy) or an area (Incarcerous) may also catch. Never the caster, the main target,
-     * allied or owned mobs, team-mates, armour stands or spectators. Players only when the main target
-     * is a player (so a PvE cast never stuns a nearby friend). Otherwise: hostile mobs (except Students,
-     * which are illagers in code but usually friendly) and any mob currently targeting the caster.
+     * allied or owned mobs, team-mates, armour stands or spectators. Two perspectives, chosen by who is
+     * responsible for the spell:
+     * <ul>
+     * <li><b>Player caster (or no caster):</b> players only when the main target is a player (so a PvE
+     * cast never stuns a nearby friend). Otherwise hostile mobs (except Students, which are illagers in
+     * code but usually friendly) and any mob currently targeting the caster.</li>
+     * <li><b>NPC caster (a Mob, e.g. Voldemort):</b> every {@code Enemy} is NOT a foe, because the
+     * caster's own Death Eaters are Enemies too. See {@link #npcFoe}: only players, the caster's own
+     * target, and mobs fighting the caster or its target qualify.</li>
+     * </ul>
      */
     public static boolean isEnemyOf(@Nullable Entity caster, LivingEntity candidate, LivingEntity mainTarget) {
         Entity owner = CombatEffects.responsible(caster);
@@ -113,6 +120,9 @@ public final class DisableSupport {
                 }
             }
         }
+        if (owner != null && !(owner instanceof Player)) {
+            return npcFoe(owner, candidate, mainTarget);
+        }
         if (candidate instanceof Player) {
             return mainTarget instanceof Player;
         }
@@ -120,6 +130,34 @@ public final class DisableSupport {
             return true;
         }
         return candidate instanceof Enemy && !(candidate instanceof StudentEntity);
+    }
+
+    /**
+     * NPC-perspective foe test, used when the responsible caster is a non-player. The caller has already
+     * excluded the caster, dead or spectating candidates, armour stands, the allied tag, team-mates
+     * ({@code isAlliedTo}) and the caster's pets. A candidate qualifies only if it is a survival player,
+     * the caster's current target, the main target, or currently targeting the caster or the caster's
+     * target. Other {@code Enemy} mobs that are not fighting the caster never qualify.
+     */
+    public static boolean npcFoe(Entity caster, LivingEntity candidate, @Nullable LivingEntity mainTarget) {
+        if (candidate == caster || candidate.isAlliedTo(caster)) {
+            return false;
+        }
+        if (candidate instanceof Player player) {
+            return !player.isCreative() && !player.isSpectator();
+        }
+        if (candidate == mainTarget) {
+            return true;
+        }
+        LivingEntity casterTarget = caster instanceof Mob m ? m.getTarget() : null;
+        if (casterTarget != null && casterTarget == candidate) {
+            return true;
+        }
+        if (candidate instanceof Mob mob) {
+            LivingEntity theirTarget = mob.getTarget();
+            return theirTarget != null && (theirTarget == caster || theirTarget == casterTarget);
+        }
+        return false;
     }
 
     /** Put a target back on its leash or anchor. Players need a real teleport packet; mobs just move. */

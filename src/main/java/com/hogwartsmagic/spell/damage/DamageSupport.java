@@ -39,18 +39,25 @@ public final class DamageSupport {
     }
 
     /**
-     * Who a splash (Confringo's burning debris) may catch. With a primary target this is exactly
-     * {@link DisableSupport#isEnemyOf}. Without one (a blast on a block) it is the same rule minus the
-     * player case: never players, the caster, allied, owned or team-mate mobs, armour stands; otherwise
-     * hostile mobs (not Students) and any mob targeting the caster.
+     * Who a splash (Confringo's burning debris, Bombarda's blast) may catch. With a primary target this is
+     * exactly {@link DisableSupport#isEnemyOf}. Without one (a blast on a block) it is the same rule minus
+     * the player case, from the caster's point of view:
+     * <ul>
+     * <li><b>Player caster (or none):</b> never players, the caster, allied, owned or team-mate mobs,
+     * armour stands; otherwise hostile mobs (not Students) and any mob targeting the caster.</li>
+     * <li><b>NPC caster:</b> {@code Enemy} no longer means foe (Voldemort's Death Eaters are Enemies), so
+     * {@link DisableSupport#npcFoe} decides: survival players, the caster's target, and mobs fighting the
+     * caster or its target.</li>
+     * </ul>
      */
     public static boolean isSplashTarget(@Nullable Entity caster, LivingEntity candidate, @Nullable LivingEntity primary) {
         if (primary != null) {
             return DisableSupport.isEnemyOf(caster, candidate, primary);
         }
         Entity owner = CombatEffects.responsible(caster);
+        boolean npcCaster = owner != null && !(owner instanceof Player);
         if (candidate == owner || !candidate.isAlive() || candidate.isSpectator()
-                || candidate instanceof ArmorStand || candidate instanceof Player) {
+                || candidate instanceof ArmorStand || (candidate instanceof Player && !npcCaster)) {
             return false;
         }
         if (candidate.getTags().contains(CombatTags.ALLIED)) {
@@ -65,6 +72,9 @@ public final class DamageSupport {
                 if (ownerId != null && ownerId.equals(owner.getUUID())) {
                     return false;
                 }
+            }
+            if (npcCaster) {
+                return DisableSupport.npcFoe(owner, candidate, null);
             }
             if (candidate instanceof Mob mob && mob.getTarget() == owner) {
                 return true;

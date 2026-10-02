@@ -32,6 +32,9 @@ public final class TerrainRules {
             if (!level.mayInteract(player, pos)) {
                 return false;
             }
+            if (!player.mayBuild()) {
+                return false; // adventure mode
+            }
             BlockSnapshot snapshot = BlockSnapshot.create(level.dimension(), level, pos);
             BlockEvent.EntityPlaceEvent event = new BlockEvent.EntityPlaceEvent(snapshot, level.getBlockState(pos.below()), player);
             return !MinecraftForge.EVENT_BUS.post(event);

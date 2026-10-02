@@ -280,7 +280,7 @@ public enum SpellType {
                     mob.addEffect(new MobEffectInstance(MobEffects.GLOWING, 600, 0));
                     
                     // Add a tag to mark as allied
-                    mob.addTag("hogwartsmagic:allied");
+                    mob.addTag(com.hogwartsmagic.spell.combat.CombatTags.ALLIED);
                 }
             }
             case FIENDFYRE -> {
@@ -426,7 +426,7 @@ public enum SpellType {
                         if (caster instanceof LivingEntity livingCaster) {
                             snake.setTarget(null);
                             // Set allied to caster by making them target what caster targets or attack who hurts caster (vanilla behavior doesn't support easy allies for spiders, we can add tag and ignore in Wizard logic)
-                            snake.addTag("hogwartsmagic:allied");
+                            snake.addTag(com.hogwartsmagic.spell.combat.CombatTags.ALLIED);
                         }
                         serverLevel.addFreshEntity(snake);
                     }

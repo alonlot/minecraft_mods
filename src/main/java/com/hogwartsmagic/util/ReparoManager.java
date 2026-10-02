@@ -95,6 +95,10 @@ public final class ReparoManager {
         boolean creative = player != null && player.isCreative();
         float availableMana = player != null ? getCurrentMana(player) : 0f;
         float maxMana = player != null ? PlayerMagicData.getMaxMana(player) : 0f;
+        // The per-block surcharge gets the same mastery discount as the cast itself.
+        float manaPerBlock = player != null
+                ? EXTRA_MANA_PER_BLOCK * com.hogwartsmagic.spell.SpellCosts.masteryMultiplier(player, SpellType.REPARO)
+                : EXTRA_MANA_PER_BLOCK;
         int repairedCount = 0;
 
         for (TrackedBreakRecord record : candidates) {
@@ -104,7 +108,7 @@ public final class ReparoManager {
             }
             // Mana check first so we don't consume from inventory then fail. Mobs have
             // no mana — they pay only with on-the-ground rubble.
-            if (player != null && !creative && availableMana < EXTRA_MANA_PER_BLOCK) {
+            if (player != null && !creative && availableMana < manaPerBlock) {
                 break;
             }
             ItemEntity sourceDrop = creative ? null
@@ -117,7 +121,7 @@ public final class ReparoManager {
                 if (!fromInventory) continue;
             }
             if (player != null && !creative) {
-                availableMana -= EXTRA_MANA_PER_BLOCK;
+                availableMana -= manaPerBlock;
             }
             if (sourceDrop != null) {
                 startGroundDropFlight(level, sourceDrop, record.pos, record.state);

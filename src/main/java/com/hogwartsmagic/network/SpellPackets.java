@@ -862,8 +862,6 @@ public class SpellPackets {
                 MagicWandItem.rollManaRefund(player, wand, cost);
             }
 
-            long cooldownTicks = SpellCosts.cooldownTicks(player, wand, spell);
-
             if (p.selfCastProtego) {
                 spell.applyHitEffect(player, player);
                 com.hogwartsmagic.event.ModEvents.revealInvisibilityCloak(player);

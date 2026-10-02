@@ -37,7 +37,6 @@ import java.util.UUID;
 @Mod.EventBusSubscriber(modid = ExampleMod.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class MasteryAwards {
     public static final String SPAWNER_TAG = "hogwartsmagic:from_spawner";
-    private static final String ALLIED_TAG = "hogwartsmagic:allied";
 
     private static final Set<SpellType> SELF_OR_CHANNEL = EnumSet.of(
             SpellType.LUMOS, SpellType.PROTEGO, SpellType.PROTEGO_MAXIMA, SpellType.TENEBRIS_FLIGHT,
@@ -61,14 +60,24 @@ public final class MasteryAwards {
         if (!(target instanceof net.minecraft.world.entity.Mob) && !(target instanceof net.minecraft.world.entity.player.Player)) {
             return; // armor stands and similar dummies give no XP
         }
+        boolean playerTarget = target instanceof Player;
         double multiplier = MasteryRules.targetMultiplier(
-                isAllied(caster, target), isPassive(target), target.getTags().contains(SPAWNER_TAG));
+                isAllied(caster, target), isPassive(target), target.getTags().contains(SPAWNER_TAG), playerTarget);
         if (multiplier <= 0.0) {
             return;
         }
+        HitLedger ledger = ledger(caster);
+        long now = caster.level().getGameTime();
         String key = "hit:" + spell.getId() + ":" + target.getUUID();
-        if (!ledger(caster).tryAward(key, caster.level().getGameTime(), MasteryRules.SAME_TARGET_WINDOW_TICKS)) {
+        // PvP: one player pays a given caster at most once per PLAYER_PAIR_WINDOW_TICKS whatever the
+        // spell, so two friends can't farm each other by cycling through their spell wheel.
+        String pairKey = playerTarget ? "pvp:" + target.getUUID() : null;
+        if (!ledger.isOpen(key, now) || (pairKey != null && !ledger.isOpen(pairKey, now))) {
             return;
+        }
+        ledger.tryAward(key, now, MasteryRules.SAME_TARGET_WINDOW_TICKS);
+        if (pairKey != null) {
+            ledger.tryAward(pairKey, now, MasteryRules.PLAYER_PAIR_WINDOW_TICKS);
         }
         grant(caster, spell, multiplier);
     }
@@ -127,7 +136,7 @@ public final class MasteryAwards {
     }
 
     private static boolean isAllied(ServerPlayer caster, LivingEntity target) {
-        if (target.getTags().contains(ALLIED_TAG) || caster.isAlliedTo(target)) {
+        if (target.getTags().contains(com.hogwartsmagic.spell.combat.CombatTags.ALLIED) || caster.isAlliedTo(target)) {
             return true;
         }
         return target instanceof OwnableEntity ownable && ownable.getOwnerUUID() != null;
@@ -148,8 +157,21 @@ public final class MasteryAwards {
         return LEDGERS.computeIfAbsent(caster.getUUID(), id -> new HitLedger());
     }
 
-    @SubscribeEvent
+    /** receiveCanceled: another mod cancelling FinalizeSpawn must not make a spawner mob pay full XP. */
+    @SubscribeEvent(receiveCanceled = true)
     public static void onFinalizeSpawn(MobSpawnEvent.FinalizeSpawn event) {
+        MobSpawnType type = event.getSpawnType();
+        if (type == MobSpawnType.SPAWNER || type == MobSpawnType.TRIAL_SPAWNER) {
+            event.getEntity().addTag(SPAWNER_TAG);
+        }
+    }
+
+    /**
+     * Fallback tag. PositionCheck fires for every spawner attempt before FinalizeSpawn, whatever NBT
+     * the spawner carries. A mob that then fails the check is discarded, so tagging it is harmless.
+     */
+    @SubscribeEvent(receiveCanceled = true)
+    public static void onSpawnerPositionCheck(MobSpawnEvent.PositionCheck event) {
         MobSpawnType type = event.getSpawnType();
         if (type == MobSpawnType.SPAWNER || type == MobSpawnType.TRIAL_SPAWNER) {
             event.getEntity().addTag(SPAWNER_TAG);

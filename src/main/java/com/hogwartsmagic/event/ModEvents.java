@@ -3857,8 +3857,8 @@ public class ModEvents {
             return;
         }
 
-        if (event.getEntity().getTags().contains("hogwartsmagic:allied")) {
-            if (event.getNewTarget() != null && event.getNewTarget().getTags().contains("hogwartsmagic:allied")) {
+        if (event.getEntity().getTags().contains(com.hogwartsmagic.spell.combat.CombatTags.ALLIED)) {
+            if (event.getNewTarget() != null && event.getNewTarget().getTags().contains(com.hogwartsmagic.spell.combat.CombatTags.ALLIED)) {
                 event.setCanceled(true);
             }
         }

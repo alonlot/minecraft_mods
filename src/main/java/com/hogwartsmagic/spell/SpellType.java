@@ -357,12 +357,7 @@ public enum SpellType {
             case DIFFINDO -> {
                 target.hurt(target.damageSources().magic(), scaledSpellDamage(caster, 15.0f)); // High sharp damage
             }
-            case PETRIFICUS_TOTALUS -> {
-                interruptActiveCasting(target);
-                target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 200, 10)); // Total immobility
-                target.addEffect(new MobEffectInstance(MobEffects.JUMP, 200, 250)); // Prevent jumping (level 250 makes jump height 0)
-                target.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 200, 10)); // Prevent attacking impactfully
-            }
+            case PETRIFICUS_TOTALUS -> com.hogwartsmagic.spell.disable.PetrificusSpell.apply(target, caster);
             case AQUA_ERUCTO -> {
                 boolean wasBurning = target.isOnFire();
                 net.minecraft.world.phys.Vec3 push = target.position().vectorTo(

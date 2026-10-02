@@ -70,6 +70,15 @@ public class ClientForgeEvents {
         return false;
     }
 
+    /** When each visible Petrificus topple started on this client, so the fall plays over a few ticks. */
+    private static final java.util.WeakHashMap<LivingEntity, Long> TOPPLE_START = new java.util.WeakHashMap<>();
+    private static final float TOPPLE_TICKS = 5.0F;
+
+    /** Petrificus Totalus (synced by VisibleEffects). Levicorpus wins if both are on: it has its own pose. */
+    private static boolean isToppled(LivingEntity entity) {
+        return !hasLevicorpus(entity) && entity.hasEffect(ExampleMod.PETRIFIED.getHolder().get());
+    }
+
     @SubscribeEvent
     public static void onRenderLivingPre(RenderLivingEvent.Pre<?, ?> event) {
         LivingEntity entity = event.getEntity();
@@ -82,6 +91,23 @@ public class ClientForgeEvents {
             event.getPoseStack().mulPose(Axis.ZP.rotationDegrees(180.0F));
         }
 
+        if (isToppled(entity)) {
+            long now = entity.level().getGameTime();
+            long start = TOPPLE_START.computeIfAbsent(entity, e -> now);
+            float progress = Math.min(1.0F, (now - start + event.getPartialTick()) / TOPPLE_TICKS);
+            float yaw = net.minecraft.util.Mth.rotLerp(event.getPartialTick(), entity.yBodyRotO, entity.yBodyRot)
+                    * net.minecraft.util.Mth.DEG_TO_RAD;
+            com.mojang.blaze3d.vertex.PoseStack pose = event.getPoseStack();
+            pose.pushPose();
+            // Lift by half the body depth so the back doesn't sink into the floor, then tip backwards
+            // about the body's own left-right axis (cos yaw, 0, sin yaw). 90 degrees lies it flat.
+            pose.translate(0.0D, entity.getBbWidth() * 0.5D * progress, 0.0D);
+            pose.mulPose(new org.joml.Quaternionf().rotateAxis(-net.minecraft.util.Mth.HALF_PI * progress,
+                    net.minecraft.util.Mth.cos(yaw), 0.0F, net.minecraft.util.Mth.sin(yaw)));
+        } else {
+            TOPPLE_START.remove(entity);
+        }
+
         if (petrified) {
             RenderSystem.setShaderColor(0.42F, 0.43F, 0.45F, 1.0F);
         }
@@ -91,6 +117,9 @@ public class ClientForgeEvents {
     public static void onRenderLivingPost(RenderLivingEvent.Post<?, ?> event) {
         if (event.getEntity().hasEffect(ExampleMod.BASILISK_PETRIFICATION.getHolder().get())) {
             RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+        }
+        if (isToppled(event.getEntity())) {
+            event.getPoseStack().popPose();
         }
         if (hasLevicorpus(event.getEntity())) {
             event.getPoseStack().popPose();

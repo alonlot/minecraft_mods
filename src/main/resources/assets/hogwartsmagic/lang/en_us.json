@@ -281,6 +281,8 @@
   "item.hogwartsmagic.tome_of_mastery.works_on.epic": "Works on any spell",
   "gui.hogwartsmagic.tome.nothing_to_raise": "None of your spells can be raised by this tome.",
   "gui.hogwartsmagic.tome.not_eligible": "This tome cannot raise that spell.",
+  "gui.hogwartsmagic.tome.choose": "Choose a spell to raise by one rank",
+  "gui.hogwartsmagic.tome.empty": "Nothing left to raise.",
   "advancement.hogwartsmagic.root.title": "A Wizard's Beginning",
   "advancement.hogwartsmagic.root.description": "Obtain a magic wand and begin your Hogwarts journey.",
   "advancement.hogwartsmagic.voldemort_falls.title": "The Dark Lord Falls",

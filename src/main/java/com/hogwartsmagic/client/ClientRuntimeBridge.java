@@ -43,6 +43,7 @@ public final class ClientRuntimeBridge {
             case "patronusShieldState" -> patronusShieldState((SpellPackets.PatronusShieldStatePacket) payload);
             case "openApparitionMap" -> openApparitionMap((SpellPackets.OpenApparitionMapPacket) payload);
             case "closeApparitionMap" -> closeApparitionMap();
+            case "openTomePicker" -> openTomePicker((SpellPackets.OpenTomePickerPacket) payload);
             default -> throw new IllegalArgumentException("Unknown client packet action: " + action);
         }
     }
@@ -200,6 +201,27 @@ public final class ClientRuntimeBridge {
     private static void openApparitionMap(SpellPackets.OpenApparitionMapPacket packet) {
         net.minecraft.client.Minecraft.getInstance().setScreen(
                 new ApparitionMapScreen(packet.origin(), packet.radius(), packet.durationTicks()));
+    }
+
+    private static void openTomePicker(SpellPackets.OpenTomePickerPacket packet) {
+        net.minecraft.client.Minecraft minecraft = net.minecraft.client.Minecraft.getInstance();
+        if (minecraft.player == null) {
+            return;
+        }
+        com.hogwartsmagic.spell.SpellLootRarity[] tiers = com.hogwartsmagic.spell.SpellLootRarity.values();
+        if (packet.tierOrdinal() < 0 || packet.tierOrdinal() >= tiers.length) {
+            return;
+        }
+        List<com.hogwartsmagic.spell.SpellType> spells = new ArrayList<>();
+        for (String id : packet.spellIds()) {
+            for (com.hogwartsmagic.spell.SpellType spell : com.hogwartsmagic.spell.SpellType.values()) {
+                if (spell.getId().equals(id)) {
+                    spells.add(spell);
+                    break;
+                }
+            }
+        }
+        minecraft.setScreen(new TomePickerScreen(packet.mainHand(), tiers[packet.tierOrdinal()], spells));
     }
 
     private static void closeApparitionMap() {

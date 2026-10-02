@@ -3,6 +3,9 @@ package com.hogwartsmagic.spell;
 import com.hogwartsmagic.mixin.LivingEntityLastHurtAccessor;
 import com.hogwartsmagic.spell.combat.BleedRules;
 import com.hogwartsmagic.spell.combat.CombatDamage;
+import com.hogwartsmagic.spell.combat.CombatEffects;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.effect.MobEffect;
@@ -11,7 +14,8 @@ import net.minecraft.world.entity.LivingEntity;
 import org.joml.Vector3f;
 
 /**
- * One damage per second per stack (amplifier + 1, at most 3). The no-regeneration and half-healing
+ * One damage per second per stack (amplifier + 1, at most 3), credited to whoever applied it when known
+ * (see CombatEffects.applyBleeding). The no-regeneration and half-healing
  * parts are in FoodDataBleedingMixin, PlayerBleedingMixin and CombatEffects.onLivingHeal.
  */
 public class BleedingEffect extends MobEffect {
@@ -34,7 +38,15 @@ public class BleedingEffect extends MobEffect {
             // back so bleeding neither shields the victim from the next hit nor weakens it.
             int invulnerableTime = entity.invulnerableTime;
             float lastHurt = ((LivingEntityLastHurtAccessor) entity).hogwartsmagic$getLastHurt();
-            entity.hurt(CombatDamage.bleeding(level), BleedRules.damagePerSecond(amplifier));
+            Entity attacker = null;
+            CompoundTag data = entity.getPersistentData();
+            if (data.hasUUID(CombatEffects.BLEED_SOURCE_KEY)) {
+                Entity found = level.getEntity(data.getUUID(CombatEffects.BLEED_SOURCE_KEY));
+                if (found != null && found.isAlive()) {
+                    attacker = found;
+                }
+            }
+            entity.hurt(CombatDamage.bleeding(level, attacker), BleedRules.damagePerSecond(amplifier));
             entity.invulnerableTime = invulnerableTime;
             ((LivingEntityLastHurtAccessor) entity).hogwartsmagic$setLastHurt(lastHurt);
             level.sendParticles(BLOOD, entity.getX(), entity.getY() + entity.getBbHeight() * 0.5, entity.getZ(),

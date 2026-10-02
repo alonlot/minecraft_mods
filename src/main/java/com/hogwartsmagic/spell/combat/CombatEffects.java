@@ -51,6 +51,9 @@ import javax.annotation.Nullable;
 public final class CombatEffects {
     public static final int MAX_CURSED_HEARTS = 10;
 
+    /** Persistent-data key holding the UUID of whoever applied the target's bleeding (kill credit). */
+    public static final String BLEED_SOURCE_KEY = ExampleMod.MODID + ":bleed_source";
+
     /** Set only inside {@link #cureCursedWound}, the one removal path the milk guard lets through. */
     private static boolean cursedWoundCureInProgress;
 
@@ -137,10 +140,48 @@ public final class CombatEffects {
         }
         MobEffectInstance current = target.getEffect(holder);
         int amplifier = BleedRules.nextAmplifier(current == null ? -1 : current.getAmplifier());
+        return applyBleeding(target, ticks, amplifier + 1, source);
+    }
+
+    /**
+     * Applies bleeding at {@code stacks} (capped at {@link BleedRules#MAX_STACKS}), lasting at least
+     * {@code ticks}, and remembers {@code source} so a bleed-out kill is credited to them. Returns the
+     * stacks now on the target.
+     */
+    public static int applyBleeding(LivingEntity target, int ticks, int stacks, @Nullable Entity source) {
+        if (target.level().isClientSide() || ticks <= 0) {
+            return 0;
+        }
+        Holder<MobEffect> holder = ExampleMod.BLEEDING.getHolder().orElse(null);
+        if (holder == null) {
+            return 0;
+        }
+        MobEffectInstance current = target.getEffect(holder);
+        int amplifier = Math.max(0, Math.min(BleedRules.MAX_STACKS, stacks) - 1);
         int duration = Math.max(ticks, current == null ? 0 : current.getDuration());
-        target.addEffect(new MobEffectInstance(holder, duration, amplifier, false, true, true), responsible(source));
+        Entity credited = responsible(source);
+        if (target.addEffect(new MobEffectInstance(holder, duration, amplifier, false, true, true), credited)
+                && credited != null) {
+            target.getPersistentData().putUUID(BLEED_SOURCE_KEY, credited.getUUID());
+        }
         MobEffectInstance now = target.getEffect(holder);
         return now == null ? 0 : BleedRules.stacks(now.getAmplifier());
+    }
+
+    @SubscribeEvent
+    public static void onBleedingRemoved(MobEffectEvent.Remove event) {
+        if (event.getEffect() == ExampleMod.BLEEDING.get() && !event.getEntity().level().isClientSide()) {
+            event.getEntity().getPersistentData().remove(BLEED_SOURCE_KEY);
+        }
+    }
+
+    @SubscribeEvent
+    public static void onBleedingExpired(MobEffectEvent.Expired event) {
+        MobEffectInstance instance = event.getEffectInstance();
+        if (instance != null && instance.getEffect().value() == ExampleMod.BLEEDING.get()
+                && !event.getEntity().level().isClientSide()) {
+            event.getEntity().getPersistentData().remove(BLEED_SOURCE_KEY);
+        }
     }
 
     /** Takes {@code hearts} (1..10) of max health for {@code ticks}. */

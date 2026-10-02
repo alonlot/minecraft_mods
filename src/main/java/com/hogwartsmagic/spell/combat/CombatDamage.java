@@ -6,7 +6,10 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageType;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.Level;
+
+import javax.annotation.Nullable;
 
 /** Damage sources for the shared combat effects. The types are data-driven (data/hogwartsmagic/damage_type). */
 public final class CombatDamage {
@@ -18,6 +21,12 @@ public final class CombatDamage {
 
     /** Bypasses armour, no knockback (see the damage_type tags); death message "bled out". */
     public static DamageSource bleeding(Level level) {
-        return new DamageSource(level.registryAccess().registryOrThrow(Registries.DAMAGE_TYPE).getHolderOrThrow(BLEEDING));
+        return bleeding(level, null);
+    }
+
+    /** As {@link #bleeding(Level)}, with {@code attacker} as the causing entity so a bleed-out kill is credited to them. */
+    public static DamageSource bleeding(Level level, @Nullable Entity attacker) {
+        return new DamageSource(level.registryAccess().registryOrThrow(Registries.DAMAGE_TYPE).getHolderOrThrow(BLEEDING),
+                attacker);
     }
 }

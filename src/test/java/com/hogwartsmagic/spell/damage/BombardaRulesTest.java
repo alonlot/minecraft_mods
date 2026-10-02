@@ -39,11 +39,28 @@ class BombardaRulesTest {
     }
 
     @Test
-    void splashFallsOffToAQuarterThenStops() {
-        assertEquals(5f, BombardaRules.splashDamage(5f, 0.0, 1.5), 1e-6);
-        assertEquals(4f, BombardaRules.splashDamage(8f, 2.25, 3.5), 1e-6);
-        assertEquals(2f, BombardaRules.splashDamage(8f, 4.0, 3.5), 1e-6);
-        assertEquals(0f, BombardaRules.splashDamage(5f, 2.5, 1.5), 1e-6);
+    void splashFallsLinearlyToAQuarterAtTheBlastRadius() {
+        double r = 3.5;
+        assertEquals(8f, BombardaRules.splashDamage(8f, 0.0, r), 1e-6);
+        assertEquals(5f, BombardaRules.splashDamage(8f, r / 2, r), 1e-6);   // 62.5%
+        assertEquals(2f, BombardaRules.splashDamage(8f, r, r), 1e-6);       // 25%
+    }
+
+    @Test
+    void splashStaysAtAQuarterFromTheRadiusToOneBlockPast() {
+        double r = 3.5;
+        assertEquals(2f, BombardaRules.splashDamage(8f, r + 0.5, r), 1e-6);
+        assertEquals(2f, BombardaRules.splashDamage(8f, r + 1.0, r), 1e-6);
+        assertEquals(0f, BombardaRules.splashDamage(8f, r + 1.01, r), 1e-6);
+    }
+
+    @Test
+    void splashGuardsBadInput() {
         assertEquals(0f, BombardaRules.splashDamage(5f, Double.NaN, 1.5), 1e-6);
+        assertEquals(5f, BombardaRules.splashDamage(5f, -1.0, 1.5), 1e-6);
+        assertEquals(5f, BombardaRules.splashDamage(5f, 0.0, 0.0), 1e-6);
+        assertEquals(0f, BombardaRules.splashDamage(5f, 0.1, 0.0), 1e-6);
+        assertEquals(5f, BombardaRules.splashDamage(5f, 0.0, -2.0), 1e-6);
+        assertEquals(0f, BombardaRules.splashDamage(5f, 0.5, -2.0), 1e-6);
     }
 }

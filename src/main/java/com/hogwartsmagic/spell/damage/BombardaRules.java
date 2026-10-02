@@ -42,13 +42,21 @@ public final class BombardaRules {
         return hardness <= MAX_HARDNESS[i];
     }
 
-    /** Full damage at the centre, falling linearly to a quarter, none from radius + 1 out. */
+    /**
+     * Full damage at the centre, falling linearly to a quarter exactly at the blast radius, flat at a
+     * quarter from the radius to one block past it, none beyond that.
+     */
     public static float splashDamage(float base, double distance, double radius) {
-        double reach = radius + 1.0;
-        if (!(distance < reach)) {
+        if (Double.isNaN(distance) || Double.isNaN(radius)) {
             return 0f;
         }
-        double factor = Math.max(MIN_SPLASH_FACTOR, 1.0 - Math.max(0.0, distance) / reach);
-        return (float) (base * factor);
+        double d = Math.max(0.0, distance);
+        if (radius <= 0.0) {
+            return d == 0.0 ? base : 0f;
+        }
+        if (d > radius + 1.0) {
+            return 0f;
+        }
+        return (float) (base * (1.0 - (1.0 - MIN_SPLASH_FACTOR) * Math.min(d, radius) / radius));
     }
 }

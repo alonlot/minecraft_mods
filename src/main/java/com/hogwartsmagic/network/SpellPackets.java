@@ -659,6 +659,15 @@ public class SpellPackets {
                 return;
             }
 
+            // Stunned or silenced: no casts, no channel starts and no heartbeats (a running channel
+            // lapses on its own timeout). Releasing a channel is always allowed.
+            if (!p.releaseChannel && com.hogwartsmagic.spell.combat.CombatEffects.isCastingBlocked(player)) {
+                if (!p.channelHeartbeat) {
+                    com.hogwartsmagic.spell.combat.CombatEffects.notifyCastBlocked(player);
+                }
+                return;
+            }
+
             // Apparition is its own channel: it opens a destination minimap rather than casting immediately.
             if (spell == SpellType.APPARITION && !p.selfCastProtego && !p.releaseChannel && !p.channelHeartbeat) {
                 com.hogwartsmagic.event.ModEvents.startApparitionChannel(player, wand);
@@ -1116,6 +1125,14 @@ public class SpellPackets {
                 return;
             }
 
+            // The channel was already dropped when the stun or silence landed (CombatEffects.onEffectAdded).
+            if (com.hogwartsmagic.spell.combat.CombatEffects.isCastingBlocked(player)) {
+                if (p.startChannel) {
+                    com.hogwartsmagic.spell.combat.CombatEffects.notifyCastBlocked(player);
+                }
+                return;
+            }
+
             com.hogwartsmagic.event.ModEvents.updateImperioInput(player, p.forward, p.strafe, p.jump, p.attack, p.yaw, p.pitch);
 
             if (!p.startChannel && playerData.getBoolean("hogwartsmagic:imperio_channeling")) {
@@ -1325,6 +1342,11 @@ public class SpellPackets {
         public static void handle(ChooseApparitionDestinationPacket p, CustomPayloadEvent.Context ctx) {
             ServerPlayer player = ctx.getSender();
             if (player != null) {
+                if (com.hogwartsmagic.spell.combat.CombatEffects.isCastingBlocked(player)) {
+                    com.hogwartsmagic.spell.combat.CombatEffects.notifyCastBlocked(player);
+                    com.hogwartsmagic.event.ModEvents.cancelApparitionChannel(player, player.getMainHandItem());
+                    return;
+                }
                 com.hogwartsmagic.event.ModEvents.completeApparition(player, p.targetX, p.targetZ);
             }
         }

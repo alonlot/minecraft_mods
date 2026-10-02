@@ -50,6 +50,10 @@ public class WandRadialMenuScreen extends Screen {
         int cy = this.height / 2;
         int radius = Math.max(92, Math.min(this.width, this.height) / 5);
         int iconRadius = 20;
+        boolean hasPlayer = this.minecraft != null && this.minecraft.player != null;
+        boolean stunned = hasPlayer && com.hogwartsmagic.spell.combat.CombatEffects.isStunned(this.minecraft.player);
+        boolean castingBlocked = stunned
+                || (hasPlayer && com.hogwartsmagic.spell.combat.CombatEffects.isSilenced(this.minecraft.player));
 
         drawFilledCircle(guiGraphics, cx, cy, radius + 52, 0x55000000);
         drawRing(guiGraphics, cx, cy, radius + 30, radius + 36, 0x88A066FF);
@@ -68,9 +72,10 @@ public class WandRadialMenuScreen extends Screen {
             drawFilledCircle(guiGraphics, sx, sy, iconRadius + 3, bgColor);
 
             if (spell != null) {
-                drawFilledCircle(guiGraphics, sx, sy, iconRadius - 1, 0xFF000000 | spell.getColor());
+                int iconColor = castingBlocked ? 0xFF4A4A4A : 0xFF000000 | spell.getColor();
+                drawFilledCircle(guiGraphics, sx, sy, iconRadius - 1, iconColor);
                 String initials = initialsFor(spell);
-                guiGraphics.drawCenteredString(this.font, initials, sx, sy - 4, 0xFFFFFFFF);
+                guiGraphics.drawCenteredString(this.font, initials, sx, sy - 4, castingBlocked ? 0xFF9A9A9A : 0xFFFFFFFF);
                 if (this.minecraft != null && this.minecraft.player != null) {
                     int rank = com.hogwartsmagic.spell.mastery.SpellMasteryData.getRank(this.minecraft.player, spell);
                     if (rank > 1) {
@@ -87,6 +92,12 @@ public class WandRadialMenuScreen extends Screen {
                 guiGraphics.drawCenteredString(this.font, keybindLabel(i), sx, sy - iconRadius - 11, 0xFFC7BCD9);
                 guiGraphics.drawCenteredString(this.font, Component.translatable("gui." + ExampleMod.MODID + ".wand_radial.empty"), sx, sy + iconRadius + 7, 0xFF8A8A8A);
             }
+        }
+
+        if (castingBlocked) {
+            String key = stunned ? ".wand_radial.stunned" : ".wand_radial.silenced";
+            guiGraphics.drawCenteredString(this.font, Component.translatable("gui." + ExampleMod.MODID + key),
+                    cx, cy + 22, 0xFFFF5555);
         }
 
         SpellType hoveredSpell = hoveredSlot >= 0 ? slots.get(hoveredSlot) : null;

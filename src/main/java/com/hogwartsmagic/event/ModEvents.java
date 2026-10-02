@@ -3956,6 +3956,10 @@ public class ModEvents {
                 openMenu(player);
                 return true;
             } else {
+                if (com.hogwartsmagic.spell.combat.CombatEffects.isCastingBlocked(player)) {
+                    com.hogwartsmagic.spell.combat.CombatEffects.notifyCastBlocked(player);
+                    return true;
+                }
                 SpellType selected = MagicWandItem.getSelectedSpell(heldItem);
                 if (selected == SpellType.PROTEGO_MAXIMA && player.getXRot() <= -55.0F) {
                     com.hogwartsmagic.event.ClientModEvents.setProtegoMaximaChannelActive(true);

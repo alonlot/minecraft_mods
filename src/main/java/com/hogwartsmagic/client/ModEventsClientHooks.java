@@ -80,6 +80,11 @@ public final class ModEventsClientHooks {
     }
 
     private static boolean castSelectedSpell(Player player, ItemStack wand, SpellType selected) {
+        // Immediate feedback only; the server refuses on its own (CastSpellPacket.handle).
+        if (com.hogwartsmagic.spell.combat.CombatEffects.isCastingBlocked(player)) {
+            com.hogwartsmagic.spell.combat.CombatEffects.notifyCastBlocked(player);
+            return true;
+        }
         if (selected == SpellType.PROTEGO_MAXIMA && player.getXRot() <= -55.0F) {
             com.hogwartsmagic.event.ClientModEvents.setProtegoMaximaChannelActive(true);
             SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(false, false, true, false), PacketDistributor.SERVER.noArg());

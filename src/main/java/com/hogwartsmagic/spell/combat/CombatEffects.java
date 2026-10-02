@@ -13,6 +13,7 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
@@ -322,12 +323,12 @@ public final class CombatEffects {
         }
     }
 
-    /** A stunned mob or player can't land a melee blow (projectiles already in flight still hit). */
+    /** A stunned mob or player can't land a melee blow (projectiles already in flight and thorns still hit). */
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onLivingAttack(LivingAttackEvent event) {
         DamageSource source = event.getSource();
         if (source.getDirectEntity() instanceof LivingEntity attacker && attacker == source.getEntity()
-                && !source.is(DamageTypeTags.IS_EXPLOSION) && isStunned(attacker)) {
+                && !source.is(DamageTypeTags.IS_EXPLOSION) && !source.is(DamageTypes.THORNS) && isStunned(attacker)) {
             event.setCanceled(true);
         }
     }

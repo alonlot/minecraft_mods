@@ -286,10 +286,7 @@ public enum SpellType {
                 fiendfyre.moveTo(target.getX(), target.getY(), target.getZ());
                 target.level().addFreshEntity(fiendfyre);
             }
-            case SECTUMSEMPRA -> {
-                target.hurt(target.damageSources().magic(), scaledSpellDamage(caster, 10.0f));
-                target.addEffect(new MobEffectInstance(MobEffects.WITHER, 100, 2)); // Bleeding
-            }
+            case SECTUMSEMPRA -> com.hogwartsmagic.spell.damage.SectumsempraSpell.apply(target, caster);
             case MORSMORDRE -> {
                 if (target.level() instanceof ServerLevel serverLevel) {
                     DarkMarkEntity mark = new DarkMarkEntity(serverLevel, target.getX(), target.getY() + 18, target.getZ(), 2400);

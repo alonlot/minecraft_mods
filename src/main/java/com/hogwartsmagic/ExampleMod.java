@@ -877,6 +877,7 @@ public class ExampleMod
         com.hogwartsmagic.command.BuildUndercroftCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.SpawnMiniHogwartsCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.SummonHorntailCommand.register(event.getDispatcher());
+        com.hogwartsmagic.command.SpellMasteryCommand.register(event.getDispatcher());
     }
 
     private static ArmorMaterial createRobeMaterial(String textureName) {

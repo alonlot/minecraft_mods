@@ -101,7 +101,6 @@ public final class BombardaSpell {
                 positions.add(pos);
             }
         }
-        BombardaBlasts.queue(level, player, rank, positions);
-        return positions.size();
+        return BombardaBlasts.queue(level, player, rank, positions) ? positions.size() : 0;
     }
 }

@@ -7,6 +7,7 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.BlockTags;
+import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseFireBlock;
 import net.minecraft.world.level.block.LiquidBlock;
@@ -53,14 +54,17 @@ public final class BombardaBlasts {
     private BombardaBlasts() {
     }
 
-    static void queue(ServerLevel level, ServerPlayer caster, int rank, List<BlockPos> positions) {
+    /** @return true if the job was queued; false if there was nothing to break or the queue is at its cap */
+    static boolean queue(ServerLevel level, ServerPlayer caster, int rank, List<BlockPos> positions) {
         if (positions.isEmpty()) {
-            return;
+            return false;
         }
         ArrayDeque<Job> jobs = JOBS.computeIfAbsent(level.dimension(), key -> new ArrayDeque<>());
         if (jobs.size() < MAX_JOBS_PER_LEVEL) {
             jobs.add(new Job(caster.getUUID(), rank, positions));
+            return true;
         }
+        return false;
     }
 
     @SubscribeEvent
@@ -70,6 +74,10 @@ public final class BombardaBlasts {
         }
         ArrayDeque<Job> jobs = JOBS.get(level.dimension());
         if (jobs == null) {
+            return;
+        }
+        if (!level.getGameRules().getBoolean(GameRules.RULE_MOBGRIEFING)) {
+            JOBS.remove(level.dimension()); // griefing was switched off after the cast: drop what is queued
             return;
         }
         if (jobs.isEmpty()) {
@@ -123,7 +131,7 @@ public final class BombardaBlasts {
             return false;
         }
         if (state.getBlock() instanceof TntBlock) {
-            state.onCaughtFire(level, pos, null, caster); // primes the TNT and removes the block
+            state.onCaughtFire(level, pos, null, caster); // primes the TNT (Forge's onCaughtFire only spawns it); the block is removed below
             if (level.getBlockState(pos).getBlock() instanceof TntBlock) {
                 level.removeBlock(pos, false);
             }

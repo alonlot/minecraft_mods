@@ -12,7 +12,9 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.FlyingMob;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.animal.FlyingAnimal;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.event.entity.living.LivingEvent;
@@ -87,6 +89,7 @@ public final class IncarcerousTether {
         if (target.isPassenger()) {
             target.stopRiding(); // a mount or broom would carry the bound target away
         }
+        pull = pull && isFlyer(target); // swimmers, climbers and walkers keep the plain horizontal tether
         CompoundTag tag = new CompoundTag();
         tag.putDouble("X", target.getX());
         tag.putDouble("Y", pull ? groundY(level, target) : target.getY());
@@ -102,6 +105,14 @@ public final class IncarcerousTether {
             tag.putUUID("Anchor", anchorEntity);
         }
         target.getPersistentData().put(TAG, tag);
+    }
+
+    /** Flyers: gliding, flying mobs, or anything airborne (not swimming or climbing) at bind time. */
+    private static boolean isFlyer(LivingEntity target) {
+        if (target.isFallFlying() || target instanceof FlyingMob || target instanceof FlyingAnimal) {
+            return true;
+        }
+        return !target.onGround() && !target.isInWater() && !target.onClimbable();
     }
 
     /** Top of the first solid block under the target (up to 32 down), so a flyer is anchored to the ground. */

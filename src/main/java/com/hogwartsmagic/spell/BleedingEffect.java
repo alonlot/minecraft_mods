@@ -1,5 +1,6 @@
 package com.hogwartsmagic.spell;
 
+import com.hogwartsmagic.mixin.LivingEntityLastHurtAccessor;
 import com.hogwartsmagic.spell.combat.BleedRules;
 import com.hogwartsmagic.spell.combat.CombatDamage;
 import net.minecraft.core.particles.DustParticleOptions;
@@ -28,7 +29,14 @@ public class BleedingEffect extends MobEffect {
     @Override
     public boolean applyEffectTick(LivingEntity entity, int amplifier) {
         if (entity.level() instanceof ServerLevel level) {
+            // The bleeding damage type bypasses invulnerability so a tick always lands, but a bypassing
+            // hit also re-arms the victim's i-frames (invulnerableTime = 20, lastHurt = amount). Put both
+            // back so bleeding neither shields the victim from the next hit nor weakens it.
+            int invulnerableTime = entity.invulnerableTime;
+            float lastHurt = ((LivingEntityLastHurtAccessor) entity).hogwartsmagic$getLastHurt();
             entity.hurt(CombatDamage.bleeding(level), BleedRules.damagePerSecond(amplifier));
+            entity.invulnerableTime = invulnerableTime;
+            ((LivingEntityLastHurtAccessor) entity).hogwartsmagic$setLastHurt(lastHurt);
             level.sendParticles(BLOOD, entity.getX(), entity.getY() + entity.getBbHeight() * 0.5, entity.getZ(),
                     6 + 3 * BleedRules.stacks(amplifier), entity.getBbWidth() * 0.3, entity.getBbHeight() * 0.25,
                     entity.getBbWidth() * 0.3, 0.0);

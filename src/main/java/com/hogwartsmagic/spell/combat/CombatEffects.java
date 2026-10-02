@@ -59,20 +59,48 @@ public final class CombatEffects {
 
     // ---- Queries (both sides) ---------------------------------------------------------------
 
+    // Hot path (isImmobile runs for every living entity every tick on both sides): resolve each
+    // holder once, after registration, and skip the Optional and lambda per call.
+    private static Holder<MobEffect> stunnedHolder;
+    private static Holder<MobEffect> silencedHolder;
+    private static Holder<MobEffect> bleedingHolder;
+
     public static boolean has(LivingEntity entity, RegistryObject<MobEffect> effect) {
-        return effect.getHolder().map(entity::hasEffect).orElse(false);
+        Holder<MobEffect> holder = effect.getHolder().orElse(null);
+        return holder != null && entity.hasEffect(holder);
     }
 
     public static boolean isStunned(LivingEntity entity) {
-        return has(entity, ExampleMod.STUNNED);
+        Holder<MobEffect> holder = stunnedHolder;
+        if (holder == null) {
+            holder = stunnedHolder = ExampleMod.STUNNED.getHolder().orElse(null);
+            if (holder == null) {
+                return false;
+            }
+        }
+        return entity.hasEffect(holder);
     }
 
     public static boolean isSilenced(LivingEntity entity) {
-        return has(entity, ExampleMod.SILENCED);
+        Holder<MobEffect> holder = silencedHolder;
+        if (holder == null) {
+            holder = silencedHolder = ExampleMod.SILENCED.getHolder().orElse(null);
+            if (holder == null) {
+                return false;
+            }
+        }
+        return entity.hasEffect(holder);
     }
 
     public static boolean isBleeding(LivingEntity entity) {
-        return has(entity, ExampleMod.BLEEDING);
+        Holder<MobEffect> holder = bleedingHolder;
+        if (holder == null) {
+            holder = bleedingHolder = ExampleMod.BLEEDING.getHolder().orElse(null);
+            if (holder == null) {
+                return false;
+            }
+        }
+        return entity.hasEffect(holder);
     }
 
     /** Stunned or silenced: no casts, no channel starts, no channel heartbeats. */

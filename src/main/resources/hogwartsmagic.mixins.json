@@ -9,7 +9,8 @@
     "PlayerChunkSenderMixin",
     "LivingEntityStunMixin",
     "FoodDataBleedingMixin",
-    "PlayerBleedingMixin"
+    "PlayerBleedingMixin",
+    "LivingEntityLastHurtAccessor"
   ],
   "client": [
     "client.InvisibilityCloakArmorLayerMixin",

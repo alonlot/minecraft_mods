@@ -12,6 +12,7 @@ import com.hogwartsmagic.spell.disable.DisableSupport;
 import com.hogwartsmagic.spell.mastery.MasteryAwards;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
@@ -19,6 +20,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -28,7 +30,11 @@ import net.minecraft.world.level.block.FenceGateBlock;
 import net.minecraft.world.level.block.TrapDoorBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.eventbus.api.Event;
+import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.server.ServerStoppedEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -81,7 +87,7 @@ public final class AlohomoraSpell {
 
     /** A Master Alohomora reaching a hostile barrier switches it off instead of being stopped by it. */
     public static boolean tryUnlockBarrier(ServerLevel level, CaveInimicumWardBlockEntity ward, SpellBeamEntity beam) {
-        if (beam.getSpellType() != SpellType.ALOHOMORA || !(beam.getOwner() instanceof ServerPlayer player)) {
+        if (beam.getSpellType() != SpellType.ALOHOMORA || beam.isReflected() || !(beam.getOwner() instanceof ServerPlayer player)) {
             return false;
         }
         int rank = DisableSupport.casterRank(player, SpellType.ALOHOMORA);
@@ -95,15 +101,15 @@ public final class AlohomoraSpell {
 
     private static boolean openOne(ServerLevel level, BlockPos pos, BlockState state, @Nullable Entity owner, int rank) {
         Block block = state.getBlock();
-        if (owner instanceof ServerPlayer player && !level.mayInteract(player, pos)) {
-            return false; // spawn protection and the world border apply to a charm as to a hand
-        }
         if (block instanceof DoorBlock door) {
             if (state.getValue(DoorBlock.OPEN)) {
                 return false;
             }
             boolean iron = !door.type().canOpenByHand();
             if (iron && !AlohomoraRules.opensIron(rank)) {
+                return false;
+            }
+            if (!mayUse(level, pos, owner)) {
                 return false;
             }
             door.setOpen(owner, level, state, pos, true); // plays the door's own sound
@@ -120,6 +126,9 @@ public final class AlohomoraSpell {
             if (iron && !AlohomoraRules.opensIron(rank)) {
                 return false;
             }
+            if (!mayUse(level, pos, owner)) {
+                return false;
+            }
             level.setBlock(pos, state.setValue(TrapDoorBlock.OPEN, true), Block.UPDATE_CLIENTS);
             level.levelEvent(null, iron ? 1037 : 1007, pos, 0);
             if (iron) {
@@ -131,11 +140,31 @@ public final class AlohomoraSpell {
             if (state.getValue(FenceGateBlock.OPEN)) {
                 return false;
             }
+            if (!mayUse(level, pos, owner)) {
+                return false;
+            }
             level.setBlock(pos, state.setValue(FenceGateBlock.OPEN, true), Block.UPDATE_CLIENTS);
             level.levelEvent(null, 1008, pos, 0);
             return true;
         }
         return false;
+    }
+
+    /**
+     * Would a hand be allowed to use this block? A player caster passes spawn protection and the world
+     * border, and the same right-click event claim mods guard doors with. An NPC caster is unchecked.
+     */
+    private static boolean mayUse(ServerLevel level, BlockPos pos, @Nullable Entity owner) {
+        if (!(owner instanceof ServerPlayer player)) {
+            return true;
+        }
+        if (!level.mayInteract(player, pos)) {
+            return false;
+        }
+        PlayerInteractEvent.RightClickBlock event = new PlayerInteractEvent.RightClickBlock(player, InteractionHand.MAIN_HAND,
+                pos, new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false));
+        MinecraftForge.EVENT_BUS.post(event);
+        return !event.isCanceled() && event.getUseBlock() != Event.Result.DENY;
     }
 
     private static int openAround(ServerLevel level, BlockPos center, int radius, @Nullable Entity owner, int rank) {
@@ -213,8 +242,12 @@ public final class AlohomoraSpell {
             }
             BlockState state = level.getBlockState(close.pos());
             if (state.getBlock() instanceof DoorBlock door && state.getValue(DoorBlock.OPEN)) {
+                if (state.getValue(DoorBlock.POWERED) || level.hasNeighborSignal(close.pos())) {
+                    continue; // redstone holds it open
+                }
                 door.setOpen(null, level, state, close.pos(), false);
-            } else if (state.is(Blocks.IRON_TRAPDOOR) && state.getValue(TrapDoorBlock.OPEN)) {
+            } else if (state.is(Blocks.IRON_TRAPDOOR) && state.getValue(TrapDoorBlock.OPEN)
+                    && !state.getValue(TrapDoorBlock.POWERED) && !level.hasNeighborSignal(close.pos())) {
                 level.setBlock(close.pos(), state.setValue(TrapDoorBlock.OPEN, false), Block.UPDATE_CLIENTS);
                 level.levelEvent(null, 1036, close.pos(), 0);
             }

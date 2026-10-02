@@ -114,8 +114,9 @@ An item that **raises a spell by one rank instantly**. It comes in the four spel
 - **Using it:** right-click the tome to open a picker listing your learned spells that the tome
   can raise and that aren't Master yet. Click one: it goes up one rank, with the same chat line,
   chime and particles as a normal rank-up, and the +1 max mana. The tome is consumed.
-- **The jump:** the spell's XP is set to the start of the next rank, so leftover progress isn't
-  doubled.
+- **One rank per tome, always:** a tome adds exactly one rank (I→II, II→III or III→IV), never
+  more, and its tier never changes that. Going from Novice to Master by tomes alone takes three
+  tomes. The spell's XP is set to the start of the next rank, so leftover progress isn't doubled.
 - **Server checks everything:** spell learned, rarity allowed, not already Master. The picker is
   only a menu.
 - **Tier colors:** the name is colored by tier (white, yellow, aqua, light purple), matching the

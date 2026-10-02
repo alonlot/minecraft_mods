@@ -24,7 +24,7 @@ Before Task 1, confirm Phase 2 is in: `grep -n "public static int scaleDuration"
 ## Global Constraints
 
 - **Ranks:** every per-rank behaviour reads the caster's rank with `SpellMasteryData.getRank(player, spell)` (1..4) through `DisableSupport.casterRank`. **NPC casters (Students, Death Eaters/`WizardEntity`, Voldemort) and ownerless beams are rank 1.**
-- **Hard crowd control** (stun, petrify, freeze, bind, hang) goes through `CrowdControl.apply` (for `stunned`) or `CrowdControl.scaleDuration` via `DisableSupport.applyHiddenCrowdControl` (for the hidden `incarcerous_chains` and `levicorpus` markers). Never call `addEffect` for a hard-CC effect directly. Secondary markers (`petrified`, `glacius_frozen`) are added only after `CrowdControl.apply` landed, with exactly the ticks it returned.
+- **Hard crowd control** (stun, petrify, freeze, bind, hang) goes through `CrowdControl.apply` (for `stunned`) or Phase 2's hidden-effect overload `CrowdControl.apply(target, effect, baseTicks, amplifier, source, false)` via `DisableSupport.applyHiddenCrowdControl` (for the hidden `incarcerous_chains` and `levicorpus` markers). Never call `addEffect` for a hard-CC effect directly. Secondary markers (`petrified`, `glacius_frozen`) are added only after `CrowdControl.apply` landed, with exactly the ticks it returned.
 - **Per-rank numbers (ticks at 20/s):**
 
   | Spell | I Novice | II Adept | III Expert | IV Master |
@@ -802,28 +802,15 @@ public final class DisableSupport {
 
     /**
      * Hard crowd control carried by a hidden marker effect (Incarcerous chains, the Levicorpus hang).
-     * Phase 2's CrowdControl.apply always shows an icon, and these markers have no icon texture, so this
-     * runs the same rules (immunity first, then CrowdControl.scaleDuration for diminishing returns, the
-     * boss rule and the PvP rule) and adds the marker hidden.
+     * Delegates to Phase 2's hidden-effect overload CrowdControl.apply(target, effect, baseTicks, amplifier,
+     * source, visible=false), which probes immunity, applies diminishing returns, the boss rule and the PvP
+     * rule, and records the diminishing-returns step only if the marker actually landed.
      *
      * @return the ticks applied; 0 if nothing landed
      */
     public static int applyHiddenCrowdControl(LivingEntity target, RegistryObject<MobEffect> effect, int baseTicks,
                                               int amplifier, @Nullable Entity source) {
-        if (target.level().isClientSide() || !target.isAlive() || baseTicks <= 0) {
-            return 0;
-        }
-        Holder<MobEffect> holder = holder(effect);
-        int amp = Math.max(0, amplifier);
-        if (!target.canBeAffected(new MobEffectInstance(holder, baseTicks, amp, false, false, false))) {
-            return 0; // immune targets don't burn a diminishing-returns step
-        }
-        int ticks = CrowdControl.scaleDuration(target, baseTicks, source);
-        if (ticks <= 0) {
-            return 0;
-        }
-        target.addEffect(new MobEffectInstance(holder, ticks, amp, false, false, false), CombatEffects.responsible(source));
-        return ticks;
+        return CrowdControl.apply(target, holder(effect), baseTicks, Math.max(0, amplifier), source, false);
     }
 
     /** A hidden marker riding on crowd control that already landed (same ticks); not itself crowd control. */

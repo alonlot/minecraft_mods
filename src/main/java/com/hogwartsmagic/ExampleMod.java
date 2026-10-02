@@ -88,6 +88,8 @@ public class ExampleMod
             LOOT_MODIFIER_SERIALIZERS.register("invisibility_cloak_chest", () -> com.hogwartsmagic.loot.InvisibilityCloakLootModifier.CODEC);
     public static final RegistryObject<com.mojang.serialization.MapCodec<com.hogwartsmagic.loot.MagicalSilkLootModifier>> MAGICAL_SILK_LOOT_MODIFIER =
             LOOT_MODIFIER_SERIALIZERS.register("magical_silk_chest", () -> com.hogwartsmagic.loot.MagicalSilkLootModifier.CODEC);
+    public static final RegistryObject<com.mojang.serialization.MapCodec<com.hogwartsmagic.loot.TomeOfMasteryLootModifier>> TOME_OF_MASTERY_LOOT_MODIFIER =
+            LOOT_MODIFIER_SERIALIZERS.register("tomes_of_mastery", () -> com.hogwartsmagic.loot.TomeOfMasteryLootModifier.CODEC);
     public static final RegistryObject<MenuType<com.hogwartsmagic.menu.WandWorkbenchMenu>> WAND_WORKBENCH_MENU =
             MENUS.register("wand_workbench", () -> IForgeMenuType.create((windowId, inv, buf) -> {
                 net.minecraft.core.BlockPos pos = buf.readBlockPos();

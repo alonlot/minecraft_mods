@@ -64,21 +64,35 @@ public final class GlaciusSpell {
             target.setTicksFrozen(Math.max(target.getTicksFrozen(), GlaciusRules.CHILL_FROST_TICKS));
             return;
         }
-        target.removeEffect(chill);
-        freezeSolid(level, target, caster, rank);
+        if (freezeSolid(level, target, caster, rank)) {
+            target.removeEffect(chill); // keep the chill window if nothing at all landed
+        }
     }
 
-    private static void freezeSolid(ServerLevel level, LivingEntity target, @Nullable Entity caster, int rank) {
-        int ticks = CrowdControl.apply(target, DisableSupport.holder(ExampleMod.STUNNED), GlaciusRules.freezeTicks(rank), caster);
-        if (ticks <= 0) {
-            return;
+    /**
+     * @return true if any freeze effect landed (the stun and/or brittle). A longer stun already running
+     * makes CrowdControl.apply return 0, but brittle is not crowd control, so it and the frozen marker
+     * still apply; the marker is then flagged ambient so a fire thaw leaves the other stun alone.
+     */
+    private static boolean freezeSolid(ServerLevel level, LivingEntity target, @Nullable Entity caster, int rank) {
+        int freezeTicks = GlaciusRules.freezeTicks(rank);
+        int stunTicks = CrowdControl.apply(target, DisableSupport.holder(ExampleMod.STUNNED), freezeTicks, caster);
+        boolean stunned = stunTicks > 0;
+        int ticks = stunned ? stunTicks : freezeTicks;
+        boolean brittle = CombatEffects.applyBrittle(target, GlaciusRules.brittleTicks(ticks), GlaciusRules.brittleAmplifier(rank), caster);
+        if (!stunned && !brittle) {
+            return false;
         }
-        DisableSupport.interrupt(target);
-        DisableSupport.addHiddenMarker(target, ExampleMod.GLACIUS_FROZEN, ticks, rank - 1, caster);
-        CombatEffects.applyBrittle(target, GlaciusRules.brittleTicks(ticks), GlaciusRules.brittleAmplifier(rank), caster);
+        if (stunned) {
+            DisableSupport.interrupt(target);
+        }
+        target.addEffect(new MobEffectInstance(DisableSupport.holder(ExampleMod.GLACIUS_FROZEN), ticks, Math.max(0, rank - 1),
+                !stunned, false, false), CombatEffects.responsible(caster));
         // Fully frozen for the whole freeze (ticksFrozen decays by 2 a tick): vanilla shakes the body
         // and draws the frost overlay for a player.
-        target.setTicksFrozen(Math.max(target.getTicksFrozen(), target.getTicksRequiredToFreeze() + 2 * ticks));
+        if (stunned) {
+            target.setTicksFrozen(Math.max(target.getTicksFrozen(), target.getTicksRequiredToFreeze() + 2 * ticks));
+        }
         Entity responsible = CombatEffects.responsible(caster);
         if (responsible != null) {
             target.getPersistentData().putUUID(FROZEN_BY_TAG, responsible.getUUID());
@@ -91,6 +105,7 @@ public final class GlaciusSpell {
                 16, target.getBbWidth() * 0.4, target.getBbHeight() * 0.3, target.getBbWidth() * 0.4, 0.05);
         level.playSound(null, target.getX(), target.getY(), target.getZ(), SoundEvents.GLASS_PLACE, SoundSource.NEUTRAL, 1.0f, 1.6f);
         level.playSound(null, target.getX(), target.getY(), target.getZ(), SoundEvents.PLAYER_HURT_FREEZE, SoundSource.NEUTRAL, 0.8f, 1.0f);
+        return true;
     }
 
     /**
@@ -150,7 +165,8 @@ public final class GlaciusSpell {
         // Only take what Glacius applied: a longer stun or brittle from another source stays.
         Holder<MobEffect> stunned = DisableSupport.holder(ExampleMod.STUNNED);
         MobEffectInstance stun = target.getEffect(stunned);
-        if (stun != null && stun.getDuration() <= remaining + 1) {
+        // An ambient marker means no Glacius stun landed (someone else's was running): never take that one.
+        if (!marker.isAmbient() && stun != null && stun.getDuration() <= remaining + 1) {
             target.removeEffect(stunned);
         }
         Holder<MobEffect> brittle = DisableSupport.holder(ExampleMod.BRITTLE);

@@ -45,5 +45,6 @@ public final class SpellCosts {
 
     public static void startCooldown(ServerPlayer player, ItemStack wand, SpellType spell, long now, double baseTicks) {
         MagicWandItem.setSpellCooldown(wand, spell, now + cooldownTicks(player, wand, spell, baseTicks));
+        com.hogwartsmagic.spell.mastery.MasteryAwards.onCastCompleted(player, spell);
     }
 }

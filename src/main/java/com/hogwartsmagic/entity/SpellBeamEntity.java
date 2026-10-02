@@ -489,6 +489,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
         if (!this.level().isClientSide) {
             SpellType spell = getSpellType();
             boolean hitSuccessful = false;
+            LivingEntity masteryTarget = null;
 
             if (result instanceof BlockHitResult blockHit) {
                 BlockPos pos = blockHit.getBlockPos();
@@ -704,6 +705,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
                             hitSuccessful = true;
                         } else {
                             hitSuccessful = true;
+                            masteryTarget = living;
 
                             // Apply nominal magic damage FIRST to trigger standard HURT events for physical shield shattering algorithms if needed
                             // AVADA deals max damage so it doesn't need nominal damage
@@ -732,6 +734,13 @@ public class SpellBeamEntity extends ThrowableProjectile {
             if (!hitSuccessful) {
                 spawnFizzleEffects();
             } else {
+                if (getOwner() instanceof ServerPlayer masteryCaster) {
+                    if (masteryTarget != null) {
+                        com.hogwartsmagic.spell.mastery.MasteryAwards.onLivingHit(masteryCaster, spell, masteryTarget);
+                    } else if (result instanceof BlockHitResult) {
+                        com.hogwartsmagic.spell.mastery.MasteryAwards.onBlockEffect(masteryCaster, spell);
+                    }
+                }
                 if (this.level() instanceof net.minecraft.server.level.ServerLevel sl) {
                     spawnEnhancedImpactEffects(sl, spell, this.position());
                     playLayeredImpactSound(spell);

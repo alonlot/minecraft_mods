@@ -1285,8 +1285,8 @@ import javax.annotation.Nullable;
  * is already bleeding tears every wound open: +2 damage per existing stack, in the same hurt call as
  * the cut (a second call would be eaten by invulnerability frames), and the bleed is refreshed.
  *
- * <p>Phase 2's CombatEffects.addBleeding always adds a stack up to 3, so the rank cap is applied here
- * with the same effect flags it uses.
+ * <p>The rank cap on stacks is computed here (SectumsempraRules.nextStacks) and passed to Phase 2's
+ * CombatEffects.applyBleeding, which also credits the caster for a bleed-out kill.
  */
 public final class SectumsempraSpell {
     private static final DustParticleOptions BLOOD = new DustParticleOptions(new Vector3f(0.55f, 0.02f, 0.02f), 1.4f);
@@ -1310,9 +1310,8 @@ public final class SectumsempraSpell {
             return;
         }
         int stacksAfter = SectumsempraRules.nextStacks(rank, stacksBefore);
-        int duration = Math.max(SectumsempraRules.BLEED_TICKS, current == null ? 0 : current.getDuration());
-        target.addEffect(new MobEffectInstance(bleeding, duration, stacksAfter - 1, false, true, true),
-                CombatEffects.responsible(caster));
+        // Phase 2's applyBleeding keeps the longer duration, caps the stacks and records the caster for kill credit.
+        CombatEffects.applyBleeding(target, SectumsempraRules.BLEED_TICKS, stacksAfter, caster);
 
         if (burst > 0f) {
             level.sendParticles(BLOOD, target.getX(), target.getY() + target.getBbHeight() * 0.5, target.getZ(),
@@ -1344,6 +1343,11 @@ with:
 with:
 ```json
   "spell.hogwartsmagic.sectumsempra.desc": "Invisible blades that leave the target bleeding: damage over time and no natural healing. Higher ranks open more wounds. At Master, striking a bleeding target tears every wound open at once.",
+```
+
+Also add, directly after the existing `"death.attack.hogwartsmagic.bleeding.player"` line (bleed kills become routine with Sectumsempra, and vanilla uses this key when the killer holds a renamed item):
+```json
+  "death.attack.hogwartsmagic.bleeding.item": "%1$s bled out whilst fighting %2$s using %3$s",
 ```
 
 - [ ] **Step 4: Check and build**

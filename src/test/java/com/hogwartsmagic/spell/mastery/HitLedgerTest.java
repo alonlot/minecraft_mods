@@ -32,12 +32,34 @@ class HitLedgerTest {
     }
 
     @Test
-    void oldEntriesArePrunedOnceLarge() {
+    void expiredEntriesArePrunedOnceLarge() {
         HitLedger ledger = new HitLedger();
         for (int i = 0; i < 300; i++) {
             ledger.tryAward("k" + i, 0L, 200L);
         }
-        ledger.tryAward("fresh", HitLedger.PRUNE_AGE_TICKS + 1, 200L);
+        ledger.tryAward("fresh", 200L, 200L);
         assertEquals(1, ledger.size());
+    }
+
+    @Test
+    void liveEntriesSurvivePruning() {
+        HitLedger ledger = new HitLedger();
+        for (int i = 0; i < 300; i++) {
+            ledger.tryAward("long" + i, 0L, 12000L);
+        }
+        ledger.tryAward("fresh", 200L, 200L);
+        assertEquals(301, ledger.size());
+        assertFalse(ledger.tryAward("long7", 11999L, 200L));
+        assertTrue(ledger.tryAward("long7", 12000L, 200L));
+    }
+
+    @Test
+    void isOpenDoesNotRecord() {
+        HitLedger ledger = new HitLedger();
+        assertTrue(ledger.isOpen("k", 0L));
+        assertTrue(ledger.isOpen("k", 0L));
+        assertTrue(ledger.tryAward("k", 0L, 200L));
+        assertFalse(ledger.isOpen("k", 199L));
+        assertTrue(ledger.isOpen("k", 200L));
     }
 }

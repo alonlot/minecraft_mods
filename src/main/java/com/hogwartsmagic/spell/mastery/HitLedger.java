@@ -3,27 +3,34 @@ package com.hogwartsmagic.spell.mastery;
 import java.util.HashMap;
 import java.util.Map;
 
-/** Remembers when each award key last paid out, so repeat hits inside a window earn nothing. */
+/**
+ * Remembers until when each award key is closed, so repeat hits inside a window earn nothing.
+ * Storing the expiry (not the award time) makes pruning exact for every window length: an entry
+ * is dropped the moment it can no longer refuse anything.
+ */
 public final class HitLedger {
-    /** Longer than any gate window (Avada's 12000-tick cooldown), so pruning never forgets a live entry. */
-    static final long PRUNE_AGE_TICKS = 24000L;
     private static final int PRUNE_AT_SIZE = 256;
 
-    private final Map<String, Long> lastAward = new HashMap<>();
+    private final Map<String, Long> closedUntil = new HashMap<>();
+
+    /** True if {@code key} would pay out at {@code now}. Records nothing. */
+    public boolean isOpen(String key, long now) {
+        Long until = closedUntil.get(key);
+        return until == null || now >= until;
+    }
 
     public boolean tryAward(String key, long now, long windowTicks) {
-        Long last = lastAward.get(key);
-        if (last != null && now - last < windowTicks) {
+        if (!isOpen(key, now)) {
             return false;
         }
-        if (lastAward.size() >= PRUNE_AT_SIZE) {
-            lastAward.values().removeIf(time -> now - time >= PRUNE_AGE_TICKS);
+        if (closedUntil.size() >= PRUNE_AT_SIZE) {
+            closedUntil.values().removeIf(until -> now >= until);
         }
-        lastAward.put(key, now);
+        closedUntil.put(key, now + windowTicks);
         return true;
     }
 
     public int size() {
-        return lastAward.size();
+        return closedUntil.size();
     }
 }

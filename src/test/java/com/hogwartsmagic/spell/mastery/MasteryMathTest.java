@@ -2,7 +2,10 @@ package com.hogwartsmagic.spell.mastery;
 
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MasteryMathTest {
     private static final int[] T = {0, 30, 120, 350};
@@ -72,5 +75,52 @@ class MasteryMathTest {
         assertEquals("I", MasteryMath.roman(1));
         assertEquals("IV", MasteryMath.roman(4));
         assertEquals("I", MasteryMath.roman(0));
+    }
+
+    @Test
+    void scaledXpRejectsNaNAndInfinity() {
+        assertEquals(0f, MasteryMath.scaledXp(5, Double.NaN), 1e-4);
+        assertEquals(0f, MasteryMath.scaledXp(5, Double.POSITIVE_INFINITY), 1e-4);
+        assertEquals(0f, MasteryMath.scaledXp(-5, 1.0), 1e-4);
+    }
+
+    @Test
+    void sanitizeXpZeroesGarbage() {
+        assertEquals(0f, MasteryMath.sanitizeXp(Float.NaN), 1e-4);
+        assertEquals(0f, MasteryMath.sanitizeXp(Float.POSITIVE_INFINITY), 1e-4);
+        assertEquals(0f, MasteryMath.sanitizeXp(-3f), 1e-4);
+        assertEquals(42.5f, MasteryMath.sanitizeXp(42.5f), 1e-4);
+    }
+
+    @Test
+    void thresholdsFallBackUnlessStrictlyRising() {
+        assertTrue(MasteryMath.thresholdsValid(30, 120, 350));
+        assertFalse(MasteryMath.thresholdsValid(120, 120, 350));
+        assertFalse(MasteryMath.thresholdsValid(0, 120, 350));
+        assertArrayEquals(new int[]{0, 10, 20, 30}, MasteryMath.thresholdsOrDefault(10, 20, 30));
+        assertArrayEquals(new int[]{0, 30, 120, 350}, MasteryMath.thresholdsOrDefault(50, 40, 30));
+    }
+
+    @Test
+    void defaultThresholdsCannotBeMutatedThroughTheReturnedArray() {
+        int[] first = MasteryMath.thresholdsOrDefault(50, 40, 30);
+        first[1] = 999;
+        assertArrayEquals(new int[]{0, 30, 120, 350}, MasteryMath.thresholdsOrDefault(50, 40, 30));
+    }
+
+    @Test
+    void rankProgressStaysInsideZeroToOne() {
+        assertEquals(0f, MasteryMath.rankProgress(Float.NaN, T), 1e-4);
+        assertEquals(0f, MasteryMath.rankProgress(-50f, T), 1e-4);
+        assertEquals(0f, MasteryMath.rankProgress(Float.POSITIVE_INFINITY, T), 1e-4);
+    }
+
+    @Test
+    void clampFiniteFallsBackOnNaN() {
+        assertEquals(0.08, MasteryMath.clampFinite(Double.NaN, 0.0, 0.3, 0.08), 1e-9);
+        assertEquals(0.08, MasteryMath.clampFinite(Double.NEGATIVE_INFINITY, 0.0, 0.3, 0.08), 1e-9);
+        assertEquals(0.3, MasteryMath.clampFinite(5.0, 0.0, 0.3, 0.08), 1e-9);
+        assertEquals(0.0, MasteryMath.clampFinite(-1.0, 0.0, 0.3, 0.08), 1e-9);
+        assertEquals(0.1, MasteryMath.clampFinite(0.1, 0.0, 0.3, 0.08), 1e-9);
     }
 }

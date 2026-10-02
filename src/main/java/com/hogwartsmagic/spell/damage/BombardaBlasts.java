@@ -42,10 +42,12 @@ public final class BombardaBlasts {
         final int rank;
         final List<BlockPos> positions;
         int next;
+        final boolean masteryEligible;
         int broken;
 
-        Job(UUID casterId, int rank, List<BlockPos> positions) {
+        Job(UUID casterId, int rank, List<BlockPos> positions, boolean masteryEligible) {
             this.casterId = casterId;
+            this.masteryEligible = masteryEligible;
             this.rank = rank;
             this.positions = positions;
         }
@@ -55,13 +57,14 @@ public final class BombardaBlasts {
     }
 
     /** @return true if the job was queued; false if there was nothing to break or the queue is at its cap */
-    static boolean queue(ServerLevel level, ServerPlayer caster, int rank, List<BlockPos> positions) {
+    static boolean queue(ServerLevel level, ServerPlayer caster, int rank, List<BlockPos> positions,
+                         boolean masteryEligible) {
         if (positions.isEmpty()) {
             return false;
         }
         ArrayDeque<Job> jobs = JOBS.computeIfAbsent(level.dimension(), key -> new ArrayDeque<>());
         if (jobs.size() < MAX_JOBS_PER_LEVEL) {
-            jobs.add(new Job(caster.getUUID(), rank, positions));
+            jobs.add(new Job(caster.getUUID(), rank, positions, masteryEligible));
             return true;
         }
         return false;
@@ -100,7 +103,7 @@ public final class BombardaBlasts {
             }
             if (job.next >= job.positions.size()) {
                 jobs.poll();
-                if (job.broken > 0 && com.hogwartsmagic.item.MagicBookItem.isSpellLearned(caster, com.hogwartsmagic.spell.SpellType.BOMBARDA)) {
+                if (job.broken > 0 && job.masteryEligible && com.hogwartsmagic.item.MagicBookItem.isSpellLearned(caster, com.hogwartsmagic.spell.SpellType.BOMBARDA)) {
                     com.hogwartsmagic.spell.mastery.MasteryAwards.onBlockEffect(caster, com.hogwartsmagic.spell.SpellType.BOMBARDA);
                 }
             }

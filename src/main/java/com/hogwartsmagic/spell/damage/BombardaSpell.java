@@ -34,18 +34,28 @@ public final class BombardaSpell {
     }
 
     public static void onEntityHit(LivingEntity target, @Nullable Entity caster) {
+        onEntityHit(target, caster, true);
+    }
+
+    /** @param masteryEligible false for a reflected beam: the queued blast earns no block XP */
+    public static void onEntityHit(LivingEntity target, @Nullable Entity caster, boolean masteryEligible) {
         if (target.level() instanceof ServerLevel level) {
-            detonate(level, target.blockPosition(), target.position(), caster, target);
+            detonate(level, target.blockPosition(), target.position(), caster, target, masteryEligible);
         }
     }
 
     /** @return how many positions were queued for breaking (0: nothing to break, or not allowed to) */
     public static int detonateAtBlock(ServerLevel level, BlockPos pos, Vec3 impact, @Nullable Entity caster) {
-        return detonate(level, pos, impact, caster, null);
+        return detonateAtBlock(level, pos, impact, caster, true);
+    }
+
+    public static int detonateAtBlock(ServerLevel level, BlockPos pos, Vec3 impact, @Nullable Entity caster,
+                                      boolean masteryEligible) {
+        return detonate(level, pos, impact, caster, null, masteryEligible);
     }
 
     private static int detonate(ServerLevel level, BlockPos center, Vec3 impact, @Nullable Entity caster,
-                                @Nullable LivingEntity primary) {
+                                @Nullable LivingEntity primary, boolean masteryEligible) {
         int rank = DisableSupport.casterRank(caster, SpellType.BOMBARDA);
         double radius = BombardaRules.radius(rank);
         level.sendParticles(radius >= 2.5 ? ParticleTypes.EXPLOSION_EMITTER : ParticleTypes.EXPLOSION,
@@ -53,7 +63,7 @@ public final class BombardaSpell {
         level.playSound(null, impact.x, impact.y, impact.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS,
                 2.0f + (float) radius * 0.3f, 0.9f + level.random.nextFloat() * 0.2f);
         splash(level, impact, caster, primary, rank, radius);
-        return queueBlocks(level, center, caster, rank, radius);
+        return queueBlocks(level, center, caster, rank, radius, masteryEligible);
     }
 
     private static void splash(ServerLevel level, Vec3 impact, @Nullable Entity caster, @Nullable LivingEntity primary,
@@ -85,7 +95,8 @@ public final class BombardaSpell {
         }
     }
 
-    private static int queueBlocks(ServerLevel level, BlockPos center, @Nullable Entity caster, int rank, double radius) {
+    private static int queueBlocks(ServerLevel level, BlockPos center, @Nullable Entity caster, int rank, double radius,
+                                    boolean masteryEligible) {
         if (!(CombatEffects.responsible(caster) instanceof ServerPlayer player)) {
             return 0; // NPC Bombarda (Voldemort) never breaks terrain
         }
@@ -101,6 +112,6 @@ public final class BombardaSpell {
                 positions.add(pos);
             }
         }
-        return BombardaBlasts.queue(level, player, rank, positions) ? positions.size() : 0;
+        return BombardaBlasts.queue(level, player, rank, positions, masteryEligible) ? positions.size() : 0;
     }
 }

@@ -151,6 +151,12 @@ public enum SpellType {
 
     /** @param beamDir the beam's travel direction at impact (used by Stupefy knockback), or null */
     public void applyHitEffect(LivingEntity target, Entity caster, @javax.annotation.Nullable net.minecraft.world.phys.Vec3 beamDir) {
+        applyHitEffect(target, caster, beamDir, true);
+    }
+
+    /** @param masteryEligible false for a Protego-reflected beam: a Bombarda blast it queues earns no block XP */
+    public void applyHitEffect(LivingEntity target, Entity caster, @javax.annotation.Nullable net.minecraft.world.phys.Vec3 beamDir,
+                               boolean masteryEligible) {
         switch (this) {
             case EXPELLIARMUS -> com.hogwartsmagic.spell.support.ExpelliarmusSpell.apply(target, caster);
             case GLACIUS -> {
@@ -286,7 +292,7 @@ public enum SpellType {
                 }
             }
             case BOMBARDA -> {
-                com.hogwartsmagic.spell.damage.BombardaSpell.onEntityHit(target, caster);
+                com.hogwartsmagic.spell.damage.BombardaSpell.onEntityHit(target, caster, masteryEligible);
                 if (target.getTicksFrozen() > 0 || target.hasEffect(MobEffects.MOVEMENT_SLOWDOWN)) {
                     triggerSteamCombo(target);
                 }

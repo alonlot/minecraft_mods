@@ -597,7 +597,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
                     // The terrain breaker: blast now, blocks over the next few ticks (BombardaBlasts).
                     if (this.level() instanceof ServerLevel bombardaLevel) {
                         com.hogwartsmagic.spell.damage.BombardaSpell.detonateAtBlock(
-                                bombardaLevel, pos, this.position(), getOwner());
+                                bombardaLevel, pos, this.position(), getOwner(), !this.reflected);
                         hitSuccessful = true;
                         masteryEligible = false; // block XP is granted by BombardaBlasts once a block actually breaks
                     }
@@ -774,7 +774,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
                                living.hurt(this.damageSources().magic(), chipDamage);
                             }
 
-                            spell.applyHitEffect(living, getOwner(), this.getDeltaMovement());
+                            spell.applyHitEffect(living, getOwner(), this.getDeltaMovement(), !this.reflected);
                             if (spell == SpellType.WINGARDIUM_LEVIOSA && getOwner() instanceof ServerPlayer caster) {
                                 com.hogwartsmagic.event.ModEvents.markRecentWingardiumTarget(caster, living);
                             }

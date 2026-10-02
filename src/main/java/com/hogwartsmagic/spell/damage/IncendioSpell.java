@@ -126,6 +126,7 @@ public final class IncendioSpell {
                 continue;
             }
             level.setBlock(pos, BaseFireBlock.getState(level, pos), 11);
+            level.gameEvent(CombatEffects.responsible(caster), GameEvent.BLOCK_PLACE, pos);
             placed++;
         }
         return placed;

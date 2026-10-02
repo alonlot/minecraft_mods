@@ -158,7 +158,7 @@ public enum SpellType {
     public void applyHitEffect(LivingEntity target, Entity caster, @javax.annotation.Nullable net.minecraft.world.phys.Vec3 beamDir,
                                boolean masteryEligible) {
         switch (this) {
-            case EXPELLIARMUS -> com.hogwartsmagic.spell.support.ExpelliarmusSpell.apply(target, caster);
+            case EXPELLIARMUS -> com.hogwartsmagic.spell.support.ExpelliarmusSpell.apply(target, caster, masteryEligible);
             case GLACIUS -> {
                 // Steam combo first: put out the fire, or it would thaw the freeze on the next tick.
                 if (target.isOnFire()) {

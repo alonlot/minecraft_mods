@@ -34,13 +34,18 @@ public final class ExpelliarmusSpell {
     }
 
     public static void apply(LivingEntity target, @Nullable Entity caster) {
+        apply(target, caster, true);
+    }
+
+    /** @param masteryEligible false for a Protego-reflected beam: no Elder Wand allegiance for the reflector */
+    public static void apply(LivingEntity target, @Nullable Entity caster, boolean masteryEligible) {
         if (target.level().isClientSide()) {
             return;
         }
         int rank = DisableSupport.casterRank(caster, SpellType.EXPELLIARMUS);
         Entity owner = CombatEffects.responsible(caster);
         int silenceTicks = ExpelliarmusRules.silenceTicks(rank);
-        ServerPlayer winner = owner instanceof ServerPlayer player && player != target
+        ServerPlayer winner = masteryEligible && owner instanceof ServerPlayer player && player != target
                 && ExpelliarmusRules.winsElderWand(rank) ? player : null;
 
         ItemStack held = target.getMainHandItem();

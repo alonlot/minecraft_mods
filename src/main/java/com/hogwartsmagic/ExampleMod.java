@@ -175,6 +175,22 @@ public class ExampleMod
     public static final RegistryObject<net.minecraft.world.effect.MobEffect> BASILISK_GAZE = MOB_EFFECTS.register("basilisk_gaze",
             com.hogwartsmagic.spell.BasiliskGazeEffect::new);
 
+    // Shared combat effects (Spell Mastery Phase 2). Later phases apply them; hard crowd control
+    // goes through com.hogwartsmagic.spell.combat.CrowdControl so diminishing returns, the boss
+    // rule and the PvP rule always run.
+    public static final RegistryObject<net.minecraft.world.effect.MobEffect> STUNNED = MOB_EFFECTS.register("stunned",
+            com.hogwartsmagic.spell.StunnedEffect::new);
+    public static final RegistryObject<net.minecraft.world.effect.MobEffect> BLEEDING = MOB_EFFECTS.register("bleeding",
+            com.hogwartsmagic.spell.BleedingEffect::new);
+    public static final RegistryObject<net.minecraft.world.effect.MobEffect> CURSED_WOUND = MOB_EFFECTS.register("cursed_wound",
+            com.hogwartsmagic.spell.CursedWoundEffect::new);
+    /** Marker: CombatEffects consumes it on the next physical or explosion hit for bonus damage. */
+    public static final RegistryObject<net.minecraft.world.effect.MobEffect> BRITTLE = MOB_EFFECTS.register("brittle",
+            () -> new net.minecraft.world.effect.MobEffect(net.minecraft.world.effect.MobEffectCategory.HARMFUL, 0x9FD8F0) {});
+    /** Marker: the cast handlers refuse while it is active and the spell wheel greys out. */
+    public static final RegistryObject<net.minecraft.world.effect.MobEffect> SILENCED = MOB_EFFECTS.register("silenced",
+            () -> new net.minecraft.world.effect.MobEffect(net.minecraft.world.effect.MobEffectCategory.HARMFUL, 0x6E6E8F) {});
+
     public static final RegistryObject<Block> WAND_WORKBENCH = BLOCKS.register("wand_workbench",
             () -> new com.hogwartsmagic.block.WandWorkbenchBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.SMITHING_TABLE)));
 

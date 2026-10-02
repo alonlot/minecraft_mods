@@ -69,8 +69,8 @@ public final class LumosSpell {
             return;
         }
         int rank = DisableSupport.casterRank(caster, SpellType.LUMOS);
-        if (LumosRules.solem(rank) && target.getType().is(SOLEM_VULNERABLE)) {
-            target.hurt(target.damageSources().magic(), DamageSupport.scaled(caster, LumosRules.SOLEM_DAMAGE));
+        if (LumosRules.solem(rank) && target.getType().is(SOLEM_VULNERABLE) && !isFriendly(target, caster)) {
+            target.hurt(DamageSupport.magicFrom(target, caster), DamageSupport.scaled(caster, LumosRules.SOLEM_DAMAGE));
             target.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, LumosRules.SOLEM_BLIND_TICKS, 0));
             if (target.level() instanceof ServerLevel level) {
                 level.sendParticles(ParticleTypes.FLASH, target.getX(), target.getY() + 1.0, target.getZ(), 1, 0, 0, 0, 0);
@@ -81,6 +81,18 @@ public final class LumosSpell {
             return;
         }
         target.addEffect(new MobEffectInstance(light(), LumosRules.LIGHT_TICKS, LumosRules.amplifierForRank(rank), false, false, true));
+    }
+
+    /** The caster's own tamed or owned mobs and team-mates are spared Solem (they get the light instead). */
+    private static boolean isFriendly(LivingEntity target, @Nullable Entity caster) {
+        Entity source = CombatEffects.responsible(caster);
+        if (source == null) {
+            return false;
+        }
+        if (target instanceof net.minecraft.world.entity.OwnableEntity ownable && ownable.getOwner() == source) {
+            return true;
+        }
+        return target.isAlliedTo(source);
     }
 
     /** Lumos Maxima: a floating light at {@code pos} for 5 minutes. Players at Expert and up only. */

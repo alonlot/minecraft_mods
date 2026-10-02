@@ -176,18 +176,12 @@ public enum SpellType {
                 target.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 60, 1));
             }
             case GLACIUS -> {
-                int freezeDuration = 200;
-                int slowDuration = 100;
-                if (isColdEnvironment(target)) {
-                    freezeDuration += 80;
-                    slowDuration += 40;
-                }
-                target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, slowDuration, 10)); // Freeze in place
-                target.setTicksFrozen(freezeDuration);
+                // Steam combo first: put out the fire, or it would thaw the freeze on the next tick.
                 if (target.isOnFire()) {
                     triggerSteamCombo(target);
                     target.clearFire();
                 }
+                com.hogwartsmagic.spell.disable.GlaciusSpell.apply(target, caster);
             }
             case CONFRINGO -> {
                 target.igniteForSeconds(5);
@@ -490,10 +484,6 @@ public enum SpellType {
 
     private float scaledSpellDamage(Entity caster, float base) {
         return base * HousePerks.getSpellDamageMultiplier(caster);
-    }
-
-    private boolean isColdEnvironment(LivingEntity target) {
-        return target.level().getBiome(target.blockPosition()).value().getBaseTemperature() < 0.15f;
     }
 
     private void triggerSteamCombo(LivingEntity target) {

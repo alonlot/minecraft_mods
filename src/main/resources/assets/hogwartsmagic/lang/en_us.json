@@ -36,7 +36,7 @@
   "spell.hogwartsmagic.expelliarmus": "Expelliarmus",
   "spell.hogwartsmagic.expelliarmus.desc": "Knocks items out of a target's hand and deals minor knockback.",
   "spell.hogwartsmagic.glacius": "Glacius",
-  "spell.hogwartsmagic.glacius.desc": "Freezes mobs in place and turns water into ice.",
+  "spell.hogwartsmagic.glacius.desc": "Chills and slows the target; a second hit soon after freezes it solid and leaves it brittle. Fire thaws it. Turns water into ice. At Master, frozen enemies shatter when they die.",
   "spell.hogwartsmagic.confringo": "Confringo",
   "spell.hogwartsmagic.confringo.desc": "Creates a fiery explosion at the target.",
   "spell.hogwartsmagic.protego": "Protego",

@@ -127,6 +127,22 @@ public final class Config {
             .comment("Spell mastery: ceiling on the total max mana bonus from ranks.")
             .defineInRange("masteryManaCap", 50.0, 0.0, 100000.0);
 
+    public static final ForgeConfigSpec.DoubleValue TOME_COMMON_CHEST_CHANCE = BUILDER
+            .comment("Tomes of Mastery: chance (0-1) that a chest which can roll a spell book also holds a Common Tome.")
+            .defineInRange("tomeCommonChestChance", 0.03, 0.0, 1.0);
+
+    public static final ForgeConfigSpec.DoubleValue TOME_UNCOMMON_CHEST_CHANCE = BUILDER
+            .comment("Tomes of Mastery: chance (0-1) that a chest which can roll a spell book holds an Uncommon Tome.")
+            .defineInRange("tomeUncommonChestChance", 0.015, 0.0, 1.0);
+
+    public static final ForgeConfigSpec.DoubleValue TOME_RARE_CHEST_CHANCE = BUILDER
+            .comment("Tomes of Mastery: chance (0-1) of a Rare Tome in a dungeon-tier chest or a mod structure chest.")
+            .defineInRange("tomeRareChestChance", 0.005, 0.0, 1.0);
+
+    public static final ForgeConfigSpec.DoubleValue TOME_EPIC_CHEST_CHANCE = BUILDER
+            .comment("Tomes of Mastery: chance (0-1) of an Epic Tome in endgame chests only (Gringotts vaults, the Horntail nest, the Chamber). A chest holds at most one tome; keep the four chances summing below 1.")
+            .defineInRange("tomeEpicChestChance", 0.0015, 0.0, 1.0);
+
     static final ForgeConfigSpec SPEC = BUILDER.build();
 
     public static double baseMaxMana = 100;
@@ -156,6 +172,10 @@ public final class Config {
     public static double masteryRankDiscount = 0.08;
     public static double masteryManaPerRank = 1.0;
     public static double masteryManaCap = 50.0;
+    public static double tomeCommonChestChance = 0.03;
+    public static double tomeUncommonChestChance = 0.015;
+    public static double tomeRareChestChance = 0.005;
+    public static double tomeEpicChestChance = 0.0015;
 
     private Config() {
     }
@@ -192,6 +212,10 @@ public final class Config {
         masteryRankDiscount = MASTERY_RANK_DISCOUNT.get();
         masteryManaPerRank = MASTERY_MANA_PER_RANK.get();
         masteryManaCap = MASTERY_MANA_CAP.get();
+        tomeCommonChestChance = TOME_COMMON_CHEST_CHANCE.get();
+        tomeUncommonChestChance = TOME_UNCOMMON_CHEST_CHANCE.get();
+        tomeRareChestChance = TOME_RARE_CHEST_CHANCE.get();
+        tomeEpicChestChance = TOME_EPIC_CHEST_CHANCE.get();
     }
 
     public static float getBaseMaxMana() {
@@ -220,6 +244,22 @@ public final class Config {
 
     public static double getMasteryManaCap() {
         return masteryManaCap;
+    }
+
+    public static double getTomeCommonChance() {
+        return tomeCommonChestChance;
+    }
+
+    public static double getTomeUncommonChance() {
+        return tomeUncommonChestChance;
+    }
+
+    public static double getTomeRareChance() {
+        return tomeRareChestChance;
+    }
+
+    public static double getTomeEpicChance() {
+        return tomeEpicChestChance;
     }
 
     public static float getManaRegenPerTick() {

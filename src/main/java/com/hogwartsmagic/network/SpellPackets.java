@@ -1192,6 +1192,10 @@ public class SpellPackets {
             if (player == null) {
                 return;
             }
+            if (com.hogwartsmagic.spell.combat.CombatEffects.isStunned(player)) {
+                com.hogwartsmagic.spell.combat.CombatEffects.notifyCastBlocked(player);
+                return;
+            }
             if (!(player.level().getBlockEntity(p.sourcePos) instanceof FlooFireplaceBlockEntity source)
                     || !(player.level().getBlockEntity(p.destinationPos) instanceof FlooFireplaceBlockEntity destination)) {
                 return;
@@ -1374,6 +1378,10 @@ public class SpellPackets {
         public static void handle(UseTomePacket p, CustomPayloadEvent.Context ctx) {
             ServerPlayer player = ctx.getSender();
             if (player != null) {
+                if (com.hogwartsmagic.spell.combat.CombatEffects.isStunned(player)) {
+                    com.hogwartsmagic.spell.combat.CombatEffects.notifyCastBlocked(player);
+                    return;
+                }
                 com.hogwartsmagic.item.TomeOfMasteryItem.tryRaise(player, p.mainHand, p.spellId);
             }
         }

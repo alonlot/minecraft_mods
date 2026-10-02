@@ -81,7 +81,8 @@ nobody has felt yet.
 10. **Splinching is configurable:** 10% at Novice by default (not 20%), and it can be turned off.
 11. **Fiendfyre telegraphs before it turns.** A serpent about to go rogue glows red for 1s
     first. Without that, it just feels like a bug.
-12. **Imperio on players is cut.** It's a griefing tool with high netcode cost and low fun.
+12. **Imperio Master is full possession** (the user's call; see "Imperio Master: Possession" below).
+    It works on players and mobs, lasts 10 seconds, and players can struggle free after 5.
 
 ---
 
@@ -139,10 +140,52 @@ to known Floo fireplaces).
 
 ### Phase 6: Mind spells and Unforgivables
 Obliviate (mob forgets you and leaves you alone; silences players), Confundo (friendly fire,
-contagious at Master), Imperio (direct control of more and bigger mobs; no player control), Crucio
+contagious at Master), Imperio (ranks I–III command more and bigger mobs; Master is possession, see below), Crucio
 (a channel that locks both caster and target), Avada Kedavra (a windup that can be interrupted and
 gets shorter and costs less backlash with rank; 20% max health against bosses). **Decide on
 corruption before this phase starts.**
+
+#### Imperio Master: Possession
+1. **Cast:** an Imperio beam hits a player or a non-boss mob. Instead of the usual effect, you
+   get a **Puppet Token** in your inventory: a head item showing the target's face (a player
+   head with their skin for players; a mob head or icon for mobs), named after the target. The
+   victim is marked and gets a faint green glow. The token expires after 20s if you don't use it.
+2. **Take control:** use the token (right-click it, or click it in the inventory). For
+   **10 seconds** your camera becomes the victim's eyes: you see their POV and drive their
+   movement, looking, jumping, attacking and their held item.
+3. **Your own body stays behind** in a trance: it stands still and is defenceless. Getting hit
+   hard (≥4 damage) snaps you back early. That's the counterplay for everyone nearby.
+4. **The victim's side (players):** their controls are taken away, and they see a green
+   "Imperius" vignette and the prompt *"Mash SPACE to resist!"* For the **first 5 seconds**
+   resisting does nothing. After that, each half-second in which they press space fast enough
+   (≥6 presses) gives a 20% chance to break free. Mashing usually frees you in the last few
+   seconds, but not always.
+5. **When it ends** (10s, broken free, caster hit, caster or victim dies, logout or dimension
+   change): control returns and the camera snaps back. A broken-free victim gets 3s of
+   immunity to recasting, and the caster gets Nausea for 3s.
+6. **Limits:** bosses are immune; an Imperio cooldown applies after possession ends; you can't
+   make the victim drop or throw their items, open their inventory or chests, or log them out;
+   a config toggle (`imperioPossessPlayers`, default on) controls player possession, and mobs
+   are always allowed.
+7. **Mobs can't resist,** but their AI is switched off for the duration and restored after.
+
+**How it works under the hood:**
+- **Server authoritative:** the server owns the possession session (caster, victim, start
+  tick, end tick).
+- **Caster's client:** calls `setCameraEntity(victim)` and sends its movement keys, rotation,
+  jump, attack and use input every tick in a `PossessInputPacket`.
+- **Victim's client:** gets a `PossessedStatePacket` that zeroes its own movement input (so the
+  two clients don't fight over the body), shows the vignette and prompt, and reports space
+  presses in a `ResistPacket`.
+- **Applying the input:** the server applies the caster's input to the victim. For players, it
+  sets rotation and velocity and calls `attack()`/`useItem` server-side. For mobs, it drives
+  them through their `MoveControl` and `LookControl`.
+- **Rate-limiting:** the server counts space presses itself and caps them, so a macro can't
+  break free instantly.
+- **Client code stays client-side:** the camera and input-capture code lives only in `client/`.
+- **Watch out for players:** movement is client-authoritative in vanilla, so forced movement
+  needs `hurtMarked`/teleport sync and will look slightly rubber-banded at high ping. Test it on
+  the dedicated server early.
 
 ### Phase 7: The expensive features (each one a separate plan)
 Patronus forms (tinted vanilla models, chosen by UUID + house), a Serpensortia snake entity

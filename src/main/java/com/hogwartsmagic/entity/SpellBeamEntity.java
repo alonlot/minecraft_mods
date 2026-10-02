@@ -559,6 +559,11 @@ public class SpellBeamEntity extends ThrowableProjectile {
                         this.level().setBlockAndUpdate(pos.relative(blockHit.getDirection()), Blocks.FIRE.defaultBlockState());
                         hitSuccessful = true;
                     }
+                } else if (spell == SpellType.DIFFINDO) {
+                    // The magic shears: leaves, vines, webs, wool and grass come free as items.
+                    if (this.level() instanceof ServerLevel diffindoLevel) {
+                        hitSuccessful = com.hogwartsmagic.spell.damage.DiffindoSpell.cutBlocks(diffindoLevel, pos, getOwner()) > 0;
+                    }
                 } else if (spell == SpellType.REVELIO) {
                     if (state.getBlock() instanceof com.hogwartsmagic.block.DiagonArchwayBlock
                             && this.level() instanceof ServerLevel archLevel) {

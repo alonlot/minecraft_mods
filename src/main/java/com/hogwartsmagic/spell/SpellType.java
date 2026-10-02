@@ -331,9 +331,7 @@ public enum SpellType {
                 target.push(away.x, 0.5, away.z);
             }
             case LEVICORPUS -> com.hogwartsmagic.spell.disable.LevicorpusSpell.apply(target, caster);
-            case DIFFINDO -> {
-                target.hurt(target.damageSources().magic(), scaledSpellDamage(caster, 15.0f)); // High sharp damage
-            }
+            case DIFFINDO -> com.hogwartsmagic.spell.damage.DiffindoSpell.apply(target, caster);
             case PETRIFICUS_TOTALUS -> com.hogwartsmagic.spell.disable.PetrificusSpell.apply(target, caster);
             case AQUA_ERUCTO -> {
                 boolean wasBurning = target.isOnFire();

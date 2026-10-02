@@ -39,9 +39,12 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
 import javax.annotation.Nullable;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -60,46 +63,68 @@ public final class AccioSpell {
     private AccioSpell() {
     }
 
+    /** What a block hit achieved: whether anything was summoned, and whether it earns mastery XP. */
+    public record BlockResult(boolean pulled, boolean paysMastery) {
+        static final BlockResult NOTHING = new BlockResult(false, false);
+    }
+
+    /** Item entities already paid for (bounded, oldest forgotten first): an item earns block XP once. */
+    private static final Set<UUID> PAID_ITEMS = Collections.newSetFromMap(new LinkedHashMap<UUID, Boolean>() {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<UUID, Boolean> eldest) {
+            return size() > 512;
+        }
+    });
+
+    /** Fire-and-forget form (self casts, NPC helpers): the result is not needed. */
     public static void onLivingHit(LivingEntity target, @Nullable Entity caster) {
         onLivingHit(target, caster, true);
     }
 
-    /** @param masteryEligible false for a Protego-reflected beam: the reflector never snatches the original caster's item */
-    public static void onLivingHit(LivingEntity target, @Nullable Entity caster, boolean masteryEligible) {
+    /**
+     * @param snatchEligible false for a Protego-reflected beam, or when the chip damage was vetoed by a claim
+     *                       or safe-zone mod: the target is still reeled but never robbed
+     * @return true only if the target was actually reeled (or pushed, for a non-player caster); false when
+     *         the creature was too heavy for the rank of the caster, so the hit earns no mastery
+     */
+    public static boolean onLivingHit(LivingEntity target, @Nullable Entity caster, boolean snatchEligible) {
         if (target.level().isClientSide()) {
-            return;
-        }
-        int rank = DisableSupport.casterRank(caster, SpellType.ACCIO);
-        Entity owner = CombatEffects.responsible(caster);
-        if (!AccioRules.canReel(rank, target.getMaxHealth(), CombatTags.isBoss(target))) {
-            if (owner instanceof ServerPlayer player) {
-                player.displayClientMessage(Component.translatable("message.hogwartsmagic.accio.too_heavy"), true);
-            }
-            return;
-        }
-        if (masteryEligible && AccioRules.pullsPlayerItem(rank) && target instanceof ServerPlayer victim
-                && owner instanceof ServerPlayer thief && victim != thief && isPvp(thief, victim)) {
-            pullMainHand(victim, thief);
-        }
-        // Continuously reel the target in toward the caster until it reaches them.
-        if (owner instanceof ServerPlayer player) {
-            ModEvents.startAccioPull(player, target);
-        } else {
-            Vec3 toward = target.position().vectorTo(
-                    owner != null ? owner.getEyePosition(1) : target.position().add(0, 0, 5))
-                    .normalize().scale(0.8);
-            target.push(toward.x, 0.3, toward.z);
-        }
-    }
-
-    public static boolean onBlockHit(ServerLevel level, BlockPos pos, Direction face, Vec3 impact, @Nullable Entity caster) {
-        if (!(CombatEffects.responsible(caster) instanceof ServerPlayer player)) {
             return false;
         }
-        int rank = SpellMasteryData.getRank(player, SpellType.ACCIO);
+        if (!(caster instanceof ServerPlayer player)) {
+            // NPC casters: the original unconditional push, with no weight limit.
+            Vec3 toward = target.position().vectorTo(
+                    caster != null ? caster.getEyePosition(1) : target.position().add(0, 0, 5))
+                    .normalize().scale(0.8);
+            target.push(toward.x, 0.3, toward.z);
+            return true;
+        }
+        int rank = DisableSupport.casterRank(caster, SpellType.ACCIO);
+        if (!AccioRules.canReel(rank, target.getMaxHealth(), CombatTags.isBoss(target))) {
+            player.displayClientMessage(Component.translatable("message.hogwartsmagic.accio.too_heavy"), true);
+            return false;
+        }
+        if (snatchEligible && AccioRules.pullsPlayerItem(rank) && target instanceof ServerPlayer victim
+                && victim != player && !victim.isCreative() && !victim.isSpectator() && isPvp(player, victim)) {
+            pullMainHand(victim, player);
+        }
+        // Continuously reel the target in toward the caster until it reaches them.
+        ModEvents.startAccioPull(player, target);
+        return true;
+    }
+
+    /** @param reflected a Protego-reflected beam: behaves as Novice (no container pulls) and earns nothing */
+    public static BlockResult onBlockHit(ServerLevel level, BlockPos pos, Direction face, Vec3 impact,
+                                         @Nullable Entity caster, boolean reflected) {
+        if (!(CombatEffects.responsible(caster) instanceof ServerPlayer player)) {
+            return BlockResult.NOTHING;
+        }
+        int rank = reflected ? 1 : SpellMasteryData.getRank(player, SpellType.ACCIO);
         int pulled = 0;
+        boolean fresh = false;
         if (AccioRules.pullsContainers(rank) && pullFromContainer(level, pos, face, player)) {
             pulled++;
+            fresh = true; // the stack came out of the container just now
         }
         double radius = AccioRules.itemRadius(rank);
         for (ItemEntity item : level.getEntitiesOfClass(ItemEntity.class, new AABB(impact, impact).inflate(radius),
@@ -108,12 +133,15 @@ public final class AccioSpell {
                 break;
             }
             track(item, player);
+            if (PAID_ITEMS.add(item.getUUID())) {
+                fresh = true;
+            }
             pulled++;
         }
         if (pulled > 0) {
             level.playSound(null, impact.x, impact.y, impact.z, SoundEvents.ITEM_PICKUP, SoundSource.PLAYERS, 0.8f, 0.7f);
         }
-        return pulled > 0;
+        return new BlockResult(pulled > 0, fresh && !reflected);
     }
 
     private static boolean pullFromContainer(ServerLevel level, BlockPos pos, Direction face, ServerPlayer player) {
@@ -139,6 +167,7 @@ public final class AccioSpell {
             item.setPickUpDelay(10);
             item.setTarget(player.getUUID());
             level.addFreshEntity(item);
+            PAID_ITEMS.add(item.getUUID());
             track(item, player);
             return true;
         }
@@ -179,6 +208,7 @@ public final class AccioSpell {
         item.setPickUpDelay(10);
         item.setTarget(thief.getUUID());
         level.addFreshEntity(item);
+        PAID_ITEMS.add(item.getUUID());
         track(item, thief);
     }
 
@@ -229,5 +259,6 @@ public final class AccioSpell {
     @SubscribeEvent
     public static void onServerStopped(ServerStoppedEvent event) {
         ITEM_PULLS.clear();
+        PAID_ITEMS.clear();
     }
 }

@@ -550,8 +550,11 @@ public class SpellBeamEntity extends ThrowableProjectile {
                     // Summons loose items near the impact; from Expert, the first stack of a container
                     // the caster could open. (A mandrake is handled by the branch above.)
                     if (this.level() instanceof ServerLevel accioLevel) {
-                        hitSuccessful = com.hogwartsmagic.spell.support.AccioSpell.onBlockHit(
-                                accioLevel, pos, blockHit.getDirection(), this.position(), getOwner());
+                        com.hogwartsmagic.spell.support.AccioSpell.BlockResult accio =
+                                com.hogwartsmagic.spell.support.AccioSpell.onBlockHit(
+                                        accioLevel, pos, blockHit.getDirection(), this.position(), getOwner(), this.reflected);
+                        hitSuccessful = accio.pulled();
+                        masteryEligible = accio.paysMastery(); // XP once per item, never for a reflected beam
                     }
                 } else if (spell == SpellType.ALOHOMORA) {
                     // Doors, trapdoors and gates; iron from Adept; all around from Expert; at Master a
@@ -762,6 +765,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
                         } else {
                             hitSuccessful = true;
                             masteryTarget = living;
+                            boolean chipLanded = true;
 
                             // Apply nominal magic damage FIRST to trigger standard HURT events for physical shield shattering algorithms if needed
                             // AVADA deals max damage so it doesn't need nominal damage
@@ -770,10 +774,20 @@ public class SpellBeamEntity extends ThrowableProjectile {
                             if (spell != SpellType.HEAL && spell != SpellType.AVADA_KEDAVRA && spell != SpellType.PROTEGO
                                     && spell != SpellType.LUMOS && !shearableSheep) {
                                float chipDamage = 0.1f * HousePerks.getSpellDamageMultiplier(getOwner());
-                               living.hurt(this.damageSources().magic(), chipDamage);
+                               chipLanded = living.hurt(this.damageSources().magic(), chipDamage);
                             }
 
-                            spell.applyHitEffect(living, getOwner(), this.getDeltaMovement(), !this.reflected);
+                            if (spell == SpellType.ACCIO) {
+                                // A creature too heavy for the caster is refused: no impact burst, no mastery.
+                                // A vetoed chip hit (claim or safe-zone mod) also means no snatch.
+                                if (!com.hogwartsmagic.spell.support.AccioSpell.onLivingHit(
+                                        living, getOwner(), !this.reflected && chipLanded)) {
+                                    hitSuccessful = false;
+                                    masteryTarget = null;
+                                }
+                            } else {
+                                spell.applyHitEffect(living, getOwner(), this.getDeltaMovement(), !this.reflected);
+                            }
                             if (spell == SpellType.WINGARDIUM_LEVIOSA && getOwner() instanceof ServerPlayer caster) {
                                 com.hogwartsmagic.event.ModEvents.markRecentWingardiumTarget(caster, living);
                             }

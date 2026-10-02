@@ -46,7 +46,7 @@ public class SpellPackets {
 
     public static final SimpleChannel CHANNEL = ChannelBuilder
             .named(ExampleMod.MODID + ":spells")
-            .networkProtocolVersion(1)
+            .networkProtocolVersion(2)
             .simpleChannel();
 
     public static void register() {
@@ -561,6 +561,11 @@ public class SpellPackets {
     /** Server to client: the server's mastery numbers, so client-side ranks and costs match the server. */
     public record SyncMasteryConfigPacket(int adept, int expert, int master, double rankDiscount, double manaPerRank, double manaCap) {
         public static void handle(SyncMasteryConfigPacket p, CustomPayloadEvent.Context ctx) {
+            if (ctx.getSender() != null) {
+                // Server-to-client only: ignore anything a client sends (e.g. a LAN guest).
+                ctx.setPacketHandled(true);
+                return;
+            }
             // MasteryConfig is common code with no client imports, so no bridge hop is needed.
             enqueueClientWork(ctx, () -> com.hogwartsmagic.spell.mastery.MasteryConfig.acceptSynced(
                     new com.hogwartsmagic.spell.mastery.MasteryConfig.Values(

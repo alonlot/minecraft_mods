@@ -1,6 +1,5 @@
 package com.hogwartsmagic.spell;
 
-import com.hogwartsmagic.Config;
 import com.hogwartsmagic.item.MagicWandItem;
 import com.hogwartsmagic.sorting.HousePerks;
 import com.hogwartsmagic.spell.mastery.MasteryMath;
@@ -19,7 +18,8 @@ public final class SpellCosts {
     }
 
     public static float masteryMultiplier(Player player, SpellType spell) {
-        return MasteryMath.costMultiplier(SpellMasteryData.getRank(player, spell), Config.getMasteryRankDiscount());
+        return MasteryMath.costMultiplier(SpellMasteryData.getRank(player, spell),
+                com.hogwartsmagic.spell.mastery.MasteryConfig.of(player).rankDiscount());
     }
 
     public static int manaCost(Player player, ItemStack wand, SpellType spell) {

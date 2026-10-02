@@ -1,0 +1,20 @@
+package com.hogwartsmagic.client;
+
+import com.hogwartsmagic.ExampleMod;
+import com.hogwartsmagic.spell.mastery.MasteryConfig;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod;
+
+/** Client-only: a mastery config synced by the last server must not leak into the next world. */
+@Mod.EventBusSubscriber(modid = ExampleMod.MODID, value = Dist.CLIENT)
+public final class MasteryConfigClientEvents {
+    private MasteryConfigClientEvents() {
+    }
+
+    @SubscribeEvent
+    public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
+        MasteryConfig.clearSynced();
+    }
+}

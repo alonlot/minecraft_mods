@@ -8,6 +8,7 @@ import net.minecraftforge.fml.event.config.ModConfigEvent;
 @Mod.EventBusSubscriber(modid = ExampleMod.MODID, bus = Mod.EventBusSubscriber.Bus.MOD)
 public final class Config {
     private static final ForgeConfigSpec.Builder BUILDER = new ForgeConfigSpec.Builder();
+    private static final org.slf4j.Logger LOGGER = com.mojang.logging.LogUtils.getLogger();
 
     public static final ForgeConfigSpec.DoubleValue BASE_MAX_MANA = BUILDER
             .comment("Maximum mana pool before house bonuses (Ravenclaw adds on top).")
@@ -216,18 +217,22 @@ public final class Config {
         tomeUncommonChestChance = TOME_UNCOMMON_CHEST_CHANCE.get();
         tomeRareChestChance = TOME_RARE_CHEST_CHANCE.get();
         tomeEpicChestChance = TOME_EPIC_CHEST_CHANCE.get();
+        if (!com.hogwartsmagic.spell.mastery.MasteryMath.thresholdsValid(masteryXpAdept, masteryXpExpert, masteryXpMaster)) {
+            LOGGER.warn("Spell mastery XP thresholds {} / {} / {} are not strictly rising; using the defaults 30 / 120 / 350.",
+                    masteryXpAdept, masteryXpExpert, masteryXpMaster);
+        }
+        if (event instanceof ModConfigEvent.Reloading) {
+            com.hogwartsmagic.spell.mastery.MasteryConfig.broadcastAfterReload();
+        }
     }
 
     public static float getBaseMaxMana() {
         return (float) baseMaxMana;
     }
 
-    /** Cumulative XP per rank, index 0 = Novice. Falls back to defaults if the config isn't strictly rising. */
+    /** Cumulative XP per rank, index 0 = Novice. Falls back to defaults (with a warning at load) if the config isn't strictly rising. */
     public static int[] getMasteryThresholds() {
-        if (masteryXpAdept < masteryXpExpert && masteryXpExpert < masteryXpMaster) {
-            return new int[]{0, masteryXpAdept, masteryXpExpert, masteryXpMaster};
-        }
-        return new int[]{0, 30, 120, 350};
+        return com.hogwartsmagic.spell.mastery.MasteryMath.thresholdsOrDefault(masteryXpAdept, masteryXpExpert, masteryXpMaster);
     }
 
     public static double getMasteryXpMultiplier() {

@@ -108,6 +108,19 @@ public class SpellPackets {
                 })
                 .consumerMainThread(SyncSpellMasteryPacket::handle)
                 .add();
+        CHANNEL.messageBuilder(SyncMasteryConfigPacket.class)
+                .encoder((p, buf) -> {
+                    buf.writeVarInt(p.adept);
+                    buf.writeVarInt(p.expert);
+                    buf.writeVarInt(p.master);
+                    buf.writeDouble(p.rankDiscount);
+                    buf.writeDouble(p.manaPerRank);
+                    buf.writeDouble(p.manaCap);
+                })
+                .decoder(buf -> new SyncMasteryConfigPacket(buf.readVarInt(), buf.readVarInt(), buf.readVarInt(),
+                        buf.readDouble(), buf.readDouble(), buf.readDouble()))
+                .consumerMainThread(SyncMasteryConfigPacket::handle)
+                .add();
         CHANNEL.messageBuilder(SyncManaPacket.class)
                 .encoder((p, buf) -> { buf.writeFloat(p.mana); buf.writeFloat(p.maxMana); })
                 .decoder(buf -> new SyncManaPacket(buf.readFloat(), buf.readFloat()))
@@ -542,6 +555,16 @@ public class SpellPackets {
     public record SyncSpellMasteryPacket(net.minecraft.nbt.CompoundTag mastery) {
         public static void handle(SyncSpellMasteryPacket p, CustomPayloadEvent.Context ctx) {
             enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("syncSpellMastery", p));
+        }
+    }
+
+    /** Server to client: the server's mastery numbers, so client-side ranks and costs match the server. */
+    public record SyncMasteryConfigPacket(int adept, int expert, int master, double rankDiscount, double manaPerRank, double manaCap) {
+        public static void handle(SyncMasteryConfigPacket p, CustomPayloadEvent.Context ctx) {
+            // MasteryConfig is common code with no client imports, so no bridge hop is needed.
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.spell.mastery.MasteryConfig.acceptSynced(
+                    new com.hogwartsmagic.spell.mastery.MasteryConfig.Values(
+                            p.adept, p.expert, p.master, p.rankDiscount, p.manaPerRank, p.manaCap)));
         }
     }
 

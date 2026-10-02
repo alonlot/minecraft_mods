@@ -543,6 +543,7 @@ public class ModEvents {
                 SpellPackets.CHANNEL.send(new SpellPackets.SyncLearnedSpellsPacket(learned),
                         PacketDistributor.PLAYER.with(player));
             }
+            com.hogwartsmagic.spell.mastery.MasteryConfig.sendTo(player);
             com.hogwartsmagic.spell.mastery.SpellMasteryData.sync(player);
             HousePerks.applyHouseAttributes(player);
             HorcruxData.applyMaxHealthPenalty(player);

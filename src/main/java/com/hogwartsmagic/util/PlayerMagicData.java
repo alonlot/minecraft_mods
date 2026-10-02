@@ -98,6 +98,23 @@ public final class PlayerMagicData {
                 + com.hogwartsmagic.spell.mastery.SpellMasteryData.getMaxManaBonus(player);
     }
 
+    /**
+     * Recompute max mana, clamp current mana to it, save both and tell the client. Called right after
+     * anything that changes max mana at once (a rank change, a mastery config reload), so the bar never
+     * waits for the next regen tick and mana never sits above a lowered max.
+     */
+    public static void resyncMana(net.minecraft.server.level.ServerPlayer player) {
+        CompoundTag modData = getModData(player);
+        float maxMana = getMaxMana(player);
+        float mana = modData.contains("Mana") ? Math.min(modData.getFloat("Mana"), maxMana) : maxMana;
+        modData.putFloat("MaxMana", maxMana);
+        modData.putFloat("Mana", mana);
+        saveModData(player, modData);
+        com.hogwartsmagic.network.SpellPackets.CHANNEL.send(
+                new com.hogwartsmagic.network.SpellPackets.SyncManaPacket(mana, maxMana),
+                net.minecraftforge.network.PacketDistributor.PLAYER.with(player));
+    }
+
     public static float getManaRegenMultiplier(Player player) {
         return HousePerks.getManaRegenMultiplier(player) * getRelicManaRegenMultiplier(player);
     }

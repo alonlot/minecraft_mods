@@ -1,6 +1,5 @@
 package com.hogwartsmagic.spell.mastery;
 
-import com.hogwartsmagic.Config;
 import com.hogwartsmagic.network.SpellPackets;
 import com.hogwartsmagic.spell.SpellType;
 import com.hogwartsmagic.util.PlayerMagicData;
@@ -12,7 +11,9 @@ import net.minecraftforge.network.PacketDistributor;
 /**
  * Per-player spell XP, stored as {@code PlayerPersisted/<modid>/SpellMastery/<spellId> = float}.
  * Forge copies PlayerPersisted across death, so ranks survive dying. Reads are safe on either side
- * (the client copy arrives via {@link SpellPackets.SyncSpellMasteryPacket}); writes are server-only.
+ * (the client copy arrives via {@link SpellPackets.SyncSpellMasteryPacket}, and the thresholds and
+ * mana numbers come from {@link MasteryConfig}, which is the server's copy on the client); writes are
+ * server-only. Any rank change resends max mana at once.
  */
 public final class SpellMasteryData {
     public static final String KEY = "SpellMastery";
@@ -25,43 +26,43 @@ public final class SpellMasteryData {
     }
 
     public static float getXp(Player player, SpellType spell) {
-        return tag(player).getFloat(spell.getId());
+        return MasteryMath.sanitizeXp(tag(player).getFloat(spell.getId()));
     }
 
     public static int getRank(Player player, SpellType spell) {
-        return MasteryMath.rankForXp(getXp(player, spell), Config.getMasteryThresholds());
+        return MasteryMath.rankForXp(getXp(player, spell), MasteryConfig.of(player).thresholds());
     }
 
     public static int getRanksGained(Player player) {
         CompoundTag tag = tag(player);
-        int[] thresholds = Config.getMasteryThresholds();
+        int[] thresholds = MasteryConfig.of(player).thresholds();
         int total = 0;
         for (String id : tag.getAllKeys()) {
-            total += MasteryMath.rankForXp(tag.getFloat(id), thresholds) - MasteryMath.NOVICE;
+            total += MasteryMath.rankForXp(MasteryMath.sanitizeXp(tag.getFloat(id)), thresholds) - MasteryMath.NOVICE;
         }
         return total;
     }
 
     public static float getMaxManaBonus(Player player) {
-        return MasteryMath.maxManaBonus(getRanksGained(player),
-                Config.getMasteryManaPerRank(), Config.getMasteryManaCap());
+        MasteryConfig.Values config = MasteryConfig.of(player);
+        return MasteryMath.maxManaBonus(getRanksGained(player), config.manaPerRank(), config.manaCap());
     }
 
     public static int addXp(ServerPlayer player, SpellType spell, float amount) {
-        if (amount <= 0f) {
+        if (!(amount > 0f) || Float.isInfinite(amount)) {
             return 0;
         }
         float before = getXp(player, spell);
-        float after = before + amount;
-        write(player, spell, after);
-        int[] thresholds = Config.getMasteryThresholds();
+        float after = MasteryMath.sanitizeXp(before + amount);
+        int[] thresholds = MasteryConfig.of(player).thresholds();
         int oldRank = MasteryMath.rankForXp(before, thresholds);
         int newRank = MasteryMath.rankForXp(after, thresholds);
+        write(player, spell, after);
         return newRank > oldRank ? newRank : 0;
     }
 
     public static void setXp(ServerPlayer player, SpellType spell, float xp) {
-        write(player, spell, Math.max(0f, xp));
+        write(player, spell, MasteryMath.sanitizeXp(xp));
     }
 
     public static void reset(ServerPlayer player) {
@@ -69,6 +70,7 @@ public final class SpellMasteryData {
         modData.remove(KEY);
         PlayerMagicData.saveModData(player, modData);
         sync(player);
+        PlayerMagicData.resyncMana(player);
     }
 
     public static void sync(ServerPlayer player) {
@@ -77,11 +79,16 @@ public final class SpellMasteryData {
     }
 
     private static void write(ServerPlayer player, SpellType spell, float xp) {
+        int oldRank = getRank(player, spell);
         CompoundTag modData = PlayerMagicData.getModData(player);
         CompoundTag tag = modData.getCompound(KEY);
         tag.putFloat(spell.getId(), xp);
         modData.put(KEY, tag);
         PlayerMagicData.saveModData(player, modData);
         sync(player);
+        if (getRank(player, spell) != oldRank) {
+            // Up (natural, tome, command) or down (command): the max mana bonus moved with it.
+            PlayerMagicData.resyncMana(player);
+        }
     }
 }

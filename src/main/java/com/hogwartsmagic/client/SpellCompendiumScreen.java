@@ -230,10 +230,12 @@ public class SpellCompendiumScreen extends Screen {
 
         // Drawn after the scissor is released so it is never clipped.
         if (tooltipPending) {
+            com.hogwartsmagic.spell.mastery.MasteryConfig.Values mastery =
+                    com.hogwartsmagic.spell.mastery.MasteryConfig.of(player);
             g.renderComponentTooltip(this.font, List.of(Component.translatable(
                     "gui." + ExampleMod.MODID + ".mastery.tooltip",
-                    Math.round(com.hogwartsmagic.Config.getMasteryRankDiscount() * 100),
-                    String.format("%.0f", com.hogwartsmagic.Config.getMasteryManaPerRank()))), mouseX, mouseY);
+                    Math.round(mastery.rankDiscount() * 100),
+                    String.format("%.0f", mastery.manaPerRank()))), mouseX, mouseY);
         }
     }
 
@@ -268,7 +270,7 @@ public class SpellCompendiumScreen extends Screen {
 
         if (learned) {
             float xp = com.hogwartsmagic.spell.mastery.SpellMasteryData.getXp(player, selected);
-            int[] thresholds = com.hogwartsmagic.Config.getMasteryThresholds();
+            int[] thresholds = com.hogwartsmagic.spell.mastery.MasteryConfig.of(player).thresholds();
             int rank = com.hogwartsmagic.spell.mastery.MasteryMath.rankForXp(xp, thresholds);
             int rankColor = rank >= 4 ? COLOR_MASTER : rank == 3 ? COLOR_ADEPT : rank == 2 ? COLOR_APPRENTICE : COLOR_NOVICE;
             Component rankLine = Component.translatable("gui." + ExampleMod.MODID + ".mastery.rank_line",
@@ -279,7 +281,8 @@ public class SpellCompendiumScreen extends Screen {
             // XP bar on the same row, right after the rank text.
             int barX = x + this.font.width(rankLine) + 6;
             int barWidth = 60;
-            float progress = com.hogwartsmagic.spell.mastery.MasteryMath.rankProgress(xp, thresholds);
+            float progress = Math.max(0f, Math.min(1f,
+                    com.hogwartsmagic.spell.mastery.MasteryMath.rankProgress(xp, thresholds)));
             g.fill(barX, y + 2, barX + barWidth, y + 6, 0xFF2A2340);
             g.fill(barX, y + 2, barX + Math.round(barWidth * progress), y + 6, rankColor);
             if (mouseX >= x && mouseX < barX + barWidth && mouseY >= y && mouseY < y + 9) {

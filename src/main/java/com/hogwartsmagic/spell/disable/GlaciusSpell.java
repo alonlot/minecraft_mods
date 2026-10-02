@@ -94,17 +94,19 @@ public final class GlaciusSpell {
             boolean ambient = !stunned && (existing == null || existing.isAmbient());
             target.addEffect(new MobEffectInstance(frozenHolder, ticks, Math.max(0, rank - 1),
                     ambient, false, false), CombatEffects.responsible(caster));
+            // The frozen-by tag moves only with the marker. Remaining edge: if addEffect runs but vanilla
+            // update keeps the old instance (shorter, weaker recast), the tag can still move.
+            Entity responsible = CombatEffects.responsible(caster);
+            if (responsible != null) {
+                target.getPersistentData().putUUID(FROZEN_BY_TAG, responsible.getUUID());
+            } else {
+                target.getPersistentData().remove(FROZEN_BY_TAG);
+            }
         }
         // Fully frozen for the whole freeze (ticksFrozen decays by 2 a tick): vanilla shakes the body
         // and draws the frost overlay for a player.
         if (stunned) {
             target.setTicksFrozen(Math.max(target.getTicksFrozen(), target.getTicksRequiredToFreeze() + 2 * ticks));
-        }
-        Entity responsible = CombatEffects.responsible(caster);
-        if (responsible != null) {
-            target.getPersistentData().putUUID(FROZEN_BY_TAG, responsible.getUUID());
-        } else {
-            target.getPersistentData().remove(FROZEN_BY_TAG);
         }
         level.sendParticles(ParticleTypes.SNOWFLAKE, target.getX(), target.getY() + target.getBbHeight() * 0.5, target.getZ(),
                 30, target.getBbWidth() * 0.5, target.getBbHeight() * 0.4, target.getBbWidth() * 0.5, 0.02);

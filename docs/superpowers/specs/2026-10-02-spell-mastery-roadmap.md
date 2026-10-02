@@ -121,9 +121,19 @@ An item that **raises a spell by one rank instantly**. It comes in the four spel
   only a menu.
 - **Tier colors:** the name is colored by tier (white, yellow, aqua, light purple), matching the
   Grimoire's tier colors, and each tier has its own book texture.
-- **Where you find them:** chest loot only, rarer than spell books and weighted by tier like
-  `SpellLootRarity`. Epic tomes only come from endgame loot (Gringotts vaults, the Horntail nest,
-  the Chamber). No crafting recipe, so they stay a treasure rather than a shortcut.
+- **Tomes can take a spell to Master,** in survival as well, one rank per tome. What keeps
+  that in check is **how rare tomes are**, and the higher the tier, the rarer:
+
+  | Tome | Chance per eligible chest | Where it can appear |
+  |---|---|---|
+  | Common | 3% | Any chest that can roll a spell book |
+  | Uncommon | 1.5% | Same chests |
+  | Rare | 0.5% | Dungeon-tier chests and mod structures |
+  | Epic | 0.15% | Endgame only: Gringotts vaults, the Horntail nest, the Chamber |
+
+  As a rough feel, a player who explores a lot finds a few Common tomes per world, maybe one Rare,
+  and is lucky to ever see an Epic. All four chances are config values. There's no crafting
+  recipe, so tomes stay a treasure rather than a shortcut.
 - **Needs:** Phase 1 storage (`SpellMasteryData.setXp`) and the rank-up feedback. A small
   follow-up plan after Phase 1 ships.
 

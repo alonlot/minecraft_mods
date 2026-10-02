@@ -70,7 +70,7 @@
   "spell.hogwartsmagic.morsmordre": "Morsmordre",
   "spell.hogwartsmagic.morsmordre.desc": "Summons the Dark Mark and waves of hostile mobs.",
   "spell.hogwartsmagic.dolohov_curse": "Dolohov's Curse",
-  "spell.hogwartsmagic.dolohov_curse.desc": "A purple flame curse that deals magic damage and prevents healing.",
+  "spell.hogwartsmagic.dolohov_curse.desc": "A purple-flame curse that lowers the target's maximum health for a long while. Milk cannot lift it. At Master the curse leaps to nearby enemies when its victim dies.",
   "spell.hogwartsmagic.incarcerous": "Incarcerous",
   "spell.hogwartsmagic.incarcerous.desc": "Chains from the ground tether the target to the spot. It can still fight, but can't get away. Higher ranks catch nearby enemies, pull flyers down and, at Master, chain everyone together.",
   "spell.hogwartsmagic.heal": "Episkey",

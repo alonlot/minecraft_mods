@@ -294,12 +294,7 @@ public enum SpellType {
                 }
                 target.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 100, 0));
             }
-            case DOLOHOV_CURSE -> {
-                target.hurt(target.damageSources().magic(), scaledSpellDamage(caster, 8.0f));
-                // Reduced healing via custom effect or long-lasting effect?
-                // Let's use Wither for now as a "curse"
-                target.addEffect(new MobEffectInstance(MobEffects.WITHER, 200, 0));
-            }
+            case DOLOHOV_CURSE -> com.hogwartsmagic.spell.damage.DolohovSpell.apply(target, caster);
             case INCARCEROUS -> com.hogwartsmagic.spell.disable.IncarcerousTether.apply(target, caster);
             case TENEBRIS_FLIGHT -> {
                 // effect lasts only 2 seconds (40 ticks)

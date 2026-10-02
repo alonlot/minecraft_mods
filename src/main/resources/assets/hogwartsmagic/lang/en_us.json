@@ -38,7 +38,7 @@
   "spell.hogwartsmagic.glacius": "Glacius",
   "spell.hogwartsmagic.glacius.desc": "Chills and slows the target; a second hit soon after freezes it solid and leaves it brittle. Fire thaws it. Turns water into ice. At Master, frozen enemies shatter when they die.",
   "spell.hogwartsmagic.confringo": "Confringo",
-  "spell.hogwartsmagic.confringo.desc": "Creates a fiery explosion at the target.",
+  "spell.hogwartsmagic.confringo.desc": "A fiery combat blast that sets its targets alight but never harms the ground. Higher ranks hit harder and spread the flames to nearby enemies. At Master it hits brittle (frozen) targets half again as hard.",
   "spell.hogwartsmagic.protego": "Protego",
   "spell.hogwartsmagic.protego.desc": "Creates a magical shield that reduces damage and reflects projectiles.",
   "spell.hogwartsmagic.protego_maxima": "Protego Maxima",

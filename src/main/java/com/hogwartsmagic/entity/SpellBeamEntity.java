@@ -572,8 +572,10 @@ public class SpellBeamEntity extends ThrowableProjectile {
                         hitSuccessful = true;
                     }
                 } else if (spell == SpellType.CONFRINGO) {
-                    // Confringo is the combat blast: fire and knockback, never terrain. Bombarda is the one that breaks blocks.
-                    this.level().explode(getOwner(), this.getX(), this.getY(), this.getZ(), 1.5f, true, Level.ExplosionInteraction.NONE);
+                    // Confringo is the combat blast: it burns creatures, never terrain. Bombarda is the one that breaks blocks.
+                    if (this.level() instanceof ServerLevel confringoLevel) {
+                        com.hogwartsmagic.spell.damage.ConfringoSpell.detonateAt(confringoLevel, this.position(), getOwner());
+                    }
                     hitSuccessful = true;
                 } else if (spell == SpellType.INCENDIO) {
                     if (state.getBlock() instanceof CampfireBlock) {

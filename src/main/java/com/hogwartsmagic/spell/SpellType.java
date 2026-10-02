@@ -184,9 +184,7 @@ public enum SpellType {
                 com.hogwartsmagic.spell.disable.GlaciusSpell.apply(target, caster);
             }
             case CONFRINGO -> {
-                target.igniteForSeconds(5);
-                float power = target.level().isRainingAt(target.blockPosition()) ? 1.15f : 1.5f;
-                target.level().explode(caster, target.getX(), target.getY(), target.getZ(), power, Level.ExplosionInteraction.NONE);
+                com.hogwartsmagic.spell.damage.ConfringoSpell.apply(target, caster);
                 if (target.getTicksFrozen() > 0 || target.hasEffect(MobEffects.MOVEMENT_SLOWDOWN)) {
                     triggerSteamCombo(target);
                     target.setTicksFrozen(Math.max(0, target.getTicksFrozen() - 120));

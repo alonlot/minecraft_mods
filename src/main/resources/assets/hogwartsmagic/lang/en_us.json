@@ -44,7 +44,7 @@
   "spell.hogwartsmagic.protego_maxima": "Protego Maxima",
   "spell.hogwartsmagic.protego_maxima.desc": "Aim upward and hold cast to sustain a skyward beam that slowly drains mana while forming a large protective bubble, or cast on a ward to raise its barrier.",
   "spell.hogwartsmagic.lumos": "Lumos",
-  "spell.hogwartsmagic.lumos.desc": "Toggles a magical light source that follows the caster.",
+  "spell.hogwartsmagic.lumos.desc": "A light that follows you (brighter from Adept); cast again for Nox. Left-click always toggles it. From Expert, right-click casts Lumos Maxima: a floating orb of light where it lands (up to 3, for 5 minutes). At Master the beam is Lumos Solem, searing and blinding undead and spiders.",
   "spell.hogwartsmagic.accio": "Accio",
   "spell.hogwartsmagic.accio.desc": "Pulls objects and mobs towards the caster.",
   "spell.hogwartsmagic.wingardium_leviosa": "Wingardium Leviosa",

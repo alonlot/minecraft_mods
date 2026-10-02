@@ -215,8 +215,10 @@ public class LumosLightBlock extends Block {
                 .setValue(TIMED, true);
         GlobalPos key = GlobalPos.of(level.dimension(), pos);
         long expiry = level.getGameTime() + ticks;
-        if (isTimedLight(current)) {
-            // Refresh: never shorten, and a pending removal tick cannot be moved, so record the later expiry.
+        if (current.is(ExampleMod.LUMOS_LIGHT.get())) {
+            // Refresh (or a follow light converted to a timed one, whose pending 10-tick recheck would
+            // otherwise remove it early): never shorten, and a pending tick cannot be moved, so record the
+            // later expiry; the tick that fires reschedules itself to it.
             REFRESHED_UNTIL.merge(key, expiry, Math::max);
             if (REFRESHED_UNTIL.size() > 1024) {
                 long now = level.getGameTime();

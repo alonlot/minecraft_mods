@@ -175,7 +175,7 @@ public enum SpellType {
                 }
             }
             case PROTEGO -> com.hogwartsmagic.spell.support.ProtegoSpell.raise(target, caster);
-            case LUMOS -> target.addEffect(new MobEffectInstance(ExampleMod.LUMOS_EFFECT.getHolder().get(), 12000, 0));
+            case LUMOS -> com.hogwartsmagic.spell.support.LumosSpell.onHit(target, caster);
             case ACCIO -> {
                 // Continuously reel the target in toward the caster until it reaches them.
                 if (caster instanceof net.minecraft.server.level.ServerPlayer sp) {

@@ -684,6 +684,12 @@ public class SpellBeamEntity extends ThrowableProjectile {
                             }
                         }
                     }
+                } else if (spell == SpellType.LUMOS) {
+                    // Lumos Maxima (Expert and up): a floating light orb where the beam lands.
+                    if (this.level() instanceof ServerLevel lumosLevel) {
+                        hitSuccessful = com.hogwartsmagic.spell.support.LumosSpell.placeOrb(
+                                lumosLevel, pos.relative(blockHit.getDirection()), getOwner());
+                    }
                 } else if (spell == SpellType.REPARO) {
                     if (this.level() instanceof ServerLevel sl) {
                         hitSuccessful = com.hogwartsmagic.util.ReparoManager.castReparo(sl,
@@ -754,7 +760,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
                             boolean shearableSheep = spell == SpellType.DIFFINDO
                                     && living instanceof net.minecraft.world.entity.animal.Sheep woolly && woolly.readyForShearing();
                             if (spell != SpellType.HEAL && spell != SpellType.AVADA_KEDAVRA && spell != SpellType.PROTEGO
-                                    && !shearableSheep) {
+                                    && spell != SpellType.LUMOS && !shearableSheep) {
                                float chipDamage = 0.1f * HousePerks.getSpellDamageMultiplier(getOwner());
                                living.hurt(this.damageSources().magic(), chipDamage);
                             }

@@ -3889,14 +3889,23 @@ public class ModEvents {
         }
     }
 
+    /**
+     * Spells a wand left-click casts on yourself. Also the server-side whitelist for the packet's
+     * selfCastProtego flag, so a client cannot self-cast anything else.
+     */
+    public static boolean isLeftClickSelfCast(SpellType spell) {
+        return spell == SpellType.PROTEGO
+                || spell == SpellType.HEAL
+                || spell == SpellType.ARRESTO_MOMENTUM
+                || spell == SpellType.LUMOS;
+    }
+
     @SubscribeEvent
     public static void onLeftClick(PlayerInteractEvent.LeftClickEmpty event) {
         ItemStack stack = event.getItemStack();
         if (MagicWandItem.isAnyWand(stack)) {
             SpellType selected = MagicWandItem.getSelectedSpell(stack);
-            if (selected != null && (selected == com.hogwartsmagic.spell.SpellType.PROTEGO
-                    || selected == com.hogwartsmagic.spell.SpellType.HEAL
-                    || selected == com.hogwartsmagic.spell.SpellType.ARRESTO_MOMENTUM)) {
+            if (selected != null && isLeftClickSelfCast(selected)) {
                 SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(true, false, false, false), PacketDistributor.SERVER.noArg());
             }
             event.getEntity().swing(InteractionHand.MAIN_HAND);
@@ -3908,9 +3917,7 @@ public class ModEvents {
         ItemStack stack = event.getItemStack();
         if (event.getLevel().isClientSide && MagicWandItem.isAnyWand(stack)) {
             SpellType selected = MagicWandItem.getSelectedSpell(stack);
-            if (selected != null && (selected == com.hogwartsmagic.spell.SpellType.PROTEGO
-                    || selected == com.hogwartsmagic.spell.SpellType.HEAL
-                    || selected == com.hogwartsmagic.spell.SpellType.ARRESTO_MOMENTUM)) {
+            if (selected != null && isLeftClickSelfCast(selected)) {
                 SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(true, false, false, false), PacketDistributor.SERVER.noArg());
             }
             event.getEntity().swing(InteractionHand.MAIN_HAND);

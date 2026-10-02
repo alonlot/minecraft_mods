@@ -667,6 +667,12 @@ public class SpellPackets {
                 return;
             }
 
+            // The client's self-cast flag is only honoured for spells that are legitimately self-castable;
+            // otherwise a modified client could fire any learned spell (Bombarda...) at its own caster.
+            if (p.selfCastProtego && !com.hogwartsmagic.event.ModEvents.isLeftClickSelfCast(spell)) {
+                return;
+            }
+
             // Stunned or silenced: no casts, no channel starts and no heartbeats (a running channel
             // lapses on its own timeout). Releasing a channel is always allowed.
             if (!p.releaseChannel && com.hogwartsmagic.spell.combat.CombatEffects.isCastingBlocked(player)) {
@@ -897,13 +903,11 @@ public class SpellPackets {
                 return;
             }
 
-            if (spell == SpellType.LUMOS) {
-                // Toggle Lumos
-                if (player.hasEffect(ExampleMod.LUMOS_EFFECT.getHolder().get())) {
-                    player.removeEffect(ExampleMod.LUMOS_EFFECT.getHolder().get());
-                } else {
-                    player.addEffect(new MobEffectInstance(ExampleMod.LUMOS_EFFECT.getHolder().get(), 12000, 0, false, false, true));
-                }
+            if (spell == SpellType.LUMOS && !com.hogwartsmagic.spell.support.LumosRules.firesBeam(
+                    com.hogwartsmagic.spell.mastery.SpellMasteryData.getRank(player, spell))) {
+                // Novice and Adept: right-click toggles the wand light (Lumos / Nox). From Expert this
+                // falls through to the beam below and the toggle moves to left-click (self-cast).
+                com.hogwartsmagic.spell.support.LumosSpell.toggle(player, player);
                 com.hogwartsmagic.event.ModEvents.revealInvisibilityCloak(player);
                 player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
                         spell.getSoundEvent(), SoundSource.PLAYERS, 1.0f, 1.0f);

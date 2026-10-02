@@ -281,6 +281,7 @@
   "effect.hogwartsmagic.silenced": "Silenced",
   "effect.hogwartsmagic.silenced.description": "Can't cast spells.",
   "death.attack.hogwartsmagic.bleeding": "%1$s bled out",
+  "death.attack.hogwartsmagic.bleeding.player": "%1$s bled out whilst fighting %2$s",
   "item.hogwartsmagic.common_tome_of_mastery": "Common Tome of Mastery",
   "item.hogwartsmagic.uncommon_tome_of_mastery": "Uncommon Tome of Mastery",
   "item.hogwartsmagic.rare_tome_of_mastery": "Rare Tome of Mastery",

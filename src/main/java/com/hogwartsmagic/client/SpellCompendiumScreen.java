@@ -42,6 +42,7 @@ public class SpellCompendiumScreen extends Screen {
     private static final int COLOR_BODY = 0xFFD8C9F0;
 
     private final Player player;
+    private boolean tooltipPending;
     private final List<Row> rows = new ArrayList<>();
     private int learnedCount;
     private int totalCount;
@@ -222,16 +223,36 @@ public class SpellCompendiumScreen extends Screen {
         }
         g.disableScissor();
 
-        renderDetail(g, divX + 10, listTop, right - 12);
+        tooltipPending = false;
+        renderDetail(g, divX + 10, listTop, right - 12, mouseX, mouseY);
 
         super.render(g, mouseX, mouseY, partialTick);
+
+        // Drawn after the scissor is released so it is never clipped.
+        if (tooltipPending) {
+            g.renderComponentTooltip(this.font, List.of(Component.translatable(
+                    "gui." + ExampleMod.MODID + ".mastery.tooltip",
+                    Math.round(com.hogwartsmagic.Config.getMasteryRankDiscount() * 100),
+                    String.format("%.0f", com.hogwartsmagic.Config.getMasteryManaPerRank()))), mouseX, mouseY);
+        }
     }
 
-    private void renderDetail(GuiGraphics g, int x, int y, int rightEdge) {
+    private void renderDetail(GuiGraphics g, int x, int y, int rightEdge, int mouseX, int mouseY) {
         if (selected == null) {
             return;
         }
         int wrap = rightEdge - x;
+
+        // Safety net: nothing in the detail column may draw over the Close button or the panel edge.
+        g.enableScissor(x, y, rightEdge, panelTop + 234);
+        try {
+            renderDetailBody(g, x, y, wrap, mouseX, mouseY);
+        } finally {
+            g.disableScissor();
+        }
+    }
+
+    private void renderDetailBody(GuiGraphics g, int x, int y, int wrap, int mouseX, int mouseY) {
 
         // Spell name in its tier color.
         g.drawString(this.font, spellName(selected), x, y, tierColor(selected.getLootRarity()));
@@ -254,25 +275,26 @@ public class SpellCompendiumScreen extends Screen {
                     com.hogwartsmagic.spell.mastery.MasteryMath.roman(rank),
                     Component.translatable(com.hogwartsmagic.spell.mastery.MasteryAwards.rankKey(rank)));
             g.drawString(this.font, rankLine, x, y, rankColor);
-            y += 11;
 
-            int barWidth = Math.min(120, wrap);
+            // XP bar on the same row, right after the rank text.
+            int barX = x + this.font.width(rankLine) + 6;
+            int barWidth = 60;
             float progress = com.hogwartsmagic.spell.mastery.MasteryMath.rankProgress(xp, thresholds);
-            g.fill(x, y, x + barWidth, y + 4, 0xFF2A2340);
-            g.fill(x, y, x + Math.round(barWidth * progress), y + 4, rankColor);
-            y += 7;
+            g.fill(barX, y + 2, barX + barWidth, y + 6, 0xFF2A2340);
+            g.fill(barX, y + 2, barX + Math.round(barWidth * progress), y + 6, rankColor);
+            if (mouseX >= x && mouseX < barX + barWidth && mouseY >= y && mouseY < y + 9) {
+                tooltipPending = true;
+            }
+            y += 11;
 
             float toNext = com.hogwartsmagic.spell.mastery.MasteryMath.xpToNextRank(xp, thresholds);
             Component next = toNext < 0
                     ? Component.translatable("gui." + ExampleMod.MODID + ".mastery.maxed")
                     : Component.translatable("gui." + ExampleMod.MODID + ".mastery.next",
                             String.format("%.0f", Math.ceil(toNext)),
-                            Math.round(com.hogwartsmagic.Config.getMasteryRankDiscount() * 100));
-            for (FormattedCharSequence line : this.font.split(next, wrap)) {
-                g.drawString(this.font, line, x, y, COLOR_BODY);
-                y += 11;
-            }
-            y += 5;
+                            com.hogwartsmagic.spell.mastery.MasteryMath.roman(rank + 1));
+            g.drawString(this.font, next, x, y, COLOR_BODY);
+            y += 15;
         }
 
         // Description (wrapped).

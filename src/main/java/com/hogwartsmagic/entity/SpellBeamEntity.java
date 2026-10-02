@@ -543,30 +543,11 @@ public class SpellBeamEntity extends ThrowableProjectile {
                     hitSuccessful = this.level() instanceof ServerLevel serverLevel
                             && com.hogwartsmagic.block.ChamberDoorBlock.speakTo(serverLevel, pos);
                 } else if (spell == SpellType.ALOHOMORA) {
-                    if (state.getBlock() instanceof com.hogwartsmagic.block.DiagonArchwayBlock) {
-                        // The wall behind the Leaky Cauldron. Arming it is what makes the taps
-                        // start counting; until then it is just a wall.
-                        hitSuccessful = this.level() instanceof ServerLevel sl
-                                && com.hogwartsmagic.block.DiagonArchwayBlock.enchant(sl, pos,
-                                        getOwner() instanceof net.minecraft.server.level.ServerPlayer sp ? sp : null);
-                    } else if (state.getBlock() instanceof DoorBlock door) {
-                        if (!state.getValue(DoorBlock.OPEN)) {
-                            door.setOpen(getOwner(), this.level(), state, pos, true);
-                            this.level().levelEvent(null, 1005, pos, 0);
-                            hitSuccessful = true;
-                        }
-                    } else if (state.getBlock() instanceof TrapDoorBlock trapdoor) {
-                        if (!state.getValue(TrapDoorBlock.OPEN)) {
-                            this.level().setBlock(pos, state.setValue(TrapDoorBlock.OPEN, true), 2);
-                            this.level().levelEvent(null, 1007, pos, 0);
-                            hitSuccessful = true;
-                        }
-                    } else if (state.getBlock() instanceof FenceGateBlock gate) {
-                        if (!state.getValue(FenceGateBlock.OPEN)) {
-                            this.level().setBlock(pos, state.setValue(FenceGateBlock.OPEN, true), 2);
-                            this.level().levelEvent(null, 1008, pos, 0);
-                            hitSuccessful = true;
-                        }
+                    // Doors, trapdoors and gates; iron from Adept; all around from Expert; at Master a
+                    // Gringotts vault door or a hostile Ward. See AlohomoraSpell.
+                    if (this.level() instanceof ServerLevel alohomoraLevel) {
+                        hitSuccessful = com.hogwartsmagic.spell.support.AlohomoraSpell.onBlockHit(
+                                alohomoraLevel, pos, state, this.position(), getOwner());
                     }
                 } else if (spell == SpellType.GLACIUS) {
                     // Frosted ice on still water only (it melts on its own), through TerrainRules:

@@ -273,8 +273,8 @@ public final class CaveInimicumManager {
 
     private void tickBarrierWards(List<CaveInimicumWardBlockEntity> wards) {
         for (CaveInimicumWardBlockEntity ward : wards) {
-            if (!ward.isProtegoMaximaActive()) {
-                continue;
+            if (!ward.isBarrierUp(level.getGameTime())) {
+                continue; // off, or switched off for a while by a Master Alohomora
             }
             handleBarrierProjectiles(ward);
         }
@@ -332,6 +332,10 @@ public final class CaveInimicumManager {
             boolean previousInside = bounds.contains(BlockPos.containing(previous));
             boolean currentInside = bounds.contains(projectile.blockPosition());
             if (previousInside == currentInside) {
+                continue;
+            }
+            if (projectile instanceof com.hogwartsmagic.entity.SpellBeamEntity beam
+                    && com.hogwartsmagic.spell.support.AlohomoraSpell.tryUnlockBarrier(level, ward, beam)) {
                 continue;
             }
             blockProjectileAtBarrier(projectile, previousInside ? previous : current);

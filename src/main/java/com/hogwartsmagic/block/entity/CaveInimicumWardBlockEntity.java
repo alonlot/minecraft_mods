@@ -49,6 +49,8 @@ public class CaveInimicumWardBlockEntity extends BlockEntity {
     private long revealedUntilGameTime;
     private boolean protegoMaximaActive;
     private boolean revelioActive;
+    /** Game time until which the Protego Maxima barrier is down (Alohomora at Master). */
+    private long barrierSuppressedUntil;
     private boolean caveInimicumPrepared;
     private boolean protegoMaximaPrepared;
     private boolean revelioPrepared;
@@ -257,7 +259,19 @@ public class CaveInimicumWardBlockEntity extends BlockEntity {
     }
 
     public boolean shouldRenderProtegoBarrier(long gameTime) {
-        return protegoMaximaActive && (!isActive() || isRevealed(gameTime));
+        return isBarrierUp(gameTime) && (!isActive() || isRevealed(gameTime));
+    }
+
+    /** The barrier is on and not switched off by an Alohomora. */
+    public boolean isBarrierUp(long gameTime) {
+        return protegoMaximaActive && gameTime >= barrierSuppressedUntil;
+    }
+
+    public void suppressBarrier(ServerLevel level, int ticks) {
+        barrierSuppressedUntil = Math.max(barrierSuppressedUntil, level.getGameTime() + Math.max(1, ticks));
+        outlineTicks = Math.max(outlineTicks, 40);
+        setChanged();
+        syncToClients();
     }
 
     public int getConfiguredEdgeLength() {
@@ -555,6 +569,7 @@ public class CaveInimicumWardBlockEntity extends BlockEntity {
         tag.putLong("RevealedUntilGameTime", revealedUntilGameTime);
         tag.putBoolean("ProtegoMaximaActive", protegoMaximaActive);
         tag.putBoolean("RevelioActive", revelioActive);
+        tag.putLong("BarrierSuppressedUntil", barrierSuppressedUntil);
         tag.putBoolean("CaveInimicumPrepared", caveInimicumPrepared);
         tag.putBoolean("ProtegoMaximaPrepared", protegoMaximaPrepared);
         tag.putBoolean("RevelioPrepared", revelioPrepared);
@@ -583,6 +598,7 @@ public class CaveInimicumWardBlockEntity extends BlockEntity {
         revealedUntilGameTime = tag.getLong("RevealedUntilGameTime");
         protegoMaximaActive = tag.getBoolean("ProtegoMaximaActive");
         revelioActive = tag.getBoolean("RevelioActive");
+        barrierSuppressedUntil = tag.getLong("BarrierSuppressedUntil");
         caveInimicumPrepared = tag.getBoolean("CaveInimicumPrepared");
         protegoMaximaPrepared = tag.getBoolean("ProtegoMaximaPrepared");
         revelioPrepared = tag.getBoolean("RevelioPrepared");
@@ -602,6 +618,7 @@ public class CaveInimicumWardBlockEntity extends BlockEntity {
         tag.putLong("RevealedUntilGameTime", revealedUntilGameTime);
         tag.putBoolean("ProtegoMaximaActive", protegoMaximaActive);
         tag.putBoolean("RevelioActive", revelioActive);
+        tag.putLong("BarrierSuppressedUntil", barrierSuppressedUntil);
         tag.putBoolean("CaveInimicumPrepared", caveInimicumPrepared);
         tag.putBoolean("ProtegoMaximaPrepared", protegoMaximaPrepared);
         tag.putBoolean("RevelioPrepared", revelioPrepared);

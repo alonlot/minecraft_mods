@@ -9,6 +9,7 @@ import com.hogwartsmagic.spell.disable.DisableSupport;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
@@ -36,6 +37,16 @@ public final class DamageSupport {
     /** Spell damage after the caster's house multiplier (Gryffindor +10%), as the old SpellType code did. */
     public static float scaled(@Nullable Entity caster, float base) {
         return base * HousePerks.getSpellDamageMultiplier(CombatEffects.responsible(caster));
+    }
+
+    /**
+     * Magic damage that credits the responsible caster, so kills drop player-kill loot and XP. Falls back to
+     * plain {@code magic()} (no attacker) when there is no responsible entity. {@code indirect_magic} is in
+     * {@code #minecraft:bypasses_armor} just like {@code magic}, so armour maths is unchanged.
+     */
+    public static DamageSource magicFrom(LivingEntity target, @Nullable Entity caster) {
+        Entity attacker = CombatEffects.responsible(caster);
+        return attacker == null ? target.damageSources().magic() : target.damageSources().indirectMagic(null, attacker);
     }
 
     /**

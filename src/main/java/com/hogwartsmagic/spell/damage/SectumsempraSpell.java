@@ -43,7 +43,7 @@ public final class SectumsempraSpell {
         int stacksBefore = current == null ? 0 : BleedRules.stacks(current.getAmplifier());
         float burst = SectumsempraRules.burstDamage(rank, stacksBefore);
 
-        target.hurt(target.damageSources().magic(),
+        target.hurt(DamageSupport.magicFrom(target, caster),
                 DamageSupport.scaled(caster, SectumsempraRules.damage(rank) + burst));
         if (!target.isAlive()) {
             return;

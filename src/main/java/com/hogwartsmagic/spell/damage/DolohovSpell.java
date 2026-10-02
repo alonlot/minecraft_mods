@@ -39,7 +39,7 @@ public final class DolohovSpell {
             return;
         }
         int rank = DisableSupport.casterRank(caster, SpellType.DOLOHOV_CURSE);
-        target.hurt(target.damageSources().magic(), DamageSupport.scaled(caster, DolohovRules.DAMAGE));
+        target.hurt(DamageSupport.magicFrom(target, caster), DamageSupport.scaled(caster, DolohovRules.DAMAGE));
         if (!target.isAlive()) {
             return;
         }

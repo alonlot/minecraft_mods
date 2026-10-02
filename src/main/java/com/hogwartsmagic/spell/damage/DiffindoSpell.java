@@ -50,17 +50,17 @@ public final class DiffindoSpell {
         int rank = DisableSupport.casterRank(caster, SpellType.DIFFINDO);
         float damage = DamageSupport.scaled(caster, DiffindoRules.damage(rank));
         double ignore = DiffindoRules.armorIgnore(rank);
-        sever(target, damage, ignore);
+        sever(target, caster, damage, ignore);
         if (DiffindoRules.cleaves(rank) && responsible != null) {
             cleave(level, target, caster, responsible, damage, ignore);
         }
     }
 
-    private static void sever(LivingEntity target, float damage, double ignore) {
+    private static void sever(LivingEntity target, @Nullable Entity caster, float damage, double ignore) {
         float dealt = DiffindoRules.damageAfterArmor(damage, target.getArmorValue(),
                 target.getAttributeValue(Attributes.ARMOR_TOUGHNESS), ignore);
         if (dealt > 0f) {
-            target.hurt(target.damageSources().magic(), dealt);
+            target.hurt(DamageSupport.magicFrom(target, caster), dealt);
         }
     }
 
@@ -84,7 +84,7 @@ public final class DiffindoSpell {
         if (next == null) {
             return;
         }
-        sever(next, damage, ignore);
+        sever(next, caster, damage, ignore);
         Vec3 from = first.position().add(0.0, first.getBbHeight() * 0.6, 0.0);
         Vec3 to = next.position().add(0.0, next.getBbHeight() * 0.6, 0.0);
         int steps = Math.max(3, (int) (from.distanceTo(to) * 2));

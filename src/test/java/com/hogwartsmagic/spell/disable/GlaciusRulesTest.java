@@ -9,10 +9,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class GlaciusRulesTest {
     @Test
-    void slowLastsLongerWithRankAndInTheCold() {
-        assertEquals(80, GlaciusRules.slowTicks(1, false));
-        assertEquals(120, GlaciusRules.slowTicks(1, true));
-        assertEquals(140, GlaciusRules.slowTicks(4, false));
+    void slowLastsLongerWithRank() {
+        assertEquals(80, GlaciusRules.slowTicks(1));
+        assertEquals(140, GlaciusRules.slowTicks(4));
     }
 
     @Test

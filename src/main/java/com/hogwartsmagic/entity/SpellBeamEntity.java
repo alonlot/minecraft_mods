@@ -531,20 +531,15 @@ public class SpellBeamEntity extends ThrowableProjectile {
                         }
                     }
                 } else if (spell == SpellType.GLACIUS) {
-                    // Wards, spawn protection, claims and (for NPC casters) mobGriefing: see TerrainRules.
-                    if (this.level() instanceof ServerLevel glaciusLevel) {
-                        if (state.is(Blocks.WATER)) {
-                            if (com.hogwartsmagic.spell.TerrainRules.canPlace(glaciusLevel, pos, getOwner())) {
-                                this.level().setBlockAndUpdate(pos, Blocks.ICE.defaultBlockState());
-                                hitSuccessful = true;
-                            }
-                        } else if (this.level().isEmptyBlock(pos.relative(blockHit.getDirection()))) {
-                            BlockPos icePos = pos.relative(blockHit.getDirection());
-                            if (com.hogwartsmagic.spell.TerrainRules.canPlace(glaciusLevel, icePos, getOwner())) {
-                                this.level().setBlockAndUpdate(icePos, Blocks.ICE.defaultBlockState());
-                                hitSuccessful = true;
-                            }
-                        }
+                    // Frosted ice on still water only (it melts on its own), through TerrainRules:
+                    // wards, spawn protection, claims and (for NPC casters) mobGriefing.
+                    if (this.level() instanceof ServerLevel glaciusLevel
+                            && state.is(Blocks.WATER) && state.getFluidState().isSource()
+                            && com.hogwartsmagic.spell.TerrainRules.canPlace(glaciusLevel, pos, getOwner())) {
+                        glaciusLevel.setBlockAndUpdate(pos, Blocks.FROSTED_ICE.defaultBlockState());
+                        glaciusLevel.scheduleTick(pos, Blocks.FROSTED_ICE,
+                                net.minecraft.util.Mth.nextInt(glaciusLevel.getRandom(), 60, 120));
+                        hitSuccessful = true;
                     }
                 } else if (spell == SpellType.CONFRINGO) {
                     // Confringo is the combat blast: fire and knockback, never terrain. Bombarda is the one that breaks blocks.

@@ -24,6 +24,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.living.LivingEvent;
+import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
@@ -56,7 +57,7 @@ public final class GlaciusSpell {
         Holder<MobEffect> frozen = DisableSupport.holder(ExampleMod.GLACIUS_FROZEN);
         boolean primed = target.hasEffect(chill) || target.hasEffect(frozen);
         target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN,
-                GlaciusRules.slowTicks(rank, isCold(target)), GlaciusRules.SLOW_AMPLIFIER), responsible);
+                GlaciusRules.slowTicks(rank), GlaciusRules.SLOW_AMPLIFIER), responsible);
         if (!primed) {
             DisableSupport.addHiddenMarker(target, ExampleMod.GLACIUS_CHILL, GlaciusRules.chillWindowTicks(rank), rank - 1, caster);
             target.setTicksFrozen(Math.max(target.getTicksFrozen(), GlaciusRules.CHILL_FROST_TICKS));
@@ -125,10 +126,6 @@ public final class GlaciusSpell {
         }
     }
 
-    private static boolean isCold(LivingEntity target) {
-        return target.level().getBiome(target.blockPosition()).value().getBaseTemperature() < 0.15f;
-    }
-
     /** Fire thaws a frozen target at once; the frozen-by tag is cleared once the freeze is over. */
     @SubscribeEvent
     public static void onLivingTick(LivingEvent.LivingTickEvent event) {
@@ -137,28 +134,46 @@ public final class GlaciusSpell {
             return;
         }
         Holder<MobEffect> frozen = DisableSupport.holder(ExampleMod.GLACIUS_FROZEN);
-        CompoundTag data = target.getPersistentData();
-        if (!target.hasEffect(frozen)) {
-            if (data.contains(FROZEN_BY_TAG)) {
-                data.remove(FROZEN_BY_TAG);
+        MobEffectInstance marker = target.getEffect(frozen);
+        if (marker == null) {
+            // Only touch ForgeData when a tag could be there, so untouched mobs keep no empty tag.
+            if (target.getPersistentData().contains(FROZEN_BY_TAG)) {
+                target.getPersistentData().remove(FROZEN_BY_TAG);
             }
             return;
         }
         if (!target.isOnFire()) {
             return;
         }
+        int remaining = marker.getDuration();
         target.removeEffect(frozen);
-        target.removeEffect(DisableSupport.holder(ExampleMod.STUNNED));
-        target.removeEffect(DisableSupport.holder(ExampleMod.BRITTLE));
+        target.getPersistentData().remove(FROZEN_BY_TAG);
+        // Only take what Glacius applied: a longer stun or brittle from another source stays.
+        Holder<MobEffect> stunned = DisableSupport.holder(ExampleMod.STUNNED);
+        MobEffectInstance stun = target.getEffect(stunned);
+        if (stun != null && stun.getDuration() <= remaining + 1) {
+            target.removeEffect(stunned);
+        }
+        Holder<MobEffect> brittle = DisableSupport.holder(ExampleMod.BRITTLE);
+        MobEffectInstance brit = target.getEffect(brittle);
+        if (brit != null && brit.getDuration() <= remaining + GlaciusRules.BRITTLE_LINGER_TICKS + 1
+                && brit.getDuration() > GlaciusRules.BRITTLE_LINGER_TICKS) {
+            // Glacius owns it: keep the brittle linger past the thaw, no more.
+            target.removeEffect(brittle);
+            target.addEffect(new MobEffectInstance(brittle, GlaciusRules.BRITTLE_LINGER_TICKS, brit.getAmplifier(),
+                    brit.isAmbient(), brit.isVisible(), brit.showIcon()));
+        }
         target.setTicksFrozen(0);
-        data.remove(FROZEN_BY_TAG);
         level.sendParticles(ParticleTypes.CLOUD, target.getX(), target.getY() + 1.0, target.getZ(), 16, 0.35, 0.3, 0.35, 0.01);
         level.playSound(null, target.getX(), target.getY(), target.getZ(), SoundEvents.FIRE_EXTINGUISH, SoundSource.NEUTRAL, 0.8f, 1.2f);
     }
 
     /** Master: a target that dies while frozen solid shatters into shards that slow everything nearby. */
-    @SubscribeEvent
+    @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onLivingDeath(LivingDeathEvent event) {
+        if (event.isCanceled()) {
+            return;
+        }
         LivingEntity dead = event.getEntity();
         if (!(dead.level() instanceof ServerLevel level)) {
             return;

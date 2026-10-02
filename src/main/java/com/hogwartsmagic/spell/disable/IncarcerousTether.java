@@ -90,6 +90,7 @@ public final class IncarcerousTether {
         tag.putDouble("Y", pull ? groundY(level, target) : target.getY());
         tag.putDouble("Z", target.getZ());
         tag.putString("Dim", level.dimension().location().toString());
+        tag.putDouble("LastY", target.getY());
         tag.putDouble("Leash", leash);
         tag.putBoolean("Pull", pull);
         if (group != null) {
@@ -159,12 +160,18 @@ public final class IncarcerousTether {
         Vec3 v = target.getDeltaMovement();
         boolean changed = false;
         boolean isPlayer = target instanceof ServerPlayer;
+        // A ServerPlayer's yo is reset to getY() before this event, so the client-reported vertical
+        // movement is tracked here instead: the Y seen on the previous tether tick.
+        double playerVy = 0.0;
+        if (isPlayer && tag.contains("LastY")) {
+            playerVy = Math.max(-3.92, Math.min(3.92, target.getY() - tag.getDouble("LastY")));
+        }
         double dx = target.getX() - ax;
         double dz = target.getZ() - az;
         if (TetherMath.shouldSnap(dx, 0.0, dz, leash)) {
             double[] p = TetherMath.snapPoint(ax, target.getY(), az, dx, 0.0, dz, leash);
             if (safeSnap(level, target, p[0], p[1], p[2])) {
-                v = new Vec3(0.0, isPlayer ? 0.0 : v.y, 0.0);
+                v = new Vec3(0.0, isPlayer ? playerVy : v.y, 0.0);
                 changed = true;
             } else if (!isPlayer) {
                 double[] c = TetherMath.correctedVelocity(dx, 0.0, dz, leash, v.x, v.y, v.z);
@@ -172,7 +179,7 @@ public final class IncarcerousTether {
                 changed = true;
             } else {
                 double[] c = TetherMath.correctedVelocity(dx, 0.0, dz, leash, 0.0, 0.0, 0.0);
-                v = new Vec3(c[0], 0.0, c[2]);
+                v = new Vec3(c[0], playerVy, c[2]);
                 changed = true;
             }
         } else if (TetherMath.isOutside(dx, 0.0, dz, leash)) {
@@ -180,7 +187,7 @@ public final class IncarcerousTether {
             // derive the inward push from the position offset alone. Mobs keep their real velocity.
             double[] c = TetherMath.correctedVelocity(dx, 0.0, dz, leash,
                     isPlayer ? 0.0 : v.x, isPlayer ? 0.0 : v.y, isPlayer ? 0.0 : v.z);
-            v = new Vec3(c[0], isPlayer ? 0.0 : c[1], c[2]);
+            v = new Vec3(c[0], isPlayer ? playerVy : c[1], c[2]);
             changed = true;
         }
 
@@ -195,9 +202,9 @@ public final class IncarcerousTether {
                 v = new Vec3(v.x, 0.0, v.z);
                 changed = true;
             } else if (above > slack
-                    && (isPlayer ? !target.onGround() && target.getY() - target.yo > 0.0
+                    && (isPlayer ? !target.onGround() && playerVy > 0.0
                                  : v.y > -IncarcerousRules.PULL_DOWN_SPEED)) {
-                // players: rising is judged from the client-reported position change, not the stale server velocity
+                // players: rising is judged from the client-reported Y change (LastY), not the stale server velocity
                 v = new Vec3(v.x, -IncarcerousRules.PULL_DOWN_SPEED, v.z);
                 changed = true;
             }
@@ -208,6 +215,9 @@ public final class IncarcerousTether {
             if (isPlayer) {
                 target.hurtMarked = true;
             }
+        }
+        if (isPlayer) {
+            tag.putDouble("LastY", target.getY());
         }
     }
 

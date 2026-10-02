@@ -86,8 +86,15 @@ public final class GlaciusSpell {
         if (stunned) {
             DisableSupport.interrupt(target);
         }
-        target.addEffect(new MobEffectInstance(DisableSupport.holder(ExampleMod.GLACIUS_FROZEN), ticks, Math.max(0, rank - 1),
-                !stunned, false, false), CombatEffects.responsible(caster));
+        // MobEffectInstance.update copies the incoming ambient flag, so a recast that lands no stun must
+        // not refresh (and so disown) a marker that already owns its stun; it may only add an ambient one.
+        Holder<MobEffect> frozenHolder = DisableSupport.holder(ExampleMod.GLACIUS_FROZEN);
+        MobEffectInstance existing = target.getEffect(frozenHolder);
+        if (stunned || existing == null || existing.isAmbient()) {
+            boolean ambient = !stunned && (existing == null || existing.isAmbient());
+            target.addEffect(new MobEffectInstance(frozenHolder, ticks, Math.max(0, rank - 1),
+                    ambient, false, false), CombatEffects.responsible(caster));
+        }
         // Fully frozen for the whole freeze (ticksFrozen decays by 2 a tick): vanilla shakes the body
         // and draws the frost overlay for a player.
         if (stunned) {

@@ -7,7 +7,7 @@ import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
-/** Client-only: a mastery config synced by the last server must not leak into the next world. */
+/** Client-only: state synced or timed by the last server (mastery config, Revelio reveals) must not leak into the next world. */
 @Mod.EventBusSubscriber(modid = ExampleMod.MODID, value = Dist.CLIENT)
 public final class MasteryConfigClientEvents {
     private MasteryConfigClientEvents() {
@@ -16,5 +16,6 @@ public final class MasteryConfigClientEvents {
     @SubscribeEvent
     public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         MasteryConfig.clearSynced();
+        PolyjuiceClientState.clearReveals();
     }
 }

@@ -64,6 +64,11 @@ public final class PolyjuiceClientState {
         REVEALED_UNTIL.merge(playerId, untilGameTime, Math::max);
     }
 
+    /** Forget every reveal (logging out): game time restarts in the next world. */
+    public static void clearReveals() {
+        REVEALED_UNTIL.clear();
+    }
+
     public static boolean isRevealed(UUID playerId, long gameTime) {
         Long until = REVEALED_UNTIL.get(playerId);
         if (until == null) {

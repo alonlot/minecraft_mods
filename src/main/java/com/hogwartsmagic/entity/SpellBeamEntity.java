@@ -50,6 +50,10 @@ import java.util.UUID;
 public class SpellBeamEntity extends ThrowableProjectile {
     private static final int CAVE_INIMICUM_REVELIO_BREAK_TICKS = 20 * 10;
     private static final int REVELIO_LIGHT_TICKS = 20 * 8;
+    /** Most ores plus chests one Revelio cast highlights (a dense ore mass must not flood the server). */
+    private static final int REVELIO_MAX_REVEALS = 384;
+    /** Of those, how many also get particles; the rest get only their light. */
+    private static final int REVELIO_MAX_PARTICLE_REVEALS = 128;
     private static final double MORSMORDRE_MIN_SKY_HEIGHT = 20.0D;
     private static final double MORSMORDRE_MARK_MIN_HEIGHT_ABOVE_GROUND = -3.0D;
     private static final double MORSMORDRE_MARK_BELOW_PEAK_OFFSET = 31.0D;
@@ -834,9 +838,11 @@ public class SpellBeamEntity extends ThrowableProjectile {
         int chestSq = chestRadius * chestRadius;
         int minY = Math.max(level.getMinBuildHeight(), origin.getY() - oreRadius);
         int maxY = Math.min(level.getMaxBuildHeight() - 1, origin.getY() + oreRadius);
+        int revealCount = 0;
         java.util.function.Predicate<BlockState> interesting = st -> isRevealableOre(st) || isRevealableChest(st);
         // Walk loaded chunks section by section: an unloaded chunk is never loaded for a highlight, and a
         // section whose palette holds no ore or chest (all air, or plain stone) is skipped without a block read.
+        scan:
         for (int cx = (origin.getX() - oreRadius) >> 4; cx <= (origin.getX() + oreRadius) >> 4; cx++) {
             for (int cz = (origin.getZ() - oreRadius) >> 4; cz <= (origin.getZ() + oreRadius) >> 4; cz++) {
                 net.minecraft.world.level.chunk.LevelChunk chunk = level.getChunkSource().getChunkNow(cx, cz);
@@ -870,9 +876,16 @@ public class SpellBeamEntity extends ThrowableProjectile {
                                 }
                                 BlockState state = section.getBlockState(x & 15, y & 15, z & 15);
                                 if (isRevealableOre(state)) {
-                                    revealOre(level, origin, new BlockPos(x, y, z));
+                                    revealOre(level, origin, new BlockPos(x, y, z), revealCount < REVELIO_MAX_PARTICLE_REVEALS);
+                                    revealCount++;
                                 } else if (distSq <= chestSq && isRevealableChest(state)) {
-                                    revealChest(level, origin, new BlockPos(x, y, z));
+                                    revealChest(level, origin, new BlockPos(x, y, z), revealCount < REVELIO_MAX_PARTICLE_REVEALS);
+                                    revealCount++;
+                                } else {
+                                    continue;
+                                }
+                                if (revealCount >= REVELIO_MAX_REVEALS) {
+                                    break scan;
                                 }
                             }
                         }
@@ -882,13 +895,15 @@ public class SpellBeamEntity extends ThrowableProjectile {
         }
     }
 
-    private void revealOre(ServerLevel level, BlockPos origin, BlockPos orePos) {
+    private void revealOre(ServerLevel level, BlockPos origin, BlockPos orePos, boolean particles) {
         double x = orePos.getX() + 0.5D;
         double y = orePos.getY() + 0.5D;
         double z = orePos.getZ() + 0.5D;
-        level.sendParticles(ParticleTypes.GLOW, x, y, z, 10, 0.2D, 0.2D, 0.2D, 0.02D);
-        level.sendParticles(ParticleTypes.END_ROD, x, y, z, 4, 0.22D, 0.22D, 0.22D, 0.01D);
-        level.sendParticles(ParticleTypes.HAPPY_VILLAGER, x, y, z, 3, 0.12D, 0.12D, 0.12D, 0.0D);
+        if (particles) {
+            level.sendParticles(ParticleTypes.GLOW, x, y, z, 10, 0.2D, 0.2D, 0.2D, 0.02D);
+            level.sendParticles(ParticleTypes.END_ROD, x, y, z, 4, 0.22D, 0.22D, 0.22D, 0.01D);
+            level.sendParticles(ParticleTypes.HAPPY_VILLAGER, x, y, z, 3, 0.12D, 0.12D, 0.12D, 0.0D);
+        }
 
         BlockPos lightPos = findNearbyAirForReveal(level, orePos, origin);
         if (lightPos != null) {
@@ -896,29 +911,33 @@ public class SpellBeamEntity extends ThrowableProjectile {
         }
     }
 
-    private void revealChest(ServerLevel level, BlockPos origin, BlockPos chestPos) {
+    private void revealChest(ServerLevel level, BlockPos origin, BlockPos chestPos, boolean particles) {
         double chestX = chestPos.getX() + 0.5D;
         double chestY = chestPos.getY() + 0.6D;
         double chestZ = chestPos.getZ() + 0.5D;
-        level.sendParticles(ParticleTypes.GLOW, chestX, chestY, chestZ, 18, 0.3D, 0.25D, 0.3D, 0.03D);
-        level.sendParticles(ParticleTypes.END_ROD, chestX, chestY, chestZ, 10, 0.28D, 0.2D, 0.28D, 0.02D);
-        level.sendParticles(ParticleTypes.ENCHANT, chestX, chestY, chestZ, 16, 0.35D, 0.35D, 0.35D, 0.01D);
+        if (particles) {
+            level.sendParticles(ParticleTypes.GLOW, chestX, chestY, chestZ, 18, 0.3D, 0.25D, 0.3D, 0.03D);
+            level.sendParticles(ParticleTypes.END_ROD, chestX, chestY, chestZ, 10, 0.28D, 0.2D, 0.28D, 0.02D);
+            level.sendParticles(ParticleTypes.ENCHANT, chestX, chestY, chestZ, 16, 0.35D, 0.35D, 0.35D, 0.01D);
 
-        Vec3 start = Vec3.atCenterOf(origin);
-        Vec3 end = Vec3.atCenterOf(chestPos);
-        Vec3 delta = end.subtract(start);
-        int steps = Math.max(6, (int) Math.ceil(delta.length() * 2.0D));
-        for (int i = 0; i <= steps; i++) {
-            double progress = i / (double) steps;
-            Vec3 point = start.add(delta.scale(progress));
-            level.sendParticles(ParticleTypes.WITCH, point.x, point.y + 0.15D, point.z, 1, 0.04D, 0.04D, 0.04D, 0.0D);
+            Vec3 start = Vec3.atCenterOf(origin);
+            Vec3 end = Vec3.atCenterOf(chestPos);
+            Vec3 delta = end.subtract(start);
+            int steps = Math.max(6, (int) Math.ceil(delta.length() * 2.0D));
+            for (int i = 0; i <= steps; i++) {
+                double progress = i / (double) steps;
+                Vec3 point = start.add(delta.scale(progress));
+                level.sendParticles(ParticleTypes.WITCH, point.x, point.y + 0.15D, point.z, 1, 0.04D, 0.04D, 0.04D, 0.0D);
+            }
         }
 
         BlockPos lightPos = findNearbyAirForReveal(level, chestPos, origin);
         if (lightPos != null) {
             com.hogwartsmagic.event.ModEvents.addTemporaryRevelioLight(level, lightPos, REVELIO_LIGHT_TICKS);
         }
-        level.playSound(null, chestPos, SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.BLOCKS, 0.45F, 1.65F);
+        if (particles) {
+            level.playSound(null, chestPos, SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.BLOCKS, 0.45F, 1.65F);
+        }
     }
 
     private static boolean isRevealableOre(BlockState state) {

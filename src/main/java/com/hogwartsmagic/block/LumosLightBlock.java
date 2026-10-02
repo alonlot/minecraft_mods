@@ -49,7 +49,8 @@ public class LumosLightBlock extends Block {
     /**
      * Later expiry for a timed light that was refreshed while its removal tick was pending. Transient on
      * purpose: after a restart the saved tick simply fires at the original (earlier) time, which is the safe
-     * direction. Only ever read by the tick that removes the light, so it cannot keep one alive.
+     * direction. Only ever read by the tick that removes the light, so it cannot keep one alive. Cleared per
+     * dimension on level unload and wholly on server stop, so it never carries into another world.
      */
     private static final Map<GlobalPos, Long> REFRESHED_UNTIL = new ConcurrentHashMap<>();
 
@@ -137,6 +138,25 @@ public class LumosLightBlock extends Block {
                     pos.getY() + 0.5 + (random.nextDouble() - 0.5) * 0.3,
                     pos.getZ() + 0.5 + (random.nextDouble() - 0.5) * 0.3,
                     0.0, 0.005, 0.0);
+        }
+    }
+
+    @net.minecraftforge.fml.common.Mod.EventBusSubscriber(modid = ExampleMod.MODID,
+            bus = net.minecraftforge.fml.common.Mod.EventBusSubscriber.Bus.FORGE)
+    public static final class Cleanup {
+        private Cleanup() {
+        }
+
+        @net.minecraftforge.eventbus.api.SubscribeEvent
+        public static void onLevelUnload(net.minecraftforge.event.level.LevelEvent.Unload event) {
+            if (event.getLevel() instanceof ServerLevel level) {
+                REFRESHED_UNTIL.keySet().removeIf(k -> k.dimension().equals(level.dimension()));
+            }
+        }
+
+        @net.minecraftforge.eventbus.api.SubscribeEvent
+        public static void onServerStopping(net.minecraftforge.event.server.ServerStoppingEvent event) {
+            REFRESHED_UNTIL.clear();
         }
     }
 

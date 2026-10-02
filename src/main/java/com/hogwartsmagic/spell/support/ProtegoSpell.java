@@ -72,12 +72,12 @@ public final class ProtegoSpell {
 
     /** A ranked shield: raised by {@link #raise}, still inside its 60 ticks, and not Protego Maxima's amplifier-3 bubble. */
     public static boolean isRankedShield(LivingEntity entity) {
-        CompoundTag data = entity.getPersistentData();
-        if (!data.contains(TAG_UNTIL) || entity.level().getGameTime() >= data.getLong(TAG_UNTIL)) {
+        MobEffectInstance instance = entity.getEffect(shield());
+        if (instance == null || instance.getAmplifier() != 0) {
             return false;
         }
-        MobEffectInstance instance = entity.getEffect(shield());
-        return instance != null && instance.getAmplifier() == 0;
+        CompoundTag data = entity.getPersistentData();
+        return data.contains(TAG_UNTIL) && entity.level().getGameTime() < data.getLong(TAG_UNTIL);
     }
 
     public static BeamOutcome onBeamHit(LivingEntity holder, SpellBeamEntity beam) {

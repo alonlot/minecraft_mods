@@ -74,6 +74,7 @@ public final class LevicorpusSpell {
             tag.putDouble("Y", target.getY() + hangHeight(level, target));
             tag.putDouble("Z", target.getZ());
             tag.putBoolean("HadNoGravity", target.isNoGravity());
+            tag.putString("Dim", level.dimension().location().toString());
             data.put(ANCHOR_TAG, tag);
         }
         target.setNoGravity(true);
@@ -138,11 +139,20 @@ public final class LevicorpusSpell {
         if (!(target.level() instanceof ServerLevel level)) {
             return;
         }
+        if (!tag.getString("Dim").equals(level.dimension().location().toString())) {
+            // Changed dimension (portal, command): the anchor means nothing here, so let the hang go.
+            target.removeEffect(DisableSupport.holder(ExampleMod.LEVICORPUS_EFFECT));
+            release(target); // idempotent; covers a refused removal event path
+            return;
+        }
         double ax = tag.getDouble("X");
         double ay = tag.getDouble("Y");
         double az = tag.getDouble("Z");
         target.setNoGravity(true);
         target.fallDistance = 0.0F;
+        if (target.isPassenger()) {
+            target.stopRiding(); // no mounting up and riding away
+        }
         if (target.isUsingItem()) {
             target.stopUsingItem(); // drops a raised shield or a drawn bow
         }

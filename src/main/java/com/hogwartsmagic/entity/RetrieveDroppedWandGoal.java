@@ -115,7 +115,7 @@ public class RetrieveDroppedWandGoal extends Goal {
         AABB area = mob.getBoundingBox().inflate(SEARCH_RADIUS);
         List<ItemEntity> items = mob.level().getEntitiesOfClass(
                 ItemEntity.class, area,
-                e -> e.isAlive() && !e.isRemoved() && MagicWandItem.isAnyWand(e.getItem()));
+                e -> e.isAlive() && !e.isRemoved() && !e.hasPickUpDelay() && MagicWandItem.isAnyWand(e.getItem()));
         if (items.isEmpty()) return null;
         ItemEntity nearest = null;
         double bestSq = Double.POSITIVE_INFINITY;

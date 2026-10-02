@@ -41,6 +41,14 @@ public class SpellCompendiumScreen extends Screen {
     private static final int COLOR_GOLD = 0xFFD4AF37;
     private static final int COLOR_BODY = 0xFFD8C9F0;
 
+    // Rank accent colours (ARGB) for the mastery rank line and XP bar. Same hues as the tiers on
+    // purpose, but named for the rank they mean so the two scales can change independently.
+    private static final int RANK_COLOR_NOVICE = 0xFF9BE38B;
+    private static final int RANK_COLOR_ADEPT = 0xFF6FC2FF;
+    private static final int RANK_COLOR_EXPERT = 0xFFC79BFF;
+    private static final int RANK_COLOR_MASTER = 0xFFFF7A6B;
+    private static final int DETAIL_LINE = 11;
+
     private final Player player;
     private boolean tooltipPending;
     private final List<Row> rows = new ArrayList<>();
@@ -53,6 +61,10 @@ public class SpellCompendiumScreen extends Screen {
     private int listTop;
     private int listBottom;
     private float scroll;
+    private float detailScroll;
+    private int detailContentHeight;
+    private int detailTop;
+    private int detailBottom;
 
     public SpellCompendiumScreen(Player player) {
         super(Component.translatable("gui." + ExampleMod.MODID + ".grimoire"));
@@ -137,6 +149,17 @@ public class SpellCompendiumScreen extends Screen {
         return COLOR_MASTER;
     }
 
+    private static int rankColor(int rank) {
+        if (rank >= 4) {
+            return RANK_COLOR_MASTER;
+        } else if (rank == 3) {
+            return RANK_COLOR_EXPERT;
+        } else if (rank == 2) {
+            return RANK_COLOR_ADEPT;
+        }
+        return RANK_COLOR_NOVICE;
+    }
+
     private static MutableComponent spellName(SpellType spell) {
         return Component.translatable("spell." + ExampleMod.MODID + "." + spell.getId());
     }
@@ -149,8 +172,22 @@ public class SpellCompendiumScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+        int divX = panelLeft + 12 + LIST_WIDTH + 6;
+        if (mouseX > divX) {
+            // Over the detail column: long entries (Apparition's source list) scroll here.
+            detailScroll = clampDetailScroll(detailScroll - (float) deltaY * DETAIL_LINE * 2.0F);
+            return true;
+        }
         scroll = clampScroll(scroll - (float) deltaY * ROW_HEIGHT * 2.0F);
         return true;
+    }
+
+    private float maxDetailScroll() {
+        return Math.max(0.0F, detailContentHeight - (detailBottom - detailTop));
+    }
+
+    private float clampDetailScroll(float value) {
+        return Math.max(0.0F, Math.min(value, maxDetailScroll()));
     }
 
     private float clampScroll(float value) {
@@ -165,6 +202,9 @@ public class SpellCompendiumScreen extends Screen {
             if (index >= 0 && index < rows.size()) {
                 Row row = rows.get(index);
                 if (!row.header() && row.spell() != null) {
+                    if (selected != row.spell()) {
+                        detailScroll = 0.0F;
+                    }
                     selected = row.spell();
                     return true;
                 }
@@ -244,17 +284,33 @@ public class SpellCompendiumScreen extends Screen {
             return;
         }
         int wrap = rightEdge - x;
+        detailTop = y;
+        detailBottom = panelTop + 234;
+        detailScroll = clampDetailScroll(detailScroll);
+        int start = y - Math.round(detailScroll);
 
-        // Safety net: nothing in the detail column may draw over the Close button or the panel edge.
-        g.enableScissor(x, y, rightEdge, panelTop + 234);
+        // Nothing in the detail column may draw over the Close button or the panel edge; what
+        // doesn't fit scrolls with the mouse wheel over this column.
+        g.enableScissor(x, detailTop, rightEdge, detailBottom);
         try {
-            renderDetailBody(g, x, y, wrap, mouseX, mouseY);
+            int end = renderDetailBody(g, x, start, wrap, mouseX, mouseY);
+            detailContentHeight = end - start;
         } finally {
             g.disableScissor();
         }
+
+        float max = maxDetailScroll();
+        if (max > 0.0F) {
+            int track = detailBottom - detailTop;
+            int thumb = Math.max(12, Math.round(track * (track / (float) (track + max))));
+            int thumbTop = detailTop + Math.round((track - thumb) * (detailScroll / max));
+            g.fill(rightEdge + 3, detailTop, rightEdge + 5, detailBottom, 0x40D4AF37);
+            g.fill(rightEdge + 3, thumbTop, rightEdge + 5, thumbTop + thumb, COLOR_GOLD);
+        }
     }
 
-    private void renderDetailBody(GuiGraphics g, int x, int y, int wrap, int mouseX, int mouseY) {
+    /** Draws the selected spell's detail from {@code y} down and returns the y just below the last line. */
+    private int renderDetailBody(GuiGraphics g, int x, int y, int wrap, int mouseX, int mouseY) {
 
         // Spell name in its tier color.
         g.drawString(this.font, spellName(selected), x, y, tierColor(selected.getLootRarity()));
@@ -272,7 +328,7 @@ public class SpellCompendiumScreen extends Screen {
             float xp = com.hogwartsmagic.spell.mastery.SpellMasteryData.getXp(player, selected);
             int[] thresholds = com.hogwartsmagic.spell.mastery.MasteryConfig.of(player).thresholds();
             int rank = com.hogwartsmagic.spell.mastery.MasteryMath.rankForXp(xp, thresholds);
-            int rankColor = rank >= 4 ? COLOR_MASTER : rank == 3 ? COLOR_ADEPT : rank == 2 ? COLOR_APPRENTICE : COLOR_NOVICE;
+            int rankColor = rankColor(rank);
             Component rankLine = Component.translatable("gui." + ExampleMod.MODID + ".mastery.rank_line",
                     com.hogwartsmagic.spell.mastery.MasteryMath.roman(rank),
                     Component.translatable(com.hogwartsmagic.spell.mastery.MasteryAwards.rankKey(rank)));
@@ -285,7 +341,8 @@ public class SpellCompendiumScreen extends Screen {
                     com.hogwartsmagic.spell.mastery.MasteryMath.rankProgress(xp, thresholds)));
             g.fill(barX, y + 2, barX + barWidth, y + 6, 0xFF2A2340);
             g.fill(barX, y + 2, barX + Math.round(barWidth * progress), y + 6, rankColor);
-            if (mouseX >= x && mouseX < barX + barWidth && mouseY >= y && mouseY < y + 9) {
+            if (mouseX >= x && mouseX < barX + barWidth && mouseY >= y && mouseY < y + 9
+                    && mouseY >= detailTop && mouseY < detailBottom) {
                 tooltipPending = true;
             }
             y += 11;
@@ -337,6 +394,7 @@ public class SpellCompendiumScreen extends Screen {
                 y += 11;
             }
         }
+        return y;
     }
 
     private void drawProgressBar(GuiGraphics g, int x, int y, int w, int h) {

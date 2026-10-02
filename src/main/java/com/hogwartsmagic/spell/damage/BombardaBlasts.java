@@ -100,7 +100,7 @@ public final class BombardaBlasts {
             }
             if (job.next >= job.positions.size()) {
                 jobs.poll();
-                if (job.broken > 0) {
+                if (job.broken > 0 && com.hogwartsmagic.item.MagicBookItem.isSpellLearned(caster, com.hogwartsmagic.spell.SpellType.BOMBARDA)) {
                     com.hogwartsmagic.spell.mastery.MasteryAwards.onBlockEffect(caster, com.hogwartsmagic.spell.SpellType.BOMBARDA);
                 }
             }

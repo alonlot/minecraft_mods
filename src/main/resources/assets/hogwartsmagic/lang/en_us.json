@@ -40,7 +40,7 @@
   "spell.hogwartsmagic.confringo": "Confringo",
   "spell.hogwartsmagic.confringo.desc": "A fiery combat blast that sets its targets alight but never harms the ground. Higher ranks hit harder and spread the flames to nearby enemies. At Master it hits brittle (frozen) targets half again as hard.",
   "spell.hogwartsmagic.protego": "Protego",
-  "spell.hogwartsmagic.protego.desc": "Creates a magical shield that reduces damage and reflects projectiles.",
+  "spell.hogwartsmagic.protego.desc": "A 3-second shield that faces where you look and blunts blows from the front (40%, up to 75% at Master). Time it: a spell that hits in the first moment is parried. Adept reflects it at random, Expert back at its caster, Master refunds half the mana and knocks melee attackers back. The Unforgivables are never reflected.",
   "spell.hogwartsmagic.protego_maxima": "Protego Maxima",
   "spell.hogwartsmagic.protego_maxima.desc": "Aim upward and hold cast to sustain a skyward beam that slowly drains mana while forming a large protective bubble, or cast on a ward to raise its barrier.",
   "spell.hogwartsmagic.lumos": "Lumos",

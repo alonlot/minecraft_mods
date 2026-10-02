@@ -2640,7 +2640,10 @@ public class ModEvents {
             // So we'll let BroomEntity handle resetting fall distance in its tick/dismount logic instead.
         }
 
-        if (event.getEntity().hasEffect(ExampleMod.PROTEGO_EFFECT.getHolder().get())) {
+        if (com.hogwartsmagic.spell.support.ProtegoSpell.isRankedShield(event.getEntity())) {
+            // A player's Protego (Spell Mastery): blunts blows from the front, never cancels them outright.
+            com.hogwartsmagic.spell.support.ProtegoSpell.onShieldedHurt(event);
+        } else if (event.getEntity().hasEffect(ExampleMod.PROTEGO_EFFECT.getHolder().get())) {
             // Cancel the damage
             event.setCanceled(true);
             

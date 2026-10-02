@@ -79,6 +79,8 @@ public class SpellBeamEntity extends ThrowableProjectile {
     private double castOriginX = Double.NaN;
     private double castOriginY = Double.NaN;
     private double castOriginZ = Double.NaN;
+    /** Sent back by a Protego parry: never reflected again, and its new owner earns no mastery XP from it. */
+    private boolean reflected;
 
     public SpellBeamEntity(EntityType<? extends SpellBeamEntity> type, Level level) {
         super(type, level);
@@ -110,6 +112,14 @@ public class SpellBeamEntity extends ThrowableProjectile {
         return this.getEntityData().get(DATA_ELDER_WAND);
     }
 
+    public void markReflected() {
+        this.reflected = true;
+    }
+
+    public boolean isReflected() {
+        return this.reflected;
+    }
+
     public void setHomingTarget(Entity target) {
         this.homingTargetUuid = target != null ? target.getUUID() : null;
     }
@@ -127,6 +137,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
         tag.putString("SpellId", getSpellType().getId());
         tag.putFloat("Charge", getCharge());
         tag.putBoolean("ElderWandCast", isElderWandCast());
+        tag.putBoolean("Reflected", this.reflected);
         tag.putDouble("HighestYReached", this.highestYReached);
         if (!Double.isNaN(this.castOriginX)) {
             tag.putDouble("CastOriginX", this.castOriginX);
@@ -148,6 +159,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
         if (tag.contains("ElderWandCast")) {
             setElderWandCast(tag.getBoolean("ElderWandCast"));
         }
+        this.reflected = tag.getBoolean("Reflected");
         if (tag.contains("HighestYReached")) {
             this.highestYReached = tag.getDouble("HighestYReached");
         }
@@ -703,8 +715,14 @@ public class SpellBeamEntity extends ThrowableProjectile {
                     }
                 }
             } else if (result instanceof EntityHitResult entityHit && livingBehind(entityHit.getEntity()) instanceof LivingEntity living) {
-                // Intercept spell if the target has an active Protego shield
-                if (living.hasEffect(com.hogwartsmagic.ExampleMod.PROTEGO_EFFECT.getHolder().get()) && spell != SpellType.AVADA_KEDAVRA && spell != SpellType.HEAL) {
+                // A player's ranked Protego first: parry window (dissolve or reflect), or the shield breaks.
+                com.hogwartsmagic.spell.support.ProtegoSpell.BeamOutcome parry =
+                        com.hogwartsmagic.spell.support.ProtegoSpell.onBeamHit(living, this);
+                if (parry != com.hogwartsmagic.spell.support.ProtegoSpell.BeamOutcome.NOT_SHIELDED) {
+                    hitSuccessful = false; // stopped at the shield; a reflected copy is already in flight
+                } else if (!com.hogwartsmagic.spell.support.ProtegoSpell.isRankedShield(living)
+                        && living.hasEffect(com.hogwartsmagic.ExampleMod.PROTEGO_EFFECT.getHolder().get()) && spell != SpellType.AVADA_KEDAVRA && spell != SpellType.HEAL) {
+                    // NPC layer shields and Protego Maxima keep the old rule: the shield eats the beam.
                     net.minecraft.world.effect.MobEffectInstance currentEffect = living.getEffect(com.hogwartsmagic.ExampleMod.PROTEGO_EFFECT.getHolder().get());
                     if (currentEffect != null) {
                         int currentAmplifier = currentEffect.getAmplifier();
@@ -776,7 +794,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
             if (!hitSuccessful) {
                 spawnFizzleEffects();
             } else {
-                if (getOwner() instanceof ServerPlayer masteryCaster) {
+                if (getOwner() instanceof ServerPlayer masteryCaster && !this.reflected) {
                     if (masteryTarget != null) {
                         com.hogwartsmagic.spell.mastery.MasteryAwards.onLivingHit(masteryCaster, spell, masteryTarget);
                     } else if (result instanceof BlockHitResult && masteryEligible) {

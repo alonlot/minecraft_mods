@@ -190,7 +190,7 @@ public enum SpellType {
                     target.setTicksFrozen(Math.max(0, target.getTicksFrozen() - 120));
                 }
             }
-            case PROTEGO -> target.addEffect(new MobEffectInstance(ExampleMod.PROTEGO_EFFECT.getHolder().get(), 100, 0));
+            case PROTEGO -> com.hogwartsmagic.spell.support.ProtegoSpell.raise(target, caster);
             case LUMOS -> target.addEffect(new MobEffectInstance(ExampleMod.LUMOS_EFFECT.getHolder().get(), 12000, 0));
             case ACCIO -> {
                 // Continuously reel the target in toward the caster until it reaches them.

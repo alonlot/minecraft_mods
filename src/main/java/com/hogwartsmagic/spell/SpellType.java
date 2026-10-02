@@ -176,17 +176,7 @@ public enum SpellType {
             }
             case PROTEGO -> com.hogwartsmagic.spell.support.ProtegoSpell.raise(target, caster);
             case LUMOS -> com.hogwartsmagic.spell.support.LumosSpell.onHit(target, caster);
-            case ACCIO -> {
-                // Continuously reel the target in toward the caster until it reaches them.
-                if (caster instanceof net.minecraft.server.level.ServerPlayer sp) {
-                    com.hogwartsmagic.event.ModEvents.startAccioPull(sp, target);
-                } else {
-                    net.minecraft.world.phys.Vec3 toward = target.position().vectorTo(
-                            caster != null ? caster.getEyePosition(1) : target.position().add(0, 0, 5))
-                            .normalize().scale(0.8);
-                    target.push(toward.x, 0.3, toward.z);
-                }
-            }
+            case ACCIO -> com.hogwartsmagic.spell.support.AccioSpell.onLivingHit(target, caster, masteryEligible);
             case WINGARDIUM_LEVIOSA -> {
             }
             case ALOHOMORA -> {

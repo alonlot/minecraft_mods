@@ -546,6 +546,13 @@ public class SpellBeamEntity extends ThrowableProjectile {
                     // rather than to being opened.
                     hitSuccessful = this.level() instanceof ServerLevel serverLevel
                             && com.hogwartsmagic.block.ChamberDoorBlock.speakTo(serverLevel, pos);
+                } else if (spell == SpellType.ACCIO) {
+                    // Summons loose items near the impact; from Expert, the first stack of a container
+                    // the caster could open. (A mandrake is handled by the branch above.)
+                    if (this.level() instanceof ServerLevel accioLevel) {
+                        hitSuccessful = com.hogwartsmagic.spell.support.AccioSpell.onBlockHit(
+                                accioLevel, pos, blockHit.getDirection(), this.position(), getOwner());
+                    }
                 } else if (spell == SpellType.ALOHOMORA) {
                     // Doors, trapdoors and gates; iron from Adept; all around from Expert; at Master a
                     // Gringotts vault door or a hostile Ward. See AlohomoraSpell.

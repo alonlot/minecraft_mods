@@ -32,8 +32,6 @@ import java.util.UUID;
 public final class ReparoManager {
     private static final int RECORD_LIFETIME_TICKS = 15 * 20;
     private static final double RETENTION_RADIUS = 30.0D;
-    private static final double CAST_RADIUS = 6.0D;
-    private static final int MAX_REPAIRS_PER_CAST = 32;
     private static final int MAX_RECORDS_PER_LEVEL = 2048;
     private static final float EXTRA_MANA_PER_BLOCK = 2.0f;
     private static final int FLIGHT_MAX_TICKS = 16;
@@ -71,20 +69,31 @@ public final class ReparoManager {
      *       record with no nearby rubble is just skipped.</li>
      * </ul>
      *
-     * Up to {@link #MAX_REPAIRS_PER_CAST} blocks are repaired per cast, sorted closest
-     * to impact first.
+     * Up to the caster's rank cap ({@link com.hogwartsmagic.spell.support.ReparoRules}) blocks
+     * are repaired per cast within the rank radius, sorted closest to impact first. NPC casters
+     * keep the old sweep (radius 6, 32 blocks).
      */
     public static boolean castReparo(ServerLevel level, net.minecraft.world.entity.LivingEntity caster, BlockPos impactPos) {
         if (caster == null) return false;
 
         prune(level);
 
+        // Players scale with their Reparo rank; NPC casters (students) keep the old wide sweep.
+        boolean playerCaster = caster instanceof ServerPlayer;
+        int rank = com.hogwartsmagic.spell.disable.DisableSupport.casterRank(caster, SpellType.REPARO);
+        double castRadius = playerCaster
+                ? com.hogwartsmagic.spell.support.ReparoRules.radius(rank)
+                : com.hogwartsmagic.spell.support.ReparoRules.NPC_RADIUS;
+        int maxRepairs = playerCaster
+                ? com.hogwartsmagic.spell.support.ReparoRules.maxBlocks(rank)
+                : com.hogwartsmagic.spell.support.ReparoRules.NPC_MAX_BLOCKS;
+
         List<TrackedBreakRecord> candidates = RECORDS.values().stream()
                 .filter(record -> record.dimensionKey.equals(level.dimension().location().toString()))
-                .filter(record -> record.pos.closerToCenterThan(Vec3.atCenterOf(impactPos), CAST_RADIUS))
+                .filter(record -> record.pos.closerToCenterThan(Vec3.atCenterOf(impactPos), castRadius))
                 .filter(record -> isRepairStillPossible(level, record))
                 .sorted(Comparator.comparingDouble(record -> record.pos.distSqr(impactPos)))
-                .limit(MAX_REPAIRS_PER_CAST)
+                .limit(maxRepairs)
                 .toList();
 
         if (candidates.isEmpty()) {

@@ -864,6 +864,13 @@ public class SpellPackets {
 
             if (!creative && MagicWandItem.isOnCooldown(wand, spell, now)) return;
 
+            // Reparo cast on yourself mends the off-hand item or worn armour (Expert and up). It
+            // prices itself by the item, so it runs before the flat mana charge below.
+            if (p.selfCastProtego && spell == SpellType.REPARO) {
+                com.hogwartsmagic.spell.support.ReparoSpell.castOnSelf(player, wand, now);
+                return;
+            }
+
             // Mana Check
             net.minecraft.nbt.CompoundTag modData = playerData.getCompound("PlayerPersisted").getCompound(ExampleMod.MODID);
             float currentMana = modData.contains("Mana") ? modData.getFloat("Mana") : PlayerMagicData.getMaxMana(player);

@@ -3897,7 +3897,8 @@ public class ModEvents {
         return spell == SpellType.PROTEGO
                 || spell == SpellType.HEAL
                 || spell == SpellType.ARRESTO_MOMENTUM
-                || spell == SpellType.LUMOS;
+                || spell == SpellType.LUMOS
+                || spell == SpellType.REPARO;
     }
 
     @SubscribeEvent

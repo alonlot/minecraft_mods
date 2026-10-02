@@ -244,7 +244,9 @@ public class VoldemortEntity extends WizardEntity {
     }
 
     private boolean isCastingLockedOut() {
-        if (this.hasEffect(ExampleMod.INCARCEROUS_CHAINS.getHolder().get())) {
+        // Stunned (Stupefy, Petrificus Totalus, a Glacius freeze) or silenced. Incarcerous only tethers
+        // him now: a bound target can still fight back, so it no longer stops his casting.
+        if (com.hogwartsmagic.spell.combat.CombatEffects.isCastingBlocked(this)) {
             return true;
         }
         if (this.hasEffect(MobEffects.BLINDNESS) || this.hasEffect(MobEffects.LEVITATION)) {
@@ -266,6 +268,13 @@ public class VoldemortEntity extends WizardEntity {
             serverLevel.sendParticles(ParticleTypes.SMOKE, this.getX(), this.getY() + 1.2D, this.getZ(), 18, 0.35D, 0.45D, 0.35D, 0.02D);
             serverLevel.sendParticles(ParticleTypes.CRIT, this.getX(), this.getY() + 1.3D, this.getZ(), 10, 0.25D, 0.35D, 0.25D, 0.05D);
             this.level().playSound(null, this.getX(), this.getY(), this.getZ(), SoundEvents.GLASS_BREAK, SoundSource.HOSTILE, 0.8f, 0.8f);
+        }
+    }
+
+    /** Stupefy and other stuns call this on hit: a stunned boss skips his AI step, so the lockout check can't. */
+    public void interruptCasting() {
+        if (this.queuedSpell != null) {
+            cancelQueuedSpell(true);
         }
     }
 

@@ -281,7 +281,11 @@ public class HouseElfEntity extends PathfinderMob {
             return false; // Imperio, or anything else that has taken its will
         }
         if (this.hasEffect(MobEffects.MOVEMENT_SLOWDOWN)) {
-            return false; // Petrificus Totalus, Incarcerous, Glacius, Stupefy, Arresto Momentum
+            return false; // Glacius, Arresto Momentum
+        }
+        if (com.hogwartsmagic.spell.combat.CombatEffects.isStunned(this)
+                || this.hasEffect(ExampleMod.LEVICORPUS_EFFECT.getHolder().get())) {
+            return false; // Stupefy, Petrificus Totalus, a Glacius freeze, Levicorpus
         }
         if (this.hasEffect(ExampleMod.INCARCEROUS_CHAINS.getHolder().get())) {
             return false;
@@ -425,7 +429,9 @@ public class HouseElfEntity extends PathfinderMob {
     private boolean wardedOnly() {
         if (this.subduedTicks > 0
                 || this.hasEffect(MobEffects.MOVEMENT_SLOWDOWN)
-                || this.hasEffect(ExampleMod.INCARCEROUS_CHAINS.getHolder().get())) {
+                || this.hasEffect(ExampleMod.INCARCEROUS_CHAINS.getHolder().get())
+                || com.hogwartsmagic.spell.combat.CombatEffects.isStunned(this)
+                || this.hasEffect(ExampleMod.LEVICORPUS_EFFECT.getHolder().get())) {
             return false;
         }
         return this.level() instanceof ServerLevel server

@@ -191,6 +191,18 @@ public class ExampleMod
     public static final RegistryObject<net.minecraft.world.effect.MobEffect> SILENCED = MOB_EFFECTS.register("silenced",
             () -> new net.minecraft.world.effect.MobEffect(net.minecraft.world.effect.MobEffectCategory.HARMFUL, 0x6E6E8F) {});
 
+    // Disabling-spell markers (Spell Mastery Phase 3). Always added hidden (no icon, no particles); the
+    // amplifier stores the caster's mastery rank - 1, so the hooks know the rank without extra state.
+    /** Petrificus Totalus: drives the topple render (synced by VisibleEffects) and the break-on-damage rule. */
+    public static final RegistryObject<net.minecraft.world.effect.MobEffect> PETRIFIED = MOB_EFFECTS.register("petrified",
+            () -> new net.minecraft.world.effect.MobEffect(net.minecraft.world.effect.MobEffectCategory.HARMFUL, 0xAAAAAA) {});
+    /** Glacius: the window in which a second hit freezes the target solid. */
+    public static final RegistryObject<net.minecraft.world.effect.MobEffect> GLACIUS_CHILL = MOB_EFFECTS.register("glacius_chill",
+            () -> new net.minecraft.world.effect.MobEffect(net.minecraft.world.effect.MobEffectCategory.HARMFUL, 0xBFEFFF) {});
+    /** Glacius: frozen solid (alongside stunned and brittle). Fire thaws it; at Master a death shatters it. */
+    public static final RegistryObject<net.minecraft.world.effect.MobEffect> GLACIUS_FROZEN = MOB_EFFECTS.register("glacius_frozen",
+            () -> new net.minecraft.world.effect.MobEffect(net.minecraft.world.effect.MobEffectCategory.HARMFUL, 0x88FFFF) {});
+
     public static final RegistryObject<Block> WAND_WORKBENCH = BLOCKS.register("wand_workbench",
             () -> new com.hogwartsmagic.block.WandWorkbenchBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.SMITHING_TABLE)));
 

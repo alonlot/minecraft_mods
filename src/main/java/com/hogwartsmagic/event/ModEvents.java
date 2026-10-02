@@ -17,6 +17,7 @@ import com.hogwartsmagic.polyjuice.PolyjuiceData;
 import com.hogwartsmagic.entity.SpellBeamEntity;
 import com.hogwartsmagic.entity.OwlEntity;
 import com.hogwartsmagic.spell.IncarcerousChainAnimation;
+import com.hogwartsmagic.spell.SpellCosts;
 import com.hogwartsmagic.spell.SpellType;
 import com.hogwartsmagic.sorting.HousePerks;
 import com.hogwartsmagic.util.PlayerMagicData;
@@ -1059,7 +1060,7 @@ public class ModEvents {
 
         float maxMana = PlayerMagicData.getMaxMana(player);
         float currentMana = modData.contains("Mana") ? modData.getFloat("Mana") : maxMana;
-        float upkeepCost = getProtegoMaximaUpkeepCost(wand);
+        float upkeepCost = getProtegoMaximaUpkeepCost(player, wand);
         long gameTime = player.level().getGameTime();
         long lastDrain = player.getPersistentData().getLong(TAG_PROTEGO_MAXIMA_LAST_DRAIN);
         long lastSeen = player.getPersistentData().getLong(TAG_PROTEGO_MAXIMA_LAST_SEEN);
@@ -1126,15 +1127,13 @@ public class ModEvents {
         if (!player.isCreative() && MagicWandItem.isAnyWand(wand)) {
             SpellType spell = SpellType.PROTEGO_MAXIMA;
             long now = player.level().getGameTime();
-            long cooldownTicks = Math.max(1L, Math.round(
-                    spell.getCooldownTicks() * HousePerks.getCooldownMultiplier(player) * MagicWandItem.getCooldownMultiplier(wand)
-            ));
-            MagicWandItem.setSpellCooldown(wand, spell, now + cooldownTicks);
+            SpellCosts.startCooldown(player, wand, spell, now);
         }
     }
 
-    private static float getProtegoMaximaUpkeepCost(ItemStack wand) {
-        return Math.max(0.75f, (SpellType.PROTEGO_MAXIMA.getManaCost() * MagicWandItem.getManaCostMultiplier(wand)) / 24.0f);
+    private static float getProtegoMaximaUpkeepCost(Player player, ItemStack wand) {
+        return Math.max(0.75f, (SpellType.PROTEGO_MAXIMA.getManaCost() * MagicWandItem.getManaCostMultiplier(wand)
+                * SpellCosts.masteryMultiplier(player, SpellType.PROTEGO_MAXIMA)) / 24.0f);
     }
 
     /**
@@ -1196,7 +1195,7 @@ public class ModEvents {
 
         float maxMana = PlayerMagicData.getMaxMana(player);
         float currentMana = modData.contains("Mana") ? modData.getFloat("Mana") : maxMana;
-        float upkeepCost = getPatronusShieldUpkeepCost(wand) + (heldOff * PATRONUS_SHIELD_PER_DEMENTOR_COST);
+        float upkeepCost = getPatronusShieldUpkeepCost(player, wand) + (heldOff * PATRONUS_SHIELD_PER_DEMENTOR_COST);
         long lastDrain = player.getPersistentData().getLong(TAG_PATRONUS_SHIELD_LAST_DRAIN);
 
         if (!player.isCreative() && gameTime - lastDrain >= PATRONUS_SHIELD_UPKEEP_INTERVAL) {
@@ -1339,15 +1338,13 @@ public class ModEvents {
             // The shield is the weaker half of the charm and is already mana-gated, so it comes
             // back far sooner than a full corporeal Patronus does.
             SpellType spell = SpellType.EXPECTO_PATRONUM;
-            long cooldownTicks = Math.max(1L, Math.round(
-                    (spell.getCooldownTicks() / 4.0D) * HousePerks.getCooldownMultiplier(player) * MagicWandItem.getCooldownMultiplier(wand)
-            ));
-            MagicWandItem.setSpellCooldown(wand, spell, player.level().getGameTime() + cooldownTicks);
+            SpellCosts.startCooldown(player, wand, spell, player.level().getGameTime(), spell.getCooldownTicks() / 4.0D);
         }
     }
 
-    public static float getPatronusShieldUpkeepCost(ItemStack wand) {
-        return Math.max(1.5f, (SpellType.EXPECTO_PATRONUM.getManaCost() * MagicWandItem.getManaCostMultiplier(wand)) / 30.0f);
+    public static float getPatronusShieldUpkeepCost(Player player, ItemStack wand) {
+        return Math.max(1.5f, (SpellType.EXPECTO_PATRONUM.getManaCost() * MagicWandItem.getManaCostMultiplier(wand)
+                * SpellCosts.masteryMultiplier(player, SpellType.EXPECTO_PATRONUM)) / 30.0f);
     }
 
     private static void tickFiendfyreChannel(ServerPlayer player, net.minecraft.nbt.CompoundTag modData) {
@@ -1382,7 +1379,7 @@ public class ModEvents {
 
         float maxMana = PlayerMagicData.getMaxMana(player);
         float currentMana = modData.contains("Mana") ? modData.getFloat("Mana") : maxMana;
-        float upkeepCost = getFiendfyreUpkeepCost(wand);
+        float upkeepCost = getFiendfyreUpkeepCost(player, wand);
         long lastDrain = player.getPersistentData().getLong(TAG_FIENDFYRE_LAST_DRAIN);
 
         if (!player.isCreative() && gameTime - lastDrain >= FIENDFYRE_UPKEEP_INTERVAL) {
@@ -1435,7 +1432,7 @@ public class ModEvents {
 
         float maxMana = PlayerMagicData.getMaxMana(player);
         float currentMana = modData.contains("Mana") ? modData.getFloat("Mana") : maxMana;
-        float upkeepCost = getImperioUpkeepCost(wand);
+        float upkeepCost = getImperioUpkeepCost(player, wand);
         long lastDrain = player.getPersistentData().getLong(TAG_IMPERIO_LAST_DRAIN);
         if (!player.isCreative() && gameTime - lastDrain >= IMPERIO_UPKEEP_INTERVAL) {
             if (currentMana < upkeepCost) {
@@ -1503,7 +1500,7 @@ public class ModEvents {
 
         float maxMana = PlayerMagicData.getMaxMana(player);
         float currentMana = modData.contains("Mana") ? modData.getFloat("Mana") : maxMana;
-        float upkeepCost = getWingardiumUpkeepCost(wand);
+        float upkeepCost = getWingardiumUpkeepCost(player, wand);
         long lastDrain = player.getPersistentData().getLong(TAG_WINGARDIUM_LAST_DRAIN);
         if (!player.isCreative() && gameTime - lastDrain >= WINGARDIUM_UPKEEP_INTERVAL) {
             if (currentMana < upkeepCost) {
@@ -1548,19 +1545,17 @@ public class ModEvents {
         if (!player.isCreative() && MagicWandItem.isAnyWand(wand)) {
             SpellType spell = SpellType.WINGARDIUM_LEVIOSA;
             long now = player.level().getGameTime();
-            long cooldownTicks = Math.max(1L, Math.round(
-                    spell.getCooldownTicks() * HousePerks.getCooldownMultiplier(player) * MagicWandItem.getCooldownMultiplier(wand)
-            ));
-            MagicWandItem.setSpellCooldown(wand, spell, now + cooldownTicks);
+            SpellCosts.startCooldown(player, wand, spell, now);
         }
     }
 
-    public static float getWingardiumStartCost(ItemStack wand) {
-        return Math.max(1.0f, SpellType.WINGARDIUM_LEVIOSA.getManaCost() * MagicWandItem.getManaCostMultiplier(wand));
+    public static float getWingardiumStartCost(Player player, ItemStack wand) {
+        return Math.max(1.0f, SpellType.WINGARDIUM_LEVIOSA.getManaCost() * MagicWandItem.getManaCostMultiplier(wand)
+                * SpellCosts.masteryMultiplier(player, SpellType.WINGARDIUM_LEVIOSA));
     }
 
-    public static float getWingardiumUpkeepCost(ItemStack wand) {
-        return Math.max(0.5f, getWingardiumStartCost(wand) / 12.0f);
+    public static float getWingardiumUpkeepCost(Player player, ItemStack wand) {
+        return Math.max(0.5f, getWingardiumStartCost(player, wand) / 12.0f);
     }
 
     public static void markRecentWingardiumTarget(ServerPlayer player, Entity target) {
@@ -1650,10 +1645,7 @@ public class ModEvents {
         if (!player.isCreative() && MagicWandItem.isAnyWand(wand)) {
             SpellType spell = SpellType.IMPERIO;
             long now = player.level().getGameTime();
-            long cooldownTicks = Math.max(1L, Math.round(
-                    spell.getCooldownTicks() * HousePerks.getCooldownMultiplier(player) * MagicWandItem.getCooldownMultiplier(wand)
-            ));
-            MagicWandItem.setSpellCooldown(wand, spell, now + cooldownTicks);
+            SpellCosts.startCooldown(player, wand, spell, now);
         }
     }
 
@@ -1823,12 +1815,13 @@ public class ModEvents {
         return best;
     }
 
-    public static float getImperioStartCost(ItemStack wand) {
-        return getImperioUpkeepCost(wand);
+    public static float getImperioStartCost(Player player, ItemStack wand) {
+        return getImperioUpkeepCost(player, wand);
     }
 
-    private static float getImperioUpkeepCost(ItemStack wand) {
-        return Math.max(0.75f, (SpellType.IMPERIO.getManaCost() * MagicWandItem.getManaCostMultiplier(wand)) / 18.0f);
+    private static float getImperioUpkeepCost(Player player, ItemStack wand) {
+        return Math.max(0.75f, (SpellType.IMPERIO.getManaCost() * MagicWandItem.getManaCostMultiplier(wand)
+                * SpellCosts.masteryMultiplier(player, SpellType.IMPERIO)) / 18.0f);
     }
 
     private static com.hogwartsmagic.entity.FiendfyreSerpentEntity getOrCreateFiendfyreEntity(ServerPlayer player, ServerLevel level) {
@@ -1862,15 +1855,13 @@ public class ModEvents {
         if (!player.isCreative() && MagicWandItem.isAnyWand(wand)) {
             SpellType spell = SpellType.FIENDFYRE;
             long now = player.level().getGameTime();
-            long cooldownTicks = Math.max(1L, Math.round(
-                    spell.getCooldownTicks() * HousePerks.getCooldownMultiplier(player) * MagicWandItem.getCooldownMultiplier(wand)
-            ));
-            MagicWandItem.setSpellCooldown(wand, spell, now + cooldownTicks);
+            SpellCosts.startCooldown(player, wand, spell, now);
         }
     }
 
-    private static float getFiendfyreUpkeepCost(ItemStack wand) {
-        return Math.max(1.25f, (SpellType.FIENDFYRE.getManaCost() * MagicWandItem.getManaCostMultiplier(wand)) / 14.0f);
+    private static float getFiendfyreUpkeepCost(Player player, ItemStack wand) {
+        return Math.max(1.25f, (SpellType.FIENDFYRE.getManaCost() * MagicWandItem.getManaCostMultiplier(wand)
+                * SpellCosts.masteryMultiplier(player, SpellType.FIENDFYRE)) / 14.0f);
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -2098,9 +2089,7 @@ public class ModEvents {
     private static void applyApparitionCooldown(ServerPlayer player, ItemStack wand) {
         if (!player.isCreative() && MagicWandItem.isAnyWand(wand)) {
             long now = player.level().getGameTime();
-            long cooldownTicks = Math.max(1L, Math.round(SpellType.APPARITION.getCooldownTicks()
-                    * HousePerks.getCooldownMultiplier(player) * MagicWandItem.getCooldownMultiplier(wand)));
-            MagicWandItem.setSpellCooldown(wand, SpellType.APPARITION, now + cooldownTicks);
+            SpellCosts.startCooldown(player, wand, SpellType.APPARITION, now);
         }
     }
 
@@ -4014,7 +4003,7 @@ public class ModEvents {
                 if (selected != null) {
                     net.minecraft.nbt.CompoundTag modData = player.getPersistentData().getCompound("PlayerPersisted").getCompound(ExampleMod.MODID);
                     float currentMana = modData.contains("Mana") ? modData.getFloat("Mana") : Config.getBaseMaxMana();
-                    int requiredMana = Math.max(1, Math.round(selected.getManaCost() * MagicWandItem.getManaCostMultiplier(heldItem)));
+                    int requiredMana = SpellCosts.manaCost(player, heldItem, selected);
                     if (!player.isCreative() && currentMana < requiredMana) {
                         player.displayClientMessage(net.minecraft.network.chat.Component.literal("Not enough mana!").withStyle(net.minecraft.ChatFormatting.RED), true);
                         return true;

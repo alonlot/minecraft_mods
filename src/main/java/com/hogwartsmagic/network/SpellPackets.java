@@ -8,6 +8,7 @@ import com.hogwartsmagic.entity.FiendfyreSerpentEntity;
 import com.hogwartsmagic.entity.ModEntities;
 import com.hogwartsmagic.entity.SpellBeamEntity;
 import com.hogwartsmagic.item.MagicWandItem;
+import com.hogwartsmagic.spell.SpellCosts;
 import com.hogwartsmagic.spell.SpellType;
 import com.hogwartsmagic.sorting.HogwartsHouse;
 import com.hogwartsmagic.sorting.HousePerks;
@@ -635,7 +636,7 @@ public class SpellPackets {
                     playerData.putLong(TAG_PROTEGO_MAXIMA_LAST_SEEN, now);
                     return;
                 }
-                float upkeepCost = getProtegoMaximaUpkeepCost(wand);
+                float upkeepCost = getProtegoMaximaUpkeepCost(player, wand);
                 net.minecraft.nbt.CompoundTag modData = playerData.getCompound("PlayerPersisted").getCompound(ExampleMod.MODID);
                 float currentMana = modData.contains("Mana") ? modData.getFloat("Mana") : PlayerMagicData.getMaxMana(player);
                 if (!creative && currentMana < upkeepCost) {
@@ -660,7 +661,7 @@ public class SpellPackets {
                 net.minecraft.nbt.CompoundTag modData = playerData.getCompound("PlayerPersisted").getCompound(ExampleMod.MODID);
                 float maxMana = PlayerMagicData.getMaxMana(player);
                 float currentMana = modData.contains("Mana") ? modData.getFloat("Mana") : maxMana;
-                float startupCost = getFiendfyreStartupCost(wand);
+                float startupCost = getFiendfyreStartupCost(player, wand);
 
                 if (playerData.getBoolean(TAG_FIENDFYRE_CHANNELING)) {
                     playerData.putLong(TAG_FIENDFYRE_LAST_SEEN, now);
@@ -709,7 +710,7 @@ public class SpellPackets {
                     return;
                 }
 
-                float startupCost = com.hogwartsmagic.event.ModEvents.getWingardiumStartCost(wand);
+                float startupCost = com.hogwartsmagic.event.ModEvents.getWingardiumStartCost(player, wand);
                 if (!creative && currentMana < startupCost) {
                     player.displayClientMessage(net.minecraft.network.chat.Component.literal("Not enough mana!").withStyle(net.minecraft.ChatFormatting.RED), true);
                     return;
@@ -751,7 +752,7 @@ public class SpellPackets {
                 float currentMana = modData.contains("Mana") ? modData.getFloat("Mana") : maxMana;
 
                 if (player.getRandom().nextFloat() < CORPOREAL_PATRONUS_CHANCE) {
-                    int fullCost = Math.max(1, Math.round(spell.getManaCost() * MagicWandItem.getManaCostMultiplier(wand)));
+                    int fullCost = SpellCosts.manaCost(player, wand, spell);
                     if (!creative && currentMana < fullCost) {
                         player.displayClientMessage(net.minecraft.network.chat.Component.literal("Not enough mana!").withStyle(net.minecraft.ChatFormatting.RED), true);
                         return;
@@ -766,15 +767,12 @@ public class SpellPackets {
                     playerData.putLong(TAG_PATRONUS_CAST_SPENT, now);
                     summonCorporealPatronus(player);
                     if (!creative) {
-                        long stagCooldown = Math.max(1L, Math.round(
-                                spell.getCooldownTicks() * HousePerks.getCooldownMultiplier(player) * MagicWandItem.getCooldownMultiplier(wand)
-                        ));
-                        MagicWandItem.setSpellCooldown(wand, spell, now + stagCooldown);
+                        SpellCosts.startCooldown(player, wand, spell, now);
                     }
                     return;
                 }
 
-                float upkeepCost = com.hogwartsmagic.event.ModEvents.getPatronusShieldUpkeepCost(wand);
+                float upkeepCost = com.hogwartsmagic.event.ModEvents.getPatronusShieldUpkeepCost(player, wand);
                 if (!creative && currentMana < upkeepCost) {
                     player.displayClientMessage(net.minecraft.network.chat.Component.literal("Not enough mana!").withStyle(net.minecraft.ChatFormatting.RED), true);
                     return;
@@ -789,7 +787,7 @@ public class SpellPackets {
             // Mana Check
             net.minecraft.nbt.CompoundTag modData = playerData.getCompound("PlayerPersisted").getCompound(ExampleMod.MODID);
             float currentMana = modData.contains("Mana") ? modData.getFloat("Mana") : PlayerMagicData.getMaxMana(player);
-            int cost = Math.max(1, Math.round(spell.getManaCost() * MagicWandItem.getManaCostMultiplier(wand)));
+            int cost = SpellCosts.manaCost(player, wand, spell);
 
             if (!creative && currentMana < cost) {
                 player.displayClientMessage(net.minecraft.network.chat.Component.literal("Not enough mana!").withStyle(net.minecraft.ChatFormatting.RED), true);
@@ -812,9 +810,7 @@ public class SpellPackets {
                 MagicWandItem.rollManaRefund(player, wand, cost);
             }
 
-            long cooldownTicks = Math.max(1L, Math.round(
-                    spell.getCooldownTicks() * HousePerks.getCooldownMultiplier(player) * MagicWandItem.getCooldownMultiplier(wand)
-            ));
+            long cooldownTicks = SpellCosts.cooldownTicks(player, wand, spell);
 
             if (p.selfCastProtego) {
                 spell.applyHitEffect(player, player);
@@ -906,8 +902,9 @@ public class SpellPackets {
             }
         }
 
-        private static float getProtegoMaximaUpkeepCost(ItemStack wand) {
-            return Math.max(0.75f, (SpellType.PROTEGO_MAXIMA.getManaCost() * MagicWandItem.getManaCostMultiplier(wand)) / 24.0f);
+        private static float getProtegoMaximaUpkeepCost(ServerPlayer player, ItemStack wand) {
+            return Math.max(0.75f, (SpellType.PROTEGO_MAXIMA.getManaCost() * MagicWandItem.getManaCostMultiplier(wand)
+                    * SpellCosts.masteryMultiplier(player, SpellType.PROTEGO_MAXIMA)) / 24.0f);
         }
 
         private static Entity findAimedLivingTarget(ServerPlayer player, double range) {
@@ -972,8 +969,9 @@ public class SpellPackets {
                     SpellType.EXPECTO_PATRONUM.getSoundEvent(), SoundSource.PLAYERS, 1.0f, 1.22f);
         }
 
-        private static float getFiendfyreStartupCost(ItemStack wand) {
-            return Math.max(3.0f, SpellType.FIENDFYRE.getManaCost() * MagicWandItem.getManaCostMultiplier(wand) * 0.16f);
+        private static float getFiendfyreStartupCost(ServerPlayer player, ItemStack wand) {
+            return Math.max(3.0f, SpellType.FIENDFYRE.getManaCost() * MagicWandItem.getManaCostMultiplier(wand)
+                    * SpellCosts.masteryMultiplier(player, SpellType.FIENDFYRE) * 0.16f);
         }
 
         private static void ensureFiendfyreExists(ServerPlayer player) {
@@ -1009,10 +1007,7 @@ public class SpellPackets {
 
             if (!creative && MagicWandItem.isAnyWand(wand)) {
                 SpellType spell = SpellType.FIENDFYRE;
-                long cooldownTicks = Math.max(1L, Math.round(
-                        spell.getCooldownTicks() * HousePerks.getCooldownMultiplier(player) * MagicWandItem.getCooldownMultiplier(wand)
-                ));
-                MagicWandItem.setSpellCooldown(wand, spell, now + cooldownTicks);
+                SpellCosts.startCooldown(player, wand, spell, now);
             }
         }
 
@@ -1028,10 +1023,7 @@ public class SpellPackets {
 
             if (!creative && MagicWandItem.isAnyWand(wand)) {
                 SpellType spell = SpellType.PROTEGO_MAXIMA;
-                long cooldownTicks = Math.max(1L, Math.round(
-                        spell.getCooldownTicks() * HousePerks.getCooldownMultiplier(player) * MagicWandItem.getCooldownMultiplier(wand)
-                ));
-                MagicWandItem.setSpellCooldown(wand, spell, now + cooldownTicks);
+                SpellCosts.startCooldown(player, wand, spell, now);
             }
         }
     }
@@ -1088,7 +1080,7 @@ public class SpellPackets {
             net.minecraft.nbt.CompoundTag modData = playerData.getCompound("PlayerPersisted").getCompound(ExampleMod.MODID);
             float maxMana = PlayerMagicData.getMaxMana(player);
             float currentMana = modData.contains("Mana") ? modData.getFloat("Mana") : maxMana;
-            float upkeepCost = com.hogwartsmagic.event.ModEvents.getImperioStartCost(wand);
+            float upkeepCost = com.hogwartsmagic.event.ModEvents.getImperioStartCost(player, wand);
 
             if (!creative && currentMana < upkeepCost) {
                 player.displayClientMessage(net.minecraft.network.chat.Component.literal("Not enough mana!").withStyle(net.minecraft.ChatFormatting.RED), true);

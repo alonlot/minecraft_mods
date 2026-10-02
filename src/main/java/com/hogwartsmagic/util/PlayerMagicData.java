@@ -94,7 +94,8 @@ public final class PlayerMagicData {
     public static float getMaxMana(Player player) {
         return Config.getBaseMaxMana()
                 + HousePerks.getMaxManaBonus(player)
-                + getRelicMaxManaBonus(player);
+                + getRelicMaxManaBonus(player)
+                + com.hogwartsmagic.spell.mastery.SpellMasteryData.getMaxManaBonus(player);
     }
 
     public static float getManaRegenMultiplier(Player player) {

@@ -108,7 +108,7 @@ public final class ModEventsClientHooks {
 
         net.minecraft.nbt.CompoundTag modData = player.getPersistentData().getCompound("PlayerPersisted").getCompound(ExampleMod.MODID);
         float currentMana = modData.contains("Mana") ? modData.getFloat("Mana") : Config.getBaseMaxMana();
-        int requiredMana = Math.max(1, Math.round(selected.getManaCost() * MagicWandItem.getManaCostMultiplier(wand)));
+        int requiredMana = com.hogwartsmagic.spell.SpellCosts.manaCost(player, wand, selected);
         if (!player.isCreative() && currentMana < requiredMana) {
             player.displayClientMessage(Component.literal("Not enough mana!").withStyle(net.minecraft.ChatFormatting.RED), true);
             return true;

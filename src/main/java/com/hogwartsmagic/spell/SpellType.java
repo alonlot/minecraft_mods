@@ -330,11 +330,7 @@ public enum SpellType {
                         .normalize().scale(-1.5); // Negative scale for push away, strong force
                 target.push(away.x, 0.5, away.z);
             }
-            case LEVICORPUS -> {
-                target.addEffect(new MobEffectInstance(MobEffects.LEVITATION, 100, 1, false, false, false));
-                target.addEffect(new MobEffectInstance(ExampleMod.LEVICORPUS_EFFECT.getHolder().get(), 100, 0, false, false, false));
-                target.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 100, 2));
-            }
+            case LEVICORPUS -> com.hogwartsmagic.spell.disable.LevicorpusSpell.apply(target, caster);
             case DIFFINDO -> {
                 target.hurt(target.damageSources().magic(), scaledSpellDamage(caster, 15.0f)); // High sharp damage
             }

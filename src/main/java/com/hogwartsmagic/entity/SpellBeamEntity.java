@@ -716,7 +716,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
                                living.hurt(this.damageSources().magic(), chipDamage);
                             }
 
-                            spell.applyHitEffect(living, getOwner());
+                            spell.applyHitEffect(living, getOwner(), this.getDeltaMovement());
                             if (spell == SpellType.WINGARDIUM_LEVIOSA && getOwner() instanceof ServerPlayer caster) {
                                 com.hogwartsmagic.event.ModEvents.markRecentWingardiumTarget(caster, living);
                             }

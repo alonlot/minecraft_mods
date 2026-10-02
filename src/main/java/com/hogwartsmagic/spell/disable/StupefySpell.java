@@ -25,15 +25,24 @@ public final class StupefySpell {
     }
 
     public static void apply(LivingEntity target, @Nullable Entity caster) {
+        apply(target, caster, null);
+    }
+
+    /** @param beamDir the beam's travel direction at impact; knockback follows it, else the caster's position */
+    public static void apply(LivingEntity target, @Nullable Entity caster, @Nullable Vec3 beamDir) {
         if (!(target.level() instanceof ServerLevel level)) {
             return;
         }
         int rank = DisableSupport.casterRank(caster, SpellType.STUPEFY);
         DisableSupport.interrupt(target);
-        CrowdControl.apply(target, DisableSupport.holder(ExampleMod.STUNNED), StupefyRules.stunTicks(rank), caster);
+        int applied = CrowdControl.apply(target, DisableSupport.holder(ExampleMod.STUNNED), StupefyRules.stunTicks(rank), caster);
         double knockback = StupefyRules.knockback(rank);
-        if (knockback > 0.0 && caster != null) {
-            target.knockback(knockback, caster.getX() - target.getX(), caster.getZ() - target.getZ());
+        if (applied > 0 && knockback > 0.0) {
+            if (beamDir != null && beamDir.x * beamDir.x + beamDir.z * beamDir.z > 1.0e-8) {
+                target.knockback(knockback, -beamDir.x, -beamDir.z);
+            } else if (caster != null) {
+                target.knockback(knockback, caster.getX() - target.getX(), caster.getZ() - target.getZ());
+            }
             target.hurtMarked = true;
         }
         if (StupefyRules.chains(rank)) {

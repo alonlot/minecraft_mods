@@ -146,6 +146,11 @@ public enum SpellType {
     }
 
     public void applyHitEffect(LivingEntity target, Entity caster) {
+        applyHitEffect(target, caster, null);
+    }
+
+    /** @param beamDir the beam's travel direction at impact (used by Stupefy knockback), or null */
+    public void applyHitEffect(LivingEntity target, Entity caster, @javax.annotation.Nullable net.minecraft.world.phys.Vec3 beamDir) {
         switch (this) {
             case EXPELLIARMUS -> {
                 if (!target.getMainHandItem().isEmpty()) {
@@ -219,7 +224,7 @@ public enum SpellType {
                     target.setTicksFrozen(Math.max(0, target.getTicksFrozen() - 80));
                 }
             }
-            case STUPEFY -> com.hogwartsmagic.spell.disable.StupefySpell.apply(target, caster);
+            case STUPEFY -> com.hogwartsmagic.spell.disable.StupefySpell.apply(target, caster, beamDir);
             case REVELIO -> {
                 // Revelio logic handled in SpellBeamEntity for blocks, 
                 // but let's reveal invisible mobs here.

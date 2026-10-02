@@ -130,6 +130,10 @@ public final class DiffindoSpell {
             if (!TerrainRules.canBreak(level, pos, state, caster)) {
                 continue;
             }
+            if (state.is(net.minecraft.world.level.block.Blocks.TRIPWIRE)) {
+                // As real shears do: disarm first so cutting the line does not spring the trap.
+                level.setBlock(pos, state.setValue(net.minecraft.world.level.block.TripWireBlock.DISARMED, true), 4);
+            }
             Block.dropResources(state, level, pos, null, responsible, shears);
             level.levelEvent(2001, pos, Block.getId(state));
             level.removeBlock(pos, false);

@@ -171,6 +171,9 @@ public class SpellBeamEntity extends ThrowableProjectile {
         if (!this.level().isClientSide) {
         updateTrackedSpellHoming();
         }
+        if (!this.level().isClientSide && getSpellType() == SpellType.DIFFINDO && tryCutNonCollisionBlock()) {
+            return;
+        }
         super.tick();
 
         if (this.highestYReached == Double.NEGATIVE_INFINITY) {
@@ -483,6 +486,33 @@ public class SpellBeamEntity extends ThrowableProjectile {
         return (dx * dx) + (dy * dy) + (dz * dz) >= AQUA_ERUCTO_MAX_RANGE_SQR;
     }
 
+    /**
+     * Vanilla projectile hit detection only sees collision shapes, so grass, vines, webs, tripwire and
+     * lichen would let a Diffindo beam pass straight through. Clip this tick's path against block
+     * outlines and, when it first meets a cuttable block with no entity closer, resolve it as a block hit.
+     */
+    private boolean tryCutNonCollisionBlock() {
+        Vec3 from = this.position();
+        Vec3 to = from.add(this.getDeltaMovement());
+        BlockHitResult clip = this.level().clip(new net.minecraft.world.level.ClipContext(from, to,
+                net.minecraft.world.level.ClipContext.Block.OUTLINE,
+                net.minecraft.world.level.ClipContext.Fluid.NONE, this));
+        if (clip.getType() != HitResult.Type.BLOCK
+                || !this.level().getBlockState(clip.getBlockPos())
+                        .is(com.hogwartsmagic.spell.damage.DamageSupport.DIFFINDO_CUTTABLE)) {
+            return false;
+        }
+        EntityHitResult entityHit = net.minecraft.world.entity.projectile.ProjectileUtil.getEntityHitResult(
+                this.level(), this, from, clip.getLocation(),
+                this.getBoundingBox().expandTowards(this.getDeltaMovement()).inflate(1.0), this::canHitEntity);
+        if (entityHit != null) {
+            return false; // an entity is closer than the block: the normal path hits it
+        }
+        this.setPos(clip.getLocation());
+        this.onHit(clip);
+        return true;
+    }
+
     @Override
     protected void onHit(HitResult result) {
         super.onHit(result);
@@ -718,7 +748,10 @@ public class SpellBeamEntity extends ThrowableProjectile {
 
                             // Apply nominal magic damage FIRST to trigger standard HURT events for physical shield shattering algorithms if needed
                             // AVADA deals max damage so it doesn't need nominal damage
-                            if (spell != SpellType.HEAL && spell != SpellType.AVADA_KEDAVRA && spell != SpellType.PROTEGO) {
+                            boolean shearableSheep = spell == SpellType.DIFFINDO
+                                    && living instanceof net.minecraft.world.entity.animal.Sheep woolly && woolly.readyForShearing();
+                            if (spell != SpellType.HEAL && spell != SpellType.AVADA_KEDAVRA && spell != SpellType.PROTEGO
+                                    && !shearableSheep) {
                                float chipDamage = 0.1f * HousePerks.getSpellDamageMultiplier(getOwner());
                                living.hurt(this.damageSources().magic(), chipDamage);
                             }

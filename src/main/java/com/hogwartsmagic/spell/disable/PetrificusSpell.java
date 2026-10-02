@@ -64,8 +64,15 @@ public final class PetrificusSpell {
             return;
         }
         event.setAmount(event.getAmount() * PetrificusRules.shatterMultiplier(rank));
+        // Read both durations before removing anything. Petrificus owns the stun only if it is not
+        // outlasting the marker (a longer Stupefy stun refreshes the same STUNNED instance and stays).
+        Holder<MobEffect> stunned = DisableSupport.holder(ExampleMod.STUNNED);
+        MobEffectInstance stun = target.getEffect(stunned);
+        boolean ownsStun = stun != null && stun.getDuration() <= instance.getDuration() + 1;
         target.removeEffect(petrified);
-        target.removeEffect(DisableSupport.holder(ExampleMod.STUNNED));
+        if (ownsStun) {
+            target.removeEffect(stunned);
+        }
         level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, Blocks.STONE.defaultBlockState()),
                 target.getX(), target.getY() + target.getBbHeight() * 0.5, target.getZ(), 24,
                 target.getBbWidth() * 0.4, target.getBbHeight() * 0.3, target.getBbWidth() * 0.4, 0.1);

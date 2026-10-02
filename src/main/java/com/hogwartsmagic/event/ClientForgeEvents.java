@@ -93,17 +93,29 @@ public class ClientForgeEvents {
 
         if (isToppled(entity)) {
             long now = entity.level().getGameTime();
-            long start = TOPPLE_START.computeIfAbsent(entity, e -> now);
+            net.minecraft.world.effect.MobEffectInstance marker = entity.getEffect(ExampleMod.PETRIFIED.getHolder().get());
+            Long recorded = TOPPLE_START.get(entity);
+            // An entry older than the whole lock is left over from an earlier topple that ended off-screen.
+            long maxAge = marker == null ? 0L : marker.getDuration() + 400L;
+            if (recorded == null || now < recorded || now - recorded > maxAge) {
+                recorded = now;
+                TOPPLE_START.put(entity, recorded);
+            }
+            long start = recorded;
             float progress = Math.min(1.0F, (now - start + event.getPartialTick()) / TOPPLE_TICKS);
             float yaw = net.minecraft.util.Mth.rotLerp(event.getPartialTick(), entity.yBodyRotO, entity.yBodyRot)
                     * net.minecraft.util.Mth.DEG_TO_RAD;
             com.mojang.blaze3d.vertex.PoseStack pose = event.getPoseStack();
             pose.pushPose();
-            // Lift by half the body depth so the back doesn't sink into the floor, then tip backwards
-            // about the body's own left-right axis (cos yaw, 0, sin yaw). 90 degrees lies it flat.
-            pose.translate(0.0D, entity.getBbWidth() * 0.5D * progress, 0.0D);
+            // Pivot at mid-height so the body stays centred on the entity (and inside its hitbox), tip
+            // backwards about the body's own left-right axis (cos yaw, 0, sin yaw), then drop/lift so the
+            // body's back rests on the floor: the pivot ends half a body depth above the ground.
+            double half = entity.getBbHeight() * 0.5D;
+            pose.translate(0.0D, (entity.getBbWidth() * 0.5D - half) * progress, 0.0D);
+            pose.translate(0.0D, half, 0.0D);
             pose.mulPose(new org.joml.Quaternionf().rotateAxis(-net.minecraft.util.Mth.HALF_PI * progress,
                     net.minecraft.util.Mth.cos(yaw), 0.0F, net.minecraft.util.Mth.sin(yaw)));
+            pose.translate(0.0D, -half, 0.0D);
         } else {
             TOPPLE_START.remove(entity);
         }

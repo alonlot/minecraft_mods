@@ -13,6 +13,7 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
+import net.minecraftforge.event.entity.living.MobEffectEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -23,7 +24,8 @@ import javax.annotation.Nullable;
  * Dolohov's Curse: a lasting wound. Phase 2's cursed_wound lowers max health (2/3/4/5 hearts for
  * 30/45/60/90s by rank) and milk can't lift it. At Master the victim carries a mark; if it dies while
  * still cursed, the curse leaps to the caster's enemies within 3 blocks for half the hearts (rounded
- * up) and half the time. Spread curses carry no mark, so they never chain.
+ * up) and half the time. Spread curses carry no mark, so they never chain; the mark is also dropped
+ * whenever the wound is removed or expires early, so a stale mark cannot outlive the curse.
  */
 @Mod.EventBusSubscriber(modid = ExampleMod.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class DolohovSpell {
@@ -58,6 +60,25 @@ public final class DolohovSpell {
     }
 
     @SubscribeEvent(priority = EventPriority.LOWEST)
+    public static void onWoundRemoved(MobEffectEvent.Remove event) {
+        if (event.isCanceled()) {
+            return;
+        }
+        if (event.getEffect() == ExampleMod.CURSED_WOUND.get() && !event.getEntity().level().isClientSide()) {
+            event.getEntity().getPersistentData().remove(MASTER_MARK_TAG);
+        }
+    }
+
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public static void onWoundExpired(MobEffectEvent.Expired event) {
+        MobEffectInstance instance = event.getEffectInstance();
+        if (instance != null && instance.getEffect().value() == ExampleMod.CURSED_WOUND.get()
+                && !event.getEntity().level().isClientSide()) {
+            event.getEntity().getPersistentData().remove(MASTER_MARK_TAG);
+        }
+    }
+
+    @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onLivingDeath(LivingDeathEvent event) {
         if (event.isCanceled()) {
             return;
@@ -81,7 +102,7 @@ public final class DolohovSpell {
             return;
         }
         Entity caster = mark.hasUUID("By") ? level.getEntity(mark.getUUID("By")) : null;
-        int hearts = DolohovRules.spreadHearts(wound.getAmplifier() + 1);
+        int hearts = DolohovRules.spreadHearts(DolohovRules.hearts(4));
         int ticks = DolohovRules.spreadTicks(DolohovRules.ticks(4));
         double radius = DolohovRules.SPREAD_RADIUS;
         for (LivingEntity nearby : level.getEntitiesOfClass(LivingEntity.class, dead.getBoundingBox().inflate(radius),

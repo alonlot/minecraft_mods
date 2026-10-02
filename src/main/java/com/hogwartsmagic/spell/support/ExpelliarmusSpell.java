@@ -46,7 +46,8 @@ public final class ExpelliarmusSpell {
         Entity owner = CombatEffects.responsible(caster);
         int silenceTicks = ExpelliarmusRules.silenceTicks(rank);
         ServerPlayer winner = masteryEligible && owner instanceof ServerPlayer player && player != target
-                && ExpelliarmusRules.winsElderWand(rank) ? player : null;
+                && ExpelliarmusRules.winsElderWand(rank)
+                && mayClaimFrom(player, target) ? player : null;
 
         ItemStack held = target.getMainHandItem();
         if (!held.isEmpty()) {
@@ -84,6 +85,14 @@ public final class ExpelliarmusSpell {
         if (target instanceof Player || target instanceof DisarmableWandUser || target instanceof VoldemortEntity) {
             CombatEffects.applySilenced(target, silenceTicks, caster);
         }
+    }
+
+    /** A player target only yields allegiance where PvP is on and the teams allow the attacker to harm them. */
+    private static boolean mayClaimFrom(ServerPlayer winner, LivingEntity target) {
+        if (!(target instanceof ServerPlayer targetPlayer)) {
+            return true;
+        }
+        return winner.serverLevel().getServer().isPvpAllowed() && winner.canHarmPlayer(targetPlayer);
     }
 
     private static void claimElderWand(ServerPlayer winner, ItemStack wand, LivingEntity from) {

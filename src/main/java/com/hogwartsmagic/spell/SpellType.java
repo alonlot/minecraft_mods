@@ -152,29 +152,7 @@ public enum SpellType {
     /** @param beamDir the beam's travel direction at impact (used by Stupefy knockback), or null */
     public void applyHitEffect(LivingEntity target, Entity caster, @javax.annotation.Nullable net.minecraft.world.phys.Vec3 beamDir) {
         switch (this) {
-            case EXPELLIARMUS -> {
-                if (!target.getMainHandItem().isEmpty()) {
-                    target.spawnAtLocation(target.getMainHandItem().copy());
-                    target.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, net.minecraft.world.item.ItemStack.EMPTY);
-                }
-                // NPC wand-wielders enter a SEEKING_WAND state: their top-priority AI becomes
-                // running to and picking up the dropped wand. See RetrieveDroppedWandGoal.
-                if (target instanceof com.hogwartsmagic.entity.DisarmableWandUser disarmable) {
-                    disarmable.setDisarmed(true);
-                }
-                // A disarm during a formal duel decides it — win or lose.
-                if (!target.level().isClientSide) {
-                    com.hogwartsmagic.duel.DuelManager.onDisarmed(target);
-                }
-                // Knockback
-                if (caster != null) {
-                    target.knockback(0.5, caster.getX() - target.getX(), caster.getZ() - target.getZ());
-                }
-                // Disarmed effect (2-3 seconds) - Mining fatigue as a placeholder for "cannot hold items"
-                // but usually, we'd need a custom effect to truly prevent holding.
-                // For now, let's use weakness and slowness.
-                target.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 60, 1));
-            }
+            case EXPELLIARMUS -> com.hogwartsmagic.spell.support.ExpelliarmusSpell.apply(target, caster);
             case GLACIUS -> {
                 // Steam combo first: put out the fire, or it would thaw the freeze on the next tick.
                 if (target.isOnFire()) {

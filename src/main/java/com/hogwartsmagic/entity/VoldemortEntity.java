@@ -161,7 +161,10 @@ public class VoldemortEntity extends WizardEntity {
     @Override
     protected void dropCustomDeathLoot(ServerLevel serverLevel, net.minecraft.world.damagesource.DamageSource damageSource, boolean hitByPlayer) {
         super.dropCustomDeathLoot(serverLevel, damageSource, hitByPlayer);
-        this.spawnAtLocation(new ItemStack(ExampleMod.ELDER_WAND.get()));
+        // The Elder Wand already answers to whoever disarmed him at Master rank; they hold it.
+        if (!this.getPersistentData().getBoolean(com.hogwartsmagic.spell.support.ExpelliarmusSpell.ELDER_WAND_WON_TAG)) {
+            this.spawnAtLocation(new ItemStack(ExampleMod.ELDER_WAND.get()));
+        }
     }
 
     private void awardKillAdvancement(ServerLevel serverLevel, net.minecraft.world.damagesource.DamageSource damageSource) {

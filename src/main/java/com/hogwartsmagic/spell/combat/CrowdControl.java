@@ -27,26 +27,37 @@ public final class CrowdControl {
     private CrowdControl() {
     }
 
-    /** {@link #apply(LivingEntity, Holder, int, int, Entity)} at amplifier 0. */
+    /** {@link #apply(LivingEntity, Holder, int, int, Entity, boolean)} at amplifier 0, visible. */
     public static int apply(LivingEntity target, Holder<MobEffect> effect, int baseTicks, @Nullable Entity source) {
-        return apply(target, effect, baseTicks, 0, source);
+        return apply(target, effect, baseTicks, 0, source, true);
+    }
+
+    /** {@link #apply(LivingEntity, Holder, int, int, Entity, boolean)} visible. */
+    public static int apply(LivingEntity target, Holder<MobEffect> effect, int baseTicks, int amplifier, @Nullable Entity source) {
+        return apply(target, effect, baseTicks, amplifier, source, true);
     }
 
     /**
      * Apply a hard crowd-control effect for {@code baseTicks} scaled by the rules.
      *
+     * <p>For a hidden marker effect (no particles, no icon) that should still count against diminishing
+     * returns only when it lands, pass {@code visible = false} here rather than calling
+     * {@link #scaleDuration} and {@code addEffect} yourself.
+     *
      * @param source the caster (or its projectile/beam); decides the PvP rule
+     * @param visible whether the effect shows particles and an icon (false for hidden markers)
      * @return the ticks applied; 0 if nothing landed (diminishing returns, an immune target, a dead
      *         target, the client side, or a longer copy of the effect already running)
      */
-    public static int apply(LivingEntity target, Holder<MobEffect> effect, int baseTicks, int amplifier, @Nullable Entity source) {
+    public static int apply(LivingEntity target, Holder<MobEffect> effect, int baseTicks, int amplifier,
+                            @Nullable Entity source, boolean visible) {
         if (target.level().isClientSide() || !target.isAlive() || baseTicks <= 0) {
             return 0;
         }
         if (immuneByMode(target)) {
             return 0;
         }
-        MobEffectInstance probe = new MobEffectInstance(effect, baseTicks, Math.max(0, amplifier), false, true, true);
+        MobEffectInstance probe = new MobEffectInstance(effect, baseTicks, Math.max(0, amplifier), false, visible, visible);
         if (!target.canBeAffected(probe)) {
             return 0; // immune targets don't burn a diminishing-returns step
         }
@@ -55,7 +66,7 @@ public final class CrowdControl {
         if (ticks <= 0) {
             return 0;
         }
-        boolean added = target.addEffect(new MobEffectInstance(effect, ticks, Math.max(0, amplifier), false, true, true),
+        boolean added = target.addEffect(new MobEffectInstance(effect, ticks, Math.max(0, amplifier), false, visible, visible),
                 CombatEffects.responsible(source));
         if (!added) {
             return 0; // a same-or-stronger, longer copy is already running: no step burned

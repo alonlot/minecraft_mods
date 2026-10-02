@@ -74,7 +74,7 @@
   "spell.hogwartsmagic.incarcerous": "Incarcerous",
   "spell.hogwartsmagic.incarcerous.desc": "Chains from the ground tether the target to the spot. It can still fight, but can't get away. Higher ranks catch nearby enemies, pull flyers down and, at Master, chain everyone together.",
   "spell.hogwartsmagic.heal": "Episkey",
-  "spell.hogwartsmagic.heal.desc": "A basic healing charm used to mend minor injuries.",
+  "spell.hogwartsmagic.heal.desc": "Mends wounds on yourself (left-click) or a target (beam): 3 hearts, one more per rank. The only cure for bleeding (Adept) and cursed wounds (Master); milk can't wash either away.",
   "effect.hogwartsmagic.incarcerous_chains": "Incarcerous Chains",
   "effect.hogwartsmagic.levicorpus": "Levicorpus",
   "spell.hogwartsmagic.tenebris_flight": "Tenebris Flight",

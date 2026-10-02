@@ -293,6 +293,7 @@ public enum SpellType {
             }
             case DOLOHOV_CURSE -> com.hogwartsmagic.spell.damage.DolohovSpell.apply(target, caster);
             case INCARCEROUS -> com.hogwartsmagic.spell.disable.IncarcerousTether.apply(target, caster);
+            case HEAL -> com.hogwartsmagic.spell.support.HealSpell.apply(target, caster);
             case TENEBRIS_FLIGHT -> {
                 // effect lasts only 2 seconds (40 ticks)
                 if (caster instanceof LivingEntity livingCaster) {

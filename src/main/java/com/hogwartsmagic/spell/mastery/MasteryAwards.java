@@ -38,10 +38,12 @@ import java.util.UUID;
 public final class MasteryAwards {
     public static final String SPAWNER_TAG = "hogwartsmagic:from_spawner";
 
+    // Heal joined in Spell Mastery Phase 5: it is mostly cast on yourself (no beam, no living hit), and
+    // healing a hostile mob to farm hits would be silly. Cast XP is gated like every self spell.
     private static final Set<SpellType> SELF_OR_CHANNEL = EnumSet.of(
             SpellType.LUMOS, SpellType.PROTEGO, SpellType.PROTEGO_MAXIMA, SpellType.TENEBRIS_FLIGHT,
             SpellType.EXPECTO_PATRONUM, SpellType.APPARITION, SpellType.FIENDFYRE,
-            SpellType.WINGARDIUM_LEVIOSA, SpellType.IMPERIO);
+            SpellType.WINGARDIUM_LEVIOSA, SpellType.IMPERIO, SpellType.HEAL);
 
     // Bombarda and Diffindo joined in Spell Mastery Phase 4: blasting and cutting blocks are now real
     // uses of them. Like Incendio they also keep earning living-hit XP; the two keys never collide.

@@ -43,7 +43,7 @@ public final class MasteryAwards {
     private static final Set<SpellType> SELF_OR_CHANNEL = EnumSet.of(
             SpellType.LUMOS, SpellType.PROTEGO, SpellType.PROTEGO_MAXIMA, SpellType.TENEBRIS_FLIGHT,
             SpellType.EXPECTO_PATRONUM, SpellType.APPARITION, SpellType.FIENDFYRE,
-            SpellType.WINGARDIUM_LEVIOSA, SpellType.IMPERIO, SpellType.HEAL);
+            SpellType.WINGARDIUM_LEVIOSA, SpellType.IMPERIO, SpellType.HEAL, SpellType.ASCENDIO);
 
     // Bombarda and Diffindo joined in Spell Mastery Phase 4: blasting and cutting blocks are now real
     // uses of them. Like Incendio they also keep earning living-hit XP; the two keys never collide.

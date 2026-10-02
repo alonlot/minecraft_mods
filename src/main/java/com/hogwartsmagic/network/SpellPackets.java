@@ -862,7 +862,8 @@ public class SpellPackets {
                 return;
             }
 
-            if (!creative && MagicWandItem.isOnCooldown(wand, spell, now)) return;
+            if (!creative && MagicWandItem.isOnCooldown(wand, spell, now)
+                    && !(spell == SpellType.ASCENDIO && com.hogwartsmagic.spell.support.AscendioSpell.canDoubleCast(player))) return;
 
             // Reparo cast on yourself mends the off-hand item or worn armour (Expert and up). It
             // prices itself by the item, so it runs before the flat mana charge below.
@@ -921,6 +922,18 @@ public class SpellPackets {
 
                 // Set per-spell cooldown on the wand
                 if (!creative) {
+                    SpellCosts.startCooldown(player, wand, spell, now);
+                }
+                return;
+            }
+
+            if (spell == SpellType.ASCENDIO && com.hogwartsmagic.spell.support.AscendioSpell.wantsSelfCast(player)) {
+                // Aimed down or crouch-cast: Ascendio launches you instead of firing a beam.
+                boolean doubleCast = com.hogwartsmagic.spell.support.AscendioSpell.launchSelf(player, now);
+                com.hogwartsmagic.event.ModEvents.revealInvisibilityCloak(player);
+                player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+                        spell.getSoundEvent(), SoundSource.PLAYERS, 1.0f, 1.0f);
+                if (!creative && !doubleCast) {
                     SpellCosts.startCooldown(player, wand, spell, now);
                 }
                 return;

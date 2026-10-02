@@ -134,6 +134,9 @@ public final class MasteryAwards {
         if (target instanceof Player || target instanceof Enemy || target instanceof NeutralMob) {
             return false;
         }
+        if (target instanceof Mob mob && mob.getTarget() instanceof Player) {
+            return false;
+        }
         return target instanceof Mob;
     }
 

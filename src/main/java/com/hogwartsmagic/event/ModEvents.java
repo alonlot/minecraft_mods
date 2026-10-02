@@ -1545,7 +1545,8 @@ public class ModEvents {
         if (!player.isCreative() && MagicWandItem.isAnyWand(wand)) {
             SpellType spell = SpellType.WINGARDIUM_LEVIOSA;
             long now = player.level().getGameTime();
-            SpellCosts.startCooldown(player, wand, spell, now);
+            // Only a channel that was actually holding something counts as a completed cast.
+            SpellCosts.startCooldown(player, wand, spell, now, spell.getCooldownTicks(), controlled != null);
         }
     }
 
@@ -2068,7 +2069,7 @@ public class ModEvents {
         }
 
         revealInvisibilityCloak(player);
-        applyApparitionCooldown(player, wand);
+        applyApparitionCooldown(player, wand, true);
     }
 
     /** Cancel for any reason (timeout, hit while channeling, lost wand, closed map): clears state and applies the full cooldown. */
@@ -2083,13 +2084,13 @@ public class ModEvents {
         SpellPackets.CHANNEL.send(new SpellPackets.CloseApparitionMapPacket(), PacketDistributor.PLAYER.with(player));
         player.level().playSound(null, player.blockPosition(),
                 net.minecraft.sounds.SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS, 0.5f, 0.8f);
-        applyApparitionCooldown(player, wand);
+        applyApparitionCooldown(player, wand, false);
     }
 
-    private static void applyApparitionCooldown(ServerPlayer player, ItemStack wand) {
+    private static void applyApparitionCooldown(ServerPlayer player, ItemStack wand, boolean awardMastery) {
         if (!player.isCreative() && MagicWandItem.isAnyWand(wand)) {
             long now = player.level().getGameTime();
-            SpellCosts.startCooldown(player, wand, SpellType.APPARITION, now);
+            SpellCosts.startCooldown(player, wand, SpellType.APPARITION, now, SpellType.APPARITION.getCooldownTicks(), awardMastery);
         }
     }
 

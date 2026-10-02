@@ -44,7 +44,14 @@ public final class SpellCosts {
     }
 
     public static void startCooldown(ServerPlayer player, ItemStack wand, SpellType spell, long now, double baseTicks) {
+        startCooldown(player, wand, spell, now, baseTicks, true);
+    }
+
+    /** awardMastery is false for cancelled or aborted channels, which did not complete a cast. */
+    public static void startCooldown(ServerPlayer player, ItemStack wand, SpellType spell, long now, double baseTicks, boolean awardMastery) {
         MagicWandItem.setSpellCooldown(wand, spell, now + cooldownTicks(player, wand, spell, baseTicks));
-        com.hogwartsmagic.spell.mastery.MasteryAwards.onCastCompleted(player, spell);
+        if (awardMastery) {
+            com.hogwartsmagic.spell.mastery.MasteryAwards.onCastCompleted(player, spell);
+        }
     }
 }

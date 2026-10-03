@@ -337,7 +337,7 @@ public class SpellPackets {
                     int keep = com.hogwartsmagic.spell.support.ApparitionRules.MAX_LISTED_FIREPLACES;
                     List<FlooDestinationData> fireplaces = new ArrayList<>(Math.min(size, keep));
                     for (int i = 0; i < size; i++) {
-                        FlooDestinationData entry = new FlooDestinationData(buf.readBlockPos(), buf.readUtf(64));
+                        FlooDestinationData entry = new FlooDestinationData(buf.readBlockPos(), buf.readUtf());
                         if (i < keep) {
                             fireplaces.add(entry);
                         }

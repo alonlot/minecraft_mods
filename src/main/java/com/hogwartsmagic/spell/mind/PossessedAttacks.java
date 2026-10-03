@@ -35,7 +35,7 @@ import javax.annotation.Nullable;
 final class PossessedAttacks {
     private static final double PLAYER_REACH = 3.5;
     private static final double RANGED_REACH = 24.0;
-    private static final double AREA_PROTECT_RANGE = 16.0;
+    private static final double AREA_PROTECT_RANGE = 22.0;
     private static final float FALLBACK_DAMAGE = 2.0F;
     private static final SpellType[] VOLDEMORT_SPELLS = {
             SpellType.STUPEFY, SpellType.SECTUMSEMPRA, SpellType.BOMBARDA};
@@ -46,6 +46,11 @@ final class PossessedAttacks {
 
     /** @return ticks until the next attack may fire */
     static int attack(LivingEntity puppet, ServerPlayer caster) {
+        return attack(puppet, caster, null);
+    }
+
+    /** @param session when given, the protected-player refusal line is sent once per attack press */
+    static int attack(LivingEntity puppet, ServerPlayer caster, @Nullable PossessionSession session) {
         if (puppet instanceof ServerPlayer victim) {
             LivingEntity target = aimed(puppet, PLAYER_REACH, caster);
             if (target != null) {
@@ -59,7 +64,12 @@ final class PossessedAttacks {
             return PossessionRules.ATTACK_COOLDOWN;
         }
         if (isAreaSpecial(mob) && protectedPlayerNearby(mob, caster)) {
-            MindFx.tell(caster, "possession.protected_nearby");
+            if (session == null || !session.refusalShown) {
+                MindFx.tell(caster, "possession.protected_nearby");
+            }
+            if (session != null) {
+                session.refusalShown = true;
+            }
             return PossessionRules.SPECIAL_ATTACK_COOLDOWN;
         }
         if (mob instanceof HungarianHorntailEntity horntail) {
@@ -71,11 +81,11 @@ final class PossessedAttacks {
             return PossessionRules.SPECIAL_ATTACK_COOLDOWN;
         }
         if (mob instanceof VoldemortEntity) {
-            fireBeam(mob, VOLDEMORT_SPELLS[mob.getRandom().nextInt(VOLDEMORT_SPELLS.length)]);
+            fireBeam(mob, VOLDEMORT_SPELLS[mob.getRandom().nextInt(VOLDEMORT_SPELLS.length)], caster);
             return PossessionRules.SPECIAL_ATTACK_COOLDOWN;
         }
         if (mob instanceof WizardEntity || mob instanceof StudentEntity) {
-            fireBeam(mob, WAND_SPELLS[mob.getRandom().nextInt(WAND_SPELLS.length)]);
+            fireBeam(mob, WAND_SPELLS[mob.getRandom().nextInt(WAND_SPELLS.length)], caster);
             return PossessionRules.SPECIAL_ATTACK_COOLDOWN;
         }
         if (mob instanceof Creeper creeper) {
@@ -99,8 +109,7 @@ final class PossessedAttacks {
     }
 
     private static boolean isAreaSpecial(Mob mob) {
-        return mob instanceof HungarianHorntailEntity || mob instanceof BasiliskEntity || mob instanceof Creeper
-                || mob instanceof WizardEntity || mob instanceof StudentEntity;
+        return mob instanceof HungarianHorntailEntity || mob instanceof BasiliskEntity || mob instanceof Creeper; // beams check their own hits
     }
 
     /** True when a player the caster may not harm (spared, allied, PvP off) stands within reach of an area attack. */
@@ -112,7 +121,8 @@ final class PossessedAttacks {
                     || other.distanceToSqr(puppet) > rangeSqr) {
                 continue;
             }
-            if (!pvp || !caster.canHarmPlayer(other) || other.isAlliedTo(caster)) {
+            if (!pvp || !caster.canHarmPlayer(other) || other.isAlliedTo(caster)
+                    || other.getTags().contains(com.hogwartsmagic.spell.combat.CombatTags.ALLIED)) {
                 return true;
             }
         }
@@ -148,8 +158,9 @@ final class PossessedAttacks {
         }
     }
 
-    private static void fireBeam(Mob caster, SpellType spell) {
+    private static void fireBeam(Mob caster, SpellType spell, ServerPlayer puppeteer) {
         SpellBeamEntity beam = new SpellBeamEntity(caster.level(), caster, spell);
+        beam.setPuppeteer(puppeteer.getUUID());
         beam.shootFromRotation(caster, caster.getXRot(), caster.getYRot(), 0.0F, 1.75F, 0.5F);
         caster.level().addFreshEntity(beam);
         caster.swing(InteractionHand.MAIN_HAND);

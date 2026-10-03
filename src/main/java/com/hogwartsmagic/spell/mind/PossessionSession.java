@@ -49,6 +49,8 @@ final class PossessionSession {
     boolean snapshotDue;
     /** The puppet creeper's fuse was lit by the caster: if it vanishes, it died of it. */
     boolean fuseLit;
+    /** The protected-player refusal line was already shown for this attack press. */
+    boolean refusalShown;
     int resistWindow = -1;
     int resistPresses;
     boolean resistAnnounced;

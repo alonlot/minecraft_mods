@@ -288,6 +288,9 @@ public final class PossessionManager {
         session.pitch = PossessionRules.pitch(packet.pitch());
         session.jump = packet.jump();
         session.attack = packet.attack();
+        if (!session.attack) {
+            session.refusalShown = false;
+        }
     }
 
     /**
@@ -644,7 +647,7 @@ public final class PossessionManager {
         drive(session, victim);
         if (session.attack && now - session.lastAttackAt >= session.attackCooldown) {
             session.lastAttackAt = now;
-            session.attackCooldown = PossessedAttacks.attack(victim, caster);
+            session.attackCooldown = PossessedAttacks.attack(victim, caster, session);
             if (victim instanceof Creeper creeper && creeper.isIgnited()) {
                 session.fuseLit = true;
             }

@@ -48,6 +48,13 @@ import java.util.UUID;
  * Colored spell beam projectile. Each spell type has its own color and particles.
  */
 public class SpellBeamEntity extends ThrowableProjectile {
+    /**
+     * The player possessing the wand user that fired this beam (Spell Mastery Phase 6b), or null. In memory only:
+     * a beam lives 200 ticks and does not outlive a reload. It never hurts players that player may not harm.
+     */
+    @javax.annotation.Nullable
+    private UUID puppeteer;
+
     private static final int CAVE_INIMICUM_REVELIO_BREAK_TICKS = 20 * 10;
     private static final int REVELIO_LIGHT_TICKS = 20 * 8;
     /** Most ores plus chests one Revelio cast highlights (a dense ore mass must not flood the server). */
@@ -538,8 +545,32 @@ public class SpellBeamEntity extends ThrowableProjectile {
         return true;
     }
 
+    /** Mark this beam as fired through a possessed body by {@code caster}; reusable by any puppet cast. */
+    public void setPuppeteer(@javax.annotation.Nullable UUID caster) {
+        this.puppeteer = caster;
+    }
+
+    /** True when a puppet's beam must fizzle on {@code hit}: the puppeteer's own body, or a player they may not harm. */
+    private boolean puppeteerSpares(net.minecraft.world.entity.Entity hit) {
+        if (this.puppeteer == null || !(hit instanceof net.minecraft.world.entity.player.Player victim)
+                || !(this.level() instanceof ServerLevel serverLevel)) {
+            return false;
+        }
+        if (victim.getUUID().equals(this.puppeteer)) {
+            return true;
+        }
+        ServerPlayer owner = serverLevel.getServer().getPlayerList().getPlayer(this.puppeteer);
+        return owner == null || victim.isCreative() || victim.isSpectator() || !serverLevel.getServer().isPvpAllowed()
+                || !owner.canHarmPlayer(victim) || victim.isAlliedTo(owner)
+                || victim.getTags().contains(com.hogwartsmagic.spell.combat.CombatTags.ALLIED);
+    }
+
     @Override
     protected void onHit(HitResult result) {
+        if (!this.level().isClientSide && result instanceof EntityHitResult entityHit && puppeteerSpares(entityHit.getEntity())) {
+            this.discard(); // a puppet beam never touches a player its caster may not harm
+            return;
+        }
         super.onHit(result);
         if (!this.level().isClientSide) {
             SpellType spell = getSpellType();

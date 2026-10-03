@@ -46,7 +46,8 @@ Phase 6b (possession)
 - A near-zero session still pays Imperio XP (cooldown bounds it).
 - Only the first wand's spell selection is restored after a session.
 - The freed victim earns no mastery XP for 5s after release (beams are handled exactly; this window covers other awards).
-- The 2-second Master hold is enforced on the server too.
+- The 2-second Master hold is enforced on the server too (it allows about 0.5s of server lag; if refused, you see a message and can hold again).
+- Puppet spells pass harmlessly over any mob tagged as an ally, including other players' snakes, and helpful puppet spells (Heal and similar) on the caster's own thralls are discarded too.
 
 Phase 7b
 - Arresto as above (your instruction). Tridents freeze and drop; a loyal trident flying home is not frozen. A frozen projectile drops after a save or restart. Arresto does not stop snowballs, potions, pearls, thrown blocks or thrown mobs.

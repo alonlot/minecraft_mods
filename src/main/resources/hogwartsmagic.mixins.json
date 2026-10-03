@@ -11,7 +11,8 @@
     "ServerGamePacketListenerMixin",
     "FoodDataBleedingMixin",
     "PlayerBleedingMixin",
-    "LivingEntityLastHurtAccessor"
+    "LivingEntityLastHurtAccessor",
+    "BlockStateSignalMixin"
   ],
   "client": [
     "client.InvisibilityCloakArmorLayerMixin",

@@ -102,6 +102,19 @@ public final class MasteryAwards {
         return "gui." + ExampleMod.MODID + ".mastery.rank." + rank;
     }
 
+    /** Lang key of the one-line "what this spell gains at {@code rank}" text (ranks 2 to 4). */
+    public static String rankChangeKey(SpellType spell, int rank) {
+        return "spell." + ExampleMod.MODID + "." + spell.getId() + ".rank." + rank;
+    }
+
+    public static String changedHeaderKey() {
+        return "gui." + ExampleMod.MODID + ".mastery.changed";
+    }
+
+    public static String genericUpgradeKey() {
+        return "gui." + ExampleMod.MODID + ".mastery.upgrade_generic";
+    }
+
     private static void gated(ServerPlayer caster, SpellType spell, String prefix) {
         long window = MasteryRules.gateWindowTicks(spell.getCooldownTicks());
         if (ledger(caster).tryAward(prefix + spell.getId(), caster.level().getGameTime(), window)) {
@@ -125,6 +138,13 @@ public final class MasteryAwards {
                         MasteryMath.roman(newRank),
                         Component.translatable(rankKey(newRank)))
                 .withStyle(ChatFormatting.GOLD));
+        if (newRank >= 2 && newRank <= MasteryMath.MAX_RANK) {
+            caster.sendSystemMessage(Component.translatable(changedHeaderKey()).append(" ")
+                    .append(Component.translatable(rankChangeKey(spell, newRank)))
+                    .append("\n")
+                    .append(Component.translatable(genericUpgradeKey()))
+                    .withStyle(ChatFormatting.GRAY));
+        }
         caster.level().playSound(null, caster.blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.8f, 1.3f);
         if (caster.level() instanceof ServerLevel level) {
             double x = caster.getX();

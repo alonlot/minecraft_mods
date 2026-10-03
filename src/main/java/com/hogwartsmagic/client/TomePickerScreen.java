@@ -5,14 +5,18 @@ import com.hogwartsmagic.item.TomeOfMasteryItem;
 import com.hogwartsmagic.network.SpellPackets;
 import com.hogwartsmagic.spell.SpellLootRarity;
 import com.hogwartsmagic.spell.SpellType;
+import com.hogwartsmagic.spell.mastery.MasteryAwards;
 import com.hogwartsmagic.spell.mastery.MasteryMath;
 import com.hogwartsmagic.spell.mastery.SpellMasteryData;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.FormattedCharSequence;
 import net.minecraftforge.network.PacketDistributor;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -31,6 +35,7 @@ public class TomePickerScreen extends Screen {
     private static final int COLOR_NAME = 0xFFF2DFA8;
     private static final int COLOR_RANK = 0xFFFFE08A;
     private static final int COLOR_HOVER = 0x40D4AF37;
+    private static final int TOOLTIP_WRAP = 200;
 
     private final boolean mainHand;
     private final SpellLootRarity tier;
@@ -171,13 +176,44 @@ public class TomePickerScreen extends Screen {
         g.disableScissor();
 
         super.render(g, mouseX, mouseY, partialTick);
+
+        // After everything else and outside the scissor, so the tooltip is never clipped.
+        if (hovered >= 0 && hovered < spells.size()) {
+            g.renderTooltip(this.font, upgradeTooltip(spells.get(hovered)), mouseX, mouseY);
+        }
+    }
+
+    /** Name, "Next rank: III Expert", what the spell gains there (wrapped), and the generic rank bonus. */
+    private List<FormattedCharSequence> upgradeTooltip(SpellType spell) {
+        int rank = currentRank(spell);
+        List<FormattedCharSequence> lines = new ArrayList<>();
+        lines.add(Component.translatable("spell." + ExampleMod.MODID + "." + spell.getId())
+                .withStyle(ChatFormatting.GOLD).getVisualOrderText());
+        if (rank >= MasteryMath.MAX_RANK) {
+            lines.add(Component.translatable("gui." + ExampleMod.MODID + ".mastery.at_master")
+                    .withStyle(ChatFormatting.YELLOW).getVisualOrderText());
+            return lines;
+        }
+        int next = rank + 1;
+        lines.add(Component.translatable("gui." + ExampleMod.MODID + ".mastery.upgrade_preview",
+                        MasteryMath.roman(next), Component.translatable(MasteryAwards.rankKey(next)))
+                .withStyle(ChatFormatting.YELLOW).getVisualOrderText());
+        lines.addAll(this.font.split(Component.translatable(MasteryAwards.rankChangeKey(spell, next))
+                .withStyle(ChatFormatting.WHITE), TOOLTIP_WRAP));
+        lines.addAll(this.font.split(Component.translatable(MasteryAwards.genericUpgradeKey())
+                .withStyle(ChatFormatting.GRAY), TOOLTIP_WRAP));
+        return lines;
+    }
+
+    private int currentRank(SpellType spell) {
+        return this.minecraft != null && this.minecraft.player != null
+                ? SpellMasteryData.getRank(this.minecraft.player, spell)
+                : MasteryMath.NOVICE;
     }
 
     /** "II -> III" from the synced rank; the server decides the real outcome. */
     private String rankStep(SpellType spell) {
-        int rank = this.minecraft != null && this.minecraft.player != null
-                ? SpellMasteryData.getRank(this.minecraft.player, spell)
-                : MasteryMath.NOVICE;
+        int rank = currentRank(spell);
         int next = Math.min(MasteryMath.MAX_RANK, rank + 1);
         return MasteryMath.roman(rank) + " → " + MasteryMath.roman(next);
     }

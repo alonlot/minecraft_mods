@@ -272,10 +272,20 @@ public class SpellCompendiumScreen extends Screen {
         if (tooltipPending) {
             com.hogwartsmagic.spell.mastery.MasteryConfig.Values mastery =
                     com.hogwartsmagic.spell.mastery.MasteryConfig.of(player);
-            g.renderComponentTooltip(this.font, List.of(Component.translatable(
+            List<Component> tip = new java.util.ArrayList<>();
+            tip.add(Component.translatable(
                     "gui." + ExampleMod.MODID + ".mastery.tooltip",
                     Math.round(mastery.rankDiscount() * 100),
-                    String.format("%.0f", mastery.manaPerRank()))), mouseX, mouseY);
+                    String.format("%.0f", mastery.manaPerRank())));
+            int nextRank = com.hogwartsmagic.spell.mastery.SpellMasteryData.getRank(player, selected) + 1;
+            if (nextRank <= com.hogwartsmagic.spell.mastery.MasteryMath.MAX_RANK) {
+                tip.add(Component.translatable("gui." + ExampleMod.MODID + ".mastery.upgrade_preview",
+                        com.hogwartsmagic.spell.mastery.MasteryMath.roman(nextRank),
+                        Component.translatable(com.hogwartsmagic.spell.mastery.MasteryAwards.rankKey(nextRank))));
+                tip.add(Component.translatable(
+                        com.hogwartsmagic.spell.mastery.MasteryAwards.rankChangeKey(selected, nextRank)));
+            }
+            g.renderComponentTooltip(this.font, tip, mouseX, mouseY);
         }
     }
 

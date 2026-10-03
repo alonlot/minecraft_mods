@@ -14,9 +14,9 @@ class ApparitionRulesTest {
         assertEquals(128, ApparitionRules.range(3));
         assertEquals(200, ApparitionRules.range(4));
         assertEquals(80, ApparitionRules.channelTicks(1));
-        assertEquals(60, ApparitionRules.channelTicks(2));
-        assertEquals(40, ApparitionRules.channelTicks(3));
-        assertEquals(20, ApparitionRules.channelTicks(4));
+        assertEquals(80, ApparitionRules.channelTicks(2));
+        assertEquals(80, ApparitionRules.channelTicks(3));
+        assertEquals(80, ApparitionRules.channelTicks(4));
     }
 
     @Test

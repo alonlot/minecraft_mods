@@ -7,7 +7,8 @@ public final class ApparitionRules {
     public static final int MAX_LISTED_FIREPLACES = 8;
 
     private static final int[] RANGE = {48, 80, 128, 200};
-    private static final int[] CHANNEL = {80, 60, 40, 20};
+    /** Focus time stays 4 seconds at every rank: mastery grows reach and safety, it does not shorten the cast. */
+    private static final int[] CHANNEL = {80, 80, 80, 80};
     private static final double[] SPLINCH_FACTOR = {1.0, 0.5, 0.2, 0.0};
 
     private ApparitionRules() {

@@ -91,6 +91,7 @@ public final class WingardiumSpell {
         if (first == null && second == null) {
             return false;
         }
+        clearSecondMark(player);
         if (first != null) {
             ModEvents.markRecentWingardiumTarget(player, first);
             if (second != null) {
@@ -104,6 +105,7 @@ public final class WingardiumSpell {
 
     /** The beam struck a creature: at Master, also mark the nearest other creature (not a boss) within reach. */
     public static void noteLivingHit(ServerPlayer caster, LivingEntity primary) {
+        clearSecondMark(caster); // a stale second mark from an earlier hit must not ride on this one
         if (isControlledOrPossessing(caster)
                 || WingardiumRules.maxHeld(SpellMasteryData.getRank(caster, SpellType.WINGARDIUM_LEVIOSA)) < 2) {
             return;
@@ -117,7 +119,10 @@ public final class WingardiumSpell {
                         && !(c instanceof net.minecraft.world.entity.decoration.ArmorStand)
                         && !c.getTags().contains(CombatTags.ALLIED)
                         && !MindControl.isControlled(c) && !PossessionManager.isPossessing(c)
-                        && c.getRootVehicle() != caster.getRootVehicle())) {
+                        && c.getRootVehicle() != caster.getRootVehicle()
+                        && !c.isVehicle() && !c.isPassenger()
+                        && !(c instanceof net.minecraft.world.entity.OwnableEntity pet
+                                && pet.getOwnerUUID() != null && !pet.getOwnerUUID().equals(caster.getUUID())))) {
             double distance = candidate.distanceToSqr(primary);
             if (distance <= bestDistance) {
                 bestDistance = distance;
@@ -127,6 +132,12 @@ public final class WingardiumSpell {
         if (best != null) {
             markSecondTarget(caster, best);
         }
+    }
+
+    private static void clearSecondMark(ServerPlayer player) {
+        CompoundTag data = player.getPersistentData();
+        data.remove(TAG_RECENT_TARGET_2);
+        data.remove(TAG_RECENT_EXPIRY_2);
     }
 
     private static void markSecondTarget(ServerPlayer player, Entity second) {
@@ -341,7 +352,8 @@ public final class WingardiumSpell {
             Entity thrower = record.throwerId() == null ? null : level.getEntity(record.throwerId());
             LivingEntity struck = null;
             for (LivingEntity other : level.getEntitiesOfClass(LivingEntity.class, mob.getBoundingBox().inflate(0.3D),
-                    candidate -> candidate != mob && candidate != thrower && candidate.isAlive() && !candidate.isSpectator()
+                    candidate -> candidate != mob && candidate != thrower && !thrown.containsKey(candidate.getUUID())
+                            && candidate.isAlive() && !candidate.isSpectator()
                             && candidate.getRootVehicle() != mob.getRootVehicle()
                             && !(thrower == null && candidate instanceof net.minecraft.world.entity.player.Player))) {
                 struck = other;

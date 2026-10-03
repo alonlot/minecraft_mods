@@ -14,8 +14,6 @@ class ArrestoRulesTest {
         assertEquals(0.0, ArrestoRules.freezeRadius(2), 1e-9);
         assertEquals(4.0, ArrestoRules.freezeRadius(3), 1e-9);
         assertEquals(6.0, ArrestoRules.freezeRadius(4), 1e-9);
-        assertFalse(ArrestoRules.redirects(3));
-        assertTrue(ArrestoRules.redirects(4));
     }
 
     @Test

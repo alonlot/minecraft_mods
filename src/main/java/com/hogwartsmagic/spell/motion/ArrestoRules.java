@@ -22,10 +22,6 @@ public final class ArrestoRules {
         return RADIUS[RankIndex.of(rank)];
     }
 
-    public static boolean redirects(int rank) {
-        return RankIndex.of(rank) == 3;
-    }
-
     public static boolean released(long until, long now) {
         return now >= until;
     }

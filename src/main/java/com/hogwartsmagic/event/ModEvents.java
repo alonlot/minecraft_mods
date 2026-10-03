@@ -2535,7 +2535,9 @@ public class ModEvents {
         if (!event.getEntity().level().isClientSide()
                 && event.getEntity() instanceof ServerPlayer serverPlayer
                 && event.getAmount() > 0.0f) {
-            interruptActiveCasting(serverPlayer);
+            if (!com.hogwartsmagic.spell.mind.PossessionManager.isPossessing(serverPlayer)) {
+                interruptActiveCasting(serverPlayer); // a possessing body ends only by a real blow (BODY_HIT)
+            }
             revealInvisibilityCloak(serverPlayer);
         }
 

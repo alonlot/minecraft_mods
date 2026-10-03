@@ -241,6 +241,10 @@ public final class PossessionManager {
                 return;
             }
         }
+        if (PossessionRules.tooFar(caster.distanceToSqr(target))) {
+            MindFx.tell(caster, "possession.target_far");
+            return;
+        }
         if (start(caster, target, false)) {
             ModEvents.revealInvisibilityCloak(caster);
         }
@@ -285,6 +289,11 @@ public final class PossessionManager {
     }
 
     static void end(PossessionSession session, EndReason reason) {
+        end(session, reason, false);
+    }
+
+    /** {@code casterLeaving}: the caster is the one logging out, so there is no body left to make dizzy. */
+    private static void end(PossessionSession session, EndReason reason, boolean casterLeaving) {
         if (BY_CASTER.get(session.casterId) != session) {
             return; // already ended
         }
@@ -329,7 +338,7 @@ public final class PossessionManager {
             if (!session.debug) {
                 ImperioThralls.startImperioCooldown(caster); // the cooldown, and the Imperio XP, start when it ends
             }
-            if (caster.isAlive() && reason != EndReason.LOGGED_OUT) {
+            if (caster.isAlive() && !casterLeaving && reason != EndReason.INVALID) {
                 caster.addEffect(new MobEffectInstance(MobEffects.CONFUSION, PossessionRules.NAUSEA_TICKS, 0));
             }
         }
@@ -354,7 +363,7 @@ public final class PossessionManager {
         }
         PossessionSession asCaster = BY_CASTER.get(player.getUUID());
         if (asCaster != null) {
-            end(asCaster, EndReason.LOGGED_OUT);
+            end(asCaster, EndReason.LOGGED_OUT, true);
         }
         PossessionSession asVictim = BY_VICTIM.get(player.getUUID());
         if (asVictim != null) {
@@ -416,10 +425,6 @@ public final class PossessionManager {
             end(session, EndReason.RELEASED);
             return;
         }
-        int markerTicks = session.maxTicks + PossessionRules.MARKER_GRACE_TICKS - (int) elapsed;
-        if (!isPossessingBody(caster) || !victim.hasEffect(DisableSupport.holder(ExampleMod.POSSESSED))) {
-            addMarkers(caster, victim, Math.max(markerTicks, 2)); // stripped by something that bypassed the guard
-        }
         if (caster.level() != level) {
             end(session, EndReason.DIMENSION);
             return;
@@ -431,6 +436,10 @@ public final class PossessionManager {
         if (!session.debug && !holdsImperio(caster)) {
             end(session, EndReason.RELEASED); // switched wand or spell: same as letting go
             return;
+        }
+        int markerTicks = session.maxTicks + PossessionRules.MARKER_GRACE_TICKS - (int) elapsed;
+        if (!isPossessingBody(caster) || !victim.hasEffect(DisableSupport.holder(ExampleMod.POSSESSED))) {
+            addMarkers(caster, victim, Math.max(markerTicks, 2)); // stripped by something that bypassed the guard
         }
         if (!drainUpkeep(caster, session, now)) {
             end(session, EndReason.NO_MANA);

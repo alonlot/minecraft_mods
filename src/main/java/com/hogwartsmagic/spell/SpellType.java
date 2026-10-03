@@ -199,7 +199,7 @@ public enum SpellType {
                     target.addEffect(new MobEffectInstance(MobEffects.GLOWING, 200, 0));
                 }
             }
-            case AVADA_KEDAVRA -> com.hogwartsmagic.spell.mind.AvadaSpell.apply(target, caster);
+            case AVADA_KEDAVRA -> com.hogwartsmagic.spell.mind.AvadaSpell.apply(target, caster, masteryEligible);
             case CRUCIO -> com.hogwartsmagic.spell.mind.CrucioChannel.onBeamHit(target, caster);
             case IMPERIO -> {
                 interruptActiveCasting(target);

@@ -39,6 +39,9 @@ public final class AvadaWindup {
     private static final String TAG_READY = ExampleMod.MODID + ":avada_windup_ready";
     private static final DustParticleOptions GREEN = new DustParticleOptions(new Vector3f(0.15f, 1.0f, 0.25f), 1.2f);
 
+    /** Server-only: who is winding up, so the per-tick handler skips everyone else without touching NBT. */
+    private static final java.util.Set<java.util.UUID> ACTIVE = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
     private AvadaWindup() {
     }
 
@@ -61,6 +64,7 @@ public final class AvadaWindup {
             }
         }
         player.getPersistentData().putLong(TAG_START, player.level().getGameTime());
+        ACTIVE.add(player.getUUID());
         player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
                 SoundEvents.BEACON_POWER_SELECT, SoundSource.PLAYERS, 0.9f, 0.5f);
     }
@@ -80,6 +84,7 @@ public final class AvadaWindup {
      * switched, logout): no penalty.
      */
     public static void cancel(ServerPlayer player, boolean interrupted) {
+        ACTIVE.remove(player.getUUID());
         CompoundTag data = player.getPersistentData();
         if (!data.contains(TAG_START)) {
             return;
@@ -111,8 +116,12 @@ public final class AvadaWindup {
         if (event.phase != TickEvent.Phase.END || !(event.player instanceof ServerPlayer player)) {
             return;
         }
+        if (!ACTIVE.contains(player.getUUID())) {
+            return;
+        }
         CompoundTag data = player.getPersistentData();
         if (!data.contains(TAG_START)) {
+            ACTIVE.remove(player.getUUID());
             return;
         }
         ItemStack wand = player.getMainHandItem();
@@ -130,6 +139,7 @@ public final class AvadaWindup {
         }
         if (AvadaRules.windupDone(elapsed, rank)) {
             data.remove(TAG_START);
+            ACTIVE.remove(player.getUUID());
             data.putBoolean(TAG_READY, true);
             SpellPackets.CastSpellPacket.castAs(player, new SpellPackets.CastSpellPacket(false, false, false, false));
             data.remove(TAG_READY); // refused before it was consumed (cooldown, silence): never leave it armed
@@ -170,8 +180,14 @@ public final class AvadaWindup {
 
     @SubscribeEvent
     public static void onLogin(PlayerEvent.PlayerLoggedInEvent event) {
+        ACTIVE.remove(event.getEntity().getUUID());
         CompoundTag data = event.getEntity().getPersistentData();
         data.remove(TAG_START);
         data.remove(TAG_READY);
+    }
+
+    @SubscribeEvent
+    public static void onServerStopped(net.minecraftforge.event.server.ServerStoppedEvent event) {
+        ACTIVE.clear();
     }
 }

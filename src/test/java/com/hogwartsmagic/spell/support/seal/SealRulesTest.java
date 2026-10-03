@@ -15,7 +15,11 @@ class SealRulesTest {
     private static final UUID CARA = new UUID(0L, 3L);
 
     private static Seal seal(UUID owner, int rank) {
-        return new Seal(owner, "p", rank, 0, 64, 0, SealRules.radius(rank), 0L);
+        return seal(owner, rank, 0L);
+    }
+
+    private static Seal seal(UUID owner, int rank, long createdAt) {
+        return new Seal(owner, "p", rank, 0, 64, 0, SealRules.radius(rank), createdAt);
     }
 
     @Test
@@ -130,7 +134,7 @@ class SealRulesTest {
 
     @Test
     void theOldestOfEqualSealsBreaksFirst() {
-        SealRules.Decision d = SealRules.decide(List.of(seal(BOB, 2), seal(CARA, 2)), ALICE, 3, true);
+        SealRules.Decision d = SealRules.decide(List.of(seal(BOB, 2, 1L), seal(CARA, 2, 2L)), ALICE, 3, true);
         assertEquals(SealRules.Verdict.BREAK, d.verdict());
         assertEquals(0, d.target());
     }
@@ -151,5 +155,44 @@ class SealRulesTest {
         assertEquals(1, SealRules.toEvict(4, 4));
         assertEquals(2, SealRules.toEvict(9, 8)); // more than the cap after a rank drop
         assertEquals(2, SealRules.toEvict(2, 1));
+    }
+
+    @Test
+    void anAnchorExtendsTheSeal() {
+        long[] anchors = {Seal.pack(30, 70, -4)};
+        Seal s = new Seal(ALICE, "p", 1, 0, 64, 0, 1, 0L, anchors);
+        assertTrue(SealRules.covers(s, 0, 64, 0));
+        assertTrue(SealRules.covers(s, 30, 70, -4)); // at the piston
+        assertTrue(SealRules.covers(s, 30, 71, -4)); // within the radius of it
+        assertFalse(SealRules.covers(s, 31, 71, -4));
+        assertFalse(SealRules.covers(s, 15, 67, -2)); // far from both
+    }
+
+    @Test
+    void noAnchorsKeepsTheOldBehaviour() {
+        Seal s = new Seal(ALICE, "p", 1, 0, 64, 0, 1, 0L);
+        assertEquals(0, s.anchors().length);
+        assertFalse(SealRules.covers(s, 30, 70, -4));
+        assertEquals(s, new Seal(ALICE, "p", 1, 0, 64, 0, 1, 0L, new long[0]));
+    }
+
+    @Test
+    void packedPositionsRoundTrip() {
+        int[][] samples = {{0, 64, 0}, {-1, -64, -1}, {12345, 319, -54321}, {-30000000, 0, 29999999}, {5, -2048, 7}, {5, 2047, 7}};
+        for (int[] p : samples) {
+            long packed = Seal.pack(p[0], p[1], p[2]);
+            assertEquals(p[0], Seal.unpackX(packed));
+            assertEquals(p[1], Seal.unpackY(packed));
+            assertEquals(p[2], Seal.unpackZ(packed));
+        }
+    }
+
+    @Test
+    void nearIsACubeAroundTheCentreAndAnchors() {
+        Seal s = new Seal(ALICE, "p", 1, 0, 64, 0, 1, 0L, new long[]{Seal.pack(30, 70, -4)});
+        assertTrue(SealRules.near(s, 7, 64, 0, 6)); // 7 <= 1 + 6
+        assertFalse(SealRules.near(s, 8, 64, 0, 6));
+        assertTrue(SealRules.near(s, 36, 76, -10, 6)); // near the anchor's corner
+        assertFalse(SealRules.near(s, 100, 64, 100, 6));
     }
 }

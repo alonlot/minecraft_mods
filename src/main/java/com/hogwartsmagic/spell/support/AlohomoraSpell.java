@@ -194,12 +194,14 @@ public final class AlohomoraSpell {
             if (pos.equals(center) || !level.isLoaded(pos)) {
                 continue;
             }
-            if (!seals.isEmpty() && ColloportusSpell.sealedAgainst(seals, pos, bypass)) {
-                continue; // the area never opens, passes or breaks another caster's seal
-            }
             BlockState state = level.getBlockState(pos);
-            if (state.getBlock() instanceof DoorBlock && state.getValue(DoorBlock.HALF) != DoubleBlockHalf.LOWER) {
+            boolean door = state.getBlock() instanceof DoorBlock;
+            if (door && state.getValue(DoorBlock.HALF) != DoubleBlockHalf.LOWER) {
                 continue; // each door once, by its lower half
+            }
+            if (!seals.isEmpty() && (ColloportusSpell.sealedAgainst(seals, pos, bypass)
+                    || door && ColloportusSpell.sealedAgainst(seals, pos.above(), bypass))) {
+                continue; // the area never opens, passes or breaks another caster's seal (either door half counts)
             }
             if (openOne(level, pos.immutable(), state, owner, rank)) {
                 opened++;

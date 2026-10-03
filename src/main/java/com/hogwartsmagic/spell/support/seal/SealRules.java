@@ -32,13 +32,54 @@ public final class SealRules {
         return CAP[index(rank)];
     }
 
-    /** Block (x, y, z) lies in the seal: its centre is at most the radius from the seal's centre. */
+    /**
+     * Block (x, y, z) lies in the seal: its centre is at most the radius from the seal's centre or from any of its
+     * anchors.
+     */
     public static boolean covers(Seal seal, int x, int y, int z) {
-        long dx = x - seal.x();
-        long dy = y - seal.y();
-        long dz = z - seal.z();
-        long r = seal.radius();
-        return dx * dx + dy * dy + dz * dz <= r * r;
+        return withinReach(seal, x, y, z, 0);
+    }
+
+    /** (x, y, z) is within radius + extra of the seal's centre or of any anchor (a sphere test on integers). */
+    public static boolean withinReach(Seal seal, int x, int y, int z, int extra) {
+        long reach = (long) seal.radius() + extra;
+        if (sphere(seal.x(), seal.y(), seal.z(), x, y, z, reach)) {
+            return true;
+        }
+        for (long anchor : seal.anchors()) {
+            if (sphere(Seal.unpackX(anchor), Seal.unpackY(anchor), Seal.unpackZ(anchor), x, y, z, reach)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Cheap pre-test: the seal's centre or an anchor is within radius + margin of (x, y, z) on every axis (a cube,
+     * which contains every sphere test above). False means no block within margin of (x, y, z) can be covered.
+     */
+    public static boolean near(Seal seal, int x, int y, int z, int margin) {
+        int reach = seal.radius() + margin;
+        if (cube(seal.x(), seal.y(), seal.z(), x, y, z, reach)) {
+            return true;
+        }
+        for (long anchor : seal.anchors()) {
+            if (cube(Seal.unpackX(anchor), Seal.unpackY(anchor), Seal.unpackZ(anchor), x, y, z, reach)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean sphere(int cx, int cy, int cz, int x, int y, int z, long reach) {
+        long dx = x - cx;
+        long dy = y - cy;
+        long dz = z - cz;
+        return dx * dx + dy * dy + dz * dz <= reach * reach;
+    }
+
+    private static boolean cube(int cx, int cy, int cz, int x, int y, int z, int reach) {
+        return Math.abs((long) x - cx) <= reach && Math.abs((long) y - cy) <= reach && Math.abs((long) z - cz) <= reach;
     }
 
     /**
@@ -81,6 +122,6 @@ public final class SealRules {
     }
 
     private static int index(int rank) {
-        return Math.max(1, Math.min(4, rank)) - 1;
+        return Math.max(1, Math.min(TOP_RANK, rank)) - 1;
     }
 }

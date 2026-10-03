@@ -9,6 +9,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.saveddata.SavedData;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -19,6 +20,8 @@ import java.util.UUID;
  * so this plain list is the index: a lookup is one integer distance test per seal. Server thread only.
  */
 public final class SealData extends SavedData {
+    /** At most this many anchors (door pistons) per seal. */
+    public static final int MAX_ANCHORS = 16;
     public static final String DATA_NAME = "hogwartsmagic_colloportus_seals";
 
     private final List<Seal> seals = new ArrayList<>();
@@ -84,6 +87,9 @@ public final class SealData extends SavedData {
             one.putInt("Z", seal.z());
             one.putInt("R", seal.radius());
             one.putLong("At", seal.createdAt());
+            if (seal.anchors().length > 0) {
+                one.putLongArray("Anchors", seal.anchors());
+            }
             list.add(one);
         }
         tag.put("Seals", list);
@@ -100,8 +106,13 @@ public final class SealData extends SavedData {
             }
             int rank = Math.max(1, Math.min(4, one.getInt("Rank")));
             int radius = Math.max(1, Math.min(SealRules.MAX_RADIUS, one.getInt("R")));
+            long[] anchors = one.getLongArray("Anchors");
+            if (anchors.length > MAX_ANCHORS) {
+                anchors = Arrays.copyOf(anchors, MAX_ANCHORS);
+            }
             data.seals.add(new Seal(one.getUUID("Owner"), one.getString("Name"), rank,
-                    one.getInt("X"), one.getInt("Y"), one.getInt("Z"), radius, one.getLong("At")));
+                    one.getInt("X"), one.getInt("Y"), one.getInt("Z"), radius, one.getLong("At"),
+                    anchors)); // a missing Anchors tag (an old save) is no anchors
         }
         return data;
     }

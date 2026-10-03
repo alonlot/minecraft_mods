@@ -41,7 +41,7 @@ public final class LockInfoCommand {
             player.sendSystemMessage(Component.literal("SEALED by " + seal.ownerName() + " (rank " + seal.rank() + ")"));
             return 1;
         }
-        PistonLockSpell.Begin begin =PistonLockSpell.begin(player.serverLevel(), blockHit.getBlockPos(), player, rank,
+        PistonLockSpell.Begin begin = PistonLockSpell.begin(player.serverLevel(), blockHit.getBlockPos(), player, rank,
                 PistonLockSpell.Use.INSPECT);
         if (begin == PistonLockSpell.Begin.NO_PISTON) {
             source.sendFailure(Component.literal("No piston within 6 blocks of that block."));

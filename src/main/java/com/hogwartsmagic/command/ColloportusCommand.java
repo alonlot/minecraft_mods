@@ -2,15 +2,14 @@ package com.hogwartsmagic.command;
 
 import com.hogwartsmagic.spell.support.seal.Seal;
 import com.hogwartsmagic.spell.support.seal.SealData;
+import com.hogwartsmagic.spell.support.seal.SealRules;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
-import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,18 +33,13 @@ public final class ColloportusCommand {
                                 .executes(ctx -> clear(ctx.getSource(), IntegerArgumentType.getInteger(ctx, "radius"))))));
     }
 
-    private static int clear(CommandSourceStack source, int radius) throws CommandSyntaxException {
-        ServerPlayer player = source.getPlayerOrException();
-        ServerLevel level = player.serverLevel();
+    private static int clear(CommandSourceStack source, int radius) {
+        ServerLevel level = source.getLevel();
         SealData data = SealData.get(level);
-        BlockPos at = player.blockPosition();
+        BlockPos at = BlockPos.containing(source.getPosition());
         List<Seal> hit = new ArrayList<>();
         for (Seal seal : data.seals()) {
-            long dx = seal.x() - at.getX();
-            long dy = seal.y() - at.getY();
-            long dz = seal.z() - at.getZ();
-            long reach = (long) seal.radius() + radius;
-            if (dx * dx + dy * dy + dz * dz <= reach * reach) {
+            if (SealRules.withinReach(seal, at.getX(), at.getY(), at.getZ(), radius)) { // centre or any anchor
                 hit.add(seal);
             }
         }

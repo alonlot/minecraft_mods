@@ -6,6 +6,7 @@ import com.hogwartsmagic.spell.disable.DisableSupport;
 import com.hogwartsmagic.spell.mastery.MasteryAwards;
 import com.hogwartsmagic.spell.mind.MindControl;
 import com.hogwartsmagic.spell.support.lock.CircuitTracer;
+import com.hogwartsmagic.spell.support.lock.LockRules;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
@@ -22,6 +23,7 @@ import net.minecraft.world.level.block.DoorBlock;
 import net.minecraft.world.level.block.FenceGateBlock;
 import net.minecraft.world.level.block.TrapDoorBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -44,6 +46,8 @@ public final class ColloportusSpell {
     public enum Gate { PASS, REFUSED, BROKEN }
 
     private static final int MAX_REVEAL_LINES = 4;
+    /** The piston scan reaches DOOR_RADIUS from the struck block, and a door's other half is one block further. */
+    private static final int LOCK_MARGIN = LockRules.DOOR_RADIUS + 1;
 
     private ColloportusSpell() {
     }
@@ -76,8 +80,15 @@ public final class ColloportusSpell {
         int rank = DisableSupport.casterRank(player, SpellType.COLLOPORTUS);
         int cap = SealRules.cap(rank);
         int evicted = evictOldest(server, player.getUUID(), SealRules.toEvict(countAll(server, player.getUUID()), cap));
+        // Anchors: the door pistons of this lock (nearest first, at most MAX_ANCHORS), so the seal covers them too.
+        List<BlockPos> pistons = CircuitTracer.doorPistons(level, pos);
+        int anchorCount = Math.min(pistons.size(), SealData.MAX_ANCHORS);
+        long[] anchors = new long[anchorCount];
+        for (int i = 0; i < anchorCount; i++) {
+            anchors[i] = Seal.pack(pistons.get(i).getX(), pistons.get(i).getY(), pistons.get(i).getZ());
+        }
         Seal seal = new Seal(player.getUUID(), player.getGameProfile().getName(), rank,
-                pos.getX(), pos.getY(), pos.getZ(), SealRules.radius(rank), level.getGameTime());
+                pos.getX(), pos.getY(), pos.getZ(), SealRules.radius(rank), level.getGameTime(), anchors);
         data.add(seal);
         sealEffects(level, seal);
         player.sendSystemMessage(Component.translatable("message.hogwartsmagic.colloportus." + (evicted > 0 ? "replaced" : "sealed"),
@@ -86,16 +97,23 @@ public final class ColloportusSpell {
     }
 
     /** A door, trapdoor or fence gate, or a block with a door piston near it (the piston-lock search). */
-    private static boolean isLock(ServerLevel level, BlockPos pos, BlockState state) {
+    public static boolean isLock(ServerLevel level, BlockPos pos, BlockState state) {
         Block block = state.getBlock();
         return block instanceof DoorBlock || block instanceof TrapDoorBlock || block instanceof FenceGateBlock
                 || CircuitTracer.hasDoorPiston(level, pos);
     }
 
-    /** The lock an Alohomora, Revelio or /lockinfo at hit works on: hit itself and the door pistons near it. */
+    /**
+     * The lock an Alohomora, Revelio or /lockinfo at hit works on: hit itself, the other half when hit is a door
+     * (a door is sealed if either half is covered), and the door pistons near it.
+     */
     public static List<BlockPos> lockPositions(ServerLevel level, BlockPos hit) {
         List<BlockPos> positions = new ArrayList<>();
         positions.add(hit.immutable());
+        BlockState state = level.isLoaded(hit) ? level.getBlockState(hit) : null;
+        if (state != null && state.getBlock() instanceof DoorBlock && state.hasProperty(DoorBlock.HALF)) {
+            positions.add(state.getValue(DoorBlock.HALF) == DoubleBlockHalf.LOWER ? hit.above() : hit.below());
+        }
         positions.addAll(CircuitTracer.doorPistons(level, hit));
         return positions;
     }
@@ -107,8 +125,11 @@ public final class ColloportusSpell {
      */
     public static Gate alohomoraGate(ServerLevel level, BlockPos hit, @Nullable Entity caster, int rank) {
         SealData data = SealData.get(level);
-        if (data.isEmpty()) {
-            return Gate.PASS; // no seal in this dimension: no piston scan at all
+        if (data.isEmpty() || !anySealNear(data, hit) || !level.isLoaded(hit)) {
+            return Gate.PASS; // no seal near: no piston scan at all
+        }
+        if (!isLock(level, hit, level.getBlockState(hit))) {
+            return Gate.PASS; // a plain wall in a seal is not a lock: Alohomora does what it normally does
         }
         List<Seal> covering = data.covering(lockPositions(level, hit));
         if (covering.isEmpty()) {
@@ -146,6 +167,19 @@ public final class ColloportusSpell {
         return Gate.BROKEN;
     }
 
+    /**
+     * Cheap test before any piston scan: some seal in the dimension has its centre or an anchor within its radius
+     * plus the lock margin of hit. False means no seal can cover the lock at hit.
+     */
+    private static boolean anySealNear(SealData data, BlockPos hit) {
+        for (Seal seal : data.seals()) {
+            if (SealRules.near(seal, hit.getX(), hit.getY(), hit.getZ(), LOCK_MARGIN)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** The player whose own seals let this cast through; null for an NPC or a puppet cast. */
     @Nullable
     public static UUID bypassId(@Nullable Entity caster) {
@@ -166,7 +200,7 @@ public final class ColloportusSpell {
     /** Revelio at hit: outlines every seal over this lock and names its sealer and rank. False if there is none. */
     public static boolean revealSeals(ServerLevel level, BlockPos hit, ServerPlayer viewer) {
         SealData data = SealData.get(level);
-        if (data.isEmpty()) {
+        if (data.isEmpty() || !anySealNear(data, hit)) {
             return false;
         }
         List<Seal> covering = data.covering(lockPositions(level, hit));
@@ -175,8 +209,8 @@ public final class ColloportusSpell {
         }
         for (int i = 0; i < covering.size(); i++) {
             Seal seal = covering.get(i);
-            outline(level, seal);
-            if (i < MAX_REVEAL_LINES) {
+            if (i < MAX_REVEAL_LINES) { // the outline only for the seals that also get a line
+                outline(level, seal);
                 viewer.sendSystemMessage(Component.translatable("message.hogwartsmagic.colloportus.revealed",
                         seal.ownerName(), Component.translatable(MasteryAwards.rankKey(seal.rank())))
                         .withStyle(ChatFormatting.AQUA));
@@ -190,7 +224,7 @@ public final class ColloportusSpell {
     @Nullable
     public static Seal strongestSeal(ServerLevel level, BlockPos hit) {
         SealData data = SealData.get(level);
-        if (data.isEmpty()) {
+        if (data.isEmpty() || !anySealNear(data, hit)) {
             return null;
         }
         Seal best = null;
@@ -210,7 +244,10 @@ public final class ColloportusSpell {
         return count;
     }
 
-    /** Removes the owner's count oldest seals, in any dimension (all dimensions share one game time). */
+    /**
+     * Removes the owner's count oldest seals, in any dimension (all dimensions share one game time). Equal
+     * createdAt in one dimension: the earlier in its list (the older) goes first, because the comparison is strict.
+     */
     private static int evictOldest(MinecraftServer server, UUID owner, int count) {
         int removed = 0;
         for (int i = 0; i < count; i++) {

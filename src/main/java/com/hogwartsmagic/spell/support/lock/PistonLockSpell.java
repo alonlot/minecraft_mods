@@ -106,6 +106,18 @@ public final class PistonLockSpell {
     private PistonLockSpell() {
     }
 
+    /** The caster still holds the cast (the cast packet heartbeat). Filled in by the hold task. */
+    public static void heartbeat(ServerPlayer player) {
+    }
+
+    /** The caster let go of the cast. Filled in by the hold task. */
+    public static void release(ServerPlayer player) {
+    }
+
+    /** An Alohomora or Revelio cast press: it counts as held until the first heartbeat. Filled in by the hold task. */
+    public static void noteHoldStart(ServerPlayer player) {
+    }
+
     /**
      * Start reading the lock near hit. NO_PISTON if there is no piston door there at all (nothing was said);
      * REFUSED if there is one but the caster was told it cannot be read now; STARTED once the solver has it.

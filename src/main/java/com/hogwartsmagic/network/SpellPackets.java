@@ -46,7 +46,7 @@ public class SpellPackets {
 
     public static final SimpleChannel CHANNEL = ChannelBuilder
             .named(ExampleMod.MODID + ":spells")
-            .networkProtocolVersion(5)
+            .networkProtocolVersion(6)
             .simpleChannel();
 
     public static void register() {
@@ -510,6 +510,11 @@ public class SpellPackets {
                 .decoder(buf -> new PossessionCastPacket(buf.readUtf(64)))
                 .consumerMainThread(PossessionCastPacket::handle)
                 .add();
+        CHANNEL.messageBuilder(LockPickStatePacket.class)
+                .encoder((p, buf) -> buf.writeBoolean(p.picking))
+                .decoder(buf -> new LockPickStatePacket(buf.readBoolean()))
+                .consumerMainThread(LockPickStatePacket::handle)
+                .add();
     }
 
     public static void syncRelics(ServerPlayer player) {
@@ -857,6 +862,7 @@ public class SpellPackets {
 
             if (p.releaseChannel) {
                 com.hogwartsmagic.spell.mind.CrucioChannel.release(player);
+                com.hogwartsmagic.spell.support.lock.PistonLockSpell.release(player);
                 if (playerData.getBoolean(TAG_PROTEGO_MAXIMA_CHANNELING)) {
                     stopProtegoMaximaChannel(player, wand, now, creative);
                 }
@@ -878,6 +884,15 @@ public class SpellPackets {
             if (p.channelHeartbeat && spell == SpellType.CRUCIO) {
                 com.hogwartsmagic.spell.mind.CrucioChannel.heartbeat(player);
                 return;
+            }
+
+            // Alohomora and Revelio are held while a piston lock is picked (PistonLockSpell); a heartbeat never casts.
+            if (p.channelHeartbeat && (spell == SpellType.ALOHOMORA || spell == SpellType.REVELIO)) {
+                com.hogwartsmagic.spell.support.lock.PistonLockSpell.heartbeat(player);
+                return;
+            }
+            if (!p.selfCastProtego && (spell == SpellType.ALOHOMORA || spell == SpellType.REVELIO)) {
+                com.hogwartsmagic.spell.support.lock.PistonLockSpell.noteHoldStart(player); // the press counts as held
             }
 
             boolean shouldChannelProtegoMaxima = spell == SpellType.PROTEGO_MAXIMA && player.getXRot() <= -55.0F;
@@ -1517,6 +1532,13 @@ public class SpellPackets {
     public record PatronusShieldStatePacket(int casterId, boolean active) {
         public static void handle(PatronusShieldStatePacket p, CustomPayloadEvent.Context ctx) {
             enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("patronusShieldState", p));
+        }
+    }
+
+    /** Server → the caster only: a piston lock pick started or ended (the first-person wand animation). */
+    public record LockPickStatePacket(boolean picking) {
+        public static void handle(LockPickStatePacket p, CustomPayloadEvent.Context ctx) {
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("lockPickState", p));
         }
     }
 

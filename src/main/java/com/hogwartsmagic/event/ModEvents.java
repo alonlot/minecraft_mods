@@ -92,6 +92,8 @@ public class ModEvents {
     private static boolean fiendfyreUseLatched = false;
     private static boolean wingardiumUseLatched = false;
     private static boolean imperioUseLatched = false;
+    /** Client side: right-click cast Alohomora or Revelio and is still down (it may be picking a lock). */
+    private static boolean lockUseLatched = false;
     private static final String TAG_WINGARDIUM_CHANNELING = "hogwartsmagic:wingardium_channeling";
     private static final String TAG_WINGARDIUM_TARGET = "hogwartsmagic:wingardium_target";
     private static final String TAG_WINGARDIUM_RECENT_TARGET = "hogwartsmagic:wingardium_recent_target";
@@ -3960,6 +3962,13 @@ public class ModEvents {
                     }
                     com.hogwartsmagic.event.ClientModEvents.startCrucioHold();
                 }
+                if (selected == SpellType.ALOHOMORA || selected == SpellType.REVELIO) {
+                    if (lockUseLatched) {
+                        return true; // one cast per press: the held key may be picking a piston lock
+                    }
+                    lockUseLatched = true;
+                    com.hogwartsmagic.util.ClientSideBridge.startLockHold(player);
+                }
                 SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(false, false, false, false), PacketDistributor.SERVER.noArg());
                 player.swing(InteractionHand.MAIN_HAND);
                 
@@ -3980,6 +3989,11 @@ public class ModEvents {
         if (player.level().isClientSide) {
             com.hogwartsmagic.util.ClientSideBridge.openSpellMenu(player);
         }
+    }
+
+    /** Client side: right-click is up, so the next press may cast Alohomora or Revelio again. */
+    public static void clearLockUseLatch() {
+        lockUseLatched = false;
     }
 
     public static void resetUseLatches(boolean resetSerpensortia, boolean resetFiendfyre, boolean resetWingardium, boolean resetImperio) {

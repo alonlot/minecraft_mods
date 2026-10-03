@@ -48,6 +48,11 @@ public final class ClientSideBridge {
         invoke("startPatronusHold", new Class<?>[]{net.minecraft.world.entity.player.Player.class}, player);
     }
 
+    /** Alohomora or Revelio was cast with right-click: keep it held to pick a piston lock. */
+    public static void startLockHold(net.minecraft.world.entity.player.Player player) {
+        invoke("startLockHold", new Class<?>[]{net.minecraft.world.entity.player.Player.class}, player);
+    }
+
     public static void playNearMissFeedback(com.hogwartsmagic.entity.SpellBeamEntity beam) {
         invoke("playNearMissFeedback", new Class<?>[]{com.hogwartsmagic.entity.SpellBeamEntity.class}, beam);
     }

@@ -39,7 +39,8 @@ public final class ModEventsClientHooks {
 
         if (MagicWandItem.isAnyWand(stack)) {
             SpellType selected = MagicWandItem.getSelectedSpell(stack);
-            if (selected != null && !player.isCreative()) {
+            // While a lock is picked the server's progress bar owns the action bar.
+            if (selected != null && !player.isCreative() && !LockPickClient.isPicking()) {
                 long now = player.level().getGameTime();
                 long cooldownEnd = MagicWandItem.getSpellCooldown(stack, selected);
                 long remaining = cooldownEnd - now;

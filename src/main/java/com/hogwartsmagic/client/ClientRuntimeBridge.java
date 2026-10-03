@@ -49,6 +49,7 @@ public final class ClientRuntimeBridge {
             case "possessionState" -> PossessionClient.acceptState((SpellPackets.PossessionStatePacket) payload);
             case "puppetInput" -> PossessionClient.acceptPuppetInput((SpellPackets.PuppetInputPacket) payload);
             case "puppetSnapshot" -> PossessionClient.acceptSnapshot((SpellPackets.PuppetSnapshotPacket) payload);
+            case "lockPickState" -> LockPickClient.accept((SpellPackets.LockPickStatePacket) payload);
             default -> throw new IllegalArgumentException("Unknown client packet action: " + action);
         }
     }
@@ -75,6 +76,10 @@ public final class ClientRuntimeBridge {
         if (com.hogwartsmagic.event.ClientModEvents.startPatronusHold()) {
             player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
         }
+    }
+
+    public static void startLockHold(net.minecraft.world.entity.player.Player player) {
+        com.hogwartsmagic.event.ClientModEvents.startLockHold(net.minecraft.client.Minecraft.getInstance().options.keyUse);
     }
 
     public static void playNearMissFeedback(SpellBeamEntity beam) {

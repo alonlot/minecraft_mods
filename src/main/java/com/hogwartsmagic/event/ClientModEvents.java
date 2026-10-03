@@ -99,6 +99,10 @@ public class ClientModEvents {
     private static int imperioHoldTicks = 0;
     private static boolean crucioHoldPending = false;
     private static boolean crucioChannelActive = false;
+    /** Alohomora or Revelio was cast; while lockHoldKey stays down, heartbeats keep a piston lock pick going. */
+    private static boolean lockHoldPending = false;
+    @Nullable
+    private static KeyMapping lockHoldKey = null;
     private static final KeyMapping WAND_RADIAL_MENU_KEY = new KeyMapping(
             "key.hogwartsmagic.wand_radial_menu",
             GLFW.GLFW_KEY_R,
@@ -370,6 +374,22 @@ public class ClientModEvents {
                         }
                     }
 
+                    // Alohomora and Revelio are held after the cast: while a piston lock is picked the heartbeats
+                    // keep it going and letting go stops it (PistonLockSpell). Held by right-click or the slot key.
+                    boolean lockSelected = holdingWand
+                            && (selected == com.hogwartsmagic.spell.SpellType.ALOHOMORA
+                            || selected == com.hogwartsmagic.spell.SpellType.REVELIO);
+                    if (lockHoldPending && (!lockSelected || lockHoldKey == null || !lockHoldKey.isDown())) {
+                        SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(false, true, false, false), PacketDistributor.SERVER.noArg());
+                        lockHoldPending = false;
+                        lockHoldKey = null;
+                    } else if (lockHoldPending) {
+                        SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(false, false, true, false), PacketDistributor.SERVER.noArg());
+                    }
+                    if (!mc.options.keyUse.isDown()) {
+                        com.hogwartsmagic.event.ModEvents.clearLockUseLatch();
+                    }
+
                     if (imperioHoldPending && (!holdingWand || !imperioSelected)) {
                         if (imperioChannelActive) {
                             SpellPackets.CHANNEL.send(new SpellPackets.ImperioControlPacket(false, true, 0.0f, 0.0f, false, false, mc.player.getYRot(), mc.player.getXRot()), PacketDistributor.SERVER.noArg());
@@ -411,6 +431,8 @@ public class ClientModEvents {
                     patronusChannelActive = false;
                     crucioHoldPending = false;
                     crucioChannelActive = false;
+                    lockHoldPending = false;
+                    lockHoldKey = null;
                     imperioHoldPending = false;
                     imperioChannelActive = false;
                     imperioHoldTicks = 0;
@@ -756,9 +778,15 @@ public class ClientModEvents {
 
         for (int slot = 0; slot < SPELL_SLOT_KEYS.length; slot++) {
             while (SPELL_SLOT_KEYS[slot].consumeClick()) {
+                if (lockHoldPending && lockHoldKey == SPELL_SLOT_KEYS[slot]) {
+                    continue; // a key repeat while this key holds a lock pick: never cast again
+                }
                 SpellType spell = MagicWandItem.getSpellSlot(wand, slot);
                 if (spell != null) {
                     com.hogwartsmagic.client.ModEventsClientHooks.selectSpellAndCast(mc.player, spell);
+                    if (spell == SpellType.ALOHOMORA || spell == SpellType.REVELIO) {
+                        startLockHold(SPELL_SLOT_KEYS[slot]);
+                    }
                 }
             }
         }
@@ -826,6 +854,15 @@ public class ClientModEvents {
     /** Doubles as the use-key latch: while the hold is pending, holding right-click never casts Crucio again. */
     public static boolean isCrucioHoldPending() {
         return crucioHoldPending;
+    }
+
+    /**
+     * Alohomora or Revelio was cast: while key stays down the client sends heartbeats, and the server picks a
+     * piston lock if the beam found one (otherwise the heartbeats are ignored). Letting go sends a release.
+     */
+    public static void startLockHold(KeyMapping key) {
+        lockHoldPending = true;
+        lockHoldKey = key;
     }
 
     @SubscribeEvent

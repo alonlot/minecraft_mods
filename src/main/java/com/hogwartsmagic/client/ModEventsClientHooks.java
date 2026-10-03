@@ -119,6 +119,13 @@ public final class ModEventsClientHooks {
             return true;
         }
 
+        if (selected == SpellType.CRUCIO) {
+            if (com.hogwartsmagic.event.ClientModEvents.isCrucioHoldPending()) {
+                return true;
+            }
+            com.hogwartsmagic.event.ClientModEvents.startCrucioHold();
+        }
+
         SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(false, false, false, false), PacketDistributor.SERVER.noArg());
         player.swing(InteractionHand.MAIN_HAND);
         return true;

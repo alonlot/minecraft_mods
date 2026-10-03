@@ -200,11 +200,7 @@ public enum SpellType {
                 }
             }
             case AVADA_KEDAVRA -> com.hogwartsmagic.spell.mind.AvadaSpell.apply(target, caster);
-            case CRUCIO -> {
-                target.addEffect(new MobEffectInstance(MobEffects.WITHER, 100, 1));
-                target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 100, 2));
-                target.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 100, 2));
-            }
+            case CRUCIO -> com.hogwartsmagic.spell.mind.CrucioChannel.onBeamHit(target, caster);
             case IMPERIO -> {
                 interruptActiveCasting(target);
                 if (target instanceof com.hogwartsmagic.entity.HouseElfEntity elf) {

@@ -60,7 +60,7 @@
   "spell.hogwartsmagic.avada_kedavra": "Avada Kedavra",
   "spell.hogwartsmagic.avada_kedavra.desc": "The Killing Curse. A long windup that a hard hit, a stun or a silence can break, then death. Bosses lose a fifth of their health instead. It hurts you too, less with rank, and not at all at Master.",
   "spell.hogwartsmagic.crucio": "Crucio",
-  "spell.hogwartsmagic.crucio.desc": "Inflicts extreme pain, dealing damage over time and slowing the target.",
+  "spell.hogwartsmagic.crucio.desc": "Keep holding after the curse lands: the victim is held in agony and hurt every half second while you stand still (2s, up to 5s at Master). At Master a surviving creature flees from you.",
   "spell.hogwartsmagic.imperio": "Imperio",
   "spell.hogwartsmagic.imperio.desc": "Confuses the target's mind.",
   "spell.hogwartsmagic.fiendfyre": "Fiendfyre",

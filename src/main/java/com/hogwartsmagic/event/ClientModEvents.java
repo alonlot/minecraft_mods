@@ -98,6 +98,8 @@ public class ClientModEvents {
     private static boolean imperioChannelActive = false;
     private static int imperioHoldTicks = 0;
     private static final int IMPERIO_HOLD_THRESHOLD_TICKS = 40;
+    private static boolean crucioHoldPending = false;
+    private static boolean crucioChannelActive = false;
     private static final KeyMapping WAND_RADIAL_MENU_KEY = new KeyMapping(
             "key.hogwartsmagic.wand_radial_menu",
             GLFW.GLFW_KEY_R,
@@ -325,6 +327,28 @@ public class ClientModEvents {
                         }
                     }
 
+                    // Crucio is held after the beam: heartbeats keep the curse on, letting go ends it.
+                    boolean crucioSelected = holdingWand
+                            && selected == com.hogwartsmagic.spell.SpellType.CRUCIO;
+                    if (crucioHoldPending && (!holdingWand || !crucioSelected)) {
+                        if (crucioChannelActive) {
+                            SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(false, true, false, false), PacketDistributor.SERVER.noArg());
+                        }
+                        crucioHoldPending = false;
+                        crucioChannelActive = false;
+                    } else if (crucioHoldPending) {
+                        if (useDown) {
+                            SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(false, false, true, false), PacketDistributor.SERVER.noArg());
+                            crucioChannelActive = true;
+                        } else {
+                            if (crucioChannelActive) {
+                                SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(false, true, false, false), PacketDistributor.SERVER.noArg());
+                            }
+                            crucioHoldPending = false;
+                            crucioChannelActive = false;
+                        }
+                    }
+
                     if (imperioHoldPending && (!holdingWand || !imperioSelected)) {
                         if (imperioChannelActive) {
                             SpellPackets.CHANNEL.send(new SpellPackets.ImperioControlPacket(false, true, 0.0f, 0.0f, false, false, mc.player.getYRot(), mc.player.getXRot()), PacketDistributor.SERVER.noArg());
@@ -365,6 +389,8 @@ public class ClientModEvents {
                     wingardiumChannelActive = false;
                     patronusHoldPending = false;
                     patronusChannelActive = false;
+                    crucioHoldPending = false;
+                    crucioChannelActive = false;
                     imperioHoldPending = false;
                     imperioChannelActive = false;
                     imperioHoldTicks = 0;
@@ -764,6 +790,18 @@ public class ClientModEvents {
             imperioChannelActive = false;
             imperioHoldTicks = 0;
         }
+    }
+
+    public static void startCrucioHold() {
+        if (!crucioHoldPending) {
+            crucioHoldPending = true;
+            crucioChannelActive = false;
+        }
+    }
+
+    /** Doubles as the use-key latch: while the hold is pending, holding right-click never casts Crucio again. */
+    public static boolean isCrucioHoldPending() {
+        return crucioHoldPending;
     }
 
     @SubscribeEvent

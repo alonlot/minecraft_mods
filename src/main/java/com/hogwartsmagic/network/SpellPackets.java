@@ -749,6 +749,7 @@ public class SpellPackets {
             net.minecraft.nbt.CompoundTag playerData = player.getPersistentData();
 
             if (p.releaseChannel) {
+                com.hogwartsmagic.spell.mind.CrucioChannel.release(player);
                 if (playerData.getBoolean(TAG_PROTEGO_MAXIMA_CHANNELING)) {
                     stopProtegoMaximaChannel(player, wand, now, creative);
                 }
@@ -763,6 +764,12 @@ public class SpellPackets {
                 }
                 playerData.remove(TAG_FIENDFYRE_ADVANCE);
                 playerData.remove(TAG_PATRONUS_CAST_SPENT);
+                return;
+            }
+
+            // Crucio is held after its beam lands; the heartbeat keeps the channel alive (it never casts again).
+            if (p.channelHeartbeat && spell == SpellType.CRUCIO) {
+                com.hogwartsmagic.spell.mind.CrucioChannel.heartbeat(player);
                 return;
             }
 

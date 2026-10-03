@@ -1639,6 +1639,7 @@ public class ModEvents {
 
     public static void interruptActiveCasting(ServerPlayer player) {
         ItemStack wand = player.getMainHandItem();
+        com.hogwartsmagic.spell.mind.CrucioChannel.release(player);
         if (player.getPersistentData().getBoolean(TAG_IMPERIO_CHANNELING)) {
             stopImperioChannel(player, wand);
         }
@@ -4157,6 +4158,12 @@ public class ModEvents {
                     }
                 }
 
+                if (selected == SpellType.CRUCIO) {
+                    if (com.hogwartsmagic.event.ClientModEvents.isCrucioHoldPending()) {
+                        return true;
+                    }
+                    com.hogwartsmagic.event.ClientModEvents.startCrucioHold();
+                }
                 SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(false, false, false, false), PacketDistributor.SERVER.noArg());
                 player.swing(InteractionHand.MAIN_HAND);
                 

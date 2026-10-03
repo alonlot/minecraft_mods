@@ -54,21 +54,28 @@ public final class LockSimulator {
         return false;
     }
 
+    /** A lever, button, plate, sensor or forced source: on (15) or off (0). */
     public void setInput(int input, boolean on) {
-        if (circuit.inputKind(input) != LockCircuit.LEVER) {
-            throw new IllegalArgumentException("input is not a lever: " + input);
+        if (circuit.inputKind(input) == LockCircuit.ANALOG) {
+            throw new IllegalArgumentException("input is analog, use setLevel: " + input);
         }
         applyInput(input, on ? 15 : 0);
     }
 
+    /** Any input, to any level in its domain (a lever's domain is 0 and 15). */
     public void setLevel(int input, int level) {
-        if (circuit.inputKind(input) != LockCircuit.ANALOG) {
-            throw new IllegalArgumentException("input is not analog: " + input);
-        }
         if (!circuit.inDomain(input, level)) {
             throw new IllegalArgumentException("level not in domain: " + level);
         }
         applyInput(input, level);
+    }
+
+    public boolean goalPowered(int goal) {
+        return value[circuit.goalNode(goal)] > 0;
+    }
+
+    public boolean dangerPowered(int danger) {
+        return value[circuit.dangerNode(danger)] > 0;
     }
 
     public int value(int node) {

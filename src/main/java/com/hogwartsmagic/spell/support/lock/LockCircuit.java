@@ -16,6 +16,10 @@ public final class LockCircuit {
     public static final int OBSERVER = 8;
     public static final int INPUT = 9;
     public static final int CONSTANT = 10;
+    /** A button, plate or sculk sensor: pressed, then springs back. */
+    public static final int PULSE = 11;
+    /** A comparator, observer or other source forced on for a few seconds (Alohomora Master). */
+    public static final int FORCE = 12;
 
     private final int[] kinds;
     private final int[] initial;
@@ -26,6 +30,10 @@ public final class LockCircuit {
     private final int[] inputNodes;
     private final int[] inputKinds;
     private final int[][] inputDomains;
+    private final int[] goals;
+    private final int[] dangers;
+    private final boolean keyed;
+    private final boolean truncated;
 
     private LockCircuit(Builder b) {
         int n = b.kinds.size();
@@ -44,6 +52,10 @@ public final class LockCircuit {
         inputNodes = toArray(b.inputNodes);
         inputKinds = toArray(b.inputKinds);
         inputDomains = b.inputDomains.toArray(new int[0][]);
+        goals = b.goals.stream().distinct().mapToInt(Integer::intValue).toArray();
+        dangers = b.dangers.stream().distinct().mapToInt(Integer::intValue).toArray();
+        keyed = b.keyed;
+        truncated = b.truncated;
     }
 
     private static int[] toArray(List<Integer> list) {
@@ -76,6 +88,72 @@ public final class LockCircuit {
 
     public int kind(int node) {
         return kinds[node];
+    }
+
+    public int goalCount() {
+        return goals.length;
+    }
+
+    public int goalNode(int goal) {
+        return goals[goal];
+    }
+
+    public int dangerCount() {
+        return dangers.length;
+    }
+
+    public int dangerNode(int danger) {
+        return dangers[danger];
+    }
+
+    /** Part of this lock is an item, not a switch, and the reader could not set it. */
+    public boolean keyed() {
+        return keyed;
+    }
+
+    /** The trace stopped at its block cap or an unloaded chunk: some wiring is missing. */
+    public boolean truncated() {
+        return truncated;
+    }
+
+    /** Door pistons any input reaches at all: the most a solution can move. */
+    public int controllableGoals() {
+        int n = kinds.length;
+        List<List<Integer>> readers = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) {
+            readers.add(new ArrayList<>());
+        }
+        for (int to = 0; to < n; to++) {
+            for (int from : mainFrom[to]) {
+                readers.get(from).add(to);
+            }
+            for (int from : sideFrom[to]) {
+                readers.get(from).add(to);
+            }
+        }
+        boolean[] seen = new boolean[n];
+        java.util.ArrayDeque<Integer> queue = new java.util.ArrayDeque<>();
+        for (int node : inputNodes) {
+            if (!seen[node]) {
+                seen[node] = true;
+                queue.add(node);
+            }
+        }
+        while (!queue.isEmpty()) {
+            for (int next : readers.get(queue.poll())) {
+                if (!seen[next]) {
+                    seen[next] = true;
+                    queue.add(next);
+                }
+            }
+        }
+        int count = 0;
+        for (int goal : goals) {
+            if (seen[goal]) {
+                count++;
+            }
+        }
+        return count;
     }
 
     int initialValue(int node) {
@@ -118,14 +196,19 @@ public final class LockCircuit {
         private final List<Integer> inputNodes = new ArrayList<>();
         private final List<Integer> inputKinds = new ArrayList<>();
         private final List<int[]> inputDomains = new ArrayList<>();
+        private final List<Integer> goals = new ArrayList<>();
+        private final List<Integer> dangers = new ArrayList<>();
+        private boolean keyed;
+        private boolean truncated;
 
+        /** A LEVER, PULSE or FORCE input; each is off (0) or on (15). */
         public int input(int kind, boolean on) {
-            if (kind != LEVER) {
-                throw new IllegalArgumentException("input kind must be LEVER: " + kind);
+            if (kind != LEVER && kind != PULSE && kind != FORCE) {
+                throw new IllegalArgumentException("input kind must be LEVER, PULSE or FORCE: " + kind);
             }
             int node = add(INPUT, on ? 15 : 0);
             inputNodes.add(node);
-            inputKinds.add(LEVER);
+            inputKinds.add(kind);
             inputDomains.add(new int[] {0, 15});
             return node;
         }
@@ -187,6 +270,32 @@ public final class LockCircuit {
             }
             sideFrom.get(to).add(from);
             sideLoss.get(to).add(loss);
+        }
+
+        /** A door piston: the solver tries to change whether it is powered. */
+        public void goal(int node) {
+            checkNode(node);
+            goals.add(node);
+        }
+
+        /** A dispenser, dropper or TNT: no solution may power it if it was unpowered. */
+        public void danger(int node) {
+            checkNode(node);
+            dangers.add(node);
+        }
+
+        public void markKeyed() {
+            keyed = true;
+        }
+
+        public void markTruncated() {
+            truncated = true;
+        }
+
+        private void checkNode(int node) {
+            if (node < 0 || node >= kinds.size()) {
+                throw new IllegalArgumentException("node index out of range: " + node);
+            }
         }
 
         public LockCircuit build() {

@@ -974,6 +974,7 @@ public class ExampleMod
         com.hogwartsmagic.command.SpellMasteryCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.CrowdControlCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.ImperioCommand.register(event.getDispatcher());
+        com.hogwartsmagic.command.LockInfoCommand.register(event.getDispatcher());
     }
 
     private static ArmorMaterial createRobeMaterial(String textureName) {

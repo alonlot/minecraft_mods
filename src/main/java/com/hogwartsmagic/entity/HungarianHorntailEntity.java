@@ -1072,6 +1072,16 @@ public class HungarianHorntailEntity extends Monster {
     void beginWingGust() { setAttackState(AttackState.WING_GUST); }
     void beginFlight() { beginTakeoff(); }
 
+    /**
+     * Imperio possession (Spell Mastery Phase 6b): breathe fire along the current look when a move can start.
+     * The possessed dragon has no target, so the windup aims along getLookAngle(), which the caster steers.
+     */
+    public void possessedAttack() {
+        if (canStartAction()) {
+            beginBreath();
+        }
+    }
+
     boolean canStartAction() {
         return getAttackState() == AttackState.NONE && this.actionCooldown <= 0;
     }

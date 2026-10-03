@@ -659,6 +659,24 @@ public class BasiliskEntity extends Monster {
                 1, 0.0D, 0.0D, 0.0D, 0.0D);
     }
 
+    /**
+     * Imperio possession (Spell Mastery Phase 6b): spit venom straight along the current look, on the
+     * Basilisk's own spit cooldown (counted down in tick(), so it runs while the possessed AI is paused).
+     */
+    public void possessedAttack() {
+        if (!(this.level() instanceof ServerLevel) || this.spitCooldown > 0) {
+            return;
+        }
+        Vec3 from = getGazeOrigin();
+        Vec3 look = this.getLookAngle();
+        BasiliskVenomEntity venom = new BasiliskVenomEntity(this.level(), this);
+        venom.setPos(from.x, from.y, from.z);
+        venom.shoot(look.x, look.y + 0.12D, look.z, 1.05F, 1.0F);
+        this.level().addFreshEntity(venom);
+        playActionSound(ModSounds.BASILISK_SPIT.get(), 1.3F, 1.0F);
+        this.spitCooldown = SPIT_COOLDOWN;
+    }
+
     /** Ranged venom: an arcing glob that leaves a lingering pool where it lands. */
     private void doSpit() {
         LivingEntity target = this.getTarget();

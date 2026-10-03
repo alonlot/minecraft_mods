@@ -493,6 +493,10 @@ public final class PossessionManager {
             return;
         }
         drive(session, victim);
+        if (session.attack && now - session.lastAttackAt >= session.attackCooldown) {
+            session.lastAttackAt = now;
+            session.attackCooldown = PossessedAttacks.attack(victim, caster);
+        }
         if (now - session.lastStateAt >= PossessionRules.STATE_KEEPALIVE_TICKS) {
             sendState(session, caster, victim, now);
         }

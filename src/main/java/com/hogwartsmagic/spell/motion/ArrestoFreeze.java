@@ -42,6 +42,8 @@ import java.util.UUID;
 public final class ArrestoFreeze {
     /** Entity tag (saved with the entity) on every frozen projectile. */
     private static final String FROZEN_TAG = "hogwartsmagic:arresto_frozen";
+    /** Second entity tag: the projectile already had NoGravity before it was frozen. */
+    private static final String FROZEN_NG_TAG = "hogwartsmagic:arresto_frozen_ng";
     private static final Map<ResourceKey<Level>, Map<UUID, Frozen>> FROZEN = new HashMap<>();
 
     private record Frozen(Vec3 at, long until, boolean hadNoGravity) {
@@ -71,9 +73,14 @@ public final class ArrestoFreeze {
             boolean hadNoGravity = projectile.isNoGravity();
             frozen.put(projectile.getUUID(), new Frozen(projectile.position(), until, hadNoGravity));
             projectile.addTag(FROZEN_TAG); // fireballs too: a saved one must not hang motionless forever
+            if (hadNoGravity) {
+                projectile.addTag(FROZEN_NG_TAG); // so a restore puts NoGravity back exactly as it was
+            }
             projectile.setNoGravity(true);
             projectile.setDeltaMovement(Vec3.ZERO);
             projectile.hasImpulse = true; // one motion packet: clients stop predicting its flight
+            // One teleport packet per freeze so clients see it where the server holds it (never per tick).
+            level.getChunkSource().broadcast(projectile, new net.minecraft.network.protocol.game.ClientboundTeleportEntityPacket(projectile));
             level.sendParticles(ParticleTypes.GLOW, projectile.getX(), projectile.getY(), projectile.getZ(),
                     6, 0.15D, 0.15D, 0.15D, 0.01D);
             count++;
@@ -89,8 +96,11 @@ public final class ArrestoFreeze {
         if (projectile instanceof SpellBeamEntity) {
             return false; // user ruling: Arresto never stops spells, Avada or otherwise
         }
-        if (!projectile.isAlive() || projectile.getDeltaMovement().lengthSqr() < 1.0E-4D) {
-            return false; // a stuck arrow has no motion
+        // Real movement last tick: an arrow or trident stuck in a block keeps a residual deltaMovement in 1.21,
+        // but its position no longer changes.
+        if (!projectile.isAlive() || projectile.getDeltaMovement().lengthSqr() < 1.0E-4D
+                || projectile.position().distanceToSqr(projectile.xo, projectile.yo, projectile.zo) < 1.0E-4D) {
+            return false;
         }
         if (projectile instanceof AbstractArrow arrow && arrow.isNoPhysics()) {
             return false; // a loyal trident flying home
@@ -140,6 +150,7 @@ public final class ArrestoFreeze {
     private static void release(Entity entity, Frozen record) {
         entity.setNoGravity(record.hadNoGravity());
         entity.removeTag(FROZEN_TAG);
+        entity.removeTag(FROZEN_NG_TAG);
         if (entity instanceof AbstractHurtingProjectile) {
             entity.setDeltaMovement(0.0D, -ArrestoRules.DROP_SPEED, 0.0D);
         } else {
@@ -159,12 +170,26 @@ public final class ArrestoFreeze {
         if (frozen != null && frozen.containsKey(projectile.getUUID())) {
             return; // still held this session
         }
+        projectile.setNoGravity(projectile.getTags().contains(FROZEN_NG_TAG)); // exactly what it was before
         projectile.removeTag(FROZEN_TAG);
+        projectile.removeTag(FROZEN_NG_TAG);
         if (projectile instanceof AbstractHurtingProjectile) {
             projectile.setDeltaMovement(0.0D, -ArrestoRules.DROP_SPEED, 0.0D); // no gravity of their own: sent down
         } else {
-            projectile.setNoGravity(false);
             projectile.setDeltaMovement(Vec3.ZERO);
+        }
+    }
+
+    /** A held projectile can't hit a creature (a push can't turn it into a weapon); it runs before Tenebris's listener. */
+    @SubscribeEvent(priority = net.minecraftforge.eventbus.api.EventPriority.HIGH)
+    public static void onProjectileImpact(net.minecraftforge.event.entity.ProjectileImpactEvent event) {
+        if (FROZEN.isEmpty() || event.getProjectile().level().isClientSide()) {
+            return;
+        }
+        Map<UUID, Frozen> frozen = FROZEN.get(event.getProjectile().level().dimension());
+        if (frozen != null && frozen.containsKey(event.getProjectile().getUUID())
+                && event.getRayTraceResult() instanceof net.minecraft.world.phys.EntityHitResult) {
+            event.setImpactResult(net.minecraftforge.event.entity.ProjectileImpactEvent.ImpactResult.SKIP_ENTITY);
         }
     }
 

@@ -688,7 +688,10 @@ public class SpellBeamEntity extends ThrowableProjectile {
                         int revelioRank = com.hogwartsmagic.spell.disable.DisableSupport.casterRank(getOwner(), SpellType.REVELIO);
                         revealNearbySecrets(sl, pos, revelioRank);
                         com.hogwartsmagic.spell.support.RevelioSpell.revealHidden(sl, this.position(), getOwner());
-                        if (getOwner() instanceof ServerPlayer revealer
+                        // A Colloportus seal over this lock is shown (any rank) instead of how the lock opens.
+                        boolean sealShown = getOwner() instanceof ServerPlayer sealViewer
+                                && com.hogwartsmagic.spell.support.seal.ColloportusSpell.revealSeals(sl, pos, sealViewer);
+                        if (!sealShown && getOwner() instanceof ServerPlayer revealer
                                 && com.hogwartsmagic.spell.support.lock.LockRules.readsLocks(revelioRank)
                                 && com.hogwartsmagic.spell.mind.MindControl.hitPuppeteer() == null) {
                             // From Expert: show how the piston door here opens (see LockHints).

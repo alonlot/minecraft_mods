@@ -113,7 +113,7 @@ public class BroomWorkbenchMenu extends AbstractContainerMenu {
 
     public int getCraftTotalTicks() {
         return this.valid && this.blockEntity != null && this.blockEntity.isInfusing()
-                ? BroomWorkbenchBlockEntity.BROOM_CRAFT_TICKS_TOTAL
+                ? this.blockEntity.getCraftTotalTicks()
                 : 0;
     }
 

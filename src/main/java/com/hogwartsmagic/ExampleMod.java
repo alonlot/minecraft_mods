@@ -79,6 +79,14 @@ public class ExampleMod
     public static final DeferredRegister<net.minecraft.world.level.levelgen.structure.StructureType<?>> STRUCTURE_TYPES = DeferredRegister.create(Registries.STRUCTURE_TYPE, MODID);
     public static final DeferredRegister<net.minecraft.world.level.levelgen.structure.pieces.StructurePieceType> STRUCTURE_PIECE_TYPES = DeferredRegister.create(Registries.STRUCTURE_PIECE, MODID);
     public static final DeferredRegister<com.mojang.serialization.MapCodec<? extends net.minecraftforge.common.loot.IGlobalLootModifier>> LOOT_MODIFIER_SERIALIZERS = DeferredRegister.create(net.minecraftforge.registries.ForgeRegistries.Keys.GLOBAL_LOOT_MODIFIER_SERIALIZERS, MODID);
+    public static final DeferredRegister<net.minecraft.core.component.DataComponentType<?>> DATA_COMPONENTS =
+            DeferredRegister.create(Registries.DATA_COMPONENT_TYPE, MODID);
+    /** Broom quality from an Alatus infusion: 0 normal, 1 Fine, 2 Masterwork (Spell Mastery Phase 7b). */
+    public static final RegistryObject<net.minecraft.core.component.DataComponentType<Integer>> BROOM_QUALITY =
+            DATA_COMPONENTS.register("broom_quality", () -> net.minecraft.core.component.DataComponentType.<Integer>builder()
+                    .persistent(com.mojang.serialization.Codec.intRange(0, 2))
+                    .networkSynchronized(net.minecraft.network.codec.ByteBufCodecs.VAR_INT)
+                    .build());
 
     public static final RegistryObject<com.mojang.serialization.MapCodec<com.hogwartsmagic.loot.MagicBookLootModifier>> MAGIC_BOOK_LOOT_MODIFIER =
             LOOT_MODIFIER_SERIALIZERS.register("magic_books", () -> com.hogwartsmagic.loot.MagicBookLootModifier.CODEC);
@@ -887,6 +895,7 @@ public class ExampleMod
         BLOCKS.register(modEventBus);
         // Register the Deferred Register to the mod event bus so items get registered
         ITEMS.register(modEventBus);
+        DATA_COMPONENTS.register(modEventBus);
         // Register the Deferred Register to the mod event bus so tabs get registered
         CREATIVE_MODE_TABS.register(modEventBus);
         ARMOR_MATERIALS.register(modEventBus);

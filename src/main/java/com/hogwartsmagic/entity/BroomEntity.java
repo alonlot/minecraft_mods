@@ -49,6 +49,8 @@ public class BroomEntity extends Entity {
     private static final EntityDataAccessor<Byte> DATA_TRICK = SynchedEntityData.defineId(BroomEntity.class, EntityDataSerializers.BYTE);
     private static final EntityDataAccessor<Integer> DATA_TRICK_TICKS = SynchedEntityData.defineId(BroomEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Byte> DATA_STAMINA = SynchedEntityData.defineId(BroomEntity.class, EntityDataSerializers.BYTE);
+    /** Alatus quality (AlatusRules.QUALITY_*). Synced: while ridden, the rider's client runs the flight physics. */
+    private static final EntityDataAccessor<Integer> DATA_QUALITY = SynchedEntityData.defineId(BroomEntity.class, EntityDataSerializers.INT);
 
     public BroomEntity(EntityType<?> type, Level level) {
         super(type, level);
@@ -72,6 +74,7 @@ public class BroomEntity extends Entity {
         builder.define(DATA_TRICK, TRICK_NONE);
         builder.define(DATA_TRICK_TICKS, 0);
         builder.define(DATA_STAMINA, (byte) STAMINA_MAX);
+        builder.define(DATA_QUALITY, 0);
     }
 
     public boolean isBoostingSynced() {
@@ -120,11 +123,13 @@ public class BroomEntity extends Entity {
         if (tag.contains("BroomType")) {
             this.setBroomType(tag.getInt("BroomType"));
         }
+        this.setQuality(tag.getInt("Quality"));
     }
 
     @Override
     protected void addAdditionalSaveData(net.minecraft.nbt.CompoundTag tag) {
         tag.putInt("BroomType", this.getBroomType());
+        tag.putInt("Quality", this.getQuality());
     }
 
     public int getBroomType() {
@@ -133,6 +138,14 @@ public class BroomEntity extends Entity {
 
     public void setBroomType(int type) {
         this.entityData.set(DATA_TYPE, type);
+    }
+
+    public int getQuality() {
+        return this.entityData.get(DATA_QUALITY);
+    }
+
+    public void setQuality(int quality) {
+        this.entityData.set(DATA_QUALITY, com.hogwartsmagic.spell.motion.AlatusRules.clampQuality(quality));
     }
 
     @Override
@@ -271,7 +284,9 @@ public class BroomEntity extends Entity {
             // 60% longer than the 0.555/tick (~9s) it held before.
             boolean activelyBoosting = this.isBoosting && this.isVehicle() && horizSpeed > 0.5F;
             if (activelyBoosting) {
-                this.staminaF = Math.max(0.0F, this.staminaF - 0.347F);
+                // A Masterwork broom's boost lasts 15% longer (Spell Mastery Phase 7b).
+                this.staminaF = Math.max(0.0F, this.staminaF - 0.347F
+                        * (float) com.hogwartsmagic.spell.motion.AlatusRules.staminaDrainMultiplier(this.getQuality()));
                 if (this.staminaF <= 0.0F) {
                     this.boostLocked = true;
                     this.isBoosting = false; // force-release boost when empty
@@ -419,8 +434,10 @@ public class BroomEntity extends Entity {
         // Base speed and smoothing 
         // 0 = Basic, 1 = Nimbus, 2 = Firebolt
         int type = this.getBroomType();
-        double baseSpeed = type == 2 ? 3.0 : (type == 1 ? 2.5 : 2.0);
-        double boostSpeed = type == 2 ? 10.0 : (type == 1 ? 8.0 : 6.5);
+        // Spell Mastery Phase 7b: a Fine broom is 5% faster, a Masterwork 10%.
+        double qualitySpeed = com.hogwartsmagic.spell.motion.AlatusRules.speedMultiplier(this.getQuality());
+        double baseSpeed = (type == 2 ? 3.0 : (type == 1 ? 2.5 : 2.0)) * qualitySpeed;
+        double boostSpeed = (type == 2 ? 10.0 : (type == 1 ? 8.0 : 6.5)) * qualitySpeed;
         double accelPhase = type == 2 ? 0.15 : (type == 1 ? 0.12 : 0.08);
 
         double targetSpeed = isTurbo ? boostSpeed : baseSpeed;

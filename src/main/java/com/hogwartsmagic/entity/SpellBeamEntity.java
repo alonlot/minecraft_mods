@@ -734,7 +734,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
                             double hx = pos.getX() + 0.5;
                             double hy = pos.getY() + 0.65;
                             double hz = pos.getZ() + 0.5;
-                            if (bbe.beginInfusionFromSpell(sl)) {
+                            if (bbe.beginInfusionFromSpell(sl, getOwner())) {
                                 hitSuccessful = true;
                             } else {
                                 sl.sendParticles(ParticleTypes.SMOKE, hx, hy, hz, 10, 0.28, 0.12, 0.28, 0.02);

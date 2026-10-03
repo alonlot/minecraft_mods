@@ -1,7 +1,11 @@
 package com.hogwartsmagic.block.entity;
 
 import com.hogwartsmagic.ExampleMod;
+import com.hogwartsmagic.item.BroomItem;
 import com.hogwartsmagic.menu.BroomWorkbenchMenu;
+import com.hogwartsmagic.spell.SpellType;
+import com.hogwartsmagic.spell.disable.DisableSupport;
+import com.hogwartsmagic.spell.motion.AlatusRules;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.particles.ParticleTypes;
@@ -14,6 +18,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -42,6 +47,10 @@ public class BroomWorkbenchBlockEntity extends BlockEntity implements net.minecr
 
     private int craftTicksRemaining;
     private int craftAccentPhase;
+    /** Length of the current infusion, from the caster's Alatus rank (Spell Mastery Phase 7b). */
+    private int craftTotalTicks = BROOM_CRAFT_TICKS_TOTAL;
+    /** The caster's Alatus rank at the start of the current infusion; it decides the quality roll. */
+    private int infusionRank = 1;
 
     private final ItemStackHandler inventory = new ItemStackHandler(5) {
         @Override
@@ -106,7 +115,7 @@ public class BroomWorkbenchBlockEntity extends BlockEntity implements net.minecr
         public int get(int index) {
             return switch (index) {
                 case 0 -> craftTicksRemaining;
-                case 1 -> isInfusing() ? BROOM_CRAFT_TICKS_TOTAL : 0;
+                case 1 -> isInfusing() ? craftTotalTicks : 0;
                 default -> 0;
             };
         }
@@ -139,6 +148,10 @@ public class BroomWorkbenchBlockEntity extends BlockEntity implements net.minecr
 
     public boolean isInfusing() {
         return this.craftTicksRemaining > 0;
+    }
+
+    public int getCraftTotalTicks() {
+        return this.craftTotalTicks;
     }
 
     private void onInventoryChanged() {
@@ -197,7 +210,7 @@ public class BroomWorkbenchBlockEntity extends BlockEntity implements net.minecr
      *
      * @return true if infusion started (or bench was already valid target — caller may play impact FX)
      */
-    public boolean beginInfusionFromSpell(ServerLevel level) {
+    public boolean beginInfusionFromSpell(ServerLevel level, @Nullable Entity caster) {
         if (this.craftTicksRemaining > 0) {
             return false;
         }
@@ -208,7 +221,11 @@ public class BroomWorkbenchBlockEntity extends BlockEntity implements net.minecr
             return false;
         }
 
-        this.craftTicksRemaining = BROOM_CRAFT_TICKS_TOTAL;
+        int rank = DisableSupport.casterRank(caster, SpellType.ALATUS);
+
+        this.infusionRank = rank;
+        this.craftTotalTicks = AlatusRules.infusionTicks(rank);
+        this.craftTicksRemaining = this.craftTotalTicks;
         this.craftAccentPhase = 0;
         BlockPos pos = this.getBlockPos();
         Vec3 center = Vec3.atBottomCenterOf(pos).add(0.0, 0.62, 0.0);
@@ -257,25 +274,46 @@ public class BroomWorkbenchBlockEntity extends BlockEntity implements net.minecr
         this.inventory.extractItem(SLOT_B, 1, false);
         this.inventory.extractItem(SLOT_C, 1, false);
         this.inventory.extractItem(SLOT_D, 1, false);
+        int quality = this.rollQuality(out);
         this.inventory.setStackInSlot(SLOT_RESULT, out);
-
-        Level level = this.level;
-        if (level != null) {
-            BlockPos pos = this.getBlockPos();
-            double x = pos.getX() + 0.5;
-            double y = pos.getY() + 0.72;
-            double z = pos.getZ() + 0.5;
-            if (level instanceof ServerLevel serverLevel) {
-                serverLevel.sendParticles(ParticleTypes.END_ROD, x, y, z, 10, 0.35, 0.2, 0.35, 0.04);
-                serverLevel.sendParticles(ParticleTypes.HAPPY_VILLAGER, x, y, z, 8, 0.4, 0.15, 0.4, 0.0);
-                serverLevel.sendParticles(ParticleTypes.CLOUD, x, y, z, 14, 0.45, 0.18, 0.45, 0.02);
-                serverLevel.sendParticles(ParticleTypes.ENCHANT, x, y + 0.1, z, 12, 0.5, 0.25, 0.5, 0.03);
-            }
-            level.playSound(null, x, y, z, SoundEvents.PLAYER_LEVELUP, SoundSource.BLOCKS, 0.28f, 1.35f);
-            level.playSound(null, x, y, z, SoundEvents.BREEZE_SHOOT, SoundSource.BLOCKS, 0.4f, 1.1f);
-            level.playSound(null, x, y, z, SoundEvents.WIND_CHARGE_THROW, SoundSource.PLAYERS, 0.55f, 1.2f);
-        }
+        this.playFinishEffects(quality);
         this.setChanged();
+    }
+
+    /** From Adept an infusion may make a Fine or Masterwork broom (a normal one carries no component). */
+    private int rollQuality(ItemStack broom) {
+        RandomSource random = this.level != null ? this.level.random : RandomSource.create();
+        int quality = AlatusRules.rollQuality(this.infusionRank, random.nextDouble());
+        BroomItem.setQuality(broom, quality);
+        return quality;
+    }
+
+    private void playFinishEffects(int quality) {
+        Level level = this.level;
+        if (level == null) {
+            return;
+        }
+        BlockPos pos = this.getBlockPos();
+        double x = pos.getX() + 0.5;
+        double y = pos.getY() + 0.72;
+        double z = pos.getZ() + 0.5;
+        if (level instanceof ServerLevel serverLevel) {
+            serverLevel.sendParticles(ParticleTypes.END_ROD, x, y, z, 10, 0.35, 0.2, 0.35, 0.04);
+            serverLevel.sendParticles(ParticleTypes.HAPPY_VILLAGER, x, y, z, 8, 0.4, 0.15, 0.4, 0.0);
+            serverLevel.sendParticles(ParticleTypes.CLOUD, x, y, z, 14, 0.45, 0.18, 0.45, 0.02);
+            serverLevel.sendParticles(ParticleTypes.ENCHANT, x, y + 0.1, z, 12, 0.5, 0.25, 0.5, 0.03);
+            if (quality == AlatusRules.QUALITY_MASTERWORK) {
+                serverLevel.sendParticles(ParticleTypes.TOTEM_OF_UNDYING, x, y + 0.2, z, 24, 0.4, 0.3, 0.4, 0.15);
+            } else if (quality == AlatusRules.QUALITY_FINE) {
+                serverLevel.sendParticles(ParticleTypes.WAX_ON, x, y + 0.2, z, 16, 0.4, 0.3, 0.4, 0.05);
+            }
+        }
+        level.playSound(null, x, y, z, SoundEvents.PLAYER_LEVELUP, SoundSource.BLOCKS, 0.28f, 1.35f);
+        level.playSound(null, x, y, z, SoundEvents.BREEZE_SHOOT, SoundSource.BLOCKS, 0.4f, 1.1f);
+        level.playSound(null, x, y, z, SoundEvents.WIND_CHARGE_THROW, SoundSource.PLAYERS, 0.55f, 1.2f);
+        if (quality != AlatusRules.QUALITY_NORMAL) {
+            level.playSound(null, x, y, z, SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.BLOCKS, 0.9f, quality == AlatusRules.QUALITY_MASTERWORK ? 1.4f : 1.1f);
+        }
     }
 
     private void spawnInfusionStartBurst(ServerLevel level, BlockPos pos) {
@@ -293,7 +331,7 @@ public class BroomWorkbenchBlockEntity extends BlockEntity implements net.minecr
     }
 
     private void tickInfusionEffects(ServerLevel level, BlockPos pos) {
-        int total = BROOM_CRAFT_TICKS_TOTAL;
+        int total = this.craftTotalTicks;
         int elapsed = total - this.craftTicksRemaining;
         RandomSource rand = level.random;
         double cx = pos.getX() + 0.5;
@@ -347,6 +385,8 @@ public class BroomWorkbenchBlockEntity extends BlockEntity implements net.minecr
         super.saveAdditional(tag, registries);
         tag.put("Inventory", this.inventory.serializeNBT(registries));
         tag.putInt("CraftRemaining", this.craftTicksRemaining);
+        tag.putInt("CraftTotal", this.craftTotalTicks);
+        tag.putInt("InfusionRank", this.infusionRank);
     }
 
     @Override
@@ -362,6 +402,8 @@ public class BroomWorkbenchBlockEntity extends BlockEntity implements net.minecr
             }
         }
         this.craftTicksRemaining = Math.max(0, tag.getInt("CraftRemaining"));
+        this.craftTotalTicks = tag.contains("CraftTotal") ? Math.max(1, tag.getInt("CraftTotal")) : BROOM_CRAFT_TICKS_TOTAL;
+        this.infusionRank = tag.contains("InfusionRank") ? tag.getInt("InfusionRank") : 1;
     }
 
     @Override
@@ -369,6 +411,7 @@ public class BroomWorkbenchBlockEntity extends BlockEntity implements net.minecr
         CompoundTag tag = super.getUpdateTag(registries);
         tag.put("Inventory", this.inventory.serializeNBT(registries));
         tag.putInt("CraftRemaining", this.craftTicksRemaining);
+        tag.putInt("CraftTotal", this.craftTotalTicks);
         return tag;
     }
 

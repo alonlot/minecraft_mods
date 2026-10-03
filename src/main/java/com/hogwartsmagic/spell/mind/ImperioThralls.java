@@ -38,7 +38,13 @@ import net.minecraft.world.entity.ai.memory.MemoryStatus;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.pathfinder.PathType;
+import net.minecraft.world.level.pathfinder.WalkNodeEvaluator;
+import net.minecraftforge.event.entity.living.LivingAttackEvent;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.event.TickEvent;
@@ -80,7 +86,7 @@ public final class ImperioThralls {
         final UUID ownerId;
         final String ownerName;
         final ResourceKey<Level> dimension;
-        final boolean playerVictim;
+        final boolean refreshable;
         long expiresAt;
         double lastY;
         boolean addedStrength;
@@ -94,12 +100,12 @@ public final class ImperioThralls {
         final List<Goal> goals = new ArrayList<>();
         final List<Goal> targetGoals = new ArrayList<>();
 
-        Thrall(UUID victimId, UUID ownerId, String ownerName, ResourceKey<Level> dimension, boolean playerVictim, long expiresAt) {
+        Thrall(UUID victimId, UUID ownerId, String ownerName, ResourceKey<Level> dimension, boolean refreshable, long expiresAt) {
             this.victimId = victimId;
             this.ownerId = ownerId;
             this.ownerName = ownerName;
             this.dimension = dimension;
-            this.playerVictim = playerVictim;
+            this.refreshable = refreshable;
             this.expiresAt = expiresAt;
         }
     }
@@ -171,7 +177,7 @@ public final class ImperioThralls {
                 MindFx.tell(owner, "imperio.players_off");
                 return false;
             }
-            if (victim.isCreative() || victim.isSpectator()) {
+            if (victim.isCreative() || victim.isSpectator() || !pvpAllowed(owner, victim)) {
                 return false;
             }
         } else if (!(target instanceof Mob)) {
@@ -191,8 +197,14 @@ public final class ImperioThralls {
                 MindFx.resisted(target, owner);
                 return false;
             }
+            if (!existing.refreshable) {
+                return false; // a player or boss thrall can't be held on by re-casting
+            }
             existing.expiresAt = now + ticks;
             addMarker(target, ticks);
+            if (existing.addedStrength) {
+                target.addEffect(new MobEffectInstance(MobEffects.DAMAGE_BOOST, ticks, 0));
+            }
             return true;
         }
         if (ImperioRules.atCap(rank, countFor(owner.getUUID()))) {
@@ -203,7 +215,7 @@ public final class ImperioThralls {
         if (ownerName.length() > 64) {
             ownerName = ownerName.substring(0, 64);
         }
-        Thrall thrall = new Thrall(target.getUUID(), owner.getUUID(), ownerName, level.dimension(), player, now + ticks);
+        Thrall thrall = new Thrall(target.getUUID(), owner.getUUID(), ownerName, level.dimension(), ImperioRules.mayRefresh(player, boss), now + ticks);
         thrall.lastY = target.getY();
         addMarker(target, ticks);
         if (target instanceof Mob mob) {
@@ -214,6 +226,15 @@ public final class ImperioThralls {
         MindFx.burst(target, GREEN);
         MindFx.tell(owner, "imperio.thrall_gained", target.getDisplayName());
         return true;
+    }
+
+    /** A player owner may only turn or send a thrall at another player where the server allows PvP. */
+    private static boolean pvpAllowed(LivingEntity owner, Player victim) {
+        if (!(owner instanceof ServerPlayer ownerPlayer)) {
+            return true;
+        }
+        MinecraftServer server = ownerPlayer.serverLevel().getServer();
+        return server.isPvpAllowed() && ownerPlayer.canHarmPlayer(victim);
     }
 
     private static void addMarker(LivingEntity target, int ticks) {
@@ -304,7 +325,7 @@ public final class ImperioThralls {
                 || candidate.level() != self.level()) {
             return false;
         }
-        if (candidate instanceof Player player && (player.isCreative() || player.isSpectator())) {
+        if (candidate instanceof Player player && (player.isCreative() || player.isSpectator() || !pvpAllowed(owner, player))) {
             return false;
         }
         if (candidate.isAlliedTo(owner) || (owner instanceof Player && candidate.getTags().contains(CombatTags.ALLIED))) {
@@ -341,6 +362,9 @@ public final class ImperioThralls {
         LivingEntity victim = level == null ? null : living(level.getEntity(thrall.victimId));
         if (level == null || victim == null) {
             THRALLS.remove(thrall.victimId);
+            if (level != null) {
+                dropLabel(level.getEntity(thrall.victimId));
+            }
             afterRelease(server, thrall);
             return;
         }
@@ -442,6 +466,10 @@ public final class ImperioThralls {
             wx = velocity.x;
             wz = velocity.z;
         }
+        if ((wx != 0.0 || wz != 0.0) && unsafeStep(victim, wx, wz)) {
+            wx = 0.0;
+            wz = 0.0;
+        }
         long now = victim.level().getGameTime();
         if (ImperioRules.needsPush(thrall.pushed, thrall.pushX, thrall.pushY, thrall.pushZ, wx, vy, wz, thrall.pushAt, now)) {
             ForcedPlayerMovement.push(victim, wx, vy, wz);
@@ -474,6 +502,13 @@ public final class ImperioThralls {
                 continue;
             }
             if (!mover.level().getBlockState(below).isFaceSturdy(mover.level(), below, Direction.UP)) {
+                continue;
+            }
+            BlockPos feet = BlockPos.containing(x, y, z);
+            if (hazard(mover.level(), below) || hazard(mover.level(), feet) || hazard(mover.level(), feet.above())) {
+                continue;
+            }
+            if (mover instanceof Mob walker && WalkNodeEvaluator.getPathTypeStatic(walker, feet) != PathType.WALKABLE) {
                 continue;
             }
             AABB box = mover.getBoundingBox().move(x - mover.getX(), y - mover.getY(), z - mover.getZ());
@@ -521,21 +556,38 @@ public final class ImperioThralls {
                 mob.getPersistentData().remove(TAG_ADDED_ALLIED);
             }
             if (thrall.addedStrength) {
-                mob.removeEffect(MobEffects.DAMAGE_BOOST);
+                MobEffectInstance strength = mob.getEffect(MobEffects.DAMAGE_BOOST);
+                long left = Math.max(0L, thrall.expiresAt - mob.level().getGameTime());
+                if (strength != null && strength.getAmplifier() == 0 && strength.getDuration() <= left + 2L) {
+                    mob.removeEffect(MobEffects.DAMAGE_BOOST);
+                }
+            }
+            if (mob instanceof NeutralMob neutral) {
+                neutral.stopBeingAngry();
             }
             MindControl.setTargetBypassing(mob, null);
             MindControl.clearBrainTarget(mob, null);
             mob.setLastHurtByMob(null);
             mob.getNavigation().stop();
         }
-        victim.removeEffect(DisableSupport.holder(ExampleMod.IMPERIUS));
-        broadcastLabel(victim, "");
+        Holder<MobEffect> marker = DisableSupport.holder(ExampleMod.IMPERIUS);
+        if (victim.hasEffect(marker)) {
+            victim.removeEffect(marker);
+        }
+        dropLabel(victim);
     }
 
     /** The "Thrall of <owner>" nameplate for everyone watching the victim (and the victim, if a player). */
-    private static void broadcastLabel(LivingEntity victim, String ownerName) {
+    private static void broadcastLabel(Entity victim, String ownerName) {
         SpellPackets.CHANNEL.send(new SpellPackets.ThrallLabelPacket(victim.getId(), ownerName),
                 PacketDistributor.TRACKING_ENTITY_AND_SELF.with(victim));
+    }
+
+    /** Every path that drops a thrall clears its nameplate through here (the empty name). */
+    private static void dropLabel(@Nullable Entity victim) {
+        if (victim != null && !(victim instanceof ServerPlayer player && player.connection == null)) {
+            broadcastLabel(victim, "");
+        }
     }
 
     /** Someone walks into view of a thrall after it was enthralled. */
@@ -614,6 +666,7 @@ public final class ImperioThralls {
         }
         Thrall thrall = THRALLS.remove(event.getEntity().getUUID());
         if (thrall != null) {
+            dropLabel(event.getEntity());
             afterRelease(level.getServer(), thrall);
         }
     }
@@ -634,17 +687,67 @@ public final class ImperioThralls {
         }
     }
 
-    /** The marker was stripped early (Totem of Undying, /effect clear, milk): the thrall ends with it. */
+    /** A thrall's blows (melee, arrows, blasts, sweeps) never land on its owner or the owner's other thralls. */
+    @SubscribeEvent(priority = EventPriority.HIGH)
+    public static void onThrallAttack(LivingAttackEvent event) {
+        if (THRALLS.isEmpty() || event.isCanceled() || event.getEntity().level().isClientSide()) {
+            return;
+        }
+        Entity source = event.getSource().getEntity() != null ? event.getSource().getEntity() : event.getSource().getDirectEntity();
+        Entity attacker = CombatEffects.responsible(source);
+        Thrall thrall = attacker == null ? null : THRALLS.get(attacker.getUUID());
+        if (thrall == null) {
+            return;
+        }
+        LivingEntity victim = event.getEntity();
+        Thrall other = THRALLS.get(victim.getUUID());
+        if (victim.getUUID().equals(thrall.ownerId) || (other != null && other.ownerId.equals(thrall.ownerId))) {
+            event.setCanceled(true);
+        }
+    }
+
+    private static boolean hazard(Level level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        return !state.getFluidState().isEmpty() || state.is(BlockTags.FIRE) || state.is(BlockTags.CAMPFIRES)
+                || state.is(Blocks.MAGMA_BLOCK) || state.is(Blocks.CACTUS) || state.is(Blocks.SWEET_BERRY_BUSH)
+                || state.is(Blocks.WITHER_ROSE) || state.is(Blocks.POWDER_SNOW);
+    }
+
+    /** Would the next step in this direction land in lava, fire or a damaging block, or off a drop over 3 blocks? */
+    private static boolean unsafeStep(LivingEntity mover, double dx, double dz) {
+        Level level = mover.level();
+        double len = Math.sqrt(dx * dx + dz * dz);
+        if (len < 1.0E-4) {
+            return false;
+        }
+        BlockPos feet = BlockPos.containing(mover.getX() + dx / len * 1.2, mover.getY() + 0.1, mover.getZ() + dz / len * 1.2);
+        if (!level.isLoaded(feet)) {
+            return true;
+        }
+        if (hazard(level, feet) || hazard(level, feet.above())) {
+            return true;
+        }
+        for (int depth = 1; depth <= 4; depth++) {
+            BlockPos floor = feet.below(depth);
+            BlockState state = level.getBlockState(floor);
+            if (!state.getCollisionShape(level, floor).isEmpty() || !state.getFluidState().isEmpty()) {
+                return hazard(level, floor);
+            }
+        }
+        return true;
+    }
+
+    /** The marker was stripped early (Totem of Undying, /effect clear, milk): the thrall ends on the next tick. */
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onEffectRemoved(MobEffectEvent.Remove event) {
         if (event.isCanceled() || event.getEffect() != ExampleMod.IMPERIUS.get()
                 || event.getEntity().level().isClientSide()) {
             return;
         }
-        Thrall thrall = THRALLS.remove(event.getEntity().getUUID());
-        if (thrall != null && event.getEntity().level().getServer() != null) {
-            release(event.getEntity(), thrall);
-            afterRelease(event.getEntity().level().getServer(), thrall);
+        // Never change effects here: removeAllEffects fires this inside its own effect iterator. The tick ends it.
+        Thrall thrall = THRALLS.get(event.getEntity().getUUID());
+        if (thrall != null) {
+            thrall.expiresAt = 0L;
         }
     }
 

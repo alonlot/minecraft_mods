@@ -49,6 +49,11 @@ public final class ImperioRules {
         return player || boss || maxHealth <= maxMobHealth(rank);
     }
 
+    /** Only a plain mob thrall can be extended by casting again; players and bosses can't be held on to. */
+    public static boolean mayRefresh(boolean player, boolean boss) {
+        return !player && !boss;
+    }
+
     public static boolean atCap(int rank, int current) {
         return current >= maxThralls(rank);
     }

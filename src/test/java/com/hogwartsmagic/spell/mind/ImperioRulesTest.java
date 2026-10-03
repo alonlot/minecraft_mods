@@ -73,4 +73,20 @@ class ImperioRulesTest {
         // standing still stays quiet until the resend
         assertFalse(ImperioRules.needsPush(true, 0, 0, 0, 0, 0, 0, 10, 12));
     }
+
+    @Test
+    void onlyMobThrallsAreRefreshed() {
+        assertTrue(ImperioRules.mayRefresh(false, false));
+        assertFalse(ImperioRules.mayRefresh(true, false));
+        assertFalse(ImperioRules.mayRefresh(false, true));
+    }
+
+    @Test
+    void capDecisionPerRank() {
+        assertTrue(ImperioRules.atCap(1, 1));
+        assertFalse(ImperioRules.atCap(1, 0));
+        assertTrue(ImperioRules.atCap(2, 1));
+        assertFalse(ImperioRules.atCap(3, 1));
+        assertTrue(ImperioRules.atCap(3, 2));
+    }
 }

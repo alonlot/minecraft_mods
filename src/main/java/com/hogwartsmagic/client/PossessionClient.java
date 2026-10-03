@@ -41,6 +41,7 @@ public final class PossessionClient {
     private static final int IGNORE_AFTER_LOCAL_STOP = 10;
 
     private static byte role = PossessionRules.ROLE_NONE;
+    private static long snapshotTick;
     private static int otherId = -1;
     private static int ticksLeft;
     private static boolean resistOpen;
@@ -114,6 +115,8 @@ public final class PossessionClient {
             return;
         }
         snapshot = packet;
+        Minecraft now = Minecraft.getInstance();
+        snapshotTick = now.level == null ? 0L : now.level.getGameTime();
         displayedSlot = packet.selectedSlot();
     }
 
@@ -137,6 +140,11 @@ public final class PossessionClient {
 
     public static int otherId() {
         return otherId;
+    }
+
+    /** Client game time at which the current snapshot arrived (the wheel ages its cooldowns from it). */
+    public static long snapshotTick() {
+        return snapshotTick;
     }
 
     @Nullable
@@ -188,6 +196,24 @@ public final class PossessionClient {
                 }
             }
         }
+    }
+
+    /** The use key's physical state, polled from GLFW so a wheel screen (which releases mappings) cannot fake a release. */
+    public static boolean isUseHeld(Minecraft minecraft) {
+        KeyMapping use = minecraft.options.keyUse;
+        if (use.isDown()) {
+            return true;
+        }
+        long window = minecraft.getWindow().getWindow();
+        com.mojang.blaze3d.platform.InputConstants.Key key = use.getKey();
+        int value = key.getValue();
+        if (key.getType() == com.mojang.blaze3d.platform.InputConstants.Type.MOUSE) {
+            return GLFW.glfwGetMouseButton(window, value) == GLFW.GLFW_PRESS;
+        }
+        if (key.getType() == com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM) {
+            return com.mojang.blaze3d.platform.InputConstants.isKeyDown(window, value);
+        }
+        return false;
     }
 
     public static void castPuppetSpell(String spellId) {
@@ -377,8 +403,12 @@ public final class PossessionClient {
         if (minecraft.getCameraEntity() != victim) {
             minecraft.setCameraEntity(victim);
         }
-        // Opening the puppet wheel releases every key mapping; right-click still counts as held while it's open.
-        boolean held = minecraft.options.keyUse.isDown() || minecraft.screen instanceof PuppetSpellWheelScreen;
+        // Closing the puppet wheel releases mouse-bound key mappings (KeyMapping.setAll only restores keyboard keys):
+        // trust the physical state, and re-press the mapping once the wheel is gone.
+        boolean held = isUseHeld(minecraft);
+        if (held && minecraft.screen == null && !minecraft.options.keyUse.isDown()) {
+            minecraft.options.keyUse.setDown(true);
+        }
         if (holdRequired && !held) {
             stopLocally();
             return;

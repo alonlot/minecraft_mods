@@ -103,6 +103,9 @@ public final class DisableSupport {
      * </ul>
      */
     public static boolean isEnemyOf(@Nullable Entity caster, LivingEntity candidate, LivingEntity mainTarget) {
+        if (com.hogwartsmagic.spell.mind.MindControl.spareInHitContext(candidate)) {
+            return false;
+        }
         Entity owner = CombatEffects.responsible(caster);
         if (candidate == owner || candidate == mainTarget || !candidate.isAlive() || candidate.isSpectator()
                 || candidate instanceof ArmorStand) {
@@ -151,6 +154,9 @@ public final class DisableSupport {
      * signature so call sites are unchanged.
      */
     public static boolean npcFoe(Entity caster, LivingEntity candidate, @Nullable LivingEntity mainTarget) {
+        if (com.hogwartsmagic.spell.mind.MindControl.spareInHitContext(candidate)) {
+            return false;
+        }
         if (candidate == caster || candidate.isAlliedTo(caster)) {
             return false;
         }

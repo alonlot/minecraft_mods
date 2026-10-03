@@ -11,6 +11,7 @@ import net.minecraft.network.chat.Component;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -28,10 +29,12 @@ public class PuppetSpellWheelScreen extends Screen {
     private final Map<String, Integer> ranks = new HashMap<>();
     private final Map<String, Integer> cooldowns = new HashMap<>();
     private int hoveredSlot = -1;
+    private final long snapshotAtTick;
 
     public PuppetSpellWheelScreen(SpellPackets.PuppetSnapshotPacket snapshot) {
         super(Component.translatable("gui." + ExampleMod.MODID + ".puppet.title"));
         this.snapshot = snapshot;
+        this.snapshotAtTick = PossessionClient.snapshotTick();
         for (int i = 0; i < snapshot.learnedIds().size(); i++) {
             this.ranks.put(snapshot.learnedIds().get(i), snapshot.learnedRanks().get(i));
             this.cooldowns.put(snapshot.learnedIds().get(i), snapshot.cooldownTicks().get(i));
@@ -86,12 +89,14 @@ public class PuppetSpellWheelScreen extends Screen {
             if (id.isEmpty()) {
                 continue;
             }
-            int cooldown = this.cooldowns.getOrDefault(id, 0);
+            net.minecraft.client.multiplayer.ClientLevel clientLevel = this.minecraft == null ? null : this.minecraft.level;
+            long elapsed = clientLevel == null ? 0L : Math.max(0L, clientLevel.getGameTime() - this.snapshotAtTick);
+            int cooldown = (int) Math.max(0L, this.cooldowns.getOrDefault(id, 0) - elapsed);
             boolean usable = !PossessionRules.isPuppetBlocked(id) && cooldown <= 0;
             graphics.drawCenteredString(this.font, initials(id), sx, sy - 9, usable ? 0xFFFFFFFF : 0xFF8A8A8A);
             graphics.drawCenteredString(this.font, MasteryMath.roman(this.ranks.getOrDefault(id, 1)), sx, sy + 1, 0xFFD4AF37);
             if (cooldown > 0) {
-                graphics.drawCenteredString(this.font, String.format("%.1fs", cooldown / 20.0f), sx, sy + 11, 0xFFFF6B6B);
+                graphics.drawCenteredString(this.font, String.format(Locale.ROOT, "%.1fs", cooldown / 20.0f), sx, sy + 11, 0xFFFF6B6B);
             }
         }
         if (this.hoveredSlot >= 0 && !this.slots.get(this.hoveredSlot).isEmpty()) {

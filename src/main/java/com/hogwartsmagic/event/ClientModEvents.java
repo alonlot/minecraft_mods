@@ -236,7 +236,8 @@ public class ClientModEvents {
                 if (mc.player != null) {
                     // While the puppet wheel is open the key mappings are released; the Imperio hold must survive it.
                     boolean useDown = mc.options.keyUse.isDown()
-                            || mc.screen instanceof com.hogwartsmagic.client.PuppetSpellWheelScreen;
+                            || (com.hogwartsmagic.client.PossessionClient.isCaster()
+                            && com.hogwartsmagic.client.PossessionClient.isUseHeld(mc));
                     boolean holdingWand = MagicWandItem.isAnyWand(mc.player.getMainHandItem());
                     com.hogwartsmagic.spell.SpellType selected = holdingWand
                             ? MagicWandItem.getSelectedSpell(mc.player.getMainHandItem())

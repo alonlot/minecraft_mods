@@ -109,6 +109,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
         super(ModEntities.SPELL_BEAM.get(), thrower, level);
         getEntityData().set(DATA_SPELL_ID, spellType.getId());
         rememberCastOrigin();
+        this.puppeteer = com.hogwartsmagic.spell.mind.PossessionManager.castingPuppeteer; // set only inside a puppet cast
     }
 
     public SpellType getSpellType() {
@@ -550,24 +551,26 @@ public class SpellBeamEntity extends ThrowableProjectile {
         this.puppeteer = caster;
     }
 
-    /** True when a puppet's beam must fizzle on {@code hit}: the puppeteer's own body, or a player they may not harm. */
-    private boolean puppeteerSpares(net.minecraft.world.entity.Entity hit) {
-        if (this.puppeteer == null || !(hit instanceof net.minecraft.world.entity.player.Player victim)
-                || !(this.level() instanceof ServerLevel serverLevel)) {
-            return false;
-        }
-        if (victim.getUUID().equals(this.puppeteer)) {
-            return true;
-        }
-        ServerPlayer owner = serverLevel.getServer().getPlayerList().getPlayer(this.puppeteer);
-        return owner == null || victim.isCreative() || victim.isSpectator() || !serverLevel.getServer().isPvpAllowed()
-                || !owner.canHarmPlayer(victim) || victim.isAlliedTo(owner)
-                || victim.getTags().contains(com.hogwartsmagic.spell.combat.CombatTags.ALLIED);
-    }
-
     @Override
     protected void onHit(HitResult result) {
-        if (!this.level().isClientSide && result instanceof EntityHitResult entityHit && puppeteerSpares(entityHit.getEntity())) {
+        if (this.puppeteer == null || this.level().isClientSide) {
+            onHitInner(result);
+            return;
+        }
+        // A puppet beam resolves under its puppeteer's context, so splash and chain never pick a player they may not harm.
+        UUID previous = com.hogwartsmagic.spell.mind.MindControl.swapHitPuppeteer(this.puppeteer);
+        try {
+            onHitInner(result);
+        } finally {
+            com.hogwartsmagic.spell.mind.MindControl.swapHitPuppeteer(previous);
+        }
+    }
+
+    private void onHitInner(HitResult result) {
+        if (!this.level().isClientSide && this.puppeteer != null && result instanceof EntityHitResult entityHit
+                && entityHit.getEntity() instanceof net.minecraft.world.entity.player.Player hitPlayer
+                && this.level() instanceof ServerLevel puppetLevel
+                && com.hogwartsmagic.spell.mind.MindControl.puppeteerSpares(puppetLevel, this.puppeteer, hitPlayer)) {
             this.discard(); // a puppet beam never touches a player its caster may not harm
             return;
         }
@@ -871,7 +874,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
             if (!hitSuccessful) {
                 spawnFizzleEffects();
             } else {
-                if (getOwner() instanceof ServerPlayer masteryCaster && !this.reflected) {
+                if (getOwner() instanceof ServerPlayer masteryCaster && !this.reflected && this.puppeteer == null) {
                     if (masteryTarget != null) {
                         com.hogwartsmagic.spell.mastery.MasteryAwards.onLivingHit(masteryCaster, spell, masteryTarget);
                     } else if (result instanceof BlockHitResult && masteryEligible) {

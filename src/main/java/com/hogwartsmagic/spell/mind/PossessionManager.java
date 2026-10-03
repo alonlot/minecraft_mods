@@ -90,6 +90,9 @@ public final class PossessionManager {
     private static final Map<UUID, PossessionSession> BY_VICTIM = new HashMap<>();
     /** Player victim -> game time until which their casts still pay no XP (late puppet beams). Server thread only. */
     private static final Map<UUID, Long> RECENT_PUPPETS = new HashMap<>();
+    /** The possessing caster while a puppet cast runs (server thread only); SpellBeamEntity stamps new beams with it. */
+    @Nullable
+    public static UUID castingPuppeteer;
     private static Holder<MobEffect> possessedHolder;
     /** Game time until which a victim who broke free shrugs off Imperio. */
     static final String TAG_IMMUNE_UNTIL = ExampleMod.MODID + ":imperio_immune_until";
@@ -409,7 +412,7 @@ public final class PossessionManager {
      * Cast {@code spellId} as the possessed player, through the normal cast path run as them: their learned
      * spells, mastery ranks, mana, cooldowns, stun and silence all apply exactly as if they had cast it.
      * Only the session's own caster, a player puppet holding a wand, 4 casts a second, never Imperio or Apparition
-     * or a held/channel spell.
+     * or a held/channel spell. Kills from puppet casts are credited to the victim (C8.1), who is the body and the payer.
      */
     public static void castAsPuppet(ServerPlayer caster, String spellId) {
         PossessionSession session = BY_CASTER.get(caster.getUUID());
@@ -440,8 +443,18 @@ public final class PossessionManager {
         victim.setYRot(session.yaw);
         victim.setYHeadRot(session.yaw);
         victim.setXRot(session.pitch);
+        if (!session.prevSelectedSaved) {
+            session.prevSelectedSaved = true;
+            session.prevSelectedSpell = MagicWandItem.getSelectedSpell(wand);
+        }
         MagicWandItem.setSelectedSpell(wand, spell);
-        SpellPackets.CastSpellPacket.castAs(victim, new SpellPackets.CastSpellPacket(false, false, false, false));
+        UUID previousPuppeteer = castingPuppeteer;
+        castingPuppeteer = session.casterId;
+        try {
+            SpellPackets.CastSpellPacket.castAs(victim, new SpellPackets.CastSpellPacket(false, false, false, false));
+        } finally {
+            castingPuppeteer = previousPuppeteer;
+        }
         sendSnapshot(session, caster, victim, now);
     }
 
@@ -454,6 +467,13 @@ public final class PossessionManager {
             }
         }
         return null;
+    }
+
+    /** The caster possessing {@code victim}, or null. */
+    @Nullable
+    public static UUID puppeteerOf(LivingEntity victim) {
+        PossessionSession session = BY_VICTIM.get(victim.getUUID());
+        return session == null ? null : session.casterId;
     }
 
     /** A player puppet, or one whose session ended under 100 ticks ago (a late beam must not pay them XP). */
@@ -535,6 +555,13 @@ public final class PossessionManager {
         }
         if (rawVictim instanceof LivingEntity victim) {
             if (victim instanceof ServerPlayer victimPlayer) {
+                AvadaWindup.cancel(victimPlayer, false);
+                if (session.prevSelectedSaved && session.prevSelectedSpell != null) {
+                    ItemStack heldWand = victimPlayer.getMainHandItem();
+                    if (MagicWandItem.isAnyWand(heldWand)) {
+                        MagicWandItem.setSelectedSpell(heldWand, session.prevSelectedSpell);
+                    }
+                }
                 sendNone(victimPlayer);
                 if (reason == EndReason.BROKE_FREE) {
                     victimPlayer.displayClientMessage(Component.translatable("gui." + ExampleMod.MODID + ".possession.you_broke_free")
@@ -781,5 +808,6 @@ public final class PossessionManager {
         for (PossessionSession session : new ArrayList<>(BY_CASTER.values())) {
             end(session, EndReason.INVALID);
         }
+        RECENT_PUPPETS.clear();
     }
 }

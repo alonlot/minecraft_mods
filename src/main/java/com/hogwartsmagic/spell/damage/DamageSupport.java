@@ -62,6 +62,9 @@ public final class DamageSupport {
      * </ul>
      */
     public static boolean isSplashTarget(@Nullable Entity caster, LivingEntity candidate, @Nullable LivingEntity primary) {
+        if (com.hogwartsmagic.spell.mind.MindControl.spareInHitContext(candidate)) {
+            return false; // a puppet beam never splashes a player its caster may not harm, nor the caster's own body
+        }
         if (primary != null) {
             return DisableSupport.isEnemyOf(caster, candidate, primary);
         }

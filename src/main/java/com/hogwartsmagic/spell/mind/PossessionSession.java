@@ -3,6 +3,7 @@ package com.hogwartsmagic.spell.mind;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
 
+import com.hogwartsmagic.spell.SpellType;
 import java.util.UUID;
 
 /** One possession, server side. Mutated only on the server thread by PossessionManager. */
@@ -44,6 +45,10 @@ final class PossessionSession {
     boolean sentAny;
     double lastVictimY;
 
+    /** The victim wand's selected spell before the first puppet cast, put back when the session ends (null: untouched). */
+    @javax.annotation.Nullable
+    SpellType prevSelectedSpell;
+    boolean prevSelectedSaved;
     int forcedSlot = -1;
     /** A snapshot goes out next tick (a hotbar pick was rate-refused, so the caster's display needs a re-sync). */
     boolean snapshotDue;

@@ -43,6 +43,45 @@ public final class MindControl {
     private MindControl() {
     }
 
+    /** The puppeteer of the puppet beam currently resolving a hit (server thread only); null outside one. */
+    @javax.annotation.Nullable
+    private static java.util.UUID hitPuppeteer;
+
+    @javax.annotation.Nullable
+    public static java.util.UUID hitPuppeteer() {
+        return hitPuppeteer;
+    }
+
+    /** Set the hit context, returning the previous one for the caller's finally block. */
+    @javax.annotation.Nullable
+    public static java.util.UUID swapHitPuppeteer(@javax.annotation.Nullable java.util.UUID puppeteer) {
+        java.util.UUID previous = hitPuppeteer;
+        hitPuppeteer = puppeteer;
+        return previous;
+    }
+
+    /** True when a puppet's spell must not touch {@code hit}: the puppeteer's own body, or a player they may not harm. */
+    public static boolean puppeteerSpares(net.minecraft.server.level.ServerLevel level, @javax.annotation.Nullable java.util.UUID puppeteer,
+                                          net.minecraft.world.entity.player.Player hit) {
+        if (puppeteer == null) {
+            return false;
+        }
+        if (hit.getUUID().equals(puppeteer)) {
+            return true;
+        }
+        net.minecraft.server.level.ServerPlayer owner = level.getServer().getPlayerList().getPlayer(puppeteer);
+        return owner == null || hit.isCreative() || hit.isSpectator() || !level.getServer().isPvpAllowed()
+                || !owner.canHarmPlayer(hit) || hit.isAlliedTo(owner)
+                || hit.getTags().contains(com.hogwartsmagic.spell.combat.CombatTags.ALLIED);
+    }
+
+    /** Splash and chain selection while a puppet beam resolves: true when {@code candidate} is off limits. */
+    public static boolean spareInHitContext(Entity candidate) {
+        return hitPuppeteer != null && candidate instanceof net.minecraft.world.entity.player.Player player
+                && player.level() instanceof net.minecraft.server.level.ServerLevel level
+                && puppeteerSpares(level, hitPuppeteer, player);
+    }
+
     /** Under someone else's control: an Imperio thrall or a possessed body. Safe on both sides. */
     public static boolean isControlled(LivingEntity entity) {
         Holder<MobEffect> imperius = imperiusHolder;

@@ -154,6 +154,11 @@ public final class DisableSupport {
         if (candidate == caster || candidate.isAlliedTo(caster)) {
             return false;
         }
+        UUID casterOwner = com.hogwartsmagic.spell.mind.ImperioThralls.ownerIdOf(caster);
+        if (casterOwner != null && (casterOwner.equals(candidate.getUUID())
+                || casterOwner.equals(com.hogwartsmagic.spell.mind.ImperioThralls.ownerIdOf(candidate)))) {
+            return false; // a thrall never turns on its owner or its fellow thralls
+        }
         LivingEntity casterTarget = caster instanceof Mob m ? m.getTarget() : null;
         if (candidate instanceof Player player) {
             if (player.isCreative() || player.isSpectator()) {

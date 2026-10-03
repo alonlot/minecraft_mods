@@ -2805,7 +2805,7 @@ public class ModEvents {
         }
 
         // Avada Kedavra bypasses every Protego, ranked or legacy (AvadaSpell flags its own hurt call).
-        if (com.hogwartsmagic.spell.mind.AvadaSpell.isLanding()) {
+        if (com.hogwartsmagic.spell.mind.AvadaSpell.isLanding(event.getEntity())) {
             // no shield of any kind blocks or blunts it
         } else if (com.hogwartsmagic.spell.support.ProtegoSpell.isRankedShield(event.getEntity())) {
             // A player's Protego (Spell Mastery): blunts blows from the front, never cancels them outright.

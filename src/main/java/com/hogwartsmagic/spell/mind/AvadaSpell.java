@@ -15,20 +15,24 @@ import javax.annotation.Nullable;
 /**
  * The Killing Curse landing. Non-bosses die; bosses lose a fifth of their max health. The caster pays a
  * backlash that shrinks with rank (none at Master); NPC casters keep today's flat backlash. No Protego of
- * any kind (ranked, legacy, player or NPC) blocks it: the hurt call runs inside {@link #isLanding()}.
+ * any kind (ranked, legacy, player or NPC) blocks it: the hurt call runs inside {@link #isLanding(Entity)}.
  * The masteryEligible guard is future-proofing: Avada can not be reflected today (ProtegoSpell.onBeamHit
  * returns NOT_SHIELDED for it), but a reflected beam would be the defender's, so no backlash. There is
  * also no backlash when the hit never landed.
  */
 public final class AvadaSpell {
-    private static final ThreadLocal<Boolean> LANDING = ThreadLocal.withInitial(() -> Boolean.FALSE);
+    private static final ThreadLocal<LivingEntity> LANDING = new ThreadLocal<>();
 
     private AvadaSpell() {
     }
 
-    /** True on the server thread while an Avada hit is being dealt: shields let it through. */
-    public static boolean isLanding() {
-        return LANDING.get();
+    /**
+     * True on the server thread while an Avada hit is being dealt to {@code e} (and only to it): its shields
+     * let the curse through. Other damage dealt synchronously inside the hurt call (Thorns on the caster,
+     * other mods' on-hurt damage) is not Avada and stays shieldable.
+     */
+    public static boolean isLanding(Entity e) {
+        return e != null && LANDING.get() == e;
     }
 
     public static void apply(LivingEntity target, @Nullable Entity caster, boolean masteryEligible) {
@@ -38,16 +42,17 @@ public final class AvadaSpell {
         Entity owner = CombatEffects.responsible(caster);
         DamageSource source = DamageSupport.magicFrom(target, caster);
         boolean landed;
-        LANDING.set(Boolean.TRUE);
+        LANDING.set(target);
         try {
             landed = CombatTags.isBoss(target)
                     ? target.hurt(source, AvadaRules.bossDamage(target.getMaxHealth()))
                     : target.hurt(source, Float.MAX_VALUE);
         } finally {
-            LANDING.set(Boolean.FALSE);
+            LANDING.set(null);
         }
-        // A reflected beam (masteryEligible false) is the defender's: no backlash for the reflector, and none
-        // when the hit never landed (creative or vetoed target).
+        // The masteryEligible guard is future-proofing: Avada can not be reflected today (ProtegoSpell returns
+        // NOT_SHIELDED for it), but a reflected beam would be the defender's, so no backlash. There is also
+        // no backlash when the hit never landed (creative or vetoed target).
         if (!landed || !masteryEligible) {
             return;
         }

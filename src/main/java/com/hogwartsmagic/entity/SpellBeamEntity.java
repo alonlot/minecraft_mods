@@ -814,6 +814,9 @@ public class SpellBeamEntity extends ThrowableProjectile {
                                 }
                             } else {
                                 spell.applyHitEffect(living, getOwner(), this.getDeltaMovement(), !this.reflected);
+                                if (spell == SpellType.CRUCIO && com.hogwartsmagic.spell.mind.MindControl.isControlled(living)) {
+                                    masteryTarget = null; // a controlled target resists Crucio: no XP
+                                }
                             }
                             if (spell == SpellType.WINGARDIUM_LEVIOSA && getOwner() instanceof ServerPlayer caster) {
                                 com.hogwartsmagic.event.ModEvents.markRecentWingardiumTarget(caster, living);

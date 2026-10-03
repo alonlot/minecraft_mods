@@ -208,7 +208,8 @@ public final class ConfundoSpell {
             return;
         }
         if (!(event.getEntity() instanceof Mob victim) || victim.level().isClientSide()
-                || !(event.getSource().getEntity() instanceof Mob attacker) || attacker == victim) {
+                || !(event.getSource().getEntity() instanceof Mob attacker) || attacker == victim
+                || ImperioThralls.isThrall(victim)) {
             return;
         }
         Holder<MobEffect> holder = holder();

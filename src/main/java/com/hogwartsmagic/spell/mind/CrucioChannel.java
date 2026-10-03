@@ -104,7 +104,12 @@ public final class CrucioChannel {
         }
         Entity owner = CombatEffects.responsible(caster);
         if (!(owner instanceof LivingEntity livingOwner) || owner == target || !livingOwner.isAlive()
-                || MindControl.isControlled(livingOwner) || MindControl.isControlled(target)) {
+                || MindControl.isControlled(livingOwner)) {
+            return;
+        }
+        if (MindControl.isControlled(target)) {
+            // The beam routes mastery XP through SpellBeamEntity, which skips it for this case too.
+            MindFx.resisted(target, caster);
             return;
         }
         Channel previous = CHANNELS.get(owner.getUUID());

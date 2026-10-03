@@ -132,6 +132,13 @@ public final class ImperioThralls {
         return THRALLS.containsKey(entity.getUUID());
     }
 
+    /** The owner of {@code entity} if it is a thrall (in-memory map only), else null. */
+    @Nullable
+    public static UUID ownerIdOf(Entity entity) {
+        Thrall thrall = THRALLS.get(entity.getUUID());
+        return thrall == null ? null : thrall.ownerId;
+    }
+
     public static int countFor(UUID ownerId) {
         int count = 0;
         for (Thrall thrall : THRALLS.values()) {

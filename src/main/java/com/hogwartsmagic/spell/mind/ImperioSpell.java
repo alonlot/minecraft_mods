@@ -35,6 +35,10 @@ public final class ImperioSpell {
             MindFx.tell(caster, "imperio.players_off");
             return;
         }
+        if (PossessionManager.isImmune(target) || PossessionManager.isPuppet(target)) {
+            MindFx.resisted(target, caster);
+            return;
+        }
         DisableSupport.interrupt(target);
         if (target instanceof HouseElfEntity elf) {
             // An elf under the Imperius Curse cannot will itself away: the dark road to binding one.

@@ -3,6 +3,7 @@ package com.hogwartsmagic.spell.mind;
 import com.hogwartsmagic.Config;
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.event.ModEvents;
+import com.hogwartsmagic.item.MagicWandItem;
 import com.hogwartsmagic.network.SpellPackets;
 import com.hogwartsmagic.spell.SpellType;
 import com.hogwartsmagic.spell.combat.CombatTags;
@@ -18,6 +19,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -26,10 +28,14 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.EntityJoinLevelEvent;
+import net.minecraftforge.event.entity.EntityTravelToDimensionEvent;
+import net.minecraftforge.event.entity.living.LivingDamageEvent;
+import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.entity.living.MobEffectEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.event.server.ServerStoppingEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.network.PacketDistributor;
 import net.minecraftforge.server.ServerLifecycleHooks;
@@ -77,6 +83,8 @@ public final class PossessionManager {
     private static final Map<UUID, PossessionSession> BY_CASTER = new HashMap<>();
     private static final Map<UUID, PossessionSession> BY_VICTIM = new HashMap<>();
     private static Holder<MobEffect> possessedHolder;
+    /** Game time until which a victim who broke free shrugs off Imperio. */
+    static final String TAG_IMMUNE_UNTIL = ExampleMod.MODID + ":imperio_immune_until";
     private static Holder<MobEffect> possessingHolder;
     /** True while end() itself strips the markers, so the removal guard lets those removals through. */
     private static boolean ending;
@@ -121,6 +129,16 @@ public final class PossessionManager {
         return entity.hasEffect(holder);
     }
 
+    /** Broke free less than 3s ago: Imperio (thrall or possession) slides off. */
+    public static boolean isImmune(LivingEntity entity) {
+        return entity.getPersistentData().getLong(TAG_IMMUNE_UNTIL) > entity.level().getGameTime();
+    }
+
+    private static boolean holdsImperio(ServerPlayer caster) {
+        return MagicWandItem.isAnyWand(caster.getMainHandItem())
+                && MagicWandItem.getSelectedSpell(caster.getMainHandItem()) == SpellType.IMPERIO;
+    }
+
     @Nullable
     private static LivingEntity living(@Nullable Entity entity) {
         return entity instanceof LivingEntity living && living.isAlive() ? living : null;
@@ -137,6 +155,10 @@ public final class PossessionManager {
         }
         if (isPossessing(caster) || isPuppet(caster) || isPossessing(victim) || isPuppet(victim) || ImperioThralls.isThrall(victim)) {
             MindFx.tell(caster, "possession.busy", victim.getDisplayName());
+            return false;
+        }
+        if (isImmune(victim)) {
+            MindFx.resisted(victim, caster);
             return false;
         }
         boolean player = victim instanceof ServerPlayer;
@@ -278,6 +300,14 @@ public final class PossessionManager {
         if (rawVictim == null) {
             rawVictim = server.getPlayerList().getPlayer(session.victimId);
         }
+        if (rawVictim == null) {
+            for (ServerLevel other : server.getAllLevels()) { // a mob carried through a portal; end() is rare
+                rawVictim = other.getEntity(session.victimId);
+                if (rawVictim != null) {
+                    break;
+                }
+            }
+        }
         ending = true;
         try {
             if (caster != null) {
@@ -286,6 +316,9 @@ public final class PossessionManager {
             }
             if (rawVictim instanceof LivingEntity victim) {
                 victim.removeEffect(DisableSupport.holder(ExampleMod.POSSESSED));
+                if (reason == EndReason.BROKE_FREE) {
+                    victim.getPersistentData().putLong(TAG_IMMUNE_UNTIL, victim.level().getGameTime() + PossessionRules.IMMUNITY_TICKS);
+                }
             }
         } finally {
             ending = false;
@@ -295,6 +328,9 @@ public final class PossessionManager {
             caster.displayClientMessage(Component.translatable(reason.langKey()).withStyle(ChatFormatting.GREEN), true);
             if (!session.debug) {
                 ImperioThralls.startImperioCooldown(caster); // the cooldown, and the Imperio XP, start when it ends
+            }
+            if (caster.isAlive() && reason != EndReason.LOGGED_OUT) {
+                caster.addEffect(new MobEffectInstance(MobEffects.CONFUSION, PossessionRules.NAUSEA_TICKS, 0));
             }
         }
         if (rawVictim instanceof LivingEntity victim) {
@@ -384,6 +420,18 @@ public final class PossessionManager {
         if (!isPossessingBody(caster) || !victim.hasEffect(DisableSupport.holder(ExampleMod.POSSESSED))) {
             addMarkers(caster, victim, Math.max(markerTicks, 2)); // stripped by something that bypassed the guard
         }
+        if (caster.level() != level) {
+            end(session, EndReason.DIMENSION);
+            return;
+        }
+        if (PossessionRules.tooFar(victim.distanceToSqr(caster))) {
+            end(session, EndReason.TOO_FAR);
+            return;
+        }
+        if (!session.debug && !holdsImperio(caster)) {
+            end(session, EndReason.RELEASED); // switched wand or spell: same as letting go
+            return;
+        }
         if (!drainUpkeep(caster, session, now)) {
             end(session, EndReason.NO_MANA);
             return;
@@ -459,5 +507,55 @@ public final class PossessionManager {
     private static void sendNone(ServerPlayer player) {
         SpellPackets.CHANNEL.send(new SpellPackets.PossessionStatePacket(PossessionRules.ROLE_NONE, -1, 0, false, false),
                 PacketDistributor.PLAYER.with(player));
+    }
+
+    // ---- Event-driven ends ---------------------------------------------------------------------
+
+    @Nullable
+    private static PossessionSession sessionOf(UUID id) {
+        PossessionSession session = BY_CASTER.get(id);
+        return session != null ? session : BY_VICTIM.get(id);
+    }
+
+    /** A real blow to the frozen body (4+ after armour) throws the caster out: everyone nearby's counterplay. */
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public static void onLivingDamage(LivingDamageEvent event) {
+        if (event.isCanceled() || event.getEntity().level().isClientSide()) {
+            return;
+        }
+        PossessionSession session = BY_CASTER.get(event.getEntity().getUUID());
+        if (session != null && PossessionRules.ejects(event.getAmount())) {
+            end(session, EndReason.BODY_HIT);
+        }
+    }
+
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public static void onLivingDeath(LivingDeathEvent event) {
+        if (event.isCanceled() || event.getEntity().level().isClientSide()) {
+            return;
+        }
+        PossessionSession session = sessionOf(event.getEntity().getUUID());
+        if (session != null) {
+            end(session, EndReason.DIED);
+        }
+    }
+
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public static void onTravel(EntityTravelToDimensionEvent event) {
+        if (event.isCanceled() || event.getEntity().level().isClientSide()) {
+            return;
+        }
+        PossessionSession session = sessionOf(event.getEntity().getUUID());
+        if (session != null) {
+            end(session, EndReason.DIMENSION);
+        }
+    }
+
+    /** Before the worlds save, so nobody is written to disk rooted or possessed. */
+    @SubscribeEvent
+    public static void onServerStopping(ServerStoppingEvent event) {
+        for (PossessionSession session : new ArrayList<>(BY_CASTER.values())) {
+            end(session, EndReason.INVALID);
+        }
     }
 }

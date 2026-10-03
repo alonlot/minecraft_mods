@@ -37,12 +37,13 @@ import java.util.UUID;
  */
 @Mod.EventBusSubscriber(modid = ExampleMod.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class ConfundoSpell {
+    private static final Map<UUID, Long> NEXT_SEARCH = new HashMap<>();
+
     @SubscribeEvent
     public static void onServerStopping(net.minecraftforge.event.server.ServerStoppingEvent event) {
         NEXT_SEARCH.clear();
     }
 
-    private static final Map<UUID, Long> NEXT_SEARCH = new HashMap<>();
     static final String TAG_CASTER = ExampleMod.MODID + ":confundo_caster";
     private static Holder<MobEffect> confundedHolder;
 
@@ -123,7 +124,9 @@ public final class ConfundoSpell {
             NEXT_SEARCH.remove(mob.getUUID());
         } else {
             MindControl.clearBrainTarget(mob, null);
-            NEXT_SEARCH.put(mob.getUUID(), mob.level().getGameTime() + ConfundoRules.RETARGET_INTERVAL);
+            long now = mob.level().getGameTime();
+            NEXT_SEARCH.values().removeIf(n -> n <= now);
+            NEXT_SEARCH.put(mob.getUUID(), now + ConfundoRules.RETARGET_INTERVAL);
         }
     }
 

@@ -70,7 +70,7 @@ public final class ObliviateSpell {
             FORGOTTEN.put(mob.getUUID(), new Forget(owner.getUUID(), now + ObliviateRules.ignoreTicks(rank)));
         }
         MindControl.setTargetBypassing(mob, null);
-        MindControl.clearBrainTarget(mob, caster instanceof LivingEntity living ? living : null);
+        MindControl.clearBrainTarget(mob, owner);
         mob.setLastHurtByMob(null);
         if (mob instanceof NeutralMob neutral) {
             neutral.stopBeingAngry();
@@ -168,6 +168,34 @@ public final class ObliviateSpell {
         Entity attacker = CombatEffects.responsible(event.getSource().getEntity());
         if (attacker != null) {
             remember(victim, attacker);
+        }
+    }
+
+    /** A Warden re-targets through Roar -> setAttackTarget (a brain write, no target event), so watch its memories. */
+    @SubscribeEvent
+    public static void onLivingTick(net.minecraftforge.event.entity.living.LivingEvent.LivingTickEvent event) {
+        if (FORGOTTEN.isEmpty() || !(event.getEntity() instanceof net.minecraft.world.entity.monster.warden.Warden warden)
+                || warden.level().isClientSide() || warden.tickCount % 5 != 0) {
+            return;
+        }
+        Forget forget = FORGOTTEN.get(warden.getUUID());
+        if (forget == null) {
+            return;
+        }
+        if (!ObliviateRules.stillForgotten(warden.level().getGameTime(), forget.until())) {
+            FORGOTTEN.remove(warden.getUUID());
+            return;
+        }
+        net.minecraft.world.entity.ai.Brain<?> brain = warden.getBrain();
+        LivingEntity attack = brain.getMemory(net.minecraft.world.entity.ai.memory.MemoryModuleType.ATTACK_TARGET).orElse(null);
+        LivingEntity roar = brain.getMemory(net.minecraft.world.entity.ai.memory.MemoryModuleType.ROAR_TARGET).orElse(null);
+        boolean hit = (attack != null && attack.getUUID().equals(forget.casterId()))
+                || (roar != null && roar.getUUID().equals(forget.casterId()));
+        if (hit) {
+            brain.eraseMemory(net.minecraft.world.entity.ai.memory.MemoryModuleType.ATTACK_TARGET);
+            brain.eraseMemory(net.minecraft.world.entity.ai.memory.MemoryModuleType.ROAR_TARGET);
+            LivingEntity who = attack != null && attack.getUUID().equals(forget.casterId()) ? attack : roar;
+            warden.clearAnger(who);
         }
     }
 

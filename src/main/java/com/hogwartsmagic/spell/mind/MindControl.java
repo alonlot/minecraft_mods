@@ -79,7 +79,7 @@ public final class MindControl {
      * Wipe a brain-driven mob's attack memories (Piglins, Hoglins, Villagers, Warden, Goats, Frogs...), which
      * setTarget(null) does not touch. With {@code forgotten} given, it also forgets its anger and who hurt it.
      */
-    public static void clearBrainTarget(Mob mob, @Nullable LivingEntity forgotten) {
+    public static void clearBrainTarget(Mob mob, @Nullable Entity forgotten) {
         net.minecraft.world.entity.ai.Brain<?> brain = mob.getBrain();
         eraseIfRegistered(brain, net.minecraft.world.entity.ai.memory.MemoryModuleType.ATTACK_TARGET);
         if (forgotten != null) {

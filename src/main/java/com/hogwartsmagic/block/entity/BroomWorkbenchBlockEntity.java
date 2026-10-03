@@ -18,6 +18,7 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerData;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
@@ -27,6 +28,8 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.items.ItemStackHandler;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.List;
 
 public class BroomWorkbenchBlockEntity extends BlockEntity implements net.minecraft.world.MenuProvider {
 
@@ -51,29 +54,52 @@ public class BroomWorkbenchBlockEntity extends BlockEntity implements net.minecr
             if (slot == SLOT_RESULT) {
                 return false;
             }
-            if (slot == SLOT_A) {
-                return stack.is(ExampleMod.FINE_WOOD_STICK.get())
-                        || stack.is(ExampleMod.BROOM.get())
-                        || stack.is(ExampleMod.NIMBUS_2000.get());
-            }
-            if (slot == SLOT_B) {
-                return stack.is(Items.WHEAT)
-                        || stack.is(Items.FEATHER)
-                        || stack.is(Items.NETHERITE_INGOT);
-            }
-            if (slot == SLOT_C) {
-                return stack.is(ExampleMod.ARCANE_DUST.get())
-                        || stack.is(Items.GOLD_BLOCK)
-                        || stack.is(Items.PHANTOM_MEMBRANE);
-            }
-            if (slot == SLOT_D) {
-                return stack.is(Items.IRON_INGOT)
-                        || stack.is(ExampleMod.ARCANE_CORE.get())
-                        || stack.is(ExampleMod.DRAGON_HEARTSTRING_CORE.get());
+            // Derived from the recipes, so every ingredient of every recipe fits its slot. The old
+            // hand-written lists refused the Nimbus and Firebolt ingredients.
+            for (BroomRecipe recipe : recipes()) {
+                Item wanted = recipe.slot(slot);
+                if (wanted != null && stack.is(wanted)) {
+                    return true;
+                }
             }
             return false;
         }
     };
+
+    /** One broom recipe, in slot order: Base (A), Boost (B), Magic (C), Catalyst (D). */
+    private record BroomRecipe(Item base, Item boost, Item magic, Item catalyst, Item result) {
+        @Nullable
+        Item slot(int slot) {
+            if (slot == SLOT_A) {
+                return this.base;
+            }
+            if (slot == SLOT_B) {
+                return this.boost;
+            }
+            if (slot == SLOT_C) {
+                return this.magic;
+            }
+            if (slot == SLOT_D) {
+                return this.catalyst;
+            }
+            return null;
+        }
+
+        boolean matches(ItemStack a, ItemStack b, ItemStack c, ItemStack d) {
+            return a.is(this.base) && b.is(this.boost) && c.is(this.magic) && d.is(this.catalyst);
+        }
+    }
+
+    /** The single source for the slot filter, the recipe check and the result (the recipe book text matches). */
+    private static List<BroomRecipe> recipes() {
+        return List.of(
+                new BroomRecipe(ExampleMod.FINE_WOOD_STICK.get(), Items.WHEAT, ExampleMod.ARCANE_DUST.get(),
+                        Items.IRON_INGOT, ExampleMod.BROOM.get()),
+                new BroomRecipe(ExampleMod.BROOM.get(), Items.PHANTOM_MEMBRANE, Items.NETHERITE_INGOT,
+                        ExampleMod.ARCANE_CORE.get(), ExampleMod.NIMBUS_2000.get()),
+                new BroomRecipe(ExampleMod.NIMBUS_2000.get(), Items.NETHERITE_INGOT, Items.ELYTRA,
+                        ExampleMod.DRAGON_HEARTSTRING_CORE.get(), ExampleMod.FIREBOLT.get()));
+    }
 
     private final ContainerData dataAccess = new ContainerData() {
         @Override
@@ -196,24 +222,11 @@ public class BroomWorkbenchBlockEntity extends BlockEntity implements net.minecr
     }
 
     private boolean canCraftBroom() {
-        ItemStack a = this.inventory.getStackInSlot(SLOT_A);
-        ItemStack b = this.inventory.getStackInSlot(SLOT_B);
-        ItemStack c = this.inventory.getStackInSlot(SLOT_C);
-        ItemStack d = this.inventory.getStackInSlot(SLOT_D);
-        if (a.isEmpty() || b.isEmpty() || c.isEmpty() || d.isEmpty()) {
-            return false;
-        }
-        if (a.is(ExampleMod.FINE_WOOD_STICK.get()) && b.is(Items.WHEAT) && c.is(ExampleMod.ARCANE_DUST.get()) && d.is(Items.IRON_INGOT)) {
-            return true;
-        }
-        if (a.is(ExampleMod.BROOM.get()) && b.is(Items.PHANTOM_MEMBRANE) && c.is(Items.NETHERITE_INGOT) && d.is(ExampleMod.ARCANE_CORE.get())) {
-            return true;
-        }
-        return a.is(ExampleMod.NIMBUS_2000.get()) && b.is(Items.NETHERITE_INGOT) && c.is(Items.ELYTRA) && d.is(ExampleMod.DRAGON_HEARTSTRING_CORE.get());
+        return currentRecipe() != null;
     }
 
     @Nullable
-    private ItemStack getBroomResultForCurrentInputs() {
+    private BroomRecipe currentRecipe() {
         ItemStack a = this.inventory.getStackInSlot(SLOT_A);
         ItemStack b = this.inventory.getStackInSlot(SLOT_B);
         ItemStack c = this.inventory.getStackInSlot(SLOT_C);
@@ -221,16 +234,18 @@ public class BroomWorkbenchBlockEntity extends BlockEntity implements net.minecr
         if (a.isEmpty() || b.isEmpty() || c.isEmpty() || d.isEmpty()) {
             return null;
         }
-        if (a.is(ExampleMod.FINE_WOOD_STICK.get()) && b.is(Items.WHEAT) && c.is(ExampleMod.ARCANE_DUST.get()) && d.is(Items.IRON_INGOT)) {
-            return new ItemStack(ExampleMod.BROOM.get());
-        }
-        if (a.is(ExampleMod.BROOM.get()) && b.is(Items.PHANTOM_MEMBRANE) && c.is(Items.NETHERITE_INGOT) && d.is(ExampleMod.ARCANE_CORE.get())) {
-            return new ItemStack(ExampleMod.NIMBUS_2000.get());
-        }
-        if (a.is(ExampleMod.NIMBUS_2000.get()) && b.is(Items.NETHERITE_INGOT) && c.is(Items.ELYTRA) && d.is(ExampleMod.DRAGON_HEARTSTRING_CORE.get())) {
-            return new ItemStack(ExampleMod.FIREBOLT.get());
+        for (BroomRecipe recipe : recipes()) {
+            if (recipe.matches(a, b, c, d)) {
+                return recipe;
+            }
         }
         return null;
+    }
+
+    @Nullable
+    private ItemStack getBroomResultForCurrentInputs() {
+        BroomRecipe recipe = currentRecipe();
+        return recipe == null ? null : new ItemStack(recipe.result());
     }
 
     private void finishCrafting() {

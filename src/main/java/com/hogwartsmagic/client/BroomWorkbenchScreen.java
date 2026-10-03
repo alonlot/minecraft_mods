@@ -46,7 +46,8 @@ public class BroomWorkbenchScreen extends AbstractContainerScreen<BroomWorkbench
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         this.positionRecipeBookButton();
-        this.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+        // AbstractContainerScreen.render already draws renderTransparentBackground + renderBg once (no blur);
+        // the explicit call that stood here drew the dim and the panel a second time.
         super.render(guiGraphics, mouseX, mouseY, partialTick);
         this.renderTooltip(guiGraphics, mouseX, mouseY);
     }

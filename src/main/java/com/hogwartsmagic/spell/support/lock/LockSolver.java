@@ -23,10 +23,65 @@ public final class LockSolver {
         }
     }
 
+    /**
+     * How far one solve has got, for the caster's progress bar. Only the solver thread writes it and the
+     * server thread reads it: the fields are volatile and there is one writer, so no locks are needed.
+     */
+    public static final class Progress {
+        private volatile boolean started;
+        private volatile long attempts;
+        private volatile long work;
+
+        public boolean started() {
+            return started;
+        }
+
+        public long attempts() {
+            return attempts;
+        }
+
+        public long work() {
+            return work;
+        }
+
+        void start() {
+            started = true;
+        }
+
+        void attempted(long workSoFar) {
+            attempts = attempts + 1; // one writer: the solver thread
+            work = workSoFar;
+        }
+    }
+
     private LockSolver() {
     }
 
+    /**
+     * The most attempts {@link #solve} can make on this lock with these caps (see LockPickRules.attempts);
+     * 0 when it would refuse the lock outright. Pure and cheap, for the server thread.
+     */
+    public static long plannedAttempts(LockCircuit c, int maxInputs, int maxPresses) {
+        if (c.goalCount() == 0 || c.nonForcedInputCount() > maxInputs || c.inputCount() == 0
+                || c.controllableGoals() == 0) {
+            return 0;
+        }
+        int[] settable = concat(ofKind(c, LockCircuit.LEVER), ofKind(c, LockCircuit.ANALOG));
+        int[] alternatives = new int[settable.length];
+        for (int i = 0; i < settable.length; i++) {
+            alternatives[i] = c.inputDomain(settable[i]).length - 1; // every level but the one it stands at
+        }
+        return LockPickRules.attempts(alternatives, ofKind(c, LockCircuit.PULSE).length,
+                ofKind(c, LockCircuit.FORCE).length, maxPresses);
+    }
+
     public static Solution solve(LockCircuit c, int maxInputs, int maxPresses, long budget) {
+        return solve(c, maxInputs, maxPresses, budget, new Progress());
+    }
+
+    /** As {@link #solve(LockCircuit, int, int, long)}, reporting each attempt and the work so far to progress. */
+    public static Solution solve(LockCircuit c, int maxInputs, int maxPresses, long budget, Progress progress) {
+        progress.start();
         if (c.goalCount() == 0) {
             return Solution.none(Status.NO_DOOR, 0, 0);
         }
@@ -42,7 +97,7 @@ public final class LockSolver {
             // out of budget or interrupted is not the same as a lock that never stops ticking
             return Solution.none(sim.stoppedForBudget() ? Status.OUT_OF_TIME : Status.UNSTABLE, movable, sim.work());
         }
-        Search search = new Search(c, sim, budget, movable);
+        Search search = new Search(c, sim, budget, movable, progress);
         int[] settable = concat(ofKind(c, LockCircuit.LEVER), ofKind(c, LockCircuit.ANALOG));
         int[] pulses = ofKind(c, LockCircuit.PULSE);
         int[] forced = ofKind(c, LockCircuit.FORCE);
@@ -65,6 +120,7 @@ public final class LockSolver {
         private final LockSimulator sim;
         private final long budget;
         private final int movable;
+        private final Progress progress;
         private final int[] base;
         private final boolean[] goalBase;
         private final boolean[] dangerBase;
@@ -76,11 +132,12 @@ public final class LockSolver {
         private boolean halted;
         private long limit;
 
-        Search(LockCircuit c, LockSimulator sim, long budget, int movable) {
+        Search(LockCircuit c, LockSimulator sim, long budget, int movable, Progress progress) {
             this.c = c;
             this.sim = sim;
             this.budget = budget;
             this.movable = movable;
+            this.progress = progress;
             base = sim.snapshot();
             goalBase = new boolean[c.goalCount()];
             for (int g = 0; g < goalBase.length; g++) {
@@ -132,6 +189,7 @@ public final class LockSolver {
                                 }
                                 int[] presses = select(pressable, seq);
                                 int moved = attempt(set, to, presses);
+                                progress.attempted(sim.work());
                                 if (halted) {
                                     outOfTime = true;
                                     return;
@@ -180,6 +238,7 @@ public final class LockSolver {
                         }
                     }
                     int moved = attemptHeld(subset);
+                    progress.attempted(sim.work());
                     if (halted) {
                         outOfTime = true;
                         return;

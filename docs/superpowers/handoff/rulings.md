@@ -160,3 +160,25 @@ Final review (rerun, at HEAD 778f597): With fixes - I1 stunned/silenced mob and 
 Final fix wave: done (dff1363, 220 tests, boot clean). Ruling: sameThrallHousehold in ImperioRules (pure) and the direct-hit spare for the puppeteer's thralls/allies - both accepted, consistent with splash. Re-review dispatched.
 Final fix wave re-review: 7 of 8 items correct; I2 regression - the server hold check (slack 2) silently refuses honest starts at <=19 TPS or with jitter, after the hit target is already consumed. Ruling: one targeted follow-up (a regression of the wave itself, not a new finding): slack 10 (min 30 game ticks), check before consuming the hit target, tell the caster on refusal. Sign-off notes added: puppet beams spare any ALLIED-tagged mob (incl. other players' snakes) and helpful puppet beams on the puppeteer's own thralls are discarded.
 Lag follow-up: done (3f78273, 220 tests, boot clean); controller checked the diff: slack 10, holdReady runs before the hit target is consumed, the caster gets a line; startFromHold's only caller is the packet handler. Phase 6b complete.
+
+## Piston locks
+- small lock = at most 4 inputs, one press, 512 traced blocks; full lock = at most 20 inputs, up to 4 presses, 8192 blocks.
+- forcing a source is Master only, tried only after every real-switch setting failed; at most 8 forceable sources (nearest the door first), outside the 20-input cap.
+- a forced source outputs 15 for 60 ticks; comparators and observers only out of their front; daylight sensor, target block, trapped chest, tripwire hook and similar in all directions; sculk sensors are activated for real like a button, never forced.
+- Revelio has the same ranks; Master adds item keys (up to 3 frames or containers per lock); Revelio never forces; hints are world entities visible to anyone nearby for 15 s.
+- only player casters use any of this.
+- the spell moves the door pistons from whatever state they are in (a cast at an open door may close it).
+- the solver runs on one daemon worker thread, bounded by a work budget (Master 200M node updates) and a 10 s timeout.
+- not modelled: pistons as logic, exact repeater delays and pulse lengths, item frames holding a specific item; without forcing or item keys a comparator reading a container stays at its current value and the lock is keyed.
+- chunks are never loaded; an unloaded block ends the trace there and marks it truncated.
+- Alohomora pays XP once when the last action of a found solution lands; Revelio XP unchanged.
+- hint entities carry the tag hogwartsmagic_lock_hint; one loading from disk is refused on join; a glowing frame is un-glowed when the server stops.
+- Ruling: the superpowers plugin is not installed in the container; briefs are cut from the plan by a pre-flight planner with a Controller corrections section, review packages are git diff files (as in earlier phases) - no cost.
+- Ruling: the plan's Windows steps (tasklist, ./gradlew paths) are replaced by .superpowers/sdd/CLOUD-OVERRIDES.md; the plan's "never push" is overridden by the user's push points (after T4, T8, fix wave) - no cost.
+- Ruling: the plan names the base lock commits fd45d0b/1c0942a; on this branch they are 5e6f874 and f4fbc12 (same content) - no cost.
+Ruling: P1 skip the lock path when MindControl.hitPuppeteer() != null (no lock-picking through a puppet; keeps the 6b no-XP rule) - cost: puppets cannot pick locks.
+Ruling: P2 the beam still fizzles visually when a lock read starts (onBlockHit returning true would pay XP twice); a wooden door opening nearby also stops the piston path on that cast - cosmetic.
+Ruling: P3 re-check a lever's state when its step runs and stop with "shifted" if someone flipped it - about 7 lines.
+Ruling: P4 a NO_DOOR result says the "no setting moves the door" line - one condition.
+Ruling: P5 a glowing item frame is tagged and un-glowed at expiry, at server stop and when it loads with no live hint - about 10 lines.
+Ruling: accepted gaps for the user's sign-off: a solve's timeout counts from when it was queued; recasting Revelio stacks a second hint set; the frame label assumes an empty frame; a forced source expiring in an unloaded chunk leaves neighbours as they were; /lockinfo says "Reading the lock..." even when busy; the lock path ignores wards, claims and mobGriefing by the user's requirement 4.

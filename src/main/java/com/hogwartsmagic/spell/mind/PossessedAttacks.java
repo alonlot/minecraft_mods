@@ -1,5 +1,6 @@
 package com.hogwartsmagic.spell.mind;
 
+import net.minecraft.world.entity.player.Player;
 import com.hogwartsmagic.entity.BasiliskEntity;
 import com.hogwartsmagic.entity.HungarianHorntailEntity;
 import com.hogwartsmagic.entity.SpellBeamEntity;
@@ -34,9 +35,10 @@ import javax.annotation.Nullable;
 final class PossessedAttacks {
     private static final double PLAYER_REACH = 3.5;
     private static final double RANGED_REACH = 24.0;
+    private static final double AREA_PROTECT_RANGE = 16.0;
     private static final float FALLBACK_DAMAGE = 2.0F;
     private static final SpellType[] VOLDEMORT_SPELLS = {
-            SpellType.STUPEFY, SpellType.SECTUMSEMPRA, SpellType.CRUCIO, SpellType.BOMBARDA};
+            SpellType.STUPEFY, SpellType.SECTUMSEMPRA, SpellType.BOMBARDA};
     private static final SpellType[] WAND_SPELLS = {SpellType.STUPEFY, SpellType.EXPELLIARMUS};
 
     private PossessedAttacks() {
@@ -55,6 +57,10 @@ final class PossessedAttacks {
         }
         if (!(puppet instanceof Mob mob)) {
             return PossessionRules.ATTACK_COOLDOWN;
+        }
+        if (isAreaSpecial(mob) && protectedPlayerNearby(mob, caster)) {
+            MindFx.tell(caster, "possession.protected_nearby");
+            return PossessionRules.SPECIAL_ATTACK_COOLDOWN;
         }
         if (mob instanceof HungarianHorntailEntity horntail) {
             horntail.possessedAttack();
@@ -92,6 +98,27 @@ final class PossessedAttacks {
         return PossessionRules.ATTACK_COOLDOWN;
     }
 
+    private static boolean isAreaSpecial(Mob mob) {
+        return mob instanceof HungarianHorntailEntity || mob instanceof BasiliskEntity || mob instanceof Creeper
+                || mob instanceof WizardEntity || mob instanceof StudentEntity;
+    }
+
+    /** True when a player the caster may not harm (spared, allied, PvP off) stands within reach of an area attack. */
+    private static boolean protectedPlayerNearby(Mob puppet, ServerPlayer caster) {
+        boolean pvp = caster.server.isPvpAllowed();
+        double rangeSqr = AREA_PROTECT_RANGE * AREA_PROTECT_RANGE;
+        for (Player other : puppet.level().players()) {
+            if (other == caster || other.isCreative() || other.isSpectator()
+                    || other.distanceToSqr(puppet) > rangeSqr) {
+                continue;
+            }
+            if (!pvp || !caster.canHarmPlayer(other) || other.isAlliedTo(caster)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** The first living thing along the body's look within {@code reach}, stopping at walls; never the caster's body. */
     @Nullable
     private static LivingEntity aimed(LivingEntity puppet, double reach, ServerPlayer caster) {
@@ -103,8 +130,8 @@ final class PossessedAttacks {
         }
         AABB box = puppet.getBoundingBox().expandTowards(end.subtract(start)).inflate(1.0);
         EntityHitResult hit = ProjectileUtil.getEntityHitResult(puppet.level(), puppet, start, end, box,
-                entity -> entity instanceof LivingEntity && entity.isPickable() && !entity.isSpectator()
-                        && entity != caster && entity != puppet);
+                entity -> entity instanceof LivingEntity living && entity.isPickable() && !entity.isSpectator()
+                        && entity != caster && entity != puppet && ImperioThralls.isFairTarget(caster, puppet, living));
         return hit != null && hit.getEntity() instanceof LivingEntity living ? living : null;
     }
 

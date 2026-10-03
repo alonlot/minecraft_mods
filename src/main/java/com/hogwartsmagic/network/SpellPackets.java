@@ -451,7 +451,7 @@ public class SpellPackets {
                     buf.writeVarInt(p.selectedSlot);
                     buf.writeVarInt(p.hotbarIds.size());
                     for (int i = 0; i < p.hotbarIds.size(); i++) {
-                        buf.writeUtf(p.hotbarIds.get(i), 128);
+                        buf.writeUtf(p.hotbarIds.get(i), 256);
                         buf.writeVarInt(p.hotbarCounts.get(i));
                     }
                     buf.writeFloat(p.mana);
@@ -476,7 +476,7 @@ public class SpellPackets {
                     List<String> hotbarIds = new ArrayList<>(hotbarSize);
                     List<Integer> hotbarCounts = new ArrayList<>(hotbarSize);
                     for (int i = 0; i < hotbarSize; i++) {
-                        hotbarIds.add(buf.readUtf(128));
+                        hotbarIds.add(buf.readUtf(256));
                         hotbarCounts.add(buf.readVarInt());
                     }
                     float mana = buf.readFloat();

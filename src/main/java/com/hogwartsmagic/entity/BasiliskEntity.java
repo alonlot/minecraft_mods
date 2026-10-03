@@ -664,7 +664,7 @@ public class BasiliskEntity extends Monster {
      * Basilisk's own spit cooldown (counted down in tick(), so it runs while the possessed AI is paused).
      */
     public void possessedAttack() {
-        if (!(this.level() instanceof ServerLevel) || this.spitCooldown > 0) {
+        if (!(this.level() instanceof ServerLevel) || this.spitCooldown > 0 || isFullyBurrowed() || isBurrowing()) {
             return;
         }
         Vec3 from = getGazeOrigin();

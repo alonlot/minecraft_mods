@@ -337,6 +337,8 @@
   "commands.hogwartsmagic.imperio.failed": "Could not possess %s",
   "commands.hogwartsmagic.imperio.released": "Released",
   "gui.hogwartsmagic.possession.target_far": "That mind is too far away",
+  "gui.hogwartsmagic.possession.you_broke_free": "You broke free!",
+  "gui.hogwartsmagic.possession.protected_nearby": "A protected player is too close for that attack",
   "gui.hogwartsmagic.possession.hit_first": "Hit a player or creature with Imperio, then keep holding",
   "gui.hogwartsmagic.possession.victim": "Someone else is moving your body",
   "gui.hogwartsmagic.possession.resist": "Mash SPACE to resist!",

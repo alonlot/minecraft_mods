@@ -4,6 +4,8 @@ import com.hogwartsmagic.spell.mind.MindControl;
 import com.hogwartsmagic.spell.mind.PossessionManager;
 import net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket;
 import net.minecraft.network.protocol.game.ServerboundContainerClickPacket;
+import net.minecraft.network.protocol.game.ServerboundPickItemPacket;
+import net.minecraft.network.protocol.game.ServerboundPlaceRecipePacket;
 import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
 import net.minecraft.network.protocol.game.ServerboundSetCreativeModeSlotPacket;
 import net.minecraft.server.level.ServerPlayer;
@@ -53,6 +55,27 @@ public abstract class ServerGamePacketListenerMixin {
             shift = At.Shift.AFTER), cancellable = true)
     private void hogwartsmagic$lockCreativeSlot(ServerboundSetCreativeModeSlotPacket packet, CallbackInfo ci) {
         if (hogwartsmagic$locked()) {
+            this.player.inventoryMenu.sendAllDataToRemote();
+            ci.cancel();
+        }
+    }
+
+    @Inject(method = "handlePickItem", at = @At(value = "INVOKE",
+            target = "Lnet/minecraft/network/protocol/PacketUtils;ensureRunningOnSameThread(Lnet/minecraft/network/protocol/Packet;Lnet/minecraft/network/PacketListener;Lnet/minecraft/server/level/ServerLevel;)V",
+            shift = At.Shift.AFTER), cancellable = true)
+    private void hogwartsmagic$lockPickItem(ServerboundPickItemPacket packet, CallbackInfo ci) {
+        if (hogwartsmagic$locked()) {
+            this.player.connection.send(new ClientboundSetCarriedItemPacket(this.player.getInventory().selected));
+            this.player.inventoryMenu.sendAllDataToRemote();
+            ci.cancel();
+        }
+    }
+
+    @Inject(method = "handlePlaceRecipe", at = @At(value = "INVOKE",
+            target = "Lnet/minecraft/network/protocol/PacketUtils;ensureRunningOnSameThread(Lnet/minecraft/network/protocol/Packet;Lnet/minecraft/network/PacketListener;Lnet/minecraft/server/level/ServerLevel;)V",
+            shift = At.Shift.AFTER), cancellable = true)
+    private void hogwartsmagic$lockPlaceRecipe(ServerboundPlaceRecipePacket packet, CallbackInfo ci) {
+        if (packet.getContainerId() == this.player.inventoryMenu.containerId && hogwartsmagic$locked()) {
             this.player.inventoryMenu.sendAllDataToRemote();
             ci.cancel();
         }

@@ -1,5 +1,6 @@
 package com.hogwartsmagic.spell.mind;
 
+import net.minecraft.world.entity.monster.Creeper;
 import com.hogwartsmagic.Config;
 import java.util.List;
 import net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket;
@@ -339,6 +340,7 @@ public final class PossessionManager {
         }
         long now = sender.level().getGameTime();
         if (!session.hotbarRate.tryAcquire(now)) {
+            session.snapshotDue = true; // re-sync the caster's displayed slot next tick
             return;
         }
         ServerPlayer victim = sender.server.getPlayerList().getPlayer(session.victimId);
@@ -359,7 +361,11 @@ public final class PossessionManager {
     }
 
     private static void sendSnapshot(PossessionSession session, ServerPlayer caster, ServerPlayer victim, long now) {
+        if (BY_CASTER.get(session.casterId) != session) {
+            return;
+        }
         session.lastSnapshotAt = now;
+        session.snapshotDue = false;
         ItemStack wand = victim.getMainHandItem();
         boolean holdsWand = MagicWandItem.isAnyWand(wand);
         List<String> hotbarIds = new ArrayList<>(9);
@@ -460,6 +466,10 @@ public final class PossessionManager {
         if (rawVictim instanceof LivingEntity victim) {
             if (victim instanceof ServerPlayer victimPlayer) {
                 sendNone(victimPlayer);
+                if (reason == EndReason.BROKE_FREE) {
+                    victimPlayer.displayClientMessage(Component.translatable("gui." + ExampleMod.MODID + ".possession.you_broke_free")
+                            .withStyle(ChatFormatting.GREEN), true);
+                }
             }
             if (victim instanceof Mob mob) {
                 MindControl.setTargetBypassing(mob, null);
@@ -527,7 +537,8 @@ public final class PossessionManager {
         ServerPlayer caster = server.getPlayerList().getPlayer(session.casterId);
         LivingEntity victim = level == null ? null : living(level.getEntity(session.victimId));
         if (level == null || caster == null || !caster.isAlive() || victim == null) {
-            end(session, EndReason.INVALID); // end() also strips the victim's marker if it is still reachable
+            // end() also strips the victim's marker if it is still reachable; a creeper that blew up died of it
+            end(session, victim == null && session.fuseLit ? EndReason.DIED : EndReason.INVALID);
             return;
         }
         long now = level.getGameTime();
@@ -567,10 +578,16 @@ public final class PossessionManager {
         if (session.attack && now - session.lastAttackAt >= session.attackCooldown) {
             session.lastAttackAt = now;
             session.attackCooldown = PossessedAttacks.attack(victim, caster);
+            if (victim instanceof Creeper creeper && creeper.isIgnited()) {
+                session.fuseLit = true;
+            }
+            if (BY_CASTER.get(session.casterId) != session) {
+                return; // the attack ended this session
+            }
         }
         if (victim instanceof ServerPlayer victimPlayer) {
             enforceHotbar(session, victimPlayer);
-            if (now - session.lastSnapshotAt >= PossessionRules.SNAPSHOT_INTERVAL_TICKS) {
+            if (session.snapshotDue || now - session.lastSnapshotAt >= PossessionRules.SNAPSHOT_INTERVAL_TICKS) {
                 sendSnapshot(session, caster, victimPlayer, now);
             }
         }

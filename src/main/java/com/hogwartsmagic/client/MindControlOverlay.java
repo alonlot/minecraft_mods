@@ -50,11 +50,12 @@ public final class MindControlOverlay {
     private static void renderCasterHud(GuiGraphics graphics, Minecraft minecraft) {
         int cx = graphics.guiWidth() / 2;
         Entity victim = minecraft.level == null ? null : minecraft.level.getEntity(PossessionClient.otherId());
-        Component name = victim != null ? victim.getDisplayName() : Component.literal("?");
+        SpellPackets.PuppetSnapshotPacket snapshot = PossessionClient.snapshot();
+        Component name = victim != null ? victim.getDisplayName()
+                : Component.literal(snapshot != null && !snapshot.victimName().isEmpty() ? snapshot.victimName() : "?");
         int seconds = (PossessionClient.ticksLeft() + 19) / 20;
         graphics.drawCenteredString(minecraft.font, Component.translatable("gui." + ExampleMod.MODID + ".possession.caster_header",
                 name, seconds), cx, 14, 0xFF9CFF9C);
-        SpellPackets.PuppetSnapshotPacket snapshot = PossessionClient.snapshot();
         if (snapshot == null) {
             return;
         }

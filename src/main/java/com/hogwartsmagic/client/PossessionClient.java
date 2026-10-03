@@ -1,5 +1,6 @@
 package com.hogwartsmagic.client;
 
+import org.lwjgl.glfw.GLFW;
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.network.SpellPackets;
 import com.hogwartsmagic.spell.mind.PossessionRules;
@@ -225,11 +226,9 @@ public final class PossessionClient {
                 }
             }
             if (role == PossessionRules.ROLE_VICTIM) {
-                // SPACE presses (not holds): each press is one click. Before the 8s mark they count for nothing.
+                // Drain only: holding SPACE repeats KeyMapping.click, so presses are counted from the raw key events.
                 while (minecraft.options.keyJump.consumeClick()) {
-                    if (resistOpen) {
-                        resistPresses++;
-                    }
+                    // swallowed
                 }
             }
             return;
@@ -285,6 +284,26 @@ public final class PossessionClient {
                     selectPuppetSlot(slot); // the caster picks the puppet's slot, never their own
                 }
             }
+        }
+    }
+
+    /** A real SPACE press (never the key repeat of a hold) counts as one mash while the resist window is open. */
+    @SubscribeEvent
+    public static void onKey(InputEvent.Key event) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (role == PossessionRules.ROLE_VICTIM && resistOpen && minecraft.screen == null
+                && event.getAction() == GLFW.GLFW_PRESS && minecraft.options.keyJump.matches(event.getKey(), event.getScanCode())) {
+            resistPresses++;
+        }
+    }
+
+    /** The same for a jump key bound to a mouse button. */
+    @SubscribeEvent
+    public static void onMouseButton(InputEvent.MouseButton.Pre event) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (role == PossessionRules.ROLE_VICTIM && resistOpen && minecraft.screen == null
+                && event.getAction() == GLFW.GLFW_PRESS && minecraft.options.keyJump.matchesMouse(event.getButton())) {
+            resistPresses++;
         }
     }
 

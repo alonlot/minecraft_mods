@@ -45,6 +45,10 @@ final class PossessionSession {
     double lastVictimY;
 
     int forcedSlot = -1;
+    /** A snapshot goes out next tick (a hotbar pick was rate-refused, so the caster's display needs a re-sync). */
+    boolean snapshotDue;
+    /** The puppet creeper's fuse was lit by the caster: if it vanishes, it died of it. */
+    boolean fuseLit;
     int resistWindow = -1;
     int resistPresses;
     boolean resistAnnounced;

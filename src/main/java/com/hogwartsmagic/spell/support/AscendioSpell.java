@@ -73,8 +73,8 @@ public final class AscendioSpell {
         if (doubleCast) {
             data.remove(TAG_AIR_CHARGE);
             data.remove(TAG_LAUNCHED_AT);
-        } else if (fromGround) {
-            // Only a take-off from the ground grants fall immunity and the one midair recast.
+        } else if (fromGround || player.isInWater()) {
+            // Only a take-off from the ground (or water, cleared next tick) grants fall immunity and the one midair recast.
             player.fallDistance = 0.0f;
             data.putLong(TAG_SAFE_UNTIL, now + AscendioRules.SAFE_FALL_TICKS);
             if (AscendioRules.doubleCasts(rank)) {

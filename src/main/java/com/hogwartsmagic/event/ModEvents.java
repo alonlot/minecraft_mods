@@ -679,6 +679,7 @@ public class ModEvents {
     @SubscribeEvent
     public static void onPlayerChangedDimension(net.minecraftforge.event.entity.player.PlayerEvent.PlayerChangedDimensionEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
+            cancelApparitionChannel(player, player.getMainHandItem());
             syncPersistentMagicState(player);
             com.hogwartsmagic.caveinimicum.CaveInimicumManager.get(player.serverLevel()).syncRelevantWardsToPlayer(player);
         }
@@ -1896,10 +1897,32 @@ public class ModEvents {
     private static final int ACCIO_PULL_TICKS = 70;
 
     /** Called when Accio strikes a target: registers it to be pulled in over the next few seconds. */
-    public static void startAccioPull(ServerPlayer caster, net.minecraft.world.entity.LivingEntity target) {
-        if (target == null || target == caster) return;
+    public static boolean startAccioPull(ServerPlayer caster, net.minecraft.world.entity.LivingEntity target) {
+        if (target == null || target == caster) return false;
+        if (isHeldInPlace(target)) return false; // Levicorpus / Incarcerous holds are never reeled
+        if (target instanceof ServerPlayer) {
+            // Players get a single impulse; a per-tick velocity packet stream is not acceptable.
+            net.minecraft.world.phys.Vec3 toCaster = caster.position()
+                    .add(0.0D, caster.getBbHeight() * 0.5D, 0.0D).subtract(target.position());
+            double d = toCaster.length();
+            if (d > 1.0E-4D) {
+                net.minecraft.world.phys.Vec3 dir = toCaster.scale(1.0D / d);
+                double speed = Math.min(1.1D, 0.35D + d * 0.12D);
+                target.setDeltaMovement(dir.x * speed, dir.y * speed + 0.08D, dir.z * speed);
+                target.hurtMarked = true;
+                target.fallDistance = 0.0F;
+            }
+            return true;
+        }
         caster.getPersistentData().putUUID(TAG_ACCIO_TARGET, target.getUUID());
         caster.getPersistentData().putLong(TAG_ACCIO_UNTIL, caster.level().getGameTime() + ACCIO_PULL_TICKS);
+        return true;
+    }
+
+    /** Effect checks only (no persistent-data reads). */
+    private static boolean isHeldInPlace(net.minecraft.world.entity.LivingEntity e) {
+        return com.hogwartsmagic.spell.disable.LevicorpusSpell.isHanging(e)
+                || e.hasEffect(ExampleMod.INCARCEROUS_CHAINS.getHolder().get());
     }
 
     private static void tickAccioPull(ServerPlayer player) {
@@ -1908,6 +1931,11 @@ public class ModEvents {
         long now = player.level().getGameTime();
         net.minecraft.world.entity.Entity raw = player.serverLevel().getEntity(data.getUUID(TAG_ACCIO_TARGET));
         if (raw == null || !raw.isAlive() || !player.isAlive() || now > data.getLong(TAG_ACCIO_UNTIL)) {
+            data.remove(TAG_ACCIO_TARGET);
+            data.remove(TAG_ACCIO_UNTIL);
+            return;
+        }
+        if (raw instanceof net.minecraft.world.entity.LivingEntity held && isHeldInPlace(held)) {
             data.remove(TAG_ACCIO_TARGET);
             data.remove(TAG_ACCIO_UNTIL);
             return;
@@ -2010,7 +2038,7 @@ public class ModEvents {
 
         // Side-along: anyone within a block comes with you. Gather BEFORE moving.
         java.util.List<LivingEntity> passengers = level.getEntitiesOfClass(LivingEntity.class,
-                player.getBoundingBox().inflate(APPARITION_SIDEALONG_RADIUS), e -> e != player && e.isAlive());
+                player.getBoundingBox().inflate(APPARITION_SIDEALONG_RADIUS), e -> e != player && e.isAlive() && !isHeldInPlace(e));
 
         // Splinch risk falls with rank and comes from config (10% at Novice by default, and it can be
         // switched off); a botched jump still lands you short.
@@ -2103,7 +2131,7 @@ public class ModEvents {
 
         // Side-along: anyone within a block comes with you. Gather BEFORE moving.
         java.util.List<LivingEntity> passengers = level.getEntitiesOfClass(LivingEntity.class,
-                player.getBoundingBox().inflate(APPARITION_SIDEALONG_RADIUS), e -> e != player && e.isAlive());
+                player.getBoundingBox().inflate(APPARITION_SIDEALONG_RADIUS), e -> e != player && e.isAlive() && !isHeldInPlace(e));
         Vec3 from = player.position();
         crackEffect(level, from.x, from.y, from.z, true);
         player.teleportTo(x, y, z);

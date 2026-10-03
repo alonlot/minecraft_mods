@@ -58,14 +58,19 @@ public final class ReparoSpell {
         MasteryAwards.onBlockEffect(player, SpellType.REPARO);
     }
 
+    /** The cloak is excluded: Magical Silk stays its only repair. */
+    private static boolean mendable(ItemStack s) {
+        return s.isDamageableItem() && s.isDamaged() && !s.is(com.hogwartsmagic.ExampleMod.INVISIBILITY_CLOAK.get());
+    }
+
     private static ItemStack findDamaged(ServerPlayer player) {
         ItemStack off = player.getOffhandItem();
-        if (off.isDamageableItem() && off.isDamaged()) {
+        if (mendable(off)) {
             return off;
         }
         for (EquipmentSlot slot : ARMOUR) {
             ItemStack worn = player.getItemBySlot(slot);
-            if (worn.isDamageableItem() && worn.isDamaged()) {
+            if (mendable(worn)) {
                 return worn;
             }
         }

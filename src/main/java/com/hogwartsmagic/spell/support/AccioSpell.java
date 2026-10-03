@@ -104,13 +104,13 @@ public final class AccioSpell {
             player.displayClientMessage(Component.translatable("message.hogwartsmagic.accio.too_heavy"), true);
             return false;
         }
+        boolean snatched = false;
         if (snatchEligible && AccioRules.pullsPlayerItem(rank) && target instanceof ServerPlayer victim
                 && victim != player && !victim.isCreative() && !victim.isSpectator() && isPvp(player, victim)) {
-            pullMainHand(victim, player);
+            snatched = pullMainHand(victim, player);
         }
         // Continuously reel the target in toward the caster until it reaches them.
-        ModEvents.startAccioPull(player, target);
-        return true;
+        return ModEvents.startAccioPull(player, target) || snatched;
     }
 
     /** @param reflected a Protego-reflected beam: behaves as Novice (no container pulls) and earns nothing */
@@ -197,10 +197,10 @@ public final class AccioSpell {
                 && event.getUseBlock() != net.minecraftforge.eventbus.api.Event.Result.DENY;
     }
 
-    private static void pullMainHand(ServerPlayer victim, ServerPlayer thief) {
+    private static boolean pullMainHand(ServerPlayer victim, ServerPlayer thief) {
         ItemStack held = victim.getMainHandItem();
         if (held.isEmpty() || held.is(ExampleMod.ELDER_WAND.get())) {
-            return;
+            return false;
         }
         victim.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
         ServerLevel level = victim.serverLevel();
@@ -210,6 +210,7 @@ public final class AccioSpell {
         level.addFreshEntity(item);
         PAID_ITEMS.add(item.getUUID());
         track(item, thief);
+        return true;
     }
 
     private static boolean isPvp(ServerPlayer thief, ServerPlayer victim) {

@@ -29,6 +29,8 @@ public class ApparitionMapScreen extends Screen {
     private static final int COLOR_GOLD = 0xFFD4AF37;
     private static final int COLOR_BODY = 0xFFE8DBFF;
     private static final int COLOR_UNKNOWN = 0xFF0E0A16;
+    private static final int COLOR_OUT_OF_RANGE = 0xFF2A2433;
+    private static final int MAX_TILES = 150;
     private static final int COLOR_PANEL = 0xF0140A1E;
 
     private final BlockPos origin;
@@ -88,8 +90,8 @@ public class ApparitionMapScreen extends Screen {
     protected void init() {
         super.init();
         span = radius * 2 + 1;
-        int maxMapPx = Math.max(64, Math.min(this.width - 60, this.height - 100));
-        step = ApparitionRules.mapStep(span, TILE, maxMapPx);
+        int maxMapPx = Math.max(64, Math.min(this.width - 60, this.height - 100 - fireplaceListHeight()));
+        step = Math.max(ApparitionRules.mapStep(span, TILE, maxMapPx), ApparitionRules.mapStep(span, 1, MAX_TILES));
         tiles = (span + step - 1) / step;
         int mapSize = tiles * TILE;
         panelWidth = mapSize + 28;
@@ -124,6 +126,13 @@ public class ApparitionMapScreen extends Screen {
                 int idx = tz * tiles + tx;
                 int wx = worldX(tx);
                 int wz = worldZ(tz);
+                long ddx = wx - origin.getX();
+                long ddz = wz - origin.getZ();
+                if (ddx * ddx + ddz * ddz > (long) radius * radius) {
+                    tileColors[idx] = COLOR_OUT_OF_RANGE;
+                    tileKnown[idx] = false;
+                    continue;
+                }
                 if (!level.hasChunk(wx >> 4, wz >> 4)) {
                     tileColors[idx] = COLOR_UNKNOWN;
                     tileKnown[idx] = false;

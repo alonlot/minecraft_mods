@@ -6,7 +6,7 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * Drives a possessed mob by velocity (the old Imperio channel's movement, kept). Its AI is paused by the
- * possessed marker (LivingEntityPossessedMixin), so nothing fights the steering; hurtMarked sends the
+ * possessed marker (LivingEntityStunMixin), so nothing fights the steering; hurtMarked sends the
  * motion to every watcher.
  */
 final class PossessionDriver {

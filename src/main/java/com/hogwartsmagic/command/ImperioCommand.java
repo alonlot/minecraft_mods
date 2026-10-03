@@ -44,6 +44,10 @@ public final class ImperioCommand {
 
     private static int release(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         ServerPlayer caster = ctx.getSource().getPlayerOrException();
+        if (!PossessionManager.isPossessing(caster)) {
+            ctx.getSource().sendFailure(Component.translatable("commands.hogwartsmagic.imperio.not_possessing"));
+            return 0;
+        }
         PossessionManager.endByCaster(caster, PossessionManager.EndReason.RELEASED);
         ctx.getSource().sendSuccess(() -> Component.translatable("commands.hogwartsmagic.imperio.released"), false);
         return 1;

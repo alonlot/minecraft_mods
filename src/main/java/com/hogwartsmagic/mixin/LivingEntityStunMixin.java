@@ -9,9 +9,9 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * A stunned entity, a possessed mob and a possessing caster's body are immobile (the last two use hidden marker
- * effects, never the server-only session maps, since this runs on both sides). LivingEntity.aiStep then skips serverAiStep (goals, brain,
- * navigation, move and look controls: the mob's AI is paused) and zeroes xxa, zza and jumping, so
+ * A stunned entity, a possessed mob and a possessing caster's body are immobile (the last two use hidden
+ * marker effects, never the server-only session maps, since this runs on both sides). LivingEntity.aiStep
+ * then skips serverAiStep (goals, brain, navigation, move and look controls: the mob's AI is paused) and zeroes xxa, zza and jumping, so
  * gravity and knockback still apply but the entity can't walk. For players this runs on the server
  * and on the stunned player's own client (which has the synced effect), so their movement input is
  * zeroed on both sides. Player.isImmobile calls super, so players are covered too.

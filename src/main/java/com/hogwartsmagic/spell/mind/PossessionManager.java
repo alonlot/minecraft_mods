@@ -21,6 +21,8 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Player;
 import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.event.entity.EntityJoinLevelEvent;
+import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.entity.living.MobEffectEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -88,7 +90,7 @@ public final class PossessionManager {
         return BY_VICTIM.containsKey(entity.getUUID());
     }
 
-    /** Hot path (LivingEntityPossessedMixin runs it for every living entity every tick): a possessed non-player. */
+    /** Hot path (LivingEntityStunMixin runs it for every living entity every tick): a possessed non-player. */
     public static boolean isPossessedMob(LivingEntity entity) {
         if (entity instanceof Player) {
             return false;
@@ -161,6 +163,7 @@ public final class PossessionManager {
             session.forcedSlot = target.getInventory().selected;
         }
         CrucioChannel.release(caster); // a Crucio channel must not end later this tick and strip the markers
+        DisableSupport.interrupt(caster); // the caster's own channels and windups stop
         BY_CASTER.put(session.casterId, session);
         BY_VICTIM.put(session.victimId, session);
         int markerTicks = session.maxTicks + PossessionRules.MARKER_GRACE_TICKS;
@@ -284,6 +287,46 @@ public final class PossessionManager {
         }
     }
 
+    // ---- Logout, login, load ---------------------------------------------------------------------
+
+    @SubscribeEvent
+    public static void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
+        if (BY_CASTER.isEmpty() || !(event.getEntity() instanceof ServerPlayer player)) {
+            return;
+        }
+        PossessionSession asCaster = BY_CASTER.get(player.getUUID());
+        if (asCaster != null) {
+            end(asCaster, EndReason.LOGGED_OUT);
+        }
+        PossessionSession asVictim = BY_VICTIM.get(player.getUUID());
+        if (asVictim != null) {
+            end(asVictim, EndReason.LOGGED_OUT);
+        }
+    }
+
+    /** A crash can leave the markers saved on the player: with no session, sweep them. */
+    @SubscribeEvent
+    public static void onLogin(PlayerEvent.PlayerLoggedInEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player) || isPossessing(player) || isPuppet(player)) {
+            return;
+        }
+        player.removeEffect(DisableSupport.holder(ExampleMod.POSSESSING));
+        player.removeEffect(DisableSupport.holder(ExampleMod.POSSESSED));
+        if (!CrucioChannel.isChanneling(player)) {
+            player.removeEffect(DisableSupport.holder(ExampleMod.ROOTED));
+        }
+    }
+
+    /** A mob that reloads with the possessed marker but no session (its chunk unloaded mid-possession) loses it. */
+    @SubscribeEvent
+    public static void onMobJoin(EntityJoinLevelEvent event) {
+        if (event.getLevel().isClientSide() || !(event.getEntity() instanceof Mob mob) || !isPossessedMob(mob)
+                || BY_VICTIM.containsKey(mob.getUUID())) {
+            return;
+        }
+        mob.removeEffect(DisableSupport.holder(ExampleMod.POSSESSED));
+    }
+
     // ---- Tick ----------------------------------------------------------------------------------
 
     @SubscribeEvent
@@ -302,7 +345,7 @@ public final class PossessionManager {
         ServerPlayer caster = server.getPlayerList().getPlayer(session.casterId);
         LivingEntity victim = level == null ? null : living(level.getEntity(session.victimId));
         if (level == null || caster == null || !caster.isAlive() || victim == null) {
-            end(session, EndReason.INVALID);
+            end(session, EndReason.INVALID); // end() also strips the victim's marker if it is still reachable
             return;
         }
         long now = level.getGameTime();
@@ -359,6 +402,9 @@ public final class PossessionManager {
         if (victim instanceof ServerPlayer victimPlayer) {
             SpellPackets.CHANNEL.send(new SpellPackets.PossessionStatePacket(PossessionRules.ROLE_VICTIM, caster.getId(), left,
                     resistOpen, false), PacketDistributor.PLAYER.with(victimPlayer));
+            // Each keepalive also restates the current input, so a victim client that lost it catches up.
+            SpellPackets.CHANNEL.send(new SpellPackets.PuppetInputPacket(session.forward, session.strafe, session.jump,
+                    session.yaw, session.pitch), PacketDistributor.PLAYER.with(victimPlayer));
         }
     }
 

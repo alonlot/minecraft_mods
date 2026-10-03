@@ -167,6 +167,9 @@ public final class PossessionClient {
         if (event.phase == TickEvent.Phase.START) {
             if (role != PossessionRules.ROLE_NONE) {
                 drainBodyKeys(minecraft);
+                if (role == PossessionRules.ROLE_VICTIM) {
+                    minecraft.options.keySprint.setDown(false); // a possessed player can't sprint on their own
+                }
             }
             return;
         }
@@ -187,6 +190,9 @@ public final class PossessionClient {
         }
         if (ticksLeft > 0) {
             ticksLeft--;
+        }
+        if (role == PossessionRules.ROLE_VICTIM && minecraft.player.isSprinting()) {
+            minecraft.player.setSprinting(false);
         }
         if (role == PossessionRules.ROLE_CASTER) {
             tickCaster(minecraft);

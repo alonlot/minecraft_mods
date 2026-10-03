@@ -18,6 +18,7 @@
     "client.CaveInimicumEntityRenderDispatcherMixin",
     "client.MindControlGuiMixin",
     "client.PossessionTurnMixin",
+    "client.PossessionSendPositionMixin",
     "client.BasiliskGazeGuiMixin"
   ],
   "injectors": {

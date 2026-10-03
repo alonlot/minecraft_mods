@@ -88,6 +88,7 @@ public final class ImperioThralls {
         final ResourceKey<Level> dimension;
         final boolean refreshable;
         long expiresAt;
+        long strengthUntil;
         double lastY;
         boolean addedStrength;
         boolean addedAllied;
@@ -119,6 +120,8 @@ public final class ImperioThralls {
     private static final Map<UUID, Note> LAST_ATTACKED = new HashMap<>();
     /** victim -> who last hit it with a spell (only kept for owners). */
     private static final Map<UUID, Note> LAST_ATTACKER = new HashMap<>();
+    /** "owner:victim" -> game time until which that owner can't enthrall that boss or player again. */
+    private static final Map<String, Long> LOCKOUTS = new HashMap<>();
 
     private ImperioThralls() {
     }
@@ -177,7 +180,11 @@ public final class ImperioThralls {
                 MindFx.tell(owner, "imperio.players_off");
                 return false;
             }
-            if (victim.isCreative() || victim.isSpectator() || !pvpAllowed(owner, victim)) {
+            if (victim.isCreative() || victim.isSpectator()) {
+                return false;
+            }
+            if (!pvpAllowed(owner, victim)) {
+                MindFx.tell(owner, "imperio.pvp_off");
                 return false;
             }
         } else if (!(target instanceof Mob)) {
@@ -191,6 +198,13 @@ public final class ImperioThralls {
         }
         long now = level.getGameTime();
         int ticks = ImperioRules.thrallTicks(rank, player || boss);
+        if (!ImperioRules.mayRefresh(player, boss)) {
+            Long until = LOCKOUTS.get(lockKey(owner.getUUID(), target.getUUID()));
+            if (until != null && ImperioRules.lockedOut(until, now)) {
+                MindFx.tell(owner, "imperio.locked_out", target.getDisplayName());
+                return false;
+            }
+        }
         Thrall existing = THRALLS.get(target.getUUID());
         if (existing != null) {
             if (!existing.ownerId.equals(owner.getUUID())) {
@@ -201,6 +215,7 @@ public final class ImperioThralls {
                 return false; // a player or boss thrall can't be held on by re-casting
             }
             existing.expiresAt = now + ticks;
+            existing.strengthUntil = now + ticks;
             addMarker(target, ticks);
             if (existing.addedStrength) {
                 target.addEffect(new MobEffectInstance(MobEffects.DAMAGE_BOOST, ticks, 0));
@@ -217,6 +232,7 @@ public final class ImperioThralls {
         }
         Thrall thrall = new Thrall(target.getUUID(), owner.getUUID(), ownerName, level.dimension(), ImperioRules.mayRefresh(player, boss), now + ticks);
         thrall.lastY = target.getY();
+        thrall.strengthUntil = now + ticks;
         addMarker(target, ticks);
         if (target instanceof Mob mob) {
             setUpMob(mob, owner, thrall, rank, ticks);
@@ -557,7 +573,7 @@ public final class ImperioThralls {
             }
             if (thrall.addedStrength) {
                 MobEffectInstance strength = mob.getEffect(MobEffects.DAMAGE_BOOST);
-                long left = Math.max(0L, thrall.expiresAt - mob.level().getGameTime());
+                long left = Math.max(0L, thrall.strengthUntil - mob.level().getGameTime());
                 if (strength != null && strength.getAmplifier() == 0 && strength.getDuration() <= left + 2L) {
                     mob.removeEffect(MobEffects.DAMAGE_BOOST);
                 }
@@ -603,9 +619,25 @@ public final class ImperioThralls {
     /** The owner's last thrall is gone: Imperio's cooldown starts now. */
     private static void afterRelease(MinecraftServer server, Thrall thrall) {
         ServerPlayer ownerPlayer = server.getPlayerList().getPlayer(thrall.ownerId);
+        if (!thrall.refreshable) {
+            recordLockout(server, thrall, ownerPlayer);
+        }
         if (ownerPlayer != null && countFor(thrall.ownerId) == 0) {
             startImperioCooldown(ownerPlayer);
         }
+    }
+
+    private static String lockKey(UUID ownerId, UUID victimId) {
+        return ownerId + ":" + victimId;
+    }
+
+    /** A boss or player thrall ended: its owner can't take that same victim again for one Imperio cooldown. */
+    private static void recordLockout(MinecraftServer server, Thrall thrall, @Nullable ServerPlayer ownerPlayer) {
+        long now = server.overworld().getGameTime();
+        LOCKOUTS.values().removeIf(until -> !ImperioRules.lockedOut(until, now));
+        double multiplier = ownerPlayer == null ? 1.0 : SpellCosts.masteryMultiplier(ownerPlayer, SpellType.IMPERIO);
+        long ticks = ImperioRules.lockoutTicks(SpellType.IMPERIO.getCooldownTicks(), multiplier);
+        LOCKOUTS.put(lockKey(thrall.ownerId, thrall.victimId), now + ticks);
     }
 
     /**
@@ -767,5 +799,6 @@ public final class ImperioThralls {
         THRALLS.clear();
         LAST_ATTACKED.clear();
         LAST_ATTACKER.clear();
+        LOCKOUTS.clear();
     }
 }

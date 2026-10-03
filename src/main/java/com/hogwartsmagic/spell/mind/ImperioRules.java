@@ -54,6 +54,16 @@ public final class ImperioRules {
         return !player && !boss;
     }
 
+    /** Is this owner still barred from this boss or player? */
+    public static boolean lockedOut(long until, long now) {
+        return now < until;
+    }
+
+    /** The lockout after a boss or player thrall: one Imperio cooldown, with the owner's mastery discount. */
+    public static long lockoutTicks(double baseCooldownTicks, double masteryMultiplier) {
+        return Math.max(1L, Math.round(baseCooldownTicks * masteryMultiplier));
+    }
+
     public static boolean atCap(int rank, int current) {
         return current >= maxThralls(rank);
     }

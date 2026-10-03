@@ -312,6 +312,8 @@
   "gui.hogwartsmagic.imperio.thrall_gained": "%s is under your Imperius Curse",
   "gui.hogwartsmagic.imperio.at_cap": "Every thrall slot is taken (%s)",
   "gui.hogwartsmagic.imperio.too_strong": "%s is too strong for your Imperius Curse",
+  "gui.hogwartsmagic.imperio.pvp_off": "PvP is turned off, so you can't bend another player",
+  "gui.hogwartsmagic.imperio.locked_out": "%s has only just shaken off your Imperius Curse",
   "gui.hogwartsmagic.imperio.players_off": "Imperio on players is turned off on this server",
   "gui.hogwartsmagic.imperio.thrall_label": "◆ Thrall of %s",
   "gui.hogwartsmagic.imperio.victim": "Imperius: your body is not your own",

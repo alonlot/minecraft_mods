@@ -89,4 +89,12 @@ class ImperioRulesTest {
         assertFalse(ImperioRules.atCap(3, 1));
         assertTrue(ImperioRules.atCap(3, 2));
     }
+
+    @Test
+    void bossAndPlayerLockoutLastsOneCooldown() {
+        assertEquals(160L, ImperioRules.lockoutTicks(200, 0.8));
+        assertEquals(1L, ImperioRules.lockoutTicks(0, 1.0));
+        assertTrue(ImperioRules.lockedOut(260, 259));
+        assertFalse(ImperioRules.lockedOut(260, 260));
+    }
 }

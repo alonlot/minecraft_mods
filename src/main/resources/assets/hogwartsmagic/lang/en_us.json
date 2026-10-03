@@ -178,6 +178,8 @@
   "gui.hogwartsmagic.apparition.fireplaces": "Known fireplaces (any distance):",
   "message.hogwartsmagic.apparition.fireplace_gone": "That fireplace is gone. You can no longer picture it.",
   "message.hogwartsmagic.accio.too_heavy": "Too heavy for your Accio. Not yet.",
+  "message.hogwartsmagic.accio.held": "Your Accio cannot pull something held in place.",
+  "message.hogwartsmagic.apparition.passenger_left": "%s could not fit and was left behind",
   "message.hogwartsmagic.reparo.items_locked": "Mending items takes Reparo at Expert rank.",
   "message.hogwartsmagic.reparo.nothing": "Nothing in your off-hand or armour needs mending.",
   "entity.hogwartsmagic.voldemort": "Lord Voldemort",

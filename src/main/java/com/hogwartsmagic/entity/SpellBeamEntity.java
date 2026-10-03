@@ -83,6 +83,16 @@ public class SpellBeamEntity extends ThrowableProjectile {
     private double castOriginZ = Double.NaN;
     /** Sent back by a Protego parry: never reflected again, and its new owner earns no mastery XP from it. */
     private boolean reflected;
+    /** Depulso: the owner's rank, read once on the first deflect tick (-1 = not read yet). Not persisted. */
+    private int cachedDepulsoRank = -1;
+
+    public int getCachedDepulsoRank() {
+        return this.cachedDepulsoRank;
+    }
+
+    public void setCachedDepulsoRank(int rank) {
+        this.cachedDepulsoRank = rank;
+    }
 
     public SpellBeamEntity(EntityType<? extends SpellBeamEntity> type, Level level) {
         super(type, level);
@@ -775,6 +785,8 @@ public class SpellBeamEntity extends ThrowableProjectile {
                             hitSuccessful = true;
                             masteryTarget = living;
                             boolean chipLanded = true;
+                            net.minecraft.world.damagesource.DamageSource chipSource = null;
+                            float chipDamage = 0.0f;
 
                             // Apply nominal magic damage FIRST to trigger standard HURT events for physical shield shattering algorithms if needed
                             // AVADA deals max damage so it doesn't need nominal damage
@@ -782,8 +794,14 @@ public class SpellBeamEntity extends ThrowableProjectile {
                                     && living instanceof net.minecraft.world.entity.animal.Sheep woolly && woolly.readyForShearing();
                             if (spell != SpellType.HEAL && spell != SpellType.AVADA_KEDAVRA && spell != SpellType.PROTEGO
                                     && spell != SpellType.LUMOS && !shearableSheep) {
-                               float chipDamage = 0.1f * HousePerks.getSpellDamageMultiplier(getOwner());
-                               chipLanded = living.hurt(this.damageSources().magic(), chipDamage);
+                               chipDamage = 0.1f * HousePerks.getSpellDamageMultiplier(getOwner());
+                               chipSource = this.damageSources().magic();
+                               chipLanded = living.hurt(chipSource, chipDamage);
+                               // hurt() is also false inside the victim's i-frames: that is not a veto.
+                               if (!chipLanded && spell == SpellType.ACCIO && living.invulnerableTime > 10
+                                       && !com.hogwartsmagic.spell.support.AccioSpell.attackVetoed(living, chipSource, chipDamage)) {
+                                   chipLanded = true;
+                               }
                             }
 
                             if (spell == SpellType.ACCIO) {

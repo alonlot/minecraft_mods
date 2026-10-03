@@ -328,11 +328,15 @@ public class SpellPackets {
                     BlockPos origin = buf.readBlockPos();
                     int radius = buf.readVarInt();
                     int durationTicks = buf.readVarInt();
-                    int size = clampDecodedSize(buf.readVarInt(),
-                            com.hogwartsmagic.spell.support.ApparitionRules.MAX_LISTED_FIREPLACES);
-                    List<FlooDestinationData> fireplaces = new ArrayList<>(size);
+                    // Read every encoded entry (so the buffer is fully consumed) up to a hard cap, keep the first 8.
+                    int size = clampDecodedSize(buf.readVarInt(), MAX_APPARITION_MAP_WIRE_ENTRIES);
+                    int keep = com.hogwartsmagic.spell.support.ApparitionRules.MAX_LISTED_FIREPLACES;
+                    List<FlooDestinationData> fireplaces = new ArrayList<>(Math.min(size, keep));
                     for (int i = 0; i < size; i++) {
-                        fireplaces.add(new FlooDestinationData(buf.readBlockPos(), buf.readUtf()));
+                        FlooDestinationData entry = new FlooDestinationData(buf.readBlockPos(), buf.readUtf());
+                        if (i < keep) {
+                            fireplaces.add(entry);
+                        }
                     }
                     return new OpenApparitionMapPacket(origin, radius, durationTicks, fireplaces);
                 })
@@ -463,6 +467,8 @@ public class SpellPackets {
         ctx.enqueueWork(work);
         ctx.setPacketHandled(true);
     }
+
+    private static final int MAX_APPARITION_MAP_WIRE_ENTRIES = 64;
 
     private static int clampDecodedSize(int rawSize, int maxSize) {
         if (rawSize <= 0) {

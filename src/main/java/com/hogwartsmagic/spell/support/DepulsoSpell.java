@@ -117,7 +117,12 @@ public final class DepulsoSpell {
                 || !(beam.getOwner() instanceof ServerPlayer owner)) {
             return 0;
         }
-        if (!DepulsoRules.deflectsProjectiles(SpellMasteryData.getRank(owner, SpellType.DEPULSO))) {
+        int rank = beam.getCachedDepulsoRank();
+        if (rank < 0) {
+            rank = SpellMasteryData.getRank(owner, SpellType.DEPULSO);
+            beam.setCachedDepulsoRank(rank);
+        }
+        if (!DepulsoRules.deflectsProjectiles(rank)) {
             return 0;
         }
         int deflected = 0;
@@ -217,8 +222,9 @@ public final class DepulsoSpell {
 
     private static boolean blockedAhead(ServerLevel level, LivingEntity target, Slam slam) {
         double reach = target.getBbWidth() * 0.5 + DepulsoRules.WALL_PROBE;
-        BlockPos pos = BlockPos.containing(target.getX() + slam.dirX() * reach,
-                target.getY() + target.getBbHeight() * 0.5,
+        // Probe at min(0.5, half height) so a short mob (silverfish, bat) still finds a wall at its own height.
+        double probeY = target.getY() + Math.min(0.5, target.getBbHeight() * 0.5);
+        BlockPos pos = BlockPos.containing(target.getX() + slam.dirX() * reach, probeY,
                 target.getZ() + slam.dirZ() * reach);
         return level.isLoaded(pos) && !level.getBlockState(pos).getCollisionShape(level, pos).isEmpty();
     }

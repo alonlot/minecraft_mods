@@ -1899,7 +1899,12 @@ public class ModEvents {
     /** Called when Accio strikes a target: registers it to be pulled in over the next few seconds. */
     public static boolean startAccioPull(ServerPlayer caster, net.minecraft.world.entity.LivingEntity target) {
         if (target == null || target == caster) return false;
-        if (isHeldInPlace(target)) return false; // Levicorpus / Incarcerous holds are never reeled
+        if (isHeldInPlace(target)) {
+            // Levicorpus / Incarcerous holds are never reeled; tell the caster why nothing happened.
+            caster.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                    "message.hogwartsmagic.accio.held"), true);
+            return false;
+        }
         if (target instanceof ServerPlayer) {
             // Players get a single impulse; a per-tick velocity packet stream is not acceptable.
             net.minecraft.world.phys.Vec3 toCaster = caster.position()
@@ -2141,6 +2146,9 @@ public class ModEvents {
             if (level.noCollision(passenger.getDimensions(passenger.getPose()).makeBoundingBox(x, y, z))) {
                 passenger.teleportTo(x, y, z);
                 passenger.fallDistance = 0.0f;
+            } else {
+                player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                        "message.hogwartsmagic.apparition.passenger_left", passenger.getDisplayName()), true);
             }
         }
         com.hogwartsmagic.spell.support.ApparitionSpell.rememberFireplace(player, level, fireplacePos, fireplace.getFireplaceName());

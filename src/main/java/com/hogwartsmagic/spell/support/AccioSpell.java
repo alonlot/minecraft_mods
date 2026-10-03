@@ -76,6 +76,18 @@ public final class AccioSpell {
         }
     });
 
+    /**
+     * Would an event handler (claim or safe-zone mod) cancel this hit? Posts the same LivingAttackEvent
+     * that LivingEntity.hurt posts before its i-frame check, so a false from hurt() during the victim's
+     * invulnerability window can be told apart from a real veto. Server only; call only after hurt() failed.
+     */
+    public static boolean attackVetoed(LivingEntity victim, net.minecraft.world.damagesource.DamageSource source, float amount) {
+        boolean allowed = victim instanceof net.minecraft.world.entity.player.Player
+                ? net.minecraftforge.common.ForgeHooks.onPlayerAttack(victim, source, amount)
+                : net.minecraftforge.common.ForgeHooks.onLivingAttack(victim, source, amount);
+        return !allowed;
+    }
+
     /** Fire-and-forget form (self casts, NPC helpers): the result is not needed. */
     public static void onLivingHit(LivingEntity target, @Nullable Entity caster) {
         onLivingHit(target, caster, true);

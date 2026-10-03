@@ -46,3 +46,22 @@ Task 6: Ruling: zero-distance apparition XP is bounded by the cast throttle and 
 Task 6: Ruling: fold into the final wave: cap map tiles at about 150 per side (160k fills per frame at GUI scale 1), cancel the channel on dimension change, grey out tiles beyond the range circle.
 Task 6: minor (deferred): view distance under 200 blocks limits Master range; caster marker off by step/2.
 Task 6: complete (commits cb98be2..81a7574, review approved)
+
+## Cloud session (2026-10-03)
+Ruling: user instruction (2026-10-03): no pushes at all, work stays local in the container. One backup push to github claude/keen-lamport-g1ykt4 happened before that instruction.
+Ruling: superpowers plugin is not installed; briefs are cut from the plan by hand and review packages are git diff files, per HANDOFF.md - no cost.
+Ruling: commit trailer is Co-Authored-By: Claude Sonnet 5.5 (user instruction overrides implementer-rules.md) - no cost.
+Task 7: BASE 790bf8b; implementer dispatched (sonnet). Phase 6a pre-flight dispatched (opus, read-only) in parallel.
+Task 7: implemented d9698fd (DONE_WITH_CONCERNS: one getChunkAt load at the destination). Ruling: accept a single destination chunk load on a validated Master jump - vanilla teleportTo loads it anyway; the no-load rule is for probes and ticks - cost: one chunk load per jump.
+Ruling: user picked pushing to github alonlot/minecraft_mods claude/keen-lamport-g1ykt4 (pushed d9698fd); push there after each phase.
+Task 7: review Needs fixes (no held-wand check at completion lets a forged client skip the cooldown). Ruling: also guard Task 6 completeApparition the same way, and fold Minor 1 (border check before the chunk load) and Minor 2 (refresh the stored name on jump) - cheap - no cost.
+Task 7: minor (deferred): passengers left behind silently; decode clamp leaves extra bytes; protocol version bump to confirm in the final review.
+Task 7: fix round 1/5 dispatched
+Task 7: fix round 1 done (b6b33d4); re-review dispatched
+Task 7: complete (commits 790bf8b..b6b33d4, re-review approved)
+Task 8: tests 159/0 failures, dedicated server Done (2.752s) clean. In-game checklist (plan Task 8 Step 2, 16 checks) handed to the user. Final review BASE 2455f1a55e77d2bb2fdf482274b87e4b86134106
+Final review: With fixes. Ruling: one fix wave of 7 items - the 4 folded items (cloak excluded from Reparo; Accio exempts hung/chained targets and gives players one impulse; map tile cap 150, range-circle grey-out and list room; cancel the channel on dimension change) plus protocol version 3, side-along skips hung/chained victims, and Ascendio water-cast fall immunity - all small and local - tuning only if wrong.
+Final review: Ruling: carried to Phase 6a Task 0 - the Accio snatch skipped during victim i-frames (needs a claim-veto-safe distinction); deferred minors kept (wall probe height, decode clamp bytes, silent passengers, bound caster may start Apparition, Depulso slam on a hanging target).
+Final fix wave: done (d882523); re-review dispatched
+Final fix wave: re-review Ready (d882523). Phase 5b complete.
+Phase 6a Task 0 carry-overs: (1) Accio Master snatch skipped during victim i-frames (needs a claim-veto-safe check, not a plain invulnerableTime test); (2) Depulso blockedAhead probes mid-height, misses walls for short mobs; (3) OpenApparitionMapPacket decode clamp does not drain extra entries; (4) side-along passengers that do not fit are skipped silently (add a message); (5) Depulso deflectProjectiles reads the owner rank every beam tick (cache at spawn); (6) Accio on a held mob fails silently (actionbar message).

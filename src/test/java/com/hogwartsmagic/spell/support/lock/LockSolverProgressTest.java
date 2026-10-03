@@ -71,7 +71,51 @@ class LockSolverProgressTest {
         LockSolver.Solution s = LockSolver.solve(c, 4, 1, BIG, progress);
         assertEquals(LockSolver.Status.SOLVED, s.status());
         assertEquals(7, LockSolver.plannedAttempts(c, 4, 1));
-        assertTrue(progress.attempts() >= 1 && progress.attempts() <= 7, "attempts " + progress.attempts());
+        // The solver finishes the whole one-action tier (all three levers) before it stops: 3, not 1.
+        assertEquals(3, progress.attempts());
+    }
+
+    @Test
+    void aMixedLockWithEveryKindOfInputIsPlannedExactly() {
+        // 1 lever, 1 button, 2 forced sources, 2 presses: 5 plain attempts + 20 forcing ones + 1 held pair
+        LockCircuit c = allTrapped(1, 1, 2);
+        LockSolver.Progress progress = new LockSolver.Progress();
+        assertEquals(LockSolver.Status.NO_SOLUTION, LockSolver.solve(c, 4, 2, BIG, progress).status());
+        assertEquals(26, LockSolver.plannedAttempts(c, 4, 2));
+        assertEquals(26, progress.attempts());
+    }
+
+    @Test
+    void anAnalogInputIsPlannedByItsDomain() {
+        // domain {0, 5, 15} standing at 0: two other levels; plus a lever with one
+        LockCircuit.Builder b = new LockCircuit.Builder();
+        int door = b.node(LockCircuit.MAX, 0);
+        int trap = b.node(LockCircuit.MAX, 0);
+        int key = b.analog(0, new int[] {0, 5, 15});
+        int lever = b.input(LockCircuit.LEVER, false);
+        b.link(key, door, 0);
+        b.link(key, trap, 0);
+        b.link(lever, door, 0);
+        b.link(lever, trap, 0);
+        b.goal(door);
+        b.danger(trap);
+        LockCircuit c = b.build();
+        LockSolver.Progress progress = new LockSolver.Progress();
+        assertEquals(LockSolver.Status.NO_SOLUTION, LockSolver.solve(c, 4, 1, BIG, progress).status());
+        assertEquals(5, LockSolver.plannedAttempts(c, 4, 1)); // (1 + 3 + 2) settings, minus the empty one
+        assertEquals(5, progress.attempts());
+    }
+
+    @Test
+    void aTinyBudgetStopsWithinThePlan() {
+        LockCircuit c = allTrapped(3, 1, 0);
+        LockSimulator probe = new LockSimulator(c);
+        assertTrue(probe.resetBounded(Long.MAX_VALUE));
+        long budget = probe.work() + 1; // the reset fits, hardly any attempt does
+        LockSolver.Progress progress = new LockSolver.Progress();
+        LockSolver.Solution s = LockSolver.solve(c, 4, 2, budget, progress);
+        assertEquals(LockSolver.Status.OUT_OF_TIME, s.status());
+        assertTrue(progress.attempts() <= LockSolver.plannedAttempts(c, 4, 2), "attempts " + progress.attempts());
     }
 
     @Test

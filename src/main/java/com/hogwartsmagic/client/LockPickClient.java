@@ -15,6 +15,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.client.event.RenderHandEvent;
+import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
@@ -26,12 +27,35 @@ import net.minecraftforge.fml.common.Mod;
 @Mod.EventBusSubscriber(modid = ExampleMod.MODID, value = Dist.CLIENT)
 public final class LockPickClient {
     private static boolean picking;
+    /** Game time until which the end-of-pick action bar line stays up (client cooldown line stays quiet). */
+    private static long quietUntil;
 
     private LockPickClient() {
     }
 
     public static void accept(SpellPackets.LockPickStatePacket packet) {
+        boolean wasPicking = picking;
         picking = packet.picking();
+        if (wasPicking && !picking) {
+            Minecraft minecraft = Minecraft.getInstance();
+            if (minecraft.level != null) {
+                quietUntil = minecraft.level.getGameTime() + 40;
+            }
+        } else if (picking) {
+            quietUntil = 0;
+        }
+    }
+
+    /**
+     * True while the server's lock picking lines own the action bar: while picking, and for two seconds after,
+     * so the end-of-pick line is not overwritten by the cooldown line on the next tick.
+     */
+    public static boolean ownsActionBar() {
+        if (isPicking()) {
+            return true;
+        }
+        Minecraft minecraft = Minecraft.getInstance();
+        return minecraft.level != null && minecraft.level.getGameTime() < quietUntil;
     }
 
     /** Picking now, as far as this client can tell: the server said so and a wand is still in the main hand. */
@@ -43,11 +67,12 @@ public final class LockPickClient {
     /**
      * Draws the main-hand wand in its picking pose instead of the vanilla one. A wand is drawn without an arm
      * in first person, so cancelling and calling renderItem with the vanilla hand offset is the whole job.
-     * A hand already hidden (cloak, possession) never reaches here: cancelled events are not delivered.
+     * Runs at LOW priority so a handler that already cancelled the hand (cloak, possession) is never delivered
+     * to here (cancelled events skip handlers that do not ask for them). A possessing caster is skipped too.
      */
-    @SubscribeEvent
+    @SubscribeEvent(priority = EventPriority.LOW)
     public static void onRenderHand(RenderHandEvent event) {
-        if (event.getHand() != InteractionHand.MAIN_HAND || !isPicking()) {
+        if (event.getHand() != InteractionHand.MAIN_HAND || !isPicking() || PossessionClient.isCaster()) {
             return;
         }
         ItemStack stack = event.getItemStack();
@@ -76,5 +101,6 @@ public final class LockPickClient {
     @SubscribeEvent
     public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         picking = false;
+        quietUntil = 0;
     }
 }

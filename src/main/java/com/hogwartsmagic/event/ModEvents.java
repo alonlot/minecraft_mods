@@ -3963,7 +3963,7 @@ public class ModEvents {
                     com.hogwartsmagic.event.ClientModEvents.startCrucioHold();
                 }
                 if (selected == SpellType.ALOHOMORA || selected == SpellType.REVELIO) {
-                    if (lockUseLatched) {
+                    if (lockUseLatched || com.hogwartsmagic.event.ClientModEvents.isLockHoldPending()) {
                         return true; // one cast per press: the held key may be picking a piston lock
                     }
                     lockUseLatched = true;

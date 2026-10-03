@@ -342,6 +342,9 @@ public final class LockSolver {
          * FORCE_TICKS / 2 simulator (redstone) ticks. A circuit still ticking when the hold ends is not unstable:
          * the world lets go then, and the release is checked next. Traps are checked as in check(). A door
          * piston counts as moved only if it kept its value over the last simulated tick of the hold.
+         * This steady-last-tick rule is approximate: the world releases the source on a game tick that is only
+         * roughly aligned with the model's last simulated tick, so for clocks of period >= 2 the model and the
+         * world can disagree about where the clock stands at the moment of release.
          */
         private int checkForcedOn() {
             int hold = LockRules.FORCE_TICKS / 2;

@@ -138,4 +138,54 @@ class LockSolverForceSetTest {
         LockSolver.Solution s = LockSolver.solve(b.build(), 4, 2, BIG);
         assertEquals(LockSolver.Status.NO_SOLUTION, s.status());
     }
+
+    /** Adds a torch loop that ticks forever while on is powered; returns the torch node. */
+    private static int clockWhile(LockCircuit.Builder b, int on) {
+        int gate = b.node(LockCircuit.MAX, 15);
+        b.link(not(b, on, 15), gate, 0);
+        int torch = not(b, gate, 0);
+        b.link(torch, gate, 0);
+        return torch;
+    }
+
+    @Test
+    void aHeldPairThatStartsAClockIsSolvedByTheSubsetPass() {
+        // Both sources held: the AND is on and its torch loop never settles, so the held pass takes the never-settles path.
+        LockCircuit.Builder b = new LockCircuit.Builder();
+        int x = b.input(LockCircuit.FORCE, false);
+        int y = b.input(LockCircuit.FORCE, false);
+        int both = b.node(LockCircuit.MAX, 0);
+        and(b, x, y, both);
+        int door = b.node(LockCircuit.MAX, 0);
+        b.link(both, door, 0);
+        b.goal(door);
+        clockWhile(b, both);
+        LockSolver.Solution s = LockSolver.solve(b.build(), 4, 2, BIG);
+        assertEquals(LockSolver.Status.SOLVED, s.status());
+        assertEquals(1, s.moved());
+        assertArrayEquals(new int[] {0, 1}, s.set());
+        assertArrayEquals(new int[] {15, 15}, s.setTo());
+    }
+
+    @Test
+    void aForcedSourceWhoseClockDrivesATrapIsRejected() {
+        LockCircuit.Builder b = new LockCircuit.Builder();
+        int x = b.input(LockCircuit.FORCE, false);
+        int door = b.node(LockCircuit.MAX, 0);
+        b.link(x, door, 0);
+        b.goal(door);
+        b.danger(clockWhile(b, x));
+        LockSolver.Solution s = LockSolver.solve(b.build(), 4, 2, BIG);
+        assertEquals(LockSolver.Status.NO_SOLUTION, s.status());
+    }
+
+    @Test
+    void aGoalThatFlickersEveryTickOfTheHoldIsNotCountedAsMoved() {
+        LockCircuit.Builder b = new LockCircuit.Builder();
+        int x = b.input(LockCircuit.FORCE, false);
+        b.goal(clockWhile(b, x));
+        LockSolver.Solution s = LockSolver.solve(b.build(), 4, 2, BIG);
+        assertEquals(LockSolver.Status.NO_SOLUTION, s.status());
+        assertEquals(0, s.moved());
+    }
 }

@@ -85,14 +85,14 @@ public final class LockPickRules {
         if (runTicks < ETA_UNKNOWN_TICKS || (done <= 0 && work <= 0)) {
             return UNKNOWN;
         }
-        double ticks = Math.max(0, capTicks - runTicks);
+        double ticks = capTicks > 0 ? Math.max(0, capTicks - runTicks) : Double.MAX_VALUE; // no cap, as fraction()
         if (done > 0 && total > 0) {
             ticks = Math.min(ticks, Math.max(0, total - done) * (double) runTicks / done);
         }
         if (work > 0 && budget > 0) {
             ticks = Math.min(ticks, Math.max(0, budget - work) * (double) runTicks / work);
         }
-        return (int) Math.ceil(ticks / 20.0);
+        return (int) Math.ceil(ticks / 20.0 - 1e-9);
     }
 
     public static int filledCells(double fraction) {

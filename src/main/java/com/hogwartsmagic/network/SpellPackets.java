@@ -1051,6 +1051,10 @@ public class SpellPackets {
                 return;
             }
 
+            // Every channel above has returned by now: a heartbeat that reaches here belongs to no channel (a stray
+            // or forged one, or Protego Maxima aimed below the channel angle) and must never cast or charge mana.
+            if (p.channelHeartbeat) return;
+
             if (!creative && MagicWandItem.isOnCooldown(wand, spell, now)
                     && !(spell == SpellType.ASCENDIO && com.hogwartsmagic.spell.support.AscendioSpell.canDoubleCast(player))) return;
 

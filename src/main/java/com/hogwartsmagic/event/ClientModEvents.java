@@ -380,7 +380,12 @@ public class ClientModEvents {
                             && (selected == com.hogwartsmagic.spell.SpellType.ALOHOMORA
                             || selected == com.hogwartsmagic.spell.SpellType.REVELIO);
                     if (lockHoldPending && (!lockSelected || lockHoldKey == null || !lockHoldKey.isDown())) {
-                        SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(false, true, false, false), PacketDistributor.SERVER.noArg());
+                        // Only a lock spell still selected with its key up is a release. A selection, slot or wand
+                        // change just clears the hold: the server drops the job itself, and a release here would
+                        // cancel a channel (Patronus, Protego Maxima) that a slot key started this same tick.
+                        if (lockSelected) {
+                            SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(false, true, false, false), PacketDistributor.SERVER.noArg());
+                        }
                         lockHoldPending = false;
                         lockHoldKey = null;
                     } else if (lockHoldPending) {
@@ -782,6 +787,9 @@ public class ClientModEvents {
                     continue; // a key repeat while this key holds a lock pick: never cast again
                 }
                 SpellType spell = MagicWandItem.getSpellSlot(wand, slot);
+                if (lockHoldPending && (spell == SpellType.ALOHOMORA || spell == SpellType.REVELIO)) {
+                    continue; // the hold never moves to another key
+                }
                 if (spell != null) {
                     com.hogwartsmagic.client.ModEventsClientHooks.selectSpellAndCast(mc.player, spell);
                     if (spell == SpellType.ALOHOMORA || spell == SpellType.REVELIO) {
@@ -863,6 +871,11 @@ public class ClientModEvents {
     public static void startLockHold(KeyMapping key) {
         lockHoldPending = true;
         lockHoldKey = key;
+    }
+
+    /** True while an Alohomora or Revelio cast is held by a key, so a second cast press is skipped. */
+    public static boolean isLockHoldPending() {
+        return lockHoldPending;
     }
 
     @SubscribeEvent

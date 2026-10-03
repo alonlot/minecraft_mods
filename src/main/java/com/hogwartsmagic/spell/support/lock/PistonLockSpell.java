@@ -69,12 +69,26 @@ public final class PistonLockSpell {
 
     /**
      * door: the block that was struck, standing for the door's chunk (and where the picking is seen and heard).
-     * deadline: the unheld cap (/lockinfo). progress: written by the solver thread. planned: the most attempts
+     * clock: the unheld cap (/lockinfo). progress: written by the solver thread. planned: the most attempts
      * the solver can make (for the ETA). hold: the caster's hold, for Alohomora and Revelio; null for /lockinfo.
      */
     private record Job(UUID caster, ResourceKey<Level> dimension, BlockPos door, CircuitTracer.TracedLock lock, int rank,
-                       Use use, Future<LockSolver.Solution> result, long deadline, LockSolver.Progress progress,
+                       Use use, Future<LockSolver.Solution> result, InspectClock clock, LockSolver.Progress progress,
                        long planned, long budget, @Nullable Hold hold) {
+    }
+
+    /**
+     * The deadline of a /lockinfo job: a generous ceiling from the submit while it waits in the queue (so a stuck
+     * queue still ends with OUT_OF_TIME), then SOLVE_TIMEOUT_TICKS from when the worker was first seen running it.
+     * Server thread only.
+     */
+    private static final class InspectClock {
+        long deadline;
+        boolean started;
+
+        InspectClock(long deadline) {
+            this.deadline = deadline;
+        }
     }
 
     /** A caster keeping the cast held while the lock is picked. Server thread only. */
@@ -97,6 +111,8 @@ public final class PistonLockSpell {
     /** Last time each caster was seen holding the cast (press or heartbeat), or RELEASED. Server thread only. */
     private static final Map<UUID, Long> HELD = new HashMap<>();
     private static final long RELEASED = Long.MIN_VALUE / 2;
+    /** A /lockinfo job still queued this long after the submit ends with OUT_OF_TIME (60 s). */
+    private static final long QUEUED_CEILING_TICKS = 1200;
 
     /**
      * One caster's playback: the lock's whole input list, and which levers it has already flipped, so every step
@@ -232,7 +248,7 @@ public final class PistonLockSpell {
             hold = new Hold(use == Use.REVEAL ? SpellType.REVELIO : SpellType.ALOHOMORA, seen == null ? now : seen);
         }
         JOBS.add(new Job(id, level.dimension(), hit.immutable(), lock, rank, use, result,
-                now + LockRules.SOLVE_TIMEOUT_TICKS, progress, LockSolver.plannedAttempts(circuit, maxInputs, maxPresses),
+                new InspectClock(now + QUEUED_CEILING_TICKS), progress, LockSolver.plannedAttempts(circuit, maxInputs, maxPresses),
                 budget, hold));
         if (hold != null) {
             sendState(caster, true);
@@ -258,7 +274,15 @@ public final class PistonLockSpell {
         while (it.hasNext()) {
             Job job = it.next();
             Hold hold = job.hold();
-            if (hold == null || job.dimension() != level.dimension()) {
+            if (job.dimension() != level.dimension()) {
+                continue;
+            }
+            if (hold == null) {
+                // /lockinfo: its 10 s start when the worker does, not while it waits behind a held pick.
+                if (!job.clock().started && job.progress().started()) {
+                    job.clock().started = true;
+                    job.clock().deadline = now + LockRules.SOLVE_TIMEOUT_TICKS;
+                }
                 continue;
             }
             ServerPlayer player = level.getServer().getPlayerList().getPlayer(job.caster());
@@ -302,6 +326,9 @@ public final class PistonLockSpell {
         if (now % LockPickRules.BAR_INTERVAL_TICKS == 0) {
             int eta = hold.startedAt < 0 ? LockPickRules.UNKNOWN : LockPickRules.etaSeconds(p.attempts(), job.planned(),
                     p.work(), job.budget(), run, LockPickRules.HELD_SOLVE_TIMEOUT_TICKS);
+            if (eta != LockPickRules.UNKNOWN) {
+                eta = Math.max(1, eta); // never "~0s" while the search still runs
+            }
             player.displayClientMessage(Component.translatable("message.hogwartsmagic.lock.picking", bar(fraction),
                     eta == LockPickRules.UNKNOWN ? "~?s" : "~" + eta + "s").withStyle(ChatFormatting.GRAY), true);
         }
@@ -329,9 +356,9 @@ public final class PistonLockSpell {
                 .append(Component.literal("|".repeat(LockPickRules.BAR_CELLS - filled)).withStyle(ChatFormatting.DARK_GRAY));
     }
 
-    /** A held job's cap starts when the worker takes it; /lockinfo keeps its 10 s from the queue. */
+    /** Both caps start when the worker takes the job (held: 30 s; /lockinfo: 10 s); queued, /lockinfo has a ceiling. */
     private static long deadline(Job job) {
-        return job.hold() == null ? job.deadline() : job.hold().deadline;
+        return job.hold() == null ? job.clock().deadline : job.hold().deadline;
     }
 
     private static void successClick(ServerLevel level, ServerPlayer player) {

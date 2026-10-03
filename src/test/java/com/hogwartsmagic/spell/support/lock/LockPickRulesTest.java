@@ -64,6 +64,48 @@ class LockPickRulesTest {
     }
 
     @Test
+    void attemptsOfForcedSourcesNextToAButton() {
+        // settings 1; one button, 2 presses: 3 sequences, minus the empty attempt = 2; forcing: (2-1) + (4-1) = 4
+        assertEquals(6, LockPickRules.attempts(new int[0], 1, 1, 2));
+    }
+
+    @Test
+    void attemptsCapTheHeldSubsetsAtEightSources() {
+        // 9 forced, 1 press: 9 single forces, plus the held pass over the first 8: 2^8 - 1 - 8 = 247
+        assertEquals(256, LockPickRules.attempts(new int[0], 0, 9, 1));
+    }
+
+    @Test
+    void attemptsOfAnInputWithNoOtherLevel() {
+        assertEquals(1, LockPickRules.attempts(new int[] {0, 1}, 0, 0, 4));
+    }
+
+    @Test
+    void attemptsOfTwoForcedSourcesWithoutPresses() {
+        // settings 2 (one lever), nothing else: 1 attempt; no forcing sequences; the one held pair adds 1
+        assertEquals(2, LockPickRules.attempts(new int[] {1}, 0, 2, 0));
+    }
+
+    @Test
+    void etaIsZeroOnceTheCapIsReached() {
+        assertEquals(0, LockPickRules.etaSeconds(1, 1_000_000_000_000L, 1, 1_000_000_000_000L, 600, 600));
+        assertEquals(0, LockPickRules.etaSeconds(1, 1_000_000_000_000L, 1, 1_000_000_000_000L, 700, 600));
+    }
+
+    @Test
+    void etaWithAttemptsButNoWorkIsFinite() {
+        int eta = LockPickRules.etaSeconds(10, 110, 0, 1_000_000, 20, 600);
+        assertEquals(10, eta);
+        assertTrue(eta >= 0);
+    }
+
+    @Test
+    void etaWithoutACapUsesTheOtherBounds() {
+        assertEquals(10, LockPickRules.etaSeconds(10, 110, 100, 1_000_000, 20, 0));
+        assertEquals(10, LockPickRules.etaSeconds(10, 110, 100, 1_000_000, 20, -5));
+    }
+
+    @Test
     void etaIsUnknownForTheFirstHalfSecondOrWithoutAMeasurement() {
         assertEquals(LockPickRules.UNKNOWN, LockPickRules.etaSeconds(5, 100, 50, 1000, 9, 600));
         assertEquals(LockPickRules.UNKNOWN, LockPickRules.etaSeconds(0, 100, 0, 1000, 40, 600));

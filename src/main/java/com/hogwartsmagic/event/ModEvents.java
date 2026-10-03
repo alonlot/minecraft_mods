@@ -3503,6 +3503,7 @@ public class ModEvents {
                     player.getAbilities().mayfly = false;
                     player.getAbilities().flying = false;
                     player.getPersistentData().remove("hogwartsmagic:tenebris_flying");
+                    player.getPersistentData().remove(com.hogwartsmagic.spell.motion.TenebrisFlightSpell.TAG_RAMS);
                     player.onUpdateAbilities();
                 }
             }
@@ -3563,6 +3564,11 @@ public class ModEvents {
             }
             if (player.getAbilities().flying) {
                 player.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.MOVEMENT_SPEED, 10, 5, false, false, false));
+                // Spell Mastery Phase 7b: a Master's smoke form rams what it flies into.
+                net.minecraft.world.effect.MobEffectInstance flight = player.getEffect(ExampleMod.TENEBRIS_FLIGHT_EFFECT.getHolder().get());
+                if (player instanceof ServerPlayer serverPlayer && flight != null) {
+                    com.hogwartsmagic.spell.motion.TenebrisFlightSpell.tickRam(serverPlayer, flight.getAmplifier() + 1);
+                }
             }
             // Make player invisible while in smoke form - match flight effect duration (40 ticks = 2 seconds)
             if (!player.hasEffect(net.minecraft.world.effect.MobEffects.INVISIBILITY)) {

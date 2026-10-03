@@ -223,14 +223,19 @@ public enum SpellType {
             case INCARCEROUS -> com.hogwartsmagic.spell.disable.IncarcerousTether.apply(target, caster);
             case HEAL -> com.hogwartsmagic.spell.support.HealSpell.apply(target, caster);
             case TENEBRIS_FLIGHT -> {
-                // effect lasts only 2 seconds (40 ticks)
+                // effect lasts only 2 seconds (40 ticks). The caster's amplifier carries their rank (Spell
+                // Mastery Phase 7b): projectiles pass through from Expert, the smoke ram hurts at Master.
+                int tenebrisAmplifier = com.hogwartsmagic.spell.motion.TenebrisRules.amplifier(
+                        com.hogwartsmagic.spell.disable.DisableSupport.casterRank(caster, this));
                 if (caster instanceof LivingEntity livingCaster) {
-                    livingCaster.addEffect(new MobEffectInstance(ExampleMod.TENEBRIS_FLIGHT_EFFECT.getHolder().get(), 40, 0));
+                    livingCaster.addEffect(new MobEffectInstance(ExampleMod.TENEBRIS_FLIGHT_EFFECT.getHolder().get(), 40, tenebrisAmplifier));
                     if (livingCaster instanceof com.hogwartsmagic.entity.WizardEntity wz) {
                         wz.setFlying(true); // set flying flag (invisibility via effect)
                     }
                 }
-                target.addEffect(new MobEffectInstance(ExampleMod.TENEBRIS_FLIGHT_EFFECT.getHolder().get(), 40, 0));
+                if (target != caster) {
+                    target.addEffect(new MobEffectInstance(ExampleMod.TENEBRIS_FLIGHT_EFFECT.getHolder().get(), 40, 0));
+                }
                 if (target instanceof com.hogwartsmagic.entity.WizardEntity wz2) {
                     wz2.setFlying(true);
                 }

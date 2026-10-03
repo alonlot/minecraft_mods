@@ -109,7 +109,18 @@ public class BroomWorkbenchBlockEntity extends BlockEntity implements net.minecr
     }
 
     /** The single source for the slot filter, the recipe check and the result (the recipe book text matches). */
+    private static List<BroomRecipe> recipesCache;
+
     private static List<BroomRecipe> recipes() {
+        List<BroomRecipe> cached = recipesCache;
+        if (cached == null) {
+            cached = buildRecipes();
+            recipesCache = cached;
+        }
+        return cached;
+    }
+
+    private static List<BroomRecipe> buildRecipes() {
         return List.of(
                 new BroomRecipe(ExampleMod.FINE_WOOD_STICK.get(), Items.WHEAT, ExampleMod.ARCANE_DUST.get(),
                         Items.IRON_INGOT, ExampleMod.BROOM.get()),
@@ -295,10 +306,16 @@ public class BroomWorkbenchBlockEntity extends BlockEntity implements net.minecr
 
     private void finishCrafting() {
         ItemStack out;
+        int floor = AlatusRules.QUALITY_NORMAL;
         if (!this.infusionReinfuse) {
             out = getBroomResultForCurrentInputs();
             if (out == null) {
                 return;
+            }
+            // Upgrading a broom keeps the quality it already had; only a re-infusion is a true reroll.
+            ItemStack base = this.inventory.getStackInSlot(SLOT_A);
+            if (base.getItem() instanceof BroomItem) {
+                floor = BroomItem.quality(base);
             }
             this.inventory.extractItem(SLOT_A, 1, false);
             this.inventory.extractItem(SLOT_B, 1, false);
@@ -312,16 +329,16 @@ public class BroomWorkbenchBlockEntity extends BlockEntity implements net.minecr
         } else {
             return;
         }
-        int quality = this.rollQuality(out);
+        int quality = this.rollQuality(out, floor);
         this.inventory.setStackInSlot(SLOT_RESULT, out);
         this.playFinishEffects(quality);
         this.setChanged();
     }
 
     /** From Adept an infusion may make a Fine or Masterwork broom (a normal one carries no component). */
-    private int rollQuality(ItemStack broom) {
+    private int rollQuality(ItemStack broom, int floor) {
         RandomSource random = this.level != null ? this.level.random : RandomSource.create();
-        int quality = AlatusRules.rollQuality(this.infusionRank, random.nextDouble());
+        int quality = Math.max(floor, AlatusRules.rollQuality(this.infusionRank, random.nextDouble()));
         BroomItem.setQuality(broom, quality);
         return quality;
     }

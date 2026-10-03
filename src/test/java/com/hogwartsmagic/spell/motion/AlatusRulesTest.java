@@ -48,4 +48,14 @@ class AlatusRulesTest {
         assertEquals(0, AlatusRules.clampQuality(-3));
         assertEquals(2, AlatusRules.clampQuality(5));
     }
+
+    @Test
+    void outOfRangeRanksClampAndNaNRollIsNormal() {
+        assertEquals(AlatusRules.infusionTicks(1), AlatusRules.infusionTicks(0));
+        assertEquals(AlatusRules.infusionTicks(1), AlatusRules.infusionTicks(-1));
+        assertEquals(AlatusRules.infusionTicks(4), AlatusRules.infusionTicks(5));
+        assertEquals(AlatusRules.fineChance(4), AlatusRules.fineChance(5), 1e-9);
+        assertEquals(AlatusRules.masterworkChance(1), AlatusRules.masterworkChance(0), 1e-9);
+        assertEquals(AlatusRules.QUALITY_NORMAL, AlatusRules.rollQuality(4, Double.NaN));
+    }
 }

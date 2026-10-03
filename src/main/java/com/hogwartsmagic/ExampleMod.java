@@ -85,7 +85,8 @@ public class ExampleMod
     public static final RegistryObject<net.minecraft.core.component.DataComponentType<Integer>> BROOM_QUALITY =
             DATA_COMPONENTS.register("broom_quality", () -> net.minecraft.core.component.DataComponentType.<Integer>builder()
                     .persistent(com.mojang.serialization.Codec.intRange(0, 2))
-                    .networkSynchronized(net.minecraft.network.codec.ByteBufCodecs.VAR_INT)
+                    .networkSynchronized(net.minecraft.network.codec.ByteBufCodecs.VAR_INT.map(
+                            com.hogwartsmagic.spell.motion.AlatusRules::clampQuality, q -> q))
                     .build());
 
     public static final RegistryObject<com.mojang.serialization.MapCodec<com.hogwartsmagic.loot.MagicBookLootModifier>> MAGIC_BOOK_LOOT_MODIFIER =

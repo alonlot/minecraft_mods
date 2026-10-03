@@ -33,4 +33,15 @@ class TenebrisRulesTest {
         assertEquals(3, TenebrisRules.amplifier(4));
         assertEquals(3, TenebrisRules.amplifier(7));
     }
+
+    @Test
+    void outOfRangeRanksClampAndNaNNeverPasses() {
+        assertEquals(TenebrisRules.passChance(1), TenebrisRules.passChance(0), 1e-9);
+        assertEquals(TenebrisRules.passChance(1), TenebrisRules.passChance(-1), 1e-9);
+        assertEquals(TenebrisRules.passChance(4), TenebrisRules.passChance(5), 1e-9);
+        assertFalse(TenebrisRules.rams(0));
+        assertFalse(TenebrisRules.rams(-1));
+        assertTrue(TenebrisRules.rams(5));
+        assertFalse(TenebrisRules.passes(4, Double.NaN));
+    }
 }

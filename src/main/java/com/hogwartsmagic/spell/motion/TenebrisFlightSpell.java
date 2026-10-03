@@ -89,7 +89,7 @@ public final class TenebrisFlightSpell {
 
     /** Master: called every tick a player flies in smoke form (ModEvents.handleTenebrisFlight). */
     public static void tickRam(ServerPlayer player, int rank) {
-        if (!TenebrisRules.rams(rank) || PossessionManager.isForcedCaster(player)) {
+        if (!TenebrisRules.rams(rank) || PossessionManager.isForcedCaster(player) || MindControl.isControlled(player)) {
             return; // a possessed body never rams on the puppeteer's behalf
         }
         ServerLevel level = player.serverLevel();
@@ -115,6 +115,11 @@ public final class TenebrisFlightSpell {
             changed = true;
         }
         if (changed) {
+            for (String stale : new java.util.ArrayList<>(rams.getAllKeys())) {
+                if (now - rams.getLong(stale) >= TenebrisRules.RAM_COOLDOWN_TICKS) {
+                    rams.remove(stale);
+                }
+            }
             player.getPersistentData().put(TAG_RAMS, rams);
         }
     }

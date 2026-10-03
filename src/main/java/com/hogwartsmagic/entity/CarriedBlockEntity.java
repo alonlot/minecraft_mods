@@ -121,7 +121,7 @@ public class CarriedBlockEntity extends Entity {
 
     /** True when it hit a creature this tick (it then stops flying and falls). */
     private boolean strikeAlongPath(ServerLevel level, AABB before, Vec3 travelled, Vec3 motion) {
-        for (Entity hit : level.getEntities(this, before.expandTowards(travelled).inflate(0.25D),
+        for (Entity hit : level.getEntities(this, before.expandTowards(travelled).inflate(0.1D),
                 candidate -> candidate instanceof LivingEntity living && living.isAlive() && !candidate.isSpectator()
                         && this.mayStrike(level, candidate))) {
             Entity owner = this.resolveOwner(level);
@@ -178,12 +178,29 @@ public class CarriedBlockEntity extends Entity {
                 && TerrainRules.canPlace(level, pos, owner)) {
             level.setBlockAndUpdate(pos, state);
         } else {
-            ItemStack stack = new ItemStack(state.getBlock().asItem());
+            ItemStack stack = new ItemStack(state.getBlock().asItem(), dropCount(state));
             if (!stack.isEmpty()) {
                 this.spawnAtLocation(stack);
             }
         }
         this.discard();
+    }
+
+    /** Items a landed-but-unplaceable block drops: a double slab is two, stacked candles/pickles/eggs/flowers their count. */
+    private static int dropCount(BlockState state) {
+        if (state.hasProperty(BlockStateProperties.SLAB_TYPE)
+                && state.getValue(BlockStateProperties.SLAB_TYPE) == net.minecraft.world.level.block.state.properties.SlabType.DOUBLE) {
+            return 2;
+        }
+        net.minecraft.world.level.block.state.properties.IntegerProperty[] counts = {
+                BlockStateProperties.CANDLES, BlockStateProperties.PICKLES,
+                BlockStateProperties.EGGS, BlockStateProperties.FLOWER_AMOUNT};
+        for (net.minecraft.world.level.block.state.properties.IntegerProperty prop : counts) {
+            if (state.hasProperty(prop)) {
+                return state.getValue(prop);
+            }
+        }
+        return 1;
     }
 
     @Override

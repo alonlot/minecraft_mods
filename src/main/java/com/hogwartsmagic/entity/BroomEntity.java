@@ -609,7 +609,7 @@ public class BroomEntity extends Entity {
 
     // ---- TEMPORARY DEBUG: tracking down the broom vanishing after a mid-air dismount.
     // Delete this block (and the two call sites in tick()) once the cause is found.
-    public static final boolean DEBUG_VANISH = true;
+    public static final boolean DEBUG_VANISH = false;
     private static final org.slf4j.Logger DBG = com.mojang.logging.LogUtils.getLogger();
     private int riderlessTicks = -1;
 

@@ -927,8 +927,11 @@ public class ModEvents {
         return true;
     }
 
-    @SubscribeEvent
+    @SubscribeEvent(priority = net.minecraftforge.eventbus.api.EventPriority.LOW)
     public static void onProjectileImpact(ProjectileImpactEvent event) {
+        if (event.getImpactResult() != ProjectileImpactEvent.ImpactResult.DEFAULT) {
+            return; // another handler already skipped or stopped this impact
+        }
         if (!(event.getProjectile() instanceof ThrownPotion thrownPotion) || thrownPotion.level().isClientSide) {
             return;
         }

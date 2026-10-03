@@ -230,7 +230,7 @@
   "gui.hogwartsmagic.broom_workbench.slot.magic": "Magic",
   "gui.hogwartsmagic.broom_workbench.slot.catalyst": "Catalyst",
   "gui.hogwartsmagic.broom_workbench.recipes_title": "Broom recipes",
-  "gui.hogwartsmagic.broom_workbench.recipe.1": "Place ingredients on the table; they stay when you close the GUI. Cast Alatus on the bench to infuse (Basic: Stick, Wheat, Arcane Dust, Iron → Broom).",
+  "gui.hogwartsmagic.broom_workbench.recipe.1": "Place ingredients on the table; they stay when you close the GUI. Cast Alatus on the bench to infuse (Basic: Fine Wood Stick, Wheat, Arcane Dust, Iron → Broom).",
   "gui.hogwartsmagic.broom_workbench.recipe.2": "Nimbus: Broom + Phantom Membrane + Netherite Ingot + Arcane Core. Firebolt: Nimbus + Netherite Ingot + Elytra + Dragon Heartstring Core.",
   "gui.hogwartsmagic.broom_workbench.recipe.3": "Nothing crafts until Alatus hits the workbench block while the recipe is complete and the result slot is empty. A Master of Alatus can re-infuse a finished broom: broom in Base, 4 Arcane Dust in Magic, the rest empty.",
   "message.hogwartsmagic.alatus.reinfuse_master": "Only a Master of Alatus can re-infuse a finished broom",

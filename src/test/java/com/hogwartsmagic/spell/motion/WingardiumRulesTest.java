@@ -42,4 +42,16 @@ class WingardiumRulesTest {
         assertFalse(WingardiumRules.risingEdge(false, false));
         assertFalse(WingardiumRules.risingEdge(true, false));
     }
+
+    @Test
+    void outOfRangeRanksClamp() {
+        assertFalse(WingardiumRules.liftsBlocks(0));
+        assertFalse(WingardiumRules.liftsBlocks(-1));
+        assertTrue(WingardiumRules.liftsBlocks(5));
+        assertFalse(WingardiumRules.canThrow(0));
+        assertTrue(WingardiumRules.canThrow(5));
+        assertEquals(1, WingardiumRules.maxHeld(0));
+        assertEquals(1, WingardiumRules.maxHeld(-1));
+        assertEquals(2, WingardiumRules.maxHeld(5));
+    }
 }

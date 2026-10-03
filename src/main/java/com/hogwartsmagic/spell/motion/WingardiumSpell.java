@@ -83,7 +83,7 @@ public final class WingardiumSpell {
             return false;
         }
         if (!level.isLoaded(pos) || !isLiftable(level, pos, level.getBlockState(pos))) {
-            return false; // the struck block decides; the one above never goes alone
+            return false; // the struck block must be liftable; a claim refusal on it can still lift the upper block alone
         }
         // The block above first, so sand or gravel on top is carried instead of being left to fall.
         CarriedBlockEntity second = WingardiumRules.maxHeld(rank) >= 2 ? liftOne(level, pos.above(), player) : null;
@@ -98,7 +98,7 @@ public final class WingardiumSpell {
                 markSecondTarget(player, second);
             }
         } else {
-            ModEvents.markRecentWingardiumTarget(player, second); // a claim kept the struck block in place
+            ModEvents.markRecentWingardiumTarget(player, second); // a claim refused the struck block; the upper one goes alone
         }
         return true;
     }
@@ -114,15 +114,7 @@ public final class WingardiumSpell {
         LivingEntity best = null;
         double bestDistance = radius * radius;
         for (LivingEntity candidate : caster.serverLevel().getEntitiesOfClass(LivingEntity.class, primary.getBoundingBox().inflate(radius),
-                c -> c != primary && c != caster && c.isAlive() && c.isPickable() && !c.isSpectator() && !CombatTags.isBoss(c)
-                        && !(c instanceof net.minecraft.world.entity.player.Player)
-                        && !(c instanceof net.minecraft.world.entity.decoration.ArmorStand)
-                        && !c.getTags().contains(CombatTags.ALLIED)
-                        && !MindControl.isControlled(c) && !PossessionManager.isPossessing(c)
-                        && c.getRootVehicle() != caster.getRootVehicle()
-                        && !c.isVehicle() && !c.isPassenger()
-                        && !(c instanceof net.minecraft.world.entity.OwnableEntity pet
-                                && pet.getOwnerUUID() != null && !pet.getOwnerUUID().equals(caster.getUUID())))) {
+                c -> isSecondCandidate(caster, primary, c))) {
             double distance = candidate.distanceToSqr(primary);
             if (distance <= bestDistance) {
                 bestDistance = distance;
@@ -132,6 +124,25 @@ public final class WingardiumSpell {
         if (best != null) {
             markSecondTarget(caster, best);
         }
+    }
+
+    /** The second-target filter, shared by the pick, the channel start and every held tick. */
+    private static boolean isSecondCandidate(ServerPlayer caster, @Nullable Entity primary, LivingEntity c) {
+        return c != primary && c != caster && c.isAlive() && c.isPickable() && !c.isSpectator() && !CombatTags.isBoss(c)
+                && !(c instanceof net.minecraft.world.entity.player.Player)
+                && !(c instanceof net.minecraft.world.entity.decoration.ArmorStand)
+                && !c.getTags().contains(CombatTags.ALLIED)
+                && !MindControl.isControlled(c) && !PossessionManager.isPossessing(c)
+                && c.getRootVehicle() != caster.getRootVehicle()
+                && !c.isVehicle() && !c.isPassenger()
+                && !(c instanceof net.minecraft.world.entity.OwnableEntity pet
+                        && pet.getOwnerUUID() != null && !pet.getOwnerUUID().equals(caster.getUUID()));
+    }
+
+    @Nullable
+    private static Entity heldPrimary(ServerPlayer player) {
+        CompoundTag data = player.getPersistentData();
+        return data.hasUUID(TAG_TARGET) ? player.serverLevel().getEntity(data.getUUID(TAG_TARGET)) : null;
     }
 
     private static void clearSecondMark(ServerPlayer player) {
@@ -160,7 +171,8 @@ public final class WingardiumSpell {
         Entity second = player.serverLevel().getEntity(data.getUUID(TAG_TARGET_2));
         if (second == null || !second.isAlive() || second == player || !second.isPickable()
                 || second.distanceToSqr(player) > WingardiumRules.HOLD_RANGE * WingardiumRules.HOLD_RANGE
-                || !player.hasLineOfSight(second)) {
+                || !player.hasLineOfSight(second)
+                || (second instanceof LivingEntity living && !isSecondCandidate(player, heldPrimary(player), living))) {
             data.remove(TAG_TARGET_2);
             return;
         }
@@ -242,7 +254,8 @@ public final class WingardiumSpell {
             Entity second = player.serverLevel().getEntity(data.getUUID(TAG_RECENT_TARGET_2));
             UUID primary = data.hasUUID(TAG_TARGET) ? data.getUUID(TAG_TARGET) : null;
             if (second != null && second.isAlive() && second != player && second.isPickable()
-                    && !second.getUUID().equals(primary)) {
+                    && !second.getUUID().equals(primary)
+                    && !(second instanceof LivingEntity living && !isSecondCandidate(player, heldPrimary(player), living))) {
                 data.putUUID(TAG_TARGET_2, second.getUUID());
             }
         }
@@ -309,6 +322,15 @@ public final class WingardiumSpell {
             carried.launch(velocity, damage);
             return true;
         }
+        if (target.isPassenger()) {
+            return false; // never fling a rider off its mount; the hold continues
+        }
+        for (Entity rider : target.getPassengers()) {
+            if (rider instanceof net.minecraft.world.entity.player.Player p
+                    && MindControl.puppeteerSpares(level, thrower.getUUID(), p)) {
+                return false; // a protected player riding the target is not thrown with it
+            }
+        }
         if (target instanceof ServerPlayer victim && (!level.getServer().isPvpAllowed()
                 || !thrower.canHarmPlayer(victim) || victim.isAlliedTo(thrower))) {
             return false; // PvP off, teams: a player victim is not thrown; the hold simply continues
@@ -364,7 +386,8 @@ public final class WingardiumSpell {
                 mob.hurt(level.damageSources().thrown(mob, thrower), record.damage());
                 it.remove();
             } else if (mob.horizontalCollision) {
-                mob.hurt(level.damageSources().flyIntoWall(), record.damage());
+                mob.hurt(thrower != null ? level.damageSources().thrown(mob, thrower) : level.damageSources().flyIntoWall(),
+                        record.damage());
                 it.remove();
             } else if (mob.onGround() && now > record.until() - WingardiumRules.THROW_TRACK_TICKS + 3) {
                 it.remove(); // landed without hitting anything; ordinary fall damage applies

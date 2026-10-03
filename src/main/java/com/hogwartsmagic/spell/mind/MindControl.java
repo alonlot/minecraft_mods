@@ -75,6 +75,15 @@ public final class MindControl {
                 || hit.getTags().contains(com.hogwartsmagic.spell.combat.CombatTags.ALLIED);
     }
 
+    /** Explosions (Confringo) go off with the puppeteer's context: drop the players it may not harm. */
+    @net.minecraftforge.eventbus.api.SubscribeEvent
+    public static void onExplosionDetonate(net.minecraftforge.event.level.ExplosionEvent.Detonate event) {
+        if (hitPuppeteer == null) {
+            return;
+        }
+        event.getAffectedEntities().removeIf(MindControl::spareInHitContext);
+    }
+
     /** Splash and chain selection while a puppet beam resolves: true when {@code candidate} is off limits. */
     public static boolean spareInHitContext(Entity candidate) {
         return hitPuppeteer != null && candidate instanceof net.minecraft.world.entity.player.Player player

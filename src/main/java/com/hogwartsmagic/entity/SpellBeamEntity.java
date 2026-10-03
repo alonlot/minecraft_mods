@@ -155,6 +155,9 @@ public class SpellBeamEntity extends ThrowableProjectile {
     public void addAdditionalSaveData(CompoundTag tag) {
         super.addAdditionalSaveData(tag);
         tag.putString("SpellId", getSpellType().getId());
+        if (this.puppeteer != null) {
+            tag.putUUID("Puppeteer", this.puppeteer);
+        }
         tag.putFloat("Charge", getCharge());
         tag.putBoolean("ElderWandCast", isElderWandCast());
         tag.putBoolean("Reflected", this.reflected);
@@ -173,6 +176,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
     public void readAdditionalSaveData(CompoundTag tag) {
         super.readAdditionalSaveData(tag);
         getEntityData().set(DATA_SPELL_ID, tag.getString("SpellId"));
+        this.puppeteer = tag.hasUUID("Puppeteer") ? tag.getUUID("Puppeteer") : null;
         if (tag.contains("Charge")) {
             setCharge(tag.getFloat("Charge"));
         }

@@ -47,7 +47,7 @@ public final class DepulsoSpell {
     public static final String DEFLECTED_TAG = ExampleMod.MODID + ":depulso_deflected";
 
     private record Slam(ResourceKey<Level> dimension, @Nullable UUID casterId, double dirX, double dirZ, int rank,
-                        long start, long until) {
+                        long start, long until, @Nullable UUID puppeteer) {
     }
 
     private static final Map<UUID, Slam> SLAMS = new HashMap<>();
@@ -163,7 +163,8 @@ public final class DepulsoSpell {
         target.hurtMarked = true;
         long now = level.getGameTime();
         SLAMS.put(target.getUUID(), new Slam(level.dimension(), owner.getUUID(),
-                away.x, away.z, rank, now, now + DepulsoRules.SLAM_WINDOW_TICKS));
+                away.x, away.z, rank, now, now + DepulsoRules.SLAM_WINDOW_TICKS,
+                com.hogwartsmagic.spell.mind.MindControl.hitPuppeteer()));
     }
 
     @SubscribeEvent
@@ -200,7 +201,9 @@ public final class DepulsoSpell {
             if (DepulsoRules.slamsIntoMobs(slam.rank()) && now > slam.start() + 2) {
                 List<LivingEntity> struck = level.getEntitiesOfClass(LivingEntity.class,
                         target.getBoundingBox().inflate(DepulsoRules.MOB_CONTACT_INFLATE),
-                        e -> e != target && e != caster && DisableSupport.isEnemyOf(caster, e, target));
+                        e -> e != target && e != caster && DisableSupport.isEnemyOf(caster, e, target)
+                                && !(e instanceof net.minecraft.world.entity.player.Player collateral
+                                && com.hogwartsmagic.spell.mind.MindControl.puppeteerSpares(level, slam.puppeteer(), collateral)));
                 if (!struck.isEmpty()) {
                     LivingEntity other = struck.get(0);
                     other.hurt(DamageSupport.magicFrom(other, caster), damage);

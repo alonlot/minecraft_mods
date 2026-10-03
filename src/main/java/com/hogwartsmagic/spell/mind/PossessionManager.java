@@ -446,13 +446,16 @@ public final class PossessionManager {
         if (!session.prevSelectedSaved) {
             session.prevSelectedSaved = true;
             session.prevSelectedSpell = MagicWandItem.getSelectedSpell(wand);
+            session.prevSelectedSlot = victim.getInventory().selected;
         }
         MagicWandItem.setSelectedSpell(wand, spell);
         UUID previousPuppeteer = castingPuppeteer;
         castingPuppeteer = session.casterId;
+        UUID previousContext = MindControl.swapHitPuppeteer(session.casterId);
         try {
             SpellPackets.CastSpellPacket.castAs(victim, new SpellPackets.CastSpellPacket(false, false, false, false));
         } finally {
+            MindControl.swapHitPuppeteer(previousContext);
             castingPuppeteer = previousPuppeteer;
         }
         sendSnapshot(session, caster, victim, now);
@@ -556,8 +559,9 @@ public final class PossessionManager {
         if (rawVictim instanceof LivingEntity victim) {
             if (victim instanceof ServerPlayer victimPlayer) {
                 AvadaWindup.cancel(victimPlayer, false);
-                if (session.prevSelectedSaved && session.prevSelectedSpell != null) {
-                    ItemStack heldWand = victimPlayer.getMainHandItem();
+                if (session.prevSelectedSaved && session.prevSelectedSpell != null
+                        && session.prevSelectedSlot >= 0 && session.prevSelectedSlot < 9) {
+                    ItemStack heldWand = victimPlayer.getInventory().getItem(session.prevSelectedSlot);
                     if (MagicWandItem.isAnyWand(heldWand)) {
                         MagicWandItem.setSelectedSpell(heldWand, session.prevSelectedSpell);
                     }

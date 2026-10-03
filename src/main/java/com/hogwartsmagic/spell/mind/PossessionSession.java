@@ -49,6 +49,7 @@ final class PossessionSession {
     @javax.annotation.Nullable
     SpellType prevSelectedSpell;
     boolean prevSelectedSaved;
+    int prevSelectedSlot = -1;
     int forcedSlot = -1;
     /** A snapshot goes out next tick (a hotbar pick was rate-refused, so the caster's display needs a re-sync). */
     boolean snapshotDue;

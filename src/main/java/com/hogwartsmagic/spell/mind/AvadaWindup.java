@@ -145,9 +145,11 @@ public final class AvadaWindup {
             data.putBoolean(TAG_READY, true);
             java.util.UUID previousPuppeteer = PossessionManager.castingPuppeteer;
             PossessionManager.castingPuppeteer = PossessionManager.puppeteerOf(player);
+            java.util.UUID previousContext = MindControl.swapHitPuppeteer(PossessionManager.castingPuppeteer);
             try {
                 SpellPackets.CastSpellPacket.castAs(player, new SpellPackets.CastSpellPacket(false, false, false, false));
             } finally {
+                MindControl.swapHitPuppeteer(previousContext);
                 PossessionManager.castingPuppeteer = previousPuppeteer;
             }
             data.remove(TAG_READY); // refused before it was consumed (cooldown, silence): never leave it armed

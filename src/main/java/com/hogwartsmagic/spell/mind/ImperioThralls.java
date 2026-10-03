@@ -3,6 +3,7 @@ package com.hogwartsmagic.spell.mind;
 import com.hogwartsmagic.Config;
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.item.MagicWandItem;
+import com.hogwartsmagic.network.SpellPackets;
 import com.hogwartsmagic.spell.SpellCosts;
 import com.hogwartsmagic.spell.SpellType;
 import com.hogwartsmagic.spell.combat.CombatEffects;
@@ -45,10 +46,12 @@ import net.minecraftforge.event.entity.EntityJoinLevelEvent;
 import net.minecraftforge.event.entity.EntityLeaveLevelEvent;
 import net.minecraftforge.event.entity.living.LivingChangeTargetEvent;
 import net.minecraftforge.event.entity.living.MobEffectEvent;
+import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.server.ServerStoppingEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.network.PacketDistributor;
 import org.joml.Vector3f;
 
 import javax.annotation.Nullable;
@@ -196,13 +199,18 @@ public final class ImperioThralls {
             MindFx.tell(owner, "imperio.at_cap", ImperioRules.maxThralls(rank));
             return false;
         }
-        Thrall thrall = new Thrall(target.getUUID(), owner.getUUID(), owner.getName().getString(), level.dimension(), player, now + ticks);
+        String ownerName = owner.getName().getString();
+        if (ownerName.length() > 64) {
+            ownerName = ownerName.substring(0, 64);
+        }
+        Thrall thrall = new Thrall(target.getUUID(), owner.getUUID(), ownerName, level.dimension(), player, now + ticks);
         thrall.lastY = target.getY();
         addMarker(target, ticks);
         if (target instanceof Mob mob) {
             setUpMob(mob, owner, thrall, rank, ticks);
         }
         THRALLS.put(target.getUUID(), thrall);
+        broadcastLabel(target, thrall.ownerName);
         MindFx.burst(target, GREEN);
         MindFx.tell(owner, "imperio.thrall_gained", target.getDisplayName());
         return true;
@@ -521,6 +529,23 @@ public final class ImperioThralls {
             mob.getNavigation().stop();
         }
         victim.removeEffect(DisableSupport.holder(ExampleMod.IMPERIUS));
+        broadcastLabel(victim, "");
+    }
+
+    /** The "Thrall of <owner>" nameplate for everyone watching the victim (and the victim, if a player). */
+    private static void broadcastLabel(LivingEntity victim, String ownerName) {
+        SpellPackets.CHANNEL.send(new SpellPackets.ThrallLabelPacket(victim.getId(), ownerName),
+                PacketDistributor.TRACKING_ENTITY_AND_SELF.with(victim));
+    }
+
+    /** Someone walks into view of a thrall after it was enthralled. */
+    @SubscribeEvent
+    public static void onStartTracking(PlayerEvent.StartTracking event) {
+        Thrall thrall = THRALLS.get(event.getTarget().getUUID());
+        if (thrall != null && event.getEntity() instanceof ServerPlayer watcher) {
+            SpellPackets.CHANNEL.send(new SpellPackets.ThrallLabelPacket(event.getTarget().getId(), thrall.ownerName),
+                    PacketDistributor.PLAYER.with(watcher));
+        }
     }
 
     /** The owner's last thrall is gone: Imperio's cooldown starts now. */

@@ -313,6 +313,8 @@
   "gui.hogwartsmagic.imperio.at_cap": "Every thrall slot is taken (%s)",
   "gui.hogwartsmagic.imperio.too_strong": "%s is too strong for your Imperius Curse",
   "gui.hogwartsmagic.imperio.players_off": "Imperio on players is turned off on this server",
+  "gui.hogwartsmagic.imperio.thrall_label": "◆ Thrall of %s",
+  "gui.hogwartsmagic.imperio.victim": "Imperius: your body is not your own",
   "death.attack.hogwartsmagic.bleeding.player": "%1$s bled out whilst fighting %2$s",
   "death.attack.hogwartsmagic.bleeding.item": "%1$s bled out whilst fighting %2$s using %3$s",
   "item.hogwartsmagic.common_tome_of_mastery": "Common Tome of Mastery",

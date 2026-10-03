@@ -45,6 +45,7 @@ public final class ClientRuntimeBridge {
             case "closeApparitionMap" -> closeApparitionMap();
             case "openTomePicker" -> openTomePicker((SpellPackets.OpenTomePickerPacket) payload);
             case "revealDisguise" -> revealDisguise((SpellPackets.RevealDisguisePacket) payload);
+            case "thrallLabel" -> ImperiusClient.acceptLabel((SpellPackets.ThrallLabelPacket) payload);
             default -> throw new IllegalArgumentException("Unknown client packet action: " + action);
         }
     }

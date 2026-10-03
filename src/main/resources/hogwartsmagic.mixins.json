@@ -16,6 +16,7 @@
     "client.InvisibilityCloakArmorLayerMixin",
     "client.CaveInimicumClientPacketListenerMixin",
     "client.CaveInimicumEntityRenderDispatcherMixin",
+    "client.MindControlGuiMixin",
     "client.BasiliskGazeGuiMixin"
   ],
   "injectors": {

@@ -46,7 +46,7 @@ public class SpellPackets {
 
     public static final SimpleChannel CHANNEL = ChannelBuilder
             .named(ExampleMod.MODID + ":spells")
-            .networkProtocolVersion(3)
+            .networkProtocolVersion(4)
             .simpleChannel();
 
     public static void register() {
@@ -405,6 +405,14 @@ public class SpellPackets {
                 })
                 .decoder(buf -> new RevealDisguisePacket(buf.readUUID(), buf.readVarInt()))
                 .consumerMainThread(RevealDisguisePacket::handle)
+                .add();
+        CHANNEL.messageBuilder(ThrallLabelPacket.class)
+                .encoder((p, buf) -> {
+                    buf.writeVarInt(p.entityId);
+                    buf.writeUtf(p.ownerName, 64);
+                })
+                .decoder(buf -> new ThrallLabelPacket(buf.readVarInt(), buf.readUtf(64)))
+                .consumerMainThread(ThrallLabelPacket::handle)
                 .add();
     }
 
@@ -1550,6 +1558,17 @@ public class SpellPackets {
                 }
                 com.hogwartsmagic.item.TomeOfMasteryItem.tryRaise(player, p.mainHand, p.spellId);
             }
+        }
+    }
+
+    /** Server to client: entity {@code entityId} is an Imperio thrall of {@code ownerName}; an empty name clears it. */
+    public record ThrallLabelPacket(int entityId, String ownerName) {
+        public static void handle(ThrallLabelPacket p, CustomPayloadEvent.Context ctx) {
+            if (ctx.getSender() != null) {
+                ctx.setPacketHandled(true); // server-to-client only
+                return;
+            }
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("thrallLabel", p));
         }
     }
 }

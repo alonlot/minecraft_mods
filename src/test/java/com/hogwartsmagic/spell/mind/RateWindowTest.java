@@ -3,6 +3,7 @@ package com.hogwartsmagic.spell.mind;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RateWindowTest {
@@ -28,5 +29,11 @@ class RateWindowTest {
         RateWindow window = new RateWindow(1, 20);
         assertTrue(window.tryAcquire(500));
         assertTrue(window.tryAcquire(10));
+    }
+
+    @Test
+    void rejectsNonPositiveCapacityOrWindow() {
+        assertThrows(IllegalArgumentException.class, () -> new RateWindow(0, 20));
+        assertThrows(IllegalArgumentException.class, () -> new RateWindow(1, 0));
     }
 }

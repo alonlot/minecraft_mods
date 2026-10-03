@@ -75,6 +75,15 @@ class PossessionRulesTest {
         assertEquals(-170.0f, PossessionRules.yaw(190.0f), 1e-4);
         assertEquals(170.0f, PossessionRules.yaw(-190.0f), 1e-4);
         assertEquals(0.0f, PossessionRules.yaw(Float.POSITIVE_INFINITY), 1e-6);
+        assertEquals(0.0f, PossessionRules.yaw(Float.NEGATIVE_INFINITY), 1e-6);
+        assertEquals(0.0f, PossessionRules.yaw(Float.NaN), 1e-6);
+        assertEquals(0.0f, PossessionRules.axis(Float.POSITIVE_INFINITY), 1e-6);
+        assertEquals(0.0f, PossessionRules.axis(Float.NEGATIVE_INFINITY), 1e-6);
+        assertEquals(-90.0f, PossessionRules.pitch(-300.0f), 1e-6);
+        assertEquals(0.0f, PossessionRules.pitch(Float.POSITIVE_INFINITY), 1e-6);
+        assertEquals(0.0f, PossessionRules.pitch(Float.NEGATIVE_INFINITY), 1e-6);
+        assertEquals(-180.0f, PossessionRules.yaw(180.0f), 1e-4);
+        assertEquals(-180.0f, PossessionRules.yaw(540.0f), 1e-4);
     }
 
     @Test
@@ -86,9 +95,13 @@ class PossessionRulesTest {
     }
 
     @Test
-    void imperioAndApparitionCantBeCastThroughAPuppet() {
-        assertTrue(PossessionRules.isPuppetBlocked("imperio"));
-        assertTrue(PossessionRules.isPuppetBlocked("apparition"));
+    void blockedSpellsCantBeCastThroughAPuppet() {
+        for (String id : new String[] {"imperio", "apparition", "crucio", "protego_maxima", "fiendfyre",
+                "wingardium_leviosa", "expecto_patronum"}) {
+            assertTrue(PossessionRules.isPuppetBlocked(id), id);
+        }
         assertFalse(PossessionRules.isPuppetBlocked("stupefy"));
+        assertFalse(PossessionRules.isPuppetBlocked("avada_kedavra"));
+        assertFalse(PossessionRules.isPuppetBlocked(null));
     }
 }

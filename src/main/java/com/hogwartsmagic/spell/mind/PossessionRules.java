@@ -64,6 +64,7 @@ public final class PossessionRules {
         return Math.max(0, Math.min(RESIST_MAX_PRESSES, presses));
     }
 
+    /** Callers must pass presses already clamped with {@link #clampPresses(int)}. */
     public static boolean breaksFree(int presses, double roll) {
         return presses >= RESIST_MIN_PRESSES && roll < RESIST_CHANCE;
     }
@@ -112,8 +113,10 @@ public final class PossessionRules {
         return slot >= 0 && slot <= 8;
     }
 
-    /** No puppet chains, and no teleporting the victim away. */
+    /** No puppet chains, no teleporting the victim away, and no held/channel spells. */
     public static boolean isPuppetBlocked(String spellId) {
-        return "imperio".equals(spellId) || "apparition".equals(spellId);
+        return "imperio".equals(spellId) || "apparition".equals(spellId) || "crucio".equals(spellId)
+                || "protego_maxima".equals(spellId) || "fiendfyre".equals(spellId)
+                || "wingardium_leviosa".equals(spellId) || "expecto_patronum".equals(spellId);
     }
 }

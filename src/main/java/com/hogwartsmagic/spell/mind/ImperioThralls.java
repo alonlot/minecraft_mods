@@ -241,6 +241,7 @@ public final class ImperioThralls {
         thrall.lastY = target.getY();
         thrall.strengthUntil = now + ticks;
         addMarker(target, ticks);
+        MindControl.closeOpenContainer(target); // a thrall player's open chest or GUI shuts
         if (target instanceof Mob mob) {
             setUpMob(mob, owner, thrall, rank, ticks);
         }

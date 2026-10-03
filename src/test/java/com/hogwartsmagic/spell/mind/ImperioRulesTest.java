@@ -97,4 +97,22 @@ class ImperioRulesTest {
         assertTrue(ImperioRules.lockedOut(260, 259));
         assertFalse(ImperioRules.lockedOut(260, 260));
     }
+
+    @Test
+    void thrallHouseholdMatchesOnlyTheSamePuppeteer() {
+        java.util.UUID a = java.util.UUID.randomUUID();
+        java.util.UUID b = java.util.UUID.randomUUID();
+        assertTrue(ImperioRules.sameThrallHousehold(a, a));
+        assertFalse(ImperioRules.sameThrallHousehold(a, b));
+        assertFalse(ImperioRules.sameThrallHousehold(a, null));
+        assertFalse(ImperioRules.sameThrallHousehold(null, null));
+        assertFalse(ImperioRules.sameThrallHousehold(null, a));
+    }
+
+    @Test
+    void holdStartAllowsTwoTicksOfSlack() {
+        assertFalse(ImperioRules.holdLongEnough(100, 100 + ImperioRules.HOLD_START_TICKS - 3));
+        assertTrue(ImperioRules.holdLongEnough(100, 100 + ImperioRules.HOLD_START_TICKS - 2));
+        assertTrue(ImperioRules.holdLongEnough(100, 100 + ImperioRules.HOLD_START_TICKS));
+    }
 }

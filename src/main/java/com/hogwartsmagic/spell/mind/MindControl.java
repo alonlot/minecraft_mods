@@ -86,9 +86,20 @@ public final class MindControl {
 
     /** Splash and chain selection while a puppet beam resolves: true when {@code candidate} is off limits. */
     public static boolean spareInHitContext(Entity candidate) {
-        return hitPuppeteer != null && candidate instanceof net.minecraft.world.entity.player.Player player
-                && player.level() instanceof net.minecraft.server.level.ServerLevel level
-                && puppeteerSpares(level, hitPuppeteer, player);
+        if (hitPuppeteer == null) {
+            return false;
+        }
+        if (candidate instanceof net.minecraft.world.entity.player.Player player) {
+            return player.level() instanceof net.minecraft.server.level.ServerLevel level
+                    && (puppeteerSpares(level, hitPuppeteer, player) || sparesThrallOrAlly(hitPuppeteer, candidate));
+        }
+        return sparesThrallOrAlly(hitPuppeteer, candidate);
+    }
+
+    /** A puppet never hits its puppeteer's own Imperio thralls or anything tagged allied. */
+    public static boolean sparesThrallOrAlly(@javax.annotation.Nullable java.util.UUID puppeteer, Entity candidate) {
+        return puppeteer != null && (ImperioRules.sameThrallHousehold(puppeteer, ImperioThralls.ownerIdOf(candidate))
+                || candidate.getTags().contains(com.hogwartsmagic.spell.combat.CombatTags.ALLIED));
     }
 
     /** Under someone else's control: an Imperio thrall or a possessed body. Safe on both sides. */
@@ -248,6 +259,13 @@ public final class MindControl {
             event.setCanceled(true);
         } else {
             event.getEntity().setItem(stack);
+        }
+    }
+
+    /** Closes any container a player has open besides their own inventory; other entities are ignored. */
+    public static void closeOpenContainer(net.minecraft.world.entity.LivingEntity entity) {
+        if (entity instanceof ServerPlayer player && player.containerMenu != player.inventoryMenu) {
+            player.closeContainer();
         }
     }
 

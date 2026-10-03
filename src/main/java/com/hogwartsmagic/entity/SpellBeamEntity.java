@@ -578,6 +578,12 @@ public class SpellBeamEntity extends ThrowableProjectile {
             this.discard(); // a puppet beam never touches a player its caster may not harm
             return;
         }
+        if (!this.level().isClientSide && this.puppeteer != null && result instanceof EntityHitResult thrallHit
+                && !(thrallHit.getEntity() instanceof net.minecraft.world.entity.player.Player)
+                && com.hogwartsmagic.spell.mind.MindControl.sparesThrallOrAlly(this.puppeteer, thrallHit.getEntity())) {
+            this.discard(); // nor its puppeteer's own thralls and allies
+            return;
+        }
         super.onHit(result);
         if (!this.level().isClientSide) {
             SpellType spell = getSpellType();
@@ -861,8 +867,11 @@ public class SpellBeamEntity extends ThrowableProjectile {
                                     masteryTarget = null;
                                 }
                             } else {
+                                // Judged before the hit: applying it must not change whether the target counts as controlled.
+                                boolean crucioResisted = spell == SpellType.CRUCIO
+                                        && com.hogwartsmagic.spell.mind.MindControl.isControlled(living);
                                 spell.applyHitEffect(living, getOwner(), this.getDeltaMovement(), !this.reflected);
-                                if (spell == SpellType.CRUCIO && com.hogwartsmagic.spell.mind.MindControl.isControlled(living)) {
+                                if (crucioResisted) {
                                     masteryTarget = null; // a controlled target resists Crucio: no XP
                                 }
                             }

@@ -1,6 +1,5 @@
 package com.hogwartsmagic.client;
 
-import org.lwjgl.glfw.GLFW;
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.network.SpellPackets;
 import com.hogwartsmagic.spell.mind.PossessionRules;
@@ -25,6 +24,7 @@ import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.network.PacketDistributor;
+import org.lwjgl.glfw.GLFW;
 
 import javax.annotation.Nullable;
 

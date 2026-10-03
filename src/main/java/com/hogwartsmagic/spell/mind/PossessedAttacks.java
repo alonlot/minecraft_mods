@@ -8,6 +8,7 @@ import com.hogwartsmagic.entity.StudentEntity;
 import com.hogwartsmagic.entity.VoldemortEntity;
 import com.hogwartsmagic.entity.WizardEntity;
 import com.hogwartsmagic.spell.SpellType;
+import com.hogwartsmagic.spell.combat.CombatEffects;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
@@ -159,6 +160,9 @@ final class PossessedAttacks {
     }
 
     private static void fireBeam(Mob caster, SpellType spell, ServerPlayer puppeteer) {
+        if (CombatEffects.isCastingBlocked(caster)) {
+            return; // a silenced or stunned wielder cannot cast
+        }
         SpellBeamEntity beam = new SpellBeamEntity(caster.level(), caster, spell);
         beam.setPuppeteer(puppeteer.getUUID());
         beam.shootFromRotation(caster, caster.getXRot(), caster.getYRot(), 0.0F, 1.75F, 0.5F);

@@ -22,7 +22,23 @@ public final class ImperioRules {
     /** A thrall player's client is told its velocity at least this often, and sooner only on a real change. */
     public static final int PUSH_RESEND_TICKS = 4;
 
+    /** How long a Master holds the cast key before possession starts (the client's threshold; the server re-checks it). */
+    public static final int HOLD_START_TICKS = 40;
+    /** The server accepts a hold start this many ticks early, for latency and tick-alignment slop. */
+    public static final int HOLD_SLACK_TICKS = 2;
+
     private ImperioRules() {
+    }
+
+    /** True when a Master cast at {@code castAt} has been held long enough by {@code now} to start possession. */
+    public static boolean holdLongEnough(long castAt, long now) {
+        return now - castAt >= HOLD_START_TICKS - HOLD_SLACK_TICKS;
+    }
+
+    /** Pure: the entity is a thrall of this very puppeteer. */
+    public static boolean sameThrallHousehold(@javax.annotation.Nullable java.util.UUID puppeteer,
+                                              @javax.annotation.Nullable java.util.UUID entityOwner) {
+        return puppeteer != null && puppeteer.equals(entityOwner);
     }
 
     public static int thrallTicks(int rank, boolean playerOrBoss) {

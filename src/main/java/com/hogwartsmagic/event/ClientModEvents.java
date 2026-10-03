@@ -97,7 +97,6 @@ public class ClientModEvents {
     private static boolean imperioHoldPending = false;
     private static boolean imperioChannelActive = false;
     private static int imperioHoldTicks = 0;
-    private static final int IMPERIO_HOLD_THRESHOLD_TICKS = 40;
     private static boolean crucioHoldPending = false;
     private static boolean crucioChannelActive = false;
     private static final KeyMapping WAND_RADIAL_MENU_KEY = new KeyMapping(
@@ -385,7 +384,7 @@ public class ClientModEvents {
                         boolean attackDown = mc.options.keyAttack.isDown();
                         if (useDown) {
                             imperioHoldTicks++;
-                            if (!imperioChannelActive && imperioHoldTicks >= IMPERIO_HOLD_THRESHOLD_TICKS) {
+                            if (!imperioChannelActive && imperioHoldTicks >= com.hogwartsmagic.spell.mind.ImperioRules.HOLD_START_TICKS) {
                                 SpellPackets.CHANNEL.send(new SpellPackets.ImperioControlPacket(true, false, forward, strafe, jumpDown, attackDown, mc.player.getYRot(), mc.player.getXRot()), PacketDistributor.SERVER.noArg());
                                 imperioChannelActive = true;
                                 mc.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);

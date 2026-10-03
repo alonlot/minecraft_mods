@@ -1,5 +1,6 @@
 package com.hogwartsmagic.spell.mind;
 
+import com.hogwartsmagic.spell.combat.CombatEffects;
 import net.minecraft.world.entity.monster.Creeper;
 import com.hogwartsmagic.Config;
 import java.util.List;
@@ -205,6 +206,8 @@ public final class PossessionManager {
         BY_VICTIM.put(session.victimId, session);
         int markerTicks = session.maxTicks + PossessionRules.MARKER_GRACE_TICKS;
         addMarkers(caster, victim, markerTicks);
+        MindControl.closeOpenContainer(caster);
+        MindControl.closeOpenContainer(victim);
         DisableSupport.interrupt(victim);
         if (victim instanceof Mob mob) {
             MindControl.setTargetBypassing(mob, null);
@@ -245,8 +248,20 @@ public final class PossessionManager {
         }
     }
 
+    /** Game time of each player's last Master Imperio cast (the hold begins there). Memory only, never saved. */
+    private static final java.util.Map<java.util.UUID, Long> MASTER_CAST_AT = new java.util.HashMap<>();
+
+    /** Called when a Master Imperio cast fires: the server-side start of the hold. */
+    public static void noteMasterCast(ServerPlayer caster) {
+        MASTER_CAST_AT.put(caster.getUUID(), caster.level().getGameTime());
+    }
+
     /** The Master hold reached its threshold on a target the beam hit: check the start mana, then possess. */
     public static void startFromHold(ServerPlayer caster, ItemStack wand, LivingEntity target) {
+        Long castAt = MASTER_CAST_AT.get(caster.getUUID());
+        if (castAt == null || !ImperioRules.holdLongEnough(castAt, caster.level().getGameTime())) {
+            return; // the client's hold threshold is re-checked here: a forged packet can't skip it
+        }
         if (!caster.isCreative()) {
             CompoundTag modData = PlayerMagicData.getModData(caster);
             float mana = modData.contains("Mana") ? modData.getFloat("Mana") : PlayerMagicData.getMaxMana(caster);
@@ -584,6 +599,7 @@ public final class PossessionManager {
 
     @SubscribeEvent
     public static void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
+        MASTER_CAST_AT.remove(event.getEntity().getUUID());
         if (BY_CASTER.isEmpty() || !(event.getEntity() instanceof ServerPlayer player)) {
             return;
         }
@@ -676,7 +692,8 @@ public final class PossessionManager {
             return;
         }
         drive(session, victim);
-        if (session.attack && now - session.lastAttackAt >= session.attackCooldown) {
+        if (session.attack && now - session.lastAttackAt >= session.attackCooldown
+                && !(!session.victimIsPlayer && CombatEffects.isStunned(victim))) {
             session.lastAttackAt = now;
             session.attackCooldown = PossessedAttacks.attack(victim, caster, session);
             if (victim instanceof Creeper creeper && creeper.isIgnited()) {
@@ -715,7 +732,7 @@ public final class PossessionManager {
                         session.yaw, session.pitch), PacketDistributor.PLAYER.with(victimPlayer));
             }
         } else if (victim instanceof Mob mob) {
-            PossessionDriver.driveMob(mob, session);
+            PossessionDriver.driveMob(mob, session, CombatEffects.isStunned(mob)); // a stunned puppet idles
         }
     }
 
@@ -809,6 +826,7 @@ public final class PossessionManager {
     /** Before the worlds save, so nobody is written to disk rooted or possessed. */
     @SubscribeEvent
     public static void onServerStopping(ServerStoppingEvent event) {
+        MASTER_CAST_AT.clear();
         for (PossessionSession session : new ArrayList<>(BY_CASTER.values())) {
             end(session, EndReason.INVALID);
         }

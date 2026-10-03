@@ -42,13 +42,14 @@ public final class AvadaSpell {
         Entity owner = CombatEffects.responsible(caster);
         DamageSource source = DamageSupport.magicFrom(target, caster);
         boolean landed;
+        LivingEntity previousLanding = LANDING.get();
         LANDING.set(target);
         try {
             landed = CombatTags.isBoss(target)
                     ? target.hurt(source, AvadaRules.bossDamage(target.getMaxHealth()))
                     : target.hurt(source, Float.MAX_VALUE);
         } finally {
-            LANDING.set(null);
+            LANDING.set(previousLanding); // nested Avadas restore the outer landing
         }
         // The masteryEligible guard is future-proofing: Avada can not be reflected today (ProtegoSpell returns
         // NOT_SHIELDED for it), but a reflected beam would be the defender's, so no backlash. There is also

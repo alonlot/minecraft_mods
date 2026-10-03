@@ -1058,6 +1058,10 @@ public class SpellPackets {
             if (spell == SpellType.IMPERIO && !com.hogwartsmagic.spell.mind.ImperioThralls.mayCast(player)) {
                 return;
             }
+            if (spell == SpellType.IMPERIO && !p.selfCastProtego && com.hogwartsmagic.spell.mind.ImperioRules.isPossessionRank(
+                    com.hogwartsmagic.spell.mastery.SpellMasteryData.getRank(player, SpellType.IMPERIO))) {
+                com.hogwartsmagic.spell.mind.PossessionManager.noteMasterCast(player); // the server's own hold clock
+            }
 
             // Mana Check
             net.minecraft.nbt.CompoundTag modData = playerData.getCompound("PlayerPersisted").getCompound(ExampleMod.MODID);

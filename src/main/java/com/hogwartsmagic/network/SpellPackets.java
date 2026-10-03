@@ -1244,94 +1244,41 @@ public class SpellPackets {
                 return;
             }
             if (com.hogwartsmagic.spell.mind.MindControl.isControlled(player)) {
-                return; // a thrall can't start or steer a channel of its own
+                return; // a puppet or a thrall can't start or steer a channel of its own
             }
             // A running possession takes every packet from its own caster (input, heartbeat, release).
             if (com.hogwartsmagic.spell.mind.PossessionManager.handleCasterPacket(player, p)) {
                 return;
             }
+            if (!p.startChannel) {
+                return; // input or a release with no session behind it: nothing to steer
+            }
             ItemStack wand = player.getMainHandItem();
-            if (!MagicWandItem.isAnyWand(wand)) {
+            if (!MagicWandItem.isAnyWand(wand) || MagicWandItem.getSelectedSpell(wand) != SpellType.IMPERIO) {
                 return;
             }
-
-            SpellType spell = MagicWandItem.getSelectedSpell(wand);
-            if (spell != SpellType.IMPERIO) {
-                if (p.stopChannel) {
-                    com.hogwartsmagic.event.ModEvents.stopImperioChannel(player, wand);
-                }
-                return;
-            }
-
-            if (!com.hogwartsmagic.item.MagicBookItem.isSpellLearned(player, spell)) {
+            if (!com.hogwartsmagic.item.MagicBookItem.isSpellLearned(player, SpellType.IMPERIO)) {
                 player.displayClientMessage(net.minecraft.network.chat.Component.translatable("gui.hogwartsmagic.spell_not_learned"), true);
                 return;
             }
-
-            long now = player.level().getGameTime();
-            boolean creative = player.isCreative();
-            net.minecraft.nbt.CompoundTag playerData = player.getPersistentData();
-
-            if (p.stopChannel) {
-                com.hogwartsmagic.event.ModEvents.stopImperioChannel(player, wand);
-                return;
-            }
-
-            // Ranks I-III make a thrall when the beam lands; only a Master holds the channel.
             if (!com.hogwartsmagic.spell.mind.ImperioRules.isPossessionRank(
-                    com.hogwartsmagic.spell.mastery.SpellMasteryData.getRank(player, spell))) {
-                return;
+                    com.hogwartsmagic.spell.mastery.SpellMasteryData.getRank(player, SpellType.IMPERIO))) {
+                return; // ranks I-III make a thrall when the beam lands; only a Master holds
             }
-
-            // The channel was already dropped when the stun or silence landed (CombatEffects.onEffectAdded).
             if (com.hogwartsmagic.spell.combat.CombatEffects.isCastingBlocked(player)) {
-                if (p.startChannel) {
-                    com.hogwartsmagic.spell.combat.CombatEffects.notifyCastBlocked(player);
-                }
+                com.hogwartsmagic.spell.combat.CombatEffects.notifyCastBlocked(player);
                 return;
             }
-
-            com.hogwartsmagic.event.ModEvents.updateImperioInput(player, p.forward, p.strafe, p.jump, p.attack, p.yaw, p.pitch);
-
-            if (!p.startChannel && playerData.getBoolean("hogwartsmagic:imperio_channeling")) {
+            if (!player.isCreative() && MagicWandItem.isOnCooldown(wand, SpellType.IMPERIO, player.level().getGameTime())) {
                 return;
             }
-
-            if (!p.startChannel) {
-                return;
-            }
-
             LivingEntity target = com.hogwartsmagic.event.ModEvents.consumeRecentImperioHitTarget(player);
             if (target == null) {
-                player.displayClientMessage(net.minecraft.network.chat.Component.literal("Hit a player or mob with Imperio, then keep holding").withStyle(net.minecraft.ChatFormatting.GREEN), true);
+                player.displayClientMessage(net.minecraft.network.chat.Component.translatable("gui.hogwartsmagic.possession.hit_first")
+                        .withStyle(net.minecraft.ChatFormatting.GREEN), true);
                 return;
             }
-
-            net.minecraft.nbt.CompoundTag modData = playerData.getCompound("PlayerPersisted").getCompound(ExampleMod.MODID);
-            float maxMana = PlayerMagicData.getMaxMana(player);
-            float currentMana = modData.contains("Mana") ? modData.getFloat("Mana") : maxMana;
-            float upkeepCost = com.hogwartsmagic.event.ModEvents.getImperioStartCost(player, wand);
-
-            if (!creative && currentMana < upkeepCost) {
-                player.displayClientMessage(net.minecraft.network.chat.Component.literal("Not enough mana!").withStyle(net.minecraft.ChatFormatting.RED), true);
-                return;
-            }
-
-            playerData.putBoolean("hogwartsmagic:imperio_channeling", true);
-            playerData.putUUID("hogwartsmagic:imperio_target", target.getUUID());
-            playerData.putLong("hogwartsmagic:imperio_last_seen", now);
-            playerData.putLong("hogwartsmagic:imperio_last_drain", now);
-            playerData.putLong("hogwartsmagic:imperio_last_attack", now - 10L);
-
-            if (target instanceof net.minecraft.world.entity.Mob mob) {
-                mob.setTarget(null);
-            }
-            target.addEffect(new MobEffectInstance(net.minecraft.world.effect.MobEffects.CONFUSION, 80, 0));
-            target.addEffect(new MobEffectInstance(net.minecraft.world.effect.MobEffects.GLOWING, 80, 0));
-
-            com.hogwartsmagic.event.ModEvents.revealInvisibilityCloak(player);
-            player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
-                    spell.getSoundEvent(), SoundSource.PLAYERS, 1.0f, 0.95f);
+            com.hogwartsmagic.spell.mind.PossessionManager.startFromHold(player, wand, target);
         }
     }
 

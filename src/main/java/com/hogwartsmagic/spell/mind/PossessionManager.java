@@ -2,13 +2,16 @@ package com.hogwartsmagic.spell.mind;
 
 import com.hogwartsmagic.Config;
 import com.hogwartsmagic.ExampleMod;
+import com.hogwartsmagic.event.ModEvents;
 import com.hogwartsmagic.network.SpellPackets;
 import com.hogwartsmagic.spell.SpellType;
 import com.hogwartsmagic.spell.combat.CombatTags;
 import com.hogwartsmagic.spell.disable.DisableSupport;
+import com.hogwartsmagic.util.PlayerMagicData;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.Holder;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -20,6 +23,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.EntityJoinLevelEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
@@ -205,6 +209,21 @@ public final class PossessionManager {
         }
     }
 
+    /** The Master hold reached its threshold on a target the beam hit: check the start mana, then possess. */
+    public static void startFromHold(ServerPlayer caster, ItemStack wand, LivingEntity target) {
+        if (!caster.isCreative()) {
+            CompoundTag modData = PlayerMagicData.getModData(caster);
+            float mana = modData.contains("Mana") ? modData.getFloat("Mana") : PlayerMagicData.getMaxMana(caster);
+            if (mana < ModEvents.getImperioStartCost(caster, wand)) {
+                caster.displayClientMessage(Component.literal("Not enough mana!").withStyle(ChatFormatting.RED), true);
+                return;
+            }
+        }
+        if (start(caster, target, false)) {
+            ModEvents.revealInvisibilityCloak(caster);
+        }
+    }
+
     // ---- Input ---------------------------------------------------------------------------------
 
     /** Every ImperioControlPacket from a possessing caster lands here; only their own session is ever touched. */
@@ -274,6 +293,9 @@ public final class PossessionManager {
         if (caster != null) {
             sendNone(caster);
             caster.displayClientMessage(Component.translatable(reason.langKey()).withStyle(ChatFormatting.GREEN), true);
+            if (!session.debug) {
+                ImperioThralls.startImperioCooldown(caster); // the cooldown, and the Imperio XP, start when it ends
+            }
         }
         if (rawVictim instanceof LivingEntity victim) {
             if (victim instanceof ServerPlayer victimPlayer) {
@@ -362,6 +384,10 @@ public final class PossessionManager {
         if (!isPossessingBody(caster) || !victim.hasEffect(DisableSupport.holder(ExampleMod.POSSESSED))) {
             addMarkers(caster, victim, Math.max(markerTicks, 2)); // stripped by something that bypassed the guard
         }
+        if (!drainUpkeep(caster, session, now)) {
+            end(session, EndReason.NO_MANA);
+            return;
+        }
         drive(session, victim);
         if (now - session.lastStateAt >= PossessionRules.STATE_KEEPALIVE_TICKS) {
             sendState(session, caster, victim, now);
@@ -388,6 +414,28 @@ public final class PossessionManager {
         } else if (victim instanceof Mob mob) {
             PossessionDriver.driveMob(mob, session);
         }
+    }
+
+    /** The old channel's upkeep every half second; false when the caster can't pay. */
+    private static boolean drainUpkeep(ServerPlayer caster, PossessionSession session, long now) {
+        if (session.debug || caster.isCreative() || now - session.lastDrainAt < PossessionRules.UPKEEP_INTERVAL) {
+            return true;
+        }
+        session.lastDrainAt = now;
+        float cost = ModEvents.getImperioUpkeepCost(caster, caster.getMainHandItem());
+        CompoundTag modData = PlayerMagicData.getModData(caster);
+        float maxMana = PlayerMagicData.getMaxMana(caster);
+        float mana = modData.contains("Mana") ? modData.getFloat("Mana") : maxMana;
+        if (mana < cost) {
+            return false;
+        }
+        float next = mana - cost;
+        modData.putFloat("Mana", next);
+        PlayerMagicData.saveModData(caster, modData);
+        if ((int) mana != (int) next) {
+            SpellPackets.CHANNEL.send(new SpellPackets.SyncManaPacket(next, maxMana), PacketDistributor.PLAYER.with(caster));
+        }
+        return true;
     }
 
     // ---- Packets out ---------------------------------------------------------------------------

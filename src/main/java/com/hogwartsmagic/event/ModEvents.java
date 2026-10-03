@@ -160,22 +160,8 @@ public class ModEvents {
     private static final String TAG_FIENDFYRE_ENTITY = "hogwartsmagic:fiendfyre_entity";
     private static final int FIENDFYRE_UPKEEP_INTERVAL = 4;
     private static final int FIENDFYRE_HEARTBEAT_TIMEOUT = 4;
-    private static final String TAG_IMPERIO_CHANNELING = "hogwartsmagic:imperio_channeling";
-    private static final String TAG_IMPERIO_TARGET = "hogwartsmagic:imperio_target";
     private static final String TAG_IMPERIO_RECENT_HIT_TARGET = "hogwartsmagic:imperio_recent_hit_target";
     private static final String TAG_IMPERIO_RECENT_HIT_EXPIRY = "hogwartsmagic:imperio_recent_hit_expiry";
-    private static final String TAG_IMPERIO_LAST_SEEN = "hogwartsmagic:imperio_last_seen";
-    private static final String TAG_IMPERIO_LAST_DRAIN = "hogwartsmagic:imperio_last_drain";
-    private static final String TAG_IMPERIO_LAST_ATTACK = "hogwartsmagic:imperio_last_attack";
-    private static final String TAG_IMPERIO_FORWARD = "hogwartsmagic:imperio_forward";
-    private static final String TAG_IMPERIO_STRAFE = "hogwartsmagic:imperio_strafe";
-    private static final String TAG_IMPERIO_JUMP = "hogwartsmagic:imperio_jump";
-    private static final String TAG_IMPERIO_ATTACK = "hogwartsmagic:imperio_attack";
-    private static final String TAG_IMPERIO_YAW = "hogwartsmagic:imperio_yaw";
-    private static final String TAG_IMPERIO_PITCH = "hogwartsmagic:imperio_pitch";
-    private static final int IMPERIO_UPKEEP_INTERVAL = 10;
-    private static final int IMPERIO_HEARTBEAT_TIMEOUT = 4;
-    private static final int IMPERIO_ATTACK_COOLDOWN = 10;
     // ── Apparition (channeled self-teleport with a minimap destination picker) ──
     private static final String TAG_APPARITION_CHANNELING = "hogwartsmagic:apparition_channeling";
     private static final String TAG_APPARITION_START = "hogwartsmagic:apparition_start";
@@ -791,7 +777,6 @@ public class ModEvents {
             tickPatronusShieldChannel(player, modData);
             tickFiendfyreChannel(player, modData);
             tickWingardiumChannel(player, modData);
-            tickImperioChannel(player, modData);
             tickApparitionChannel(player, modData);
             tickAccioPull(player);
             com.hogwartsmagic.duel.DuelManager.tick(player);
@@ -1387,68 +1372,6 @@ public class ModEvents {
         }
     }
 
-    private static void tickImperioChannel(ServerPlayer player, net.minecraft.nbt.CompoundTag modData) {
-        if (!player.getPersistentData().getBoolean(TAG_IMPERIO_CHANNELING)) {
-            return;
-        }
-
-        ItemStack wand = player.getMainHandItem();
-        SpellType selected = MagicWandItem.isAnyWand(wand) ? MagicWandItem.getSelectedSpell(wand) : null;
-        if (!MagicWandItem.isAnyWand(wand) || selected != SpellType.IMPERIO || !player.isAlive()) {
-            stopImperioChannel(player, wand);
-            return;
-        }
-
-        long gameTime = player.level().getGameTime();
-        long lastSeen = player.getPersistentData().getLong(TAG_IMPERIO_LAST_SEEN);
-        if (gameTime - lastSeen > IMPERIO_HEARTBEAT_TIMEOUT) {
-            stopImperioChannel(player, wand);
-            return;
-        }
-
-        if (!player.getPersistentData().hasUUID(TAG_IMPERIO_TARGET)) {
-            stopImperioChannel(player, wand);
-            return;
-        }
-
-        net.minecraft.world.entity.Entity rawTarget = player.serverLevel().getEntity(player.getPersistentData().getUUID(TAG_IMPERIO_TARGET));
-        if (!(rawTarget instanceof LivingEntity target) || !target.isAlive() || target == player || target.distanceToSqr(player) > 32.0D * 32.0D) {
-            stopImperioChannel(player, wand);
-            return;
-        }
-
-        float maxMana = PlayerMagicData.getMaxMana(player);
-        float currentMana = modData.contains("Mana") ? modData.getFloat("Mana") : maxMana;
-        float upkeepCost = getImperioUpkeepCost(player, wand);
-        long lastDrain = player.getPersistentData().getLong(TAG_IMPERIO_LAST_DRAIN);
-        if (!player.isCreative() && gameTime - lastDrain >= IMPERIO_UPKEEP_INTERVAL) {
-            if (currentMana < upkeepCost) {
-                stopImperioChannel(player, wand);
-                player.displayClientMessage(Component.literal("Imperio control faded").withStyle(net.minecraft.ChatFormatting.GREEN), true);
-                return;
-            }
-
-            float previousMana = currentMana;
-            currentMana -= upkeepCost;
-            modData.putFloat("Mana", currentMana);
-            player.getPersistentData().getCompound("PlayerPersisted").put(ExampleMod.MODID, modData);
-            player.getPersistentData().putLong(TAG_IMPERIO_LAST_DRAIN, gameTime);
-            if ((int) previousMana != (int) currentMana) {
-                SpellPackets.CHANNEL.send(new SpellPackets.SyncManaPacket(currentMana, maxMana), PacketDistributor.PLAYER.with(player));
-            }
-        }
-
-        target.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.CONFUSION, 12, 0, false, true, true));
-        target.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.GLOWING, 12, 0, false, false, true));
-
-        applyImperioControl(player, target, gameTime);
-
-        if (player.tickCount % 4 == 0) {
-            player.displayClientMessage(Component.literal("Controlling " + target.getName().getString())
-                    .withStyle(net.minecraft.ChatFormatting.GREEN), true);
-        }
-    }
-
     private static void tickWingardiumChannel(ServerPlayer player, net.minecraft.nbt.CompoundTag modData) {
         if (!player.getPersistentData().getBoolean(TAG_WINGARDIUM_CHANNELING)) {
             return;
@@ -1617,32 +1540,11 @@ public class ModEvents {
         }
     }
 
-    public static void stopImperioChannel(ServerPlayer player, ItemStack wand) {
-        player.getPersistentData().remove(TAG_IMPERIO_CHANNELING);
-        player.getPersistentData().remove(TAG_IMPERIO_TARGET);
-        player.getPersistentData().remove(TAG_IMPERIO_LAST_SEEN);
-        player.getPersistentData().remove(TAG_IMPERIO_LAST_DRAIN);
-        player.getPersistentData().remove(TAG_IMPERIO_LAST_ATTACK);
-        player.getPersistentData().remove(TAG_IMPERIO_FORWARD);
-        player.getPersistentData().remove(TAG_IMPERIO_STRAFE);
-        player.getPersistentData().remove(TAG_IMPERIO_JUMP);
-        player.getPersistentData().remove(TAG_IMPERIO_ATTACK);
-        player.getPersistentData().remove(TAG_IMPERIO_YAW);
-        player.getPersistentData().remove(TAG_IMPERIO_PITCH);
-
-        if (!player.isCreative() && MagicWandItem.isAnyWand(wand)) {
-            SpellType spell = SpellType.IMPERIO;
-            long now = player.level().getGameTime();
-            SpellCosts.startCooldown(player, wand, spell, now);
-        }
-    }
-
     public static void interruptActiveCasting(ServerPlayer player) {
         ItemStack wand = player.getMainHandItem();
         com.hogwartsmagic.spell.mind.CrucioChannel.release(player);
-        if (player.getPersistentData().getBoolean(TAG_IMPERIO_CHANNELING)) {
-            stopImperioChannel(player, wand);
-        }
+        com.hogwartsmagic.spell.mind.PossessionManager.endByCaster(player,
+                com.hogwartsmagic.spell.mind.PossessionManager.EndReason.INTERRUPTED);
         if (player.getPersistentData().getBoolean(TAG_PROTEGO_MAXIMA_CHANNELING)) {
             stopProtegoMaximaChannel(player, wand);
         }
@@ -1675,140 +1577,11 @@ public class ModEvents {
         return raw instanceof LivingEntity living && living.isAlive() && raw != player ? living : null;
     }
 
-    public static void updateImperioInput(ServerPlayer player, float forward, float strafe, boolean jump, boolean attack, float yaw, float pitch) {
-        player.getPersistentData().putFloat(TAG_IMPERIO_FORWARD, forward);
-        player.getPersistentData().putFloat(TAG_IMPERIO_STRAFE, strafe);
-        player.getPersistentData().putBoolean(TAG_IMPERIO_JUMP, jump);
-        player.getPersistentData().putBoolean(TAG_IMPERIO_ATTACK, attack);
-        player.getPersistentData().putFloat(TAG_IMPERIO_YAW, yaw);
-        player.getPersistentData().putFloat(TAG_IMPERIO_PITCH, pitch);
-        player.getPersistentData().putLong(TAG_IMPERIO_LAST_SEEN, player.level().getGameTime());
-    }
-
-    private static void applyImperioControl(ServerPlayer caster, LivingEntity target, long gameTime) {
-        float forward = caster.getPersistentData().getFloat(TAG_IMPERIO_FORWARD);
-        float strafe = caster.getPersistentData().getFloat(TAG_IMPERIO_STRAFE);
-        boolean jump = caster.getPersistentData().getBoolean(TAG_IMPERIO_JUMP);
-        boolean attack = caster.getPersistentData().getBoolean(TAG_IMPERIO_ATTACK);
-        float yaw = caster.getPersistentData().getFloat(TAG_IMPERIO_YAW);
-        float pitch = caster.getPersistentData().getFloat(TAG_IMPERIO_PITCH);
-
-        target.setYRot(yaw);
-        target.setYHeadRot(yaw);
-        target.setYBodyRot(yaw);
-        target.setXRot(pitch);
-
-        if (target instanceof Mob mob) {
-            mob.setTarget(null);
-            mob.getNavigation().stop();
-        }
-
-        Vec3 look = Vec3.directionFromRotation(0.0f, yaw).normalize();
-        Vec3 right = new Vec3(look.z, 0.0D, -look.x).normalize();
-        Vec3 desired = look.scale(forward).add(right.scale(strafe));
-        if (desired.lengthSqr() > 1.0D) {
-            desired = desired.normalize();
-        }
-
-        double moveSpeed = target.getAttributeValue(Attributes.MOVEMENT_SPEED);
-        if (moveSpeed <= 0.0D) {
-            moveSpeed = target instanceof Player ? 0.1D : 0.1D;
-        }
-        double controlSpeed = moveSpeed * 1.05D;
-        Vec3 motion = target.getDeltaMovement();
-        Vec3 next = new Vec3(
-                desired.x * controlSpeed + motion.x * 0.15D,
-                motion.y,
-                desired.z * controlSpeed + motion.z * 0.15D
-        );
-        if (Math.abs(forward) < 0.01f && Math.abs(strafe) < 0.01f) {
-            next = new Vec3(motion.x * 0.35D, motion.y, motion.z * 0.35D);
-        }
-        if (jump && target.onGround()) {
-            next = new Vec3(next.x, 0.42D, next.z);
-        }
-
-        target.setDeltaMovement(next);
-        target.hurtMarked = true;
-        target.hasImpulse = true;
-        if (target instanceof ServerPlayer controlledPlayer) {
-            controlledPlayer.connection.send(new ClientboundSetEntityMotionPacket(controlledPlayer));
-        }
-
-        if (attack && gameTime - caster.getPersistentData().getLong(TAG_IMPERIO_LAST_ATTACK) >= IMPERIO_ATTACK_COOLDOWN) {
-            LivingEntity victim = findImperioVictim(caster, target);
-            if (victim != null) {
-                target.swing(InteractionHand.MAIN_HAND);
-                if (target instanceof Mob mob) {
-                    performImperioMobAttack(mob, victim);
-                } else {
-                    float damage = getImperioAttackDamage(target);
-                    if (target instanceof Player playerTarget) {
-                        victim.hurt(target.damageSources().playerAttack(playerTarget), damage);
-                    } else {
-                        victim.hurt(target.damageSources().mobAttack(target), damage);
-                    }
-                }
-                caster.getPersistentData().putLong(TAG_IMPERIO_LAST_ATTACK, gameTime);
-            }
-        }
-    }
-
-    private static void performImperioMobAttack(Mob mob, LivingEntity victim) {
-        try {
-            mob.doHurtTarget(victim);
-        } catch (IllegalArgumentException ex) {
-            float damage = getImperioAttackDamage(mob);
-            victim.hurt(mob.damageSources().mobAttack(mob), damage);
-        }
-    }
-
-    private static float getImperioAttackDamage(LivingEntity target) {
-        try {
-            AttributeInstance damageAttr = target.getAttribute(Attributes.ATTACK_DAMAGE);
-            if (damageAttr != null) {
-                return Math.max(1.0f, (float) damageAttr.getValue());
-            }
-        } catch (IllegalArgumentException ignored) {
-            // Some vanilla-controlled attack paths still expect the legacy generic.attack_damage id in 1.21.
-        }
-        if (target instanceof Player) {
-            // Players may not expose ATTACK_DAMAGE in every runtime path here; keep possession melee stable.
-            return 1.0f;
-        }
-        return 2.0f;
-    }
-
-    private static LivingEntity findImperioVictim(ServerPlayer caster, LivingEntity puppet) {
-        Vec3 eye = puppet.getEyePosition();
-        Vec3 look = puppet.getLookAngle().normalize();
-        AABB box = puppet.getBoundingBox().inflate(2.5D);
-        LivingEntity best = null;
-        double bestDist = Double.MAX_VALUE;
-        for (LivingEntity candidate : puppet.level().getEntitiesOfClass(LivingEntity.class, box,
-                entity -> entity.isAlive() && entity != puppet && entity != caster)) {
-            Vec3 toCandidate = candidate.getEyePosition().subtract(eye);
-            double dist = toCandidate.lengthSqr();
-            if (dist > 10.0D) {
-                continue;
-            }
-            Vec3 dir = toCandidate.normalize();
-            if (dir.dot(look) < 0.35D) {
-                continue;
-            }
-            if (dist < bestDist) {
-                best = candidate;
-                bestDist = dist;
-            }
-        }
-        return best;
-    }
-
     public static float getImperioStartCost(Player player, ItemStack wand) {
         return getImperioUpkeepCost(player, wand);
     }
 
-    private static float getImperioUpkeepCost(Player player, ItemStack wand) {
+    public static float getImperioUpkeepCost(Player player, ItemStack wand) {
         return Math.max(0.75f, (SpellType.IMPERIO.getManaCost() * MagicWandItem.getManaCostMultiplier(wand)
                 * SpellCosts.masteryMultiplier(player, SpellType.IMPERIO)) / 18.0f);
     }

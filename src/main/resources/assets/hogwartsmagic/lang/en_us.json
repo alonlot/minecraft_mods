@@ -336,6 +336,7 @@
   "commands.hogwartsmagic.imperio.started": "Possessing %s",
   "commands.hogwartsmagic.imperio.failed": "Could not possess %s",
   "commands.hogwartsmagic.imperio.released": "Released",
+  "gui.hogwartsmagic.possession.hit_first": "Hit a player or creature with Imperio, then keep holding",
   "commands.hogwartsmagic.imperio.not_possessing": "You are not possessing anyone",
   "death.attack.hogwartsmagic.bleeding.player": "%1$s bled out whilst fighting %2$s",
   "death.attack.hogwartsmagic.bleeding.item": "%1$s bled out whilst fighting %2$s using %3$s",

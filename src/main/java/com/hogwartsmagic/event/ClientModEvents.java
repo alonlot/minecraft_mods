@@ -367,9 +367,8 @@ public class ClientModEvents {
                                 SpellPackets.CHANNEL.send(new SpellPackets.ImperioControlPacket(true, false, forward, strafe, jumpDown, attackDown, mc.player.getYRot(), mc.player.getXRot()), PacketDistributor.SERVER.noArg());
                                 imperioChannelActive = true;
                                 mc.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
-                            } else if (imperioChannelActive) {
-                                SpellPackets.CHANNEL.send(new SpellPackets.ImperioControlPacket(false, false, forward, strafe, jumpDown, attackDown, mc.player.getYRot(), mc.player.getXRot()), PacketDistributor.SERVER.noArg());
                             }
+                            // Once possessing, PossessionClient streams the input (raw keys and the virtual look).
                         } else {
                             if (imperioChannelActive) {
                                 SpellPackets.CHANNEL.send(new SpellPackets.ImperioControlPacket(false, true, 0.0f, 0.0f, false, false, mc.player.getYRot(), mc.player.getXRot()), PacketDistributor.SERVER.noArg());

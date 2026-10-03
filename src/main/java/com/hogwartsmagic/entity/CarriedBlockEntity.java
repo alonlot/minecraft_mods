@@ -1,6 +1,7 @@
 package com.hogwartsmagic.entity;
 
 import com.hogwartsmagic.spell.TerrainRules;
+import com.hogwartsmagic.spell.mind.MindControl;
 import com.hogwartsmagic.spell.motion.WingardiumRules;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
@@ -10,15 +11,21 @@ import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.MoverType;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.material.Fluids;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.Vec3;
 
 import javax.annotation.Nullable;
@@ -94,10 +101,13 @@ public class CarriedBlockEntity extends Entity {
             this.setDeltaMovement(this.getDeltaMovement().add(0.0D, -WingardiumRules.GRAVITY, 0.0D).scale(WingardiumRules.DRAG));
         }
         Vec3 motion = this.getDeltaMovement();
-        if (this.thrown && this.strikeAlongPath(level, motion)) {
+        AABB before = this.getBoundingBox();
+        Vec3 from = this.position();
+        this.move(MoverType.SELF, motion);
+        // Strike after moving, along the distance actually travelled, so a wall blocks the sweep.
+        if (this.thrown && this.strikeAlongPath(level, before, this.position().subtract(from), motion)) {
             return;
         }
-        this.move(MoverType.SELF, motion);
         if (this.thrown && (this.horizontalCollision || this.verticalCollision)) {
             // Hit a wall or a ceiling: the flight ends and it drops from here.
             this.thrown = false;
@@ -110,11 +120,11 @@ public class CarriedBlockEntity extends Entity {
     }
 
     /** True when it hit a creature this tick (it then stops flying and falls). */
-    private boolean strikeAlongPath(ServerLevel level, Vec3 motion) {
-        Entity owner = this.ownerUuid == null ? null : level.getEntity(this.ownerUuid);
-        for (Entity hit : level.getEntities(this, this.getBoundingBox().expandTowards(motion).inflate(0.25D),
+    private boolean strikeAlongPath(ServerLevel level, AABB before, Vec3 travelled, Vec3 motion) {
+        for (Entity hit : level.getEntities(this, before.expandTowards(travelled).inflate(0.25D),
                 candidate -> candidate instanceof LivingEntity living && living.isAlive() && !candidate.isSpectator()
-                        && (this.ownerUuid == null || !this.ownerUuid.equals(candidate.getUUID())))) {
+                        && this.mayStrike(level, candidate))) {
+            Entity owner = this.resolveOwner(level);
             DamageSource source = this.damageSources().thrown(this, owner);
             if (this.impactDamage > 0.0F) {
                 hit.hurt(source, this.impactDamage);
@@ -127,12 +137,44 @@ public class CarriedBlockEntity extends Entity {
         return false;
     }
 
+    /** Never the lifter; a player is spared when the lifter may not harm them (PvP off, teams, allies, creative). */
+    private boolean mayStrike(ServerLevel level, Entity candidate) {
+        if (candidate instanceof Player player) {
+            return !MindControl.puppeteerSpares(level, this.ownerUuid, player);
+        }
+        return this.ownerUuid == null || !this.ownerUuid.equals(candidate.getUUID());
+    }
+
+    @Nullable
+    private Entity resolveOwner(ServerLevel level) {
+        if (this.ownerUuid == null) {
+            return null;
+        }
+        ServerPlayer player = level.getServer().getPlayerList().getPlayer(this.ownerUuid);
+        return player != null ? player : level.getEntity(this.ownerUuid);
+    }
+
     /** Places itself if it may, otherwise drops as its own item; never lost, never doubled. */
     private void land(ServerLevel level) {
         BlockState state = this.getCarriedState();
+        if (state.isAir()) {
+            this.discard();
+            return;
+        }
         BlockPos pos = this.blockPosition();
-        Entity owner = this.ownerUuid == null ? null : level.getEntity(this.ownerUuid);
-        if (level.isLoaded(pos) && level.getBlockState(pos).canBeReplaced() && state.canSurvive(level, pos)
+        Entity owner = this.resolveOwner(level);
+        // A lifted block whose lifter is gone (offline) is not placed: it drops, so claims stay safe.
+        boolean ownerOk = this.ownerUuid == null || owner != null;
+        if (ownerOk && level.isLoaded(pos)) {
+            if (state.hasProperty(BlockStateProperties.WATERLOGGED)) {
+                state = state.setValue(BlockStateProperties.WATERLOGGED, level.getFluidState(pos).is(Fluids.WATER));
+            }
+            if (state.hasProperty(BlockStateProperties.POWERED)) {
+                state = state.setValue(BlockStateProperties.POWERED, false);
+            }
+        }
+        if (ownerOk && level.isLoaded(pos) && level.getBlockState(pos).canBeReplaced() && state.canSurvive(level, pos)
+                && level.isUnobstructed(state, pos, CollisionContext.empty())
                 && TerrainRules.canPlace(level, pos, owner)) {
             level.setBlockAndUpdate(pos, state);
         } else {

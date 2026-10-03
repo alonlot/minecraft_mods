@@ -153,7 +153,7 @@
   "spell.hogwartsmagic.aqua_eructo": "Aqua Eructo",
   "spell.hogwartsmagic.aqua_eructo.desc": "Shoots a blast of water that extinguishes fires and heavily damages fiery creatures.",
   "spell.hogwartsmagic.obliviate": "Obliviate",
-  "spell.hogwartsmagic.obliviate.desc": "Wipes the target's memory, confusing them and making them forget who they were fighting.",
+  "spell.hogwartsmagic.obliviate.desc": "Wipes a creature's memory of you: it drops its target and leaves you alone until you strike it (5s, up to 30s at Master). Silences players. At Master it also forgets its raid and its home. Bosses resist it.",
   "spell.hogwartsmagic.ascendio": "Ascendio",
   "spell.hogwartsmagic.ascendio.desc": "Aim down (or crouch-cast) to launch yourself 6 blocks up, 15 at Master, with no fall damage for 5 seconds; aim at a creature to toss it. Expert: cast again in midair for a second boost. Master: shoot up through water, and shove nearby enemies away as you take off.",
   "spell.hogwartsmagic.confundo": "Confundo",

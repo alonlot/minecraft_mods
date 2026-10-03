@@ -299,6 +299,29 @@ public class ModEvents {
         updateRaidProgress(level, raid);
     }
 
+    /**
+     * Master Obliviate: the Death Eater forgets its raid. It stops counting toward the raid's progress; a raid
+     * emptied this way ends without the Hero of the Village reward (nobody beat it).
+     *
+     * @return true if the wizard was in a raid
+     */
+    public static boolean removeFromWizardRaid(ServerLevel level, com.hogwartsmagic.entity.WizardEntity wizard) {
+        java.util.UUID raidId = WIZARD_TO_RAID.remove(wizard.getUUID());
+        if (raidId == null) {
+            return false;
+        }
+        ActiveWizardRaid raid = ACTIVE_WIZARD_RAIDS.get(raidId);
+        if (raid == null) {
+            return true;
+        }
+        raid.members.remove(wizard.getUUID());
+        updateRaidProgress(level, raid);
+        if (raid.members.isEmpty()) {
+            finishWizardRaid(level, raid, false);
+        }
+        return true;
+    }
+
     private static void updateRaidBarPlayers(ServerLevel level, ActiveWizardRaid raid) {
         for (net.minecraft.server.level.ServerPlayer player : level.players()) {
             if (player.blockPosition().closerThan(raid.center, WIZARD_RAID_RADIUS)) {

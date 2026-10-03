@@ -157,6 +157,7 @@ public enum SpellType {
     /** @param masteryEligible false for a Protego-reflected beam: a Bombarda blast it queues earns no block XP */
     public void applyHitEffect(LivingEntity target, Entity caster, @javax.annotation.Nullable net.minecraft.world.phys.Vec3 beamDir,
                                boolean masteryEligible) {
+        com.hogwartsmagic.spell.mind.MindHooks.beforeSpellHit(this, target, caster);
         switch (this) {
             case EXPELLIARMUS -> com.hogwartsmagic.spell.support.ExpelliarmusSpell.apply(target, caster, masteryEligible);
             case GLACIUS -> {
@@ -309,14 +310,7 @@ public enum SpellType {
                     target.push(push.x * 0.35, 0.1, push.z * 0.35);
                 }
             }
-            case OBLIVIATE -> {
-                interruptActiveCasting(target);
-                if (target instanceof net.minecraft.world.entity.Mob mob) {
-                    mob.setTarget(null); // Make them forget who they were attacking
-                }
-                target.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 100, 0));
-                target.addEffect(new MobEffectInstance(MobEffects.CONFUSION, 200, 0));
-            }
+            case OBLIVIATE -> com.hogwartsmagic.spell.mind.ObliviateSpell.apply(target, caster);
             case ASCENDIO -> {
                 target.setDeltaMovement(target.getDeltaMovement().add(0, 1.5, 0));
                 if (target.level() instanceof ServerLevel server) {

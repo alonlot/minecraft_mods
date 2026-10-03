@@ -1977,6 +1977,10 @@ public class ModEvents {
             return;
         }
         ItemStack wand = player.getMainHandItem();
+        if (!MagicWandItem.isAnyWand(wand)) {
+            cancelApparitionChannel(player, wand);
+            return;
+        }
         if (!(player.level() instanceof ServerLevel level)) {
             cancelApparitionChannel(player, wand);
             return;
@@ -2058,11 +2062,16 @@ public class ModEvents {
             return;
         }
         ItemStack wand = player.getMainHandItem();
+        if (!MagicWandItem.isAnyWand(wand)) {
+            cancelApparitionChannel(player, wand);
+            return;
+        }
         if (!(player.level() instanceof ServerLevel level)
                 || !com.hogwartsmagic.spell.support.ApparitionRules.jumpsToFireplaces(
                         com.hogwartsmagic.spell.mastery.SpellMasteryData.getRank(player, SpellType.APPARITION))
                 || !com.hogwartsmagic.spell.support.ApparitionSpell.isKnown(player, level, fireplacePos)
-                || !level.isInWorldBounds(fireplacePos)) {
+                || !level.isInWorldBounds(fireplacePos)
+                || !level.getWorldBorder().isWithinBounds(fireplacePos)) {
             cancelApparitionChannel(player, wand);
             return;
         }
@@ -2080,7 +2089,6 @@ public class ModEvents {
         double y = exit.getY();
         double z = exit.getZ() + 0.5;
         if (com.hogwartsmagic.caveinimicum.CaveInimicumManager.get(level).isWardedAt(exit)
-                || !level.getWorldBorder().isWithinBounds(exit)
                 || !level.noCollision(player.getDimensions(player.getPose()).makeBoundingBox(x, y, z))) {
             player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
                     "message.hogwartsmagic.apparition.blocked").withStyle(net.minecraft.ChatFormatting.LIGHT_PURPLE), true);
@@ -2107,6 +2115,7 @@ public class ModEvents {
                 passenger.fallDistance = 0.0f;
             }
         }
+        com.hogwartsmagic.spell.support.ApparitionSpell.rememberFireplace(player, level, fireplacePos, fireplace.getFireplaceName());
         revealInvisibilityCloak(player);
         applyApparitionCooldown(player, wand, true);
     }

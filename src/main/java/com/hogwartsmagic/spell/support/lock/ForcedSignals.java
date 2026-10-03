@@ -29,6 +29,13 @@ public final class ForcedSignals {
     /** The mixin's fast path: nothing is forced anywhere. */
     public static volatile boolean ACTIVE;
 
+    /**
+     * Set on the server thread while CircuitTracer.trace runs, so a source forced a moment ago is not traced
+     * as a source that is on. A plain static: only the server thread writes it and only the server thread
+     * (checked first in {@link #signal}) reads it.
+     */
+    public static boolean TRACING;
+
     /** The block that was forced, so a block that replaced it is not read as forced. */
     private record Entry(Block block, long until) {
     }
@@ -50,7 +57,7 @@ public final class ForcedSignals {
     }
 
     public static int signal(ServerLevel level, BlockPos pos, BlockState state, Direction direction, boolean strong) {
-        if (!level.getServer().isSameThread()) {
+        if (!level.getServer().isSameThread() || TRACING) {
             return 0;
         }
         Map<BlockPos, Entry> map = FORCED.get(level.dimension());

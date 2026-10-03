@@ -12,7 +12,8 @@
     "FoodDataBleedingMixin",
     "PlayerBleedingMixin",
     "LivingEntityLastHurtAccessor",
-    "BlockStateSignalMixin"
+    "BlockStateSignalMixin",
+    "BasePressurePlateTypeAccessor"
   ],
   "client": [
     "client.InvisibilityCloakArmorLayerMixin",

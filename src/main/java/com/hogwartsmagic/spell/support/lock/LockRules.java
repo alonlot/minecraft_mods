@@ -66,10 +66,11 @@ public final class LockRules {
 
     /** {fewest, most} 64-stacking items that give exactly this signal. */
     public static int[] itemsForSignal(int signal, int slots) {
-        int capacity = 64 * slots;
         if (signal <= 0 || slots <= 0) {
             return new int[] {0, 0};
         }
+        signal = Math.min(15, signal);
+        int capacity = 64 * slots;
         int min = signal == 1 ? 1 : ceilDiv((signal - 1) * capacity, 14);
         int max = signal >= 15 ? capacity : Math.min(capacity, ceilDiv(signal * capacity, 14) - 1);
         return new int[] {min, max};

@@ -40,6 +40,15 @@ public final class LockSimulator {
         return settle();
     }
 
+    /**
+     * Like {@link #reset()}, but the settle respects workLimit and thread interrupts as in
+     * {@link #settle(int, long)}; {@link #stoppedForBudget()} tells a stop from an unstable lock.
+     */
+    public boolean resetBounded(long workLimit) {
+        load();
+        return settle(MAX_TICKS, workLimit);
+    }
+
     public boolean settle() {
         return settle(MAX_TICKS);
     }

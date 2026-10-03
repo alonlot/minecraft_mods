@@ -59,7 +59,7 @@ public final class LockHints {
         List<CircuitTracer.InputSite> sites = lock.inputs();
         for (int i = 0; i < s.set().length; i++) {
             CircuitTracer.InputSite site = sites.get(s.set()[i]);
-            mark(level, site, settingLabel(site, s.setTo()[i]), until);
+            mark(level, site, settingLabel(level, site, s.setTo()[i]), until);
         }
         Map<Integer, List<Integer>> orders = new LinkedHashMap<>();
         for (int i = 0; i < s.presses().length; i++) {
@@ -74,13 +74,22 @@ public final class LockHints {
         }
     }
 
-    private static Component settingLabel(CircuitTracer.InputSite site, int to) {
+    private static Component settingLabel(ServerLevel level, CircuitTracer.InputSite site, int to) {
         String p = "message.hogwartsmagic.lock.hint.";
         if (site.kind() == LockCircuit.LEVER) {
             return Component.translatable(p + (to > 0 ? "lever_on" : "lever_off"));
         }
         if (site.source() == CircuitTracer.InputSite.FRAME) {
-            return to == 0 ? Component.translatable(p + "frame_empty") : Component.translatable(p + "frame", to - 1);
+            if (to == 0) {
+                return Component.translatable(p + "frame_empty");
+            }
+            // Turns are counted from where the frame stands now; an empty frame starts at 0 once an item is in.
+            int turns = to - 1;
+            if (site.frame() != null && level.getEntity(site.frame()) instanceof ItemFrame frame
+                    && !frame.getItem().isEmpty()) {
+                turns = Math.floorMod((to - 1) - frame.getRotation(), 8);
+            }
+            return Component.translatable(p + "frame", turns);
         }
         if (site.source() == CircuitTracer.InputSite.CONTAINER) {
             if (to == 0) {
@@ -154,8 +163,20 @@ public final class LockHints {
                 continue;
             }
             it.remove();
+            if (shown.frame() && holdsFrame(shown.entity())) {
+                continue; // a newer hint still glows this frame; its own expiry lets go
+            }
             clear(level, shown);
         }
+    }
+
+    private static boolean holdsFrame(UUID frame) {
+        for (Shown other : SHOWN) {
+            if (other.frame() && other.entity().equals(frame)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void clear(ServerLevel level, Shown shown) {

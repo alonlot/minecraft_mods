@@ -31,11 +31,16 @@ public final class LockInfoCommand {
             source.sendFailure(Component.literal("Look at a block of a piston door within 20 blocks."));
             return 0;
         }
-        if (!PistonLockSpell.begin(player.serverLevel(), blockHit.getBlockPos(), player, rank, PistonLockSpell.Use.INSPECT)) {
+        PistonLockSpell.Begin begin = PistonLockSpell.begin(player.serverLevel(), blockHit.getBlockPos(), player, rank,
+                PistonLockSpell.Use.INSPECT);
+        if (begin == PistonLockSpell.Begin.NO_PISTON) {
             source.sendFailure(Component.literal("No piston within 6 blocks of that block."));
             return 0;
         }
-        source.sendSuccess(() -> Component.literal("Reading the lock..."), false);
-        return 1;
+        if (begin == PistonLockSpell.Begin.STARTED) {
+            source.sendSuccess(() -> Component.literal("Reading the lock..."), false);
+            return 1;
+        }
+        return 0; // refused: the player was told why (BUSY or PISTON_LOGIC)
     }
 }

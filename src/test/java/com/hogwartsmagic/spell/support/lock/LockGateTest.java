@@ -2,6 +2,7 @@ package com.hogwartsmagic.spell.support.lock;
 
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -63,10 +64,12 @@ class LockGateTest {
     }
 
     @Test
-    void acceptsASideInputButNotOnADust() {
+    void aSideInputIsAcceptedOnAGate15ButRefusedOnADust() {
         LockCircuit.Builder b = new LockCircuit.Builder();
         int x = b.input(LockCircuit.LEVER, false);
+        int gate = b.node(LockCircuit.GATE15, 0);
         int dust = b.node(LockCircuit.MAX, 0);
+        assertDoesNotThrow(() -> b.side(x, gate, 0));
         assertThrows(IllegalArgumentException.class, () -> b.side(x, dust, 0));
     }
 }

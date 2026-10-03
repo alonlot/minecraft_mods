@@ -28,21 +28,16 @@ public final class LockSolver {
             return Solution.none(Status.NO_DOOR, 0, 0);
         }
         int movable = c.controllableGoals();
-        int counted = 0;
-        for (int i = 0; i < c.inputCount(); i++) {
-            if (c.inputKind(i) != LockCircuit.FORCE) {
-                counted++;
-            }
-        }
-        if (counted > maxInputs) {
+        if (c.nonForcedInputCount() > maxInputs) {
             return Solution.none(Status.TOO_MANY_INPUTS, movable, 0);
         }
         if (c.inputCount() == 0 || movable == 0) {
             return Solution.none(Status.NO_SOLUTION, movable, 0);
         }
         LockSimulator sim = new LockSimulator(c);
-        if (!sim.reset()) {
-            return Solution.none(Status.UNSTABLE, movable, sim.work());
+        if (!sim.resetBounded(budget)) {
+            // out of budget or interrupted is not the same as a lock that never stops ticking
+            return Solution.none(sim.stoppedForBudget() ? Status.OUT_OF_TIME : Status.UNSTABLE, movable, sim.work());
         }
         Search search = new Search(c, sim, budget, movable);
         int[] settable = concat(ofKind(c, LockCircuit.LEVER), ofKind(c, LockCircuit.ANALOG));

@@ -314,7 +314,7 @@
   "message.hogwartsmagic.lock.shifted": "Someone touched the lock while you read it.",
   "message.hogwartsmagic.lock.opened": "The lock gives way.",
   "message.hogwartsmagic.lock.revealed": "The door's secret glows for a moment.",
-  "message.hogwartsmagic.lock.piston_logic": "This lock moves blocks with pistons; magic can not read it.",
+  "message.hogwartsmagic.lock.piston_logic": "This lock moves blocks with pistons; magic cannot read it.",
   "message.hogwartsmagic.lock.hint.lever_on": "Flip on",
   "message.hogwartsmagic.lock.hint.lever_off": "Flip off",
   "message.hogwartsmagic.lock.hint.press": "Press: %s",

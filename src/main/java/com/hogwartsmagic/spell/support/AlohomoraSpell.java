@@ -49,9 +49,10 @@ import java.util.UUID;
 /**
  * Alohomora, the unlocking charm. Novice: wooden doors, trapdoors and fence gates. Adept: iron doors
  * and iron trapdoors too, which swing shut again after 100 ticks (an unloaded door is left open).
- * Expert: every openable door within 4 blocks, and a piston door with a small lock (see PistonLockSpell). Master: a Gringotts vault door from range (through the
- * door's own beginOpening, so the bank's alarm still fires) any piston door lock (forcing a comparator, observer or sensor if it must), and a hostile Ward's barrier, off for
- * 100 ticks. Server only.
+ * Expert: every openable door within 4 blocks, and a piston door with a small lock (see PistonLockSpell).
+ * Master: a Gringotts vault door from range (through the door's own beginOpening, so the bank's alarm
+ * still fires), any piston door lock (forcing a comparator, observer or sensor if it must), and a hostile
+ * Ward's barrier, off for 100 ticks. Server only.
  */
 @Mod.EventBusSubscriber(modid = ExampleMod.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class AlohomoraSpell {

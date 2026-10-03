@@ -81,6 +81,17 @@ public final class LockCircuit {
         return inputNodes.length;
     }
 
+    /** Inputs the player must work: every one except the forceable sources (what the solver's input cap counts). */
+    public int nonForcedInputCount() {
+        int counted = 0;
+        for (int kind : inputKinds) {
+            if (kind != FORCE) {
+                counted++;
+            }
+        }
+        return counted;
+    }
+
     public int inputKind(int input) {
         return inputKinds[input];
     }

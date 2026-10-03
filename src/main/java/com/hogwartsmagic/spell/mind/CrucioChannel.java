@@ -206,7 +206,9 @@ public final class CrucioChannel {
         }
         ServerPlayer casterPlayer = channel.held ? server.getPlayerList().getPlayer(channel.casterId) : null;
         if (casterPlayer != null) {
-            casterPlayer.removeEffect(DisableSupport.holder(ExampleMod.ROOTED)); // also after a dimension change
+            if (!PossessionManager.isPossessing(casterPlayer)) {
+                casterPlayer.removeEffect(DisableSupport.holder(ExampleMod.ROOTED)); // also after a dimension change
+            }
         }
         ServerLevel level = server.getLevel(channel.dimension);
         if (level == null) {
@@ -218,7 +220,7 @@ public final class CrucioChannel {
         if (target == null) {
             target = living(server.getPlayerList().getPlayer(channel.targetId)); // a player who changed dimension
         }
-        if (caster != null && channel.held) {
+        if (caster != null && channel.held && !PossessionManager.isPossessing(caster)) {
             caster.removeEffect(DisableSupport.holder(ExampleMod.ROOTED));
         }
         if (target == null) {

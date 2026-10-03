@@ -224,6 +224,13 @@ public class ExampleMod
                             net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(MODID, "rooted_jump"), -1.0,
                             net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
 
+    /** Imperio Master: the possessed body (hidden). A possessed mob's AI is paused; a possessed player's own keys do nothing. */
+    public static final RegistryObject<net.minecraft.world.effect.MobEffect> POSSESSED = MOB_EFFECTS.register("possessed",
+            () -> new net.minecraft.world.effect.MobEffect(net.minecraft.world.effect.MobEffectCategory.HARMFUL, 0x55CC66) {});
+    /** Imperio Master: the caster's frozen body (hidden). It makes the body immobile on both sides through LivingEntityStunMixin. */
+    public static final RegistryObject<net.minecraft.world.effect.MobEffect> POSSESSING = MOB_EFFECTS.register("possessing",
+            () -> new net.minecraft.world.effect.MobEffect(net.minecraft.world.effect.MobEffectCategory.HARMFUL, 0x55CC66) {});
+
     public static final RegistryObject<Block> WAND_WORKBENCH = BLOCKS.register("wand_workbench",
             () -> new com.hogwartsmagic.block.WandWorkbenchBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.SMITHING_TABLE)));
 
@@ -956,6 +963,7 @@ public class ExampleMod
         com.hogwartsmagic.command.SummonHorntailCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.SpellMasteryCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.CrowdControlCommand.register(event.getDispatcher());
+        com.hogwartsmagic.command.ImperioCommand.register(event.getDispatcher());
     }
 
     private static ArmorMaterial createRobeMaterial(String textureName) {

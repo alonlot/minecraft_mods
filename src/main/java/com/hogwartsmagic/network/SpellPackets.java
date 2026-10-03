@@ -46,7 +46,7 @@ public class SpellPackets {
 
     public static final SimpleChannel CHANNEL = ChannelBuilder
             .named(ExampleMod.MODID + ":spells")
-            .networkProtocolVersion(4)
+            .networkProtocolVersion(5)
             .simpleChannel();
 
     public static void register() {
@@ -413,6 +413,30 @@ public class SpellPackets {
                 })
                 .decoder(buf -> new ThrallLabelPacket(buf.readVarInt(), buf.readUtf(64)))
                 .consumerMainThread(ThrallLabelPacket::handle)
+                .add();
+        CHANNEL.messageBuilder(PossessionStatePacket.class)
+                .encoder((p, buf) -> {
+                    buf.writeByte(p.role);
+                    buf.writeVarInt(p.otherId);
+                    buf.writeVarInt(p.ticksLeft);
+                    buf.writeBoolean(p.resistOpen);
+                    buf.writeBoolean(p.holdRequired);
+                })
+                .decoder(buf -> new PossessionStatePacket(buf.readByte(), buf.readVarInt(), buf.readVarInt(),
+                        buf.readBoolean(), buf.readBoolean()))
+                .consumerMainThread(PossessionStatePacket::handle)
+                .add();
+        CHANNEL.messageBuilder(PuppetInputPacket.class)
+                .encoder((p, buf) -> {
+                    buf.writeFloat(p.forward);
+                    buf.writeFloat(p.strafe);
+                    buf.writeBoolean(p.jump);
+                    buf.writeFloat(p.yaw);
+                    buf.writeFloat(p.pitch);
+                })
+                .decoder(buf -> new PuppetInputPacket(buf.readFloat(), buf.readFloat(), buf.readBoolean(),
+                        buf.readFloat(), buf.readFloat()))
+                .consumerMainThread(PuppetInputPacket::handle)
                 .add();
     }
 
@@ -1222,6 +1246,10 @@ public class SpellPackets {
             if (com.hogwartsmagic.spell.mind.MindControl.isControlled(player)) {
                 return; // a thrall can't start or steer a channel of its own
             }
+            // A running possession takes every packet from its own caster (input, heartbeat, release).
+            if (com.hogwartsmagic.spell.mind.PossessionManager.handleCasterPacket(player, p)) {
+                return;
+            }
             ItemStack wand = player.getMainHandItem();
             if (!MagicWandItem.isAnyWand(wand)) {
                 return;
@@ -1569,6 +1597,28 @@ public class SpellPackets {
                 return;
             }
             enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("thrallLabel", p));
+        }
+    }
+
+    /** Server to client: your part in a possession (ROLE_NONE ends it), the other body, ticks left, resisting open. */
+    public record PossessionStatePacket(byte role, int otherId, int ticksLeft, boolean resistOpen, boolean holdRequired) {
+        public static void handle(PossessionStatePacket p, CustomPayloadEvent.Context ctx) {
+            if (ctx.getSender() != null) {
+                ctx.setPacketHandled(true); // server-to-client only
+                return;
+            }
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("possessionState", p));
+        }
+    }
+
+    /** Server to client (the possessed player): the caster's movement and look, carried out by the victim's own client. Sent only when it changes. */
+    public record PuppetInputPacket(float forward, float strafe, boolean jump, float yaw, float pitch) {
+        public static void handle(PuppetInputPacket p, CustomPayloadEvent.Context ctx) {
+            if (ctx.getSender() != null) {
+                ctx.setPacketHandled(true);
+                return;
+            }
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("puppetInput", p));
         }
     }
 }

@@ -157,7 +157,7 @@
   "spell.hogwartsmagic.ascendio": "Ascendio",
   "spell.hogwartsmagic.ascendio.desc": "Aim down (or crouch-cast) to launch yourself 6 blocks up, 15 at Master, with no fall damage for 5 seconds; aim at a creature to toss it. Expert: cast again in midair for a second boost. Master: shoot up through water, and shove nearby enemies away as you take off.",
   "spell.hogwartsmagic.confundo": "Confundo",
-  "spell.hogwartsmagic.confundo.desc": "Greatly confuses the target, causing them to attack anything nearby.",
+  "spell.hogwartsmagic.confundo.desc": "Muddles a creature so it turns on the nearest other creature (5s, up to 12s at Master). Players reel with nausea. At Master the confusion spreads to whatever the creature hits. Bosses resist it.",
   "spell.hogwartsmagic.cave_inimicum": "Cave Inimicum",
   "spell.hogwartsmagic.cave_inimicum.desc": "Anchors a protected illusion to a ward block. Outside viewers see the frozen snapshot; inside viewers see reality.",
   "spell.hogwartsmagic.alatus": "Alatus",

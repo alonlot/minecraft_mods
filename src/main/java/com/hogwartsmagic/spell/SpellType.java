@@ -322,19 +322,7 @@ public enum SpellType {
                     }
                 }
             }
-            case CONFUNDO -> {
-                interruptActiveCasting(target);
-                target.addEffect(new MobEffectInstance(MobEffects.CONFUSION, 300, 0));
-                target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 100, 1));
-                if (target instanceof net.minecraft.world.entity.Mob mob) {
-                    // Make them attack a random nearby entity (not just allies/enemies, anyone)
-                    net.minecraft.world.phys.AABB area = mob.getBoundingBox().inflate(10.0);
-                    java.util.List<LivingEntity> nearby = mob.level().getEntitiesOfClass(LivingEntity.class, area, e -> e != mob);
-                    if (!nearby.isEmpty()) {
-                        mob.setTarget(nearby.get(mob.level().random.nextInt(nearby.size())));
-                    }
-                }
-            }
+            case CONFUNDO -> com.hogwartsmagic.spell.mind.ConfundoSpell.apply(target, caster);
             case SERPENSORTIA -> {
                 if (target.level() instanceof ServerLevel serverLevel) {
                     for (int i = 0; i < 3; i++) {

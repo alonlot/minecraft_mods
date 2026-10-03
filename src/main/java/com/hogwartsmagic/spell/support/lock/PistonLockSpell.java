@@ -30,9 +30,12 @@ import net.minecraftforge.fml.common.Mod;
 import org.slf4j.Logger;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.ListIterator;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
@@ -78,8 +81,18 @@ public final class PistonLockSpell {
         }
     }
 
-    private record Step(Playback play, int input, long at, boolean last) {
+    /**
+     * One thing to do at tick at: work one input, or (several inputs, all forceable) force them together.
+     * retries: how often a sculk sensor step has already waited for its sensor to cool down.
+     */
+    private record Step(Playback play, int[] inputs, long at, boolean last, int retries) {
+        Step later(long by, int moreRetries) {
+            return new Step(play, inputs, at + by, last, retries + moreRetries);
+        }
     }
+
+    private static final int SENSOR_WAIT_TICKS = 40;
+    private static final int SENSOR_MAX_RETRIES = 2;
 
     private static final ExecutorService SOLVER = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "hogwartsmagic-lock-solver");
@@ -99,6 +112,14 @@ public final class PistonLockSpell {
      */
     public static Begin begin(ServerLevel level, BlockPos hit, ServerPlayer caster, int rank, Use use) {
         UUID id = caster.getUUID();
+        if (!CircuitTracer.hasDoorPiston(level, hit)) {
+            return Begin.NO_PISTON; // cheap probe first: nothing is traced for a block that is no door
+        }
+        if (JOBS.stream().anyMatch(j -> j.caster().equals(id)) || STEPS.stream().anyMatch(s -> s.play().caster.equals(id))) {
+            tell(caster, "busy", ChatFormatting.GRAY);
+            inspectLine(caster, use, "BUSY");
+            return Begin.REFUSED;
+        }
         CircuitTracer.Mode mode = use == Use.REVEAL
                 ? new CircuitTracer.Mode(false, LockRules.readsItemKeys(rank))
                 : new CircuitTracer.Mode(LockRules.forcesSources(rank), false);
@@ -111,11 +132,6 @@ public final class PistonLockSpell {
         }
         if (lock == null) {
             return Begin.NO_PISTON;
-        }
-        if (JOBS.stream().anyMatch(j -> j.caster().equals(id)) || STEPS.stream().anyMatch(s -> s.play().caster.equals(id))) {
-            tell(caster, "busy", ChatFormatting.GRAY);
-            inspectLine(caster, use, "BUSY");
-            return Begin.REFUSED;
         }
         if (lock.circuit().pistonLogic()) {
             tell(caster, "piston_logic", ChatFormatting.GOLD); // pistons that move wiring are not modelled
@@ -218,6 +234,7 @@ public final class PistonLockSpell {
             tell(player, "shifted", ChatFormatting.GOLD);
             return;
         }
+        LockCircuit circuit = job.lock().circuit();
         for (int input : s.set()) {
             if (shifted(level, sites.get(input), sites.get(input).on())) {
                 tell(player, "shifted", ChatFormatting.GOLD);
@@ -230,17 +247,28 @@ public final class PistonLockSpell {
                 return;
             }
         }
-        long at = now;
-        for (int i = 0; i < s.set().length; i++) {
-            boolean last = s.presses().length == 0 && i == s.set().length - 1;
-            STEPS.add(new Step(play, s.set()[i], at, last));
+        // A FORCE index inside set means "hold these sources on together" (one step); the rest are levels to set.
+        List<Integer> levels = new ArrayList<>();
+        List<Integer> together = new ArrayList<>();
+        for (int input : s.set()) {
+            (circuit.inputKind(input) == LockCircuit.FORCE ? together : levels).add(input);
         }
-        if (s.set().length > 0) {
+        long at = now;
+        for (int i = 0; i < levels.size(); i++) {
+            boolean last = s.presses().length == 0 && together.isEmpty() && i == levels.size() - 1;
+            STEPS.add(new Step(play, new int[] {levels.get(i)}, at, last, 0));
+        }
+        if (!levels.isEmpty()) {
             at += LockRules.LEVER_SETTLE_TICKS;
+        }
+        if (!together.isEmpty()) {
+            STEPS.add(new Step(play, together.stream().mapToInt(Integer::intValue).toArray(), at,
+                    s.presses().length == 0, 0));
+            at += LockRules.FORCE_GAP_TICKS;
         }
         for (int i = 0; i < s.presses().length; i++) {
             CircuitTracer.InputSite site = sites.get(s.presses()[i]);
-            STEPS.add(new Step(play, s.presses()[i], at, i == s.presses().length - 1));
+            STEPS.add(new Step(play, new int[] {s.presses()[i]}, at, i == s.presses().length - 1, 0));
             at += site.kind() == LockCircuit.FORCE ? LockRules.FORCE_GAP_TICKS : LockRules.PRESS_GAP_TICKS;
         }
     }
@@ -261,15 +289,28 @@ public final class PistonLockSpell {
         return (kind == LockCircuit.LEVER || kind == LockCircuit.PULSE) && CircuitTracer.isOn(state) != expectedOn;
     }
 
+    /** The block is unloaded or has been replaced. */
+    private static boolean gone(ServerLevel level, CircuitTracer.InputSite site) {
+        return !level.isLoaded(site.pos()) || level.getBlockState(site.pos()).getBlock() != site.block();
+    }
+
     /**
      * Some lever or button of the lock no longer stands as the playback expects: a lever the playback has not
-     * flipped as traced, one it has flipped as flipped, a button (which springs back) as traced.
+     * flipped as traced, one it has flipped as flipped, a button (which springs back) as traced. A sculk sensor
+     * fires on its own when it hears the playback, so for it only the block is checked, never its power or
+     * phase; the step that works a sensor waits for it separately.
      */
     private static boolean inputsShifted(ServerLevel level, Playback play) {
         for (int i = 0; i < play.inputs.size(); i++) {
             CircuitTracer.InputSite site = play.inputs.get(i);
             int kind = site.kind();
             if (kind != LockCircuit.LEVER && kind != LockCircuit.PULSE) {
+                continue;
+            }
+            if (site.block() instanceof SculkSensorBlock) {
+                if (gone(level, site)) {
+                    return true;
+                }
                 continue;
             }
             boolean expected = kind == LockCircuit.LEVER && play.flipped[i] ? !site.on() : site.on();
@@ -282,6 +323,7 @@ public final class PistonLockSpell {
 
     private static void runSteps(ServerLevel level, long now) {
         Set<Playback> aborted = new HashSet<>();
+        Map<Playback, Long> deferred = new HashMap<>();
         List<Step> due = new ArrayList<>();
         for (Step step : STEPS) {
             if (step.play().dimension == level.dimension() && step.at() <= now) {
@@ -294,6 +336,11 @@ public final class PistonLockSpell {
             if (aborted.contains(play)) {
                 continue;
             }
+            Long shift = deferred.get(play);
+            if (shift != null) {
+                STEPS.add(step.later(shift, 0)); // an earlier step of this playback is waiting: keep the gaps
+                continue;
+            }
             ServerPlayer player = level.getServer().getPlayerList().getPlayer(play.caster);
             if (player == null || !player.isAlive() || player.level() != level) {
                 abort(aborted, play, player); // logged out, died or left the dimension
@@ -303,29 +350,52 @@ public final class PistonLockSpell {
                 abort(aborted, play, player); // never load a chunk to finish the door
                 continue;
             }
-            CircuitTracer.InputSite site = play.inputs.get(step.input());
-            if (inputsShifted(level, play) || shifted(level, site, site.on())) {
+            if (inputsShifted(level, play) || stepShifted(level, play, step)) {
                 abort(aborted, play, player); // vanished, unloaded, or flipped or pressed by someone else
                 continue;
             }
-            BlockPos pos = site.pos();
-            boolean acted;
-            if (site.kind() == LockCircuit.FORCE) {
-                ForcedSignals.force(level, pos, LockRules.FORCE_TICKS);
-                level.playSound(null, pos, SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.BLOCKS, 1.0f, 1.4f);
-                acted = true;
-            } else {
-                acted = operate(level, pos, level.getBlockState(pos));
+            CircuitTracer.InputSite first = play.inputs.get(step.inputs()[0]);
+            if (first.block() instanceof SculkSensorBlock && !SculkSensorBlock.canActivate(level.getBlockState(first.pos()))) {
+                // The sensor is active or cooling down (it may have heard the playback itself): wait, twice at most.
+                if (step.retries() >= SENSOR_MAX_RETRIES) {
+                    abort(aborted, play, player);
+                    continue;
+                }
+                long by = now + SENSOR_WAIT_TICKS - step.at();
+                ListIterator<Step> later = STEPS.listIterator();
+                while (later.hasNext()) {
+                    Step other = later.next();
+                    if (other.play() == play && other.at() > step.at()) {
+                        later.set(other.later(by, 0));
+                    }
+                }
+                STEPS.add(step.later(by, 1));
+                deferred.put(play, by);
+                continue;
+            }
+            boolean acted = true;
+            for (int input : step.inputs()) {
+                CircuitTracer.InputSite site = play.inputs.get(input);
+                BlockPos pos = site.pos();
+                if (site.kind() == LockCircuit.FORCE) {
+                    ForcedSignals.force(level, pos, LockRules.FORCE_TICKS);
+                    level.playSound(null, pos, SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.BLOCKS, 1.0f, 1.4f);
+                } else {
+                    acted = operate(level, pos, level.getBlockState(pos));
+                }
+                if (!acted) {
+                    break;
+                }
+                if (site.kind() == LockCircuit.LEVER) {
+                    play.flipped[input] = true;
+                }
+                level.sendParticles(ParticleTypes.ENCHANT, pos.getX() + 0.5, pos.getY() + 0.6, pos.getZ() + 0.5,
+                        12, 0.3, 0.3, 0.3, 0.4);
             }
             if (!acted) {
                 abort(aborted, play, player); // a button already down is not skipped: the lock is not as read
                 continue;
             }
-            if (site.kind() == LockCircuit.LEVER) {
-                play.flipped[step.input()] = true;
-            }
-            level.sendParticles(ParticleTypes.ENCHANT, pos.getX() + 0.5, pos.getY() + 0.6, pos.getZ() + 0.5,
-                    12, 0.3, 0.3, 0.3, 0.4);
             if (step.last()) {
                 MasteryAwards.onBlockEffect(player, SpellType.ALOHOMORA);
                 tell(player, "opened", ChatFormatting.AQUA);
@@ -334,6 +404,17 @@ public final class PistonLockSpell {
         if (!aborted.isEmpty()) {
             STEPS.removeIf(s -> aborted.contains(s.play()));
         }
+    }
+
+    /** The inputs this step works are gone or not as traced (a sculk sensor only has to still be a sensor). */
+    private static boolean stepShifted(ServerLevel level, Playback play, Step step) {
+        for (int input : step.inputs()) {
+            CircuitTracer.InputSite site = play.inputs.get(input);
+            if (site.block() instanceof SculkSensorBlock ? gone(level, site) : shifted(level, site, site.on())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Ends a playback and tells the caster, if still around, that the lock changed under the spell. */
@@ -389,11 +470,14 @@ public final class PistonLockSpell {
      * <pre>
      * Lock (rank R): P door pistons, B blocks, N nodes; L levers, U buttons/plates/sensors, F forceable,
      *     K item keys[, TRUNCATED][, KEYED][, T traps]
-     * STATUS: moves M/V pistons, work W[ | set X Y Z to LEVEL]...[ | I. press X Y Z | J. force X Y Z]...
+     * STATUS: moves M/V pistons, work W[ | set X Y Z to LEVEL]...[ | force together X Y Z; X Y Z]
+     *     [ | I. press X Y Z | J. force X Y Z]...
      * </pre>
      * The first line is the lock (the bracketed parts appear only when they apply); the second the solver's
      * answer: its Status name, door pistons moved of those any input reaches, node updates spent, then each
-     * lever or item key to set (position and level) and each press or forced source in order, numbered from 1.
+     * lever or item key to set (position and level), the forceable sources held on together in one step if the
+     * answer needs several at once (one "force together" item listing their positions, separated by semicolons),
+     * and each press or forced source in order, numbered from 1.
      * Positions are x, y, z short strings. When the read does not finish, one word is sent instead:
      * BUSY, PISTON_LOGIC, OUT_OF_TIME or ERROR (see {@link #inspectLine}).
      */
@@ -422,8 +506,17 @@ public final class PistonLockSpell {
                 + keys + " item keys" + (c.truncated() ? ", TRUNCATED" : "")
                 + (c.keyed() ? ", KEYED" : "") + (c.dangerCount() > 0 ? ", " + c.dangerCount() + " traps" : "")));
         StringBuilder line = new StringBuilder(s.status() + ": moves " + s.moved() + "/" + s.movable() + " pistons, work " + s.work());
+        List<String> together = new ArrayList<>();
         for (int i = 0; i < s.set().length; i++) {
-            line.append(" | set ").append(lock.inputs().get(s.set()[i]).pos().toShortString()).append(" to ").append(s.setTo()[i]);
+            CircuitTracer.InputSite site = lock.inputs().get(s.set()[i]);
+            if (site.kind() == LockCircuit.FORCE) {
+                together.add(site.pos().toShortString());
+            } else {
+                line.append(" | set ").append(site.pos().toShortString()).append(" to ").append(s.setTo()[i]);
+            }
+        }
+        if (!together.isEmpty()) {
+            line.append(" | force together ").append(String.join("; ", together));
         }
         for (int i = 0; i < s.presses().length; i++) {
             CircuitTracer.InputSite site = lock.inputs().get(s.presses()[i]);

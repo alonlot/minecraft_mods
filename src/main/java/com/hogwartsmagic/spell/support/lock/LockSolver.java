@@ -12,6 +12,9 @@ public final class LockSolver {
 
     /**
      * set[i] goes to level setTo[i]; presses are pressed (or forced) in order. Indexes are circuit inputs.
+     * A FORCE input inside set (with setTo = 15) is not a level to set: every FORCE index in set is a source
+     * to be held on together at one moment, the answer of the held-together subset pass (see
+     * {@link LockSolver#solve}); playback forces them all in one step, before any presses.
      * The arrays are not defensively copied: callers must not modify them.
      */
     public record Solution(Status status, int[] set, int[] setTo, int[] presses, int moved, int movable, long work) {
@@ -43,11 +46,16 @@ public final class LockSolver {
         int[] settable = concat(ofKind(c, LockCircuit.LEVER), ofKind(c, LockCircuit.ANALOG));
         int[] pulses = ofKind(c, LockCircuit.PULSE);
         int[] forced = ofKind(c, LockCircuit.FORCE);
-        // With forcing available, pass 1 may spend at most 75% of the budget so pass 2 always gets a share.
+        // With forcing available, pass 1 may spend at most 75% of the budget so pass 2 always gets a share;
+        // with two or more forceable sources pass 2 stops at 7/8 so the held-together pass 3 gets the rest.
         long pass1 = forced.length > 0 ? budget / 4 * 3 : budget;
+        long pass2 = forced.length >= 2 ? budget / 8 * 7 : budget;
         search.run(settable, pulses, maxPresses, pass1, -1);
         if (search.bestMoved < movable && forced.length > 0 && !Thread.currentThread().isInterrupted()) {
-            search.run(settable, concat(pulses, forced), maxPresses, budget, pulses.length);
+            search.run(settable, concat(pulses, forced), maxPresses, pass2, pulses.length);
+        }
+        if (search.bestMoved < movable && forced.length >= 2 && !Thread.currentThread().isInterrupted()) {
+            search.runHeld(forced, budget);
         }
         return search.result();
     }
@@ -142,6 +150,71 @@ public final class LockSolver {
                     return;
                 }
             }
+        }
+
+        /**
+         * Pass 3: subsets of the forceable sources held on together, smallest first (size 2 upward; single
+         * sources were covered by pass 2), at most 2^8 - 1 subsets. Each is one attempt from the baseline: all
+         * on and settled, then all off and settled. Only a strictly better answer replaces an earlier one.
+         */
+        void runHeld(int[] forced, long limit) {
+            this.limit = limit;
+            this.halted = false;
+            int n = Math.min(forced.length, 8);
+            for (int size = 2; size <= n; size++) {
+                for (int mask = 1; mask < (1 << n); mask++) {
+                    if (Integer.bitCount(mask) != size) {
+                        continue;
+                    }
+                    if (sim.work() > limit || Thread.currentThread().isInterrupted()) {
+                        outOfTime = true;
+                        return;
+                    }
+                    int[] subset = new int[size];
+                    int[] to = new int[size];
+                    int at = 0;
+                    for (int i = 0; i < n; i++) {
+                        if ((mask & (1 << i)) != 0) {
+                            subset[at] = forced[i];
+                            to[at++] = 15;
+                        }
+                    }
+                    int moved = attemptHeld(subset);
+                    if (halted) {
+                        outOfTime = true;
+                        return;
+                    }
+                    if (moved > bestMoved) {
+                        bestMoved = moved;
+                        bestSet = subset;
+                        bestTo = to;
+                        bestPresses = new int[0];
+                    }
+                }
+                if (bestMoved == movable) {
+                    return;
+                }
+            }
+        }
+
+        /** Door pistons moved with all of these on together, or after letting go; -1 as in {@link #attempt}. */
+        private int attemptHeld(int[] subset) {
+            sim.restore(base);
+            for (int input : subset) {
+                sim.setInput(input, true);
+            }
+            int best = check();
+            if (best < 0) {
+                return -1;
+            }
+            for (int input : subset) {
+                sim.setInput(input, false);
+            }
+            int released = check();
+            if (released < 0) {
+                return -1;
+            }
+            return Math.max(best, released);
         }
 
         Solution result() {

@@ -117,6 +117,17 @@ public final class CircuitTracer {
         return state.hasProperty(BlockStateProperties.POWER) && state.getValue(BlockStateProperties.POWER) > 0;
     }
 
+    /** Cheap probe: is there any loaded door piston near hit (the search {@link #trace} starts with). */
+    public static boolean hasDoorPiston(ServerLevel level, BlockPos hit) {
+        int r = LockRules.DOOR_RADIUS;
+        for (BlockPos pos : BlockPos.betweenClosed(hit.offset(-r, -r, -r), hit.offset(r, r, r))) {
+            if (level.isLoaded(pos) && level.getBlockState(pos).getBlock() instanceof PistonBaseBlock) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static List<BlockPos> doorPistons(ServerLevel level, BlockPos hit) {
         int r = LockRules.DOOR_RADIUS;
         List<BlockPos> found = new ArrayList<>();

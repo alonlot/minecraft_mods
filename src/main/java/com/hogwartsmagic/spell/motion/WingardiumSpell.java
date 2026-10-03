@@ -111,13 +111,21 @@ public final class WingardiumSpell {
                 || com.hogwartsmagic.spell.mind.PossessionManager.isPossessing(player);
     }
 
+    /** True when the block drops as its own plain block item (never air, a bucket or another block's item). */
+    private static boolean hasOwnPlainItem(BlockState state) {
+        net.minecraft.world.item.Item item = state.getBlock().asItem();
+        return item instanceof net.minecraft.world.item.BlockItem blockItem
+                && !(item instanceof net.minecraft.world.item.SolidBucketItem)
+                && blockItem.getBlock() == state.getBlock();
+    }
+
     private static boolean isLiftable(ServerLevel level, BlockPos pos, BlockState state) {
         boolean multipart = state.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF)
                 || state.hasProperty(BlockStateProperties.BED_PART)
                 || (state.hasProperty(BlockStateProperties.EXTENDED) && state.getValue(BlockStateProperties.EXTENDED));
         return WingardiumRules.isLiftable(state.getDestroySpeed(level, pos), state.isAir(), state.hasBlockEntity(),
                 state.canBeReplaced(), state.getFluidState().isEmpty(), multipart,
-                state.is(IMMUNE) || state.getBlock().asItem() == net.minecraft.world.item.Items.AIR);
+                state.is(IMMUNE) || !hasOwnPlainItem(state));
     }
 
     /** The channel just started holding something: remember whether attack was already down. */
@@ -153,7 +161,12 @@ public final class WingardiumSpell {
                 .add(0.0D, WingardiumRules.THROW_LIFT, 0.0D);
         boolean threw = false;
         if (data.hasUUID(TAG_TARGET)) {
-            threw = launch(level, player, level.getEntity(data.getUUID(TAG_TARGET)), velocity, damage);
+            Entity held = level.getEntity(data.getUUID(TAG_TARGET));
+            // Re-check the hold right before the throw: range and line of sight, like the channel's own tick.
+            if (held != null && held.distanceToSqr(player) <= WingardiumRules.HOLD_RANGE * WingardiumRules.HOLD_RANGE
+                    && player.hasLineOfSight(held)) {
+                threw = launch(level, player, held, velocity, damage);
+            }
         }
         if (!threw) {
             return;
@@ -214,7 +227,9 @@ public final class WingardiumSpell {
             Entity thrower = record.throwerId() == null ? null : level.getEntity(record.throwerId());
             LivingEntity struck = null;
             for (LivingEntity other : level.getEntitiesOfClass(LivingEntity.class, mob.getBoundingBox().inflate(0.3D),
-                    candidate -> candidate != mob && candidate != thrower && candidate.isAlive() && !candidate.isSpectator())) {
+                    candidate -> candidate != mob && candidate != thrower && candidate.isAlive() && !candidate.isSpectator()
+                            && candidate.getRootVehicle() != mob.getRootVehicle()
+                            && !(thrower == null && candidate instanceof net.minecraft.world.entity.player.Player))) {
                 struck = other;
                 break;
             }

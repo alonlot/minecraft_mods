@@ -2,6 +2,11 @@
   "replace": false,
   "values": [
     "minecraft:piston_head",
+    "minecraft:powder_snow",
+    "minecraft:farmland",
+    "minecraft:dirt_path",
+    "minecraft:frogspawn",
+    "minecraft:chorus_plant",
     "minecraft:budding_amethyst",
     "minecraft:infested_stone",
     "minecraft:infested_cobblestone",
@@ -11,10 +16,19 @@
     "minecraft:infested_chiseled_stone_bricks",
     "minecraft:infested_deepslate",
     "minecraft:cake",
-    {"id": "#minecraft:candle_cakes", "required": false},
-    {"id": "#minecraft:flower_pots", "required": false},
+    {
+      "id": "#minecraft:candle_cakes",
+      "required": false
+    },
+    {
+      "id": "#minecraft:flower_pots",
+      "required": false
+    },
     "hogwartsmagic:mandrake_plant",
     "hogwartsmagic:patronus_light_block",
-    {"id": "hogwartsmagic:lumos_light", "required": false}
+    {
+      "id": "hogwartsmagic:lumos_light",
+      "required": false
+    }
   ]
 }

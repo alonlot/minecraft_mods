@@ -116,6 +116,15 @@ public class ClientModEvents {
     @Mod.EventBusSubscriber(modid = ExampleMod.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
     public static class ClientForgeEvents {
 
+        /** While the Wingardium hold is up, left-click throws; it must not also melee the held mob. */
+        @SubscribeEvent
+        public static void onWingardiumAttackKey(net.minecraftforge.client.event.InputEvent.InteractionKeyMappingTriggered event) {
+            if (event.isAttack() && wingardiumHoldPending && wingardiumChannelActive) {
+                event.setSwingHand(false);
+                event.setCanceled(true);
+            }
+        }
+
         @Nullable
         private static BroomFlightSoundInstance broomFlightSound;
         private static GringottsCartSoundInstance cartRumbleSound;

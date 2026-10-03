@@ -34,15 +34,16 @@ public final class LockPickClient {
     }
 
     public static void accept(SpellPackets.LockPickStatePacket packet) {
-        boolean wasPicking = picking;
         picking = packet.picking();
-        if (wasPicking && !picking) {
+        if (picking) {
+            quietUntil = 0;
+        } else {
+            // Any false reopens the quiet window, also one that arrives after the pick ended (the playback's
+            // last line), so the cooldown line does not overwrite it. It never starts the animation.
             Minecraft minecraft = Minecraft.getInstance();
             if (minecraft.level != null) {
                 quietUntil = minecraft.level.getGameTime() + 40;
             }
-        } else if (picking) {
-            quietUntil = 0;
         }
     }
 

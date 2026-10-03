@@ -65,7 +65,17 @@ public final class ModEventsClientHooks {
         Minecraft.getInstance().setScreen(new SpellMenuScreen(player));
     }
 
+    /** Radial menu cast: an Alohomora or Revelio hold started here is held by right-click, with a grace period. */
     public static boolean selectSpellAndCast(Player player, SpellType spell) {
+        return selectSpellAndCast(player, spell, Minecraft.getInstance().options.keyUse, true);
+    }
+
+    /** Slot key cast: holdKey is the slot key that holds an Alohomora or Revelio pick (no grace). */
+    public static boolean selectSpellAndCast(Player player, SpellType spell, net.minecraft.client.KeyMapping holdKey) {
+        return selectSpellAndCast(player, spell, holdKey, false);
+    }
+
+    private static boolean selectSpellAndCast(Player player, SpellType spell, net.minecraft.client.KeyMapping holdKey, boolean grace) {
         if (player == null || spell == null) {
             return false;
         }
@@ -77,10 +87,11 @@ public final class ModEventsClientHooks {
 
         MagicWandItem.setSelectedSpell(wand, spell);
         SpellPackets.CHANNEL.send(new SpellPackets.SelectSpellPacket(spell.getId()), PacketDistributor.SERVER.noArg());
-        return castSelectedSpell(player, wand, spell);
+        return castSelectedSpell(player, wand, spell, holdKey, grace);
     }
 
-    private static boolean castSelectedSpell(Player player, ItemStack wand, SpellType selected) {
+    private static boolean castSelectedSpell(Player player, ItemStack wand, SpellType selected,
+                                             net.minecraft.client.KeyMapping holdKey, boolean grace) {
         // Immediate feedback only; the server refuses on its own (CastSpellPacket.handle).
         if (com.hogwartsmagic.spell.combat.CombatEffects.isCastingBlocked(player)) {
             com.hogwartsmagic.spell.combat.CombatEffects.notifyCastBlocked(player);
@@ -128,6 +139,12 @@ public final class ModEventsClientHooks {
                 return true;
             }
             com.hogwartsmagic.event.ClientModEvents.startCrucioHold();
+        }
+        if (selected == SpellType.ALOHOMORA || selected == SpellType.REVELIO) {
+            if (com.hogwartsmagic.event.ClientModEvents.isLockHoldPending()) {
+                return true; // one cast per press: a pick is already held
+            }
+            com.hogwartsmagic.event.ClientModEvents.startLockHold(holdKey, grace);
         }
 
         SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(false, false, false, false), PacketDistributor.SERVER.noArg());

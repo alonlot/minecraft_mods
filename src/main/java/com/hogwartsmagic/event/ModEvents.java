@@ -3944,6 +3944,11 @@ public class ModEvents {
                     }
                     serpensortiaUseLatched = true;
                 }
+                if (selected == SpellType.ALOHOMORA || selected == SpellType.REVELIO) {
+                    if (lockUseLatched || com.hogwartsmagic.event.ClientModEvents.isLockHoldPending()) {
+                        return true; // one cast per press: the held key may be picking a piston lock, or a radial hold takes over
+                    }
+                }
                 
                 // Client-side mana check for immediate feedback
                 if (selected != null) {
@@ -3963,9 +3968,6 @@ public class ModEvents {
                     com.hogwartsmagic.event.ClientModEvents.startCrucioHold();
                 }
                 if (selected == SpellType.ALOHOMORA || selected == SpellType.REVELIO) {
-                    if (lockUseLatched || com.hogwartsmagic.event.ClientModEvents.isLockHoldPending()) {
-                        return true; // one cast per press: the held key may be picking a piston lock
-                    }
                     lockUseLatched = true;
                     com.hogwartsmagic.util.ClientSideBridge.startLockHold(player);
                 }

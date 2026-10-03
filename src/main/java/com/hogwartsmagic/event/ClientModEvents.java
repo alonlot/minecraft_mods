@@ -103,6 +103,9 @@ public class ClientModEvents {
     private static boolean lockHoldPending = false;
     @Nullable
     private static KeyMapping lockHoldKey = null;
+    private static final int LOCK_HOLD_GRACE_TICKS = 20;
+    /** Client ticks left in which a radial lock hold may still be waiting for its key to go down. */
+    private static int lockHoldGrace = 0;
     private static final KeyMapping WAND_RADIAL_MENU_KEY = new KeyMapping(
             "key.hogwartsmagic.wand_radial_menu",
             GLFW.GLFW_KEY_R,
@@ -379,7 +382,15 @@ public class ClientModEvents {
                     boolean lockSelected = holdingWand
                             && (selected == com.hogwartsmagic.spell.SpellType.ALOHOMORA
                             || selected == com.hogwartsmagic.spell.SpellType.REVELIO);
-                    if (lockHoldPending && (!lockSelected || lockHoldKey == null || !lockHoldKey.isDown())) {
+                    if (lockHoldPending && lockHoldKey != null && lockHoldKey.isDown()) {
+                        lockHoldGrace = 0; // the key took over: a normal hold from here
+                    }
+                    boolean lockGraceTick = lockHoldPending && lockSelected && lockHoldKey != null
+                            && !lockHoldKey.isDown() && lockHoldGrace > 0;
+                    if (lockGraceTick) {
+                        lockHoldGrace--;
+                    }
+                    if (lockHoldPending && !lockGraceTick && (!lockSelected || lockHoldKey == null || !lockHoldKey.isDown())) {
                         // Only a lock spell still selected with its key up is a release. A selection, slot or wand
                         // change just clears the hold: the server drops the job itself, and a release here would
                         // cancel a channel (Patronus, Protego Maxima) that a slot key started this same tick.
@@ -388,6 +399,7 @@ public class ClientModEvents {
                         }
                         lockHoldPending = false;
                         lockHoldKey = null;
+                        lockHoldGrace = 0;
                     } else if (lockHoldPending) {
                         SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(false, false, true, false), PacketDistributor.SERVER.noArg());
                     }
@@ -438,6 +450,7 @@ public class ClientModEvents {
                     crucioChannelActive = false;
                     lockHoldPending = false;
                     lockHoldKey = null;
+                    lockHoldGrace = 0;
                     imperioHoldPending = false;
                     imperioChannelActive = false;
                     imperioHoldTicks = 0;
@@ -791,10 +804,7 @@ public class ClientModEvents {
                     continue; // the hold never moves to another key
                 }
                 if (spell != null) {
-                    com.hogwartsmagic.client.ModEventsClientHooks.selectSpellAndCast(mc.player, spell);
-                    if (spell == SpellType.ALOHOMORA || spell == SpellType.REVELIO) {
-                        startLockHold(SPELL_SLOT_KEYS[slot]);
-                    }
+                    com.hogwartsmagic.client.ModEventsClientHooks.selectSpellAndCast(mc.player, spell, SPELL_SLOT_KEYS[slot]);
                 }
             }
         }
@@ -869,8 +879,17 @@ public class ClientModEvents {
      * piston lock if the beam found one (otherwise the heartbeats are ignored). Letting go sends a release.
      */
     public static void startLockHold(KeyMapping key) {
+        startLockHold(key, false);
+    }
+
+    /**
+     * grace: a hold started from the radial menu (the wheel closes, then right-click goes down) sends heartbeats
+     * for up to LOCK_HOLD_GRACE_TICKS while its key is not yet down; a key already down ends the grace.
+     */
+    public static void startLockHold(KeyMapping key, boolean grace) {
         lockHoldPending = true;
         lockHoldKey = key;
+        lockHoldGrace = grace ? LOCK_HOLD_GRACE_TICKS : 0;
     }
 
     /** True while an Alohomora or Revelio cast is held by a key, so a second cast press is skipped. */

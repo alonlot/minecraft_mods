@@ -441,18 +441,21 @@ public final class PistonLockSpell {
         Playback play = new Playback(job.caster(), job.dimension(), job.door(), sites);
         if (inputsShifted(level, play)) {
             tell(player, "shifted", ChatFormatting.GOLD);
+            sendState(player, false); // reopens the client quiet window over this line
             return;
         }
         LockCircuit circuit = job.lock().circuit();
         for (int input : s.set()) {
             if (siteShifted(level, sites.get(input))) {
                 tell(player, "shifted", ChatFormatting.GOLD);
+                sendState(player, false); // reopens the client quiet window over this line
                 return;
             }
         }
         for (int input : s.presses()) {
             if (siteShifted(level, sites.get(input))) {
                 tell(player, "shifted", ChatFormatting.GOLD);
+                sendState(player, false); // reopens the client quiet window over this line
                 return;
             }
         }
@@ -608,6 +611,7 @@ public final class PistonLockSpell {
             if (step.last()) {
                 MasteryAwards.onBlockEffect(player, SpellType.ALOHOMORA);
                 tell(player, "opened", ChatFormatting.AQUA);
+                sendState(player, false); // reopens the client quiet window over this line
             }
         }
         if (!aborted.isEmpty()) {
@@ -638,6 +642,7 @@ public final class PistonLockSpell {
         aborted.add(play);
         if (player != null) {
             tell(player, "shifted", ChatFormatting.GOLD);
+            sendState(player, false); // reopens the client quiet window over this line
         }
     }
 

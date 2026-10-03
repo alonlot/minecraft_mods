@@ -685,6 +685,17 @@ public class SpellPackets {
         public static void handle(CastSpellPacket p, CustomPayloadEvent.Context ctx) {
             ServerPlayer player = ctx.getSender();
             if (player == null) return;
+            // A controlled player's own cast keys do nothing; casts made on their behalf call castAs directly.
+            if (com.hogwartsmagic.spell.mind.MindControl.isControlled(player)) return;
+            castAs(player, p);
+        }
+
+        /**
+         * The whole cast path, run as {@code player}: learned spell, stun and silence gates, cooldown, mana,
+         * then the spell. The packet handler, the Avada windup release and (Phase 6b) puppet casts all come
+         * through here, so every cast is checked the same way.
+         */
+        public static void castAs(ServerPlayer player, CastSpellPacket p) {
             ItemStack wand = player.getMainHandItem();
             if (!MagicWandItem.isAnyWand(wand)) return;
             boolean creative = player.isCreative();
@@ -1169,6 +1180,9 @@ public class SpellPackets {
             ServerPlayer player = ctx.getSender();
             if (player == null) {
                 return;
+            }
+            if (com.hogwartsmagic.spell.mind.MindControl.isControlled(player)) {
+                return; // a thrall can't start or steer a channel of its own
             }
             ItemStack wand = player.getMainHandItem();
             if (!MagicWandItem.isAnyWand(wand)) {

@@ -160,6 +160,10 @@ public final class Config {
             .comment("Apparition: Splinch chance (0-1) at Novice. Adept takes half of it, Expert a fifth, Master never splinches.")
             .defineInRange("apparitionSplinchChance", 0.10, 0.0, 1.0);
 
+    public static final ForgeConfigSpec.BooleanValue IMPERIO_AFFECTS_PLAYERS = BUILDER
+            .comment("Imperio: if true, players can be enthralled (ranks I-III) and possessed (Master). Mobs are always allowed.")
+            .define("imperioAffectsPlayers", true);
+
     static final ForgeConfigSpec SPEC = BUILDER.build();
 
     public static double baseMaxMana = 100;
@@ -198,6 +202,8 @@ public final class Config {
     public static double pvpCrowdControlMultiplier = 0.6;
     public static boolean apparitionSplinching = true;
     public static double apparitionSplinchChance = 0.10;
+
+    public static boolean imperioAffectsPlayers = true;
 
     private Config() {
     }
@@ -240,6 +246,7 @@ public final class Config {
         tomeEpicChestChance = TOME_EPIC_CHEST_CHANCE.get();
         pvpCrowdControlReduction = PVP_CROWD_CONTROL_REDUCTION.get();
         pvpCrowdControlMultiplier = PVP_CROWD_CONTROL_MULTIPLIER.get();
+        imperioAffectsPlayers = IMPERIO_AFFECTS_PLAYERS.get();
         apparitionSplinching = APPARITION_SPLINCHING.get();
         apparitionSplinchChance = APPARITION_SPLINCH_CHANCE.get();
         if (!com.hogwartsmagic.spell.mastery.MasteryMath.thresholdsValid(masteryXpAdept, masteryXpExpert, masteryXpMaster)) {
@@ -351,6 +358,11 @@ public final class Config {
     /** Duration multiplier for hard crowd control between players; 1.0 when the reduction is switched off. */
     public static double getPvpCrowdControlMultiplier() {
         return pvpCrowdControlReduction ? pvpCrowdControlMultiplier : 1.0;
+    }
+
+    /** Imperio thralls and possession on players; mobs are always fair game. */
+    public static boolean isImperioAffectsPlayers() {
+        return imperioAffectsPlayers;
     }
 
     public static boolean isApparitionSplinching() {

@@ -75,6 +75,39 @@ public final class MindControl {
         }
     }
 
+    /**
+     * Wipe a brain-driven mob's attack memories (Piglins, Hoglins, Villagers, Warden, Goats, Frogs...), which
+     * setTarget(null) does not touch. With {@code forgotten} given, it also forgets its anger and who hurt it.
+     */
+    public static void clearBrainTarget(Mob mob, @Nullable LivingEntity forgotten) {
+        net.minecraft.world.entity.ai.Brain<?> brain = mob.getBrain();
+        eraseIfRegistered(brain, net.minecraft.world.entity.ai.memory.MemoryModuleType.ATTACK_TARGET);
+        if (forgotten != null) {
+            eraseIfRegistered(brain, net.minecraft.world.entity.ai.memory.MemoryModuleType.ANGRY_AT);
+            eraseIfRegistered(brain, net.minecraft.world.entity.ai.memory.MemoryModuleType.HURT_BY_ENTITY);
+            eraseIfRegistered(brain, net.minecraft.world.entity.ai.memory.MemoryModuleType.UNIVERSAL_ANGER);
+            if (mob instanceof net.minecraft.world.entity.monster.warden.Warden warden) {
+                warden.clearAnger(forgotten);
+            }
+        }
+    }
+
+    /** Point a brain-driven mob's attack memory at {@code target} (a no-op for mobs without the module). */
+    public static void setBrainTarget(Mob mob, LivingEntity target) {
+        net.minecraft.world.entity.ai.Brain<?> brain = mob.getBrain();
+        if (brain.checkMemory(net.minecraft.world.entity.ai.memory.MemoryModuleType.ATTACK_TARGET,
+                net.minecraft.world.entity.ai.memory.MemoryStatus.REGISTERED)) {
+            brain.setMemory(net.minecraft.world.entity.ai.memory.MemoryModuleType.ATTACK_TARGET, target);
+        }
+    }
+
+    private static void eraseIfRegistered(net.minecraft.world.entity.ai.Brain<?> brain,
+                                          net.minecraft.world.entity.ai.memory.MemoryModuleType<?> type) {
+        if (brain.checkMemory(type, net.minecraft.world.entity.ai.memory.MemoryStatus.REGISTERED)) {
+            brain.eraseMemory(type);
+        }
+    }
+
     public static boolean isBypassingTargetRules() {
         return TARGET_BYPASS.get();
     }

@@ -25,6 +25,8 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
 import javax.annotation.Nullable;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -35,6 +37,12 @@ import java.util.UUID;
  */
 @Mod.EventBusSubscriber(modid = ExampleMod.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class ConfundoSpell {
+    @SubscribeEvent
+    public static void onServerStopping(net.minecraftforge.event.server.ServerStoppingEvent event) {
+        NEXT_SEARCH.clear();
+    }
+
+    private static final Map<UUID, Long> NEXT_SEARCH = new HashMap<>();
     static final String TAG_CASTER = ExampleMod.MODID + ":confundo_caster";
     private static Holder<MobEffect> confundedHolder;
 
@@ -110,6 +118,13 @@ public final class ConfundoSpell {
             }
         }
         MindControl.setTargetBypassing(mob, best);
+        if (best != null) {
+            MindControl.setBrainTarget(mob, best);
+            NEXT_SEARCH.remove(mob.getUUID());
+        } else {
+            MindControl.clearBrainTarget(mob, null);
+            NEXT_SEARCH.put(mob.getUUID(), mob.level().getGameTime() + ConfundoRules.RETARGET_INTERVAL);
+        }
     }
 
     @SubscribeEvent
@@ -119,7 +134,10 @@ public final class ConfundoSpell {
         }
         LivingEntity target = mob.getTarget();
         if (target == null || !target.isAlive() || mob.tickCount % ConfundoRules.RETARGET_INTERVAL == 0) {
-            retarget(mob);
+            Long next = NEXT_SEARCH.get(mob.getUUID());
+            if (next == null || mob.level().getGameTime() >= next) {
+                retarget(mob);
+            }
         }
     }
 
@@ -157,8 +175,10 @@ public final class ConfundoSpell {
             return;
         }
         entity.getPersistentData().remove(TAG_CASTER);
+        NEXT_SEARCH.remove(entity.getUUID());
         if (entity instanceof Mob mob) {
             MindControl.setTargetBypassing(mob, null);
+            MindControl.clearBrainTarget(mob, null);
         }
     }
 

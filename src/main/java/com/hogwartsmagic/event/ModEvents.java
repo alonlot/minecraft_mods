@@ -253,6 +253,8 @@ public class ModEvents {
         final java.util.Set<java.util.UUID> members = new java.util.HashSet<>();
         final java.util.Set<java.util.UUID> participants = new java.util.HashSet<>();
         final int initialCount;
+        /** A member was wiped by Master Obliviate: nobody beat this raid, so clearing it pays no Hero reward. */
+        boolean obliviated;
 
         ActiveWizardRaid(java.util.UUID raidId,
                          net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dimension,
@@ -315,6 +317,7 @@ public class ModEvents {
             return true;
         }
         raid.members.remove(wizard.getUUID());
+        raid.obliviated = true;
         updateRaidProgress(level, raid);
         if (raid.members.isEmpty()) {
             finishWizardRaid(level, raid, false);
@@ -358,7 +361,7 @@ public class ModEvents {
             WIZARD_TO_RAID.remove(memberId);
         }
 
-        if (!cleared) {
+        if (!cleared || raid.obliviated) {
             return;
         }
 

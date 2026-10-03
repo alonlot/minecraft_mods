@@ -70,6 +70,7 @@ public final class ObliviateSpell {
             FORGOTTEN.put(mob.getUUID(), new Forget(owner.getUUID(), now + ObliviateRules.ignoreTicks(rank)));
         }
         MindControl.setTargetBypassing(mob, null);
+        MindControl.clearBrainTarget(mob, caster instanceof LivingEntity living ? living : null);
         mob.setLastHurtByMob(null);
         if (mob instanceof NeutralMob neutral) {
             neutral.stopBeingAngry();
@@ -85,6 +86,13 @@ public final class ObliviateSpell {
     private static void memoryCharm(Mob mob) {
         if (mob instanceof Raider raider) {
             Raid raid = raider.getCurrentRaid();
+            if (raider.isPatrolLeader()) {
+                if (raid != null) {
+                    raid.removeLeader(raider.getWave());
+                }
+                raider.setPatrolLeader(false);
+                clearBanner(raider);
+            }
             if (raid != null) {
                 raid.removeFromRaid(raider, true);
             }
@@ -94,9 +102,16 @@ public final class ObliviateSpell {
             ModEvents.removeFromWizardRaid(level, wizard);
             if (wizard.isRaidLeader()) {
                 wizard.setRaidLeader(false);
+                clearBanner(wizard);
             }
         }
         mob.clearRestriction();
+    }
+
+    private static void clearBanner(Mob mob) {
+        if (mob.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD).is(net.minecraft.tags.ItemTags.BANNERS)) {
+            mob.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.item.ItemStack.EMPTY);
+        }
     }
 
     /** A spell from the forgotten caster ("unless you hit it"). Spell chip damage carries no attacker, so it comes here. */
@@ -119,11 +134,12 @@ public final class ObliviateSpell {
 
     @SubscribeEvent
     public static void onChangeTarget(LivingChangeTargetEvent event) {
-        if (FORGOTTEN.isEmpty() || event.isCanceled() || MindControl.isBypassingTargetRules()) {
+        if (event.getEntity().level().isClientSide() || FORGOTTEN.isEmpty() || event.isCanceled()
+                || MindControl.isBypassingTargetRules()) {
             return;
         }
         LivingEntity newTarget = event.getNewTarget();
-        if (newTarget == null || !(event.getEntity() instanceof Mob mob) || mob.level().isClientSide()) {
+        if (newTarget == null || !(event.getEntity() instanceof Mob mob)) {
             return;
         }
         Forget forget = FORGOTTEN.get(mob.getUUID());

@@ -204,7 +204,7 @@ public final class LockSimulator {
     /** Dust takes the least fixpoint, so a source-free dust loop holds no stale power. */
     private void recomputeInstant() {
         for (int n = 0; n < nodes; n++) {
-            if (circuit.kind(n) == LockCircuit.MAX) {
+            if (instant(circuit.kind(n))) {
                 value[n] = 0;
             }
         }
@@ -212,9 +212,10 @@ public final class LockSimulator {
         while (changed) {
             changed = false;
             for (int n = 0; n < nodes; n++) {
-                if (circuit.kind(n) == LockCircuit.MAX) {
+                int kind = circuit.kind(n);
+                if (instant(kind)) {
                     work++;
-                    int v = main(n);
+                    int v = kind == LockCircuit.GATE15 && side(n) >= 15 ? 15 : main(n);
                     if (v != value[n]) {
                         value[n] = v;
                         changed = true;
@@ -224,11 +225,16 @@ public final class LockSimulator {
         }
     }
 
+    /** Dust and the 15-gate settle within the tick; everything else is delayed. */
+    private static boolean instant(int kind) {
+        return kind == LockCircuit.MAX || kind == LockCircuit.GATE15;
+    }
+
     private boolean tick() {
         boolean changed = false;
         for (int n = 0; n < nodes; n++) {
             int kind = circuit.kind(n);
-            if (kind == LockCircuit.MAX || kind == LockCircuit.INPUT || kind == LockCircuit.CONSTANT) {
+            if (instant(kind) || kind == LockCircuit.INPUT || kind == LockCircuit.CONSTANT) {
                 continue;
             }
             work++;
@@ -260,7 +266,7 @@ public final class LockSimulator {
         }
         for (int n = 0; n < nodes; n++) {
             int kind = circuit.kind(n);
-            if (kind == LockCircuit.MAX || kind == LockCircuit.INPUT || kind == LockCircuit.CONSTANT) {
+            if (instant(kind) || kind == LockCircuit.INPUT || kind == LockCircuit.CONSTANT) {
                 continue;
             }
             if (value[n] != next[n]) {

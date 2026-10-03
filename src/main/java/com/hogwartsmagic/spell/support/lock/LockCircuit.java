@@ -20,6 +20,11 @@ public final class LockCircuit {
     public static final int PULSE = 11;
     /** A comparator, observer or other source forced on for a few seconds (Alohomora Master). */
     public static final int FORCE = 12;
+    /**
+     * Instant, like dust: 15 when its side input is 15 or more, otherwise its main input. A comparator reads
+     * past a conductor only while the conductor's own signal is below 15.
+     */
+    public static final int GATE15 = 13;
 
     private final int[] kinds;
     private final int[] initial;
@@ -253,7 +258,7 @@ public final class LockCircuit {
 
         public int node(int kind, int initialValue) {
             if (kind != MAX && kind != NOT && kind != REPEATER && kind != COMPARE
-                    && kind != SUBTRACT && kind != OBSERVER) {
+                    && kind != SUBTRACT && kind != OBSERVER && kind != GATE15) {
                 throw new IllegalArgumentException("not a node kind: " + kind);
             }
             checkLevel(initialValue);
@@ -273,7 +278,7 @@ public final class LockCircuit {
         public void side(int from, int to, int loss) {
             checkEdge(from, to, loss);
             int k = kinds.get(to);
-            if (k != REPEATER && k != COMPARE && k != SUBTRACT) {
+            if (k != REPEATER && k != COMPARE && k != SUBTRACT && k != GATE15) {
                 throw new IllegalArgumentException("node does not accept a side input: " + to);
             }
             sideFrom.get(to).add(from);

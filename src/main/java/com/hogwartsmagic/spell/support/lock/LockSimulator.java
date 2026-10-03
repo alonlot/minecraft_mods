@@ -1,6 +1,10 @@
 package com.hogwartsmagic.spell.support.lock;
 
-/** Runs a {@link LockCircuit}: instant dust, one-tick delayed torches, repeaters, comparators and observers. */
+/**
+ * Runs a {@link LockCircuit}: instant dust, one-tick delayed torches, repeaters, comparators and observers.
+ * Inputs set together before one {@link #settle()} are seen as one simultaneous change; a search that
+ * depends on order should settle between input changes.
+ */
 public final class LockSimulator {
     public static final int MAX_TICKS = 256;
     public static final int PULSE_TICKS = 2;
@@ -24,24 +28,25 @@ public final class LockSimulator {
         this.last = new int[nodes];
         this.pulseLeft = new int[nodes];
         this.next = new int[nodes];
-        loadInitial();
+        load();
     }
 
     public boolean reset() {
-        loadInitial();
-        recomputeInstant();
-        for (int n = 0; n < nodes; n++) {
-            if (circuit.kind(n) == LockCircuit.OBSERVER) {
-                last[n] = main(n);
-                pulseLeft[n] = 0;
-            }
-        }
+        load();
         return settle();
     }
 
     public boolean settle() {
+        return settle(MAX_TICKS);
+    }
+
+    /** Runs ticks until stable. False means not stable within maxTicks (oscillating or too slow). */
+    public boolean settle(int maxTicks) {
+        if (maxTicks < 1) {
+            throw new IllegalArgumentException("maxTicks must be >= 1: " + maxTicks);
+        }
         recomputeInstant();
-        for (int t = 0; t < MAX_TICKS; t++) {
+        for (int t = 0; t < maxTicks; t++) {
             if (!tick()) {
                 return true;
             }
@@ -95,6 +100,18 @@ public final class LockSimulator {
 
     private int stateSize() {
         return 3 * nodes + inputs;
+    }
+
+    /** Initial values, dust settled, observers primed so no pulse fires at start. Does not tick. */
+    private void load() {
+        loadInitial();
+        recomputeInstant();
+        for (int n = 0; n < nodes; n++) {
+            if (circuit.kind(n) == LockCircuit.OBSERVER) {
+                last[n] = main(n);
+                pulseLeft[n] = 0;
+            }
+        }
     }
 
     private void loadInitial() {

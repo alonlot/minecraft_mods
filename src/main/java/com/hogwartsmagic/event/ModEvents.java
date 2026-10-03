@@ -2065,15 +2065,27 @@ public class ModEvents {
         player.fallDistance = 0.0f;
         crackEffect(level, landing.x, landing.y, landing.z, false);
 
+        java.util.List<LivingEntity> moved = new java.util.ArrayList<>();
         for (LivingEntity passenger : passengers) {
-            passenger.teleportTo(landing.x + (player.getRandom().nextDouble() - 0.5) * 1.5,
-                    landing.y, landing.z + (player.getRandom().nextDouble() - 0.5) * 1.5);
-            passenger.fallDistance = 0.0f;
+            double px = landing.x + (player.getRandom().nextDouble() - 0.5) * 1.5;
+            double pz = landing.z + (player.getRandom().nextDouble() - 0.5) * 1.5;
+            if (!level.noCollision(passenger.getDimensions(passenger.getPose()).makeBoundingBox(px, landing.y, pz))) {
+                px = landing.x;
+                pz = landing.z;
+            }
+            if (level.noCollision(passenger.getDimensions(passenger.getPose()).makeBoundingBox(px, landing.y, pz))) {
+                passenger.teleportTo(px, landing.y, pz);
+                passenger.fallDistance = 0.0f;
+                moved.add(passenger);
+            } else {
+                player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                        "message.hogwartsmagic.apparition.passenger_left", passenger.getDisplayName()), true);
+            }
         }
 
         if (splinched) {
             applySplinch(player);
-            for (LivingEntity passenger : passengers) {
+            for (LivingEntity passenger : moved) {
                 passenger.hurt(passenger.damageSources().magic(), 4.0f);
             }
             player.displayClientMessage(net.minecraft.network.chat.Component.translatable(

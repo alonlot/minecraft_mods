@@ -329,11 +329,15 @@ public class SpellPackets {
                     int radius = buf.readVarInt();
                     int durationTicks = buf.readVarInt();
                     // Read every encoded entry (so the buffer is fully consumed) up to a hard cap, keep the first 8.
-                    int size = clampDecodedSize(buf.readVarInt(), MAX_APPARITION_MAP_WIRE_ENTRIES);
+                    int rawSize = buf.readVarInt();
+                    if (rawSize > MAX_APPARITION_MAP_WIRE_ENTRIES) {
+                        throw new io.netty.handler.codec.DecoderException("Too many apparition fireplaces: " + rawSize);
+                    }
+                    int size = clampDecodedSize(rawSize, MAX_APPARITION_MAP_WIRE_ENTRIES);
                     int keep = com.hogwartsmagic.spell.support.ApparitionRules.MAX_LISTED_FIREPLACES;
                     List<FlooDestinationData> fireplaces = new ArrayList<>(Math.min(size, keep));
                     for (int i = 0; i < size; i++) {
-                        FlooDestinationData entry = new FlooDestinationData(buf.readBlockPos(), buf.readUtf());
+                        FlooDestinationData entry = new FlooDestinationData(buf.readBlockPos(), buf.readUtf(64));
                         if (i < keep) {
                             fireplaces.add(entry);
                         }

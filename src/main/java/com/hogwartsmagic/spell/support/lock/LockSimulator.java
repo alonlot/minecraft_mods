@@ -18,9 +18,13 @@ public final class LockSimulator {
     private final int[] pulseLeft;
     private final int[] next;
     private long work;
+    private final boolean[] dangerOn;
+    private boolean dangerRose;
+    private boolean stopped;
 
     public LockSimulator(LockCircuit circuit) {
         this.circuit = circuit;
+        this.dangerOn = new boolean[circuit.dangerCount()];
         this.nodes = circuit.nodeCount();
         this.inputs = circuit.inputCount();
         this.value = new int[nodes];
@@ -42,16 +46,60 @@ public final class LockSimulator {
 
     /** Runs ticks until stable. False means not stable within maxTicks (oscillating or too slow). */
     public boolean settle(int maxTicks) {
+        return settleImpl(maxTicks, Long.MAX_VALUE, false);
+    }
+
+    /**
+     * Like {@link #settle(int)}, but stops partway and returns false when {@link #work()} passes workLimit or
+     * the thread is interrupted; {@link #stoppedForBudget()} then reads true.
+     */
+    public boolean settle(int maxTicks, long workLimit) {
+        return settleImpl(maxTicks, workLimit, true);
+    }
+
+    private boolean settleImpl(int maxTicks, long workLimit, boolean bounded) {
         if (maxTicks < 1) {
             throw new IllegalArgumentException("maxTicks must be >= 1: " + maxTicks);
         }
+        dangerRose = false;
+        stopped = false;
+        for (int d = 0; d < dangerOn.length; d++) {
+            dangerOn[d] = value[circuit.dangerNode(d)] > 0;
+        }
         recomputeInstant();
+        sampleDangers();
         for (int t = 0; t < maxTicks; t++) {
-            if (!tick()) {
+            if (bounded && (work > workLimit || Thread.currentThread().isInterrupted())) {
+                stopped = true;
+                return false;
+            }
+            boolean changed = tick();
+            sampleDangers();
+            if (!changed) {
                 return true;
             }
         }
         return false;
+    }
+
+    /** True if any danger node went from off to on at any moment of the last settle, even if it ended off. */
+    public boolean dangerRoseInLastSettle() {
+        return dangerRose;
+    }
+
+    /** True if the last bounded settle stopped for its work limit or a thread interrupt. */
+    public boolean stoppedForBudget() {
+        return stopped;
+    }
+
+    private void sampleDangers() {
+        for (int d = 0; d < dangerOn.length; d++) {
+            boolean on = value[circuit.dangerNode(d)] > 0;
+            if (on && !dangerOn[d]) {
+                dangerRose = true;
+            }
+            dangerOn[d] = on;
+        }
     }
 
     /** A lever, button, plate, sensor or forced source: on (15) or off (0). */

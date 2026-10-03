@@ -10,7 +10,10 @@ import java.util.Arrays;
 public final class LockSolver {
     public enum Status { SOLVED, NO_DOOR, TOO_MANY_INPUTS, UNSTABLE, NO_SOLUTION, OUT_OF_TIME }
 
-    /** set[i] goes to level setTo[i]; presses are pressed (or forced) in order. Indexes are circuit inputs. */
+    /**
+     * set[i] goes to level setTo[i]; presses are pressed (or forced) in order. Indexes are circuit inputs.
+     * The arrays are not defensively copied: callers must not modify them.
+     */
     public record Solution(Status status, int[] set, int[] setTo, int[] presses, int moved, int movable, long work) {
         static Solution none(Status status, int movable, long work) {
             return new Solution(status, new int[0], new int[0], new int[0], 0, movable, work);
@@ -45,9 +48,11 @@ public final class LockSolver {
         int[] settable = concat(ofKind(c, LockCircuit.LEVER), ofKind(c, LockCircuit.ANALOG));
         int[] pulses = ofKind(c, LockCircuit.PULSE);
         int[] forced = ofKind(c, LockCircuit.FORCE);
-        search.run(settable, pulses, maxPresses);
-        if (search.bestMoved < movable && !search.outOfTime && forced.length > 0) {
-            search.run(settable, concat(pulses, forced), maxPresses);
+        // With forcing available, pass 1 may spend at most 75% of the budget so pass 2 always gets a share.
+        long pass1 = forced.length > 0 ? budget / 4 * 3 : budget;
+        search.run(settable, pulses, maxPresses, pass1, -1);
+        if (search.bestMoved < movable && forced.length > 0 && !Thread.currentThread().isInterrupted()) {
+            search.run(settable, concat(pulses, forced), maxPresses, budget, pulses.length);
         }
         return search.result();
     }
@@ -65,6 +70,8 @@ public final class LockSolver {
         private int[] bestTo = new int[0];
         private int[] bestPresses = new int[0];
         boolean outOfTime;
+        private boolean halted;
+        private long limit;
 
         Search(LockCircuit c, LockSimulator sim, long budget, int movable) {
             this.c = c;
@@ -82,7 +89,13 @@ public final class LockSolver {
             }
         }
 
-        void run(int[] settable, int[] pressable, int maxPresses) {
+        /**
+         * forceFrom: -1 in pass 1; in pass 2 the first index of the FORCE inputs in pressable, and only
+         * sequences that press at least one of them are tried (the rest were covered by pass 1).
+         */
+        void run(int[] settable, int[] pressable, int maxPresses, long limit, int forceFrom) {
+            this.limit = limit;
+            this.halted = false;
             int pressCap = pressable.length == 0 ? 0 : maxPresses;
             for (int cost = 1; cost <= settable.length + pressCap; cost++) {
                 for (int k = Math.min(cost, settable.length); k >= Math.max(0, cost - pressCap); k--) {
@@ -107,12 +120,19 @@ public final class LockSolver {
                             }
                             int[] seq = new int[len];
                             do {
-                                if (sim.work() > budget || Thread.currentThread().isInterrupted()) {
+                                if (sim.work() > limit || Thread.currentThread().isInterrupted()) {
                                     outOfTime = true;
                                     return;
                                 }
+                                if (forceFrom >= 0 && !pressesAny(seq, forceFrom)) {
+                                    continue;
+                                }
                                 int[] presses = select(pressable, seq);
                                 int moved = attempt(set, to, presses);
+                                if (halted) {
+                                    outOfTime = true;
+                                    return;
+                                }
                                 if (moved > bestMoved) {
                                     bestMoved = moved;
                                     bestSet = set;
@@ -168,8 +188,23 @@ public final class LockSolver {
             return best;
         }
 
+        private static boolean pressesAny(int[] seq, int forceFrom) {
+            for (int s : seq) {
+                if (s >= forceFrom) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         private int check() {
-            if (!sim.settle()) {
+            if (!sim.settle(LockSimulator.MAX_TICKS, limit)) {
+                if (sim.stoppedForBudget()) {
+                    halted = true; // out of budget or interrupted: not the same as an oscillating lock
+                }
+                return -1;
+            }
+            if (sim.dangerRoseInLastSettle()) {
                 return -1;
             }
             for (int d = 0; d < dangerBase.length; d++) {

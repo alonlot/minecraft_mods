@@ -4,6 +4,7 @@ import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.item.BroomItem;
 import com.hogwartsmagic.menu.BroomWorkbenchMenu;
 import com.hogwartsmagic.spell.SpellType;
+import com.hogwartsmagic.spell.combat.CombatEffects;
 import com.hogwartsmagic.spell.disable.DisableSupport;
 import com.hogwartsmagic.spell.motion.AlatusRules;
 import net.minecraft.core.BlockPos;
@@ -14,7 +15,9 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.ChatFormatting;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.RandomSource;
@@ -51,6 +54,8 @@ public class BroomWorkbenchBlockEntity extends BlockEntity implements net.minecr
     private int craftTotalTicks = BROOM_CRAFT_TICKS_TOTAL;
     /** The caster's Alatus rank at the start of the current infusion; it decides the quality roll. */
     private int infusionRank = 1;
+    /** True when the current infusion is a Master re-infusion; fixed when the infusion starts. */
+    private boolean infusionReinfuse;
 
     private final ItemStackHandler inventory = new ItemStackHandler(5) {
         @Override
@@ -62,6 +67,10 @@ public class BroomWorkbenchBlockEntity extends BlockEntity implements net.minecr
         public boolean isItemValid(int slot, ItemStack stack) {
             if (slot == SLOT_RESULT) {
                 return false;
+            }
+            // A finished broom of any kind may sit in Base for a Master's re-infusion.
+            if (slot == SLOT_A && stack.getItem() instanceof BroomItem) {
+                return true;
             }
             // Derived from the recipes, so every ingredient of every recipe fits its slot. The old
             // hand-written lists refused the Nimbus and Firebolt ingredients.
@@ -187,7 +196,7 @@ public class BroomWorkbenchBlockEntity extends BlockEntity implements net.minecr
             return;
         }
 
-        if (!canCraftBroom()) {
+        if (this.infusionReinfuse ? !canReinfuse() : !canCraftBroom()) {
             this.craftTicksRemaining = 0;
             this.craftAccentPhase = 0;
             this.syncToClients();
@@ -217,11 +226,20 @@ public class BroomWorkbenchBlockEntity extends BlockEntity implements net.minecr
         if (!this.inventory.getStackInSlot(SLOT_RESULT).isEmpty()) {
             return false;
         }
-        if (!canCraftBroom()) {
+        boolean crafting = canCraftBroom();
+        boolean reinfusing = !crafting && canReinfuse();
+        if (!crafting && !reinfusing) {
             return false;
         }
-
         int rank = DisableSupport.casterRank(caster, SpellType.ALATUS);
+        if (reinfusing && !AlatusRules.reinfuses(rank)) {
+            if (CombatEffects.responsible(caster) instanceof ServerPlayer player) {
+                player.displayClientMessage(Component.translatable("message.hogwartsmagic.alatus.reinfuse_master")
+                        .withStyle(ChatFormatting.GOLD), true);
+            }
+            return false;
+        }
+        this.infusionReinfuse = reinfusing;
 
         this.infusionRank = rank;
         this.craftTotalTicks = AlatusRules.infusionTicks(rank);
@@ -236,6 +254,16 @@ public class BroomWorkbenchBlockEntity extends BlockEntity implements net.minecr
         this.setChanged();
         this.syncToClients();
         return true;
+    }
+
+    /** Master re-infusion: a finished broom in Base, enough Arcane Dust in Magic, Boost and Catalyst empty. */
+    private boolean canReinfuse() {
+        ItemStack a = this.inventory.getStackInSlot(SLOT_A);
+        ItemStack b = this.inventory.getStackInSlot(SLOT_B);
+        ItemStack c = this.inventory.getStackInSlot(SLOT_C);
+        ItemStack d = this.inventory.getStackInSlot(SLOT_D);
+        return a.getItem() instanceof BroomItem && b.isEmpty() && d.isEmpty()
+                && c.is(ExampleMod.ARCANE_DUST.get()) && c.getCount() >= AlatusRules.REINFUSE_DUST_COST;
     }
 
     private boolean canCraftBroom() {
@@ -266,14 +294,24 @@ public class BroomWorkbenchBlockEntity extends BlockEntity implements net.minecr
     }
 
     private void finishCrafting() {
-        ItemStack out = getBroomResultForCurrentInputs();
-        if (out == null) {
+        ItemStack out;
+        if (!this.infusionReinfuse) {
+            out = getBroomResultForCurrentInputs();
+            if (out == null) {
+                return;
+            }
+            this.inventory.extractItem(SLOT_A, 1, false);
+            this.inventory.extractItem(SLOT_B, 1, false);
+            this.inventory.extractItem(SLOT_C, 1, false);
+            this.inventory.extractItem(SLOT_D, 1, false);
+        } else if (canReinfuse()) {
+            // The same broom comes back with a fresh roll at the infusing Master's odds.
+            out = this.inventory.getStackInSlot(SLOT_A).copyWithCount(1);
+            this.inventory.extractItem(SLOT_A, 1, false);
+            this.inventory.extractItem(SLOT_C, AlatusRules.REINFUSE_DUST_COST, false);
+        } else {
             return;
         }
-        this.inventory.extractItem(SLOT_A, 1, false);
-        this.inventory.extractItem(SLOT_B, 1, false);
-        this.inventory.extractItem(SLOT_C, 1, false);
-        this.inventory.extractItem(SLOT_D, 1, false);
         int quality = this.rollQuality(out);
         this.inventory.setStackInSlot(SLOT_RESULT, out);
         this.playFinishEffects(quality);
@@ -387,6 +425,7 @@ public class BroomWorkbenchBlockEntity extends BlockEntity implements net.minecr
         tag.putInt("CraftRemaining", this.craftTicksRemaining);
         tag.putInt("CraftTotal", this.craftTotalTicks);
         tag.putInt("InfusionRank", this.infusionRank);
+        tag.putBoolean("InfusionReinfuse", this.infusionReinfuse);
     }
 
     @Override
@@ -404,6 +443,7 @@ public class BroomWorkbenchBlockEntity extends BlockEntity implements net.minecr
         this.craftTicksRemaining = Math.max(0, tag.getInt("CraftRemaining"));
         this.craftTotalTicks = tag.contains("CraftTotal") ? Math.max(1, tag.getInt("CraftTotal")) : BROOM_CRAFT_TICKS_TOTAL;
         this.infusionRank = tag.contains("InfusionRank") ? tag.getInt("InfusionRank") : 1;
+        this.infusionReinfuse = tag.getBoolean("InfusionReinfuse");
     }
 
     @Override

@@ -63,7 +63,7 @@ Numbered as in `.superpowers/sdd/2026-10-03-colloportus/preflight.md`, where eac
 15. **`/lockinfo`** prints one line, `SEALED by <name> (rank N)`, for the highest covering seal, and starts no read. This also happens for a sealed wooden door with no piston near.
 16. **Lines go to chat.** `ModEventsClientHooks.onClientPlayerTick` rewrites the action bar every tick while the spell cools down, which it always is right after the cast. `LockPickStatePacket` is tied to picking state.
 17. **The sealer is told** in chat when someone breaks one of their seals, if they are online.
-18. **Where the book drops.** Loot pools STRONGHOLD_LIBRARY, DUNGEON_MIX and DEFAULT_POOL, which are Alohomora's pools minus the village. The Bookseller also sells it in its level-2 "advanced" list.
+18. **Where the book drops.** Loot pools STRONGHOLD_LIBRARY, DUNGEON_MIX and DEFAULT_POOL, which are Alohomora's pools minus the village. The Bookseller also sells it in its level-3 "advanced" list.
 19. **Look and sound.** The cast sound reuses `SPELL_ALOHOMORA`. Colour bronze `0x8A6D3B`, trail ENCHANT, impact WAX_ON. Making a seal plays IRON_DOOR_CLOSE and CHAIN_PLACE with a WAX_ON ring at the radius. Lifting plays IRON_DOOR_OPEN and CHAIN_BREAK. A refusal plays CHAIN_HIT. A break plays CHAIN_BREAK and IRON_DOOR_OPEN with ELECTRIC_SPARK at the seal.
 20. **The sealer's name is stored** at cast time. It is shown while they are offline; a renamed player shows the old name.
 21. **The network protocol stays 6.** No packet is added, and beams and books carry the spell id as a string.
@@ -109,7 +109,7 @@ Numbered as in `.superpowers/sdd/2026-10-03-colloportus/preflight.md`, where eac
 | Create `src/main/resources/assets/hogwartsmagic/models/item/magic_book_colloportus.json` | Book model on the committed texture | 2 |
 | Modify `src/main/resources/assets/hogwartsmagic/models/item/magic_book.json` | Override for CMD 39 | 2 |
 | Modify `src/main/java/com/hogwartsmagic/loot/MagicBookChestLoot.java` | Three pools | 2 |
-| Modify `src/main/java/com/hogwartsmagic/entity/ModVillagers.java` | Bookseller level 2 | 2 |
+| Modify `src/main/java/com/hogwartsmagic/entity/ModVillagers.java` | Bookseller level 3 | 2 |
 | Modify `src/main/resources/assets/hogwartsmagic/lang/en_us.json` | Name, description, rank lines, messages | 2 |
 | Modify `src/main/java/com/hogwartsmagic/spell/support/AlohomoraSpell.java` | Gate before opening; area skips seals | 3 |
 | Modify `src/main/java/com/hogwartsmagic/command/LockInfoCommand.java` | SEALED line | 3 |
@@ -1057,7 +1057,7 @@ Replace with:
                     SpellType.REPARO, SpellType.STUPEFY, SpellType.COLLOPORTUS);
 ```
 
-(This is the Bookseller's level-2 `advanced` list. The Wandmaker's list ends `SpellType.EXPELLIARMUS, SpellType.STUPEFY, SpellType.REPARO);`, so the anchor is unique.)
+(This is the Bookseller's level-3 `advanced` list. The Wandmaker's list ends `SpellType.EXPELLIARMUS, SpellType.STUPEFY, SpellType.REPARO);`, so the anchor is unique.)
 
 - [ ] **Step 10: Text.** In `en_us.json`, find the last entry:
 
@@ -1293,7 +1293,7 @@ This can't be automated. Install the jar from Task 4. Set ranks with `/spellmast
 | 9 | A Novice, two doors | Seal door 1, then door 2 | "...your oldest seal fades (1 of 1 seals)."; B's Novice Alohomora opens door 1 but not door 2 |
 | 10 | 2×2 sticky piston door with a lever lock; A Expert | A casts at a block of the door frame; B (Expert) holds Alohomora at the door | Refused at once: no progress bar, no clicks, no sparks; nothing moves |
 | 11 | row 10; B Master | B holds Alohomora | The seal breaks (no picking that cast); the next held cast picks and opens normally |
-| 12 | row 10 with A Master | B Master casts Alohomora | Refused (a Master seal cannot be broken); A lifts it with Colloportus |
+| 12 | row 10 with A Master | B Master casts Alohomora | The Master seal breaks (a Master Alohomora breaks a Master seal); the next cast picks normally |
 | 13 | row 10 | B casts Revelio (any rank) at the door | A sphere of white points around the seal; chat "Sealed by Colloportus: A, Expert."; no lock hints (no glowing levers) |
 | 14 | row 10 | Op runs `/lockinfo` at the door | One line `SEALED by A (rank 3)`; no "Reading the lock..." |
 | 15 | wooden door; A Novice and C Adept both seal it; B Expert | B casts Alohomora three times | 1st breaks C's seal, 2nd breaks A's, 3rd opens |

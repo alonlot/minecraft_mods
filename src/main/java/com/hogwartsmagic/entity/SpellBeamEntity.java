@@ -763,6 +763,11 @@ public class SpellBeamEntity extends ThrowableProjectile {
                                 getOwner() instanceof LivingEntity livingCaster ? livingCaster : null,
                                 pos);
                     }
+                } else if (spell == SpellType.WINGARDIUM_LEVIOSA) {
+                    // Expert and up: the struck block rises into a carried block the channel can hold.
+                    if (this.level() instanceof ServerLevel wingardiumLevel) {
+                        hitSuccessful = com.hogwartsmagic.spell.motion.WingardiumSpell.liftBlock(wingardiumLevel, pos, getOwner());
+                    }
                 } else if (spell == SpellType.PIERTOTUM_LOCOMOTOR) {
                     if (this.level() instanceof ServerLevel sl) {
                         // Owner narrowed to ServerPlayer, not LivingEntity: the statue is bound to a

@@ -953,6 +953,8 @@ public class SpellPackets {
 
                 if (playerData.getBoolean(TAG_WINGARDIUM_CHANNELING)) {
                     playerData.putLong(TAG_WINGARDIUM_LAST_SEEN, now);
+                    // The fourth flag carries "attack held" for Wingardium too: a fresh press throws (Expert).
+                    com.hogwartsmagic.spell.motion.WingardiumSpell.onHeartbeat(player, wand, p.fiendfyreAdvance);
                     return;
                 }
 
@@ -977,6 +979,7 @@ public class SpellPackets {
 
                 playerData.putBoolean(TAG_WINGARDIUM_CHANNELING, true);
                 playerData.putUUID(TAG_WINGARDIUM_TARGET, target.getUUID());
+                com.hogwartsmagic.spell.motion.WingardiumSpell.onChannelStart(player, p.fiendfyreAdvance);
                 playerData.putLong(TAG_WINGARDIUM_LAST_SEEN, now);
                 playerData.putLong(TAG_WINGARDIUM_LAST_DRAIN, now);
                 com.hogwartsmagic.event.ModEvents.revealInvisibilityCloak(player);

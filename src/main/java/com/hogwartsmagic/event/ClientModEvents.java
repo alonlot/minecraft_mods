@@ -302,7 +302,8 @@ public class ClientModEvents {
                         wingardiumChannelActive = false;
                     } else if (wingardiumHoldPending) {
                         if (useDown) {
-                            SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(false, false, true, false), PacketDistributor.SERVER.noArg());
+                            // The fourth flag is "attack held": a fresh left-click throws (server decides by rank).
+                            SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(false, false, true, mc.options.keyAttack.isDown()), PacketDistributor.SERVER.noArg());
                             if (!wingardiumChannelActive) {
                                 wingardiumChannelActive = true;
                                 mc.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);

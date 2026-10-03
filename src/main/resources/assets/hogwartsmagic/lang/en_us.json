@@ -48,7 +48,7 @@
   "spell.hogwartsmagic.accio": "Accio",
   "spell.hogwartsmagic.accio.desc": "Summons creatures (up to 10 hearts at Novice, any non-boss at Master) and loose items near where it lands. From Expert it pulls the first stack out of a chest you could open; at Master it snatches an opponent's held item in a duel.",
   "spell.hogwartsmagic.wingardium_leviosa": "Wingardium Leviosa",
-  "spell.hogwartsmagic.wingardium_leviosa.desc": "Causes the target to levitate into the air.",
+  "spell.hogwartsmagic.wingardium_leviosa.desc": "Hit a creature and keep holding to float it in front of you. Expert: also lifts a block (up to stone, nothing with an inventory); let go to set it down where it lands, or left-click while holding to throw what you hold (3 damage to whatever it hits). Master: holds two at once and a throw deals 6.",
   "spell.hogwartsmagic.alohomora": "Alohomora",
   "spell.hogwartsmagic.alohomora.desc": "Unlocks doors, trapdoors and fence gates. Adept opens iron doors too (they swing shut after 5 seconds); Expert opens every door within 4 blocks. At Master it opens a Gringotts vault door from afar (the goblins still notice) and switches off a hostile Ward's barrier for 5 seconds.",
   "spell.hogwartsmagic.incendio": "Incendio",

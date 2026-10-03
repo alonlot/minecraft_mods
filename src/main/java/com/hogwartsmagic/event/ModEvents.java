@@ -1429,7 +1429,7 @@ public class ModEvents {
             }
         }
 
-        controlWingardiumTarget(player, target);
+        controlWingardiumTarget(player, target, 0.0D);
     }
 
     public static void stopWingardiumChannel(ServerPlayer player, ItemStack wand) {
@@ -1441,8 +1441,10 @@ public class ModEvents {
         player.getPersistentData().remove(TAG_WINGARDIUM_TARGET);
         player.getPersistentData().remove(TAG_WINGARDIUM_LAST_SEEN);
         player.getPersistentData().remove(TAG_WINGARDIUM_LAST_DRAIN);
+        // A throw already set the flight; only a plain release gets the gentle drop.
+        boolean thrown = com.hogwartsmagic.spell.motion.WingardiumSpell.onChannelStop(player);
 
-        if (controlled != null && controlled.isAlive()) {
+        if (controlled != null && controlled.isAlive() && !thrown) {
             Vec3 motion = controlled.getDeltaMovement();
             controlled.setDeltaMovement(motion.x * 0.35D, Math.min(motion.y, -0.18D), motion.z * 0.35D);
             controlled.hurtMarked = true;
@@ -1499,7 +1501,8 @@ public class ModEvents {
         return target;
     }
 
-    private static void controlWingardiumTarget(ServerPlayer caster, Entity target) {
+    /** Steers one held thing toward the hold point, {@code lateral} blocks to the caster's right (two held: +/-). */
+    public static void controlWingardiumTarget(ServerPlayer caster, Entity target, double lateral) {
         if (target instanceof Mob mob) {
             mob.setTarget(null);
             mob.getNavigation().stop();
@@ -1507,6 +1510,15 @@ public class ModEvents {
 
         Vec3 look = caster.getLookAngle();
         Vec3 holdPos = caster.getEyePosition().add(look.scale(3.0D));
+        if (lateral != 0.0D) {
+            Vec3 right = new Vec3(-look.z, 0.0D, look.x);
+            if (right.lengthSqr() > 1.0E-6D) {
+                holdPos = holdPos.add(right.normalize().scale(lateral));
+            }
+        }
+        if (target instanceof com.hogwartsmagic.entity.CarriedBlockEntity carried) {
+            carried.markHeld(caster.level().getGameTime()); // a held block floats; let go, it falls
+        }
         Vec3 targetCenter = target.position().add(0.0D, target.getBbHeight() * 0.5D, 0.0D);
         Vec3 towardHold = holdPos.subtract(targetCenter);
         Vec3 pull = towardHold.scale(0.18D);

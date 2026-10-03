@@ -48,6 +48,7 @@ public final class ClientRuntimeBridge {
             case "thrallLabel" -> ImperiusClient.acceptLabel((SpellPackets.ThrallLabelPacket) payload);
             case "possessionState" -> PossessionClient.acceptState((SpellPackets.PossessionStatePacket) payload);
             case "puppetInput" -> PossessionClient.acceptPuppetInput((SpellPackets.PuppetInputPacket) payload);
+            case "puppetSnapshot" -> PossessionClient.acceptSnapshot((SpellPackets.PuppetSnapshotPacket) payload);
             default -> throw new IllegalArgumentException("Unknown client packet action: " + action);
         }
     }

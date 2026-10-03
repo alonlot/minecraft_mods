@@ -3,6 +3,9 @@ package com.hogwartsmagic.client;
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.network.SpellPackets;
 import com.hogwartsmagic.spell.mind.PossessionRules;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -56,6 +59,9 @@ public final class PossessionClient {
     private static boolean puppetSeen;
     private static int resistPresses;
     private static int resistTimer;
+    @Nullable
+    private static SpellPackets.PuppetSnapshotPacket snapshot;
+    private static int displayedSlot;
 
     private PossessionClient() {
     }
@@ -101,6 +107,14 @@ public final class PossessionClient {
         puppetSeen = true;
     }
 
+    public static void acceptSnapshot(SpellPackets.PuppetSnapshotPacket packet) {
+        if (role != PossessionRules.ROLE_CASTER || packet.victimId() != otherId) {
+            return;
+        }
+        snapshot = packet;
+        displayedSlot = packet.selectedSlot();
+    }
+
     // ---- Queries -------------------------------------------------------------------------------
 
     public static boolean isCaster() {
@@ -123,6 +137,35 @@ public final class PossessionClient {
         return otherId;
     }
 
+    @Nullable
+    public static SpellPackets.PuppetSnapshotPacket snapshot() {
+        return snapshot;
+    }
+
+    public static int displayedSlot() {
+        return displayedSlot;
+    }
+
+    /** An icon for a hotbar entry of the snapshot (item id only). */
+    public static ItemStack stackFor(String id, int count) {
+        if (id == null || id.isEmpty()) {
+            return ItemStack.EMPTY;
+        }
+        ResourceLocation key = ResourceLocation.tryParse(id);
+        if (key == null) {
+            return ItemStack.EMPTY;
+        }
+        return BuiltInRegistries.ITEM.getOptional(key).map(item -> new ItemStack(item, Math.max(1, count))).orElse(ItemStack.EMPTY);
+    }
+
+    private static void selectPuppetSlot(int slot) {
+        if (snapshot == null || !PossessionRules.validHotbarSlot(slot)) {
+            return;
+        }
+        displayedSlot = slot; // shown at once; the next snapshot confirms it
+        SpellPackets.CHANNEL.send(new SpellPackets.PossessionHotbarPacket(slot), PacketDistributor.SERVER.noArg());
+    }
+
     // ---- State ---------------------------------------------------------------------------------
 
     private static void reset() {
@@ -141,6 +184,8 @@ public final class PossessionClient {
         puppetSeen = false;
         resistPresses = 0;
         resistTimer = 0;
+        snapshot = null;
+        displayedSlot = 0;
     }
 
     /** The caster lets go (or its view lost the victim): tell the server, snap back, ignore stale keepalives. */
@@ -234,8 +279,25 @@ public final class PossessionClient {
         drain(minecraft.options.keyDrop);
         drain(minecraft.options.keyInventory);
         drain(minecraft.options.keySwapOffhand);
-        for (KeyMapping hotbar : minecraft.options.keyHotbarSlots) {
-            drain(hotbar);
+        for (int slot = 0; slot < minecraft.options.keyHotbarSlots.length; slot++) {
+            while (minecraft.options.keyHotbarSlots[slot].consumeClick()) {
+                if (role == PossessionRules.ROLE_CASTER) {
+                    selectPuppetSlot(slot); // the caster picks the puppet's slot, never their own
+                }
+            }
+        }
+    }
+
+    /** The caster's scroll wheel turns the puppet's hotbar (same direction as vanilla scrolling). */
+    @SubscribeEvent
+    public static void onScroll(InputEvent.MouseScrollingEvent event) {
+        if (role != PossessionRules.ROLE_CASTER || Minecraft.getInstance().screen != null) {
+            return;
+        }
+        event.setCanceled(true);
+        int step = (int) Math.signum(event.getDeltaY());
+        if (step != 0) {
+            selectPuppetSlot(Math.floorMod(displayedSlot - step, 9));
         }
     }
 

@@ -2,6 +2,10 @@ package com.hogwartsmagic.client;
 
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.spell.mind.MindControl;
+import com.hogwartsmagic.network.SpellPackets;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.player.LocalPlayer;
@@ -15,6 +19,8 @@ import net.minecraft.util.Mth;
 public final class MindControlOverlay {
     private static final int STRIPS = 20;
     private static final int IMPERIUS_GREEN = 0x2FAF3F;
+    private static final ResourceLocation HOTBAR_SPRITE = ResourceLocation.withDefaultNamespace("hud/hotbar");
+    private static final ResourceLocation HOTBAR_SELECTION_SPRITE = ResourceLocation.withDefaultNamespace("hud/hotbar_selection");
 
     private MindControlOverlay() {
     }
@@ -34,6 +40,47 @@ public final class MindControlOverlay {
                 graphics.drawCenteredString(minecraft.font, Component.translatable("gui." + ExampleMod.MODID + ".imperio.victim"),
                         graphics.guiWidth() / 2, 14, 0xFF9CFF9C);
             }
+        }
+        if (PossessionClient.isCaster()) {
+            renderCasterHud(graphics, minecraft);
+        }
+    }
+
+    /** Whose eyes you're behind and for how long; for a player puppet, their hotbar (over yours) and mana. */
+    private static void renderCasterHud(GuiGraphics graphics, Minecraft minecraft) {
+        int cx = graphics.guiWidth() / 2;
+        Entity victim = minecraft.level == null ? null : minecraft.level.getEntity(PossessionClient.otherId());
+        Component name = victim != null ? victim.getDisplayName() : Component.literal("?");
+        int seconds = (PossessionClient.ticksLeft() + 19) / 20;
+        graphics.drawCenteredString(minecraft.font, Component.translatable("gui." + ExampleMod.MODID + ".possession.caster_header",
+                name, seconds), cx, 14, 0xFF9CFF9C);
+        SpellPackets.PuppetSnapshotPacket snapshot = PossessionClient.snapshot();
+        if (snapshot == null) {
+            return;
+        }
+        int x = cx - 91;
+        int y = graphics.guiHeight() - 22;
+        graphics.fill(x, y, x + 182, y + 22, 0xFF000000); // hide the caster's own hotbar underneath
+        graphics.blitSprite(HOTBAR_SPRITE, x, y, 182, 22);
+        graphics.blitSprite(HOTBAR_SELECTION_SPRITE, x - 1 + PossessionClient.displayedSlot() * 20, y - 1, 24, 23);
+        for (int slot = 0; slot < snapshot.hotbarIds().size() && slot < 9; slot++) {
+            ItemStack stack = PossessionClient.stackFor(snapshot.hotbarIds().get(slot), snapshot.hotbarCounts().get(slot));
+            if (!stack.isEmpty()) {
+                graphics.renderItem(stack, x + 3 + slot * 20, y + 3);
+                graphics.renderItemDecorations(minecraft.font, stack, x + 3 + slot * 20, y + 3);
+            }
+        }
+        float maxMana = snapshot.maxMana() <= 0.0F ? 1.0F : snapshot.maxMana();
+        int barX = graphics.guiWidth() - 120;
+        int barY = graphics.guiHeight() - 58;
+        int fill = Math.max(0, Math.min(100, (int) (snapshot.mana() / maxMana * 100)));
+        graphics.fill(barX, barY, barX + 100, barY + 8, 0x88000000);
+        graphics.fill(barX, barY, barX + fill, barY + 8, 0xFF3FD06A);
+        graphics.drawString(minecraft.font, Component.translatable("gui." + ExampleMod.MODID + ".puppet.mana",
+                (int) snapshot.mana(), (int) snapshot.maxMana()), barX, barY - 10, 0xFFB8F5B8, true);
+        if (snapshot.holdsWand()) {
+            graphics.drawCenteredString(minecraft.font, Component.translatable("gui." + ExampleMod.MODID + ".possession.wheel_hint"),
+                    cx, graphics.guiHeight() - 48, 0xFFB8F5B8);
         }
     }
 

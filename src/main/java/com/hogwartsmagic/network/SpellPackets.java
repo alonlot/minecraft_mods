@@ -443,6 +443,68 @@ public class SpellPackets {
                 .decoder(buf -> new PossessionResistPacket(buf.readVarInt()))
                 .consumerMainThread(PossessionResistPacket::handle)
                 .add();
+        CHANNEL.messageBuilder(PuppetSnapshotPacket.class)
+                .encoder((p, buf) -> {
+                    buf.writeVarInt(p.victimId);
+                    buf.writeUtf(p.victimName, 64);
+                    buf.writeBoolean(p.holdsWand);
+                    buf.writeVarInt(p.selectedSlot);
+                    buf.writeVarInt(p.hotbarIds.size());
+                    for (int i = 0; i < p.hotbarIds.size(); i++) {
+                        buf.writeUtf(p.hotbarIds.get(i), 128);
+                        buf.writeVarInt(p.hotbarCounts.get(i));
+                    }
+                    buf.writeFloat(p.mana);
+                    buf.writeFloat(p.maxMana);
+                    buf.writeVarInt(p.learnedIds.size());
+                    for (int i = 0; i < p.learnedIds.size(); i++) {
+                        buf.writeUtf(p.learnedIds.get(i), 64);
+                        buf.writeVarInt(p.learnedRanks.get(i));
+                        buf.writeVarInt(p.cooldownTicks.get(i));
+                    }
+                    buf.writeVarInt(p.wandSlots.size());
+                    for (String id : p.wandSlots) {
+                        buf.writeUtf(id, 64);
+                    }
+                })
+                .decoder(buf -> {
+                    int victimId = buf.readVarInt();
+                    String victimName = buf.readUtf(64);
+                    boolean holdsWand = buf.readBoolean();
+                    int selectedSlot = buf.readVarInt();
+                    int hotbarSize = clampDecodedSize(buf.readVarInt(), 9);
+                    List<String> hotbarIds = new ArrayList<>(hotbarSize);
+                    List<Integer> hotbarCounts = new ArrayList<>(hotbarSize);
+                    for (int i = 0; i < hotbarSize; i++) {
+                        hotbarIds.add(buf.readUtf(128));
+                        hotbarCounts.add(buf.readVarInt());
+                    }
+                    float mana = buf.readFloat();
+                    float maxMana = buf.readFloat();
+                    int learnedSize = clampDecodedSize(buf.readVarInt(), SpellType.values().length);
+                    List<String> learnedIds = new ArrayList<>(learnedSize);
+                    List<Integer> learnedRanks = new ArrayList<>(learnedSize);
+                    List<Integer> cooldownTicks = new ArrayList<>(learnedSize);
+                    for (int i = 0; i < learnedSize; i++) {
+                        learnedIds.add(buf.readUtf(64));
+                        learnedRanks.add(buf.readVarInt());
+                        cooldownTicks.add(buf.readVarInt());
+                    }
+                    int slotCount = clampDecodedSize(buf.readVarInt(), MagicWandItem.SPELL_SLOT_COUNT);
+                    List<String> wandSlots = new ArrayList<>(slotCount);
+                    for (int i = 0; i < slotCount; i++) {
+                        wandSlots.add(buf.readUtf(64));
+                    }
+                    return new PuppetSnapshotPacket(victimId, victimName, holdsWand, selectedSlot, hotbarIds, hotbarCounts,
+                            mana, maxMana, learnedIds, learnedRanks, cooldownTicks, wandSlots);
+                })
+                .consumerMainThread(PuppetSnapshotPacket::handle)
+                .add();
+        CHANNEL.messageBuilder(PossessionHotbarPacket.class)
+                .encoder((p, buf) -> buf.writeVarInt(p.slot))
+                .decoder(buf -> new PossessionHotbarPacket(buf.readVarInt()))
+                .consumerMainThread(PossessionHotbarPacket::handle)
+                .add();
     }
 
     public static void syncRelics(ServerPlayer player) {
@@ -1582,6 +1644,33 @@ public class SpellPackets {
             ServerPlayer player = ctx.getSender();
             if (player != null) {
                 com.hogwartsmagic.spell.mind.PossessionManager.acceptResist(player, p.presses);
+            }
+        }
+    }
+
+    /**
+     * Server to client (the possessing caster): what the puppet carries and knows. Item ids only (icons, no
+     * components); cooldowns are ticks left on the puppet's held wand when it was sent.
+     */
+    public record PuppetSnapshotPacket(int victimId, String victimName, boolean holdsWand, int selectedSlot,
+                                       List<String> hotbarIds, List<Integer> hotbarCounts, float mana, float maxMana,
+                                       List<String> learnedIds, List<Integer> learnedRanks, List<Integer> cooldownTicks,
+                                       List<String> wandSlots) {
+        public static void handle(PuppetSnapshotPacket p, CustomPayloadEvent.Context ctx) {
+            if (ctx.getSender() != null) {
+                ctx.setPacketHandled(true);
+                return;
+            }
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("puppetSnapshot", p));
+        }
+    }
+
+    /** Client to server (the possessing caster): select this slot of the puppet's hotbar. */
+    public record PossessionHotbarPacket(int slot) {
+        public static void handle(PossessionHotbarPacket p, CustomPayloadEvent.Context ctx) {
+            ServerPlayer player = ctx.getSender();
+            if (player != null) {
+                com.hogwartsmagic.spell.mind.PossessionManager.selectHotbar(player, p.slot);
             }
         }
     }

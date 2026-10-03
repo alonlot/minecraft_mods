@@ -1,6 +1,11 @@
 package com.hogwartsmagic.spell.mind;
 
 import com.hogwartsmagic.Config;
+import java.util.List;
+import net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket;
+import net.minecraft.core.registries.BuiltInRegistries;
+import com.hogwartsmagic.spell.mastery.SpellMasteryData;
+import com.hogwartsmagic.item.MagicBookItem;
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.event.ModEvents;
 import com.hogwartsmagic.item.MagicWandItem;
@@ -201,6 +206,9 @@ public final class PossessionManager {
             mob.getNavigation().stop();
         }
         sendState(session, caster, victim, now);
+        if (victim instanceof ServerPlayer target) {
+            sendSnapshot(session, caster, target, now);
+        }
         level.playSound(null, victim.getX(), victim.getY(), victim.getZ(), SpellType.IMPERIO.getSoundEvent(),
                 SoundSource.PLAYERS, 1.0F, 0.8F);
         MindFx.burst(victim, ParticleTypes.HAPPY_VILLAGER);
@@ -321,6 +329,69 @@ public final class PossessionManager {
             return true;
         }
         return false;
+    }
+
+    /** The caster scrolled or pressed a number: only their own session, a player puppet, a real slot, 10 a second. */
+    public static void selectHotbar(ServerPlayer sender, int slot) {
+        PossessionSession session = BY_CASTER.get(sender.getUUID());
+        if (session == null || !session.victimIsPlayer || !PossessionRules.validHotbarSlot(slot)) {
+            return;
+        }
+        long now = sender.level().getGameTime();
+        if (!session.hotbarRate.tryAcquire(now)) {
+            return;
+        }
+        ServerPlayer victim = sender.server.getPlayerList().getPlayer(session.victimId);
+        if (victim == null) {
+            return;
+        }
+        session.forcedSlot = slot;
+        enforceHotbar(session, victim);
+        sendSnapshot(session, sender, victim, now);
+    }
+
+    /** The puppet can't change slot on its own: put the caster's choice back every tick. */
+    private static void enforceHotbar(PossessionSession session, ServerPlayer victim) {
+        if (session.forcedSlot >= 0 && victim.getInventory().selected != session.forcedSlot) {
+            victim.getInventory().selected = session.forcedSlot;
+            victim.connection.send(new ClientboundSetCarriedItemPacket(session.forcedSlot));
+        }
+    }
+
+    private static void sendSnapshot(PossessionSession session, ServerPlayer caster, ServerPlayer victim, long now) {
+        session.lastSnapshotAt = now;
+        ItemStack wand = victim.getMainHandItem();
+        boolean holdsWand = MagicWandItem.isAnyWand(wand);
+        List<String> hotbarIds = new ArrayList<>(9);
+        List<Integer> hotbarCounts = new ArrayList<>(9);
+        for (int slot = 0; slot < 9; slot++) {
+            ItemStack stack = victim.getInventory().getItem(slot);
+            hotbarIds.add(stack.isEmpty() ? "" : BuiltInRegistries.ITEM.getKey(stack.getItem()).toString());
+            hotbarCounts.add(stack.getCount());
+        }
+        CompoundTag modData = PlayerMagicData.getModData(victim);
+        float maxMana = PlayerMagicData.getMaxMana(victim);
+        float mana = modData.contains("Mana") ? modData.getFloat("Mana") : maxMana;
+        List<String> learned = new ArrayList<>();
+        List<Integer> ranks = new ArrayList<>();
+        List<Integer> cooldowns = new ArrayList<>();
+        for (SpellType spell : SpellType.values()) {
+            if (!MagicBookItem.isSpellLearned(victim, spell)) {
+                continue;
+            }
+            learned.add(spell.getId());
+            ranks.add(SpellMasteryData.getRank(victim, spell));
+            long left = holdsWand ? MagicWandItem.getSpellCooldown(wand, spell) - now : 0L;
+            cooldowns.add((int) Math.max(0L, Math.min(Integer.MAX_VALUE, left)));
+        }
+        List<String> wandSlots = new ArrayList<>(MagicWandItem.SPELL_SLOT_COUNT);
+        for (int slot = 0; slot < MagicWandItem.SPELL_SLOT_COUNT; slot++) {
+            SpellType assigned = holdsWand ? MagicWandItem.getSpellSlot(wand, slot) : null;
+            wandSlots.add(assigned == null ? "" : assigned.getId());
+        }
+        SpellPackets.CHANNEL.send(new SpellPackets.PuppetSnapshotPacket(victim.getId(), victim.getName().getString(), holdsWand,
+                victim.getInventory().selected, hotbarIds, hotbarCounts, mana, maxMana, learned, ranks, cooldowns, wandSlots),
+                PacketDistributor.PLAYER.with(caster));
     }
 
     // ---- End -----------------------------------------------------------------------------------
@@ -496,6 +567,12 @@ public final class PossessionManager {
         if (session.attack && now - session.lastAttackAt >= session.attackCooldown) {
             session.lastAttackAt = now;
             session.attackCooldown = PossessedAttacks.attack(victim, caster);
+        }
+        if (victim instanceof ServerPlayer victimPlayer) {
+            enforceHotbar(session, victimPlayer);
+            if (now - session.lastSnapshotAt >= PossessionRules.SNAPSHOT_INTERVAL_TICKS) {
+                sendSnapshot(session, caster, victimPlayer, now);
+            }
         }
         if (now - session.lastStateAt >= PossessionRules.STATE_KEEPALIVE_TICKS) {
             sendState(session, caster, victim, now);

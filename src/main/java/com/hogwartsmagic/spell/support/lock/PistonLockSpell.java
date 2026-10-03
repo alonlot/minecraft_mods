@@ -1,9 +1,14 @@
 package com.hogwartsmagic.spell.support.lock;
 
 import com.hogwartsmagic.ExampleMod;
+import com.hogwartsmagic.item.MagicWandItem;
 import com.hogwartsmagic.mixin.BasePressurePlateTypeAccessor;
+import com.hogwartsmagic.network.SpellPackets;
 import com.hogwartsmagic.spell.SpellType;
+import com.hogwartsmagic.spell.combat.CombatEffects;
 import com.hogwartsmagic.spell.mastery.MasteryAwards;
+import com.hogwartsmagic.spell.mind.MindControl;
+import com.hogwartsmagic.spell.mind.PossessionManager;
 import com.mojang.logging.LogUtils;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
@@ -14,6 +19,8 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BasePressurePlateBlock;
 import net.minecraft.world.level.block.Block;
@@ -24,10 +31,14 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.gameevent.GameEvent;
 import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.server.ServerStoppedEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.network.PacketDistributor;
 import org.slf4j.Logger;
+
+import javax.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -56,10 +67,36 @@ public final class PistonLockSpell {
     /** What {@link #begin} did: started a read, refused one (the caster was told why), or found no piston door. */
     public enum Begin { STARTED, REFUSED, NO_PISTON }
 
-    /** door: the block that was struck, standing for the door's chunk. */
+    /**
+     * door: the block that was struck, standing for the door's chunk (and where the picking is seen and heard).
+     * deadline: the unheld cap (/lockinfo). progress: written by the solver thread. planned: the most attempts
+     * the solver can make (for the ETA). hold: the caster's hold, for Alohomora and Revelio; null for /lockinfo.
+     */
     private record Job(UUID caster, ResourceKey<Level> dimension, BlockPos door, CircuitTracer.TracedLock lock, int rank,
-                       Use use, Future<LockSolver.Solution> result, long deadline) {
+                       Use use, Future<LockSolver.Solution> result, long deadline, LockSolver.Progress progress,
+                       long planned, long budget, @Nullable Hold hold) {
     }
+
+    /** A caster keeping the cast held while the lock is picked. Server thread only. */
+    private static final class Hold {
+        /** The spell the caster must keep selected. */
+        final SpellType spell;
+        long lastSeen;
+        /** Game time the worker was first seen running this job; -1 while it waits in the queue. */
+        long startedAt = -1;
+        /** startedAt + HELD_SOLVE_TIMEOUT_TICKS once started; a queued job does not time out. */
+        long deadline = Long.MAX_VALUE;
+        long nextClick;
+
+        Hold(SpellType spell, long lastSeen) {
+            this.spell = spell;
+            this.lastSeen = lastSeen;
+        }
+    }
+
+    /** Last time each caster was seen holding the cast (press or heartbeat), or RELEASED. Server thread only. */
+    private static final Map<UUID, Long> HELD = new HashMap<>();
+    private static final long RELEASED = Long.MIN_VALUE / 2;
 
     /**
      * One caster's playback: the lock's whole input list, and which levers it has already flipped, so every step
@@ -106,16 +143,46 @@ public final class PistonLockSpell {
     private PistonLockSpell() {
     }
 
-    /** The caster still holds the cast (the cast packet heartbeat). Filled in by the hold task. */
+    /** The caster still holds Alohomora or Revelio (the cast packet heartbeat). */
     public static void heartbeat(ServerPlayer player) {
+        long now = player.level().getGameTime();
+        HELD.put(player.getUUID(), now);
+        for (Job job : JOBS) {
+            if (job.hold() != null && job.caster().equals(player.getUUID())) {
+                job.hold().lastSeen = now;
+            }
+        }
     }
 
-    /** The caster let go of the cast. Filled in by the hold task. */
+    /** The caster let go: a lock still being picked is dropped at once. */
     public static void release(ServerPlayer player) {
+        HELD.put(player.getUUID(), RELEASED);
+        Iterator<Job> it = JOBS.iterator();
+        while (it.hasNext()) {
+            Job job = it.next();
+            if (job.hold() != null && job.caster().equals(player.getUUID())) {
+                it.remove();
+                stopPicking(player, job);
+            }
+        }
     }
 
-    /** An Alohomora or Revelio cast press: it counts as held until the first heartbeat. Filled in by the hold task. */
+    /** An Alohomora or Revelio cast press: it counts as held until the first heartbeat. */
     public static void noteHoldStart(ServerPlayer player) {
+        HELD.put(player.getUUID(), player.level().getGameTime());
+    }
+
+    /** Drops a held job: the solver is interrupted, nothing in the world changes, no XP. */
+    private static void stopPicking(@Nullable ServerPlayer player, Job job) {
+        job.result().cancel(true);
+        if (player != null) {
+            tell(player, "stopped", ChatFormatting.GRAY);
+            sendState(player, false);
+        }
+    }
+
+    private static void sendState(ServerPlayer player, boolean picking) {
+        SpellPackets.CHANNEL.send(new SpellPackets.LockPickStatePacket(picking), PacketDistributor.PLAYER.with(player));
     }
 
     /**
@@ -154,11 +221,21 @@ public final class PistonLockSpell {
         int maxInputs = LockRules.maxInputs(rank);
         int maxPresses = LockRules.maxPresses(rank);
         long budget = LockRules.budget(rank);
-        Future<LockSolver.Solution> result = SOLVER.submit(() -> LockSolver.solve(circuit, maxInputs, maxPresses, budget));
-        JOBS.add(new Job(id, level.dimension(), hit.immutable(), lock, rank, use, result,
-                level.getGameTime() + LockRules.SOLVE_TIMEOUT_TICKS));
+        LockSolver.Progress progress = new LockSolver.Progress();
+        Future<LockSolver.Solution> result = SOLVER.submit(
+                () -> LockSolver.solve(circuit, maxInputs, maxPresses, budget, progress));
+        long now = level.getGameTime();
+        Hold hold = null;
         if (use != Use.INSPECT) {
-            tell(caster, "reading", ChatFormatting.GRAY);
+            // Held from the press (or the last heartbeat); a caster who let go before the beam landed is RELEASED.
+            Long seen = HELD.get(id);
+            hold = new Hold(use == Use.REVEAL ? SpellType.REVELIO : SpellType.ALOHOMORA, seen == null ? now : seen);
+        }
+        JOBS.add(new Job(id, level.dimension(), hit.immutable(), lock, rank, use, result,
+                now + LockRules.SOLVE_TIMEOUT_TICKS, progress, LockSolver.plannedAttempts(circuit, maxInputs, maxPresses),
+                budget, hold));
+        if (hold != null) {
+            sendState(caster, true);
         }
         return Begin.STARTED;
     }
@@ -170,19 +247,110 @@ public final class PistonLockSpell {
             return;
         }
         long now = level.getGameTime();
+        tickHolds(level, now);
         finishJobs(level, now);
         runSteps(level, now);
+    }
+
+    /** Held jobs of this level: drop the ones let go of, start the clock of the ones the worker took, show progress. */
+    private static void tickHolds(ServerLevel level, long now) {
+        Iterator<Job> it = JOBS.iterator();
+        while (it.hasNext()) {
+            Job job = it.next();
+            Hold hold = job.hold();
+            if (hold == null || job.dimension() != level.dimension()) {
+                continue;
+            }
+            ServerPlayer player = level.getServer().getPlayerList().getPlayer(job.caster());
+            if (!stillPicking(level, player, hold, now)) {
+                it.remove();
+                stopPicking(player, job);
+                continue;
+            }
+            if (hold.startedAt < 0 && job.progress().started()) {
+                hold.startedAt = now;
+                hold.deadline = now + LockPickRules.HELD_SOLVE_TIMEOUT_TICKS;
+            }
+            if (!job.result().isDone()) {
+                showProgress(level, player, job, hold, now);
+            }
+        }
+    }
+
+    /** Still holding the right spell, able to cast and in this level (offline, dead, stunned, controlled: no). */
+    private static boolean stillPicking(ServerLevel level, @Nullable ServerPlayer player, Hold hold, long now) {
+        if (player == null || !player.isAlive() || player.level() != level) {
+            return false;
+        }
+        if (LockPickRules.holdLapsed(now, hold.lastSeen)) {
+            return false;
+        }
+        if (CombatEffects.isCastingBlocked(player) || MindControl.isControlled(player)
+                || PossessionManager.isPossessing(player)) {
+            return false;
+        }
+        ItemStack wand = player.getMainHandItem();
+        return MagicWandItem.isAnyWand(wand) && MagicWandItem.getSelectedSpell(wand) == hold.spell;
+    }
+
+    /** The bar and time left on the action bar, lock clicks at the caster, faint pistons and sparks at the door. */
+    private static void showProgress(ServerLevel level, ServerPlayer player, Job job, Hold hold, long now) {
+        LockSolver.Progress p = job.progress();
+        long run = hold.startedAt < 0 ? 0 : now - hold.startedAt;
+        double fraction = hold.startedAt < 0 ? 0.0 : LockPickRules.fraction(p.attempts(), job.planned(), p.work(),
+                job.budget(), run, LockPickRules.HELD_SOLVE_TIMEOUT_TICKS);
+        if (now % LockPickRules.BAR_INTERVAL_TICKS == 0) {
+            int eta = hold.startedAt < 0 ? LockPickRules.UNKNOWN : LockPickRules.etaSeconds(p.attempts(), job.planned(),
+                    p.work(), job.budget(), run, LockPickRules.HELD_SOLVE_TIMEOUT_TICKS);
+            player.displayClientMessage(Component.translatable("message.hogwartsmagic.lock.picking", bar(fraction),
+                    eta == LockPickRules.UNKNOWN ? "~?s" : "~" + eta + "s").withStyle(ChatFormatting.GRAY), true);
+        }
+        RandomSource random = level.getRandom();
+        if (now >= hold.nextClick) {
+            hold.nextClick = now + LockPickRules.clickInterval(fraction);
+            level.playSound(null, player.getX(), player.getEyeY(), player.getZ(),
+                    random.nextInt(3) == 0 ? SoundEvents.CHAIN_HIT : SoundEvents.TRIPWIRE_CLICK_ON,
+                    SoundSource.PLAYERS, 0.18f, 1.2f + random.nextFloat() * 0.8f);
+            if (random.nextDouble() < LockPickRules.pistonChance(fraction)) {
+                level.playSound(null, job.door(), random.nextBoolean() ? SoundEvents.PISTON_EXTEND : SoundEvents.PISTON_CONTRACT,
+                        SoundSource.BLOCKS, 0.12f, 0.5f + random.nextFloat() * 0.25f);
+            }
+        }
+        BlockPos door = job.door();
+        if (now % LockPickRules.SPARK_INTERVAL_TICKS == 0 && level.isLoaded(door)) {
+            level.sendParticles(ParticleTypes.ELECTRIC_SPARK, door.getX() + 0.5, door.getY() + 0.5, door.getZ() + 0.5,
+                    3, 0.35, 0.35, 0.35, 0.05);
+        }
+    }
+
+    private static Component bar(double fraction) {
+        int filled = LockPickRules.filledCells(fraction);
+        return Component.literal("|".repeat(filled)).withStyle(ChatFormatting.AQUA)
+                .append(Component.literal("|".repeat(LockPickRules.BAR_CELLS - filled)).withStyle(ChatFormatting.DARK_GRAY));
+    }
+
+    /** A held job's cap starts when the worker takes it; /lockinfo keeps its 10 s from the queue. */
+    private static long deadline(Job job) {
+        return job.hold() == null ? job.deadline() : job.hold().deadline;
+    }
+
+    private static void successClick(ServerLevel level, ServerPlayer player) {
+        level.playSound(null, player.getX(), player.getEyeY(), player.getZ(), SoundEvents.IRON_TRAPDOOR_OPEN,
+                SoundSource.PLAYERS, 0.5f, 1.8f);
     }
 
     private static void finishJobs(ServerLevel level, long now) {
         Iterator<Job> it = JOBS.iterator();
         while (it.hasNext()) {
             Job job = it.next();
-            if (job.dimension() != level.dimension() || (!job.result().isDone() && now < job.deadline())) {
+            if (job.dimension() != level.dimension() || (!job.result().isDone() && now < deadline(job))) {
                 continue;
             }
             it.remove();
             ServerPlayer player = level.getServer().getPlayerList().getPlayer(job.caster());
+            if (job.hold() != null && player != null) {
+                sendState(player, false); // the hold is over either way; letting go no longer matters
+            }
             if (!job.result().isDone()) {
                 job.result().cancel(true);
                 if (player != null) {
@@ -207,12 +375,14 @@ public final class PistonLockSpell {
                 report(player, job, solution);
             } else if (explainFailure(player, job, solution)) {
                 if (job.use() == Use.REVEAL) {
+                    successClick(level, player);
                     LockHints.show(level, job.lock(), solution);
                     tell(player, "revealed", ChatFormatting.AQUA);
                 } else if (job.lock().circuit().truncated()) {
                     // Part of the wiring was never read, so working the levers would be a guess.
                     tell(player, "too_far", ChatFormatting.GOLD);
                 } else {
+                    successClick(level, player);
                     schedule(level, player, job, solution, now);
                 }
             }
@@ -556,10 +726,25 @@ public final class PistonLockSpell {
         player.displayClientMessage(Component.translatable("message.hogwartsmagic.lock." + key).withStyle(colour), true);
     }
 
+    /** A caster who logs out stops picking (tickHolds would drop the job a tick later anyway). */
+    @SubscribeEvent
+    public static void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
+        UUID id = event.getEntity().getUUID();
+        HELD.remove(id);
+        JOBS.removeIf(job -> {
+            boolean mine = job.hold() != null && job.caster().equals(id);
+            if (mine) {
+                job.result().cancel(true);
+            }
+            return mine;
+        });
+    }
+
     @SubscribeEvent
     public static void onServerStopped(ServerStoppedEvent event) {
         JOBS.forEach(j -> j.result().cancel(true));
         JOBS.clear();
         STEPS.clear();
+        HELD.clear();
     }
 }

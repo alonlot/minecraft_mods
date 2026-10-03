@@ -768,6 +768,11 @@ public class SpellBeamEntity extends ThrowableProjectile {
                     if (this.level() instanceof ServerLevel wingardiumLevel) {
                         hitSuccessful = com.hogwartsmagic.spell.motion.WingardiumSpell.liftBlock(wingardiumLevel, pos, getOwner());
                     }
+                } else if (spell == SpellType.ARRESTO_MOMENTUM) {
+                    // Expert and up: projectiles around the impact stop in midair (nothing else happens to a block).
+                    if (this.level() instanceof ServerLevel arrestoLevel) {
+                        hitSuccessful = com.hogwartsmagic.spell.motion.ArrestoFreeze.freezeAround(arrestoLevel, this.position(), getOwner()) > 0;
+                    }
                 } else if (spell == SpellType.PIERTOTUM_LOCOMOTOR) {
                     if (this.level() instanceof ServerLevel sl) {
                         // Owner narrowed to ServerPlayer, not LivingEntity: the statue is bound to a

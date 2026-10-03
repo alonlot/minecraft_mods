@@ -169,7 +169,7 @@
   "spell.hogwartsmagic.serpensortia": "Serpensortia",
   "spell.hogwartsmagic.serpensortia.desc": "Summons several allied, venomous spiders to attack your enemies.",
   "spell.hogwartsmagic.arresto_momentum": "Arresto Momentum",
-  "spell.hogwartsmagic.arresto_momentum.desc": "Softens a fall and bleeds away momentum. Self-cast to survive a plunge or strike a target to slow its descent.",
+  "spell.hogwartsmagic.arresto_momentum.desc": "Softens a fall and bleeds away momentum. Self-cast to survive a plunge or strike a target to slow its descent. Expert: arrows, tridents, fireballs and venom within 4 blocks of where it lands (around you on a self-cast) stop in midair for 2s, then drop. It never stops spells. Master: 6 blocks.",
   "spell.hogwartsmagic.reparo": "Reparo",
   "spell.hogwartsmagic.reparo.desc": "Rebuilds recently broken blocks near where it lands, paid with their rubble or matching blocks: 4 within 6 blocks at Novice, up to 48 within 20 at Master. From Expert, left-click mends the item in your off-hand (or your worn armour) by a tenth of its durability.",
   "spell.hogwartsmagic.apparition": "Apparition",

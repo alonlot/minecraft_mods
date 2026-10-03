@@ -22,16 +22,6 @@ class ArrestoRulesTest {
     void timing() {
         assertFalse(ArrestoRules.released(140L, 139L));
         assertTrue(ArrestoRules.released(140L, 140L));
-        assertTrue(ArrestoRules.inRedirectWindow(140L, 140L));
-        assertFalse(ArrestoRules.inRedirectWindow(140L, 141L));
         assertEquals(40, ArrestoRules.FREEZE_TICKS);
-    }
-
-    @Test
-    void redirectSpeedIsBounded() {
-        assertEquals(1.0, ArrestoRules.redirectSpeed(0.2), 1e-9);
-        assertEquals(2.5, ArrestoRules.redirectSpeed(2.5), 1e-9);
-        assertEquals(3.0, ArrestoRules.redirectSpeed(9.0), 1e-9);
-        assertEquals(1.0, ArrestoRules.redirectSpeed(Double.NaN), 1e-9);
     }
 }

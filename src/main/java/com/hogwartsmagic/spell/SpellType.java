@@ -302,6 +302,12 @@ public enum SpellType {
                 target.setDeltaMovement(dampedX, Math.max(motion.y, minY), dampedZ);
                 target.fallDistance = 0.0f;
                 target.hurtMarked = true;
+                // Spell Mastery Phase 7b: from Expert the charm also stops projectiles around where it lands
+                // (around the caster on a left-click self-cast).
+                if (target.level() instanceof ServerLevel arrestoLevel) {
+                    com.hogwartsmagic.spell.motion.ArrestoFreeze.freezeAround(arrestoLevel,
+                            target.position().add(0.0D, target.getBbHeight() * 0.5D, 0.0D), caster);
+                }
             }
             case REPARO -> {
             }

@@ -42,11 +42,11 @@ import java.util.UUID;
 
 /**
  * Crucio as a channel. The beam's impact starts it: the victim is stunned for the rank's full length
- * (through CrowdControl, so diminishing returns, the boss rule and PvP apply; bosses aren't stunned at
- * all) and takes 1.5 every half second, while a player caster is rooted and must keep holding (the cast
+ * (through CrowdControl, so diminishing returns and PvP apply; a boss is stunned for half the length
+ * by the CrowdControl boss rule) and takes 1.5 every half second, while a player caster is rooted and must keep holding (the cast
  * packet heartbeat). It ends on release, a lapsed heartbeat, the rank cap, 24 blocks of distance, a death,
  * or an interrupt. Ending early lifts the stun it put on. At Master a surviving non-boss mob flees from the
- * caster for 10s. NPC casters run the full rank-1 channel without holding. Server only.
+ * caster for 10s. NPC casters run the full channel of their rank (rank 1; a boss rank 3) without holding. Server only.
  */
 @Mod.EventBusSubscriber(modid = ExampleMod.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class CrucioChannel {
@@ -85,12 +85,21 @@ public final class CrucioChannel {
     private CrucioChannel() {
     }
 
+    /** Imperio takes the mob over: it stops running from its last Crucio caster. */
+    public static void stopFleeing(UUID mobId) {
+        FLEEING.remove(mobId);
+    }
+
     public static boolean isChanneling(Entity caster) {
         return CHANNELS.containsKey(caster.getUUID());
     }
 
     public static void onBeamHit(LivingEntity target, @Nullable Entity caster) {
         if (!(target.level() instanceof ServerLevel level)) {
+            return;
+        }
+        if (MindControl.pvpBlocked(target, caster)) {
+            MindFx.tell(caster, "mind.pvp_off");
             return;
         }
         Entity owner = CombatEffects.responsible(caster);
@@ -144,6 +153,9 @@ public final class CrucioChannel {
     }
 
     private static void tickChannel(MinecraftServer server, Channel channel) {
+        if (CHANNELS.get(channel.casterId) != channel) {
+            return; // already ended or replaced this tick
+        }
         ServerLevel level = server.getLevel(channel.dimension);
         LivingEntity caster = level == null ? null : living(level.getEntity(channel.casterId));
         LivingEntity target = level == null ? null : living(level.getEntity(channel.targetId));
@@ -184,7 +196,9 @@ public final class CrucioChannel {
     }
 
     private static void end(MinecraftServer server, Channel channel) {
-        CHANNELS.remove(channel.casterId);
+        if (!CHANNELS.remove(channel.casterId, channel)) {
+            return;
+        }
         ServerPlayer casterPlayer = channel.held ? server.getPlayerList().getPlayer(channel.casterId) : null;
         if (casterPlayer != null) {
             casterPlayer.removeEffect(DisableSupport.holder(ExampleMod.ROOTED)); // also after a dimension change
@@ -196,6 +210,9 @@ public final class CrucioChannel {
         long now = level.getGameTime();
         LivingEntity caster = living(level.getEntity(channel.casterId));
         LivingEntity target = living(level.getEntity(channel.targetId));
+        if (target == null) {
+            target = living(server.getPlayerList().getPlayer(channel.targetId)); // a player who changed dimension
+        }
         if (caster != null && channel.held) {
             caster.removeEffect(DisableSupport.holder(ExampleMod.ROOTED));
         }
@@ -207,7 +224,8 @@ public final class CrucioChannel {
         if (stun != null && stunLeft > 0 && stun.getDuration() <= stunLeft + 1) {
             target.removeEffect(DisableSupport.holder(ExampleMod.STUNNED)); // ours, not a longer stun from someone else
         }
-        if (caster != null && CrucioRules.fleesAfter(channel.rank) && target instanceof Mob mob && !CombatTags.isBoss(mob)) {
+        if (caster != null && CrucioRules.fleesAfter(channel.rank) && target instanceof Mob mob && !CombatTags.isBoss(mob)
+                && !MindControl.isControlled(mob)) {
             FLEEING.put(mob.getUUID(), new Flee(caster.getUUID(), now + CrucioRules.FLEE_TICKS));
             MindControl.setTargetBypassing(mob, null);
             MindControl.clearBrainTarget(mob, caster);

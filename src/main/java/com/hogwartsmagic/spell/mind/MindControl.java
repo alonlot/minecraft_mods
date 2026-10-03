@@ -54,6 +54,14 @@ public final class MindControl {
         return entity.hasEffect(holder);
     }
 
+    /** PvP is off (server setting or team rules) and a player's curse would land on another player. */
+    public static boolean pvpBlocked(LivingEntity target, @Nullable Entity caster) {
+        return target instanceof Player victim
+                && com.hogwartsmagic.spell.combat.CombatEffects.responsible(caster) instanceof ServerPlayer p
+                && p != victim
+                && !(p.serverLevel().getServer().isPvpAllowed() && p.canHarmPlayer(victim));
+    }
+
     /** A melee swing the mod makes on a controlled player's behalf (vanilla damage, cooldown and enchantments). */
     public static void forcedAttack(ServerPlayer attacker, Entity target) {
         FORCED_ACTION.set(Boolean.TRUE);

@@ -54,6 +54,10 @@ public final class ConfundoSpell {
         if (target.level().isClientSide()) {
             return;
         }
+        if (MindControl.pvpBlocked(target, caster)) {
+            MindFx.tell(caster, "mind.pvp_off");
+            return;
+        }
         DisableSupport.interrupt(target);
         if (CombatTags.isBoss(target)) {
             MindFx.resisted(target, caster);
@@ -68,7 +72,19 @@ public final class ConfundoSpell {
             return;
         }
         if (target instanceof Mob mob) {
+            if (ImperioThralls.isThrall(mob)) {
+                MindFx.resisted(mob, caster);
+                return;
+            }
             confuse(mob, owner != null ? owner.getUUID() : null, ConfundoRules.confuseTicks(rank), ConfundoRules.contagious(rank));
+        }
+    }
+
+    /** Drops the Confunded effect from a mob (Imperio takes it over). Not for use inside an effect event. */
+    static void clearConfusion(Mob mob) {
+        Holder<MobEffect> holder = holder();
+        if (holder != null && mob.hasEffect(holder)) {
+            mob.removeEffect(holder);
         }
     }
 

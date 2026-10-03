@@ -27,6 +27,14 @@ public final class ImperioSpell {
         if (target.level().isClientSide()) {
             return;
         }
+        if (MindControl.pvpBlocked(target, caster)) {
+            MindFx.tell(caster, "mind.pvp_off");
+            return;
+        }
+        if (target instanceof net.minecraft.world.entity.player.Player && !com.hogwartsmagic.Config.isImperioAffectsPlayers()) {
+            MindFx.tell(caster, "imperio.players_off");
+            return;
+        }
         DisableSupport.interrupt(target);
         if (target instanceof HouseElfEntity elf) {
             // An elf under the Imperius Curse cannot will itself away: the dark road to binding one.

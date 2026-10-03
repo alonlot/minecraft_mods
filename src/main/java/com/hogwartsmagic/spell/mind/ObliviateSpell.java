@@ -49,6 +49,10 @@ public final class ObliviateSpell {
         if (target.level().isClientSide()) {
             return;
         }
+        if (MindControl.pvpBlocked(target, caster)) {
+            MindFx.tell(caster, "mind.pvp_off");
+            return;
+        }
         DisableSupport.interrupt(target);
         if (CombatTags.isBoss(target)) {
             MindFx.resisted(target, caster);

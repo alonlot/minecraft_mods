@@ -34,7 +34,7 @@ final class ThrallGoals {
 
         @Override
         public boolean canUse() {
-            if (this.mob.getTarget() != null) {
+            if (this.mob.getTarget() != null || ImperioThralls.pinned(this.mob)) {
                 return false;
             }
             LivingEntity found = ImperioThralls.ownerOf(this.mob, this.ownerId);
@@ -49,7 +49,7 @@ final class ThrallGoals {
         @Override
         public boolean canContinueToUse() {
             double stop = ImperioRules.FOLLOW_STOP;
-            return this.owner != null && this.owner.isAlive() && this.mob.getTarget() == null
+            return this.owner != null && this.owner.isAlive() && this.mob.getTarget() == null && !ImperioThralls.pinned(this.mob)
                     && this.mob.distanceToSqr(this.owner) > stop * stop;
         }
 

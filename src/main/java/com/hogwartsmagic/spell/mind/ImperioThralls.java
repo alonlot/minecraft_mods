@@ -237,6 +237,10 @@ public final class ImperioThralls {
         if (target instanceof Mob mob) {
             setUpMob(mob, owner, thrall, rank, ticks);
         }
+        CrucioChannel.stopFleeing(target.getUUID());
+        if (target instanceof Mob confusedMob) {
+            ConfundoSpell.clearConfusion(confusedMob);
+        }
         THRALLS.put(target.getUUID(), thrall);
         broadcastLabel(target, thrall.ownerName);
         MindFx.burst(target, GREEN);
@@ -373,6 +377,12 @@ public final class ImperioThralls {
         }
     }
 
+    /** Stunned (Stupefy, Petrificus, Glacius, Crucio) or hung/chained: a thrall must not walk or teleport out of it. */
+    static boolean pinned(LivingEntity e) {
+        return com.hogwartsmagic.spell.combat.CombatEffects.isStunned(e)
+                || com.hogwartsmagic.event.ModEvents.isHeldInPlace(e);
+    }
+
     private static void tickThrall(MinecraftServer server, Thrall thrall) {
         ServerLevel level = server.getLevel(thrall.dimension);
         LivingEntity victim = level == null ? null : living(level.getEntity(thrall.victimId));
@@ -394,7 +404,12 @@ public final class ImperioThralls {
             tickMob(mob, owner, now);
         }
         if (victim instanceof ServerPlayer player) {
-            drivePlayer(thrall, player, owner);
+            if (pinned(player)) {
+                thrall.lastY = player.getY();
+                thrall.pushed = false;
+            } else {
+                drivePlayer(thrall, player, owner);
+            }
         }
         if (now % 10 == 0) {
             level.sendParticles(GREEN, victim.getX(), victim.getY() + victim.getBbHeight() * 0.6, victim.getZ(),
@@ -430,7 +445,7 @@ public final class ImperioThralls {
                 MindControl.setBrainTarget(mob, pick);
             }
         }
-        if (now % 10 == 0 && mob.getTarget() == null && brainTarget(mob) == null) {
+        if (now % 10 == 0 && mob.getTarget() == null && brainTarget(mob) == null && !pinned(mob)) {
             double start = ImperioRules.FOLLOW_START;
             double dist = mob.distanceToSqr(owner);
             if (dist > ImperioRules.TELEPORT_DISTANCE * ImperioRules.TELEPORT_DISTANCE) {

@@ -1952,7 +1952,7 @@ public class ModEvents {
     }
 
     /** Effect checks only (no persistent-data reads). */
-    private static boolean isHeldInPlace(net.minecraft.world.entity.LivingEntity e) {
+    public static boolean isHeldInPlace(net.minecraft.world.entity.LivingEntity e) {
         return com.hogwartsmagic.spell.disable.LevicorpusSpell.isHanging(e)
                 || e.hasEffect(ExampleMod.INCARCEROUS_CHAINS.getHolder().get());
     }
@@ -2792,13 +2792,6 @@ public class ModEvents {
             revealInvisibilityCloak(cloakAttacker);
         }
 
-        // Avada Kedavra bypasses all shields and protections
-        if (event.getSource().getDirectEntity() instanceof com.hogwartsmagic.entity.SpellBeamEntity spell) {
-            if (spell.getSpellType() == SpellType.AVADA_KEDAVRA) {
-                return; // Let the damage absolutely go through!
-            }
-        }
-
         // Cancel fall damage if the player was recently riding the broom or is currently on it
         if (event.getSource().is(net.minecraft.world.damagesource.DamageTypes.FALL)) {
             if (event.getEntity().getVehicle() instanceof com.hogwartsmagic.entity.BroomEntity) {
@@ -2811,7 +2804,10 @@ public class ModEvents {
             // So we'll let BroomEntity handle resetting fall distance in its tick/dismount logic instead.
         }
 
-        if (com.hogwartsmagic.spell.support.ProtegoSpell.isRankedShield(event.getEntity())) {
+        // Avada Kedavra bypasses every Protego, ranked or legacy (AvadaSpell flags its own hurt call).
+        if (com.hogwartsmagic.spell.mind.AvadaSpell.isLanding()) {
+            // no shield of any kind blocks or blunts it
+        } else if (com.hogwartsmagic.spell.support.ProtegoSpell.isRankedShield(event.getEntity())) {
             // A player's Protego (Spell Mastery): blunts blows from the front, never cancels them outright.
             com.hogwartsmagic.spell.support.ProtegoSpell.onShieldedHurt(event);
         } else if (event.getEntity().hasEffect(ExampleMod.PROTEGO_EFFECT.getHolder().get())) {

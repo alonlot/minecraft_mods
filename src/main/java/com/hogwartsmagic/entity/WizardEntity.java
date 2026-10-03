@@ -76,7 +76,7 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
     @Override
     public boolean hurt(net.minecraft.world.damagesource.DamageSource source, float damage) {
         // Intercept damage if we have Protego, unless it's void/starve/drown damage
-        if (!source.is(net.minecraft.tags.DamageTypeTags.BYPASSES_INVULNERABILITY) && this.hasEffect(ExampleMod.PROTEGO_EFFECT.getHolder().get())) {
+        if (!source.is(net.minecraft.tags.DamageTypeTags.BYPASSES_INVULNERABILITY) && !com.hogwartsmagic.spell.mind.AvadaSpell.isLanding() && this.hasEffect(ExampleMod.PROTEGO_EFFECT.getHolder().get())) {
             net.minecraft.world.effect.MobEffectInstance currentEffect = this.getEffect(ExampleMod.PROTEGO_EFFECT.getHolder().get());
             if (currentEffect != null) {
                 int currentAmplifier = currentEffect.getAmplifier();

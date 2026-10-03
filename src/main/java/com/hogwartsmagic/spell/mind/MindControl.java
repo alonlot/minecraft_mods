@@ -11,12 +11,12 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.event.entity.EntityJoinLevelEvent;
 import net.minecraftforge.event.entity.item.ItemTossEvent;
 import net.minecraftforge.event.entity.living.LivingEntityUseItemEvent;
 import net.minecraftforge.event.entity.living.LivingSwapItemsEvent;
 import net.minecraftforge.event.entity.player.AttackEntityEvent;
 import net.minecraftforge.event.entity.player.PlayerContainerEvent;
+import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.event.level.BlockEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
@@ -37,6 +37,7 @@ public final class MindControl {
     private static final ThreadLocal<Boolean> FORCED_ACTION = ThreadLocal.withInitial(() -> Boolean.FALSE);
     private static final ThreadLocal<Boolean> TARGET_BYPASS = ThreadLocal.withInitial(() -> Boolean.FALSE);
     private static Holder<MobEffect> imperiusHolder;
+    private static Holder<MobEffect> rootedHolder;
 
     private MindControl() {
     }
@@ -163,12 +164,18 @@ public final class MindControl {
 
     /** Channels (Crucio, a possession) never survive a rejoin, so nobody logs in still rooted. */
     @SubscribeEvent
-    public static void onEntityJoin(EntityJoinLevelEvent event) {
-        if (event.getLevel().isClientSide() || !(event.getEntity() instanceof Player player)) {
+    public static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) {
             return;
         }
-        Holder<MobEffect> rooted = ExampleMod.ROOTED.getHolder().orElse(null);
-        if (rooted != null && player.hasEffect(rooted)) {
+        Holder<MobEffect> rooted = rootedHolder;
+        if (rooted == null) {
+            rooted = rootedHolder = ExampleMod.ROOTED.getHolder().orElse(null);
+            if (rooted == null) {
+                return;
+            }
+        }
+        if (player.hasEffect(rooted)) {
             player.removeEffect(rooted);
         }
     }

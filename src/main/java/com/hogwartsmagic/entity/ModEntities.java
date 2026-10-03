@@ -152,6 +152,16 @@ public class ModEntities {
                             .clientTrackingRange(32)
                             .build("patronus"));
 
+    // A block lifted by Wingardium Leviosa (Spell Mastery Phase 7b). The server steers it every tick,
+    // so it sends every tick too; it is not living and has no attributes.
+    public static final RegistryObject<EntityType<CarriedBlockEntity>> CARRIED_BLOCK =
+            ENTITY_TYPES.register("carried_block",
+                    () -> EntityType.Builder.<CarriedBlockEntity>of(CarriedBlockEntity::new, MobCategory.MISC)
+                            .sized(0.98F, 0.98F)
+                            .clientTrackingRange(8)
+                            .updateInterval(1)
+                            .build("carried_block"));
+
     public static final RegistryObject<EntityType<MinatorEntity>> MINATOR =
             ENTITY_TYPES.register("minator",
                     () -> EntityType.Builder.<MinatorEntity>of(MinatorEntity::new, MobCategory.MONSTER)

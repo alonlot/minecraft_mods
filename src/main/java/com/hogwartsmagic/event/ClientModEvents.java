@@ -951,6 +951,7 @@ public class ClientModEvents {
                     }
                 });
         event.registerEntityRenderer(ModEntities.FIENDFYRE_SERPENT.get(), FiendfyreSerpentRenderer::new);
+        event.registerEntityRenderer(ModEntities.CARRIED_BLOCK.get(), com.hogwartsmagic.client.renderer.CarriedBlockRenderer::new);
         
         event.registerEntityRenderer(ModEntities.FIENDFYRE.get(),
                 context -> new EntityRenderer<FiendfyreEntity>(context) {

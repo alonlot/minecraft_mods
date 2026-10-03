@@ -256,12 +256,14 @@ public final class PossessionManager {
         MASTER_CAST_AT.put(caster.getUUID(), caster.level().getGameTime());
     }
 
+    /** True when this player's Master cast is old enough for a hold start (the client's threshold, re-checked). */
+    public static boolean holdReady(ServerPlayer caster) {
+        Long castAt = MASTER_CAST_AT.get(caster.getUUID());
+        return castAt != null && ImperioRules.holdLongEnough(castAt, caster.level().getGameTime());
+    }
+
     /** The Master hold reached its threshold on a target the beam hit: check the start mana, then possess. */
     public static void startFromHold(ServerPlayer caster, ItemStack wand, LivingEntity target) {
-        Long castAt = MASTER_CAST_AT.get(caster.getUUID());
-        if (castAt == null || !ImperioRules.holdLongEnough(castAt, caster.level().getGameTime())) {
-            return; // the client's hold threshold is re-checked here: a forged packet can't skip it
-        }
         if (!caster.isCreative()) {
             CompoundTag modData = PlayerMagicData.getModData(caster);
             float mana = modData.contains("Mana") ? modData.getFloat("Mana") : PlayerMagicData.getMaxMana(caster);

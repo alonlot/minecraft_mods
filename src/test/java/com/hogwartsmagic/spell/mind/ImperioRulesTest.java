@@ -110,9 +110,10 @@ class ImperioRulesTest {
     }
 
     @Test
-    void holdStartAllowsTwoTicksOfSlack() {
-        assertFalse(ImperioRules.holdLongEnough(100, 100 + ImperioRules.HOLD_START_TICKS - 3));
-        assertTrue(ImperioRules.holdLongEnough(100, 100 + ImperioRules.HOLD_START_TICKS - 2));
+    void holdStartAllowsLagSlackButNotInstant() {
+        assertFalse(ImperioRules.holdLongEnough(100, 100 + ImperioRules.HOLD_START_TICKS - 11));
+        assertFalse(ImperioRules.holdLongEnough(100, 100));
+        assertTrue(ImperioRules.holdLongEnough(100, 100 + ImperioRules.HOLD_START_TICKS - 10));
         assertTrue(ImperioRules.holdLongEnough(100, 100 + ImperioRules.HOLD_START_TICKS));
     }
 }

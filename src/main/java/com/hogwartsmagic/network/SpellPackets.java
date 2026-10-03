@@ -1354,6 +1354,12 @@ public class SpellPackets {
             if (!player.isCreative() && MagicWandItem.isOnCooldown(wand, SpellType.IMPERIO, player.level().getGameTime())) {
                 return;
             }
+            if (!com.hogwartsmagic.spell.mind.PossessionManager.holdReady(player)) {
+                // Checked before the hit target is consumed, so the client's next packet can still succeed.
+                player.displayClientMessage(net.minecraft.network.chat.Component.translatable("gui.hogwartsmagic.possession.hit_first")
+                        .withStyle(net.minecraft.ChatFormatting.GREEN), true);
+                return;
+            }
             LivingEntity target = com.hogwartsmagic.event.ModEvents.consumeRecentImperioHitTarget(player);
             if (target == null) {
                 player.displayClientMessage(net.minecraft.network.chat.Component.translatable("gui.hogwartsmagic.possession.hit_first")

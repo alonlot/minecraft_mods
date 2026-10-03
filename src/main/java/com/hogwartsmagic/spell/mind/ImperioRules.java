@@ -25,7 +25,7 @@ public final class ImperioRules {
     /** How long a Master holds the cast key before possession starts (the client's threshold; the server re-checks it). */
     public static final int HOLD_START_TICKS = 40;
     /** The server accepts a hold start this many ticks early, for latency and tick-alignment slop. */
-    public static final int HOLD_SLACK_TICKS = 2;
+    public static final int HOLD_SLACK_TICKS = 10;
 
     private ImperioRules() {
     }

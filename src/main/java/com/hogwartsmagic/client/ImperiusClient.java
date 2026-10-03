@@ -70,7 +70,7 @@ public final class ImperiusClient {
     /** Thralls only: the server drives the body. (A Phase 6b puppet's input is set by PossessionClient instead.) */
     @SubscribeEvent
     public static void onMovementInput(MovementInputUpdateEvent event) {
-        if (!MindControl.isControlled(event.getEntity())) {
+        if (PossessionClient.isVictim() || !MindControl.isControlled(event.getEntity())) {
             return;
         }
         Input input = event.getInput();

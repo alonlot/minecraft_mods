@@ -16,6 +16,7 @@ import net.minecraftforge.client.event.InputEvent;
 import net.minecraftforge.client.event.MovementInputUpdateEvent;
 import net.minecraftforge.client.event.RenderHandEvent;
 import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.network.PacketDistributor;
@@ -53,6 +54,8 @@ public final class PossessionClient {
     private static boolean puppetJump;
     /** The victim has received relayed input this session; it is held until ROLE_NONE or the keepalive times out. */
     private static boolean puppetSeen;
+    private static int resistPresses;
+    private static int resistTimer;
 
     private PossessionClient() {
     }
@@ -136,6 +139,8 @@ public final class PossessionClient {
         missingTicks = 0;
         stateLevel = null;
         puppetSeen = false;
+        resistPresses = 0;
+        resistTimer = 0;
     }
 
     /** The caster lets go (or its view lost the victim): tell the server, snap back, ignore stale keepalives. */
@@ -174,6 +179,14 @@ public final class PossessionClient {
                     }
                 }
             }
+            if (role == PossessionRules.ROLE_VICTIM) {
+                // SPACE presses (not holds): each press is one click. Before the 8s mark they count for nothing.
+                while (minecraft.options.keyJump.consumeClick()) {
+                    if (resistOpen) {
+                        resistPresses++;
+                    }
+                }
+            }
             return;
         }
         if (ignoreStateTicks > 0) {
@@ -199,7 +212,21 @@ public final class PossessionClient {
         }
         if (role == PossessionRules.ROLE_CASTER) {
             tickCaster(minecraft);
+        } else {
+            reportResist();
         }
+    }
+
+    /** Twice a second while resisting is open: send the presses since the last report. */
+    private static void reportResist() {
+        if (++resistTimer < PossessionRules.RESIST_WINDOW_TICKS) {
+            return;
+        }
+        resistTimer = 0;
+        if (resistOpen && resistPresses > 0) {
+            SpellPackets.CHANNEL.send(new SpellPackets.PossessionResistPacket(resistPresses), PacketDistributor.SERVER.noArg());
+        }
+        resistPresses = 0;
     }
 
     /** Runs before vanilla handles keys this tick: neither body drops, swaps, opens its inventory or changes slot. */
@@ -281,7 +308,7 @@ public final class PossessionClient {
 
     // ---- Input ---------------------------------------------------------------------------------
 
-    @SubscribeEvent
+    @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onMovementInput(MovementInputUpdateEvent event) {
         if (role == PossessionRules.ROLE_NONE || event.getEntity() != Minecraft.getInstance().player) {
             return;

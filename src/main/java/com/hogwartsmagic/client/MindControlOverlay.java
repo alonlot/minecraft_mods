@@ -28,8 +28,24 @@ public final class MindControlOverlay {
         if (MindControl.isControlled(player)) {
             float pulse = 0.85F + 0.15F * Mth.sin(player.tickCount * 0.2F);
             vignette(graphics, IMPERIUS_GREEN, (int) (170 * pulse));
-            graphics.drawCenteredString(minecraft.font, Component.translatable("gui." + ExampleMod.MODID + ".imperio.victim"),
-                    graphics.guiWidth() / 2, 14, 0xFF9CFF9C);
+            if (PossessionClient.isVictim()) {
+                renderVictimPrompt(graphics, minecraft, player.tickCount);
+            } else {
+                graphics.drawCenteredString(minecraft.font, Component.translatable("gui." + ExampleMod.MODID + ".imperio.victim"),
+                        graphics.guiWidth() / 2, 14, 0xFF9CFF9C);
+            }
+        }
+    }
+
+    /** A possessed player: who has them, and from 8s on a flashing "Mash SPACE to resist!". */
+    private static void renderVictimPrompt(GuiGraphics graphics, Minecraft minecraft, int tick) {
+        int cx = graphics.guiWidth() / 2;
+        graphics.drawCenteredString(minecraft.font, Component.translatable("gui." + ExampleMod.MODID + ".possession.victim"),
+                cx, 14, 0xFF9CFF9C);
+        if (PossessionClient.resistOpen()) {
+            int colour = (tick / 5) % 2 == 0 ? 0xFFFFFF55 : 0xFFFFAA00;
+            graphics.drawCenteredString(minecraft.font, Component.translatable("gui." + ExampleMod.MODID + ".possession.resist"),
+                    cx, graphics.guiHeight() / 2 + 24, colour);
         }
     }
 

@@ -438,6 +438,11 @@ public class SpellPackets {
                         buf.readFloat(), buf.readFloat()))
                 .consumerMainThread(PuppetInputPacket::handle)
                 .add();
+        CHANNEL.messageBuilder(PossessionResistPacket.class)
+                .encoder((p, buf) -> buf.writeVarInt(p.presses))
+                .decoder(buf -> new PossessionResistPacket(buf.readVarInt()))
+                .consumerMainThread(PossessionResistPacket::handle)
+                .add();
     }
 
     public static void syncRelics(ServerPlayer player) {
@@ -517,7 +522,7 @@ public class SpellPackets {
         public static void handle(BroomBoostPacket p, CustomPayloadEvent.Context ctx) {
             ctx.enqueueWork(() -> {
                 net.minecraft.server.level.ServerPlayer player = ctx.getSender();
-                if (player != null && !com.hogwartsmagic.spell.mind.MindControl.isControlled(player) && player.getVehicle() instanceof com.hogwartsmagic.entity.BroomEntity broom) {
+                if (player != null && !(com.hogwartsmagic.spell.mind.MindControl.isControlled(player) || com.hogwartsmagic.spell.mind.PossessionManager.isPossessing(player)) && player.getVehicle() instanceof com.hogwartsmagic.entity.BroomEntity broom) {
                     broom.isBoosting = p.isBoosting;
                 }
             });
@@ -529,7 +534,7 @@ public class SpellPackets {
         public static void handle(BroomTrickPacket p, CustomPayloadEvent.Context ctx) {
             ctx.enqueueWork(() -> {
                 net.minecraft.server.level.ServerPlayer player = ctx.getSender();
-                if (player != null && !com.hogwartsmagic.spell.mind.MindControl.isControlled(player) && player.getVehicle() instanceof com.hogwartsmagic.entity.BroomEntity broom) {
+                if (player != null && !(com.hogwartsmagic.spell.mind.MindControl.isControlled(player) || com.hogwartsmagic.spell.mind.PossessionManager.isPossessing(player)) && player.getVehicle() instanceof com.hogwartsmagic.entity.BroomEntity broom) {
                     broom.tryStartTrick(p.trickType);
                 }
             });
@@ -564,7 +569,7 @@ public class SpellPackets {
     public record EquipRelicPacket(int inventorySlot) {
         public static void handle(EquipRelicPacket p, CustomPayloadEvent.Context ctx) {
             ServerPlayer player = ctx.getSender();
-            if (player != null && com.hogwartsmagic.spell.mind.MindControl.isControlled(player)) {
+            if (player != null && (com.hogwartsmagic.spell.mind.MindControl.isControlled(player) || com.hogwartsmagic.spell.mind.PossessionManager.isPossessing(player))) {
                 return; // a controlled player acts through no mod packet
             }
             if (player == null || p.inventorySlot < 0 || p.inventorySlot >= player.getInventory().getContainerSize()) {
@@ -601,7 +606,7 @@ public class SpellPackets {
     public record UnequipRelicPacket(int slotIndex) {
         public static void handle(UnequipRelicPacket p, CustomPayloadEvent.Context ctx) {
             ServerPlayer player = ctx.getSender();
-            if (player != null && com.hogwartsmagic.spell.mind.MindControl.isControlled(player)) {
+            if (player != null && (com.hogwartsmagic.spell.mind.MindControl.isControlled(player) || com.hogwartsmagic.spell.mind.PossessionManager.isPossessing(player))) {
                 return; // a controlled player acts through no mod packet
             }
             if (player == null || p.slotIndex < 0 || p.slotIndex >= PlayerMagicData.RELIC_SLOT_COUNT) {
@@ -659,7 +664,7 @@ public class SpellPackets {
         public static void handle(SelectSpellPacket p, CustomPayloadEvent.Context ctx) {
             ServerPlayer player = ctx.getSender();
             if (player == null) return;
-            if (com.hogwartsmagic.spell.mind.MindControl.isControlled(player)) return;
+            if ((com.hogwartsmagic.spell.mind.MindControl.isControlled(player) || com.hogwartsmagic.spell.mind.PossessionManager.isPossessing(player))) return;
             ItemStack wand = player.getMainHandItem();
             if (MagicWandItem.isAnyWand(wand)) {
                 SpellType spell = SpellType.fromId(p.spellId);
@@ -674,7 +679,7 @@ public class SpellPackets {
             if (player == null) {
                 return;
             }
-            if (com.hogwartsmagic.spell.mind.MindControl.isControlled(player)) {
+            if ((com.hogwartsmagic.spell.mind.MindControl.isControlled(player) || com.hogwartsmagic.spell.mind.PossessionManager.isPossessing(player))) {
                 return; // a controlled player acts through no mod packet
             }
             if (p.slotIndex < 0 || p.slotIndex >= MagicWandItem.SPELL_SLOT_COUNT) {
@@ -729,6 +734,8 @@ public class SpellPackets {
             if (player == null) return;
             // A controlled player's own cast keys do nothing; casts made on their behalf call castAs directly.
             if (com.hogwartsmagic.spell.mind.MindControl.isControlled(player)) return;
+            // A possessing caster's own body is in a trance; puppet casts go through PossessionCastPacket.
+            if (com.hogwartsmagic.spell.mind.PossessionManager.isPossessing(player)) return;
             castAs(player, p);
         }
 
@@ -1297,7 +1304,7 @@ public class SpellPackets {
             if (player == null) {
                 return;
             }
-            if (com.hogwartsmagic.spell.mind.MindControl.isControlled(player)) {
+            if ((com.hogwartsmagic.spell.mind.MindControl.isControlled(player) || com.hogwartsmagic.spell.mind.PossessionManager.isPossessing(player))) {
                 return; // a controlled player acts through no mod packet
             }
             if (com.hogwartsmagic.spell.combat.CombatEffects.isStunned(player)) {
@@ -1364,7 +1371,7 @@ public class SpellPackets {
     public record SetFlooNamePacket(BlockPos fireplacePos, String name) {
         public static void handle(SetFlooNamePacket p, CustomPayloadEvent.Context ctx) {
             ServerPlayer player = ctx.getSender();
-            if (player != null && com.hogwartsmagic.spell.mind.MindControl.isControlled(player)) {
+            if (player != null && (com.hogwartsmagic.spell.mind.MindControl.isControlled(player) || com.hogwartsmagic.spell.mind.PossessionManager.isPossessing(player))) {
                 return; // a controlled player acts through no mod packet
             }
             if (player == null || p.name == null || p.name.isBlank()) {
@@ -1457,7 +1464,7 @@ public class SpellPackets {
         public static void handle(ChooseApparitionDestinationPacket p, CustomPayloadEvent.Context ctx) {
             ServerPlayer player = ctx.getSender();
             if (player != null) {
-                if (com.hogwartsmagic.spell.mind.MindControl.isControlled(player)) {
+                if ((com.hogwartsmagic.spell.mind.MindControl.isControlled(player) || com.hogwartsmagic.spell.mind.PossessionManager.isPossessing(player))) {
                     com.hogwartsmagic.event.ModEvents.cancelApparitionChannel(player, player.getMainHandItem());
                     return;
                 }
@@ -1476,7 +1483,7 @@ public class SpellPackets {
         public static void handle(ChooseApparitionFireplacePacket p, CustomPayloadEvent.Context ctx) {
             ServerPlayer player = ctx.getSender();
             if (player != null) {
-                if (com.hogwartsmagic.spell.mind.MindControl.isControlled(player)) {
+                if ((com.hogwartsmagic.spell.mind.MindControl.isControlled(player) || com.hogwartsmagic.spell.mind.PossessionManager.isPossessing(player))) {
                     com.hogwartsmagic.event.ModEvents.cancelApparitionChannel(player, player.getMainHandItem());
                     return;
                 }
@@ -1524,7 +1531,7 @@ public class SpellPackets {
         public static void handle(UseTomePacket p, CustomPayloadEvent.Context ctx) {
             ServerPlayer player = ctx.getSender();
             if (player != null) {
-                if (com.hogwartsmagic.spell.mind.MindControl.isControlled(player)) {
+                if ((com.hogwartsmagic.spell.mind.MindControl.isControlled(player) || com.hogwartsmagic.spell.mind.PossessionManager.isPossessing(player))) {
                     return;
                 }
                 if (com.hogwartsmagic.spell.combat.CombatEffects.isStunned(player)) {
@@ -1566,6 +1573,16 @@ public class SpellPackets {
                 return;
             }
             enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("puppetInput", p));
+        }
+    }
+
+    /** Client to server (a possessed player): SPACE presses since the last report. Capped and rate-limited server-side. */
+    public record PossessionResistPacket(int presses) {
+        public static void handle(PossessionResistPacket p, CustomPayloadEvent.Context ctx) {
+            ServerPlayer player = ctx.getSender();
+            if (player != null) {
+                com.hogwartsmagic.spell.mind.PossessionManager.acceptResist(player, p.presses);
+            }
         }
     }
 }

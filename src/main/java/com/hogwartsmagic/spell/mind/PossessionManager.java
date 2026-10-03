@@ -279,6 +279,50 @@ public final class PossessionManager {
         session.attack = packet.attack();
     }
 
+    /**
+     * A possessed player's report of SPACE presses. Only the session's own victim counts, at most one report
+     * per 8 ticks, at most 12 presses per half-second window, and nothing before the 8-second mark.
+     */
+    public static void acceptResist(ServerPlayer sender, int presses) {
+        PossessionSession session = BY_VICTIM.get(sender.getUUID());
+        if (session == null || !session.victimIsPlayer) {
+            return;
+        }
+        long now = sender.level().getGameTime();
+        if (!PossessionRules.reportAllowed(now, session.lastResistReportAt)) {
+            return;
+        }
+        session.lastResistReportAt = now;
+        if (!PossessionRules.resistOpen(now - session.startedAt)) {
+            return;
+        }
+        session.resistPresses = PossessionRules.clampPresses(session.resistPresses + PossessionRules.clampPresses(presses));
+    }
+
+    /** Closes each half-second window: 6+ presses in it is a 20% roll to break free. Returns true if it ended. */
+    private static boolean tickResist(PossessionSession session, ServerPlayer caster, LivingEntity victim, long now, long elapsed) {
+        int window = PossessionRules.resistWindow(elapsed);
+        if (window < 0) {
+            return false;
+        }
+        if (!session.resistAnnounced) {
+            session.resistAnnounced = true;
+            sendState(session, caster, victim, now); // the victim's HUD switches to "Mash SPACE"
+        }
+        if (window == session.resistWindow) {
+            return false;
+        }
+        int presses = session.resistPresses;
+        boolean evaluate = session.resistWindow >= 0;
+        session.resistWindow = window;
+        session.resistPresses = 0;
+        if (evaluate && PossessionRules.breaksFree(presses, victim.getRandom().nextDouble())) {
+            end(session, EndReason.BROKE_FREE);
+            return true;
+        }
+        return false;
+    }
+
     // ---- End -----------------------------------------------------------------------------------
 
     public static void endByCaster(ServerPlayer caster, EndReason reason) {
@@ -440,6 +484,9 @@ public final class PossessionManager {
         int markerTicks = session.maxTicks + PossessionRules.MARKER_GRACE_TICKS - (int) elapsed;
         if (!isPossessingBody(caster) || !victim.hasEffect(DisableSupport.holder(ExampleMod.POSSESSED))) {
             addMarkers(caster, victim, Math.max(markerTicks, 2)); // stripped by something that bypassed the guard
+        }
+        if (session.victimIsPlayer && tickResist(session, caster, victim, now, elapsed)) {
+            return;
         }
         if (!drainUpkeep(caster, session, now)) {
             end(session, EndReason.NO_MANA);

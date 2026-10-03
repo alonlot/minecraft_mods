@@ -37,21 +37,26 @@ public final class MindControl {
     private static final ThreadLocal<Boolean> FORCED_ACTION = ThreadLocal.withInitial(() -> Boolean.FALSE);
     private static final ThreadLocal<Boolean> TARGET_BYPASS = ThreadLocal.withInitial(() -> Boolean.FALSE);
     private static Holder<MobEffect> imperiusHolder;
+    private static Holder<MobEffect> possessedHolder;
     private static Holder<MobEffect> rootedHolder;
 
     private MindControl() {
     }
 
-    /** Under someone else's control: an Imperio thrall. Phase 6b adds possession. Safe on both sides. */
+    /** Under someone else's control: an Imperio thrall or a possessed body. Safe on both sides. */
     public static boolean isControlled(LivingEntity entity) {
-        Holder<MobEffect> holder = imperiusHolder;
-        if (holder == null) {
-            holder = imperiusHolder = ExampleMod.IMPERIUS.getHolder().orElse(null);
-            if (holder == null) {
+        Holder<MobEffect> imperius = imperiusHolder;
+        if (imperius == null) {
+            imperius = imperiusHolder = ExampleMod.IMPERIUS.getHolder().orElse(null);
+            if (imperius == null) {
                 return false;
             }
         }
-        return entity.hasEffect(holder);
+        Holder<MobEffect> possessed = possessedHolder;
+        if (possessed == null) {
+            possessed = possessedHolder = ExampleMod.POSSESSED.getHolder().orElse(null);
+        }
+        return entity.hasEffect(imperius) || (possessed != null && entity.hasEffect(possessed));
     }
 
     /** PvP is off (server setting or team rules) and a player's curse would land on another player. */
@@ -120,8 +125,10 @@ public final class MindControl {
         return TARGET_BYPASS.get();
     }
 
+    /** A controlled body, or a caster whose own body stands in a possession trance (server only: the maps are). */
     private static boolean blocksOwnAction(@Nullable Entity entity) {
-        return entity instanceof LivingEntity living && !FORCED_ACTION.get() && isControlled(living);
+        return entity instanceof LivingEntity living && !FORCED_ACTION.get()
+                && (isControlled(living) || (!living.level().isClientSide() && PossessionManager.isPossessing(living)));
     }
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)

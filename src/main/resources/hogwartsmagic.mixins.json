@@ -8,6 +8,7 @@
     "SurfaceRuleDataMixin",
     "PlayerChunkSenderMixin",
     "LivingEntityStunMixin",
+    "ServerGamePacketListenerMixin",
     "FoodDataBleedingMixin",
     "PlayerBleedingMixin",
     "LivingEntityLastHurtAccessor"

@@ -51,7 +51,8 @@ public final class AvadaWindup {
 
     /** Start the windup (once). Refuses without enough mana for the cast, so nobody winds up for nothing. */
     public static void begin(ServerPlayer player) {
-        if (isWindingUp(player) || MindControl.isControlled(player)) {
+        if (isWindingUp(player)
+                || (MindControl.isControlled(player) && !PossessionManager.isPuppet(player))) {
             return;
         }
         if (!player.isCreative()) {
@@ -125,7 +126,8 @@ public final class AvadaWindup {
             return;
         }
         ItemStack wand = player.getMainHandItem();
-        if (!player.isAlive() || MindControl.isControlled(player) || !MagicWandItem.isAnyWand(wand)
+        if (!player.isAlive() || (MindControl.isControlled(player) && !PossessionManager.isPuppet(player))
+                || !MagicWandItem.isAnyWand(wand)
                 || MagicWandItem.getSelectedSpell(wand) != SpellType.AVADA_KEDAVRA) {
             cancel(player, false);
             return;

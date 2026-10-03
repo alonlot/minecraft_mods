@@ -505,6 +505,11 @@ public class SpellPackets {
                 .decoder(buf -> new PossessionHotbarPacket(buf.readVarInt()))
                 .consumerMainThread(PossessionHotbarPacket::handle)
                 .add();
+        CHANNEL.messageBuilder(PossessionCastPacket.class)
+                .encoder((p, buf) -> buf.writeUtf(p.spellId, 64))
+                .decoder(buf -> new PossessionCastPacket(buf.readUtf(64)))
+                .consumerMainThread(PossessionCastPacket::handle)
+                .add();
     }
 
     public static void syncRelics(ServerPlayer player) {
@@ -804,7 +809,8 @@ public class SpellPackets {
         /**
          * The whole cast path, run as {@code player}: learned spell, stun and silence gates, cooldown, mana,
          * then the spell. The packet handler and (Phase 6b) puppet casts come through here, so every cast is
-         * checked the same way.
+         * checked the same way. Two callers: the packet handler (body = sender) and
+         * {@code PossessionManager.castAsPuppet} (body = the possessed victim, payer = the victim, no mastery XP).
          */
         public static void castAs(ServerPlayer player, CastSpellPacket p) {
             ItemStack wand = player.getMainHandItem();
@@ -1671,6 +1677,16 @@ public class SpellPackets {
             ServerPlayer player = ctx.getSender();
             if (player != null) {
                 com.hogwartsmagic.spell.mind.PossessionManager.selectHotbar(player, p.slot);
+            }
+        }
+    }
+
+    /** Client to server (the possessing caster): cast this spell as the puppet. Fully re-validated as the puppet. */
+    public record PossessionCastPacket(String spellId) {
+        public static void handle(PossessionCastPacket p, CustomPayloadEvent.Context ctx) {
+            ServerPlayer player = ctx.getSender();
+            if (player != null) {
+                com.hogwartsmagic.spell.mind.PossessionManager.castAsPuppet(player, p.spellId);
             }
         }
     }

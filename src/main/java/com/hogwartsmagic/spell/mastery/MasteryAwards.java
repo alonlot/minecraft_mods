@@ -136,7 +136,9 @@ public final class MasteryAwards {
     }
 
     private static boolean eligible(ServerPlayer caster) {
-        return !caster.isCreative() && !caster.isSpectator();
+        // A possessed player's forced casts (and late beams, 100 ticks) earn them nothing (Imperio Master, Phase 6b).
+        return !caster.isCreative() && !caster.isSpectator()
+                && !com.hogwartsmagic.spell.mind.PossessionManager.isForcedCaster(caster);
     }
 
     private static boolean isAllied(ServerPlayer caster, LivingEntity target) {

@@ -88,6 +88,8 @@ public final class PossessionManager {
 
     private static final Map<UUID, PossessionSession> BY_CASTER = new HashMap<>();
     private static final Map<UUID, PossessionSession> BY_VICTIM = new HashMap<>();
+    /** Player victim -> game time until which their casts still pay no XP (late puppet beams). Server thread only. */
+    private static final Map<UUID, Long> RECENT_PUPPETS = new HashMap<>();
     private static Holder<MobEffect> possessedHolder;
     /** Game time until which a victim who broke free shrugs off Imperio. */
     static final String TAG_IMMUNE_UNTIL = ExampleMod.MODID + ":imperio_immune_until";
@@ -400,6 +402,66 @@ public final class PossessionManager {
                 PacketDistributor.PLAYER.with(caster));
     }
 
+    /**
+     * Cast {@code spellId} as the possessed player, through the normal cast path run as them: their learned
+     * spells, mastery ranks, mana, cooldowns, stun and silence all apply exactly as if they had cast it.
+     * Only the session's own caster, a player puppet holding a wand, 4 casts a second, never Imperio or Apparition
+     * or a held/channel spell.
+     */
+    public static void castAsPuppet(ServerPlayer caster, String spellId) {
+        PossessionSession session = BY_CASTER.get(caster.getUUID());
+        if (session == null || !session.victimIsPlayer) {
+            return;
+        }
+        long now = caster.level().getGameTime();
+        if (!session.castRate.tryAcquire(now)) {
+            return;
+        }
+        if (PossessionRules.isPuppetBlocked(spellId)) {
+            MindFx.tell(caster, "puppet.blocked");
+            return;
+        }
+        SpellType spell = spellById(spellId);
+        ServerPlayer victim = caster.server.getPlayerList().getPlayer(session.victimId);
+        if (spell == null || victim == null || !victim.isAlive()) {
+            return;
+        }
+        ItemStack wand = victim.getMainHandItem();
+        if (!MagicWandItem.isAnyWand(wand)) {
+            MindFx.tell(caster, "puppet.no_wand");
+            return;
+        }
+        if (!MagicBookItem.isSpellLearned(victim, spell)) {
+            return;
+        }
+        victim.setYRot(session.yaw);
+        victim.setYHeadRot(session.yaw);
+        victim.setXRot(session.pitch);
+        MagicWandItem.setSelectedSpell(wand, spell);
+        SpellPackets.CastSpellPacket.castAs(victim, new SpellPackets.CastSpellPacket(false, false, false, false));
+        sendSnapshot(session, caster, victim, now);
+    }
+
+    /** Exact id match (SpellType.fromId falls back to Wingardium on a bad id, which a packet must never get). */
+    @Nullable
+    private static SpellType spellById(String id) {
+        for (SpellType spell : SpellType.values()) {
+            if (spell.getId().equals(id)) {
+                return spell;
+            }
+        }
+        return null;
+    }
+
+    /** A player puppet, or one whose session ended under 100 ticks ago (a late beam must not pay them XP). */
+    public static boolean isForcedCaster(ServerPlayer player) {
+        if (isPuppet(player)) {
+            return true;
+        }
+        Long until = RECENT_PUPPETS.get(player.getUUID());
+        return until != null && player.level().getGameTime() < until;
+    }
+
     // ---- End -----------------------------------------------------------------------------------
 
     public static void endByCaster(ServerPlayer caster, EndReason reason) {
@@ -423,6 +485,11 @@ public final class PossessionManager {
         MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
         if (server == null) {
             return;
+        }
+        if (session.victimIsPlayer) {
+            long nowTick = server.overworld().getGameTime();
+            RECENT_PUPPETS.values().removeIf(until -> until <= nowTick);
+            RECENT_PUPPETS.put(session.victimId, nowTick + 100L);
         }
         ServerPlayer caster = server.getPlayerList().getPlayer(session.casterId);
         ServerLevel level = server.getLevel(session.dimension);

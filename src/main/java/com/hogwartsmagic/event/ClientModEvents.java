@@ -201,7 +201,16 @@ public class ClientModEvents {
                 if (mc.player != null) {
                     boolean holdingMainWand = MagicWandItem.isAnyWand(mc.player.getMainHandItem());
 
-                    if (radialDown && !wasRadialDown && holdingMainWand && !(mc.screen instanceof WandRadialMenuScreen) && mc.screen == null) {
+                    if (com.hogwartsmagic.client.PossessionClient.isCaster()) {
+                        if (radialDown && !wasRadialDown && mc.screen == null) {
+                            com.hogwartsmagic.client.PossessionClient.openPuppetWheel(mc);
+                        }
+                        if (!radialDown && wasRadialDown && mc.screen instanceof com.hogwartsmagic.client.PuppetSpellWheelScreen puppetWheel) {
+                            puppetWheel.confirmSelectionAndClose();
+                        }
+                    }
+                    if (radialDown && !wasRadialDown && holdingMainWand && !com.hogwartsmagic.client.PossessionClient.isCaster()
+                            && !(mc.screen instanceof WandRadialMenuScreen) && mc.screen == null) {
                         mc.setScreen(new WandRadialMenuScreen(mc.player));
                     }
 
@@ -225,7 +234,9 @@ public class ClientModEvents {
                 }
 
                 if (mc.player != null) {
-                    boolean useDown = mc.options.keyUse.isDown();
+                    // While the puppet wheel is open the key mappings are released; the Imperio hold must survive it.
+                    boolean useDown = mc.options.keyUse.isDown()
+                            || mc.screen instanceof com.hogwartsmagic.client.PuppetSpellWheelScreen;
                     boolean holdingWand = MagicWandItem.isAnyWand(mc.player.getMainHandItem());
                     com.hogwartsmagic.spell.SpellType selected = holdingWand
                             ? MagicWandItem.getSelectedSpell(mc.player.getMainHandItem())
@@ -720,6 +731,10 @@ public class ClientModEvents {
     }
 
     private static void handleSpellSlotKeybinds(Minecraft mc) {
+        if (com.hogwartsmagic.client.PossessionClient.isCaster()) {
+            com.hogwartsmagic.client.PossessionClient.handlePuppetSlotKeys(SPELL_SLOT_KEYS);
+            return;
+        }
         ItemStack wand = mc.player.getMainHandItem();
         if (!MagicWandItem.isAnyWand(wand)) {
             wand = mc.player.getOffhandItem();

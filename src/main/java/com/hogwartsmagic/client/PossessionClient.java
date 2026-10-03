@@ -5,6 +5,7 @@ import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.network.SpellPackets;
 import com.hogwartsmagic.spell.mind.PossessionRules;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.client.KeyMapping;
@@ -165,6 +166,44 @@ public final class PossessionClient {
         }
         displayedSlot = slot; // shown at once; the next snapshot confirms it
         SpellPackets.CHANNEL.send(new SpellPackets.PossessionHotbarPacket(slot), PacketDistributor.SERVER.noArg());
+    }
+
+    /** The wheel key while possessing: the puppet's spells, but only while they hold their wand. */
+    public static void openPuppetWheel(Minecraft minecraft) {
+        if (snapshot == null || !snapshot.holdsWand()) {
+            if (minecraft.player != null) {
+                minecraft.player.displayClientMessage(Component.translatable("gui." + ExampleMod.MODID + ".puppet.no_wand"), true);
+            }
+            return;
+        }
+        minecraft.setScreen(new PuppetSpellWheelScreen(snapshot));
+    }
+
+    /** The spell-slot cast keys while possessing cast the puppet's wand slots. */
+    public static void handlePuppetSlotKeys(KeyMapping[] keys) {
+        for (int slot = 0; slot < keys.length; slot++) {
+            while (keys[slot].consumeClick()) {
+                if (snapshot != null && slot < snapshot.wandSlots().size() && !snapshot.wandSlots().get(slot).isEmpty()) {
+                    castPuppetSpell(snapshot.wandSlots().get(slot));
+                }
+            }
+        }
+    }
+
+    public static void castPuppetSpell(String spellId) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (role != PossessionRules.ROLE_CASTER || snapshot == null || minecraft.player == null) {
+            return;
+        }
+        if (!snapshot.holdsWand()) {
+            minecraft.player.displayClientMessage(Component.translatable("gui." + ExampleMod.MODID + ".puppet.no_wand"), true);
+            return;
+        }
+        if (PossessionRules.isPuppetBlocked(spellId)) {
+            minecraft.player.displayClientMessage(Component.translatable("gui." + ExampleMod.MODID + ".puppet.blocked"), true);
+            return;
+        }
+        SpellPackets.CHANNEL.send(new SpellPackets.PossessionCastPacket(spellId), PacketDistributor.SERVER.noArg());
     }
 
     // ---- State ---------------------------------------------------------------------------------
@@ -338,7 +377,9 @@ public final class PossessionClient {
         if (minecraft.getCameraEntity() != victim) {
             minecraft.setCameraEntity(victim);
         }
-        if (holdRequired && !minecraft.options.keyUse.isDown()) {
+        // Opening the puppet wheel releases every key mapping; right-click still counts as held while it's open.
+        boolean held = minecraft.options.keyUse.isDown() || minecraft.screen instanceof PuppetSpellWheelScreen;
+        if (holdRequired && !held) {
             stopLocally();
             return;
         }

@@ -189,6 +189,9 @@ public final class LockSolver {
                         bestSet = subset;
                         bestTo = to;
                         bestPresses = new int[0];
+                        if (bestMoved == movable) {
+                            return; // nothing later can do better: a later subset only wins if strictly better
+                        }
                     }
                 }
                 if (bestMoved == movable) {
@@ -203,7 +206,7 @@ public final class LockSolver {
             for (int input : subset) {
                 sim.setInput(input, true);
             }
-            int best = check();
+            int best = checkForcedOn();
             if (best < 0) {
                 return -1;
             }
@@ -246,7 +249,7 @@ public final class LockSolver {
             for (int input : presses) {
                 for (int phase = 0; phase < 2; phase++) {
                     sim.setInput(input, phase == 0);
-                    int moved = check();
+                    int moved = phase == 0 && c.inputKind(input) == LockCircuit.FORCE ? checkForcedOn() : check();
                     if (moved < 0) {
                         return -1;
                     }
@@ -272,13 +275,55 @@ public final class LockSolver {
                 }
                 return -1;
             }
-            if (sim.dangerRoseInLastSettle()) {
+            return score();
+        }
+
+        /**
+         * The on-phase of a forced source. The world holds it for LockRules.FORCE_TICKS game ticks, which is
+         * FORCE_TICKS / 2 simulator (redstone) ticks. A circuit still ticking when the hold ends is not unstable:
+         * the world lets go then, and the release is checked next. Traps are checked as in check(). A door
+         * piston counts as moved only if it kept its value over the last simulated tick of the hold.
+         */
+        private int checkForcedOn() {
+            int hold = LockRules.FORCE_TICKS / 2;
+            if (sim.settle(hold - 1, limit)) {
+                return score();
+            }
+            if (sim.stoppedForBudget()) {
+                halted = true;
                 return -1;
             }
-            for (int d = 0; d < dangerBase.length; d++) {
-                if (!dangerBase[d] && sim.dangerPowered(d)) {
-                    return -1;
+            if (trapped()) {
+                return -1;
+            }
+            boolean[] before = new boolean[goalBase.length];
+            for (int g = 0; g < before.length; g++) {
+                before[g] = sim.goalPowered(g);
+            }
+            if (sim.settle(1, limit)) {
+                return score();
+            }
+            if (sim.stoppedForBudget()) {
+                halted = true;
+                return -1;
+            }
+            if (trapped()) {
+                return -1;
+            }
+            int moved = 0;
+            for (int g = 0; g < goalBase.length; g++) {
+                boolean now = sim.goalPowered(g);
+                if (now == before[g] && now != goalBase[g]) {
+                    moved++;
                 }
+            }
+            return moved;
+        }
+
+        /** After a settle: -1 if a trap fired, otherwise the door pistons moved from baseline. */
+        private int score() {
+            if (trapped()) {
+                return -1;
             }
             int moved = 0;
             for (int g = 0; g < goalBase.length; g++) {
@@ -287,6 +332,19 @@ public final class LockSolver {
                 }
             }
             return moved;
+        }
+
+        /** A trap rose during the last settle, or is on now when it was off at baseline. */
+        private boolean trapped() {
+            if (sim.dangerRoseInLastSettle()) {
+                return true;
+            }
+            for (int d = 0; d < dangerBase.length; d++) {
+                if (!dangerBase[d] && sim.dangerPowered(d)) {
+                    return true;
+                }
+            }
+            return false;
         }
     }
 

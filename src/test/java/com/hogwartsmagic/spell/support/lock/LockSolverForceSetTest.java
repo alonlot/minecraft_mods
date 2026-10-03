@@ -103,4 +103,39 @@ class LockSolverForceSetTest {
         assertEquals(LockSolver.Status.OUT_OF_TIME, s.status());
         assertTrue(s.work() < 10_000, "work " + s.work());
     }
+
+    @Test
+    void aForcedSourceThatStartsAClockStillOpensTheDoor() {
+        // While x is forced on, a torch loop ticks forever; the world lets go after 3 s, so this is no unstable lock.
+        LockCircuit.Builder b = new LockCircuit.Builder();
+        int x = b.input(LockCircuit.FORCE, false);
+        int door = b.node(LockCircuit.MAX, 0);
+        b.link(x, door, 0);
+        b.goal(door);
+        int gate = b.node(LockCircuit.MAX, 15);
+        b.link(not(b, x, 15), gate, 0);
+        int torch = not(b, gate, 0);
+        b.link(torch, gate, 0);
+        LockSolver.Solution s = LockSolver.solve(b.build(), 4, 2, BIG);
+        assertEquals(LockSolver.Status.SOLVED, s.status());
+        assertEquals(1, s.moved());
+        assertArrayEquals(new int[0], s.set());
+        assertArrayEquals(new int[] {0}, s.presses());
+    }
+
+    @Test
+    void aTrapThatFiresOnlyWhenTheSubsetIsReleasedIsRejected() {
+        // The trap is NOT(x AND y): powered at baseline, off while both are held, and it rises again on release.
+        LockCircuit.Builder b = new LockCircuit.Builder();
+        int x = b.input(LockCircuit.FORCE, false);
+        int y = b.input(LockCircuit.FORCE, false);
+        int both = b.node(LockCircuit.MAX, 0);
+        and(b, x, y, both);
+        int door = b.node(LockCircuit.MAX, 0);
+        b.link(both, door, 0);
+        b.goal(door);
+        b.danger(not(b, both, 15));
+        LockSolver.Solution s = LockSolver.solve(b.build(), 4, 2, BIG);
+        assertEquals(LockSolver.Status.NO_SOLUTION, s.status());
+    }
 }

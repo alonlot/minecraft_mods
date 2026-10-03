@@ -236,13 +236,13 @@ public final class PistonLockSpell {
         }
         LockCircuit circuit = job.lock().circuit();
         for (int input : s.set()) {
-            if (shifted(level, sites.get(input), sites.get(input).on())) {
+            if (siteShifted(level, sites.get(input))) {
                 tell(player, "shifted", ChatFormatting.GOLD);
                 return;
             }
         }
         for (int input : s.presses()) {
-            if (shifted(level, sites.get(input), sites.get(input).on())) {
+            if (siteShifted(level, sites.get(input))) {
                 tell(player, "shifted", ChatFormatting.GOLD);
                 return;
             }
@@ -406,15 +406,22 @@ public final class PistonLockSpell {
         }
     }
 
-    /** The inputs this step works are gone or not as traced (a sculk sensor only has to still be a sensor). */
+    /** The inputs this step works are gone or not as traced (see {@link #siteShifted}). */
     private static boolean stepShifted(ServerLevel level, Playback play, Step step) {
         for (int input : step.inputs()) {
-            CircuitTracer.InputSite site = play.inputs.get(input);
-            if (site.block() instanceof SculkSensorBlock ? gone(level, site) : shifted(level, site, site.on())) {
+            if (siteShifted(level, play.inputs.get(input))) {
                 return true;
             }
         }
         return false;
+    }
+
+    /**
+     * One input is gone or not as traced. A sculk sensor only has to still be a sensor: it hears the playback
+     * and the world around it, so its power and phase are never compared with the trace.
+     */
+    private static boolean siteShifted(ServerLevel level, CircuitTracer.InputSite site) {
+        return site.block() instanceof SculkSensorBlock ? gone(level, site) : shifted(level, site, site.on());
     }
 
     /** Ends a playback and tells the caster, if still around, that the lock changed under the spell. */

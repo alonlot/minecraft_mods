@@ -120,14 +120,16 @@ public class ClientForgeEvents {
             TOPPLE_START.remove(entity);
         }
 
-        if (petrified) {
+        // A Petrificus Totalus victim turns to stone the same way a basilisk's does (the tint), only
+        // temporarily: the tint ends with the marker and nothing dies.
+        if (petrified || isToppled(entity)) {
             RenderSystem.setShaderColor(0.42F, 0.43F, 0.45F, 1.0F);
         }
     }
 
     @SubscribeEvent
     public static void onRenderLivingPost(RenderLivingEvent.Post<?, ?> event) {
-        if (event.getEntity().hasEffect(ExampleMod.BASILISK_PETRIFICATION.getHolder().get())) {
+        if (event.getEntity().hasEffect(ExampleMod.BASILISK_PETRIFICATION.getHolder().get()) || isToppled(event.getEntity())) {
             RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
         }
         if (isToppled(event.getEntity())) {

@@ -22,8 +22,8 @@ import net.minecraftforge.fml.common.Mod;
 import javax.annotation.Nullable;
 
 /**
- * Petrificus Totalus: the target goes rigid and topples over (a stun plus the petrified marker, which
- * watching clients render rotated 90 degrees). Any damage ends it at Novice; from Adept, hits under 4
+ * Petrificus Totalus: the target turns to stone and topples over (a stun plus the petrified marker, which
+ * watching clients render rotated 90 degrees and tinted grey like a basilisk victim, without killing it). Any damage ends it at Novice; from Adept, hits under 4
  * damage don't. At Master the hit that breaks it deals +50%. Gravity still applies, so a petrified mob
  * in the air falls and takes normal fall damage.
  */
@@ -45,6 +45,10 @@ public final class PetrificusSpell {
         DisableSupport.interrupt(target);
         DisableSupport.addHiddenMarker(target, ExampleMod.PETRIFIED, ticks, rank - 1, caster);
         level.playSound(null, target.getX(), target.getY(), target.getZ(), SoundEvents.STONE_PLACE, SoundSource.NEUTRAL, 1.0f, 0.6f);
+        // The stone tint itself is client-side (it follows the petrified marker); this is the "turning to stone" burst.
+        level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, Blocks.STONE.defaultBlockState()),
+                target.getX(), target.getY() + target.getBbHeight() * 0.5, target.getZ(), 16,
+                target.getBbWidth() * 0.4, target.getBbHeight() * 0.3, target.getBbWidth() * 0.4, 0.05);
     }
 
     /** LOW so it sees the amount after other multipliers (brittle); before armour, like brittle. */

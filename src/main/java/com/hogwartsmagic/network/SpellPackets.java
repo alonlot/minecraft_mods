@@ -318,9 +318,30 @@ public class SpellPackets {
                     buf.writeBlockPos(p.origin);
                     buf.writeVarInt(p.radius);
                     buf.writeVarInt(p.durationTicks);
+                    buf.writeVarInt(p.fireplaces.size());
+                    for (FlooDestinationData fireplace : p.fireplaces) {
+                        buf.writeBlockPos(fireplace.pos());
+                        buf.writeUtf(fireplace.name());
+                    }
                 })
-                .decoder(buf -> new OpenApparitionMapPacket(buf.readBlockPos(), buf.readVarInt(), buf.readVarInt()))
+                .decoder(buf -> {
+                    BlockPos origin = buf.readBlockPos();
+                    int radius = buf.readVarInt();
+                    int durationTicks = buf.readVarInt();
+                    int size = clampDecodedSize(buf.readVarInt(),
+                            com.hogwartsmagic.spell.support.ApparitionRules.MAX_LISTED_FIREPLACES);
+                    List<FlooDestinationData> fireplaces = new ArrayList<>(size);
+                    for (int i = 0; i < size; i++) {
+                        fireplaces.add(new FlooDestinationData(buf.readBlockPos(), buf.readUtf()));
+                    }
+                    return new OpenApparitionMapPacket(origin, radius, durationTicks, fireplaces);
+                })
                 .consumerMainThread(OpenApparitionMapPacket::handle)
+                .add();
+        CHANNEL.messageBuilder(ChooseApparitionFireplacePacket.class)
+                .encoder((p, buf) -> buf.writeBlockPos(p.fireplacePos))
+                .decoder(buf -> new ChooseApparitionFireplacePacket(buf.readBlockPos()))
+                .consumerMainThread(ChooseApparitionFireplacePacket::handle)
                 .add();
         CHANNEL.messageBuilder(CloseApparitionMapPacket.class)
                 .encoder((p, buf) -> {})
@@ -394,6 +415,11 @@ public class SpellPackets {
         if (fireplace == null || !fireplace.isNamed()) {
             player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.hogwartsmagic.floo.needs_name"), true);
             return false;
+        }
+        if (player.level() instanceof net.minecraft.server.level.ServerLevel flooLevel) {
+            // A fireplace you have stood at is one a Master can Apparate back to.
+            com.hogwartsmagic.spell.support.ApparitionSpell.rememberFireplace(player, flooLevel,
+                    fireplace.getBlockPos(), fireplace.getFireplaceName());
         }
         List<FlooDestinationData> destinations = new ArrayList<>();
         for (BlockPos linkedPos : fireplace.getLinkedPositions()) {
@@ -1364,7 +1390,7 @@ public class SpellPackets {
     }
 
     /** Server → client: open the Apparition destination minimap, centered on {@code origin}. */
-    public record OpenApparitionMapPacket(BlockPos origin, int radius, int durationTicks) {
+    public record OpenApparitionMapPacket(BlockPos origin, int radius, int durationTicks, List<FlooDestinationData> fireplaces) {
         public static void handle(OpenApparitionMapPacket p, CustomPayloadEvent.Context ctx) {
             enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("openApparitionMap", p));
         }
@@ -1388,6 +1414,21 @@ public class SpellPackets {
                     return;
                 }
                 com.hogwartsmagic.event.ModEvents.completeApparition(player, p.targetX, p.targetZ);
+            }
+        }
+    }
+
+    /** Client to server: a Master picked a known fireplace on the map. Re-validated against the server's own list. */
+    public record ChooseApparitionFireplacePacket(BlockPos fireplacePos) {
+        public static void handle(ChooseApparitionFireplacePacket p, CustomPayloadEvent.Context ctx) {
+            ServerPlayer player = ctx.getSender();
+            if (player != null) {
+                if (com.hogwartsmagic.spell.combat.CombatEffects.isCastingBlocked(player)) {
+                    com.hogwartsmagic.spell.combat.CombatEffects.notifyCastBlocked(player);
+                    com.hogwartsmagic.event.ModEvents.cancelApparitionChannel(player, player.getMainHandItem());
+                    return;
+                }
+                com.hogwartsmagic.event.ModEvents.completeApparitionToFireplace(player, p.fireplacePos);
             }
         }
     }

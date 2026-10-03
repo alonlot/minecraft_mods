@@ -34,6 +34,8 @@ public class ApparitionMapScreen extends Screen {
     private final BlockPos origin;
     private final int radius;
     private final int durationTicks;
+    private final java.util.List<SpellPackets.FlooDestinationData> fireplaces;
+    private static final int ROW = 11;
     private final RandomSource shakeRand = RandomSource.create();
 
     private int ticksLeft;
@@ -52,13 +54,34 @@ public class ApparitionMapScreen extends Screen {
     private int panelTop;
     private int panelWidth;
     private int panelHeight;
+    private int listTop;
 
-    public ApparitionMapScreen(BlockPos origin, int radius, int durationTicks) {
+    public ApparitionMapScreen(BlockPos origin, int radius, int durationTicks,
+                               java.util.List<SpellPackets.FlooDestinationData> fireplaces) {
         super(Component.translatable("gui." + ExampleMod.MODID + ".apparition.title"));
         this.origin = origin;
         this.radius = radius;
         this.durationTicks = Math.max(1, durationTicks);
         this.ticksLeft = this.durationTicks;
+        this.fireplaces = fireplaces == null ? java.util.List.of() : java.util.List.copyOf(fireplaces);
+    }
+
+    /** Header plus one row per known fireplace; 0 when there are none (below Master). */
+    private int fireplaceListHeight() {
+        return fireplaces.isEmpty() ? 0 : 12 + ROW * fireplaces.size();
+    }
+
+    /** Index of the fireplace row under the mouse, or -1. */
+    private int fireplaceRowAt(double mouseX, double mouseY) {
+        if (fireplaces.isEmpty()) {
+            return -1;
+        }
+        int mapSize = tiles * TILE;
+        if (mouseX < mapLeft || mouseX >= mapLeft + mapSize) {
+            return -1;
+        }
+        int row = Math.floorDiv((int) mouseY - (listTop + 12), ROW);
+        return row >= 0 && row < fireplaces.size() ? row : -1;
     }
 
     @Override
@@ -70,11 +93,12 @@ public class ApparitionMapScreen extends Screen {
         tiles = (span + step - 1) / step;
         int mapSize = tiles * TILE;
         panelWidth = mapSize + 28;
-        panelHeight = mapSize + 56;
+        panelHeight = mapSize + 56 + fireplaceListHeight();
         panelLeft = (this.width - panelWidth) / 2;
         panelTop = (this.height - panelHeight) / 2;
         mapLeft = panelLeft + 14;
         mapTop = panelTop + 40;
+        listTop = mapTop + mapSize + 16;
         buildMap();
     }
 
@@ -194,12 +218,40 @@ public class ApparitionMapScreen extends Screen {
         int barColor = ticksLeft <= durationTicks / 3 ? 0xFFFF5A4B : COLOR_GOLD;
         g.fill(barLeft, barTop, barLeft + filled, barTop + 4, barColor);
 
+        // Known Floo fireplaces (Master): click one to Apparate there at any distance.
+        if (!fireplaces.isEmpty()) {
+            g.drawString(this.font, Component.translatable("gui." + ExampleMod.MODID + ".apparition.fireplaces"),
+                    mapLeft, listTop, COLOR_GOLD);
+            int hovered = fireplaceRowAt(mouseX, mouseY);
+            for (int i = 0; i < fireplaces.size(); i++) {
+                SpellPackets.FlooDestinationData fireplace = fireplaces.get(i);
+                int rowY = listTop + 12 + i * ROW;
+                if (i == hovered) {
+                    g.fill(mapLeft - 2, rowY - 1, mapLeft + mapSize + 2, rowY + ROW - 1, 0x50FFE08A);
+                }
+                int distance = (int) Math.sqrt(origin.distSqr(fireplace.pos()));
+                String label = this.font.plainSubstrByWidth(fireplace.name() + " (" + distance + "m)", mapSize);
+                g.drawString(this.font, label, mapLeft, rowY, COLOR_BODY);
+            }
+        }
+
         g.pose().popPose();
     }
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (button == 0 && !selectionSent) {
+            int row = fireplaceRowAt(mouseX, mouseY);
+            if (row >= 0) {
+                SpellPackets.CHANNEL.send(
+                        new SpellPackets.ChooseApparitionFireplacePacket(fireplaces.get(row).pos()),
+                        PacketDistributor.SERVER.noArg());
+                selectionSent = true;
+                if (this.minecraft != null) {
+                    this.minecraft.setScreen(null);
+                }
+                return true;
+            }
             int dx = Math.floorDiv((int) mouseX - mapLeft, TILE);
             int dz = Math.floorDiv((int) mouseY - mapTop, TILE);
             if (dx >= 0 && dx < tiles && dz >= 0 && dz < tiles && tileKnown[dz * tiles + dx]) {

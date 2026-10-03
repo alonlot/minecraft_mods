@@ -201,7 +201,7 @@ public final class ClientRuntimeBridge {
 
     private static void openApparitionMap(SpellPackets.OpenApparitionMapPacket packet) {
         net.minecraft.client.Minecraft.getInstance().setScreen(
-                new ApparitionMapScreen(packet.origin(), packet.radius(), packet.durationTicks()));
+                new ApparitionMapScreen(packet.origin(), packet.radius(), packet.durationTicks(), packet.fireplaces()));
     }
 
     private static void revealDisguise(SpellPackets.RevealDisguisePacket packet) {

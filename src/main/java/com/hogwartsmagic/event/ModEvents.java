@@ -1877,10 +1877,16 @@ public class ModEvents {
         player.level().playSound(null, player.blockPosition(),
                 net.minecraft.sounds.SoundEvents.BEACON_DEACTIVATE, SoundSource.PLAYERS, 0.6f, 1.6f);
         int apparitionRank = com.hogwartsmagic.spell.mastery.SpellMasteryData.getRank(player, SpellType.APPARITION);
+        java.util.List<SpellPackets.FlooDestinationData> fireplaces =
+                com.hogwartsmagic.spell.support.ApparitionRules.jumpsToFireplaces(apparitionRank)
+                        && player.level() instanceof ServerLevel apparitionLevel
+                        ? com.hogwartsmagic.spell.support.ApparitionSpell.knownFireplaces(player, apparitionLevel)
+                        : java.util.List.of();
         SpellPackets.CHANNEL.send(
                 new SpellPackets.OpenApparitionMapPacket(player.blockPosition(),
                         com.hogwartsmagic.spell.support.ApparitionRules.range(apparitionRank),
-                        com.hogwartsmagic.spell.support.ApparitionRules.channelTicks(apparitionRank)),
+                        com.hogwartsmagic.spell.support.ApparitionRules.channelTicks(apparitionRank),
+                        fireplaces),
                 PacketDistributor.PLAYER.with(player));
     }
 
@@ -2037,6 +2043,70 @@ public class ModEvents {
                     "message.hogwartsmagic.apparition.splinched").withStyle(net.minecraft.ChatFormatting.RED), true);
         }
 
+        revealInvisibilityCloak(player);
+        applyApparitionCooldown(player, wand, true);
+    }
+
+    /**
+     * Master Apparition: straight to a known Floo fireplace in this dimension, at any distance. Lands on
+     * the block above it, like Floo. May load the destination chunk once, after every check has passed
+     * (no range limit on a Master's jump, one-minute cooldown). A fireplace that is gone is forgotten.
+     */
+    public static void completeApparitionToFireplace(ServerPlayer player, BlockPos fireplacePos) {
+        net.minecraft.nbt.CompoundTag playerData = player.getPersistentData();
+        if (!playerData.getBoolean(TAG_APPARITION_CHANNELING)) {
+            return;
+        }
+        ItemStack wand = player.getMainHandItem();
+        if (!(player.level() instanceof ServerLevel level)
+                || !com.hogwartsmagic.spell.support.ApparitionRules.jumpsToFireplaces(
+                        com.hogwartsmagic.spell.mastery.SpellMasteryData.getRank(player, SpellType.APPARITION))
+                || !com.hogwartsmagic.spell.support.ApparitionSpell.isKnown(player, level, fireplacePos)
+                || !level.isInWorldBounds(fireplacePos)) {
+            cancelApparitionChannel(player, wand);
+            return;
+        }
+        level.getChunkAt(fireplacePos);
+        if (!(level.getBlockEntity(fireplacePos) instanceof com.hogwartsmagic.block.entity.FlooFireplaceBlockEntity fireplace)
+                || !fireplace.isNamed()) {
+            com.hogwartsmagic.spell.support.ApparitionSpell.forgetFireplace(player, level, fireplacePos);
+            player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                    "message.hogwartsmagic.apparition.fireplace_gone").withStyle(net.minecraft.ChatFormatting.LIGHT_PURPLE), true);
+            cancelApparitionChannel(player, wand);
+            return;
+        }
+        BlockPos exit = fireplacePos.above();
+        double x = exit.getX() + 0.5;
+        double y = exit.getY();
+        double z = exit.getZ() + 0.5;
+        if (com.hogwartsmagic.caveinimicum.CaveInimicumManager.get(level).isWardedAt(exit)
+                || !level.getWorldBorder().isWithinBounds(exit)
+                || !level.noCollision(player.getDimensions(player.getPose()).makeBoundingBox(x, y, z))) {
+            player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                    "message.hogwartsmagic.apparition.blocked").withStyle(net.minecraft.ChatFormatting.LIGHT_PURPLE), true);
+            cancelApparitionChannel(player, wand);
+            return;
+        }
+
+        playerData.remove(TAG_APPARITION_CHANNELING);
+        playerData.remove(TAG_APPARITION_START);
+        clearImplodeScale(player);
+        SpellPackets.CHANNEL.send(new SpellPackets.CloseApparitionMapPacket(), PacketDistributor.PLAYER.with(player));
+
+        // Side-along: anyone within a block comes with you. Gather BEFORE moving.
+        java.util.List<LivingEntity> passengers = level.getEntitiesOfClass(LivingEntity.class,
+                player.getBoundingBox().inflate(APPARITION_SIDEALONG_RADIUS), e -> e != player && e.isAlive());
+        Vec3 from = player.position();
+        crackEffect(level, from.x, from.y, from.z, true);
+        player.teleportTo(x, y, z);
+        player.fallDistance = 0.0f;
+        crackEffect(level, x, y, z, false);
+        for (LivingEntity passenger : passengers) {
+            if (level.noCollision(passenger.getDimensions(passenger.getPose()).makeBoundingBox(x, y, z))) {
+                passenger.teleportTo(x, y, z);
+                passenger.fallDistance = 0.0f;
+            }
+        }
         revealInvisibilityCloak(player);
         applyApparitionCooldown(player, wand, true);
     }
@@ -2429,6 +2499,11 @@ public class ModEvents {
         serverLevel.playSound(null, player.getX(), player.getY(), player.getZ(),
                 com.hogwartsmagic.ModSounds.FLOO_ARRIVE.get(), SoundSource.PLAYERS, 1.0f, 1.0f);
         destination.ignite(serverLevel);
+        // Both ends of a completed trip are fireplaces a Master can Apparate to.
+        com.hogwartsmagic.spell.support.ApparitionSpell.rememberFireplace(player, serverLevel, sourcePos, source.getFireplaceName());
+        com.hogwartsmagic.spell.support.ApparitionSpell.rememberFireplace(player, serverLevel, destinationPos, destination.getFireplaceName());
+        // remember* saved its own copy of the mod data; re-read so the pending-flag clear below is not lost.
+        modData = PlayerMagicData.getModData(player);
 
         modData.remove("FlooTravelPending");
         modData.remove("FlooSourcePos");

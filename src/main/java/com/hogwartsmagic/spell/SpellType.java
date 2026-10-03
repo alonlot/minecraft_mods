@@ -199,12 +199,7 @@ public enum SpellType {
                     target.addEffect(new MobEffectInstance(MobEffects.GLOWING, 200, 0));
                 }
             }
-            case AVADA_KEDAVRA -> {
-                target.hurt(target.damageSources().magic(), Float.MAX_VALUE);
-                if (caster instanceof LivingEntity livingCaster) {
-                    livingCaster.hurt(livingCaster.damageSources().magic(), scaledSpellDamage(caster, 2.0f)); // Dark magic cost
-                }
-            }
+            case AVADA_KEDAVRA -> com.hogwartsmagic.spell.mind.AvadaSpell.apply(target, caster);
             case CRUCIO -> {
                 target.addEffect(new MobEffectInstance(MobEffects.WITHER, 100, 1));
                 target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 100, 2));

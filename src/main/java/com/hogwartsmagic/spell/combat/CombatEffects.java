@@ -297,6 +297,7 @@ public final class CombatEffects {
         }
         MobEffect effect = event.getEffectInstance().getEffect().value();
         if (effect == ExampleMod.STUNNED.get() || effect == ExampleMod.SILENCED.get()) {
+            com.hogwartsmagic.spell.mind.AvadaWindup.cancel(player, true);
             com.hogwartsmagic.event.ModEvents.interruptActiveCasting(player);
         }
     }

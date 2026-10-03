@@ -58,6 +58,7 @@ public final class DisableSupport {
      */
     public static void interrupt(LivingEntity target) {
         if (target instanceof ServerPlayer player) {
+            com.hogwartsmagic.spell.mind.AvadaWindup.cancel(player, true);
             ModEvents.interruptActiveCasting(player);
         } else if (target instanceof VoldemortEntity voldemort) {
             voldemort.interruptCasting();

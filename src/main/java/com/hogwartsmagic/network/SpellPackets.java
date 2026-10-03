@@ -929,6 +929,14 @@ public class SpellPackets {
                 return;
             }
 
+            // Avada Kedavra winds up first (Spell Mastery Phase 6). AvadaWindup re-enters castAs when the windup
+            // completes, with the ready flag set, and only then is the mana taken and the beam fired.
+            if (spell == SpellType.AVADA_KEDAVRA && !p.selfCastProtego
+                    && !com.hogwartsmagic.spell.mind.AvadaWindup.consumeReady(player)) {
+                com.hogwartsmagic.spell.mind.AvadaWindup.begin(player);
+                return;
+            }
+
             // Mana Check
             net.minecraft.nbt.CompoundTag modData = playerData.getCompound("PlayerPersisted").getCompound(ExampleMod.MODID);
             float currentMana = modData.contains("Mana") ? modData.getFloat("Mana") : PlayerMagicData.getMaxMana(player);

@@ -4135,7 +4135,10 @@ public class ModEvents {
                         return true;
                     }
                     imperioUseLatched = true;
-                    com.hogwartsmagic.event.ClientModEvents.startImperioHold();
+                    if (com.hogwartsmagic.spell.mind.ImperioRules.isPossessionRank(
+                            com.hogwartsmagic.spell.mastery.SpellMasteryData.getRank(player, SpellType.IMPERIO))) {
+                        com.hogwartsmagic.event.ClientModEvents.startImperioHold(); // Master: hold to take control
+                    }
                     SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(false, false, false, false), PacketDistributor.SERVER.noArg());
                     player.swing(InteractionHand.MAIN_HAND);
                     return true;

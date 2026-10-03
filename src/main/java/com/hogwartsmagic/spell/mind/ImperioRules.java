@@ -19,6 +19,8 @@ public final class ImperioRules {
     public static final int ASSIST_MEMORY_TICKS = 100;
     public static final float BRAWL_DAMAGE = 2.0f;
     public static final int BRAWL_INTERVAL = 20;
+    /** A thrall player's client is told its velocity at least this often, and sooner only on a real change. */
+    public static final int PUSH_RESEND_TICKS = 4;
 
     private ImperioRules() {
     }
@@ -54,5 +56,30 @@ public final class ImperioRules {
     /** An owner's fight (who hurt them, whom they hurt) stays interesting for five seconds. */
     public static boolean fresh(long now, long at) {
         return now - at <= ASSIST_MEMORY_TICKS;
+    }
+
+    /**
+     * Throttle for the motion packets that walk a thrall player: push when nothing was sent yet, when
+     * {@link #PUSH_RESEND_TICKS} have passed, or when the wanted velocity really changed (a jump, a stop or
+     * start, a speed change, or a turn of more than 15 degrees). Never one packet per tick.
+     */
+    public static boolean needsPush(boolean havePrevious, double lastX, double lastY, double lastZ,
+                                    double wantX, double wantY, double wantZ, long lastAt, long now) {
+        if (!havePrevious || now < lastAt || now - lastAt >= PUSH_RESEND_TICKS) {
+            return true;
+        }
+        if (Math.abs(wantY - lastY) > 0.3) {
+            return true;
+        }
+        double last = Math.sqrt(lastX * lastX + lastZ * lastZ);
+        double want = Math.sqrt(wantX * wantX + wantZ * wantZ);
+        if (Math.abs(last - want) > 0.02) {
+            return true;
+        }
+        if (last < 1.0E-4 || want < 1.0E-4) {
+            return false;
+        }
+        double cos = (lastX * wantX + lastZ * wantZ) / (last * want);
+        return cos < Math.cos(Math.toRadians(15.0));
     }
 }

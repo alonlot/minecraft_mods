@@ -944,6 +944,11 @@ public class SpellPackets {
                 return;
             }
 
+            // Imperio ranks I-III: no cast, and no mana spent, while every thrall slot is taken.
+            if (spell == SpellType.IMPERIO && !com.hogwartsmagic.spell.mind.ImperioThralls.mayCast(player)) {
+                return;
+            }
+
             // Mana Check
             net.minecraft.nbt.CompoundTag modData = playerData.getCompound("PlayerPersisted").getCompound(ExampleMod.MODID);
             float currentMana = modData.contains("Mana") ? modData.getFloat("Mana") : PlayerMagicData.getMaxMana(player);
@@ -1233,6 +1238,12 @@ public class SpellPackets {
 
             if (p.stopChannel) {
                 com.hogwartsmagic.event.ModEvents.stopImperioChannel(player, wand);
+                return;
+            }
+
+            // Ranks I-III make a thrall when the beam lands; only a Master holds the channel.
+            if (!com.hogwartsmagic.spell.mind.ImperioRules.isPossessionRank(
+                    com.hogwartsmagic.spell.mastery.SpellMasteryData.getRank(player, spell))) {
                 return;
             }
 

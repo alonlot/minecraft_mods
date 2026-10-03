@@ -26,6 +26,7 @@ public final class MindHooks {
             return;
         }
         ObliviateSpell.onHurtBySpell(target, caster);
+        ImperioThralls.noteAttack(caster, target);
     }
 
     static boolean isHostile(SpellType spell) {

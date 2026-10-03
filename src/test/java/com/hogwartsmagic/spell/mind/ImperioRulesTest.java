@@ -55,4 +55,22 @@ class ImperioRulesTest {
         assertTrue(ImperioRules.fresh(200L, 100L));
         assertFalse(ImperioRules.fresh(201L, 100L));
     }
+
+    @Test
+    void motionPushIsThrottled() {
+        // nothing sent yet, or four ticks old: push
+        assertTrue(ImperioRules.needsPush(false, 0, 0, 0, 0.2, 0, 0, 0, 1));
+        assertTrue(ImperioRules.needsPush(true, 0.2, 0, 0, 0.2, 0, 0, 10, 14));
+        // same walk a tick later: skip
+        assertFalse(ImperioRules.needsPush(true, 0.2, 0, 0, 0.2, 0, 0, 10, 11));
+        // small turn skips, a 90 degree turn pushes
+        assertFalse(ImperioRules.needsPush(true, 0.2, 0, 0, 0.199, 0, 0.02, 10, 11));
+        assertTrue(ImperioRules.needsPush(true, 0.2, 0, 0, 0.0, 0, 0.2, 10, 11));
+        // a stop, a start and a jump push at once
+        assertTrue(ImperioRules.needsPush(true, 0.2, 0, 0, 0, 0, 0, 10, 11));
+        assertTrue(ImperioRules.needsPush(true, 0, 0, 0, 0.2, 0, 0, 10, 11));
+        assertTrue(ImperioRules.needsPush(true, 0.2, 0, 0, 0.2, 0.42, 0, 10, 11));
+        // standing still stays quiet until the resend
+        assertFalse(ImperioRules.needsPush(true, 0, 0, 0, 0, 0, 0, 10, 12));
+    }
 }

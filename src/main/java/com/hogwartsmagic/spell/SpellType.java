@@ -201,45 +201,7 @@ public enum SpellType {
             }
             case AVADA_KEDAVRA -> com.hogwartsmagic.spell.mind.AvadaSpell.apply(target, caster, masteryEligible);
             case CRUCIO -> com.hogwartsmagic.spell.mind.CrucioChannel.onBeamHit(target, caster);
-            case IMPERIO -> {
-                interruptActiveCasting(target);
-                if (target instanceof com.hogwartsmagic.entity.HouseElfEntity elf) {
-                    // An elf under the Imperius Curse cannot will itself away, which
-                    // is the whole point: this is the dark road to binding one.
-                    elf.markSubdued(200);
-                }
-                if (caster instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
-                    net.minecraft.nbt.CompoundTag playerData = serverPlayer.getPersistentData();
-                    playerData.putUUID("hogwartsmagic:imperio_recent_hit_target", target.getUUID());
-                    playerData.putLong("hogwartsmagic:imperio_recent_hit_expiry", serverPlayer.level().getGameTime() + 60L);
-                }
-                if (target instanceof net.minecraft.world.entity.Mob mob) {
-                    // Turn mob into ally by making it attack other hostile mobs
-                    net.minecraft.world.phys.AABB area = mob.getBoundingBox().inflate(16.0);
-                    java.util.List<net.minecraft.world.entity.Mob> nearby = mob.level().getEntitiesOfClass(net.minecraft.world.entity.Mob.class, area, 
-                        e -> e != mob && e != caster && (e instanceof net.minecraft.world.entity.monster.Enemy));
-                    
-                    if (!nearby.isEmpty()) {
-                        net.minecraft.world.entity.Mob allyTarget = nearby.get(mob.level().random.nextInt(nearby.size()));
-                        mob.setTarget(allyTarget);
-                    }
-
-                    // For some mobs, we can set them to be "allies" more explicitly if they support it
-                    // but for most, just clearing their current target if it was the caster is good
-                    if (mob.getTarget() == caster) {
-                        mob.setTarget(null);
-                    }
-                    
-                    mob.addEffect(new MobEffectInstance(MobEffects.CONFUSION, 600, 0));
-                    mob.addEffect(new MobEffectInstance(MobEffects.DAMAGE_BOOST, 600, 1));
-                    
-                    // Add a glowing effect to allied mobs so the player knows who is on their side
-                    mob.addEffect(new MobEffectInstance(MobEffects.GLOWING, 600, 0));
-                    
-                    // Add a tag to mark as allied
-                    mob.addTag(com.hogwartsmagic.spell.combat.CombatTags.ALLIED);
-                }
-            }
+            case IMPERIO -> com.hogwartsmagic.spell.mind.ImperioSpell.apply(target, caster);
             case FIENDFYRE -> {
                 target.igniteForSeconds(20);
                 float dmg = target.level().isRainingAt(target.blockPosition()) ? 6.0f : 8.0f;
@@ -417,12 +379,6 @@ public enum SpellType {
         if (target.level() instanceof ServerLevel sl) {
             sl.sendParticles(ParticleTypes.CLOUD, target.getX(), target.getY() + 1.0, target.getZ(), 20, 0.35, 0.25, 0.35, 0.01);
             sl.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, target.getX(), target.getY() + 0.8, target.getZ(), 12, 0.25, 0.2, 0.25, 0.01);
-        }
-    }
-
-    private static void interruptActiveCasting(LivingEntity target) {
-        if (target instanceof ServerPlayer serverPlayer) {
-            ModEvents.interruptActiveCasting(serverPlayer);
         }
     }
 }

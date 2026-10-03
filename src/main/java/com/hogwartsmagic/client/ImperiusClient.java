@@ -2,7 +2,6 @@ package com.hogwartsmagic.client;
 
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.network.SpellPackets;
-import com.hogwartsmagic.spell.combat.CombatEffects;
 import com.hogwartsmagic.spell.mind.MindControl;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.KeyMapping;
@@ -19,6 +18,7 @@ import net.minecraftforge.client.event.MovementInputUpdateEvent;
 import net.minecraftforge.client.event.RenderNameTagEvent;
 import net.minecraftforge.client.event.ScreenEvent;
 import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.event.entity.EntityLeaveLevelEvent;
 import net.minecraftforge.eventbus.api.Event;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -59,6 +59,9 @@ public final class ImperiusClient {
         if (owner == null) {
             return;
         }
+        if (event.getEntity().isInvisible() || event.getEntity().isCrouching()) {
+            return;
+        }
         event.setContent(Component.translatable("gui." + ExampleMod.MODID + ".imperio.thrall_label", owner)
                 .withStyle(ChatFormatting.GREEN));
         event.setResult(Event.Result.ALLOW);
@@ -67,7 +70,7 @@ public final class ImperiusClient {
     /** Thralls only: the server drives the body. (A Phase 6b puppet's input is set by PossessionClient instead.) */
     @SubscribeEvent
     public static void onMovementInput(MovementInputUpdateEvent event) {
-        if (!CombatEffects.has(event.getEntity(), ExampleMod.IMPERIUS)) {
+        if (!MindControl.isControlled(event.getEntity())) {
             return;
         }
         Input input = event.getInput();
@@ -131,6 +134,20 @@ public final class ImperiusClient {
         if (isLocalPlayerLocked() && Minecraft.getInstance().screen == null) {
             event.setCanceled(true);
         }
+    }
+
+    /** The entity is gone from the client world (death, unload, portal): its nameplate goes with it. */
+    @SubscribeEvent
+    public static void onEntityLeave(EntityLeaveLevelEvent event) {
+        if (event.getLevel().isClientSide()) {
+            LABELS.remove(event.getEntity().getId());
+        }
+    }
+
+    /** A respawn keeps the entity id of the new local player; nothing from before it may stay labelled. */
+    @SubscribeEvent
+    public static void onRespawn(ClientPlayerNetworkEvent.Clone event) {
+        LABELS.clear();
     }
 
     @SubscribeEvent

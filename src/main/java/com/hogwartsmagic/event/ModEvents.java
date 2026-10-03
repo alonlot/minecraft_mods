@@ -1429,7 +1429,8 @@ public class ModEvents {
             }
         }
 
-        controlWingardiumTarget(player, target, 0.0D);
+        controlWingardiumTarget(player, target, com.hogwartsmagic.spell.motion.WingardiumSpell.primaryLateral(player));
+        com.hogwartsmagic.spell.motion.WingardiumSpell.tickSecondTarget(player);
     }
 
     public static void stopWingardiumChannel(ServerPlayer player, ItemStack wand) {

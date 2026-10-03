@@ -9,6 +9,8 @@ import com.hogwartsmagic.spell.TerrainRules;
 import com.hogwartsmagic.spell.combat.CombatEffects;
 import com.hogwartsmagic.spell.combat.CombatTags;
 import com.hogwartsmagic.spell.mastery.SpellMasteryData;
+import com.hogwartsmagic.spell.mind.MindControl;
+import com.hogwartsmagic.spell.mind.PossessionManager;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.registries.Registries;
@@ -53,6 +55,12 @@ public final class WingardiumSpell {
     private static final String TAG_TARGET = "hogwartsmagic:wingardium_target";
     private static final String TAG_ATTACK_DOWN = "hogwartsmagic:wingardium_attack_down";
     private static final String TAG_THROWN = "hogwartsmagic:wingardium_thrown";
+    /** Master: the second thing the channel holds. */
+    public static final String TAG_TARGET_2 = "hogwartsmagic:wingardium_target_2";
+    private static final String TAG_RECENT_TARGET_2 = "hogwartsmagic:wingardium_recent_target_2";
+    private static final String TAG_RECENT_EXPIRY_2 = "hogwartsmagic:wingardium_recent_expiry_2";
+    /** How long a beam-marked second target waits for the channel to start (as the first one does). */
+    private static final long RECENT_WINDOW_TICKS = 40L;
     /** Thrown mobs still in flight, per dimension. */
     private static final Map<ResourceKey<Level>, Map<UUID, ThrownMob>> THROWN_MOBS = new HashMap<>();
 
@@ -62,7 +70,7 @@ public final class WingardiumSpell {
     private WingardiumSpell() {
     }
 
-    /** The beam struck a block: from Expert, lift it and offer it to the channel. */
+    /** The beam struck a block: from Expert, lift it (at Master, the block above it too) and offer it to the channel. */
     public static boolean liftBlock(ServerLevel level, BlockPos pos, @Nullable Entity caster) {
         if (!(CombatEffects.responsible(caster) instanceof ServerPlayer player)) {
             return false;
@@ -70,15 +78,101 @@ public final class WingardiumSpell {
         if (isControlledOrPossessing(player)) {
             return false;
         }
-        if (!WingardiumRules.liftsBlocks(SpellMasteryData.getRank(player, SpellType.WINGARDIUM_LEVIOSA))) {
+        int rank = SpellMasteryData.getRank(player, SpellType.WINGARDIUM_LEVIOSA);
+        if (!WingardiumRules.liftsBlocks(rank)) {
             return false;
         }
-        CarriedBlockEntity carried = liftOne(level, pos, player);
-        if (carried == null) {
+        if (!level.isLoaded(pos) || !isLiftable(level, pos, level.getBlockState(pos))) {
+            return false; // the struck block decides; the one above never goes alone
+        }
+        // The block above first, so sand or gravel on top is carried instead of being left to fall.
+        CarriedBlockEntity second = WingardiumRules.maxHeld(rank) >= 2 ? liftOne(level, pos.above(), player) : null;
+        CarriedBlockEntity first = liftOne(level, pos, player);
+        if (first == null && second == null) {
             return false;
         }
-        ModEvents.markRecentWingardiumTarget(player, carried);
+        if (first != null) {
+            ModEvents.markRecentWingardiumTarget(player, first);
+            if (second != null) {
+                markSecondTarget(player, second);
+            }
+        } else {
+            ModEvents.markRecentWingardiumTarget(player, second); // a claim kept the struck block in place
+        }
         return true;
+    }
+
+    /** The beam struck a creature: at Master, also mark the nearest other creature (not a boss) within reach. */
+    public static void noteLivingHit(ServerPlayer caster, LivingEntity primary) {
+        if (isControlledOrPossessing(caster)
+                || WingardiumRules.maxHeld(SpellMasteryData.getRank(caster, SpellType.WINGARDIUM_LEVIOSA)) < 2) {
+            return;
+        }
+        double radius = WingardiumRules.SECOND_TARGET_RADIUS;
+        LivingEntity best = null;
+        double bestDistance = radius * radius;
+        for (LivingEntity candidate : caster.serverLevel().getEntitiesOfClass(LivingEntity.class, primary.getBoundingBox().inflate(radius),
+                c -> c != primary && c != caster && c.isAlive() && c.isPickable() && !c.isSpectator() && !CombatTags.isBoss(c)
+                        && !(c instanceof net.minecraft.world.entity.player.Player)
+                        && !(c instanceof net.minecraft.world.entity.decoration.ArmorStand)
+                        && !c.getTags().contains(CombatTags.ALLIED)
+                        && !MindControl.isControlled(c) && !PossessionManager.isPossessing(c)
+                        && c.getRootVehicle() != caster.getRootVehicle())) {
+            double distance = candidate.distanceToSqr(primary);
+            if (distance <= bestDistance) {
+                bestDistance = distance;
+                best = candidate;
+            }
+        }
+        if (best != null) {
+            markSecondTarget(caster, best);
+        }
+    }
+
+    private static void markSecondTarget(ServerPlayer player, Entity second) {
+        CompoundTag data = player.getPersistentData();
+        data.putUUID(TAG_RECENT_TARGET_2, second.getUUID());
+        data.putLong(TAG_RECENT_EXPIRY_2, player.level().getGameTime() + RECENT_WINDOW_TICKS);
+    }
+
+    /** The first held thing sits to the right while a second one is held, else in the middle. */
+    public static double primaryLateral(ServerPlayer player) {
+        return player.getPersistentData().hasUUID(TAG_TARGET_2) ? WingardiumRules.PAIR_SPACING : 0.0D;
+    }
+
+    /** Steers the second held thing to the left; it alone slips away past range or sight. */
+    public static void tickSecondTarget(ServerPlayer player) {
+        CompoundTag data = player.getPersistentData();
+        if (!data.hasUUID(TAG_TARGET_2)) {
+            return;
+        }
+        Entity second = player.serverLevel().getEntity(data.getUUID(TAG_TARGET_2));
+        if (second == null || !second.isAlive() || second == player || !second.isPickable()
+                || second.distanceToSqr(player) > WingardiumRules.HOLD_RANGE * WingardiumRules.HOLD_RANGE
+                || !player.hasLineOfSight(second)) {
+            data.remove(TAG_TARGET_2);
+            return;
+        }
+        ModEvents.controlWingardiumTarget(player, second, -WingardiumRules.PAIR_SPACING);
+    }
+
+    private static void releaseSecondTarget(ServerPlayer player, boolean thrown) {
+        CompoundTag data = player.getPersistentData();
+        if (!data.hasUUID(TAG_TARGET_2)) {
+            return;
+        }
+        Entity second = player.serverLevel().getEntity(data.getUUID(TAG_TARGET_2));
+        data.remove(TAG_TARGET_2);
+        if (second != null && second.isAlive() && !thrown) {
+            // The same gentle drop ModEvents gives the first one.
+            Vec3 motion = second.getDeltaMovement();
+            second.setDeltaMovement(motion.x * 0.35D, Math.min(motion.y, -0.18D), motion.z * 0.35D);
+            second.hurtMarked = true;
+            second.hasImpulse = true;
+            if (second instanceof ServerPlayer secondPlayer) {
+                secondPlayer.connection.send(new ClientboundSetEntityMotionPacket(secondPlayer));
+            }
+        }
     }
 
     @Nullable
@@ -128,9 +222,21 @@ public final class WingardiumSpell {
                 state.is(IMMUNE) || !hasOwnPlainItem(state));
     }
 
-    /** The channel just started holding something: remember whether attack was already down. */
+    /** The channel just started holding something: remember the attack key and take up a marked second target. */
     public static void onChannelStart(ServerPlayer player, boolean attackDown) {
-        player.getPersistentData().putBoolean(TAG_ATTACK_DOWN, attackDown);
+        CompoundTag data = player.getPersistentData();
+        data.putBoolean(TAG_ATTACK_DOWN, attackDown);
+        data.remove(TAG_TARGET_2);
+        if (data.hasUUID(TAG_RECENT_TARGET_2) && data.getLong(TAG_RECENT_EXPIRY_2) >= player.level().getGameTime()) {
+            Entity second = player.serverLevel().getEntity(data.getUUID(TAG_RECENT_TARGET_2));
+            UUID primary = data.hasUUID(TAG_TARGET) ? data.getUUID(TAG_TARGET) : null;
+            if (second != null && second.isAlive() && second != player && second.isPickable()
+                    && !second.getUUID().equals(primary)) {
+                data.putUUID(TAG_TARGET_2, second.getUUID());
+            }
+        }
+        data.remove(TAG_RECENT_TARGET_2);
+        data.remove(TAG_RECENT_EXPIRY_2);
     }
 
     /** Every held tick: a fresh attack press throws what is held (Expert and up). */
@@ -150,6 +256,7 @@ public final class WingardiumSpell {
         boolean thrown = data.getBoolean(TAG_THROWN);
         data.remove(TAG_THROWN);
         data.remove(TAG_ATTACK_DOWN);
+        releaseSecondTarget(player, thrown);
         return thrown;
     }
 
@@ -166,6 +273,13 @@ public final class WingardiumSpell {
             if (held != null && held.distanceToSqr(player) <= WingardiumRules.HOLD_RANGE * WingardiumRules.HOLD_RANGE
                     && player.hasLineOfSight(held)) {
                 threw = launch(level, player, held, velocity, damage);
+            }
+        }
+        if (data.hasUUID(TAG_TARGET_2)) {
+            Entity second = level.getEntity(data.getUUID(TAG_TARGET_2));
+            if (second != null && second.distanceToSqr(player) <= WingardiumRules.HOLD_RANGE * WingardiumRules.HOLD_RANGE
+                    && player.hasLineOfSight(second)) {
+                threw |= launch(level, player, second, velocity, damage);
             }
         }
         if (!threw) {

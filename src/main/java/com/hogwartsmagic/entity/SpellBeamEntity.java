@@ -863,6 +863,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
                             }
                             if (spell == SpellType.WINGARDIUM_LEVIOSA && getOwner() instanceof ServerPlayer caster) {
                                 com.hogwartsmagic.event.ModEvents.markRecentWingardiumTarget(caster, living);
+                                com.hogwartsmagic.spell.motion.WingardiumSpell.noteLivingHit(caster, living);
                             }
                             if (spell == SpellType.REVELIO) {
                                 com.hogwartsmagic.event.ModEvents.dispelIllusionsAndInvisibility(living);

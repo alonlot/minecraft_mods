@@ -936,5 +936,18 @@
   "spell.hogwartsmagic.apparition.rank.4": "Range 200 blocks, no splinching, and you can jump to known Floo fireplaces.",
   "spell.hogwartsmagic.piertotum_locomotor.rank.2": "Only the rank discount applies: less mana and a faster recharge.",
   "spell.hogwartsmagic.piertotum_locomotor.rank.3": "Only the rank discount applies: less mana and a faster recharge.",
-  "spell.hogwartsmagic.piertotum_locomotor.rank.4": "Only the rank discount applies: less mana and a faster recharge."
+  "spell.hogwartsmagic.piertotum_locomotor.rank.4": "Only the rank discount applies: less mana and a faster recharge.",
+  "spell.hogwartsmagic.colloportus": "Colloportus",
+  "spell.hogwartsmagic.colloportus.desc": "The locking charm. Cast at a door, trapdoor, fence gate or any block of a piston door to seal it against magic: Alohomora is refused there, and one cast at a higher rank (or a Master against a Master seal) only breaks the seal. Hands, keys, buttons and redstone still work, and Revelio shows who sealed it. A seal lasts until it is broken or you lift it by casting Colloportus inside it again. Novice: the seal reaches 1 block around the target and you keep one at a time.",
+  "spell.hogwartsmagic.colloportus.rank.2": "Seals reach 2 blocks and you can keep 2; only an Expert or Master Alohomora breaks them.",
+  "spell.hogwartsmagic.colloportus.rank.3": "Seals reach 3 blocks and you can keep 4; only a Master Alohomora breaks them.",
+  "spell.hogwartsmagic.colloportus.rank.4": "Seals reach 4 blocks and you can keep 8; only a Master Alohomora breaks them.",
+  "message.hogwartsmagic.colloportus.no_lock": "There is no lock here to seal.",
+  "message.hogwartsmagic.colloportus.sealed": "The lock seals shut (%s of %s seals).",
+  "message.hogwartsmagic.colloportus.replaced": "The lock seals shut, and your oldest seal fades (%s of %s seals).",
+  "message.hogwartsmagic.colloportus.refused": "This lock is sealed by Colloportus.",
+  "message.hogwartsmagic.colloportus.broken": "Your Alohomora breaks the Colloportus seal.",
+  "message.hogwartsmagic.colloportus.broken_yours": "%s broke one of your Colloportus seals.",
+  "message.hogwartsmagic.colloportus.revealed": "Sealed by Colloportus: %s, %s.",
+  "message.hogwartsmagic.colloportus.lifted": "You lift your seal."
 }

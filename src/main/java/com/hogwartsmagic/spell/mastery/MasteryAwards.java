@@ -50,7 +50,8 @@ public final class MasteryAwards {
     private static final Set<SpellType> BLOCK_UTILITY = EnumSet.of(
             SpellType.ACCIO, SpellType.ALOHOMORA, SpellType.INCENDIO, SpellType.AQUA_ERUCTO,
             SpellType.MORSMORDRE, SpellType.CAVE_INIMICUM, SpellType.ALATUS, SpellType.REPARO,
-            SpellType.PIERTOTUM_LOCOMOTOR, SpellType.SERPENSORTIA, SpellType.BOMBARDA, SpellType.DIFFINDO);
+            SpellType.PIERTOTUM_LOCOMOTOR, SpellType.SERPENSORTIA, SpellType.BOMBARDA, SpellType.DIFFINDO,
+            SpellType.COLLOPORTUS);
 
     private static final Map<UUID, HitLedger> LEDGERS = new HashMap<>();
 

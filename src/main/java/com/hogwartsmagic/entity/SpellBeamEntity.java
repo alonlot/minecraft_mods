@@ -794,6 +794,15 @@ public class SpellBeamEntity extends ThrowableProjectile {
                         hitSuccessful = com.hogwartsmagic.util.StatueMultiblock.tryRaise(sl, pos,
                                 getOwner() instanceof ServerPlayer caster ? caster : null);
                     }
+                } else if (spell == SpellType.COLLOPORTUS) {
+                    // Seals the lock here against Alohomora; inside the caster's own seal it lifts it instead (no XP).
+                    if (this.level() instanceof ServerLevel sealLevel) {
+                        com.hogwartsmagic.spell.support.seal.ColloportusSpell.Cast cast =
+                                com.hogwartsmagic.spell.support.seal.ColloportusSpell.onBlockHit(
+                                        sealLevel, pos, state, getOwner(), this.reflected);
+                        hitSuccessful = cast != com.hogwartsmagic.spell.support.seal.ColloportusSpell.Cast.NOTHING;
+                        masteryEligible = cast == com.hogwartsmagic.spell.support.seal.ColloportusSpell.Cast.SEALED;
+                    }
                 }
             } else if (result instanceof EntityHitResult entityHit && livingBehind(entityHit.getEntity()) instanceof LivingEntity living) {
                 // A player's ranked Protego first: parry window (dissolve or reflect), or the shield breaks.
@@ -834,7 +843,8 @@ public class SpellBeamEntity extends ThrowableProjectile {
                         // Both of these only ever act on a block. Fizzling rather than falling through
                         // to applyHitEffect keeps a living target from eating a "successful" impact
                         // burst for a spell that did nothing to it.
-                        if (spell == SpellType.MORSMORDRE || spell == SpellType.PIERTOTUM_LOCOMOTOR) {
+                        if (spell == SpellType.MORSMORDRE || spell == SpellType.PIERTOTUM_LOCOMOTOR
+                                || spell == SpellType.COLLOPORTUS) {
                             hitSuccessful = false;
                         } else if (spell == SpellType.AVADA_KEDAVRA && living instanceof VoldemortEntity voldemort && voldemort.tryEvadeAvada(getOwner())) {
                             if (this.level() instanceof ServerLevel sl) {

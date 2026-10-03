@@ -198,7 +198,7 @@ public class ModVillagers {
         } else if (p == BOOKSELLER.get()) {
             List<SpellType> common = List.of(SpellType.LUMOS, SpellType.ALOHOMORA, SpellType.REVELIO);
             List<SpellType> advanced = List.of(SpellType.WINGARDIUM_LEVIOSA, SpellType.PROTEGO,
-                    SpellType.REPARO, SpellType.STUPEFY);
+                    SpellType.REPARO, SpellType.STUPEFY, SpellType.COLLOPORTUS);
             sells(event, 1, 6, 3, one(ExampleMod.HOGWARTS_GUIDE), 8, 2);
             buys(event, 1, Items.PAPER, 24, 1, 16, 2);
             sellsBook(event, 2, common, 12, 5, 12, 5);

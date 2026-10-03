@@ -71,7 +71,10 @@ public enum SpellType {
      *  no entity hit effect. The trail is plain smoke rather than a stone {@code BlockParticleOption}:
      *  these constants are built during this enum's class-init, and nothing in here should depend on the
      *  block registry having been populated first. Real stone comes off the blocks the rite eats. */
-    PIERTOTUM_LOCOMOTOR("piertotum_locomotor", 0x9BA0A4, 0.61f, 0.63f, 0.64f, ParticleTypes.SMOKE, ParticleTypes.CAMPFIRE_COSY_SMOKE, 600, 90, SpellLootRarity.RARE);
+    PIERTOTUM_LOCOMOTOR("piertotum_locomotor", 0x9BA0A4, 0.61f, 0.63f, 0.64f, ParticleTypes.SMOKE, ParticleTypes.CAMPFIRE_COSY_SMOKE, 600, 90, SpellLootRarity.RARE),
+    /** The locking charm: seals a door or a piston door lock against Alohomora (see spell.support.seal.ColloportusSpell).
+     *  Everything happens on a block hit, so it has no entity hit effect; a living target is a miss. */
+    COLLOPORTUS("colloportus", 0x8A6D3B, 0.54f, 0.43f, 0.23f, ParticleTypes.ENCHANT, ParticleTypes.WAX_ON, 60, 15, SpellLootRarity.UNCOMMON);
 
     private final String id;
     private final int color;
@@ -325,6 +328,9 @@ public enum SpellType {
                 // No hit effect: the charm animates masonry, not creatures. A living target is a miss, and
                 // SpellBeamEntity.onHit fizzles the beam for it rather than routing through here.
             }
+            case COLLOPORTUS -> {
+                // No hit effect: the charm seals locks, not creatures (SpellBeamEntity fizzles it on a living target).
+            }
         }
     }
 
@@ -377,6 +383,7 @@ public enum SpellType {
             // The animating charm shares Wingardium's incantation sound; the grinding stone that sells the
             // effect is played by StatueMultiblock at the statue, not at the wand.
             case PIERTOTUM_LOCOMOTOR -> ModSounds.SPELL_WINGARDIUM_LEVIOSA.get();
+            case COLLOPORTUS -> ModSounds.SPELL_ALOHOMORA.get(); // the counter-charm shares the unlocking charm's voice
         };
     }
 

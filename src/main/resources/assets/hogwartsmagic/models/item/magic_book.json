@@ -225,6 +225,12 @@
         "custom_model_data": 38.0
       },
       "model": "hogwartsmagic:item/magic_book_piertotum_locomotor"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 39.0
+      },
+      "model": "hogwartsmagic:item/magic_book_colloportus"
     }
   ]
 }

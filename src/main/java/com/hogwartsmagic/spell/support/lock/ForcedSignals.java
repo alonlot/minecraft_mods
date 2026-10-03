@@ -12,6 +12,7 @@ import net.minecraft.world.level.block.ObserverBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.server.ServerStoppedEvent;
+import net.minecraftforge.event.server.ServerStoppingEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
@@ -28,13 +29,22 @@ public final class ForcedSignals {
     /** The mixin's fast path: nothing is forced anywhere. */
     public static volatile boolean ACTIVE;
 
-    private static final Map<ResourceKey<Level>, Map<BlockPos, Long>> FORCED = new HashMap<>();
+    /** The block that was forced, so a block that replaced it is not read as forced. */
+    private record Entry(Block block, long until) {
+    }
+
+    private static final Map<ResourceKey<Level>, Map<BlockPos, Entry>> FORCED = new HashMap<>();
 
     private ForcedSignals() {
     }
 
     public static void force(ServerLevel level, BlockPos pos, int ticks) {
-        FORCED.computeIfAbsent(level.dimension(), k -> new HashMap<>()).put(pos.immutable(), level.getGameTime() + ticks);
+        if (!level.isLoaded(pos)) {
+            return;
+        }
+        Block block = level.getBlockState(pos).getBlock();
+        FORCED.computeIfAbsent(level.dimension(), k -> new HashMap<>())
+                .put(pos.immutable(), new Entry(block, level.getGameTime() + ticks));
         ACTIVE = true;
         notifyAround(level, pos);
     }
@@ -43,8 +53,12 @@ public final class ForcedSignals {
         if (!level.getServer().isSameThread()) {
             return 0;
         }
-        Map<BlockPos, Long> map = FORCED.get(level.dimension());
-        if (map == null || !map.containsKey(pos)) {
+        Map<BlockPos, Entry> map = FORCED.get(level.dimension());
+        if (map == null) {
+            return 0;
+        }
+        Entry entry = map.get(pos);
+        if (entry == null || !state.is(entry.block())) {
             return 0;
         }
         if (directional(state)) {
@@ -76,15 +90,15 @@ public final class ForcedSignals {
         if (event.phase != TickEvent.Phase.END || !ACTIVE || !(event.level instanceof ServerLevel level)) {
             return;
         }
-        Map<BlockPos, Long> map = FORCED.get(level.dimension());
+        Map<BlockPos, Entry> map = FORCED.get(level.dimension());
         if (map == null || map.isEmpty()) {
             return;
         }
         long now = level.getGameTime();
-        Iterator<Map.Entry<BlockPos, Long>> it = map.entrySet().iterator();
+        Iterator<Map.Entry<BlockPos, Entry>> it = map.entrySet().iterator();
         while (it.hasNext()) {
-            Map.Entry<BlockPos, Long> e = it.next();
-            if (now < e.getValue()) {
+            Map.Entry<BlockPos, Entry> e = it.next();
+            if (now < e.getValue().until()) {
                 continue;
             }
             it.remove();
@@ -93,6 +107,25 @@ public final class ForcedSignals {
             }
         }
         ACTIVE = FORCED.values().stream().anyMatch(m -> !m.isEmpty());
+    }
+
+    /** Before the final save: let go of everything and tell the neighbours, so no forced power is left behind. */
+    @SubscribeEvent
+    public static void onServerStopping(ServerStoppingEvent event) {
+        for (Map.Entry<ResourceKey<Level>, Map<BlockPos, Entry>> e : FORCED.entrySet()) {
+            ServerLevel level = event.getServer().getLevel(e.getKey());
+            Map<BlockPos, Entry> map = e.getValue();
+            Iterator<BlockPos> it = map.keySet().iterator();
+            while (it.hasNext()) {
+                BlockPos pos = it.next();
+                it.remove();
+                if (level != null && level.isLoaded(pos)) {
+                    notifyAround(level, pos);
+                }
+            }
+        }
+        FORCED.clear();
+        ACTIVE = false;
     }
 
     @SubscribeEvent

@@ -8,13 +8,22 @@ import net.minecraft.world.entity.decoration.ItemFrame;
 import net.minecraft.world.level.block.BasePressurePlateBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.BrewingStandBlock;
 import net.minecraft.world.level.block.ButtonBlock;
 import net.minecraft.world.level.block.ChestBlock;
+import net.minecraft.world.level.block.ChiseledBookShelfBlock;
 import net.minecraft.world.level.block.ComparatorBlock;
+import net.minecraft.world.level.block.CrafterBlock;
+import net.minecraft.world.level.block.DetectorRailBlock;
 import net.minecraft.world.level.block.DiodeBlock;
 import net.minecraft.world.level.block.DispenserBlock;
 import net.minecraft.world.level.block.FaceAttachedHorizontalDirectionalBlock;
+import net.minecraft.world.level.block.JukeboxBlock;
+import net.minecraft.world.level.block.LecternBlock;
 import net.minecraft.world.level.block.LeverBlock;
+import net.minecraft.world.level.block.LightningRodBlock;
+import net.minecraft.world.level.block.TrappedChestBlock;
+import net.minecraft.world.level.block.TripWireHookBlock;
 import net.minecraft.world.level.block.ObserverBlock;
 import net.minecraft.world.level.block.RedStoneWireBlock;
 import net.minecraft.world.level.block.RedstoneTorchBlock;
@@ -141,7 +150,25 @@ public final class CircuitTracer {
             return false;
         }
         BlockState s = level.getBlockState(pos);
-        return !isComponent(s) && !isSink(s) && s.isRedstoneConductor(level, pos);
+        // Dispensers and droppers conduct power like any solid block, as well as being sinks.
+        return !isComponent(s) && (!isSink(s) || s.getBlock() instanceof DispenserBlock)
+                && s.isRedstoneConductor(level, pos);
+    }
+
+    /** A non-door piston beside a redstone, slime or honey block or an observer: pistons used as logic. */
+    private boolean movesBlocks(BlockPos pos) {
+        for (Direction d : Direction.values()) {
+            BlockPos n = pos.relative(d);
+            if (!level.isLoaded(n)) {
+                continue;
+            }
+            BlockState ns = level.getBlockState(n);
+            if (ns.is(Blocks.REDSTONE_BLOCK) || ns.is(Blocks.SLIME_BLOCK) || ns.is(Blocks.HONEY_BLOCK)
+                    || ns.getBlock() instanceof ObserverBlock) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // ---- 1. region ----
@@ -201,7 +228,9 @@ public final class CircuitTracer {
         }
         for (Direction d : Direction.values()) {
             BlockPos n = pos.relative(d);
-            if (level.isLoaded(n) && isComponent(level.getBlockState(n))) {
+            if (!level.isLoaded(n)) {
+                b.markTruncated();
+            } else if (isComponent(level.getBlockState(n))) {
                 return true;
             }
         }
@@ -218,8 +247,19 @@ public final class CircuitTracer {
             if (isSink(s)) {
                 int node = b.node(LockCircuit.MAX, 0); // MAX values are rebuilt by the simulator; no neighbour reads
                 put(pos, node, node);
+                if (block instanceof DispenserBlock) {
+                    int st = b.node(LockCircuit.MAX, 0);
+                    int wk = b.node(LockCircuit.MAX, 0);
+                    b.link(st, wk, 0);
+                    b.link(wk, node, 0);
+                    strong.put(pos, st);
+                    weak.put(pos, wk);
+                }
                 if (block instanceof PistonBaseBlock && doorPistons.contains(pos)) {
                     b.goal(node);
+                }
+                if (block instanceof PistonBaseBlock && !doorPistons.contains(pos) && movesBlocks(pos)) {
+                    b.markPistonLogic();
                 }
                 if (block instanceof DispenserBlock || block instanceof TntBlock) {
                     b.danger(node);
@@ -296,6 +336,9 @@ public final class CircuitTracer {
             Block block = s.getBlock();
             if (strong.containsKey(pos)) {
                 wireConductor(pos);
+                if (isSink(s)) {
+                    wireSink(pos, s); // a dispenser or dropper is both a conductor and a sink
+                }
             } else if (block instanceof RedStoneWireBlock) {
                 wireDust(pos);
             } else if (block instanceof RedstoneTorchBlock) {
@@ -305,7 +348,8 @@ public final class CircuitTracer {
                 wireDiode(pos, s);
             } else if (block instanceof ObserverBlock) {
                 BlockPos watchedPos = pos.relative(s.getValue(ObserverBlock.FACING));
-                Integer watched = out.containsKey(watchedPos) ? out.get(watchedPos) : weak.get(watchedPos);
+                // Block-state changes only: a conductor's power change or a forced source does not fire it.
+                Integer watched = core.get(watchedPos);
                 if (watched != null) {
                     link(watched, core.get(pos));
                 }
@@ -354,7 +398,7 @@ public final class CircuitTracer {
         for (Direction d : Direction.Plane.HORIZONTAL) {
             BlockPos n = pos.relative(d);
             dustLink(n, dust);
-            if (!roofed) {
+            if (!roofed && conductorAt(n)) {
                 dustLink(n.above(), dust);
             }
             if (!conductorAt(n)) {
@@ -399,7 +443,8 @@ public final class CircuitTracer {
             } else if (comparator && ns.getBlock() instanceof RedStoneWireBlock) {
                 src = out.get(n);
             } else if (comparator && !strong.containsKey(n)) {
-                src = direct(n, ns, toward);
+                // Vanilla getControlInputSignal: 15 from a redstone block, else the source's strong signal.
+                src = ns.is(Blocks.REDSTONE_BLOCK) && out.containsKey(n) ? out.get(n) : strongInto(n, ns, toward);
             }
             if (src >= 0 && src != node) {
                 b.side(src, node, 0);
@@ -424,18 +469,44 @@ public final class CircuitTracer {
             return -1;
         }
         List<ItemFrame> frames = level.getEntitiesOfClass(ItemFrame.class, new AABB(further), f -> f.getDirection() == in);
-        if (!frames.isEmpty()) {
+        // Vanilla ignores the frames when more than one faces the comparator.
+        int frameNode = -1;
+        if (frames.size() == 1) {
             ItemFrame frame = frames.get(0);
             int now = frame.getAnalogOutput();
             if (!takeItemKey()) {
-                return b.constant(now);
+                frameNode = b.constant(now);
+            } else {
+                frameNode = b.analog(now, FRAME_LEVELS);
+                sites.add(new InputSite(further, Blocks.AIR, now > 0, LockCircuit.ANALOG, now, InputSite.FRAME, 0, frame.getUUID()));
             }
-            int node = b.analog(now, FRAME_LEVELS);
-            sites.add(new InputSite(further, Blocks.AIR, now > 0, LockCircuit.ANALOG, now, InputSite.FRAME, 0, frame.getUUID()));
-            return node;
         }
         BlockState fs = level.getBlockState(further);
-        return fs.hasAnalogOutputSignal() ? analogBlock(further, fs) : -1;
+        int blockNode = fs.hasAnalogOutputSignal() ? analogBlock(further, fs) : -1;
+        int reading;
+        if (frameNode >= 0 && blockNode >= 0) {
+            reading = b.node(LockCircuit.MAX, 0);
+            b.link(frameNode, reading, 0);
+            b.link(blockNode, reading, 0);
+        } else {
+            reading = frameNode >= 0 ? frameNode : blockNode;
+        }
+        Integer conductor = weak.get(back);
+        if (reading < 0 || conductor == null) {
+            return reading;
+        }
+        // Vanilla reads past the conductor only while the conductor's own signal is below 15:
+        // out = (conductor >= 15) ? conductor : reading.
+        int full = b.node(LockCircuit.COMPARE, 0);
+        b.link(conductor, full, 0);
+        b.side(b.constant(15), full, 0);
+        int gated = b.node(LockCircuit.SUBTRACT, 0);
+        b.link(reading, gated, 0);
+        b.side(full, gated, 0);
+        int result = b.node(LockCircuit.MAX, 0);
+        b.link(full, result, 0);
+        b.link(gated, result, 0);
+        return result;
     }
 
     private int analogBlock(BlockPos pos, BlockState state) {
@@ -466,6 +537,11 @@ public final class CircuitTracer {
     }
 
     private int containerSize(BlockPos pos, BlockState state) {
+        Block block = state.getBlock();
+        if (block instanceof ChiseledBookShelfBlock || block instanceof JukeboxBlock || block instanceof CrafterBlock
+                || block instanceof BrewingStandBlock) {
+            return 0; // their signal is not a fullness a player can set by filling slots: OTHER
+        }
         if (state.getBlock() instanceof ChestBlock chest) {
             Container c = ChestBlock.getContainer(chest, state, level, pos, true);
             return c == null ? 0 : c.getContainerSize();
@@ -557,6 +633,23 @@ public final class CircuitTracer {
         }
         if (block instanceof ObserverBlock) {
             return toward == s.getValue(ObserverBlock.FACING).getOpposite() ? node : -1;
+        }
+        // Other sources: forcing gives them no strong output, so read the unforced core node.
+        Integer unforced = core.get(n);
+        if (unforced == null) {
+            return -1;
+        }
+        if (block instanceof SculkSensorBlock) {
+            return unforced; // strong in every direction
+        }
+        if (block instanceof TrappedChestBlock || block instanceof LecternBlock || block instanceof DetectorRailBlock) {
+            return toward == Direction.DOWN ? unforced : -1;
+        }
+        if (block instanceof TripWireHookBlock) {
+            return toward == s.getValue(TripWireHookBlock.FACING).getOpposite() ? unforced : -1;
+        }
+        if (block instanceof LightningRodBlock) {
+            return toward == s.getValue(LightningRodBlock.FACING).getOpposite() ? unforced : -1;
         }
         return -1;
     }

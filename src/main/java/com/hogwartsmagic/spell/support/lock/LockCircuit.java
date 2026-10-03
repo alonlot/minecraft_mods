@@ -34,6 +34,7 @@ public final class LockCircuit {
     private final int[] dangers;
     private final boolean keyed;
     private final boolean truncated;
+    private final boolean pistonLogic;
 
     private LockCircuit(Builder b) {
         int n = b.kinds.size();
@@ -56,6 +57,7 @@ public final class LockCircuit {
         dangers = b.dangers.stream().distinct().mapToInt(Integer::intValue).toArray();
         keyed = b.keyed;
         truncated = b.truncated;
+        pistonLogic = b.pistonLogic;
     }
 
     private static int[] toArray(List<Integer> list) {
@@ -114,6 +116,11 @@ public final class LockCircuit {
     /** The trace stopped at its block cap or an unloaded chunk: some wiring is missing. */
     public boolean truncated() {
         return truncated;
+    }
+
+    /** The lock moves blocks with pistons (a piston beside a redstone, slime or honey block or an observer). */
+    public boolean pistonLogic() {
+        return pistonLogic;
     }
 
     /** Door pistons any input reaches at all: the most a solution can move. */
@@ -200,6 +207,7 @@ public final class LockCircuit {
         private final List<Integer> dangers = new ArrayList<>();
         private boolean keyed;
         private boolean truncated;
+        private boolean pistonLogic;
 
         /** A LEVER, PULSE or FORCE input; each is off (0) or on (15). */
         public int input(int kind, boolean on) {
@@ -290,6 +298,10 @@ public final class LockCircuit {
 
         public void markTruncated() {
             truncated = true;
+        }
+
+        public void markPistonLogic() {
+            pistonLogic = true;
         }
 
         private void checkNode(int node) {

@@ -685,9 +685,16 @@ public class SpellBeamEntity extends ThrowableProjectile {
                         hitSuccessful = true;
                     }
                     if (this.level() instanceof ServerLevel sl) {
-                        revealNearbySecrets(sl, pos,
-                                com.hogwartsmagic.spell.disable.DisableSupport.casterRank(getOwner(), SpellType.REVELIO));
+                        int revelioRank = com.hogwartsmagic.spell.disable.DisableSupport.casterRank(getOwner(), SpellType.REVELIO);
+                        revealNearbySecrets(sl, pos, revelioRank);
                         com.hogwartsmagic.spell.support.RevelioSpell.revealHidden(sl, this.position(), getOwner());
+                        if (getOwner() instanceof ServerPlayer revealer
+                                && com.hogwartsmagic.spell.support.lock.LockRules.readsLocks(revelioRank)
+                                && com.hogwartsmagic.spell.mind.MindControl.hitPuppeteer() == null) {
+                            // From Expert: show how the piston door here opens (see LockHints).
+                            com.hogwartsmagic.spell.support.lock.PistonLockSpell.begin(sl, pos, revealer, revelioRank,
+                                    com.hogwartsmagic.spell.support.lock.PistonLockSpell.Use.REVEAL);
+                        }
                     }
                     hitSuccessful = true;
                 } else if (spell == SpellType.AQUA_ERUCTO) {

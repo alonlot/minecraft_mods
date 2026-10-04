@@ -222,6 +222,12 @@
     },
     {
       "predicate": {
+        "custom_model_data": 37.0
+      },
+      "model": "hogwartsmagic:item/magic_book_apparition"
+    },
+    {
+      "predicate": {
         "custom_model_data": 38.0
       },
       "model": "hogwartsmagic:item/magic_book_piertotum_locomotor"

@@ -217,3 +217,7 @@ Ruling: planner decisions accepted except 8 (a Master Alohomora also breaks a Ma
 Colloportus reviews: Tasks 1-3 Ready. Ruling: a seal made at a piston door also anchors on that door's pistons, so sealing at the button protects the whole door (found by the Task 2 review); a half-covered door counts as sealed; /colloportus clear works from console and command blocks - fix wave.
 Colloportus final review: Ready with the queued fixes. Ruling: the fix wave also skips the piston scan when no seal is near, caps Revelio outlines to the shown lines, refuses only real locks (a plain wall inside a seal acts as normal) and breaks eviction ties by age order.
 Colloportus fix wave: re-review Ready; accepted limits - a seal anchors at most 16 pistons of a door (doors use up to 32), and an area Alohomora at a plain wall skips sealed doors rather than breaking them. Run complete.
+
+## Book icons (2026-10-04)
+- Colloportus moves to the shared base book (the tilted leather book with metal clasps that 24 spells use). The bare base is the 20th-percentile brightness across those books; the cover colour comes from Stupefy (red, silver clasps). Generator: `tools/gen_shared_base_books.py`; the old Revelio-grid script is removed.
+- Apparition uses the user's supplied art. It came as a JPG with a baked checkerboard, so the background was flood-filled out from the edges (it stops at the black outline) and saved as a 1024 RGBA PNG. Custom model data 37 now has its override, so it no longer falls through to Reparo's icon.

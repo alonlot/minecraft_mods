@@ -2868,18 +2868,23 @@ def cave_headland_height(x, z):
         return None
     h += (vnoise(x, z, 3, 7) - 0.5) * 3
 
-    # structural needs: roof over the cavern and ledge, over the antechamber and the tunnel
+    # structural floors, taken before the final noise: the roof keeps 3 blocks over the cavern and
+    # ledge (the ledge has 2 blocks of headroom), the walls beside them stay thick, and the
+    # antechamber and tunnel keep 2 blocks of rock above them. Beyond the core each ramps down with
+    # a width that wanders with z, so the outline is not a straight wedge.
     d2 = ((x - cx) / 24.0) ** 2 + ((z - cz) / 20.0) ** 2
     if d2 <= 1.0:
-        ct = 22 + 14 * math.sqrt(1.0 - d2)
-        h = max(h, ct + 2.5, 27)
-    elif d2 <= 1.96:
+        h = max(h, 22 + 14 * math.sqrt(1.0 - d2) + 3.0, 25.5)
+    elif d2 <= 1.9:
         d = math.sqrt(d2)
-        h = max(h, 27 - 19 * (d - 1.05) / 0.35 if d > 1.05 else 27)
-    for x0, x1, z0, z1, need in ((26, 38, 7, 21, 30), (29, 35, 1, 8, 27)):
+        floor = 25.5 if d <= 1.08 else 25.5 - 20 * (d - 1.08) / 0.3
+        h = max(h, floor)
+    for x0, x1, z0, z1, need in ((26, 38, 7, 21, 29), (29, 35, 1, 8, 25)):
+        fall = 3.0 + 4.0 * vnoise(x, z, 5, 9)
         d = math.hypot(max(x0 - x, 0, x - x1), max(z0 - z, 0, z - z1))
-        if d < 6:
-            h = max(h, need - (need - 18) * d / 6.0)
+        if d < fall:
+            h = max(h, need - (need - 14) * d / fall)
+    h += vnoise(x, z, 2.5, 11) * 2.5          # rough, never lowering a structural floor
     if z < zc:
         return None
     return int(round(h)) if h >= 12 else None
@@ -2947,7 +2952,7 @@ def locket_cave():
                 put(b, (x, y, z), 'minecraft:air')
     # open water at the shore so the boat runs landing -> island with nothing above Y=21
     for x in range(31, 34):
-        for z in range(22, 36):
+        for z in range(22, 34):
             put(b, (x, 22, z), 'minecraft:air')
 
     # --- antechamber (floor Y=22, walk 23), vestibule/landing (same floor), pool, tunnel ------

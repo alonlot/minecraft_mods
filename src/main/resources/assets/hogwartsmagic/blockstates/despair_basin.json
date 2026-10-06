@@ -1,0 +1,22 @@
+{
+  "variants": {
+    "locket=false,stage=full": {
+      "model": "hogwartsmagic:block/despair_basin_full"
+    },
+    "locket=true,stage=full": {
+      "model": "hogwartsmagic:block/despair_basin_full"
+    },
+    "locket=false,stage=drinking": {
+      "model": "hogwartsmagic:block/despair_basin_full"
+    },
+    "locket=true,stage=drinking": {
+      "model": "hogwartsmagic:block/despair_basin_locket"
+    },
+    "locket=false,stage=looted": {
+      "model": "hogwartsmagic:block/despair_basin_looted"
+    },
+    "locket=true,stage=looted": {
+      "model": "hogwartsmagic:block/despair_basin_locket"
+    }
+  }
+}

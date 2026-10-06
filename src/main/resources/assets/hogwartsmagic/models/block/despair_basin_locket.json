@@ -1,0 +1,236 @@
+{
+  "textures": {
+    "stone": "hogwartsmagic:block/despair_basin_stone",
+    "rim": "hogwartsmagic:block/despair_basin_rim",
+    "floor": "hogwartsmagic:block/despair_basin_floor",
+    "liquid": "hogwartsmagic:block/despair_basin_liquid",
+    "locket": "hogwartsmagic:block/despair_basin_locket",
+    "particle": "hogwartsmagic:block/despair_basin_stone"
+  },
+  "elements": [
+    {
+      "from": [
+        0,
+        0,
+        0
+      ],
+      "to": [
+        16,
+        2,
+        16
+      ],
+      "faces": {
+        "north": {
+          "texture": "#stone"
+        },
+        "south": {
+          "texture": "#stone"
+        },
+        "east": {
+          "texture": "#stone"
+        },
+        "west": {
+          "texture": "#stone"
+        },
+        "up": {
+          "texture": "#floor"
+        },
+        "down": {
+          "texture": "#stone"
+        }
+      }
+    },
+    {
+      "from": [
+        0,
+        2,
+        0
+      ],
+      "to": [
+        16,
+        8,
+        2
+      ],
+      "faces": {
+        "north": {
+          "texture": "#stone"
+        },
+        "south": {
+          "texture": "#stone"
+        },
+        "east": {
+          "texture": "#stone"
+        },
+        "west": {
+          "texture": "#stone"
+        },
+        "up": {
+          "texture": "#rim"
+        },
+        "down": {
+          "texture": "#stone"
+        }
+      }
+    },
+    {
+      "from": [
+        0,
+        2,
+        14
+      ],
+      "to": [
+        16,
+        8,
+        16
+      ],
+      "faces": {
+        "north": {
+          "texture": "#stone"
+        },
+        "south": {
+          "texture": "#stone"
+        },
+        "east": {
+          "texture": "#stone"
+        },
+        "west": {
+          "texture": "#stone"
+        },
+        "up": {
+          "texture": "#rim"
+        },
+        "down": {
+          "texture": "#stone"
+        }
+      }
+    },
+    {
+      "from": [
+        0,
+        2,
+        2
+      ],
+      "to": [
+        2,
+        8,
+        14
+      ],
+      "faces": {
+        "north": {
+          "texture": "#stone"
+        },
+        "south": {
+          "texture": "#stone"
+        },
+        "east": {
+          "texture": "#stone"
+        },
+        "west": {
+          "texture": "#stone"
+        },
+        "up": {
+          "texture": "#rim"
+        },
+        "down": {
+          "texture": "#stone"
+        }
+      }
+    },
+    {
+      "from": [
+        14,
+        2,
+        2
+      ],
+      "to": [
+        16,
+        8,
+        14
+      ],
+      "faces": {
+        "north": {
+          "texture": "#stone"
+        },
+        "south": {
+          "texture": "#stone"
+        },
+        "east": {
+          "texture": "#stone"
+        },
+        "west": {
+          "texture": "#stone"
+        },
+        "up": {
+          "texture": "#rim"
+        },
+        "down": {
+          "texture": "#stone"
+        }
+      }
+    },
+    {
+      "from": [
+        6,
+        2,
+        6
+      ],
+      "to": [
+        10,
+        3,
+        10
+      ],
+      "faces": {
+        "north": {
+          "texture": "#locket"
+        },
+        "south": {
+          "texture": "#locket"
+        },
+        "east": {
+          "texture": "#locket"
+        },
+        "west": {
+          "texture": "#locket"
+        },
+        "up": {
+          "texture": "#locket"
+        },
+        "down": {
+          "texture": "#locket"
+        }
+      }
+    },
+    {
+      "from": [
+        7,
+        3,
+        7
+      ],
+      "to": [
+        9,
+        4,
+        9
+      ],
+      "faces": {
+        "north": {
+          "texture": "#locket"
+        },
+        "south": {
+          "texture": "#locket"
+        },
+        "east": {
+          "texture": "#locket"
+        },
+        "west": {
+          "texture": "#locket"
+        },
+        "up": {
+          "texture": "#locket"
+        },
+        "down": {
+          "texture": "#locket"
+        }
+      }
+    }
+  ]
+}

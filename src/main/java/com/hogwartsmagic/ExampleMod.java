@@ -460,6 +460,24 @@ public class ExampleMod
                     CONCEALED_ROCK.get(), HIDDEN_CHAIN.get()
             ).build(null));
 
+    public static final RegistryObject<Block> DESPAIR_BASIN = BLOCKS.register("despair_basin",
+            () -> new com.hogwartsmagic.block.DespairBasinBlock(BlockBehaviour.Properties.of()
+                    .mapColor(net.minecraft.world.level.material.MapColor.COLOR_BLACK)
+                    .sound(net.minecraft.world.level.block.SoundType.DEEPSLATE)
+                    .strength(-1.0f, 3600000.0f).noLootTable().noOcclusion()
+                    .lightLevel(state -> state.getValue(com.hogwartsmagic.block.DespairBasinBlock.STAGE)
+                            != com.hogwartsmagic.locket.BasinStage.LOOTED ? 9 : 0)));
+    public static final RegistryObject<Block> CRYSTAL_GOBLET = BLOCKS.register("crystal_goblet",
+            () -> new com.hogwartsmagic.block.CrystalGobletBlock(BlockBehaviour.Properties.of()
+                    .mapColor(net.minecraft.world.level.material.MapColor.ICE)
+                    .sound(net.minecraft.world.level.block.SoundType.GLASS)
+                    .strength(0.3f).noOcclusion().pushReaction(net.minecraft.world.level.material.PushReaction.DESTROY)));
+    public static final RegistryObject<BlockEntityType<com.hogwartsmagic.block.entity.DespairBasinBlockEntity>> DESPAIR_BASIN_BLOCK_ENTITY =
+            BLOCK_ENTITY_TYPES.register("despair_basin", () -> BlockEntityType.Builder.of(
+                    com.hogwartsmagic.block.entity.DespairBasinBlockEntity::new,
+                    DESPAIR_BASIN.get()
+            ).build(null));
+
     public static final ResourceKey<ConfiguredFeature<?, ?>> FINE_WOOD_TREE_CONFIGURED =
             ResourceKey.create(Registries.CONFIGURED_FEATURE, ResourceLocation.fromNamespaceAndPath(MODID, "fine_wood"));
 
@@ -541,6 +559,8 @@ public class ExampleMod
     public static final RegistryObject<Item> CONCEALED_ROCK_ITEM = ITEMS.register("concealed_rock", () -> new BlockItem(CONCEALED_ROCK.get(), new Item.Properties()));
     public static final RegistryObject<Item> HIDDEN_CHAIN_ITEM = ITEMS.register("hidden_chain", () -> new BlockItem(HIDDEN_CHAIN.get(), new Item.Properties()));
     public static final RegistryObject<Item> BLOOD_SEAL_ITEM = ITEMS.register("blood_seal", () -> new BlockItem(BLOOD_SEAL.get(), new Item.Properties()));
+    public static final RegistryObject<Item> DESPAIR_BASIN_ITEM = ITEMS.register("despair_basin", () -> new BlockItem(DESPAIR_BASIN.get(), new Item.Properties()));
+    public static final RegistryObject<Item> CRYSTAL_GOBLET_ITEM = ITEMS.register("crystal_goblet", () -> new BlockItem(CRYSTAL_GOBLET.get(), new Item.Properties()));
     public static final RegistryObject<Item> STATUE_HEART_ITEM = ITEMS.register("statue_heart", () -> new BlockItem(STATUE_HEART.get(), new Item.Properties()));
     public static final RegistryObject<Item> GRYFFINDOR_BANNER_BLOCK_ITEM = ITEMS.register("gryffindor_banner_block", () -> new BlockItem(GRYFFINDOR_BANNER_BLOCK.get(), new Item.Properties()));
     public static final RegistryObject<Item> RAVENCLAW_BANNER_BLOCK_ITEM = ITEMS.register("ravenclaw_banner_block", () -> new BlockItem(RAVENCLAW_BANNER_BLOCK.get(), new Item.Properties()));
@@ -849,6 +869,8 @@ public class ExampleMod
                 output.accept(CONCEALED_ROCK_ITEM.get());
                 output.accept(HIDDEN_CHAIN_ITEM.get());
                 output.accept(BLOOD_SEAL_ITEM.get());
+                output.accept(DESPAIR_BASIN_ITEM.get());
+                output.accept(CRYSTAL_GOBLET_ITEM.get());
                 output.accept(STATUE_HEART_ITEM.get());
                 output.accept(GRYFFINDOR_BANNER_BLOCK_ITEM.get());
                 output.accept(RAVENCLAW_BANNER_BLOCK_ITEM.get());

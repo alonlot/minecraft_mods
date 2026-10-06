@@ -1,0 +1,105 @@
+{
+  "render_type": "minecraft:cutout",
+  "textures": {
+    "goblet": "hogwartsmagic:block/crystal_goblet",
+    "particle": "hogwartsmagic:block/crystal_goblet"
+  },
+  "elements": [
+    {
+      "from": [
+        5,
+        0,
+        5
+      ],
+      "to": [
+        11,
+        1,
+        11
+      ],
+      "faces": {
+        "north": {
+          "texture": "#goblet"
+        },
+        "south": {
+          "texture": "#goblet"
+        },
+        "east": {
+          "texture": "#goblet"
+        },
+        "west": {
+          "texture": "#goblet"
+        },
+        "up": {
+          "texture": "#goblet"
+        },
+        "down": {
+          "texture": "#goblet"
+        }
+      }
+    },
+    {
+      "from": [
+        7.5,
+        1,
+        7.5
+      ],
+      "to": [
+        8.5,
+        5,
+        8.5
+      ],
+      "faces": {
+        "north": {
+          "texture": "#goblet"
+        },
+        "south": {
+          "texture": "#goblet"
+        },
+        "east": {
+          "texture": "#goblet"
+        },
+        "west": {
+          "texture": "#goblet"
+        },
+        "up": {
+          "texture": "#goblet"
+        },
+        "down": {
+          "texture": "#goblet"
+        }
+      }
+    },
+    {
+      "from": [
+        5,
+        5,
+        5
+      ],
+      "to": [
+        11,
+        10,
+        11
+      ],
+      "faces": {
+        "north": {
+          "texture": "#goblet"
+        },
+        "south": {
+          "texture": "#goblet"
+        },
+        "east": {
+          "texture": "#goblet"
+        },
+        "west": {
+          "texture": "#goblet"
+        },
+        "up": {
+          "texture": "#goblet"
+        },
+        "down": {
+          "texture": "#goblet"
+        }
+      }
+    }
+  ]
+}

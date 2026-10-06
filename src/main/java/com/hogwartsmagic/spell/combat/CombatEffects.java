@@ -57,6 +57,8 @@ public final class CombatEffects {
 
     /** Set only inside {@link #cureCursedWound}, the one removal path the milk guard lets through. */
     private static boolean cursedWoundCureInProgress;
+    /** Set only inside {@link #cureUnquenchableThirst}, so a submerged player holding a shield or bow still gets cured. */
+    private static boolean thirstCureInProgress;
 
     private CombatEffects() {
     }
@@ -214,6 +216,20 @@ public final class CombatEffects {
         }
     }
 
+    /** The only way to lift Unquenchable Thirst (Locket cave lake water). Returns whether it was actually removed. */
+    public static boolean cureUnquenchableThirst(LivingEntity target) {
+        Holder<MobEffect> holder = ExampleMod.UNQUENCHABLE_THIRST.getHolder().orElse(null);
+        if (holder == null || target.level().isClientSide()) {
+            return false;
+        }
+        thirstCureInProgress = true;
+        try {
+            return target.removeEffect(holder);
+        } finally {
+            thirstCureInProgress = false;
+        }
+    }
+
     private static boolean add(LivingEntity target, RegistryObject<MobEffect> effect, int ticks, int amplifier,
                                @Nullable Entity source) {
         if (target.level().isClientSide() || ticks <= 0) {
@@ -281,7 +297,7 @@ public final class CombatEffects {
     public static void onEffectRemove(MobEffectEvent.Remove event) {
         boolean cursedWound = !cursedWoundCureInProgress && event.getEffect() == ExampleMod.CURSED_WOUND.get();
         // Unquenchable Thirst is only lifted through LocketCaves.cureThirst, never by milk or another drink.
-        boolean thirst = event.getEffect() == ExampleMod.UNQUENCHABLE_THIRST.get();
+        boolean thirst = !thirstCureInProgress && event.getEffect() == ExampleMod.UNQUENCHABLE_THIRST.get();
         if (!cursedWound && !thirst) {
             return;
         }

@@ -955,5 +955,6 @@
   "item.hogwartsmagic.slytherins_locket": "Slytherin's Locket",
   "item.hogwartsmagic.slytherins_locket.lore": "Something inside it is still alive.",
   "entity.hogwartsmagic.cave_boat": "Cave Boat",
-  "message.hogwartsmagic.boat_one_rider": "The boat will carry only one"
+  "message.hogwartsmagic.boat_one_rider": "The boat will carry only one",
+  "message.hogwartsmagic.chain_slack": "The chain goes slack. Nothing answers it."
 }

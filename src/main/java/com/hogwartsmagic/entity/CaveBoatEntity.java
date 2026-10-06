@@ -19,7 +19,9 @@ import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.vehicle.DismountHelper;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -39,7 +41,7 @@ public class CaveBoatEntity extends Entity {
     private static final double SPEED = 0.12D;
     private static final double ARRIVE_DIST = 0.3D;
     private static final int EMPTY_LIFETIME = 2400;
-    private static final double FLOAT_OFFSET = 0.1D;
+    private static final double FLOAT_OFFSET = 0.5D;
     private static final int DOCK_B_SEARCH_STEPS = 20;
 
     @Nullable
@@ -65,17 +67,20 @@ public class CaveBoatEntity extends Entity {
         BlockPos dockA = findSurfaceWater(level, chainPos, 5);
         if (dockA == null) {
             LOGGER.debug("Cave boat: no water surface within 5 blocks of chain {}", chainPos);
+            chainSlack(level, chainPos);
             return;
         }
         Optional<DespairBasinBlockEntity> basin = LocketCaves.findBasinFor(level, chainPos);
         if (basin.isEmpty()) {
             LOGGER.debug("Cave boat: no basin found for chain {}", chainPos);
+            chainSlack(level, chainPos);
             return;
         }
         BlockPos dockB = findIslandDock(level, basin.get().getBlockPos(), dockA);
         if (dockB == null) {
             LOGGER.debug("Cave boat: no island dock found from basin {} toward {}",
                     basin.get().getBlockPos(), dockA);
+            chainSlack(level, chainPos);
             return;
         }
 
@@ -90,6 +95,14 @@ public class CaveBoatEntity extends Entity {
                 30, 0.6D, 0.2D, 0.6D, 0.1D);
         level.playSound(null, boat.blockPosition(), SoundEvents.CHAIN_BREAK, SoundSource.NEUTRAL, 1.0F, 0.8F);
         level.playSound(null, boat.blockPosition(), SoundEvents.BOAT_PADDLE_WATER, SoundSource.NEUTRAL, 1.0F, 1.0F);
+    }
+
+    private static void chainSlack(ServerLevel level, BlockPos chainPos) {
+        Player nearest = level.getNearestPlayer(chainPos.getX() + 0.5D, chainPos.getY() + 0.5D,
+                chainPos.getZ() + 0.5D, 6.0D, false);
+        if (nearest != null) {
+            nearest.displayClientMessage(Component.translatable("message.hogwartsmagic.chain_slack"), true);
+        }
     }
 
     @Nullable
@@ -146,6 +159,9 @@ public class CaveBoatEntity extends Entity {
         if (this.level().isClientSide) {
             return InteractionResult.SUCCESS;
         }
+        if (player.getVehicle() == this) {
+            return InteractionResult.PASS;
+        }
         if (!this.getPassengers().isEmpty()) {
             player.displayClientMessage(Component.translatable("message.hogwartsmagic.boat_one_rider"), true);
             return InteractionResult.FAIL;
@@ -177,6 +193,31 @@ public class CaveBoatEntity extends Entity {
     }
 
     @Override
+    public Vec3 getDismountLocationForPassenger(LivingEntity passenger) {
+        BlockPos origin = this.blockPosition();
+        Vec3 best = null;
+        double bestDist = Double.MAX_VALUE;
+        for (BlockPos p : BlockPos.betweenClosed(origin.offset(-3, -2, -3), origin.offset(3, 2, 3))) {
+            if (!this.level().getFluidState(p).isEmpty()
+                    || !this.level().getFluidState(p.below()).isEmpty()
+                    || !this.level().getFluidState(p.above()).isEmpty()) {
+                continue;
+            }
+            Vec3 spot = DismountHelper.findSafeDismountLocation(passenger.getType(), this.level(), p, false);
+            if (spot == null) {
+                continue;
+            }
+            double d = spot.distanceToSqr(this.position());
+            if (d < bestDist && DismountHelper.canDismountTo(this.level(), passenger,
+                    passenger.getLocalBoundsForPose(passenger.getPose()).move(spot))) {
+                bestDist = d;
+                best = spot;
+            }
+        }
+        return best != null ? best : super.getDismountLocationForPassenger(passenger);
+    }
+
+    @Override
     public boolean hurt(DamageSource source, float amount) {
         return false;
     }
@@ -201,6 +242,9 @@ public class CaveBoatEntity extends Entity {
         }
         if (this.getPassengers().isEmpty()) {
             this.setDeltaMovement(Vec3.ZERO);
+            if (this.dockedAtIsland()) {
+                return;
+            }
             if (++this.emptyTicks >= EMPTY_LIFETIME) {
                 server.sendParticles(ParticleTypes.BUBBLE, this.getX(), this.getY() + 0.4D, this.getZ(),
                         25, 0.5D, 0.2D, 0.5D, 0.05D);
@@ -231,6 +275,11 @@ public class CaveBoatEntity extends Entity {
         this.setPos(this.getX() + sx, y, this.getZ() + sz);
     }
 
+    /** Parked at the island dock: the rider needs it to get home, so it never sinks there. */
+    private boolean dockedAtIsland() {
+        return this.target == null && this.dockB != null && distSqrXZ(this.position(), this.dockB) <= 0.25D;
+    }
+
     // ---- data -----------------------------------------------------------------------------------
 
     @Override
@@ -242,10 +291,12 @@ public class CaveBoatEntity extends Entity {
         this.dockA = tag.contains("DockA") ? BlockPos.of(tag.getLong("DockA")) : null;
         this.dockB = tag.contains("DockB") ? BlockPos.of(tag.getLong("DockB")) : null;
         this.target = tag.contains("Target") ? BlockPos.of(tag.getLong("Target")) : null;
+        this.emptyTicks = tag.getInt("EmptyTicks");
     }
 
     @Override
     protected void addAdditionalSaveData(CompoundTag tag) {
+        tag.putInt("EmptyTicks", this.emptyTicks);
         if (this.dockA != null) {
             tag.putLong("DockA", this.dockA.asLong());
         }

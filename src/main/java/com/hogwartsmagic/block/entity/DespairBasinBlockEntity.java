@@ -166,7 +166,7 @@ public class DespairBasinBlockEntity extends BlockEntity {
                 if (LocketCaves.cureThirst(p) && !ambushActive) {
                     startAmbush(p);
                 }
-            } else if (p.isInWater() && !ambushActive && now - lastWarning > AmbushSchedule.WARNING_COOLDOWN) {
+            } else if (p.isInWater() && !(p.getVehicle() instanceof com.hogwartsmagic.entity.CaveBoatEntity) && !ambushActive && now - lastWarning > AmbushSchedule.WARNING_COOLDOWN) {
                 int count = AmbushSchedule.WARNING_MIN
                         + level.random.nextInt(AmbushSchedule.WARNING_MAX - AmbushSchedule.WARNING_MIN + 1);
                 for (int i = 0; i < count; i++) {

@@ -208,14 +208,15 @@ public final class LocketCaves {
         int regionX = Math.floorDiv(here.x, spacing);
         int regionZ = Math.floorDiv(here.z, spacing);
         List<long[]> candidates = new ArrayList<>();
-        for (int rx = -2; rx <= 2; rx++) {
-            for (int rz = -2; rz <= 2; rz++) {
+        for (int rx = -3; rx <= 3; rx++) {
+            for (int rz = -3; rz <= 3; rz++) {
                 ChunkPos c = spread.getPotentialStructureChunk(seed, (regionX + rx) * spacing, (regionZ + rz) * spacing);
                 candidates.add(new long[]{c.x, c.z});
             }
         }
         Set<Long> looted = new HashSet<>(LootedCaveTracker.get(level.getServer().overworld()).looted());
-        for (int tries = 0; tries < 6; tries++) {
+        // At most 49 candidates, nearest first; each biome-rejected one is skipped, so no fixed try cap.
+        while (true) {
             Optional<long[]> best = CaveSearch.nearestUnlooted(here.x, here.z, candidates, looted);
             if (best.isEmpty()) {
                 return Optional.empty();
@@ -224,10 +225,10 @@ public final class LocketCaves {
             ChunkPos cp = new ChunkPos((int) b[0], (int) b[1]);
             StructureCheckResult r = level.structureManager().checkStructurePresence(cp, cave, spread, false);
             if (r != StructureCheckResult.START_NOT_PRESENT) {
+                // The X marks the cave area (start chunk centre), not the exact entrance.
                 return Optional.of(cp.getMiddleBlockPosition(62));
             }
             looted.add(CaveSearch.key(b[0], b[1])); // not a real cave (biome rejected): skip it
         }
-        return Optional.empty();
     }
 }

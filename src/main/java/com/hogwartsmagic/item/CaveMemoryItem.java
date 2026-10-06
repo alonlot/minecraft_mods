@@ -68,7 +68,9 @@ public class CaveMemoryItem extends Item {
         MapItem.renderBiomePreviewMap(server, map);
         MapItemSavedData.addTargetDecoration(map, pos, "+", MapDecorationTypes.RED_X);
         map.set(DataComponents.CUSTOM_NAME, Component.translatable("item.hogwartsmagic.cave_map"));
-        stack.shrink(1);
+        if (!player.hasInfiniteMaterials()) {
+            stack.shrink(1);
+        }
         if (!player.getInventory().add(map)) {
             player.drop(map, false);
         }

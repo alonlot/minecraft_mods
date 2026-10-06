@@ -2,6 +2,7 @@ package com.hogwartsmagic.spell.support;
 
 import com.hogwartsmagic.event.ModEvents;
 import com.hogwartsmagic.item.InvisibilityCloakItem;
+import com.hogwartsmagic.locket.LocketCaves;
 import com.hogwartsmagic.network.SpellPackets;
 import com.hogwartsmagic.polyjuice.PolyjuiceData;
 import com.hogwartsmagic.spell.SpellType;
@@ -34,6 +35,7 @@ public final class RevelioSpell {
     }
 
     public static int revealHidden(ServerLevel level, Vec3 center, @Nullable Entity caster) {
+        LocketCaves.reveal(level, center, LocketCaves.REVEAL_RADIUS);
         int rank = DisableSupport.casterRank(caster, SpellType.REVELIO);
         if (!RevelioRules.revealsDisguises(rank)) {
             return 0;

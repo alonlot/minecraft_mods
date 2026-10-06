@@ -439,6 +439,27 @@ public class ExampleMod
                     HORCRUX.get()
             ).build(null));
 
+    // Locket cave dressing (hidden until Revelio, plus the blood-sealed entrance).
+    public static final RegistryObject<Block> CONCEALED_ROCK = BLOCKS.register("concealed_rock",
+            () -> new com.hogwartsmagic.block.ConcealedRockBlock(BlockBehaviour.Properties.of()
+                    .mapColor(net.minecraft.world.level.material.MapColor.DEEPSLATE)
+                    .sound(net.minecraft.world.level.block.SoundType.DEEPSLATE_TILES)
+                    .strength(3.0f, 6.0f).requiresCorrectToolForDrops()));
+    public static final RegistryObject<Block> HIDDEN_CHAIN = BLOCKS.register("hidden_chain",
+            () -> new com.hogwartsmagic.block.HiddenChainBlock(BlockBehaviour.Properties.of()
+                    .sound(net.minecraft.world.level.block.SoundType.CHAIN)
+                    .strength(-1.0f, 3600000.0f).noLootTable().noOcclusion()));
+    public static final RegistryObject<Block> BLOOD_SEAL = BLOCKS.register("blood_seal",
+            () -> new com.hogwartsmagic.block.BloodSealBlock(BlockBehaviour.Properties.of()
+                    .mapColor(net.minecraft.world.level.material.MapColor.COLOR_BLACK)
+                    .sound(net.minecraft.world.level.block.SoundType.DEEPSLATE)
+                    .strength(-1.0f, 3600000.0f).noLootTable()));
+    public static final RegistryObject<BlockEntityType<com.hogwartsmagic.block.entity.CaveMarkerBlockEntity>> CAVE_MARKER_BLOCK_ENTITY =
+            BLOCK_ENTITY_TYPES.register("cave_marker", () -> BlockEntityType.Builder.of(
+                    com.hogwartsmagic.block.entity.CaveMarkerBlockEntity::new,
+                    CONCEALED_ROCK.get(), HIDDEN_CHAIN.get()
+            ).build(null));
+
     public static final ResourceKey<ConfiguredFeature<?, ?>> FINE_WOOD_TREE_CONFIGURED =
             ResourceKey.create(Registries.CONFIGURED_FEATURE, ResourceLocation.fromNamespaceAndPath(MODID, "fine_wood"));
 
@@ -517,6 +538,9 @@ public class ExampleMod
     public static final RegistryObject<Item> FLOO_FIREPLACE_ITEM = ITEMS.register("floo_fireplace", () -> new BlockItem(FLOO_FIREPLACE.get(), new Item.Properties()));
     public static final RegistryObject<Item> WARD_ITEM = ITEMS.register("ward", () -> new BlockItem(WARD.get(), new Item.Properties()));
     public static final RegistryObject<Item> HORCRUX_ITEM = ITEMS.register("horcrux", () -> new BlockItem(HORCRUX.get(), new Item.Properties().stacksTo(1)));
+    public static final RegistryObject<Item> CONCEALED_ROCK_ITEM = ITEMS.register("concealed_rock", () -> new BlockItem(CONCEALED_ROCK.get(), new Item.Properties()));
+    public static final RegistryObject<Item> HIDDEN_CHAIN_ITEM = ITEMS.register("hidden_chain", () -> new BlockItem(HIDDEN_CHAIN.get(), new Item.Properties()));
+    public static final RegistryObject<Item> BLOOD_SEAL_ITEM = ITEMS.register("blood_seal", () -> new BlockItem(BLOOD_SEAL.get(), new Item.Properties()));
     public static final RegistryObject<Item> STATUE_HEART_ITEM = ITEMS.register("statue_heart", () -> new BlockItem(STATUE_HEART.get(), new Item.Properties()));
     public static final RegistryObject<Item> GRYFFINDOR_BANNER_BLOCK_ITEM = ITEMS.register("gryffindor_banner_block", () -> new BlockItem(GRYFFINDOR_BANNER_BLOCK.get(), new Item.Properties()));
     public static final RegistryObject<Item> RAVENCLAW_BANNER_BLOCK_ITEM = ITEMS.register("ravenclaw_banner_block", () -> new BlockItem(RAVENCLAW_BANNER_BLOCK.get(), new Item.Properties()));
@@ -822,6 +846,9 @@ public class ExampleMod
                 output.accept(FLOO_FIREPLACE_ITEM.get());
                 output.accept(WARD_ITEM.get());
                 output.accept(HORCRUX_ITEM.get());
+                output.accept(CONCEALED_ROCK_ITEM.get());
+                output.accept(HIDDEN_CHAIN_ITEM.get());
+                output.accept(BLOOD_SEAL_ITEM.get());
                 output.accept(STATUE_HEART_ITEM.get());
                 output.accept(GRYFFINDOR_BANNER_BLOCK_ITEM.get());
                 output.accept(RAVENCLAW_BANNER_BLOCK_ITEM.get());

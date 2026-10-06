@@ -503,6 +503,14 @@ Each spell below lists the implemented gameplay behavior currently present in th
 
 - Decorative aftermath entity for petrified victims.
 
+### Inferius
+
+- Drowned corpse kept by black water; wanders at night in Dementor Fen and swamps, and guards every Locket cave.
+- Takes only 30% of non-fire damage, but fire hurts it fully, and twice as much while it is already burning.
+- Grabs on a hit and drags the victim toward the water, even pulling a rider out of a boat.
+- Flees fire, lava, lit campfires, and players holding a torch, soul torch, flint and steel, fire charge, or lava bucket.
+- Cave Inferi drop nothing, give no experience, and sink back into the lake when nobody is hunting them.
+
 ### Spell Beam
 
 - Colored projectile used by most spells.
@@ -946,6 +954,40 @@ vaults, forcing the gate, killing staff - which escalates from every guard in th
 for you to squads sent to the way out, and decays a step every ten minutes you spend outside. Six
 sentries stand below ground and are hostile on sight, unlike the guards upstairs. All of them let a
 goblin walk past.
+
+### Slytherin's Locket Cave
+
+A rock headland on the shore with a black lake hollowed inside it, holding Slytherin's Locket. Each cave
+yields one Locket, once. After it is taken the cave is marked looted forever and is no longer searched for.
+The Locket is a Horcrux and is kept for the future Voldemort finale.
+
+**Finding one.** A Memory of the Cave vial turns up in Death Eater camp chests (about 15%) and drops
+from Death Eaters (about 2%). Using it makes a Cave Map pointing at the nearest unlooted cave; the X marks
+the cave area, not the exact entrance. Revelio shows the hidden crack in the north cliff from up to 48
+blocks away. A second hidden entrance is a shaft in the clifftop above the tunnel.
+
+**The route.**
+
+- **The swim tunnel.** Through the crack and a short flooded tunnel into an antechamber with a small pool.
+- **The Blood Seal.** A sealed arch that opens for a toll of three hearts, paid once from the outside.
+  Creative players open it free.
+- **The hidden chain.** At the shore beyond the seal. Revelio shows it, or touching it shows it briefly.
+  Right-click it to raise a one-seat boat.
+- **The island.** Row the boat across the lake to the Basin of Despair.
+
+**The Drink of Despair.** The basin holds six drinks, at least a second apart. Each one adds worse
+effects (nausea, weakness, slowness, darkness, blindness, mining fatigue, hunger) and the middle drinks hurt, though never
+to death. After the sixth the Locket shows. If the drinker stops for thirty seconds, dies, or leaves the
+island the basin refills and the count starts again. Whispers play as you drink.
+
+**Unquenchable Thirst.** Taking the Locket leaves a twelve-minute thirst that no ordinary water,
+milk or potion removes. Only the cave lake cures it: put your head under the black water, or use a glass
+bottle on it. The antechamber pool does not count.
+
+**The ambush.** Curing the thirst wakes the lake: 16 Inferi rise in four waves of four, hunting everyone in the
+cave. Fire drives them back. The ambush ends when all 16 are down, or when nobody is left in the cave, and
+survivors sink back into the lake. Swimming in the lake before that draws a small warning grab (never more
+than six idle Inferi at once), and a boat does not protect its rider from the grab.
 
 ### Spawn Modifiers
 

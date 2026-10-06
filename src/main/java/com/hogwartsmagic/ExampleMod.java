@@ -193,6 +193,8 @@ public class ExampleMod
             com.hogwartsmagic.spell.BleedingEffect::new);
     public static final RegistryObject<net.minecraft.world.effect.MobEffect> CURSED_WOUND = MOB_EFFECTS.register("cursed_wound",
             com.hogwartsmagic.spell.CursedWoundEffect::new);
+    public static final RegistryObject<net.minecraft.world.effect.MobEffect> UNQUENCHABLE_THIRST = MOB_EFFECTS.register("unquenchable_thirst",
+            com.hogwartsmagic.spell.UnquenchableThirstEffect::new);
     /** Marker: CombatEffects consumes it on the next physical or explosion hit for bonus damage. */
     public static final RegistryObject<net.minecraft.world.effect.MobEffect> BRITTLE = MOB_EFFECTS.register("brittle",
             () -> new net.minecraft.world.effect.MobEffect(net.minecraft.world.effect.MobEffectCategory.HARMFUL, 0x9FD8F0) {});
@@ -685,6 +687,9 @@ public class ExampleMod
     public static final RegistryObject<Item> BASILISK_SPAWN_EGG = ITEMS.register("basilisk_spawn_egg",
             () -> new net.minecraftforge.common.ForgeSpawnEggItem(ModEntities.BASILISK, 0x23361B, 0xA5D05D, new Item.Properties()));
 
+    public static final RegistryObject<Item> SLYTHERINS_LOCKET = ITEMS.register("slytherins_locket",
+            () -> new com.hogwartsmagic.item.SlytherinsLocketItem(new Item.Properties()));
+
     public static final RegistryObject<Item> TROLL_SPAWN_EGG = ITEMS.register("troll_spawn_egg",
             () -> new net.minecraftforge.common.ForgeSpawnEggItem(ModEntities.TROLL, 0x777365, 0x3F6A2E, new Item.Properties()));
 
@@ -788,6 +793,7 @@ public class ExampleMod
             .icon(() -> HARRY_POTTER_WAND.get().getDefaultInstance())
             .displayItems((parameters, output) -> {
                 output.accept(HARRY_POTTER_WAND.get());
+                output.accept(SLYTHERINS_LOCKET.get());
         output.accept(PHOENIX_CORE_WAND.get());
         output.accept(UNICORN_CORE_WAND.get());
         output.accept(DRAGON_CORE_WAND.get());

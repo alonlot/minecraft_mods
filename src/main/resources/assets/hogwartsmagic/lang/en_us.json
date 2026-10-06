@@ -938,5 +938,11 @@
   "spell.hogwartsmagic.apparition.rank.4": "Range 200 blocks, no splinching, and you can jump to known Floo fireplaces.",
   "spell.hogwartsmagic.piertotum_locomotor.rank.2": "Only the rank discount applies: less mana and a faster recharge.",
   "spell.hogwartsmagic.piertotum_locomotor.rank.3": "Only the rank discount applies: less mana and a faster recharge.",
-  "spell.hogwartsmagic.piertotum_locomotor.rank.4": "Only the rank discount applies: less mana and a faster recharge."
+  "spell.hogwartsmagic.piertotum_locomotor.rank.4": "Only the rank discount applies: less mana and a faster recharge.",
+  "effect.hogwartsmagic.unquenchable_thirst": "Unquenchable Thirst",
+  "effect.hogwartsmagic.unquenchable_thirst.description": "A dry ache that wears at you. Only the cave's own cure lifts it; milk cannot.",
+  "death.attack.hogwartsmagic.blood_toll": "%1$s paid the cave's toll with their life",
+  "death.attack.hogwartsmagic.blood_toll.player": "%1$s paid the cave's toll with their life whilst fighting %2$s",
+  "item.hogwartsmagic.slytherins_locket": "Slytherin's Locket",
+  "item.hogwartsmagic.slytherins_locket.lore": "Something inside it is still alive."
 }

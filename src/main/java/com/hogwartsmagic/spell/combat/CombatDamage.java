@@ -17,6 +17,9 @@ public final class CombatDamage {
     public static final ResourceKey<DamageType> BLEEDING = ResourceKey.create(Registries.DAMAGE_TYPE,
             ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "bleeding"));
 
+    public static final ResourceKey<DamageType> BLOOD_TOLL = ResourceKey.create(Registries.DAMAGE_TYPE,
+            ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "blood_toll"));
+
     private CombatDamage() {
     }
 
@@ -32,5 +35,10 @@ public final class CombatDamage {
     public static DamageSource bleeding(Level level, @Nullable Entity attacker) {
         Holder<DamageType> type = level.registryAccess().registryOrThrow(Registries.DAMAGE_TYPE).getHolderOrThrow(BLEEDING);
         return attacker == null ? new DamageSource(type) : new DamageSource(type, null, attacker);
+    }
+
+    /** The Locket cave's toll for a drink from the basin: bypasses armour (see the damage_type tags). */
+    public static DamageSource bloodToll(Level level) {
+        return new DamageSource(level.registryAccess().registryOrThrow(Registries.DAMAGE_TYPE).getHolderOrThrow(BLOOD_TOLL));
     }
 }

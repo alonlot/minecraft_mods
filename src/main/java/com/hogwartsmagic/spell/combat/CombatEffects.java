@@ -279,7 +279,10 @@ public final class CombatEffects {
      */
     @SubscribeEvent
     public static void onEffectRemove(MobEffectEvent.Remove event) {
-        if (cursedWoundCureInProgress || event.getEffect() != ExampleMod.CURSED_WOUND.get()) {
+        boolean cursedWound = !cursedWoundCureInProgress && event.getEffect() == ExampleMod.CURSED_WOUND.get();
+        // Unquenchable Thirst is only lifted through LocketCaves.cureThirst, never by milk or another drink.
+        boolean thirst = event.getEffect() == ExampleMod.UNQUENCHABLE_THIRST.get();
+        if (!cursedWound && !thirst) {
             return;
         }
         if (event.getEntity().isUsingItem()) {

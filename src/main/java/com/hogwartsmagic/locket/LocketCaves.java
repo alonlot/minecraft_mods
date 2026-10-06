@@ -142,6 +142,10 @@ public final class LocketCaves {
         }
         e.setCanceled(true);
         e.setCancellationResult(InteractionResult.SUCCESS);
+        player.inventoryMenu.sendAllDataToRemote();
+        if (player.containerMenu != player.inventoryMenu) {
+            player.containerMenu.sendAllDataToRemote();
+        }
         if (cureThirst(player) && !found.get().isAmbushActive()) {
             found.get().startAmbush(player);
         }

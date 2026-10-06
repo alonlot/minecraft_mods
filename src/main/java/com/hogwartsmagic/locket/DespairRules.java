@@ -6,6 +6,7 @@ import java.util.List;
 public final class DespairRules {
     public static final int DRINKS_TO_EMPTY = 6;
     public static final int REFILL_TIMEOUT_TICKS = 600;
+    public static final int MIN_TICKS_BETWEEN_DRINKS = 20;
     public static final int THIRST_DURATION_TICKS = 12000;
     public static final int THIRST_DAMAGE_INTERVAL = 100;
     public static final int VISION_TICKS = 100;

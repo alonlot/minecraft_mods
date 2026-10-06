@@ -10,6 +10,10 @@ class DespairRulesTest {
         assertEquals(0f, DespairRules.damageFor(1));
         assertEquals(4f, DespairRules.damageFor(6));
     }
+    @Test void drinkPacingIsShorterThanRefill() {
+        assertTrue(DespairRules.MIN_TICKS_BETWEEN_DRINKS > 0);
+        assertTrue(DespairRules.MIN_TICKS_BETWEEN_DRINKS < DespairRules.REFILL_TIMEOUT_TICKS);
+    }
     @Test void drinkDamageNeverKills() {
         assertEquals(1.5f, DespairRules.cappedDamage(4f, 2.5f), 1e-4);
         assertEquals(0f, DespairRules.cappedDamage(4f, 1f), 1e-4);

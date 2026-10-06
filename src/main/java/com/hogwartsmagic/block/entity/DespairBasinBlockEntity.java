@@ -48,6 +48,8 @@ public class DespairBasinBlockEntity extends BlockEntity {
     private final Set<UUID> ambushMobs = new HashSet<>();
     @Nullable private UUID ambushTrigger;
     private long lastWarning = -100000;
+    private int owedSpawns;
+    private static final int AMBUSH_GRACE_TICKS = 200;
 
     public DespairBasinBlockEntity(BlockPos pos, BlockState state) {
         super(ExampleMod.DESPAIR_BASIN_BLOCK_ENTITY.get(), pos, state);
@@ -68,6 +70,7 @@ public class DespairBasinBlockEntity extends BlockEntity {
         }
         if (drinks >= DespairRules.DRINKS_TO_EMPTY) { // locket waiting in the empty basin
             if (!p.getUUID().equals(drinker)) {
+                p.displayClientMessage(Component.translatable("message.hogwartsmagic.basin_in_use"), true);
                 return;
             }
             p.getInventory().placeItemBackInInventory(new ItemStack(ExampleMod.SLYTHERINS_LOCKET.get()));
@@ -86,15 +89,20 @@ public class DespairBasinBlockEntity extends BlockEntity {
             p.displayClientMessage(Component.translatable("message.hogwartsmagic.basin_in_use"), true);
             return;
         }
+        long now = level.getGameTime();
+        if (drinker != null && drinks > 0 && now - lastDrink < DespairRules.MIN_TICKS_BETWEEN_DRINKS) {
+            return;
+        }
         drinker = p.getUUID();
         drinks++;
-        lastDrink = level.getGameTime();
+        lastDrink = now;
         for (DespairRules.DrinkEffect e : DespairRules.effectsFor(drinks)) {
             BuiltInRegistries.MOB_EFFECT.getHolder(ResourceLocation.withDefaultNamespace(e.effectId()))
                     .ifPresent(h -> p.addEffect(new MobEffectInstance(h, e.ticks(), e.amplifier())));
         }
         float dmg = DespairRules.cappedDamage(DespairRules.damageFor(drinks), p.getHealth());
         if (dmg > 0) {
+            p.invulnerableTime = 0;
             p.hurt(level.damageSources().magic(), dmg);
         }
         p.displayClientMessage(Component.literal(DespairRules.whisper(drinks - 1))
@@ -151,7 +159,7 @@ public class DespairBasinBlockEntity extends BlockEntity {
     private void checkLake(ServerLevel level, long now) {
         var thirst = ExampleMod.UNQUENCHABLE_THIRST.getHolder().orElse(null);
         for (ServerPlayer p : level.players()) {
-            if (!inCave(p)) {
+            if (p.isSpectator() || !inCave(p)) {
                 continue;
             }
             if (thirst != null && p.hasEffect(thirst) && p.isEyeInFluid(FluidTags.WATER)) {
@@ -177,11 +185,12 @@ public class DespairBasinBlockEntity extends BlockEntity {
         ambushActive = true;
         ambushTicks = 0;
         ambushSpawned = 0;
+        owedSpawns = 0;
         ambushMobs.clear();
         ambushTrigger = trigger.getUUID();
         if (this.level instanceof ServerLevel level) {
             for (ServerPlayer p : level.players()) {
-                if (inCave(p)) {
+                if (!p.isSpectator() && inCave(p)) {
                     p.displayClientMessage(Component.translatable("message.hogwartsmagic.water_stirs")
                             .withStyle(ChatFormatting.DARK_GREEN, ChatFormatting.ITALIC), false);
                 }
@@ -191,24 +200,29 @@ public class DespairBasinBlockEntity extends BlockEntity {
     }
 
     private void tickAmbush(ServerLevel level) {
-        int due = AmbushSchedule.spawnsDueAt(ambushTicks++);
+        owedSpawns += AmbushSchedule.spawnsDueAt(ambushTicks++);
         ServerPlayer trigger = ambushTrigger == null ? null : level.getServer().getPlayerList().getPlayer(ambushTrigger);
-        for (int i = 0; i < due; i++) {
+        // A spawn that finds no water stays owed and is retried; after the grace period it counts as attempted
+        // so a lake with no usable water cannot make the ambush unwinnable.
+        for (int i = 0, tries = owedSpawns; i < tries; i++) {
             BlockPos at = findWater(level, worldPosition, CaveGeometry.ISLAND_RADIUS + 1, CaveGeometry.ISLAND_RADIUS + 5, 10);
-            if (at == null) {
-                continue;
-            }
-            InferiusEntity e = spawnInferius(level, at, true, trigger);
+            InferiusEntity e = at == null ? null : spawnInferius(level, at, true, trigger);
             if (e != null) {
                 ambushMobs.add(e.getUUID());
                 ambushSpawned++;
+                owedSpawns--;
             }
+        }
+        int lastWaveTick = (AmbushSchedule.TOTAL / AmbushSchedule.WAVE_SIZE - 1) * AmbushSchedule.WAVE_INTERVAL;
+        if (owedSpawns > 0 && ambushTicks > lastWaveTick + AMBUSH_GRACE_TICKS) {
+            ambushSpawned += owedSpawns;
+            owedSpawns = 0;
         }
         // An entity that is not loaded counts as gone.
         ambushMobs.removeIf(id -> !(level.getEntity(id) instanceof InferiusEntity e) || !e.isAlive());
         boolean anyPlayerInCave = false;
         for (ServerPlayer p : level.players()) {
-            if (inCave(p)) {
+            if (!p.isSpectator() && inCave(p)) {
                 anyPlayerInCave = true;
                 break;
             }
@@ -233,6 +247,7 @@ public class DespairBasinBlockEntity extends BlockEntity {
             }
         }
         ambushMobs.clear();
+        owedSpawns = 0;
         ambushActive = false;
         ambushTrigger = null;
         setChanged();
@@ -304,6 +319,7 @@ public class DespairBasinBlockEntity extends BlockEntity {
         tag.putBoolean("AmbushActive", ambushActive);
         tag.putInt("AmbushTicks", ambushTicks);
         tag.putInt("AmbushSpawned", ambushSpawned);
+        tag.putInt("OwedSpawns", owedSpawns);
         tag.putLong("LastWarning", lastWarning);
         if (ambushTrigger != null) {
             tag.putUUID("AmbushTrigger", ambushTrigger);
@@ -324,6 +340,7 @@ public class DespairBasinBlockEntity extends BlockEntity {
         ambushActive = tag.getBoolean("AmbushActive");
         ambushTicks = tag.getInt("AmbushTicks");
         ambushSpawned = tag.getInt("AmbushSpawned");
+        owedSpawns = tag.getInt("OwedSpawns");
         lastWarning = tag.contains("LastWarning") ? tag.getLong("LastWarning") : -100000;
         ambushTrigger = tag.hasUUID("AmbushTrigger") ? tag.getUUID("AmbushTrigger") : null;
         ambushMobs.clear();

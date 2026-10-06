@@ -5,8 +5,14 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
-import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.LevelAccessor;
+import net.minecraft.world.level.block.LiquidBlockContainer;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.FluidState;
+import org.jetbrains.annotations.Nullable;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.EntityBlock;
@@ -25,7 +31,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * shape, no model and no occlusion, so the passage behind it can be walked through and seen; a
  * scheduled tick (see {@code LocketCaves.reveal}) closes it again once nothing stands inside it.
  */
-public class ConcealedRockBlock extends Block implements EntityBlock {
+public class ConcealedRockBlock extends Block implements EntityBlock, LiquidBlockContainer {
     /** Shared by every block {@code LocketCaves.reveal} can open. */
     public static final BooleanProperty REVEALED = BooleanProperty.create("revealed");
 
@@ -84,7 +90,7 @@ public class ConcealedRockBlock extends Block implements EntityBlock {
         if (!state.getValue(REVEALED)) {
             return;
         }
-        if (level.getEntities((Entity) null, new AABB(pos), e -> true).isEmpty()) {
+        if (level.getEntitiesOfClass(LivingEntity.class, new AABB(pos), e -> !e.isSpectator()).isEmpty()) {
             level.setBlock(pos, state.setValue(REVEALED, false), Block.UPDATE_ALL);
         } else {
             level.scheduleTick(pos, block, RETRY_TICKS);
@@ -94,5 +100,16 @@ public class ConcealedRockBlock extends Block implements EntityBlock {
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
         return new CaveMarkerBlockEntity(pos, state);
+    }
+
+    /** Water must never spread into (and break) this block while its shape is empty. */
+    @Override
+    public boolean canPlaceLiquid(@Nullable Player player, BlockGetter level, BlockPos pos, BlockState state, Fluid fluid) {
+        return false;
+    }
+
+    @Override
+    public boolean placeLiquid(LevelAccessor level, BlockPos pos, BlockState state, FluidState fluidState) {
+        return false;
     }
 }

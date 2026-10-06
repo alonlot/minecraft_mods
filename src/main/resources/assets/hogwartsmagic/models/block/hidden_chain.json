@@ -1,4 +1,5 @@
 {
   "parent": "minecraft:block/chain",
+  "render_type": "minecraft:cutout_mipped",
   "textures": { "all": "minecraft:block/chain", "particle": "minecraft:block/chain" }
 }

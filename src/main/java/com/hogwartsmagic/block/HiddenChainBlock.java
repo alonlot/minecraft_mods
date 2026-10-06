@@ -11,6 +11,11 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.LevelAccessor;
+import net.minecraft.world.level.block.LiquidBlockContainer;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.FluidState;
+import org.jetbrains.annotations.Nullable;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.EntityBlock;
@@ -29,8 +34,10 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * walking into the hidden one only puffs a little smoke so the player can feel something is there.
  * Never collides, so revealing and re-hiding it cannot trap anyone.
  */
-public class HiddenChainBlock extends Block implements EntityBlock {
+public class HiddenChainBlock extends Block implements EntityBlock, LiquidBlockContainer {
     public static final BooleanProperty REVEALED = ConcealedRockBlock.REVEALED;
+
+    private static final int TOUCH_REVEAL_TICKS = 200;
 
     /** Thin post so a revealed chain can be targeted and right-clicked. */
     private static final VoxelShape SHAPE = Block.box(6.5, 0.0, 6.5, 9.5, 16.0, 9.5);
@@ -79,6 +86,9 @@ public class HiddenChainBlock extends Block implements EntityBlock {
         }
         server.sendParticles(ParticleTypes.SMOKE, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5,
                 3, 0.2, 0.3, 0.2, 0.01);
+        // Walking into the chain shows it briefly.
+        server.setBlock(pos, state.setValue(REVEALED, true), Block.UPDATE_ALL);
+        server.scheduleTick(pos, this, TOUCH_REVEAL_TICKS);
     }
 
     @Override
@@ -89,5 +99,16 @@ public class HiddenChainBlock extends Block implements EntityBlock {
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
         return new CaveMarkerBlockEntity(pos, state);
+    }
+
+    /** Water must never spread into (and break) this block while its shape is empty. */
+    @Override
+    public boolean canPlaceLiquid(@Nullable Player player, BlockGetter level, BlockPos pos, BlockState state, Fluid fluid) {
+        return false;
+    }
+
+    @Override
+    public boolean placeLiquid(LevelAccessor level, BlockPos pos, BlockState state, FluidState fluidState) {
+        return false;
     }
 }

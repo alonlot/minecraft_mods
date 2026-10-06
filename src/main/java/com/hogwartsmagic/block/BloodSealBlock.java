@@ -13,8 +13,15 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.LevelAccessor;
+import net.minecraft.world.level.block.LiquidBlockContainer;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.FluidState;
+import org.jetbrains.annotations.Nullable;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Mirror;
+import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
@@ -30,6 +37,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 import org.joml.Vector3f;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
@@ -40,7 +48,7 @@ import java.util.Set;
  * outside costs blood (damage that bypasses armor), touching it from the inside is free, and either
  * way the whole arch opens for a minute and then reseals once nobody is standing in it.
  */
-public class BloodSealBlock extends Block {
+public class BloodSealBlock extends Block implements LiquidBlockContainer {
     public static final BooleanProperty OPEN = BlockStateProperties.OPEN;
     /** Horizontal direction pointing to the outside of the cave. */
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
@@ -106,23 +114,29 @@ public class BloodSealBlock extends Block {
         return InteractionResult.CONSUME;
     }
 
-    /** Flood-fills connected Blood Seal blocks (max 64) and sets OPEN; schedules the reseal on the clicked block. */
-    static void setArch(Level level, BlockPos start, boolean open) {
+    /** Connected seals (max 64 seals, never revisiting a position), read-only. */
+    static List<BlockPos> arch(Level level, BlockPos start) {
+        List<BlockPos> seals = new ArrayList<>();
         Deque<BlockPos> todo = new ArrayDeque<>(List.of(start));
         Set<BlockPos> seen = new HashSet<>();
-        while (!todo.isEmpty() && seen.size() < MAX_ARCH) {
+        while (!todo.isEmpty() && seals.size() < MAX_ARCH) {
             BlockPos p = todo.pop();
-            if (!seen.add(p)) {
+            if (!seen.add(p) || !(level.getBlockState(p).getBlock() instanceof BloodSealBlock)) {
                 continue;
             }
-            BlockState s = level.getBlockState(p);
-            if (!(s.getBlock() instanceof BloodSealBlock)) {
-                continue;
-            }
-            level.setBlock(p, s.setValue(OPEN, open), Block.UPDATE_CLIENTS);
+            seals.add(p);
             for (Direction d : Direction.values()) {
                 todo.push(p.relative(d));
             }
+        }
+        return seals;
+    }
+
+    /** Sets OPEN on the whole connected arch; opening schedules the reseal on the clicked block. */
+    static void setArch(Level level, BlockPos start, boolean open) {
+        for (BlockPos p : arch(level, start)) {
+            BlockState s = level.getBlockState(p);
+            level.setBlock(p, s.setValue(OPEN, open), Block.UPDATE_CLIENTS);
         }
         if (open) {
             level.scheduleTick(start, level.getBlockState(start).getBlock(), OPEN_TICKS);
@@ -134,14 +148,34 @@ public class BloodSealBlock extends Block {
         if (!state.getValue(OPEN)) {
             return;
         }
-        AABB arch = new AABB(pos).inflate(3);
-        boolean someoneInside = !level.getEntitiesOfClass(LivingEntity.class, arch,
-                e -> level.getBlockState(e.blockPosition()).getBlock() instanceof BloodSealBlock
-                        || level.getBlockState(e.blockPosition().above()).getBlock() instanceof BloodSealBlock).isEmpty();
-        if (someoneInside) {
-            level.scheduleTick(pos, this, 40);
-            return;
+        for (BlockPos p : arch(level, pos)) {
+            AABB cube = new AABB(p);
+            if (!level.getEntitiesOfClass(LivingEntity.class, cube, e -> !e.isSpectator()).isEmpty()) {
+                level.scheduleTick(pos, this, 40);
+                return;
+            }
         }
         setArch(level, pos, false);
+    }
+
+    @Override
+    protected BlockState rotate(BlockState state, Rotation rotation) {
+        return state.setValue(FACING, rotation.rotate(state.getValue(FACING)));
+    }
+
+    @Override
+    protected BlockState mirror(BlockState state, Mirror mirror) {
+        return state.rotate(mirror.getRotation(state.getValue(FACING)));
+    }
+
+    /** Water must never spread into (and break) this block while its shape is empty. */
+    @Override
+    public boolean canPlaceLiquid(@Nullable Player player, BlockGetter level, BlockPos pos, BlockState state, Fluid fluid) {
+        return false;
+    }
+
+    @Override
+    public boolean placeLiquid(LevelAccessor level, BlockPos pos, BlockState state, FluidState fluidState) {
+        return false;
     }
 }

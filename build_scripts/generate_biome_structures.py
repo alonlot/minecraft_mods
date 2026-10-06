@@ -2820,6 +2820,165 @@ def hogwarts_ruin_camp():
     return b, entities
 
 
+LOCKET_ROCK = [('minecraft:deepslate', 5), ('minecraft:tuff', 2), ('minecraft:blackstone', 2),
+               ('minecraft:basalt', 1)]
+
+
+def locket_cave():
+    """The Locket cave: a rock headland on a stony shore with a sea-level lake hollowed inside.
+
+    Local frame 64x64x40, sea level local Y=22. Lake water top is Y=21, island and ledge are solid
+    to Y=22 (walk surface 23). Entry: a Revelio-sealed crack in the north cliff -> swim tunnel ->
+    antechamber -> Blood Seal arch (z=17) -> shore landing with the hidden chain -> ledge.
+    """
+    b = {}
+    cx, cz = 32, 40
+
+    def cav_norm(x, y, z):
+        return ((x - cx) / 24.0) ** 2 + ((y - 22) / 14.0) ** 2 + ((z - cz) / 20.0) ** 2
+
+    def in_cavern(x, y, z):
+        return cav_norm(x, y, z) <= 1.0
+
+    def cav_top(x, z):
+        e = 1.0 - ((x - cx) / 24.0) ** 2 - ((z - cz) / 20.0) ** 2
+        return 22 + 14 * math.sqrt(e) if e > 0 else None
+
+    def in_antechamber(x, y, z):
+        return 28 <= x <= 36 and 22 <= y <= 26 and 8 <= z <= 16
+
+    def in_vestibule(x, y, z):
+        return 28 <= x <= 36 and 23 <= y <= 27 and 18 <= z <= 21
+
+    # --- rock mass: dome plus a spur running north to the cliff face -------------------------
+    height = {}
+    for x in range(64):
+        for z in range(64):
+            r = math.hypot(x - cx, z - cz)
+            h = None
+            if r <= 32:
+                h = 22 + 15 * (1 - r / 32.0)
+            dx = abs(x - 32)
+            if z <= 21 and dx < 12:
+                s = 22 + min(9.0, 13.0 * (1 - dx / 12.0))
+                h = s if h is None else max(h, s)
+            if h is None:
+                continue
+            h += (noise(x, 0, z, 11) - 0.5) * 4 if r > 6 else 0
+            ct = cav_top(x, z)
+            if ct is not None:
+                h = max(h, ct + 2.5)
+            if 27 <= x <= 37 and 7 <= z <= 21:
+                h = max(h, 29)
+            if ((x - cx) / 24.0) ** 2 + ((z - cz) / 20.0) ** 2 <= 1.3:
+                h = max(h, 27)      # roof over the ledge ring, which has headroom carved out
+            height[(x, z)] = min(39, int(round(h)))
+    for (x, z), h in height.items():
+        for y in range(4, h + 1):
+            b[(x, y, z)] = (tex(LOCKET_ROCK, x, y, z, 5), None, None)
+
+    # --- cavern, lake floor at Y=12 ---------------------------------------------------------
+    for x in range(64):
+        for z in range(64):
+            for y in range(8, 37):
+                if (x, y, z) in b and in_cavern(x, y, z):
+                    if y < 12:
+                        continue
+                    del b[(x, y, z)]
+                    if y <= 21:
+                        put(b, (x, y, z), 'minecraft:water')
+
+    # --- island ----------------------------------------------------------------------------
+    for x in range(26, 39):
+        for z in range(34, 47):
+            d = math.hypot(x - cx, z - cz)
+            if d <= 4.4 + noise(x, 3, z, 21) * 0.6:
+                for y in range(12, 23):
+                    put(b, (x, y, z), 'minecraft:blackstone')
+                for y in range(23, 27):
+                    b.pop((x, y, z), None)
+
+    # --- ledge ring at Y=22 (walk 23), headroom carved above ---------------------------------
+    for x in range(64):
+        for z in range(64):
+            d = math.sqrt(((x - cx) / 24.0) ** 2 + ((z - cz) / 20.0) ** 2)
+            if 0.9 <= d <= 1.0:
+                put(b, (x, 22, z), 'minecraft:blackstone')
+                for y in range(23, 25):
+                    b.pop((x, y, z), None)
+    # the boat glides from the landing straight to the island: open water at the shore, no ledge
+    for x in range(31, 34):
+        for z in range(22, 36):
+            b.pop((x, 22, z), None)
+
+    # --- antechamber, vestibule, landing, pool, tunnel ---------------------------------------
+    for x in range(28, 37):
+        for y in range(22, 27):
+            for z in range(8, 17):
+                b.pop((x, y, z), None)
+    for x in range(28, 37):
+        for y in range(23, 28):
+            for z in range(18, 22):
+                b.pop((x, y, z), None)
+    for x in range(28, 37):
+        for z in range(18, 22):
+            put(b, (x, 22, z), 'minecraft:blackstone')
+    # antechamber floor (walk surface 22)
+    for x in range(28, 37):
+        for z in range(8, 17):
+            put(b, (x, 21, z), 'minecraft:blackstone')
+    # entry pool cut into the floor, joined to the tunnel
+    for x in range(30, 35):
+        for z in range(8, 11):
+            for y in range(19, 22):
+                put(b, (x, y, z), 'minecraft:water')
+    for z in range(2, 8):
+        for x in range(31, 34):
+            for y in range(19, 22):
+                put(b, (x, y, z), 'minecraft:water')
+    for x in range(31, 34):
+        for y in range(19, 24):
+            for z in range(0, 2):
+                put(b, (x, y, z), 'hogwartsmagic:concealed_rock', {'revealed': 'false'})
+    # seal wall z=17, sealed rock except the arch
+    for x in range(26, 39):
+        for y in range(22, 29):
+            put(b, (x, y, 17), tex(LOCKET_ROCK, x, y, 17, 5))
+    for x in range(30, 35):
+        for y in range(22, 26):
+            if y == 25 and x in (30, 34):
+                continue
+            put(b, (x, y, 17), 'hogwartsmagic:blood_seal', {'facing': 'north', 'open': 'false'})
+    put(b, (32, 23, 19), 'hogwartsmagic:hidden_chain', {'revealed': 'false'})
+
+    # --- stalactites, clear of the boat line (x 28..36) and the island ---------------------------
+    for x in range(64):
+        for z in range(64):
+            if abs(x - 32) <= 4 or math.hypot(x - cx, z - cz) <= 7:
+                continue
+            ct = cav_top(x, z)
+            if ct is None or noise(x, 5, z, 31) < 0.94:
+                continue
+            top = int(math.floor(ct))
+            if (x, top, z) not in b and in_cavern(x, top, z):
+                for y in range(top, top - 1 - int(1 + noise(x, 6, z, 32) * 3), -1):
+                    if (x, y, z) not in b and in_cavern(x, y, z) and y > 24:
+                        put(b, (x, y, z), 'minecraft:dripstone_block')
+
+    # --- basin and goblet ------------------------------------------------------------------
+    put(b, (32, 23, 40), 'hogwartsmagic:despair_basin', {'stage': 'full', 'locket': 'false'})
+    put(b, (33, 23, 40), 'hogwartsmagic:crystal_goblet')
+
+    # --- lake floor and ledge bordering rock goes blackstone -----------------------------------
+    for pos in [p for p, v in b.items() if v[0] == 'minecraft:water']:
+        x, y, z = pos
+        for dx, dy, dz in ((1, 0, 0), (-1, 0, 0), (0, 0, 1), (0, 0, -1), (0, -1, 0)):
+            q = (x + dx, y + dy, z + dz)
+            if q in b and b[q][0] in {n for n, _ in LOCKET_ROCK}:
+                put(b, q, 'minecraft:blackstone')
+    return b, []
+
+
 BUILDS = {
     'fen_gibbet': fen_gibbet,
     'horntail_nest': horntail_nest,
@@ -2830,6 +2989,7 @@ BUILDS = {
     'willow_clearing': willow_clearing,
     'death_eater_camp': death_eater_camp,
     'hogwarts_ruin_camp': hogwarts_ruin_camp,
+    'locket_cave': locket_cave,
 }
 
 # Builds whose empty space is water rather than air. Anything waterloggable inside one has to say so,

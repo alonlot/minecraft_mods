@@ -308,4 +308,13 @@ public class ModEntities {
                             // in a lava-lit chamber would otherwise cook itself to death unattended.
                             .fireImmune()
                             .build("living_statue"));
+
+    public static final RegistryObject<EntityType<CaveBoatEntity>> CAVE_BOAT =
+            ENTITY_TYPES.register("cave_boat",
+                    () -> EntityType.Builder.<CaveBoatEntity>of(CaveBoatEntity::new, MobCategory.MISC)
+                            .sized(1.375F, 0.5625F)
+                            .clientTrackingRange(10)
+                            .updateInterval(1)
+                            .fireImmune()
+                            .build("cave_boat"));
 }

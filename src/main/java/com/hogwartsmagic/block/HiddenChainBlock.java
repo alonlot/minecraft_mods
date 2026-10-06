@@ -1,6 +1,7 @@
 package com.hogwartsmagic.block;
 
 import com.hogwartsmagic.block.entity.CaveMarkerBlockEntity;
+import com.hogwartsmagic.entity.CaveBoatEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
@@ -72,8 +73,8 @@ public class HiddenChainBlock extends Block implements EntityBlock, LiquidBlockC
         if (!state.getValue(REVEALED)) {
             return InteractionResult.PASS;
         }
-        if (!level.isClientSide) {
-            // Task 8 raises the cave boat here.
+        if (level instanceof ServerLevel server) {
+            CaveBoatEntity.summonAtShore(server, pos);
             level.playSound(null, pos, SoundEvents.CHAIN_PLACE, SoundSource.BLOCKS, 1.0f, 1.0f);
         }
         return InteractionResult.SUCCESS;

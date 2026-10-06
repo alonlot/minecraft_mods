@@ -984,6 +984,8 @@ public class ClientModEvents {
                 com.hogwartsmagic.client.renderer.UkrainianIronbellyRenderer::new);
         event.registerEntityRenderer(ModEntities.GRINGOTTS_CART.get(),
                 com.hogwartsmagic.client.GringottsCartRenderer::new);
+        event.registerEntityRenderer(ModEntities.CAVE_BOAT.get(),
+                com.hogwartsmagic.client.renderer.CaveBoatRenderer::new);
         event.registerEntityRenderer(ModEntities.BROOM.get(), BroomRenderer::new);
         event.registerEntityRenderer(ModEntities.WIZARD.get(), WizardRenderer::new);
         event.registerEntityRenderer(ModEntities.VOLDEMORT.get(), context -> new WizardRenderer<com.hogwartsmagic.entity.VoldemortEntity>(context));

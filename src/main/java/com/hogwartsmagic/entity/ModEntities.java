@@ -272,6 +272,11 @@ public class ModEntities {
                             .clientTrackingRange(8)
                             .build("grindylow"));
 
+    public static final RegistryObject<EntityType<InferiusEntity>> INFERIUS =
+            ENTITY_TYPES.register("inferius",
+                    () -> EntityType.Builder.<InferiusEntity>of(InferiusEntity::new, MobCategory.MONSTER)
+                            .sized(0.6F, 1.95F).clientTrackingRange(8).build("inferius"));
+
     public static final RegistryObject<EntityType<GoblinGuardEntity>> GOBLIN_GUARD =
             ENTITY_TYPES.register("goblin_guard",
                     () -> EntityType.Builder.<GoblinGuardEntity>of(GoblinGuardEntity::new, MobCategory.CREATURE)

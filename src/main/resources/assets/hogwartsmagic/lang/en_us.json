@@ -695,6 +695,8 @@
   "item.hogwartsmagic.merchieftainess_crown.desc": "You breathe water, and see through it, for as long as you wear it.",
   "item.hogwartsmagic.merchieftainess_crown.cost": "No merperson will suffer you to wear it.",
   "entity.hogwartsmagic.grindylow": "Grindylow",
+  "entity.hogwartsmagic.inferius": "Inferius",
+  "item.hogwartsmagic.inferius_spawn_egg": "Inferius Spawn Egg",
   "item.hogwartsmagic.grindylow_spawn_egg": "Grindylow Spawn Egg",
   "subtitles.hogwartsmagic.grindylow.ambient": "Grindylow burbles",
   "subtitles.hogwartsmagic.grindylow.shriek": "Grindylows shriek",

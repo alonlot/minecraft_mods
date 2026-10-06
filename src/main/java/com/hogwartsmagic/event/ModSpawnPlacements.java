@@ -108,6 +108,12 @@ public class ModSpawnPlacements {
                 com.hogwartsmagic.entity.GrindylowEntity::checkGrindylowSpawnRules,
                 SpawnPlacementRegisterEvent.Operation.REPLACE);
         event.register(
+                ModEntities.INFERIUS.get(),
+                SpawnPlacementTypes.ON_GROUND,
+                Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                com.hogwartsmagic.entity.InferiusEntity::checkInferiusSpawnRules,
+                SpawnPlacementRegisterEvent.Operation.REPLACE);
+        event.register(
                 ModEntities.HUNGARIAN_HORNTAIL.get(),
                 SpawnPlacementTypes.ON_GROUND,
                 Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,

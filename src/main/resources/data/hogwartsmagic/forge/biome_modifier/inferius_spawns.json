@@ -1,0 +1,7 @@
+{
+  "type": "forge:add_spawns",
+  "biomes": ["hogwartsmagic:dementor_fen", "minecraft:swamp", "minecraft:mangrove_swamp"],
+  "spawners": [
+    { "type": "hogwartsmagic:inferius", "weight": 3, "minCount": 1, "maxCount": 2 }
+  ]
+}

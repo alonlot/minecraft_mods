@@ -958,5 +958,10 @@
   "item.hogwartsmagic.slytherins_locket.lore": "Something inside it is still alive.",
   "entity.hogwartsmagic.cave_boat": "Cave Boat",
   "message.hogwartsmagic.boat_one_rider": "The boat will carry only one",
-  "message.hogwartsmagic.chain_slack": "The chain goes slack. Nothing answers it."
+  "message.hogwartsmagic.chain_slack": "The chain goes slack. Nothing answers it.",
+  "subtitles.hogwartsmagic.inferius.ambient": "Inferius rasps",
+  "subtitles.hogwartsmagic.inferius.hurt": "Inferius is struck",
+  "subtitles.hogwartsmagic.inferius.death": "Inferius collapses",
+  "subtitles.hogwartsmagic.inferius.grab": "Inferius seizes hold",
+  "subtitles.hogwartsmagic.inferius.rise": "Inferius rises from the water"
 }

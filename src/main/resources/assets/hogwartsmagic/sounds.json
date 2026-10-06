@@ -1753,5 +1753,50 @@
         "stream": false
       }
     ]
+  },
+  "inferius.ambient": {
+    "subtitle": "subtitles.hogwartsmagic.inferius.ambient",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:inferius/ambient",
+        "stream": false
+      }
+    ]
+  },
+  "inferius.hurt": {
+    "subtitle": "subtitles.hogwartsmagic.inferius.hurt",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:inferius/hurt",
+        "stream": false
+      }
+    ]
+  },
+  "inferius.death": {
+    "subtitle": "subtitles.hogwartsmagic.inferius.death",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:inferius/death",
+        "stream": false
+      }
+    ]
+  },
+  "inferius.grab": {
+    "subtitle": "subtitles.hogwartsmagic.inferius.grab",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:inferius/grab",
+        "stream": false
+      }
+    ]
+  },
+  "inferius.rise": {
+    "subtitle": "subtitles.hogwartsmagic.inferius.rise",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:inferius/rise",
+        "stream": false
+      }
+    ]
   }
 }

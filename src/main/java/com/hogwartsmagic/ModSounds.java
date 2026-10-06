@@ -177,6 +177,13 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> GRINDYLOW_HURT = register("grindylow.hurt");
     public static final RegistryObject<SoundEvent> GRINDYLOW_DEATH = register("grindylow.death");
 
+    // Inferius: drowned corpses of the locket cave. Wet, laboured, never a voice.
+    public static final RegistryObject<SoundEvent> INFERIUS_AMBIENT = register("inferius.ambient");
+    public static final RegistryObject<SoundEvent> INFERIUS_HURT = register("inferius.hurt");
+    public static final RegistryObject<SoundEvent> INFERIUS_DEATH = register("inferius.death");
+    public static final RegistryObject<SoundEvent> INFERIUS_GRAB = register("inferius.grab");
+    public static final RegistryObject<SoundEvent> INFERIUS_RISE = register("inferius.rise");
+
     // Whomping Willow. All timber and weather -- nothing here is a voice, because the tree does not
     // have one; every sound it makes is something a very large tree does under load.
     public static final RegistryObject<SoundEvent> WILLOW_AMBIENT = register("whomping_willow.ambient");

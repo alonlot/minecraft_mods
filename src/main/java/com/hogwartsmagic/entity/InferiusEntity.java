@@ -1,13 +1,14 @@
 package com.hogwartsmagic.entity;
 
 import com.hogwartsmagic.ExampleMod;
+import com.hogwartsmagic.ModSounds;
 import com.hogwartsmagic.locket.InferiusRules;
 import com.hogwartsmagic.spell.combat.CrowdControl;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.sounds.SoundEvent;
-import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.tags.FluidTags;
@@ -162,6 +163,7 @@ public class InferiusEntity extends Monster {
             grabbed = living;
             grabTicksLeft = InferiusRules.GRAB_TICKS;
             this.level().broadcastEntityEvent(this, EVENT_GRAB);
+            this.level().playSound(null, this.getX(), this.getY(), this.getZ(), ModSounds.INFERIUS_GRAB.get(), SoundSource.HOSTILE, 1.0F, 0.95F + this.random.nextFloat() * 0.1F);
             if (!living.isInWater() && !this.isInWater()) {
                 CrowdControl.apply(living, ExampleMod.STUNNED.getHolder().orElseThrow(), InferiusRules.GRAB_TICKS, this);
             }
@@ -196,7 +198,10 @@ public class InferiusEntity extends Monster {
         else super.handleEntityEvent(id);
     }
 
-    public void startRise() { this.level().broadcastEntityEvent(this, EVENT_RISE); }
+    public void startRise() {
+        this.level().broadcastEntityEvent(this, EVENT_RISE);
+        this.level().playSound(null, this.getX(), this.getY(), this.getZ(), ModSounds.INFERIUS_RISE.get(), SoundSource.HOSTILE, 1.0F, 0.95F + this.random.nextFloat() * 0.1F);
+    }
     public void bindToCave(BlockPos basin) { this.caveBasin = basin.immutable(); this.setPersistenceRequired(); }
     @Nullable public BlockPos caveBasin() { return caveBasin; }
     public boolean isCaveBound() { return caveBasin != null; }
@@ -225,7 +230,7 @@ public class InferiusEntity extends Monster {
         return Monster.checkMonsterSpawnRules(type, level, reason, pos, random);
     }
 
-    @Override protected SoundEvent getAmbientSound() { return SoundEvents.DROWNED_AMBIENT; }
-    @Override protected SoundEvent getHurtSound(DamageSource s) { return SoundEvents.DROWNED_HURT; }
-    @Override protected SoundEvent getDeathSound() { return SoundEvents.DROWNED_DEATH; }
+    @Override protected SoundEvent getAmbientSound() { return ModSounds.INFERIUS_AMBIENT.get(); }
+    @Override protected SoundEvent getHurtSound(DamageSource s) { return ModSounds.INFERIUS_HURT.get(); }
+    @Override protected SoundEvent getDeathSound() { return ModSounds.INFERIUS_DEATH.get(); }
 }

@@ -19,4 +19,8 @@ class AmbushScheduleTest {
         assertTrue(AmbushSchedule.isOver(16, 0, true));
         assertTrue(AmbushSchedule.isOver(8, 5, false));
     }
+    @Test void guardianCap() {
+        assertTrue(AmbushSchedule.mayAddGuardian(AmbushSchedule.MAX_IDLE_GUARDIANS - 1));
+        assertFalse(AmbushSchedule.mayAddGuardian(AmbushSchedule.MAX_IDLE_GUARDIANS));
+    }
 }

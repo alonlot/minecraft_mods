@@ -150,9 +150,9 @@ public final class LocketCaves {
         if (found.isEmpty()) {
             return;
         }
-        BlockPos d = player.blockPosition().subtract(found.get().getBlockPos());
-        if (!CaveGeometry.inCave(d.getX(), d.getY(), d.getZ())) {
-            return;
+        BlockPos wd = hit.getBlockPos().subtract(found.get().getBlockPos());
+        if (!CaveGeometry.inLake(wd.getX(), wd.getY(), wd.getZ())) {
+            return; // the antechamber pool is not the lake
         }
         e.setCanceled(true);
         e.setCancellationResult(InteractionResult.SUCCESS);

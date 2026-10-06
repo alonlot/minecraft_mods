@@ -32,7 +32,8 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 
 /**
  * The chain at the cave shore that raises the boat. Invisible and intangible until Revelio shows it;
- * walking into the hidden one only puffs a little smoke so the player can feel something is there.
+ * walking into the hidden one puffs a little smoke and shows it for ten seconds, so the player can
+ * feel something is there and right-click it.
  * Never collides, so revealing and re-hiding it cannot trap anyone.
  */
 public class HiddenChainBlock extends Block implements EntityBlock, LiquidBlockContainer {

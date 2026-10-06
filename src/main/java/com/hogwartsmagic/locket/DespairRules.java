@@ -32,8 +32,8 @@ public final class DespairRules {
             "The cold reaches in and finds every regret you kept.",
             "Nobody is coming. Nobody was ever coming.",
             "You failed them. You will fail them again.",
-            "Stop. Please. Make it stop.",
-            "It is your fault. All of it was always your fault.",
+            "The dark is patient, and it knows exactly where you are soft.",
+            "Every kindness you gave was only ever a way of hiding from yourself.",
             "Water... there must be water somewhere..."};
 
     private DespairRules() {}
@@ -54,6 +54,8 @@ public final class DespairRules {
     public static boolean shouldRefill(long now, long lastDrink, boolean drinkerOnIsland, boolean drinkerAlive) {
         return !drinkerAlive || !drinkerOnIsland || now - lastDrink > REFILL_TIMEOUT_TICKS;
     }
+
+    public static int whisperCount() { return WHISPERS.length; }
 
     public static String whisper(int index) { return WHISPERS[Math.floorMod(index, WHISPERS.length)]; }
 }

@@ -2,6 +2,7 @@ package com.hogwartsmagic.entity;
 
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.ModSounds;
+import com.hogwartsmagic.locket.CaveGeometry;
 import com.hogwartsmagic.locket.InferiusRules;
 import com.hogwartsmagic.spell.combat.CrowdControl;
 import net.minecraft.core.BlockPos;
@@ -85,6 +86,7 @@ public class InferiusEntity extends Monster {
         this.goalSelector.addGoal(3, new AvoidEntityGoal<>(this, Player.class, InferiusRules.FEAR_RADIUS, 1.0D, 1.25D,
                 p -> p instanceof Player pl && InferiusEntity.holdsFire(pl)));
         this.goalSelector.addGoal(4, new MeleeAttackGoal(this, 1.0D, false));
+        this.goalSelector.addGoal(5, new ReturnToLakeGoal());
         this.goalSelector.addGoal(6, new WaterAvoidingRandomStrollGoal(this, 0.8D));
         this.goalSelector.addGoal(7, new LookAtPlayerGoal(this, Player.class, 8.0F));
         this.targetSelector.addGoal(1, new HurtByTargetGoal(this));
@@ -135,6 +137,45 @@ public class InferiusEntity extends Monster {
         @Override public void start() { InferiusEntity.this.getNavigation().moveTo(flee.x, flee.y, flee.z, 1.25D); }
     }
 
+    /** A cave-bound Inferius with nothing to hunt walks back to nearby lake water instead of standing on the ledge. */
+    private class ReturnToLakeGoal extends Goal {
+        private int cooldown;
+
+        ReturnToLakeGoal() { this.setFlags(EnumSet.of(Flag.MOVE)); }
+
+        @Override public boolean canUse() {
+            InferiusEntity self = InferiusEntity.this;
+            if (self.caveBasin == null || self.getTarget() != null || self.isInWater()) return false;
+            if (cooldown-- > 0) return false;
+            cooldown = 40 + self.random.nextInt(40);
+            for (int t = 0; t < 12; t++) {
+                int x = self.getBlockX() + self.random.nextInt(17) - 8;
+                int z = self.getBlockZ() + self.random.nextInt(17) - 8;
+                for (int y = self.getBlockY() + 2; y >= self.getBlockY() - 6; y--) {
+                    BlockPos p = new BlockPos(x, y, z);
+                    if (!self.level().getFluidState(p).is(FluidTags.WATER)) continue;
+                    BlockPos d = p.subtract(self.caveBasin);
+                    if (CaveGeometry.inLake(d.getX(), d.getY(), d.getZ())) {
+                        target = Vec3.atBottomCenterOf(p);
+                        return true;
+                    }
+                    break;
+                }
+            }
+            return false;
+        }
+
+        private Vec3 target = Vec3.ZERO;
+
+        @Override public boolean canContinueToUse() {
+            return InferiusEntity.this.getTarget() == null && !InferiusEntity.this.getNavigation().isDone();
+        }
+
+        @Override public void start() {
+            InferiusEntity.this.getNavigation().moveTo(target.x, target.y, target.z, 0.9D);
+        }
+    }
+
     /** Already dead; the lake cannot drown it (canBreatheUnderwater is final in 1.21). */
     @Override public boolean canDrownInFluidType(FluidType type) { return false; }
     @Override protected boolean isSunBurnTick() { return false; }
@@ -159,6 +200,9 @@ public class InferiusEntity extends Monster {
         boolean hit = super.doHurtTarget(target);
         if (hit && target instanceof LivingEntity living && !this.level().isClientSide
                 && InferiusRules.isGrabReady(this.level().getGameTime(), lastGrabTick)) {
+            if (living.getVehicle() instanceof CaveBoatEntity) {
+                living.stopRiding(); // a boat is no shelter: the water pull drags the rider out
+            }
             lastGrabTick = this.level().getGameTime();
             grabbed = living;
             grabTicksLeft = InferiusRules.GRAB_TICKS;
@@ -186,7 +230,8 @@ public class InferiusEntity extends Monster {
         }
         if (isCaveBound()) {
             idleTicks = this.getTarget() == null ? idleTicks + 1 : 0;
-            if (idleTicks > InferiusRules.IDLE_DESPAWN_TICKS && this.isInWater()) this.discard();
+            if (idleTicks > InferiusRules.IDLE_DESPAWN_TICKS
+                    && (this.isInWater() || this.level().getNearestPlayer(this, 24.0D) == null)) this.discard();
         }
     }
 

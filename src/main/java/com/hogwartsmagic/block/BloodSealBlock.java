@@ -105,7 +105,10 @@ public class BloodSealBlock extends Block implements LiquidBlockContainer {
         Vec3 rel = player.position().subtract(Vec3.atCenterOf(pos));
         boolean outside = rel.x * out.getStepX() + rel.z * out.getStepZ() > 0;
         if (outside) {
-            player.hurt(CombatDamage.bloodToll(level), TOLL);
+            if (!player.hasInfiniteMaterials()) {
+                player.invulnerableTime = 0; // i-frames must not make the toll free
+                player.hurt(CombatDamage.bloodToll(level), TOLL);
+            }
             ((ServerLevel) level).sendParticles(new DustParticleOptions(new Vector3f(0.6f, 0f, 0f), 1.2f),
                     hit.getLocation().x, hit.getLocation().y, hit.getLocation().z, 20, 0.2, 0.2, 0.2, 0);
         }

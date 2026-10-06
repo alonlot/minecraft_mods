@@ -2872,8 +2872,9 @@ def cave_headland_height(x, z):
 
     # structural floors, taken before the final noise: the roof keeps 3 blocks over the cavern and
     # ledge (the ledge has 2 blocks of headroom), the walls beside them stay thick, and the
-    # antechamber and tunnel keep 2 blocks of rock above them. Beyond the core each ramps down with
-    # a width that wanders with z, so the outline is not a straight wedge.
+    # antechamber and tunnel keep 2 blocks of rock above them. Beyond the elliptical core the floor
+    # ramps down with distance (d), so the dome blends into the headland. The wandering outline
+    # of the spur is decided earlier, by the spur width wz.
     d2 = ((x - cx) / 24.0) ** 2 + ((z - cz) / 20.0) ** 2
     if d2 <= 1.0:
         h = max(h, 22 + 14 * math.sqrt(1.0 - d2) + 3.0, 25.5)

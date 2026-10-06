@@ -23,7 +23,7 @@ public class SlytherinsLocketItem extends Item {
     @Override
     public void inventoryTick(ItemStack stack, Level level, Entity holder, int slot, boolean selected) {
         if (!level.isClientSide && holder instanceof ServerPlayer p && level.random.nextInt(WHISPER_CHANCE) == 0) {
-            p.displayClientMessage(Component.literal(DespairRules.whisper(level.random.nextInt(6)))
+            p.displayClientMessage(Component.literal(DespairRules.whisper(level.random.nextInt(DespairRules.whisperCount())))
                     .withStyle(ChatFormatting.DARK_GREEN, ChatFormatting.ITALIC), false);
         }
     }

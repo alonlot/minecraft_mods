@@ -156,17 +156,33 @@ public class DespairBasinBlockEntity extends BlockEntity {
         return CaveGeometry.inCave(d.getX(), d.getY(), d.getZ());
     }
 
+    /** In the black lake proper; the antechamber pool and the tunnel are not the lake. */
+    private boolean inLake(ServerPlayer p) {
+        BlockPos d = p.blockPosition().subtract(worldPosition);
+        return CaveGeometry.inLake(d.getX(), d.getY(), d.getZ());
+    }
+
+    private int idleGuardians(ServerLevel level) {
+        int r = CaveGeometry.CAVE_RADIUS;
+        net.minecraft.world.phys.AABB box = new net.minecraft.world.phys.AABB(
+                worldPosition.getX() - r, worldPosition.getY() - CaveGeometry.CAVE_DOWN, worldPosition.getZ() - r,
+                worldPosition.getX() + r + 1, worldPosition.getY() + CaveGeometry.CAVE_UP + 1, worldPosition.getZ() + r + 1);
+        return level.getEntitiesOfClass(InferiusEntity.class, box,
+                e -> e.isAlive() && worldPosition.equals(e.caveBasin())).size();
+    }
+
     private void checkLake(ServerLevel level, long now) {
         var thirst = ExampleMod.UNQUENCHABLE_THIRST.getHolder().orElse(null);
         for (ServerPlayer p : level.players()) {
-            if (p.isSpectator() || !inCave(p)) {
+            if (p.isSpectator() || !inLake(p)) {
                 continue;
             }
             if (thirst != null && p.hasEffect(thirst) && p.isEyeInFluid(FluidTags.WATER)) {
                 if (LocketCaves.cureThirst(p) && !ambushActive) {
                     startAmbush(p);
                 }
-            } else if (p.isInWater() && !(p.getVehicle() instanceof com.hogwartsmagic.entity.CaveBoatEntity) && !ambushActive && now - lastWarning > AmbushSchedule.WARNING_COOLDOWN) {
+            } else if (p.isInWater() && !(p.getVehicle() instanceof com.hogwartsmagic.entity.CaveBoatEntity) && !ambushActive && now - lastWarning > AmbushSchedule.WARNING_COOLDOWN
+                    && AmbushSchedule.mayAddGuardian(idleGuardians(level))) {
                 int count = AmbushSchedule.WARNING_MIN
                         + level.random.nextInt(AmbushSchedule.WARNING_MAX - AmbushSchedule.WARNING_MIN + 1);
                 for (int i = 0; i < count; i++) {
@@ -234,7 +250,10 @@ public class DespairBasinBlockEntity extends BlockEntity {
         }
     }
 
-    /** Survivors lose their target and wander back into the lake; their idle rule despawns them there. */
+    /**
+     * Survivors lose their target and get a first nudge toward the water; InferiusEntity's return-to-lake goal
+     * keeps herding them back, and their idle rule despawns them.
+     */
     private void endAmbush(ServerLevel level) {
         for (UUID id : ambushMobs) {
             if (level.getEntity(id) instanceof InferiusEntity e && e.isAlive()) {
@@ -271,7 +290,7 @@ public class DespairBasinBlockEntity extends BlockEntity {
     }
 
     /**
-     * A random water block {@code minR..maxR} blocks (horizontally) from {@code center}, inside the cave and
+     * A random water block {@code minR..maxR} blocks (horizontally) from {@code center}, inside the lake and
      * outside the island, with water or air above and room for the body. Never loads chunks.
      */
     @Nullable
@@ -289,7 +308,7 @@ public class DespairBasinBlockEntity extends BlockEntity {
             }
             for (int y = center.getY() + 3; y >= center.getY() - 8; y--) {
                 BlockPos pos = new BlockPos(x, y, z);
-                if (!CaveGeometry.inCave(dx, y - worldPosition.getY(), dz)) {
+                if (!CaveGeometry.inLake(dx, y - worldPosition.getY(), dz)) {
                     continue;
                 }
                 if (level.getFluidState(pos).is(FluidTags.WATER)) {

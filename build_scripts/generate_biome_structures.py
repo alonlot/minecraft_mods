@@ -2859,7 +2859,7 @@ def cave_headland_height(x, z):
     dxa = abs(x - 32)
     zc = 1 + 5 * min(1.0, max(0.0, dxa - 2) / 5.0) * vnoise(x, 0, 4, 3)
     if z >= zc and z <= 30:
-        wz = 8.5 + 2.5 * math.sin(z * 0.4 + 1.3) + 3 * vnoise(0, z, 5, 2)
+        wz = 7.0 + 2.0 * math.sin(z * 0.9 + 1.3) + 4.5 * vnoise(0, z, 2, 2) + 2.5 * vnoise(x, z, 3, 4)
         s = dxa / wz
         if s < 1.4:
             hs = 22 + 9 * (1 - s) ** 0.6 if s < 1 else 22 - 14 * (s - 1) / 0.4
@@ -2880,10 +2880,8 @@ def cave_headland_height(x, z):
         floor = 25.5 if d <= 1.08 else 25.5 - 20 * (d - 1.08) / 0.3
         h = max(h, floor)
     for x0, x1, z0, z1, need in ((26, 38, 7, 21, 29), (29, 35, 1, 8, 25)):
-        fall = 3.0 + 4.0 * vnoise(x, z, 5, 9)
-        d = math.hypot(max(x0 - x, 0, x - x1), max(z0 - z, 0, z - z1))
-        if d < fall:
-            h = max(h, need - (need - 14) * d / fall)
+        if x0 <= x <= x1 and z0 <= z <= z1:      # the walls only: outside them the spur decides
+            h = max(h, need)
     h += vnoise(x, z, 2.5, 11) * 2.5          # rough, never lowering a structural floor
     if z < zc:
         return None
@@ -2918,7 +2916,7 @@ def locket_cave():
         for z in range(64):
             h = cave_headland_height(x, z)
             if h is not None:
-                height[(x, z)] = min(39, h)
+                height[(x, z)] = min(47, h)
     # the top crack: a 2x2 shaft above the swim tunnel, flat so the cap sits level
     shaft = [(31, 4), (32, 4), (31, 5), (32, 5)]
     top = max(height[p] for p in shaft)

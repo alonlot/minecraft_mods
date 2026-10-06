@@ -976,11 +976,11 @@ blocks away. A second hidden entrance is a shaft in the clifftop above the tunne
 - **The island.** Row the boat across the lake to the Basin of Despair.
 
 **The Drink of Despair.** The basin holds six drinks, at least a second apart. Each one adds worse
-effects (nausea, weakness, slowness, darkness, blindness, mining fatigue, hunger) and the middle drinks hurt, though never
+effects (nausea, weakness, slowness, darkness, blindness, mining fatigue, hunger) and drinks three to six hurt, though never
 to death. After the sixth the Locket shows. If the drinker stops for thirty seconds, dies, or leaves the
 island the basin refills and the count starts again. Whispers play as you drink.
 
-**Unquenchable Thirst.** Taking the Locket leaves a twelve-minute thirst that no ordinary water,
+**Unquenchable Thirst.** Taking the Locket leaves a ten-minute thirst that no ordinary water,
 milk or potion removes. Only the cave lake cures it: put your head under the black water, or use a glass
 bottle on it. The antechamber pool does not count.
 

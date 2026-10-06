@@ -6,7 +6,18 @@ import com.hogwartsmagic.block.entity.CaveMarkerBlockEntity;
 import com.hogwartsmagic.block.entity.DespairBasinBlockEntity;
 import com.hogwartsmagic.item.SlytherinsLocketItem;
 import com.hogwartsmagic.spell.combat.CombatEffects;
+import com.hogwartsmagic.worldgen.LootedCaveTracker;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.levelgen.structure.Structure;
+import net.minecraft.world.level.levelgen.structure.StructureCheckResult;
+import net.minecraft.world.level.levelgen.structure.StructureSet;
+import net.minecraft.world.level.levelgen.structure.StructureStart;
+import net.minecraft.world.level.levelgen.structure.placement.RandomSpreadStructurePlacement;
 import net.minecraft.core.SectionPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -29,8 +40,11 @@ import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /** World-facing helpers for the Locket cave (the pure rules live beside this class). Server only. */
 @Mod.EventBusSubscriber(modid = ExampleMod.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
@@ -162,7 +176,58 @@ public final class LocketCaves {
         item.setUnlimitedLifetime();
     }
 
-    /** Task 11 records the looted cave here. */
+    public static final ResourceKey<Structure> LOCKET_CAVE =
+            ResourceKey.create(Registries.STRUCTURE, ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "locket_cave"));
+
+    /** Marks the cave around basin as looted. Runs on a single player action, never on a tick. */
     public static void recordLooted(ServerLevel level, BlockPos basin) {
+        Registry<Structure> reg = level.registryAccess().registryOrThrow(Registries.STRUCTURE);
+        Structure cave = reg.get(LOCKET_CAVE);
+        if (cave == null) {
+            return;
+        }
+        StructureStart start = level.structureManager().getStructureWithPieceAt(basin, cave);
+        ChunkPos c = start.isValid() ? start.getChunkPos() : new ChunkPos(basin);
+        LootedCaveTracker.get(level.getServer().overworld()).markLooted(CaveSearch.key(c.x, c.z));
+    }
+
+    /** Nearest unlooted Locket cave, from the structure set's placement. Item-use only, never a tick path. */
+    public static Optional<BlockPos> findNearestUnlootedCave(ServerLevel level, BlockPos from) {
+        var sets = level.registryAccess().registryOrThrow(Registries.STRUCTURE_SET);
+        StructureSet set = sets.get(ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "locket_cave"));
+        if (set == null || !(set.placement() instanceof RandomSpreadStructurePlacement spread)) {
+            return Optional.empty();
+        }
+        Structure cave = level.registryAccess().registryOrThrow(Registries.STRUCTURE).get(LOCKET_CAVE);
+        if (cave == null) {
+            return Optional.empty();
+        }
+        long seed = level.getChunkSource().getGeneratorState().getLevelSeed();
+        ChunkPos here = new ChunkPos(from);
+        int spacing = spread.spacing();
+        int regionX = Math.floorDiv(here.x, spacing);
+        int regionZ = Math.floorDiv(here.z, spacing);
+        List<long[]> candidates = new ArrayList<>();
+        for (int rx = -2; rx <= 2; rx++) {
+            for (int rz = -2; rz <= 2; rz++) {
+                ChunkPos c = spread.getPotentialStructureChunk(seed, (regionX + rx) * spacing, (regionZ + rz) * spacing);
+                candidates.add(new long[]{c.x, c.z});
+            }
+        }
+        Set<Long> looted = new HashSet<>(LootedCaveTracker.get(level.getServer().overworld()).looted());
+        for (int tries = 0; tries < 6; tries++) {
+            Optional<long[]> best = CaveSearch.nearestUnlooted(here.x, here.z, candidates, looted);
+            if (best.isEmpty()) {
+                return Optional.empty();
+            }
+            long[] b = best.get();
+            ChunkPos cp = new ChunkPos((int) b[0], (int) b[1]);
+            StructureCheckResult r = level.structureManager().checkStructurePresence(cp, cave, spread, false);
+            if (r != StructureCheckResult.START_NOT_PRESENT) {
+                return Optional.of(cp.getMiddleBlockPosition(62));
+            }
+            looted.add(CaveSearch.key(b[0], b[1])); // not a real cave (biome rejected): skip it
+        }
+        return Optional.empty();
     }
 }

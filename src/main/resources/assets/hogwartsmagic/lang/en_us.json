@@ -952,6 +952,8 @@
   "effect.hogwartsmagic.unquenchable_thirst.description": "A dry ache that wears at you. Only the cave's own cure lifts it; milk cannot.",
   "death.attack.hogwartsmagic.blood_toll": "%1$s paid the cave's toll with their life",
   "death.attack.hogwartsmagic.blood_toll.player": "%1$s paid the cave's toll with their life whilst fighting %2$s",
+  "item.hogwartsmagic.cave_memory": "Memory of the Cave",
+  "item.hogwartsmagic.cave_map": "Cave Map",
   "item.hogwartsmagic.slytherins_locket": "Slytherin's Locket",
   "item.hogwartsmagic.slytherins_locket.lore": "Something inside it is still alive.",
   "entity.hogwartsmagic.cave_boat": "Cave Boat",

@@ -1974,6 +1974,8 @@ def death_eater_camp():
     # Only two 5x5 pads in the whole clearing are actually clear -- the bare ground reads as 75% of
     # the middle band but it is scattered cell by cell, not pooled, so two is the honest capacity.
     camp_tent(b, 6, 10, +1, 86)          # west-north-west, opening toward the fire
+    # The first tent's stash is a real chest: camp loot, with a small chance of a Memory of the Cave.
+    chest(b, (5, 1, 11), 'east', 'hogwartsmagic:chests/death_eater_camp')
     camp_tent(b, 19, 18, -1, 87)         # south-east, opening toward the fire
     camp_kit(b)
     banner_frames(b)

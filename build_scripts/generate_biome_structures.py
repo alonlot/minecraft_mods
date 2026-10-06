@@ -2822,17 +2822,81 @@ def hogwarts_ruin_camp():
 
 LOCKET_ROCK = [('minecraft:deepslate', 5), ('minecraft:tuff', 2), ('minecraft:blackstone', 2),
                ('minecraft:basalt', 1)]
+LOCKET_ROCK_NAMES = {n for n, _ in LOCKET_ROCK}
+CAVE_CX, CAVE_CZ = 32, 40
+
+
+def vnoise(x, z, scale, salt):
+    """Smooth 0..1 value noise: the hash on a coarse grid, blended, so outlines wander gently."""
+    gx, gz = x / float(scale), z / float(scale)
+    i, j = math.floor(gx), math.floor(gz)
+    fx, fz = gx - i, gz - j
+    fx, fz = fx * fx * (3 - 2 * fx), fz * fz * (3 - 2 * fz)
+    a = noise(i, 0, j, salt)
+    c = noise(i + 1, 0, j, salt)
+    d = noise(i, 0, j + 1, salt)
+    e = noise(i + 1, 0, j + 1, salt)
+    return (a * (1 - fx) + c * fx) * (1 - fz) + (d * (1 - fx) + e * fx) * fz
+
+
+def cave_headland_height(x, z):
+    """Top surface of the headland at (x, z), or None outside it. Smooth, tapering to the sea."""
+    cx, cz = CAVE_CX, CAVE_CZ
+
+    def slope(t, peak):
+        # t is 0 at the crest, 1 at sea level; beyond 1 it keeps falling into the water.
+        if t < 1:
+            return 22 + peak * (1 - t) ** 0.7
+        return 22 - 14 * (t - 1) / 0.35
+
+    dx, dz = (x - cx) / 31.0, (z - cz) / 24.0
+    ang = math.atan2(dz, dx)
+    rr = math.hypot(dx, dz) * (1 + 0.07 * math.sin(3 * ang + 1.0) + 0.05 * math.sin(5 * ang + 2.0)
+                               + (vnoise(x, z, 6, 1) - 0.5) * 0.12)
+    h = slope(rr, 15) if rr < 1.4 else None
+
+    # spur running north to the sea cliff, with a wandering outline and a ragged cliff edge
+    dxa = abs(x - 32)
+    zc = 1 + 5 * min(1.0, max(0.0, dxa - 2) / 5.0) * vnoise(x, 0, 4, 3)
+    if z >= zc and z <= 30:
+        wz = 8.5 + 2.5 * math.sin(z * 0.4 + 1.3) + 3 * vnoise(0, z, 5, 2)
+        s = dxa / wz
+        if s < 1.4:
+            hs = 22 + 9 * (1 - s) ** 0.6 if s < 1 else 22 - 14 * (s - 1) / 0.4
+            h = hs if h is None else max(h, hs)
+    if h is None:
+        return None
+    h += (vnoise(x, z, 3, 7) - 0.5) * 3
+
+    # structural needs: roof over the cavern and ledge, over the antechamber and the tunnel
+    d2 = ((x - cx) / 24.0) ** 2 + ((z - cz) / 20.0) ** 2
+    if d2 <= 1.0:
+        ct = 22 + 14 * math.sqrt(1.0 - d2)
+        h = max(h, ct + 2.5, 27)
+    elif d2 <= 1.96:
+        d = math.sqrt(d2)
+        h = max(h, 27 - 19 * (d - 1.05) / 0.35 if d > 1.05 else 27)
+    for x0, x1, z0, z1, need in ((26, 38, 7, 21, 30), (29, 35, 1, 8, 27)):
+        d = math.hypot(max(x0 - x, 0, x - x1), max(z0 - z, 0, z - z1))
+        if d < 6:
+            h = max(h, need - (need - 18) * d / 6.0)
+    if z < zc:
+        return None
+    return int(round(h)) if h >= 12 else None
 
 
 def locket_cave():
     """The Locket cave: a rock headland on a stony shore with a sea-level lake hollowed inside.
 
-    Local frame 64x64x40, sea level local Y=22. Lake water top is Y=21, island and ledge are solid
-    to Y=22 (walk surface 23). Entry: a Revelio-sealed crack in the north cliff -> swim tunnel ->
-    antechamber -> Blood Seal arch (z=17) -> shore landing with the hidden chain -> ledge.
+    Local frame 64x64x40, sea level local Y=22, lake water top Y=21. Island, ledge, landing and
+    the antechamber floor are all solid to Y=22 (walk surface 23), so the whole route is flush.
+    Entry: a Revelio-sealed crack in the north cliff (and a second one in the headland top, over a
+    shaft) -> swim tunnel -> antechamber -> Blood Seal arch (z=17) -> shore landing with the
+    hidden chain -> ledge ring and lake. Every carved cell is written as air: a template only
+    overwrites what it lists, so an omitted cell would keep the stone or sea already there.
     """
     b = {}
-    cx, cz = 32, 40
+    cx, cz = CAVE_CX, CAVE_CZ
 
     def cav_norm(x, y, z):
         return ((x - cx) / 24.0) ** 2 + ((y - 22) / 14.0) ** 2 + ((z - cz) / 20.0) ** 2
@@ -2844,139 +2908,171 @@ def locket_cave():
         e = 1.0 - ((x - cx) / 24.0) ** 2 - ((z - cz) / 20.0) ** 2
         return 22 + 14 * math.sqrt(e) if e > 0 else None
 
-    def in_antechamber(x, y, z):
-        return 28 <= x <= 36 and 22 <= y <= 26 and 8 <= z <= 16
-
-    def in_vestibule(x, y, z):
-        return 28 <= x <= 36 and 23 <= y <= 27 and 18 <= z <= 21
-
-    # --- rock mass: dome plus a spur running north to the cliff face -------------------------
     height = {}
     for x in range(64):
         for z in range(64):
-            r = math.hypot(x - cx, z - cz)
-            h = None
-            if r <= 32:
-                h = 22 + 15 * (1 - r / 32.0)
-            dx = abs(x - 32)
-            if z <= 21 and dx < 12:
-                s = 22 + min(9.0, 13.0 * (1 - dx / 12.0))
-                h = s if h is None else max(h, s)
-            if h is None:
-                continue
-            h += (noise(x, 0, z, 11) - 0.5) * 4 if r > 6 else 0
-            ct = cav_top(x, z)
-            if ct is not None:
-                h = max(h, ct + 2.5)
-            if 27 <= x <= 37 and 7 <= z <= 21:
-                h = max(h, 29)
-            if ((x - cx) / 24.0) ** 2 + ((z - cz) / 20.0) ** 2 <= 1.3:
-                h = max(h, 27)      # roof over the ledge ring, which has headroom carved out
-            height[(x, z)] = min(39, int(round(h)))
+            h = cave_headland_height(x, z)
+            if h is not None:
+                height[(x, z)] = min(39, h)
+    # the top crack: a 2x2 shaft above the swim tunnel, flat so the cap sits level
+    shaft = [(31, 4), (32, 4), (31, 5), (32, 5)]
+    top = max(height[p] for p in shaft)
+    for p in shaft:
+        height[p] = top
     for (x, z), h in height.items():
         for y in range(4, h + 1):
             b[(x, y, z)] = (tex(LOCKET_ROCK, x, y, z, 5), None, None)
 
     # --- cavern, lake floor at Y=12 ---------------------------------------------------------
-    for x in range(64):
-        for z in range(64):
-            for y in range(8, 37):
-                if (x, y, z) in b and in_cavern(x, y, z):
-                    if y < 12:
-                        continue
-                    del b[(x, y, z)]
-                    if y <= 21:
-                        put(b, (x, y, z), 'minecraft:water')
+    for (x, z), h in height.items():
+        for y in range(12, 37):
+            if in_cavern(x, y, z):
+                b[(x, y, z)] = ('minecraft:water' if y <= 21 else 'minecraft:air', None, None)
 
-    # --- island ----------------------------------------------------------------------------
+    # --- island: radius 5, top Y=22 ------------------------------------------------------------
     for x in range(26, 39):
         for z in range(34, 47):
-            d = math.hypot(x - cx, z - cz)
-            if d <= 4.4 + noise(x, 3, z, 21) * 0.6:
+            if (x - cx) ** 2 + (z - cz) ** 2 <= 25:
                 for y in range(12, 23):
                     put(b, (x, y, z), 'minecraft:blackstone')
                 for y in range(23, 27):
-                    b.pop((x, y, z), None)
+                    put(b, (x, y, z), 'minecraft:air')
 
-    # --- ledge ring at Y=22 (walk 23), headroom carved above ---------------------------------
-    for x in range(64):
-        for z in range(64):
-            d = math.sqrt(((x - cx) / 24.0) ** 2 + ((z - cz) / 20.0) ** 2)
-            if 0.9 <= d <= 1.0:
-                put(b, (x, 22, z), 'minecraft:blackstone')
-                for y in range(23, 25):
-                    b.pop((x, y, z), None)
-    # the boat glides from the landing straight to the island: open water at the shore, no ledge
+    # --- ledge ring at Y=22 (walk 23), headroom above ---------------------------------------
+    for (x, z) in height:
+        d = math.sqrt(((x - cx) / 24.0) ** 2 + ((z - cz) / 20.0) ** 2)
+        if 0.9 <= d <= 1.0:
+            put(b, (x, 22, z), 'minecraft:blackstone')
+            for y in (23, 24):
+                put(b, (x, y, z), 'minecraft:air')
+    # open water at the shore so the boat runs landing -> island with nothing above Y=21
     for x in range(31, 34):
         for z in range(22, 36):
-            b.pop((x, 22, z), None)
+            put(b, (x, 22, z), 'minecraft:air')
 
-    # --- antechamber, vestibule, landing, pool, tunnel ---------------------------------------
+    # --- antechamber (floor Y=22, walk 23), vestibule/landing (same floor), pool, tunnel ------
     for x in range(28, 37):
-        for y in range(22, 27):
-            for z in range(8, 17):
-                b.pop((x, y, z), None)
-    for x in range(28, 37):
-        for y in range(23, 28):
-            for z in range(18, 22):
-                b.pop((x, y, z), None)
-    for x in range(28, 37):
-        for z in range(18, 22):
+        for z in list(range(8, 17)) + list(range(18, 22)):
             put(b, (x, 22, z), 'minecraft:blackstone')
-    # antechamber floor (walk surface 22)
-    for x in range(28, 37):
-        for z in range(8, 17):
-            put(b, (x, 21, z), 'minecraft:blackstone')
-    # entry pool cut into the floor, joined to the tunnel
+            for y in range(23, 28):
+                put(b, (x, y, z), 'minecraft:air')
+    # entry pool cut into the antechamber floor, water top level with the floor
     for x in range(30, 35):
         for z in range(8, 11):
-            for y in range(19, 22):
+            for y in range(19, 23):
                 put(b, (x, y, z), 'minecraft:water')
-    for z in range(2, 8):
+    # swim tunnel (z3..7) and its two entrances
+    for z in range(3, 8):
         for x in range(31, 34):
             for y in range(19, 22):
                 put(b, (x, y, z), 'minecraft:water')
     for x in range(31, 34):
         for y in range(19, 24):
-            for z in range(0, 2):
+            for z in (1, 2):
                 put(b, (x, y, z), 'hogwartsmagic:concealed_rock', {'revealed': 'false'})
-    # seal wall z=17, sealed rock except the arch
+    for (x, z) in shaft:
+        for y in range(22, top - 2):
+            put(b, (x, y, z), 'minecraft:air')
+        for y in range(top - 2, top + 1):
+            put(b, (x, y, z), 'hogwartsmagic:concealed_rock', {'revealed': 'false'})
+    # seal wall z=17: rock except the arch
     for x in range(26, 39):
-        for y in range(22, 29):
-            put(b, (x, y, 17), tex(LOCKET_ROCK, x, y, 17, 5))
+        for y in range(23, 31):
+            if (x, 17) in height:
+                put(b, (x, y, 17), tex(LOCKET_ROCK, x, y, 17, 5))
     for x in range(30, 35):
-        for y in range(22, 26):
-            if y == 25 and x in (30, 34):
+        for y in range(23, 27):
+            if y == 26 and x in (30, 34):
                 continue
             put(b, (x, y, 17), 'hogwartsmagic:blood_seal', {'facing': 'north', 'open': 'false'})
     put(b, (32, 23, 19), 'hogwartsmagic:hidden_chain', {'revealed': 'false'})
 
     # --- stalactites, clear of the boat line (x 28..36) and the island ---------------------------
-    for x in range(64):
-        for z in range(64):
-            if abs(x - 32) <= 4 or math.hypot(x - cx, z - cz) <= 7:
-                continue
-            ct = cav_top(x, z)
-            if ct is None or noise(x, 5, z, 31) < 0.94:
-                continue
-            top = int(math.floor(ct))
-            if (x, top, z) not in b and in_cavern(x, top, z):
-                for y in range(top, top - 1 - int(1 + noise(x, 6, z, 32) * 3), -1):
-                    if (x, y, z) not in b and in_cavern(x, y, z) and y > 24:
-                        put(b, (x, y, z), 'minecraft:dripstone_block')
+    for (x, z) in height:
+        if abs(x - 32) <= 4 or math.hypot(x - cx, z - cz) <= 7:
+            continue
+        ct = cav_top(x, z)
+        if ct is None or noise(x, 5, z, 31) < 0.94:
+            continue
+        ytop = int(math.floor(ct))
+        if b.get((x, ytop, z), ('',))[0] == 'minecraft:air':
+            for y in range(ytop, ytop - 1 - int(1 + noise(x, 6, z, 32) * 3), -1):
+                if y > 24 and b.get((x, y, z), ('',))[0] == 'minecraft:air' and in_cavern(x, y, z):
+                    put(b, (x, y, z), 'minecraft:dripstone_block')
 
     # --- basin and goblet ------------------------------------------------------------------
     put(b, (32, 23, 40), 'hogwartsmagic:despair_basin', {'stage': 'full', 'locket': 'false'})
     put(b, (33, 23, 40), 'hogwartsmagic:crystal_goblet')
 
-    # --- lake floor and ledge bordering rock goes blackstone -----------------------------------
+    # --- lake floor, shore and ledge rock go blackstone ----------------------------------------
     for pos in [p for p, v in b.items() if v[0] == 'minecraft:water']:
         x, y, z = pos
         for dx, dy, dz in ((1, 0, 0), (-1, 0, 0), (0, 0, 1), (0, 0, -1), (0, -1, 0)):
             q = (x + dx, y + dy, z + dz)
-            if q in b and b[q][0] in {n for n, _ in LOCKET_ROCK}:
+            if q in b and b[q][0] in LOCKET_ROCK_NAMES:
                 put(b, q, 'minecraft:blackstone')
+
+    # --- any carved cell still unwritten inside the headland is air, never absent ----------------
+    for (x, z), h in height.items():
+        for y in range(4, h + 1):
+            if (x, y, z) not in b:
+                put(b, (x, y, z), 'minecraft:air')
     return b, []
+
+
+def audit_locket_cave(blocks):
+    """A template only overwrites listed cells, so a missing cell inside the headland is a hole in
+    the cave walls that the sea or terrain fills in. Also checks the cave is watertight and that
+    the seal is the only way from the antechamber to the cavern."""
+    problems = []
+    cols = {}
+    for (x, y, z) in blocks:
+        cols.setdefault((x, z), []).append(y)
+    for (x, z), ys in cols.items():
+        top = max(ys)
+        missing = [y for y in range(4, top + 1) if (x, y, z) not in blocks]
+        if min(ys) != 4 or missing:
+            problems.append('column %d,%d is not solid from Y=4 to its top (missing %s)'
+                            % (x, z, missing[:3] or 'base'))
+            if len(problems) > 5:
+                return problems
+
+    def is_open(p):
+        v = blocks.get(p)
+        return v is not None and v[0] in ('minecraft:air', 'minecraft:water')
+
+    def flood(start):
+        seen, stack = {start}, [start]
+        while stack:
+            x, y, z = stack.pop()
+            for d in ((1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)):
+                n = (x + d[0], y + d[1], z + d[2])
+                if n not in seen and is_open(n):
+                    seen.add(n)
+                    stack.append(n)
+        return seen
+
+    for name, start in (('antechamber', (32, 24, 12)), ('cavern', (32, 24, 25))):
+        comp = flood(start)
+        for (x, y, z) in comp:
+            for d in ((1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)):
+                if (x + d[0], y + d[1], z + d[2]) not in blocks:
+                    problems.append('%s is open to the outside at %s' % (name, (x, y, z)))
+                    return problems
+        if name == 'antechamber':
+            if (32, 24, 19) in comp or (32, 24, 40) in comp:
+                problems.append('the antechamber reaches the cavern other than through the seal')
+            if (32, 20, 5) not in comp or (31, 23, 4) not in comp:
+                problems.append('tunnel and top shaft are not joined to the antechamber')
+        else:
+            if (32, 24, 12) in comp or (32, 20, 5) in comp:
+                problems.append('the cavern reaches the antechamber or tunnel')
+    flat = {blocks[(x, 22, z)][0] for x in range(28, 37)
+            for z in list(range(8, 17)) + list(range(18, 22))
+            if not (30 <= x <= 34 and 8 <= z <= 10)}
+    if flat != {'minecraft:blackstone'}:
+        problems.append('antechamber and landing floors are not one flush Y=22 surface')
+    return problems
 
 
 BUILDS = {
@@ -3232,6 +3328,8 @@ if __name__ == '__main__':
                     + audit_paintings(blocks, entities))
         if name == 'chamber_hall':
             problems += audit_chamber_seal(blocks, size)
+        if name == 'locket_cave':
+            problems += audit_locket_cave(blocks)
         path = os.path.join(OUT, name + '.nbt')
         write_nbt(path, build_template(blocks, entities))
         kinds = len({v[0] for v in blocks.values()})

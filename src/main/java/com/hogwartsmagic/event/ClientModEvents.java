@@ -949,6 +949,8 @@ public class ClientModEvents {
                 com.hogwartsmagic.client.model.MerchieftainessCrownModel::createBodyLayer);
         event.registerLayerDefinition(com.hogwartsmagic.client.model.GrindylowModel.LAYER_LOCATION,
                 com.hogwartsmagic.client.model.GrindylowModel::createBodyLayer);
+        event.registerLayerDefinition(com.hogwartsmagic.client.model.InferiusModel.LAYER_LOCATION,
+                com.hogwartsmagic.client.model.InferiusModel::createBodyLayer);
         event.registerLayerDefinition(com.hogwartsmagic.client.model.WhompingWillowModel.LAYER_LOCATION,
                 com.hogwartsmagic.client.model.WhompingWillowModel::createBodyLayer);
         // Named LAYER, not LAYER_LOCATION like its neighbours -- the statue's model is emitted by

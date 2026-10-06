@@ -1,21 +1,23 @@
 package com.hogwartsmagic.client.renderer;
 
 import com.hogwartsmagic.ExampleMod;
+import com.hogwartsmagic.client.model.InferiusModel;
 import com.hogwartsmagic.entity.InferiusEntity;
-import net.minecraft.client.model.HumanoidModel;
-import net.minecraft.client.model.geom.ModelLayers;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
-import net.minecraft.client.renderer.entity.HumanoidMobRenderer;
+import net.minecraft.client.renderer.entity.MobRenderer;
 import net.minecraft.resources.ResourceLocation;
 
-/** Placeholder until the Blockbench model lands (Task 3). */
-public class InferiusRenderer extends HumanoidMobRenderer<InferiusEntity, HumanoidModel<InferiusEntity>> {
+/** Renders the Inferius with its Blockbench model. No glowing layer: the sockets are dead. */
+public class InferiusRenderer extends MobRenderer<InferiusEntity, InferiusModel> {
     private static final ResourceLocation TEXTURE =
             ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "textures/entity/inferius.png");
 
     public InferiusRenderer(EntityRendererProvider.Context ctx) {
-        super(ctx, new HumanoidModel<>(ctx.bakeLayer(ModelLayers.ZOMBIE)), 0.5F);
+        super(ctx, new InferiusModel(ctx.bakeLayer(InferiusModel.LAYER_LOCATION)), 0.5F);
     }
 
-    @Override public ResourceLocation getTextureLocation(InferiusEntity e) { return TEXTURE; }
+    @Override
+    public ResourceLocation getTextureLocation(InferiusEntity entity) {
+        return TEXTURE;
+    }
 }

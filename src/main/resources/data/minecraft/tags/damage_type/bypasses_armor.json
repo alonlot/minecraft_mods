@@ -1,6 +1,7 @@
 {
   "replace": false,
   "values": [
-    "hogwartsmagic:bleeding"
+    "hogwartsmagic:bleeding",
+    "hogwartsmagic:petrification"
   ]
 }

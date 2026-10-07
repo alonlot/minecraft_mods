@@ -152,6 +152,10 @@ public final class Config {
             .comment("Combat: duration multiplier for hard crowd control between players while pvpCrowdControlReduction is on.")
             .defineInRange("pvpCrowdControlMultiplier", 0.6, 0.0, 1.0);
 
+    public static final ForgeConfigSpec.IntValue PETRIFICATION_MAX_SECONDS = BUILDER
+            .comment("Basilisk: a player turned to stone gives in automatically after this many seconds of game time (time logged out counts). 0 = never.")
+            .defineInRange("petrificationMaxSeconds", 0, 0, 86400);
+
     public static final ForgeConfigSpec.BooleanValue APPARITION_SPLINCHING = BUILDER
             .comment("Apparition: if false, nobody is ever Splinched.")
             .define("apparitionSplinching", true);
@@ -230,6 +234,7 @@ public final class Config {
 
     public static boolean pvpCrowdControlReduction = true;
     public static double pvpCrowdControlMultiplier = 0.6;
+    public static int petrificationMaxSeconds = 0;
     public static boolean apparitionSplinching = true;
     public static double apparitionSplinchChance = 0.10;
 
@@ -283,6 +288,7 @@ public final class Config {
         tomeEpicChestChance = TOME_EPIC_CHEST_CHANCE.get();
         pvpCrowdControlReduction = PVP_CROWD_CONTROL_REDUCTION.get();
         pvpCrowdControlMultiplier = PVP_CROWD_CONTROL_MULTIPLIER.get();
+        petrificationMaxSeconds = PETRIFICATION_MAX_SECONDS.get();
         imperioAffectsPlayers = IMPERIO_AFFECTS_PLAYERS.get();
         apparitionSplinching = APPARITION_SPLINCHING.get();
         apparitionSplinchChance = APPARITION_SPLINCH_CHANCE.get();
@@ -403,6 +409,11 @@ public final class Config {
     /** Duration multiplier for hard crowd control between players; 1.0 when the reduction is switched off. */
     public static double getPvpCrowdControlMultiplier() {
         return pvpCrowdControlReduction ? pvpCrowdControlMultiplier : 1.0;
+    }
+
+    /** Seconds a player may stay stone before giving in automatically; 0 = no limit. */
+    public static int getPetrificationMaxSeconds() {
+        return petrificationMaxSeconds;
     }
 
     /** Imperio thralls and possession on players; mobs are always fair game. */

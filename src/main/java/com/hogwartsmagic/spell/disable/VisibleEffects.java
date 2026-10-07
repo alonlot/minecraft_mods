@@ -29,7 +29,9 @@ public final class VisibleEffects {
     }
 
     public static boolean isVisible(MobEffect effect) {
-        return effect == ExampleMod.LEVICORPUS_EFFECT.get() || effect == ExampleMod.PETRIFIED.get();
+        // Basilisk stone too: watchers draw the stone tint, and a rescuer's client offers the Mandrake cure.
+        return effect == ExampleMod.LEVICORPUS_EFFECT.get() || effect == ExampleMod.PETRIFIED.get()
+                || effect == ExampleMod.BASILISK_PETRIFICATION.get();
     }
 
     @SubscribeEvent(priority = EventPriority.LOWEST)

@@ -82,7 +82,8 @@ public final class CombatEffects {
                 return false;
             }
         }
-        return entity.hasEffect(holder);
+        // Basilisk stone (an infinite basilisk_petrification) locks everything a stun does.
+        return entity.hasEffect(holder) || com.hogwartsmagic.petrification.Petrification.isPetrified(entity);
     }
 
     public static boolean isSilenced(LivingEntity entity) {
@@ -113,7 +114,9 @@ public final class CombatEffects {
     }
 
     public static void notifyCastBlocked(Player player) {
-        String key = isStunned(player)
+        String key = com.hogwartsmagic.petrification.Petrification.isPetrified(player)
+                ? "gui." + ExampleMod.MODID + ".combat.cast_blocked_petrified"
+                : isStunned(player)
                 ? "gui." + ExampleMod.MODID + ".combat.cast_blocked_stunned"
                 : "gui." + ExampleMod.MODID + ".combat.cast_blocked_silenced";
         player.displayClientMessage(Component.translatable(key).withStyle(ChatFormatting.RED), true);

@@ -46,7 +46,7 @@ public class SpellPackets {
 
     public static final SimpleChannel CHANNEL = ChannelBuilder
             .named(ExampleMod.MODID + ":spells")
-            .networkProtocolVersion(7)
+            .networkProtocolVersion(8)
             .simpleChannel();
 
     public static void register() {
@@ -519,6 +519,11 @@ public class SpellPackets {
                 .encoder((p, buf) -> buf.writeFloat(p.darkness))
                 .decoder(buf -> new SyncDarkMagicPacket(buf.readFloat()))
                 .consumerMainThread(SyncDarkMagicPacket::handle)
+                .add();
+        CHANNEL.messageBuilder(GiveInPacket.class)
+                .encoder((p, buf) -> {})
+                .decoder(buf -> new GiveInPacket())
+                .consumerMainThread(GiveInPacket::handle)
                 .add();
     }
 
@@ -1747,6 +1752,16 @@ public class SpellPackets {
             ServerPlayer player = ctx.getSender();
             if (player != null) {
                 com.hogwartsmagic.spell.mind.PossessionManager.castAsPuppet(player, p.spellId);
+            }
+        }
+    }
+
+    /** Client to server: a petrified player gives in. The server checks the stone state itself (Petrification.giveIn). */
+    public record GiveInPacket() {
+        public static void handle(GiveInPacket p, CustomPayloadEvent.Context ctx) {
+            ServerPlayer player = ctx.getSender();
+            if (player != null) {
+                com.hogwartsmagic.petrification.Petrification.giveIn(player);
             }
         }
     }

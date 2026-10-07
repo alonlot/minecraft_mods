@@ -803,7 +803,8 @@ public class BasiliskEntity extends Monster {
     }
 
     private boolean isValidVictim(LivingEntity candidate) {
-        return candidate != this && candidate.isAlive() && !(candidate instanceof BasiliskEntity);
+        return candidate != this && candidate.isAlive() && !(candidate instanceof BasiliskEntity)
+                && !com.hogwartsmagic.petrification.Petrification.isPetrified(candidate);
     }
 
     /** Horizontal unit vector from this basilisk to the victim, or null if coincident. */
@@ -858,14 +859,16 @@ public class BasiliskEntity extends Monster {
         for (LivingEntity candidate : nearby) {
             UUID id = candidate.getUUID();
             int charge = this.gazeCharge.getOrDefault(id, 0);
-            boolean meeting = gazeAvailable && isMeetingEyes(candidate);
+            // A Mandrake Draught drinker's eyes are steady: the charge drains instead of building.
+            boolean meeting = gazeAvailable && isMeetingEyes(candidate)
+                    && !com.hogwartsmagic.petrification.Petrification.isGazeWarded(candidate);
             charge = meeting ? charge + 1 : charge - GAZE_DECAY_RATE;
             charge = Mth.clamp(charge, 0, GAZE_FULL_CHARGE);
 
             if (charge >= GAZE_FULL_CHARGE) {
                 this.gazeCharge.remove(id);
                 this.gazeTier.remove(id);
-                petrifyAndKill(candidate);
+                petrify(candidate);
                 continue;
             }
 
@@ -952,19 +955,30 @@ public class BasiliskEntity extends Monster {
         return victim.getViewVector(1.0F).normalize().dot(toHead.normalize()) >= VICTIM_AIM_DOT;
     }
 
-    private void petrifyAndKill(LivingEntity victim) {
+    /**
+     * The full gaze. A survival or adventure player turns to stone and chooses to wait or give in (Petrification).
+     * Everyone else keeps the old lethal rule, bosses included: a short petrification, then death (a mob leaves a
+     * statue in ModEvents.onLivingDeath).
+     */
+    private void petrify(LivingEntity victim) {
         victim.removeEffect(ExampleMod.BASILISK_GAZE.getHolder().get());
-        victim.addEffect(new MobEffectInstance(ExampleMod.BASILISK_PETRIFICATION.getHolder().get(),
-                PETRIFY_DURATION, 0, false, true, true));
-        victim.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 20, 6, false, false, false));
-        victim.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 20, 2, false, false, false));
-
         if (this.level() instanceof ServerLevel serverLevel) {
             serverLevel.sendParticles(ParticleTypes.ASH,
                     victim.getX(), victim.getEyeY(), victim.getZ(), 40, 0.4D, 0.8D, 0.4D, 0.02D);
             serverLevel.sendParticles(ParticleTypes.CLOUD,
                     victim.getX(), victim.getY(0.5D), victim.getZ(), 24, 0.3D, 0.6D, 0.3D, 0.01D);
         }
+        boolean exempt = victim instanceof Player player && (player.isCreative() || player.isSpectator());
+        if (victim instanceof ServerPlayer serverPlayer
+                && com.hogwartsmagic.petrification.PetrificationRules.gazeOutcome(true, exempt)
+                == com.hogwartsmagic.petrification.PetrificationRules.GazeOutcome.PETRIFY) {
+            com.hogwartsmagic.petrification.Petrification.petrify(serverPlayer);
+            return;
+        }
+        victim.addEffect(new MobEffectInstance(ExampleMod.BASILISK_PETRIFICATION.getHolder().get(),
+                PETRIFY_DURATION, 0, false, true, true));
+        victim.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 20, 6, false, false, false));
+        victim.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 20, 2, false, false, false));
         if (victim.isAlive()) {
             victim.hurt(this.damageSources().magic(), Float.MAX_VALUE);
         }

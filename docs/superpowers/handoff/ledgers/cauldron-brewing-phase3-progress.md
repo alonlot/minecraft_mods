@@ -12,3 +12,4 @@ Process: Opus for all agents, one implementer at a time (runs after Dark Magic P
 - Out of scope, reported to the user: room signs in Mini Hogwarts are blank in game because the schematic loader ignores block entities (an existing bug).
 
 ## Progress
+- Task 0 done 70dd295 (479 tests, RED seen). Failed give-in re-arms PetrifiedSince (PetrificationRules.giveInFailed); step-0 ADD assert moved ahead of uniqueness; death javadoc corrected (behavior already right). Controller read the diff. Review folded into the final review. T1 dispatched.

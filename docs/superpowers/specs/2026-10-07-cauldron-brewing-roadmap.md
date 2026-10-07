@@ -348,7 +348,7 @@ petrified state survives a relog on a dedicated server.
 ### Later (not planned)
 
 Brewing quality tiers, an "Advanced Potion-Making" book that gates recipes, a datapack recipe format
-with JEI, moving Polyjuice into the cauldron, Veritaserum, Wolfsbane.
+with JEI, Veritaserum, Wolfsbane.
 
 ---
 

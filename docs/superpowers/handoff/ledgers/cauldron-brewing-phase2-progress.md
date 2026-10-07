@@ -8,3 +8,4 @@ Base: 6a0c340 (406 tests green; Dark Magic Phase 1 built, its final review and f
 - Added: the wiki Basilisk entries (MOD_FEATURES_WIKI.md and wiki/data.js) must describe the freeze and the give-in choice in this phase (fix wave), not wait for Phase 3.
 
 ## Progress
+- Brewing P2 T1 done 41c4e55 (420 tests = 406 + 14, RED seen). BASE for this phase = 406. Review dispatched; the Dark Magic Phase 1 fix wave runs before Task 2.

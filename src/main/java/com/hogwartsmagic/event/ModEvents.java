@@ -120,8 +120,6 @@ public class ModEvents {
     private static final int DEATH_EATER_BASE_SPAWN_MAX_DIST = 34;
     private static final int DEATH_EATER_BASE_RAID_RADIUS = 96;
     private static final String TAG_LAST_DEATH_EATER_BASE_RAID = "hogwartsmagic:last_death_eater_base_raid";
-    /** Same stat as phantoms: ticks since last bed / respawn reset (1 day = 24000 ticks). */
-    private static final int DEMENTOR_INSOMNIA_TICKS = 5 * 24000;
     private static final int DEMENTOR_SPAWN_CHECK_INTERVAL = 160;
     private static final float DEMENTOR_SPAWN_CHANCE = 0.07f;
     private static final int DEMENTOR_NEARBY_CAP = 4;
@@ -391,7 +389,9 @@ public class ModEvents {
             return;
         }
         int sinceRest = player.getStats().getValue(Stats.CUSTOM.get(Stats.TIME_SINCE_REST));
-        if (sinceRest < DEMENTOR_INSOMNIA_TICKS) {
+        // Same stat as phantoms. 5 days without rest, or 3 from Tainted (Dark Magic, DarkCostRules).
+        if (sinceRest < com.hogwartsmagic.spell.dark.DarkCostRules.insomniaTicks(
+                com.hogwartsmagic.spell.dark.DarkMagicData.getTier(player))) {
             return;
         }
         java.util.List<com.hogwartsmagic.entity.DementorEntity> existing = level.getEntitiesOfClass(
@@ -1329,8 +1329,10 @@ public class ModEvents {
     }
 
     public static float getPatronusShieldUpkeepCost(Player player, ItemStack wand) {
-        return Math.max(1.5f, (SpellType.EXPECTO_PATRONUM.getManaCost() * MagicWandItem.getManaCostMultiplier(wand)
+        float upkeep = Math.max(1.5f, (SpellType.EXPECTO_PATRONUM.getManaCost() * MagicWandItem.getManaCostMultiplier(wand)
                 * SpellCosts.masteryMultiplier(player, SpellType.EXPECTO_PATRONUM)) / 30.0f);
+        // Dark Magic: from Corrupted the shield costs half as much again to hold (and to raise).
+        return upkeep * com.hogwartsmagic.spell.dark.DarkCosts.shieldUpkeepMultiplier(player);
     }
 
     private static void tickFiendfyreChannel(ServerPlayer player, net.minecraft.nbt.CompoundTag modData) {

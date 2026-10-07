@@ -164,6 +164,14 @@ public final class Config {
             .comment("Imperio: if true, players can be enthralled (ranks I-III) and possessed (Master). Mobs are always allowed.")
             .define("imperioAffectsPlayers", true);
 
+    public static final ForgeConfigSpec.IntValue SNEAKOSCOPE_RANGE = BUILDER
+            .comment("Sneakoscope: range in blocks for Death Eaters, Voldemort and Dementors.")
+            .defineInRange("sneakoscopeRange", 16, 4, 64);
+
+    public static final ForgeConfigSpec.IntValue SNEAKOSCOPE_DARK_MARK_RANGE = BUILDER
+            .comment("Sneakoscope: range in blocks for the Dark Mark, which hangs high in the sky.")
+            .defineInRange("sneakoscopeDarkMarkRange", 48, 8, 128);
+
     static final ForgeConfigSpec SPEC = BUILDER.build();
 
     public static double baseMaxMana = 100;
@@ -204,6 +212,8 @@ public final class Config {
     public static double apparitionSplinchChance = 0.10;
 
     public static boolean imperioAffectsPlayers = true;
+    public static int sneakoscopeRange = 16;
+    public static int sneakoscopeDarkMarkRange = 48;
 
     private Config() {
     }
@@ -249,6 +259,8 @@ public final class Config {
         imperioAffectsPlayers = IMPERIO_AFFECTS_PLAYERS.get();
         apparitionSplinching = APPARITION_SPLINCHING.get();
         apparitionSplinchChance = APPARITION_SPLINCH_CHANCE.get();
+        sneakoscopeRange = SNEAKOSCOPE_RANGE.get();
+        sneakoscopeDarkMarkRange = SNEAKOSCOPE_DARK_MARK_RANGE.get();
         if (!com.hogwartsmagic.spell.mastery.MasteryMath.thresholdsValid(masteryXpAdept, masteryXpExpert, masteryXpMaster)) {
             LOGGER.warn("Spell mastery XP thresholds {} / {} / {} are not strictly rising; using the defaults 30 / 120 / 350.",
                     masteryXpAdept, masteryXpExpert, masteryXpMaster);
@@ -371,5 +383,13 @@ public final class Config {
 
     public static double getApparitionSplinchChance() {
         return apparitionSplinchChance;
+    }
+
+    public static int getSneakoscopeRange() {
+        return sneakoscopeRange;
+    }
+
+    public static int getSneakoscopeDarkMarkRange() {
+        return sneakoscopeDarkMarkRange;
     }
 }

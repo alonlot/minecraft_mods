@@ -88,6 +88,11 @@ public class ExampleMod
                     .networkSynchronized(net.minecraft.network.codec.ByteBufCodecs.VAR_INT.map(
                             com.hogwartsmagic.spell.motion.AlatusRules::clampQuality, q -> q))
                     .build());
+    /** Sneakoscope: true while a carried Sneakoscope detects something. Synced to clients, never saved (transient). */
+    public static final RegistryObject<net.minecraft.core.component.DataComponentType<Boolean>> SNEAKOSCOPE_SPINNING =
+            DATA_COMPONENTS.register("sneakoscope_spinning", () -> net.minecraft.core.component.DataComponentType.<Boolean>builder()
+                    .networkSynchronized(net.minecraft.network.codec.ByteBufCodecs.BOOL)
+                    .build());
 
     public static final RegistryObject<com.mojang.serialization.MapCodec<com.hogwartsmagic.loot.MagicBookLootModifier>> MAGIC_BOOK_LOOT_MODIFIER =
             LOOT_MODIFIER_SERIALIZERS.register("magic_books", () -> com.hogwartsmagic.loot.MagicBookLootModifier.CODEC);
@@ -270,6 +275,17 @@ public class ExampleMod
             BLOCK_ENTITY_TYPES.register("wizard_cauldron", () -> BlockEntityType.Builder.of(
                     com.hogwartsmagic.block.entity.WizardCauldronBlockEntity::new,
                     WIZARD_CAULDRON.get()
+            ).build(null));
+    public static final RegistryObject<Block> SNEAKOSCOPE = BLOCKS.register("sneakoscope",
+            () -> new com.hogwartsmagic.block.SneakoscopeBlock(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.GOLD)
+                    .strength(0.5f)
+                    .sound(net.minecraft.world.level.block.SoundType.GLASS)
+                    .pushReaction(net.minecraft.world.level.material.PushReaction.DESTROY)));
+    public static final RegistryObject<BlockEntityType<com.hogwartsmagic.block.entity.SneakoscopeBlockEntity>> SNEAKOSCOPE_BLOCK_ENTITY =
+            BLOCK_ENTITY_TYPES.register("sneakoscope", () -> BlockEntityType.Builder.of(
+                    com.hogwartsmagic.block.entity.SneakoscopeBlockEntity::new,
+                    SNEAKOSCOPE.get()
             ).build(null));
     public static final RegistryObject<Block> OWL_PERCH = BLOCKS.register("owl_perch",
             () -> new com.hogwartsmagic.block.OwlPerchBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.OAK_FENCE).strength(1.0f)));
@@ -516,6 +532,8 @@ public class ExampleMod
     public static final RegistryObject<Item> ENCHANTED_BOOK_PILE_ITEM = ITEMS.register("enchanted_book_pile", () -> new BlockItem(ENCHANTED_BOOK_PILE.get(), new Item.Properties()));
     public static final RegistryObject<Item> DIAGON_ARCHWAY_BRICK_ITEM = ITEMS.register("diagon_archway_brick", () -> new BlockItem(DIAGON_ARCHWAY_BRICK.get(), new Item.Properties()));
     public static final RegistryObject<Item> WIZARD_CAULDRON_ITEM = ITEMS.register("wizard_cauldron", () -> new BlockItem(WIZARD_CAULDRON.get(), new Item.Properties()));
+    public static final RegistryObject<Item> SNEAKOSCOPE_ITEM = ITEMS.register("sneakoscope",
+            () -> new com.hogwartsmagic.item.SneakoscopeItem(SNEAKOSCOPE.get(), new Item.Properties().stacksTo(1)));
     public static final RegistryObject<Item> OWL_PERCH_ITEM = ITEMS.register("owl_perch", () -> new BlockItem(OWL_PERCH.get(), new Item.Properties()));
     public static final RegistryObject<Item> FLOO_FIREPLACE_ITEM = ITEMS.register("floo_fireplace", () -> new BlockItem(FLOO_FIREPLACE.get(), new Item.Properties()));
     public static final RegistryObject<Item> WARD_ITEM = ITEMS.register("ward", () -> new BlockItem(WARD.get(), new Item.Properties()));
@@ -824,6 +842,7 @@ public class ExampleMod
                 output.accept(CANDLE_CLUSTER_ITEM.get());
                 output.accept(ENCHANTED_BOOK_PILE_ITEM.get());
                 output.accept(WIZARD_CAULDRON_ITEM.get());
+                output.accept(SNEAKOSCOPE_ITEM.get());
                 output.accept(DIAGON_ARCHWAY_BRICK_ITEM.get());
                 output.accept(OWL_PERCH_ITEM.get());
                 output.accept(FLOO_FIREPLACE_ITEM.get());

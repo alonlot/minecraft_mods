@@ -983,5 +983,7 @@
   "message.hogwartsmagic.cauldron.status.ruined": "Ruined.",
   "brew.hogwartsmagic.wiggenweld": "Wiggenweld Potion",
   "brew.hogwartsmagic.pepperup": "Pepperup Potion",
-  "brew.hogwartsmagic.polyjuice": "Polyjuice Potion"
+  "brew.hogwartsmagic.polyjuice": "Polyjuice Potion",
+  "block.hogwartsmagic.sneakoscope": "Sneakoscope",
+  "item.hogwartsmagic.sneakoscope.tooltip": "Spins and whistles when a Death Eater, a Dementor or the Dark Mark is near. Place it for a redstone signal."
 }

@@ -97,17 +97,17 @@ Line numbers drift. Find each spot by its text.
 
    | Spell | Darkness per cast | Cooldown (ticks) | Casts from 0 to tier 3 (60) |
    |---|---|---|---|
-   | Avada Kedavra | 8 | 12000 | 8 |
-   | Fiendfyre | 3 | 300 | 20 |
-   | Morsmordre | 3 | 1200 | 20 |
-   | Imperio | 2 | 200 | 30 |
-   | Crucio | 1.5 | 100 | 40 |
-   | Tenebris Flight | 0.75 | 400 | 80 |
-   | Sectumsempra | 0.5 | 60 | 120 |
-   | Dolohov's Curse | 0.5 | 100 | 120 |
-   | Serpensortia | 0.4 | 200 | 150 |
+   | Avada Kedavra | 6 | 12000 | 10 |
+   | Fiendfyre | 2.5 | 300 | 24 |
+   | Morsmordre | 2.5 | 1200 | 24 |
+   | Imperio | 1.5 | 200 | 40 |
+   | Crucio | 1.2 | 100 | 50 |
+   | Tenebris Flight | 0.6 | 400 | 100 |
+   | Sectumsempra | 0.4 | 60 | 150 |
+   | Dolohov's Curse | 0.4 | 100 | 150 |
+   | Serpensortia | 0.3 | 200 | 200 |
 
-   **Slower gain (user ruling, 2026-10-07):** every value is about 25% lower than the first draft
+   **Slower gain (user rulings, 2026-10-07):** lowered twice, to about 60% of the first draft
    (Avada 10, Fiendfyre 4, Morsmordre 4, Imperio 3, Crucio 2, Tenebris 1, Sectumsempra 0.75,
    Dolohov 0.75, Serpensortia 0.5). `darkMagicGainMultiplier` (default 1.0) still scales the whole
    table for a server that wants it faster or slower.
@@ -116,7 +116,7 @@ Line numbers drift. Find each spot by its text.
    player.** That is intended. It is also why the rewards in tier 3 and 4 exist.
 4. **Extra Darkness for deeds:**
    - An Avada kill of an innocent (villager, Student, House Elf, any mob for which
-     `MasteryAwards.isPassive` is true): +4 (first draft: +5).
+     `MasteryAwards.isPassive` is true): +3 (first draft: +5).
    - Making a Horcrux: +30, and **a floor of 60 while the Horcrux exists** (Darkness cannot decay below
      it). When the Horcrux shatters or is destroyed, the floor goes.
 5. **Puppets.** A dark cast forced through Imperio possession charges the **puppeteer**, never the

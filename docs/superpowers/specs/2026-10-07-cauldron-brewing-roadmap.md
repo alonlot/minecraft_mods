@@ -27,6 +27,13 @@ Line numbers drift. Find each spot by its text.
 
 - **The cauldron** is `block/WizardCauldronBlock.java`, a plain `Block` (not an `EntityBlock`):
   a 1..15 x 0..13 shape, light 7, WITCH particles in `animateTick`, no use handler.
+  - **New model and textures (2026-10-07, already committed):** `models/block/wizard_cauldron.json`
+    is a hollow cast-iron pot: four feet, a floor, belly walls, a narrower neck, a rolled rim with an
+    opening from 4 to 12, two side lugs, and a flat brew surface at y 9.5 (the `brew` texture,
+    animated). The textures come from `build_scripts/generate_wizard_cauldron_textures.py`
+    (`wizard_cauldron_side`, `_inner`, `_top`, `_bottom`, `_brew`). The old single
+    `wizard_cauldron.png` is deleted. The brew surface is always shown for now, so decorative
+    cauldrons in structures still look full.
   - Registered in `ExampleMod.java` as `wizard_cauldron` with `Properties.ofFullCopy(Blocks.CAULDRON).strength(1.5f)`.
   - Recipe `data/hogwartsmagic/recipe/wizard_cauldron.json` (iron + arcane dust). Loot drops itself.
   - It is the job site of the `APOTHECARY` profession (`entity/ModVillagers.java`, `APOTHECARY_POI`).
@@ -109,9 +116,13 @@ Line numbers drift. Find each spot by its text.
    separate, later decision if someone wants modpack support.
 9. **Recipes are learned from the Hogwarts Guide.** A new "Potions" section lists each recipe. A
    later phase can gate recipes behind an "Advanced Potion-Making" book. Not now.
-10. **The brewing stand recipes stay as they are.** The Wizard Potion and the Polyjuice line keep
-    working on the stand, so no existing world or player loses a recipe. Moving Polyjuice into the
-    cauldron (canon: it takes a month) is a separate decision.
+10. **Polyjuice can also be brewed in the cauldron (user ruling, 2026-10-07).** The brewing stand
+    recipes for the Wizard Potion and the Polyjuice line stay too, so no existing world or player
+    loses a recipe. The cauldron recipe is the canon one. It is slower than the stand and gives the
+    same 3 doses from one sample, so for now it is the themed path, not the better one. See
+    "Polyjuice in the cauldron" below.
+    My recommendation for later: remove the stand recipe for Polyjuice once players know the
+    cauldron one, so the cauldron is the place where Polyjuice is made. That is a user decision.
 11. **Potions are custom items, not vanilla `Potion` entries.** Each potion is a `BrewedPotionItem`
     with its own drink logic (cure helpers, mana, revive). Vanilla potion contents cannot call
     `HealSpell.cureBleeding`. Throwable potions (Draught of Living Death, Mandrake Draught) have a
@@ -129,7 +140,7 @@ Line numbers drift. Find each spot by its text.
 
 ---
 
-## The potions (first pass: six)
+## The potions (first pass: six new ones, plus Polyjuice)
 
 Each potion ties to a system that already exists. Numbers are first values to tune in play.
 
@@ -148,8 +159,8 @@ player werewolf system, which does not exist).
 
 ### Draft recipes
 
-Ingredients marked **new** are added in Phase 2. Phase 1 ships only the two recipes that use
-existing items.
+Ingredients marked **new** are added in Phase 2. Phase 1 ships only the three recipes that use
+existing items: Wiggenweld, Pepperup and Polyjuice.
 
 | Potion | Steps (after water and heat) |
 |---|---|
@@ -159,6 +170,7 @@ existing items.
 | Mandrake Draught | Add 2 `mandrake_root`, add 1 **`asphodel`**, stir clockwise 4, simmer 45 s, add 1 `arcane_dust` |
 | Living Death | Add 1 **`asphodel`**, add 1 **`wormwood`**, add 2 **`valerian_sprigs`**, stir anticlockwise 7, stir clockwise 1, simmer 60 s, then gunpowder |
 | Felix Felicis | Add 1 **`ashwinder_egg`**, add 1 `acromantula_venom`, add 1 `gold_nugget`, stir clockwise 3, simmer 600 s, stir anticlockwise 1 |
+| Polyjuice Potion | Add 1 `acromantula_venom`, add 2 `mandrake_root`, add 1 `gillyweed`, stir clockwise 4, simmer 480 s, add 1 filled `polyjuice_sample` |
 
 "Stir anticlockwise 7, stir clockwise 1" is the Half-Blood Prince's note, on purpose.
 
@@ -173,6 +185,32 @@ existing items.
 | `ashwinder_egg` | Rare: Death Eater camp and Chamber chests; dropped by a Blaze at 5% |
 
 This also makes the apothecary Javadoc true.
+
+---
+
+## Polyjuice in the cauldron (user ruling, 2026-10-07)
+
+1. **The recipe** is in the table above. It uses only items that exist today, so it ships in
+   Phase 1. The 480 s simmer makes it the second longest brew after Felix Felicis (canon: a month).
+2. **The sample is the last step.** After the simmer, the brew waits for the sample. The overbrew
+   rule (decision 6) applies while it waits on heat, so take it off the heat while you fetch the
+   sample. An empty `polyjuice_sample` is refused with a line ("This sample is empty.") and does
+   not ruin the brew. A filled one finishes it.
+3. **The target is stored on the cauldron.** `BrewRules` sees only the item name
+   `polyjuice_sample`, so it stays pure. The block entity copies the sample's target data when the
+   step is accepted and saves it with the brew.
+4. **Optional last steps,** in this order, after the sample:
+   - **redstone:** extended Polyjuice (8 minutes), as the stand's `PolyjuiceRedstoneExtendBrewingRecipe`;
+   - **gunpowder:** splash Polyjuice, as the stand's `PolyjuiceSplashBrewingRecipe`.
+   Each one is accepted only once. Anything else after the sample ruins the brew.
+5. **3 doses,** each a normal `polyjuice_potion` that carries the same target. Drinking it works
+   exactly as today (`PolyjuicePotionItem`, the 3-second delay, the disguise sync).
+6. **One shared builder.** The code that makes a Polyjuice stack from a sample (today inside
+   `PolyjuiceBrewingRecipe`, `PolyjuiceRedstoneExtendBrewingRecipe` and `PolyjuiceSplashBrewingRecipe`)
+   moves into one helper that both the stand recipes and the cauldron call, so the two paths can
+   never give different potions.
+7. **The advancement `polyjuice_plot`** already triggers on owning a `polyjuice_potion`, so it works
+   for both paths with no change.
 
 ---
 
@@ -249,18 +287,27 @@ a slow death, so until the Draught exists the gaze stays lethal.
   status in the action bar ("Simmering: 12 s left", "Ruined", "Ready").
 - Heat check: the block below is in a `hogwartsmagic:cauldron_heat` block tag (campfire and soul
   campfire count only when lit).
-- `client/WizardCauldronRenderer`: a flat tinted water surface at the dose height.
-- Wiggenweld and Pepperup, the Failed Potion, and `BrewedPotionItem`.
-- Lang lines and the "Potions" section in the Hogwarts Guide for these two recipes.
+- **The liquid without a block entity renderer.** The new model already has a brew surface. Phase 1
+  adds a blockstate property `level` (0..3) and one model per level (the surface at a different
+  height; none at 0). A `BlockColor` handler (`client/`, registered like the fine wood leaves
+  colour handler in `ClientModEvents`) reads the colour from the block entity, and the brew face
+  gets `tintindex: 0`. The `brew` texture must then become greyscale, so the tint gives the colour
+  (change the BREW ramp in `generate_wizard_cauldron_textures.py`). This is cheaper than a renderer
+  and re-draws only when `sendBlockUpdated` runs. The default state for placed and structure
+  cauldrons stays "full, green", so decoration does not change.
+- Wiggenweld, Pepperup and Polyjuice (see "Polyjuice in the cauldron"), the Failed Potion, and
+  `BrewedPotionItem`. The shared Polyjuice builder.
+- Lang lines and the "Potions" section in the Hogwarts Guide for these three recipes.
 
 **Migration:** placed cauldrons in old worlds have no block entity. `Level.getBlockEntity` on the
 server thread creates a missing one on demand for an `EntityBlock`, so they should start working when
 first used. The Phase 1 plan must confirm this on a world saved before the change, and the cauldrons
 in `diagon_alley.nbt` must work after the change too.
 
-**Done when:** you can build a cauldron over a campfire, brew both potions by the guide, ruin a brew
-with a wrong step, overbrew one, bottle 3 doses, cure Bleeding with Wiggenweld, and `runServer`
-boots clean on a dedicated server.
+**Done when:** you can build a cauldron over a campfire, brew all three potions by the guide, ruin a
+brew with a wrong step, overbrew one, bottle 3 doses, cure Bleeding with Wiggenweld, turn into a
+sample's target with cauldron Polyjuice (normal, extended and splash), still brew Polyjuice on the
+brewing stand, and `runServer` boots clean on a dedicated server.
 
 ### Phase 2: Ingredients and the other four potions
 

@@ -1006,6 +1006,7 @@
   "message.hogwartsmagic.petrification.time_up": "You have been stone too long. You give in.",
   "gui.hogwartsmagic.combat.cast_blocked_petrified": "You are stone and can't cast!",
   "death.attack.hogwartsmagic.petrification": "%1$s gave in to the stone",
+  "death.attack.hogwartsmagic.petrification.player": "%1$s gave in to the stone whilst fighting %2$s",
   "message.hogwartsmagic.petrification.statue_revived": "%s is flesh again.",
   "key.hogwartsmagic.give_in": "Give in (while petrified)",
   "gui.hogwartsmagic.petrified.title": "Petrified",

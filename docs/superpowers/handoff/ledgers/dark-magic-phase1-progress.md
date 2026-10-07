@@ -7,3 +7,4 @@ Base: 996f638 (383 tests green). Process: implementer per task, review per task,
 - Spec drift accepted: the client gets the effective Darkness value instead of a config sync packet; the 10-minute quiet window is game time (passes offline), the 30-minute decay steps are online time only.
 
 ## Progress
+- T1 done f6aa7c4 (404 tests, RED seen). Review and T2 dispatched.

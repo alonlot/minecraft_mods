@@ -3,6 +3,8 @@ package com.hogwartsmagic.client.renderer;
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.entity.boggart.BoggartEntity;
 import com.hogwartsmagic.entity.boggart.BoggartRules;
+import com.hogwartsmagic.client.model.BoggartModel;
+import net.minecraft.client.renderer.texture.OverlayTexture;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
@@ -23,24 +25,25 @@ import net.minecraft.world.entity.LivingEntity;
 /**
  * Draws a Boggart as a surrogate of another entity type.
  *
- * Hidden (form ""): a vex drawn through a buffer that forces every render type to the translucent
- * boggart shadow texture, so it reads as a dark smoky shape. It bobs a little.
+ * Hidden (form ""): its own shape, {@link BoggartModel}, drawn translucent and bobbing a little.
  *
  * Revealed: the surrogate of the fear form, drawn with its own renderer. Position, rotations,
  * walk animation and hurt time are copied from the boggart. Riddikulus hits shrink it, and while
  * it laughs it spins.
  */
 public class BoggartRenderer extends EntityRenderer<BoggartEntity> {
-    private static final ResourceLocation SHADOW_TEXTURE =
-            ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "textures/entity/boggart_shadow.png");
-    private static final String SHADOW_FORM = "minecraft:vex";
+    private static final ResourceLocation TEXTURE =
+            ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "textures/entity/boggart.png");
 
+    private final BoggartModel model;
     private Entity surrogate;
     private String surrogateFormId;
     private int lastWalkTick = Integer.MIN_VALUE;
 
     public BoggartRenderer(EntityRendererProvider.Context context) {
         super(context);
+        this.model = new BoggartModel(context.bakeLayer(BoggartModel.LAYER_LOCATION));
+        this.shadowRadius = 0.5F;
     }
 
     @Override
@@ -48,13 +51,13 @@ public class BoggartRenderer extends EntityRenderer<BoggartEntity> {
                        MultiBufferSource buffer, int packedLight) {
         String formId = entity.getFormId();
         boolean hidden = formId == null || formId.isEmpty();
-        Entity target = surrogateFor(hidden ? SHADOW_FORM : formId, entity);
+        Entity target = hidden ? null : surrogateFor(formId, entity);
         if (target == null) {
+            // Hidden, or a form the client cannot build: its own shape.
+            renderOwnShape(entity, partialTick, poseStack, buffer, packedLight);
             super.render(entity, entityYaw, partialTick, poseStack, buffer, packedLight);
             return;
         }
-        // A form that could not be created falls back to the shadow vex.
-        boolean drawAsShadow = hidden || SHADOW_FORM.equals(this.surrogateFormId);
 
         sync(target, entity, partialTick);
 
@@ -67,11 +70,7 @@ public class BoggartRenderer extends EntityRenderer<BoggartEntity> {
         }
 
         poseStack.pushPose();
-        if (drawAsShadow) {
-            float bob = 0.1F * Mth.sin((entity.tickCount + partialTick) * 0.1F);
-            poseStack.translate(0.0D, bob, 0.0D);
-            surrogateRenderer.render(target, entityYaw, partialTick, poseStack, new ShadowBufferSource(buffer), packedLight);
-        } else {
+        {
             int needed = Math.max(entity.getRiddikulusHits(), BoggartRules.hitsToBanish(1));
             float scale = BoggartRules.laughScale(entity.getLaughTicks(), entity.getRiddikulusHits(), needed);
             if (entity.isLaughing()) {
@@ -84,19 +83,34 @@ public class BoggartRenderer extends EntityRenderer<BoggartEntity> {
         super.render(entity, entityYaw, partialTick, poseStack, buffer, packedLight);
     }
 
+    /** Same pose set-up as MobRenderer, then the model drawn translucent so the dark reads as smoke. */
+    private void renderOwnShape(BoggartEntity entity, float partialTick, PoseStack poseStack,
+                                MultiBufferSource buffer, int packedLight) {
+        float age = entity.tickCount + partialTick;
+        float bodyYaw = Mth.rotLerp(partialTick, entity.yBodyRotO, entity.yBodyRot);
+        float headYaw = Mth.rotLerp(partialTick, entity.yHeadRotO, entity.yHeadRot);
+        float netHeadYaw = Mth.wrapDegrees(headYaw - bodyYaw);
+        float pitch = Mth.lerp(partialTick, entity.xRotO, entity.getXRot());
+
+        poseStack.pushPose();
+        poseStack.translate(0.0D, 0.08D * Mth.sin(age * 0.1F), 0.0D);
+        poseStack.mulPose(Axis.YP.rotationDegrees(180.0F - bodyYaw));
+        poseStack.scale(-1.0F, -1.0F, 1.0F);
+        poseStack.translate(0.0D, -1.501D, 0.0D);
+        this.model.setupAnim(entity, 0.0F, 0.0F, age, netHeadYaw, pitch);
+        VertexConsumer consumer = buffer.getBuffer(RenderType.entityTranslucent(TEXTURE));
+        this.model.renderToBuffer(poseStack, consumer, packedLight, OverlayTexture.NO_OVERLAY, 0xFFFFFFFF);
+        poseStack.popPose();
+    }
+
     /** Returns the cached surrogate for the form id, or makes a new one when the form changed. */
     private Entity surrogateFor(String formId, BoggartEntity boggart) {
         if (this.surrogate != null && formId.equals(this.surrogateFormId) && this.surrogate.level() == boggart.level()) {
             return this.surrogate;
         }
         Entity made = create(formId, boggart);
-        String madeId = formId;
-        if (made == null && !SHADOW_FORM.equals(formId)) {
-            made = create(SHADOW_FORM, boggart);
-            madeId = SHADOW_FORM;
-        }
         this.surrogate = made;
-        this.surrogateFormId = made == null ? null : madeId;
+        this.surrogateFormId = made == null ? null : formId;
         this.lastWalkTick = Integer.MIN_VALUE;
         return made;
     }
@@ -146,19 +160,5 @@ public class BoggartRenderer extends EntityRenderer<BoggartEntity> {
     @Override
     public ResourceLocation getTextureLocation(BoggartEntity entity) {
         return MissingTextureAtlasSprite.getLocation();
-    }
-
-    /** Forces every render type to the translucent shadow texture. */
-    private static class ShadowBufferSource implements MultiBufferSource {
-        private final MultiBufferSource delegate;
-
-        private ShadowBufferSource(MultiBufferSource delegate) {
-            this.delegate = delegate;
-        }
-
-        @Override
-        public VertexConsumer getBuffer(RenderType renderType) {
-            return this.delegate.getBuffer(RenderType.entityTranslucent(SHADOW_TEXTURE));
-        }
     }
 }

@@ -6,13 +6,13 @@ Branch: `ccr-f8e6c9c8-akgyo0`. Three implementers ran at the same time on disjoi
 
 - **A (server)**: `BoggartRules` (pure rules + test), `BoggartFears` (per-player death record, persisted), `BoggartEntity` (hidden / revealed / laugh states, fear pulse, hide timer, `onRiddikulus`, banish + advancement), `ModEntities.BOGGART`, attributes, spawn placement (indoors, sky light 0, 48-block spacing), spawn egg and creative tab line, biome spawners for `forbidden_forest` and `dementor_fen`, the one-line death hook in `ModEvents.onLivingDeath`, advancement `hp/riddikulus`, lang keys for entity, egg and advancement.
 - **B (spell)**: `SpellType.RIDDIKULUS` (pink, NOTE and HAPPY_VILLAGER particles, 40 mana, 15 cooldown, uncommon), `RiddikulusSpell` hit effect, spellbook id and model override, book icon, chest loot (common pool), villager trade, spell lang keys, beam trail and impact particles.
-- **C (client + docs)**: `BoggartRenderer` (surrogate per form; hidden form is a vex drawn through a translucent dark violet shadow texture; revealed form copies pose and walk animation, shrinks by `laughScale`, spins while laughing), `build_scripts/generate_boggart_texture.py` and `boggart_shadow.png` (64x64), renderer registration in `ClientModEvents`, guide pages (CREATURES "On boggarts", SPELLS one line), `MOD_FEATURES_WIKI.md` entries (Boggart, Riddikulus, advancement line), `wiki/data.js` cards, this ledger.
+- **C (client + docs)**: `BoggartRenderer` (surrogate per form; hidden form was first a vex drawn through a translucent shadow texture (replaced, see below); revealed form copies pose and walk animation, shrinks by `laughScale`, spins while laughing), `build_scripts/generate_boggart_texture.py` and `boggart_shadow.png` (64x64, since removed), renderer registration in `ClientModEvents`, guide pages (CREATURES "On boggarts", SPELLS one line), `MOD_FEATURES_WIKI.md` entries (Boggart, Riddikulus, advancement line), `wiki/data.js` cards, this ledger.
 
 ## Decisions by C
 
 - The renderer does not know the caster's rank. It uses `max(hits, hitsToBanish(1))` as the "needed" count, so each hit shrinks the form by a visible step even for a Master.
 - The walk animation position is stepped once per boggart tick with `WalkAnimationState.update(speed, 1.0F)`. Vanilla has no position setter.
-- A form id that is not a registered type, or whose `create()` returns null, falls back to the shadow vex.
+- A form id that is not a registered type, or whose `create()` returns null, falls back to the Boggart's own shape.
 - The wiki has no Grindylow or Colloportus entries, so the new entries sit at the end of the Spells and Mobs sections. `wiki/data.js` stats were bumped to 38 spells and 18 mobs to match the arrays.
 
 ## In-game checklist (the user's)
@@ -41,3 +41,13 @@ Review (Fable, read-only) found 7 problems. All fixed, 494 tests green, server b
 5. The "personal" cave sound was a broadcast. It is now a packet to the feared player only.
 6. Creative players kept a Boggart awake and felt fear. They are now ignored like spectators.
 7. A killing blow on a hidden Boggart still revealed it. It must be alive to reveal.
+
+## Own shape (second pass)
+
+The vex placeholder is gone. `client/model/BoggartModel` is a hand-built model: a floating hunched column of
+dark, a lumpen head with two pale eye lights, two side wisps and six tendrils that hang to the floor. Everything
+sways, breathes and waves in `setupAnim`; the head follows the look direction with a lag. The texture
+`textures/entity/boggart.png` (64x64, from `build_scripts/generate_boggart_texture.py`) is dark violet smoke with
+thinner alpha on the tendrils. The renderer draws it with `entityTranslucent` and the same pose set-up as
+`MobRenderer`, and bobs it. Not seen in a client yet: check the eye position, the tendril length and that nothing
+clips into the floor.

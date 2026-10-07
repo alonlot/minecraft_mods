@@ -1,6 +1,10 @@
 {
     "replace": false,
     "values": [
-        "hogwartsmagic:wand_workbench_poi"
+        "hogwartsmagic:wand_workbench_poi",
+        "hogwartsmagic:apothecary_poi",
+        "hogwartsmagic:bookseller_poi",
+        "hogwartsmagic:owlery_poi",
+        "hogwartsmagic:broom_workbench_poi"
     ]
 }

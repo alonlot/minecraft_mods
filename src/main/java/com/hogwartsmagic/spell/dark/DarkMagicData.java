@@ -23,7 +23,7 @@ import java.util.UUID;
  * {@code DarkMagicLastDarkCast} (game time of the last paid dark cast) and {@code DarkMagicDecayProgress} (online
  * quiet ticks toward the next point of decay). Forge copies PlayerPersisted across death, so it survives dying.
  * Server only: the client gets its own effective value through {@link SpellPackets.SyncDarkMagicPacket} and keeps it
- * in client/DarkMagicClientState. Every change goes through write, which syncs and announces a tier change.
+ * in client/DarkMagicClientState. Every change goes through write, which syncs, announces a tier change and grants the Dark Magic advancements.
  */
 public final class DarkMagicData {
     public static final String KEY = "DarkMagic";
@@ -163,6 +163,8 @@ public final class DarkMagicData {
         if (newTier != oldTier) {
             announce(player, oldTier, newTier);
         }
+        // Phase 4: A Torn Soul at Lost, Redemption back at Clean after Lost. Granted only here, never on login or sync.
+        DarkAdvancements.afterWrite(player, enabled, newTier);
     }
 
     /** One chat line and one sound, to this player only: nobody else learns a tier. */

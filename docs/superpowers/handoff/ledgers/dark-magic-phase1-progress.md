@@ -8,3 +8,4 @@ Base: 996f638 (383 tests green). Process: implementer per task, review per task,
 
 ## Progress
 - T1 done f6aa7c4 (404 tests, RED seen). Review and T2 dispatched.
+- T1 review: Approved. Fix-wave queue: M1 config comment for darkMagicGainMultiplier says values under about 0.02 round small gains to 0, M2 gainMultiplierScalesTheWholeTable checks every dark spell, M3 tierKeysAndColours pins all five colours.

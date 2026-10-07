@@ -785,6 +785,7 @@ public class ModEvents {
             tickHorcruxRitual(player);
 
             trySpawnInsomniaDementor(player);
+            com.hogwartsmagic.sneakoscope.SneakoscopeCarried.tick(player);
 
             // Once every 5s, check if the player is standing in a Forbidden Forest with no castle
             // nearby — if so, raise a Mini Hogwarts. Placement runs outside worldgen (no far-chunk crash).

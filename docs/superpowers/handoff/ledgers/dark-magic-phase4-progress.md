@@ -8,3 +8,4 @@ Process: Opus for all agents, one implementer at a time (runs after Dark Magic P
 
 ## Progress
 - T1 done fce4f06 (BASE 468, protocol 8; 477 tests, RED seen). Its review is folded into the final review. T2 dispatched.
+- T2 done 5d04e6b (477 tests, advancements ok, boot Done 3.579s). Its review is folded into the final review. Fix-wave queue: wrap the long DarkMagicData javadoc line.

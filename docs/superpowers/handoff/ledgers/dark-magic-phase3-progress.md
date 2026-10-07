@@ -11,3 +11,4 @@ Process: Opus for all agents, one implementer at a time (runs after Dark Magic P
 - T1 done a14f090 (BASE 448, protocol 8; 465 tests, RED seen). Review and T2 dispatched.
 - T1 review: Approved. Fix-wave queue: M1 rename redemptionAtMostHalvesTheTimeFromLostToClean to redemptionWindowEqualsTheDecayPeriod. M2 and M3 no action. For the Task 5 review: the floor caller passes a FINISHED binding only, a heal that lightens nothing does not store DarkMagicLastRedemption, and the window reads Stats.PLAY_TIME.
 - T2 done 0962bba (465 tests). Review and T3 dispatched.
+- T3 done e175348 (465 tests). Its review is folded into the final review. Fix-wave queue: the WizardEntity comment says the hurt-by goal above but it is below. T4 dispatched.

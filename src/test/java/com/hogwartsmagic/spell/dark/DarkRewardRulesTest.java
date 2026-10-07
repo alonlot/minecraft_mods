@@ -119,6 +119,37 @@ class DarkRewardRulesTest {
     }
 
     @Test
+    void escortCatchUpIsHorizontalAndLandsWithinReach() {
+        assertEquals(25.0D, DarkRewardRules.horizontalDistanceSqr(3.0D, -4.0D), 1.0e-9);
+        // An owner 40 blocks straight up is no reason to catch up; 33 blocks away on the ground is.
+        assertFalse(DarkRewardRules.needsCatchUp(DarkRewardRules.horizontalDistanceSqr(0.0D, 0.0D)));
+        assertTrue(DarkRewardRules.needsCatchUp(DarkRewardRules.horizontalDistanceSqr(33.0D, 0.0D)));
+        assertTrue(DarkRewardRules.catchUpLandingInReach(8.0D * 8.0D));
+        assertTrue(DarkRewardRules.catchUpLandingInReach(32.0D * 32.0D));
+        assertFalse(DarkRewardRules.catchUpLandingInReach(40.0D * 40.0D)); // the ground far below a flying owner
+    }
+
+    @Test
+    void escortLandsOnlyOnSafeGround() {
+        assertTrue(DarkRewardRules.escortLandingOk(64, -64, 64, true, false, true, true));
+        assertTrue(DarkRewardRules.escortLandingOk(70, -64, 64, true, false, true, true));
+        assertFalse(DarkRewardRules.escortLandingOk(71, -64, 64, true, false, true, true)); // the owner underground
+        assertFalse(DarkRewardRules.escortLandingOk(-64, -64, 64, true, false, true, true)); // an empty column
+        assertFalse(DarkRewardRules.escortLandingOk(64, -64, 64, false, false, true, true)); // not sturdy
+        assertFalse(DarkRewardRules.escortLandingOk(64, -64, 64, true, true, true, true)); // lava below
+        assertFalse(DarkRewardRules.escortLandingOk(64, -64, 64, true, false, false, true)); // feet blocked
+        assertFalse(DarkRewardRules.escortLandingOk(64, -64, 64, true, false, true, false)); // head blocked
+    }
+
+    @Test
+    void escortEndsWhenTheOwnerDiedSinceSummoning() {
+        assertFalse(DarkRewardRules.ownerDiedSince(3, 3));
+        assertTrue(DarkRewardRules.ownerDiedSince(3, 4));
+        assertFalse(DarkRewardRules.ownerDiedSince(-1, 4)); // nothing recorded yet
+        assertTrue(DarkRewardRules.ownerDiedSince(0, 1));
+    }
+
+    @Test
     void innocentsAreVillagersStudentsElvesAndPassiveMobs() {
         assertTrue(DarkRewardRules.isInnocent(true, false, false, false));
         assertTrue(DarkRewardRules.isInnocent(false, true, false, false));
@@ -156,11 +187,19 @@ class DarkRewardRulesTest {
 
     @Test
     void floorWhileTheHorcruxExists() {
-        assertEquals(60.0f, DarkRewardRules.floor(true), EPS);
-        assertEquals(0.0f, DarkRewardRules.floor(false), EPS);
+        assertEquals(60.0f, DarkRewardRules.floor(true, 60.0f), EPS);
+        assertEquals(60.0f, DarkRewardRules.floor(true, 85.0f), EPS);
+        assertEquals(0.0f, DarkRewardRules.floor(true, 59.99f), EPS);
+        assertEquals(0.0f, DarkRewardRules.floor(false, 85.0f), EPS);
         // Decay and redemption stop at the floor and resume when it goes.
-        assertEquals(60.0f, DarkRules.afterLoss(60.5f, 1.0f, DarkRewardRules.floor(true)), EPS);
-        assertEquals(59.5f, DarkRules.afterLoss(60.5f, 1.0f, DarkRewardRules.floor(false)), EPS);
+        assertEquals(60.0f, DarkRules.afterLoss(60.5f, 1.0f, DarkRewardRules.floor(true, 60.5f)), EPS);
+        assertEquals(59.5f, DarkRules.afterLoss(60.5f, 1.0f, DarkRewardRules.floor(false, 60.5f)), EPS);
+        // No value below 60 is frozen: 45 with a Horcrux (a creative or toggle-off forging) still falls to 44.
+        float floor45 = DarkRewardRules.floor(true, 45.0f);
+        assertEquals(44.0f, DarkRules.afterLoss(45.0f, DarkRules.DECAY_STEP, floor45), EPS);
+        assertEquals(44.0f, DarkRules.decay(45.0f, 0, DarkRules.DEFAULT_DECAY_TICKS, true, floor45,
+                DarkRules.DEFAULT_DECAY_TICKS).darkness(), EPS);
+        assertEquals(44.0f, DarkRewardRules.afterRedemption(45.0f, floor45), EPS);
     }
 
     @Test
@@ -199,7 +238,7 @@ class DarkRewardRulesTest {
     }
 
     @Test
-    void redemptionAtMostHalvesTheTimeFromLostToClean() {
+    void redemptionWindowEqualsTheDecayPeriod() {
         // Decay: 1 point per 36000 ticks; redemption: 1 more per 36000 ticks of play at most.
         int window = DarkRules.DEFAULT_REDEMPTION_TICKS;
         int decay = DarkRules.DEFAULT_DECAY_TICKS;

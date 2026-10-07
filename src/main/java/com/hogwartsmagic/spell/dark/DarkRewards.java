@@ -6,8 +6,8 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 
 /**
- * Dark Magic rewards (Phase 3), the glue. Every reward reads the tier (DarkCosts.tierOf on the server, so
- * enableDarkMagic off reads Clean); the numbers live in DarkRewardRules. The client computes its own mana cost for the
+ * Dark Magic rewards (Phase 3), the glue. Every reward reads the tier (DarkMagicData.getTier on the server, directly
+ * or through DarkCosts.tierOf, so enableDarkMagic off reads Clean); the numbers live in DarkRewardRules. The client computes its own mana cost for the
  * Grimoire line and the "Not enough mana!" check, so it keeps a copy of its own synced tier here (filled by
  * client/DarkMagicClientState), read only for a player on a client level.
  */

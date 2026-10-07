@@ -244,6 +244,7 @@ public class VoldemortSummoningEntity extends Entity {
             wizard.setPos(spawnPos.getX() + 0.5D, spawnPos.getY() + 1.0D, spawnPos.getZ() + 0.5D);
             wizard.finalizeSpawn(serverLevel, serverLevel.getCurrentDifficultyAt(spawnPos), net.minecraft.world.entity.MobSpawnType.EVENT, null);
             wizard.setTarget(voldemort.getTarget());
+            wizard.addTag(WizardEntity.VOLDEMORT_GUARD_TAG); // Dark Magic: his guards never turn neutral to a Lost player
             wizard.addEffect(new net.minecraft.world.effect.MobEffectInstance(ExampleMod.TENEBRIS_FLIGHT_EFFECT.getHolder().get(), 30, 0));
             serverLevel.addFreshEntity(wizard);
 

@@ -5,11 +5,14 @@ import com.hogwartsmagic.ModSounds;
 import com.hogwartsmagic.spell.dark.DarkRewardRules;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.stats.Stats;
+import net.minecraft.tags.FluidTags;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.MobSpawnType;
@@ -26,8 +29,9 @@ import java.util.UUID;
  * Dark Magic Phase 3: the Morsmordre escort. A Lost caster's sky raid calls 4 to 6 Death Eaters to the caster's side
  * for 5 minutes instead of a raid: no raid bar, no raid record. They follow (a 20-block leash), fight whatever hurts
  * their owner or whatever the owner strikes, Apparate to the owner past 32 blocks, and Disapparate when the time is
- * up, the owner leaves the dimension, logs out or dies, or a new escort replaces them. One the owner strikes breaks
- * off and fights back as any Death Eater would. The numbers live in DarkRewardRules.
+ * up, the owner leaves the dimension, logs out or dies (even with an immediate respawn), or a new escort replaces
+ * them. One the owner strikes breaks off and fights back as any Death Eater would. The numbers live in
+ * DarkRewardRules.
  */
 public final class DeathEaterEscort {
     private static final String KEY_ARRIVES = "gui.hogwartsmagic.dark.escort_arrives";
@@ -45,16 +49,25 @@ public final class DeathEaterEscort {
         long until = DarkRewardRules.escortUntil(level.getGameTime());
         int size = DarkRewardRules.escortSize(owner.getRandom().nextInt(
                 DarkRewardRules.ESCORT_MAX_SIZE - DarkRewardRules.ESCORT_MIN_SIZE + 1));
+        int deaths = deathCount(owner);
         int came = 0;
         for (int i = 0; i < size; i++) {
+            BlockPos pos = landingNear(level, owner);
+            if (pos == null) {
+                BlockPos own = owner.blockPosition();
+                if (!free(level, own) || !free(level, own.above())) {
+                    continue; // no safe spot for this one
+                }
+                pos = own;
+            }
             WizardEntity wizard = ModEntities.WIZARD.get().create(level);
             if (wizard == null) {
                 continue;
             }
-            BlockPos pos = landingNear(level, owner);
             wizard.moveTo(pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D, level.random.nextFloat() * 360.0F, 0.0F);
             wizard.finalizeSpawn(level, level.getCurrentDifficultyAt(pos), MobSpawnType.EVENT, null);
             wizard.setEscort(owner.getUUID(), until);
+            wizard.setEscortOwnerDeaths(deaths);
             wizard.addEffect(new MobEffectInstance(ExampleMod.TENEBRIS_FLIGHT_EFFECT.getHolder().get(), 40, 0));
             if (level.addFreshEntity(wizard)) {
                 came++;
@@ -82,14 +95,23 @@ public final class DeathEaterEscort {
             return;
         }
         ServerPlayer owner = wizard.getEscortOwner();
-        if (owner == null || !DarkRewardRules.escortActive(wizard.level().getGameTime(), wizard.getEscortUntil())) {
+        if (owner == null || !DarkRewardRules.escortActive(wizard.level().getGameTime(), wizard.getEscortUntil())
+                || DarkRewardRules.ownerDiedSince(wizard.getEscortOwnerDeaths(), deathCount(owner))) {
             dismiss(wizard);
             return;
         }
-        if (DarkRewardRules.needsCatchUp(wizard.distanceToSqr(owner)) && wizard.level() instanceof ServerLevel level) {
+        if (wizard.getEscortOwnerDeaths() < 0) {
+            wizard.setEscortOwnerDeaths(deathCount(owner)); // an older save: start counting now
+        }
+        if (DarkRewardRules.needsCatchUp(DarkRewardRules.horizontalDistanceSqr(owner.getX() - wizard.getX(),
+                owner.getZ() - wizard.getZ())) && wizard.level() instanceof ServerLevel level) {
+            BlockPos pos = landingNear(level, owner);
+            if (pos == null || !DarkRewardRules.catchUpLandingInReach(
+                    owner.distanceToSqr(pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D))) {
+                return; // no safe spot near the owner yet: try again next second
+            }
             puff(level, wizard);
             wizard.stopRiding();
-            BlockPos pos = landingNear(level, owner);
             wizard.teleportTo(pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D);
             wizard.getNavigation().stop();
             puff(level, wizard);
@@ -112,9 +134,12 @@ public final class DeathEaterEscort {
     }
 
     /**
-     * A spot 3 to 8 blocks from the owner on the surface. If the surface there is more than 6 blocks above the owner
-     * (the owner is underground), the owner's own block instead. Near the owner, so the chunk is loaded.
+     * A spot 3 to 8 blocks from the owner on the surface, or null when that column is not safe
+     * (DarkRewardRules.escortLandingOk: an empty column, the owner underground, no sturdy ground, lava below, or no
+     * two free blocks). The caller then uses the owner's own block on arrival (only with headroom) or skips the
+     * catch-up. Near the owner, so the chunk is loaded.
      */
+    @Nullable
     private static BlockPos landingNear(ServerLevel level, ServerPlayer owner) {
         double angle = level.random.nextDouble() * Math.PI * 2.0D;
         double distance = DarkRewardRules.ESCORT_SPAWN_MIN_DISTANCE + level.random.nextDouble()
@@ -122,7 +147,21 @@ public final class DeathEaterEscort {
         BlockPos column = BlockPos.containing(owner.getX() + Math.cos(angle) * distance, owner.getY(),
                 owner.getZ() + Math.sin(angle) * distance);
         BlockPos surface = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, column);
-        return surface.getY() > owner.getBlockY() + 6 ? owner.blockPosition() : surface;
+        BlockPos below = surface.below();
+        boolean ok = DarkRewardRules.escortLandingOk(surface.getY(), level.getMinBuildHeight(), owner.getBlockY(),
+                level.getBlockState(below).isFaceSturdy(level, below, Direction.UP),
+                level.getFluidState(below).is(FluidTags.LAVA), free(level, surface), free(level, surface.above()));
+        return ok ? surface : null;
+    }
+
+    /** No collision at this block (a Death Eater standing in it does not suffocate). */
+    private static boolean free(ServerLevel level, BlockPos pos) {
+        return level.getBlockState(pos).getCollisionShape(level, pos).isEmpty();
+    }
+
+    /** The owner's death count (the vanilla deaths stat), recorded at summon time. */
+    private static int deathCount(ServerPlayer owner) {
+        return owner.getStats().getValue(Stats.CUSTOM.get(Stats.DEATHS));
     }
 
     /** Walks back to the owner: past the leash always (dropping its target), else when idle and 8 blocks away. */
@@ -241,6 +280,11 @@ public final class DeathEaterEscort {
             }
             this.mob.setTarget(this.pick);
             super.start();
+        }
+
+        @Override
+        public boolean canContinueToUse() {
+            return this.wizard.isEscort() && super.canContinueToUse(); // released or dismissed: the goal ends
         }
     }
 }

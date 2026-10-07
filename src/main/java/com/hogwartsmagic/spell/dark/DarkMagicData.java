@@ -51,12 +51,13 @@ public final class DarkMagicData {
     }
 
     /**
-     * Losses stop here: DarkRules.HORCRUX_FLOOR while the player's Horcrux exists (bound and forged), else none. The
+     * Losses stop here: DarkRules.HORCRUX_FLOOR while the player's Horcrux exists (bound and forged) and the stored
+     * Darkness is at least that, else none (no value below 60 is frozen). The
      * binding is cleared when the Horcrux shatters (rebirth) or is reconciled away (destroyed), so the floor goes too.
      */
     public static float floor(ServerPlayer player) {
         return DarkRewardRules.floor(com.hogwartsmagic.util.HorcruxData.hasActiveHorcrux(player)
-                && !com.hogwartsmagic.util.HorcruxData.isRitualActive(player));
+                && !com.hogwartsmagic.util.HorcruxData.isRitualActive(player), getStored(player));
     }
 
     /**

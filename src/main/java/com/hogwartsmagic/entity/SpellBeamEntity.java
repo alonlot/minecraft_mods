@@ -1151,6 +1151,10 @@ public class SpellBeamEntity extends ThrowableProjectile {
                 || victim.isAlive()) {
             return;
         }
+        // Dark Magic: a puppet beam or a forced body never forges a Horcrux (a possessed body is never given one).
+        if (this.puppeteer != null || com.hogwartsmagic.spell.mind.PossessionManager.isForcedCaster(player)) {
+            return;
+        }
         HorcruxBlockEntity existing = HorcruxData.getOwnedHorcrux(player);
         if (existing != null) {
             player.displayClientMessage(net.minecraft.network.chat.Component.literal("Your soul is already tied to another forbidden vessel.")

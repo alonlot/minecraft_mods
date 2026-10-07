@@ -116,8 +116,38 @@ public final class DarkRewardRules {
         return beyondLeash(distanceSqr) || (!hasTarget && distanceSqr > ESCORT_FOLLOW_STOP * ESCORT_FOLLOW_STOP);
     }
 
+    /** Past the catch-up range. The escort passes the horizontal distance to the owner (a flying owner is no reason). */
     public static boolean needsCatchUp(double distanceSqr) {
         return distanceSqr > ESCORT_CATCH_UP * ESCORT_CATCH_UP;
+    }
+
+    /** The horizontal squared distance the catch-up check reads. */
+    public static double horizontalDistanceSqr(double dx, double dz) {
+        return dx * dx + dz * dz;
+    }
+
+    /** A catch-up teleports only when the chosen landing spot is within the catch-up range of the owner. */
+    public static boolean catchUpLandingInReach(double landingDistanceSqr) {
+        return !needsCatchUp(landingDistanceSqr);
+    }
+
+    /**
+     * A landing column is accepted only when its surface is above the bottom of the world (an empty column), no more
+     * than 6 blocks above the owner (the owner is underground), the block below is sturdy on its top face with no lava,
+     * and the two blocks at the landing are free (no suffocation).
+     */
+    public static boolean escortLandingOk(int surfaceY, int minBuildHeight, int ownerBlockY, boolean sturdyBelow,
+                                          boolean lavaBelow, boolean feetFree, boolean headFree) {
+        return surfaceY > minBuildHeight && surfaceY <= ownerBlockY + 6 && sturdyBelow && !lavaBelow && feetFree
+                && headFree;
+    }
+
+    /**
+     * The escort also ends when its owner died since summoning, even with an immediate respawn: the owner's death
+     * count changed. A negative recorded count means none was recorded yet (an older save).
+     */
+    public static boolean ownerDiedSince(int recordedDeaths, int deathsNow) {
+        return recordedDeaths >= 0 && deathsNow != recordedDeaths;
     }
 
     /** An innocent: a villager, a Student, a House Elf, or any mob MasteryAwards.isPassive calls passive. */
@@ -146,9 +176,12 @@ public final class DarkRewardRules {
         return DarkRules.sanitize(Math.max(DarkRules.afterGain(darkness, DarkRules.HORCRUX_BONUS), DarkRules.HORCRUX_FLOOR));
     }
 
-    /** The floor: 60 while the player's Horcrux exists (bound, ritual finished), else none. */
-    public static float floor(boolean horcruxBound) {
-        return horcruxBound ? DarkRules.HORCRUX_FLOOR : DarkRules.NO_FLOOR;
+    /**
+     * The floor: 60 while the player's Horcrux exists (bound, ritual finished) and the Darkness is at least 60, else
+     * none. A value below 60 is never frozen (a creative or toggle-off forging that did not lift it still decays).
+     */
+    public static float floor(boolean horcruxBound, float darkness) {
+        return horcruxBound && darkness >= DarkRules.HORCRUX_FLOOR ? DarkRules.HORCRUX_FLOOR : DarkRules.NO_FLOOR;
     }
 
     /** Hurt before the heal: alive and below full health. */

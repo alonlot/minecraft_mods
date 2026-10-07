@@ -130,18 +130,20 @@ Line numbers drift. Find each spot by its text.
    A tier change sends one chat line and a sound (a low bell going up, a chime going down).
 7. **Costs per tier** (each tier keeps the costs of the tiers below it):
    - **Shadowed:** the corporeal Patronus chance is halved (15% to 7.5%).
-   - **Tainted:** no corporeal Patronus. Patronus shield upkeep +50%. Dementors in range choose you
-     before other players. Insomnia Dementors come after 3 days without rest, not 5.
-   - **Corrupted:** Expecto Patronum fails ("Only a thin silver mist leaves your wand."). The mana is
-     spent and the cooldown starts. Students attack you on sight. Faint SMOKE particles around you,
+   - **Tainted:** no corporeal Patronus; you always get the shield. Insomnia Dementors come after
+     3 days without rest, not 5.
+   - **Corrupted:** Patronus shield upkeep +50%. Dementors in range choose you before other players.
+     Students keep away from you. Faint SMOKE particles around you,
      which other players can see.
    - **Lost:** -2 max health (one heart; the soul is torn), shown like the Horcrux health cost.
-     House Elves flee from you even when bound.
-   - **Cut (user ruling, 2026-10-07):** the first draft had -4 max health and Dementors at night even
-     when you rest. That was too much. The Patronus already fails from Corrupted, so night Dementors
-     would come with no spell to fight them, every night, at a tier with no time decay. And -4 with a
-     Horcrux (-2) is 3 of 10 hearts. Dementors still choose a Lost player first (from Tainted), and
-     the insomnia threshold is still 3 days.
+     Students attack you on sight. House Elves flee from you even when bound.
+   - **The Patronus never fails (user ruling, 2026-10-07).** A dark wizard's Patronus is weaker,
+     never gone. Canon agrees: Umbridge casts a full one. The first draft made it fail at Corrupted
+     while Dementors chose you first. Those two costs multiplied: you lost the only defence against
+     Dementors at the moment you became their main target.
+   - **Cut (user rulings, 2026-10-07):** the first draft also had -4 max health and Dementors at
+     night even when you rest at Lost, and students attacking from Corrupted. With the 50-hour decay
+     (decision 9), each cost lasts a long time, so the costs were cut back to the ones above.
 8. **Rewards per tier** (the temptation):
    - **Corrupted:** dark spells cost 15% less mana (in `SpellCosts.manaCost`, after the wand and
      mastery multipliers). A Dark Mark buffs you as it buffs Death Eaters (the design doc's
@@ -195,10 +197,12 @@ it all off, and `runServer` boots clean on a dedicated server.
 
 ### Phase 2: The costs
 
-- Patronus: the corporeal chance by tier, the failure at Corrupted, the shield upkeep at Tainted.
-- Dementors: a target goal that prefers the highest-tier player in range (ties go to the nearest),
-  and the insomnia threshold by tier.
-- Students: a target goal on players at Corrupted and above.
+- Patronus: the corporeal chance by tier (none from Tainted), the shield upkeep from Corrupted. It
+  never fails.
+- Dementors: a target goal that prefers a player at Corrupted or above in range (ties go to the
+  nearest), and the insomnia threshold from Tainted.
+- Students: an avoid goal for players at Corrupted (they keep about 8 blocks away), and a target
+  goal on players at Lost.
 - Lost: the -2 max health modifier (applied and removed on tier change, login and respawn, like the
   Hufflepuff health modifier in `HousePerks`). House Elves flee.
 - The smoke particles at tier 3+.

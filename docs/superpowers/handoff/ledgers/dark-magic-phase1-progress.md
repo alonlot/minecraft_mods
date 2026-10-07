@@ -11,3 +11,4 @@ Base: 996f638 (383 tests green). Process: implementer per task, review per task,
 - T1 review: Approved. Fix-wave queue: M1 config comment for darkMagicGainMultiplier says values under about 0.02 round small gains to 0, M2 gainMultiplierScalesTheWholeTable checks every dark spell, M3 tierKeysAndColours pins all five colours.
 - T2 done 572d247 (404 tests, protocol 7, boot Done 3.588s). Review and T3 dispatched.
 - T3 done b490777 (404 tests). Review and T4 dispatched.
+- T2 review: Approved. Minors accepted with no action: extra PlayerPersisted reads per cast (per cast or per 200 ticks only), Forge config-upgrade WARNs, client state getters used from T5.

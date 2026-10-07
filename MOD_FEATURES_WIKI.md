@@ -416,9 +416,9 @@ Each spell below lists the implemented gameplay behavior currently present in th
 
 - Giant hostile serpent creature.
 - Repeatedly scans for victims nearby.
-- Petrifies nearby living targets.
-- Applies petrification, slowness, and weakness.
-- Can instantly kill valid victims through petrification logic.
+- Its gaze charges while a victim meets its eyes.
+- The full gaze turns a survival or adventure player to stone: they wait for a Mandrake Restorative Draught or give in.
+- Other creatures hit by the full gaze become statues (Petrified Remains). Bosses are excluded: they die as before, keep their loot, and their statue never comes back.
 - Creates a terrifying area-control threat.
 
 ### Acromantula
@@ -501,7 +501,10 @@ Each spell below lists the implemented gameplay behavior currently present in th
 
 ### Petrified Remains
 
-- Decorative aftermath entity for petrified victims.
+- The statue a creature leaves when the Basilisk's gaze turns it to stone (bosses excepted).
+- It keeps the whole mob (name, owner, gear, villager trades) and drops nothing.
+- A Mandrake Restorative Draught (right-click or splash) brings the mob back where the statue stands.
+- Breaking the statue, or pushing it into the void, loses the mob for good.
 
 ### Spell Beam
 

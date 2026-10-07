@@ -287,7 +287,7 @@ public class HogwartsGuideScreen extends Screen {
                 page("Using the Mandrake Draught", List.of(
                         "Right-click a petrified friend, or a stone statue, with a bottle to bring them back.",
                         "Add 1 Gunpowder after the Arcane Dust and every dose becomes a splash potion that frees all the stone within 4 blocks.",
-                        "Drunk, it breaks a basilisk's hold on you and steadies your eyes for 8 seconds."
+                        "Drunk, it breaks a basilisk's hold on you and steadies your eyes for 8 seconds. A friend you bring back is safe from the gaze for 8 seconds too."
                 )),
                 page("Draught of Living Death", List.of(
                         "A splash potion: everything within 4 blocks falls into a deathlike sleep for 20 seconds. The great shrug off half of it, and it wears thinner on a victim struck again soon.",
@@ -315,7 +315,7 @@ public class HogwartsGuideScreen extends Screen {
                         "Take it off the heat after the simmer if you must leave it: it overbrews like any other."
                 )),
                 page("Where ingredients grow", List.of(
-                        "Dittany grows on earth and bare rock in the Forbidden Forest and the Horntail Peaks. Plant a Dittany to grow more.",
+                        "Dittany grows on earth and bare rock in the Forbidden Forest and the Horntail Peaks. A wild plant gives two; one you plant gives back one.",
                         "Apothecaries sell Dittany, Valerian Sprigs, Asphodel and Wormwood, each shop only some of them.",
                         "Valerian Sprigs turn up in the chests of the Hogwarts ruin camp.",
                         "Ashwinder Eggs: Death Eater camps, the Chamber, and now and then a Blaze."
@@ -323,7 +323,7 @@ public class HogwartsGuideScreen extends Screen {
                 page("Turned to stone", List.of(
                         "A basilisk's full stare no longer kills you: it turns you to stone. You cannot move or act, and nothing can hurt you.",
                         "Wait for a friend with a Mandrake Restorative Draught, or give in and die as usual: choose it on the stone screen, or press J (by default) to open that screen again.",
-                        "A creature turned to stone leaves a statue. The Draught brings it back as it was, with its name and its master. Break the statue and it is gone for good."
+                        "A creature turned to stone leaves a statue. The Draught brings it back as it was, with its name and its master. Break the statue, or push it into the void, and it is gone for good."
                 ))
         ));
 

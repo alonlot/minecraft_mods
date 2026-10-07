@@ -13,3 +13,5 @@ Process: Opus for all agents, one implementer at a time (runs after Dark Magic P
 
 ## Progress
 - Task 0 done 70dd295 (479 tests, RED seen). Failed give-in re-arms PetrifiedSince (PetrificationRules.giveInFailed); step-0 ADD assert moved ahead of uniqueness; death javadoc corrected (behavior already right). Controller read the diff. Review folded into the final review. T1 dispatched.
+- BASE = 479 (after Task 0).
+- T1 done f77a406 (483 tests, RED seen). T2 done 4d08dea (advancements, boot Done 4.070s). Deviation accepted: Forge 51.0.33 has no FakePlayer class (controller checked the mapped jar), so the grant requires the player to be in the server player list. Reviews folded into the final review. T3 dispatched.

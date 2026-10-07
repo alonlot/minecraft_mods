@@ -17,3 +17,4 @@ Base: 996f638 (383 tests green). Process: implementer per task, review per task,
 - T5 done 0140337 (404 tests). Review and T6 dispatched.
 - T5 review: Approved (font widths measured: 78 px or more gap to the title at any GUI scale). Minors accepted with no action: narrow-screen clipping is the existing panel behaviour; fully qualified names are plan-mandated.
 - T6 done bb232d5 (406 tests, RED seen). Its review is folded into the final review (stale class comment in SneakoscopeRules reported by the implementer goes to the fix wave).
+- T7 (controller, cf3c424): clean build OK, 406 tests green, touched JSON valid, wiki/data.js parses, dedicated-server boot Done (3.742s) with no Exception or ERROR, server stopped. Final review dispatched.

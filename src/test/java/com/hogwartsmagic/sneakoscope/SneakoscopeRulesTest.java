@@ -206,4 +206,28 @@ class SneakoscopeRulesTest {
     void nextWhistleStopsWhenNothingIsNear() {
         assertEquals(Long.MAX_VALUE, SneakoscopeRules.nextWhistle(100L, 110L, 5, 0));
     }
+
+    @Test
+    void aDarkPlayerUsesTheNearRange() {
+        assertEquals(Reach.NEAR, Source.DARK_PLAYER.reach());
+        assertEquals(16, SneakoscopeRules.range(Source.DARK_PLAYER, 16, 48));
+        assertEquals(8, strengthOf(new Hit(Source.DARK_PLAYER, 8.0)));
+        assertEquals(0, strengthOf(new Hit(Source.DARK_PLAYER, 40.0)));
+    }
+
+    @Test
+    void onlyCorruptedOrLostPlayersInSurvivalAreDetected() {
+        assertEquals(com.hogwartsmagic.spell.dark.DarkRules.CORRUPTED, SneakoscopeRules.DARK_PLAYER_MIN_TIER);
+        assertFalse(SneakoscopeRules.detectsPlayer(true, true, false, 0));
+        assertFalse(SneakoscopeRules.detectsPlayer(true, true, false, 1));
+        assertFalse(SneakoscopeRules.detectsPlayer(true, true, false, 2));
+        assertTrue(SneakoscopeRules.detectsPlayer(true, true, false, 3));
+        assertTrue(SneakoscopeRules.detectsPlayer(true, true, false, 4));
+        assertFalse(SneakoscopeRules.detectsPlayer(true, true, true, 4));
+        assertFalse(SneakoscopeRules.detectsPlayer(false, true, false, 4));
+        assertFalse(SneakoscopeRules.detectsPlayer(true, false, false, 4));
+        assertTrue(SneakoscopeRules.playersDetectable(true, true));
+        assertFalse(SneakoscopeRules.playersDetectable(false, true));
+        assertFalse(SneakoscopeRules.playersDetectable(true, false));
+    }
 }

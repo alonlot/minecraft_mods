@@ -985,7 +985,7 @@
   "brew.hogwartsmagic.pepperup": "Pepperup Potion",
   "brew.hogwartsmagic.polyjuice": "Polyjuice Potion",
   "block.hogwartsmagic.sneakoscope": "Sneakoscope",
-  "item.hogwartsmagic.sneakoscope.tooltip": "Spins and whistles when a Death Eater, a Dementor or the Dark Mark is near. Place it for a redstone signal.",
+  "item.hogwartsmagic.sneakoscope.tooltip": "Spins and whistles when a Death Eater, a Dementor, the Dark Mark or a dark wizard is near. Place it for a redstone signal.",
   "gui.hogwartsmagic.dark.tier.clean": "Clean",
   "gui.hogwartsmagic.dark.tier.shadowed": "Shadowed",
   "gui.hogwartsmagic.dark.tier.tainted": "Tainted",

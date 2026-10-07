@@ -20,7 +20,9 @@ public final class SneakoscopeRules {
     public enum Source {
         DEATH_EATER(Reach.NEAR),
         DEMENTOR(Reach.NEAR),
-        DARK_MARK(Reach.SKY);
+        DARK_MARK(Reach.SKY),
+        /** Part B: a player at Corrupted or Lost (Dark Magic). */
+        DARK_PLAYER(Reach.NEAR);
 
         private final Reach reach;
 
@@ -46,6 +48,20 @@ public final class SneakoscopeRules {
     public static final int SLOWEST_WHISTLE_TICKS = 40;
     /** Carried whistle interval at strength 15. */
     public static final int FASTEST_WHISTLE_TICKS = 10;
+
+    /** Part B: the lowest Dark Magic tier that sets a Sneakoscope off (Corrupted; a test pins it to DarkRules). */
+    public static final int DARK_PLAYER_MIN_TIER = 3;
+
+    /** Part B: whether players are looked for at all (both toggles on). */
+    public static boolean playersDetectable(boolean darkMagicOn, boolean detectsPlayers) {
+        return darkMagicOn && detectsPlayers;
+    }
+
+    /** Part B: a player sets it off at Corrupted or Lost, unless creative or spectator, and only with both toggles on. */
+    public static boolean detectsPlayer(boolean darkMagicOn, boolean detectsPlayers, boolean creativeOrSpectator,
+                                        int tier) {
+        return playersDetectable(darkMagicOn, detectsPlayers) && !creativeOrSpectator && tier >= DARK_PLAYER_MIN_TIER;
+    }
 
     private SneakoscopeRules() {
     }

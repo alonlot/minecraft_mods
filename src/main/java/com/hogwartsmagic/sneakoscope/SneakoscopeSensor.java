@@ -4,6 +4,7 @@ import com.hogwartsmagic.Config;
 import com.hogwartsmagic.entity.DarkMarkEntity;
 import com.hogwartsmagic.entity.DementorEntity;
 import com.hogwartsmagic.entity.WizardEntity;
+import com.hogwartsmagic.spell.dark.DarkMagicData;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -16,6 +17,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Predicate;
 
 /**
  * Finds what a Sneakoscope detects and plays its whistle. Server only. Each probe pairs a SneakoscopeRules.Source
@@ -23,14 +25,20 @@ import java.util.List;
  * chunk. Part B adds one probe (dark players) to PROBES.
  */
 public final class SneakoscopeSensor {
-    private record Probe(SneakoscopeRules.Source source, Class<? extends Entity> type) {
+    private record Probe(SneakoscopeRules.Source source, Class<? extends Entity> type, Predicate<Entity> accepts) {
     }
 
-    /** VoldemortEntity extends WizardEntity, so the Death Eater probe finds him too. */
+    private static final Predicate<Entity> ANY = e -> true;
+
+    /**
+     * VoldemortEntity extends WizardEntity, so the Death Eater probe finds him too. Part B: Corrupted and Lost players,
+     * whatever they look like (the Cloak and Polyjuice do not hide intent); never creative or spectator players.
+     */
     private static final List<Probe> PROBES = List.of(
-            new Probe(SneakoscopeRules.Source.DEATH_EATER, WizardEntity.class),
-            new Probe(SneakoscopeRules.Source.DEMENTOR, DementorEntity.class),
-            new Probe(SneakoscopeRules.Source.DARK_MARK, DarkMarkEntity.class));
+            new Probe(SneakoscopeRules.Source.DEATH_EATER, WizardEntity.class, ANY),
+            new Probe(SneakoscopeRules.Source.DEMENTOR, DementorEntity.class, ANY),
+            new Probe(SneakoscopeRules.Source.DARK_MARK, DarkMarkEntity.class, ANY),
+            new Probe(SneakoscopeRules.Source.DARK_PLAYER, ServerPlayer.class, SneakoscopeSensor::isDarkPlayer));
 
     private SneakoscopeSensor() {
     }
@@ -40,24 +48,36 @@ public final class SneakoscopeSensor {
         int range = Config.getSneakoscopeRange();
         int darkMarkRange = Config.getSneakoscopeDarkMarkRange();
         List<SneakoscopeRules.Hit> hits = new ArrayList<>();
+        boolean playersOn = SneakoscopeRules.playersDetectable(Config.isDarkMagicEnabled(),
+                Config.isSneakoscopeDetectsPlayers());
         for (Probe probe : PROBES) {
+            if (probe.source() == SneakoscopeRules.Source.DARK_PLAYER && !playersOn) {
+                continue;
+            }
             int probeRange = SneakoscopeRules.range(probe.source(), range, darkMarkRange);
-            collect(level, probe.type(), probe.source(), centre, probeRange, holder, hits);
+            collect(level, probe.type(), probe.source(), probe.accepts(), centre, probeRange, holder, hits);
         }
         return SneakoscopeRules.strength(hits, range, darkMarkRange);
     }
 
     private static <T extends Entity> void collect(ServerLevel level, Class<T> type, SneakoscopeRules.Source source,
-                                                   Vec3 centre, int range, @Nullable Entity holder,
-                                                   List<SneakoscopeRules.Hit> hits) {
+                                                   Predicate<Entity> accepts, Vec3 centre, int range,
+                                                   @Nullable Entity holder, List<SneakoscopeRules.Hit> hits) {
         if (range <= 0) {
             return;
         }
         double size = range * 2.0;
         AABB box = AABB.ofSize(centre, size, size, size);
-        for (T entity : level.getEntitiesOfClass(type, box, e -> e != holder && e.isAlive())) {
+        for (T entity : level.getEntitiesOfClass(type, box, e -> e != holder && e.isAlive() && accepts.test(e))) {
             hits.add(new SneakoscopeRules.Hit(source, Math.sqrt(entity.distanceToSqr(centre))));
         }
+    }
+
+    /** Part B: a Corrupted or Lost player in survival or adventure (the toggles are checked before the scan). */
+    private static boolean isDarkPlayer(Entity entity) {
+        return entity instanceof ServerPlayer player
+                && SneakoscopeRules.detectsPlayer(Config.isDarkMagicEnabled(), Config.isSneakoscopeDetectsPlayers(),
+                        player.isCreative() || player.isSpectator(), DarkMagicData.getTier(player));
     }
 
     /** The carried whistle: only this player hears it. */

@@ -56,3 +56,4 @@ NOT FIXED: 8 whomping_willow sound events point to missing .ogg files; flying_mo
 - ModEvents: a raid whose wizards unloaded no longer grants Hero of the Village; Apparition channelTicks guarded; duplicate owl EntityInteract handler removed; Tenebris ink burst keyed on flight start.
 - IncarcerousChainAnimation: phases run on a real per-level tick queue instead of TickTask (which ran them all in one tick).
 - ExampleMod: creative tab title; WizardEntity Protego charge decrement; empty FlyingMobRenderer stub and unregistered Levicorpus mixin deleted; FlyingMobModel moved to client/model.
+- Entities: Horcrux soul flight and discard server-only; StudentModel static maps pruned; Horntail and Giant skip the synched state tick write while idle; WizardEntity hurt client guard and ritual particles via sendParticles; Dementor suck goal scan cached every 5 ticks; Student sleep goal hostile scan behind the bed-search throttle.

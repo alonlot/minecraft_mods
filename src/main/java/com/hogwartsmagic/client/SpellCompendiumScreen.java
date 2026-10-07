@@ -242,6 +242,13 @@ public class SpellCompendiumScreen extends Screen {
         g.drawCenteredString(this.font, progress, panelLeft + PANEL_WIDTH / 2, panelTop + 22, COLOR_BODY);
         drawProgressBar(g, panelLeft + PANEL_WIDTH / 2 - 80, panelTop + 33, 160, 3);
 
+        // Dark Magic: the reader's own Soul, right-aligned in the title row. The tier only, never the number.
+        int soulTier = DarkMagicClientState.tier();
+        Component soul = Component.translatable("gui." + ExampleMod.MODID + ".grimoire.soul",
+                Component.translatable(com.hogwartsmagic.spell.dark.DarkRules.tierKey(soulTier)));
+        g.drawString(this.font, soul, right - 8 - this.font.width(soul), panelTop + 8,
+                com.hogwartsmagic.spell.dark.DarkRules.tierColor(soulTier));
+
         // Scrolling spell list (clipped).
         g.enableScissor(panelLeft + 12, listTop, panelLeft + 12 + LIST_WIDTH, listBottom);
         int x = panelLeft + 16;

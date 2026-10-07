@@ -9,3 +9,4 @@ Base: 6a0c340 (406 tests green; Dark Magic Phase 1 built, its final review and f
 
 ## Progress
 - Brewing P2 T1 done 41c4e55 (420 tests = 406 + 14, RED seen). BASE for this phase = 406. Review dispatched; the Dark Magic Phase 1 fix wave runs before Task 2.
+- T1 review: Approved (the seven first ingredients all differ, so match and the first-fitting recipe cannot pick the wrong one). Fix-wave queue: M1 the table test asserts first steps are unique; M2 livingDeathNeedsItsGunpowder asserts usedTail(done, GUNPOWDER) is false, and the Task 9 review checks Living Death splash is chosen by recipe; M3 (Felix XP from any Luck II+) accepted as plan ruling 5.

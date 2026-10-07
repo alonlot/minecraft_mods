@@ -965,6 +965,8 @@ public class SpellPackets {
                     CHANNEL.send(new SyncManaPacket(currentMana, maxMana), net.minecraftforge.network.PacketDistributor.PLAYER.with(player));
                 }
 
+                // Dark Magic: the channel start is the paid Fiendfyre cast (its startup mana was just taken).
+                com.hogwartsmagic.spell.dark.DarkMagicData.onDarkCastPaid(player, spell);
                 playerData.putBoolean(TAG_FIENDFYRE_CHANNELING, true);
                 playerData.putLong(TAG_FIENDFYRE_LAST_DRAIN, now);
                 playerData.putLong(TAG_FIENDFYRE_LAST_SEEN, now);
@@ -1124,6 +1126,8 @@ public class SpellPackets {
             if (!creative) {
                 MagicWandItem.rollManaRefund(player, wand, cost);
             }
+            // Dark Magic: a paid dark cast darkens the payer, hit or miss (a puppet cast charges the puppeteer).
+            com.hogwartsmagic.spell.dark.DarkMagicData.onDarkCastPaid(player, spell);
 
             if (p.selfCastProtego) {
                 spell.applyHitEffect(player, player);

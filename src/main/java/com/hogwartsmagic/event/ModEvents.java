@@ -789,6 +789,8 @@ public class ModEvents {
 
             trySpawnInsomniaDementor(player);
             com.hogwartsmagic.sneakoscope.SneakoscopeCarried.tick(player);
+            // Dark Magic decay: returns at once on 199 ticks out of 200, before any read.
+            com.hogwartsmagic.spell.dark.DarkMagicData.tickDecay(player);
 
             // Once every 5s, check if the player is standing in a Forbidden Forest with no castle
             // nearby — if so, raise a Mini Hogwarts. Placement runs outside worldgen (no far-chunk crash).

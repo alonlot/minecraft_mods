@@ -8,3 +8,4 @@ Base: ea0bbf6 (339 tests green). Process: Sonnet implementer per task, Opus revi
 - Spec drift accepted: Wiggenweld heals over 2.4 s (Regeneration tick rate), splash Polyjuice stays a vanilla SPLASH_POTION (the impact handler needs it).
 
 ## Progress
+- T1 done e1e0e43 (359 tests, RED seen). Review and T2 dispatched.

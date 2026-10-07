@@ -1,0 +1,6 @@
+{
+  "type": "forge:add_features",
+  "biomes": "#hogwartsmagic:has_dittany",
+  "features": "hogwartsmagic:placed_dittany_patch",
+  "step": "vegetal_decoration"
+}

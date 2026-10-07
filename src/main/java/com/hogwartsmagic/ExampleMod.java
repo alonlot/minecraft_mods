@@ -131,6 +131,8 @@ public class ExampleMod
             FEATURES.register("gillyweed_swamp", () -> new com.hogwartsmagic.worldgen.GillyweedSwampFeature(net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration.CODEC));
     public static final RegistryObject<net.minecraft.world.level.levelgen.feature.Feature<net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration>> MANDRAKE_PATCH_FEATURE =
             FEATURES.register("mandrake_patch", () -> new com.hogwartsmagic.worldgen.MandrakePatchFeature(net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration.CODEC));
+    public static final RegistryObject<net.minecraft.world.level.levelgen.feature.Feature<net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration>> DITTANY_PATCH_FEATURE =
+            FEATURES.register("dittany_patch", () -> new com.hogwartsmagic.worldgen.DittanyPatchFeature(net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration.CODEC));
     // Diagon Alley is not a worldgen feature. It is eleven chunks long, and vanilla forbids a
     // feature from writing outside the 3x3 chunk window around the chunk being generated, so the
     // old one spammed "Detected setBlock in a far chunk" and could wedge chunk loading. It is now a
@@ -489,6 +491,8 @@ public class ExampleMod
             () -> new GillyweedPlantBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.SEAGRASS)));
     public static final RegistryObject<Block> MANDRAKE_PLANT = BLOCKS.register("mandrake_plant",
             () -> new MandrakePlantBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.POPPY).noCollission().instabreak()));
+    public static final RegistryObject<Block> DITTANY_PLANT = BLOCKS.register("dittany_plant",
+            () -> new com.hogwartsmagic.block.DittanyPlantBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.POPPY).noCollission().instabreak()));
     public static final RegistryObject<Block> WILLOW_SAPLING = BLOCKS.register("willow_sapling",
             () -> new com.hogwartsmagic.block.WillowSaplingBlock(
                     BlockBehaviour.Properties.ofFullCopy(Blocks.OAK_SAPLING)));
@@ -583,6 +587,17 @@ public class ExampleMod
             () -> new Item(new Item.Properties()));
     public static final RegistryObject<Item> GILLYWEED = ITEMS.register("gillyweed",
             () -> new GillyweedItem(new Item.Properties()));
+    // Cauldron Brewing Phase 2 ingredients. The dittany item also plants dittany.
+    public static final RegistryObject<Item> DITTANY = ITEMS.register("dittany",
+            () -> new net.minecraft.world.item.ItemNameBlockItem(DITTANY_PLANT.get(), new Item.Properties()));
+    public static final RegistryObject<Item> ASPHODEL = ITEMS.register("asphodel",
+            () -> new Item(new Item.Properties()));
+    public static final RegistryObject<Item> WORMWOOD = ITEMS.register("wormwood",
+            () -> new Item(new Item.Properties()));
+    public static final RegistryObject<Item> VALERIAN_SPRIGS = ITEMS.register("valerian_sprigs",
+            () -> new Item(new Item.Properties()));
+    public static final RegistryObject<Item> ASHWINDER_EGG = ITEMS.register("ashwinder_egg",
+            () -> new Item(new Item.Properties().fireResistant()));
     public static final RegistryObject<Item> POLYJUICE_POTION = ITEMS.register("polyjuice_potion",
             () -> new PolyjuicePotionItem(new Item.Properties()
                     .craftRemainder(net.minecraft.world.item.Items.GLASS_BOTTLE)
@@ -877,6 +892,11 @@ public class ExampleMod
                 output.accept(ACROMANTULA_VENOM.get());
                 output.accept(MANDRAKE_ROOT.get());
                 output.accept(GILLYWEED.get());
+                output.accept(DITTANY.get());
+                output.accept(ASPHODEL.get());
+                output.accept(WORMWOOD.get());
+                output.accept(VALERIAN_SPRIGS.get());
+                output.accept(ASHWINDER_EGG.get());
                 output.accept(POLYJUICE_POTION.get());
                 output.accept(WIGGENWELD_POTION.get());
                 output.accept(PEPPERUP_POTION.get());

@@ -8,3 +8,4 @@ Process: Opus for all agents, one implementer at a time (it runs after Brewing P
 
 ## Progress
 - T1 done afa458c (BASE 432, protocol 8; 448 tests, RED seen). Review and T2 dispatched.
+- T1 review: Approved. Fix-wave queue: M1 rename thePatronusNeverFails to corporealChanceNeverRisesAboveBase (the Task 3 review checks a miss gives the shield), M2 remove the local-constant stacking assertion (the Task 2 review checks real modifier stacking), M3 tighten or drop aTierKeepsTheCostsBelowItExceptTheTwoReplacements (covered by eachTierHasExactlyTheSpecCosts).

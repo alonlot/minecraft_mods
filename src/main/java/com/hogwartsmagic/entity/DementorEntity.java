@@ -125,9 +125,13 @@ public class DementorEntity extends Monster {
         this.goalSelector.addGoal(6, new RandomLookAroundGoal(this));
         
         this.targetSelector.addGoal(1, new HurtByTargetGoal(this));
-        this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Player.class, true));
-        this.targetSelector.addGoal(3, new NearestAttackableTargetGoal<>(this, WizardEntity.class, true));
-        this.targetSelector.addGoal(3, new NearestAttackableTargetGoal<>(this, StudentEntity.class, true));
+        // Dark Magic: a Corrupted or Lost player in range comes first (the nearest such one), even over a target
+        // already chosen. With none in range the goals below choose exactly as before (same order, renumbered).
+        this.targetSelector.addGoal(2, new DarkPlayerGoals.TargetDarkPlayer(this,
+                com.hogwartsmagic.spell.dark.DarkCostRules.Cost.DEMENTORS_PREFER));
+        this.targetSelector.addGoal(3, new NearestAttackableTargetGoal<>(this, Player.class, true));
+        this.targetSelector.addGoal(4, new NearestAttackableTargetGoal<>(this, WizardEntity.class, true));
+        this.targetSelector.addGoal(4, new NearestAttackableTargetGoal<>(this, StudentEntity.class, true));
     }
 
     @Override

@@ -2,6 +2,7 @@ package com.hogwartsmagic.block.entity;
 
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.block.WizardCauldronBlock;
+import com.hogwartsmagic.brewing.BrewAdvancements;
 import com.hogwartsmagic.brewing.BrewRules;
 import com.hogwartsmagic.polyjuice.PolyjuiceData;
 import com.hogwartsmagic.polyjuice.PolyjuiceStacks;
@@ -199,6 +200,9 @@ public class WizardCauldronBlockEntity extends BlockEntity {
                 return;
             }
             result = bottledPotion(match.recipe());
+            if (!result.is(ExampleMod.FAILED_POTION.get())) {
+                BrewAdvancements.grant(player, BrewAdvancements.FIRST_BREW);
+            }
         }
         player.setItemInHand(hand, ItemUtils.createFilledResult(stack, player, result));
         level.playSound(null, worldPosition, SoundEvents.BOTTLE_FILL, SoundSource.BLOCKS, 1.0f, 1.0f);
@@ -328,6 +332,7 @@ public class WizardCauldronBlockEntity extends BlockEntity {
         level.sendParticles(ParticleTypes.SMOKE, cx(), surfaceY(), cz(), 16, 0.25, 0.1, 0.25, 0.02);
         if (player != null) {
             tell(player, "ruin");
+            BrewAdvancements.grant(player, BrewAdvancements.RUINED_BREW);
         }
     }
 

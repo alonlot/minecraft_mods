@@ -38,7 +38,8 @@ public class BrewedPotionItem extends Item {
         PEPPERUP("pepperup_potion", 0xE8322A),
         FAILED("failed_potion", 0x6B5A45),
         DITTANY("essence_of_dittany", 0xC9E3A6),
-        FELIX("felix_felicis", 0xFFD966);
+        FELIX("felix_felicis", 0xFFD966),
+        MANDRAKE("mandrake_draught", 0x5FD3C0);
 
         private final String id;
         private final int color;
@@ -132,6 +133,12 @@ public class BrewedPotionItem extends Item {
                 server.sendParticles(ParticleTypes.HAPPY_VILLAGER, drinker.getX(), drinker.getY(0.5), drinker.getZ(),
                         8, 0.3, 0.4, 0.3, 0.0);
             }
+        } else if (kind == Kind.MANDRAKE) {
+            // A free drinker: the basilisk's hold is gone and cannot build for 8 seconds.
+            com.hogwartsmagic.petrification.Petrification.wardGaze(drinker);
+            if (drinker instanceof Player player) {
+                player.displayClientMessage(Component.translatable("message.hogwartsmagic.mandrake.drink"), true);
+            }
         } else if (kind == Kind.FELIX) {
             drinker.addEffect(new MobEffectInstance(MobEffects.LUCK, com.hogwartsmagic.brewing.PotionRules.FELIX_TICKS,
                     com.hogwartsmagic.brewing.PotionRules.FELIX_LUCK_AMPLIFIER));
@@ -147,6 +154,34 @@ public class BrewedPotionItem extends Item {
         } else {
             drinker.addEffect(new MobEffectInstance(MobEffects.CONFUSION, FAILED_NAUSEA_TICKS, 0));
             drinker.addEffect(new MobEffectInstance(MobEffects.POISON, FAILED_POISON_TICKS, 0));
+        }
+    }
+
+    /** A Mandrake Draught used on a player turned to stone brings them back (one dose). */
+    @Override
+    public net.minecraft.world.InteractionResult interactLivingEntity(ItemStack stack, Player player, LivingEntity target,
+                                                                      InteractionHand hand) {
+        if (kind != Kind.MANDRAKE || !com.hogwartsmagic.petrification.Petrification.isPetrified(target)) {
+            return net.minecraft.world.InteractionResult.PASS;
+        }
+        if (!player.level().isClientSide() && target instanceof ServerPlayer stone
+                && com.hogwartsmagic.petrification.Petrification.cure(stone, player)) {
+            useUpDose(player, hand, stack);
+        }
+        return net.minecraft.world.InteractionResult.sidedSuccess(player.level().isClientSide());
+    }
+
+    /** One dose used on someone else: the bottle comes back (not in creative). */
+    public static void useUpDose(Player player, InteractionHand hand, ItemStack stack) {
+        if (player.hasInfiniteMaterials()) {
+            return;
+        }
+        stack.shrink(1);
+        ItemStack bottle = new ItemStack(Items.GLASS_BOTTLE);
+        if (stack.isEmpty()) {
+            player.setItemInHand(hand, bottle);
+        } else if (!player.getInventory().add(bottle)) {
+            player.drop(bottle, false);
         }
     }
 

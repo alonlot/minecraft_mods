@@ -924,7 +924,12 @@ public class ClientModEvents {
                         ? net.minecraft.util.FastColor.ARGB32.opaque(potion.kind().color())
                         : -1,
                 ExampleMod.WIGGENWELD_POTION.get(), ExampleMod.PEPPERUP_POTION.get(), ExampleMod.FAILED_POTION.get(),
-                ExampleMod.ESSENCE_OF_DITTANY.get(), ExampleMod.FELIX_FELICIS.get());
+                ExampleMod.ESSENCE_OF_DITTANY.get(), ExampleMod.FELIX_FELICIS.get(), ExampleMod.MANDRAKE_DRAUGHT.get());
+        event.register(
+                (stack, tintIndex) -> tintIndex == 0 && stack.getItem() instanceof com.hogwartsmagic.item.SplashBrewItem splash
+                        ? net.minecraft.util.FastColor.ARGB32.opaque(splash.kind().color())
+                        : -1,
+                ExampleMod.SPLASH_MANDRAKE_DRAUGHT.get(), ExampleMod.DRAUGHT_OF_LIVING_DEATH.get());
         event.register(com.hogwartsmagic.client.WizardCauldronColors::item, ExampleMod.WIZARD_CAULDRON_ITEM.get());
     }
 
@@ -1013,6 +1018,8 @@ public class ClientModEvents {
                 com.hogwartsmagic.client.renderer.GiantRenderer::new);
         event.registerEntityRenderer(ModEntities.HUNGARIAN_HORNTAIL.get(), HungarianHorntailRenderer::new);
         event.registerEntityRenderer(ModEntities.PETRIFIED_REMAINS.get(), PetrifiedRemainsRenderer::new);
+        event.registerEntityRenderer(ModEntities.THROWN_BREW.get(),
+                net.minecraft.client.renderer.entity.ThrownItemRenderer::new);
         event.registerEntityRenderer(ModEntities.HORCRUX_SOUL.get(), HorcruxSoulRenderer::new);
         event.registerEntityRenderer(ModEntities.LYCANTHROPE_VILLAGER.get(), LycanthropeVillagerRenderer::new);
         event.registerEntityRenderer(ModEntities.GOLDEN_SNITCH.get(), com.hogwartsmagic.client.GoldenSnitchRenderer::new);

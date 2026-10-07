@@ -218,6 +218,32 @@ public final class Petrification {
         return player.server.overworld().getGameTime();
     }
 
+    // ---- The Mandrake splash ---------------------------------------------------------------------
+
+    /**
+     * A splash of Mandrake Draught at {@code center}: stone players in the sphere are cured (by the thrower), every
+     * other living thing gets the drink's ward, then statues in the sphere come back.
+     */
+    public static void splashMandrake(ServerLevel level, Entity center, net.minecraft.world.phys.AABB area,
+                                      @Nullable Entity thrower) {
+        for (LivingEntity entity : level.getEntitiesOfClass(LivingEntity.class, area, LivingEntity::isAlive)) {
+            if (!PotionRules.inSplash(center.distanceToSqr(entity))) {
+                continue;
+            }
+            if (entity instanceof ServerPlayer player && (hasPetrifiedFlag(player) || isPetrified(player))) {
+                cure(player, thrower);
+            } else if (!isPetrified(entity)) {
+                wardGaze(entity);
+            }
+        }
+        for (com.hogwartsmagic.entity.PetrifiedRemainsEntity statue
+                : level.getEntitiesOfClass(com.hogwartsmagic.entity.PetrifiedRemainsEntity.class, area)) {
+            if (PotionRules.inSplash(center.distanceToSqr(statue))) {
+                reviveStatue(level, statue, thrower);
+            }
+        }
+    }
+
     // ---- Statues ---------------------------------------------------------------------------------
 
     /** The mob's save without the death fields, for its statue. */

@@ -101,6 +101,21 @@ public class PetrifiedRemainsEntity extends Entity {
         return true;
     }
 
+    /** Right-click with a Mandrake Restorative Draught: the mob comes back (one dose). Bosses stay stone. */
+    @Override
+    public net.minecraft.world.InteractionResult interact(net.minecraft.world.entity.player.Player player,
+                                                          net.minecraft.world.InteractionHand hand) {
+        net.minecraft.world.item.ItemStack stack = player.getItemInHand(hand);
+        if (!stack.is(com.hogwartsmagic.ExampleMod.MANDRAKE_DRAUGHT.get())) {
+            return net.minecraft.world.InteractionResult.PASS;
+        }
+        if (this.level() instanceof net.minecraft.server.level.ServerLevel serverLevel
+                && com.hogwartsmagic.petrification.Petrification.reviveStatue(serverLevel, this, player)) {
+            com.hogwartsmagic.item.BrewedPotionItem.useUpDose(player, hand, stack);
+        }
+        return net.minecraft.world.InteractionResult.sidedSuccess(this.level().isClientSide());
+    }
+
     @Override
     public boolean hurt(net.minecraft.world.damagesource.DamageSource source, float amount) {
         if (!this.level().isClientSide) {

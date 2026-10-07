@@ -223,6 +223,13 @@ public class WizardCauldronBlockEntity extends BlockEntity {
         if (BrewRules.FELIX_FELICIS.id().equals(id)) {
             return new ItemStack(ExampleMod.FELIX_FELICIS.get());
         }
+        if (BrewRules.MANDRAKE_DRAUGHT.id().equals(id)) {
+            return new ItemStack(BrewRules.usedTail(history, BrewRules.GUNPOWDER)
+                    ? ExampleMod.SPLASH_MANDRAKE_DRAUGHT.get() : ExampleMod.MANDRAKE_DRAUGHT.get());
+        }
+        if (BrewRules.LIVING_DEATH.id().equals(id)) {
+            return new ItemStack(ExampleMod.DRAUGHT_OF_LIVING_DEATH.get());
+        }
         if (BrewRules.POLYJUICE.id().equals(id) && !polyjuiceTarget.isEmpty()) {
             return PolyjuiceStacks.make(polyjuiceTarget,
                     BrewRules.usedTail(history, BrewRules.REDSTONE),

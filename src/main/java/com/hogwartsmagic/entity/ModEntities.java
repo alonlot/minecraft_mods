@@ -216,6 +216,14 @@ public class ModEntities {
                             .updateInterval(1)
                             .build("petrified_remains"));
 
+    public static final RegistryObject<EntityType<ThrownBrewEntity>> THROWN_BREW =
+            ENTITY_TYPES.register("thrown_brew",
+                    () -> EntityType.Builder.<ThrownBrewEntity>of(ThrownBrewEntity::new, MobCategory.MISC)
+                            .sized(0.25F, 0.25F)
+                            .clientTrackingRange(4)
+                            .updateInterval(10)
+                            .build("thrown_brew"));
+
     public static final RegistryObject<EntityType<HorcruxSoulEntity>> HORCRUX_SOUL =
             ENTITY_TYPES.register("horcrux_soul",
                     () -> EntityType.Builder.<HorcruxSoulEntity>of(HorcruxSoulEntity::new, MobCategory.MISC)

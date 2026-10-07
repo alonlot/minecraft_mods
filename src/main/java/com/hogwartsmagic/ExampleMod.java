@@ -622,6 +622,17 @@ public class ExampleMod
                     .rarity(net.minecraft.world.item.Rarity.EPIC)
                     .component(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true),
                     com.hogwartsmagic.item.BrewedPotionItem.Kind.FELIX));
+    public static final RegistryObject<Item> MANDRAKE_DRAUGHT = ITEMS.register("mandrake_draught",
+            () -> new com.hogwartsmagic.item.BrewedPotionItem(new Item.Properties()
+                    .rarity(net.minecraft.world.item.Rarity.UNCOMMON),
+                    com.hogwartsmagic.item.BrewedPotionItem.Kind.MANDRAKE));
+    public static final RegistryObject<Item> SPLASH_MANDRAKE_DRAUGHT = ITEMS.register("splash_mandrake_draught",
+            () -> new com.hogwartsmagic.item.SplashBrewItem(new Item.Properties()
+                    .rarity(net.minecraft.world.item.Rarity.UNCOMMON),
+                    com.hogwartsmagic.item.SplashBrewItem.Kind.MANDRAKE));
+    public static final RegistryObject<Item> DRAUGHT_OF_LIVING_DEATH = ITEMS.register("draught_of_living_death",
+            () -> new com.hogwartsmagic.item.SplashBrewItem(new Item.Properties(),
+                    com.hogwartsmagic.item.SplashBrewItem.Kind.LIVING_DEATH));
     public static final RegistryObject<Item> PHOENIX_FEATHER_CORE = ITEMS.register("phoenix_feather_core",
             () -> new Item(new Item.Properties()));
     public static final RegistryObject<Item> UNICORN_HAIR_CORE = ITEMS.register("unicorn_hair_core",
@@ -913,6 +924,9 @@ public class ExampleMod
                 output.accept(FAILED_POTION.get());
                 output.accept(ESSENCE_OF_DITTANY.get());
                 output.accept(FELIX_FELICIS.get());
+                output.accept(MANDRAKE_DRAUGHT.get());
+                output.accept(SPLASH_MANDRAKE_DRAUGHT.get());
+                output.accept(DRAUGHT_OF_LIVING_DEATH.get());
                 output.accept(PHOENIX_FEATHER_CORE.get());
                 output.accept(UNICORN_HAIR_CORE.get());
                 output.accept(DRAGON_HEARTSTRING_CORE.get());

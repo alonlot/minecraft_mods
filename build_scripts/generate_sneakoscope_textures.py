@@ -19,11 +19,13 @@ whistles: the spinning sheet is the same glass, brighter, and the model draws it
 
 WHY THE SPIN IS A COLUMN THAT STEPS
 -----------------------------------
-The models leave the UVs out, so Minecraft maps each face from its position in the block. Every side face of the
-glass body reads texture columns 5..10 and rows 10..13 (the belly, x and z 4.5..11.5 at y 4..6, is texture rows
-10-11; the lower cone, 5 wide, is row 12 and the one below it, 3 wide, row 13). A bright facet edge
-that steps one column per frame across columns 5..10 (period 6, the facet width) sweeps across all four sides at
-once, which reads as the top turning. Two ticks a frame and no interpolation: a crisp, quick spin.
+The models leave the UVs out, so Minecraft maps each face from its position in the block: a side face at
+height y reads texture row 16 - y, across the columns its x or z span covers. The glass pieces read rows 8..13:
+the upper cones (y 6..8) rows 8-9, the belly (x and z 4.5..11.5, y 4..6) rows 10-11 across columns 4..11, the
+lower cones (5 and 3 wide) rows 12 and 13. A bright facet edge steps one column per frame through columns 5..10
+(period 6). Every glass face spans part of that range, so the edge moves across all four sides together, which
+reads as the top turning; on the 7-wide belly it can show twice on some frames. Two ticks a frame and no
+interpolation: a crisp, quick spin.
 
 STYLE
 -----
@@ -79,8 +81,8 @@ EDGE_HI = (235, 248, 250, 210)
 EDGE_MID = (214, 234, 238, 190)
 
 FRAMES = 6
-FACE_LEFT = 5    # first texture column of every glass side face
-FACE_WIDTH = 6   # columns 5..10
+FACE_LEFT = 5    # first column the facet edge steps through
+FACE_WIDTH = 6   # the edge steps through columns 5..10 (period 6)
 
 
 def value_noise(rng, cells=4, size=16):

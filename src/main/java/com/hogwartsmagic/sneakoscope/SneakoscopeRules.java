@@ -88,7 +88,7 @@ public final class SneakoscopeRules {
         return SLOWEST_WHISTLE_TICKS - ((s - 1) * span + steps / 2) / steps;
     }
 
-    /** True once in every CHECK_INTERVAL_TICKS ticks for a key (entity id or packed block position), spread by key. */
+    /** True once in every CHECK_INTERVAL_TICKS ticks for a key (entity id, or a block position's hashCode), spread by key. */
     public static boolean dueToCheck(long gameTime, long phaseKey) {
         return Math.floorMod(gameTime, (long) CHECK_INTERVAL_TICKS) == Math.floorMod(phaseKey, (long) CHECK_INTERVAL_TICKS);
     }

@@ -58,7 +58,10 @@ public final class CaveInimicumSnapshot {
     }
 
     public static CaveInimicumSnapshot load(CompoundTag tag) {
-        int edgeLength = Math.max(1, Math.min(MAX_EDGE_LENGTH, tag.getInt("EdgeLength")));
+        int edgeLength = tag.getInt("EdgeLength");
+        if (edgeLength <= 0 || edgeLength > MAX_EDGE_LENGTH || (edgeLength & 1) != 0) {
+            return null;
+        }
         CaveInimicumWardBounds bounds = new CaveInimicumWardBounds(
                 BlockPos.of(tag.getLong("Center")),
                 edgeLength);

@@ -6,7 +6,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -30,22 +29,20 @@ public final class CaveInimicumClientState {
             return false;
         }
 
-        List<CaveInimicumWardBounds> containing = new ArrayList<>();
+        // Called once per entity per frame from the render dispatcher: no per-call allocation.
+        BlockPos entityPos = entity.blockPosition();
+        BlockPos localPos = localPlayer.blockPosition();
+        boolean entityInsideWard = false;
         for (CaveInimicumWardBounds ward : activeWards) {
-            if (ward.contains(entity.blockPosition())) {
-                containing.add(ward);
+            if (!ward.contains(entityPos)) {
+                continue;
             }
-        }
-        if (containing.isEmpty()) {
-            return false;
-        }
-
-        for (CaveInimicumWardBounds ward : containing) {
-            if (ward.contains(localPlayer.blockPosition())) {
+            entityInsideWard = true;
+            if (ward.contains(localPos)) {
                 return false;
             }
         }
-        return true;
+        return entityInsideWard;
     }
 
     public static boolean shouldMuteBlockPos(BlockPos sourcePos) {

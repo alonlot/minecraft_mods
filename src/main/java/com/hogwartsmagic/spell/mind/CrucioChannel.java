@@ -220,9 +220,6 @@ public final class CrucioChannel {
         if (target == null) {
             target = living(server.getPlayerList().getPlayer(channel.targetId)); // a player who changed dimension
         }
-        if (caster != null && channel.held && !PossessionManager.isPossessing(caster)) {
-            caster.removeEffect(DisableSupport.holder(ExampleMod.ROOTED));
-        }
         if (target == null) {
             return;
         }

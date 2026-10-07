@@ -1100,6 +1100,11 @@ public class WhompingWillowEntity extends Monster {
         this.entityData.set(DATA_ENRAGED, tag.getBoolean("Enraged"));
         this.angryTicks = tag.getInt("AngryTicks");
         if (tag.hasUUID("Owner")) setOwner(tag.getUUID("Owner"));
+        // The attack state is not persisted, so a tree saved awake reloads DORMANT with the awake flag
+        // still set: tickAggro never runs, angryTicks never decays and it idles "awake" forever.
+        if (isAwake() && getAttackState() == AttackState.DORMANT) {
+            setAttackState(AttackState.NONE);
+        }
     }
 
     /**

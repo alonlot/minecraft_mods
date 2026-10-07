@@ -444,7 +444,10 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
 
         if (this.isTame() && this.isOwnedBy(player)) {
             if (player.isShiftKeyDown()) {
-                this.setOrderedToSit(!this.isOrderedToSit());
+                // Server-authoritative, like vanilla tameables: the client must not flip synched data itself.
+                if (!this.level().isClientSide) {
+                    this.setOrderedToSit(!this.isOrderedToSit());
+                }
                 return InteractionResult.sidedSuccess(this.level().isClientSide);
             }
 

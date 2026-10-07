@@ -209,7 +209,7 @@ public final class Config {
     }
 
     @SubscribeEvent
-    static void onLoad(ModConfigEvent event) {
+    public static void onLoad(ModConfigEvent event) {
         if (event.getConfig().getSpec() != SPEC) {
             return;
         }

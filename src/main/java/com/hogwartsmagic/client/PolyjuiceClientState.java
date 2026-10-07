@@ -69,6 +69,17 @@ public final class PolyjuiceClientState {
         REVEALED_UNTIL.clear();
     }
 
+    /**
+     * Logging out: drop the disguises the last server synced and the surrogate entities built for them.
+     * Surrogates are bound to the old {@link ClientLevel}; keeping them would leak that level and reuse
+     * entities from a dead world in the next one.
+     */
+    public static void clearAll() {
+        ACTIVE_DISGUISES.clear();
+        SURROGATES.clear();
+        REVEALED_UNTIL.clear();
+    }
+
     public static boolean isRevealed(UUID playerId, long gameTime) {
         Long until = REVEALED_UNTIL.get(playerId);
         if (until == null) {

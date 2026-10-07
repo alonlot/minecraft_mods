@@ -12,3 +12,4 @@ Process: Opus for all agents, one implementer at a time (it runs after Brewing P
 - T2 done 44c6ac0 (448 tests). Review and T3 dispatched.
 - T3 done 3174c53 (448 tests). Controller review (small diff): both corporeal rolls use the tier chance, a miss still falls to the shield (the Patronus never fails), upkeep x1.5 from Corrupted, insomnia threshold by tier. Approved. T4 dispatched.
 - T2 review: Approved (stacking with Horcrux and Hufflepuff checked against the jar; never kills; cache server-only; smoke gated; petrification compatible). Minors accepted with no action: cache not dropped on logout (up to 20 ticks of empty NPC searches), recompute bounded by syncs as ruled, WeakReference per recompute.
+- T4 done a48d0eb (448 tests; boot Done 3.206s with a Dementor, Student and House Elf summoned; no errors). Review and T5 dispatched.

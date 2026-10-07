@@ -40,7 +40,7 @@ It is based on the actual code and registries in the project, not just textures 
   Avada Kedavra kills near a Horcrux altar can start a soul-binding ritual with long-term consequences.
 
 - Polyjuice disguises
-  Players can collect identity samples, brew Polyjuice, transform after a short delay, and maintain disguises for the potion duration.
+  Players can collect identity samples, brew Polyjuice in the Wizard Cauldron, transform after a short delay, and maintain disguises for the potion duration.
 
 - Dynamic world events
   The mod includes Death Eater raids, insomnia-spawned Dementors, first-year invitation owl delivery, and structure-region themed spawning.
@@ -584,8 +584,11 @@ Each spell below lists the implemented gameplay behavior currently present in th
 
 ### Wizard Cauldron
 
-- Decorative and atmospheric cauldron block.
-- Supports magical potion-class ambience.
+- Brewing cauldron. Fill it with a water bucket or three water bottles and put heat under it (a lit campfire or soul campfire, fire, soul fire, lava or a magma block).
+- Right-click with ingredients in order, stir with a Fine Wood Stick (sneak for anticlockwise), and let simmer steps run on the heat. The liquid changes colour at every correct step; a wrong step ruins the brew.
+- A finished brew gives 3 doses (glass bottles). Left on the heat more than 120 seconds after its last simmer, it is ruined. A ruined brew bottles as Failed Potion or is poured away with a bucket.
+- Recipes: Wiggenweld Potion, Pepperup Potion and Polyjuice Potion (Hogwarts Guide, Potions).
+- Cauldrons placed by structures start full and work like any other.
 
 ### Gillyweed Plant
 
@@ -705,7 +708,7 @@ These are decorative house-themed blocks.
 - Requires a valid stored sample.
 - Starts a delayed transformation sequence.
 - Applies a Polyjuice effect for the potion duration.
-- Can be extended with redstone.
+- Brewed only in the Wizard Cauldron. Redstone right after the sample extends it; gunpowder after that makes it splash.
 
 ### Floo Binding Token
 
@@ -803,20 +806,21 @@ Only one relic of each type can be equipped.
 
 ### Wizard Potion
 
-- Brewed from Awkward Potion + Werewolf Fang.
+- Brewed on the brewing stand from Awkward Potion + Acromantula Venom.
 - Applies the Wizard Elixir effect.
 - Improves mana regeneration.
 
 ### Polyjuice Potion
 
-- Brewed from Wizard Potion + filled Polyjuice Sample.
+- Brewed in the Wizard Cauldron: add 1 Acromantula Venom, 2 Mandrake Roots and 1 Gillyweed, stir clockwise 4 times, simmer 8 minutes, then add a filled Polyjuice Sample. One brew gives 3 doses.
+- The brewing stand no longer makes Polyjuice. Bottles brewed before this change still work; a leftover Stabilized Polyjuice Base has no use.
 - Applies the Polyjuice effect.
 - Base disguise duration is about 3 minutes.
 
-### Extended Polyjuice Potion
+### Extended and Splash Polyjuice
 
-- Brewed by adding Redstone to Polyjuice Potion.
-- Extended disguise duration is about 8 minutes.
+- Add Redstone in the cauldron right after the sample: the disguise lasts about 8 minutes.
+- Add Gunpowder after that (or right after the sample): every dose is a splash potion.
 
 ### Major Custom Effects
 

@@ -118,7 +118,7 @@ const WIKI_DATA = {
       summary: "Collect identity samples, brew Polyjuice, transform after a short delay, and hold a timed disguise.",
       features: [
         "Sample Collector and Polyjuice Sample items",
-        "Wizard Potion intermediate brew",
+        "Brewed in the Wizard Cauldron (six steps and an 8-minute simmer)",
         "Base and extended Polyjuice durations"
       ]
     }
@@ -216,7 +216,7 @@ const WIKI_DATA = {
     { name: "Moving Portrait", kind: "Decor", summary: "Living magical portrait block.", features: ["Directional placement", "Ambient magical particles"] },
     { name: "Candle Cluster", kind: "Decor", summary: "Magical candle decoration.", features: ["Ambient flame particles"] },
     { name: "Enchanted Book Pile", kind: "Decor", summary: "Stack of enchanted books with ambience.", features: ["Ambient magical particles"] },
-    { name: "Wizard Cauldron", kind: "Decor", summary: "Atmospheric potion-class cauldron.", features: ["Magical bubbling ambience"] },
+    { name: "Wizard Cauldron", kind: "Brewing", summary: "Brewing cauldron: fill it with water, set it over heat and add ingredients in order.", features: ["Wiggenweld, Pepperup and Polyjuice recipes", "The liquid colour shows every step", "A finished brew gives 3 doses"] },
     { name: "Gillyweed Plant", kind: "Worldgen Plant", summary: "Custom underwater plant used in swamp generation.", features: ["Grows underwater", "Supports muddy or rooty wet terrain"] },
     { name: "Fine Wood Tree Set", kind: "Building Set", summary: "Custom magical wood set used for wandcraft and building.", features: ["Log, stripped log, leaves, sapling, and planks", "Main wandcraft wood source"] },
     { name: "Arcane Cluster", kind: "Resource Block", summary: "Glowing magical crystal cluster used in progression.", features: ["Light-emitting crystal block", "Feeds magical crafting progression"] },
@@ -232,8 +232,8 @@ const WIKI_DATA = {
     { name: "House Robes", kind: "Armor", summary: "Themed robe chestpieces for the four houses.", features: ["Gryffindor, Ravenclaw, Hufflepuff, Slytherin variants"] },
     { name: "Sample Collector", kind: "Potion Utility", summary: "Collects a Polyjuice identity sample from a living target.", features: ["Transforms into a filled sample item", "Works on mobs and players"] },
     { name: "Polyjuice Sample", kind: "Potion Utility", summary: "Stores a sampled target identity.", features: ["Carries target appearance data"] },
-    { name: "Polyjuice Potion", kind: "Potion", summary: "Drinkable disguise potion with delayed transformation.", features: ["Requires a valid sample", "Supports base and extended durations"] },
-    { name: "Wizard Potion", kind: "Potion", summary: "Intermediate brew used before Polyjuice.", features: ["Made from Awkward Potion plus Werewolf Fang", "Improves mana regeneration"] },
+    { name: "Polyjuice Potion", kind: "Potion", summary: "Drinkable disguise potion with delayed transformation.", features: ["Brewed in the Wizard Cauldron with a filled sample", "Redstone extends it, gunpowder makes it splash"] },
+    { name: "Wizard Potion", kind: "Potion", summary: "Mana regeneration potion from the brewing stand.", features: ["Made from Awkward Potion plus Acromantula Venom", "Improves mana regeneration"] },
     { name: "Gillyweed", kind: "Consumable", summary: "Edible magical plant that grants underwater adaptation.", features: ["Underwater utility effect", "Themed as gills and aquatic movement"] },
     { name: "Floo Binding Token", kind: "Travel Utility", summary: "Links two Floo Fireplaces and helps with naming.", features: ["Stores first fireplace", "Completes link with second fireplace"] },
     { name: "Floo Powder", kind: "Travel Fuel", summary: "Required fuel for Floo travel.", features: ["Dropped onto a Floo Fireplace to trigger travel"] },

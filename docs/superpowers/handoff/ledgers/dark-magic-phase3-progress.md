@@ -8,3 +8,4 @@ Process: Opus for all agents, one implementer at a time (runs after Dark Magic P
 - The escort is an ordinary Death Eater group: it still attacks non-Lost players and villagers. Accepted as canon.
 
 ## Progress
+- T1 done a14f090 (BASE 448, protocol 8; 465 tests, RED seen). Review and T2 dispatched.

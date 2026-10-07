@@ -7,3 +7,4 @@ Process: Opus for all agents, one implementer at a time (it runs after Brewing P
 - Spec corrections accepted: the halved corporeal chance is replaced by no corporeal at Tainted, and keep-away is replaced by attack at Lost (replacements, not stacking costs); the Lost health cost has no UI beyond the vanilla hearts, like the Horcrux; Dementor range is the 48-block follow range.
 
 ## Progress
+- T1 done afa458c (BASE 432, protocol 8; 448 tests, RED seen). Review and T2 dispatched.

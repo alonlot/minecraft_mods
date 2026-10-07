@@ -519,7 +519,7 @@ Each spell below lists the implemented gameplay behavior currently present in th
 - Custom wandcraft workstation.
 - Opens a dedicated GUI.
 - Uses persistent block entity data.
-- Crafts advanced wands from wand blank, core, and arcane catalyst.
+- Crafts advanced wands from a Fine Wood Stick, core, and arcane catalyst.
 
 ### Broom Workbench
 

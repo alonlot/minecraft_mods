@@ -2617,11 +2617,11 @@ A failure goes back to the implementer of the owning task with the row number an
   - Pure `BrewRules`, test-first, recipe table, step model, `match`, simmer and overbrew math, colour per step, registry-name strings: Task 1.
   - Interactions (water bucket, water bottle, ingredient, rod with sneak, glass bottle, empty bucket, empty-hand status): Task 3 `useItem`, `showStatus`; sneak via `StirringRodItem` (Task 2, ruling 9); rows 2-14.
   - Heat tag with lit campfires: Task 3 step 5, `isHeated`; rows 7, 16.
-  - `level` property, per-level models, BlockColor from the block entity, tintindex, greyscale texture, default "full, green": Task 3 steps 1, 6, 7; Task 4 steps 1-3; rulings 2, 19, 22-24; rows 1, 4, 21, 23, 28.
+  - `level` property, per-level models, BlockColor from the block entity, tintindex, greyscale texture, default "full, green": Task 3 steps 1, 6, 7; Task 4 steps 1-3; rulings 2, 19, 22-24; rows 1, 4, 22, 24, 29.
   - Wiggenweld, Pepperup, Failed Potion, `BrewedPotionItem`: Task 2; rows 8-13.
-  - Polyjuice leaves the stand, `PolyjuiceStacks`, removal in the task that makes the cauldron recipe usable (Task 3, after `PolyjuiceStacks` in Task 2), base renamed, wikis: Tasks 2, 3, 5; rows 19-20, 22, 24-26.
-  - Lang lines and the Guide "Potions" section: Tasks 2, 3, 4; row 27.
-  - Migration (old worlds, `diagon_alley.nbt`): ruling 1, `cauldronAt` fallback; rows 21, 23.
+  - Polyjuice leaves the stand, `PolyjuiceStacks`, removal in the task that makes the cauldron recipe usable (Task 3, after `PolyjuiceStacks` in Task 2), base renamed, wikis: Tasks 2, 3, 5; rows 19-21, 23, 25-27.
+  - Lang lines and the Guide "Potions" section: Tasks 2, 3, 4; row 28.
+  - Migration (old worlds, `diagon_alley.nbt`): ruling 1, `cauldronAt` fallback; rows 22, 24.
   - `runServer` boots clean: Task 3 step 9 and Task 6 step 4.
 - **Polyjuice in the cauldron, items 1-8.** 1 recipe: `BrewRules.POLYJUICE`. 2 sample last, overbrew while waiting, empty sample refused without ruin: `overbrewClock`, `refusesEmptySample`, `addIngredient`; tests `overbrewClockStartsAfterTheLastSimmer`, `anEmptySampleIsRefused`. 3 target stored on the cauldron: `polyjuiceTarget`, saved as `PolyjuiceTarget`. 4 redstone then gunpowder, each once, anything else ruins: `tail` and `fit`; test `polyjuiceTailIsInOrderAndOnce`. 5 three doses with the same target, drinking unchanged: `bottledPotion` and `PolyjuiceStacks` (splash as `SPLASH_POTION`, ruling 14). 6 stand recipes go, `WizardPotionBrewingRecipe` stays, base stays registered and renamed: Task 3 steps 3, 4, 8. 7 advancement unchanged: listed under untouched. 8 docs: Task 5.
 - **Decisions 1-15.** In-world (1), step kinds (2), colour, ruin and finish feedback (3), heat list (4), water first (5, ruling 7), overbrew 120 s (6), 3 doses and Failed Potion (7), hardcoded Java table (8), Guide (9), Polyjuice moved (10), custom items, no vanilla Potion (11), petrification untouched (12, Phase 2), no quality (13), no dimension rules (14), server authoritative with no new packet (15, ruling 29).

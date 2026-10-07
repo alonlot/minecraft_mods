@@ -240,7 +240,7 @@ const WIKI_DATA = {
     { name: "Owl Route Tag", kind: "Logistics Utility", summary: "Links two owl perches and can be assigned to a tamed owl.", features: ["Stores both perch endpoints", "Checks route validity before assignment"] },
     { name: "Cave Inimicum Totem", kind: "Ward Utility", summary: "Binds to an active ward and reveals truth inside it.", features: ["Stores bound ward position", "Lets carriers see through the illusion from outside"] },
     { name: "Hogwarts Invite", kind: "Flavor and UI Item", summary: "Acceptance letter delivered by owl and opened in a custom screen.", features: ["Custom reading screen", "Spawned for first-year players"] },
-    { name: "Wand Materials", kind: "Crafting", summary: "Core wandcraft ingredients including wand blank, Arcane Dust, Arcane Core, and magical cores.", features: ["Used in advanced wand crafting", "Supports phoenix, unicorn, and dragon wand lines"] },
+    { name: "Wand Materials", kind: "Crafting", summary: "Core wandcraft ingredients including Fine Wood Stick, Arcane Dust, Arcane Core, and magical cores.", features: ["Used in advanced wand crafting", "Supports phoenix, unicorn, and dragon wand lines"] },
     { name: "Creature Ingredients", kind: "Crafting", summary: "Drops and magical materials from special creatures.", features: ["Werewolf Fang", "Centaur Talisman", "Acromantula Venom"] },
     { name: "Relics", kind: "Progression", summary: "Magic-enhancing equipment for capacity and regeneration slots.", features: ["Includes Minor Mana Charm, Refined Mana Charm, Arcane Focus, Ravenclaw Diadem Fragment, Enchanted Inkwell, Moonlit Phial"] }
   ]

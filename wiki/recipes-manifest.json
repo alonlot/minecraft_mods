@@ -473,13 +473,13 @@
                     },
                     {
                         "id":  "fine_wood_stick",
-                        "name":  "Wand Blank",
+                        "name":  "Fine Wood Stick",
                         "station":  "crafting_table",
                         "recipeType":  "shaped",
                         "category":  "Crafting and Utilities",
                         "output":  {
                                        "id":  "hogwartsmagic:fine_wood_stick",
-                                       "name":  "Wand Blank",
+                                       "name":  "Fine Wood Stick",
                                        "count":  4,
                                        "texture":  "assets/recipe-icons/hogwartsmagic_fine_wood_stick.png"
                                    },
@@ -508,13 +508,13 @@
                     },
                     {
                         "id":  "fine_wood_sticks_from_planks",
-                        "name":  "Wand Blank",
+                        "name":  "Fine Wood Stick",
                         "station":  "crafting_table",
                         "recipeType":  "shaped",
                         "category":  "Crafting and Utilities",
                         "output":  {
                                        "id":  "hogwartsmagic:fine_wood_stick",
-                                       "name":  "Wand Blank",
+                                       "name":  "Fine Wood Stick",
                                        "count":  1,
                                        "texture":  "assets/recipe-icons/hogwartsmagic_fine_wood_stick.png"
                                    },
@@ -580,7 +580,7 @@
                                      },
                                      {
                                          "id":  "hogwartsmagic:fine_wood_stick",
-                                         "name":  "Wand Blank",
+                                         "name":  "Fine Wood Stick",
                                          "texture":  "assets/recipe-icons/hogwartsmagic_fine_wood_stick.png"
                                      },
                                      {
@@ -1799,7 +1799,7 @@
                                           "label":  "Wood",
                                           "item":  {
                                                        "id":  "hogwartsmagic:fine_wood_stick",
-                                                       "name":  "Wand Blank",
+                                                       "name":  "Fine Wood Stick",
                                                        "texture":  "assets/recipe-icons/hogwartsmagic_fine_wood_stick.png"
                                                    }
                                       },
@@ -1842,7 +1842,7 @@
                                           "label":  "Wood",
                                           "item":  {
                                                        "id":  "hogwartsmagic:fine_wood_stick",
-                                                       "name":  "Wand Blank",
+                                                       "name":  "Fine Wood Stick",
                                                        "texture":  "assets/recipe-icons/hogwartsmagic_fine_wood_stick.png"
                                                    }
                                       },
@@ -1885,7 +1885,7 @@
                                           "label":  "Wood",
                                           "item":  {
                                                        "id":  "hogwartsmagic:fine_wood_stick",
-                                                       "name":  "Wand Blank",
+                                                       "name":  "Fine Wood Stick",
                                                        "texture":  "assets/recipe-icons/hogwartsmagic_fine_wood_stick.png"
                                                    }
                                       },

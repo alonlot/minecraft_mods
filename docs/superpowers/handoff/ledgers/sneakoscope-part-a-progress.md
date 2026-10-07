@@ -11,3 +11,4 @@ Base: f5033f3 (360 tests green). Process: Sonnet implementer per task, Opus revi
 - T1 review: Approved. Fix-wave queue: M1 add the reversed-order case to theStrongestSourceWins, M2 NaN distance gives 0 (guard !(distance < range)) with a test, M3 assert negative distance gives 15, M4 whistle interval test asserts strict decrease. Spec decision 3 text updated to strongest-wins by the controller.
 - T2 done c6bfd1d (381 tests, JSON valid, boot Done 3.6 s). Review and T3 dispatched.
 - T3 done 7e19bf8 (381 tests). Review and T4 dispatched.
+- T2 review: Approved. Fix-wave queue: M1 the per-second stagger key BlockPos.asLong() uses only 5 of 20 phases; use a mixed key (BlockPos.hashCode() through floorMod) in SneakoscopeBlockEntity AND WizardCauldronBlockEntity (same pattern). M2 (whistleAt comment) no action.

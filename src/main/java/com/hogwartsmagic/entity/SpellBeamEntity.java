@@ -1193,6 +1193,13 @@ public class SpellBeamEntity extends ThrowableProjectile {
             serverLevel.addFreshEntity(lightning);
         }
 
+        // Dark Magic: a Lost caster's Mark calls an escort to their side instead of a raid near them.
+        if (!this.reflected && this.puppeteer == null && getOwner() instanceof ServerPlayer escortOwner
+                && !com.hogwartsmagic.spell.mind.PossessionManager.isForcedCaster(escortOwner)
+                && com.hogwartsmagic.spell.dark.DarkRewards.earnsEscort(escortOwner)) {
+            return DeathEaterEscort.summon(serverLevel, escortOwner) > 0;
+        }
+
         java.util.List<WizardEntity> raidMembers = new java.util.ArrayList<>();
         int count = 5 + this.random.nextInt(5);
         for (int i = 0; i < count; i++) {

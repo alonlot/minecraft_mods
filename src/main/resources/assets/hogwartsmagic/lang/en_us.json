@@ -1031,5 +1031,6 @@
   "gui.hogwartsmagic.dark.tier.lost": "Lost",
   "gui.hogwartsmagic.dark.tier_up": "Your soul darkens. You are now %s.",
   "gui.hogwartsmagic.dark.tier_down": "Your soul lightens. You are now %s.",
+  "gui.hogwartsmagic.dark.escort_arrives": "Death Eaters answer the Mark. They will guard you for five minutes.",
   "gui.hogwartsmagic.grimoire.soul": "Soul: %s"
 }

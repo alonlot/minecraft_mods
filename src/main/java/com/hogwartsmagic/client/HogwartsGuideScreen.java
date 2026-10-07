@@ -240,10 +240,10 @@ public class HogwartsGuideScreen extends Screen {
                 page("Signs in the liquid", List.of(
                         "Every correct step changes the colour of the brew. A wrong step turns it grey-brown with a hiss of smoke: the brew is ruined.",
                         "A finished brew shimmers and chimes. Left on the heat more than 120 seconds after its last simmer, it boils into ruin. Take the heat away and it keeps forever.",
-                        "A glass bottle takes one dose, and a brew gives three. A ruined brew bottles as Failed Potion, or a bucket pours it away."
+                        "A glass bottle takes one dose, and a brew gives three. A ruined brew bottles as Failed Potion, or an empty bucket pours it away."
                 )),
                 page("Wiggenweld Potion", List.of(
-                        "Heals 8 health over two seconds and stops Bleeding.",
+                        "Heals 8 health over about two seconds and stops Bleeding.",
                         "1. Add 1 Honey Bottle.",
                         "2. Add 2 Glow Berries.",
                         "3. Stir clockwise 3 times.",
@@ -265,8 +265,9 @@ public class HogwartsGuideScreen extends Screen {
                         "5. Simmer 480 seconds (8 minutes)."
                 )),
                 page("Polyjuice: the sample", List.of(
+                        "Fill it with a Sample Collector: use it on a player or a mob.",
                         "6. Add a filled Polyjuice Sample. An empty one is refused. Take the cauldron off the heat while you fetch the sample, or it overbrews.",
-                        "Then, if you like, in this order: 1 Redstone for an 8-minute disguise, then 1 Gunpowder to make every dose a splash potion.",
+                        "Then, if you like, in this order: 1 Redstone Dust for an 8-minute disguise, then 1 Gunpowder to make every dose a splash potion.",
                         "The brew gives 3 doses, each carrying the same sample. The brewing stand no longer makes Polyjuice."
                 ))
         ));

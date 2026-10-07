@@ -589,6 +589,8 @@ Each spell below lists the implemented gameplay behavior currently present in th
 - A finished brew gives 3 doses (glass bottles). Left on the heat more than 120 seconds after its last simmer, it is ruined. A ruined brew bottles as Failed Potion or is poured away with a bucket.
 - Recipes: Wiggenweld Potion, Pepperup Potion and Polyjuice Potion (Hogwarts Guide, Potions).
 - Cauldrons placed by structures start full and work like any other.
+- Ingredients need a full cauldron (3 doses of water).
+- Keep your other hand empty when you sneak-stir.
 
 ### Gillyweed Plant
 
@@ -657,7 +659,7 @@ These are decorative house-themed blocks.
 
 ### Wand Materials
 
-- Wand Blank
+- Fine Wood Stick
   Base crafted wand body used for real wandcraft.
 
 - Arcane Dust

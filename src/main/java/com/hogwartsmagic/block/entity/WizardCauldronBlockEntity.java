@@ -105,7 +105,13 @@ public class WizardCauldronBlockEntity extends BlockEntity {
     }
 
     public void showStatus(Player player) {
-        ensureInitialized();
+        if (!initialized) {
+            // An untouched cauldron stays untouched (classic green): read the block state, never initialize.
+            BlockState state = getBlockState();
+            int fill = state.hasProperty(WizardCauldronBlock.LEVEL) ? state.getValue(WizardCauldronBlock.LEVEL) : 0;
+            player.displayClientMessage(line(fill == 0 ? "status.empty" : "status.untouched"), true);
+            return;
+        }
         player.displayClientMessage(statusLine(), true);
     }
 
@@ -451,24 +457,30 @@ public class WizardCauldronBlockEntity extends BlockEntity {
         ruined = tag.getBoolean("Ruined");
         overbrewSeconds = tag.getInt("Overbrew");
         history = new ArrayList<>();
+        boolean damaged = false;
         ListTag list = tag.getList("History", Tag.TAG_COMPOUND);
         for (int i = 0; i < list.size(); i++) {
             CompoundTag entry = list.getCompound(i);
             BrewRules.Kind kind = BrewRules.Kind.byName(entry.getString("Kind"));
             if (kind == null) {
-                ruined = true; // a damaged save: a ruined brew, never a crash
+                damaged = true; // a damaged save: a ruined brew, never a crash
                 continue;
             }
             String item = entry.getString("Item");
             int amount = entry.getInt("Amount");
             if (amount < 1 || (kind == BrewRules.Kind.ADD && item.isEmpty())) {
-                ruined = true; // a damaged run is skipped: never a Step with a bad item or amount
+                damaged = true; // a damaged run: never a Step with a bad item or amount
                 continue;
             }
             history.add(new BrewRules.Step(kind, kind == BrewRules.Kind.ADD ? item : "", amount));
         }
         polyjuiceTarget = tag.getCompound("PolyjuiceTarget").copy();
         color = tag.contains("Color") ? tag.getInt("Color") : BrewRules.CLASSIC_GREEN;
+        if (damaged) {
+            ruined = true;
+            history = new ArrayList<>();
+            color = BrewRules.RUINED_COLOR;
+        }
     }
 
     @Override

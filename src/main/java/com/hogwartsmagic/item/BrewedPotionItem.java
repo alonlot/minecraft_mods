@@ -3,6 +3,7 @@ package com.hogwartsmagic.item;
 import com.hogwartsmagic.spell.support.HealSpell;
 import com.hogwartsmagic.spell.support.SupportMana;
 import net.minecraft.ChatFormatting;
+import net.minecraft.advancements.CriteriaTriggers;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -84,6 +85,9 @@ public class BrewedPotionItem extends Item {
     public ItemStack finishUsingItem(ItemStack stack, Level level, LivingEntity drinker) {
         if (!level.isClientSide) {
             applyDrink(level, drinker);
+        }
+        if (drinker instanceof ServerPlayer serverPlayer) {
+            CriteriaTriggers.CONSUME_ITEM.trigger(serverPlayer, stack);
         }
         if (drinker instanceof Player player) {
             player.awardStat(Stats.ITEM_USED.get(this));

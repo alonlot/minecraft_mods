@@ -2569,7 +2569,7 @@ git commit -F /tmp/msg.txt
 
 ### Task 7: In-game checklist (for the human)
 
-This cannot be automated. Install the jar from Task 6. For rows 21-23, first save a world with the jar built at ea0bbf6 (before this phase): place a Wizard Cauldron, brew a Polyjuice bottle on the brewing stand, and find a Diagon Alley apothecary.
+This cannot be automated. Install the jar from Task 6. For rows 22-24, first save a world with the jar built at ea0bbf6 (before this phase): place a Wizard Cauldron, brew a Polyjuice bottle on the brewing stand, and find a Diagon Alley apothecary.
 
 | # | Setup | Do | Expected |
 |---|---|---|---|
@@ -2593,16 +2593,18 @@ This cannot be automated. Install the jar from Task 6. For rows 21-23, first sav
 | 18 | Row 17 | Right-click with an empty Polyjuice Sample | "This sample is empty."; nothing else changes |
 | 19 | Row 17 | Add a filled sample of a villager | Chime, sparkles; bottle 3 Polyjuice Potions; drinking one turns you into a villager after 3 s for 3:00 |
 | 20 | Row 17 again, sample then Redstone then Gunpowder | Bottle | Three "Splash Polyjuice Potion"; one thrown at a friend disguises them for 8:00 |
-| 21 | Old world (see above) | Right-click the old cauldron with an empty hand | It looked full and green before; now "Water: 3 of 3 doses." and the liquid turns blue; it brews like a new one |
-| 22 | Old world | Drink the Polyjuice brewed on the stand before the change | It still works |
-| 23 | Old world, Diagon Alley apothecary | Look at and use its cauldron; watch the apothecary villager | Full green liquid until used; it brews; the apothecary keeps its job |
-| 24 | Brewing stand | Awkward Potion + Acromantula Venom | Mana Regeneration Potion, as before |
-| 25 | Brewing stand | Mana Regeneration Potion + Mandrake Root; a Polyjuice + Redstone; a Polyjuice + Gunpowder | Nothing brews (no Polyjuice step left on the stand) |
-| 26 | An old Stabilized Polyjuice Base bottle | Hover it | Its name ends in "(no longer used)"; nothing crashes |
-| 27 | Hogwarts Guide | Open the "Potions" tab | Six pages: the cauldron, signs in the liquid, Wiggenweld, Pepperup, Polyjuice, the sample |
-| 28 | Creative tab | Look at the cauldron item and the three new potions | Cauldron shows green liquid; potions show teal, red and grey-brown liquid |
-| 29 | Full water | Hold dirt and right-click the cauldron | The dirt is placed (non-ingredients pass through) |
-| 30 | Dedicated server and a client | Join, then rows 3, 7 and 12 | The colour changes show for both players; no registry mismatch |
+| 21 | Row 17 again, sample then Redstone Dust only | Bottle it | The tooltip shows Polyjuice 8:00; drinking it disguises you for 8:00 |
+| 22 | Old world (see above) | Right-click the old cauldron with an empty hand | "The cauldron is full."; the liquid stays green; the first bottle, bucket, rod or ingredient turns it into 3 doses of water (blue), and it brews like a new one |
+| 23 | Old world | Drink the Polyjuice brewed on the stand before the change | It still works |
+| 24 | Old world, Diagon Alley apothecary | Look at and use its cauldron; watch the apothecary villager | Full green liquid until used; it brews; the apothecary keeps its job |
+| 25 | Brewing stand | Awkward Potion + Acromantula Venom | Mana Regeneration Potion, as before |
+| 26 | Brewing stand | Try Polyjuice in a bottle slot and Mandrake Root in the ingredient slot; a Splash Polyjuice with Redstone or Gunpowder; a Wizard Potion brew | Polyjuice will not go into a bottle slot and Mandrake Root will not go into the ingredient slot; a Splash Polyjuice with Redstone or Gunpowder brews nothing; the Wizard Potion still brews |
+| 27 | An old Stabilized Polyjuice Base bottle | Hover it | Its name ends in "(no longer used)"; nothing crashes |
+| 28 | Hogwarts Guide | Open the "Potions" tab | Six pages: the cauldron, signs in the liquid, Wiggenweld, Pepperup, Polyjuice, the sample |
+| 29 | Creative tab | Look at the cauldron item and the three new potions | Cauldron shows green liquid; potions show teal, red and grey-brown liquid |
+| 30 | Full water | Hold dirt and right-click the cauldron | The dirt is placed (non-ingredients pass through) |
+| 31 | Dedicated server and a client | Join, then rows 3, 7 and 12 | The colour changes show for both players; no registry mismatch |
+| 32 | Full water cauldron | Right-click with an empty main hand and a glass bottle in the off hand | The off-hand bottle is used |
 
 A failure goes back to the implementer of the owning task with the row number and `latest.log`.
 

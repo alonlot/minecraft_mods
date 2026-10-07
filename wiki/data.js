@@ -216,7 +216,7 @@ const WIKI_DATA = {
     { name: "Moving Portrait", kind: "Decor", summary: "Living magical portrait block.", features: ["Directional placement", "Ambient magical particles"] },
     { name: "Candle Cluster", kind: "Decor", summary: "Magical candle decoration.", features: ["Ambient flame particles"] },
     { name: "Enchanted Book Pile", kind: "Decor", summary: "Stack of enchanted books with ambience.", features: ["Ambient magical particles"] },
-    { name: "Wizard Cauldron", kind: "Brewing", summary: "Brewing cauldron: fill it with water, set it over heat and add ingredients in order.", features: ["Wiggenweld, Pepperup and Polyjuice recipes", "The liquid colour shows every step", "A finished brew gives 3 doses"] },
+    { name: "Wizard Cauldron", kind: "Brewing", summary: "Brewing cauldron: fill it with water, set it over heat and add ingredients in order.", features: ["Wiggenweld, Pepperup and Polyjuice recipes", "The liquid colour shows every step", "A finished brew gives 3 doses", "Ingredients need a full cauldron (3 doses of water).", "Keep your other hand empty when you sneak-stir."] },
     { name: "Gillyweed Plant", kind: "Worldgen Plant", summary: "Custom underwater plant used in swamp generation.", features: ["Grows underwater", "Supports muddy or rooty wet terrain"] },
     { name: "Fine Wood Tree Set", kind: "Building Set", summary: "Custom magical wood set used for wandcraft and building.", features: ["Log, stripped log, leaves, sapling, and planks", "Main wandcraft wood source"] },
     { name: "Arcane Cluster", kind: "Resource Block", summary: "Glowing magical crystal cluster used in progression.", features: ["Light-emitting crystal block", "Feeds magical crafting progression"] },

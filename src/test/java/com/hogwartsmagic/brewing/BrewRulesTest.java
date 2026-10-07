@@ -159,6 +159,7 @@ class BrewRulesTest {
         assertTrue(BrewRules.overbrewClock(simmer(wiggenweldToSimmer(), 20)));
         List<Step> waiting = simmer(polyjuiceToSimmer(), 480);
         assertEquals(Status.ON_TRACK, BrewRules.match(waiting).status());
+        assertSame(BrewRules.POLYJUICE, BrewRules.match(waiting).recipe());
         assertFalse(BrewRules.wantsSimmer(waiting));
         assertTrue(BrewRules.overbrewClock(waiting));
         assertFalse(BrewRules.overbrewClock(simmer(polyjuiceToSimmer(), 479)));
@@ -171,12 +172,15 @@ class BrewRulesTest {
         assertFalse(BrewRules.overbrewed(120));
         assertTrue(BrewRules.overbrewed(121));
         assertEquals(120, BrewRules.overbrewLeft(0));
-        assertEquals(15, BrewRules.overbrewLeft(105));
+        assertEquals(16, BrewRules.overbrewLeft(105));
+        assertEquals(1, BrewRules.overbrewLeft(120));
+        assertEquals(0, BrewRules.overbrewLeft(121));
         assertEquals(0, BrewRules.overbrewLeft(200));
-        assertFalse(BrewRules.overbrewWarning(99));
-        assertTrue(BrewRules.overbrewWarning(100));
+        assertFalse(BrewRules.overbrewWarning(100));
+        assertTrue(BrewRules.overbrewWarning(101));
         assertTrue(BrewRules.overbrewWarning(119));
-        assertFalse(BrewRules.overbrewWarning(120));
+        assertTrue(BrewRules.overbrewWarning(120));
+        assertFalse(BrewRules.overbrewWarning(121));
     }
 
     @Test
@@ -270,8 +274,25 @@ class BrewRulesTest {
             for (Step step : recipe.steps()) {
                 assertTrue(step.amount() > 0, recipe.id());
             }
+            if (!recipe.tail().isEmpty()) {
+                Step last = recipe.steps().get(recipe.steps().size() - 1);
+                assertFalse(last.sameAction(recipe.tail().get(0)), recipe.id() + " last step vs tail");
+                for (int i = 1; i < recipe.tail().size(); i++) {
+                    assertFalse(recipe.tail().get(i).sameAction(recipe.tail().get(i - 1)), recipe.id() + " tail " + i);
+                }
+            }
         }
         assertEquals(List.of(BrewRules.WIGGENWELD, BrewRules.PEPPERUP, BrewRules.POLYJUICE), BrewRules.RECIPES);
+    }
+
+    @Test
+    void aFirstIngredientNamesItsRecipe() {
+        Match blaze = BrewRules.match(run(add(BLAZE)));
+        assertEquals(Status.ON_TRACK, blaze.status());
+        assertSame(BrewRules.PEPPERUP, blaze.recipe());
+        Match venom = BrewRules.match(run(add(VENOM)));
+        assertEquals(Status.ON_TRACK, venom.status());
+        assertSame(BrewRules.POLYJUICE, venom.recipe());
     }
 
     @Test

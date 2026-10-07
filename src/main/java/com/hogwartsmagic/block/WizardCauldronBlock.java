@@ -115,6 +115,9 @@ public class WizardCauldronBlock extends BaseEntityBlock {
         if (!player.getMainHandItem().isEmpty()) {
             return InteractionResult.PASS;
         }
+        if (!player.getOffhandItem().isEmpty()) {
+            return InteractionResult.PASS; // vanilla then tries the off-hand item through useItemOn
+        }
         if (level.isClientSide) {
             return InteractionResult.SUCCESS;
         }

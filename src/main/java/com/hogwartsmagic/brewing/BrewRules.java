@@ -216,7 +216,8 @@ public final class BrewRules {
     }
 
     public static int overbrewLeft(int seconds) {
-        return Math.max(0, OVERBREW_SECONDS - seconds);
+        // 1 at s = 120 (the last safe second), 0 only once the brew is ruined (s > 120); never above 120.
+        return Math.max(0, Math.min(OVERBREW_SECONDS, OVERBREW_SECONDS + 1 - seconds));
     }
 
     /** The last OVERBREW_WARNING_SECONDS before the brew is lost. */

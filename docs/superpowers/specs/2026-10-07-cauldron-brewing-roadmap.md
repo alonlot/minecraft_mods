@@ -116,16 +116,16 @@ Line numbers drift. Find each spot by its text.
     with its own drink logic (cure helpers, mana, revive). Vanilla potion contents cannot call
     `HealSpell.cureBleeding`. Throwable potions (Draught of Living Death, Mandrake Draught) have a
     splash variant made by adding gunpowder as the last step in the cauldron.
-12. **Basilisk petrification stays lethal for players.** Canon victims survive, but a solo player
-    frozen for ten minutes is not fun, and a "revive" for players would change the Basilisk fight.
-    The Mandrake Draught instead (a) clears gaze build-up when you drink it and (b) **brings back
-    petrified mobs** when you splash their remains. That gives a reason to protect villagers and
-    pets near the Chamber.
+12. **Basilisk petrification freezes, it does not kill (user ruling, 2026-10-07).** The victim
+    chooses: wait for a rescue, or give in and respawn. See "Petrification" below. Bosses (the
+    `hogwartsmagic:bosses` tag) keep the old lethal rule.
 13. **No brewing mastery or potion quality in this pass.** A recipe is right or ruined. Quality tiers
     (better ingredients, better stirring) are a later idea.
 14. **Brewing works the same in every dimension.** No moon-phase or biome rules.
-15. **Server authoritative.** The client sends nothing new. All steps are `useItemOn` on the server.
-    The client only draws the liquid from the synced block entity tag.
+15. **Server authoritative.** Brewing sends nothing new from the client. All steps are `useItemOn`
+    on the server, and the client only draws the liquid from the synced block entity tag. The one
+    new client-to-server packet is `GiveInPacket` (Phase 2), and the server checks the petrified
+    state before it acts on it.
 
 ---
 
@@ -138,7 +138,7 @@ Each potion ties to a system that already exists. Numbers are first values to tu
 | **Wiggenweld Potion** | Heals 8 HP over 2 s and cures Bleeding (through `HealSpell.cureBleeding`) | Sectumsempra, Bleed rules |
 | **Pepperup Potion** | Restores 40 mana now, and 30 s of Fire Resistance. Steam from the ears (CLOUD particles) | Mana |
 | **Essence of Dittany** | Cures Cursed Wound (through `CombatEffects.cureCursedWound`), heals 4 HP | Dolohov's Curse, splinching |
-| **Mandrake Restorative Draught** | Drink: clears `basilisk_gaze` build-up and gives 8 s where the gaze cannot build. Splash on `PetrifiedRemainsEntity`: the mob comes back (same type, full health) | Basilisk, Mandrakes |
+| **Mandrake Restorative Draught** | Cures petrification: splash it on petrified players and statues (4-block radius), or right-click a petrified player with a bottle. Drunk by a free player, it clears `basilisk_gaze` build-up and gives 8 s where the gaze cannot build | Basilisk, Mandrakes |
 | **Draught of Living Death** | Splash only. `stunned` for 20 s base, through `CrowdControl.apply`, so the existing rules apply: diminishing returns, half duration on bosses, 60% in PvP | Crowd control |
 | **Felix Felicis** | 3 minutes of Luck III (vanilla loot rolls) and +25% mastery XP. Brewing takes 10 minutes of simmer and gives 1 dose | Mastery, Gringotts loot |
 
@@ -176,6 +176,64 @@ This also makes the apothecary Javadoc true.
 
 ---
 
+## Petrification (user ruling, 2026-10-07)
+
+The user asked for canon petrification: the Basilisk's full gaze turns you to stone instead of
+killing you. You can wait for someone to save you with the Mandrake Draught, or press a button to
+give in and respawn. Petrified mobs can be saved the same way.
+
+**This ships in Phase 2, in the same plan as the Mandrake Draught.** A freeze with no cure would be
+a slow death, so until the Draught exists the gaze stays lethal.
+
+### Players
+
+1. **The full gaze petrifies.** `BasiliskEntity.petrifyAndKill` becomes `petrify`. For a player it
+   no longer deals `Float.MAX_VALUE` damage. It sets a persisted state
+   (`PlayerPersisted/<modid>/Petrified`, with the game time it started) and applies the
+   `basilisk_petrification` effect with no end time.
+2. **While petrified, the player:**
+   - cannot move, look, jump, attack, use items, cast or open the inventory (the server zeroes
+     movement each tick, as the effect already does, and refuses use, attack and cast packets);
+   - takes no damage, except void damage, `/kill` and the "give in" choice (a stone statue does not
+     bleed, and nobody can farm a frozen player);
+   - is not a target: mobs, the Basilisk, Dementors and NPC casters ignore them;
+   - does not get hungry, and holds their air under water;
+   - keeps the stone tint that the client already draws for the effect (`ClientForgeEvents`).
+3. **The choice.** When the player is petrified, the client opens a small screen, like the death
+   screen, with two buttons:
+   - **"Wait for rescue"** closes the screen. A line on the HUD says "You are petrified. Press [G]
+     to give in." The key can be rebound, and it opens the screen again.
+   - **"Give in"** sends `GiveInPacket` (client to server). The server checks that the player is
+     still petrified, then kills them with the Basilisk damage source. This is a normal death, so
+     the Horcrux rebirth, item drops and `keepInventory` all work as usual.
+   The screen does not pause the game, and chat stays open, so the player can call for help.
+4. **The petrified state survives logout.** A player who logs out as stone logs back in as stone,
+   with the screen open again.
+5. **A safety limit** (config `petrificationMaxSeconds`, default 0 = no limit). A server can set
+   one, so that an AFK statue does not stay forever. When it runs out, the player gives in
+   automatically.
+6. **The cure.** The Mandrake Draught ends the state: the effect goes, the persisted keys are
+   cleared, and the player gets back full control with Slowness I for 5 s. A cure sends a line to
+   both players ("X brought you back.").
+
+### Mobs
+
+7. **A petrified mob still becomes a statue**, as today (`ModEvents` turns a petrified non-player
+   death into a `PetrifiedRemainsEntity`). Two changes make it worth saving:
+   - **The statue keeps the whole mob.** At death, `PetrifiedRemainsEntity.fromLiving` also stores
+     the mob's full NBT (`saveWithoutId`, without the death fields). Today it stores only the type,
+     size and yaw, so a revived pet would come back wild, with no name and no owner.
+   - **No loot and no XP.** A petrified death drops nothing (cancel the drops in a LOWEST priority
+     handler with an `isCanceled` guard). Otherwise saving a mob would duplicate its items.
+8. **The cure** loads the stored NBT, sets health to max, removes the petrification effects,
+   places the mob at the statue's position and yaw, and removes the statue. The mob keeps its name,
+   owner, villager trades, equipment and inventory. A statue from an older world with no stored NBT
+   brings back a fresh mob of the same type.
+9. **Breaking a statue still destroys it** (today any hit kills it). That stays: if you break your
+   petrified villager, it is gone.
+
+---
+
 ## Phases
 
 ### Phase 1: The working cauldron (two potions)
@@ -210,12 +268,16 @@ boots clean on a dedicated server.
   `MandrakePatchFeature`), apothecary trades and chest loot.
 - Essence of Dittany, Mandrake Draught, Draught of Living Death, Felix Felicis.
 - Splash variants (gunpowder step) and their thrown entity, following the vanilla splash potion.
-- Mandrake Draught revive: `PetrifiedRemainsEntity` gets a `revive()` that spawns its stored type at
-  its position and yaw, and removes itself.
+- Petrification, as in "Petrification" above: the player state, the choice screen, `GiveInPacket`
+  (the network protocol goes up by one), the key binding, the target filters, the statue that keeps
+  the full mob, no drops on a petrified death, and the cure for players and statues. The pure parts
+  (the state rules, the time limit, which damage passes) go in a Minecraft-free class, test-first.
 - Felix: the mastery XP bonus hooks the existing `MasteryAwards` award path (players only).
 
-**Done when:** each potion does what the table says, the revive works on a petrified villager, and
-Living Death respects diminishing returns and the boss rule.
+**Done when:** each potion does what the table says; a petrified player can wait, give in, or be
+saved by a second player; a petrified named and tamed wolf comes back with its name and owner; a
+petrified death drops nothing; Living Death respects diminishing returns and the boss rule; and the
+petrified state survives a relog on a dedicated server.
 
 ### Phase 3: Polish and world
 
@@ -235,9 +297,7 @@ with JEI, moving Polyjuice into the cauldron, Veritaserum, Wolfsbane.
 
 1. **In-world steps or a GUI?** This doc picks in-world (decision 1). A GUI is about half the work,
    but it is less fun.
-2. **Basilisk:** keep petrification lethal for players (decision 12), or make it canon (frozen, not
-   dead, cured by the draught)? The canon option needs a rule for solo players.
-3. **Felix Felicis strength:** Luck III and +25% mastery XP for 3 minutes, from a 10-minute brew. Too
+2. **Felix Felicis strength:** Luck III and +25% mastery XP for 3 minutes, from a 10-minute brew. Too
    strong or too weak?
 
 ---

@@ -117,6 +117,11 @@ public final class VillageGringottsBank {
         return activeJob != null;
     }
 
+    /** Drops any in-progress job. Called when the server stops, so a job never outlives its level. */
+    public static void reset() {
+        activeJob = null;
+    }
+
     // ------------------------------------------------------------------ ticking
 
     /** Called every server tick (END phase) to advance an in-progress build. */

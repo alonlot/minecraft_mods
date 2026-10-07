@@ -110,6 +110,23 @@ public final class MandrakePullEvents {
         }
     }
 
+    /** A pull in progress when the player leaves would otherwise sit in the map (and leave the plant marked PULLING) until they return. */
+    @SubscribeEvent
+    public static void onPlayerLoggedOut(net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) {
+            return;
+        }
+        PullState pull = ACTIVE_PULLS.remove(player.getUUID());
+        if (pull == null) {
+            return;
+        }
+        ServerLevel level = player.serverLevel().getServer().getLevel(pull.dimension);
+        if (level != null) {
+            level.destroyBlockProgress(player.getId(), pull.pos, -1);
+            restoreIdleState(level, pull.pos);
+        }
+    }
+
     @SubscribeEvent
     public static void onServerTick(TickEvent.ServerTickEvent event) {
         if (event.phase != TickEvent.Phase.END || ACTIVE_PULLS.isEmpty()) {

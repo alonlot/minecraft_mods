@@ -69,6 +69,16 @@ public final class UndercroftBuilder {
         return activeJob != null;
     }
 
+    /**
+     * Drops any in-progress job and the per-player fog bookkeeping. Called when the server stops:
+     * the job holds a ServerLevel, and in singleplayer the next world would otherwise keep carving
+     * into the previous one's level object.
+     */
+    public static void reset() {
+        activeJob = null;
+        FOGGED.clear();
+    }
+
     // ------------------------------------------------------------------ starting
 
     /**

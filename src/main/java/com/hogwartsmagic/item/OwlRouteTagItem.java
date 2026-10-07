@@ -31,12 +31,15 @@ public class OwlRouteTagItem extends Item {
         if (!(context.getLevel().getBlockEntity(context.getClickedPos()) instanceof OwlPerchBlockEntity perch)) {
             return InteractionResult.PASS;
         }
+        if (context.getLevel().isClientSide) {
+            return InteractionResult.SUCCESS;
+        }
         ItemStack stack = context.getItemInHand();
         CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
         if (!tag.contains(FIRST_PERCH)) {
             tag.putLong(FIRST_PERCH, context.getClickedPos().asLong());
             stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
-            if (!context.getLevel().isClientSide) {
+            if (context.getPlayer() != null) {
                 context.getPlayer().displayClientMessage(Component.translatable("message.hogwartsmagic.owl_route.first_set")
                         .withStyle(ChatFormatting.GOLD), true);
             }
@@ -54,7 +57,7 @@ public class OwlRouteTagItem extends Item {
             perch.setLinkedPos(firstPos);
             perch.setOwner(context.getPlayer());
             setRoute(stack, firstPos, context.getClickedPos());
-            if (!context.getLevel().isClientSide) {
+            if (context.getPlayer() != null) {
                 context.getPlayer().displayClientMessage(Component.translatable("message.hogwartsmagic.owl_route.linked")
                         .withStyle(ChatFormatting.GREEN), true);
             }

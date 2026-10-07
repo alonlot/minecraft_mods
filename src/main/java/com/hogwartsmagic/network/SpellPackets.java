@@ -43,6 +43,10 @@ public class SpellPackets {
             * MAX_CAVE_INIMICUM_EDGE_LENGTH
             * MAX_CAVE_INIMICUM_EDGE_LENGTH;
     private static final int MAX_ACTIVE_WARDS = 512;
+    /** Matches the Floo naming screen's EditBox limit; anything longer did not come from our client. */
+    private static final int MAX_FLOO_NAME_LENGTH = 32;
+    /** Floo screens are opened by standing at the fireplace; a packet about a far-away one is forged. */
+    private static final double MAX_FLOO_INTERACT_DISTANCE_SQ = 32.0D * 32.0D;
 
     public static final SimpleChannel CHANNEL = ChannelBuilder
             .named(ExampleMod.MODID + ":spells")
@@ -540,6 +544,9 @@ public class SpellPackets {
         }
         List<FlooDestinationData> destinations = new ArrayList<>();
         for (BlockPos linkedPos : fireplace.getLinkedPositions()) {
+            if (destinations.size() >= MAX_FLOO_DESTINATIONS) {
+                break; // the decoder reads at most this many; writing more would leave unread bytes
+            }
             if (!player.level().isLoaded(linkedPos)) {
                 continue;
             }
@@ -577,6 +584,11 @@ public class SpellPackets {
     }
 
     private static void enqueueClientWork(CustomPayloadEvent.Context ctx, Runnable work) {
+        if (ctx.getSender() != null) {
+            // Server-to-client only: a client (e.g. a LAN guest on an integrated server) must never drive these.
+            ctx.setPacketHandled(true);
+            return;
+        }
         ctx.enqueueWork(work);
         ctx.setPacketHandled(true);
     }
@@ -944,7 +956,7 @@ public class SpellPackets {
                 if (!creative) {
                     currentMana -= startupCost;
                     modData.putFloat("Mana", currentMana);
-                    player.getPersistentData().getCompound("PlayerPersisted").put(ExampleMod.MODID, modData);
+                    PlayerMagicData.saveModData(player, modData);
                     CHANNEL.send(new SyncManaPacket(currentMana, maxMana), net.minecraftforge.network.PacketDistributor.PLAYER.with(player));
                 }
 
@@ -987,7 +999,7 @@ public class SpellPackets {
                 if (!creative) {
                     currentMana -= startupCost;
                     modData.putFloat("Mana", currentMana);
-                    player.getPersistentData().getCompound("PlayerPersisted").put(ExampleMod.MODID, modData);
+                    PlayerMagicData.saveModData(player, modData);
                     CHANNEL.send(new SyncManaPacket(currentMana, maxMana), net.minecraftforge.network.PacketDistributor.PLAYER.with(player));
                     MagicWandItem.rollManaRefund(player, wand, Math.max(1, Math.round(startupCost)));
                 }
@@ -1029,7 +1041,7 @@ public class SpellPackets {
                     if (!creative) {
                         currentMana -= fullCost;
                         modData.putFloat("Mana", currentMana);
-                        playerData.getCompound("PlayerPersisted").put(ExampleMod.MODID, modData);
+                        PlayerMagicData.saveModData(player, modData);
                         CHANNEL.send(new SyncManaPacket(currentMana, maxMana), net.minecraftforge.network.PacketDistributor.PLAYER.with(player));
                         MagicWandItem.rollManaRefund(player, wand, fullCost);
                     }
@@ -1099,7 +1111,7 @@ public class SpellPackets {
                 currentMana = modData.contains("MaxMana") ? modData.getFloat("MaxMana") : PlayerMagicData.getMaxMana(player);
             }
             modData.putFloat("Mana", currentMana);
-            player.getPersistentData().getCompound("PlayerPersisted").put(ExampleMod.MODID, modData);
+            PlayerMagicData.saveModData(player, modData);
             
             // Sync new mana to client
             float currentMaxMana = PlayerMagicData.getMaxMana(player);
@@ -1411,6 +1423,12 @@ public class SpellPackets {
                 com.hogwartsmagic.spell.combat.CombatEffects.notifyCastBlocked(player);
                 return;
             }
+            // Only loaded positions (getBlockEntity would otherwise force-load any chunk the client names)
+            // and only a source fireplace the player is actually standing near.
+            if (!player.level().isLoaded(p.sourcePos) || !player.level().isLoaded(p.destinationPos)
+                    || player.distanceToSqr(Vec3.atCenterOf(p.sourcePos)) > MAX_FLOO_INTERACT_DISTANCE_SQ) {
+                return;
+            }
             if (!(player.level().getBlockEntity(p.sourcePos) instanceof FlooFireplaceBlockEntity source)
                     || !(player.level().getBlockEntity(p.destinationPos) instanceof FlooFireplaceBlockEntity destination)) {
                 return;
@@ -1477,8 +1495,16 @@ public class SpellPackets {
             if (player == null || p.name == null || p.name.isBlank()) {
                 return;
             }
+            String name = p.name.trim();
+            if (name.isEmpty() || name.length() > MAX_FLOO_NAME_LENGTH) {
+                return; // the naming screen caps at MAX_FLOO_NAME_LENGTH; longer names are forged
+            }
+            if (!player.level().isLoaded(p.fireplacePos)
+                    || player.distanceToSqr(Vec3.atCenterOf(p.fireplacePos)) > MAX_FLOO_INTERACT_DISTANCE_SQ) {
+                return;
+            }
             if (player.level().getBlockEntity(p.fireplacePos) instanceof FlooFireplaceBlockEntity fireplace) {
-                fireplace.setFireplaceName(p.name.trim(), player);
+                fireplace.setFireplaceName(name, player);
                 player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.hogwartsmagic.floo.named", fireplace.getFireplaceName()), true);
             }
         }

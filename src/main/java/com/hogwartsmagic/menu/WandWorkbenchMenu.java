@@ -194,7 +194,6 @@ public class WandWorkbenchMenu extends AbstractContainerMenu {
             ItemStack stack = slot.getItem();
             itemstack = stack.copy();
             if (index == RESULT_SLOT) {
-                grantStarterMagicIfNeeded(player, itemstack);
                 if (!this.moveItemStackTo(stack, PLAYER_SLOTS_START, PLAYER_SLOTS_START + 36, true)) {
                     return ItemStack.EMPTY;
                 }

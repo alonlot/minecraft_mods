@@ -148,6 +148,12 @@ public final class DiagonAlleyPortal {
         moving.remove(player.getUUID());
     }
 
+    /** Forget every player. Called when the server stops. */
+    public static void reset() {
+        shown.clear();
+        moving.clear();
+    }
+
     // ---------------------------------------------------------------------------------------
 
     /** Every tick: hand out the view through open arches, and move whoever walks into one. */

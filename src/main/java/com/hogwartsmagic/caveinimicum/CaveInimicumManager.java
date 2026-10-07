@@ -372,8 +372,11 @@ public final class CaveInimicumManager {
                         continue;
                     }
                     BlockEntity blockEntity = level.getBlockEntity(pos);
-                    if (blockEntity != null && blockEntity.getUpdatePacket() != null) {
-                        player.connection.send(blockEntity.getUpdatePacket());
+                    if (blockEntity != null) {
+                        net.minecraft.network.protocol.Packet<?> updatePacket = blockEntity.getUpdatePacket();
+                        if (updatePacket != null) {
+                            player.connection.send(updatePacket);
+                        }
                     }
                 }
             }

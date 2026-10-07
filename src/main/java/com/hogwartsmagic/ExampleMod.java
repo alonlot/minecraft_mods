@@ -949,11 +949,18 @@ public class ExampleMod
 
     // You can use SubscribeEvent and let the Event Bus discover methods to call
     @SubscribeEvent
-    public static void onServerStarting(ServerStartingEvent event)
+    public void onServerStarting(ServerStartingEvent event)
     {
         // Do something when the server starts
         LOGGER.info("HELLO from server starting");
 
+    }
+
+    /** Give every Ollivanders camera back before the server goes down, so nobody logs in disembodied. */
+    @SubscribeEvent
+    public void onServerStopping(net.minecraftforge.event.server.ServerStoppingEvent event)
+    {
+        com.hogwartsmagic.event.OllivandersCeremony.endAll();
     }
 
     @SubscribeEvent

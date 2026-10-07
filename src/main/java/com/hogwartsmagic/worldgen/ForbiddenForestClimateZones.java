@@ -28,18 +28,15 @@ import net.minecraft.world.level.biome.Climate;
  */
 public final class ForbiddenForestClimateZones {
 
-    private static final Climate.Parameter SURFACE_DEPTH = Climate.Parameter.point(0.0F);
-
-    public static final Climate.ParameterPoint[] POINTS = new Climate.ParameterPoint[] {
-            new Climate.ParameterPoint(
-                    Climate.Parameter.span(-0.55F, 0.10F),  // temperature: cool niche, widened  -> RARE-ish
-                    Climate.Parameter.span(0.18F, 0.85F),   // humidity: humid/wet niche, widened -> RARE-ish
-                    Climate.Parameter.span(-0.11F, 1.00F),  // continentalness: coast -> deep inland -> LARGE (above ocean)
-                    Climate.Parameter.span(-1.00F, 0.70F),  // erosion: nearly all terrain shapes -> LARGE
-                    SURFACE_DEPTH,
-                    Climate.Parameter.span(-1.00F, 1.00F),  // weirdness: every ridge and valley -> LARGE
-                    0L)
-    };
+    // Surface AND underground depth points, like every other surface biome here (see
+    // ClimateSlices): with only the depth-0 point the forest flipped to a neighbouring biome as
+    // soon as you dug down into it.
+    public static final Climate.ParameterPoint[] POINTS = ClimateSlices.surface(
+            Climate.Parameter.span(-0.55F, 0.10F),  // temperature: cool niche, widened  -> RARE-ish
+            Climate.Parameter.span(0.18F, 0.85F),   // humidity: humid/wet niche, widened -> RARE-ish
+            Climate.Parameter.span(-0.11F, 1.00F),  // continentalness: coast -> deep inland -> LARGE (above ocean)
+            Climate.Parameter.span(-1.00F, 0.70F),  // erosion: nearly all terrain shapes -> LARGE
+            Climate.Parameter.span(-1.00F, 1.00F)); // weirdness: every ridge and valley -> LARGE
 
     private ForbiddenForestClimateZones() {}
 }

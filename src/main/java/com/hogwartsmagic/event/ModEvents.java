@@ -513,9 +513,10 @@ public class ModEvents {
             }
             com.hogwartsmagic.spell.mastery.MasteryConfig.sendTo(player);
             com.hogwartsmagic.spell.mastery.SpellMasteryData.sync(player);
-            com.hogwartsmagic.spell.dark.DarkMagicData.sync(player);
             HousePerks.applyHouseAttributes(player);
             HorcruxData.applyMaxHealthPenalty(player);
+            // Dark Magic: after the house and Horcrux modifiers, so the Lost health cost clamps against the full max.
+            com.hogwartsmagic.spell.dark.DarkMagicData.sync(player);
             // Sync initial mana
             float maxMana = PlayerMagicData.getMaxMana(player);
             float mana = modData.contains("Mana") ? modData.getFloat("Mana") : maxMana;
@@ -791,6 +792,8 @@ public class ModEvents {
             com.hogwartsmagic.sneakoscope.SneakoscopeCarried.tick(player);
             // Dark Magic decay: returns at once on 199 ticks out of 200, before any read.
             com.hogwartsmagic.spell.dark.DarkMagicData.tickDecay(player);
+            // Dark Magic smoke (Corrupted and Lost): returns at once on 9 ticks out of 10, before any read.
+            com.hogwartsmagic.spell.dark.DarkCosts.tickSmoke(player);
 
             // Once every 5s, check if the player is standing in a Forbidden Forest with no castle
             // nearby — if so, raise a Mini Hogwarts. Placement runs outside worldgen (no far-chunk crash).

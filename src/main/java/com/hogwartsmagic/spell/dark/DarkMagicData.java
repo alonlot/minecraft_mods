@@ -122,10 +122,14 @@ public final class DarkMagicData {
         }
     }
 
-    /** Sends this player their own effective Darkness. Never sent about anyone else. */
+    /** Sends this player their own effective Darkness (never anyone else's) and re-applies the Lost health cost. */
     public static void sync(ServerPlayer player) {
         SpellPackets.CHANNEL.send(new SpellPackets.SyncDarkMagicPacket(get(player)),
                 PacketDistributor.PLAYER.with(player));
+        // Phase 2: every sync point (each write, so each tier change; login, respawn, dimension change; a config
+        // reload, so the toggle) also re-applies the Lost health cost and drops the NPCs' darkest-online cache.
+        DarkCosts.refreshMaxHealth(player);
+        DarkCosts.invalidatePresence();
     }
 
     /** After a config reload (the toggle may have changed): resend everyone online, on the server thread. */

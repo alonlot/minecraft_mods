@@ -603,6 +603,7 @@ Each spell below lists the implemented gameplay behavior currently present in th
 - A finished brew gives 3 doses (glass bottles). Left on the heat more than 120 seconds after its last simmer, it is ruined. A ruined brew bottles as Failed Potion or is poured away with a bucket.
 - Recipes: Wiggenweld Potion, Pepperup Potion, Essence of Dittany, Mandrake Restorative Draught, Draught of Living Death, Felix Felicis and Polyjuice Potion (Hogwarts Guide, Potions). Each is described under Potions and Effects.
 - Felix Felicis gives a single dose; every other brew gives 3.
+- Crafting: seven iron ingots in a cauldron shape round one Arcane Dust. An Apothecary or a Cauldron Smith villager also sells one.
 - Gunpowder after a finished Mandrake Restorative Draught makes every dose a splash potion. The Draught of Living Death always ends with Gunpowder: it is splash only.
 - The Mini Hogwarts Potions classroom has seven of these cauldrons, full and already over heat.
 - Cauldrons placed by structures start full and work like any other.
@@ -691,7 +692,7 @@ These are decorative house-themed blocks.
 ### Wand Materials
 
 - Fine Wood Stick
-  Base crafted wand body used for real wandcraft. It is also the stirring rod for the Wizard Cauldron: right-click to stir clockwise, sneak and right-click (other hand empty) to stir anticlockwise.
+  Base crafted wand body used for real wandcraft. It is also the stirring rod for the Wizard Cauldron: right-click to stir clockwise, sneak and right-click (other hand empty) to stir anticlockwise. Crafted from two stripped fine wood logs stacked (4 sticks) or three fine wood planks stacked (1 stick).
 
 - Arcane Dust
   Magical ingredient used in early crafting and broommaking.
@@ -884,7 +885,7 @@ Only one relic of each type can be equipped.
 ### Wiggenweld Potion
 
 - Brewed: 1 Honey Bottle, 2 Glow Berries, stir clockwise 3 times, simmer 20 seconds. 3 doses.
-- Heals 8 health over about 2 seconds and stops Bleeding, which milk cannot.
+- Heals 8 health over about 2.4 seconds and stops Bleeding, which milk cannot.
 
 ### Pepperup Potion
 
@@ -901,7 +902,7 @@ Only one relic of each type can be equipped.
 - Brewed: 2 Mandrake Roots, 1 Asphodel, stir clockwise 4 times, simmer 45 seconds, then 1 Arcane Dust. 3 doses.
 - Add 1 Gunpowder after the Arcane Dust and every dose is a Splash Mandrake Restorative Draught.
 - Right-click a player turned to stone, or a creature's statue, with the bottle to bring them back (one dose).
-- Thrown, it frees every stone player and statue within 4 blocks.
+- Thrown, it frees every stone player and statue within 4 blocks, and gives everything else living there the same 8 seconds of gaze ward.
 - Drunk, it clears a basilisk's building gaze, and for 8 seconds the gaze cannot build on you.
 
 ### Draught of Living Death

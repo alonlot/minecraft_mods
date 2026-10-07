@@ -22,3 +22,4 @@ Base: 6a0c340 (406 tests green; Dark Magic Phase 1 built, its final review and f
 - T6 done 86c6e66 (431 tests, protocol 8, boot Done 3.682s). Review and T7 dispatched.
 - T7 done edd6c1a (431 tests). The plan's grep count for StoredMob (2) is wrong, 3 is right (getStoredMob). Review and T8 dispatched.
 - T8 done cb7bc5a (431 tests; give-in key J). Its review is folded into the final review (client-only screen, HUD line, key and look locks). T9 dispatched.
+- T9 done efc3c0e (431 tests, JSON valid, boot Done 3.677s; registry-ID WARNs from the old dev world only). Mandrake and Living Death bottled before the fallthrough; Living Death chosen by recipe. Review and T10 dispatched.

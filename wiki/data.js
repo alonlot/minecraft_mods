@@ -4,10 +4,10 @@ const WIKI_DATA = {
     subtitle: "A fandom-style archive for the current HogwartsMagic codebase."
   },
   stats: {
-    spells: 36,
-    mobs: 16,
-    blocks: 15,
-    systems: 11
+    spells: 37,
+    mobs: 17,
+    blocks: 17,
+    systems: 13
   },
   systems: [
     {
@@ -141,6 +141,30 @@ const WIKI_DATA = {
         "Brewed in the Wizard Cauldron (six steps and an 8-minute simmer)",
         "Base and extended Polyjuice durations"
       ]
+    },
+    {
+      id: "cauldron-brewing",
+      title: "Cauldron Brewing",
+      icon: "CB",
+      summary: "Brew potions step by step in the Wizard Cauldron: water, heat, then ingredients, stirring and simmering in order.",
+      features: [
+        "Seven recipes: Wiggenweld, Pepperup, Essence of Dittany, Mandrake Restorative Draught, Draught of Living Death, Felix Felicis and Polyjuice",
+        "The liquid changes colour at every correct step; a wrong step ruins the brew",
+        "3 doses per brew (Felix Felicis: 1); Gunpowder makes splash potions",
+        "A Potions classroom in Mini Hogwarts with seven cauldrons ready to use"
+      ]
+    },
+    {
+      id: "petrification",
+      title: "Petrification",
+      icon: "PT",
+      summary: "A basilisk's full gaze turns a player to stone: wait for a Mandrake Restorative Draught or give in.",
+      features: [
+        "Stone players cannot act, take no damage and are ignored by mobs",
+        "A choice screen: Wait for rescue or Give in (J opens it again)",
+        "Survives logging out; a server can set a time limit",
+        "Creature statues keep the whole mob and come back with the Draught"
+      ]
     }
   ],
   houses: [
@@ -224,7 +248,8 @@ const WIKI_DATA = {
     { id: "fiendfyre", name: "Fiendfyre", icon: "FY", role: "Cursed Fire Entity", threat: "boss", habitat: "Created by spell casting", summary: "Main cursed-fire spreading controller.", features: ["Grows over time", "Periodically spreads fire", "Limited lifetime"], detail: "A temporary entity that acts more like an environmental disaster than a normal mob." },
     { id: "fiendfyre-serpent", name: "Fiendfyre Serpent", icon: "FS", role: "Guided Summon", threat: "high", habitat: "Created by spell casting", summary: "Guided cursed-fire serpent that steers toward the caster aim.", features: ["Steers toward aim", "Burns targets on contact", "Produces dramatic burst particles"], detail: "The showpiece cursed-fire manifestation with visible steering and burst motion." },
     { id: "dark-mark", name: "Dark Mark", icon: "DK", role: "Atmospheric Entity", threat: "high", habitat: "Sky raid and dark-cast events", summary: "Sky mark that drives dramatic ambience and empowers dark wizards.", features: ["Long-lived visual entity", "Atmosphere and weather drama", "Buffs nearby hostile wizards"], detail: "This entity exists mainly to reshape the feeling of the entire scene." },
-    { id: "horcrux-soul", name: "Horcrux Soul", icon: "HX", role: "Ritual Entity", threat: "ritual", habitat: "Horcrux death and rebirth sequences", summary: "Soul apparition used during Horcrux rebirth sequences.", features: ["Travels toward a ritual target", "Carries display gear state", "Triggers ritual arrival logic"], detail: "A pure ritual delivery entity that exists to sell the Horcrux fantasy." }
+    { id: "horcrux-soul", name: "Horcrux Soul", icon: "HX", role: "Ritual Entity", threat: "ritual", habitat: "Horcrux death and rebirth sequences", summary: "Soul apparition used during Horcrux rebirth sequences.", features: ["Travels toward a ritual target", "Carries display gear state", "Triggers ritual arrival logic"], detail: "A pure ritual delivery entity that exists to sell the Horcrux fantasy." },
+    { id: "petrified-remains", name: "Petrified Remains", icon: "PR", role: "Statue", threat: "neutral", habitat: "Wherever a basilisk has looked", summary: "The stone statue a creature leaves when a basilisk's full gaze catches it.", features: ["Keeps the whole mob: name, owner, gear, villager trades", "Drops nothing", "A Mandrake Restorative Draught brings the mob back", "Breaking it, or the void, loses the mob for good"], detail: "Bosses never leave a statue that comes back. Save the statue and you save the creature." }
   ],
   blocks: [
     { name: "Wandmaker's Bench", kind: "Workbench", summary: "Custom station for advanced wand crafting.", features: ["Dedicated GUI", "Persistent block entity", "Crafts real core-based wands"] },
@@ -236,8 +261,9 @@ const WIKI_DATA = {
     { name: "Moving Portrait", kind: "Decor", summary: "Living magical portrait block.", features: ["Directional placement", "Ambient magical particles"] },
     { name: "Candle Cluster", kind: "Decor", summary: "Magical candle decoration.", features: ["Ambient flame particles"] },
     { name: "Enchanted Book Pile", kind: "Decor", summary: "Stack of enchanted books with ambience.", features: ["Ambient magical particles"] },
-    { name: "Wizard Cauldron", kind: "Brewing", summary: "Brewing cauldron: fill it with water, set it over heat and add ingredients in order.", features: ["Wiggenweld, Pepperup and Polyjuice recipes", "The liquid colour shows every step", "A finished brew gives 3 doses", "Ingredients need a full cauldron (3 doses of water).", "Keep your other hand empty when you sneak-stir."] },
+    { name: "Wizard Cauldron", kind: "Brewing", summary: "Brewing cauldron: fill it with water, set it over heat and add ingredients in order.", features: ["Seven recipes: Wiggenweld, Pepperup, Essence of Dittany, Mandrake Restorative Draught, Draught of Living Death, Felix Felicis and Polyjuice", "Seven ready to use in the Mini Hogwarts Potions classroom", "The liquid colour shows every step", "A finished brew gives 3 doses", "Ingredients need a full cauldron (3 doses of water).", "Keep your other hand empty when you sneak-stir."] },
     { name: "Sneakoscope", kind: "Magic Block", summary: "Small glass spinning top on a brass plate that spins and whistles when dark wizards, Dementors or the Dark Mark are near.", features: ["Carried: whistles to the holder, faster as danger comes closer", "Placed: redstone signal 1-15 on every side, light while it spins", "Death Eaters, Voldemort and Dementors within 16 blocks, the Dark Mark within 48", "Corrupted or Lost players within 16 blocks, even cloaked or disguised", "Crafted, or bought from the Curio Dealer for 14 emeralds"] },
+    { name: "Dittany Plant", kind: "Worldgen Plant", summary: "Herb that grows wild in the Forbidden Forest and the Horntail Peaks.", features: ["Patches of two to four on earth or bare rock", "A wild plant gives two Dittany, one you planted gives back one", "The ingredient of Essence of Dittany"] },
     { name: "Gillyweed Plant", kind: "Worldgen Plant", summary: "Custom underwater plant used in swamp generation.", features: ["Grows underwater", "Supports muddy or rooty wet terrain"] },
     { name: "Fine Wood Tree Set", kind: "Building Set", summary: "Custom magical wood set used for wandcraft and building.", features: ["Log, stripped log, leaves, sapling, and planks", "Main wandcraft wood source"] },
     { name: "Arcane Cluster", kind: "Resource Block", summary: "Glowing magical crystal cluster used in progression.", features: ["Light-emitting crystal block", "Feeds magical crafting progression"] },
@@ -255,13 +281,21 @@ const WIKI_DATA = {
     { name: "Polyjuice Sample", kind: "Potion Utility", summary: "Stores a sampled target identity.", features: ["Carries target appearance data"] },
     { name: "Polyjuice Potion", kind: "Potion", summary: "Drinkable disguise potion with delayed transformation.", features: ["Brewed in the Wizard Cauldron with a filled sample", "Redstone extends it, gunpowder makes it splash"] },
     { name: "Wizard Potion", kind: "Potion", summary: "Mana regeneration potion from the brewing stand.", features: ["Made from Awkward Potion plus Acromantula Venom", "Improves mana regeneration"] },
+    { name: "Wiggenweld Potion", kind: "Potion", summary: "Healing draught brewed in the Wizard Cauldron.", features: ["Honey Bottle, 2 Glow Berries, stir clockwise 3, simmer 20 s", "Heals 8 health over about 2 seconds", "Stops Bleeding"] },
+    { name: "Pepperup Potion", kind: "Potion", summary: "Warming draught that restores mana.", features: ["Blaze Powder, Mandrake Root, stir anticlockwise 2, simmer 15 s", "Restores 40 mana", "30 seconds of Fire Resistance"] },
+    { name: "Essence of Dittany", kind: "Potion", summary: "Closes cursed wounds.", features: ["3 Dittany, stir clockwise 5, simmer 30 s", "Cures a Cursed Wound", "Heals 4 health"] },
+    { name: "Mandrake Restorative Draught", kind: "Potion", summary: "Brings back anyone the basilisk has turned to stone.", features: ["2 Mandrake Roots, Asphodel, stir clockwise 4, simmer 45 s, Arcane Dust", "Right-click a stone player or a statue with it", "Gunpowder after the dust makes a splash version that frees all stone within 4 blocks", "Drunk, the basilisk's gaze cannot build on you for 8 seconds"] },
+    { name: "Draught of Living Death", kind: "Potion", summary: "Splash potion that puts everything nearby into a deathlike sleep.", features: ["Asphodel, Wormwood, 2 Valerian Sprigs, stir anticlockwise 7, clockwise 1, simmer 60 s, Gunpowder", "Stuns everything within 4 blocks for 20 seconds", "Repeated stuns get shorter; half on bosses, 60% on players"] },
+    { name: "Felix Felicis", kind: "Potion", summary: "Liquid luck: one precious dose.", features: ["Ashwinder Egg, Acromantula Venom, Gold Nugget, stir clockwise 3, simmer 10 min, stir anticlockwise 1", "3 minutes of Luck III", "A quarter more spell mastery XP"] },
+    { name: "Failed Potion", kind: "Potion", summary: "What a ruined brew bottles as.", features: ["10 seconds of Nausea and 3 of Poison", "An empty bucket pours a ruined brew away instead"] },
+    { name: "Brewing Ingredients", kind: "Crafting", summary: "Herbs and rarities for the Wizard Cauldron.", features: ["Dittany: the Dittany plant, or apothecaries", "Asphodel and Wormwood: apothecaries (second level)", "Valerian Sprigs: apothecaries and Hogwarts ruin camp chests", "Ashwinder Egg: Death Eater camps, the Chamber, now and then a Blaze", "Two chests of supplies in the Mini Hogwarts Potions classroom"] },
     { name: "Gillyweed", kind: "Consumable", summary: "Edible magical plant that grants underwater adaptation.", features: ["Underwater utility effect", "Themed as gills and aquatic movement"] },
     { name: "Floo Binding Token", kind: "Travel Utility", summary: "Links two Floo Fireplaces and helps with naming.", features: ["Stores first fireplace", "Completes link with second fireplace"] },
     { name: "Floo Powder", kind: "Travel Fuel", summary: "Required fuel for Floo travel.", features: ["Dropped onto a Floo Fireplace to trigger travel"] },
     { name: "Owl Route Tag", kind: "Logistics Utility", summary: "Links two owl perches and can be assigned to a tamed owl.", features: ["Stores both perch endpoints", "Checks route validity before assignment"] },
     { name: "Cave Inimicum Totem", kind: "Ward Utility", summary: "Binds to an active ward and reveals truth inside it.", features: ["Stores bound ward position", "Lets carriers see through the illusion from outside"] },
     { name: "Hogwarts Invite", kind: "Flavor and UI Item", summary: "Acceptance letter delivered by owl and opened in a custom screen.", features: ["Custom reading screen", "Spawned for first-year players"] },
-    { name: "Wand Materials", kind: "Crafting", summary: "Core wandcraft ingredients including Fine Wood Stick, Arcane Dust, Arcane Core, and magical cores.", features: ["Used in advanced wand crafting", "Supports phoenix, unicorn, and dragon wand lines"] },
+    { name: "Wand Materials", kind: "Crafting", summary: "Core wandcraft ingredients including Fine Wood Stick, Arcane Dust, Arcane Core, and magical cores.", features: ["Used in advanced wand crafting", "Supports phoenix, unicorn, and dragon wand lines", "The Fine Wood Stick is also the cauldron stirring rod"] },
     { name: "Creature Ingredients", kind: "Crafting", summary: "Drops and magical materials from special creatures.", features: ["Werewolf Fang", "Centaur Talisman", "Acromantula Venom"] },
     { name: "Relics", kind: "Progression", summary: "Magic-enhancing equipment for capacity and regeneration slots.", features: ["Includes Minor Mana Charm, Refined Mana Charm, Arcane Focus, Ravenclaw Diadem Fragment, Enchanted Inkwell, Moonlit Phial"] }
   ]

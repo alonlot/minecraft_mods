@@ -60,7 +60,7 @@ public final class SneakoscopeRules {
      * The small epsilon keeps an exact whole number from being pushed up by floating-point noise.
      */
     public static int strength(double distance, int range) {
-        if (range <= 0 || distance >= range) {
+        if (range <= 0 || !(distance < range)) {
             return 0;
         }
         double d = Math.max(0.0, distance);

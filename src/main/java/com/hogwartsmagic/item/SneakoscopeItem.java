@@ -3,6 +3,7 @@ package com.hogwartsmagic.item;
 import com.hogwartsmagic.ExampleMod;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
@@ -44,6 +45,17 @@ public class SneakoscopeItem extends BlockItem {
     public boolean onDroppedByPlayer(ItemStack stack, Player player) {
         setSpinning(stack, false);
         return true;
+    }
+
+    /** A spinning one that reaches the ground by any route (dispenser, death, hopper) is cleared too. */
+    @Override
+    public boolean onEntityItemUpdate(ItemStack stack, ItemEntity entity) {
+        if (!entity.level().isClientSide && isSpinning(stack)) {
+            ItemStack copy = stack.copy();
+            setSpinning(copy, false);
+            entity.setItem(copy);
+        }
+        return false;
     }
 
     @Override

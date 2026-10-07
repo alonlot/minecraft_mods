@@ -44,9 +44,11 @@
 11. **Strength:** `ceil(15 * (range - d) / range - 1e-9)`, clamped 1..15 inside the range, 0 at `d >= range` or for a range of 0 or less. The epsilon keeps exact integers exact (d = 16/15 at range 16 gives 14, not 15). The distance is 3D, from the block centre (placed) or the centre of the holder's bounding box (carried) to the entity's position.
 12. **The area check:** for each probe, `level.getEntitiesOfClass(type, AABB.ofSize(centre, 2r, 2r, 2r), e -> e != holder && e.isAlive())`, then the rules ignore anything at or past the range (a sphere). `getEntitiesOfClass` reads only loaded entity sections and never loads a chunk. Voldemort extends `WizardEntity`, so the `WizardEntity` probe covers both; invisible Death Eaters are detected (it senses intent).
 13. **Placed block:** `POWER` is the vanilla `BlockStateProperties.POWER` (0..15). `isSignalSource` true; `getSignal` returns `power` on every side; `getDirectSignal` returns 0 (weak power, as the daylight detector: it powers an adjacent lamp, wire or comparator, not the block it sits on). No analog-output override: a comparator reads the block's `getSignal` directly because the Sneakoscope is not a redstone conductor. Light `power > 0 ? 7 : 0` through `Properties.lightLevel`. The ticker calls `level.setBlock(pos, state.setValue(POWER, p), Block.UPDATE_ALL)` only when `p` differs; `UPDATE_ALL` notifies the neighbours, so no extra `updateNeighborsAt`.
-14. **The block entity holds no data.** It exists for the ticker (spec decision 5). The ticker is registered on the server only and does its work when `dueToCheck(gameTime, pos.asLong())`.
+14. **The block entity holds no data.** It exists for the ticker (spec decision 5). The ticker is registered on the server only and does its work when `dueToCheck(gameTime, (long) pos.hashCode())`.
 15. **Block properties:** `MapColor.GOLD`, strength 0.5, `SoundType.GLASS`, `PushReaction.DESTROY`, no tool needed, no support requirement, no facing. Shape `Block.box(5, 0, 5, 11, 8, 11)`. The loot table drops itself with `survives_explosion`.
+   Changed by the accepted Task 4 fix round (c6f1b49): a spinning top 7 x 10 x 7 px, shape Block.box(4.5, 0, 4.5, 11.5, 10, 11.5).
 16. **Model:** base plate 6x1x6 (y 0..1), pivot 2x1x2, glass body 6x4x6 (y 2..6), glass shoulder 4x1x4, brass spindle 1x1x1 (y 7..8): 6 x 8 x 6 px. `render_type: minecraft:translucent`. The spinning model swaps the glass texture for the animated one and gives its glass faces `forge_data` `block_light` 15 and `sky_light` 15 (Forge `ForgeFaceData`, checked in the 51.0.33 sources), which is the glow in the world and in the hand. The blockstate maps `power=0` to the still model and `power=1..15` to the spinning one.
+   Changed by the accepted Task 4 fix round (c6f1b49): a spinning top 7 x 10 x 7 px, shape Block.box(4.5, 0, 4.5, 11.5, 10, 11.5).
 17. **Textures:** `build_scripts/generate_sneakoscope_textures.py` writes `sneakoscope_brass.png`, `sneakoscope_glass.png` and `sneakoscope_glass_spin.png` (6 frames, 16x96, `frametime` 2, no interpolation, so a bright facet edge steps one column per frame across every side face). UVs are left out, so faces map by position.
 18. **Preview:** the generator's `--preview` flag writes `/tmp/sneakoscope_preview.png` (each sheet and each spin frame at 8x over a checkerboard). The implementer runs it and looks at it with the Read tool, and the controller looks at the same file before accepting Task 4. No 3D render.
 19. **Recipe:** the spec's "gold nuggets on the four sides" collides with "gold ingot on top" and "arcane dust below" (those are two of the four sides). Pattern `NIN / NPN / " A "`: gold ingot top centre, gold nuggets in the two top corners and on both sides of the pane, glass pane centre, arcane dust below. Four nuggets, no recipe-book advancement (the Wizard Cauldron has none either).
@@ -1688,7 +1690,7 @@ This cannot be automated. Install the jar from Task 6. Use a creative world, the
 | 3 | Survival, crafting table | Gold ingot top centre, nuggets in the top corners and beside the pane, pane in the middle, arcane dust below | One Sneakoscope |
 | 4 | Sneakoscope in your inventory (not in the hand), peaceful off | Spawn a Death Eater (`/summon hogwartsmagic:wizard ~20 ~ ~`) | Nothing: 20 blocks is out of range |
 | 5 | Row 4 | Let it walk towards you (or `/tp` it to 15, 8 and 2 blocks) | Within 16 blocks: a short high flute-and-chime whistle, about every 2 s at 15 blocks, faster as it comes closer, about 2 a second at 2 blocks |
-| 6 | Row 5 | Look at the item in the inventory and in the hand | It spins (a bright edge sweeping round), the glass glows warm; no bob of the hand when it starts or stops |
+| 6 | Row 5 | Look at the item in the inventory and in the hand | It spins (a bright edge sweeping round), the glass glows blue-white; no bob of the hand when it starts or stops |
 | 7 | Row 5, a second player 5 blocks away | Listen on the second player | The second player hears nothing |
 | 8 | Row 5 | Kill the Death Eater | Within a second the whistle stops and the item stops spinning |
 | 9 | Sneakoscope in the off hand only | Summon a Dementor 6 blocks away | Whistles and spins |
@@ -1702,7 +1704,7 @@ This cannot be automated. Install the jar from Task 6. Use a creative world, the
 | 17 | Row 16, place a second one 50 blocks to the side | | The second detects nothing |
 | 18 | Break a placed Sneakoscope by hand | | It drops itself |
 | 19 | Push one with a piston | | It breaks and drops itself |
-| 20 | Diagon Alley Curio Dealer at level 2 | Look at the trades | Sneakoscope for exactly 14 emeralds |
+| 20 | Curio Dealer (Knockturn Alley), a villager that reaches level 2 after this update | Look at the trades | Sneakoscope for exactly 14 emeralds |
 | 21 | Config `sneakoscopeRange = 32` (restart) | Death Eater at 20 blocks | Carried whistles; placed signal 6 |
 | 22 | Dedicated server and a client | Rows 5, 6 and 13 | The spin and the sounds show; no registry or component mismatch on join |
 | 23 | Leave a spinning one in a chest, quit and reload | Open the chest | It is still (the spin is never saved) |

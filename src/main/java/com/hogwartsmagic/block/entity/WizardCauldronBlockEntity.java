@@ -367,7 +367,7 @@ public class WizardCauldronBlockEntity extends BlockEntity {
     // ---------------------------------------------------------------- ticker
 
     public static void serverTick(Level level, BlockPos pos, BlockState state, WizardCauldronBlockEntity cauldron) {
-        if (level.getGameTime() % 20L != Math.floorMod(pos.asLong(), 20L)) {
+        if (level.getGameTime() % 20L != Math.floorMod((long) pos.hashCode(), 20L)) {
             return;
         }
         if (level instanceof ServerLevel serverLevel) {

@@ -34,6 +34,7 @@ class SneakoscopeRulesTest {
         assertEquals(15, SneakoscopeRules.strength(0.0, 16));
         assertEquals(15, SneakoscopeRules.strength(0.5, 16));
         assertEquals(15, SneakoscopeRules.strength(0.0, 48));
+        assertEquals(15, SneakoscopeRules.strength(-2.0, 16));
     }
 
     @Test
@@ -94,11 +95,19 @@ class SneakoscopeRulesTest {
         assertEquals(11, strengthOf(new Hit(Source.DARK_MARK, 14.0), new Hit(Source.DEATH_EATER, 12.0)));
         // Dementor at 2 gives 14; Dark Mark at 30 gives 6.
         assertEquals(14, strengthOf(new Hit(Source.DEMENTOR, 2.0), new Hit(Source.DARK_MARK, 30.0)));
+        // The order of the hits does not matter.
+        assertEquals(11, strengthOf(new Hit(Source.DEATH_EATER, 12.0), new Hit(Source.DARK_MARK, 14.0)));
     }
 
     @Test
     void nothingNearIsZero() {
         assertEquals(0, strengthOf());
+    }
+
+    @Test
+    void aNaNDistanceDetectsNothing() {
+        assertEquals(0, SneakoscopeRules.strength(Double.NaN, 16));
+        assertEquals(0, strengthOf(new Hit(Source.DEATH_EATER, Double.NaN)));
     }
 
     @Test
@@ -128,7 +137,7 @@ class SneakoscopeRulesTest {
         for (int s = 1; s < 15; s++) {
             int here = SneakoscopeRules.whistleInterval(s);
             int next = SneakoscopeRules.whistleInterval(s + 1);
-            assertTrue(next <= here, "interval grew at strength " + s);
+            assertTrue(next < here, "interval did not shrink at strength " + s);
             assertTrue(here >= 10 && here <= 40);
         }
     }
@@ -146,6 +155,19 @@ class SneakoscopeRulesTest {
             }
             assertEquals(1, due, "key " + key);
         }
+    }
+
+    @Test
+    void blockPositionsSpreadOverMostOfTheTwentyPhases() {
+        // The key is BlockPos.hashCode() in 1.21 (Vec3i): (y + z * 31) * 31 + x. BlockPos.asLong() only reached 5 phases.
+        java.util.Set<Integer> phases = new java.util.HashSet<>();
+        for (int x = 0; x < 20; x++) {
+            for (int z = 0; z < 20; z++) {
+                long key = (64 + z * 31) * 31 + x;
+                phases.add((int) Math.floorMod(key, (long) SneakoscopeRules.CHECK_INTERVAL_TICKS));
+            }
+        }
+        assertTrue(phases.size() >= 15, "only " + phases.size() + " phases");
     }
 
     @Test

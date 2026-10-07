@@ -5,6 +5,9 @@ import com.hogwartsmagic.block.entity.SneakoscopeBlockEntity;
 import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.component.DataComponentMap;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
@@ -71,6 +74,15 @@ public class SneakoscopeBlock extends BaseEntityBlock {
     @Override
     protected int getDirectSignal(BlockState state, BlockGetter level, BlockPos pos, Direction direction) {
         return 0;
+    }
+
+    /** The item may carry the transient spin component; the block entity must not keep it (it cannot be saved). */
+    @Override
+    public void setPlacedBy(Level level, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack stack) {
+        super.setPlacedBy(level, pos, state, placer, stack);
+        if (!level.isClientSide && level.getBlockEntity(pos) instanceof SneakoscopeBlockEntity be) {
+            be.setComponents(DataComponentMap.EMPTY);
+        }
     }
 
     @Nullable

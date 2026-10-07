@@ -13,15 +13,16 @@ With --preview it also writes /tmp/sneakoscope_preview.png: the brass and glass 
 
 WHAT IT DEPICTS
 ---------------
-A Sneakoscope: a small glass spinning top on a brass stand, 6 x 8 x 6 pixels in the block (models/block/
+A Sneakoscope: a small glass spinning top on a brass stand, 7 x 10 x 7 pixels in the block (models/block/
 sneakoscope.json). At rest the glass is pale aqua and clear. When it detects something it spins, lights up and
 whistles: the spinning sheet is the same glass, brighter, and the model draws it at full brightness (forge_data light 15).
 
 WHY THE SPIN IS A COLUMN THAT STEPS
 -----------------------------------
 The models leave the UVs out, so Minecraft maps each face from its position in the block. Every side face of the
-glass body (x or z from 5 to 11, y from 2 to 6) reads texture columns 5..10 and rows 10..13. A bright facet edge
-that steps one column per frame across columns 5..10 (period 6, the face width) sweeps across all four sides at
+glass body reads texture columns 5..10 and rows 10..13 (the belly, x and z 4.5..11.5 at y 4..6, is texture rows
+10-11; the lower cone, 5 wide, is row 12 and the one below it, 3 wide, row 13). A bright facet edge
+that steps one column per frame across columns 5..10 (period 6, the facet width) sweeps across all four sides at
 once, which reads as the top turning. Two ticks a frame and no interpolation: a crisp, quick spin.
 
 STYLE
@@ -129,7 +130,7 @@ def paint_brass(rng):
 def glass_value(field, x, y):
     v = 0.45 + (field[y][x] - 0.5) * 0.35
     if y in (11, 12):
-        v += 0.15  # the bright band round the widest part of the top
+        v += 0.15  # bright band at y in (11, 12): belly row 11 and the lower cone row 12
     if (x - FACE_LEFT) % FACE_WIDTH in (0, FACE_WIDTH - 1):
         v -= 0.12  # face edges a little darker, so the top reads as faceted
     return v
@@ -150,6 +151,7 @@ def paint_spin(field):
             for x in range(16):
                 v = glass_value(field, x, y) + 0.10 + 0.08 * math.sin((y + f) * math.pi / 3)
                 colour = ramp_pick(GLOW, v, x, y)
+                # the facet edge steps through the columns, one per frame
                 phase = (x - FACE_LEFT - f) % FACE_WIDTH
                 if phase == 0:
                     colour = EDGE_HI

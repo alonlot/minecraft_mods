@@ -25,7 +25,7 @@ public class SneakoscopeBlockEntity extends BlockEntity {
         if (!(level instanceof ServerLevel serverLevel)) {
             return;
         }
-        if (!SneakoscopeRules.dueToCheck(level.getGameTime(), pos.asLong())) {
+        if (!SneakoscopeRules.dueToCheck(level.getGameTime(), (long) pos.hashCode())) {
             return;
         }
         if (!state.hasProperty(SneakoscopeBlock.POWER)) {

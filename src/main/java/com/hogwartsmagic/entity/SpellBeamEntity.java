@@ -910,6 +910,8 @@ public class SpellBeamEntity extends ThrowableProjectile {
                                 applyAquaWaveAt(living.position(), getOwner());
                             } else if (spell == SpellType.AVADA_KEDAVRA) {
                                 tryPrimeHorcruxFromAvada(living);
+                                // Dark Magic: killing an innocent stains the soul (+3).
+                                com.hogwartsmagic.spell.dark.DarkDeeds.onAvadaHit(living, darkDeedPayer());
                             }
                         }
                     }
@@ -1120,6 +1122,27 @@ public class SpellBeamEntity extends ThrowableProjectile {
             }
         }
         return bestPos;
+    }
+
+    /**
+     * Dark Magic: who answers for this beam's deed. The caster; the puppeteer of a puppet beam (if online); nobody
+     * for a reflected beam or another forced body. The same rule as a paid cast (DarkRules.payer).
+     */
+    @javax.annotation.Nullable
+    private ServerPlayer darkDeedPayer() {
+        if (!(this.level() instanceof ServerLevel serverLevel)) {
+            return null;
+        }
+        Entity owner = getOwner();
+        boolean ownerForced = owner instanceof ServerPlayer body
+                && com.hogwartsmagic.spell.mind.PossessionManager.isForcedCaster(body);
+        com.hogwartsmagic.spell.dark.DarkRules.Payer who =
+                com.hogwartsmagic.spell.dark.DarkRewardRules.deedPayer(this.reflected, this.puppeteer != null, ownerForced);
+        if (who == com.hogwartsmagic.spell.dark.DarkRules.Payer.PUPPETEER) {
+            return serverLevel.getServer().getPlayerList().getPlayer(this.puppeteer);
+        }
+        return who == com.hogwartsmagic.spell.dark.DarkRules.Payer.BODY && owner instanceof ServerPlayer caster
+                ? caster : null;
     }
 
     private void tryPrimeHorcruxFromAvada(LivingEntity victim) {

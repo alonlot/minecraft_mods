@@ -668,6 +668,8 @@ public class ModEvents {
         horcrux.completeBinding(level, player);
         HorcruxData.completeRitual(player);
         HorcruxData.bindToHorcrux(player, level, pos);
+        // Dark Magic: a torn soul (+30, and never below the floor of 60 while the Horcrux exists).
+        com.hogwartsmagic.spell.dark.DarkDeeds.onHorcruxForged(player);
         player.setHealth(Math.max(1.0F, Math.min(player.getHealth(), player.getMaxHealth())));
         player.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.DARKNESS, 20 * 6, 0));
         player.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.CONFUSION, 20 * 8, 0));

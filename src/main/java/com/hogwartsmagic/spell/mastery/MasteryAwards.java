@@ -173,7 +173,7 @@ public final class MasteryAwards {
     }
 
     /** Mobs that neither hunt you nor fight back: cows, villagers, owls. */
-    private static boolean isPassive(LivingEntity target) {
+    public static boolean isPassive(LivingEntity target) {
         if (target instanceof Player || target instanceof Enemy || target instanceof NeutralMob) {
             return false;
         }

@@ -38,6 +38,8 @@ public final class HealSpell {
         if (target.level().isClientSide() || !target.isAlive()) {
             return;
         }
+        // Dark Magic redemption: was the target hurt before any cleanse or heal?
+        boolean wasHurt = com.hogwartsmagic.spell.dark.DarkRewardRules.wasHurt(target.getHealth(), target.getMaxHealth());
         int rank = DisableSupport.casterRank(caster, SpellType.HEAL);
         if (HealRules.curesBleeding(rank)) {
             cureBleeding(target);
@@ -50,6 +52,8 @@ public final class HealSpell {
         if (regen > 0) {
             target.addEffect(new MobEffectInstance(MobEffects.REGENERATION, regen, 0));
         }
+        // Dark Magic: healing another hurt living thing lightens the healer (at most once per window of play).
+        com.hogwartsmagic.spell.dark.DarkDeeds.onHeal(target, caster, wasHurt);
         if (target.level() instanceof ServerLevel level) {
             level.sendParticles(ParticleTypes.HEART, target.getX(), target.getY() + target.getBbHeight() * 0.7,
                     target.getZ(), 4 + rank * 2, 0.4, 0.3, 0.4, 0.0);

@@ -50,9 +50,13 @@ public final class DarkMagicData {
         return DarkRules.effectiveTier(Config.isDarkMagicEnabled(), getStored(player));
     }
 
-    /** Losses stop here. Phase 1: none. Phase 3 returns DarkRules.HORCRUX_FLOOR while the player's Horcrux exists. */
+    /**
+     * Losses stop here: DarkRules.HORCRUX_FLOOR while the player's Horcrux exists (bound and forged), else none. The
+     * binding is cleared when the Horcrux shatters (rebirth) or is reconciled away (destroyed), so the floor goes too.
+     */
     public static float floor(ServerPlayer player) {
-        return DarkRules.NO_FLOOR;
+        return DarkRewardRules.floor(com.hogwartsmagic.util.HorcruxData.hasActiveHorcrux(player)
+                && !com.hogwartsmagic.util.HorcruxData.isRitualActive(player));
     }
 
     /**

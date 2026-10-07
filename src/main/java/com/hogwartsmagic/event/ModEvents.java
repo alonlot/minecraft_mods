@@ -740,6 +740,23 @@ public class ModEvents {
         }
     }
 
+    /**
+     * Static per-world state must not outlive the world: in singleplayer the JVM lives on into the next
+     * world, where a stale Aqua Eructo entry would delete whatever water now sits at that position and a
+     * stale raid would keep a boss bar (and its wizard ids) around forever.
+     */
+    @SubscribeEvent
+    public static void onServerStopped(net.minecraftforge.event.server.ServerStoppedEvent event) {
+        AQUA_ERUCTO_WATER.clear();
+        for (ActiveWizardRaid raid : ACTIVE_WIZARD_RAIDS.values()) {
+            raid.bossBar.removeAllPlayers();
+            raid.bossBar.setVisible(false);
+        }
+        ACTIVE_WIZARD_RAIDS.clear();
+        WIZARD_TO_RAID.clear();
+        LUMOS_POS.clear();
+    }
+
     @SubscribeEvent
     public static void onPlayerTick(net.minecraftforge.event.TickEvent.PlayerTickEvent event) {
         if (!event.player.level().isClientSide && event.phase == net.minecraftforge.event.TickEvent.Phase.END) {

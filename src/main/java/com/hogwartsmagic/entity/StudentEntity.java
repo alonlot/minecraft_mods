@@ -113,6 +113,8 @@ public class StudentEntity extends AbstractIllager implements DisarmableWandUser
                         sl.sendParticles(net.minecraft.core.particles.ParticleTypes.CRIT, this.getX(), this.getY() + 1.0, this.getZ(), 20, 0.5, 0.5, 0.5, 0.1);
                     }
                 } else {
+                    // addEffect never lowers an amplifier, so the charge has to be removed before it is re-applied one tier down.
+                    this.removeEffect(ExampleMod.PROTEGO_EFFECT.getHolder().get());
                     this.addEffect(new net.minecraft.world.effect.MobEffectInstance(ExampleMod.PROTEGO_EFFECT.getHolder().get(), currentEffect.getDuration(), currentAmplifier - 1));
                 }
                 return false; 

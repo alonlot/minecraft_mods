@@ -8,7 +8,7 @@ Writes five sheets to assets/hogwartsmagic/textures/block/:
   wizard_cauldron_inner.png   inside walls and floor
   wizard_cauldron_top.png     top of the rim and of the shoulder ledge
   wizard_cauldron_bottom.png  underside
-  wizard_cauldron_brew.png    the brew surface, 4 animated frames (16x64, with .mcmeta)
+  wizard_cauldron_brew.png    the brew surface, 4 animated frames (16x64, with .mcmeta), greyscale and tinted
 
 WHAT IT DEPICTS
 ---------------
@@ -73,14 +73,16 @@ RUNE_CUT = (26, 27, 32)
 RUNE_GLINT = (138, 108, 58)
 RESIDUE = [(34, 58, 44), (46, 78, 56), (62, 102, 70)]
 
-# The brew: a deep green potion, darker at the walls, with lighter swirl and bubbles.
+# The brew: greyscale, darker at the walls, with lighter swirl and bubbles. The block is tinted at runtime
+# (tintindex 0, WizardCauldronColors), so the tint gives the colour: the classic green for an unused cauldron,
+# water blue, each recipe step's colour, grey-brown when ruined. Light values keep the tint bright.
 BREW = [
-    (14, 52, 30),
-    (20, 74, 40),
-    (30, 100, 52),
-    (46, 132, 66),
-    (82, 176, 96),
-    (150, 226, 150),
+    (96, 96, 96),
+    (128, 128, 128),
+    (160, 160, 160),
+    (196, 196, 196),
+    (228, 228, 228),
+    (255, 255, 255),
 ]
 
 

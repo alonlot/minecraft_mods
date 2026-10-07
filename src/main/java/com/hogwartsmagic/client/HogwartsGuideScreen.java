@@ -229,6 +229,46 @@ public class HogwartsGuideScreen extends Screen {
                         "A broom is more than a luxury; it is often the difference between escape and disaster.",
                         "Treat every new station as a doorway into another branch of magical life."
                 ))
+        )),
+        POTIONS("gui.hogwartsmagic.hogwarts_guide.section.potions", List.of(
+                page("The Wizard Cauldron", List.of(
+                        "Set the cauldron over heat: a lit campfire or soul campfire, fire, soul fire, lava or a magma block.",
+                        "Fill it with a water bucket, or three water bottles. Ingredients go only into a full cauldron.",
+                        "Right-click with each ingredient, one at a time. Stir with a Fine Wood Stick: right-click to stir clockwise, sneak and right-click to stir anticlockwise (keep your other hand empty).",
+                        "Simmer steps count down only while there is heat. Right-click with an empty hand to read the brew."
+                )),
+                page("Signs in the liquid", List.of(
+                        "Every correct step changes the colour of the brew. A wrong step turns it grey-brown with a hiss of smoke: the brew is ruined.",
+                        "A finished brew shimmers and chimes. Left on the heat more than 120 seconds after its last simmer, it boils into ruin. Take the heat away and it keeps forever.",
+                        "A glass bottle takes one dose, and a brew gives three. A ruined brew bottles as Failed Potion, or a bucket pours it away."
+                )),
+                page("Wiggenweld Potion", List.of(
+                        "Heals 8 health over two seconds and stops Bleeding.",
+                        "1. Add 1 Honey Bottle.",
+                        "2. Add 2 Glow Berries.",
+                        "3. Stir clockwise 3 times.",
+                        "4. Simmer 20 seconds."
+                )),
+                page("Pepperup Potion", List.of(
+                        "Restores 40 mana and gives 30 seconds of Fire Resistance. Steam pours from your ears.",
+                        "1. Add 1 Blaze Powder.",
+                        "2. Add 1 Mandrake Root.",
+                        "3. Stir anticlockwise 2 times.",
+                        "4. Simmer 15 seconds."
+                )),
+                page("Polyjuice Potion", List.of(
+                        "Turns the drinker into whoever the sample came from.",
+                        "1. Add 1 Acromantula Venom.",
+                        "2. Add 2 Mandrake Roots.",
+                        "3. Add 1 Gillyweed.",
+                        "4. Stir clockwise 4 times.",
+                        "5. Simmer 480 seconds (8 minutes)."
+                )),
+                page("Polyjuice: the sample", List.of(
+                        "6. Add a filled Polyjuice Sample. An empty one is refused. Take the cauldron off the heat while you fetch the sample, or it overbrews.",
+                        "Then, if you like, in this order: 1 Redstone for an 8-minute disguise, then 1 Gunpowder to make every dose a splash potion.",
+                        "The brew gives 3 doses, each carrying the same sample. The brewing stand no longer makes Polyjuice."
+                ))
         ));
 
         private final Component label;

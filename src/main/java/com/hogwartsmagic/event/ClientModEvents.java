@@ -905,6 +905,7 @@ public class ClientModEvents {
                                 ? BiomeColors.getAverageFoliageColor(level, pos)
                                 : FoliageColor.getDefaultColor(),
                 ExampleMod.FINE_WOOD_LEAVES.get());
+        event.register(com.hogwartsmagic.client.WizardCauldronColors::block, ExampleMod.WIZARD_CAULDRON.get());
     }
 
     @SubscribeEvent
@@ -919,6 +920,7 @@ public class ClientModEvents {
                         ? net.minecraft.util.FastColor.ARGB32.opaque(potion.kind().color())
                         : -1,
                 ExampleMod.WIGGENWELD_POTION.get(), ExampleMod.PEPPERUP_POTION.get(), ExampleMod.FAILED_POTION.get());
+        event.register(com.hogwartsmagic.client.WizardCauldronColors::item, ExampleMod.WIZARD_CAULDRON_ITEM.get());
     }
 
     @SubscribeEvent

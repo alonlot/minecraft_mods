@@ -35,3 +35,8 @@ Process: Opus for all agents, one implementer at a time (runs after Dark Magic P
 | 10 | `/give @s hogwartsmagic:felix_felicis`: "Liquid Luck" (challenge frame), under "First Brew". |
 | 11 | Load a world saved before this phase that already has a Mini Hogwarts: the castle is unchanged (the apse tower behind the upstairs room still has no floor), nothing is rebuilt, no new errors in the log. |
 | 12 | Open `wiki/index.html`: the hero stats match, Systems shows Cauldron Brewing and Petrification, Items shows the seven potions and Brewing Ingredients, Blocks shows Dittany Plant, Mobs shows Petrified Remains. |
+
+## Close
+- Final review (Opus): approved, no Critical or Important; 483 tests. Two Minor doc findings.
+- Fix wave c4f4ba8 (controller, text only): M1 Living Death 60% applies only to another player's throw (checked CrowdControl.isPvp); M2 Felix Felicis gives 1 dose on the cauldron card. Re-review by the controller (diff read, node ok).
+- PHASE COMPLETE. Next: the final wiki pass with Sonnet (user request).

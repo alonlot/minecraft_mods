@@ -46,7 +46,7 @@ import java.util.function.Predicate;
  * <h2>Trades</h2>
  *
  * <p>Each shop sells what its sign says and nothing else, so the alley is worth walking down: the
- * apothecaries are the only source of bottled ingredients, Quality Quidditch is the only place to
+ * apothecaries are the only shop for brewing ingredients, Quality Quidditch is the only place to
  * buy a Firebolt, and Borgin and Burkes is the only place that will sell you something it should
  * not.
  */
@@ -187,8 +187,12 @@ public class ModVillagers {
 
         } else if (p == APOTHECARY.get()) {
             sells(event, 1, 5, 3, some(ExampleMod.GILLYWEED, 2), 12, 2);
+            sells(event, 1, 6, 1, some(ExampleMod.DITTANY, 2), 12, 2);
+            sells(event, 1, 4, 1, some(ExampleMod.VALERIAN_SPRIGS, 2), 12, 2);
             buys(event, 1, ExampleMod.MANDRAKE_ROOT.get(), 2, 3, 16, 2);
             sells(event, 2, 9, 4, one(ExampleMod.MOONLIT_PHIAL), 8, 5);
+            sells(event, 2, 8, 1, one(ExampleMod.ASPHODEL), 12, 5);
+            sells(event, 2, 6, 1, some(ExampleMod.WORMWOOD, 2), 12, 5);
             buys(event, 2, ExampleMod.ACROMANTULA_VENOM.get(), 1, 5, 12, 5);
             sells(event, 3, 14, 5, one(ExampleMod.ARCANE_DUST), 10, 10);
             sells(event, 3, 12, 4, one(ExampleMod.WIZARD_CAULDRON_ITEM), 4, 10);

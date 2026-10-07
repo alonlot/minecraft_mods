@@ -50,12 +50,20 @@ class DarkCostRulesTest {
 
     @Test
     void aTierKeepsTheCostsBelowItExceptTheTwoReplacements() {
-        Set<Cost> replaced = EnumSet.of(Cost.HALF_CORPOREAL_PATRONUS, Cost.STUDENTS_KEEP_AWAY);
+        // Each replaced cost is dropped only at the tier where it is replaced, and is gone there.
         for (int tier = DarkRules.SHADOWED; tier <= DarkRules.LOST; tier++) {
             Set<Cost> below = EnumSet.noneOf(Cost.class);
             below.addAll(DarkCostRules.costsAt(tier - 1));
-            below.removeAll(replaced);
-            assertTrue(DarkCostRules.costsAt(tier).containsAll(below), "tier " + tier);
+            Set<Cost> here = DarkCostRules.costsAt(tier);
+            if (tier == DarkRules.TAINTED) {
+                below.remove(Cost.HALF_CORPOREAL_PATRONUS);
+                assertFalse(here.contains(Cost.HALF_CORPOREAL_PATRONUS), "tier " + tier);
+            }
+            if (tier == DarkRules.LOST) {
+                below.remove(Cost.STUDENTS_KEEP_AWAY);
+                assertFalse(here.contains(Cost.STUDENTS_KEEP_AWAY), "tier " + tier);
+            }
+            assertTrue(here.containsAll(below), "tier " + tier);
         }
         // Each replacement is replaced by something harder at the next tier.
         assertTrue(DarkCostRules.costsAt(DarkRules.TAINTED).contains(Cost.NO_CORPOREAL_PATRONUS));
@@ -73,7 +81,7 @@ class DarkCostRulesTest {
     }
 
     @Test
-    void thePatronusNeverFails() {
+    void corporealChanceNeverRisesAboveBase() {
         // The chance only moves between 0 and the base: a roll gives a corporeal Patronus or the shield, never
         // nothing. Nothing in these rules can refuse the charm.
         for (int tier = -2; tier <= 6; tier++) {
@@ -141,11 +149,6 @@ class DarkCostRulesTest {
             assertEquals(0.0D, DarkCostRules.maxHealthDelta(tier), 1.0e-9, "tier " + tier);
         }
         assertEquals(-2.0D, DarkCostRules.maxHealthDelta(DarkRules.LOST), 1.0e-9);
-        double base = 20.0D;
-        double hufflepuff = 4.0D;
-        double horcrux = -2.0D;
-        assertEquals(20.0D, base + hufflepuff + horcrux + DarkCostRules.maxHealthDelta(DarkRules.LOST), 1.0e-9);
-        assertEquals(16.0D, base + horcrux + DarkCostRules.maxHealthDelta(DarkRules.LOST), 1.0e-9);
     }
 
     @Test

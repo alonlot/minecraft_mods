@@ -1210,8 +1210,9 @@ This cannot be automated. Install the jar from Task 6. A survival world, normal 
 | 18 | A freed willing elf and another player B at 80 near it | Watch | The elf backs away from B too |
 | 19 | B watches A | `/darkmagic set A 60`, then 80, then 59 | B sees faint smoke rising around A at 60, thicker at 80, none at 59 |
 | 20 | Row 19 at 80 | A wears the Invisibility Cloak; then spectator mode; then drinks Polyjuice | No smoke while cloaked or spectating; smoke under Polyjuice |
-| 21 | Config `enableDarkMagic = false` (edit while running; it reloads), A at 80 | Check rows 1, 4, 10, 12, 13, 17, 19 | Every cost is gone: stags at 15%, normal upkeep, Students normal, 10 hearts at once, elves follow, no smoke. Turning it back on restores them |
+| 21 | Config `enableDarkMagic = false` (edit while running; it reloads), A at 80 | Check rows 1, 4, 5, 7, 10, 12, 13, 17, 19 | Every cost is gone: stags at 15%, normal upkeep, insomnia Dementors only after 5 days, Dementors go for the nearest player, Students normal, 10 hearts at once, elves follow, no smoke. Turning it back on restores them |
 | 22 | Twenty Students loaded, nobody dark, then A at 80 | `/tick query` both times | No visible change in tick time |
+| 23 | A Lost player being attacked by a Student (row 12) | `/darkmagic set @s 79`, and separately turn `enableDarkMagic` off | The Student stops attacking within a second (the same for a Dementor that chose you, row 7) |
 
 A failure goes back to the implementer of the owning task with the row number and `latest.log`.
 

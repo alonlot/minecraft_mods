@@ -748,7 +748,7 @@ public class HouseElfEntity extends PathfinderMob {
 
     /** A Lost wizard frightens every elf (Dark Magic): never a creative or spectating one. */
     private static boolean frightens(Player player) {
-        return !player.isSpectator() && !player.isCreative()
+        return player.isAlive() && !player.isSpectator() && !player.isCreative()
                 && com.hogwartsmagic.spell.dark.DarkCostRules.elvesFlee(
                         com.hogwartsmagic.spell.dark.DarkCosts.tierOf(player));
     }
@@ -789,6 +789,7 @@ public class HouseElfEntity extends PathfinderMob {
         public boolean canContinueToUse() {
             double stop = com.hogwartsmagic.spell.dark.DarkCostRules.ELF_FLEE_STOP_DISTANCE;
             return this.threat != null && this.threat.isAlive()
+                    && this.threat.level() == HouseElfEntity.this.level()
                     && !HouseElfEntity.this.isWild()
                     && HouseElfEntity.this.distanceToSqr(this.threat) < stop * stop
                     && frightens(this.threat);
@@ -853,15 +854,22 @@ public class HouseElfEntity extends PathfinderMob {
             // willing one stays by choice, so both served states follow.
             this.master = HouseElfEntity.this.getMaster();
             return this.master != null && !this.master.isSpectator()
-                    && !frightens(this.master)
-                    && HouseElfEntity.this.distanceToSqr(this.master) > START_DISTANCE * START_DISTANCE;
+                    && HouseElfEntity.this.distanceToSqr(this.master) > START_DISTANCE * START_DISTANCE
+                    && !this.masterFrightens();
         }
 
         @Override
         public boolean canContinueToUse() {
             return this.master != null && this.master.isAlive() && !HouseElfEntity.this.isWild()
-                    && !frightens(this.master)
-                    && HouseElfEntity.this.distanceToSqr(this.master) > STOP_DISTANCE * STOP_DISTANCE;
+                    && HouseElfEntity.this.distanceToSqr(this.master) > STOP_DISTANCE * STOP_DISTANCE
+                    && !this.masterFrightens();
+        }
+
+        /** The master's tier is read only while someone online is Lost. */
+        private boolean masterFrightens() {
+            return com.hogwartsmagic.spell.dark.DarkCosts.anyoneOnlineAt(HouseElfEntity.this.level(),
+                    com.hogwartsmagic.spell.dark.DarkCostRules.Cost.ELVES_FLEE)
+                    && frightens(this.master);
         }
 
         @Override

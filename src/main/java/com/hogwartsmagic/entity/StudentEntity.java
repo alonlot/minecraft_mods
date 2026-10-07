@@ -175,7 +175,7 @@ public class StudentEntity extends AbstractIllager implements DisarmableWandUser
                 com.hogwartsmagic.spell.dark.DarkCostRules.STUDENT_KEEP_AWAY_DISTANCE, 0.7D, 0.9D) {
             @Override
             public boolean canUse() {
-                return !com.hogwartsmagic.duel.DuelManager.isDueling(StudentEntity.this) && super.canUse();
+                return super.canUse() && !com.hogwartsmagic.duel.DuelManager.isDueling(StudentEntity.this);
             }
         });
         this.goalSelector.addGoal(5, new WaterAvoidingRandomStrollGoal(this, 0.5D));
@@ -191,8 +191,14 @@ public class StudentEntity extends AbstractIllager implements DisarmableWandUser
                 LivingStatueEntity.class));
         this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, WizardEntity.class, true)); // Attack death eaters
         // Dark Magic: a Lost player is attacked on sight, like a Death Eater.
+        // Never mid-duel, like the keep-away goal.
         this.targetSelector.addGoal(2, new DarkPlayerGoals.TargetDarkPlayer(this,
-                com.hogwartsmagic.spell.dark.DarkCostRules.Cost.STUDENTS_ATTACK));
+                com.hogwartsmagic.spell.dark.DarkCostRules.Cost.STUDENTS_ATTACK) {
+            @Override
+            public boolean canUse() {
+                return !com.hogwartsmagic.duel.DuelManager.isDueling(StudentEntity.this) && super.canUse();
+            }
+        });
         this.targetSelector.addGoal(3, new NearestAttackableTargetGoal<>(this, Monster.class, 10, true, false,
                 target -> !(target instanceof StudentEntity)
                         && !(target instanceof LivingStatueEntity))); // monsters only -- not students, not statues

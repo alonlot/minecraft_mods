@@ -2,6 +2,7 @@ package com.hogwartsmagic.entity;
 
 import com.hogwartsmagic.spell.dark.DarkCostRules;
 import com.hogwartsmagic.spell.dark.DarkCosts;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.PathfinderMob;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -30,7 +31,9 @@ public final class DarkPlayerGoals {
             super(mob, Player.class, 10, true, false, target -> {
                 double range = mob.getAttributeValue(Attributes.FOLLOW_RANGE);
                 // Distance first: the tier is read only for players the mob could choose.
-                return mob.distanceToSqr(target) <= range * range && cost.appliesAt(DarkCosts.tierOf(target));
+                return mob.distanceToSqr(target) <= range * range
+                        && !com.hogwartsmagic.petrification.Petrification.isPetrified(target)
+                        && cost.appliesAt(DarkCosts.tierOf(target));
             });
             this.cost = cost;
         }
@@ -38,6 +41,17 @@ public final class DarkPlayerGoals {
         @Override
         public boolean canUse() {
             return DarkCosts.anyoneOnlineAt(this.mob.level(), this.cost) && super.canUse();
+        }
+
+        /**
+         * Re-checks the tier every tick: once the player leaves it (or Dark Magic is turned off) the goal fails and
+         * the inherited stop() clears the target, so the mob drops the player at once.
+         */
+        @Override
+        public boolean canContinueToUse() {
+            LivingEntity t = this.mob.getTarget();
+            return t != null && DarkCosts.anyoneOnlineAt(this.mob.level(), this.cost)
+                    && this.cost.appliesAt(DarkCosts.tierOf(t)) && super.canContinueToUse();
         }
     }
 

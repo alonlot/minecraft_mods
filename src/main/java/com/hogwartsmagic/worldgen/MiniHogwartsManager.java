@@ -1,10 +1,12 @@
 package com.hogwartsmagic.worldgen;
 
 import com.hogwartsmagic.ExampleMod;
+import com.hogwartsmagic.brewing.ClassroomSupplies;
 import com.hogwartsmagic.item.MagicBookItem;
 import com.hogwartsmagic.spell.SpellType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
@@ -183,6 +185,8 @@ public final class MiniHogwartsManager {
         private long ironSumX, ironSumY, ironSumZ;
         private int ironCount;
         private int topX = -1, topY = -1, topZ = -1; // highest solid block (for a tower treasure)
+        /** Chests in the schematic itself (local x, y, z): the Potions classroom's ingredient chests. */
+        private final List<BlockPos> schematicChests = new ArrayList<>();
         private final BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
         private int cursor;       // phase 1: cell index
         private int columnCursor; // phase 2: column index
@@ -223,6 +227,8 @@ public final class MiniHogwartsManager {
                     bookSumY += y;
                     bookSumZ += z;
                     bookCount++;
+                } else if (state.is(Blocks.CHEST)) {
+                    schematicChests.add(new BlockPos(x, y, z));
                 } else if (state.is(Blocks.IRON_BARS)) {
                     ironSumX += x;
                     ironSumY += y;
@@ -334,6 +340,52 @@ public final class MiniHogwartsManager {
                 }
             }
             LOGGER.info("Mini Hogwarts furnished with {} themed chests", placed);
+            int stocked = stockClassroomChests(rng);
+            LOGGER.info("Mini Hogwarts Potions classroom: {} ingredient chests stocked", stocked);
+        }
+
+        /**
+         * Fills every chest that came from the schematic (the Potions classroom's) with one roll of
+         * ClassroomSupplies, in shuffled slots. Returns how many chests were stocked. A chest whose
+         * chunk is not loaded is skipped (never load a chunk).
+         */
+        private int stockClassroomChests(RandomSource rng) {
+            int stocked = 0;
+            for (BlockPos local : schematicChests) {
+                BlockPos pos = anchor.offset(local);
+                if (!level.isLoaded(pos) || !(level.getBlockEntity(pos) instanceof ChestBlockEntity chest)) {
+                    continue;
+                }
+                List<ClassroomSupplies.Stack> stacks = ClassroomSupplies.roll(
+                        (min, max) -> min + rng.nextInt(max - min + 1), rng.nextDouble());
+                int[] slots = shuffledSlots(chest.getContainerSize(), rng);
+                int next = 0;
+                for (ClassroomSupplies.Stack stack : stacks) {
+                    Item item = BuiltInRegistries.ITEM.getOptional(ResourceLocation.parse(stack.item())).orElse(null);
+                    if (item == null || next >= slots.length) {
+                        continue;
+                    }
+                    chest.setItem(slots[next++], new ItemStack(item, stack.count()));
+                }
+                chest.setChanged();
+                stocked++;
+            }
+            return stocked;
+        }
+
+        /** The slot numbers 0..size-1 in a random order. */
+        private static int[] shuffledSlots(int size, RandomSource rng) {
+            int[] slots = new int[size];
+            for (int i = 0; i < size; i++) {
+                slots[i] = i;
+            }
+            for (int i = size - 1; i > 0; i--) {
+                int j = rng.nextInt(i + 1);
+                int swap = slots[i];
+                slots[i] = slots[j];
+                slots[j] = swap;
+            }
+            return slots;
         }
 
         /** Populate the finished castle with a crowd of wandering Hogwarts students across its floors. */

@@ -23,6 +23,13 @@ public class PetrifiedRemainsEntity extends Entity {
     private static final EntityDataAccessor<Float> DATA_HEAD_YAW =
             SynchedEntityData.defineId(PetrifiedRemainsEntity.class, EntityDataSerializers.FLOAT);
 
+    /**
+     * The whole mob as it was (saveWithoutId minus the death fields), so a Mandrake Draught brings it back with its
+     * name, owner, trades and inventory. Saved with the statue, never synced: the renderer needs only the type.
+     * Empty for bosses and for statues from older worlds.
+     */
+    private CompoundTag storedMob = new CompoundTag();
+
     public PetrifiedRemainsEntity(EntityType<? extends PetrifiedRemainsEntity> type, Level level) {
         super(type, level);
         this.noPhysics = true;
@@ -38,6 +45,9 @@ public class PetrifiedRemainsEntity extends Entity {
         remains.moveTo(victim.getX(), victim.getY(), victim.getZ(), victim.getYRot(), victim.getXRot());
         remains.setStoredBodyYaw(victim.yBodyRot);
         remains.setStoredHeadYaw(victim.getYHeadRot());
+        if (!com.hogwartsmagic.spell.combat.CombatTags.isBoss(victim)) {
+            remains.storedMob = com.hogwartsmagic.petrification.Petrification.captureMob(victim);
+        }
         return remains;
     }
 
@@ -60,6 +70,7 @@ public class PetrifiedRemainsEntity extends Entity {
         if (tag.contains("HeadYaw")) {
             this.setStoredHeadYaw(tag.getFloat("HeadYaw"));
         }
+        this.storedMob = tag.getCompound("StoredMob").copy();
     }
 
     @Override
@@ -69,6 +80,14 @@ public class PetrifiedRemainsEntity extends Entity {
         tag.putFloat("StoredHeight", this.getStoredHeight());
         tag.putFloat("BodyYaw", this.getStoredBodyYaw());
         tag.putFloat("HeadYaw", this.getStoredHeadYaw());
+        if (!this.storedMob.isEmpty()) {
+            tag.put("StoredMob", this.storedMob.copy());
+        }
+    }
+
+    /** A copy of the stored mob, empty when there is none. */
+    public CompoundTag getStoredMob() {
+        return this.storedMob.copy();
     }
 
     @Override

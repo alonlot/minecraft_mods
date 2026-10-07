@@ -217,4 +217,65 @@ public final class Petrification {
     private static long now(ServerPlayer player) {
         return player.server.overworld().getGameTime();
     }
+
+    // ---- Statues ---------------------------------------------------------------------------------
+
+    /** The mob's save without the death fields, for its statue. */
+    public static CompoundTag captureMob(LivingEntity victim) {
+        CompoundTag tag = victim.saveWithoutId(new CompoundTag());
+        for (String key : PetrificationRules.STRIPPED_MOB_KEYS) {
+            tag.remove(key);
+        }
+        return tag;
+    }
+
+    /** A non-player, non-boss that dies under the gaze's petrification: it became a statue, so no loot and no XP. */
+    public static boolean isStatueDeath(LivingEntity entity) {
+        Holder<MobEffect> holder = stone();
+        return holder != null && !(entity instanceof net.minecraft.world.entity.player.Player)
+                && !com.hogwartsmagic.spell.combat.CombatTags.isBoss(entity) && entity.hasEffect(holder);
+    }
+
+    /**
+     * Brings a statue's mob back where the statue stands, with full health. A statue with no stored mob (an older
+     * world) brings back a fresh mob of the type. Bosses and unknown types stay stone. Returns true when it came back.
+     */
+    public static boolean reviveStatue(ServerLevel level, com.hogwartsmagic.entity.PetrifiedRemainsEntity statue,
+                                       @Nullable Entity rescuer) {
+        if (statue.isRemoved()) {
+            return false;
+        }
+        net.minecraft.world.entity.EntityType<?> type =
+                net.minecraft.world.entity.EntityType.byString(statue.getMimicTypeId()).orElse(null);
+        Entity created = type == null ? null : type.create(level);
+        boolean boss = type != null && type.is(com.hogwartsmagic.spell.combat.CombatTags.BOSSES);
+        if (!PetrificationRules.canRevive(type != null, created instanceof LivingEntity, boss)
+                || !(created instanceof LivingEntity mob)) {
+            if (created != null) {
+                created.discard();
+            }
+            return false;
+        }
+        CompoundTag stored = statue.getStoredMob();
+        if (!stored.isEmpty()) {
+            mob.load(stored);
+        }
+        mob.removeAllEffects(); // vanilla also takes off the attribute modifiers the stored effects added
+        if (level.getEntity(mob.getUUID()) != null) {
+            mob.setUUID(net.minecraft.util.Mth.createInsecureUUID(level.getRandom())); // the corpse is still here
+        }
+        mob.moveTo(statue.getX(), statue.getY(), statue.getZ(), statue.getYRot(), 0.0F);
+        mob.setYBodyRot(statue.getStoredBodyYaw());
+        mob.setYHeadRot(statue.getStoredHeadYaw());
+        mob.deathTime = 0;
+        mob.setHealth(mob.getMaxHealth());
+        level.addFreshEntity(mob);
+        statue.discard();
+        stoneBurst(level, mob);
+        if (rescuer instanceof ServerPlayer player) {
+            player.displayClientMessage(Component.translatable("message.hogwartsmagic.petrification.statue_revived",
+                    mob.getDisplayName()), true);
+        }
+        return true;
+    }
 }

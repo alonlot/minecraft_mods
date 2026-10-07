@@ -1006,6 +1006,7 @@
   "message.hogwartsmagic.petrification.time_up": "You have been stone too long. You give in.",
   "gui.hogwartsmagic.combat.cast_blocked_petrified": "You are stone and can't cast!",
   "death.attack.hogwartsmagic.petrification": "%1$s gave in to the stone",
+  "message.hogwartsmagic.petrification.statue_revived": "%s is flesh again.",
   "block.hogwartsmagic.sneakoscope": "Sneakoscope",
   "item.hogwartsmagic.sneakoscope.tooltip": "Spins and whistles when a Death Eater, a Dementor, the Dark Mark or a dark wizard is near. Place it for a redstone signal.",
   "gui.hogwartsmagic.dark.tier.clean": "Clean",

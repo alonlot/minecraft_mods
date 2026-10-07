@@ -63,6 +63,23 @@ public final class PetrificationEvents {
         }
     }
 
+    /** A mob that became a statue drops nothing: bringing it back must not duplicate its items. Bosses keep theirs. */
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public static void onLivingDrops(net.minecraftforge.event.entity.living.LivingDropsEvent event) {
+        if (!event.isCanceled() && !event.getEntity().level().isClientSide()
+                && Petrification.isStatueDeath(event.getEntity())) {
+            event.setCanceled(true);
+        }
+    }
+
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public static void onExperienceDrop(net.minecraftforge.event.entity.living.LivingExperienceDropEvent event) {
+        if (!event.isCanceled() && !event.getEntity().level().isClientSide()
+                && Petrification.isStatueDeath(event.getEntity())) {
+            event.setCanceled(true);
+        }
+    }
+
     private static String typeId(DamageSource source) {
         return source.typeHolder().unwrapKey().map(key -> key.location().toString()).orElse("");
     }

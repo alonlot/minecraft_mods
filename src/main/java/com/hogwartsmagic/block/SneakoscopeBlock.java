@@ -31,7 +31,7 @@ import org.jetbrains.annotations.Nullable;
 public class SneakoscopeBlock extends BaseEntityBlock {
     public static final MapCodec<SneakoscopeBlock> CODEC = simpleCodec(SneakoscopeBlock::new);
     public static final IntegerProperty POWER = BlockStateProperties.POWER;
-    private static final VoxelShape SHAPE = Block.box(5.0, 0.0, 5.0, 11.0, 8.0, 11.0);
+    private static final VoxelShape SHAPE = Block.box(4.5, 0.0, 4.5, 11.5, 10.0, 11.5);
 
     public SneakoscopeBlock(BlockBehaviour.Properties properties) {
         super(properties.lightLevel(state -> state.getValue(POWER) > 0 ? 7 : 0).noOcclusion());

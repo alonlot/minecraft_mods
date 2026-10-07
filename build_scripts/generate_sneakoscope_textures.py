@@ -15,7 +15,7 @@ WHAT IT DEPICTS
 ---------------
 A Sneakoscope: a small glass spinning top on a brass stand, 6 x 8 x 6 pixels in the block (models/block/
 sneakoscope.json). At rest the glass is pale aqua and clear. When it detects something it spins, lights up and
-whistles: the spinning sheet is warmer and brighter, and the model draws it at full brightness (forge_data light 15).
+whistles: the spinning sheet is the same glass, brighter, and the model draws it at full brightness (forge_data light 15).
 
 WHY THE SPIN IS A COLUMN THAT STEPS
 -----------------------------------
@@ -68,16 +68,14 @@ GLASS = [
     (220, 242, 240, 175),
     (246, 252, 250, 210),
 ]
-# Spinning glass: lit from inside, warm.
-GLOW = [
-    (196, 150, 120, 170),
-    (226, 176, 132, 190),
-    (246, 204, 150, 210),
-    (255, 228, 180, 225),
-    (255, 246, 222, 240),
-]
-EDGE_HI = (255, 252, 240, 235)
-EDGE_MID = (250, 232, 200, 215)
+# Spinning glass: the same blue-grey glass, lifted about 35% toward white (same alpha), so it reads as lit glass.
+def _lift(c, k=0.35):
+    return (round(c[0] + (255 - c[0]) * k), round(c[1] + (255 - c[1]) * k), round(c[2] + (255 - c[2]) * k), c[3])
+
+
+GLOW = [_lift(c) for c in GLASS]
+EDGE_HI = (235, 248, 250, 210)
+EDGE_MID = (214, 234, 238, 190)
 
 FRAMES = 6
 FACE_LEFT = 5    # first texture column of every glass side face

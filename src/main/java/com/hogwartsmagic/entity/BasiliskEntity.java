@@ -859,10 +859,14 @@ public class BasiliskEntity extends Monster {
         for (LivingEntity candidate : nearby) {
             UUID id = candidate.getUUID();
             int charge = this.gazeCharge.getOrDefault(id, 0);
-            // A Mandrake Draught drinker's eyes are steady: the charge drains instead of building.
-            boolean meeting = gazeAvailable && isMeetingEyes(candidate)
-                    && !com.hogwartsmagic.petrification.Petrification.isGazeWarded(candidate);
-            charge = meeting ? charge + 1 : charge - GAZE_DECAY_RATE;
+            // A Mandrake Draught drinker's eyes are steady: the charge drops to nothing, so the branch below drops
+            // the entry and the gaze overlay this same tick.
+            if (com.hogwartsmagic.petrification.Petrification.isGazeWarded(candidate)) {
+                charge = 0;
+            } else {
+                boolean meeting = gazeAvailable && isMeetingEyes(candidate);
+                charge = meeting ? charge + 1 : charge - GAZE_DECAY_RATE;
+            }
             charge = Mth.clamp(charge, 0, GAZE_FULL_CHARGE);
 
             if (charge >= GAZE_FULL_CHARGE) {

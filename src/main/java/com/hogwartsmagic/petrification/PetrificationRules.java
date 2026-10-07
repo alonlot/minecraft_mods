@@ -44,6 +44,12 @@ public final class PetrificationRules {
     public static final List<String> STRIPPED_MOB_KEYS = List.of("Health", "DeathTime", "HurtTime",
             "HurtByTimestamp", "Fire", "FallDistance", "Motion", "Passengers", "leash", "SleepingX", "SleepingY",
             "SleepingZ", "TicksFrozen", "HasVisualFire");
+    /**
+     * Brain memories a statue forgets: vanilla released these POI tickets when the villager died, so a revived
+     * villager must claim them again instead of holding a ticket it no longer owns.
+     */
+    public static final List<String> RELEASED_MEMORIES = List.of("minecraft:job_site", "minecraft:potential_job_site",
+            "minecraft:home", "minecraft:meeting_point");
 
     private PetrificationRules() {
     }

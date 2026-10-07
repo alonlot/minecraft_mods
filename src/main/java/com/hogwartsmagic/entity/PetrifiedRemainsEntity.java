@@ -109,11 +109,14 @@ public class PetrifiedRemainsEntity extends Entity {
         if (!stack.is(com.hogwartsmagic.ExampleMod.MANDRAKE_DRAUGHT.get())) {
             return net.minecraft.world.InteractionResult.PASS;
         }
-        if (this.level() instanceof net.minecraft.server.level.ServerLevel serverLevel
-                && com.hogwartsmagic.petrification.Petrification.reviveStatue(serverLevel, this, player)) {
-            com.hogwartsmagic.item.BrewedPotionItem.useUpDose(player, hand, stack);
+        if (this.level().isClientSide()) {
+            return net.minecraft.world.InteractionResult.SUCCESS;
         }
-        return net.minecraft.world.InteractionResult.sidedSuccess(this.level().isClientSide());
+        if (com.hogwartsmagic.petrification.Petrification.reviveStatue(this, player)) {
+            com.hogwartsmagic.item.BrewedPotionItem.useUpDose(player, hand, stack);
+            return net.minecraft.world.InteractionResult.CONSUME;
+        }
+        return net.minecraft.world.InteractionResult.PASS; // a boss, an unknown type or a failed spawn: nothing happened
     }
 
     @Override

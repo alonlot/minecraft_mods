@@ -97,6 +97,13 @@ class PetrificationRulesTest {
     }
 
     @Test
+    void aStatueForgetsTheVillagerTicketsVanillaReleased() {
+        assertEquals(List.of("minecraft:job_site", "minecraft:potential_job_site", "minecraft:home",
+                "minecraft:meeting_point"), PetrificationRules.RELEASED_MEMORIES);
+        assertFalse(PetrificationRules.RELEASED_MEMORIES.contains("minecraft:gossips"));
+    }
+
+    @Test
     void eachPlayerIsCheckedOnceASecond() {
         int[] ids = {0, 7, 19, 12345, -3};
         for (int id : ids) {

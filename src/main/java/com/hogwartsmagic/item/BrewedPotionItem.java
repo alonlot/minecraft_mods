@@ -164,23 +164,31 @@ public class BrewedPotionItem extends Item {
         if (kind != Kind.MANDRAKE || !com.hogwartsmagic.petrification.Petrification.isPetrified(target)) {
             return net.minecraft.world.InteractionResult.PASS;
         }
-        if (!player.level().isClientSide() && target instanceof ServerPlayer stone
-                && com.hogwartsmagic.petrification.Petrification.cure(stone, player)) {
-            useUpDose(player, hand, stack);
+        if (player.level().isClientSide()) {
+            return net.minecraft.world.InteractionResult.SUCCESS;
         }
-        return net.minecraft.world.InteractionResult.sidedSuccess(player.level().isClientSide());
+        if (target instanceof ServerPlayer stone && com.hogwartsmagic.petrification.Petrification.cure(stone, player)) {
+            useUpDose(player, hand, stack);
+            return net.minecraft.world.InteractionResult.CONSUME;
+        }
+        return net.minecraft.world.InteractionResult.PASS; // nothing happened on the server
     }
 
-    /** One dose used on someone else: the bottle comes back (not in creative). */
+    /**
+     * One dose used on someone else: the bottle comes back (not in creative). A last bottle is swapped for the empty
+     * one without shrinking it first: vanilla Player.interactOn wipes the hand when the original stack ends up empty.
+     */
     public static void useUpDose(Player player, InteractionHand hand, ItemStack stack) {
         if (player.hasInfiniteMaterials()) {
             return;
         }
-        stack.shrink(1);
         ItemStack bottle = new ItemStack(Items.GLASS_BOTTLE);
-        if (stack.isEmpty()) {
+        if (stack.getCount() <= 1) {
             player.setItemInHand(hand, bottle);
-        } else if (!player.getInventory().add(bottle)) {
+            return;
+        }
+        stack.shrink(1);
+        if (!player.getInventory().add(bottle)) {
             player.drop(bottle, false);
         }
     }

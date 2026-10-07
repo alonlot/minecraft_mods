@@ -128,6 +128,7 @@ class BrewRulesPhase2Test {
         assertEquals(Status.FINISHED, finished.status());
         assertSame(BrewRules.LIVING_DEATH, finished.recipe());
         assertEquals(0x9AA3AD, BrewRules.color(done));
+        assertFalse(BrewRules.usedTail(done, GUNPOWDER));
     }
 
     @Test

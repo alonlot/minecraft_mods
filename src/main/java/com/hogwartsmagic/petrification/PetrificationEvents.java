@@ -41,7 +41,7 @@ public final class PetrificationEvents {
     }
 
     /** Mobs, the Basilisk, Dementors and NPC casters never take stone as a new target. */
-    @SubscribeEvent
+    @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onChangeTarget(LivingChangeTargetEvent event) {
         if (event.isCanceled() || event.getEntity().level().isClientSide()) {
             return;
@@ -52,7 +52,7 @@ public final class PetrificationEvents {
         }
     }
 
-    /** A stone player who dies another way (the void, /kill) respawns free. */
+    /** A stone player who dies (giving in, the void, /kill) respawns free: the keys are cleared here. */
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onLivingDeath(LivingDeathEvent event) {
         if (event.isCanceled()) {

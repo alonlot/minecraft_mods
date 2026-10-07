@@ -10,7 +10,7 @@ import net.minecraftforge.network.PacketDistributor;
 
 /**
  * Shown when the local player turns to stone, like the death screen: wait for rescue or give in. It does not pause,
- * Esc means "wait", and the chat key opens chat so the player can call for help.
+ * Esc means "wait", and the chat key (or the command key, with "/") opens chat so the player can call for help.
  */
 public class PetrifiedChoiceScreen extends Screen {
     private static final int BUTTON_WIDTH = 200;
@@ -49,6 +49,10 @@ public class PetrifiedChoiceScreen extends Screen {
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (this.minecraft != null && this.minecraft.options.keyChat.matches(keyCode, scanCode)) {
             this.minecraft.setScreen(new ChatScreen(""));
+            return true;
+        }
+        if (this.minecraft != null && this.minecraft.options.keyCommand.matches(keyCode, scanCode)) {
+            this.minecraft.setScreen(new ChatScreen("/"));
             return true;
         }
         return super.keyPressed(keyCode, scanCode, modifiers);

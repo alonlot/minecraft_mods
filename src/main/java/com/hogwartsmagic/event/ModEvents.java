@@ -3542,8 +3542,10 @@ public class ModEvents {
     }
 
     private static void handleBasiliskPetrification(net.minecraft.world.entity.LivingEntity entity) {
-        entity.setDeltaMovement(Vec3.ZERO);
-        entity.hurtMarked = true;
+        if (entity.getDeltaMovement().lengthSqr() != 0.0D) {
+            entity.setDeltaMovement(Vec3.ZERO);
+            entity.hurtMarked = true; // only on a change: long-term stone does not send a motion packet every tick
+        }
 
         if (!entity.level().isClientSide && entity.tickCount % 10 == 0) {
             entity.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN, 20, 6, false, false, false));

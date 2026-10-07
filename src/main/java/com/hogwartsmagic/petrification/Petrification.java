@@ -83,6 +83,7 @@ public final class Petrification {
         com.hogwartsmagic.spell.mind.AvadaWindup.cancel(player, true);
         com.hogwartsmagic.event.ModEvents.interruptActiveCasting(player);
         player.stopUsingItem();
+        player.stopRiding(); // stone is never carried by a vehicle
         applyStone(player);
         player.serverLevel().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.STONE_PLACE,
                 SoundSource.PLAYERS, 1.0F, 0.6F);
@@ -111,8 +112,14 @@ public final class Petrification {
         if (PetrificationRules.dueCheck(now, player.getId())) {
             clearHunters(player);
             CompoundTag stoneData = PlayerMagicData.getModData(player);
-            long since = stoneData.contains(PetrificationRules.KEY_SINCE)
-                    ? stoneData.getLong(PetrificationRules.KEY_SINCE) : now; // a missing start counts as now
+            long since;
+            if (stoneData.contains(PetrificationRules.KEY_SINCE)) {
+                since = stoneData.getLong(PetrificationRules.KEY_SINCE);
+            } else {
+                since = now; // a missing start is written once, so the time limit can begin
+                stoneData.putLong(PetrificationRules.KEY_SINCE, now);
+                PlayerMagicData.saveModData(player, stoneData);
+            }
             if (PetrificationRules.limitReached(since, now, Config.getPetrificationMaxSeconds())) {
                 player.displayClientMessage(Component.translatable("message.hogwartsmagic.petrification.time_up")
                         .withStyle(ChatFormatting.GRAY), false);
@@ -148,21 +155,19 @@ public final class Petrification {
         } else {
             player.displayClientMessage(Component.translatable("message.hogwartsmagic.petrification.freed"), false);
         }
+        wardGaze(player); // a rescued player gets the same 8 s ward as a drinker
         return true;
     }
 
     /**
      * The player gives in (GiveInPacket, or the time limit). Checked here, never trusted: only a stone, living
-     * player. The keys and the effect go first, so this is a normal death (Horcrux, drops, keepInventory).
+     * player. The damage is dealt while the player is still stone (the damage filter lets this type through); the
+     * keys are cleared by the LOWEST death handler (PetrificationEvents), so this is a normal death (Horcrux, drops,
+     * keepInventory). If the player is still alive afterwards (another mod cancelled the hurt), they stay stone.
      */
     public static void giveIn(ServerPlayer player) {
         if (!PetrificationRules.giveInAccepted(hasPetrifiedFlag(player), player.isAlive())) {
             return;
-        }
-        clearFlag(player);
-        Holder<MobEffect> holder = stone();
-        if (holder != null) {
-            player.removeEffect(holder);
         }
         player.hurt(damage(player.level()), Float.MAX_VALUE);
     }
@@ -239,18 +244,38 @@ public final class Petrification {
         for (com.hogwartsmagic.entity.PetrifiedRemainsEntity statue
                 : level.getEntitiesOfClass(com.hogwartsmagic.entity.PetrifiedRemainsEntity.class, area)) {
             if (PotionRules.inSplash(center.distanceToSqr(statue))) {
-                reviveStatue(level, statue, thrower);
+                reviveStatue(statue, thrower);
             }
         }
     }
 
     // ---- Statues ---------------------------------------------------------------------------------
 
-    /** The mob's save without the death fields, for its statue. */
+    /**
+     * The mob's save without the death fields, for its statue. A fox drops its mouth item on death outside
+     * captureDrops, so the stored main hand is emptied. A villager's POI memories go too: vanilla released those
+     * tickets when it died.
+     */
     public static CompoundTag captureMob(LivingEntity victim) {
         CompoundTag tag = victim.saveWithoutId(new CompoundTag());
         for (String key : PetrificationRules.STRIPPED_MOB_KEYS) {
             tag.remove(key);
+        }
+        if (victim instanceof net.minecraft.world.entity.animal.Fox
+                && tag.contains("HandItems", net.minecraft.nbt.Tag.TAG_LIST)) {
+            net.minecraft.nbt.ListTag hands = tag.getList("HandItems", net.minecraft.nbt.Tag.TAG_COMPOUND);
+            if (!hands.isEmpty()) {
+                hands.set(0, new CompoundTag());
+            }
+        }
+        if (tag.contains("Brain", net.minecraft.nbt.Tag.TAG_COMPOUND)) {
+            CompoundTag brain = tag.getCompound("Brain");
+            if (brain.contains("memories", net.minecraft.nbt.Tag.TAG_COMPOUND)) {
+                CompoundTag memories = brain.getCompound("memories");
+                for (String memory : PetrificationRules.RELEASED_MEMORIES) {
+                    memories.remove(memory);
+                }
+            }
         }
         return tag;
     }
@@ -264,11 +289,11 @@ public final class Petrification {
 
     /**
      * Brings a statue's mob back where the statue stands, with full health. A statue with no stored mob (an older
-     * world) brings back a fresh mob of the type. Bosses and unknown types stay stone. Returns true when it came back.
+     * world) brings back a fresh mob of the type. Bosses and unknown types stay stone, and so does a statue whose mob
+     * the level refuses to add. Returns true when it came back.
      */
-    public static boolean reviveStatue(ServerLevel level, com.hogwartsmagic.entity.PetrifiedRemainsEntity statue,
-                                       @Nullable Entity rescuer) {
-        if (statue.isRemoved()) {
+    public static boolean reviveStatue(com.hogwartsmagic.entity.PetrifiedRemainsEntity statue, @Nullable Entity rescuer) {
+        if (statue.isRemoved() || !(statue.level() instanceof ServerLevel level)) {
             return false;
         }
         net.minecraft.world.entity.EntityType<?> type =
@@ -295,7 +320,9 @@ public final class Petrification {
         mob.setYHeadRot(statue.getStoredHeadYaw());
         mob.deathTime = 0;
         mob.setHealth(mob.getMaxHealth());
-        level.addFreshEntity(mob);
+        if (!level.addFreshEntity(mob)) {
+            return false; // refused (another mod): the statue stays, no message, no dose used
+        }
         statue.discard();
         stoneBurst(level, mob);
         if (rescuer instanceof ServerPlayer player) {

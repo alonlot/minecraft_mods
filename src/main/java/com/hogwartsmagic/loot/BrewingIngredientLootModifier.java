@@ -24,8 +24,9 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Brewing ingredients in mod structure chests. The Death Eater camp fills its chests from the vanilla pillager
  * outpost table and the Hogwarts ruin camp from the vanilla simple dungeon table, so those two only count when the
- * chest stands inside the camp (the structure references of the chest's own, loaded chunk). The Chamber has its own
- * table.
+ * chest stands inside a piece of the camp. That check reads the structure data of the chest's chunk and of the
+ * structure start's chunk; the start lies within a few chunks of its pieces, so around a player opening the chest it is
+ * normally already loaded. The Chamber has its own table.
  */
 public class BrewingIngredientLootModifier extends LootModifier {
     private static final ResourceLocation SIMPLE_DUNGEON = ResourceLocation.parse("minecraft:chests/simple_dungeon");

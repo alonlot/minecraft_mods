@@ -262,8 +262,10 @@ class BrewRulesTest {
     @Test
     void theTableIsWellFormed() {
         Set<String> ids = new HashSet<>();
+        Set<String> firstItems = new HashSet<>();
         for (Recipe recipe : BrewRules.RECIPES) {
             assertTrue(ids.add(recipe.id()), recipe.id());
+            assertTrue(firstItems.add(recipe.steps().get(0).item()), recipe.id() + " first ingredient is shared");
             assertEquals(recipe.steps().size(), recipe.colors().size(), recipe.id());
             assertEquals(recipe.tail().size(), recipe.tailColors().size(), recipe.id());
             int doses = recipe == BrewRules.FELIX_FELICIS ? BrewRules.FELIX_DOSES : BrewRules.MAX_DOSES;

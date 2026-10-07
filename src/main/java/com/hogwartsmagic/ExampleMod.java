@@ -1007,6 +1007,7 @@ public class ExampleMod
         com.hogwartsmagic.command.SpawnMiniHogwartsCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.SummonHorntailCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.SpellMasteryCommand.register(event.getDispatcher());
+        com.hogwartsmagic.command.DarkMagicCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.CrowdControlCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.ImperioCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.LockInfoCommand.register(event.getDispatcher());

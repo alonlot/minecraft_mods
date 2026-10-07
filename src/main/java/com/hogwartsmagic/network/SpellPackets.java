@@ -832,7 +832,7 @@ public class SpellPackets {
          * The whole cast path, run as {@code player}: learned spell, stun and silence gates, cooldown, mana,
          * then the spell. The packet handler and (Phase 6b) puppet casts come through here, so every cast is
          * checked the same way. Two callers: the packet handler (body = sender) and
-         * {@code PossessionManager.castAsPuppet} (body = the possessed victim, payer = the victim, no mastery XP).
+         * {@code PossessionManager.castAsPuppet} (body = the possessed victim, mana payer = the victim; Darkness goes to the puppeteer, no mastery XP).
          */
         public static void castAs(ServerPlayer player, CastSpellPacket p) {
             ItemStack wand = player.getMainHandItem();

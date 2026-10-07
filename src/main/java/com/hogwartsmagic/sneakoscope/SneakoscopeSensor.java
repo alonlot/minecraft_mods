@@ -22,7 +22,8 @@ import java.util.function.Predicate;
 /**
  * Finds what a Sneakoscope detects and plays its whistle. Server only. Each probe pairs a SneakoscopeRules.Source
  * with an entity class; the area check is getEntitiesOfClass, which reads loaded entity sections and never loads a
- * chunk. Part B adds one probe (dark players) to PROBES.
+ * chunk. PROBES holds four probes; the dark-player probe takes ServerPlayer, filtered by the dark-player test, and is
+ * skipped when SneakoscopeRules.playersDetectable is false.
  */
 public final class SneakoscopeSensor {
     private record Probe(SneakoscopeRules.Source source, Class<? extends Entity> type, Predicate<Entity> accepts) {

@@ -181,7 +181,8 @@ public final class Config {
             .define("enableDarkMagic", true);
 
     public static final ForgeConfigSpec.DoubleValue DARK_MAGIC_GAIN_MULTIPLIER = BUILDER
-            .comment("Dark Magic: multiplier on the Darkness each paid dark cast adds. 0 means no gain.")
+            .comment("Dark Magic: multiplier on the Darkness each paid dark cast adds. 0 means no gain.",
+                    "Values under about 0.02 round the smallest gains (Serpensortia 0.3) to 0.")
             .defineInRange("darkMagicGainMultiplier", 1.0, 0.0, 10.0);
 
     public static final ForgeConfigSpec.IntValue DARK_MAGIC_DECAY_TICKS = BUILDER

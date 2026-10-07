@@ -6,8 +6,7 @@ import java.util.List;
  * The Sneakoscope's rules, free of Minecraft so they are unit-tested. What it detects, how far, how strongly, and
  * how often a carried one whistles. SneakoscopeSensor finds the sources in the world and hands their distances here.
  *
- * Part B (dark players) adds one Source constant with Reach.NEAR and one probe in SneakoscopeSensor; nothing here
- * changes for it.
+ * Part B: DARK_PLAYER (Reach.NEAR), playersDetectable/detectsPlayer and DARK_PLAYER_MIN_TIER (Corrupted).
  */
 public final class SneakoscopeRules {
     /** Which configured range a source uses: the normal range, or the long range for something in the sky. */

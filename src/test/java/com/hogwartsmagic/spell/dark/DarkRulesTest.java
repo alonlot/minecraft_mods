@@ -80,6 +80,13 @@ class DarkRulesTest {
 
     @Test
     void gainMultiplierScalesTheWholeTable() {
+        for (String id : DarkRules.darkSpellIds()) {
+            float base = DarkRules.baseGain(id);
+            assertTrue(base > 0.0f, id);
+            assertEquals(base * 2.0f, DarkRules.gain(id, 2.0), EPS, id);
+            assertEquals(base * 0.5f, DarkRules.gain(id, 0.5), EPS, id);
+            assertEquals(base, DarkRules.gain(id, 1.0), EPS, id);
+        }
         assertEquals(12.0f, DarkRules.gain("avada_kedavra", 2.0), EPS);
         assertEquals(3.0f, DarkRules.gain("avada_kedavra", 0.5), EPS);
         assertEquals(0.15f, DarkRules.gain("serpensortia", 0.5), EPS);
@@ -264,6 +271,9 @@ class DarkRulesTest {
         assertEquals("gui.hogwartsmagic.dark.tier.clean", DarkRules.tierKey(-1));
         assertEquals("gui.hogwartsmagic.dark.tier.lost", DarkRules.tierKey(9));
         assertEquals(0xFFFFFFFF, DarkRules.tierColor(DarkRules.CLEAN));
+        assertEquals(0xFFCDE8CD, DarkRules.tierColor(DarkRules.SHADOWED));
+        assertEquals(0xFF98CC98, DarkRules.tierColor(DarkRules.TAINTED));
+        assertEquals(0xFF5CAE5C, DarkRules.tierColor(DarkRules.CORRUPTED));
         assertEquals(0xFF2E8B3A, DarkRules.tierColor(DarkRules.LOST));
         assertEquals(DarkRules.MANA_BAR_COLOR, DarkRules.manaBarColor(DarkRules.TAINTED));
         assertEquals(DarkRules.MANA_BAR_DARK_COLOR, DarkRules.manaBarColor(DarkRules.CORRUPTED));

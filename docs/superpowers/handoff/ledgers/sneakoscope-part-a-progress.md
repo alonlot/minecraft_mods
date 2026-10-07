@@ -7,3 +7,4 @@ Base: f5033f3 (360 tests green). Process: Sonnet implementer per task, Opus revi
 - Spec corrections accepted: the strongest signal wins (not the nearest source), so a near Death Eater never lowers a Dark Mark signal; the four gold nuggets go in the two top corners and beside the pane, because the ingot and the dust take two sides; getSignal alone makes it comparator-readable.
 
 ## Progress
+- T1 done da65920 (381 tests, RED seen). Review and T2 dispatched.

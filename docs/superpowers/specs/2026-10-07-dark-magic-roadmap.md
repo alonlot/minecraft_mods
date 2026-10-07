@@ -135,9 +135,13 @@ Line numbers drift. Find each spot by its text.
    - **Corrupted:** Expecto Patronum fails ("Only a thin silver mist leaves your wand."). The mana is
      spent and the cooldown starts. Students attack you on sight. Faint SMOKE particles around you,
      which other players can see.
-   - **Lost:** -4 max health (the soul is torn), shown like the Horcrux health cost. Dementors may
-     come at night even when you rest (5% per night check). House Elves flee from you even when
-     bound.
+   - **Lost:** -2 max health (one heart; the soul is torn), shown like the Horcrux health cost.
+     House Elves flee from you even when bound.
+   - **Cut (user ruling, 2026-10-07):** the first draft had -4 max health and Dementors at night even
+     when you rest. That was too much. The Patronus already fails from Corrupted, so night Dementors
+     would come with no spell to fight them, every night, at a tier with no time decay. And -4 with a
+     Horcrux (-2) is 3 of 10 hearts. Dementors still choose a Lost player first (from Tainted), and
+     the insomnia threshold is still 3 days.
 8. **Rewards per tier** (the temptation):
    - **Corrupted:** dark spells cost 15% less mana (in `SpellCosts.manaCost`, after the wand and
      mastery multipliers). A Dark Mark buffs you as it buffs Death Eaters (the design doc's
@@ -186,9 +190,9 @@ it all off, and `runServer` boots clean on a dedicated server.
 
 - Patronus: the corporeal chance by tier, the failure at Corrupted, the shield upkeep at Tainted.
 - Dementors: a target goal that prefers the highest-tier player in range (ties go to the nearest),
-  the insomnia threshold by tier, and the Lost night chance.
+  and the insomnia threshold by tier.
 - Students: a target goal on players at Corrupted and above.
-- Lost: the -4 max health modifier (applied and removed on tier change, login and respawn, like the
+- Lost: the -2 max health modifier (applied and removed on tier change, login and respawn, like the
   Hufflepuff health modifier in `HousePerks`). House Elves flee.
 - The smoke particles at tier 3+.
 

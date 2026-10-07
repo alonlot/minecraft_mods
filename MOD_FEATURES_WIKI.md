@@ -42,6 +42,12 @@ It is based on the actual code and registries in the project, not just textures 
 - Polyjuice disguises
   Players can collect identity samples, brew Polyjuice in the Wizard Cauldron, transform after a short delay, and maintain disguises for the potion duration.
 
+- Cauldron brewing
+  Potions are brewed step by step in the Wizard Cauldron over heat: add ingredients, stir and let it simmer, in order, and watch the liquid change colour. Seven recipes: Wiggenweld Potion, Pepperup Potion, Essence of Dittany, Mandrake Restorative Draught, Draught of Living Death, Felix Felicis and Polyjuice Potion. The Hogwarts Guide (Potions tab) lists every recipe.
+
+- Petrification
+  A basilisk's full gaze turns a player to stone instead of killing them. A stone player waits for a friend with a Mandrake Restorative Draught or gives in and respawns.
+
 - Dark Magic
   Dark spells darken your soul: a hidden Darkness score from 0 to 100 in five tiers, from Clean to Lost. The world reacts to each tier with costs and, from Corrupted, rewards. Time and healing bring you back.
 
@@ -595,7 +601,10 @@ Each spell below lists the implemented gameplay behavior currently present in th
 - Brewing cauldron. Fill it with a water bucket or three water bottles and put heat under it (a lit campfire or soul campfire, fire, soul fire, lava or a magma block).
 - Right-click with ingredients in order, stir with a Fine Wood Stick (sneak for anticlockwise), and let simmer steps run on the heat. The liquid changes colour at every correct step; a wrong step ruins the brew.
 - A finished brew gives 3 doses (glass bottles). Left on the heat more than 120 seconds after its last simmer, it is ruined. A ruined brew bottles as Failed Potion or is poured away with a bucket.
-- Recipes: Wiggenweld Potion, Pepperup Potion and Polyjuice Potion (Hogwarts Guide, Potions).
+- Recipes: Wiggenweld Potion, Pepperup Potion, Essence of Dittany, Mandrake Restorative Draught, Draught of Living Death, Felix Felicis and Polyjuice Potion (Hogwarts Guide, Potions). Each is described under Potions and Effects.
+- Felix Felicis gives a single dose; every other brew gives 3.
+- Gunpowder after a finished Mandrake Restorative Draught makes every dose a splash potion. The Draught of Living Death always ends with Gunpowder: it is splash only.
+- The Mini Hogwarts Potions classroom has seven of these cauldrons, full and already over heat.
 - Cauldrons placed by structures start full and work like any other.
 - Ingredients need a full cauldron (3 doses of water).
 - Keep your other hand empty when you sneak-stir.
@@ -613,6 +622,12 @@ Each spell below lists the implemented gameplay behavior currently present in th
 - Custom underwater plant.
 - Generates in swampy underwater environments.
 - Can survive on mud, roots, moss, and similar wet natural substrates.
+
+### Dittany Plant
+
+- A small herb that grows wild in patches of two to four in the Forbidden Forest and the Horntail Peaks, on earth and on bare rock.
+- Breaking a wild plant gives two Dittany; a plant you set down yourself gives back one.
+- Dittany can be planted on earth or stone. It does not spread.
 
 ### Fine Wood Tree Set
 
@@ -676,7 +691,7 @@ These are decorative house-themed blocks.
 ### Wand Materials
 
 - Fine Wood Stick
-  Base crafted wand body used for real wandcraft.
+  Base crafted wand body used for real wandcraft. It is also the stirring rod for the Wizard Cauldron: right-click to stir clockwise, sneak and right-click (other hand empty) to stir anticlockwise.
 
 - Arcane Dust
   Magical ingredient used in early crafting and broommaking.
@@ -696,13 +711,39 @@ These are decorative house-themed blocks.
 ### Creature Ingredients
 
 - Werewolf Fang
-  Used in Wizard Potion brewing.
+  Magical creature drop/material.
 
 - Centaur Talisman
   Magical creature drop/material.
 
 - Acromantula Venom
-  Magical creature drop/material.
+  Magical creature drop. Used in the Wizard Potion (brewing stand), and in Polyjuice Potion and Felix Felicis (Wizard Cauldron).
+
+### Brewing Ingredients
+
+- Dittany
+  Picked from the Dittany plant, or bought from an apothecary (2 for 6 emeralds). Essence of Dittany.
+
+- Asphodel
+  Apothecary (second level), 1 for 8 emeralds. Mandrake Restorative Draught and Draught of Living Death.
+
+- Wormwood
+  Apothecary (second level), 2 for 6 emeralds. Draught of Living Death.
+
+- Valerian Sprigs
+  Apothecary, 2 for 4 emeralds; also in about a quarter of the Hogwarts ruin camp chests. Draught of Living Death.
+
+- Ashwinder Egg
+  Rare: 1 Death Eater camp chest in 10, about 1 Chamber of Secrets chest in 7, and 1 Blaze in 20. It does not burn. Felix Felicis.
+
+- Mandrake Root
+  Pulled from a Mandrake. Pepperup Potion, Mandrake Restorative Draught and Polyjuice Potion.
+
+- Everyday ingredients
+  Honey Bottle and Glow Berries (Wiggenweld), Blaze Powder (Pepperup), Arcane Dust (Mandrake Draught), Gold Nugget (Felix Felicis), Gillyweed (Polyjuice), and Redstone Dust and Gunpowder to extend Polyjuice or make a splash potion.
+
+- Where to buy
+  Apothecaries sell Dittany and Valerian Sprigs from their first level and Asphodel and Wormwood from their second. Each apothecary stocks only some of them, so try another shop. The Potions classroom in Mini Hogwarts has two chests of supplies.
 
 ### Gillyweed
 
@@ -840,6 +881,44 @@ Only one relic of each type can be equipped.
 - Add Redstone in the cauldron right after the sample: the disguise lasts about 8 minutes.
 - Add Gunpowder after that (or right after the sample): every dose is a splash potion.
 
+### Wiggenweld Potion
+
+- Brewed: 1 Honey Bottle, 2 Glow Berries, stir clockwise 3 times, simmer 20 seconds. 3 doses.
+- Heals 8 health over about 2 seconds and stops Bleeding, which milk cannot.
+
+### Pepperup Potion
+
+- Brewed: 1 Blaze Powder, 1 Mandrake Root, stir anticlockwise 2 times, simmer 15 seconds. 3 doses.
+- Restores 40 mana at once and gives 30 seconds of Fire Resistance. Steam pours from your ears.
+
+### Essence of Dittany
+
+- Brewed: 3 Dittany, stir clockwise 5 times, simmer 30 seconds. 3 doses.
+- Closes a Cursed Wound (Dolohov's Curse) and heals 4 health.
+
+### Mandrake Restorative Draught
+
+- Brewed: 2 Mandrake Roots, 1 Asphodel, stir clockwise 4 times, simmer 45 seconds, then 1 Arcane Dust. 3 doses.
+- Add 1 Gunpowder after the Arcane Dust and every dose is a Splash Mandrake Restorative Draught.
+- Right-click a player turned to stone, or a creature's statue, with the bottle to bring them back (one dose).
+- Thrown, it frees every stone player and statue within 4 blocks.
+- Drunk, it clears a basilisk's building gaze, and for 8 seconds the gaze cannot build on you.
+
+### Draught of Living Death
+
+- Brewed: 1 Asphodel, 1 Wormwood, 2 Valerian Sprigs, stir anticlockwise 7 times, stir clockwise once (the brew turns clear as water), simmer 60 seconds, then 1 Gunpowder. 3 doses.
+- Splash only. Everything within 4 blocks, the thrower too, is stunned for 20 seconds. The usual crowd-control rules apply: repeated stuns get shorter, bosses get half, and players take 60%.
+
+### Felix Felicis
+
+- Brewed: 1 Ashwinder Egg, 1 Acromantula Venom, 1 Gold Nugget, stir clockwise 3 times, simmer 10 minutes, stir anticlockwise once. One dose only.
+- 3 minutes of Luck III (better loot) and a quarter more spell mastery XP.
+
+### Failed Potion
+
+- What a ruined brew bottles as. Drinking it gives 10 seconds of Nausea and 3 seconds of Poison.
+- An empty bucket pours a ruined brew away instead.
+
 ### Major Custom Effects
 
 - `Lumos`
@@ -867,7 +946,16 @@ Only one relic of each type can be equipped.
   Improves mana regeneration.
 
 - `Basilisk Petrification`
-  Marks petrified victims.
+  Holds a player turned to stone (see Petrification), and marks a creature whose death leaves a statue.
+
+### Petrification
+
+- A basilisk's full gaze turns a survival or adventure player to stone instead of killing them. Creative and spectator players are not affected, and bosses still die to it.
+- While stone you cannot move, look around, attack, use items, cast or open your inventory. Nothing hurts you except the void and `/kill`, you do not get hungry or drown, and mobs ignore you. Chat still works, so you can call for help.
+- A screen asks you to choose: Wait for rescue, or Give in. Giving in is a normal death (your items drop unless keepInventory is on, and a Horcrux still brings you back). Esc means wait; press J (it can be rebound) to open the screen again.
+- A friend frees you with a Mandrake Restorative Draught: right-click you with the bottle, or throw the splash potion. You come back with 5 seconds of Slowness, and both of you get a message.
+- Logging out does not end it: you log back in as stone. A server can set a time limit with the config value `petrificationMaxSeconds` (0, the default, means none); when it runs out you give in automatically. If another mod cancels that damage and you are still stone, the limit starts over.
+- Creatures turned to stone leave Petrified Remains (see Mobs) that the Draught brings back.
 
 ## Dark Magic
 
@@ -990,6 +1078,17 @@ Each tier keeps the costs of the tiers below it, except where a harder cost repl
 
 - Swamp-oriented underwater gillyweed generation.
 
+### Dittany Patches
+
+- Small patches of Dittany, two to four plants, on the ground of the Forbidden Forest and the Horntail Peaks.
+
+### Mini Hogwarts
+
+- A small castle raised in the Forbidden Forest the first time a player goes there (no two within 6000 blocks). `/spawnminihogwarts` builds one, `/findminihogwarts` finds the nearest.
+- Students wander its floors, a few house elves keep below stairs, and themed chests wait in its library, spell study, dungeon, great hall and tower.
+- **Potions classroom.** Climb the gatehouse stairs to the upper room with the bookshelves: the door in its south wall opens into a tall Potions classroom with seven Wizard Cauldrons over magma (six for students, one for the teacher), shelves, a lectern and two ingredient chests. Each chest holds enough for one brew of every common recipe, with bottles, a water bucket and a stirring rod; now and then one holds an Ashwinder Egg. The cauldrons are full and heated, so you can start brewing straight away.
+- The chests are stocked once, when the castle is built (a chest whose chunk is not loaded at that moment stays empty). Castles that already stand are never rebuilt or changed, so only castles built after this update have the classroom.
+
 ### Gringotts
 
 The wizarding bank, and the only multi-level structure in the mod. Roughly one village in three gets
@@ -1091,6 +1190,9 @@ The mod includes advancement progression for:
 - Potion brewing.
 - Gillyweed collection.
 - Polyjuice brewing.
+- Bottling your first finished brew (First Brew).
+- Ruining a brew with a wrong step (Toil and Trouble).
+- Holding Felix Felicis (Liquid Luck).
 - Broom workbench setup.
 - First flight.
 - Nimbus upgrade.

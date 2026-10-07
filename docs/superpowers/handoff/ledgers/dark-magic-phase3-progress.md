@@ -13,3 +13,4 @@ Process: Opus for all agents, one implementer at a time (runs after Dark Magic P
 - T2 done 0962bba (465 tests). Review and T3 dispatched.
 - T3 done e175348 (465 tests). Its review is folded into the final review. Fix-wave queue: the WizardEntity comment says the hurt-by goal above but it is below. T4 dispatched.
 - T2 review: Approved (every dark check and spend uses the same discounted cost; non-dark costs bit-identical; dedicated server safe). Fix-wave queue: M1 the DarkRewards javadoc names DarkMagicData.getTier. M2 (Unicorn refund scales with the paid cost) accepted.
+- T4 done 8f1bbcd (465 tests, boot Done 3.256s). Review and T5 dispatched.

@@ -432,26 +432,6 @@ public class ModEvents {
     }
 
     @SubscribeEvent
-    public static void onEntityInteract(PlayerInteractEvent.EntityInteract event) {
-        if (!event.getItemStack().is(ExampleMod.OWL_ROUTE_TAG.get())) {
-            return;
-        }
-        if (!(event.getTarget() instanceof LivingEntity)) {
-            return;
-        }
-        LivingEntity livingEntity = (LivingEntity) event.getTarget();
-        net.minecraft.world.InteractionResult result = OwlRouteTagItem.assignToOwl(
-                event.getItemStack(),
-                event.getEntity(),
-                livingEntity
-        );
-        if (result.consumesAction()) {
-            event.setCancellationResult(result);
-            event.setCanceled(true);
-        }
-    }
-
-    @SubscribeEvent
     public static void onEntityInteractSpecific(PlayerInteractEvent.EntityInteractSpecific event) {
         if (!event.getItemStack().is(ExampleMod.OWL_ROUTE_TAG.get())) {
             return;
@@ -1830,8 +1810,8 @@ public class ModEvents {
 
         long now = player.level().getGameTime();
         int elapsed = (int) (now - playerData.getLong(TAG_APPARITION_START));
-        int channelTicks = com.hogwartsmagic.spell.support.ApparitionRules.channelTicks(
-                com.hogwartsmagic.spell.mastery.SpellMasteryData.getRank(player, SpellType.APPARITION));
+        int channelTicks = Math.max(1, com.hogwartsmagic.spell.support.ApparitionRules.channelTicks(
+                com.hogwartsmagic.spell.mastery.SpellMasteryData.getRank(player, SpellType.APPARITION)));
         float progress = Math.min(1.0f, elapsed / (float) channelTicks);
 
         // Implode: shrink the caster over the channel so onlookers see them compress into themselves.
@@ -2845,7 +2825,9 @@ public class ModEvents {
             updateRaidBarPlayers(level, raid);
             updateRaidProgress(level, raid);
             if (raid.members.isEmpty()) {
-                finishWizardRaid(level, raid, true);
+                // Every remaining member unloaded or despawned without a kill event (kills end the raid in
+                // onLivingDeath), so nobody beat this raid: end it quietly with no Hero reward.
+                finishWizardRaid(level, raid, false);
             }
         }
 
@@ -3618,6 +3600,9 @@ public class ModEvents {
             }
         } else if (entity instanceof com.hogwartsmagic.entity.WizardEntity wizard) {
             wizard.setFlying(true);
+            // The flag is cleared by the caller on the first tick without the effect, so its absence here
+            // marks the first tick of a fresh Tenebris flight.
+            boolean flightJustStarted = !wizard.getPersistentData().getBoolean("hogwartsmagic:tenebris_was_flying");
             wizard.getPersistentData().putBoolean("hogwartsmagic:tenebris_was_flying", true);
             wizard.setNoGravity(true);
 
@@ -3637,8 +3622,8 @@ public class ModEvents {
                         net.minecraft.world.effect.MobEffects.INVISIBILITY, 40, 0, false, false, false));
             }
 
-// Spawn ink and smoke particles on first tick
-            if (wizard.level() instanceof ServerLevel server && wizard.tickCount < 5) {
+// Spawn ink and smoke particles on the first tick of the flight
+            if (wizard.level() instanceof ServerLevel server && flightJustStarted) {
                 server.sendParticles(ParticleTypes.SQUID_INK,
                         wizard.getX(), wizard.getY() + wizard.getBbHeight() / 2, wizard.getZ(),
                         80, 1, 1, 1, 0.2);

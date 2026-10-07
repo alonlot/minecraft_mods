@@ -1,22 +1,56 @@
 package com.hogwartsmagic.spell;
 
+import com.hogwartsmagic.ExampleMod;
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.TickTask;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.event.level.LevelEvent;
+import net.minecraftforge.event.server.ServerStoppedEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod;
 import org.joml.Vector3f;
+
+import java.util.ArrayDeque;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 
 /**
  * Incarcerous: chains erupt from the ground to the left and right of the target, wrap limbs,
  * and are re-drawn while {@link com.hogwartsmagic.ExampleMod#INCARCEROUS_CHAINS} is active.
+ *
+ * <p>The intro phases are staggered by a real tick counter drained from the level tick (same pattern as
+ * {@link com.hogwartsmagic.spell.damage.BombardaBlasts}). {@code MinecraftServer.tell(TickTask)} is not
+ * usable for this: {@code shouldRun} is {@code tick + 3 < tickCount || haveTime()}, so on an idle server
+ * every deferred task runs in the same tick and the animation collapses into one burst.
  */
+@Mod.EventBusSubscriber(modid = ExampleMod.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class IncarcerousChainAnimation {
+
+    /** Tick offsets, relative to the scheduling tick, of the six intro phases. */
+    private static final int[] PHASE_OFFSETS = {0, 7, 14, 22, 29, 36};
+
+    /** Pending intro animations per level, keyed by dimension; drained in the level tick END phase. */
+    private static final Map<ResourceKey<Level>, ArrayDeque<Pending>> PENDING = new HashMap<>();
+
+    private static final class Pending {
+        final LivingEntity target;
+        final int startTick;
+        int nextPhase;
+
+        Pending(LivingEntity target, int startTick) {
+            this.target = target;
+            this.startTick = startTick;
+        }
+    }
 
     /** Horizontal distance from entity feet where side anchors sit (blocks). */
     private static final double SIDE_OFFSET = 1.12;
@@ -34,14 +68,67 @@ public final class IncarcerousChainAnimation {
         if (!target.isAlive()) {
             return;
         }
-        MinecraftServer server = level.getServer();
-        int t0 = server.getTickCount();
-        server.tell(new TickTask(t0, () -> phaseFirstLeg(target)));
-        server.tell(new TickTask(t0 + 7, () -> phaseSecondLeg(target)));
-        server.tell(new TickTask(t0 + 14, () -> phaseLegShackle(target)));
-        server.tell(new TickTask(t0 + 22, () -> phaseHandChain(target, true)));
-        server.tell(new TickTask(t0 + 29, () -> phaseHandChain(target, false)));
-        server.tell(new TickTask(t0 + 36, () -> phaseFinisher(target)));
+        int t0 = level.getServer().getTickCount();
+        PENDING.computeIfAbsent(level.dimension(), key -> new ArrayDeque<>()).add(new Pending(target, t0));
+    }
+
+    @SubscribeEvent
+    public static void onLevelTick(TickEvent.LevelTickEvent event) {
+        if (event.phase != TickEvent.Phase.END || !(event.level instanceof ServerLevel level)) {
+            return;
+        }
+        ArrayDeque<Pending> pending = PENDING.get(level.dimension());
+        if (pending == null) {
+            return;
+        }
+        if (pending.isEmpty()) {
+            PENDING.remove(level.dimension());
+            return;
+        }
+        int now = level.getServer().getTickCount();
+        Iterator<Pending> it = pending.iterator();
+        while (it.hasNext()) {
+            Pending p = it.next();
+            if (!p.target.isAlive() || p.target.isRemoved()) {
+                it.remove();
+                continue;
+            }
+            int elapsed = now - p.startTick;
+            while (p.nextPhase < PHASE_OFFSETS.length && elapsed >= PHASE_OFFSETS[p.nextPhase]) {
+                runPhase(p.nextPhase++, p.target);
+            }
+            if (p.nextPhase >= PHASE_OFFSETS.length) {
+                it.remove();
+            }
+        }
+        if (pending.isEmpty()) {
+            PENDING.remove(level.dimension());
+        }
+    }
+
+    private static void runPhase(int phase, LivingEntity target) {
+        switch (phase) {
+            case 0 -> phaseFirstLeg(target);
+            case 1 -> phaseSecondLeg(target);
+            case 2 -> phaseLegShackle(target);
+            case 3 -> phaseHandChain(target, true);
+            case 4 -> phaseHandChain(target, false);
+            case 5 -> phaseFinisher(target);
+            default -> {
+            }
+        }
+    }
+
+    @SubscribeEvent
+    public static void onLevelUnload(LevelEvent.Unload event) {
+        if (event.getLevel() instanceof ServerLevel level) {
+            PENDING.remove(level.dimension());
+        }
+    }
+
+    @SubscribeEvent
+    public static void onServerStopped(ServerStoppedEvent event) {
+        PENDING.clear();
     }
 
     /**

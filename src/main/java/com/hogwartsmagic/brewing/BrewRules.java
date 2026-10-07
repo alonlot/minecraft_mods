@@ -23,6 +23,16 @@ public final class BrewRules {
     public static final String ACROMANTULA_VENOM = "hogwartsmagic:acromantula_venom";
     public static final String GILLYWEED = "hogwartsmagic:gillyweed";
     public static final String POLYJUICE_SAMPLE = "hogwartsmagic:polyjuice_sample";
+    public static final String DITTANY = "hogwartsmagic:dittany";
+    public static final String ASPHODEL = "hogwartsmagic:asphodel";
+    public static final String WORMWOOD = "hogwartsmagic:wormwood";
+    public static final String VALERIAN_SPRIGS = "hogwartsmagic:valerian_sprigs";
+    public static final String ASHWINDER_EGG = "hogwartsmagic:ashwinder_egg";
+    public static final String ARCANE_DUST = "hogwartsmagic:arcane_dust";
+    public static final String GOLD_NUGGET = "minecraft:gold_nugget";
+
+    /** Felix Felicis is the one brew that gives a single dose (spec decision 7). */
+    public static final int FELIX_DOSES = 1;
 
     /** A full cauldron; ingredients go only into a full one, so a brew gives this many doses. */
     public static final int MAX_DOSES = 3;
@@ -123,7 +133,38 @@ public final class BrewRules {
             List.of(0xA0563E, 0x7D7468),
             MAX_DOSES);
 
-    public static final List<Recipe> RECIPES = List.of(WIGGENWELD, PEPPERUP, POLYJUICE);
+    public static final Recipe DITTANY_ESSENCE = new Recipe("dittany",
+            List.of(Step.add(DITTANY, 3), Step.stirClockwise(5), Step.simmer(30)),
+            List.of(0x7FA65A, 0x9CC27A, 0xC9E3A6),
+            List.of(), List.of(), MAX_DOSES);
+
+    /** The arcane dust finishes it; gunpowder after it makes every dose a splash potion. */
+    public static final Recipe MANDRAKE_DRAUGHT = new Recipe("mandrake_draught",
+            List.of(Step.add(MANDRAKE_ROOT, 2), Step.add(ASPHODEL, 1), Step.stirClockwise(4), Step.simmer(45),
+                    Step.add(ARCANE_DUST, 1)),
+            List.of(0x8C6E4A, 0xB7A6C9, 0x9A8FBF, 0x7FB8A8, 0x5FD3C0),
+            List.of(Step.add(GUNPOWDER, 1)),
+            List.of(0x6E8F86),
+            MAX_DOSES);
+
+    /**
+     * Splash only, so the gunpowder is a required last step. "Anticlockwise seven, then clockwise once" is the
+     * Half-Blood Prince's note; after the clockwise stir the brew turns clear as water.
+     */
+    public static final Recipe LIVING_DEATH = new Recipe("living_death",
+            List.of(Step.add(ASPHODEL, 1), Step.add(WORMWOOD, 1), Step.add(VALERIAN_SPRIGS, 2),
+                    Step.stirAnticlockwise(7), Step.stirClockwise(1), Step.simmer(60), Step.add(GUNPOWDER, 1)),
+            List.of(0xB7A6C9, 0x8F9A6A, 0xC8A2E0, 0xD9C2EC, 0xE8EEF2, 0xD8E2EA, 0x9AA3AD),
+            List.of(), List.of(), MAX_DOSES);
+
+    public static final Recipe FELIX_FELICIS = new Recipe("felix_felicis",
+            List.of(Step.add(ASHWINDER_EGG, 1), Step.add(ACROMANTULA_VENOM, 1), Step.add(GOLD_NUGGET, 1),
+                    Step.stirClockwise(3), Step.simmer(600), Step.stirAnticlockwise(1)),
+            List.of(0xD9542B, 0x8E9A3A, 0xC9A23A, 0xE0B84A, 0xF2C94C, 0xFFD966),
+            List.of(), List.of(), FELIX_DOSES);
+
+    public static final List<Recipe> RECIPES = List.of(WIGGENWELD, PEPPERUP, POLYJUICE, DITTANY_ESSENCE,
+            MANDRAKE_DRAUGHT, LIVING_DEATH, FELIX_FELICIS);
 
     private BrewRules() {
     }

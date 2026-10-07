@@ -266,7 +266,8 @@ class BrewRulesTest {
             assertTrue(ids.add(recipe.id()), recipe.id());
             assertEquals(recipe.steps().size(), recipe.colors().size(), recipe.id());
             assertEquals(recipe.tail().size(), recipe.tailColors().size(), recipe.id());
-            assertEquals(BrewRules.MAX_DOSES, recipe.doses(), recipe.id());
+            int doses = recipe == BrewRules.FELIX_FELICIS ? BrewRules.FELIX_DOSES : BrewRules.MAX_DOSES;
+            assertEquals(doses, recipe.doses(), recipe.id());
             assertEquals(BrewRules.Kind.ADD, recipe.steps().get(0).kind(), recipe.id());
             for (int i = 1; i < recipe.steps().size(); i++) {
                 assertFalse(recipe.steps().get(i).sameAction(recipe.steps().get(i - 1)), recipe.id() + " step " + i);
@@ -282,7 +283,8 @@ class BrewRulesTest {
                 }
             }
         }
-        assertEquals(List.of(BrewRules.WIGGENWELD, BrewRules.PEPPERUP, BrewRules.POLYJUICE), BrewRules.RECIPES);
+        assertEquals(List.of(BrewRules.WIGGENWELD, BrewRules.PEPPERUP, BrewRules.POLYJUICE, BrewRules.DITTANY_ESSENCE,
+                BrewRules.MANDRAKE_DRAUGHT, BrewRules.LIVING_DEATH, BrewRules.FELIX_FELICIS), BrewRules.RECIPES);
     }
 
     @Test

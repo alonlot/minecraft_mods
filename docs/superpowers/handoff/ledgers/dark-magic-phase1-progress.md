@@ -15,3 +15,4 @@ Base: 996f638 (383 tests green). Process: implementer per task, review per task,
 - T4 done 0ebfa31 (404 tests). Controller review (small task): matches the plan; op 2; set 0..100 ignores the floor, add -100..100 goes through it; get notes the toggle. Approved. T5 dispatched.
 - T3 review: Approved; every paid dark cast path reaches exactly one hook, refusals, heartbeats, windup begin and creative charge nothing. Fix-wave queue: M1 castAs javadoc says mana payer = the victim, Darkness goes to the puppeteer. M2 (survival puppeteer charged for a creative victim's cast) accepted: the puppeteer chose to cast it. M3 old build-log notes, no action.
 - T5 done 0140337 (404 tests). Review and T6 dispatched.
+- T5 review: Approved (font widths measured: 78 px or more gap to the title at any GUI scale). Minors accepted with no action: narrow-screen clipping is the existing panel behaviour; fully qualified names are plan-mandated.

@@ -269,6 +269,61 @@ public class HogwartsGuideScreen extends Screen {
                         "6. Add a filled Polyjuice Sample. An empty one is refused. Take the cauldron off the heat while you fetch the sample, or it overbrews.",
                         "Then, if you like, in this order: 1 Redstone Dust for an 8-minute disguise, then 1 Gunpowder to make every dose a splash potion.",
                         "The brew gives 3 doses, each carrying the same sample. The brewing stand no longer makes Polyjuice."
+                )),
+                page("Essence of Dittany", List.of(
+                        "Closes a Cursed Wound and heals 4 health.",
+                        "1. Add 3 Dittany.",
+                        "2. Stir clockwise 5 times.",
+                        "3. Simmer 30 seconds."
+                )),
+                page("Mandrake Restorative Draught", List.of(
+                        "Brings back anyone the basilisk has turned to stone.",
+                        "1. Add 2 Mandrake Roots.",
+                        "2. Add 1 Asphodel.",
+                        "3. Stir clockwise 4 times.",
+                        "4. Simmer 45 seconds.",
+                        "5. Add 1 Arcane Dust."
+                )),
+                page("Using the Mandrake Draught", List.of(
+                        "Right-click a petrified friend, or a stone statue, with a bottle to bring them back.",
+                        "Add 1 Gunpowder after the Arcane Dust and every dose becomes a splash potion that frees all the stone within 4 blocks.",
+                        "Drunk, it breaks a basilisk's hold on you and steadies your eyes for 8 seconds."
+                )),
+                page("Draught of Living Death", List.of(
+                        "A splash potion: everything within 4 blocks falls into a deathlike sleep for 20 seconds. The great shrug off half of it, and it wears thinner on a victim struck again soon.",
+                        "1. Add 1 Asphodel.",
+                        "2. Add 1 Wormwood.",
+                        "3. Add 2 Valerian Sprigs.",
+                        "4. Stir anticlockwise 7 times."
+                )),
+                page("Living Death: the finish", List.of(
+                        "5. Stir clockwise once. The brew turns clear as water.",
+                        "6. Simmer 60 seconds.",
+                        "7. Add 1 Gunpowder.",
+                        "Seven anticlockwise, then one clockwise. Do not trust the old textbook."
+                )),
+                page("Felix Felicis", List.of(
+                        "Liquid luck: 3 minutes of Luck III, and every spell you master grows a quarter faster. The brew gives a single dose.",
+                        "1. Add 1 Ashwinder Egg.",
+                        "2. Add 1 Acromantula Venom.",
+                        "3. Add 1 Gold Nugget.",
+                        "4. Stir clockwise 3 times."
+                )),
+                page("Felix Felicis: patience", List.of(
+                        "5. Simmer 600 seconds (10 minutes).",
+                        "6. Stir anticlockwise once.",
+                        "Take it off the heat after the simmer if you must leave it: it overbrews like any other."
+                )),
+                page("Where ingredients grow", List.of(
+                        "Dittany grows on earth and bare rock in the Forbidden Forest and the Horntail Peaks. Plant a Dittany to grow more.",
+                        "Apothecaries sell Dittany, Valerian Sprigs, Asphodel and Wormwood, each shop only some of them.",
+                        "Valerian Sprigs turn up in the chests of the Hogwarts ruin camp.",
+                        "Ashwinder Eggs: Death Eater camps, the Chamber, and now and then a Blaze."
+                )),
+                page("Turned to stone", List.of(
+                        "A basilisk's full stare no longer kills you: it turns you to stone. You cannot move or act, and nothing can hurt you.",
+                        "Wait for a friend with a Mandrake Restorative Draught, or give in and die as usual: choose it on the stone screen, or press J (by default) to open that screen again.",
+                        "A creature turned to stone leaves a statue. The Draught brings it back as it was, with its name and its master. Break the statue and it is gone for good."
                 ))
         ));
 

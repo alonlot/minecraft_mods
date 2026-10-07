@@ -9,3 +9,4 @@ Process: Opus for all agents, one implementer at a time (runs after Dark Magic P
 ## Progress
 - T1 done fce4f06 (BASE 468, protocol 8; 477 tests, RED seen). Its review is folded into the final review. T2 dispatched.
 - T2 done 5d04e6b (477 tests, advancements ok, boot Done 3.579s). Its review is folded into the final review. Fix-wave queue: wrap the long DarkMagicData javadoc line.
+- T3 done f325566 (docs only, node parse ok). 8 deviations from the plan text, all to match the built code (floor at 60+, safe escort landing, guard tag, Fiendfyre/steam credit, drop-at-once, /darkmagic shows tiers to ops, decay 10 h per tier, heal window at 0 Darkness, systems count 11). Controller checked the decay figure against DarkRules. Review folded into the final review. T4 dispatched.

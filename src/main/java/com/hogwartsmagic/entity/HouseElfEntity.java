@@ -152,6 +152,8 @@ public class HouseElfEntity extends PathfinderMob {
     protected void registerGoals() {
         this.goalSelector.addGoal(0, new FloatGoal(this));
         this.goalSelector.addGoal(1, new FleeNoticedWizardGoal());
+        // Dark Magic: a bound or freed elf backs away from a Lost wizard, its master included.
+        this.goalSelector.addGoal(1, new FleeLostWizardGoal());
         this.goalSelector.addGoal(2, new FollowMasterGoal());
         this.goalSelector.addGoal(4, new WaterAvoidingRandomStrollGoal(this, 0.5D));
         this.goalSelector.addGoal(5, new LookAtPlayerGoal(this, Player.class, 8.0F));
@@ -744,6 +746,88 @@ public class HouseElfEntity extends PathfinderMob {
         }
     }
 
+    /** A Lost wizard frightens every elf (Dark Magic): never a creative or spectating one. */
+    private static boolean frightens(Player player) {
+        return !player.isSpectator() && !player.isCreative()
+                && com.hogwartsmagic.spell.dark.DarkCostRules.elvesFlee(
+                        com.hogwartsmagic.spell.dark.DarkCosts.tierOf(player));
+    }
+
+    /**
+     * Dark Magic Phase 2: a bound or freed elf backs away from any Lost wizard within 8 blocks until 12 blocks lie
+     * between them, its own master included. A wild elf keeps FleeNoticedWizardGoal. Searches once per
+     * NPC_CHECK_EVERY_CALLS evaluations, and not at all while nobody online is Lost.
+     */
+    private class FleeLostWizardGoal extends Goal {
+
+        @Nullable
+        private Player threat;
+        private int checkCountdown;
+
+        FleeLostWizardGoal() {
+            this.setFlags(EnumSet.of(Flag.MOVE, Flag.LOOK));
+        }
+
+        @Override
+        public boolean canUse() {
+            if (HouseElfEntity.this.isWild()) {
+                return false;
+            }
+            if (--this.checkCountdown > 0) {
+                return false;
+            }
+            this.checkCountdown = com.hogwartsmagic.spell.dark.DarkCostRules.NPC_CHECK_EVERY_CALLS;
+            if (!com.hogwartsmagic.spell.dark.DarkCosts.anyoneOnlineAt(HouseElfEntity.this.level(),
+                    com.hogwartsmagic.spell.dark.DarkCostRules.Cost.ELVES_FLEE)) {
+                return false;
+            }
+            this.threat = this.nearestLostWizard();
+            return this.threat != null;
+        }
+
+        @Override
+        public boolean canContinueToUse() {
+            double stop = com.hogwartsmagic.spell.dark.DarkCostRules.ELF_FLEE_STOP_DISTANCE;
+            return this.threat != null && this.threat.isAlive()
+                    && !HouseElfEntity.this.isWild()
+                    && HouseElfEntity.this.distanceToSqr(this.threat) < stop * stop
+                    && frightens(this.threat);
+        }
+
+        @Override
+        public void stop() {
+            this.threat = null;
+            HouseElfEntity.this.getNavigation().stop();
+        }
+
+        @Override
+        public void tick() {
+            if (this.threat == null) {
+                return;
+            }
+            HouseElfEntity.this.getLookControl().setLookAt(this.threat, 30.0F, 30.0F);
+            Vec3 away = HouseElfEntity.this.position()
+                    .subtract(this.threat.position()).normalize().scale(6.0D);
+            Vec3 target = HouseElfEntity.this.position().add(away);
+            HouseElfEntity.this.getNavigation().moveTo(target.x, target.y, target.z, 1.3D);
+        }
+
+        @Nullable
+        private Player nearestLostWizard() {
+            double range = com.hogwartsmagic.spell.dark.DarkCostRules.ELF_FLEE_DISTANCE;
+            Player nearest = null;
+            double best = range * range;
+            for (Player player : HouseElfEntity.this.level().players()) {
+                double distance = HouseElfEntity.this.distanceToSqr(player);
+                if (distance < best && frightens(player)) {
+                    best = distance;
+                    nearest = player;
+                }
+            }
+            return nearest;
+        }
+    }
+
     /** A bound elf keeps a servile distance; a freed one simply keeps up. */
     private class FollowMasterGoal extends Goal {
 
@@ -769,12 +853,14 @@ public class HouseElfEntity extends PathfinderMob {
             // willing one stays by choice, so both served states follow.
             this.master = HouseElfEntity.this.getMaster();
             return this.master != null && !this.master.isSpectator()
+                    && !frightens(this.master)
                     && HouseElfEntity.this.distanceToSqr(this.master) > START_DISTANCE * START_DISTANCE;
         }
 
         @Override
         public boolean canContinueToUse() {
             return this.master != null && this.master.isAlive() && !HouseElfEntity.this.isWild()
+                    && !frightens(this.master)
                     && HouseElfEntity.this.distanceToSqr(this.master) > STOP_DISTANCE * STOP_DISTANCE;
         }
 

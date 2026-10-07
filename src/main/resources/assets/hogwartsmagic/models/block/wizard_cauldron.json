@@ -557,7 +557,8 @@
       ],
       "faces": {
         "up": {
-          "texture": "#brew"
+          "texture": "#brew",
+          "tintindex": 0
         }
       }
     }

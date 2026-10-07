@@ -266,6 +266,11 @@ public class ExampleMod
             () -> new com.hogwartsmagic.block.EnchantedBookPileBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.BOOKSHELF).strength(1.2f)));
     public static final RegistryObject<Block> WIZARD_CAULDRON = BLOCKS.register("wizard_cauldron",
             () -> new com.hogwartsmagic.block.WizardCauldronBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.CAULDRON).strength(1.5f)));
+    public static final RegistryObject<BlockEntityType<com.hogwartsmagic.block.entity.WizardCauldronBlockEntity>> WIZARD_CAULDRON_BLOCK_ENTITY =
+            BLOCK_ENTITY_TYPES.register("wizard_cauldron", () -> BlockEntityType.Builder.of(
+                    com.hogwartsmagic.block.entity.WizardCauldronBlockEntity::new,
+                    WIZARD_CAULDRON.get()
+            ).build(null));
     public static final RegistryObject<Block> OWL_PERCH = BLOCKS.register("owl_perch",
             () -> new com.hogwartsmagic.block.OwlPerchBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.OAK_FENCE).strength(1.0f)));
     public static final RegistryObject<Block> FLOO_FIREPLACE = BLOCKS.register("floo_fireplace",
@@ -953,11 +958,9 @@ public class ExampleMod
      */
     private static void onRegisterBrewingRecipes(BrewingRecipeRegisterEvent event) {
         event.addRecipe(new com.hogwartsmagic.polyjuice.WizardPotionBrewingRecipe());
-        event.addRecipe(new com.hogwartsmagic.polyjuice.StabilizedPolyjuiceBaseBrewingRecipe());
-        event.addRecipe(new com.hogwartsmagic.polyjuice.PolyjuiceBrewingRecipe());
-        event.addRecipe(new com.hogwartsmagic.polyjuice.PolyjuiceRedstoneExtendBrewingRecipe());
-        event.addRecipe(new com.hogwartsmagic.polyjuice.PolyjuiceSplashBrewingRecipe());
-        LOGGER.info("Registered mana regeneration / Polyjuice brewing recipes (awkward+acromantula venom -> mana regeneration; mana regeneration+mandrake root -> stabilized base; stabilized base+sample -> polyjuice; polyjuice+redstone -> extended; polyjuice+gunpowder -> splash)");
+        // Polyjuice is brewed only in the Wizard Cauldron (BrewRules.POLYJUICE). The stabilized_polyjuice_base potion
+        // stays registered so bottles already in worlds still load, but nothing makes or uses it any more.
+        LOGGER.info("Registered the mana regeneration brewing recipe (awkward + acromantula venom); Polyjuice is brewed in the Wizard Cauldron");
     }
 
     // You can use SubscribeEvent and let the Event Bus discover methods to call

@@ -1,5 +1,8 @@
 {
   "variants": {
-    "": { "model": "hogwartsmagic:block/wizard_cauldron" }
+    "level=0": { "model": "hogwartsmagic:block/wizard_cauldron_empty" },
+    "level=1": { "model": "hogwartsmagic:block/wizard_cauldron_level1" },
+    "level=2": { "model": "hogwartsmagic:block/wizard_cauldron_level2" },
+    "level=3": { "model": "hogwartsmagic:block/wizard_cauldron" }
   }
 }

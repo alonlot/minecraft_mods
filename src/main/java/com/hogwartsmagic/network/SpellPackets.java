@@ -46,7 +46,7 @@ public class SpellPackets {
 
     public static final SimpleChannel CHANNEL = ChannelBuilder
             .named(ExampleMod.MODID + ":spells")
-            .networkProtocolVersion(6)
+            .networkProtocolVersion(7)
             .simpleChannel();
 
     public static void register() {
@@ -515,6 +515,11 @@ public class SpellPackets {
                 .decoder(buf -> new LockPickStatePacket(buf.readBoolean()))
                 .consumerMainThread(LockPickStatePacket::handle)
                 .add();
+        CHANNEL.messageBuilder(SyncDarkMagicPacket.class)
+                .encoder((p, buf) -> buf.writeFloat(p.darkness))
+                .decoder(buf -> new SyncDarkMagicPacket(buf.readFloat()))
+                .consumerMainThread(SyncDarkMagicPacket::handle)
+                .add();
     }
 
     public static void syncRelics(ServerPlayer player) {
@@ -729,6 +734,18 @@ public class SpellPackets {
             enqueueClientWork(ctx, () -> com.hogwartsmagic.spell.mastery.MasteryConfig.acceptSynced(
                     new com.hogwartsmagic.spell.mastery.MasteryConfig.Values(
                             p.adept, p.expert, p.master, p.rankDiscount, p.manaPerRank, p.manaCap)));
+        }
+    }
+
+    /** Server to client: this player's own effective Darkness (0 with Dark Magic off). Never about anyone else. */
+    public record SyncDarkMagicPacket(float darkness) {
+        public static void handle(SyncDarkMagicPacket p, CustomPayloadEvent.Context ctx) {
+            if (ctx.getSender() != null) {
+                // Server-to-client only: ignore anything a client sends (e.g. a LAN guest).
+                ctx.setPacketHandled(true);
+                return;
+            }
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("syncDarkMagic", p));
         }
     }
 

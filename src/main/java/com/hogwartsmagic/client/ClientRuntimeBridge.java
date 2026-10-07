@@ -29,6 +29,7 @@ public final class ClientRuntimeBridge {
             case "syncRelics" -> syncRelics((SpellPackets.SyncRelicsPacket) payload);
             case "syncLearnedSpells" -> syncLearnedSpells((SpellPackets.SyncLearnedSpellsPacket) payload);
             case "syncSpellMastery" -> syncSpellMastery((SpellPackets.SyncSpellMasteryPacket) payload);
+            case "syncDarkMagic" -> DarkMagicClientState.accept(((SpellPackets.SyncDarkMagicPacket) payload).darkness());
             case "openFlooScreen" -> openFlooScreen((SpellPackets.OpenFlooScreenPacket) payload);
             case "openFlooNamingScreen" -> openFlooNamingScreen((SpellPackets.OpenFlooNamingScreenPacket) payload);
             case "openHogwartsInviteScreen" -> openHogwartsInviteScreen((SpellPackets.OpenHogwartsInviteScreenPacket) payload);

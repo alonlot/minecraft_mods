@@ -172,6 +172,27 @@ public final class Config {
             .comment("Sneakoscope: range in blocks for the Dark Mark, which hangs high in the sky.")
             .defineInRange("sneakoscopeDarkMarkRange", 48, 8, 128);
 
+    public static final ForgeConfigSpec.BooleanValue SNEAKOSCOPE_DETECTS_PLAYERS = BUILDER
+            .comment("Sneakoscope: if true, players at Corrupted or Lost (Dark Magic) set it off. Needs enableDarkMagic.")
+            .define("sneakoscopeDetectsPlayers", true);
+
+    public static final ForgeConfigSpec.BooleanValue ENABLE_DARK_MAGIC = BUILDER
+            .comment("Dark Magic: if false, dark spells add no Darkness, nothing decays and every player reads as Clean. Stored values are kept.")
+            .define("enableDarkMagic", true);
+
+    public static final ForgeConfigSpec.DoubleValue DARK_MAGIC_GAIN_MULTIPLIER = BUILDER
+            .comment("Dark Magic: multiplier on the Darkness each paid dark cast adds. 0 means no gain.")
+            .defineInRange("darkMagicGainMultiplier", 1.0, 0.0, 10.0);
+
+    public static final ForgeConfigSpec.IntValue DARK_MAGIC_DECAY_TICKS = BUILDER
+            .comment("Dark Magic: ticks of online play, with no dark cast in the last 10 minutes, per point of Darkness lost.",
+                    "36000 is 30 minutes, so 100 to 0 takes 50 hours. Lower it to test decay.")
+            .defineInRange("darkMagicDecayTicks", 36000, 20, 10000000);
+
+    public static final ForgeConfigSpec.IntValue DARK_MAGIC_REDEMPTION_TICKS = BUILDER
+            .comment("Dark Magic: the shortest time in ticks of play between two Heal redemptions (one point each).")
+            .defineInRange("darkMagicRedemptionTicks", 36000, 20, 10000000);
+
     static final ForgeConfigSpec SPEC = BUILDER.build();
 
     public static double baseMaxMana = 100;
@@ -214,6 +235,11 @@ public final class Config {
     public static boolean imperioAffectsPlayers = true;
     public static int sneakoscopeRange = 16;
     public static int sneakoscopeDarkMarkRange = 48;
+    public static boolean sneakoscopeDetectsPlayers = true;
+    public static boolean enableDarkMagic = true;
+    public static double darkMagicGainMultiplier = 1.0;
+    public static int darkMagicDecayTicks = 36000;
+    public static int darkMagicRedemptionTicks = 36000;
 
     private Config() {
     }
@@ -261,12 +287,18 @@ public final class Config {
         apparitionSplinchChance = APPARITION_SPLINCH_CHANCE.get();
         sneakoscopeRange = SNEAKOSCOPE_RANGE.get();
         sneakoscopeDarkMarkRange = SNEAKOSCOPE_DARK_MARK_RANGE.get();
+        sneakoscopeDetectsPlayers = SNEAKOSCOPE_DETECTS_PLAYERS.get();
+        enableDarkMagic = ENABLE_DARK_MAGIC.get();
+        darkMagicGainMultiplier = DARK_MAGIC_GAIN_MULTIPLIER.get();
+        darkMagicDecayTicks = DARK_MAGIC_DECAY_TICKS.get();
+        darkMagicRedemptionTicks = DARK_MAGIC_REDEMPTION_TICKS.get();
         if (!com.hogwartsmagic.spell.mastery.MasteryMath.thresholdsValid(masteryXpAdept, masteryXpExpert, masteryXpMaster)) {
             LOGGER.warn("Spell mastery XP thresholds {} / {} / {} are not strictly rising; using the defaults 30 / 120 / 350.",
                     masteryXpAdept, masteryXpExpert, masteryXpMaster);
         }
         if (event instanceof ModConfigEvent.Reloading) {
             com.hogwartsmagic.spell.mastery.MasteryConfig.broadcastAfterReload();
+            com.hogwartsmagic.spell.dark.DarkMagicData.broadcastAfterReload();
         }
     }
 
@@ -391,5 +423,27 @@ public final class Config {
 
     public static int getSneakoscopeDarkMarkRange() {
         return sneakoscopeDarkMarkRange;
+    }
+
+    /** Sneakoscope Part B: Corrupted and Lost players set it off (also needs enableDarkMagic). */
+    public static boolean isSneakoscopeDetectsPlayers() {
+        return sneakoscopeDetectsPlayers;
+    }
+
+    public static boolean isDarkMagicEnabled() {
+        return enableDarkMagic;
+    }
+
+    public static double getDarkMagicGainMultiplier() {
+        return darkMagicGainMultiplier;
+    }
+
+    public static int getDarkMagicDecayTicks() {
+        return darkMagicDecayTicks;
+    }
+
+    /** Read by Dark Magic Phase 3 (redemption through Heal). */
+    public static int getDarkMagicRedemptionTicks() {
+        return darkMagicRedemptionTicks;
     }
 }

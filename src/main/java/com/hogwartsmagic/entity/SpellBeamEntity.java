@@ -875,7 +875,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
                             boolean shearableSheep = spell == SpellType.DIFFINDO
                                     && living instanceof net.minecraft.world.entity.animal.Sheep woolly && woolly.readyForShearing();
                             if (spell != SpellType.HEAL && spell != SpellType.AVADA_KEDAVRA && spell != SpellType.PROTEGO
-                                    && spell != SpellType.LUMOS && !shearableSheep) {
+                                    && spell != SpellType.LUMOS && spell != SpellType.RIDDIKULUS && !shearableSheep) {
                                chipDamage = 0.1f * HousePerks.getSpellDamageMultiplier(getOwner());
                                chipSource = this.damageSources().magic();
                                chipLanded = living.hurt(chipSource, chipDamage);

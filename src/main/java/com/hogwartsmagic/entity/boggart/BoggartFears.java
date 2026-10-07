@@ -7,6 +7,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 
 import java.util.HashMap;
@@ -50,12 +51,17 @@ public final class BoggartFears {
         if (killer == null) {
             killer = source.getDirectEntity();
         }
-        if (killer == null) {
+        // Arrows, anvils, TNT and lightning have no face to wear.
+        if (!(killer instanceof LivingEntity)) {
             return;
         }
         String key = killer instanceof Player
                 ? BoggartRules.PLAYER_KEY
                 : EntityType.getKey(killer.getType()).toString();
+        if (killer instanceof BoggartEntity) {
+            // A Boggart cannot become a Boggart; it wears what it wore.
+            key = BoggartRules.DEFAULT_FORM;
+        }
 
         Map<String, Integer> counts = load(victim).counts();
         counts.merge(key, 1, Integer::sum);

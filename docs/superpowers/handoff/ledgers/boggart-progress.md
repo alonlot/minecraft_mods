@@ -29,3 +29,15 @@ Branch: `ccr-f8e6c9c8-akgyo0`. Three implementers ran at the same time on disjoi
 | 8 | Open chests that hold spellbooks (ruins, camps). | The Riddikulus spellbook turns up in the common pool, with its own pink icon. |
 | 9 | Find a villager that sells advanced spellbooks. | The Riddikulus book is among the trades. |
 | 10 | Open the Hogwarts Guide. | CREATURES has "On boggarts". SPELLS names Riddikulus on the disciplines page. The wiki page lists a Boggart mob card and a Riddikulus spell card. |
+
+## Review and fix wave
+
+Review (Fable, read-only) found 7 problems. All fixed, 494 tests green, server boots:
+
+1. The beam's 0.1 chip damage hit the Boggart before Riddikulus did. Riddikulus is now in the no-chip list.
+2. The spawn rule scanned a 97x97x97 box on every attempt. Now a 1-in-6 roll comes first and the box is flat (16 high).
+3. Fears recorded arrows, anvils and TNT, and a Boggart could record itself. Only living killers count; a Boggart kill records the default fear.
+4. The spawn egg model was missing. Added.
+5. The "personal" cave sound was a broadcast. It is now a packet to the feared player only.
+6. Creative players kept a Boggart awake and felt fear. They are now ignored like spectators.
+7. A killing blow on a hidden Boggart still revealed it. It must be alive to reveal.

@@ -274,7 +274,7 @@ public class BoggartEntity extends Monster implements RiddikulusTarget {
 
     private void tickRevealed() {
         ServerLevel level = (ServerLevel) this.level();
-        boolean anyoneNear = level.getNearestPlayer(this, BoggartRules.LOSE_INTEREST_RADIUS) != null;
+        boolean anyoneNear = level.getNearestPlayer(this.getX(), this.getY(), this.getZ(), BoggartRules.LOSE_INTEREST_RADIUS, true) != null;
         this.ticksWithoutPlayers = anyoneNear ? 0 : this.ticksWithoutPlayers + 1;
         if (BoggartRules.shouldHide(this.ticksWithoutPlayers)) {
             hide();
@@ -301,7 +301,7 @@ public class BoggartEntity extends Monster implements RiddikulusTarget {
         double radius = BoggartRules.FEAR_RADIUS;
         double halfSqr = (radius / 2.0D) * (radius / 2.0D);
         for (Player player : level.getEntitiesOfClass(Player.class, this.getBoundingBox().inflate(radius),
-                p -> p.isAlive() && !p.isSpectator())) {
+                p -> p.isAlive() && !p.isSpectator() && !p.isCreative())) {
             double distSqr = this.distanceToSqr(player);
             if (distSqr > radius * radius) {
                 continue;
@@ -314,8 +314,9 @@ public class BoggartEntity extends Monster implements RiddikulusTarget {
             }
             // Only the one whose fear it wears hears the cave sound: it is personal.
             if (player instanceof ServerPlayer sp && sp.getUUID().equals(this.fearedBy)) {
-                level.playSound(null, this.blockPosition(), SoundEvents.AMBIENT_CAVE.value(), SoundSource.HOSTILE,
-                        1.0F, 0.9F);
+                sp.connection.send(new net.minecraft.network.protocol.game.ClientboundSoundPacket(
+                        SoundEvents.AMBIENT_CAVE, SoundSource.HOSTILE, this.getX(), this.getY(), this.getZ(),
+                        1.0F, 0.9F, level.random.nextLong()));
             }
         }
     }
@@ -408,7 +409,7 @@ public class BoggartEntity extends Monster implements RiddikulusTarget {
     @Override
     public boolean hurt(DamageSource source, float amount) {
         boolean hit = super.hurt(source, amount);
-        if (hit && !this.level().isClientSide && isHidden() && source.getEntity() instanceof ServerPlayer sp) {
+        if (hit && this.isAlive() && !this.level().isClientSide && isHidden() && source.getEntity() instanceof ServerPlayer sp) {
             // Poked while hiding: it turns on whoever did it.
             reveal(sp);
         }
@@ -444,9 +445,13 @@ public class BoggartEntity extends Monster implements RiddikulusTarget {
         if (level.getBrightness(LightLayer.SKY, pos) != 0) {
             return false;
         }
-        // At most one per neighbourhood.
+        // Rare on purpose, and the roll comes first so the entity scan below runs on few attempts.
+        if (random.nextInt(6) != 0) {
+            return false;
+        }
+        // At most one per neighbourhood. A flat box: Boggarts a few floors apart are far enough.
         double spacing = BoggartRules.SPAWN_SPACING;
-        return level.getEntitiesOfClass(BoggartEntity.class, new AABB(pos).inflate(spacing), LivingEntity::isAlive)
+        return level.getEntitiesOfClass(BoggartEntity.class, new AABB(pos).inflate(spacing, 8.0, spacing), LivingEntity::isAlive)
                 .isEmpty();
     }
 

@@ -9,3 +9,4 @@ Base: ea0bbf6 (339 tests green). Process: Sonnet implementer per task, Opus revi
 
 ## Progress
 - T1 done e1e0e43 (359 tests, RED seen). Review and T2 dispatched.
+- T2 done 8ea2c23 (359 tests, JSON valid). Review and T3 dispatched.

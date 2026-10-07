@@ -265,12 +265,12 @@ class BrewRulesTest {
         Set<String> firstItems = new HashSet<>();
         for (Recipe recipe : BrewRules.RECIPES) {
             assertTrue(ids.add(recipe.id()), recipe.id());
+            assertEquals(BrewRules.Kind.ADD, recipe.steps().get(0).kind(), recipe.id() + " step 0 is not an ADD");
             assertTrue(firstItems.add(recipe.steps().get(0).item()), recipe.id() + " first ingredient is shared");
             assertEquals(recipe.steps().size(), recipe.colors().size(), recipe.id());
             assertEquals(recipe.tail().size(), recipe.tailColors().size(), recipe.id());
             int doses = recipe == BrewRules.FELIX_FELICIS ? BrewRules.FELIX_DOSES : BrewRules.MAX_DOSES;
             assertEquals(doses, recipe.doses(), recipe.id());
-            assertEquals(BrewRules.Kind.ADD, recipe.steps().get(0).kind(), recipe.id());
             for (int i = 1; i < recipe.steps().size(); i++) {
                 assertFalse(recipe.steps().get(i).sameAction(recipe.steps().get(i - 1)), recipe.id() + " step " + i);
             }

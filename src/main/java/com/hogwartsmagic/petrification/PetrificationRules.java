@@ -82,6 +82,14 @@ public final class PetrificationRules {
         return petrified && alive;
     }
 
+    /**
+     * After the give-in damage: the player is still stone and alive (another mod cancelled the hurt). PetrifiedSince
+     * is then re-armed to now, so the time limit starts over instead of sending the time-up line every check.
+     */
+    public static boolean giveInFailed(boolean stillPetrified, boolean alive) {
+        return stillPetrified && alive;
+    }
+
     public static long wardUntil(long now) {
         return now + PotionRules.MANDRAKE_GAZE_WARD_TICKS;
     }

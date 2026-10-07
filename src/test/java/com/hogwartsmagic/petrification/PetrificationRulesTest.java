@@ -76,6 +76,18 @@ class PetrificationRulesTest {
     }
 
     @Test
+    void aGiveInThatLeavesTheStatueAliveRearmsTheClock() {
+        assertTrue(PetrificationRules.giveInFailed(true, true));
+        assertFalse(PetrificationRules.giveInFailed(true, false));
+        assertFalse(PetrificationRules.giveInFailed(false, true));
+        assertFalse(PetrificationRules.giveInFailed(false, false));
+        // re-armed at the failed give-in: the limit starts over, so the time-up line is not sent again next check
+        long failedAt = 1000L;
+        assertFalse(PetrificationRules.limitReached(failedAt, failedAt + PetrificationRules.CHECK_INTERVAL_TICKS, 5));
+        assertTrue(PetrificationRules.limitReached(failedAt, failedAt + 100L, 5));
+    }
+
+    @Test
     void theWardLastsEightSeconds() {
         assertEquals(1160L, PetrificationRules.wardUntil(1000L));
         assertTrue(PetrificationRules.warded(1160L, 1159L));

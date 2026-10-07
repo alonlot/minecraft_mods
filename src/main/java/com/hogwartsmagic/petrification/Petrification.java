@@ -163,13 +163,19 @@ public final class Petrification {
      * The player gives in (GiveInPacket, or the time limit). Checked here, never trusted: only a stone, living
      * player. The damage is dealt while the player is still stone (the damage filter lets this type through); the
      * keys are cleared by the LOWEST death handler (PetrificationEvents), so this is a normal death (Horcrux, drops,
-     * keepInventory). If the player is still alive afterwards (another mod cancelled the hurt), they stay stone.
+     * keepInventory). If the player is still alive afterwards (another mod cancelled the hurt), they stay stone and
+     * PetrifiedSince is re-armed to now, so a time limit starts over instead of repeating the time-up line.
      */
     public static void giveIn(ServerPlayer player) {
         if (!PetrificationRules.giveInAccepted(hasPetrifiedFlag(player), player.isAlive())) {
             return;
         }
         player.hurt(damage(player.level()), Float.MAX_VALUE);
+        if (PetrificationRules.giveInFailed(hasPetrifiedFlag(player), player.isAlive())) {
+            CompoundTag data = PlayerMagicData.getModData(player);
+            data.putLong(PetrificationRules.KEY_SINCE, now(player));
+            PlayerMagicData.saveModData(player, data);
+        }
     }
 
     public static void clearFlag(ServerPlayer player) {

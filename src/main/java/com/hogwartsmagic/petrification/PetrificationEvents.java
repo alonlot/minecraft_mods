@@ -12,7 +12,10 @@ import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
-/** The world around stone: the player tick, no damage, no targeting, keys cleared on another death. */
+/**
+ * The world around stone: the player tick, no damage, no targeting, and the keys cleared on every death of a stone
+ * player, giving in included (the LOWEST death handler below; a death another mod cancels is no death).
+ */
 @Mod.EventBusSubscriber(modid = ExampleMod.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class PetrificationEvents {
     private PetrificationEvents() {

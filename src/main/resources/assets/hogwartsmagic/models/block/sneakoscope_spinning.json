@@ -1,0 +1,68 @@
+{
+  "parent": "block/block",
+  "render_type": "minecraft:translucent",
+  "ambientocclusion": false,
+  "textures": {
+    "particle": "hogwartsmagic:block/sneakoscope_brass",
+    "brass": "hogwartsmagic:block/sneakoscope_brass",
+    "glass": "hogwartsmagic:block/sneakoscope_glass_spin"
+  },
+  "elements": [
+    {
+      "from": [5, 0, 5],
+      "to": [11, 1, 11],
+      "faces": {
+        "down": { "texture": "#brass", "cullface": "down" },
+        "up": { "texture": "#brass" },
+        "north": { "texture": "#brass" },
+        "south": { "texture": "#brass" },
+        "east": { "texture": "#brass" },
+        "west": { "texture": "#brass" }
+      }
+    },
+    {
+      "from": [7, 1, 7],
+      "to": [9, 2, 9],
+      "faces": {
+        "north": { "texture": "#brass" },
+        "south": { "texture": "#brass" },
+        "east": { "texture": "#brass" },
+        "west": { "texture": "#brass" }
+      }
+    },
+    {
+      "from": [5, 2, 5],
+      "to": [11, 6, 11],
+      "faces": {
+        "down": { "texture": "#glass", "forge_data": { "block_light": 15, "sky_light": 15 } },
+        "up": { "texture": "#glass", "forge_data": { "block_light": 15, "sky_light": 15 } },
+        "north": { "texture": "#glass", "forge_data": { "block_light": 15, "sky_light": 15 } },
+        "south": { "texture": "#glass", "forge_data": { "block_light": 15, "sky_light": 15 } },
+        "east": { "texture": "#glass", "forge_data": { "block_light": 15, "sky_light": 15 } },
+        "west": { "texture": "#glass", "forge_data": { "block_light": 15, "sky_light": 15 } }
+      }
+    },
+    {
+      "from": [6, 6, 6],
+      "to": [10, 7, 10],
+      "faces": {
+        "up": { "texture": "#glass", "forge_data": { "block_light": 15, "sky_light": 15 } },
+        "north": { "texture": "#glass", "forge_data": { "block_light": 15, "sky_light": 15 } },
+        "south": { "texture": "#glass", "forge_data": { "block_light": 15, "sky_light": 15 } },
+        "east": { "texture": "#glass", "forge_data": { "block_light": 15, "sky_light": 15 } },
+        "west": { "texture": "#glass", "forge_data": { "block_light": 15, "sky_light": 15 } }
+      }
+    },
+    {
+      "from": [7.5, 7, 7.5],
+      "to": [8.5, 8, 8.5],
+      "faces": {
+        "up": { "texture": "#brass" },
+        "north": { "texture": "#brass" },
+        "south": { "texture": "#brass" },
+        "east": { "texture": "#brass" },
+        "west": { "texture": "#brass" }
+      }
+    }
+  ]
+}

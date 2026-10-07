@@ -1,0 +1,20 @@
+{
+  "variants": {
+    "power=0": { "model": "hogwartsmagic:block/sneakoscope" },
+    "power=1": { "model": "hogwartsmagic:block/sneakoscope_spinning" },
+    "power=2": { "model": "hogwartsmagic:block/sneakoscope_spinning" },
+    "power=3": { "model": "hogwartsmagic:block/sneakoscope_spinning" },
+    "power=4": { "model": "hogwartsmagic:block/sneakoscope_spinning" },
+    "power=5": { "model": "hogwartsmagic:block/sneakoscope_spinning" },
+    "power=6": { "model": "hogwartsmagic:block/sneakoscope_spinning" },
+    "power=7": { "model": "hogwartsmagic:block/sneakoscope_spinning" },
+    "power=8": { "model": "hogwartsmagic:block/sneakoscope_spinning" },
+    "power=9": { "model": "hogwartsmagic:block/sneakoscope_spinning" },
+    "power=10": { "model": "hogwartsmagic:block/sneakoscope_spinning" },
+    "power=11": { "model": "hogwartsmagic:block/sneakoscope_spinning" },
+    "power=12": { "model": "hogwartsmagic:block/sneakoscope_spinning" },
+    "power=13": { "model": "hogwartsmagic:block/sneakoscope_spinning" },
+    "power=14": { "model": "hogwartsmagic:block/sneakoscope_spinning" },
+    "power=15": { "model": "hogwartsmagic:block/sneakoscope_spinning" }
+  }
+}

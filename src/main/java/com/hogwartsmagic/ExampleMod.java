@@ -783,6 +783,7 @@ public class ExampleMod
 
     public static final RegistryObject<CreativeModeTab> MAIN_TAB = CREATIVE_MODE_TABS.register("main_tab", () -> CreativeModeTab.builder()
             .withTabsBefore(CreativeModeTabs.COMBAT)
+            .title(net.minecraft.network.chat.Component.translatable("itemGroup.hogwartsmagic.main_tab"))
             .icon(() -> HARRY_POTTER_WAND.get().getDefaultInstance())
             .displayItems((parameters, output) -> {
                 output.accept(HARRY_POTTER_WAND.get());

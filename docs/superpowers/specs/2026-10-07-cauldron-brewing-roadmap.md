@@ -116,13 +116,11 @@ Line numbers drift. Find each spot by its text.
    separate, later decision if someone wants modpack support.
 9. **Recipes are learned from the Hogwarts Guide.** A new "Potions" section lists each recipe. A
    later phase can gate recipes behind an "Advanced Potion-Making" book. Not now.
-10. **Polyjuice can also be brewed in the cauldron (user ruling, 2026-10-07).** The brewing stand
-    recipes for the Wizard Potion and the Polyjuice line stay too, so no existing world or player
-    loses a recipe. The cauldron recipe is the canon one. It is slower than the stand and gives the
-    same 3 doses from one sample, so for now it is the themed path, not the better one. See
-    "Polyjuice in the cauldron" below.
-    My recommendation for later: remove the stand recipe for Polyjuice once players know the
-    cauldron one, so the cauldron is the place where Polyjuice is made. That is a user decision.
+10. **Polyjuice moves to the cauldron (user rulings, 2026-10-07).** The cauldron is the only place
+    to brew Polyjuice. The four brewing stand recipes of the Polyjuice line are removed **in Phase 1,
+    in the same task that adds the cauldron recipe**, never before: removing them first would leave
+    no way to make Polyjuice. The Wizard Potion (mana regen) stays on the stand. See "Polyjuice in
+    the cauldron" below.
 11. **Potions are custom items, not vanilla `Potion` entries.** Each potion is a `BrewedPotionItem`
     with its own drink logic (cure helpers, mana, revive). Vanilla potion contents cannot call
     `HealSpell.cureBleeding`. Throwable potions (Draught of Living Death, Mandrake Draught) have a
@@ -200,17 +198,27 @@ This also makes the apothecary Javadoc true.
    `polyjuice_sample`, so it stays pure. The block entity copies the sample's target data when the
    step is accepted and saves it with the brew.
 4. **Optional last steps,** in this order, after the sample:
-   - **redstone:** extended Polyjuice (8 minutes), as the stand's `PolyjuiceRedstoneExtendBrewingRecipe`;
-   - **gunpowder:** splash Polyjuice, as the stand's `PolyjuiceSplashBrewingRecipe`.
+   - **redstone:** extended Polyjuice (8 minutes), as the old stand recipe did;
+   - **gunpowder:** splash Polyjuice, as the old stand recipe did.
    Each one is accepted only once. Anything else after the sample ruins the brew.
 5. **3 doses,** each a normal `polyjuice_potion` that carries the same target. Drinking it works
    exactly as today (`PolyjuicePotionItem`, the 3-second delay, the disguise sync).
-6. **One shared builder.** The code that makes a Polyjuice stack from a sample (today inside
-   `PolyjuiceBrewingRecipe`, `PolyjuiceRedstoneExtendBrewingRecipe` and `PolyjuiceSplashBrewingRecipe`)
-   moves into one helper that both the stand recipes and the cauldron call, so the two paths can
-   never give different potions.
-7. **The advancement `polyjuice_plot`** already triggers on owning a `polyjuice_potion`, so it works
-   for both paths with no change.
+6. **The stand recipes go.** In `ExampleMod.onRegisterBrewingRecipes`, remove the four
+   `addRecipe` lines for `StabilizedPolyjuiceBaseBrewingRecipe`, `PolyjuiceBrewingRecipe`,
+   `PolyjuiceRedstoneExtendBrewingRecipe` and `PolyjuiceSplashBrewingRecipe`. Keep
+   `WizardPotionBrewingRecipe`.
+   - The code that builds a Polyjuice stack from a sample (the target copy, the potion contents,
+     the extended duration, the splash name) moves first into one helper the cauldron calls,
+     `polyjuice/PolyjuiceStacks`. Then the four recipe classes are deleted.
+   - **The `stabilized_polyjuice_base` potion stays registered,** with its lang line. Removing a
+     registry entry breaks the bottles that players already have in their worlds. With no recipe
+     left that uses it, it is a leftover bottle; its lang name gets " (no longer used)".
+   - Polyjuice that players already brewed keeps working: it is the same `polyjuice_potion` item.
+7. **The advancement `polyjuice_plot`** triggers on owning a `polyjuice_potion`, so it needs no
+   change.
+8. **Docs:** `MOD_FEATURES_WIKI.md` (the Polyjuice entries under Potions) and the web wiki
+   (`wiki/`) say Polyjuice is brewed on the stand. Phase 1 corrects them, because the change ships
+   there and not in Phase 3.
 
 ---
 
@@ -296,7 +304,10 @@ a slow death, so until the Draught exists the gaze stays lethal.
   and re-draws only when `sendBlockUpdated` runs. The default state for placed and structure
   cauldrons stays "full, green", so decoration does not change.
 - Wiggenweld, Pepperup and Polyjuice (see "Polyjuice in the cauldron"), the Failed Potion, and
-  `BrewedPotionItem`. The shared Polyjuice builder.
+  `BrewedPotionItem`.
+- Polyjuice leaves the brewing stand: `PolyjuiceStacks`, the four stand recipes removed, the
+  leftover base potion renamed, and the two wikis corrected (items 6 and 8 of "Polyjuice in the
+  cauldron").
 - Lang lines and the "Potions" section in the Hogwarts Guide for these three recipes.
 
 **Migration:** placed cauldrons in old worlds have no block entity. `Level.getBlockEntity` on the
@@ -306,8 +317,9 @@ in `diagon_alley.nbt` must work after the change too.
 
 **Done when:** you can build a cauldron over a campfire, brew all three potions by the guide, ruin a
 brew with a wrong step, overbrew one, bottle 3 doses, cure Bleeding with Wiggenweld, turn into a
-sample's target with cauldron Polyjuice (normal, extended and splash), still brew Polyjuice on the
-brewing stand, and `runServer` boots clean on a dedicated server.
+sample's target with cauldron Polyjuice (normal, extended and splash), the brewing stand no
+longer accepts any Polyjuice step but still brews the Wizard Potion, an old Polyjuice bottle from
+before the change still works, and `runServer` boots clean on a dedicated server.
 
 ### Phase 2: Ingredients and the other four potions
 

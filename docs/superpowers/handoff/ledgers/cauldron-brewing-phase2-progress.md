@@ -19,3 +19,4 @@ Base: 6a0c340 (406 tests green; Dark Magic Phase 1 built, its final review and f
 - T5 done 5b28ff7 (431 tests, JSON valid). Review and T6 dispatched.
 - T4 review: Approved (table-id gate first, structure filter by key, once per chest; the corridor chest gets nothing). Fix-wave queue: M1 the Blaze egg respects doMobLoot (guard on GameRules.RULE_DOMOBLOOT), M2 the loot modifier javadoc says it reads loaded structure data (the start chunk is normally loaded) instead of never loads a chunk. M3 evidence only.
 - T5 review: Approved. Note for the Task 9 review: Mandrake and Living Death (and the Mandrake splash tail) must be bottled before the Failed Potion fallthrough in bottledPotion. Tooltip wording health vs HP: no action.
+- T6 done 86c6e66 (431 tests, protocol 8, boot Done 3.682s). Review and T7 dispatched.

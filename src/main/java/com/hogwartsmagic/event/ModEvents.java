@@ -3203,6 +3203,10 @@ public class ModEvents {
         if (player.isCreative() || player.isSpectator()) {
             return;
         }
+        // Dark Magic: Death Eaters do not raid a Lost wizard's home.
+        if (com.hogwartsmagic.spell.dark.DarkRewards.deathEatersIgnore(player)) {
+            return;
+        }
         if (isPlayerNearActiveWizardRaid(level, player)) {
             return;
         }

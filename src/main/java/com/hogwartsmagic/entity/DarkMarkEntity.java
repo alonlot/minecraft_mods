@@ -278,9 +278,21 @@ public class DarkMarkEntity extends Entity {
         AABB area = new AABB(this.getX() - 50, this.getY() - 100, this.getZ() - 50, this.getX() + 50, this.getY() + 20, this.getZ() + 50);
         List<WizardEntity> wizards = this.level().getEntitiesOfClass(WizardEntity.class, area);
         for (WizardEntity wizard : wizards) {
-            wizard.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.DAMAGE_BOOST, 200, 1));
-            wizard.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.REGENERATION, 200, 0));
+            giveMarkBuffs(wizard);
         }
+        // Dark Magic: the Mark answers a Corrupted or Lost wizard as it answers a Death Eater.
+        List<net.minecraft.world.entity.player.Player> darkPlayers = this.level().getEntitiesOfClass(
+                net.minecraft.world.entity.player.Player.class, area,
+                player -> !player.isSpectator() && com.hogwartsmagic.spell.dark.DarkRewards.darkMarkBuffs(player));
+        for (net.minecraft.world.entity.player.Player player : darkPlayers) {
+            giveMarkBuffs(player);
+        }
+    }
+
+    /** Strength II and Regeneration I for 10 seconds, refreshed every 5. */
+    private static void giveMarkBuffs(LivingEntity entity) {
+        entity.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.DAMAGE_BOOST, 200, 1));
+        entity.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.REGENERATION, 200, 0));
     }
 
     private void summonMonsters() {

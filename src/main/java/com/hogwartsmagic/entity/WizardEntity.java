@@ -109,6 +109,11 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
         return super.hurt(source, damage);
     }
 
+    /** Dark Magic: players the plain player goal never picks (a Lost wizard). */
+    protected boolean ignoresPlayer(LivingEntity target) {
+        return com.hogwartsmagic.spell.dark.DarkRewards.deathEatersIgnore(target);
+    }
+
     @Override
     public boolean canAttack(LivingEntity target) {
         // Death Eaters never attack each other!
@@ -150,7 +155,9 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
         this.goalSelector.addGoal(7, new RandomLookAroundGoal(this));
 
         this.targetSelector.addGoal(1, new HurtByTargetGoal(this));
-        this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Player.class, true));
+        // Dark Magic: a Lost wizard is not chosen (the hurt-by goal above still answers a strike).
+        this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Player.class, 10, true, false,
+                target -> !this.ignoresPlayer(target)));
         this.targetSelector.addGoal(3, new NearestAttackableTargetGoal<>(this, net.minecraft.world.entity.npc.Villager.class, true));
         this.targetSelector.addGoal(3, new NearestAttackableTargetGoal<>(this, net.minecraft.world.entity.animal.IronGolem.class, true));
         this.targetSelector.addGoal(4, new NearestAttackableTargetGoal<>(this, StudentEntity.class, true));

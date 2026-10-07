@@ -10,3 +10,4 @@ Base: ea0bbf6 (339 tests green). Process: Sonnet implementer per task, Opus revi
 ## Progress
 - T1 done e1e0e43 (359 tests, RED seen). Review and T2 dispatched.
 - T2 done 8ea2c23 (359 tests, JSON valid). Review and T3 dispatched.
+- T1 review: Approved. Fix-wave queue: M1 overbrew warning and ruin one second apart (make overbrewLeft and overbrewed agree), M2 table test also checks last required step vs tail[0] and adjacent tail steps, M3 tests pin recipe identity for one-step Pepperup and Polyjuice histories and the Polyjuice waiting state. M4 (null kind/item on NBT load) sent to the T3 implementer as a guard.

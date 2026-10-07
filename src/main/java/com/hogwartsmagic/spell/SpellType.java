@@ -208,8 +208,9 @@ public enum SpellType {
             case FIENDFYRE -> {
                 target.igniteForSeconds(20);
                 float dmg = target.level().isRainingAt(target.blockPosition()) ? 6.0f : 8.0f;
-                target.hurt(target.damageSources().onFire(), scaledSpellDamage(caster, dmg));
-                creditCaster(target, caster);
+                if (target.hurt(target.damageSources().onFire(), scaledSpellDamage(caster, dmg))) {
+                    creditCaster(target, caster); // only a hit that landed
+                }
                 // Spawn Fiendfyre management entity at target location
                 com.hogwartsmagic.entity.FiendfyreEntity fiendfyre = new com.hogwartsmagic.entity.FiendfyreEntity(com.hogwartsmagic.entity.ModEntities.FIENDFYRE.get(), target.level());
                 fiendfyre.moveTo(target.getX(), target.getY(), target.getZ());
@@ -405,8 +406,9 @@ public enum SpellType {
     }
 
     private void triggerSteamCombo(LivingEntity target, Entity caster) {
-        target.hurt(target.damageSources().magic(), 2.0f);
-        creditCaster(target, caster);
+        if (target.hurt(target.damageSources().magic(), 2.0f)) {
+            creditCaster(target, caster); // only a hit that landed
+        }
         target.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 40, 0));
         if (target.level() instanceof ServerLevel sl) {
             sl.sendParticles(ParticleTypes.CLOUD, target.getX(), target.getY() + 1.0, target.getZ(), 20, 0.35, 0.25, 0.35, 0.01);

@@ -116,7 +116,9 @@ public final class DarkRewardRules {
         return beyondLeash(distanceSqr) || (!hasTarget && distanceSqr > ESCORT_FOLLOW_STOP * ESCORT_FOLLOW_STOP);
     }
 
-    /** Past the catch-up range. The escort passes the horizontal distance to the owner (a flying owner is no reason). */
+    /**
+     * Past the catch-up range. The escort passes the horizontal distance to the owner (a flying owner is no reason).
+     */
     public static boolean needsCatchUp(double distanceSqr) {
         return distanceSqr > ESCORT_CATCH_UP * ESCORT_CATCH_UP;
     }
@@ -173,7 +175,8 @@ public final class DarkRewardRules {
 
     /** Darkness after forging a Horcrux: +30, and never less than the floor of 60 (capped at 100). */
     public static float afterHorcrux(float darkness) {
-        return DarkRules.sanitize(Math.max(DarkRules.afterGain(darkness, DarkRules.HORCRUX_BONUS), DarkRules.HORCRUX_FLOOR));
+        return DarkRules.sanitize(Math.max(DarkRules.afterGain(darkness, DarkRules.HORCRUX_BONUS),
+                DarkRules.HORCRUX_FLOOR));
     }
 
     /**

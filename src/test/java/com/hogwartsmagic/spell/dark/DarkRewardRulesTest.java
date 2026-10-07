@@ -142,6 +142,15 @@ class DarkRewardRulesTest {
     }
 
     @Test
+    void theOwnersOwnBlockNeedsTheSameSafeGround() {
+        // The fallback passes the owner's block as both the landing and the owner height.
+        assertTrue(DarkRewardRules.escortLandingOk(70, -64, 70, true, false, true, true));
+        assertFalse(DarkRewardRules.escortLandingOk(70, -64, 70, false, false, true, true)); // flying over the void
+        assertFalse(DarkRewardRules.escortLandingOk(30, -64, 30, false, true, true, true)); // swimming in lava
+        assertFalse(DarkRewardRules.escortLandingOk(-64, -64, -64, false, false, true, true)); // the bottom of the world
+    }
+
+    @Test
     void escortEndsWhenTheOwnerDiedSinceSummoning() {
         assertFalse(DarkRewardRules.ownerDiedSince(3, 3));
         assertTrue(DarkRewardRules.ownerDiedSince(3, 4));

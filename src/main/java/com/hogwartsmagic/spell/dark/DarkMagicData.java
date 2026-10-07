@@ -23,7 +23,8 @@ import java.util.UUID;
  * {@code DarkMagicLastDarkCast} (game time of the last paid dark cast) and {@code DarkMagicDecayProgress} (online
  * quiet ticks toward the next point of decay). Forge copies PlayerPersisted across death, so it survives dying.
  * Server only: the client gets its own effective value through {@link SpellPackets.SyncDarkMagicPacket} and keeps it
- * in client/DarkMagicClientState. Every change goes through write, which syncs, announces a tier change and grants the Dark Magic advancements.
+ * in client/DarkMagicClientState. Every change goes through write, which syncs, announces a tier change and grants
+ * the Dark Magic advancements.
  */
 public final class DarkMagicData {
     public static final String KEY = "DarkMagic";

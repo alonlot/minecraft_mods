@@ -54,11 +54,10 @@ public final class DeathEaterEscort {
         for (int i = 0; i < size; i++) {
             BlockPos pos = landingNear(level, owner);
             if (pos == null) {
-                BlockPos own = owner.blockPosition();
-                if (!free(level, own) || !free(level, own.above())) {
+                pos = ownBlockIfSafe(level, owner);
+                if (pos == null) {
                     continue; // no safe spot for this one
                 }
-                pos = own;
             }
             WizardEntity wizard = ModEntities.WIZARD.get().create(level);
             if (wizard == null) {
@@ -106,6 +105,9 @@ public final class DeathEaterEscort {
         if (DarkRewardRules.needsCatchUp(DarkRewardRules.horizontalDistanceSqr(owner.getX() - wizard.getX(),
                 owner.getZ() - wizard.getZ())) && wizard.level() instanceof ServerLevel level) {
             BlockPos pos = landingNear(level, owner);
+            if (pos == null) {
+                pos = ownBlockIfSafe(level, owner);
+            }
             if (pos == null || !DarkRewardRules.catchUpLandingInReach(
                     owner.distanceToSqr(pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D))) {
                 return; // no safe spot near the owner yet: try again next second
@@ -136,8 +138,8 @@ public final class DeathEaterEscort {
     /**
      * A spot 3 to 8 blocks from the owner on the surface, or null when that column is not safe
      * (DarkRewardRules.escortLandingOk: an empty column, the owner underground, no sturdy ground, lava below, or no
-     * two free blocks). The caller then uses the owner's own block on arrival (only with headroom) or skips the
-     * catch-up. Near the owner, so the chunk is loaded.
+     * two free blocks). The caller then tries the owner's own block under the same test (ownBlockIfSafe), else skips
+     * that member or the catch-up. Near the owner, so the chunk is loaded.
      */
     @Nullable
     private static BlockPos landingNear(ServerLevel level, ServerPlayer owner) {
@@ -147,11 +149,25 @@ public final class DeathEaterEscort {
         BlockPos column = BlockPos.containing(owner.getX() + Math.cos(angle) * distance, owner.getY(),
                 owner.getZ() + Math.sin(angle) * distance);
         BlockPos surface = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, column);
-        BlockPos below = surface.below();
-        boolean ok = DarkRewardRules.escortLandingOk(surface.getY(), level.getMinBuildHeight(), owner.getBlockY(),
+        return safeLanding(level, surface, owner.getBlockY()) ? surface : null;
+    }
+
+    /**
+     * The owner's own block, only when it passes the same full test as a column (sturdy ground with no lava below, two
+     * free blocks), else null: a flying owner over the void or a lava sea, or one swimming in lava, gets nobody.
+     */
+    @Nullable
+    private static BlockPos ownBlockIfSafe(ServerLevel level, ServerPlayer owner) {
+        BlockPos own = owner.blockPosition();
+        return safeLanding(level, own, own.getY()) ? own : null;
+    }
+
+    /** DarkRewardRules.escortLandingOk read from the world at this landing block. */
+    private static boolean safeLanding(ServerLevel level, BlockPos landing, int ownerBlockY) {
+        BlockPos below = landing.below();
+        return DarkRewardRules.escortLandingOk(landing.getY(), level.getMinBuildHeight(), ownerBlockY,
                 level.getBlockState(below).isFaceSturdy(level, below, Direction.UP),
-                level.getFluidState(below).is(FluidTags.LAVA), free(level, surface), free(level, surface.above()));
-        return ok ? surface : null;
+                level.getFluidState(below).is(FluidTags.LAVA), free(level, landing), free(level, landing.above()));
     }
 
     /** No collision at this block (a Death Eater standing in it does not suffocate). */

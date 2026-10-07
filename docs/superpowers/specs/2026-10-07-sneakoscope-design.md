@@ -41,9 +41,11 @@ whistles at you; placed, it is a redstone sensor.
      players (Dark Magic decision 7). Shadowed and Tainted players do not set it off, so a player who
      tried a dark spell once is not exposed.
    - Spectators and creative players are never detected.
-3. **Strength.** The nearest detected source decides it: `strength = 15 * (1 - distance / range)`,
-   rounded up, from 1 at the edge of the range to 15 at the source. The Dark Mark uses its own range,
-   so a Dark Mark 40 blocks up gives a weak signal, a Death Eater at 2 blocks a strong one.
+3. **Strength.** Each detected source gives `strength = 15 * (1 - distance / range)`, rounded up,
+   from 1 at the edge of its range to 15 at the source, and **the strongest one wins** (planning
+   ruling, 2026-10-07; the first draft said the nearest, but with the Dark Mark's longer range a
+   nearer Death Eater could then lower the signal). The Dark Mark uses its own range, so a Dark Mark
+   40 blocks up gives a weak signal, a Death Eater at 2 blocks a strong one.
 4. **Carried.** The check runs once a second for each player who has a Sneakoscope anywhere in the
    inventory (one check per player, even with several Sneakoscopes).
    - When strength > 0: a whistle sound, repeated faster as the source comes closer (every 40 ticks

@@ -8,3 +8,4 @@ Base: f5033f3 (360 tests green). Process: Sonnet implementer per task, Opus revi
 
 ## Progress
 - T1 done da65920 (381 tests, RED seen). Review and T2 dispatched.
+- T1 review: Approved. Fix-wave queue: M1 add the reversed-order case to theStrongestSourceWins, M2 NaN distance gives 0 (guard !(distance < range)) with a test, M3 assert negative distance gives 15, M4 whistle interval test asserts strict decrease. Spec decision 3 text updated to strongest-wins by the controller.

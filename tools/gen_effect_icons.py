@@ -159,8 +159,9 @@ def confunded(d):
         if r > 6.5:
             break
         pts.append((8.5 + r * math.cos(a), 8.5 + r * math.sin(a)))
-    d.line(pts, fill=col, width=1)
+    d.line(pts, fill=col, width=2)
     d.rectangle((8, 8, 9, 9), fill=(255, 200, 240, 255))
+    d.ellipse((12, 12, 15, 15), fill=col)
 
 
 def rooted(d):

@@ -6,6 +6,7 @@ import com.hogwartsmagic.network.SpellPackets;
 import com.mojang.logging.LogUtils;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.EquipmentSlot;
@@ -106,13 +107,21 @@ public class SortingHatManager {
         waitingOnModel.add(playerId);
         List<OllamaSortingService.SortingTurn> history = List.copyOf(session.turns());
         List<HogwartsHouse> likelyHouses = inferLikelyHouses(history);
+        MinecraftServer server = player.server;
         ollamaService.generateQuestion(history, likelyHouses)
-                .whenComplete((question, error) -> player.server.execute(() -> {
+                .whenComplete((question, error) -> server.execute(() -> {
                     SessionState liveSession = sessions.get(playerId);
                     if (liveSession == null || !sessionToken.equals(sessionTokens.get(playerId))) {
                         return;
                     }
                     waitingOnModel.remove(playerId);
+                    // Re-resolve by UUID; a player who logged out mid-question gets their session
+                    // dropped rather than left stuck behind the "wait" guard on return.
+                    ServerPlayer player = server.getPlayerList().getPlayer(playerId);
+                    if (player == null) {
+                        clearSession(playerId);
+                        return;
+                    }
                     if (error != null) {
                         LOGGER.warn("Sorting Hat question generation failed for {}: {}", player.getScoreboardName(), error.toString());
                         String fallbackQuestion = fallbackQuestion(liveSession.turns().size());
@@ -137,13 +146,20 @@ public class SortingHatManager {
         waitingOnModel.add(playerId);
         sendHatMessage(player, Component.translatable("chat.hogwartsmagic.sorting_hat.thinking"));
         List<OllamaSortingService.SortingTurn> history = List.copyOf(session.turns());
+        MinecraftServer server = player.server;
         ollamaService.decideHouse(history)
-                .whenComplete((result, error) -> player.server.execute(() -> {
+                .whenComplete((result, error) -> server.execute(() -> {
                     SessionState liveSession = sessions.get(playerId);
                     if (liveSession == null || !sessionToken.equals(sessionTokens.get(playerId))) {
                         return;
                     }
                     clearSession(playerId);
+                    // Re-resolve by UUID: the captured ServerPlayer is stale if they disconnected (or
+                    // respawned) while the model was thinking, and writing to it would be lost.
+                    ServerPlayer player = server.getPlayerList().getPlayer(playerId);
+                    if (player == null) {
+                        return;
+                    }
 
                     SortingResult finalResult = result;
                     if (error != null || result == null) {

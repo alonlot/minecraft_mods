@@ -119,7 +119,7 @@ const WIKI_DATA = {
       features: [
         "Paid dark casts add Darkness, hit or miss: Avada Kedavra 6, Fiendfyre and Morsmordre 2.5, Imperio 1.5, Crucio 1.2, Tenebris Flight 0.6, Sectumsempra and Dolohov 0.4, Serpensortia 0.3",
         "Deeds: an Avada kill of an innocent adds 3; forging a Horcrux adds 30 and lifts you to at least 60, and while it exists Darkness at 60 or more cannot fall below 60",
-        "Tiers: Clean 0-19, Shadowed 20-39, Tainted 40-59, Corrupted 60-79, Lost 80-100; only you see yours",
+        "Tiers: Clean below 20, Shadowed from 20, Tainted from 40, Corrupted from 60, Lost from 80; only you see yours",
         "A weaker Patronus that never fails: 7.5% corporeal at Shadowed, shield only from Tainted, shield upkeep +50% from Corrupted",
         "Tainted: insomnia Dementors after 3 days instead of 5",
         "Corrupted: Dementors choose you first, Students keep away, faint smoke others can see",

@@ -899,15 +899,15 @@ Every player has a hidden score, Darkness, from 0 to 100. Dark spells raise it, 
 
 | Tier | Darkness |
 |---|---|
-| Clean | 0 to 19 |
-| Shadowed | 20 to 39 |
-| Tainted | 40 to 59 |
-| Corrupted | 60 to 79 |
+| Clean | below 20 |
+| Shadowed | 20 to under 40 |
+| Tainted | 40 to under 60 |
+| Corrupted | 60 to under 80 |
 | Lost | 80 to 100 |
 
 - A tier change sends you one chat line and a sound: a low bell going darker, a chime going lighter. Nobody else hears it.
 - The Grimoire shows "Soul: <tier>" in its header, white to dark green. From Corrupted the mana bar turns a dark green-black.
-- Apart from the operator command `/darkmagic`, no chat line or screen names another player's tier. Others can only see your smoke (Corrupted and Lost) and hear a Sneakoscope.
+- Apart from the operator command `/darkmagic`, no chat line or screen names another player's tier. Others can only guess it: from your smoke (Corrupted and Lost), a Sneakoscope, or how Students, House Elves and Death Eaters treat you.
 
 ### Costs
 

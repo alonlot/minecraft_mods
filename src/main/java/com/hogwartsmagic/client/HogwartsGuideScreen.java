@@ -186,7 +186,7 @@ public class HogwartsGuideScreen extends Screen {
                 page("The way back", List.of(
                         "Darkness fades once you let the dark arts rest for ten minutes: one step for every half hour you spend in this world, about ten hours for each state. From the very bottom it takes some fifty.",
                         "Heal another who is hurt and you may hasten it, though no more than once in each half hour.",
-                        "A soul already Corrupted or darker cannot rise above Corrupted while its Horcrux stands.",
+                        "While its Horcrux stands, a soul already Corrupted or darker cannot fade below Corrupted.",
                         "A Sneakoscope whistles at a Corrupted or Lost soul, cloak or no cloak."
                 ))
         )),

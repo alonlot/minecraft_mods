@@ -57,3 +57,4 @@ NOT FIXED: 8 whomping_willow sound events point to missing .ogg files; flying_mo
 - IncarcerousChainAnimation: phases run on a real per-level tick queue instead of TickTask (which ran them all in one tick).
 - ExampleMod: creative tab title; WizardEntity Protego charge decrement; empty FlyingMobRenderer stub and unregistered Levicorpus mixin deleted; FlyingMobModel moved to client/model.
 - Entities: Horcrux soul flight and discard server-only; StudentModel static maps pruned; Horntail and Giant skip the synched state tick write while idle; WizardEntity hurt client guard and ritual particles via sendParticles; Dementor suck goal scan cached every 5 ticks; Student sleep goal hostile scan behind the bed-search throttle.
+- DuelManager and ReparoManager now clear on logout, level unload and server stop; SortingHat async callbacks re-resolve the player by UUID; GringottsAlarm drops lastRaised with heat.

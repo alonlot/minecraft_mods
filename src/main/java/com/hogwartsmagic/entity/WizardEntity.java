@@ -96,7 +96,8 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
                         sl.sendParticles(net.minecraft.core.particles.ParticleTypes.CRIT, this.getX(), this.getY() + 1.0, this.getZ(), 20, 0.5, 0.5, 0.5, 0.1);
                     }
                 } else {
-                    // Reduce charges
+                    // Reduce charges. addEffect never lowers an amplifier, so the old charge has to go first.
+                    this.removeEffect(ExampleMod.PROTEGO_EFFECT.getHolder().get());
                     this.addEffect(new net.minecraft.world.effect.MobEffectInstance(ExampleMod.PROTEGO_EFFECT.getHolder().get(), currentEffect.getDuration(), currentAmplifier - 1));
                 }
                 

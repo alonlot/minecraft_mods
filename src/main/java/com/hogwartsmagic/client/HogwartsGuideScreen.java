@@ -158,6 +158,38 @@ public class HogwartsGuideScreen extends Screen {
                         "Horcrux rites and the blackest branches of magic are best left for the truly prepared, or the truly lost."
                 ))
         )),
+        DARK_MAGIC("gui.hogwartsmagic.hogwarts_guide.section.dark_magic", List.of(
+                page("The weight of dark magic", List.of(
+                        "Every curse marks the one who casts it. The Killing Curse, Fiendfyre, Morsmordre, the Imperius and Cruciatus Curses, Tenebris Flight, Sectumsempra, Dolohov's Curse and Serpensortia all darken the soul, whether they strike or miss.",
+                        "The Killing Curse weighs heaviest and Serpensortia least. Ten Killing Curses will take a clean soul to Corrupted.",
+                        "Killing an innocent with it weighs more still, and tearing your soul into a Horcrux most of all.",
+                        "Your Grimoire names the state of your soul. No book shows it to anyone else."
+                )),
+                page("The five states of a soul", List.of(
+                        "Clean, Shadowed, Tainted, Corrupted, Lost. A low bell tolls when you sink further; a chime sounds when you rise.",
+                        "From Corrupted your mana runs a dark green-black.",
+                        "A curse cast through a body you have taken with the Imperius Curse darkens you, never your puppet."
+                )),
+                page("What darkness costs", List.of(
+                        "Shadowed: your Patronus takes its full form only half as often.",
+                        "Tainted: it answers only as a shield, and Dementors come for the sleepless after three days instead of five.",
+                        "Corrupted: the shield drinks more of your mana, Dementors seek you before all others, students keep their distance, and a faint smoke clings to you.",
+                        "Lost: a heart of your life is gone, students attack on sight, and even your own house elf flees you.",
+                        "Yet your Patronus never fails. Rise out of the darkness and students and Dementors forget you at once."
+                )),
+                page("What darkness offers", List.of(
+                        "From Corrupted, dark spells cost less mana, and the Dark Mark lends you its strength as it does the Death Eaters.",
+                        "The Lost walk among Death Eaters unchallenged until they strike one, by wand, fire or steam.",
+                        "Cast the Mark into an open sky and they come to guard you for five minutes, each where it finds safe ground to stand. They remain what they are.",
+                        "The Dark Lord and those who guard him are not so easily fooled."
+                )),
+                page("The way back", List.of(
+                        "Darkness fades once you let the dark arts rest for ten minutes: one step for every half hour you spend in this world, about ten hours for each state. From the very bottom it takes some fifty.",
+                        "Heal another who is hurt and you may hasten it, though no more than once in each half hour.",
+                        "A soul already Corrupted or darker cannot rise above Corrupted while its Horcrux stands.",
+                        "A Sneakoscope whistles at a Corrupted or Lost soul, cloak or no cloak."
+                ))
+        )),
         CREATURES("gui.hogwartsmagic.hogwarts_guide.section.creatures", List.of(
                 page("Friends and terrors", List.of(
                         "Not every beast in this world is an enemy. Owls and Hippogriffs may become treasured companions, and a Patronus can be a shining guardian in darker hours.",

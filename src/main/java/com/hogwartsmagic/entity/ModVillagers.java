@@ -281,6 +281,7 @@ public class ModVillagers {
             buys(event, 1, Items.ROTTEN_FLESH, 24, 1, 16, 2);
             buys(event, 1, Items.BONE, 16, 1, 16, 2);
             sells(event, 2, 12, 5, one(ExampleMod.GOBLIN_SILVER_DAGGER), 4, 10);
+            sells(event, 2, 14, 1, one(ExampleMod.SNEAKOSCOPE_ITEM), 4, 10); // always exactly 14 emeralds
             sells(event, 3, 18, 6, one(ExampleMod.CURSED_GALLEON), 4, 15);
             sells(event, 4, 26, 8, one(ExampleMod.CENTAUR_TALISMAN), 2, 20);
             sells(event, 5, 40, 10, one(ExampleMod.POLYJUICE_POTION), 2, 30);

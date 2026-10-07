@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "NIN",
+    "NPN",
+    " A "
+  ],
+  "key": {
+    "N": { "item": "minecraft:gold_nugget" },
+    "I": { "item": "minecraft:gold_ingot" },
+    "P": { "item": "minecraft:glass_pane" },
+    "A": { "item": "hogwartsmagic:arcane_dust" }
+  },
+  "result": { "id": "hogwartsmagic:sneakoscope", "count": 1 }
+}

@@ -592,6 +592,13 @@ Each spell below lists the implemented gameplay behavior currently present in th
 - Ingredients need a full cauldron (3 doses of water).
 - Keep your other hand empty when you sneak-stir.
 
+### Sneakoscope
+
+- A small glass spinning top on a brass plate. It spins, glows and whistles when a Death Eater, Lord Voldemort or a Dementor is within 16 blocks, or the Dark Mark within 48 (both ranges are in the config).
+- Carried anywhere in your inventory, it whistles to you alone, faster as the danger comes closer: every 2 seconds at the edge of the range, every half second up close.
+- Placed, it is a redstone sensor: signal 1 at the edge of the range up to 15 at the source, on every side, readable by a comparator. The strongest signal from any detected source wins. It whistles once when it starts detecting and gives light while it spins.
+- Crafting: a gold ingot on top, a glass pane in the middle, four gold nuggets round it and arcane dust below. The Curio Dealer sells one for 14 emeralds.
+
 ### Gillyweed Plant
 
 - Custom underwater plant.

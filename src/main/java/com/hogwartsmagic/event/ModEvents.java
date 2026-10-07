@@ -680,8 +680,23 @@ public class ModEvents {
     public static void onPlayerLogout(net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             // Logging out mid-channel would otherwise strand the shield's light block in the world.
+            ItemStack heldWand = player.getMainHandItem();
             if (player.getPersistentData().getBoolean(TAG_PATRONUS_SHIELD_CHANNELING)) {
-                stopPatronusShieldChannel(player, player.getMainHandItem());
+                stopPatronusShieldChannel(player, heldWand);
+            }
+            // Likewise a Fiendfyre serpent, a levitated target, a Protego Maxima bubble or an open
+            // Apparition channel would otherwise stay live in the world until the player returns.
+            if (player.getPersistentData().getBoolean(TAG_FIENDFYRE_CHANNELING)) {
+                stopFiendfyreChannel(player, heldWand);
+            }
+            if (player.getPersistentData().getBoolean(TAG_WINGARDIUM_CHANNELING)) {
+                stopWingardiumChannel(player, heldWand);
+            }
+            if (player.getPersistentData().getBoolean(TAG_PROTEGO_MAXIMA_CHANNELING)) {
+                stopProtegoMaximaChannel(player, heldWand);
+            }
+            if (player.getPersistentData().getBoolean(TAG_APPARITION_CHANNELING)) {
+                cancelApparitionChannel(player, heldWand);
             }
             com.hogwartsmagic.caveinimicum.CaveInimicumManager.get(player.serverLevel()).onPlayerLeft(player);
             // Drop their remembered inside/outside state, or the map grows for the life of the
@@ -2821,6 +2836,9 @@ public class ModEvents {
             ActiveWizardRaid raid = ACTIVE_WIZARD_RAIDS.get(raidId);
             if (raid != null) {
                 ACTIVE_WIZARD_RAIDS.remove(raidId);
+                for (java.util.UUID memberId : raid.members) {
+                    WIZARD_TO_RAID.remove(memberId);
+                }
                 raid.bossBar.removeAllPlayers();
                 raid.bossBar.setVisible(false);
             }
@@ -2864,7 +2882,7 @@ public class ModEvents {
         // for "rebuild what just got smashed" Reparo casts. Independent because
         // ReparoManager prunes aggressively when no Reparo-learner player is nearby,
         // which would defeat student-driven repairs.
-        if (event.getPlayer() != null && !event.getPlayer().isCreative()) {
+        if (!event.getPlayer().isCreative()) {
             com.hogwartsmagic.util.RecentlyBrokenTracker.record(level, event.getPos(), event.getState());
         }
         level.getServer().execute(() -> com.hogwartsmagic.caveinimicum.CaveInimicumManager.get(level)
@@ -3181,7 +3199,9 @@ public class ModEvents {
         if (!Config.isDeathEaterBaseRaidsEnabled()) {
             return;
         }
-        if (player.tickCount % DEATH_EATER_BASE_CHECK_INTERVAL != 0) {
+        // Caller only runs every STRUCTURE_SPAWN_CHECK_INTERVAL game ticks; gate on game time (a multiple of
+        // that interval) rather than player.tickCount, whose offset from game time almost never lines up.
+        if (level.getGameTime() % DEATH_EATER_BASE_CHECK_INTERVAL != 0) {
             return;
         }
         if (!level.dimension().equals(Level.OVERWORLD) || level.getDifficulty() == Difficulty.PEACEFUL) {
@@ -3656,7 +3676,7 @@ public class ModEvents {
 // Find ground Y dynamically
             net.minecraft.world.level.Level world = wizard.level();
             double y = wizard.getY();
-            while (y > 0 && world.isEmptyBlock(new net.minecraft.core.BlockPos((int) wizard.getX(), (int) (y - 1), (int) wizard.getZ()))) {
+            while (y > world.getMinBuildHeight() && world.isEmptyBlock(new net.minecraft.core.BlockPos((int) wizard.getX(), (int) (y - 1), (int) wizard.getZ()))) {
                 y -= 1;
             }
             double groundY = y;
@@ -3701,7 +3721,7 @@ public class ModEvents {
             // Find ground Y dynamically
             net.minecraft.world.level.Level world = student.level();
             double y = student.getY();
-            while (y > 0 && world.isEmptyBlock(
+            while (y > world.getMinBuildHeight() && world.isEmptyBlock(
                     new net.minecraft.core.BlockPos((int) student.getX(), (int) (y - 1), (int) student.getZ()))) {
                 y -= 1; // Move down until we hit a block
             }
@@ -3837,8 +3857,8 @@ public class ModEvents {
         
         // Dense spherical bubble (double particles to 60)
         for (int i = 0; i < 60; i++) {
-            double u = Math.random();
-            double v = Math.random();
+            double u = entity.getRandom().nextDouble();
+            double v = entity.getRandom().nextDouble();
             double theta = 2 * Math.PI * u;
             double phi = Math.acos(2 * v - 1);
             double dx = radius * Math.sin(phi) * Math.cos(theta);

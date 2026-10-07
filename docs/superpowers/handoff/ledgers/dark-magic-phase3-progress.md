@@ -1,0 +1,10 @@
+# Ledger: Dark Magic Phase 3, the rewards and the deeds (plan docs/superpowers/plans/2026-10-08-dark-magic-phase3.md)
+
+Process: Opus for all agents, one implementer at a time (runs after Dark Magic Phase 2 is complete), review per task, final review, one fix wave, re-review, push. The controller commits ledger lines by path only.
+
+## Controller rulings
+- Planner rulings 1-14 accepted as written.
+- Spec corrections accepted: the Horcrux +30 is given at forging (a ritual can still fail after it starts), as max(x + 30, 60); the 15% discount also covers the Fiendfyre and Imperio channel costs; the floor freezes a value below 60 only for a Horcrux made in creative or with the toggle off, until the Horcrux is gone.
+- The escort is an ordinary Death Eater group: it still attacks non-Lost players and villagers. Accepted as canon.
+
+## Progress

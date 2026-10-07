@@ -1744,7 +1744,7 @@ This cannot be automated. Install the jar from Task 6. A survival world, normal 
 | 5 | At 80, `/summon hogwartsmagic:wizard` three times around you (or walk into a Death Eater camp) | Walk among them for a minute | Nobody attacks you |
 | 6 | Row 5 | Hit one Death Eater | That one fights you; the others stay calm |
 | 7 | Row 5, `/darkmagic set @s 79` | Summon a new Death Eater in sight | It attacks you |
-| 8 | At 80 | Summon Voldemort (his usual summoning) | He fights you, and his Death Eaters fight you |
+| 8 | At 80 | Summon Voldemort (his usual summoning) | He fights you, and his Death Eaters fight you (Voldemort's guards never turn neutral to a Lost player) |
 | 9 | At 80, a base (wards, Horcrux, Floo), `deathEaterBaseRaidChance = 1.0`, `deathEaterBaseRaidCooldownTicks = 20` | Stand at the base a few minutes | No Death Eater base raid; at 79 one comes |
 | 10 | At 80, open sky | Cast Morsmordre straight up | The Dark Mark and lightning; 4 to 6 Death Eaters appear around you in smoke; the line "Death Eaters answer the Mark..."; no raid bar |
 | 11 | Row 10 | Walk 30 blocks, then fly a broom 60 blocks away | They follow on foot; past 32 blocks they Apparate next to you |
@@ -1760,10 +1760,11 @@ This cannot be automated. Install the jar from Task 6. A survival world, normal 
 | 21 | At 85, `darkMagicRedemptionTicks = 200` | Hit a villager, Heal it; Heal it again at once; wait 10 s, hit and Heal it again | 84 with the action-bar line; still 84; 83 |
 | 22 | At 85 | Heal a villager at full health; Heal yourself (left click); creative Heal of a hurt villager | No change each time |
 | 23 | At 0 | Heal a hurt villager, then `/darkmagic set @s 85` and Heal another hurt villager at once | No change the first time; 84 the second (the window was not spent at 0) |
-| 24 | At 10, make a Horcrux (an Avada kill over the altar); in another world at 45 | `/darkmagic get @s` after "Your Horcrux is forged" | 60 (the cast makes 16, forging +30 makes 46, lifted to the floor of 60); from 45: 81 (51 + 30) |
+| 24 | At 10, make a Horcrux: an Avada kill of a zombie over the altar (a villager adds the innocent +3: 84 from 45); in another world at 45 | `/darkmagic get @s` after "Your Horcrux is forged" | 60 (the cast makes 16, forging +30 makes 46, lifted to the floor of 60); from 45: 81 (51 + 30) |
 | 25 | Row 24 | `/darkmagic add @s -30` | 60 (the floor), and `get` shows ", floor 60" |
 | 26 | Row 24 | Let B break the altar (or die and be reborn through it) | `get` shows no floor; `/darkmagic add @s -30` goes to 30 |
 | 27 | `enableDarkMagic = false` (reloads), at 85 | Check rows 1, 4, 5, 10, 19, 21 | No discount, no buff, Death Eaters attack, a normal raid, no +3, no redemption. Turning it back on restores them |
+| 28 | With a Horcrux and Darkness 45 (`/darkmagic set @s 45` after row 24) | Wait one decay period | It drops to 44 (no freeze below 60) |
 
 A failure goes back to the implementer of the owning task with the row number and `latest.log`.
 

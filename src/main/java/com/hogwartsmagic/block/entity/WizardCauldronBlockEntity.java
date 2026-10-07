@@ -217,6 +217,12 @@ public class WizardCauldronBlockEntity extends BlockEntity {
         if (BrewRules.PEPPERUP.id().equals(id)) {
             return new ItemStack(ExampleMod.PEPPERUP_POTION.get());
         }
+        if (BrewRules.DITTANY_ESSENCE.id().equals(id)) {
+            return new ItemStack(ExampleMod.ESSENCE_OF_DITTANY.get());
+        }
+        if (BrewRules.FELIX_FELICIS.id().equals(id)) {
+            return new ItemStack(ExampleMod.FELIX_FELICIS.get());
+        }
         if (BrewRules.POLYJUICE.id().equals(id) && !polyjuiceTarget.isEmpty()) {
             return PolyjuiceStacks.make(polyjuiceTarget,
                     BrewRules.usedTail(history, BrewRules.REDSTONE),

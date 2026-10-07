@@ -614,6 +614,14 @@ public class ExampleMod
     public static final RegistryObject<Item> FAILED_POTION = ITEMS.register("failed_potion",
             () -> new com.hogwartsmagic.item.BrewedPotionItem(new Item.Properties(),
                     com.hogwartsmagic.item.BrewedPotionItem.Kind.FAILED));
+    public static final RegistryObject<Item> ESSENCE_OF_DITTANY = ITEMS.register("essence_of_dittany",
+            () -> new com.hogwartsmagic.item.BrewedPotionItem(new Item.Properties(),
+                    com.hogwartsmagic.item.BrewedPotionItem.Kind.DITTANY));
+    public static final RegistryObject<Item> FELIX_FELICIS = ITEMS.register("felix_felicis",
+            () -> new com.hogwartsmagic.item.BrewedPotionItem(new Item.Properties()
+                    .rarity(net.minecraft.world.item.Rarity.EPIC)
+                    .component(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true),
+                    com.hogwartsmagic.item.BrewedPotionItem.Kind.FELIX));
     public static final RegistryObject<Item> PHOENIX_FEATHER_CORE = ITEMS.register("phoenix_feather_core",
             () -> new Item(new Item.Properties()));
     public static final RegistryObject<Item> UNICORN_HAIR_CORE = ITEMS.register("unicorn_hair_core",
@@ -903,6 +911,8 @@ public class ExampleMod
                 output.accept(WIGGENWELD_POTION.get());
                 output.accept(PEPPERUP_POTION.get());
                 output.accept(FAILED_POTION.get());
+                output.accept(ESSENCE_OF_DITTANY.get());
+                output.accept(FELIX_FELICIS.get());
                 output.accept(PHOENIX_FEATHER_CORE.get());
                 output.accept(UNICORN_HAIR_CORE.get());
                 output.accept(DRAGON_HEARTSTRING_CORE.get());

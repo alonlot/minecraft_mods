@@ -36,7 +36,9 @@ public class BrewedPotionItem extends Item {
     public enum Kind {
         WIGGENWELD("wiggenweld_potion", 0x4CC38A),
         PEPPERUP("pepperup_potion", 0xE8322A),
-        FAILED("failed_potion", 0x6B5A45);
+        FAILED("failed_potion", 0x6B5A45),
+        DITTANY("essence_of_dittany", 0xC9E3A6),
+        FELIX("felix_felicis", 0xFFD966);
 
         private final String id;
         private final int color;
@@ -121,6 +123,26 @@ public class BrewedPotionItem extends Item {
                         14, 0.3, 0.05, 0.3, 0.03);
                 server.playSound(null, drinker.getX(), drinker.getY(), drinker.getZ(), SoundEvents.FIRE_EXTINGUISH,
                         SoundSource.PLAYERS, 0.5f, 1.6f);
+            }
+        } else if (kind == Kind.DITTANY) {
+            // The only removal path for Cursed Wound that the drink guard lets through.
+            com.hogwartsmagic.spell.combat.CombatEffects.cureCursedWound(drinker);
+            drinker.heal(com.hogwartsmagic.brewing.PotionRules.DITTANY_HEAL);
+            if (level instanceof ServerLevel server) {
+                server.sendParticles(ParticleTypes.HAPPY_VILLAGER, drinker.getX(), drinker.getY(0.5), drinker.getZ(),
+                        8, 0.3, 0.4, 0.3, 0.0);
+            }
+        } else if (kind == Kind.FELIX) {
+            drinker.addEffect(new MobEffectInstance(MobEffects.LUCK, com.hogwartsmagic.brewing.PotionRules.FELIX_TICKS,
+                    com.hogwartsmagic.brewing.PotionRules.FELIX_LUCK_AMPLIFIER));
+            if (level instanceof ServerLevel server) {
+                server.sendParticles(ParticleTypes.WAX_ON, drinker.getX(), drinker.getY(0.6), drinker.getZ(),
+                        16, 0.35, 0.5, 0.35, 0.02);
+                server.playSound(null, drinker.getX(), drinker.getY(), drinker.getZ(), SoundEvents.AMETHYST_BLOCK_CHIME,
+                        SoundSource.PLAYERS, 1.0f, 1.6f);
+            }
+            if (drinker instanceof Player player) {
+                player.displayClientMessage(Component.translatable("message.hogwartsmagic.felix.drink"), true);
             }
         } else {
             drinker.addEffect(new MobEffectInstance(MobEffects.CONFUSION, FAILED_NAUSEA_TICKS, 0));

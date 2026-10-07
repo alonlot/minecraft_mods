@@ -1,0 +1,9 @@
+# Ledger: Dark Magic Phase 2, the costs (plan docs/superpowers/plans/2026-10-08-dark-magic-phase2.md)
+
+Process: Opus for all agents, one implementer at a time (it runs after Brewing Phase 2 is complete), review per task, final review, one fix wave, re-review, push. The controller commits ledger lines by path only.
+
+## Controller rulings
+- Planner rulings 1-14 accepted as written.
+- Spec corrections accepted: the halved corporeal chance is replaced by no corporeal at Tainted, and keep-away is replaced by attack at Lost (replacements, not stacking costs); the Lost health cost has no UI beyond the vanilla hearts, like the Horcrux; Dementor range is the 48-block follow range.
+
+## Progress

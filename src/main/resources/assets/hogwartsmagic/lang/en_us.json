@@ -949,5 +949,12 @@
   "message.hogwartsmagic.colloportus.broken": "Your Alohomora breaks the Colloportus seal.",
   "message.hogwartsmagic.colloportus.broken_yours": "%s broke one of your Colloportus seals.",
   "message.hogwartsmagic.colloportus.revealed": "Sealed by Colloportus: %s, %s.",
-  "message.hogwartsmagic.colloportus.lifted": "You lift your seal."
+  "message.hogwartsmagic.colloportus.lifted": "You lift your seal.",
+  "item.hogwartsmagic.wiggenweld_potion": "Wiggenweld Potion",
+  "item.hogwartsmagic.wiggenweld_potion.tooltip": "Heals 8 health over 2 seconds and stops Bleeding.",
+  "item.hogwartsmagic.pepperup_potion": "Pepperup Potion",
+  "item.hogwartsmagic.pepperup_potion.tooltip": "Restores 40 mana and gives 30 seconds of Fire Resistance.",
+  "item.hogwartsmagic.failed_potion": "Failed Potion",
+  "item.hogwartsmagic.failed_potion.tooltip": "A ruined brew. Drinking it is a bad idea.",
+  "item.hogwartsmagic.fine_wood_stick.tooltip": "Stirring rod: right-click a Wizard Cauldron to stir clockwise, sneak and right-click to stir anticlockwise."
 }

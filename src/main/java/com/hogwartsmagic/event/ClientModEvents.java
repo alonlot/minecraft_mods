@@ -913,6 +913,12 @@ public class ClientModEvents {
                 (stack, tintIndex) -> event.getBlockColors()
                         .getColor(ExampleMod.FINE_WOOD_LEAVES.get().defaultBlockState(), null, null, tintIndex),
                 ExampleMod.FINE_WOOD_LEAVES_ITEM.get());
+        // Cauldron potions: layer 0 is the vanilla potion_overlay, tinted with the potion's colour.
+        event.register(
+                (stack, tintIndex) -> tintIndex == 0 && stack.getItem() instanceof com.hogwartsmagic.item.BrewedPotionItem potion
+                        ? net.minecraft.util.FastColor.ARGB32.opaque(potion.kind().color())
+                        : -1,
+                ExampleMod.WIGGENWELD_POTION.get(), ExampleMod.PEPPERUP_POTION.get(), ExampleMod.FAILED_POTION.get());
     }
 
     @SubscribeEvent

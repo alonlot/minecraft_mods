@@ -541,7 +541,7 @@ public class ExampleMod
     public static final RegistryObject<Item> FIREBOLT = ITEMS.register("firebolt",
             () -> new com.hogwartsmagic.item.BroomItem(new Item.Properties().stacksTo(1), 2));
     public static final RegistryObject<Item> FINE_WOOD_STICK = ITEMS.register("fine_wood_stick",
-            () -> new Item(new Item.Properties()));
+            () -> new com.hogwartsmagic.item.StirringRodItem(new Item.Properties()));
     public static final RegistryObject<Item> ARCANE_DUST = ITEMS.register("arcane_dust",
             () -> new Item(new Item.Properties()));
     public static final RegistryObject<Item> ARCANE_CORE = ITEMS.register("arcane_core",
@@ -564,6 +564,16 @@ public class ExampleMod
             () -> new PolyjuicePotionItem(new Item.Properties()
                     .craftRemainder(net.minecraft.world.item.Items.GLASS_BOTTLE)
                     .component(DataComponents.POTION_CONTENTS, PolyjuicePotionItem.defaultPotionContents())));
+    // Wizard Cauldron potions (brewing/BrewRules).
+    public static final RegistryObject<Item> WIGGENWELD_POTION = ITEMS.register("wiggenweld_potion",
+            () -> new com.hogwartsmagic.item.BrewedPotionItem(new Item.Properties(),
+                    com.hogwartsmagic.item.BrewedPotionItem.Kind.WIGGENWELD));
+    public static final RegistryObject<Item> PEPPERUP_POTION = ITEMS.register("pepperup_potion",
+            () -> new com.hogwartsmagic.item.BrewedPotionItem(new Item.Properties(),
+                    com.hogwartsmagic.item.BrewedPotionItem.Kind.PEPPERUP));
+    public static final RegistryObject<Item> FAILED_POTION = ITEMS.register("failed_potion",
+            () -> new com.hogwartsmagic.item.BrewedPotionItem(new Item.Properties(),
+                    com.hogwartsmagic.item.BrewedPotionItem.Kind.FAILED));
     public static final RegistryObject<Item> PHOENIX_FEATHER_CORE = ITEMS.register("phoenix_feather_core",
             () -> new Item(new Item.Properties()));
     public static final RegistryObject<Item> UNICORN_HAIR_CORE = ITEMS.register("unicorn_hair_core",
@@ -844,6 +854,9 @@ public class ExampleMod
                 output.accept(MANDRAKE_ROOT.get());
                 output.accept(GILLYWEED.get());
                 output.accept(POLYJUICE_POTION.get());
+                output.accept(WIGGENWELD_POTION.get());
+                output.accept(PEPPERUP_POTION.get());
+                output.accept(FAILED_POTION.get());
                 output.accept(PHOENIX_FEATHER_CORE.get());
                 output.accept(UNICORN_HAIR_CORE.get());
                 output.accept(DRAGON_HEARTSTRING_CORE.get());

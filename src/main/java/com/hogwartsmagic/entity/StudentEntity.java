@@ -196,7 +196,7 @@ public class StudentEntity extends AbstractIllager implements DisarmableWandUser
                 com.hogwartsmagic.spell.dark.DarkCostRules.Cost.STUDENTS_ATTACK) {
             @Override
             public boolean canUse() {
-                return !com.hogwartsmagic.duel.DuelManager.isDueling(StudentEntity.this) && super.canUse();
+                return super.canUse() && !com.hogwartsmagic.duel.DuelManager.isDueling(StudentEntity.this);
             }
         });
         this.targetSelector.addGoal(3, new NearestAttackableTargetGoal<>(this, Monster.class, 10, true, false,

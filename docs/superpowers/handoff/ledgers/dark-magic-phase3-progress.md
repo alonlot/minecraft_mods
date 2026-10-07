@@ -15,3 +15,4 @@ Process: Opus for all agents, one implementer at a time (runs after Dark Magic P
 - T2 review: Approved (every dark check and spend uses the same discounted cost; non-dark costs bit-identical; dedicated server safe). Fix-wave queue: M1 the DarkRewards javadoc names DarkMagicData.getTier. M2 (Unicorn refund scales with the paid cost) accepted.
 - T4 done 8f1bbcd (465 tests, boot Done 3.256s). Review and T5 dispatched.
 - T5 done a1ae997 (465 tests; floor only for a finished binding, no window spent on a no-op heal, PLAY_TIME window). Final verification and final review dispatched.
+- T6 (controller): clean build OK, 465 tests green, protocol 8, lang valid, boot Done (3.692s) with no Exception or ERROR, server stopped.

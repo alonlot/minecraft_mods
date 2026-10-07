@@ -355,6 +355,13 @@ public class SpellBeamEntity extends ThrowableProjectile {
                                 (random.nextDouble() - 0.5) * 0.02, 0.01, (random.nextDouble() - 0.5) * 0.02);
                     }
                 }
+                case RIDDIKULUS -> {
+                    if (tickCount % 2 == 0) {
+                        this.level().addParticle(ParticleTypes.NOTE,
+                                pos.x, pos.y + 0.2, pos.z,
+                                (random.nextDouble() - 0.5) * 0.02, 0.01, (random.nextDouble() - 0.5) * 0.02);
+                    }
+                }
                 case DEPULSO -> {
                     if (tickCount % 2 == 0) {
                         this.level().addParticle(ParticleTypes.CLOUD,
@@ -1386,6 +1393,10 @@ public class SpellBeamEntity extends ThrowableProjectile {
             case OBLIVIATE, CONFUNDO -> {
                 sl.sendParticles(ParticleTypes.NAUTILUS, impactPos.x, impactPos.y + 0.4, impactPos.z, 16, 0.5, 0.4, 0.5, 0.0);
                 sl.sendParticles(ParticleTypes.ENCHANT, impactPos.x, impactPos.y + 0.4, impactPos.z, 20, 0.6, 0.5, 0.6, 0.01);
+            }
+            case RIDDIKULUS -> {
+                sl.sendParticles(ParticleTypes.NOTE, impactPos.x, impactPos.y + 0.5, impactPos.z, 12, 0.5, 0.4, 0.5, 0.0);
+                sl.sendParticles(ParticleTypes.HAPPY_VILLAGER, impactPos.x, impactPos.y + 0.4, impactPos.z, 10, 0.4, 0.4, 0.4, 0.02);
             }
             case DEPULSO -> {
                 for (int i = 0; i < 24; i++) {

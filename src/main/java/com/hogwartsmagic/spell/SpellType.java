@@ -74,7 +74,10 @@ public enum SpellType {
     PIERTOTUM_LOCOMOTOR("piertotum_locomotor", 0x9BA0A4, 0.61f, 0.63f, 0.64f, ParticleTypes.SMOKE, ParticleTypes.CAMPFIRE_COSY_SMOKE, 600, 90, SpellLootRarity.RARE),
     /** The locking charm: seals a door or a piston door lock against Alohomora (see spell.support.seal.ColloportusSpell).
      *  Everything happens on a block hit, so it has no entity hit effect; a living target is a miss. */
-    COLLOPORTUS("colloportus", 0x8A6D3B, 0.54f, 0.43f, 0.23f, ParticleTypes.ENCHANT, ParticleTypes.WAX_ON, 60, 15, SpellLootRarity.UNCOMMON);
+    COLLOPORTUS("colloportus", 0x8A6D3B, 0.54f, 0.43f, 0.23f, ParticleTypes.ENCHANT, ParticleTypes.WAX_ON, 60, 15, SpellLootRarity.UNCOMMON),
+    /** The Boggart charm (see spell.support.RiddikulusSpell): a Boggart hit enough times is banished; anything
+     *  else only glows for a moment and hears a bell. Never does damage. */
+    RIDDIKULUS("riddikulus", 0xFF8AD1, 1.0f, 0.54f, 0.82f, ParticleTypes.NOTE, ParticleTypes.HAPPY_VILLAGER, 40, 15, SpellLootRarity.UNCOMMON);
 
     private final String id;
     private final int color;
@@ -333,6 +336,7 @@ public enum SpellType {
             case COLLOPORTUS -> {
                 // No hit effect: the charm seals locks, not creatures (SpellBeamEntity fizzles it on a living target).
             }
+            case RIDDIKULUS -> com.hogwartsmagic.spell.support.RiddikulusSpell.apply(target, caster);
         }
     }
 
@@ -386,6 +390,7 @@ public enum SpellType {
             // effect is played by StatueMultiblock at the statue, not at the wand.
             case PIERTOTUM_LOCOMOTOR -> ModSounds.SPELL_WINGARDIUM_LEVIOSA.get();
             case COLLOPORTUS -> ModSounds.SPELL_ALOHOMORA.get(); // the counter-charm shares the unlocking charm's voice
+            case RIDDIKULUS -> ModSounds.SPELL_LUMOS.get(); // a bright, light charm; the laugh is the Boggart's own
         };
     }
 

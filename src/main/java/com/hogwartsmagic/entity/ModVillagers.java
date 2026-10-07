@@ -172,7 +172,7 @@ public class ModVillagers {
             List<SpellType> common = List.of(SpellType.LUMOS, SpellType.ALOHOMORA, SpellType.INCENDIO,
                     SpellType.REVELIO, SpellType.ARRESTO_MOMENTUM);
             List<SpellType> advanced = List.of(SpellType.WINGARDIUM_LEVIOSA, SpellType.PROTEGO,
-                    SpellType.EXPELLIARMUS, SpellType.STUPEFY, SpellType.REPARO);
+                    SpellType.EXPELLIARMUS, SpellType.STUPEFY, SpellType.REPARO, SpellType.RIDDIKULUS);
             sellsBook(event, 1, common, 14, 6, 12, 5);
             buys(event, 1, ExampleMod.WOLF_FANG.get(), 1, 2, 16, 2);
             sellsBook(event, 2, advanced, 24, 8, 12, 10);

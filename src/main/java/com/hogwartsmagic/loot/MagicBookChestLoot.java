@@ -63,7 +63,9 @@ public final class MagicBookChestLoot {
     private static final SpellType[] DUNGEON_MIX = {
             SpellType.STUPEFY, SpellType.REVELIO, SpellType.LUMOS, SpellType.GLACIUS,
             SpellType.INCENDIO, SpellType.EXPELLIARMUS, SpellType.ALOHOMORA, SpellType.ARRESTO_MOMENTUM,
-            SpellType.COLLOPORTUS
+            SpellType.COLLOPORTUS,
+            // The Boggart charm is taught early at Hogwarts, and Boggarts live in dark, shut-up places like these.
+            SpellType.RIDDIKULUS
     };
     /**
      * Fallback for vanilla loot tables we do not explicitly map.
@@ -87,7 +89,8 @@ public final class MagicBookChestLoot {
             SpellType.INCENDIO,
             SpellType.AQUA_ERUCTO,
             SpellType.REPARO,
-            SpellType.COLLOPORTUS
+            SpellType.COLLOPORTUS,
+            SpellType.RIDDIKULUS
     };
 
     static {

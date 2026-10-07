@@ -1612,7 +1612,8 @@ public class ModEvents {
 
     public static float getImperioUpkeepCost(Player player, ItemStack wand) {
         return Math.max(0.75f, (SpellType.IMPERIO.getManaCost() * MagicWandItem.getManaCostMultiplier(wand)
-                * SpellCosts.masteryMultiplier(player, SpellType.IMPERIO)) / 18.0f);
+                * SpellCosts.masteryMultiplier(player, SpellType.IMPERIO)
+                * SpellCosts.darkMultiplier(player, SpellType.IMPERIO)) / 18.0f);
     }
 
     private static com.hogwartsmagic.entity.FiendfyreSerpentEntity getOrCreateFiendfyreEntity(ServerPlayer player, ServerLevel level) {
@@ -1652,7 +1653,8 @@ public class ModEvents {
 
     private static float getFiendfyreUpkeepCost(Player player, ItemStack wand) {
         return Math.max(1.25f, (SpellType.FIENDFYRE.getManaCost() * MagicWandItem.getManaCostMultiplier(wand)
-                * SpellCosts.masteryMultiplier(player, SpellType.FIENDFYRE)) / 14.0f);
+                * SpellCosts.masteryMultiplier(player, SpellType.FIENDFYRE)
+                * SpellCosts.darkMultiplier(player, SpellType.FIENDFYRE)) / 14.0f);
     }
 
     // ──────────────────────────────────────────────────────────────────────────

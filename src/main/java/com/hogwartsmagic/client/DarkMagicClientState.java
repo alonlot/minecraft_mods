@@ -14,10 +14,13 @@ public final class DarkMagicClientState {
 
     public static void accept(float value) {
         darkness = DarkRules.sanitize(value);
+        // Phase 3: SpellCosts (common code) reads this copy for the client's own dark mana discount.
+        com.hogwartsmagic.spell.dark.DarkRewards.acceptClientTier(DarkRules.tier(darkness));
     }
 
     public static void clear() {
         darkness = DarkRules.MIN_DARKNESS;
+        com.hogwartsmagic.spell.dark.DarkRewards.acceptClientTier(DarkRules.CLEAN);
     }
 
     public static float darkness() {

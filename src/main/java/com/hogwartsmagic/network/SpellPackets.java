@@ -1307,7 +1307,8 @@ public class SpellPackets {
 
         private static float getFiendfyreStartupCost(ServerPlayer player, ItemStack wand) {
             return Math.max(3.0f, SpellType.FIENDFYRE.getManaCost() * MagicWandItem.getManaCostMultiplier(wand)
-                    * SpellCosts.masteryMultiplier(player, SpellType.FIENDFYRE) * 0.16f);
+                    * SpellCosts.masteryMultiplier(player, SpellType.FIENDFYRE) * 0.16f
+                    * SpellCosts.darkMultiplier(player, SpellType.FIENDFYRE));
         }
 
         private static void ensureFiendfyreExists(ServerPlayer player) {

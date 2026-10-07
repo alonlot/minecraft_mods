@@ -21,3 +21,4 @@ Base: 6a0c340 (406 tests green; Dark Magic Phase 1 built, its final review and f
 - T5 review: Approved. Note for the Task 9 review: Mandrake and Living Death (and the Mandrake splash tail) must be bottled before the Failed Potion fallthrough in bottledPotion. Tooltip wording health vs HP: no action.
 - T6 done 86c6e66 (431 tests, protocol 8, boot Done 3.682s). Review and T7 dispatched.
 - T7 done edd6c1a (431 tests). The plan's grep count for StoredMob (2) is wrong, 3 is right (getStoredMob). Review and T8 dispatched.
+- T8 done cb7bc5a (431 tests; give-in key J). Its review is folded into the final review (client-only screen, HUD line, key and look locks). T9 dispatched.

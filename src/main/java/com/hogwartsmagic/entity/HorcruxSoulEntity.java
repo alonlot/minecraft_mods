@@ -92,7 +92,8 @@ public class HorcruxSoulEntity extends Entity {
         super.tick();
         Vec3 destination = Vec3.atCenterOf(getTarget()).add(0.0D, 0.6D, 0.0D);
         Vec3 toTarget = destination.subtract(position());
-        if (!arrivalTriggered && toTarget.lengthSqr() > 1.0E-4D) {
+        // Flight integration is server-authoritative; the client receives position via entity sync.
+        if (!level().isClientSide && !arrivalTriggered && toTarget.lengthSqr() > 1.0E-4D) {
             Vec3 velocity = toTarget.normalize().scale(Config.getHorcruxSoulSpeed()).add(0.0D, 0.015D, 0.0D);
             setDeltaMovement(velocity);
             moveTo(getX() + velocity.x, getY() + velocity.y, getZ() + velocity.z, getYRot(), getXRot());
@@ -108,14 +109,14 @@ public class HorcruxSoulEntity extends Entity {
             }
         }
 
-        if (!arrivalTriggered && (toTarget.lengthSqr() < 0.5D || tickCount > MAX_FLIGHT_TICKS)) {
+        if (!level().isClientSide && !arrivalTriggered && (toTarget.lengthSqr() < 0.5D || tickCount > MAX_FLIGHT_TICKS)) {
             arrivalTriggered = true;
             arrivalTick = tickCount;
             setDeltaMovement(Vec3.ZERO);
             moveTo(destination.x, destination.y, destination.z, getYRot(), getXRot());
             notifyOwnerFlightComplete();
         }
-        if (arrivalTriggered && arrivalTick >= 0 && tickCount >= arrivalTick + ARRIVAL_LINGER_TICKS) {
+        if (!level().isClientSide && arrivalTriggered && arrivalTick >= 0 && tickCount >= arrivalTick + ARRIVAL_LINGER_TICKS) {
             discard();
         }
     }

@@ -266,7 +266,11 @@ public class GiantEntity extends Monster {
 
         AttackState state = getAttackState();
         int t = getStateTick();
-        this.entityData.set(DATA_STATE_TICK, t + 1);
+        // Idle costs nothing: no state tick means no synched-data traffic (setAttackState resets it to 0
+        // whenever a state starts, so the first tick of any state still sees t == 0).
+        if (state != AttackState.NONE) {
+            this.entityData.set(DATA_STATE_TICK, t + 1);
+        }
 
         if (this.angryTicks > 0) {
             this.angryTicks--;

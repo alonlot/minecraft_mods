@@ -132,6 +132,14 @@ public class StudentModel<T extends Entity> extends EntityModel<T> implements ne
 				CAST_START_TICK.remove(id);
 			}
 			LAST_CASTING.put(id, casting);
+			// Prune entries of students that no longer exist (same fix as WizardModel): entity ids are
+			// never reused within a session, so without this the static maps grow for as long as the client runs.
+			if (student.tickCount % 200 == 0) {
+				java.util.function.Predicate<Integer> gone = key -> student.level().getEntity(key) == null;
+				CAST_START_TICK.keySet().removeIf(gone);
+				CAST_END_TICK.keySet().removeIf(gone);
+				LAST_CASTING.keySet().removeIf(gone);
+			}
 
 			if (casting) {
 				int elapsed = Math.max(0, student.tickCount - CAST_START_TICK.getOrDefault(id, student.tickCount));

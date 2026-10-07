@@ -256,6 +256,7 @@ public class DementorEntity extends Monster {
     class DementorSuckGoal extends Goal {
         private final DementorEntity dementor;
         private int suckTime = 0;
+        private boolean patronusNear;
 
         public DementorSuckGoal(DementorEntity dementor) {
             this.dementor = dementor;
@@ -264,7 +265,12 @@ public class DementorEntity extends Monster {
         @Override
         public boolean canUse() {
             // Immediately stop trying to suck souls if a Patronus is nearby (Panic mode)
-            if (!this.dementor.level().getEntitiesOfClass(PatronusEntity.class, this.dementor.getBoundingBox().inflate(24.0D)).isEmpty()) {
+            // The 24-block scan is throttled to every 5 ticks and cached in between (same cadence as
+            // isPatronusNear in tick()); canContinueToUse defaults to canUse, so no hard tick gate here.
+            if (this.dementor.tickCount % 5 == 0) {
+                this.patronusNear = !this.dementor.level().getEntitiesOfClass(PatronusEntity.class, this.dementor.getBoundingBox().inflate(24.0D)).isEmpty();
+            }
+            if (this.patronusNear) {
                 return false;
             }
             // Held off by a non-corporeal shield: it can't hurt us, but we can't feed through it either.

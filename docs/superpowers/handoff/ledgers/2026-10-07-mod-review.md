@@ -51,3 +51,8 @@ NOT FIXED: FORCE hint label; /lockinfo never lists item keys; STEPS not cleared 
 ## resources (agent 11)
 FIXED: 30 missing en_us lang keys; patronus_light_block had no blockstate/model; 5 blocks had no loot table and dropped nothing; acquirable_job_site tag only listed the wand workbench POI so 4 villager professions could never take their job.
 NOT FIXED: 8 whomping_willow sound events point to missing .ogg files; flying_mob.png texture missing; 18 of 23 mob effects have no icon; lumos_light blockstate references minecraft:block/air which may not exist as a model.
+
+## Second wave
+- ModEvents: a raid whose wizards unloaded no longer grants Hero of the Village; Apparition channelTicks guarded; duplicate owl EntityInteract handler removed; Tenebris ink burst keyed on flight start.
+- IncarcerousChainAnimation: phases run on a real per-level tick queue instead of TickTask (which ran them all in one tick).
+- ExampleMod: creative tab title; WizardEntity Protego charge decrement; empty FlyingMobRenderer stub and unregistered Levicorpus mixin deleted; FlyingMobModel moved to client/model.

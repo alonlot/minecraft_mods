@@ -75,6 +75,7 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
 
     @Override
     public boolean hurt(net.minecraft.world.damagesource.DamageSource source, float damage) {
+        if (this.level().isClientSide) return super.hurt(source, damage);
         // Intercept damage if we have Protego, unless it's void/starve/drown damage
         if (!source.is(net.minecraft.tags.DamageTypeTags.BYPASSES_INVULNERABILITY) && !com.hogwartsmagic.spell.mind.AvadaSpell.isLanding(this) && this.hasEffect(ExampleMod.PROTEGO_EFFECT.getHolder().get())) {
             net.minecraft.world.effect.MobEffectInstance currentEffect = this.getEffect(ExampleMod.PROTEGO_EFFECT.getHolder().get());
@@ -344,9 +345,10 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
                 this.wizard.setCasting(true);
                 
                 // Ritual Particles
-                if (this.wizard.level().isClientSide) {
+                // Goals only tick on the server; count 0 makes the offsets act as velocity (0, 0.2, 0).
+                if (this.wizard.level() instanceof net.minecraft.server.level.ServerLevel sl) {
                     for(int i = 0; i < 5; i++) {
-                        this.wizard.level().addParticle(ParticleTypes.SQUID_INK, this.wizard.getX(), this.wizard.getY(), this.wizard.getZ(), 0, 0.2, 0);
+                        sl.sendParticles(ParticleTypes.SQUID_INK, this.wizard.getX(), this.wizard.getY(), this.wizard.getZ(), 0, 0.0, 0.2, 0.0, 1.0);
                     }
                 }
                 

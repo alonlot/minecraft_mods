@@ -151,6 +151,12 @@
         "maxCount": 1,
         "minCount": 1,
         "weight": 6
+      },
+      {
+        "type": "hogwartsmagic:boggart",
+        "maxCount": 1,
+        "minCount": 1,
+        "weight": 6
       }
     ],
     "underground_water_creature": [

@@ -107,6 +107,13 @@ public class ModSpawnPlacements {
                 Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
                 com.hogwartsmagic.entity.GrindylowEntity::checkGrindylowSpawnRules,
                 SpawnPlacementRegisterEvent.Operation.REPLACE);
+        // A Boggart wants a dark covered spot (sky light 0) and no other Boggart nearby.
+        event.register(
+                ModEntities.BOGGART.get(),
+                SpawnPlacementTypes.ON_GROUND,
+                Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                com.hogwartsmagic.entity.boggart.BoggartEntity::checkBoggartSpawnRules,
+                SpawnPlacementRegisterEvent.Operation.REPLACE);
         event.register(
                 ModEntities.HUNGARIAN_HORNTAIL.get(),
                 SpawnPlacementTypes.ON_GROUND,

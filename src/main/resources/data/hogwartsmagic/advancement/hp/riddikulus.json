@@ -1,0 +1,24 @@
+{
+  "parent": "hogwartsmagic:hp/spider_slayer",
+  "display": {
+    "icon": {
+      "id": "hogwartsmagic:boggart_spawn_egg",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancement.hogwartsmagic.riddikulus.title"
+    },
+    "description": {
+      "translate": "advancement.hogwartsmagic.riddikulus.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "banished_boggart": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

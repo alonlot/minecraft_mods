@@ -280,6 +280,16 @@ public class ModEntities {
                             .clientTrackingRange(8)
                             .build("grindylow"));
 
+    // Player-sized box whatever shape it wears; the renderer draws the borrowed form, the box stays put.
+    public static final RegistryObject<EntityType<com.hogwartsmagic.entity.boggart.BoggartEntity>> BOGGART =
+            ENTITY_TYPES.register("boggart",
+                    () -> EntityType.Builder.<com.hogwartsmagic.entity.boggart.BoggartEntity>of(
+                                    com.hogwartsmagic.entity.boggart.BoggartEntity::new, MobCategory.MONSTER)
+                            .sized(0.6F, 1.95F)
+                            .clientTrackingRange(10)
+                            .updateInterval(3)
+                            .build("boggart"));
+
     public static final RegistryObject<EntityType<GoblinGuardEntity>> GOBLIN_GUARD =
             ENTITY_TYPES.register("goblin_guard",
                     () -> EntityType.Builder.<GoblinGuardEntity>of(GoblinGuardEntity::new, MobCategory.CREATURE)

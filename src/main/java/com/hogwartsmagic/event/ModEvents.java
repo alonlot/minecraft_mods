@@ -2754,6 +2754,7 @@ public class ModEvents {
             }
         }
         if (event.getEntity() instanceof ServerPlayer player) {
+            com.hogwartsmagic.entity.boggart.BoggartFears.record(player, event.getSource());
             InvisibilityCloakItem.stopCloak(player, false);
             PolyjuiceData.clearAll(player);
             syncPolyjuice(player);

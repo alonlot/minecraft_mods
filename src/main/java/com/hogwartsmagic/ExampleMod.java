@@ -805,6 +805,9 @@ public class ExampleMod
     public static final RegistryObject<Item> GRINDYLOW_SPAWN_EGG = ITEMS.register("grindylow_spawn_egg",
             () -> new net.minecraftforge.common.ForgeSpawnEggItem(ModEntities.GRINDYLOW, 0x74744E, 0xB0D64E, new Item.Properties()));
 
+    public static final RegistryObject<Item> BOGGART_SPAWN_EGG = ITEMS.register("boggart_spawn_egg",
+            () -> new net.minecraftforge.common.ForgeSpawnEggItem(ModEntities.BOGGART, 0x1B1426, 0x6E4A8C, new Item.Properties()));
+
     public static final RegistryObject<Item> MERPERSON_SPAWN_EGG = ITEMS.register("merperson_spawn_egg",
             () -> new net.minecraftforge.common.ForgeSpawnEggItem(ModEntities.MERPERSON, 0x5E6B5A, 0x223A26, new Item.Properties()));
 
@@ -951,6 +954,7 @@ public class ExampleMod
                 output.accept(HOUSE_ELF_SPAWN_EGG.get()); // House Elf Spawn Egg
                 output.accept(MERPERSON_SPAWN_EGG.get()); // Merperson Spawn Egg
                 output.accept(GRINDYLOW_SPAWN_EGG.get()); // Grindylow Spawn Egg
+                output.accept(BOGGART_SPAWN_EGG.get()); // Boggart Spawn Egg
                 output.accept(WHOMPING_WILLOW_SPAWN_EGG.get()); // Whomping Willow Spawn Egg
                 output.accept(GALLEON.get());
                 output.accept(CURSED_GALLEON.get());

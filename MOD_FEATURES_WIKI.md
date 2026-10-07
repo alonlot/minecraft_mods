@@ -907,7 +907,7 @@ Only one relic of each type can be equipped.
 ### Draught of Living Death
 
 - Brewed: 1 Asphodel, 1 Wormwood, 2 Valerian Sprigs, stir anticlockwise 7 times, stir clockwise once (the brew turns clear as water), simmer 60 seconds, then 1 Gunpowder. 3 doses.
-- Splash only. Everything within 4 blocks, the thrower too, is stunned for 20 seconds. The usual crowd-control rules apply: repeated stuns get shorter, bosses get half, and players take 60%.
+- Splash only. Everything within 4 blocks, the thrower too, is stunned for 20 seconds. The usual crowd-control rules apply: repeated stuns get shorter, bosses get half, and a player stunned by another player's throw gets 60% (config `pvpCrowdControlMultiplier`). Your own splash stuns you for the full 20 seconds.
 
 ### Felix Felicis
 

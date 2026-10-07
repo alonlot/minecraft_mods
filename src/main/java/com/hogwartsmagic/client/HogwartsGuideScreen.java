@@ -142,7 +142,8 @@ public class HogwartsGuideScreen extends Screen {
                         "Practical charms: Lumos, Alohomora, Revelio, Reparo.",
                         "Control and defense: Glacius, Wingardium Leviosa, Stupefy, Petrificus Totalus, Protego.",
                         "Battle magic: Confringo, Bombarda, Sectumsempra, Diffindo.",
-                        "Forbidden and dangerous arts: Crucio, Imperio, Fiendfyre, Avada Kedavra, Morsmordre."
+                        "Forbidden and dangerous arts: Crucio, Imperio, Fiendfyre, Avada Kedavra, Morsmordre.",
+                        "Riddikulus: the charm that turns a boggart into a joke and, with enough hits, laughs it away."
                 ))
         )),
         SYSTEMS("gui.hogwartsmagic.hogwarts_guide.section.systems", List.of(
@@ -228,6 +229,13 @@ public class HogwartsGuideScreen extends Screen {
                         "There is a nest of them asleep around the hoard. Open that chest and you will find out exactly what they were put there for.",
                         "Do not thrash. Their fingers are long and strong and they are also brittle: strike the thing holding you, however feebly, and it lets go at once. Then deal with the next one.",
                         "You can see them before they see you, if you look. Their eyes carry a light of their own, and two green points low in the weed are the only warning you will get."
+                )),
+                page("On boggarts", List.of(
+                        "A boggart is a shape-shifter. It has no shape of its own. It hides in dark, closed places and waits.",
+                        "When you come near, it wears the shape of the creature that has killed you most often. It wears a Dementor's shape if that killer was a wizard. Its fear spreads darkness and heavy legs to everyone close by.",
+                        "How to spot one: a dark shape that stands still in a dark room. It smokes a little. Nothing else in the castle stands so still.",
+                        "How to beat it: cast Riddikulus. Each hit makes it smaller and sillier. A Novice needs three hits, an Adept two, an Expert two, and a Master one. On the last hit it bursts into laughter and smoke.",
+                        "Walk away and it hides again in a few breaths, whole and unhurt. It does not forget. Neither should you."
                 )),
                 page("On giants", List.of(
                         "A giant stands more than three men tall and wanders the deepest forest alone, muttering to itself and pulling at the trees.",

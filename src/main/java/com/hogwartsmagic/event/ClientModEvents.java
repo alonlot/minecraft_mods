@@ -1035,6 +1035,8 @@ public class ClientModEvents {
                 com.hogwartsmagic.client.renderer.MerpersonRenderer::new);
         event.registerEntityRenderer(ModEntities.GRINDYLOW.get(),
                 com.hogwartsmagic.client.renderer.GrindylowRenderer::new);
+        event.registerEntityRenderer(ModEntities.BOGGART.get(),
+                com.hogwartsmagic.client.renderer.BoggartRenderer::new);
         event.registerEntityRenderer(ModEntities.WHOMPING_WILLOW.get(),
                 com.hogwartsmagic.client.renderer.WhompingWillowRenderer::new);
         event.registerEntityRenderer(ModEntities.LIVING_STATUE.get(),

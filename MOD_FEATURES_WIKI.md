@@ -358,6 +358,15 @@ Each spell below lists the implemented gameplay behavior currently present in th
 - Sends the consumed block item flying magically back into place before restoring the block.
 - Does not repair block-entity blocks or impossible states.
 
+### Riddikulus
+
+- The charm against a Boggart. Pink beam with note and happy villager particles.
+- Each hit on a Boggart makes it smaller and sillier and stops its attack for three seconds.
+- Hits to banish a Boggart by rank: Novice 3, Adept 2, Expert 2, Master 1. The last hit bursts it into laughter and smoke, with no drops.
+- Each hit also clears the Boggart's darkness and slowness from every player near it.
+- On any other target it does no damage. The target glows for two seconds and gets a ring of notes.
+- The spellbook is uncommon chest loot and a villager trade.
+
 ## Mobs and Major Entities
 
 ### Whomping Willow
@@ -525,6 +534,16 @@ Each spell below lists the implemented gameplay behavior currently present in th
 - Supports beam clashes.
 - Gives Elder Wand casts priority in beam clashes.
 - Contains major block-hit logic for utility spells.
+
+### Boggart
+
+- A shape-shifter with no shape of its own. It spawns in dark covered places in the Forbidden Forest and the Dementor Fen, at most one per 64 blocks.
+- Hidden, it stands still as a dark violet shadow and gives off a little smoke.
+- When a player comes within 8 blocks with line of sight, it takes the shape of the creature that has killed that player most often. A wizard killer gives a Dementor. No recorded deaths give an Acromantula.
+- Revealed, it is a slow melee monster (24 health, 2 damage). Every two seconds it pulses fear: Darkness to players within 6 blocks and Slowness to players within 3.
+- Riddikulus shrinks it per hit and banishes it after enough hits (see the spell). It cannot attack while it laughs.
+- With no player within 16 blocks for ten seconds it hides again, heals to full and forgets its hits.
+- The spawn egg is dark violet.
 
 ## Blocks
 
@@ -1211,6 +1230,7 @@ The mod includes advancement progression for:
 - Defeating Voldemort.
 - Letting dark magic take your soul to Lost (A Torn Soul).
 - Coming back from Lost to a Clean soul (Redemption).
+- Laughing a Boggart away (Riddikulus!).
 
 ## Notes and Honest Caveats
 

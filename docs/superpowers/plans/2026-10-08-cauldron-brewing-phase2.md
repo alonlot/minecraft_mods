@@ -56,9 +56,9 @@
 24. **The choice screen** opens on the client when the local player becomes stone, but only once no other screen is open (so it never replaces the world-loading screen or open chat); it also opens on login as stone. "Wait for rescue" closes it; "Give in" sends `GiveInPacket` once and closes it; Esc = wait. It does not pause; the chat key opens chat from it. It closes itself when the stone state ends. HUD line (no screen open): "You are petrified. Press [key] to give in." centred 24 px below the screen centre, drawn from `BasiliskGazeGuiMixin` (Forge 51 has no HUD event).
 25. **The key** `key.hogwartsmagic.give_in` defaults to **J**, not G: G is already the Grimoire key (`ClientModEvents.GRIMOIRE_KEY`), and a shared default would make one of them dead. The HUD line names whatever key is bound.
 26. **The network protocol** goes up by one from whatever `SpellPackets` declares when Task 6 runs (Dark Magic Phase 1 raises it first). `GiveInPacket` is an empty record, registered last in `register()`.
-27. **Statues keep the mob:** `PetrifiedRemainsEntity.fromLiving` stores `victim.saveWithoutId(new CompoundTag())` minus `Health, DeathTime, HurtTime, HurtByTimestamp, active_effects, Fire, FallDistance, Motion, Passengers, leash` under `StoredMob`, for non-bosses only. It is saved with the statue and never synced, so `PetrifiedRemainsRenderer` (which builds its surrogate from the synced type) is unchanged. A boss statue stays cosmetic and cannot be revived.
+27. **Statues keep the mob:** `PetrifiedRemainsEntity.fromLiving` stores `victim.saveWithoutId(new CompoundTag())` minus `Health, DeathTime, HurtTime, HurtByTimestamp, Fire, FallDistance, Motion, Passengers, leash, SleepingX, SleepingY, SleepingZ, TicksFrozen, HasVisualFire` under `StoredMob`, for non-bosses only. `active_effects`, `attributes` and `Brain` are kept: effects add permanent attribute modifiers saved in `attributes`, so stripping the effects alone would leave a revived mob slowed forever. It is saved with the statue and never synced, so `PetrifiedRemainsRenderer` (which builds its surrogate from the synced type) is unchanged. A boss statue stays cosmetic and cannot be revived.
 28. **No loot, no XP:** `LivingDropsEvent` and `LivingExperienceDropEvent` handlers (LOWEST, guard) cancel for a non-player, non-boss entity that has `basilisk_petrification` (the 60-tick effect outlives the 20-tick death animation). Bosses keep their drops (the old rule). Breaking a statue loses the mob and its items (spec item 9).
-29. **The revive:** `type.create(level)`, `load(StoredMob)` when present (a statue from an older world has none: a fresh mob, no `finalizeSpawn`), a new random UUID if the old one is still in the level (the corpse lasts 20 ticks), `moveTo` the statue's position and yaw, body and head yaw, `deathTime = 0`, full health, petrification and gaze effects removed, `addFreshEntity`, statue discarded, a stone burst (30 stone block particles and `STONE_BREAK` at pitch 0.8), and an action bar line to the rescuer.
+29. **The revive:** `type.create(level)`, `load(StoredMob)` when present (a statue from an older world has none: a fresh mob, no `finalizeSpawn`), a new random UUID if the old one is still in the level (the corpse lasts 20 ticks), `moveTo` the statue's position and yaw, body and head yaw, `deathTime = 0`, full health, `addFreshEntity`, statue discarded, a stone burst (30 stone block particles and `STONE_BREAK` at pitch 0.8), and an action bar line to the rescuer. After loading the stored data, the revive calls removeAllEffects() so vanilla removes the effects' attribute modifiers; attributes and Brain are kept.
 30. **Lines:** to the stone player on petrify (chat): "You are turned to stone..."; on a cure by someone else, both get a chat line ("X brought you back." / "You brought X back."); a cure with no other player as rescuer (the thrower of the splash has logged out, so the projectile has no owner) gets "The stone falls away."; time limit: "You have been stone too long. You give in."
 31. **Felix drink:** 16 `WAX_ON` particles and `AMETHYST_BLOCK_CHIME` at pitch 1.6 and an action bar line; Dittany: 8 `HAPPY_VILLAGER`; Mandrake drink: an action bar line.
 32. **Guide:** nine new pages at the end of the Potions section: the four recipes (two pages each for Living Death and Felix, which have six or seven steps), how to use the Mandrake Draught, where ingredients come from and "Turned to stone". The basilisk page is unchanged. `MOD_FEATURES_WIKI.md` and `wiki/` are Phase 3.
@@ -676,12 +676,13 @@ class PetrificationRulesTest {
 
     @Test
     void aStatueKeepsWhoTheMobWas() {
-        for (String key : List.of("Health", "DeathTime", "HurtTime", "HurtByTimestamp", "active_effects", "Fire",
-                "FallDistance", "Motion", "Passengers", "leash")) {
+        for (String key : List.of("Health", "DeathTime", "HurtTime", "HurtByTimestamp", "Fire", "FallDistance",
+                "Motion", "Passengers", "leash", "SleepingX", "SleepingY", "SleepingZ", "TicksFrozen",
+                "HasVisualFire")) {
             assertTrue(PetrificationRules.STRIPPED_MOB_KEYS.contains(key), key);
         }
         for (String key : List.of("UUID", "CustomName", "Owner", "Pos", "Rotation", "HandItems", "ArmorItems",
-                "Inventory", "Offers", "Tags")) {
+                "Inventory", "Offers", "Tags", "active_effects", "attributes", "Brain")) {
             assertFalse(PetrificationRules.STRIPPED_MOB_KEYS.contains(key), key);
         }
     }
@@ -724,7 +725,10 @@ public final class PetrificationRules {
     public enum GazeOutcome {
         /** A survival or adventure player: stone, with the choice to wait or give in. */
         PETRIFY,
-        /** Everyone else, bosses included: the old lethal rule (a mob leaves a statue). */
+        /**
+         * Everyone else, bosses included: the old lethal rule (a mob leaves a statue). For creative and spectator
+         * players this path is harmless: the magic damage does not bypass invulnerability.
+         */
         KILL
     }
 
@@ -742,9 +746,15 @@ public final class PetrificationRules {
     /** Mobs this close that still target a stone player lose the target. */
     public static final int TARGET_CLEAR_RADIUS = 32;
     public static final int CHECK_INTERVAL_TICKS = 20;
-    /** What a statue drops from the mob's save: the death itself and anything that would duplicate or misplace it. */
+    /**
+     * What a statue drops from the mob's save: the death itself and anything that would duplicate or misplace it.
+     * active_effects is kept on purpose: effects add permanent attribute modifiers saved in attributes, so the revive
+     * loads the effects and calls removeAllEffects() to let vanilla take those modifiers off. attributes and Brain are
+     * kept.
+     */
     public static final List<String> STRIPPED_MOB_KEYS = List.of("Health", "DeathTime", "HurtTime",
-            "HurtByTimestamp", "active_effects", "Fire", "FallDistance", "Motion", "Passengers", "leash");
+            "HurtByTimestamp", "Fire", "FallDistance", "Motion", "Passengers", "leash", "SleepingX", "SleepingY",
+            "SleepingZ", "TicksFrozen", "HasVisualFire");
 
     private PetrificationRules() {
     }
@@ -2062,7 +2072,9 @@ public final class Petrification {
         long now = now(player);
         if (PetrificationRules.dueCheck(now, player.getId())) {
             clearHunters(player);
-            long since = PlayerMagicData.getModData(player).getLong(PetrificationRules.KEY_SINCE);
+            CompoundTag stoneData = PlayerMagicData.getModData(player);
+            long since = stoneData.contains(PetrificationRules.KEY_SINCE)
+                    ? stoneData.getLong(PetrificationRules.KEY_SINCE) : now; // a missing start counts as now
             if (PetrificationRules.limitReached(since, now, Config.getPetrificationMaxSeconds())) {
                 player.displayClientMessage(Component.translatable("message.hogwartsmagic.petrification.time_up")
                         .withStyle(ChatFormatting.GRAY), false);
@@ -2169,6 +2181,8 @@ public final class Petrification {
     }
 }
 ```
+
+Keys rule (binding): `Petrified` and `PetrifiedSince` are always written together (in `petrify`) and removed together (in `clearFlag`). A missing `PetrifiedSince` is treated as the current game time, so a hand-edited or partial save never trips the time limit at once.
 
 - [ ] **Step 4: `PetrificationEvents`.** Create `src/main/java/com/hogwartsmagic/petrification/PetrificationEvents.java`:
 
@@ -2610,6 +2624,7 @@ and replace it with:
         if (!stored.isEmpty()) {
             mob.load(stored);
         }
+        mob.removeAllEffects(); // vanilla also takes off the attribute modifiers the stored effects added
         if (level.getEntity(mob.getUUID()) != null) {
             mob.setUUID(net.minecraft.util.Mth.createInsecureUUID(level.getRandom())); // the corpse is still here
         }
@@ -2618,11 +2633,6 @@ and replace it with:
         mob.setYHeadRot(statue.getStoredHeadYaw());
         mob.deathTime = 0;
         mob.setHealth(mob.getMaxHealth());
-        Holder<MobEffect> holder = stone();
-        if (holder != null) {
-            mob.removeEffect(holder);
-        }
-        mob.removeEffect(ExampleMod.BASILISK_GAZE.getHolder().get());
         level.addFreshEntity(mob);
         statue.discard();
         stoneBurst(level, mob);

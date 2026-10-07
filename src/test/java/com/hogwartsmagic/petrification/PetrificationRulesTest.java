@@ -85,12 +85,13 @@ class PetrificationRulesTest {
 
     @Test
     void aStatueKeepsWhoTheMobWas() {
-        for (String key : List.of("Health", "DeathTime", "HurtTime", "HurtByTimestamp", "active_effects", "Fire",
-                "FallDistance", "Motion", "Passengers", "leash")) {
+        for (String key : List.of("Health", "DeathTime", "HurtTime", "HurtByTimestamp", "Fire", "FallDistance",
+                "Motion", "Passengers", "leash", "SleepingX", "SleepingY", "SleepingZ", "TicksFrozen",
+                "HasVisualFire")) {
             assertTrue(PetrificationRules.STRIPPED_MOB_KEYS.contains(key), key);
         }
         for (String key : List.of("UUID", "CustomName", "Owner", "Pos", "Rotation", "HandItems", "ArmorItems",
-                "Inventory", "Offers", "Tags")) {
+                "Inventory", "Offers", "Tags", "active_effects", "attributes", "Brain")) {
             assertFalse(PetrificationRules.STRIPPED_MOB_KEYS.contains(key), key);
         }
     }

@@ -14,7 +14,10 @@ public final class PetrificationRules {
     public enum GazeOutcome {
         /** A survival or adventure player: stone, with the choice to wait or give in. */
         PETRIFY,
-        /** Everyone else, bosses included: the old lethal rule (a mob leaves a statue). */
+        /**
+         * Everyone else, bosses included: the old lethal rule (a mob leaves a statue). For creative and spectator
+         * players this path is harmless: the magic damage does not bypass invulnerability.
+         */
         KILL
     }
 
@@ -32,9 +35,15 @@ public final class PetrificationRules {
     /** Mobs this close that still target a stone player lose the target. */
     public static final int TARGET_CLEAR_RADIUS = 32;
     public static final int CHECK_INTERVAL_TICKS = 20;
-    /** What a statue drops from the mob's save: the death itself and anything that would duplicate or misplace it. */
+    /**
+     * What a statue drops from the mob's save: the death itself and anything that would duplicate or misplace it.
+     * active_effects is kept on purpose: effects add permanent attribute modifiers saved in attributes, so the revive
+     * loads the effects and calls removeAllEffects() to let vanilla take those modifiers off. attributes and Brain are
+     * kept.
+     */
     public static final List<String> STRIPPED_MOB_KEYS = List.of("Health", "DeathTime", "HurtTime",
-            "HurtByTimestamp", "active_effects", "Fire", "FallDistance", "Motion", "Passengers", "leash");
+            "HurtByTimestamp", "Fire", "FallDistance", "Motion", "Passengers", "leash", "SleepingX", "SleepingY",
+            "SleepingZ", "TicksFrozen", "HasVisualFire");
 
     private PetrificationRules() {
     }

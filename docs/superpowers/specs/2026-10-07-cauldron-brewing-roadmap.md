@@ -352,12 +352,15 @@ with JEI, moving Polyjuice into the cauldron, Veritaserum, Wolfsbane.
 
 ---
 
-## Questions for the user before Phase 1 is planned
+## User answers (2026-10-07)
 
-1. **In-world steps or a GUI?** This doc picks in-world (decision 1). A GUI is about half the work,
-   but it is less fun.
-2. **Felix Felicis strength:** Luck III and +25% mastery XP for 3 minutes, from a 10-minute brew. Too
-   strong or too weak?
+1. **In-world steps, not a GUI** (decision 1).
+2. **Felix Felicis strength is OK:** Luck III and +25% mastery XP for 3 minutes, from a 10-minute
+   brew, 1 dose.
+3. **Petrification freezes** with a give-in choice (see "Petrification").
+4. **Polyjuice moves to the cauldron,** and the stand recipes go in Phase 1 (decision 10).
+
+No questions are open. Phase 1 can be planned.
 
 ---
 

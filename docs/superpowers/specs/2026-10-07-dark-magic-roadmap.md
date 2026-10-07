@@ -149,20 +149,27 @@ Line numbers drift. Find each spot by its text.
    - **Lost:** Death Eaters do not attack you unless you attack them first (Voldemort still does; the
      boss stays a fight). A Morsmordre sky raid that you start gives you a Death Eater escort that
      follows you for 5 minutes, instead of a raid near you (the design doc's Morsmordre Master).
-9. **Decay.** While Darkness is below 80 and you have cast no dark spell for 10 minutes, it falls by
-   1 every 2 minutes (2400 ticks). From 60 to 0 that is about 2 hours of play. At 80 and above it
-   **does not decay with time.** A torn soul needs an act, not a wait.
-10. **Redemption (the act):** a Heal that heals another living thing that was hurt (not yourself)
-    removes 2 Darkness, at most once per Heal cooldown window (the `MasteryAwards` window). This
-    works at every tier, and it is the only way down from Lost. It ties the cure to the "light"
-    spell, and it does not need a new item.
+9. **Decay (user ruling, 2026-10-07): slow, and at every tier.** While you have cast no dark spell
+   for 10 minutes, Darkness falls by 1 every 30 minutes of play (36000 ticks). **From 100 to 0 that
+   is 50 hours.** From Corrupted (60) to Clean it is 30 hours. Lost decays too; the first draft's
+   "no time decay at Lost" is replaced by this. Only online time counts (the player tick runs the
+   decay), and the Horcrux floor (decision 4) still applies.
+   Gaining is fast and losing is slow, on purpose: dark magic marks you for a long time.
+10. **Redemption (the act), capped so it cannot beat the 50 hours.** A Heal that heals another
+    living thing that was hurt (not yourself) removes 1 Darkness, **at most once per 30 minutes of
+    play**. So active redemption at most doubles the decay rate: 100 to 0 in about 25 hours for a
+    player who heals someone every half hour. Without the cap, healing villagers for about 10
+    minutes would clear 100 points, and the decay time would mean nothing. It ties the way back to
+    the "light" spell, and it needs no new item.
 11. **The client sees its own tier only.** One new packet `SyncDarkMagicPacket(float)` (the protocol
     goes from 6 to 7). Other players see only the smoke particles at tier 3+. No chat line or UI
     names another player's tier.
 12. **UI:** the Grimoire shows a "Soul" line in its header (the tier name, with the colour going
     from white to dark green). The mana bar turns a dark green-black from tier 3. No new HUD bar.
 13. **Config** (COMMON, synced like the mastery config): `enableDarkMagic` (default true; off means
-    no gain, and all tiers read as 0), `darkMagicGainMultiplier` (1.0), `darkMagicDecayTicks` (2400).
+    no gain, and all tiers read as 0), `darkMagicGainMultiplier` (1.0), `darkMagicDecayTicks` (36000),
+    `darkMagicRedemptionTicks` (36000). Testers lower the two tick values (or use `/darkmagic set`)
+    to check decay without playing 50 hours.
 14. **Existing players start at 0.** There is no record of past dark casts to backfill from.
 15. **A debug command** `/darkmagic get|set|add <player> [value]` (op level 2), like `/spellmastery`.
 16. **NPC casters have no Darkness.** Death Eaters cast Avada with no cost, as today.
@@ -227,14 +234,16 @@ gains slower), and Dementors that ignore Lost players.
 
 ---
 
-## Questions for the user before Phase 1 is planned
+## User answers (2026-10-07)
 
-1. **Temptation:** are you OK that a dark player gets real rewards (cheaper dark spells, safe passage
-   past Death Eaters, an escort)? Without them, my strong opinion is that players avoid dark spells
-   and the system is only a tax.
-2. **Speed:** with the table above, about 30 Crucio casts make you Corrupted, and it takes about two
-   hours to decay back. Too fast, too slow?
-3. **Lost has no time decay**, only Heal on others. Is that too harsh for a single-player world?
+1. **Rewards for dark players:** keep them. (The user thinks players would use dark spells without
+   them too, but accepts them.)
+2. **Gain speed:** the table in decision 3 stays.
+3. **Decay:** 100 to 0 in about 50 hours, at every tier (decision 9). Redemption through Heal is
+   capped so it at most halves that (decision 10).
+4. **Lost costs:** -2 max health, no night Dementors (decision 7).
+
+No questions are open. Phase 1 can be planned.
 
 ---
 

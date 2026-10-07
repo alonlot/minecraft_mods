@@ -766,6 +766,7 @@ public class ClientModEvents {
     public static void onRegisterKeyMappings(net.minecraftforge.client.event.RegisterKeyMappingsEvent event) {
         event.register(WAND_RADIAL_MENU_KEY);
         event.register(GRIMOIRE_KEY);
+        event.register(com.hogwartsmagic.client.PetrificationClient.GIVE_IN_KEY);
         for (KeyMapping spellSlotKey : SPELL_SLOT_KEYS) {
             event.register(spellSlotKey);
         }

@@ -17,7 +17,8 @@ public abstract class PossessionTurnMixin {
 
     @Inject(method = "turn(DD)V", at = @At("HEAD"), cancellable = true)
     private void hogwartsmagic$possessionTurn(double yaw, double pitch, CallbackInfo ci) {
-        if (PossessionClient.interceptTurn((Entity) (Object) this, yaw, pitch)) {
+        if (com.hogwartsmagic.client.PetrificationClient.blocksTurn((Entity) (Object) this)
+                || PossessionClient.interceptTurn((Entity) (Object) this, yaw, pitch)) {
             ci.cancel();
         }
     }

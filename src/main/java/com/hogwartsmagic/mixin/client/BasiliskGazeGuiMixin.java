@@ -27,5 +27,6 @@ public abstract class BasiliskGazeGuiMixin {
     private void hogwartsmagic$renderBasiliskGaze(GuiGraphics guiGraphics, DeltaTracker deltaTracker,
                                                   CallbackInfo ci) {
         BasiliskGazeOverlay.render(guiGraphics);
+        com.hogwartsmagic.client.PetrificationClient.renderHud(guiGraphics);
     }
 }

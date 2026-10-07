@@ -195,6 +195,7 @@ Line numbers drift. Find each spot by its text.
 - Sync on login, respawn and dimension change. `SyncDarkMagicPacket`, protocol 7.
 - Config values and their sync. The `/darkmagic` command.
 - The Grimoire "Soul" line and the mana bar tint.
+- Sneakoscope Part B: players at Corrupted or Lost set off a Sneakoscope (`2026-10-07-sneakoscope-design.md`).
 
 **Done when:** casting dark spells moves you up the tiers with a message at each change, decay
 brings you down, the number survives death and relog, the Grimoire shows your tier, the toggle turns

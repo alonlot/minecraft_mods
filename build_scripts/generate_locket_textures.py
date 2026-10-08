@@ -55,6 +55,14 @@ def hexc(h):
 
 GOLD = [hexc(c) for c in ("#2a1608", "#5a3410", "#8e5416", "#c27d1c", "#e0a526", "#f6cf48", "#fff0a0", "#fffbe6")]
 EMER = [hexc(c) for c in ("#07201a", "#0d4a2e", "#168a4b", "#35c46f", "#8ef0ac", "#e2fff0")]
+
+
+def mute(c, k=0.10):
+    lum = int(0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2])
+    return tuple(int(round(v + (lum - v) * k)) for v in c[:3]) + (255,)
+
+
+GOLD[4], GOLD[5] = mute(GOLD[4]), mute(GOLD[5])
 FRAMES = 8
 CX, CY = 16, 19
 
@@ -109,6 +117,8 @@ def locket_base():
                 col -= 1
             gold[(x, y)] = col
             gold[(x + 1 if side == 0 else x - 1, y)] = col
+            if i % 3 == 2:
+                gold[(x, y)] = 1
     # Bail: 4x4 ring with a 2x2 hole.
     for y in range(5, 9):
         for x in range(14, 18):
@@ -128,18 +138,18 @@ def locket_base():
         l = lit(x, y, 8.6, 9.6)
         if p in field:
             if edge_layer(p, field) == 1:  # recess wall: in shadow top-left, catching light bottom-right
-                gold[p] = 2 if l > 0.15 else (5 if l < -0.35 else 3)
+                gold[p] = 2 if l > 0.15 else 3
             else:
-                gold[p] = 4 if (x + y) < 38 else 3
+                gold[p] = 4 if (x + y) < 33 + (0, 1, 1, 0, 2)[y % 5] else 3
         else:
             e = edge_layer(p, body, 2)
             if e == 1 and l < -0.3:
-                gold[p] = 3  # warm bounce light just inside the dark outline
+                gold[p] = 3 if 19 <= y <= 21 else 2  # a short staggered bounce run, not a full highlight ring
             elif e == 2 and l < -0.45:
                 gold[p] = 2
             elif l > 0.75:
-                gold[p] = 6
-            elif l > 0.3:
+                gold[p] = 6 if 13 <= y <= 15 else 5
+            elif l > 0.45:
                 gold[p] = 5
             elif l > -0.2:
                 gold[p] = 4
@@ -155,12 +165,12 @@ def locket_base():
             if (15, y) in field and (y < 15 or y > 23):
                 gold[(15, y)] = 5
     # Latch.
-    for p, c in (((15, 27), 5), ((16, 27), 5), ((17, 27), 3), ((15, 28), 2), ((16, 28), 2), ((17, 28), 1)):
+    for p, c in (((15, 27), 4), ((16, 27), 3), ((17, 27), 3), ((15, 28), 2), ((16, 28), 2), ((17, 28), 1)):
         gold[p] = c
     # Specular on the top-left rim.
-    for p in ((11, 12), (12, 12), (11, 13), (12, 11), (10, 13)):
+    for p in ((9, 14), (9, 15), (10, 13)):
         if p in body and p not in field:
-            gold[p] = 7 if p in ((11, 12), (12, 12), (11, 13)) else 6
+            gold[p] = 7 if p == (9, 14) else 6
     # The S, built from small stones, shaded by form.
     cells = [(S_X0 + c, S_Y0 + r) for r, row in enumerate(S_ROWS) for c, ch in enumerate(row) if ch == "#"]
     cellset = set(cells)
@@ -176,12 +186,16 @@ def locket_base():
         if not dn and not left:
             v = 2
         stone[(x, y)] = v
-    # 1px inline separating the S from the gold, darker on the lower right.
+    # 1px inline on every gold pixel touching the S (also where it meets the rim); the lit side is warm brown,
+    # the shaded side near-black, decided by the summed direction like the outer outline.
+    acc = {}
     for (x, y) in cells:
         for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
             q = (x + dx, y + dy)
-            if q not in cellset and q in field:
-                gold[q] = 0 if (dx > 0 or dy > 0) else 1
+            if q not in cellset and q in gold:
+                acc[q] = acc.get(q, 0) - dx - dy
+    for q, k in acc.items():
+        gold[q] = 1 if k >= 0 else 0
     return gold, stone, cells
 
 
@@ -215,7 +229,7 @@ def locket_frame(f, gold, stone, cells):
         px[p] = GOLD[i]
     # Gleam band sweeping top-left to bottom-right over frames 1..5, brightening gold only.
     if 1 <= f <= 5:
-        centre = 16 + (f - 1) * 7
+        centre = 21 + (f - 1) * 5
         for p, i in gold.items():
             if i <= 1:
                 continue

@@ -29,7 +29,7 @@ CORK = [hexc(c) for c in ("#3a2312", "#6b4423", "#94622f", "#bd8a4a", "#dcb06a")
 OUT_LIT, OUT_MID, OUT_DARK = hexc("#4a5f88"), hexc("#33446a"), hexc("#1e2a44")
 G_HI = hexc("#f2fbff")
 G_RIM_LIT, G_RIM_MID, G_RIM_DARK = hexc("#9db6d8"), hexc("#5c6f9c"), hexc("#3a4b78")
-G_TINT = hexc("#9cc0e8", 120)
+G_TINT = hexc("#cfe2f5", 160)
 G_SHADE = hexc("#5c6f9c", 130)
 
 
@@ -80,57 +80,74 @@ INNER = {p for p in GLASS if not edge1(p, GLASS)}
 BODY_C = (CX, 22.0)
 
 
-def liquid_mask():
-    liq = set()
-    for (x, y) in INNER:
-        if y < 17:
-            continue
-        if y >= 19 or ell(x, y, CX, 18.0, 7.0, 1.5) <= 1:
-            liq.add((x, y))
-    return liq
+def surface_top(x, f):
+    """Ragged, slowly breathing top edge of the memory (y16..19); loops over 8 frames."""
+    return 18 + int(round(1.1 * math.sin(0.85 * x + 2 * math.pi * f / FRAMES)))
 
 
-LIQ = liquid_mask()
+def liquid_mask(f):
+    return {(x, y) for (x, y) in INNER if y >= 16 and y >= surface_top(x, f)}
+
+
+def rim_touch(p):
+    x, y = p
+    return any((x + dx, y + dy) not in INNER for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)))
 
 
 def liquid_index(x, y, f):
-    """Silver ramp index for the liquid mass: lit top-left, a crescent of shadow bottom-right."""
-    if y <= 19 and ell(x, y, CX, 18.0, 7.0, 1.5) <= 1:  # surface ellipse
-        top = 5 if (f % 2 == 0) else 4
-        if (x, y) in ((11, 18), (12, 18)) or (y == 17 and x in (12, 13)):
-            return top
-        if y >= 19:
-            return 3
-        return 4
-    if ell(x, y, CX - 2.0, 22 - 2.4, 9.2, 8.0) > 1:
-        return 0 if ell(x, y, CX - 3.6, 22 - 4.2, 9.2, 8.0) > 1 else 1
-    if ell(x, y, CX - 3.4, 22 - 3.4, 5.4, 4.6) <= 1:
+    """Silver mass: M3 base, M4 lit upper-left, a 2px M2 crescent bottom-right, M1 only where it touches the rim."""
+    shade_side = x > CX or y > 24
+    if shade_side and rim_touch((x, y)):
+        return 1
+    if shade_side and ell(x, y, CX - 2.2, 22 - 2.2, 8.0, 7.0) > 1:
         return 2
-    return 1
+    if ell(x, y, CX - 3.6, 22 - 3.8, 4.8, 4.0) <= 1:
+        return 4
+    return 3
+
+
+# Soft curls of memory drifting upward: (x, top y, bottom y, phase offset, curl offsets). Brightness fades in and
+# out over the cycle (zero at the wrap), so each loop is seamless and the curls never cross.
+CURLS = (
+    (10, 21, 28, 0, ((0, 0), (1, 0), (2, -1), (3, -1), (4, -2))),
+    (17, 20, 27, 3, ((0, 0), (1, -1), (1, -2), (2, -3), (3, -3))),
+    (13, 23, 28, 5, ((0, 0), (1, 0), (2, -1), (3, -1))),
+    (19, 24, 28, 7, ((0, 0), (1, -1), (2, -1))),
+)
+
+
+def shape_set(shape, dx, dy):
+    return {(dx, dy)} & set(shape)
 
 
 def wisp_pixels(f):
-    """Strands of memory as {(x,y): ramp index}. Phase advances one eighth per frame so the loop is seamless."""
+    """{(x,y): RGBA} for the curls and the neck wisp."""
     out = {}
+    for x0, top, bot, off, shape in CURLS:
+        t = ((f + off) % FRAMES) / FRAMES
+        env = math.sin(math.pi * t)
+        if env < 0.12:
+            continue
+        y0 = bot - int(round(t * (bot - top)))
+        sway = int(round(math.sin(2 * math.pi * t)))
+        for k, (dx, dy) in enumerate(shape):
+            c = M[5] if (env > 0.45 and k in (1, 2)) else M[4]
+            out[(x0 + sway + dx, y0 + dy)] = c
+            if env > 0.3 and (dx, dy) not in shape_set(shape, dx, dy + 1):
+                out.setdefault((x0 + sway + dx, y0 + dy + 1), M[2])
+    # Neck wisp: a soft M4 column with M3 edges, one pixel of wobble, fading out at the top.
     ph = f / FRAMES
-    # Two swirling strands inside the body plus a thin one near the shadow side.
-    for x0, amp, k, lo, hi, off in ((13.0, 1.7, 1.6, 20, 28, 0.0), (18.0, 1.7, 1.6, 20, 28, 0.55)):
-        for y in range(lo, hi + 1):
-            x = int(round(x0 + amp * math.sin(2 * math.pi * ((y - lo) / 8.0 * k + ph + off))))
-            idx = 5 if ((y + f) % 4 == 0) else 4
-            if y in (hi, lo):
-                idx = 3
-            out[(x, y)] = idx
-            out[(x + 1, y)] = 3 if idx == 4 else 4
-    # Rising wisp: leaves the surface and climbs the neck, two pixels wide, wavering by one pixel.
-    top = 11 + int(round(1.5 * math.sin(2 * math.pi * ph)))
-    for y in range(top, 19):
-        a = 14 + int(round(0.5 + 0.5 * math.sin(2 * math.pi * ((y / 6.0) + ph))))
-        idx = 3 if y > 13 else 4
-        if y == top:
-            idx = 5
-        out[(a, y)] = idx
-        out[(a + 1, y)] = idx - 1 if y > top else 3
+    top = 11 + int(round(1.0 * math.sin(2 * math.pi * ph)))
+    for y in range(top, 18):
+        w = int(round(0.5 + 0.5 * math.sin(2 * math.pi * (y / 7.0 + ph))))
+        fade = 90 if y == top else 150 if y == top + 1 else 220 if y == top + 2 else 255
+        core = M[4][:3] + (fade,)
+        edge = M[3][:3] + (fade * 0.8 if fade < 255 else 200,)
+        edge = edge[:3] + (int(edge[3]),)
+        out[(15 + w, y)] = core
+        out[(16 + w, y)] = core
+        out[(14 + w, y)] = edge
+        out[(17 + w, y)] = edge
     return out
 
 
@@ -175,30 +192,40 @@ def frame(f):
     for p, c in outline(CORK_M, CORK[0], CORK[0], CORK[0], GLASS).items():
         if p not in GLASS:
             px[p] = c
-    # Glass body: tinted and see-through, with a shaded lower right.
+    # Glass body: lit-from-within silver-blue tint, see-through, brighter against the inner rim.
     for (x, y) in GLASS:
         if edge1((x, y), GLASS):
             px[x, y] = glass_rim_colour(x, y)
+        elif y >= 14 and (x > CX + 1 and y > 20):
+            px[x, y] = G_SHADE
         else:
-            l = -((x - CX) / 9.2 ** 2 + (y - 22) / 8.4 ** 2)
-            px[x, y] = G_SHADE if (y >= 14 and l < -0.07) else G_TINT
+            px[x, y] = G_TINT
+    for (x, y) in INNER:
+        if y < 18 and rim_touch((x, y)):
+            px[x, y] = M[3][:3] + (150,)
     # Cork.
     for (x, y) in CORK_M:
         px[x, y] = cork_colour(x, y)
-    # Liquid, with a one-step brightness pulse on frames 3-4.
-    pulse = 1 if f in (3, 4) else 0
-    for (x, y) in LIQ:
+    # Liquid, with a one-step pulse of the lit mass on frames 3-4.
+    liq = liquid_mask(f)
+    pulse = f in (3, 4)
+    for (x, y) in liq:
         i = liquid_index(x, y, f)
-        px[x, y] = M[i + 1 if (pulse and i == 2 and y > 19) else i]
-    # Wisps (never over the glass rim).
-    for (x, y), i in wisp_pixels(f).items():
+        px[x, y] = M[5 if (pulse and i == 4) else i]
+    # Feathered surface: partial-alpha silver above the ragged edge so it reads as neither gas nor liquid.
+    for x in range(8, 24):
+        t = surface_top(x, f)
+        for dy, a_ in ((1, 215), (2, 130)):
+            q = (x, t - dy)
+            if q in INNER and q not in liq:
+                px[q] = M[4][:3] + (a_,)
+    # Curls and neck wisp (never over the glass rim).
+    for (x, y), c in wisp_pixels(f).items():
         if (x, y) in INNER:
-            px[x, y] = M[max(0, min(5, i))]
-    # Glass highlights stay fixed: streak on the body, on the neck, and a dot on the shoulder.
-    for y in range(18, 26):
-        # follow the left wall: 1px gap inside the rim
-        xs = [x for x in range(32) if (x, y) in GLASS]
-        px[min(xs) + 2, y] = G_HI
+            px[x, y] = c
+    # Glass highlights stay fixed: a short curved streak on the body, one on the neck, a dot on the shoulder.
+    for p in ((10, 18), (9, 19), (9, 20), (9, 21), (9, 22), (10, 23)):
+        px[p] = G_HI
     for y in (10, 11, 12):
         px[13, y] = G_HI
     px[11, 16] = G_HI
@@ -210,8 +237,8 @@ def frame(f):
         px[14, 10] = M[5]
     # Bottom shadow rows.
     for (x, y) in GLASS:
-        if y >= 29 and edge1((x, y), GLASS):
-            px[x, y] = G_RIM_DARK if (x + y) % 2 else M[0]
+        if y >= 30 and edge1((x, y), GLASS):
+            px[x, y] = G_RIM_DARK
     return img
 
 

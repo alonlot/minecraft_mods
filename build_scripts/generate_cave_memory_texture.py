@@ -101,8 +101,8 @@ def liquid_index(x, y, f):
         return 1
     if shade_side and ell(x, y, CX - 2.2, 22 - 2.2, 8.0, 7.0) > 1:
         return 2
-    if ell(x, y, CX - 3.6, 22 - 3.8, 4.8, 4.0) <= 1:
-        return 4
+    if ell(x, y, CX - 3.6, 22 - 3.8, 5.4, 4.6) <= 1:
+        return 5 if ell(x, y, CX - 5.0, 22 - 5.0, 2.2, 1.8) <= 1 else 4
     return 3
 
 
@@ -114,10 +114,6 @@ CURLS = (
     (13, 23, 28, 5, ((0, 0), (1, 0), (2, -1), (3, -1))),
     (19, 24, 28, 7, ((0, 0), (1, -1), (2, -1))),
 )
-
-
-def shape_set(shape, dx, dy):
-    return {(dx, dy)} & set(shape)
 
 
 def wisp_pixels(f):
@@ -133,8 +129,7 @@ def wisp_pixels(f):
         for k, (dx, dy) in enumerate(shape):
             c = M[5] if (env > 0.45 and k in (1, 2)) else M[4]
             out[(x0 + sway + dx, y0 + dy)] = c
-            if env > 0.3 and (dx, dy) not in shape_set(shape, dx, dy + 1):
-                out.setdefault((x0 + sway + dx, y0 + dy + 1), M[2])
+
     # Neck wisp: a soft M4 column with M3 edges, one pixel of wobble, fading out at the top.
     ph = f / FRAMES
     top = 11 + int(round(1.0 * math.sin(2 * math.pi * ph)))
@@ -183,6 +178,17 @@ def glass_rim_colour(x, y):
     return G_RIM_DARK
 
 
+def over(px, p, c):
+    """Alpha-composite c over the pixel already at p, so overlays never leave the glass more transparent."""
+    sa = c[3] / 255.0
+    d = px[p]
+    da = d[3] / 255.0
+    oa = sa + da * (1 - sa)
+    if oa <= 0:
+        return
+    px[p] = tuple(int(round((c[i] * sa + d[i] * da * (1 - sa)) / oa)) for i in range(3)) + (int(round(oa * 255)),)
+
+
 def frame(f):
     img = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
     px = img.load()
@@ -202,7 +208,7 @@ def frame(f):
             px[x, y] = G_TINT
     for (x, y) in INNER:
         if y < 18 and rim_touch((x, y)):
-            px[x, y] = M[3][:3] + (150,)
+            over(px, (x, y), M[3][:3] + (150,))
     # Cork.
     for (x, y) in CORK_M:
         px[x, y] = cork_colour(x, y)
@@ -211,18 +217,18 @@ def frame(f):
     pulse = f in (3, 4)
     for (x, y) in liq:
         i = liquid_index(x, y, f)
-        px[x, y] = M[5 if (pulse and i == 4) else i]
+        px[x, y] = M[5 if (pulse and i == 4) or i == 5 else i]
     # Feathered surface: partial-alpha silver above the ragged edge so it reads as neither gas nor liquid.
     for x in range(8, 24):
         t = surface_top(x, f)
         for dy, a_ in ((1, 215), (2, 130)):
             q = (x, t - dy)
             if q in INNER and q not in liq:
-                px[q] = M[4][:3] + (a_,)
+                over(px, q, M[4][:3] + (a_,))
     # Curls and neck wisp (never over the glass rim).
     for (x, y), c in wisp_pixels(f).items():
         if (x, y) in INNER:
-            px[x, y] = c
+            over(px, (x, y), c)
     # Glass highlights stay fixed: a short curved streak on the body, one on the neck, a dot on the shoulder.
     for p in ((10, 18), (9, 19), (9, 20), (9, 21), (9, 22), (10, 23)):
         px[p] = G_HI

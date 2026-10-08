@@ -46,7 +46,7 @@ import java.util.function.Predicate;
  * <h2>Trades</h2>
  *
  * <p>Each shop sells what its sign says and nothing else, so the alley is worth walking down: the
- * apothecaries are the only source of bottled ingredients, Quality Quidditch is the only place to
+ * apothecaries are the only shop for brewing ingredients, Quality Quidditch is the only place to
  * buy a Firebolt, and Borgin and Burkes is the only place that will sell you something it should
  * not.
  */
@@ -172,7 +172,7 @@ public class ModVillagers {
             List<SpellType> common = List.of(SpellType.LUMOS, SpellType.ALOHOMORA, SpellType.INCENDIO,
                     SpellType.REVELIO, SpellType.ARRESTO_MOMENTUM);
             List<SpellType> advanced = List.of(SpellType.WINGARDIUM_LEVIOSA, SpellType.PROTEGO,
-                    SpellType.EXPELLIARMUS, SpellType.STUPEFY, SpellType.REPARO);
+                    SpellType.EXPELLIARMUS, SpellType.STUPEFY, SpellType.REPARO, SpellType.RIDDIKULUS);
             sellsBook(event, 1, common, 14, 6, 12, 5);
             buys(event, 1, ExampleMod.WOLF_FANG.get(), 1, 2, 16, 2);
             sellsBook(event, 2, advanced, 24, 8, 12, 10);
@@ -187,8 +187,12 @@ public class ModVillagers {
 
         } else if (p == APOTHECARY.get()) {
             sells(event, 1, 5, 3, some(ExampleMod.GILLYWEED, 2), 12, 2);
+            sells(event, 1, 6, 1, some(ExampleMod.DITTANY, 2), 12, 2);
+            sells(event, 1, 4, 1, some(ExampleMod.VALERIAN_SPRIGS, 2), 12, 2);
             buys(event, 1, ExampleMod.MANDRAKE_ROOT.get(), 2, 3, 16, 2);
             sells(event, 2, 9, 4, one(ExampleMod.MOONLIT_PHIAL), 8, 5);
+            sells(event, 2, 8, 1, one(ExampleMod.ASPHODEL), 12, 5);
+            sells(event, 2, 6, 1, some(ExampleMod.WORMWOOD, 2), 12, 5);
             buys(event, 2, ExampleMod.ACROMANTULA_VENOM.get(), 1, 5, 12, 5);
             sells(event, 3, 14, 5, one(ExampleMod.ARCANE_DUST), 10, 10);
             sells(event, 3, 12, 4, one(ExampleMod.WIZARD_CAULDRON_ITEM), 4, 10);
@@ -198,7 +202,7 @@ public class ModVillagers {
         } else if (p == BOOKSELLER.get()) {
             List<SpellType> common = List.of(SpellType.LUMOS, SpellType.ALOHOMORA, SpellType.REVELIO);
             List<SpellType> advanced = List.of(SpellType.WINGARDIUM_LEVIOSA, SpellType.PROTEGO,
-                    SpellType.REPARO, SpellType.STUPEFY);
+                    SpellType.REPARO, SpellType.STUPEFY, SpellType.COLLOPORTUS);
             sells(event, 1, 6, 3, one(ExampleMod.HOGWARTS_GUIDE), 8, 2);
             buys(event, 1, Items.PAPER, 24, 1, 16, 2);
             sellsBook(event, 2, common, 12, 5, 12, 5);
@@ -281,6 +285,7 @@ public class ModVillagers {
             buys(event, 1, Items.ROTTEN_FLESH, 24, 1, 16, 2);
             buys(event, 1, Items.BONE, 16, 1, 16, 2);
             sells(event, 2, 12, 5, one(ExampleMod.GOBLIN_SILVER_DAGGER), 4, 10);
+            sells(event, 2, 14, 1, one(ExampleMod.SNEAKOSCOPE_ITEM), 4, 10); // always exactly 14 emeralds
             sells(event, 3, 18, 6, one(ExampleMod.CURSED_GALLEON), 4, 15);
             sells(event, 4, 26, 8, one(ExampleMod.CENTAUR_TALISMAN), 2, 20);
             sells(event, 5, 40, 10, one(ExampleMod.POLYJUICE_POTION), 2, 30);

@@ -4,10 +4,10 @@ const WIKI_DATA = {
     subtitle: "A fandom-style archive for the current HogwartsMagic codebase."
   },
   stats: {
-    spells: 36,
-    mobs: 16,
-    blocks: 15,
-    systems: 10
+    spells: 38,
+    mobs: 18,
+    blocks: 17,
+    systems: 13
   },
   systems: [
     {
@@ -112,14 +112,59 @@ const WIKI_DATA = {
       ]
     },
     {
+      id: "dark-magic",
+      title: "Dark Magic",
+      icon: "DM",
+      summary: "Dark spells darken your soul. Darkness runs from 0 to 100 in five tiers, Clean to Lost, and the world reacts to each.",
+      features: [
+        "Paid dark casts add Darkness, hit or miss: Avada Kedavra 6, Fiendfyre and Morsmordre 2.5, Imperio 1.5, Crucio 1.2, Tenebris Flight 0.6, Sectumsempra and Dolohov 0.4, Serpensortia 0.3",
+        "Deeds: an Avada kill of an innocent adds 3; forging a Horcrux adds 30 and lifts you to at least 60, and while it exists Darkness at 60 or more cannot fall below 60",
+        "Tiers: Clean below 20, Shadowed from 20, Tainted from 40, Corrupted from 60, Lost from 80; only you see yours",
+        "A weaker Patronus that never fails: 7.5% corporeal at Shadowed, shield only from Tainted, shield upkeep +50% from Corrupted",
+        "Tainted: insomnia Dementors after 3 days instead of 5",
+        "Corrupted: Dementors choose you first, Students keep away, faint smoke others can see",
+        "Lost: one heart less, Students attack on sight, House Elves flee even when bound",
+        "Students and Dementors drop you at once when you leave the tier or Dark Magic is turned off",
+        "Rewards from Corrupted: dark spells cost 15% less mana and the Dark Mark buffs you",
+        "Rewards at Lost: Death Eaters ignore you until you strike one (Voldemort and his guards never do), and Morsmordre calls a 5-minute Death Eater escort instead of a raid, each member landing only on safe ground",
+        "The way back: -1 per 30 minutes of play after 10 quiet minutes (100 to 0 in 50 hours); Heal another hurt creature for -1, at most once per 30 minutes",
+        "A Sneakoscope whistles at Corrupted and Lost players; advancements A Torn Soul and Redemption"
+      ]
+    },
+    {
       id: "polyjuice",
       title: "Polyjuice Brewing",
       icon: "PJ",
       summary: "Collect identity samples, brew Polyjuice, transform after a short delay, and hold a timed disguise.",
       features: [
         "Sample Collector and Polyjuice Sample items",
-        "Wizard Potion intermediate brew",
+        "Brewed in the Wizard Cauldron (six steps and an 8-minute simmer)",
         "Base and extended Polyjuice durations"
+      ]
+    },
+    {
+      id: "cauldron-brewing",
+      title: "Cauldron Brewing",
+      icon: "CB",
+      summary: "Brew potions step by step in the Wizard Cauldron: water, heat, then ingredients, stirring and simmering in order.",
+      features: [
+        "Seven recipes: Wiggenweld, Pepperup, Essence of Dittany, Mandrake Restorative Draught, Draught of Living Death, Felix Felicis and Polyjuice",
+        "The liquid changes colour at every correct step; a wrong step ruins the brew",
+        "3 doses per brew (Felix Felicis: 1); Gunpowder makes splash potions",
+        "A Potions classroom in Mini Hogwarts with seven cauldrons ready to use",
+        "Advancements: First Brew (bottle a finished brew), Toil and Trouble (ruin a brew) and Liquid Luck (hold Felix Felicis)"
+      ]
+    },
+    {
+      id: "petrification",
+      title: "Petrification",
+      icon: "PT",
+      summary: "A basilisk's full gaze turns a player to stone: wait for a Mandrake Restorative Draught or give in.",
+      features: [
+        "Stone players cannot act, take no damage and are ignored by mobs",
+        "A choice screen: Wait for rescue or Give in (J opens it again)",
+        "Survives logging out; a server can set a time limit",
+        "Creature statues keep the whole mob and come back with the Draught"
       ]
     }
   ],
@@ -167,12 +212,12 @@ const WIKI_DATA = {
     { id: "imperio", name: "Imperio", icon: "IM", school: "Dark Magic", rarity: "epic", mana: 60, cooldown: 200, summary: "Turns mobs into temporary controlled allies.", features: ["Retargets hostile mobs", "Adds buffs and glowing", "Uses held-channel control systems"], detail: "The control fantasy is reinforced by extra event-driven channel and input state handling." },
     { id: "fiendfyre", name: "Fiendfyre", icon: "FF", school: "Dark Magic", rarity: "epic", mana: 64, cooldown: 300, summary: "Summons cursed fire that spreads and destroys.", features: ["Ignites and damages", "Spawns Fiendfyre controller entity", "Supports hold/channel behavior"], detail: "One of the mod's most dangerous summon spells because it becomes its own hazard after cast." },
     { id: "sectumsempra", name: "Sectumsempra", icon: "SS", school: "Curse", rarity: "rare", mana: 34, cooldown: 60, summary: "Deals heavy direct damage and bleeding-style wither.", features: ["High direct damage", "Strong wither effect"], detail: "A brutal efficient killer with very little utility padding." },
-    { id: "morsmordre", name: "Morsmordre", icon: "MM", school: "Dark Ritual", rarity: "epic", mana: 68, cooldown: 1200, summary: "Summons the Dark Mark and can trigger a sky raid.", features: ["Summons Dark Mark", "Applies blindness on hit", "Can start a Death Eater sky raid if cast high into open sky"], detail: "One of the most spectacle-heavy spells in the entire mod." },
+    { id: "morsmordre", name: "Morsmordre", icon: "MM", school: "Dark Ritual", rarity: "epic", mana: 68, cooldown: 1200, summary: "Summons the Dark Mark and can trigger a sky raid.", features: ["Summons Dark Mark", "Applies blindness on hit", "Can start a Death Eater sky raid if cast high into open sky", "Cast by a Lost soul, it calls a Death Eater escort for 5 minutes instead"], detail: "One of the most spectacle-heavy spells in the entire mod." },
     { id: "dolohov-curse", name: "Dolohov's Curse", icon: "DC", school: "Curse", rarity: "rare", mana: 38, cooldown: 100, summary: "Heavy magic damage plus a lingering curse.", features: ["Direct magic damage", "Lingering wither-style curse"], detail: "A reliable mid-high tier curse for pressure damage." },
     { id: "incarcerous", name: "Incarcerous", icon: "IC", school: "Binding Magic", rarity: "uncommon", mana: 26, cooldown: 80, summary: "Binds a main target and nearby victims with chain magic.", features: ["Hard roots the main target", "Can chain nearby victims", "Schedules animated chain visuals"], detail: "Its personality comes from the custom chained visual treatment and area catch." },
-    { id: "heal-episkey", name: "Heal / Episkey", icon: "HE", school: "Support", rarity: "uncommon", mana: 30, cooldown: 100, summary: "Basic healing magic for minor recovery.", features: ["Healing-themed particles", "Used by some NPC casters too"], detail: "A support staple rather than a full sustain engine." },
+    { id: "heal-episkey", name: "Heal / Episkey", icon: "HE", school: "Support", rarity: "uncommon", mana: 30, cooldown: 100, summary: "Basic healing magic for minor recovery.", features: ["Healing-themed particles", "Used by some NPC casters too", "Healing another hurt creature lifts 1 Darkness, at most once per 30 minutes"], detail: "A support staple rather than a full sustain engine." },
     { id: "tenebris-flight", name: "Tenebris Flight", icon: "TF", school: "Dark Mobility", rarity: "epic", mana: 38, cooldown: 400, summary: "Turns the user into fast black-smoke flight.", features: ["Flight-state effect", "Used by Death Eaters and bosses", "Supports aggressive aerial AI"], detail: "Important not only as a player spell but as the engine behind many dark wizard aerial moments." },
-    { id: "expecto-patronum", name: "Expecto Patronum", icon: "EP", school: "Guardian Charm", rarity: "epic", mana: 68, cooldown: 1200, summary: "Held. Usually a shield of silver light that holds Dementors off; 15% of the time the full corporeal Patronus answers.", features: ["15% chance to summon the corporeal Patronus", "Otherwise a held fan of light, 20 blocks deep", "Shoves Dementors back and blocks their soul-suck", "Shield deals no damage — only the Patronus kills", "Mana drains faster the more Dementors it holds off"], detail: "The split mirrors the books: a non-corporeal Patronus halts Dementors and shields its caster, but only a full one drives them off." },
+    { id: "expecto-patronum", name: "Expecto Patronum", icon: "EP", school: "Guardian Charm", rarity: "epic", mana: 68, cooldown: 1200, summary: "Held. Usually a shield of silver light that holds Dementors off; 15% of the time the full corporeal Patronus answers.", features: ["15% chance to summon the corporeal Patronus (7.5% with a Shadowed soul, never from Tainted)", "Otherwise a held fan of light, 20 blocks deep", "Shoves Dementors back and blocks their soul-suck", "Shield deals no damage — only the Patronus kills", "Mana drains faster the more Dementors it holds off"], detail: "The split mirrors the books: a non-corporeal Patronus halts Dementors and shields its caster, but only a full one drives them off." },
     { id: "bombarda", name: "Bombarda", icon: "BO", school: "Explosive Charm", rarity: "rare", mana: 38, cooldown: 100, summary: "Powerful explosive impact spell.", features: ["Explosion damage", "Strong blast effect", "Can trigger freeze-to-steam interactions"], detail: "A forceful general-purpose explosion spell with cleaner presentation than Fiendfyre." },
     { id: "depulso", name: "Depulso", icon: "DP", school: "Force Magic", rarity: "common", mana: 15, cooldown: 40, summary: "Violently blasts targets away.", features: ["Powerful knockback", "Gust-like impact visuals"], detail: "The push counterpart to Accio." },
     { id: "levicorpus", name: "Levicorpus", icon: "LV", school: "Control", rarity: "uncommon", mana: 19, cooldown: 80, summary: "Hangs a target upside down in the air.", features: ["Levitation", "Custom upside-down render marker", "Applies weakness"], detail: "A control spell with strong visual identity because it changes the victim pose." },
@@ -186,7 +231,8 @@ const WIKI_DATA = {
     { id: "alatus", name: "Alatus", icon: "AT", school: "Craft Magic", rarity: "uncommon", mana: 18, cooldown: 55, summary: "Infuses a loaded Broom Workbench with flight magic.", features: ["Not a normal combat spell", "Used to complete broom crafting", "Requires a valid recipe already present"], detail: "A production spell rather than a battlefield spell." },
     { id: "serpensortia", name: "Serpensortia", icon: "SP", school: "Summoning", rarity: "rare", mana: 45, cooldown: 200, summary: "Currently summons allied cave spiders as magical attackers.", features: ["Summons multiple allied attackers", "Uses allied targeting rules", "Not yet a custom snake summon"], detail: "The fantasy name overshoots the current implementation, but it still adds ally-summon gameplay." },
     { id: "arresto-momentum", name: "Arresto Momentum", icon: "AM", school: "Utility Defense", rarity: "uncommon", mana: 14, cooldown: 50, summary: "Catches falls and bleeds away momentum.", features: ["Applies slow falling", "Damps movement speed", "Beam can home toward falling targets"], detail: "One of the smartest utility spells in the projectile layer because it tracks a falling victim." },
-    { id: "reparo", name: "Reparo", icon: "RP", school: "Utility", rarity: "uncommon", mana: 17, cooldown: 80, summary: "Repairs nearby recently broken blocks by spending matching items and extra mana.", features: ["Repairs recent tracked simple blocks", "Consumes matching block items", "Uses magical flying-item restoration visuals"], detail: "Handled by a dedicated repair manager that tracks recent destruction and animates the rebuild." }
+    { id: "reparo", name: "Reparo", icon: "RP", school: "Utility", rarity: "uncommon", mana: 17, cooldown: 80, summary: "Repairs nearby recently broken blocks by spending matching items and extra mana.", features: ["Repairs recent tracked simple blocks", "Consumes matching block items", "Uses magical flying-item restoration visuals"], detail: "Handled by a dedicated repair manager that tracks recent destruction and animates the rebuild." },
+    { id: "riddikulus", name: "Riddikulus", icon: "RK", school: "Defensive Charm", rarity: "uncommon", mana: 15, cooldown: 40, summary: "Turns a Boggart into a joke. Enough hits laugh it away.", features: ["Each hit shrinks a Boggart and stops its attack for three seconds", "Hits to banish by rank: Novice 3, Adept 2, Expert 2, Master 1", "Clears the Boggart's darkness and slowness from nearby players", "On any other target it only makes it glow for two seconds"], detail: "The only real answer to a Boggart. The last hit bursts it into laughter and smoke and grants the Riddikulus! advancement." }
   ],
   mobs: [
     { id: "death-eater", name: "Death Eater", icon: "DE", role: "Hostile Spellcaster", threat: "high", habitat: "Raids, hostile events", summary: "Dark wizard enemy with spells, shields, raids, and broom flight.", features: ["Uses spell AI", "Can cast Protego and offensive spells", "Can fly with Tenebris Flight", "Some can lead raids and summon more wizards"], detail: "The mod's signature humanoid enemy and the backbone of dark-wizard encounters." },
@@ -194,7 +240,7 @@ const WIKI_DATA = {
     { id: "lord-voldemort", name: "Lord Voldemort", icon: "LV", role: "Boss", threat: "boss", habitat: "Summoning encounters", summary: "High-end dark wizard boss with queued spell windups and special summoning.", features: ["Boss-tier spell logic", "Defensive buffs", "Drops the Elder Wand", "Connected to a ritual summoning sequence"], detail: "Built as a dramatic set-piece enemy rather than a standard scaled-up wizard." },
     { id: "dementor", name: "Dementor", icon: "DM", role: "Flying Horror", threat: "high", habitat: "Night skies and dark events", summary: "Soul-sucking undead hunter with aura debuffs and special Patronus fear.", features: ["Cold dread aura slows nearby victims", "Custom soul-suck attack", "Pulls victims inward", "Hard-counters against Patronuses"], detail: "The most oppressive ambient hunter in the mod, especially before the player can field Patronus magic." },
     { id: "patronus", name: "Patronus", icon: "PA", role: "Summoned Guardian", threat: "ally", habitat: "Summoned by Expecto Patronum", summary: "Anti-Dementor magical defender that lights the area and pushes evil back.", features: ["Actively hunts Dementors", "Deals expanding aura damage", "Creates temporary magical light blocks", "Pushes Dementors outward in pulses"], detail: "A specialist guardian designed with one clear nemesis in mind." },
-    { id: "basilisk", name: "Basilisk", icon: "BA", role: "Boss Monster", threat: "boss", habitat: "Major danger encounter", summary: "Massive serpent that can petrify and kill nearby victims.", features: ["Repeating nearby petrification scan", "Applies custom petrification effect", "Can instantly kill valid victims"], detail: "A terrifying pressure monster that punishes even being close to it." },
+    { id: "basilisk", name: "Basilisk", icon: "BA", role: "Boss Monster", threat: "boss", habitat: "Major danger encounter", summary: "Massive serpent whose full gaze turns players to stone and creatures into statues.", features: ["Gaze charges while you meet its eyes", "Full gaze turns a player to stone: wait for a Mandrake Draught or give in", "Other creatures become statues that a Mandrake Draught brings back; bosses are excluded"], detail: "A terrifying pressure monster that punishes even being close to it. A Mandrake Restorative Draught frees stone players and brings statues back." },
     { id: "acromantula", name: "Acromantula", icon: "AR", role: "Monster", threat: "high", habitat: "Dark forest zones", summary: "Giant spider predator tied to dark forest content.", features: ["Leaps at targets", "Uses spider melee logic", "Naturally aggressive toward players"], detail: "The classic forest ambush threat with heavy silhouette and aggressive melee pressure." },
     { id: "hippogriff", name: "Hippogriff", icon: "HI", role: "Tamable Mount", threat: "neutral", habitat: "Wild magical creature biomes", summary: "Tameable, breedable magical beast and mount.", features: ["Rabbit-fed taming and breeding path", "Can sit on command", "Can be ridden", "Uses custom flying movement"], detail: "One of the mod's biggest creature fantasy wins because it acts as both companion and transport." },
     { id: "owl", name: "Owl", icon: "OW", role: "Tamable Courier", threat: "ally", habitat: "Wilderness and player logistics routes", summary: "Flying companion that handles magical post routes.", features: ["Can sit and follow owner", "Delivers items between perches", "Can directly deliver to players", "Works with Owl Route Tags"], detail: "The owl is more than a pet; it is a real logistics unit in the world." },
@@ -204,7 +250,9 @@ const WIKI_DATA = {
     { id: "fiendfyre", name: "Fiendfyre", icon: "FY", role: "Cursed Fire Entity", threat: "boss", habitat: "Created by spell casting", summary: "Main cursed-fire spreading controller.", features: ["Grows over time", "Periodically spreads fire", "Limited lifetime"], detail: "A temporary entity that acts more like an environmental disaster than a normal mob." },
     { id: "fiendfyre-serpent", name: "Fiendfyre Serpent", icon: "FS", role: "Guided Summon", threat: "high", habitat: "Created by spell casting", summary: "Guided cursed-fire serpent that steers toward the caster aim.", features: ["Steers toward aim", "Burns targets on contact", "Produces dramatic burst particles"], detail: "The showpiece cursed-fire manifestation with visible steering and burst motion." },
     { id: "dark-mark", name: "Dark Mark", icon: "DK", role: "Atmospheric Entity", threat: "high", habitat: "Sky raid and dark-cast events", summary: "Sky mark that drives dramatic ambience and empowers dark wizards.", features: ["Long-lived visual entity", "Atmosphere and weather drama", "Buffs nearby hostile wizards"], detail: "This entity exists mainly to reshape the feeling of the entire scene." },
-    { id: "horcrux-soul", name: "Horcrux Soul", icon: "HX", role: "Ritual Entity", threat: "ritual", habitat: "Horcrux death and rebirth sequences", summary: "Soul apparition used during Horcrux rebirth sequences.", features: ["Travels toward a ritual target", "Carries display gear state", "Triggers ritual arrival logic"], detail: "A pure ritual delivery entity that exists to sell the Horcrux fantasy." }
+    { id: "horcrux-soul", name: "Horcrux Soul", icon: "HX", role: "Ritual Entity", threat: "ritual", habitat: "Horcrux death and rebirth sequences", summary: "Soul apparition used during Horcrux rebirth sequences.", features: ["Travels toward a ritual target", "Carries display gear state", "Triggers ritual arrival logic"], detail: "A pure ritual delivery entity that exists to sell the Horcrux fantasy." },
+    { id: "petrified-remains", name: "Petrified Remains", icon: "PR", role: "Statue", threat: "neutral", habitat: "Wherever a basilisk has looked", summary: "The stone statue a creature leaves when a basilisk's full gaze catches it.", features: ["Keeps the whole mob: name, owner, gear, villager trades", "Drops nothing", "A Mandrake Restorative Draught brings the mob back", "Breaking it, or the void, loses the mob for good"], detail: "Bosses never leave a statue that comes back. Save the statue and you save the creature." },
+    { id: "boggart", name: "Boggart", icon: "BG", role: "Shape-shifter", threat: "mid", habitat: "Dark covered places in the Forbidden Forest and the Dementor Fen", summary: "Hides as a still dark shadow, then wears the shape of what has killed you most.", features: ["Reveals itself to a player within 8 blocks with line of sight", "Pulses fear: Darkness within 6 blocks, Slowness within 3", "Slow melee monster: 24 health, 2 damage", "Riddikulus shrinks it and banishes it after enough hits", "Hides again, healed, after ten seconds with no player near"], detail: "A wizard killer gives a Dementor; no deaths at all give an Acromantula. Fight it with Riddikulus, not with a sword." }
   ],
   blocks: [
     { name: "Wandmaker's Bench", kind: "Workbench", summary: "Custom station for advanced wand crafting.", features: ["Dedicated GUI", "Persistent block entity", "Crafts real core-based wands"] },
@@ -216,7 +264,9 @@ const WIKI_DATA = {
     { name: "Moving Portrait", kind: "Decor", summary: "Living magical portrait block.", features: ["Directional placement", "Ambient magical particles"] },
     { name: "Candle Cluster", kind: "Decor", summary: "Magical candle decoration.", features: ["Ambient flame particles"] },
     { name: "Enchanted Book Pile", kind: "Decor", summary: "Stack of enchanted books with ambience.", features: ["Ambient magical particles"] },
-    { name: "Wizard Cauldron", kind: "Decor", summary: "Atmospheric potion-class cauldron.", features: ["Magical bubbling ambience"] },
+    { name: "Wizard Cauldron", kind: "Brewing", summary: "Brewing cauldron: fill it with water, set it over heat and add ingredients in order.", features: ["Seven recipes: Wiggenweld, Pepperup, Essence of Dittany, Mandrake Restorative Draught, Draught of Living Death, Felix Felicis and Polyjuice", "Fill with a water bucket or three water bottles; heat below it: lit campfire or soul campfire, fire, soul fire, lava or magma block", "Stir with a Fine Wood Stick (sneak for anticlockwise); simmer steps run on the heat", "The liquid colour shows every step", "A finished brew gives 3 doses (Felix Felicis: 1); left on the heat over 120 seconds it is ruined", "Ingredients need a full cauldron (3 doses of water)", "Keep your other hand empty when you sneak-stir", "Crafted from 7 iron ingots and Arcane Dust, or bought from an Apothecary or Cauldron Smith", "Seven ready to use in the Mini Hogwarts Potions classroom"] },
+    { name: "Sneakoscope", kind: "Magic Block", summary: "Small glass spinning top on a brass plate that spins and whistles when dark wizards, Dementors or the Dark Mark are near.", features: ["Carried: whistles to the holder, faster as danger comes closer", "Placed: redstone signal 1-15 on every side, light while it spins", "Death Eaters, Voldemort and Dementors within 16 blocks, the Dark Mark within 48 (both set in the config)", "Corrupted or Lost players within 16 blocks, even cloaked or disguised; a carried one never senses its holder", "Crafted from gold and a glass pane with Arcane Dust, or bought from the Curio Dealer for 14 emeralds"] },
+    { name: "Dittany Plant", kind: "Worldgen Plant", summary: "Herb that grows wild in the Forbidden Forest and the Horntail Peaks.", features: ["Patches of two to four on earth or bare rock", "A wild plant gives two Dittany, one you planted gives back one", "The ingredient of Essence of Dittany"] },
     { name: "Gillyweed Plant", kind: "Worldgen Plant", summary: "Custom underwater plant used in swamp generation.", features: ["Grows underwater", "Supports muddy or rooty wet terrain"] },
     { name: "Fine Wood Tree Set", kind: "Building Set", summary: "Custom magical wood set used for wandcraft and building.", features: ["Log, stripped log, leaves, sapling, and planks", "Main wandcraft wood source"] },
     { name: "Arcane Cluster", kind: "Resource Block", summary: "Glowing magical crystal cluster used in progression.", features: ["Light-emitting crystal block", "Feeds magical crafting progression"] },
@@ -232,15 +282,23 @@ const WIKI_DATA = {
     { name: "House Robes", kind: "Armor", summary: "Themed robe chestpieces for the four houses.", features: ["Gryffindor, Ravenclaw, Hufflepuff, Slytherin variants"] },
     { name: "Sample Collector", kind: "Potion Utility", summary: "Collects a Polyjuice identity sample from a living target.", features: ["Transforms into a filled sample item", "Works on mobs and players"] },
     { name: "Polyjuice Sample", kind: "Potion Utility", summary: "Stores a sampled target identity.", features: ["Carries target appearance data"] },
-    { name: "Polyjuice Potion", kind: "Potion", summary: "Drinkable disguise potion with delayed transformation.", features: ["Requires a valid sample", "Supports base and extended durations"] },
-    { name: "Wizard Potion", kind: "Potion", summary: "Intermediate brew used before Polyjuice.", features: ["Made from Awkward Potion plus Werewolf Fang", "Improves mana regeneration"] },
+    { name: "Polyjuice Potion", kind: "Potion", summary: "Drinkable disguise potion with delayed transformation.", features: ["Brewed in the Wizard Cauldron with a filled sample", "Redstone extends it, gunpowder makes it splash"] },
+    { name: "Wizard Potion", kind: "Potion", summary: "Mana regeneration potion from the brewing stand.", features: ["Made from Awkward Potion plus Acromantula Venom", "Improves mana regeneration"] },
+    { name: "Wiggenweld Potion", kind: "Potion", summary: "Healing draught brewed in the Wizard Cauldron.", features: ["Honey Bottle, 2 Glow Berries, stir clockwise 3, simmer 20 s", "Heals 8 health over about 2.4 seconds", "Stops Bleeding"] },
+    { name: "Pepperup Potion", kind: "Potion", summary: "Warming draught that restores mana.", features: ["Blaze Powder, Mandrake Root, stir anticlockwise 2, simmer 15 s", "Restores 40 mana", "30 seconds of Fire Resistance"] },
+    { name: "Essence of Dittany", kind: "Potion", summary: "Closes cursed wounds.", features: ["3 Dittany, stir clockwise 5, simmer 30 s", "Cures a Cursed Wound", "Heals 4 health"] },
+    { name: "Mandrake Restorative Draught", kind: "Potion", summary: "Brings back anyone the basilisk has turned to stone.", features: ["2 Mandrake Roots, Asphodel, stir clockwise 4, simmer 45 s, Arcane Dust", "Right-click a stone player or a statue with it", "Gunpowder after the dust makes a splash version that frees all stone within 4 blocks and wards everything else there", "Drunk, the basilisk's gaze cannot build on you for 8 seconds"] },
+    { name: "Draught of Living Death", kind: "Potion", summary: "Splash potion that puts everything nearby into a deathlike sleep.", features: ["Asphodel, Wormwood, 2 Valerian Sprigs, stir anticlockwise 7, clockwise 1, simmer 60 s, Gunpowder", "Stuns everything within 4 blocks for 20 seconds", "Repeated stuns get shorter; half on bosses, 60% on players hit by another player's throw"] },
+    { name: "Felix Felicis", kind: "Potion", summary: "Liquid luck: one precious dose.", features: ["Ashwinder Egg, Acromantula Venom, Gold Nugget, stir clockwise 3, simmer 10 min, stir anticlockwise 1", "3 minutes of Luck III", "A quarter more spell mastery XP"] },
+    { name: "Failed Potion", kind: "Potion", summary: "What a ruined brew bottles as.", features: ["10 seconds of Nausea and 3 of Poison", "An empty bucket pours a ruined brew away instead"] },
+    { name: "Brewing Ingredients", kind: "Crafting", summary: "Herbs and rarities for the Wizard Cauldron.", features: ["Dittany: the Dittany plant, or apothecaries", "Asphodel and Wormwood: apothecaries (second level)", "Valerian Sprigs: apothecaries and Hogwarts ruin camp chests", "Ashwinder Egg: Death Eater camps, the Chamber, now and then a Blaze", "Two chests of supplies in the Mini Hogwarts Potions classroom"] },
     { name: "Gillyweed", kind: "Consumable", summary: "Edible magical plant that grants underwater adaptation.", features: ["Underwater utility effect", "Themed as gills and aquatic movement"] },
     { name: "Floo Binding Token", kind: "Travel Utility", summary: "Links two Floo Fireplaces and helps with naming.", features: ["Stores first fireplace", "Completes link with second fireplace"] },
     { name: "Floo Powder", kind: "Travel Fuel", summary: "Required fuel for Floo travel.", features: ["Dropped onto a Floo Fireplace to trigger travel"] },
     { name: "Owl Route Tag", kind: "Logistics Utility", summary: "Links two owl perches and can be assigned to a tamed owl.", features: ["Stores both perch endpoints", "Checks route validity before assignment"] },
     { name: "Cave Inimicum Totem", kind: "Ward Utility", summary: "Binds to an active ward and reveals truth inside it.", features: ["Stores bound ward position", "Lets carriers see through the illusion from outside"] },
     { name: "Hogwarts Invite", kind: "Flavor and UI Item", summary: "Acceptance letter delivered by owl and opened in a custom screen.", features: ["Custom reading screen", "Spawned for first-year players"] },
-    { name: "Wand Materials", kind: "Crafting", summary: "Core wandcraft ingredients including wand blank, Arcane Dust, Arcane Core, and magical cores.", features: ["Used in advanced wand crafting", "Supports phoenix, unicorn, and dragon wand lines"] },
+    { name: "Wand Materials", kind: "Crafting", summary: "Core wandcraft ingredients including Fine Wood Stick, Arcane Dust, Arcane Core, and magical cores.", features: ["Used in advanced wand crafting", "Supports phoenix, unicorn, and dragon wand lines", "The Fine Wood Stick is also the cauldron stirring rod"] },
     { name: "Creature Ingredients", kind: "Crafting", summary: "Drops and magical materials from special creatures.", features: ["Werewolf Fang", "Centaur Talisman", "Acromantula Venom"] },
     { name: "Relics", kind: "Progression", summary: "Magic-enhancing equipment for capacity and regeneration slots.", features: ["Includes Minor Mana Charm, Refined Mana Charm, Arcane Focus, Ravenclaw Diadem Fragment, Enchanted Inkwell, Moonlit Phial"] }
   ]

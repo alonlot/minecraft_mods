@@ -60,7 +60,9 @@ public class MagicBookItem extends Item {
             "arresto_momentum",
             "reparo",
             "apparition",
-            "piertotum_locomotor"
+            "piertotum_locomotor",
+            "colloportus",
+            "riddikulus"
     );
 
     public MagicBookItem(Properties properties) {

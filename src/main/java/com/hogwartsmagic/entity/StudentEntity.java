@@ -168,11 +168,21 @@ public class StudentEntity extends AbstractIllager implements DisarmableWandUser
         // so a student standing idle next to a falling friend or rubble will actually
         // act on it.
         this.goalSelector.addGoal(4, new StudentUtilityCastGoal(this));
+        // Dark Magic: keep about 8 blocks from a Corrupted player. Below the spell-cast goal (3), so a student with
+        // a target still fights (the hurt-by goal is unchanged); never mid-duel.
+        this.goalSelector.addGoal(4, new DarkPlayerGoals.AvoidDarkPlayer(this,
+                com.hogwartsmagic.spell.dark.DarkCostRules.Cost.STUDENTS_KEEP_AWAY,
+                com.hogwartsmagic.spell.dark.DarkCostRules.STUDENT_KEEP_AWAY_DISTANCE, 0.7D, 0.9D) {
+            @Override
+            public boolean canUse() {
+                return super.canUse() && !com.hogwartsmagic.duel.DuelManager.isDueling(StudentEntity.this);
+            }
+        });
         this.goalSelector.addGoal(5, new WaterAvoidingRandomStrollGoal(this, 0.5D));
         this.goalSelector.addGoal(6, new LookAtPlayerGoal(this, Player.class, 8.0F));
         this.goalSelector.addGoal(7, new RandomLookAroundGoal(this));
 
-        // Students attack monsters and death eaters, NOT players
+        // Students attack monsters and death eaters; a player only after hurting them, or on sight at Lost (Dark Magic)
         // Never retaliate against a living statue either: a bound sentry is on the students' side,
         // and without this exemption one stray splash from a fight next to it starts a permanent
         // war between two allies that neither can win -- the statue is knockback-immune with 70 HP
@@ -180,6 +190,15 @@ public class StudentEntity extends AbstractIllager implements DisarmableWandUser
         this.targetSelector.addGoal(1, new HurtByTargetGoal(this, StudentEntity.class,
                 LivingStatueEntity.class));
         this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, WizardEntity.class, true)); // Attack death eaters
+        // Dark Magic: a Lost player is attacked on sight, like a Death Eater.
+        // Never mid-duel, like the keep-away goal.
+        this.targetSelector.addGoal(2, new DarkPlayerGoals.TargetDarkPlayer(this,
+                com.hogwartsmagic.spell.dark.DarkCostRules.Cost.STUDENTS_ATTACK) {
+            @Override
+            public boolean canUse() {
+                return super.canUse() && !com.hogwartsmagic.duel.DuelManager.isDueling(StudentEntity.this);
+            }
+        });
         this.targetSelector.addGoal(3, new NearestAttackableTargetGoal<>(this, Monster.class, 10, true, false,
                 target -> !(target instanceof StudentEntity)
                         && !(target instanceof LivingStatueEntity))); // monsters only -- not students, not statues

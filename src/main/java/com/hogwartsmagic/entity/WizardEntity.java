@@ -45,6 +45,13 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
     // per-wizard cooldown tracking to mimic player wand behavior
     protected final Map<SpellType, Long> spellCooldowns = new EnumMap<>(SpellType.class);
     private long lastHitTime = 0; // Track when wizard was last hit for flight escape
+    /** Dark Magic: the Lost player this Death Eater escorts (a Morsmordre escort), or null. */
+    @javax.annotation.Nullable
+    private java.util.UUID escortOwner;
+    /** Game time the escort ends. */
+    private long escortUntil;
+    /** The owner's death count at summon time (-1: not recorded yet); a change ends the escort. */
+    private int escortOwnerDeaths = -1;
 
     protected boolean isSpellOnCooldown(SpellType spell, long now) {
         return spellCooldowns.getOrDefault(spell, 0L) > now;
@@ -69,6 +76,9 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
     @Override
     public void tick() {
         super.tick();
+        if (!this.level().isClientSide && this.escortOwner != null) {
+            DeathEaterEscort.tick(this); // Dark Magic: follow, catch up, and leave after 5 minutes
+        }
         // flight effect is managed globally in ModEvents.onLivingUpdate now; no
         // need to randomly apply it here
     }
@@ -109,6 +119,20 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
         return super.hurt(source, damage);
     }
 
+    /** Dark Magic: the tag on a Death Eater Voldemort's summoning ritual calls (his guard). */
+    public static final String VOLDEMORT_GUARD_TAG = "hogwartsmagic:voldemort_guard";
+
+    /**
+     * Dark Magic: players the plain player goal never picks (a Lost wizard, and the owner of an escort). Voldemort's
+     * guards ignore nobody: they never turn neutral to a Lost player.
+     */
+    protected boolean ignoresPlayer(LivingEntity target) {
+        if (this.getTags().contains(VOLDEMORT_GUARD_TAG)) {
+            return false;
+        }
+        return com.hogwartsmagic.spell.dark.DarkRewards.deathEatersIgnore(target) || this.isEscortOwner(target);
+    }
+
     @Override
     public boolean canAttack(LivingEntity target) {
         // Death Eaters never attack each other!
@@ -144,13 +168,18 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
         // Retrieving a dropped wand outranks everything — a disarmed wizard's only objective.
         this.goalSelector.addGoal(0, new RetrieveDroppedWandGoal(this, 1.2D));
         this.goalSelector.addGoal(1, new WizardRaidLeaderGoal(this));
+        this.goalSelector.addGoal(1, new DeathEaterEscort.FollowOwnerGoal(this)); // Dark Magic: escorts only
         this.goalSelector.addGoal(2, new WizardSpellCastGoal(this));
         this.goalSelector.addGoal(5, new WaterAvoidingRandomStrollGoal(this, 1.0D));
         this.goalSelector.addGoal(6, new LookAtPlayerGoal(this, Player.class, 8.0F));
         this.goalSelector.addGoal(7, new RandomLookAroundGoal(this));
 
         this.targetSelector.addGoal(1, new HurtByTargetGoal(this));
-        this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Player.class, true));
+        this.targetSelector.addGoal(1, new DeathEaterEscort.DefendOwnerGoal(this)); // Dark Magic: escorts only
+        // Dark Magic: a Lost wizard is not chosen (the HurtByTargetGoal at priority 1, two lines up, still answers a
+        // strike).
+        this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Player.class, 10, true, false,
+                target -> !this.ignoresPlayer(target)));
         this.targetSelector.addGoal(3, new NearestAttackableTargetGoal<>(this, net.minecraft.world.entity.npc.Villager.class, true));
         this.targetSelector.addGoal(3, new NearestAttackableTargetGoal<>(this, net.minecraft.world.entity.animal.IronGolem.class, true));
         this.targetSelector.addGoal(4, new NearestAttackableTargetGoal<>(this, StudentEntity.class, true));
@@ -236,11 +265,65 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
         return this.entityData.get(DATA_IS_RAID_LEADER);
     }
 
+    /** Dark Magic: makes this Death Eater a Morsmordre escort of the owner until the given game time. */
+    public void setEscort(java.util.UUID owner, long until) {
+        this.escortOwner = owner;
+        this.escortUntil = until;
+    }
+
+    /** Dark Magic: an ordinary Death Eater again (struck by its owner). */
+    public void releaseEscort() {
+        this.escortOwner = null;
+        this.escortUntil = 0L;
+        this.escortOwnerDeaths = -1;
+    }
+
+    public int getEscortOwnerDeaths() {
+        return this.escortOwnerDeaths;
+    }
+
+    public void setEscortOwnerDeaths(int deaths) {
+        this.escortOwnerDeaths = deaths;
+    }
+
+    public boolean isEscort() {
+        return this.escortOwner != null;
+    }
+
+    @javax.annotation.Nullable
+    public java.util.UUID getEscortOwnerId() {
+        return this.escortOwner;
+    }
+
+    public long getEscortUntil() {
+        return this.escortUntil;
+    }
+
+    /** The owner when they are in this level, alive and not spectating; else null (the escort then leaves). */
+    @javax.annotation.Nullable
+    public net.minecraft.server.level.ServerPlayer getEscortOwner() {
+        if (this.escortOwner == null) {
+            return null;
+        }
+        Player player = this.level().getPlayerByUUID(this.escortOwner);
+        return player instanceof net.minecraft.server.level.ServerPlayer owner && owner.isAlive() && !owner.isSpectator()
+                ? owner : null;
+    }
+
+    public boolean isEscortOwner(LivingEntity entity) {
+        return this.escortOwner != null && this.escortOwner.equals(entity.getUUID());
+    }
+
     @Override
     public void addAdditionalSaveData(net.minecraft.nbt.CompoundTag p_33353_) {
         super.addAdditionalSaveData(p_33353_);
         p_33353_.putBoolean("RaidLeader", this.isRaidLeader());
         p_33353_.putBoolean("Disarmed", this.isDisarmed());
+        if (this.escortOwner != null) {
+            p_33353_.putUUID("EscortOwner", this.escortOwner);
+            p_33353_.putLong("EscortUntil", this.escortUntil);
+            p_33353_.putInt("EscortOwnerDeaths", this.escortOwnerDeaths);
+        }
     }
 
     @Override
@@ -248,6 +331,10 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
         super.readAdditionalSaveData(tag);
         if (tag.contains("RaidLeader")) this.setRaidLeader(tag.getBoolean("RaidLeader"));
         if (tag.contains("Disarmed")) this.setDisarmed(tag.getBoolean("Disarmed"));
+        if (tag.hasUUID("EscortOwner")) {
+            this.setEscort(tag.getUUID("EscortOwner"), tag.getLong("EscortUntil"));
+            this.setEscortOwnerDeaths(tag.contains("EscortOwnerDeaths") ? tag.getInt("EscortOwnerDeaths") : -1);
+        }
     }
 
     @Override

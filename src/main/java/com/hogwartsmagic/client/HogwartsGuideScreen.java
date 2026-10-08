@@ -142,7 +142,8 @@ public class HogwartsGuideScreen extends Screen {
                         "Practical charms: Lumos, Alohomora, Revelio, Reparo.",
                         "Control and defense: Glacius, Wingardium Leviosa, Stupefy, Petrificus Totalus, Protego.",
                         "Battle magic: Confringo, Bombarda, Sectumsempra, Diffindo.",
-                        "Forbidden and dangerous arts: Crucio, Imperio, Fiendfyre, Avada Kedavra, Morsmordre."
+                        "Forbidden and dangerous arts: Crucio, Imperio, Fiendfyre, Avada Kedavra, Morsmordre.",
+                        "Riddikulus: the charm that turns a boggart into a joke and, with enough hits, laughs it away."
                 ))
         )),
         SYSTEMS("gui.hogwartsmagic.hogwarts_guide.section.systems", List.of(
@@ -156,6 +157,38 @@ public class HogwartsGuideScreen extends Screen {
                         "Cave Inimicum wards may conceal what lies within from unfriendly eyes.",
                         "Polyjuice allows disguise, though not always wisdom.",
                         "Horcrux rites and the blackest branches of magic are best left for the truly prepared, or the truly lost."
+                ))
+        )),
+        DARK_MAGIC("gui.hogwartsmagic.hogwarts_guide.section.dark_magic", List.of(
+                page("The weight of dark magic", List.of(
+                        "Every curse marks the one who casts it. The Killing Curse, Fiendfyre, Morsmordre, the Imperius and Cruciatus Curses, Tenebris Flight, Sectumsempra, Dolohov's Curse and Serpensortia all darken the soul, whether they strike or miss.",
+                        "The Killing Curse weighs heaviest and Serpensortia least. Ten Killing Curses will take a clean soul to Corrupted.",
+                        "Killing an innocent with it weighs more still, and tearing your soul into a Horcrux most of all.",
+                        "Your Grimoire names the state of your soul. No book shows it to anyone else."
+                )),
+                page("The five states of a soul", List.of(
+                        "Clean, Shadowed, Tainted, Corrupted, Lost. A low bell tolls when you sink further; a chime sounds when you rise.",
+                        "From Corrupted your mana runs a dark green-black.",
+                        "A curse cast through a body you have taken with the Imperius Curse darkens you, never your puppet."
+                )),
+                page("What darkness costs", List.of(
+                        "Shadowed: your Patronus takes its full form only half as often.",
+                        "Tainted: it answers only as a shield, and Dementors come for the sleepless after three days instead of five.",
+                        "Corrupted: the shield drinks more of your mana, Dementors seek you before all others, students keep their distance, and a faint smoke clings to you.",
+                        "Lost: a heart of your life is gone, students attack on sight, and even your own house elf flees you.",
+                        "Yet your Patronus never fails. Rise out of the darkness and students and Dementors forget you at once."
+                )),
+                page("What darkness offers", List.of(
+                        "From Corrupted, dark spells cost less mana, and the Dark Mark lends you its strength as it does the Death Eaters.",
+                        "The Lost walk among Death Eaters unchallenged until they strike one, by wand, fire or steam.",
+                        "Cast the Mark into an open sky and they come to guard you for five minutes, each where it finds safe ground to stand. They remain what they are.",
+                        "The Dark Lord and those who guard him are not so easily fooled."
+                )),
+                page("The way back", List.of(
+                        "Darkness fades once you let the dark arts rest for ten minutes: one step for every half hour you spend in this world, about ten hours for each state. From the very bottom it takes some fifty.",
+                        "Heal another who is hurt and you may hasten it, though no more than once in each half hour.",
+                        "While its Horcrux stands, a soul already Corrupted or darker cannot fade below Corrupted.",
+                        "A Sneakoscope whistles at a Corrupted or Lost soul, cloak or no cloak."
                 ))
         )),
         CREATURES("gui.hogwartsmagic.hogwarts_guide.section.creatures", List.of(
@@ -197,6 +230,13 @@ public class HogwartsGuideScreen extends Screen {
                         "Do not thrash. Their fingers are long and strong and they are also brittle: strike the thing holding you, however feebly, and it lets go at once. Then deal with the next one.",
                         "You can see them before they see you, if you look. Their eyes carry a light of their own, and two green points low in the weed are the only warning you will get."
                 )),
+                page("On boggarts", List.of(
+                        "A boggart is a shape-shifter. It has no shape of its own. It hides in dark, closed places and waits.",
+                        "When you come near, it wears the shape of the creature that has killed you most often. It wears a Dementor's shape if that killer was a wizard. Its fear spreads darkness and heavy legs to everyone close by.",
+                        "How to spot one: a dark shape that stands still in a dark room. It smokes a little. Nothing else in the castle stands so still.",
+                        "How to beat it: cast Riddikulus. Each hit makes it smaller and sillier. A Novice needs three hits, an Adept two, an Expert two, and a Master one. On the last hit it bursts into laughter and smoke.",
+                        "Walk away and it hides again in a few breaths, whole and unhurt. It does not forget. Neither should you."
+                )),
                 page("On giants", List.of(
                         "A giant stands more than three men tall and wanders the deepest forest alone, muttering to itself and pulling at the trees.",
                         "Left be, it will leave you be. Strike it, or linger too long at its feet, and it will announce itself with a roar you will feel through the soles of your boots.",
@@ -228,6 +268,102 @@ public class HogwartsGuideScreen extends Screen {
                         "A trustworthy wand should come before vanity.",
                         "A broom is more than a luxury; it is often the difference between escape and disaster.",
                         "Treat every new station as a doorway into another branch of magical life."
+                ))
+        )),
+        POTIONS("gui.hogwartsmagic.hogwarts_guide.section.potions", List.of(
+                page("The Wizard Cauldron", List.of(
+                        "Set the cauldron over heat: a lit campfire or soul campfire, fire, soul fire, lava or a magma block.",
+                        "Fill it with a water bucket, or three water bottles. Ingredients go only into a full cauldron.",
+                        "Right-click with each ingredient, one at a time. Stir with a Fine Wood Stick: right-click to stir clockwise, sneak and right-click to stir anticlockwise (keep your other hand empty).",
+                        "Simmer steps count down only while there is heat. Right-click with an empty hand to read the brew."
+                )),
+                page("Signs in the liquid", List.of(
+                        "Every correct step changes the colour of the brew. A wrong step turns it grey-brown with a hiss of smoke: the brew is ruined.",
+                        "A finished brew shimmers and chimes. Left on the heat more than 120 seconds after its last simmer, it boils into ruin. Take the heat away and it keeps forever.",
+                        "A glass bottle takes one dose, and a brew gives three. A ruined brew bottles as Failed Potion, or an empty bucket pours it away."
+                )),
+                page("Wiggenweld Potion", List.of(
+                        "Heals 8 health over about two seconds and stops Bleeding.",
+                        "1. Add 1 Honey Bottle.",
+                        "2. Add 2 Glow Berries.",
+                        "3. Stir clockwise 3 times.",
+                        "4. Simmer 20 seconds."
+                )),
+                page("Pepperup Potion", List.of(
+                        "Restores 40 mana and gives 30 seconds of Fire Resistance. Steam pours from your ears.",
+                        "1. Add 1 Blaze Powder.",
+                        "2. Add 1 Mandrake Root.",
+                        "3. Stir anticlockwise 2 times.",
+                        "4. Simmer 15 seconds."
+                )),
+                page("Polyjuice Potion", List.of(
+                        "Turns the drinker into whoever the sample came from.",
+                        "1. Add 1 Acromantula Venom.",
+                        "2. Add 2 Mandrake Roots.",
+                        "3. Add 1 Gillyweed.",
+                        "4. Stir clockwise 4 times.",
+                        "5. Simmer 480 seconds (8 minutes)."
+                )),
+                page("Polyjuice: the sample", List.of(
+                        "Fill it with a Sample Collector: use it on a player or a mob.",
+                        "6. Add a filled Polyjuice Sample. An empty one is refused. Take the cauldron off the heat while you fetch the sample, or it overbrews.",
+                        "Then, if you like, in this order: 1 Redstone Dust for an 8-minute disguise, then 1 Gunpowder to make every dose a splash potion.",
+                        "The brew gives 3 doses, each carrying the same sample. The brewing stand no longer makes Polyjuice."
+                )),
+                page("Essence of Dittany", List.of(
+                        "Closes a Cursed Wound and heals 4 health.",
+                        "1. Add 3 Dittany.",
+                        "2. Stir clockwise 5 times.",
+                        "3. Simmer 30 seconds."
+                )),
+                page("Mandrake Restorative Draught", List.of(
+                        "Brings back anyone the basilisk has turned to stone.",
+                        "1. Add 2 Mandrake Roots.",
+                        "2. Add 1 Asphodel.",
+                        "3. Stir clockwise 4 times.",
+                        "4. Simmer 45 seconds.",
+                        "5. Add 1 Arcane Dust."
+                )),
+                page("Using the Mandrake Draught", List.of(
+                        "Right-click a petrified friend, or a stone statue, with a bottle to bring them back.",
+                        "Add 1 Gunpowder after the Arcane Dust and every dose becomes a splash potion that frees all the stone within 4 blocks.",
+                        "Drunk, it breaks a basilisk's hold on you and steadies your eyes for 8 seconds. A friend you bring back is safe from the gaze for 8 seconds too."
+                )),
+                page("Draught of Living Death", List.of(
+                        "A splash potion: everything within 4 blocks falls into a deathlike sleep for 20 seconds. The great shrug off half of it, and it wears thinner on a victim struck again soon.",
+                        "1. Add 1 Asphodel.",
+                        "2. Add 1 Wormwood.",
+                        "3. Add 2 Valerian Sprigs.",
+                        "4. Stir anticlockwise 7 times."
+                )),
+                page("Living Death: the finish", List.of(
+                        "5. Stir clockwise once. The brew turns clear as water.",
+                        "6. Simmer 60 seconds.",
+                        "7. Add 1 Gunpowder.",
+                        "Seven anticlockwise, then one clockwise. Do not trust the old textbook."
+                )),
+                page("Felix Felicis", List.of(
+                        "Liquid luck: 3 minutes of Luck III, and every spell you master grows a quarter faster. The brew gives a single dose.",
+                        "1. Add 1 Ashwinder Egg.",
+                        "2. Add 1 Acromantula Venom.",
+                        "3. Add 1 Gold Nugget.",
+                        "4. Stir clockwise 3 times."
+                )),
+                page("Felix Felicis: patience", List.of(
+                        "5. Simmer 600 seconds (10 minutes).",
+                        "6. Stir anticlockwise once.",
+                        "Take it off the heat after the simmer if you must leave it: it overbrews like any other."
+                )),
+                page("Where ingredients grow", List.of(
+                        "Dittany grows on earth and bare rock in the Forbidden Forest and the Horntail Peaks. A wild plant gives two; one you plant gives back one.",
+                        "Apothecaries sell Dittany, Valerian Sprigs, Asphodel and Wormwood, each shop only some of them.",
+                        "Valerian Sprigs turn up in the chests of the Hogwarts ruin camp.",
+                        "Ashwinder Eggs: Death Eater camps, the Chamber, and now and then a Blaze."
+                )),
+                page("Turned to stone", List.of(
+                        "A basilisk's full stare no longer kills you: it turns you to stone. You cannot move or act, and nothing can hurt you.",
+                        "Wait for a friend with a Mandrake Restorative Draught, or give in and die as usual: choose it on the stone screen, or press J (by default) to open that screen again.",
+                        "A creature turned to stone leaves a statue. The Draught brings it back as it was, with its name and its master. Break the statue, or push it into the void, and it is gone for good."
                 ))
         ));
 

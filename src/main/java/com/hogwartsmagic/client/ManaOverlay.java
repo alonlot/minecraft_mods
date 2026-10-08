@@ -38,8 +38,9 @@ public class ManaOverlay {
         int fillWidth = (int) ((currentMana / maxMana) * barWidth);
         fillWidth = Math.max(0, Math.min(barWidth, fillWidth));
 
-        // Light blue color
-        guiGraphics.fill(x, y, x + fillWidth, y + barHeight, 0xFF00AAFF);
+        // Light blue; a dark green-black from Corrupted (Dark Magic). The client knows only its own tier.
+        guiGraphics.fill(x, y, x + fillWidth, y + barHeight,
+                com.hogwartsmagic.spell.dark.DarkRules.manaBarColor(DarkMagicClientState.tier()));
 
         // Draw text
         String text = (int) currentMana + " / " + (int) maxMana;

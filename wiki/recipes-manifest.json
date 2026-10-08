@@ -1,5 +1,5 @@
 {
-    "generatedAt":  "2026-04-21T11:03:26",
+    "generatedAt":  "2026-10-07T19:39:13",
     "recipes":  [
                     {
                         "id":  "arcane_core",
@@ -473,13 +473,13 @@
                     },
                     {
                         "id":  "fine_wood_stick",
-                        "name":  "Wand Blank",
+                        "name":  "Fine Wood Stick",
                         "station":  "crafting_table",
                         "recipeType":  "shaped",
                         "category":  "Crafting and Utilities",
                         "output":  {
                                        "id":  "hogwartsmagic:fine_wood_stick",
-                                       "name":  "Wand Blank",
+                                       "name":  "Fine Wood Stick",
                                        "count":  4,
                                        "texture":  "assets/recipe-icons/hogwartsmagic_fine_wood_stick.png"
                                    },
@@ -489,13 +489,13 @@
                                          "name":  "Stripped Fine Wood Log",
                                          "texture":  "assets/recipe-icons/hogwartsmagic_stripped_fine_wood_log.png"
                                      },
+                                     null,
+                                     null,
                                      {
                                          "id":  "hogwartsmagic:stripped_fine_wood_log",
                                          "name":  "Stripped Fine Wood Log",
                                          "texture":  "assets/recipe-icons/hogwartsmagic_stripped_fine_wood_log.png"
                                      },
-                                     null,
-                                     null,
                                      null,
                                      null,
                                      null,
@@ -508,13 +508,13 @@
                     },
                     {
                         "id":  "fine_wood_sticks_from_planks",
-                        "name":  "Wand Blank",
+                        "name":  "Fine Wood Stick",
                         "station":  "crafting_table",
                         "recipeType":  "shaped",
                         "category":  "Crafting and Utilities",
                         "output":  {
                                        "id":  "hogwartsmagic:fine_wood_stick",
-                                       "name":  "Wand Blank",
+                                       "name":  "Fine Wood Stick",
                                        "count":  1,
                                        "texture":  "assets/recipe-icons/hogwartsmagic_fine_wood_stick.png"
                                    },
@@ -524,20 +524,20 @@
                                          "name":  "Fine Wood Planks",
                                          "texture":  "assets/recipe-icons/hogwartsmagic_fine_wood_planks.png"
                                      },
+                                     null,
+                                     null,
                                      {
                                          "id":  "hogwartsmagic:fine_wood_planks",
                                          "name":  "Fine Wood Planks",
                                          "texture":  "assets/recipe-icons/hogwartsmagic_fine_wood_planks.png"
                                      },
+                                     null,
+                                     null,
                                      {
                                          "id":  "hogwartsmagic:fine_wood_planks",
                                          "name":  "Fine Wood Planks",
                                          "texture":  "assets/recipe-icons/hogwartsmagic_fine_wood_planks.png"
                                      },
-                                     null,
-                                     null,
-                                     null,
-                                     null,
                                      null,
                                      null
                                  ],
@@ -580,7 +580,7 @@
                                      },
                                      {
                                          "id":  "hogwartsmagic:fine_wood_stick",
-                                         "name":  "Wand Blank",
+                                         "name":  "Fine Wood Stick",
                                          "texture":  "assets/recipe-icons/hogwartsmagic_fine_wood_stick.png"
                                      },
                                      {
@@ -1539,6 +1539,61 @@
                                   ]
                     },
                     {
+                        "id":  "sneakoscope",
+                        "name":  "Sneakoscope",
+                        "station":  "crafting_table",
+                        "recipeType":  "shaped",
+                        "category":  "Blocks and Stations",
+                        "output":  {
+                                       "id":  "hogwartsmagic:sneakoscope",
+                                       "name":  "Sneakoscope",
+                                       "count":  1,
+                                       "texture":  "assets/recipe-icons/hogwartsmagic_sneakoscope.png"
+                                   },
+                        "grid":  [
+                                     {
+                                         "id":  "minecraft:gold_nugget",
+                                         "name":  "Gold Nugget",
+                                         "texture":  "assets/recipe-icons/minecraft_gold_nugget.png"
+                                     },
+                                     {
+                                         "id":  "minecraft:gold_ingot",
+                                         "name":  "Gold Ingot",
+                                         "texture":  "assets/recipe-icons/minecraft_gold_ingot.png"
+                                     },
+                                     {
+                                         "id":  "minecraft:gold_nugget",
+                                         "name":  "Gold Nugget",
+                                         "texture":  "assets/recipe-icons/minecraft_gold_nugget.png"
+                                     },
+                                     {
+                                         "id":  "minecraft:gold_nugget",
+                                         "name":  "Gold Nugget",
+                                         "texture":  "assets/recipe-icons/minecraft_gold_nugget.png"
+                                     },
+                                     {
+                                         "id":  "minecraft:glass_pane",
+                                         "name":  "Glass Pane",
+                                         "texture":  "assets/recipe-icons/minecraft_glass_pane.png"
+                                     },
+                                     {
+                                         "id":  "minecraft:gold_nugget",
+                                         "name":  "Gold Nugget",
+                                         "texture":  "assets/recipe-icons/minecraft_gold_nugget.png"
+                                     },
+                                     null,
+                                     {
+                                         "id":  "hogwartsmagic:arcane_dust",
+                                         "name":  "Arcane Dust",
+                                         "texture":  "assets/recipe-icons/hogwartsmagic_arcane_dust.png"
+                                     },
+                                     null
+                                 ],
+                        "notes":  [
+                                      "The Curio Dealer in Knockturn Alley also sells one for 14 emeralds."
+                                  ]
+                    },
+                    {
                         "id":  "unicorn_hair_core",
                         "name":  "Unicorn Hair Core",
                         "station":  "crafting_table",
@@ -1799,7 +1854,7 @@
                                           "label":  "Wood",
                                           "item":  {
                                                        "id":  "hogwartsmagic:fine_wood_stick",
-                                                       "name":  "Wand Blank",
+                                                       "name":  "Fine Wood Stick",
                                                        "texture":  "assets/recipe-icons/hogwartsmagic_fine_wood_stick.png"
                                                    }
                                       },
@@ -1842,7 +1897,7 @@
                                           "label":  "Wood",
                                           "item":  {
                                                        "id":  "hogwartsmagic:fine_wood_stick",
-                                                       "name":  "Wand Blank",
+                                                       "name":  "Fine Wood Stick",
                                                        "texture":  "assets/recipe-icons/hogwartsmagic_fine_wood_stick.png"
                                                    }
                                       },
@@ -1885,7 +1940,7 @@
                                           "label":  "Wood",
                                           "item":  {
                                                        "id":  "hogwartsmagic:fine_wood_stick",
-                                                       "name":  "Wand Blank",
+                                                       "name":  "Fine Wood Stick",
                                                        "texture":  "assets/recipe-icons/hogwartsmagic_fine_wood_stick.png"
                                                    }
                                       },

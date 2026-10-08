@@ -1,0 +1,24 @@
+{
+  "parent": "hogwartsmagic:hp/first_spellbook",
+  "display": {
+    "icon": {
+      "id": "hogwartsmagic:horcrux",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancement.hogwartsmagic.torn_soul.title"
+    },
+    "description": {
+      "translate": "advancement.hogwartsmagic.torn_soul.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": false,
+    "hidden": false
+  },
+  "criteria": {
+    "reached_lost": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

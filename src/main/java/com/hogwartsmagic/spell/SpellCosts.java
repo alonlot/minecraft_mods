@@ -23,8 +23,17 @@ public final class SpellCosts {
     }
 
     public static int manaCost(Player player, ItemStack wand, SpellType spell) {
-        return Math.max(1, Math.round(spell.getManaCost()
-                * MagicWandItem.getManaCostMultiplier(wand) * masteryMultiplier(player, spell)));
+        return com.hogwartsmagic.spell.dark.DarkRewardRules.manaCost(spell.getManaCost()
+                * MagicWandItem.getManaCostMultiplier(wand) * masteryMultiplier(player, spell),
+                darkMultiplier(player, spell));
+    }
+
+    /**
+     * Dark Magic (Phase 3): 0.85 for a dark spell at Corrupted or Lost, else 1. Applied after the wand and mastery
+     * multipliers. On the client it reads the player's own synced tier, so the Grimoire shows the same cost.
+     */
+    public static float darkMultiplier(Player player, SpellType spell) {
+        return com.hogwartsmagic.spell.dark.DarkRewards.manaMultiplier(player, spell);
     }
 
     public static long cooldownTicks(Player player, ItemStack wand, SpellType spell) {

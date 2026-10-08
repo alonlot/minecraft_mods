@@ -1,0 +1,24 @@
+{
+  "parent": "hogwartsmagic:hp/torn_soul",
+  "display": {
+    "icon": {
+      "id": "hogwartsmagic:essence_of_dittany",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancement.hogwartsmagic.redemption.title"
+    },
+    "description": {
+      "translate": "advancement.hogwartsmagic.redemption.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": false,
+    "hidden": false
+  },
+  "criteria": {
+    "returned_to_clean": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

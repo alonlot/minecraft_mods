@@ -56,11 +56,16 @@ public final class MagicBookChestLoot {
             // A castle-defence charm belongs with the other things written down in a fortified library,
             // and keeping it out of the village pool stops a starting player animating a sentry before
             // they have any reason to want one.
-            SpellType.PIERTOTUM_LOCOMOTOR
+            SpellType.PIERTOTUM_LOCOMOTOR,
+            // The locking charm sits on the shelf beside the unlocking one.
+            SpellType.COLLOPORTUS
     };
     private static final SpellType[] DUNGEON_MIX = {
             SpellType.STUPEFY, SpellType.REVELIO, SpellType.LUMOS, SpellType.GLACIUS,
-            SpellType.INCENDIO, SpellType.EXPELLIARMUS, SpellType.ALOHOMORA, SpellType.ARRESTO_MOMENTUM
+            SpellType.INCENDIO, SpellType.EXPELLIARMUS, SpellType.ALOHOMORA, SpellType.ARRESTO_MOMENTUM,
+            SpellType.COLLOPORTUS,
+            // The Boggart charm is taught early at Hogwarts, and Boggarts live in dark, shut-up places like these.
+            SpellType.RIDDIKULUS
     };
     /**
      * Fallback for vanilla loot tables we do not explicitly map.
@@ -83,7 +88,9 @@ public final class MagicBookChestLoot {
             SpellType.GLACIUS,
             SpellType.INCENDIO,
             SpellType.AQUA_ERUCTO,
-            SpellType.REPARO
+            SpellType.REPARO,
+            SpellType.COLLOPORTUS,
+            SpellType.RIDDIKULUS
     };
 
     static {

@@ -46,7 +46,7 @@ public class SpellPackets {
 
     public static final SimpleChannel CHANNEL = ChannelBuilder
             .named(ExampleMod.MODID + ":spells")
-            .networkProtocolVersion(6)
+            .networkProtocolVersion(8)
             .simpleChannel();
 
     public static void register() {
@@ -515,6 +515,16 @@ public class SpellPackets {
                 .decoder(buf -> new LockPickStatePacket(buf.readBoolean()))
                 .consumerMainThread(LockPickStatePacket::handle)
                 .add();
+        CHANNEL.messageBuilder(SyncDarkMagicPacket.class)
+                .encoder((p, buf) -> buf.writeFloat(p.darkness))
+                .decoder(buf -> new SyncDarkMagicPacket(buf.readFloat()))
+                .consumerMainThread(SyncDarkMagicPacket::handle)
+                .add();
+        CHANNEL.messageBuilder(GiveInPacket.class)
+                .encoder((p, buf) -> {})
+                .decoder(buf -> new GiveInPacket())
+                .consumerMainThread(GiveInPacket::handle)
+                .add();
     }
 
     public static void syncRelics(ServerPlayer player) {
@@ -732,6 +742,18 @@ public class SpellPackets {
         }
     }
 
+    /** Server to client: this player's own effective Darkness (0 with Dark Magic off). Never about anyone else. */
+    public record SyncDarkMagicPacket(float darkness) {
+        public static void handle(SyncDarkMagicPacket p, CustomPayloadEvent.Context ctx) {
+            if (ctx.getSender() != null) {
+                // Server-to-client only: ignore anything a client sends (e.g. a LAN guest).
+                ctx.setPacketHandled(true);
+                return;
+            }
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("syncDarkMagic", p));
+        }
+    }
+
     public record SelectSpellPacket(String spellId) {
         public static void handle(SelectSpellPacket p, CustomPayloadEvent.Context ctx) {
             ServerPlayer player = ctx.getSender();
@@ -794,7 +816,7 @@ public class SpellPackets {
          */
         private static final String TAG_PATRONUS_CAST_SPENT = "hogwartsmagic:patronus_cast_spent_at";
         private static final long PATRONUS_CAST_SPENT_GRACE = 10L;
-        /** How often the charm answers in full rather than as a bare shield of light. */
+        /** How often the charm answers in full rather than as a bare shield of light (a Clean caster; Dark Magic lowers it, DarkCostRules). */
         private static final float CORPOREAL_PATRONUS_CHANCE = 0.15f;
         private static final String TAG_WINGARDIUM_CHANNELING = "hogwartsmagic:wingardium_channeling";
         private static final String TAG_WINGARDIUM_TARGET = "hogwartsmagic:wingardium_target";
@@ -815,7 +837,7 @@ public class SpellPackets {
          * The whole cast path, run as {@code player}: learned spell, stun and silence gates, cooldown, mana,
          * then the spell. The packet handler and (Phase 6b) puppet casts come through here, so every cast is
          * checked the same way. Two callers: the packet handler (body = sender) and
-         * {@code PossessionManager.castAsPuppet} (body = the possessed victim, payer = the victim, no mastery XP).
+         * {@code PossessionManager.castAsPuppet} (body = the possessed victim, mana payer = the victim; Darkness goes to the puppeteer, no mastery XP).
          */
         public static void castAs(ServerPlayer player, CastSpellPacket p) {
             ItemStack wand = player.getMainHandItem();
@@ -948,6 +970,8 @@ public class SpellPackets {
                     CHANNEL.send(new SyncManaPacket(currentMana, maxMana), net.minecraftforge.network.PacketDistributor.PLAYER.with(player));
                 }
 
+                // Dark Magic: the channel start is the paid Fiendfyre cast (its startup mana was just taken).
+                com.hogwartsmagic.spell.dark.DarkMagicData.onDarkCastPaid(player, spell);
                 playerData.putBoolean(TAG_FIENDFYRE_CHANNELING, true);
                 playerData.putLong(TAG_FIENDFYRE_LAST_DRAIN, now);
                 playerData.putLong(TAG_FIENDFYRE_LAST_SEEN, now);
@@ -1020,7 +1044,7 @@ public class SpellPackets {
                 float maxMana = PlayerMagicData.getMaxMana(player);
                 float currentMana = modData.contains("Mana") ? modData.getFloat("Mana") : maxMana;
 
-                if (player.getRandom().nextFloat() < CORPOREAL_PATRONUS_CHANCE) {
+                if (player.getRandom().nextFloat() < com.hogwartsmagic.spell.dark.DarkCosts.corporealPatronusChance(player, CORPOREAL_PATRONUS_CHANCE)) {
                     int fullCost = SpellCosts.manaCost(player, wand, spell);
                     if (!creative && currentMana < fullCost) {
                         player.displayClientMessage(net.minecraft.network.chat.Component.literal("Not enough mana!").withStyle(net.minecraft.ChatFormatting.RED), true);
@@ -1107,6 +1131,8 @@ public class SpellPackets {
             if (!creative) {
                 MagicWandItem.rollManaRefund(player, wand, cost);
             }
+            // Dark Magic: a paid dark cast darkens the payer, hit or miss (a puppet cast charges the puppeteer).
+            com.hogwartsmagic.spell.dark.DarkMagicData.onDarkCastPaid(player, spell);
 
             if (p.selfCastProtego) {
                 spell.applyHitEffect(player, player);
@@ -1166,7 +1192,7 @@ public class SpellPackets {
 
             if (spell == SpellType.EXPECTO_PATRONUM) {
                 // Full mana was already taken above, so either outcome is paid for here.
-                if (player.getRandom().nextFloat() < CORPOREAL_PATRONUS_CHANCE) {
+                if (player.getRandom().nextFloat() < com.hogwartsmagic.spell.dark.DarkCosts.corporealPatronusChance(player, CORPOREAL_PATRONUS_CHANCE)) {
                     playerData.putLong(TAG_PATRONUS_CAST_SPENT, now);
                     summonCorporealPatronus(player);
                     if (!creative) {
@@ -1281,7 +1307,8 @@ public class SpellPackets {
 
         private static float getFiendfyreStartupCost(ServerPlayer player, ItemStack wand) {
             return Math.max(3.0f, SpellType.FIENDFYRE.getManaCost() * MagicWandItem.getManaCostMultiplier(wand)
-                    * SpellCosts.masteryMultiplier(player, SpellType.FIENDFYRE) * 0.16f);
+                    * SpellCosts.masteryMultiplier(player, SpellType.FIENDFYRE) * 0.16f
+                    * SpellCosts.darkMultiplier(player, SpellType.FIENDFYRE));
         }
 
         private static void ensureFiendfyreExists(ServerPlayer player) {
@@ -1726,6 +1753,16 @@ public class SpellPackets {
             ServerPlayer player = ctx.getSender();
             if (player != null) {
                 com.hogwartsmagic.spell.mind.PossessionManager.castAsPuppet(player, p.spellId);
+            }
+        }
+    }
+
+    /** Client to server: a petrified player gives in. The server checks the stone state itself (Petrification.giveIn). */
+    public record GiveInPacket() {
+        public static void handle(GiveInPacket p, CustomPayloadEvent.Context ctx) {
+            ServerPlayer player = ctx.getSender();
+            if (player != null) {
+                com.hogwartsmagic.petrification.Petrification.giveIn(player);
             }
         }
     }

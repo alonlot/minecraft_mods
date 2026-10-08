@@ -222,9 +222,27 @@
     },
     {
       "predicate": {
+        "custom_model_data": 37.0
+      },
+      "model": "hogwartsmagic:item/magic_book_apparition"
+    },
+    {
+      "predicate": {
         "custom_model_data": 38.0
       },
       "model": "hogwartsmagic:item/magic_book_piertotum_locomotor"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 39.0
+      },
+      "model": "hogwartsmagic:item/magic_book_colloportus"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 40.0
+      },
+      "model": "hogwartsmagic:item/magic_book_riddikulus"
     }
   ]
 }

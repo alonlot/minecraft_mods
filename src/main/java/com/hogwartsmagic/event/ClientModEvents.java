@@ -749,6 +749,9 @@ public class ClientModEvents {
             ItemBlockRenderTypes.setRenderLayer(ExampleMod.FINE_WOOD_SAPLING.get(), RenderType.cutout());
             ItemBlockRenderTypes.setRenderLayer(ExampleMod.FINE_WOOD_LEAVES.get(), RenderType.cutout());
             ItemBlockRenderTypes.setRenderLayer(ExampleMod.HORCRUX.get(), RenderType.cutout());
+            net.minecraft.client.renderer.item.ItemProperties.register(ExampleMod.SNEAKOSCOPE_ITEM.get(),
+                    net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "spinning"),
+                    (stack, level, entity, seed) -> com.hogwartsmagic.item.SneakoscopeItem.isSpinning(stack) ? 1.0f : 0.0f);
 
             net.minecraftforge.client.settings.KeyConflictContext context = net.minecraftforge.client.settings.KeyConflictContext.IN_GAME;
             WAND_RADIAL_MENU_KEY.setKeyConflictContext(context);
@@ -763,6 +766,7 @@ public class ClientModEvents {
     public static void onRegisterKeyMappings(net.minecraftforge.client.event.RegisterKeyMappingsEvent event) {
         event.register(WAND_RADIAL_MENU_KEY);
         event.register(GRIMOIRE_KEY);
+        event.register(com.hogwartsmagic.client.PetrificationClient.GIVE_IN_KEY);
         for (KeyMapping spellSlotKey : SPELL_SLOT_KEYS) {
             event.register(spellSlotKey);
         }
@@ -905,6 +909,7 @@ public class ClientModEvents {
                                 ? BiomeColors.getAverageFoliageColor(level, pos)
                                 : FoliageColor.getDefaultColor(),
                 ExampleMod.FINE_WOOD_LEAVES.get());
+        event.register(com.hogwartsmagic.client.WizardCauldronColors::block, ExampleMod.WIZARD_CAULDRON.get());
     }
 
     @SubscribeEvent
@@ -913,6 +918,19 @@ public class ClientModEvents {
                 (stack, tintIndex) -> event.getBlockColors()
                         .getColor(ExampleMod.FINE_WOOD_LEAVES.get().defaultBlockState(), null, null, tintIndex),
                 ExampleMod.FINE_WOOD_LEAVES_ITEM.get());
+        // Cauldron potions: layer 0 is the vanilla potion_overlay, tinted with the potion's colour.
+        event.register(
+                (stack, tintIndex) -> tintIndex == 0 && stack.getItem() instanceof com.hogwartsmagic.item.BrewedPotionItem potion
+                        ? net.minecraft.util.FastColor.ARGB32.opaque(potion.kind().color())
+                        : -1,
+                ExampleMod.WIGGENWELD_POTION.get(), ExampleMod.PEPPERUP_POTION.get(), ExampleMod.FAILED_POTION.get(),
+                ExampleMod.ESSENCE_OF_DITTANY.get(), ExampleMod.FELIX_FELICIS.get(), ExampleMod.MANDRAKE_DRAUGHT.get());
+        event.register(
+                (stack, tintIndex) -> tintIndex == 0 && stack.getItem() instanceof com.hogwartsmagic.item.SplashBrewItem splash
+                        ? net.minecraft.util.FastColor.ARGB32.opaque(splash.kind().color())
+                        : -1,
+                ExampleMod.SPLASH_MANDRAKE_DRAUGHT.get(), ExampleMod.DRAUGHT_OF_LIVING_DEATH.get());
+        event.register(com.hogwartsmagic.client.WizardCauldronColors::item, ExampleMod.WIZARD_CAULDRON_ITEM.get());
     }
 
     @SubscribeEvent
@@ -951,6 +969,8 @@ public class ClientModEvents {
                 com.hogwartsmagic.client.model.GrindylowModel::createBodyLayer);
         event.registerLayerDefinition(com.hogwartsmagic.client.model.InferiusModel.LAYER_LOCATION,
                 com.hogwartsmagic.client.model.InferiusModel::createBodyLayer);
+        event.registerLayerDefinition(com.hogwartsmagic.client.model.BoggartModel.LAYER_LOCATION,
+                com.hogwartsmagic.client.model.BoggartModel::createBodyLayer);
         event.registerLayerDefinition(com.hogwartsmagic.client.model.WhompingWillowModel.LAYER_LOCATION,
                 com.hogwartsmagic.client.model.WhompingWillowModel::createBodyLayer);
         // Named LAYER, not LAYER_LOCATION like its neighbours -- the statue's model is emitted by
@@ -1004,6 +1024,8 @@ public class ClientModEvents {
                 com.hogwartsmagic.client.renderer.GiantRenderer::new);
         event.registerEntityRenderer(ModEntities.HUNGARIAN_HORNTAIL.get(), HungarianHorntailRenderer::new);
         event.registerEntityRenderer(ModEntities.PETRIFIED_REMAINS.get(), PetrifiedRemainsRenderer::new);
+        event.registerEntityRenderer(ModEntities.THROWN_BREW.get(),
+                net.minecraft.client.renderer.entity.ThrownItemRenderer::new);
         event.registerEntityRenderer(ModEntities.HORCRUX_SOUL.get(), HorcruxSoulRenderer::new);
         event.registerEntityRenderer(ModEntities.LYCANTHROPE_VILLAGER.get(), LycanthropeVillagerRenderer::new);
         event.registerEntityRenderer(ModEntities.GOLDEN_SNITCH.get(), com.hogwartsmagic.client.GoldenSnitchRenderer::new);
@@ -1021,6 +1043,8 @@ public class ClientModEvents {
                 com.hogwartsmagic.client.renderer.GrindylowRenderer::new);
         event.registerEntityRenderer(ModEntities.INFERIUS.get(),
                 com.hogwartsmagic.client.renderer.InferiusRenderer::new);
+        event.registerEntityRenderer(ModEntities.BOGGART.get(),
+                com.hogwartsmagic.client.renderer.BoggartRenderer::new);
         event.registerEntityRenderer(ModEntities.WHOMPING_WILLOW.get(),
                 com.hogwartsmagic.client.renderer.WhompingWillowRenderer::new);
         event.registerEntityRenderer(ModEntities.LIVING_STATUE.get(),

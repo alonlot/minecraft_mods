@@ -50,7 +50,8 @@ public final class MasteryAwards {
     private static final Set<SpellType> BLOCK_UTILITY = EnumSet.of(
             SpellType.ACCIO, SpellType.ALOHOMORA, SpellType.INCENDIO, SpellType.AQUA_ERUCTO,
             SpellType.MORSMORDRE, SpellType.CAVE_INIMICUM, SpellType.ALATUS, SpellType.REPARO,
-            SpellType.PIERTOTUM_LOCOMOTOR, SpellType.SERPENSORTIA, SpellType.BOMBARDA, SpellType.DIFFINDO);
+            SpellType.PIERTOTUM_LOCOMOTOR, SpellType.SERPENSORTIA, SpellType.BOMBARDA, SpellType.DIFFINDO,
+            SpellType.COLLOPORTUS);
 
     private static final Map<UUID, HitLedger> LEDGERS = new HashMap<>();
 
@@ -123,8 +124,11 @@ public final class MasteryAwards {
     }
 
     private static void grant(ServerPlayer caster, SpellType spell, double multiplier) {
+        // Felix Felicis (Luck III or more): +25% mastery XP.
+        net.minecraft.world.effect.MobEffectInstance luck = caster.getEffect(net.minecraft.world.effect.MobEffects.LUCK);
+        double felix = com.hogwartsmagic.brewing.PotionRules.felixXpMultiplier(luck == null ? -1 : luck.getAmplifier());
         float xp = MasteryMath.scaledXp(MasteryMath.xpPerCast(spell.getCooldownTicks()),
-                multiplier * Config.getMasteryXpMultiplier());
+                multiplier * Config.getMasteryXpMultiplier() * felix);
         int newRank = SpellMasteryData.addXp(caster, spell, xp);
         if (newRank > 0) {
             celebrate(caster, spell, newRank);
@@ -169,7 +173,7 @@ public final class MasteryAwards {
     }
 
     /** Mobs that neither hunt you nor fight back: cows, villagers, owls. */
-    private static boolean isPassive(LivingEntity target) {
+    public static boolean isPassive(LivingEntity target) {
         if (target instanceof Player || target instanceof Enemy || target instanceof NeutralMob) {
             return false;
         }

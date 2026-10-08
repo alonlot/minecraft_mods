@@ -1,0 +1,33 @@
+{
+  "parent": "hogwartsmagic:hp/first_brew",
+  "display": {
+    "icon": {
+      "id": "hogwartsmagic:felix_felicis",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancement.hogwartsmagic.liquid_luck.title"
+    },
+    "description": {
+      "translate": "advancement.hogwartsmagic.liquid_luck.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "has_felix_felicis": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": [
+              "hogwartsmagic:felix_felicis"
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

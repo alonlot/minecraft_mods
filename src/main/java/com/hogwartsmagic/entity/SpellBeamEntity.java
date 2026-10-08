@@ -355,6 +355,13 @@ public class SpellBeamEntity extends ThrowableProjectile {
                                 (random.nextDouble() - 0.5) * 0.02, 0.01, (random.nextDouble() - 0.5) * 0.02);
                     }
                 }
+                case RIDDIKULUS -> {
+                    if (tickCount % 2 == 0) {
+                        this.level().addParticle(ParticleTypes.NOTE,
+                                pos.x, pos.y + 0.2, pos.z,
+                                (random.nextDouble() - 0.5) * 0.02, 0.01, (random.nextDouble() - 0.5) * 0.02);
+                    }
+                }
                 case DEPULSO -> {
                     if (tickCount % 2 == 0) {
                         this.level().addParticle(ParticleTypes.CLOUD,
@@ -688,7 +695,11 @@ public class SpellBeamEntity extends ThrowableProjectile {
                         int revelioRank = com.hogwartsmagic.spell.disable.DisableSupport.casterRank(getOwner(), SpellType.REVELIO);
                         revealNearbySecrets(sl, pos, revelioRank);
                         com.hogwartsmagic.spell.support.RevelioSpell.revealHidden(sl, this.position(), getOwner());
-                        if (getOwner() instanceof ServerPlayer revealer
+                        // A Colloportus seal over this lock is shown (any rank) instead of how the lock opens.
+                        boolean sealShown = getOwner() instanceof ServerPlayer sealViewer
+                                && com.hogwartsmagic.spell.mind.MindControl.hitPuppeteer() == null
+                                && com.hogwartsmagic.spell.support.seal.ColloportusSpell.revealSeals(sl, pos, sealViewer);
+                        if (!sealShown && getOwner() instanceof ServerPlayer revealer
                                 && com.hogwartsmagic.spell.support.lock.LockRules.readsLocks(revelioRank)
                                 && com.hogwartsmagic.spell.mind.MindControl.hitPuppeteer() == null) {
                             // From Expert: show how the piston door here opens (see LockHints).
@@ -794,6 +805,15 @@ public class SpellBeamEntity extends ThrowableProjectile {
                         hitSuccessful = com.hogwartsmagic.util.StatueMultiblock.tryRaise(sl, pos,
                                 getOwner() instanceof ServerPlayer caster ? caster : null);
                     }
+                } else if (spell == SpellType.COLLOPORTUS) {
+                    // Seals the lock here against Alohomora; inside the caster's own seal it lifts it instead (no XP).
+                    if (this.level() instanceof ServerLevel sealLevel) {
+                        com.hogwartsmagic.spell.support.seal.ColloportusSpell.Cast cast =
+                                com.hogwartsmagic.spell.support.seal.ColloportusSpell.onBlockHit(
+                                        sealLevel, pos, state, getOwner(), this.reflected);
+                        hitSuccessful = cast != com.hogwartsmagic.spell.support.seal.ColloportusSpell.Cast.NOTHING;
+                        masteryEligible = cast == com.hogwartsmagic.spell.support.seal.ColloportusSpell.Cast.SEALED;
+                    }
                 }
             } else if (result instanceof EntityHitResult entityHit && livingBehind(entityHit.getEntity()) instanceof LivingEntity living) {
                 // A player's ranked Protego first: parry window (dissolve or reflect), or the shield breaks.
@@ -834,7 +854,8 @@ public class SpellBeamEntity extends ThrowableProjectile {
                         // Both of these only ever act on a block. Fizzling rather than falling through
                         // to applyHitEffect keeps a living target from eating a "successful" impact
                         // burst for a spell that did nothing to it.
-                        if (spell == SpellType.MORSMORDRE || spell == SpellType.PIERTOTUM_LOCOMOTOR) {
+                        if (spell == SpellType.MORSMORDRE || spell == SpellType.PIERTOTUM_LOCOMOTOR
+                                || spell == SpellType.COLLOPORTUS) {
                             hitSuccessful = false;
                         } else if (spell == SpellType.AVADA_KEDAVRA && living instanceof VoldemortEntity voldemort && voldemort.tryEvadeAvada(getOwner())) {
                             if (this.level() instanceof ServerLevel sl) {
@@ -854,7 +875,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
                             boolean shearableSheep = spell == SpellType.DIFFINDO
                                     && living instanceof net.minecraft.world.entity.animal.Sheep woolly && woolly.readyForShearing();
                             if (spell != SpellType.HEAL && spell != SpellType.AVADA_KEDAVRA && spell != SpellType.PROTEGO
-                                    && spell != SpellType.LUMOS && !shearableSheep) {
+                                    && spell != SpellType.LUMOS && spell != SpellType.RIDDIKULUS && !shearableSheep) {
                                chipDamage = 0.1f * HousePerks.getSpellDamageMultiplier(getOwner());
                                chipSource = this.damageSources().magic();
                                chipLanded = living.hurt(chipSource, chipDamage);
@@ -896,6 +917,8 @@ public class SpellBeamEntity extends ThrowableProjectile {
                                 applyAquaWaveAt(living.position(), getOwner());
                             } else if (spell == SpellType.AVADA_KEDAVRA) {
                                 tryPrimeHorcruxFromAvada(living);
+                                // Dark Magic: killing an innocent stains the soul (+3).
+                                com.hogwartsmagic.spell.dark.DarkDeeds.onAvadaHit(living, darkDeedPayer());
                             }
                         }
                     }
@@ -1108,10 +1131,35 @@ public class SpellBeamEntity extends ThrowableProjectile {
         return bestPos;
     }
 
+    /**
+     * Dark Magic: who answers for this beam's deed. The caster; the puppeteer of a puppet beam (if online); nobody
+     * for a reflected beam or another forced body. The same rule as a paid cast (DarkRules.payer).
+     */
+    @javax.annotation.Nullable
+    private ServerPlayer darkDeedPayer() {
+        if (!(this.level() instanceof ServerLevel serverLevel)) {
+            return null;
+        }
+        Entity owner = getOwner();
+        boolean ownerForced = owner instanceof ServerPlayer body
+                && com.hogwartsmagic.spell.mind.PossessionManager.isForcedCaster(body);
+        com.hogwartsmagic.spell.dark.DarkRules.Payer who =
+                com.hogwartsmagic.spell.dark.DarkRewardRules.deedPayer(this.reflected, this.puppeteer != null, ownerForced);
+        if (who == com.hogwartsmagic.spell.dark.DarkRules.Payer.PUPPETEER) {
+            return serverLevel.getServer().getPlayerList().getPlayer(this.puppeteer);
+        }
+        return who == com.hogwartsmagic.spell.dark.DarkRules.Payer.BODY && owner instanceof ServerPlayer caster
+                ? caster : null;
+    }
+
     private void tryPrimeHorcruxFromAvada(LivingEntity victim) {
         if (!(this.level() instanceof ServerLevel serverLevel)
                 || !(getOwner() instanceof net.minecraft.server.level.ServerPlayer player)
                 || victim.isAlive()) {
+            return;
+        }
+        // Dark Magic: a puppet beam or a forced body never forges a Horcrux (a possessed body is never given one).
+        if (this.puppeteer != null || com.hogwartsmagic.spell.mind.PossessionManager.isForcedCaster(player)) {
             return;
         }
         HorcruxBlockEntity existing = HorcruxData.getOwnedHorcrux(player);
@@ -1177,6 +1225,13 @@ public class SpellBeamEntity extends ThrowableProjectile {
             lightning.moveTo(Vec3.atBottomCenterOf(raidCenter));
             lightning.setVisualOnly(true);
             serverLevel.addFreshEntity(lightning);
+        }
+
+        // Dark Magic: a Lost caster's Mark calls an escort to their side instead of a raid near them.
+        if (!this.reflected && this.puppeteer == null && getOwner() instanceof ServerPlayer escortOwner
+                && !com.hogwartsmagic.spell.mind.PossessionManager.isForcedCaster(escortOwner)
+                && com.hogwartsmagic.spell.dark.DarkRewards.earnsEscort(escortOwner)) {
+            return DeathEaterEscort.summon(serverLevel, escortOwner) > 0;
         }
 
         java.util.List<WizardEntity> raidMembers = new java.util.ArrayList<>();
@@ -1338,6 +1393,10 @@ public class SpellBeamEntity extends ThrowableProjectile {
             case OBLIVIATE, CONFUNDO -> {
                 sl.sendParticles(ParticleTypes.NAUTILUS, impactPos.x, impactPos.y + 0.4, impactPos.z, 16, 0.5, 0.4, 0.5, 0.0);
                 sl.sendParticles(ParticleTypes.ENCHANT, impactPos.x, impactPos.y + 0.4, impactPos.z, 20, 0.6, 0.5, 0.6, 0.01);
+            }
+            case RIDDIKULUS -> {
+                sl.sendParticles(ParticleTypes.NOTE, impactPos.x, impactPos.y + 0.5, impactPos.z, 12, 0.5, 0.4, 0.5, 0.0);
+                sl.sendParticles(ParticleTypes.HAPPY_VILLAGER, impactPos.x, impactPos.y + 0.4, impactPos.z, 10, 0.4, 0.4, 0.4, 0.02);
             }
             case DEPULSO -> {
                 for (int i = 0; i < 24; i++) {

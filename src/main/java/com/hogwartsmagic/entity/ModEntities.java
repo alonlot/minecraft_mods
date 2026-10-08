@@ -216,6 +216,14 @@ public class ModEntities {
                             .updateInterval(1)
                             .build("petrified_remains"));
 
+    public static final RegistryObject<EntityType<ThrownBrewEntity>> THROWN_BREW =
+            ENTITY_TYPES.register("thrown_brew",
+                    () -> EntityType.Builder.<ThrownBrewEntity>of(ThrownBrewEntity::new, MobCategory.MISC)
+                            .sized(0.25F, 0.25F)
+                            .clientTrackingRange(4)
+                            .updateInterval(10)
+                            .build("thrown_brew"));
+
     public static final RegistryObject<EntityType<HorcruxSoulEntity>> HORCRUX_SOUL =
             ENTITY_TYPES.register("horcrux_soul",
                     () -> EntityType.Builder.<HorcruxSoulEntity>of(HorcruxSoulEntity::new, MobCategory.MISC)
@@ -276,6 +284,15 @@ public class ModEntities {
             ENTITY_TYPES.register("inferius",
                     () -> EntityType.Builder.<InferiusEntity>of(InferiusEntity::new, MobCategory.MONSTER)
                             .sized(0.6F, 1.95F).clientTrackingRange(8).build("inferius"));
+    // Player-sized box whatever shape it wears; the renderer draws the borrowed form, the box stays put.
+    public static final RegistryObject<EntityType<com.hogwartsmagic.entity.boggart.BoggartEntity>> BOGGART =
+            ENTITY_TYPES.register("boggart",
+                    () -> EntityType.Builder.<com.hogwartsmagic.entity.boggart.BoggartEntity>of(
+                                    com.hogwartsmagic.entity.boggart.BoggartEntity::new, MobCategory.MONSTER)
+                            .sized(0.6F, 1.95F)
+                            .clientTrackingRange(10)
+                            .updateInterval(3)
+                            .build("boggart"));
 
     public static final RegistryObject<EntityType<GoblinGuardEntity>> GOBLIN_GUARD =
             ENTITY_TYPES.register("goblin_guard",

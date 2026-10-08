@@ -11,7 +11,10 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 
-/** /lockinfo [3|4]: trace and solve the piston door you look at, as Alohomora of that rank. Changes nothing. */
+/**
+ * /lockinfo [3|4]: trace and solve the piston door you look at, as Alohomora of that rank. Changes nothing. A lock
+ * under a Colloportus seal prints SEALED with its sealer and rank instead.
+ */
 public final class LockInfoCommand {
     private LockInfoCommand() {
     }
@@ -30,6 +33,13 @@ public final class LockInfoCommand {
         if (hit.getType() != HitResult.Type.BLOCK || !(hit instanceof BlockHitResult blockHit)) {
             source.sendFailure(Component.literal("Look at a block of a piston door within 20 blocks."));
             return 0;
+        }
+        com.hogwartsmagic.spell.support.seal.Seal seal = com.hogwartsmagic.spell.support.seal.ColloportusSpell
+                .strongestSeal(player.serverLevel(), blockHit.getBlockPos());
+        if (seal != null) {
+            // One plain line the user can paste back; nothing is read while a seal holds the lock.
+            player.sendSystemMessage(Component.literal("SEALED by " + seal.ownerName() + " (rank " + seal.rank() + ")"));
+            return 1;
         }
         PistonLockSpell.Begin begin = PistonLockSpell.begin(player.serverLevel(), blockHit.getBlockPos(), player, rank,
                 PistonLockSpell.Use.INSPECT);

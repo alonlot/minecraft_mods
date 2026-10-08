@@ -128,7 +128,8 @@ public final class CircuitTracer {
         return false;
     }
 
-    private static List<BlockPos> doorPistons(ServerLevel level, BlockPos hit) {
+    /** The loaded pistons near hit that count as the door, nearest first, at most MAX_DOOR_PISTONS. Also read by Colloportus. */
+    public static List<BlockPos> doorPistons(ServerLevel level, BlockPos hit) {
         int r = LockRules.DOOR_RADIUS;
         List<BlockPos> found = new ArrayList<>();
         for (BlockPos pos : BlockPos.betweenClosed(hit.offset(-r, -r, -r), hit.offset(r, r, r))) {

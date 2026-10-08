@@ -120,8 +120,6 @@ public class ModEvents {
     private static final int DEATH_EATER_BASE_SPAWN_MAX_DIST = 34;
     private static final int DEATH_EATER_BASE_RAID_RADIUS = 96;
     private static final String TAG_LAST_DEATH_EATER_BASE_RAID = "hogwartsmagic:last_death_eater_base_raid";
-    /** Same stat as phantoms: ticks since last bed / respawn reset (1 day = 24000 ticks). */
-    private static final int DEMENTOR_INSOMNIA_TICKS = 5 * 24000;
     private static final int DEMENTOR_SPAWN_CHECK_INTERVAL = 160;
     private static final float DEMENTOR_SPAWN_CHANCE = 0.07f;
     private static final int DEMENTOR_NEARBY_CAP = 4;
@@ -391,7 +389,9 @@ public class ModEvents {
             return;
         }
         int sinceRest = player.getStats().getValue(Stats.CUSTOM.get(Stats.TIME_SINCE_REST));
-        if (sinceRest < DEMENTOR_INSOMNIA_TICKS) {
+        // Same stat as phantoms. 5 days without rest, or 3 from Tainted (Dark Magic, DarkCostRules).
+        if (sinceRest < com.hogwartsmagic.spell.dark.DarkCostRules.insomniaTicks(
+                com.hogwartsmagic.spell.dark.DarkMagicData.getTier(player))) {
             return;
         }
         java.util.List<com.hogwartsmagic.entity.DementorEntity> existing = level.getEntitiesOfClass(
@@ -515,6 +515,8 @@ public class ModEvents {
             com.hogwartsmagic.spell.mastery.SpellMasteryData.sync(player);
             HousePerks.applyHouseAttributes(player);
             HorcruxData.applyMaxHealthPenalty(player);
+            // Dark Magic: after the house and Horcrux modifiers, so the Lost health cost clamps against the full max.
+            com.hogwartsmagic.spell.dark.DarkMagicData.sync(player);
             // Sync initial mana
             float maxMana = PlayerMagicData.getMaxMana(player);
             float mana = modData.contains("Mana") ? modData.getFloat("Mana") : maxMana;
@@ -573,6 +575,7 @@ public class ModEvents {
                         PacketDistributor.PLAYER.with(serverPlayer));
             }
             com.hogwartsmagic.spell.mastery.SpellMasteryData.sync(serverPlayer);
+            com.hogwartsmagic.spell.dark.DarkMagicData.sync(serverPlayer);
             
             // Restore full mana on respawn
             float maxMana = PlayerMagicData.getMaxMana(serverPlayer);
@@ -665,6 +668,8 @@ public class ModEvents {
         horcrux.completeBinding(level, player);
         HorcruxData.completeRitual(player);
         HorcruxData.bindToHorcrux(player, level, pos);
+        // Dark Magic: a torn soul (+30, and never below the floor of 60 while the Horcrux exists).
+        com.hogwartsmagic.spell.dark.DarkDeeds.onHorcruxForged(player);
         player.setHealth(Math.max(1.0F, Math.min(player.getHealth(), player.getMaxHealth())));
         player.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.DARKNESS, 20 * 6, 0));
         player.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.CONFUSION, 20 * 8, 0));
@@ -705,6 +710,7 @@ public class ModEvents {
         SpellPackets.CHANNEL.send(new SpellPackets.SyncLearnedSpellsPacket(learned),
                 PacketDistributor.PLAYER.with(player));
         com.hogwartsmagic.spell.mastery.SpellMasteryData.sync(player);
+        com.hogwartsmagic.spell.dark.DarkMagicData.sync(player);
 
         float maxMana = PlayerMagicData.getMaxMana(player);
         float mana = modData.contains("Mana") ? Math.min(modData.getFloat("Mana"), maxMana) : maxMana;
@@ -785,6 +791,11 @@ public class ModEvents {
             tickHorcruxRitual(player);
 
             trySpawnInsomniaDementor(player);
+            com.hogwartsmagic.sneakoscope.SneakoscopeCarried.tick(player);
+            // Dark Magic decay: returns at once on 199 ticks out of 200, before any read.
+            com.hogwartsmagic.spell.dark.DarkMagicData.tickDecay(player);
+            // Dark Magic smoke (Corrupted and Lost): returns at once on 9 ticks out of 10, before any read.
+            com.hogwartsmagic.spell.dark.DarkCosts.tickSmoke(player);
 
             // Once every 5s, check if the player is standing in a Forbidden Forest with no castle
             // nearby — if so, raise a Mini Hogwarts. Placement runs outside worldgen (no far-chunk crash).
@@ -1320,8 +1331,10 @@ public class ModEvents {
     }
 
     public static float getPatronusShieldUpkeepCost(Player player, ItemStack wand) {
-        return Math.max(1.5f, (SpellType.EXPECTO_PATRONUM.getManaCost() * MagicWandItem.getManaCostMultiplier(wand)
+        float upkeep = Math.max(1.5f, (SpellType.EXPECTO_PATRONUM.getManaCost() * MagicWandItem.getManaCostMultiplier(wand)
                 * SpellCosts.masteryMultiplier(player, SpellType.EXPECTO_PATRONUM)) / 30.0f);
+        // Dark Magic: from Corrupted the shield costs half as much again to hold (and to raise).
+        return upkeep * com.hogwartsmagic.spell.dark.DarkCosts.shieldUpkeepMultiplier(player);
     }
 
     private static void tickFiendfyreChannel(ServerPlayer player, net.minecraft.nbt.CompoundTag modData) {
@@ -1601,7 +1614,8 @@ public class ModEvents {
 
     public static float getImperioUpkeepCost(Player player, ItemStack wand) {
         return Math.max(0.75f, (SpellType.IMPERIO.getManaCost() * MagicWandItem.getManaCostMultiplier(wand)
-                * SpellCosts.masteryMultiplier(player, SpellType.IMPERIO)) / 18.0f);
+                * SpellCosts.masteryMultiplier(player, SpellType.IMPERIO)
+                * SpellCosts.darkMultiplier(player, SpellType.IMPERIO)) / 18.0f);
     }
 
     private static com.hogwartsmagic.entity.FiendfyreSerpentEntity getOrCreateFiendfyreEntity(ServerPlayer player, ServerLevel level) {
@@ -1641,7 +1655,8 @@ public class ModEvents {
 
     private static float getFiendfyreUpkeepCost(Player player, ItemStack wand) {
         return Math.max(1.25f, (SpellType.FIENDFYRE.getManaCost() * MagicWandItem.getManaCostMultiplier(wand)
-                * SpellCosts.masteryMultiplier(player, SpellType.FIENDFYRE)) / 14.0f);
+                * SpellCosts.masteryMultiplier(player, SpellType.FIENDFYRE)
+                * SpellCosts.darkMultiplier(player, SpellType.FIENDFYRE)) / 14.0f);
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -2739,6 +2754,7 @@ public class ModEvents {
             }
         }
         if (event.getEntity() instanceof ServerPlayer player) {
+            com.hogwartsmagic.entity.boggart.BoggartFears.record(player, event.getSource());
             InvisibilityCloakItem.stopCloak(player, false);
             PolyjuiceData.clearAll(player);
             syncPolyjuice(player);
@@ -3190,6 +3206,10 @@ public class ModEvents {
         if (player.isCreative() || player.isSpectator()) {
             return;
         }
+        // Dark Magic: Death Eaters do not raid a Lost wizard's home.
+        if (com.hogwartsmagic.spell.dark.DarkRewards.deathEatersIgnore(player)) {
+            return;
+        }
         if (isPlayerNearActiveWizardRaid(level, player)) {
             return;
         }
@@ -3536,8 +3556,10 @@ public class ModEvents {
     }
 
     private static void handleBasiliskPetrification(net.minecraft.world.entity.LivingEntity entity) {
-        entity.setDeltaMovement(Vec3.ZERO);
-        entity.hurtMarked = true;
+        if (entity.getDeltaMovement().lengthSqr() != 0.0D) {
+            entity.setDeltaMovement(Vec3.ZERO);
+            entity.hurtMarked = true; // only on a change: long-term stone does not send a motion packet every tick
+        }
 
         if (!entity.level().isClientSide && entity.tickCount % 10 == 0) {
             entity.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN, 20, 6, false, false, false));

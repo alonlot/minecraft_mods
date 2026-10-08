@@ -71,7 +71,13 @@ public enum SpellType {
      *  no entity hit effect. The trail is plain smoke rather than a stone {@code BlockParticleOption}:
      *  these constants are built during this enum's class-init, and nothing in here should depend on the
      *  block registry having been populated first. Real stone comes off the blocks the rite eats. */
-    PIERTOTUM_LOCOMOTOR("piertotum_locomotor", 0x9BA0A4, 0.61f, 0.63f, 0.64f, ParticleTypes.SMOKE, ParticleTypes.CAMPFIRE_COSY_SMOKE, 600, 90, SpellLootRarity.RARE);
+    PIERTOTUM_LOCOMOTOR("piertotum_locomotor", 0x9BA0A4, 0.61f, 0.63f, 0.64f, ParticleTypes.SMOKE, ParticleTypes.CAMPFIRE_COSY_SMOKE, 600, 90, SpellLootRarity.RARE),
+    /** The locking charm: seals a door or a piston door lock against Alohomora (see spell.support.seal.ColloportusSpell).
+     *  Everything happens on a block hit, so it has no entity hit effect; a living target is a miss. */
+    COLLOPORTUS("colloportus", 0x8A6D3B, 0.54f, 0.43f, 0.23f, ParticleTypes.ENCHANT, ParticleTypes.WAX_ON, 60, 15, SpellLootRarity.UNCOMMON),
+    /** The Boggart charm (see spell.support.RiddikulusSpell): a Boggart hit enough times is banished; anything
+     *  else only glows for a moment and hears a bell. Never does damage. */
+    RIDDIKULUS("riddikulus", 0xFF8AD1, 1.0f, 0.54f, 0.82f, ParticleTypes.NOTE, ParticleTypes.HAPPY_VILLAGER, 40, 15, SpellLootRarity.UNCOMMON);
 
     private final String id;
     private final int color;
@@ -163,7 +169,7 @@ public enum SpellType {
             case GLACIUS -> {
                 // Steam combo first: put out the fire, or it would thaw the freeze on the next tick.
                 if (target.isOnFire()) {
-                    triggerSteamCombo(target);
+                    triggerSteamCombo(target, caster);
                     target.clearFire();
                 }
                 com.hogwartsmagic.spell.disable.GlaciusSpell.apply(target, caster);
@@ -171,7 +177,7 @@ public enum SpellType {
             case CONFRINGO -> {
                 com.hogwartsmagic.spell.damage.ConfringoSpell.apply(target, caster);
                 if (target.getTicksFrozen() > 0 || target.hasEffect(MobEffects.MOVEMENT_SLOWDOWN)) {
-                    triggerSteamCombo(target);
+                    triggerSteamCombo(target, caster);
                     target.setTicksFrozen(Math.max(0, target.getTicksFrozen() - 120));
                 }
             }
@@ -186,7 +192,7 @@ public enum SpellType {
             case INCENDIO -> {
                 com.hogwartsmagic.spell.damage.IncendioSpell.apply(target, caster);
                 if (target.getTicksFrozen() > 0 || target.hasEffect(MobEffects.MOVEMENT_SLOWDOWN)) {
-                    triggerSteamCombo(target);
+                    triggerSteamCombo(target, caster);
                     target.setTicksFrozen(Math.max(0, target.getTicksFrozen() - 80));
                 }
             }
@@ -205,7 +211,9 @@ public enum SpellType {
             case FIENDFYRE -> {
                 target.igniteForSeconds(20);
                 float dmg = target.level().isRainingAt(target.blockPosition()) ? 6.0f : 8.0f;
-                target.hurt(target.damageSources().onFire(), scaledSpellDamage(caster, dmg));
+                if (target.hurt(target.damageSources().onFire(), scaledSpellDamage(caster, dmg))) {
+                    creditCaster(target, caster); // only a hit that landed
+                }
                 // Spawn Fiendfyre management entity at target location
                 com.hogwartsmagic.entity.FiendfyreEntity fiendfyre = new com.hogwartsmagic.entity.FiendfyreEntity(com.hogwartsmagic.entity.ModEntities.FIENDFYRE.get(), target.level());
                 fiendfyre.moveTo(target.getX(), target.getY(), target.getZ());
@@ -243,7 +251,7 @@ public enum SpellType {
             case BOMBARDA -> {
                 com.hogwartsmagic.spell.damage.BombardaSpell.onEntityHit(target, caster, masteryEligible);
                 if (target.getTicksFrozen() > 0 || target.hasEffect(MobEffects.MOVEMENT_SLOWDOWN)) {
-                    triggerSteamCombo(target);
+                    triggerSteamCombo(target, caster);
                 }
             }
             case DEPULSO -> com.hogwartsmagic.spell.support.DepulsoSpell.apply(target, caster, masteryEligible);
@@ -256,7 +264,7 @@ public enum SpellType {
                         caster != null ? caster.position() : target.position().add(0, 0, -5))
                         .normalize().scale(-1.15);
                 if (wasBurning) {
-                    triggerSteamCombo(target);
+                    triggerSteamCombo(target, caster);
                 }
                 target.clearFire(); // Extinguish target
                 target.push(push.x, 0.28, push.z);
@@ -325,6 +333,10 @@ public enum SpellType {
                 // No hit effect: the charm animates masonry, not creatures. A living target is a miss, and
                 // SpellBeamEntity.onHit fizzles the beam for it rather than routing through here.
             }
+            case COLLOPORTUS -> {
+                // No hit effect: the charm seals locks, not creatures (SpellBeamEntity fizzles it on a living target).
+            }
+            case RIDDIKULUS -> com.hogwartsmagic.spell.support.RiddikulusSpell.apply(target, caster);
         }
     }
 
@@ -377,15 +389,31 @@ public enum SpellType {
             // The animating charm shares Wingardium's incantation sound; the grinding stone that sells the
             // effect is played by StatueMultiblock at the statue, not at the wand.
             case PIERTOTUM_LOCOMOTOR -> ModSounds.SPELL_WINGARDIUM_LEVIOSA.get();
+            case COLLOPORTUS -> ModSounds.SPELL_ALOHOMORA.get(); // the counter-charm shares the unlocking charm's voice
+            case RIDDIKULUS -> ModSounds.SPELL_LUMOS.get(); // a bright, light charm; the laugh is the Boggart's own
         };
+    }
+
+    /**
+     * Dark Magic: a hit through a sourceless damage type (fire, magic) still credits the caster, so a mob it kills
+     * counts as the caster's kill and the mob fights back at the caster.
+     */
+    private static void creditCaster(LivingEntity target, Entity caster) {
+        if (target instanceof net.minecraft.world.entity.Mob m
+                && com.hogwartsmagic.spell.combat.CombatEffects.responsible(caster) instanceof LivingEntity a
+                && a != target) {
+            m.setLastHurtByMob(a);
+        }
     }
 
     private float scaledSpellDamage(Entity caster, float base) {
         return base * HousePerks.getSpellDamageMultiplier(caster);
     }
 
-    private void triggerSteamCombo(LivingEntity target) {
-        target.hurt(target.damageSources().magic(), 2.0f);
+    private void triggerSteamCombo(LivingEntity target, Entity caster) {
+        if (target.hurt(target.damageSources().magic(), 2.0f)) {
+            creditCaster(target, caster); // only a hit that landed
+        }
         target.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 40, 0));
         if (target.level() instanceof ServerLevel sl) {
             sl.sendParticles(ParticleTypes.CLOUD, target.getX(), target.getY() + 1.0, target.getZ(), 20, 0.35, 0.25, 0.35, 0.01);

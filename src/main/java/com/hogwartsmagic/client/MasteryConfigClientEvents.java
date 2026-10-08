@@ -17,5 +17,6 @@ public final class MasteryConfigClientEvents {
     public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         MasteryConfig.clearSynced();
         PolyjuiceClientState.clearReveals();
+        DarkMagicClientState.clear();
     }
 }

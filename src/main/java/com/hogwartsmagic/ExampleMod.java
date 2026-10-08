@@ -88,6 +88,11 @@ public class ExampleMod
                     .networkSynchronized(net.minecraft.network.codec.ByteBufCodecs.VAR_INT.map(
                             com.hogwartsmagic.spell.motion.AlatusRules::clampQuality, q -> q))
                     .build());
+    /** Sneakoscope: true while a carried Sneakoscope detects something. Synced to clients, never saved (transient). */
+    public static final RegistryObject<net.minecraft.core.component.DataComponentType<Boolean>> SNEAKOSCOPE_SPINNING =
+            DATA_COMPONENTS.register("sneakoscope_spinning", () -> net.minecraft.core.component.DataComponentType.<Boolean>builder()
+                    .networkSynchronized(net.minecraft.network.codec.ByteBufCodecs.BOOL)
+                    .build());
 
     public static final RegistryObject<com.mojang.serialization.MapCodec<com.hogwartsmagic.loot.MagicBookLootModifier>> MAGIC_BOOK_LOOT_MODIFIER =
             LOOT_MODIFIER_SERIALIZERS.register("magic_books", () -> com.hogwartsmagic.loot.MagicBookLootModifier.CODEC);
@@ -99,6 +104,8 @@ public class ExampleMod
             LOOT_MODIFIER_SERIALIZERS.register("magical_silk_chest", () -> com.hogwartsmagic.loot.MagicalSilkLootModifier.CODEC);
     public static final RegistryObject<com.mojang.serialization.MapCodec<com.hogwartsmagic.loot.TomeOfMasteryLootModifier>> TOME_OF_MASTERY_LOOT_MODIFIER =
             LOOT_MODIFIER_SERIALIZERS.register("tomes_of_mastery", () -> com.hogwartsmagic.loot.TomeOfMasteryLootModifier.CODEC);
+    public static final RegistryObject<com.mojang.serialization.MapCodec<com.hogwartsmagic.loot.BrewingIngredientLootModifier>> BREWING_INGREDIENT_LOOT_MODIFIER =
+            LOOT_MODIFIER_SERIALIZERS.register("brewing_ingredients_chest", () -> com.hogwartsmagic.loot.BrewingIngredientLootModifier.CODEC);
     public static final RegistryObject<MenuType<com.hogwartsmagic.menu.WandWorkbenchMenu>> WAND_WORKBENCH_MENU =
             MENUS.register("wand_workbench", () -> IForgeMenuType.create((windowId, inv, buf) -> {
                 net.minecraft.core.BlockPos pos = buf.readBlockPos();
@@ -126,6 +133,8 @@ public class ExampleMod
             FEATURES.register("gillyweed_swamp", () -> new com.hogwartsmagic.worldgen.GillyweedSwampFeature(net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration.CODEC));
     public static final RegistryObject<net.minecraft.world.level.levelgen.feature.Feature<net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration>> MANDRAKE_PATCH_FEATURE =
             FEATURES.register("mandrake_patch", () -> new com.hogwartsmagic.worldgen.MandrakePatchFeature(net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration.CODEC));
+    public static final RegistryObject<net.minecraft.world.level.levelgen.feature.Feature<net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration>> DITTANY_PATCH_FEATURE =
+            FEATURES.register("dittany_patch", () -> new com.hogwartsmagic.worldgen.DittanyPatchFeature(net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration.CODEC));
     // Diagon Alley is not a worldgen feature. It is eleven chunks long, and vanilla forbids a
     // feature from writing outside the 3x3 chunk window around the chunk being generated, so the
     // old one spammed "Detected setBlock in a far chunk" and could wedge chunk loading. It is now a
@@ -268,6 +277,22 @@ public class ExampleMod
             () -> new com.hogwartsmagic.block.EnchantedBookPileBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.BOOKSHELF).strength(1.2f)));
     public static final RegistryObject<Block> WIZARD_CAULDRON = BLOCKS.register("wizard_cauldron",
             () -> new com.hogwartsmagic.block.WizardCauldronBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.CAULDRON).strength(1.5f)));
+    public static final RegistryObject<BlockEntityType<com.hogwartsmagic.block.entity.WizardCauldronBlockEntity>> WIZARD_CAULDRON_BLOCK_ENTITY =
+            BLOCK_ENTITY_TYPES.register("wizard_cauldron", () -> BlockEntityType.Builder.of(
+                    com.hogwartsmagic.block.entity.WizardCauldronBlockEntity::new,
+                    WIZARD_CAULDRON.get()
+            ).build(null));
+    public static final RegistryObject<Block> SNEAKOSCOPE = BLOCKS.register("sneakoscope",
+            () -> new com.hogwartsmagic.block.SneakoscopeBlock(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.GOLD)
+                    .strength(0.5f)
+                    .sound(net.minecraft.world.level.block.SoundType.GLASS)
+                    .pushReaction(net.minecraft.world.level.material.PushReaction.DESTROY)));
+    public static final RegistryObject<BlockEntityType<com.hogwartsmagic.block.entity.SneakoscopeBlockEntity>> SNEAKOSCOPE_BLOCK_ENTITY =
+            BLOCK_ENTITY_TYPES.register("sneakoscope", () -> BlockEntityType.Builder.of(
+                    com.hogwartsmagic.block.entity.SneakoscopeBlockEntity::new,
+                    SNEAKOSCOPE.get()
+            ).build(null));
     public static final RegistryObject<Block> OWL_PERCH = BLOCKS.register("owl_perch",
             () -> new com.hogwartsmagic.block.OwlPerchBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.OAK_FENCE).strength(1.0f)));
     public static final RegistryObject<Block> FLOO_FIREPLACE = BLOCKS.register("floo_fireplace",
@@ -509,6 +534,8 @@ public class ExampleMod
             () -> new GillyweedPlantBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.SEAGRASS)));
     public static final RegistryObject<Block> MANDRAKE_PLANT = BLOCKS.register("mandrake_plant",
             () -> new MandrakePlantBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.POPPY).noCollission().instabreak()));
+    public static final RegistryObject<Block> DITTANY_PLANT = BLOCKS.register("dittany_plant",
+            () -> new com.hogwartsmagic.block.DittanyPlantBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.POPPY).noCollission().instabreak()));
     public static final RegistryObject<Block> WILLOW_SAPLING = BLOCKS.register("willow_sapling",
             () -> new com.hogwartsmagic.block.WillowSaplingBlock(
                     BlockBehaviour.Properties.ofFullCopy(Blocks.OAK_SAPLING)));
@@ -552,6 +579,8 @@ public class ExampleMod
     public static final RegistryObject<Item> ENCHANTED_BOOK_PILE_ITEM = ITEMS.register("enchanted_book_pile", () -> new BlockItem(ENCHANTED_BOOK_PILE.get(), new Item.Properties()));
     public static final RegistryObject<Item> DIAGON_ARCHWAY_BRICK_ITEM = ITEMS.register("diagon_archway_brick", () -> new BlockItem(DIAGON_ARCHWAY_BRICK.get(), new Item.Properties()));
     public static final RegistryObject<Item> WIZARD_CAULDRON_ITEM = ITEMS.register("wizard_cauldron", () -> new BlockItem(WIZARD_CAULDRON.get(), new Item.Properties()));
+    public static final RegistryObject<Item> SNEAKOSCOPE_ITEM = ITEMS.register("sneakoscope",
+            () -> new com.hogwartsmagic.item.SneakoscopeItem(SNEAKOSCOPE.get(), new Item.Properties().stacksTo(1)));
     public static final RegistryObject<Item> OWL_PERCH_ITEM = ITEMS.register("owl_perch", () -> new BlockItem(OWL_PERCH.get(), new Item.Properties()));
     public static final RegistryObject<Item> FLOO_FIREPLACE_ITEM = ITEMS.register("floo_fireplace", () -> new BlockItem(FLOO_FIREPLACE.get(), new Item.Properties()));
     public static final RegistryObject<Item> WARD_ITEM = ITEMS.register("ward", () -> new BlockItem(WARD.get(), new Item.Properties()));
@@ -587,7 +616,7 @@ public class ExampleMod
     public static final RegistryObject<Item> FIREBOLT = ITEMS.register("firebolt",
             () -> new com.hogwartsmagic.item.BroomItem(new Item.Properties().stacksTo(1), 2));
     public static final RegistryObject<Item> FINE_WOOD_STICK = ITEMS.register("fine_wood_stick",
-            () -> new Item(new Item.Properties()));
+            () -> new com.hogwartsmagic.item.StirringRodItem(new Item.Properties()));
     public static final RegistryObject<Item> ARCANE_DUST = ITEMS.register("arcane_dust",
             () -> new Item(new Item.Properties()));
     public static final RegistryObject<Item> ARCANE_CORE = ITEMS.register("arcane_core",
@@ -606,10 +635,50 @@ public class ExampleMod
             () -> new Item(new Item.Properties()));
     public static final RegistryObject<Item> GILLYWEED = ITEMS.register("gillyweed",
             () -> new GillyweedItem(new Item.Properties()));
+    // Cauldron Brewing Phase 2 ingredients. The dittany item also plants dittany.
+    public static final RegistryObject<Item> DITTANY = ITEMS.register("dittany",
+            () -> new net.minecraft.world.item.ItemNameBlockItem(DITTANY_PLANT.get(), new Item.Properties()));
+    public static final RegistryObject<Item> ASPHODEL = ITEMS.register("asphodel",
+            () -> new Item(new Item.Properties()));
+    public static final RegistryObject<Item> WORMWOOD = ITEMS.register("wormwood",
+            () -> new Item(new Item.Properties()));
+    public static final RegistryObject<Item> VALERIAN_SPRIGS = ITEMS.register("valerian_sprigs",
+            () -> new Item(new Item.Properties()));
+    public static final RegistryObject<Item> ASHWINDER_EGG = ITEMS.register("ashwinder_egg",
+            () -> new Item(new Item.Properties().fireResistant()));
     public static final RegistryObject<Item> POLYJUICE_POTION = ITEMS.register("polyjuice_potion",
             () -> new PolyjuicePotionItem(new Item.Properties()
                     .craftRemainder(net.minecraft.world.item.Items.GLASS_BOTTLE)
                     .component(DataComponents.POTION_CONTENTS, PolyjuicePotionItem.defaultPotionContents())));
+    // Wizard Cauldron potions (brewing/BrewRules).
+    public static final RegistryObject<Item> WIGGENWELD_POTION = ITEMS.register("wiggenweld_potion",
+            () -> new com.hogwartsmagic.item.BrewedPotionItem(new Item.Properties(),
+                    com.hogwartsmagic.item.BrewedPotionItem.Kind.WIGGENWELD));
+    public static final RegistryObject<Item> PEPPERUP_POTION = ITEMS.register("pepperup_potion",
+            () -> new com.hogwartsmagic.item.BrewedPotionItem(new Item.Properties(),
+                    com.hogwartsmagic.item.BrewedPotionItem.Kind.PEPPERUP));
+    public static final RegistryObject<Item> FAILED_POTION = ITEMS.register("failed_potion",
+            () -> new com.hogwartsmagic.item.BrewedPotionItem(new Item.Properties(),
+                    com.hogwartsmagic.item.BrewedPotionItem.Kind.FAILED));
+    public static final RegistryObject<Item> ESSENCE_OF_DITTANY = ITEMS.register("essence_of_dittany",
+            () -> new com.hogwartsmagic.item.BrewedPotionItem(new Item.Properties(),
+                    com.hogwartsmagic.item.BrewedPotionItem.Kind.DITTANY));
+    public static final RegistryObject<Item> FELIX_FELICIS = ITEMS.register("felix_felicis",
+            () -> new com.hogwartsmagic.item.BrewedPotionItem(new Item.Properties()
+                    .rarity(net.minecraft.world.item.Rarity.EPIC)
+                    .component(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true),
+                    com.hogwartsmagic.item.BrewedPotionItem.Kind.FELIX));
+    public static final RegistryObject<Item> MANDRAKE_DRAUGHT = ITEMS.register("mandrake_draught",
+            () -> new com.hogwartsmagic.item.BrewedPotionItem(new Item.Properties()
+                    .rarity(net.minecraft.world.item.Rarity.UNCOMMON),
+                    com.hogwartsmagic.item.BrewedPotionItem.Kind.MANDRAKE));
+    public static final RegistryObject<Item> SPLASH_MANDRAKE_DRAUGHT = ITEMS.register("splash_mandrake_draught",
+            () -> new com.hogwartsmagic.item.SplashBrewItem(new Item.Properties()
+                    .rarity(net.minecraft.world.item.Rarity.UNCOMMON),
+                    com.hogwartsmagic.item.SplashBrewItem.Kind.MANDRAKE));
+    public static final RegistryObject<Item> DRAUGHT_OF_LIVING_DEATH = ITEMS.register("draught_of_living_death",
+            () -> new com.hogwartsmagic.item.SplashBrewItem(new Item.Properties(),
+                    com.hogwartsmagic.item.SplashBrewItem.Kind.LIVING_DEATH));
     public static final RegistryObject<Item> PHOENIX_FEATHER_CORE = ITEMS.register("phoenix_feather_core",
             () -> new Item(new Item.Properties()));
     public static final RegistryObject<Item> UNICORN_HAIR_CORE = ITEMS.register("unicorn_hair_core",
@@ -790,6 +859,9 @@ public class ExampleMod
     public static final RegistryObject<Item> INFERIUS_SPAWN_EGG = ITEMS.register("inferius_spawn_egg",
             () -> new net.minecraftforge.common.ForgeSpawnEggItem(ModEntities.INFERIUS, 0xB9BDB4, 0x1B1B1E, new Item.Properties()));
 
+    public static final RegistryObject<Item> BOGGART_SPAWN_EGG = ITEMS.register("boggart_spawn_egg",
+            () -> new net.minecraftforge.common.ForgeSpawnEggItem(ModEntities.BOGGART, 0x1B1426, 0x6E4A8C, new Item.Properties()));
+
     public static final RegistryObject<Item> MERPERSON_SPAWN_EGG = ITEMS.register("merperson_spawn_egg",
             () -> new net.minecraftforge.common.ForgeSpawnEggItem(ModEntities.MERPERSON, 0x5E6B5A, 0x223A26, new Item.Properties()));
 
@@ -865,6 +937,7 @@ public class ExampleMod
                 output.accept(CANDLE_CLUSTER_ITEM.get());
                 output.accept(ENCHANTED_BOOK_PILE_ITEM.get());
                 output.accept(WIZARD_CAULDRON_ITEM.get());
+                output.accept(SNEAKOSCOPE_ITEM.get());
                 output.accept(DIAGON_ARCHWAY_BRICK_ITEM.get());
                 output.accept(OWL_PERCH_ITEM.get());
                 output.accept(FLOO_FIREPLACE_ITEM.get());
@@ -904,7 +977,20 @@ public class ExampleMod
                 output.accept(ACROMANTULA_VENOM.get());
                 output.accept(MANDRAKE_ROOT.get());
                 output.accept(GILLYWEED.get());
+                output.accept(DITTANY.get());
+                output.accept(ASPHODEL.get());
+                output.accept(WORMWOOD.get());
+                output.accept(VALERIAN_SPRIGS.get());
+                output.accept(ASHWINDER_EGG.get());
                 output.accept(POLYJUICE_POTION.get());
+                output.accept(WIGGENWELD_POTION.get());
+                output.accept(PEPPERUP_POTION.get());
+                output.accept(FAILED_POTION.get());
+                output.accept(ESSENCE_OF_DITTANY.get());
+                output.accept(FELIX_FELICIS.get());
+                output.accept(MANDRAKE_DRAUGHT.get());
+                output.accept(SPLASH_MANDRAKE_DRAUGHT.get());
+                output.accept(DRAUGHT_OF_LIVING_DEATH.get());
                 output.accept(PHOENIX_FEATHER_CORE.get());
                 output.accept(UNICORN_HAIR_CORE.get());
                 output.accept(DRAGON_HEARTSTRING_CORE.get());
@@ -930,6 +1016,7 @@ public class ExampleMod
                 output.accept(MERPERSON_SPAWN_EGG.get()); // Merperson Spawn Egg
                 output.accept(GRINDYLOW_SPAWN_EGG.get()); // Grindylow Spawn Egg
                 output.accept(INFERIUS_SPAWN_EGG.get()); // Inferius Spawn Egg
+                output.accept(BOGGART_SPAWN_EGG.get()); // Boggart Spawn Egg
                 output.accept(WHOMPING_WILLOW_SPAWN_EGG.get()); // Whomping Willow Spawn Egg
                 output.accept(GALLEON.get());
                 output.accept(CURSED_GALLEON.get());
@@ -1002,11 +1089,9 @@ public class ExampleMod
      */
     private static void onRegisterBrewingRecipes(BrewingRecipeRegisterEvent event) {
         event.addRecipe(new com.hogwartsmagic.polyjuice.WizardPotionBrewingRecipe());
-        event.addRecipe(new com.hogwartsmagic.polyjuice.StabilizedPolyjuiceBaseBrewingRecipe());
-        event.addRecipe(new com.hogwartsmagic.polyjuice.PolyjuiceBrewingRecipe());
-        event.addRecipe(new com.hogwartsmagic.polyjuice.PolyjuiceRedstoneExtendBrewingRecipe());
-        event.addRecipe(new com.hogwartsmagic.polyjuice.PolyjuiceSplashBrewingRecipe());
-        LOGGER.info("Registered mana regeneration / Polyjuice brewing recipes (awkward+acromantula venom -> mana regeneration; mana regeneration+mandrake root -> stabilized base; stabilized base+sample -> polyjuice; polyjuice+redstone -> extended; polyjuice+gunpowder -> splash)");
+        // Polyjuice is brewed only in the Wizard Cauldron (BrewRules.POLYJUICE). The stabilized_polyjuice_base potion
+        // stays registered so bottles already in worlds still load, but nothing makes or uses it any more.
+        LOGGER.info("Registered the mana regeneration brewing recipe (awkward + acromantula venom); Polyjuice is brewed in the Wizard Cauldron");
     }
 
     // You can use SubscribeEvent and let the Event Bus discover methods to call
@@ -1034,9 +1119,11 @@ public class ExampleMod
         com.hogwartsmagic.command.SpawnMiniHogwartsCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.SummonHorntailCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.SpellMasteryCommand.register(event.getDispatcher());
+        com.hogwartsmagic.command.DarkMagicCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.CrowdControlCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.ImperioCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.LockInfoCommand.register(event.getDispatcher());
+        com.hogwartsmagic.command.ColloportusCommand.register(event.getDispatcher());
     }
 
     private static ArmorMaterial createRobeMaterial(String textureName) {

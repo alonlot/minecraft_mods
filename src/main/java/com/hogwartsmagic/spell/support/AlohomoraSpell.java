@@ -10,6 +10,8 @@ import com.hogwartsmagic.spell.SpellType;
 import com.hogwartsmagic.spell.combat.CombatEffects;
 import com.hogwartsmagic.spell.disable.DisableSupport;
 import com.hogwartsmagic.spell.mastery.MasteryAwards;
+import com.hogwartsmagic.spell.support.seal.ColloportusSpell;
+import com.hogwartsmagic.spell.support.seal.SealData;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -77,6 +79,12 @@ public final class AlohomoraSpell {
         }
         if (state.is(ExampleMod.WARD.get()) && level.getBlockEntity(pos) instanceof CaveInimicumWardBlockEntity ward) {
             return owner instanceof ServerPlayer player && suppressWard(level, ward, player, rank);
+        }
+        // Colloportus: a sealed lock (this block or its door pistons) refuses the charm before anything opens or
+        // is traced; a strictly higher rank breaks one seal instead, and that cast does nothing else.
+        ColloportusSpell.Gate gate = ColloportusSpell.alohomoraGate(level, pos, caster, rank);
+        if (gate != ColloportusSpell.Gate.PASS) {
+            return gate == ColloportusSpell.Gate.BROKEN;
         }
         boolean opened = openOne(level, pos, state, owner, rank);
         int radius = AlohomoraRules.areaRadius(rank);
@@ -177,6 +185,8 @@ public final class AlohomoraSpell {
 
     private static int openAround(ServerLevel level, BlockPos center, int radius, @Nullable Entity owner, int rank) {
         int opened = 0;
+        SealData seals = SealData.get(level);
+        UUID bypass = ColloportusSpell.bypassId(owner);
         for (BlockPos pos : BlockPos.betweenClosed(center.offset(-radius, -radius, -radius), center.offset(radius, radius, radius))) {
             if (opened >= AlohomoraRules.MAX_AREA_OPENINGS) {
                 break;
@@ -185,8 +195,13 @@ public final class AlohomoraSpell {
                 continue;
             }
             BlockState state = level.getBlockState(pos);
-            if (state.getBlock() instanceof DoorBlock && state.getValue(DoorBlock.HALF) != DoubleBlockHalf.LOWER) {
+            boolean door = state.getBlock() instanceof DoorBlock;
+            if (door && state.getValue(DoorBlock.HALF) != DoubleBlockHalf.LOWER) {
                 continue; // each door once, by its lower half
+            }
+            if (!seals.isEmpty() && (ColloportusSpell.sealedAgainst(seals, pos, bypass)
+                    || door && ColloportusSpell.sealedAgainst(seals, pos.above(), bypass))) {
+                continue; // the area never opens, passes or breaks another caster's seal (either door half counts)
             }
             if (openOne(level, pos.immutable(), state, owner, rank)) {
                 opened++;

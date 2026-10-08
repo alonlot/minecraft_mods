@@ -1,0 +1,7 @@
+{
+  "replace": false,
+  "values": [
+    { "id": "hogwartsmagic:forbidden_forest", "required": false },
+    { "id": "hogwartsmagic:horntail_peaks", "required": false }
+  ]
+}

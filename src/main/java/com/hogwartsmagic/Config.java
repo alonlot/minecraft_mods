@@ -75,8 +75,11 @@ public final class Config {
             .defineInRange("caveInimicumScanIntervalTicks", 4, 1, 200);
 
     public static final ForgeConfigSpec.IntValue CAVE_INIMICUM_MAX_EDGE_LENGTH = BUILDER
-            .comment("Maximum configurable Cave Inimicum ward cube edge length.")
-            .defineInRange("caveInimicumMaxEdgeLength", 64, 16, 256);
+            .comment("Maximum configurable Cave Inimicum ward cube edge length.",
+                    "Capped at 64 to match CaveInimicumSnapshot.MAX_EDGE_LENGTH: snapshots with a larger edge",
+                    "are rejected on load, so a bigger ward would silently vanish after a world reload",
+                    "(and a 256-edge snapshot would need roughly 64 MB of block-state ints).")
+            .defineInRange("caveInimicumMaxEdgeLength", 64, 16, 64);
 
     public static final ForgeConfigSpec.IntValue CAVE_INIMICUM_SIZE_STEP = BUILDER
             .comment("How much the ward cube edge length increases each time the ward is configured while crouching.")
@@ -251,7 +254,7 @@ public final class Config {
     }
 
     @SubscribeEvent
-    static void onLoad(ModConfigEvent event) {
+    public static void onLoad(ModConfigEvent event) {
         if (event.getConfig().getSpec() != SPEC) {
             return;
         }

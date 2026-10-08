@@ -50,8 +50,7 @@ public class FiendfyreEntity extends Entity {
     @Override
     public void tick() {
         super.tick();
-        BlockPos center = this.blockPosition();
-        
+
         int ticks = getLifeTicks();
         if (ticks >= MAX_LIFE) {
             if (!this.level().isClientSide) {
@@ -59,9 +58,10 @@ public class FiendfyreEntity extends Entity {
             }
             return;
         }
-        setLifeTicks(ticks + 1);
 
         if (!this.level().isClientSide) {
+            // Only the server advances the synched counter; the client receives it.
+            setLifeTicks(ticks + 1);
             // Spreading logic every 10 ticks
             if (ticks % 10 == 0) {
                 spreadFire();

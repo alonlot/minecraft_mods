@@ -19,6 +19,10 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.EntityBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.event.level.LevelEvent;
+import net.minecraftforge.event.server.ServerStoppedEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -29,6 +33,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+@Mod.EventBusSubscriber(modid = ExampleMod.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class ReparoManager {
     private static final int RECORD_LIFETIME_TICKS = 15 * 20;
     private static final double RETENTION_RADIUS = 30.0D;
@@ -363,6 +368,33 @@ public final class ReparoManager {
                 RECORD_ORDER.remove(entry.getKey());
             }
         }
+    }
+
+    /**
+     * A dimension that unloads stops ticking, so its in-flight entries (and its break records)
+     * would otherwise never be pruned. Server side only: the client never populates these maps.
+     */
+    @SubscribeEvent
+    public static void onLevelUnload(LevelEvent.Unload event) {
+        if (!(event.getLevel() instanceof ServerLevel level)) return;
+        String dimensionKey = level.dimension().location().toString();
+        ACTIVE_FLIGHTS.values().removeIf(flight -> flight.dimensionKey.equals(dimensionKey));
+        Iterator<Map.Entry<String, TrackedBreakRecord>> iterator = RECORDS.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<String, TrackedBreakRecord> entry = iterator.next();
+            if (entry.getValue().dimensionKey.equals(dimensionKey)) {
+                iterator.remove();
+                RECORD_ORDER.remove(entry.getKey());
+            }
+        }
+    }
+
+    /** Static state must not outlive the server (singleplayer keeps the JVM for the next world). */
+    @SubscribeEvent
+    public static void onServerStopped(ServerStoppedEvent event) {
+        ACTIVE_FLIGHTS.clear();
+        RECORDS.clear();
+        RECORD_ORDER.clear();
     }
 
     private static void pruneOverflow() {

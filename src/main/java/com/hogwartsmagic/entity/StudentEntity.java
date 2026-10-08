@@ -113,6 +113,8 @@ public class StudentEntity extends AbstractIllager implements DisarmableWandUser
                         sl.sendParticles(net.minecraft.core.particles.ParticleTypes.CRIT, this.getX(), this.getY() + 1.0, this.getZ(), 20, 0.5, 0.5, 0.5, 0.1);
                     }
                 } else {
+                    // addEffect never lowers an amplifier, so the charge has to be removed before it is re-applied one tier down.
+                    this.removeEffect(ExampleMod.PROTEGO_EFFECT.getHolder().get());
                     this.addEffect(new net.minecraft.world.effect.MobEffectInstance(ExampleMod.PROTEGO_EFFECT.getHolder().get(), currentEffect.getDuration(), currentAmplifier - 1));
                 }
                 return false; 
@@ -390,9 +392,6 @@ public class StudentEntity extends AbstractIllager implements DisarmableWandUser
             if (student.getTarget() != null) {
                 return false;
             }
-            if (isHostileNearby(student)) {
-                return false;
-            }
             if (student.getLastHurtByMob() != null && student.tickCount - student.getLastHurtByMobTimestamp() < 100) {
                 return false;
             }
@@ -400,6 +399,12 @@ public class StudentEntity extends AbstractIllager implements DisarmableWandUser
                 return bedPos != null;
             }
             nextBedSearchTick = student.tickCount + CACHE_REFRESH_TICKS;
+            // The Monster scan shares the bed-search throttle; a hostile clears the cached bed so the
+            // goal does not start off a stale result for the rest of the window.
+            if (isHostileNearby(student)) {
+                bedPos = null;
+                return false;
+            }
             bedPos = findNearestBed();
             return bedPos != null;
         }

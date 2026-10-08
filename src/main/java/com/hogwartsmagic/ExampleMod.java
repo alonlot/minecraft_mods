@@ -909,6 +909,7 @@ public class ExampleMod
 
     public static final RegistryObject<CreativeModeTab> MAIN_TAB = CREATIVE_MODE_TABS.register("main_tab", () -> CreativeModeTab.builder()
             .withTabsBefore(CreativeModeTabs.COMBAT)
+            .title(net.minecraft.network.chat.Component.translatable("itemGroup.hogwartsmagic.main_tab"))
             .icon(() -> HARRY_POTTER_WAND.get().getDefaultInstance())
             .displayItems((parameters, output) -> {
                 output.accept(HARRY_POTTER_WAND.get());
@@ -1096,11 +1097,18 @@ public class ExampleMod
 
     // You can use SubscribeEvent and let the Event Bus discover methods to call
     @SubscribeEvent
-    public static void onServerStarting(ServerStartingEvent event)
+    public void onServerStarting(ServerStartingEvent event)
     {
         // Do something when the server starts
         LOGGER.info("HELLO from server starting");
 
+    }
+
+    /** Give every Ollivanders camera back before the server goes down, so nobody logs in disembodied. */
+    @SubscribeEvent
+    public void onServerStopping(net.minecraftforge.event.server.ServerStoppingEvent event)
+    {
+        com.hogwartsmagic.event.OllivandersCeremony.endAll();
     }
 
     @SubscribeEvent

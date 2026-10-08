@@ -51,6 +51,10 @@ public class FiendfyreSerpentRenderer extends EntityRenderer<FiendfyreSerpentEnt
         poseStack.pushPose();
 
         Vec3 currentPos = entity.getPosition(partialTick);
+        // Drop trails of serpents that no longer exist, so the static cache does not grow for the whole session.
+        if (entity.tickCount % 40 == 0) {
+            TRAIL_CACHE.keySet().removeIf(id -> entity.level().getEntity(id) == null);
+        }
         Deque<Vec3> trail = TRAIL_CACHE.computeIfAbsent(entity.getId(), id -> new ArrayDeque<>());
         if (trail.isEmpty() || trail.peekFirst().distanceToSqr(currentPos) > 0.0025D) {
             trail.addFirst(currentPos);

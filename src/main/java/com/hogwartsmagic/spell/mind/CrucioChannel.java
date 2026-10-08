@@ -220,9 +220,6 @@ public final class CrucioChannel {
         if (target == null) {
             target = living(server.getPlayerList().getPlayer(channel.targetId)); // a player who changed dimension
         }
-        if (caster != null && channel.held && !PossessionManager.isPossessing(caster)) {
-            caster.removeEffect(DisableSupport.holder(ExampleMod.ROOTED));
-        }
         if (target == null) {
             return;
         }
@@ -233,6 +230,8 @@ public final class CrucioChannel {
         }
         if (caster != null && CrucioRules.fleesAfter(channel.rank) && target instanceof Mob mob && !CombatTags.isBoss(mob)
                 && !MindControl.isControlled(mob)) {
+            // A fleeing mob that despawns or unloads never ticks again, so expired entries are pruned here.
+            FLEEING.values().removeIf(flee -> now >= flee.until());
             FLEEING.put(mob.getUUID(), new Flee(caster.getUUID(), now + CrucioRules.FLEE_TICKS));
             MindControl.setTargetBypassing(mob, null);
             MindControl.clearBrainTarget(mob, caster);

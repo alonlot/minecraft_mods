@@ -188,11 +188,27 @@ public final class DiagonAlleyManager {
 
     /** Called every server tick to advance an in-progress build. */
     public static void tick(MinecraftServer server) {
-        if (activeJob != null && activeJob.advance()) {
-            LOGGER.info("Diagon Alley placement complete ({} blocks, {} entities)",
-                    activeJob.placed, activeJob.spawned);
+        PlacementJob job = activeJob;
+        if (job == null) {
+            return;
+        }
+        try {
+            if (job.advance()) {
+                LOGGER.info("Diagon Alley placement complete ({} blocks, {} entities)",
+                        job.placed, job.spawned);
+                activeJob = null;
+            }
+        } catch (Exception e) {
+            // Without this a single bad block entity or entity tag would rethrow from the tick
+            // handler every tick for the rest of the session, with the same job still armed.
+            LOGGER.error("Diagon Alley placement failed; abandoning job", e);
             activeJob = null;
         }
+    }
+
+    /** Drops any in-progress job. Called when the server stops, so a job never outlives its level. */
+    public static void reset() {
+        activeJob = null;
     }
 
     private static void announce(ServerLevel level, BlockPos centre) {

@@ -116,16 +116,27 @@ public final class MiniHogwartsManager {
 
     /** Called every server tick (END phase) to advance an in-progress build. */
     public static void tick(MinecraftServer server) {
-        if (activeJob == null) {
+        PlacementJob job = activeJob;
+        if (job == null) {
             return;
         }
-        if (activeJob.advance(BLOCKS_PER_TICK)) {
-            activeJob.furnish(); // one-shot: themed chests + decorations in the landmark rooms
-            activeJob.spawnStudents(); // populate the finished castle with a crowd of students
-            activeJob.spawnHouseElves(); // and a few elves below stairs
-            LOGGER.info("Mini Hogwarts placement complete ({} blocks)", activeJob.total);
+        try {
+            if (job.advance(BLOCKS_PER_TICK)) {
+                job.furnish(); // one-shot: themed chests + decorations in the landmark rooms
+                job.spawnStudents(); // populate the finished castle with a crowd of students
+                job.spawnHouseElves(); // and a few elves below stairs
+                LOGGER.info("Mini Hogwarts placement complete ({} blocks)", job.total);
+                activeJob = null;
+            }
+        } catch (Exception e) {
+            LOGGER.error("Mini Hogwarts placement failed; abandoning job", e);
             activeJob = null;
         }
+    }
+
+    /** Drops any in-progress job. Called when the server stops, so a job never outlives its level. */
+    public static void reset() {
+        activeJob = null;
     }
 
     /** Throttled per-player check: build a castle the first time someone is in a Forbidden Forest. */

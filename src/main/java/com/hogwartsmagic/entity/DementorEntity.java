@@ -222,7 +222,7 @@ public class DementorEntity extends Monster {
             // A Patronus in view, or a shield held in its face, makes it recoil and
             // shriek. Driven from tick rather than the flee goal so it fires even
             // when the Dementor has no target to abandon.
-            if (this.recoilCooldown == 0 && (this.isShieldRepelled() || this.isPatronusNear())) {
+            if (this.recoilCooldown == 0 && (this.isShieldRepelled() || (this.tickCount % 5 == 0 && this.isPatronusNear()))) {
                 this.recoilCooldown = RECOIL_TICKS;
                 this.level().broadcastEntityEvent(this, EVENT_RECOIL);
                 this.playSound(com.hogwartsmagic.ModSounds.DEMENTOR_SHRIEK.get(), 1.4F, 1.0F);
@@ -260,6 +260,7 @@ public class DementorEntity extends Monster {
     class DementorSuckGoal extends Goal {
         private final DementorEntity dementor;
         private int suckTime = 0;
+        private boolean patronusNear;
 
         public DementorSuckGoal(DementorEntity dementor) {
             this.dementor = dementor;
@@ -268,7 +269,12 @@ public class DementorEntity extends Monster {
         @Override
         public boolean canUse() {
             // Immediately stop trying to suck souls if a Patronus is nearby (Panic mode)
-            if (!this.dementor.level().getEntitiesOfClass(PatronusEntity.class, this.dementor.getBoundingBox().inflate(24.0D)).isEmpty()) {
+            // The 24-block scan is throttled to every 5 ticks and cached in between (same cadence as
+            // isPatronusNear in tick()); canContinueToUse defaults to canUse, so no hard tick gate here.
+            if (this.dementor.tickCount % 5 == 0) {
+                this.patronusNear = !this.dementor.level().getEntitiesOfClass(PatronusEntity.class, this.dementor.getBoundingBox().inflate(24.0D)).isEmpty();
+            }
+            if (this.patronusNear) {
                 return false;
             }
             // Held off by a non-corporeal shield: it can't hurt us, but we can't feed through it either.

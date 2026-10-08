@@ -77,11 +77,12 @@ public class DarkMarkEntity extends Entity {
             }
             return;
         }
-        this.entityData.set(DATA_DURATION, duration - 1);
 
         if (this.level().isClientSide) {
             spawnParticles();
         } else {
+            // Only the server counts down the synched duration; the client receives it.
+            this.entityData.set(DATA_DURATION, duration - 1);
             if (this.level() instanceof ServerLevel serverLevel && (this.tickCount == 1 || this.tickCount % STORM_REFRESH_INTERVAL_TICKS == 0)) {
                 startStorm(serverLevel);
             }

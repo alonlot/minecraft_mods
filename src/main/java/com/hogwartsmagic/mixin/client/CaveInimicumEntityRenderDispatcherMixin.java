@@ -41,8 +41,7 @@ public abstract class CaveInimicumEntityRenderDispatcherMixin {
 
         // Diagon Alley uses the same trick as Cave Inimicum, and shares this one injection
         // rather than adding a second mixin to the same method.
-        if (CaveInimicumClientState.shouldHideEntity(entity)
-) {
+        if (CaveInimicumClientState.shouldHideEntity(entity)) {
             cir.setReturnValue(false);
         }
     }

@@ -16,6 +16,10 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Player;
+import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.event.server.ServerStoppedEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -38,6 +42,7 @@ import java.util.UUID;
  * dissolves on relog/dimension change, which is the safe default. Everything in this class runs
  * on the server; no client-only classes are referenced.
  */
+@Mod.EventBusSubscriber(modid = com.hogwartsmagic.ExampleMod.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class DuelManager {
 
     // Phases as int constants — mirrors StudentEntity's house ids; nested enums have caused
@@ -300,6 +305,31 @@ public final class DuelManager {
         duel.npc.getPersistentData().remove(TAG_DUELING);
         duel.npc.getPersistentData().putLong(TAG_DUEL_COOLDOWN_UNTIL,
                 duel.npc.level().getGameTime() + NPC_REMATCH_COOLDOWN_TICKS);
+    }
+
+    // ---- lifecycle -------------------------------------------------------------------
+
+    /**
+     * A player who logs out mid-duel is no longer ticked, so without this the entry (and its strong
+     * Mob reference) would sit in {@link #DUELS} and the NPC would keep its dueling flag forever.
+     * Ends the duel exactly as {@link #cancel} does, minus the chat message nobody is there to read.
+     */
+    @SubscribeEvent
+    public static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+        Duel duel = DUELS.get(player.getUUID());
+        if (duel == null) return;
+        endDuel(player, duel);
+        duel.npc.setTarget(null);
+    }
+
+    /** Static state must not outlive the server (singleplayer keeps the JVM for the next world). */
+    @SubscribeEvent
+    public static void onServerStopped(ServerStoppedEvent event) {
+        for (Duel duel : DUELS.values()) {
+            duel.npc.getPersistentData().remove(TAG_DUELING);
+        }
+        DUELS.clear();
     }
 
     // ---- helpers ---------------------------------------------------------------------

@@ -64,6 +64,9 @@ public class BasiliskVenomEntity extends ThrowableItemProjectile {
     @Override
     protected void onHitEntity(EntityHitResult result) {
         super.onHitEntity(result);
+        if (this.level().isClientSide) {
+            return; // damage and status effects are server-side; the client only renders the glob
+        }
         Entity struck = result.getEntity();
         // Another basilisk is met through one of its body parts, never in
         // person, and a part is not a BasiliskEntity — so both the "venom does

@@ -85,7 +85,8 @@ public final class GeminoEvents {
     public static void onToss(ItemTossEvent event) {
         ItemEntity entity = event.getEntity();
         if (entity.getItem().is(ExampleMod.CURSED_GALLEON.get())) {
-            entity.setUnlimitedLifetime();
+            // Not setUnlimitedLifetime(): that pins the age at -32768, so age >= lifespan is never
+            // reached and the coin would lie there forever instead of burning out.
             entity.lifespan = DROPPED_FUSE;
         }
     }

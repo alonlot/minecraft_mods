@@ -6,6 +6,7 @@ import com.hogwartsmagic.network.SpellPackets;
 import com.mojang.logging.LogUtils;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.EquipmentSlot;
@@ -106,24 +107,32 @@ public class SortingHatManager {
         waitingOnModel.add(playerId);
         List<OllamaSortingService.SortingTurn> history = List.copyOf(session.turns());
         List<HogwartsHouse> likelyHouses = inferLikelyHouses(history);
+        MinecraftServer server = player.server;
         ollamaService.generateQuestion(history, likelyHouses)
-                .whenComplete((question, error) -> player.server.execute(() -> {
+                .whenComplete((question, error) -> server.execute(() -> {
                     SessionState liveSession = sessions.get(playerId);
                     if (liveSession == null || !sessionToken.equals(sessionTokens.get(playerId))) {
                         return;
                     }
                     waitingOnModel.remove(playerId);
+                    // Re-resolve by UUID; a player who logged out mid-question gets their session
+                    // dropped rather than left stuck behind the "wait" guard on return.
+                    ServerPlayer livePlayer = server.getPlayerList().getPlayer(playerId);
+                    if (livePlayer == null) {
+                        clearSession(playerId);
+                        return;
+                    }
                     if (error != null) {
-                        LOGGER.warn("Sorting Hat question generation failed for {}: {}", player.getScoreboardName(), error.toString());
+                        LOGGER.warn("Sorting Hat question generation failed for {}: {}", livePlayer.getScoreboardName(), error.toString());
                         String fallbackQuestion = fallbackQuestion(liveSession.turns().size());
                         liveSession.setPendingQuestion(fallbackQuestion);
-                        sendReflectionIfNeeded(player, liveSession.turns(), likelyHouses);
-                        sendHatMessage(player, Component.literal(fallbackQuestion));
+                        sendReflectionIfNeeded(livePlayer, liveSession.turns(), likelyHouses);
+                        sendHatMessage(livePlayer, Component.literal(fallbackQuestion));
                         return;
                     }
                     liveSession.setPendingQuestion(question);
-                    sendReflectionIfNeeded(player, liveSession.turns(), likelyHouses);
-                    sendHatMessage(player, Component.literal(question));
+                    sendReflectionIfNeeded(livePlayer, liveSession.turns(), likelyHouses);
+                    sendHatMessage(livePlayer, Component.literal(question));
                 }));
     }
 
@@ -137,45 +146,52 @@ public class SortingHatManager {
         waitingOnModel.add(playerId);
         sendHatMessage(player, Component.translatable("chat.hogwartsmagic.sorting_hat.thinking"));
         List<OllamaSortingService.SortingTurn> history = List.copyOf(session.turns());
+        MinecraftServer server = player.server;
         ollamaService.decideHouse(history)
-                .whenComplete((result, error) -> player.server.execute(() -> {
+                .whenComplete((result, error) -> server.execute(() -> {
                     SessionState liveSession = sessions.get(playerId);
                     if (liveSession == null || !sessionToken.equals(sessionTokens.get(playerId))) {
                         return;
                     }
                     clearSession(playerId);
+                    // Re-resolve by UUID: the captured ServerPlayer is stale if they disconnected (or
+                    // respawned) while the model was thinking, and writing to it would be lost.
+                    ServerPlayer livePlayer = server.getPlayerList().getPlayer(playerId);
+                    if (livePlayer == null) {
+                        return;
+                    }
 
                     SortingResult finalResult = result;
                     if (error != null || result == null) {
                         if (error != null) {
-                            LOGGER.warn("Sorting Hat house decision failed for {}: {}", player.getScoreboardName(), error.toString());
+                            LOGGER.warn("Sorting Hat house decision failed for {}: {}", livePlayer.getScoreboardName(), error.toString());
                         } else {
-                            LOGGER.warn("Sorting Hat house decision returned null for {}", player.getScoreboardName());
+                            LOGGER.warn("Sorting Hat house decision returned null for {}", livePlayer.getScoreboardName());
                         }
                         List<HogwartsHouse> likelyHouses = inferLikelyHouses(liveSession.turns());
                         HogwartsHouse fallback = fallbackHouseFromTurns(liveSession.turns());
                         finalResult = new SortingResult(fallback, "Hmm... your traits still point me here.", prependHouse(fallback, likelyHouses));
                     }
 
-                    saveHouse(player, finalResult.house());
+                    saveHouse(livePlayer, finalResult.house());
                     SpellPackets.CHANNEL.send(new SpellPackets.HouseRevealPacket(finalResult.house()),
-                            PacketDistributor.PLAYER.with(player));
-                    player.level().playSound(
+                            PacketDistributor.PLAYER.with(livePlayer));
+                    livePlayer.level().playSound(
                             null,
-                            player.getX(),
-                            player.getY(),
-                            player.getZ(),
+                            livePlayer.getX(),
+                            livePlayer.getY(),
+                            livePlayer.getZ(),
                             ModSounds.SORTED_SOUND.get(),
                             SoundSource.PLAYERS,
                             1.0f,
                             1.0f
                     );
-                    sendHatMessage(player, Component.translatable("chat.hogwartsmagic.sorting_hat.final", finalResult.house().displayName())
+                    sendHatMessage(livePlayer, Component.translatable("chat.hogwartsmagic.sorting_hat.final", finalResult.house().displayName())
                             .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
                     if (!finalResult.likelyHouses().isEmpty()) {
-                        sendHatMessage(player, Component.literal(buildFinalLikelyHouseLine(finalResult)).withStyle(ChatFormatting.GRAY));
+                        sendHatMessage(livePlayer, Component.literal(buildFinalLikelyHouseLine(finalResult)).withStyle(ChatFormatting.GRAY));
                     }
-                    sendHatMessage(player, Component.literal(finalResult.reason()).withStyle(ChatFormatting.YELLOW));
+                    sendHatMessage(livePlayer, Component.literal(finalResult.reason()).withStyle(ChatFormatting.YELLOW));
                 }));
     }
 

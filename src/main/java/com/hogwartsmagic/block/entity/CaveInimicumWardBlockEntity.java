@@ -401,6 +401,9 @@ public class CaveInimicumWardBlockEntity extends BlockEntity {
         int min = CaveInimicumWardBounds.DEFAULT_EDGE_LENGTH;
         int max = Math.max(min, Config.getCaveInimicumMaxEdgeLength());
         int step = Math.max(2, Config.getCaveInimicumSizeStep());
+        if ((step & 1) != 0) {
+            step++; // bounds must stay an even edge length
+        }
         int next = configuredEdgeLength + step;
         if (next > max) {
             next = min;
@@ -587,12 +590,15 @@ public class CaveInimicumWardBlockEntity extends BlockEntity {
         super.loadAdditional(tag, registries);
         active = tag.getBoolean("Active");
         configuredEdgeLength = Math.max(
-                1,
+                2,
                 Math.min(
                         com.hogwartsmagic.caveinimicum.CaveInimicumSnapshot.MAX_EDGE_LENGTH,
                         tag.contains("ConfiguredEdgeLength") ? tag.getInt("ConfiguredEdgeLength") : CaveInimicumWardBounds.DEFAULT_EDGE_LENGTH
                 )
         );
+        if ((configuredEdgeLength & 1) != 0) {
+            configuredEdgeLength++; // CaveInimicumWardBounds requires an even edge length
+        }
         expireGameTime = tag.getLong("ExpireGameTime");
         activatedGameTime = tag.getLong("ActivatedGameTime");
         revealedUntilGameTime = tag.getLong("RevealedUntilGameTime");

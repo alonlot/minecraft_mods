@@ -304,7 +304,7 @@ public final class CircuitTracer {
                 int node = b.node(LockCircuit.REPEATER, s.getValue(DiodeBlock.POWERED) ? 15 : 0);
                 put(pos, node, node);
             } else if (block instanceof ComparatorBlock) {
-                int now = level.getBlockEntity(pos) instanceof ComparatorBlockEntity cbe ? cbe.getOutputSignal() : 0;
+                int now = clamp15(level.getBlockEntity(pos) instanceof ComparatorBlockEntity cbe ? cbe.getOutputSignal() : 0);
                 int kind = s.getValue(ComparatorBlock.MODE) == ComparatorMode.SUBTRACT ? LockCircuit.SUBTRACT : LockCircuit.COMPARE;
                 int node = b.node(kind, now);
                 put(pos, node, forceWrap(pos, block, node, now));
@@ -326,6 +326,7 @@ public final class CircuitTracer {
                 for (Direction d : Direction.values()) {
                     strongest = Math.max(strongest, s.getSignal(level, pos, d));
                 }
+                strongest = clamp15(strongest); // a modded source past 15 must not throw in the Builder
                 int node = b.constant(strongest);
                 put(pos, node, forceWrap(pos, block, node, strongest));
             } else {
@@ -539,7 +540,7 @@ public final class CircuitTracer {
             b.markTruncated();
             return -1;
         }
-        int now = state.getAnalogOutputSignal(level, pos);
+        int now = clamp15(state.getAnalogOutputSignal(level, pos)); // the Builder throws outside 0..15
         if (!takeItemKey()) {
             return b.constant(now);
         }
@@ -707,5 +708,10 @@ public final class CircuitTracer {
         if (from != to) {
             b.link(from, to, 0);
         }
+    }
+
+    /** A signal read from the world, kept inside the 0..15 the circuit Builder accepts (vanilla never leaves it). */
+    private static int clamp15(int signal) {
+        return Math.max(0, Math.min(15, signal));
     }
 }

@@ -172,6 +172,7 @@ public class GringottsAlarm extends SavedData {
         this.lastRaised.put(player.getUUID(), level.getGameTime());
         if (current - 1 <= 0) {
             this.heat.remove(player.getUUID());
+            this.lastRaised.remove(player.getUUID());
             player.displayClientMessage(
                     Component.translatable("gringotts.alarm.cooled").withStyle(ChatFormatting.GRAY),
                     true);

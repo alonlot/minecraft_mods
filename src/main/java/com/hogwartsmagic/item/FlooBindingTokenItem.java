@@ -31,6 +31,9 @@ public class FlooBindingTokenItem extends Item {
             return InteractionResult.sidedSuccess(context.getLevel().isClientSide);
         }
 
+        if (context.getLevel().isClientSide) {
+            return InteractionResult.SUCCESS;
+        }
         ItemStack stack = context.getItemInHand();
         CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
         if (!tag.contains("FirstFireplace")) {

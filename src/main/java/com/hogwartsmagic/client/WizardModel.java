@@ -113,9 +113,14 @@ public class WizardModel<T extends WizardEntity> extends EntityModel<T> implemen
 			CAST_START_TICK.remove(id);
 		}
 		LAST_CASTING.put(id, casting);
-		// Prune dropped entities so the maps don't leak — entity ids over a session are bounded and
-		// reused, but we still wipe stale keys when neither flag fires for an entity that disappears.
-		// (Done implicitly: maps are static and short-lived per-client.)
+		// Prune entries of wizards that no longer exist: entity ids are never reused within a session, so
+		// without this the static maps grow for as long as the client runs.
+		if (entity.tickCount % 200 == 0) {
+			java.util.function.Predicate<Integer> gone = key -> entity.level().getEntity(key) == null;
+			CAST_START_TICK.keySet().removeIf(gone);
+			CAST_END_TICK.keySet().removeIf(gone);
+			LAST_CASTING.keySet().removeIf(gone);
+		}
 
 		// Aim the wand at the target by matching the arm pitch to where the head is looking.
 		// The AI keeps the wizard's head locked on the target every tick via getLookControl, so

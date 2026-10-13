@@ -794,8 +794,6 @@ public class SpellPackets {
          */
         private static final String TAG_PATRONUS_CAST_SPENT = "hogwartsmagic:patronus_cast_spent_at";
         private static final long PATRONUS_CAST_SPENT_GRACE = 10L;
-        /** How often the charm answers in full rather than as a bare shield of light. */
-        private static final float CORPOREAL_PATRONUS_CHANCE = 0.15f;
         private static final String TAG_WINGARDIUM_CHANNELING = "hogwartsmagic:wingardium_channeling";
         private static final String TAG_WINGARDIUM_TARGET = "hogwartsmagic:wingardium_target";
         private static final String TAG_WINGARDIUM_LAST_SEEN = "hogwartsmagic:wingardium_last_seen";
@@ -1020,12 +1018,10 @@ public class SpellPackets {
                 float maxMana = PlayerMagicData.getMaxMana(player);
                 float currentMana = modData.contains("Mana") ? modData.getFloat("Mana") : maxMana;
 
-                if (player.getRandom().nextFloat() < CORPOREAL_PATRONUS_CHANCE) {
-                    int fullCost = SpellCosts.manaCost(player, wand, spell);
-                    if (!creative && currentMana < fullCost) {
-                        player.displayClientMessage(net.minecraft.network.chat.Component.literal("Not enough mana!").withStyle(net.minecraft.ChatFormatting.RED), true);
-                        return;
-                    }
+                // A corporeal answer the caster can't pay for in full falls back to the shield below.
+                int fullCost = SpellCosts.manaCost(player, wand, spell);
+                if ((creative || currentMana >= fullCost)
+                        && com.hogwartsmagic.spell.summon.PatronusSpell.rollsCorporeal(player)) {
                     if (!creative) {
                         currentMana -= fullCost;
                         modData.putFloat("Mana", currentMana);
@@ -1166,7 +1162,7 @@ public class SpellPackets {
 
             if (spell == SpellType.EXPECTO_PATRONUM) {
                 // Full mana was already taken above, so either outcome is paid for here.
-                if (player.getRandom().nextFloat() < CORPOREAL_PATRONUS_CHANCE) {
+                if (com.hogwartsmagic.spell.summon.PatronusSpell.rollsCorporeal(player)) {
                     playerData.putLong(TAG_PATRONUS_CAST_SPENT, now);
                     summonCorporealPatronus(player);
                     if (!creative) {
@@ -1253,10 +1249,7 @@ public class SpellPackets {
 
         /** The charm answering in full: a corporeal stag that hunts Dementors down. */
         private static void summonCorporealPatronus(ServerPlayer player) {
-            com.hogwartsmagic.entity.PatronusEntity patronus = new com.hogwartsmagic.entity.PatronusEntity(
-                    ModEntities.PATRONUS.get(), player.level());
-            patronus.setPos(player.getX(), player.getY(), player.getZ());
-            player.level().addFreshEntity(patronus);
+            com.hogwartsmagic.spell.summon.PatronusSpell.summonCorporeal(player);
 
             com.hogwartsmagic.event.ModEvents.revealInvisibilityCloak(player);
             player.level().playSound(null, player.getX(), player.getY(), player.getZ(),

@@ -66,6 +66,11 @@ public class PatronusModel extends EntityModel<PatronusEntity> {
         return LayerDefinition.create(meshdefinition, 64, 64);
     }
 
+    /** The Doe form reuses the stag with its antlers hidden; the renderer restores them after drawing. */
+    public void setAntlersVisible(boolean visible) {
+        this.head.getChild("antlers").visible = visible;
+    }
+
     @Override
     public void setupAnim(PatronusEntity entity, float limbSwing, float limbSwingAmount, float ageInTicks, float netHeadYaw, float headPitch) {
         this.head.yRot = netHeadYaw * ((float)Math.PI / 180F);

@@ -243,8 +243,10 @@ Each spell below lists the implemented gameplay behavior currently present in th
 ### Expecto Patronum
 
 - Held rather than tapped: the charm lasts only while the cast key is down.
-- 15% of casts produce a corporeal Patronus — the stag, which hunts Dementors, burns them in an expanding aura, and lights the area. This is a one-shot summon and pays the full cooldown.
-- The other 85% produce a non-corporeal shield: a broad fan of silver light thrown forward 20 blocks at a 25-degree half-angle — a mouth roughly 18 blocks across — tracking where you look.
+- Some casts produce a corporeal Patronus, which hunts Dementors, burns them in an expanding aura, and lights the area. This is a one-shot summon and pays the full cooldown.
+- The chance of a corporeal Patronus grows with the caster's Expecto Patronum rank: 15% at Novice, 30% at Adept, 50% at Expert, 75% at Master.
+- At Novice and Adept the corporeal Patronus is a generic silver stag. From Expert it takes the caster's own form, one of eight: Stag, Doe, Hare, Wolf, Cat, Owl, Fox or Phoenix. The form is chosen once from the player's UUID and house (each house has a pool of four; an unsorted player can get any of the eight), is announced in chat, and never changes after that, even after a house change or death.
+- The other casts produce a non-corporeal shield: a broad fan of silver light thrown forward 20 blocks at a 25-degree half-angle — a mouth roughly 18 blocks across — tracking where you look.
 - The cone is real rendered geometry, not particles — nested additively-blended shells that accumulate into a bright core with a soft volumetric edge. Server and client read the same cone constants, so what you see is exactly what pushes.
 - The shield shoves Dementors back out of the cone and smothers their soul-suck, but deals no damage — killing them stays the stag's job.
 - Dementors cannot close inside 3 blocks of you while they are in the cone, and their aura of dread cannot reach you while you hold it.

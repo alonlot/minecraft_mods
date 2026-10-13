@@ -139,7 +139,7 @@ An item that **raises a spell by one rank instantly**. It comes in the four spel
 
 ### Phase 1 follow-ups (carried into Phase 2)
 Left over from the Phase 1 reviews. None of them blocked merging.
-- **Config on the client:** the client reads the mastery config itself (it's COMMON). A server with tuned thresholds or discount shows the wrong ranks and costs on clients, and the HUD bar can go negative. Fix by syncing the values or making them a server config, and clamp the HUD progress to 0..1.
+- **Config on the client (done in Phase 2: `MasteryConfig` + `SyncMasteryConfigPacket` on login and config reload, progress clamped in `MasteryMath.rankProgress`):** the client reads the mastery config itself (it's COMMON). A server with tuned thresholds or discount shows the wrong ranks and costs on clients, and the HUD bar can go negative. Fix by syncing the values or making them a server config, and clamp the HUD progress to 0..1.
 - **Max mana after rank changes:** it's resent lazily after a rank change, and mana isn't clamped when ranks drop. Only `/spellmastery reset`/`set` can lower ranks.
 - **PvP farming:** players are full-rate XP targets, so co-op partners can farm each other. Decide on this with the Phase 2 PvP rules.
 - **Custom-NBT spawners:** mobs from these skip `FinalizeSpawn`, so they aren't tagged and pay full XP.

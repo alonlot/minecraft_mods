@@ -1,0 +1,10 @@
+{
+  "teacher": "hooch",
+  "objectives": [
+    {
+      "type": "stand",
+      "count": 10,
+      "min_y": 160
+    }
+  ]
+}

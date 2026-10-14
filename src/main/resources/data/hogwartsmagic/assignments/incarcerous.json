@@ -1,0 +1,18 @@
+{
+  "teacher": "moody",
+  "objectives": [
+    {
+      "type": "kill",
+      "target": [
+        "minecraft:spider",
+        "minecraft:cave_spider"
+      ],
+      "count": 10
+    },
+    {
+      "type": "deliver",
+      "target": "minecraft:string",
+      "count": 16
+    }
+  ]
+}

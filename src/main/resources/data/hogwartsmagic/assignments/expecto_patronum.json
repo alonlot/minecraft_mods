@@ -1,0 +1,25 @@
+{
+  "teacher": "lupin",
+  "objectives": [
+    {
+      "type": "know_spell",
+      "target": "protego",
+      "count": 1
+    },
+    {
+      "type": "hurt_by",
+      "target": "hogwartsmagic:dementor",
+      "count": 3
+    },
+    {
+      "type": "kill",
+      "target": "hogwartsmagic:dementor",
+      "count": 3
+    },
+    {
+      "type": "eat",
+      "target": "minecraft:cookie",
+      "count": 5
+    }
+  ]
+}

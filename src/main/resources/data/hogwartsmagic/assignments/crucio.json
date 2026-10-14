@@ -1,0 +1,21 @@
+{
+  "teacher": "death_eater",
+  "dark": true,
+  "objectives": [
+    {
+      "type": "know_spell",
+      "target": "imperio",
+      "count": 1
+    },
+    {
+      "type": "kill",
+      "target": "hogwartsmagic:lycanthrope_villager",
+      "count": 1
+    },
+    {
+      "type": "kill",
+      "target": "minecraft:iron_golem",
+      "count": 5
+    }
+  ]
+}

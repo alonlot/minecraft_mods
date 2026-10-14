@@ -46,7 +46,7 @@ public class SpellPackets {
 
     public static final SimpleChannel CHANNEL = ChannelBuilder
             .named(ExampleMod.MODID + ":spells")
-            .networkProtocolVersion(6)
+            .networkProtocolVersion(7)
             .simpleChannel();
 
     public static void register() {
@@ -514,6 +514,11 @@ public class SpellPackets {
                 .encoder((p, buf) -> buf.writeBoolean(p.picking))
                 .decoder(buf -> new LockPickStatePacket(buf.readBoolean()))
                 .consumerMainThread(LockPickStatePacket::handle)
+                .add();
+        CHANNEL.messageBuilder(com.hogwartsmagic.assignment.OpenAssignmentPacket.class)
+                .encoder(com.hogwartsmagic.assignment.OpenAssignmentPacket::encode)
+                .decoder(com.hogwartsmagic.assignment.OpenAssignmentPacket::decode)
+                .consumerMainThread(com.hogwartsmagic.assignment.OpenAssignmentPacket::handle)
                 .add();
     }
 

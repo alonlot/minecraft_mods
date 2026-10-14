@@ -1,0 +1,11 @@
+{
+  "teacher": "lupin",
+  "objectives": [
+    {
+      "type": "kill",
+      "target": "monster",
+      "count": 3,
+      "cause": "fall"
+    }
+  ]
+}

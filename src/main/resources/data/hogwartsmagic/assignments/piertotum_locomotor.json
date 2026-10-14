@@ -1,0 +1,20 @@
+{
+  "teacher": "mcgonagall",
+  "objectives": [
+    {
+      "type": "know_spell",
+      "target": "reparo",
+      "count": 1
+    },
+    {
+      "type": "kill",
+      "target": "hogwartsmagic:living_statue",
+      "count": 1
+    },
+    {
+      "type": "craft",
+      "target": "minecraft:armor_stand",
+      "count": 4
+    }
+  ]
+}

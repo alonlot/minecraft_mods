@@ -1,0 +1,17 @@
+{
+  "teacher": "flitwick",
+  "objectives": [
+    {
+      "type": "smelt",
+      "count": 32
+    },
+    {
+      "type": "place",
+      "target": [
+        "minecraft:campfire",
+        "minecraft:soul_campfire"
+      ],
+      "count": 3
+    }
+  ]
+}

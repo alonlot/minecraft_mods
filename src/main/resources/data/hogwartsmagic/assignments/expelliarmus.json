@@ -1,0 +1,15 @@
+{
+  "teacher": "lupin",
+  "objectives": [
+    {
+      "type": "kill",
+      "target": "monster",
+      "count": 5,
+      "victim": "armed"
+    },
+    {
+      "type": "duel_win",
+      "count": 1
+    }
+  ]
+}

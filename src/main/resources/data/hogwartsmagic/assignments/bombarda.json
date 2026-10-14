@@ -1,0 +1,21 @@
+{
+  "teacher": "moody",
+  "objectives": [
+    {
+      "type": "kill",
+      "target": "monster",
+      "count": 5,
+      "cause": "explosion"
+    },
+    {
+      "type": "kill",
+      "target": "hogwartsmagic:wizard",
+      "count": 3
+    },
+    {
+      "type": "break",
+      "target": "minecraft:obsidian",
+      "count": 8
+    }
+  ]
+}

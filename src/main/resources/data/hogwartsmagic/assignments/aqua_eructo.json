@@ -1,0 +1,18 @@
+{
+  "teacher": "pomfrey",
+  "objectives": [
+    {
+      "type": "kill",
+      "target": [
+        "minecraft:blaze",
+        "minecraft:magma_cube"
+      ],
+      "count": 4
+    },
+    {
+      "type": "stand",
+      "count": 30,
+      "in_water": true
+    }
+  ]
+}

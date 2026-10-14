@@ -1,0 +1,15 @@
+{
+  "teacher": "flitwick",
+  "objectives": [
+    {
+      "type": "deliver",
+      "target": "minecraft:feather",
+      "count": 16
+    },
+    {
+      "type": "cast",
+      "target": "lumos",
+      "count": 20
+    }
+  ]
+}

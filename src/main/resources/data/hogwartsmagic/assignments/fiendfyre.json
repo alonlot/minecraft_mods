@@ -1,0 +1,22 @@
+{
+  "teacher": "death_eater",
+  "dark": true,
+  "objectives": [
+    {
+      "type": "know_spell",
+      "target": "confringo",
+      "count": 1
+    },
+    {
+      "type": "kill",
+      "target": "hogwartsmagic:hungarian_horntail",
+      "count": 1
+    },
+    {
+      "type": "kill",
+      "target": "monster",
+      "count": 25,
+      "cause": "fire"
+    }
+  ]
+}

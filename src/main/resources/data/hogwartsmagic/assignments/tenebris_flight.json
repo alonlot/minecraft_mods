@@ -1,0 +1,21 @@
+{
+  "teacher": "death_eater",
+  "dark": true,
+  "objectives": [
+    {
+      "type": "kill",
+      "target": "minecraft:phantom",
+      "count": 5
+    },
+    {
+      "type": "stand",
+      "count": 30,
+      "min_y": 200
+    },
+    {
+      "type": "kill",
+      "target": "minecraft:ghast",
+      "count": 2
+    }
+  ]
+}

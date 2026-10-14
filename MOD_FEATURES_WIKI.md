@@ -349,6 +349,80 @@ Each spell below lists the implemented gameplay behavior currently present in th
 - Sends the consumed block item flying magically back into place before restoring the block.
 - Does not repair block-entity blocks or impossible states.
 
+## Hogwarts Assignments
+
+- A Hogwarts Assignment is a scroll that turns into a spell's book when you finish its task.
+- Assignments are found in exactly the same chests as spell books. When a chest rolls a spell book, there is a 60% chance (config `assignmentShareOfBooks`) that it holds that same spell's assignment instead. So an assignment has the same rarity and the same chests as its book.
+- The task size follows the spell's rarity: Common 1 to 2 lines, Uncommon 2, Rare 3, Epic 3 to 4.
+- Right-click to accept. This binds the scroll to you; nobody else can use it. You can have at most 3 assignments in progress.
+- Right-click again to read it on a parchment screen with a progress bar for each line. Progress is shown on the action bar as you go, and chat tells you when it is complete.
+- Right-click a completed scroll to claim the book. Items that a line asks you to bring are taken at that moment.
+- Sneak-right-click twice to give up an assignment. The scroll is destroyed and its progress is lost.
+- You cannot accept an assignment for a spell you already know. Progress is saved on the player, not on the scroll, and survives death.
+- Dark spells come as **Dark Orders** (black parchment, green seal) from the Half-Blood Prince or a Death Eater, never from a Hogwarts teacher.
+- No task needs the spell it teaches. Some need another spell first (for example, Stupefy needs Expelliarmus), and that spell is never rarer.
+- Assignments are data files (`data/hogwartsmagic/assignments/<spell>.json`), so a datapack can change or replace them.
+
+### Common
+
+| Spell | Teacher | Task |
+|---|---|---|
+| Accio | Prof. F. Flitwick, Charms | Fish up 5 catches |
+| Alohomora | Prof. F. Flitwick, Charms | Open 3 chests nobody has opened before (villages, ruins, temples) |
+| Ascendio | Madam R. Hooch, Flying | Stand above Y 160 for 10 seconds |
+| Depulso | Prof. R. J. Lupin, Defence Against the Dark Arts | Knock 3 monsters to their death by a fall |
+| Diffindo | Prof. M. McGonagall, Transfiguration | Cut 32 leaf blocks<br>Cut 4 cobwebs |
+| Lumos | Prof. F. Flitwick, Charms | Light 12 dark places with torches, where no sky light reaches<br>Spend 60 seconds deep underground, below Y 0 |
+
+### Uncommon
+
+| Spell | Teacher | Task |
+|---|---|---|
+| Alatus | Madam R. Hooch, Flying | Cut 16 Fine Wood logs<br>Build 1 Broom Workbench |
+| Aqua Eructo | Madam P. Pomfrey, Hospital Wing | Defeat 4 Blazes or Magma Cubes<br>Swim for 30 seconds |
+| Arresto Momentum | Madam R. Hooch, Flying | Stack 4 hay bales to land on<br>Survive 3 falls of 25 blocks or more (a hay bale helps) |
+| Colloportus | A. Filch, Caretaker | Hang 4 iron doors<br>Wire 4 levers or buttons |
+| Confringo | Prof. A. Moody, Defence Against the Dark Arts | Know Incendio<br>Defeat 10 monsters while they burn |
+| Confundo | Prof. M. McGonagall, Transfiguration | Watch 5 creatures kill another creature (a skeleton that shoots a zombie counts)<br>Defeat 2 witches, who brew the potions that muddle minds |
+| Expelliarmus | Prof. R. J. Lupin, Defence Against the Dark Arts | Defeat 5 monsters that carry a weapon<br>Win 1 duel against a Hogwarts Student or a Death Eater |
+| Glacius | Prof. F. Flitwick, Charms | Mine 24 blocks of ice<br>Bring 16 snowballs |
+| Episkey | Madam P. Pomfrey, Hospital Wing | Brew 3 Potions of Healing<br>Breed 4 animals |
+| Incarcerous | Prof. A. Moody, Defence Against the Dark Arts | Defeat 10 spiders<br>Bring 16 string |
+| Incendio | Prof. F. Flitwick, Charms | Smelt 32 items in a furnace<br>Build 3 campfires |
+| Levicorpus (Dark Orders) | The Half-Blood Prince | Cast Wingardium Leviosa 10 times<br>Defeat 15 monsters |
+| Petrificus Totalus | Prof. R. J. Lupin, Defence Against the Dark Arts | Know Stupefy<br>Hit 15 creatures with Stupefy |
+| Protego | Prof. R. J. Lupin, Defence Against the Dark Arts | Block 20 attacks with a shield<br>Defeat 5 skeletons |
+| Reparo | Prof. F. Flitwick, Charms | Build 1 anvil<br>Repair 5 items at an anvil |
+| Revelio | Prof. A. Moody, Defence Against the Dark Arts | Open 1 hidden chest: buried treasure or a monster dungeon<br>Mine 1 diamond ore |
+| Stupefy | Prof. R. J. Lupin, Defence Against the Dark Arts | Know Expelliarmus<br>Win 2 duels |
+| Wingardium Leviosa | Prof. F. Flitwick, Charms | Bring 16 feathers<br>Cast Lumos 20 times to practise the wand movement |
+
+### Rare
+
+| Spell | Teacher | Task |
+|---|---|---|
+| Bombarda | Prof. A. Moody, Defence Against the Dark Arts | Defeat 5 monsters with an explosion<br>Defeat 3 Death Eaters<br>Mine 8 obsidian |
+| Cave Inimicum | Prof. F. Flitwick, Charms | Make 1 Ward<br>Spend 600 seconds outdoors at night<br>Defeat 20 monsters |
+| Dolohov's Curse (Dark Orders) | A Death Eater | Defeat 3 Iron Golems<br>Win 2 duels<br>Defeat 3 witches who would not serve |
+| Obliviate | Prof. G. Lockhart, Order of Merlin, Third Class | Bring 3 signed books (your memoirs)<br>Defeat 1 Troll (and tell everyone about it)<br>Win 3 duels |
+| Piertotum Locomotor | Prof. M. McGonagall, Transfiguration | Know Reparo<br>Defeat 1 Living Statue<br>Make 4 armour stands |
+| Protego Maxima | Prof. F. Flitwick, Charms | Know Protego<br>Defend a village from a raid and become its Hero<br>Block 30 attacks with a shield |
+| Sectumsempra (Dark Orders) | The Half-Blood Prince | Know Levicorpus<br>Brew 5 different potions<br>Hit 15 creatures with Diffindo |
+| Serpensortia (Dark Orders) | A Death Eater | Defeat 10 cave spiders<br>Defeat 2 Acromantulas<br>Bring 2 Acromantula Venom |
+
+### Epic
+
+| Spell | Teacher | Task |
+|---|---|---|
+| Apparition | W. Twycross, Ministry Apparition Instructor | Travel 5 times by the Floo Network<br>Visit a Black Lake ruin<br>Visit a Whomping Willow clearing<br>Visit a merfolk village |
+| Avada Kedavra (Dark Orders) | A Death Eater | Know Crucio<br>Enter the Chamber of Secrets<br>Defeat 1 Basilisk |
+| Crucio (Dark Orders) | A Death Eater | Know Imperio<br>Defeat 1 lycanthrope<br>Defeat 5 Iron Golems |
+| Expecto Patronum | Prof. R. J. Lupin, Defence Against the Dark Arts | Know Protego<br>Survive 3 Dementor attacks<br>Defeat 3 Dementors<br>Eat 5 cookies afterwards. Chocolate. It really helps. |
+| Fiendfyre (Dark Orders) | A Death Eater | Know Confringo<br>Defeat 1 Hungarian Horntail<br>Defeat 25 monsters while they burn |
+| Imperio (Dark Orders) | A Death Eater | Know Confundo<br>Defeat 20 spiders<br>Defeat 1 Acromantula |
+| Morsmordre (Dark Orders) | A Death Eater | Find a Death Eater camp<br>Bring 3 Cursed Galleons<br>Defeat 5 Iron Golems |
+| Tenebris Flight (Dark Orders) | A Death Eater | Defeat 5 Phantoms<br>Stand above Y 200 for 30 seconds<br>Defeat 2 Ghasts |
+
 ## Mobs and Major Entities
 
 ### Whomping Willow
@@ -636,6 +710,7 @@ These are decorative house-themed blocks.
 - Each spell has a dedicated spellbook item.
 - Right-clicking a spellbook teaches the spell permanently.
 - Spellbooks can appear in chest loot.
+- In the same chests, a spell can come as a Hogwarts Assignment instead: a task that turns into the book (see Hogwarts Assignments).
 
 ### Brooms
 

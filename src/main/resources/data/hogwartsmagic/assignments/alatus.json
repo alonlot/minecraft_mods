@@ -1,0 +1,15 @@
+{
+  "teacher": "hooch",
+  "objectives": [
+    {
+      "type": "break",
+      "target": "hogwartsmagic:fine_wood_log",
+      "count": 16
+    },
+    {
+      "type": "craft",
+      "target": "hogwartsmagic:broom_workbench",
+      "count": 1
+    }
+  ]
+}

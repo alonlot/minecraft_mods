@@ -1,0 +1,18 @@
+{
+  "teacher": "filch",
+  "objectives": [
+    {
+      "type": "place",
+      "target": "minecraft:iron_door",
+      "count": 4
+    },
+    {
+      "type": "place",
+      "target": [
+        "minecraft:lever",
+        "#minecraft:buttons"
+      ],
+      "count": 4
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "teacher": "mcgonagall",
+  "objectives": [
+    {
+      "type": "break",
+      "target": "#minecraft:leaves",
+      "count": 32
+    },
+    {
+      "type": "break",
+      "target": "minecraft:cobweb",
+      "count": 4
+    }
+  ]
+}

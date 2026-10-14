@@ -1,0 +1,22 @@
+{
+  "teacher": "prince",
+  "dark": true,
+  "objectives": [
+    {
+      "type": "know_spell",
+      "target": "levicorpus",
+      "count": 1
+    },
+    {
+      "type": "brew",
+      "count": 5,
+      "distinct": true
+    },
+    {
+      "type": "cast",
+      "target": "diffindo",
+      "count": 15,
+      "on": "living"
+    }
+  ]
+}

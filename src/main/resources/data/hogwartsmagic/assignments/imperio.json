@@ -1,0 +1,24 @@
+{
+  "teacher": "death_eater",
+  "dark": true,
+  "objectives": [
+    {
+      "type": "know_spell",
+      "target": "confundo",
+      "count": 1
+    },
+    {
+      "type": "kill",
+      "target": [
+        "minecraft:spider",
+        "minecraft:cave_spider"
+      ],
+      "count": 20
+    },
+    {
+      "type": "kill",
+      "target": "hogwartsmagic:acromantula",
+      "count": 1
+    }
+  ]
+}

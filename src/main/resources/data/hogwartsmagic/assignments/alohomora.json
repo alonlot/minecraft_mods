@@ -1,0 +1,9 @@
+{
+  "teacher": "flitwick",
+  "objectives": [
+    {
+      "type": "loot_chest",
+      "count": 3
+    }
+  ]
+}

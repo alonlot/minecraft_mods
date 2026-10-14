@@ -50,6 +50,8 @@ public final class ClientRuntimeBridge {
             case "puppetInput" -> PossessionClient.acceptPuppetInput((SpellPackets.PuppetInputPacket) payload);
             case "puppetSnapshot" -> PossessionClient.acceptSnapshot((SpellPackets.PuppetSnapshotPacket) payload);
             case "lockPickState" -> LockPickClient.accept((SpellPackets.LockPickStatePacket) payload);
+            case "openAssignment" -> net.minecraft.client.Minecraft.getInstance().setScreen(
+                    new AssignmentScreen((com.hogwartsmagic.assignment.OpenAssignmentPacket) payload));
             default -> throw new IllegalArgumentException("Unknown client packet action: " + action);
         }
     }

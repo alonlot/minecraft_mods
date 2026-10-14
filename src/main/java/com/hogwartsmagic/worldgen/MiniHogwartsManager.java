@@ -1,7 +1,6 @@
 package com.hogwartsmagic.worldgen;
 
 import com.hogwartsmagic.ExampleMod;
-import com.hogwartsmagic.item.MagicBookItem;
 import com.hogwartsmagic.spell.SpellType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -504,10 +503,10 @@ public final class MiniHogwartsManager {
                         SpellType.WINGARDIUM_LEVIOSA, SpellType.ARRESTO_MOMENTUM, SpellType.REPARO};
                 SpellType[] advanced = {SpellType.PROTEGO, SpellType.EXPELLIARMUS, SpellType.STUPEFY, SpellType.DIFFINDO};
                 for (int i = 0; i < 3 + rng.nextInt(4); i++) {
-                    addBook(out, commons[rng.nextInt(commons.length)]);
+                    addBook(out, rng, commons[rng.nextInt(commons.length)]);
                 }
                 for (int i = 0; i < 1 + rng.nextInt(2); i++) {
-                    addBook(out, advanced[rng.nextInt(advanced.length)]);
+                    addBook(out, rng, advanced[rng.nextInt(advanced.length)]);
                 }
                 addStack(out, Items.BOOK, 4 + rng.nextInt(6));
                 addStack(out, Items.WRITABLE_BOOK, 1 + rng.nextInt(2));
@@ -517,7 +516,7 @@ public final class MiniHogwartsManager {
                 SpellType[] study = {SpellType.PROTEGO, SpellType.STUPEFY, SpellType.REVELIO,
                         SpellType.INCENDIO, SpellType.GLACIUS, SpellType.PETRIFICUS_TOTALUS};
                 for (int i = 0; i < 2 + rng.nextInt(3); i++) {
-                    addBook(out, study[rng.nextInt(study.length)]);
+                    addBook(out, rng, study[rng.nextInt(study.length)]);
                 }
                 addStack(out, Items.LAPIS_LAZULI, 6 + rng.nextInt(10));
                 addStack(out, Items.ENCHANTED_BOOK, 1 + rng.nextInt(2));
@@ -528,9 +527,9 @@ public final class MiniHogwartsManager {
             case DUNGEON -> {
                 SpellType[] dark = {SpellType.SECTUMSEMPRA, SpellType.CRUCIO, SpellType.DOLOHOV_CURSE,
                         SpellType.INCARCEROUS, SpellType.CONFRINGO};
-                addBook(out, dark[rng.nextInt(dark.length)]);
+                addBook(out, rng, dark[rng.nextInt(dark.length)]);
                 if (rng.nextFloat() < 0.25F) {
-                    addBook(out, dark[rng.nextInt(dark.length)]);
+                    addBook(out, rng, dark[rng.nextInt(dark.length)]);
                 }
                 addStack(out, Items.BONE, 4 + rng.nextInt(6));
                 addStack(out, Items.ROTTEN_FLESH, 4 + rng.nextInt(6));
@@ -549,15 +548,15 @@ public final class MiniHogwartsManager {
                 addStack(out, Items.PUMPKIN_PIE, 1 + rng.nextInt(2));
                 addStack(out, Items.POTION, 1);
                 addStack(out, Items.GLASS_BOTTLE, 3);
-                addBook(out, SpellType.LUMOS);
+                addBook(out, rng, SpellType.LUMOS);
                 if (rng.nextFloat() < 0.5F) {
-                    addBook(out, SpellType.ACCIO);
+                    addBook(out, rng, SpellType.ACCIO);
                 }
             }
             case TOWER -> {
                 SpellType[] rare = {SpellType.EXPECTO_PATRONUM, SpellType.PROTEGO_MAXIMA,
                         SpellType.FIENDFYRE, SpellType.BOMBARDA, SpellType.APPARITION};
-                addBook(out, rare[rng.nextInt(rare.length)]);
+                addBook(out, rng, rare[rng.nextInt(rare.length)]);
                 addStack(out, Items.GOLD_INGOT, 4 + rng.nextInt(6));
                 addStack(out, Items.DIAMOND, 1 + rng.nextInt(3));
                 addStack(out, Items.EMERALD, 3 + rng.nextInt(5));
@@ -589,9 +588,9 @@ public final class MiniHogwartsManager {
         }
     }
 
-    private static void addBook(List<ItemStack> out, SpellType spell) {
+    private static void addBook(List<ItemStack> out, RandomSource rng, SpellType spell) {
         try {
-            out.add(MagicBookItem.createBook(spell));
+            out.add(com.hogwartsmagic.assignment.AssignmentLoot.bookOrAssignment(spell, rng));
         } catch (Throwable ignored) {
         }
     }

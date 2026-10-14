@@ -250,6 +250,7 @@ public final class DuelManager {
 
     private static void win(ServerPlayer player, Duel duel, String messageKey) {
         endDuel(player, duel);
+        com.hogwartsmagic.assignment.AssignmentEvents.onDuelWin(player, duel.npc);
         Mob npc = duel.npc;
 
         sendTitle(player, Component.translatable("hogwartsmagic.duel.victory"),

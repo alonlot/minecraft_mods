@@ -1,0 +1,17 @@
+{
+  "teacher": "pomfrey",
+  "objectives": [
+    {
+      "type": "brew",
+      "target": [
+        "minecraft:healing",
+        "minecraft:strong_healing"
+      ],
+      "count": 3
+    },
+    {
+      "type": "breed",
+      "count": 4
+    }
+  ]
+}

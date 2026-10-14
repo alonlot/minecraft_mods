@@ -1,0 +1,21 @@
+{
+  "teacher": "flitwick",
+  "objectives": [
+    {
+      "type": "craft",
+      "target": "hogwartsmagic:ward",
+      "count": 1
+    },
+    {
+      "type": "stand",
+      "count": 600,
+      "night": true,
+      "sky": true
+    },
+    {
+      "type": "kill",
+      "target": "monster",
+      "count": 20
+    }
+  ]
+}

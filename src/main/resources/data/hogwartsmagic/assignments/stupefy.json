@@ -1,0 +1,14 @@
+{
+  "teacher": "lupin",
+  "objectives": [
+    {
+      "type": "know_spell",
+      "target": "expelliarmus",
+      "count": 1
+    },
+    {
+      "type": "duel_win",
+      "count": 2
+    }
+  ]
+}

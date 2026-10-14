@@ -1,0 +1,14 @@
+{
+  "teacher": "mcgonagall",
+  "objectives": [
+    {
+      "type": "mob_kills_mob",
+      "count": 5
+    },
+    {
+      "type": "kill",
+      "target": "minecraft:witch",
+      "count": 2
+    }
+  ]
+}

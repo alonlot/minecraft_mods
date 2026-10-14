@@ -1,0 +1,16 @@
+{
+  "teacher": "prince",
+  "dark": true,
+  "objectives": [
+    {
+      "type": "cast",
+      "target": "wingardium_leviosa",
+      "count": 10
+    },
+    {
+      "type": "kill",
+      "target": "monster",
+      "count": 15
+    }
+  ]
+}

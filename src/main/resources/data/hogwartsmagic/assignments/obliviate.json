@@ -1,0 +1,19 @@
+{
+  "teacher": "lockhart",
+  "objectives": [
+    {
+      "type": "deliver",
+      "target": "minecraft:written_book",
+      "count": 3
+    },
+    {
+      "type": "kill",
+      "target": "hogwartsmagic:troll",
+      "count": 1
+    },
+    {
+      "type": "duel_win",
+      "count": 3
+    }
+  ]
+}

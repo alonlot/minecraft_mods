@@ -1,0 +1,24 @@
+{
+  "teacher": "twycross",
+  "objectives": [
+    {
+      "type": "floo",
+      "count": 5
+    },
+    {
+      "type": "visit",
+      "target": "hogwartsmagic:black_lake_ruin",
+      "count": 1
+    },
+    {
+      "type": "visit",
+      "target": "hogwartsmagic:willow_clearing",
+      "count": 1
+    },
+    {
+      "type": "visit",
+      "target": "hogwartsmagic:merfolk_village",
+      "count": 1
+    }
+  ]
+}

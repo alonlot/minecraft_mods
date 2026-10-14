@@ -1,0 +1,18 @@
+{
+  "teacher": "lupin",
+  "objectives": [
+    {
+      "type": "block_shield",
+      "count": 20
+    },
+    {
+      "type": "kill",
+      "target": [
+        "minecraft:skeleton",
+        "minecraft:stray",
+        "minecraft:bogged"
+      ],
+      "count": 5
+    }
+  ]
+}

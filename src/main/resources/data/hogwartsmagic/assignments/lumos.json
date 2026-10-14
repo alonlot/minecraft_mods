@@ -1,0 +1,21 @@
+{
+  "teacher": "flitwick",
+  "objectives": [
+    {
+      "type": "place",
+      "target": [
+        "minecraft:torch",
+        "minecraft:wall_torch",
+        "minecraft:soul_torch",
+        "minecraft:soul_wall_torch"
+      ],
+      "count": 12,
+      "no_sky": true
+    },
+    {
+      "type": "stand",
+      "count": 60,
+      "max_y": 0
+    }
+  ]
+}

@@ -11,6 +11,7 @@ function currentSection() {
   const file = pageFileName();
   if (file === "systems.html") return "systems";
   if (file === "spells.html") return "spells";
+  if (file === "assignments.html") return "assignments";
   if (file === "mobs.html") return "mobs";
   if (file === "blocks.html") return "blocks";
   if (file === "items.html") return "items";
@@ -61,6 +62,7 @@ function setActiveNav() {
       (section === "index" && target === "index.html") ||
       (section === "systems" && target === "systems.html") ||
       (section === "spells" && target === "spells.html") ||
+      (section === "assignments" && target === "assignments.html") ||
       (section === "mobs" && target === "mobs.html") ||
       (section === "blocks" && target === "blocks.html") ||
       (section === "items" && target === "items.html") ||
@@ -374,6 +376,95 @@ function renderRecipesPage() {
   });
 }
 
+const ASSIGNMENT_RARITIES = ["common", "uncommon", "rare", "epic"];
+const ASSIGNMENT_LINES = { common: "1 to 2 task lines", uncommon: "2 task lines", rare: "3 task lines", epic: "3 to 4 task lines" };
+
+function allAssignments() {
+  return typeof WIKI_ASSIGNMENTS !== "undefined" && Array.isArray(WIKI_ASSIGNMENTS) ? WIKI_ASSIGNMENTS : [];
+}
+
+function scrollIcon(entry) {
+  if (entry.dark) return "assets/assignment_dark.png";
+  return entry.rarity === "common" ? "assets/assignment.png" : `assets/assignment_${entry.rarity}.png`;
+}
+
+function assignmentCardMarkup(entry) {
+  return `
+    <article class="topic-card assignment-card spell-card rarity-${chipClass(entry.rarity)} ${entry.dark ? "is-dark-orders" : ""}">
+      <div class="topic-card-header">
+        <img class="scroll-icon" src="${scrollIcon(entry)}" alt="" width="50" height="50">
+        <div>
+          <h3>${escapeHtml(entry.name)}</h3>
+          <p class="topic-meta">${escapeHtml(entry.role)}</p>
+        </div>
+      </div>
+      <div class="meta-chips">
+        <span class="meta-chip rarity-chip rarity-${chipClass(entry.rarity)}">${escapeHtml(prettyLabel(entry.rarity))}</span>
+        <span class="meta-chip ${entry.dark ? "dark-chip" : ""}">${escapeHtml(entry.source)}</span>
+        ${(entry.needs || []).map((spell) => `<span class="meta-chip needs-chip">Needs ${escapeHtml(spell)}</span>`).join("")}
+      </div>
+      <blockquote class="assignment-quote">${escapeHtml(entry.summary)}</blockquote>
+      <ul class="task-list">
+        ${(entry.features || []).map((line) => `<li><span class="task-box" aria-hidden="true"></span><span>${escapeHtml(line)}</span></li>`).join("")}
+      </ul>
+      <div class="assignment-reward">Reward: Spellbook of ${escapeHtml(entry.name)}</div>
+    </article>
+  `;
+}
+
+function renderAssignmentsPage() {
+  if (currentSection() !== "assignments") return;
+  const entries = allAssignments();
+  const share = typeof WIKI_ASSIGNMENT_SHARE === "number" ? WIKI_ASSIGNMENT_SHARE : 0.6;
+  const taskPercent = Math.round(share * 100);
+
+  const bar = document.getElementById("split-bar");
+  if (bar) bar.style.setProperty("--task-share", `${taskPercent}%`);
+  const taskValue = document.getElementById("split-task-value");
+  const bookValue = document.getElementById("split-book-value");
+  if (taskValue) taskValue.textContent = `${taskPercent}%`;
+  if (bookValue) bookValue.textContent = `${100 - taskPercent}%`;
+
+  const seals = document.getElementById("seal-row");
+  if (seals) {
+    const kinds = [
+      { src: "assets/assignment.png", label: "Common" },
+      { src: "assets/assignment_uncommon.png", label: "Uncommon" },
+      { src: "assets/assignment_rare.png", label: "Rare" },
+      { src: "assets/assignment_epic.png", label: "Epic" },
+      { src: "assets/assignment_dark.png", label: "Dark Orders" }
+    ];
+    seals.innerHTML = kinds.map((kind) => `
+      <figure><img src="${kind.src}" alt="" width="40" height="40"><figcaption>${escapeHtml(kind.label)}</figcaption></figure>
+    `).join("");
+  }
+
+  const scale = document.getElementById("rarity-scale");
+  if (scale) {
+    scale.innerHTML = ASSIGNMENT_RARITIES.map((rarity) => {
+      const count = entries.filter((entry) => entry.rarity === rarity).length;
+      return `
+        <div class="rarity-step rarity-border-${rarity}">
+          <span class="meta-chip rarity-chip rarity-${rarity}">${prettyLabel(rarity)}</span>
+          <strong>${escapeHtml(ASSIGNMENT_LINES[rarity])}</strong>
+          <span>${count} spells</span>
+        </div>
+      `;
+    }).join("");
+  }
+
+  setupTopicBrowser({
+    containerId: "assignment-list",
+    entries,
+    renderer: assignmentCardMarkup,
+    emptyId: "assignment-empty",
+    filters: [
+      { containerId: "assignment-rarity-filters", field: "rarity", label: "Rarity" },
+      { containerId: "assignment-source-filters", field: "source", label: "Set by" }
+    ]
+  });
+}
+
 function renderHomePage() {
   if (currentSection() !== "index") return;
 
@@ -572,4 +663,5 @@ document.addEventListener("DOMContentLoaded", () => {
   renderTopicCards("system-list", WIKI_DATA.systems, genericCardMarkup);
   renderEntryPage();
   renderRecipesPage();
+  renderAssignmentsPage();
 });

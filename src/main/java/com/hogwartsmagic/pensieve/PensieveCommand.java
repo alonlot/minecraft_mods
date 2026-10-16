@@ -25,8 +25,8 @@ import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 /**
- * {@code /pensieve validate [id]}, {@code list} and {@code preview <id>} (op level 2), and {@code leave} (anyone
- * inside a memory). Server side only.
+ * {@code /pensieve validate [id]}, {@code list}, {@code preview <id>} and {@code leave <player>} (op level 2), and
+ * {@code leave} (anyone inside a memory). Server side only.
  */
 public final class PensieveCommand {
     private PensieveCommand() {
@@ -47,7 +47,23 @@ public final class PensieveCommand {
                                 .executes(ctx -> PensieveSessions.startPreview(ctx.getSource().getPlayerOrException(),
                                         StringArgumentType.getString(ctx, "id")) ? 1 : 0)))
                 // Anyone inside a memory may leave it; this is also the only command a viewer can run.
-                .then(Commands.literal("leave").executes(ctx -> leave(ctx.getSource()))));
+                // Ops can pull anyone out (the same exit as their own /pensieve leave).
+                .then(Commands.literal("leave").executes(ctx -> leave(ctx.getSource()))
+                        .then(Commands.argument("player", net.minecraft.commands.arguments.EntityArgument.player())
+                                .requires(source -> source.hasPermission(2))
+                                .executes(ctx -> leaveOther(ctx.getSource(),
+                                        net.minecraft.commands.arguments.EntityArgument.getPlayer(ctx, "player"))))));
+    }
+
+    private static int leaveOther(CommandSourceStack source, ServerPlayer target) {
+        if (!PensieveSessions.isViewer(target)) {
+            source.sendFailure(Component.literal(target.getGameProfile().getName() + " is not inside a memory."));
+            return 0;
+        }
+        PensieveSessions.leave(target, ExitReason.LEFT);
+        source.sendSuccess(() -> Component.literal("Pulling " + target.getGameProfile().getName()
+                + " out of the memory."), true);
+        return 1;
     }
 
     private static int leave(CommandSourceStack source) throws com.mojang.brigadier.exceptions.CommandSyntaxException {

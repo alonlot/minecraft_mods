@@ -33,10 +33,14 @@ public final class PensieveEvents {
         event.addListener(new MemoryRegistry());
     }
 
-    /** Nothing hurts a viewer except the damage their own body forwards (see PensieveSessions#forwardDamage). */
+    /**
+     * Nothing hurts a viewer except the damage their own body forwards (see PensieveSessions#forwardDamage), and
+     * {@code /kill}: an admin must always be able to get a player out. The death path sends them home first.
+     */
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onAttacked(LivingAttackEvent event) {
-        if (event.getEntity() instanceof Player p && PensieveSessions.isViewer(p) && !PensieveSessions.isForwarding(p)) {
+        if (event.getEntity() instanceof Player p && PensieveSessions.isViewer(p) && !PensieveSessions.isForwarding(p)
+                && !event.getSource().is(net.minecraft.world.damagesource.DamageTypes.GENERIC_KILL)) {
             event.setCanceled(true);
         }
     }

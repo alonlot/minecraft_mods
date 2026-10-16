@@ -29,6 +29,17 @@ class CameraTrackTest {
     }
 
     @Test
+    void fovIsClampedToASaneRange() throws Exception {
+        CameraTrack c = track("""
+                [{"t":0,"pos":[0,0,0],"look_at":[0,0,10],"fov":1,"ease":"linear"},
+                 {"t":20,"pos":[20,0,0],"look_at":[20,0,10],"fov":400,"ease":"linear"}]""");
+        assertEquals(CameraTrack.MIN_FOV, c.sample(0, id -> null).fov(), 1e-4);
+        assertEquals(CameraTrack.MAX_FOV, c.sample(20, id -> null).fov(), 1e-4);
+        float mid = c.sample(10, id -> null).fov();
+        assertTrue(mid >= CameraTrack.MIN_FOV && mid <= CameraTrack.MAX_FOV, "mid fov " + mid);
+    }
+
+    @Test
     void cutSnapsInsteadOfGliding() throws Exception {
         CameraTrack c = track("""
                 [{"t":0,"pos":[0,0,0],"look_at":[0,0,10],"ease":"linear"},

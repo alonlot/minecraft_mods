@@ -29,19 +29,23 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.TicketType;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -71,6 +75,14 @@ public final class PensieveSessions {
     public static final int SWALLOW_TICKS = 30;
     public static final String RETURN_TAG = "PensieveReturn";
     private static final int MAX_RADIUS = 200;
+    /**
+     * Holds the basin's chunks entity-ticking for a whole session, so the body stays live (mobs can reach it, it
+     * can be hurt) even with nobody else nearby. Distance 3 makes the basin chunk and the ring around it
+     * entity-ticking (ticket levels 30 and 31), which covers the 16 blocks the body lures monsters from.
+     */
+    static final TicketType<ChunkPos> BASIN_TICKET = TicketType.create("hogwartsmagic_pensieve_basin",
+            Comparator.comparingLong(ChunkPos::toLong));
+    private static final int BASIN_TICKET_DISTANCE = 3;
 
     private static final List<Session> SESSIONS = new ArrayList<>();
     private static final Map<UUID, Session> BY_VIEWER = new ConcurrentHashMap<>();
@@ -260,13 +272,45 @@ public final class PensieveSessions {
         memory.setDayTime(scene.def().set().timeOfDay());
         SESSIONS.add(s);
         setPlaying(s, true);
+        holdBasin(s, memory.getServer());
         return s;
     }
 
+    /** Takes the basin ticket (see {@link #BASIN_TICKET}) on the first dive; previews have no basin. */
+    private static void holdBasin(Session s, @Nullable MinecraftServer server) {
+        if (s.basinTicket != null || s.basinPos() == null || s.basinDim() == null || server == null) return;
+        ServerLevel where = server.getLevel(s.basinDim());
+        if (where == null) return;
+        ChunkPos c = new ChunkPos(s.basinPos());
+        where.getChunkSource().addRegionTicket(BASIN_TICKET, c, BASIN_TICKET_DISTANCE, c);
+        s.basinTicket = c;
+        s.basinTicketLevel = where;
+    }
+
+    /** Drops the basin ticket; idempotent, and safe for a session that never took one. */
+    private static void releaseBasin(Session s) {
+        ChunkPos c = s.basinTicket;
+        ServerLevel where = s.basinTicketLevel;
+        s.basinTicket = null;
+        s.basinTicketLevel = null;
+        if (c != null && where != null) {
+            where.getChunkSource().removeRegionTicket(BASIN_TICKET, c, BASIN_TICKET_DISTANCE, c);
+        }
+    }
+
+    /** Gametests: whether {@code s} holds its basin ticket right now. */
+    public static boolean holdsBasinTicket(Session s) {
+        return s.basinTicket != null;
+    }
+
     private static void addViewer(Session s, ServerPlayer p, BlockPos enterAt) {
+        // Off the horse (or boat, or minecart) first, and nothing riding them: a mount would be dragged into the
+        // memory dimension with them, and the return point would be wherever the vehicle had wandered.
+        p.stopRiding();
+        p.ejectPassengers();
         Session.Viewer v = new Session.Viewer(p.getUUID(), p.position(), p.getYRot(), p.getXRot(),
                 p.level().dimension(), SWALLOW_TICKS, null, p.getAbilities().mayfly, p.getAbilities().flying,
-                p.isInvisible(), p.isInvulnerable());
+                p.isInvisible(), p.isInvulnerable(), p.gameMode.getGameModeForPlayer());
         s.viewers().put(v.id(), v);
         BY_VIEWER.put(v.id(), s);
         writeReturnTag(p, v);
@@ -277,11 +321,18 @@ public final class PensieveSessions {
 
     // ---- Ticking --------------------------------------------------------------------------------------------
 
+    /**
+     * One server tick. {@code pensieveBlocksPerTick} is one budget for the whole tick, shared by every build and
+     * clear job: builds first (someone is waiting inside), then clears with whatever is left.
+     */
     public static void tick(MinecraftServer server) {
         ensureInit(server);
-        int budget = Math.max(1, Config.pensieveBlocksPerTick);
+        int[] budget = {Math.max(1, Config.pensieveBlocksPerTick)};
+        for (Session s : new ArrayList<>(SESSIONS)) {
+            tickSession(server, s, budget);
+        }
         Iterator<Clearing> it = CLEARING.iterator();
-        while (it.hasNext()) {
+        while (it.hasNext() && budget[0] > 0) {
             Clearing c = it.next();
             if (c.advance(budget)) {
                 it.remove();
@@ -289,12 +340,9 @@ public final class PensieveSessions {
                 allocator.release(c.slot);
             }
         }
-        for (Session s : new ArrayList<>(SESSIONS)) {
-            tickSession(server, s, budget);
-        }
     }
 
-    private static void tickSession(MinecraftServer server, Session s, int budget) {
+    private static void tickSession(MinecraftServer server, Session s, int[] budget) {
         ServerLevel memory = s.level;
         for (Session.Viewer v : new ArrayList<>(s.viewers().values())) {
             ServerPlayer p = server.getPlayerList().getPlayer(v.id());
@@ -305,7 +353,7 @@ public final class PensieveSessions {
                 // Normally onViewerDeath has already sent them home; this is the net for a death it never saw.
                 removeBody(server, v);
                 PensieveNet.send(p, new PensieveExitPacket(ExitReason.LEFT.ordinal()));
-                restoreState(p, v.wasMayfly, v.wasFlying, v.wasInvisible, v.wasInvulnerable);
+                restoreState(p, v);
                 clearReturnTag(p);
                 dropViewer(s, v);
             } else {
@@ -319,7 +367,7 @@ public final class PensieveSessions {
         }
         long now = memory.getGameTime();
         if (s.phase == Session.Phase.BUILD) {
-            if (!s.built && s.builder != null) {
+            if (!s.built && s.builder != null && budget[0] > 0) {
                 s.built = s.builder.advance(budget);
                 recordPlaced(s);
             }
@@ -327,8 +375,10 @@ public final class PensieveSessions {
                 s.phase = Session.Phase.PLAY;
                 s.startGameTime = now;
                 for (Session.Viewer v : s.viewers().values()) {
+                    if (v.stage != Session.Viewer.Stage.INSIDE) continue;
+                    v.sawStart = true;
                     ServerPlayer p = server.getPlayerList().getPlayer(v.id());
-                    if (p != null && v.stage == Session.Viewer.Stage.INSIDE) sendStart(p, s);
+                    if (p != null) sendStart(p, s);
                 }
             }
         } else if (s.phase == Session.Phase.PLAY) {
@@ -364,9 +414,10 @@ public final class PensieveSessions {
             if (--v.exitTicksLeft <= 0) {
                 moveBack(p, v);
                 dropViewer(s, v);
-                // Only a memory watched to its end pays out, and only here: once per viewer, back in the real
-                // world, so the reward lands in their real inventory. A preview runs it too, so it can be tried.
-                if (v.exitReason == ExitReason.END) applyEndAction(p, s.scene().endAction());
+                // Only a memory watched whole pays out, and only here: once per viewer, back in the real world, so
+                // the reward lands in their real inventory. A late joiner (not inside as PLAY began) saw only part
+                // of it and gets nothing. A preview runs it too, so it can be tried.
+                if (v.exitReason == ExitReason.END && v.sawStart) applyEndAction(p, s.scene().endAction());
             }
         }
     }
@@ -421,6 +472,8 @@ public final class PensieveSessions {
             if (block.isEmpty()) continue;
             BlockPos pos = s.origin().offset(e.at()[0], e.at()[1], e.at()[2]);
             s.level.setBlock(pos, block.get().defaultBlockState(), SetBuilder.FLAGS);
+            // onPlace still schedules ticks under these flags: water placed by an event must not start flowing.
+            SetBuilder.clearTicks(s.level, new BoundingBox(pos));
             s.eventPlaced.add(pos);
             RegionData.get(s.level).expand(s.slot(), pos);
         }
@@ -496,7 +549,7 @@ public final class PensieveSessions {
             to = Vec3.atBottomCenterOf(back.getSharedSpawnPos());
         }
         moveTo(p, back, to, v.yRot(), v.xRot());
-        restoreState(p, v.wasMayfly, v.wasFlying, v.wasInvisible, v.wasInvulnerable);
+        restoreState(p, v);
         clearReturnTag(p);
         removeBody(p.server, v);
     }
@@ -532,12 +585,26 @@ public final class PensieveSessions {
                 || (a.getMinBuildHeight() == b.getMinBuildHeight() && a.getHeight() == b.getHeight());
     }
 
+    private static void restoreState(ServerPlayer p, Session.Viewer v) {
+        restoreState(p, v.wasMayfly, v.wasFlying, v.wasInvisible, v.wasInvulnerable, v.wasMode);
+    }
+
+    /**
+     * Undoes the ghost. Flight comes back as it was at the dive, unless the game mode changed while they were
+     * inside (an op's {@code /gamemode}): then the abilities are the new mode's own, not the stale snapshot, so a
+     * player switched to survival does not keep creative flight.
+     */
     private static void restoreState(ServerPlayer p, boolean mayfly, boolean flying, boolean invisible,
-                                     boolean invulnerable) {
+                                     boolean invulnerable, @Nullable GameType mode) {
         p.setInvisible(invisible);
         p.setInvulnerable(invulnerable);
-        p.getAbilities().mayfly = mayfly;
-        p.getAbilities().flying = flying;
+        GameType now = p.gameMode.getGameModeForPlayer();
+        if (mode != null && now != mode) {
+            now.updatePlayerAbilities(p.getAbilities());
+        } else {
+            p.getAbilities().mayfly = mayfly;
+            p.getAbilities().flying = flying;
+        }
         p.onUpdateAbilities();
     }
 
@@ -626,7 +693,7 @@ public final class PensieveSessions {
             PensieveNet.send(p, new PensieveExitPacket(ExitReason.LEFT.ordinal()));
             // Not SeamlessMove: it revives the player. A dead player is moved with an ordinary teleport.
             moveTo(p, back, to, v.yRot(), v.xRot(), true);
-            restoreState(p, v.wasMayfly, v.wasFlying, v.wasInvisible, v.wasInvulnerable);
+            restoreState(p, v);
             removeBody(p.server, v);
             dropViewer(s, v);
         }
@@ -656,6 +723,7 @@ public final class PensieveSessions {
         SESSIONS.remove(s);
         s.phase = Session.Phase.CLOSING;
         setPlaying(s, false);
+        releaseBasin(s);
         List<BlockPos> placed = new ArrayList<>();
         if (s.builder != null) {
             s.builder.release();
@@ -699,7 +767,7 @@ public final class PensieveSessions {
                 moveTo(player, overworld, Vec3.atBottomCenterOf(overworld.getSharedSpawnPos()), player.getYRot(), 0f,
                         true);
                 player.gameMode.getGameModeForPlayer().updatePlayerAbilities(player.getAbilities());
-                restoreState(player, player.getAbilities().mayfly, player.getAbilities().flying, false, false);
+                restoreState(player, player.getAbilities().mayfly, player.getAbilities().flying, false, false, null);
             }
             return;
         }
@@ -716,7 +784,8 @@ public final class PensieveSessions {
         moveTo(player, back, to, t.getFloat("YRot"), t.getFloat("XRot"), true);
         boolean mayfly = t.contains("Mayfly") ? t.getBoolean("Mayfly") : player.getAbilities().mayfly;
         boolean flying = t.contains("Flying") ? t.getBoolean("Flying") : player.getAbilities().flying;
-        restoreState(player, mayfly, flying, t.getBoolean("Invisible"), t.getBoolean("Invulnerable"));
+        GameType mode = t.contains("Mode", Tag.TAG_INT) ? GameType.byId(t.getInt("Mode")) : null;
+        restoreState(player, mayfly, flying, t.getBoolean("Invisible"), t.getBoolean("Invulnerable"), mode);
         clearReturnTag(player);
     }
 
@@ -731,6 +800,7 @@ public final class PensieveSessions {
                 dropViewer(s, v);
             }
             if (s.builder != null) s.builder.release();
+            releaseBasin(s);
         }
         for (Clearing c : CLEARING) c.release();
         SESSIONS.clear();
@@ -755,6 +825,7 @@ public final class PensieveSessions {
         t.putBoolean("Flying", v.wasFlying);
         t.putBoolean("Invisible", v.wasInvisible);
         t.putBoolean("Invulnerable", v.wasInvulnerable);
+        if (v.wasMode != null) t.putInt("Mode", v.wasMode.getId());
         CompoundTag mod = PlayerMagicData.getModData(p);
         mod.put(RETURN_TAG, t);
         PlayerMagicData.saveModData(p, mod);
@@ -802,7 +873,7 @@ public final class PensieveSessions {
 
     /** A slot being emptied: either the exact placed list, or (after a restart) its saved bounding box. */
     private record Clearing(ServerLevel level, int slot, @Nullable SetBuilder.ClearJob list, @Nullable BoxClear box) {
-        boolean advance(int budget) {
+        boolean advance(int[] budget) {
             return list != null ? list.advance(budget) : box == null || box.advance(budget);
         }
 
@@ -839,9 +910,14 @@ public final class PensieveSessions {
         }
 
         boolean advance(int budget) {
-            int sets = 0;
+            return advance(new int[]{budget});
+        }
+
+        /** Clears against a shared budget: {@code left[0]} goes down per block set to air. */
+        boolean advance(int[] left) {
+            if (left[0] <= 0) return false;
             int visits = 0;
-            int maxVisits = budget * 64;
+            int maxVisits = left[0] * 64;
             BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
             while (chunkIndex < chunks.size()) {
                 ChunkPos c = chunks.get(chunkIndex);
@@ -864,13 +940,18 @@ public final class PensieveSessions {
                             visits++;
                             if (!chunk.getBlockState(pos).isAir()) {
                                 level.setBlock(pos, Blocks.AIR.defaultBlockState(), SetBuilder.FLAGS);
-                                sets++;
+                                left[0]--;
                             }
                         }
                     }
                     y++;
-                    if (sets >= budget || visits >= maxVisits) return false;
+                    if (left[0] <= 0 || visits >= maxVisits) {
+                        SetBuilder.clearTicks(level, new BoundingBox(x0, minY, z0, x1, maxY, z1));
+                        return false;
+                    }
                 }
+                // Ticks an earlier run saved with the chunk go with its blocks.
+                if (minY <= maxY) SetBuilder.clearTicks(level, new BoundingBox(x0, minY, z0, x1, maxY, z1));
                 release();
                 chunkIndex++;
                 y = minY;

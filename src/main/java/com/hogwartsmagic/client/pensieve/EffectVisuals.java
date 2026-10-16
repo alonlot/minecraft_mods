@@ -90,6 +90,7 @@ public final class EffectVisuals {
     static void darkMark(ClientLevel level, Vec3 from, int lifeTicks) {
         DarkMarkEntity mark = new DarkMarkEntity(level, from.x, from.y, from.z, lifeTicks, MARK_SCALE);
         mark.setId(MemoryEvents.nextEntityId());
+        mark.setOldPosAndRot();   // no first-frame streak from the world origin
         level.addEntity(mark);
         MARKS.add(mark);
         RUNNING.add(new Mark(mark, from, lifeTicks));

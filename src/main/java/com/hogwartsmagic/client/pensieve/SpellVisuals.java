@@ -81,6 +81,8 @@ public final class SpellVisuals {
         beam.setId(MemoryEvents.nextEntityId());
         beam.setPos(from.x, from.y - BEAM_RENDER_LIFT, from.z);
         beam.shoot(delta.x, delta.y, delta.z, BEAM_SPEED, 0.0f);
+        // Without this the first frame interpolates from the world origin: a one-frame streak across the sky.
+        beam.setOldPosAndRot();
         level.addEntity(beam);
         BEAMS.add(beam);
         MemorySounds.play(spell.getSoundEvent(), from, 1.0f, 1.0f);

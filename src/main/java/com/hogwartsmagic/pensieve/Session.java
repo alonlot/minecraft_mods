@@ -4,6 +4,8 @@ import com.hogwartsmagic.pensieve.scene.SceneDef;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
@@ -46,6 +48,9 @@ public final class Session {
     /** Index of the next block event (events are kept sorted by time). */
     int nextEvent;
     final List<SceneDef.EventDef> blockEvents;
+    /** The basin's chunk while this session holds an entity-ticking ticket on it (the body must stay live). */
+    @Nullable ChunkPos basinTicket;
+    @Nullable ServerLevel basinTicketLevel;
 
     Session(String sceneId, String rawJson, SceneDef scene, int slot, BlockPos origin,
             @Nullable ResourceKey<Level> basinDim, @Nullable BlockPos basinPos, boolean preview) {
@@ -146,15 +151,20 @@ public final class Session {
         final boolean wasFlying;
         final boolean wasInvisible;
         final boolean wasInvulnerable;
+        /** The game mode at the dive; if it changed while inside, abilities come from the new mode instead. */
+        @Nullable final GameType wasMode;
+        /** True when this viewer was already inside as PLAY began: only they have seen the memory whole. */
+        boolean sawStart;
 
         public Viewer(UUID id, Vec3 returnPos, float yRot, float xRot, ResourceKey<Level> returnDim,
                       int swallowTicksLeft, @Nullable UUID bodyId) {
-            this(id, returnPos, yRot, xRot, returnDim, swallowTicksLeft, bodyId, false, false, false, false);
+            this(id, returnPos, yRot, xRot, returnDim, swallowTicksLeft, bodyId, false, false, false, false, null);
         }
 
         Viewer(UUID id, Vec3 returnPos, float yRot, float xRot, ResourceKey<Level> returnDim, int swallowTicksLeft,
                @Nullable UUID bodyId, boolean wasMayfly, boolean wasFlying, boolean wasInvisible,
-               boolean wasInvulnerable) {
+               boolean wasInvulnerable, @Nullable GameType wasMode) {
+            this.wasMode = wasMode;
             this.id = id;
             this.returnPos = returnPos;
             this.yRot = yRot;
@@ -190,6 +200,11 @@ public final class Session {
 
         public int swallowTicksLeft() {
             return swallowTicksLeft;
+        }
+
+        /** True when this viewer was inside before PLAY began (see {@link #sawStart}). */
+        public boolean sawStart() {
+            return sawStart;
         }
 
         @Nullable

@@ -15,6 +15,9 @@ import static com.hogwartsmagic.pensieve.scene.SceneJson.*;
 public final class CameraTrack {
     public static final CameraTrack EMPTY = new CameraTrack(List.of());
     public static final float DEFAULT_FOV = 70f;
+    /** A scene's fov is clamped to this range, on parse and on sample: outside it the projection breaks. */
+    public static final float MIN_FOV = 10f;
+    public static final float MAX_FOV = 150f;
 
     private final List<CameraKey> keys;
 
@@ -58,7 +61,7 @@ public final class CameraTrack {
                 }
             }
             keys.add(new CameraKey(reqTime(o, "t", p), reqFloats(o, "pos", p, 3), lookAt, actor,
-                    num(o, "fov", p, DEFAULT_FOV), num(o, "roll", p, 0f), ease(o, p), bool(o, "cut", p, false)));
+                    clampFov(num(o, "fov", p, DEFAULT_FOV)), num(o, "roll", p, 0f), ease(o, p), bool(o, "cut", p, false)));
         }
         return new CameraTrack(keys);
     }
@@ -97,9 +100,14 @@ public final class CameraTrack {
         double horiz = Math.sqrt(dx * dx + dz * dz);
         float yaw = (dx == 0 && dz == 0) ? 0f : (float) Math.toDegrees(Math.atan2(-dx, dz));
         float pitch = (horiz == 0 && dy == 0) ? 0f : (float) -Math.toDegrees(Math.atan2(dy, horiz));
-        float fov = from.fov() + (to.fov() - from.fov()) * k;
+        float fov = clampFov(from.fov() + (to.fov() - from.fov()) * k);
         float roll = from.roll() + (to.roll() - from.roll()) * k;
         return new CameraPose(x, y, z, yaw, pitch, roll, fov);
+    }
+
+    static float clampFov(float fov) {
+        if (Float.isNaN(fov)) return DEFAULT_FOV;
+        return Math.max(MIN_FOV, Math.min(MAX_FOV, fov));
     }
 
     /** The point a key looks at; straight ahead (+Z) when it names nothing usable. */

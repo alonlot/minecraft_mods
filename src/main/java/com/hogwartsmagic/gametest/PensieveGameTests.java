@@ -228,27 +228,35 @@ public final class PensieveGameTests {
         });
     }
 
+    // The second viewer joins while the memory is already playing (PLAY, not BUILD): same session, same clock.
     @GameTest(template = EMPTY, batch = SESSIONS, timeoutTicks = 300)
     public static void secondViewerJoinsSameSession(GameTestHelper helper) {
-        useSessionSeam(helper, 30);
+        useSessionSeam(helper, 100);
         basinWithMemory(helper);
         var p1 = playerBeside(helper, 0);
         var p2 = playerBeside(helper, 1);
         helper.useBlock(BASIN, p1);
         java.util.concurrent.atomic.AtomicBoolean joined = new java.util.concurrent.atomic.AtomicBoolean();
-        helper.runAtTickTime(40, () -> {
-            helper.useBlock(BASIN, p2);
+        java.util.concurrent.atomic.AtomicLong start = new java.util.concurrent.atomic.AtomicLong(-1);
+        helper.runAtTickTime(60, () -> {
             var s1 = com.hogwartsmagic.pensieve.PensieveSessions.sessionOf(p1);
+            helper.assertTrue(s1.isPresent() && s1.get().phase() == com.hogwartsmagic.pensieve.Session.Phase.PLAY,
+                    "the first viewer's memory should be playing by tick 60");
+            start.set(s1.get().startGameTime());
+            helper.useBlock(BASIN, p2);
             var s2 = com.hogwartsmagic.pensieve.PensieveSessions.sessionOf(p2);
-            helper.assertTrue(s1.isPresent() && s2.isPresent(), "both should be viewers");
+            helper.assertTrue(s2.isPresent(), "both should be viewers");
             helper.assertTrue(s1.get() == s2.get(), "second viewer should join the same session");
             joined.set(true);
         });
-        helper.runAtTickTime(80, () -> {
+        helper.runAtTickTime(95, () -> {
             var s1 = com.hogwartsmagic.pensieve.PensieveSessions.sessionOf(p1);
             var s2 = com.hogwartsmagic.pensieve.PensieveSessions.sessionOf(p2);
             helper.assertTrue(s1.isPresent() && s2.isPresent() && s1.get() == s2.get(), "both should still watch");
-            helper.assertTrue(s1.get().startGameTime() >= 0, "the session should be playing by tick 80");
+            helper.assertTrue(p2.level() == com.hogwartsmagic.pensieve.PensieveSessions.memoryLevel(p2.getServer())
+                    && nearPoint(p2, s2.get().anchor(), 0.5), "the late joiner should be inside by tick 95");
+            helper.assertTrue(s2.get().startGameTime() == start.get(),
+                    "the late joiner must play on the same clock: " + s2.get().startGameTime() + " vs " + start.get());
         });
         helper.succeedWhen(() -> {
             helper.assertTrue(joined.get(), "not joined yet");
@@ -273,6 +281,7 @@ public final class PensieveGameTests {
         helper.runAtTickTime(62, () -> {
             helper.assertTrue(!com.hogwartsmagic.pensieve.PensieveSessions.isViewer(p), "still a viewer after the break");
             helper.assertTrue(nearPoint(p, ret, 0.1), "not back at the return point: " + p.position());
+            helper.assertTrue(bodiesOf(helper, p).isEmpty(), "no body may remain after the basin is broken");
             logout(helper, p);
             LOGGER.info("PENSIEVE-GAMETEST PASS breakingBasinEndsSession");
             helper.succeed();
@@ -376,6 +385,14 @@ public final class PensieveGameTests {
         return (com.hogwartsmagic.pensieve.PensieveBodyEntity) e;
     }
 
+    /** Every live body in the level whose owner is {@code p}. */
+    private static List<com.hogwartsmagic.pensieve.PensieveBodyEntity> bodiesOf(GameTestHelper helper,
+            net.minecraft.server.level.ServerPlayer p) {
+        net.minecraft.world.phys.AABB area = new net.minecraft.world.phys.AABB(helper.absolutePos(BASIN)).inflate(32);
+        return helper.getLevel().getEntitiesOfClass(com.hogwartsmagic.pensieve.PensieveBodyEntity.class, area,
+                b -> b.isAlive() && p.getUUID().equals(b.getOwnerId()));
+    }
+
     @GameTest(template = EMPTY, batch = SESSIONS, timeoutTicks = 200)
     public static void hittingBodyHurtsViewer(GameTestHelper helper) {
         useSessionSeam(helper, 400);
@@ -436,16 +453,24 @@ public final class PensieveGameTests {
         helper.useBlock(BASIN, p);
         java.util.concurrent.atomic.AtomicReference<com.hogwartsmagic.pensieve.PensieveBodyEntity> held =
                 new java.util.concurrent.atomic.AtomicReference<>();
+        java.util.concurrent.atomic.AtomicReference<com.hogwartsmagic.pensieve.Session> session =
+                new java.util.concurrent.atomic.AtomicReference<>();
         helper.runAtTickTime(40, () -> {
             var body = bodyOf(helper, p);
             helper.assertTrue(body.position().distanceTo(ret) <= 0.01, "the body should stand at the return point");
             helper.assertTrue(p.getUUID().equals(body.getOwnerId()), "the body should know its owner");
             held.set(body);
+            var s = com.hogwartsmagic.pensieve.PensieveSessions.sessionOf(p).orElseThrow();
+            helper.assertTrue(com.hogwartsmagic.pensieve.PensieveSessions.holdsBasinTicket(s),
+                    "the session should hold the basin chunks entity-ticking");
+            session.set(s);
             com.hogwartsmagic.pensieve.PensieveSessions.leave(p, com.hogwartsmagic.pensieve.ExitReason.LEFT);
         });
         helper.runAtTickTime(80, () -> {
             helper.assertTrue(!com.hogwartsmagic.pensieve.PensieveSessions.isViewer(p), "still a viewer");
             helper.assertTrue(held.get().isRemoved(), "the body should be gone");
+            helper.assertTrue(!com.hogwartsmagic.pensieve.PensieveSessions.holdsBasinTicket(session.get()),
+                    "the basin ticket must be released when the session ends");
             logout(helper, p);
             LOGGER.info("PENSIEVE-GAMETEST PASS bodyIsRemovedWhenViewerLeaves");
             helper.succeed();
@@ -584,5 +609,318 @@ public final class PensieveGameTests {
             LOGGER.info("PENSIEVE-GAMETEST PASS leavingEarlyGivesNoCaveMap");
             helper.succeed();
         });
+    }
+
+    // ---- Final review fixes ----------------------------------------------------------------------------------
+
+    /** The session seam with a given scene (instead of the 1-block stone default). */
+    private static void useSessionSeam(GameTestHelper helper, SceneDef scene) {
+        com.hogwartsmagic.pensieve.PensieveSessions.overrideForTests(helper.getLevel(),
+                id -> java.util.Optional.of(new com.hogwartsmagic.pensieve.MemoryRegistry.LoadedScene(scene, "{}")));
+    }
+
+    /**
+     * Gravel over air and a water block event with open edges: set flags 2|16 do not stop onPlace from
+     * scheduling a fall or a flow, so the builder and the event path must clear those ticks. A control gravel
+     * block placed the ordinary way (flags 3) in the same area proves the area really ticks.
+     */
+    @GameTest(template = EMPTY, batch = SESSIONS, timeoutTicks = 300)
+    public static void memorySetGravelAndWaterStayPut(GameTestHelper helper) {
+        SceneDef.SetDef set = new SceneDef.SetDef(List.of(), List.of(new SceneDef.Fill("minecraft:gravel",
+                new int[]{3, 3, 3}, new int[]{5, 3, 5})), List.of(), List.of(), 6000L, 20);
+        SceneDef.EventDef water = new SceneDef.EventDef(0f, "block", "minecraft:water", new int[]{8, 3, 0}, 1f, 1f,
+                0, null, 0);
+        useSessionSeam(helper, new SceneDef("gametest_physics", "Test", 400, 12, set, java.util.Map.of(),
+                List.of(), List.of(water), List.of(), null, null));
+        basinWithMemory(helper);
+        var p = playerBeside(helper, 0);
+        helper.useBlock(BASIN, p);
+        // The memory slot is far from every test structure; force its chunks so block and fluid ticks run there.
+        BlockPos slotOrigin = com.hogwartsmagic.pensieve.PensieveSessions.sessionOf(p).orElseThrow().origin();
+        List<net.minecraft.world.level.ChunkPos> forced = new java.util.ArrayList<>();
+        for (int cx = -1; cx <= 1; cx++) {
+            for (int cz = -1; cz <= 1; cz++) {
+                net.minecraft.world.level.ChunkPos c = new net.minecraft.world.level.ChunkPos(
+                        (slotOrigin.getX() >> 4) + cx, (slotOrigin.getZ() >> 4) + cz);
+                helper.getLevel().setChunkForced(c.x, c.z, true);
+                forced.add(c);
+            }
+        }
+        java.util.concurrent.atomic.AtomicReference<BlockPos> origin = new java.util.concurrent.atomic.AtomicReference<>();
+        java.util.concurrent.atomic.AtomicLong waterAt = new java.util.concurrent.atomic.AtomicLong(-1);
+        helper.onEachTick(() -> {
+            var s = com.hogwartsmagic.pensieve.PensieveSessions.sessionOf(p);
+            if (s.isEmpty()) return;
+            if (origin.get() == null) origin.set(s.get().origin());
+            if (waterAt.get() < 0 && helper.getLevel().getBlockState(s.get().origin().offset(8, 3, 0)).is(Blocks.WATER)) {
+                waterAt.set(helper.getTick());
+                // The control: placed with neighbour updates, it must fall in this same area.
+                helper.getLevel().setBlock(s.get().origin().offset(-6, 6, -6), Blocks.GRAVEL.defaultBlockState(), 3);
+            }
+        });
+        helper.succeedWhen(() -> {
+            helper.assertTrue(waterAt.get() >= 0 && helper.getTick() >= waterAt.get() + 40,
+                    "waiting for 40 ticks after the water event");
+            BlockPos o = origin.get();
+            ServerLevel level = helper.getLevel();
+            helper.assertTrue(!level.getBlockState(o.offset(-6, 6, -6)).is(Blocks.GRAVEL),
+                    "control: ordinary gravel over air should have fallen, so this area must tick");
+            net.minecraft.world.phys.AABB area = new net.minecraft.world.phys.AABB(o.offset(-2, -10, -2).getCenter(),
+                    o.offset(11, 8, 8).getCenter());
+            List<net.minecraft.world.entity.item.FallingBlockEntity> falling = level.getEntitiesOfClass(
+                    net.minecraft.world.entity.item.FallingBlockEntity.class, area);
+            helper.assertTrue(falling.isEmpty(), "the set's gravel must not fall, found " + falling.size());
+            int gravel = 0;
+            for (int x = 3; x <= 5; x++) {
+                for (int z = 3; z <= 5; z++) {
+                    if (level.getBlockState(o.offset(x, 3, z)).is(Blocks.GRAVEL)) gravel++;
+                }
+            }
+            helper.assertTrue(gravel == 9, "all 9 gravel blocks must stay, found " + gravel);
+            helper.assertTrue(level.getBlockState(o.offset(8, 3, 0)).is(Blocks.WATER), "the event water must stay");
+            int wet = 0;
+            for (int dx = -2; dx <= 2; dx++) {
+                for (int dy = -3; dy <= 0; dy++) {
+                    for (int dz = -2; dz <= 2; dz++) {
+                        if (!level.getFluidState(o.offset(8 + dx, 3 + dy, dz)).isEmpty()) wet++;
+                    }
+                }
+            }
+            helper.assertTrue(wet == 1, "the water must not flow, wet cells " + wet);
+            for (var f : level.getEntitiesOfClass(net.minecraft.world.entity.item.FallingBlockEntity.class,
+                    new net.minecraft.world.phys.AABB(o).inflate(16))) {
+                f.discard();
+            }
+            for (net.minecraft.world.level.ChunkPos c : forced) helper.getLevel().setChunkForced(c.x, c.z, false);
+            com.hogwartsmagic.pensieve.PensieveSessions.leave(p, com.hogwartsmagic.pensieve.ExitReason.LEFT);
+            LOGGER.info("PENSIEVE-GAMETEST PASS memorySetGravelAndWaterStayPut");
+        });
+    }
+
+    /** A player riding a boat dives: they come off it first and the boat stays behind, empty. */
+    @GameTest(template = EMPTY, batch = SESSIONS, timeoutTicks = 200)
+    public static void mountedDiverIsDismounted(GameTestHelper helper) {
+        useSessionSeam(helper, 10);
+        basinWithMemory(helper);
+        var p = playerBeside(helper, 0);
+        net.minecraft.world.entity.vehicle.Boat boat = net.minecraft.world.entity.EntityType.BOAT.create(helper.getLevel());
+        helper.assertTrue(boat != null, "no boat");
+        boat.moveTo(p.getX(), p.getY(), p.getZ());
+        helper.getLevel().addFreshEntity(boat);
+        helper.assertTrue(p.startRiding(boat, true) && p.isPassenger(), "the player should be riding the boat");
+        helper.useBlock(BASIN, p);
+        helper.assertTrue(com.hogwartsmagic.pensieve.PensieveSessions.isViewer(p), "diving should make a viewer");
+        helper.assertTrue(!p.isPassenger() && boat.getPassengers().isEmpty(), "the diver must be off the boat");
+        helper.succeedWhen(() -> {
+            helper.assertTrue(!com.hogwartsmagic.pensieve.PensieveSessions.isViewer(p), "still a viewer");
+            helper.assertTrue(!p.isPassenger(), "back home, still not riding");
+            boat.discard();
+            logout(helper, p);
+            LOGGER.info("PENSIEVE-GAMETEST PASS mountedDiverIsDismounted");
+        });
+    }
+
+    /** A zombie by the basin goes for the helpless body within a couple of seconds. */
+    @GameTest(template = EMPTY, batch = SESSIONS, timeoutTicks = 300)
+    public static void zombieHuntsTheBody(GameTestHelper helper) {
+        useSessionSeam(helper, 400);
+        basinWithMemory(helper);
+        var p = playerBeside(helper, 0);
+        helper.useBlock(BASIN, p);
+        java.util.concurrent.atomic.AtomicReference<net.minecraft.world.entity.monster.Zombie> zombie =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        java.util.concurrent.atomic.AtomicReference<com.hogwartsmagic.pensieve.PensieveBodyEntity> body =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        java.util.concurrent.atomic.AtomicLong targetedAt = new java.util.concurrent.atomic.AtomicLong(-1);
+        helper.runAtTickTime(40, () -> {
+            body.set(bodyOf(helper, p));
+            net.minecraft.world.entity.monster.Zombie z = net.minecraft.world.entity.EntityType.ZOMBIE.create(helper.getLevel());
+            helper.assertTrue(z != null, "no zombie");
+            // In the far corner of the test structure: its barrier walls would hide a zombie outside them.
+            net.minecraft.world.phys.Vec3 at = helper.absoluteVec(new net.minecraft.world.phys.Vec3(0.5, 2, 0.5));
+            z.moveTo(at.x, at.y, at.z, 0f, 0f);
+            z.setPersistenceRequired();
+            helper.getLevel().addFreshEntity(z);
+            zombie.set(z);
+        });
+        helper.onEachTick(() -> {
+            if (zombie.get() != null && targetedAt.get() < 0 && zombie.get().getTarget() == body.get()) {
+                targetedAt.set(helper.getTick());
+            }
+        });
+        helper.runAtTickTime(80, () -> {
+            var z = zombie.get();
+            helper.assertTrue(targetedAt.get() >= 0, "the zombie should target the body within 40 ticks (alive "
+                    + z.isAlive() + ", removed " + z.getRemovalReason() + ", target " + z.getTarget() + ", sight "
+                    + z.hasLineOfSight(body.get()) + ", canAttack " + z.canAttack(body.get()) + ", difficulty "
+                    + helper.getLevel().getDifficulty() + ", body alive " + body.get().isAlive() + ", body ticks "
+                    + body.get().tickCount + ", distance " + z.distanceTo(body.get()) + ", zombie at " + z.position()
+                    + ", body at " + body.get().position() + ")");
+            zombie.get().discard();
+            com.hogwartsmagic.pensieve.PensieveSessions.leave(p, com.hogwartsmagic.pensieve.ExitReason.LEFT);
+        });
+        helper.runAtTickTime(130, () -> {
+            helper.assertTrue(!com.hogwartsmagic.pensieve.PensieveSessions.isViewer(p), "still a viewer");
+            logout(helper, p);
+            LOGGER.info("PENSIEVE-GAMETEST PASS zombieHuntsTheBody");
+            helper.succeed();
+        });
+    }
+
+    /** /kill on a viewer (GENERIC_KILL) goes through; the death path takes them home first. */
+    @GameTest(template = EMPTY, batch = SESSIONS, timeoutTicks = 200)
+    public static void killingAViewerSendsThemHome(GameTestHelper helper) {
+        useSessionSeam(helper, 400);
+        basinWithMemory(helper);
+        var p = playerBeside(helper, 0);
+        net.minecraft.world.phys.Vec3 ret = p.position();
+        helper.useBlock(BASIN, p);
+        helper.runAtTickTime(40, () -> {
+            helper.assertTrue(com.hogwartsmagic.pensieve.PensieveSessions.isViewer(p), "should be inside at tick 40");
+            p.kill();
+            helper.assertTrue(p.isDeadOrDying(), "/kill must reach the viewer");
+            helper.assertTrue(!com.hogwartsmagic.pensieve.PensieveSessions.isViewer(p), "a killed viewer must leave");
+            helper.assertTrue(p.position().distanceTo(ret) <= 0.5, "the killed viewer should be home, is " + p.position());
+            helper.assertTrue(!com.hogwartsmagic.util.PlayerMagicData.getModData(p).contains("PensieveReturn"),
+                    "return tag must be cleared");
+            helper.assertTrue(bodiesOf(helper, p).isEmpty(), "the body must be gone");
+            logout(helper, p);
+            LOGGER.info("PENSIEVE-GAMETEST PASS killingAViewerSendsThemHome");
+            helper.succeed();
+        });
+    }
+
+    /** {@code /pensieve leave <player>} from an op pulls a viewer out. */
+    @GameTest(template = EMPTY, batch = SESSIONS, timeoutTicks = 200)
+    public static void opCanPullAViewerOut(GameTestHelper helper) {
+        useSessionSeam(helper, 400);
+        basinWithMemory(helper);
+        var p = playerBeside(helper, 0);
+        net.minecraft.world.phys.Vec3 ret = p.position();
+        helper.useBlock(BASIN, p);
+        helper.runAtTickTime(40, () -> {
+            var server = helper.getLevel().getServer();
+            // Every mock player has the same name and a player argument refuses a UUID, so @p from the viewer's
+            // own position (the memory anchor, where no one else floats).
+            server.getCommands().performPrefixedCommand(server.createCommandSourceStack().withSuppressedOutput()
+                    .withLevel(p.serverLevel()).withPosition(p.position()), "pensieve leave @p");
+            var s = com.hogwartsmagic.pensieve.PensieveSessions.sessionOf(p);
+            helper.assertTrue(s.isPresent() && s.get().viewers().get(p.getUUID()).exitReason()
+                    == com.hogwartsmagic.pensieve.ExitReason.LEFT, "the op command should start a LEFT exit");
+        });
+        helper.runAtTickTime(80, () -> {
+            helper.assertTrue(!com.hogwartsmagic.pensieve.PensieveSessions.isViewer(p), "still a viewer");
+            helper.assertTrue(nearPoint(p, ret, 0.1), "not back at the return point: " + p.position());
+            logout(helper, p);
+            LOGGER.info("PENSIEVE-GAMETEST PASS opCanPullAViewerOut");
+            helper.succeed();
+        });
+    }
+
+    /** Switched from survival to creative while inside: back home they fly as creative, not as the snapshot. */
+    @GameTest(template = EMPTY, batch = SESSIONS, timeoutTicks = 200)
+    public static void gameModeChangeInsideIsKept(GameTestHelper helper) {
+        useSessionSeam(helper, 400);
+        basinWithMemory(helper);
+        var p = playerBeside(helper, 0);
+        p.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
+        helper.assertTrue(!p.getAbilities().mayfly, "a survival player should not be able to fly");
+        helper.useBlock(BASIN, p);
+        helper.runAtTickTime(40, () -> {
+            p.setGameMode(net.minecraft.world.level.GameType.CREATIVE);
+            com.hogwartsmagic.pensieve.PensieveSessions.leave(p, com.hogwartsmagic.pensieve.ExitReason.LEFT);
+        });
+        helper.runAtTickTime(80, () -> {
+            helper.assertTrue(!com.hogwartsmagic.pensieve.PensieveSessions.isViewer(p), "still a viewer");
+            helper.assertTrue(p.getAbilities().mayfly && p.getAbilities().instabuild,
+                    "a player made creative inside must keep creative abilities");
+            p.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
+            logout(helper, p);
+            LOGGER.info("PENSIEVE-GAMETEST PASS gameModeChangeInsideIsKept");
+            helper.succeed();
+        });
+    }
+
+    /**
+     * Logging out during PLAY: the real PlayerList.remove path (it fires PlayerLoggedOutEvent, which calls
+     * PensieveSessions.onLogout) puts the player at the return point with the tag cleared before the save.
+     */
+    @GameTest(template = EMPTY, batch = SESSIONS, timeoutTicks = 200)
+    public static void logoutMidMemoryReturnsPlayer(GameTestHelper helper) {
+        useSessionSeam(helper, 400);
+        basinWithMemory(helper);
+        var p = playerBeside(helper, 0);
+        net.minecraft.world.phys.Vec3 ret = p.position();
+        helper.useBlock(BASIN, p);
+        helper.runAtTickTime(60, () -> {
+            var s = com.hogwartsmagic.pensieve.PensieveSessions.sessionOf(p);
+            helper.assertTrue(s.isPresent() && s.get().phase() == com.hogwartsmagic.pensieve.Session.Phase.PLAY,
+                    "the memory should be playing at tick 60");
+            helper.assertTrue(com.hogwartsmagic.util.PlayerMagicData.getModData(p).contains("PensieveReturn"),
+                    "a viewer carries a return tag");
+            logout(helper, p);
+            helper.assertTrue(!com.hogwartsmagic.pensieve.PensieveSessions.isViewer(p), "still a viewer after logout");
+            helper.assertTrue(nearPoint(p, ret, 0.1), "not back at the return point: " + p.position());
+            helper.assertTrue(!com.hogwartsmagic.util.PlayerMagicData.getModData(p).contains("PensieveReturn"),
+                    "return tag not cleared");
+            helper.assertTrue(!p.isInvisible() && !p.isInvulnerable(), "ghost state not undone");
+            helper.assertTrue(bodiesOf(helper, p).isEmpty(), "the body must be gone");
+            LOGGER.info("PENSIEVE-GAMETEST PASS logoutMidMemoryReturnsPlayer");
+            helper.succeed();
+        });
+    }
+
+    /**
+     * Only a viewer inside as PLAY began gets the end action; a late joiner saw part of it and gets nothing. Its
+     * own batch: the Cave Map finder seam is static, and caveMapEndActionGivesTheMapAtEnd resets it when it ends.
+     */
+    @GameTest(template = EMPTY, batch = "pensieve_late_joiner", timeoutTicks = 300)
+    public static void lateJoinerGetsNoCaveMap(GameTestHelper helper) {
+        useSessionSeam(helper, 100, "cave_map");
+        BlockPos cave = helper.absolutePos(BASIN).offset(512, 0, 512);
+        com.hogwartsmagic.item.CaveMemoryItem.overrideCaveFinderForTests(pl -> java.util.Optional.of(cave));
+        basinWithMemory(helper);
+        var early = playerBeside(helper, 0);
+        var late = playerBeside(helper, 1);
+        helper.useBlock(BASIN, early);
+        helper.runAtTickTime(60, () -> {
+            var s = com.hogwartsmagic.pensieve.PensieveSessions.sessionOf(early);
+            helper.assertTrue(s.isPresent() && s.get().phase() == com.hogwartsmagic.pensieve.Session.Phase.PLAY,
+                    "should be playing at tick 60");
+            helper.useBlock(BASIN, late);
+            helper.assertTrue(com.hogwartsmagic.pensieve.PensieveSessions.isViewer(late), "late joiner should join");
+        });
+        helper.succeedWhen(() -> {
+            helper.assertTrue(helper.getTick() > 100, "not yet");
+            helper.assertTrue(!com.hogwartsmagic.pensieve.PensieveSessions.isViewer(early)
+                    && !com.hogwartsmagic.pensieve.PensieveSessions.isViewer(late), "still viewing");
+            helper.assertTrue(caveMaps(early) == 1, "the viewer from the start should get the map");
+            helper.assertTrue(caveMaps(late) == 0, "the late joiner must not get the map");
+            com.hogwartsmagic.item.CaveMemoryItem.overrideCaveFinderForTests(null);
+            logout(helper, early, late);
+            LOGGER.info("PENSIEVE-GAMETEST PASS lateJoinerGetsNoCaveMap");
+        });
+    }
+
+    /** One block budget per server tick: a second job sees what the first left. */
+    @GameTest(template = EMPTY)
+    public static void buildAndClearShareOneBudget(GameTestHelper helper) {
+        ServerLevel level = memoryOrTestLevel(helper);
+        int[] o1 = RegionAllocator.originFor(11);
+        int[] o2 = RegionAllocator.originFor(12);
+        SetBuilder a = new SetBuilder(level, new BlockPos(o1[0], o1[1], o1[2]), stoneFill(), 20);
+        SetBuilder b = new SetBuilder(level, new BlockPos(o2[0], o2[1], o2[2]), stoneFill(), 20);
+        int[] budget = {12};
+        helper.assertTrue(a.advance(budget), "the first build (9 blocks) fits in 12");
+        helper.assertTrue(budget[0] == 3, "9 of 12 should be spent, left " + budget[0]);
+        helper.assertTrue(!b.advance(budget), "the second build has only 3 left");
+        helper.assertTrue(budget[0] == 0 && b.placed().size() == 3, "3 placed by the second, got " + b.placed().size());
+        SetBuilder.ClearJob clear = SetBuilder.clear(level, a.placed());
+        helper.assertTrue(!clear.advance(budget), "a clear with no budget left does nothing");
+        int[] next = {100};
+        helper.assertTrue(clear.advance(next) && b.advance(next), "the next tick finishes both");
+        SetBuilder.clear(level, b.placed()).advance(100);
+        LOGGER.info("PENSIEVE-GAMETEST PASS buildAndClearShareOneBudget");
+        helper.succeed();
     }
 }

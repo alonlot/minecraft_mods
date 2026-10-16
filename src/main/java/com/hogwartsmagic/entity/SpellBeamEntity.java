@@ -318,7 +318,8 @@ public class SpellBeamEntity extends ThrowableProjectile {
             sculptAquaStream();
         }
         if (this.level().isClientSide) {
-            playNearMissFeedback();
+            // A memory's beam is scenery: it never whooshes past the viewer as if it were a real near miss.
+            if (!this.visualOnly) playNearMissFeedback();
             Vec3 pos = position();
             Vec3 vel = getDeltaMovement();
             double speed = vel.length();

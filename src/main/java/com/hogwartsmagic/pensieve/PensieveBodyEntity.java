@@ -13,6 +13,9 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.NeutralMob;
+import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.item.ItemStack;
@@ -28,12 +31,19 @@ import java.util.UUID;
  * The helpless body a viewer leaves standing at the basin while their mind is inside a memory. Hitting it hurts
  * the viewer (see {@link PensieveSessions#forwardDamage}). It never moves, never drops anything and is never
  * saved, so a crash cannot leave a body behind. If its owner is not a live viewer any more it removes itself.
+ *
+ * <p>It is a real target: once a second, hostile mobs within {@link #LURE_RADIUS} blocks that can see it and have
+ * nothing better to do are set on it, as they would be on a player standing there (see {@link #lureMonsters}).
+ * It never fights back.
  */
 public class PensieveBodyEntity extends LivingEntity {
     private static final EntityDataAccessor<Optional<UUID>> OWNER =
             SynchedEntityData.defineId(PensieveBodyEntity.class, EntityDataSerializers.OPTIONAL_UUID);
     private static final EntityDataAccessor<String> OWNER_NAME =
             SynchedEntityData.defineId(PensieveBodyEntity.class, EntityDataSerializers.STRING);
+
+    /** How far a hostile mob may be and still be set on the body. */
+    public static final double LURE_RADIUS = 16.0;
 
     public PensieveBodyEntity(EntityType<? extends PensieveBodyEntity> type, Level level) {
         super(type, level);
@@ -98,9 +108,30 @@ public class PensieveBodyEntity extends LivingEntity {
     @Override
     public void tick() {
         super.tick();
-        if (!level().isClientSide && tickCount % 20 == 0 && liveOwner() == null) {
-            discard();
+        if (!level().isClientSide && tickCount % 20 == 0) {
+            if (liveOwner() == null) {
+                discard();
+            } else {
+                lureMonsters();
+            }
         }
+    }
+
+    /**
+     * Sets idle hostile mobs nearby on the body: monsters and other enemies that have no target, can see it and
+     * could attack it. Neutral mobs (endermen, zombified piglins) are left alone unless already angry, as they
+     * would leave a player alone. Their own melee and ranged goals then work from {@code getTarget()}.
+     */
+    private void lureMonsters() {
+        List<Mob> mobs = level().getEntitiesOfClass(Mob.class, getBoundingBox().inflate(LURE_RADIUS), this::wouldHunt);
+        for (Mob mob : mobs) mob.setTarget(this);
+    }
+
+    private boolean wouldHunt(Mob mob) {
+        if (!(mob instanceof Enemy) || !mob.isAlive() || mob.isNoAi() || mob.getTarget() != null) return false;
+        if (mob instanceof NeutralMob neutral && !neutral.isAngry()) return false;
+        if (mob.distanceToSqr(this) > LURE_RADIUS * LURE_RADIUS) return false;
+        return mob.canAttack(this) && mob.hasLineOfSight(this);
     }
 
     @Override

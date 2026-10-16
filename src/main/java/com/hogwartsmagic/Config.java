@@ -205,6 +205,11 @@ public final class Config {
             .comment("Dark Magic: the shortest time in ticks of play between two Heal redemptions (one point each).")
             .defineInRange("darkMagicRedemptionTicks", 36000, 20, 10000000);
 
+    public static final ForgeConfigSpec.ConfigValue<String> PENSIEVE_DEV_SCENE_DIR = BUILDER
+            .comment("Pensieve: a folder of scene .json files read straight from disk by /pensieve preview, so a scene can be edited and re-previewed without a build.",
+                    "Relative paths resolve against the game run directory. Empty (the default) uses only the scenes shipped in data packs.")
+            .define("pensieveDevSceneDir", "");
+
     static final ForgeConfigSpec SPEC = BUILDER.build();
 
     public static double baseMaxMana = 100;
@@ -254,6 +259,7 @@ public final class Config {
     public static double darkMagicGainMultiplier = 1.0;
     public static int darkMagicDecayTicks = 36000;
     public static int darkMagicRedemptionTicks = 36000;
+    public static String pensieveDevSceneDir = "";
 
     private Config() {
     }
@@ -308,6 +314,7 @@ public final class Config {
         darkMagicGainMultiplier = DARK_MAGIC_GAIN_MULTIPLIER.get();
         darkMagicDecayTicks = DARK_MAGIC_DECAY_TICKS.get();
         darkMagicRedemptionTicks = DARK_MAGIC_REDEMPTION_TICKS.get();
+        pensieveDevSceneDir = PENSIEVE_DEV_SCENE_DIR.get();
         if (!com.hogwartsmagic.spell.mastery.MasteryMath.thresholdsValid(masteryXpAdept, masteryXpExpert, masteryXpMaster)) {
             LOGGER.warn("Spell mastery XP thresholds {} / {} / {} are not strictly rising; using the defaults 30 / 120 / 350.",
                     masteryXpAdept, masteryXpExpert, masteryXpMaster);

@@ -13,7 +13,7 @@ import net.minecraft.world.entity.LivingEntity;
 import javax.annotation.Nullable;
 
 /**
- * The Killing Curse landing. Non-bosses die; bosses lose a fifth of their max health. The caster pays a
+ * The Killing Curse landing. Non-bosses die; bosses lose 70% of their max health. The caster pays a
  * backlash that shrinks with rank (none at Master); NPC casters keep today's flat backlash. No Protego of
  * any kind (ranked, legacy, player or NPC) blocks it: the hurt call runs inside {@link #isLanding(Entity)}.
  * The masteryEligible guard is future-proofing: Avada can not be reflected today (ProtegoSpell.onBeamHit

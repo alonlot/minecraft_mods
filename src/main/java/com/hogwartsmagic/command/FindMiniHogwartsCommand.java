@@ -21,6 +21,7 @@ public class FindMiniHogwartsCommand {
         // /findminihogwarts        — report the nearest known Mini Hogwarts castle
         // /findminihogwarts list   — list all known positions
         dispatcher.register(Commands.literal("findminihogwarts")
+                .requires(src -> src.hasPermission(2))
                 .executes(FindMiniHogwartsCommand::findNearest)
                 .then(Commands.literal("list").executes(FindMiniHogwartsCommand::listAll))
         );

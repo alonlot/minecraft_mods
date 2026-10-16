@@ -56,12 +56,8 @@
   },
   "requirements": [
     [
-      "has_phoenix_wand"
-    ],
-    [
-      "has_unicorn_wand"
-    ],
-    [
+      "has_phoenix_wand",
+      "has_unicorn_wand",
       "has_dragon_wand"
     ]
   ]

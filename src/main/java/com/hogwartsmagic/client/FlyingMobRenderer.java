@@ -10,7 +10,7 @@ import net.minecraft.resources.ResourceLocation;
 public class FlyingMobRenderer extends MobRenderer<FlyingMobEntity, FlyingMobModel<FlyingMobEntity>> {
 
     private static final ResourceLocation TEXTURE =
-            ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "textures/entity/flying_mob.png");
+            ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "textures/entity/owl.png");
 
     public FlyingMobRenderer(EntityRendererProvider.Context ctx) {
         super(ctx, new FlyingMobModel<>(ctx.bakeLayer(FlyingMobModel.LAYER_LOCATION)), 0.5f);

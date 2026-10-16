@@ -20,6 +20,7 @@ public class FindDiagonAlleyCommand {
         // /findalley                — report the nearest known Diagon Alley
         // /findalley list           — list all known positions
         dispatcher.register(Commands.literal("findalley")
+                .requires(src -> src.hasPermission(2))
                 .executes(FindDiagonAlleyCommand::findNearest)
                 .then(Commands.literal("list").executes(FindDiagonAlleyCommand::listAll))
         );

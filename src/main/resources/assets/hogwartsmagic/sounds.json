@@ -1173,8 +1173,19 @@
     "subtitle": "subtitles.hogwartsmagic.whomping_willow.ambient",
     "sounds": [
       {
-        "name": "hogwartsmagic:whomping_willow/ambient",
-        "stream": false
+        "name": "minecraft:block.wood.step",
+        "type": "event",
+        "pitch": 0.6
+      },
+      {
+        "name": "minecraft:block.bamboo_wood.step",
+        "type": "event",
+        "pitch": 0.7
+      },
+      {
+        "name": "minecraft:block.grass.step",
+        "type": "event",
+        "pitch": 0.5
       }
     ]
   },
@@ -1182,8 +1193,9 @@
     "subtitle": "subtitles.hogwartsmagic.whomping_willow.alert",
     "sounds": [
       {
-        "name": "hogwartsmagic:whomping_willow/alert",
-        "stream": false
+        "name": "minecraft:entity.ravager.roar",
+        "type": "event",
+        "pitch": 0.7
       }
     ]
   },
@@ -1191,8 +1203,14 @@
     "subtitle": "subtitles.hogwartsmagic.whomping_willow.whip",
     "sounds": [
       {
-        "name": "hogwartsmagic:whomping_willow/whip",
-        "stream": false
+        "name": "minecraft:entity.player.attack.sweep",
+        "type": "event",
+        "pitch": 0.7
+      },
+      {
+        "name": "minecraft:block.bamboo.break",
+        "type": "event",
+        "pitch": 0.6
       }
     ]
   },
@@ -1200,8 +1218,14 @@
     "subtitle": "subtitles.hogwartsmagic.whomping_willow.impact",
     "sounds": [
       {
-        "name": "hogwartsmagic:whomping_willow/impact",
-        "stream": false
+        "name": "minecraft:entity.generic.big_fall",
+        "type": "event",
+        "pitch": 0.8
+      },
+      {
+        "name": "minecraft:entity.iron_golem.attack",
+        "type": "event",
+        "pitch": 0.7
       }
     ]
   },
@@ -1209,8 +1233,9 @@
     "subtitle": "subtitles.hogwartsmagic.whomping_willow.groan",
     "sounds": [
       {
-        "name": "hogwartsmagic:whomping_willow/groan",
-        "stream": false
+        "name": "minecraft:entity.ravager.ambient",
+        "type": "event",
+        "pitch": 0.5
       }
     ]
   },
@@ -1218,8 +1243,14 @@
     "subtitle": "subtitles.hogwartsmagic.whomping_willow.roots",
     "sounds": [
       {
-        "name": "hogwartsmagic:whomping_willow/roots",
-        "stream": false
+        "name": "minecraft:block.rooted_dirt.break",
+        "type": "event",
+        "pitch": 0.8
+      },
+      {
+        "name": "minecraft:block.roots.break",
+        "type": "event",
+        "pitch": 0.7
       }
     ]
   },
@@ -1227,8 +1258,9 @@
     "subtitle": "subtitles.hogwartsmagic.whomping_willow.hurt",
     "sounds": [
       {
-        "name": "hogwartsmagic:whomping_willow/hurt",
-        "stream": false
+        "name": "minecraft:block.wood.break",
+        "type": "event",
+        "pitch": 0.8
       }
     ]
   },
@@ -1236,8 +1268,14 @@
     "subtitle": "subtitles.hogwartsmagic.whomping_willow.death",
     "sounds": [
       {
-        "name": "hogwartsmagic:whomping_willow/death",
-        "stream": false
+        "name": "minecraft:entity.ravager.death",
+        "type": "event",
+        "pitch": 0.6
+      },
+      {
+        "name": "minecraft:block.wood.break",
+        "type": "event",
+        "pitch": 0.5
       }
     ]
   },

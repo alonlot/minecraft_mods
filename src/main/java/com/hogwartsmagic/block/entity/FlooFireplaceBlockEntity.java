@@ -179,7 +179,7 @@ public class FlooFireplaceBlockEntity extends BlockEntity {
         if (!linkedPositions.contains(pos)) {
             linkedPositions.add(pos.immutable());
         }
-        if (player != null) {
+        if (player != null && this.owner == null) {
             this.owner = player.getUUID();
         }
         setChanged();
@@ -192,6 +192,12 @@ public class FlooFireplaceBlockEntity extends BlockEntity {
             setChanged();
             syncToClients();
         }
+    }
+
+    /** The player who claimed this fireplace by first linking or naming it, or null if unclaimed. */
+    @Nullable
+    public UUID getOwner() {
+        return owner;
     }
 
     public List<BlockPos> getLinkedPositions() {

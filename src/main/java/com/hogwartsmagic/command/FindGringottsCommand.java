@@ -27,6 +27,7 @@ public class FindGringottsCommand {
         // /findgringotts       — nearest known village branch
         // /findgringotts list  — every branch known in this dimension
         dispatcher.register(Commands.literal("findgringotts")
+                .requires(src -> src.hasPermission(2))
                 .executes(FindGringottsCommand::findNearest)
                 .then(Commands.literal("list").executes(FindGringottsCommand::listAll))
         );

@@ -22,9 +22,7 @@
       "conditions": {
         "items": [
           {
-            "items": [
-              "hogwartsmagic:harry_potter_wand"
-            ]
+            "items": "#hogwartsmagic:wands"
           }
         ]
       }

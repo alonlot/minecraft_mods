@@ -782,6 +782,7 @@ public class ExampleMod
                     com.hogwartsmagic.item.MerpersonSpearItem.properties(net.minecraft.world.item.Tiers.IRON)));
 
     public static final RegistryObject<CreativeModeTab> MAIN_TAB = CREATIVE_MODE_TABS.register("main_tab", () -> CreativeModeTab.builder()
+            .title(net.minecraft.network.chat.Component.translatable("itemGroup.hogwartsmagic.main_tab"))
             .withTabsBefore(CreativeModeTabs.COMBAT)
             .icon(() -> HARRY_POTTER_WAND.get().getDefaultInstance())
             .displayItems((parameters, output) -> {

@@ -210,7 +210,7 @@ public class SpellPackets {
                     buf.writeBlockPos(p.fireplacePos);
                     buf.writeUtf(p.name);
                 })
-                .decoder(buf -> new SetFlooNamePacket(buf.readBlockPos(), buf.readUtf()))
+                .decoder(buf -> new SetFlooNamePacket(buf.readBlockPos(), buf.readUtf(SetFlooNamePacket.MAX_NAME_LENGTH)))
                 .consumerMainThread(SetFlooNamePacket::handle)
                 .add();
         CHANNEL.messageBuilder(ChooseFlooDestinationPacket.class)
@@ -740,6 +740,9 @@ public class SpellPackets {
             ItemStack wand = player.getMainHandItem();
             if (MagicWandItem.isAnyWand(wand)) {
                 SpellType spell = SpellType.fromId(p.spellId);
+                if (!com.hogwartsmagic.item.MagicBookItem.isSpellLearned(player, spell)) {
+                    return;
+                }
                 MagicWandItem.setSelectedSpell(wand, spell);
             }
         }
@@ -1398,6 +1401,14 @@ public class SpellPackets {
         }
     }
 
+    /** How close (blocks, to the block centre) a player must be to use a fireplace's screens. */
+    private static final double FLOO_USE_RANGE = 3.0;
+    private static final double FLOO_NAME_RANGE = 8.0;
+
+    private static boolean isNearFireplace(ServerPlayer player, BlockPos pos, double range) {
+        return player.distanceToSqr(Vec3.atCenterOf(pos)) <= range * range;
+    }
+
     public record ChooseFlooDestinationPacket(BlockPos sourcePos, BlockPos destinationPos) {
         public static void handle(ChooseFlooDestinationPacket p, CustomPayloadEvent.Context ctx) {
             ServerPlayer player = ctx.getSender();
@@ -1409,6 +1420,10 @@ public class SpellPackets {
             }
             if (com.hogwartsmagic.spell.combat.CombatEffects.isStunned(player)) {
                 com.hogwartsmagic.spell.combat.CombatEffects.notifyCastBlocked(player);
+                return;
+            }
+            // The player must be at the source fireplace; the destination may be arbitrarily far away.
+            if (!player.level().isLoaded(p.sourcePos) || !isNearFireplace(player, p.sourcePos, FLOO_USE_RANGE)) {
                 return;
             }
             if (!(player.level().getBlockEntity(p.sourcePos) instanceof FlooFireplaceBlockEntity source)
@@ -1469,16 +1484,34 @@ public class SpellPackets {
     }
 
     public record SetFlooNamePacket(BlockPos fireplacePos, String name) {
+        /** Matches the naming screen's EditBox limit. */
+        public static final int MAX_NAME_LENGTH = 32;
+
         public static void handle(SetFlooNamePacket p, CustomPayloadEvent.Context ctx) {
             ServerPlayer player = ctx.getSender();
             if (player != null && (com.hogwartsmagic.spell.mind.MindControl.isControlled(player) || com.hogwartsmagic.spell.mind.PossessionManager.isPossessing(player))) {
                 return; // a controlled player acts through no mod packet
             }
-            if (player == null || p.name == null || p.name.isBlank()) {
+            if (player == null || p.name == null) {
+                return;
+            }
+            // Strip control characters, then trim; a blank or over-long name is refused.
+            String name = p.name.replaceAll("\\p{Cntrl}", "").trim();
+            if (name.isEmpty() || name.length() > SetFlooNamePacket.MAX_NAME_LENGTH) {
+                return;
+            }
+            // Never load a chunk on a client's say-so, and the player must be standing near the fireplace.
+            if (!player.level().isLoaded(p.fireplacePos) || !isNearFireplace(player, p.fireplacePos, FLOO_NAME_RANGE)) {
                 return;
             }
             if (player.level().getBlockEntity(p.fireplacePos) instanceof FlooFireplaceBlockEntity fireplace) {
-                fireplace.setFireplaceName(p.name.trim(), player);
+                java.util.UUID owner = fireplace.getOwner();
+                if (owner != null && !owner.equals(player.getUUID()) && !player.hasPermissions(2)) {
+                    player.displayClientMessage(net.minecraft.network.chat.Component.translatableWithFallback(
+                            "message.hogwartsmagic.floo.not_owner", "This fireplace belongs to someone else."), true);
+                    return;
+                }
+                fireplace.setFireplaceName(name, player);
                 player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.hogwartsmagic.floo.named", fireplace.getFireplaceName()), true);
             }
         }

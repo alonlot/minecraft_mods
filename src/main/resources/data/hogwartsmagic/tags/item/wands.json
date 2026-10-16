@@ -1,0 +1,10 @@
+{
+  "replace": false,
+  "values": [
+    "hogwartsmagic:harry_potter_wand",
+    "hogwartsmagic:phoenix_core_wand",
+    "hogwartsmagic:unicorn_core_wand",
+    "hogwartsmagic:dragon_core_wand",
+    "hogwartsmagic:elder_wand"
+  ]
+}

@@ -200,7 +200,7 @@ Players get a scene through an item that implements `PensieveMemory`. Existing: 
 Op preview needs no item.
 
 ## Complete example
-`data/hogwartsmagic/memories/example_duel.json` - a dark courtyard duel (parses and validates).
+An illustrative dark courtyard duel (not shipped as a file; save it under `data/hogwartsmagic/memories/` to try it). For a shipped, validated worked example read `data/hogwartsmagic/memories/summoning.json` and the script that generates it, `build_scripts/pensieve_scenes/summoning.py`.
 
 ```json
 {

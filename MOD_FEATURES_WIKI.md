@@ -722,6 +722,20 @@ Each spell below lists the implemented gameplay behavior currently present in th
 - Placed, it is a redstone sensor: signal 1 at the edge of the range up to 15 at the source, on every side, readable by a comparator. The strongest signal from any detected source wins. It whistles once when it starts detecting and gives light while it spins.
 - Crafting: a gold ingot on top, a glass pane in the middle, four gold nuggets round it and arcane dust below. The Curio Dealer sells one for 14 emeralds.
 
+### Pensieve
+
+- A stone basin with a silver surface that gives off a soft light. It holds one memory at a time.
+- Crafting: polished deepslate, Arcane Dust and polished deepslate across the top, then stone in a bowl shape below (a stone on each side in the middle row, three along the bottom).
+- A public Pensieve stands in the library of every Mini Hogwarts built after this update. Anyone can pour into it.
+- **Pour.** Hold a memory item and use the basin. The item goes into the basin.
+- **Take out.** Sneak and use the basin with an empty hand. Only the player who poured it or an op can do this. On the public basin anyone can, while nobody is inside. Taking it out, or breaking the basin, pulls everyone inside back out.
+- **Dive.** Use the basin with an empty hand, not sneaking, while it holds a memory. You are pulled into the silver and watch the memory play once, start to finish.
+- **Leave early.** Press X (rebindable under HogwartsMagic controls) or use `/pensieve leave`. When the memory ends you are lifted back out.
+- **Your body stays.** It waits bent over the basin and can be hit. Each hit reaches you inside as a distant thud. If your health falls below a third, the memory tears apart and you are yanked out.
+- **Together.** Anyone who dives while a memory is playing joins it at its current moment, and each body stays at the basin.
+- **Watching only.** Viewers cannot place, break, hit, use or pick up anything, and nothing inside reacts to them.
+- Ops and authors have `/pensieve validate`, `list`, `preview <id>` and `leave`.
+
 ### Gillyweed Plant
 
 - Custom underwater plant.
@@ -776,6 +790,32 @@ These are decorative house-themed blocks.
 - Right-clicking a spellbook teaches the spell permanently.
 - Spellbooks can appear in chest loot.
 - In the same chests, a spell can come as a Hogwarts Assignment instead: a task that turns into the book (see Hogwarts Assignments).
+
+### Memory of the Cave
+
+- A vial of silver thought. It plays the Locket cave scene in a Pensieve (about 78 seconds) and then gives you the Cave Map to the nearest unlooted cave.
+- It can still be drunk instead, as before: a short vision, then the Cave Map.
+- Found in Death Eater camp chests (about 15%) and dropped by Death Eaters killed by a player (about 2%, more with Looting).
+
+### Memory of the Chamber
+
+- Plays the Chamber of Secrets scene in a Pensieve (about 90 seconds).
+- Found in Mini Hogwarts library chests (about 1 in 7) and Chamber of Secrets chests (about 14%).
+- Pouring it into a Pensieve does not use it up: take it out again and it is yours.
+
+### Memory of the Summoning
+
+- Plays the Voldemort summoning scene in a Pensieve (about 53 seconds).
+- Found in Death Eater camp chests (about 15%) and dropped by Death Eaters killed by a player (about 2%, more with Looting).
+- Watching it does not use it up.
+
+### Story memories
+
+Hand-made scenes that teach by showing. They are silent films with a directed camera and a few silver lines of narration.
+
+- **The Cave.** The route to Slytherin's Locket: find the hidden crack with Revelio, swim the tunnel, pay the Blood Seal, raise the chain boat, and row to the Basin of Despair.
+- **The Chamber.** How the Basilisk fight works: its stare charges and can be broken by looking away, fight it from the edge of your sight, it rears before a strike and spits venom, it burrows when you are far, blows to the head blind it, a blind Basilisk hunts by sound, and a Mandrake Restorative Draught brings back someone turned to stone.
+- **The Summoning.** How to call Voldemort: three Wards on one level in a triangle (two four paces apart, the third two paces aside from their middle), then Morsmordre at one of them. He rises eight seconds later, brings his followers, and cannot be harmed for his first five seconds.
 
 ### Brooms
 
@@ -1260,7 +1300,7 @@ yields one Locket, once. After it is taken the cave is marked looted forever and
 The Locket is a Horcrux and is kept for the future Voldemort finale.
 
 **Finding one.** A Memory of the Cave vial turns up in Death Eater camp chests (about 15%) and drops
-from Death Eaters (about 2%). Using it makes a Cave Map pointing at the nearest unlooted cave; the X marks
+from Death Eaters (about 2%). Drinking it, or watching it in a Pensieve, gives a Cave Map pointing at the nearest unlooted cave; the X marks
 the cave area, not the exact entrance. Revelio shows the hidden crack in the north cliff from up to 48
 blocks away. A second hidden entrance is a shaft in the clifftop above the tunnel.
 

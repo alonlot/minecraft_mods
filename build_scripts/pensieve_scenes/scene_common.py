@@ -89,3 +89,58 @@ def write_scene(scene, scene_id):
     with open(os.path.join(MEMORIES, scene_id + '.json'), 'w', newline='\n', encoding='utf-8') as f:
         f.write(txt)
     return txt
+
+
+# ---------------------------------------------------------------- physics self-check
+# The set is placed without neighbour updates and the server clears the ticks it schedules, but a set must not
+# rely on that alone: a gravity block over nothing, or water beside an empty cell, is a set that collapses or
+# floods the moment anything updates it. world maps scene cell -> block id (no properties); a missing cell is
+# empty in the memory level (SetBuilder skips template air, and nothing exists outside the set).
+FREE = {None, 'minecraft:air', 'minecraft:cave_air', 'minecraft:void_air', 'minecraft:light', 'minecraft:water',
+        'minecraft:lava', 'minecraft:fire', 'minecraft:soul_fire', 'minecraft:bubble_column',
+        'minecraft:short_grass', 'minecraft:tall_grass', 'minecraft:fern', 'minecraft:large_fern',
+        'minecraft:dead_bush', 'minecraft:vine', 'minecraft:snow', 'minecraft:seagrass', 'minecraft:tall_seagrass'}
+WET = {'minecraft:water', 'minecraft:lava', 'minecraft:bubble_column', 'minecraft:seagrass',
+       'minecraft:tall_seagrass'}
+GRAVITY = {'minecraft:gravel', 'minecraft:sand', 'minecraft:red_sand', 'minecraft:suspicious_sand',
+           'minecraft:suspicious_gravel', 'minecraft:anvil', 'minecraft:chipped_anvil', 'minecraft:damaged_anvil',
+           'minecraft:dragon_egg'}
+
+
+def is_gravity(block):
+    return block in GRAVITY or (block is not None and block.endswith('_concrete_powder'))
+
+
+def unsupported_gravity(world):
+    """Gravity blocks (gravel, sand, concrete powder, anvils) with a free cell under them."""
+    return sorted(c for c, b in world.items() if is_gravity(b) and world.get((c[0], c[1] - 1, c[2])) in FREE)
+
+
+def water_leaks(world, radius):
+    """(water cell, open neighbour) pairs: water beside or above an empty cell, or at the edge of the set."""
+    leaks = []
+    for c, b in world.items():
+        if b != 'minecraft:water':
+            continue
+        x, y, z = c
+        for d in ((1, 0, 0), (-1, 0, 0), (0, 0, 1), (0, 0, -1), (0, -1, 0)):
+            n = (x + d[0], y + d[1], z + d[2])
+            if abs(n[0]) > radius or abs(n[2]) > radius:
+                leaks.append((c, n))
+                continue
+            nb = world.get(n)
+            if nb in FREE and nb not in WET:
+                leaks.append((c, n))
+    return leaks
+
+
+def physics_problems(world, radius):
+    """Problem strings for the generator's problem list (empty when the set is stable)."""
+    out = []
+    g = unsupported_gravity(world)
+    if g:
+        out.append('%d unsupported gravity blocks, e.g. %s' % (len(g), g[:5]))
+    w = water_leaks(world, radius)
+    if w:
+        out.append('%d open water edges, e.g. %s' % (len(w), w[:5]))
+    return out

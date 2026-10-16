@@ -7,7 +7,7 @@ is scene y -1 (actors stand at y 0), the lake/sea water top block is scene y -2,
 """
 import json, math, os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from scene_common import template_grid, write_scene
+from scene_common import template_grid, write_scene, unsupported_gravity, physics_problems
 
 grid = template_grid('locket_cave')
 OX, OY, OZ = -32, -23, -32
@@ -126,6 +126,14 @@ for f in fills:
                 if abs(z) <= R:
                     world[(x, y, z)] = f['block']
 OPEN = {'minecraft:water', 'minecraft:light', 'minecraft:air', 'minecraft:chain', 'minecraft:barrier'}
+
+# 6. bedrock under the seabed: gravel over nothing falls the moment anything updates it, and the sea drains
+#    after it into the void. Every unsupported gravity cell gets a deepslate cell under it (greedy boxes).
+support = {(x, y - 1, z) for (x, y, z) in unsupported_gravity(world)}
+for a, b in greedy(support):
+    fill('minecraft:deepslate', a, b)
+for c in support:
+    world[c] = 'minecraft:deepslate'
 
 # ---------------------------------------------------------------- helpers
 def T(s):
@@ -571,6 +579,8 @@ for f in fills:
     nblocks += (abs(a[0] - b[0]) + 1) * (abs(a[1] - b[1]) + 1) * (abs(a[2] - b[2]) + 1)
 print('fills', len(fills), 'fill blocks', nblocks, 'template non-air', len(tpl))
 print('events', len(events))
+problems += physics_problems(world, R)
+print('support cells', len(support))
 print('\n'.join(problems) if problems else 'NO PROBLEMS')
 
 txt = write_scene(scene, 'locket_cave')

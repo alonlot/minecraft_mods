@@ -19,6 +19,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.feature.ConfiguredFeature;
+import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
 import org.slf4j.Logger;
 
@@ -45,8 +46,11 @@ import java.util.Set;
  * {@code 2 | 16}, records every position written into {@link #placed()} and counts the writes against the
  * budget. A feature is only started while budget remains; one feature may overshoot the budget by its own size.
  *
- * <p>All writes use flags {@code 2 | 16}: clients are told, but no neighbour updates, no drops, nothing flows
- * or ticks.
+ * <p>All writes use flags {@code 2 | 16}: clients are told, but no neighbour updates and no drops. Those flags do
+ * not stop {@code onPlace}: gravel, sand, water and the like still schedule a block or fluid tick for themselves.
+ * So every {@link #advance} ends by clearing the scheduled block and fluid ticks over the box it touched
+ * ({@link Touched}), and a feature's own {@code scheduleTick} calls are swallowed by the proxy. Nothing in a set
+ * ever falls or flows, even where the scene data leaves gravel over air or water beside an empty cell.
  *
  * <p>Templates: blocks only, no entities. Air, structure voids, jigsaws and structure blocks in a template are
  * skipped, so a template never carves holes in what a fill laid down underneath it.
@@ -73,6 +77,7 @@ public final class SetBuilder {
     private final Set<Long> placedSet = new HashSet<>();
     private final Set<String> warned = new HashSet<>();
     private final Tickets tickets;
+    private final Touched touched = new Touched();
 
     public SetBuilder(ServerLevel level, BlockPos origin, SceneDef.SetDef set, int radius) {
         this.level = level;
@@ -99,27 +104,39 @@ public final class SetBuilder {
 
     /** Places roughly {@code budget} blocks; true when the whole set is built. */
     public boolean advance(int budget) {
+        return advance(new int[]{budget});
+    }
+
+    /**
+     * Places blocks against a budget shared with other jobs: {@code left[0]} is decremented per block written
+     * (a feature may take it below zero). True when the whole set is built.
+     */
+    public boolean advance(int[] left) {
         prepare();
         tickets.acquire();
-        int[] left = {budget};
-        while (cursor < order.size() && left[0] > 0) {
-            int[] p = order.get(cursor++);
-            BlockPos pos = new BlockPos(p[0], p[1], p[2]);
-            level.setBlock(pos, states.get(p[3]), FLAGS);
-            record(pos);
-            left[0]--;
+        try {
+            while (cursor < order.size() && left[0] > 0) {
+                int[] p = order.get(cursor++);
+                BlockPos pos = new BlockPos(p[0], p[1], p[2]);
+                level.setBlock(pos, states.get(p[3]), FLAGS);
+                record(pos);
+                left[0]--;
+            }
+            if (cursor < order.size()) return false;
+            List<SceneDef.FeatureRef> features = set.features();
+            while (featureCursor < features.size() && left[0] > 0) {
+                placeFeature(features.get(featureCursor++), left);
+            }
+        } finally {
+            touched.clearTicks(level);
         }
-        if (cursor < order.size()) return false;
-        List<SceneDef.FeatureRef> features = set.features();
-        while (featureCursor < features.size() && left[0] > 0) {
-            placeFeature(features.get(featureCursor++), left);
-        }
-        boolean done = featureCursor >= features.size();
+        boolean done = featureCursor >= set.features().size();
         if (done) tickets.release();
         return done;
     }
 
     private void record(BlockPos pos) {
+        touched.add(pos.getX(), pos.getY(), pos.getZ());
         if (placedSet.add(pos.asLong())) placed.add(pos.immutable());
     }
 
@@ -241,6 +258,8 @@ public final class SetBuilder {
         WorldGenLevel proxy = (WorldGenLevel) Proxy.newProxyInstance(WorldGenLevel.class.getClassLoader(),
                 new Class<?>[]{WorldGenLevel.class}, (self, method, args) -> {
                     String n = method.getName();
+                    // A feature's water spring or falling sand would otherwise tick in the finished set.
+                    if (n.equals("scheduleTick")) return null;
                     if (n.equals("setBlock") && args != null && args.length >= 3 && args[0] instanceof BlockPos pos) {
                         if (!inRegion(pos.getX(), pos.getZ())) return false;
                         Object[] forced = args.clone();
@@ -273,6 +292,37 @@ public final class SetBuilder {
 
     private void warnOnce(String what) {
         if (warned.add(what)) LOGGER.warn("Pensieve set: unknown or bad {}; skipped", what);
+    }
+
+    /**
+     * The box of every block one job step wrote. {@link #clearTicks} drops the block and fluid ticks the writes
+     * scheduled there through {@code onPlace} (falling gravel and sand, flowing water) and resets the box.
+     */
+    static final class Touched {
+        private int minX = Integer.MAX_VALUE, minY = Integer.MAX_VALUE, minZ = Integer.MAX_VALUE;
+        private int maxX = Integer.MIN_VALUE, maxY = Integer.MIN_VALUE, maxZ = Integer.MIN_VALUE;
+
+        void add(int x, int y, int z) {
+            if (x < minX) minX = x;
+            if (y < minY) minY = y;
+            if (z < minZ) minZ = z;
+            if (x > maxX) maxX = x;
+            if (y > maxY) maxY = y;
+            if (z > maxZ) maxZ = z;
+        }
+
+        void clearTicks(ServerLevel level) {
+            if (minX > maxX) return;
+            SetBuilder.clearTicks(level, new BoundingBox(minX, minY, minZ, maxX, maxY, maxZ));
+            minX = minY = minZ = Integer.MAX_VALUE;
+            maxX = maxY = maxZ = Integer.MIN_VALUE;
+        }
+    }
+
+    /** Drops every scheduled block and fluid tick inside {@code box} (blocks a set or an event just wrote). */
+    static void clearTicks(ServerLevel level, BoundingBox box) {
+        level.getBlockTicks().clearArea(box);
+        level.getFluidTicks().clearArea(box);
     }
 
     /** Holds region tickets over a square of chunks for as long as a job runs. */
@@ -327,15 +377,23 @@ public final class SetBuilder {
 
         /** True when everything is cleared; the chunk tickets are dropped then. */
         public boolean advance(int budget) {
+            return advance(new int[]{budget});
+        }
+
+        /** As {@link #advance(int)}, against a budget shared with other jobs ({@code left[0]} goes down). */
+        public boolean advance(int[] left) {
             if (!held) {
                 held = true;
                 for (ChunkPos c : chunks) level.getChunkSource().addRegionTicket(TICKET, c, 0, c);
             }
-            int left = budget;
-            while (cursor < positions.size() && left > 0) {
-                level.setBlock(positions.get(cursor++), Blocks.AIR.defaultBlockState(), FLAGS);
-                left--;
+            Touched touched = new Touched();
+            while (cursor < positions.size() && left[0] > 0) {
+                BlockPos pos = positions.get(cursor++);
+                level.setBlock(pos, Blocks.AIR.defaultBlockState(), FLAGS);
+                touched.add(pos.getX(), pos.getY(), pos.getZ());
+                left[0]--;
             }
+            touched.clearTicks(level);
             boolean done = cursor >= positions.size();
             if (done) release();
             return done;

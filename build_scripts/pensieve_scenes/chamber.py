@@ -9,7 +9,7 @@ statue's mouth sill (local y 12, z 90..98) is walk y 6 at scene z 40..48.
 """
 import json, math, os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from scene_common import template_grid, write_scene
+from scene_common import template_grid, write_scene, physics_problems
 
 raw = template_grid('chamber_hall')
 OX, OY, OZ = -25, -7, -50
@@ -717,6 +717,7 @@ def walk(o):
 walk(scene)
 print('basilisk hits', BASI_HITS)
 print('events', len(events), 'door leaf', len(leaf), 'bolts', len(bolts), 'lock at', LOCK_T)
+problems += physics_problems(world, R)   # the set before any block event
 print('\n'.join(problems) if problems else 'NO PROBLEMS')
 
 txt = write_scene(scene, 'chamber')

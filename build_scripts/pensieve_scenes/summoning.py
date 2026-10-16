@@ -18,7 +18,7 @@ so it sits at (0,0,0) and its columns rise 0.17 east and 0.5 north of each Ward'
 """
 import json, math, os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from scene_common import write_scene
+from scene_common import write_scene, physics_problems
 
 R = 30
 LENGTH = 53.0
@@ -554,6 +554,21 @@ def walk(o):
 walk(scene)
 print('V', V, 'hit', T_HIT, 'mark', T_MARK, 'summon', T_SUMMON)
 print('events', len(events), 'fills', len(fills), 'trees', len(TREES), 'actors', len(actors))
+# physics: the fills and disks (the dark oak features place only logs and leaves)
+set_world = {}
+for f in fills:
+    a, b = f['from'], f['to']
+    for x in range(min(a[0], b[0]), max(a[0], b[0]) + 1):
+        for y in range(min(a[1], b[1]), max(a[1], b[1]) + 1):
+            for z in range(min(a[2], b[2]), max(a[2], b[2]) + 1):
+                set_world[(x, y, z)] = f['block']
+for d in disks:
+    cx, cy, cz = d['center']
+    for dx in range(-d['radius'], d['radius'] + 1):
+        for dz in range(-d['radius'], d['radius'] + 1):
+            if dx * dx + dz * dz <= d['radius'] ** 2:
+                set_world[(cx + dx, cy, cz + dz)] = d['block']
+problems += physics_problems(set_world, R)
 print('\n'.join(problems) if problems else 'NO PROBLEMS')
 
 txt = write_scene(scene, 'summoning')

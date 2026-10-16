@@ -160,10 +160,14 @@ public final class PensieveGameTests {
     private static final BlockPos BASIN = new BlockPos(1, 2, 1);
 
     private static void useSessionSeam(GameTestHelper helper, int length) {
+        useSessionSeam(helper, length, null);
+    }
+
+    private static void useSessionSeam(GameTestHelper helper, int length, String endAction) {
         SceneDef.SetDef set = new SceneDef.SetDef(List.of(), List.of(new SceneDef.Fill("minecraft:stone",
                 new int[]{0, 0, 0}, new int[]{0, 0, 0})), List.of(), List.of(), 6000L, 20);
         SceneDef scene = new SceneDef("gametest_session", "Test", length, 8, set, java.util.Map.of(), List.of(),
-                List.of(), List.of(), null, null);
+                List.of(), List.of(), null, endAction);
         com.hogwartsmagic.pensieve.PensieveSessions.overrideForTests(helper.getLevel(),
                 id -> java.util.Optional.of(new com.hogwartsmagic.pensieve.MemoryRegistry.LoadedScene(scene, "{}")));
     }
@@ -510,6 +514,74 @@ public final class PensieveGameTests {
         helper.runAtTickTime(120, () -> {
             logout(helper, p);
             LOGGER.info("PENSIEVE-GAMETEST PASS killingTheBodyDoesNotKillTheViewer");
+            helper.succeed();
+        });
+    }
+
+    // ---- End action (Task 14) -------------------------------------------------------------------------------
+    // The flat Test Level has no Locket caves, so the Cave Map's target comes from CaveMemoryItem's test seam.
+
+    /** Cave Maps in the player's inventory (filled maps named as the Cave Map). */
+    private static int caveMaps(net.minecraft.server.level.ServerPlayer p) {
+        int n = 0;
+        for (net.minecraft.world.item.ItemStack st : p.getInventory().items) {
+            net.minecraft.network.chat.Component name = st.get(net.minecraft.core.component.DataComponents.CUSTOM_NAME);
+            if (st.is(net.minecraft.world.item.Items.FILLED_MAP) && name != null
+                    && name.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents t
+                    && t.getKey().equals("item.hogwartsmagic.cave_map")) {
+                n += st.getCount();
+            }
+        }
+        return n;
+    }
+
+    @GameTest(template = EMPTY, batch = SESSIONS, timeoutTicks = 300)
+    public static void caveMapEndActionGivesTheMapAtEnd(GameTestHelper helper) {
+        useSessionSeam(helper, 10, "cave_map");
+        BlockPos cave = helper.absolutePos(BASIN).offset(512, 0, 512);
+        com.hogwartsmagic.item.CaveMemoryItem.overrideCaveFinderForTests(pl -> java.util.Optional.of(cave));
+        basinWithMemory(helper);
+        var p = playerBeside(helper, 0);
+        net.minecraft.world.phys.Vec3 ret = p.position();
+        helper.useBlock(BASIN, p);
+        helper.assertTrue(com.hogwartsmagic.pensieve.PensieveSessions.isViewer(p), "diving should make a viewer");
+        java.util.concurrent.atomic.AtomicBoolean sawEnd = new java.util.concurrent.atomic.AtomicBoolean();
+        java.util.concurrent.atomic.AtomicLong homeAt = new java.util.concurrent.atomic.AtomicLong(-1);
+        helper.onEachTick(() -> {
+            var s = com.hogwartsmagic.pensieve.PensieveSessions.sessionOf(p);
+            if (s.isPresent()) {
+                helper.assertTrue(caveMaps(p) == 0, "no Cave Map while still inside the memory");
+                var v = s.get().viewers().get(p.getUUID());
+                if (v != null && v.exitReason() == com.hogwartsmagic.pensieve.ExitReason.END) sawEnd.set(true);
+            } else if (homeAt.get() < 0) {
+                homeAt.set(helper.getTick());
+            }
+        });
+        helper.succeedWhen(() -> {
+            helper.assertTrue(sawEnd.get(), "the memory should end with END");
+            helper.assertTrue(homeAt.get() >= 0 && helper.getTick() >= homeAt.get() + 20, "not home long enough yet");
+            helper.assertTrue(nearPoint(p, ret, 0.1), "the viewer should be home: " + p.position());
+            int maps = caveMaps(p);
+            helper.assertTrue(maps == 1, "exactly one Cave Map expected at END, found " + maps);
+            com.hogwartsmagic.item.CaveMemoryItem.overrideCaveFinderForTests(null);
+            logout(helper, p);
+            LOGGER.info("PENSIEVE-GAMETEST PASS caveMapEndActionGivesTheMapAtEnd");
+        });
+    }
+
+    @GameTest(template = EMPTY, batch = SESSIONS, timeoutTicks = 200)
+    public static void leavingEarlyGivesNoCaveMap(GameTestHelper helper) {
+        useSessionSeam(helper, 400, "cave_map");
+        basinWithMemory(helper);
+        var p = playerBeside(helper, 0);
+        helper.useBlock(BASIN, p);
+        helper.runAtTickTime(60, () -> com.hogwartsmagic.pensieve.PensieveSessions.leave(p,
+                com.hogwartsmagic.pensieve.ExitReason.LEFT));
+        helper.runAtTickTime(130, () -> {
+            helper.assertTrue(!com.hogwartsmagic.pensieve.PensieveSessions.isViewer(p), "should have left");
+            helper.assertTrue(caveMaps(p) == 0, "leaving before the end must not give the Cave Map");
+            logout(helper, p);
+            LOGGER.info("PENSIEVE-GAMETEST PASS leavingEarlyGivesNoCaveMap");
             helper.succeed();
         });
     }

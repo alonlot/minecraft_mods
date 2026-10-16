@@ -44,7 +44,7 @@ in `0..length`. Positions are blocks relative to the set origin (see Coordinates
 | `events` | array | none | below |
 | `words` | array | none | below |
 | `camera` | array | none | empty = viewer looks freely; otherwise directed |
-| `end_action` | string | none | only `cave_map`. Parsed and validated, but no runtime code reads it in this tree: do not rely on it |
+| `end_action` | string | none | only `cave_map`: when the scene ends at `length` (not when a viewer leaves early, is yanked or the basin breaks), each viewer gets `CaveMemoryItem.grantCaveMap` once, server-side, after they are moved home, so the Cave Map lands in their real inventory (with the drink's vision lines and nausea; "The memory is too faint..." and no map when no unlooted cave is near, or outside the Overworld). `/pensieve preview` runs it too. Used by `locket_cave` |
 
 ### `set`
 | key | type | default | notes |

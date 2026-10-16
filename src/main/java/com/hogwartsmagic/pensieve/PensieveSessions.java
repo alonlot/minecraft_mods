@@ -364,6 +364,9 @@ public final class PensieveSessions {
             if (--v.exitTicksLeft <= 0) {
                 moveBack(p, v);
                 dropViewer(s, v);
+                // Only a memory watched to its end pays out, and only here: once per viewer, back in the real
+                // world, so the reward lands in their real inventory. A preview runs it too, so it can be tried.
+                if (v.exitReason == ExitReason.END) applyEndAction(p, s.scene().endAction());
             }
         }
     }
@@ -466,6 +469,16 @@ public final class PensieveSessions {
         v.exitReason = reason;
         v.exitTicksLeft = delay;
         PensieveNet.send(p, new PensieveExitPacket(reason.ordinal()));
+    }
+
+    /** A scene's {@code end_action}, for one viewer who saw it to the end and is home again. */
+    private static void applyEndAction(ServerPlayer p, @Nullable String action) {
+        if (action == null) return;
+        if ("cave_map".equals(action)) {
+            com.hogwartsmagic.item.CaveMemoryItem.grantCaveMap(p);
+        } else {
+            LOGGER.warn("Pensieve: unknown end action '{}' ignored", action);
+        }
     }
 
     private static int exitDelay(ExitReason reason) {

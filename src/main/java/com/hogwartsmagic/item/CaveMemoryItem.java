@@ -21,8 +21,10 @@ import net.minecraft.world.item.UseAnim;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.saveddata.maps.MapDecorationTypes;
 import net.minecraft.world.level.saveddata.maps.MapItemSavedData;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Optional;
+import java.util.function.Function;
 
 /** A vial of memory. Drunk, it shows a short vision and becomes a Cave Map to the nearest unlooted Locket cave. */
 public class CaveMemoryItem extends Item implements com.hogwartsmagic.pensieve.PensieveMemory {
@@ -62,7 +64,22 @@ public class CaveMemoryItem extends Item implements com.hogwartsmagic.pensieve.P
         return stack;
     }
 
+    /**
+     * Gametests only: where the next Cave Map points, in place of the structure search. The GameTestServer's flat
+     * level has no Locket caves, so without this {@link #grantCaveMap} could never be seen to hand a map over.
+     * Null (the default) is the real search; production never sets it.
+     */
+    @Nullable
+    private static Function<ServerPlayer, Optional<BlockPos>> testCaveFinder;
+
+    public static void overrideCaveFinderForTests(@Nullable Function<ServerPlayer, Optional<BlockPos>> finder) {
+        testCaveFinder = finder;
+    }
+
     private static Optional<BlockPos> findCave(ServerPlayer player) {
+        if (testCaveFinder != null) {
+            return testCaveFinder.apply(player);
+        }
         ServerLevel server = player.serverLevel();
         return server.dimension() == Level.OVERWORLD
                 ? LocketCaves.findNearestUnlootedCave(server, player.blockPosition())

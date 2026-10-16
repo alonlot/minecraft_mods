@@ -20,6 +20,9 @@ public final class PensieveNet {
         SpellPackets.CHANNEL.messageBuilder(PensieveExitPacket.class)
                 .encoder(PensieveExitPacket::encode).decoder(PensieveExitPacket::decode)
                 .consumerMainThread(PensieveExitPacket::handle).add();
+        SpellPackets.CHANNEL.messageBuilder(PensieveThudPacket.class)
+                .encoder(PensieveThudPacket::encode).decoder(PensieveThudPacket::decode)
+                .consumerMainThread(PensieveThudPacket::handle).add();
         SpellPackets.CHANNEL.messageBuilder(PensieveLeavePacket.class)
                 .encoder(PensieveLeavePacket::encode).decoder(PensieveLeavePacket::decode)
                 .consumerMainThread(PensieveLeavePacket::handle).add();

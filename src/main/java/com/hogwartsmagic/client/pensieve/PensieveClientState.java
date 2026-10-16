@@ -19,4 +19,8 @@ public final class PensieveClientState {
     /** The local player is leaving; {@code reason} is the server's {@code ExitReason} ordinal. */
     public static void onExit(int reason) {
     }
+
+    /** The body left at the basin was hit; {@code strength} is 0..1. Task 8 plays the distant thud. */
+    public static void onThud(float strength) {
+    }
 }

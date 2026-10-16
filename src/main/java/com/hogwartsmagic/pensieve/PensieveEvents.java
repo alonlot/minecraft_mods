@@ -9,6 +9,8 @@ import net.minecraftforge.event.CommandEvent;
 import net.minecraftforge.event.entity.EntityTravelToDimensionEvent;
 import net.minecraftforge.event.entity.item.ItemTossEvent;
 import net.minecraftforge.event.entity.living.LivingAttackEvent;
+import net.minecraftforge.event.entity.living.LivingDeathEvent;
+import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.entity.player.AttackEntityEvent;
 import net.minecraftforge.event.entity.player.EntityItemPickupEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
@@ -31,11 +33,27 @@ public final class PensieveEvents {
         event.addListener(new MemoryRegistry());
     }
 
-    /** Task 7: the body's forwarded damage must be let through here (and past the invulnerable flag). */
+    /** Nothing hurts a viewer except the damage their own body forwards (see PensieveSessions#forwardDamage). */
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onAttacked(LivingAttackEvent event) {
-        if (event.getEntity() instanceof Player p && PensieveSessions.isViewer(p)) {
+        if (event.getEntity() instanceof Player p && PensieveSessions.isViewer(p) && !PensieveSessions.isForwarding()) {
             event.setCanceled(true);
+        }
+    }
+
+    /** A viewer dying (from the damage of the body) goes home first, so the loot drops there, not in the memory. */
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public static void onViewerDeath(LivingDeathEvent event) {
+        if (event.getEntity() instanceof ServerPlayer p && PensieveSessions.isViewer(p)) {
+            PensieveSessions.onViewerDeath(p);
+        }
+    }
+
+    /** However a viewer died, the respawned player must not carry a return tag back into the memory dimension. */
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public static void onClone(PlayerEvent.Clone event) {
+        if (event.isWasDeath() && event.getEntity() instanceof ServerPlayer p) {
+            PensieveSessions.clearReturnTagAfterDeath(p);
         }
     }
 

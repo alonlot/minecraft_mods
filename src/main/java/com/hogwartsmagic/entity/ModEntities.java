@@ -334,4 +334,14 @@ public class ModEntities {
                             .updateInterval(1)
                             .fireImmune()
                             .build("cave_boat"));
+
+    /** The helpless body a Pensieve viewer leaves at the basin. Never saved; see PensieveBodyEntity. */
+    public static final RegistryObject<EntityType<com.hogwartsmagic.pensieve.PensieveBodyEntity>> PENSIEVE_BODY =
+            ENTITY_TYPES.register("pensieve_body",
+                    () -> EntityType.Builder.<com.hogwartsmagic.pensieve.PensieveBodyEntity>of(
+                                    com.hogwartsmagic.pensieve.PensieveBodyEntity::new, MobCategory.MISC)
+                            .sized(0.6F, 1.8F)
+                            .clientTrackingRange(10)
+                            .noSave()
+                            .build("pensieve_body"));
 }

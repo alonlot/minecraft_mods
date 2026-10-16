@@ -192,6 +192,11 @@ public final class Session {
             return swallowTicksLeft;
         }
 
+        @Nullable
+        public ExitReason exitReason() {
+            return exitReason;
+        }
+
         /** The body left at the basin (Task 7); null until then and for previews. */
         @Nullable
         public UUID bodyId() {

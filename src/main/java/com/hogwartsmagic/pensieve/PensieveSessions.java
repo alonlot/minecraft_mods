@@ -5,6 +5,7 @@ import com.hogwartsmagic.pensieve.net.PensieveEnterPacket;
 import com.hogwartsmagic.pensieve.net.PensieveExitPacket;
 import com.hogwartsmagic.pensieve.net.PensieveNet;
 import com.hogwartsmagic.pensieve.net.PensieveStartPacket;
+import com.hogwartsmagic.pensieve.net.PensieveThudPacket;
 import com.hogwartsmagic.pensieve.scene.SceneDef;
 import com.hogwartsmagic.pensieve.scene.SceneException;
 import com.hogwartsmagic.pensieve.scene.SceneValidator;
@@ -20,6 +21,8 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.util.Mth;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
@@ -78,6 +81,8 @@ public final class PensieveSessions {
 
     /** True while this class is moving a viewer itself, so its own dimension changes are not cancelled. */
     private static boolean ownMove;
+    /** True only inside {@link #forwardDamage}: the ghost protection lets the body damage through. */
+    private static boolean forwarding;
     @Nullable private static ServerLevel testLevel;
     @Nullable private static Function<String, Optional<MemoryRegistry.LoadedScene>> testScenes;
 
@@ -116,6 +121,11 @@ public final class PensieveSessions {
     public static boolean anyoneInside(Level level, BlockPos basin) {
         Session s = sessionAt(level.dimension(), basin);
         return s != null && !s.viewers().isEmpty();
+    }
+
+    /** For {@link PensieveEvents}: true while the damage of a body is being applied to its viewer. */
+    static boolean isForwarding() {
+        return forwarding;
     }
 
     /** For {@link PensieveEvents}: a viewer's dimension change is only allowed when this class makes it. */
@@ -288,15 +298,16 @@ public final class PensieveSessions {
         for (Session.Viewer v : new ArrayList<>(s.viewers().values())) {
             ServerPlayer p = server.getPlayerList().getPlayer(v.id());
             if (p == null) {
-                // Task 7: body removal
+                removeBody(server, v);
                 dropViewer(s, v);
             } else if (!p.isAlive()) {
-                // Died (Task 7: a big hit on the body): normal death; no move back, just undo the ghost state.
-                // Task 7: body removal
+                // Normally onViewerDeath has already sent them home; this is the net for a death it never saw.
+                removeBody(server, v);
                 restoreState(p, v.wasMayfly, v.wasFlying, v.wasInvisible, v.wasInvulnerable);
                 clearReturnTag(p);
                 dropViewer(s, v);
             } else {
+                if (v.crossed && !s.preview() && memory.getGameTime() % 20 == 0) ensureBody(s, v, p);
                 tickViewer(s, v, p, memory);
             }
         }
@@ -371,7 +382,7 @@ public final class PensieveSessions {
         v.stage = Session.Viewer.Stage.INSIDE;
         v.crossed = true;
         if (s.firstCrossTime < 0) s.firstCrossTime = memory.getGameTime();
-        // Task 7: unless s.preview(), spawn the body at v.returnPos() facing the basin and set v.bodyId.
+        if (!s.preview()) ensureBody(s, v, p);
         sendStart(p, s);
     }
 
@@ -383,8 +394,7 @@ public final class PensieveSessions {
 
     /**
      * Invisible, flying and invulnerable. Re-applied every tick: an effect change resets invisibility and a game
-     * mode change resets flight. Task 7's forwarded body damage must bypass this invulnerability (and the
-     * LivingAttackEvent cancel in {@link PensieveEvents}).
+     * mode change resets flight. The damage forwarded from the body bypasses this (see {@link #forwardDamage}).
      */
     private static void applyGhost(ServerPlayer p) {
         if (!p.isInvisible()) p.setInvisible(true);
@@ -472,7 +482,7 @@ public final class PensieveSessions {
         moveTo(p, back, to, v.yRot(), v.xRot());
         restoreState(p, v.wasMayfly, v.wasFlying, v.wasInvisible, v.wasInvulnerable);
         clearReturnTag(p);
-        // Task 7: remove the body v.bodyId() left at the basin.
+        removeBody(p.server, v);
     }
 
     /**
@@ -513,6 +523,93 @@ public final class PensieveSessions {
         p.getAbilities().mayfly = mayfly;
         p.getAbilities().flying = flying;
         p.onUpdateAbilities();
+    }
+
+    // ---- The body ---------------------------------------------------------------------------------------------
+
+    /**
+     * Makes sure the body of the viewer stands at the return point, spawning it (again) if it is missing and its
+     * chunk is loaded. A body is never saved, so one whose chunk unloaded while the viewer was away is replaced.
+     */
+    private static void ensureBody(Session s, Session.Viewer v, ServerPlayer owner) {
+        ServerLevel back = owner.server.getLevel(v.returnDim());
+        if (back == null) return;
+        if (v.bodyId != null) {
+            net.minecraft.world.entity.Entity e = back.getEntity(v.bodyId);
+            if (e != null && e.isAlive()) return;
+        }
+        BlockPos at = BlockPos.containing(v.returnPos());
+        if (!back.isLoaded(at)) return;
+        float yaw = v.yRot();
+        BlockPos basin = s.basinPos();
+        if (basin != null) {
+            double dx = basin.getX() + 0.5 - v.returnPos().x;
+            double dz = basin.getZ() + 0.5 - v.returnPos().z;
+            if (dx * dx + dz * dz > 1.0E-4) yaw = (float) (Mth.atan2(-dx, dz) * (180.0 / Math.PI));
+        }
+        PensieveBodyEntity body = PensieveBodyEntity.spawn(back, owner, v.returnPos(), yaw);
+        v.bodyId = body == null ? null : body.getUUID();
+    }
+
+    private static void removeBody(MinecraftServer server, Session.Viewer v) {
+        if (v.bodyId == null) return;
+        ServerLevel back = server.getLevel(v.returnDim());
+        if (back != null) {
+            net.minecraft.world.entity.Entity e = back.getEntity(v.bodyId);
+            if (e != null) e.discard();
+        }
+        v.bodyId = null;
+    }
+
+    /**
+     * The body was hit: the viewer takes the damage. The invulnerable flag of the ghost is lifted for exactly this
+     * call and {@link #forwarding} makes the LivingAttackEvent cancel stand aside. Below a third of max health the
+     * viewer is yanked out; a lethal hit is handled by {@link #onViewerDeath}.
+     */
+    public static void forwardDamage(ServerPlayer owner, DamageSource source, float amount) {
+        Session s = BY_VIEWER.get(owner.getUUID());
+        if (s == null) return;
+        boolean wasInvulnerable = owner.isInvulnerable();
+        owner.setInvulnerable(false);
+        forwarding = true;
+        try {
+            owner.hurt(source, amount);
+        } finally {
+            forwarding = false;
+            if (BY_VIEWER.containsKey(owner.getUUID())) owner.setInvulnerable(wasInvulnerable);
+        }
+        PensieveNet.send(owner, new PensieveThudPacket(Math.min(1f, amount / 6f)));
+        if (owner.isAlive() && BY_VIEWER.containsKey(owner.getUUID())
+                && YankRule.shouldYank(owner.getHealth(), owner.getMaxHealth())) {
+            leave(owner, ExitReason.YANK);
+        }
+    }
+
+    /**
+     * A viewer is dying (LivingDeathEvent, before vanilla drops anything). They are sent home right now, with a
+     * real dimension change so the client resyncs, and taken out of the session, so the dropped inventory lands
+     * at the body and the respawn can never put them back in the memory dimension.
+     */
+    static void onViewerDeath(ServerPlayer p) {
+        Session s = BY_VIEWER.get(p.getUUID());
+        if (s == null) return;
+        Session.Viewer v = s.viewers().get(p.getUUID());
+        if (v != null) {
+            ServerLevel back = p.server.getLevel(v.returnDim());
+            Vec3 to = v.returnPos();
+            if (back == null) {
+                back = p.server.overworld();
+                to = Vec3.atBottomCenterOf(back.getSharedSpawnPos());
+            }
+            // Not SeamlessMove: it revives the player. A dead player is moved with an ordinary teleport.
+            moveTo(p, back, to, v.yRot(), v.xRot(), true);
+            restoreState(p, v.wasMayfly, v.wasFlying, v.wasInvisible, v.wasInvulnerable);
+            removeBody(p.server, v);
+            dropViewer(s, v);
+        }
+        clearReturnTag(p);
+        BY_VIEWER.remove(p.getUUID());
+        if (s.viewers().isEmpty()) finish(s);
     }
 
     private static void dropViewer(Session s, Session.Viewer v) {
@@ -595,6 +692,7 @@ public final class PensieveSessions {
             for (Session.Viewer v : new ArrayList<>(s.viewers().values())) {
                 ServerPlayer p = server == null ? null : server.getPlayerList().getPlayer(v.id());
                 if (p != null) moveBack(p, v);
+                else if (server != null) removeBody(server, v);
                 dropViewer(s, v);
             }
             if (s.builder != null) s.builder.release();
@@ -625,6 +723,10 @@ public final class PensieveSessions {
         CompoundTag mod = PlayerMagicData.getModData(p);
         mod.put(RETURN_TAG, t);
         PlayerMagicData.saveModData(p, mod);
+    }
+
+    static void clearReturnTagAfterDeath(ServerPlayer p) {
+        clearReturnTag(p);
     }
 
     private static void clearReturnTag(ServerPlayer p) {

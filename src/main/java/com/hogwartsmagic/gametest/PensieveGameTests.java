@@ -352,4 +352,138 @@ public final class PensieveGameTests {
             LOGGER.info("PENSIEVE-GAMETEST PASS viewerCannotCastSpells");
         });
     }
+
+    // ---- The body (Task 7) ---------------------------------------------------------------------------------
+
+    /** A survival player past the three seconds of spawn invulnerability a fresh ServerPlayer has. */
+    private static void survivalAndSeasoned(net.minecraft.server.level.ServerPlayer p) {
+        p.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
+        for (int i = 0; i < 70; i++) p.tick();
+    }
+
+    private static com.hogwartsmagic.pensieve.PensieveBodyEntity bodyOf(GameTestHelper helper,
+            net.minecraft.server.level.ServerPlayer p) {
+        var s = com.hogwartsmagic.pensieve.PensieveSessions.sessionOf(p);
+        helper.assertTrue(s.isPresent(), "not in a session");
+        java.util.UUID id = s.get().viewers().get(p.getUUID()).bodyId();
+        helper.assertTrue(id != null, "no body was spawned");
+        net.minecraft.world.entity.Entity e = helper.getLevel().getEntity(id);
+        helper.assertTrue(e instanceof com.hogwartsmagic.pensieve.PensieveBodyEntity, "body entity not found");
+        return (com.hogwartsmagic.pensieve.PensieveBodyEntity) e;
+    }
+
+    @GameTest(template = EMPTY, batch = SESSIONS, timeoutTicks = 200)
+    public static void hittingBodyHurtsViewer(GameTestHelper helper) {
+        useSessionSeam(helper, 400);
+        basinWithMemory(helper);
+        var p = playerBeside(helper, 0);
+        survivalAndSeasoned(p);
+        helper.useBlock(BASIN, p);
+        helper.runAtTickTime(40, () -> {
+            helper.assertTrue(p.getHealth() == 20f, "viewer should start at 20");
+            var body = bodyOf(helper, p);
+            helper.assertTrue(body.hurt(helper.getLevel().damageSources().generic(), 4f), "the body should take the hit");
+            helper.assertTrue(p.getHealth() == 16f, "viewer should be at 16, is " + p.getHealth());
+            helper.assertTrue(com.hogwartsmagic.pensieve.PensieveSessions.isViewer(p), "a light hit must not end the memory");
+            helper.assertTrue(p.isInvulnerable(), "the ghost invulnerability must come back after the hit");
+            helper.assertTrue(body.isAlive(), "the body must survive a hit");
+            com.hogwartsmagic.pensieve.PensieveSessions.leave(p, com.hogwartsmagic.pensieve.ExitReason.LEFT);
+        });
+        helper.runAtTickTime(80, () -> {
+            helper.assertTrue(!com.hogwartsmagic.pensieve.PensieveSessions.isViewer(p), "still a viewer");
+            logout(helper, p);
+            LOGGER.info("PENSIEVE-GAMETEST PASS hittingBodyHurtsViewer");
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = EMPTY, batch = SESSIONS, timeoutTicks = 200)
+    public static void heavyHitsYankViewerOut(GameTestHelper helper) {
+        useSessionSeam(helper, 400);
+        basinWithMemory(helper);
+        var p = playerBeside(helper, 0);
+        survivalAndSeasoned(p);
+        net.minecraft.world.phys.Vec3 ret = p.position();
+        helper.useBlock(BASIN, p);
+        helper.runAtTickTime(40, () -> {
+            var body = bodyOf(helper, p);
+            body.hurt(helper.getLevel().damageSources().generic(), 14f);
+            helper.assertTrue(p.getHealth() == 6f, "viewer should be at 6, is " + p.getHealth());
+            var s = com.hogwartsmagic.pensieve.PensieveSessions.sessionOf(p);
+            helper.assertTrue(s.isPresent() && s.get().viewers().get(p.getUUID()).exitReason()
+                    == com.hogwartsmagic.pensieve.ExitReason.YANK, "the viewer should be on a YANK exit");
+        });
+        helper.runAtTickTime(55, () -> {
+            helper.assertTrue(!com.hogwartsmagic.pensieve.PensieveSessions.isViewer(p), "still a viewer after the yank");
+            helper.assertTrue(nearPoint(p, ret, 0.1), "not back at the return point: " + p.position());
+            helper.assertTrue(p.getHealth() == 6f, "health must stay as it was");
+            logout(helper, p);
+            LOGGER.info("PENSIEVE-GAMETEST PASS heavyHitsYankViewerOut");
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = EMPTY, batch = SESSIONS, timeoutTicks = 200)
+    public static void bodyIsRemovedWhenViewerLeaves(GameTestHelper helper) {
+        useSessionSeam(helper, 400);
+        basinWithMemory(helper);
+        var p = playerBeside(helper, 0);
+        net.minecraft.world.phys.Vec3 ret = p.position();
+        helper.useBlock(BASIN, p);
+        java.util.concurrent.atomic.AtomicReference<com.hogwartsmagic.pensieve.PensieveBodyEntity> held =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        helper.runAtTickTime(40, () -> {
+            var body = bodyOf(helper, p);
+            helper.assertTrue(body.position().distanceTo(ret) <= 0.01, "the body should stand at the return point");
+            helper.assertTrue(p.getUUID().equals(body.getOwnerId()), "the body should know its owner");
+            held.set(body);
+            com.hogwartsmagic.pensieve.PensieveSessions.leave(p, com.hogwartsmagic.pensieve.ExitReason.LEFT);
+        });
+        helper.runAtTickTime(80, () -> {
+            helper.assertTrue(!com.hogwartsmagic.pensieve.PensieveSessions.isViewer(p), "still a viewer");
+            helper.assertTrue(held.get().isRemoved(), "the body should be gone");
+            logout(helper, p);
+            LOGGER.info("PENSIEVE-GAMETEST PASS bodyIsRemovedWhenViewerLeaves");
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = EMPTY, batch = SESSIONS, timeoutTicks = 200)
+    public static void bodyOfNobodyIsDiscarded(GameTestHelper helper) {
+        var body = com.hogwartsmagic.entity.ModEntities.PENSIEVE_BODY.get().create(helper.getLevel());
+        body.setOwner(java.util.UUID.randomUUID(), "Nobody");
+        net.minecraft.world.phys.Vec3 at = helper.absoluteVec(new net.minecraft.world.phys.Vec3(1.5, 2, 1.5));
+        body.moveTo(at.x, at.y, at.z);
+        helper.getLevel().addFreshEntity(body);
+        helper.assertTrue(!body.shouldBeSaved(), "a body must never be saved");
+        body.hurt(helper.getLevel().damageSources().generic(), 4f);
+        helper.assertTrue(body.isRemoved(), "a body whose owner is not a viewer must be discarded when hit");
+        LOGGER.info("PENSIEVE-GAMETEST PASS bodyOfNobodyIsDiscarded");
+        helper.succeed();
+    }
+
+    @GameTest(template = EMPTY, batch = SESSIONS, timeoutTicks = 200)
+    public static void dyingInsideMemoryLeavesViewerAndLootAtTheBody(GameTestHelper helper) {
+        useSessionSeam(helper, 400);
+        basinWithMemory(helper);
+        var p = playerBeside(helper, 0);
+        net.minecraft.world.phys.Vec3 ret = p.position();
+        p.getInventory().add(new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.DIAMOND, 3));
+        helper.useBlock(BASIN, p);
+        helper.runAtTickTime(40, () -> {
+            var body = bodyOf(helper, p);
+            body.hurt(helper.getLevel().damageSources().genericKill(), 1000f);
+            helper.assertTrue(p.isDeadOrDying(), "the forwarded hit should have killed the viewer");
+            helper.assertTrue(!com.hogwartsmagic.pensieve.PensieveSessions.isViewer(p), "a dead viewer must leave the session");
+            helper.assertTrue(!com.hogwartsmagic.util.PlayerMagicData.getModData(p).contains("PensieveReturn"),
+                    "return tag must be cleared on death");
+            helper.assertTrue(p.position().distanceTo(ret) <= 0.5, "the dying viewer should be at the body, is " + p.position());
+            boolean dropped = !helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
+                    new net.minecraft.world.phys.AABB(ret, ret).inflate(3)).isEmpty();
+            helper.assertTrue(dropped, "the inventory should have dropped at the body");
+            logout(helper, p);
+            LOGGER.info("PENSIEVE-GAMETEST PASS dyingInsideMemoryLeavesViewerAndLootAtTheBody");
+            helper.succeed();
+        });
+    }
 }

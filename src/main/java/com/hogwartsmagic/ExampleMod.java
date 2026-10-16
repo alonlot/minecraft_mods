@@ -1138,6 +1138,8 @@ public class ExampleMod
     public void onServerStopping(net.minecraftforge.event.server.ServerStoppingEvent event)
     {
         com.hogwartsmagic.event.OllivandersCeremony.endAll();
+        // And pull everyone out of their Pensieve memories, so nobody is saved in the memory dimension.
+        com.hogwartsmagic.pensieve.PensieveSessions.endAll();
     }
 
     @SubscribeEvent

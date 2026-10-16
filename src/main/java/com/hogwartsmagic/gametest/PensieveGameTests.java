@@ -151,4 +151,171 @@ public final class PensieveGameTests {
         LOGGER.info("PENSIEVE-GAMETEST PASS strangerCannotTakeOutPrivateMemory");
         helper.succeed();
     }
+
+    // ---- Sessions (Task 6) -------------------------------------------------------------------------------
+    // The GameTestServer has no memory dimension, so these use PensieveSessions' test seam: the test level stands
+    // in for the memory level and every scene id resolves to a tiny scene (a 1-block fill, 20 build ticks).
+
+    private static final String SESSIONS = "pensieve_sessions";
+    private static final BlockPos BASIN = new BlockPos(1, 2, 1);
+
+    private static void useSessionSeam(GameTestHelper helper, int length) {
+        SceneDef.SetDef set = new SceneDef.SetDef(List.of(), List.of(new SceneDef.Fill("minecraft:stone",
+                new int[]{0, 0, 0}, new int[]{0, 0, 0})), List.of(), List.of(), 6000L, 20);
+        SceneDef scene = new SceneDef("gametest_session", "Test", length, 8, set, java.util.Map.of(), List.of(),
+                List.of(), List.of(), null, null);
+        com.hogwartsmagic.pensieve.PensieveSessions.overrideForTests(helper.getLevel(),
+                id -> java.util.Optional.of(new com.hogwartsmagic.pensieve.MemoryRegistry.LoadedScene(scene, "{}")));
+    }
+
+    private static com.hogwartsmagic.pensieve.PensieveBlockEntity basinWithMemory(GameTestHelper helper) {
+        helper.setBlock(BASIN, ExampleMod.PENSIEVE.get());
+        var be = (com.hogwartsmagic.pensieve.PensieveBlockEntity) helper.getBlockEntity(BASIN);
+        be.pour(chamberMemory(), null);
+        return be;
+    }
+
+    /** A server player standing beside the basin, facing a known way. */
+    private static net.minecraft.server.level.ServerPlayer playerBeside(GameTestHelper helper, int dz) {
+        net.minecraft.server.level.ServerPlayer p = helper.makeMockServerPlayerInLevel();
+        net.minecraft.world.phys.Vec3 at = helper.absoluteVec(new net.minecraft.world.phys.Vec3(1.5, 2, 2.5 + dz));
+        p.teleportTo(helper.getLevel(), at.x, at.y, at.z, java.util.Set.of(), 30f, 10f);
+        return p;
+    }
+
+    private static void logout(GameTestHelper helper, net.minecraft.server.level.ServerPlayer... players) {
+        for (net.minecraft.server.level.ServerPlayer p : players) {
+            helper.getLevel().getServer().getPlayerList().remove(p);
+        }
+    }
+
+    private static boolean nearPoint(net.minecraft.server.level.ServerPlayer p, net.minecraft.world.phys.Vec3 v, double d) {
+        return p.position().distanceTo(v) <= d;
+    }
+
+    @GameTest(template = EMPTY, batch = SESSIONS, timeoutTicks = 300)
+    public static void diveMovesPlayerIntoMemoryAndBack(GameTestHelper helper) {
+        useSessionSeam(helper, 10);
+        basinWithMemory(helper);
+        var p = playerBeside(helper, 0);
+        net.minecraft.world.phys.Vec3 ret = p.position();
+        helper.useBlock(BASIN, p);
+        helper.assertTrue(com.hogwartsmagic.pensieve.PensieveSessions.isViewer(p), "diving should make a viewer");
+        java.util.concurrent.atomic.AtomicBoolean entered = new java.util.concurrent.atomic.AtomicBoolean();
+        helper.runAtTickTime(35, () -> {
+            var s = com.hogwartsmagic.pensieve.PensieveSessions.sessionOf(p);
+            helper.assertTrue(s.isPresent(), "should still be in the session at tick 35");
+            net.minecraft.world.phys.Vec3 anchor = net.minecraft.world.phys.Vec3.atBottomCenterOf(s.get().origin()).add(0, 1, 0);
+            helper.assertTrue(p.level() == com.hogwartsmagic.pensieve.PensieveSessions.memoryLevel(p.getServer()),
+                    "viewer should be in the memory level");
+            helper.assertTrue(nearPoint(p, anchor, 0.5), "viewer should be at the anchor, is at " + p.position());
+            helper.assertTrue(p.isInvisible() && p.isInvulnerable() && p.getAbilities().flying, "viewer state not set");
+            entered.set(true);
+        });
+        helper.succeedWhen(() -> {
+            helper.assertTrue(entered.get(), "not entered yet");
+            helper.assertTrue(!com.hogwartsmagic.pensieve.PensieveSessions.isViewer(p), "still a viewer");
+            helper.assertTrue(nearPoint(p, ret, 0.1), "not back at the return point: " + p.position() + " vs " + ret);
+            helper.assertTrue(!p.isInvisible() && !p.isInvulnerable(), "still invisible or invulnerable");
+            helper.assertTrue(!com.hogwartsmagic.util.PlayerMagicData.getModData(p).contains("PensieveReturn"),
+                    "return tag not cleared");
+            logout(helper, p);
+            LOGGER.info("PENSIEVE-GAMETEST PASS diveMovesPlayerIntoMemoryAndBack");
+        });
+    }
+
+    @GameTest(template = EMPTY, batch = SESSIONS, timeoutTicks = 300)
+    public static void secondViewerJoinsSameSession(GameTestHelper helper) {
+        useSessionSeam(helper, 30);
+        basinWithMemory(helper);
+        var p1 = playerBeside(helper, 0);
+        var p2 = playerBeside(helper, 1);
+        helper.useBlock(BASIN, p1);
+        java.util.concurrent.atomic.AtomicBoolean joined = new java.util.concurrent.atomic.AtomicBoolean();
+        helper.runAtTickTime(40, () -> {
+            helper.useBlock(BASIN, p2);
+            var s1 = com.hogwartsmagic.pensieve.PensieveSessions.sessionOf(p1);
+            var s2 = com.hogwartsmagic.pensieve.PensieveSessions.sessionOf(p2);
+            helper.assertTrue(s1.isPresent() && s2.isPresent(), "both should be viewers");
+            helper.assertTrue(s1.get() == s2.get(), "second viewer should join the same session");
+            joined.set(true);
+        });
+        helper.runAtTickTime(80, () -> {
+            var s1 = com.hogwartsmagic.pensieve.PensieveSessions.sessionOf(p1);
+            var s2 = com.hogwartsmagic.pensieve.PensieveSessions.sessionOf(p2);
+            helper.assertTrue(s1.isPresent() && s2.isPresent() && s1.get() == s2.get(), "both should still watch");
+            helper.assertTrue(s1.get().startGameTime() >= 0, "the session should be playing by tick 80");
+        });
+        helper.succeedWhen(() -> {
+            helper.assertTrue(joined.get(), "not joined yet");
+            helper.assertTrue(!com.hogwartsmagic.pensieve.PensieveSessions.isViewer(p1)
+                    && !com.hogwartsmagic.pensieve.PensieveSessions.isViewer(p2), "still viewing");
+            logout(helper, p1, p2);
+            LOGGER.info("PENSIEVE-GAMETEST PASS secondViewerJoinsSameSession");
+        });
+    }
+
+    @GameTest(template = EMPTY, batch = SESSIONS, timeoutTicks = 300)
+    public static void breakingBasinEndsSession(GameTestHelper helper) {
+        useSessionSeam(helper, 400);
+        basinWithMemory(helper);
+        var p = playerBeside(helper, 0);
+        net.minecraft.world.phys.Vec3 ret = p.position();
+        helper.useBlock(BASIN, p);
+        helper.runAtTickTime(40, () -> {
+            helper.assertTrue(com.hogwartsmagic.pensieve.PensieveSessions.isViewer(p), "should be inside at tick 40");
+            helper.destroyBlock(BASIN);
+        });
+        helper.runAtTickTime(62, () -> {
+            helper.assertTrue(!com.hogwartsmagic.pensieve.PensieveSessions.isViewer(p), "still a viewer after the break");
+            helper.assertTrue(nearPoint(p, ret, 0.1), "not back at the return point: " + p.position());
+            logout(helper, p);
+            LOGGER.info("PENSIEVE-GAMETEST PASS breakingBasinEndsSession");
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = EMPTY, batch = SESSIONS, timeoutTicks = 100)
+    public static void loginInsideMemoryReturnsPlayer(GameTestHelper helper) {
+        useSessionSeam(helper, 10);
+        var p = playerBeside(helper, 0);
+        net.minecraft.world.phys.Vec3 ret = helper.absoluteVec(new net.minecraft.world.phys.Vec3(0.5, 2, 0.5));
+        net.minecraft.nbt.CompoundTag tag = new net.minecraft.nbt.CompoundTag();
+        tag.putString("Dim", helper.getLevel().dimension().location().toString());
+        tag.putDouble("X", ret.x);
+        tag.putDouble("Y", ret.y);
+        tag.putDouble("Z", ret.z);
+        tag.putFloat("YRot", 90f);
+        tag.putFloat("XRot", 0f);
+        net.minecraft.nbt.CompoundTag mod = com.hogwartsmagic.util.PlayerMagicData.getModData(p);
+        mod.put("PensieveReturn", tag);
+        com.hogwartsmagic.util.PlayerMagicData.saveModData(p, mod);
+        com.hogwartsmagic.pensieve.PensieveSessions.onLogin(p);
+        helper.assertTrue(nearPoint(p, ret, 0.1), "not moved to the return point: " + p.position());
+        helper.assertTrue(!com.hogwartsmagic.util.PlayerMagicData.getModData(p).contains("PensieveReturn"),
+                "return tag not cleared");
+        logout(helper, p);
+        LOGGER.info("PENSIEVE-GAMETEST PASS loginInsideMemoryReturnsPlayer");
+        helper.succeed();
+    }
+
+    @GameTest(template = EMPTY, batch = SESSIONS, timeoutTicks = 200)
+    public static void viewerCannotBreakBlocks(GameTestHelper helper) {
+        useSessionSeam(helper, 10);
+        basinWithMemory(helper);
+        var p = playerBeside(helper, 0);
+        helper.useBlock(BASIN, p);
+        helper.assertTrue(com.hogwartsmagic.pensieve.PensieveSessions.isViewer(p), "diving should make a viewer");
+        BlockPos target = helper.absolutePos(new BlockPos(0, 1, 0));
+        var event = new net.minecraftforge.event.level.BlockEvent.BreakEvent(helper.getLevel(), target,
+                helper.getLevel().getBlockState(target), p);
+        net.minecraftforge.common.MinecraftForge.EVENT_BUS.post(event);
+        helper.assertTrue(event.isCanceled(), "a viewer's block break must be cancelled");
+        com.hogwartsmagic.pensieve.PensieveSessions.leave(p, com.hogwartsmagic.pensieve.ExitReason.LEFT);
+        helper.succeedWhen(() -> {
+            helper.assertTrue(!com.hogwartsmagic.pensieve.PensieveSessions.isViewer(p), "still a viewer");
+            logout(helper, p);
+            LOGGER.info("PENSIEVE-GAMETEST PASS viewerCannotBreakBlocks");
+        });
+    }
 }

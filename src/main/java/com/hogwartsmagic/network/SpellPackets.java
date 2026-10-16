@@ -46,7 +46,7 @@ public class SpellPackets {
 
     public static final SimpleChannel CHANNEL = ChannelBuilder
             .named(ExampleMod.MODID + ":spells")
-            .networkProtocolVersion(9)
+            .networkProtocolVersion(10)
             .simpleChannel();
 
     public static void register() {
@@ -530,6 +530,8 @@ public class SpellPackets {
                 .decoder(com.hogwartsmagic.assignment.OpenAssignmentPacket::decode)
                 .consumerMainThread(com.hogwartsmagic.assignment.OpenAssignmentPacket::handle)
                 .add();
+        // Pensieve: enter, start, exit (server to client) and leave (client to server).
+        com.hogwartsmagic.pensieve.net.PensieveNet.register();
     }
 
     public static void syncRelics(ServerPlayer player) {

@@ -1,0 +1,201 @@
+package com.hogwartsmagic.pensieve;
+
+import com.hogwartsmagic.pensieve.scene.SceneDef;
+import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+/**
+ * One playing memory: its scene, its region of the memory dimension and the people watching it. Server side
+ * only; owned and mutated by {@link PensieveSessions} on the server thread.
+ */
+public final class Session {
+    public enum Phase { BUILD, PLAY, CLOSING }
+
+    private final String sceneId;
+    private final String rawJson;
+    private final SceneDef scene;
+    private final int slot;
+    private final BlockPos origin;
+    @Nullable private final ResourceKey<Level> basinDim;
+    @Nullable private final BlockPos basinPos;
+    private final boolean preview;
+    private final Map<UUID, Viewer> viewers = new LinkedHashMap<>();
+
+    Phase phase = Phase.BUILD;
+    long startGameTime = -1;
+    /** Memory-level game time when the first viewer crossed; -1 until then. */
+    long firstCrossTime = -1;
+    @Nullable SetBuilder builder;
+    boolean built;
+    /** The level the set is built in (the memory level, or the gametest stand-in). */
+    ServerLevel level;
+    /** How many of the builder's placed blocks are already in the saved region box. */
+    int recorded;
+    /** Blocks the scene's own block events placed, cleared with the set. */
+    final List<BlockPos> eventPlaced = new ArrayList<>();
+    /** Index of the next block event (events are kept sorted by time). */
+    int nextEvent;
+    final List<SceneDef.EventDef> blockEvents;
+
+    Session(String sceneId, String rawJson, SceneDef scene, int slot, BlockPos origin,
+            @Nullable ResourceKey<Level> basinDim, @Nullable BlockPos basinPos, boolean preview) {
+        this.sceneId = sceneId;
+        this.rawJson = rawJson;
+        this.scene = scene;
+        this.slot = slot;
+        this.origin = origin;
+        this.basinDim = basinDim;
+        this.basinPos = basinPos == null ? null : basinPos.immutable();
+        this.preview = preview;
+        List<SceneDef.EventDef> blocks = new ArrayList<>();
+        if (scene.events() != null) {
+            for (SceneDef.EventDef e : scene.events()) {
+                if ("block".equals(e.kind())) blocks.add(e);
+            }
+        }
+        blocks.sort((a, b) -> Float.compare(a.t(), b.t()));
+        this.blockEvents = blocks;
+    }
+
+    public String sceneId() {
+        return sceneId;
+    }
+
+    public String rawJson() {
+        return rawJson;
+    }
+
+    public SceneDef scene() {
+        return scene;
+    }
+
+    public int slot() {
+        return slot;
+    }
+
+    /** The set's origin in the memory dimension. */
+    public BlockPos origin() {
+        return origin;
+    }
+
+    /** Null for an op preview, which has no basin. */
+    @Nullable
+    public ResourceKey<Level> basinDim() {
+        return basinDim;
+    }
+
+    @Nullable
+    public BlockPos basinPos() {
+        return basinPos;
+    }
+
+    public boolean preview() {
+        return preview;
+    }
+
+    public Phase phase() {
+        return phase;
+    }
+
+    /** Memory-dimension game time when {@code PLAY} began; -1 while building. */
+    public long startGameTime() {
+        return startGameTime;
+    }
+
+    public Map<UUID, Viewer> viewers() {
+        return viewers;
+    }
+
+    /** Where viewers float: one block above the origin, centred. */
+    public Vec3 anchor() {
+        return Vec3.atBottomCenterOf(origin).add(0, 1, 0);
+    }
+
+    boolean at(ResourceKey<Level> dim, BlockPos pos) {
+        return basinDim != null && basinDim.equals(dim) && basinPos != null && basinPos.equals(pos);
+    }
+
+    /** A viewer's return point, the state to restore, and where they are in the dive. */
+    public static final class Viewer {
+        enum Stage { SWALLOW, INSIDE, EXITING }
+
+        private final UUID id;
+        private final Vec3 returnPos;
+        private final float yRot;
+        private final float xRot;
+        private final ResourceKey<Level> returnDim;
+        int swallowTicksLeft;
+        @Nullable UUID bodyId;
+
+        Stage stage = Stage.SWALLOW;
+        /** True once moved into the memory level (an exit then holds them at the anchor, not the basin). */
+        boolean crossed;
+        int exitTicksLeft;
+        @Nullable ExitReason exitReason;
+        final boolean wasMayfly;
+        final boolean wasFlying;
+        final boolean wasInvisible;
+        final boolean wasInvulnerable;
+
+        public Viewer(UUID id, Vec3 returnPos, float yRot, float xRot, ResourceKey<Level> returnDim,
+                      int swallowTicksLeft, @Nullable UUID bodyId) {
+            this(id, returnPos, yRot, xRot, returnDim, swallowTicksLeft, bodyId, false, false, false, false);
+        }
+
+        Viewer(UUID id, Vec3 returnPos, float yRot, float xRot, ResourceKey<Level> returnDim, int swallowTicksLeft,
+               @Nullable UUID bodyId, boolean wasMayfly, boolean wasFlying, boolean wasInvisible,
+               boolean wasInvulnerable) {
+            this.id = id;
+            this.returnPos = returnPos;
+            this.yRot = yRot;
+            this.xRot = xRot;
+            this.returnDim = returnDim;
+            this.swallowTicksLeft = swallowTicksLeft;
+            this.bodyId = bodyId;
+            this.wasMayfly = wasMayfly;
+            this.wasFlying = wasFlying;
+            this.wasInvisible = wasInvisible;
+            this.wasInvulnerable = wasInvulnerable;
+        }
+
+        public UUID id() {
+            return id;
+        }
+
+        public Vec3 returnPos() {
+            return returnPos;
+        }
+
+        public float yRot() {
+            return yRot;
+        }
+
+        public float xRot() {
+            return xRot;
+        }
+
+        public ResourceKey<Level> returnDim() {
+            return returnDim;
+        }
+
+        public int swallowTicksLeft() {
+            return swallowTicksLeft;
+        }
+
+        /** The body left at the basin (Task 7); null until then and for previews. */
+        @Nullable
+        public UUID bodyId() {
+            return bodyId;
+        }
+    }
+}

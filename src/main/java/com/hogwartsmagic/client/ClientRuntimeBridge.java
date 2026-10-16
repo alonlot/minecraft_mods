@@ -53,6 +53,15 @@ public final class ClientRuntimeBridge {
             case "lockPickState" -> LockPickClient.accept((SpellPackets.LockPickStatePacket) payload);
             case "openAssignment" -> net.minecraft.client.Minecraft.getInstance().setScreen(
                     new AssignmentScreen((com.hogwartsmagic.assignment.OpenAssignmentPacket) payload));
+            case "pensieveEnter" -> com.hogwartsmagic.client.pensieve.PensieveClientState.onEnter(
+                    ((com.hogwartsmagic.pensieve.net.PensieveEnterPacket) payload).basin());
+            case "pensieveStart" -> {
+                var p = (com.hogwartsmagic.pensieve.net.PensieveStartPacket) payload;
+                com.hogwartsmagic.client.pensieve.PensieveClientState.onStart(p.sceneId(), p.sceneJson(), p.origin(),
+                        p.startGameTime(), p.buildTicks(), p.preview());
+            }
+            case "pensieveExit" -> com.hogwartsmagic.client.pensieve.PensieveClientState.onExit(
+                    ((com.hogwartsmagic.pensieve.net.PensieveExitPacket) payload).reason());
             default -> throw new IllegalArgumentException("Unknown client packet action: " + action);
         }
     }

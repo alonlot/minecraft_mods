@@ -15,6 +15,7 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
 
 import java.util.HashSet;
 import java.util.List;
@@ -23,20 +24,40 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
 
-/** {@code /pensieve validate [id]} and {@code /pensieve list}, op level 2. Server side only. */
+/**
+ * {@code /pensieve validate [id]}, {@code list} and {@code preview <id>} (op level 2), and {@code leave} (anyone
+ * inside a memory). Server side only.
+ */
 public final class PensieveCommand {
     private PensieveCommand() {
     }
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("pensieve")
-                .requires(source -> source.hasPermission(2))
-                .then(Commands.literal("list").executes(ctx -> list(ctx.getSource())))
-                .then(Commands.literal("validate")
+                .then(Commands.literal("list").requires(source -> source.hasPermission(2))
+                        .executes(ctx -> list(ctx.getSource())))
+                .then(Commands.literal("validate").requires(source -> source.hasPermission(2))
                         .executes(ctx -> validate(ctx.getSource(), null))
                         .then(Commands.argument("id", StringArgumentType.word())
                                 .suggests((ctx, b) -> SharedSuggestionProvider.suggest(MemoryRegistry.ids(), b))
-                                .executes(ctx -> validate(ctx.getSource(), StringArgumentType.getString(ctx, "id"))))));
+                                .executes(ctx -> validate(ctx.getSource(), StringArgumentType.getString(ctx, "id")))))
+                .then(Commands.literal("preview").requires(source -> source.hasPermission(2))
+                        .then(Commands.argument("id", StringArgumentType.word())
+                                .suggests((ctx, b) -> SharedSuggestionProvider.suggest(MemoryRegistry.ids(), b))
+                                .executes(ctx -> PensieveSessions.startPreview(ctx.getSource().getPlayerOrException(),
+                                        StringArgumentType.getString(ctx, "id")) ? 1 : 0)))
+                // Anyone inside a memory may leave it; this is also the only command a viewer can run.
+                .then(Commands.literal("leave").executes(ctx -> leave(ctx.getSource()))));
+    }
+
+    private static int leave(CommandSourceStack source) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        if (!PensieveSessions.isViewer(player)) {
+            source.sendFailure(Component.literal("You are not inside a memory."));
+            return 0;
+        }
+        PensieveSessions.leave(player, ExitReason.LEFT);
+        return 1;
     }
 
     private static int list(CommandSourceStack source) {

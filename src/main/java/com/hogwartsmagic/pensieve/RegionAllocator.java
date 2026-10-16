@@ -17,6 +17,11 @@ public final class RegionAllocator {
         return slot;
     }
 
+    /** Marks a specific slot used (one an earlier run left blocks in, until it is cleared). */
+    public synchronized void reserve(int slot) {
+        if (slot >= 0) used.set(slot);
+    }
+
     public synchronized void release(int slot) {
         if (slot >= 0) used.clear(slot);
     }

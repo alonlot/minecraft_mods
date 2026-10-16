@@ -484,6 +484,8 @@ public class ModEvents {
     @SubscribeEvent
     public static void onPlayerJoin(net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player) {
+            // A crash or stop mid-memory: back out of the memory dimension to where they dived.
+            com.hogwartsmagic.pensieve.PensieveSessions.onLogin(player);
             net.minecraft.nbt.CompoundTag persisted = player.getPersistentData().getCompound("PlayerPersisted");
             net.minecraft.nbt.CompoundTag modData = persisted.getCompound(ExampleMod.MODID);
             String learned = modData.getString("LearnedSpells");
@@ -665,6 +667,8 @@ public class ModEvents {
     @SubscribeEvent
     public static void onPlayerLogout(net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
+            // Out of any Pensieve memory and back to the basin before the player is saved.
+            com.hogwartsmagic.pensieve.PensieveSessions.onLogout(player);
             // Logging out mid-channel would otherwise strand the shield's light block in the world.
             ItemStack heldWand = player.getMainHandItem();
             if (player.getPersistentData().getBoolean(TAG_PATRONUS_SHIELD_CHANNELING)) {
@@ -2831,6 +2835,8 @@ public class ModEvents {
             com.hogwartsmagic.worldgen.VillageGringottsBank.tick(event.getServer());
             // ...and for the undercroft being dug out underneath one.
             com.hogwartsmagic.worldgen.undercroft.UndercroftBuilder.tick(event.getServer());
+            // Pensieve sessions: dives, set building, scene block events, exits and region clearing.
+            com.hogwartsmagic.pensieve.PensieveSessions.tick(event.getServer());
         }
         if (event.phase != net.minecraftforge.event.TickEvent.Phase.END || ACTIVE_WIZARD_RAIDS.isEmpty()) {
             return;

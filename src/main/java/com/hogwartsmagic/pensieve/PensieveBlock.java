@@ -22,7 +22,7 @@ import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.Nullable;
 
-/** The Pensieve basin. Pour a memory in, lift it out; diving comes later. All use logic runs on the server. */
+/** The Pensieve basin. Pour a memory in, lift it out, dive into it. All use logic runs on the server. */
 public class PensieveBlock extends BaseEntityBlock {
     public static final MapCodec<PensieveBlock> CODEC = simpleCodec(PensieveBlock::new);
     private static final VoxelShape SHAPE = Block.box(1, 0, 1, 15, 12, 15);
@@ -83,23 +83,27 @@ public class PensieveBlock extends BaseEntityBlock {
         }
         if (player.isShiftKeyDown()) {
             boolean op = player instanceof ServerPlayer sp && sp.hasPermissions(2);
-            boolean anyoneInside = false; // Task 6: PensieveSessions.isPlaying(basin)
+            boolean anyoneInside = PensieveSessions.anyoneInside(level, pos);
             if (BasinAccess.canTakeOut(basin.pourer(), player.getUUID(), op, basin.publicBasin(), anyoneInside)) {
+                // The pourer or an op lifting it out while people watch pulls them all out.
+                PensieveSessions.abortAt(level, pos);
                 player.getInventory().placeItemBackInInventory(basin.takeOut());
             } else {
                 player.displayClientMessage(Component.translatable("message.hogwartsmagic.pensieve.not_yours"), true);
             }
             return InteractionResult.CONSUME;
         }
-        // Task 6: dive into the memory (PensieveSessions.startOrJoin).
-        return InteractionResult.PASS;
+        if (player instanceof ServerPlayer sp) {
+            PensieveSessions.startOrJoin(sp, basin);
+        }
+        return InteractionResult.CONSUME;
     }
 
     @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
         if (!state.is(newState.getBlock())) {
+            PensieveSessions.abortAt(level, pos);
             if (level.getBlockEntity(pos) instanceof PensieveBlockEntity basin && !basin.memory().isEmpty()) {
-                // Task 6: PensieveSessions.abortAt(level, pos)
                 Containers.dropItemStack(level, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, basin.takeOut());
             }
         }

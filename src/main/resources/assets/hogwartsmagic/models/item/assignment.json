@@ -1,0 +1,32 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "hogwartsmagic:item/assignment"
+  },
+  "overrides": [
+    {
+      "predicate": {
+        "custom_model_data": 2.0
+      },
+      "model": "hogwartsmagic:item/assignment_uncommon"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 3.0
+      },
+      "model": "hogwartsmagic:item/assignment_rare"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 4.0
+      },
+      "model": "hogwartsmagic:item/assignment_epic"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 5.0
+      },
+      "model": "hogwartsmagic:item/assignment_dark"
+    }
+  ]
+}

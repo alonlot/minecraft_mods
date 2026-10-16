@@ -1,0 +1,14 @@
+{
+  "teacher": "flitwick",
+  "objectives": [
+    {
+      "type": "craft",
+      "target": "minecraft:anvil",
+      "count": 1
+    },
+    {
+      "type": "repair",
+      "count": 5
+    }
+  ]
+}

@@ -1022,3 +1022,234 @@ body.theme-recipes .hero-inner {
     width: 72px;
   }
 }
+
+/* ---- Hogwarts Assignments page ---- */
+
+body.theme-assignments .hero-inner {
+  --hero-image:
+    radial-gradient(circle at 78% 30%, rgba(241, 215, 157, 0.2), transparent 38%),
+    radial-gradient(circle at 12% 90%, rgba(47, 168, 79, 0.14), transparent 34%),
+    linear-gradient(135deg, rgba(58, 42, 22, 0.92), rgba(14, 18, 28, 0.94));
+  min-height: 0;
+}
+
+.chest-split {
+  display: grid;
+  gap: 14px;
+}
+
+.split-bar {
+  --task-share: 60%;
+  display: flex;
+  height: 14px;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid rgba(241, 215, 157, 0.24);
+}
+
+.split-task {
+  width: var(--task-share);
+  background: linear-gradient(90deg, var(--gold), var(--gold-soft));
+}
+
+.split-book {
+  flex: 1;
+  background: rgba(88, 128, 190, 0.55);
+}
+
+.split-legend {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.split-legend strong {
+  display: block;
+  font-family: var(--display);
+  font-size: 1.9rem;
+  line-height: 1.1;
+  color: var(--gold-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.split-legend div + div strong {
+  color: #9db8e6;
+}
+
+.split-legend span {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.split-note {
+  margin: 0;
+  font-size: 0.95rem !important;
+}
+
+.split-note code {
+  font-size: 0.85em;
+  color: var(--gold-soft);
+  overflow-wrap: anywhere;
+}
+
+.seal-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.seal-row figure {
+  margin: 0;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+}
+
+.seal-row img,
+.scroll-icon {
+  image-rendering: pixelated;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.35));
+}
+
+.seal-row figcaption {
+  color: var(--muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.step-list {
+  margin: 0 0 18px;
+  padding-left: 1.4em;
+  color: var(--muted);
+  display: grid;
+  gap: 8px;
+  max-width: 70ch;
+}
+
+.step-list strong {
+  color: var(--ink);
+}
+
+.rarity-scale {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin: 14px 0 6px;
+}
+
+.rarity-step {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+  padding: 14px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 246, 226, 0.04);
+  border-left: 1px solid rgba(241, 215, 157, 0.1);
+  border-right: 1px solid rgba(241, 215, 157, 0.1);
+  border-bottom: 1px solid rgba(241, 215, 157, 0.1);
+}
+
+.rarity-step strong {
+  font-family: var(--display);
+  font-size: 1.05rem;
+}
+
+.rarity-step span:last-child {
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.assignment-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+  gap: 16px;
+}
+
+.assignment-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.assignment-card .topic-meta {
+  margin: 0;
+}
+
+.scroll-icon {
+  width: 50px;
+  height: 50px;
+  flex: 0 0 auto;
+}
+
+.assignment-quote {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 1.12rem;
+  font-style: italic;
+  line-height: 1.4;
+  color: var(--ink);
+}
+
+.task-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.task-list li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  color: var(--muted);
+}
+
+.task-box {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  margin-top: 0.3em;
+  border: 2px solid var(--gold);
+  border-radius: 3px;
+}
+
+.assignment-reward {
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid rgba(241, 215, 157, 0.12);
+  color: var(--gold-soft);
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.needs-chip {
+  color: var(--ink);
+  border-style: dashed;
+}
+
+/* Dark Orders: black parchment and green ink, as in the game. */
+.assignment-card.is-dark-orders {
+  background:
+    linear-gradient(180deg, rgba(47, 168, 79, 0.08), rgba(0, 0, 0, 0.2)),
+    rgba(8, 10, 12, 0.94);
+  border-color: rgba(98, 196, 116, 0.28);
+}
+
+.assignment-card.is-dark-orders .assignment-quote,
+.assignment-card.is-dark-orders .assignment-reward,
+.assignment-card.is-dark-orders .topic-meta {
+  color: #7ce08f;
+}
+
+.assignment-card.is-dark-orders .task-box {
+  border-color: #2fa84f;
+}
+
+.dark-chip {
+  color: #b9f5c6;
+  border-color: rgba(98, 196, 116, 0.32);
+  background: rgba(47, 168, 79, 0.14);
+}

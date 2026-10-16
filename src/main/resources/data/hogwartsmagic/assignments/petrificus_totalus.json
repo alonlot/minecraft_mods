@@ -1,0 +1,16 @@
+{
+  "teacher": "lupin",
+  "objectives": [
+    {
+      "type": "know_spell",
+      "target": "stupefy",
+      "count": 1
+    },
+    {
+      "type": "cast",
+      "target": "stupefy",
+      "count": 15,
+      "on": "living"
+    }
+  ]
+}

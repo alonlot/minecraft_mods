@@ -2389,6 +2389,7 @@ public class ModEvents {
 
         BlockPos exitPos = destinationPos.above();
         player.teleportTo(exitPos.getX() + 0.5, exitPos.getY(), exitPos.getZ() + 0.5);
+        com.hogwartsmagic.assignment.AssignmentEvents.onFlooTravel(player);
         serverLevel.sendParticles(ParticleTypes.SOUL_FIRE_FLAME,
                 player.getX(), player.getY() + 0.6, player.getZ(),
                 60, 0.55, 0.75, 0.55, 0.03);

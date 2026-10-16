@@ -1,0 +1,21 @@
+{
+  "teacher": "death_eater",
+  "dark": true,
+  "objectives": [
+    {
+      "type": "visit",
+      "target": "hogwartsmagic:death_eater_camp",
+      "count": 1
+    },
+    {
+      "type": "deliver",
+      "target": "hogwartsmagic:cursed_galleon",
+      "count": 3
+    },
+    {
+      "type": "kill",
+      "target": "minecraft:iron_golem",
+      "count": 5
+    }
+  ]
+}

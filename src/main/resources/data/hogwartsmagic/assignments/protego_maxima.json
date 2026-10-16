@@ -1,0 +1,19 @@
+{
+  "teacher": "flitwick",
+  "objectives": [
+    {
+      "type": "know_spell",
+      "target": "protego",
+      "count": 1
+    },
+    {
+      "type": "advancement",
+      "target": "minecraft:adventure/hero_of_the_village",
+      "count": 1
+    },
+    {
+      "type": "block_shield",
+      "count": 30
+    }
+  ]
+}

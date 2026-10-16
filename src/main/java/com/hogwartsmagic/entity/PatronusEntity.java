@@ -28,6 +28,10 @@ import java.util.List;
 import java.util.Map;
 
 public class PatronusEntity extends PathfinderMob {
+    /** PatronusForm id (spell.summon.PatronusForm); 0 is the generic stag. Synced so clients draw the form. */
+    private static final EntityDataAccessor<Integer> DATA_FORM =
+            SynchedEntityData.defineId(PatronusEntity.class, EntityDataSerializers.INT);
+    private static final String TAG_FORM = "Form";
 
     private int lifespan = 600; // 30 seconds
     private net.minecraft.core.BlockPos lastLightPos = null;
@@ -37,6 +41,32 @@ public class PatronusEntity extends PathfinderMob {
         super(entityType, level);
         this.moveControl = new FlyingMoveControl(this, 10, false);
         this.getTags().add("patronus");
+    }
+
+    @Override
+    protected void defineSynchedData(SynchedEntityData.Builder builder) {
+        super.defineSynchedData(builder);
+        builder.define(DATA_FORM, 0);
+    }
+
+    public int getFormId() {
+        return this.entityData.get(DATA_FORM);
+    }
+
+    public void setFormId(int formId) {
+        this.entityData.set(DATA_FORM, formId);
+    }
+
+    @Override
+    public void addAdditionalSaveData(net.minecraft.nbt.CompoundTag tag) {
+        super.addAdditionalSaveData(tag);
+        tag.putInt(TAG_FORM, this.getFormId());
+    }
+
+    @Override
+    public void readAdditionalSaveData(net.minecraft.nbt.CompoundTag tag) {
+        super.readAdditionalSaveData(tag);
+        this.setFormId(tag.getInt(TAG_FORM));
     }
 
     @Override

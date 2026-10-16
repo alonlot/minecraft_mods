@@ -1,0 +1,21 @@
+{
+  "teacher": "death_eater",
+  "dark": true,
+  "objectives": [
+    {
+      "type": "kill",
+      "target": "minecraft:cave_spider",
+      "count": 10
+    },
+    {
+      "type": "kill",
+      "target": "hogwartsmagic:acromantula",
+      "count": 2
+    },
+    {
+      "type": "deliver",
+      "target": "hogwartsmagic:acromantula_venom",
+      "count": 2
+    }
+  ]
+}

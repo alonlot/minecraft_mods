@@ -59,6 +59,9 @@ public final class MasteryAwards {
     }
 
     public static void onLivingHit(ServerPlayer caster, SpellType spell, LivingEntity target) {
+        if (target != caster) {
+            com.hogwartsmagic.assignment.AssignmentEvents.onCast(caster, spell, true);
+        }
         if (!eligible(caster) || target == caster || SELF_OR_CHANNEL.contains(spell)) {
             return;
         }

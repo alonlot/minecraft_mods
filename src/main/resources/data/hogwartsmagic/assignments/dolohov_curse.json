@@ -1,0 +1,20 @@
+{
+  "teacher": "death_eater",
+  "dark": true,
+  "objectives": [
+    {
+      "type": "kill",
+      "target": "minecraft:iron_golem",
+      "count": 3
+    },
+    {
+      "type": "duel_win",
+      "count": 2
+    },
+    {
+      "type": "kill",
+      "target": "minecraft:witch",
+      "count": 3
+    }
+  ]
+}

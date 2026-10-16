@@ -1,0 +1,21 @@
+{
+  "teacher": "death_eater",
+  "dark": true,
+  "objectives": [
+    {
+      "type": "know_spell",
+      "target": "crucio",
+      "count": 1
+    },
+    {
+      "type": "visit",
+      "target": "hogwartsmagic:chamber_hall",
+      "count": 1
+    },
+    {
+      "type": "kill",
+      "target": "hogwartsmagic:basilisk",
+      "count": 1
+    }
+  ]
+}

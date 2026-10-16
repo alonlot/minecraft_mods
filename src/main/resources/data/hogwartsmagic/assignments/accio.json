@@ -1,0 +1,9 @@
+{
+  "teacher": "flitwick",
+  "objectives": [
+    {
+      "type": "fish",
+      "count": 5
+    }
+  ]
+}

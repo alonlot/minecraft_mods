@@ -22,6 +22,10 @@ public final class Config {
             .comment("Chance (0-1) for a vanilla chest loot roll to add one spell book.")
             .defineInRange("spellBookChestChance", 0.25, 0.0, 1.0);
 
+    public static final ForgeConfigSpec.DoubleValue ASSIGNMENT_SHARE_OF_BOOKS = BUILDER
+            .comment("When a chest rolls a spell book, the chance (0-1) that it holds that spell's Hogwarts Assignment instead.")
+            .defineInRange("assignmentShareOfBooks", 0.6, 0.0, 1.0);
+
     public static final ForgeConfigSpec.BooleanValue ENABLE_SORTING_HAT_CHEST_LOOT = BUILDER
             .comment("If false, sorting hat is never injected from chests.")
             .define("enableSortingHatChestLoot", true);
@@ -206,6 +210,7 @@ public final class Config {
     public static double baseMaxMana = 100;
     public static double manaRegenPerTick = 0.2;
     public static double spellBookChestChance = 0.25;
+    public static double assignmentShareOfBooks = 0.6;
     public static boolean enableSortingHatChestLoot = true;
     public static double sortingHatChestChance = 0.08;
     public static boolean enableInvisibilityCloakChestLoot = true;
@@ -261,6 +266,7 @@ public final class Config {
         baseMaxMana = BASE_MAX_MANA.get();
         manaRegenPerTick = MANA_REGEN_PER_TICK.get();
         spellBookChestChance = SPELL_BOOK_CHEST_CHANCE.get();
+        assignmentShareOfBooks = ASSIGNMENT_SHARE_OF_BOOKS.get();
         enableSortingHatChestLoot = ENABLE_SORTING_HAT_CHEST_LOOT.get();
         sortingHatChestChance = SORTING_HAT_CHEST_CHANCE.get();
         enableInvisibilityCloakChestLoot = ENABLE_INVISIBILITY_CLOAK_CHEST_LOOT.get();

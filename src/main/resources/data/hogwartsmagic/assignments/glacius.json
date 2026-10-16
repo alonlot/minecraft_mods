@@ -1,0 +1,19 @@
+{
+  "teacher": "flitwick",
+  "objectives": [
+    {
+      "type": "break",
+      "target": [
+        "minecraft:ice",
+        "minecraft:packed_ice",
+        "minecraft:blue_ice"
+      ],
+      "count": 24
+    },
+    {
+      "type": "deliver",
+      "target": "minecraft:snowball",
+      "count": 16
+    }
+  ]
+}

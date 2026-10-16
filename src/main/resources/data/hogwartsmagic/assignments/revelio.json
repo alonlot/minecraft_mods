@@ -1,0 +1,21 @@
+{
+  "teacher": "moody",
+  "objectives": [
+    {
+      "type": "loot_chest",
+      "target": [
+        "minecraft:chests/buried_treasure",
+        "minecraft:chests/simple_dungeon"
+      ],
+      "count": 1
+    },
+    {
+      "type": "break",
+      "target": [
+        "minecraft:diamond_ore",
+        "minecraft:deepslate_diamond_ore"
+      ],
+      "count": 1
+    }
+  ]
+}

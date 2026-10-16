@@ -765,6 +765,9 @@ public class ExampleMod
     // Magic Book Item
     public static final RegistryObject<Item> MAGIC_BOOK = ITEMS.register("magic_book",
             () -> new com.hogwartsmagic.item.MagicBookItem(new Item.Properties().stacksTo(1)));
+    // Hogwarts Assignments: a task that turns into its spell's book (see AssignmentItem)
+    public static final RegistryObject<Item> ASSIGNMENT = ITEMS.register("assignment",
+            () -> new com.hogwartsmagic.item.AssignmentItem(new Item.Properties().stacksTo(1)));
 
     // Tomes of Mastery: loot-only, one rank per tome, tier-gated (see TomeOfMasteryItem)
     public static final RegistryObject<Item> COMMON_TOME_OF_MASTERY = ITEMS.register("common_tome_of_mastery",
@@ -1033,6 +1036,9 @@ public class ExampleMod
                 // Add books for all spells
                 for (com.hogwartsmagic.spell.SpellType spell : com.hogwartsmagic.spell.SpellType.values()) {
                     output.accept(com.hogwartsmagic.item.MagicBookItem.createBook(spell));
+                }
+                for (com.hogwartsmagic.spell.SpellType spell : com.hogwartsmagic.spell.SpellType.values()) {
+                    output.accept(com.hogwartsmagic.item.AssignmentItem.create(spell));
                 }
             }).build());
 

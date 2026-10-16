@@ -1,0 +1,16 @@
+{
+  "teacher": "moody",
+  "objectives": [
+    {
+      "type": "know_spell",
+      "target": "incendio",
+      "count": 1
+    },
+    {
+      "type": "kill",
+      "target": "monster",
+      "count": 10,
+      "cause": "fire"
+    }
+  ]
+}

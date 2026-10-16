@@ -2,7 +2,6 @@ package com.hogwartsmagic.loot;
 
 import com.hogwartsmagic.Config;
 import com.hogwartsmagic.ExampleMod;
-import com.hogwartsmagic.item.MagicBookItem;
 import com.hogwartsmagic.spell.SpellType;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
@@ -45,13 +44,18 @@ public class MagicBookLootModifier extends LootModifier {
         if (tableId == null || !tableId.getPath().startsWith("chests/")) {
             return generatedLoot;
         }
+        // Every chest opened by a player counts for "open a chest" assignment lines, book or not.
+        if (context.getParamOrNull(net.minecraft.world.level.storage.loot.parameters.LootContextParams.THIS_ENTITY)
+                instanceof net.minecraft.server.level.ServerPlayer opener) {
+            com.hogwartsmagic.assignment.AssignmentEvents.onChestLoot(opener, tableId);
+        }
         boolean guaranteed = MagicBookChestLoot.isGuaranteedSpellBookChest(tableId);
         if (!guaranteed && context.getRandom().nextDouble() >= Config.spellBookChestChance) {
             return generatedLoot;
         }
         SpellType[] pool = MagicBookChestLoot.spellPoolFor(tableId);
         SpellType spell = MagicBookChestLoot.pickWeightedSpell(pool, context.getRandom());
-        generatedLoot.add(MagicBookItem.createBook(spell));
+        generatedLoot.add(com.hogwartsmagic.assignment.AssignmentLoot.bookOrAssignment(spell, context.getRandom()));
         tryAddFoundOnlyRelic(generatedLoot, context, tableId);
         return generatedLoot;
     }

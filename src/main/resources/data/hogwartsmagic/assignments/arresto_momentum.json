@@ -1,0 +1,15 @@
+{
+  "teacher": "hooch",
+  "objectives": [
+    {
+      "type": "place",
+      "target": "minecraft:hay_block",
+      "count": 4
+    },
+    {
+      "type": "fall",
+      "count": 3,
+      "min": 25
+    }
+  ]
+}

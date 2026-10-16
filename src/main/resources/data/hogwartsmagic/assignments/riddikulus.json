@@ -1,0 +1,15 @@
+{
+  "teacher": "lupin",
+  "objectives": [
+    {
+      "type": "hurt_by",
+      "target": "hogwartsmagic:boggart",
+      "count": 1
+    },
+    {
+      "type": "deliver",
+      "target": "minecraft:carved_pumpkin",
+      "count": 3
+    }
+  ]
+}

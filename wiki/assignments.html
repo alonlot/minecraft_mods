@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Assignments - Harry Potter Mod Wiki</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="theme-assignments">
+  <div class="shell">
+    <header class="hero">
+      <div class="hero-inner">
+        <div class="hero-copy">
+          <div class="crest">Hogwarts Assignments</div>
+          <div class="hero-kicker">Earn the spell, or find the book</div>
+          <h1>Homework that ends in a spellbook.</h1>
+          <p>Some chests hold a sealed scroll in place of a spellbook. Finish the task written on it and the scroll turns into the book it promised. The harder the spell, the longer the task.</p>
+        </div>
+        <aside class="hero-card chest-split" aria-label="What a chest gives when it rolls a spell">
+          <span class="eyebrow">When a chest rolls a spell</span>
+          <div class="split-bar" id="split-bar">
+            <span class="split-task"></span>
+            <span class="split-book"></span>
+          </div>
+          <div class="split-legend">
+            <div><strong id="split-task-value">60%</strong><span>that spell's assignment</span></div>
+            <div><strong id="split-book-value">40%</strong><span>that spell's book</span></div>
+          </div>
+          <p class="split-note">Same chests, same spell, same rarity. Only the form changes. Server owners can change the split with the <code>assignmentShareOfBooks</code> config value.</p>
+          <div class="seal-row" id="seal-row"></div>
+        </aside>
+      </div>
+    </header>
+    <main class="main">
+      <div class="layout">
+        <aside class="sidebar">
+          <h2>Navigate</h2>
+          <ul class="nav-list">
+            <li><a class="nav-link" data-nav href="index.html">Overview</a></li>
+            <li><a class="nav-link" data-nav href="systems.html">Systems</a></li>
+            <li><a class="nav-link" data-nav href="spells.html">Spells</a></li>
+            <li><a class="nav-link" data-nav href="assignments.html">Assignments</a></li>
+            <li><a class="nav-link" data-nav href="mobs.html">Mobs</a></li>
+            <li><a class="nav-link" data-nav href="blocks.html">Blocks</a></li>
+            <li><a class="nav-link" data-nav href="items.html">Items and Potions</a></li>
+            <li><a class="nav-link" data-nav href="recipes.html">Recipes</a></li>
+          </ul>
+          <div class="search-box">
+            <input class="search-input" id="assignment-search" data-search-input type="search" placeholder="Search spells, teachers, tasks">
+          </div>
+          <div id="assignment-rarity-filters"></div>
+          <div id="assignment-source-filters"></div>
+          <div class="sidebar-note">
+            Dark spells are never set by a Hogwarts teacher. They come as Dark Orders, written on black parchment.
+          </div>
+        </aside>
+
+        <div class="content">
+          <section class="page-head">
+            <span class="eyebrow">How it works</span>
+            <h2>From scroll to spellbook</h2>
+            <ol class="step-list">
+              <li><strong>Find it.</strong> Open a chest. Where a spellbook could be, a scroll can be instead.</li>
+              <li><strong>Accept it.</strong> Right-click the scroll. It is now bound to you, and nobody else can use it.</li>
+              <li><strong>Do the task.</strong> Right-click again to read the parchment. The action bar shows each step as you make progress.</li>
+              <li><strong>Claim the book.</strong> When chat says it is complete, right-click the scroll. It turns into the spellbook. Items the task asks you to bring are taken at that moment.</li>
+            </ol>
+            <div class="badge-row">
+              <span class="badge">At most 3 in progress</span>
+              <span class="badge">Not for spells you already know</span>
+              <span class="badge">Progress survives death</span>
+              <span class="badge">Sneak-right-click twice to give up (the scroll is destroyed)</span>
+            </div>
+          </section>
+
+          <section class="content-section">
+            <span class="eyebrow">Task size by rarity</span>
+            <div class="rarity-scale" id="rarity-scale"></div>
+            <p>No task needs the spell it teaches. Some tasks need another spell first, for example Stupefy needs Expelliarmus, and that spell is never rarer than the one it unlocks.</p>
+          </section>
+
+          <section class="topic-page">
+            <div class="assignment-list" id="assignment-list"></div>
+            <div class="empty-state" id="assignment-empty" hidden>No assignments match the current search and filters.</div>
+          </section>
+        </div>
+      </div>
+    </main>
+    <footer class="footer">Generated from the mod's assignment data files by build_scripts/generate_assignments.py.</footer>
+  </div>
+  <script src="data.js"></script>
+  <script src="assignments-data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

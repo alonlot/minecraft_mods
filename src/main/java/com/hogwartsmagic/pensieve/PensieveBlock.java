@@ -4,6 +4,8 @@ import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundSource;
+import com.hogwartsmagic.ModSounds;
 import net.minecraft.world.Containers;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -19,13 +21,19 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.Nullable;
 
 /** The Pensieve basin. Pour a memory in, lift it out, dive into it. All use logic runs on the server. */
 public class PensieveBlock extends BaseEntityBlock {
     public static final MapCodec<PensieveBlock> CODEC = simpleCodec(PensieveBlock::new);
-    private static final VoxelShape SHAPE = Block.box(1, 0, 1, 15, 12, 15);
+    // Matches models/block/pensieve.json: foot, stem, collar and the basin bowl.
+    private static final VoxelShape SHAPE = Shapes.or(
+            Block.box(3, 0, 3, 13, 2, 13),
+            Block.box(5, 2, 5, 11, 6, 11),
+            Block.box(3, 6, 3, 13, 8, 13),
+            Block.box(2, 8, 2, 14, 12, 14));
 
     public PensieveBlock(Properties properties) {
         super(properties);
@@ -63,6 +71,7 @@ public class PensieveBlock extends BaseEntityBlock {
         }
         if (level.getBlockEntity(pos) instanceof PensieveBlockEntity basin && basin.memory().isEmpty()) {
             basin.pour(stack, player.getUUID());
+            level.playSound(null, pos, ModSounds.PENSIEVE_POUR.get(), SoundSource.BLOCKS, 0.8f, 1.0f);
             if (!player.hasInfiniteMaterials()) {
                 stack.shrink(1);
             }
@@ -79,7 +88,8 @@ public class PensieveBlock extends BaseEntityBlock {
             return InteractionResult.SUCCESS;
         }
         if (!(level.getBlockEntity(pos) instanceof PensieveBlockEntity basin) || basin.memory().isEmpty()) {
-            return InteractionResult.PASS;
+            player.displayClientMessage(Component.translatable("message.hogwartsmagic.pensieve.empty"), true);
+            return InteractionResult.CONSUME;
         }
         if (player.isShiftKeyDown()) {
             boolean op = player instanceof ServerPlayer sp && sp.hasPermissions(2);

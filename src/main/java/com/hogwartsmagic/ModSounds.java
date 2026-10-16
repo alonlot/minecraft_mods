@@ -293,6 +293,14 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> HORCRUX_BREAK = register("horcrux.break");
     public static final RegistryObject<SoundEvent> HORCRUX_SCREAM = register("horcrux.scream");
 
+    public static final RegistryObject<SoundEvent> PENSIEVE_SWALLOW = register("pensieve.swallow");
+    public static final RegistryObject<SoundEvent> PENSIEVE_FALL = register("pensieve.fall");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOID_HUM = register("pensieve.void_hum");
+    public static final RegistryObject<SoundEvent> PENSIEVE_RISE = register("pensieve.rise");
+    public static final RegistryObject<SoundEvent> PENSIEVE_GASP = register("pensieve.gasp");
+    public static final RegistryObject<SoundEvent> PENSIEVE_DISTANT_THUD = register("pensieve.distant_thud");
+    public static final RegistryObject<SoundEvent> PENSIEVE_POUR = register("pensieve.pour");
+
     private static RegistryObject<SoundEvent> register(String name) {
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, name);
         return SOUND_EVENTS.register(name, () -> SoundEvent.createVariableRangeEvent(id));

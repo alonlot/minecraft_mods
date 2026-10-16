@@ -1960,5 +1960,68 @@
         "pitch": 0.7
       }
     ]
+  },
+  "pensieve.swallow": {
+    "subtitle": "subtitles.hogwartsmagic.pensieve.swallow",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/swallow",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.fall": {
+    "subtitle": "subtitles.hogwartsmagic.pensieve.fall",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/fall",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.void_hum": {
+    "subtitle": "subtitles.hogwartsmagic.pensieve.void_hum",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/void_hum",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.rise": {
+    "subtitle": "subtitles.hogwartsmagic.pensieve.rise",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/rise",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.gasp": {
+    "subtitle": "subtitles.hogwartsmagic.pensieve.gasp",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/gasp",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.distant_thud": {
+    "subtitle": "subtitles.hogwartsmagic.pensieve.distant_thud",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/distant_thud",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.pour": {
+    "subtitle": "subtitles.hogwartsmagic.pensieve.pour",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/pour",
+        "stream": false
+      }
+    ]
   }
 }

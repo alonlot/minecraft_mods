@@ -19,6 +19,9 @@ public class PensieveBlockEntity extends BlockEntity {
     private ItemStack memory = ItemStack.EMPTY;
     @Nullable private UUID pourer;
     private boolean publicBasin;
+    /** True while a session is playing at this basin. Synced to clients for the glow; deliberately not written to
+     *  disk, so a crash can never leave a basin lit with nobody inside. */
+    private boolean playing;
 
     public PensieveBlockEntity(BlockPos pos, BlockState state) {
         super(ExampleMod.PENSIEVE_BLOCK_ENTITY.get(), pos, state);
@@ -35,6 +38,18 @@ public class PensieveBlockEntity extends BlockEntity {
 
     public boolean publicBasin() {
         return publicBasin;
+    }
+
+    public boolean playing() {
+        return playing;
+    }
+
+    /** Server side: a session started or stopped playing at this basin. */
+    public void setPlaying(boolean playing) {
+        if (this.playing != playing) {
+            this.playing = playing;
+            sync();
+        }
     }
 
     public void setPublicBasin(boolean publicBasin) {
@@ -82,11 +97,13 @@ public class PensieveBlockEntity extends BlockEntity {
                 : ItemStack.EMPTY;
         pourer = tag.hasUUID("Pourer") ? tag.getUUID("Pourer") : null;
         publicBasin = tag.getBoolean("Public");
+        playing = tag.getBoolean("Playing");
     }
 
     @Override
     public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
         CompoundTag tag = super.getUpdateTag(registries);
+        tag.putBoolean("Playing", playing);
         if (!memory.isEmpty()) {
             tag.put("Memory", memory.save(registries));
         }

@@ -1,18 +1,18 @@
 package com.hogwartsmagic.client.pensieve;
 
+import com.hogwartsmagic.ModSounds;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.sounds.AbstractTickableSoundInstance;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.client.resources.sounds.SoundInstance;
 import net.minecraft.sounds.SoundEvent;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.RandomSource;
 
 /**
  * The dive's sounds, by their final names ({@code pensieve.swallow}, {@code fall}, {@code void_hum}, {@code rise},
- * {@code gasp}, {@code distant_thud}). Until the mod ships its own (Task 12) each name maps to a fitting vanilla
- * sound in {@link #event}: swap that one method and every caller follows.
+ * {@code gasp}, {@code distant_thud}). Each name maps to its {@link ModSounds}
+ * event in {@link #event}.
  */
 public final class PensieveSounds {
     private static Loop fall;
@@ -21,33 +21,25 @@ public final class PensieveSounds {
     private PensieveSounds() {
     }
 
-    /** Placeholder mapping; Task 12 points these at ModSounds. Pitch is the vanilla stand-in's own tweak. */
     static SoundEvent event(String name) {
-        if ("swallow".equals(name)) return SoundEvents.AMBIENT_UNDERWATER_ENTER;
-        if ("fall".equals(name)) return SoundEvents.ELYTRA_FLYING;
-        if ("void_hum".equals(name)) return SoundEvents.AMBIENT_UNDERWATER_LOOP;
-        if ("rise".equals(name)) return SoundEvents.AMBIENT_UNDERWATER_EXIT;
-        if ("gasp".equals(name)) return SoundEvents.PLAYER_HURT_DROWN;
-        if ("distant_thud".equals(name)) return SoundEvents.ZOMBIE_ATTACK_WOODEN_DOOR;
-        return SoundEvents.AMBIENT_UNDERWATER_ENTER;
-    }
-
-    static float pitch(String name) {
-        if ("distant_thud".equals(name)) return 0.5f; // low and far away
-        if ("fall".equals(name)) return 0.7f;
-        if ("void_hum".equals(name)) return 0.6f;
-        return 1.0f;
+        if ("swallow".equals(name)) return ModSounds.PENSIEVE_SWALLOW.get();
+        if ("fall".equals(name)) return ModSounds.PENSIEVE_FALL.get();
+        if ("void_hum".equals(name)) return ModSounds.PENSIEVE_VOID_HUM.get();
+        if ("rise".equals(name)) return ModSounds.PENSIEVE_RISE.get();
+        if ("gasp".equals(name)) return ModSounds.PENSIEVE_GASP.get();
+        if ("distant_thud".equals(name)) return ModSounds.PENSIEVE_DISTANT_THUD.get();
+        return ModSounds.PENSIEVE_SWALLOW.get();
     }
 
     /** One-shot, not positioned: the dive happens inside the viewer's head. */
     public static void play(String name, float volume, float pitch) {
         Minecraft.getInstance().getSoundManager().play(
-                SimpleSoundInstance.forUI(event(name), pitch * pitch(name), volume));
+                SimpleSoundInstance.forUI(event(name), pitch, volume));
     }
 
     public static void startFall() {
         stopFall();
-        fall = new Loop(event("fall"), pitch("fall"), 0.6f);
+        fall = new Loop(event("fall"), 1.0f, 0.6f);
         Minecraft.getInstance().getSoundManager().play(fall);
     }
 
@@ -60,7 +52,7 @@ public final class PensieveSounds {
     public static void hum(boolean on) {
         if (on) {
             if (hum != null && !hum.isStopped() && !hum.fading) return;
-            hum = new Loop(event("void_hum"), pitch("void_hum"), 0.5f);
+            hum = new Loop(event("void_hum"), 1.0f, 0.5f);
             Minecraft.getInstance().getSoundManager().play(hum);
         } else if (hum != null) {
             hum.fadeOut();

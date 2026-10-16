@@ -259,6 +259,7 @@ public final class PensieveSessions {
         // scene's time of day itself from the scene JSON.
         memory.setDayTime(scene.def().set().timeOfDay());
         SESSIONS.add(s);
+        setPlaying(s, true);
         return s;
     }
 
@@ -447,6 +448,7 @@ public final class PensieveSessions {
         Session s = sessionAt(level.dimension(), basin);
         if (s == null) return;
         s.phase = Session.Phase.CLOSING;
+        setPlaying(s, false);
         for (Session.Viewer v : s.viewers().values()) {
             ServerPlayer p = level.getServer().getPlayerList().getPlayer(v.id());
             if (p != null) beginExit(p, v, ExitReason.ABORT);
@@ -620,6 +622,17 @@ public final class PensieveSessions {
         if (s.viewers().isEmpty()) finish(s);
     }
 
+    /** Lights or darkens the basin this session plays at (previews have none). The BE syncs the flag to clients. */
+    private static void setPlaying(Session s, boolean playing) {
+        BlockPos pos = s.basinPos();
+        ResourceKey<Level> dim = s.basinDim();
+        if (pos == null || dim == null || s.level == null || s.level.getServer() == null) return;
+        ServerLevel where = s.level.getServer().getLevel(dim);
+        if (where != null && where.isLoaded(pos) && where.getBlockEntity(pos) instanceof PensieveBlockEntity basin) {
+            basin.setPlaying(playing);
+        }
+    }
+
     private static void dropViewer(Session s, Session.Viewer v) {
         s.viewers().remove(v.id());
         BY_VIEWER.remove(v.id(), s);
@@ -629,6 +642,7 @@ public final class PensieveSessions {
     private static void finish(Session s) {
         SESSIONS.remove(s);
         s.phase = Session.Phase.CLOSING;
+        setPlaying(s, false);
         List<BlockPos> placed = new ArrayList<>();
         if (s.builder != null) {
             s.builder.release();

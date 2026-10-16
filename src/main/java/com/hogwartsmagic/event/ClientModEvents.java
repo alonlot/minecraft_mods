@@ -1026,6 +1026,8 @@ public class ClientModEvents {
         event.registerBlockEntityRenderer(ExampleMod.DIAGON_ARCHWAY_BLOCK_ENTITY.get(),
                 com.hogwartsmagic.client.DiagonArchwayRenderer::new);
         event.registerBlockEntityRenderer(ExampleMod.WAND_WORKBENCH_BLOCK_ENTITY.get(), WandWorkbenchRenderer::new);
+        event.registerBlockEntityRenderer(ExampleMod.PENSIEVE_BLOCK_ENTITY.get(),
+                com.hogwartsmagic.client.pensieve.PensieveBasinRenderer::new);
         event.registerBlockEntityRenderer(ExampleMod.BROOM_WORKBENCH_BLOCK_ENTITY.get(), com.hogwartsmagic.client.BroomWorkbenchRenderer::new);
 
         event.registerEntityRenderer(ModEntities.PENSIEVE_BODY.get(), com.hogwartsmagic.client.pensieve.PensieveBodyRenderer::new);

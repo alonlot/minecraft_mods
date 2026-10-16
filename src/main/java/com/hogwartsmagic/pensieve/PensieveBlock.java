@@ -68,7 +68,8 @@ public class PensieveBlock extends BaseEntityBlock {
             }
             return ItemInteractionResult.CONSUME;
         }
-        return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+        player.displayClientMessage(Component.translatable("message.hogwartsmagic.pensieve.full"), true);
+        return ItemInteractionResult.CONSUME;
     }
 
     @Override

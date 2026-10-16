@@ -49,27 +49,39 @@ public class CaveMemoryItem extends Item implements com.hogwartsmagic.pensieve.P
         if (level.isClientSide || !(entity instanceof ServerPlayer player)) {
             return stack;
         }
-        if (grantCaveMap(player)) {
-            if (!player.hasInfiniteMaterials()) {
-                stack.shrink(1);
-            }
-        } else {
+        Optional<BlockPos> found = findCave(player);
+        if (found.isEmpty()) {
+            player.displayClientMessage(Component.literal("The memory is too faint..."), true);
             player.getCooldowns().addCooldown(this, COOLDOWN_TICKS);
+            return stack;
         }
+        if (!player.hasInfiniteMaterials()) {
+            stack.shrink(1); // before the map is added, so a full inventory still has the emptied slot
+        }
+        giveCaveMap(player, found.get());
         return stack;
     }
 
-    /** The drink: shows the vision and hands over the Cave Map. False when no unlooted cave is found. */
-    public static boolean grantCaveMap(ServerPlayer player) {
+    private static Optional<BlockPos> findCave(ServerPlayer player) {
         ServerLevel server = player.serverLevel();
-        Optional<BlockPos> found = server.dimension() == Level.OVERWORLD
+        return server.dimension() == Level.OVERWORLD
                 ? LocketCaves.findNearestUnlootedCave(server, player.blockPosition())
                 : Optional.empty();
+    }
+
+    /** One-call entry point: shows the vision and hands over the Cave Map. False when no unlooted cave is found. */
+    public static boolean grantCaveMap(ServerPlayer player) {
+        Optional<BlockPos> found = findCave(player);
         if (found.isEmpty()) {
             player.displayClientMessage(Component.literal("The memory is too faint..."), true);
             return false;
         }
-        BlockPos pos = found.get();
+        giveCaveMap(player, found.get());
+        return true;
+    }
+
+    private static void giveCaveMap(ServerPlayer player, BlockPos pos) {
+        ServerLevel server = player.serverLevel();
         player.addEffect(new MobEffectInstance(MobEffects.CONFUSION, DespairRules.VISION_TICKS, 0));
         player.addEffect(new MobEffectInstance(MobEffects.DARKNESS, 60, 0));
         for (String line : VISION) {
@@ -82,7 +94,6 @@ public class CaveMemoryItem extends Item implements com.hogwartsmagic.pensieve.P
         if (!player.getInventory().add(map)) {
             player.drop(map, false);
         }
-        return true;
     }
 
     @Override

@@ -971,6 +971,7 @@
   "item.hogwartsmagic.chamber_memory": "Memory of the Chamber",
   "item.hogwartsmagic.summoning_memory": "Memory of the Summoning",
   "block.hogwartsmagic.pensieve": "Pensieve",
+  "message.hogwartsmagic.pensieve.full": "This Pensieve already holds a memory.",
   "message.hogwartsmagic.pensieve.not_yours": "That memory is not yours to lift out.",
   "item.hogwartsmagic.cave_map": "Cave Map",
   "item.hogwartsmagic.slytherins_locket": "Slytherin's Locket",

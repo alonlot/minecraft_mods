@@ -152,9 +152,9 @@ Common keys: `t`, `kind`, `id`, `at`, `volume`, `pitch`, `count`, `spread`, `dur
 | `block` | block id | `at:[x,y,z]` | the server places that block at `t` (a door slams, a torch lights). Removed with the set |
 | `sound` | sound id (`minecraft:entity.lightning_bolt.thunder`, `hogwartsmagic:...`) | `volume` 1, `pitch` 1, optional `at` (none = heard in your own ears) | plays once at `t` |
 | `particles` | plain particle id (`minecraft:poof`, `minecraft:end_rod`) | `at`, `count` 1 (max 500), `spread:[x,y,z]` box half-size | a burst; parameterised particles (dust, block) cannot be used |
-| `effect` | `summoning_ritual`, `lightning`, `dark_mark` | `at`, `duration` | scripted set-pieces below |
+| `effect` | `summoning_ritual`, `lightning`, `dark_mark`, `grey_edges` | `at`, `duration` | scripted set-pieces below |
 
-Effects: `lightning` - one visual-only bolt with thunder; `summoning_ritual` - the three beam columns, smoke and a bolt every second, default 5 s; `dark_mark` - a Dark Mark that rises 18 blocks and fades, default 5 s. A late joiner skips old events but joins a still-running effect.
+Effects: `lightning` - one visual-only bolt with thunder; `summoning_ritual` - the three beam columns, smoke and a bolt every second, default 5 s; `dark_mark` - a Dark Mark that rises 18 blocks and fades, default 5 s; `grey_edges` - the Basilisk's stare from inside: the real gaze overlay's grey closes in from the screen edges over 2.5 s (the real charge) and drains over the last 1.2 s of `duration` (default 3 s), so end it where the victim looks away; screen-only, `at` is ignored. A late joiner skips old events but joins a still-running effect.
 
 ### `words[]`
 `{ t, by?, text, narration?, duration? }`. With `by` (an actor id) the line shows as `<name> text` at the bottom left for 8 s; without `by`, plain text. `"narration": true` shows centred silver italic text that fades in and out over `duration` (default 80 ticks). Never written to real chat.

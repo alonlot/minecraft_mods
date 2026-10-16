@@ -19,7 +19,7 @@ public record SceneNames(Set<String> entityTypes, Set<String> spells, Set<String
     /** Event kinds. */
     public static final Set<String> EVENT_KINDS = Set.of("block", "sound", "particles", "effect");
     /** Scripted effects an {@code effect} event may name. */
-    public static final Set<String> EFFECTS = Set.of("summoning_ritual", "lightning", "dark_mark");
+    public static final Set<String> EFFECTS = Set.of("summoning_ritual", "lightning", "dark_mark", "grey_edges");
     /** Things a scene's {@code end_action} may do. */
     public static final Set<String> END_ACTIONS = Set.of("cave_map");
     /** Reusable poses every scene may cue without defining them. */

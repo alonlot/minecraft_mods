@@ -27,6 +27,12 @@ public final class EffectVisuals {
     static final int DEFAULT_RITUAL_TICKS = 100;
     /** A dark mark with no {@code duration} in the scene hangs this long. */
     static final int DEFAULT_MARK_TICKS = 100;
+    /** Grey edges with no {@code duration} in the scene last this long. */
+    static final int DEFAULT_GREY_TICKS = 60;
+    /** The grey closes in over the real gaze's full charge (BasiliskEntity.GAZE_FULL_CHARGE, 2.5 s)... */
+    private static final int GREY_RISE_TICKS = 50;
+    /** ...and drains over the effect's last ticks, as the real charge decays when the victim looks away. */
+    private static final int GREY_FADE_TICKS = 24;
     /** A lightning strike every this many ticks while a ritual runs (the real ritual strikes every 10). */
     private static final int RITUAL_STRIKE_EVERY = 20;
     private static final int MARK_RISE_TICKS = 50;
@@ -58,6 +64,9 @@ public final class EffectVisuals {
         } else if ("dark_mark".equals(effect)) {
             int total = duration > 0 ? duration : DEFAULT_MARK_TICKS;
             if (elapsed < total) darkMark(level, at, total - elapsed);
+        } else if ("grey_edges".equals(effect)) {
+            int total = duration > 0 ? duration : DEFAULT_GREY_TICKS;
+            if (elapsed < total) RUNNING.add(new GreyEdges(elapsed, total));
         } else {
             LOGGER.warn("Pensieve: unknown effect '{}' in a memory", effect);
         }
@@ -95,6 +104,18 @@ public final class EffectVisuals {
         BOLTS.removeIf(LightningBolt::isRemoved);
     }
 
+    /**
+     * How far the {@code grey_edges} effect has closed in right now, 0 (none running) to 1, for
+     * {@code PensieveOverlay}: the strongest of any that are running.
+     */
+    static float greyEdges(float partial) {
+        float most = 0f;
+        for (Running r : RUNNING) {
+            if (r instanceof GreyEdges grey) most = Math.max(most, grey.intensity(partial));
+        }
+        return most;
+    }
+
     /** Stop everything and remove every entity an effect added. */
     static void clear() {
         RUNNING.clear();
@@ -128,6 +149,42 @@ public final class EffectVisuals {
                 lightning(level, centre.add((level.random.nextDouble() - 0.5) * 12.0, 0, (level.random.nextDouble() - 0.5) * 12.0));
             }
             return ++age < total;
+        }
+    }
+
+    /**
+     * {@code grey_edges}: the basilisk's stare seen from inside, drawn by {@code PensieveOverlay} with the real gaze
+     * overlay's look. The charge climbs for the whole effect but its last {@link #GREY_FADE_TICKS}, when it drains
+     * back to nothing: the moment the victim looks away.
+     */
+    private static final class GreyEdges implements Running {
+        private final int total;
+        private int age;
+
+        GreyEdges(int elapsed, int total) {
+            this.age = elapsed;
+            this.total = total;
+        }
+
+        @Override
+        public boolean tick(ClientLevel level) {
+            return ++age < total;
+        }
+
+        /** The charge, 0 to 1, at {@code age + partial}. */
+        float charge(float partial) {
+            float t = Math.min(age + partial, total);
+            int fadeAt = Math.max(0, total - GREY_FADE_TICKS);
+            float peak = Math.min(fadeAt, GREY_RISE_TICKS) / (float) GREY_RISE_TICKS;
+            if (t <= fadeAt) return Math.min(t, GREY_RISE_TICKS) / (float) GREY_RISE_TICKS;
+            return peak * Math.max(0f, 1f - (t - fadeAt) / (float) Math.max(1, total - fadeAt));
+        }
+
+        /** Like the real overlay: a faint grey the moment it starts, deepening with the charge. */
+        float intensity(float partial) {
+            float c = Mth.clamp(charge(partial), 0f, 1f);
+            if (c <= 0f) return 0f;
+            return (0.2f + 0.8f * c) * Math.min(1f, c * 5f);
         }
     }
 

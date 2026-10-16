@@ -1,6 +1,7 @@
 package com.hogwartsmagic.client.pensieve;
 
 import com.hogwartsmagic.ExampleMod;
+import com.hogwartsmagic.client.BasiliskGazeOverlay;
 import com.hogwartsmagic.event.ClientModEvents;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
@@ -55,6 +56,7 @@ public final class PensieveOverlay {
             wisps(g, w, h, clock, k, true);
         } else if (phase == PensieveClientState.BUILD || phase == PensieveClientState.PLAY) {
             fallbackDarkness(g, w, h, partial);
+            greyEdges(g, partial, clock);
             float rt = PensieveClientState.revealTime(partial);
             if (rt < 10) wisps(g, w, h, clock, 1 - rt / 10, true);
             hint(g, w, h, phase, pt, rt);
@@ -127,6 +129,20 @@ public final class PensieveOverlay {
             }
         }
         g.setColor(1, 1, 1, 1);
+        RenderSystem.disableBlend();
+    }
+
+    /** A scene's {@code grey_edges} effect: the basilisk's stare greying the view, as the real gaze overlay does. */
+    private static void greyEdges(GuiGraphics g, float partial, float clock) {
+        float k = EffectVisuals.greyEdges(partial);
+        if (k <= 0) return;
+        // The same slow swell as the real overlay, so the edges breathe.
+        float swell = Mth.sin(clock / 200f * Mth.TWO_PI * (1 + 4 * k)) * 0.025f;
+        float intensity = Mth.clamp(k + swell, 0f, 1f);
+        // The whole view starts to drain from the real tier 2 (intensity 0.6), up to its tier-4 wash of 84.
+        int wash = Math.round(Mth.clamp((k - 0.4f) / 0.6f, 0f, 1f) * 84);
+        RenderSystem.enableBlend();
+        BasiliskGazeOverlay.drawEdges(g, intensity, wash);
         RenderSystem.disableBlend();
     }
 

@@ -42,7 +42,19 @@ public final class BasiliskGazeOverlay {
         // A slow swell, so the edges breathe rather than sit still.
         float time = (player.tickCount % 200) / 200.0F * Mth.TWO_PI;
         intensity = Mth.clamp(intensity + Mth.sin(time * (1.0F + tier)) * 0.025F, 0.0F, 1.0F);
+        // From tier two the colour starts draining out of the whole view.
+        int wash = tier >= 2 ? 28 * (tier - 1) : 0;
+        drawEdges(graphics, intensity, wash);
+    }
 
+    /**
+     * The stone closing in from the edges: {@code intensity} 0 to 1 sets how deep and how opaque, {@code wash} is
+     * the alpha (0 to 255) of a grey laid over the whole view. Shared with the Pensieve's {@code grey_edges} effect.
+     */
+    public static void drawEdges(GuiGraphics graphics, float intensity, int wash) {
+        if (intensity <= 0.0F) {
+            return;
+        }
         int width = graphics.guiWidth();
         int height = graphics.guiHeight();
         int peak = (int) (245 * intensity);
@@ -76,10 +88,8 @@ public final class BasiliskGazeOverlay {
             graphics.fill(0, height - y - stripH, width, height - y, colour);
         }
 
-        // From tier two the colour starts draining out of the whole view.
-        if (tier >= 2) {
-            int wash = (int) (28 * (tier - 1));
-            graphics.fill(0, 0, width, height, (wash << 24) | STONE);
+        if (wash > 0) {
+            graphics.fill(0, 0, width, height, (Mth.clamp(wash, 0, 255) << 24) | STONE);
         }
     }
 }

@@ -135,4 +135,16 @@ class SceneDataTest {
         }
         assertEquals(List.of(), problems);
     }
+
+    @Test
+    void everyListedSkinHasATexture() throws IOException {
+        Path skinList = MEMORIES.resolve("_skins.json");
+        if (!Files.exists(skinList)) return;
+        Path dir = Path.of("src/main/resources/assets/hogwartsmagic/textures/memory_skin");
+        List<String> missing = new ArrayList<>();
+        JsonParser.parseString(read(skinList)).getAsJsonArray().forEach(e -> {
+            if (!Files.exists(dir.resolve(e.getAsString() + ".png"))) missing.add(e.getAsString());
+        });
+        assertEquals(List.of(), missing);
+    }
 }

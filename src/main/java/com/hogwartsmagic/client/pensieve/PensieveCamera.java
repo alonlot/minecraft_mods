@@ -181,8 +181,8 @@ public final class PensieveCamera {
                 p.fov());
     }
 
-    /** Origin-relative eye of a scene actor. Task 9 points this at {@code MemoryActors.actorEye}. */
+    /** Origin-relative eye of a scene actor, or null when there is no such puppet. */
     private static float[] actorEye(String actorId) {
-        return null;
+        return MemoryActors.actorEye(actorId);
     }
 }

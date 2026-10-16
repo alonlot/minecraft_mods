@@ -104,6 +104,7 @@ public final class PensieveClientState {
     public static void onEnter(BlockPos basinPos) {
         Minecraft mc = Minecraft.getInstance();
         PensieveSounds.stopAll();
+        MemoryActors.clear();
         scene = null;
         sceneId = null;
         origin = null;
@@ -159,6 +160,7 @@ public final class PensieveClientState {
         } else if (phase != PLAY) {
             lateJoin = phase != BUILD;
             setPhase(PLAY);
+            MemoryActors.start(scene, origin, Minecraft.getInstance().level);
             if (lateJoin) beginReveal(PensieveTimeline.LATE_FADE_TICKS);
         }
         PensieveSounds.stopFall();
@@ -341,6 +343,7 @@ public final class PensieveClientState {
         lateJoin = false;
         startPending = false;
         leaveSent = false;
+        MemoryActors.clear();
         PensieveSounds.stopAll();
         syncTimeOfDay();
     }

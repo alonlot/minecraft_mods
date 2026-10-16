@@ -26,7 +26,10 @@
     "client.PensieveCameraMixin",
     "client.PensieveGuiMixin",
     "client.PensieveLevelRendererMixin",
-    "client.PensieveGameRendererMixin"
+    "client.PensieveGameRendererMixin",
+    "client.ActorSkinMixin",
+    "client.PlayerModelPartsAccessor",
+    "client.LivingEntityUseAccessor"
   ],
   "injectors": {
     "defaultRequire": 1

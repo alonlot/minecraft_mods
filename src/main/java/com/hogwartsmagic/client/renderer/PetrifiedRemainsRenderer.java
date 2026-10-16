@@ -18,7 +18,7 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 
 public class PetrifiedRemainsRenderer extends EntityRenderer<PetrifiedRemainsEntity> {
-    private static final ResourceLocation STONE_TEXTURE =
+    public static final ResourceLocation STONE_TEXTURE =
             ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "textures/entity/petrified_stone.png");
 
     public PetrifiedRemainsRenderer(EntityRendererProvider.Context context) {
@@ -84,10 +84,10 @@ public class PetrifiedRemainsRenderer extends EntityRenderer<PetrifiedRemainsEnt
         return net.minecraft.client.renderer.texture.MissingTextureAtlasSprite.getLocation();
     }
 
-    private static class StoneBufferSource implements MultiBufferSource {
+    public static class StoneBufferSource implements MultiBufferSource {
         private final MultiBufferSource delegate;
 
-        private StoneBufferSource(MultiBufferSource delegate) {
+        public StoneBufferSource(MultiBufferSource delegate) {
             this.delegate = delegate;
         }
 
@@ -97,10 +97,10 @@ public class PetrifiedRemainsRenderer extends EntityRenderer<PetrifiedRemainsEnt
         }
     }
 
-    private static class OverlayOnlyBufferSource implements MultiBufferSource {
+    public static class OverlayOnlyBufferSource implements MultiBufferSource {
         private final VertexConsumer buffer;
 
-        private OverlayOnlyBufferSource(VertexConsumer buffer) {
+        public OverlayOnlyBufferSource(VertexConsumer buffer) {
             this.buffer = buffer;
         }
 

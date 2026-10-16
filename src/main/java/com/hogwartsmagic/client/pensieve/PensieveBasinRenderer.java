@@ -29,8 +29,18 @@ import org.joml.Matrix4f;
 public class PensieveBasinRenderer implements BlockEntityRenderer<PensieveBlockEntity> {
     private static final ResourceLocation SWIRL = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID,
             "block/pensieve_swirl");
-    /** The disc's half-width in blocks: the opening is 8 wide (x/z 4..12). */
-    private static final float HALF = 0.5f;
+    /**
+     * The quad's half-width in blocks. The opening is 8 wide (x/z 4..12 = 0.5 block) and the spiral's opaque disc is
+     * about 30 of the texture's 32 px, so the quad is a little over half a block and the ring just fills the opening.
+     */
+    private static final float HALF = 0.27f;
+    private static final float[] TINT_EMPTY = {0.80f, 0.88f, 1.0f};
+    private static final float[] TINT_CHAMBER = {0.65f, 1.0f, 0.82f};
+    private static final float[] TINT_SUMMONING = {0.62f, 0.9f, 0.4f};
+    private static final float[] TINT_CAVE = {0.85f, 0.93f, 1.0f};
+    /** Cached per atlas instance: a resource reload re-stitches the atlas and invalidates the sprite. */
+    private static TextureAtlas cachedAtlas;
+    private static TextureAtlasSprite sprite;
     /** Just over the model's liquid plane at y = 10.5/16. */
     private static final float Y = 10.5f / 16f + 0.004f;
     private static final int FULL_BRIGHT = 0xF000F0;
@@ -48,11 +58,18 @@ public class PensieveBasinRenderer implements BlockEntityRenderer<PensieveBlockE
         float alpha = playing ? 1.0f : holding ? 0.8f : 0.34f;
         float t = be.getLevel().getGameTime() + partialTick;
         float pulse = holding ? 0.88f + 0.12f * Mth.sin(t * (playing ? 0.35f : 0.12f)) : 1.0f;
-        float[] tint = holding ? tint(be.memory()) : new float[] {0.80f, 0.88f, 1.0f};
-        int light = FULL_BRIGHT; // the emissive render type ignores the lightmap anyway
+        float[] tint = holding ? tint(be.memory()) : TINT_EMPTY;
+        // A dormant (empty) basin takes the world's light; a memory, or a session, makes it glow.
+        boolean glow = holding || playing;
+        int light = glow ? FULL_BRIGHT : packedLight;
 
-        TextureAtlasSprite sprite = Minecraft.getInstance().getTextureAtlas(TextureAtlas.LOCATION_BLOCKS).apply(SWIRL);
-        VertexConsumer vc = buffer.getBuffer(RenderType.entityTranslucentEmissive(TextureAtlas.LOCATION_BLOCKS));
+        TextureAtlas atlas = Minecraft.getInstance().getModelManager().getAtlas(TextureAtlas.LOCATION_BLOCKS);
+        if (sprite == null || atlas != cachedAtlas) {
+            cachedAtlas = atlas;
+            sprite = atlas.getSprite(SWIRL);
+        }
+        VertexConsumer vc = buffer.getBuffer(glow ? RenderType.entityTranslucentEmissive(TextureAtlas.LOCATION_BLOCKS)
+                : RenderType.entityTranslucent(TextureAtlas.LOCATION_BLOCKS));
 
         disc(pose, vc, sprite, t * speed, Y, alpha * pulse, tint, light, 1.0f);
         disc(pose, vc, sprite, -t * speed * 0.6f + 40f, Y + 0.003f, alpha * pulse * 0.55f, tint, light, 0.78f);
@@ -86,9 +103,9 @@ public class PensieveBasinRenderer implements BlockEntityRenderer<PensieveBlockE
     /** Silver for the cave, a cold green for the chamber, a bruised green for the summoning. */
     private static float[] tint(ItemStack memory) {
         String path = BuiltInRegistries.ITEM.getKey(memory.getItem()).getPath();
-        if (path.startsWith("chamber")) return new float[] {0.65f, 1.0f, 0.82f};
-        if (path.startsWith("summoning")) return new float[] {0.62f, 0.9f, 0.4f};
-        return new float[] {0.85f, 0.93f, 1.0f};
+        if (path.startsWith("chamber")) return TINT_CHAMBER;
+        if (path.startsWith("summoning")) return TINT_SUMMONING;
+        return TINT_CAVE;
     }
 
     @Override

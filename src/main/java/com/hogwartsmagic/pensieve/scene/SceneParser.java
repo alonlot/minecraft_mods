@@ -40,7 +40,8 @@ public final class SceneParser {
             for (int i = 0; i < a.size(); i++) words.add(parseWord(a.get(i), index("words", i)));
         }
         String endAction = str(json, "end_action", "", null);
-        return new SceneDef(id, title, length, radius, set, poses, actors, events, words, CameraTrack.EMPTY, endAction);
+        CameraTrack camera = has(json, "camera") ? CameraTrack.parse(arr(json.get("camera"), "camera"), "camera") : CameraTrack.EMPTY;
+        return new SceneDef(id, title, length, radius, set, poses, actors, events, words, camera, endAction);
     }
 
     private static SceneDef.SetDef emptySet() {

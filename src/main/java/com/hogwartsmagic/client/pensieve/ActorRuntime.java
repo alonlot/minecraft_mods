@@ -33,6 +33,8 @@ public final class ActorRuntime {
     boolean visible = true;
     boolean stone;
     boolean dying;
+    /** Set while a late joiner catches up on a die cue, so its poof is not replayed. */
+    boolean skipPoof;
     int swingTicks = -1;
     /** Scene time the current use_item began, or -1. */
     float useStart = -1;

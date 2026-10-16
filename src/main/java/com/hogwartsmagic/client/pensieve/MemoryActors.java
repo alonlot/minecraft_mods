@@ -87,6 +87,7 @@ public final class MemoryActors {
     /** Build a puppet for every actor of {@code scene}. Called as PLAY begins. */
     public static void start(SceneDef scene, BlockPos at, ClientLevel clientLevel) {
         clear();
+        ActorSkins.clearUsernames();
         if (scene == null || at == null || clientLevel == null) return;
         level = clientLevel;
         origin = at;
@@ -244,10 +245,17 @@ public final class MemoryActors {
         }
         e.tickCount++;
 
+        // Stand on the path before anything fires, so a first-tick effect appears at the actor, not the origin.
+        if (first) {
+            float[] p0 = a.def.path().isEmpty() ? new float[]{0, 0, 0} : a.def.path().sample(t);
+            e.setPos(origin.getX() + (p0.length > 0 ? p0[0] : 0), origin.getY() + (p0.length > 1 ? p0[1] : 0),
+                    origin.getZ() + (p0.length > 2 ? p0[2] : 0));
+        }
+
         // Timed actions whose moment has come.
         while (a.nextAction < a.actions.size() && a.actions.get(a.nextAction).t() <= t) {
             SceneDef.ActionCue cue = a.actions.get(a.nextAction++);
-            fire(a, cue, cue.t() < t - 5);
+            fire(a, cue, cue.t() < t - 5, t);
         }
 
         // Where it stands, and which way it faces.
@@ -333,9 +341,11 @@ public final class MemoryActors {
             if (l.deathTime >= DEATH_TICKS) {
                 a.dying = false;
                 a.visible = false;
-                poof(a);
+                if (!a.skipPoof) poof(a);
             }
         }
+
+        a.skipPoof = false;
 
         // use_item: the arm stays raised for USE_TICKS.
         if (a.useStart >= 0) {
@@ -363,7 +373,8 @@ public final class MemoryActors {
     }
 
     /** {@code silent}: the cue is old news (a late joiner): set state, skip the one-shot effects. */
-    private static void fire(ActorRuntime a, SceneDef.ActionCue cue, boolean silent) {
+    private static void fire(ActorRuntime a, SceneDef.ActionCue cue, boolean silent, float now) {
+        float age = now - cue.t();
         Entity e = a.entity;
         LivingEntity l = a.living;
         String act = cue.action();
@@ -384,11 +395,21 @@ public final class MemoryActors {
             }
         } else if ("die".equals(act)) {
             if (l != null) {
-                a.dying = true;
-                a.visible = true;
-                l.deathTime = silent ? DEATH_TICKS - 1 : 0;
                 l.hurtDuration = HURT_TICKS;
-                l.hurtTime = silent ? 0 : HURT_TICKS;
+                if (silent && age >= DEATH_TICKS) {
+                    // Long over: the end state, with no tilt and no poof replayed for a late joiner.
+                    a.dying = false;
+                    a.visible = false;
+                    l.deathTime = DEATH_TICKS;
+                    l.hurtTime = 0;
+                } else {
+                    a.dying = true;
+                    a.visible = true;
+                    l.deathTime = silent ? (int) age : 0;
+                    l.hurtTime = silent ? 0 : HURT_TICKS;
+                    // Catching up must not land the poof on this very step.
+                    a.skipPoof = silent;
+                }
             }
         } else if ("vanish".equals(act)) {
             a.visible = false;
@@ -408,7 +429,7 @@ public final class MemoryActors {
         } else if ("hold".equals(act)) {
             if (l != null) l.setItemSlot(EquipmentSlot.MAINHAND, stack(cue.item()));
         } else if ("use_item".equals(act)) {
-            if (l != null && !silent) {
+            if (l != null && (!silent || age < USE_TICKS)) {
                 if (cue.item() != null) l.setItemSlot(EquipmentSlot.MAINHAND, stack(cue.item()));
                 l.startUsingItem(InteractionHand.MAIN_HAND);
                 ((LivingEntityUseAccessor) l).hogwartsmagic$setFlag(1, true);
@@ -469,7 +490,8 @@ public final class MemoryActors {
                 if (a.stone) {
                     EntityRenderer<Entity> renderer = (EntityRenderer<Entity>) dispatcher.getRenderer(e);
                     poseStack.pushPose();
-                    poseStack.translate(x - cam.x, y - cam.y, z - cam.z);
+                    Vec3 off = renderer.getRenderOffset(e, partial);
+                    poseStack.translate(x - cam.x + off.x, y - cam.y + off.y, z - cam.z + off.z);
                     renderer.render(e, yaw, partial, poseStack,
                             new PetrifiedRemainsRenderer.StoneBufferSource(buffer), light);
                     if (a.living != null) {

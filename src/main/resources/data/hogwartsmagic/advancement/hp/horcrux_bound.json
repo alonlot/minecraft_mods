@@ -1,0 +1,24 @@
+{
+  "parent": "hogwartsmagic:hp/dark_wizard_down",
+  "display": {
+    "icon": {
+      "id": "hogwartsmagic:horcrux",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancement.hogwartsmagic.horcrux_bound.title"
+    },
+    "description": {
+      "translate": "advancement.hogwartsmagic.horcrux_bound.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "criteria": {
+    "bound_horcrux": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

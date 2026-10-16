@@ -93,6 +93,9 @@ public class WillowSaplingBlock extends BushBlock implements BonemealableBlock {
             return InteractionResult.CONSUME;
         }
         grow((ServerLevel) level, pos, level.getRandom(), player.getUUID());
+        if (player instanceof net.minecraft.server.level.ServerPlayer raiser) {
+            com.hogwartsmagic.util.ModAdvancements.award(raiser, "willow_raised");
+        }
         return InteractionResult.CONSUME;
     }
 

@@ -83,6 +83,21 @@ public class VoldemortEntity extends WizardEntity {
     }
 
     @Override
+    protected net.minecraft.sounds.SoundEvent getAmbientSound() {
+        return com.hogwartsmagic.ModSounds.VOLDEMORT_AMBIENT.get();
+    }
+
+    @Override
+    protected net.minecraft.sounds.SoundEvent getHurtSound(net.minecraft.world.damagesource.DamageSource source) {
+        return com.hogwartsmagic.ModSounds.VOLDEMORT_HURT.get();
+    }
+
+    @Override
+    protected net.minecraft.sounds.SoundEvent getDeathSound() {
+        return com.hogwartsmagic.ModSounds.VOLDEMORT_DEATH.get();
+    }
+
+    @Override
     protected void registerGoals() {
         this.goalSelector.addGoal(0, new FloatGoal(this));
         this.goalSelector.addGoal(1, new VoldemortSpellGoal(this));

@@ -1,0 +1,24 @@
+{
+  "parent": "hogwartsmagic:hp/cart_ride",
+  "display": {
+    "icon": {
+      "id": "minecraft:water_bucket",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancement.hogwartsmagic.thiefs_downfall.title"
+    },
+    "description": {
+      "translate": "advancement.hogwartsmagic.thiefs_downfall.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "washed": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

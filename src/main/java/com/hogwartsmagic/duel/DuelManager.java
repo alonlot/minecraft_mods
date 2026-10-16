@@ -259,6 +259,7 @@ public final class DuelManager {
         player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
                 SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.6f, 1.2f);
 
+        com.hogwartsmagic.util.ModAdvancements.award(player, "duel_victor");
         boolean vsWizard = npc instanceof WizardEntity;
         player.giveExperiencePoints(vsWizard ? 75 : 25);
         maybeDropBookReward(npc, vsWizard);

@@ -144,6 +144,21 @@ public class StudentEntity extends AbstractIllager implements DisarmableWandUser
     }
 
     @Override
+    protected net.minecraft.sounds.SoundEvent getAmbientSound() {
+        return com.hogwartsmagic.ModSounds.STUDENT_AMBIENT.get();
+    }
+
+    @Override
+    protected net.minecraft.sounds.SoundEvent getHurtSound(net.minecraft.world.damagesource.DamageSource source) {
+        return com.hogwartsmagic.ModSounds.STUDENT_HURT.get();
+    }
+
+    @Override
+    protected net.minecraft.sounds.SoundEvent getDeathSound() {
+        return com.hogwartsmagic.ModSounds.STUDENT_DEATH.get();
+    }
+
+    @Override
     protected void registerGoals() {
         this.goalSelector.addGoal(0, new FloatGoal(this));
         // Retrieving a dropped wand outranks everything else — a disarmed student's only objective.

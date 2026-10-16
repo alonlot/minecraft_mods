@@ -82,6 +82,9 @@ public class HorcruxBlockEntity extends BlockEntity {
         }
         active = true;
         primed = false;
+        if (player instanceof net.minecraft.server.level.ServerPlayer binder) {
+            com.hogwartsmagic.util.ModAdvancements.award(binder, "horcrux_bound");
+        }
         flareTicks = 120;
         setChanged();
         syncToClients();

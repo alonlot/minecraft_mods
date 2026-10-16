@@ -5,19 +5,55 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
 
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 
+/**
+ * The Field Guide.
+ *
+ * <p>All of its text lives in the lang file, under {@code guide.hogwartsmagic.<section>.<page>}: the
+ * page's heading is {@code .title} and its paragraphs are {@code .1}, {@code .2} and so on. This
+ * class only knows how many paragraphs each page has, which is what lets a translation reword a
+ * paragraph freely but not quietly lose one.
+ *
+ * <h2>Pages are measured, not assumed</h2>
+ *
+ * <p>The guide used to draw each page's paragraphs in one run from the top, and the longer ones
+ * (the merpeople, the Willow) ran straight off the bottom of the sheet. A page here is a
+ * <em>topic</em>, and the sheets actually shown are cut from it when the screen opens: each
+ * paragraph is wrapped to the real text width with the real font, and a topic that does not fit
+ * carries on to a following sheet headed "(continued)". Cutting it at open rather than at write time
+ * is the only way the answer stays right under another language, another font or a different GUI
+ * scale.
+ *
+ * <p>Paragraphs are kept whole where they can be. A paragraph moves to the next sheet rather than
+ * being split across two, unless it is longer than a sheet by itself, in which case it has to be
+ * split somewhere.
+ */
 public class HogwartsGuideScreen extends Screen {
     private static final int PAGE_WIDTH = 420;
     private static final int PAGE_HEIGHT = 248;
+
+    /** Where the text starts, below the section title, and the heading line that opens every sheet. */
+    private static final int TEXT_TOP = 52;
+    private static final int HEADING_HEIGHT = 16;
+    /** The text stops this far above the bottom edge, clear of the page buttons and the page count. */
+    private static final int TEXT_BOTTOM_MARGIN = 32;
+    private static final int PARAGRAPH_GAP = 5;
+    private static final int TAB_HEIGHT = 20;
+    private static final int TAB_PITCH = 22;
 
     private Section currentSection = Section.WELCOME;
     private int currentPage;
     private int left;
     private int top;
+    /** Every section's sheets, cut once per open so a page flip costs nothing. */
+    private final Map<Section, List<Sheet>> sheets = new EnumMap<>(Section.class);
 
     public HogwartsGuideScreen() {
         super(Component.translatable("gui.hogwartsmagic.hogwarts_guide"));
@@ -28,6 +64,10 @@ public class HogwartsGuideScreen extends Screen {
         super.init();
         this.left = (this.width - PAGE_WIDTH) / 2;
         this.top = (this.height - PAGE_HEIGHT) / 2;
+        this.sheets.clear();
+        for (Section section : Section.values()) {
+            this.sheets.put(section, layOut(section));
+        }
         rebuildButtons();
     }
 
@@ -42,25 +82,35 @@ public class HogwartsGuideScreen extends Screen {
                 this.currentSection = target;
                 this.currentPage = 0;
                 rebuildButtons();
-            }).bounds(tabX, tabY, 112, 20).build());
-            tabY += 24;
+            }).bounds(tabX, tabY, 112, TAB_HEIGHT).build());
+            tabY += TAB_PITCH;
         }
 
-        this.addRenderableWidget(Button.builder(Component.translatable("gui.hogwartsmagic.previous"), button -> {
-            if (this.currentPage > 0) {
-                this.currentPage--;
-            }
-        }).bounds(this.left + 18, this.top + PAGE_HEIGHT - 28, 70, 20).build());
+        this.addRenderableWidget(Button.builder(Component.translatable("gui.hogwartsmagic.previous"), button -> turn(-1))
+                .bounds(this.left + 18, this.top + PAGE_HEIGHT - 28, 70, 20).build());
 
-        this.addRenderableWidget(Button.builder(Component.translatable("gui.hogwartsmagic.next"), button -> {
-            if (this.currentPage < this.currentSection.pages().size() - 1) {
-                this.currentPage++;
-            }
-        }).bounds(this.left + PAGE_WIDTH - 88, this.top + PAGE_HEIGHT - 28, 70, 20).build());
+        this.addRenderableWidget(Button.builder(Component.translatable("gui.hogwartsmagic.next"), button -> turn(1))
+                .bounds(this.left + PAGE_WIDTH - 88, this.top + PAGE_HEIGHT - 28, 70, 20).build());
 
         this.addRenderableWidget(Button.builder(Component.translatable("gui.hogwartsmagic.close"), button -> onClose())
                 .bounds(this.left + PAGE_WIDTH - 88, this.top + 12, 70, 20)
                 .build());
+    }
+
+    private void turn(int by) {
+        int last = this.sheets.get(this.currentSection).size() - 1;
+        this.currentPage = Mth.clamp(this.currentPage + by, 0, Math.max(0, last));
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        // The wheel turns pages, which is the natural thing to reach for now that a section can run
+        // to a dozen of them.
+        if (scrollY != 0.0D) {
+            turn(scrollY < 0.0D ? 1 : -1);
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
     }
 
     @Override
@@ -79,22 +129,18 @@ public class HogwartsGuideScreen extends Screen {
         guiGraphics.drawCenteredString(this.font, Component.translatable("gui.hogwartsmagic.hogwarts_guide.header"), this.left + PAGE_WIDTH / 2, this.top + 14, 0x5A3420);
         guiGraphics.drawCenteredString(this.font, this.currentSection.label(), this.left + PAGE_WIDTH / 2, this.top + 30, 0x6D4725);
 
-        List<Page> pages = this.currentSection.pages();
+        List<Sheet> pages = this.sheets.get(this.currentSection);
         this.currentPage = Mth.clamp(this.currentPage, 0, Math.max(0, pages.size() - 1));
-        Page page = pages.get(this.currentPage);
+        Sheet page = pages.get(this.currentPage);
 
         int textLeft = this.left + 20;
-        int textTop = this.top + 52;
-        int textWidth = PAGE_WIDTH - 40;
+        int textTop = this.top + TEXT_TOP;
 
         guiGraphics.drawString(this.font, page.title().copy().withStyle(ChatFormatting.BOLD), textLeft, textTop, 0x402616, false);
-        int cursorY = textTop + 16;
-        for (Component line : page.lines()) {
-            for (var split : this.font.split(line, textWidth)) {
-                guiGraphics.drawString(this.font, split, textLeft, cursorY, 0x3A2416, false);
-                cursorY += this.font.lineHeight + 1;
-            }
-            cursorY += 5;
+        int cursorY = textTop + HEADING_HEIGHT;
+        for (Row row : page.rows()) {
+            guiGraphics.drawString(this.font, row.text(), textLeft, cursorY, 0x3A2416, false);
+            cursorY += row.height();
         }
 
         guiGraphics.drawCenteredString(this.font, Component.literal((this.currentPage + 1) + " / " + pages.size()), this.left + PAGE_WIDTH / 2, this.top + PAGE_HEIGHT - 22, 0x6D4725);
@@ -105,130 +151,116 @@ public class HogwartsGuideScreen extends Screen {
         return false;
     }
 
-    private record Page(Component title, List<Component> lines) {}
+    /**
+     * Cuts a section's topics into sheets that fit.
+     *
+     * <p>The budget is counted in pixels rather than lines because a paragraph's trailing gap is not
+     * a line high, and counting it as one would waste a line on every sheet.
+     */
+    private List<Sheet> layOut(Section section) {
+        int textWidth = PAGE_WIDTH - 40;
+        int budget = PAGE_HEIGHT - TEXT_BOTTOM_MARGIN - TEXT_TOP - HEADING_HEIGHT;
+        int lineHeight = this.font.lineHeight + 1;
+
+        List<Sheet> out = new ArrayList<>();
+        for (Page topic : section.pages()) {
+            Component title = topic.title();
+            List<Row> rows = new ArrayList<>();
+            int used = 0;
+            for (Component paragraph : topic.paragraphs()) {
+                List<FormattedCharSequence> lines = this.font.split(paragraph, textWidth);
+                int whole = lines.size() * lineHeight;
+                // Not enough room left, but it would fit on a clean sheet: start one rather than split it.
+                if (used > 0 && used + whole > budget && whole <= budget) {
+                    out.add(new Sheet(title, rows));
+                    title = continued(topic.title());
+                    rows = new ArrayList<>();
+                    used = 0;
+                }
+                for (int i = 0; i < lines.size(); i++) {
+                    if (used > 0 && used + lineHeight > budget) {
+                        out.add(new Sheet(title, rows));
+                        title = continued(topic.title());
+                        rows = new ArrayList<>();
+                        used = 0;
+                    }
+                    boolean last = i == lines.size() - 1;
+                    int height = lineHeight + (last ? PARAGRAPH_GAP : 0);
+                    rows.add(new Row(lines.get(i), height));
+                    used += height;
+                }
+            }
+            out.add(new Sheet(title, rows));
+        }
+        return out;
+    }
+
+    private static Component continued(Component title) {
+        return title.copy().append(" ").append(Component.translatable("gui.hogwartsmagic.hogwarts_guide.continued"));
+    }
+
+    /** One topic as written: a heading and its paragraphs, all by lang key. */
+    private record Page(Component title, List<Component> paragraphs) {}
+
+    /** One line of wrapped text and how far to drop afterwards. */
+    private record Row(FormattedCharSequence text, int height) {}
+
+    /** One sheet as shown: a topic, or the next part of one that did not fit. */
+    private record Sheet(Component title, List<Row> rows) {}
 
     private enum Section {
         WELCOME("gui.hogwartsmagic.hogwarts_guide.section.welcome", List.of(
-                page("A Letter for New Witches and Wizards", List.of(
-                        "Welcome, young witch or wizard. If this handbook has found its way into your hands, your first steps into a larger magical life have already begun.",
-                        "Do not be troubled if everything feels vast. HogwartsMagic is a world of study, strange creatures, hidden routes, enchanted tools, and spells best learned with patience rather than panic.",
-                        "You need not master everything at once. Begin with a wand, a few humble spells, and enough good sense to know when to run."
-                )),
-                page("Your first days", List.of(
-                        "Read your invitation and keep this guide close.",
-                        "Find or craft a wand before chasing grander ambitions.",
-                        "Study spellbooks whenever fortune places one in your path, for learned magic stays with you.",
-                        "When the moment feels right, place the Sorting Hat upon your head and discover the house that will shape your path."
-                ))
+                page("welcome", "letter", 3),
+                page("welcome", "first_days", 4)
         )),
         SURVIVAL("gui.hogwartsmagic.hogwarts_guide.section.survival", List.of(
-                page("Staying alive", List.of(
-                        "Mana is precious in the beginning. A clever charm cast at the right moment is worth more than three dramatic mistakes.",
-                        "Lumos, Alohomora, Accio, Arresto Momentum, and other practical magic will often serve you better than reckless curses.",
-                        "Keep food on hand, carry a mundane weapon, and remember that courage does not require foolishness."
-                )),
-                page("Advice from older students", List.of(
-                        "Face dangerous enemies in open places where movement and escape are still possible.",
-                        "Use control spells before damage spells when panic sets in. A frozen foe is easier to survive than a merely injured one.",
-                        "Do not wander into the darkest corners of the forest or the world until you have prepared for what hunts there."
-                ))
+                page("survival", "staying_alive", 3),
+                page("survival", "older_students", 3),
+                page("survival", "sleepless_nights", 3),
+                page("survival", "death_eater_raids", 3),
+                page("survival", "trees_that_hit_back", 2)
         )),
         SPELLS("gui.hogwartsmagic.hogwarts_guide.section.spells", List.of(
-                page("On the study of spells", List.of(
-                        "Spellbooks are the proper way to grow your magical repertoire. Once a spell is learned, it may be selected on your wand and arranged for quick use.",
-                        "There is no shame in relying on simple charms. Every accomplished duelist knows that timing and control matter more than spectacle."
-                )),
-                page("Useful magical disciplines", List.of(
-                        "Practical charms: Lumos, Alohomora, Revelio, Reparo.",
-                        "Control and defense: Glacius, Wingardium Leviosa, Stupefy, Petrificus Totalus, Protego.",
-                        "Battle magic: Confringo, Bombarda, Sectumsempra, Diffindo.",
-                        "Forbidden and dangerous arts: Crucio, Imperio, Fiendfyre, Avada Kedavra, Morsmordre."
-                ))
+                page("spells", "study", 2),
+                page("spells", "disciplines", 4),
+                page("spells", "wheel", 4),
+                page("spells", "mastery", 2),
+                page("spells", "tomes", 2),
+                page("spells", "duels", 3),
+                page("spells", "apparition", 4)
         )),
         SYSTEMS("gui.hogwartsmagic.hogwarts_guide.section.systems", List.of(
-                page("Ways of the wider magical world", List.of(
-                        "Houses grant identity and subtle advantage.",
-                        "Wand cores change the temperament of your casting.",
-                        "Relics strengthen your reserves or replenish your magic more swiftly.",
-                        "Owls and Floo hearths tie distant places together once you have built the right infrastructure."
-                )),
-                page("Advanced mysteries", List.of(
-                        "Cave Inimicum wards may conceal what lies within from unfriendly eyes.",
-                        "Polyjuice allows disguise, though not always wisdom.",
-                        "Horcrux rites and the blackest branches of magic are best left for the truly prepared, or the truly lost."
-                ))
+                page("systems", "wider_world", 4),
+                page("systems", "floo", 2),
+                page("systems", "owl_post", 3),
+                page("systems", "brooms", 3),
+                page("systems", "mysteries", 3),
+                page("systems", "dark_rite", 3)
+        )),
+        GRINGOTTS("gui.hogwartsmagic.hogwarts_guide.section.gringotts", List.of(
+                page("gringotts", "finding", 2),
+                page("gringotts", "gate", 2),
+                page("gringotts", "cart", 3),
+                page("gringotts", "vaults", 2),
+                page("gringotts", "ironbelly", 2)
         )),
         CREATURES("gui.hogwartsmagic.hogwarts_guide.section.creatures", List.of(
-                page("Friends and terrors", List.of(
-                        "Not every beast in this world is an enemy. Owls and Hippogriffs may become treasured companions, and a Patronus can be a shining guardian in darker hours.",
-                        "Yet other beings are no mere nuisance. Death Eaters, Dementors, Basilisks, and forest horrors demand respect."
-                )),
-                page("Practical warnings", List.of(
-                        "If a foe commands spells, never stand still for long.",
-                        "If a creature rules the sky, answer with movement or cover.",
-                        "If a place feels ancient, cursed, or unwelcome, trust that feeling."
-                )),
-                page("On house elves", List.of(
-                        "A wild house elf keeps to itself deep in the Forbidden Forest, always alone. A few still keep the kitchens of the castle.",
-                        "It vanishes with a crack the instant it notices a wizard, so you must either go unnoticed - an Invisibility Cloak, an invisibility potion, Polyjuice worn as some beast, or a slow and patient crouch - or hold it fast where it stands.",
-                        "Cave Inimicum forbids Apparition within its bounds. Petrificus Totalus, Incarcerous, Glacius, Stupefy, Arresto Momentum and the Imperius Curse will each serve as well.",
-                        "Offer food to an elf that cannot flee and it will bind itself to you as master."
-                )),
-                page("On the basilisk", List.of(
-                        "The King of Serpents runs fourteen paces from snout to tail tip, and its stare is death. Not at once - it takes hold slowly, and the world goes grey at the edges while it works.",
-                        "Look away and the hold breaks. Break the line of sight and it breaks faster. Fight it by the edges of your vision, never square on, and never stand admiring it.",
-                        "It rears before it strikes, which is the only warning you are given. At a distance it spits venom that eats the ground where it lands, and if you keep out of reach it will simply go under the earth and come up beneath you.",
-                        "Blows landed on the head will in time put its eyes out, and a blinded basilisk cannot petrify at all. It hunts by sound thereafter - so walk, do not run, and crouch when it casts about for you."
-                )),
-                page("On the merpeople", List.of(
-                        "The Black Lake is inhabited. Deep down, past where the light gives out, there is a village of stone dwellings under a great statue of a merchieftainess, and the people who built it are watching you swim over their roofs.",
-                        "They are Beings, not beasts, and they will let you pass. Linger over the village and one will rear up, spread its fins and cry out at you - a warning, and the only one you are given. Take it and go, and nothing happens at all.",
-                        "Ignore it, or raise a hand to any one of them, and every merperson for twenty yards comes at once with a spear. They are faster than you in the water and they know it. Their chieftainess is larger, paler, and worse.",
-                        "Their speech is a real language, though above the surface it is nothing but a hideous screeching. Put your head under and listen properly and you will hear them singing.",
-                        "A spear taken from one is a poor weapon in air and a wicked one below the water.",
-                        "There is a hoard laid at the statue's feet, and a second stash behind the dwellings. Lift the lid of either and every merperson in the water knows it, at once, and they do not forget it quickly. Whatever is in there, decide first whether you can swim faster than they can.",
-                        "In the hoard lies a crown of a chieftainess long drowned. Wear it and the lake is yours: you will breathe its water and see through it as though you were born to it, and you will never need Gillyweed again.",
-                        "But wear it where they can see you and there is no rearing up, no screeching, no warning of any kind. You are wearing their chieftainess. They come at once, and they keep coming. You may have the freedom of the lake or the goodwill of the people in it. You will not have both."
-                )),
-                page("On grindylows", List.of(
-                        "A grindylow is a small horned water demon, sickly green, with a head too big for it, a mouth full of needles and six curling tentacles where its legs ought to be. The merpeople keep them the way a farmer keeps dogs.",
-                        "It will not duel you. It lies in the weed doing nothing whatever until something wakes it, and then it comes with its fellows, and what it does when it reaches you is not to wound you. It takes hold of your leg, drags you down and waits.",
-                        "There is a nest of them asleep around the hoard. Open that chest and you will find out exactly what they were put there for.",
-                        "Do not thrash. Their fingers are long and strong and they are also brittle: strike the thing holding you, however feebly, and it lets go at once. Then deal with the next one.",
-                        "You can see them before they see you, if you look. Their eyes carry a light of their own, and two green points low in the weed are the only warning you will get."
-                )),
-                page("On giants", List.of(
-                        "A giant stands more than three men tall and wanders the deepest forest alone, muttering to itself and pulling at the trees.",
-                        "Left be, it will leave you be. Strike it, or linger too long at its feet, and it will announce itself with a roar you will feel through the soles of your boots.",
-                        "It swings a backhand that will throw you clear across a clearing, and kicks the ground apart - earth, timber, glass and thatch all give way, though good stone will not.",
-                        "Worst of all, it will simply pick you up and throw you. Do not count on the landing. It is no gentler with the beasts of the forest than it is with wizards."
-                )),
-                page("On the Whomping Willow", List.of(
-                        "There is a tree in the old woods that is not only a tree. It stands still while you are far off, and it is still standing still when you are close enough to regret it.",
-                        "It cannot follow you. That is the whole of the trick: everything it can reach, it can reach at once, and everything past that is safe. Watch which way a branch draws back - sideways for a sweep, straight up for a hammer, and all four at once when it means to shake the ground.",
-                        "Fly over it at your peril. It will pick a broom out of the air, though a rider so struck seems to fall more gently than they ought.",
-                        "Look low on the trunk for the knot. Press it and the whole tree goes slack, and stays so until something disturbs it. Those of a practical bent have been known to run a wire to it and lay a plate in the path, so that the tree sleeps for anyone who walks the road and wakes for anyone who does not.",
-                        "Fire is what it fears; an axe is next best. Arrows only lodge in the bark, and left alone it closes its own wounds.",
-                        "Cut one down and you may find a whip of it still living. Plant that, let it come up, and take it by the hand when it is grown - it will know you, and it will know everyone else is not you."
-                )),
-                page("On freeing an elf", List.of(
-                        "A bound elf serves, and blames itself with its own fists whenever harm comes to its master.",
-                        "Present it with clothing - any garment at all - and it is free.",
-                        "But it remembers how it was taken. One brought in gently stays on as a friend, Apparating to your side and hurling aside any who raise a hand to you.",
-                        "One taken by force takes the clothes, and is gone. Choose accordingly."
-                ))
+                page("creatures", "friends_and_terrors", 2),
+                page("creatures", "warnings", 3),
+                page("creatures", "hippogriffs", 2),
+                page("creatures", "house_elves", 4),
+                page("creatures", "basilisk", 4),
+                page("creatures", "merpeople", 8),
+                page("creatures", "grindylows", 5),
+                page("creatures", "giants", 4),
+                page("creatures", "willow", 6),
+                page("creatures", "freeing_elf", 4)
         )),
         CRAFTING("gui.hogwartsmagic.hogwarts_guide.section.crafting", List.of(
-                page("Of benches and craft", List.of(
-                        "The Wandmaker's Bench is where proper wands are born from fine wood, magical cores, and careful intention.",
-                        "The Broom Workbench requires ingredients first and Alatus afterward, for flight in this world is infused rather than simply assembled.",
-                        "Rare creature parts, arcane materials, and relics are not trinkets. Keep them."
-                )),
-                page("What to build first", List.of(
-                        "A trustworthy wand should come before vanity.",
-                        "A broom is more than a luxury; it is often the difference between escape and disaster.",
-                        "Treat every new station as a doorway into another branch of magical life."
-                ))
+                page("crafting", "wands", 3),
+                page("crafting", "benches", 3),
+                page("crafting", "broom_recipes", 3),
+                page("crafting", "build_first", 3)
         ));
 
         private final Component label;
@@ -247,12 +279,14 @@ public class HogwartsGuideScreen extends Screen {
             return this.pages;
         }
 
-        private static Page page(String title, List<String> lines) {
+        /** A topic whose heading is {@code guide.hogwartsmagic.<section>.<id>.title} and whose paragraphs are {@code .1} to {@code .<paragraphs>}. */
+        private static Page page(String section, String id, int paragraphs) {
+            String base = "guide.hogwartsmagic." + section + "." + id;
             List<Component> components = new ArrayList<>();
-            for (String line : lines) {
-                components.add(Component.literal(line));
+            for (int i = 1; i <= paragraphs; i++) {
+                components.add(Component.translatable(base + "." + i));
             }
-            return new Page(Component.literal(title), components);
+            return new Page(Component.translatable(base + ".title"), components);
         }
     }
 }

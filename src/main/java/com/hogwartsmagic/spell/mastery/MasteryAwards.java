@@ -146,6 +146,13 @@ public final class MasteryAwards {
                     .append(Component.translatable(genericUpgradeKey()))
                     .withStyle(ChatFormatting.GRAY));
         }
+        // Both routes to a new rank (casting and Tomes) end here, so this is the one place to credit it.
+        if (newRank >= 2) {
+            com.hogwartsmagic.util.ModAdvancements.award(caster, "spell_adept");
+        }
+        if (newRank >= MasteryMath.MAX_RANK) {
+            com.hogwartsmagic.util.ModAdvancements.award(caster, "spell_master");
+        }
         caster.level().playSound(null, caster.blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.8f, 1.3f);
         if (caster.level() instanceof ServerLevel level) {
             double x = caster.getX();

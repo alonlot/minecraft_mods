@@ -139,6 +139,21 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
     }
 
     @Override
+    protected net.minecraft.sounds.SoundEvent getAmbientSound() {
+        return com.hogwartsmagic.ModSounds.WIZARD_AMBIENT.get();
+    }
+
+    @Override
+    protected net.minecraft.sounds.SoundEvent getHurtSound(net.minecraft.world.damagesource.DamageSource source) {
+        return com.hogwartsmagic.ModSounds.WIZARD_HURT.get();
+    }
+
+    @Override
+    protected net.minecraft.sounds.SoundEvent getDeathSound() {
+        return com.hogwartsmagic.ModSounds.WIZARD_DEATH.get();
+    }
+
+    @Override
     protected void registerGoals() {
         this.goalSelector.addGoal(0, new FloatGoal(this));
         // Retrieving a dropped wand outranks everything — a disarmed wizard's only objective.

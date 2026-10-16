@@ -52,7 +52,10 @@ public class ClankersItem extends Item {
         server.playSound(null, player.blockPosition(), ModSounds.CLANKERS_RING.get(),
                 SoundSource.PLAYERS, 2.4F, 1.0F);
 
-        UkrainianIronbellyEntity.cowerNearby(server, player.position(), COWER_RANGE);
+        if (UkrainianIronbellyEntity.cowerNearby(server, player.position(), COWER_RANGE) > 0
+                && player instanceof net.minecraft.server.level.ServerPlayer ringer) {
+            com.hogwartsmagic.util.ModAdvancements.award(ringer, "ironbelly_cowed");
+        }
 
         // Everything that is not an Ironbelly simply hears a great deal of noise.
         AABB earshot = new AABB(player.blockPosition()).inflate(NOISE_RANGE);

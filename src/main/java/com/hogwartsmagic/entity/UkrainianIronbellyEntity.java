@@ -173,12 +173,14 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
         }
     }
 
-    /** Every Ironbelly within range of a ringing. */
-    public static void cowerNearby(ServerLevel level, Vec3 where, double radius) {
-        for (UkrainianIronbellyEntity dragon : level.getEntitiesOfClass(
-                UkrainianIronbellyEntity.class, new AABB(where, where).inflate(radius))) {
+    /** Every Ironbelly within range of a ringing. Returns how many there were, so the ringer can be credited. */
+    public static int cowerNearby(ServerLevel level, Vec3 where, double radius) {
+        List<UkrainianIronbellyEntity> dragons = level.getEntitiesOfClass(
+                UkrainianIronbellyEntity.class, new AABB(where, where).inflate(radius));
+        for (UkrainianIronbellyEntity dragon : dragons) {
             dragon.cower();
         }
+        return dragons.size();
     }
 
     /** The last anchor stub has been broken. It goes. */
@@ -189,6 +191,9 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
         this.entityData.set(DATA_CHAINED, Boolean.FALSE);
         this.leavingTicks = LEAVING_TICKS;
         this.setTarget(null);
+        if (by instanceof net.minecraft.server.level.ServerPlayer freer) {
+            com.hogwartsmagic.util.ModAdvancements.award(freer, "ironbelly_cowed");
+        }
         if (this.level() instanceof ServerLevel server) {
             server.playSound(null, blockPosition(), com.hogwartsmagic.ModSounds.IRONBELLY_ROAR.get(),
                     SoundSource.HOSTILE, 6.0F, 1.0F);

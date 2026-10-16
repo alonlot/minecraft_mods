@@ -114,6 +114,17 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> PATRONUS_SHIELD_LOOP = register("patronus.shield_loop");
     public static final RegistryObject<SoundEvent> PATRONUS_SHIELD_REPEL = register("patronus.shield_repel");
 
+    // Humanoid casters. No recordings yet: sounds.json maps these to pitched vanilla illager/villager/warden events.
+    public static final RegistryObject<SoundEvent> WIZARD_AMBIENT = register("wizard.ambient");
+    public static final RegistryObject<SoundEvent> WIZARD_HURT = register("wizard.hurt");
+    public static final RegistryObject<SoundEvent> WIZARD_DEATH = register("wizard.death");
+    public static final RegistryObject<SoundEvent> STUDENT_AMBIENT = register("student.ambient");
+    public static final RegistryObject<SoundEvent> STUDENT_HURT = register("student.hurt");
+    public static final RegistryObject<SoundEvent> STUDENT_DEATH = register("student.death");
+    public static final RegistryObject<SoundEvent> VOLDEMORT_AMBIENT = register("voldemort.ambient");
+    public static final RegistryObject<SoundEvent> VOLDEMORT_HURT = register("voldemort.hurt");
+    public static final RegistryObject<SoundEvent> VOLDEMORT_DEATH = register("voldemort.death");
+
     // Item / gear SFX
     public static final RegistryObject<SoundEvent> BROOM_BOOST = register("broom.boost");
     public static final RegistryObject<SoundEvent> BROOM_STALL = register("broom.stall");

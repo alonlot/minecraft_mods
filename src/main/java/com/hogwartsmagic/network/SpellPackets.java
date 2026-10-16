@@ -1260,6 +1260,7 @@ public class SpellPackets {
                     ModEntities.PATRONUS.get(), player.level());
             patronus.setPos(player.getX(), player.getY(), player.getZ());
             player.level().addFreshEntity(patronus);
+            com.hogwartsmagic.util.ModAdvancements.award(player, "corporeal_patronus");
 
             com.hogwartsmagic.event.ModEvents.revealInvisibilityCloak(player);
             player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
@@ -1427,10 +1428,11 @@ public class SpellPackets {
                 return;
             }
             if (!(player.level().getBlockEntity(p.sourcePos) instanceof FlooFireplaceBlockEntity source)
-                    || !(player.level().getBlockEntity(p.destinationPos) instanceof FlooFireplaceBlockEntity destination)) {
+                    || !source.getLinkedPositions().contains(p.destinationPos)) {
                 return;
             }
-            if (!source.getLinkedPositions().contains(p.destinationPos)) {
+            // Only a linked fireplace may be read, so a client cannot make the server load an arbitrary chunk.
+            if (!(player.level().getBlockEntity(p.destinationPos) instanceof FlooFireplaceBlockEntity destination)) {
                 return;
             }
             if (!player.getInventory().contains(new ItemStack(ExampleMod.FLOO_POWDER.get()))) {

@@ -1,0 +1,24 @@
+{
+  "parent": "hogwartsmagic:hp/first_spellbook",
+  "display": {
+    "icon": {
+      "id": "hogwartsmagic:common_tome_of_mastery",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancement.hogwartsmagic.spell_adept.title"
+    },
+    "description": {
+      "translate": "advancement.hogwartsmagic.spell_adept.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "reached_adept": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

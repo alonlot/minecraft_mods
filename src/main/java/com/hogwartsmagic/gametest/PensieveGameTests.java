@@ -37,12 +37,13 @@ public final class PensieveGameTests {
                 new int[]{2, 0, 2})), List.of(), List.of(), 6000L, 20);
     }
 
+    // Runs in the memory dimension when present, else in the Test Level (see memoryOrTestLevel).
     @GameTest(template = EMPTY)
-    public static void setBuilderPlacesFillsInTheMemoryDimension(GameTestHelper helper) {
+    public static void setBuilderPlacesFillsWithinBudget(GameTestHelper helper) {
         ServerLevel memory = memoryOrTestLevel(helper);
         int[] o = RegionAllocator.originFor(7);
         BlockPos origin = new BlockPos(o[0], o[1], o[2]);
-        SetBuilder builder = new SetBuilder(memory, origin, stoneFill());
+        SetBuilder builder = new SetBuilder(memory, origin, stoneFill(), 20);
         helper.assertTrue(builder.total() == 9, "expected 9 blocks, got " + builder.total());
         helper.assertTrue(!builder.advance(4), "a budget of 4 must not finish 9 blocks");
         helper.assertTrue(builder.placed().size() == 4, "budget must be respected");
@@ -63,7 +64,7 @@ public final class PensieveGameTests {
         ServerLevel memory = memoryOrTestLevel(helper);
         int[] o = RegionAllocator.originFor(8);
         BlockPos origin = new BlockPos(o[0], o[1], o[2]);
-        SetBuilder builder = new SetBuilder(memory, origin, stoneFill());
+        SetBuilder builder = new SetBuilder(memory, origin, stoneFill(), 20);
         builder.advance(1000);
         SetBuilder.ClearJob job = SetBuilder.clear(memory, builder.placed());
         helper.assertTrue(!job.advance(3), "clearing 9 with budget 3 is not done");
@@ -75,6 +76,40 @@ public final class PensieveGameTests {
             }
         }
         LOGGER.info("PENSIEVE-GAMETEST PASS {}", new Object() { }.getClass().getEnclosingMethod().getName());
+        helper.succeed();
+    }
+
+    @GameTest(template = EMPTY)
+    public static void buildIsClippedToTheRadius(GameTestHelper helper) {
+        ServerLevel level = memoryOrTestLevel(helper);
+        int[] o = RegionAllocator.originFor(9);
+        BlockPos origin = new BlockPos(o[0], o[1], o[2]);
+        SetBuilder builder = new SetBuilder(level, origin, stoneFill(), 1);
+        helper.assertTrue(builder.total() == 4, "radius 1 should keep x,z 0..1 only, got " + builder.total());
+        builder.advance(100);
+        helper.assertTrue(level.getBlockState(origin.offset(2, 0, 0)).isAir(), "block beyond the radius was placed");
+        LOGGER.info("PENSIEVE-GAMETEST PASS buildIsClippedToTheRadius");
+        helper.succeed();
+    }
+
+    @GameTest(template = EMPTY)
+    public static void featuresAreRecordedAndCleared(GameTestHelper helper) {
+        ServerLevel level = memoryOrTestLevel(helper);
+        int[] o = RegionAllocator.originFor(10);
+        BlockPos origin = new BlockPos(o[0], o[1], o[2]);
+        SceneDef.SetDef set = new SceneDef.SetDef(List.of(), List.of(new SceneDef.Fill("minecraft:dirt",
+                new int[]{-1, -1, -1}, new int[]{1, -1, 1})), List.of(),
+                List.of(new SceneDef.FeatureRef("minecraft:oak", new int[]{0, 0, 0})), 6000L, 20);
+        SetBuilder builder = new SetBuilder(level, origin, set, 20);
+        builder.advance(9);
+        helper.assertTrue(!builder.advance(0), "a feature must not start with no budget left");
+        helper.assertTrue(builder.advance(10), "feature should have been placed");
+        helper.assertTrue(builder.placed().size() > 9, "feature blocks must be recorded, got " + builder.placed().size());
+        helper.assertTrue(level.getBlockState(origin).is(net.minecraft.tags.BlockTags.LOGS), "no trunk placed");
+        SetBuilder.ClearJob job = SetBuilder.clear(level, builder.placed());
+        helper.assertTrue(job.advance(100000), "clear should finish");
+        helper.assertTrue(level.getBlockState(origin).isAir(), "trunk not cleared");
+        LOGGER.info("PENSIEVE-GAMETEST PASS featuresAreRecordedAndCleared");
         helper.succeed();
     }
 }

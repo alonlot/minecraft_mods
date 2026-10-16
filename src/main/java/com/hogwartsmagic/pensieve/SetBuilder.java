@@ -11,7 +11,10 @@ import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.TicketType;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.WorldGenLevel;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
@@ -19,7 +22,10 @@ import net.minecraft.world.level.levelgen.feature.ConfiguredFeature;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
 import org.slf4j.Logger;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Proxy;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -32,39 +38,48 @@ import java.util.Set;
  *
  * <p>Templates, fills and disks are collected up front (sets are capped at radius 200, so the list is small
  * enough), de-duplicated (a later layer wins), sorted outward from the origin with {@link BuildOrder} and then
- * placed {@code budget} blocks per {@link #advance}. Features go last: a configured feature can place blocks
- * anywhere near its origin, so each one is placed whole (counted as {@link #FEATURE_COST} against the budget)
- * and the blocks it changed are found by diffing a box around it, so {@link #placed()} stays exact.
+ * placed {@code budget} blocks per {@link #advance}. Anything more than {@code radius} blocks from the origin
+ * horizontally is dropped, so an oversized template can never spill into a neighbouring region.
  *
- * <p>Blocks use flags {@code 2 | 16}: clients are told, but no neighbour updates, no drops, nothing flows or
- * ticks. Features place with their own normal flags (their blocks are still recorded and can be cleared).
+ * <p>Features go last. They are placed through a proxy of the level that forces every write to flags
+ * {@code 2 | 16}, records every position written into {@link #placed()} and counts the writes against the
+ * budget. A feature is only started while budget remains; one feature may overshoot the budget by its own size.
+ *
+ * <p>All writes use flags {@code 2 | 16}: clients are told, but no neighbour updates, no drops, nothing flows
+ * or ticks.
  *
  * <p>Templates: blocks only, no entities. Air, structure voids, jigsaws and structure blocks in a template are
  * skipped, so a template never carves holes in what a fill laid down underneath it.
+ *
+ * <p>Chunks: the chunks the set covers are held with a region ticket from the first {@code advance} until it
+ * returns true; call {@link #release()} to drop them early if the builder is abandoned (idempotent).
  */
 public final class SetBuilder {
     private static final Logger LOGGER = LogUtils.getLogger();
     static final int FLAGS = 2 | 16;
-    static final int FEATURE_COST = 1000;
-    private static final int FEATURE_RADIUS = 8;
-    private static final int FEATURE_DOWN = 4;
-    private static final int FEATURE_UP = 24;
+    static final TicketType<ChunkPos> TICKET = TicketType.create("hogwartsmagic_pensieve",
+            Comparator.comparingLong(ChunkPos::toLong));
 
     private final ServerLevel level;
     private final BlockPos origin;
     private final SceneDef.SetDef set;
+    private final int radius;
     private final List<BlockState> states = new ArrayList<>();
     private List<int[]> order;
     private int cursor;
     private int featureCursor;
     private boolean prepared;
     private final List<BlockPos> placed = new ArrayList<>();
+    private final Set<Long> placedSet = new HashSet<>();
     private final Set<String> warned = new HashSet<>();
+    private final Tickets tickets;
 
-    public SetBuilder(ServerLevel level, BlockPos origin, SceneDef.SetDef set) {
+    public SetBuilder(ServerLevel level, BlockPos origin, SceneDef.SetDef set, int radius) {
         this.level = level;
         this.origin = origin;
         this.set = set;
+        this.radius = radius;
+        this.tickets = new Tickets(level, origin, radius);
     }
 
     /** Blocks the template, fill and disk phase will place (features are extra). */
@@ -77,24 +92,39 @@ public final class SetBuilder {
         return placed;
     }
 
-    /** Places at most {@code budget} blocks; true when the whole set is built. */
+    /** Drops the chunk tickets; also done automatically when {@link #advance} returns true. */
+    public void release() {
+        tickets.release();
+    }
+
+    /** Places roughly {@code budget} blocks; true when the whole set is built. */
     public boolean advance(int budget) {
         prepare();
-        int left = budget;
-        while (cursor < order.size() && left > 0) {
+        tickets.acquire();
+        int[] left = {budget};
+        while (cursor < order.size() && left[0] > 0) {
             int[] p = order.get(cursor++);
             BlockPos pos = new BlockPos(p[0], p[1], p[2]);
             level.setBlock(pos, states.get(p[3]), FLAGS);
-            placed.add(pos);
-            left--;
+            record(pos);
+            left[0]--;
         }
         if (cursor < order.size()) return false;
         List<SceneDef.FeatureRef> features = set.features();
-        while (featureCursor < features.size() && left > 0) {
-            placeFeature(features.get(featureCursor++));
-            left -= FEATURE_COST;
+        while (featureCursor < features.size() && left[0] > 0) {
+            placeFeature(features.get(featureCursor++), left);
         }
-        return featureCursor >= features.size();
+        boolean done = featureCursor >= features.size();
+        if (done) tickets.release();
+        return done;
+    }
+
+    private void record(BlockPos pos) {
+        if (placedSet.add(pos.asLong())) placed.add(pos.immutable());
+    }
+
+    private boolean inRegion(int x, int z) {
+        return Math.abs(x - origin.getX()) <= radius && Math.abs(z - origin.getZ()) <= radius;
     }
 
     private void prepare() {
@@ -111,7 +141,7 @@ public final class SetBuilder {
                 warnOnce("template " + ref.id());
                 continue;
             }
-            addTemplate(tpl.get(), origin.offset(ref.at()[0], ref.at()[1], ref.at()[2]), byPos, index);
+            addTemplate(ref.id(), tpl.get(), origin.offset(ref.at()[0], ref.at()[1], ref.at()[2]), byPos, index);
         }
         for (SceneDef.Fill f : set.fills()) {
             BlockState state = block(f.block());
@@ -144,7 +174,8 @@ public final class SetBuilder {
                 new int[]{origin.getX(), origin.getY(), origin.getZ()});
     }
 
-    private static void put(Map<Long, int[]> byPos, int x, int y, int z, int state) {
+    private void put(Map<Long, int[]> byPos, int x, int y, int z, int state) {
+        if (!inRegion(x, z)) return;
         byPos.put(BlockPos.asLong(x, y, z), new int[]{x, y, z, state});
     }
 
@@ -166,10 +197,15 @@ public final class SetBuilder {
         return b.get().defaultBlockState();
     }
 
-    private void addTemplate(StructureTemplate tpl, BlockPos base, Map<Long, int[]> byPos,
+    private void addTemplate(String name, StructureTemplate tpl, BlockPos base, Map<Long, int[]> byPos,
                              Map<BlockState, Integer> index) {
         CompoundTag tag = tpl.save(new CompoundTag());
+        // Templates are saved with either one "palette" or several "palettes"; the first of several is used.
         ListTag palette = tag.getList("palette", Tag.TAG_COMPOUND);
+        if (palette.isEmpty() && tag.contains("palettes", Tag.TAG_LIST)) {
+            ListTag palettes = tag.getList("palettes", Tag.TAG_LIST);
+            if (!palettes.isEmpty()) palette = palettes.getList(0);
+        }
         List<BlockState> palStates = new ArrayList<>();
         for (int i = 0; i < palette.size(); i++) {
             palStates.add(NbtUtils.readBlockState(level.registryAccess().lookupOrThrow(Registries.BLOCK),
@@ -178,7 +214,12 @@ public final class SetBuilder {
         ListTag blocks = tag.getList("blocks", Tag.TAG_COMPOUND);
         for (int i = 0; i < blocks.size(); i++) {
             CompoundTag b = blocks.getCompound(i);
-            BlockState st = palStates.get(b.getInt("state"));
+            int idx = b.getInt("state");
+            if (idx < 0 || idx >= palStates.size()) {
+                warnOnce("palette index in template " + name);
+                continue;
+            }
+            BlockState st = palStates.get(idx);
             if (st.isAir() || st.is(Blocks.STRUCTURE_VOID) || st.is(Blocks.JIGSAW) || st.is(Blocks.STRUCTURE_BLOCK)) {
                 continue;
             }
@@ -188,7 +229,7 @@ public final class SetBuilder {
         }
     }
 
-    private void placeFeature(SceneDef.FeatureRef ref) {
+    private void placeFeature(SceneDef.FeatureRef ref, int[] left) {
         ResourceLocation id = ResourceLocation.tryParse(ref.id());
         ConfiguredFeature<?, ?> feature = id == null ? null : level.registryAccess()
                 .registryOrThrow(Registries.CONFIGURED_FEATURE).get(id);
@@ -197,30 +238,72 @@ public final class SetBuilder {
             return;
         }
         BlockPos at = origin.offset(ref.at()[0], ref.at()[1], ref.at()[2]);
-        List<BlockPos> box = new ArrayList<>();
-        List<BlockState> before = new ArrayList<>();
-        for (int x = -FEATURE_RADIUS; x <= FEATURE_RADIUS; x++) {
-            for (int z = -FEATURE_RADIUS; z <= FEATURE_RADIUS; z++) {
-                for (int y = -FEATURE_DOWN; y <= FEATURE_UP; y++) {
-                    BlockPos p = at.offset(x, y, z);
-                    box.add(p);
-                    before.add(level.getBlockState(p));
-                }
-            }
-        }
-        feature.place(level, level.getChunkSource().getGenerator(), RandomSource.create(at.asLong()), at);
-        for (int i = 0; i < box.size(); i++) {
-            if (!level.getBlockState(box.get(i)).equals(before.get(i))) {
-                placed.add(box.get(i));
-            }
+        WorldGenLevel proxy = (WorldGenLevel) Proxy.newProxyInstance(WorldGenLevel.class.getClassLoader(),
+                new Class<?>[]{WorldGenLevel.class}, (self, method, args) -> {
+                    String n = method.getName();
+                    if (n.equals("setBlock") && args != null && args.length >= 3 && args[0] instanceof BlockPos pos) {
+                        if (!inRegion(pos.getX(), pos.getZ())) return false;
+                        Object[] forced = args.clone();
+                        forced[2] = FLAGS;
+                        boolean ok = (boolean) invoke(method, forced);
+                        record(pos);
+                        left[0]--;
+                        return ok;
+                    }
+                    if ((n.equals("removeBlock") || n.equals("destroyBlock")) && args != null
+                            && args[0] instanceof BlockPos pos) {
+                        if (!inRegion(pos.getX(), pos.getZ())) return false;
+                        boolean ok = level.setBlock(pos, Blocks.AIR.defaultBlockState(), FLAGS);
+                        record(pos);
+                        left[0]--;
+                        return ok;
+                    }
+                    return invoke(method, args);
+                });
+        feature.place(proxy, level.getChunkSource().getGenerator(), RandomSource.create(at.asLong()), at);
+    }
+
+    private Object invoke(java.lang.reflect.Method method, Object[] args) throws Throwable {
+        try {
+            return method.invoke(level, args);
+        } catch (InvocationTargetException e) {
+            throw e.getCause();
         }
     }
 
     private void warnOnce(String what) {
-        if (warned.add(what)) LOGGER.warn("Pensieve set: unknown {}; skipped", what);
+        if (warned.add(what)) LOGGER.warn("Pensieve set: unknown or bad {}; skipped", what);
     }
 
-    /** Sets a list of positions back to air, a budget of blocks per call. */
+    /** Holds region tickets over a square of chunks for as long as a job runs. */
+    private static final class Tickets {
+        private final ServerLevel level;
+        private final List<ChunkPos> chunks = new ArrayList<>();
+        private boolean held;
+
+        Tickets(ServerLevel level, BlockPos origin, int radius) {
+            this.level = level;
+            int x0 = (origin.getX() - radius) >> 4, x1 = (origin.getX() + radius) >> 4;
+            int z0 = (origin.getZ() - radius) >> 4, z1 = (origin.getZ() + radius) >> 4;
+            for (int x = x0; x <= x1; x++) {
+                for (int z = z0; z <= z1; z++) chunks.add(new ChunkPos(x, z));
+            }
+        }
+
+        void acquire() {
+            if (held) return;
+            held = true;
+            for (ChunkPos c : chunks) level.getChunkSource().addRegionTicket(TICKET, c, 0, c);
+        }
+
+        void release() {
+            if (!held) return;
+            held = false;
+            for (ChunkPos c : chunks) level.getChunkSource().removeRegionTicket(TICKET, c, 0, c);
+        }
+    }
+
+    /** Sets a list of positions back to air; chunks are held until it finishes (or {@link ClearJob#release}). */
     public static ClearJob clear(ServerLevel level, List<BlockPos> positions) {
         return new ClearJob(level, new ArrayList<>(positions));
     }
@@ -228,21 +311,41 @@ public final class SetBuilder {
     public static final class ClearJob {
         private final ServerLevel level;
         private final List<BlockPos> positions;
+        private final List<ChunkPos> chunks = new ArrayList<>();
         private int cursor;
+        private boolean held;
 
         private ClearJob(ServerLevel level, List<BlockPos> positions) {
             this.level = level;
             this.positions = positions;
+            Set<Long> seen = new HashSet<>();
+            for (BlockPos p : positions) {
+                ChunkPos c = new ChunkPos(p);
+                if (seen.add(c.toLong())) chunks.add(c);
+            }
         }
 
-        /** True when everything is cleared. */
+        /** True when everything is cleared; the chunk tickets are dropped then. */
         public boolean advance(int budget) {
+            if (!held) {
+                held = true;
+                for (ChunkPos c : chunks) level.getChunkSource().addRegionTicket(TICKET, c, 0, c);
+            }
             int left = budget;
             while (cursor < positions.size() && left > 0) {
                 level.setBlock(positions.get(cursor++), Blocks.AIR.defaultBlockState(), FLAGS);
                 left--;
             }
-            return cursor >= positions.size();
+            boolean done = cursor >= positions.size();
+            if (done) release();
+            return done;
+        }
+
+        /** Drops the chunk tickets early; idempotent. */
+        public void release() {
+            if (!held) return;
+            held = false;
+            for (ChunkPos c : chunks) level.getChunkSource().removeRegionTicket(TICKET, c, 0, c);
         }
     }
 }

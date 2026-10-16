@@ -33,6 +33,26 @@ class SceneValidatorTest {
     }
 
     @Test
+    void fillBeyondRadiusIsRejected() throws Exception {
+        List<String> m = validate("""
+                {"length":100,"radius":10,
+                 "set":{"fills":[
+                   {"block":"minecraft:stone","from":[0,0,0],"to":[2,0,2]},
+                   {"block":"minecraft:stone","from":[0,0,0],"to":[11,0,0]}]}}""");
+        assertEquals(1, m.size(), m.toString());
+        assertTrue(m.get(0).startsWith("set.fills[1]") && m.get(0).contains("extends beyond radius 10"), m.get(0));
+    }
+
+    @Test
+    void oversizedFillIsRejected() throws Exception {
+        List<String> m = validate("""
+                {"length":100,"radius":200,
+                 "set":{"fills":[{"block":"minecraft:stone","from":[-200,0,-200],"to":[200,20,200]}]}}""");
+        assertEquals(1, m.size(), m.toString());
+        assertEquals("set.fills[0]: fill too large (3376821 blocks, max 2000000)", m.get(0));
+    }
+
+    @Test
     void unknownEntityIsNamed() throws Exception {
         List<String> m = validate("{\"length\":100,\"actors\":[{\"id\":\"a\",\"type\":\"hogwartsmagic:basilsk\"}]}");
         assertEquals(1, m.size(), m.toString());

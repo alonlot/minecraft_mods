@@ -40,6 +40,8 @@ public final class SceneValidator {
             known(out, "set.features[" + i + "].id", "feature", set.features().get(i).id(), names.features());
         }
 
+        extent(out, scene.radius(), set);
+
         for (int i = 0; i < scene.actors().size(); i++) {
             actor(out, scene, scene.actors().get(i), "actors[" + i + "]", actorIds, names, length);
         }
@@ -161,6 +163,49 @@ public final class SceneValidator {
         } else if (t < 0 || t > length) {
             out.add(p + ": time " + t + " is outside the scene (0 to " + length + ")");
         }
+    }
+
+    /** Largest single fill, in blocks. */
+    public static final long MAX_FILL_BLOCKS = 2_000_000L;
+
+    /** Everything in the set must sit within the scene radius (horizontally) of the region origin. */
+    private static void extent(List<String> out, int radius, SceneDef.SetDef set) {
+        for (int i = 0; i < set.templates().size(); i++) {
+            int[] at = set.templates().get(i).at();
+            if (beyond(radius, at[0], at[0], at[2], at[2])) {
+                out.add("set.templates[" + i + "]: anchor extends beyond radius " + radius);
+            }
+        }
+        for (int i = 0; i < set.fills().size(); i++) {
+            SceneDef.Fill f = set.fills().get(i);
+            int x0 = Math.min(f.from()[0], f.to()[0]), x1 = Math.max(f.from()[0], f.to()[0]);
+            int z0 = Math.min(f.from()[2], f.to()[2]), z1 = Math.max(f.from()[2], f.to()[2]);
+            int y0 = Math.min(f.from()[1], f.to()[1]), y1 = Math.max(f.from()[1], f.to()[1]);
+            if (beyond(radius, x0, x1, z0, z1)) {
+                out.add("set.fills[" + i + "]: extends beyond radius " + radius);
+            }
+            long blocks = (long) (x1 - x0 + 1) * (y1 - y0 + 1) * (z1 - z0 + 1);
+            if (blocks > MAX_FILL_BLOCKS) {
+                out.add("set.fills[" + i + "]: fill too large (" + blocks + " blocks, max " + MAX_FILL_BLOCKS + ")");
+            }
+        }
+        for (int i = 0; i < set.disks().size(); i++) {
+            SceneDef.Disk d = set.disks().get(i);
+            int cx = d.center()[0], cz = d.center()[2], r = Math.abs(d.radius());
+            if (beyond(radius, cx - r, cx + r, cz - r, cz + r)) {
+                out.add("set.disks[" + i + "]: extends beyond radius " + radius);
+            }
+        }
+        for (int i = 0; i < set.features().size(); i++) {
+            int[] at = set.features().get(i).at();
+            if (beyond(radius, at[0], at[0], at[2], at[2])) {
+                out.add("set.features[" + i + "]: anchor extends beyond radius " + radius);
+            }
+        }
+    }
+
+    private static boolean beyond(int radius, int x0, int x1, int z0, int z1) {
+        return x0 < -radius || x1 > radius || z0 < -radius || z1 > radius;
     }
 
     private static void known(List<String> out, String p, String what, String id, Set<String> valid) {

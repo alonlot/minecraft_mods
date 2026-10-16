@@ -1028,8 +1028,7 @@ public class ClientModEvents {
         event.registerBlockEntityRenderer(ExampleMod.WAND_WORKBENCH_BLOCK_ENTITY.get(), WandWorkbenchRenderer::new);
         event.registerBlockEntityRenderer(ExampleMod.BROOM_WORKBENCH_BLOCK_ENTITY.get(), com.hogwartsmagic.client.BroomWorkbenchRenderer::new);
 
-        // Placeholder until Task 10 draws the body bent over the basin.
-        event.registerEntityRenderer(ModEntities.PENSIEVE_BODY.get(), net.minecraft.client.renderer.entity.NoopRenderer::new);
+        event.registerEntityRenderer(ModEntities.PENSIEVE_BODY.get(), com.hogwartsmagic.client.pensieve.PensieveBodyRenderer::new);
         event.registerEntityRenderer(ModEntities.OWL.get(), OwlRenderer::new);
         event.registerEntityRenderer(ModEntities.HIPPOGRIFF.get(), HippogriffRenderer::new);
         event.registerEntityRenderer(ModEntities.FLYING_MOB.get(), FlyingMobRenderer::new);

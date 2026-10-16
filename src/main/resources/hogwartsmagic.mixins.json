@@ -29,7 +29,9 @@
     "client.PensieveGameRendererMixin",
     "client.ActorSkinMixin",
     "client.PlayerModelPartsAccessor",
-    "client.LivingEntityUseAccessor"
+    "client.LivingEntityUseAccessor",
+    "client.ModelPartAccessor",
+    "client.ActorPoseMixin"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -138,10 +138,14 @@ public final class SceneParser {
             for (String part : lo.keySet()) {
                 String pp = child(lp, part);
                 JsonObject po = obj(lo.get(part), pp);
-                checkKeys(po, pp, "rot", "offset");
+                checkKeys(po, pp, "rot", "offset", "mode");
+                String mode = str(po, "mode", pp, "add");
+                if (!"add".equals(mode) && !"set".equals(mode)) {
+                    throw new SceneException(child(pp, "mode"), "must be \"add\" or \"set\", got \"" + mode + "\"");
+                }
                 Track rot = has(po, "rot") ? keyed(po.get("rot"), child(pp, "rot"), "v") : Track.EMPTY;
                 Track off = has(po, "offset") ? keyed(po.get("offset"), child(pp, "offset"), "v") : Track.EMPTY;
-                limbs.put(part, new PartTrack(rot, off));
+                limbs.put(part, new PartTrack(rot, off, "set".equals(mode)));
             }
         }
         List<SceneDef.Cue> poses = cues(o, "poses", path);

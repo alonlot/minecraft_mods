@@ -95,6 +95,7 @@ public final class MemoryActors {
             try {
                 ActorRuntime a = create(def, clientLevel);
                 if (a != null) {
+                    a.resolvePoses(scene.poses());
                     ACTORS.add(a);
                     BY_ENTITY.put(a.entity, a);
                 }
@@ -102,6 +103,7 @@ public final class MemoryActors {
                 LOGGER.warn("Pensieve: could not create actor '{}' of memory '{}': {}", def.id(), scene.id(), e.toString());
             }
         }
+        if (PensieveClientState.preview()) PartCheck.run(scene, ACTORS);
     }
 
     /** Forget every puppet. Safe to call at any time, including when there are none. */

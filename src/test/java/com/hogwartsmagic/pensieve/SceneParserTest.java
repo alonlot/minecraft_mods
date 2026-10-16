@@ -72,4 +72,22 @@ class SceneParserTest {
                  "path":[{"t":0,"pos":[0,0,0]},{"t":5}]}]}""")));
         assertEquals("actors[0].path[1].pos", e.path());
     }
+
+    @Test
+    void limbModeDefaultsToAddAndAcceptsSet() throws Exception {
+        SceneDef s = SceneParser.parse("t", json("""
+                {"length":100,"set":{},"actors":[{"id":"a","type":"player","limbs":{
+                  "head":{"rot":[{"t":0,"v":[0,0,0]}]},
+                  "right_arm":{"mode":"set","rot":[{"t":0,"v":[-90,0,0]}]}}}]}"""));
+        var limbs = s.actors().get(0).limbs();
+        assertEquals(false, limbs.get("head").set());
+        assertEquals(true, limbs.get("right_arm").set());
+    }
+
+    @Test
+    void limbModeMustBeAddOrSet() {
+        assertThrows(SceneException.class, () -> SceneParser.parse("t", json("""
+                {"length":100,"set":{},"actors":[{"id":"a","type":"player","limbs":{
+                  "head":{"mode":"replace","rot":[{"t":0,"v":[0,0,0]}]}}}]}""")));
+    }
 }

@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "DAD",
+    "S S",
+    "SSS"
+  ],
+  "key": {
+    "D": { "item": "minecraft:polished_deepslate" },
+    "A": { "item": "hogwartsmagic:arcane_dust" },
+    "S": { "item": "minecraft:stone" }
+  },
+  "result": {
+    "id": "hogwartsmagic:pensieve",
+    "count": 1
+  }
+}

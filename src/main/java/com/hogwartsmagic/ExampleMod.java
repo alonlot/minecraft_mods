@@ -809,6 +809,25 @@ public class ExampleMod
     public static final RegistryObject<Item> CAVE_MEMORY = ITEMS.register("cave_memory",
             () -> new com.hogwartsmagic.item.CaveMemoryItem(new Item.Properties()));
 
+    public static final RegistryObject<Item> CHAMBER_MEMORY = ITEMS.register("chamber_memory",
+            () -> new com.hogwartsmagic.pensieve.StoryMemoryItem(new Item.Properties(), "chamber"));
+
+    public static final RegistryObject<Item> SUMMONING_MEMORY = ITEMS.register("summoning_memory",
+            () -> new com.hogwartsmagic.pensieve.StoryMemoryItem(new Item.Properties(), "summoning"));
+
+    public static final RegistryObject<Block> PENSIEVE = BLOCKS.register("pensieve",
+            () -> new com.hogwartsmagic.pensieve.PensieveBlock(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.STONE)
+                    .sound(net.minecraft.world.level.block.SoundType.STONE)
+                    .strength(3.0f).lightLevel(state -> 6).noOcclusion()));
+    public static final RegistryObject<Item> PENSIEVE_ITEM = ITEMS.register("pensieve",
+            () -> new BlockItem(PENSIEVE.get(), new Item.Properties()));
+    public static final RegistryObject<BlockEntityType<com.hogwartsmagic.pensieve.PensieveBlockEntity>> PENSIEVE_BLOCK_ENTITY =
+            BLOCK_ENTITY_TYPES.register("pensieve", () -> BlockEntityType.Builder.of(
+                    com.hogwartsmagic.pensieve.PensieveBlockEntity::new,
+                    PENSIEVE.get()
+            ).build(null));
+
     public static final RegistryObject<Item> TROLL_SPAWN_EGG = ITEMS.register("troll_spawn_egg",
             () -> new net.minecraftforge.common.ForgeSpawnEggItem(ModEntities.TROLL, 0x777365, 0x3F6A2E, new Item.Properties()));
 
@@ -919,6 +938,9 @@ public class ExampleMod
                 output.accept(HARRY_POTTER_WAND.get());
                 output.accept(SLYTHERINS_LOCKET.get());
                 output.accept(CAVE_MEMORY.get());
+                output.accept(CHAMBER_MEMORY.get());
+                output.accept(SUMMONING_MEMORY.get());
+                output.accept(PENSIEVE_ITEM.get());
         output.accept(PHOENIX_CORE_WAND.get());
         output.accept(UNICORN_CORE_WAND.get());
         output.accept(DRAGON_CORE_WAND.get());

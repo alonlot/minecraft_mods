@@ -315,6 +315,7 @@ public final class MiniHogwartsManager {
                     decoNear(spot, Blocks.LECTERN.defaultBlockState());
                     decoNear(spot, Blocks.LANTERN.defaultBlockState());
                 }
+                placePublicPensieve(bookSumX / bookCount, bookSumY / bookCount, bookSumZ / bookCount);
             }
             // Spell study — beside the enchanting table.
             if (enchantX >= 0) {
@@ -504,6 +505,18 @@ public final class MiniHogwartsManager {
             return null;
         }
 
+        /** A shared Pensieve in the library: public, with no pourer, and empty until someone pours into it. */
+        private void placePublicPensieve(long localX, long localY, long localZ) {
+            BlockPos spot = floorSpotNear(localX, localY, localZ, 6);
+            if (spot == null || !level.getBlockState(spot).isAir()) {
+                return;
+            }
+            level.setBlock(spot, ExampleMod.PENSIEVE.get().defaultBlockState(), SETBLOCK_FLAGS);
+            if (level.getBlockEntity(spot) instanceof com.hogwartsmagic.pensieve.PensieveBlockEntity basin) {
+                basin.setPublicBasin(true);
+            }
+        }
+
         private boolean placeChest(BlockPos pos, Theme theme, RandomSource rng) {
             if (pos == null || !level.getBlockState(pos).isAir()) {
                 return false;
@@ -575,6 +588,9 @@ public final class MiniHogwartsManager {
                 addStack(out, Items.BOOK, 4 + rng.nextInt(6));
                 addStack(out, Items.WRITABLE_BOOK, 1 + rng.nextInt(2));
                 addStack(out, Items.PAPER, 6 + rng.nextInt(8));
+                if (rng.nextInt(7) == 0) {
+                    addStack(out, optionalItem("CHAMBER_MEMORY"), 1);
+                }
             }
             case SPELL_STUDY -> {
                 SpellType[] study = {SpellType.PROTEGO, SpellType.STUPEFY, SpellType.REVELIO,

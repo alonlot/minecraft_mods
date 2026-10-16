@@ -112,4 +112,43 @@ public final class PensieveGameTests {
         LOGGER.info("PENSIEVE-GAMETEST PASS featuresAreRecordedAndCleared");
         helper.succeed();
     }
+
+    private static net.minecraft.world.item.ItemStack chamberMemory() {
+        return new net.minecraft.world.item.ItemStack(ExampleMod.CHAMBER_MEMORY.get());
+    }
+
+    @GameTest(template = EMPTY, batch = "pensieve_basin")
+    public static void pourAndTakeOut(GameTestHelper helper) {
+        BlockPos pos = new BlockPos(1, 2, 1);
+        helper.setBlock(pos, ExampleMod.PENSIEVE.get());
+        net.minecraft.world.entity.player.Player player = helper.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, chamberMemory());
+        helper.useBlock(pos, player);
+        var be = (com.hogwartsmagic.pensieve.PensieveBlockEntity) helper.getBlockEntity(pos);
+        helper.assertTrue(be.memory().is(ExampleMod.CHAMBER_MEMORY.get()), "basin should hold the memory");
+        helper.assertTrue(player.getMainHandItem().isEmpty(), "one memory should have left the hand");
+        helper.assertTrue(player.getUUID().equals(be.pourer()), "pourer should be recorded");
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, net.minecraft.world.item.ItemStack.EMPTY);
+        player.setShiftKeyDown(true);
+        helper.useBlock(pos, player);
+        helper.assertTrue(be.memory().isEmpty(), "basin should be empty after take out");
+        helper.assertTrue(player.getInventory().contains(chamberMemory()), "player should get the memory back");
+        LOGGER.info("PENSIEVE-GAMETEST PASS pourAndTakeOut");
+        helper.succeed();
+    }
+
+    @GameTest(template = EMPTY, batch = "pensieve_basin")
+    public static void strangerCannotTakeOutPrivateMemory(GameTestHelper helper) {
+        BlockPos pos = new BlockPos(1, 2, 1);
+        helper.setBlock(pos, ExampleMod.PENSIEVE.get());
+        var be = (com.hogwartsmagic.pensieve.PensieveBlockEntity) helper.getBlockEntity(pos);
+        be.pour(chamberMemory(), java.util.UUID.randomUUID());
+        net.minecraft.world.entity.player.Player stranger = helper.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
+        stranger.setShiftKeyDown(true);
+        helper.useBlock(pos, stranger);
+        helper.assertTrue(!be.memory().isEmpty(), "a stranger must not take a private memory");
+        helper.assertTrue(!stranger.getInventory().contains(chamberMemory()), "stranger got the memory");
+        LOGGER.info("PENSIEVE-GAMETEST PASS strangerCannotTakeOutPrivateMemory");
+        helper.succeed();
+    }
 }

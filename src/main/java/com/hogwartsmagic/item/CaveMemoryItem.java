@@ -25,7 +25,7 @@ import net.minecraft.world.level.saveddata.maps.MapItemSavedData;
 import java.util.Optional;
 
 /** A vial of memory. Drunk, it shows a short vision and becomes a Cave Map to the nearest unlooted Locket cave. */
-public class CaveMemoryItem extends Item {
+public class CaveMemoryItem extends Item implements com.hogwartsmagic.pensieve.PensieveMemory {
     private static final int COOLDOWN_TICKS = 40;
     private static final String[] VISION = {
             "A cliff above a black, restless sea...",
@@ -49,14 +49,25 @@ public class CaveMemoryItem extends Item {
         if (level.isClientSide || !(entity instanceof ServerPlayer player)) {
             return stack;
         }
-        ServerLevel server = (ServerLevel) level;
+        if (grantCaveMap(player)) {
+            if (!player.hasInfiniteMaterials()) {
+                stack.shrink(1);
+            }
+        } else {
+            player.getCooldowns().addCooldown(this, COOLDOWN_TICKS);
+        }
+        return stack;
+    }
+
+    /** The drink: shows the vision and hands over the Cave Map. False when no unlooted cave is found. */
+    public static boolean grantCaveMap(ServerPlayer player) {
+        ServerLevel server = player.serverLevel();
         Optional<BlockPos> found = server.dimension() == Level.OVERWORLD
                 ? LocketCaves.findNearestUnlootedCave(server, player.blockPosition())
                 : Optional.empty();
         if (found.isEmpty()) {
             player.displayClientMessage(Component.literal("The memory is too faint..."), true);
-            player.getCooldowns().addCooldown(this, COOLDOWN_TICKS);
-            return stack;
+            return false;
         }
         BlockPos pos = found.get();
         player.addEffect(new MobEffectInstance(MobEffects.CONFUSION, DespairRules.VISION_TICKS, 0));
@@ -68,13 +79,15 @@ public class CaveMemoryItem extends Item {
         MapItem.renderBiomePreviewMap(server, map);
         MapItemSavedData.addTargetDecoration(map, pos, "+", MapDecorationTypes.RED_X);
         map.set(DataComponents.CUSTOM_NAME, Component.translatable("item.hogwartsmagic.cave_map"));
-        if (!player.hasInfiniteMaterials()) {
-            stack.shrink(1);
-        }
         if (!player.getInventory().add(map)) {
             player.drop(map, false);
         }
-        return stack;
+        return true;
+    }
+
+    @Override
+    public String sceneId(ItemStack stack) {
+        return "locket_cave";
     }
 
     @Override

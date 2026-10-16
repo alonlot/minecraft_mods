@@ -62,6 +62,18 @@
           ]
         }
       ]
+    },
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "hogwartsmagic:summoning_memory",
+          "conditions": [
+            { "condition": "minecraft:random_chance", "chance": 0.15 }
+          ]
+        }
+      ]
     }
   ]
 }

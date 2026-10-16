@@ -76,6 +76,8 @@ public final class PensieveSessions {
     @Nullable private static MinecraftServer initServer;
     @Nullable private static ServerLevel initLevel;
 
+    /** True while this class is moving a viewer itself, so its own dimension changes are not cancelled. */
+    private static boolean ownMove;
     @Nullable private static ServerLevel testLevel;
     @Nullable private static Function<String, Optional<MemoryRegistry.LoadedScene>> testScenes;
 
@@ -114,6 +116,11 @@ public final class PensieveSessions {
     public static boolean anyoneInside(Level level, BlockPos basin) {
         Session s = sessionAt(level.dimension(), basin);
         return s != null && !s.viewers().isEmpty();
+    }
+
+    /** For {@link PensieveEvents}: a viewer's dimension change is only allowed when this class makes it. */
+    static boolean isOwnMove() {
+        return ownMove;
     }
 
     @Nullable
@@ -220,6 +227,11 @@ public final class PensieveSessions {
     private static Session createSession(ServerPlayer player, ServerLevel memory, String id,
                                          MemoryRegistry.LoadedScene scene, @Nullable ResourceKey<Level> basinDim,
                                          @Nullable BlockPos basinPos, boolean preview) {
+        if (id.length() > PensieveStartPacket.MAX_ID) {
+            LOGGER.warn("Pensieve: scene id '{}...' is over {} chars", id.substring(0, 32), PensieveStartPacket.MAX_ID);
+            player.displayClientMessage(Component.translatable("message.hogwartsmagic.pensieve.no_scene"), !preview);
+            return null;
+        }
         if (scene.json().length() > PensieveStartPacket.MAX_JSON) {
             LOGGER.warn("Pensieve: scene '{}' is {} chars, over the {} the start packet carries", id,
                     scene.json().length(), PensieveStartPacket.MAX_JSON);
@@ -276,9 +288,11 @@ public final class PensieveSessions {
         for (Session.Viewer v : new ArrayList<>(s.viewers().values())) {
             ServerPlayer p = server.getPlayerList().getPlayer(v.id());
             if (p == null) {
+                // Task 7: body removal
                 dropViewer(s, v);
             } else if (!p.isAlive()) {
                 // Died (Task 7: a big hit on the body): normal death; no move back, just undo the ghost state.
+                // Task 7: body removal
                 restoreState(p, v.wasMayfly, v.wasFlying, v.wasInvisible, v.wasInvulnerable);
                 clearReturnTag(p);
                 dropViewer(s, v);
@@ -321,7 +335,12 @@ public final class PensieveSessions {
             if (p.level().dimension().equals(v.returnDim())) hold(p, v.returnPos());
             if (--v.swallowTicksLeft <= 0) cross(s, v, p, memory);
         } else if (v.stage == Session.Viewer.Stage.INSIDE) {
-            if (p.level() == memory) hold(p, s.anchor());
+            if (p.level() != memory) {
+                // Moved out some other way: treat it as leaving, so they still go home with their state restored.
+                beginExit(p, v, ExitReason.LEFT);
+                return;
+            }
+            hold(p, s.anchor());
             applyGhost(p);
         } else {
             if (v.crossed) {
@@ -444,21 +463,47 @@ public final class PensieveSessions {
 
     private static void moveBack(ServerPlayer p, Session.Viewer v) {
         ServerLevel back = p.server.getLevel(v.returnDim());
-        if (back == null) back = p.server.overworld();
-        moveTo(p, back, v.returnPos(), v.yRot(), v.xRot());
+        Vec3 to = v.returnPos();
+        if (back == null) {
+            // The return dimension is gone: the same XYZ in the overworld could be anywhere, so world spawn.
+            back = p.server.overworld();
+            to = Vec3.atBottomCenterOf(back.getSharedSpawnPos());
+        }
+        moveTo(p, back, to, v.yRot(), v.xRot());
         restoreState(p, v.wasMayfly, v.wasFlying, v.wasInvisible, v.wasInvulnerable);
         clearReturnTag(p);
         // Task 7: remove the body v.bodyId() left at the basin.
     }
 
+    /**
+     * SeamlessMove sends no respawn packet, so the client keeps its old ClientLevel. That is only safe when both
+     * levels have the same height range; from a Nether or End basin the client would decode overworld-height
+     * memory chunks into a Nether-shaped level. Those moves use a real dimension change (teleportTo) instead.
+     */
     private static void moveTo(ServerPlayer p, ServerLevel level, Vec3 at, float yRot, float xRot) {
-        if (p.serverLevel() == level) {
-            p.connection.teleport(at.x, at.y, at.z, yRot, xRot);
-        } else {
-            SeamlessMove.move(p, level, at.x, at.y, at.z, yRot, xRot);
+        moveTo(p, level, at, yRot, xRot, false);
+    }
+
+    private static void moveTo(ServerPlayer p, ServerLevel level, Vec3 at, float yRot, float xRot, boolean resync) {
+        ownMove = true;
+        try {
+            if (p.serverLevel() == level) {
+                p.connection.teleport(at.x, at.y, at.z, yRot, xRot);
+            } else if (!resync && sameShape(p.serverLevel(), level)) {
+                SeamlessMove.move(p, level, at.x, at.y, at.z, yRot, xRot);
+            } else {
+                p.teleportTo(level, at.x, at.y, at.z, yRot, xRot);
+            }
+        } finally {
+            ownMove = false;
         }
         p.setDeltaMovement(Vec3.ZERO);
         p.fallDistance = 0;
+    }
+
+    private static boolean sameShape(ServerLevel a, ServerLevel b) {
+        return a.dimensionType() == b.dimensionType()
+                || (a.getMinBuildHeight() == b.getMinBuildHeight() && a.getHeight() == b.getHeight());
     }
 
     private static void restoreState(ServerPlayer p, boolean mayfly, boolean flying, boolean invisible,
@@ -519,7 +564,8 @@ public final class PensieveSessions {
             if (PensieveDimension.isMemory(player.level())) {
                 // No record of where they came from: the world spawn is the only safe place.
                 ServerLevel overworld = player.server.overworld();
-                moveTo(player, overworld, Vec3.atBottomCenterOf(overworld.getSharedSpawnPos()), player.getYRot(), 0f);
+                moveTo(player, overworld, Vec3.atBottomCenterOf(overworld.getSharedSpawnPos()), player.getYRot(), 0f,
+                        true);
                 player.gameMode.getGameModeForPlayer().updatePlayerAbilities(player.getAbilities());
                 restoreState(player, player.getAbilities().mayfly, player.getAbilities().flying, false, false);
             }
@@ -529,9 +575,13 @@ public final class PensieveSessions {
         ResourceLocation dimId = ResourceLocation.tryParse(t.getString("Dim"));
         ServerLevel back = dimId == null ? null
                 : player.server.getLevel(ResourceKey.create(Registries.DIMENSION, dimId));
-        if (back == null) back = player.server.overworld();
-        moveTo(player, back, new Vec3(t.getDouble("X"), t.getDouble("Y"), t.getDouble("Z")),
-                t.getFloat("YRot"), t.getFloat("XRot"));
+        Vec3 to = new Vec3(t.getDouble("X"), t.getDouble("Y"), t.getDouble("Z"));
+        if (back == null) {
+            back = player.server.overworld();
+            to = Vec3.atBottomCenterOf(back.getSharedSpawnPos());
+        }
+        // Always a real dimension change at login: it resyncs the client's level whatever it was saved in.
+        moveTo(player, back, to, t.getFloat("YRot"), t.getFloat("XRot"), true);
         boolean mayfly = t.contains("Mayfly") ? t.getBoolean("Mayfly") : player.getAbilities().mayfly;
         boolean flying = t.contains("Flying") ? t.getBoolean("Flying") : player.getAbilities().flying;
         restoreState(player, mayfly, flying, t.getBoolean("Invisible"), t.getBoolean("Invulnerable"));

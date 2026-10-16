@@ -426,6 +426,10 @@ public class ModEvents {
 
     @SubscribeEvent
     public static void onRightClickItem(PlayerInteractEvent.RightClickItem event) {
+        // Already refused (e.g. a Pensieve viewer, cancelled at HIGHEST): no wand use.
+        if (event.isCanceled()) {
+            return;
+        }
         if (handleWandUse(event.getEntity(), event.getItemStack())) {
             event.setCanceled(true);
         }

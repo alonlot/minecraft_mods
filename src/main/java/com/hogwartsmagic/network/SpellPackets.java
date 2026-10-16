@@ -619,7 +619,7 @@ public class SpellPackets {
         public static void handle(BroomBoostPacket p, CustomPayloadEvent.Context ctx) {
             ctx.enqueueWork(() -> {
                 net.minecraft.server.level.ServerPlayer player = ctx.getSender();
-                if (player != null && !(com.hogwartsmagic.spell.mind.MindControl.isControlled(player) || com.hogwartsmagic.spell.mind.PossessionManager.isPossessing(player)) && player.getVehicle() instanceof com.hogwartsmagic.entity.BroomEntity broom) {
+                if (player != null && !(com.hogwartsmagic.spell.mind.MindControl.isControlled(player) || com.hogwartsmagic.spell.mind.PossessionManager.isPossessing(player)) && !com.hogwartsmagic.pensieve.PensieveSessions.isViewer(player) && player.getVehicle() instanceof com.hogwartsmagic.entity.BroomEntity broom) {
                     broom.isBoosting = p.isBoosting;
                 }
             });
@@ -631,7 +631,7 @@ public class SpellPackets {
         public static void handle(BroomTrickPacket p, CustomPayloadEvent.Context ctx) {
             ctx.enqueueWork(() -> {
                 net.minecraft.server.level.ServerPlayer player = ctx.getSender();
-                if (player != null && !(com.hogwartsmagic.spell.mind.MindControl.isControlled(player) || com.hogwartsmagic.spell.mind.PossessionManager.isPossessing(player)) && player.getVehicle() instanceof com.hogwartsmagic.entity.BroomEntity broom) {
+                if (player != null && !(com.hogwartsmagic.spell.mind.MindControl.isControlled(player) || com.hogwartsmagic.spell.mind.PossessionManager.isPossessing(player)) && !com.hogwartsmagic.pensieve.PensieveSessions.isViewer(player) && player.getVehicle() instanceof com.hogwartsmagic.entity.BroomEntity broom) {
                     broom.tryStartTrick(p.trickType);
                 }
             });
@@ -842,6 +842,8 @@ public class SpellPackets {
         public static void handle(CastSpellPacket p, CustomPayloadEvent.Context ctx) {
             ServerPlayer player = ctx.getSender();
             if (player == null) return;
+            // Inside a Pensieve memory the viewer is a ghost: no spells.
+            if (com.hogwartsmagic.pensieve.PensieveSessions.isViewer(player)) return;
             // A controlled player's own cast keys do nothing; casts made on their behalf call castAs directly.
             if (com.hogwartsmagic.spell.mind.MindControl.isControlled(player)) return;
             // A possessing caster's own body is in a trance; puppet casts go through PossessionCastPacket.
@@ -856,6 +858,7 @@ public class SpellPackets {
          * {@code PossessionManager.castAsPuppet} (body = the possessed victim, mana payer = the victim; Darkness goes to the puppeteer, no mastery XP).
          */
         public static void castAs(ServerPlayer player, CastSpellPacket p) {
+            if (com.hogwartsmagic.pensieve.PensieveSessions.isViewer(player)) return; // a Pensieve viewer (or their puppet body) casts nothing
             ItemStack wand = player.getMainHandItem();
             if (!MagicWandItem.isAnyWand(wand)) return;
             boolean creative = player.isCreative();
@@ -1390,6 +1393,9 @@ public class SpellPackets {
             if (com.hogwartsmagic.spell.mind.PossessionManager.handleCasterPacket(player, p)) {
                 return;
             }
+            if (com.hogwartsmagic.pensieve.PensieveSessions.isViewer(player)) {
+                return; // a Pensieve viewer starts no channel
+            }
             if (!p.startChannel) {
                 return; // input or a release with no session behind it: nothing to steer
             }
@@ -1448,7 +1454,7 @@ public class SpellPackets {
     public record ChooseFlooDestinationPacket(BlockPos sourcePos, BlockPos destinationPos) {
         public static void handle(ChooseFlooDestinationPacket p, CustomPayloadEvent.Context ctx) {
             ServerPlayer player = ctx.getSender();
-            if (player == null) {
+            if (player == null || com.hogwartsmagic.pensieve.PensieveSessions.isViewer(player)) {
                 return;
             }
             if ((com.hogwartsmagic.spell.mind.MindControl.isControlled(player) || com.hogwartsmagic.spell.mind.PossessionManager.isPossessing(player))) {
@@ -1529,7 +1535,7 @@ public class SpellPackets {
             if (player != null && (com.hogwartsmagic.spell.mind.MindControl.isControlled(player) || com.hogwartsmagic.spell.mind.PossessionManager.isPossessing(player))) {
                 return; // a controlled player acts through no mod packet
             }
-            if (player == null || p.name == null) {
+            if (player == null || p.name == null || com.hogwartsmagic.pensieve.PensieveSessions.isViewer(player)) {
                 return;
             }
             // Strip control characters, then trim; a blank or over-long name is refused.
@@ -1641,7 +1647,7 @@ public class SpellPackets {
         public static void handle(ChooseApparitionDestinationPacket p, CustomPayloadEvent.Context ctx) {
             ServerPlayer player = ctx.getSender();
             if (player != null) {
-                if ((com.hogwartsmagic.spell.mind.MindControl.isControlled(player) || com.hogwartsmagic.spell.mind.PossessionManager.isPossessing(player))) {
+                if ((com.hogwartsmagic.spell.mind.MindControl.isControlled(player) || com.hogwartsmagic.spell.mind.PossessionManager.isPossessing(player)) || com.hogwartsmagic.pensieve.PensieveSessions.isViewer(player)) {
                     com.hogwartsmagic.event.ModEvents.cancelApparitionChannel(player, player.getMainHandItem());
                     return;
                 }
@@ -1660,7 +1666,7 @@ public class SpellPackets {
         public static void handle(ChooseApparitionFireplacePacket p, CustomPayloadEvent.Context ctx) {
             ServerPlayer player = ctx.getSender();
             if (player != null) {
-                if ((com.hogwartsmagic.spell.mind.MindControl.isControlled(player) || com.hogwartsmagic.spell.mind.PossessionManager.isPossessing(player))) {
+                if ((com.hogwartsmagic.spell.mind.MindControl.isControlled(player) || com.hogwartsmagic.spell.mind.PossessionManager.isPossessing(player)) || com.hogwartsmagic.pensieve.PensieveSessions.isViewer(player)) {
                     com.hogwartsmagic.event.ModEvents.cancelApparitionChannel(player, player.getMainHandItem());
                     return;
                 }
@@ -1708,7 +1714,7 @@ public class SpellPackets {
         public static void handle(UseTomePacket p, CustomPayloadEvent.Context ctx) {
             ServerPlayer player = ctx.getSender();
             if (player != null) {
-                if ((com.hogwartsmagic.spell.mind.MindControl.isControlled(player) || com.hogwartsmagic.spell.mind.PossessionManager.isPossessing(player))) {
+                if ((com.hogwartsmagic.spell.mind.MindControl.isControlled(player) || com.hogwartsmagic.spell.mind.PossessionManager.isPossessing(player)) || com.hogwartsmagic.pensieve.PensieveSessions.isViewer(player)) {
                     return;
                 }
                 if (com.hogwartsmagic.spell.combat.CombatEffects.isStunned(player)) {
@@ -1784,7 +1790,7 @@ public class SpellPackets {
     public record PossessionHotbarPacket(int slot) {
         public static void handle(PossessionHotbarPacket p, CustomPayloadEvent.Context ctx) {
             ServerPlayer player = ctx.getSender();
-            if (player != null) {
+            if (player != null && !com.hogwartsmagic.pensieve.PensieveSessions.isViewer(player)) {
                 com.hogwartsmagic.spell.mind.PossessionManager.selectHotbar(player, p.slot);
             }
         }
@@ -1794,7 +1800,7 @@ public class SpellPackets {
     public record PossessionCastPacket(String spellId) {
         public static void handle(PossessionCastPacket p, CustomPayloadEvent.Context ctx) {
             ServerPlayer player = ctx.getSender();
-            if (player != null) {
+            if (player != null && !com.hogwartsmagic.pensieve.PensieveSessions.isViewer(player)) {
                 com.hogwartsmagic.spell.mind.PossessionManager.castAsPuppet(player, p.spellId);
             }
         }

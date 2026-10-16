@@ -15,9 +15,11 @@ public record PensieveStartPacket(String sceneId, String sceneJson, BlockPos ori
      * and far above any hand-written scene; the server refuses to start a scene over it.
      */
     public static final int MAX_JSON = 262144;
+    /** Scene id cap, in chars; checked when a session is created. */
+    public static final int MAX_ID = 256;
 
     public void encode(FriendlyByteBuf buf) {
-        buf.writeUtf(sceneId, 256);
+        buf.writeUtf(sceneId, MAX_ID);
         buf.writeUtf(sceneJson, MAX_JSON);
         buf.writeBlockPos(origin);
         buf.writeLong(startGameTime);
@@ -26,7 +28,7 @@ public record PensieveStartPacket(String sceneId, String sceneJson, BlockPos ori
     }
 
     public static PensieveStartPacket decode(FriendlyByteBuf buf) {
-        return new PensieveStartPacket(buf.readUtf(256), buf.readUtf(MAX_JSON), buf.readBlockPos(), buf.readLong(),
+        return new PensieveStartPacket(buf.readUtf(MAX_ID), buf.readUtf(MAX_JSON), buf.readBlockPos(), buf.readLong(),
                 buf.readVarInt(), buf.readBoolean());
     }
 

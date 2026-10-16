@@ -318,4 +318,38 @@ public final class PensieveGameTests {
             LOGGER.info("PENSIEVE-GAMETEST PASS viewerCannotBreakBlocks");
         });
     }
+
+    @GameTest(template = EMPTY, batch = SESSIONS, timeoutTicks = 200)
+    public static void viewerCannotCastSpells(GameTestHelper helper) {
+        useSessionSeam(helper, 10);
+        basinWithMemory(helper);
+        var viewer = playerBeside(helper, 0);
+        var control = playerBeside(helper, 1);
+        String spent = "hogwartsmagic:patronus_cast_spent_at";
+        for (var p : List.of(viewer, control)) {
+            net.minecraft.world.item.ItemStack wand = new net.minecraft.world.item.ItemStack(ExampleMod.HARRY_POTTER_WAND.get());
+            com.hogwartsmagic.item.MagicWandItem.setSelectedSpell(wand, com.hogwartsmagic.spell.SpellType.LUMOS);
+            p.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, wand);
+            com.hogwartsmagic.item.MagicBookItem.learnSpellIfAbsent(p, com.hogwartsmagic.spell.SpellType.LUMOS);
+            p.getPersistentData().putLong(spent, 1L);
+        }
+        helper.useBlock(BASIN, viewer);
+        helper.assertTrue(com.hogwartsmagic.pensieve.PensieveSessions.isViewer(viewer), "diving should make a viewer");
+        // A release goes all the way through the cast path and clears the spent marker; a viewer's must not.
+        var release = new com.hogwartsmagic.network.SpellPackets.CastSpellPacket(false, true, false, false);
+        com.hogwartsmagic.network.SpellPackets.CastSpellPacket.castAs(control, release);
+        helper.assertTrue(!control.getPersistentData().contains(spent), "control: the cast path should have run");
+        com.hogwartsmagic.network.SpellPackets.CastSpellPacket.castAs(viewer, release);
+        helper.assertTrue(viewer.getPersistentData().contains(spent), "a viewer's cast must do nothing");
+        var use = new net.minecraftforge.event.entity.player.PlayerInteractEvent.RightClickItem(viewer,
+                net.minecraft.world.InteractionHand.MAIN_HAND);
+        net.minecraftforge.common.MinecraftForge.EVENT_BUS.post(use);
+        helper.assertTrue(use.isCanceled(), "a viewer's wand right-click must be cancelled");
+        com.hogwartsmagic.pensieve.PensieveSessions.leave(viewer, com.hogwartsmagic.pensieve.ExitReason.LEFT);
+        helper.succeedWhen(() -> {
+            helper.assertTrue(!com.hogwartsmagic.pensieve.PensieveSessions.isViewer(viewer), "still a viewer");
+            logout(helper, viewer, control);
+            LOGGER.info("PENSIEVE-GAMETEST PASS viewerCannotCastSpells");
+        });
+    }
 }

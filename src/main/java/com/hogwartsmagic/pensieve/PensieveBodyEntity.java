@@ -111,11 +111,17 @@ public class PensieveBodyEntity extends LivingEntity {
             discard();
             return false;
         }
+        // /kill and the void are aimed at the body, not at the viewer: it goes, and is stood back up shortly.
+        if (source.is(net.minecraft.world.damagesource.DamageTypes.GENERIC_KILL)
+                || source.is(net.minecraft.world.damagesource.DamageTypes.FELL_OUT_OF_WORLD)) {
+            discard();
+            return false;
+        }
         // A body clipped into a block edge would otherwise suffocate its viewer a heart a second.
         if (amount <= 0f || source.is(net.minecraft.world.damagesource.DamageTypes.IN_WALL)) return false;
-        PensieveSessions.forwardDamage(owner, source, amount);
+        if (!PensieveSessions.forwardDamage(owner, source, amount)) return false;
         this.hurtTime = this.hurtDuration = 10;
-        level().broadcastEntityEvent(this, (byte) 2);
+        level().broadcastDamageEvent(this, source);
         return true;
     }
 

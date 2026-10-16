@@ -82,7 +82,7 @@ public final class PensieveSessions {
     /** True while this class is moving a viewer itself, so its own dimension changes are not cancelled. */
     private static boolean ownMove;
     /** True only inside {@link #forwardDamage}: the ghost protection lets the body damage through. */
-    private static boolean forwarding;
+    @Nullable private static UUID forwarding;
     @Nullable private static ServerLevel testLevel;
     @Nullable private static Function<String, Optional<MemoryRegistry.LoadedScene>> testScenes;
 
@@ -124,8 +124,8 @@ public final class PensieveSessions {
     }
 
     /** For {@link PensieveEvents}: true while the damage of a body is being applied to its viewer. */
-    static boolean isForwarding() {
-        return forwarding;
+    static boolean isForwarding(Player player) {
+        return forwarding != null && forwarding.equals(player.getUUID());
     }
 
     /** For {@link PensieveEvents}: a viewer's dimension change is only allowed when this class makes it. */
@@ -303,6 +303,7 @@ public final class PensieveSessions {
             } else if (!p.isAlive()) {
                 // Normally onViewerDeath has already sent them home; this is the net for a death it never saw.
                 removeBody(server, v);
+                PensieveNet.send(p, new PensieveExitPacket(ExitReason.LEFT.ordinal()));
                 restoreState(p, v.wasMayfly, v.wasFlying, v.wasInvisible, v.wasInvulnerable);
                 clearReturnTag(p);
                 dropViewer(s, v);
@@ -566,23 +567,29 @@ public final class PensieveSessions {
      * call and {@link #forwarding} makes the LivingAttackEvent cancel stand aside. Below a third of max health the
      * viewer is yanked out; a lethal hit is handled by {@link #onViewerDeath}.
      */
-    public static void forwardDamage(ServerPlayer owner, DamageSource source, float amount) {
+    public static boolean forwardDamage(ServerPlayer owner, DamageSource source, float amount) {
         Session s = BY_VIEWER.get(owner.getUUID());
-        if (s == null) return;
+        if (s == null) return false;
         boolean wasInvulnerable = owner.isInvulnerable();
+        UUID previous = forwarding;
+        boolean hurt;
         owner.setInvulnerable(false);
-        forwarding = true;
+        forwarding = owner.getUUID();
         try {
-            owner.hurt(source, amount);
+            hurt = owner.hurt(source, amount);
         } finally {
-            forwarding = false;
+            forwarding = previous;
             if (BY_VIEWER.containsKey(owner.getUUID())) owner.setInvulnerable(wasInvulnerable);
         }
+        if (!hurt) return false;
+        owner.setDeltaMovement(Vec3.ZERO);
+        owner.hurtMarked = false;
         PensieveNet.send(owner, new PensieveThudPacket(Math.min(1f, amount / 6f)));
         if (owner.isAlive() && BY_VIEWER.containsKey(owner.getUUID())
                 && YankRule.shouldYank(owner.getHealth(), owner.getMaxHealth())) {
             leave(owner, ExitReason.YANK);
         }
+        return true;
     }
 
     /**
@@ -601,6 +608,7 @@ public final class PensieveSessions {
                 back = p.server.overworld();
                 to = Vec3.atBottomCenterOf(back.getSharedSpawnPos());
             }
+            PensieveNet.send(p, new PensieveExitPacket(ExitReason.LEFT.ordinal()));
             // Not SeamlessMove: it revives the player. A dead player is moved with an ordinary teleport.
             moveTo(p, back, to, v.yRot(), v.xRot(), true);
             restoreState(p, v.wasMayfly, v.wasFlying, v.wasInvisible, v.wasInvulnerable);
@@ -725,7 +733,8 @@ public final class PensieveSessions {
         PlayerMagicData.saveModData(p, mod);
     }
 
-    static void clearReturnTagAfterDeath(ServerPlayer p) {
+    static void clearReturnTagAfterDeath(ServerPlayer p, ServerPlayer original) {
+        clearReturnTag(original);
         clearReturnTag(p);
     }
 

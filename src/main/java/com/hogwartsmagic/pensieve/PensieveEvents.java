@@ -36,7 +36,7 @@ public final class PensieveEvents {
     /** Nothing hurts a viewer except the damage their own body forwards (see PensieveSessions#forwardDamage). */
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onAttacked(LivingAttackEvent event) {
-        if (event.getEntity() instanceof Player p && PensieveSessions.isViewer(p) && !PensieveSessions.isForwarding()) {
+        if (event.getEntity() instanceof Player p && PensieveSessions.isViewer(p) && !PensieveSessions.isForwarding(p)) {
             event.setCanceled(true);
         }
     }
@@ -49,11 +49,14 @@ public final class PensieveEvents {
         }
     }
 
-    /** However a viewer died, the respawned player must not carry a return tag back into the memory dimension. */
-    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    /**
+     * However a viewer died, the respawned player must not carry a return tag back into the memory dimension.
+     * Runs last: other Clone handlers copy the old persistent data over the new player.
+     */
+    @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onClone(PlayerEvent.Clone event) {
         if (event.isWasDeath() && event.getEntity() instanceof ServerPlayer p) {
-            PensieveSessions.clearReturnTagAfterDeath(p);
+            PensieveSessions.clearReturnTagAfterDeath(p, (ServerPlayer) event.getOriginal());
         }
     }
 

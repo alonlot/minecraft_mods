@@ -467,12 +467,13 @@ public final class PensieveGameTests {
         useSessionSeam(helper, 400);
         basinWithMemory(helper);
         var p = playerBeside(helper, 0);
+        survivalAndSeasoned(p);
         net.minecraft.world.phys.Vec3 ret = p.position();
         p.getInventory().add(new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.DIAMOND, 3));
         helper.useBlock(BASIN, p);
         helper.runAtTickTime(40, () -> {
             var body = bodyOf(helper, p);
-            body.hurt(helper.getLevel().damageSources().genericKill(), 1000f);
+            body.hurt(helper.getLevel().damageSources().generic(), 1000f);
             helper.assertTrue(p.isDeadOrDying(), "the forwarded hit should have killed the viewer");
             helper.assertTrue(!com.hogwartsmagic.pensieve.PensieveSessions.isViewer(p), "a dead viewer must leave the session");
             helper.assertTrue(!com.hogwartsmagic.util.PlayerMagicData.getModData(p).contains("PensieveReturn"),
@@ -483,6 +484,32 @@ public final class PensieveGameTests {
             helper.assertTrue(dropped, "the inventory should have dropped at the body");
             logout(helper, p);
             LOGGER.info("PENSIEVE-GAMETEST PASS dyingInsideMemoryLeavesViewerAndLootAtTheBody");
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = EMPTY, batch = SESSIONS, timeoutTicks = 200)
+    public static void killingTheBodyDoesNotKillTheViewer(GameTestHelper helper) {
+        useSessionSeam(helper, 400);
+        basinWithMemory(helper);
+        var p = playerBeside(helper, 0);
+        survivalAndSeasoned(p);
+        helper.useBlock(BASIN, p);
+        helper.runAtTickTime(40, () -> {
+            var body = bodyOf(helper, p);
+            body.hurt(helper.getLevel().damageSources().genericKill(), Float.MAX_VALUE);
+            helper.assertTrue(body.isRemoved(), "a killed body should go");
+            helper.assertTrue(p.isAlive() && p.getHealth() == 20f, "the viewer must be untouched");
+            helper.assertTrue(com.hogwartsmagic.pensieve.PensieveSessions.isViewer(p), "still a viewer");
+        });
+        helper.runAtTickTime(75, () -> {
+            helper.assertTrue(com.hogwartsmagic.pensieve.PensieveSessions.isViewer(p), "still a viewer later");
+            helper.assertTrue(bodyOf(helper, p).isAlive(), "the body should have been stood back up");
+            com.hogwartsmagic.pensieve.PensieveSessions.leave(p, com.hogwartsmagic.pensieve.ExitReason.LEFT);
+        });
+        helper.runAtTickTime(120, () -> {
+            logout(helper, p);
+            LOGGER.info("PENSIEVE-GAMETEST PASS killingTheBodyDoesNotKillTheViewer");
             helper.succeed();
         });
     }

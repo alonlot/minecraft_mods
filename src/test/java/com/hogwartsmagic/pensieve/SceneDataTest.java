@@ -110,7 +110,13 @@ class SceneDataTest {
             a.forEach(e -> skins.add(e.getAsString()));
         }
         return new SceneNames(entityIds, spells, new WithVanilla(sounds), new WithVanilla(registered),
-                new WithVanilla(registered), templates, Set.of(), new WithVanilla(registered), skins);
+                new WithVanilla(registered), templates, new WithVanilla(Set.of()), new WithVanilla(registered), skins);
+    }
+
+    @Test
+    void spellVisualsAreRealSpells() throws IOException {
+        Set<String> spells = matches(JAVA.resolve("spell/SpellType.java"), "^    [A-Z_]+\\(\"([a-z_]+)\"");
+        assertEquals(Set.of(), SceneNames.SPELL_VISUALS.stream().filter(s -> !spells.contains(s)).collect(java.util.stream.Collectors.toSet()));
     }
 
     @Test

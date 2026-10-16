@@ -60,6 +60,23 @@ class SceneValidatorTest {
     }
 
     @Test
+    void sceneLevelProblems() throws Exception {
+        List<String> m = validate("""
+                {"length":0,"end_action":"explode",
+                 "actors":[{"id":"a","type":"player"},{"id":"a","type":"player",
+                   "actions":[{"t":0,"do":"cast"}]}],
+                 "words":[{"t":0,"by":"ghost","text":"hi"}],
+                 "events":[{"t":0,"kind":"effect","id":"rain_of_frogs"}]}""");
+        assertEquals(6, m.size(), m.toString());
+        assertTrue(m.stream().anyMatch(s -> s.startsWith("length")), m.toString());
+        assertTrue(m.stream().anyMatch(s -> s.startsWith("end_action")), m.toString());
+        assertTrue(m.stream().anyMatch(s -> s.startsWith("actors[1].id")), m.toString());
+        assertTrue(m.stream().anyMatch(s -> s.startsWith("actors[1].actions[0].spell")), m.toString());
+        assertTrue(m.stream().anyMatch(s -> s.startsWith("words[0].by")), m.toString());
+        assertTrue(m.stream().anyMatch(s -> s.startsWith("events[0].id") && s.contains("rain_of_frogs")), m.toString());
+    }
+
+    @Test
     void danglingActorTarget() throws Exception {
         List<String> m = validate("""
                 {"length":100,"actors":[{"id":"a","type":"minecraft:zombie",

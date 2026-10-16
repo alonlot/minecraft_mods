@@ -114,6 +114,9 @@ public final class MemoryRegistry extends SimpleJsonResourceReloadListener {
                 continue;
             }
             if (id.startsWith("_") || id.contains("/_")) continue;
+            if (loaded.containsKey(id)) {
+                LOGGER.warn("Memory {} has the same id '{}' as another namespace's file; one overrides the other", entry.getKey(), id);
+            }
             try {
                 String json = entry.getValue().toString();
                 loaded.put(id, new LoadedScene(parseText(id, json), json));

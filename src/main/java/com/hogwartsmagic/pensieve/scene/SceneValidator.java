@@ -107,8 +107,14 @@ public final class SceneValidator {
                 out.add(cp + ".do: unknown action '" + c.action() + "' (expected one of "
                         + sorted(SceneNames.ACTIONS) + ")");
             }
-            if ("cast".equals(c.action()) && c.spell() != null) {
-                known(out, cp + ".spell", "spell", c.spell(), names.spells());
+            if ("cast".equals(c.action())) {
+                if (c.spell() == null) {
+                    out.add(cp + ".spell: a cast action needs a spell");
+                } else if (!names.spells().contains(c.spell())) {
+                    out.add(cp + ".spell: unknown spell '" + c.spell() + "'");
+                } else if (!SceneNames.SPELL_VISUALS.contains(c.spell())) {
+                    out.add(cp + ".spell: no memory visual for '" + c.spell() + "'");
+                }
             }
             if (c.item() != null) known(out, cp + ".item", "item", c.item(), names.items());
             if (c.target() != null && c.target().actor() != null && !actorIds.contains(c.target().actor())) {
@@ -142,7 +148,8 @@ public final class SceneValidator {
 
     private static void track(List<String> out, String p, Track t, float length) {
         for (int i = 0; i < t.keys().size(); i++) {
-            time(out, p + "[" + i + "].t", t.keys().get(i).t(), length);
+            // Keys are stored sorted by time, so the index may differ from the JSON order; the time value says which.
+            time(out, p + "[" + i + " (sorted)].t", t.keys().get(i).t(), length);
         }
     }
 

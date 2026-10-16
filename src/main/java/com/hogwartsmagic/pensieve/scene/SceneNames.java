@@ -23,5 +23,19 @@ public record SceneNames(Set<String> entityTypes, Set<String> spells, Set<String
     /** Things a scene's {@code end_action} may do. */
     public static final Set<String> END_ACTIONS = Set.of("cave_map");
     /** Reusable poses every scene may cue without defining them. */
-    public static final Set<String> POSE_PRESETS = Set.of("wand_raised", "kneel", "cower", "stand");
+    public static final Set<String> POSE_PRESETS = Set.of("wand_raised", "wand_point", "kneel", "cower", "arms_out",
+            "bent_over_basin", "hands_up", "look_down");
+    /**
+     * Spells a {@code cast} action may use: those with a memory visual. SpellType has no beam flag, so for now
+     * this is every SpellType id (kept as a string list because this class must stay free of Minecraft imports;
+     * SceneDataTest asserts it is a subset of the ids in SpellType.java). Task 11 narrows it.
+     */
+    public static final Set<String> SPELL_VISUALS = Set.of(
+            "expelliarmus", "glacius", "confringo", "protego", "protego_maxima", "lumos", "accio",
+            "wingardium_leviosa", "alohomora", "incendio", "stupefy", "revelio", "avada_kedavra", "crucio",
+            "imperio", "fiendfyre", "sectumsempra", "morsmordre", "dolohov_curse", "incarcerous", "heal",
+            "tenebris_flight", "expecto_patronum", "bombarda", "depulso", "levicorpus", "diffindo",
+            "petrificus_totalus", "aqua_eructo", "obliviate", "ascendio", "confundo", "cave_inimicum",
+            "alatus", "serpensortia", "arresto_momentum", "reparo", "apparition", "piertotum_locomotor",
+            "colloportus", "riddikulus");
 }

@@ -1906,15 +1906,13 @@
       {
         "name": "minecraft:entity.evoker.death",
         "type": "event",
-        "pitch": 0.5,
-        "weight": 3
+        "pitch": 0.5
       },
       {
         "name": "minecraft:entity.wither.death",
         "type": "event",
         "volume": 0.4,
-        "pitch": 0.7,
-        "weight": 1
+        "pitch": 0.7
       }
     ]
   }

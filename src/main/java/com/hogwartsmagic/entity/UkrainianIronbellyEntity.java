@@ -173,14 +173,19 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
         }
     }
 
-    /** Every Ironbelly within range of a ringing. Returns how many there were, so the ringer can be credited. */
+    /** Every Ironbelly within range of a ringing. Returns how many cowered, so the ringer can be credited. */
     public static int cowerNearby(ServerLevel level, Vec3 where, double radius) {
         List<UkrainianIronbellyEntity> dragons = level.getEntitiesOfClass(
                 UkrainianIronbellyEntity.class, new AABB(where, where).inflate(radius));
+        int cowered = 0;
         for (UkrainianIronbellyEntity dragon : dragons) {
+            if (dragon.leavingTicks > 0) {
+                continue;      // already freed and on its way out
+            }
             dragon.cower();
+            cowered++;
         }
-        return dragons.size();
+        return cowered;
     }
 
     /** The last anchor stub has been broken. It goes. */

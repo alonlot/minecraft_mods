@@ -513,6 +513,7 @@ public class ModEvents {
             }
             com.hogwartsmagic.spell.mastery.MasteryConfig.sendTo(player);
             com.hogwartsmagic.spell.mastery.SpellMasteryData.sync(player);
+            com.hogwartsmagic.spell.mastery.MasteryAwards.awardExistingRanks(player);
             HousePerks.applyHouseAttributes(player);
             HorcruxData.applyMaxHealthPenalty(player);
             // Sync initial mana

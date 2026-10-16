@@ -54,6 +54,23 @@ public final class GoblinEvents {
         alarm.raise(level, thief, event.getPos(), 1, "gringotts.alarm.chest");
     }
 
+    /** Alarm reinforcements come back every time the alarm is raised, so they must not be a loot or XP source. */
+    @SubscribeEvent
+    public static void onReinforcementDrops(net.minecraftforge.event.entity.living.LivingDropsEvent event) {
+        if (event.getEntity().getTags().contains(
+                com.hogwartsmagic.gringotts.GringottsAlarm.REINFORCEMENT_TAG)) {
+            event.getDrops().clear();
+        }
+    }
+
+    @SubscribeEvent
+    public static void onReinforcementXp(net.minecraftforge.event.entity.living.LivingExperienceDropEvent event) {
+        if (event.getEntity().getTags().contains(
+                com.hogwartsmagic.gringotts.GringottsAlarm.REINFORCEMENT_TAG)) {
+            event.setCanceled(true);
+        }
+    }
+
     private static boolean isVaultContainer(BlockState state) {
         return state.getBlock() instanceof ChestBlock
                 || state.getBlock() instanceof BarrelBlock

@@ -147,12 +147,7 @@ public final class MasteryAwards {
                     .withStyle(ChatFormatting.GRAY));
         }
         // Both routes to a new rank (casting and Tomes) end here, so this is the one place to credit it.
-        if (newRank >= 2) {
-            com.hogwartsmagic.util.ModAdvancements.award(caster, "spell_adept");
-        }
-        if (newRank >= MasteryMath.MAX_RANK) {
-            com.hogwartsmagic.util.ModAdvancements.award(caster, "spell_master");
-        }
+        awardRankAdvancements(caster, newRank);
         caster.level().playSound(null, caster.blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.8f, 1.3f);
         if (caster.level() instanceof ServerLevel level) {
             double x = caster.getX();
@@ -161,6 +156,24 @@ public final class MasteryAwards {
             level.sendParticles(ParticleTypes.ENCHANT, x, y, z, 40, 0.5, 0.8, 0.5, 0.6);
             level.sendParticles(spell.getDustParticle(), x, y, z, 24, 0.4, 0.6, 0.4, 0.02);
         }
+    }
+
+    private static void awardRankAdvancements(ServerPlayer player, int rank) {
+        if (rank >= 2) {
+            com.hogwartsmagic.util.ModAdvancements.award(player, "spell_adept");
+        }
+        if (rank >= MasteryMath.MAX_RANK) {
+            com.hogwartsmagic.util.ModAdvancements.award(player, "spell_master");
+        }
+    }
+
+    /** Login catch-up for ranks earned before these advancements existed. */
+    public static void awardExistingRanks(ServerPlayer player) {
+        int best = 0;
+        for (SpellType spell : SpellType.values()) {
+            best = Math.max(best, SpellMasteryData.getRank(player, spell));
+        }
+        awardRankAdvancements(player, best);
     }
 
     private static boolean eligible(ServerPlayer caster) {

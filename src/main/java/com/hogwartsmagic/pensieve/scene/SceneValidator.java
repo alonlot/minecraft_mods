@@ -18,6 +18,8 @@ public final class SceneValidator {
         float length = scene.length();
         if (length <= 0) out.add("length: must be greater than 0, got " + scene.length());
 
+        if (scene.radius() > 200) out.add("radius: must be at most 200, got " + scene.radius());
+
         Set<String> actorIds = new HashSet<>();
         for (int i = 0; i < scene.actors().size(); i++) {
             String id = scene.actors().get(i).id();

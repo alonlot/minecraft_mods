@@ -25,6 +25,14 @@ class SceneValidatorTest {
     }
 
     @Test
+    void radiusOver200IsRejected() throws Exception {
+        List<String> m = validate("{\"length\":100,\"radius\":201}");
+        assertEquals(1, m.size(), m.toString());
+        assertTrue(m.get(0).startsWith("radius"), m.get(0));
+        assertEquals(0, validate("{\"length\":100,\"radius\":200}").size());
+    }
+
+    @Test
     void unknownEntityIsNamed() throws Exception {
         List<String> m = validate("{\"length\":100,\"actors\":[{\"id\":\"a\",\"type\":\"hogwartsmagic:basilsk\"}]}");
         assertEquals(1, m.size(), m.toString());

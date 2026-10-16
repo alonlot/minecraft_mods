@@ -210,6 +210,10 @@ public final class Config {
                     "Relative paths resolve against the game run directory. Empty (the default) uses only the scenes shipped in data packs.")
             .define("pensieveDevSceneDir", "");
 
+    public static final ForgeConfigSpec.IntValue PENSIEVE_BLOCKS_PER_TICK = BUILDER
+            .comment("Pensieve: how many blocks of a memory set are placed (or cleared) per server tick, so building a set never stalls the server.")
+            .defineInRange("pensieveBlocksPerTick", 4000, 1, 1000000);
+
     static final ForgeConfigSpec SPEC = BUILDER.build();
 
     public static double baseMaxMana = 100;
@@ -260,6 +264,7 @@ public final class Config {
     public static int darkMagicDecayTicks = 36000;
     public static int darkMagicRedemptionTicks = 36000;
     public static String pensieveDevSceneDir = "";
+    public static int pensieveBlocksPerTick = 4000;
 
     private Config() {
     }
@@ -315,6 +320,7 @@ public final class Config {
         darkMagicDecayTicks = DARK_MAGIC_DECAY_TICKS.get();
         darkMagicRedemptionTicks = DARK_MAGIC_REDEMPTION_TICKS.get();
         pensieveDevSceneDir = PENSIEVE_DEV_SCENE_DIR.get();
+        pensieveBlocksPerTick = PENSIEVE_BLOCKS_PER_TICK.get();
         if (!com.hogwartsmagic.spell.mastery.MasteryMath.thresholdsValid(masteryXpAdept, masteryXpExpert, masteryXpMaster)) {
             LOGGER.warn("Spell mastery XP thresholds {} / {} / {} are not strictly rising; using the defaults 30 / 120 / 350.",
                     masteryXpAdept, masteryXpExpert, masteryXpMaster);

@@ -356,12 +356,7 @@ public final class DiagonAlleyPortal {
 
         moving.add(player.getUUID());
         try {
-            from.removePlayerImmediately(player, Entity.RemovalReason.CHANGED_DIMENSION);
-            player.revive();
-            player.setServerLevel(target);
-            target.addDuringTeleport(player);
-            player.connection.teleport(x, y, z, player.getYRot(), player.getXRot());
-            player.connection.resetPosition();
+            com.hogwartsmagic.util.SeamlessMove.move(player, target, x, y, z, player.getYRot(), player.getXRot());
         } finally {
             moving.remove(player.getUUID());
         }

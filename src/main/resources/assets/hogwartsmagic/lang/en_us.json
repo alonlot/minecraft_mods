@@ -1066,6 +1066,8 @@
   "death.attack.hogwartsmagic.petrification.player": "%1$s gave in to the stone whilst fighting %2$s",
   "message.hogwartsmagic.petrification.statue_revived": "%s is flesh again.",
   "key.hogwartsmagic.give_in": "Give in (while petrified)",
+  "key.hogwartsmagic.pensieve_leave": "Leave a Pensieve memory",
+  "gui.hogwartsmagic.pensieve.leave_hint": "Press [%s] to leave the memory",
   "gui.hogwartsmagic.petrified.title": "Petrified",
   "gui.hogwartsmagic.petrified.body": "You are stone. Someone with a Mandrake Restorative Draught can bring you back.",
   "gui.hogwartsmagic.petrified.wait": "Wait for rescue",

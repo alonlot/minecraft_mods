@@ -1,26 +1,452 @@
 package com.hogwartsmagic.client.pensieve;
 
+import com.google.gson.JsonParser;
+import com.hogwartsmagic.ExampleMod;
+import com.hogwartsmagic.event.ClientModEvents;
+import com.hogwartsmagic.network.SpellPackets;
+import com.hogwartsmagic.pensieve.net.PensieveLeavePacket;
+import com.hogwartsmagic.pensieve.scene.SceneDef;
+import com.hogwartsmagic.pensieve.scene.SceneParser;
+import com.hogwartsmagic.pensieve.scene.SessionClock;
+import com.mojang.logging.LogUtils;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.client.event.RenderHighlightEvent;
+import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.network.PacketDistributor;
+import org.slf4j.Logger;
 
-/** Client half of a Pensieve dive. Task 8 draws the swallow, the build and the exit; these are hooks until then. */
+/**
+ * Client half of a Pensieve dive: the phase machine every other Pensieve client class reads.
+ *
+ * <p>Phases are plain ints (not an enum, so no synthetic switch map can ever be involved). Each phase is driven
+ * only by {@link #phaseTime} (client ticks since it began) or {@link #sceneTime} (the shared game clock), so two
+ * viewers of the same memory see the same film.
+ *
+ * <pre>
+ *  onEnter ──► SWALLOW (30) ──► FALL ──onStart(-1)──► BUILD ──onStart(t)──► PLAY ──onExit──► EXIT (30 + return 15)
+ *                                  └────────onStart(t), a late joiner────────┘          └─onExit(YANK)─► YANK (10)
+ * </pre>
+ *
+ * <p>The time of day: the memory dimension shares the overworld clock, and the memory is reached with a seamless
+ * move, so the client is still holding the overworld {@link ClientLevel}. While the memory is on screen this class
+ * sets that level's day time to the scene's {@code set.timeOfDay} every client tick and again at the start of every
+ * render frame (after the tick's packets, so the server's 1 Hz time sync can never show through), and restores the
+ * real clock and the daylight rule as soon as the memory leaves the screen. The sky is not drawn inside the void,
+ * so what the scene time changes is the light: a night scene renders with night sky light.
+ */
+@Mod.EventBusSubscriber(modid = ExampleMod.MODID, value = Dist.CLIENT)
 public final class PensieveClientState {
+    private static final Logger LOGGER = LogUtils.getLogger();
+
+    public static final int NONE = 0;
+    public static final int SWALLOW = 1;
+    public static final int FALL = 2;
+    public static final int BUILD = 3;
+    public static final int PLAY = 4;
+    public static final int EXIT = 5;
+    public static final int YANK = 6;
+
+    /** Wire ordinals of the server's ExitReason (END, YANK, LEFT, ABORT). */
+    private static final int REASON_YANK = 1;
+    private static final int DEFAULT_RADIUS = 32;
+    /** Back at the basin once the player is this close to it; memory regions are far away from any basin. */
+    private static final double BACK_AT_BASIN = 24;
+
+    private static int phase = NONE;
+    /** Client ticks, advanced only while the game is not paused. */
+    private static long ticks;
+    private static long phaseStart;
+
+    private static BlockPos basin;
+    private static Vec3 enterEye;
+    private static float enterYaw;
+    private static float enterPitch;
+
+    private static SceneDef scene;
+    private static String sceneId;
+    private static BlockPos origin;
+    private static long startGameTime = -1;
+    private static int buildTicks;
+    private static boolean preview;
+    /** PLAY was reached straight from FALL (a late joiner): it fades in from black. */
+    private static boolean lateJoin;
+    /** A start that arrived during the swallow or the fall, held until the fall has run its minimum. */
+    private static boolean startPending;
+    /** The reveal (shadow to memory) began at this tick and lasts this many ticks; it may run on into PLAY. */
+    private static long revealStart;
+    private static int revealSpan = 1;
+
+    private static float thudStrength;
+    private static long thudTick = Long.MIN_VALUE / 2;
+    /** EXIT/YANK: the client tick the return began (the move back arrived), or -1 while still waiting. */
+    private static long returnStart = -1;
+    private static boolean leaveSent;
+
+    private static ClientLevel timeLevel;
+    private static long savedDayTime;
+    private static long savedGameTime;
+    private static boolean savedCycle;
+
     private PensieveClientState() {
     }
 
+    // ---- Server hooks (through ClientRuntimeBridge) ----------------------------------------------------------
+
     /** The local player dived into the basin at {@code basin}. */
-    public static void onEnter(BlockPos basin) {
+    public static void onEnter(BlockPos basinPos) {
+        Minecraft mc = Minecraft.getInstance();
+        PensieveSounds.stopAll();
+        scene = null;
+        sceneId = null;
+        origin = null;
+        startGameTime = -1;
+        lateJoin = false;
+        startPending = false;
+        leaveSent = false;
+        returnStart = -1;
+        thudTick = Long.MIN_VALUE / 2;
+        basin = basinPos;
+        if (mc.player != null) {
+            enterEye = mc.player.getEyePosition();
+            enterYaw = mc.player.getYRot();
+            enterPitch = mc.player.getXRot();
+        } else {
+            enterEye = Vec3.atCenterOf(basinPos).add(0, 1.2, 0);
+            enterYaw = 0;
+            enterPitch = 30;
+        }
+        if (!mc.options.getCameraType().isFirstPerson()) {
+            mc.options.setCameraType(CameraType.FIRST_PERSON);
+        }
+        setPhase(SWALLOW);
+        PensieveSounds.play("swallow", 1.0f, 1.0f);
     }
 
     /** The local player is in the memory; {@code startGameTime} is -1 while the set is still building. */
-    public static void onStart(String sceneId, String json, BlockPos origin, long startGameTime, int buildTicks,
-                               boolean preview) {
+    public static void onStart(String id, String json, BlockPos at, long start, int build, boolean isPreview) {
+        if (phase == EXIT || phase == YANK) return;
+        if (scene == null || !id.equals(sceneId)) {
+            scene = parse(id, json);
+            sceneId = id;
+        }
+        origin = at;
+        buildTicks = build;
+        preview = isPreview;
+        startGameTime = start;
+        if (phase == SWALLOW || phase == FALL) {
+            // The server is often ready the moment the viewer crosses; the fall through the dark still plays.
+            startPending = true;
+            return;
+        }
+        applyStart();
+    }
+
+    private static void applyStart() {
+        startPending = false;
+        if (startGameTime < 0) {
+            if (phase != BUILD) {
+                setPhase(BUILD);
+                beginReveal(buildTicks);
+            }
+        } else if (phase != PLAY) {
+            lateJoin = phase != BUILD;
+            setPhase(PLAY);
+            if (lateJoin) beginReveal(PensieveTimeline.LATE_FADE_TICKS);
+        }
+        PensieveSounds.stopFall();
+        PensieveSounds.hum(true);
+    }
+
+    private static void beginReveal(int span) {
+        revealStart = ticks;
+        revealSpan = Math.max(1, span);
     }
 
     /** The local player is leaving; {@code reason} is the server's {@code ExitReason} ordinal. */
     public static void onExit(int reason) {
+        if (phase == NONE) return;
+        returnStart = -1;
+        if (reason == REASON_YANK) {
+            if (phase == YANK) return;
+            setPhase(YANK);
+            PensieveSounds.stopFall();
+            PensieveSounds.hum(false);
+            PensieveSounds.play("gasp", 1.0f, 1.0f);
+            return;
+        }
+        if (phase == EXIT || phase == YANK) return;
+        startPending = false;
+        boolean inside = phase == BUILD || phase == PLAY;
+        setPhase(EXIT);
+        if (!inside) {
+            // Out before the memory was ever on screen: skip the collapse, straight into the dark rise.
+            phaseStart = ticks - PensieveTimeline.EXIT_COLLAPSE_TICKS;
+        }
+        PensieveSounds.stopFall();
+        PensieveSounds.play("rise", 1.0f, 1.0f);
     }
 
-    /** The body left at the basin was hit; {@code strength} is 0..1. Task 8 plays the distant thud. */
+    /** The body left at the basin was hit; {@code strength} is 0..1. */
     public static void onThud(float strength) {
+        if (phase == NONE) return;
+        thudStrength = Math.max(0, Math.min(1, strength));
+        thudTick = ticks;
+        PensieveSounds.play("distant_thud", Math.max(0.15f, thudStrength), 1.0f);
+    }
+
+    private static SceneDef parse(String id, String json) {
+        try {
+            return SceneParser.parse(id, JsonParser.parseString(json).getAsJsonObject());
+        } catch (Exception e) {
+            LOGGER.warn("Pensieve: could not parse scene '{}' on the client: {}", id, e.toString());
+            return null;
+        }
+    }
+
+    // ---- Reads ------------------------------------------------------------------------------------------------
+
+    public static boolean active() {
+        return phase != NONE;
+    }
+
+    public static int phase() {
+        return phase;
+    }
+
+    /** Ticks since the current phase began, with the frame's partial tick. */
+    public static float phaseTime(float partial) {
+        return (ticks - phaseStart) + partial;
+    }
+
+    /** The client clock, for animation that only needs to move (wisps, shimmer). */
+    public static float clock(float partial) {
+        return ticks + partial;
+    }
+
+    /** The parsed scene, or null before onStart or when the JSON failed to parse. */
+    public static SceneDef scene() {
+        return scene;
+    }
+
+    public static BlockPos origin() {
+        return origin;
+    }
+
+    public static BlockPos basin() {
+        return basin;
+    }
+
+    public static Vec3 enterEye() {
+        return enterEye;
+    }
+
+    public static float enterYaw() {
+        return enterYaw;
+    }
+
+    public static float enterPitch() {
+        return enterPitch;
+    }
+
+    public static boolean preview() {
+        return preview;
+    }
+
+    public static boolean lateJoin() {
+        return lateJoin;
+    }
+
+    public static int buildTicks() {
+        return buildTicks;
+    }
+
+    public static int radius() {
+        return scene != null ? Math.max(1, scene.radius()) : DEFAULT_RADIUS;
+    }
+
+    /** The reveal from shadow to memory, 0..1 (1 once it is complete). */
+    public static float reveal(float partial) {
+        return PensieveTimeline.reveal((ticks - revealStart) + partial, revealSpan);
+    }
+
+    /** Ticks since the reveal began (BUILD or a late joiner's PLAY). */
+    public static float revealTime(float partial) {
+        return (ticks - revealStart) + partial;
+    }
+
+    /** Scene time from the shared game clock; 0 while the set is building. */
+    public static float sceneTime(float partial) {
+        Minecraft mc = Minecraft.getInstance();
+        if (startGameTime < 0 || mc.level == null) return 0;
+        return SessionClock.elapsed(startGameTime, mc.level.getGameTime(), partial);
+    }
+
+    /** Red-edge strength from the last hit on the body, decaying over 12 ticks. */
+    public static float thud() {
+        return thud(partial());
+    }
+
+    public static float thud(float partial) {
+        return PensieveTimeline.thud(thudStrength, (ticks - thudTick) + partial);
+    }
+
+    public static float shudder(float partial) {
+        return PensieveTimeline.shudder(thudStrength, (ticks - thudTick) + partial);
+    }
+
+    /** EXIT/YANK: ticks since the move back arrived, or -1 while still waiting for it. */
+    public static float returnTime(float partial) {
+        return returnStart < 0 ? -1 : (ticks - returnStart) + partial;
+    }
+
+    /** True while the memory itself (not the basin side of the dive) is what the camera shows. */
+    public static boolean inMemory() {
+        if (phase == BUILD || phase == PLAY) return true;
+        if (phase == EXIT) return returnStart < 0 && (ticks - phaseStart) < PensieveTimeline.EXIT_TICKS;
+        return phase == YANK && returnStart < 0;
+    }
+
+    /** The vanilla HUD (all but chat) is hidden for the whole dive. */
+    public static boolean hidesHud() {
+        return phase != NONE;
+    }
+
+    static float partial() {
+        return Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(true);
+    }
+
+    // ---- Ticking ----------------------------------------------------------------------------------------------
+
+    private static void setPhase(int p) {
+        phase = p;
+        phaseStart = ticks;
+    }
+
+    private static void reset() {
+        phase = NONE;
+        scene = null;
+        sceneId = null;
+        origin = null;
+        basin = null;
+        startGameTime = -1;
+        returnStart = -1;
+        lateJoin = false;
+        startPending = false;
+        leaveSent = false;
+        PensieveSounds.stopAll();
+        syncTimeOfDay();
+    }
+
+    @SubscribeEvent
+    public static void onClientTick(TickEvent.ClientTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) return;
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level == null || mc.player == null) {
+            if (phase != NONE) reset();
+            timeLevel = null;
+            return;
+        }
+        if (phase == NONE) {
+            drainLeaveKey();
+            return;
+        }
+        if (!mc.isPaused()) ticks++;
+        long t = ticks - phaseStart;
+        if (phase == SWALLOW && t >= PensieveTimeline.SWALLOW_TICKS) {
+            setPhase(FALL);
+            PensieveSounds.startFall();
+            PensieveSounds.hum(true);
+        } else if (phase == FALL && startPending && t >= PensieveTimeline.MIN_FALL_TICKS) {
+            applyStart();
+        } else if (phase == EXIT) {
+            if (returnStart < 0 && t >= PensieveTimeline.EXIT_TICKS
+                    && (backAtBasin(mc) || t >= PensieveTimeline.EXIT_TICKS + PensieveTimeline.RETURN_WAIT_LIMIT)) {
+                returnStart = ticks;
+                PensieveSounds.hum(false);
+            }
+            if (returnStart >= 0 && ticks - returnStart >= PensieveTimeline.RETURN_TICKS) reset();
+        } else if (phase == YANK) {
+            if (t >= PensieveTimeline.YANK_TICKS
+                    && (backAtBasin(mc) || t >= PensieveTimeline.YANK_TICKS + PensieveTimeline.RETURN_WAIT_LIMIT)) {
+                reset(); // the return camera snaps: no ease after a yank
+            }
+        }
+        if (phase == BUILD || phase == PLAY) {
+            PensieveVoid.tickParticles(mc);
+        }
+        handleLeaveKey();
+        syncTimeOfDay();
+    }
+
+    @SubscribeEvent
+    public static void onRenderTick(TickEvent.RenderTickEvent event) {
+        if (event.phase == TickEvent.Phase.START) syncTimeOfDay();
+    }
+
+    /** No block outline for an invisible ghost hovering at the anchor. */
+    @SubscribeEvent
+    public static void onBlockHighlight(RenderHighlightEvent.Block event) {
+        if (phase != NONE) event.setCanceled(true);
+    }
+
+    private static boolean backAtBasin(Minecraft mc) {
+        if (basin == null || mc.player == null) return true;
+        return mc.player.position().distanceToSqr(Vec3.atCenterOf(basin)) < BACK_AT_BASIN * BACK_AT_BASIN;
+    }
+
+    private static void handleLeaveKey() {
+        boolean pressed = false;
+        while (ClientModEvents.PENSIEVE_LEAVE_KEY.consumeClick()) {
+            pressed = true;
+        }
+        if (!pressed || leaveSent) return;
+        if (phase == FALL || phase == BUILD || phase == PLAY) {
+            leaveSent = true;
+            SpellPackets.CHANNEL.send(new PensieveLeavePacket(), PacketDistributor.SERVER.noArg());
+        }
+    }
+
+    private static void drainLeaveKey() {
+        while (ClientModEvents.PENSIEVE_LEAVE_KEY.consumeClick()) {
+            // not in a memory: X does nothing
+        }
+    }
+
+    // ---- Time of day ------------------------------------------------------------------------------------------
+
+    private static boolean wantsSceneTime() {
+        return scene != null && inMemory();
+    }
+
+    /** See the class comment: hold the scene's time of day on the client level while the memory is on screen. */
+    private static void syncTimeOfDay() {
+        Minecraft mc = Minecraft.getInstance();
+        ClientLevel level = mc.level;
+        boolean want = level != null && wantsSceneTime();
+        if (timeLevel != null && (timeLevel != level || !want)) {
+            if (timeLevel == level) {
+                long now = level.getGameTime();
+                long real = savedCycle ? savedDayTime + Math.max(0, now - savedGameTime) : savedDayTime;
+                level.setDayTime(real);
+                level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(savedCycle, null);
+            }
+            timeLevel = null;
+        }
+        if (!want) return;
+        if (timeLevel == null) {
+            timeLevel = level;
+            savedDayTime = level.getDayTime();
+            savedGameTime = level.getGameTime();
+            savedCycle = level.getGameRules().getBoolean(GameRules.RULE_DAYLIGHT);
+        }
+        level.setDayTime(Math.floorMod(scene.set().timeOfDay(), 24000L));
     }
 }

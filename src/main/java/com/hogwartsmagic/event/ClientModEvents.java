@@ -116,6 +116,12 @@ public class ClientModEvents {
             GLFW.GLFW_KEY_G,
             "key.categories.hogwartsmagic"
     );
+    /** Leave a Pensieve memory early (X). Consumed by PensieveClientState, which sends PensieveLeavePacket. */
+    public static final KeyMapping PENSIEVE_LEAVE_KEY = new KeyMapping(
+            "key.hogwartsmagic.pensieve_leave",
+            GLFW.GLFW_KEY_X,
+            "key.categories.hogwartsmagic"
+    );
     private static boolean wasGrimoireDown = false;
     private static final KeyMapping[] SPELL_SLOT_KEYS = createSpellSlotKeys();
 
@@ -525,6 +531,11 @@ public class ClientModEvents {
 
         @SubscribeEvent
         public static void onComputeFov(net.minecraftforge.client.event.ComputeFovModifierEvent event) {
+            if (com.hogwartsmagic.client.pensieve.PensieveCamera.override()) {
+                // The dive directs the fov itself (onComputeViewportFov): no flying or speed zoom on top.
+                event.setNewFovModifier(1.0F);
+                return;
+            }
             if (event.getPlayer().getVehicle()
                     instanceof com.hogwartsmagic.entity.GringottsCartEntity cart) {
                 // Straight speed, not the broom's boost-punch: a cart is fast the whole way down
@@ -546,6 +557,14 @@ public class ClientModEvents {
                 }
                 // The minimum should be 1.0
                 event.setNewFovModifier(Math.max(1.0F, modifier));
+            }
+        }
+
+        /** The Pensieve dive's absolute fov (the swallow's zoom, the scene camera's lens). */
+        @SubscribeEvent
+        public static void onComputeViewportFov(net.minecraftforge.client.event.ViewportEvent.ComputeFov event) {
+            if (event.usedConfiguredFov() && com.hogwartsmagic.client.pensieve.PensieveCamera.override()) {
+                event.setFOV(com.hogwartsmagic.client.pensieve.PensieveCamera.fov(event.getFOV()));
             }
         }
 
@@ -625,6 +644,11 @@ public class ClientModEvents {
 
         @SubscribeEvent
         public static void onComputeCameraAngles(net.minecraftforge.client.event.ViewportEvent.ComputeCameraAngles event) {
+            if (com.hogwartsmagic.client.pensieve.PensieveCamera.override()) {
+                // PensieveCamera already set yaw and pitch on the camera; only the roll travels through here.
+                event.setRoll(com.hogwartsmagic.client.pensieve.PensieveCamera.roll());
+                return;
+            }
             Minecraft mc = Minecraft.getInstance();
             if (mc.player == null) {
                 return;
@@ -709,6 +733,10 @@ public class ClientModEvents {
 
         @SubscribeEvent(priority = EventPriority.HIGHEST)
         public static void onRenderHand(net.minecraftforge.client.event.RenderHandEvent event) {
+            if (com.hogwartsmagic.client.pensieve.PensieveClientState.active()) {
+                event.setCanceled(true); // a viewer in a memory has no hands
+                return;
+            }
             Minecraft minecraft = Minecraft.getInstance();
             if (minecraft.player != null && InvisibilityCloakClientState.shouldHidePlayerCompletely(minecraft.player)) {
                 event.setCanceled(true);
@@ -756,6 +784,7 @@ public class ClientModEvents {
             net.minecraftforge.client.settings.KeyConflictContext context = net.minecraftforge.client.settings.KeyConflictContext.IN_GAME;
             WAND_RADIAL_MENU_KEY.setKeyConflictContext(context);
             GRIMOIRE_KEY.setKeyConflictContext(context);
+            PENSIEVE_LEAVE_KEY.setKeyConflictContext(context);
             for (KeyMapping spellSlotKey : SPELL_SLOT_KEYS) {
                 spellSlotKey.setKeyConflictContext(context);
             }
@@ -767,6 +796,7 @@ public class ClientModEvents {
         event.register(WAND_RADIAL_MENU_KEY);
         event.register(GRIMOIRE_KEY);
         event.register(com.hogwartsmagic.client.PetrificationClient.GIVE_IN_KEY);
+        event.register(PENSIEVE_LEAVE_KEY);
         for (KeyMapping spellSlotKey : SPELL_SLOT_KEYS) {
             event.register(spellSlotKey);
         }

@@ -158,6 +158,10 @@ public class ClientForgeEvents {
 
     @SubscribeEvent
     public static void onFogColor(ViewportEvent.ComputeFogColor event) {
+        if (com.hogwartsmagic.client.pensieve.PensieveVoid.active()) {
+            com.hogwartsmagic.client.pensieve.PensieveVoid.fogColor(event);
+            return;
+        }
         float depth = undercroftDepth();
         if (depth >= 0.0F) {
             event.setRed(com.hogwartsmagic.client.UndercroftFogClientState.red(depth));
@@ -177,6 +181,10 @@ public class ClientForgeEvents {
 
     @SubscribeEvent
     public static void onRenderFog(ViewportEvent.RenderFog event) {
+        if (com.hogwartsmagic.client.pensieve.PensieveVoid.active()) {
+            com.hogwartsmagic.client.pensieve.PensieveVoid.renderFog(event);
+            return;
+        }
         float depth = undercroftDepth();
         if (depth >= 0.0F) {
             event.setNearPlaneDistance(

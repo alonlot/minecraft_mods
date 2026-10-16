@@ -1,0 +1,171 @@
+package com.hogwartsmagic.client.pensieve;
+
+import com.hogwartsmagic.ExampleMod;
+import com.hogwartsmagic.event.ClientModEvents;
+import com.mojang.blaze3d.systems.RenderSystem;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
+
+import static com.hogwartsmagic.client.pensieve.PensieveTimeline.*;
+
+/**
+ * Screen-space layers of the dive, drawn by {@code PensieveGuiMixin} in place of the vanilla HUD: the silver
+ * surface rising over the screen as the basin swallows the viewer, the black fall with silver wisps streaking
+ * past in three parallax layers, the dark rise on the way out, the surface draining away on the return, and the
+ * red-white flash of a yank. Stands in for {@link PensievePost} (darkness, red edge) if the post chain is off.
+ */
+public final class PensieveOverlay {
+    private static final ResourceLocation SURFACE = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID,
+            "textures/gui/pensieve/silver_surface.png");
+    private static final ResourceLocation WISP = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID,
+            "textures/gui/pensieve/wisp.png");
+    private static final int SURFACE_FRAMES = 8;
+    private static final int FRAME_W = 256;
+    private static final int FRAME_H = 128;
+    private static final int SURFACE_TICKS_PER_FRAME = 3;
+
+    private static final int[] WISP_COUNT = {16, 10, 6};
+    private static final float[] WISP_WIDTH = {3, 5, 8};
+    private static final float[] WISP_LENGTH = {0.22f, 0.36f, 0.55f};
+    private static final float[] WISP_SPEED = {0.035f, 0.06f, 0.1f};
+    private static final float[] WISP_ALPHA = {0.3f, 0.5f, 0.85f};
+    private static final int HINT_COLOR = 0xD8E4F2;
+
+    private PensieveOverlay() {
+    }
+
+    public static void render(GuiGraphics g, float partial) {
+        int phase = PensieveClientState.phase();
+        if (phase == PensieveClientState.NONE) return;
+        int w = g.guiWidth();
+        int h = g.guiHeight();
+        float pt = PensieveClientState.phaseTime(partial);
+        float clock = PensieveClientState.clock(partial);
+
+        if (phase == PensieveClientState.SWALLOW) {
+            float rise = surfaceRise(pt);
+            if (rise > 0) surface(g, w, h, rise, clock, 1);
+        } else if (phase == PensieveClientState.FALL) {
+            float k = clamp01(pt / FALL_FADE_TICKS);
+            g.fill(0, 0, w, h, 0xFF000000);
+            if (k < 1) surface(g, w, h, 1, clock, 1 - k);
+            wisps(g, w, h, clock, k, true);
+        } else if (phase == PensieveClientState.BUILD || phase == PensieveClientState.PLAY) {
+            fallbackDarkness(g, w, h, partial);
+            float rt = PensieveClientState.revealTime(partial);
+            if (rt < 10) wisps(g, w, h, clock, 1 - rt / 10, true);
+            hint(g, w, h, phase, pt, rt);
+        } else if (phase == PensieveClientState.EXIT) {
+            float rt = PensieveClientState.returnTime(partial);
+            if (rt >= 0) {
+                // Back at the basin: the silver drains down the screen as the camera rises out of it.
+                float k = returnMove(rt);
+                surface(g, w, h, 1 - k, clock, 1);
+                float black = 1 - clamp01(rt / 3);
+                if (black > 0) g.fill(0, 0, w, h, argb(black, 0));
+            } else if (pt < EXIT_COLLAPSE_TICKS) {
+                fallbackDarkness(g, w, h, partial);
+            } else {
+                g.fill(0, 0, w, h, 0xFF000000);
+                wisps(g, w, h, clock, clamp01((pt - EXIT_COLLAPSE_TICKS) / 3), false);
+            }
+        } else if (phase == PensieveClientState.YANK) {
+            if (pt < FLASH_TICKS) {
+                // Red-white flash: white hot at the instant of the tear, reddening as it goes.
+                float k = clamp01(pt / FLASH_TICKS);
+                int r = 255;
+                int gr = (int) (235 - 175 * k);
+                int b = (int) (225 - 185 * k);
+                g.fill(0, 0, w, h, 0xFF000000 | r << 16 | gr << 8 | b);
+            } else {
+                g.fill(0, 0, w, h, 0xFF000000);
+            }
+        }
+
+        if (!(PensievePost.working() && PensievePost.wanted())) {
+            redEdge(g, w, h, PensieveClientState.thud(partial));
+        }
+    }
+
+    /** The swirling silver liquid filling the bottom {@code cover} fraction of the screen. */
+    private static void surface(GuiGraphics g, int w, int h, float cover, float clock, float alpha) {
+        int sh = Math.round(h * clamp01(cover));
+        if (sh <= 0 || alpha <= 0) return;
+        int frame = Math.floorMod((int) (clock / SURFACE_TICKS_PER_FRAME), SURFACE_FRAMES);
+        // Constant texel scale: the meniscus is the texture's top row, and the liquid does not stretch as it rises.
+        int vh = Math.max(1, Math.round(FRAME_H * (float) sh / h));
+        RenderSystem.enableBlend();
+        g.setColor(1, 1, 1, alpha);
+        g.blit(SURFACE, 0, h - sh, w, sh, frame * FRAME_W, 0, FRAME_W, vh, FRAME_W * SURFACE_FRAMES, FRAME_H);
+        g.setColor(1, 1, 1, 1);
+        // The bright meniscus line catching the light.
+        int top = h - sh;
+        g.fillGradient(0, top - 4, w, top + 2, argb(0, 0xE0EEFA), argb(0.8f * alpha, 0xE0EEFA));
+        RenderSystem.disableBlend();
+    }
+
+    /** Three parallax layers of silver wisps; {@code up} = streaking upward (falling), else downward (rising). */
+    private static void wisps(GuiGraphics g, int w, int h, float clock, float alpha, boolean up) {
+        if (alpha <= 0) return;
+        RenderSystem.enableBlend();
+        for (int layer = 0; layer < WISP_COUNT.length; layer++) {
+            int len = Math.round(h * WISP_LENGTH[layer]);
+            int ww = Math.max(1, Math.round(WISP_WIDTH[layer]));
+            float span = h + len;
+            g.setColor(1, 1, 1, alpha * WISP_ALPHA[layer]);
+            for (int i = 0; i < WISP_COUNT[layer]; i++) {
+                float hx = hash(i * 7 + layer * 101);
+                float hy = hash(i * 13 + layer * 57 + 3);
+                float speed = WISP_SPEED[layer] * (0.8f + 0.4f * hash(i * 3 + layer * 31 + 9));
+                int x = Math.round(hx * w + Mth.sin(clock * 0.05f + i) * 4);
+                float pos = (hy * span + clock * speed * h) % span;
+                int y = up ? Math.round(h - pos) : Math.round(pos - len);
+                g.blit(WISP, x, y, ww, len, up ? 0 : 16, 0, 16, 128, 32, 128);
+            }
+        }
+        g.setColor(1, 1, 1, 1);
+        RenderSystem.disableBlend();
+    }
+
+    private static void fallbackDarkness(GuiGraphics g, int w, int h, float partial) {
+        if (PensievePost.working()) return;
+        float d = PensievePost.darkness(partial);
+        if (d > 0) g.fill(0, 0, w, h, argb(d, 0));
+    }
+
+    private static void redEdge(GuiGraphics g, int w, int h, float strength) {
+        if (strength <= 0) return;
+        int band = Math.max(8, h / 6);
+        int edge = argb(0.6f * strength, 0x8C0808);
+        int clear = argb(0, 0x8C0808);
+        g.fillGradient(0, 0, w, band, edge, clear);
+        g.fillGradient(0, h - band, w, h, clear, edge);
+    }
+
+    /** The leave key, shown while the memory builds and for the first seconds of play. */
+    private static void hint(GuiGraphics g, int w, int h, int phase, float pt, float revealTime) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.options.hideGui) return;
+        float a = clamp01(revealTime / 20f);
+        if (phase == PensieveClientState.PLAY) a *= 1 - clamp01((pt - 80) / 40f);
+        if (a <= 0.03f) return;
+        Component line = Component.translatable("gui.hogwartsmagic.pensieve.leave_hint",
+                ClientModEvents.PENSIEVE_LEAVE_KEY.getTranslatedKeyMessage());
+        RenderSystem.enableBlend();
+        g.drawCenteredString(mc.font, line, w / 2, h - 34, argb(0.75f * a, HINT_COLOR));
+        RenderSystem.disableBlend();
+    }
+
+    private static int argb(float alpha, int rgb) {
+        int a = Math.round(clamp01(alpha) * 255);
+        return a << 24 | (rgb & 0xFFFFFF);
+    }
+
+    private static float hash(int n) {
+        double s = Math.sin(n * 12.9898 + 78.233) * 43758.5453;
+        return (float) (s - Math.floor(s));
+    }
+}

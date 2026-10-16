@@ -22,7 +22,11 @@
     "client.MindControlGuiMixin",
     "client.PossessionTurnMixin",
     "client.PossessionSendPositionMixin",
-    "client.BasiliskGazeGuiMixin"
+    "client.BasiliskGazeGuiMixin",
+    "client.PensieveCameraMixin",
+    "client.PensieveGuiMixin",
+    "client.PensieveLevelRendererMixin",
+    "client.PensieveGameRendererMixin"
   ],
   "injectors": {
     "defaultRequire": 1

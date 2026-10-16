@@ -63,6 +63,14 @@ public class DarkMarkEntity extends Entity {
         tag.putFloat("VisualScale", this.entityData.get(DATA_VISUAL_SCALE));
     }
 
+    /**
+     * Pensieve memories: a mark that exists only on one client has no server to count its synched duration down,
+     * so the memory does it (the mark fades over its last 80 ticks, as a real one does).
+     */
+    public void setRemainingTicks(int ticks) {
+        this.entityData.set(DATA_DURATION, ticks);
+    }
+
     public float getVisualScale() {
         return this.entityData.get(DATA_VISUAL_SCALE);
     }

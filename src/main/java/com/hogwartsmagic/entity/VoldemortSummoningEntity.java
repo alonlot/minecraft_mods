@@ -154,13 +154,8 @@ public class VoldemortSummoningEntity extends Entity {
 
     private void spawnRitualEffects(ServerLevel serverLevel) {
         Vec3 center = getTriangleCenter();
-        double beamTopY = center.y + 22.0D;
-
-        for (BlockPos wardPos : List.of(this.wardA, this.wardB, this.wardC)) {
-            serverLevel.sendParticles(ParticleTypes.SQUID_INK, wardPos.getX() + 0.5D, wardPos.getY() + 1.05D, wardPos.getZ() + 0.5D, 6, 0.15D, 0.15D, 0.15D, 0.02D);
-            serverLevel.sendParticles(ParticleTypes.SMOKE, wardPos.getX() + 0.5D, wardPos.getY() + 1.0D, wardPos.getZ() + 0.5D, 8, 0.22D, 0.2D, 0.22D, 0.02D);
-            spawnBeamColumn(serverLevel, Vec3.atCenterOf(wardPos).add(0.0D, 0.6D, 0.0D), beamTopY);
-        }
+        emitRitual(serverLevel, center, this.tickCount, List.of(Vec3.atCenterOf(this.wardA),
+                Vec3.atCenterOf(this.wardB), Vec3.atCenterOf(this.wardC)));
 
         if (this.tickCount % 10 == 0) {
             BlockPos strikePos = serverLevel.getHeightmapPos(
@@ -178,24 +173,59 @@ public class VoldemortSummoningEntity extends Entity {
                 serverLevel.addFreshEntity(lightning);
             }
         }
+    }
 
-        if (this.tickCount % 6 == 0) {
-            serverLevel.sendParticles(ParticleTypes.WITCH, center.x, center.y + 1.0D, center.z, 10, 1.2D, 0.4D, 1.2D, 0.02D);
-            serverLevel.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, center.x, center.y + 0.6D, center.z, 14, 1.4D, 0.2D, 1.4D, 0.015D);
+    /**
+     * One tick of the ritual's particles and beam columns around {@code centre}, for the standard ward triangle
+     * (legs of 2 and 2 blocks diagonally, the right angle on the {@code -x} side). On a server level this sends
+     * the particles to every tracking client; on a client level (a Pensieve memory) it draws them locally. The
+     * lightning strikes are not part of this: each side raises its own.
+     */
+    public static void emitRitualEffects(Level level, Vec3 centre, int age) {
+        emitRitual(level, centre, age, List.of(
+                centre.add(-4.0D / 3.0D, 0.0D, 0.0D), centre.add(2.0D / 3.0D, 0.0D, 2.0D), centre.add(2.0D / 3.0D, 0.0D, -2.0D)));
+    }
+
+    private static void emitRitual(Level level, Vec3 center, int age, List<Vec3> wardCentres) {
+        double beamTopY = center.y + 22.0D;
+
+        for (Vec3 ward : wardCentres) {
+            ritualParticles(level, ParticleTypes.SQUID_INK, ward.x, ward.y + 0.55D, ward.z, 6, 0.15D, 0.15D, 0.15D, 0.02D);
+            ritualParticles(level, ParticleTypes.SMOKE, ward.x, ward.y + 0.5D, ward.z, 8, 0.22D, 0.2D, 0.22D, 0.02D);
+            spawnBeamColumn(level, age, ward.add(0.0D, 0.6D, 0.0D), beamTopY);
+        }
+
+        if (age % 6 == 0) {
+            ritualParticles(level, ParticleTypes.WITCH, center.x, center.y + 1.0D, center.z, 10, 1.2D, 0.4D, 1.2D, 0.02D);
+            ritualParticles(level, ParticleTypes.CAMPFIRE_COSY_SMOKE, center.x, center.y + 0.6D, center.z, 14, 1.4D, 0.2D, 1.4D, 0.015D);
         }
     }
 
-    private void spawnBeamColumn(ServerLevel serverLevel, Vec3 start, double topY) {
+    private static void spawnBeamColumn(Level level, int age, Vec3 start, double topY) {
         int segments = 20;
         for (int i = 0; i <= segments; i++) {
             double progress = i / (double) segments;
             double y = Mth.lerp(progress, start.y, topY);
-            double swirl = this.tickCount * 0.12D + progress * Math.PI * 2.0D;
+            double swirl = age * 0.12D + progress * Math.PI * 2.0D;
             double x = start.x + Math.cos(swirl) * 0.18D;
             double z = start.z + Math.sin(swirl) * 0.18D;
-            serverLevel.sendParticles(CURSED_BEAM, x, y, z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
+            ritualParticles(level, CURSED_BEAM, x, y, z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
             if (i % 3 == 0) {
-                serverLevel.sendParticles(ParticleTypes.END_ROD, x, y, z, 1, 0.01D, 0.01D, 0.01D, 0.0D);
+                ritualParticles(level, ParticleTypes.END_ROD, x, y, z, 1, 0.01D, 0.01D, 0.01D, 0.0D);
+            }
+        }
+    }
+
+    /** {@code ServerLevel#sendParticles} on a server; the same gaussian scatter drawn locally on a client. */
+    private static void ritualParticles(Level level, net.minecraft.core.particles.ParticleOptions particle, double x, double y,
+                                        double z, int count, double dx, double dy, double dz, double speed) {
+        if (level instanceof ServerLevel serverLevel) {
+            serverLevel.sendParticles(particle, x, y, z, count, dx, dy, dz, speed);
+        } else if (level.isClientSide) {
+            for (int i = 0; i < count; i++) {
+                level.addParticle(particle, x + level.random.nextGaussian() * dx, y + level.random.nextGaussian() * dy,
+                        z + level.random.nextGaussian() * dz, level.random.nextGaussian() * speed,
+                        level.random.nextGaussian() * speed, level.random.nextGaussian() * speed);
             }
         }
     }

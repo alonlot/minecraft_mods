@@ -135,4 +135,15 @@ class SceneValidatorTest {
                            {"t":2,"kind":"effect","id":"lightning","at":[0,0,0]}]}""");
         assertEquals(List.of(), m);
     }
+
+    @Test
+    void unsupportedSpellIsNamed() throws Exception {
+        SceneNames names = new SceneNames(Set.of("minecraft:zombie"), Set.of("stupefy", "fiendfyre"), Set.of(), Set.of(),
+                Set.of(), Set.of(), Set.of(), Set.of(), Set.of());
+        SceneDef def = SceneParser.parse("t", JsonParser.parseString("""
+                {"length":100,"actors":[{"id":"a","type":"minecraft:zombie",
+                  "actions":[{"t":5,"do":"cast","spell":"fiendfyre"}]}]}""").getAsJsonObject());
+        List<String> m = SceneValidator.validate(def, names);
+        assertEquals(List.of("actors[0].actions[0].spell: no memory visual for 'fiendfyre'"), m);
+    }
 }

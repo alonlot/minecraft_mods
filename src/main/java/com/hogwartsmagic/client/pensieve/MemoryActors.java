@@ -91,6 +91,7 @@ public final class MemoryActors {
         if (scene == null || at == null || clientLevel == null) return;
         level = clientLevel;
         origin = at;
+        MemoryEvents.start(scene, at, clientLevel);
         for (SceneDef.ActorDef def : scene.actors()) {
             try {
                 ActorRuntime a = create(def, clientLevel);
@@ -108,6 +109,7 @@ public final class MemoryActors {
 
     /** Forget every puppet. Safe to call at any time, including when there are none. */
     public static void clear() {
+        MemoryEvents.clear();
         ACTORS.clear();
         BY_ENTITY.clear();
         level = null;
@@ -212,6 +214,14 @@ public final class MemoryActors {
                     (float) (Mth.lerp(partial, e.xo, e.getX()) - origin.getX()),
                     (float) (Mth.lerp(partial, e.yo, e.getY()) + e.getEyeHeight() - origin.getY()),
                     (float) (Mth.lerp(partial, e.zo, e.getZ()) - origin.getZ())};
+        }
+        return null;
+    }
+
+    private static ActorRuntime find(String id) {
+        if (id == null) return null;
+        for (ActorRuntime a : ACTORS) {
+            if (a.def.id().equals(id)) return a;
         }
         return null;
     }
@@ -437,8 +447,41 @@ public final class MemoryActors {
                 ((LivingEntityUseAccessor) l).hogwartsmagic$setFlag(1, true);
                 a.useStart = cue.t();
             }
+        } else if ("cast".equals(act)) {
+            // A beam is a one-shot effect: a late joiner catching up must not see old casts replayed.
+            if (!silent) cast(a, cue);
         }
-        // "cast" is Task 11's.
+    }
+
+    /** The cast: a spell from the actor's wand hand to its target, drawn by {@link SpellVisuals}. */
+    private static void cast(ActorRuntime a, SceneDef.ActionCue cue) {
+        if (!(level instanceof ClientLevel lvl) || origin == null || cue.spell() == null) return;
+        Entity e = a.entity;
+        Vec3 eye = e.position().add(0, e.getEyeHeight() * 0.9, 0);
+        Vec3 to = castTarget(a, cue, eye);
+        // The wand hand: a little to the right of, and ahead of, the eye, along the line toward the target.
+        Vec3 aim = to.subtract(eye);
+        Vec3 flat = new Vec3(aim.x, 0, aim.z);
+        Vec3 forward = flat.lengthSqr() < 1.0e-6 ? Vec3.directionFromRotation(0, e.getYRot()) : flat.normalize();
+        Vec3 right = new Vec3(-forward.z, 0, forward.x);
+        Vec3 from = eye.add(right.scale(0.3)).add(forward.scale(0.4)).add(0, -0.15, 0);
+        SpellVisuals.cast(lvl, from, to, cue.spell());
+    }
+
+    /** An actor target is its chest; a point is relative to the origin; none means straight ahead. */
+    private static Vec3 castTarget(ActorRuntime caster, SceneDef.ActionCue cue, Vec3 eye) {
+        SceneDef.Target t = cue.target();
+        if (t != null && t.actor() != null) {
+            ActorRuntime other = find(t.actor());
+            if (other != null) {
+                Entity o = other.entity;
+                return o.position().add(0, o.getBbHeight() * 0.65, 0);
+            }
+        }
+        if (t != null && t.point() != null && t.point().length >= 3) {
+            return new Vec3(origin.getX() + t.point()[0], origin.getY() + t.point()[1], origin.getZ() + t.point()[2]);
+        }
+        return eye.add(Vec3.directionFromRotation(caster.entity.getXRot(), caster.entity.getYRot()).scale(10));
     }
 
     private static void smokeBurst(ActorRuntime a) {

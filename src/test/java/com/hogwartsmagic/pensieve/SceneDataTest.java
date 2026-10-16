@@ -23,6 +23,8 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Parses and validates every shipped memory scene against names harvested from the source tree (the game
@@ -117,6 +119,23 @@ class SceneDataTest {
     void spellVisualsAreRealSpells() throws IOException {
         Set<String> spells = matches(JAVA.resolve("spell/SpellType.java"), "^    [A-Z_]+\\(\"([a-z_]+)\"");
         assertEquals(Set.of(), SceneNames.SPELL_VISUALS.stream().filter(s -> !spells.contains(s)).collect(java.util.stream.Collectors.toSet()));
+    }
+
+    @Test
+    void spellVisualsAreExactlyWhatSpellVisualsSupports() throws IOException {
+        // SpellVisuals is client-only and cannot load in a pure test, so both read the pure sets in SceneNames:
+        // the beams, and the hand-written adapters, which SpellVisuals must name in its source.
+        Set<String> union = new HashSet<>(SceneNames.SPELL_BEAMS);
+        union.addAll(SceneNames.SPELL_ADAPTERS);
+        assertEquals(union, SceneNames.SPELL_VISUALS);
+        assertEquals(Set.of(), SceneNames.SPELL_BEAMS.stream().filter(SceneNames.SPELL_ADAPTERS::contains).collect(java.util.stream.Collectors.toSet()));
+        String src = read(JAVA.resolve("client/pensieve/SpellVisuals.java"));
+        assertTrue(src.contains("SceneNames.SPELL_VISUALS"), "supported() must return SceneNames.SPELL_VISUALS");
+        assertTrue(src.contains("SceneNames.SPELL_BEAMS"), "beams must be chosen by SceneNames.SPELL_BEAMS");
+        for (String adapter : SceneNames.SPELL_ADAPTERS) {
+            assertTrue(src.contains("\"" + adapter + "\""), "SpellVisuals has no adapter for " + adapter);
+        }
+        assertFalse(SceneNames.SPELL_VISUALS.contains("fiendfyre"));
     }
 
     @Test

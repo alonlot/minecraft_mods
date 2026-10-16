@@ -93,6 +93,63 @@ public class SpellBeamEntity extends ThrowableProjectile {
     /** Depulso: the owner's rank, read once on the first deflect tick (-1 = not read yet). Not persisted. */
     private int cachedDepulsoRank = -1;
 
+    /**
+     * Pensieve memories: a beam that exists only to be seen. It is created on a client level (never added on the
+     * server), does no server work, never hits a player, and on its first hit, or when its life runs out, only
+     * shows its impact particles and discards itself. Plain data: nothing client-only is referenced here.
+     */
+    private boolean visualOnly;
+    /** Ticks a visual-only beam lives before it ends as if it had hit something. */
+    private int visualLife = 60;
+
+    /** Make this a visual-only beam (see {@link #visualOnly}). */
+    public void setVisualOnly() {
+        this.visualOnly = true;
+    }
+
+    /** Make this a visual-only beam that ends after {@code lifeTicks}. */
+    public void setVisualOnly(int lifeTicks) {
+        this.visualOnly = true;
+        this.visualLife = Math.max(1, lifeTicks);
+    }
+
+    public boolean isVisualOnly() {
+        return this.visualOnly;
+    }
+
+    /** A visual-only beam has no thrower, so its spell is set directly (a real beam sets it in its constructor). */
+    public void setVisualSpell(SpellType spellType) {
+        getEntityData().set(DATA_SPELL_ID, spellType.getId());
+    }
+
+    /** The impact of a visual-only beam: the particles the server sends for a real hit, drawn locally, then gone. */
+    private void endVisualBeam() {
+        SpellType spell = getSpellType();
+        for (int i = 0; i < 12; i++) {
+            this.level().addParticle(spell.getImpactParticle(), this.getX() + (random.nextDouble() - 0.5) * 0.4,
+                    this.getY() + (random.nextDouble() - 0.5) * 0.4, this.getZ() + (random.nextDouble() - 0.5) * 0.4,
+                    (random.nextDouble() - 0.5) * 0.08, (random.nextDouble() - 0.5) * 0.08, (random.nextDouble() - 0.5) * 0.08);
+        }
+        for (int i = 0; i < 18; i++) {
+            this.level().addParticle(spell.getDustParticle(), this.getX() + (random.nextDouble() - 0.5) * 0.5,
+                    this.getY() + (random.nextDouble() - 0.5) * 0.5, this.getZ() + (random.nextDouble() - 0.5) * 0.5,
+                    0.0, 0.0, 0.0);
+        }
+        for (int i = 0; i < 6; i++) {
+            this.level().addParticle(ParticleTypes.END_ROD, this.getX(), this.getY(), this.getZ(),
+                    (random.nextDouble() - 0.5) * 0.04, (random.nextDouble() - 0.5) * 0.04, (random.nextDouble() - 0.5) * 0.04);
+        }
+        this.discard();
+    }
+
+    @Override
+    protected boolean canHitEntity(Entity target) {
+        if (this.visualOnly && target instanceof net.minecraft.world.entity.player.Player) {
+            return false; // a memory's beams never touch a viewer
+        }
+        return super.canHitEntity(target);
+    }
+
     public int getCachedDepulsoRank() {
         return this.cachedDepulsoRank;
     }
@@ -199,6 +256,16 @@ public class SpellBeamEntity extends ThrowableProjectile {
 
     @Override
     public void tick() {
+        if (this.visualOnly) {
+            if (!this.level().isClientSide || this.tickCount >= this.visualLife) {
+                if (this.level().isClientSide) {
+                    endVisualBeam();
+                } else {
+                    this.discard(); // never meant to exist on a server
+                }
+                return;
+            }
+        }
         if (Double.isNaN(this.castOriginX)) {
             rememberCastOrigin();
         }
@@ -564,6 +631,14 @@ public class SpellBeamEntity extends ThrowableProjectile {
 
     @Override
     protected void onHit(HitResult result) {
+        if (this.visualOnly) {
+            if (this.level().isClientSide) {
+                endVisualBeam();
+            } else {
+                this.discard();
+            }
+            return;
+        }
         if (this.puppeteer == null || this.level().isClientSide) {
             onHitInner(result);
             return;

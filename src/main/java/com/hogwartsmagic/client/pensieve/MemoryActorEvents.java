@@ -18,7 +18,9 @@ public final class MemoryActorEvents {
 
     @SubscribeEvent
     public static void onClientTick(TickEvent.ClientTickEvent event) {
-        if (event.phase == TickEvent.Phase.END) MemoryActors.tick();
+        if (event.phase != TickEvent.Phase.END) return;
+        MemoryActors.tick();
+        MemoryEvents.tick();
     }
 
     @SubscribeEvent

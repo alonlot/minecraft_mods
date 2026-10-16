@@ -1,5 +1,6 @@
 package com.hogwartsmagic.mixin.client;
 
+import com.hogwartsmagic.client.pensieve.MemoryWords;
 import com.hogwartsmagic.client.pensieve.PensieveClientState;
 import com.hogwartsmagic.client.pensieve.PensieveOverlay;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -32,7 +33,9 @@ public abstract class PensieveGuiMixin {
             return;
         }
         RenderSystem.enableDepthTest();
-        PensieveOverlay.render(graphics, deltaTracker.getGameTimeDeltaPartialTick(true));
+        float partial = deltaTracker.getGameTimeDeltaPartialTick(true);
+        PensieveOverlay.render(graphics, partial);
+        MemoryWords.render(graphics, partial);
         if (!Minecraft.getInstance().options.hideGui) {
             graphics.pose().pushPose();
             graphics.pose().translate(0, 0, 200);

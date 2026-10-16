@@ -26,16 +26,22 @@ public record SceneNames(Set<String> entityTypes, Set<String> spells, Set<String
     public static final Set<String> POSE_PRESETS = Set.of("wand_raised", "wand_point", "kneel", "cower", "arms_out",
             "bent_over_basin", "hands_up", "look_down");
     /**
-     * Spells a {@code cast} action may use: those with a memory visual. SpellType has no beam flag, so for now
-     * this is every SpellType id (kept as a string list because this class must stay free of Minecraft imports;
-     * SceneDataTest asserts it is a subset of the ids in SpellType.java). Task 11 narrows it.
+     * Spells a {@code cast} action may use: exactly those {@code client/pensieve/SpellVisuals} can draw inside a
+     * memory, the beam spells plus the hand-built adapters. Kept as plain string sets because this class must stay
+     * free of Minecraft imports; SceneDataTest asserts every id is a real SpellType id and that SpellVisuals
+     * dispatches on these sets. A spell outside this set is named by the validator ("no memory visual for ...").
      */
-    public static final Set<String> SPELL_VISUALS = Set.of(
-            "expelliarmus", "glacius", "confringo", "protego", "protego_maxima", "lumos", "accio",
-            "wingardium_leviosa", "alohomora", "incendio", "stupefy", "revelio", "avada_kedavra", "crucio",
-            "imperio", "fiendfyre", "sectumsempra", "morsmordre", "dolohov_curse", "incarcerous", "heal",
-            "tenebris_flight", "expecto_patronum", "bombarda", "depulso", "levicorpus", "diffindo",
-            "petrificus_totalus", "aqua_eructo", "obliviate", "ascendio", "confundo", "cave_inimicum",
-            "alatus", "serpensortia", "arresto_momentum", "reparo", "apparition", "piertotum_locomotor",
-            "colloportus", "riddikulus");
+    public static final Set<String> SPELL_BEAMS = Set.of(
+            "expelliarmus", "stupefy", "glacius", "confringo", "incendio", "avada_kedavra", "crucio", "imperio",
+            "sectumsempra", "dolohov_curse", "incarcerous", "bombarda", "depulso", "levicorpus",
+            "petrificus_totalus", "obliviate", "confundo");
+    /** Spells that are not a beam and have a hand-written drawing in SpellVisuals. */
+    public static final Set<String> SPELL_ADAPTERS = Set.of("revelio", "lumos", "protego", "morsmordre");
+    public static final Set<String> SPELL_VISUALS = unionOf(SPELL_BEAMS, SPELL_ADAPTERS);
+
+    private static Set<String> unionOf(Set<String> a, Set<String> b) {
+        java.util.HashSet<String> all = new java.util.HashSet<>(a);
+        all.addAll(b);
+        return Set.copyOf(all);
+    }
 }

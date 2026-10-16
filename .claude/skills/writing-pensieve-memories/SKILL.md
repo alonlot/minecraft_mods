@@ -49,15 +49,17 @@ in `0..length`. Positions are blocks relative to the set origin (see Coordinates
 ### `set`
 | key | type | default | notes |
 |---|---|---|---|
-| `templates` | `[{id, at:[x,y,z]}]` | none | `.nbt` structure templates (`data/hogwartsmagic/structure/*.nbt`, id `hogwartsmagic:<name>`); the template's corner is placed at `at`. Shipped: black_lake_ruin, chamber_hall, death_eater_camp, diagon_alley, fen_gibbet, goblin_vault, hogwarts_ruin_camp, horntail_nest, locket_cave, merfolk_village, willow_clearing |
+| `templates` | `[{id, at:[x,y,z]}]` | none | `.nbt` structure templates (`data/hogwartsmagic/structure/*.nbt`, id `hogwartsmagic:<name>`); the template's corner is placed at `at`. Sizes (x,y,z): see below. Shipped: black_lake_ruin, chamber_hall, death_eater_camp, diagon_alley, fen_gibbet, goblin_vault, hogwarts_ruin_camp, horntail_nest, locket_cave, merfolk_village, willow_clearing |
 | `fills` | `[{block, from:[x,y,z], to:[x,y,z]}]` | none | solid box; max 2,000,000 blocks each; inside the radius |
 | `disks` | `[{block, center:[x,y,z], radius}]` | none | flat horizontal disc at `center` y; inside the radius |
-| `features` | `[{id, at:[x,y,z]}]` | none | configured worldgen features (e.g. trees), id like `minecraft:oak` |
+| `features` | `[{id, at:[x,y,z]}]` | none | configured worldgen features (e.g. trees), id like `minecraft:oak`; only the anchor is checked |
 | `time_of_day` | number | 18000 | day time at the set: 0 dawn, 6000 noon, 12000 dusk, 18000 midnight |
 | `build_ticks` | int ticks | 60 | how long the dive waits while the set builds |
 
 Later entries overwrite earlier ones where they overlap (template first, then fills, then disks), but a template does not carve holes in a fill beneath it.
 Block ids are namespaced (`minecraft:stone_bricks`).
+
+**Extent trap:** the validator checks only a template's or feature's *anchor* against the radius. `SetBuilder` then silently crops every block more than `radius` from the origin (X or Z), with no error. So make sure anchor + template size fits inside +-radius, and raise `radius` (max 200) for big templates. Template sizes (x,y,z) from each `.nbt`'s `size` tag: black_lake_ruin 15x9x15, chamber_hall 51x32x101, death_eater_camp 27x14x27, diagon_alley 233x45x49 (wider than radius 200 even when centred: crops), fen_gibbet 10x13x10, goblin_vault 17x8x11, hogwarts_ruin_camp 39x17x29, horntail_nest 14x5x14, locket_cave 64x42x64, merfolk_village 25x14x25, willow_clearing 23x3x23. For a new template, read it: `python -c "import gzip,struct;d=gzip.open('f.nbt').read();i=d.find(b'\x09\x00\x04size')+7;print(struct.unpack('>3i',d[i+5:i+17]))"`. Centre a template with `at` = minus half its x/z size.
 
 ### `actors[]`
 Keys: `id` (required, unique), `type` (required), `skin`, `name`, `items`, `path`, `look`, `limbs`, `poses`, `anims`, `actions`.
@@ -65,19 +67,19 @@ Keys: `id` (required, unique), `type` (required), `skin`, `name`, `items`, `path
 - `type`: `"player"` (a skinned humanoid) or a namespaced entity id (`hogwartsmagic:troll`, `minecraft:zombie`). Mobs have no AI, no gravity, no collision.
 - `skin` (player only): `{ "texture": "<name>" }` a bundled skin, or `{ "username": "Notch" }` fetched in the background (falls back to the default skin when offline), plus optional `"slim": true` for the 3-px arm model.
 - `name`: floating name tag text. Without it there is no tag. Also used as the speaker in `words`.
-- `items`: slot to item id: `mainhand offhand head chest legs feet`. Example `{"mainhand": "hogwartsmagic:harry_potter_wand"}`.
+- `items`: slot to item id: `mainhand offhand head chest legs feet`. Example `{"mainhand": "hogwartsmagic:harry_potter_wand"}`. An unknown slot name is silently ignored.
 - `path`: `[{t, pos:[x,y,z], ease?}]` - the feet position. Holds the first value before the first key and the last after it. The body turns to face its movement unless `look` is given.
 - `look`: `[{t, yaw, pitch?, ease?}]` - body and head yaw, head pitch (default 0). Overrides movement facing.
-- `limbs`: `{ "<part>": { "rot": [{t, v:[x,y,z], ease?}], "offset": [{t, v:[x,y,z]}], "mode": "add"|"set" } }`. `rot` is degrees, `offset` is model pixels (16 px = 1 block). `mode` default `add` (added on top of the current animation); `set` replaces it. Applied last, over poses and creature animations.
-- `poses`: `[{t, name, blend?}]` - a preset or a custom pose from top-level `poses`; stays until the next cue. `blend` is the ticks to ease in (default 5).
-- `anims`: `[{t, name, blend?}]` - a creature animation by name (table below). Case-insensitive; stays in force until the next cue. Default blend 0 = hard switch.
+- `limbs`: `{ "<part>": { "rot": [{t, v:[x,y,z], ease?}], "offset": [{t, v:[x,y,z], ease?}], "mode": "add"|"set" } }`. `rot` is degrees, `offset` is model pixels (16 px = 1 block). `mode` default `add` (added on top of the current animation); `set` replaces it. Applied last, over poses and creature animations.
+- `poses`: `[{t, name, blend?}]` - a preset or a custom pose from top-level `poses`; stays until the next cue. `blend` is the ticks to ease in; 0 or absent means the default 5, so use `"blend": 1` for an instant pose.
+- `anims`: `[{t, name, blend?}]` - a creature animation by name (table below). Case-insensitive; stays in force until the next cue. `blend` fades the new clip in from the rest pose over that many ticks (0 = instantly); the previous clip stops at once, it is not cross-faded.
 - `actions`: `[{t, do, spell?, target?, item?}]`.
 
 Ease: `linear`, `in`, `out`, `in_out` (cubic). Default `in_out`. The ease belongs to the segment that ends at that key.
 Keyframes between keys are interpolated per component; yaw is NOT unwrapped, so keep yaw continuous (say 90 then 180, not 90 then -180).
 
 ### Custom poses (top-level `poses`)
-`"poses": { "slump": { "head": [40,0,0], "right_arm": [-20,0,5] } }` - part to absolute `[x,y,z]` degrees (no offsets). Use a name in an actor's `poses` cue. Parts not named keep their current state.
+`"poses": { "slump": { "head": [40,0,0], "right_arm": [-20,0,5] } }` - part to absolute `[x,y,z]` degrees (no offsets). Use a name in an actor's `poses` cue. Part names must match exactly (no camelCase fallback, unlike `limbs`). Parts the pose leaves out blend back to the model's own state. Sleeves/pants/jacket/hat named in a custom pose are overwritten; to steer a layer separately use `limbs`.
 
 ### Actions (`do`)
 | do | needs | effect |
@@ -102,6 +104,8 @@ Keyframes between keys are interpolated per component; yaw is NOT unwrapped, so 
 | `lumos` | a white glowing orb at the wand tip (3 s) |
 | `protego` | a shimmering shield dome around the caster (2 s) |
 | `morsmordre` | the Dark Mark rising above the target (6 s) |
+
+A beam travels 1.55 blocks/tick, so the hit lands about distance/1.55 ticks after the cast (20 blocks = 13 ticks): time the `hurt` accordingly.
 
 Anything else fails validation ("no memory visual for ..."). Nothing is damaged: all drawn client-side only.
 
@@ -165,6 +169,7 @@ Effects: `lightning` - one visual-only bolt with thunder; `summoning_ritual` - t
 ## Coordinates
 - Origin = the block where the set is anchored; viewers float one block above it before the camera takes over. Actors with `pos:[0,0,0]` stand on top of the block layer at y = -1, so lay floors at `y: -1`.
 - Y is up. X east, Z south. Yaw follows Minecraft: 0 = facing +Z (south), 90 = facing -X (west), 180 = -Z (north), -90 = +X (east). Pitch: positive = looking down, negative = up, +-90 max. `look_at` and the camera derive yaw/pitch from positions for you; you only write yaw/pitch for actors' `look`.
+- Event `at` and `set` coordinates are integer block corners (decimals are rounded). Actor `path` and camera `pos` are relative to the origin block's corner and take decimals, so use `.5` to centre on a block (`[0.5, 0, 0.5]`).
 - Everything must stay within `radius` (default 40, max 200) of the origin in X and Z, or validation fails for fills/disks/templates/features.
 
 ## Skins
@@ -173,12 +178,16 @@ To add one: put a 64x64 modern-layout PNG at `src/main/resources/assets/hogwarts
 
 ## The loop
 1. Client closed? Edit nothing in `build/` and **never run gradle while the dev client is running**: gradle rewrites `build/sourcesSets/main` and the live client throws `ClassNotFoundException`. Check with `tasklist | findstr java` (the GradleDaemon is fine; a Minecraft java process is not).
-2. Set the config `pensieveDevSceneDir` (mod common config, in the run dir's `config/` folder) to a folder; relative paths are against the game run dir `run/` (so `../src/main/resources/data/hogwartsmagic/memories`). `/pensieve preview` then reads `<dir>/<id>.json` fresh from disk each time, so no rebuild between edits.
+2. Set the config `pensieveDevSceneDir` (`run/config/hogwartsmagic-common.toml`) to a folder; relative paths are against the game run dir `run/` (so `../src/main/resources/data/hogwartsmagic/memories`). `/pensieve preview` then reads `<dir>/<id>.json` fresh from disk each time, so no rebuild between edits.
 3. Write the scene to `src/main/resources/data/hogwartsmagic/memories/<id>.json`. Files starting with `_` are not scenes. `<id>` is lowercase with underscores.
-4. In the dev client (op): `/pensieve preview <id>` plays it from the start with no basin. `/pensieve validate [id]` checks names and times for loaded scenes. `/pensieve list` shows loaded ids. `/pensieve leave` or the **X** key leaves a memory.
-5. Screenshot, read the chat for part/animation errors, edit the JSON, preview again.
+4. In the dev client (op): `/pensieve preview <id>` plays it from the start with no basin. `/pensieve validate [id]` only checks scenes loaded from the registry (built into the game), NOT dev-dir files: during the edit loop, `preview` is the validator (it validates the fresh file and reports problems), and validate is for shipped scenes after a build. `/pensieve list` shows loaded ids. `/pensieve leave` or the **X** key leaves a memory.
+5. Screenshot, read the chat for part/animation errors, edit the JSON, then leave (press **X**) and run `/pensieve preview <id>` again; a preview cannot be restarted while you are inside the memory.
 6. With the client closed: `./gradlew test --tests "*SceneDataTest*"` parses and validates every shipped scene (`./gradlew test` runs the lot). It must pass before committing.
 7. Commit the scene (and any new skin) - and ask the user to push.
+
+Size caps: scene JSON max 262,144 characters, scene id max 256 (a bigger scene is refused when sent to the client).
+
+`SceneDataTest` is narrower than the game: its entity types are only the mod's own entities, `player`, and a fixed `VANILLA_MOBS` list in `SceneDataTest.java` (zombie, skeleton, villager, armor_stand, bat, spider, cave_spider, wither_skeleton, evoker, vindicator, witch, horse, wolf, cat, fox, sheep, cow, pig, chicken, squid, glow_squid, salmon, cod, lightning_bolt). Any other vanilla mob (even a valid one in game) fails the test until you add it to that list. Its `features` accept only `minecraft:` ids, and its `sounds`/`particles`/`blocks`/`items` accept any `minecraft:` id but only mod ids that are registered in source.
 
 Validation rules to remember: ids are namespaced (`minecraft:`, `hogwartsmagic:`), `player` is the only bare entity id, spells are bare, skins are bare names from `_skins.json`; pose cue names must be a preset or a custom pose; a `cast` needs `spell`; actor ids must be unique; `words[].by`, `look_at` and `target` must name an existing actor.
 

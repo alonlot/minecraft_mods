@@ -365,6 +365,11 @@ public final class DiagonAlleyPortal {
         } finally {
             moving.remove(player.getUUID());
         }
+        // The vanilla changed_dimension trigger cannot fire for this: the crossing is made by hand
+        // precisely so that no dimension change is ever announced, so the advancement is awarded here.
+        if (target.dimension().equals(DiagonAlleyDimension.KEY)) {
+            com.hogwartsmagic.util.ModAdvancements.award(player, "diagon_alley");
+        }
         LOGGER.info("{} stepped {} through the arch at {} ({} -> {})",
                 player.getGameProfile().getName(), way, entry.arch(),
                 from.dimension().location(), target.dimension().location());

@@ -56,7 +56,7 @@ public final class Config {
 
     public static final ForgeConfigSpec.BooleanValue ENABLE_DEATH_EATER_BASE_RAIDS = BUILDER
             .comment("If true, Death Eater raiding parties can occasionally descend on player bases.")
-            .define("enableDeathEaterBaseRaids", false);
+            .define("enableDeathEaterBaseRaids", true);
 
     public static final ForgeConfigSpec.DoubleValue DEATH_EATER_BASE_RAID_CHANCE = BUILDER
             .comment("Chance (0-1) per eligible raid check for a player base to attract a Death Eater raiding party.")
@@ -64,7 +64,7 @@ public final class Config {
 
     public static final ForgeConfigSpec.IntValue DEATH_EATER_BASE_RAID_COOLDOWN_TICKS = BUILDER
             .comment("Minimum cooldown between Death Eater base raids against the same player.")
-            .defineInRange("deathEaterBaseRaidCooldownTicks", 20 * 60 * 18, 20, Integer.MAX_VALUE);
+            .defineInRange("deathEaterBaseRaidCooldownTicks", 20 * 60 * 45, 20, Integer.MAX_VALUE);
 
     public static final ForgeConfigSpec.IntValue CAVE_INIMICUM_DURATION_TICKS = BUILDER
             .comment("How long an active Cave Inimicum ward lasts.")
@@ -214,9 +214,9 @@ public final class Config {
     public static int invisibilityCloakCooldownTicks = 20 * 60 * 2;
     public static int invisibilityCloakRevealTicks = 20 * 3;
     public static int invisibilityCloakDurabilityCost = 1;
-    public static boolean enableDeathEaterBaseRaids = false;
+    public static boolean enableDeathEaterBaseRaids = true;
     public static double deathEaterBaseRaidChance = 0.08;
-    public static int deathEaterBaseRaidCooldownTicks = 20 * 60 * 18;
+    public static int deathEaterBaseRaidCooldownTicks = 20 * 60 * 45;
     public static int caveInimicumDurationTicks = 20 * 60 * 60 * 24;
     public static int caveInimicumScanIntervalTicks = 4;
     public static int caveInimicumMaxEdgeLength = 64;

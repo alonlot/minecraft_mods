@@ -1,0 +1,29 @@
+{
+  "parent": "hogwartsmagic:hp/spider_slayer",
+  "display": {
+    "icon": {
+      "id": "hogwartsmagic:giant_spawn_egg",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancement.hogwartsmagic.giant_slain.title"
+    },
+    "description": {
+      "translate": "advancement.hogwartsmagic.giant_slain.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "killed_giant": {
+      "trigger": "minecraft:player_killed_entity",
+      "conditions": {
+        "entity": {
+          "type": "hogwartsmagic:giant"
+        }
+      }
+    }
+  }
+}

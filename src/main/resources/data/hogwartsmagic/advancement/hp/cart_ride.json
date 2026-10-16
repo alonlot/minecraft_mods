@@ -1,0 +1,24 @@
+{
+  "parent": "hogwartsmagic:hp/first_flight",
+  "display": {
+    "icon": {
+      "id": "minecraft:minecart",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancement.hogwartsmagic.cart_ride.title"
+    },
+    "description": {
+      "translate": "advancement.hogwartsmagic.cart_ride.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "rode_cart": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

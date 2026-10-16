@@ -25,6 +25,7 @@ public class OllivandersCommand {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("ollivanders")
+                .requires(src -> src.hasPermission(2))
                 .executes(OllivandersCommand::run));
     }
 

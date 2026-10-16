@@ -101,6 +101,13 @@ public class GringottsVaultDoorBlockEntity extends BlockEntity {
     private static final String RADIUS_KEY = "Radius";
 
     private int ticks = -1;
+    /**
+     * Who laid the hand on the door, for the advancement at the far end of the sequence. Not saved:
+     * a vault half-open across a restart simply finishes without crediting anyone, which is a
+     * better failure than crediting whoever happens to be standing nearest.
+     */
+    @Nullable
+    private java.util.UUID opener;
     private Vec3 touch = Vec3.ZERO;
 
     private final List<BlockPos> leaf = new ArrayList<>();
@@ -191,6 +198,7 @@ public class GringottsVaultDoorBlockEntity extends BlockEntity {
         }
 
         this.ticks = 0;
+        this.opener = opener != null ? opener.getUUID() : null;
         this.touch = touchedAt;
         this.surveyed = false;
         survey(level);
@@ -358,6 +366,12 @@ public class GringottsVaultDoorBlockEntity extends BlockEntity {
                 setPhase(level, pos, GringottsVaultDoorBlock.PARTED);
             }
             this.ticks = -1;
+            // Credited here rather than when the hand lands: the vault is open, not merely touched.
+            if (this.opener != null) {
+                com.hogwartsmagic.util.ModAdvancements.award(
+                        level.getServer().getPlayerList().getPlayer(this.opener), "vault_opened");
+                this.opener = null;
+            }
             sync(level);
         }
     }

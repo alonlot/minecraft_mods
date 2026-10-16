@@ -1,0 +1,24 @@
+{
+  "parent": "hogwartsmagic:hp/first_spellbook",
+  "display": {
+    "icon": {
+      "id": "minecraft:golden_sword",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancement.hogwartsmagic.duel_victor.title"
+    },
+    "description": {
+      "translate": "advancement.hogwartsmagic.duel_victor.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "won_duel": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

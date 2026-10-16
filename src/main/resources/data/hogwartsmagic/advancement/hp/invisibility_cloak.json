@@ -1,0 +1,31 @@
+{
+  "parent": "hogwartsmagic:hp/root",
+  "display": {
+    "icon": {
+      "id": "hogwartsmagic:invisibility_cloak",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancement.hogwartsmagic.invisibility_cloak.title"
+    },
+    "description": {
+      "translate": "advancement.hogwartsmagic.invisibility_cloak.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "has_cloak": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "hogwartsmagic:invisibility_cloak"
+          }
+        ]
+      }
+    }
+  }
+}

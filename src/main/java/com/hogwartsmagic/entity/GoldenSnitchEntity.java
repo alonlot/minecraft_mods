@@ -192,6 +192,7 @@ public class GoldenSnitchEntity extends Mob {
         }
 
         if (catcher instanceof ServerPlayer sp) {
+            com.hogwartsmagic.util.ModAdvancements.award(sp, "snitch_caught");
             sp.connection.send(new ClientboundSetTitlesAnimationPacket(5, 50, 15));
             long chaseSeconds = this.releaseGameTime > 0
                     ? Math.max(0, (this.level().getGameTime() - this.releaseGameTime) / 20)

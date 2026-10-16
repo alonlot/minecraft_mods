@@ -243,6 +243,12 @@
         "custom_model_data": 40.0
       },
       "model": "hogwartsmagic:item/magic_book_riddikulus"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 41.0
+      },
+      "model": "hogwartsmagic:item/magic_book_levicorpus"
     }
   ]
 }

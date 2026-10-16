@@ -1,0 +1,24 @@
+{
+  "parent": "hogwartsmagic:hp/cart_ride",
+  "display": {
+    "icon": {
+      "id": "hogwartsmagic:galleon",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancement.hogwartsmagic.vault_opened.title"
+    },
+    "description": {
+      "translate": "advancement.hogwartsmagic.vault_opened.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "opened_vault": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

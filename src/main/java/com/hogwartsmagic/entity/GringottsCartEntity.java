@@ -330,6 +330,11 @@ public class GringottsCartEntity extends Entity {
             this.t = line.length();
             this.v = 0.0D;
             setStateByte(STATE_ARRIVED);
+            for (Entity passenger : getPassengers()) {
+                if (passenger instanceof net.minecraft.server.level.ServerPlayer rider) {
+                    com.hogwartsmagic.util.ModAdvancements.award(rider, "cart_ride");
+                }
+            }
             if (this.level() instanceof ServerLevel server) {
                 server.playSound(null, blockPosition(), ModSounds.CART_SLAM.get(),
                         SoundSource.BLOCKS, 1.4F, 1.0F);

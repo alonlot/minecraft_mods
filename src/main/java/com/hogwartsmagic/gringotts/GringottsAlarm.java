@@ -48,6 +48,10 @@ public class GringottsAlarm extends SavedData {
     private static final int DECAY_TICKS = 20 * 60 * 10;
     /** Guards sent in at heat 2 and above. */
     private static final int RESPONSE_SQUAD = 4;
+    /** Most reinforcements alive near a player at once, so clicking chests cannot stack squads. */
+    private static final int MAX_REINFORCEMENTS = 8;
+    /** Marks alarm-summoned guards; they drop nothing (see GoblinEvents), or chest clicks farm loot. */
+    public static final String REINFORCEMENT_TAG = "hogwartsmagic_reinforcement";
 
     private final List<BlockPos> regions = new ArrayList<>();
     private final List<Integer> radii = new ArrayList<>();
@@ -143,6 +147,9 @@ public class GringottsAlarm extends SavedData {
     }
 
     private void summon(ServerLevel level, BlockPos at, ServerPlayer after, int count) {
+        int alive = level.getEntitiesOfClass(GoblinGuardEntity.class, new AABB(at).inflate(96.0D),
+                g -> g.getTags().contains(REINFORCEMENT_TAG)).size();
+        count = Math.min(count, MAX_REINFORCEMENTS - alive);
         for (int i = 0; i < count; i++) {
             GoblinGuardEntity guard = ModEntities.GOBLIN_GUARD.get().create(level);
             if (guard == null) {
@@ -151,6 +158,7 @@ public class GringottsAlarm extends SavedData {
             guard.moveTo(at.getX() + 0.5D + (i % 2 == 0 ? 1 : -1) * (1 + i),
                     at.getY() + 1.0D, at.getZ() + 0.5D + (i < 2 ? 1 : -1), 0.0F, 0.0F);
             guard.makeGuard("Vault Guard");
+            guard.addTag(REINFORCEMENT_TAG);
             guard.setItemSlot(EquipmentSlot.MAINHAND,
                     new ItemStack(com.hogwartsmagic.ExampleMod.GOBLIN_SILVER_DAGGER.get()));
             guard.setTarget(after);

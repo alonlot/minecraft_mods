@@ -493,6 +493,7 @@ public class ModEvents {
             }
             com.hogwartsmagic.spell.mastery.MasteryConfig.sendTo(player);
             com.hogwartsmagic.spell.mastery.SpellMasteryData.sync(player);
+            com.hogwartsmagic.spell.mastery.MasteryAwards.awardExistingRanks(player);
             HousePerks.applyHouseAttributes(player);
             HorcruxData.applyMaxHealthPenalty(player);
             // Dark Magic: after the house and Horcrux modifiers, so the Lost health cost clamps against the full max.
@@ -1939,6 +1940,10 @@ public class ModEvents {
 
         revealInvisibilityCloak(player);
         applyApparitionCooldown(player, wand, true);
+        if (!splinched) {
+            // A splinched jump is a jump, but it is not the one the advancement is about.
+            com.hogwartsmagic.util.ModAdvancements.award(player, "apparition");
+        }
     }
 
     /**
@@ -2011,6 +2016,7 @@ public class ModEvents {
         com.hogwartsmagic.spell.support.ApparitionSpell.rememberFireplace(player, level, fireplacePos, fireplace.getFireplaceName());
         revealInvisibilityCloak(player);
         applyApparitionCooldown(player, wand, true);
+        com.hogwartsmagic.util.ModAdvancements.award(player, "apparition");
     }
 
     /** Cancel for any reason (timeout, hit while channeling, lost wand, closed map): clears state and applies the full cooldown. */

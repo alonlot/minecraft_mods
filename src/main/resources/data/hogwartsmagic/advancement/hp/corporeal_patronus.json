@@ -1,0 +1,24 @@
+{
+  "parent": "hogwartsmagic:hp/spell_adept",
+  "display": {
+    "icon": {
+      "id": "minecraft:end_rod",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancement.hogwartsmagic.corporeal_patronus.title"
+    },
+    "description": {
+      "translate": "advancement.hogwartsmagic.corporeal_patronus.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "stag": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

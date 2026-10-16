@@ -94,6 +94,7 @@ public class ThiefsDownfallBlock extends Block {
                 tookSomething = true;
             }
             InvisibilityCloakItem.stopCloak(player, false);
+            com.hogwartsmagic.util.ModAdvancements.award(player, "thiefs_downfall");
             player.displayClientMessage(Component.translatable(
                     tookSomething
                             ? "block.hogwartsmagic.thiefs_downfall.washed"

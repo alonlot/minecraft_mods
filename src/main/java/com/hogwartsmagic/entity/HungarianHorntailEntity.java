@@ -8,13 +8,11 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
-import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.Mth;
-import net.minecraft.world.BossEvent;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
@@ -143,8 +141,6 @@ public class HungarianHorntailEntity extends Monster {
     private AttackState lastGroundAttack = AttackState.NONE;
     private int repeatedAttacks;
 
-    private final ServerBossEvent bossEvent =
-            new ServerBossEvent(this.getDisplayName(), BossEvent.BossBarColor.RED, BossEvent.BossBarOverlay.NOTCHED_10);
 
     public HungarianHorntailEntity(EntityType<? extends HungarianHorntailEntity> type, Level level) {
         super(type, level);
@@ -1134,24 +1130,6 @@ public class HungarianHorntailEntity extends Monster {
     }
 
     @Override
-    protected void customServerAiStep() {
-        super.customServerAiStep();
-        this.bossEvent.setProgress(this.getHealth() / this.getMaxHealth());
-    }
-
-    @Override
-    public void startSeenByPlayer(ServerPlayer player) {
-        super.startSeenByPlayer(player);
-        this.bossEvent.addPlayer(player);
-    }
-
-    @Override
-    public void stopSeenByPlayer(ServerPlayer player) {
-        super.stopSeenByPlayer(player);
-        this.bossEvent.removePlayer(player);
-    }
-
-    @Override
     protected void tickDeath() {
         super.tickDeath();
         if (this.level() instanceof ServerLevel sl && this.deathTime % 4 == 0) {
@@ -1161,12 +1139,6 @@ public class HungarianHorntailEntity extends Monster {
                     this.getZ() + (this.random.nextDouble() - 0.5D) * this.getBbWidth(),
                     1, 0.0D, 0.0D, 0.0D, 0.0D);
         }
-    }
-
-    @Override
-    public void setCustomName(@javax.annotation.Nullable net.minecraft.network.chat.Component name) {
-        super.setCustomName(name);
-        this.bossEvent.setName(this.getDisplayName());
     }
 
     @Override
@@ -1208,7 +1180,6 @@ public class HungarianHorntailEntity extends Monster {
         super.readAdditionalSaveData(tag);
         if (tag.contains("Raging")) this.entityData.set(DATA_RAGING, tag.getBoolean("Raging"));
         if (tag.contains("HasRoared")) this.hasRoared = tag.getBoolean("HasRoared");
-        if (this.hasCustomName()) this.bossEvent.setName(this.getDisplayName());
     }
 
     @Override

@@ -1,0 +1,29 @@
+{
+  "parent": "hogwartsmagic:hp/first_flight",
+  "display": {
+    "icon": {
+      "id": "hogwartsmagic:hippogriff_spawn_egg",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancement.hogwartsmagic.hippogriff_tamed.title"
+    },
+    "description": {
+      "translate": "advancement.hogwartsmagic.hippogriff_tamed.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "tamed_hippogriff": {
+      "trigger": "minecraft:tame_animal",
+      "conditions": {
+        "entity": {
+          "type": "hogwartsmagic:hippogriff"
+        }
+      }
+    }
+  }
+}

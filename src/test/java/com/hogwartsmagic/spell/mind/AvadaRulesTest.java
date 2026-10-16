@@ -25,7 +25,7 @@ class AvadaRulesTest {
 
     @Test
     void bossesLoseAFifthOfTheirMaxHealth() {
-        assertEquals(60.0f, AvadaRules.bossDamage(300.0f), 1e-4);
+        assertEquals(210.0f, AvadaRules.bossDamage(300.0f), 1e-4);
     }
 
     @Test

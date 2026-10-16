@@ -1,0 +1,24 @@
+{
+  "parent": "hogwartsmagic:hp/nimbus_rider",
+  "display": {
+    "icon": {
+      "id": "hogwartsmagic:golden_snitch",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancement.hogwartsmagic.snitch_caught.title"
+    },
+    "description": {
+      "translate": "advancement.hogwartsmagic.snitch_caught.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "caught_snitch": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

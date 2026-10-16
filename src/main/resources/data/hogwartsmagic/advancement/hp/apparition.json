@@ -1,0 +1,24 @@
+{
+  "parent": "hogwartsmagic:hp/spell_adept",
+  "display": {
+    "icon": {
+      "id": "minecraft:ender_pearl",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancement.hogwartsmagic.apparition.title"
+    },
+    "description": {
+      "translate": "advancement.hogwartsmagic.apparition.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "apparated": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

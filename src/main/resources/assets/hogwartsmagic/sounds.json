@@ -1173,8 +1173,19 @@
     "subtitle": "subtitles.hogwartsmagic.whomping_willow.ambient",
     "sounds": [
       {
-        "name": "hogwartsmagic:whomping_willow/ambient",
-        "stream": false
+        "name": "minecraft:block.wood.step",
+        "type": "event",
+        "pitch": 0.6
+      },
+      {
+        "name": "minecraft:block.bamboo_wood.step",
+        "type": "event",
+        "pitch": 0.7
+      },
+      {
+        "name": "minecraft:block.grass.step",
+        "type": "event",
+        "pitch": 0.5
       }
     ]
   },
@@ -1182,8 +1193,9 @@
     "subtitle": "subtitles.hogwartsmagic.whomping_willow.alert",
     "sounds": [
       {
-        "name": "hogwartsmagic:whomping_willow/alert",
-        "stream": false
+        "name": "minecraft:entity.ravager.roar",
+        "type": "event",
+        "pitch": 0.7
       }
     ]
   },
@@ -1191,8 +1203,14 @@
     "subtitle": "subtitles.hogwartsmagic.whomping_willow.whip",
     "sounds": [
       {
-        "name": "hogwartsmagic:whomping_willow/whip",
-        "stream": false
+        "name": "minecraft:entity.player.attack.sweep",
+        "type": "event",
+        "pitch": 0.7
+      },
+      {
+        "name": "minecraft:block.bamboo.break",
+        "type": "event",
+        "pitch": 0.6
       }
     ]
   },
@@ -1200,8 +1218,14 @@
     "subtitle": "subtitles.hogwartsmagic.whomping_willow.impact",
     "sounds": [
       {
-        "name": "hogwartsmagic:whomping_willow/impact",
-        "stream": false
+        "name": "minecraft:entity.generic.big_fall",
+        "type": "event",
+        "pitch": 0.8
+      },
+      {
+        "name": "minecraft:entity.iron_golem.attack",
+        "type": "event",
+        "pitch": 0.7
       }
     ]
   },
@@ -1209,8 +1233,9 @@
     "subtitle": "subtitles.hogwartsmagic.whomping_willow.groan",
     "sounds": [
       {
-        "name": "hogwartsmagic:whomping_willow/groan",
-        "stream": false
+        "name": "minecraft:entity.ravager.ambient",
+        "type": "event",
+        "pitch": 0.5
       }
     ]
   },
@@ -1218,8 +1243,14 @@
     "subtitle": "subtitles.hogwartsmagic.whomping_willow.roots",
     "sounds": [
       {
-        "name": "hogwartsmagic:whomping_willow/roots",
-        "stream": false
+        "name": "minecraft:block.rooted_dirt.break",
+        "type": "event",
+        "pitch": 0.8
+      },
+      {
+        "name": "minecraft:block.roots.break",
+        "type": "event",
+        "pitch": 0.7
       }
     ]
   },
@@ -1227,8 +1258,9 @@
     "subtitle": "subtitles.hogwartsmagic.whomping_willow.hurt",
     "sounds": [
       {
-        "name": "hogwartsmagic:whomping_willow/hurt",
-        "stream": false
+        "name": "minecraft:block.wood.break",
+        "type": "event",
+        "pitch": 0.8
       }
     ]
   },
@@ -1236,8 +1268,14 @@
     "subtitle": "subtitles.hogwartsmagic.whomping_willow.death",
     "sounds": [
       {
-        "name": "hogwartsmagic:whomping_willow/death",
-        "stream": false
+        "name": "minecraft:entity.ravager.death",
+        "type": "event",
+        "pitch": 0.6
+      },
+      {
+        "name": "minecraft:block.wood.break",
+        "type": "event",
+        "pitch": 0.5
       }
     ]
   },
@@ -1796,6 +1834,130 @@
       {
         "name": "hogwartsmagic:inferius/rise",
         "stream": false
+      }
+    ]
+  },
+  "wizard.ambient": {
+    "subtitle": "subtitles.hogwartsmagic.wizard.ambient",
+    "sounds": [
+      {
+        "name": "minecraft:entity.evoker.ambient",
+        "type": "event",
+        "pitch": 0.85
+      },
+      {
+        "name": "minecraft:entity.illusioner.ambient",
+        "type": "event",
+        "pitch": 0.9
+      }
+    ]
+  },
+  "wizard.hurt": {
+    "subtitle": "subtitles.hogwartsmagic.wizard.hurt",
+    "sounds": [
+      {
+        "name": "minecraft:entity.evoker.hurt",
+        "type": "event",
+        "pitch": 0.9
+      },
+      {
+        "name": "minecraft:entity.illusioner.hurt",
+        "type": "event",
+        "pitch": 0.9
+      }
+    ]
+  },
+  "wizard.death": {
+    "subtitle": "subtitles.hogwartsmagic.wizard.death",
+    "sounds": [
+      {
+        "name": "minecraft:entity.evoker.death",
+        "type": "event",
+        "pitch": 0.85
+      },
+      {
+        "name": "minecraft:entity.illusioner.death",
+        "type": "event",
+        "pitch": 0.85
+      }
+    ]
+  },
+  "student.ambient": {
+    "subtitle": "subtitles.hogwartsmagic.student.ambient",
+    "sounds": [
+      {
+        "name": "minecraft:entity.villager.ambient",
+        "type": "event",
+        "volume": 0.8,
+        "pitch": 1.35
+      }
+    ]
+  },
+  "student.hurt": {
+    "subtitle": "subtitles.hogwartsmagic.student.hurt",
+    "sounds": [
+      {
+        "name": "minecraft:entity.villager.hurt",
+        "type": "event",
+        "pitch": 1.4
+      }
+    ]
+  },
+  "student.death": {
+    "subtitle": "subtitles.hogwartsmagic.student.death",
+    "sounds": [
+      {
+        "name": "minecraft:entity.villager.death",
+        "type": "event",
+        "pitch": 1.35
+      }
+    ]
+  },
+  "voldemort.ambient": {
+    "subtitle": "subtitles.hogwartsmagic.voldemort.ambient",
+    "sounds": [
+      {
+        "name": "minecraft:entity.evoker.ambient",
+        "type": "event",
+        "pitch": 0.5
+      },
+      {
+        "name": "minecraft:entity.warden.ambient",
+        "type": "event",
+        "volume": 0.35,
+        "pitch": 1.2
+      }
+    ]
+  },
+  "voldemort.hurt": {
+    "subtitle": "subtitles.hogwartsmagic.voldemort.hurt",
+    "sounds": [
+      {
+        "name": "minecraft:entity.evoker.hurt",
+        "type": "event",
+        "pitch": 0.55
+      },
+      {
+        "name": "minecraft:entity.warden.hurt",
+        "type": "event",
+        "volume": 0.4,
+        "pitch": 1.3
+      }
+    ]
+  },
+  "voldemort.death": {
+    "subtitle": "subtitles.hogwartsmagic.voldemort.death",
+    "sounds": [
+      {
+        "name": "minecraft:entity.evoker.death",
+        "type": "event",
+        "pitch": 0.5
+      },
+      {
+        "name": "minecraft:entity.wither.death",
+        "type": "event",
+        "volume": 0.4,
+        "pitch": 0.7
       }
     ]
   }

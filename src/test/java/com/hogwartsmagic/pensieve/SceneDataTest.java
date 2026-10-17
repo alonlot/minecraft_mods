@@ -166,4 +166,59 @@ class SceneDataTest {
         });
         assertEquals(List.of(), missing);
     }
+
+    /**
+     * Walks every scene's {@code next} chain in {@code nextById} (id to next id, null for none) and returns one
+     * problem per chain that names a missing scene or loops back on itself.
+     */
+    static List<String> chainProblems(java.util.Map<String, String> nextById) {
+        List<String> problems = new ArrayList<>();
+        for (String start : new java.util.TreeSet<>(nextById.keySet())) {
+            List<String> seen = new ArrayList<>();
+            String id = start;
+            while (id != null) {
+                if (seen.contains(id)) {
+                    problems.add(start + ": next chain loops: " + String.join(" -> ", seen) + " -> " + id);
+                    break;
+                }
+                if (!nextById.containsKey(id)) {
+                    problems.add(start + ": next scene '" + id + "' does not exist");
+                    break;
+                }
+                seen.add(id);
+                id = nextById.get(id);
+            }
+        }
+        return problems;
+    }
+
+    @Test
+    void chainWalkCatchesCyclesAndMissingScenes() {
+        java.util.Map<String, String> m = new java.util.HashMap<>();
+        m.put("a", "b");
+        m.put("b", "a");
+        m.put("c", "gone");
+        m.put("d", null);
+        m.put("e", "d");
+        List<String> problems = chainProblems(m);
+        assertEquals(3, problems.size(), problems.toString());
+        assertTrue(problems.stream().anyMatch(p -> p.startsWith("a: next chain loops")));
+        assertTrue(problems.stream().anyMatch(p -> p.startsWith("b: next chain loops")));
+        assertTrue(problems.stream().anyMatch(p -> p.startsWith("c: next scene 'gone'")));
+    }
+
+    @Test
+    void everyShippedChainEndsAndNamesRealScenes() throws Exception {
+        if (!Files.isDirectory(MEMORIES)) return;
+        java.util.Map<String, String> nextById = new java.util.HashMap<>();
+        try (Stream<Path> files = Files.list(MEMORIES)) {
+            for (Path f : files.filter(p -> p.toString().endsWith(".json")).sorted().toList()) {
+                String name = f.getFileName().toString();
+                if (name.startsWith("_")) continue;
+                String id = name.substring(0, name.length() - 5);
+                nextById.put(id, SceneParser.parse(id, JsonParser.parseString(read(f)).getAsJsonObject()).next());
+            }
+        }
+        assertEquals(List.of(), chainProblems(nextById));
+    }
 }

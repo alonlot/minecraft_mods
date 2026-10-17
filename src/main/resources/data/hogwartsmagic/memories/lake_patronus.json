@@ -1,10 +1,8 @@
 {
   "title": "The Memory of the Lake",
   "length": "84s",
-  "radius": 200,
-  "fog_far": 200,
+  "radius": 48,
   "set": {
-    "schematics": [{"id": "mini_hogwarts", "at": [-52, -10, -178], "rotation": 270}],
     "fills": [
       {"block": "minecraft:stone", "from": [-48, -8, -48], "to": [48, -6, 48]},
       {"block": "minecraft:dirt", "from": [-48, -5, -48], "to": [48, -2, 48]},
@@ -265,37 +263,7 @@
       {"block": "minecraft:dead_bush", "from": [35, 0, -4], "to": [35, 0, -4]},
       {"block": "minecraft:light", "from": [0, 7, 31], "to": [0, 7, 31]},
       {"block": "minecraft:light", "from": [-3, 7, -32], "to": [-3, 7, -32]},
-      {"block": "minecraft:light", "from": [0, 9, 0], "to": [0, 9, 0]},
-      {"block": "minecraft:grass_block", "from": [-110, 2, -195], "to": [150, 2, -49]},
-      {"block": "minecraft:glowstone", "from": [-25, 32, -146], "to": [-25, 33, -146]},
-      {"block": "minecraft:glowstone", "from": [-19, 29, -140], "to": [-19, 30, -140]},
-      {"block": "minecraft:glowstone", "from": [-22, 32, -143], "to": [-22, 33, -143]},
-      {"block": "minecraft:glowstone", "from": [-13, 32, -134], "to": [-13, 33, -134]},
-      {"block": "minecraft:glowstone", "from": [-16, 40, -140], "to": [-16, 40, -140]},
-      {"block": "minecraft:glowstone", "from": [-18, 42, -144], "to": [-18, 42, -144]},
-      {"block": "minecraft:glowstone", "from": [-7, 29, -128], "to": [-7, 30, -128]},
-      {"block": "minecraft:glowstone", "from": [-7, 32, -128], "to": [-7, 33, -128]},
-      {"block": "minecraft:glowstone", "from": [-7, 40, -131], "to": [-7, 40, -131]},
-      {"block": "minecraft:glowstone", "from": [-9, 42, -135], "to": [-9, 42, -135]},
-      {"block": "minecraft:glowstone", "from": [5, 22, -121], "to": [5, 23, -121]},
-      {"block": "minecraft:glowstone", "from": [2, 39, -128], "to": [2, 39, -128]},
-      {"block": "minecraft:glowstone", "from": [9, 43, -137], "to": [9, 43, -137]},
-      {"block": "minecraft:glowstone", "from": [6, 50, -138], "to": [6, 51, -138]},
-      {"block": "minecraft:glowstone", "from": [7, 60, -139], "to": [7, 61, -139]},
-      {"block": "minecraft:glowstone", "from": [9, 69, -141], "to": [9, 70, -141]},
-      {"block": "minecraft:glowstone", "from": [15, 22, -137], "to": [15, 22, -137]},
-      {"block": "minecraft:glowstone", "from": [18, 25, -138], "to": [18, 25, -138]},
-      {"block": "minecraft:glowstone", "from": [12, 31, -136], "to": [12, 31, -136]},
-      {"block": "minecraft:glowstone", "from": [12, 34, -136], "to": [12, 34, -136]},
-      {"block": "minecraft:glowstone", "from": [12, 37, -136], "to": [12, 37, -136]},
-      {"block": "minecraft:glowstone", "from": [12, 40, -136], "to": [12, 40, -136]},
-      {"block": "minecraft:glowstone", "from": [12, 43, -136], "to": [12, 43, -136]},
-      {"block": "minecraft:glowstone", "from": [34, 43, -141], "to": [34, 43, -141]},
-      {"block": "minecraft:glowstone", "from": [44, 30, -106], "to": [44, 30, -106]},
-      {"block": "minecraft:glowstone", "from": [37, 36, -141], "to": [37, 37, -141]},
-      {"block": "minecraft:glowstone", "from": [52, 17, -110], "to": [52, 17, -110]},
-      {"block": "minecraft:glowstone", "from": [55, 28, -108], "to": [55, 28, -108]},
-      {"block": "minecraft:stone", "from": [39, -11, -129], "to": [51, -11, -116]}
+      {"block": "minecraft:light", "from": [0, 9, 0], "to": [0, 9, 0]}
     ],
     "disks": [
       {"block": "minecraft:podzol", "center": [0, -1, 0], "radius": 31},
@@ -3247,16 +3215,16 @@
     {"t": "74.8s", "by": "future_harry", "text": "It was never my dad out there. It was me. And now I know I can."}
   ],
   "camera": [
-    {"t": "0s", "pos": [30.0, 17.0, 32.0], "look_at": [-8.0, 9.0, -60.0], "fov": 82},
-    {"t": "6s", "pos": [25.0, 14.0, 26.0], "look_at": [-8.0, 8.0, -62.0], "fov": 78},
+    {"t": "0s", "pos": [34.0, 18.0, 34.0], "look_at": [0.0, 3.0, -8.0], "fov": 86},
+    {"t": "6s", "pos": [28.0, 14.0, 27.0], "look_at": [0.0, 2.0, -10.0], "fov": 82},
     {"t": "6s", "pos": [-3.6, 1.35, -25.4], "look_at": [-3.9, 1.05, -30.6], "fov": 55, "cut": true},
     {"t": "11s", "pos": [-3.7, 1.3, -26.4], "look_at": [-3.9, 1.05, -30.6], "fov": 50},
     {"t": "11s", "pos": [-3.4, 1.9, -33.6], "look_at": [0.5, 7.0, 26.0], "fov": 40, "cut": true},
     {"t": "16s", "pos": [-3.3, 1.9, -33.2], "look_at": [0.5, 5.0, 26.0], "fov": 36},
     {"t": "16s", "pos": [5.6, 0.7, 22.6], "look_at": [0.6, 2.5, 28.0], "fov": 84, "cut": true, "roll": 4},
     {"t": "21s", "pos": [5.0, 0.8, 23.2], "look_at": [0.5, 6.0, 27.0], "fov": 86, "roll": 5},
-    {"t": "21s", "pos": [2.0, 8.5, 35.0], "look_at": [0.0, 1.5, -6.0], "fov": 76, "cut": true},
-    {"t": "24.4s", "pos": [2.0, 9.6, 34.2], "look_at": [0.0, 1.0, -8.0], "fov": 74},
+    {"t": "21s", "pos": [2.0, 8.5, 35.0], "look_at": [0.0, -1.0, 17.0], "fov": 72, "cut": true},
+    {"t": "24.4s", "pos": [2.0, 9.6, 34.2], "look_at": [0.0, -1.0, 15.0], "fov": 70},
     {"t": "24.4s", "pos": [-3.6, 1.2, 28.6], "look_at": [0.0, 1.2, 27.6], "fov": 52, "cut": true},
     {"t": "26.4s", "pos": [-3.5, 1.2, 28.3], "look_at": [0.0, 1.4, 27.6], "fov": 50},
     {"t": "26.4s", "pos": [-1.2, 0.45, 25.4], "look_at": [0.0, 1.3, 28.0], "fov": 50, "cut": true, "roll": -3},
@@ -3286,7 +3254,7 @@
     {"t": "73.4s", "pos": [1.2, 1.2, -25.4], "look_at": [-4.4, 1.3, -25.4], "fov": 50},
     {"t": "73.4s", "pos": [0.6, 1.5, -26.6], "look_at": [-3.9, 1.5, -26.4], "fov": 52, "cut": true},
     {"t": "78s", "pos": [0.3, 1.5, -26.5], "look_at": [-3.9, 1.5, -26.4], "fov": 50},
-    {"t": "78s", "pos": [-3.9, 1.3, -23.4], "look_at": [-3.9, 1.75, -26.4], "fov": 50, "cut": true},
-    {"t": "84s", "pos": [-3.9, 1.35, -24.6], "look_at": [-3.9, 1.7, -26.4], "fov": 40}
+    {"t": "78s", "pos": [-3.9, 1.55, -23.6], "look_at": [-3.9, 1.5, -26.4], "fov": 50, "cut": true},
+    {"t": "84s", "pos": [-3.9, 1.55, -24.7], "look_at": [-3.9, 1.5, -26.4], "fov": 38}
   ]
 }

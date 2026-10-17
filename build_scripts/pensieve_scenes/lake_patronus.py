@@ -13,24 +13,15 @@ All spoken lines are original paraphrase; only the incantation is canonical.
 Scene frame: ground top is block y -1 (actors stand at y 0). Lake = water disk r25 at the origin, surface block
 y -1, stepping down to y -4 over a gravel bed, stone under everything. X east, Z south: the near shore is +Z.
 
-Hogwarts: the Mini Hogwarts schematic (set.schematics) stands on its own rocky hill beyond the far bank, north and
-a little east, its long west face (great hall, bridge, tallest spire) turned to the lake, on a grass shelf level
-with the far-bank hills. A scattering of its lake-facing black glass windows is replaced with glowstone (one fill
-per window, picked here from the schematic) so the castle shows lit windows at midnight. fog_far lets the
-viewer see it through a haze instead of the default fog wall at the radius.
-
 Lying flat: a custom pose cannot carry offsets, so `lying` is done with additive `limbs` (rot -90 about x on every
 part plus pivot offsets in model pixels, y down) over a zeroed `flat` pose. The actor's position is where the
 head lies; the body extends ~1.5 blocks along the actor's facing (feet forward, face up).
 """
 import math, os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from scene_common import (write_scene, physics_problems, unsupported_gravity, schematic_grid, rotate_xz,
-                          SCHEMATIC_SKIPPED)
+from scene_common import write_scene, physics_problems
 
-R = 48                                   # the lake's own ground runs to +-R
-SCENE_R = 200                            # the set's radius: room for Mini Hogwarts far across the lake
-FOG_FAR = 200                            # fog_far: see out to the castle through a haze (PensieveVoid)
+R = 48
 LENGTH = 84.0
 LAKE_R = 25
 
@@ -252,80 +243,8 @@ features = [{'id': 'minecraft:spruce', 'at': [x, (2 if z <= -45 else 1 if z <= -
                                                    else 0 if z <= -38 or z >= 39 or abs(x) >= 36 else -1) + 1, z]}
             for x, z in TREES]
 
-N_LAKE_FILLS = len(fills)
-
-# ---------------------------------------------------------------- Mini Hogwarts beyond the lake
-CASTLE_ROT = 270                         # the schematic's west face looks south, across the lake
-CASTLE_AT = (-52, -10, -178)             # min corner of the rotated 145 x 109 x 96 footprint
-SHELF_Y = 2                              # the grass shelf: level with the far-bank hills, cutting the hill
-CW, CH, CL, ccells = schematic_grid('mini_hogwarts')
-CFX, CFZ = (CL, CW) if CASTLE_ROT in (90, 270) else (CW, CL)    # rotated footprint, x by z
-def cscene(x, y, z):
-    rx, rz = rotate_xz(x, z, CW, CL, CASTLE_ROT)
-    return (CASTLE_AT[0] + rx, CASTLE_AT[1] + y, CASTLE_AT[2] + rz)
-def cblock(x, y, z):
-    return ccells[x + z * CW + y * CW * CL]
-castle = {}
-for i, b in enumerate(ccells):
-    if b in SCHEMATIC_SKIPPED:
-        continue
-    x, z, y = i % CW, (i // CW) % CL, i // (CW * CL)
-    castle[cscene(x, y, z)] = b
-# the shelf: one layer of grass from the far-bank hills to behind the castle; its own hill is the bluff
-fills.append({'block': 'minecraft:grass_block', 'from': [-110, SHELF_Y, -195], 'to': [150, SHELF_Y, -R - 1]})
-# lit windows: black glass on the lake-facing (+Z) facade with a clear line out of the footprint toward the lake
-OUT = next((dx, dz) for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1))
-           if [a - b for a, b in zip(cscene(5 + dx, 0, 5 + dz), cscene(5, 0, 5))] == [0, 0, 1])
-GLASS = {'minecraft:black_stained_glass', 'minecraft:black_stained_glass_pane'}
-def facade(x, y, z):
-    if cblock(x, y, z) not in GLASS:
-        return False
-    x, z = x + OUT[0], z + OUT[1]
-    while 0 <= x < CW and 0 <= z < CL:
-        if cblock(x, y, z) not in SCHEMATIC_SKIPPED:
-            return False
-        x, z = x + OUT[0], z + OUT[1]
-    return True
-cand = {(x, y, z) for y in range(CH) for z in range(CL) for x in range(CW) if facade(x, y, z)}
-windows, seen = [], set()
-for c in sorted(cand):
-    if c in seen:
-        continue
-    comp, todo = [], [c]
-    seen.add(c)
-    while todo:
-        q = todo.pop()
-        comp.append(q)
-        for d in ((1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)):
-            n = (q[0] + d[0], q[1] + d[1], q[2] + d[2])
-            if n in cand and n not in seen:
-                seen.add(n)
-                todo.append(n)
-    windows.append(sorted(cscene(*q) for q in comp))
-# a scattering: in each 12-block-wide slice of the facade (roughly a tower each), every third window from the
-# bottom up (a lone window is lit), at most seven, so the lights spread over the towers and floors the same
-# way every run
-WINDOW_SHARE, WINDOW_MAX = 3, 7
-lit = []
-by_slice = {}
-for w in windows:
-    by_slice.setdefault(w[0][0] // 12, []).append(w)
-for k in sorted(by_slice):
-    ws = sorted(by_slice[k], key=lambda w: (w[0][1], w[0][0]))
-    lit += ws[min(1, len(ws) - 1)::WINDOW_SHARE][:WINDOW_MAX]
-for w in lit:
-    xs, ys, zs = zip(*w)
-    box = (min(xs), min(ys), min(zs)), (max(xs), max(ys), max(zs))
-    vol = (box[1][0] - box[0][0] + 1) * (box[1][1] - box[0][1] + 1) * (box[1][2] - box[0][2] + 1)
-    if vol == len(w):
-        fills.append({'block': 'minecraft:glowstone', 'from': list(box[0]), 'to': list(box[1])})
-    else:
-        for c in w:
-            fills.append({'block': 'minecraft:glowstone', 'from': list(c), 'to': list(c)})
-schematics = [{'id': 'mini_hogwarts', 'at': list(CASTLE_AT), 'rotation': CASTLE_ROT}]
-
 # ---------------------------------------------------------------- the world dict (physics + obstacle checks)
-world = dict(castle)                     # the schematic first: fills and disks overwrite it, as in SetBuilder
+world = {}
 for f in fills:
     a, b = f['from'], f['to']
     for x in range(min(a[0], b[0]), max(a[0], b[0]) + 1):
@@ -342,23 +261,6 @@ for x in range(-R, R + 1):
     for z in range(-R, R + 1):
         if world.get((x, -1, z)) == 'minecraft:water':
             assert in_lake(x, z)
-# the castle's gravel over air gets stone under it (SetBuilder would hold it anyway): one slab per layer when the
-# slab's cells are all empty, else a block per cell
-by_y = {}
-for c in unsupported_gravity(world):
-    by_y.setdefault(c[1], []).append(c)
-for y, cs in sorted(by_y.items()):
-    x0, x1 = min(c[0] for c in cs), max(c[0] for c in cs)
-    z0, z1 = min(c[2] for c in cs), max(c[2] for c in cs)
-    slab = [(x, y - 1, z) for x in range(x0, x1 + 1) for z in range(z0, z1 + 1)]
-    if all(world.get(c) is None for c in slab):
-        fills.append({'block': 'minecraft:stone', 'from': [x0, y - 1, z0], 'to': [x1, y - 1, z1]})
-        under = slab
-    else:
-        under = [(x, y - 1, z) for x, _, z in cs]
-        fills += [{'block': 'minecraft:stone', 'from': list(c), 'to': list(c)} for c in under]
-    for c in under:
-        world[c] = 'minecraft:stone'
 
 PLANTS = {'minecraft:short_grass', 'minecraft:fern', 'minecraft:dead_bush', 'minecraft:light', 'minecraft:water',
           'minecraft:sugar_cane', 'minecraft:air'}
@@ -799,9 +701,9 @@ def sample(keys, t, field='pos'):
 
 FH, HE, PHA, ST = 'actor:future_harry', 'actor:hermione', 'actor:past_harry', 'actor:stag'
 FAR_PAIR = (-3.9, 1.05, -30.6)
-# S1 establishing: high from the south-east over the black lake, specks circling, Hogwarts lit beyond it
-shot(0.0, (30, 17, 32), (-8, 9, -60), 82, cut=False)
-shot(6.0, (25, 14, 26), (-8, 8, -62), 78, cut=False)
+# S1 establishing: high from the south-east over the black lake, the moon above, specks circling
+shot(0.0, (34, 18, 34), (0, 3, -8), 86, cut=False)
+shot(6.0, (28, 14, 27), (0, 2, -10), 82, cut=False)
 # S2 far bank two-shot, low over the water, crouched behind the bushes
 shot(6.0, (-3.6, 1.35, -25.4), FAR_PAIR, 55)
 shot(11.0, (-3.7, 1.3, -26.4), FAR_PAIR, 50, cut=False)
@@ -811,9 +713,9 @@ shot(16.0, (-3.3, 1.9, -33.2), (0.5, 5, 26), 36, cut=False)
 # S4 near shore, low from the water's edge: Harry by Sirius, the Dementors spiralling down
 shot(16.0, (5.6, 0.7, 22.6), (0.6, 2.5, 28.0), 84, roll=4)
 shot(21.0, (5.0, 0.8, 23.2), (0.5, 6.0, 27.0), 86, cut=False, roll=5)
-# S5 the lake freezes under the swarm: high over the water from behind the shore, the castle across the lake
-shot(21.0, (2.0, 8.5, 35.0), (0, 1.5, -6), 76)
-shot(24.4, (2.0, 9.6, 34.2), (0, 1.0, -8), 74, cut=False)
+# S5 the lake freezes: high over the water from behind the shore
+shot(21.0, (2.0, 8.5, 35.0), (0, -1, 17), 72)
+shot(24.4, (2.0, 9.6, 34.2), (0, -1, 15), 70, cut=False)
 # S6a side on: he turns north and raises the wand
 shot(24.4, (-3.6, 1.2, 28.6), (0.0, 1.2, 27.6), 52)
 shot(26.4, (-3.5, 1.2, 28.3), (0.0, 1.4, 27.6), 50, cut=False)
@@ -860,17 +762,15 @@ shot(73.4, (1.2, 1.2, -25.4), (-4.4, 1.3, -25.4), 50, cut=False)
 # S18 profile two-shot from the east: Hermione at his side, his quiet line
 shot(73.4, (0.6, 1.5, -26.6), (-3.9, 1.5, -26.4), 52)
 shot(78.0, (0.3, 1.5, -26.5), (-3.9, 1.5, -26.4), 50, cut=False)
-# S19 the last push-in on their faces, fov narrowing, to the fade; low, so the castle rises behind them
-shot(78.0, (-3.9, 1.3, -23.4), (-3.9, 1.75, -26.4), 50)
-shot(LENGTH, (-3.9, 1.35, -24.6), (-3.9, 1.7, -26.4), 40, cut=False)
+# S19 the last push-in on their faces, fov narrowing, to the fade
+shot(78.0, (-3.9, 1.55, -23.6), (-3.9, 1.5, -26.4), 50)
+shot(LENGTH, (-3.9, 1.55, -24.7), (-3.9, 1.5, -26.4), 38, cut=False)
 
 scene = {
     'title': 'The Memory of the Lake',
     'length': T(LENGTH),
-    'radius': SCENE_R,
-    'fog_far': FOG_FAR,
+    'radius': R,
     'set': {
-        'schematics': schematics,
         'fills': fills,
         'disks': disks,
         'features': features,
@@ -1020,21 +920,11 @@ for t in (49.0, 50.6, 52.2):
 for e in events:
     if e['kind'] == 'particles' and e['count'] > 500:
         problems.append('too many particles %s' % e)
-# extents: the lake within R, the castle's fills and its whole rotated footprint within the scene radius
-for i, f in enumerate(fills):
-    lim = R if i < N_LAKE_FILLS else SCENE_R
+# extents
+for f in fills:
     for v in (f['from'], f['to']):
-        if abs(v[0]) > lim or abs(v[2]) > lim:
+        if abs(v[0]) > R or abs(v[2]) > R:
             problems.append('fill beyond radius %s' % f)
-for x, z in ((CASTLE_AT[0], CASTLE_AT[2]), (CASTLE_AT[0] + CFX - 1, CASTLE_AT[2] + CFZ - 1)):
-    if abs(x) > SCENE_R or abs(z) > SCENE_R:
-        problems.append('castle footprint cropped at %s' % ((x, z),))
-if not 100 <= math.hypot(CASTLE_AT[0] + CFX / 2, CASTLE_AT[2] + CFZ / 2) <= 150:
-    problems.append('castle not 100-150 from the origin')
-if not 25 <= len(lit) <= 60:
-    problems.append('%d lit windows (want a scattering, 25-60)' % len(lit))
-if CASTLE_AT[1] > SHELF_Y + 1:
-    problems.append('castle base above the shelf: it would float')
 for d in disks:
     c = d['center']
     if abs(c[0]) + d['radius'] > R or abs(c[2]) + d['radius'] > R:
@@ -1083,10 +973,6 @@ problems += physics_problems(world, R)
 n_ice = sum(1 for e in events if e['kind'] == 'block')
 print('actors', len(actors), '(dementors %d)' % len(dementors), 'events', len(events), 'ice', n_ice,
       'fills', len(fills), 'disks', len(disks), 'trees', len(TREES), 'reeds', len(reeds))
-# the set build: every block SetBuilder places (features are extra), at the default pensieveBlocksPerTick
-set_blocks = sum(1 for (x, y, z) in world if abs(x) <= SCENE_R and abs(z) <= SCENE_R)
-print('castle: %d blocks, %d facade windows, %d lit (%d cells); set %d blocks = %d ticks at 4000/tick'
-      % (len(castle), len(windows), len(lit), sum(len(w) for w in lit), set_blocks, -(-set_blocks // 4000)))
 # the weak shield's push: 4-8 back off their circle, 1-2 up, and a believable glide speed throughout
 for d, (back, rise) in zip([d for d in dementors if int(d['id'].split('_')[1]) - 1 in PUSHED], PUSH_INFO):
     a, b2 = sample(d['path'], T_PUSH), sample(d['path'], T_PUSHED)

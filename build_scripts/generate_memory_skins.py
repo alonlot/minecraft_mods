@@ -69,7 +69,7 @@ class Skin:
 
 def build(name, seed, *, skin, hair, robe, trim, hood=None, mask=None, bald=False, eyes=(240, 240, 240),
           pupil=(40, 30, 28), eye_glow=None, tie=None, lip=None, nose_slits=False, shadow_face=False,
-          hair_long=False, slim=False):
+          hair_long=False, slim=False, post=None):
     s = Skin(seed)
     skin_dark = shade(skin, 0.86)
     robe_dark = shade(robe, 0.55)
@@ -206,9 +206,90 @@ def build(name, seed, *, skin, hair, robe, trim, hood=None, mask=None, bald=Fals
         s.paint(arm["front"], lambda x, y, w, h: trim if y == h - 3 else None)
         s.paint(arm["back"], lambda x, y, w, h: trim if y == h - 3 else None)
 
+    if post is not None:
+        post(s, dict(head=head, hat=hat, body=body, jacket=jacket, rleg=rleg, lleg=lleg, rleg_o=rleg_o,
+                     lleg_o=lleg_o, rarm=rarm, larm=larm, rarm_o=rarm_o, larm_o=larm_o))
+
     path = os.path.join(OUT_DIR, name + ".png")
     s.img.save(path)
     return path
+
+
+CLEAR = (0, 0, 0, 0)
+
+
+def clear_box(s, b):
+    for rect in b.values():
+        s.paint(rect, lambda x, y, w, h: CLEAR)
+
+
+def sirius_post(s, b):
+    """Azkaban Sirius: striped rags, hair down his back, stubble, sunken eyes, dark trousers, bare dirty feet."""
+    skin = (214, 204, 196)
+    hair = (16, 14, 16)
+    dirt = (150, 132, 118)
+    stripe = (62, 62, 66)
+    # Horizontal prison stripes over the torso and sleeves, ragged at the bottom edge.
+    def stripes(x, y, w, h):
+        return stripe if y % 4 == 1 else None
+    for key in ("body", "jacket", "rarm", "larm", "rarm_o", "larm_o"):
+        s.fill_box(b[key], lambda x, y, w, h: s.noisy(stripe if y % 4 == 1 else (112, 110, 108), 0.07)
+                   if not (y >= h - 2 and key.endswith("_o")) else None)
+    # Sleeves end in dirty bare hands.
+    for key in ("rarm", "larm"):
+        s.fill_box(b[key], lambda x, y, w, h: s.noisy(dirt, 0.08) if y >= h - 2 else None)
+    # The robe is torn off above the knee: the jacket is short, the outer leg layer gone.
+    for key in ("rleg_o", "lleg_o"):
+        clear_box(s, b[key])
+    # Dark trousers, then bare feet.
+    for key in ("rleg", "lleg"):
+        s.fill_box(b[key], lambda x, y, w, h: s.noisy(dirt, 0.1) if y >= h - 3 else s.noisy((34, 32, 36), 0.08))
+    # Hair hangs past the shoulders, matted, down the back and the sides of the neck.
+    mat = lambda x, y, w, h: s.noisy(hair, 0.35)
+    s.paint(b["head"]["back"], mat)
+    s.paint(b["head"]["right"], lambda x, y, w, h: mat(x, y, w, h) if (y < 5 or x > w - 3) else None)
+    s.paint(b["head"]["left"], lambda x, y, w, h: mat(x, y, w, h) if (y < 5 or x < 2) else None)
+    s.paint(b["hat"]["back"], lambda x, y, w, h: mat(x, y, w, h) if y < 8 else None)
+    s.paint(b["hat"]["top"], mat)
+    s.paint(b["hat"]["right"], lambda x, y, w, h: mat(x, y, w, h) if x > 3 else None)
+    s.paint(b["hat"]["left"], lambda x, y, w, h: mat(x, y, w, h) if x < 4 else None)
+    s.paint(b["jacket"]["back"], lambda x, y, w, h: mat(x, y, w, h) if y < 5 else None)
+    s.paint(b["jacket"]["right"], lambda x, y, w, h: mat(x, y, w, h) if y < 2 and x > 1 else None)
+    s.paint(b["jacket"]["left"], lambda x, y, w, h: mat(x, y, w, h) if y < 2 and x < 3 else None)
+    # Gaunt face: hollow cheeks, dark sunken sockets, grey eyes, stubble over the jaw.
+    def face(x, y, w, h):
+        if y == 4 and x in (1, 2, 5, 6):
+            return (44, 40, 44) if x in (1, 6) else (92, 100, 108)
+        if y == 3 and x in (1, 2, 5, 6):
+            return (96, 86, 88)       # deep brow shadow
+        if y == 5 and x in (1, 2, 5, 6):
+            return (120, 108, 108)    # eye bags
+        if y in (5, 6) and x in (0, 7):
+            return shade(skin, 0.72)   # hollow cheeks
+        if y >= 6 and s.rng.random() < 0.55:
+            return (46, 42, 44)       # stubble
+        if y == 5 and x in (3, 4):
+            return shade(skin, 0.8)
+        return None
+    s.paint(b["head"]["front"], face)
+    s.paint(b["head"]["front"], lambda x, y, w, h: (60, 56, 58) if (y == 7 and 1 <= x <= 6 and s.rng.random() < 0.5) else None)
+
+
+def hermione_post(s, b):
+    """Hermione, Prisoner of Azkaban: a huge bush of brown hair, brown eyes, a dark zip jacket over her uniform."""
+    hair = (96, 60, 34)
+    bush = lambda x, y, w, h: s.noisy(hair, 0.18)
+    # Extra volume on the hat layer: top, back and the sides all the way round.
+    s.paint(b["hat"]["top"], bush)
+    s.paint(b["hat"]["back"], bush)
+    s.paint(b["hat"]["right"], bush)
+    s.paint(b["hat"]["left"], bush)
+    s.paint(b["hat"]["front"], lambda x, y, w, h: bush(x, y, w, h) if (y < 2 or (y < 6 and x in (0, 7))) else None)
+    # It falls past her shoulders onto the back of the jacket.
+    s.paint(b["jacket"]["back"], lambda x, y, w, h: bush(x, y, w, h) if y < 4 else None)
+    # The zip and a high collar down the dark jacket, a flash of red tie beneath.
+    s.paint(b["jacket"]["front"], lambda x, y, w, h: (150, 150, 158) if x == 3 and y > 0 else None)
+    s.paint(b["jacket"]["front"], lambda x, y, w, h: (22, 20, 26) if y == 0 else None)
 
 
 def main():
@@ -244,6 +325,17 @@ def main():
           bald=True, eyes=(200, 40, 40), pupil=(110, 0, 0), eye_glow=(230, 50, 40), nose_slits=True,
           lip=(150, 120, 120))
     names.append("voldemort")
+
+    # Sirius Black, twelve years in Azkaban.
+    build("sirius", 7, skin=(214, 204, 196), hair=(16, 14, 16), robe=(112, 110, 108), trim=(60, 60, 64),
+          hair_long=True, pupil=(92, 100, 108), lip=(150, 110, 108), post=sirius_post)
+    names.append("sirius")
+
+    # Hermione Granger, third year: brown bush, dark coat over the Gryffindor uniform, dark trousers.
+    build("hermione", 8, skin=(226, 180, 150), hair=(96, 60, 34), robe=(40, 38, 46), trim=(60, 58, 68),
+          tie=[(160, 28, 36), (212, 168, 48)], hair_long=True, pupil=(84, 52, 30), lip=(190, 112, 104),
+          post=hermione_post)
+    names.append("hermione")
 
     with open(LIST, "w", encoding="utf-8", newline="\n") as f:
         json.dump(names, f, indent=2)

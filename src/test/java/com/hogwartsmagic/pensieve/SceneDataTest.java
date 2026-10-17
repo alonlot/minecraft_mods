@@ -118,7 +118,7 @@ class SceneDataTest {
     @Test
     void spellVisualsAreRealSpells() throws IOException {
         Set<String> spells = matches(JAVA.resolve("spell/SpellType.java"), "^    [A-Z_]+\\(\"([a-z_]+)\"");
-        assertEquals(Set.of(), SceneNames.SPELL_VISUALS.stream().filter(s -> !spells.contains(s)).collect(java.util.stream.Collectors.toSet()));
+        assertEquals(Set.of(), SceneNames.SPELL_VISUALS.stream().filter(s -> !spells.contains(s) && !SceneNames.MEMORY_ONLY_SPELLS.contains(s)).collect(java.util.stream.Collectors.toSet()));
     }
 
     @Test

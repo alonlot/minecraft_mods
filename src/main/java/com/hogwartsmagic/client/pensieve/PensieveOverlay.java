@@ -57,6 +57,7 @@ public final class PensieveOverlay {
         } else if (phase == PensieveClientState.BUILD || phase == PensieveClientState.PLAY) {
             fallbackDarkness(g, w, h, partial);
             greyEdges(g, partial, clock);
+            patronusWash(g, w, h, partial);
             float rt = PensieveClientState.revealTime(partial);
             if (rt < 10) wisps(g, w, h, clock, 1 - rt / 10, true);
             hint(g, w, h, phase, pt, rt);
@@ -143,6 +144,15 @@ public final class PensieveOverlay {
         int wash = Math.round(Mth.clamp((k - 0.4f) / 0.6f, 0f, 1f) * 84);
         RenderSystem.enableBlend();
         BasiliskGazeOverlay.drawEdges(g, intensity, wash);
+        RenderSystem.disableBlend();
+    }
+
+    /** A scene patronus_light effect: a brief soft white wash over the view for those near the light. */
+    private static void patronusWash(GuiGraphics g, int w, int h, float partial) {
+        float a = EffectVisuals.patronusWash(partial);
+        if (a <= 0.003f) return;
+        RenderSystem.enableBlend();
+        g.fill(0, 0, w, h, argb(a, 0xE8F2FF));
         RenderSystem.disableBlend();
     }
 

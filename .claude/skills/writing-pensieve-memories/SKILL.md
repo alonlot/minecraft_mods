@@ -106,6 +106,8 @@ Keyframes between keys are interpolated per component; yaw is NOT unwrapped, so 
 | `lumos` | a white glowing orb at the wand tip (3 s) |
 | `protego` | a shimmering shield dome around the caster (2 s) |
 | `morsmordre` | the Dark Mark rising above the target (6 s) |
+| `expecto_patronum` | the full Patronus cast: a silver-white (#DDEEFF), full-bright stream pours from the wand tip toward `target` (10 blocks ahead if none) for 2 s (40 ticks): a widening cone of end-rod mist round a bright core, a flash and glow at the tip. The stream front rushes out over 6 ticks and thins over the last 8; it reaches at most 40 blocks. Plays the real Expecto Patronum sound at the caster. The stag is a separate actor (`hogwartsmagic:patronus`, form 0) |
+| `patronus_wisp` | a failing Patronus (memory-only: not a real spell id): thin silver mist sputters from the wand tip 1-3 blocks ahead for 3 s (60 ticks), flickering, dropping out for stretches and fading to nothing. Same sound at volume 0.5, pitch 0.85 |
 
 A beam travels 1.55 blocks/tick, so the hit lands about distance/1.55 ticks after the cast (20 blocks = 13 ticks): time the `hurt` accordingly.
 
@@ -154,9 +156,9 @@ Common keys: `t`, `kind`, `id`, `at`, `volume`, `pitch`, `count`, `spread`, `dur
 | `block` | block id | `at:[x,y,z]` | the server places that block at `t` (a door slams, a torch lights). Removed with the set |
 | `sound` | sound id (`minecraft:entity.lightning_bolt.thunder`, `hogwartsmagic:...`) | `volume` 1, `pitch` 1, optional `at` (none = heard in your own ears) | plays once at `t` |
 | `particles` | plain particle id (`minecraft:poof`, `minecraft:end_rod`) | `at`, `count` 1 (max 500), `spread:[x,y,z]` box half-size | a burst; parameterised particles (dust, block) cannot be used |
-| `effect` | `summoning_ritual`, `lightning`, `dark_mark`, `grey_edges` | `at`, `duration` | scripted set-pieces below |
+| `effect` | `summoning_ritual`, `lightning`, `dark_mark`, `grey_edges`, `patronus_light` | `at`, `duration` | scripted set-pieces below |
 
-Effects: `lightning` - one visual-only bolt with thunder; `summoning_ritual` - the three beam columns, smoke and a bolt every second, default 5 s; `dark_mark` - a Dark Mark that rises 18 blocks and fades, default 5 s; `grey_edges` - the Basilisk's stare from inside: the real gaze overlay's grey closes in from the screen edges over 2.5 s (the real charge) and drains over the last 1.2 s of `duration` (default 3 s), so end it where the victim looks away; screen-only, `at` is ignored. Give it a `duration` over 1.2 s (24 ticks) or nothing shows, and at least ~3.7 s (74 ticks: the 50-tick rise plus the 24-tick drain) for it to reach full grey; a shorter one peaks partway (`EffectVisuals.GreyEdges`). A late joiner skips old events but joins a still-running effect.
+Effects: `lightning` - one visual-only bolt with thunder; `summoning_ritual` - the three beam columns, smoke and a bolt every second, default 5 s; `dark_mark` - a Dark Mark that rises 18 blocks and fades, default 5 s; `grey_edges` - the Basilisk's stare from inside: the real gaze overlay's grey closes in from the screen edges over 2.5 s (the real charge) and drains over the last 1.2 s of `duration` (default 3 s), so end it where the victim looks away; screen-only, `at` is ignored. Give it a `duration` over 1.2 s (24 ticks) or nothing shows, and at least ~3.7 s (74 ticks: the 50-tick rise plus the 24-tick drain) for it to reach full grey; a shorter one peaks partway (`EffectVisuals.GreyEdges`). `patronus_light` - a silver-white burst of light at `at`, default 4 s (80 ticks): a ring of glowing particles on the ground plane plus a faint sphere grow from radius 0 to 22 blocks over the first 60% of `duration` (ease-out: fast, then slowing), then thin out and fade over the last 40%; a dense white spray at the centre; a flash at the start; and a soft white screen wash (alpha peaking 0.35 at 0.4 s = 8 ticks, gone by 2 s = 40 ticks) for viewers within 40 blocks of `at`. Plays the real Expecto Patronum sound once at `at` (volume 1.2) when it starts, not for a late joiner. Visual only. No duration floor (a short one just cuts the ring early; the wash is fixed at 2 s so it can outlast a very short effect). A late joiner skips old events but joins a still-running effect.
 
 ### `words[]`
 `{ t, by?, text, narration?, duration? }`. With `by` (an actor id) the line shows as `<name> text` at the bottom left for 8 s; without `by`, plain text. `"narration": true` shows centred silver italic text that fades in and out over `duration` (default 80 ticks). Never written to real chat.
@@ -175,7 +177,7 @@ Effects: `lightning` - one visual-only bolt with thunder; `summoning_ritual` - t
 - Everything must stay within `radius` (default 40, max 200) of the origin in X and Z, or validation fails for fills/disks/templates/features.
 
 ## Skins
-Shipped (`texture` value): `hooded_figure`, `regulus`, `student_gryffindor`, `student_slytherin`, `death_eater`, `voldemort`.
+Shipped (`texture` value): `hooded_figure`, `regulus`, `student_gryffindor`, `student_slytherin`, `death_eater`, `voldemort`, `sirius` (gaunt, long matted black hair, grey-striped Azkaban rags, bare feet), `hermione` (bushy brown hair, dark zip coat over the Gryffindor uniform; default 4-px arms, no `slim`).
 To add one: put a 64x64 modern-layout PNG at `src/main/resources/assets/hogwartsmagic/textures/memory_skin/<name>.png` and add `"<name>"` to the array in `src/main/resources/data/hogwartsmagic/memories/_skins.json` (the validator and `SceneDataTest` both read that list, and the test fails if a listed PNG is missing). `build_scripts/generate_memory_skins.py` is the generator of the shipped ones (needs Pillow); add a new entry there if you want it reproducible, it rewrites the list too. A `username` skin needs no files.
 
 ## The loop
@@ -194,7 +196,7 @@ Size caps: scene JSON max 262,144 characters, scene id max 256 (a bigger scene i
 Validation rules to remember: ids are namespaced (`minecraft:`, `hogwartsmagic:`), `player` is the only bare entity id, spells are bare, skins are bare names from `_skins.json`; pose cue names must be a preset or a custom pose; a `cast` needs `spell`; actor ids must be unique; `words[].by`, `look_at` and `target` must name an existing actor.
 
 ## Giving a scene an item (so players can pour it)
-Players get a scene through an item that implements `PensieveMemory`. Existing: `chamber_memory` -> scene `chamber`, `summoning_memory` -> scene `summoning` (both `StoryMemoryItem`, in `ExampleMod`), `cave_memory` -> `locket_cave` (`CaveMemoryItem`). For a new scene, only if the user wants an item:
+Players get a scene through an item that implements `PensieveMemory`. Existing: `chamber_memory` -> scene `chamber`, `summoning_memory` -> scene `summoning` (both `StoryMemoryItem`, in `ExampleMod`), `patronus_memory` -> `lake_patronus` (`StoryMemoryItem`; given once, with a silver chat line, the first time a player learns Expecto Patronum: `MagicBookItem.grantPatronusMemory`), `cave_memory` -> `locket_cave` (`CaveMemoryItem`). For a new scene, only if the user wants an item:
 - Register in `ExampleMod`: `ITEMS.register("<id>_memory", () -> new com.hogwartsmagic.pensieve.StoryMemoryItem(new Item.Properties(), "<scene id>"))`.
 - Add it to the creative tab list next to `output.accept(SUMMONING_MEMORY.get())`.
 - Add `item.hogwartsmagic.<id>_memory` to `lang/en_us.json`, and `models/item/<id>_memory.json` (copy `chamber_memory.json`) plus a 16x16 texture `textures/item/<id>_memory.png`.

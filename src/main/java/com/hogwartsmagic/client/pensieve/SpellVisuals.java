@@ -1,5 +1,6 @@
 package com.hogwartsmagic.client.pensieve;
 
+import com.hogwartsmagic.ModSounds;
 import com.hogwartsmagic.entity.ModEntities;
 import com.hogwartsmagic.entity.SpellBeamEntity;
 import com.hogwartsmagic.pensieve.scene.SceneNames;
@@ -8,7 +9,10 @@ import com.hogwartsmagic.spell.SpellType;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.particles.DustParticleOptions;
+import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
+import org.joml.Vector3f;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
@@ -31,6 +35,17 @@ public final class SpellVisuals {
     private static final int PROTEGO_TICKS = 40;
     private static final int REVELIO_TICKS = 16;
     private static final int MORSMORDRE_TICKS = 120;
+    /** The full Patronus cast pours for 2 s. */
+    static final int PATRONUS_TICKS = 40;
+    /** A failing Patronus sputters for 3 s. */
+    static final int WISP_TICKS = 60;
+    /** With no target the Patronus stream aims this far ahead. */
+    private static final double PATRONUS_DEFAULT_REACH = 10.0;
+    /** The stream never reaches farther than this, however distant the target. */
+    private static final double PATRONUS_MAX_REACH = 40.0;
+    /** The silver-white of the Patronus (#DDEEFF). */
+    private static final DustParticleOptions SILVER_MIST =
+            new DustParticleOptions(new Vector3f(0xDD / 255f, 0xEE / 255f, 1f), 1.6f);
     /** The spell beam renders this far above its entity position; start low so the visible beam leaves the wand. */
     private static final double BEAM_RENDER_LIFT = 0.2;
 
@@ -66,6 +81,12 @@ public final class SpellVisuals {
         } else if ("morsmordre".equals(spellId)) {
             MemorySounds.play(SpellType.MORSMORDRE.getSoundEvent(), from, 1.0f, 1.0f);
             EffectVisuals.darkMark(level, to, MORSMORDRE_TICKS);
+        } else if ("expecto_patronum".equals(spellId)) {
+            MemorySounds.play(ModSounds.SPELL_EXPECTO_PATRONUM.get(), from, 1.0f, 1.0f);
+            ACTIVE.add(new PatronusStream(from, aim(from, to, PATRONUS_DEFAULT_REACH), PATRONUS_MAX_REACH, false));
+        } else if ("patronus_wisp".equals(spellId)) {
+            MemorySounds.play(ModSounds.SPELL_EXPECTO_PATRONUM.get(), from, 0.5f, 0.85f);
+            ACTIVE.add(new PatronusStream(from, aim(from, to, 2.0), 3.0, true));
         }
     }
 
@@ -210,6 +231,104 @@ public final class SpellVisuals {
                 level.addParticle(ParticleTypes.FLASH, feet.x, feet.y + 1.2, feet.z, 0, 0, 0);
             }
             return ++age < PROTEGO_TICKS;
+        }
+    }
+
+    /** The vector from the wand tip toward {@code to}, or {@code fallback} blocks straight ahead (+Z) if they coincide. */
+    private static Vec3 aim(Vec3 from, Vec3 to, double fallback) {
+        Vec3 d = to.subtract(from);
+        return d.lengthSqr() < 1.0E-6 ? new Vec3(0, 0, fallback) : d;
+    }
+
+    /**
+     * Expecto Patronum. The full cast ({@code wisp} false) pours a widening cone of silver-white mist and a tight
+     * bright core from the wand tip toward the target for {@link #PATRONUS_TICKS}, with a flare at the tip. The
+     * wisp ({@code wisp} true) is the failing spell: a few thin threads, 1-3 blocks long, that flicker, drop to
+     * nothing for stretches and fade over {@link #WISP_TICKS}. All emissive (end rod and glow particles).
+     */
+    private static final class PatronusStream implements Active {
+        private final Vec3 tip;
+        private final Vec3 dir;
+        private final double reach;
+        private final boolean wisp;
+        private final Vec3 u;
+        private final Vec3 v;
+        private final int total;
+        private int age;
+
+        /** {@code toTarget}: tip to target (its length is the aim distance); {@code maxReach} caps the stream. */
+        PatronusStream(Vec3 tip, Vec3 toTarget, double maxReach, boolean wisp) {
+            this.tip = tip;
+            this.wisp = wisp;
+            this.reach = Math.min(toTarget.length(), maxReach);
+            this.dir = toTarget.normalize();
+            Vec3 up = Math.abs(dir.y) > 0.95 ? new Vec3(1, 0, 0) : new Vec3(0, 1, 0);
+            this.u = dir.cross(up).normalize();
+            this.v = dir.cross(u).normalize();
+            this.total = wisp ? WISP_TICKS : PATRONUS_TICKS;
+        }
+
+        @Override
+        public boolean tick(ClientLevel level) {
+            if (wisp) {
+                tickWisp(level);
+            } else {
+                tickStream(level);
+            }
+            return ++age < total;
+        }
+
+        private void tickStream(ClientLevel level) {
+            if (age == 0) {
+                level.addParticle(ParticleTypes.FLASH, tip.x, tip.y, tip.z, 0, 0, 0);
+            }
+            // Rushes out over the first 6 ticks, holds, then thins out over the last 8.
+            double front = reach * Math.min(1.0, (age + 1) / 6.0);
+            double fade = Math.min(1.0, (total - age) / 8.0);
+            int cone = (int) Math.ceil(16 * fade);
+            for (int i = 0; i < cone; i++) {
+                double s = level.random.nextDouble() * front;
+                put(level, ParticleTypes.END_ROD, s, 0.05 + s * 0.13, 0.12);
+            }
+            for (int i = 0; i < (int) Math.ceil(5 * fade); i++) {
+                put(level, ParticleTypes.END_ROD, level.random.nextDouble() * front, 0.03, 0.2);
+            }
+            for (int i = 0; i < (int) Math.ceil(4 * fade); i++) {
+                put(level, SILVER_MIST, level.random.nextDouble() * front, 0.1 + level.random.nextDouble() * 0.25, 0.04);
+            }
+            for (int i = 0; i < 2; i++) {
+                put(level, ParticleTypes.GLOW, level.random.nextDouble() * front, 0.05, 0.02);
+            }
+            // The flare at the wand tip.
+            level.addParticle(ParticleTypes.GLOW, tip.x, tip.y, tip.z, 0, 0, 0);
+            for (int i = 0; i < 2; i++) {
+                Vec3 d = randomUnit(level);
+                level.addParticle(ParticleTypes.END_ROD, tip.x + d.x * 0.08, tip.y + d.y * 0.08, tip.z + d.z * 0.08,
+                        d.x * 0.03, d.y * 0.03, d.z * 0.03);
+            }
+        }
+
+        private void tickWisp(ClientLevel level) {
+            double fade = 1.0 - age / (double) total;
+            // Jitters, and drops out entirely for stretches.
+            double flicker = 0.5 + 0.5 * Math.sin(age * 1.9) * Math.sin(age * 0.47 + 1.3);
+            if (flicker < 0.25 || level.random.nextDouble() > fade * 0.9 + 0.1) return;
+            double strength = fade * flicker;
+            int n = 1 + (int) Math.round(4 * strength);
+            for (int i = 0; i < n; i++) {
+                double s = level.random.nextDouble() * Math.min(reach, 0.6 + 2.4 * strength);
+                put(level, level.random.nextInt(3) == 0 ? ParticleTypes.END_ROD : SILVER_MIST, s, 0.03 + s * 0.05, 0.02);
+            }
+        }
+
+        /** One particle {@code s} blocks down the stream, scattered {@code spread} sideways, drifting forward. */
+        private void put(ClientLevel level, ParticleOptions type, double s, double spread, double speed) {
+            double a = level.random.nextDouble() * Math.PI * 2;
+            double r = spread * Math.sqrt(level.random.nextDouble());
+            double ca = Math.cos(a) * r;
+            double sa = Math.sin(a) * r;
+            level.addParticle(type, tip.x + dir.x * s + u.x * ca + v.x * sa, tip.y + dir.y * s + u.y * ca + v.y * sa,
+                    tip.z + dir.z * s + u.z * ca + v.z * sa, dir.x * speed, dir.y * speed, dir.z * speed);
         }
     }
 

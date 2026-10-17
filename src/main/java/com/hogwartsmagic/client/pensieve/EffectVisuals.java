@@ -1,10 +1,12 @@
 package com.hogwartsmagic.client.pensieve;
 
+import com.hogwartsmagic.ModSounds;
 import com.hogwartsmagic.entity.DarkMarkEntity;
 import com.hogwartsmagic.entity.VoldemortSummoningEntity;
 import com.mojang.logging.LogUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LightningBolt;
@@ -35,6 +37,18 @@ public final class EffectVisuals {
     private static final int GREY_FADE_TICKS = 24;
     /** A lightning strike every this many ticks while a ritual runs (the real ritual strikes every 10). */
     private static final int RITUAL_STRIKE_EVERY = 20;
+    /** A patronus light with no {@code duration} in the scene lasts this long (4 s). */
+    static final int DEFAULT_PATRONUS_TICKS = 80;
+    /** The patronus light dome reaches this radius (blocks)... */
+    static final double PATRONUS_RADIUS = 22.0;
+    /** ...over this fraction of the duration, then fades out over the rest. */
+    static final double PATRONUS_GROW_FRACTION = 0.6;
+    /** The screen wash peaks at this alpha after PATRONUS_WASH_PEAK_TICKS, then fades over the next ticks. */
+    static final float PATRONUS_WASH_ALPHA = 0.35f;
+    static final int PATRONUS_WASH_PEAK_TICKS = 8;
+    static final int PATRONUS_WASH_FADE_TICKS = 32;
+    /** Only a viewer this close to the light sees the wash. */
+    static final double PATRONUS_WASH_RANGE = 40.0;
     private static final int MARK_RISE_TICKS = 50;
     private static final double MARK_RISE_BLOCKS = 18.0;
     /** The smallest visual scale a DarkMarkEntity accepts. */
@@ -67,6 +81,15 @@ public final class EffectVisuals {
         } else if ("grey_edges".equals(effect)) {
             int total = duration > 0 ? duration : DEFAULT_GREY_TICKS;
             if (elapsed < total) RUNNING.add(new GreyEdges(elapsed, total));
+        } else if ("patronus_light".equals(effect)) {
+            int total = duration > 0 ? duration : DEFAULT_PATRONUS_TICKS;
+            if (elapsed < total) {
+                // The sound belongs to the moment of the burst: a late joiner does not hear it again.
+                if (elapsed == 0) {
+                    MemorySounds.play(ModSounds.SPELL_EXPECTO_PATRONUM.get(), at, 1.2f, 1.0f);
+                }
+                RUNNING.add(new PatronusLight(at, elapsed, total));
+            }
         } else {
             LOGGER.warn("Pensieve: unknown effect '{}' in a memory", effect);
         }
@@ -113,6 +136,24 @@ public final class EffectVisuals {
         float most = 0f;
         for (Running r : RUNNING) {
             if (r instanceof GreyEdges grey) most = Math.max(most, grey.intensity(partial));
+        }
+        return most;
+    }
+
+    /**
+     * The soft white wash of a running {@code patronus_light}, 0 (none) to {@link #PATRONUS_WASH_ALPHA}, for
+     * {@code PensieveOverlay}: the strongest among those within {@link #PATRONUS_WASH_RANGE} of the viewer.
+     */
+    static float patronusWash(float partial) {
+        if (RUNNING.isEmpty()) return 0f;
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null) return 0f;
+        Vec3 eye = mc.player.getEyePosition(partial);
+        float most = 0f;
+        for (Running r : RUNNING) {
+            if (r instanceof PatronusLight light && light.centre.distanceTo(eye) <= PATRONUS_WASH_RANGE) {
+                most = Math.max(most, light.wash(partial));
+            }
         }
         return most;
     }
@@ -186,6 +227,80 @@ public final class EffectVisuals {
             float c = Mth.clamp(charge(partial), 0f, 1f);
             if (c <= 0f) return 0f;
             return (0.2f + 0.8f * c) * Math.min(1f, c * 5f);
+        }
+    }
+
+    /**
+     * {@code patronus_light}: silver-white light bursting outward. A ring on the ground and a faint sphere of
+     * glowing particles grow from radius 0 to {@link #PATRONUS_RADIUS} over the first
+     * {@link #PATRONUS_GROW_FRACTION} of the duration (ease-out), then thin out over the rest; a dense spray of
+     * white particles at the centre. Everything is a function of the age, so a late joiner picks up at the right radius.
+     */
+    private static final class PatronusLight implements Running {
+        private final Vec3 centre;
+        private final int total;
+        private int age;
+
+        PatronusLight(Vec3 centre, int elapsed, int total) {
+            this.centre = centre;
+            this.age = elapsed;
+            this.total = total;
+        }
+
+        /** The dome radius, in blocks, at {@code t} ticks. */
+        static double radius(double t, int total) {
+            double k = Mth.clamp(t / (total * PATRONUS_GROW_FRACTION), 0.0, 1.0);
+            return PATRONUS_RADIUS * (1.0 - (1.0 - k) * (1.0 - k));
+        }
+
+        /** How much of the glow is left at {@code t} ticks: 1 while growing, then down to 0 at the end. */
+        static double glow(double t, int total) {
+            double grow = total * PATRONUS_GROW_FRACTION;
+            if (t <= grow) return 1.0;
+            return Mth.clamp(1.0 - (t - grow) / Math.max(1.0, total - grow), 0.0, 1.0);
+        }
+
+        float wash(float partial) {
+            float t = age + partial;
+            if (t < PATRONUS_WASH_PEAK_TICKS) return PATRONUS_WASH_ALPHA * t / PATRONUS_WASH_PEAK_TICKS;
+            return PATRONUS_WASH_ALPHA * Math.max(0f, 1f - (t - PATRONUS_WASH_PEAK_TICKS) / PATRONUS_WASH_FADE_TICKS);
+        }
+
+        @Override
+        public boolean tick(ClientLevel level) {
+            double r = radius(age, total);
+            double glow = glow(age, total);
+            if (age == 0) {
+                level.addParticle(ParticleTypes.FLASH, centre.x, centre.y + 1.0, centre.z, 0, 0, 0);
+            }
+            // The horizontal ring on the ground plane: the wavefront, bright, with a fainter trailing ring.
+            int ring = (int) Math.ceil((24 + r * 5) * glow);
+            for (int i = 0; i < ring; i++) {
+                double a = level.random.nextDouble() * Math.PI * 2;
+                double rr = i % 4 == 0 ? r * (0.82 + level.random.nextDouble() * 0.12) : r;
+                level.addParticle(ParticleTypes.END_ROD, centre.x + Math.cos(a) * rr,
+                        centre.y + 0.15 + level.random.nextDouble() * 0.2, centre.z + Math.sin(a) * rr, 0, 0.02, 0);
+            }
+            // The faint sphere.
+            int sphere = (int) Math.ceil(28 * glow);
+            for (int i = 0; i < sphere; i++) {
+                double y = level.random.nextDouble() * 2 - 1;
+                double a = level.random.nextDouble() * Math.PI * 2;
+                double s = Math.sqrt(1 - y * y);
+                level.addParticle(ParticleTypes.GLOW, centre.x + s * Math.cos(a) * r, centre.y + Math.abs(y) * r * 0.9,
+                        centre.z + s * Math.sin(a) * r, 0, 0, 0);
+            }
+            // Dense white spray at the centre, thinning with the glow.
+            int spray = (int) Math.ceil(26 * glow);
+            for (int i = 0; i < spray; i++) {
+                double dx = level.random.nextDouble() * 2 - 1;
+                double dy = level.random.nextDouble() * 1.4;
+                double dz = level.random.nextDouble() * 2 - 1;
+                double speed = 0.08 + level.random.nextDouble() * 0.25;
+                level.addParticle(i % 3 == 0 ? ParticleTypes.GLOW : ParticleTypes.END_ROD,
+                        centre.x, centre.y + 0.6, centre.z, dx * speed, dy * speed, dz * speed);
+            }
+            return ++age < total;
         }
     }
 

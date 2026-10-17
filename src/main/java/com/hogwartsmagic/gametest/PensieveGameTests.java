@@ -1200,4 +1200,93 @@ public final class PensieveGameTests {
             LOGGER.info("PENSIEVE-GAMETEST PASS unchainedSceneUnchanged");
         });
     }
+
+    // ---- Solo memories and the home listener (Sorting stage 1, Task 4) --------------------------------------
+
+    private record Home(String root, com.hogwartsmagic.pensieve.ExitReason reason, boolean sawStart) {}
+
+    @GameTest(template = EMPTY, batch = "pensieve_solo_body", timeoutTicks = 300)
+    public static void soloStartLeavesBodyAndNoBasin(GameTestHelper helper) {
+        useChainSeam(helper);
+        var p = playerBeside(helper, 0);
+        helper.assertTrue(com.hogwartsmagic.pensieve.PensieveSessions.startSolo(p, "chain_long"), "solo refused");
+        var s = com.hogwartsmagic.pensieve.PensieveSessions.sessionOf(p);
+        helper.assertTrue(s.isPresent(), "no session");
+        helper.assertTrue(s.get().basinPos() == null, "a solo memory has no basin");
+        helper.assertTrue(!s.get().preview(), "a solo memory is not a preview");
+        helper.succeedWhen(() -> {
+            var v = s.get().viewers().get(p.getUUID());
+            helper.assertTrue(v != null && v.bodyId() != null, "no body was left behind");
+            helper.assertTrue(bodyOf(helper, p) != null, "body entity not found");
+            com.hogwartsmagic.pensieve.PensieveSessions.leave(p, com.hogwartsmagic.pensieve.ExitReason.LEFT);
+            logout(helper, p);
+            LOGGER.info("PENSIEVE-GAMETEST PASS soloStartLeavesBodyAndNoBasin");
+        });
+    }
+
+    @GameTest(template = EMPTY, batch = "pensieve_solo_twice", timeoutTicks = 100)
+    public static void soloRefusesSecondStart(GameTestHelper helper) {
+        useChainSeam(helper);
+        var p = playerBeside(helper, 0);
+        helper.assertTrue(com.hogwartsmagic.pensieve.PensieveSessions.startSolo(p, "chain_long"), "solo refused");
+        helper.assertTrue(!com.hogwartsmagic.pensieve.PensieveSessions.startSolo(p, "chain_long"),
+                "a second solo start while inside must be refused");
+        com.hogwartsmagic.pensieve.PensieveSessions.leave(p, com.hogwartsmagic.pensieve.ExitReason.LEFT);
+        logout(helper, p);
+        LOGGER.info("PENSIEVE-GAMETEST PASS soloRefusesSecondStart");
+        helper.succeed();
+    }
+
+    @GameTest(template = EMPTY, batch = "pensieve_home_left", timeoutTicks = 300)
+    public static void homeListenerGetsChainRootAndReason(GameTestHelper helper) {
+        useChainSeam(helper);
+        var p = playerBeside(helper, 0);
+        List<Home> homes = new java.util.ArrayList<>();
+        com.hogwartsmagic.pensieve.ViewerHomeListener l = (pl, root, reason, saw) -> {
+            if (pl == p) homes.add(new Home(root, reason, saw));
+        };
+        com.hogwartsmagic.pensieve.PensieveSessions.addHomeListener(l);
+        helper.assertTrue(com.hogwartsmagic.pensieve.PensieveSessions.startSolo(p, "chain_a"), "solo refused");
+        // chain_a plays for 40 ticks: leave on the first one the viewer is inside for.
+        java.util.concurrent.atomic.AtomicBoolean left = new java.util.concurrent.atomic.AtomicBoolean();
+        helper.onEachTick(() -> {
+            var s = com.hogwartsmagic.pensieve.PensieveSessions.sessionOf(p);
+            if (left.get() || s.isEmpty() || s.get().phase() != com.hogwartsmagic.pensieve.Session.Phase.PLAY) return;
+            var v = s.get().viewers().get(p.getUUID());
+            if (v == null || !v.sawStart()) return;
+            left.set(true);
+            com.hogwartsmagic.pensieve.PensieveSessions.leave(p, com.hogwartsmagic.pensieve.ExitReason.LEFT);
+        });
+        helper.succeedWhen(() -> {
+            helper.assertTrue(!com.hogwartsmagic.pensieve.PensieveSessions.isViewer(p), "still a viewer");
+            com.hogwartsmagic.pensieve.PensieveSessions.removeHomeListener(l);
+            logout(helper, p);
+            helper.assertTrue(homes.size() == 1, "listener should fire once, fired " + homes.size());
+            helper.assertTrue(homes.get(0).equals(new Home("chain_a", com.hogwartsmagic.pensieve.ExitReason.LEFT, true)),
+                    "unexpected " + homes.get(0));
+            LOGGER.info("PENSIEVE-GAMETEST PASS homeListenerGetsChainRootAndReason");
+        });
+    }
+
+    @GameTest(template = EMPTY, batch = "pensieve_home_end", timeoutTicks = 400)
+    public static void homeListenerSeesEndAfterChain(GameTestHelper helper) {
+        useChainSeam(helper);
+        var p = playerBeside(helper, 0);
+        List<Home> homes = new java.util.ArrayList<>();
+        com.hogwartsmagic.pensieve.ViewerHomeListener l = (pl, root, reason, saw) -> {
+            if (pl == p) homes.add(new Home(root, reason, saw));
+        };
+        com.hogwartsmagic.pensieve.PensieveSessions.addHomeListener(l);
+        helper.assertTrue(com.hogwartsmagic.pensieve.PensieveSessions.startSolo(p, "chain_a"), "solo refused");
+        helper.succeedWhen(() -> {
+            helper.assertTrue(!homes.isEmpty(), "not home yet");
+            helper.assertTrue(!com.hogwartsmagic.pensieve.PensieveSessions.isViewer(p), "still a viewer");
+            com.hogwartsmagic.pensieve.PensieveSessions.removeHomeListener(l);
+            logout(helper, p);
+            helper.assertTrue(homes.size() == 1, "listener should fire once, fired " + homes.size());
+            helper.assertTrue(homes.get(0).equals(new Home("chain_a", com.hogwartsmagic.pensieve.ExitReason.END, true)),
+                    "unexpected " + homes.get(0));
+            LOGGER.info("PENSIEVE-GAMETEST PASS homeListenerSeesEndAfterChain");
+        });
+    }
 }

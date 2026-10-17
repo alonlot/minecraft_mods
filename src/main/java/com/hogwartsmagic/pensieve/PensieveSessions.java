@@ -165,23 +165,24 @@ public final class PensieveSessions {
         return null;
     }
 
+    /** Told when a viewer is back in the real world. Registered once at mod setup; never cleared by a restart. */
+    private static final List<ViewerHomeListener> HOME_LISTENERS = new ArrayList<>();
+
+    public static void addHomeListener(ViewerHomeListener l) {
+        HOME_LISTENERS.add(l);
+    }
+
+    public static void removeHomeListener(ViewerHomeListener l) {
+        HOME_LISTENERS.remove(l);
+    }
+
     // ---- Starting -------------------------------------------------------------------------------------------
 
     /** A dive into {@code basin}: joins the memory already playing there, or starts it. */
     public static void startOrJoin(ServerPlayer player, PensieveBlockEntity basin) {
         if (isViewer(player) || basin.getLevel() == null) return;
-        MinecraftServer server = player.server;
-        ensureInit(server);
-        if (PensieveDimension.isMemory(player.level())) {
-            player.displayClientMessage(Component.translatable("message.hogwartsmagic.pensieve.inside"), true);
-            return;
-        }
-        ServerLevel memory = memoryLevel(server);
-        if (memory == null) {
-            LOGGER.error("Pensieve: the hogwartsmagic:memory dimension is not loaded; refusing the dive");
-            player.displayClientMessage(Component.translatable("message.hogwartsmagic.pensieve.unavailable"), true);
-            return;
-        }
+        ServerLevel memory = startableMemory(player, false, "dive");
+        if (memory == null) return;
         ResourceKey<Level> dim = basin.getLevel().dimension();
         BlockPos pos = basin.getBlockPos();
         Session session = sessionAt(dim, pos);
@@ -216,17 +217,8 @@ public final class PensieveSessions {
             return false;
         }
         MinecraftServer server = player.server;
-        ensureInit(server);
-        if (PensieveDimension.isMemory(player.level())) {
-            player.sendSystemMessage(Component.translatable("message.hogwartsmagic.pensieve.inside"));
-            return false;
-        }
-        ServerLevel memory = memoryLevel(server);
-        if (memory == null) {
-            LOGGER.error("Pensieve: the hogwartsmagic:memory dimension is not loaded; refusing the preview");
-            player.sendSystemMessage(Component.translatable("message.hogwartsmagic.pensieve.unavailable"));
-            return false;
-        }
+        ServerLevel memory = startableMemory(player, true, "preview");
+        if (memory == null) return false;
         Optional<MemoryRegistry.LoadedScene> loaded;
         try {
             loaded = testScenes != null ? testScenes.apply(sceneId) : MemoryRegistry.loadForPreview(sceneId);
@@ -247,6 +239,52 @@ public final class PensieveSessions {
         if (session == null) return false;
         addViewer(session, player, player.blockPosition());
         return true;
+    }
+
+    /**
+     * A memory with no basin: nobody else can join it and {@code Session.at} is never true. Unlike a preview it
+     * leaves a body behind and forwards damage. Refuses quietly (false) when the player is already a viewer or
+     * inside the memory dimension, or the dimension or the scene is missing.
+     */
+    public static boolean startSolo(ServerPlayer player, String sceneId) {
+        if (isViewer(player)) return false;
+        ServerLevel memory = startableMemory(player, false, "solo memory");
+        if (memory == null) return false;
+        Optional<MemoryRegistry.LoadedScene> loaded = lookup(sceneId);
+        if (loaded.isEmpty()) {
+            LOGGER.warn("Pensieve: no scene '{}' is loaded for a solo memory", sceneId);
+            return false;
+        }
+        Session session = createSession(player, memory, sceneId, loaded.get(), null, null, false);
+        if (session == null) return false;
+        addViewer(session, player, player.blockPosition());
+        return true;
+    }
+
+    /**
+     * The memory level a start may begin in, or null with the player told why (in chat or on the action bar):
+     * they are already inside the dimension, or it is not loaded.
+     */
+    @Nullable
+    private static ServerLevel startableMemory(ServerPlayer player, boolean chat, String what) {
+        MinecraftServer server = player.server;
+        ensureInit(server);
+        if (PensieveDimension.isMemory(player.level())) {
+            tell(player, "message.hogwartsmagic.pensieve.inside", chat);
+            return null;
+        }
+        ServerLevel memory = memoryLevel(server);
+        if (memory == null) {
+            LOGGER.error("Pensieve: the hogwartsmagic:memory dimension is not loaded; refusing the {}", what);
+            tell(player, "message.hogwartsmagic.pensieve.unavailable", chat);
+            return null;
+        }
+        return memory;
+    }
+
+    private static void tell(ServerPlayer player, String key, boolean chat) {
+        if (chat) player.sendSystemMessage(Component.translatable(key));
+        else player.displayClientMessage(Component.translatable(key), true);
     }
 
     private static Optional<MemoryRegistry.LoadedScene> lookup(String id) {
@@ -550,6 +588,9 @@ public final class PensieveSessions {
                 // the reward lands in their real inventory. A late joiner (not inside as PLAY began) saw only part
                 // of it and gets nothing. A preview runs it too, so it can be tried.
                 if (v.exitReason == ExitReason.END && v.sawStart) applyEndAction(p, s.scene().endAction());
+                for (ViewerHomeListener l : new ArrayList<>(HOME_LISTENERS)) {
+                    l.onHome(p, s.chainRoot(), v.exitReason, v.sawStart);
+                }
             }
         }
     }

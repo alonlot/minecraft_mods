@@ -65,6 +65,51 @@ def template_grid(name):
     return grid
 
 
+SCHEMATICS = os.path.join(DATA, 'schematic')
+
+
+def schematic_grid(name):
+    """(width, height, length, cells) for schematic/<name>.schem (Sponge v2/v3): cells[x + z*W + y*W*L] is the
+    block id without properties ('minecraft:air' included), the same flat order MiniHogwartsSchematic reads."""
+    root = read_nbt(gzip.open(os.path.join(SCHEMATICS, name + '.schem')).read())
+    s = root.get('Schematic', root)
+    w, h, l = s['Width'] & 0xFFFF, s['Height'] & 0xFFFF, s['Length'] & 0xFFFF
+    b = s['Blocks'] if 'Blocks' in s else s
+    pal = {v: k.split('[')[0] for k, v in b['Palette'].items()}
+    data = b['Data'] if 'Data' in b else b['BlockData']
+    cells, i = [], 0
+    while i < len(data) and len(cells) < w * h * l:
+        v = sh = 0
+        while True:
+            c = data[i] & 0xFF
+            i += 1
+            v |= (c & 0x7F) << sh
+            if not c & 0x80:
+                break
+            sh += 7
+        cells.append(pal.get(v, 'minecraft:air'))
+    cells += ['minecraft:air'] * (w * h * l - len(cells))
+    return w, h, l, cells
+
+
+def rotate_xz(x, z, w, l, degrees):
+    """Where schematic cell (x, z) lands in its rotated footprint (offset from the min corner); the same as
+    SetBuilder.rotateXZ: clockwise from above, 90 maps (x, z) to (l-1-z, x)."""
+    if degrees == 90:
+        return l - 1 - z, x
+    if degrees == 180:
+        return w - 1 - x, l - 1 - z
+    if degrees == 270:
+        return z, w - 1 - x
+    return x, z
+
+
+# cells SetBuilder never places from a schematic
+SCHEMATIC_SKIPPED = {'minecraft:air', 'minecraft:cave_air', 'minecraft:void_air', 'minecraft:structure_void',
+                     'minecraft:jigsaw', 'minecraft:structure_block', 'minecraft:command_block',
+                     'minecraft:chain_command_block', 'minecraft:repeating_command_block'}
+
+
 def dump(o, ind=0):
     """Compact JSON: anything that fits in 150 columns on one line, otherwise one entry per line."""
     sp = '  ' * ind

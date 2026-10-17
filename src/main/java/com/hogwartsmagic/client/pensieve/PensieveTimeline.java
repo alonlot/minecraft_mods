@@ -32,6 +32,8 @@ public final class PensieveTimeline {
     public static final float BUILD_FOG_FROM = 2f;
     public static final float FOG_INNER = 8f;
     public static final float FOG_OUTER = 2f;
+    /** {@code fog_far} scenes: the haze starts at this fraction of the fog distance. */
+    public static final float HAZE_FROM = 0.75f;
     public static final float DESAT_BUILD = 0.9f;
     public static final float DESAT_PLAY = 0.35f;
     public static final float SWALLOW_FOV = 30f;
@@ -120,6 +122,19 @@ public final class PensieveTimeline {
 
     public static float fogEnd(float visibleRadius) {
         return Math.max(0.5f, visibleRadius + FOG_OUTER);
+    }
+
+    /**
+     * A {@code fog_far} scene's fog, as {near, far}: the haze begins at {@link #HAZE_FROM} of the fog distance and
+     * is total at the fog distance, so a far backdrop fades into the dark instead of ending at a wall. The fog
+     * distance grows and collapses with the visible radius ({@code visibleRadius / radius}, 0..1), and {@code cap}
+     * (the client's own render-distance fog) still wins; near always stays below far.
+     */
+    public static float[] farFog(float visibleRadius, float radius, float fogFar, float cap) {
+        float k = radius <= 0 ? 1 : clamp01(visibleRadius / radius);
+        float far = Math.min(cap, fogEnd(fogFar * k));
+        float near = Math.min(fogFar * k * HAZE_FROM, far * HAZE_FROM);
+        return new float[]{Math.max(0, near), far};
     }
 
     /** A hit on the body: red edge strength, decaying linearly over 12 ticks. */

@@ -1,6 +1,7 @@
 package com.hogwartsmagic.pensieve;
 
 import com.hogwartsmagic.pensieve.scene.SceneDef;
+import com.hogwartsmagic.worldgen.MiniHogwartsSchematic;
 import com.mojang.logging.LogUtils;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -17,6 +18,7 @@ import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.WorldGenLevel;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.feature.ConfiguredFeature;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
@@ -28,6 +30,7 @@ import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,7 +40,7 @@ import java.util.Set;
 /**
  * Builds a scene's set around a region origin a few thousand blocks per tick, and clears it again.
  *
- * <p>Templates, fills and disks are collected up front (sets are capped at radius 200, so the list is small
+ * <p>Templates, schematics, fills and disks are collected up front (sets are capped at radius 200, so the list is small
  * enough), de-duplicated (a later layer wins), sorted outward from the origin with {@link BuildOrder} and then
  * placed {@code budget} blocks per {@link #advance}. Anything more than {@code radius} blocks from the origin
  * horizontally is dropped, so an oversized template can never spill into a neighbouring region.
@@ -54,6 +57,12 @@ import java.util.Set;
  *
  * <p>Templates: blocks only, no entities. Air, structure voids, jigsaws and structure blocks in a template are
  * skipped, so a template never carves holes in what a fill laid down underneath it.
+ *
+ * <p>Schematics ({@code set.schematics}, placed right after templates, so fills and disks overwrite them): the
+ * bundled Sponge schematics of {@link com.hogwartsmagic.pensieve.scene.SceneNames#SCHEMATICS}, loaded once and cached by their own class
+ * ({@link MiniHogwartsSchematic}). Each is turned by its rotation (positions and block states, like a rotated
+ * structure template), its rotated footprint's min corner at {@code at}. The same cells as a template are skipped,
+ * and command blocks too. Anything beyond the radius is cropped like everything else.
  *
  * <p>Chunks: the chunks the set covers are held with a region ticket from the first {@code advance} until it
  * returns true; call {@link #release()} to drop them early if the builder is abandoned (idempotent).
@@ -87,7 +96,7 @@ public final class SetBuilder {
         this.tickets = new Tickets(level, origin, radius);
     }
 
-    /** Blocks the template, fill and disk phase will place (features are extra). */
+    /** Blocks the template, schematic, fill and disk phase will place (features are extra). */
     public int total() {
         prepare();
         return order.size();
@@ -159,6 +168,9 @@ public final class SetBuilder {
                 continue;
             }
             addTemplate(ref.id(), tpl.get(), origin.offset(ref.at()[0], ref.at()[1], ref.at()[2]), byPos, index);
+        }
+        for (SceneDef.SchematicRef ref : set.schematics()) {
+            addSchematic(ref, byPos, index);
         }
         for (SceneDef.Fill f : set.fills()) {
             BlockState state = block(f.block());
@@ -237,12 +249,73 @@ public final class SetBuilder {
                 continue;
             }
             BlockState st = palStates.get(idx);
-            if (st.isAir() || st.is(Blocks.STRUCTURE_VOID) || st.is(Blocks.JIGSAW) || st.is(Blocks.STRUCTURE_BLOCK)) {
-                continue;
-            }
+            if (skipped(st)) continue;
             ListTag pos = b.getList("pos", Tag.TAG_INT);
             put(byPos, base.getX() + pos.getInt(0), base.getY() + pos.getInt(1), base.getZ() + pos.getInt(2),
                     stateIndex(st, index));
+        }
+    }
+
+    /** The loaded schematic for a scene's schematic id, or null if the id is unknown or the file failed to load. */
+    private static MiniHogwartsSchematic schematic(String id) {
+        return "mini_hogwarts".equals(id) ? MiniHogwartsSchematic.get() : null;
+    }
+
+    /** 0, 90, 180, 270 degrees clockwise seen from above; null for anything else. */
+    static Rotation rotation(int degrees) {
+        if (degrees == 0) return Rotation.NONE;
+        if (degrees == 90) return Rotation.CLOCKWISE_90;
+        if (degrees == 180) return Rotation.CLOCKWISE_180;
+        if (degrees == 270) return Rotation.COUNTERCLOCKWISE_90;
+        return null;
+    }
+
+    /**
+     * Where schematic cell (x, z) lands inside the rotated footprint, as an offset from its min corner. The
+     * schematic is {@code w} by {@code l}; turned 90 or 270 degrees the footprint is {@code l} by {@code w}. The
+     * same turn as {@link Rotation} applies to a structure template, shifted back to non-negative offsets.
+     */
+    public static int[] rotateXZ(int x, int z, int w, int l, int degrees) {
+        if (degrees == 90) return new int[]{l - 1 - z, x};
+        if (degrees == 180) return new int[]{w - 1 - x, l - 1 - z};
+        if (degrees == 270) return new int[]{z, w - 1 - x};
+        return new int[]{x, z};
+    }
+
+    /** Template cells that are never placed; for a schematic, command blocks as well. */
+    private static boolean skipped(BlockState st) {
+        return st.isAir() || st.is(Blocks.STRUCTURE_VOID) || st.is(Blocks.JIGSAW) || st.is(Blocks.STRUCTURE_BLOCK);
+    }
+
+    private void addSchematic(SceneDef.SchematicRef ref, Map<Long, int[]> byPos, Map<BlockState, Integer> index) {
+        MiniHogwartsSchematic schem = schematic(ref.id());
+        if (schem == null) {
+            warnOnce("schematic " + ref.id());
+            return;
+        }
+        Rotation rot = rotation(ref.rotation());
+        if (rot == null) {
+            warnOnce("rotation " + ref.rotation() + " of schematic " + ref.id());
+            return;
+        }
+        int w = schem.width(), l = schem.length(), wl = w * l;
+        int bx = origin.getX() + ref.at()[0], by = origin.getY() + ref.at()[1], bz = origin.getZ() + ref.at()[2];
+        // Block states are shared objects, so the turned state and its index are looked up once per palette entry.
+        Map<BlockState, Integer> turned = new IdentityHashMap<>();
+        for (int i = 0, n = schem.volume(); i < n; i++) {
+            BlockState st = schem.blockAt(i);
+            if (skipped(st) || st.is(Blocks.COMMAND_BLOCK) || st.is(Blocks.CHAIN_COMMAND_BLOCK)
+                    || st.is(Blocks.REPEATING_COMMAND_BLOCK)) {
+                continue;
+            }
+            Integer s = turned.get(st);
+            if (s == null) {
+                s = stateIndex(st.rotate(rot), index);
+                turned.put(st, s);
+            }
+            int x = i % w, z = (i / w) % l, y = i / wl;
+            int[] r = rotateXZ(x, z, w, l, ref.rotation());
+            put(byPos, bx + r[0], by + y, bz + r[1], s);
         }
     }
 

@@ -33,6 +33,31 @@ class SceneValidatorTest {
     }
 
     @Test
+    void schematicsAreCheckedByIdRotationAndAnchor() throws Exception {
+        assertEquals(0, validate("""
+                {"length":100,"radius":200,"fog_far":180,
+                 "set":{"schematics":[{"id":"mini_hogwarts","at":[-52,3,-155],"rotation":270}]}}""").size());
+        List<String> m = validate("""
+                {"length":100,"radius":100,
+                 "set":{"schematics":[
+                   {"id":"mini_hogwart","at":[0,0,0]},
+                   {"id":"mini_hogwarts","at":[0,0,0],"rotation":45},
+                   {"id":"mini_hogwarts","at":[0,0,-101]}]}}""");
+        assertEquals(3, m.size(), m.toString());
+        assertTrue(m.get(0).startsWith("set.schematics[0].id") && m.get(0).contains("mini_hogwart'"), m.get(0));
+        assertTrue(m.get(1).startsWith("set.schematics[1].rotation"), m.get(1));
+        assertTrue(m.get(2).startsWith("set.schematics[2]") && m.get(2).contains("beyond radius 100"), m.get(2));
+    }
+
+    @Test
+    void fogFarOutOfRangeIsRejected() throws Exception {
+        List<String> m = validate("{\"length\":100,\"fog_far\":600}");
+        assertEquals(1, m.size(), m.toString());
+        assertTrue(m.get(0).startsWith("fog_far"), m.get(0));
+        assertEquals(1, validate("{\"length\":100,\"fog_far\":-5}").size());
+    }
+
+    @Test
     void fillBeyondRadiusIsRejected() throws Exception {
         List<String> m = validate("""
                 {"length":100,"radius":10,

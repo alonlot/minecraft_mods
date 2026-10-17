@@ -43,6 +43,19 @@ class PensieveTimelineTest {
     }
 
     @Test
+    void fogFarHazesFromThreeQuartersAndRespectsTheRenderDistance() {
+        float[] full = PensieveTimeline.farFog(200, 200, 180, 1000);
+        assertEquals(135f, full[0], 1e-4f);
+        assertEquals(182f, full[1], 1e-4f);
+        float[] capped = PensieveTimeline.farFog(200, 200, 180, 128);
+        assertEquals(128f, capped[1], 1e-4f);
+        assertTrue(capped[0] < capped[1], "near " + capped[0] + " must stay below far " + capped[1]);
+        float[] half = PensieveTimeline.farFog(100, 200, 180, 1000);
+        assertEquals(92f, half[1], 1e-4f);
+        assertEquals(67.5f, half[0], 1e-4f);
+    }
+
+    @Test
     void exitCollapsesTheFogAndRaisesTheDarkInFifteenTicks() {
         assertEquals(40f, PensieveTimeline.exitFogRadius(0, 40), 1e-5f);
         assertEquals(0f, PensieveTimeline.exitFogRadius(15, 40), 1e-5f);

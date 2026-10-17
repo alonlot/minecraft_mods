@@ -15,7 +15,8 @@ import static com.hogwartsmagic.client.pensieve.PensieveTimeline.*;
 
 /**
  * The shadow void the memory floats in: black clear and fog colour, a fog sphere whose radius is the visible
- * memory (growing out of the dark in BUILD, fraying at the edge in PLAY, collapsing in EXIT), no sky, clouds or
+ * memory (growing out of the dark in BUILD, fraying at the edge in PLAY, collapsing in EXIT; a scene's
+ * {@code fog_far} pushes it out to a soft haze instead), no sky, clouds or
  * weather ({@code PensieveLevelRendererMixin}), and the dark smoke and fragments at the edge.
  */
 public final class PensieveVoid {
@@ -62,8 +63,16 @@ public final class PensieveVoid {
 
     public static void renderFog(ViewportEvent.RenderFog event) {
         float r = visibleRadius((float) event.getPartialTick());
-        event.setNearPlaneDistance(fogStart(r));
-        event.setFarPlaneDistance(Math.min(event.getFarPlaneDistance(), fogEnd(r)));
+        int far = PensieveClientState.fogFar();
+        if (far > 0) {
+            // fog_far: a scene with a far backdrop sees out to that distance through a soft haze.
+            float[] fog = farFog(r, PensieveClientState.radius(), far, event.getFarPlaneDistance());
+            event.setNearPlaneDistance(fog[0]);
+            event.setFarPlaneDistance(fog[1]);
+        } else {
+            event.setNearPlaneDistance(fogStart(r));
+            event.setFarPlaneDistance(Math.min(event.getFarPlaneDistance(), fogEnd(r)));
+        }
         event.setFogShape(FogShape.SPHERE);
         event.setCanceled(true);
     }

@@ -23,6 +23,15 @@ public record SceneNames(Set<String> entityTypes, Set<String> spells, Set<String
     /** Scripted effects an {@code effect} event may name. */
     public static final Set<String> EFFECTS = Set.of("summoning_ritual", "lightning", "dark_mark", "grey_edges",
             "patronus_light");
+    /**
+     * Bundled schematics a set's {@code schematics} may place, by bare id. Each one is loaded by its own class
+     * ({@code mini_hogwarts}: {@code worldgen/MiniHogwartsSchematic}, 96 x 109 x 145).
+     */
+    public static final Set<String> SCHEMATICS = Set.of("mini_hogwarts");
+    /** The rotations a schematic may be placed at, in degrees clockwise seen from above. */
+    public static final Set<Integer> SCHEMATIC_ROTATIONS = Set.of(0, 90, 180, 270);
+    /** Largest {@code fog_far}, in blocks. */
+    public static final int MAX_FOG_FAR = 512;
     /** Things a scene's {@code end_action} may do. */
     public static final Set<String> END_ACTIONS = Set.of("cave_map");
     /** Reusable poses every scene may cue without defining them. */

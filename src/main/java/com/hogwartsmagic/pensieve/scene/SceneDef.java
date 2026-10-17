@@ -6,13 +6,33 @@ import java.util.Map;
 /** A parsed Pensieve memory scene. Pure data; no Minecraft types. */
 public record SceneDef(String id, String title, int length, int radius, SetDef set,
                        Map<String, Map<String, float[]>> poses, List<ActorDef> actors,
-                       List<EventDef> events, List<WordDef> words, CameraTrack camera, String endAction) {
+                       List<EventDef> events, List<WordDef> words, CameraTrack camera, String endAction,
+                       int fogFar) {
 
-    public record SetDef(List<TemplateRef> templates, List<Fill> fills, List<Disk> disks,
-                         List<FeatureRef> features, long timeOfDay, int buildTicks) {
+    /** A scene with the default fog ({@code fogFar} 0: the fog sphere follows {@code radius}). */
+    public SceneDef(String id, String title, int length, int radius, SetDef set,
+                    Map<String, Map<String, float[]>> poses, List<ActorDef> actors,
+                    List<EventDef> events, List<WordDef> words, CameraTrack camera, String endAction) {
+        this(id, title, length, radius, set, poses, actors, events, words, camera, endAction, 0);
+    }
+
+    public record SetDef(List<TemplateRef> templates, List<SchematicRef> schematics, List<Fill> fills,
+                         List<Disk> disks, List<FeatureRef> features, long timeOfDay, int buildTicks) {
+        /** A set with no schematics. */
+        public SetDef(List<TemplateRef> templates, List<Fill> fills, List<Disk> disks,
+                      List<FeatureRef> features, long timeOfDay, int buildTicks) {
+            this(templates, List.of(), fills, disks, features, timeOfDay, buildTicks);
+        }
     }
 
     public record TemplateRef(String id, int[] at) {
+    }
+
+    /**
+     * A bundled schematic (see {@link SceneNames#SCHEMATICS}) whose rotated footprint's min corner is at {@code at};
+     * {@code rotation} is 0, 90, 180 or 270 degrees clockwise seen from above.
+     */
+    public record SchematicRef(String id, int[] at, int rotation) {
     }
 
     public record Fill(String block, int[] from, int[] to) {

@@ -17,7 +17,8 @@ public final class SceneParser {
     }
 
     public static SceneDef parse(String id, JsonObject json) throws SceneException {
-        checkKeys(json, "", "title", "length", "radius", "set", "poses", "actors", "events", "words", "camera", "end_action");
+        checkKeys(json, "", "title", "length", "radius", "set", "poses", "actors", "events", "words", "camera", "end_action",
+                "fog_far");
         String title = str(json, "title", "", id);
         int length = Math.round(reqTime(json, "length", ""));
         int radius = integer(json, "radius", "", 40);
@@ -40,8 +41,9 @@ public final class SceneParser {
             for (int i = 0; i < a.size(); i++) words.add(parseWord(a.get(i), index("words", i)));
         }
         String endAction = str(json, "end_action", "", null);
+        int fogFar = integer(json, "fog_far", "", 0);
         CameraTrack camera = has(json, "camera") ? CameraTrack.parse(arr(json.get("camera"), "camera"), "camera") : CameraTrack.EMPTY;
-        return new SceneDef(id, title, length, radius, set, poses, actors, events, words, camera, endAction);
+        return new SceneDef(id, title, length, radius, set, poses, actors, events, words, camera, endAction, fogFar);
     }
 
     private static SceneDef.SetDef emptySet() {
@@ -49,13 +51,21 @@ public final class SceneParser {
     }
 
     private static SceneDef.SetDef parseSet(JsonObject o, String path) throws SceneException {
-        checkKeys(o, path, "templates", "fills", "disks", "features", "time_of_day", "build_ticks");
+        checkKeys(o, path, "templates", "schematics", "fills", "disks", "features", "time_of_day", "build_ticks");
         List<SceneDef.TemplateRef> templates = new ArrayList<>();
         for (Map.Entry<String, JsonObject> en : each(o, "templates", path)) {
             JsonObject t = en.getValue();
             String p = en.getKey();
             checkKeys(t, p, "id", "at");
             templates.add(new SceneDef.TemplateRef(reqStr(t, "id", p), reqInts(t, "at", p, 3)));
+        }
+        List<SceneDef.SchematicRef> schematics = new ArrayList<>();
+        for (Map.Entry<String, JsonObject> en : each(o, "schematics", path)) {
+            JsonObject t = en.getValue();
+            String p = en.getKey();
+            checkKeys(t, p, "id", "at", "rotation");
+            schematics.add(new SceneDef.SchematicRef(reqStr(t, "id", p), reqInts(t, "at", p, 3),
+                    integer(t, "rotation", p, 0)));
         }
         List<SceneDef.Fill> fills = new ArrayList<>();
         for (Map.Entry<String, JsonObject> en : each(o, "fills", path)) {
@@ -80,7 +90,7 @@ public final class SceneParser {
         }
         long timeOfDay = Math.round(num(o, "time_of_day", path, 18000f));
         int buildTicks = integer(o, "build_ticks", path, 60);
-        return new SceneDef.SetDef(templates, fills, disks, features, timeOfDay, buildTicks);
+        return new SceneDef.SetDef(templates, schematics, fills, disks, features, timeOfDay, buildTicks);
     }
 
     /** Elements of an optional array of objects, paired with their indexed paths. */

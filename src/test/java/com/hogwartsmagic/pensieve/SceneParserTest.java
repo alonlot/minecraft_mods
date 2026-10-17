@@ -89,6 +89,24 @@ class SceneParserTest {
     }
 
     @Test
+    void schematicsAndFogFarParse() throws Exception {
+        SceneDef s = SceneParser.parse("t", json("""
+                {"length":100,"fog_far":180,"set":{"schematics":[
+                  {"id":"mini_hogwarts","at":[-50,3,-150],"rotation":270},
+                  {"id":"mini_hogwarts","at":[0,0,0]}]}}"""));
+        assertEquals(180, s.fogFar());
+        assertEquals(2, s.set().schematics().size());
+        assertEquals("mini_hogwarts", s.set().schematics().get(0).id());
+        assertArrayEquals(new int[]{-50, 3, -150}, s.set().schematics().get(0).at());
+        assertEquals(270, s.set().schematics().get(0).rotation());
+        assertEquals(0, s.set().schematics().get(1).rotation());
+        assertEquals(0, SceneParser.parse("t", json("{\"length\":1}")).fogFar());
+        SceneException e = assertThrows(SceneException.class, () -> SceneParser.parse("t", json(
+                "{\"length\":1,\"set\":{\"schematics\":[{\"id\":\"mini_hogwarts\",\"at\":[0,0,0],\"rot\":90}]}}")));
+        assertEquals("set.schematics[0].rot", e.path());
+    }
+
+    @Test
     void unknownKeyIsNamedError() {
         SceneException e = assertThrows(SceneException.class,
                 () -> SceneParser.parse("t", json("{\"length\":1,\"lenght\":2}")));

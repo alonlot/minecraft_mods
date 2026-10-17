@@ -113,6 +113,76 @@ public final class PensieveGameTests {
         helper.succeed();
     }
 
+    /**
+     * Mini Hogwarts as a set schematic: turned 90 degrees, every cell lands where the rotation puts it (checked
+     * against the formula here, not SetBuilder's own), air is skipped, nothing beyond the radius is placed, and
+     * the clear takes every block away again.
+     */
+    @GameTest(template = EMPTY, timeoutTicks = 400)
+    public static void schematicBuildsRotatedAndClears(GameTestHelper helper) {
+        ServerLevel level = memoryOrTestLevel(helper);
+        com.hogwartsmagic.worldgen.MiniHogwartsSchematic schem = com.hogwartsmagic.worldgen.MiniHogwartsSchematic.get();
+        helper.assertTrue(schem != null, "mini_hogwarts schematic did not load");
+        int w = schem.width(), l = schem.length();
+        int[] o = RegionAllocator.originFor(13);
+        BlockPos origin = new BlockPos(o[0], o[1], o[2]);
+        // Turned 90 degrees the footprint is l by w; this anchor centres it, and radius 60 crops the far x side.
+        int[] at = {-l / 2, 0, -w / 2};
+        int radius = 60;
+        SceneDef.SetDef set = new SceneDef.SetDef(List.of(),
+                List.of(new SceneDef.SchematicRef("mini_hogwarts", at, 90)), List.of(), List.of(), List.of(), 18000L, 20);
+        SetBuilder builder = new SetBuilder(level, origin, set, radius);
+
+        int expected = 0;
+        int sampleIndex = -1;
+        for (int i = 0; i < schem.volume(); i++) {
+            net.minecraft.world.level.block.state.BlockState st = schem.blockAt(i);
+            if (st.isAir() || st.is(Blocks.STRUCTURE_VOID) || st.is(Blocks.JIGSAW) || st.is(Blocks.STRUCTURE_BLOCK)
+                    || st.is(Blocks.COMMAND_BLOCK) || st.is(Blocks.CHAIN_COMMAND_BLOCK)
+                    || st.is(Blocks.REPEATING_COMMAND_BLOCK)) {
+                continue;
+            }
+            int x = i % w, z = (i / w) % l;
+            int rx = at[0] + (l - 1 - z), rz = at[2] + x; // clockwise 90: (x, z) -> (-z, x), shifted to >= 0
+            if (Math.abs(rx) > radius || Math.abs(rz) > radius) continue;
+            expected++;
+            if (sampleIndex < 0 && st.is(Blocks.STONE)) sampleIndex = i;
+        }
+        helper.assertTrue(builder.total() == expected, "expected " + expected + " cells, got " + builder.total());
+        helper.assertTrue(!builder.advance(expected / 2 + 1), "half the budget must not finish the castle");
+        while (!builder.advance(20000)) {
+            // the castle is a few tens of thousands of blocks: a handful of steps
+        }
+        helper.assertTrue(builder.placed().size() == expected, "placed() should list every cell");
+        for (BlockPos p : builder.placed()) {
+            if (level.getBlockState(p).isAir()) {
+                helper.fail("placed cell is air at " + p);
+                return;
+            }
+            if (Math.abs(p.getX() - origin.getX()) > radius || Math.abs(p.getZ() - origin.getZ()) > radius) {
+                helper.fail("cell beyond the radius at " + p);
+                return;
+            }
+        }
+        helper.assertTrue(sampleIndex >= 0, "no stone cell inside the radius");
+        int sx = sampleIndex % w, sz = (sampleIndex / w) % l, sy = sampleIndex / (w * l);
+        BlockPos sample = origin.offset(at[0] + (l - 1 - sz), at[1] + sy, at[2] + sx);
+        helper.assertTrue(level.getBlockState(sample).is(Blocks.STONE), "rotated stone cell missing at " + sample);
+
+        SetBuilder.ClearJob job = SetBuilder.clear(level, builder.placed());
+        while (!job.advance(20000)) {
+            // as many steps as the build
+        }
+        for (BlockPos p : builder.placed()) {
+            if (!level.getBlockState(p).isAir()) {
+                helper.fail("not cleared at " + p);
+                return;
+            }
+        }
+        LOGGER.info("PENSIEVE-GAMETEST PASS schematicBuildsRotatedAndClears ({} cells)", expected);
+        helper.succeed();
+    }
+
     private static net.minecraft.world.item.ItemStack chamberMemory() {
         return new net.minecraft.world.item.ItemStack(ExampleMod.CHAMBER_MEMORY.get());
     }

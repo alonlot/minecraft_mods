@@ -274,6 +274,11 @@ public final class PensieveClientState {
         return scene != null ? Math.max(1, scene.radius()) : DEFAULT_RADIUS;
     }
 
+    /** The scene's {@code fog_far} in blocks, or 0 when the fog follows the radius (the default). */
+    public static int fogFar() {
+        return scene != null ? Math.max(0, scene.fogFar()) : 0;
+    }
+
     /** The reveal from shadow to memory, 0..1 (1 once it is complete). */
     public static float reveal(float partial) {
         return PensieveTimeline.reveal((ticks - revealStart) + partial, revealSpan);

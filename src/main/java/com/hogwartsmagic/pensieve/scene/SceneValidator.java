@@ -19,6 +19,9 @@ public final class SceneValidator {
         if (length <= 0) out.add("length: must be greater than 0, got " + scene.length());
 
         if (scene.radius() > 200) out.add("radius: must be at most 200, got " + scene.radius());
+        if (scene.fogFar() < 0 || scene.fogFar() > SceneNames.MAX_FOG_FAR) {
+            out.add("fog_far: must be 1 to " + SceneNames.MAX_FOG_FAR + " blocks (or left out), got " + scene.fogFar());
+        }
 
         Set<String> actorIds = new HashSet<>();
         for (int i = 0; i < scene.actors().size(); i++) {
@@ -29,6 +32,16 @@ public final class SceneValidator {
         SceneDef.SetDef set = scene.set();
         for (int i = 0; i < set.templates().size(); i++) {
             known(out, "set.templates[" + i + "].id", "template", set.templates().get(i).id(), names.templates());
+        }
+        for (int i = 0; i < set.schematics().size(); i++) {
+            SceneDef.SchematicRef ref = set.schematics().get(i);
+            if (!SceneNames.SCHEMATICS.contains(ref.id())) {
+                out.add("set.schematics[" + i + "].id: unknown schematic '" + ref.id() + "' (expected one of "
+                        + sorted(SceneNames.SCHEMATICS) + ")");
+            }
+            if (!SceneNames.SCHEMATIC_ROTATIONS.contains(ref.rotation())) {
+                out.add("set.schematics[" + i + "].rotation: must be 0, 90, 180 or 270, got " + ref.rotation());
+            }
         }
         for (int i = 0; i < set.fills().size(); i++) {
             known(out, "set.fills[" + i + "].block", "block", set.fills().get(i).block(), names.blocks());
@@ -181,6 +194,12 @@ public final class SceneValidator {
             int[] at = set.templates().get(i).at();
             if (beyond(radius, at[0], at[0], at[2], at[2])) {
                 out.add("set.templates[" + i + "]: anchor extends beyond radius " + radius);
+            }
+        }
+        for (int i = 0; i < set.schematics().size(); i++) {
+            int[] at = set.schematics().get(i).at();
+            if (beyond(radius, at[0], at[0], at[2], at[2])) {
+                out.add("set.schematics[" + i + "]: anchor extends beyond radius " + radius);
             }
         }
         for (int i = 0; i < set.fills().size(); i++) {

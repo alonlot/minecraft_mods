@@ -23,6 +23,11 @@ public final class SceneValidator {
             out.add("fog_far: must be 1 to " + SceneNames.MAX_FOG_FAR + " blocks (or left out), got " + scene.fogFar());
         }
 
+        if (scene.next() != null) {
+            if (!scene.next().matches("[a-z0-9_]+")) out.add("next: must be a lowercase scene id, got '" + scene.next() + "'");
+            else if (scene.next().equals(scene.id())) out.add("next: a scene cannot chain to itself");
+        }
+
         Set<String> actorIds = new HashSet<>();
         for (int i = 0; i < scene.actors().size(); i++) {
             String id = scene.actors().get(i).id();
@@ -92,6 +97,13 @@ public final class SceneValidator {
     private static void actor(List<String> out, SceneDef scene, SceneDef.ActorDef a, String p, Set<String> actorIds,
                               SceneNames names, float length) {
         known(out, p + ".type", "entity", a.type(), names.entityTypes());
+        if (a.scale() < 0.25f || a.scale() > 4f) out.add(p + ".scale: must be 0.25 to 4, got " + a.scale());
+        if (a.skin() != null) {
+            if (!"player".equals(a.type())) out.add(p + ".skin: only a player actor can have a skin");
+            if (a.skin().viewer() && (a.skin().texture() != null || a.skin().username() != null)) {
+                out.add(p + ".skin: viewer cannot be combined with texture or username");
+            }
+        }
         if (a.skin() != null && a.skin().texture() != null) {
             known(out, p + ".skin.texture", "skin", a.skin().texture(), names.skins());
         }

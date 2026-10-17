@@ -45,6 +45,7 @@ in `0..length`. Positions are blocks relative to the set origin (see Coordinates
 | `events` | array | none | below |
 | `words` | array | none | below |
 | `camera` | array | none | empty = viewer looks freely; otherwise directed |
+| `next` | string | none | id of another memory scene (lowercase `[a-z0-9_]+`, not this scene's own id) to chain into when this one ends; whether it exists is checked when the hand-over happens, not at validation |
 | `end_action` | string | none | only `cave_map`: when the scene ends at `length` (not when a viewer leaves early, is yanked or the basin breaks), each viewer gets `CaveMemoryItem.grantCaveMap` once, server-side, after they are moved home, so the Cave Map lands in their real inventory (with the drink's vision lines and nausea; "The memory is too faint..." and no map when no unlooted cave is near, or outside the Overworld). `/pensieve preview` runs it too. Used by `locket_cave` (whose 80 Inferi and Fiendfyre, `locket_cave.py`, are the worked example of a crowd: ring slots round the hero, straight radial paths, everything timed off the fire's wavefront, `write_scene(..., width=400)` to stay under the size cap) |
 
 ### `set`
@@ -70,6 +71,8 @@ Keys: `id` (required, unique), `type` (required), `skin`, `name`, `items`, `path
 
 - `type`: `"player"` (a skinned humanoid) or a namespaced entity id (`hogwartsmagic:troll`, `minecraft:zombie`). Mobs have no AI, no gravity, no collision.
 - `skin` (player only): `{ "texture": "<name>" }` a bundled skin, or `{ "username": "Notch" }` fetched in the background (falls back to the default skin when offline), plus optional `"slim": true` for the 3-px arm model.
+- `skin.viewer`: `{ "viewer": true }` renders the watching player's own skin; it cannot be combined with `texture` or `username`.
+- `scale`: actor size multiplier, 0.25 to 4 (default 1).
 - `name`: floating name tag text. Without it there is no tag. Also used as the speaker in `words`.
 - `items`: slot to item id: `mainhand offhand head chest legs feet`. Example `{"mainhand": "hogwartsmagic:harry_potter_wand"}`. An unknown slot name is silently ignored.
 - `path`: `[{t, pos:[x,y,z], ease?}]` - the feet position. Holds the first value before the first key and the last after it. The body turns to face its movement unless `look` is given.

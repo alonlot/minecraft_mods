@@ -18,7 +18,7 @@ public final class SceneParser {
 
     public static SceneDef parse(String id, JsonObject json) throws SceneException {
         checkKeys(json, "", "title", "length", "radius", "set", "poses", "actors", "events", "words", "camera", "end_action",
-                "fog_far");
+                "fog_far", "next");
         String title = str(json, "title", "", id);
         int length = Math.round(reqTime(json, "length", ""));
         int radius = integer(json, "radius", "", 40);
@@ -42,8 +42,9 @@ public final class SceneParser {
         }
         String endAction = str(json, "end_action", "", null);
         int fogFar = integer(json, "fog_far", "", 0);
+        String next = str(json, "next", "", null);
         CameraTrack camera = has(json, "camera") ? CameraTrack.parse(arr(json.get("camera"), "camera"), "camera") : CameraTrack.EMPTY;
-        return new SceneDef(id, title, length, radius, set, poses, actors, events, words, camera, endAction, fogFar);
+        return new SceneDef(id, title, length, radius, set, poses, actors, events, words, camera, endAction, fogFar, next);
     }
 
     private static SceneDef.SetDef emptySet() {
@@ -122,15 +123,16 @@ public final class SceneParser {
 
     private static SceneDef.ActorDef parseActor(JsonElement e, String path) throws SceneException {
         JsonObject o = obj(e, path);
-        checkKeys(o, path, "id", "type", "skin", "name", "items", "path", "look", "limbs", "poses", "anims", "actions");
+        checkKeys(o, path, "id", "type", "skin", "name", "items", "path", "look", "limbs", "poses", "anims", "actions", "scale");
         String id = reqStr(o, "id", path);
         String type = reqStr(o, "type", path);
         SceneDef.SkinRef skin = null;
         if (has(o, "skin")) {
             String sp = child(path, "skin");
             JsonObject s = obj(o.get("skin"), sp);
-            checkKeys(s, sp, "texture", "username", "slim");
-            skin = new SceneDef.SkinRef(str(s, "texture", sp, null), str(s, "username", sp, null), bool(s, "slim", sp, false));
+            checkKeys(s, sp, "texture", "username", "slim", "viewer");
+            skin = new SceneDef.SkinRef(str(s, "texture", sp, null), str(s, "username", sp, null), bool(s, "slim", sp, false),
+                    bool(s, "viewer", sp, false));
         }
         String name = str(o, "name", path, null);
         Map<String, String> items = new LinkedHashMap<>();
@@ -162,7 +164,8 @@ public final class SceneParser {
         List<SceneDef.Cue> anims = cues(o, "anims", path);
         List<SceneDef.ActionCue> actions = new ArrayList<>();
         for (Map.Entry<String, JsonObject> en : each(o, "actions", path)) actions.add(parseAction(en.getValue(), en.getKey()));
-        return new SceneDef.ActorDef(id, type, skin, name, items, pathTrack, look, limbs, poses, anims, actions);
+        return new SceneDef.ActorDef(id, type, skin, name, items, pathTrack, look, limbs, poses, anims, actions,
+                num(o, "scale", path, 1f));
     }
 
     /** A keyframe array of [x,y,z] vectors stored under {@code vecKey}. */

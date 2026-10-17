@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -137,5 +138,34 @@ class SceneParserTest {
         assertThrows(SceneException.class, () -> SceneParser.parse("t", json("""
                 {"length":100,"set":{},"actors":[{"id":"a","type":"player","limbs":{
                   "head":{"mode":"replace","rot":[{"t":0,"v":[0,0,0]}]}}}]}""")));
+    }
+
+    private static SceneDef.ActorDef actor(String actorJson) throws Exception {
+        return SceneParser.parse("t", json("{\"length\":20,\"actors\":[" + actorJson + "]}")).actors().get(0);
+    }
+
+    @Test
+    void parsesNextScene() throws Exception {
+        assertEquals("sorting_hut", SceneParser.parse("t", json("{\"length\":20,\"next\":\"sorting_hut\"}")).next());
+    }
+
+    @Test
+    void nextDefaultsToNull() throws Exception {
+        assertNull(SceneParser.parse("t", json("{\"length\":20}")).next());
+    }
+
+    @Test
+    void parsesActorScale() throws Exception {
+        assertEquals(0.75f, actor("{\"id\":\"a\",\"type\":\"player\",\"scale\":0.75}").scale(), 1e-6);
+    }
+
+    @Test
+    void scaleDefaultsToOne() throws Exception {
+        assertEquals(1f, actor("{\"id\":\"a\",\"type\":\"player\"}").scale(), 1e-6);
+    }
+
+    @Test
+    void parsesViewerSkin() throws Exception {
+        assertTrue(actor("{\"id\":\"a\",\"type\":\"player\",\"skin\":{\"viewer\":true}}").skin().viewer());
     }
 }

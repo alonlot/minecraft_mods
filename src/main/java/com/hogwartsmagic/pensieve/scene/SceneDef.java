@@ -7,13 +7,21 @@ import java.util.Map;
 public record SceneDef(String id, String title, int length, int radius, SetDef set,
                        Map<String, Map<String, float[]>> poses, List<ActorDef> actors,
                        List<EventDef> events, List<WordDef> words, CameraTrack camera, String endAction,
-                       int fogFar) {
+                       int fogFar, String next) {
+
+    /** A scene with no follow-on scene ({@code next} null). */
+    public SceneDef(String id, String title, int length, int radius, SetDef set,
+                    Map<String, Map<String, float[]>> poses, List<ActorDef> actors,
+                    List<EventDef> events, List<WordDef> words, CameraTrack camera, String endAction,
+                    int fogFar) {
+        this(id, title, length, radius, set, poses, actors, events, words, camera, endAction, fogFar, null);
+    }
 
     /** A scene with the default fog ({@code fogFar} 0: the fog sphere follows {@code radius}). */
     public SceneDef(String id, String title, int length, int radius, SetDef set,
                     Map<String, Map<String, float[]>> poses, List<ActorDef> actors,
                     List<EventDef> events, List<WordDef> words, CameraTrack camera, String endAction) {
-        this(id, title, length, radius, set, poses, actors, events, words, camera, endAction, 0);
+        this(id, title, length, radius, set, poses, actors, events, words, camera, endAction, 0, null);
     }
 
     public record SetDef(List<TemplateRef> templates, List<SchematicRef> schematics, List<Fill> fills,
@@ -47,10 +55,20 @@ public record SceneDef(String id, String title, int length, int radius, SetDef s
     /** {@code type} is an entity id or "player"; {@code look} values are [yaw, pitch]. */
     public record ActorDef(String id, String type, SkinRef skin, String name, Map<String, String> items,
                            Track path, Track look, Map<String, PartTrack> limbs, List<Cue> poses,
-                           List<Cue> anims, List<ActionCue> actions) {
+                           List<Cue> anims, List<ActionCue> actions, float scale) {
+        /** An actor at normal size (scale 1). */
+        public ActorDef(String id, String type, SkinRef skin, String name, Map<String, String> items,
+                        Track path, Track look, Map<String, PartTrack> limbs, List<Cue> poses,
+                        List<Cue> anims, List<ActionCue> actions) {
+            this(id, type, skin, name, items, path, look, limbs, poses, anims, actions, 1f);
+        }
     }
 
-    public record SkinRef(String texture, String username, boolean slim) {
+    /** {@code viewer} means the watching player's own skin (excludes texture and username). */
+    public record SkinRef(String texture, String username, boolean slim, boolean viewer) {
+        public SkinRef(String texture, String username, boolean slim) {
+            this(texture, username, slim, false);
+        }
     }
 
     public record Cue(float t, String name, float blend) {

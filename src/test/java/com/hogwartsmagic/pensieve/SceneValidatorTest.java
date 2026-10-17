@@ -200,4 +200,47 @@ class SceneValidatorTest {
         List<String> m = SceneValidator.validate(def, names);
         assertEquals(List.of("actors[0].actions[0].spell: no memory visual for 'serpensortia'"), m);
     }
+
+    private static List<String> validateAs(String id, String json) throws Exception {
+        SceneDef def = SceneParser.parse(id, JsonParser.parseString(json).getAsJsonObject());
+        return SceneValidator.validate(def, NAMES);
+    }
+
+    private static String actorScene(String type, String extra) {
+        return "{\"length\":100,\"actors\":[{\"id\":\"a\",\"type\":\"" + type + "\"," + extra + "}]}";
+    }
+
+    private static void assertMessage(List<String> m, String text) {
+        assertTrue(m.stream().anyMatch(x -> x.contains(text)), "expected '" + text + "' in " + m);
+    }
+
+    @Test
+    void scaleOutOfRangeFails() throws Exception {
+        assertMessage(validate(actorScene("player", "\"scale\":5")), "scale: must be 0.25 to 4");
+        assertEquals(0, validate(actorScene("player", "\"scale\":0.75")).size());
+    }
+
+    @Test
+    void viewerSkinWithTextureFails() throws Exception {
+        assertMessage(validate(actorScene("player", "\"skin\":{\"viewer\":true,\"texture\":\"harry\"}")),
+                "skin: viewer cannot be combined with texture or username");
+    }
+
+    @Test
+    void viewerSkinOnMobFails() throws Exception {
+        assertMessage(validate(actorScene("minecraft:zombie", "\"skin\":{\"viewer\":true}")),
+                "skin: only a player actor can have a skin");
+        assertEquals(0, validate(actorScene("player", "\"skin\":{\"viewer\":true}")).size());
+    }
+
+    @Test
+    void nextMustBeValidId() throws Exception {
+        assertMessage(validate("{\"length\":100,\"next\":\"Bad Id\"}"), "next: must be a lowercase scene id");
+        assertEquals(0, validate("{\"length\":100,\"next\":\"sorting_hut\"}").size());
+    }
+
+    @Test
+    void nextCannotBeSelf() throws Exception {
+        assertMessage(validateAs("a", "{\"length\":100,\"next\":\"a\"}"), "next: a scene cannot chain to itself");
+    }
 }

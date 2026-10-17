@@ -28,6 +28,7 @@ import java.util.Map;
  */
 public class FiendfyreSerpentRenderer extends EntityRenderer<FiendfyreSerpentEntity> {
     private static final Map<Integer, Deque<Vec3>> TRAIL_CACHE = new HashMap<>();
+    private static final Map<Integer, Long> LAST_DRAWN = new HashMap<>();
     private static final int MAX_TRAIL_POINTS = 24;
     private static final int SAMPLES_PER_SEGMENT = 4;
     private static final int RING_SIDES = 6;
@@ -51,9 +52,13 @@ public class FiendfyreSerpentRenderer extends EntityRenderer<FiendfyreSerpentEnt
         poseStack.pushPose();
 
         Vec3 currentPos = entity.getPosition(partialTick);
-        // Drop trails of serpents that no longer exist, so the static cache does not grow for the whole session.
+        // Drop trails of serpents not drawn for 2 s, so the static cache does not grow for the whole session.
+        // Not "no longer in the level": a Pensieve memory's serpent is a puppet that is never added to it.
+        long now = entity.level().getGameTime();
+        LAST_DRAWN.put(entity.getId(), now);
         if (entity.tickCount % 40 == 0) {
-            TRAIL_CACHE.keySet().removeIf(id -> entity.level().getEntity(id) == null);
+            LAST_DRAWN.values().removeIf(t -> now - t > 40);
+            TRAIL_CACHE.keySet().retainAll(LAST_DRAWN.keySet());
         }
         Deque<Vec3> trail = TRAIL_CACHE.computeIfAbsent(entity.getId(), id -> new ArrayDeque<>());
         if (trail.isEmpty() || trail.peekFirst().distanceToSqr(currentPos) > 0.0025D) {

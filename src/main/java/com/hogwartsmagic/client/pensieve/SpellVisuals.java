@@ -56,6 +56,11 @@ public final class SpellVisuals {
     /** The silver-white of the Patronus (#DDEEFF). */
     private static final DustParticleOptions SILVER_MIST =
             new DustParticleOptions(new Vector3f(0xDD / 255f, 0xEE / 255f, 1f), 1.6f);
+    /** Fiendfyre roars out of the wand for 1.5 s... */
+    static final int FIENDFYRE_TICKS = 30;
+    /** ...toward the target, this far ahead with none, and never farther than the max. */
+    private static final double FIENDFYRE_DEFAULT_REACH = 8.0;
+    private static final double FIENDFYRE_MAX_REACH = 14.0;
     /** The spell beam renders this far above its entity position; start low so the visible beam leaves the wand. */
     private static final double BEAM_RENDER_LIFT = 0.2;
 
@@ -97,6 +102,9 @@ public final class SpellVisuals {
         } else if ("patronus_wisp".equals(spellId)) {
             MemorySounds.play(ModSounds.SPELL_EXPECTO_PATRONUM.get(), from, 0.5f, 0.85f);
             ACTIVE.add(new PatronusStream(from, aim(from, to, 5.0), WISP_MAX_REACH, true));
+        } else if ("fiendfyre".equals(spellId)) {
+            MemorySounds.play(ModSounds.SPELL_FIENDFYRE.get(), from, 1.4f, 0.9f);
+            ACTIVE.add(new FiendfyreGout(from, aim(from, to, FIENDFYRE_DEFAULT_REACH)));
         }
     }
 
@@ -399,6 +407,68 @@ public final class SpellVisuals {
             double sa = Math.sin(a) * r;
             level.addParticle(type, tip.x + dir.x * s + u.x * ca + v.x * sa, tip.y + dir.y * s + u.y * ca + v.y * sa,
                     tip.z + dir.z * s + u.z * ca + v.z * sa, dir.x * speed, dir.y * speed, dir.z * speed);
+        }
+    }
+
+    /**
+     * {@code fiendfyre}: the cursed fire bursting out of the wand. A flash and a ball of flame at the tip, then a
+     * widening, writhing gout of flame, lava sparks and black smoke rushes out toward the target over 5 ticks, roars
+     * for {@link #FIENDFYRE_TICKS} and gutters out over the last 8. The fire that fills the area is the separate
+     * {@code fiendfyre_rings} effect.
+     */
+    private static final class FiendfyreGout implements Active {
+        private final Vec3 tip;
+        private final Vec3 dir;
+        private final double reach;
+        private final Vec3 u;
+        private final Vec3 v;
+        private int age;
+
+        FiendfyreGout(Vec3 tip, Vec3 toTarget) {
+            this.tip = tip;
+            this.reach = Math.min(toTarget.length(), FIENDFYRE_MAX_REACH);
+            this.dir = toTarget.normalize();
+            Vec3 up = Math.abs(dir.y) > 0.95 ? new Vec3(1, 0, 0) : new Vec3(0, 1, 0);
+            this.u = dir.cross(up).normalize();
+            this.v = dir.cross(u).normalize();
+        }
+
+        @Override
+        public boolean tick(ClientLevel level) {
+            if (age == 0) {
+                level.addParticle(ParticleTypes.FLASH, tip.x, tip.y, tip.z, 0, 0, 0);
+                for (int i = 0; i < 30; i++) {
+                    Vec3 d = randomUnit(level);
+                    level.addParticle(ParticleTypes.FLAME, tip.x, tip.y, tip.z, d.x * 0.18, d.y * 0.18, d.z * 0.18);
+                }
+            }
+            double front = reach * Math.min(1.0, (age + 1) / 5.0);
+            double fade = Math.min(1.0, (FIENDFYRE_TICKS - age) / 8.0);
+            for (int i = 0; i < (int) Math.ceil(34 * fade); i++) {
+                double s = level.random.nextDouble() * front;
+                // The gout widens and writhes along its length.
+                double wobble = Math.sin(s * 1.3 - age * 0.9) * 0.25 * s / Math.max(1.0, reach);
+                put(level, i % 7 == 0 ? ParticleTypes.SOUL_FIRE_FLAME : ParticleTypes.FLAME, s, 0.1 + s * 0.22,
+                        wobble, 0.06 + level.random.nextDouble() * 0.08);
+            }
+            for (int i = 0; i < (int) Math.ceil(4 * fade); i++) {
+                put(level, ParticleTypes.LAVA, level.random.nextDouble() * front, 0.3, 0.0, 0.0);
+            }
+            for (int i = 0; i < (int) Math.ceil(5 * fade); i++) {
+                put(level, ParticleTypes.LARGE_SMOKE, level.random.nextDouble() * front, 0.2 + front * 0.15, 0.0, 0.03);
+            }
+            level.addParticle(ParticleTypes.FLAME, tip.x, tip.y, tip.z, 0, 0.01, 0);
+            return ++age < FIENDFYRE_TICKS;
+        }
+
+        /** One particle {@code s} blocks down the gout, scattered {@code spread} sideways, shifted along u by wobble. */
+        private void put(ClientLevel level, ParticleOptions type, double s, double spread, double wobble, double speed) {
+            double a = level.random.nextDouble() * Math.PI * 2;
+            double r = spread * Math.sqrt(level.random.nextDouble());
+            double ca = Math.cos(a) * r + wobble;
+            double sa = Math.sin(a) * r;
+            level.addParticle(type, tip.x + dir.x * s + u.x * ca + v.x * sa, tip.y + dir.y * s + u.y * ca + v.y * sa,
+                    tip.z + dir.z * s + u.z * ca + v.z * sa, dir.x * speed, dir.y * speed + 0.01, dir.z * speed);
         }
     }
 

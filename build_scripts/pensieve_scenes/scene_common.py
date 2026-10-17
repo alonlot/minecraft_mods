@@ -110,27 +110,27 @@ SCHEMATIC_SKIPPED = {'minecraft:air', 'minecraft:cave_air', 'minecraft:void_air'
                      'minecraft:chain_command_block', 'minecraft:repeating_command_block'}
 
 
-def dump(o, ind=0):
-    """Compact JSON: anything that fits in 150 columns on one line, otherwise one entry per line."""
+def dump(o, ind=0, width=150):
+    """Compact JSON: anything that fits in width columns on one line, otherwise one entry per line."""
     sp = '  ' * ind
     if isinstance(o, dict):
         flat = json.dumps(o, separators=(', ', ': '))
-        if len(flat) + len(sp) <= 150:
+        if len(flat) + len(sp) <= width:
             return flat
-        items = ['%s  %s: %s' % (sp, json.dumps(k), dump(v, ind + 1)) for k, v in o.items()]
+        items = ['%s  %s: %s' % (sp, json.dumps(k), dump(v, ind + 1, width)) for k, v in o.items()]
         return '{\n' + ',\n'.join(items) + '\n' + sp + '}'
     if isinstance(o, list):
         flat = json.dumps(o, separators=(', ', ': '))
-        if len(flat) + len(sp) <= 150:
+        if len(flat) + len(sp) <= width:
             return flat
-        items = ['%s  %s' % (sp, dump(v, ind + 1)) for v in o]
+        items = ['%s  %s' % (sp, dump(v, ind + 1, width)) for v in o]
         return '[\n' + ',\n'.join(items) + '\n' + sp + ']'
     return json.dumps(o)
 
 
-def write_scene(scene, scene_id):
-    """Writes memories/<scene_id>.json (LF line endings) and returns the text."""
-    txt = dump(scene) + '\n'
+def write_scene(scene, scene_id, width=150):
+    """Writes memories/<scene_id>.json (LF line endings) and returns the text; width as for dump."""
+    txt = dump(scene, 0, width) + '\n'
     with open(os.path.join(MEMORIES, scene_id + '.json'), 'w', newline='\n', encoding='utf-8') as f:
         f.write(txt)
     return txt

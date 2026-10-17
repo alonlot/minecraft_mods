@@ -206,6 +206,13 @@ fig_path = [
     K(62.3, (0.5, 0.2, 2.6), 'out'),               # up out of the boat
     K(62.7, (0.5, 0, 3.6), 'in_out'),              # onto the island
     K(65.0, (0.5, 0, 6.3), 'in_out'),              # to the basin
+    K(76.4, (0.5, 0, 6.3)),
+    K(77.6, (0.5, 0, 7.0), 'in_out'),              # backs against the basin as they come
+    K(81.4, (0.5, 0, 7.0)),
+    K(81.7, (0.6, 0, 6.85), 'out'),                # jostled by the hands
+    K(82.6, (0.35, 0, 7.1), 'in_out'),
+    K(83.6, (0.6, 0, 6.9), 'in_out'),
+    K(84.6, (0.5, 0, 7.0), 'in_out'),
 ]
 fig_look = [
     Y(0, 180, 8), Y(3.5, 166, 6), Y(6.5, 192, 10), Y(7.6, 180, 42), Y(12.8, 180, 30),
@@ -213,7 +220,10 @@ fig_look = [
     Y(26.2, 0, 0), Y(30.0, 0, 0), Y(31.4, 0, 10), Y(32.0, 0, 30), Y(33.6, 0, 5),
     Y(38.2, 0, 0), Y(39.0, 35, 8), Y(39.9, -30, 8), Y(40.6, -50, 12), Y(43.6, -50, 12),
     Y(44.6, -90, 15), Y(50.8, -90, 10), Y(51.4, 0, 20), Y(54.0, 0, 5), Y(61.8, 0, 0),
-    Y(65.0, 0, 30), Y(66.0, 0, 50),
+    Y(65.0, 0, 30), Y(66.0, 0, 50), Y(69.4, 0, 45), Y(70.2, 0, 5), Y(71.6, -55, 8), Y(73.0, 55, 8),
+    Y(74.6, 120, 4), Y(76.2, 180, 0), Y(79.0, 160, 4), Y(80.6, 200, 8), Y(81.6, 165, 18), Y(82.6, 205, 24),
+    Y(83.6, 170, 20), Y(84.6, 180, 6), Y(85.6, 180, -28), Y(86.6, 180, -12), Y(88.0, 180, 0), Y(92.0, 170, 4),
+    Y(95.0, 190, 4), Y(97.0, 180, 8), Y(99.6, 360, 35), Y(101.0, 360, 50),
 ]
 fig_poses = [
     {'t': T(8.0), 'name': 'wand_raised', 'blend': 8},
@@ -233,6 +243,13 @@ fig_poses = [
     {'t': T(52.4), 'name': 'seated', 'blend': 6},
     {'t': T(61.6), 'name': 'relax', 'blend': 6},
     {'t': T(65.4), 'name': 'look_down', 'blend': 20},
+    {'t': T(70.0), 'name': 'relax', 'blend': 8},
+    {'t': T(71.4), 'name': 'wary', 'blend': 10},
+    {'t': T(81.4), 'name': 'grabbed', 'blend': 4},
+    {'t': T(85.0), 'name': 'wand_raised', 'blend': 4},
+    {'t': T(86.5), 'name': 'fire_cast', 'blend': 2},
+    {'t': T(95.5), 'name': 'relax', 'blend': 20},
+    {'t': T(100.6), 'name': 'look_down', 'blend': 20},
 ]
 fig_actions = [
     {'t': T(9.0), 'do': 'cast', 'spell': 'revelio', 'target': [0.5, -1.0, -33.0]},
@@ -241,6 +258,11 @@ fig_actions = [
     {'t': T(31.4), 'do': 'hurt'},
     {'t': T(41.4), 'do': 'cast', 'spell': 'revelio', 'target': [0.5, 0.5, -12.5]},
     {'t': T(45.6), 'do': 'swing'},
+    {'t': T(81.5), 'do': 'hurt'},
+    {'t': T(82.7), 'do': 'hurt'},
+    {'t': T(83.8), 'do': 'hurt'},
+    {'t': T(84.7), 'do': 'hurt'},
+    {'t': T(86.4), 'do': 'cast', 'spell': 'fiendfyre', 'target': [0.5, 4.5, 0.0]},
 ]
 # swimming strokes: arms sweep out and back, legs kick, from the surfacing to the pool
 ra, la, rl, ll = [], [], [], []
@@ -289,6 +311,10 @@ poses = {
     'reach': {'right_arm': [-92, -6, 0], 'head': [12, 0, 0]},
     'stagger': {'head': [32, 0, 0], 'body': [12, 0, 0], 'left_arm': [-58, 34, 0], 'right_arm': [-18, 0, 18],
                 'right_leg': [-8, 0, 0], 'left_leg': [6, 0, 0]},
+    'wary': {'right_arm': [-62, -8, 0], 'left_arm': [-18, 0, -14], 'head': [4, 0, 0]},
+    'grabbed': {'head': [-22, 0, 0], 'body': [-8, 0, 0], 'right_arm': [-28, 0, 46], 'left_arm': [-24, 0, -40],
+                'right_leg': [-10, 0, 0], 'left_leg': [8, 0, 0]},
+    'fire_cast': {'right_arm': [-168, -12, 0], 'left_arm': [-40, 0, -52], 'head': [-14, 0, 0], 'body': [-6, 0, 0]},
     'seated': {'right_leg': [-81, 18, 4.5], 'left_leg': [-81, -18, -4.5], 'right_arm': [-36, 0, 0],
                'left_arm': [-36, 0, 0]},
 }
@@ -299,6 +325,7 @@ def music(t, name):
     ev(t, 'music', 'hogwartsmagic:pensieve.music.' + name, volume=1.0)
 music(0.0, 'cave_journey')
 music(47.0, 'cave_despair')
+music(77.0, 'lake_dementors')
 # the storm out at sea
 ev(3.0, 'effect', 'lightning', at=[-44, -2, -60])
 ev(12.2, 'effect', 'lightning', at=[40, -2, -62])
@@ -392,9 +419,224 @@ for t in (55.0, 57.8, 60.6):
 snd(62.6, 'minecraft:block.deepslate.step', at=[0, 0, 3], volume=0.5)
 block(64.0, 'minecraft:air', prev)
 snd(66.0, 'minecraft:block.beacon.ambient', at=[0, 0, 8], volume=0.6, pitch=0.6)
-snd(72.0, 'minecraft:block.beacon.ambient', at=[0, 0, 8], volume=0.6, pitch=0.55)
-for t in (63.0, 65.0, 67.0, 69.0, 71.0, 73.0, 75.0):
+snd(102.0, 'minecraft:block.beacon.ambient', at=[0, 0, 8], volume=0.6, pitch=0.55)
+for t in (63.0, 65.0, 67.0, 69.0, 99.0, 101.0, 103.0, 105.0, 107.0, 109.0):
     part(t, 'minecraft:glow', (1, 1, 9), 5, (0.25, 0.15, 0.25))
+
+# ---------------------------------------------------------------- the Inferi and the Fiendfyre
+# 80 Inferi rise from the lake around the island, wade in and grab the figure at the basin; the figure casts
+# Fiendfyre and rings of fire (effect fiendfyre_rings, EffectVisuals: a wave born every 16 ticks from 1.5 blocks
+# out, rolling 0.25 blocks a tick) burn them away. Each Inferius ignites the moment the first wave reaches it.
+import random
+rng = random.Random(1997)
+CX, CZ = 0, 7                 # the fire's centre: the effect's block corner, by the figure at the basin
+FIG = (0.5, 0, 7.0)           # where the figure stands for the fight
+FIRE_T = 86.6                 # the cast and the first wave
+WAVE_R0, WAVE_SPEED = 1.5, 5.0   # blocks, blocks per second (0.25 a tick)
+WADE_Y = -2.3                 # feet in the lake: chest and head above the surface
+DEEP_Y = -6.6                 # waiting under the water before they rise
+SOLIDISH = lambda b: b is not None and b not in OPEN
+
+def cell(x, y, z):
+    return world.get((math.floor(x), y, math.floor(z)))
+def on_island(x, z):
+    return SOLIDISH(cell(x, -1, z)) and cell(x, 0, z) is None and cell(x, 1, z) is None
+def in_lake(x, z):
+    return cell(x, -2, z) == 'minecraft:water' and cell(x, -1, z) is None and cell(x, 0, z) is None
+def ground_y(x, z):
+    if on_island(x, z):
+        return 0.0
+    if in_lake(x, z):
+        return WADE_Y
+    return None
+def hit_time(x, z):
+    d = math.hypot(x - CX, z - CZ)
+    return FIRE_T + max(0.0, d - WAVE_R0) / WAVE_SPEED
+
+# the slots they end up standing in, ring by ring round the figure
+slots = []
+for ring, (r, n) in enumerate(((1.15, 6), (2.3, 12), (3.5, 16), (4.8, 20), (6.2, 24), (7.6, 30))):
+    off = rng.random() * math.tau
+    for k in range(n):
+        a = off + k * math.tau / n + rng.uniform(-0.08, 0.08)
+        x, z = FIG[0] + math.cos(a) * r, FIG[2] + math.sin(a) * r
+        if ground_y(x, z) is None:
+            continue
+        slots.append((ring, a, r, x, z))
+slots = slots[:80]
+assert len(slots) == 80, len(slots)
+
+def lake_reach(a):
+    """The farthest open water along angle a from the figure, out to 18 blocks."""
+    best = None
+    r = 5.0
+    while r < 18.0:
+        x, z = FIG[0] + math.cos(a) * r, FIG[2] + math.sin(a) * r
+        if in_lake(x, z):
+            best = r
+        elif best is not None and not on_island(x, z):
+            break
+        r += 0.25
+    return best
+
+def yaw_to(x, z, tx, tz):
+    return math.degrees(math.atan2(-(tx - x), tz - z))
+
+inferi = []
+grabbers = []
+for i, (ring, a, r, x, z) in enumerate(slots):
+    far = lake_reach(a)
+    assert far is not None, ('no lake along', a)
+    rs = min(far - 0.8, max(r + 4.5, 8.0) + rng.uniform(0.0, 6.0))
+    sx, sz = FIG[0] + math.cos(a) * rs, FIG[2] + math.sin(a) * rs
+    assert in_lake(sx, sz), (i, sx, sz)
+    # arrival: the inner rings first, so the grab lands before the rest crowd in
+    t_arr = {0: 82.4, 1: 83.0, 2: 83.6, 3: 84.2, 4: 84.8, 5: 85.4}[ring] + rng.uniform(0.0, 0.6)
+    speed = rng.uniform(1.4, 2.1)
+    dist = rs - r
+    t_walk = t_arr - dist / speed
+    t_rise = min(77.6, max(70.8, t_walk - 1.7))
+    t_walk = t_rise + 1.7
+    if dist / (t_arr - t_walk) > 3.0:
+        t_arr = t_walk + dist / 3.0
+    th = hit_time(x, z)
+    assert t_arr < th - 0.3, (i, t_arr, th)
+    yaw = yaw_to(x, z, FIG[0], FIG[2])
+    # the path: deep, rise, wade in a straight line, climb out at the shore, stand
+    path = [K(0, (sx, DEEP_Y, sz)), K(t_rise, (sx, DEEP_Y, sz)), K(t_rise + 1.5, (sx, WADE_Y, sz), 'out')]
+    steps = max(2, int(dist / 0.5))
+    prev_y = WADE_Y
+    for s in range(1, steps + 1):
+        f = s / steps
+        px, pz = sx + (x - sx) * f, sz + (z - sz) * f
+        gy = ground_y(px, pz)
+        if gy is None:
+            gy = prev_y
+        if gy != prev_y:
+            # the shoreline: the last wading step, then a climb onto the rock
+            tf = max(t_walk + (t_arr - t_walk) * (s - 1) / steps, float(path[-1]['t'][:-1]) + 0.05)
+            path.append(K(tf, (sx + (x - sx) * (s - 1) / steps, prev_y, sz + (z - sz) * (s - 1) / steps), 'linear'))
+            path.append(K(tf + 0.45, (px, gy, pz), 'out'))
+            prev_y = gy
+    gy_end = prev_y
+    path.append(K(max(t_arr, float(path[-1]['t'][:-1]) + 0.3), (x, gy_end, z), 'linear'))
+    # the burn: thrown back a little along the same ground, then down
+    push = 1.6 if ring < 2 else 1.0
+    bx, bz = x + math.cos(a) * push, z + math.sin(a) * push
+    if ground_y(bx, bz) != gy_end:
+        bx, bz = x + math.cos(a) * 0.3, z + math.sin(a) * 0.3
+    path.append(K(th, (x, gy_end, z)))
+    path.append(K(th + 0.5, (bx, gy_end, bz), 'out'))
+    die_t = th + rng.uniform(0.45, 1.0)
+    anims = [{'t': T(t_rise), 'name': 'RISE', 'blend': 0},
+             {'t': T(t_walk), 'name': 'WALK', 'blend': 6}]
+    if ring <= 1:
+        t = t_arr
+        while t < th - 0.3:
+            anims.append({'t': T(t), 'name': 'GRAB', 'blend': 2})
+            t += 0.65
+        grabbers.append(i)
+    else:
+        anims.append({'t': T(t_arr), 'name': 'IDLE_SWAY', 'blend': 8})
+    anims.append({'t': T(th), 'name': 'RECOIL', 'blend': 0})
+    # reaching for him: both arms out ahead, from the moment they walk until the fire
+    reach = {'rot': [{'t': T(t_walk), 'v': [0, 0, 0]}, {'t': T(t_walk + 0.8), 'v': [-75, 0, 0]},
+                     {'t': T(th), 'v': [-75, 0, 0]}, {'t': T(th + 0.3), 'v': [-150, 0, 0], 'ease': 'out'}]}
+    inferi.append({
+        'id': 'inferius_%02d' % i, 'type': 'hogwartsmagic:inferius',
+        'path': path, 'look': [Y(0, round(yaw, 1))],
+        'anims': anims,
+        'limbs': {'right_arm': reach, 'left_arm': reach},
+        'actions': [{'t': T(0), 'do': 'vanish'}, {'t': T(t_rise), 'do': 'appear'},
+                    {'t': T(th), 'do': 'ignite'}, {'t': T(th + 0.05), 'do': 'hurt'}, {'t': T(die_t), 'do': 'die'}],
+    })
+    # the surface breaking as it rises; a groan from some of them
+    part(t_rise + 1.0, 'minecraft:splash', (math.floor(sx), -1, math.floor(sz)), 18, (0.4, 0.1, 0.4))
+    if i % 5 == 0:
+        snd(t_rise + 1.0, 'hogwartsmagic:inferius.rise', at=[math.floor(sx), -1, math.floor(sz)], volume=0.6,
+            pitch=round(rng.uniform(0.75, 1.0), 2))
+    if i % 7 == 3:
+        snd(t_arr - 1.0, 'hogwartsmagic:inferius.ambient', at=[math.floor(x), 0, math.floor(z)], volume=0.5,
+            pitch=round(rng.uniform(0.7, 0.95), 2))
+    # the burning: smoke and embers where it falls, a hiss and a death cry from some
+    part(die_t + 0.9, 'minecraft:large_smoke', (math.floor(bx), 0, math.floor(bz)), 14, (0.4, 0.8, 0.4))
+    if i % 3 == 0:
+        snd(th + 0.1, 'minecraft:block.fire.extinguish', at=[math.floor(x), 0, math.floor(z)], volume=0.5,
+            pitch=round(rng.uniform(0.6, 0.9), 2))
+    if i % 6 == 1:
+        snd(die_t, 'hogwartsmagic:inferius.death', at=[math.floor(bx), 0, math.floor(bz)], volume=0.6,
+            pitch=round(rng.uniform(0.7, 0.9), 2))
+
+for t in (81.6, 82.9, 84.0):
+    snd(t, 'hogwartsmagic:inferius.grab', at=[0, 0, 7], volume=0.9)
+snd(70.4, 'minecraft:ambient.underwater.loop.additions.rare', volume=0.9)
+for t, x, z in ((70.2, -8, 0), (70.9, 9, 3), (71.5, -4, 16), (72.3, 12, 12)):
+    part(t, 'minecraft:bubble', (x, -3, z), 30, (2.5, 1.0, 2.5))
+    part(t + 0.3, 'minecraft:fishing', (x, -1, z), 12, (2.0, 0.0, 2.0))
+
+# the Fiendfyre: the cast, the rings, and the fire's own light rolling outward with the first wave
+ev(FIRE_T, 'effect', 'fiendfyre_rings', at=[CX, -1, CZ], duration=80)
+snd(FIRE_T, 'minecraft:entity.generic.explode', at=[CX, 0, CZ], volume=0.7, pitch=0.6)
+for t in (FIRE_T + 0.4, FIRE_T + 1.6, FIRE_T + 2.8, FIRE_T + 4.0):
+    snd(t, 'minecraft:block.fire.ambient', at=[CX, 1, CZ], volume=2.0, pitch=0.6)
+part(FIRE_T + 5.5, 'minecraft:large_smoke', (CX, 3, CZ), 120, (8.0, 2.0, 8.0))
+part(FIRE_T + 7.5, 'minecraft:campfire_cosy_smoke', (CX, 1, CZ), 40, (6.0, 0.5, 6.0))
+fire_lights = []
+def fire_light(t, at):
+    assert world.get(tuple(at)) is None, ('fire light not in air', at, world.get(tuple(at)))
+    block(t, 'minecraft:light', at)
+    fire_lights.append((t, tuple(at)))
+centre_light = (0, 2, 6)
+fire_light(FIRE_T, centre_light)
+block(FIRE_T + 7.0, 'minecraft:air', centre_light)
+prev_ring = []
+for r in (3, 6, 9, 12, 15):
+    t = FIRE_T + (r - WAVE_R0) / WAVE_SPEED
+    ring = []
+    for k in range(8):
+        a = k * math.tau / 8 + 0.2
+        p = (math.floor(CX + math.cos(a) * r), 1, math.floor(CZ + math.sin(a) * r))
+        if world.get(p) is None and world.get((p[0], 2, p[2])) is None:
+            fire_light(t, p)
+            ring.append(p)
+    for p in prev_ring:
+        block(t + 0.4, 'minecraft:air', p)
+    prev_ring = ring
+for p in prev_ring:
+    block(FIRE_T + 4.6, 'minecraft:air', p)
+
+# the fire serpents: four of them spiral out of the wand and circle the island, then plunge into the lake
+WAND = (0.5, 1.9, 6.4)
+serpents = []
+for j in range(4):
+    keys = [K(0, WAND)]
+    phase = j * math.pi / 2
+    sign = 1 if j % 2 == 0 else -1
+    tau = 0.0
+    END = 9.0
+    while tau <= END + 1e-6:
+        grow = min(1.0, tau / 2.4)
+        grow = grow * grow * (3 - 2 * grow)
+        r = 0.6 + 10.5 * grow + 2.2 * math.sin(tau * 1.1 + j) * grow
+        th_ = phase + sign * (1.15 * tau + 0.6 * tau * tau / END)
+        y = 1.9 + (1.4 + 1.2 * math.sin(tau * 1.7 + j * 1.3)) * grow
+        if tau > END - 0.9:
+            # the plunge: rear up, then down into the black water
+            f = (tau - (END - 0.9)) / 0.9
+            y = y + 1.5 * math.sin(f * math.pi) - 6.0 * f * f
+        px, pz = CX + 0.5 + math.cos(th_) * r, CZ + math.sin(th_) * r
+        keys.append(K(FIRE_T + tau, (px, y, pz), 'linear'))
+        tau += 0.2
+    last = keys[-1]['pos']
+    part(FIRE_T + END - 0.35, 'minecraft:splash', (math.floor(last[0]), -1, math.floor(last[2])), 60, (0.8, 0.2, 0.8))
+    part(FIRE_T + END - 0.3, 'minecraft:large_smoke', (math.floor(last[0]), -1, math.floor(last[2])), 30, (0.6, 0.6, 0.6))
+    snd(FIRE_T + END - 0.35, 'minecraft:block.lava.extinguish', at=[math.floor(last[0]), -1, math.floor(last[2])], volume=1.2, pitch=0.6)
+    serpents.append({
+        'id': 'serpent_%d' % j, 'type': 'hogwartsmagic:fiendfyre_serpent',
+        'path': keys,
+        'actions': [{'t': T(0), 'do': 'vanish'}, {'t': T(FIRE_T + 0.1 + 0.15 * j), 'do': 'appear'},
+                    {'t': T(FIRE_T + END), 'do': 'vanish'}],
+    })
 
 # ---------------------------------------------------------------- words (the Pensieve's voice)
 say(1.0, 'A cliff above a black, restless sea.')
@@ -405,7 +647,9 @@ say(42.4, 'Revelio again. The chain was always there.')
 say(48.8, 'Pull it, and the boat rises to meet you.')
 say(55.4, 'Stay in the boat. The lake does not welcome swimmers.', 4.5)
 say(63.2, 'At its heart, the Basin of Despair.')
-say(70.0, 'Remember the way. A map will show you where.', 5)
+say(70.4, 'But the lake keeps its own dead.')
+say(96.6, 'The dead fear fire and light. Little else.', 4.5)
+say(104.4, 'Remember the way. A map will show you where.', 5)
 
 # ---------------------------------------------------------------- camera
 F = 'actor:figure'
@@ -457,12 +701,45 @@ shot(62.2, (-2.4, 1.5, 11.2), F, 58)
 shot(66.4, (-2.2, 1.6, 10.8), F, 56, cut=False)
 # S16 profile: the figure over the basin
 shot(66.4, (3.8, 1.5, 7.6), (0.5, 1.2, 7.4), 55)
-shot(71.0, (3.4, 1.4, 7.4), (0.5, 1.1, 7.6), 52, cut=False)
-# S17 the slow push-in over his shoulder into the basin; the fade comes at the end
-shot(71.0, (2.2, 2.8, 4.0), (0.5, 0.9, 8.5), 56)
-shot(78.0, (1.3, 2.3, 5.5), (0.5, 0.9, 8.5), 40, cut=False, ease='in_out')
+shot(70.0, (3.5, 1.4, 7.4), (0.5, 1.1, 7.6), 53, cut=False)
+# S17 low over the black water: the first heads break the surface between us and the island
+shot(70.0, (9.0, -0.4, -3.0), (0.5, 0.6, 6.5), 72)
+shot(73.4, (7.6, -0.3, -1.4), (0.5, 0.8, 6.5), 66, cut=False)
+# S18 high from the dome: they rise in rings all round the island
+shot(73.4, (-4.0, 8.5, 1.0), (0.5, 0.5, 7.0), 80)
+shot(76.6, (3.0, 8.8, 1.5), (0.5, 0.5, 7.0), 76, cut=False)
+# S19 close on the figure, turning to face them
+shot(76.6, (1.6, 1.8, 4.6), F, 46, roll=4)
+shot(79.6, (1.9, 1.7, 4.9), F, 44, cut=False, roll=5)
+# S20 low behind the wading horde, tracking in
+shot(79.6, (-8.0, -0.2, -1.0), (0.5, 1.0, 7.0), 64)
+shot(82.4, (-6.2, 0.0, 1.2), (0.5, 1.0, 7.0), 60, cut=False)
+# S21 high and tilted: the figure under the hands
+shot(82.4, (3.8, 6.4, 3.4), F, 58, roll=8)
+shot(85.0, (3.2, 5.8, 4.0), F, 54, cut=False, roll=10)
+# S22 over the shoulder from above the basin: the wand goes up over the horde
+shot(85.0, (0.7, 3.2, 8.7), (0.5, 2.2, 2.5), 55, roll=-3)
+shot(86.3, (0.7, 3.4, 8.5), (0.5, 3.0, 2.5), 50, cut=False, roll=-2)
+# S23 the cast, low from the water: the first ring of fire rolls through them and over us
+shot(86.3, (-8.0, 0.2, 1.5), (0.5, 1.4, 7.0), 74)
+shot(88.4, (-7.6, 0.3, 1.9), (0.5, 1.4, 7.0), 78, cut=False)
+# S24 the crane from the dome: rings of fire rolling out in circles, the serpents spiralling round
+shot(88.4, (-3.5, 9.5, 2.5), (0.5, 0.5, 7.0), 84)
+shot(92.6, (3.5, 9.5, 2.5), (0.5, 0.5, 7.0), 80, cut=False)
+# S25 a low orbit round the figure while the serpents circle, until they plunge into the lake
+shot(92.6, (4.6, 1.8, 3.6), F, 62)
+shot(96.0, (-4.2, 2.2, 3.9), F, 58, cut=False)
+# S26 wide and still: smoke over an empty lake
+shot(96.0, (-9.0, 4.5, -4.0), (0.5, 0.5, 7.0), 70)
+shot(99.6, (-8.6, 4.4, -3.4), (0.5, 0.5, 7.0), 66, cut=False)
+# S27 profile: back to the basin
+shot(99.6, (3.8, 1.5, 7.9), (0.5, 1.2, 7.8), 55)
+shot(104.0, (3.4, 1.4, 7.8), (0.5, 1.1, 8.0), 52, cut=False)
+# S28 the slow push-in over his shoulder into the basin; the fade comes at the end
+shot(104.0, (2.2, 2.8, 4.4), (0.5, 0.9, 8.5), 56)
+shot(111.0, (1.3, 2.3, 5.8), (0.5, 0.9, 8.5), 40, cut=False, ease='in_out')
 
-LENGTH = 78.0
+LENGTH = 111.0
 scene = {
     'title': 'The Memory of the Cave',
     'length': T(LENGTH),
@@ -474,7 +751,7 @@ scene = {
         'build_ticks': 60,
     },
     'poses': poses,
-    'actors': [figure, boat],
+    'actors': [figure, boat] + inferi + serpents,
     'events': sorted(events, key=lambda e: float(e['t'][:-1])),
     'words': words,
     'camera': cam,
@@ -588,7 +865,7 @@ problems += physics_problems(world, R)
 print('support cells', len(support))
 print('\n'.join(problems) if problems else 'NO PROBLEMS')
 
-txt = write_scene(scene, 'locket_cave')
+txt = write_scene(scene, 'locket_cave', width=400)   # 80 Inferi: wide lines keep it under the size cap
 print('chars', len(txt))
 
 # watertight: no water cell may sit beside (or above) a cell that is empty in the memory level

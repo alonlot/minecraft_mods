@@ -135,7 +135,7 @@ class SceneDataTest {
         for (String adapter : SceneNames.SPELL_ADAPTERS) {
             assertTrue(src.contains("\"" + adapter + "\""), "SpellVisuals has no adapter for " + adapter);
         }
-        assertFalse(SceneNames.SPELL_VISUALS.contains("fiendfyre"));
+        assertFalse(SceneNames.SPELL_VISUALS.contains("serpensortia"));
     }
 
     @Test

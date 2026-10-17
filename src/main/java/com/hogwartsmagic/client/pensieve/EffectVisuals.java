@@ -9,6 +9,7 @@ import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.ParticleEngine;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LightningBolt;
@@ -53,6 +54,16 @@ public final class EffectVisuals {
     static final double PATRONUS_WASH_RANGE = 40.0;
     /** Ticks a ring point lives (plus 0-2): long enough to read as a band, short enough not to fill the disc. */
     static final int RING_POINT_LIFE = 4;
+    /** Fiendfyre rings with no {@code duration} in the scene are born for this long (4 s)... */
+    static final int DEFAULT_FIENDFYRE_TICKS = 80;
+    /** ...one wave every this many ticks, from age 0, while the age is under the duration... */
+    static final int FIRE_WAVE_EVERY = 16;
+    /** ...each starting this far out, rolling outward this many blocks a tick, and gone at the max radius. */
+    static final double FIRE_RING_START = 1.5;
+    static final double FIRE_RING_SPEED = 0.25;
+    static final double FIRE_RING_MAX = 22.0;
+    /** Ticks one wave lives: from {@link #FIRE_RING_START} to {@link #FIRE_RING_MAX}. */
+    static final int FIRE_WAVE_TICKS = (int) Math.ceil((FIRE_RING_MAX - FIRE_RING_START) / FIRE_RING_SPEED);
     private static final int MARK_RISE_TICKS = 50;
     private static final double MARK_RISE_BLOCKS = 18.0;
     /** The smallest visual scale a DarkMarkEntity accepts. */
@@ -93,6 +104,15 @@ public final class EffectVisuals {
                     MemorySounds.play(ModSounds.SPELL_EXPECTO_PATRONUM.get(), at, 1.2f, 1.0f);
                 }
                 RUNNING.add(new PatronusLight(at, elapsed, total));
+            }
+        } else if ("fiendfyre_rings".equals(effect)) {
+            int births = duration > 0 ? duration : DEFAULT_FIENDFYRE_TICKS;
+            if (elapsed < births + FIRE_WAVE_TICKS) {
+                if (elapsed == 0) {
+                    MemorySounds.play(ModSounds.SPELL_FIENDFYRE.get(), at, 1.6f, 0.8f);
+                    MemorySounds.play(SoundEvents.GHAST_SHOOT, at, 1.2f, 0.5f);
+                }
+                RUNNING.add(new FiendfyreRings(at, elapsed, births));
             }
         } else {
             LOGGER.warn("Pensieve: unknown effect '{}' in a memory", effect);
@@ -310,6 +330,88 @@ public final class EffectVisuals {
                         centre.x, centre.y + 0.6, centre.z, dx * speed, dy * speed, dz * speed);
             }
             return ++age < total;
+        }
+    }
+
+    /**
+     * {@code fiendfyre_rings}: Fiendfyre filling the place in circles. While the age is under {@code births} a new
+     * wave is born every {@link #FIRE_WAVE_EVERY} ticks; each is a writhing wall of flame on the ground plane that
+     * rolls outward from {@link #FIRE_RING_START} at {@link #FIRE_RING_SPEED} blocks a tick and burns out at
+     * {@link #FIRE_RING_MAX}, thinning over its last third. A tight ring of fire wraps the centre while waves are
+     * being born. A wave of radius r reaches distance d at {@code birth + (d - START) / SPEED} ticks: a scene times
+     * its burning actors by that. Everything follows the age, so a late joiner sees the waves where they are.
+     */
+    private static final class FiendfyreRings implements Running {
+        private final Vec3 centre;
+        private final int births;
+        private int age;
+
+        FiendfyreRings(Vec3 centre, int elapsed, int births) {
+            this.centre = centre;
+            this.age = elapsed;
+            this.births = births;
+        }
+
+        @Override
+        public boolean tick(ClientLevel level) {
+            ParticleEngine engine = Minecraft.getInstance().particleEngine;
+            if (age == 0) {
+                level.addParticle(ParticleTypes.FLASH, centre.x, centre.y + 1.0, centre.z, 0, 0, 0);
+            }
+            if (age < births) {
+                if (age % FIRE_WAVE_EVERY == 0 && age > 0) {
+                    MemorySounds.play(SoundEvents.BLAZE_SHOOT, centre, 1.4f, 0.5f + level.random.nextFloat() * 0.2f);
+                }
+                // The fire wrapped round the caster.
+                for (int i = 0; i < 14; i++) {
+                    double a = level.random.nextDouble() * Math.PI * 2;
+                    double r = 1.0 + level.random.nextDouble() * 0.5;
+                    level.addParticle(ParticleTypes.FLAME, centre.x + Math.cos(a) * r, centre.y + 1.0 + level.random.nextDouble() * 2.0,
+                            centre.z + Math.sin(a) * r, -Math.sin(a) * 0.08, 0.05, Math.cos(a) * 0.08);
+                }
+            }
+            boolean any = false;
+            int last = Math.min(age, births - 1);
+            for (int birth = 0; birth <= last; birth += FIRE_WAVE_EVERY) {
+                int life = age - birth;
+                if (life >= FIRE_WAVE_TICKS) continue;
+                any = true;
+                wave(level, engine, life, birth / FIRE_WAVE_EVERY);
+            }
+            age++;
+            return any || age < births;
+        }
+
+        /** One wave, {@code life} ticks old; {@code n} is its number, so the waves writhe out of step. */
+        private void wave(ClientLevel level, ParticleEngine engine, int life, int n) {
+            double r = FIRE_RING_START + FIRE_RING_SPEED * life;
+            double k = life / (double) FIRE_WAVE_TICKS;
+            double strength = k < 0.66 ? 1.0 : Math.max(0.0, 1.0 - (k - 0.66) / 0.34);
+            double height = (n == 0 ? 3.2 : 2.4) * (0.6 + 0.4 * strength);
+            int points = (int) Math.ceil(Math.min(170, 12 + r * 2 * Math.PI * 0.85) * strength);
+            for (int i = 0; i < points; i++) {
+                double a = level.random.nextDouble() * Math.PI * 2;
+                // The flames lick in and out: tongues of fire running round the ring.
+                double rr = r + Math.sin(a * 7 + age * 0.35 + n * 1.9) * 0.45 + (level.random.nextDouble() - 0.5) * 0.5;
+                double x = centre.x + Math.cos(a) * rr;
+                double z = centre.z + Math.sin(a) * rr;
+                double y = centre.y + level.random.nextDouble() * height * (0.4 + 0.6 * level.random.nextDouble());
+                Particle p = engine.createParticle(i % 9 == 0 ? ParticleTypes.SOUL_FIRE_FLAME : ParticleTypes.FLAME, x, y, z,
+                        Math.cos(a) * 0.06, 0.04 + level.random.nextDouble() * 0.06, Math.sin(a) * 0.06);
+                if (p != null) p.setLifetime(6 + level.random.nextInt(5));
+            }
+            int smoke = (int) Math.ceil(points / 14.0);
+            for (int i = 0; i < smoke; i++) {
+                double a = level.random.nextDouble() * Math.PI * 2;
+                double rr = r - 0.6;
+                level.addParticle(ParticleTypes.LARGE_SMOKE, centre.x + Math.cos(a) * rr, centre.y + height,
+                        centre.z + Math.sin(a) * rr, 0, 0.08, 0);
+            }
+            int sparks = (int) Math.ceil(points / 18.0);
+            for (int i = 0; i < sparks; i++) {
+                double a = level.random.nextDouble() * Math.PI * 2;
+                level.addParticle(ParticleTypes.LAVA, centre.x + Math.cos(a) * r, centre.y + 0.4, centre.z + Math.sin(a) * r, 0, 0, 0);
+            }
         }
     }
 

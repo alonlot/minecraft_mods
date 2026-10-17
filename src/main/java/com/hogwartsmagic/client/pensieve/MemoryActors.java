@@ -22,6 +22,7 @@ import net.minecraft.client.resources.PlayerSkin;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -67,6 +68,8 @@ public final class MemoryActors {
     private static final float USE_TICKS = 32;
     private static final int DEATH_TICKS = 20;
     private static final int HURT_TICKS = 10;
+    /** An ignited puppet burns this long; nothing ticks it down, so in practice until it dies or appears again. */
+    private static final int IGNITE_FIRE_TICKS = 1_000_000;
     private static final DustParticleOptions DARK_SMOKE = new DustParticleOptions(new Vector3f(0.04f, 0.04f, 0.06f), 1.6f);
     private static final DustParticleOptions SILVER_SMOKE = new DustParticleOptions(new Vector3f(0.78f, 0.8f, 0.88f), 1.3f);
 
@@ -429,11 +432,16 @@ public final class MemoryActors {
         } else if ("appear".equals(act)) {
             a.visible = true;
             a.dying = false;
+            e.setRemainingFireTicks(0);
             if (l != null) {
                 l.deathTime = 0;
                 l.hurtTime = 0;
             }
             if (!silent) smokeBurst(a);
+        } else if ("ignite".equals(act)) {
+            // The vanilla fire overlay: a puppet is never ticked, so the fire ticks never run down.
+            e.setRemainingFireTicks(IGNITE_FIRE_TICKS);
+            if (!silent) flameBurst(a);
         } else if ("stone".equals(act)) {
             a.stone = true;
         } else if ("unstone".equals(act)) {
@@ -482,6 +490,26 @@ public final class MemoryActors {
             return new Vec3(origin.getX() + t.point()[0], origin.getY() + t.point()[1], origin.getZ() + t.point()[2]);
         }
         return eye.add(Vec3.directionFromRotation(caster.entity.getXRot(), caster.entity.getYRot()).scale(10));
+    }
+
+    /** The moment an actor catches fire: a gout of flame and embers up its body, and the whoosh. */
+    private static void flameBurst(ActorRuntime a) {
+        if (level == null) return;
+        Entity e = a.entity;
+        double h = Math.max(1.0, e.getBbHeight());
+        double w = Math.max(0.4, e.getBbWidth());
+        for (int i = 0; i < 28; i++) {
+            double ox = (level.random.nextDouble() - 0.5) * w * 1.4;
+            double oy = level.random.nextDouble() * h;
+            double oz = (level.random.nextDouble() - 0.5) * w * 1.4;
+            level.addParticle(i % 4 == 0 ? ParticleTypes.LAVA : ParticleTypes.FLAME, e.getX() + ox, e.getY() + oy,
+                    e.getZ() + oz, ox * 0.06, 0.04 + level.random.nextDouble() * 0.08, oz * 0.06);
+        }
+        for (int i = 0; i < 6; i++) {
+            level.addParticle(ParticleTypes.LARGE_SMOKE, e.getRandomX(0.6), e.getY() + h * (0.6 + level.random.nextDouble() * 0.5),
+                    e.getRandomZ(0.6), 0, 0.06, 0);
+        }
+        MemorySounds.play(SoundEvents.FIRECHARGE_USE, e.position(), 0.7f, 0.8f + level.random.nextFloat() * 0.3f);
     }
 
     private static void smokeBurst(ActorRuntime a) {

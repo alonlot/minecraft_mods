@@ -15,14 +15,14 @@ public record SceneNames(Set<String> entityTypes, Set<String> spells, Set<String
                          Set<String> skins) {
     /** Actor actions a scene may use. */
     public static final Set<String> ACTIONS = Set.of("swing", "sneak", "stand", "hurt", "die", "vanish", "appear",
-            "stone", "unstone", "cast", "use_item", "hold");
+            "stone", "unstone", "cast", "use_item", "hold", "ignite");
     /** Largest {@code volume} a {@code music} or {@code voice} cue may ask for. */
     public static final float MAX_CUE_VOLUME = 4f;
     /** Event kinds. */
     public static final Set<String> EVENT_KINDS = Set.of("block", "sound", "particles", "effect", "music", "voice");
     /** Scripted effects an {@code effect} event may name. */
     public static final Set<String> EFFECTS = Set.of("summoning_ritual", "lightning", "dark_mark", "grey_edges",
-            "patronus_light");
+            "patronus_light", "fiendfyre_rings");
     /**
      * Bundled schematics a set's {@code schematics} may place, by bare id. Each one is loaded by its own class
      * ({@code mini_hogwarts}: {@code worldgen/MiniHogwartsSchematic}, 96 x 109 x 145).
@@ -49,7 +49,7 @@ public record SceneNames(Set<String> entityTypes, Set<String> spells, Set<String
             "petrificus_totalus", "obliviate", "confundo");
     /** Spells that are not a beam and have a hand-written drawing in SpellVisuals. */
     public static final Set<String> SPELL_ADAPTERS = Set.of("revelio", "lumos", "protego", "morsmordre",
-            "expecto_patronum", "patronus_wisp");
+            "expecto_patronum", "patronus_wisp", "fiendfyre");
     /** Adapter spell ids that are memory-only visuals, not a {@code SpellType} (the wisp: a failing Patronus). */
     public static final Set<String> MEMORY_ONLY_SPELLS = Set.of("patronus_wisp");
     public static final Set<String> SPELL_VISUALS = unionOf(SPELL_BEAMS, SPELL_ADAPTERS);

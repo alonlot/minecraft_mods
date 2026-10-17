@@ -162,6 +162,11 @@ public class ClientForgeEvents {
             com.hogwartsmagic.client.pensieve.PensieveVoid.fogColor(event);
             return;
         }
+        baseFogColor(event);
+        com.hogwartsmagic.client.DarkMarkSkyTint.apply(event);
+    }
+
+    private static void baseFogColor(ViewportEvent.ComputeFogColor event) {
         float depth = undercroftDepth();
         if (depth >= 0.0F) {
             event.setRed(com.hogwartsmagic.client.UndercroftFogClientState.red(depth));

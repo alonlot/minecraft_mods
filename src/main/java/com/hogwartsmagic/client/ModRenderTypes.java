@@ -2,7 +2,9 @@ package com.hogwartsmagic.client;
 
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.VertexFormat;
+import net.minecraft.client.renderer.RenderStateShard;
 import net.minecraft.client.renderer.RenderType;
+import net.minecraft.resources.ResourceLocation;
 
 /**
  * Custom render types. Subclassing {@link RenderType} is the only way to reach its
@@ -34,4 +36,32 @@ public final class ModRenderTypes extends RenderType {
                     .setCullState(NO_CULL)
                     .createCompositeState(false)
     );
+
+    /**
+     * Unlit, linearly filtered smoke for the Dark Mark: straight-alpha blending, no depth write so
+     * the stacked layers of the volume all show, no culling so it reads from behind too. Sorted on
+     * upload so the layers composite back to front.
+     */
+    public static RenderType markSmoke(ResourceLocation texture) {
+        return create("hogwartsmagic_mark_smoke", DefaultVertexFormat.BLOCK, VertexFormat.Mode.QUADS, 4096, false, true,
+                RenderType.CompositeState.builder()
+                        .setShaderState(RENDERTYPE_BEACON_BEAM_SHADER)
+                        .setTextureState(new RenderStateShard.TextureStateShard(texture, true, false))
+                        .setTransparencyState(TRANSLUCENT_TRANSPARENCY)
+                        .setWriteMaskState(COLOR_WRITE)
+                        .setCullState(NO_CULL)
+                        .createCompositeState(false));
+    }
+
+    /** As {@link #markSmoke} but additive (ONE, ONE): the texture and vertex colour must be premultiplied. */
+    public static RenderType markGlow(ResourceLocation texture) {
+        return create("hogwartsmagic_mark_glow", DefaultVertexFormat.BLOCK, VertexFormat.Mode.QUADS, 2048, false, false,
+                RenderType.CompositeState.builder()
+                        .setShaderState(RENDERTYPE_BEACON_BEAM_SHADER)
+                        .setTextureState(new RenderStateShard.TextureStateShard(texture, true, false))
+                        .setTransparencyState(ADDITIVE_TRANSPARENCY)
+                        .setWriteMaskState(COLOR_WRITE)
+                        .setCullState(NO_CULL)
+                        .createCompositeState(false));
+    }
 }

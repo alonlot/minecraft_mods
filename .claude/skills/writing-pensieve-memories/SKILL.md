@@ -107,7 +107,7 @@ Keyframes between keys are interpolated per component; yaw is NOT unwrapped, so 
 | `protego` | a shimmering shield dome around the caster (2 s) |
 | `morsmordre` | the Dark Mark rising above the target (6 s) |
 | `expecto_patronum` | the full Patronus cast: a silver-white (#DDEEFF), full-bright stream pours from the wand tip toward `target` (10 blocks ahead if none) for 2 s (40 ticks): a widening cone of end-rod mist round a bright core, a flash and glow at the tip. The stream front rushes out over 6 ticks and thins over the last 8; it reaches at most 40 blocks. Plays the real Expecto Patronum sound at the caster. The stag is a separate actor (`hogwartsmagic:patronus`, form 0) |
-| `patronus_wisp` | a failing Patronus (memory-only: not a real spell id): thin silver mist sputters from the wand tip 1-3 blocks ahead for 3 s (60 ticks), flickering, dropping out for stretches and fading to nothing. Same sound at volume 0.5, pitch 0.85 |
+| `patronus_wisp` | a weak, half-managed Patronus (memory-only: not a real spell id), no stag: a puff of silver mist bursts from the wand tip and spreads over 6 ticks into a hazy disc of glowing mist about 3 blocks across, facing the target and 4-6 blocks ahead (the aim distance, held to 4-6; 5 ahead if no target); it holds, flickering, for 2 s (40 ticks), then breaks up, drifting outward and down, and fades over 1 s (20 ticks): 66 ticks in all. Far smaller than `expecto_patronum`. Same sound at volume 0.5, pitch 0.85. It moves nothing by itself: path the Dementors back yourself (`lake_patronus.py` drives the 4 nearest back ~0.3 s after the cast with `RECOIL`) |
 
 A beam travels 1.55 blocks/tick, so the hit lands about distance/1.55 ticks after the cast (20 blocks = 13 ticks): time the `hurt` accordingly.
 

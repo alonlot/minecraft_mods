@@ -37,8 +37,18 @@ public final class SpellVisuals {
     private static final int MORSMORDRE_TICKS = 120;
     /** The full Patronus cast pours for 2 s. */
     static final int PATRONUS_TICKS = 40;
-    /** A failing Patronus sputters for 3 s. */
-    static final int WISP_TICKS = 60;
+    /** The weak Patronus: the mist bursts out and spreads into a shield over 6 ticks... */
+    static final int WISP_BLOOM_TICKS = 6;
+    /** ...holds, flickering, for 2 s... */
+    static final int WISP_HOLD_TICKS = 40;
+    /** ...then breaks up and fades over 1 s. */
+    static final int WISP_FADE_TICKS = 20;
+    static final int WISP_TICKS = WISP_BLOOM_TICKS + WISP_HOLD_TICKS + WISP_FADE_TICKS;
+    /** The weak shield hangs this far ahead of the wand: the aim distance, held to 4-6 blocks. */
+    private static final double WISP_MIN_REACH = 4.0;
+    private static final double WISP_MAX_REACH = 6.0;
+    /** The shield's radius: a hazy disc about three blocks across. */
+    private static final double WISP_SHIELD_RADIUS = 1.6;
     /** With no target the Patronus stream aims this far ahead. */
     private static final double PATRONUS_DEFAULT_REACH = 10.0;
     /** The stream never reaches farther than this, however distant the target. */
@@ -86,7 +96,7 @@ public final class SpellVisuals {
             ACTIVE.add(new PatronusStream(from, aim(from, to, PATRONUS_DEFAULT_REACH), PATRONUS_MAX_REACH, false));
         } else if ("patronus_wisp".equals(spellId)) {
             MemorySounds.play(ModSounds.SPELL_EXPECTO_PATRONUM.get(), from, 0.5f, 0.85f);
-            ACTIVE.add(new PatronusStream(from, aim(from, to, 2.0), 3.0, true));
+            ACTIVE.add(new PatronusStream(from, aim(from, to, 5.0), WISP_MAX_REACH, true));
         }
     }
 
@@ -243,8 +253,11 @@ public final class SpellVisuals {
     /**
      * Expecto Patronum. The full cast ({@code wisp} false) pours a widening cone of silver-white mist and a tight
      * bright core from the wand tip toward the target for {@link #PATRONUS_TICKS}, with a flare at the tip. The
-     * wisp ({@code wisp} true) is the failing spell: a few thin threads, 1-3 blocks long, that flicker, drop to
-     * nothing for stretches and fade over {@link #WISP_TICKS}. All emissive (end rod and glow particles).
+     * wisp ({@code wisp} true) is the real-but-weak cast: a silver mist bursts from the wand and spreads into a
+     * hazy disc of glowing mist 4-6 blocks ahead, facing the target, over {@link #WISP_BLOOM_TICKS}; it holds,
+     * flickering, for {@link #WISP_HOLD_TICKS}, then breaks up and fades over {@link #WISP_FADE_TICKS}. No stag,
+     * and far smaller than the full cast. Its phases follow the tick count alone. All emissive (end rod, glow and
+     * silver dust particles).
      */
     private static final class PatronusStream implements Active {
         private final Vec3 tip;
@@ -309,15 +322,72 @@ public final class SpellVisuals {
         }
 
         private void tickWisp(ClientLevel level) {
-            double fade = 1.0 - age / (double) total;
-            // Jitters, and drops out entirely for stretches.
-            double flicker = 0.5 + 0.5 * Math.sin(age * 1.9) * Math.sin(age * 0.47 + 1.3);
-            if (flicker < 0.25 || level.random.nextDouble() > fade * 0.9 + 0.1) return;
-            double strength = fade * flicker;
-            int n = 1 + (int) Math.round(4 * strength);
+            double dist = Math.max(WISP_MIN_REACH, reach);
+            double radius = WISP_SHIELD_RADIUS;
+            if (age == 0) {
+                // The burst at the wand tip: a puff of motes thrown mostly forward.
+                for (int i = 0; i < 12; i++) {
+                    Vec3 d = randomUnit(level).add(dir.scale(1.2)).normalize();
+                    level.addParticle(ParticleTypes.END_ROD, tip.x, tip.y, tip.z, d.x * 0.12, d.y * 0.12, d.z * 0.12);
+                }
+                level.addParticle(ParticleTypes.GLOW, tip.x, tip.y, tip.z, 0, 0, 0);
+            }
+            if (age < WISP_BLOOM_TICKS) {
+                // The mist rushes out and opens into the disc.
+                double f = (age + 1) / (double) WISP_BLOOM_TICKS;
+                double front = dist * f;
+                for (int i = 0; i < 8; i++) {
+                    double s = level.random.nextDouble() * front;
+                    put(level, i % 3 == 0 ? ParticleTypes.END_ROD : SILVER_MIST, s, 0.05 + (s / dist) * radius * f, 0.05);
+                }
+                disc(level, dist, radius * f, 6, 0.0);
+                return;
+            }
+            int hold = age - WISP_BLOOM_TICKS;
+            if (hold < WISP_HOLD_TICKS) {
+                // Holds, flickering: the density wavers and the edge breathes, but it never drops out.
+                double flicker = 0.7 + 0.3 * Math.sin(age * 1.7) * Math.sin(age * 0.53 + 0.9);
+                int n = (int) Math.round(10 * flicker);
+                disc(level, dist, radius * (0.92 + 0.08 * flicker), n, 0.0);
+                // A thin thread still feeding it from the wand.
+                for (int i = 0; i < 2; i++) {
+                    put(level, SILVER_MIST, level.random.nextDouble() * dist, 0.04, 0.03);
+                }
+                if (age % 2 == 0) {
+                    level.addParticle(ParticleTypes.GLOW, tip.x, tip.y, tip.z, 0, 0, 0);
+                }
+                return;
+            }
+            // Breaks up: fewer motes, scattered wider, drifting outward and down, with gaps.
+            double f = 1.0 - (hold - WISP_HOLD_TICKS) / (double) WISP_FADE_TICKS;
+            if (Math.sin(age * 2.3) < -0.6) return;
+            int n = (int) Math.ceil(7 * f);
+            disc(level, dist, radius * (1.0 + 0.6 * (1.0 - f)), n, 0.03 * (1.0 - f));
+        }
+
+        /**
+         * {@code n} motes in the shield disc {@code dist} ahead (a thin slab facing the target), mostly silver mist
+         * with end rods at the rim; {@code scatter} is an outward and downward drift for the break-up.
+         */
+        private void disc(ClientLevel level, double dist, double radius, int n, double scatter) {
+            Vec3 c = tip.add(dir.scale(dist));
             for (int i = 0; i < n; i++) {
-                double s = level.random.nextDouble() * Math.min(reach, 0.6 + 2.4 * strength);
-                put(level, level.random.nextInt(3) == 0 ? ParticleTypes.END_ROD : SILVER_MIST, s, 0.03 + s * 0.05, 0.02);
+                double a = level.random.nextDouble() * Math.PI * 2;
+                double rr = Math.sqrt(level.random.nextDouble());
+                double r = radius * rr;
+                double ca = Math.cos(a);
+                double sa = Math.sin(a);
+                double depth = (level.random.nextDouble() - 0.5) * 0.3;
+                double x = c.x + dir.x * depth + (u.x * ca + v.x * sa) * r;
+                double y = c.y + dir.y * depth + (u.y * ca + v.y * sa) * r;
+                double z = c.z + dir.z * depth + (u.z * ca + v.z * sa) * r;
+                double ox = (u.x * ca + v.x * sa) * scatter;
+                double oy = (u.y * ca + v.y * sa) * scatter - scatter * 0.5;
+                double oz = (u.z * ca + v.z * sa) * scatter;
+                // End rods (long-lived) only at the rim and only while it holds, so the break-up really fades.
+                boolean rod = scatter == 0.0 && (rr > 0.9 || level.random.nextInt(8) == 0);
+                ParticleOptions type = rod ? ParticleTypes.END_ROD : SILVER_MIST;
+                level.addParticle(type, x, y, z, ox + dir.x * 0.005, oy + dir.y * 0.005, oz + dir.z * 0.005);
             }
         }
 

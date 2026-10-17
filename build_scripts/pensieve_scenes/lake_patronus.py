@@ -117,6 +117,13 @@ CAST_TARGET = (0.5, 1.5, 26.0)
 # beats
 T_FROST0 = 20.4
 T_WISP = 26.5
+# past Harry's weak Patronus: the shield blooms, a second burst a beat later, it fails, they close in again
+T_PUSH = round(T_WISP + 0.3, 2)          # the shield opens (patronus_wisp: 6-tick bloom)
+T_PUSHED = round(T_PUSH + 1.0, 2)        # the nearest Dementors have been driven back
+T_BURST2 = round(T_WISP + 1.3, 2)        # he half-manages it again
+T_HANG_END = round(T_WISP + 2.7, 2)      # the shield breaks up (hold ends at +2.3 s, gone by +3.3 s)
+T_REJOIN = round(T_WISP + 4.3, 2)        # back on their circling paths
+N_PUSHED = 4
 T_KISS = 33.8
 T_STAND = 42.4
 T_CAST = 46.9
@@ -429,6 +436,59 @@ def ring_track(dp, t_end):
         t = round(t + step, 2)
     return out
 
+def track_at(trk, t):
+    """Linear sample of a [(t, (x,y,z))] track (the paths are linear between ring keys)."""
+    if t <= trk[0][0]:
+        return trk[0][1]
+    for (t0, a), (t1, b) in zip(trk, trk[1:]):
+        if t0 <= t <= t1:
+            f = 0 if t1 == t0 else (t - t0) / (t1 - t0)
+            return tuple(a[c] + (b[c] - a[c]) * f for c in range(3))
+    return trk[-1][1]
+
+# the Dementors nearest past Harry and Sirius when the weak shield opens (the two kissers excepted)
+MID = ((PH[0] + SI[0]) / 2, 1.0, (PH[2] + SI[2]) / 2)
+near = sorted(range(2, N_DEM), key=lambda i: math.dist(track_at(ring_track(dem_par[i], T_REJOIN + 1), T_PUSH), MID))
+PUSHED = set(near[:N_PUSHED])
+
+PUSH_INFO = []
+def push_track(trk, dp):
+    """Replace T_PUSH..T_REJOIN of a ring track: driven back 4-8 blocks from Harry and up 1-2, held, then home.
+
+    While the shield holds their circling slows to 0.3x (they hang there), so they rejoin the very same ring track
+    a little behind where they were (LAG seconds), and keep that lag to the end.
+    """
+    back = 4.5 + 3.0 * dp['g']
+    rise = 1.3 + 0.6 * dp['f']
+    PUSH_INFO.append((back, rise))
+    slow = 0.3
+    lag = (1 - slow) * (T_HANG_END - T_PUSH)
+    def tau(t):
+        if t <= T_HANG_END:
+            return T_PUSH + slow * (t - T_PUSH)
+        return t - lag
+    def amount(t):
+        # 0 -> 1 over the first second (ease out), the second burst adds a little, eases home over the return
+        if t <= T_PUSHED:
+            f = (t - T_PUSH) / (T_PUSHED - T_PUSH)
+            return 1 - (1 - f) ** 3
+        if t <= T_HANG_END:
+            f = (t - T_PUSHED) / (T_HANG_END - T_PUSHED)
+            return 1 + 0.08 * math.sin(math.pi * f)
+        f = (t - T_HANG_END) / (T_REJOIN - T_HANG_END)
+        return 1 - f * f * (3 - 2 * f)
+    keys = []
+    n = 10
+    for k in range(n + 1):
+        t = round(T_PUSH + (T_REJOIN - T_PUSH) * k / n, 2)
+        q = track_at(trk, tau(t))
+        dx, dz = q[0] - PH[0], q[2] - PH[2]
+        dl = math.hypot(dx, dz) or 1.0
+        a = amount(t)
+        keys.append((t, (q[0] + dx / dl * back * a, q[1] + rise * a, q[2] + dz / dl * back * a), None))
+    after = [(t, track_at(trk, t - lag), None) for t, p in trk if t > T_REJOIN]
+    return [(t, p, None) for t, p in trk if t < T_PUSH] + keys + after
+
 dementors = []
 for i, dp in enumerate(dem_par):
     did = 'dementor_%d' % (i + 1)
@@ -449,6 +509,12 @@ for i, dp in enumerate(dem_par):
             # continue the circle to t_rec
             th = math.atan2(trk[-1][1][2] - C[2], trk[-1][1][0] - C[0]) - min(dp['v'] / r, 0.8) * (t_rec - trk[-1][0])
             trk.append((t_rec, (C[0] + r * math.cos(th), trk[-1][1][1], C[2] + r * math.sin(th))))
+    pushed = i in PUSHED
+    eases = {}
+    if pushed:
+        pt = push_track(trk, dp)
+        trk = [(t, p) for t, p, _ in pt]
+        eases = {t: e for t, p, e in pt if e}
     p0 = trk[-1][1]
     dx, dz = p0[0] - C[0], p0[2] - C[2]
     dl = math.hypot(dx, dz) or 1.0
@@ -466,6 +532,8 @@ for i, dp in enumerate(dem_par):
         e = 'linear'
         if kisser and t == T_KISS - 0.2:
             e = 'in_out'
+        if t in eases:
+            e = eases[t]
         if j == len(trk) - 1:
             e = 'out'
         path.append(K(t, [round(c, 1) for c in p], e if j else None))
@@ -490,6 +558,26 @@ for i, dp in enumerate(dem_par):
         d['anims'] = [{'t': T(0), 'name': 'GLIDE'}, {'t': T(T_KISS - 0.6), 'name': 'FLOAT', 'blend': 6}]
         d['anims'] += [{'t': T(tk), 'name': 'KISS', 'blend': 4 if tk == T_KISS else 0}
                        for tk in (T_KISS, T_KISS + 4, T_KISS + 8, T_KISS + 12, T_KISS + 16)]
+    if pushed:
+        # flinch from the weak shield, facing Harry while driven back, then circle on
+        base = d['anims'][0]['name']
+        d['anims'] += [{'t': T(T_PUSH), 'name': 'RECOIL', 'blend': 2},
+                       {'t': T(round(T_PUSH + 1.4, 2)), 'name': base, 'blend': 4}]
+        look = []
+        prev = None
+        for j, (t, p) in enumerate(trk[:-1]):
+            if T_PUSH <= t <= T_HANG_END:
+                yw = yaw_to(p, PH)
+            else:
+                yw = yaw_to(p, trk[j + 1][1])
+            yw = yw if prev is None else unwrap(prev, yw)
+            prev = yw
+            # the circling turns at a steady rate, so away from the push every fifth key is enough
+            if j and j % 5 and not (T_PUSH - 1.5 <= t <= T_REJOIN + 1.5) and j < len(trk) - 3:
+                continue
+            look.append(Y(t, round(yw, 1), 0, 'linear' if j else None))
+        look.append(Y(trk[-1][0], prev, -30))
+        d['look'] = look
     d['anims'].append({'t': T(t_rec), 'name': 'RECOIL', 'blend': 2})
     d['anims'].append({'t': T(round(t_rec + 1.4, 2)), 'name': 'GLIDE', 'blend': 4})
     dementors.append(d)
@@ -518,8 +606,13 @@ t = 16.0
 while t < T_LIGHT:
     part(t, 'minecraft:snowflake', (C[0], 3, C[2]), 25, (6, 3, 4))
     t = round(t + 0.8, 2)
-# the failing Patronus: a few motes falling
-part(T_WISP + 1.0, 'minecraft:white_ash', (0, 1, 26), 20, (0.6, 0.6, 0.6))
+# the weak Patronus: the Dementors shriek back from the shield, a second burst, then it breaks up into falling motes
+snd(T_PUSH + 0.1, 'hogwartsmagic:dementor.shriek', at=(0, 8, 24), volume=0.9, pitch=1.1)
+part(T_BURST2, 'minecraft:end_rod', (0, 3, 24), 24, (1.0, 1.0, 0.3))
+part(T_BURST2, 'minecraft:glow', (0, 3, 24), 12, (0.8, 0.8, 0.3))
+snd(T_BURST2, 'hogwartsmagic:patronus.shield_repel', at=(0, 2, 26), volume=0.6, pitch=1.3)
+part(T_WISP + 2.6, 'minecraft:white_ash', (0, 3, 24), 30, (1.2, 1.0, 0.4))
+part(T_WISP + 3.2, 'minecraft:white_ash', (0, 1, 26), 20, (0.6, 0.6, 0.6))
 # the Kiss: pale light drawn up out of their mouths into the hoods
 t = T_KISS + 0.2
 k = 0
@@ -874,6 +967,19 @@ problems += physics_problems(world, R)
 n_ice = sum(1 for e in events if e['kind'] == 'block')
 print('actors', len(actors), '(dementors %d)' % len(dementors), 'events', len(events), 'ice', n_ice,
       'fills', len(fills), 'disks', len(disks), 'trees', len(TREES), 'reeds', len(reeds))
+# the weak shield's push: 4-8 back off their circle, 1-2 up, and a believable glide speed throughout
+for d, (back, rise) in zip([d for d in dementors if int(d['id'].split('_')[1]) - 1 in PUSHED], PUSH_INFO):
+    a, b2 = sample(d['path'], T_PUSH), sample(d['path'], T_PUSHED)
+    def top_speed(t0, t1):
+        return max(math.dist(sample(d['path'], t0 + k / 20), sample(d['path'], t0 + (k + 1) / 20)) * 20
+                   for k in range(int((t1 - t0) * 20)))
+    top = top_speed(T_HANG_END, T_REJOIN + 0.5)
+    print('pushed %s: %.1f back, %.1f up (%.1f up overall), from %.1f away; flung at %.1f b/s, glides back at %.1f b/s'
+          % (d['id'], back, rise, b2[1] - a[1], math.dist(a, (PH[0], 1.0, PH[2])), top_speed(T_PUSH, T_PUSHED), top))
+    if not (4 <= back <= 8 and 1 <= rise <= 2 and b2[1] - a[1] >= 0.8):
+        problems.append('%s push out of range' % d['id'])
+    if top > 12:
+        problems.append('%s glides back too fast (%.1f b/s)' % (d['id'], top))
 print('\n'.join(problems) if problems else 'NO PROBLEMS')
 
 txt = write_scene(scene, 'lake_patronus')

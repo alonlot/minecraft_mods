@@ -2023,5 +2023,53 @@
         "stream": false
       }
     ]
+  },
+  "pensieve.voice.lake_narration": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/lake_narration",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.lake_harry_wisp": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/lake_harry_wisp",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.lake_hermione": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/lake_hermione",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.lake_harry_me": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/lake_harry_me",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.lake_harry_cast": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/lake_harry_cast",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.lake_harry_knew": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/lake_harry_knew",
+        "stream": false
+      }
+    ]
   }
 }

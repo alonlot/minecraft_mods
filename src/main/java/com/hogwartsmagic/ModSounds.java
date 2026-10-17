@@ -301,6 +301,14 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> PENSIEVE_DISTANT_THUD = register("pensieve.distant_thud");
     public static final RegistryObject<SoundEvent> PENSIEVE_POUR = register("pensieve.pour");
 
+    // Voice lines of the lake_patronus memory (Fish Audio takes; played by the scene's sound events).
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_LAKE_NARRATION = register("pensieve.voice.lake_narration");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_LAKE_HARRY_WISP = register("pensieve.voice.lake_harry_wisp");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_LAKE_HERMIONE = register("pensieve.voice.lake_hermione");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_LAKE_HARRY_ME = register("pensieve.voice.lake_harry_me");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_LAKE_HARRY_CAST = register("pensieve.voice.lake_harry_cast");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_LAKE_HARRY_KNEW = register("pensieve.voice.lake_harry_knew");
+
     private static RegistryObject<SoundEvent> register(String name) {
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, name);
         return SOUND_EVENTS.register(name, () -> SoundEvent.createVariableRangeEvent(id));

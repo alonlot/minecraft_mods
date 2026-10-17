@@ -567,12 +567,15 @@ snd(T_FALL + 0.6, 'minecraft:block.gravel.fall', at=PH, volume=0.8, pitch=0.8)
 snd(78.5, 'minecraft:ambient.cave', volume=0.25, pitch=1.2)
 
 # ---------------------------------------------------------------- words (paraphrase; only the incantation is canon)
-narrate(1.0, 'The lake, that night. The same hour, lived a second time.', 4.5)
-line(26.2, 'past_harry', 'Expecto... Expecto Patronum...')
-line(38.8, 'hermione', 'Harry, they are taking them both!')
-line(41.2, 'future_harry', 'Nobody is coming. The one across the lake... was me.')
-line(46.7, 'future_harry', 'Expecto Patronum!')
-line(74.8, 'future_harry', 'I knew I could manage it. I had already seen myself manage it.')
+# Each spoken line plays its Fish Audio take (assets/.../sounds/pensieve/voice, non-positional) with the text.
+def voiced(t, sound):
+    snd(t, 'hogwartsmagic:pensieve.voice.' + sound, volume=1.0)
+narrate(1.0, 'The lake, that night. The same hour, lived a second time.', 4.5); voiced(1.0, 'lake_narration')
+line(25.0, 'past_harry', 'Expecto... Expecto Patronum...'); voiced(25.0, 'lake_harry_wisp')
+line(38.8, 'hermione', "Harry, they're taking them both!"); voiced(38.8, 'lake_hermione')
+line(41.2, 'future_harry', "Nobody's coming. The one across the lake... it was me."); voiced(41.2, 'lake_harry_me')
+line(45.5, 'future_harry', 'Expecto Patronum!'); voiced(45.5, 'lake_harry_cast')  # ends as the cast fires at 46.9s
+line(74.8, 'future_harry', "I knew I could manage it. I'd already seen myself manage it."); voiced(74.8, 'lake_harry_knew')
 
 actors = [past_harry, sirius, future_harry, hermione, stag] + dementors
 

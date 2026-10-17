@@ -85,11 +85,9 @@ public final class PensieveCamera {
                 fovTarget = p.fov();
                 fovMix = 1;
             }
-            float rt = PensieveClientState.revealTime(partial);
-            if (rt < SETTLE_TICKS) {
-                // Landing in the memory: the camera settles down onto its first shot.
-                y += SETTLE_HEIGHT * (1 - easeOutCubic(rt / SETTLE_TICKS));
-            }
+            // Landing in the memory: the camera settles down onto its first shot. Not on a chain's hand-over, which
+            // fades in from black on the next shot as it is.
+            y += settleHeight(PensieveClientState.revealTime(partial), PensieveClientState.handedOver());
         } else if (phase == PensieveClientState.EXIT) {
             float rt = PensieveClientState.returnTime(partial);
             if (rt >= 0) {

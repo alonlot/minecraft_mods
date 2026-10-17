@@ -117,6 +117,23 @@ public final class PensieveTimeline {
         return smoothstep((sceneTime - (length - CHAIN_FADE_TICKS)) / CHAIN_FADE_TICKS);
     }
 
+    /**
+     * How far above its key the camera is while it lands in the memory: {@link #SETTLE_HEIGHT} easing to 0 over
+     * {@link #SETTLE_TICKS} of reveal time. A chain's hand-over fades in on the next shot as it is: no drop.
+     */
+    public static float settleHeight(float revealTime, boolean handOver) {
+        if (handOver || revealTime >= SETTLE_TICKS) return 0f;
+        return SETTLE_HEIGHT * (1 - easeOutCubic(revealTime / SETTLE_TICKS));
+    }
+
+    /**
+     * The alpha factor for spoken ({@code by}) lines: they are not drawn over shut eyelids or a chain's fade to
+     * black. Narration is exempt (it is meant to be read over black).
+     */
+    public static float spokenWordsAlpha(float lidsClosed, float chainDarkness) {
+        return 1 - Math.max(clamp01(lidsClosed), clamp01(chainDarkness));
+    }
+
     /** EXIT: the visible radius collapses to nothing over the first 15 ticks. */
     public static float exitFogRadius(float t, float radius) {
         return radius * (1 - easeInQuad(t / EXIT_COLLAPSE_TICKS));

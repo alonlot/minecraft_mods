@@ -606,7 +606,9 @@ public final class MemoryActors {
         if (overlayPass || !a.hasName()) {
             event.setResult(Event.Result.DENY);
         } else {
-            event.setContent(Component.literal(a.def.name()));
+            net.minecraft.client.player.LocalPlayer me = net.minecraft.client.Minecraft.getInstance().player;
+            event.setContent(Component.literal(com.hogwartsmagic.pensieve.scene.WordText.fill(a.def.name(),
+                    me != null ? me.getGameProfile().getName() : null)));
             event.setResult(Event.Result.ALLOW);
         }
     }

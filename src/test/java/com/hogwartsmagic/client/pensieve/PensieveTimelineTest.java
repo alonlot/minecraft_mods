@@ -83,4 +83,23 @@ class PensieveTimelineTest {
         assertTrue(PensieveTimeline.chainEndDarkness(0, 10) > 0f);
         assertEquals(1f, PensieveTimeline.chainEndDarkness(10, 10), 1e-6f);
     }
+
+    @Test
+    void cameraSettlesOnLandingButNotOnAChainHandOver() {
+        assertEquals(PensieveTimeline.SETTLE_HEIGHT, PensieveTimeline.settleHeight(0, false), 1e-6f);
+        assertTrue(PensieveTimeline.settleHeight(10, false) > 0f);
+        assertEquals(0f, PensieveTimeline.settleHeight(PensieveTimeline.SETTLE_TICKS, false), 1e-6f);
+        // A hand-over fades in from black on the same shot: the camera must not drop.
+        assertEquals(0f, PensieveTimeline.settleHeight(0, true), 1e-6f);
+        assertEquals(0f, PensieveTimeline.settleHeight(10, true), 1e-6f);
+    }
+
+    @Test
+    void spokenWordsFadeUnderShutLidsAndChainEndBlack() {
+        assertEquals(1f, PensieveTimeline.spokenWordsAlpha(0f, 0f), 1e-6f);
+        assertEquals(0f, PensieveTimeline.spokenWordsAlpha(1f, 0f), 1e-6f);
+        assertEquals(0f, PensieveTimeline.spokenWordsAlpha(0f, 1f), 1e-6f);
+        assertEquals(0.25f, PensieveTimeline.spokenWordsAlpha(0.75f, 0.5f), 1e-6f);
+        assertEquals(0.25f, PensieveTimeline.spokenWordsAlpha(0.5f, 0.75f), 1e-6f);
+    }
 }

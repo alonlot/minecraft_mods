@@ -46,6 +46,9 @@ public final class ActorSkins {
     public static PlayerSkin skinFor(SceneDef.SkinRef ref, UUID fallback) {
         if (ref == null) return DefaultPlayerSkin.get(fallback);
         if (ref.viewer()) {
+            // Never cached: this runs on every getSkin() of the puppet (each frame), and the local player's skin
+            // lookup returns the default only until its texture has loaded, so a skin still loading when the actor
+            // spawned shows as soon as it arrives. Cheap: a memoized PlayerInfo supplier and a completed future.
             net.minecraft.client.player.LocalPlayer me = Minecraft.getInstance().player;
             return me != null ? me.getSkin() : DefaultPlayerSkin.get(fallback);
         }

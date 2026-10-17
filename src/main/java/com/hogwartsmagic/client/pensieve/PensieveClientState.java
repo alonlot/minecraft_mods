@@ -5,6 +5,7 @@ import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.event.ClientModEvents;
 import com.hogwartsmagic.network.SpellPackets;
 import com.hogwartsmagic.pensieve.net.PensieveLeavePacket;
+import com.hogwartsmagic.pensieve.scene.Eyelids;
 import com.hogwartsmagic.pensieve.scene.SceneDef;
 import com.hogwartsmagic.pensieve.scene.SceneParser;
 import com.hogwartsmagic.pensieve.scene.SessionClock;
@@ -79,6 +80,14 @@ public final class PensieveClientState {
     private static boolean preview;
     /** PLAY was reached straight from FALL (a late joiner) or by a chain's hand-over: it fades in from black. */
     private static boolean lateJoin;
+    /** PLAY was reached by a chain's hand-over: the same fade from black, but the camera does not settle. */
+    private static boolean handedOver;
+    /** The scene opens its eyes at its start ({@link Eyelids#opensShut}): the lids are held shut while it builds. */
+    private static boolean opensShut;
+    /** The lids were held shut when the exit began, so the collapse stays black. */
+    private static boolean heldAtExit;
+    /** In PLAY, the held lids give way to the scene's own eyes_open by this scene time at the latest. */
+    private static final float HOLD_LIMIT = 5;
     /** A start that arrived during the swallow or the fall, held until the fall has run its minimum. */
     private static boolean startPending;
     /** The reveal (shadow to memory) began at this tick and lasts this many ticks; it may run on into PLAY. */
@@ -111,11 +120,16 @@ public final class PensieveClientState {
         origin = null;
         startGameTime = -1;
         lateJoin = false;
+        handedOver = false;
+        opensShut = false;
+        heldAtExit = false;
         startPending = false;
         leaveSent = false;
         returnStart = -1;
         thudTick = Long.MIN_VALUE / 2;
         basin = basinPos;
+        // A memory started by putting a hat on from the inventory must not play behind the open screen.
+        if (mc.screen != null) mc.setScreen(null);
         if (mc.player != null) {
             enterEye = mc.player.getEyePosition();
             enterYaw = mc.player.getYRot();
@@ -140,6 +154,7 @@ public final class PensieveClientState {
         if (scene == null || switched) {
             scene = parse(id, json);
             sceneId = id;
+            opensShut = scene != null && Eyelids.opensShut(scene.events());
         }
         origin = at;
         buildTicks = build;
@@ -166,6 +181,7 @@ public final class PensieveClientState {
             }
         } else if (phase != PLAY) {
             lateJoin = phase != BUILD;
+            handedOver = false;
             setPhase(PLAY);
             // A new memory is starting: nothing of an old one may linger, not even music still fading out.
             MemoryAudio.stopNow();
@@ -197,6 +213,7 @@ public final class PensieveClientState {
         // PLAY keeps its phase start, so the leave hint does not come back for every scene of the chain.
         if (phase != PLAY) setPhase(PLAY);
         lateJoin = true;
+        handedOver = true;
         MemoryActors.start(scene, origin, Minecraft.getInstance().level);
         beginReveal(PensieveTimeline.LATE_FADE_TICKS);
     }
@@ -220,6 +237,7 @@ public final class PensieveClientState {
         }
         if (phase == EXIT || phase == YANK) return;
         startPending = false;
+        heldAtExit = lidsHeldShut(0);
         boolean inside = phase == BUILD || phase == PLAY;
         setPhase(EXIT);
         if (!inside) {
@@ -298,6 +316,28 @@ public final class PensieveClientState {
 
     public static boolean lateJoin() {
         return lateJoin;
+    }
+
+    /** True while PLAY came from a chain's hand-over (not a true late join): the camera skips its landing settle. */
+    public static boolean handedOver() {
+        return handedOver;
+    }
+
+    /**
+     * True while the lids are held shut ahead of a scene that opens its eyes at its start: for the whole BUILD (the
+     * memory opens in darkness, the set building unseen), into PLAY until the scene's own {@code eyes_open} is running
+     * (a bounded wait, in case it never starts), and through an exit begun while they were held.
+     */
+    static boolean lidsHeldShut(float partial) {
+        if (!opensShut) return false;
+        if (phase == BUILD) return true;
+        if (phase == PLAY) return !lateJoin && !EffectVisuals.eyesStarted() && sceneTime(partial) < HOLD_LIMIT;
+        return phase == EXIT && heldAtExit;
+    }
+
+    /** How shut the viewer's eyes are, 0..1: held shut (above), else the scene's running eyelid effects. */
+    static float lidsClosed(float partial) {
+        return lidsHeldShut(partial) ? 1f : EffectVisuals.eyelids(partial);
     }
 
     public static int buildTicks() {
@@ -386,6 +426,9 @@ public final class PensieveClientState {
         startGameTime = -1;
         returnStart = -1;
         lateJoin = false;
+        handedOver = false;
+        opensShut = false;
+        heldAtExit = false;
         startPending = false;
         leaveSent = false;
         MemoryActors.clear();

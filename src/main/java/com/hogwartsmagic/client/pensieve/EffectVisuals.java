@@ -75,6 +75,8 @@ public final class EffectVisuals {
     private static final List<Running> RUNNING = new ArrayList<>();
     private static final List<DarkMarkEntity> MARKS = new ArrayList<>();
     private static final List<LightningBolt> BOLTS = new ArrayList<>();
+    /** An eyelid effect has started since the last {@link #clear} (the scene's own eyes have taken over). */
+    private static boolean eyesStarted;
 
     private EffectVisuals() {
     }
@@ -104,6 +106,7 @@ public final class EffectVisuals {
             int total = duration > 0 ? duration : DEFAULT_EYES_TICKS;
             // An opening is done at its duration; a closing stays shut until clear() ends the scene.
             if (!opening || elapsed < total) RUNNING.add(new Eyes(opening, elapsed, total));
+            eyesStarted = true;
         } else if ("patronus_light".equals(effect)) {
             int total = duration > 0 ? duration : DEFAULT_PATRONUS_TICKS;
             if (elapsed < total) {
@@ -172,6 +175,11 @@ public final class EffectVisuals {
         return most;
     }
 
+    /** Whether an {@code eyes_open} or {@code eyes_close} has started since the scene's visuals were last cleared. */
+    static boolean eyesStarted() {
+        return eyesStarted;
+    }
+
     /** How shut the viewer's eyes are right now, 0 (open, or no lid effect) to 1: the most-closed running lid wins. */
     static float eyelids(float partial) {
         float most = 0f;
@@ -202,6 +210,7 @@ public final class EffectVisuals {
     /** Stop everything and remove every entity an effect added. */
     static void clear() {
         RUNNING.clear();
+        eyesStarted = false;
         for (DarkMarkEntity m : MARKS) m.discard();
         MARKS.clear();
         for (LightningBolt b : BOLTS) b.discard();

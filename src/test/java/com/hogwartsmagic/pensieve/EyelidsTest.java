@@ -20,4 +20,19 @@ class EyelidsTest {
         }
     }
     @Test void openLidCoversNothing() { assertEquals(0, Eyelids.band(0f, 240, 24)); }
+
+    private static com.hogwartsmagic.pensieve.scene.SceneDef.EventDef effect(float t, String id) {
+        return new com.hogwartsmagic.pensieve.scene.SceneDef.EventDef(t, "effect", id, null, 1f, 1f, 0, null, 0);
+    }
+
+    @Test void opensShutOnlyForAnEyesOpenAtTheStart() {
+        assertTrue(Eyelids.opensShut(java.util.List.of(effect(0, "eyes_open"))));
+        assertTrue(Eyelids.opensShut(java.util.List.of(effect(40, "lightning"), effect(0, "eyes_open"))));
+        assertTrue(!Eyelids.opensShut(java.util.List.of(effect(20, "eyes_open"))));
+        assertTrue(!Eyelids.opensShut(java.util.List.of(effect(0, "eyes_close"))));
+        assertTrue(!Eyelids.opensShut(java.util.List.of()));
+        assertTrue(!Eyelids.opensShut(null));
+        assertTrue(!Eyelids.opensShut(java.util.List.of(new com.hogwartsmagic.pensieve.scene.SceneDef.EventDef(0,
+                "sound", "eyes_open", null, 1f, 1f, 0, null, 0))));
+    }
 }

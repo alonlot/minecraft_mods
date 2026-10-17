@@ -44,6 +44,19 @@ public final class Eyelids {
         return (int) Math.ceil((h * 0.5f + soft) * k);
     }
 
+    /**
+     * True when a scene opens its eyes from the very start (an {@code eyes_open} effect event at {@code t <= 0}): the
+     * client then keeps the lids shut while the set builds, so the memory begins in darkness and the open-blink
+     * starts from black instead of the half-built set showing first.
+     */
+    public static boolean opensShut(java.util.List<SceneDef.EventDef> events) {
+        if (events == null) return false;
+        for (SceneDef.EventDef e : events) {
+            if ("effect".equals(e.kind()) && "eyes_open".equals(e.id()) && e.t() <= 0f) return true;
+        }
+        return false;
+    }
+
     private static float smooth(float k) {
         return k * k * (3f - 2f * k);
     }

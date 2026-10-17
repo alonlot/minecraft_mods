@@ -17,7 +17,8 @@ import java.util.List;
  * What the people in a memory say, drawn on the screen and never written to the real chat log (nothing here
  * touches {@code ChatComponent}, the server, or any other player). Actor lines ({@code by}) stack at the bottom
  * left as chat-styled {@code <name> text} lines and fade after eight seconds; narration is centred low in italic
- * and fades in and out across its {@code duration}. Everything is a function of the shared scene clock, so a
+ * and fades in and out across its {@code duration}. Actor lines are hidden under shut eyelids and a chain's fade to
+ * black; narration is meant to be read over black and is not. Everything is a function of the shared scene clock, so a
  * late joiner sees the recent lines and two viewers see the same words.
  */
 public final class MemoryWords {
@@ -28,6 +29,8 @@ public final class MemoryWords {
     private static final int NARRATION_FADE = 10;
     private static final int DEFAULT_NARRATION_TICKS = 60;
     private static final int MAX_LINES = 8;
+    /** Below this an actor line is not drawn at all (see {@link #argb}). */
+    private static final float MIN_ALPHA = 0.02f;
     private static final int LEFT = 4;
     /** Bottom of the actor lines above the screen's lower edge: clear of the chat's own bottom line. */
     private static final int BOTTOM_MARGIN = 62;
@@ -47,6 +50,8 @@ public final class MemoryWords {
         String viewer = Minecraft.getInstance().player != null ? Minecraft.getInstance().player.getGameProfile().getName() : null;
         List<FormattedCharSequence> lines = new ArrayList<>();
         List<Float> alphas = new ArrayList<>();
+        float spoken = PensieveTimeline.spokenWordsAlpha(PensieveClientState.lidsClosed(partial),
+                PensieveClientState.chainEndDarkness(partial));
         for (SceneDef.WordDef word : scene.words()) {
             float age = now - word.t();
             if (age < 0) continue;
@@ -56,7 +61,8 @@ public final class MemoryWords {
                 float a = Mth.clamp(Math.min(age / NARRATION_FADE, (life - age) / NARRATION_FADE), 0f, 1f);
                 narration(g, font, WordText.fill(word.text(), viewer), a, w, h);
             } else if (age < LINE_TICKS) {
-                float a = Mth.clamp((LINE_TICKS - age) / LINE_FADE, 0f, 1f);
+                float a = Mth.clamp((LINE_TICKS - age) / LINE_FADE, 0f, 1f) * spoken;
+                if (a < MIN_ALPHA) continue;
                 for (FormattedCharSequence l : font.split(Component.literal(speaker(scene, word, viewer)), Math.max(80, Math.min(w / 2, 320)))) {
                     lines.add(l);
                     alphas.add(a);
@@ -93,7 +99,7 @@ public final class MemoryWords {
         String name = by;
         for (SceneDef.ActorDef a : scene.actors()) {
             if (by.equals(a.id())) {
-                if (a.name() != null && !a.name().isBlank()) name = a.name();
+                if (a.name() != null && !a.name().isBlank()) name = WordText.fill(a.name(), viewer);
                 break;
             }
         }

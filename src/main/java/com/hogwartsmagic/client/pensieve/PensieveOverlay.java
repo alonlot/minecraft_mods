@@ -163,9 +163,12 @@ public final class PensieveOverlay {
         RenderSystem.disableBlend();
     }
 
-    /** A scene's {@code eyes_open} / {@code eyes_close}: two black lids, each covering half the screen when shut. */
+    /**
+     * A scene's {@code eyes_open} / {@code eyes_close}: two black lids, each covering half the screen when shut. A
+     * scene that opens its eyes at its start has them held shut while it builds ({@link PensieveClientState#lidsHeldShut}).
+     */
     private static void eyelids(GuiGraphics g, int w, int h, float partial) {
-        float closed = EffectVisuals.eyelids(partial);
+        float closed = PensieveClientState.lidsClosed(partial);
         if (closed <= 0f) return;
         int band = Eyelids.band(closed, h, EYELID_EDGE);
         if (band <= 0) return;

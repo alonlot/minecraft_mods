@@ -275,7 +275,8 @@ ice_cells.sort()
 for d, x, z in ice_cells:
     k = max(0, math.ceil(d) - 3)
     t = T_FROST0 + k * 0.32
-    b = 'minecraft:frosted_ice' if (x * 31 + z * 17) % 5 == 0 or d > 14 else 'minecraft:ice'
+    # frosted_ice melts on random ticks; packed_ice gives the same patchy look and stays
+    b = 'minecraft:packed_ice' if (x * 31 + z * 17) % 5 == 0 or d > 14 else 'minecraft:ice'
     block(round(t, 2), b, (x, -1, z))
 for k in range(0, 14, 2):
     t = T_FROST0 + k * 0.32

@@ -177,7 +177,7 @@ Effects: `lightning` - one visual-only bolt with thunder; `summoning_ritual` - t
 - Everything must stay within `radius` (default 40, max 200) of the origin in X and Z, or validation fails for fills/disks/templates/features.
 
 ## Skins
-Shipped (`texture` value): `hooded_figure`, `regulus`, `student_gryffindor`, `student_slytherin`, `death_eater`, `voldemort`, `sirius` (gaunt, long matted black hair, grey-striped Azkaban rags, bare feet), `hermione` (bushy brown hair, dark zip coat over the Gryffindor uniform; default 4-px arms, no `slim`).
+Shipped (`texture` value): `hooded_figure`, `regulus`, `student_gryffindor`, `student_slytherin`, `death_eater`, `voldemort`, `sirius` (long brown hair, beard, brown coat over a dark red shirt), `hermione`, `harry` (all three downloaded from NovaSkin, not generated: the generator lists them and checks the PNGs exist; classic 4-px arms, no `slim`).
 To add one: put a 64x64 modern-layout PNG at `src/main/resources/assets/hogwartsmagic/textures/memory_skin/<name>.png` and add `"<name>"` to the array in `src/main/resources/data/hogwartsmagic/memories/_skins.json` (the validator and `SceneDataTest` both read that list, and the test fails if a listed PNG is missing). `build_scripts/generate_memory_skins.py` is the generator of the shipped ones (needs Pillow); add a new entry there if you want it reproducible, it rewrites the list too. A `username` skin needs no files.
 
 ## The loop

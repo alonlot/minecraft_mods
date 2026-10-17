@@ -159,6 +159,63 @@ public class SpellPackets {
                 .decoder(buf -> new HouseRevealPacket(buf.readEnum(HogwartsHouse.class)))
                 .consumerMainThread(HouseRevealPacket::handle)
                 .add();
+        CHANNEL.messageBuilder(SortingQuestionPacket.class)
+                .encoder((p, buf) -> {
+                    buf.writeVarInt(p.step);
+                    buf.writeUtf(p.text, SortingQuestionPacket.MAX_TEXT);
+                    buf.writeVarInt(p.answers.size());
+                    for (String a : p.answers) buf.writeUtf(a, SortingQuestionPacket.MAX_TEXT);
+                    buf.writeUtf(p.voice, SortingQuestionPacket.MAX_TEXT);
+                })
+                .decoder(buf -> {
+                    int step = buf.readVarInt();
+                    String text = buf.readUtf(SortingQuestionPacket.MAX_TEXT);
+                    int n = buf.readVarInt();
+                    if (n != SortingQuestionPacket.ANSWER_COUNT) {
+                        throw new IllegalArgumentException("Sorting question needs exactly 4 answers, got " + n);
+                    }
+                    List<String> answers = new ArrayList<>(n);
+                    for (int i = 0; i < n; i++) answers.add(buf.readUtf(SortingQuestionPacket.MAX_TEXT));
+                    return new SortingQuestionPacket(step, text, List.copyOf(answers), buf.readUtf(SortingQuestionPacket.MAX_TEXT));
+                })
+                .consumerMainThread(SortingQuestionPacket::handle)
+                .add();
+        CHANNEL.messageBuilder(SortingTiePacket.class)
+                .encoder((p, buf) -> {
+                    buf.writeVarInt(p.houses.size());
+                    for (HogwartsHouse h : p.houses) buf.writeEnum(h);
+                    buf.writeUtf(p.voice, SortingQuestionPacket.MAX_TEXT);
+                })
+                .decoder(buf -> {
+                    int n = buf.readVarInt();
+                    if (n < 1 || n > 4) {
+                        throw new IllegalArgumentException("Sorting tie needs 1 to 4 houses, got " + n);
+                    }
+                    List<HogwartsHouse> houses = new ArrayList<>(n);
+                    for (int i = 0; i < n; i++) houses.add(buf.readEnum(HogwartsHouse.class));
+                    return new SortingTiePacket(List.copyOf(houses), buf.readUtf(SortingQuestionPacket.MAX_TEXT));
+                })
+                .consumerMainThread(SortingTiePacket::handle)
+                .add();
+        CHANNEL.messageBuilder(SortingClosePacket.class)
+                .encoder((p, buf) -> {
+                })
+                .decoder(buf -> new SortingClosePacket())
+                .consumerMainThread(SortingClosePacket::handle)
+                .add();
+        CHANNEL.messageBuilder(SortingVoicePacket.class)
+                .encoder((p, buf) -> buf.writeUtf(p.voice, SortingQuestionPacket.MAX_TEXT))
+                .decoder(buf -> new SortingVoicePacket(buf.readUtf(SortingQuestionPacket.MAX_TEXT)))
+                .consumerMainThread(SortingVoicePacket::handle)
+                .add();
+        CHANNEL.messageBuilder(SortingChoicePacket.class)
+                .encoder((p, buf) -> {
+                    buf.writeVarInt(p.step);
+                    buf.writeVarInt(p.choice);
+                })
+                .decoder(buf -> new SortingChoicePacket(buf.readVarInt(), buf.readVarInt()))
+                .consumerMainThread(SortingChoicePacket::handle)
+                .add();
         CHANNEL.messageBuilder(SyncPolyjuiceDisguisePacket.class)
                 .encoder((p, buf) -> {
                     buf.writeUUID(p.playerId);
@@ -642,6 +699,46 @@ public class SpellPackets {
     public record HouseRevealPacket(HogwartsHouse house) {
         public static void handle(HouseRevealPacket p, CustomPayloadEvent.Context ctx) {
             enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("showHouseReveal", p));
+        }
+    }
+
+    /** Opens or updates the Sorting quiz screen and plays the hat's line. */
+    public record SortingQuestionPacket(int step, String text, List<String> answers, String voice) {
+        static final int MAX_TEXT = 512;
+        static final int ANSWER_COUNT = 4;
+
+        public static void handle(SortingQuestionPacket p, CustomPayloadEvent.Context ctx) {
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("sortingQuestion", p));
+        }
+    }
+
+    /** The tie-break: the screen shows only the tied houses. */
+    public record SortingTiePacket(List<HogwartsHouse> houses, String voice) {
+        public static void handle(SortingTiePacket p, CustomPayloadEvent.Context ctx) {
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("sortingTie", p));
+        }
+    }
+
+    public record SortingClosePacket() {
+        public static void handle(SortingClosePacket p, CustomPayloadEvent.Context ctx) {
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("sortingClose", p));
+        }
+    }
+
+    /** One hat line: greeting, a reaction or a house shout. */
+    public record SortingVoicePacket(String voice) {
+        public static void handle(SortingVoicePacket p, CustomPayloadEvent.Context ctx) {
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("sortingVoice", p));
+        }
+    }
+
+    /** The player's answer. The quiz is server-authoritative, so only the step and the picked slot travel. */
+    public record SortingChoicePacket(int step, int choice) {
+        public static void handle(SortingChoicePacket p, CustomPayloadEvent.Context ctx) {
+            ServerPlayer player = ctx.getSender();
+            if (player == null) return;
+            com.hogwartsmagic.sorting.SortingHatManager.get().onChoice(player, p.step, p.choice);
+            ctx.setPacketHandled(true);
         }
     }
 

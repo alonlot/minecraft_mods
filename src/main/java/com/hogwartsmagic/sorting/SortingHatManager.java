@@ -35,6 +35,10 @@ public class SortingHatManager {
         return INSTANCE;
     }
 
+    /** Task 9 replaces this stub with the real answer handling. */
+    public void onChoice(ServerPlayer player, int step, int choice) {
+    }
+
     public void maybeStartSession(ServerPlayer player) {
         UUID playerId = player.getUUID();
         if (!isWearingHat(player)) {

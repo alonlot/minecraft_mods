@@ -23,6 +23,10 @@ public final class ClientRuntimeBridge {
 
     public static void handlePacket(String action, Object payload) {
         switch (action) {
+            case "sortingQuestion" -> com.hogwartsmagic.client.sorting.SortingQuizScreen.openQuestion((SpellPackets.SortingQuestionPacket) payload);
+            case "sortingTie" -> com.hogwartsmagic.client.sorting.SortingQuizScreen.openTie((SpellPackets.SortingTiePacket) payload);
+            case "sortingClose" -> com.hogwartsmagic.client.sorting.SortingQuizScreen.closeFromServer();
+            case "sortingVoice" -> com.hogwartsmagic.client.sorting.HatVoice.play(((SpellPackets.SortingVoicePacket) payload).voice());
             case "showHouseReveal" -> showHouseReveal((SpellPackets.HouseRevealPacket) payload);
             case "syncPolyjuiceDisguise" -> syncPolyjuiceDisguise((SpellPackets.SyncPolyjuiceDisguisePacket) payload);
             case "syncMana" -> syncMana((SpellPackets.SyncManaPacket) payload);

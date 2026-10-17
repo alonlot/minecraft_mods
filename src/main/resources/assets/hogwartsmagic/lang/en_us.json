@@ -1652,5 +1652,8 @@
   "assignment.hogwartsmagic.avada_kedavra.quote": "There is no counter-curse. Prove you can face what has no cure.",
   "assignment.hogwartsmagic.avada_kedavra.0": "Know Crucio",
   "assignment.hogwartsmagic.avada_kedavra.1": "Enter the Chamber of Secrets",
-  "assignment.hogwartsmagic.avada_kedavra.2": "Defeat %s Basilisk"
+  "assignment.hogwartsmagic.avada_kedavra.2": "Defeat %s Basilisk",
+  "screen.hogwartsmagic.sorting.title": "The Sorting Hat",
+  "screen.hogwartsmagic.sorting.tie": "Hmm... difficult. Very difficult. You choose, then.",
+  "screen.hogwartsmagic.sorting.step": "Question %s of %s"
 }

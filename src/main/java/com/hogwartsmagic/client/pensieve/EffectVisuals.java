@@ -5,6 +5,8 @@ import com.hogwartsmagic.entity.DarkMarkEntity;
 import com.hogwartsmagic.entity.VoldemortSummoningEntity;
 import com.mojang.logging.LogUtils;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.particle.Particle;
+import net.minecraft.client.particle.ParticleEngine;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.util.Mth;
@@ -49,6 +51,8 @@ public final class EffectVisuals {
     static final int PATRONUS_WASH_FADE_TICKS = 32;
     /** Only a viewer this close to the light sees the wash. */
     static final double PATRONUS_WASH_RANGE = 40.0;
+    /** Ticks a ring point lives (plus 0-2): long enough to read as a band, short enough not to fill the disc. */
+    static final int RING_POINT_LIFE = 4;
     private static final int MARK_RISE_TICKS = 50;
     private static final double MARK_RISE_BLOCKS = 18.0;
     /** The smallest visual scale a DarkMarkEntity accepts. */
@@ -147,8 +151,8 @@ public final class EffectVisuals {
     static float patronusWash(float partial) {
         if (RUNNING.isEmpty()) return 0f;
         Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null) return 0f;
-        Vec3 eye = mc.player.getEyePosition(partial);
+        // The directed camera, not the pinned body: the viewer sees from wherever the memory's camera is.
+        Vec3 eye = mc.gameRenderer.getMainCamera().getPosition();
         float most = 0f;
         for (Running r : RUNNING) {
             if (r instanceof PatronusLight light && light.centre.distanceTo(eye) <= PATRONUS_WASH_RANGE) {
@@ -263,7 +267,9 @@ public final class EffectVisuals {
         float wash(float partial) {
             float t = age + partial;
             if (t < PATRONUS_WASH_PEAK_TICKS) return PATRONUS_WASH_ALPHA * t / PATRONUS_WASH_PEAK_TICKS;
-            return PATRONUS_WASH_ALPHA * Math.max(0f, 1f - (t - PATRONUS_WASH_PEAK_TICKS) / PATRONUS_WASH_FADE_TICKS);
+            // Fade out by the end of a short light too, so the wash never pops off mid-fade.
+            float fade = Math.max(1, Math.min(PATRONUS_WASH_FADE_TICKS, total - PATRONUS_WASH_PEAK_TICKS));
+            return PATRONUS_WASH_ALPHA * Math.max(0f, 1f - (t - PATRONUS_WASH_PEAK_TICKS) / fade);
         }
 
         @Override
@@ -273,13 +279,16 @@ public final class EffectVisuals {
             if (age == 0) {
                 level.addParticle(ParticleTypes.FLASH, centre.x, centre.y + 1.0, centre.z, 0, 0, 0);
             }
-            // The horizontal ring on the ground plane: the wavefront, bright, with a fainter trailing ring.
+            // The horizontal ring on the ground plane: the wavefront, bright, with a fainter trailing ring. The points
+            // live only a few ticks, so the ring stays a ring instead of leaving a filled disc (and the particle cap).
+            ParticleEngine engine = Minecraft.getInstance().particleEngine;
             int ring = (int) Math.ceil((24 + r * 5) * glow);
             for (int i = 0; i < ring; i++) {
                 double a = level.random.nextDouble() * Math.PI * 2;
                 double rr = i % 4 == 0 ? r * (0.82 + level.random.nextDouble() * 0.12) : r;
-                level.addParticle(ParticleTypes.END_ROD, centre.x + Math.cos(a) * rr,
+                Particle p = engine.createParticle(ParticleTypes.END_ROD, centre.x + Math.cos(a) * rr,
                         centre.y + 0.15 + level.random.nextDouble() * 0.2, centre.z + Math.sin(a) * rr, 0, 0.02, 0);
+                if (p != null) p.setLifetime(RING_POINT_LIFE + level.random.nextInt(3));
             }
             // The faint sphere.
             int sphere = (int) Math.ceil(28 * glow);

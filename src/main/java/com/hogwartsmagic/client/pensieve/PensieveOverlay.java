@@ -33,6 +33,8 @@ public final class PensieveOverlay {
     private static final float[] WISP_LENGTH = {0.22f, 0.36f, 0.55f};
     private static final float[] WISP_SPEED = {0.035f, 0.06f, 0.1f};
     private static final float[] WISP_ALPHA = {0.3f, 0.5f, 0.85f};
+    /** The soft gradient edge of an eyelid, in pixels. */
+    private static final int EYELID_EDGE = 24;
     private static final int HINT_COLOR = 0xD8E4F2;
 
     private PensieveOverlay() {
@@ -58,6 +60,7 @@ public final class PensieveOverlay {
             fallbackDarkness(g, w, h, partial);
             greyEdges(g, partial, clock);
             patronusWash(g, w, h, partial);
+            eyelids(g, w, h, partial);
             float rt = PensieveClientState.revealTime(partial);
             if (rt < 10) wisps(g, w, h, clock, 1 - rt / 10, true);
             hint(g, w, h, phase, pt, rt);
@@ -153,6 +156,23 @@ public final class PensieveOverlay {
         if (a <= 0.003f) return;
         RenderSystem.enableBlend();
         g.fill(0, 0, w, h, argb(a, 0xE8F2FF));
+        RenderSystem.disableBlend();
+    }
+
+    /** A scene's {@code eyes_open} / {@code eyes_close}: two black lids, each covering half the screen when shut. */
+    private static void eyelids(GuiGraphics g, int w, int h, float partial) {
+        float closed = EffectVisuals.eyelids(partial);
+        if (closed <= 0f) return;
+        int band = Math.round(h * 0.5f * clamp01(closed));
+        if (band <= 0) return;
+        int soft = Math.min(EYELID_EDGE, band);
+        int black = 0xFF000000;
+        int clear = 0x00000000;
+        RenderSystem.enableBlend();
+        g.fill(0, 0, w, band - soft, black);
+        g.fillGradient(0, band - soft, w, band, black, clear);
+        g.fill(0, h - band + soft, w, h, black);
+        g.fillGradient(0, h - band, w, h - band + soft, clear, black);
         RenderSystem.disableBlend();
     }
 

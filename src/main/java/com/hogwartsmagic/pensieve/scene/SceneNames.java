@@ -22,7 +22,7 @@ public record SceneNames(Set<String> entityTypes, Set<String> spells, Set<String
     public static final Set<String> EVENT_KINDS = Set.of("block", "sound", "particles", "effect", "music", "voice");
     /** Scripted effects an {@code effect} event may name. */
     public static final Set<String> EFFECTS = Set.of("summoning_ritual", "lightning", "dark_mark", "grey_edges",
-            "patronus_light", "fiendfyre_rings");
+            "patronus_light", "fiendfyre_rings", "eyes_open", "eyes_close");
     /**
      * Bundled schematics a set's {@code schematics} may place, by bare id. Each one is loaded by its own class
      * ({@code mini_hogwarts}: {@code worldgen/MiniHogwartsSchematic}, 96 x 109 x 145).

@@ -3,6 +3,7 @@ package com.hogwartsmagic.client.pensieve;
 import com.hogwartsmagic.ModSounds;
 import com.hogwartsmagic.entity.DarkMarkEntity;
 import com.hogwartsmagic.entity.VoldemortSummoningEntity;
+import com.hogwartsmagic.pensieve.scene.Eyelids;
 import com.mojang.logging.LogUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.particle.Particle;
@@ -38,6 +39,8 @@ public final class EffectVisuals {
     private static final int GREY_RISE_TICKS = 50;
     /** ...and drains over the effect's last ticks, as the real charge decays when the victim looks away. */
     private static final int GREY_FADE_TICKS = 24;
+    /** Eyelids with no {@code duration} in the scene take this long (2 s). */
+    static final int DEFAULT_EYES_TICKS = 40;
     /** A lightning strike every this many ticks while a ritual runs (the real ritual strikes every 10). */
     private static final int RITUAL_STRIKE_EVERY = 20;
     /** A patronus light with no {@code duration} in the scene lasts this long (4 s). */
@@ -96,6 +99,11 @@ public final class EffectVisuals {
         } else if ("grey_edges".equals(effect)) {
             int total = duration > 0 ? duration : DEFAULT_GREY_TICKS;
             if (elapsed < total) RUNNING.add(new GreyEdges(elapsed, total));
+        } else if ("eyes_open".equals(effect) || "eyes_close".equals(effect)) {
+            boolean opening = "eyes_open".equals(effect);
+            int total = duration > 0 ? duration : DEFAULT_EYES_TICKS;
+            // An opening is done at its duration; a closing stays shut until clear() ends the scene.
+            if (!opening || elapsed < total) RUNNING.add(new Eyes(opening, elapsed, total));
         } else if ("patronus_light".equals(effect)) {
             int total = duration > 0 ? duration : DEFAULT_PATRONUS_TICKS;
             if (elapsed < total) {
@@ -160,6 +168,15 @@ public final class EffectVisuals {
         float most = 0f;
         for (Running r : RUNNING) {
             if (r instanceof GreyEdges grey) most = Math.max(most, grey.intensity(partial));
+        }
+        return most;
+    }
+
+    /** How shut the viewer's eyes are right now, 0 (open, or no lid effect) to 1: the most-closed running lid wins. */
+    static float eyelids(float partial) {
+        float most = 0f;
+        for (Running r : RUNNING) {
+            if (r instanceof Eyes eyes) most = Math.max(most, eyes.closed(partial));
         }
         return most;
     }
@@ -251,6 +268,32 @@ public final class EffectVisuals {
             float c = Mth.clamp(charge(partial), 0f, 1f);
             if (c <= 0f) return 0f;
             return (0.2f + 0.8f * c) * Math.min(1f, c * 5f);
+        }
+    }
+
+    /**
+     * {@code eyes_open} / {@code eyes_close}: the eyelids, drawn by {@code PensieveOverlay} from {@link Eyelids}. An
+     * opening runs out at its duration; a closing never expires, it holds shut until {@link #clear} ends the scene.
+     */
+    private static final class Eyes implements Running {
+        private final boolean opening;
+        private final int total;
+        private int age;
+
+        Eyes(boolean opening, int elapsed, int total) {
+            this.opening = opening;
+            this.age = elapsed;
+            this.total = total;
+        }
+
+        @Override
+        public boolean tick(ClientLevel level) {
+            age++;
+            return !opening || age < total;
+        }
+
+        float closed(float partial) {
+            return Eyelids.closed(opening, age + partial, total);
         }
     }
 

@@ -21,7 +21,11 @@ import java.util.UUID;
  * only; owned and mutated by {@link PensieveSessions} on the server thread.
  */
 public final class Session {
-    public enum Phase { BUILD, PLAY, CLOSING }
+    /**
+     * Server only, never on the wire. {@code HANDOVER}: the clock finished and the next scene of the chain is not
+     * built yet, so the viewers wait pinned at this anchor until it is.
+     */
+    public enum Phase { BUILD, PLAY, HANDOVER, CLOSING }
 
     private final String sceneId;
     private final String rawJson;
@@ -51,6 +55,15 @@ public final class Session {
     /** The basin's chunk while this session holds an entity-ticking ticket on it (the body must stay live). */
     @Nullable ChunkPos basinTicket;
     @Nullable ServerLevel basinTicketLevel;
+    /**
+     * Built ahead as the next scene of a chain: no viewers, not found by its basin, and not finished for being
+     * empty. Cleared when the viewers are handed over to it.
+     */
+    boolean standby;
+    /** The standby session this one hands its viewers to when its clock finishes; null when unchained. */
+    @Nullable Session nextSession;
+    /** The scene id that began the chain; a fresh session's own id. */
+    String chainRoot;
 
     Session(String sceneId, String rawJson, SceneDef scene, int slot, BlockPos origin,
             @Nullable ResourceKey<Level> basinDim, @Nullable BlockPos basinPos, boolean preview) {
@@ -62,6 +75,7 @@ public final class Session {
         this.basinDim = basinDim;
         this.basinPos = basinPos == null ? null : basinPos.immutable();
         this.preview = preview;
+        this.chainRoot = sceneId;
         List<SceneDef.EventDef> blocks = new ArrayList<>();
         if (scene.events() != null) {
             for (SceneDef.EventDef e : scene.events()) {
@@ -121,13 +135,30 @@ public final class Session {
         return viewers;
     }
 
+    /** The scene id that began this chain of scenes (this session's own id when it is not chained). */
+    public String chainRoot() {
+        return chainRoot;
+    }
+
+    /** True while this is a next scene built ahead, before any viewer is handed to it. */
+    public boolean standby() {
+        return standby;
+    }
+
+    /** The standby next scene of the chain, if one is built or building; null otherwise. */
+    @Nullable
+    public Session nextSession() {
+        return nextSession;
+    }
+
     /** Where viewers float: one block above the origin, centred. */
     public Vec3 anchor() {
         return Vec3.atBottomCenterOf(origin).add(0, 1, 0);
     }
 
+    /** True when this session plays from the basin at {@code pos}; never for a standby (its viewers are elsewhere). */
     boolean at(ResourceKey<Level> dim, BlockPos pos) {
-        return basinDim != null && basinDim.equals(dim) && basinPos != null && basinPos.equals(pos);
+        return !standby && basinDim != null && basinDim.equals(dim) && basinPos != null && basinPos.equals(pos);
     }
 
     /** A viewer's return point, the state to restore, and where they are in the dive. */

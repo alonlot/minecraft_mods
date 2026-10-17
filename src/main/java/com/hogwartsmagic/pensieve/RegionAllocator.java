@@ -26,6 +26,10 @@ public final class RegionAllocator {
         if (slot >= 0) used.clear(slot);
     }
 
+    public synchronized boolean isUsed(int slot) {
+        return slot >= 0 && used.get(slot);
+    }
+
     public static int[] originFor(int slot) {
         return new int[]{slot * SPACING, 96, 0};
     }

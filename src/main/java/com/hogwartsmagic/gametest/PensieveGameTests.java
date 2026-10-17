@@ -1020,4 +1020,169 @@ public final class PensieveGameTests {
         LOGGER.info("PENSIEVE-GAMETEST PASS buildAndClearShareOneBudget");
         helper.succeed();
     }
+
+    // ---- Chained scenes (Sorting stage 1, Task 2) -------------------------------------------------------------
+    // chain_a (stone floor) names chain_b (gold floor) as its next scene; "unchained" names none; any other id
+    // (the basin's memory) resolves to chain_a. Each test has its own batch: the seam, the build budget hook and
+    // the slot allocator are all static, and the next scene is looked up later than the dive.
+
+    private static SceneDef floorScene(String id, String block, int length, String next) {
+        SceneDef.SetDef set = new SceneDef.SetDef(List.of(), List.of(new SceneDef.Fill(block, new int[]{0, 0, 0},
+                new int[]{2, 0, 2})), List.of(), List.of(), 6000L, 20);
+        return new SceneDef(id, "Test", length, 8, set, java.util.Map.of(), List.of(), List.of(), List.of(),
+                com.hogwartsmagic.pensieve.scene.CameraTrack.EMPTY, null, 0, next);
+    }
+
+    private static void useChainSeam(GameTestHelper helper) {
+        SceneDef a = floorScene("chain_a", "minecraft:stone", 40, "chain_b");
+        SceneDef b = floorScene("chain_b", "minecraft:gold_block", 40, null);
+        SceneDef u = floorScene("unchained", "minecraft:stone", 40, null);
+        com.hogwartsmagic.pensieve.PensieveSessions.setBuildBudgetForTests(-1);
+        com.hogwartsmagic.pensieve.PensieveSessions.overrideForTests(helper.getLevel(), id -> java.util.Optional.of(
+                new com.hogwartsmagic.pensieve.MemoryRegistry.LoadedScene(
+                        "chain_b".equals(id) ? b : "unchained".equals(id) ? u : a, "{}")));
+    }
+
+    private static int goldFloor(GameTestHelper helper, BlockPos origin) {
+        int n = 0;
+        for (int x = 0; x < 3; x++) {
+            for (int z = 0; z < 3; z++) {
+                if (helper.getLevel().getBlockState(origin.offset(x, 0, z)).is(Blocks.GOLD_BLOCK)) n++;
+            }
+        }
+        return n;
+    }
+
+    @GameTest(template = EMPTY, batch = "pensieve_chain_play", timeoutTicks = 300)
+    public static void chainHandsViewerToNextScene(GameTestHelper helper) {
+        useChainSeam(helper);
+        var p = playerBeside(helper, 0);
+        net.minecraft.world.phys.Vec3 ret = p.position();
+        helper.assertTrue(com.hogwartsmagic.pensieve.PensieveSessions.startPreview(p, "chain_a"), "preview refused");
+        java.util.concurrent.atomic.AtomicBoolean handed = new java.util.concurrent.atomic.AtomicBoolean();
+        helper.onEachTick(() -> {
+            var s = com.hogwartsmagic.pensieve.PensieveSessions.sessionOf(p);
+            if (handed.get() || s.isEmpty() || !"chain_b".equals(s.get().sceneId())) return;
+            helper.assertTrue("chain_a".equals(s.get().chainRoot()), "chainRoot should be chain_a, is " + s.get().chainRoot());
+            helper.assertTrue(s.get().phase() == com.hogwartsmagic.pensieve.Session.Phase.PLAY, "chain_b should play");
+            helper.assertTrue(!s.get().standby(), "the session handed to must not be on standby");
+            helper.assertTrue(nearPoint(p, s.get().anchor(), 0.5), "viewer should float at chain_b's anchor");
+            helper.assertTrue(goldFloor(helper, s.get().origin()) == 9, "chain_b's gold floor should be built");
+            helper.assertTrue(s.get().viewers().get(p.getUUID()).sawStart(), "sawStart should carry over");
+            handed.set(true);
+        });
+        helper.succeedWhen(() -> {
+            helper.assertTrue(handed.get(), "not handed to chain_b yet");
+            helper.assertTrue(!com.hogwartsmagic.pensieve.PensieveSessions.isViewer(p), "still a viewer");
+            helper.assertTrue(nearPoint(p, ret, 0.1), "not back at the return point: " + p.position());
+            logout(helper, p);
+            LOGGER.info("PENSIEVE-GAMETEST PASS chainHandsViewerToNextScene");
+        });
+    }
+
+    @GameTest(template = EMPTY, batch = "pensieve_chain_stall", timeoutTicks = 300)
+    public static void handoverWaitsForBuild(GameTestHelper helper) {
+        useChainSeam(helper);
+        basinWithMemory(helper);
+        var p = playerBeside(helper, 0);
+        helper.useBlock(BASIN, p);
+        helper.assertTrue(com.hogwartsmagic.pensieve.PensieveSessions.isViewer(p), "diving should make a viewer");
+        // chain_a's 9 blocks went in on the first tick; from here nothing builds, so the standby chain_b stalls.
+        helper.runAtTickTime(5, () -> com.hogwartsmagic.pensieve.PensieveSessions.setBuildBudgetForTests(0));
+        java.util.concurrent.atomic.AtomicLong handoverAt = new java.util.concurrent.atomic.AtomicLong(-1);
+        java.util.concurrent.atomic.AtomicReference<com.hogwartsmagic.pensieve.Session> old =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        java.util.concurrent.atomic.AtomicBoolean released = new java.util.concurrent.atomic.AtomicBoolean();
+        helper.onEachTick(() -> {
+            if (released.get()) return;
+            var s = com.hogwartsmagic.pensieve.PensieveSessions.sessionOf(p);
+            if (s.isEmpty()) return;
+            if (handoverAt.get() < 0 && s.get().phase() == com.hogwartsmagic.pensieve.Session.Phase.HANDOVER) {
+                handoverAt.set(helper.getTick());
+                old.set(s.get());
+                helper.assertTrue(s.get().nextSession() != null && s.get().nextSession().standby(),
+                        "a standby chain_b should be waiting");
+            }
+            if (handoverAt.get() >= 0 && helper.getTick() >= handoverAt.get() + 20) {
+                helper.assertTrue(s.get() == old.get(), "the viewer must stay in chain_a while chain_b is unbuilt");
+                helper.assertTrue(s.get().phase() == com.hogwartsmagic.pensieve.Session.Phase.HANDOVER,
+                        "chain_a should hold in HANDOVER, is " + s.get().phase());
+                helper.assertTrue(nearPoint(p, s.get().anchor(), 0.5), "viewer should stay pinned at chain_a's anchor");
+                com.hogwartsmagic.pensieve.PensieveSessions.setBuildBudgetForTests(-1);
+                released.set(true);
+            }
+        });
+        helper.succeedWhen(() -> {
+            helper.assertTrue(released.get(), "not unstalled yet");
+            var s = com.hogwartsmagic.pensieve.PensieveSessions.sessionOf(p);
+            helper.assertTrue(s.isPresent() && "chain_b".equals(s.get().sceneId())
+                    && s.get().phase() == com.hogwartsmagic.pensieve.Session.Phase.PLAY, "chain_b should play");
+            helper.assertTrue(com.hogwartsmagic.pensieve.PensieveSessions.holdsBasinTicket(s.get()),
+                    "the basin ticket should move to chain_b");
+            helper.assertTrue(!com.hogwartsmagic.pensieve.PensieveSessions.holdsBasinTicket(old.get()),
+                    "chain_a must not keep the basin ticket");
+            helper.assertTrue(s.get().chainRoot().equals(old.get().sceneId()), "chainRoot should be the dived scene");
+            logout(helper, p);
+            LOGGER.info("PENSIEVE-GAMETEST PASS handoverWaitsForBuild");
+        });
+    }
+
+    @GameTest(template = EMPTY, batch = "pensieve_chain_leave", timeoutTicks = 300)
+    public static void leaveMidChainClearsStandby(GameTestHelper helper) {
+        useChainSeam(helper);
+        var p = playerBeside(helper, 0);
+        helper.assertTrue(com.hogwartsmagic.pensieve.PensieveSessions.startPreview(p, "chain_a"), "preview refused");
+        java.util.concurrent.atomic.AtomicReference<com.hogwartsmagic.pensieve.Session> a =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        java.util.concurrent.atomic.AtomicReference<com.hogwartsmagic.pensieve.Session> b =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        helper.runAtTickTime(70, () -> {
+            var s = com.hogwartsmagic.pensieve.PensieveSessions.sessionOf(p);
+            helper.assertTrue(s.isPresent() && s.get().phase() == com.hogwartsmagic.pensieve.Session.Phase.PLAY,
+                    "chain_a should be playing at tick 70");
+            var next = s.get().nextSession();
+            helper.assertTrue(next != null && next.standby(), "a standby chain_b should exist during chain_a's PLAY");
+            helper.assertTrue(goldFloor(helper, next.origin()) == 9, "the standby should be built ahead");
+            helper.assertTrue(next.viewers().isEmpty(), "a standby has no viewers");
+            a.set(s.get());
+            b.set(next);
+            com.hogwartsmagic.pensieve.PensieveSessions.leave(p, com.hogwartsmagic.pensieve.ExitReason.LEFT);
+        });
+        helper.succeedWhen(() -> {
+            helper.assertTrue(b.get() != null, "not left yet");
+            helper.assertTrue(!com.hogwartsmagic.pensieve.PensieveSessions.isViewer(p), "still a viewer");
+            helper.assertTrue(!com.hogwartsmagic.pensieve.PensieveSessions.slotInUse(a.get().slot()),
+                    "chain_a's slot should be released");
+            helper.assertTrue(!com.hogwartsmagic.pensieve.PensieveSessions.slotInUse(b.get().slot()),
+                    "the standby's slot should be released");
+            helper.assertTrue(goldFloor(helper, b.get().origin()) == 0, "the standby's gold floor should be cleared");
+            logout(helper, p);
+            LOGGER.info("PENSIEVE-GAMETEST PASS leaveMidChainClearsStandby");
+        });
+    }
+
+    @GameTest(template = EMPTY, batch = "pensieve_chain_unchained", timeoutTicks = 300)
+    public static void unchainedSceneUnchanged(GameTestHelper helper) {
+        useChainSeam(helper);
+        var p = playerBeside(helper, 0);
+        net.minecraft.world.phys.Vec3 ret = p.position();
+        helper.assertTrue(com.hogwartsmagic.pensieve.PensieveSessions.startPreview(p, "unchained"), "preview refused");
+        java.util.concurrent.atomic.AtomicBoolean sawEnd = new java.util.concurrent.atomic.AtomicBoolean();
+        helper.onEachTick(() -> {
+            var s = com.hogwartsmagic.pensieve.PensieveSessions.sessionOf(p);
+            if (s.isEmpty()) return;
+            helper.assertTrue("unchained".equals(s.get().sceneId()), "the viewer must stay in the unchained scene");
+            helper.assertTrue(s.get().nextSession() == null, "a scene with no next builds no standby");
+            helper.assertTrue("unchained".equals(s.get().chainRoot()), "a fresh session is its own chain root");
+            var v = s.get().viewers().get(p.getUUID());
+            if (v != null && v.exitReason() == com.hogwartsmagic.pensieve.ExitReason.END) sawEnd.set(true);
+        });
+        helper.succeedWhen(() -> {
+            helper.assertTrue(sawEnd.get(), "the memory should end with END");
+            helper.assertTrue(!com.hogwartsmagic.pensieve.PensieveSessions.isViewer(p), "still a viewer");
+            helper.assertTrue(nearPoint(p, ret, 0.1), "not back at the return point: " + p.position());
+            logout(helper, p);
+            LOGGER.info("PENSIEVE-GAMETEST PASS unchainedSceneUnchanged");
+        });
+    }
 }

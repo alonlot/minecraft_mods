@@ -97,6 +97,8 @@ public final class PensieveSessions {
     @Nullable private static UUID forwarding;
     @Nullable private static ServerLevel testLevel;
     @Nullable private static Function<String, Optional<MemoryRegistry.LoadedScene>> testScenes;
+    /** Gametests only: the per-tick block budget in place of the config's (0 stalls every build); -1 for none. */
+    private static int testBudget = -1;
 
     private PensieveSessions() {
     }
@@ -110,6 +112,16 @@ public final class PensieveSessions {
     public static void overrideForTests(ServerLevel level, Function<String, Optional<MemoryRegistry.LoadedScene>> scenes) {
         testLevel = level;
         testScenes = scenes;
+    }
+
+    /** Gametests only: a fixed per-tick block budget ({@code 0} stalls every build and clear); negative restores it. */
+    public static void setBuildBudgetForTests(int blocks) {
+        testBudget = blocks < 0 ? -1 : blocks;
+    }
+
+    /** Gametests: whether the allocator still holds {@code slot} (a session, a standby or a clear owns it). */
+    public static boolean slotInUse(int slot) {
+        return allocator.isUsed(slot);
     }
 
     /** The level memories play in: the memory dimension, or the test stand-in; null if neither exists. */
@@ -260,13 +272,7 @@ public final class PensieveSessions {
             player.displayClientMessage(Component.translatable("message.hogwartsmagic.pensieve.too_big"), !preview);
             return null;
         }
-        int slot = allocator.acquire();
-        int[] o = RegionAllocator.originFor(slot);
-        BlockPos origin = new BlockPos(o[0], o[1], o[2]);
-        Session s = new Session(id, scene.json(), scene.def(), slot, origin, basinDim, basinPos, preview);
-        s.level = memory;
-        int radius = Math.max(1, Math.min(MAX_RADIUS, scene.def().radius()));
-        s.builder = new SetBuilder(memory, origin, scene.def().set(), radius);
+        Session s = newSession(memory, id, scene, basinDim, basinPos, preview);
         // A no-op on a derived level (the memory dimension shares the overworld clock); the client applies the
         // scene's time of day itself from the scene JSON.
         memory.setDayTime(scene.def().set().timeOfDay());
@@ -274,6 +280,65 @@ public final class PensieveSessions {
         setPlaying(s, true);
         holdBasin(s, memory.getServer());
         return s;
+    }
+
+    /** A session in a fresh slot with its builder set up, not yet in {@link #SESSIONS}. */
+    private static Session newSession(ServerLevel memory, String id, MemoryRegistry.LoadedScene scene,
+                                      @Nullable ResourceKey<Level> basinDim, @Nullable BlockPos basinPos,
+                                      boolean preview) {
+        int slot = allocator.acquire();
+        int[] o = RegionAllocator.originFor(slot);
+        BlockPos origin = new BlockPos(o[0], o[1], o[2]);
+        Session s = new Session(id, scene.json(), scene.def(), slot, origin, basinDim, basinPos, preview);
+        s.level = memory;
+        int radius = Math.max(1, Math.min(MAX_RADIUS, scene.def().radius()));
+        s.builder = new SetBuilder(memory, origin, scene.def().set(), radius);
+        return s;
+    }
+
+    /**
+     * {@code s} just began PLAY: when its scene names a {@code next} one, that is built ahead in its own slot as a
+     * standby (same basin, same preview flag, same chain root), so the viewers can be handed over the moment this
+     * one ends. A next scene that is missing, broken or too big is logged and the chain simply ends here.
+     */
+    private static void buildNext(MinecraftServer server, Session s) {
+        String next = s.scene().next();
+        if (next == null || s.nextSession != null) return;
+        Optional<MemoryRegistry.LoadedScene> loaded;
+        try {
+            // Looked up the way the session itself was: a preview reads the dev folder fresh.
+            loaded = s.preview() && testScenes == null ? MemoryRegistry.loadForPreview(next) : lookup(next);
+        } catch (SceneException e) {
+            LOGGER.warn("Pensieve: next scene '{}' of '{}' does not load: {}", next, s.sceneId(), e.getMessage());
+            return;
+        }
+        if (loaded.isEmpty()) {
+            LOGGER.warn("Pensieve: scene '{}' names next scene '{}', which is not loaded; the chain ends there",
+                    s.sceneId(), next);
+            return;
+        }
+        if (next.length() > PensieveStartPacket.MAX_ID || loaded.get().json().length() > PensieveStartPacket.MAX_JSON) {
+            LOGGER.warn("Pensieve: next scene '{}' of '{}' is too big for the start packet; the chain ends there",
+                    next, s.sceneId());
+            return;
+        }
+        if (s.preview()) {
+            List<String> messages = SceneValidator.validate(loaded.get().def(), PensieveCommand.liveNames(server));
+            if (!messages.isEmpty()) {
+                for (Session.Viewer v : s.viewers().values()) {
+                    ServerPlayer p = server.getPlayerList().getPlayer(v.id());
+                    if (p != null) for (String m : messages) p.sendSystemMessage(Component.literal(next + ": " + m));
+                }
+                LOGGER.warn("Pensieve: next scene '{}' of preview '{}' has {} problem(s); the chain ends there",
+                        next, s.sceneId(), messages.size());
+                return;
+            }
+        }
+        Session n = newSession(s.level, next, loaded.get(), s.basinDim(), s.basinPos(), s.preview());
+        n.standby = true;
+        n.chainRoot = s.chainRoot;
+        s.nextSession = n;
+        SESSIONS.add(n);
     }
 
     /** Takes the basin ticket (see {@link #BASIN_TICKET}) on the first dive; previews have no basin. */
@@ -323,13 +388,18 @@ public final class PensieveSessions {
 
     /**
      * One server tick. {@code pensieveBlocksPerTick} is one budget for the whole tick, shared by every build and
-     * clear job: builds first (someone is waiting inside), then clears with whatever is left.
+     * clear job: builds first (someone is waiting inside), then standby builds (the next scene of a chain, built
+     * ahead), then clears with whatever is left.
      */
     public static void tick(MinecraftServer server) {
         ensureInit(server);
-        int[] budget = {Math.max(1, Config.pensieveBlocksPerTick)};
-        for (Session s : new ArrayList<>(SESSIONS)) {
-            tickSession(server, s, budget);
+        int[] budget = {testBudget >= 0 ? testBudget : Math.max(1, Config.pensieveBlocksPerTick)};
+        List<Session> order = new ArrayList<>(SESSIONS.size());
+        for (Session s : SESSIONS) if (!s.standby) order.add(s);
+        for (Session s : SESSIONS) if (s.standby) order.add(s);
+        for (Session s : order) {
+            // A standby finished earlier this tick (its owner ended) is gone; do not build into a freed slot.
+            if (SESSIONS.contains(s)) tickSession(server, s, budget);
         }
         Iterator<Clearing> it = CLEARING.iterator();
         while (it.hasNext() && budget[0] > 0) {
@@ -343,6 +413,11 @@ public final class PensieveSessions {
     }
 
     private static void tickSession(MinecraftServer server, Session s, int[] budget) {
+        if (s.standby) {
+            // Built ahead for a chain: nobody to tick, and never finished for being empty (its owner finishes it).
+            buildStep(s, budget);
+            return;
+        }
         ServerLevel memory = s.level;
         for (Session.Viewer v : new ArrayList<>(s.viewers().values())) {
             ServerPlayer p = server.getPlayerList().getPlayer(v.id());
@@ -367,10 +442,7 @@ public final class PensieveSessions {
         }
         long now = memory.getGameTime();
         if (s.phase == Session.Phase.BUILD) {
-            if (!s.built && s.builder != null && budget[0] > 0) {
-                s.built = s.builder.advance(budget);
-                recordPlaced(s);
-            }
+            buildStep(s, budget);
             if (s.built && s.firstCrossTime >= 0 && now - s.firstCrossTime >= s.scene().set().buildTicks()) {
                 s.phase = Session.Phase.PLAY;
                 s.startGameTime = now;
@@ -380,17 +452,77 @@ public final class PensieveSessions {
                     ServerPlayer p = server.getPlayerList().getPlayer(v.id());
                     if (p != null) sendStart(p, s);
                 }
+                buildNext(server, s);
             }
         } else if (s.phase == Session.Phase.PLAY) {
             applyBlockEvents(s, now);
             if (SessionClock.finished(s.startGameTime, now, s.scene().length())) {
-                s.phase = Session.Phase.CLOSING;
-                for (Session.Viewer v : s.viewers().values()) {
-                    ServerPlayer p = server.getPlayerList().getPlayer(v.id());
-                    if (p != null) beginExit(p, v, ExitReason.END);
+                if (s.nextSession != null) {
+                    s.phase = Session.Phase.HANDOVER;
+                    tryHandover(server, s, now);
+                } else {
+                    endScene(server, s);
                 }
             }
+        } else if (s.phase == Session.Phase.HANDOVER) {
+            tryHandover(server, s, now);
         }
+    }
+
+    private static void buildStep(Session s, int[] budget) {
+        if (!s.built && s.builder != null && budget[0] > 0) {
+            s.built = s.builder.advance(budget);
+            recordPlaced(s);
+        }
+    }
+
+    /** The clock ran out with no next scene: everyone goes home with END. */
+    private static void endScene(MinecraftServer server, Session s) {
+        s.phase = Session.Phase.CLOSING;
+        for (Session.Viewer v : s.viewers().values()) {
+            ServerPlayer p = server.getPlayerList().getPlayer(v.id());
+            if (p != null) beginExit(p, v, ExitReason.END);
+        }
+    }
+
+    /**
+     * {@code s}'s clock ran out and its next scene stands by. Until that is built, {@code s} holds in HANDOVER with
+     * the viewers pinned at its anchor. Once built, every viewer moves over as the same {@link Session.Viewer} (return
+     * point, body and {@code sawStart} go along): those inside are moved to the new anchor and sent its start, one
+     * still swallowing crosses into it later, and one already exiting just finishes going home from it. The basin
+     * ticket moves with them rather than being taken again: a region ticket is a set, so a second add followed by
+     * the old session's remove would drop it.
+     */
+    private static void tryHandover(MinecraftServer server, Session s, long now) {
+        Session next = s.nextSession;
+        if (next == null) {
+            endScene(server, s);
+            return;
+        }
+        if (!next.built) return;
+        s.nextSession = null;
+        next.standby = false;
+        next.basinTicket = s.basinTicket;
+        next.basinTicketLevel = s.basinTicketLevel;
+        s.basinTicket = null;
+        s.basinTicketLevel = null;
+        next.phase = Session.Phase.PLAY;
+        next.startGameTime = now;
+        next.firstCrossTime = now;
+        next.level.setDayTime(next.scene().set().timeOfDay());
+        for (Session.Viewer v : new ArrayList<>(s.viewers().values())) {
+            s.viewers().remove(v.id());
+            next.viewers().put(v.id(), v);
+            BY_VIEWER.put(v.id(), next);
+            if (v.stage != Session.Viewer.Stage.INSIDE) continue;
+            ServerPlayer p = server.getPlayerList().getPlayer(v.id());
+            if (p == null) continue;
+            moveTo(p, next.level, next.anchor(), p.getYRot(), p.getXRot());
+            sendStart(p, next);
+        }
+        finish(s);
+        setPlaying(next, true);
+        buildNext(server, next);
     }
 
     private static void tickViewer(Session s, Session.Viewer v, ServerPlayer p, ServerLevel memory) {
@@ -718,9 +850,16 @@ public final class PensieveSessions {
         BY_VIEWER.remove(v.id(), s);
     }
 
-    /** Last viewer gone: release the builder's tickets first (shared ticket type), then clear and free the slot. */
+    /**
+     * Last viewer gone (or all handed over): release the builder's tickets first (shared ticket type), then clear
+     * and free the slot. A standby next scene goes with it.
+     */
     private static void finish(Session s) {
         SESSIONS.remove(s);
+        // Ending without a hand-over: the scene built ahead for it will never be watched.
+        Session standby = s.nextSession;
+        s.nextSession = null;
+        if (standby != null && standby.standby) finish(standby);
         s.phase = Session.Phase.CLOSING;
         setPlaying(s, false);
         releaseBasin(s);
@@ -811,6 +950,7 @@ public final class PensieveSessions {
         initLevel = null;
         testLevel = null;
         testScenes = null;
+        testBudget = -1;
     }
 
     private static void writeReturnTag(ServerPlayer p, Session.Viewer v) {

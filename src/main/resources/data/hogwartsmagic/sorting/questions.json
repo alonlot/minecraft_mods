@@ -1,0 +1,114 @@
+{
+  "questions": [
+    {
+      "id": "q1",
+      "text": "Boy, an older student dares you to climb the tallest tower at midnight. What do you do?",
+      "voice": "hogwartsmagic:sorting.voice.q1",
+      "answers": {
+        "GRYFFINDOR": "Take the dare and start climbing at once.",
+        "RAVENCLAW": "Work out the safest route before I move.",
+        "HUFFLEPUFF": "Refuse, and invite him to share my supper instead.",
+        "SLYTHERIN": "Dare him back, and make sure everyone sees."
+      }
+    },
+    {
+      "id": "q2",
+      "text": "A great exam is tomorrow, and you are not ready. How do you spend the night?",
+      "voice": "hogwartsmagic:sorting.voice.q2",
+      "answers": {
+        "GRYFFINDOR": "Trust my nerve and sleep soundly.",
+        "RAVENCLAW": "Read until I understand every last detail.",
+        "HUFFLEPUFF": "Study patiently, and help a friend who is struggling.",
+        "SLYTHERIN": "Find out exactly what will be asked, and prepare only that."
+      }
+    },
+    {
+      "id": "q3",
+      "text": "Your closest friend is cornered by bullies, and you are outnumbered. What now?",
+      "voice": "hogwartsmagic:sorting.voice.q3",
+      "answers": {
+        "GRYFFINDOR": "Charge in and stand beside my friend.",
+        "RAVENCLAW": "Think of a clever distraction to scatter them.",
+        "HUFFLEPUFF": "Stay by my friend, whatever it costs me.",
+        "SLYTHERIN": "Slip away and return with someone who frightens them."
+      }
+    },
+    {
+      "id": "q4",
+      "text": "You find an old door, locked tight, deep in the castle. How do you open it?",
+      "voice": "hogwartsmagic:sorting.voice.q4",
+      "answers": {
+        "GRYFFINDOR": "Throw my shoulder against it until it gives.",
+        "RAVENCLAW": "Study the lock and the carvings for a clue.",
+        "HUFFLEPUFF": "Leave it, and ask who it belongs to.",
+        "SLYTHERIN": "Find whoever holds the key, and make a bargain."
+      }
+    },
+    {
+      "id": "q5",
+      "text": "The forest path splits in three. Which would you choose?",
+      "voice": "hogwartsmagic:sorting.voice.q5",
+      "answers": {
+        "GRYFFINDOR": "The dark and dangerous path, where the adventure waits.",
+        "RAVENCLAW": "The strange path nobody has ever explained.",
+        "HUFFLEPUFF": "The sunny path, where I can walk with company.",
+        "SLYTHERIN": "The hidden path, which leads somewhere others cannot follow."
+      }
+    },
+    {
+      "id": "q6",
+      "text": "You discover a chest of gold that belongs to nobody you can name. What do you do?",
+      "voice": "hogwartsmagic:sorting.voice.q6",
+      "answers": {
+        "GRYFFINDOR": "Hand it over, even if I could have used it.",
+        "RAVENCLAW": "Examine it first, for a riddle on the lid.",
+        "HUFFLEPUFF": "Share it out fairly among everyone nearby.",
+        "SLYTHERIN": "Keep it quiet, and spend it wisely."
+      }
+    },
+    {
+      "id": "q7",
+      "text": "Which of these would sting you the most?",
+      "voice": "hogwartsmagic:sorting.voice.q7",
+      "answers": {
+        "GRYFFINDOR": "Being called a coward.",
+        "RAVENCLAW": "Being called a fool.",
+        "HUFFLEPUFF": "Being called unfair.",
+        "SLYTHERIN": "Being called ordinary."
+      }
+    },
+    {
+      "id": "q8",
+      "text": "A rule seems foolish, and breaking it would help someone. What do you do?",
+      "voice": "hogwartsmagic:sorting.voice.q8",
+      "answers": {
+        "GRYFFINDOR": "Break it boldly, and take whatever follows.",
+        "RAVENCLAW": "Argue the rule is wrong, and prove it.",
+        "HUFFLEPUFF": "Keep it, and look for a kinder way to help.",
+        "SLYTHERIN": "Bend it quietly, so nobody can blame me."
+      }
+    },
+    {
+      "id": "q9",
+      "text": "You are given a dull, tiring task that nobody will ever praise. How do you do it?",
+      "voice": "hogwartsmagic:sorting.voice.q9",
+      "answers": {
+        "GRYFFINDOR": "Quickly, so I can find something braver to do.",
+        "RAVENCLAW": "By inventing a cleverer way to do it.",
+        "HUFFLEPUFF": "Steadily and well, because it needs doing.",
+        "SLYTHERIN": "Only if it brings me something I want."
+      }
+    },
+    {
+      "id": "q10",
+      "text": "Years from now, what would you most wish to be remembered for?",
+      "voice": "hogwartsmagic:sorting.voice.q10",
+      "answers": {
+        "GRYFFINDOR": "A brave deed that others still speak of.",
+        "RAVENCLAW": "A discovery that changed what people knew.",
+        "HUFFLEPUFF": "Being a true friend to everyone I met.",
+        "SLYTHERIN": "Rising higher than anyone believed I could."
+      }
+    }
+  ]
+}

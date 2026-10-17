@@ -2143,5 +2143,176 @@
         "stream": true
       }
     ]
+  },
+  "sorting.voice.greeting": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:sorting/greeting",
+        "stream": false
+      }
+    ],
+    "subtitle": "subtitles.hogwartsmagic.sorting.voice"
+  },
+  "sorting.voice.q1": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:sorting/q1",
+        "stream": false
+      }
+    ],
+    "subtitle": "subtitles.hogwartsmagic.sorting.voice"
+  },
+  "sorting.voice.q2": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:sorting/q2",
+        "stream": false
+      }
+    ],
+    "subtitle": "subtitles.hogwartsmagic.sorting.voice"
+  },
+  "sorting.voice.q3": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:sorting/q3",
+        "stream": false
+      }
+    ],
+    "subtitle": "subtitles.hogwartsmagic.sorting.voice"
+  },
+  "sorting.voice.q4": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:sorting/q4",
+        "stream": false
+      }
+    ],
+    "subtitle": "subtitles.hogwartsmagic.sorting.voice"
+  },
+  "sorting.voice.q5": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:sorting/q5",
+        "stream": false
+      }
+    ],
+    "subtitle": "subtitles.hogwartsmagic.sorting.voice"
+  },
+  "sorting.voice.q6": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:sorting/q6",
+        "stream": false
+      }
+    ],
+    "subtitle": "subtitles.hogwartsmagic.sorting.voice"
+  },
+  "sorting.voice.q7": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:sorting/q7",
+        "stream": false
+      }
+    ],
+    "subtitle": "subtitles.hogwartsmagic.sorting.voice"
+  },
+  "sorting.voice.q8": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:sorting/q8",
+        "stream": false
+      }
+    ],
+    "subtitle": "subtitles.hogwartsmagic.sorting.voice"
+  },
+  "sorting.voice.q9": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:sorting/q9",
+        "stream": false
+      }
+    ],
+    "subtitle": "subtitles.hogwartsmagic.sorting.voice"
+  },
+  "sorting.voice.q10": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:sorting/q10",
+        "stream": false
+      }
+    ],
+    "subtitle": "subtitles.hogwartsmagic.sorting.voice"
+  },
+  "sorting.voice.react1": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:sorting/react1",
+        "stream": false
+      }
+    ],
+    "subtitle": "subtitles.hogwartsmagic.sorting.voice"
+  },
+  "sorting.voice.react2": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:sorting/react2",
+        "stream": false
+      }
+    ],
+    "subtitle": "subtitles.hogwartsmagic.sorting.voice"
+  },
+  "sorting.voice.react3": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:sorting/react3",
+        "stream": false
+      }
+    ],
+    "subtitle": "subtitles.hogwartsmagic.sorting.voice"
+  },
+  "sorting.voice.tie": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:sorting/tie",
+        "stream": false
+      }
+    ],
+    "subtitle": "subtitles.hogwartsmagic.sorting.voice"
+  },
+  "sorting.voice.gryffindor": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:sorting/gryffindor",
+        "stream": false
+      }
+    ],
+    "subtitle": "subtitles.hogwartsmagic.sorting.voice"
+  },
+  "sorting.voice.ravenclaw": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:sorting/ravenclaw",
+        "stream": false
+      }
+    ],
+    "subtitle": "subtitles.hogwartsmagic.sorting.voice"
+  },
+  "sorting.voice.hufflepuff": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:sorting/hufflepuff",
+        "stream": false
+      }
+    ],
+    "subtitle": "subtitles.hogwartsmagic.sorting.voice"
+  },
+  "sorting.voice.slytherin": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:sorting/slytherin",
+        "stream": false
+      }
+    ],
+    "subtitle": "subtitles.hogwartsmagic.sorting.voice"
   }
 }

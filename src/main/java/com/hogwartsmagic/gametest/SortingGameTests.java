@@ -240,4 +240,21 @@ public final class SortingGameTests {
         LOGGER.info("SORTING-GAMETEST PASS forgedChoiceIgnored");
         helper.succeed();
     }
+
+    @GameTest(template = EMPTY, batch = "sorting_stale_pending", timeoutTicks = 100)
+    public static void stalePendingClears(GameTestHelper helper) {
+        useNoSceneSeam(helper);
+        SortingHatManager m = SortingHatManager.get();
+        ServerPlayer p = player(helper);
+        hat(p, true);
+        // Marked as in the memory, but the Pensieve never had them and no home callback will come.
+        m.markMemoryPendingForTests(p.getUUID());
+        helper.assertTrue(m.isMemoryPending(p.getUUID()) && !PensieveSessions.isViewer(p), "setup: stale mark");
+        m.tick(p);
+        helper.assertTrue(!m.isMemoryPending(p.getUUID()), "a stale memory mark must be cleared");
+        helper.assertTrue(m.hasQuiz(p.getUUID()), "the cleared player should not be stuck: the quiz should start");
+        logout(helper, p);
+        LOGGER.info("SORTING-GAMETEST PASS stalePendingClears");
+        helper.succeed();
+    }
 }

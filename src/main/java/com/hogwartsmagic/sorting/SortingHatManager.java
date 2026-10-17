@@ -66,6 +66,11 @@ public class SortingHatManager {
             if (open) drop(player);
             return;
         }
+        if (memoryPending.contains(id) && !PensieveSessions.isViewer(player)) {
+            // Marked for the memory but not in it, and no home callback came: treat it as an abort so they are never stuck.
+            memoryPending.remove(id);
+            open = quizzes.containsKey(id);
+        }
         if (open || hasHouse(player) || PensieveSessions.isViewer(player)) {
             return;
         }
@@ -121,6 +126,16 @@ public class SortingHatManager {
         if (quizzes.containsKey(player.getUUID()) || memoryPending.contains(player.getUUID())) {
             drop(player);
         }
+    }
+
+    /** Gametests: marks the player as sent into the memory without starting it. */
+    public void markMemoryPendingForTests(UUID playerId) {
+        memoryPending.add(playerId);
+    }
+
+    /** Gametests: whether the player is marked as waiting on the memory. */
+    public boolean isMemoryPending(UUID playerId) {
+        return memoryPending.contains(playerId);
     }
 
     /** Gametests: whether the player has a quiz open. */

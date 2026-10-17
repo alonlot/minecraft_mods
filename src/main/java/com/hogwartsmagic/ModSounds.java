@@ -309,6 +309,27 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_LAKE_HARRY_CAST = register("pensieve.voice.lake_harry_cast");
     public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_LAKE_HARRY_KNEW = register("pensieve.voice.lake_harry_knew");
 
+    // The Sorting Hat's spoken lines (Fish Audio takes; played by the client HatVoice from the quiz packets).
+    public static final RegistryObject<SoundEvent> SORTING_VOICE_GREETING = register("sorting.voice.greeting");
+    public static final RegistryObject<SoundEvent> SORTING_VOICE_Q1 = register("sorting.voice.q1");
+    public static final RegistryObject<SoundEvent> SORTING_VOICE_Q2 = register("sorting.voice.q2");
+    public static final RegistryObject<SoundEvent> SORTING_VOICE_Q3 = register("sorting.voice.q3");
+    public static final RegistryObject<SoundEvent> SORTING_VOICE_Q4 = register("sorting.voice.q4");
+    public static final RegistryObject<SoundEvent> SORTING_VOICE_Q5 = register("sorting.voice.q5");
+    public static final RegistryObject<SoundEvent> SORTING_VOICE_Q6 = register("sorting.voice.q6");
+    public static final RegistryObject<SoundEvent> SORTING_VOICE_Q7 = register("sorting.voice.q7");
+    public static final RegistryObject<SoundEvent> SORTING_VOICE_Q8 = register("sorting.voice.q8");
+    public static final RegistryObject<SoundEvent> SORTING_VOICE_Q9 = register("sorting.voice.q9");
+    public static final RegistryObject<SoundEvent> SORTING_VOICE_Q10 = register("sorting.voice.q10");
+    public static final RegistryObject<SoundEvent> SORTING_VOICE_REACT1 = register("sorting.voice.react1");
+    public static final RegistryObject<SoundEvent> SORTING_VOICE_REACT2 = register("sorting.voice.react2");
+    public static final RegistryObject<SoundEvent> SORTING_VOICE_REACT3 = register("sorting.voice.react3");
+    public static final RegistryObject<SoundEvent> SORTING_VOICE_TIE = register("sorting.voice.tie");
+    public static final RegistryObject<SoundEvent> SORTING_VOICE_GRYFFINDOR = register("sorting.voice.gryffindor");
+    public static final RegistryObject<SoundEvent> SORTING_VOICE_RAVENCLAW = register("sorting.voice.ravenclaw");
+    public static final RegistryObject<SoundEvent> SORTING_VOICE_HUFFLEPUFF = register("sorting.voice.hufflepuff");
+    public static final RegistryObject<SoundEvent> SORTING_VOICE_SLYTHERIN = register("sorting.voice.slytherin");
+
     // Soundtrack of the Pensieve memories (streamed stereo; played by the scene's music events).
     public static final RegistryObject<SoundEvent> PENSIEVE_MUSIC_LAKE_DEMENTORS = register("pensieve.music.lake_dementors");
     public static final RegistryObject<SoundEvent> PENSIEVE_MUSIC_LAKE_PATRONUS_LIGHT = register("pensieve.music.lake_patronus_light");

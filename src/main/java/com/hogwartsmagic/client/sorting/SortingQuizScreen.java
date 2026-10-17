@@ -67,6 +67,7 @@ public class SortingQuizScreen extends Screen {
         if (mc.screen instanceof SortingQuizScreen) {
             mc.setScreen(null);
         }
+        HatVoice.closed();
     }
 
     private static void show(int step, Component prompt, List<Component> answers, boolean tie) {

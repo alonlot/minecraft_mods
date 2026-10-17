@@ -1037,10 +1037,13 @@ public final class PensieveGameTests {
         SceneDef a = floorScene("chain_a", "minecraft:stone", 40, "chain_b");
         SceneDef b = floorScene("chain_b", "minecraft:gold_block", 40, null);
         SceneDef u = floorScene("unchained", "minecraft:stone", 40, null);
+        // chain_a, but long enough that a viewer who leaves mid-PLAY is home before its clock could hand over.
+        SceneDef l = floorScene("chain_long", "minecraft:stone", 400, "chain_b");
         com.hogwartsmagic.pensieve.PensieveSessions.setBuildBudgetForTests(-1);
         com.hogwartsmagic.pensieve.PensieveSessions.overrideForTests(helper.getLevel(), id -> java.util.Optional.of(
                 new com.hogwartsmagic.pensieve.MemoryRegistry.LoadedScene(
-                        "chain_b".equals(id) ? b : "unchained".equals(id) ? u : a, "{}")));
+                        "chain_b".equals(id) ? b : "unchained".equals(id) ? u : "chain_long".equals(id) ? l : a,
+                        "{}")));
     }
 
     private static int goldFloor(GameTestHelper helper, BlockPos origin) {
@@ -1131,15 +1134,23 @@ public final class PensieveGameTests {
     public static void leaveMidChainClearsStandby(GameTestHelper helper) {
         useChainSeam(helper);
         var p = playerBeside(helper, 0);
-        helper.assertTrue(com.hogwartsmagic.pensieve.PensieveSessions.startPreview(p, "chain_a"), "preview refused");
+        helper.assertTrue(com.hogwartsmagic.pensieve.PensieveSessions.startPreview(p, "chain_long"), "preview refused");
         java.util.concurrent.atomic.AtomicReference<com.hogwartsmagic.pensieve.Session> a =
                 new java.util.concurrent.atomic.AtomicReference<>();
         java.util.concurrent.atomic.AtomicReference<com.hogwartsmagic.pensieve.Session> b =
                 new java.util.concurrent.atomic.AtomicReference<>();
+        // The 400-tick clock never runs out here, so the standby can only go by being finished with its owner.
+        helper.onEachTick(() -> {
+            var s = com.hogwartsmagic.pensieve.PensieveSessions.sessionOf(p);
+            if (s.isEmpty()) return;
+            helper.assertTrue(s.get().phase() != com.hogwartsmagic.pensieve.Session.Phase.HANDOVER,
+                    "chain_long must never reach HANDOVER in this test");
+            helper.assertTrue(!"chain_b".equals(s.get().sceneId()), "the viewer must never be handed to chain_b");
+        });
         helper.runAtTickTime(70, () -> {
             var s = com.hogwartsmagic.pensieve.PensieveSessions.sessionOf(p);
             helper.assertTrue(s.isPresent() && s.get().phase() == com.hogwartsmagic.pensieve.Session.Phase.PLAY,
-                    "chain_a should be playing at tick 70");
+                    "chain_long should be playing at tick 70");
             var next = s.get().nextSession();
             helper.assertTrue(next != null && next.standby(), "a standby chain_b should exist during chain_a's PLAY");
             helper.assertTrue(goldFloor(helper, next.origin()) == 9, "the standby should be built ahead");
@@ -1156,6 +1167,10 @@ public final class PensieveGameTests {
             helper.assertTrue(!com.hogwartsmagic.pensieve.PensieveSessions.slotInUse(b.get().slot()),
                     "the standby's slot should be released");
             helper.assertTrue(goldFloor(helper, b.get().origin()) == 0, "the standby's gold floor should be cleared");
+            helper.assertTrue(b.get().standby() && b.get().viewers().isEmpty(),
+                    "chain_b must have been cleared while still a standby, never handed over to");
+            helper.assertTrue(a.get().phase() == com.hogwartsmagic.pensieve.Session.Phase.CLOSING
+                    && a.get().nextSession() == null, "chain_long should be finished with its standby unlinked");
             logout(helper, p);
             LOGGER.info("PENSIEVE-GAMETEST PASS leaveMidChainClearsStandby");
         });

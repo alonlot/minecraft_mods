@@ -3,6 +3,7 @@ package com.hogwartsmagic.client.pensieve;
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.client.BasiliskGazeOverlay;
 import com.hogwartsmagic.event.ClientModEvents;
+import com.hogwartsmagic.pensieve.scene.Eyelids;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -60,10 +61,11 @@ public final class PensieveOverlay {
             fallbackDarkness(g, w, h, partial);
             greyEdges(g, partial, clock);
             patronusWash(g, w, h, partial);
-            eyelids(g, w, h, partial);
             float rt = PensieveClientState.revealTime(partial);
             if (rt < 10) wisps(g, w, h, clock, 1 - rt / 10, true);
             hint(g, w, h, phase, pt, rt);
+            // Last, so shut eyes hide the wisps and the leave hint too.
+            eyelids(g, w, h, partial);
         } else if (phase == PensieveClientState.EXIT) {
             float rt = PensieveClientState.returnTime(partial);
             if (rt >= 0) {
@@ -74,6 +76,8 @@ public final class PensieveOverlay {
                 if (black > 0) g.fill(0, 0, w, h, argb(black, 0));
             } else if (pt < EXIT_COLLAPSE_TICKS) {
                 fallbackDarkness(g, w, h, partial);
+                // A memory that ended on eyes_close stays black through the collapse: no flash of the scene.
+                eyelids(g, w, h, partial);
             } else {
                 g.fill(0, 0, w, h, 0xFF000000);
                 wisps(g, w, h, clock, clamp01((pt - EXIT_COLLAPSE_TICKS) / 3), false);
@@ -163,8 +167,9 @@ public final class PensieveOverlay {
     private static void eyelids(GuiGraphics g, int w, int h, float partial) {
         float closed = EffectVisuals.eyelids(partial);
         if (closed <= 0f) return;
-        int band = Math.round(h * 0.5f * clamp01(closed));
+        int band = Eyelids.band(closed, h, EYELID_EDGE);
         if (band <= 0) return;
+        band = Math.min(band, h);
         int soft = Math.min(EYELID_EDGE, band);
         int black = 0xFF000000;
         int clear = 0x00000000;

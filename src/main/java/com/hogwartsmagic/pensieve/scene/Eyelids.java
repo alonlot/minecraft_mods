@@ -34,6 +34,16 @@ public final class Eyelids {
         return (1f - k) * (1f - k);
     }
 
+    /**
+     * Rows one lid covers from its screen edge, soft edge included, on a screen {@code h} tall. At 0 it is none; at 1
+     * its solid part (all but the last {@code soft} rows) reaches the middle, so two shut lids leave no seam.
+     */
+    public static int band(float closed, int h, int soft) {
+        float k = Math.min(1f, Math.max(0f, closed));
+        if (k <= 0f) return 0;
+        return (int) Math.ceil((h * 0.5f + soft) * k);
+    }
+
     private static float smooth(float k) {
         return k * k * (3f - 2f * k);
     }

@@ -45,7 +45,7 @@ in `0..length`. Positions are blocks relative to the set origin (see Coordinates
 | `events` | array | none | below |
 | `words` | array | none | below |
 | `camera` | array | none | empty = viewer looks freely; otherwise directed |
-| `next` | string | none | id of another memory scene (lowercase `[a-z0-9_]+`, not this scene's own id) to chain into when this one ends; whether it exists is checked when the hand-over happens, not at validation |
+| `next` | string | none | id of another memory scene (lowercase `[a-z0-9_]+`, not this scene's own id) to chain into when this one ends; whether it exists is checked when the hand-over happens, not at validation. A chained scene fades to black over its last 20 ticks (instead of the exit), the viewer is moved to the next scene, and it fades in from black over 20 ticks with its own actors, sounds and time of day; nothing of the last scene carries over except music still fading out over 20 ticks |
 | `end_action` | string | none | only `cave_map`: when the scene ends at `length` (not when a viewer leaves early, is yanked or the basin breaks), each viewer gets `CaveMemoryItem.grantCaveMap` once, server-side, after they are moved home, so the Cave Map lands in their real inventory (with the drink's vision lines and nausea; "The memory is too faint..." and no map when no unlooted cave is near, or outside the Overworld). `/pensieve preview` runs it too. Used by `locket_cave` (whose 80 Inferi and Fiendfyre, `locket_cave.py`, are the worked example of a crowd: ring slots round the hero, straight radial paths, everything timed off the fire's wavefront, `write_scene(..., width=400)` to stay under the size cap) |
 
 ### `set`

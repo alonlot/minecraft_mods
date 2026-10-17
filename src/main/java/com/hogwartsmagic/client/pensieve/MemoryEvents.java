@@ -53,7 +53,6 @@ public final class MemoryEvents {
     /** Begin running {@code scene}'s events. Called as PLAY begins, by {@link MemoryActors#start}. */
     static void start(SceneDef scene, BlockPos at, ClientLevel clientLevel) {
         clear();
-        MemoryAudio.stopNow();
         if (scene == null || at == null || clientLevel == null) return;
         List<SceneDef.EventDef> sorted = new ArrayList<>(scene.events());
         sorted.removeIf(e -> "block".equals(e.kind()));
@@ -73,7 +72,7 @@ public final class MemoryEvents {
         SpellVisuals.clear();
         EffectVisuals.clear();
         MemorySounds.clear();
-        MemoryAudio.stopAll();
+        MemoryAudio.cut();
     }
 
     /** One client tick. */

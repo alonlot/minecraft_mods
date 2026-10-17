@@ -33,6 +33,7 @@ import org.slf4j.Logger;
  * <pre>
  *  onEnter ──► SWALLOW (30) ──► FALL ──onStart(-1)──► BUILD ──onStart(t)──► PLAY ──onExit──► EXIT (30 + return 15)
  *                                  └────────onStart(t), a late joiner────────┘          └─onExit(YANK)─► YANK (10)
+ *  BUILD/PLAY ──onStart(t) of another scene id (a chain's hand-over)──► PLAY of the new scene, faded in from black
  * </pre>
  *
  * <p>The time of day: the memory dimension shares the overworld clock, and the memory is reached with a seamless
@@ -76,7 +77,7 @@ public final class PensieveClientState {
     private static long startGameTime = -1;
     private static int buildTicks;
     private static boolean preview;
-    /** PLAY was reached straight from FALL (a late joiner): it fades in from black. */
+    /** PLAY was reached straight from FALL (a late joiner) or by a chain's hand-over: it fades in from black. */
     private static boolean lateJoin;
     /** A start that arrived during the swallow or the fall, held until the fall has run its minimum. */
     private static boolean startPending;
@@ -134,7 +135,9 @@ public final class PensieveClientState {
     /** The local player is in the memory; {@code startGameTime} is -1 while the set is still building. */
     public static void onStart(String id, String json, BlockPos at, long start, int build, boolean isPreview) {
         if (phase == EXIT || phase == YANK) return;
-        if (scene == null || !id.equals(sceneId)) {
+        // A different scene while one is already on screen: the server handed this viewer on to a chained scene.
+        boolean switched = sceneId != null && !id.equals(sceneId);
+        if (scene == null || switched) {
             scene = parse(id, json);
             sceneId = id;
         }
@@ -145,6 +148,10 @@ public final class PensieveClientState {
         if (phase == SWALLOW || phase == FALL) {
             // The server is often ready the moment the viewer crosses; the fall through the dark still plays.
             startPending = true;
+            return;
+        }
+        if (switched) {
+            handOver();
             return;
         }
         applyStart();
@@ -160,11 +167,38 @@ public final class PensieveClientState {
         } else if (phase != PLAY) {
             lateJoin = phase != BUILD;
             setPhase(PLAY);
+            // A new memory is starting: nothing of an old one may linger, not even music still fading out.
+            MemoryAudio.stopNow();
             MemoryActors.start(scene, origin, Minecraft.getInstance().level);
             if (lateJoin) beginReveal(PensieveTimeline.LATE_FADE_TICKS);
         }
         PensieveSounds.stopFall();
         PensieveSounds.hum(true);
+    }
+
+    /**
+     * BUILD or PLAY, and the next scene of a chain arrived (the server already moved the viewer to its anchor). The
+     * last scene's puppets, events, spell and effect visuals and memory sounds go (all of {@link MemoryActors#clear},
+     * which also resets the event cursor), its voices stop and its music fades under the new opening
+     * ({@link MemoryAudio#cut}); its words go by themselves, being drawn from the current scene and clock. The last
+     * scene faded to black at its length (or, from BUILD, is cut to black), and the new one fades in from black.
+     * The time of day follows the new scene through {@link #syncTimeOfDay}.
+     */
+    private static void handOver() {
+        MemoryActors.clear();
+        MemoryAudio.cut();
+        if (startGameTime < 0) {
+            // Not sent by the server today (a hand-over always starts the next scene), but never leave PLAY running
+            // on a clock that has not started.
+            if (phase != BUILD) setPhase(BUILD);
+            beginReveal(buildTicks);
+            return;
+        }
+        // PLAY keeps its phase start, so the leave hint does not come back for every scene of the chain.
+        if (phase != PLAY) setPhase(PLAY);
+        lateJoin = true;
+        MemoryActors.start(scene, origin, Minecraft.getInstance().level);
+        beginReveal(PensieveTimeline.LATE_FADE_TICKS);
     }
 
     private static void beginReveal(int span) {
@@ -294,6 +328,12 @@ public final class PensieveClientState {
         Minecraft mc = Minecraft.getInstance();
         if (startGameTime < 0 || mc.level == null) return 0;
         return SessionClock.elapsed(startGameTime, mc.level.getGameTime(), partial);
+    }
+
+    /** A chained scene's fade to black at its length, 0..1; always 0 for a scene with no {@code next}. */
+    public static float chainEndDarkness(float partial) {
+        if (scene == null || scene.next() == null || startGameTime < 0) return 0;
+        return PensieveTimeline.chainEndDarkness(sceneTime(partial), scene.length());
     }
 
     /** Red-edge strength from the last hit on the body, decaying over 12 ticks. */

@@ -23,7 +23,7 @@ import java.util.Set;
  *
  * <p>While any voice plays, every music instance eases down to {@link #DUCK_LEVEL} of its volume and back up
  * after, {@link #DUCK_STEP} per tick. When the memory ends music fades out over {@link #FADE_TICKS} ticks and
- * voices stop at once ({@link #stopAll()}). While a music instance is playing the vanilla music track is held off.
+ * voices stop at once ({@link #cut()}). While a music instance is playing the vanilla music track is held off.
  * Cue files carry their own fades; a cue is played whole from its {@code t} (an OGG cannot be sought into, so a late
  * joiner skips cues that are already past: that rule lives in {@link MemoryEvents}).
  */
@@ -65,8 +65,11 @@ public final class MemoryAudio {
         Minecraft.getInstance().getSoundManager().play(v);
     }
 
-    /** The memory ended: voices stop at once, music fades out over {@link #FADE_TICKS} ticks and then stops. */
-    static void stopAll() {
+    /**
+     * The memory, or one scene of a chain, ended: voices stop at once, music fades out over {@link #FADE_TICKS} ticks
+     * and then stops. A chained scene's music may still be fading under the next scene's opening.
+     */
+    static void cut() {
         for (Cue c : VOICES) Minecraft.getInstance().getSoundManager().stop(c.sound);
         VOICES.clear();
         ducking = false;

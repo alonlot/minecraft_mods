@@ -71,4 +71,16 @@ class PensieveTimelineTest {
         assertEquals(0f, PensieveTimeline.shudder(1f, 6), 1e-6f);
         assertEquals(0f, PensieveTimeline.thud(1f, -1), 1e-6f);
     }
+
+    @Test
+    void chainedSceneFadesToBlackOverItsLastTwentyTicksAndHoldsBlack() {
+        assertEquals(0f, PensieveTimeline.chainEndDarkness(0, 200), 1e-6f);
+        assertEquals(0f, PensieveTimeline.chainEndDarkness(180, 200), 1e-6f);
+        assertEquals(0.5f, PensieveTimeline.chainEndDarkness(190, 200), 1e-6f);
+        assertEquals(1f, PensieveTimeline.chainEndDarkness(200, 200), 1e-6f);
+        assertEquals(1f, PensieveTimeline.chainEndDarkness(260, 200), 1e-6f);
+        // A scene shorter than the fade starts it from the first tick.
+        assertTrue(PensieveTimeline.chainEndDarkness(0, 10) > 0f);
+        assertEquals(1f, PensieveTimeline.chainEndDarkness(10, 10), 1e-6f);
+    }
 }

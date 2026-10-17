@@ -26,6 +26,8 @@ public final class PensieveTimeline {
     public static final int SETTLE_TICKS = 25;
     /** A late joiner lands straight in PLAY; it fades in from black over this many ticks. */
     public static final int LATE_FADE_TICKS = 20;
+    /** A scene with a {@code next} fades to black over its last this-many ticks; the next one fades in from it. */
+    public static final int CHAIN_FADE_TICKS = 20;
     /** The fall through the dark always lasts at least this long, however soon the server is ready. */
     public static final int MIN_FALL_TICKS = 20;
 
@@ -105,6 +107,14 @@ public final class PensieveTimeline {
     /** Darkness eases from 1 (black) to 0 as the memory is revealed. */
     public static float revealDarkness(float reveal) {
         return 1 - smoothstep(reveal);
+    }
+
+    /**
+     * A chained scene's end: darkness eases from 0 to 1 over the last {@link #CHAIN_FADE_TICKS} before
+     * {@code length}, and stays black past it while the next scene is handed over.
+     */
+    public static float chainEndDarkness(float sceneTime, int length) {
+        return smoothstep((sceneTime - (length - CHAIN_FADE_TICKS)) / CHAIN_FADE_TICKS);
     }
 
     /** EXIT: the visible radius collapses to nothing over the first 15 ticks. */

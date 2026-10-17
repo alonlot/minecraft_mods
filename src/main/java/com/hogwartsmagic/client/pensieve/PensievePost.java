@@ -70,10 +70,15 @@ public final class PensievePost {
 
     public static float darkness(float partial) {
         int p = PensieveClientState.phase();
+        // A chained scene's fade to black at its length holds through a hand-over, and through an exit after it.
         if (p == PensieveClientState.BUILD || p == PensieveClientState.PLAY) {
-            return revealDarkness(PensieveClientState.reveal(partial));
+            return Math.max(revealDarkness(PensieveClientState.reveal(partial)),
+                    PensieveClientState.chainEndDarkness(partial));
         }
-        if (p == PensieveClientState.EXIT) return exitDarkness(PensieveClientState.phaseTime(partial));
+        if (p == PensieveClientState.EXIT) {
+            return Math.max(exitDarkness(PensieveClientState.phaseTime(partial)),
+                    PensieveClientState.chainEndDarkness(partial));
+        }
         return 0;
     }
 

@@ -35,13 +35,13 @@
     },
     {
       "id": "q4",
-      "text": "You find an old door, locked tight, deep in the castle. How do you open it?",
+      "text": "You find an old locked door deep in the castle, with a ring of keys beside it. What now?",
       "voice": "hogwartsmagic:sorting.voice.q4",
       "answers": {
-        "GRYFFINDOR": "Throw my shoulder against it until it gives.",
-        "RAVENCLAW": "Study the lock and the carvings for a clue.",
+        "GRYFFINDOR": "Ignore the keys and throw my shoulder against the door.",
+        "RAVENCLAW": "Study the lock and the carvings to pick the right key.",
         "HUFFLEPUFF": "Keep trying every key, patiently, until one fits.",
-        "SLYTHERIN": "Find whoever holds the key, and win them over."
+        "SLYTHERIN": "Find who owns the door, and win their trust."
       }
     },
     {
@@ -62,19 +62,19 @@
       "answers": {
         "GRYFFINDOR": "Carry it back to its owner myself, whatever the danger.",
         "RAVENCLAW": "Examine it first, for a riddle on the lid.",
-        "HUFFLEPUFF": "Share it out fairly among everyone nearby.",
-        "SLYTHERIN": "Find a way to put it to great use."
+        "HUFFLEPUFF": "Search for its owner, however long it takes.",
+        "SLYTHERIN": "Return it, and win the owner's lasting gratitude."
       }
     },
     {
       "id": "q7",
-      "text": "A kindly wizard offers you one gift, and only one. What do you ask for?",
+      "text": "It is your first night, and the moving staircases have left you lost. What do you do?",
       "voice": "hogwartsmagic:sorting.voice.q7",
       "answers": {
-        "GRYFFINDOR": "A sword that never fails a brave heart.",
-        "RAVENCLAW": "A book that answers any question I ask.",
-        "HUFFLEPUFF": "A warm hearth where friends are always welcome.",
-        "SLYTHERIN": "A seat of honour that no one can take from me."
+        "GRYFFINDOR": "Pick a staircase and leap onto it.",
+        "RAVENCLAW": "Watch the pattern, and predict where they will turn.",
+        "HUFFLEPUFF": "Wait for another lost first-year, and find the way together.",
+        "SLYTHERIN": "Flatter a portrait into showing me the way."
       }
     },
     {
@@ -85,7 +85,7 @@
         "GRYFFINDOR": "Break it boldly, and take whatever follows.",
         "RAVENCLAW": "Argue the rule is wrong, and prove it.",
         "HUFFLEPUFF": "Keep it, and look for a kinder way to help.",
-        "SLYTHERIN": "Find a clever way to help that the rule never forbade."
+        "SLYTHERIN": "Find a loophole the rule never forbade, and use it."
       }
     },
     {
@@ -101,13 +101,13 @@
     },
     {
       "id": "q10",
-      "text": "Years from now, what would you most wish to be remembered for?",
+      "text": "A rainy afternoon, and no lessons. How would you choose to spend it?",
       "voice": "hogwartsmagic:sorting.voice.q10",
       "answers": {
-        "GRYFFINDOR": "A brave deed that others still speak of.",
-        "RAVENCLAW": "A discovery that changed what people knew.",
-        "HUFFLEPUFF": "Being a true friend to everyone I met.",
-        "SLYTHERIN": "Rising higher than anyone believed I could."
+        "GRYFFINDOR": "Race across the grounds, rain and all.",
+        "RAVENCLAW": "Curl up with a book I have never opened.",
+        "HUFFLEPUFF": "Gather friends for a feast by the fire.",
+        "SLYTHERIN": "Plan my climb to the top of my year."
       }
     }
   ]

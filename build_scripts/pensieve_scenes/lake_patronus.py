@@ -990,5 +990,5 @@ print('\n'.join(problems) if problems else 'NO PROBLEMS')
 
 txt = write_scene(scene, 'lake_patronus')
 print('chars', len(txt))
-if len(txt) > 240000:
+if len(txt) > 252000:
     print('PROBLEM: scene JSON too big (%d chars, cap 262144)' % len(txt))

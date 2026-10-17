@@ -1,6 +1,7 @@
 package com.hogwartsmagic.client.pensieve;
 
 import com.hogwartsmagic.pensieve.scene.SceneDef;
+import com.hogwartsmagic.pensieve.scene.WordText;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -43,6 +44,7 @@ public final class MemoryWords {
         int w = g.guiWidth();
         int h = g.guiHeight();
 
+        String viewer = Minecraft.getInstance().player != null ? Minecraft.getInstance().player.getGameProfile().getName() : null;
         List<FormattedCharSequence> lines = new ArrayList<>();
         List<Float> alphas = new ArrayList<>();
         for (SceneDef.WordDef word : scene.words()) {
@@ -52,10 +54,10 @@ public final class MemoryWords {
                 int life = word.duration() > 0 ? word.duration() : DEFAULT_NARRATION_TICKS;
                 if (age >= life) continue;
                 float a = Mth.clamp(Math.min(age / NARRATION_FADE, (life - age) / NARRATION_FADE), 0f, 1f);
-                narration(g, font, word.text(), a, w, h);
+                narration(g, font, WordText.fill(word.text(), viewer), a, w, h);
             } else if (age < LINE_TICKS) {
                 float a = Mth.clamp((LINE_TICKS - age) / LINE_FADE, 0f, 1f);
-                for (FormattedCharSequence l : font.split(Component.literal(speaker(scene, word)), Math.max(80, Math.min(w / 2, 320)))) {
+                for (FormattedCharSequence l : font.split(Component.literal(speaker(scene, word, viewer)), Math.max(80, Math.min(w / 2, 320)))) {
                     lines.add(l);
                     alphas.add(a);
                 }
@@ -84,9 +86,10 @@ public final class MemoryWords {
     }
 
     /** {@code <name> text}, the way chat shows a player's line. */
-    private static String speaker(SceneDef scene, SceneDef.WordDef word) {
+    private static String speaker(SceneDef scene, SceneDef.WordDef word, String viewer) {
         String by = word.by();
-        if (by == null || by.isBlank()) return word.text();
+        String text = WordText.fill(word.text(), viewer);
+        if (by == null || by.isBlank()) return text;
         String name = by;
         for (SceneDef.ActorDef a : scene.actors()) {
             if (by.equals(a.id())) {
@@ -94,7 +97,7 @@ public final class MemoryWords {
                 break;
             }
         }
-        return "<" + name + "> " + word.text();
+        return "<" + name + "> " + text;
     }
 
     /** Alpha under 4/255 would be drawn opaque by the font renderer, so a faded-out line is skipped by its caller. */

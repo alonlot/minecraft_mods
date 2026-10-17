@@ -215,7 +215,7 @@ public final class MemoryActors {
             Entity e = a.entity;
             return new float[]{
                     (float) (Mth.lerp(partial, e.xo, e.getX()) - origin.getX()),
-                    (float) (Mth.lerp(partial, e.yo, e.getY()) + e.getEyeHeight() - origin.getY()),
+                    (float) (Mth.lerp(partial, e.yo, e.getY()) + e.getEyeHeight() * a.def.scale() - origin.getY()),
                     (float) (Mth.lerp(partial, e.zo, e.getZ()) - origin.getZ())};
         }
         return null;
@@ -465,7 +465,7 @@ public final class MemoryActors {
     private static void cast(ActorRuntime a, SceneDef.ActionCue cue) {
         if (!(level instanceof ClientLevel lvl) || origin == null || cue.spell() == null) return;
         Entity e = a.entity;
-        Vec3 eye = e.position().add(0, e.getEyeHeight() * 0.9, 0);
+        Vec3 eye = e.position().add(0, e.getEyeHeight() * a.def.scale() * 0.9, 0);
         Vec3 to = castTarget(a, cue, eye);
         // The wand hand: a little to the right of, and ahead of, the eye, along the line toward the target.
         Vec3 aim = to.subtract(eye);
@@ -483,7 +483,7 @@ public final class MemoryActors {
             ActorRuntime other = find(t.actor());
             if (other != null) {
                 Entity o = other.entity;
-                return o.position().add(0, o.getBbHeight() * 0.65, 0);
+                return o.position().add(0, o.getBbHeight() * other.def.scale() * 0.65, 0);
             }
         }
         if (t != null && t.point() != null && t.point().length >= 3) {
@@ -496,7 +496,7 @@ public final class MemoryActors {
     private static void flameBurst(ActorRuntime a) {
         if (level == null) return;
         Entity e = a.entity;
-        double h = Math.max(1.0, e.getBbHeight());
+        double h = Math.max(1.0, e.getBbHeight() * a.def.scale());
         double w = Math.max(0.4, e.getBbWidth());
         for (int i = 0; i < 28; i++) {
             double ox = (level.random.nextDouble() - 0.5) * w * 1.4;
@@ -515,7 +515,7 @@ public final class MemoryActors {
     private static void smokeBurst(ActorRuntime a) {
         if (level == null) return;
         Entity e = a.entity;
-        double h = Math.max(1.0, e.getBbHeight());
+        double h = Math.max(1.0, e.getBbHeight() * a.def.scale());
         double w = Math.max(0.4, e.getBbWidth());
         for (int i = 0; i < 36; i++) {
             double ox = (level.random.nextDouble() - 0.5) * w * 1.6;
@@ -533,7 +533,7 @@ public final class MemoryActors {
     private static void poof(ActorRuntime a) {
         if (level == null) return;
         Entity e = a.entity;
-        double h = Math.max(0.6, e.getBbHeight());
+        double h = Math.max(0.6, e.getBbHeight() * a.def.scale());
         for (int i = 0; i < 20; i++) {
             level.addParticle(ParticleTypes.POOF, e.getRandomX(1.0), e.getY() + level.random.nextDouble() * h,
                     e.getRandomZ(1.0), level.random.nextGaussian() * 0.02, level.random.nextGaussian() * 0.02,
@@ -559,12 +559,15 @@ public final class MemoryActors {
                 double y = Mth.lerp(partial, e.yo, e.getY());
                 double z = Mth.lerp(partial, e.zo, e.getZ());
                 float yaw = Mth.rotLerp(partial, e.yRotO, e.getYRot());
-                int light = LevelRenderer.getLightColor(level, BlockPos.containing(x, y + e.getEyeHeight(), z));
+                float scale = a.def.scale();
+                boolean scaled = scale != 1f;
+                int light = LevelRenderer.getLightColor(level, BlockPos.containing(x, y + e.getEyeHeight() * scale, z));
                 if (a.stone) {
                     EntityRenderer<Entity> renderer = (EntityRenderer<Entity>) dispatcher.getRenderer(e);
                     poseStack.pushPose();
                     Vec3 off = renderer.getRenderOffset(e, partial);
                     poseStack.translate(x - cam.x + off.x, y - cam.y + off.y, z - cam.z + off.z);
+                    if (scaled) poseStack.scale(scale, scale, scale);
                     renderer.render(e, yaw, partial, poseStack,
                             new PetrifiedRemainsRenderer.StoneBufferSource(buffer), light);
                     if (a.living != null) {
@@ -578,7 +581,15 @@ public final class MemoryActors {
                     }
                     poseStack.popPose();
                 } else {
-                    dispatcher.render(e, x - cam.x, y - cam.y, z - cam.z, yaw, partial, poseStack, buffer, light);
+                    if (scaled) {
+                        poseStack.pushPose();
+                        poseStack.translate(x - cam.x, y - cam.y, z - cam.z);
+                        poseStack.scale(scale, scale, scale);
+                        dispatcher.render(e, 0, 0, 0, yaw, partial, poseStack, buffer, light);
+                        poseStack.popPose();
+                    } else {
+                        dispatcher.render(e, x - cam.x, y - cam.y, z - cam.z, yaw, partial, poseStack, buffer, light);
+                    }
                 }
             } catch (RuntimeException ex) {
                 LOGGER.warn("Pensieve: actor '{}' failed to render: {}", a.def.id(), ex.toString());

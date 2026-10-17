@@ -45,6 +45,10 @@ public final class ActorSkins {
     /** {@code fallback} picks the default skin while a username is still loading, or when there is no skin. */
     public static PlayerSkin skinFor(SceneDef.SkinRef ref, UUID fallback) {
         if (ref == null) return DefaultPlayerSkin.get(fallback);
+        if (ref.viewer()) {
+            net.minecraft.client.player.LocalPlayer me = Minecraft.getInstance().player;
+            return me != null ? me.getSkin() : DefaultPlayerSkin.get(fallback);
+        }
         if (ref.texture() != null) return texture(ref.texture(), ref.slim());
         if (ref.username() != null) {
             PlayerSkin s = username(ref.username());

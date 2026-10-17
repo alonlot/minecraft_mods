@@ -114,7 +114,7 @@ public final class SceneValidator {
             if ("cast".equals(c.action())) {
                 if (c.spell() == null) {
                     out.add(cp + ".spell: a cast action needs a spell");
-                } else if (!names.spells().contains(c.spell())) {
+                } else if (!names.spells().contains(c.spell()) && !SceneNames.MEMORY_ONLY_SPELLS.contains(c.spell())) {
                     out.add(cp + ".spell: unknown spell '" + c.spell() + "'");
                 } else if (!SceneNames.SPELL_VISUALS.contains(c.spell())) {
                     out.add(cp + ".spell: no memory visual for '" + c.spell() + "'");

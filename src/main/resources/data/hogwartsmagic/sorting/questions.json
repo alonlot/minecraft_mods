@@ -90,7 +90,7 @@
     },
     {
       "id": "q9",
-      "text": "You are given a dull, tiring task that no one will ever thank you for. How do you do it?",
+      "text": "You are given a dull, tiring task that no one will thank you for. How do you do it?",
       "voice": "hogwartsmagic:sorting.voice.q9",
       "answers": {
         "GRYFFINDOR": "Bravely, as if the whole school were watching.",

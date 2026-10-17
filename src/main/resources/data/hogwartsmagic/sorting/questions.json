@@ -2,7 +2,7 @@
   "questions": [
     {
       "id": "q1",
-      "text": "Boy, an older student dares you to climb the tallest tower at midnight. What do you do?",
+      "text": "An older student dares you to climb the tallest tower at midnight. What do you do?",
       "voice": "hogwartsmagic:sorting.voice.q1",
       "answers": {
         "GRYFFINDOR": "Take the dare and start climbing at once.",
@@ -13,13 +13,13 @@
     },
     {
       "id": "q2",
-      "text": "A great exam is tomorrow, and you are not ready. How do you spend the night?",
+      "text": "The hardest exam of the year is tomorrow, and you are not ready. How do you spend the night?",
       "voice": "hogwartsmagic:sorting.voice.q2",
       "answers": {
-        "GRYFFINDOR": "Trust my nerve and sleep soundly.",
+        "GRYFFINDOR": "Face the hardest part first, and trust my nerve.",
         "RAVENCLAW": "Read until I understand every last detail.",
         "HUFFLEPUFF": "Study patiently, and help a friend who is struggling.",
-        "SLYTHERIN": "Find out exactly what will be asked, and prepare only that."
+        "SLYTHERIN": "Work out what matters most, and master that."
       }
     },
     {
@@ -27,10 +27,10 @@
       "text": "Your closest friend is cornered by bullies, and you are outnumbered. What now?",
       "voice": "hogwartsmagic:sorting.voice.q3",
       "answers": {
-        "GRYFFINDOR": "Charge in and stand beside my friend.",
+        "GRYFFINDOR": "Charge in and fight beside my friend.",
         "RAVENCLAW": "Think of a clever distraction to scatter them.",
-        "HUFFLEPUFF": "Stay by my friend, whatever it costs me.",
-        "SLYTHERIN": "Slip away and return with someone who frightens them."
+        "HUFFLEPUFF": "Fetch our friends, so nobody stands alone.",
+        "SLYTHERIN": "Outwit them, and leave them too embarrassed to try again."
       }
     },
     {
@@ -40,41 +40,41 @@
       "answers": {
         "GRYFFINDOR": "Throw my shoulder against it until it gives.",
         "RAVENCLAW": "Study the lock and the carvings for a clue.",
-        "HUFFLEPUFF": "Leave it, and ask who it belongs to.",
-        "SLYTHERIN": "Find whoever holds the key, and make a bargain."
+        "HUFFLEPUFF": "Keep trying every key, patiently, until one fits.",
+        "SLYTHERIN": "Find whoever holds the key, and win them over."
       }
     },
     {
       "id": "q5",
-      "text": "The forest path splits in three. Which would you choose?",
+      "text": "A wounded creature lies in the forest, and it looks dangerous. What do you do?",
       "voice": "hogwartsmagic:sorting.voice.q5",
       "answers": {
-        "GRYFFINDOR": "The dark and dangerous path, where the adventure waits.",
-        "RAVENCLAW": "The strange path nobody has ever explained.",
-        "HUFFLEPUFF": "The sunny path, where I can walk with company.",
-        "SLYTHERIN": "The hidden path, which leads somewhere others cannot follow."
+        "GRYFFINDOR": "Step up to it, and do not flinch.",
+        "RAVENCLAW": "Observe it first, to learn what kind it is.",
+        "HUFFLEPUFF": "Tend its wounds gently, however long it takes.",
+        "SLYTHERIN": "Earn its trust, and gain a powerful ally."
       }
     },
     {
       "id": "q6",
-      "text": "You discover a chest of gold that belongs to nobody you can name. What do you do?",
+      "text": "You find a chest of gold in the dark, and it clearly belongs to someone. What do you do?",
       "voice": "hogwartsmagic:sorting.voice.q6",
       "answers": {
-        "GRYFFINDOR": "Hand it over, even if I could have used it.",
+        "GRYFFINDOR": "Carry it back to its owner myself, whatever the danger.",
         "RAVENCLAW": "Examine it first, for a riddle on the lid.",
         "HUFFLEPUFF": "Share it out fairly among everyone nearby.",
-        "SLYTHERIN": "Keep it quiet, and spend it wisely."
+        "SLYTHERIN": "Find a way to put it to great use."
       }
     },
     {
       "id": "q7",
-      "text": "Which of these would sting you the most?",
+      "text": "A kindly wizard offers you one gift, and only one. What do you ask for?",
       "voice": "hogwartsmagic:sorting.voice.q7",
       "answers": {
-        "GRYFFINDOR": "Being called a coward.",
-        "RAVENCLAW": "Being called a fool.",
-        "HUFFLEPUFF": "Being called unfair.",
-        "SLYTHERIN": "Being called ordinary."
+        "GRYFFINDOR": "A sword that never fails a brave heart.",
+        "RAVENCLAW": "A book that answers any question I ask.",
+        "HUFFLEPUFF": "A warm hearth where friends are always welcome.",
+        "SLYTHERIN": "A seat of honour that no one can take from me."
       }
     },
     {
@@ -85,18 +85,18 @@
         "GRYFFINDOR": "Break it boldly, and take whatever follows.",
         "RAVENCLAW": "Argue the rule is wrong, and prove it.",
         "HUFFLEPUFF": "Keep it, and look for a kinder way to help.",
-        "SLYTHERIN": "Bend it quietly, so nobody can blame me."
+        "SLYTHERIN": "Find a clever way to help that the rule never forbade."
       }
     },
     {
       "id": "q9",
-      "text": "You are given a dull, tiring task that nobody will ever praise. How do you do it?",
+      "text": "You are given a dull, tiring task that no one will ever thank you for. How do you do it?",
       "voice": "hogwartsmagic:sorting.voice.q9",
       "answers": {
-        "GRYFFINDOR": "Quickly, so I can find something braver to do.",
+        "GRYFFINDOR": "Bravely, as if the whole school were watching.",
         "RAVENCLAW": "By inventing a cleverer way to do it.",
         "HUFFLEPUFF": "Steadily and well, because it needs doing.",
-        "SLYTHERIN": "Only if it brings me something I want."
+        "SLYTHERIN": "So well that someone important notices."
       }
     },
     {

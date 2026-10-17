@@ -1075,6 +1075,16 @@ public class ExampleMod
         // Register the commonSetup method for modloading
         modEventBus.addListener(this::commonSetup);
 
+        // Dev launches with --quickPlaySingleplayer open their world before Forge starts the game event bus
+        // (Minecraft#onResourceLoadFinished runs ahead of ClientModLoader#completeModLoading), which silently drops
+        // that world's AddReloadListenerEvent: Forge's LootModifierManager and our own reload listeners never get
+        // created, and the first block or mob drop crashes the server. Starting the bus here, once every mod has
+        // loaded, is harmless (start() is idempotent) and closes the window. Production never launches that way.
+        if (!net.minecraftforge.fml.loading.FMLLoader.isProduction()) {
+            modEventBus.addListener((net.minecraftforge.fml.event.lifecycle.FMLLoadCompleteEvent e) ->
+                    MinecraftForge.EVENT_BUS.start());
+        }
+
         // Register the Deferred Register to the mod event bus so blocks get registered
         BLOCKS.register(modEventBus);
         // Register the Deferred Register to the mod event bus so items get registered

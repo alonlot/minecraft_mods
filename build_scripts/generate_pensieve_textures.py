@@ -7,7 +7,7 @@ Block (16x16 unless noted):
   pensieve_surface.png  the silver surface, 8-frame strip, flowing bands over a seamless loop (+ .mcmeta)
   pensieve_swirl.png    32x32 spiral disc the block entity renderer spins over the surface (translucent)
 Item (32x32, 8-frame strip, + .mcmeta): chamber_memory.png (green-tinged silver wisps) and summoning_memory.png
-(sickly green and black), both the corked phial of generate_cave_memory_texture.py with a different palette.
+(sickly green and black) and patronus_memory.png (silvery blue), both the corked phial of generate_cave_memory_texture.py with a different palette.
 
 Fully deterministic: no randomness, so a re-run produces identical files.
 """
@@ -142,6 +142,12 @@ PALETTES = {
         OUT_LIT="#46603a", OUT_MID="#26361f", OUT_DARK="#0b110b",
         G_HI="#c3df93", G_RIM_LIT="#587a4a", G_RIM_MID="#2f432b", G_RIM_DARK="#121a12",
         G_TINT=("#0f160e", 215), G_SHADE=("#040704", 190)),
+    # Bright silvery blue: a happy memory, the lake and the stag.
+    "patronus_memory": dict(
+        M=("#27407a", "#4f7ad0", "#8fb8f2", "#c4e0ff", "#e8f6ff", "#ffffff"),
+        OUT_LIT="#6f8fc4", OUT_MID="#46639b", OUT_DARK="#243a66",
+        G_HI="#f2fbff", G_RIM_LIT="#a9c8f0", G_RIM_MID="#5f82bd", G_RIM_DARK="#34508a",
+        G_TINT=("#d4ecff", 150), G_SHADE=("#5f82bd", 120)),
 }
 
 

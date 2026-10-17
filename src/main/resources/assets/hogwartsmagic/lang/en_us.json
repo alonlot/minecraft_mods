@@ -970,6 +970,8 @@
   "item.hogwartsmagic.cave_memory": "Memory of the Cave",
   "item.hogwartsmagic.chamber_memory": "Memory of the Chamber",
   "item.hogwartsmagic.summoning_memory": "Memory of the Summoning",
+  "item.hogwartsmagic.patronus_memory": "Memory of the Lake",
+  "gui.hogwartsmagic.patronus_memory_granted": "A silvery memory drifts from your wand... a lake, a stag, and a boy who had already done it.",
   "block.hogwartsmagic.pensieve": "Pensieve",
   "message.hogwartsmagic.pensieve.empty": "The silver surface is still. There is no memory here to enter.",
   "message.hogwartsmagic.pensieve.busy_preview": "You cannot preview a memory while another is playing for you.",

@@ -902,6 +902,33 @@ public final class PensieveGameTests {
         });
     }
 
+    private static int patronusMemories(net.minecraft.server.level.ServerPlayer p) {
+        int n = 0;
+        for (net.minecraft.world.item.ItemStack s : p.getInventory().items) {
+            if (s.is(ExampleMod.PATRONUS_MEMORY.get())) n += s.getCount();
+        }
+        return n;
+    }
+
+    /** Learning Expecto Patronum for the first time hands over exactly one Memory of the Lake; again, none. */
+    @GameTest(template = EMPTY)
+    public static void learningPatronusGivesOneMemory(GameTestHelper helper) {
+        var p = playerBeside(helper, 0);
+        var other = playerBeside(helper, 1);
+        var SPELL = com.hogwartsmagic.spell.SpellType.EXPECTO_PATRONUM;
+        helper.assertTrue(patronusMemories(p) == 0, "nothing to start with");
+        helper.assertTrue(com.hogwartsmagic.item.MagicBookItem.learnSpellIfAbsent(other, com.hogwartsmagic.spell.SpellType.LUMOS),
+                "control learns lumos");
+        helper.assertTrue(patronusMemories(other) == 0, "learning another spell gives no memory");
+        helper.assertTrue(com.hogwartsmagic.item.MagicBookItem.learnSpellIfAbsent(p, SPELL), "first learn");
+        helper.assertTrue(patronusMemories(p) == 1, "first learn should give one memory, got " + patronusMemories(p));
+        helper.assertTrue(!com.hogwartsmagic.item.MagicBookItem.learnSpellIfAbsent(p, SPELL), "second learn is a no-op");
+        helper.assertTrue(patronusMemories(p) == 1, "learning again gives none, got " + patronusMemories(p));
+        logout(helper, p, other);
+        LOGGER.info("PENSIEVE-GAMETEST PASS learningPatronusGivesOneMemory");
+        helper.succeed();
+    }
+
     /** One block budget per server tick: a second job sees what the first left. */
     @GameTest(template = EMPTY)
     public static void buildAndClearShareOneBudget(GameTestHelper helper) {

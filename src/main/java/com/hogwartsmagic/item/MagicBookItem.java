@@ -155,6 +155,7 @@ public class MagicBookItem extends Item {
     }
 
     private static void learnSpell(Player player, SpellType spell) {
+        boolean firstTime = !isSpellLearned(player, spell);
         net.minecraft.nbt.CompoundTag persisted = player.getPersistentData().getCompound("PlayerPersisted");
         net.minecraft.nbt.CompoundTag modData = persisted.getCompound(ExampleMod.MODID);
         String learned = modData.getString(LEARNED_SPELLS_KEY);
@@ -170,7 +171,21 @@ public class MagicBookItem extends Item {
                 new com.hogwartsmagic.network.SpellPackets.SyncLearnedSpellsPacket(learned),
                 net.minecraftforge.network.PacketDistributor.PLAYER.with(serverPlayer)
             );
+            // The first time Expecto Patronum is learned: a memory of the lake (server only, once).
+            if (firstTime && spell == SpellType.EXPECTO_PATRONUM) {
+                grantPatronusMemory(serverPlayer);
+            }
         }
+    }
+
+    /** Give {@code player} one Memory of the Lake (dropped at their feet if the inventory is full) and say so. */
+    public static void grantPatronusMemory(net.minecraft.server.level.ServerPlayer player) {
+        ItemStack memory = new ItemStack(ExampleMod.PATRONUS_MEMORY.get());
+        if (!player.getInventory().add(memory)) {
+            player.drop(memory, false);
+        }
+        player.sendSystemMessage(Component.translatable("gui.hogwartsmagic.patronus_memory_granted")
+                .withStyle(net.minecraft.network.chat.Style.EMPTY.withColor(0xDDEEFF).withItalic(true)));
     }
 
     @Override

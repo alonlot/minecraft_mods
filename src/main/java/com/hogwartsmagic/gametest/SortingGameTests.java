@@ -204,10 +204,18 @@ public final class SortingGameTests {
         AtomicInteger stage = new AtomicInteger();
         helper.onEachTick(() -> {
             if (stage.get() != 0 || !left.get() || PensieveSessions.isViewer(p)) return;
-            // Home after the yank: no quiz, and the next tick starts the memory over.
+            // Home after the yank: no quiz, and the memory does not re-dive the hurt player while the hat stays on.
             helper.assertTrue(!m.hasQuiz(p.getUUID()), "a yank must not open the quiz");
             m.tick(p);
-            helper.assertTrue(PensieveSessions.isViewer(p), "the next tick should replay the memory");
+            m.tick(p);
+            helper.assertTrue(!PensieveSessions.isViewer(p), "a yank must not replay the memory until the hat is re-worn");
+            helper.assertTrue(!m.hasQuiz(p.getUUID()), "no quiz while waiting for the hat to be re-worn");
+            // Off and on again: now it replays.
+            hat(p, false);
+            m.tick(p);
+            hat(p, true);
+            m.tick(p);
+            helper.assertTrue(PensieveSessions.isViewer(p), "re-wearing the hat should replay the memory");
             PensieveSessions.leave(p, ExitReason.LEFT);
             stage.set(1);
         });
@@ -216,6 +224,77 @@ public final class SortingGameTests {
             helper.assertTrue(!PensieveSessions.isViewer(p), "still a viewer");
             logout(helper, p);
             LOGGER.info("SORTING-GAMETEST PASS yankReplaysMemory");
+        });
+    }
+
+    @GameTest(template = EMPTY, batch = "sorting_yank_logout", timeoutTicks = 400)
+    public static void yankRewearFlagClearsOnLogout(GameTestHelper helper) {
+        useStubSeam(helper);
+        SortingHatManager m = SortingHatManager.get();
+        ServerPlayer p = player(helper);
+        hat(p, true);
+        m.tick(p);
+        helper.assertTrue(PensieveSessions.isViewer(p), "the hat should start the Sorting memory");
+        AtomicBoolean left = new AtomicBoolean();
+        leaveOncePlaying(helper, p, ExitReason.YANK, left);
+        helper.succeedWhen(() -> {
+            helper.assertTrue(left.get() && !PensieveSessions.isViewer(p), "not home from the yank yet");
+            helper.assertTrue(m.needsRewear(p.getUUID()), "a yank should wait for the hat to be re-worn");
+            m.onLogout(p);
+            helper.assertTrue(!m.needsRewear(p.getUUID()), "logout should clear the re-wear wait");
+            logout(helper, p);
+            LOGGER.info("SORTING-GAMETEST PASS yankRewearFlagClearsOnLogout");
+        });
+    }
+
+    @GameTest(template = EMPTY, batch = "sorting_dead_player", timeoutTicks = 100)
+    public static void deadPlayerNoMemory(GameTestHelper helper) {
+        useStubSeam(helper);
+        SortingHatManager m = SortingHatManager.get();
+        ServerPlayer p = player(helper);
+        hat(p, true);
+        // Dead on the death screen (keepInventory: the hat is still worn), with no death event in between.
+        p.setHealth(0f);
+        helper.assertTrue(!p.isAlive(), "setup: the player should be dead");
+        m.tick(p);
+        helper.assertTrue(!PensieveSessions.isViewer(p), "a dead player must not be sent into the memory");
+        helper.assertTrue(!m.hasQuiz(p.getUUID()) && !m.isMemoryPending(p.getUUID()), "a dead player starts nothing");
+        helper.assertTrue(!PensieveSessions.startSolo(p, SortingHatManager.MEMORY_SCENE),
+                "startSolo must refuse a dead player");
+        helper.assertTrue(!PensieveSessions.isViewer(p), "still not a viewer");
+        logout(helper, p);
+        LOGGER.info("SORTING-GAMETEST PASS deadPlayerNoMemory");
+        helper.succeed();
+    }
+
+    @GameTest(template = EMPTY, batch = "sorting_hat_off_mid_memory", timeoutTicks = 400)
+    public static void hatRemovedMidMemoryAborts(GameTestHelper helper) {
+        useStubSeam(helper);
+        SortingHatManager m = SortingHatManager.get();
+        ServerPlayer p = player(helper);
+        hat(p, true);
+        m.tick(p);
+        helper.assertTrue(PensieveSessions.isViewer(p) && m.isMemoryPending(p.getUUID()), "the memory should start");
+        hat(p, false);
+        m.tick(p);
+        helper.assertTrue(!m.isMemoryPending(p.getUUID()), "taking the hat off should drop the memory mark");
+        var v = PensieveSessions.sessionOf(p).map(s -> s.viewers().get(p.getUUID())).orElse(null);
+        helper.assertTrue(v != null && v.exitReason() == ExitReason.ABORT, "the memory should be aborted");
+        AtomicInteger stage = new AtomicInteger();
+        helper.onEachTick(() -> {
+            if (stage.get() != 0 || PensieveSessions.isViewer(p)) return;
+            helper.assertTrue(!m.hasQuiz(p.getUUID()), "an aborted memory must not open the quiz");
+            hat(p, true);
+            m.tick(p);
+            helper.assertTrue(PensieveSessions.isViewer(p), "putting the hat back on should replay the memory");
+            PensieveSessions.leave(p, ExitReason.LEFT);
+            stage.set(1);
+        });
+        helper.succeedWhen(() -> {
+            helper.assertTrue(stage.get() == 1, "not replayed yet");
+            helper.assertTrue(!PensieveSessions.isViewer(p), "still a viewer");
+            logout(helper, p);
+            LOGGER.info("SORTING-GAMETEST PASS hatRemovedMidMemoryAborts");
         });
     }
 

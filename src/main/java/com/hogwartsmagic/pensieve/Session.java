@@ -64,6 +64,8 @@ public final class Session {
     @Nullable Session nextSession;
     /** The scene id that began the chain; a fresh session's own id. */
     String chainRoot;
+    /** Every scene id this chain has played or is playing, this one included: a next scene already here is a cycle. */
+    final java.util.Set<String> chainIds = new java.util.HashSet<>();
 
     Session(String sceneId, String rawJson, SceneDef scene, int slot, BlockPos origin,
             @Nullable ResourceKey<Level> basinDim, @Nullable BlockPos basinPos, boolean preview) {
@@ -76,6 +78,7 @@ public final class Session {
         this.basinPos = basinPos == null ? null : basinPos.immutable();
         this.preview = preview;
         this.chainRoot = sceneId;
+        this.chainIds.add(sceneId);
         List<SceneDef.EventDef> blocks = new ArrayList<>();
         if (scene.events() != null) {
             for (SceneDef.EventDef e : scene.events()) {

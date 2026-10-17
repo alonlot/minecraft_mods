@@ -87,6 +87,8 @@ public final class PensieveSessions {
     private static final List<Session> SESSIONS = new ArrayList<>();
     private static final Map<UUID, Session> BY_VIEWER = new ConcurrentHashMap<>();
     private static final List<Clearing> CLEARING = new ArrayList<>();
+    /** Sessions a hand-over moved viewers into during the current {@link #tick}; skipped for the rest of it. */
+    private static final java.util.Set<Session> HANDED_THIS_TICK = new java.util.HashSet<>();
     private static RegionAllocator allocator = new RegionAllocator();
     @Nullable private static MinecraftServer initServer;
     @Nullable private static ServerLevel initLevel;
@@ -243,11 +245,12 @@ public final class PensieveSessions {
 
     /**
      * A memory with no basin: nobody else can join it and {@code Session.at} is never true. Unlike a preview it
-     * leaves a body behind and forwards damage. Refuses quietly (false) when the player is already a viewer or
-     * inside the memory dimension, or the dimension or the scene is missing.
+     * leaves a body behind and forwards damage. Refuses quietly (false) when the player is dead, already a viewer or
+     * inside the memory dimension, or the dimension or the scene is missing. Any open container is closed first, so
+     * the memory never starts behind an inventory screen.
      */
     public static boolean startSolo(ServerPlayer player, String sceneId) {
-        if (isViewer(player)) return false;
+        if (isViewer(player) || !player.isAlive()) return false;
         ServerLevel memory = startableMemory(player, false, "solo memory");
         if (memory == null) return false;
         Optional<MemoryRegistry.LoadedScene> loaded = lookup(sceneId);
@@ -257,6 +260,7 @@ public final class PensieveSessions {
         }
         Session session = createSession(player, memory, sceneId, loaded.get(), null, null, false);
         if (session == null) return false;
+        player.closeContainer();
         addViewer(session, player, player.blockPosition());
         return true;
     }
@@ -337,11 +341,17 @@ public final class PensieveSessions {
     /**
      * {@code s} just began PLAY: when its scene names a {@code next} one, that is built ahead in its own slot as a
      * standby (same basin, same preview flag, same chain root), so the viewers can be handed over the moment this
-     * one ends. A next scene that is missing, broken or too big is logged and the chain simply ends here.
+     * one ends. A next scene that is missing, broken or too big, or one this chain already played (a cycle), is
+     * logged and the chain simply ends here.
      */
     private static void buildNext(MinecraftServer server, Session s) {
         String next = s.scene().next();
         if (next == null || s.nextSession != null) return;
+        if (s.chainIds.contains(next)) {
+            LOGGER.warn("Pensieve: scene '{}' names next scene '{}', which chain '{}' already played; the chain ends there",
+                    s.sceneId(), next, s.chainRoot);
+            return;
+        }
         Optional<MemoryRegistry.LoadedScene> loaded;
         try {
             // Looked up the way the session itself was: a preview reads the dev folder fresh.
@@ -375,6 +385,7 @@ public final class PensieveSessions {
         Session n = newSession(s.level, next, loaded.get(), s.basinDim(), s.basinPos(), s.preview());
         n.standby = true;
         n.chainRoot = s.chainRoot;
+        n.chainIds.addAll(s.chainIds);
         s.nextSession = n;
         SESSIONS.add(n);
     }
@@ -435,10 +446,13 @@ public final class PensieveSessions {
         List<Session> order = new ArrayList<>(SESSIONS.size());
         for (Session s : SESSIONS) if (!s.standby) order.add(s);
         for (Session s : SESSIONS) if (s.standby) order.add(s);
+        HANDED_THIS_TICK.clear();
         for (Session s : order) {
-            // A standby finished earlier this tick (its owner ended) is gone; do not build into a freed slot.
-            if (SESSIONS.contains(s)) tickSession(server, s, budget);
+            // A standby finished earlier this tick (its owner ended) is gone; do not build into a freed slot. One
+            // handed its viewers earlier this tick already counted their tick in the session they came from.
+            if (SESSIONS.contains(s) && !HANDED_THIS_TICK.contains(s)) tickSession(server, s, budget);
         }
+        HANDED_THIS_TICK.clear();
         Iterator<Clearing> it = CLEARING.iterator();
         while (it.hasNext() && budget[0] > 0) {
             Clearing c = it.next();
@@ -559,6 +573,7 @@ public final class PensieveSessions {
             sendStart(p, next);
         }
         finish(s);
+        HANDED_THIS_TICK.add(next);
         setPlaying(next, true);
         buildNext(server, next);
     }

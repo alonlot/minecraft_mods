@@ -1289,4 +1289,56 @@ public final class PensieveGameTests {
             LOGGER.info("PENSIEVE-GAMETEST PASS homeListenerSeesEndAfterChain");
         });
     }
+
+    @GameTest(template = EMPTY, batch = "pensieve_solo_container", timeoutTicks = 100)
+    public static void soloClosesOpenContainer(GameTestHelper helper) {
+        useChainSeam(helper);
+        var p = playerBeside(helper, 0);
+        p.openMenu(new net.minecraft.world.SimpleMenuProvider(
+                (id, inv, pl) -> net.minecraft.world.inventory.ChestMenu.threeRows(id, inv),
+                net.minecraft.network.chat.Component.literal("chest")));
+        helper.assertTrue(p.containerMenu != p.inventoryMenu, "setup: a container should be open");
+        helper.assertTrue(com.hogwartsmagic.pensieve.PensieveSessions.startSolo(p, "chain_long"), "solo refused");
+        helper.assertTrue(p.containerMenu == p.inventoryMenu, "a solo start should close the open container");
+        com.hogwartsmagic.pensieve.PensieveSessions.leave(p, com.hogwartsmagic.pensieve.ExitReason.LEFT);
+        helper.succeedWhen(() -> {
+            helper.assertTrue(!com.hogwartsmagic.pensieve.PensieveSessions.isViewer(p), "still a viewer");
+            logout(helper, p);
+            LOGGER.info("PENSIEVE-GAMETEST PASS soloClosesOpenContainer");
+        });
+    }
+
+    @GameTest(template = EMPTY, batch = "pensieve_chain_cycle", timeoutTicks = 400)
+    public static void chainCycleEnds(GameTestHelper helper) {
+        // cyc_a names cyc_b, which names cyc_a again: the chain must play each once and end, not loop forever.
+        SceneDef a = floorScene("cyc_a", "minecraft:stone", 40, "cyc_b");
+        SceneDef b = floorScene("cyc_b", "minecraft:gold_block", 40, "cyc_a");
+        com.hogwartsmagic.pensieve.PensieveSessions.setBuildBudgetForTests(-1);
+        com.hogwartsmagic.pensieve.PensieveSessions.overrideForTests(helper.getLevel(), id -> java.util.Optional.of(
+                new com.hogwartsmagic.pensieve.MemoryRegistry.LoadedScene("cyc_b".equals(id) ? b : a, "{}")));
+        var p = playerBeside(helper, 0);
+        List<Home> homes = new java.util.ArrayList<>();
+        com.hogwartsmagic.pensieve.ViewerHomeListener l = (pl, root, reason, saw) -> {
+            if (pl == p) homes.add(new Home(root, reason, saw));
+        };
+        com.hogwartsmagic.pensieve.PensieveSessions.addHomeListener(l);
+        helper.assertTrue(com.hogwartsmagic.pensieve.PensieveSessions.startSolo(p, "cyc_a"), "solo refused");
+        java.util.concurrent.atomic.AtomicBoolean sawB = new java.util.concurrent.atomic.AtomicBoolean();
+        helper.onEachTick(() -> {
+            var s = com.hogwartsmagic.pensieve.PensieveSessions.sessionOf(p);
+            if (s.isEmpty() || !"cyc_b".equals(s.get().sceneId())) return;
+            sawB.set(true);
+            helper.assertTrue(s.get().nextSession() == null, "cyc_b must not build cyc_a again: the chain loops");
+        });
+        helper.succeedWhen(() -> {
+            helper.assertTrue(sawB.get(), "never handed to cyc_b");
+            helper.assertTrue(!homes.isEmpty(), "not home yet");
+            helper.assertTrue(!com.hogwartsmagic.pensieve.PensieveSessions.isViewer(p), "still a viewer");
+            com.hogwartsmagic.pensieve.PensieveSessions.removeHomeListener(l);
+            logout(helper, p);
+            helper.assertTrue(homes.get(0).equals(new Home("cyc_a", com.hogwartsmagic.pensieve.ExitReason.END, true)),
+                    "unexpected " + homes.get(0));
+            LOGGER.info("PENSIEVE-GAMETEST PASS chainCycleEnds");
+        });
+    }
 }

@@ -23,11 +23,14 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * The Sorting, server side. Putting the hat on (unsorted) plays the Sorting memory as a solo Pensieve memory; coming
  * home from it by its end or by leaving opens the fixed, voiced quiz; three answers (and a tie pick, if needed) sort
- * the player. A yank or an abort replays the memory on the next tick, and taking the hat off drops everything,
- * saving nothing. The quiz is server-authoritative: the client only sends (step, choice).
+ * the player. A yank or an abort ends the memory without the quiz, and it replays only once the hat has been taken
+ * off and put back on (so a hurt player is not dived again at once). Taking the hat off drops everything, ending a
+ * memory still playing, and saves nothing. A dead player or a spectator is left alone. The quiz is
+ * server-authoritative: the client only sends (step, choice).
  *
  * <p>The quiz screen cannot be closed by the player and locks its buttons after a click, so every choice that is
  * refused re-sends the current question, and every dropped quiz is closed with a {@link SpellPackets.SortingClosePacket}.
+ * A quiz with no choice for {@link #RESEND_TICKS} has its question re-sent silently, in case the screen was replaced.
  */
 public class SortingHatManager {
     private static final String HOUSE_KEY = "SortingHouse";
@@ -38,12 +41,18 @@ public class SortingHatManager {
     private static final String GREETING_VOICE = VOICE + "greeting";
     private static final String TIE_VOICE = VOICE + "tie";
     private static final int REACTIONS = 3;
+    /** An open quiz with no choice for this long re-sends its current question (silently). */
+    static final long RESEND_TICKS = 600;
 
     private static final SortingHatManager INSTANCE = new SortingHatManager();
 
     private final Map<UUID, SortingSession> quizzes = new ConcurrentHashMap<>();
     /** Players this manager sent into the Sorting memory, waiting to come home. A preview never lands here. */
     private final Set<UUID> memoryPending = ConcurrentHashMap.newKeySet();
+    /** Players yanked or aborted out of the memory: it replays only after the hat comes off and goes back on. */
+    private final Set<UUID> needsRewear = ConcurrentHashMap.newKeySet();
+    /** Server game time the open quiz last sent its question or tie, per player. */
+    private final Map<UUID, Long> lastSent = new ConcurrentHashMap<>();
     private final Random random = new Random();
     private boolean listening;
 
@@ -60,16 +69,30 @@ public class SortingHatManager {
 
     /** Every 20 ticks per player, on the server thread. */
     public void tick(ServerPlayer player) {
+        // The death screen ticks too: with keepInventory the hat is still on, and a dead player must not be dived.
+        if (!player.isAlive() || player.isSpectator()) return;
         UUID id = player.getUUID();
         boolean open = quizzes.containsKey(id) || memoryPending.contains(id);
         if (!isWearingHat(player)) {
-            if (open) drop(player);
+            needsRewear.remove(id);
+            if (open) {
+                // Mark first, so the home callback of the aborted memory finds nothing and opens no quiz.
+                boolean inMemory = memoryPending.contains(id);
+                drop(player);
+                if (inMemory && PensieveSessions.isViewer(player)) PensieveSessions.leave(player, ExitReason.ABORT);
+            }
             return;
         }
+        if (needsRewear.contains(id)) return;
         if (memoryPending.contains(id) && !PensieveSessions.isViewer(player)) {
             // Marked for the memory but not in it, and no home callback came: treat it as an abort so they are never stuck.
             memoryPending.remove(id);
             open = quizzes.containsKey(id);
+        }
+        SortingSession quiz = quizzes.get(id);
+        if (quiz != null && player.level().getGameTime() - lastSent.getOrDefault(id, 0L) >= RESEND_TICKS) {
+            // No choice in a while: the screen may have been replaced on the client, so put the question back up.
+            sendCurrent(player, quiz, false);
         }
         if (open || hasHouse(player) || PensieveSessions.isViewer(player)) {
             return;
@@ -87,7 +110,8 @@ public class SortingHatManager {
             return;
         }
         if (reason != ExitReason.END && reason != ExitReason.LEFT) {
-            // Yanked or aborted: the next tick plays the memory again from the start.
+            // Yanked or aborted: the memory plays again from the start, but only once the hat is re-worn.
+            needsRewear.add(player.getUUID());
             return;
         }
         if (isWearingHat(player) && !hasHouse(player) && !quizzes.containsKey(player.getUUID())) {
@@ -108,6 +132,7 @@ public class SortingHatManager {
             sendCurrent(player, quiz, true);
         } else if (outcome == SortingSession.Outcome.SORTED) {
             quizzes.remove(player.getUUID());
+            lastSent.remove(player.getUUID());
             sorted(player, quiz.result());
         } else {
             // Refused (a stale or forged step, a slot out of range): unlock the screen on the same question.
@@ -119,6 +144,8 @@ public class SortingHatManager {
     public void onLogout(ServerPlayer player) {
         quizzes.remove(player.getUUID());
         memoryPending.remove(player.getUUID());
+        needsRewear.remove(player.getUUID());
+        lastSent.remove(player.getUUID());
     }
 
     /** The player died: the quiz closes and the memory, if any, starts from the beginning next time. */
@@ -136,6 +163,11 @@ public class SortingHatManager {
     /** Gametests: whether the player is marked as waiting on the memory. */
     public boolean isMemoryPending(UUID playerId) {
         return memoryPending.contains(playerId);
+    }
+
+    /** Gametests: whether a yank or an abort is waiting for the hat to be taken off and put back on. */
+    public boolean needsRewear(UUID playerId) {
+        return needsRewear.contains(playerId);
     }
 
     /** Gametests: whether the player has a quiz open. */
@@ -159,6 +191,7 @@ public class SortingHatManager {
 
     /** Sends the quiz's current question or tie; {@code withVoice} false re-sends it silently. */
     private void sendCurrent(ServerPlayer player, SortingSession quiz, boolean withVoice) {
+        lastSent.put(player.getUUID(), player.level().getGameTime());
         int step = quiz.step();
         if (step < 3) {
             SortingQuestion q = quiz.question();
@@ -186,6 +219,7 @@ public class SortingHatManager {
     private void drop(ServerPlayer player) {
         quizzes.remove(player.getUUID());
         memoryPending.remove(player.getUUID());
+        lastSent.remove(player.getUUID());
         send(player, new SpellPackets.SortingClosePacket());
     }
 

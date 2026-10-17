@@ -2784,11 +2784,11 @@
     {"t": "40.65s", "kind": "particles", "id": "minecraft:white_ash", "at": [2, 1, 29], "count": 6, "spread": [0.3, 0.6, 0.3]},
     {"t": "40.8s", "kind": "particles", "id": "minecraft:cloud", "at": [-9, 0, 8], "count": 12, "spread": [12.0, 0.1, 12.0]},
     {"t": "40.8s", "kind": "particles", "id": "minecraft:snowflake", "at": [0, 3, 26], "count": 25, "spread": [6.0, 3.0, 4.0]},
+    {"t": "40.8s", "kind": "sound", "id": "hogwartsmagic:pensieve.voice.lake_harry_me", "volume": 1.0},
     {"t": "41s", "kind": "particles", "id": "minecraft:end_rod", "at": [0, 1, 27], "count": 2, "spread": [0.15, 0.5, 0.35]},
     {"t": "41s", "kind": "particles", "id": "minecraft:white_ash", "at": [0, 1, 27], "count": 6, "spread": [0.2, 0.55, 0.4]},
     {"t": "41.15s", "kind": "particles", "id": "minecraft:end_rod", "at": [2, 1, 29], "count": 2, "spread": [0.25, 0.6, 0.25]},
     {"t": "41.15s", "kind": "particles", "id": "minecraft:white_ash", "at": [2, 1, 29], "count": 6, "spread": [0.3, 0.6, 0.3]},
-    {"t": "41.2s", "kind": "sound", "id": "hogwartsmagic:pensieve.voice.lake_harry_me", "volume": 1.0},
     {"t": "41.5s", "kind": "particles", "id": "minecraft:end_rod", "at": [0, 1, 27], "count": 2, "spread": [0.15, 0.5, 0.35]},
     {"t": "41.5s", "kind": "particles", "id": "minecraft:white_ash", "at": [0, 1, 27], "count": 6, "spread": [0.2, 0.55, 0.4]},
     {"t": "41.6s", "kind": "particles", "id": "minecraft:cloud", "at": [9, 0, -8], "count": 12, "spread": [12.0, 0.1, 12.0]},
@@ -3030,9 +3030,9 @@
     {"t": "1s", "text": "The lake, that night. The same hour, lived a second time.", "narration": true, "duration": "4.5s"},
     {"t": "25s", "by": "past_harry", "text": "Expecto... Expecto Patronum..."},
     {"t": "38.8s", "by": "hermione", "text": "Harry, they're taking them both!"},
-    {"t": "41.2s", "by": "future_harry", "text": "Nobody's coming. The one across the lake... it was me."},
+    {"t": "40.8s", "by": "future_harry", "text": "No one's coming. That figure across the lake... it was me, all along."},
     {"t": "45.5s", "by": "future_harry", "text": "Expecto Patronum!"},
-    {"t": "74.8s", "by": "future_harry", "text": "I knew I could manage it. I'd already seen myself manage it."}
+    {"t": "74.8s", "by": "future_harry", "text": "It was never my dad out there. It was me. And now I know I can."}
   ],
   "camera": [
     {"t": "0s", "pos": [34.0, 18.0, 34.0], "look_at": [0.0, 3.0, -8.0], "fov": 86},

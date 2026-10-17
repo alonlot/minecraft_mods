@@ -573,9 +573,9 @@ def voiced(t, sound):
 narrate(1.0, 'The lake, that night. The same hour, lived a second time.', 4.5); voiced(1.0, 'lake_narration')
 line(25.0, 'past_harry', 'Expecto... Expecto Patronum...'); voiced(25.0, 'lake_harry_wisp')
 line(38.8, 'hermione', "Harry, they're taking them both!"); voiced(38.8, 'lake_hermione')
-line(41.2, 'future_harry', "Nobody's coming. The one across the lake... it was me."); voiced(41.2, 'lake_harry_me')
+line(40.8, 'future_harry', "No one's coming. That figure across the lake... it was me, all along."); voiced(40.8, 'lake_harry_me')
 line(45.5, 'future_harry', 'Expecto Patronum!'); voiced(45.5, 'lake_harry_cast')  # ends as the cast fires at 46.9s
-line(74.8, 'future_harry', "I knew I could manage it. I'd already seen myself manage it."); voiced(74.8, 'lake_harry_knew')
+line(74.8, 'future_harry', 'It was never my dad out there. It was me. And now I know I can.'); voiced(74.8, 'lake_harry_knew')
 
 actors = [past_harry, sirius, future_harry, hermione, stag] + dementors
 

@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SceneParserTest {
     private static JsonObject json(String s) {
@@ -56,6 +57,35 @@ class SceneParserTest {
         assertEquals("cast", a.actions().get(0).action());
         assertEquals("stupefy", a.actions().get(0).spell());
         assertEquals("b", a.actions().get(0).target().actor());
+    }
+
+    @Test
+    void musicAndVoiceCuesParse() throws Exception {
+        SceneDef s = SceneParser.parse("t", json("""
+                {"length":100,"events":[
+                  {"t":"1s","kind":"music","id":"a:b","volume":0.5},
+                  {"t":2,"kind":"voice","id":"a:c"}]}"""));
+        assertEquals("music", s.events().get(0).kind());
+        assertEquals(0.5f, s.events().get(0).volume());
+        assertEquals(20f, s.events().get(0).t());
+        assertEquals("voice", s.events().get(1).kind());
+        assertEquals(1f, s.events().get(1).volume());
+        assertEquals("a:c", s.events().get(1).id());
+    }
+
+    @Test
+    void musicAndVoiceCuesRejectBadKeysAndVolume() {
+        for (String kind : new String[]{"music", "voice"}) {
+            SceneException unknown = assertThrows(SceneException.class, () -> SceneParser.parse("t", json(
+                    "{\"length\":10,\"events\":[{\"t\":0,\"kind\":\"" + kind + "\",\"id\":\"a:b\",\"pitch\":0.5}]}")));
+            assertTrue(unknown.getMessage().contains("events[0].pitch"), unknown.getMessage());
+            SceneException at = assertThrows(SceneException.class, () -> SceneParser.parse("t", json(
+                    "{\"length\":10,\"events\":[{\"t\":0,\"kind\":\"" + kind + "\",\"id\":\"a:b\",\"at\":[0,0,0]}]}")));
+            assertTrue(at.getMessage().contains("events[0].at"), at.getMessage());
+            SceneException vol = assertThrows(SceneException.class, () -> SceneParser.parse("t", json(
+                    "{\"length\":10,\"events\":[{\"t\":0,\"kind\":\"" + kind + "\",\"id\":\"a:b\",\"volume\":\"loud\"}]}")));
+            assertTrue(vol.getMessage().contains("events[0].volume"), vol.getMessage());
+        }
     }
 
     @Test

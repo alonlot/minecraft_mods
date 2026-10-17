@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class SceneValidatorTest {
     private static final SceneNames NAMES = new SceneNames(
             Set.of("hogwartsmagic:basilisk", "minecraft:zombie", "player"), Set.of("stupefy"),
-            Set.of("minecraft:entity.generic.explode"), Set.of("minecraft:stone"), Set.of("minecraft:stick"),
+            Set.of("minecraft:entity.generic.explode", "hogwartsmagic:pensieve.music.m", "hogwartsmagic:pensieve.voice.v"), Set.of("minecraft:stone"), Set.of("minecraft:stick"),
             Set.of("hogwartsmagic:chamber_hall"), Set.of(), Set.of("minecraft:flame"), Set.of());
 
     private static List<String> validate(String json) throws Exception {
@@ -74,6 +74,35 @@ class SceneValidatorTest {
         assertTrue(m.stream().anyMatch(s -> s.startsWith("actors[0].actions[0].spell")), m.toString());
         assertTrue(m.stream().anyMatch(s -> s.startsWith("events[0].id")), m.toString());
         assertTrue(m.stream().anyMatch(s -> s.startsWith("events[1].id")), m.toString());
+    }
+
+    @Test
+    void musicAndVoiceCues() throws Exception {
+        assertEquals(List.of(), validate("""
+                {"length":100,"events":[
+                  {"t":0,"kind":"music","id":"hogwartsmagic:pensieve.music.m"},
+                  {"t":"2s","kind":"music","id":"hogwartsmagic:pensieve.music.m","volume":0.5},
+                  {"t":3,"kind":"voice","id":"hogwartsmagic:pensieve.voice.v","volume":1.0}]}"""));
+        SceneDef def = SceneParser.parse("t", JsonParser.parseString(
+                "{\"length\":100,\"events\":[{\"t\":0,\"kind\":\"voice\",\"id\":\"hogwartsmagic:pensieve.voice.v\"}]}").getAsJsonObject());
+        assertEquals(1f, def.events().get(0).volume());
+    }
+
+    @Test
+    void musicAndVoiceCueProblems() throws Exception {
+        List<String> m = validate("""
+                {"length":100,"events":[
+                  {"t":0,"kind":"music"},
+                  {"t":1,"kind":"voice","id":"hogwartsmagic:pensieve.voice.nope"},
+                  {"t":2,"kind":"music","id":"hogwartsmagic:pensieve.music.m","volume":-1},
+                  {"t":3,"kind":"voice","id":"hogwartsmagic:pensieve.voice.v","volume":9},
+                  {"t":200,"kind":"music","id":"hogwartsmagic:pensieve.music.m"}]}""");
+        assertEquals(5, m.size(), m.toString());
+        assertTrue(m.stream().anyMatch(s -> s.startsWith("events[0].id") && s.contains("missing")), m.toString());
+        assertTrue(m.stream().anyMatch(s -> s.startsWith("events[1].id")), m.toString());
+        assertTrue(m.stream().anyMatch(s -> s.startsWith("events[2].volume")), m.toString());
+        assertTrue(m.stream().anyMatch(s -> s.startsWith("events[3].volume")), m.toString());
+        assertTrue(m.stream().anyMatch(s -> s.startsWith("events[4].t")), m.toString());
     }
 
     @Test

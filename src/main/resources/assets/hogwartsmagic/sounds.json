@@ -2071,5 +2071,77 @@
         "stream": false
       }
     ]
+  },
+  "pensieve.music.lake_dementors": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/music/lake_dementors",
+        "stream": true
+      }
+    ]
+  },
+  "pensieve.music.lake_patronus_light": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/music/lake_patronus_light",
+        "stream": true
+      }
+    ]
+  },
+  "pensieve.music.lake_window": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/music/lake_window",
+        "stream": true
+      }
+    ]
+  },
+  "pensieve.music.cave_journey": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/music/cave_journey",
+        "stream": true
+      }
+    ]
+  },
+  "pensieve.music.cave_despair": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/music/cave_despair",
+        "stream": true
+      }
+    ]
+  },
+  "pensieve.music.chamber_secrets": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/music/chamber_secrets",
+        "stream": true
+      }
+    ]
+  },
+  "pensieve.music.chamber_duel": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/music/chamber_duel",
+        "stream": true
+      }
+    ]
+  },
+  "pensieve.music.chamber_reunion": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/music/chamber_reunion",
+        "stream": true
+      }
+    ]
+  },
+  "pensieve.music.summoning_voldemort": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/music/summoning_voldemort",
+        "stream": true
+      }
+    ]
   }
 }

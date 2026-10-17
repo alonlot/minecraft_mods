@@ -16,8 +16,10 @@ public record SceneNames(Set<String> entityTypes, Set<String> spells, Set<String
     /** Actor actions a scene may use. */
     public static final Set<String> ACTIONS = Set.of("swing", "sneak", "stand", "hurt", "die", "vanish", "appear",
             "stone", "unstone", "cast", "use_item", "hold");
+    /** Largest {@code volume} a {@code music} or {@code voice} cue may ask for. */
+    public static final float MAX_CUE_VOLUME = 4f;
     /** Event kinds. */
-    public static final Set<String> EVENT_KINDS = Set.of("block", "sound", "particles", "effect");
+    public static final Set<String> EVENT_KINDS = Set.of("block", "sound", "particles", "effect", "music", "voice");
     /** Scripted effects an {@code effect} event may name. */
     public static final Set<String> EFFECTS = Set.of("summoning_ritual", "lightning", "dark_mark", "grey_edges",
             "patronus_light");

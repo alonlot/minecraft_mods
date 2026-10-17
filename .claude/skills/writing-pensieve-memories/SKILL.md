@@ -150,15 +150,25 @@ Presets are built for the player model; other models ignore parts they lack. Pos
 Other entities (hippogriff, owl, acromantula, vanilla mobs) have no named animations; pose them with `limbs`. An animation plays from the cue's `t` for its own length; it loops if the definition loops. Give the walk/idle names a cue at the moment the actor starts moving.
 
 ### `events[]`
-Common keys: `t`, `kind`, `id`, `at`, `volume`, `pitch`, `count`, `spread`, `duration`. `kind` is required, `id` is required for all kinds.
+Common keys: `t`, `kind`, `id`, `at`, `volume`, `pitch`, `count`, `spread`, `duration`. `kind` is required, `id` is required for all kinds. `music` and `voice` take only `t`, `kind`, `id`, `volume`.
 | kind | id | uses | effect |
 |---|---|---|---|
 | `block` | block id | `at:[x,y,z]` | the server places that block at `t` (a door slams, a torch lights). Removed with the set |
 | `sound` | sound id (`minecraft:entity.lightning_bolt.thunder`, `hogwartsmagic:...`) | `volume` 1, `pitch` 1, optional `at` (none = heard in your own ears) | plays once at `t` |
 | `particles` | plain particle id (`minecraft:poof`, `minecraft:end_rod`) | `at`, `count` 1 (max 500), `spread:[x,y,z]` box half-size | a burst; parameterised particles (dust, block) cannot be used |
 | `effect` | `summoning_ritual`, `lightning`, `dark_mark`, `grey_edges`, `patronus_light` | `at`, `duration` | scripted set-pieces below |
+| `music` | sound id (`hogwartsmagic:pensieve.music.<file>`) | `volume` 1 (0 to 4) | a soundtrack cue, played whole from `t` |
+| `voice` | sound id (`hogwartsmagic:pensieve.voice.<file>`) | `volume` 1 (0 to 4) | a spoken line, played whole from `t` |
 
 Effects: `lightning` - one visual-only bolt with thunder; `summoning_ritual` - the three beam columns, smoke and a bolt every second, default 5 s; `dark_mark` - a Dark Mark that rises 18 blocks and fades, default 5 s; `grey_edges` - the Basilisk's stare from inside: the real gaze overlay's grey closes in from the screen edges over 2.5 s (the real charge) and drains over the last 1.2 s of `duration` (default 3 s), so end it where the victim looks away; screen-only, `at` is ignored. Give it a `duration` over 1.2 s (24 ticks) or nothing shows, and at least ~3.7 s (74 ticks: the 50-tick rise plus the 24-tick drain) for it to reach full grey; a shorter one peaks partway (`EffectVisuals.GreyEdges`). `patronus_light` - a silver-white burst of light at `at`, default 4 s (80 ticks): a ring of glowing particles on the ground plane plus a faint sphere grow from radius 0 to 22 blocks over the first 60% of `duration` (ease-out: fast, then slowing), then thin out and fade over the last 40%; a dense white spray at the centre; a flash at the start; and a soft white screen wash (alpha peaking 0.35 at 0.4 s = 8 ticks, gone by 2 s = 40 ticks, or by the end of a shorter `duration`) for viewers whose camera is within 40 blocks of `at`. Plays the real Expecto Patronum sound once at `at` (volume 1.2) when it starts, not for a late joiner. Visual only. No duration floor (a short one cuts the ring early and fades the wash out by its end). A late joiner skips old events but joins a still-running effect.
+
+**Music and voice cues** (`client/pensieve/MemoryAudio`). `sound` events go through `MemorySounds`: volume x0.75, pitch x0.92, an echo 6 ticks later, positioned in the world, never stopped. That is wrong for a soundtrack or a spoken line, so use `music`/`voice` for those:
+- Both are non-positional (`Attenuation.NONE`, no `at`), at full pitch and volume, with no echo. `music` plays on `SoundSource.MUSIC`, `voice` on `SoundSource.VOICE`. Register the OGG as `pensieve.music.<file>` / `pensieve.voice.<file>` in `ModSounds` and `sounds.json` (`"stream": true` for music, no subtitle); `id` is checked like a `sound` id.
+- Ducking: while any voice plays, every music instance eases to 45% volume (0.08 per tick) and back after it ends.
+- Ending: when the memory ends for any reason (end, leave, yank, basin broken, death, disconnect, a new memory starting) voices stop at once and music fades out over 20 ticks. While memory music plays, vanilla background music is held off.
+- Cues play the whole file from `t`: bake fades into the file, and overlap consecutive tracks by about 2 s to crossfade.
+- Late joiners: Minecraft cannot seek into an OGG, so a cue whose `t` is already past (more than 5 ticks) when the viewer joins is skipped, like any one-shot event. A viewer who joins mid-track hears silence until the next cue.
+
 
 ### `words[]`
 `{ t, by?, text, narration?, duration? }`. With `by` (an actor id) the line shows as `<name> text` at the bottom left for 8 s; without `by`, plain text. `"narration": true` shows centred silver italic text that fades in and out over `duration` (default 80 ticks). Never written to real chat.

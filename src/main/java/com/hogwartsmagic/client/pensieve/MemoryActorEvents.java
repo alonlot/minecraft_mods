@@ -21,6 +21,7 @@ public final class MemoryActorEvents {
         if (event.phase != TickEvent.Phase.END) return;
         MemoryActors.tick();
         MemoryEvents.tick();
+        MemoryAudio.tick();
     }
 
     @SubscribeEvent

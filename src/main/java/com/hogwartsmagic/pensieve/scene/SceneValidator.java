@@ -141,6 +141,13 @@ public final class SceneValidator {
         switch (e.kind()) {
             case "block" -> known(out, p + ".id", "block", e.id(), names.blocks());
             case "sound" -> known(out, p + ".id", "sound", e.id(), names.sounds());
+            case "music", "voice" -> {
+                known(out, p + ".id", "sound", e.id(), names.sounds());
+                float v = e.volume();
+                if (Float.isNaN(v) || v < 0 || v > SceneNames.MAX_CUE_VOLUME) {
+                    out.add(p + ".volume: " + v + " is outside 0 to " + SceneNames.MAX_CUE_VOLUME);
+                }
+            }
             case "particles" -> known(out, p + ".id", "particle", e.id(), names.particles());
             default -> {
                 if (!SceneNames.EFFECTS.contains(e.id())) {

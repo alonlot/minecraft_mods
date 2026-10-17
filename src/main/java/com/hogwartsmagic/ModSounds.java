@@ -309,6 +309,17 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_LAKE_HARRY_CAST = register("pensieve.voice.lake_harry_cast");
     public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_LAKE_HARRY_KNEW = register("pensieve.voice.lake_harry_knew");
 
+    // Soundtrack of the Pensieve memories (streamed stereo; played by the scene's music events).
+    public static final RegistryObject<SoundEvent> PENSIEVE_MUSIC_LAKE_DEMENTORS = register("pensieve.music.lake_dementors");
+    public static final RegistryObject<SoundEvent> PENSIEVE_MUSIC_LAKE_PATRONUS_LIGHT = register("pensieve.music.lake_patronus_light");
+    public static final RegistryObject<SoundEvent> PENSIEVE_MUSIC_LAKE_WINDOW = register("pensieve.music.lake_window");
+    public static final RegistryObject<SoundEvent> PENSIEVE_MUSIC_CAVE_JOURNEY = register("pensieve.music.cave_journey");
+    public static final RegistryObject<SoundEvent> PENSIEVE_MUSIC_CAVE_DESPAIR = register("pensieve.music.cave_despair");
+    public static final RegistryObject<SoundEvent> PENSIEVE_MUSIC_CHAMBER_SECRETS = register("pensieve.music.chamber_secrets");
+    public static final RegistryObject<SoundEvent> PENSIEVE_MUSIC_CHAMBER_DUEL = register("pensieve.music.chamber_duel");
+    public static final RegistryObject<SoundEvent> PENSIEVE_MUSIC_CHAMBER_REUNION = register("pensieve.music.chamber_reunion");
+    public static final RegistryObject<SoundEvent> PENSIEVE_MUSIC_SUMMONING_VOLDEMORT = register("pensieve.music.summoning_voldemort");
+
     private static RegistryObject<SoundEvent> register(String name) {
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, name);
         return SOUND_EVENTS.register(name, () -> SoundEvent.createVariableRangeEvent(id));

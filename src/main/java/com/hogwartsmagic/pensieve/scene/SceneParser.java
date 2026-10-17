@@ -207,7 +207,13 @@ public final class SceneParser {
 
     private static SceneDef.EventDef parseEvent(JsonElement e, String path) throws SceneException {
         JsonObject o = obj(e, path);
-        checkKeys(o, path, "t", "kind", "id", "at", "volume", "pitch", "count", "spread", "duration");
+        String kind = has(o, "kind") && o.get("kind").isJsonPrimitive() ? o.get("kind").getAsString() : "";
+        if ("music".equals(kind) || "voice".equals(kind)) {
+            // Soundtrack and spoken-line cues are non-positional and unscaled: no at, pitch, count, spread or duration.
+            checkKeys(o, path, "t", "kind", "id", "volume");
+        } else {
+            checkKeys(o, path, "t", "kind", "id", "at", "volume", "pitch", "count", "spread", "duration");
+        }
         int[] at = has(o, "at") ? reqInts(o, "at", path, 3) : null;
         return new SceneDef.EventDef(reqTime(o, "t", path), reqStr(o, "kind", path), str(o, "id", path, null), at,
                 num(o, "volume", path, 1f), num(o, "pitch", path, 1f), integer(o, "count", path, 1),

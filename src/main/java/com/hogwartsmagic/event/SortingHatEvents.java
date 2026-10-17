@@ -3,8 +3,10 @@ package com.hogwartsmagic.event;
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.sorting.SortingHatManager;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraftforge.event.ServerChatEvent;
 import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.event.entity.living.LivingDeathEvent;
+import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
@@ -23,14 +25,21 @@ public class SortingHatEvents {
             return;
         }
 
-        SortingHatManager.get().maybeStartSession(player);
+        SortingHatManager.get().tick(player);
     }
 
     @SubscribeEvent
-    public static void onServerChat(ServerChatEvent event) {
-        boolean consumed = SortingHatManager.get().handleChat(event.getPlayer(), event.getRawText());
-        if (consumed) {
-            event.setCanceled(true);
+    public static void onLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            SortingHatManager.get().onLogout(player);
+        }
+    }
+
+    /** Lowest priority: a death another handler cancels (and so never happens) leaves the quiz alone. */
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public static void onDeath(LivingDeathEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            SortingHatManager.get().onDeath(player);
         }
     }
 }

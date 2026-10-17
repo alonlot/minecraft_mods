@@ -589,7 +589,12 @@ public final class PensieveSessions {
                 // of it and gets nothing. A preview runs it too, so it can be tried.
                 if (v.exitReason == ExitReason.END && v.sawStart) applyEndAction(p, s.scene().endAction());
                 for (ViewerHomeListener l : new ArrayList<>(HOME_LISTENERS)) {
-                    l.onHome(p, s.chainRoot(), v.exitReason, v.sawStart);
+                    // A listener's bug must not break the server tick or the listeners after it.
+                    try {
+                        l.onHome(p, s.chainRoot(), v.exitReason, v.sawStart);
+                    } catch (RuntimeException e) {
+                        LOGGER.error("Pensieve: a home listener failed for {}", p.getScoreboardName(), e);
+                    }
                 }
             }
         }

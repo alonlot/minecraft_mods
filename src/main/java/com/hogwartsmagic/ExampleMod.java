@@ -1115,6 +1115,8 @@ public class ExampleMod
     private void commonSetup(final FMLCommonSetupEvent event)
     {
         event.enqueueWork(SpellPackets::register);
+        // Both dists: the Sorting memory's home callback runs on the dedicated and the integrated server alike.
+        event.enqueueWork(com.hogwartsmagic.sorting.SortingHatManager.get()::init);
     }
 
     /**

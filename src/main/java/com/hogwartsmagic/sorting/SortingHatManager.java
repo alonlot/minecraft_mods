@@ -3,214 +3,187 @@ package com.hogwartsmagic.sorting;
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.ModSounds;
 import com.hogwartsmagic.network.SpellPackets;
-import com.mojang.logging.LogUtils;
+import com.hogwartsmagic.pensieve.ExitReason;
+import com.hogwartsmagic.pensieve.PensieveSessions;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
-import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraftforge.network.PacketDistributor;
-import org.slf4j.Logger;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * The Sorting, server side. Putting the hat on (unsorted) plays the Sorting memory as a solo Pensieve memory; coming
+ * home from it by its end or by leaving opens the fixed, voiced quiz; three answers (and a tie pick, if needed) sort
+ * the player. A yank or an abort replays the memory on the next tick, and taking the hat off drops everything,
+ * saving nothing. The quiz is server-authoritative: the client only sends (step, choice).
+ *
+ * <p>The quiz screen cannot be closed by the player and locks its buttons after a click, so every choice that is
+ * refused re-sends the current question, and every dropped quiz is closed with a {@link SpellPackets.SortingClosePacket}.
+ */
 public class SortingHatManager {
-    private static final Logger LOGGER = LogUtils.getLogger();
     private static final String HOUSE_KEY = "SortingHouse";
-    private static final int REQUIRED_ANSWERS = 3;
+    /** The first scene of the Sorting memory; later stages chain the full film from this id through {@code next}. */
+    public static final String MEMORY_SCENE = "sorting";
+
+    private static final String VOICE = "hogwartsmagic:sorting.voice.";
+    private static final String GREETING_VOICE = VOICE + "greeting";
+    private static final String TIE_VOICE = VOICE + "tie";
+    private static final int REACTIONS = 3;
 
     private static final SortingHatManager INSTANCE = new SortingHatManager();
 
-    private final Map<UUID, SessionState> sessions = new ConcurrentHashMap<>();
-    private final Map<UUID, UUID> sessionTokens = new ConcurrentHashMap<>();
-    private final Set<UUID> waitingOnModel = ConcurrentHashMap.newKeySet();
-    private final OllamaSortingService ollamaService = new OllamaSortingService();
+    private final Map<UUID, SortingSession> quizzes = new ConcurrentHashMap<>();
+    /** Players this manager sent into the Sorting memory, waiting to come home. A preview never lands here. */
+    private final Set<UUID> memoryPending = ConcurrentHashMap.newKeySet();
+    private final Random random = new Random();
+    private boolean listening;
 
     public static SortingHatManager get() {
         return INSTANCE;
     }
 
-    /** Task 9 replaces this stub with the real answer handling. */
-    public void onChoice(ServerPlayer player, int step, int choice) {
+    /** Hooks the manager to the Pensieve's home callback. Called once at common setup; repeat calls do nothing. */
+    public synchronized void init() {
+        if (listening) return;
+        listening = true;
+        PensieveSessions.addHomeListener(this::onHome);
     }
 
-    public void maybeStartSession(ServerPlayer player) {
-        UUID playerId = player.getUUID();
+    /** Every 20 ticks per player, on the server thread. */
+    public void tick(ServerPlayer player) {
+        UUID id = player.getUUID();
+        boolean open = quizzes.containsKey(id) || memoryPending.contains(id);
         if (!isWearingHat(player)) {
-            clearSession(playerId);
+            if (open) drop(player);
             return;
         }
-        if (hasHouse(player) || sessions.containsKey(playerId)) {
+        if (open || hasHouse(player) || PensieveSessions.isViewer(player)) {
             return;
         }
-
-        UUID sessionToken = UUID.randomUUID();
-        sessions.put(playerId, new SessionState());
-        sessionTokens.put(playerId, sessionToken);
-
-        sendHatMessage(player, Component.translatable("chat.hogwartsmagic.sorting_hat.greeting"));
-        requestNextQuestion(player, sessionToken);
-    }
-
-    public boolean handleChat(ServerPlayer player, String rawText) {
-        UUID playerId = player.getUUID();
-        SessionState session = sessions.get(playerId);
-        if (session == null) {
-            return false;
-        }
-
-        if (!isWearingHat(player)) {
-            clearSession(playerId);
-            return false;
-        }
-
-        if (waitingOnModel.contains(playerId)) {
-            sendHatMessage(player, Component.translatable("chat.hogwartsmagic.sorting_hat.wait"));
-            return true;
-        }
-
-        String answer = rawText == null ? "" : rawText.trim();
-        if (answer.isEmpty()) {
-            sendHatMessage(player, Component.translatable("chat.hogwartsmagic.sorting_hat.empty"));
-            return true;
-        }
-
-        UUID sessionToken = sessionTokens.get(playerId);
-        if (sessionToken == null) {
-            clearSession(playerId);
-            return false;
-        }
-
-        String askedQuestion = session.pendingQuestion();
-        if (askedQuestion == null || askedQuestion.isBlank()) {
-            askedQuestion = fallbackQuestion(session.turns().size());
-        }
-        session.turns().add(new OllamaSortingService.SortingTurn(askedQuestion, answer));
-        session.setPendingQuestion(null);
-
-        if (session.turns().size() >= REQUIRED_ANSWERS) {
-            decideHouse(player, sessionToken);
+        if (PensieveSessions.startSolo(player, MEMORY_SCENE)) {
+            memoryPending.add(id);
         } else {
-            requestNextQuestion(player, sessionToken);
+            // No memory dimension or no scene: the quiz alone still sorts.
+            startQuiz(player);
         }
-        return true;
     }
 
-    private void requestNextQuestion(ServerPlayer player, UUID sessionToken) {
-        UUID playerId = player.getUUID();
-        SessionState session = sessions.get(playerId);
-        if (session == null || !sessionToken.equals(sessionTokens.get(playerId))) {
+    private void onHome(ServerPlayer player, String chainRoot, ExitReason reason, boolean sawStart) {
+        if (!MEMORY_SCENE.equals(chainRoot) || !memoryPending.remove(player.getUUID())) {
             return;
         }
-
-        waitingOnModel.add(playerId);
-        List<OllamaSortingService.SortingTurn> history = List.copyOf(session.turns());
-        List<HogwartsHouse> likelyHouses = inferLikelyHouses(history);
-        MinecraftServer server = player.server;
-        ollamaService.generateQuestion(history, likelyHouses)
-                .whenComplete((question, error) -> server.execute(() -> {
-                    SessionState liveSession = sessions.get(playerId);
-                    if (liveSession == null || !sessionToken.equals(sessionTokens.get(playerId))) {
-                        return;
-                    }
-                    waitingOnModel.remove(playerId);
-                    // Re-resolve by UUID; a player who logged out mid-question gets their session
-                    // dropped rather than left stuck behind the "wait" guard on return.
-                    ServerPlayer livePlayer = server.getPlayerList().getPlayer(playerId);
-                    if (livePlayer == null) {
-                        clearSession(playerId);
-                        return;
-                    }
-                    if (error != null) {
-                        LOGGER.warn("Sorting Hat question generation failed for {}: {}", livePlayer.getScoreboardName(), error.toString());
-                        String fallbackQuestion = fallbackQuestion(liveSession.turns().size());
-                        liveSession.setPendingQuestion(fallbackQuestion);
-                        sendReflectionIfNeeded(livePlayer, liveSession.turns(), likelyHouses);
-                        sendHatMessage(livePlayer, Component.literal(fallbackQuestion));
-                        return;
-                    }
-                    liveSession.setPendingQuestion(question);
-                    sendReflectionIfNeeded(livePlayer, liveSession.turns(), likelyHouses);
-                    sendHatMessage(livePlayer, Component.literal(question));
-                }));
-    }
-
-    private void decideHouse(ServerPlayer player, UUID sessionToken) {
-        UUID playerId = player.getUUID();
-        SessionState session = sessions.get(playerId);
-        if (session == null || !sessionToken.equals(sessionTokens.get(playerId))) {
+        if (reason != ExitReason.END && reason != ExitReason.LEFT) {
+            // Yanked or aborted: the next tick plays the memory again from the start.
             return;
         }
-
-        waitingOnModel.add(playerId);
-        sendHatMessage(player, Component.translatable("chat.hogwartsmagic.sorting_hat.thinking"));
-        List<OllamaSortingService.SortingTurn> history = List.copyOf(session.turns());
-        MinecraftServer server = player.server;
-        ollamaService.decideHouse(history)
-                .whenComplete((result, error) -> server.execute(() -> {
-                    SessionState liveSession = sessions.get(playerId);
-                    if (liveSession == null || !sessionToken.equals(sessionTokens.get(playerId))) {
-                        return;
-                    }
-                    clearSession(playerId);
-                    // Re-resolve by UUID: the captured ServerPlayer is stale if they disconnected (or
-                    // respawned) while the model was thinking, and writing to it would be lost.
-                    ServerPlayer livePlayer = server.getPlayerList().getPlayer(playerId);
-                    if (livePlayer == null) {
-                        return;
-                    }
-
-                    SortingResult finalResult = result;
-                    if (error != null || result == null) {
-                        if (error != null) {
-                            LOGGER.warn("Sorting Hat house decision failed for {}: {}", livePlayer.getScoreboardName(), error.toString());
-                        } else {
-                            LOGGER.warn("Sorting Hat house decision returned null for {}", livePlayer.getScoreboardName());
-                        }
-                        List<HogwartsHouse> likelyHouses = inferLikelyHouses(liveSession.turns());
-                        HogwartsHouse fallback = fallbackHouseFromTurns(liveSession.turns());
-                        finalResult = new SortingResult(fallback, "Hmm... your traits still point me here.", prependHouse(fallback, likelyHouses));
-                    }
-
-                    saveHouse(livePlayer, finalResult.house());
-                    SpellPackets.CHANNEL.send(new SpellPackets.HouseRevealPacket(finalResult.house()),
-                            PacketDistributor.PLAYER.with(livePlayer));
-                    livePlayer.level().playSound(
-                            null,
-                            livePlayer.getX(),
-                            livePlayer.getY(),
-                            livePlayer.getZ(),
-                            ModSounds.SORTED_SOUND.get(),
-                            SoundSource.PLAYERS,
-                            1.0f,
-                            1.0f
-                    );
-                    sendHatMessage(livePlayer, Component.translatable("chat.hogwartsmagic.sorting_hat.final", finalResult.house().displayName())
-                            .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
-                    if (!finalResult.likelyHouses().isEmpty()) {
-                        sendHatMessage(livePlayer, Component.literal(buildFinalLikelyHouseLine(finalResult)).withStyle(ChatFormatting.GRAY));
-                    }
-                    sendHatMessage(livePlayer, Component.literal(finalResult.reason()).withStyle(ChatFormatting.YELLOW));
-                }));
+        if (isWearingHat(player) && !hasHouse(player) && !quizzes.containsKey(player.getUUID())) {
+            startQuiz(player);
+        }
     }
 
-    private void clearSession(UUID playerId) {
-        sessions.remove(playerId);
-        sessionTokens.remove(playerId);
-        waitingOnModel.remove(playerId);
+    public void onChoice(ServerPlayer player, int step, int choice) {
+        SortingSession quiz = quizzes.get(player.getUUID());
+        if (quiz == null || !isWearingHat(player)) {
+            return;
+        }
+        SortingSession.Outcome outcome = quiz.answer(step, choice);
+        if (outcome == SortingSession.Outcome.NEXT_QUESTION) {
+            voice(player, VOICE + "react" + (1 + random.nextInt(REACTIONS)));
+            sendCurrent(player, quiz, true);
+        } else if (outcome == SortingSession.Outcome.TIE) {
+            sendCurrent(player, quiz, true);
+        } else if (outcome == SortingSession.Outcome.SORTED) {
+            quizzes.remove(player.getUUID());
+            sorted(player, quiz.result());
+        } else {
+            // Refused (a stale or forged step, a slot out of range): unlock the screen on the same question.
+            sendCurrent(player, quiz, false);
+        }
+    }
+
+    /** The player logged out: the memory, if any, was ended by the Pensieve without telling the listener. */
+    public void onLogout(ServerPlayer player) {
+        quizzes.remove(player.getUUID());
+        memoryPending.remove(player.getUUID());
+    }
+
+    /** The player died: the quiz closes and the memory, if any, starts from the beginning next time. */
+    public void onDeath(ServerPlayer player) {
+        if (quizzes.containsKey(player.getUUID()) || memoryPending.contains(player.getUUID())) {
+            drop(player);
+        }
+    }
+
+    /** Gametests: whether the player has a quiz open. */
+    public boolean hasQuiz(UUID playerId) {
+        return quizzes.containsKey(playerId);
+    }
+
+    /** Gametests: the open quiz's step (0..2 questions, 3 the tie), or -1 with none. */
+    public int quizStep(UUID playerId) {
+        SortingSession quiz = quizzes.get(playerId);
+        return quiz == null ? -1 : quiz.step();
+    }
+
+    private void startQuiz(ServerPlayer player) {
+        SortingSession quiz = new SortingSession(SortingQuestionBank.load(), random);
+        quizzes.put(player.getUUID(), quiz);
+        sendHatMessage(player, Component.translatable("chat.hogwartsmagic.sorting_hat.greeting"));
+        voice(player, GREETING_VOICE);
+        sendCurrent(player, quiz, true);
+    }
+
+    /** Sends the quiz's current question or tie; {@code withVoice} false re-sends it silently. */
+    private void sendCurrent(ServerPlayer player, SortingSession quiz, boolean withVoice) {
+        int step = quiz.step();
+        if (step < 3) {
+            SortingQuestion q = quiz.question();
+            List<String> answers = new ArrayList<>(4);
+            for (HogwartsHouse house : quiz.order()) answers.add(q.answers().get(house));
+            send(player, new SpellPackets.SortingQuestionPacket(step, q.text(), List.copyOf(answers),
+                    withVoice ? q.voice() : ""));
+        } else if (step == 3) {
+            send(player, new SpellPackets.SortingTiePacket(quiz.tied(), withVoice ? TIE_VOICE : ""));
+        }
+    }
+
+    private void sorted(ServerPlayer player, HogwartsHouse house) {
+        saveHouse(player, house);
+        send(player, new SpellPackets.HouseRevealPacket(house));
+        player.level().playSound(null, player.getX(), player.getY(), player.getZ(), ModSounds.SORTED_SOUND.get(),
+                SoundSource.PLAYERS, 1.0f, 1.0f);
+        voice(player, VOICE + house.name().toLowerCase(java.util.Locale.ROOT));
+        send(player, new SpellPackets.SortingClosePacket());
+        sendHatMessage(player, Component.translatable("chat.hogwartsmagic.sorting_hat.final", house.displayName())
+                .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+    }
+
+    /** Drops the quiz and the memory mark, closing the screen; nothing is saved. */
+    private void drop(ServerPlayer player) {
+        quizzes.remove(player.getUUID());
+        memoryPending.remove(player.getUUID());
+        send(player, new SpellPackets.SortingClosePacket());
+    }
+
+    private void voice(ServerPlayer player, String id) {
+        send(player, new SpellPackets.SortingVoicePacket(id));
+    }
+
+    private static void send(ServerPlayer player, Object packet) {
+        SpellPackets.CHANNEL.send(packet, PacketDistributor.PLAYER.with(player));
     }
 
     private boolean hasHouse(ServerPlayer player) {
-        return !getHouseValue(player).isEmpty();
-    }
-
-    private String getHouseValue(ServerPlayer player) {
-        return getModData(player).getString(HOUSE_KEY);
+        return !getModData(player).getString(HOUSE_KEY).isEmpty();
     }
 
     private void saveHouse(ServerPlayer player, HogwartsHouse house) {
@@ -231,134 +204,5 @@ public class SortingHatManager {
 
     private void sendHatMessage(ServerPlayer player, Component content) {
         player.sendSystemMessage(Component.literal("[Sorting Hat] ").withStyle(ChatFormatting.DARK_PURPLE).append(content));
-    }
-
-    private String fallbackQuestion(int count) {
-        return switch (count) {
-            case 0 -> "Tell me, what trait matters most to you: courage, wisdom, loyalty, or ambition?";
-            case 1 -> "You answered quickly before. When things turn difficult, do you lead, learn, help, or scheme?";
-            default -> "Earlier you spoke of your values. What legacy would you want whispered about you at Hogwarts?";
-        };
-    }
-
-    private HogwartsHouse fallbackHouseFromTurns(List<OllamaSortingService.SortingTurn> turns) {
-        if (turns == null || turns.isEmpty()) {
-            return HogwartsHouse.RAVENCLAW;
-        }
-        int idx = Math.floorMod(turns.toString().hashCode(), HogwartsHouse.values().length);
-        return HogwartsHouse.values()[idx];
-    }
-
-    private List<HogwartsHouse> inferLikelyHouses(List<OllamaSortingService.SortingTurn> turns) {
-        if (turns.isEmpty()) {
-            return List.of(HogwartsHouse.GRYFFINDOR, HogwartsHouse.RAVENCLAW);
-        }
-
-        int[] scores = new int[HogwartsHouse.values().length];
-        for (OllamaSortingService.SortingTurn turn : turns) {
-            String text = (turn.question() + " " + turn.answer()).toLowerCase();
-            addHouseScore(scores, HogwartsHouse.GRYFFINDOR, text, "brave", "courage", "bold", "daring", "protect", "fight", "risk", "lead");
-            addHouseScore(scores, HogwartsHouse.RAVENCLAW, text, "smart", "wise", "wisdom", "curious", "learn", "study", "knowledge", "understand", "think");
-            addHouseScore(scores, HogwartsHouse.HUFFLEPUFF, text, "loyal", "kind", "fair", "help", "patient", "friend", "trust", "honest", "hard work");
-            addHouseScore(scores, HogwartsHouse.SLYTHERIN, text, "ambition", "ambitious", "power", "win", "resourceful", "cunning", "legacy", "greatness", "scheme");
-        }
-
-        java.util.List<HogwartsHouse> ordered = new java.util.ArrayList<>(List.of(HogwartsHouse.values()));
-        ordered.sort(java.util.Comparator.comparingInt((HogwartsHouse house) -> scores[house.ordinal()]).reversed()
-                .thenComparing(Enum::name));
-
-        if (scores[ordered.get(0).ordinal()] == 0) {
-            int hash = turns.toString().hashCode();
-            int firstIndex = Math.floorMod(hash, HogwartsHouse.values().length);
-            int secondIndex = Math.floorMod(hash + 1, HogwartsHouse.values().length);
-            HogwartsHouse first = HogwartsHouse.values()[firstIndex];
-            HogwartsHouse second = HogwartsHouse.values()[secondIndex];
-            return List.of(first, second);
-        }
-        return List.copyOf(ordered.subList(0, Math.min(3, ordered.size())));
-    }
-
-    private void addHouseScore(int[] scores, HogwartsHouse house, String text, String... keywords) {
-        for (String keyword : keywords) {
-            if (text.contains(keyword)) {
-                scores[house.ordinal()] += 2;
-            }
-        }
-    }
-
-    private void sendReflectionIfNeeded(ServerPlayer player, List<OllamaSortingService.SortingTurn> turns, List<HogwartsHouse> likelyHouses) {
-        if (turns.isEmpty()) {
-            return;
-        }
-        OllamaSortingService.SortingTurn lastTurn = turns.get(turns.size() - 1);
-        sendHatMessage(player, Component.literal(buildReflectionLine(lastTurn, likelyHouses)).withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC));
-    }
-
-    private String buildReflectionLine(OllamaSortingService.SortingTurn lastTurn, List<HogwartsHouse> likelyHouses) {
-        String question = trimForHat(lastTurn.question(), 42);
-        String answer = trimForHat(lastTurn.answer(), 42);
-        String likely = formatLikelyHouses(likelyHouses);
-        return "When I asked \"" + question + "\", you answered \"" + answer + "\". " + likely;
-    }
-
-    private String buildFinalLikelyHouseLine(SortingResult result) {
-        if (result.likelyHouses().size() <= 1) {
-            return "I considered " + result.house().displayName() + " from the moment I looked inside your mind.";
-        }
-        HogwartsHouse runnerUp = result.likelyHouses().get(1);
-        return "You could have suited " + runnerUp.displayName() + " as well, but " + result.house().displayName() + " fits you best.";
-    }
-
-    private String formatLikelyHouses(List<HogwartsHouse> likelyHouses) {
-        List<HogwartsHouse> live = likelyHouses == null ? List.of() : likelyHouses;
-        if (live.isEmpty()) {
-            return "I still need one more glimpse into your mind.";
-        }
-        if (live.size() == 1) {
-            return "I'm leaning strongly toward " + live.get(0).displayName() + ", but I want one more answer.";
-        }
-        if (live.size() == 2) {
-            return "I can see " + live.get(0).displayName() + " and " + live.get(1).displayName() + " circling you already.";
-        }
-        return "I can see " + live.get(0).displayName() + ", " + live.get(1).displayName() + ", and perhaps even " + live.get(2).displayName() + ".";
-    }
-
-    private String trimForHat(String text, int maxLength) {
-        if (text == null) {
-            return "";
-        }
-        String compact = text.replaceAll("\\s+", " ").trim();
-        if (compact.length() <= maxLength) {
-            return compact;
-        }
-        return compact.substring(0, Math.max(0, maxLength - 3)).trim() + "...";
-    }
-
-    private List<HogwartsHouse> prependHouse(HogwartsHouse first, List<HogwartsHouse> houses) {
-        java.util.List<HogwartsHouse> ordered = new java.util.ArrayList<>();
-        ordered.add(first);
-        for (HogwartsHouse house : houses) {
-            if (!ordered.contains(house)) {
-                ordered.add(house);
-            }
-        }
-        return List.copyOf(ordered);
-    }
-
-    private static final class SessionState {
-        private final java.util.List<OllamaSortingService.SortingTurn> turns = new java.util.ArrayList<>();
-        private String pendingQuestion;
-
-        public java.util.List<OllamaSortingService.SortingTurn> turns() {
-            return turns;
-        }
-
-        public String pendingQuestion() {
-            return pendingQuestion;
-        }
-
-        public void setPendingQuestion(String pendingQuestion) {
-            this.pendingQuestion = pendingQuestion;
-        }
     }
 }

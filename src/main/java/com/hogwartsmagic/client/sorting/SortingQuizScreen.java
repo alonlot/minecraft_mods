@@ -23,7 +23,9 @@ public class SortingQuizScreen extends Screen {
     private static final int TIE_STEP = 3;
     private static final int QUESTION_COUNT = 3;
 
-    private static final int PANEL_W = 300;
+    /** The narrowest the panel gets; it widens to fit the longest answer, up to the screen edge. */
+    private static final int MIN_PANEL_W = 300;
+    private static final int BUTTON_TEXT_MARGIN = 16;
     private static final int PARCHMENT = 0xFFE8D5A8;
     private static final int PARCHMENT_BORDER = 0xFF6B4A22;
     private static final int INK = 0xFF3B2A12;
@@ -40,6 +42,7 @@ public class SortingQuizScreen extends Screen {
     private List<FormattedCharSequence> promptLines = List.of();
     private int panelTop;
     private int panelHeight;
+    private int panelW = MIN_PANEL_W;
 
     private SortingQuizScreen() {
         super(Component.translatable("screen.hogwartsmagic.sorting.title"));
@@ -102,13 +105,16 @@ public class SortingQuizScreen extends Screen {
     protected void init() {
         super.init();
         buttons.clear();
-        int innerW = PANEL_W - PAD * 2;
+        int widest = 0;
+        for (Component a : answers) widest = Math.max(widest, font.width(a));
+        panelW = Math.min(Math.max(MIN_PANEL_W, widest + BUTTON_TEXT_MARGIN + PAD * 2), width - 16);
+        int innerW = panelW - PAD * 2;
         promptLines = font.split(prompt, innerW);
         int textH = promptLines.size() * (font.lineHeight + 1);
         int buttonsH = answers.size() * (BUTTON_H + BUTTON_GAP) - BUTTON_GAP;
         panelHeight = PAD + font.lineHeight + 4 + font.lineHeight + 8 + textH + 10 + buttonsH + PAD;
         panelTop = Math.max(4, (height - panelHeight) / 2);
-        int left = (width - PANEL_W) / 2;
+        int left = (width - panelW) / 2;
         int y = panelTop + panelHeight - PAD - buttonsH;
         for (int i = 0; i < answers.size(); i++) {
             final int choice = i;
@@ -129,11 +135,21 @@ public class SortingQuizScreen extends Screen {
     }
 
     @Override
+    protected void renderBlurredBackground(float partialTick) {
+        // Never run the menu-blur shader: it would blur the panel drawn below as well as the world.
+    }
+
+    @Override
+    public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        // Screen.render calls this after the panel is drawn; the plain dim is drawn in render() instead.
+    }
+
+    @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         this.renderTransparentBackground(g);
-        int left = (width - PANEL_W) / 2;
-        g.fill(left - 2, panelTop - 2, left + PANEL_W + 2, panelTop + panelHeight + 2, PARCHMENT_BORDER);
-        g.fill(left, panelTop, left + PANEL_W, panelTop + panelHeight, PARCHMENT);
+        int left = (width - panelW) / 2;
+        g.fill(left - 2, panelTop - 2, left + panelW + 2, panelTop + panelHeight + 2, PARCHMENT_BORDER);
+        g.fill(left, panelTop, left + panelW, panelTop + panelHeight, PARCHMENT);
         int y = panelTop + PAD;
         g.drawCenteredString(font, title, width / 2, y, INK);
         y += font.lineHeight + 4;

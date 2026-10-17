@@ -294,6 +294,12 @@ poses = {
 }
 
 # ---------------------------------------------------------------- events
+# soundtrack: files carry their own fades; cues overlap ~2 s to crossfade (MemoryAudio, non-positional)
+def music(t, name):
+    ev(t, 'music', 'hogwartsmagic:pensieve.music.' + name, volume=1.0)
+music(0.0, 'chamber_secrets')
+music(16.8, 'chamber_duel')
+music(76.5, 'chamber_reunion')
 LOCK = (25, 10, 20)
 def door_plane(p):
     return (p[0] - LOCK[0], p[1] - LOCK[1])

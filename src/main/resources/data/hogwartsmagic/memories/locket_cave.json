@@ -686,6 +686,7 @@
     }
   ],
   "events": [
+    {"t": "0s", "kind": "music", "id": "hogwartsmagic:pensieve.music.cave_journey", "volume": 1.0},
     {"t": "0s", "kind": "sound", "id": "minecraft:item.elytra.flying", "volume": 0.3, "pitch": 0.6},
     {"t": "3s", "kind": "effect", "id": "lightning", "at": [-44, -2, -60]},
     {"t": "7s", "kind": "sound", "id": "minecraft:item.elytra.flying", "volume": 0.25, "pitch": 0.5},
@@ -796,6 +797,7 @@
     {"t": "45.7s", "kind": "sound", "id": "minecraft:block.chain.place", "at": [0, 0, -13], "volume": 1.0},
     {"t": "46.3s", "kind": "sound", "id": "minecraft:block.bubble_column.upwards_inside", "at": [0, -2, -10], "volume": 0.9},
     {"t": "46.3s", "kind": "particles", "id": "minecraft:bubble_column_up", "at": [1, -6, -9], "count": 40, "spread": [0.6, 2.0, 0.6]},
+    {"t": "47s", "kind": "music", "id": "hogwartsmagic:pensieve.music.cave_despair", "volume": 1.0},
     {"t": "47.4s", "kind": "particles", "id": "minecraft:bubble_column_up", "at": [1, -4, -9], "count": 30, "spread": [0.6, 1.2, 0.6]},
     {"t": "48.2s", "kind": "sound", "id": "minecraft:block.chain.break", "at": [0, -1, -10], "volume": 1.0, "pitch": 0.8},
     {"t": "48.2s", "kind": "particles", "id": "minecraft:splash", "at": [1, -1, -9], "count": 60, "spread": [0.9, 0.2, 1.2]},

@@ -254,6 +254,10 @@ poses = {
 }
 
 # ---------------------------------------------------------------- events
+# soundtrack: files carry their own fades; cues overlap ~2 s to crossfade (MemoryAudio, non-positional)
+def music(t, name):
+    ev(t, 'music', 'hogwartsmagic:pensieve.music.' + name, volume=1.0)
+music(8.2, 'summoning_voldemort')
 # night forest, low fog all film long
 snd(0.0, 'minecraft:ambient.cave', volume=0.5)
 snd(2.2, 'minecraft:entity.wolf.howl', at=(-24, 2, -20), volume=0.35, pitch=0.8)

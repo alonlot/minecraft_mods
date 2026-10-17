@@ -294,6 +294,11 @@ poses = {
 }
 
 # ---------------------------------------------------------------- events
+# soundtrack: files carry their own fades; cues overlap ~2 s to crossfade (MemoryAudio, non-positional)
+def music(t, name):
+    ev(t, 'music', 'hogwartsmagic:pensieve.music.' + name, volume=1.0)
+music(0.0, 'cave_journey')
+music(47.0, 'cave_despair')
 # the storm out at sea
 ev(3.0, 'effect', 'lightning', at=[-44, -2, -60])
 ev(12.2, 'effect', 'lightning', at=[40, -2, -62])

@@ -346,6 +346,7 @@
     {"t": "7.5s", "kind": "particles", "id": "minecraft:cloud", "at": [2, 0, 6], "count": 16, "spread": [13.0, 0.15, 13.0]},
     {"t": "7.5s", "kind": "particles", "id": "minecraft:cloud", "at": [0, 0, -16], "count": 8, "spread": [4.0, 0.15, 4.0]},
     {"t": "8s", "kind": "particles", "id": "minecraft:cloud", "at": [0, 0, -2], "count": 16, "spread": [13.0, 0.15, 13.0]},
+    {"t": "8.2s", "kind": "music", "id": "hogwartsmagic:pensieve.music.summoning_voldemort", "volume": 1.0},
     {"t": "8.5s", "kind": "particles", "id": "minecraft:cloud", "at": [-4, 0, 4], "count": 16, "spread": [13.0, 0.15, 13.0]},
     {"t": "9s", "kind": "particles", "id": "minecraft:cloud", "at": [4, 0, -6], "count": 16, "spread": [13.0, 0.15, 13.0]},
     {"t": "9s", "kind": "particles", "id": "minecraft:cloud", "at": [0, 0, -16], "count": 8, "spread": [4.0, 0.15, 4.0]},

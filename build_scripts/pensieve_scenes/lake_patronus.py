@@ -583,6 +583,12 @@ for i, dp in enumerate(dem_par):
     dementors.append(d)
 
 # ---------------------------------------------------------------- events
+# soundtrack: files carry their own fades; cues overlap ~2 s to crossfade (MemoryAudio, non-positional)
+def music(t, name):
+    ev(t, 'music', 'hogwartsmagic:pensieve.music.' + name, volume=1.0)
+music(0.0, 'lake_dementors')
+music(40.5, 'lake_patronus_light')
+music(69.5, 'lake_window')
 snd(0.0, 'minecraft:ambient.cave', volume=0.45, pitch=0.7)
 snd(0.5, 'minecraft:item.elytra.flying', volume=0.18, pitch=0.5)
 for tt, at in ((3.0, (4, 18, 26)), (9.5, (-6, 16, 22)), (14.0, (6, 12, 27)), (18.5, (-3, 9, 25)),
@@ -662,7 +668,7 @@ snd(78.5, 'minecraft:ambient.cave', volume=0.25, pitch=1.2)
 # ---------------------------------------------------------------- words (paraphrase; only the incantation is canon)
 # Each spoken line plays its Fish Audio take (assets/.../sounds/pensieve/voice, non-positional) with the text.
 def voiced(t, sound):
-    snd(t, 'hogwartsmagic:pensieve.voice.' + sound, volume=1.0)
+    ev(t, 'voice', 'hogwartsmagic:pensieve.voice.' + sound, volume=1.0)
 narrate(1.0, 'The lake, that night. The same hour, lived a second time.', 4.5); voiced(1.0, 'lake_narration')
 line(25.0, 'past_harry', 'Expecto... Expecto Patronum...'); voiced(25.0, 'lake_harry_wisp')
 line(38.8, 'hermione', "Harry, they're taking them both!"); voiced(38.8, 'lake_hermione')

@@ -11,6 +11,7 @@ import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.RandomSource;
 import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -29,6 +30,7 @@ import java.util.Set;
 public final class HatVoice {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final String GREETING = "sorting.voice.greeting";
+    private static final String REACTION = "sorting.voice.react";
     private static final Set<String> SHOUTS = Set.of("sorting.voice.gryffindor", "sorting.voice.ravenclaw",
             "sorting.voice.hufflepuff", "sorting.voice.slytherin");
     /** Ticks after a line starts before a missing handle counts as finished (the engine registers it a tick or two late). */
@@ -50,8 +52,18 @@ public final class HatVoice {
             LOGGER.debug("Sorting Hat voice line '{}' is not a registered sound", soundId);
             return;
         }
-        if (event.getLocation().getPath().equals(GREETING)) {
+        String path = event.getLocation().getPath();
+        if (path.equals(GREETING)) {
             stop();
+        } else if (SHOUTS.contains(path)) {
+            // The sorted shout lands at once: nothing else is worth hearing any more.
+            if (current != null && !SHOUTS.contains(currentEvent.getLocation().getPath())) stop();
+            queue.clear();
+        } else if (path.startsWith(REACTION)) {
+            // A fast reader must not build a backlog: only the newest reaction and question wait.
+            queue.clear();
+        } else {
+            queue.removeIf(e -> !e.getLocation().getPath().startsWith(REACTION));
         }
         if (current == null) {
             start(event);
@@ -73,8 +85,19 @@ public final class HatVoice {
     /** The quiz screen was closed by the server: silence the hat, unless a house shout is still to be heard. */
     public static void closed() {
         boolean shout = currentEvent != null && SHOUTS.contains(currentEvent.getLocation().getPath());
-        for (SoundEvent e : queue) shout |= SHOUTS.contains(e.getLocation().getPath());
-        if (!shout) stop();
+        SoundEvent queued = null;
+        for (SoundEvent e : queue) {
+            if (SHOUTS.contains(e.getLocation().getPath())) queued = e;
+        }
+        if (shout) {
+            queue.clear();
+        } else if (queued != null) {
+            SoundEvent keep = queued;
+            stop();
+            start(keep);
+        } else {
+            stop();
+        }
     }
 
     private static void start(SoundEvent event) {
@@ -94,5 +117,10 @@ public final class HatVoice {
         currentEvent = null;
         SoundEvent next = queue.poll();
         if (next != null) start(next);
+    }
+
+    @SubscribeEvent
+    public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
+        stop();
     }
 }

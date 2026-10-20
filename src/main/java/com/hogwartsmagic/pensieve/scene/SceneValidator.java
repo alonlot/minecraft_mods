@@ -209,8 +209,8 @@ public final class SceneValidator {
             out.add(p + ".style: style is only for enchanted_ceiling");
         }
         if (!Float.isNaN(e.intensity()) && !("effect".equals(e.kind())
-                && ("light_rays".equals(e.id()) || "eyes_peek".equals(e.id())))) {
-            out.add(p + ".intensity: intensity is only for light_rays and eyes_peek");
+                && ("light_rays".equals(e.id()) || "eyes_peek".equals(e.id()) || "wand_choice".equals(e.id())))) {
+            out.add(p + ".intensity: intensity is only for light_rays, eyes_peek and wand_choice");
         }
         if (e.id() == null) {
             out.add(p + ".id: missing required key for a " + e.kind() + " event");
@@ -248,6 +248,8 @@ public final class SceneValidator {
                     lightRays(out, e, p);
                 } else if ("floating_candles".equals(e.id())) {
                     candles(out, e, p);
+                } else if ("wand_choice".equals(e.id())) {
+                    wandChoice(out, e, p);
                 } else if ("eyes_peek".equals(e.id()) && !Float.isNaN(e.intensity())
                         && !(e.intensity() >= Eyelids.MIN_PEEK_OPEN && e.intensity() <= 1f)) {
                     out.add(p + ".intensity: " + e.intensity() + " is outside " + Eyelids.MIN_PEEK_OPEN
@@ -311,6 +313,15 @@ public final class SceneValidator {
         for (int i = 0; i < 3 && i < e.spread().length; i++) {
             float s = e.spread()[i];
             if (!(s >= lo[i] && s <= hi[i])) out.add(p + ".spread[" + i + "]: " + s + " is outside " + lo[i] + " to " + hi[i]);
+        }
+    }
+
+    /** The wand_choice effect: a centre (the wand tip or the boy's chest) and an optional ranged intensity. */
+    private static void wandChoice(List<String> out, SceneDef.EventDef e, String p) {
+        if (e.at() == null) out.add(p + ": wand_choice needs at");
+        if (!Float.isNaN(e.intensity()) && !(e.intensity() >= WandChoice.MIN_INTENSITY && e.intensity() <= WandChoice.MAX_INTENSITY)) {
+            out.add(p + ".intensity: " + e.intensity() + " is outside " + WandChoice.MIN_INTENSITY + " to "
+                    + WandChoice.MAX_INTENSITY);
         }
     }
 

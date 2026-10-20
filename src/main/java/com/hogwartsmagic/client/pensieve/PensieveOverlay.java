@@ -65,6 +65,7 @@ public final class PensieveOverlay {
             fallbackDarkness(g, w, h, partial);
             greyEdges(g, partial, clock);
             patronusWash(g, w, h, partial);
+            wandBloom(g, w, h, partial);
             float rt = PensieveClientState.revealTime(partial);
             if (rt < 10) wisps(g, w, h, clock, 1 - rt / 10, true);
             hint(g, w, h, phase, pt, rt);
@@ -166,6 +167,15 @@ public final class PensieveOverlay {
         if (a <= 0.003f) return;
         RenderSystem.enableBlend();
         g.fill(0, 0, w, h, argb(a, 0xE8F2FF));
+        RenderSystem.disableBlend();
+    }
+
+    /** A scene wand_choice effect: a soft warm bloom over the view for those near it as the wand chooses. */
+    private static void wandBloom(GuiGraphics g, int w, int h, float partial) {
+        float a = EffectVisuals.wandBloom(partial);
+        if (a <= 0.003f) return;
+        RenderSystem.enableBlend();
+        g.fill(0, 0, w, h, argb(a, 0xFFE2A8));
         RenderSystem.disableBlend();
     }
 

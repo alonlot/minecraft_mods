@@ -78,6 +78,14 @@ public class ModEntities {
                             .clientTrackingRange(10)
                             .build("memory_block"));
 
+    /** Ollivander's cloth measuring tape as a memory actor: see TapeTrail. */
+    public static final RegistryObject<EntityType<MemoryTapeEntity>> MEMORY_TAPE =
+            ENTITY_TYPES.register("memory_tape",
+                    () -> EntityType.Builder.<MemoryTapeEntity>of(MemoryTapeEntity::new, MobCategory.MISC)
+                            .sized(0.1f, 0.1f)
+                            .clientTrackingRange(10)
+                            .build("memory_tape"));
+
     public static final RegistryObject<EntityType<MemoryLetterEntity>> MEMORY_LETTER =
             ENTITY_TYPES.register("memory_letter",
                     () -> EntityType.Builder.<MemoryLetterEntity>of(MemoryLetterEntity::new, MobCategory.MISC)

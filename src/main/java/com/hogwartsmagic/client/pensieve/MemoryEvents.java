@@ -117,6 +117,7 @@ public final class MemoryEvents {
             // never finishes (its letters lie on the floor until the scene ends), so it is always joined, and so is an
             // enchanted ceiling, light rays and floating candles (they stay until the scene ends).
             if (!late || (e.duration() > 0 && age < e.duration()) || "letter_flood".equals(e.id())
+                    || ("wand_choice".equals(e.id()) && age < com.hogwartsmagic.pensieve.scene.WandChoice.duration(e.duration()))
                     || "enchanted_ceiling".equals(e.id()) || "light_rays".equals(e.id())
                     || "floating_candles".equals(e.id())) {
                 EffectVisuals.play(e.id(), position(e), e.duration(), late ? (int) age : 0, e.count(), e.spread(),

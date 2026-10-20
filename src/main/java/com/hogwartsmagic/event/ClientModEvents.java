@@ -1116,6 +1116,7 @@ public class ClientModEvents {
                     }
                 });
         event.registerEntityRenderer(ModEntities.MEMORY_BLOCK.get(), com.hogwartsmagic.client.MemoryBlockRenderer::new);
+        event.registerEntityRenderer(ModEntities.MEMORY_TAPE.get(), com.hogwartsmagic.client.MemoryTapeRenderer::new);
     }
 
 }

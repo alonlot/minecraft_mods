@@ -9,17 +9,20 @@ import com.hogwartsmagic.pensieve.scene.Eyelids;
 import com.hogwartsmagic.pensieve.scene.FloatingCandles;
 import com.hogwartsmagic.pensieve.scene.LetterFlood;
 import com.hogwartsmagic.pensieve.scene.LightRays;
+import com.hogwartsmagic.pensieve.scene.WandChoice;
 import com.mojang.logging.LogUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.ParticleEngine;
 import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LightningBolt;
 import net.minecraft.world.phys.Vec3;
+import org.joml.Vector3f;
 import org.slf4j.Logger;
 
 import java.util.ArrayList;
@@ -216,6 +219,9 @@ public final class EffectVisuals {
             int n = count > 0 ? Math.min(count, FloatingCandles.MAX_COUNT) : FloatingCandles.DEFAULT_COUNT;
             RUNNING.add(new Candles(new FloatingCandlesRenderer.Flock(at.x, at.y, at.z, Mth.clamp(spread[0], 0.5f, 100f),
                     Mth.clamp(spread[1], 0.5f, 100f), Mth.clamp(spread[2], 0.5f, 100f), n, floodSeed(at, t))));
+        } else if ("wand_choice".equals(effect)) {
+            int total = WandChoice.duration(duration);
+            if (elapsed < total) RUNNING.add(new WandChoiceGlow(at, elapsed, total, WandChoice.intensity(intensity), floodSeed(at, t)));
         } else {
             LOGGER.warn("Pensieve: unknown effect '{}' in a memory", effect);
         }
@@ -310,6 +316,22 @@ public final class EffectVisuals {
         for (Running r : RUNNING) {
             if (r instanceof PatronusLight light && light.centre.distanceTo(eye) <= PATRONUS_WASH_RANGE) {
                 most = Math.max(most, light.wash(partial));
+            }
+        }
+        return most;
+    }
+
+    /**
+     * The warm bloom of a running {@code wand_choice}, 0 (none) up to its peak, for {@code PensieveOverlay}: the
+     * strongest among those within {@link WandChoice#BLOOM_RANGE} of the viewer's camera.
+     */
+    static float wandBloom(float partial) {
+        if (RUNNING.isEmpty()) return 0f;
+        Vec3 eye = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
+        float most = 0f;
+        for (Running r : RUNNING) {
+            if (r instanceof WandChoiceGlow g && g.centre.distanceTo(eye) <= WandChoice.BLOOM_RANGE) {
+                most = Math.max(most, WandChoice.bloom(g.age + partial, g.total, g.intensity));
             }
         }
         return most;
@@ -717,6 +739,59 @@ public final class EffectVisuals {
         @Override
         public boolean tick(ClientLevel level) {
             return true;
+        }
+    }
+
+    /**
+     * {@code wand_choice}: the right wand choosing the boy ({@link WandChoice}). A golden glow gathers at the centre,
+     * then motes spiral up round it, drawn as short-lived particles at each mote's place this tick and drifting toward
+     * its next one, so they leave a little trail; the bloom is {@link #wandBloom}. Particles only: no sound (cue the
+     * scene's own) and no light.
+     */
+    private static final class WandChoiceGlow implements Running {
+        private static final DustParticleOptions GOLD = new DustParticleOptions(new Vector3f(1f, 0.8f, 0.32f), 0.9f);
+        private static final DustParticleOptions PALE = new DustParticleOptions(new Vector3f(1f, 0.93f, 0.66f), 0.6f);
+        final Vec3 centre;
+        final int total;
+        final float intensity;
+        private final long seed;
+        int age;
+
+        WandChoiceGlow(Vec3 centre, int elapsed, int total, float intensity, long seed) {
+            this.centre = centre;
+            this.age = Math.max(0, elapsed);
+            this.total = total;
+            this.intensity = intensity;
+            this.seed = seed;
+        }
+
+        @Override
+        public boolean tick(ClientLevel level) {
+            if (age >= total) return false;
+            ParticleEngine engine = Minecraft.getInstance().particleEngine;
+            float glow = WandChoice.glow(age, total);
+            // The glow at the centre: a bright core of rods and gold dust, swelling with the gather.
+            int core = (int) Math.ceil(5 * glow * intensity);
+            for (int i = 0; i < core; i++) {
+                double ox = (level.random.nextDouble() - 0.5) * 0.25 * glow;
+                double oy = (level.random.nextDouble() - 0.5) * 0.25 * glow;
+                double oz = (level.random.nextDouble() - 0.5) * 0.25 * glow;
+                Particle p = engine.createParticle(i % 2 == 0 ? ParticleTypes.END_ROD : GOLD, centre.x + ox, centre.y + oy,
+                        centre.z + oz, ox * 0.05, oy * 0.05, oz * 0.05);
+                if (p != null) p.setLifetime(4 + level.random.nextInt(4));
+            }
+            // The motes: each one shown in proportion to its brightness, heading where it will be next tick.
+            for (int i = 0; i < WandChoice.MOTES; i++) {
+                float[] m = WandChoice.mote(seed, i, age, total);
+                if (m[3] <= 0.02f || level.random.nextFloat() > m[3] * Math.min(1f, intensity)) continue;
+                float[] n = WandChoice.mote(seed, i, age + 1, total);
+                Particle p = engine.createParticle(i % 5 == 0 ? ParticleTypes.END_ROD : (i % 2 == 0 ? GOLD : PALE),
+                        centre.x + m[0], centre.y + m[1], centre.z + m[2], (n[0] - m[0]) * 0.5, (n[1] - m[1]) * 0.5,
+                        (n[2] - m[2]) * 0.5);
+                if (p != null) p.setLifetime(5 + level.random.nextInt(4));
+            }
+            age++;
+            return age < total;
         }
     }
 

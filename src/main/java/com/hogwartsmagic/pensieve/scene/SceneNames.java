@@ -15,11 +15,15 @@ public record SceneNames(Set<String> entityTypes, Set<String> spells, Set<String
                          Set<String> skins) {
     /** Actor actions a scene may use. */
     public static final Set<String> ACTIONS = Set.of("swing", "sneak", "stand", "hurt", "die", "vanish", "appear",
-            "stone", "unstone", "cast", "use_item", "hold", "ignite");
-    /** Largest {@code volume} a {@code music} or {@code voice} cue may ask for. */
+            "stone", "unstone", "cast", "use_item", "hold", "ignite", "equip");
+    /** Slots an {@code equip} action may fill. */
+    public static final Set<String> EQUIP_SLOTS = Set.of("head", "mainhand", "offhand", "chest", "legs", "feet");
+    /** Range of a narration word's {@code size}. */
+    public static final float MIN_WORD_SIZE = 1f, MAX_WORD_SIZE = 4f;
+    /** Largest {@code volume} a {@code music}, {@code voice} or {@code sfx} cue may ask for. */
     public static final float MAX_CUE_VOLUME = 4f;
     /** Event kinds. */
-    public static final Set<String> EVENT_KINDS = Set.of("block", "sound", "particles", "effect", "music", "voice");
+    public static final Set<String> EVENT_KINDS = Set.of("block", "sound", "particles", "effect", "music", "voice", "sfx");
     /** Scripted effects an {@code effect} event may name. */
     /** The letter_flood effect's letter count (1 to this) and each room half-size (blocks). */
     public static final int MAX_FLOOD_LETTERS = 400;

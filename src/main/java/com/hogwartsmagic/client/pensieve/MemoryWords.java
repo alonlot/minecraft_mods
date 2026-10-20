@@ -59,7 +59,7 @@ public final class MemoryWords {
                 int life = word.duration() > 0 ? word.duration() : DEFAULT_NARRATION_TICKS;
                 if (age >= life) continue;
                 float a = Mth.clamp(Math.min(age / NARRATION_FADE, (life - age) / NARRATION_FADE), 0f, 1f);
-                narration(g, font, WordText.fill(word.text(), viewer), a, w, h);
+                narration(g, font, WordText.fill(word.text(), viewer), a, w, h, word.size());
             } else if (age < LINE_TICKS) {
                 float a = Mth.clamp((LINE_TICKS - age) / LINE_FADE, 0f, 1f) * spoken;
                 if (a < MIN_ALPHA) continue;
@@ -81,14 +81,21 @@ public final class MemoryWords {
         }
     }
 
-    private static void narration(GuiGraphics g, Font font, String text, float alpha, int w, int h) {
-        int maxWidth = Math.max(120, (int) (w * 0.6f));
+    /** {@code size} scales the block about its own centre (the wrap width shrinks to match, so it stays on screen). */
+    private static void narration(GuiGraphics g, Font font, String text, float alpha, int w, int h, float size) {
+        float s = Math.max(1f, size);
+        int maxWidth = Math.max(120, (int) (w * 0.6f / s));
         List<FormattedCharSequence> lines = font.split(Component.literal(text).withStyle(ChatFormatting.ITALIC), maxWidth);
-        int y = (int) (h * 0.78f);
+        float cy = h * 0.78f + lines.size() * 5f;
+        g.pose().pushPose();
+        g.pose().translate(w / 2f, cy, 0);
+        g.pose().scale(s, s, 1f);
+        int y = -lines.size() * 5;
         for (FormattedCharSequence l : lines) {
-            g.drawString(font, l, (w - font.width(l)) / 2, y, argb(alpha, SILVER), true);
+            g.drawString(font, l, -font.width(l) / 2, y, argb(alpha, SILVER), true);
             y += 10;
         }
+        g.pose().popPose();
     }
 
     /** {@code <name> text}, the way chat shows a player's line. */

@@ -1,5 +1,6 @@
 package com.hogwartsmagic.client.pensieve;
 
+import com.hogwartsmagic.pensieve.scene.CueKinds;
 import com.mojang.logging.LogUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.sounds.AbstractTickableSoundInstance;
@@ -40,6 +41,8 @@ public final class MemoryAudio {
 
     private static final List<Cue> MUSIC = new ArrayList<>();
     private static final List<Cue> VOICES = new ArrayList<>();
+    /** Scene {@code sfx} cues: plain non-positional one-shots on the ambient channel, never ducking music. */
+    private static final List<Cue> SFX = new ArrayList<>();
     private static final Set<String> WARNED = new HashSet<>();
     private static int clock;
     private static boolean ducking;
@@ -65,13 +68,30 @@ public final class MemoryAudio {
         Minecraft.getInstance().getSoundManager().play(v);
     }
 
+    /** Start a non-positional sound effect (scene {@code sfx}). Unknown ids are skipped with one warning. */
+    static void playSfx(String id, float volume) {
+        SoundEvent event = lookup(id);
+        if (event == null) return;
+        SfxInstance s = new SfxInstance(event, volume);
+        SFX.add(new Cue(s, clock));
+        Minecraft.getInstance().getSoundManager().play(s);
+    }
+
+    /** The live cues of an event kind, for the kinds that are cut at the end of a memory. */
+    private static List<Cue> cutList(String kind) {
+        if (!CueKinds.stopsAtEnd(kind)) return List.of();
+        return "sfx".equals(kind) ? SFX : VOICES;
+    }
+
     /**
      * The memory, or one scene of a chain, ended: voices stop at once, music fades out over {@link #FADE_TICKS} ticks
      * and then stops. A chained scene's music may still be fading under the next scene's opening.
      */
     static void cut() {
-        for (Cue c : VOICES) Minecraft.getInstance().getSoundManager().stop(c.sound);
-        VOICES.clear();
+        for (String kind : new String[]{"voice", "sfx"}) {
+            for (Cue c : cutList(kind)) Minecraft.getInstance().getSoundManager().stop(c.sound);
+            cutList(kind).clear();
+        }
         ducking = false;
         for (Cue c : MUSIC) ((MusicInstance) c.sound).fadeOut();
     }
@@ -79,8 +99,10 @@ public final class MemoryAudio {
     /** Stop everything this instant (a new memory is starting; nothing of the old one may linger). */
     static void stopNow() {
         for (Cue c : VOICES) Minecraft.getInstance().getSoundManager().stop(c.sound);
+        for (Cue c : SFX) Minecraft.getInstance().getSoundManager().stop(c.sound);
         for (Cue c : MUSIC) Minecraft.getInstance().getSoundManager().stop(c.sound);
         VOICES.clear();
+        SFX.clear();
         MUSIC.clear();
         ducking = false;
     }
@@ -88,9 +110,10 @@ public final class MemoryAudio {
     /** One client tick, run whether or not a memory is on: tracks what is still playing, and holds off vanilla music. */
     static void tick() {
         clock++;
-        if (MUSIC.isEmpty() && VOICES.isEmpty()) return;
+        if (MUSIC.isEmpty() && VOICES.isEmpty() && SFX.isEmpty()) return;
         Minecraft mc = Minecraft.getInstance();
         prune(VOICES, mc);
+        prune(SFX, mc);
         prune(MUSIC, mc);
         ducking = !VOICES.isEmpty();
         if (!MUSIC.isEmpty()) mc.getMusicManager().stopPlaying();
@@ -159,6 +182,23 @@ public final class MemoryAudio {
     private static final class VoiceInstance extends AbstractTickableSoundInstance {
         VoiceInstance(SoundEvent event, float volume) {
             super(event, SoundSource.VOICE, RandomSource.create());
+            this.volume = volume;
+            this.pitch = 1f;
+            this.looping = false;
+            this.delay = 0;
+            this.attenuation = SoundInstance.Attenuation.NONE;
+            this.relative = true;
+        }
+
+        @Override
+        public void tick() {
+        }
+    }
+
+    /** One sound effect: non-positional, full pitch, no echo, no ducking. */
+    private static final class SfxInstance extends AbstractTickableSoundInstance {
+        SfxInstance(SoundEvent event, float volume) {
+            super(event, SoundSource.AMBIENT, RandomSource.create());
             this.volume = volume;
             this.pitch = 1f;
             this.looping = false;

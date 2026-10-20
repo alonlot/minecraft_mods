@@ -75,6 +75,39 @@ class SceneParserTest {
     }
 
     @Test
+    void parsesEquip() throws Exception {
+        SceneDef s = SceneParser.parse("t", json("""
+                {"length":100,"actors":[{"id":"a","type":"player","actions":[
+                  {"t":10,"do":"equip","slot":"head","item":"hogwartsmagic:sorting_hat"}]}]}"""));
+        SceneDef.ActionCue c = s.actors().get(0).actions().get(0);
+        assertEquals("equip", c.action());
+        assertEquals("head", c.slot());
+        assertEquals("hogwartsmagic:sorting_hat", c.item());
+    }
+
+    @Test
+    void parsesWordSize() throws Exception {
+        SceneDef s = SceneParser.parse("t", json("""
+                {"length":100,"words":[
+                  {"t":1,"text":"big","narration":true,"size":3},
+                  {"t":2,"text":"plain","narration":true}]}"""));
+        assertEquals(3f, s.words().get(0).size());
+        assertEquals(1f, s.words().get(1).size());
+    }
+
+    @Test
+    void parsesSfx() throws Exception {
+        SceneDef s = SceneParser.parse("t", json("""
+                {"length":100,"events":[{"t":"2s","kind":"sfx","id":"a:b","volume":2}]}"""));
+        assertEquals("sfx", s.events().get(0).kind());
+        assertEquals(2f, s.events().get(0).volume());
+        assertEquals(40f, s.events().get(0).t());
+        SceneException at = assertThrows(SceneException.class, () -> SceneParser.parse("t", json(
+                "{\"length\":10,\"events\":[{\"t\":0,\"kind\":\"sfx\",\"id\":\"a:b\",\"at\":[0,0,0]}]}")));
+        assertTrue(at.getMessage().contains("events[0].at"), at.getMessage());
+    }
+
+    @Test
     void musicAndVoiceCuesRejectBadKeysAndVolume() {
         for (String kind : new String[]{"music", "voice"}) {
             SceneException unknown = assertThrows(SceneException.class, () -> SceneParser.parse("t", json(

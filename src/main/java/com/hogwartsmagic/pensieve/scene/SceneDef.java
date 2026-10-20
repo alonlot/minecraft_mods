@@ -74,21 +74,21 @@ public record SceneDef(String id, String title, int length, int radius, SetDef s
     public record Cue(float t, String name, float blend) {
     }
 
-    /** Actions: swing, sneak, stand, hurt, die, vanish, appear, stone, unstone, cast, use_item, hold. */
-    public record ActionCue(float t, String action, String spell, Target target, String item) {
+    /** Actions: swing, sneak, stand, hurt, die, vanish, appear, stone, unstone, cast, use_item, hold, ignite, equip ({@code slot} + {@code item}). */
+    public record ActionCue(float t, String action, String spell, Target target, String item, String slot) {
     }
 
     public record Target(String actor, float[] point) {
     }
 
     /**
-     * Kinds: block, sound, particles, effect. {@code yaw} is for effects only ({@code Float.NaN} when absent);
+     * Kinds: block, sound, particles, effect, music, voice, sfx. {@code yaw} is for effects only ({@code Float.NaN} when absent);
      * {@code count} is -1 and {@code spread} null when the scene did not give them.
      */
     public record EventDef(float t, String kind, String id, int[] at, float volume, float pitch, int count,
                            float[] spread, int duration, float yaw) {
     }
 
-    public record WordDef(float t, String by, String text, boolean narration, int duration) {
+    public record WordDef(float t, String by, String text, boolean narration, int duration, float size) {
     }
 }

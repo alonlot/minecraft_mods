@@ -72,6 +72,11 @@ public final class SceneValidator {
             SceneDef.WordDef w = scene.words().get(i);
             String p = "words[" + i + "]";
             time(out, p + ".t", w.t(), length);
+            if (!(w.size() >= SceneNames.MIN_WORD_SIZE && w.size() <= SceneNames.MAX_WORD_SIZE)) {
+                out.add(p + ".size: " + w.size() + " is outside " + SceneNames.MIN_WORD_SIZE + " to " + SceneNames.MAX_WORD_SIZE);
+            } else if (w.size() != 1f && !w.narration()) {
+                out.add(p + ".size: size is only for narration");
+            }
             if (w.by() != null && !actorIds.contains(w.by())) {
                 out.add(p + ".by: unknown actor '" + w.by() + "'");
             }
@@ -145,6 +150,14 @@ public final class SceneValidator {
                     out.add(cp + ".spell: no memory visual for '" + c.spell() + "'");
                 }
             }
+            if ("equip".equals(c.action())) {
+                if (c.slot() == null) {
+                    out.add(cp + ".slot: an equip action needs a slot");
+                } else if (!SceneNames.EQUIP_SLOTS.contains(c.slot())) {
+                    out.add(cp + ".slot: equip slot must be one of " + sorted(SceneNames.EQUIP_SLOTS));
+                }
+                if (c.item() == null) out.add(cp + ".item: an equip action needs an item (minecraft:air clears the slot)");
+            }
             if (c.item() != null) known(out, cp + ".item", "item", c.item(), names.items());
             if (c.target() != null && c.target().actor() != null && !actorIds.contains(c.target().actor())) {
                 out.add(cp + ".target: unknown actor '" + c.target().actor() + "'");
@@ -169,7 +182,7 @@ public final class SceneValidator {
         switch (e.kind()) {
             case "block" -> known(out, p + ".id", "block", e.id(), names.blocks());
             case "sound" -> known(out, p + ".id", "sound", e.id(), names.sounds());
-            case "music", "voice" -> {
+            case "music", "voice", "sfx" -> {
                 known(out, p + ".id", "sound", e.id(), names.sounds());
                 float v = e.volume();
                 if (Float.isNaN(v) || v < 0 || v > SceneNames.MAX_CUE_VOLUME) {

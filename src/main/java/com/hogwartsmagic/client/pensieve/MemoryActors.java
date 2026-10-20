@@ -446,6 +446,10 @@ public final class MemoryActors {
             a.stone = true;
         } else if ("unstone".equals(act)) {
             a.stone = false;
+        } else if ("equip".equals(act)) {
+            // Cues are replayed in time order for a late joiner, so the last one at or before now wins (EquipTimeline).
+            EquipmentSlot slot = slot(cue.slot());
+            if (l != null && slot != null) l.setItemSlot(slot, stack(cue.item()));
         } else if ("hold".equals(act)) {
             if (l != null) l.setItemSlot(EquipmentSlot.MAINHAND, stack(cue.item()));
         } else if ("use_item".equals(act)) {

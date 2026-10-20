@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class SceneValidatorTest {
     private static final SceneNames NAMES = new SceneNames(
             Set.of("hogwartsmagic:basilisk", "minecraft:zombie", "player"), Set.of("stupefy"),
-            Set.of("minecraft:entity.generic.explode", "hogwartsmagic:pensieve.music.m", "hogwartsmagic:pensieve.voice.v"), Set.of("minecraft:stone"), Set.of("minecraft:stick"),
+            Set.of("minecraft:entity.generic.explode", "hogwartsmagic:pensieve.music.m", "hogwartsmagic:pensieve.voice.v", "hogwartsmagic:pensieve.sfx.x"), Set.of("minecraft:stone"), Set.of("minecraft:stick", "minecraft:air"),
             Set.of("hogwartsmagic:chamber_hall"), Set.of(), Set.of("minecraft:flame"), Set.of());
 
     private static List<String> validate(String json) throws Exception {
@@ -128,6 +128,61 @@ class SceneValidatorTest {
         assertTrue(m.stream().anyMatch(s -> s.startsWith("events[2].volume")), m.toString());
         assertTrue(m.stream().anyMatch(s -> s.startsWith("events[3].volume")), m.toString());
         assertTrue(m.stream().anyMatch(s -> s.startsWith("events[4].t")), m.toString());
+    }
+
+    @Test
+    void equipNeedsSlotAndItem() throws Exception {
+        assertEquals(List.of(), validate("""
+                {"length":100,"actors":[{"id":"a","type":"minecraft:zombie","actions":[
+                  {"t":1,"do":"equip","slot":"head","item":"minecraft:stick"},
+                  {"t":2,"do":"equip","slot":"head","item":"minecraft:air"}]}]}"""));
+        List<String> m = validate("""
+                {"length":100,"actors":[{"id":"a","type":"minecraft:zombie","actions":[
+                  {"t":1,"do":"equip","item":"minecraft:stick"},
+                  {"t":2,"do":"equip","slot":"head"}]}]}""");
+        assertEquals(2, m.size(), m.toString());
+        assertTrue(m.get(0).startsWith("actors[0].actions[0].slot"), m.get(0));
+        assertTrue(m.get(1).startsWith("actors[0].actions[1].item"), m.get(1));
+    }
+
+    @Test
+    void equipBadSlot() throws Exception {
+        List<String> m = validate("""
+                {"length":100,"actors":[{"id":"a","type":"minecraft:zombie","actions":[
+                  {"t":1,"do":"equip","slot":"tail","item":"minecraft:stick"}]}]}""");
+        assertEquals(1, m.size(), m.toString());
+        assertTrue(m.get(0).contains("equip slot must be one of"), m.get(0));
+    }
+
+    @Test
+    void sizeOnlyForNarration() throws Exception {
+        List<String> m = validate("{\"length\":100,\"words\":[{\"t\":1,\"text\":\"x\",\"size\":2}]}");
+        assertEquals(1, m.size(), m.toString());
+        assertTrue(m.get(0).contains("size is only for narration"), m.get(0));
+        assertEquals(List.of(), validate("{\"length\":100,\"words\":[{\"t\":1,\"text\":\"x\",\"narration\":true,\"size\":2}]}"));
+    }
+
+    @Test
+    void sizeRange() throws Exception {
+        for (String size : new String[]{"0.5", "4.5"}) {
+            List<String> m = validate("{\"length\":100,\"words\":[{\"t\":1,\"text\":\"x\",\"narration\":true,\"size\":" + size + "}]}");
+            assertEquals(1, m.size(), m.toString());
+            assertTrue(m.get(0).startsWith("words[0].size"), m.get(0));
+        }
+        assertEquals(List.of(), validate("{\"length\":100,\"words\":[{\"t\":1,\"text\":\"x\",\"narration\":true,\"size\":4}]}"));
+    }
+
+    @Test
+    void sfxVolumeRange() throws Exception {
+        assertEquals(List.of(), validate("""
+                {"length":100,"events":[{"t":1,"kind":"sfx","id":"hogwartsmagic:pensieve.sfx.x","volume":4}]}"""));
+        List<String> m = validate("""
+                {"length":100,"events":[
+                  {"t":1,"kind":"sfx","id":"hogwartsmagic:pensieve.sfx.x","volume":5},
+                  {"t":2,"kind":"sfx","id":"hogwartsmagic:pensieve.sfx.nope"}]}""");
+        assertEquals(2, m.size(), m.toString());
+        assertTrue(m.get(0).startsWith("events[0].volume"), m.get(0));
+        assertTrue(m.get(1).startsWith("events[1].id"), m.get(1));
     }
 
     @Test

@@ -118,6 +118,8 @@ public final class MemoryEvents {
             MemoryAudio.playMusic(e.id(), e.volume());
         } else if ("voice".equals(kind)) {
             MemoryAudio.playVoice(e.id(), e.volume());
+        } else if ("sfx".equals(kind)) {
+            MemoryAudio.playSfx(e.id(), e.volume());
         } else if ("particles".equals(kind)) {
             particles(e);
         }

@@ -205,9 +205,9 @@ public final class SceneParser {
     }
 
     private static SceneDef.ActionCue parseAction(JsonObject c, String p) throws SceneException {
-        checkKeys(c, p, "t", "do", "spell", "target", "item");
+        checkKeys(c, p, "t", "do", "spell", "target", "item", "slot");
         SceneDef.Target target = has(c, "target") ? parseTarget(c.get("target"), child(p, "target")) : null;
-        return new SceneDef.ActionCue(reqTime(c, "t", p), reqStr(c, "do", p), str(c, "spell", p, null), target, str(c, "item", p, null));
+        return new SceneDef.ActionCue(reqTime(c, "t", p), reqStr(c, "do", p), str(c, "spell", p, null), target, str(c, "item", p, null), str(c, "slot", p, null));
     }
 
     /** Targets are "actor:ID" or an [x,y,z] point. */
@@ -221,7 +221,7 @@ public final class SceneParser {
     private static SceneDef.EventDef parseEvent(JsonElement e, String path) throws SceneException {
         JsonObject o = obj(e, path);
         String kind = has(o, "kind") && o.get("kind").isJsonPrimitive() ? o.get("kind").getAsString() : "";
-        if ("music".equals(kind) || "voice".equals(kind)) {
+        if ("music".equals(kind) || "voice".equals(kind) || "sfx".equals(kind)) {
             // Soundtrack and spoken-line cues are non-positional and unscaled: no at, pitch, count, spread or duration.
             checkKeys(o, path, "t", "kind", "id", "volume");
         } else {
@@ -236,8 +236,8 @@ public final class SceneParser {
 
     private static SceneDef.WordDef parseWord(JsonElement e, String path) throws SceneException {
         JsonObject o = obj(e, path);
-        checkKeys(o, path, "t", "by", "text", "narration", "duration");
+        checkKeys(o, path, "t", "by", "text", "narration", "duration", "size");
         return new SceneDef.WordDef(reqTime(o, "t", path), str(o, "by", path, null), reqStr(o, "text", path),
-                bool(o, "narration", path, false), Math.round(time(o, "duration", path, 80f)));
+                bool(o, "narration", path, false), Math.round(time(o, "duration", path, 80f)), num(o, "size", path, 1f));
     }
 }

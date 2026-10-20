@@ -15,7 +15,7 @@ import net.minecraft.world.phys.AABB;
 import java.util.List;
 
 /**
- * {@code /ollivanders} -- replay the wand ceremony.
+ * {@code /ollivanders} -- replay the wand memory (or, where it cannot play, the old ceremony).
  *
  * <p>It normally fires once per player, on their first wand, which makes it awkward to look at
  * while it is being built and impossible to show anyone afterwards. This runs it on demand, using a
@@ -41,6 +41,13 @@ public class OllivandersCommand {
         if (OllivandersCeremony.isBusy(player)) {
             src.sendFailure(Component.literal("You are already in the middle of it."));
             return 0;
+        }
+
+        // The memory first, with the wand in hand; the old ceremony only if it cannot start.
+        if (com.hogwartsmagic.pensieve.WandMemory.tryStart(player, player.getMainHandItem())) {
+            src.sendSuccess(() -> Component.literal("The shop goes quiet...")
+                    .withStyle(Style.EMPTY.withColor(ChatFormatting.GOLD)), false);
+            return 1;
         }
 
         // Use a real wandmaker if there is one to hand, so the camera frames the pair of you.

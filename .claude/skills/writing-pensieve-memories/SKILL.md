@@ -288,6 +288,7 @@ Players get a scene through an item that implements `PensieveMemory`. Existing: 
 - Add `item.hogwartsmagic.<id>_memory` to `lang/en_us.json`, and `models/item/<id>_memory.json` (copy `chamber_memory.json`) plus a 16x16 texture `textures/item/<id>_memory.png`.
 - Scene ids must match exactly; a missing scene just logs and plays nothing.
 Op preview needs no item.
+Story triggers (a scene started by an event, not an item): `PensieveSessions.startSolo(player, sceneId, context)` plays it for one player; a home listener (`addHomeListener`, `chainRoot` = the scene that began the chain) follows up when they are back. The Sorting Hat starts `sorting` this way, and the first wand bought from a wandmaker starts `wand_wall` (`pensieve/WandMemory`: the trade hook closes the trade screen, then `tryStart(player, boughtWand)` with the context `{"viewer_wand": <item id>}`; if it refuses, the old `OllivandersCeremony` plays; the once-only flag is the ceremony's, set when the memory ends or is left, not on a yank or disconnect; `/ollivanders` replays it with the held wand). A trigger must start the memory only after the action it follows has completed, so the player's items are never at risk.
 
 ## Complete example
 An illustrative dark courtyard duel (not shipped as a file; save it under `data/hogwartsmagic/memories/` to try it). For a shipped, validated worked example read `data/hogwartsmagic/memories/summoning.json` and the script that generates it, `build_scripts/pensieve_scenes/summoning.py`.

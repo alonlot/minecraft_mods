@@ -4136,7 +4136,12 @@ public class ModEvents {
         if (OllivandersCeremony.hasHadCeremony(player) || OllivandersCeremony.isBusy(player)) {
             return;
         }
-        OllivandersCeremony.begin(player, villager);
+        // The purchase is done: close the trade screen so neither the memory nor the ceremony starts behind it
+        // (and the villager is not left trading), then the memory, then the old ceremony if it cannot start.
+        player.closeContainer();
+        if (!com.hogwartsmagic.pensieve.WandMemory.tryStart(player, bought)) {
+            OllivandersCeremony.begin(player, villager);
+        }
     }
 
 }

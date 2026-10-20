@@ -719,7 +719,94 @@ def build_adult(name, kind, index):
         s.paint(arm["front"], lambda x, y, w, h: trim if y == h - 3 else None)
         s.paint(arm["back"], lambda x, y, w, h: trim if y == h - 3 else None)
 
+    # Winter wear drawn from its own generator, so every other pixel of the skin keeps its seed.
+    nr = random.Random("neck:" + name)
+    if nr.random() < 0.5:
+        add_scarf(s, nr, jacket)
+    elif witch and nr.random() < 0.45:
+        add_shawl(s, nr, jacket, rarm_o, larm_o)
+
     s.img.save(os.path.join(OUT_DIR, name + ".png"))
+
+
+SCARF_COLOURS = [(150, 28, 36), (212, 168, 48), (30, 90, 52), (190, 192, 198), (26, 38, 92), (236, 230, 214),
+                 (120, 70, 36), (170, 60, 110), (40, 40, 48), (196, 100, 40)]
+SHAWL_COLOURS = [(120, 34, 52), (46, 84, 96), (96, 70, 120), (150, 110, 60), (60, 80, 52), (190, 170, 140)]
+
+
+def add_scarf(s, nr, jacket):
+    """A knitted, striped scarf wrapped twice round the neck on the outer layer, one end hanging down the chest."""
+    a, b = nr.sample(SCARF_COLOURS, 2)
+    band = nr.choice([1, 2])
+    right_end = nr.random() < 0.5
+    knit = nr
+
+    def stripe(x, y):
+        c = a if ((x + y) // band) % 2 == 0 else b
+        return shade(c, 1 + knit.uniform(-0.06, 0.06))
+
+    for f in ("front", "right", "back", "left"):
+        s.paint(jacket[f], lambda x, y, w, h, f=f: stripe(x + (3 if f == "back" else 0), y) if y < 2 else None)
+    # the lower wrap sits a touch darker, so the two turns read as separate
+    for f in ("front", "right", "back", "left"):
+        s.paint(jacket[f], lambda x, y, w, h: shade(a, 0.78) if y == 1 and ((x // band) % 2 == 0) else None)
+    ex = (5, 6) if right_end else (1, 2)
+    s.paint(jacket["front"], lambda x, y, w, h: stripe(x, y) if x in ex and 2 <= y <= 7 else None)
+    s.paint(jacket["front"], lambda x, y, w, h: shade(b if x == ex[0] else a, 1.25) if x in ex and y == 8 else None)
+    s.paint(jacket["front"], lambda x, y, w, h: shade(a, 0.7) if x in ex and y == 9 and (x + y) % 2 == 0 else None)
+
+
+def add_shawl(s, nr, jacket, rarm_o, larm_o):
+    """A shawl across the shoulders: a V down the chest and back, over both arms, with a fringe."""
+    c = nr.choice(SHAWL_COLOURS)
+    edge = shade(c, 1.35)
+
+    def weave(x, y):
+        return shade(c, (0.9 if (x + y) % 2 else 1.0) + nr.uniform(-0.04, 0.04))
+
+    def vee(x, y, w, h):
+        depth = 5 - int(abs(x - 3.5) * 1.2)
+        if y < depth - 1:
+            return weave(x, y)
+        return edge if y == depth - 1 else None
+    s.paint(jacket["front"], vee)
+    s.paint(jacket["back"], vee)
+    s.paint(jacket["top"], lambda x, y, w, h: weave(x, y))
+    for f in ("right", "left"):
+        s.paint(jacket[f], lambda x, y, w, h: weave(x, y) if y < 3 else (edge if y == 3 else None))
+    for arm in (rarm_o, larm_o):
+        s.paint(arm["top"], lambda x, y, w, h: weave(x, y))
+        for f in ("front", "back", "right", "left"):
+            s.paint(arm[f], lambda x, y, w, h: weave(x, y) if y < 3 else (edge if y == 3 else None))
+
+
+def contact_sheet(names, path, per_row=10):
+    """Front and back of each skin side by side, for a quick look at the whole crowd."""
+    sc, cw, ch = 5, 192, 168
+    rows = (len(names) + per_row - 1) // per_row
+    sheet = Image.new("RGBA", (per_row * cw, rows * ch), (70, 72, 80, 255))
+    for i, nm in enumerate(names):
+        sk = Image.open(os.path.join(OUT_DIR, nm + ".png")).convert("RGBA")
+        fig = Image.new("RGBA", (16, 32), (0, 0, 0, 0))
+        back = Image.new("RGBA", (16, 32), (0, 0, 0, 0))
+        for im, hf, bf, af in ((fig, "front", "front", "front"), (back, "back", "back", "back")):
+            hb, hob = box(0, 0, 8, 8, 8)[hf], box(32, 0, 8, 8, 8)[hf]
+            parts = [
+                (hb, 4, 0), (box(16, 16, 8, 12, 4)[bf], 4, 8), (box(40, 16, 4, 12, 4)[af], 0 if hf == "front" else 12, 8),
+                (box(32, 48, 4, 12, 4)[af], 12 if hf == "front" else 0, 8),
+                (box(0, 16, 4, 12, 4)[af], 4 if hf == "front" else 8, 20), (box(16, 48, 4, 12, 4)[af], 8 if hf == "front" else 4, 20),
+                (hob, 4, 0), (box(16, 32, 8, 12, 4)[bf], 4, 8), (box(40, 32, 4, 12, 4)[af], 0 if hf == "front" else 12, 8),
+                (box(48, 48, 4, 12, 4)[af], 12 if hf == "front" else 0, 8),
+                (box(0, 32, 4, 12, 4)[af], 4 if hf == "front" else 8, 20), (box(0, 48, 4, 12, 4)[af], 8 if hf == "front" else 4, 20),
+            ]
+            for (x, y, w, h), dx, dy in parts:
+                im.alpha_composite(sk.crop((x, y, x + w, y + h)), (dx, dy))
+        pair = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+        pair.alpha_composite(fig, (0, 0))
+        pair.alpha_composite(back, (16, 0))
+        pair = pair.resize((32 * sc, 32 * sc), Image.NEAREST)
+        sheet.alpha_composite(pair, ((i % per_row) * cw + 16, (i // per_row) * ch + 4))
+    sheet.convert("RGB").save(path)
 
 
 def build_ollivander():
@@ -909,6 +996,8 @@ def main():
         json.dump(names, f, indent=2)
         f.write("\n")
     print("wrote", len(names), "skins to", OUT_DIR)
+    contact_sheet([n for n in names if n.split("_")[0] in ("witch", "wizard", "shopkeeper") or n == "ollivander"],
+                  os.path.join(ROOT, "build_scripts", "pensieve_scenes", "previews", "wand_skins_contact.png"))
 
 
 if __name__ == "__main__":

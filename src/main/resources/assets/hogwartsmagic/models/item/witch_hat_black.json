@@ -1,0 +1,6 @@
+{
+  "parent": "hogwartsmagic:item/witch_hat_base",
+  "textures": {
+    "texture": "hogwartsmagic:item/witch_hat_black"
+  }
+}

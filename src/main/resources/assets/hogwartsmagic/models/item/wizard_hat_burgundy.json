@@ -1,0 +1,6 @@
+{
+  "parent": "hogwartsmagic:item/wizard_hat_base",
+  "textures": {
+    "texture": "hogwartsmagic:item/wizard_hat_burgundy"
+  }
+}

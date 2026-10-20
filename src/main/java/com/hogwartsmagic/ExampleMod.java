@@ -619,6 +619,30 @@ public class ExampleMod
             () -> new com.hogwartsmagic.item.StirringRodItem(new Item.Properties()));
     public static final RegistryObject<Item> ARCANE_DUST = ITEMS.register("arcane_dust",
             () -> new Item(new Item.Properties()));
+    public static final RegistryObject<Item> WIZARD_HAT_PURPLE = ITEMS.register("wizard_hat_purple",
+            () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final RegistryObject<Item> WIZARD_HAT_GREEN = ITEMS.register("wizard_hat_green",
+            () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final RegistryObject<Item> WIZARD_HAT_NAVY = ITEMS.register("wizard_hat_navy",
+            () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final RegistryObject<Item> WIZARD_HAT_BLACK = ITEMS.register("wizard_hat_black",
+            () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final RegistryObject<Item> WIZARD_HAT_BROWN = ITEMS.register("wizard_hat_brown",
+            () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final RegistryObject<Item> WIZARD_HAT_BURGUNDY = ITEMS.register("wizard_hat_burgundy",
+            () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final RegistryObject<Item> WITCH_HAT_PURPLE = ITEMS.register("witch_hat_purple",
+            () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final RegistryObject<Item> WITCH_HAT_GREEN = ITEMS.register("witch_hat_green",
+            () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final RegistryObject<Item> WITCH_HAT_NAVY = ITEMS.register("witch_hat_navy",
+            () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final RegistryObject<Item> WITCH_HAT_BLACK = ITEMS.register("witch_hat_black",
+            () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final RegistryObject<Item> WITCH_HAT_BROWN = ITEMS.register("witch_hat_brown",
+            () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final RegistryObject<Item> WITCH_HAT_BURGUNDY = ITEMS.register("witch_hat_burgundy",
+            () -> new Item(new Item.Properties().stacksTo(1)));
     public static final RegistryObject<Item> ARCANE_CORE = ITEMS.register("arcane_core",
             () -> new Item(new Item.Properties()));
     public static final RegistryObject<Item> SAMPLE_COLLECTOR = ITEMS.register("sample_collector",
@@ -986,6 +1010,18 @@ public class ExampleMod
                 output.accept(SLYTHERIN_BANNER_BLOCK_ITEM.get());
                 output.accept(ARCANE_DUST.get());
                 output.accept(ARCANE_CORE.get());
+                output.accept(WIZARD_HAT_PURPLE.get());
+                output.accept(WIZARD_HAT_GREEN.get());
+                output.accept(WIZARD_HAT_NAVY.get());
+                output.accept(WIZARD_HAT_BLACK.get());
+                output.accept(WIZARD_HAT_BROWN.get());
+                output.accept(WIZARD_HAT_BURGUNDY.get());
+                output.accept(WITCH_HAT_PURPLE.get());
+                output.accept(WITCH_HAT_GREEN.get());
+                output.accept(WITCH_HAT_NAVY.get());
+                output.accept(WITCH_HAT_BLACK.get());
+                output.accept(WITCH_HAT_BROWN.get());
+                output.accept(WITCH_HAT_BURGUNDY.get());
                 output.accept(OWL_ROUTE_TAG.get());
                 output.accept(HOGWARTS_INVITE.get());
                 output.accept(HOGWARTS_GUIDE.get());

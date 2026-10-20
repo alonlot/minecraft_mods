@@ -44,6 +44,8 @@ public final class WandMemoryGameTests {
     private static final org.slf4j.Logger LOGGER = com.mojang.logging.LogUtils.getLogger();
     private static final String EMPTY = "hogwartsmagic:gametest/empty3";
     private static final String ELDER = "hogwartsmagic:elder_wand";
+    /** The purchase hook defers its work one server tick; wait out a few. */
+    private static final int TICKS = 4;
 
     private WandMemoryGameTests() {
     }
@@ -110,17 +112,20 @@ public final class WandMemoryGameTests {
         Villager v = wandmaker(helper);
         helper.assertTrue(!OllivandersCeremony.hasHadCeremony(p), "a fresh player has not had the ceremony");
         buy(p, v, wand());
-        helper.assertTrue(PensieveSessions.isViewer(p), "the first wand should start the memory");
-        helper.assertTrue(PensieveSessions.sessionOf(p).map(s -> WandMemory.SCENE.equals(s.sceneId())).orElse(false),
-                "wrong scene");
-        helper.assertTrue(PensieveSessions.sessionOf(p).get().rawJson().contains(ELDER),
-                "the memory should show the bought wand");
-        helper.assertTrue(!OllivandersCeremony.isBusy(p), "the ceremony must not run as well");
-        helper.assertTrue(wands(p) == 1, "exactly the bought wand: " + wands(p));
-        PensieveSessions.leave(p, ExitReason.LEFT);
-        logout(helper, p);
-        LOGGER.info("WANDMEMORY-GAMETEST PASS firstWandStartsMemory");
-        helper.succeed();
+        helper.runAfterDelay(TICKS, () -> {
+            helper.assertTrue(PensieveSessions.isViewer(p), "the first wand should start the memory");
+            helper.assertTrue(PensieveSessions.sessionOf(p).map(s -> WandMemory.SCENE.equals(s.sceneId())).orElse(false),
+                    "wrong scene");
+            helper.assertTrue(PensieveSessions.sessionOf(p).get().rawJson().contains(ELDER),
+                    "the memory should show the bought wand");
+            helper.assertTrue(!OllivandersCeremony.isBusy(p), "the ceremony must not run as well");
+            helper.assertTrue(wands(p) == 1, "exactly the bought wand: " + wands(p));
+            PensieveSessions.leave(p, ExitReason.LEFT);
+            logout(helper, p);
+            LOGGER.info("WANDMEMORY-GAMETEST PASS firstWandStartsMemory");
+            helper.succeed();
+        });
+
     }
 
     @GameTest(template = EMPTY, batch = "wand_flagged", timeoutTicks = 100)
@@ -130,12 +135,15 @@ public final class WandMemoryGameTests {
         Villager v = wandmaker(helper);
         OllivandersCeremony.markDone(p);
         buy(p, v, wand());
-        helper.assertTrue(!PensieveSessions.isViewer(p), "no memory for a player who has had it");
-        helper.assertTrue(!OllivandersCeremony.isBusy(p), "no ceremony either");
-        helper.assertTrue(wands(p) == 1, "exactly the bought wand: " + wands(p));
-        logout(helper, p);
-        LOGGER.info("WANDMEMORY-GAMETEST PASS flaggedPlayerGetsNothing");
-        helper.succeed();
+        helper.runAfterDelay(TICKS, () -> {
+            helper.assertTrue(!PensieveSessions.isViewer(p), "no memory for a player who has had it");
+            helper.assertTrue(!OllivandersCeremony.isBusy(p), "no ceremony either");
+            helper.assertTrue(wands(p) == 1, "exactly the bought wand: " + wands(p));
+            logout(helper, p);
+            LOGGER.info("WANDMEMORY-GAMETEST PASS flaggedPlayerGetsNothing");
+            helper.succeed();
+        });
+
     }
 
     @GameTest(template = EMPTY, batch = "wand_scene_missing", timeoutTicks = 100)
@@ -144,13 +152,16 @@ public final class WandMemoryGameTests {
         ServerPlayer p = player(helper);
         Villager v = wandmaker(helper);
         buy(p, v, wand());
-        helper.assertTrue(!PensieveSessions.isViewer(p), "no scene, so no memory");
-        helper.assertTrue(OllivandersCeremony.isBusy(p), "the ceremony should be the fallback");
-        helper.assertTrue(wands(p) == 1, "exactly the bought wand: " + wands(p));
-        OllivandersCeremony.endAll();
-        logout(helper, p);
-        LOGGER.info("WANDMEMORY-GAMETEST PASS wandKeptWhenMemoryFails");
-        helper.succeed();
+        helper.runAfterDelay(TICKS, () -> {
+            helper.assertTrue(!PensieveSessions.isViewer(p), "no scene, so no memory");
+            helper.assertTrue(OllivandersCeremony.isBusy(p), "the ceremony should be the fallback");
+            helper.assertTrue(wands(p) == 1, "exactly the bought wand: " + wands(p));
+            OllivandersCeremony.endAll();
+            logout(helper, p);
+            LOGGER.info("WANDMEMORY-GAMETEST PASS wandKeptWhenMemoryFails");
+            helper.succeed();
+        });
+
     }
 
     @GameTest(template = EMPTY, batch = "wand_leave_early", timeoutTicks = 200)
@@ -159,8 +170,6 @@ public final class WandMemoryGameTests {
         ServerPlayer p = player(helper);
         Villager v = wandmaker(helper);
         buy(p, v, wand());
-        helper.assertTrue(PensieveSessions.isViewer(p), "the memory should have started");
-        helper.assertTrue(!OllivandersCeremony.hasHadCeremony(p), "the flag waits for the end or a leave");
         AtomicBoolean left = new AtomicBoolean();
         helper.onEachTick(() -> {
             var s = PensieveSessions.sessionOf(p);
@@ -187,14 +196,17 @@ public final class WandMemoryGameTests {
         p.openMenu(new SimpleMenuProvider((id, inv, pl) -> new MerchantMenu(id, inv, v), Component.literal("Wands")));
         helper.assertTrue(p.containerMenu instanceof MerchantMenu, "the trade screen should be open");
         buy(p, v, wand());
-        helper.assertTrue(PensieveSessions.isViewer(p), "the memory should have started");
-        helper.assertTrue(p.containerMenu == p.inventoryMenu, "the trade screen should be closed");
-        helper.assertTrue(v.getTradingPlayer() == null, "the wandmaker should not be left trading");
-        helper.assertTrue(wands(p) == 1, "exactly the bought wand: " + wands(p));
-        PensieveSessions.leave(p, ExitReason.LEFT);
-        logout(helper, p);
-        LOGGER.info("WANDMEMORY-GAMETEST PASS tradeScreenClosedBeforeMemory");
-        helper.succeed();
+        helper.runAfterDelay(TICKS, () -> {
+            helper.assertTrue(PensieveSessions.isViewer(p), "the memory should have started");
+            helper.assertTrue(p.containerMenu == p.inventoryMenu, "the trade screen should be closed");
+            helper.assertTrue(v.getTradingPlayer() == null, "the wandmaker should not be left trading");
+            helper.assertTrue(wands(p) == 1, "exactly the bought wand: " + wands(p));
+            PensieveSessions.leave(p, ExitReason.LEFT);
+            logout(helper, p);
+            LOGGER.info("WANDMEMORY-GAMETEST PASS tradeScreenClosedBeforeMemory");
+            helper.succeed();
+        });
+
     }
 
     @GameTest(template = EMPTY, batch = "wand_command", timeoutTicks = 100)
@@ -214,6 +226,59 @@ public final class WandMemoryGameTests {
         PensieveSessions.leave(p, ExitReason.LEFT);
         logout(helper, p);
         LOGGER.info("WANDMEMORY-GAMETEST PASS commandReplays");
+        helper.succeed();
+    }
+
+    @GameTest(template = EMPTY, batch = "wand_command_sword", timeoutTicks = 100)
+    public static void commandIgnoresNonWand(GameTestHelper helper) {
+        useSeam(helper, true);
+        ServerPlayer p = player(helper);
+        OllivandersCeremony.markDone(p);
+        p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.IRON_SWORD));
+        helper.getLevel().getServer().getCommands()
+                .performPrefixedCommand(p.createCommandSourceStack().withPermission(2), "ollivanders");
+        helper.assertTrue(PensieveSessions.isViewer(p), "/ollivanders should replay the memory");
+        String json = PensieveSessions.sessionOf(p).get().rawJson();
+        helper.assertTrue(!json.contains("iron_sword"), "a sword must not become the wand");
+        helper.assertTrue(json.contains(com.hogwartsmagic.pensieve.scene.ItemText.DEFAULT_WAND), "Harry's wand instead");
+        PensieveSessions.leave(p, ExitReason.LEFT);
+        logout(helper, p);
+        LOGGER.info("WANDMEMORY-GAMETEST PASS commandIgnoresNonWand");
+        helper.succeed();
+    }
+
+    @GameTest(template = EMPTY, batch = "wand_command_inside", timeoutTicks = 100)
+    public static void commandInsideMemoryRefused(GameTestHelper helper) {
+        useSeam(helper, true);
+        ServerPlayer p = player(helper);
+        p.setItemInHand(InteractionHand.MAIN_HAND, wand());
+        helper.assertTrue(WandMemory.tryStart(p, wand()), "the memory should start");
+        helper.getLevel().getServer().getCommands()
+                .performPrefixedCommand(p.createCommandSourceStack().withPermission(2), "ollivanders");
+        helper.assertTrue(PensieveSessions.isViewer(p), "still in the memory");
+        helper.assertTrue(!OllivandersCeremony.isBusy(p), "the old ceremony must not run inside the memory");
+        helper.assertTrue(!OllivandersCeremony.hasHadCeremony(p), "and must not mark it done");
+        PensieveSessions.leave(p, ExitReason.LEFT);
+        logout(helper, p);
+        LOGGER.info("WANDMEMORY-GAMETEST PASS commandInsideMemoryRefused");
+        helper.succeed();
+    }
+
+    @GameTest(template = EMPTY, batch = "wand_rejects", timeoutTicks = 100)
+    public static void rejectsAreRealWandsAndNotTheViewers(GameTestHelper helper) {
+        for (net.minecraftforge.registries.RegistryObject<net.minecraft.world.item.Item> w : List.of(
+                ExampleMod.DRAGON_CORE_WAND, ExampleMod.PHOENIX_CORE_WAND, ExampleMod.UNICORN_CORE_WAND,
+                ExampleMod.ELDER_WAND, ExampleMod.HARRY_POTTER_WAND)) {
+            String wand = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(w.get()).toString();
+            List<String> rejects = com.hogwartsmagic.pensieve.scene.ItemText.rejects(wand);
+            helper.assertTrue(rejects.size() == 3 && !rejects.contains(wand), "rejects for " + wand + ": " + rejects);
+            for (String id : rejects) {
+                var rl = net.minecraft.resources.ResourceLocation.parse(id);
+                helper.assertTrue(net.minecraft.core.registries.BuiltInRegistries.ITEM.containsKey(rl),
+                        "not a registered item: " + id);
+            }
+        }
+        LOGGER.info("WANDMEMORY-GAMETEST PASS rejectsAreRealWandsAndNotTheViewers");
         helper.succeed();
     }
 }

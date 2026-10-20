@@ -108,7 +108,9 @@ public final class SceneValidator {
     private static void actor(List<String> out, SceneDef scene, SceneDef.ActorDef a, String p, Set<String> actorIds,
                               SceneNames names, float length) {
         known(out, p + ".type", "entity", a.type(), names.entityTypes());
-        if (a.scale() < 0.25f || a.scale() > 4f) out.add(p + ".scale: must be 0.25 to 4, got " + a.scale());
+        // A block actor may be small (a pot shard is a 0.16 block); everything else keeps the 0.25 floor.
+        float minScale = "hogwartsmagic:memory_block".equals(a.type()) ? 0.05f : 0.25f;
+        if (a.scale() < minScale || a.scale() > 4f) out.add(p + ".scale: must be " + minScale + " to 4, got " + a.scale());
         if (a.skin() != null) {
             if (!"player".equals(a.type())) out.add(p + ".skin: only a player actor can have a skin");
             if (a.skin().viewer() && (a.skin().texture() != null || a.skin().username() != null)) {
@@ -408,9 +410,9 @@ public final class SceneValidator {
         return x0 < -radius || x1 > radius || z0 < -radius || z1 > radius;
     }
 
-    /** An item id, or the {@code {viewer_wand}} placeholder the server fills in (see {@link ItemText}). */
+    /** An item id, or a {@code {viewer_wand}} / {@code {reject_wand_N}} placeholder the server fills in (see {@link ItemText}). */
     private static void item(List<String> out, String p, String id, SceneNames names) {
-        if (ItemText.VIEWER_WAND.equals(id)) return;
+        if (ItemText.VIEWER_WAND.equals(id) || ItemText.REJECT_WANDS.contains(id)) return;
         known(out, p, "item", id, names.items());
     }
 

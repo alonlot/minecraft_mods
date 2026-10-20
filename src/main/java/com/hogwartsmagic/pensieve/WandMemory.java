@@ -33,7 +33,12 @@ public final class WandMemory {
 
     private static void onHome(ServerPlayer player, String chainRoot, ExitReason reason, boolean sawStart) {
         if (!SCENE.equals(chainRoot)) return;
-        if (reason == ExitReason.END || reason == ExitReason.LEFT) OllivandersCeremony.markDone(player);
+        if (marksDone(reason, sawStart)) OllivandersCeremony.markDone(player);
+    }
+
+    /** Watched to the end, or left once the memory had started: leaving during the build or fade shows nothing. */
+    static boolean marksDone(ExitReason reason, boolean sawStart) {
+        return reason == ExitReason.END || (reason == ExitReason.LEFT && sawStart);
     }
 
     /**

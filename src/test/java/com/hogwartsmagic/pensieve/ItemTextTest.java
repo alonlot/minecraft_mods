@@ -53,6 +53,9 @@ class ItemTextTest {
         // Nothing held that is a wand: Harry's.
         assertEquals("hogwartsmagic:harry_potter_wand", ItemText.viewerWand(null, List.of("minecraft:air", "minecraft:stick")));
         assertEquals(ItemText.DEFAULT_WAND, ItemText.viewerWand(null, List.of()));
+        // A purchase that is an item but not a wand (a sword held for /ollivanders) falls through too.
+        assertEquals(ItemText.DEFAULT_WAND, ItemText.viewerWand("minecraft:iron_sword", List.of()));
+        assertEquals("hogwartsmagic:elder_wand", ItemText.viewerWand("minecraft:dirt", List.of("hogwartsmagic:elder_wand")));
         // A purchase that is not an item id falls through.
         assertEquals(ItemText.DEFAULT_WAND, ItemText.viewerWand("not an id", List.of()));
         // "_wand" must end the path, not just appear in it.
@@ -60,9 +63,46 @@ class ItemTextTest {
         assertTrue(ItemText.isWand("hogwartsmagic:harry_potter_wand"));
         assertFalse(ItemText.isWand(null));
         // The context the server builds: the resolved wand under its key.
-        assertEquals(Map.of(ItemText.CONTEXT_WAND, "hogwartsmagic:elder_wand"),
-                ItemText.resolve(Map.of(), List.of("hogwartsmagic:elder_wand")));
+        assertEquals("hogwartsmagic:elder_wand",
+                ItemText.resolve(Map.of(), List.of("hogwartsmagic:elder_wand")).get(ItemText.CONTEXT_WAND));
         assertEquals("hogwartsmagic:holly_wand", ItemText.resolve(Map.of(ItemText.CONTEXT_WAND, "hogwartsmagic:holly_wand"),
                 List.of("hogwartsmagic:elder_wand")).get(ItemText.CONTEXT_WAND));
+    }
+
+    @Test
+    void rejectsDifferFromTheViewerWand() {
+        List<String> every = List.of("hogwartsmagic:unicorn_core_wand", "hogwartsmagic:dragon_core_wand",
+                "hogwartsmagic:phoenix_core_wand", "hogwartsmagic:elder_wand", "hogwartsmagic:harry_potter_wand",
+                "hogwartsmagic:holly_wand");
+        for (String wand : every) {
+            List<String> r = ItemText.rejects(wand);
+            assertEquals(3, r.size());
+            assertEquals(3, new java.util.HashSet<>(r).size(), "distinct: " + r);
+            assertFalse(r.contains(wand), wand + " must not be rejected: " + r);
+            for (String id : r) assertTrue(ItemText.isWand(id), id);
+            assertEquals(r, ItemText.rejects(wand), "stable");
+            Map<String, String> ctx = ItemText.resolve(Map.of(ItemText.CONTEXT_WAND, wand), List.of());
+            assertEquals(wand, ctx.get(ItemText.CONTEXT_WAND));
+            assertEquals(r, List.of(ctx.get("reject_wand_1"), ctx.get("reject_wand_2"), ctx.get("reject_wand_3")));
+        }
+        // The wandmaker's sold wands come first.
+        assertEquals(List.of("hogwartsmagic:unicorn_core_wand", "hogwartsmagic:phoenix_core_wand", "hogwartsmagic:elder_wand"),
+                ItemText.rejects("hogwartsmagic:dragon_core_wand"));
+    }
+
+    @Test
+    void rejectPlaceholdersFill() {
+        String scene = "{\"actors\":[{\"id\":\"a\",\"type\":\"player\",\"items\":{\"mainhand\":\"{reject_wand_2}\"},"
+                + "\"actions\":[{\"t\":1,\"do\":\"hold\",\"item\":\"{reject_wand_1}\"},"
+                + "{\"t\":2,\"do\":\"hold\",\"item\":\"{reject_wand_3}\"},{\"t\":3,\"do\":\"hold\",\"item\":\"{viewer_wand}\"}]}]}";
+        String wand = "hogwartsmagic:dragon_core_wand";
+        String out = ItemText.fill(scene, ItemText.resolve(Map.of(ItemText.CONTEXT_WAND, wand), List.of()));
+        assertFalse(out.contains("{"+"reject"), out);
+        assertTrue(out.contains("\"mainhand\":\"hogwartsmagic:phoenix_core_wand\""), out);
+        assertTrue(out.contains("\"item\":\"hogwartsmagic:unicorn_core_wand\""), out);
+        assertTrue(out.contains("\"item\":\"hogwartsmagic:elder_wand\""), out);
+        // An empty context still never leaves a placeholder, and never rejects the (default) viewer wand.
+        String bare = ItemText.fill(scene, Map.of());
+        assertFalse(bare.contains("{reject") || bare.contains("{viewer"), bare);
     }
 }

@@ -4138,10 +4138,19 @@ public class ModEvents {
         }
         // The purchase is done: close the trade screen so neither the memory nor the ceremony starts behind it
         // (and the villager is not left trading), then the memory, then the old ceremony if it cannot start.
-        player.closeContainer();
-        if (!com.hogwartsmagic.pensieve.WandMemory.tryStart(player, bought)) {
-            OllivandersCeremony.begin(player, villager);
-        }
+        // Done a tick later: this hook runs inside the MerchantMenu's own click handling (MerchantResultSlot.onTake),
+        // and closing the menu there would pull it out from under vanilla's remaining slot and quick-move work.
+        net.minecraft.server.MinecraftServer server = player.server;
+        server.tell(new net.minecraft.server.TickTask(server.getTickCount() + 1, () -> {
+            if (player.hasDisconnected() || OllivandersCeremony.hasHadCeremony(player)
+                    || OllivandersCeremony.isBusy(player)) {
+                return;
+            }
+            player.closeContainer();
+            if (!com.hogwartsmagic.pensieve.WandMemory.tryStart(player, bought)) {
+                OllivandersCeremony.begin(player, villager);
+            }
+        }));
     }
 
 }

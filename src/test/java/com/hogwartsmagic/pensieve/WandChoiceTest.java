@@ -129,4 +129,23 @@ class WandChoiceTest {
     private static float radius(float[] m) {
         return (float) Math.sqrt(m[0] * m[0] + m[2] * m[2]);
     }
+
+    @Test
+    void motesDoNotJumpAtTheEndOfTheGather() {
+        int total = 100;
+        float g = WandChoice.gather(total);
+        for (long seed : new long[]{7L, 1234L}) {
+            for (int i = 0; i < WandChoice.MOTES; i++) {
+                for (float t = 1f; t < total - 1f; t += 0.5f) {
+                    float[] a = WandChoice.mote(seed, i, t, total);
+                    float[] b = WandChoice.mote(seed, i, t + 0.5f, total);
+                    if (a[3] <= 0.02f && b[3] <= 0.02f) continue;
+                    float d = (float) Math.sqrt((a[0] - b[0]) * (a[0] - b[0]) + (a[1] - b[1]) * (a[1] - b[1])
+                            + (a[2] - b[2]) * (a[2] - b[2]));
+                    // Unlit hops (a loop wrapping at the top) are invisible; a lit mote never moves this far in half a tick.
+                    if (Math.abs(t - g) < 1.5f) assertTrue(d < 0.35f, "mote " + i + " jumps " + d + " at " + t);
+                }
+            }
+        }
+    }
 }

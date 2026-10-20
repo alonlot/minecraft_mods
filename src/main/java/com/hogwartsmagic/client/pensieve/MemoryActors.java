@@ -267,6 +267,9 @@ public final class MemoryActors {
         }
     }
 
+    /** A path that moves an actor farther than this in one tick is a cut, and the client does not interpolate it. */
+    private static final double TELEPORT_BLOCKS = 2.0;
+
     private static void step(ActorRuntime a, float t) {
         Entity e = a.entity;
         LivingEntity l = a.living;
@@ -334,6 +337,8 @@ public final class MemoryActors {
             target = HumanMotion.followYaw(a.def.look(), t);
         } else if (hasLook) {
             target = lookYaw;
+        } else if (block != null) {
+            target = 0;                  // a block never turns to face where it travels (a rolling ladder stays square)
         } else if (moving) {
             target = (float) (Mth.atan2(-dx, dz) * (180.0 / Math.PI));
         } else if (first) {
@@ -349,7 +354,16 @@ public final class MemoryActors {
         a.headYaw = hasLook ? lookYaw : a.bodyYaw;
         a.bodyYaw = a.headYaw + Mth.clamp(Mth.wrapDegrees(a.bodyYaw - a.headYaw), -75f, 75f);
 
+        double jx = x - e.xo;
+        double jy = y - e.yo;
+        double jz = z - e.zo;
         e.setPos(x, y, z);
+        if (!first && jx * jx + jy * jy + jz * jz > TELEPORT_BLOCKS * TELEPORT_BLOCKS) {
+            // A jump on a cut (a swap, a park under the floor) is a teleport, not a run: do not lerp across it.
+            e.xo = e.xOld = x;
+            e.yo = e.yOld = y;
+            e.zo = e.zOld = z;
+        }
         e.setYRot(a.headYaw);
         e.setXRot(pitch);
         if (l != null) {

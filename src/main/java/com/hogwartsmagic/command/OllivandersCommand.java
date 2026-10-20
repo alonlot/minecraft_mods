@@ -43,6 +43,11 @@ public class OllivandersCommand {
             return 0;
         }
 
+        if (com.hogwartsmagic.pensieve.PensieveSessions.isViewer(player)) {
+            src.sendFailure(Component.literal("You are in a memory already."));
+            return 0;
+        }
+
         // The memory first, with the wand in hand; the old ceremony only if it cannot start.
         if (com.hogwartsmagic.pensieve.WandMemory.tryStart(player, player.getMainHandItem())) {
             src.sendSuccess(() -> Component.literal("The shop goes quiet...")

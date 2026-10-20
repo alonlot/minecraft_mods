@@ -110,9 +110,9 @@ CLIP_LENGTHS = json.load(open(os.path.join(HERE, '..', 'sounds', 'wand_clip_leng
 SKINS = set(json.load(open(os.path.join(MEMORIES, '_skins.json'), encoding='utf-8')))
 _MOD_SRC = open(os.path.join(RES, '..', 'java', 'com', 'hogwartsmagic', 'ExampleMod.java'), encoding='utf-8').read()
 
-WRONG_WANDS = ('hogwartsmagic:dragon_core_wand', 'hogwartsmagic:phoenix_core_wand', 'hogwartsmagic:unicorn_core_wand')
-for _w in WRONG_WANDS:
-    assert '"%s"' % _w.split(':')[1] in _MOD_SRC, ('wand item not registered', _w)
+# The three wands he tries and rejects: the server fills these with registered wands that differ from the viewer's
+# (ItemText.rejects), so the wand that finally chooses the boy is never one of them.
+WRONG_WANDS = ('{reject_wand_1}', '{reject_wand_2}', '{reject_wand_3}')
 UMBRELLA = 'minecraft:stick'          # no pink umbrella item in the mod: a stick reads as its shaft
 PARCELS = ('minecraft:bundle', 'minecraft:book', 'minecraft:paper', 'minecraft:writable_book', 'minecraft:potion',
            'minecraft:feather', 'minecraft:glass_bottle', 'minecraft:flower_pot')

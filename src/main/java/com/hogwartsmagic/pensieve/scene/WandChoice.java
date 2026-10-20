@@ -42,7 +42,7 @@ public final class WandChoice {
     }
 
     /** The gather, shortened for a short effect so a gather and a settle always fit. */
-    private static float gather(int total) {
+    public static float gather(int total) {
         return Math.min(GATHER_TICKS, total * 0.4f);
     }
 
@@ -114,10 +114,12 @@ public final class WandChoice {
         }
         float s0 = t - g;
         float period = 36f + 24f * w;                    // ticks for one loop up the column
-        float s = (s0 / period + u) % 1f;
-        float r0 = 0.35f + 0.5f * v;
+        // Every mote leaves the centre where its gather ended (s = 0, the bottom); each one's own loop phase fades in
+        // over the first loop, so they spread up the column rather than jumping to it.
+        float s = (s0 / period + u * smooth(s0 / period)) % 1f;
+        float r0 = GATHER_TO + (0.35f + 0.5f * v - GATHER_TO) * smooth(s0 / 12f);
         float r = r0 + (MAX_RADIUS - 0.05f - r0) * s * s;
-        float ang = a0 + s0 * (0.09f + 0.06f * v) + s * (float) (Math.PI * 2);
+        float ang = a0 + (2.5f + w) * (float) Math.PI + s0 * (0.09f + 0.06f * v) + s * (float) (Math.PI * 2);
         float y = MAX_HEIGHT * s;
         // In at the bottom, out at the top, and never a pop when the loop starts over.
         float life = (float) Math.sin(Math.PI * s);

@@ -176,12 +176,25 @@ public final class SceneValidator {
         if (!Float.isNaN(e.yaw()) && !"effect".equals(e.kind())) {
             out.add(p + ".yaw: yaw is only for effects");
         }
+        if (e.style() != null && !"enchanted_ceiling".equals(e.id())) {
+            out.add(p + ".style: style is only for enchanted_ceiling");
+        }
         if (e.id() == null) {
             out.add(p + ".id: missing required key for a " + e.kind() + " event");
             return;
         }
         switch (e.kind()) {
-            case "block" -> known(out, p + ".id", "block", e.id(), names.blocks());
+            case "block" -> {
+                known(out, p + ".id", "block", e.id(), names.blocks());
+                if (e.at() != null) {
+                    for (float c : e.at()) {
+                        if (c != Math.rint(c)) {
+                            out.add(p + ".at: a block event needs whole-block coordinates");
+                            break;
+                        }
+                    }
+                }
+            }
             case "sound" -> known(out, p + ".id", "sound", e.id(), names.sounds());
             case "music", "voice", "sfx" -> {
                 known(out, p + ".id", "sound", e.id(), names.sounds());
@@ -200,6 +213,8 @@ public final class SceneValidator {
                     ceiling(out, e, p);
                 } else if ("light_rays".equals(e.id())) {
                     lightRays(out, e, p);
+                } else if ("floating_candles".equals(e.id())) {
+                    candles(out, e, p);
                 }
             }
         }
@@ -226,6 +241,9 @@ public final class SceneValidator {
     /** The enchanted_ceiling effect: it needs a centre and a half-size, and the half-size has a range (y is unused). */
     private static void ceiling(List<String> out, SceneDef.EventDef e, String p) {
         if (e.at() == null) out.add(p + ": enchanted_ceiling needs at");
+        if (e.style() != null && !SceneNames.CEILING_STYLES.contains(e.style())) {
+            out.add(p + ".style: '" + e.style() + "' is not one of " + SceneNames.CEILING_STYLES);
+        }
         if (e.spread() == null) {
             out.add(p + ": enchanted_ceiling needs spread [hx, 0, hz]");
             return;
@@ -252,6 +270,25 @@ public final class SceneValidator {
         for (int i = 0; i < 3 && i < e.spread().length; i++) {
             float s = e.spread()[i];
             if (!(s >= lo[i] && s <= hi[i])) out.add(p + ".spread[" + i + "]: " + s + " is outside " + lo[i] + " to " + hi[i]);
+        }
+    }
+
+    /** The floating_candles effect: a centre and a half-box, each axis ranged, and an optional count. */
+    private static void candles(List<String> out, SceneDef.EventDef e, String p) {
+        if (e.at() == null) out.add(p + ": floating_candles needs at");
+        if (e.count() != -1 && (e.count() < 1 || e.count() > SceneNames.MAX_CANDLES)) {
+            out.add(p + ".count: " + e.count() + " is outside 1 to " + SceneNames.MAX_CANDLES);
+        }
+        if (e.spread() == null) {
+            out.add(p + ": floating_candles needs spread [hx, hy, hz]");
+            return;
+        }
+        for (int i = 0; i < e.spread().length; i++) {
+            float s = e.spread()[i];
+            if (!(s >= SceneNames.MIN_CANDLES_SPREAD && s <= SceneNames.MAX_CANDLES_SPREAD)) {
+                out.add(p + ".spread[" + i + "]: " + s + " is outside " + SceneNames.MIN_CANDLES_SPREAD + " to "
+                        + SceneNames.MAX_CANDLES_SPREAD);
+            }
         }
     }
 

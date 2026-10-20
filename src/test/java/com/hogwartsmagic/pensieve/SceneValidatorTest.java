@@ -368,6 +368,60 @@ class SceneValidatorTest {
         assertEquals(2, validate(ceiling(at + ",\"spread\":[0,0,0]")).size());
     }
 
+    @Test
+    void ceilingStyle() throws Exception {
+        String base = ",\"at\":[0,20,0],\"spread\":[15,0,10]";
+        assertEquals(List.of(), validate(ceiling(base + ",\"style\":\"storm\"")));
+        assertEquals(List.of(), validate(ceiling(base + ",\"style\":\"night\"")));
+        List<String> m = validate(ceiling(base + ",\"style\":\"sunny\""));
+        assertEquals(1, m.size(), m.toString());
+        assertTrue(m.get(0).contains("style"), m.get(0));
+        m = validate(rays(",\"at\":[0,0,0],\"yaw\":90,\"spread\":[2,5,12],\"style\":\"storm\""));
+        assertEquals(1, m.size(), m.toString());
+        assertTrue(m.get(0).contains("style is only for enchanted_ceiling"), m.get(0));
+    }
+
+    @Test
+    void fractionalAtForEffectsButNotBlocks() throws Exception {
+        String json = ceiling(",\"at\":[46.5,21,22.5],\"spread\":[36.5,0,17.5]");
+        SceneDef def = SceneParser.parse("t", JsonParser.parseString(json).getAsJsonObject());
+        assertEquals(46.5f, def.events().get(0).at()[0], 1e-6f);
+        assertEquals(22.5f, def.events().get(0).at()[2], 1e-6f);
+        assertEquals(List.of(), SceneValidator.validate(def, NAMES));
+        List<String> m = validate("""
+                {"length":100,"events":[{"t":1,"kind":"block","id":"minecraft:stone","at":[0.5,0,0]}]}""");
+        assertEquals(1, m.size(), m.toString());
+        assertTrue(m.get(0).contains("whole-block"), m.get(0));
+        assertEquals(List.of(), validate("""
+                {"length":100,"events":[{"t":1,"kind":"block","id":"minecraft:stone","at":[-3,0,2]}]}"""));
+    }
+
+    private static String candles(String extra) {
+        return "{\"length\":100,\"events\":[{\"t\":1,\"kind\":\"effect\",\"id\":\"floating_candles\"" + extra + "}]}";
+    }
+
+    @Test
+    void candlesNeedAtAndSpread() throws Exception {
+        assertEquals(List.of(), validate(candles(",\"at\":[0,14,0],\"spread\":[10,2,30],\"count\":600")));
+        assertEquals(List.of(), validate(candles(",\"at\":[0,14,0],\"spread\":[10,2,30]")));
+        List<String> m = validate(candles(",\"spread\":[10,2,30]"));
+        assertEquals(1, m.size(), m.toString());
+        assertTrue(m.get(0).contains("floating_candles needs at"), m.get(0));
+        m = validate(candles(",\"at\":[0,14,0]"));
+        assertEquals(1, m.size(), m.toString());
+        assertTrue(m.get(0).contains("floating_candles needs spread"), m.get(0));
+    }
+
+    @Test
+    void candlesRanges() throws Exception {
+        String at = ",\"at\":[0,14,0]";
+        assertEquals(List.of(), validate(candles(at + ",\"spread\":[0.5,0.5,100],\"count\":1500")));
+        assertEquals(1, validate(candles(at + ",\"spread\":[10,2,30],\"count\":1501")).size());
+        assertEquals(1, validate(candles(at + ",\"spread\":[10,2,30],\"count\":0")).size());
+        assertEquals(1, validate(candles(at + ",\"spread\":[0.4,2,30]")).size());
+        assertEquals(1, validate(candles(at + ",\"spread\":[10,2,101]")).size());
+    }
+
     private static String rays(String extra) {
         return "{\"length\":100,\"events\":[{\"t\":1,\"kind\":\"effect\",\"id\":\"light_rays\"" + extra + "}]}";
     }

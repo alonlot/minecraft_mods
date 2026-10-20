@@ -9,6 +9,12 @@ Outputs (assets/hogwartsmagic/textures/entity/):
   ceiling_star.png      64x64, premultiplied for additive blending: a white-hot core, a soft halo and four faint
                         diffraction spikes. Small stars use it shrunk (the halo is then sub-pixel); bright ones also
                         get a big faint copy as their glow.
+  storm_clouds_a.png    256x256, tiling, straight alpha up to 0.97. Heavy billowing storm cloud seen from below:
+                        thick cores dark, thin edges and rims lit, gaps where the stars glint through. Greyscale; the
+                        renderer tints it charcoal blue and warms it toward the walls. The far, dense layer.
+  storm_clouds_b.png    256x256, as a but broken into separate rolling masses: the near layer.
+  storm_mist.png        128x128, tiling, straight alpha up to 0.6: soft low-contrast vapour for the mist that hangs
+                        below the cloud and the curtains that fade the walls up into it.
   ceiling_dot.png       16x16, premultiplied for additive blending: a plain soft round dot. The faint stars use it;
                         a 64 px sprite shrunk to 3 px with no mipmaps would sparkle as the camera moves.
 
@@ -118,6 +124,67 @@ def dot():
     save("ceiling_dot.png", np.stack([v, v, v, v], axis=-1))
 
 
+STORM_RNG = np.random.default_rng(4242)
+
+
+def storm_noise(size, slope, soft):
+    """periodic_noise from its own generator, so adding storm textures never changes the night ones."""
+    global RNG
+    keep, RNG = RNG, STORM_RNG
+    try:
+        return periodic_noise(size, slope, soft=soft)
+    finally:
+        RNG = keep
+
+
+def storm_clouds(name, lo, soft_big, alpha_max):
+    size = 256
+    big = storm_noise(size, 2.1, soft_big)
+    mid = storm_noise(size, 1.6, 48)
+    fine = storm_noise(size, 1.3, 60)
+    d = 0.62 * big + 0.28 * mid + 0.10 * fine
+    # Billows: fold the field so each mass has rounded lumps rather than smooth hills.
+    d = d + 0.10 * (1 - np.abs(2 * mid - 1))
+    d = (d - d.min()) / (d.max() - d.min())
+    a = smoothstep(lo, lo + 0.22, d) * alpha_max
+    thick = smoothstep(lo, lo + 0.45, d)
+    # Seen from below: thick cores dark, thin edges glow; a rim lit from one side gives the lumps form.
+    rim = np.clip((d - np.roll(np.roll(d, 3, 0), 2, 1)) * 6.0, -1, 1)
+    lum = 0.95 - 0.6 * thick + 0.3 * rim + 0.04 * (fine - 0.5)
+    lum = np.clip(lum, 0.25, 1.0)
+    rgba = np.stack([lum, lum, lum, a], axis=-1)
+    save(name, rgba)
+
+
+def storm_mist():
+    size = 128
+    n = storm_noise(size, 1.8, 14)
+    a = smoothstep(0.2, 0.85, n) * 0.6
+    lum = 0.75 + 0.25 * n
+    save("storm_mist.png", np.stack([lum, lum, lum, a], axis=-1))
+
+
+def storm_sheet():
+    """Preview: the three storm textures composited over the near-black sky, tinted as the renderer does."""
+    sky_col = np.array([0.05, 0.06, 0.10])
+    tint = np.array([0.30, 0.33, 0.42])
+    out = []
+    for n in ["storm_clouds_a.png", "storm_clouds_b.png", "storm_mist.png"]:
+        im = np.asarray(Image.open(os.path.join(OUT, n))).astype(np.float32) / 255.0
+        im = np.tile(im, (2, 2, 1)) if im.shape[0] == 128 else im
+        rgb = sky_col * (1 - im[..., 3:]) + im[..., :3] * tint * 2.0 * im[..., 3:]
+        out.append(np.clip(rgb, 0, 1))
+    a = np.asarray(Image.open(os.path.join(OUT, "storm_clouds_a.png"))).astype(np.float32) / 255.0
+    b = np.asarray(Image.open(os.path.join(OUT, "storm_clouds_b.png"))).astype(np.float32) / 255.0
+    b = np.roll(b, 90, 1)
+    rgb = sky_col
+    for layer, k in ((a, 0.92), (b, 0.75)):
+        al = layer[..., 3:] * k
+        rgb = rgb * (1 - al) + layer[..., :3] * tint * 2.0 * al
+    out.append(np.clip(rgb, 0, 1))
+    return Image.fromarray((np.concatenate(out, axis=1) * 255).astype(np.uint8))
+
+
 def contact_sheet():
     """A preview for a human: each texture tiled 2x2 over the night gradient, side by side."""
     names = ["ceiling_sky.png", "ceiling_clouds_a.png", "ceiling_clouds_b.png", "ceiling_star.png"]
@@ -155,7 +222,11 @@ if __name__ == "__main__":
     clouds("ceiling_clouds_b.png", stretch=1.4, lo=0.50, hi=0.85, slope=1.5, tint_shift=0.03)
     star()
     dot()
+    storm_clouds("storm_clouds_a.png", lo=0.30, soft_big=16, alpha_max=0.97)
+    storm_clouds("storm_clouds_b.png", lo=0.46, soft_big=12, alpha_max=0.95)
+    storm_mist()
     import sys
     if len(sys.argv) > 1:
         contact_sheet().save(sys.argv[1])
+        storm_sheet().save(sys.argv[1].replace(".png", "_storm.png"))
         print("preview", sys.argv[1])

@@ -663,7 +663,8 @@ public final class PensieveSessions {
             ResourceLocation rl = ResourceLocation.tryParse(e.id());
             Optional<Block> block = rl == null ? Optional.empty() : BuiltInRegistries.BLOCK.getOptional(rl);
             if (block.isEmpty()) continue;
-            BlockPos pos = s.origin().offset(e.at()[0], e.at()[1], e.at()[2]);
+            // Whole numbers (the validator rejects a fractional block position); floor is the safe reading anyway.
+            BlockPos pos = s.origin().offset(Mth.floor(e.at()[0]), Mth.floor(e.at()[1]), Mth.floor(e.at()[2]));
             s.level.setBlock(pos, block.get().defaultBlockState(), SetBuilder.FLAGS);
             // onPlace still schedules ticks under these flags: water placed by an event must not start flowing.
             SetBuilder.clearTicks(s.level, new BoundingBox(pos));

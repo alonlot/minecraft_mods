@@ -70,9 +70,14 @@ public final class MemoryAudio {
 
     /** Start a non-positional sound effect (scene {@code sfx}). Unknown ids are skipped with one warning. */
     static void playSfx(String id, float volume) {
+        playSfx(id, volume, 1f);
+    }
+
+    /** As {@link #playSfx(String, float)} at {@code pitch} (the enchanted ceiling's distant thunder plays low). */
+    static void playSfx(String id, float volume, float pitch) {
         SoundEvent event = lookup(id);
         if (event == null) return;
-        SfxInstance s = new SfxInstance(event, volume);
+        SfxInstance s = new SfxInstance(event, volume, pitch);
         SFX.add(new Cue(s, clock));
         Minecraft.getInstance().getSoundManager().play(s);
     }
@@ -197,10 +202,10 @@ public final class MemoryAudio {
 
     /** One sound effect: non-positional, full pitch, no echo, no ducking. */
     private static final class SfxInstance extends AbstractTickableSoundInstance {
-        SfxInstance(SoundEvent event, float volume) {
+        SfxInstance(SoundEvent event, float volume, float pitch) {
             super(event, SoundSource.AMBIENT, RandomSource.create());
             this.volume = volume;
-            this.pitch = 1f;
+            this.pitch = pitch;
             this.looping = false;
             this.delay = 0;
             this.attenuation = SoundInstance.Attenuation.NONE;

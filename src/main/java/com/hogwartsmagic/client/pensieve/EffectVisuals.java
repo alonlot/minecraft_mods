@@ -6,6 +6,7 @@ import com.hogwartsmagic.entity.MemoryLetterEntity;
 import com.hogwartsmagic.entity.ModEntities;
 import com.hogwartsmagic.entity.VoldemortSummoningEntity;
 import com.hogwartsmagic.pensieve.scene.Eyelids;
+import com.hogwartsmagic.pensieve.scene.FloatingCandles;
 import com.hogwartsmagic.pensieve.scene.LetterFlood;
 import com.mojang.logging.LogUtils;
 import net.minecraft.client.Minecraft;
@@ -112,6 +113,12 @@ public final class EffectVisuals {
      */
     public static void play(String effect, Vec3 at, int duration, int elapsed, int count, float[] spread, float yaw,
                             float t) {
+        play(effect, at, duration, elapsed, count, spread, yaw, t, null);
+    }
+
+    /** As the 8-argument form, with the event's {@code style} (enchanted_ceiling only; null for the default). */
+    public static void play(String effect, Vec3 at, int duration, int elapsed, int count, float[] spread, float yaw,
+                            float t, String style) {
         Minecraft mc = Minecraft.getInstance();
         if (!(mc.level instanceof ClientLevel level) || effect == null || at == null) return;
         if ("summoning_ritual".equals(effect)) {
@@ -172,7 +179,8 @@ public final class EffectVisuals {
             // everyone else's; elapsed is not needed. It never finishes: it stays until clear() ends the scene.
             float hx = Mth.clamp(spread[0], 1f, 100f);
             float hz = Mth.clamp(spread[2], 1f, 100f);
-            RUNNING.add(new Ceiling(new EnchantedCeiling.Sky(at, hx, hz, duration, t, floodSeed(at, t))));
+            startCeiling(new EnchantedCeiling.Sky(style, at.x, at.y, at.z, hx, hz, duration, t, floodSeed(at, t),
+                    elapsed));
         } else if ("light_rays".equals(effect)) {
             if (Float.isNaN(yaw) || spread == null || spread.length < 3) {
                 LOGGER.warn("Pensieve: light_rays needs yaw and spread");
@@ -181,6 +189,15 @@ public final class EffectVisuals {
             // Like the ceiling: drawn from the scene clock (LightRaysRenderer), stays until clear() ends the scene.
             RUNNING.add(new Rays(new LightRaysRenderer.Beam(at, yaw, Mth.clamp(spread[0], 0.5f, 12f),
                     Mth.clamp(spread[1], 1f, 24f), Mth.clamp(spread[2], 1f, 60f), duration, t, floodSeed(at, t))));
+        } else if ("floating_candles".equals(effect)) {
+            if (spread == null || spread.length < 3) {
+                LOGGER.warn("Pensieve: floating_candles has no spread");
+                return;
+            }
+            // Drawn from the scene clock (FloatingCandlesRenderer); they float until clear() ends the scene.
+            int n = count > 0 ? Math.min(count, FloatingCandles.MAX_COUNT) : FloatingCandles.DEFAULT_COUNT;
+            RUNNING.add(new Candles(new FloatingCandlesRenderer.Flock(at.x, at.y, at.z, Mth.clamp(spread[0], 0.5f, 100f),
+                    Mth.clamp(spread[1], 0.5f, 100f), Mth.clamp(spread[2], 0.5f, 100f), n, floodSeed(at, t))));
         } else {
             LOGGER.warn("Pensieve: unknown effect '{}' in a memory", effect);
         }
@@ -287,6 +304,23 @@ public final class EffectVisuals {
             if (r instanceof Ceiling c) {
                 if (out == null) out = new ArrayList<>(1);
                 out.add(c.sky);
+            }
+        }
+        return out == null ? List.of() : out;
+    }
+
+    /** Run an enchanted ceiling until {@link #clear}. Package-private so the clear-with-scene test can reach it. */
+    static void startCeiling(EnchantedCeiling.Sky sky) {
+        RUNNING.add(new Ceiling(sky));
+    }
+
+    /** The floating candles running now, for {@link FloatingCandlesRenderer} (empty once {@link #clear} has run). */
+    static List<FloatingCandlesRenderer.Flock> candles() {
+        List<FloatingCandlesRenderer.Flock> out = null;
+        for (Running r : RUNNING) {
+            if (r instanceof Candles c) {
+                if (out == null) out = new ArrayList<>(1);
+                out.add(c.flock);
             }
         }
         return out == null ? List.of() : out;
@@ -638,6 +672,21 @@ public final class EffectVisuals {
 
         Ceiling(EnchantedCeiling.Sky sky) {
             this.sky = sky;
+        }
+
+        @Override
+        public boolean tick(ClientLevel level) {
+            sky.tick(PensieveClientState.sceneTime(0));
+            return true;
+        }
+    }
+
+    /** {@code floating_candles}: holds the flock for {@link FloatingCandlesRenderer}; {@link #clear} ends it. */
+    private static final class Candles implements Running {
+        private final FloatingCandlesRenderer.Flock flock;
+
+        Candles(FloatingCandlesRenderer.Flock flock) {
+            this.flock = flock;
         }
 
         @Override

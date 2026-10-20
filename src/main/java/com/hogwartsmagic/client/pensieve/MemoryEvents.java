@@ -105,11 +105,12 @@ public final class MemoryEvents {
         if ("effect".equals(kind)) {
             // A long effect is still going: join it part-way. A short or finished one is old news. A letter flood
             // never finishes (its letters lie on the floor until the scene ends), so it is always joined, and so is an
-            // enchanted ceiling and light rays (they stay until the scene ends).
+            // enchanted ceiling, light rays and floating candles (they stay until the scene ends).
             if (!late || (e.duration() > 0 && age < e.duration()) || "letter_flood".equals(e.id())
-                    || "enchanted_ceiling".equals(e.id()) || "light_rays".equals(e.id())) {
+                    || "enchanted_ceiling".equals(e.id()) || "light_rays".equals(e.id())
+                    || "floating_candles".equals(e.id())) {
                 EffectVisuals.play(e.id(), position(e), e.duration(), late ? (int) age : 0, e.count(), e.spread(),
-                        e.yaw(), e.t());
+                        e.yaw(), e.t(), e.style());
             }
             return;
         }
@@ -148,7 +149,7 @@ public final class MemoryEvents {
 
     /** {@code origin + at} (the origin itself when the event has no position). */
     private static Vec3 position(SceneDef.EventDef e) {
-        int[] at = e.at();
+        float[] at = e.at();
         return at == null || at.length < 3
                 ? Vec3.atLowerCornerOf(origin)
                 : new Vec3(origin.getX() + at[0], origin.getY() + at[1], origin.getZ() + at[2]);

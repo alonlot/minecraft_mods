@@ -117,19 +117,16 @@ def _table_seats():
     return out
 
 
-# ceiling plane: the hall interior x 10..83, z 5..40 at local y 21
-CEIL_X = (10.0, 83.0)
-CEIL_Z = (5.0, 40.0)
+# ceiling plane at local y 21: the hall's inner wall faces are z 6 and 39 (y 18-20), and it runs west over the
+# capped staff-end bay to the bay's end-wall face at x 1, so one plane (one set of wall curtains) covers both
+CEIL_X = (1.0, 83.0)
+CEIL_Z = (6.0, 39.0)
 CEIL_Y = 21
 
 ANCHORS = {
     'doors_hinge_n': sc(*DOOR_HINGES[0]),
     'doors_hinge_s': sc(*DOOR_HINGES[1]),
     'door_leaf_scale': DOOR_SCALE,
-    # Minecraft yaw for each leaf, closed and fully open (swung into the hall), with the plan's convention that
-    # the free edge points along local +X: yaw 0 = +X, yaw -90 = +Z
-    'door_yaw_n': {'closed': -90, 'open': -180},
-    'door_yaw_s': {'closed': 90, 'open': 180},
     'entrance_floor_center': sc(92.5, 1, 22.5),
     'first_year_spots': _first_years(),
     'mcgonagall_entrance': sc(87.5, 1, 22.5),
@@ -909,6 +906,17 @@ def restyle(b):
     restyle_staff_window(b)
     restyle_dressing(b)
     restyle_end_walls(b)
+    cap_staff_bay(b)
+
+
+def cap_staff_bay(b):
+    """The staff-end bay (x 1..9, z 13..31) was open up to its vault at y ~42, so no sky showed over it. A solid roof
+    at the hall's ceiling height (y 21, in the walls' own material) closes it, and the ceiling plane runs over it."""
+    mat = b.get((4, 21, 12)) or WALL
+    for x in range(1, 10):
+        for z in range(13, 32):
+            if b.get((x, 21, z)) is None:
+                b.set((x, 21, z), mat)
 
 
 def fix_physics(b):

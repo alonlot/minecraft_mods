@@ -855,8 +855,8 @@ voice(T_RON_LINE, 'ron_nervous')
 ev(T0, 'sound', 'minecraft:block.wooden_door.close', at=[65.5, 2, 0.5], volume=1.6, pitch=0.5)    # the lock
 ev(T0 + 0.05, 'sound', 'minecraft:block.iron_trapdoor.open', at=[65.5, 3, 0.5], volume=0.9, pitch=0.55)
 sfx(T0, 'door_groan', 1.0)
-ev(T0 + 1.0, 'sound', SFX + 'door_groan', at=[65.5, 6, 0.5], volume=1.4, pitch=0.98)   # x0.92: a deeper ~0.9
-sfx(T0 - 0.1, 'murmur_b', 1.0)                            # the hall's noise rises as the gap opens
+sfx(T0 + 1.0, 'door_groan', 1.0)                           # the second groan (an sfx so a skip stops it)
+sfx(T_HUSH - 20.0 - 0.1, 'murmur_b', 1.0)                 # the hall's noise rises as the gap opens; its 20 s end before the hush
 ev(T0 + 0.3, 'effect', 'light_rays', at=[DOOR_FACE_X, 0, 0.5], yaw=-90, spread=[3.5, 12, 24], duration=48)
 for t, cells in ((T0 + 1.3, [[67, 1, 0]]), (T0 + 2.0, [[69, 1, -2], [69, 1, 3]]),
                  (BOOM, [[71, 2, 0], [73, 2, -3], [73, 2, 4], [75, 2, 0]])):

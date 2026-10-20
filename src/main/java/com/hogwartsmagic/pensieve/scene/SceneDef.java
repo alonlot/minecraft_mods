@@ -84,8 +84,6 @@ public record SceneDef(String id, String title, int length, int radius, SetDef s
     /**
      * Kinds: block, sound, particles, effect, music, voice, sfx. {@code yaw} is for effects only ({@code Float.NaN} when absent);
      * {@code count} is -1 and {@code spread} null when the scene did not give them.
-     */
-    /**
      * {@code at} may be fractional (an effect centred on a half block); a {@code block} event's must be whole, which the
      * validator checks. {@code style} is the enchanted_ceiling look ({@code "storm"} or {@code "night"}), null when absent.
      */

@@ -13,6 +13,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RenderLevelStageEvent;
+import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.joml.Matrix4f;
@@ -172,7 +173,10 @@ public final class EnchantedCeiling {
         }
     }
 
-    @SubscribeEvent
+    // The three world-stage renderers share one stage; their order is fixed by priority so it never depends on
+    // registration order: the ceiling first (it writes no depth and must sit behind everything), then the candles
+    // (they write depth), then the light rays (additive, drawn last over the lot).
+    @SubscribeEvent(priority = EventPriority.HIGH)
     public static void onRenderLevelStage(RenderLevelStageEvent event) {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) return;
         List<Sky> skies = EffectVisuals.ceilings();

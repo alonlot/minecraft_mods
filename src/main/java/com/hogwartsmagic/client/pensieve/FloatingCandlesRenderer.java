@@ -14,6 +14,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RenderLevelStageEvent;
+import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.joml.Matrix4f;
@@ -82,7 +83,8 @@ public final class FloatingCandlesRenderer {
         }
     }
 
-    @SubscribeEvent
+    // Draw order within AFTER_TRANSLUCENT_BLOCKS: ceiling (HIGH), candles (NORMAL), light rays (LOW); see EnchantedCeiling.
+    @SubscribeEvent(priority = EventPriority.NORMAL)
     public static void onRenderLevelStage(RenderLevelStageEvent event) {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) return;
         List<Flock> flocks = EffectVisuals.candles();

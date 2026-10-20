@@ -1,5 +1,6 @@
 package com.hogwartsmagic.client.pensieve;
 
+import com.hogwartsmagic.pensieve.scene.HumanMotion;
 import com.hogwartsmagic.pensieve.scene.SceneDef;
 import com.mojang.logging.LogUtils;
 import net.minecraft.ChatFormatting;
@@ -79,7 +80,12 @@ final class PartCheck {
         }
         for (int j = 0; j < def.anims().size(); j++) {
             String name = def.anims().get(j).name();
-            if (ActorAnimationLibrary.find(def.type(), name).isEmpty()) {
+            if (a.player) {
+                if (!ActorMotion.knownClip(def.anims().get(j))) {
+                    out.add(at + ".anims[" + j + "]: no player clip '" + name + "' (has: "
+                            + list(HumanMotion.CLIPS) + ")");
+                }
+            } else if (ActorAnimationLibrary.find(def.type(), name).isEmpty()) {
                 out.add(at + ".anims[" + j + "]: no animation '" + name + "' on " + def.type() + " (has: "
                         + list(ActorAnimationLibrary.names(def.type())) + ")");
             } else if (!(model instanceof HierarchicalModel<?>)) {

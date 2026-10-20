@@ -67,7 +67,7 @@ Block ids are namespaced (`minecraft:stone_bricks`).
 **Physics trap (unsupported gravity blocks and open water edges):** the set is placed with no neighbour updates and the server clears the block and fluid ticks each placement schedules, so nothing falls or flows while the memory plays. Do not lean on that. Gravel, sand or concrete powder over nothing (template air counts as nothing: air in a template is skipped, and below the set is void) collapses into falling blocks the moment anything updates it, and water beside or above an empty cell, or at the radius edge, drains into the void. Put a solid layer (stone, deepslate) under every seabed and lake bed, and close every water edge with rock or a `minecraft:barrier` rim. In a generator, build a `world` dict of the set (cell to block id) and add `problems += physics_problems(world, R)` from `scene_common.py`: it lists unsupported gravity blocks and open water edges, and `unsupported_gravity(world)` gives the cells that need a block under them (`locket_cave.py` fills them with deepslate).
 
 ### `actors[]`
-Keys: `id` (required, unique), `type` (required), `skin`, `name`, `items`, `path`, `look`, `limbs`, `poses`, `anims`, `actions`.
+Keys: `id` (required, unique), `type` (required), `skin`, `name`, `items`, `path`, `look`, `limbs`, `poses`, `anims`, `actions`, `scale`, `life`.
 
 - `type`: `"player"` (a skinned humanoid) or a namespaced entity id (`hogwartsmagic:troll`, `minecraft:zombie`). Mobs have no AI, no gravity, no collision.
 - `hogwartsmagic:memory_letter`: a flat Hogwarts-letter envelope you path like any actor. `look` pitch 90 lays it flat; it flutters (roll and wobble) while its path moves it and lies still when the path holds.
@@ -80,17 +80,56 @@ Keys: `id` (required, unique), `type` (required), `skin`, `name`, `items`, `path
 - `skin` (player only): `{ "texture": "<name>" }` a bundled skin, or `{ "username": "Notch" }` fetched in the background (falls back to the default skin when offline), plus optional `"slim": true` for the 3-px arm model.
 - `skin.viewer`: `{ "viewer": true }` renders the watching player's own skin; it cannot be combined with `texture` or `username`.
 - `scale`: actor size multiplier, 0.25 to 4 (default 1).
+- `life` (player only, default `true`): the procedural life layer (breathing, weight shifts, a real gait, a seated slouch; see Player motion). `"life": false` turns it off: statues, the dead, a first-person rig, anything that must hold exactly still. On any other type it is a validation error. Player clips in `anims` still play with life off.
 - `name`: floating name tag text. Without it there is no tag. Also used as the speaker in `words`.
 - `items`: slot to item id: `mainhand offhand head chest legs feet`. Example `{"mainhand": "hogwartsmagic:harry_potter_wand"}`. An unknown slot name is silently ignored.
 - `path`: `[{t, pos:[x,y,z], ease?}]` - the feet position. Holds the first value before the first key and the last after it. The body turns to face its movement unless `look` is given.
 - `look`: `[{t, yaw, pitch?, ease?}]` - body and head yaw, head pitch (default 0). Overrides movement facing.
 - `limbs`: `{ "<part>": { "rot": [{t, v:[x,y,z], ease?}], "offset": [{t, v:[x,y,z], ease?}], "mode": "add"|"set" } }`. `rot` is degrees, `offset` is model pixels (16 px = 1 block). `mode` default `add` (added on top of the current animation); `set` replaces it. Applied last, over poses and creature animations.
 - `poses`: `[{t, name, blend?}]` - a preset or a custom pose from top-level `poses`; stays until the next cue. `blend` is the ticks to ease in; 0 or absent means the default 5, so use `"blend": 1` for an instant pose.
-- `anims`: `[{t, name, blend?}]` - a creature animation by name (table below). Case-insensitive; stays in force until the next cue. `blend` fades the new clip in from the rest pose over that many ticks (0 = instantly); the previous clip stops at once, it is not cross-faded.
+- `anims`: `[{t, name, blend?}]` - a creature animation by name (table below), or for a `player` a player clip (Player motion below). Case-insensitive; stays in force until the next cue. Creature animations: `blend` fades the new clip in from the rest pose over that many ticks (0 = instantly); the previous clip stops at once, it is not cross-faded. Player clips cross-fade from the previous clip over `blend` ticks (0 or absent = 4; 1 for a near cut). The validator rejects an unknown player clip name; creature names are checked in a preview (chat error).
 - `actions`: `[{t, do, spell?, target?, item?}]`.
 
 Ease: `linear`, `in`, `out`, `in_out` (cubic). Default `in_out`. The ease belongs to the segment that ends at that key.
 Keyframes between keys are interpolated per component; yaw is NOT unwrapped, so keep yaw continuous (say 90 then 180, not 90 then -180).
+
+### Player motion (life and clips)
+Every `player` actor moves like a person without any keys: `pensieve/scene/HumanMotion` (pure maths, unit tested), applied on the client by `client/pensieve/ActorMotion`. All of it is a function of the scene clock and a seed from the actor `id`, so a late joiner sees the same thing and no two actors move in lockstep: each has its own tempo, phase, energy, handedness and timing jitter.
+
+**Life** (always on unless `"life": false`), small and additive:
+- breathing: shoulders and chest rise and fall every 3.4-4.6 s (asymmetric: quicker in, a pause after out);
+- the gaze drifts a few degrees on top of `look`;
+- standing: the weight sits on one leg and shifts every 4.5-8 s (the hips slide over the standing leg, the other knee eases, the shoulders lean back over the middle);
+- walking, from the real path speed: stride and arm swing matched to speed (a stride, two steps, of about 1.15 / 1.4 / 1.75 / 2.4 blocks at 0.6 / 1.4 / 2.5 / 4.5 blocks per second at scale 1, legs swinging about +-22 / 28 / 36 / 53 degrees; scale both distance and speed with the actor), arms against the legs a beat late, shoulders counter-twisting with the head turning back to keep the gaze, hips sinking as the legs spread and sliding over the standing leg, a forward lean that grows with speed, a step nod. The stride phase is locked to the distance walked along the `path` (the feet do not slide; it holds when the path holds), averaged over 6 ticks so the gait eases in and out with the path's own ease. The vanilla walk animation is off for a living actor;
+- a head lead: with `look` the head goes where `look` says at once and the body follows a few ticks behind (a smooth lag, mean about 5 ticks, no overshoot; still clamped to 75 degrees from the head);
+- seated (a pose cue whose `right_leg` or `left_leg` x is -60 or less, or a seated clip): a slouch of 4-9 degrees at the hips, the head lifted back to the eye line, hands in the lap (arms -30 to -42), a slow sway; no gait;
+- off while the actor is `stone` or dying. Parts the actor keys in `limbs` get 35% of the life (0 in `"mode":"set"`), so hand-keyed idle motion is not doubled.
+
+**Clips** (player `anims` names; L = loops until the next cue, 1 = one-shot). A clip owns the parts it drives (their rotation is replaced, blended by the cue weight) and adds secondary motion (bounces, nods, leans at the hips) on top of the rest. `IDLE` ends a clip (cross-fades back to life and the pose).
+| clip | | what it does |
+|---|---|---|
+| `IDLE` | L | no clip: life and the pose only |
+| `CLAP` | L | hands meet in front of the chest 2.2-2.8 times a second, rhythm drifting per actor; one hand travels more; a dip on each contact, a small body and head bounce |
+| `CHEER` | L | a dip, arms thrown up past the top (0.3 s) into a V, then fists pumping 1.6-2.3 times a second (together, a beat apart, or alternating), bouncing on the seat, head back shouting, glancing round |
+| `CHEER_STAND` | 1 | from a bench, 2.7-3.3 s: weight forward and hands pushing off (0.2 s), up (by 0.7 s), arms thrown up and pumping while bouncing, down from about 2.15 s (arms down, weight forward), seated again with a settle. The hips rise by `12 - 8/scale` px (a seat half a block high: the Great Hall bench), so the path stays at the seat root throughout. Ends seated: the legs stay seated while the cue is in force, the arms go back to the pose |
+| `TALK` | L | the leading hand (70% right) gestures in phrases with beats on the stressed syllables, the other joins now and then; head nods on the beats, turns and tilts; a slight lean in |
+| `WHISPER` | L | leans in toward where the body faces (turn the actor to the listener with `look`), a hand cupped by the mouth (70% the right), head bowed and tilted in, shoulders up |
+| `NERVOUS` | L | wringing hands in front, then dropping them and fiddling; darting glances (quick turns, then a hold), frequent weight shifts, a slight rock; for waiting first-years |
+| `WAVE` | L | a big wave (Hagrid): the right arm winds up and rises, then swings side to side like a pendulum (1.2-1.6 a second), the body rocking against it |
+| `HANDS_CLASPED` | L | the formal stance (McGonagall): hands together at the waist, chest and chin up, a slow nod, a thumb fidget now and then |
+| `READ_SCROLL` | L | a scroll held open in both hands at reading height, head bowed 24 degrees; the head runs slowly along each line and flicks back (1.4-1.9 s a line) and drifts down the page |
+| `REACH_PLACE` | 1 | 1.7 s: lowering something onto a seated head in front, both hands (the left trails): a wind-up, up and over in an arc (highest at tick 11), down to shoulder height about 0.75 block in front at tick 19 (`HumanMotion.REACH_PLACE_TICKS`: put the `equip` there) as the body leans in and the head looks down, a lift as the hands let go, the arms home by 1.7 s |
+| `SIT_DOWN` | 1 | 1 s: a glance down at the seat, arms out for balance, weight forward while the legs fold (legs -90 by 0.75 s), hands bracing, a settle with a small bounce. Ends seated: the legs stay seated (and life seated) while the cue is in force |
+| `STAND_UP` | 1 | 1 s: weight well forward (30 degrees) with hands pushing on the knees, the legs straighten as the body comes up (by 0.8 s), arms swinging back with the rise. Ends standing: the legs go back to life (and walk) while the cue is in force, even if a seated pose is still in force |
+
+**Layering**, bottom to top: the model's own animation (the head follows `look`), life, then the pose cue and the clip cue in the order they were cued (the later one wins on the parts both drive: a `CLAP` cued after a seated pose claps with the arms and keeps the pose's legs; a pose cued after a clip overrides the clip on the parts the pose names), then `limbs` (always last). A pose that names no part (`"standing": {}`) just hands everything back.
+
+**Seating** (how the Great Hall seats people, `great_hall_scene.py`): the feet root of a seated actor is `seat_top - 0.75 * scale` (the leg hangs forward, the hips sit on the seat) and the seated pose swings both legs to -90. Use a seated pose that names only the legs (`{"right_leg": [-90, 8, 0], "left_leg": [-90, -8, 0]}`) so life and the clips own the arms; a seated pose that also names the arms still works with clips cued after it.
+- Sitting down: `SIT_DOWN` at `t`, the path from the standing spot to the seat root over about `t+0.2s .. t+0.85s`, the seated pose at `t+1s` (blend 1).
+- Standing up: `STAND_UP` at `t`, the path from the seat root to the standing spot over about `t+0.1s .. t+0.8s`, a pose without legs (or none) by `t+1.1s`, before the next anim cue.
+- Cheering up off the bench and back: just `CHEER_STAND`; do not move the path.
+
+Dev scene: `run/pensieve_dev/dev_motion.json` (every clip side by side, a bench row with CLAP over an old arms-down pose, CHEER, CHEER_STAND at 0.75 and 0.9, a SIT_DOWN / CLAP / STAND_UP cycle, REACH_PLACE with the hat equipped at the touch-down, walkers at 0.6, 1.4, 2.5 and 4.5 blocks/s plus a first-year and Hagrid, a head-lead turner and a `life: false` statue).
 
 ### Custom poses (top-level `poses`)
 `"poses": { "slump": { "head": [40,0,0], "right_arm": [-20,0,5] } }` - part to absolute `[x,y,z]` degrees (no offsets). Use a name in an actor's `poses` cue. Part names must match exactly (no camelCase fallback, unlike `limbs`). Parts the pose leaves out blend back to the model's own state. Sleeves/pants/jacket/hat named in a custom pose are overwritten; to steer a layer separately use `limbs`.
@@ -162,6 +201,7 @@ Presets are built for the player model; other models ignore parts they lack. Pos
 | `troll` | IDLE WALK CHARGE ROAR SLAM_WINDUP SLAM_STRIKE SWEEP STAGGER |
 | `lycanthrope_villager` | idle, slow_human_to_wolf, idle_wolf, wolf_to_idle, walk_wolf |
 | `flying_mob` | flying |
+| `player` | IDLE CLAP CHEER CHEER_STAND TALK WHISPER NERVOUS WAVE HANDS_CLASPED READ_SCROLL REACH_PLACE SIT_DOWN STAND_UP (Player motion above) |
 
 Other entities (hippogriff, owl, acromantula, vanilla mobs) have no named animations; pose them with `limbs`. An animation plays from the cue's `t` for its own length; it loops if the definition loops. Give the walk/idle names a cue at the moment the actor starts moving.
 
@@ -221,7 +261,7 @@ Size caps: scene JSON max 900,000 characters and 1,000,000 UTF-8 bytes (the clie
 
 `SceneDataTest` is narrower than the game: its entity types are only the mod's own entities, `player`, and a fixed `VANILLA_MOBS` list in `SceneDataTest.java` (zombie, skeleton, villager, armor_stand, bat, spider, cave_spider, wither_skeleton, evoker, vindicator, witch, horse, wolf, cat, fox, sheep, cow, pig, chicken, squid, glow_squid, salmon, cod, lightning_bolt). Any other vanilla mob (even a valid one in game) fails the test until you add it to that list. Its `features` accept only `minecraft:` ids, and its `sounds`/`particles`/`blocks`/`items` accept any `minecraft:` id but only mod ids that are registered in source.
 
-Validation rules to remember: ids are namespaced (`minecraft:`, `hogwartsmagic:`), `player` is the only bare entity id, spells are bare, skins are bare names from `_skins.json`; pose cue names must be a preset or a custom pose; a `cast` needs `spell`; actor ids must be unique; `words[].by`, `look_at` and `target` must name an existing actor.
+Validation rules to remember: player `anims` names must be player clips, `life` is only for players; ids are namespaced (`minecraft:`, `hogwartsmagic:`), `player` is the only bare entity id, spells are bare, skins are bare names from `_skins.json`; pose cue names must be a preset or a custom pose; a `cast` needs `spell`; actor ids must be unique; `words[].by`, `look_at` and `target` must name an existing actor.
 
 ## Giving a scene an item (so players can pour it)
 Players get a scene through an item that implements `PensieveMemory`. Existing: `chamber_memory` -> scene `chamber`, `summoning_memory` -> scene `summoning` (both `StoryMemoryItem`, in `ExampleMod`), `patronus_memory` -> `lake_patronus` (`StoryMemoryItem`; given once, with a silver chat line, the first time a player learns Expecto Patronum: `MagicBookItem.grantPatronusMemory`), `cave_memory` -> `locket_cave` (`CaveMemoryItem`). For a new scene, only if the user wants an item:

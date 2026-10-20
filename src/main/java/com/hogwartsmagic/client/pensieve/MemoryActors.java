@@ -4,6 +4,7 @@ import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.client.renderer.PetrifiedRemainsRenderer;
 import com.hogwartsmagic.mixin.client.LivingEntityUseAccessor;
 import com.hogwartsmagic.pensieve.scene.EquipTimeline;
+import com.hogwartsmagic.pensieve.scene.HumanMotion;
 import com.hogwartsmagic.pensieve.scene.SceneNames;
 import com.hogwartsmagic.mixin.client.PlayerModelPartsAccessor;
 import com.hogwartsmagic.pensieve.scene.SceneDef;
@@ -157,7 +158,10 @@ public final class MemoryActors {
         }
         List<SceneDef.ActionCue> sorted = new ArrayList<>(def.actions());
         sorted.sort(Comparator.comparingDouble(SceneDef.ActionCue::t));
-        return new ActorRuntime(def, entity, player, sorted);
+        ActorRuntime rt = new ActorRuntime(def, entity, player, sorted);
+        // The vanilla idle arm bob runs off tickCount: start each puppet at its own age so they do not bob in unison.
+        if (player) entity.tickCount = (int) (rt.seed & 0x3FF);
+        return rt;
     }
 
     /** A valid Minecraft user name for the puppet's profile (the scene's own display name is shown instead). */
@@ -310,7 +314,11 @@ public final class MemoryActors {
             pitch = lk.length > 1 ? lk[1] : 0;
         }
         float target;
-        if (hasLook) {
+        boolean follow = hasLook && a.lifeOn();
+        if (follow) {
+            // The head goes where look says at once; the body follows a few ticks later (HumanMotion.followYaw).
+            target = HumanMotion.followYaw(a.def.look(), t);
+        } else if (hasLook) {
             target = lookYaw;
         } else if (moving) {
             target = (float) (Mth.atan2(-dx, dz) * (180.0 / Math.PI));
@@ -319,7 +327,7 @@ public final class MemoryActors {
         } else {
             target = a.bodyYaw;
         }
-        if (first) {
+        if (first || follow) {
             a.bodyYaw = target;
         } else {
             a.bodyYaw += Mth.wrapDegrees(target - a.bodyYaw) * 0.3f;
@@ -345,8 +353,13 @@ public final class MemoryActors {
 
         if (l == null) return;
 
-        // Walk cycle, from the distance covered this tick (as LivingEntity#calculateEntityAnimation does).
-        l.walkAnimation.update(first ? 0 : Math.min((float) Math.sqrt(dx * dx + dz * dz) * 4.0f, 1.0f), 0.4f);
+        // Walk cycle, from the distance covered this tick (as LivingEntity#calculateEntityAnimation does). A living
+        // player walks with HumanMotion's gait instead, locked to the distance along its path.
+        if (a.lifeOn()) {
+            l.walkAnimation.update(0f, 1f);
+        } else {
+            l.walkAnimation.update(first ? 0 : Math.min((float) Math.sqrt(dx * dx + dz * dz) * 4.0f, 1.0f), 0.4f);
+        }
 
         // Swing.
         l.oAttackAnim = l.attackAnim;

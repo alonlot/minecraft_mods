@@ -478,4 +478,22 @@ class SceneValidatorTest {
         assertEquals(1, m.size(), m.toString());
         assertTrue(m.get(0).contains("intensity is only for light_rays"), m.get(0));
     }
+
+    @Test
+    void playerClipsMustBeKnown() throws Exception {
+        assertEquals(0, validate(actorScene("player",
+                "\"anims\":[{\"t\":0,\"name\":\"clap\"},{\"t\":20,\"name\":\"CHEER_STAND\",\"blend\":3}]")).size());
+        List<String> m = validate(actorScene("player", "\"anims\":[{\"t\":0,\"name\":\"MOONWALK\"}]"));
+        assertEquals(1, m.size(), m.toString());
+        assertTrue(m.get(0).startsWith("actors[0].anims[0].name: unknown player clip 'MOONWALK'"), m.get(0));
+        assertTrue(m.get(0).contains("CLAP"), m.get(0));
+        // Creature animation names are checked by the client (it has the models), not here.
+        assertEquals(0, validate(actorScene("hogwartsmagic:basilisk", "\"anims\":[{\"t\":0,\"name\":\"REAR\"}]")).size());
+    }
+
+    @Test
+    void lifeIsOnlyForPlayers() throws Exception {
+        assertEquals(0, validate(actorScene("player", "\"life\":false")).size());
+        assertMessage(validate(actorScene("minecraft:zombie", "\"life\":false")), "life: only a player actor has life");
+    }
 }

@@ -1,5 +1,7 @@
 package com.hogwartsmagic.client.pensieve;
 
+import com.hogwartsmagic.pensieve.scene.HumanMotion;
+import com.hogwartsmagic.pensieve.scene.PartTrack;
 import com.hogwartsmagic.pensieve.scene.SceneDef;
 import net.minecraft.client.animation.AnimationDefinition;
 import net.minecraft.world.entity.Entity;
@@ -53,6 +55,13 @@ public final class ActorRuntime {
     PosePresets.Preset[] poseSets = new PosePresets.Preset[0];
     final AnimationDefinition[] animDefs;
 
+    /** Player actors: the motion seed (from the id), the clip cues, and lazily the path odometer for the gait. */
+    final long seed;
+    final HumanMotion.Clips clips;
+    private HumanMotion.Odometer odometer;
+    /** Per humanoid part (HumanMotion order): how much life it gets; damped where the scene keys that part. */
+    final float[] lifeGain = new float[HumanMotion.PARTS];
+
     ActorRuntime(SceneDef.ActorDef def, Entity entity, boolean player, List<SceneDef.ActionCue> actions) {
         this.poseCues = byTime(def.poses());
         this.animCues = byTime(def.anims());
@@ -65,6 +74,29 @@ public final class ActorRuntime {
         this.living = entity instanceof LivingEntity l ? l : null;
         this.player = player;
         this.actions = actions;
+        this.seed = HumanMotion.seed(def.id());
+        this.clips = new HumanMotion.Clips(player ? animCues : List.of(), seed);
+        for (int p = 0; p < HumanMotion.PARTS; p++) {
+            PartTrack limb = limbTrack(def, HumanMotion.PART_NAMES.get(p));
+            lifeGain[p] = limb == null ? 1f : limb.set() ? 0f : 0.35f;
+        }
+    }
+
+    private static PartTrack limbTrack(SceneDef.ActorDef def, String part) {
+        for (Map.Entry<String, PartTrack> e : def.limbs().entrySet()) {
+            if (part.equals(e.getKey()) || part.equals(PoseMath.snake(e.getKey()))) return e.getValue();
+        }
+        return null;
+    }
+
+    /** True while the procedural life layer runs: a living player actor that is not stone and not dying. */
+    boolean lifeOn() {
+        return player && def.life() && !stone && !dying;
+    }
+
+    HumanMotion.Odometer odometer() {
+        if (odometer == null) odometer = new HumanMotion.Odometer(def.path(), def.scale());
+        return odometer;
     }
 
     private static List<SceneDef.Cue> byTime(List<SceneDef.Cue> cues) {

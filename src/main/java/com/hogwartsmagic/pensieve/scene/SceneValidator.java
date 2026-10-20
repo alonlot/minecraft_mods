@@ -130,8 +130,15 @@ public final class SceneValidator {
                         + sorted(SceneNames.POSE_PRESETS) + ")");
             }
         }
+        if (!a.life() && !"player".equals(a.type())) out.add(p + ".life: only a player actor has life");
         for (int i = 0; i < a.anims().size(); i++) {
-            time(out, p + ".anims[" + i + "].t", a.anims().get(i).t(), length);
+            SceneDef.Cue c = a.anims().get(i);
+            time(out, p + ".anims[" + i + "].t", c.t(), length);
+            // Creature animation names need the client's models (PartCheck); player clips are known here.
+            if ("player".equals(a.type()) && HumanMotion.clipName(c.name()) == null) {
+                out.add(p + ".anims[" + i + "].name: unknown player clip '" + c.name() + "' (expected one of "
+                        + String.join(", ", HumanMotion.CLIPS) + ")");
+            }
         }
         for (int i = 0; i < a.actions().size(); i++) {
             SceneDef.ActionCue c = a.actions().get(i);

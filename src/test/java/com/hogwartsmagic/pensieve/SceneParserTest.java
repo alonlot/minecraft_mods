@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -190,6 +191,15 @@ class SceneParserTest {
     @Test
     void parsesActorScale() throws Exception {
         assertEquals(0.75f, actor("{\"id\":\"a\",\"type\":\"player\",\"scale\":0.75}").scale(), 1e-6);
+    }
+
+    @Test
+    void lifeDefaultsOnAndCanBeTurnedOff() throws Exception {
+        assertTrue(actor("{\"id\":\"a\",\"type\":\"player\"}").life());
+        assertFalse(actor("{\"id\":\"a\",\"type\":\"player\",\"life\":false}").life());
+        SceneException e = assertThrows(SceneException.class,
+                () -> actor("{\"id\":\"a\",\"type\":\"player\",\"life\":\"no\"}"));
+        assertTrue(e.getMessage().contains("actors[0].life"), e.getMessage());
     }
 
     @Test

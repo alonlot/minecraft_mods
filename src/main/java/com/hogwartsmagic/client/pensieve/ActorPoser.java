@@ -19,8 +19,9 @@ import java.util.Map;
 
 /**
  * Poses a Pensieve actor (or the body left at the basin) limb by limb, right after the vanilla renderer has run
- * the model own {@code setupAnim}. In order: the named creature animation in force, the pose cue in force (blended
- * in over its {@code blend} ticks, from the previous pose), then the limb tracks (added to what is there, or
+ * the model own {@code setupAnim}. In order: the named creature animation in force, for player actors the life
+ * layer and the player clips ({@link ActorMotion}), the pose cue in force (blended in over its {@code blend} ticks,
+ * from the previous pose; ordered against the clip by cue time), then the limb tracks (added to what is there, or
  * replacing it in {@code "mode":"set"}).
  *
  * <p>A model is shared by every entity its renderer draws, and vanilla only resets the rotations it sets, not
@@ -115,7 +116,11 @@ public final class ActorPoser {
             if (rt != null) {
                 float t = PensieveClientState.sceneTime(partial);
                 applyAnimation(model, rt, t);
-                applyPose(parts, rt, t);
+                if (model instanceof HumanoidModel<?> && ActorMotion.drives(rt)) {
+                    ActorMotion.apply(parts, rt, t, () -> applyPose(parts, rt, t));
+                } else {
+                    applyPose(parts, rt, t);
+                }
                 applyLimbs(parts, rt, t);
             } else {
                 PosePresets.Preset body = PosePresets.get(BODY_POSE);

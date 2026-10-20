@@ -52,10 +52,20 @@ public record SceneDef(String id, String title, int length, int radius, SetDef s
     public record FeatureRef(String id, int[] at) {
     }
 
-    /** {@code type} is an entity id or "player"; {@code look} values are [yaw, pitch]. */
+    /**
+     * {@code type} is an entity id or "player"; {@code look} values are [yaw, pitch]. {@code life} (players only,
+     * default true) turns on the procedural life layer of {@link HumanMotion}.
+     */
     public record ActorDef(String id, String type, SkinRef skin, String name, Map<String, String> items,
                            Track path, Track look, Map<String, PartTrack> limbs, List<Cue> poses,
-                           List<Cue> anims, List<ActionCue> actions, float scale) {
+                           List<Cue> anims, List<ActionCue> actions, float scale, boolean life) {
+        /** A living actor (life on). */
+        public ActorDef(String id, String type, SkinRef skin, String name, Map<String, String> items,
+                        Track path, Track look, Map<String, PartTrack> limbs, List<Cue> poses,
+                        List<Cue> anims, List<ActionCue> actions, float scale) {
+            this(id, type, skin, name, items, path, look, limbs, poses, anims, actions, scale, true);
+        }
+
         /** An actor at normal size (scale 1). */
         public ActorDef(String id, String type, SkinRef skin, String name, Map<String, String> items,
                         Track path, Track look, Map<String, PartTrack> limbs, List<Cue> poses,

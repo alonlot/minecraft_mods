@@ -3,6 +3,7 @@ package com.hogwartsmagic.client.pensieve;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PensieveTimelineTest {
@@ -102,4 +103,37 @@ class PensieveTimelineTest {
         assertEquals(0.25f, PensieveTimeline.spokenWordsAlpha(0.75f, 0.5f), 1e-6f);
         assertEquals(0.25f, PensieveTimeline.spokenWordsAlpha(0.5f, 0.75f), 1e-6f);
     }
+
+    @Test
+    void aHandOverHoldsBlackUntilTheSetIsDrawnOrTheWaitGivesUp() {
+        assertTrue(PensieveTimeline.handOverHeld(false, 0));
+        assertTrue(PensieveTimeline.handOverHeld(false, PensieveTimeline.HANDOVER_HOLD_LIMIT - 1));
+        assertFalse(PensieveTimeline.handOverHeld(false, PensieveTimeline.HANDOVER_HOLD_LIMIT));
+        assertFalse(PensieveTimeline.handOverHeld(true, 0));
+    }
+
+    @Test
+    void aHandOverFadesOnlyTheDarknessNotTheFogOrTheGrade() {
+        // The memory is already there: no fog closing in to two blocks, no grey wash, as on entering.
+        assertEquals(1f, PensieveTimeline.setReveal(0f, true), 1e-6f);
+        assertEquals(0.4f, PensieveTimeline.setReveal(0.4f, false), 1e-6f);
+    }
+
+    @Test
+    void aCameraJumpIsAnythingFartherThanTwoBlocksInOneFrame() {
+        assertFalse(PensieveTimeline.cameraJumped(0.5, 0.2, 0.5));
+        assertFalse(PensieveTimeline.cameraJumped(2.0, 0, 0));
+        assertTrue(PensieveTimeline.cameraJumped(1.5, 0, 1.5));
+        assertTrue(PensieveTimeline.cameraJumped(0, 0, -70));
+    }
+
+    @Test
+    void sectionDistanceIsZeroInsideAndMeasuredToTheNearestFace() {
+        // Section at block origin (16, 0, -32): it spans x 16..32, y 0..16, z -32..-16.
+        assertEquals(0.0, PensieveTimeline.sectionDistSq(16, 0, -32, 20, 5, -20), 1e-9);
+        assertEquals(16.0, PensieveTimeline.sectionDistSq(16, 0, -32, 12, 5, -20), 1e-9);
+        assertEquals(9.0 + 16.0, PensieveTimeline.sectionDistSq(16, 0, -32, 35, 20, -20), 1e-9);
+        assertEquals(4.0, PensieveTimeline.sectionDistSq(16, 0, -32, 20, 5, -34), 1e-9);
+    }
 }
+

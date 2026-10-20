@@ -30,6 +30,13 @@ public final class PensieveTimeline {
     public static final int CHAIN_FADE_TICKS = 20;
     /** The fall through the dark always lasts at least this long, however soon the server is ready. */
     public static final int MIN_FALL_TICKS = 20;
+    /**
+     * A chain's hand-over holds the screen black until the new set is drawn around the camera (its chunks are a slot
+     * away and arrive after the move), but never longer than this many ticks.
+     */
+    public static final int HANDOVER_HOLD_LIMIT = 60;
+    /** A camera that moves farther than this in one frame jumped (a cut, a hand-over): it did not travel. */
+    public static final double CAMERA_JUMP_BLOCKS = 2.0;
 
     public static final float BUILD_FOG_FROM = 2f;
     public static final float FOG_INNER = 8f;
@@ -179,5 +186,35 @@ public final class PensieveTimeline {
     /** RETURN: the camera rising from the basin surface back to the eye, 0..1. */
     public static float returnMove(float t) {
         return easeInOutCubic(t / RETURN_TICKS);
+    }
+
+    /** True while a hand-over still holds black: the set is not drawn yet and the wait has not given up. */
+    public static boolean handOverHeld(boolean setReady, float heldTicks) {
+        return !setReady && heldTicks < HANDOVER_HOLD_LIMIT;
+    }
+
+    /**
+     * The reveal the set itself (fog radius, grade, shadow smoke) follows: the dive's own reveal, or all of it at
+     * once after a chain's hand-over, which only fades in from black. Re-running the entry's fog-from-two-blocks
+     * there made every hand-over look like the memory loading again.
+     */
+    public static float setReveal(float reveal, boolean handedOver) {
+        return handedOver ? 1f : reveal;
+    }
+
+    /** True when the camera moved by ({@code dx}, {@code dy}, {@code dz}) in one frame is a jump, not a move. */
+    public static boolean cameraJumped(double dx, double dy, double dz) {
+        return dx * dx + dy * dy + dz * dz > CAMERA_JUMP_BLOCKS * CAMERA_JUMP_BLOCKS;
+    }
+
+    /**
+     * Squared distance from the point ({@code px}, {@code py}, {@code pz}) to the 16-block render section whose
+     * minimum corner is ({@code sx}, {@code sy}, {@code sz}); 0 inside it.
+     */
+    public static double sectionDistSq(int sx, int sy, int sz, double px, double py, double pz) {
+        double dx = Math.max(Math.max(sx - px, px - (sx + 16)), 0);
+        double dy = Math.max(Math.max(sy - py, py - (sy + 16)), 0);
+        double dz = Math.max(Math.max(sz - pz, pz - (sz + 16)), 0);
+        return dx * dx + dy * dy + dz * dz;
     }
 }

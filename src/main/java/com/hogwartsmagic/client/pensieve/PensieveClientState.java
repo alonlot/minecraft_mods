@@ -89,8 +89,19 @@ public final class PensieveClientState {
     private static boolean preview;
     /** PLAY was reached straight from FALL (a late joiner) or by a chain's hand-over: it fades in from black. */
     private static boolean lateJoin;
-    /** PLAY was reached by a chain's hand-over: the same fade from black, but the camera does not settle. */
+    /**
+     * PLAY was reached by a chain's hand-over: the same fade from black, but the camera does not settle and the set
+     * is not revealed out of the fog again (see {@link #setReveal}).
+     */
     private static boolean handedOver;
+    /**
+     * A hand-over is holding black until the new set is drawn around the camera ({@link SetWarmup#ready}); the
+     * fade in begins when it is, or when the hold gives up ({@link PensieveTimeline#handOverHeld}).
+     */
+    private static boolean holdForSet;
+    private static long holdStart;
+    /** {@link SetWarmup} failed once this run; logged once, not every tick. */
+    private static boolean warmupWarned;
     /** The scene opens its eyes at its start ({@link Eyelids#opensShut}): the lids are held shut while it builds. */
     private static boolean opensShut;
     /** The lids were held shut when the exit began, so the collapse stays black. */
@@ -139,6 +150,7 @@ public final class PensieveClientState {
         startGameTime = -1;
         lateJoin = false;
         handedOver = false;
+        holdForSet = false;
         opensShut = false;
         heldAtExit = false;
         startPending = false;
@@ -204,6 +216,7 @@ public final class PensieveClientState {
         } else if (phase != PLAY) {
             lateJoin = phase != BUILD;
             handedOver = false;
+            holdForSet = false;
             setPhase(PLAY);
             // A new memory is starting: nothing of an old one may linger, not even music still fading out.
             MemoryAudio.stopNow();
@@ -219,7 +232,9 @@ public final class PensieveClientState {
      * last scene's puppets, events, spell and effect visuals and memory sounds go (all of {@link MemoryActors#clear},
      * which also resets the event cursor), its voices stop and its music fades under the new opening
      * ({@link MemoryAudio#cut}); its words go by themselves, being drawn from the current scene and clock. The last
-     * scene faded to black at its length (or, from BUILD, is cut to black), and the new one fades in from black.
+     * scene faded to black at its length (or, from BUILD, is cut to black), and the new one fades in from black,
+     * only darkness: the set is not revealed out of the fog as on entering. The new set is a slot away, so its
+     * chunks arrive and are drawn after the move; the screen holds black until they are ({@link #holdForSet}).
      * The time of day follows the new scene through {@link #syncTimeOfDay}.
      */
     private static void handOver() {
@@ -230,6 +245,7 @@ public final class PensieveClientState {
             // Not sent by the server today (a hand-over always starts the next scene), but never leave PLAY running
             // on a clock that has not started.
             if (phase != BUILD) setPhase(BUILD);
+            holdForSet = false;
             beginReveal(buildTicks);
             return;
         }
@@ -238,7 +254,8 @@ public final class PensieveClientState {
         lateJoin = true;
         handedOver = true;
         MemoryActors.start(scene, origin, Minecraft.getInstance().level);
-        beginReveal(PensieveTimeline.LATE_FADE_TICKS);
+        holdForSet = true;
+        holdStart = ticks;
     }
 
     private static void beginReveal(int span) {
@@ -261,6 +278,7 @@ public final class PensieveClientState {
         if (phase == EXIT || phase == YANK) return;
         startPending = false;
         heldAtExit = lidsHeldShut(0);
+        holdForSet = false;
         boolean inside = phase == BUILD || phase == PLAY;
         setPhase(EXIT);
         if (!inside) {
@@ -398,9 +416,18 @@ public final class PensieveClientState {
         return scene != null ? Math.max(0, scene.fogFar()) : 0;
     }
 
-    /** The reveal from shadow to memory, 0..1 (1 once it is complete). */
+    /** The reveal from shadow to memory, 0..1 (1 once it is complete); 0 while a hand-over holds black. */
     public static float reveal(float partial) {
+        if (holdForSet) return 0f;
         return PensieveTimeline.reveal((ticks - revealStart) + partial, revealSpan);
+    }
+
+    /**
+     * The reveal the set itself follows (fog radius, grade, shadow smoke): {@link #reveal}, except after a chain's
+     * hand-over, where only the darkness fades in.
+     */
+    public static float setReveal(float partial) {
+        return PensieveTimeline.setReveal(reveal(partial), handedOver);
     }
 
     /** Ticks since the reveal began (BUILD or a late joiner's PLAY). */
@@ -493,6 +520,7 @@ public final class PensieveClientState {
         returnStart = -1;
         lateJoin = false;
         handedOver = false;
+        holdForSet = false;
         opensShut = false;
         heldAtExit = false;
         startPending = false;
@@ -549,6 +577,20 @@ public final class PensieveClientState {
             }
         }
         if (phase == BUILD || phase == PLAY) {
+            float st = sceneTime(0);
+            boolean setReady = true;
+            try {
+                SetWarmup.tick(mc, st);
+                if (holdForSet) setReady = SetWarmup.ready(mc, cameraAt(mc, st));
+            } catch (RuntimeException e) {
+                // Drawing ahead is an optimisation over vanilla internals: never let it take the memory down.
+                if (!warmupWarned) LOGGER.warn("Pensieve: drawing the set ahead failed: {}", e.toString());
+                warmupWarned = true;
+            }
+            if (holdForSet && !PensieveTimeline.handOverHeld(setReady, ticks - holdStart)) {
+                holdForSet = false;
+                beginReveal(PensieveTimeline.LATE_FADE_TICKS);
+            }
             PensieveVoid.tickParticles(mc);
         }
         handleLeaveKey();
@@ -564,6 +606,12 @@ public final class PensieveClientState {
     @SubscribeEvent
     public static void onBlockHighlight(RenderHighlightEvent.Block event) {
         if (phase != NONE) event.setCanceled(true);
+    }
+
+    /** Where the camera is at scene time {@code t}: the scene's shot, or the viewer's own eye with no camera track. */
+    private static Vec3 cameraAt(Minecraft mc, float t) {
+        Vec3 shot = PensieveCamera.shotPosition(t);
+        return shot != null ? shot : mc.player.getEyePosition();
     }
 
     private static boolean backAtBasin(Minecraft mc) {

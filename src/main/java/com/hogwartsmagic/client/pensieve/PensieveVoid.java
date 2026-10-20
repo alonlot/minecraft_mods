@@ -47,7 +47,7 @@ public final class PensieveVoid {
         float r = PensieveClientState.radius();
         if (p == PensieveClientState.FALL) return 0;
         if (p == PensieveClientState.BUILD || p == PensieveClientState.PLAY) {
-            return revealFogRadius(PensieveClientState.reveal(partial), r);
+            return revealFogRadius(PensieveClientState.setReveal(partial), r);
         }
         if (p == PensieveClientState.EXIT) {
             return exitFogRadius(PensieveClientState.phaseTime(partial), r);
@@ -85,7 +85,7 @@ public final class PensieveVoid {
         float r = visibleRadius(0);
         double cx = o.getX() + 0.5;
         double cz = o.getZ() + 0.5;
-        if (PensieveClientState.reveal(0) < 1) {
+        if (PensieveClientState.setReveal(0) < 1) {
             // Shadow smoke where blocks are newly coming out of the dark: random samples in the growing ring.
             BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
             for (int i = 0; i < BUILD_SAMPLES; i++) {

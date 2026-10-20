@@ -79,4 +79,24 @@ class CameraTrackTest {
                 {"length":40,"camera":[{"t":0,"pos":[0,0,0],"look_at":[0,0,5]}]}""").getAsJsonObject());
         assertFalse(s.camera().isEmpty());
     }
+
+    @Test
+    void cutsAheadListTheShotsTheCameraJumpsToNext() throws Exception {
+        CameraTrack c = track("""
+                [{"t":0,"pos":[0,0,0],"look_at":[0,0,5]},
+                 {"t":40,"pos":[1,0,0],"look_at":[0,0,5]},
+                 {"t":40,"pos":[50,1,0],"look_at":[60,1,0],"cut":true},
+                 {"t":90,"pos":[52,1,0],"look_at":[60,1,0]},
+                 {"t":90,"pos":[-30,2,4],"look_at":"actor:boy","cut":true}]""");
+        assertEquals(0, c.cutsAhead(0, 30).size());
+        assertEquals(1, c.cutsAhead(0, 40).size());
+        assertEquals(50f, c.cutsAhead(0, 40).get(0).pos()[0], 1e-6f);
+        assertEquals(2, c.cutsAhead(10, 100).size());
+        // A cut already taken is behind the camera, not ahead of it.
+        assertEquals(1, c.cutsAhead(40, 60).size());
+        assertEquals(-30f, c.cutsAhead(40, 60).get(0).pos()[0], 1e-6f);
+        assertEquals(0, c.cutsAhead(90, 500).size());
+        assertEquals(0, CameraTrack.EMPTY.cutsAhead(0, 500).size());
+    }
 }
+

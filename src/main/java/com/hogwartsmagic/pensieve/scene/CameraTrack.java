@@ -35,6 +35,18 @@ public final class CameraTrack {
         return keys;
     }
 
+    /**
+     * The keys a cut jumps to after {@code t} and no later than {@code t + ahead}, in order: the shots the camera
+     * is about to land in, so the client can have them drawn before it gets there.
+     */
+    public List<CameraKey> cutsAhead(float t, float ahead) {
+        List<CameraKey> out = new ArrayList<>();
+        for (CameraKey k : keys) {
+            if (k.cut() && k.t() > t && k.t() <= t + ahead) out.add(k);
+        }
+        return out;
+    }
+
     public static CameraTrack parse(JsonArray a) throws SceneException {
         return parse(a, "camera");
     }

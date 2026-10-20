@@ -60,7 +60,7 @@ public final class PensievePost {
     public static float desaturation(float partial) {
         int p = PensieveClientState.phase();
         if (p == PensieveClientState.BUILD || p == PensieveClientState.PLAY) {
-            return revealDesaturation(PensieveClientState.reveal(partial));
+            return revealDesaturation(PensieveClientState.setReveal(partial));
         }
         if (p == PensieveClientState.EXIT) {
             return lerp(DESAT_PLAY, DESAT_BUILD, exitDarkness(PensieveClientState.phaseTime(partial)));

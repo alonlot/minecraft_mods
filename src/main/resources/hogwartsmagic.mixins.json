@@ -31,7 +31,9 @@
     "client.PlayerModelPartsAccessor",
     "client.LivingEntityUseAccessor",
     "client.ModelPartAccessor",
-    "client.ActorPoseMixin"
+    "client.ActorPoseMixin",
+    "client.LevelRendererAccessor",
+    "client.PensieveOcclusionGraphMixin"
   ],
   "injectors": {
     "defaultRequire": 1

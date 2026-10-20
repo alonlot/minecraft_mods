@@ -23,6 +23,10 @@ public final class PensieveCamera {
     private static float fovTarget;
     /** 0 = vanilla fov, 1 = {@link #fovTarget}. */
     private static float fovMix;
+    /** The camera's position last frame while the Pensieve drove it; null while it did not. */
+    private static Vec3 lastPos;
+    /** The camera jumped this frame (see {@link #consumeJump}). */
+    private static boolean jumped;
 
     private PensieveCamera() {
     }
@@ -35,7 +39,11 @@ public final class PensieveCamera {
     public static void apply(Camera camera, float partial) {
         frameRoll = 0;
         fovMix = 0;
-        if (!override()) return;
+        if (!override()) {
+            lastPos = null;
+            jumped = false;
+            return;
+        }
         int phase = PensieveClientState.phase();
         float pt = PensieveClientState.phaseTime(partial);
         Vec3 eye = camera.getPosition();
@@ -149,7 +157,31 @@ public final class PensieveCamera {
 
         frameRoll = roll;
         camera.setRotation(yaw, Mth.clamp(pitch, -90f, 90f), 0f);
-        ((PensieveCameraAccess) camera).hogwartsmagic$setPosition(new Vec3(x, y, z));
+        Vec3 at = new Vec3(x, y, z);
+        ((PensieveCameraAccess) camera).hogwartsmagic$setPosition(at);
+        if (lastPos != null && jumped(lastPos, at)) jumped = true;
+        lastPos = at;
+    }
+
+    private static boolean jumped(Vec3 from, Vec3 to) {
+        return cameraJumped(to.x - from.x, to.y - from.y, to.z - from.z);
+    }
+
+    /**
+     * True once after a frame whose camera jumped (a cut, the landing, a hand-over). Read by
+     * {@code PensieveOcclusionGraphMixin} in that same frame's culling, so it rebuilds the visible sections around
+     * the new shot at once instead of drawing a frame or two from the old shot's list.
+     */
+    public static boolean consumeJump() {
+        boolean j = jumped;
+        jumped = false;
+        return j;
+    }
+
+    /** Where the scene camera is at scene time {@code t}, in world space; null for a scene with no camera track. */
+    static Vec3 shotPosition(float t) {
+        CameraPose p = trackPose(t);
+        return p == null ? null : new Vec3(p.x(), p.y(), p.z());
     }
 
     /** This frame's roll, for the ComputeCameraAngles handler. */

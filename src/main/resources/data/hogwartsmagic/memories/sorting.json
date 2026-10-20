@@ -14,7 +14,7 @@
     "time_of_day": 18000,
     "build_ticks": 40
   },
-  "poses": {"seated": {"right_leg": [-90, 8, 0], "left_leg": [-90, -8, 0], "right_arm": [-30, 0, 0], "left_arm": [-30, 0, 0]}, "hands_on_knees": {"right_arm": [-38, -12, 0], "left_arm": [-38, 12, 0]}},
+  "poses": {"seated": {"right_leg": [-90, 8, 0], "left_leg": [-90, -8, 0]}},
   "actors": [
     {
       "id": "boy",
@@ -23,7 +23,7 @@
       "scale": 0.75,
       "path": [{"t": 0, "pos": [0.5, -0.0625, 0.5]}],
       "look": [{"t": 0, "yaw": 180}],
-      "poses": [{"t": 0, "name": "seated", "blend": 1}, {"t": 1, "name": "hands_on_knees", "blend": 1}],
+      "poses": [{"t": 0, "name": "seated", "blend": 1}],
       "limbs": {
         "head": {
           "rot": [

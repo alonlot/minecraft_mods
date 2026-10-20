@@ -133,7 +133,7 @@ T_GRANGER = 59.8      # hall_mcg_granger, 1.94 s
 T_HAT_H = 64.4
 T_SHOUT_H = 65.6
 T_WEASLEY = 73.8      # hall_mcg_weasley, 1.95 s
-T_HAT_R = 77.4
+T_HAT_R = 77.8
 T_SHOUT_R = 78.8
 T_SCROLL = 84.2       # McGonagall looks down at the scroll
 T_NAME = 88.6         # the name card (size 3, 4.5 s), whispers, prologue music
@@ -151,7 +151,6 @@ DOOR_FACE_X = 67.0               # the entrance-hall face of the portal (wall x 
 STOOL = A['stool']               # [0.5, 1.5, 0.5] seat top
 STOOL_ROOT_KID = [STOOL[0], seat_root(STOOL[1], KID), STOOL[2]]
 MCG_STOOL = [0.5, 1.0, -0.8]     # on the top step beside the stool, close enough to reach a head
-MCG_IN_FRONT = [2.5, 0, -0.75]   # where she stands for the boy's hat (it comes over the top of his view)
 AISLE_Z = 0.5
 WALK_Z = (-0.5, 1.5)             # the two files walking in (pre-jump)
 FILE_Z = (0.35, 1.45)            # the two files after the jump and while waiting (cells z 0 and 1)
@@ -165,14 +164,11 @@ events = []
 words = []
 camera = []
 POSES = {
-    'seated': {'right_leg': [-90, 8, 0], 'left_leg': [-90, -8, 0], 'right_arm': [-30, 0, 0],
-               'left_arm': [-30, 0, 0]},
-    'relax': {'head': [0, 0, 0]},
-    'scroll': {'left_arm': [-55, 12, 0]},
-    'scroll_read': {'left_arm': [-62, 14, 0], 'head': [28, 0, 0]},
+    'seated': {'right_leg': [-90, 8, 0], 'left_leg': [-90, -8, 0]},     # legs only: life and the clips own the arms
+    'standing': {},                                                    # hands everything back
     'welcome': {'right_arm': [-85, 0, 38], 'left_arm': [-85, 0, -38]},
-    'hands_clasped': {'right_arm': [-38, -20, 0], 'left_arm': [-38, 20, 0]},
 }
+CHEER_CLIPS = {'CLAP', 'CHEER', 'CHEER_STAND', 'WAVE'}
 SIT_WINDOWS = {}                 # actor id -> [(t0, t1)] seconds when it sits down or stands up (not walking)
 
 
@@ -252,6 +248,42 @@ def limb_json(channels):
     return out
 
 
+class Clips:
+    """An actor's player-clip cues (anims). The engine plays a clip until the next cue; IDLE ends one."""
+
+    def __init__(self):
+        self.cues = []
+
+    def cue(self, t, name, blend=None):
+        self.cues.append((t, name, blend))
+
+    def span(self, t0, t1, name, blend=None, end_blend=None):
+        """name from t0, back to IDLE at t1."""
+        self.cue(t0, name, blend)
+        self.cue(t1, 'IDLE', end_blend)
+
+    def emit(self):
+        out, last = [], -1
+        for t, name, blend in sorted(self.cues, key=lambda c: c[0]):
+            tt = max(tk(t), last + 1)
+            if tt > tk(LENGTH):
+                break
+            k = {'t': tt, 'name': name}
+            if blend:
+                k['blend'] = blend
+            out.append(k)
+            last = tt
+        return out
+
+    def at(self, t):
+        """The clip in force at t (seconds)."""
+        cur = 'IDLE'
+        for k in self.emit():
+            if k['t'] <= tk(t):
+                cur = k['name']
+        return cur
+
+
 class Life:
     """An actor's limbs: head, body, arms; all add on top of poses and look."""
 
@@ -292,6 +324,12 @@ class Mover:
         self.look.append((t + dur, y))
         self.yaw = y
 
+    def shift(self, t0, t1, p):
+        """A small step to p over t0..t1 without turning (stepping in to the stool and back)."""
+        self.path.append((t0, list(self.pos), None))
+        self.path.append((t1, list(p), 'in_out'))
+        self.pos = list(p)
+
     def face_point(self, t, pt, dur=0.4):
         self.face(t, yaw_to(pt[0] - self.pos[0], pt[2] - self.pos[2]), dur)
 
@@ -321,12 +359,25 @@ class Mover:
             prev_t, prev = ti, p
         self.pos = list(prev)
 
-    def sit(self, t0, t1, p):
-        """Moves into (or out of) a seat over t0..t1: not walking, so the cell check skips it."""
-        self.path.append((t0, list(self.pos), None))
-        self.path.append((t1, list(p), 'in_out'))
+    def sit_down(self, t, p, clips, poses):
+        """SIT_DOWN at t, into the seat root over t+0.2..t+0.85, the seated pose at t+1 (not walking: the cell
+        check skips it)."""
+        clips.cue(t, 'SIT_DOWN')
+        self.path.append((t + 0.2, list(self.pos), None))
+        self.path.append((t + 0.85, list(p), 'in_out'))
         self.pos = list(p)
-        SIT_WINDOWS.setdefault(self.aid, []).append((t0, t1))
+        poses.append(pose(t + 1.0, 'seated', 1))
+        SIT_WINDOWS.setdefault(self.aid, []).append((t, t + 1.0))
+
+    def stand_up(self, t, p, clips, poses):
+        """STAND_UP at t, out of the seat to p over t+0.1..t+0.8, a leg-free pose by t+1.05, IDLE at t+1.15."""
+        clips.cue(t, 'STAND_UP')
+        self.path.append((t + 0.1, list(self.pos), None))
+        self.path.append((t + 0.8, list(p), 'in_out'))
+        self.pos = list(p)
+        poses.append(pose(t + 1.05, 'standing', 1))
+        clips.cue(t + 1.15, 'IDLE', 6)
+        SIT_WINDOWS.setdefault(self.aid, []).append((t, t + 0.9))
 
     def emit(self):
         out_p, last = [], -1
@@ -355,7 +406,7 @@ class Mover:
 
 
 def actor(aid, skin, scale, mover=None, path=None, look=None, life=None, pose_cues=None, actions=None, items=None,
-          atype='player'):
+          atype='player', clips=None):
     a = {'id': aid, 'type': atype}
     if skin is not None:
         a['skin'] = skin
@@ -377,6 +428,8 @@ def actor(aid, skin, scale, mover=None, path=None, look=None, life=None, pose_cu
         a['poses'] = [dict(p, t=tk(p['t'])) for p in sorted(pose_cues, key=lambda p: p['t'])]
     if actions:
         a['actions'] = [dict(x, t=tk(x['t'])) for x in sorted(actions, key=lambda x: x['t'])]
+    if clips is not None and clips.cues:
+        a['anims'] = clips.emit()
     actors.append(a)
     return a
 
@@ -401,19 +454,6 @@ def skin_pool(prefix, n, fallback):
 
 
 # ---------------------------------------------------------------- idle life helpers
-def gesture(life, rnd, t, side=None):
-    """A talking gesture: one forearm lifts, turns a little and settles."""
-    part = side or rnd.choice(['right_arm', 'left_arm'])
-    s = 1 if part == 'right_arm' else -1
-    x = rnd.uniform(-60, -30)
-    z = s * rnd.uniform(4, 16)
-    hold = rnd.uniform(0.6, 1.5)
-    life[part].change(t, [x, 0, z], rnd.uniform(0.3, 0.5))
-    life[part].change(t + 0.4 + hold * 0.5, [x - rnd.uniform(8, 18), s * rnd.uniform(-10, 10), z], 0.35, False)
-    life[part].change(t + 0.9 + hold, [0, 0, 0], rnd.uniform(0.35, 0.6))
-    return t + 1.5 + hold
-
-
 def lean(life, rnd, t, dur):
     """Leans forward (onto the table, or just shifting), then back."""
     a = rnd.uniform(6, 13)
@@ -502,46 +542,55 @@ def mcg_x_inv(x, lo, hi):
 
 
 mcg_life = Life()
+mcg_clips = Clips()
+mcg_poses = []
 mcg_actions = [{'t': S['E1'], 'do': 'equip', 'slot': 'mainhand', 'item': HAT}]
+PLACE_SPOT = [0.5, 1.0, -0.25]   # facing +Z, the stool's head 0.75 in front (REACH_PLACE's reach)
+BOY_PLACE = [1.05, 1.0, -0.05]   # in front of the boy on the stool, a little to his left: in his first person
+mcg_clips.span(T_MCG_IN + 1.1, T_WALK - 0.3, 'HANDS_CLASPED', 10, 8)       # the formal stance at the doors
+mcg_clips.cue(T_LEAD_END + 3.2, 'READ_SCROLL', 10)                        # at the stool with the list
 
 
-def mcg_crown(t_on):
-    """The hat goes on the head on the stool at t_on: she turns to it, lifts the hat, lowers it, turns back."""
-    mcg.face(t_on - 1.2, 0, 0.5)
-    arm = mcg_life['right_arm']
-    arm.change(t_on - 0.9, [-125, 0, -8], 0.6)
-    arm.change(t_on + 0.1, [-95, 0, -8], 0.3, False)
-    arm.change(t_on + 0.4, [0, 0, 0], 0.6)
-    mcg_actions.append({'t': t_on, 'do': 'equip', 'slot': 'mainhand', 'item': 'minecraft:air'})
-    mcg.face(t_on + 1.0, -90, 0.6)
+def mcg_crown(t_on, back=True):
+    """The hat goes on the head on the stool at t_on: she steps in, REACH_PLACE 19 ticks before, steps back."""
+    mcg.shift(t_on - 2.0, t_on - 1.4, PLACE_SPOT)
+    mcg.face(t_on - 1.4, 0, 0.4)
+    mcg_clips.cue(t_on - 0.95, 'REACH_PLACE', 3)
+    mcg_actions.append({'t': t_on + 0.05, 'do': 'equip', 'slot': 'mainhand', 'item': 'minecraft:air'})
+    if back:
+        mcg.shift(t_on + 0.9, t_on + 1.5, MCG_STOOL)
+        mcg.face(t_on + 1.5, -90, 0.5)
+        mcg_clips.cue(t_on + 1.7, 'READ_SCROLL', 10)
 
 
 def mcg_take_back(t):
-    mcg.face(t - 0.8, 0, 0.45)
-    arm = mcg_life['right_arm']
-    arm.change(t - 0.45, [-110, 0, -8], 0.4)
-    arm.change(t + 0.2, [0, 0, 0], 0.5)
+    """She takes the hat off the head on the stool at t."""
+    mcg_clips.cue(t - 1.3, 'IDLE', 6)
+    mcg.shift(t - 1.2, t - 0.6, PLACE_SPOT)
+    mcg.face(t - 0.6, 0, 0.35)
     mcg_actions.append({'t': t, 'do': 'hold', 'item': HAT})
-    mcg.face(t + 0.5, -90, 0.6)
+    mcg.shift(t + 0.25, t + 0.85, MCG_STOOL)
+    mcg.face(t + 0.85, -90, 0.5)
+    mcg_clips.cue(t + 1.4, 'READ_SCROLL', 10)
 
 
+T_TAKE_H = CHEER_H + 0.6
+T_TAKE_R = CHEER_R + 0.6
+mcg_clips.cue(T_HAT_H - 2.2, 'IDLE', 6)
 mcg_crown(T_HAT_H)
-mcg_take_back(CHEER_H + 1.0)
+mcg_take_back(T_TAKE_H)
+mcg_clips.cue(T_HAT_R - 2.2, 'IDLE', 6)
 mcg_crown(T_HAT_R)
-mcg_take_back(CHEER_R + 1.0)
-# she reads the name, looks up at the boy, and steps down in front of him for the hat
-mcg_life['head'].change(T_NAME + 1.8, [-20, -10, 0], 0.7)
-mcg_life['head'].change(T_BOY_SIT + 0.1, [-28, 0, 0], 0.5)
-mcg.go(T_BOY_SIT + 0.6, [(T_BOY_SIT + 1.4, [1.9, 1, -0.85]), (T_BOY_SIT + 1.8, [2.45, 0, -0.8]),
-                          (T_BOY_SIT + 2.1, MCG_IN_FRONT)], start_ease='in')
-mcg.face_point(T_BOY_SIT + 2.1, STOOL, 0.6)
-mcg_life['right_arm'].change(S['J'] + 0.8, [-150, 0, -10], 1.0)       # the hat high over him, into his view
-mcg_life['right_arm'].change(T_HAT_B, [-125, 0, -8], 0.4, False)
-mcg_life['right_arm'].change(T_HAT_B + 0.2, [-105, 0, -8], 0.4, False)
-mcg_actions.append({'t': T_HAT_B, 'do': 'equip', 'slot': 'mainhand', 'item': 'minecraft:air'})
-# small life while she waits: a glance along the line, a turn of the head at the hall
+mcg_take_back(T_TAKE_R)
+# she reads the name, looks up from the scroll at the boy, and steps in before him for the hat
+mcg_clips.cue(T_NAME + 1.8, 'IDLE', 12)
+mcg.go(T_BOY_SIT + 0.6, [(T_BOY_SIT + 1.5, BOY_PLACE)], start_ease='in_out')
+mcg.face_point(T_BOY_SIT + 1.5, STOOL, 0.5)
+mcg_clips.cue(T_HAT_B - 0.95, 'REACH_PLACE', 3)
+mcg_actions.append({'t': T_HAT_B + 0.05, 'do': 'equip', 'slot': 'mainhand', 'item': 'minecraft:air'})
+# small life while she waits at the doors: a glance along the line, a turn of the head
 rnd_m = random.Random(41)
-for t in (8.5, 11.2, 30.5, 45.6, 56.5, 71.5, 83.0):
+for t in (8.5, 11.2):
     mcg_life['head'].change(t, [rnd_m.uniform(-6, 6), rnd_m.uniform(-25, 25), 0], 0.6)
     mcg_life['head'].change(t + rnd_m.uniform(1.2, 2.2), [0, 0, 0], 0.6)
 
@@ -577,6 +626,9 @@ kid_life = {k: Life() for k in KIDS}
 for k in KIDS:
     m = kid_m[k]
     m.face_point(T_MCG_IN - 0.6 + rnd_k.uniform(0, 1.2), [68.5, 0, 0.5], 0.6)
+    if k == 'ron':                                       # turns to the boy to whisper, then back to the doors
+        m.face_point(T_RON_LINE - 0.4, SPOT['boy'], 0.4)
+        m.face(T_RON_LINE + 1.8, 90, 0.5)
     p, c = pair_of(k, pre)
     off = 2.1 + 1.3 * p
     zc = WALK_Z[c]
@@ -595,50 +647,73 @@ for k in KIDS:
     m.go(t_start, pts, start_ease='in')
     m.face_point(T_ARRIVE + 0.15 * p2 + 0.15, STOOL, 0.6)
 
-# ---- Hermione: called, rushes up, sits, the hat, Gryffindor, runs to her table by the lane
-hm = kid_m['hermione']
+kid_clips = {k: Clips() for k in KIDS}
+kid_poses = {k: [] for k in KIDS}
+STOOL_STAND = [1.15, 1, 0.5]     # standing on the top step beside the stool, before sitting and after rising
+
+# ---- Hermione: called, rushes up, sits, the hat, Gryffindor, walks to her table by the lane and sits
+hm, hc, hp = kid_m['hermione'], kid_clips['hermione'], kid_poses['hermione']
 hm.go(T_GRANGER + 0.7, [(T_GRANGER + 1.3, [2.45, 0, 0.45]), (T_GRANGER + 1.7, [1.9, 1, 0.5]),
-                        (T_GRANGER + 2.1, [1.15, 1, 0.5])])
-hm.face(T_GRANGER + 2.1, -90, 0.35)
-hm.sit(T_GRANGER + 2.15, T_GRANGER + 2.55, STOOL_ROOT_KID)
-H_UP = CHEER_H + 1.3
-hm.sit(H_UP, H_UP + 0.35, [1.15, 1, 0.45])
-hm.go(H_UP + 0.35, [(H_UP + 0.7, [1.9, 1, 0.45]), (H_UP + 1.0, [2.45, 0, 0.45]), (H_UP + 1.4, [3.2, 0, LANE_Z]),
-                    (H_UP + 3.6, [12.5, 0, LANE_Z])])
-hm.face(H_UP + 3.65, 180, 0.35)
-hm.sit(H_UP + 3.7, H_UP + 4.1, H_SEAT)
-herm_poses = [pose(T_GRANGER + 2.3, 'seated', 5), pose(T_GRANGER + 2.9, 'hands_clasped', 8), pose(H_UP - 0.1, 'relax', 4),
-              pose(H_UP + 3.9, 'seated', 5)]
+                        (T_GRANGER + 2.1, STOOL_STAND)])
+hm.face(T_GRANGER + 2.1, -90, 0.3)
+hm.sit_down(T_GRANGER + 2.35, STOOL_ROOT_KID, hc, hp)
+hc.cue(T_GRANGER + 3.5, 'HANDS_CLASPED', 8)
+H_UP = CHEER_H + 1.5
+hm.stand_up(H_UP, [1.15, 1, 0.45], hc, hp)
+hm.go(H_UP + 1.1, [(H_UP + 1.45, [1.9, 1, 0.45]), (H_UP + 1.75, [2.45, 0, 0.45]), (H_UP + 2.15, [3.2, 0, LANE_Z]),
+                   (H_UP + 4.35, [12.5, 0, LANE_Z])])
+hm.face(H_UP + 4.35, 180, 0.35)
+hm.sit_down(H_UP + 4.6, H_SEAT, hc, hp)
 herm_actions = [{'t': T_HAT_H, 'do': 'equip', 'slot': 'head', 'item': HAT},
-                {'t': CHEER_H + 1.0, 'do': 'equip', 'slot': 'head', 'item': 'minecraft:air'}]
+                {'t': CHEER_H + 0.6, 'do': 'equip', 'slot': 'head', 'item': 'minecraft:air'}]
 
 # ---- Ron: called, walks up, sits, the hat, Gryffindor, sags with relief, walks to his table by the lane
-rm = kid_m['ron']
+rm, rc, rp = kid_m['ron'], kid_clips['ron'], kid_poses['ron']
 rm.go(T_WEASLEY + 0.8, [(T_WEASLEY + 1.5, [2.45, 0, 1.0]), (T_WEASLEY + 1.9, [1.9, 1, 0.65]),
-                        (T_WEASLEY + 2.35, [1.15, 1, 0.5])])
-rm.face(T_WEASLEY + 2.35, -90, 0.35)
-rm.sit(T_WEASLEY + 2.4, T_WEASLEY + 2.8, STOOL_ROOT_KID)
-R_UP = CHEER_R + 1.4
-rm.sit(R_UP, R_UP + 0.4, [1.15, 1, 0.45])
-rm.go(R_UP + 0.4, [(R_UP + 0.8, [1.9, 1, 0.45]), (R_UP + 1.15, [2.45, 0, 0.45]), (R_UP + 1.6, [3.2, 0, LANE_Z]),
-                   (R_UP + 4.6, [13.5, 0, LANE_Z])])
-rm.face(R_UP + 4.65, 180, 0.35)
-rm.sit(R_UP + 4.7, R_UP + 5.1, R_SEAT)
-ron_poses = [pose(T_WEASLEY + 2.6, 'seated', 5), pose(T_WEASLEY + 3.2, 'hands_clasped', 8), pose(R_UP - 0.1, 'relax', 4),
-             pose(R_UP + 4.9, 'seated', 5)]
+                        (T_WEASLEY + 2.35, STOOL_STAND)])
+rm.face(T_WEASLEY + 2.35, -90, 0.3)
+rm.sit_down(T_WEASLEY + 2.6, STOOL_ROOT_KID, rc, rp)
+rc.span(T_WEASLEY + 3.7, T_SHOUT_R + SHOUT_LEN, 'NERVOUS', 8, 6)
+R_UP = CHEER_R + 1.5
+rm.stand_up(R_UP, [1.15, 1, 0.45], rc, rp)
+rm.go(R_UP + 1.1, [(R_UP + 1.5, [1.9, 1, 0.45]), (R_UP + 1.85, [2.45, 0, 0.45]), (R_UP + 2.3, [3.2, 0, LANE_Z]),
+                   (R_UP + 5.3, [13.5, 0, LANE_Z])])
+rm.face(R_UP + 5.3, 180, 0.35)
+rm.sit_down(R_UP + 5.55, R_SEAT, rc, rp)
 ron_actions = [{'t': T_HAT_R, 'do': 'equip', 'slot': 'head', 'item': HAT},
-               {'t': CHEER_R + 1.0, 'do': 'equip', 'slot': 'head', 'item': 'minecraft:air'}]
+               {'t': CHEER_R + 0.6, 'do': 'equip', 'slot': 'head', 'item': 'minecraft:air'}]
+# Hermione, at her table now, claps for him
+hc.span(CHEER_R + 0.4, CHEER_R + 3.6, 'CLAP', 4, 8)
 
 # ---- the boy: last in line; walks up alone by the lane, sits, the hat comes down
-bm = kid_m['boy']
+bm, bc, bp_ = kid_m['boy'], kid_clips['boy'], kid_poses['boy']
 bs = slot('boy')
 bm.go(T_BOY_WALK, [(T_BOY_WALK + 0.7, [bs[0] - 0.6, 0, LANE_Z]), (T_BOY_WALK + 4.3, [2.6, 0, LANE_Z]),
                    (T_BOY_WALK + 4.7, [2.45, 0, 0.1]), (T_BOY_WALK + 5.0, [1.9, 1, 0.3]),
-                   (T_BOY_WALK + 5.3, [1.15, 1, 0.5])], start_ease='in')
+                   (T_BOY_WALK + 5.3, STOOL_STAND)], start_ease='in')
 bm.face(T_BOY_WALK + 5.3, -90, 0.3)
-bm.sit(T_BOY_SIT - 0.2, T_BOY_SIT + 0.2, STOOL_ROOT_KID)
-boy_poses = [pose(T_BOY_SIT - 0.1, 'seated', 5), pose(T_BOY_SIT + 0.8, 'hands_clasped', 10)]
+bm.sit_down(T_BOY_SIT + 0.1, STOOL_ROOT_KID, bc, bp_)
+bc.cue(T_BOY_SIT + 1.3, 'HANDS_CLASPED', 10)
 boy_actions = [{'t': T_HAT_B, 'do': 'equip', 'slot': 'head', 'item': HAT}]
+
+# ---- waiting: NERVOUS in the entrance hall until the doors, and in the hall until called (or until the name)
+rnd_n = random.Random('nervous')
+for k in KIDS:
+    c = kid_clips[k]
+    p2, _ = pair_of(k, post)
+    if k == 'ron':
+        c.span(rnd_n.uniform(5.5, 7.5), T_RON_LINE - 0.6, 'NERVOUS', 8, 6)
+        c.span(T_RON_LINE - 0.2, T_RON_LINE + 1.8, 'WHISPER', 5, 6)
+    else:
+        c.span(rnd_n.uniform(5.5, 10.0), T0 - rnd_n.uniform(0.0, 1.0), 'NERVOUS', 8, 6)
+    if k == 'hermione':
+        c.span(T_HERM_LINE - 0.1, T_HERM_LINE + 3.8, 'WHISPER', 5, 6)
+    t_in = T_ARRIVE + 0.15 * p2 + 0.8 + rnd_n.uniform(0, 2.5)
+    end = {'hermione': T_GRANGER + 0.5, 'ron': T_WEASLEY + 0.6, 'boy': T_BOY_WALK - 0.3}.get(
+        k, T_NAME + rnd_n.uniform(0.2, 1.5))
+    c.span(t_in, end, 'NERVOUS', 10, 6)
+    if k not in ('hermione', 'ron', 'boy'):
+        c.cue(T_BOY_SIT + 1.5 + rnd_n.uniform(0, 2.5), 'NERVOUS', 10)       # their own turn is coming
 
 
 def m_pos(m, t):
@@ -663,17 +738,13 @@ def head_toward(m, t, pt, cap=70):
 kl = kid_life
 kl['ron']['head'].change(11.6, [22, 0, 0], 0.3)                         # swallows on "be sorted"
 kl['ron']['head'].change(12.6, [0, 0, 0], 0.4)
-kl['ron']['head'].change(T_RON_LINE - 0.2, head_toward(kid_m['ron'], T_RON_LINE, [SPOT['boy'][0], 1.1, SPOT['boy'][2]]), 0.4)
-kl['ron']['head'].change(T_RON_LINE + 1.9, [0, 0, 0], 0.4)
 kl['boy']['head'].change(T_RON_LINE + 0.1, head_toward(kid_m['boy'], T_RON_LINE, [SPOT['ron'][0], 1.1, SPOT['ron'][2]]), 0.45)
 kl['boy']['head'].change(T_RON_LINE + 2.0, [0, 0, 0], 0.4)
 kl['hermione']['head'].change(T_HERM_LINE - 0.2, [4, -55, 0], 0.4)     # whispers to Ron (on her +z: her left)
 kl['hermione']['head'].change(T_HERM_LINE + 3.7, [0, 0, 0], 0.4)
-kl['hermione']['right_arm'].change(T_HERM_LINE + 0.6, [-40, 0, 10], 0.4)
-kl['hermione']['right_arm'].change(T_HERM_LINE + 2.6, [0, 0, 0], 0.5)
 kl['hermione']['head'].change(T_SHOUT_H + SHOUT_LEN, [-18, 0, 0], 0.4)  # beams
 kl['hermione']['head'].change(T_SHOUT_H + SHOUT_LEN + 1.0, [0, 0, 0], 0.4)
-kl['ron']['head'].change(T_HAT_R + 0.2, [-12, 0, 0], 0.4)                # eyes up at the brim
+kl['ron']['head'].change(T_HAT_R + 0.3, [-12, 0, 0], 0.4)                # eyes up at the brim
 kl['ron']['head'].change(T_SHOUT_R + SHOUT_LEN, [32, 0, 0], 0.5)         # sags with relief
 kl['ron']['body'].change(T_SHOUT_R + SHOUT_LEN, [14, 0, 0], 0.5)
 kl['ron']['head'].change(R_UP - 0.2, [0, 0, 0], 0.4)
@@ -685,6 +756,10 @@ KID_BUSY = {'ron': [(11.4, 16.6), (T_WEASLEY, 90)], 'boy': [(13.8, 17.0), (T_BOY
 for k in KIDS:
     rnd = random.Random('kid' + k)
     busy = KID_BUSY.get(k, []) + [(T0 - 0.5, BOOM + 1.5)]        # everyone freezes for the doors
+    cues = kid_clips[k].emit()
+    for c0, c1 in zip(cues, cues[1:] + [{'t': tk(LENGTH)}]):
+        if c0['name'] != 'IDLE':
+            busy.append((c0['t'] / 20 - 0.5, c1['t'] / 20 + 0.5))
     if k not in ('boy',):
         busy.append((T_NAME + 0.3, T_BOY_SIT))                   # turned to the boy (below)
     for a, b in free_windows(busy, 1.0, LENGTH - 2):
@@ -703,15 +778,7 @@ for k in KIDS:
             back = t + rnd.uniform(1.0, 2.6)
             if back < b:
                 kid_life[k]['head'].change(back, [0, 0, 0], rnd.uniform(0.3, 0.6))
-            if rnd.random() < 0.3 and back + 0.2 < b:
-                gesture(kid_life[k], rnd, t + 0.2)
             t = back + rnd.uniform(1.0, 4.0)
-    # a weight shift now and then
-    t = rnd.uniform(1, 6)
-    while t < LENGTH - 6:
-        if not any(a - 1 < t < b + 1 for a, b in busy):
-            kid_life[k]['body'].change(t, [0, 0, rnd.uniform(-3, 3)], 0.8)
-        t += rnd.uniform(5, 11)
     # the name: the children turn to the boy behind them (staggered, some late)
     if k not in ('boy', 'hermione', 'ron'):
         tr = react(rnd, T_NAME + 0.2, never=0.0)
@@ -722,23 +789,19 @@ for k in KIDS:
 FIRST_YEAR_SKINS = skin_pool('first_year', 10, ['first_year'])
 for i, k in enumerate(KIDS):
     if k == 'boy':
-        skin, pc, ac = {'viewer': True}, boy_poses, boy_actions
+        skin, ac = {'viewer': True}, boy_actions
     elif k == 'hermione':
-        skin, pc, ac = {'texture': 'hermione'}, herm_poses, herm_actions
+        skin, ac = {'texture': 'hermione'}, herm_actions
     elif k == 'ron':
-        skin, pc, ac = {'texture': 'ron'}, ron_poses, ron_actions
+        skin, ac = {'texture': 'ron'}, ron_actions
     else:
         n = int(k[1:]) - 1
-        skin, pc, ac = {'texture': FIRST_YEAR_SKINS[n % len(FIRST_YEAR_SKINS)]}, None, None
+        skin, ac = {'texture': FIRST_YEAR_SKINS[n % len(FIRST_YEAR_SKINS)]}, None
     actor(k if k in ('boy', 'hermione', 'ron') else 'first_year_' + k[1:], skin, KID, mover=kid_m[k],
-          life=kid_life[k], pose_cues=pc, actions=ac)
+          life=kid_life[k], pose_cues=kid_poses[k] or None, actions=ac, clips=kid_clips[k])
 
 actor('mcgonagall', {'texture': 'mcgonagall'}, ADULT, mover=mcg, life=mcg_life,
-      items={'offhand': 'minecraft:paper'},
-      pose_cues=[pose(0, 'scroll', 1), pose(T_CALL - 0.3, 'scroll_read', 8), pose(T_SHOUT_H - 0.4, 'scroll', 8),
-                 pose(T_WEASLEY - 0.6, 'scroll_read', 8), pose(T_SHOUT_R - 0.4, 'scroll', 8),
-                 pose(T_SCROLL, 'scroll_read', 12), pose(T_BOY_SIT, 'scroll', 10)],
-      actions=mcg_actions)
+      items={'offhand': 'minecraft:paper'}, actions=mcg_actions, clips=mcg_clips)
 
 # ================================================================ the staff table
 STAFF = A['staff_seats']        # [x, seat_top, z, yaw]; 0 is the throne
@@ -753,26 +816,28 @@ def staff_idle(life, rnd, every, span, busy=()):
         t += rnd.uniform(*every)
 
 
-def staff_seated(aid, skin, seat, scale, life, look=None):
+def staff_seated(aid, skin, seat, scale, life, look=None, clips=None):
     x, top, z, yaw = seat
     actor(aid, {'texture': skin}, scale, path=[{'t': 0, 'pos': [x, seat_root(top, scale), z]}],
-          look=look or [{'t': 0, 'yaw': yaw}], life=life, pose_cues=[pose(0, 'seated', 1)])
+          look=look or [{'t': 0, 'yaw': yaw}], life=life, pose_cues=[pose(0, 'seated', 1)], clips=clips)
 
 
-# Dumbledore rises for his welcome, arms open, and sits again
+# Dumbledore rises for his welcome, arms open, and sits again; the staff clap for each new Gryffindor
 THRONE = [STAFF[0][0], seat_root(STAFF[0][1], ADULT), STAFF[0][2]]
 DUMB_UP = [-13.9, 1.0, 0.5]                              # standing behind the table, in front of the throne
 dm = Mover('dumbledore', THRONE, STAFF[0][3])
-dm.sit(T_DUMB - 0.9, T_DUMB - 0.2, DUMB_UP)
-dm.sit(T_DUMB + 4.4, T_DUMB + 5.1, THRONE)
+d_clips, d_poses = Clips(), [pose(0, 'seated', 1)]
+dm.stand_up(T_DUMB - 1.2, DUMB_UP, d_clips, d_poses)
+d_poses.append(pose(T_DUMB, 'welcome', 12))
+d_poses.append(pose(T_DUMB + 3.6, 'standing', 10))
+dm.sit_down(T_DUMB + 4.4, THRONE, d_clips, d_poses)
+d_clips.span(CHEER_H + 0.9, CHEER_H + 3.4, 'CLAP', 6, 8)
+d_clips.span(CHEER_R + 1.1, CHEER_R + 3.2, 'CLAP', 6, 8)
 d_life = Life()
-staff_idle(d_life, random.Random(3), (3.5, 7.0), 25, busy=[(T_DUMB - 1, T_DUMB + 5.5)])
-d_life['head'].change(BOOM + 0.6, [0, 14, 0], 0.8)
-actor('dumbledore', {'texture': 'dumbledore'}, ADULT, mover=dm, life=d_life,
-      pose_cues=[pose(0, 'seated', 1), pose(T_DUMB - 0.9, 'relax', 8), pose(T_DUMB, 'welcome', 12),
-                 pose(T_DUMB + 3.7, 'relax', 10), pose(T_DUMB + 5.0, 'seated', 6)])
+staff_idle(d_life, random.Random(3), (3.5, 7.0), 25, busy=[(T_DUMB - 1.5, T_DUMB + 5.5)])
+actor('dumbledore', {'texture': 'dumbledore'}, ADULT, mover=dm, life=d_life, pose_cues=d_poses, clips=d_clips)
 
-# Snape: still, staring; Quirrell: twitchy little jerks; Hagrid (1.5): waves, claps after each Gryffindor
+# Snape: still, staring; Quirrell: twitchy little jerks and a nervous clap; Hagrid (1.5): waves, claps
 s_life = Life()
 staff_idle(s_life, random.Random(5), (6.0, 11.0), 12)
 staff_seated('snape', 'snape', STAFF[4], ADULT, s_life)
@@ -782,33 +847,29 @@ t = 0.4
 while t < LENGTH - 1:
     q_life['head'].change(t, [rq.uniform(-8, 14), rq.uniform(-35, 35), rq.uniform(-6, 6)], rq.uniform(0.1, 0.25))
     t += rq.uniform(0.8, 1.8)
-staff_seated('quirrell', 'quirrell', STAFF[6], ADULT, q_life)
+q_clips = Clips()
+q_clips.span(CHEER_H + 1.6, CHEER_H + 2.9, 'CLAP', 4, 6)
+q_clips.span(2.0, 9.0, 'NERVOUS', 10, 10)
+staff_seated('quirrell', 'quirrell', STAFF[6], ADULT, q_life, clips=q_clips)
 h_life = Life()
-rh = random.Random(11)
-h_life['right_arm'].change(S['D3'] + 1.0, [-160, 0, 14], 0.5)
-for k in range(4):
-    h_life['right_arm'].change(S['D3'] + 1.6 + 0.45 * k, [-160, 0, 34 if k % 2 == 0 else 8], 0.2, False)
-h_life['right_arm'].change(S['D3'] + 3.6, [0, 0, 0], 0.6)
-for base in (CHEER_H + 0.4, CHEER_R + 0.6):
-    for k in range(4):
-        tt = base + 0.34 * k
-        h_life['right_arm'].change(tt, [-50, 0, 6], 0.15, False)
-        h_life['right_arm'].change(tt + 0.17, [-55, 0, -20], 0.15, False)
-        h_life['left_arm'].change(tt, [-50, 0, -6], 0.15, False)
-        h_life['left_arm'].change(tt + 0.17, [-55, 0, 20], 0.15, False)
-    h_life['right_arm'].change(base + 1.6, [0, 0, 0], 0.4)
-    h_life['left_arm'].change(base + 1.6, [0, 0, 0], 0.4)
-staff_idle(h_life, rh, (2.5, 6.0), 30)
-staff_seated('hagrid', 'hagrid', STAFF[7], GIANT, h_life)
+staff_idle(h_life, random.Random(11), (2.5, 6.0), 30)
+h_clips = Clips()
+h_clips.span(S['D3'] + 1.0, S['D3'] + 3.8, 'WAVE', 6, 10)              # a big wave at the first-years
+h_clips.span(CHEER_H + 0.3, CHEER_H + 4.2, 'CHEER', 4, 10)
+h_clips.span(CHEER_R + 0.4, CHEER_R + 3.4, 'CLAP', 4, 8)
+staff_seated('hagrid', 'hagrid', STAFF[7], GIANT, h_life, clips=h_clips)
 t_life = Life()
-staff_idle(t_life, random.Random(13), (2.5, 5.5), 35)
-gesture(t_life, random.Random(14), 9.0)
-gesture(t_life, random.Random(15), 31.0)
-staff_seated('teacher', 'sirius', STAFF[3], ADULT, t_life)
+staff_idle(t_life, random.Random(13), (2.5, 5.5), 35, busy=[(7.5, 11.5), (29.5, 33.5)])
+t_clips = Clips()
+t_clips.span(8.0, 11.2, 'TALK', 8, 8)                    # chatting with the empty chair's neighbour
+t_clips.span(30.0, 33.0, 'TALK', 8, 8)
+t_clips.span(CHEER_H + 1.0, CHEER_H + 3.2, 'CLAP', 5, 8)
+t_clips.span(CHEER_R + 0.8, CHEER_R + 2.6, 'CLAP', 5, 8)
+staff_seated('teacher', 'sirius', STAFF[3], ADULT, t_life, clips=t_clips)
 
 # ================================================================ the house tables
 SEATS = A['table_seats']
-PER_SIDE = 15
+PER_SIDE = 16
 RESERVED = {(12.5, -1.5), (13.5, -1.5)}                   # Hermione's and Ron's seats
 AISLE_BENCH_Z = (-1.5, 2.5)                              # the two benches with their backs to the aisle
 DOOR_TARGET = [64.5, 5.5, 0.5]
@@ -867,38 +928,13 @@ class Gaze:
         return [{'t': t, 'yaw': round(self.yaw0 + v, 1)} for t, v in self.body.keys()]
 
 
-def arms_cheer(life, rnd, t0, big):
-    n = rnd.randint(4, 6) if big else rnd.randint(2, 4)
-    for part, s in (('right_arm', 1), ('left_arm', -1)):
-        life[part].change(t0, [rnd.uniform(-150, -135), 0, s * 15], rnd.uniform(0.2, 0.35))
-    t = t0 + 0.35
-    for _ in range(n):
-        t += rnd.uniform(0.3, 0.45)
-        for part, s in (('right_arm', 1), ('left_arm', -1)):
-            life[part].change(t, [rnd.uniform(-155, -110), 0, s * rnd.uniform(8, 28)], 0.3, False)
-    for part in ('right_arm', 'left_arm'):
-        life[part].change(t + rnd.uniform(0.4, 0.9), [0, 0, 0], rnd.uniform(0.4, 0.7))
-    return t + 1.2
-
-
-def arms_clap(life, rnd, t0):
-    claps = rnd.randint(3, 6)
-    rate = rnd.uniform(0.28, 0.38)
-    for k in range(claps):
-        t = t0 + 0.2 + rate * k
-        life['right_arm'].change(t, [-30, 0, 8], 0.12, False)
-        life['left_arm'].change(t, [-30, 0, -8], 0.12, False)
-        life['right_arm'].change(t + rate / 2, [-32, 0, -22], 0.12, False)
-        life['left_arm'].change(t + rate / 2, [-32, 0, 22], 0.12, False)
-    end = t0 + 0.2 + rate * claps + 0.3
-    life['right_arm'].change(end, [0, 0, 0], 0.4)
-    life['left_arm'].change(end, [0, 0, 0], 0.4)
-    return end + 0.4
-
-
-def arms_free(t):
-    """No talking gestures from just before each shout to well after its cheer."""
-    return not (T_SHOUT_H - 4 < t < CHEER_H + 7 or T_SHOUT_R - 4 < t < CHEER_R + 7)
+def pick(rnd, weights):
+    r = rnd.random() * sum(w for _, w in weights)
+    for name, w in weights:
+        r -= w
+        if r <= 0:
+            return name
+    return weights[-1][0]
 
 
 def track_pos(m, t, y=1.0):
@@ -906,28 +942,88 @@ def track_pos(m, t, y=1.0):
     return [p[0], y, p[2]]
 
 
+def partners(seats):
+    """Across-the-table conversation partners: the k-th seat of one bench with the k-th of the other."""
+    sides = {}
+    for st in seats:
+        sides.setdefault(st[2], []).append(st)
+    zs = sorted(sides)
+    out = {}
+    for z0, z1 in zip(zs[0::2], zs[1::2]):
+        a_, b_ = sorted(sides[z0], key=lambda q: q[0]), sorted(sides[z1], key=lambda q: q[0])
+        for p_, q_ in zip(a_, b_):
+            out[id(p_)], out[id(q_)] = q_, p_
+    return out
+
+
+def conversation(rnd, t0, t1, first):
+    """Turns of TALK for one side of a two-person chat between t0 and t1: [(start, end)]."""
+    turns, t, me = [], t0, first
+    while t < t1 - 1.0:
+        d = rnd.uniform(1.6, 3.8)
+        if me:
+            turns.append((t, min(t + d, t1)))
+        t += d + rnd.uniform(0.2, 0.8)
+        if rnd.random() < 0.75:
+            me = not me
+    return turns
+
+
 STUDENT_SKINS = {h: skin_pool('student_' + h, 30, ['student_' + h, 'student_%s_b' % h]) for h in SEATS}
+CHATS_BEFORE = (0.4, BOOM - 0.4)             # the hall chatting before the doors
+CHATS_PASS = (S['D1'] + 1.5, T_ARRIVE - 0.5)  # a word to a neighbour as the first-years pass
+CHATS_AFTER = (CHEER_R + 5.2, T_NAME - 0.4)   # excited chatter after Ron, before the silence
 n_students = 0
 for house in ('hufflepuff', 'gryffindor', 'ravenclaw', 'slytherin'):
     rnd_seat = random.Random('seats' + house)
     seats = pick_seats(house, rnd_seat)
     skins = list(STUDENT_SKINS[house])
     random.Random('skins' + house).shuffle(skins)
+    partner = partners(seats)
+    rnd_pairs = random.Random('chat' + house)
+    pair_plan = {}                           # id(seat) -> (chats?, first speaker?, pass chat?, after chat?)
+    for st in sorted(seats, key=lambda q: (q[0], q[2])):
+        if id(st) in pair_plan:
+            continue
+        mate = partner.get(id(st))
+        plan = (rnd_pairs.random() < 0.8, rnd_pairs.random() < 0.5, rnd_pairs.random() < 0.3,
+                rnd_pairs.random() < 0.45, rnd_pairs.randrange(1 << 30))
+        pair_plan[id(st)] = plan
+        if mate is not None:
+            pair_plan[id(mate)] = (plan[0], not plan[1], plan[2], plan[3], plan[4])
     for k, seat in enumerate(seats):
         n_students += 1
         aid = '%s_%d' % (house, k)
         rnd = random.Random(aid)
         life = Life()
+        clips = Clips()
         g = Gaze(seat, OLD, life)
-        neighbours = [s for s in seats if s is not seat and abs(s[0] - seat[0]) < 6]
+        mate = partner.get(id(seat))
+        chats, first, chat_pass, chat_after, pseed = pair_plan[id(seat)]
+        neighbours = [q for q in seats if q is not seat and abs(q[0] - seat[0]) < 6]
+        # ---- the chats: both of a pair face each other; turns of TALK, the other listening
+        chat_windows = []
+        if mate is not None and chats:
+            chat_windows.append(CHATS_BEFORE)
+        if mate is not None and chat_pass:
+            c0 = rnd.uniform(CHATS_PASS[0], CHATS_PASS[1] - 4)
+            chat_windows.append((c0, c0 + rnd.uniform(2.5, 4.0)))
+        if mate is not None and chat_after:
+            chat_windows.append(CHATS_AFTER)
+        for w0, w1 in chat_windows:
+            for t0, t1 in conversation(random.Random(pseed + int(w0 * 10)), w0, w1, first):
+                clips.span(t0, t1, 'TALK', rnd.randint(4, 8), rnd.randint(6, 10))
         # ---- the reactions: (time or None, what), each staggered for this student
         R = []
+        for w0, w1 in chat_windows:
+            R.append((w0 + rnd.uniform(0, 0.6), 'pt', [mate[0], 1.3, mate[2]], True))
         tr = react(rnd, BOOM - 0.2, (1.5, 3.0))                                   # the doors
         if tr:
             R.append((tr, 'pt', DOOR_TARGET, True))
         for tt in (S['D1'] + 1.0, S['D1'] + 4.5, 37.5, S['D3'] + 1.5, S['D3'] + 4.0):
             tt2 = tt + rnd.uniform(-0.4, 0.8)
-            R.append((tt2, 'track', [mcg_x(tt2) + 1.5, 1.3, AISLE_Z], True))
+            if not any(w0 - 0.5 < tt2 < w1 + 0.5 for w0, w1 in chat_windows):
+                R.append((tt2, 'track', [mcg_x(tt2) + 1.5, 1.3, AISLE_Z], True))
         tr = react(rnd, T_ARRIVE, (1.5, 2.5))
         if tr:
             R.append((tr, 'pt', STOOL_TARGET, True))
@@ -940,41 +1036,40 @@ for house in ('hufflepuff', 'gryffindor', 'ravenclaw', 'slytherin'):
         if tr:
             R.append((tr, 'track', track_pos(hm, tr), False))
         R.append((T_GRANGER + 2.8 + rnd.uniform(0, 1.0), 'pt', STOOL_TARGET, False))
-        tr = react(rnd, H_UP + 0.6, (1.0, 2.0))
+        tr = react(rnd, H_UP + 1.6, (1.0, 2.0))
         if tr:
             R.append((tr, 'track', track_pos(hm, tr), False))
         R.append((T_WEASLEY + 0.5 + rnd.uniform(0, 1.5), 'pt', STOOL_TARGET, False))
-        tr = react(rnd, R_UP + 0.8, (1.0, 2.5))
-        if tr:
+        tr = react(rnd, R_UP + 1.8, (1.0, 2.5))
+        if tr and not (chat_after and CHATS_AFTER[0] - 0.5 < tr):
             R.append((tr, 'track', track_pos(rm, tr), False))
-        R.append((T_SCROLL + rnd.uniform(0, 2.0), 'pt', STOOL_TARGET, True))
+        R.append((T_SCROLL + rnd.uniform(0, 2.0) if not chat_after else T_NAME - 0.3 + rnd.uniform(0, 0.4),
+                  'pt', STOOL_TARGET, True))
         tr = react(rnd, T_NAME + 0.2, (1.5, 3.0), late=0.15, never=0.05)       # the name: turn to the boy
         if tr:
             R.append((tr, 'pt', track_pos(bm, T_NAME, 1.1), True))
             R.append((T_BOY_WALK + 2.0 + rnd.uniform(0, 0.8), 'track', track_pos(bm, T_BOY_WALK + 2.4, 1.1), True))
             R.append((T_BOY_SIT + rnd.uniform(0, 1.2), 'pt', [STOOL[0], 2.1, STOOL[2]], True))
         R.sort(key=lambda r: r[0])
-        # ---- before the doors and in every quiet gap: chatter with neighbours, idle turns
-        busy = [(r[0] - 0.6, r[0] + 1.2) for r in R]
+        # ---- in every quiet gap: glances at neighbours and idle turns of the head
+        busy = [(r[0] - 0.6, r[0] + 1.2) for r in R] + [(w0 - 0.5, w1 + 0.5) for w0, w1 in chat_windows]
         busy.append((T_HUSH - 0.5, T_DUMB + 5.5))                            # the hush and the welcome: still
         busy.append((T_NAME, T_BOY_SIT + 2.0))                               # the name: everyone watching
         idle = []
-        for a, b in free_windows(busy, 0.3, LENGTH - 1.5):
-            t = a + rnd.uniform(0.2, 2.0)
-            while t < b - 1.2:
+        for a_, b_ in free_windows(busy, 0.3, LENGTH - 1.5):
+            t = a_ + rnd.uniform(0.2, 2.0)
+            while t < b_ - 1.2:
                 idle.append(t)
-                t += rnd.uniform(2.5, 6.5)
+                t += rnd.uniform(2.0, 5.5)
         events_s = [(r[0], r) for r in R] + [(t, None) for t in idle]
         events_s.sort(key=lambda e: e[0])
         g.set(0.0, rnd.uniform(-45, 45), rnd.uniform(-6, 10), body=False)
-        cur = None                                       # the current attention point (None = idle chatter)
+        cur = None                                       # the current attention point (None = idle)
         for t, r in events_s:
             if r is None:
                 if rnd.random() < 0.6 and neighbours:
                     nb = rnd.choice(neighbours)
                     g.at(t, [nb[0], 1.25, nb[2]], rnd.uniform(0.35, 0.7), body=rnd.random() < 0.4)
-                    if rnd.random() < 0.35 and arms_free(t):
-                        gesture(life, rnd, t + rnd.uniform(0.1, 0.6))
                 else:
                     base = g.rel(cur)[0] if cur else 0
                     g.set(t, base + rnd.uniform(-35, 35), rnd.uniform(-8, 10), rnd.uniform(0.35, 0.7),
@@ -982,34 +1077,36 @@ for house in ('hufflepuff', 'gryffindor', 'ravenclaw', 'slytherin'):
                 if cur and rnd.random() < 0.6:
                     g.at(t + rnd.uniform(1.0, 2.2), cur, rnd.uniform(0.4, 0.7), body=False)
             else:
-                _, kind, p, body = r
-                g.at(t, p, rnd.uniform(0.35, 0.65) if kind == 'pt' else 0.6, hold=(kind == 'pt'), body=body)
-                cur = p
-        # ---- leaning on the table now and then
-        t = rnd.uniform(1, 12)
+                _, kind, pt, body = r
+                g.at(t, pt, rnd.uniform(0.35, 0.65) if kind == 'pt' else 0.6, hold=(kind == 'pt'), body=body)
+                cur = pt
+        # ---- leaning on the table now and then (not over the doors or the cheers)
+        t = rnd.uniform(4, 20)
         while t < LENGTH - 8:
             d = rnd.uniform(3, 8)
-            if not any(a - 1 < t < b + 1 or a - 1 < t + d < b + 1 for a, b in
-                       ((BOOM - 1, BOOM + 3), (CHEER_H - 0.5, CHEER_H + 6), (CHEER_R - 0.5, CHEER_R + 6))):
+            if not any(a_ - 1 < t < b_ + 1 or a_ - 1 < t + d < b_ + 1 for a_, b_ in
+                       ((BOOM - 1, BOOM + 3), (T_SHOUT_H - 1, CHEER_H + 7), (T_SHOUT_R - 1, CHEER_R + 7))):
                 lean(life, rnd, t, d)
-            t += d + rnd.uniform(6, 18)
-        # ---- the cheers: Gryffindor on its feet (arms up), others clap; never before the shout has ended
+            t += d + rnd.uniform(10, 25)
+        # ---- the cheers: each table only after the hat's shout has finished, staggered per student
         for c0, big in ((CHEER_H, True), (CHEER_R, False)):
             if house == 'gryffindor':
-                tr = react(rnd, c0, (0.3, 2.0), late=0.1, never=0.0 if big else 0.2)
+                tr = react(rnd, c0, (0.3, 2.0), late=0.12, never=0.0 if big else 0.15)
                 if tr:
-                    arms_cheer(life, rnd, tr, big)
-            elif house != 'slytherin':
-                if rnd.random() < (0.6 if big else 0.45):
-                    arms_clap(life, rnd, c0 + rnd.uniform(0.3, 3.0))
-        # talking gestures in the quiet stretches (not over the cheers)
-        for t in idle:
-            if rnd.random() < 0.12 and arms_free(t):
-                gesture(life, rnd, t + 0.3)
+                    clip = pick(rnd, [('CHEER', 0.45), ('CHEER_STAND', 0.25), ('CLAP', 0.3)] if big else
+                                [('CLAP', 0.5), ('CHEER', 0.35), ('CHEER_STAND', 0.15)])
+                    d = 3.4 if clip == 'CHEER_STAND' else rnd.uniform(2.5, 4.5) * (1 if big else 0.8)
+                    clips.span(tr, tr + d, clip, rnd.randint(2, 5), rnd.randint(6, 10))
+            else:
+                prob = {'slytherin': (0.12, 0.08)}.get(house, (0.75, 0.6))[0 if big else 1]
+                if rnd.random() < prob:
+                    t0 = c0 + (rnd.uniform(1.0, 3.0) if house == 'slytherin' else rnd.uniform(0.3, 3.0))
+                    d = rnd.uniform(1.0, 1.8) if house == 'slytherin' else rnd.uniform(1.6, 3.4)
+                    clips.span(t0, t0 + d, 'CLAP', rnd.randint(4, 8), rnd.randint(6, 10))
         x, top, z, yaw = seat
         actor(aid, {'texture': skins[k % len(skins)]}, OLD,
               path=[{'t': 0, 'pos': [x, seat_root(top, OLD), z]}], look=g.look_json(), life=life,
-              pose_cues=[pose(0, 'seated', 1)])
+              pose_cues=[pose(0, 'seated', 1)], clips=clips)
 
 # ================================================================ events
 ev(0, 'effect', 'eyes_open', at=[0, 0, 0], duration=tk(2.6))
@@ -1169,11 +1266,11 @@ key(S['I3'], [3.4, 2.1, -1.8], 'actor:boy', 52)
 key(S['I3'], [-1.6, 2.7, -0.7], [20.0, 1.4, 0.6], 66, cut=True)
 key(S['J'], [-1.2, 2.62, -0.5], [20.0, 1.5, 0.6], 64)
 # J: first person on the stool; the hat rises over the camera, the eyes lift, the brim comes down
-fp = [STOOL[0] + 0.22, STOOL_ROOT_KID[1] + BOY_EYE, STOOL[2]]
+fp = [STOOL[0] + 0.35, STOOL_ROOT_KID[1] + BOY_EYE, STOOL[2]]
 key(S['J'], fp, [20.0, 1.5, 0.5], 72, cut=True)
-key(S['J'] + 1.6, fp, [20.0, 1.8, 0.2], 72)
-key(T_HAT_B, [fp[0] - 0.03, fp[1] - 0.04, fp[2]], [20.0, 5.2, -2.5], 74)
-key(LENGTH, [fp[0] - 0.05, fp[1] - 0.07, fp[2]], [20.0, 3.6, -2.0], 74)
+key(S['J'] + 1.6, fp, [12.0, 2.6, -5.0], 72)                  # she is before him, the hat in her hands
+key(T_HAT_B, [fp[0] - 0.03, fp[1] - 0.04, fp[2]], [10.0, 5.0, -6.0], 74)
+key(LENGTH, [fp[0] - 0.05, fp[1] - 0.07, fp[2]], [10.0, 3.6, -5.0], 74)
 
 hall = {
     'title': 'The Sorting',
@@ -1247,7 +1344,15 @@ for a in actors:
 for e in evs:
     if e['kind'] == 'block' and not is_air(e['at']):
         problems.append('light block at %s replaces %s' % (e['at'], world.get(cell(e['at']))))
-# the cheers start only once the hat's shout has finished
+# the cheers start only once the hat's shout has finished: no cheering clip in force during a shout, for anyone
+for a in actors:
+    cues = a.get('anims', [])
+    for shout in (T_SHOUT_H, T_SHOUT_R):
+        s0, s1 = tk(shout), tk(shout + SHOUT_LEN)
+        in_force = [c['name'] for c in cues if c['t'] <= s0][-1:] + [c['name'] for c in cues if s0 < c['t'] < s1]
+        bad = [n for n in in_force if n in CHEER_CLIPS]
+        if bad:
+            problems.append('%s cues %s during the shout at %.1f s' % (a['id'], bad, shout))
 for a in actors:
     for part in ('right_arm', 'left_arm'):
         if a['id'].startswith(('gryffindor_', 'hufflepuff_', 'ravenclaw_')) and part in a.get('limbs', {}):
@@ -1343,12 +1448,12 @@ intro = {
     'radius': I_R,
     'next': HALL_ID,
     'set': {'fills': i_fills, 'time_of_day': 18000, 'build_ticks': 40},
-    'poses': {'seated': POSES['seated'], 'hands_on_knees': {'right_arm': [-38, -12, 0], 'left_arm': [-38, 12, 0]}},
+    'poses': {'seated': POSES['seated']},
     'actors': [{
         'id': 'boy', 'type': 'player', 'skin': {'viewer': True}, 'scale': KID,
         'path': [{'t': 0, 'pos': i_seat}],
         'look': [{'t': 0, 'yaw': 180}],
-        'poses': [{'t': 0, 'name': 'seated', 'blend': 1}, {'t': 1, 'name': 'hands_on_knees', 'blend': 1}],
+        'poses': [{'t': 0, 'name': 'seated', 'blend': 1}],
         'limbs': i_life.emit(),
     }],
     'events': sorted(i_events, key=lambda e: e['t']),

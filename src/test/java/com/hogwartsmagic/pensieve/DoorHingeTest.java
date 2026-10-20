@@ -48,6 +48,73 @@ class DoorHingeTest {
     }
 
     @Test
+    void mirroredHingeStaysPut() {
+        for (float s : SCALES) {
+            for (float yaw : YAWS) {
+                for (int c = 0; c <= 1; c++) {
+                    double[] p = DoorHinge.corner(yaw, s, c, true);
+                    assertEquals(0.0, p[0], 1e-9);
+                    assertEquals(0.0, p[2], 1e-9);
+                    assertEquals(c == 0 ? 0.0 : 3.0 * s, p[1], 1e-9);
+                }
+            }
+        }
+    }
+
+    @Test
+    void mirroredSwingsTheOtherWay() {
+        assertArrayEquals(new double[] {-1, 0, 0}, DoorHinge.corner(0f, 1f, 2, true), 1e-9);
+        assertArrayEquals(new double[] {0, 0, -1}, DoorHinge.corner(-90f, 1f, 2, true), 1e-9);
+        assertArrayEquals(new double[] {0, 0, 1}, DoorHinge.corner(90f, 1f, 2, true), 1e-9);
+        assertArrayEquals(new double[] {1, 0, 0}, DoorHinge.corner(180f, 1f, 2, true), 1e-9);
+        // The thickness is not mirrored: at yaw 0 it is still on +Z.
+        assertArrayEquals(new double[] {0, 0, 0.2}, DoorHinge.corner(0f, 1f, 4, true), 1e-9);
+    }
+
+    @Test
+    void mirroredFacesWindOutward() {
+        for (float yaw : YAWS) {
+            double[][] c = new double[8][];
+            double[] mid = new double[3];
+            for (int i = 0; i < 8; i++) {
+                c[i] = DoorHinge.corner(yaw, 1f, i, true);
+                for (int k = 0; k < 3; k++) mid[k] += c[i][k] / 8.0;
+            }
+            for (int f = 0; f < DoorHinge.FACES.length; f++) {
+                int[] q = DoorHinge.winding(f, true);
+                double[] n = DoorHinge.faceNormal(yaw, 1f, f, true);
+                double[] centre = new double[3];
+                for (int i : q) for (int k = 0; k < 3; k++) centre[k] += c[i][k] / 4.0;
+                double out = 0;
+                for (int k = 0; k < 3; k++) out += n[k] * (centre[k] - mid[k]);
+                assertTrue(out > 0.05, "mirrored face " + f + " yaw " + yaw + " points inward");
+            }
+        }
+    }
+
+    /** The documented pair: doorway along Z, hinges at z -3.5 and +4.5, scale 4, both opening toward -X. */
+    @Test
+    void pairMeetsAndOpensTheSameWay() {
+        float s = 4f;
+        double lowHinge = -3.5, highHinge = 4.5;
+        // Closed (both yaw -90): the free edges meet at z 0.5, both thicknesses on -X.
+        double[] aFree = DoorHinge.corner(-90f, s, 2, false);
+        double[] bFree = DoorHinge.corner(-90f, s, 2, true);
+        assertEquals(0.5, lowHinge + aFree[2], 1e-9);
+        assertEquals(0.5, highHinge + bFree[2], 1e-9);
+        assertEquals(-0.8, DoorHinge.corner(-90f, s, 4, false)[0], 1e-9);
+        assertEquals(-0.8, DoorHinge.corner(-90f, s, 4, true)[0], 1e-9);
+        // Open: the low leaf at -180 and the high leaf at 0 both have their free edge on -X, 4 from the hinge.
+        assertArrayEquals(new double[] {-4, 0, 0}, DoorHinge.corner(-180f, s, 2, false), 1e-9);
+        assertArrayEquals(new double[] {-4, 0, 0}, DoorHinge.corner(0f, s, 2, true), 1e-9);
+        // Halfway the leaves are mirror images about the doorway centre line z 0.5.
+        double[] a45 = DoorHinge.corner(-135f, s, 2, false);
+        double[] b45 = DoorHinge.corner(-45f, s, 2, true);
+        assertEquals(a45[0], b45[0], 1e-9);
+        assertEquals(0.5 - (lowHinge + a45[2]), (highHinge + b45[2]) - 0.5, 1e-9);
+    }
+
+    @Test
     void facesWindOutward() {
         for (float yaw : YAWS) {
             double[][] c = new double[8][];

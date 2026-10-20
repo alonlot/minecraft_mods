@@ -41,8 +41,9 @@ public class MemoryDoorEntity extends Entity {
     }
 
     /**
-     * The leaf swings about the hinge and can be scaled up to 4, so it reaches 4 blocks sideways and 12 up
-     * from the entity position, far outside the 1 x 3 hit box that vanilla culling would use.
+     * Covers the leaf at any yaw: at scale 4 it reaches 4 blocks sideways (either way for the mirrored leaf) and
+     * 12 up from the hinge, far outside the 1 x 3 hit box. Pensieve draws actors through
+     * EntityRenderDispatcher.render, which does not frustum-cull, so this only matters to a path that does.
      */
     @Override
     public AABB getBoundingBoxForCulling() {

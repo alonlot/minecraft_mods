@@ -84,6 +84,14 @@ public class ModEntities {
                             .clientTrackingRange(10)
                             .build("memory_door"));
 
+    /** The same leaf with local x negated, so a door pair sits flush: see DoorHinge. */
+    public static final RegistryObject<EntityType<MemoryDoorEntity>> MEMORY_DOOR_MIRRORED =
+            ENTITY_TYPES.register("memory_door_mirrored",
+                    () -> EntityType.Builder.<MemoryDoorEntity>of(MemoryDoorEntity::new, MobCategory.MISC)
+                            .sized(1.0f, 3.0f)
+                            .clientTrackingRange(10)
+                            .build("memory_door_mirrored"));
+
     public static final RegistryObject<EntityType<WizardEntity>> WIZARD =
             ENTITY_TYPES.register("wizard",
                     () -> EntityType.Builder.<WizardEntity>of(WizardEntity::new, MobCategory.MONSTER)

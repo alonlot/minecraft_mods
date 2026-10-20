@@ -1,15 +1,18 @@
-"""The Great Hall door leaf used by the hogwartsmagic:memory_door Pensieve actor.
+"""The Great Hall door leaf used by the hogwartsmagic:memory_door and memory_door_mirrored Pensieve actors.
 
     python build_scripts/generate_memory_door_texture.py
 
-64 x 192 sheet; MemoryDoorRenderer lays the faces out (keep the RECTS there in step with this):
-    front (+z)   u 0..32   v 0..96     back (-z)  u 32..64  v 0..96
-    free edge    u 0..6    v 96..192   hinge edge u 6..12   v 96..192
-    top          u 16..48  v 96..102   bottom     u 16..48  v 102..108
-Dark oak vertical planks with grain, a darker 2 px border, three wrought-iron strap hinges that run
-out from the hinge edge, studs, and an iron ring handle near the free edge.  The back is the front
-mirrored, so the hinge straps sit on the same jamb whichever side you see.
-Uses Pillow when present, otherwise writes the PNG with zlib.
+128 x 384 sheet (2x); MemoryDoorRenderer lays the faces out (keep the RECTS there in step with this):
+    front (+z)   u 0..64    v 0..192    back (-z)    u 64..128  v 0..192
+    free edge    u 0..12    v 192..384  hinge edge   u 12..24   v 192..384
+    top          u 32..96   v 192..204  bottom       u 32..96   v 204..216
+    iron swatch  u 100..116 v 192..208  (the 3D ring and studs are textured from this)
+Dark oak vertical planks with fine grain and ringed knots, a darker 4 px border, three wrought-iron strap
+hinges that run out from the hinge edge, studs, and a painted iron plate where the 3D ring hangs.  The back
+is the front mirrored, so the hinge straps sit on the same jamb whichever side you see.  The mirrored leaf
+reuses the same sheet (its faces keep their corners' texture coordinates, so the straps stay at the hinge).
+The ring pivot (RING_X across the leaf from the hinge, RING_Y up from the floor, both in leaf units) must
+match MemoryDoorRenderer.  Uses Pillow when present, otherwise writes the PNG with zlib.
 """
 
 import math
@@ -20,9 +23,10 @@ import zlib
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'src', 'main', 'resources',
                    'assets', 'hogwartsmagic', 'textures', 'entity', 'memory_door.png')
 
-W, H = 64, 192
-FW, FH = 32, 96
-PLANK = 8
+W, H = 128, 384
+FW, FH = 64, 192
+PLANK = 16
+RING_X, RING_Y = 0.84, 1.35          # stud position on the leaf, as a fraction of width / metres up
 OAK = [(58, 38, 24), (52, 34, 21), (64, 42, 27), (48, 31, 19)]
 SEAM = (24, 15, 9)
 BORDER = (30, 19, 12)
@@ -56,37 +60,55 @@ class Canvas:
                 self.put(x, y, c)
 
 
-def planks(cv, ox, oy, w, h, seed):
-    """Vertical planks with long grain streaks, knots and a seam between boards."""
+def planks(cv, ox, oy, w, h, seed, knots=False):
+    """Vertical planks with fine grain streaks, a seam between boards and (optionally) ringed knots."""
     for x in range(w):
         board = x // PLANK
         base = OAK[(board + seed) % len(OAK)]
         for y in range(h):
-            # grain: slow sine wobble along the plank plus per-column streak noise
+            # grain: fibres a pixel wide that run in short dashes, a slow wobble along the board, fine speckle
+            fibre = _hash(x, y // (5 + x % 4), seed) - 0.5
             streak = _hash(x, 0, seed) - 0.5
-            wob = math.sin(y * 0.11 + board * 2.3 + seed) * 0.5 + math.sin(y * 0.37 + x * 0.9) * 0.25
-            f = 1.0 + streak * 0.30 + wob * 0.07 + (_hash(x, y // 3, seed + 5) - 0.5) * 0.10
+            wob = math.sin(y * 0.045 + board * 2.3 + seed) * 0.5 + math.sin(y * 0.19 + x * 0.45) * 0.3
+            f = 1.0 + streak * 0.20 + fibre * 0.16 + wob * 0.06 + (_hash(x, y, seed + 5) - 0.5) * 0.07
             c = shade(base, f)
-            if x % PLANK == 0:
+            if x % PLANK in (0, 1):
                 c = SEAM
-            elif x % PLANK == 1:
-                c = shade(c, 0.78)
+            elif x % PLANK == 2:
+                c = shade(c, 0.80)
             elif x % PLANK == PLANK - 1:
                 c = shade(c, 1.10)
             cv.put(ox + x, oy + y, c)
-    # a few knots
-    for k in range(3):
-        kx = int(_hash(k, 1, seed) * (w - 6)) + 3
-        ky = int(_hash(k, 2, seed) * (h - 40)) + 20
-        for dy in range(-2, 3):
-            for dx in range(-1, 2):
-                if (dx * dx) * 2 + dy * dy <= 5 and kx % PLANK not in (0, 1):
-                    cv.put(ox + kx + dx, oy + ky + dy, shade(OAK[3], 0.55 if abs(dy) < 2 else 0.75))
+    if knots:
+        for k in range(3):
+            kx = int(_hash(k, 1, seed) * (w - 16)) + 8
+            ky = int(_hash(k, 2, seed) * (h - 80)) + 40
+            if kx % PLANK < 5 or kx % PLANK > 10:
+                kx = kx - kx % PLANK + 8
+            knot(cv, ox + kx, oy + ky, seed + k)
+
+
+def knot(cv, cx, cy, seed):
+    """A knot as swirled grain rings, never darker than the oak around it by more than ~28%: it reads as wood, not a hole."""
+    for dy in range(-12, 13):
+        for dx in range(-6, 7):
+            d = math.hypot(dx / 3.4, dy / 7.0)
+            if d > 1.45:
+                continue
+            old = cv.px[cy + dy][cx + dx][:3] if 0 <= cy + dy < H and 0 <= cx + dx < W else None
+            if old is None:
+                continue
+            if d <= 1.0:
+                rings = 0.5 + 0.5 * math.sin(d * 11.0 + _hash(seed, 3) * 3)
+                f = 0.74 + 0.16 * rings - 0.06 * (1.0 - d)
+            else:
+                f = 0.93 + 0.07 * (d - 1.0) / 0.45    # a soft halo where the grain bends round the knot
+            cv.put(cx + dx, cy + dy, shade(old, f))
 
 
 def border(cv, ox, oy, w, h):
-    for i in range(2):
-        f = 0.8 if i == 0 else 1.0
+    for i in range(4):
+        f = 0.8 if i < 2 else 1.0
         for x in range(w):
             cv.put(ox + x, oy + i, shade(BORDER, f))
             cv.put(ox + x, oy + h - 1 - i, shade(BORDER, f))
@@ -96,61 +118,64 @@ def border(cv, ox, oy, w, h):
 
 
 def stud(cv, x, y):
-    cv.put(x, y, IRON_HI)
-    cv.put(x + 1, y, IRON)
-    cv.put(x, y + 1, IRON)
-    cv.put(x + 1, y + 1, IRON_LO)
+    """A round 4 x 4 rivet head with a highlight at the top left."""
+    for dy in range(4):
+        for dx in range(4):
+            if (dx in (0, 3)) and (dy in (0, 3)):
+                continue
+            c = IRON_HI if dx + dy <= 2 else IRON_LO if dx + dy >= 5 else IRON
+            cv.put(x + dx, y + dy, c)
 
 
 def strap(cv, ox, y, length, hinge_left):
     """A wrought-iron strap hinge: a bar from the hinge edge that ends in a pointed tip, with studs."""
-    h = 5
+    h = 10
     for i in range(length):
         x = ox + i if hinge_left else ox + FW - 1 - i
-        taper = max(0, i - (length - 5))          # last few pixels narrow to a point
+        taper = max(0, i - (length - 10))         # last few pixels narrow to a point
         for j in range(h):
             if taper and (j < taper // 2 + (1 if taper > 2 else 0) or j >= h - taper // 2 - (1 if taper > 2 else 0)):
                 continue
-            c = IRON_HI if j == 0 else IRON_LO if j == h - 1 else IRON
-            if _hash(i, j, y) > 0.9:
+            c = IRON_HI if j < 2 else IRON_LO if j >= h - 2 else IRON
+            if _hash(i, j, y) > 0.88:
                 c = shade(c, 1.25)
             cv.put(x, y + j, c)
     # the hinge knuckle: a taller block at the jamb
-    kx = ox if hinge_left else ox + FW - 4
-    cv.rect(kx, y - 2, kx + 4, y + h + 2, IRON)
-    cv.rect(kx, y - 2, kx + 4, y - 1, IRON_HI)
-    cv.rect(kx, y + h + 1, kx + 4, y + h + 2, IRON_LO)
+    kx = ox if hinge_left else ox + FW - 8
+    cv.rect(kx, y - 4, kx + 8, y + h + 4, IRON)
+    cv.rect(kx, y - 4, kx + 8, y - 2, IRON_HI)
+    cv.rect(kx, y + h + 2, kx + 8, y + h + 4, IRON_LO)
     # studs along the strap
-    for sx in (6, 11, 16):
-        if sx + 2 < length - 4:
-            stud(cv, (ox + sx) if hinge_left else (ox + FW - 1 - sx - 1), y + 1)
+    for sx in (12, 22, 32):
+        if sx + 4 < length - 8:
+            stud(cv, (ox + sx) if hinge_left else (ox + FW - 1 - sx - 3), y + 3)
 
 
-def ring_handle(cv, cx, cy):
-    # backplate
-    for dy in range(-5, 6):
-        for dx in range(-3, 4):
-            if abs(dx) + abs(dy) * 0.6 <= 5.2:
-                c = IRON_HI if dy == -5 or dx == -3 else IRON_LO if dy == 5 or dx == 3 else IRON
+def ring_plate(cv, cx, cy):
+    """The iron plate the 3D ring's stud sits on (the ring itself is real geometry)."""
+    for dy in range(-12, 13):
+        for dx in range(-7, 8):
+            if (dx / 7.0) ** 2 + (dy / 12.0) ** 2 <= 1.0:
+                edge = (dx / 7.0) ** 2 + (dy / 12.0) ** 2 > 0.72
+                c = IRON_LO if edge else IRON_HI if (dx < -3 or dy < -8) else IRON
                 cv.put(cx + dx, cy + dy, c)
-    stud(cv, cx - 1, cy - 4)
-    # the ring hangs below its boss
-    r = 5
-    for a in range(0, 360, 6):
-        x = cx + round(math.cos(math.radians(a)) * r)
-        y = cy + 4 + round(math.sin(math.radians(a)) * r)
-        lit = math.cos(math.radians(a) + 2.4)
-        for t in (0, 1):
-            cv.put(x + (t if lit < 0 else 0), y, IRON_HI if lit > 0.5 else IRON_LO if lit < -0.5 else IRON)
+    stud(cv, cx - 2, cy - 2)
+
+
+def iron_swatch(cv, ox, oy, w, h):
+    for y in range(h):
+        for x in range(w):
+            c = shade(IRON, 0.9 + (_hash(x, y, 21) - 0.5) * 0.35 + (0.12 if (x + y) < 6 else 0.0))
+            cv.put(ox + x, oy + y, c)
 
 
 def face(cv, ox, oy, mirror, seed):
-    planks(cv, ox, oy, FW, FH, seed)
-    for y in (9, 45, 81):
-        strap(cv, ox, oy + y, 20, not mirror)
+    planks(cv, ox, oy, FW, FH, seed, knots=True)
+    for y in (18, 90, 162):
+        strap(cv, ox, oy + y - 5, 40, not mirror)
     border(cv, ox, oy, FW, FH)
-    cx = ox + (7 if mirror else FW - 8)
-    ring_handle(cv, cx, oy + 58)
+    px = RING_X if not mirror else 1.0 - RING_X
+    ring_plate(cv, ox + int(round(px * FW)), oy + int(round((1.0 - RING_Y / 3.0) * FH)))
 
 
 def build():
@@ -158,12 +183,13 @@ def build():
     face(cv, 0, 0, False, 1)
     face(cv, FW, 0, True, 3)
     # edges: plain oak end boards with the border darkening both rims
-    for ox, oy, w, h, s in ((0, 96, 6, 96, 7), (6, 96, 6, 96, 9)):
+    for ox, oy, w, h, s in ((0, 192, 12, 192, 7), (12, 192, 12, 192, 9)):
         planks(cv, ox, oy, w, h, s)
         border(cv, ox, oy, w, h)
-    for ox, oy, w, h, s in ((16, 96, 32, 6, 11), (16, 102, 32, 6, 13)):
+    for ox, oy, w, h, s in ((32, 192, 64, 12, 11), (32, 204, 64, 12, 13)):
         planks(cv, ox, oy, w, h, s)
         border(cv, ox, oy, w, h)
+    iron_swatch(cv, 100, 192, 16, 16)
     return cv
 
 

@@ -102,6 +102,7 @@
   "item.hogwartsmagic.wizard_spawn_egg": "Death Eater Spawn Egg",
   "entity.hogwartsmagic.wizard": "Death Eater",
   "entity.hogwartsmagic.memory_door": "Memory Door",
+  "entity.hogwartsmagic.memory_door_mirrored": "Memory Door (Mirrored)",
   "entity.hogwartsmagic.memory_letter": "Memory Letter",
   "item.hogwartsmagic.student_spawn_egg": "Student Spawn Egg",
   "entity.hogwartsmagic.student": "Hogwarts Student",

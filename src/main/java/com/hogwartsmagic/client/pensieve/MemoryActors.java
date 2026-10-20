@@ -117,6 +117,7 @@ public final class MemoryActors {
         MemoryEvents.clear();
         ACTORS.clear();
         BY_ENTITY.clear();
+        com.hogwartsmagic.client.MemoryDoorRenderer.clearState();
         level = null;
         origin = null;
         overlayPass = false;

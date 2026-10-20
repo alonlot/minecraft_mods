@@ -27,7 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * The Sorting Hat flow: the hat plays the Sorting memory, then the fixed quiz sorts the player. The memory level is
- * PensieveSessions' test seam (the test level stands in for it) and the stub {@code sorting.json} is the scene.
+ * PensieveSessions' test seam (the test level stands in for it) and the shipped {@code sorting.json} is the scene.
  * Every test has its own batch: the seam is global, and a test that needs the quiz at once swaps in a seam with no
  * scene, so startSolo refuses and the manager falls straight through to the quiz.
  */

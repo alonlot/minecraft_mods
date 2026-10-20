@@ -1092,6 +1092,7 @@ public class ClientModEvents {
                     }
                 });
         event.registerEntityRenderer(ModEntities.FIENDFYRE_SERPENT.get(), FiendfyreSerpentRenderer::new);
+        event.registerEntityRenderer(ModEntities.MEMORY_LETTER.get(), com.hogwartsmagic.client.MemoryLetterRenderer::new);
         event.registerEntityRenderer(ModEntities.CARRIED_BLOCK.get(), com.hogwartsmagic.client.renderer.CarriedBlockRenderer::new);
         
         event.registerEntityRenderer(ModEntities.FIENDFYRE.get(),

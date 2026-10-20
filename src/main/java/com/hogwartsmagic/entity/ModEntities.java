@@ -70,6 +70,13 @@ public class ModEntities {
                             .updateInterval(2)
                             .build("fiendfyre_serpent"));
 
+    public static final RegistryObject<EntityType<MemoryLetterEntity>> MEMORY_LETTER =
+            ENTITY_TYPES.register("memory_letter",
+                    () -> EntityType.Builder.<MemoryLetterEntity>of(MemoryLetterEntity::new, MobCategory.MISC)
+                            .sized(0.4f, 0.05f)
+                            .clientTrackingRange(4)
+                            .build("memory_letter"));
+
     public static final RegistryObject<EntityType<WizardEntity>> WIZARD =
             ENTITY_TYPES.register("wizard",
                     () -> EntityType.Builder.<WizardEntity>of(WizardEntity::new, MobCategory.MONSTER)

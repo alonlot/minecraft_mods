@@ -70,6 +70,7 @@ Block ids are namespaced (`minecraft:stone_bricks`).
 Keys: `id` (required, unique), `type` (required), `skin`, `name`, `items`, `path`, `look`, `limbs`, `poses`, `anims`, `actions`.
 
 - `type`: `"player"` (a skinned humanoid) or a namespaced entity id (`hogwartsmagic:troll`, `minecraft:zombie`). Mobs have no AI, no gravity, no collision.
+- `hogwartsmagic:memory_letter`: a flat Hogwarts-letter envelope you path like any actor. `look` pitch 90 lays it flat; it flutters (roll and wobble) while its path moves it and lies still when the path holds.
 - `skin` (player only): `{ "texture": "<name>" }` a bundled skin, or `{ "username": "Notch" }` fetched in the background (falls back to the default skin when offline), plus optional `"slim": true` for the 3-px arm model.
 - `skin.viewer`: `{ "viewer": true }` renders the watching player's own skin; it cannot be combined with `texture` or `username`.
 - `scale`: actor size multiplier, 0.25 to 4 (default 1).

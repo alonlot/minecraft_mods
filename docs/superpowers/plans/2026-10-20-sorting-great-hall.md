@@ -270,3 +270,40 @@ The hat's house shouts reuse Stage 1's `hogwartsmagic:sorting.voice.gryffindor`.
 
   Also check that pressing X mid-scene leaves no doors, letters or sounds behind.
 - [ ] **Step 3:** Send the screenshots to the user. Fix rounds go through a Sonnet implementer and an Opus re-review. Ask the user to push.
+
+---
+
+## Addendum (2026-10-20, user): the doors open like an animated film
+
+The user wants the door opening animated like an animated movie, not a plain rotation. Three changes:
+
+**A. Task 2b: door fixes and secondary motion (Sonnet, after Task 3 frees gradle).**
+- **The Task 2 review fixes:**
+  - Add a `memory_door_mirrored` entity type, a leaf with local x negated (faces re-wound outward), so a pair is one leaf mirrored and the two sit flush.
+  - Light: take the max over the hinge block, its 4 neighbours and the block one leaf-width along, sampled at 1/3 of the height and above.
+  - SKILL.md: state the yaw direction and fix the offset advice.
+  - Comments.
+  - Texture at 2× (128 × 384).
+- **The iron ring handle as real geometry:** it hangs from a stud on the front face and swings as a damped pendulum driven by the leaf's angular acceleration.
+  - Pure maths in `pensieve/scene/DoorRing.angle(float[] yawKeysSampled...)`, or a stateful per-entity spring stepped each client tick.
+  - Constants: spring k 0.18, damping 0.86, max swing 50°.
+  - Test: it settles to 0 at rest, swings opposite to the acceleration, and stays bounded.
+- **Optional, decided by the implementer:** a 1-pixel shudder of the leaf on a sudden stop (yaw decelerating over 8° per tick), drawn as a ±0.3° jitter for 4 ticks.
+
+**B. Task 3b: `light_rays` effect (Opus, the ceiling author continues).**
+- Warm volumetric god-rays pour through a doorway: additive, full-bright, soft-edged translucent quads fanning out from a rectangle.
+- **Keys:** `at` (doorway centre at the floor), `yaw` (the direction the light travels), `spread` `[half-width, height, length]`, `duration` (ticks to full width).
+- **Animation:**
+  - The opening width follows the actual gap, from a thin crack to full over `duration` (ease-in).
+  - The rays shimmer slowly, and dust motes drift in them (`minecraft:white_ash`-like, client-drawn).
+  - It stays until the scene clears.
+- **Tests:** a pure `LightRays` maths class (gap width over time, monotonic and bounded; ray quads inside the box).
+
+**C. Task 6 choreography rules for the doors** (animation principles, written into the generator):
+1. **Anticipation:** both leaves first creak a hair *outward*, −2° over 6 ticks, with `door_groan` starting. A deep thud is heard (the lock).
+2. **Stagger:** the left leaf leads by 3 ticks, so it never moves in perfect lockstep.
+3. **Slow in, heavy out:** a slow crack open of 10° over 20 ticks, with `light_rays` starting as a thin bright line, then the swing to 92° over 28 ticks (ease `in`), heavy and accelerating.
+4. **Overshoot and settle:** the leaves hit 92°, bounce back to 86° and settle at 90° (keys at +4 and +10 ticks, ease `out`), timed with `door_boom`.
+5. **Camera shake** on the boom: 3 camera keys with ±0.08 block offsets over 6 ticks, plus dust falling from the lintel (`particles` `minecraft:white_ash`, count 80, across the lintel width).
+6. **Light and sound bloom:** `minecraft:light` events brighten the entrance floor as the gap widens. The murmur rises, and the music hits on the boom.
+7. **Cutting:** the shot before the doors is a low push-in on the doors. The swing itself is one held wide (no cuts during the motion), then a reverse shot from inside the hall of the doors settling, with the first-years silhouetted in the light.

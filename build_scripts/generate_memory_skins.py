@@ -511,6 +511,327 @@ def generate_students():
     return names
 
 
+# ---------------------------------------------------------------------------------------------------------------
+# Diagon Alley crowd: witch_01..20, wizard_01..20, shopkeeper_01..06, and Ollivander. Adults in robes of every
+# colour, with greying hair, beards, hats and cloaks, seeded by name.
+# ---------------------------------------------------------------------------------------------------------------
+
+ADULT_ROBES = [(70, 28, 96), (52, 24, 80), (30, 84, 52), (22, 64, 44), (96, 62, 34), (74, 46, 26), (120, 28, 40),
+               (92, 22, 36), (26, 38, 92), (20, 28, 66), (58, 58, 64), (34, 70, 92), (110, 86, 40), (40, 36, 44)]
+ADULT_TRIMS = [(212, 168, 48), (190, 192, 198), (30, 26, 34), (150, 110, 60), (200, 90, 60)]
+GREYS = [(150, 150, 154), (190, 190, 194), (222, 222, 226), (118, 116, 120)]
+ADULT_HAIR = [(18, 16, 18), (48, 32, 24), (84, 54, 32), (122, 52, 32), (176, 78, 34), (196, 164, 94), (34, 28, 28),
+              (104, 70, 42)]
+
+
+def build_adult(name, kind, index):
+    r = random.Random("adult:" + name)
+    witch = kind == "witch" or (kind == "shopkeeper" and index % 2 == 1)
+    age = r.choice(["young", "mid", "mid", "old"]) if kind != "shopkeeper" else ["mid", "old", "young"][index % 3]
+    old = age == "old"
+    skin = SKIN_TONES[(index * 3 + (0 if witch else 2) + r.randint(0, 3)) % len(SKIN_TONES)]
+    if old:
+        skin = shade(skin, 0.96)
+    if old or (age == "mid" and r.random() < 0.3):
+        hair = r.choice(GREYS)
+    else:
+        hair = r.choice(ADULT_HAIR)
+    eyes = r.choice(EYE_COLOURS)
+    robe = ADULT_ROBES[(index * 5 + (3 if witch else 0) + r.randint(0, 3)) % len(ADULT_ROBES)]
+    trim = r.choice(ADULT_TRIMS)
+    style = r.choice(["long_straight", "bun", "curly", "bob", "ponytail"] if witch else
+                     ["short", "side_parted", "messy", "bald", "long"])
+    beard = (not witch) and ((old and r.random() < 0.75) or (age == "mid" and r.random() < 0.4) or
+                             (kind == "shopkeeper" and r.random() < 0.3))
+    moustache = (not witch) and not beard and r.random() < 0.3
+    hat = kind != "shopkeeper" and r.random() < 0.45
+    hat_col = shade(robe, 0.7) if r.random() < 0.6 else (28, 26, 32)
+    cloak = (not hat or r.random() < 0.5) and r.random() < 0.5 and kind != "shopkeeper"
+    cloak_col = shade(robe, 0.8) if r.random() < 0.5 else (36, 32, 40)
+    apron = kind == "shopkeeper"
+    apron_col = r.choice([(214, 204, 180), (120, 90, 60), (90, 100, 70)])
+    glasses = r.random() < (0.3 if old else 0.1)
+    belt = r.random() < 0.5
+    inner = (226, 222, 214) if r.random() < 0.6 else shade(robe, 1.35)
+    s = Skin(r.randrange(1 << 30))
+    rng = s.rng
+    skin_dark = shade(skin, 0.86)
+
+    head = box(0, 0, 8, 8, 8)
+    hatb = box(32, 0, 8, 8, 8)
+    body = box(16, 16, 8, 12, 4)
+    jacket = box(16, 32, 8, 12, 4)
+    rleg, rleg_o = box(0, 16, 4, 12, 4), box(0, 32, 4, 12, 4)
+    lleg, lleg_o = box(16, 48, 4, 12, 4), box(0, 48, 4, 12, 4)
+    rarm, rarm_o = box(40, 16, 4, 12, 4), box(40, 32, 4, 12, 4)
+    larm, larm_o = box(32, 48, 4, 12, 4), box(48, 48, 4, 12, 4)
+
+    def hp(a=0.1):
+        return s.noisy(hair, a)
+
+    s.fill_box(head, lambda x, y, w, h: s.noisy(skin, 0.03))
+    s.paint(head["bottom"], lambda x, y, w, h: skin_dark)
+    long_hair = style in ("long_straight", "long", "curly", "ponytail", "bun")
+    bald = style == "bald"
+    if not bald:
+        rows = 8 if style in ("long_straight", "long") else (7 if style in ("curly", "bob") else 6)
+        cols = 4 if style in ("long_straight", "bob", "long", "curly") else 2
+        s.paint(head["top"], lambda x, y, w, h: hp())
+        s.paint(head["back"], lambda x, y, w, h: hp() if y < rows else None)
+
+        def side(front_x):
+            def fn(x, y, w, h):
+                fb = x if front_x == 7 else 7 - x
+                if y < 2 or (fb < cols and y < rows - 1) or (fb == 7 and y < 3):
+                    return hp()
+                return None
+            return fn
+        s.paint(head["right"], side(7))
+        s.paint(head["left"], side(0))
+
+        def front(x, y, w, h):
+            if y == 0:
+                return hp()
+            if y == 1:
+                if style == "side_parted":
+                    return hp() if x <= 4 else None
+                return hp() if (style != "short" or x in (0, 1, 2, 4, 5, 7)) else None
+            if y == 2:
+                return hp() if (x in (0, 7) or (style == "messy" and x in (2, 5)) or
+                                (witch and style in ("long_straight", "bob") and x in (0, 1, 6, 7))) else None
+            if y in (3, 4, 5) and x in (0, 7) and style in ("long_straight", "long"):
+                return hp()
+            return None
+        s.paint(head["front"], front)
+        if long_hair or style == "messy":
+            # volume on the hat layer: hair standing out behind and above
+            vol = 0.5 if style == "messy" else 0.9
+            for face_name, rr in (("back", 7), ("right", 6), ("left", 6)):
+                def vfn(x, y, w, h, face_name=face_name, rr=rr):
+                    ok = face_name == "back" or (x < 4 if face_name == "right" else x > 3) or y < 2
+                    return hp(0.15) if y < rr and ok and rng.random() < vol else None
+                s.paint(hatb[face_name], vfn)
+            s.paint(hatb["top"], lambda x, y, w, h: hp(0.15) if rng.random() < vol else None)
+        if style == "bun":
+            s.paint(hatb["top"], lambda x, y, w, h: hp(0.18) if 2 <= x <= 5 and y >= 4 else None)
+            s.paint(hatb["back"], lambda x, y, w, h: hp(0.18) if 2 <= x <= 5 and y <= 2 else None)
+
+    brow = shade(hair, 0.8)
+    lip = (min(255, int(skin[0] * 0.86 + 24)), int(skin[1] * 0.6), int(skin[2] * 0.6), 255) if witch \
+        else shade(skin, 0.72)
+    wrinkle = shade(skin, 0.8)
+
+    def face(x, y, w, h):
+        if y == 4 and x in (1, 2, 5, 6):
+            return eyes if x in (2, 5) else (232, 232, 232)
+        if y == 3 and x in (1, 2, 5, 6):
+            return brow if not bald else skin_dark
+        if glasses and ((y == 5 and x in (1, 2, 5, 6)) or (y == 4 and x in (0, 3, 4, 7))):
+            return (40, 34, 30, 255)
+        if y == 5 and x in (3, 4):
+            return skin_dark
+        if y == 6 and x in (2, 3, 4, 5):
+            return lip
+        if old and y == 5 and x in (0, 7):
+            return wrinkle
+        return None
+    s.paint(head["front"], face)
+
+    if beard:
+        bc = hair if (sum(hair) > 380 or old) else shade(hair, 0.9)
+        s.paint(head["front"], lambda x, y, w, h: (s.noisy(shade(bc, 0.85), 0.1) if (y == 6 and 2 <= x <= 5) else
+                                                  s.noisy(bc, 0.1)) if (y >= 6 or (y == 5 and x not in (3, 4))) else None)
+        s.paint(head["right"], lambda x, y, w, h: s.noisy(bc, 0.1) if x >= 5 and y >= 5 else None)
+        s.paint(head["left"], lambda x, y, w, h: s.noisy(bc, 0.1) if x <= 2 and y >= 5 else None)
+        s.paint(head["bottom"], lambda x, y, w, h: s.noisy(bc, 0.1))
+        if old:  # a long beard hangs past the chin on the hat layer
+            s.paint(hatb["front"], lambda x, y, w, h: s.noisy(bc, 0.12) if y == 7 and 2 <= x <= 5 else None)
+    elif moustache:
+        s.paint(head["front"], lambda x, y, w, h: s.noisy(shade(hair, 0.9), 0.1) if y == 5 and x in (2, 3, 4, 5)
+                else None)
+
+    # ---- hat: a dark cap with a brim line over the brow and a band ----
+    if hat:
+        hc = hat_col
+        for f in ("top", "right", "left", "back"):
+            s.paint(hatb[f], lambda x, y, w, h, f=f: s.noisy(hc, 0.05) if (f == "top" or y < 3) else None)
+        s.paint(hatb["front"], lambda x, y, w, h: s.noisy(hc, 0.05) if y < 2 else (
+            shade(hc, 0.55) if y == 2 else None))
+        s.paint(hatb["top"], lambda x, y, w, h: shade(hc, 0.8) if 2 <= x <= 5 and 2 <= y <= 5 else None)
+        for f in ("right", "left", "back"):
+            s.paint(hatb[f], lambda x, y, w, h: shade(trim, 0.85) if y == 2 else None)
+
+    # ---- robes ----
+    def robe_fn(x, y, w, h):
+        base = robe
+        if (x * 3 + y // 5) % 4 == 0:
+            base = shade(robe, 0.82)
+        if y > h - 3:
+            base = shade(base, 0.9)
+        return s.noisy(base, 0.03)
+    s.fill_box(body, robe_fn)
+    s.fill_box(jacket, robe_fn)
+    s.paint(body["front"], lambda x, y, w, h: inner if 3 <= x <= 4 and y < 5 else None)
+    s.paint(jacket["front"], lambda x, y, w, h: (0, 0, 0, 0) if x in (3, 4) and y <= 5 else (
+        shade(robe, 0.6) if x in (2, 5) and y <= 5 else (trim if y == h - 1 else None)))
+    for f in ("back", "right", "left"):
+        s.paint(jacket[f], lambda x, y, w, h: trim if y == h - 1 else None)
+    if belt:
+        s.paint(jacket["front"], lambda x, y, w, h: shade(trim, 0.8) if y == 6 and x not in (3, 4) else None)
+        for f in ("back", "right", "left"):
+            s.paint(jacket[f], lambda x, y, w, h: shade(trim, 0.8) if y == 6 else None)
+    if apron:
+        ad = shade(apron_col, 0.75)
+        s.paint(jacket["front"], lambda x, y, w, h: s.noisy(apron_col, 0.04) if 1 <= x <= 6 and y >= 2 else None)
+        for f in ("front", "right", "left", "back"):
+            s.paint(jacket[f], lambda x, y, w, h: ad if y == 2 and (f != "front" or 1 <= x <= 6) else None)
+    if cloak:
+        cc = cloak_col
+
+        def cl(x, y, w, h):
+            return s.noisy(cc if (x + y // 4) % 3 else shade(cc, 0.85), 0.03)
+        s.paint(jacket["back"], cl)
+        s.paint(jacket["right"], lambda x, y, w, h: cl(x, y, w, h) if x >= 1 else None)
+        s.paint(jacket["left"], lambda x, y, w, h: cl(x, y, w, h) if x <= 2 else None)
+        s.paint(jacket["front"], lambda x, y, w, h: shade(cc, 0.9) if (x in (0, 7) or y == 0) else None)
+        s.paint(jacket["top"], lambda x, y, w, h: cc)
+        s.paint(jacket["back"], lambda x, y, w, h: shade(trim, 0.9) if y == h - 1 else None)
+
+    shoe = (30, 22, 18)
+
+    def leg_fn(x, y, w, h):
+        if y >= h - 2:
+            return s.noisy(shoe, 0.2)
+        return s.noisy(shade(robe, 0.6), 0.04)
+    for leg in (rleg, lleg):
+        s.fill_box(leg, leg_fn)
+    rows_o = 9 if witch or cloak else 7
+    for leg in (rleg_o, lleg_o):
+        s.fill_box(leg, lambda x, y, w, h: robe_fn(x, y, w, h) if y < rows_o else None)
+        s.paint(leg["front"], lambda x, y, w, h: trim if y == rows_o - 1 else None)
+
+    def arm_fn(x, y, w, h):
+        return s.noisy(skin, 0.03) if y >= h - 2 else robe_fn(x, y, w, h)
+    for arm in (rarm, larm):
+        s.fill_box(arm, arm_fn)
+    for arm in (rarm_o, larm_o):
+        s.fill_box(arm, lambda x, y, w, h: robe_fn(x, y, w, h) if y < h - 2 else None)
+        s.paint(arm["front"], lambda x, y, w, h: trim if y == h - 3 else None)
+        s.paint(arm["back"], lambda x, y, w, h: trim if y == h - 3 else None)
+
+    s.img.save(os.path.join(OUT_DIR, name + ".png"))
+
+
+def build_ollivander():
+    """Pale, elderly, wild white hair standing out on the hat layer, pale grey eyes, waistcoat and cravat, long coat."""
+    s = Skin(4242)
+    rng = s.rng
+    skin = (236, 224, 214)
+    skin_dark = shade(skin, 0.86)
+    white = (226, 226, 230)
+    coat = (30, 28, 32)
+    vest = (68, 60, 58)
+    shirt = (236, 236, 238)
+    head = box(0, 0, 8, 8, 8)
+    hat = box(32, 0, 8, 8, 8)
+    body = box(16, 16, 8, 12, 4)
+    jacket = box(16, 32, 8, 12, 4)
+    rleg, rleg_o = box(0, 16, 4, 12, 4), box(0, 32, 4, 12, 4)
+    lleg, lleg_o = box(16, 48, 4, 12, 4), box(0, 48, 4, 12, 4)
+    rarm, rarm_o = box(40, 16, 4, 12, 4), box(40, 32, 4, 12, 4)
+    larm, larm_o = box(32, 48, 4, 12, 4), box(48, 48, 4, 12, 4)
+
+    def hp(a=0.08):
+        return s.noisy(white if rng.random() < 0.8 else (180, 180, 186), a)
+
+    s.fill_box(head, lambda x, y, w, h: s.noisy(skin, 0.025))
+    s.paint(head["bottom"], lambda x, y, w, h: skin_dark)
+    s.paint(head["top"], lambda x, y, w, h: hp())
+    s.paint(head["back"], lambda x, y, w, h: hp() if y < 7 else None)
+    s.paint(head["right"], lambda x, y, w, h: hp() if ((y < 3 or x < 4) and y < 7) or (x == 7 and y < 3) else None)
+    s.paint(head["left"], lambda x, y, w, h: hp() if ((y < 3 or x > 3) and y < 7) or (x == 0 and y < 3) else None)
+    s.paint(head["front"], lambda x, y, w, h: hp() if y < 2 or (y == 2 and x in (0, 1, 6, 7)) or
+            (y in (3, 4) and x in (0, 7)) else None)
+
+    def face(x, y, w, h):
+        if y == 4 and x in (1, 2, 5, 6):
+            return (178, 190, 200) if x in (2, 5) else (240, 240, 242)
+        if y == 3 and x in (1, 2, 5, 6):
+            return (196, 196, 200)
+        if y == 5 and x in (3, 4):
+            return skin_dark
+        if y == 5 and x in (0, 7):
+            return shade(skin, 0.8)
+        if y == 6 and x in (2, 3, 4, 5):
+            return shade(skin, 0.72)
+        return None
+    s.paint(head["front"], face)
+    # wild hair sticking out on the hat layer, uneven: tufts above, wisps down the sides and back
+    for f, rr in (("top", 8), ("back", 8), ("right", 7), ("left", 7)):
+        def tuft(x, y, w, h, f=f, rr=rr):
+            ok = f in ("top", "back") or y < 3 or (x < 5 if f == "right" else x > 2)
+            return hp(0.14) if y < rr and ok and rng.random() < (0.85 if f == "top" else 0.6) else None
+        s.paint(hat[f], tuft)
+    s.paint(hat["front"], lambda x, y, w, h: hp(0.14) if (y == 0 and rng.random() < 0.9) or (y == 1 and x in (0, 2, 5, 7))
+            or (y in (2, 3) and x in (0, 7) and rng.random() < 0.6) else None)
+
+    # ---- long dark coat over a waistcoat, white shirt, dark cravat ----
+    def coat_fn(x, y, w, h):
+        base = coat if (x * 3 + y // 5) % 4 else shade(coat, 0.8)
+        return s.noisy(base, 0.03)
+    s.fill_box(body, coat_fn)
+    s.fill_box(jacket, coat_fn)
+    s.paint(jacket["front"], lambda x, y, w, h: (0, 0, 0, 0) if 2 <= x <= 5 and y <= 9 else (
+        shade(coat, 1.5) if x in (1, 6) and y <= 9 else None))
+
+    def chest(x, y, w, h):
+        if not 2 <= x <= 5 or y > 10:
+            return None
+        if y <= 1:
+            return shirt
+        if y == 2:
+            return (30, 28, 34) if x in (3, 4) else shirt  # cravat
+        if x in (3, 4) and y == 3:
+            return (24, 22, 28)
+        if y == 4 and x in (2, 5):
+            return shirt
+        if x in (3, 4) and y % 3 == 1:
+            return (150, 140, 120)  # waistcoat buttons
+        return s.noisy(vest, 0.05)
+    s.paint(body["front"], chest)
+    s.paint(body["front"], lambda x, y, w, h: shade(coat, 1.2) if y > 10 else None)
+    s.paint(jacket["front"], lambda x, y, w, h: shade(coat, 0.7) if y == h - 1 else None)
+
+    def leg_fn(x, y, w, h):
+        return s.noisy((24, 20, 20), 0.2) if y >= h - 2 else s.noisy((44, 42, 46), 0.04)
+    for leg in (rleg, lleg):
+        s.fill_box(leg, leg_fn)
+    for leg in (rleg_o, lleg_o):  # long coat skirts
+        s.fill_box(leg, lambda x, y, w, h: coat_fn(x, y, w, h) if y < 9 else None)
+
+    def arm_fn(x, y, w, h):
+        return s.noisy(skin, 0.03) if y >= h - 2 else coat_fn(x, y, w, h)
+    for arm in (rarm, larm):
+        s.fill_box(arm, arm_fn)
+    for arm in (rarm_o, larm_o):
+        s.fill_box(arm, lambda x, y, w, h: coat_fn(x, y, w, h) if y < h - 2 else None)
+        s.paint(arm["front"], lambda x, y, w, h: shirt if y == h - 3 else None)
+        s.paint(arm["back"], lambda x, y, w, h: shirt if y == h - 3 else None)
+    s.img.save(os.path.join(OUT_DIR, "ollivander.png"))
+
+
+def generate_crowd():
+    names = []
+    for kind, n in (("witch", 20), ("wizard", 20), ("shopkeeper", 6)):
+        for i in range(1, n + 1):
+            nm = "%s_%02d" % (kind, i)
+            build_adult(nm, kind, i - 1)
+            names.append(nm)
+    build_ollivander()
+    names.append("ollivander")
+    return names
+
+
 def main():
     os.makedirs(OUT_DIR, exist_ok=True)
     black = (22, 22, 26)
@@ -582,6 +903,7 @@ def main():
         names.append(name)
 
     names.extend(generate_students())
+    names.extend(generate_crowd())
 
     with open(LIST, "w", encoding="utf-8", newline="\n") as f:
         json.dump(names, f, indent=2)

@@ -307,3 +307,32 @@ The user wants the door opening animated like an animated movie, not a plain rot
 5. **Camera shake** on the boom: 3 camera keys with ±0.08 block offsets over 6 ticks, plus dust falling from the lintel (`particles` `minecraft:white_ash`, count 80, across the lintel width).
 6. **Light and sound bloom:** `minecraft:light` events brighten the entrance floor as the gap widens. The murmur rises, and the music hits on the boom.
 7. **Cutting:** the shot before the doors is a low push-in on the doors. The swing itself is one held wide (no cuts during the motion), then a reverse shot from inside the hall of the doors settling, with the first-years silhouetted in the light.
+
+## Addendum 2 (2026-10-20, user): look like the film
+
+The user sent film stills (kept outside the repo, in the scratchpad `hall_refs/`). Two changes:
+
+**D. Task 4b: restyle the hall to the film (Opus, Python only).** Re-skin and dress `great_hall_set.py`'s output to match the stills:
+- **Walls:** warm grey-tan stone instead of the yellow sandstone and end stone. Remap the palette to tuff/mud/stone-brick tones, with darker mortar accents.
+- **Gothic detail:** pillars with pointed arches along the side walls, and an upper gallery/arcade suggestion.
+- **Lower walls:** dark oak wainscot panelling, about 4–5 high, with door-like panels.
+- **Braziers:** big iron braziers burning on wall brackets between the pillars, in two rows at 2 heights (iron bars/chains with a campfire or fire on soul-free netherrack in an iron bowl), plus owl or eagle statues on the pillar corbels where they fit.
+- **Floor:** pale flagstones with small dark diamond inserts (checker), and a centre aisle.
+- **Tables:** long dark wood. Gold plates (the existing gold pressure plates) and goblets laid at every seat, with small lit candlesticks in a row down every table.
+- **Staff end:** a tall gothic stained-glass window behind the staff table.
+- **Banners:** house banners hung high on the end wall.
+- **Lighting:** a warm candle-gold mood. The hall is lit by fire and candles, never flat.
+
+Keep every Task 4 anchor valid, or update them and report the diffs. Keep `physics_problems` clean. Re-render the previews from the same angles as the stills (the doorway view down the aisle; the view from the staff dais over the tables) and send them to the user.
+
+**E. Task 3c: a storm ceiling and floating candles (Opus, the ceiling author).**
+- **`enchanted_ceiling`, restyled as the film's storm sky.**
+  - Heavy, billowing night storm clouds in dark blue-grey and charcoal roll slowly, lit warm from below by the candle glow near the walls. Stars glint through gaps.
+  - Distant lightning flickers inside the clouds every 6–14 s: a soft flash lighting a cloud region from within, sometimes a thin forked bolt across the sky. Each flash triggers a soft thunder sound (vanilla `entity.lightning_bolt.thunder` at low volume, or an ElevenLabs rumble).
+  - The sky must read as *connected* to the ceiling: it starts where the walls end, with no seam. The roof beams fade into the cloud, and it reaches down slightly at the edges with mist.
+  - Keep the reveal and dissolve. Keep a calmer style as `"style": "night"` and make `"storm"` the default.
+- **New effect `floating_candles`:** hundreds of tall cream-white wax candles, about 0.12 × 0.5 to 0.8 blocks, with real flames (an additive flame sprite with flicker and a warm glow halo) floating in a box. They bob slowly and independently (±0.15 blocks, 3–6 s periods), with slight drift.
+  - **Keys:** `at` (the centre), `spread` (half box) and `count` (up to 1500, default 400).
+  - **Rendering:** client-drawn in one batched pass, no entities. Light comes from scene `minecraft:light` blocks.
+  - **Tests:** pure positions are deterministic and inside the box, and the bob is bounded.
+  - Replace the hall's block candles above head height with this effect in Task 6, or keep both.

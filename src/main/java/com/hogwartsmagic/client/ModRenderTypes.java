@@ -53,6 +53,36 @@ public final class ModRenderTypes extends RenderType {
                         .createCompositeState(false));
     }
 
+    /**
+     * The enchanted ceiling's sky and cloud layers: unlit (full-bright), straight-alpha blending, no depth write (the
+     * layers are stacked a few centimetres apart and composite in draw order), no culling. The eyes shader fades
+     * with the world's own spherical fog, so the sky sinks into the Pensieve dark exactly as the walls do.
+     */
+    public static RenderType ceilingLayer(ResourceLocation texture) {
+        return create("hogwartsmagic_ceiling_layer", DefaultVertexFormat.NEW_ENTITY, VertexFormat.Mode.QUADS, 4096,
+                false, false,
+                RenderType.CompositeState.builder()
+                        .setShaderState(RENDERTYPE_EYES_SHADER)
+                        .setTextureState(new RenderStateShard.TextureStateShard(texture, true, false))
+                        .setTransparencyState(TRANSLUCENT_TRANSPARENCY)
+                        .setWriteMaskState(COLOR_WRITE)
+                        .setCullState(NO_CULL)
+                        .createCompositeState(false));
+    }
+
+    /** As {@link #ceilingLayer} but additive (ONE, ONE), for stars and glows: texture and colour premultiplied. */
+    public static RenderType ceilingGlow(ResourceLocation texture) {
+        return create("hogwartsmagic_ceiling_glow", DefaultVertexFormat.NEW_ENTITY, VertexFormat.Mode.QUADS, 4096,
+                false, false,
+                RenderType.CompositeState.builder()
+                        .setShaderState(RENDERTYPE_EYES_SHADER)
+                        .setTextureState(new RenderStateShard.TextureStateShard(texture, true, false))
+                        .setTransparencyState(ADDITIVE_TRANSPARENCY)
+                        .setWriteMaskState(COLOR_WRITE)
+                        .setCullState(NO_CULL)
+                        .createCompositeState(false));
+    }
+
     /** As {@link #markSmoke} but additive (ONE, ONE): the texture and vertex colour must be premultiplied. */
     public static RenderType markGlow(ResourceLocation texture) {
         return create("hogwartsmagic_mark_glow", DefaultVertexFormat.BLOCK, VertexFormat.Mode.QUADS, 2048, false, false,

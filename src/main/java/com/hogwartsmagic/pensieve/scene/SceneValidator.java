@@ -196,6 +196,8 @@ public final class SceneValidator {
                     out.add(p + ".id: unknown effect '" + e.id() + "' (expected one of " + sorted(SceneNames.EFFECTS) + ")");
                 } else if ("letter_flood".equals(e.id())) {
                     letterFlood(out, e, p);
+                } else if ("enchanted_ceiling".equals(e.id())) {
+                    ceiling(out, e, p);
                 }
             }
         }
@@ -215,6 +217,22 @@ public final class SceneValidator {
                     out.add(p + ".spread[" + i + "]: " + s + " is outside " + SceneNames.MIN_FLOOD_SPREAD + " to "
                             + SceneNames.MAX_FLOOD_SPREAD);
                 }
+            }
+        }
+    }
+
+    /** The enchanted_ceiling effect: it needs a centre and a half-size, and the half-size has a range (y is unused). */
+    private static void ceiling(List<String> out, SceneDef.EventDef e, String p) {
+        if (e.at() == null) out.add(p + ": enchanted_ceiling needs at");
+        if (e.spread() == null) {
+            out.add(p + ": enchanted_ceiling needs spread [hx, 0, hz]");
+            return;
+        }
+        for (int i = 0; i < e.spread().length; i += 2) {
+            float s = e.spread()[i];
+            if (!(s >= SceneNames.MIN_CEILING_SPREAD && s <= SceneNames.MAX_CEILING_SPREAD)) {
+                out.add(p + ".spread[" + i + "]: " + s + " is outside " + SceneNames.MIN_CEILING_SPREAD + " to "
+                        + SceneNames.MAX_CEILING_SPREAD);
             }
         }
     }

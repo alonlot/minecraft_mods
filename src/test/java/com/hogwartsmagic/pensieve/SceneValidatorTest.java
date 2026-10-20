@@ -339,6 +339,35 @@ class SceneValidatorTest {
         assertEquals(1, validate(flood(base + ",\"spread\":[3,2,12.5]")).size());
     }
 
+    private static String ceiling(String extra) {
+        return "{\"length\":100,\"events\":[{\"t\":1,\"kind\":\"effect\",\"id\":\"enchanted_ceiling\"" + extra + "}]}";
+    }
+
+    @Test
+    void ceilingNeedsSpread() throws Exception {
+        List<String> m = validate(ceiling(",\"at\":[0,20,0]"));
+        assertEquals(1, m.size(), m.toString());
+        assertTrue(m.get(0).contains("enchanted_ceiling needs spread"), m.get(0));
+        assertEquals(List.of(), validate(ceiling(",\"at\":[0,20,0],\"spread\":[15,0,10]")));
+    }
+
+    @Test
+    void ceilingNeedsAt() throws Exception {
+        List<String> m = validate(ceiling(",\"spread\":[15,0,10]"));
+        assertEquals(1, m.size(), m.toString());
+        assertTrue(m.get(0).contains("enchanted_ceiling needs at"), m.get(0));
+    }
+
+    @Test
+    void ceilingSpreadRange() throws Exception {
+        String at = ",\"at\":[0,20,0]";
+        assertEquals(List.of(), validate(ceiling(at + ",\"spread\":[1,0,100]")));
+        assertEquals(List.of(), validate(ceiling(at + ",\"spread\":[100,0,1],\"duration\":40")));
+        assertEquals(1, validate(ceiling(at + ",\"spread\":[0.5,0,10]")).size());
+        assertEquals(1, validate(ceiling(at + ",\"spread\":[10,0,100.5]")).size());
+        assertEquals(2, validate(ceiling(at + ",\"spread\":[0,0,0]")).size());
+    }
+
     @Test
     void yawOnlyOnEffects() throws Exception {
         List<String> m = validate("""

@@ -107,8 +107,8 @@ public final class EffectVisuals {
     }
 
     /**
-     * The full form: count, spread and yaw are the event values (letter_flood only; 0 or less, null and NaN when
-     * absent), and {@code t} is the event scene time, mixed into the swarm seed so two floods in one scene differ.
+     * The full form: count, spread and yaw are the event values (letter_flood; spread also enchanted_ceiling; 0 or
+     * less, null and NaN when absent), and {@code t} is the event scene time, mixed into the swarm seed so two floods in one scene differ.
      */
     public static void play(String effect, Vec3 at, int duration, int elapsed, int count, float[] spread, float yaw,
                             float t) {
@@ -163,6 +163,16 @@ public final class EffectVisuals {
                 MemorySounds.play("minecraft:entity.breeze.wind_burst", at, 1.0f, 1.0f);
             }
             RUNNING.add(new Flood(level, at, yaw, room, letters, total, elapsed, floodSeed(at, t)));
+        } else if ("enchanted_ceiling".equals(effect)) {
+            if (spread == null || spread.length < 3) {
+                LOGGER.warn("Pensieve: enchanted_ceiling has no spread");
+                return;
+            }
+            // Drawn from the scene clock (EnchantedCeiling), so a late joiner's sky is already as revealed as
+            // everyone else's; elapsed is not needed. It never finishes: it stays until clear() ends the scene.
+            float hx = Mth.clamp(spread[0], 1f, 100f);
+            float hz = Mth.clamp(spread[2], 1f, 100f);
+            RUNNING.add(new Ceiling(new EnchantedCeiling.Sky(at, hx, hz, duration, t, floodSeed(at, t))));
         } else {
             LOGGER.warn("Pensieve: unknown effect '{}' in a memory", effect);
         }
@@ -260,6 +270,18 @@ public final class EffectVisuals {
             }
         }
         return most;
+    }
+
+    /** The enchanted ceilings running now, for {@link EnchantedCeiling} to draw (empty once {@link #clear} has run). */
+    static List<EnchantedCeiling.Sky> ceilings() {
+        List<EnchantedCeiling.Sky> out = null;
+        for (Running r : RUNNING) {
+            if (r instanceof Ceiling c) {
+                if (out == null) out = new ArrayList<>(1);
+                out.add(c.sky);
+            }
+        }
+        return out == null ? List.of() : out;
     }
 
     /** Stop everything and remove every entity an effect added. */
@@ -587,6 +609,20 @@ public final class EffectVisuals {
             e.setPos(sim.x(i), sim.y(i), sim.z(i));
             e.setYRot(sim.yaw(i));
             e.setXRot(sim.pitch(i));
+        }
+    }
+
+    /** {@code enchanted_ceiling}: holds the sky for {@link EnchantedCeiling}; never finishes, {@link #clear} ends it. */
+    private static final class Ceiling implements Running {
+        private final EnchantedCeiling.Sky sky;
+
+        Ceiling(EnchantedCeiling.Sky sky) {
+            this.sky = sky;
+        }
+
+        @Override
+        public boolean tick(ClientLevel level) {
+            return true;
         }
     }
 

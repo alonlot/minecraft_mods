@@ -75,7 +75,7 @@ public final class ActorRuntime {
         this.player = player;
         this.actions = actions;
         this.seed = HumanMotion.seed(def.id());
-        this.clips = new HumanMotion.Clips(player ? animCues : List.of(), seed);
+        this.clips = new HumanMotion.Clips(player ? animCues : List.of(), seed, def.path());
         for (int p = 0; p < HumanMotion.PARTS; p++) {
             PartTrack limb = limbTrack(def, HumanMotion.PART_NAMES.get(p));
             lifeGain[p] = limb == null ? 1f : limb.set() ? 0f : 0.35f;

@@ -300,7 +300,8 @@ class HumanMotionTest {
         float[] p = pos();
         c.apply(r, p, 30, 0.9f, 0);        // 1.5 s: up and cheering
         assertTrue(r[RIGHT_LEG * 3] > -30, "stood up: " + r[RIGHT_LEG * 3]);
-        assertTrue(p[BODY * 3 + 1] < -1.5f, "the body rises off the bench: " + p[BODY * 3 + 1]);
+        float ahead = (float) (HumanMotion.standAhead(0.9) / HumanMotion.pxBlocks(0.9));
+        assertEquals(-ahead, p[BODY * 3 + 2], 1.5f, "the hips come forward, clear of the seat edge");
         assertTrue(r[RIGHT_ARM * 3] < -120 && r[LEFT_ARM * 3] < -120, "arms up");
         assertTrue(c.seat(30, 1f) < 0.1f);
         float[] e = rot();
@@ -325,6 +326,172 @@ class HumanMotionTest {
         float[] after = rot();
         c.apply(after, pos(), 80, 1f, 0);
         assertArrayEquals(rot(), after, 1e-3f);
+    }
+
+    // ---- seated legs stay on top of the seat -------------------------------------------------------------------
+
+    private static final double SEAT_TOP = 0.5;
+
+    /** A key on a path track (blocks, ticks). */
+    private static Keyframe key(float t, double x, double y, double z, Ease ease) {
+        return new Keyframe(t, new float[]{(float) x, (float) y, (float) z}, ease);
+    }
+
+    /**
+     * Plays {@code clip} (cued at tick 10) for an actor facing +Z (yaw 0) whose seat is a bench under the seated
+     * root: top at {@link #SEAT_TOP}, from 1 block behind the seated hip to {@link HumanMotion#SEAT_EDGE_AHEAD} in
+     * front of it. Every leg box, sampled along its edges every quarter tick, must stay at or above the seat top
+     * wherever it is over the seat. Returns the lowest leg point over the seat at the end (seated: the seat top).
+     */
+    private static double playOverSeat(String clip, float scale, Track path, long seed, boolean seatedBefore) {
+        HumanMotion.Clips clips = new HumanMotion.Clips(List.of(cue(10, clip, 3)), seed, path);
+        HumanMotion.Odometer odo = new HumanMotion.Odometer(path, scale);
+        double lowestAtEnd = Double.POSITIVE_INFINITY;
+        for (float t = 0; t <= 90; t += 0.25f) {
+            float[] r = rot();
+            float[] p = pos();
+            float seat = clips.seat(t, seatedBefore ? 1f : 0f);
+            HumanMotion.life(r, p, seed, t, scale, odo.speed(t) * (1 - clips.holdsGait(t)), odo.phase(t), seat, FULL);
+            if (seatedBefore) {      // the seated pose the scene puts on before the clip
+                r[RIGHT_LEG * 3] = -90;
+                r[RIGHT_LEG * 3 + 1] = 8;
+                r[LEFT_LEG * 3] = -90;
+                r[LEFT_LEG * 3 + 1] = -8;
+            }
+            clips.apply(r, p, t, scale, 0f, 0f);
+            float[] at = path.sample(t);
+            double[] root = {at[0], at[1], at[2]};
+            for (int leg = RIGHT_LEG; leg <= LEFT_LEG; leg++) {
+                double[][] c = HumanMotion.legBox(root, 0, scale, r, p, leg);
+                for (int i = 0; i < 8; i++) {
+                    for (int j = i + 1; j < 8; j++) {
+                        if (Integer.bitCount(i ^ j) != 1) continue;   // a box edge
+                        for (int k = 0; k <= 8; k++) {
+                            double f = k / 8.0;
+                            double x = c[i][0] + (c[j][0] - c[i][0]) * f;
+                            double y = c[i][1] + (c[j][1] - c[i][1]) * f;
+                            double z = c[i][2] + (c[j][2] - c[i][2]) * f;
+                            boolean over = z <= HumanMotion.SEAT_EDGE_AHEAD && z >= -1 && Math.abs(x) <= 1;
+                            if (!over) continue;
+                            assertTrue(y >= SEAT_TOP - 1e-3, clip + " at scale " + scale + ": a leg dips "
+                                    + String.format("%.3f", SEAT_TOP - y) + " into the seat at tick " + t);
+                            if (t == 90) lowestAtEnd = Math.min(lowestAtEnd, y);
+                        }
+                    }
+                }
+            }
+        }
+        return lowestAtEnd;
+    }
+
+    @Test
+    void sitDownAndStandUpKeepTheLegsOutOfTheSeat() {
+        for (float scale : new float[]{0.75f, 0.9f, 1.0f}) {
+            double seatY = HumanMotion.seatedRootY(SEAT_TOP, scale);
+            double ahead = HumanMotion.standAhead(scale);
+            long seed = HumanMotion.seed("sitter_" + scale);
+            // However the path gets from the standing spot to the seat within the clip's second, the clip steers it.
+            Track[] sits = {
+                    new Track(List.of(key(0, 0, 0, ahead, Ease.LINEAR), key(14, 0, 0, ahead, Ease.LINEAR),
+                            key(27, 0, seatY, 0, Ease.IN_OUT))),
+                    new Track(List.of(key(0, 0, 0, ahead, Ease.LINEAR), key(10, 0, 0, ahead, Ease.LINEAR),
+                            key(30, 0, seatY, 0, Ease.LINEAR))),
+                    new Track(List.of(key(0, 0, 0, ahead, Ease.LINEAR), key(10, 0, 0, ahead, Ease.LINEAR),
+                            key(11, 0, seatY, 0, Ease.LINEAR)))};
+            for (Track path : sits) {
+                double end = playOverSeat("SIT_DOWN", scale, path, seed, false);
+                assertEquals(SEAT_TOP, end, 0.01, "the thighs rest on the seat at scale " + scale);
+            }
+            Track[] stands = {
+                    new Track(List.of(key(0, 0, seatY, 0, Ease.LINEAR), key(12, 0, seatY, 0, Ease.LINEAR),
+                            key(26, 0, 0, ahead, Ease.IN_OUT))),
+                    new Track(List.of(key(0, 0, seatY, 0, Ease.LINEAR), key(10, 0, seatY, 0, Ease.LINEAR),
+                            key(30, 0, 0, ahead, Ease.LINEAR)))};
+            for (Track path : stands) playOverSeat("STAND_UP", scale, path, seed, true);
+        }
+    }
+
+    @Test
+    void cheerStandKeepsTheLegsOutOfTheSeat() {
+        for (float scale : new float[]{0.75f, 0.9f, 1.0f}) {
+            Track held = new Track(List.of(key(0, 0, HumanMotion.seatedRootY(SEAT_TOP, scale), 0, Ease.LINEAR)));
+            for (int i = 0; i < 4; i++) {
+                double end = playOverSeat("CHEER_STAND", scale, held, HumanMotion.seed("cheer_" + i + "_" + scale), true);
+                assertEquals(SEAT_TOP, end, 0.01, "back on the seat at scale " + scale);
+            }
+        }
+    }
+
+    @Test
+    void seatedGeometry() {
+        for (double scale : new double[]{0.75, 0.9, 1.0, 1.5}) {
+            double hip = HumanMotion.seatedRootY(SEAT_TOP, scale) + HumanMotion.hipHeight(scale);
+            assertEquals(SEAT_TOP, hip - HumanMotion.legLowestBelowHip(-90, scale), 1e-9, "level thighs on the seat");
+            // The standing hip is a whole leg (with the pants layer below the sole) above the feet.
+            assertEquals((HumanMotion.LEG_LENGTH_PX + HumanMotion.LAYER_PX) * HumanMotion.pxBlocks(scale),
+                    HumanMotion.legLowestBelowHip(0, scale), 1e-9);
+        }
+        // The player model is 1.8 blocks tall: the hip is at 12 of its 32 px, scaled by 15/16.
+        assertEquals(0.704, HumanMotion.hipHeight(1), 0.001);
+    }
+
+    /** The Python mirror (build_scripts/pensieve_scenes/human_motion.py) wrote these cases; the Java must agree. */
+    @Test
+    void pythonMirrorAgrees() throws Exception {
+        com.google.gson.JsonObject cases = com.google.gson.JsonParser.parseString(java.nio.file.Files.readString(
+                java.nio.file.Path.of("build_scripts/pensieve_scenes/human_motion_cases.json"))).getAsJsonObject();
+        com.google.gson.JsonObject k = cases.getAsJsonObject("constants");
+        assertEquals(HumanMotion.MODEL_SCALE, k.get("MODEL_SCALE").getAsDouble(), 0);
+        assertEquals(HumanMotion.MODEL_ORIGIN, k.get("MODEL_ORIGIN").getAsDouble(), 0);
+        assertEquals(HumanMotion.HIP_PX, k.get("HIP_PX").getAsDouble(), 0);
+        assertEquals(HumanMotion.LEG_LENGTH_PX, k.get("LEG_LENGTH_PX").getAsDouble(), 0);
+        assertEquals(HumanMotion.LEG_HALF_WIDTH_PX, k.get("LEG_HALF_WIDTH_PX").getAsDouble(), 0);
+        assertEquals(HumanMotion.LAYER_PX, k.get("LAYER_PX").getAsDouble(), 0);
+        assertEquals(HumanMotion.SEAT_EDGE_AHEAD, k.get("SEAT_EDGE_AHEAD").getAsDouble(), 0);
+        assertEquals(HumanMotion.STAND_CLEARANCE, k.get("STAND_CLEARANCE").getAsDouble(), 0);
+        assertEquals(HumanMotion.SEAT_HEIGHT, k.get("SEAT_HEIGHT").getAsDouble(), 0);
+        for (var e : cases.getAsJsonArray("scales")) {
+            com.google.gson.JsonObject o = e.getAsJsonObject();
+            double sc = o.get("scale").getAsDouble();
+            assertEquals(o.get("hip_height").getAsDouble(), HumanMotion.hipHeight(sc), 1e-9);
+            assertEquals(o.get("seated_root_y_0_5").getAsDouble(), HumanMotion.seatedRootY(0.5, sc), 1e-9);
+            assertEquals(o.get("stand_ahead").getAsDouble(), HumanMotion.standAhead(sc), 1e-9);
+            assertEquals(o.get("stand_rise").getAsDouble(), HumanMotion.standRise(sc), 1e-9);
+            assertEquals(o.get("lowest_m90").getAsDouble(), HumanMotion.legLowestBelowHip(-90, sc), 1e-9);
+            assertEquals(o.get("lowest_m65").getAsDouble(), HumanMotion.legLowestBelowHip(-65, sc), 1e-9);
+            assertEquals(o.get("lowest_0").getAsDouble(), HumanMotion.legLowestBelowHip(0, sc), 1e-9);
+        }
+        for (var e : cases.getAsJsonArray("curves")) {
+            com.google.gson.JsonObject o = e.getAsJsonObject();
+            double s = o.get("s").getAsDouble();
+            assertCurve(o, "sit_rise", HumanMotion.sitDownCurve(s, true));
+            assertCurve(o, "sit_fall", HumanMotion.sitDownCurve(s, false));
+            assertCurve(o, "stand_rise", HumanMotion.standUpCurve(s, true));
+            assertCurve(o, "stand_fall", HumanMotion.standUpCurve(s, false));
+            assertCurve(o, "cheer_075", HumanMotion.cheerStandCurve(s * 3 / 1.1, 0.75));
+            assertCurve(o, "cheer_1", HumanMotion.cheerStandCurve(s * 3 / 1.1, 1.0));
+        }
+        for (var e : cases.getAsJsonArray("boxes")) {
+            com.google.gson.JsonObject o = e.getAsJsonObject();
+            var rootJ = o.getAsJsonArray("root");
+            double[] root = {rootJ.get(0).getAsDouble(), rootJ.get(1).getAsDouble(), rootJ.get(2).getAsDouble()};
+            int leg = "right".equals(o.get("side").getAsString()) ? RIGHT_LEG : LEFT_LEG;
+            float[] r = rot();
+            r[leg * 3] = o.get("pitch").getAsFloat();
+            r[leg * 3 + 1] = o.get("splay").getAsFloat();
+            double[][] c = HumanMotion.legBox(root, o.get("yaw").getAsDouble(), o.get("scale").getAsDouble(), r, pos(), leg);
+            var want = o.getAsJsonArray("corners");
+            for (int i = 0; i < 8; i++) {
+                for (int j = 0; j < 3; j++) {
+                    assertEquals(want.get(i).getAsJsonArray().get(j).getAsDouble(), c[i][j], 1e-5, "corner " + i);
+                }
+            }
+        }
+    }
+
+    private static void assertCurve(com.google.gson.JsonObject o, String name, double[] got) {
+        var want = o.getAsJsonArray(name);
+        for (int i = 0; i < 3; i++) assertEquals(want.get(i).getAsDouble(), got[i], 1e-9, name + "[" + i + "]");
     }
 
     @Test

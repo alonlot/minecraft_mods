@@ -45,7 +45,8 @@ final class ActorMotion {
         float seat = rt.clips.seat(t, poseSeat(rt, t));
         if (rt.lifeOn()) {
             HumanMotion.Odometer odo = rt.odometer();
-            HumanMotion.life(ROT, POS, rt.seed, t, rt.def.scale(), odo.speed(t), odo.phase(t), seat, rt.lifeGain);
+            float speed = odo.speed(t) * (1 - rt.clips.holdsGait(t));
+            HumanMotion.life(ROT, POS, rt.seed, t, rt.def.scale(), speed, odo.phase(t), seat, rt.lifeGain);
             write();
         }
         System.arraycopy(ROT, HumanMotion.RIGHT_LEG * 3, LIFE_LEGS, 0, 6);
@@ -57,10 +58,10 @@ final class ActorMotion {
             if (rt.clips.cueTime(t) >= poseT) {
                 pose.run();
                 read();
-                legs = rt.clips.apply(ROT, POS, t, rt.def.scale(), headYaw);
+                legs = rt.clips.apply(ROT, POS, t, rt.def.scale(), headYaw, rt.bodyYaw);
                 write();
             } else {
-                legs = rt.clips.apply(ROT, POS, t, rt.def.scale(), headYaw);
+                legs = rt.clips.apply(ROT, POS, t, rt.def.scale(), headYaw, rt.bodyYaw);
                 write();
                 pose.run();
             }

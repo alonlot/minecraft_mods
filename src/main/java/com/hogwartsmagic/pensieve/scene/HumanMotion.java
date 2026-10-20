@@ -217,12 +217,134 @@ public final class HumanMotion {
         }
     }
 
+    // ==== seat geometry ===========================================================================================
+    // How the player model really stands in the world (PlayerRenderer / LivingEntityRenderer): the model is scaled by
+    // 15/16 and hung from 1.501 blocks, +y down. A leg is a 4 x 12 x 4 px box from its hip pivot (model y 12), and the
+    // pants layer grows it by 0.25 px on every side. Mirrored in build_scripts/pensieve_scenes/human_motion.py
+    // (kept in step by HumanMotionTest.pythonMirrorAgrees and human_motion_cases.json).
+
+    /** PlayerRenderer's model scale. */
+    public static final double MODEL_SCALE = 0.9375;
+    /** LivingEntityRenderer's model origin height (model y 0 is this many model blocks above the feet). */
+    public static final double MODEL_ORIGIN = 1.501;
+    /** Leg pivot (hip) model y, leg length and half width in px; the pants layer adds {@link #LAYER_PX} all round. */
+    public static final double HIP_PX = 12, LEG_LENGTH_PX = 12, LEG_HALF_WIDTH_PX = 2, LAYER_PX = 0.25;
+    /** Seat assumptions for the clips that leave the seat: how far the seat's front edge is ahead of the seated hip,
+     * the gap kept in front of it when standing, and the seat height above the floor (CHEER_STAND only). */
+    public static final double SEAT_EDGE_AHEAD = 0.5, STAND_CLEARANCE = 0.05, SEAT_HEIGHT = 0.5;
+
+    /** Blocks per model px for an actor of this scale. */
+    public static double pxBlocks(double scale) {
+        return scale * MODEL_SCALE / 16.0;
+    }
+
+    /** Height of the hip pivot above the feet root, in blocks. */
+    public static double hipHeight(double scale) {
+        return (MODEL_ORIGIN * 16 - HIP_PX) * pxBlocks(scale);
+    }
+
+    /** Half the thickness of a leg box (with its pants layer), in blocks. */
+    public static double legHalfWidth(double scale) {
+        return (LEG_HALF_WIDTH_PX + LAYER_PX) * pxBlocks(scale);
+    }
+
     /**
-     * How far (px) the hips rise when a seated actor stands, for a seat half a block high (a bench or a slab, the
-     * Great Hall's benches): standing hips are a leg above the floor, seated ones on the seat.
+     * How far above the seat top the hip pivot sits when seated with the legs straight forward (-90): half a leg
+     * thick, so the bottom of the thighs rests exactly on the seat instead of sinking into it.
      */
-    public static float standLift(float scale) {
-        return Math.max(0f, LEG - 8f / Math.max(0.25f, scale));
+    public static double seatedHipLift(double scale) {
+        return legHalfWidth(scale);
+    }
+
+    /** The feet root height that seats an actor on a seat whose top is at {@code seatTop}. */
+    public static double seatedRootY(double seatTop, double scale) {
+        return seatTop + seatedHipLift(scale) - hipHeight(scale);
+    }
+
+    /** How far ahead of the seated hip the hip stands when the actor is up: clear of the seat edge. */
+    public static double standAhead(double scale) {
+        return SEAT_EDGE_AHEAD + legHalfWidth(scale) + STAND_CLEARANCE;
+    }
+
+    /** How far the hips rise from seated to standing on a {@link #SEAT_HEIGHT} seat (negative: they drop). */
+    public static double standRise(double scale) {
+        return hipHeight(scale) - SEAT_HEIGHT - seatedHipLift(scale);
+    }
+
+    /** How far below its hip pivot the lowest point of a leg box hangs, at leg pitch (x rotation) {@code pitch}. */
+    public static double legLowestBelowHip(double pitch, double scale) {
+        double a = Math.toRadians(pitch);
+        double along = Math.max(-LAYER_PX * Math.cos(a), (LEG_LENGTH_PX + LAYER_PX) * Math.cos(a));
+        return (along + (LEG_HALF_WIDTH_PX + LAYER_PX) * Math.abs(Math.sin(a))) * pxBlocks(scale);
+    }
+
+    /**
+     * Model px (relative to the model, +y down, -z forward) to world, for an actor whose feet root is at
+     * {@code root} and whose body faces {@code bodyYaw}.
+     */
+    public static double[] modelToWorld(double[] root, double bodyYaw, double scale, double mx, double my, double mz) {
+        double k = pxBlocks(scale);
+        double lx = -mx * k;                       // the renderer flips x and y
+        double ly = (MODEL_ORIGIN * 16 - my) * k;
+        double lz = mz * k;
+        double r = Math.toRadians(180 - bodyYaw);  // then turns by 180 - yaw about +y
+        double wx = lx * Math.cos(r) + lz * Math.sin(r);
+        double wz = -lx * Math.sin(r) + lz * Math.cos(r);
+        return new double[]{root[0] + wx, root[1] + ly, root[2] + wz};
+    }
+
+    /**
+     * The eight world corners of a leg box (with its pants layer): {@code leg} is {@link #RIGHT_LEG} or
+     * {@link #LEFT_LEG}, {@code rot}/{@code pos} the part arrays as this class writes them.
+     */
+    public static double[][] legBox(double[] root, double bodyYaw, double scale, float[] rot, float[] pos, int leg) {
+        double a = Math.toRadians(rot[leg * 3]), b = Math.toRadians(rot[leg * 3 + 1]), c = Math.toRadians(rot[leg * 3 + 2]);
+        double w = LEG_HALF_WIDTH_PX + LAYER_PX;
+        double[][] out = new double[8][];
+        int n = 0;
+        for (double x : new double[]{-w, w}) {
+            for (double y : new double[]{-LAYER_PX, LEG_LENGTH_PX + LAYER_PX}) {
+                for (double z : new double[]{-w, w}) {
+                    float[] v = turned(x, y, z, a, b, c);
+                    out[n++] = modelToWorld(root, bodyYaw, scale, pos[leg * 3] + v[0], pos[leg * 3 + 1] + v[1],
+                            pos[leg * 3 + 2] + v[2]);
+                }
+            }
+        }
+        return out;
+    }
+
+    // ---- the seat clips' timing, shared with human_motion.py so a scene generator can sample them --------------
+
+    /** SIT_DOWN at {@code s} seconds: {leg pitch, horizontal root fraction, vertical root fraction}. */
+    public static double[] sitDownCurve(double s, boolean rising) {
+        return new double[]{-90 * step(s, 0.05, 0.40), step(s, 0.30, 0.45),
+                rising ? step(s, 0.05, 0.35) : step(s, 0.50, 0.35)};
+    }
+
+    /** STAND_UP at {@code s} seconds: {leg pitch, horizontal root fraction, vertical root fraction}. */
+    public static double[] standUpCurve(double s, boolean rising) {
+        return new double[]{-90 * (1 - step(s, 0.55, 0.35)), step(s, 0.15, 0.40),
+                rising ? step(s, 0.10, 0.40) : step(s, 0.55, 0.30)};
+    }
+
+    /**
+     * CHEER_STAND at {@code q} (its own time, scaled to a 3 s clip): {leg pitch, forward fraction of
+     * {@link #standAhead}, up fraction of {@link #standRise}}.
+     */
+    public static double[] cheerStandCurve(double q, double scale) {
+        double fwd = step(q, 0.20, 0.40) * (1 - step(q, 2.30, 0.40));
+        double down = step(q, 0.55, 0.25) * (1 - step(q, 2.00, 0.30));
+        double up = standRise(scale) > 0 ? step(q, 0.20, 0.40) * (1 - step(q, 2.35, 0.35)) : down;
+        return new double[]{-90 + 84 * down, fwd, up};
+    }
+
+    /** Smoothstep from {@code from} over {@code span}, in double (the Python mirror computes in double too). */
+    private static double step(double x, double from, double span) {
+        double u = (x - from) / span;
+        if (u <= 0) return 0;
+        if (u >= 1) return 1;
+        return u * u * (3 - 2 * u);
     }
 
     // ==== the life layer ==========================================================================================
@@ -435,6 +557,9 @@ public final class HumanMotion {
         public float seat = Float.NaN;
         /** 0 to 1: hand the legs back to the life layer whatever the pose says (after STAND_UP). */
         public float lifeLegs;
+        /** SIT_DOWN / STAND_UP: the clip steers the root between where the path is at its start and its end. */
+        int pathClip = -1;
+        double pathS;
 
         void clear() {
             Arrays.fill(abs, 0);
@@ -443,6 +568,7 @@ public final class HumanMotion {
             Arrays.fill(off, 0);
             seat = Float.NaN;
             lifeLegs = 0;
+            pathClip = -1;
         }
 
         /**
@@ -476,6 +602,15 @@ public final class HumanMotion {
 
         void lift(float x, float y, float z) {
             root(off, x, y, z);
+        }
+
+        /** Moves everything but the legs: a bounce of the torso that never pushes the legs into a seat. */
+        void liftUpper(float x, float y, float z) {
+            for (int p = HEAD; p <= LEFT_ARM; p++) {
+                off[p * 3] += x;
+                off[p * 3 + 1] += y;
+                off[p * 3 + 2] += z;
+            }
         }
 
         /** Applies this frame to {@code rot}/{@code pos} at weight {@code w}. */
@@ -551,7 +686,7 @@ public final class HumanMotion {
         f.arm(RIGHT_ARM, height, rightLeads ? lead : follow, spread, 1);
         f.arm(LEFT_ARM, height + range(cs, 7, -4, 4), rightLeads ? follow : lead, spread, 1);
         f.lean(1.5f * energy * hit, 0, 0);
-        f.lift(0, 0.25f * hit, 0);
+        f.liftUpper(0, 0.25f * hit, 0);
         f.add[HEAD * 3] += 1.2f * lateHit + 2 * noise(sub(cs, 8), s * 0.4);
         f.add[HEAD * 3 + 1] += 4 * fbm(sub(cs, 9), s * 0.35);
     }
@@ -590,19 +725,23 @@ public final class HumanMotion {
     }
 
     /**
-     * CHEER_STAND (one-shot, 2.7-3.3 s): from the bench, weight forward and hands pushing off, up (the hips rise
-     * by {@link #standLift}), arms thrown up and pumping while bouncing, then down again: arms come down, weight
-     * forward, back onto the bench, a settle. The legs stay seated once it is over; the arms go back to the pose.
+     * CHEER_STAND (one-shot, 2.7-3.3 s), with the path held at the seated root: weight forward and hands pushing
+     * off, the hips forward past the seat edge ({@link #standAhead}) with the thighs still level, only then the legs
+     * down to stand (the hips rise by {@link #standRise}), arms thrown up and pumping while bouncing; then the legs
+     * come up level first, the hips go back over the seat and settle. The legs never cut through the seat (see
+     * {@link #cheerStandCurve}). Ends seated: the legs stay seated while the cue is in force; the arms go back to
+     * the pose.
      */
     private static void cheerStand(Frame f, long cs, long seed, double s, float scale) {
         float len = cheerStandSeconds(seed);
         double q = s * 3.0 / len;                 // the choreography is written for 3 s
-        float up = Math.max(0f, Math.min(1f, keys(q, 0, 0, 0.22f, 0, 0.72f, 1, 2.15f, 1, 2.75f, 0)));
-        f.legs(lerp(-90, -6, up), 8 * (1 - up), 1);
-        f.seat = 1 - up;
-        float lift = standLift(scale);
+        double[] k = cheerStandCurve(q, scale);
+        float up = (float) ((k[0] + 90) / 84);
+        f.legs((float) k[0], 8 * (1 - up), 1);
+        f.seat = 1 - (float) k[1];
+        double px = pxBlocks(scale);
         float bounce = q > 0.8 && q < 2.1 ? pump(cs, q, RIGHT_ARM) * ramp(q, 0.8, 1.0) * (1 - ramp(q, 1.9, 2.1)) : 0;
-        f.lift(0, -lift * up - 0.6f * bounce, -3 * up);
+        f.lift(0, (float) (-k[2] * standRise(scale) / px) - 0.6f * bounce * up, (float) (-k[1] * standAhead(scale) / px));
         f.lean(keys(q, 0, 0, 0.22f, 24, 0.6f, 7, 0.82f, -4, 2.0f, -3, 2.35f, 16, 2.75f, 2, 2.92f, -1, 3.0f, 0), 0,
                 2 * noise(sub(cs, 21), q * 0.5) * up);
         float own = 1 - ramp(q, 2.78, 3.0);
@@ -752,18 +891,23 @@ public final class HumanMotion {
     }
 
     /**
-     * SIT_DOWN (one-shot 1 s; the path should carry the root into the seat meanwhile): a glance down at the seat,
-     * arms out a little for balance, weight forward over the feet while the legs fold, hands bracing on the bench,
-     * a settle with a small bounce and the weight going back. Ends seated (legs held, life seated) for as long as the
+     * SIT_DOWN (one-shot 1 s): a glance down at the seat, arms out a little for balance, weight forward, the legs
+     * rising level in front <i>first</i> (by 0.45 s, while standing clear of the seat), then the hips going back over
+     * the seat and down onto it, hands bracing, a settle of the torso. The clip steers the root itself from where
+     * the path is at the cue to where it is 1 s later ({@link #sitDownCurve}), so the path only has to get from the
+     * standing spot to the seated root within that second. Ends seated (legs held, life seated) for as long as the
      * cue is in force; the arms go back to the pose.
      */
     private static void sitDown(Frame f, long cs, double s) {
-        f.legs(keys(s, 0, 0, 0.2f, -6, 0.75f, -90, 0.86f, -93, 1.0f, -90), 8 * ramp(s, 0.4, 0.9), 1);
+        double[] k = sitDownCurve(s, false);
+        f.legs((float) k[0], 8 * ramp(s, 0.4, 0.9), 1);
+        f.pathClip = SIT_DOWN;
+        f.pathS = s;
         f.seat = ramp(s, 0.5, 0.9);
         float lean = keys(s, 0, 0, 0.25f, 18, 0.6f, 24, 0.8f, 8, 0.92f, -2, 1.0f, 0);
         f.lean(lean, 0, 0);
         f.add[HEAD * 3] += keys(s, 0, 0, 0.15f, 12, 0.5f, 4, 0.9f, 0) - 0.4f * lean;
-        f.lift(0, 0.5f * ramp(s, 0.72, 0.82) * (1 - ramp(s, 0.84, 0.98)), 0);
+        f.liftUpper(0, 0.5f * ramp(s, 0.78, 0.88) * (1 - ramp(s, 0.9, 1.0)), 0);
         float own = ramp(s, 0, 0.15) * (1 - ramp(s, 0.9, 1.25));
         float x = keys(s, 0, -4, 0.25f, -22, 0.6f, -42, 0.85f, -36, 1.0f, -32);
         float out = keys(s, 0, 2, 0.25f, 10, 0.6f, 6, 1.0f, 2);
@@ -772,15 +916,19 @@ public final class HumanMotion {
     }
 
     /**
-     * STAND_UP (one-shot 1 s; the path should carry the root out of the seat meanwhile): weight well forward, hands
-     * pushing on the knees, the legs straighten as the body comes up, the arms swing back with the rise and settle.
-     * Ends standing: the legs go back to the life layer (and walk) whatever the pose says, for as long as the cue
-     * is in force.
+     * STAND_UP (one-shot 1 s), the reverse of SIT_DOWN: weight well forward, hands pushing on the knees, the hips
+     * coming forward off the seat with the legs still level, and only once they are clear of the seat edge the legs
+     * swinging down to stand ({@link #standUpCurve}); the arms swing back with the rise. Like SIT_DOWN it steers the
+     * root from the path's position at the cue to its position 1 s later. Ends standing: the legs go back to the
+     * life layer (and walk) whatever the pose says, for as long as the cue is in force.
      */
     private static void standUp(Frame f, long cs, double s) {
-        float up = keys(s, 0, 0, 0.3f, 0.04f, 0.75f, 0.96f, 0.88f, 1.03f, 1.0f, 1);
-        f.legs(lerp(-90, 0, up), 8 * (1 - up), 1);
-        f.lifeLegs = ramp(s, 0.85, 1.05);
+        double[] k = standUpCurve(s, false);
+        float up = (float) (1 + k[0] / 90);
+        f.legs((float) k[0], 8 * (1 - up), 1);
+        f.pathClip = STAND_UP;
+        f.pathS = s;
+        f.lifeLegs = ramp(s, 0.92, 1.05);
         f.seat = 1 - ramp(s, 0.35, 0.8);
         float lean = keys(s, 0, 0, 0.3f, 30, 0.55f, 22, 0.8f, 2, 0.9f, -3, 1.05f, 0);
         f.lean(lean, 0, 0);
@@ -806,8 +954,15 @@ public final class HumanMotion {
         private final long seed;
         private final Frame a = new Frame();
         private final Frame b = new Frame();
+        private final Track path;
 
         public Clips(List<SceneDef.Cue> cues, long seed) {
+            this(cues, seed, Track.EMPTY);
+        }
+
+        /** {@code path}: the actor's path, which SIT_DOWN and STAND_UP steer the root along. */
+        public Clips(List<SceneDef.Cue> cues, long seed, Track path) {
+            this.path = path == null ? Track.EMPTY : path;
             List<SceneDef.Cue> known = new ArrayList<>();
             for (SceneDef.Cue c : cues) {
                 if (clipId(c.name()) >= 0) known.add(c);
@@ -865,11 +1020,17 @@ public final class HumanMotion {
             return Float.isNaN(a.seat) ? poseSeat : a.seat;
         }
 
-        /**
-         * Applies the clip in force (cross-fading from the one before) to {@code rot}/{@code pos}. Returns how much
-         * the legs should be handed back to the life layer afterwards (0 to 1).
-         */
+        /** As {@link #apply(float[], float[], float, float, float, float)} for an actor facing yaw 0. */
         public float apply(float[] rot, float[] pos, float t, float scale, float headYaw) {
+            return apply(rot, pos, t, scale, headYaw, 0f);
+        }
+
+        /**
+         * Applies the clip in force (cross-fading from the one before) to {@code rot}/{@code pos}. {@code bodyYaw}
+         * turns SIT_DOWN / STAND_UP's root steering into the model's frame. Returns how much the legs should be
+         * handed back to the life layer afterwards (0 to 1).
+         */
+        public float apply(float[] rot, float[] pos, float t, float scale, float headYaw, float bodyYaw) {
             int i = active(t);
             if (i < 0) return 0;
             float w = weight(i, t);
@@ -877,12 +1038,59 @@ public final class HumanMotion {
             if (w < 1 && i > 0) {
                 frame(b, i - 1, t, scale, headYaw);
                 b.applyTo(rot, pos, 1 - w);
+                steer(b, i - 1, t, scale, bodyYaw, pos, 1 - w);
                 legs += b.lifeLegs * (1 - w);
             }
             frame(a, i, t, scale, headYaw);
             a.applyTo(rot, pos, w);
+            // The root steering is not blended in: the path may already be moving at the cue.
+            steer(a, i, t, scale, bodyYaw, pos, 1f);
             legs += a.lifeLegs * w;
             return Math.min(1f, legs);
+        }
+
+        /**
+         * SIT_DOWN / STAND_UP own the root: where the path starts and ends over the clip, the clip decides the way
+         * between (legs first, then the hips, or the reverse), and the difference from where the path actually is
+         * goes into the part offsets. Zero at the cue and from the end on (the path is at its end by then).
+         */
+        private void steer(Frame f, int i, float t, float scale, float bodyYaw, float[] pos, float w) {
+            if (f.pathClip < 0 || path.isEmpty() || w <= 0) return;
+            float len = length(f.pathClip, seed);
+            float fade = 1 - smooth((t - times[i] - len) / 2.0);
+            if (fade <= 0) return;
+            float[] start = path.sample(times[i]);
+            float[] end = path.sample(times[i] + len);
+            float[] now = path.sample(t);
+            if (start.length < 3 || end.length < 3 || now.length < 3) return;
+            boolean rising = end[1] > start[1] + 1.0e-4f;
+            double[] k = f.pathClip == SIT_DOWN ? sitDownCurve(f.pathS, rising) : standUpCurve(f.pathS, rising);
+            double dx = start[0] + (end[0] - start[0]) * k[1] - now[0];
+            double dy = start[1] + (end[1] - start[1]) * k[2] - now[1];
+            double dz = start[2] + (end[2] - start[2]) * k[1] - now[2];
+            double yaw = Math.toRadians(bodyYaw);
+            double forward = -dx * Math.sin(yaw) + dz * Math.cos(yaw);
+            double left = dx * Math.cos(yaw) + dz * Math.sin(yaw);
+            double px = pxBlocks(scale);
+            root(pos, (float) (left / px * w * fade), (float) (-dy / px * w * fade), (float) (-forward / px * w * fade));
+        }
+
+        /**
+         * How much a seat clip (SIT_DOWN, STAND_UP, CHEER_STAND) in progress holds the gait off: the root moves,
+         * but the legs are the clip's, so the walk must not bob the hips into the seat.
+         */
+        public float holdsGait(float t) {
+            int i = active(t);
+            float hold = 0;
+            if (i >= 0 && seatClip(ids[i]) && t - times[i] < length(ids[i], seed) + 2) hold = 1;
+            // The speed is averaged 3 ticks ahead, so start holding just before a seat clip begins.
+            int next = i + 1;
+            if (next < ids.length && seatClip(ids[next])) hold = Math.max(hold, 1 - smooth((times[next] - t) / 4.0));
+            return hold;
+        }
+
+        private static boolean seatClip(int id) {
+            return id == SIT_DOWN || id == STAND_UP || id == CHEER_STAND;
         }
 
         /** True when the clip in force is a one-shot that has run its course (for tools). */

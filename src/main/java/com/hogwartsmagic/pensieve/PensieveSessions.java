@@ -8,6 +8,7 @@ import com.hogwartsmagic.pensieve.net.PensieveNet;
 import com.hogwartsmagic.pensieve.net.PensieveStartPacket;
 import com.hogwartsmagic.pensieve.net.PensieveThudPacket;
 import com.hogwartsmagic.pensieve.net.PensieveWakePacket;
+import com.hogwartsmagic.pensieve.scene.ItemText;
 import com.hogwartsmagic.pensieve.scene.SceneDef;
 import com.hogwartsmagic.pensieve.scene.SceneException;
 import com.hogwartsmagic.pensieve.scene.SceneValidator;
@@ -282,7 +283,7 @@ public final class PensieveSessions {
             player.displayClientMessage(Component.translatable("message.hogwartsmagic.pensieve.no_scene"), true);
             return;
         }
-        session = createSession(player, memory, id, scene.get(), dim, pos, false);
+        session = createSession(player, memory, id, scene.get(), dim, pos, false, startContext(player, Map.of()));
         if (session != null) addViewer(session, player, pos);
     }
 
@@ -314,7 +315,8 @@ public final class PensieveSessions {
             for (String m : messages) player.sendSystemMessage(Component.literal(sceneId + ": " + m));
             return false;
         }
-        Session session = createSession(player, memory, sceneId, loaded.get(), null, null, true);
+        Session session = createSession(player, memory, sceneId, loaded.get(), null, null, true,
+                startContext(player, Map.of()));
         if (session == null) return false;
         addViewer(session, player, player.blockPosition());
         return true;
@@ -327,6 +329,15 @@ public final class PensieveSessions {
      * the memory never starts behind an inventory screen.
      */
     public static boolean startSolo(ServerPlayer player, String sceneId) {
+        return startSolo(player, sceneId, Map.of());
+    }
+
+    /**
+     * As {@link #startSolo(ServerPlayer, String)}, with a start context that fills the scene's placeholders for this
+     * chain: {@code ItemText.CONTEXT_WAND} is the item id {@code {viewer_wand}} becomes (the wand just bought). A
+     * placeholder the context leaves out falls back as {@link ItemText#viewerWand} says (the held wand, then Harry's).
+     */
+    public static boolean startSolo(ServerPlayer player, String sceneId, Map<String, String> context) {
         if (isViewer(player) || !player.isAlive()) return false;
         ServerLevel memory = startableMemory(player, false, "solo memory");
         if (memory == null) return false;
@@ -335,7 +346,8 @@ public final class PensieveSessions {
             LOGGER.warn("Pensieve: no scene '{}' is loaded for a solo memory", sceneId);
             return false;
         }
-        Session session = createSession(player, memory, sceneId, loaded.get(), null, null, false);
+        Session session = createSession(player, memory, sceneId, loaded.get(), null, null, false,
+                startContext(player, context));
         if (session == null) return false;
         player.closeContainer();
         addViewer(session, player, player.blockPosition());
@@ -368,6 +380,21 @@ public final class PensieveSessions {
         else player.displayClientMessage(Component.translatable(key), true);
     }
 
+    /** The start context with its placeholders resolved against what {@code player} holds now (main hand first). */
+    private static Map<String, String> startContext(ServerPlayer player, Map<String, String> context) {
+        List<String> held = new ArrayList<>(2);
+        for (ItemStack stack : new ItemStack[]{player.getMainHandItem(), player.getOffhandItem()}) {
+            held.add(stack.isEmpty() ? null : BuiltInRegistries.ITEM.getKey(stack.getItem()).toString());
+        }
+        return ItemText.resolve(context, held);
+    }
+
+    /** {@code scene} with its JSON's placeholders filled from {@code context}: what the clients are sent. */
+    private static MemoryRegistry.LoadedScene filled(MemoryRegistry.LoadedScene scene, Map<String, String> context) {
+        String json = ItemText.fill(scene.json(), context);
+        return json.equals(scene.json()) ? scene : new MemoryRegistry.LoadedScene(scene.def(), json);
+    }
+
     private static Optional<MemoryRegistry.LoadedScene> lookup(String id) {
         if (testScenes != null) return testScenes.apply(id);
         Optional<SceneDef> def = MemoryRegistry.get(id);
@@ -379,7 +406,8 @@ public final class PensieveSessions {
     @Nullable
     private static Session createSession(ServerPlayer player, ServerLevel memory, String id,
                                          MemoryRegistry.LoadedScene scene, @Nullable ResourceKey<Level> basinDim,
-                                         @Nullable BlockPos basinPos, boolean preview) {
+                                         @Nullable BlockPos basinPos, boolean preview, Map<String, String> context) {
+        scene = filled(scene, context);
         if (id.length() > PensieveStartPacket.MAX_ID) {
             LOGGER.warn("Pensieve: scene id '{}...' is over {} chars", id.substring(0, 32), PensieveStartPacket.MAX_ID);
             player.displayClientMessage(Component.translatable("message.hogwartsmagic.pensieve.no_scene"), !preview);
@@ -394,6 +422,7 @@ public final class PensieveSessions {
             return null;
         }
         Session s = newSession(memory, id, scene, basinDim, basinPos, preview);
+        s.context = context;
         // A no-op on a derived level (the memory dimension shares the overworld clock); the client applies the
         // scene's time of day itself from the scene JSON.
         memory.setDayTime(scene.def().set().timeOfDay());
@@ -453,6 +482,8 @@ public final class PensieveSessions {
             LOGGER.warn("Pensieve: scene '{}' after '{}' is not loaded; the chain ends there", next, s.sceneId());
             return null;
         }
+        // The chain's own context: a wand chosen at the start is the wand in every scene after it.
+        loaded = Optional.of(filled(loaded.get(), s.context));
         if (next.length() > PensieveStartPacket.MAX_ID || !PensieveStartPacket.fits(loaded.get().json())) {
             LOGGER.warn("Pensieve: scene '{}' after '{}' is too big for the start packet ({} chars / {} UTF-8 bytes,"
                             + " limits {} / {}); the chain ends there", next, s.sceneId(), loaded.get().json().length(),
@@ -476,6 +507,7 @@ public final class PensieveSessions {
         n.standby = true;
         n.chainRoot = s.chainRoot;
         n.chainIds.addAll(s.chainIds);
+        n.context = s.context;
         SESSIONS.add(n);
         return n;
     }

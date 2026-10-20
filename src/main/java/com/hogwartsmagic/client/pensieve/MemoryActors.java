@@ -1,6 +1,7 @@
 package com.hogwartsmagic.client.pensieve;
 
 import com.hogwartsmagic.ExampleMod;
+import com.hogwartsmagic.entity.MemoryBlockEntity;
 import com.hogwartsmagic.client.renderer.PetrifiedRemainsRenderer;
 import com.hogwartsmagic.mixin.client.LivingEntityUseAccessor;
 import com.hogwartsmagic.pensieve.scene.EquipTimeline;
@@ -39,6 +40,7 @@ import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.Pose;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.client.event.RenderNameTagEvent;
 import net.minecraftforge.eventbus.api.Event;
@@ -119,6 +121,7 @@ public final class MemoryActors {
         ACTORS.clear();
         BY_ENTITY.clear();
         com.hogwartsmagic.client.MemoryDoorRenderer.clearState();
+        com.hogwartsmagic.client.MemoryBlockRenderer.clearCache();
         level = null;
         origin = null;
         overlayPass = false;
@@ -146,6 +149,14 @@ public final class MemoryActors {
                 return null;
             }
             entity.setUUID(uuid);
+            if (entity instanceof MemoryBlockEntity block) {
+                BlockState state = MemoryBlockEntity.parseState(def.block());
+                if (state == null) {
+                    LOGGER.warn("Pensieve: actor '{}' has a block '{}' the game does not know; it shows nothing",
+                            def.id(), def.block());
+                }
+                block.setBlockState(state);
+            }
         }
         entity.setId(nextId--);
         entity.setSilent(true);
@@ -261,6 +272,8 @@ public final class MemoryActors {
         LivingEntity l = a.living;
         boolean first = !a.placed;
         e.setOldPosAndRot();
+        MemoryBlockEntity block = e instanceof MemoryBlockEntity b ? b : null;
+        if (block != null) block.rollO = block.roll;
         if (l != null) {
             l.yBodyRotO = l.yBodyRot;
             l.yHeadRotO = l.yHeadRot;
@@ -312,6 +325,7 @@ public final class MemoryActors {
             float[] lk = a.def.look().sample(t);
             lookYaw = lk.length > 0 ? lk[0] : 0;
             pitch = lk.length > 1 ? lk[1] : 0;
+            if (block != null) block.roll = lk.length > 2 ? lk[2] : 0;
         }
         float target;
         boolean follow = hasLook && a.lifeOn();
@@ -344,6 +358,7 @@ public final class MemoryActors {
         }
         if (first) {
             e.setOldPosAndRot();
+            if (block != null) block.rollO = block.roll;
             if (l != null) {
                 l.yBodyRotO = l.yBodyRot;
                 l.yHeadRotO = l.yHeadRot;

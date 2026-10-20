@@ -71,6 +71,11 @@ public final class Session {
     String chainRoot;
     /** Every scene id this chain has played or is playing, this one included: a next scene already here is a cycle. */
     final java.util.Set<String> chainIds = new java.util.HashSet<>();
+    /**
+     * The start context the chain began with, already resolved (see {@code ItemText.resolve}): what fills a scene's
+     * placeholders, such as {@code {viewer_wand}}, in this scene and every scene the chain hands over to.
+     */
+    Map<String, String> context = Map.of();
 
     Session(String sceneId, String rawJson, SceneDef scene, int slot, BlockPos origin,
             @Nullable ResourceKey<Level> basinDim, @Nullable BlockPos basinPos, boolean preview) {

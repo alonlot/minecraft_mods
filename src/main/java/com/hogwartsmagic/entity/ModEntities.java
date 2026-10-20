@@ -70,6 +70,14 @@ public class ModEntities {
                             .updateInterval(2)
                             .build("fiendfyre_serpent"));
 
+    /** One block state as a memory actor (bricks of the wall that opens, wand boxes, a vase): see MemoryBlockRenderer. */
+    public static final RegistryObject<EntityType<MemoryBlockEntity>> MEMORY_BLOCK =
+            ENTITY_TYPES.register("memory_block",
+                    () -> EntityType.Builder.<MemoryBlockEntity>of(MemoryBlockEntity::new, MobCategory.MISC)
+                            .sized(1.0f, 1.0f)
+                            .clientTrackingRange(10)
+                            .build("memory_block"));
+
     public static final RegistryObject<EntityType<MemoryLetterEntity>> MEMORY_LETTER =
             ENTITY_TYPES.register("memory_letter",
                     () -> EntityType.Builder.<MemoryLetterEntity>of(MemoryLetterEntity::new, MobCategory.MISC)

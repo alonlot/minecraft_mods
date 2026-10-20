@@ -115,7 +115,7 @@ public final class PensieveCommand {
     }
 
     /** The names that exist right now, read from the live registries and the server's data. */
-    static SceneNames liveNames(MinecraftServer server) {
+    public static SceneNames liveNames(MinecraftServer server) {
         Set<String> spells = new HashSet<>();
         for (SpellType type : SpellType.values()) spells.add(type.getId());
         Set<String> entities = keys(BuiltInRegistries.ENTITY_TYPE);

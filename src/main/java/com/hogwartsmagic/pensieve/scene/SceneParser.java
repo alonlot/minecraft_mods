@@ -123,7 +123,8 @@ public final class SceneParser {
 
     private static SceneDef.ActorDef parseActor(JsonElement e, String path) throws SceneException {
         JsonObject o = obj(e, path);
-        checkKeys(o, path, "id", "type", "skin", "name", "items", "path", "look", "limbs", "poses", "anims", "actions", "scale", "life");
+        checkKeys(o, path, "id", "type", "skin", "name", "items", "path", "look", "limbs", "poses", "anims", "actions", "scale", "life",
+                "block");
         String id = reqStr(o, "id", path);
         String type = reqStr(o, "type", path);
         SceneDef.SkinRef skin = null;
@@ -165,7 +166,7 @@ public final class SceneParser {
         List<SceneDef.ActionCue> actions = new ArrayList<>();
         for (Map.Entry<String, JsonObject> en : each(o, "actions", path)) actions.add(parseAction(en.getValue(), en.getKey()));
         return new SceneDef.ActorDef(id, type, skin, name, items, pathTrack, look, limbs, poses, anims, actions,
-                num(o, "scale", path, 1f), bool(o, "life", path, true));
+                num(o, "scale", path, 1f), bool(o, "life", path, true), str(o, "block", path, null));
     }
 
     /** A keyframe array of [x,y,z] vectors stored under {@code vecKey}. */
@@ -181,14 +182,21 @@ public final class SceneParser {
         return new Track(keys);
     }
 
+    /** Look keys are [yaw, pitch]; when any key gives a {@code roll} every key is [yaw, pitch, roll] (roll default 0). */
     private static Track parseLook(JsonElement e, String path) throws SceneException {
         JsonArray a = arr(e, path);
+        boolean rolls = false;
+        for (int i = 0; i < a.size(); i++) {
+            if (a.get(i).isJsonObject() && has(a.get(i).getAsJsonObject(), "roll")) rolls = true;
+        }
         List<Keyframe> keys = new ArrayList<>();
         for (int i = 0; i < a.size(); i++) {
             String p = index(path, i);
             JsonObject k = obj(a.get(i), p);
-            checkKeys(k, p, "t", "yaw", "pitch", "ease");
-            keys.add(new Keyframe(reqTime(k, "t", p), new float[]{reqNum(k, "yaw", p), num(k, "pitch", p, 0f)}, ease(k, p)));
+            checkKeys(k, p, "t", "yaw", "pitch", "roll", "ease");
+            float yaw = reqNum(k, "yaw", p), pitch = num(k, "pitch", p, 0f);
+            float[] v = rolls ? new float[]{yaw, pitch, num(k, "roll", p, 0f)} : new float[]{yaw, pitch};
+            keys.add(new Keyframe(reqTime(k, "t", p), v, ease(k, p)));
         }
         return new Track(keys);
     }

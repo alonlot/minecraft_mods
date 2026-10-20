@@ -119,10 +119,26 @@ public final class SceneValidator {
             known(out, p + ".skin.texture", "skin", a.skin().texture(), names.skins());
         }
         for (var item : a.items().entrySet()) {
-            known(out, p + ".items." + item.getKey(), "item", item.getValue(), names.items());
+            item(out, p + ".items." + item.getKey(), item.getValue(), names);
         }
         track(out, p + ".path", a.path(), length);
         track(out, p + ".look", a.look(), length);
+        boolean blockActor = SceneNames.BLOCK_ACTOR.equals(a.type());
+        if (a.block() != null && !blockActor) {
+            out.add(p + ".block: block is only for " + SceneNames.BLOCK_ACTOR);
+        } else if (blockActor && a.block() == null) {
+            out.add(p + ".block: a " + SceneNames.BLOCK_ACTOR + " actor needs a block (a block state, e.g. minecraft:bricks)");
+        } else if (blockActor) {
+            blockState(out, p + ".block", a.block(), names);
+        }
+        if (!blockActor) {
+            for (Keyframe k : a.look().keys()) {
+                if (k.v().length > 2 && k.v()[2] != 0f) {
+                    out.add(p + ".look: roll is only for " + SceneNames.BLOCK_ACTOR);
+                    break;
+                }
+            }
+        }
         for (var limb : a.limbs().entrySet()) {
             track(out, p + ".limbs." + limb.getKey() + ".rot", limb.getValue().rot(), length);
             track(out, p + ".limbs." + limb.getKey() + ".offset", limb.getValue().offset(), length);
@@ -172,7 +188,7 @@ public final class SceneValidator {
                 if (c.item() == null) out.add(cp + ".item: an equip action needs an item (minecraft:air clears the slot)");
             }
             if (!"equip".equals(c.action()) && c.slot() != null) out.add(cp + ".slot: slot is only for equip");
-            if (c.item() != null) known(out, cp + ".item", "item", c.item(), names.items());
+            if (c.item() != null) item(out, cp + ".item", c.item(), names);
             if (c.target() != null && c.target().actor() != null && !actorIds.contains(c.target().actor())) {
                 out.add(cp + ".target: unknown actor '" + c.target().actor() + "'");
             }
@@ -379,6 +395,30 @@ public final class SceneValidator {
 
     private static boolean beyond(int radius, int x0, int x1, int z0, int z1) {
         return x0 < -radius || x1 > radius || z0 < -radius || z1 > radius;
+    }
+
+    /** An item id, or the {@code {viewer_wand}} placeholder the server fills in (see {@link ItemText}). */
+    private static void item(List<String> out, String p, String id, SceneNames names) {
+        if (ItemText.VIEWER_WAND.equals(id)) return;
+        known(out, p, "item", id, names.items());
+    }
+
+    /** {@code namespace:block} or {@code namespace:block[prop=value,...]}: the shape here, the id against the names. */
+    private static final java.util.regex.Pattern BLOCK_STATE = java.util.regex.Pattern.compile(
+            "([a-z0-9_.-]+:[a-z0-9_./-]+)(\\[[a-z0-9_]+=[a-z0-9_]+(,[a-z0-9_]+=[a-z0-9_]+)*])?");
+
+    /**
+     * A memory_block's block state. Property names and values are only checked for shape here (the names hold block
+     * ids, not their properties); the client logs and shows nothing for a property the block does not have, and
+     * the {@code blockActorSpawns} gametest parses real states with the game's own parser.
+     */
+    private static void blockState(List<String> out, String p, String state, SceneNames names) {
+        java.util.regex.Matcher m = BLOCK_STATE.matcher(state);
+        if (!m.matches()) {
+            out.add(p + ": '" + state + "' is not a block state (namespace:block or namespace:block[prop=value,...])");
+            return;
+        }
+        known(out, p, "block", m.group(1), names.blocks());
     }
 
     private static void known(List<String> out, String p, String what, String id, Set<String> valid) {

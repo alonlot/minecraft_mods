@@ -1115,6 +1115,7 @@ public class ClientModEvents {
                         return TextureAtlas.LOCATION_BLOCKS;
                     }
                 });
+        event.registerEntityRenderer(ModEntities.MEMORY_BLOCK.get(), com.hogwartsmagic.client.MemoryBlockRenderer::new);
     }
 
 }

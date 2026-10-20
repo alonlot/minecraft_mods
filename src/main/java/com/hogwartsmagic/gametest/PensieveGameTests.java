@@ -1382,4 +1382,72 @@ public final class PensieveGameTests {
             LOGGER.info("PENSIEVE-GAMETEST PASS handOverMidBuildAndAgainIsSafe");
         });
     }
+
+    // ---- The block actor and the viewer's wand (Wand memory, Task 1) ----------------------------------------
+
+    @GameTest(template = EMPTY)
+    public static void blockActorSpawns(GameTestHelper helper) {
+        var e = com.hogwartsmagic.entity.ModEntities.MEMORY_BLOCK.get().create(helper.getLevel());
+        helper.assertTrue(e != null, "a memory_block cannot be created");
+        var stairs = com.hogwartsmagic.entity.MemoryBlockEntity.parseState("minecraft:oak_stairs[facing=east,half=top]");
+        helper.assertTrue(stairs != null && stairs.is(Blocks.OAK_STAIRS)
+                        && stairs.getValue(net.minecraft.world.level.block.StairBlock.FACING) == net.minecraft.core.Direction.EAST
+                        && stairs.getValue(net.minecraft.world.level.block.StairBlock.HALF)
+                        == net.minecraft.world.level.block.state.properties.Half.TOP,
+                "the game's parser should read the stairs state, got " + stairs);
+        e.setBlockState(stairs);
+        helper.assertTrue(e.blockState() == stairs, "the actor should keep its state");
+        helper.assertTrue(com.hogwartsmagic.entity.MemoryBlockEntity.parseState("minecraft:bricks")
+                == Blocks.BRICKS.defaultBlockState(), "plain bricks");
+        for (String bad : new String[]{"minecraft:brick", "minecraft:oak_stairs[colour=red]", "minecraft:oak_stairs[facing=up]"}) {
+            helper.assertTrue(com.hogwartsmagic.entity.MemoryBlockEntity.parseState(bad) == null, bad + " should not parse");
+        }
+        // A scene with the block actor and the viewer's wand passes the live validator.
+        String json = """
+                {"length":40,"actors":[
+                  {"id":"brick","type":"hogwartsmagic:memory_block","block":"minecraft:oak_stairs[facing=east]",
+                   "path":[{"t":0,"pos":[0.5,1.5,0.5]},{"t":20,"pos":[2.5,3.5,0.5]}],
+                   "look":[{"t":0,"yaw":0},{"t":20,"yaw":180,"pitch":90,"roll":45}],"scale":0.5},
+                  {"id":"boy","type":"player","items":{"mainhand":"{viewer_wand}"},
+                   "actions":[{"t":5,"do":"hold","item":"{viewer_wand}"}]}]}""";
+        try {
+            SceneDef def = com.hogwartsmagic.pensieve.scene.SceneParser.parse("blocks",
+                    com.google.gson.JsonParser.parseString(json).getAsJsonObject());
+            List<String> m = com.hogwartsmagic.pensieve.scene.SceneValidator.validate(def,
+                    com.hogwartsmagic.pensieve.PensieveCommand.liveNames(helper.getLevel().getServer()));
+            helper.assertTrue(m.isEmpty(), "live validation: " + m);
+        } catch (com.hogwartsmagic.pensieve.scene.SceneException ex) {
+            helper.fail("parse: " + ex.getMessage());
+        }
+        LOGGER.info("PENSIEVE-GAMETEST PASS blockActorSpawns");
+        helper.succeed();
+    }
+
+    /** The wand a start context names is in the JSON of the scene it starts and of the next scene in the chain. */
+    @GameTest(template = EMPTY, batch = "pensieve_viewer_wand", timeoutTicks = 300)
+    public static void viewerWandFillsTheChain(GameTestHelper helper) {
+        SceneDef a = floorScene("wand_a", "minecraft:stone", 40, "wand_b");
+        SceneDef b = floorScene("wand_b", "minecraft:gold_block", 400, null);
+        String json = "{\"actors\":[{\"id\":\"boy\",\"type\":\"player\",\"items\":{\"mainhand\":\"{viewer_wand}\"}}]}";
+        com.hogwartsmagic.pensieve.PensieveSessions.setBuildBudgetForTests(-1);
+        com.hogwartsmagic.pensieve.PensieveSessions.overrideForTests(helper.getLevel(), id -> java.util.Optional.of(
+                new com.hogwartsmagic.pensieve.MemoryRegistry.LoadedScene("wand_b".equals(id) ? b : a, json)));
+        var p = playerBeside(helper, 0);
+        String wand = "\"mainhand\":\"hogwartsmagic:elder_wand\"";
+        helper.assertTrue(com.hogwartsmagic.pensieve.PensieveSessions.startSolo(p, "wand_a",
+                java.util.Map.of(com.hogwartsmagic.pensieve.scene.ItemText.CONTEXT_WAND, "hogwartsmagic:elder_wand")),
+                "solo refused");
+        var first = com.hogwartsmagic.pensieve.PensieveSessions.sessionOf(p);
+        helper.assertTrue(first.isPresent() && first.get().rawJson().contains(wand),
+                "the first scene should carry the wand: " + first.map(s -> s.rawJson()).orElse("none"));
+        helper.succeedWhen(() -> {
+            var s = com.hogwartsmagic.pensieve.PensieveSessions.sessionOf(p);
+            helper.assertTrue(s.isPresent() && "wand_b".equals(s.get().sceneId()), "not handed to wand_b yet");
+            helper.assertTrue(s.get().rawJson().contains(wand), "the chained scene should carry the same wand: "
+                    + s.get().rawJson());
+            com.hogwartsmagic.pensieve.PensieveSessions.leave(p, com.hogwartsmagic.pensieve.ExitReason.LEFT);
+            logout(helper, p);
+            LOGGER.info("PENSIEVE-GAMETEST PASS viewerWandFillsTheChain");
+        });
+    }
 }

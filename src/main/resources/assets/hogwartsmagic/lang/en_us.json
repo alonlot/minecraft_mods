@@ -119,6 +119,7 @@
   "entity.hogwartsmagic.acromantula": "Acromantula",
   "item.hogwartsmagic.owl_spawn_egg": "Owl Spawn Egg",
   "entity.hogwartsmagic.owl": "Owl",
+  "entity.hogwartsmagic.memory_block": "Memory Block",
   "item.hogwartsmagic.hogwarts_invite.named": "Hogwarts Invitation for %s",
   "item.hogwartsmagic.hogwarts_invite.tooltip": "Right-click to unfold and read your letter.",
   "item.hogwartsmagic.hogwarts_guide": "Field Guide to the Wizarding Life",

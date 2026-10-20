@@ -24,7 +24,8 @@ public record SceneNames(Set<String> entityTypes, Set<String> spells, Set<String
     public static final float MAX_CUE_VOLUME = 4f;
     /** Event kinds. */
     public static final Set<String> EVENT_KINDS = Set.of("block", "sound", "particles", "effect", "music", "voice", "sfx");
-    /** Scripted effects an {@code effect} event may name. */
+    /** The actor type that shows one block state (its {@code block} key), and the only one a look {@code roll} turns. */
+    public static final String BLOCK_ACTOR = "hogwartsmagic:memory_block";
     /** The letter_flood effect's letter count (1 to this) and each room half-size (blocks). */
     public static final int MAX_FLOOD_LETTERS = 400;
     public static final float MIN_FLOOD_SPREAD = 0.5f, MAX_FLOOD_SPREAD = 12f;
@@ -37,6 +38,7 @@ public record SceneNames(Set<String> entityTypes, Set<String> spells, Set<String
     /** A floating_candles half-box, each axis, in blocks, and the most candles. */
     public static final float MIN_CANDLES_SPREAD = 0.5f, MAX_CANDLES_SPREAD = 100f;
     public static final int MAX_CANDLES = 1500;
+    /** Scripted effects an {@code effect} event may name. */
     public static final Set<String> EFFECTS = Set.of("summoning_ritual", "lightning", "dark_mark", "grey_edges",
             "patronus_light", "fiendfyre_rings", "eyes_open", "eyes_close", "eyes_peek", "letter_flood",
             "enchanted_ceiling", "light_rays", "floating_candles");

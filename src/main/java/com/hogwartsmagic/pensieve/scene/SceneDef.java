@@ -53,12 +53,20 @@ public record SceneDef(String id, String title, int length, int radius, SetDef s
     }
 
     /**
-     * {@code type} is an entity id or "player"; {@code look} values are [yaw, pitch]. {@code life} (players only,
-     * default true) turns on the procedural life layer of {@link HumanMotion}.
+     * {@code type} is an entity id or "player"; {@code look} values are [yaw, pitch], or [yaw, pitch, roll] when any
+     * key gives a roll. {@code life} (players only, default true) turns on the procedural life layer of
+     * {@link HumanMotion}. {@code block} is the block state a {@code memory_block} actor shows (null otherwise).
      */
     public record ActorDef(String id, String type, SkinRef skin, String name, Map<String, String> items,
                            Track path, Track look, Map<String, PartTrack> limbs, List<Cue> poses,
-                           List<Cue> anims, List<ActionCue> actions, float scale, boolean life) {
+                           List<Cue> anims, List<ActionCue> actions, float scale, boolean life, String block) {
+        /** An actor with no block. */
+        public ActorDef(String id, String type, SkinRef skin, String name, Map<String, String> items,
+                        Track path, Track look, Map<String, PartTrack> limbs, List<Cue> poses,
+                        List<Cue> anims, List<ActionCue> actions, float scale, boolean life) {
+            this(id, type, skin, name, items, path, look, limbs, poses, anims, actions, scale, life, null);
+        }
+
         /** A living actor (life on). */
         public ActorDef(String id, String type, SkinRef skin, String name, Map<String, String> items,
                         Track path, Track look, Map<String, PartTrack> limbs, List<Cue> poses,

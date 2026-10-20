@@ -231,6 +231,8 @@ Effects: `lightning` - one visual-only bolt with thunder; `eyes_open` / `eyes_cl
 ### `words[]`
 `{ t, by?, text, narration?, duration?, size? }`. With `by` (an actor id) the line shows as `<name> text` at the bottom left for 8 s; without `by`, plain text. `"narration": true` shows centred silver italic text that fades in and out over `duration` (default 80 ticks). `size` (1 to 4, default 1; narration only) scales the narration text about its centre, e.g. 3 for a large title; the wrap width shrinks to match. Never written to real chat.
 
+`{ t, text, subtitle: true, speaker?, duration? }` is a film-style subtitle: centred near the bottom in white on a soft dark box, an optional small muted-gold `speaker` name before the text, fading in and out over `duration` (default 80 ticks; pass the voice clip length), wrapped at 70% of the screen width, overlapping subtitles stack upward. It needs no actor or name tag, takes `{viewer}`, and is hidden under shut lids and chain black like spoken lines. The validator rejects `subtitle` with `by` or `narration`, and `speaker` without `subtitle`.
+
 ### `camera[]`
 `{ t, pos:[x,y,z], look_at?, fov?, roll?, ease?, cut? }`, sorted by time. Defaults: `fov` 70, `roll` 0, ease `in_out`.
 - `pos` is the camera (eye) position. `look_at` is `"actor:<id>"` (that actor's eye) or `[x,y,z]`; without it the camera looks straight along +Z.

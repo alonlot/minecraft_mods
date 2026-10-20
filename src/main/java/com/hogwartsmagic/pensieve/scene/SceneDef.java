@@ -102,6 +102,7 @@ public record SceneDef(String id, String title, int length, int radius, SetDef s
                            float[] spread, int duration, float yaw, String style, float intensity) {
     }
 
-    public record WordDef(float t, String by, String text, boolean narration, int duration, float size) {
+    public record WordDef(float t, String by, String text, boolean narration, int duration, float size,
+                          boolean subtitle, String speaker) {
     }
 }

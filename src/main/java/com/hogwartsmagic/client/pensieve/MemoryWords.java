@@ -7,6 +7,8 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.Style;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
 
@@ -28,6 +30,10 @@ public final class MemoryWords {
     static final int LINE_FADE = 20;
     private static final int NARRATION_FADE = 10;
     private static final int DEFAULT_NARRATION_TICKS = 60;
+    private static final int SUBTITLE_FADE = 6;
+    private static final int GOLD = 0xD8B65A;
+    /** Subtitle baseline above the lower edge: clear of the hotbar. */
+    private static final int SUBTITLE_BOTTOM = 40;
     private static final int MAX_LINES = 8;
     /** Below this an actor line is not drawn at all (see {@link #argb}). */
     private static final float MIN_ALPHA = 0.02f;
@@ -52,10 +58,17 @@ public final class MemoryWords {
         List<Float> alphas = new ArrayList<>();
         float spoken = PensieveTimeline.spokenWordsAlpha(PensieveClientState.lidsClosed(partial),
                 PensieveClientState.chainEndDarkness(partial));
+        List<Subtitle> subtitles = new ArrayList<>();
         for (SceneDef.WordDef word : scene.words()) {
             float age = now - word.t();
             if (age < 0) continue;
-            if (word.narration()) {
+            if (word.subtitle()) {
+                int life = word.duration() > 0 ? word.duration() : DEFAULT_NARRATION_TICKS + 20;
+                if (age >= life) continue;
+                float a = Mth.clamp(Math.min(age / SUBTITLE_FADE, (life - age) / SUBTITLE_FADE), 0f, 1f) * spoken;
+                if (a < MIN_ALPHA) continue;
+                subtitles.add(new Subtitle(word, a));
+            } else if (word.narration()) {
                 int life = word.duration() > 0 ? word.duration() : DEFAULT_NARRATION_TICKS;
                 if (age >= life) continue;
                 float a = Mth.clamp(Math.min(age / NARRATION_FADE, (life - age) / NARRATION_FADE), 0f, 1f);
@@ -69,6 +82,7 @@ public final class MemoryWords {
                 }
             }
         }
+        subtitles(g, font, subtitles, viewer, w, h);
         // Newest at the bottom; only the last few lines fit.
         int from = Math.max(0, lines.size() - MAX_LINES);
         int y = h - BOTTOM_MARGIN - 9 * (lines.size() - from);
@@ -78,6 +92,38 @@ public final class MemoryWords {
             g.fill(LEFT - 2, y - 1, LEFT + width + 2, y + 9, argb(a * 0.4f, 0x000000));
             g.drawString(font, lines.get(i), LEFT, y, argb(a, SILVER), true);
             y += 9;
+        }
+    }
+
+    private record Subtitle(SceneDef.WordDef word, float alpha) {
+    }
+
+    /** Centred film subtitles above the hotbar; the newest at the bottom, older ones stacked above it. */
+    private static void subtitles(GuiGraphics g, Font font, List<Subtitle> subs, String viewer, int w, int h) {
+        int maxWidth = Math.max(80, (int) (w * 0.7f));
+        int bottom = h - SUBTITLE_BOTTOM;
+        for (int s = subs.size() - 1; s >= 0; s--) {
+            Subtitle sub = subs.get(s);
+            String speaker = sub.word().speaker();
+            MutableComponent c = Component.empty();
+            if (speaker != null && !speaker.isBlank()) {
+                c.append(Component.literal(WordText.fill(speaker, viewer) + ": ").withStyle(Style.EMPTY.withColor(GOLD)));
+            }
+            c.append(Component.literal(WordText.fill(sub.word().text(), viewer)));
+            List<FormattedCharSequence> lines = font.split(c, maxWidth);
+            if (lines.isEmpty()) continue;
+            int blockW = 0;
+            for (FormattedCharSequence l : lines) blockW = Math.max(blockW, font.width(l));
+            int blockH = lines.size() * 10;
+            int top = bottom - blockH;
+            int left = (w - blockW) / 2;
+            g.fill(left - 4, top - 3, left + blockW + 4, bottom + 1, argb(sub.alpha() * 0.55f, 0x000000));
+            int y = top;
+            for (FormattedCharSequence l : lines) {
+                g.drawString(font, l, (w - font.width(l)) / 2, y, argb(sub.alpha(), 0xFFFFFF), true);
+                y += 10;
+            }
+            bottom = top - 6;
         }
     }
 

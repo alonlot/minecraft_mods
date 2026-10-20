@@ -172,6 +172,19 @@ class SceneValidatorTest {
     }
 
     @Test
+    void subtitleRules() throws Exception {
+        assertEquals(List.of(), validate("{\"length\":100,\"words\":[{\"t\":1,\"text\":\"x\",\"subtitle\":true,\"speaker\":\"A\"}]}"));
+        List<String> m = validate("{\"length\":100,\"words\":[{\"t\":1,\"text\":\"x\",\"subtitle\":true,\"narration\":true}]}");
+        assertEquals(1, m.size(), m.toString());
+        assertTrue(m.get(0).contains("subtitle"), m.get(0));
+        m = validate("{\"length\":100,\"actors\":[{\"id\":\"a\",\"type\":\"minecraft:zombie\"}],\"words\":[{\"t\":1,\"by\":\"a\",\"text\":\"x\",\"subtitle\":true}]}");
+        assertEquals(1, m.size(), m.toString());
+        m = validate("{\"length\":100,\"words\":[{\"t\":1,\"text\":\"x\",\"speaker\":\"A\"}]}");
+        assertEquals(1, m.size(), m.toString());
+        assertTrue(m.get(0).contains("speaker"), m.get(0));
+    }
+
+    @Test
     void sizeRange() throws Exception {
         for (String size : new String[]{"0.5", "4.5"}) {
             List<String> m = validate("{\"length\":100,\"words\":[{\"t\":1,\"text\":\"x\",\"narration\":true,\"size\":" + size + "}]}");

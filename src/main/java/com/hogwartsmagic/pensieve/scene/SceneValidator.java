@@ -77,6 +77,12 @@ public final class SceneValidator {
             } else if (w.size() != 1f && !w.narration()) {
                 out.add(p + ".size: size is only for narration");
             }
+            if (w.subtitle() && (w.by() != null || w.narration())) {
+                out.add(p + ".subtitle: a subtitle cannot have by or narration");
+            }
+            if (w.speaker() != null && !w.subtitle()) {
+                out.add(p + ".speaker: speaker is only for subtitle lines");
+            }
             if (w.by() != null && !actorIds.contains(w.by())) {
                 out.add(p + ".by: unknown actor '" + w.by() + "'");
             }

@@ -97,6 +97,19 @@ class SceneParserTest {
     }
 
     @Test
+    void parsesSubtitle() throws Exception {
+        SceneDef s = SceneParser.parse("t", json("""
+                {"length":100,"words":[
+                  {"t":1,"text":"hi","subtitle":true,"speaker":"McGonagall","duration":30},
+                  {"t":2,"text":"plain"}]}"""));
+        assertTrue(s.words().get(0).subtitle());
+        assertEquals("McGonagall", s.words().get(0).speaker());
+        assertEquals(30, s.words().get(0).duration());
+        assertFalse(s.words().get(1).subtitle());
+        assertNull(s.words().get(1).speaker());
+    }
+
+    @Test
     void parsesSfx() throws Exception {
         SceneDef s = SceneParser.parse("t", json("""
                 {"length":100,"events":[{"t":"2s","kind":"sfx","id":"a:b","volume":2}]}"""));

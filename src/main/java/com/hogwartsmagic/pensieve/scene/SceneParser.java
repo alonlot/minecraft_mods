@@ -237,8 +237,9 @@ public final class SceneParser {
 
     private static SceneDef.WordDef parseWord(JsonElement e, String path) throws SceneException {
         JsonObject o = obj(e, path);
-        checkKeys(o, path, "t", "by", "text", "narration", "duration", "size");
+        checkKeys(o, path, "t", "by", "text", "narration", "duration", "size", "subtitle", "speaker");
         return new SceneDef.WordDef(reqTime(o, "t", path), str(o, "by", path, null), reqStr(o, "text", path),
-                bool(o, "narration", path, false), Math.round(time(o, "duration", path, 80f)), num(o, "size", path, 1f));
+                bool(o, "narration", path, false), Math.round(time(o, "duration", path, 80f)), num(o, "size", path, 1f),
+                bool(o, "subtitle", path, false), str(o, "speaker", path, null));
     }
 }

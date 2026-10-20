@@ -367,6 +367,8 @@ public class ModSounds {
     // Film soundtrack excerpts supplied by the user: private use only, a licence is needed before any public release.
     public static final RegistryObject<SoundEvent> PENSIEVE_MUSIC_HALL_ENTRY = register("pensieve.music.hall_entry");
     public static final RegistryObject<SoundEvent> PENSIEVE_MUSIC_HALL_PROLOGUE = register("pensieve.music.hall_prologue");
+    public static final RegistryObject<SoundEvent> PENSIEVE_MUSIC_WAND_WALL = register("pensieve.music.wand_wall");
+    public static final RegistryObject<SoundEvent> PENSIEVE_MUSIC_WAND_ALLEY = register("pensieve.music.wand_alley");
     public static final RegistryObject<SoundEvent> PENSIEVE_MUSIC_LAKE_DEMENTORS = register("pensieve.music.lake_dementors");
     public static final RegistryObject<SoundEvent> PENSIEVE_MUSIC_LAKE_PATRONUS_LIGHT = register("pensieve.music.lake_patronus_light");
     public static final RegistryObject<SoundEvent> PENSIEVE_MUSIC_LAKE_WINDOW = register("pensieve.music.lake_window");

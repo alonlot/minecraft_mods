@@ -1123,6 +1123,7 @@ def wall_scene():
     sc.ev(T_RIPPLE + 0.6, 'effect', 'light_rays', at=[ao['face_yard_x'], 0, 0.5], yaw=90, spread=[2.5, 8, 12],
           duration=50, intensity=0.55)
     sc.sfx(T_RIPPLE + 1.0, 'street', 0.55)
+    sc.ev(T_RIPPLE - 0.4, 'music', 'hogwartsmagic:pensieve.music.wand_wall', volume=1.0)   # the film's Diagon Alley theme as the bricks part
 
     # ---- camera
     fp = [by[0] + 0.35, BOY_EYE, by[2]]
@@ -1162,6 +1163,7 @@ def wall_scene():
 def alley_scene():
     LEN = 56.0
     sc = Scene(ALLEY_ID, 'Diagon Alley', LEN, dict(DIAGON_W))
+    sc.ev(0, 'music', 'hogwartsmagic:pensieve.music.wand_alley', volume=1.0)   # the theme carries on from the wall
     sc.poses = {'standing': {}, 'glass': {'right_arm': [-118, 0, 12], 'left_arm': [-118, 0, -12]}}
     # the arch's bricks rest in their surround: solid for the camera checks
     for e in A['wall_bricks']:
@@ -1653,6 +1655,7 @@ def olli_scene():
     sc.particles(T_FIZ + 0.6, 'minecraft:smoke', [TIP[0], TIP[1] - 0.2, TIP[2]], 10, [0.1, 0.1, 0.1])
 
     # ---- the one
+    sc.ev(T_CHOICE - 1.0, 'music', 'hogwartsmagic:pensieve.music.hall_prologue', volume=1.0)   # the celesta theme as the wand chooses
     sc.ev(T_CHOICE, 'effect', 'wand_choice', at=[r3(c) for c in [B[0] + 0.4, 1.3, B[2] + 0.2]], duration=110,
           intensity=1.1)
     sc.sfx(T_CHOICE - 0.1, 'choice', 1.0)

@@ -2336,6 +2336,22 @@
       }
     ]
   },
+  "pensieve.music.wand_wall": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/music/wand_wall",
+        "stream": true
+      }
+    ]
+  },
+  "pensieve.music.wand_alley": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/music/wand_alley",
+        "stream": true
+      }
+    ]
+  },
   "pensieve.music.hall_prologue": {
     "sounds": [
       {

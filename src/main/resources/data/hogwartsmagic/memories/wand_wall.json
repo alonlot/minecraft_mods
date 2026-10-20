@@ -112,6 +112,7 @@
     {"t": 174, "kind": "sound", "id": "minecraft:block.stone.hit", "volume": 0.9, "pitch": 0.6, "at": [-68.5, 3.5, 1.5]},
     {"t": 178, "kind": "particles", "id": "minecraft:white_ash", "at": [-69.1, 3.5, 1.5], "count": 12, "spread": [0.2, 0.3, 0.3]},
     {"t": 184, "kind": "sound", "id": "minecraft:block.stone.hit", "volume": 0.8, "pitch": 0.7, "at": [-68.5, 3.5, 1.5]},
+    {"t": 190, "kind": "music", "id": "hogwartsmagic:pensieve.music.wand_wall", "volume": 1.0},
     {"t": 196, "kind": "sfx", "id": "hogwartsmagic:pensieve.sfx.wand_wall_grind", "volume": 1.0},
     {"t": 201, "kind": "particles", "id": "minecraft:white_ash", "at": [-68.9, 3.5, 1.5], "count": 10, "spread": [0.4, 0.4, 0.4]},
     {"t": 203, "kind": "particles", "id": "minecraft:poof", "at": [-69.1, 3.5, 1.5], "count": 3, "spread": [0.3, 0.3, 0.3]},

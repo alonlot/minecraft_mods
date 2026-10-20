@@ -77,6 +77,13 @@ public class ModEntities {
                             .clientTrackingRange(4)
                             .build("memory_letter"));
 
+    public static final RegistryObject<EntityType<MemoryDoorEntity>> MEMORY_DOOR =
+            ENTITY_TYPES.register("memory_door",
+                    () -> EntityType.Builder.<MemoryDoorEntity>of(MemoryDoorEntity::new, MobCategory.MISC)
+                            .sized(1.0f, 3.0f)
+                            .clientTrackingRange(10)
+                            .build("memory_door"));
+
     public static final RegistryObject<EntityType<WizardEntity>> WIZARD =
             ENTITY_TYPES.register("wizard",
                     () -> EntityType.Builder.<WizardEntity>of(WizardEntity::new, MobCategory.MONSTER)

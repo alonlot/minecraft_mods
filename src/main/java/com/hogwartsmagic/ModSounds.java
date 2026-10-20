@@ -323,6 +323,16 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> PENSIEVE_SFX_HALL_CEILING_SHIMMER = register("pensieve.sfx.hall_ceiling_shimmer");
     public static final RegistryObject<SoundEvent> PENSIEVE_SFX_HALL_HAT_BRIM = register("pensieve.sfx.hall_hat_brim");
     public static final RegistryObject<SoundEvent> PENSIEVE_SFX_HALL_WHISPERS = register("pensieve.sfx.hall_whispers");
+    public static final RegistryObject<SoundEvent> PENSIEVE_SFX_WAND_BRICK_TAP = register("pensieve.sfx.wand_brick_tap");
+    public static final RegistryObject<SoundEvent> PENSIEVE_SFX_WAND_WALL_GRIND = register("pensieve.sfx.wand_wall_grind");
+    public static final RegistryObject<SoundEvent> PENSIEVE_SFX_WAND_STREET = register("pensieve.sfx.wand_street");
+    public static final RegistryObject<SoundEvent> PENSIEVE_SFX_WAND_SHOP_BELL = register("pensieve.sfx.wand_shop_bell");
+    public static final RegistryObject<SoundEvent> PENSIEVE_SFX_WAND_LADDER = register("pensieve.sfx.wand_ladder");
+    public static final RegistryObject<SoundEvent> PENSIEVE_SFX_WAND_BOXES_FALL = register("pensieve.sfx.wand_boxes_fall");
+    public static final RegistryObject<SoundEvent> PENSIEVE_SFX_WAND_VASE = register("pensieve.sfx.wand_vase");
+    public static final RegistryObject<SoundEvent> PENSIEVE_SFX_WAND_FIZZLE = register("pensieve.sfx.wand_fizzle");
+    public static final RegistryObject<SoundEvent> PENSIEVE_SFX_WAND_CHOICE = register("pensieve.sfx.wand_choice");
+    public static final RegistryObject<SoundEvent> PENSIEVE_SFX_WAND_TAPE = register("pensieve.sfx.wand_tape");
     public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_HALL_HAT_OPEN = register("pensieve.voice.hall_hat_open");
     public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_HALL_MCG_DOORS = register("pensieve.voice.hall_mcg_doors");
     public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_HALL_MCG_CALL = register("pensieve.voice.hall_mcg_call");

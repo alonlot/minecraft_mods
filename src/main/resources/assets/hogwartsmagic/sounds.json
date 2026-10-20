@@ -2176,6 +2176,86 @@
       }
     ]
   },
+  "pensieve.sfx.wand_brick_tap": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/wand_brick_tap",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.wand_wall_grind": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/wand_wall_grind",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.wand_street": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/wand_street",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.wand_shop_bell": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/wand_shop_bell",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.wand_ladder": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/wand_ladder",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.wand_boxes_fall": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/wand_boxes_fall",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.wand_vase": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/wand_vase",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.wand_fizzle": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/wand_fizzle",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.wand_choice": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/wand_choice",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.wand_tape": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/wand_tape",
+        "stream": false
+      }
+    ]
+  },
   "pensieve.voice.hall_hat_open": {
     "sounds": [
       {

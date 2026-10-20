@@ -1,0 +1,12 @@
+{
+  "wand_boxes_fall": 2.65,
+  "wand_brick_tap": 0.85,
+  "wand_choice": 3.0,
+  "wand_fizzle": 1.4,
+  "wand_ladder": 2.2,
+  "wand_shop_bell": 1.5,
+  "wand_street": 19.0,
+  "wand_tape": 1.8,
+  "wand_vase": 1.35,
+  "wand_wall_grind": 4.6
+}

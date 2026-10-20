@@ -2072,6 +2072,174 @@
       }
     ]
   },
+  "pensieve.sfx.hall_door_groan": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/hall_door_groan",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.hall_door_boom": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/hall_door_boom",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.hall_murmur_a": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/hall_murmur_a",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.hall_murmur_b": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/hall_murmur_b",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.hall_hush": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/hall_hush",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.hall_cheer_big": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/hall_cheer_big",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.hall_cheer_small": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/hall_cheer_small",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.hall_steps_group": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/hall_steps_group",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.hall_steps_one": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/hall_steps_one",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.hall_stool": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/hall_stool",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.hall_ceiling_shimmer": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/hall_ceiling_shimmer",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.hall_hat_brim": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/hall_hat_brim",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.hall_whispers": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/hall_whispers",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.hall_hat_open": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/hall_hat_open",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.hall_mcg_doors": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/hall_mcg_doors",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.hall_mcg_call": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/hall_mcg_call",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.hall_mcg_granger": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/hall_mcg_granger",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.hall_mcg_weasley": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/hall_mcg_weasley",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.hall_dumbledore": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/hall_dumbledore",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.hall_hermione_nervous": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/hall_hermione_nervous",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.hall_ron_nervous": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/hall_ron_nervous",
+        "stream": false
+      }
+    ]
+  },
   "pensieve.music.lake_dementors": {
     "sounds": [
       {

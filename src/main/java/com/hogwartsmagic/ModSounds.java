@@ -309,6 +309,29 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_LAKE_HARRY_CAST = register("pensieve.voice.lake_harry_cast");
     public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_LAKE_HARRY_KNEW = register("pensieve.voice.lake_harry_knew");
 
+    // Great Hall memory: ElevenLabs effects and Fish Audio voices (played by sfx and sound events).
+    public static final RegistryObject<SoundEvent> PENSIEVE_SFX_HALL_DOOR_GROAN = register("pensieve.sfx.hall_door_groan");
+    public static final RegistryObject<SoundEvent> PENSIEVE_SFX_HALL_DOOR_BOOM = register("pensieve.sfx.hall_door_boom");
+    public static final RegistryObject<SoundEvent> PENSIEVE_SFX_HALL_MURMUR_A = register("pensieve.sfx.hall_murmur_a");
+    public static final RegistryObject<SoundEvent> PENSIEVE_SFX_HALL_MURMUR_B = register("pensieve.sfx.hall_murmur_b");
+    public static final RegistryObject<SoundEvent> PENSIEVE_SFX_HALL_HUSH = register("pensieve.sfx.hall_hush");
+    public static final RegistryObject<SoundEvent> PENSIEVE_SFX_HALL_CHEER_BIG = register("pensieve.sfx.hall_cheer_big");
+    public static final RegistryObject<SoundEvent> PENSIEVE_SFX_HALL_CHEER_SMALL = register("pensieve.sfx.hall_cheer_small");
+    public static final RegistryObject<SoundEvent> PENSIEVE_SFX_HALL_STEPS_GROUP = register("pensieve.sfx.hall_steps_group");
+    public static final RegistryObject<SoundEvent> PENSIEVE_SFX_HALL_STEPS_ONE = register("pensieve.sfx.hall_steps_one");
+    public static final RegistryObject<SoundEvent> PENSIEVE_SFX_HALL_STOOL = register("pensieve.sfx.hall_stool");
+    public static final RegistryObject<SoundEvent> PENSIEVE_SFX_HALL_CEILING_SHIMMER = register("pensieve.sfx.hall_ceiling_shimmer");
+    public static final RegistryObject<SoundEvent> PENSIEVE_SFX_HALL_HAT_BRIM = register("pensieve.sfx.hall_hat_brim");
+    public static final RegistryObject<SoundEvent> PENSIEVE_SFX_HALL_WHISPERS = register("pensieve.sfx.hall_whispers");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_HALL_HAT_OPEN = register("pensieve.voice.hall_hat_open");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_HALL_MCG_DOORS = register("pensieve.voice.hall_mcg_doors");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_HALL_MCG_CALL = register("pensieve.voice.hall_mcg_call");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_HALL_MCG_GRANGER = register("pensieve.voice.hall_mcg_granger");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_HALL_MCG_WEASLEY = register("pensieve.voice.hall_mcg_weasley");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_HALL_DUMBLEDORE = register("pensieve.voice.hall_dumbledore");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_HALL_HERMIONE_NERVOUS = register("pensieve.voice.hall_hermione_nervous");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_HALL_RON_NERVOUS = register("pensieve.voice.hall_ron_nervous");
+
     // The Sorting Hat's spoken lines (Fish Audio takes; played by the client HatVoice from the quiz packets).
     public static final RegistryObject<SoundEvent> SORTING_VOICE_GREETING = register("sorting.voice.greeting");
     public static final RegistryObject<SoundEvent> SORTING_VOICE_Q1 = register("sorting.voice.q1");

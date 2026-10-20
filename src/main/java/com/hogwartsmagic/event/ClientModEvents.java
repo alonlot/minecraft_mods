@@ -1096,6 +1096,16 @@ public class ClientModEvents {
         event.registerEntityRenderer(ModEntities.MEMORY_DOOR.get(), com.hogwartsmagic.client.MemoryDoorRenderer::new);
         event.registerEntityRenderer(ModEntities.MEMORY_DOOR_MIRRORED.get(),
                 ctx -> new com.hogwartsmagic.client.MemoryDoorRenderer(ctx, true));
+        event.registerEntityRenderer(ModEntities.MEMORY_BANNER_GRYFFINDOR.get(),
+                ctx -> new com.hogwartsmagic.client.MemoryBannerRenderer(ctx, "gryffindor"));
+        event.registerEntityRenderer(ModEntities.MEMORY_BANNER_HUFFLEPUFF.get(),
+                ctx -> new com.hogwartsmagic.client.MemoryBannerRenderer(ctx, "hufflepuff"));
+        event.registerEntityRenderer(ModEntities.MEMORY_BANNER_RAVENCLAW.get(),
+                ctx -> new com.hogwartsmagic.client.MemoryBannerRenderer(ctx, "ravenclaw"));
+        event.registerEntityRenderer(ModEntities.MEMORY_BANNER_SLYTHERIN.get(),
+                ctx -> new com.hogwartsmagic.client.MemoryBannerRenderer(ctx, "slytherin"));
+        event.registerEntityRenderer(ModEntities.MEMORY_BANNER_HOGWARTS.get(),
+                ctx -> new com.hogwartsmagic.client.MemoryBannerRenderer(ctx, "hogwarts"));
         event.registerEntityRenderer(ModEntities.CARRIED_BLOCK.get(), com.hogwartsmagic.client.renderer.CarriedBlockRenderer::new);
         
         event.registerEntityRenderer(ModEntities.FIENDFYRE.get(),

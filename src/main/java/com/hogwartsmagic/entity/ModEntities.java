@@ -92,6 +92,25 @@ public class ModEntities {
                             .clientTrackingRange(10)
                             .build("memory_door_mirrored"));
 
+    /** Hanging cloth banners, one type per design (the design picks the texture): see BannerCloth. */
+    public static final RegistryObject<EntityType<MemoryBannerEntity>> MEMORY_BANNER_GRYFFINDOR =
+            ENTITY_TYPES.register("memory_banner_gryffindor", () -> banner("memory_banner_gryffindor"));
+    public static final RegistryObject<EntityType<MemoryBannerEntity>> MEMORY_BANNER_HUFFLEPUFF =
+            ENTITY_TYPES.register("memory_banner_hufflepuff", () -> banner("memory_banner_hufflepuff"));
+    public static final RegistryObject<EntityType<MemoryBannerEntity>> MEMORY_BANNER_RAVENCLAW =
+            ENTITY_TYPES.register("memory_banner_ravenclaw", () -> banner("memory_banner_ravenclaw"));
+    public static final RegistryObject<EntityType<MemoryBannerEntity>> MEMORY_BANNER_SLYTHERIN =
+            ENTITY_TYPES.register("memory_banner_slytherin", () -> banner("memory_banner_slytherin"));
+    public static final RegistryObject<EntityType<MemoryBannerEntity>> MEMORY_BANNER_HOGWARTS =
+            ENTITY_TYPES.register("memory_banner_hogwarts", () -> banner("memory_banner_hogwarts"));
+
+    private static EntityType<MemoryBannerEntity> banner(String id) {
+        return EntityType.Builder.<MemoryBannerEntity>of(MemoryBannerEntity::new, MobCategory.MISC)
+                .sized(2.0f, 0.5f)
+                .clientTrackingRange(10)
+                .build(id);
+    }
+
     public static final RegistryObject<EntityType<WizardEntity>> WIZARD =
             ENTITY_TYPES.register("wizard",
                     () -> EntityType.Builder.<WizardEntity>of(WizardEntity::new, MobCategory.MONSTER)

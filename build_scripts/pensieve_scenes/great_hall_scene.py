@@ -21,7 +21,13 @@ actor has its own desynchronised idle life (glances at neighbours, head turns, b
 leaning), and group reactions are staggered over 1.5-3 s with some late and some not reacting at all; slower shots
 (4-7 s holds).
 
+The film's hanging banners: four of each house in a row high over its table and two Hogwarts crest banners in the
+staff apse (memory_banner_<design> actors, in the hall and the four reveals), each lit by a light block in front of
+it, with the floating candles' box split round them.
+
 Asserts: scene JSON under the 900,000-char cap; every camera key and straight camera move in an air cell of the set;
+every banner in clear air, no candle box reaching one, the camera never within 0.4 of one and no camera key looking
+at its subject through one;
 unique actor ids; eyes_close the last event of the hall; no moving actor within 0.6 blocks (horizontal) of any other
 actor at any tick (sampled every 2 ticks); no walker's feet or head in a table, bench or any other solid cell.
 """
@@ -521,6 +527,85 @@ def door_actor(aid, atype, hinge, sign, lead_ticks):
 # (looking -X) the south leaf is on the left: it leads by 4 ticks.
 door_actor('door_north', 'hogwartsmagic:memory_door', HINGE_N, -1, 4)
 door_actor('door_south', 'hogwartsmagic:memory_door_mirrored', HINGE_S, +1, 0)
+
+# ================================================================ the hanging banners (the film's)
+# Long cloth banners hung from just under the enchanted ceiling: four of each house in a row over that house's
+# table, and two Hogwarts crest banners in the staff apse flanking the window. Each is a memory_banner_<design>
+# actor: its position is the middle of its rod and the cloth hangs below, 2 wide x 8 tall at scale 1, its front
+# (the art reading normally) facing its yaw; -90 faces the doors (+X), so the hall sees the art as it comes in and
+# the staff table sees it the right way round from behind. Light blocks two blocks in front of each lift the cloth
+# out of the dark (the floating candles light nothing). The candles' box is split round the banners (CANDLE_BOXES).
+BANNER = 'hogwartsmagic:memory_banner_'
+BANNER_W, BANNER_H = 2.0, 8.0                 # BannerCloth.WIDTH, HEIGHT at scale 1
+BANNER_SWAY = 0.31                            # BannerCloth.SWING + RIPPLE: out of the cloth's plane, at the foot
+BANNER_DRIFT = 0.07                           # BannerCloth.DRIFT: sideways
+BANNER_TOP = A['ceiling_center'][1] - 0.08    # the rod's line, just under the ceiling plane (scene y 20)
+BANNER_YAW = -90
+BANNER_X = (10.5, 20.5, 31.5, 42.5)           # along the tables (x 6..55), in columns clear of the set's floating
+                                              # block candles over every table
+CREST_SCALE = 1.1
+CREST_AT = ((-16.5, -7.5), (-16.5, 8.5))      # the apse (local x 2.5, z 14.5 and 30.5), either side of the window
+TABLE_MID_Z = {h: sum(s[2] for s in seats) / len(seats) for h, seats in A['table_seats'].items()}
+BANNERS = ([(h, x, TABLE_MID_Z[h], 1.0) for h in ('hufflepuff', 'gryffindor', 'ravenclaw', 'slytherin')
+            for x in BANNER_X] + [('hogwarts', x, z, CREST_SCALE) for x, z in CREST_AT])
+BANNER_LIGHT_DX, BANNER_LIGHT_Y = 2.0, 16     # a light block this far in front of each banner, at this height
+
+
+def banner_actors():
+    for i, (design, x, z, scale) in enumerate(BANNERS):
+        actor('banner_%s_%d' % (design, i), None, scale, path=[{'t': 0, 'pos': [x, round(BANNER_TOP, 2), z]}],
+              look=[{'t': 0, 'yaw': BANNER_YAW}], atype=BANNER + design)
+
+
+_grid = GH.build().g                          # the hall template, local cells (the checks use it too)
+
+
+def banner_lights():
+    """The light block cells, one in front of each banner (the front faces +X at yaw -90): the first empty cell of
+    a few near BANNER_LIGHT_DX, BANNER_LIGHT_Y (the set has floating block candles up there)."""
+    out = []
+    for _, x, z, _ in BANNERS:
+        for dx, y in ((BANNER_LIGHT_DX, BANNER_LIGHT_Y), (BANNER_LIGHT_DX, BANNER_LIGHT_Y - 1),
+                      (BANNER_LIGHT_DX + 1, BANNER_LIGHT_Y), (BANNER_LIGHT_DX, BANNER_LIGHT_Y + 1)):
+            c = [math.floor(x + dx), y, math.floor(z)]
+            local = (c[0] - GH.TEMPLATE_AT[0], c[1] - GH.TEMPLATE_AT[1], c[2] - GH.TEMPLATE_AT[2])
+            if local not in _grid or _grid[local].split('[')[0] in FREE:
+                out.append(c)
+                break
+        else:
+            raise AssertionError('no room for the light of the banner at %s' % [x, z])
+    return out
+
+
+# The floating candles: the hall's box (x -6..60, y 6.5..15.5, z -15..16, 900 candles) cut in two at the banners'
+# feet. Below, one box the full size of the hall; above, among the banners, five boxes between the banner rows
+# along X, each stopping CANDLE_CLEAR short of a row's cloth plane (sway, drift and the candle's own width). The
+# counts follow the volumes, so the density is the hall's as before.
+CANDLE_BOX = ((-6.0, 60.0), (6.5, 15.5), (-15.0, 16.0))
+CANDLE_TOTAL = 900
+CANDLE_FLAME = 1.1                            # wax (0.8 at most) and flame above a candle's foot
+CANDLE_CLEAR = 0.65
+CANDLE_SPLIT_Y = round(BANNER_TOP - BANNER_H - CANDLE_FLAME - 0.05, 2)
+
+
+def candle_boxes():
+    (x0, x1), (y0, y1), (z0, z1) = CANDLE_BOX
+    boxes = [((x0, x1), (y0, CANDLE_SPLIT_Y))]
+    edges = [x0] + [e for bx in BANNER_X for e in (bx - CANDLE_CLEAR, bx + CANDLE_CLEAR)] + [x1]
+    for a, b in zip(edges[::2], edges[1::2]):
+        boxes.append(((a, b), (CANDLE_SPLIT_Y, y1)))
+    vols = [(bx[1] - bx[0]) * (by[1] - by[0]) for bx, by in boxes]
+    counts = [round(CANDLE_TOTAL * v / sum(vols)) for v in vols]
+    out = []
+    for ((a, b), (c, d)), n in zip(boxes, counts):
+        out.append({'at': [round((a + b) / 2, 3), round((c + d) / 2, 3), round((z0 + z1) / 2, 3)],
+                    'spread': [round((b - a) / 2, 3), round((d - c) / 2, 3), round((z1 - z0) / 2, 3)],
+                    'count': n})
+    return out
+
+
+CANDLE_BOXES = candle_boxes()
+banner_actors()
 
 # ================================================================ McGonagall
 mcg = Mover('mcgonagall', [69.0, 0, -9.0], 0)
@@ -1183,7 +1268,10 @@ _check_clip_lengths()
 
 # ================================================================ events
 ev(0, 'effect', 'eyes_open', at=[0, 0, 0], duration=tk(2.6))
-ev(0, 'effect', 'floating_candles', at=[27.0, 11.0, 0.5], spread=[33.0, 4.5, 15.5], count=900)
+for cb in CANDLE_BOXES:
+    ev(0, 'effect', 'floating_candles', **cb)
+for c in banner_lights():
+    ev(0, 'block', 'minecraft:light', at=c)
 sfx(0.3, 'steps_group', 0.3)
 sfx(0.5, 'murmur_a', 0.3)                                 # the hall, muffled behind the doors
 voice(T_MCG_LINE, 'mcg_doors')
@@ -1366,7 +1454,6 @@ hall = {
 }
 
 # ================================================================ checks (shared by every scene)
-_grid = GH.build().g
 AIR = set(FREE)
 
 
@@ -1439,6 +1526,82 @@ def check_camera(w, cam, problems):
                     problems.append('camera move into key %d (t %d) passes %s (%s)' % (i, k['t'], p, w.get(cell(p))))
                     break
     assert all(cam[i]['t'] <= cam[i + 1]['t'] for i in range(len(cam) - 1)), 'camera keys out of order'
+
+
+def banner_boxes(acts, pad_plane=0.0, pad_edge=0.0):
+    """[(id, (x0, x1), (y0, y1), (z0, z1))] the volume each banner actor's cloth can sway through (the rod and its
+    knobs included), grown by pad_plane through the cloth and pad_edge round its edges. Banners hang at yaw +-90 (the
+    cloth in a plane of constant x)."""
+    out = []
+    for a in acts:
+        if not a['type'].startswith(BANNER):
+            continue
+        sc_ = a.get('scale', 1)
+        x, y, z = a['path'][0]['pos']
+        assert len(a['path']) == 1 and abs(abs(a['look'][0]['yaw']) - 90) < 1e-6, (a['id'], 'banners hang still at +-90')
+        half_w = (BANNER_W / 2 + 0.25 + BANNER_DRIFT) * sc_ + pad_edge          # the rod overhangs 0.14, knobs 0.14
+        out.append((a['id'], (x - BANNER_SWAY * sc_ - 0.08 - pad_plane, x + BANNER_SWAY * sc_ + 0.08 + pad_plane),
+                    (y - BANNER_H * sc_ - pad_edge, y + 0.05 + pad_edge), (z - half_w, z + half_w)))
+    return out
+
+
+def in_box(p, box):
+    return all(box[k + 1][0] <= p[k] <= box[k + 1][1] for k in range(3))
+
+
+def look_target(scene, k):
+    """The point a camera key looks at: its look_at, or the named actor's chest at that tick."""
+    la = k.get('look_at')
+    if la is None:
+        return None
+    if not isinstance(la, str):
+        return la
+    aid = la.split(':', 1)[1]
+    a = next(x for x in scene['actors'] if x['id'] == aid)
+    p = sample_path(a['path'], k['t'])
+    return [p[0], p[1] + 1.2 * a.get('scale', 1), p[2]]
+
+
+def check_banners(scene, w, problems):
+    """The banners hang in clear air, no candle box reaches them, the camera never enters one (with a margin for
+    the near plane and the track's curve between keys), and no camera key looks at its subject through one."""
+    boxes = banner_boxes(scene['actors'])
+    for aid, bx, by, bz in boxes:
+        for x in range(math.floor(bx[0]), math.floor(bx[1]) + 1):
+            for y in range(math.floor(by[0]), math.floor(by[1]) + 1):
+                for z in range(math.floor(bz[0]), math.floor(bz[1]) + 1):
+                    if not is_air(w, (x + 0.5, y + 0.5, z + 0.5)):
+                        problems.append('banner %s hangs through %s at %s' % (aid, w.get((x, y, z)), (x, y, z)))
+        for e in scene['events']:
+            if e['id'] != 'floating_candles':
+                continue
+            lo = [e['at'][k] - e['spread'][k] - (0.06 if k != 1 else 0) for k in range(3)]
+            hi = [e['at'][k] + e['spread'][k] + (0.06 if k != 1 else CANDLE_FLAME) for k in range(3)]
+            if all(lo[k] < (bx, by, bz)[k][1] and hi[k] > (bx, by, bz)[k][0] for k in range(3)):
+                problems.append('candle box at %s reaches banner %s' % (e['at'], aid))
+    cam = scene['camera']
+    near = banner_boxes(scene['actors'], pad_plane=0.4, pad_edge=0.4)
+    for i, k in enumerate(cam):
+        pts = [k['pos']]
+        if i and not k.get('cut'):
+            a0, a1 = cam[i - 1]['pos'], k['pos']
+            n = int(max(abs(a1[j] - a0[j]) for j in range(3)) / 0.1) + 1
+            pts += [[a0[j] + (a1[j] - a0[j]) * s_ / n for j in range(3)] for s_ in range(1, n)]
+        for p in pts:
+            hit = [b[0] for b in near if in_box(p, b)]
+            if hit:
+                problems.append('camera key %d (t %d) at or into it passes %s by banner %s' % (i, k['t'], p, hit[0]))
+                break
+        tgt = look_target(scene, k)
+        if tgt is not None:
+            p0 = k['pos']
+            n = int(math.dist(p0, tgt) / 0.1) + 1
+            for s_ in range(1, n):
+                p = [p0[j] + (tgt[j] - p0[j]) * s_ / n for j in range(3)]
+                hit = [b[0] for b in boxes if in_box(p, b)]
+                if hit:
+                    problems.append('camera key %d (t %d) looks at its subject through banner %s' % (i, k['t'], hit[0]))
+                    break
 
 
 def check_keys(acts, length_ticks):
@@ -1532,6 +1695,7 @@ def finish(scene, sid, w, sit_windows, legs, extra=None, cap=MAX_JSON):
     """Run every check on a generated scene, then write it; returns (chars, proximity checks, leg corners)."""
     problems = []
     check_camera(w, scene['camera'], problems)
+    check_banners(scene, w, problems)
     check_keys(scene['actors'], scene['length'])
     for e in scene['events']:
         if e['kind'] == 'block' and e['id'] == 'minecraft:light' and not is_air(w, e['at']):
@@ -1598,6 +1762,7 @@ def reveal_scene(house):
     for aid, atype, hinge, yaw in (('door_north', 'hogwartsmagic:memory_door', HINGE_N, -180),
                                    ('door_south', 'hogwartsmagic:memory_door_mirrored', HINGE_S, 0)):
         actor(aid, None, DOOR_SCALE, path=[{'t': 0, 'pos': list(hinge)}], look=[{'t': 0, 'yaw': yaw}], atype=atype)
+    banner_actors()
     # McGonagall beside him, the scroll held, looking down at him
     m_life = Life()
     m_life['head'].change(0.0, [18, 45, 0], 0.0)
@@ -1674,8 +1839,6 @@ def reveal_scene(house):
                   life=life, pose_cues=[pose(0, 'seated_table', 1)], clips=c)
             LEGS.append(('hold', aid, 0.0, root, None, yaw, OLD, -65))
     ev_ = [{'t': 0, 'kind': 'effect', 'id': 'eyes_close', 'at': [0, 0, 0], 'duration': 1},
-           {'t': 0, 'kind': 'effect', 'id': 'floating_candles', 'at': [27.0, 11.0, 0.5], 'spread': [33.0, 4.5, 15.5],
-            'count': 900},
            {'t': 0, 'kind': 'effect', 'id': 'enchanted_ceiling', 'at': A['ceiling_center'],
             'spread': A['ceiling_spread'], 'duration': 1, 'style': 'storm'},
            {'t': 4, 'kind': 'sfx', 'id': SFX + 'cheer_big', 'volume': 1.0},
@@ -1684,6 +1847,10 @@ def reveal_scene(house):
             'intensity': 0.35}]
     for c in SKIRT_SIGNS:
         ev_.append({'t': 0, 'kind': 'block', 'id': 'minecraft:air', 'at': c})
+    for cb in CANDLE_BOXES:
+        ev_.append(dict({'t': 0, 'kind': 'effect', 'id': 'floating_candles'}, **cb))
+    for c in banner_lights():
+        ev_.append({'t': 0, 'kind': 'block', 'id': 'minecraft:light', 'at': c})
     eye = [STOOL[0] + 0.35, STOOL_ROOT_KID[1] + EYE * KID, STOOL[2]]
     tz = TABLE_Z[house]
     cam = [{'t': 0, 'pos': [round(c, 3) for c in eye], 'look_at': [22.0, 1.4, round(tz * 0.9, 2)], 'fov': 76},

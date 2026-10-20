@@ -21,8 +21,11 @@ public record SceneNames(Set<String> entityTypes, Set<String> spells, Set<String
     /** Event kinds. */
     public static final Set<String> EVENT_KINDS = Set.of("block", "sound", "particles", "effect", "music", "voice");
     /** Scripted effects an {@code effect} event may name. */
+    /** The letter_flood effect's letter count (1 to this) and each room half-size (blocks). */
+    public static final int MAX_FLOOD_LETTERS = 400;
+    public static final float MIN_FLOOD_SPREAD = 0.5f, MAX_FLOOD_SPREAD = 12f;
     public static final Set<String> EFFECTS = Set.of("summoning_ritual", "lightning", "dark_mark", "grey_edges",
-            "patronus_light", "fiendfyre_rings", "eyes_open", "eyes_close");
+            "patronus_light", "fiendfyre_rings", "eyes_open", "eyes_close", "letter_flood");
     /**
      * Bundled schematics a set's {@code schematics} may place, by bare id. Each one is loaded by its own class
      * ({@code mini_hogwarts}: {@code worldgen/MiniHogwartsSchematic}, 96 x 109 x 145).

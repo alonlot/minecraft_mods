@@ -159,6 +159,9 @@ public final class SceneValidator {
                     + sorted(SceneNames.EVENT_KINDS) + ")");
             return;
         }
+        if (!Float.isNaN(e.yaw()) && !"effect".equals(e.kind())) {
+            out.add(p + ".yaw: yaw is only for effects");
+        }
         if (e.id() == null) {
             out.add(p + ".id: missing required key for a " + e.kind() + " event");
             return;
@@ -177,6 +180,26 @@ public final class SceneValidator {
             default -> {
                 if (!SceneNames.EFFECTS.contains(e.id())) {
                     out.add(p + ".id: unknown effect '" + e.id() + "' (expected one of " + sorted(SceneNames.EFFECTS) + ")");
+                } else if ("letter_flood".equals(e.id())) {
+                    letterFlood(out, e, p);
+                }
+            }
+        }
+    }
+
+    /** The letter_flood effect: it needs a mouth and a facing, and its optional numbers have ranges. */
+    private static void letterFlood(List<String> out, SceneDef.EventDef e, String p) {
+        if (e.at() == null) out.add(p + ": letter_flood needs at");
+        if (Float.isNaN(e.yaw()) || Float.isInfinite(e.yaw())) out.add(p + ": letter_flood needs yaw");
+        if (e.count() != -1 && (e.count() < 1 || e.count() > SceneNames.MAX_FLOOD_LETTERS)) {
+            out.add(p + ".count: " + e.count() + " is outside 1 to " + SceneNames.MAX_FLOOD_LETTERS);
+        }
+        if (e.spread() != null) {
+            for (int i = 0; i < e.spread().length; i++) {
+                float s = e.spread()[i];
+                if (!(s >= SceneNames.MIN_FLOOD_SPREAD && s <= SceneNames.MAX_FLOOD_SPREAD)) {
+                    out.add(p + ".spread[" + i + "]: " + s + " is outside " + SceneNames.MIN_FLOOD_SPREAD + " to "
+                            + SceneNames.MAX_FLOOD_SPREAD);
                 }
             }
         }

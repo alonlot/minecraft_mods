@@ -2,8 +2,11 @@ package com.hogwartsmagic.client.pensieve;
 
 import com.hogwartsmagic.ModSounds;
 import com.hogwartsmagic.entity.DarkMarkEntity;
+import com.hogwartsmagic.entity.MemoryLetterEntity;
+import com.hogwartsmagic.entity.ModEntities;
 import com.hogwartsmagic.entity.VoldemortSummoningEntity;
 import com.hogwartsmagic.pensieve.scene.Eyelids;
+import com.hogwartsmagic.pensieve.scene.LetterFlood;
 import com.mojang.logging.LogUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.particle.Particle;
@@ -67,6 +70,12 @@ public final class EffectVisuals {
     static final double FIRE_RING_MAX = 22.0;
     /** Ticks one wave lives: from {@link #FIRE_RING_START} to {@link #FIRE_RING_MAX}. */
     static final int FIRE_WAVE_TICKS = (int) Math.ceil((FIRE_RING_MAX - FIRE_RING_START) / FIRE_RING_SPEED);
+    /** Defaults for {@code letter_flood}: letters, emission ticks and the room half-size. */
+    static final int DEFAULT_FLOOD_LETTERS = 160;
+    static final int DEFAULT_FLOOD_TICKS = 120;
+    static final float[] DEFAULT_FLOOD_SPREAD = {3f, 2.5f, 3f};
+    /** A page-turn rustle every this many ticks while letters fly. */
+    private static final int FLOOD_RUSTLE_EVERY = 4;
     private static final int MARK_RISE_TICKS = 50;
     private static final double MARK_RISE_BLOCKS = 18.0;
     /** The smallest visual scale a DarkMarkEntity accepts. */
@@ -75,6 +84,8 @@ public final class EffectVisuals {
     private static final List<Running> RUNNING = new ArrayList<>();
     private static final List<DarkMarkEntity> MARKS = new ArrayList<>();
     private static final List<LightningBolt> BOLTS = new ArrayList<>();
+    /** Every client-only letter a flood spawned; {@link #clear} discards them so none outlives the memory. */
+    private static final List<MemoryLetterEntity> LETTERS = new ArrayList<>();
     /** An eyelid effect has started since the last {@link #clear} (the scene's own eyes have taken over). */
     private static boolean eyesStarted;
 
@@ -88,6 +99,19 @@ public final class EffectVisuals {
 
     /** As {@link #play(String, Vec3, int)}, joining an effect that began {@code elapsed} ticks ago. */
     public static void play(String effect, Vec3 at, int duration, int elapsed) {
+        play(effect, at, duration, elapsed, 0, null, Float.NaN);
+    }
+
+    public static void play(String effect, Vec3 at, int duration, int elapsed, int count, float[] spread, float yaw) {
+        play(effect, at, duration, elapsed, count, spread, yaw, 0f);
+    }
+
+    /**
+     * The full form: count, spread and yaw are the event values (letter_flood only; 0 or less, null and NaN when
+     * absent), and {@code t} is the event scene time, mixed into the swarm seed so two floods in one scene differ.
+     */
+    public static void play(String effect, Vec3 at, int duration, int elapsed, int count, float[] spread, float yaw,
+                            float t) {
         Minecraft mc = Minecraft.getInstance();
         if (!(mc.level instanceof ClientLevel level) || effect == null || at == null) return;
         if ("summoning_ritual".equals(effect)) {
@@ -125,6 +149,20 @@ public final class EffectVisuals {
                 }
                 RUNNING.add(new FiendfyreRings(at, elapsed, births));
             }
+        } else if ("letter_flood".equals(effect)) {
+            if (Float.isNaN(yaw)) {
+                LOGGER.warn("Pensieve: letter_flood has no yaw");
+                return;
+            }
+            int letters = count > 0 ? Math.min(count, 400) : DEFAULT_FLOOD_LETTERS;
+            int total = duration > 0 ? duration : DEFAULT_FLOOD_TICKS;
+            float[] room = spread != null && spread.length >= 3 ? spread : DEFAULT_FLOOD_SPREAD;
+            if (elapsed == 0) {
+                // The sounds belong to the moment of the burst: a late joiner does not hear them again.
+                MemorySounds.play("minecraft:block.fire.extinguish", at, 1.2f, 1.0f);
+                MemorySounds.play("minecraft:entity.breeze.wind_burst", at, 1.0f, 1.0f);
+            }
+            RUNNING.add(new Flood(level, at, yaw, room, letters, total, elapsed, floodSeed(at, t)));
         } else {
             LOGGER.warn("Pensieve: unknown effect '{}' in a memory", effect);
         }
@@ -152,6 +190,23 @@ public final class EffectVisuals {
         level.addEntity(mark);
         MARKS.add(mark);
         RUNNING.add(new Mark(mark, from, lifeTicks));
+    }
+
+    /** The swarm seed: the mouth position and the event time, so the same scene always flies the same way. */
+    private static long floodSeed(Vec3 at, float t) {
+        long h = Float.floatToIntBits((float) at.x);
+        h = h * 31 + Float.floatToIntBits((float) at.y);
+        h = h * 31 + Float.floatToIntBits((float) at.z);
+        return h * 31 + Float.floatToIntBits(t);
+    }
+
+    /** How many letters a flood has spawned that are still alive (for the clear-on-exit check). */
+    static int liveFloodLetters() {
+        int n = 0;
+        for (MemoryLetterEntity l : LETTERS) {
+            if (!l.isRemoved()) n++;
+        }
+        return n;
     }
 
     /** Advance every running effect one client tick. */
@@ -215,6 +270,8 @@ public final class EffectVisuals {
         MARKS.clear();
         for (LightningBolt b : BOLTS) b.discard();
         BOLTS.clear();
+        for (MemoryLetterEntity l : LETTERS) l.discard();
+        LETTERS.clear();
     }
 
     private interface Running {
@@ -464,6 +521,72 @@ public final class EffectVisuals {
                 double a = level.random.nextDouble() * Math.PI * 2;
                 level.addParticle(ParticleTypes.LAVA, centre.x + Math.cos(a) * r, centre.y + 0.4, centre.z + Math.sin(a) * r, 0, 0, 0);
             }
+        }
+    }
+
+    /**
+     * {@code letter_flood}: runs a {@link LetterFlood} and shows each letter as a client-only
+     * {@link MemoryLetterEntity}, spawned the tick it leaves the fireplace. Never finishes: the letters lie on the
+     * floor until {@link #clear} ends the scene. A late joiner fast-forwards the swarm first, so it is in the state
+     * everyone else sees. The letters are not memory actors: this class places them, tick by tick.
+     */
+    private static final class Flood implements Running {
+        private final ClientLevel level;
+        private final Vec3 at;
+        private final LetterFlood sim;
+        private final MemoryLetterEntity[] letters;
+        private final long seed;
+
+        Flood(ClientLevel level, Vec3 at, float yaw, float[] room, int count, int duration, int elapsed, long seed) {
+            this.level = level;
+            this.at = at;
+            this.seed = seed;
+            this.sim = new LetterFlood(at.x, at.y, at.z, yaw, room[0], room[1], room[2], count, duration, seed);
+            this.letters = new MemoryLetterEntity[count];
+            sim.fastForward(elapsed);
+            sync();
+        }
+
+        @Override
+        public boolean tick(ClientLevel level) {
+            if (sim.age() % FLOOD_RUSTLE_EVERY == 0 && sim.anyFlying()) {
+                MemorySounds.play("minecraft:item.book.page_turn", at, 0.3f + level.random.nextFloat() * 0.3f, 1.0f);
+            }
+            sim.step();
+            sync();
+            return true;
+        }
+
+        /** Spawn the newly emitted letters and move the rest to where the simulation has them. */
+        private void sync() {
+            for (int i = 0; i < letters.length; i++) {
+                if (!sim.emitted(i)) continue;
+                MemoryLetterEntity e = letters[i];
+                if (e == null) {
+                    e = new MemoryLetterEntity(ModEntities.MEMORY_LETTER.get(), level);
+                    e.setId(MemoryEvents.nextEntityId());
+                    e.flutterSeed = (int) (seed + i);
+                    place(e, i);
+                    e.setOldPosAndRot();   // no first-frame streak from the world origin
+                    level.addEntity(e);
+                    LETTERS.add(e);
+                    letters[i] = e;
+                } else if (!e.isRemoved()) {
+                    // The last tick is the interpolation start: record it before moving.
+                    e.xo = e.getX();
+                    e.yo = e.getY();
+                    e.zo = e.getZ();
+                    e.yRotO = e.getYRot();
+                    e.xRotO = e.getXRot();
+                    place(e, i);
+                }
+            }
+        }
+
+        private void place(MemoryLetterEntity e, int i) {
+            e.setPos(sim.x(i), sim.y(i), sim.z(i));
+            e.setYRot(sim.yaw(i));
+            e.setXRot(sim.pitch(i));
         }
     }
 

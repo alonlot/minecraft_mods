@@ -168,4 +168,17 @@ class SceneParserTest {
     void parsesViewerSkin() throws Exception {
         assertTrue(actor("{\"id\":\"a\",\"type\":\"player\",\"skin\":{\"viewer\":true}}").skin().viewer());
     }
+
+    @Test
+    void parsesEffectYaw() throws Exception {
+        SceneDef s = SceneParser.parse("t", json("""
+                {"length":100,"set":{},"actors":[],"events":[
+                  {"t":5,"kind":"effect","id":"letter_flood","at":[1,2,3],"yaw":-90,"count":220,"spread":[3,2.5,3],"duration":110},
+                  {"t":6,"kind":"effect","id":"lightning","at":[0,0,0]}]}"""));
+        SceneDef.EventDef e = s.events().get(0);
+        assertEquals(-90f, e.yaw());
+        assertEquals(220, e.count());
+        assertArrayEquals(new float[] {3, 2.5f, 3}, e.spread());
+        assertTrue(Float.isNaN(s.events().get(1).yaw()));
+    }
 }

@@ -243,4 +243,43 @@ class SceneValidatorTest {
     void nextCannotBeSelf() throws Exception {
         assertMessage(validateAs("a", "{\"length\":100,\"next\":\"a\"}"), "next: a scene cannot chain to itself");
     }
+
+    private static String flood(String extra) {
+        return "{\"length\":100,\"events\":[{\"t\":1,\"kind\":\"effect\",\"id\":\"letter_flood\"" + extra + "}]}";
+    }
+
+    @Test
+    void letterFloodNeedsYaw() throws Exception {
+        List<String> m = validate(flood(",\"at\":[0,0,0]"));
+        assertEquals(1, m.size(), m.toString());
+        assertTrue(m.get(0).contains("letter_flood needs yaw"), m.get(0));
+        assertEquals(List.of(), validate(flood(",\"at\":[0,0,0],\"yaw\":90")));
+    }
+
+    @Test
+    void letterFloodNeedsAt() throws Exception {
+        List<String> m = validate(flood(",\"yaw\":90"));
+        assertEquals(1, m.size(), m.toString());
+        assertTrue(m.get(0).contains("letter_flood needs at"), m.get(0));
+    }
+
+    @Test
+    void letterFloodCountRange() throws Exception {
+        String base = ",\"at\":[0,0,0],\"yaw\":0";
+        assertEquals(List.of(), validate(flood(base + ",\"count\":400")));
+        assertEquals(List.of(), validate(flood(base + ",\"count\":1")));
+        assertEquals(1, validate(flood(base + ",\"count\":401")).size());
+        assertEquals(1, validate(flood(base + ",\"count\":0")).size());
+        assertEquals(List.of(), validate(flood(base + ",\"spread\":[0.5,12,3]")));
+        assertEquals(1, validate(flood(base + ",\"spread\":[0.4,2,3]")).size());
+        assertEquals(1, validate(flood(base + ",\"spread\":[3,2,12.5]")).size());
+    }
+
+    @Test
+    void yawOnlyOnEffects() throws Exception {
+        List<String> m = validate("""
+                {"length":100,"events":[{"t":1,"kind":"particles","id":"minecraft:flame","at":[0,0,0],"yaw":90}]}""");
+        assertEquals(1, m.size(), m.toString());
+        assertTrue(m.get(0).contains("yaw is only for effects"), m.get(0));
+    }
 }

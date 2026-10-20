@@ -103,9 +103,11 @@ public final class MemoryEvents {
         boolean late = age > LATE_TICKS;
         String kind = e.kind();
         if ("effect".equals(kind)) {
-            // A long effect is still going: join it part-way. A short or finished one is old news.
-            if (!late || (e.duration() > 0 && age < e.duration())) {
-                EffectVisuals.play(e.id(), position(e), e.duration(), late ? (int) age : 0);
+            // A long effect is still going: join it part-way. A short or finished one is old news. A letter flood
+            // never finishes (its letters lie on the floor until the scene ends), so it is always joined.
+            if (!late || (e.duration() > 0 && age < e.duration()) || "letter_flood".equals(e.id())) {
+                EffectVisuals.play(e.id(), position(e), e.duration(), late ? (int) age : 0, e.count(), e.spread(),
+                        e.yaw(), e.t());
             }
             return;
         }

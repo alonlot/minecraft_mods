@@ -225,12 +225,13 @@ public final class SceneParser {
             // Soundtrack and spoken-line cues are non-positional and unscaled: no at, pitch, count, spread or duration.
             checkKeys(o, path, "t", "kind", "id", "volume");
         } else {
-            checkKeys(o, path, "t", "kind", "id", "at", "volume", "pitch", "count", "spread", "duration");
+            checkKeys(o, path, "t", "kind", "id", "at", "volume", "pitch", "count", "spread", "duration", "yaw");
         }
         int[] at = has(o, "at") ? reqInts(o, "at", path, 3) : null;
         return new SceneDef.EventDef(reqTime(o, "t", path), reqStr(o, "kind", path), str(o, "id", path, null), at,
-                num(o, "volume", path, 1f), num(o, "pitch", path, 1f), integer(o, "count", path, 1),
-                floats(o, "spread", path, 3, new float[3]), Math.round(time(o, "duration", path, 0f)));
+                num(o, "volume", path, 1f), num(o, "pitch", path, 1f), integer(o, "count", path, -1),
+                floats(o, "spread", path, 3, null), Math.round(time(o, "duration", path, 0f)),
+                num(o, "yaw", path, Float.NaN));
     }
 
     private static SceneDef.WordDef parseWord(JsonElement e, String path) throws SceneException {

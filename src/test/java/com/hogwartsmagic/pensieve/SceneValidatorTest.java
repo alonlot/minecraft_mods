@@ -509,4 +509,23 @@ class SceneValidatorTest {
         assertEquals(0, validate(actorScene("player", "\"life\":false")).size());
         assertMessage(validate(actorScene("minecraft:zombie", "\"life\":false")), "life: only a player actor has life");
     }
+
+    @Test
+    void eyesPeekTakesAnOpenFractionAsIntensity() throws Exception {
+        assertEquals(List.of(), validate("""
+                {"length":100,"events":[{"t":1,"kind":"effect","id":"eyes_peek"}]}"""));
+        assertEquals(List.of(), validate("""
+                {"length":100,"events":[{"t":1,"kind":"effect","id":"eyes_peek","duration":60,"intensity":0.35}]}"""));
+        List<String> m = validate("""
+                {"length":100,"events":[{"t":1,"kind":"effect","id":"eyes_peek","intensity":1.5}]}""");
+        assertEquals(1, m.size(), m.toString());
+        assertTrue(m.get(0).contains("intensity"), m.get(0));
+        assertEquals(1, validate("""
+                {"length":100,"events":[{"t":1,"kind":"effect","id":"eyes_peek","intensity":0.01}]}""").size());
+    }
+
+    @Test
+    void wakeIsAnEndAction() throws Exception {
+        assertEquals(List.of(), validate("{\"length\":100,\"end_action\":\"wake\"}"));
+    }
 }

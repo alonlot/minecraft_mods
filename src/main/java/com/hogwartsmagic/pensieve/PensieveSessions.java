@@ -3,9 +3,11 @@ package com.hogwartsmagic.pensieve;
 import com.hogwartsmagic.Config;
 import com.hogwartsmagic.pensieve.net.PensieveEnterPacket;
 import com.hogwartsmagic.pensieve.net.PensieveExitPacket;
+import com.hogwartsmagic.pensieve.net.PensieveFadePacket;
 import com.hogwartsmagic.pensieve.net.PensieveNet;
 import com.hogwartsmagic.pensieve.net.PensieveStartPacket;
 import com.hogwartsmagic.pensieve.net.PensieveThudPacket;
+import com.hogwartsmagic.pensieve.net.PensieveWakePacket;
 import com.hogwartsmagic.pensieve.scene.SceneDef;
 import com.hogwartsmagic.pensieve.scene.SceneException;
 import com.hogwartsmagic.pensieve.scene.SceneValidator;
@@ -83,10 +85,25 @@ public final class PensieveSessions {
     static final TicketType<ChunkPos> BASIN_TICKET = TicketType.create("hogwartsmagic_pensieve_basin",
             Comparator.comparingLong(ChunkPos::toLong));
     private static final int BASIN_TICKET_DISTANCE = 3;
+    /**
+     * A {@link #handOver} asked for mid-scene fades the scene to black over this many ticks before the viewers move
+     * (the client's {@code PensieveTimeline.CHAIN_FADE_TICKS}, the fade a chained scene does at its length).
+     */
+    public static final int HANDOVER_FADE_TICKS = 20;
+    /** The {@code wake} end action: how long the eyes take to open on the real world once the return is over. */
+    public static final int WAKE_TICKS = 40;
+    /**
+     * Ticks from the move home until a {@code wake} has played out on the client: its return (the camera rising out
+     * of the basin, {@code PensieveTimeline.RETURN_TICKS}, held black) plus {@link #WAKE_TICKS}, and a little slack.
+     * Whatever should come after the wake (the Sorting's house reveal) waits this long after the home callback.
+     */
+    public static final int WAKE_DONE_TICKS = 15 + WAKE_TICKS + 5;
 
     private static final List<Session> SESSIONS = new ArrayList<>();
     private static final Map<UUID, Session> BY_VIEWER = new ConcurrentHashMap<>();
     private static final List<Clearing> CLEARING = new ArrayList<>();
+    /** When a wake was last sent, per player, for the gametests; dropped at logout. */
+    private static final Map<UUID, Long> WAKES = new ConcurrentHashMap<>();
     /** Sessions a hand-over moved viewers into during the current {@link #tick}; skipped for the rest of it. */
     private static final java.util.Set<Session> HANDED_THIS_TICK = new java.util.HashSet<>();
     private static RegionAllocator allocator = new RegionAllocator();
@@ -119,6 +136,11 @@ public final class PensieveSessions {
     /** Gametests only: a fixed per-tick block budget ({@code 0} stalls every build and clear); negative restores it. */
     public static void setBuildBudgetForTests(int blocks) {
         testBudget = blocks < 0 ? -1 : blocks;
+    }
+
+    /** Gametests: the game time a wake was last sent to {@code player} (just before their move home), or -1. */
+    public static long lastWakeForTests(UUID player) {
+        return WAKES.getOrDefault(player, -1L);
     }
 
     /** Gametests: whether the allocator still holds {@code slot} (a session, a standby or a clear owns it). */
@@ -176,6 +198,61 @@ public final class PensieveSessions {
 
     public static void removeHomeListener(ViewerHomeListener l) {
         HOME_LISTENERS.remove(l);
+    }
+
+    /** Per scene id, told when a viewer starts watching it. Registered at mod setup; never cleared by a restart. */
+    private static final Map<String, List<SceneListener>> ENTER_LISTENERS = new HashMap<>();
+    /** Per scene id, told when its clock runs out with no next scene. Same lifetime as {@link #ENTER_LISTENERS}. */
+    private static final Map<String, List<SceneListener>> TIMEOUT_LISTENERS = new HashMap<>();
+
+    /**
+     * {@code l} is told each time a viewer starts watching scene {@code sceneId} with its clock running: the scene's
+     * PLAY begins with them inside, they cross into it already playing, or a hand-over (a chain's {@code next} or
+     * {@link #handOver}) moves them into it. Once per viewer per session: a scene handed over to itself counts again.
+     * Previews and basin dives call it too; a listener that only wants its own players must check for them.
+     */
+    public static void addSceneEnterListener(String sceneId, SceneListener l) {
+        ENTER_LISTENERS.computeIfAbsent(sceneId, k -> new ArrayList<>()).add(l);
+    }
+
+    public static void removeSceneEnterListener(String sceneId, SceneListener l) {
+        List<SceneListener> list = ENTER_LISTENERS.get(sceneId);
+        if (list != null) list.remove(l);
+    }
+
+    /**
+     * {@code l} is told, for each viewer inside, when scene {@code sceneId}'s clock runs out and it has no next scene
+     * standing by. If a listener calls {@link #handOver} (to the same scene, to loop a hold scene, or to another) the
+     * viewers go there instead; otherwise the memory ends as usual.
+     */
+    public static void addSceneTimeoutListener(String sceneId, SceneListener l) {
+        TIMEOUT_LISTENERS.computeIfAbsent(sceneId, k -> new ArrayList<>()).add(l);
+    }
+
+    public static void removeSceneTimeoutListener(String sceneId, SceneListener l) {
+        List<SceneListener> list = TIMEOUT_LISTENERS.get(sceneId);
+        if (list != null) list.remove(l);
+    }
+
+    private static void fireScene(Map<String, List<SceneListener>> registry, ServerPlayer p, Session s, String what) {
+        List<SceneListener> list = registry.get(s.sceneId());
+        if (list == null || list.isEmpty()) return;
+        for (SceneListener l : new ArrayList<>(list)) {
+            // A listener's bug must not break the server tick or the listeners after it.
+            try {
+                l.on(p, s);
+            } catch (RuntimeException e) {
+                LOGGER.error("Pensieve: a scene {} listener for '{}' failed for {}", what, s.sceneId(),
+                        p.getScoreboardName(), e);
+            }
+        }
+    }
+
+    /** The scene-enter listeners, for each of {@code players} still watching {@code s}. */
+    private static void entered(List<ServerPlayer> players, Session s) {
+        for (ServerPlayer p : players) {
+            if (BY_VIEWER.get(p.getUUID()) == s) fireScene(ENTER_LISTENERS, p, s, "enter");
+        }
     }
 
     // ---- Starting -------------------------------------------------------------------------------------------
@@ -354,25 +431,34 @@ public final class PensieveSessions {
                     s.sceneId(), next, s.chainRoot);
             return;
         }
+        s.nextSession = standbyFor(server, s, next);
+    }
+
+    /**
+     * A standby session of scene {@code next} following {@code s} (same basin, preview flag and chain root), built
+     * ahead in its own slot and already in {@link #SESSIONS}; null, logged, when the scene is missing, broken or too
+     * big for the start packet. The caller links it as {@code s.nextSession}.
+     */
+    @Nullable
+    private static Session standbyFor(MinecraftServer server, Session s, String next) {
         Optional<MemoryRegistry.LoadedScene> loaded;
         try {
             // Looked up the way the session itself was: a preview reads the dev folder fresh.
             loaded = s.preview() && testScenes == null ? MemoryRegistry.loadForPreview(next) : lookup(next);
         } catch (SceneException e) {
-            LOGGER.warn("Pensieve: next scene '{}' of '{}' does not load: {}", next, s.sceneId(), e.getMessage());
-            return;
+            LOGGER.warn("Pensieve: scene '{}' after '{}' does not load: {}", next, s.sceneId(), e.getMessage());
+            return null;
         }
         if (loaded.isEmpty()) {
-            LOGGER.warn("Pensieve: scene '{}' names next scene '{}', which is not loaded; the chain ends there",
-                    s.sceneId(), next);
-            return;
+            LOGGER.warn("Pensieve: scene '{}' after '{}' is not loaded; the chain ends there", next, s.sceneId());
+            return null;
         }
         if (next.length() > PensieveStartPacket.MAX_ID || !PensieveStartPacket.fits(loaded.get().json())) {
-            LOGGER.warn("Pensieve: next scene '{}' of '{}' is too big for the start packet ({} chars / {} UTF-8 bytes,"
+            LOGGER.warn("Pensieve: scene '{}' after '{}' is too big for the start packet ({} chars / {} UTF-8 bytes,"
                             + " limits {} / {}); the chain ends there", next, s.sceneId(), loaded.get().json().length(),
                     PensieveStartPacket.utf8Length(loaded.get().json()), PensieveStartPacket.MAX_JSON,
                     PensieveStartPacket.MAX_JSON_BYTES);
-            return;
+            return null;
         }
         if (s.preview()) {
             List<String> messages = SceneValidator.validate(loaded.get().def(), PensieveCommand.liveNames(server));
@@ -381,17 +467,51 @@ public final class PensieveSessions {
                     ServerPlayer p = server.getPlayerList().getPlayer(v.id());
                     if (p != null) for (String m : messages) p.sendSystemMessage(Component.literal(next + ": " + m));
                 }
-                LOGGER.warn("Pensieve: next scene '{}' of preview '{}' has {} problem(s); the chain ends there",
+                LOGGER.warn("Pensieve: scene '{}' after preview '{}' has {} problem(s); the chain ends there",
                         next, s.sceneId(), messages.size());
-                return;
+                return null;
             }
         }
         Session n = newSession(s.level, next, loaded.get(), s.basinDim(), s.basinPos(), s.preview());
         n.standby = true;
         n.chainRoot = s.chainRoot;
         n.chainIds.addAll(s.chainIds);
-        s.nextSession = n;
         SESSIONS.add(n);
+        return n;
+    }
+
+    /**
+     * Cuts the memory {@code player} is watching over to scene {@code sceneId} now, whatever the clock says: the scene
+     * is built ahead as a standby (replacing any {@code next} one already standing by), the scene on screen fades to
+     * black over {@link #HANDOVER_FADE_TICKS}, and once both the fade is over and the new set is built every viewer of
+     * the session moves over exactly as at a chain's end (same return point, body and chain root). It may name the
+     * scene playing now, to loop it, or one the chain already played. Safe while the scene is still building (the
+     * viewers wait pinned, as in a stalled chain hand-over) and while a hand-over is already under way: asking again
+     * for the scene already on its way changes nothing, and asking for another replaces it. False, with nothing
+     * changed, when the player is not inside (or is already leaving) or the scene does not load.
+     */
+    public static boolean handOver(ServerPlayer player, String sceneId) {
+        Session s = BY_VIEWER.get(player.getUUID());
+        if (s == null || s.standby || s.phase == Session.Phase.CLOSING || sceneId == null) return false;
+        Session.Viewer v = s.viewers().get(player.getUUID());
+        if (v == null || v.stage == Session.Viewer.Stage.EXITING) return false;
+        Session pending = s.nextSession;
+        if (s.handOverAsked && pending != null && pending.sceneId().equals(sceneId)) return true;
+        Session n = standbyFor(player.server, s, sceneId);
+        if (n == null) return false;
+        s.nextSession = n;
+        if (pending != null && pending.standby) finish(pending);
+        if (!s.handOverAsked) {
+            s.handOverAsked = true;
+            s.handOverNotBefore = s.level.getGameTime() + HANDOVER_FADE_TICKS;
+            for (Session.Viewer w : s.viewers().values()) {
+                if (w.stage != Session.Viewer.Stage.INSIDE) continue;
+                ServerPlayer p = player.server.getPlayerList().getPlayer(w.id());
+                if (p != null) PensieveNet.send(p, new PensieveFadePacket(HANDOVER_FADE_TICKS));
+            }
+        }
+        s.phase = Session.Phase.HANDOVER;
+        return true;
     }
 
     /** Takes the basin ticket (see {@link #BASIN_TICKET}) on the first dive; previews have no basin. */
@@ -502,18 +622,27 @@ public final class PensieveSessions {
             if (s.built && s.firstCrossTime >= 0 && now - s.firstCrossTime >= s.scene().set().buildTicks()) {
                 s.phase = Session.Phase.PLAY;
                 s.startGameTime = now;
+                List<ServerPlayer> watching = new ArrayList<>();
                 for (Session.Viewer v : s.viewers().values()) {
                     if (v.stage != Session.Viewer.Stage.INSIDE) continue;
                     v.sawStart = true;
                     ServerPlayer p = server.getPlayerList().getPlayer(v.id());
-                    if (p != null) sendStart(p, s);
+                    if (p != null) {
+                        sendStart(p, s);
+                        watching.add(p);
+                    }
                 }
                 buildNext(server, s);
+                entered(watching, s);
             }
         } else if (s.phase == Session.Phase.PLAY) {
             applyBlockEvents(s, now);
             if (SessionClock.finished(s.startGameTime, now, s.scene().length())) {
-                if (s.nextSession != null) {
+                // A hold scene may loop or move on instead of ending: its timeout listeners may hand over.
+                if (s.nextSession == null) timedOut(server, s);
+                if (s.phase != Session.Phase.PLAY) {
+                    // A listener handed over (HANDOVER waits for its fade and build) or every viewer is gone.
+                } else if (s.nextSession != null) {
                     s.phase = Session.Phase.HANDOVER;
                     tryHandover(server, s, now);
                 } else {
@@ -529,6 +658,16 @@ public final class PensieveSessions {
         if (!s.built && s.builder != null && budget[0] > 0) {
             s.built = s.builder.advance(budget);
             recordPlaced(s);
+        }
+    }
+
+    /** {@code s}'s clock ran out with no next scene: its timeout listeners hear about every viewer inside. */
+    private static void timedOut(MinecraftServer server, Session s) {
+        if (!TIMEOUT_LISTENERS.containsKey(s.sceneId())) return;
+        for (Session.Viewer v : new ArrayList<>(s.viewers().values())) {
+            if (v.stage != Session.Viewer.Stage.INSIDE) continue;
+            ServerPlayer p = server.getPlayerList().getPlayer(v.id());
+            if (p != null && BY_VIEWER.get(p.getUUID()) == s) fireScene(TIMEOUT_LISTENERS, p, s, "timeout");
         }
     }
 
@@ -555,6 +694,8 @@ public final class PensieveSessions {
             endScene(server, s);
             return;
         }
+        // A hand-over asked for mid-scene first lets the scene on screen fade to black.
+        if (s.handOverAsked && now < s.handOverNotBefore) return;
         if (!next.built) return;
         s.nextSession = null;
         next.standby = false;
@@ -566,6 +707,7 @@ public final class PensieveSessions {
         next.startGameTime = now;
         next.firstCrossTime = now;
         next.level.setDayTime(next.scene().set().timeOfDay());
+        List<ServerPlayer> watching = new ArrayList<>();
         for (Session.Viewer v : new ArrayList<>(s.viewers().values())) {
             s.viewers().remove(v.id());
             next.viewers().put(v.id(), v);
@@ -575,11 +717,13 @@ public final class PensieveSessions {
             if (p == null) continue;
             moveTo(p, next.level, next.anchor(), p.getYRot(), p.getXRot());
             sendStart(p, next);
+            watching.add(p);
         }
         finish(s);
         HANDED_THIS_TICK.add(next);
         setPlaying(next, true);
         buildNext(server, next);
+        entered(watching, next);
     }
 
     private static void tickViewer(Session s, Session.Viewer v, ServerPlayer p, ServerLevel memory) {
@@ -601,6 +745,11 @@ public final class PensieveSessions {
                 hold(p, v.returnPos());
             }
             if (--v.exitTicksLeft <= 0) {
+                // Before the move, so the client holds the screen black through the return instead of showing it.
+                if (wakes(s, v)) {
+                    PensieveNet.send(p, new PensieveWakePacket(WAKE_TICKS));
+                    WAKES.put(p.getUUID(), p.level().getGameTime());
+                }
                 moveBack(p, v);
                 dropViewer(s, v);
                 // Only a memory watched whole pays out, and only here: once per viewer, back in the real world, so
@@ -637,6 +786,8 @@ public final class PensieveSessions {
         if (s.firstCrossTime < 0) s.firstCrossTime = memory.getGameTime();
         if (!s.preview()) ensureBody(s, v, p);
         sendStart(p, s);
+        // Crossing into a scene already playing: they start watching it now (one still building tells them at PLAY).
+        if (s.phase == Session.Phase.PLAY) entered(List.of(p), s);
     }
 
     private static void sendStart(ServerPlayer p, Session s) {
@@ -722,11 +873,23 @@ public final class PensieveSessions {
         PensieveNet.send(p, new PensieveExitPacket(reason.ordinal()));
     }
 
+    /**
+     * The {@code wake} end action plays for a viewer going home from the scene by its end or by leaving (not by a
+     * yank or an abort, which tear them out): the client keeps the screen black through the return and then opens
+     * the eyes on the real world. Unlike the other end actions it needs no {@code sawStart}: it is only a picture.
+     */
+    private static boolean wakes(Session s, Session.Viewer v) {
+        return "wake".equals(s.scene().endAction())
+                && (v.exitReason == ExitReason.END || v.exitReason == ExitReason.LEFT);
+    }
+
     /** A scene's {@code end_action}, for one viewer who saw it to the end and is home again. */
     private static void applyEndAction(ServerPlayer p, @Nullable String action) {
         if (action == null) return;
         if ("cave_map".equals(action)) {
             com.hogwartsmagic.item.CaveMemoryItem.grantCaveMap(p);
+        } else if ("wake".equals(action)) {
+            // Nothing to give: the wake itself was sent just before the move home (see wakes).
         } else {
             LOGGER.warn("Pensieve: unknown end action '{}' ignored", action);
         }
@@ -947,6 +1110,7 @@ public final class PensieveSessions {
 
     /** Logging out mid-memory: out of the session at once and back to the return point before the save. */
     public static void onLogout(ServerPlayer player) {
+        WAKES.remove(player.getUUID());
         Session s = BY_VIEWER.get(player.getUUID());
         if (s == null) return;
         Session.Viewer v = s.viewers().get(player.getUUID());

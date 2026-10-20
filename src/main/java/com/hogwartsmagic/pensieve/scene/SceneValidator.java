@@ -192,8 +192,9 @@ public final class SceneValidator {
         if (e.style() != null && !"enchanted_ceiling".equals(e.id())) {
             out.add(p + ".style: style is only for enchanted_ceiling");
         }
-        if (!Float.isNaN(e.intensity()) && !(("effect".equals(e.kind()) && "light_rays".equals(e.id())))) {
-            out.add(p + ".intensity: intensity is only for light_rays");
+        if (!Float.isNaN(e.intensity()) && !("effect".equals(e.kind())
+                && ("light_rays".equals(e.id()) || "eyes_peek".equals(e.id())))) {
+            out.add(p + ".intensity: intensity is only for light_rays and eyes_peek");
         }
         if (e.id() == null) {
             out.add(p + ".id: missing required key for a " + e.kind() + " event");
@@ -231,6 +232,10 @@ public final class SceneValidator {
                     lightRays(out, e, p);
                 } else if ("floating_candles".equals(e.id())) {
                     candles(out, e, p);
+                } else if ("eyes_peek".equals(e.id()) && !Float.isNaN(e.intensity())
+                        && !(e.intensity() >= Eyelids.MIN_PEEK_OPEN && e.intensity() <= 1f)) {
+                    out.add(p + ".intensity: " + e.intensity() + " is outside " + Eyelids.MIN_PEEK_OPEN
+                            + " to 1 (how far eyes_peek opens)");
                 }
             }
         }

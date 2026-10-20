@@ -143,7 +143,16 @@ public final class EffectVisuals {
             boolean opening = "eyes_open".equals(effect);
             int total = duration > 0 ? duration : DEFAULT_EYES_TICKS;
             // An opening is done at its duration; a closing stays shut until clear() ends the scene.
-            if (!opening || elapsed < total) RUNNING.add(new Eyes(opening, elapsed, total));
+            if (!opening || elapsed < total) {
+                RUNNING.add(new Eyes(opening ? Eyes.OPEN : Eyes.CLOSE, elapsed, total, 0f));
+            }
+            eyesStarted = true;
+        } else if ("eyes_peek".equals(effect)) {
+            // Starts shut and ends shut: it takes over from any lids still running (an eyes_close holding the
+            // screen black), which would otherwise win as the most closed. Like a closing it never expires.
+            RUNNING.removeIf(r -> r instanceof Eyes);
+            int total = duration > 0 ? duration : Eyelids.DEFAULT_PEEK_TICKS;
+            RUNNING.add(new Eyes(Eyes.PEEK, elapsed, total, Eyelids.peekOpen(intensity)));
             eyesStarted = true;
         } else if ("patronus_light".equals(effect)) {
             int total = duration > 0 ? duration : DEFAULT_PATRONUS_TICKS;
@@ -274,7 +283,7 @@ public final class EffectVisuals {
         return most;
     }
 
-    /** Whether an {@code eyes_open} or {@code eyes_close} has started since the scene's visuals were last cleared. */
+    /** Whether an {@code eyes_open}, {@code eyes_close} or {@code eyes_peek} has started since the scene's visuals were last cleared. */
     static boolean eyesStarted() {
         return eyesStarted;
     }
@@ -423,28 +432,35 @@ public final class EffectVisuals {
     }
 
     /**
-     * {@code eyes_open} / {@code eyes_close}: the eyelids, drawn by {@code PensieveOverlay} from {@link Eyelids}. An
-     * opening runs out at its duration; a closing never expires, it holds shut until {@link #clear} ends the scene.
+     * {@code eyes_open} / {@code eyes_close} / {@code eyes_peek}: the eyelids, drawn by {@code PensieveOverlay} from
+     * {@link Eyelids}. An opening runs out at its duration; a closing or a peek never expires, it holds shut until
+     * {@link #clear} ends the scene.
      */
     private static final class Eyes implements Running {
-        private final boolean opening;
+        /** The lid curves, as plain ints (no enum, so no switch map in client code). */
+        static final int OPEN = 0, CLOSE = 1, PEEK = 2;
+        private final int kind;
         private final int total;
+        /** How far a peek opens, 0..1; unused otherwise. */
+        private final float open;
         private int age;
 
-        Eyes(boolean opening, int elapsed, int total) {
-            this.opening = opening;
+        Eyes(int kind, int elapsed, int total, float open) {
+            this.kind = kind;
             this.age = elapsed;
             this.total = total;
+            this.open = open;
         }
 
         @Override
         public boolean tick(ClientLevel level) {
             age++;
-            return !opening || age < total;
+            return kind != OPEN || age < total;
         }
 
         float closed(float partial) {
-            return Eyelids.closed(opening, age + partial, total);
+            if (kind == PEEK) return Eyelids.peek(age + partial, total, open);
+            return Eyelids.closed(kind == OPEN, age + partial, total);
         }
     }
 

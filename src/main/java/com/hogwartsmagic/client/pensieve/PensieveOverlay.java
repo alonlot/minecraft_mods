@@ -43,9 +43,13 @@ public final class PensieveOverlay {
 
     public static void render(GuiGraphics g, float partial) {
         int phase = PensieveClientState.phase();
-        if (phase == PensieveClientState.NONE) return;
         int w = g.guiWidth();
         int h = g.guiHeight();
+        if (phase == PensieveClientState.NONE) {
+            // The wake: the one lid effect drawn over the real world, after the dive is over.
+            if (PensieveClientState.waking()) lids(g, w, h, PensieveClientState.wakeClosed(partial));
+            return;
+        }
         float pt = PensieveClientState.phaseTime(partial);
         float clock = PensieveClientState.clock(partial);
 
@@ -82,6 +86,8 @@ public final class PensieveOverlay {
                 g.fill(0, 0, w, h, 0xFF000000);
                 wisps(g, w, h, clock, clamp01((pt - EXIT_COLLAPSE_TICKS) / 3), false);
             }
+            // Going home to a wake: no silver draining away, the eyes stay shut until the wake opens them.
+            if (PensieveClientState.wakePending()) g.fill(0, 0, w, h, 0xFF000000);
         } else if (phase == PensieveClientState.YANK) {
             if (pt < FLASH_TICKS) {
                 // Red-white flash: white hot at the instant of the tear, reddening as it goes.
@@ -168,7 +174,11 @@ public final class PensieveOverlay {
      * scene that opens its eyes at its start has them held shut while it builds ({@link PensieveClientState#lidsHeldShut}).
      */
     private static void eyelids(GuiGraphics g, int w, int h, float partial) {
-        float closed = PensieveClientState.lidsClosed(partial);
+        lids(g, w, h, PensieveClientState.lidsClosed(partial));
+    }
+
+    /** Two black lids, {@code closed} 0 (open) to 1 (shut), with soft inner edges. */
+    private static void lids(GuiGraphics g, int w, int h, float closed) {
         if (closed <= 0f) return;
         int band = Eyelids.band(closed, h, EYELID_EDGE);
         if (band <= 0) return;

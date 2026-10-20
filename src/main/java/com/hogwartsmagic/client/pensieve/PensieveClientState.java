@@ -35,7 +35,16 @@ import org.slf4j.Logger;
  *  onEnter ──► SWALLOW (30) ──► FALL ──onStart(-1)──► BUILD ──onStart(t)──► PLAY ──onExit──► EXIT (30 + return 15)
  *                                  └────────onStart(t), a late joiner────────┘          └─onExit(YANK)─► YANK (10)
  *  BUILD/PLAY ──onStart(t) of another scene id (a chain's hand-over)──► PLAY of the new scene, faded in from black
+ *  NONE ──(a wake was sent before the move home)──► the eyes open on the real world, HUD still hidden, then nothing
  * </pre>
+ *
+ * <p>A hand-over the server asks for mid-scene ({@code PensieveSessions.handOver}) first sends {@link #onFade}: the
+ * scene fades to black as at a chained scene's end and stays black until the new start. The new session may be the
+ * same scene id (a hold scene looping); it is told apart by its origin, since every session has its own slot.
+ *
+ * <p>The wake ({@code end_action: "wake"}) is the one eyelid effect drawn outside a memory: {@link #onWake} arrives
+ * just before the move home, the return then stays black, and once the dive is over ({@link #NONE}) the lids open
+ * on the real world over the wake's ticks ({@link #wakeClosed}).
  *
  * <p>The time of day: the memory dimension shares the overworld clock, and the memory is reached with a seamless
  * move, so the client is still holding the overworld {@link ClientLevel}. While the memory is on screen this class
@@ -94,6 +103,15 @@ public final class PensieveClientState {
     private static long revealStart;
     private static int revealSpan = 1;
 
+    /** A mid-scene hand-over's fade to black began at this tick (-1: none) and lasts this many ticks. */
+    private static long fadeStart = -1;
+    private static int fadeTicks = PensieveTimeline.CHAIN_FADE_TICKS;
+    /** A wake arrived during the dive: the screen stays black until the dive is over, then the wake starts. */
+    private static boolean wakePending;
+    /** The running wake began at this tick (-1: none) and opens the eyes over this many ticks. */
+    private static long wakeStart = -1;
+    private static int wakeTicks;
+
     private static float thudStrength;
     private static long thudTick = Long.MIN_VALUE / 2;
     /** EXIT/YANK: the client tick the return began (the move back arrived), or -1 while still waiting. */
@@ -127,6 +145,9 @@ public final class PensieveClientState {
         leaveSent = false;
         returnStart = -1;
         thudTick = Long.MIN_VALUE / 2;
+        fadeStart = -1;
+        wakePending = false;
+        wakeStart = -1;
         basin = basinPos;
         // A memory started by putting a hat on from the inventory must not play behind the open screen.
         if (mc.screen != null) mc.setScreen(null);
@@ -149,8 +170,9 @@ public final class PensieveClientState {
     /** The local player is in the memory; {@code startGameTime} is -1 while the set is still building. */
     public static void onStart(String id, String json, BlockPos at, long start, int build, boolean isPreview) {
         if (phase == EXIT || phase == YANK) return;
-        // A different scene while one is already on screen: the server handed this viewer on to a chained scene.
-        boolean switched = sceneId != null && !id.equals(sceneId);
+        // A different scene while one is already on screen: the server handed this viewer on to a chained scene. A
+        // scene handed over to itself (a hold scene looping) is a new session in a new slot: its origin differs.
+        boolean switched = sceneId != null && (!id.equals(sceneId) || (origin != null && !origin.equals(at)));
         if (scene == null || switched) {
             scene = parse(id, json);
             sceneId = id;
@@ -201,6 +223,7 @@ public final class PensieveClientState {
      * The time of day follows the new scene through {@link #syncTimeOfDay}.
      */
     private static void handOver() {
+        fadeStart = -1;
         MemoryActors.clear();
         MemoryAudio.cut();
         if (startGameTime < 0) {
@@ -246,6 +269,28 @@ public final class PensieveClientState {
         }
         PensieveSounds.stopFall();
         PensieveSounds.play("rise", 1.0f, 1.0f);
+    }
+
+    /** The server asked for a hand-over mid-scene: fade the scene on screen to black over {@code span} ticks. */
+    public static void onFade(int span) {
+        if ((phase != BUILD && phase != PLAY) || fadeStart >= 0) return;
+        fadeTicks = Math.max(1, span);
+        fadeStart = ticks;
+    }
+
+    /**
+     * The scene going home ends in a wake: keep the screen black through the rest of the dive, then open the eyes on
+     * the real world over {@code span} ticks. Outside a dive (it arrived late) the wake starts at once.
+     */
+    public static void onWake(int span) {
+        wakeTicks = Math.max(1, span);
+        if (phase == NONE) {
+            wakePending = false;
+            wakeStart = ticks;
+        } else {
+            wakePending = true;
+            wakeStart = -1;
+        }
     }
 
     /** The body left at the basin was hit; {@code strength} is 0..1. */
@@ -370,10 +415,14 @@ public final class PensieveClientState {
         return SessionClock.elapsed(startGameTime, mc.level.getGameTime(), partial);
     }
 
-    /** A chained scene's fade to black at its length, 0..1; always 0 for a scene with no {@code next}. */
+    /**
+     * A chained scene's fade to black at its length, 0..1 (0 for a scene with no {@code next}), or a mid-scene
+     * hand-over's fade ({@link #onFade}), whichever is darker.
+     */
     public static float chainEndDarkness(float partial) {
-        if (scene == null || scene.next() == null || startGameTime < 0) return 0;
-        return PensieveTimeline.chainEndDarkness(sceneTime(partial), scene.length());
+        float asked = fadeStart < 0 ? 0 : PensieveTimeline.smoothstep(((ticks - fadeStart) + partial) / fadeTicks);
+        if (scene == null || scene.next() == null || startGameTime < 0) return asked;
+        return Math.max(asked, PensieveTimeline.chainEndDarkness(sceneTime(partial), scene.length()));
     }
 
     /** Red-edge strength from the last hit on the body, decaying over 12 ticks. */
@@ -401,9 +450,26 @@ public final class PensieveClientState {
         return phase == YANK && returnStart < 0;
     }
 
-    /** The vanilla HUD (all but chat) is hidden for the whole dive. */
+    /** The vanilla HUD (all but chat) is hidden for the whole dive, and while a wake opens the eyes afterwards. */
     public static boolean hidesHud() {
-        return phase != NONE;
+        return phase != NONE || waking();
+    }
+
+    /** True while a wake is pending or running (see {@link #wakeClosed}). */
+    public static boolean waking() {
+        return wakePending || wakeStart >= 0;
+    }
+
+    /** True while a wake has arrived but the dive is not over yet: the screen is held black. */
+    static boolean wakePending() {
+        return wakePending;
+    }
+
+    /** How shut the eyes of a running wake are, 0..1 (an {@code eyes_open} curve); 1 while pending, 0 with none. */
+    static float wakeClosed(float partial) {
+        if (wakePending) return 1f;
+        if (wakeStart < 0) return 0f;
+        return Eyelids.closed(true, (ticks - wakeStart) + partial, wakeTicks);
     }
 
     static float partial() {
@@ -431,6 +497,12 @@ public final class PensieveClientState {
         heldAtExit = false;
         startPending = false;
         leaveSent = false;
+        fadeStart = -1;
+        if (wakePending) {
+            // The dive is over: the eyes open on the real world from here.
+            wakePending = false;
+            wakeStart = ticks;
+        }
         MemoryActors.clear();
         PensieveSounds.stopAll();
         syncTimeOfDay();
@@ -442,11 +514,17 @@ public final class PensieveClientState {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null) {
             if (phase != NONE) reset();
+            wakePending = false;
+            wakeStart = -1;
             timeLevel = null;
             return;
         }
         if (phase == NONE) {
             drainLeaveKey();
+            if (wakeStart >= 0) {
+                if (!mc.isPaused()) ticks++;
+                if (ticks - wakeStart >= wakeTicks) wakeStart = -1;
+            }
             return;
         }
         if (!mc.isPaused()) ticks++;
@@ -498,11 +576,18 @@ public final class PensieveClientState {
         while (ClientModEvents.PENSIEVE_LEAVE_KEY.consumeClick()) {
             pressed = true;
         }
-        if (!pressed || leaveSent) return;
-        if (phase == FALL || phase == BUILD || phase == PLAY) {
-            leaveSent = true;
-            SpellPackets.CHANNEL.send(new PensieveLeavePacket(), PacketDistributor.SERVER.noArg());
-        }
+        if (pressed) requestLeave();
+    }
+
+    /**
+     * Asks the server to leave the memory, once, while it is falling, building or playing; false otherwise. Also for
+     * a screen that is open inside the memory (the Sorting quiz), which swallows the key before the key mapping sees it.
+     */
+    public static boolean requestLeave() {
+        if (leaveSent || (phase != FALL && phase != BUILD && phase != PLAY)) return false;
+        leaveSent = true;
+        SpellPackets.CHANNEL.send(new PensieveLeavePacket(), PacketDistributor.SERVER.noArg());
+        return true;
     }
 
     private static void drainLeaveKey() {

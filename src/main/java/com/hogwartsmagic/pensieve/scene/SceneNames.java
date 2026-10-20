@@ -38,8 +38,8 @@ public record SceneNames(Set<String> entityTypes, Set<String> spells, Set<String
     public static final float MIN_CANDLES_SPREAD = 0.5f, MAX_CANDLES_SPREAD = 100f;
     public static final int MAX_CANDLES = 1500;
     public static final Set<String> EFFECTS = Set.of("summoning_ritual", "lightning", "dark_mark", "grey_edges",
-            "patronus_light", "fiendfyre_rings", "eyes_open", "eyes_close", "letter_flood", "enchanted_ceiling",
-            "light_rays", "floating_candles");
+            "patronus_light", "fiendfyre_rings", "eyes_open", "eyes_close", "eyes_peek", "letter_flood",
+            "enchanted_ceiling", "light_rays", "floating_candles");
     /** The looks an enchanted_ceiling may take; the first is the default. */
     public static final java.util.List<String> CEILING_STYLES = java.util.List.of("storm", "night");
     /**
@@ -51,8 +51,11 @@ public record SceneNames(Set<String> entityTypes, Set<String> spells, Set<String
     public static final Set<Integer> SCHEMATIC_ROTATIONS = Set.of(0, 90, 180, 270);
     /** Largest {@code fog_far}, in blocks. */
     public static final int MAX_FOG_FAR = 512;
-    /** Things a scene's {@code end_action} may do. */
-    public static final Set<String> END_ACTIONS = Set.of("cave_map");
+    /**
+     * Things a scene's {@code end_action} may do. {@code wake}: back home, the viewer opens their eyes on the real
+     * world (an eyes_open drawn outside the memory); unlike {@code cave_map} it also plays for a viewer who leaves.
+     */
+    public static final Set<String> END_ACTIONS = Set.of("cave_map", "wake");
     /** Reusable poses every scene may cue without defining them. */
     public static final Set<String> POSE_PRESETS = Set.of("wand_raised", "wand_point", "kneel", "cower", "arms_out",
             "bent_over_basin", "hands_up", "look_down");

@@ -35,4 +35,28 @@ class EyelidsTest {
         assertTrue(!Eyelids.opensShut(java.util.List.of(new com.hogwartsmagic.pensieve.scene.SceneDef.EventDef(0,
                 "sound", "eyes_open", null, 1f, 1f, 0, null, 0, Float.NaN, null, Float.NaN))));
     }
+
+    @Test void peekStartsShutOpensToTheSlitAndShutsForGood() {
+        assertEquals(1f, Eyelids.peek(0, 60, 0.35f), 1e-4);
+        // Held at the slit through the middle of the effect: 35% open is 65% shut.
+        assertEquals(0.65f, Eyelids.peek(30, 60, 0.35f), 1e-4);
+        assertEquals(0.65f, Eyelids.peek(20, 60, 0.35f), 1e-4);
+        assertEquals(0.65f, Eyelids.peek(40, 60, 0.35f), 1e-4);
+        assertEquals(1f, Eyelids.peek(60, 60, 0.35f), 1e-4);
+        assertEquals(1f, Eyelids.peek(600, 60, 0.35f), 1e-4);
+    }
+
+    @Test void peekNeverOpensPastItsSlit() {
+        for (int age = 0; age <= 70; age++) {
+            float c = Eyelids.peek(age, 60, 0.35f);
+            assertTrue(c >= 0.65f - 1e-4 && c <= 1f + 1e-4, "age " + age + " closed " + c);
+        }
+    }
+
+    @Test void peekOpenDefaultsAndClamps() {
+        assertEquals(0.35f, Eyelids.peekOpen(Float.NaN), 1e-6);
+        assertEquals(0.5f, Eyelids.peekOpen(0.5f), 1e-6);
+        assertEquals(Eyelids.MIN_PEEK_OPEN, Eyelids.peekOpen(0f), 1e-6);
+        assertEquals(1f, Eyelids.peekOpen(3f), 1e-6);
+    }
 }

@@ -68,6 +68,10 @@ public final class ClientRuntimeBridge {
                     ((com.hogwartsmagic.pensieve.net.PensieveExitPacket) payload).reason());
             case "pensieveThud" -> com.hogwartsmagic.client.pensieve.PensieveClientState.onThud(
                     ((com.hogwartsmagic.pensieve.net.PensieveThudPacket) payload).strength());
+            case "pensieveFade" -> com.hogwartsmagic.client.pensieve.PensieveClientState.onFade(
+                    ((com.hogwartsmagic.pensieve.net.PensieveFadePacket) payload).ticks());
+            case "pensieveWake" -> com.hogwartsmagic.client.pensieve.PensieveClientState.onWake(
+                    ((com.hogwartsmagic.pensieve.net.PensieveWakePacket) payload).ticks());
             default -> throw new IllegalArgumentException("Unknown client packet action: " + action);
         }
     }

@@ -22,8 +22,9 @@ import java.util.UUID;
  */
 public final class Session {
     /**
-     * Server only, never on the wire. {@code HANDOVER}: the clock finished and the next scene of the chain is not
-     * built yet, so the viewers wait pinned at this anchor until it is.
+     * Server only, never on the wire. {@code HANDOVER}: the clock finished (or {@link PensieveSessions#handOver} was
+     * asked for) and the next scene is not built yet, or the asked-for fade is not over, so the viewers wait pinned at
+     * this anchor until it is.
      */
     public enum Phase { BUILD, PLAY, HANDOVER, CLOSING }
 
@@ -62,6 +63,10 @@ public final class Session {
     boolean standby;
     /** The standby session this one hands its viewers to when its clock finishes; null when unchained. */
     @Nullable Session nextSession;
+    /** {@link PensieveSessions#handOver} was asked for: the viewers move no sooner than {@link #handOverNotBefore}. */
+    boolean handOverAsked;
+    /** Memory-level game time the asked-for hand-over's fade to black is over. */
+    long handOverNotBefore = -1;
     /** The scene id that began the chain; a fresh session's own id. */
     String chainRoot;
     /** Every scene id this chain has played or is playing, this one included: a next scene already here is a cycle. */

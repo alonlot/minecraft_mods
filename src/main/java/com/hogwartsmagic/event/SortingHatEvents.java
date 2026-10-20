@@ -21,6 +21,8 @@ public class SortingHatEvents {
         if (!(event.player instanceof ServerPlayer player)) {
             return;
         }
+        // Every tick: a house reveal held back for the wake fires on time (a map lookup when there is none).
+        SortingHatManager.get().tickReveal(player);
         if (player.tickCount % 20 != 0) {
             return;
         }

@@ -165,6 +165,19 @@ public class SortingQuizScreen extends Screen {
         super.render(g, mouseX, mouseY, partialTick);
     }
 
+    /**
+     * Inside the Sorting memory the quiz is open over the scene, and an open screen keeps the leave key from its key
+     * mapping: pressing it here still leaves the memory. The quiz stays open and goes home with the player.
+     */
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (com.hogwartsmagic.event.ClientModEvents.PENSIEVE_LEAVE_KEY.matches(keyCode, scanCode)
+                && com.hogwartsmagic.client.pensieve.PensieveClientState.requestLeave()) {
+            return true;
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
     @Override
     public boolean shouldCloseOnEsc() {
         return false;

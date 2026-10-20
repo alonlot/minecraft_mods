@@ -6,6 +6,8 @@ import com.hogwartsmagic.pensieve.ExitReason;
 import com.hogwartsmagic.pensieve.MemoryRegistry;
 import com.hogwartsmagic.pensieve.PensieveSessions;
 import com.hogwartsmagic.pensieve.Session;
+import com.hogwartsmagic.pensieve.scene.CameraTrack;
+import com.hogwartsmagic.pensieve.scene.SceneDef;
 import com.hogwartsmagic.pensieve.scene.SceneParser;
 import com.hogwartsmagic.sorting.HogwartsHouse;
 import com.hogwartsmagic.sorting.SortingHatManager;
@@ -21,9 +23,13 @@ import net.minecraftforge.gametest.GameTestHolder;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * The Sorting Hat flow: the hat plays the Sorting memory, then the fixed quiz sorts the player. The memory level is
@@ -335,5 +341,235 @@ public final class SortingGameTests {
         logout(helper, p);
         LOGGER.info("SORTING-GAMETEST PASS stalePendingClears");
         helper.succeed();
+    }
+
+    // ---- Sorting inside the mind (Great Hall plan, Addendum 5 K) ---------------------------------------------
+    // A tiny chain stands in for the shipped scenes under the shipped ids: "sorting" (next: sorting_choice), the
+    // hold scene sorting_choice, and the four sorting_reveal_<house> scenes, which end in a wake.
+
+    private static SceneDef tinyScene(String id, int length, String next, String endAction) {
+        SceneDef.SetDef set = new SceneDef.SetDef(List.of(), List.of(new SceneDef.Fill("minecraft:stone",
+                new int[]{0, 0, 0}, new int[]{2, 0, 2})), List.of(), List.of(), 6000L, 20);
+        return new SceneDef(id, "Test", length, 8, set, Map.of(), List.of(), List.of(), List.of(), CameraTrack.EMPTY,
+                endAction, 0, next);
+    }
+
+    /** The mind flow: the hall scene runs {@code hallLength}, the choice scene {@code choiceLength}. */
+    private static void useMindSeam(GameTestHelper helper, int hallLength, int choiceLength) {
+        Map<String, SceneDef> scenes = new HashMap<>();
+        scenes.put(SortingHatManager.MEMORY_SCENE, tinyScene(SortingHatManager.MEMORY_SCENE, hallLength,
+                SortingHatManager.CHOICE_SCENE, null));
+        scenes.put(SortingHatManager.CHOICE_SCENE, tinyScene(SortingHatManager.CHOICE_SCENE, choiceLength, null, null));
+        for (HogwartsHouse h : HogwartsHouse.values()) {
+            String id = SortingHatManager.revealScene(h);
+            scenes.put(id, tinyScene(id, 40, null, "wake"));
+        }
+        PensieveSessions.setBuildBudgetForTests(-1);
+        PensieveSessions.overrideForTests(helper.getLevel(), id -> Optional.ofNullable(scenes.get(id))
+                .map(d -> new MemoryRegistry.LoadedScene(d, "{}")));
+    }
+
+    /** The session the player watches, if it is playing {@code sceneId}. */
+    private static Optional<Session> playing(ServerPlayer p, String sceneId) {
+        return PensieveSessions.sessionOf(p)
+                .filter(s -> sceneId.equals(s.sceneId()) && s.phase() == Session.Phase.PLAY);
+    }
+
+    @GameTest(template = EMPTY, batch = "sorting_mind_quiz", timeoutTicks = 400)
+    public static void enteringChoiceOpensQuizInsideMemory(GameTestHelper helper) {
+        useMindSeam(helper, 40, 2000);
+        SortingHatManager m = SortingHatManager.get();
+        ServerPlayer p = player(helper);
+        hat(p, true);
+        m.tick(p);
+        helper.assertTrue(PensieveSessions.isViewer(p), "the hat should start the Sorting memory");
+        AtomicBoolean entered = new AtomicBoolean();
+        helper.onEachTick(() -> {
+            if (entered.get()) return;
+            if (playing(p, SortingHatManager.MEMORY_SCENE).isPresent()) {
+                helper.assertTrue(!m.hasQuiz(p.getUUID()), "no quiz before the choice scene");
+            }
+            if (playing(p, SortingHatManager.CHOICE_SCENE).isEmpty()) return;
+            helper.assertTrue(m.hasQuiz(p.getUUID()) && m.quizStep(p.getUUID()) == 0,
+                    "entering the choice scene should open the quiz at step 0");
+            helper.assertTrue(PensieveSessions.isViewer(p), "the quiz opens inside the memory");
+            entered.set(true);
+            // Done: the hat off drops the quiz and ends the memory.
+            hat(p, false);
+            m.tick(p);
+        });
+        helper.succeedWhen(() -> {
+            helper.assertTrue(entered.get(), "never reached the choice scene");
+            helper.assertTrue(!PensieveSessions.isViewer(p), "still a viewer");
+            helper.assertTrue(!m.hasQuiz(p.getUUID()), "the hat off should drop the quiz");
+            logout(helper, p);
+            LOGGER.info("SORTING-GAMETEST PASS enteringChoiceOpensQuizInsideMemory");
+        });
+    }
+
+    @GameTest(template = EMPTY, batch = "sorting_mind_reveal", timeoutTicks = 700)
+    public static void sortedInMindHandsOverToRevealThenWakesThenReveals(GameTestHelper helper) {
+        useMindSeam(helper, 40, 2000);
+        SortingHatManager m = SortingHatManager.get();
+        ServerPlayer p = player(helper);
+        hat(p, true);
+        m.tick(p);
+        AtomicReference<HogwartsHouse> house = new AtomicReference<>();
+        AtomicBoolean sawReveal = new AtomicBoolean();
+        AtomicBoolean sawHeldAtHome = new AtomicBoolean();
+        helper.onEachTick(() -> {
+            m.tickReveal(p);
+            if (house.get() == null) {
+                if (playing(p, SortingHatManager.CHOICE_SCENE).isEmpty() || !m.hasQuiz(p.getUUID())) return;
+                answerToTheEnd(m, p);
+                helper.assertTrue(!m.hasQuiz(p.getUUID()), "the quiz should be over");
+                HogwartsHouse h = HogwartsHouse.valueOf(house(p));
+                house.set(h);
+                helper.assertTrue(m.heldReveal(p.getUUID()) == h, "the reveal should be held back");
+                helper.assertTrue(m.heldRevealDue(p.getUUID()) == -1, "no reveal time while still in the memory");
+                helper.assertTrue(m.revealedAt(p.getUUID()) == -1, "no house reveal inside the memory");
+                Session s = PensieveSessions.sessionOf(p).orElseThrow();
+                helper.assertTrue(s.phase() == Session.Phase.HANDOVER, "SORTED should hand over at once, is "
+                        + s.phase());
+                helper.assertTrue(s.nextSession() != null
+                                && SortingHatManager.revealScene(h).equals(s.nextSession().sceneId()),
+                        "the hand-over should go to " + SortingHatManager.revealScene(h));
+                return;
+            }
+            String reveal = SortingHatManager.revealScene(house.get());
+            if (playing(p, reveal).isPresent()) {
+                sawReveal.set(true);
+                helper.assertTrue(PensieveSessions.sessionOf(p).get().chainRoot().equals(SortingHatManager.MEMORY_SCENE),
+                        "the reveal belongs to the Sorting chain");
+            }
+            if (!PensieveSessions.isViewer(p) && PensieveSessions.lastWakeForTests(p.getUUID()) >= 0
+                    && m.revealedAt(p.getUUID()) < 0) {
+                helper.assertTrue(m.heldReveal(p.getUUID()) == house.get() && m.heldRevealDue(p.getUUID()) > 0,
+                        "home again: the reveal waits for the wake");
+                sawHeldAtHome.set(true);
+            }
+        });
+        helper.succeedWhen(() -> {
+            helper.assertTrue(sawReveal.get(), "never handed over to the reveal scene");
+            helper.assertTrue(!PensieveSessions.isViewer(p), "still a viewer");
+            long wake = PensieveSessions.lastWakeForTests(p.getUUID());
+            helper.assertTrue(wake >= 0, "the reveal end should send the wake");
+            long revealed = m.revealedAt(p.getUUID());
+            helper.assertTrue(revealed >= 0, "no house reveal yet");
+            helper.assertTrue(sawHeldAtHome.get(), "the reveal should be held after the move home");
+            helper.assertTrue(revealed - wake >= PensieveSessions.WAKE_DONE_TICKS,
+                    "the house reveal came " + (revealed - wake) + " ticks after the wake, before it was done");
+            helper.assertTrue(m.heldReveal(p.getUUID()) == null, "the held reveal should be gone");
+            helper.assertTrue(house.get().name().equals(house(p)), "the house should stay saved");
+            logout(helper, p);
+            LOGGER.info("SORTING-GAMETEST PASS sortedInMindHandsOverToRevealThenWakesThenReveals");
+        });
+    }
+
+    @GameTest(template = EMPTY, batch = "sorting_mind_leave_choice", timeoutTicks = 400)
+    public static void leavingDuringChoiceTakesQuizHome(GameTestHelper helper) {
+        useMindSeam(helper, 40, 2000);
+        SortingHatManager m = SortingHatManager.get();
+        ServerPlayer p = player(helper);
+        hat(p, true);
+        m.tick(p);
+        AtomicBoolean left = new AtomicBoolean();
+        helper.onEachTick(() -> {
+            if (left.get() || playing(p, SortingHatManager.CHOICE_SCENE).isEmpty() || !m.hasQuiz(p.getUUID())) return;
+            m.onChoice(p, 0, 0);
+            helper.assertTrue(m.quizStep(p.getUUID()) == 1, "one answer inside the memory");
+            left.set(true);
+            PensieveSessions.leave(p, ExitReason.LEFT);
+        });
+        helper.succeedWhen(() -> {
+            helper.assertTrue(left.get(), "never left the choice scene");
+            helper.assertTrue(!PensieveSessions.isViewer(p), "still a viewer");
+            helper.assertTrue(m.hasQuiz(p.getUUID()) && m.quizStep(p.getUUID()) == 1,
+                    "the quiz should carry on at home at step 1, is " + m.quizStep(p.getUUID()));
+            helper.assertTrue(!m.needsRewear(p.getUUID()) && house(p).isEmpty(), "leaving is not a yank");
+            answerToTheEnd(m, p);
+            helper.assertTrue(!house(p).isEmpty(), "answered at home: sorted");
+            helper.assertTrue(m.revealedAt(p.getUUID()) >= 0, "sorted at home: revealed at once");
+            logout(helper, p);
+            LOGGER.info("SORTING-GAMETEST PASS leavingDuringChoiceTakesQuizHome");
+        });
+    }
+
+    @GameTest(template = EMPTY, batch = "sorting_mind_leave_hall", timeoutTicks = 400)
+    public static void leavingBeforeChoiceOpensQuizAtHome(GameTestHelper helper) {
+        useMindSeam(helper, 2000, 2000);
+        SortingHatManager m = SortingHatManager.get();
+        ServerPlayer p = player(helper);
+        hat(p, true);
+        m.tick(p);
+        helper.onEachTick(() -> helper.assertTrue(playing(p, SortingHatManager.CHOICE_SCENE).isEmpty(),
+                "the choice scene must never be reached"));
+        AtomicBoolean left = new AtomicBoolean();
+        leaveOncePlaying(helper, p, ExitReason.LEFT, left);
+        helper.succeedWhen(() -> {
+            helper.assertTrue(left.get() && !PensieveSessions.isViewer(p), "not home yet");
+            helper.assertTrue(m.hasQuiz(p.getUUID()) && m.quizStep(p.getUUID()) == 0,
+                    "leaving before the choice should open the quiz at home");
+            logout(helper, p);
+            LOGGER.info("SORTING-GAMETEST PASS leavingBeforeChoiceOpensQuizAtHome");
+        });
+    }
+
+    @GameTest(template = EMPTY, batch = "sorting_mind_timeout", timeoutTicks = 500)
+    public static void choiceTimeoutLoopsWithQuizOpen(GameTestHelper helper) {
+        useMindSeam(helper, 40, 40);
+        SortingHatManager m = SortingHatManager.get();
+        ServerPlayer p = player(helper);
+        hat(p, true);
+        m.tick(p);
+        AtomicReference<Session> first = new AtomicReference<>();
+        AtomicBoolean looped = new AtomicBoolean();
+        helper.onEachTick(() -> {
+            if (looped.get()) return;
+            Optional<Session> s = playing(p, SortingHatManager.CHOICE_SCENE);
+            if (s.isEmpty()) return;
+            if (first.get() == null) {
+                first.set(s.get());
+                m.onChoice(p, 0, 0);
+                return;
+            }
+            if (s.get() == first.get()) return;
+            helper.assertTrue(PensieveSessions.isViewer(p), "the hold scene must not end the memory");
+            helper.assertTrue(m.hasQuiz(p.getUUID()) && m.quizStep(p.getUUID()) == 1,
+                    "the looped scene keeps the quiz where it was, step " + m.quizStep(p.getUUID()));
+            helper.assertTrue(s.get().chainRoot().equals(SortingHatManager.MEMORY_SCENE), "same chain");
+            looped.set(true);
+            hat(p, false);
+            m.tick(p);
+        });
+        helper.succeedWhen(() -> {
+            helper.assertTrue(looped.get(), "the choice scene never looped");
+            helper.assertTrue(!PensieveSessions.isViewer(p), "still a viewer");
+            logout(helper, p);
+            LOGGER.info("SORTING-GAMETEST PASS choiceTimeoutLoopsWithQuizOpen");
+        });
+    }
+
+    @GameTest(template = EMPTY, batch = "sorting_mind_yank", timeoutTicks = 400)
+    public static void yankDuringChoiceDropsQuiz(GameTestHelper helper) {
+        useMindSeam(helper, 40, 2000);
+        SortingHatManager m = SortingHatManager.get();
+        ServerPlayer p = player(helper);
+        hat(p, true);
+        m.tick(p);
+        AtomicBoolean yanked = new AtomicBoolean();
+        helper.onEachTick(() -> {
+            if (yanked.get() || playing(p, SortingHatManager.CHOICE_SCENE).isEmpty() || !m.hasQuiz(p.getUUID())) return;
+            yanked.set(true);
+            PensieveSessions.leave(p, ExitReason.YANK);
+        });
+        helper.succeedWhen(() -> {
+            helper.assertTrue(yanked.get() && !PensieveSessions.isViewer(p), "not home from the yank yet");
+            helper.assertTrue(!m.hasQuiz(p.getUUID()), "a yank closes the quiz, as before");
+            helper.assertTrue(m.needsRewear(p.getUUID()), "a yank waits for the hat to be re-worn");
+            helper.assertTrue(house(p).isEmpty(), "nothing saved");
+            logout(helper, p);
+            LOGGER.info("SORTING-GAMETEST PASS yankDuringChoiceDropsQuiz");
+        });
     }
 }

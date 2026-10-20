@@ -1341,4 +1341,45 @@ public final class PensieveGameTests {
             LOGGER.info("PENSIEVE-GAMETEST PASS chainCycleEnds");
         });
     }
+
+    @GameTest(template = EMPTY, batch = "pensieve_handover_asked", timeoutTicks = 300)
+    public static void handOverMidBuildAndAgainIsSafe(GameTestHelper helper) {
+        useChainSeam(helper);
+        var p = playerBeside(helper, 0);
+        helper.assertTrue(com.hogwartsmagic.pensieve.PensieveSessions.startSolo(p, "chain_long"), "solo refused");
+        var first = com.hogwartsmagic.pensieve.PensieveSessions.sessionOf(p).orElseThrow();
+        helper.assertTrue(first.phase() == com.hogwartsmagic.pensieve.Session.Phase.BUILD, "setup: still building");
+        // Asked while the scene is still building, then again for the same scene, then for the scene itself (a loop):
+        // each replaces or keeps the one standby, and the viewer lands in exactly one session.
+        helper.assertTrue(com.hogwartsmagic.pensieve.PensieveSessions.handOver(p, "chain_b"), "hand-over refused");
+        var standby = first.nextSession();
+        helper.assertTrue(standby != null && standby.standby() && "chain_b".equals(standby.sceneId()),
+                "a chain_b standby should be building");
+        helper.assertTrue(com.hogwartsmagic.pensieve.PensieveSessions.handOver(p, "chain_b"), "a repeat is refused");
+        helper.assertTrue(first.nextSession() == standby, "asking again for the same scene must keep its standby");
+        helper.assertTrue(com.hogwartsmagic.pensieve.PensieveSessions.handOver(p, "chain_long"), "a loop is refused");
+        helper.assertTrue(first.nextSession() != standby && "chain_long".equals(first.nextSession().sceneId()),
+                "asking for another scene replaces the standby");
+        helper.assertTrue(!com.hogwartsmagic.pensieve.PensieveSessions.slotInUse(standby.slot())
+                        || standby.phase() == com.hogwartsmagic.pensieve.Session.Phase.CLOSING,
+                "the replaced standby should be finished");
+        List<String> entered = new java.util.ArrayList<>();
+        com.hogwartsmagic.pensieve.SceneListener l = (pl, s) -> {
+            if (pl == p) entered.add(s.sceneId() + (s == first ? ":first" : ":new"));
+        };
+        com.hogwartsmagic.pensieve.PensieveSessions.addSceneEnterListener("chain_long", l);
+        helper.succeedWhen(() -> {
+            var s = com.hogwartsmagic.pensieve.PensieveSessions.sessionOf(p);
+            helper.assertTrue(s.isPresent() && s.get() != first && "chain_long".equals(s.get().sceneId())
+                    && s.get().phase() == com.hogwartsmagic.pensieve.Session.Phase.PLAY, "not handed over yet");
+            helper.assertTrue(nearPoint(p, s.get().anchor(), 0.5), "viewer should float at the new anchor");
+            helper.assertTrue("chain_long".equals(s.get().chainRoot()), "the chain root carries over");
+            helper.assertTrue(first.phase() == com.hogwartsmagic.pensieve.Session.Phase.CLOSING, "the old one closes");
+            helper.assertTrue(entered.equals(List.of("chain_long:new")), "enter listener heard " + entered);
+            com.hogwartsmagic.pensieve.PensieveSessions.removeSceneEnterListener("chain_long", l);
+            com.hogwartsmagic.pensieve.PensieveSessions.leave(p, com.hogwartsmagic.pensieve.ExitReason.LEFT);
+            logout(helper, p);
+            LOGGER.info("PENSIEVE-GAMETEST PASS handOverMidBuildAndAgainIsSafe");
+        });
+    }
 }

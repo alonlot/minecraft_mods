@@ -1,6 +1,6 @@
 {
   "title": "Ollivanders",
-  "length": 1820,
+  "length": 1860,
   "radius": 30,
   "end_action": "wake",
   "set": {"templates": [{"id": "hogwartsmagic:wand_ollivanders", "at": [-7, -1, -5]}], "time_of_day": 4000, "build_ticks": 60},
@@ -30,7 +30,7 @@
       "look": [{"t": 0, "yaw": 180}, {"t": 324, "yaw": 180}, {"t": 330, "yaw": 47.4}, {"t": 365, "yaw": 47.4}, {"t": 373, "yaw": 90}, {"t": 500, "yaw": 90}, {"t": 506, "yaw": -90.0}, {"t": 545, "yaw": -90.0}, {"t": 551, "yaw": -90}, {"t": 566, "yaw": -90}, {"t": 572, "yaw": 90.0}, {"t": 680, "yaw": 90.0}, {"t": 686, "yaw": 90}, {"t": 812, "yaw": 90}, {"t": 818, "yaw": 191.3}, {"t": 831, "yaw": 191.3}, {"t": 837, "yaw": 180}, {"t": 852, "yaw": 180}, {"t": 858, "yaw": 11.3}, {"t": 884, "yaw": 11.3}, {"t": 890, "yaw": 90}, {"t": 974, "yaw": 90}, {"t": 980, "yaw": 191.3}, {"t": 993, "yaw": 191.3}, {"t": 999, "yaw": 180}, {"t": 1014, "yaw": 180}, {"t": 1020, "yaw": 11.3}, {"t": 1036, "yaw": 11.3}, {"t": 1042, "yaw": 90}, {"t": 1150, "yaw": 90}, {"t": 1156, "yaw": 191.3}, {"t": 1169, "yaw": 191.3}, {"t": 1175, "yaw": 180}, {"t": 1190, "yaw": 180}, {"t": 1196, "yaw": 11.3}, {"t": 1210, "yaw": 11.3}, {"t": 1216, "yaw": 90}],
       "limbs": {"right_arm": {"rot": [{"t": 0, "v": [0, 0, 0]}, {"t": 551, "v": [0, 0, 0]}, {"t": 556, "v": [-100, 0, 0]}, {"t": 560, "v": [-100, 0, 0]}, {"t": 565, "v": [0, 0, 0]}, {"t": 682, "v": [0, 0, 0]}, {"t": 687, "v": [-68, 0, 0]}, {"t": 693, "v": [-68, 0, 0]}, {"t": 698, "v": [0, 0, 0]}, {"t": 790, "v": [0, 0, 0]}, {"t": 794, "v": [-80, 0, 0]}, {"t": 799, "v": [-80, 0, 0]}, {"t": 803, "v": [0, 0, 0]}, {"t": 837, "v": [0, 0, 0]}, {"t": 842, "v": [-100, 0, 0]}, {"t": 846, "v": [-100, 0, 0]}, {"t": 851, "v": [0, 0, 0]}, {"t": 886, "v": [0, 0, 0]}, {"t": 891, "v": [-68, 0, 0]}, {"t": 897, "v": [-68, 0, 0]}, {"t": 902, "v": [0, 0, 0]}, {"t": 962, "v": [0, 0, 0]}, {"t": 966, "v": [-80, 0, 0]}, {"t": 971, "v": [-80, 0, 0]}, {"t": 975, "v": [0, 0, 0]}, {"t": 999, "v": [0, 0, 0]}, {"t": 1004, "v": [-100, 0, 0]}, {"t": 1008, "v": [-100, 0, 0]}, {"t": 1013, "v": [0, 0, 0]}, {"t": 1038, "v": [0, 0, 0]}, {"t": 1043, "v": [-68, 0, 0]}, {"t": 1049, "v": [-68, 0, 0]}, {"t": 1054, "v": [0, 0, 0]}, {"t": 1114, "v": [0, 0, 0]}, {"t": 1118, "v": [-80, 0, 0]}, {"t": 1123, "v": [-80, 0, 0]}, {"t": 1127, "v": [0, 0, 0]}, {"t": 1175, "v": [0, 0, 0]}, {"t": 1180, "v": [-150, 0, 0]}, {"t": 1184, "v": [-150, 0, 0]}, {"t": 1189, "v": [0, 0, 0]}, {"t": 1212, "v": [0, 0, 0]}, {"t": 1220, "v": [-66, 0, 0]}, {"t": 1234, "v": [-66, 0, 0]}, {"t": 1244, "v": [0, 0, 0]}]}, "head": {"rot": [{"t": 0, "v": [0, 0, 0]}, {"t": 1128, "v": [0, 0, 0]}, {"t": 1140, "v": [10, 0, 6]}, {"t": 1148, "v": [10, 0, 6]}, {"t": 1158, "v": [0, 0, 0]}, {"t": 1508, "v": [0, 0, 0]}, {"t": 1532, "v": [8, 0, 0]}]}, "body": {"rot": [{"t": 0, "v": [0, 0, 0]}, {"t": 1508, "v": [0, 0, 0]}, {"t": 1532, "v": [9, 0, 0]}]}},
       "actions": [{"t": 559, "do": "hold", "item": "{reject_wand_1}"}, {"t": 692, "do": "equip", "slot": "mainhand", "item": "minecraft:air"}, {"t": 796, "do": "hold", "item": "{reject_wand_1}"}, {"t": 845, "do": "hold", "item": "{reject_wand_2}"}, {"t": 896, "do": "equip", "slot": "mainhand", "item": "minecraft:air"}, {"t": 968, "do": "hold", "item": "{reject_wand_2}"}, {"t": 1007, "do": "hold", "item": "{reject_wand_3}"}, {"t": 1048, "do": "equip", "slot": "mainhand", "item": "minecraft:air"}, {"t": 1120, "do": "hold", "item": "{reject_wand_3}"}, {"t": 1183, "do": "hold", "item": "{viewer_wand}"}, {"t": 1228, "do": "equip", "slot": "mainhand", "item": "minecraft:air"}],
-      "anims": [{"t": 388, "name": "TALK", "blend": 5}, {"t": 465, "name": "IDLE", "blend": 8}, {"t": 688, "name": "TALK", "blend": 5}, {"t": 727, "name": "IDLE", "blend": 8}, {"t": 778, "name": "TALK", "blend": 5}, {"t": 817, "name": "IDLE", "blend": 8}, {"t": 948, "name": "TALK", "blend": 5}, {"t": 979, "name": "IDLE", "blend": 8}, {"t": 1046, "name": "TALK", "blend": 5}, {"t": 1085, "name": "IDLE", "blend": 8}, {"t": 1380, "name": "CLAP", "blend": 4}, {"t": 1420, "name": "IDLE", "blend": 8}, {"t": 1504, "name": "TALK", "blend": 5}, {"t": 1620, "name": "IDLE", "blend": 8}, {"t": 1660, "name": "TALK", "blend": 5}, {"t": 1737, "name": "IDLE", "blend": 8}]
+      "anims": [{"t": 388, "name": "TALK", "blend": 5}, {"t": 461, "name": "IDLE", "blend": 8}, {"t": 688, "name": "TALK", "blend": 5}, {"t": 715, "name": "IDLE", "blend": 8}, {"t": 774, "name": "TALK", "blend": 5}, {"t": 826, "name": "IDLE", "blend": 8}, {"t": 938, "name": "TALK", "blend": 5}, {"t": 987, "name": "IDLE", "blend": 8}, {"t": 1046, "name": "TALK", "blend": 5}, {"t": 1073, "name": "IDLE", "blend": 8}, {"t": 1380, "name": "CLAP", "blend": 4}, {"t": 1420, "name": "IDLE", "blend": 8}, {"t": 1504, "name": "TALK", "blend": 5}, {"t": 1684, "name": "IDLE", "blend": 8}, {"t": 1694, "name": "TALK", "blend": 5}, {"t": 1759, "name": "IDLE", "blend": 8}]
     },
     {
       "id": "boy",
@@ -40,7 +40,7 @@
       "path": [{"t": 0, "pos": [-5.5, 0, 3.5]}, {"t": 10, "pos": [-5.5, 0, 3.5], "ease": "linear"}, {"t": 100, "pos": [-0.6, 0, -0.5], "ease": "linear"}],
       "look": [{"t": 0, "yaw": -90}, {"t": 10, "yaw": -90}, {"t": 16, "yaw": -129.2}, {"t": 101, "yaw": -129.2}, {"t": 109, "yaw": -90}],
       "limbs": {
-        "head": {"rot": [{"t": 0, "v": [0, 0, 0]}, {"t": 20, "v": [0, 0, 0]}, {"t": 40, "v": [-28, -20, 0]}, {"t": 60, "v": [-28, -20, 0]}, {"t": 80, "v": [-34, 25, 0]}, {"t": 112, "v": [-34, 25, 0]}, {"t": 128, "v": [-20, 0, 0]}, {"t": 152, "v": [-20, 0, 0]}, {"t": 160, "v": [-26, 55, 0]}, {"t": 200, "v": [-26, 55, 0]}, {"t": 212, "v": [-40, 30, 0]}, {"t": 280, "v": [-40, 30, 0]}, {"t": 296, "v": [-10, 20, 0]}, {"t": 348, "v": [-10, 20, 0]}, {"t": 360, "v": [-12, 0, 0]}, {"t": 492, "v": [-12, 0, 0]}, {"t": 502, "v": [16, -30, 0]}, {"t": 560, "v": [16, -30, 0]}, {"t": 572, "v": [6, 40, 0]}, {"t": 620, "v": [6, 40, 0]}, {"t": 632, "v": [-12, 0, 0]}, {"t": 742, "v": [-12, 0, 0]}, {"t": 748, "v": [-20, 50, 0]}, {"t": 790, "v": [-20, 50, 0]}, {"t": 800, "v": [-10, 0, 0]}, {"t": 929, "v": [-10, 0, 0]}, {"t": 933, "v": [10, 60, 0]}, {"t": 964, "v": [10, 60, 0]}, {"t": 974, "v": [-10, 0, 0]}, {"t": 1095, "v": [-10, 0, 0]}, {"t": 1099, "v": [-6, -30, 0]}, {"t": 1118, "v": [-6, -30, 0]}, {"t": 1126, "v": [-12, 0, 0]}, {"t": 1288, "v": [-12, 0, 0]}, {"t": 1304, "v": [-20, 0, 0]}, {"t": 1448, "v": [-20, 0, 0]}, {"t": 1468, "v": [8, 0, 0]}, {"t": 1508, "v": [8, 0, 0]}, {"t": 1528, "v": [-14, 0, 0]}, {"t": 1728, "v": [-14, 0, 0]}, {"t": 1752, "v": [26, 0, 0]}]},
+        "head": {"rot": [{"t": 0, "v": [0, 0, 0]}, {"t": 20, "v": [0, 0, 0]}, {"t": 40, "v": [-28, -20, 0]}, {"t": 60, "v": [-28, -20, 0]}, {"t": 80, "v": [-34, 25, 0]}, {"t": 112, "v": [-34, 25, 0]}, {"t": 128, "v": [-20, 0, 0]}, {"t": 152, "v": [-20, 0, 0]}, {"t": 160, "v": [-26, 55, 0]}, {"t": 200, "v": [-26, 55, 0]}, {"t": 212, "v": [-40, 30, 0]}, {"t": 280, "v": [-40, 30, 0]}, {"t": 296, "v": [-10, 20, 0]}, {"t": 348, "v": [-10, 20, 0]}, {"t": 360, "v": [-12, 0, 0]}, {"t": 492, "v": [-12, 0, 0]}, {"t": 502, "v": [16, -30, 0]}, {"t": 560, "v": [16, -30, 0]}, {"t": 572, "v": [6, 40, 0]}, {"t": 620, "v": [6, 40, 0]}, {"t": 632, "v": [-12, 0, 0]}, {"t": 742, "v": [-12, 0, 0]}, {"t": 748, "v": [-20, 50, 0]}, {"t": 790, "v": [-20, 50, 0]}, {"t": 800, "v": [-10, 0, 0]}, {"t": 929, "v": [-10, 0, 0]}, {"t": 933, "v": [10, 60, 0]}, {"t": 964, "v": [10, 60, 0]}, {"t": 974, "v": [-10, 0, 0]}, {"t": 1095, "v": [-10, 0, 0]}, {"t": 1099, "v": [-6, -30, 0]}, {"t": 1118, "v": [-6, -30, 0]}, {"t": 1126, "v": [-12, 0, 0]}, {"t": 1288, "v": [-12, 0, 0]}, {"t": 1304, "v": [-20, 0, 0]}, {"t": 1448, "v": [-20, 0, 0]}, {"t": 1468, "v": [8, 0, 0]}, {"t": 1508, "v": [8, 0, 0]}, {"t": 1528, "v": [-14, 0, 0]}, {"t": 1764, "v": [-14, 0, 0]}, {"t": 1788, "v": [26, 0, 0]}]},
         "right_arm": {"rot": [{"t": 0, "v": [0, 0, 0]}, {"t": 452, "v": [0, 0, 0]}, {"t": 462, "v": [-88, 0, 6]}, {"t": 620, "v": [-88, 0, 6]}, {"t": 632, "v": [0, 0, 0]}, {"t": 686, "v": [0, 0, 0]}, {"t": 692, "v": [-55, 0, 0]}, {"t": 726, "v": [-55, 0, 0]}, {"t": 732, "v": [-60, 0, 0]}, {"t": 734, "v": [-60, 0, 0]}, {"t": 738, "v": [-150, 0, -10]}, {"t": 739, "v": [-150, 0, -10]}, {"t": 741, "v": [-30, 0, 18]}, {"t": 748, "v": [-30, 0, 18]}, {"t": 754, "v": [-55, 0, 0]}, {"t": 800, "v": [-55, 0, 0]}, {"t": 808, "v": [0, 0, 0]}, {"t": 890, "v": [0, 0, 0]}, {"t": 896, "v": [-55, 0, 0]}, {"t": 912, "v": [-55, 0, 0]}, {"t": 918, "v": [-60, 0, 0]}, {"t": 920, "v": [-60, 0, 0]}, {"t": 924, "v": [-150, 0, -10]}, {"t": 925, "v": [-150, 0, -10]}, {"t": 927, "v": [-30, 0, 10]}, {"t": 934, "v": [-30, 0, 10]}, {"t": 940, "v": [-55, 0, 0]}, {"t": 972, "v": [-55, 0, 0]}, {"t": 980, "v": [0, 0, 0]}, {"t": 1042, "v": [0, 0, 0]}, {"t": 1048, "v": [-55, 0, 0]}, {"t": 1080, "v": [-55, 0, 0]}, {"t": 1086, "v": [-60, 0, 0]}, {"t": 1088, "v": [-60, 0, 0]}, {"t": 1092, "v": [-150, 0, -10]}, {"t": 1093, "v": [-150, 0, -10]}, {"t": 1095, "v": [-30, 0, 10]}, {"t": 1102, "v": [-30, 0, 10]}, {"t": 1108, "v": [-55, 0, 0]}, {"t": 1124, "v": [-55, 0, 0]}, {"t": 1132, "v": [0, 0, 0]}, {"t": 1222, "v": [0, 0, 0]}, {"t": 1228, "v": [-55, 0, 0]}, {"t": 1276, "v": [-55, 0, 0]}, {"t": 1292, "v": [-122, 0, 4]}, {"t": 1448, "v": [-122, 0, 4]}, {"t": 1472, "v": [-48, 0, 0]}]},
         "body": {"rot": [{"t": 0, "v": [0, 0, 0]}, {"t": 1095, "v": [0, 0, 0]}, {"t": 1099, "v": [-12, 0, 0]}, {"t": 1116, "v": [-12, 0, 0]}, {"t": 1126, "v": [0, 0, 0]}, {"t": 1294, "v": [0, 0, 0]}, {"t": 1314, "v": [-4, 0, 0]}, {"t": 1400, "v": [-4, 0, 0]}, {"t": 1428, "v": [0, 0, 0]}]},
         "left_arm": {"rot": [{"t": 0, "v": [0, 0, 0]}, {"t": 1294, "v": [0, 0, 0]}, {"t": 1318, "v": [-24, 0, -28]}, {"t": 1400, "v": [-24, 0, -28]}, {"t": 1432, "v": [0, 0, 0]}]}
@@ -134,7 +134,9 @@
     {"t": 60, "kind": "sound", "id": "hogwartsmagic:ollivanders.shop", "volume": 0.5},
     {"t": 148, "kind": "sfx", "id": "hogwartsmagic:pensieve.sfx.wand_ladder", "volume": 1.0},
     {"t": 160, "kind": "particles", "id": "minecraft:white_ash", "at": [-4.5, 3.0, -1.0], "count": 8, "spread": [1.4, 1.2, 1.4]},
+    {"t": 208, "kind": "voice", "id": "hogwartsmagic:pensieve.voice.wand_olli_wondered", "volume": 1.0},
     {"t": 300, "kind": "particles", "id": "minecraft:white_ash", "at": [-4.5, 3.0, -1.0], "count": 8, "spread": [1.4, 1.2, 1.4]},
+    {"t": 388, "kind": "voice", "id": "hogwartsmagic:pensieve.voice.wand_olli_wandarm", "volume": 1.0},
     {"t": 440, "kind": "particles", "id": "minecraft:white_ash", "at": [-4.5, 3.0, -1.0], "count": 8, "spread": [1.4, 1.2, 1.4]},
     {"t": 484, "kind": "sfx", "id": "hogwartsmagic:pensieve.sfx.wand_tape", "volume": 0.9},
     {"t": 532, "kind": "sfx", "id": "hogwartsmagic:pensieve.sfx.wand_tape", "volume": 0.9},
@@ -142,6 +144,7 @@
     {"t": 580, "kind": "particles", "id": "minecraft:white_ash", "at": [-4.5, 3.0, -1.0], "count": 8, "spread": [1.4, 1.2, 1.4]},
     {"t": 586, "kind": "sfx", "id": "hogwartsmagic:pensieve.sfx.wand_tape", "volume": 0.9},
     {"t": 592, "kind": "sound", "id": "hogwartsmagic:ollivanders.measure", "volume": 0.6, "at": [-0.6, 0.9, -0.5]},
+    {"t": 688, "kind": "voice", "id": "hogwartsmagic:pensieve.voice.wand_olli_try", "volume": 1.0},
     {"t": 720, "kind": "particles", "id": "minecraft:white_ash", "at": [-4.5, 3.0, -1.0], "count": 8, "spread": [1.4, 1.2, 1.4]},
     {"t": 741, "kind": "sfx", "id": "hogwartsmagic:pensieve.sfx.wand_boxes_fall", "volume": 1.0},
     {"t": 741, "kind": "particles", "id": "minecraft:white_ash", "at": [2.756, 3.689, -2.6], "count": 14, "spread": [1.2, 1.0, 0.3]},
@@ -150,6 +153,7 @@
     {"t": 749, "kind": "particles", "id": "minecraft:white_ash", "at": [2.536, 2.193, -2.6], "count": 14, "spread": [1.2, 1.0, 0.3]},
     {"t": 753, "kind": "particles", "id": "minecraft:white_ash", "at": [0.646, 1.546, -2.6], "count": 14, "spread": [1.2, 1.0, 0.3]},
     {"t": 757, "kind": "particles", "id": "minecraft:white_ash", "at": [0.964, 4.55, -2.6], "count": 14, "spread": [1.2, 1.0, 0.3]},
+    {"t": 774, "kind": "voice", "id": "hogwartsmagic:pensieve.voice.wand_olli_no", "volume": 1.0},
     {"t": 844, "kind": "sound", "id": "hogwartsmagic:ollivanders.box", "volume": 0.7, "at": [2.9, 1.5, -2.0]},
     {"t": 860, "kind": "particles", "id": "minecraft:white_ash", "at": [-4.5, 3.0, -1.0], "count": 8, "spread": [1.4, 1.2, 1.4]},
     {"t": 927, "kind": "block", "id": "minecraft:air", "at": [1, 1, 1]},
@@ -157,12 +161,15 @@
     {"t": 927, "kind": "sfx", "id": "hogwartsmagic:pensieve.sfx.wand_vase", "volume": 1.0},
     {"t": 928, "kind": "particles", "id": "minecraft:white_ash", "at": [1.5, 1.45, 1.5], "count": 24, "spread": [0.4, 0.3, 0.4]},
     {"t": 928, "kind": "sound", "id": "hogwartsmagic:ollivanders.fail_bang", "volume": 0.5, "at": [1.5, 1.45, 1.5]},
+    {"t": 938, "kind": "voice", "id": "hogwartsmagic:pensieve.voice.wand_olli_no2", "volume": 1.0},
     {"t": 1000, "kind": "particles", "id": "minecraft:white_ash", "at": [-4.5, 3.0, -1.0], "count": 8, "spread": [1.4, 1.2, 1.4]},
     {"t": 1006, "kind": "sound", "id": "hogwartsmagic:ollivanders.box", "volume": 0.7, "at": [2.9, 1.5, -2.0]},
+    {"t": 1046, "kind": "voice", "id": "hogwartsmagic:pensieve.voice.wand_olli_try", "volume": 1.0},
     {"t": 1094, "kind": "sfx", "id": "hogwartsmagic:pensieve.sfx.wand_fizzle", "volume": 1.0},
     {"t": 1094, "kind": "particles", "id": "minecraft:smoke", "at": [-0.15, 1.3, -0.25], "count": 26, "spread": [0.15, 0.15, 0.15]},
     {"t": 1100, "kind": "particles", "id": "minecraft:large_smoke", "at": [-0.15, 1.3, -0.25], "count": 6, "spread": [0.1, 0.2, 0.1]},
     {"t": 1106, "kind": "particles", "id": "minecraft:smoke", "at": [-0.15, 1.1, -0.25], "count": 10, "spread": [0.1, 0.1, 0.1]},
+    {"t": 1126, "kind": "voice", "id": "hogwartsmagic:pensieve.voice.wand_olli_tricky", "volume": 1.0},
     {"t": 1140, "kind": "particles", "id": "minecraft:white_ash", "at": [-4.5, 3.0, -1.0], "count": 8, "spread": [1.4, 1.2, 1.4]},
     {"t": 1182, "kind": "sound", "id": "hogwartsmagic:ollivanders.box", "volume": 0.7, "at": [2.9, 1.5, -2.0]},
     {"t": 1268, "kind": "music", "id": "hogwartsmagic:pensieve.music.hall_prologue", "volume": 1.0},
@@ -173,11 +180,13 @@
     {"t": 1296, "kind": "sound", "id": "hogwartsmagic:ollivanders.chosen", "volume": 0.5, "at": [-0.6, 1.2, -0.5]},
     {"t": 1408, "kind": "block", "id": "minecraft:air", "at": [0, 2, 0]},
     {"t": 1420, "kind": "particles", "id": "minecraft:white_ash", "at": [-4.5, 3.0, -1.0], "count": 8, "spread": [1.4, 1.2, 1.4]},
+    {"t": 1504, "kind": "voice", "id": "hogwartsmagic:pensieve.voice.wand_olli_curious", "volume": 1.0},
     {"t": 1560, "kind": "particles", "id": "minecraft:white_ash", "at": [-4.5, 3.0, -1.0], "count": 8, "spread": [1.4, 1.2, 1.4]},
+    {"t": 1694, "kind": "voice", "id": "hogwartsmagic:pensieve.voice.wand_olli_great", "volume": 1.0},
     {"t": 1700, "kind": "particles", "id": "minecraft:white_ash", "at": [-4.5, 3.0, -1.0], "count": 8, "spread": [1.4, 1.2, 1.4]},
-    {"t": 1764, "kind": "effect", "id": "eyes_close", "at": [0, 0, 0], "duration": 50}
+    {"t": 1800, "kind": "effect", "id": "eyes_close", "at": [0, 0, 0], "duration": 50}
   ],
-  "words": [{"t": 208, "text": "Ah. I wondered when I'd be seeing you.", "subtitle": true, "speaker": "Mr Ollivander", "duration": 70}, {"t": 388, "text": "Which is your wand arm? Hold out your hand.", "subtitle": true, "speaker": "Mr Ollivander", "duration": 77}, {"t": 688, "text": "Give it a wave.", "subtitle": true, "speaker": "Mr Ollivander", "duration": 39}, {"t": 778, "text": "No, no, apparently not.", "subtitle": true, "speaker": "Mr Ollivander", "duration": 39}, {"t": 948, "text": "No. Definitely not.", "subtitle": true, "speaker": "Mr Ollivander", "duration": 31}, {"t": 1046, "text": "Give it a wave.", "subtitle": true, "speaker": "Mr Ollivander", "duration": 39}, {"t": 1126, "text": "A tricky customer. I wonder...", "subtitle": true, "speaker": "Mr Ollivander", "duration": 46}, {"t": 1504, "text": "Curious... very curious. The wand chooses the wizard. It is not always clear why.", "subtitle": true, "speaker": "Mr Ollivander", "duration": 116}, {"t": 1660, "text": "I think we must expect great things from you.", "subtitle": true, "speaker": "Mr Ollivander", "duration": 77}],
+  "words": [{"t": 208, "text": "Ah. I wondered when I'd be seeing you.", "subtitle": true, "speaker": "Mr Ollivander", "duration": 86}, {"t": 388, "text": "Which is your wand arm? Hold out your hand.", "subtitle": true, "speaker": "Mr Ollivander", "duration": 73}, {"t": 688, "text": "Give it a wave.", "subtitle": true, "speaker": "Mr Ollivander", "duration": 27}, {"t": 774, "text": "No, no, apparently not.", "subtitle": true, "speaker": "Mr Ollivander", "duration": 52}, {"t": 938, "text": "No. Definitely not.", "subtitle": true, "speaker": "Mr Ollivander", "duration": 49}, {"t": 1046, "text": "Give it a wave.", "subtitle": true, "speaker": "Mr Ollivander", "duration": 27}, {"t": 1126, "text": "A tricky customer. I wonder...", "subtitle": true, "speaker": "Mr Ollivander", "duration": 62}, {"t": 1504, "text": "Curious... very curious. The wand chooses the wizard. It is not always clear why.", "subtitle": true, "speaker": "Mr Ollivander", "duration": 180}, {"t": 1694, "text": "I think we must expect great things from you.", "subtitle": true, "speaker": "Mr Ollivander", "duration": 65}],
   "camera": [
     {"t": 0, "pos": [-5.6, 1.9, 2.0], "look_at": [6.0, 6.0, -1.0]},
     {"t": 88, "pos": [-5.2, 1.8, 1.8], "look_at": [6.0, 5.2, -1.0], "fov": 66},
@@ -220,8 +229,8 @@
     {"t": 1440, "pos": [-0.6, 1.5, 3.2], "look_at": [1.0, 1.1, -0.5], "fov": 55, "cut": true},
     {"t": 1500, "pos": [-0.55, 1.5, 3.0], "look_at": [1.0, 1.1, -0.5], "fov": 53},
     {"t": 1500, "pos": [-0.9, 1.75, 0.55], "look_at": [2.6, 1.55, -0.5], "fov": 38, "cut": true},
-    {"t": 1732, "pos": [-0.9, 1.75, 0.55], "look_at": [2.6, 1.55, -0.5], "fov": 38},
-    {"t": 1732, "pos": [-0.35, 1.215, -0.5], "look_at": [0.1, 0.75, -0.3], "cut": true},
-    {"t": 1820, "pos": [-0.37, 1.185, -0.5], "look_at": [0.05, 0.7, -0.3], "fov": 66}
+    {"t": 1768, "pos": [-0.9, 1.75, 0.55], "look_at": [2.6, 1.55, -0.5], "fov": 38},
+    {"t": 1768, "pos": [-0.35, 1.215, -0.5], "look_at": [0.1, 0.75, -0.3], "cut": true},
+    {"t": 1860, "pos": [-0.37, 1.185, -0.5], "look_at": [0.05, 0.7, -0.3], "fov": 66}
   ]
 }

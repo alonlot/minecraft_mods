@@ -368,6 +368,34 @@ class SceneValidatorTest {
         assertEquals(2, validate(ceiling(at + ",\"spread\":[0,0,0]")).size());
     }
 
+    private static String rays(String extra) {
+        return "{\"length\":100,\"events\":[{\"t\":1,\"kind\":\"effect\",\"id\":\"light_rays\"" + extra + "}]}";
+    }
+
+    @Test
+    void raysNeedAtYawAndSpread() throws Exception {
+        assertEquals(List.of(), validate(rays(",\"at\":[0,0,0],\"yaw\":90,\"spread\":[2,5,12],\"duration\":48")));
+        List<String> m = validate(rays(",\"yaw\":90,\"spread\":[2,5,12]"));
+        assertEquals(1, m.size(), m.toString());
+        assertTrue(m.get(0).contains("light_rays needs at"), m.get(0));
+        m = validate(rays(",\"at\":[0,0,0],\"spread\":[2,5,12]"));
+        assertEquals(1, m.size(), m.toString());
+        assertTrue(m.get(0).contains("light_rays needs yaw"), m.get(0));
+        m = validate(rays(",\"at\":[0,0,0],\"yaw\":90"));
+        assertEquals(1, m.size(), m.toString());
+        assertTrue(m.get(0).contains("light_rays needs spread"), m.get(0));
+    }
+
+    @Test
+    void raysSpreadRange() throws Exception {
+        String base = ",\"at\":[0,0,0],\"yaw\":0";
+        assertEquals(List.of(), validate(rays(base + ",\"spread\":[0.5,1,1]")));
+        assertEquals(List.of(), validate(rays(base + ",\"spread\":[12,24,60]")));
+        assertEquals(1, validate(rays(base + ",\"spread\":[0.4,5,12]")).size());
+        assertEquals(1, validate(rays(base + ",\"spread\":[2,25,12]")).size());
+        assertEquals(1, validate(rays(base + ",\"spread\":[2,5,61]")).size());
+    }
+
     @Test
     void yawOnlyOnEffects() throws Exception {
         List<String> m = validate("""

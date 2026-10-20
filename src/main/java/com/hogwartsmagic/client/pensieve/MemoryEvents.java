@@ -105,9 +105,9 @@ public final class MemoryEvents {
         if ("effect".equals(kind)) {
             // A long effect is still going: join it part-way. A short or finished one is old news. A letter flood
             // never finishes (its letters lie on the floor until the scene ends), so it is always joined, and so is an
-            // enchanted ceiling (it stays revealed until the scene ends).
+            // enchanted ceiling and light rays (they stay until the scene ends).
             if (!late || (e.duration() > 0 && age < e.duration()) || "letter_flood".equals(e.id())
-                    || "enchanted_ceiling".equals(e.id())) {
+                    || "enchanted_ceiling".equals(e.id()) || "light_rays".equals(e.id())) {
                 EffectVisuals.play(e.id(), position(e), e.duration(), late ? (int) age : 0, e.count(), e.spread(),
                         e.yaw(), e.t());
             }

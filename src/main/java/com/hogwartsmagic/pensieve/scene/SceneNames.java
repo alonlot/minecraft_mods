@@ -30,8 +30,13 @@ public record SceneNames(Set<String> entityTypes, Set<String> spells, Set<String
     public static final float MIN_FLOOD_SPREAD = 0.5f, MAX_FLOOD_SPREAD = 12f;
     /** An enchanted_ceiling's half-size along x and z, in blocks. */
     public static final float MIN_CEILING_SPREAD = 1f, MAX_CEILING_SPREAD = 100f;
+    /** A light_rays' doorway half-width, height and throw length, in blocks. */
+    public static final float MIN_RAYS_HALF_WIDTH = 0.5f, MAX_RAYS_HALF_WIDTH = 12f;
+    public static final float MIN_RAYS_HEIGHT = 1f, MAX_RAYS_HEIGHT = 24f;
+    public static final float MIN_RAYS_LENGTH = 1f, MAX_RAYS_LENGTH = 60f;
     public static final Set<String> EFFECTS = Set.of("summoning_ritual", "lightning", "dark_mark", "grey_edges",
-            "patronus_light", "fiendfyre_rings", "eyes_open", "eyes_close", "letter_flood", "enchanted_ceiling");
+            "patronus_light", "fiendfyre_rings", "eyes_open", "eyes_close", "letter_flood", "enchanted_ceiling",
+            "light_rays");
     /**
      * Bundled schematics a set's {@code schematics} may place, by bare id. Each one is loaded by its own class
      * ({@code mini_hogwarts}: {@code worldgen/MiniHogwartsSchematic}, 96 x 109 x 145).

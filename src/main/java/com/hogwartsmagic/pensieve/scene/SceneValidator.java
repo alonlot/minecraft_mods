@@ -198,6 +198,8 @@ public final class SceneValidator {
                     letterFlood(out, e, p);
                 } else if ("enchanted_ceiling".equals(e.id())) {
                     ceiling(out, e, p);
+                } else if ("light_rays".equals(e.id())) {
+                    lightRays(out, e, p);
                 }
             }
         }
@@ -234,6 +236,22 @@ public final class SceneValidator {
                 out.add(p + ".spread[" + i + "]: " + s + " is outside " + SceneNames.MIN_CEILING_SPREAD + " to "
                         + SceneNames.MAX_CEILING_SPREAD);
             }
+        }
+    }
+
+    /** The light_rays effect: a doorway centre, a direction and a size [half-width, height, length], each ranged. */
+    private static void lightRays(List<String> out, SceneDef.EventDef e, String p) {
+        if (e.at() == null) out.add(p + ": light_rays needs at");
+        if (Float.isNaN(e.yaw()) || Float.isInfinite(e.yaw())) out.add(p + ": light_rays needs yaw");
+        if (e.spread() == null) {
+            out.add(p + ": light_rays needs spread [half-width, height, length]");
+            return;
+        }
+        float[] lo = {SceneNames.MIN_RAYS_HALF_WIDTH, SceneNames.MIN_RAYS_HEIGHT, SceneNames.MIN_RAYS_LENGTH};
+        float[] hi = {SceneNames.MAX_RAYS_HALF_WIDTH, SceneNames.MAX_RAYS_HEIGHT, SceneNames.MAX_RAYS_LENGTH};
+        for (int i = 0; i < 3 && i < e.spread().length; i++) {
+            float s = e.spread()[i];
+            if (!(s >= lo[i] && s <= hi[i])) out.add(p + ".spread[" + i + "]: " + s + " is outside " + lo[i] + " to " + hi[i]);
         }
     }
 

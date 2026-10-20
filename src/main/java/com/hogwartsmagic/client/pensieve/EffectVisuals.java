@@ -107,7 +107,7 @@ public final class EffectVisuals {
     }
 
     /**
-     * The full form: count, spread and yaw are the event values (letter_flood; spread also enchanted_ceiling; 0 or
+     * The full form: count, spread and yaw are the event values (letter_flood; yaw and spread also light_rays, spread enchanted_ceiling; 0 or
      * less, null and NaN when absent), and {@code t} is the event scene time, mixed into the swarm seed so two floods in one scene differ.
      */
     public static void play(String effect, Vec3 at, int duration, int elapsed, int count, float[] spread, float yaw,
@@ -173,6 +173,14 @@ public final class EffectVisuals {
             float hx = Mth.clamp(spread[0], 1f, 100f);
             float hz = Mth.clamp(spread[2], 1f, 100f);
             RUNNING.add(new Ceiling(new EnchantedCeiling.Sky(at, hx, hz, duration, t, floodSeed(at, t))));
+        } else if ("light_rays".equals(effect)) {
+            if (Float.isNaN(yaw) || spread == null || spread.length < 3) {
+                LOGGER.warn("Pensieve: light_rays needs yaw and spread");
+                return;
+            }
+            // Like the ceiling: drawn from the scene clock (LightRaysRenderer), stays until clear() ends the scene.
+            RUNNING.add(new Rays(new LightRaysRenderer.Beam(at, yaw, Mth.clamp(spread[0], 0.5f, 12f),
+                    Mth.clamp(spread[1], 1f, 24f), Mth.clamp(spread[2], 1f, 60f), duration, t, floodSeed(at, t))));
         } else {
             LOGGER.warn("Pensieve: unknown effect '{}' in a memory", effect);
         }
@@ -279,6 +287,18 @@ public final class EffectVisuals {
             if (r instanceof Ceiling c) {
                 if (out == null) out = new ArrayList<>(1);
                 out.add(c.sky);
+            }
+        }
+        return out == null ? List.of() : out;
+    }
+
+    /** The light_rays running now, for {@link LightRaysRenderer} to draw (empty once {@link #clear} has run). */
+    static List<LightRaysRenderer.Beam> lightRays() {
+        List<LightRaysRenderer.Beam> out = null;
+        for (Running r : RUNNING) {
+            if (r instanceof Rays rays) {
+                if (out == null) out = new ArrayList<>(1);
+                out.add(rays.beam);
             }
         }
         return out == null ? List.of() : out;
@@ -618,6 +638,20 @@ public final class EffectVisuals {
 
         Ceiling(EnchantedCeiling.Sky sky) {
             this.sky = sky;
+        }
+
+        @Override
+        public boolean tick(ClientLevel level) {
+            return true;
+        }
+    }
+
+    /** {@code light_rays}: holds the beam for {@link LightRaysRenderer}; never finishes, {@link #clear} ends it. */
+    private static final class Rays implements Running {
+        private final LightRaysRenderer.Beam beam;
+
+        Rays(LightRaysRenderer.Beam beam) {
+            this.beam = beam;
         }
 
         @Override

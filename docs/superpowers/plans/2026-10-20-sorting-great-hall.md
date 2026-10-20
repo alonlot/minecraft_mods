@@ -396,3 +396,51 @@ The user asked to "make the animations more realistic and detail". Per-actor key
 - Replace the hand-keyed idle/cheer arm motion with the clips. Desynchronise per actor (`CLAP` vs `CHEER` vs `CHEER_STAND` for Gryffindor; polite `CLAP` for the others, Slytherin mostly still).
 - First-years are `NERVOUS` while waiting. The whispers use `WHISPER`. McGonagall uses `HANDS_CLASPED` / `READ_SCROLL` and `REACH_PLACE` for each hat placement. Sitting uses `SIT_DOWN` / `STAND_UP`.
 - Use the size savings for more natural variety. Keep every existing assert, including collisions and no cheering during a shout.
+
+## Addendum 5 (2026-10-20, user): subtitles, sorting inside the mind, seated legs
+
+The user's words: "add subtitles, do that when mcgonagall put the hat on me i go inside my brain again and there chose and get selected then i hear chear open my eyes a bit see the hall again then close then open and im in the real world. fix that the sitting of me and the characters on the slab the legs are gliched inside the slab and the animation of the sitting the legs also go inside the slab"
+
+**J. Subtitles (engine; Sonnet).**
+- **Format:** a `words` line can be a film-style subtitle: `{"t", "text", "subtitle": true, "speaker": "Professor McGonagall"?, "duration"?}`.
+  - It is drawn centred near the bottom of the screen in white with a soft dark backing box. The speaker name is optional, small and coloured, before the text.
+  - It fades in and out, lasts `duration` (default: the length of the matching voice clip is not known to the engine, so it defaults to 4 s; the generator passes the real clip length), and wraps at 70% of the screen width.
+  - It needs no actor and no name tag.
+- **Rules:**
+  - It hides under shut lids and chain black, like spoken lines.
+  - `{viewer}` fill works.
+  - The validator rejects `subtitle` together with `by` or `narration`.
+- **Tests:** parser, validator.
+
+**K. Sorting inside the mind (engine and flow; Opus).** The new chain is `sorting` (mind intro) → `sorting_hall` → `sorting_choice` → `sorting_reveal_<house>`.
+
+1. **`sorting_hall`** ends when McGonagall lowers the hat onto the boy: first person, the brim comes down, `eyes_close`. It hands over (`next`) to `sorting_choice`.
+2. **`sorting_choice`:**
+   - **The scene:** the mind void again, with the boy seated on the chair in the pool of light and the hat on his head. It is a long, slowly evolving hold scene: `length` about 10 min, a gently orbiting camera, wisps, and the hat's voice lines.
+   - **Engine hook:** a server-side hook on scene start. When a viewer enters a scene whose id the Sorting system registers (`sorting_choice`), `SortingHatManager` opens the quiz there and then (the same packets as now).
+   - **Answering:** the player answers inside the memory. Voices and the quiz screen work as today.
+   - **On SORTED:** the server saves the house as today, then calls a new `PensieveSessions.handOver(ServerPlayer, String sceneId)` to cut immediately (with the chain fade) to `sorting_reveal_<house>`.
+   - **If the hold scene reaches its `length` unanswered:** it loops (re-handover to itself) or keeps the quiz open. Pick one, and never strand the player.
+3. **`sorting_reveal_<house>`** (4 variants, about 8–10 s, generated):
+   - black, with the hat's house shout heard;
+   - then the roar of that house's table cheering (sfx);
+   - the eyes open *a little* (a new effect `eyes_peek`: opens to a slit, about 35%, holds, then closes) onto the Great Hall from the stool, where that house's table is on its feet cheering;
+   - then the eyes close;
+   - the scene ends with a new `end_action: "wake"`.
+4. **`end_action: "wake"`:** after the viewer is moved home, the client plays an `eyes_open` overlay on the real world (the lids work outside a memory for this one effect), so the player opens their eyes back in the real world. Then the existing house reveal and perks apply. The house reveal toast/sound should come after the wake, not over the memory.
+5. **Leaving and failure:**
+   - Leaving early before `sorting_choice` keeps today's rule: the quiz opens in the real world.
+   - Leaving during `sorting_choice` without an answer: the quiz continues in the real world.
+   - Leaving during a reveal: the house is already saved, so just go home with the wake.
+   - Yank, death and logout keep today's rules.
+   - Gametests must cover the new flow: entering choice opens the quiz, SORTED hands over to the right reveal, and reveal end runs wake, then the house reveal.
+
+**L. Seated legs inside the slab (engine motion: Opus, the motion author; scene: the scene author).**
+- **The bug:** seated actors' legs (and the boy on the stool) sink into the seat slab or the table, and the `SIT_DOWN` / `STAND_UP` clips swing the legs through the slab.
+- **Engine:**
+  - Expose the leg-box geometry in `HumanMotion`: hip pivot height above the feet root as a function of scale, leg length 12 px, leg cross-section 4 px. Give a seated hip lift, so that the thighs sit *on top of* the seat surface, with no part of the leg box below the seat top.
+  - Reorder `SIT_DOWN`: the legs rise forward *before* the hips drop, so they clear the seat edge. Reorder `STAND_UP` the opposite way.
+  - Pure-maths tests: the lowest point of the leg boxes stays at or above the seat-top plane through the whole clip, for scales 0.75, 0.9 and 1.0.
+- **Scene:** seat every actor using that geometry. The generator asserts that no seated or transitioning actor's leg box (sampled through the clips) intersects a solid cell of the set (slab, table, bench, stool). Where a table blocks horizontal legs, use a seated pose with the legs angled down (about −60° to −75°) under the table, and position the root so the knees clear the table edge.
+
+**Gradle lock (all agents):** before any gradle command, take the lock with `mkdir .superpowers/gradle.lock`. If that fails, another agent holds it: wait 20 s and retry. Run gradle, then `rmdir .superpowers/gradle.lock`. Never run gradle without holding it, and never leave it held.

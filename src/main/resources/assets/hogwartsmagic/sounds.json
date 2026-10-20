@@ -2248,6 +2248,22 @@
       }
     ]
   },
+  "pensieve.music.hall_entry": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/music/hall_entry",
+        "stream": true
+      }
+    ]
+  },
+  "pensieve.music.hall_prologue": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/music/hall_prologue",
+        "stream": true
+      }
+    ]
+  },
   "pensieve.music.lake_patronus_light": {
     "sounds": [
       {

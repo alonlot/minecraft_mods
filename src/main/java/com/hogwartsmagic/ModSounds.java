@@ -354,6 +354,8 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> SORTING_VOICE_SLYTHERIN = register("sorting.voice.slytherin");
 
     // Soundtrack of the Pensieve memories (streamed stereo; played by the scene's music events).
+    public static final RegistryObject<SoundEvent> PENSIEVE_MUSIC_HALL_ENTRY = register("pensieve.music.hall_entry");
+    public static final RegistryObject<SoundEvent> PENSIEVE_MUSIC_HALL_PROLOGUE = register("pensieve.music.hall_prologue");
     public static final RegistryObject<SoundEvent> PENSIEVE_MUSIC_LAKE_DEMENTORS = register("pensieve.music.lake_dementors");
     public static final RegistryObject<SoundEvent> PENSIEVE_MUSIC_LAKE_PATRONUS_LIGHT = register("pensieve.music.lake_patronus_light");
     public static final RegistryObject<SoundEvent> PENSIEVE_MUSIC_LAKE_WINDOW = register("pensieve.music.lake_window");

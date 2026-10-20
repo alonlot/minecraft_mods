@@ -183,11 +183,11 @@ the held wand, then to `harry_potter_wand`. *(My call.)*
 wand). So the lines never name a wood or core. The "Curious..." beat stays as a short, general nod: the
 wand chose you, and he remembers every wand he has sold.
 
-**Beats** (about 150 s):
+**Beats** (about 160 s):
 
 | # | Beat | ~s | What must be there |
 |---|---|---|---|
-| 1 | Eyes open | 10 | Black, then the eyes open in first person in the middle of a crowded Diagon Alley in daylight: noise, owls and a crowd flowing past. |
+| 1 | **The wall** (key moment, user request) | 20 | Black, then the eyes open in first person in the small walled yard behind the Leaky Cauldron, Hagrid beside the boy. Hagrid taps the bricks with his pink umbrella (counting them). Then, animated cinematically like the film, the wall opens: the tapped brick quivers, a hole appears, and brick by brick the wall twists, folds and stacks itself back into a tall archway, rippling outward from the first brick with grinding stone sounds and dust. Light and the noise of the street pour through. A slow push through the arch reveals the crowded Diagon Alley in daylight. This needs a brick-moving engine piece (for example a generic block actor that renders a block state and follows a path and rotation, so hundreds of bricks can each move on their own arc); the builder decides. |
 | 2 | The street | 50 | Hagrid at 1.5 scale leads the boy up the crooked street. The camera follows, then frames the windows. The windows: **Quality Quidditch Supplies** with a gleaming new broom on a stand and children pressing their noses to the glass; **Eeylops Owl Emporium** with owls in cages, hooting; the apothecary; Flourish and Blotts' stacked books; cauldrons hanging outside a shop; Gringotts' white marble at the end, with goblin guards at the doors. Shoppers (witches and wizards in robes and pointed hats) haggle, chat and carry parcels. Every one moves on its own. |
 | 3 | Ollivanders | 10 | A narrow, dusty shop front with gold lettering ("Makers of Fine Wands since 382 B.C."). The bell over the door tinkles as the boy goes in alone. Inside it is dim and silent. |
 | 4 | **The wandmaker** (key moment) | 15 | Towering shelves of thousands of narrow wand boxes rising into the dark. A rolling ladder slides along them, and Ollivander appears suddenly on it. His voiced lines are original, with a short nod. |

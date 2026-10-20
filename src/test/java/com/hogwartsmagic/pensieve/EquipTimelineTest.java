@@ -51,6 +51,22 @@ class EquipTimelineTest {
     }
 
     @Test
+    void useItemWithItemCountsAsMainhand() {
+        List<SceneDef.ActionCue> a = List.of(
+                new SceneDef.ActionCue(4, "use_item", null, null, "wand", null),
+                new SceneDef.ActionCue(6, "use_item", null, null, null, null));
+        assertEquals("wand", EquipTimeline.itemAt(a, Map.of("mainhand", "base"), "mainhand", 9));
+        assertEquals("base", EquipTimeline.itemAt(a, Map.of("mainhand", "base"), "mainhand", 3));
+    }
+
+    @Test
+    void equalTimeLaterListedWins() {
+        List<SceneDef.ActionCue> a = List.of(equip(5, "head", "first"), equip(5, "head", "second"));
+        assertEquals("second", EquipTimeline.itemAt(a, Map.of(), "head", 5));
+        assertEquals("second", EquipTimeline.itemAt(a, Map.of(), "head", 8));
+    }
+
+    @Test
     void equipStateIsAFunctionOfTime() {
         List<SceneDef.ActionCue> a = List.of(equip(10, "head", "hogwartsmagic:sorting_hat"));
         String once = EquipTimeline.itemAt(a, Map.of(), "head", 12);

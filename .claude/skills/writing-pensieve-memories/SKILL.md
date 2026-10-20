@@ -178,7 +178,7 @@ Effects: `lightning` - one visual-only bolt with thunder; `eyes_open` / `eyes_cl
 - Both are non-positional (`Attenuation.NONE`, no `at`), at full pitch and volume, with no echo. `music` plays on `SoundSource.MUSIC`, `voice` on `SoundSource.VOICE`. Register the OGG as `pensieve.music.<file>` / `pensieve.voice.<file>` in `ModSounds` and `sounds.json` (`"stream": true` for music, no subtitle); `id` is checked like a `sound` id.
 - `sfx` is the same but on `SoundSource.AMBIENT` (register as `pensieve.sfx.<file>`). Like `voice` it is skipped when `t` is more than 5 ticks past for a late joiner, and it stops at once when the memory ends (`pensieve/scene/CueKinds.stopsAtEnd`: true for `voice` and `sfx`, music fades). It neither ducks music nor is ducked.
 - Ducking: while any voice plays, every music instance eases to 45% volume (0.08 per tick) and back after it ends.
-- Ending: when the memory ends for any reason (end, leave, yank, basin broken, death, disconnect, a new memory starting) voices stop at once and music fades out over 20 ticks. While memory music plays, vanilla background music is held off.
+- Ending: when the memory ends for any reason (end, leave, yank, basin broken, death, disconnect, a new memory starting) voices and sfx stop at once and music fades out over 20 ticks. While memory music plays, vanilla background music is held off.
 - Cues play the whole file from `t`: bake fades into the file, and overlap consecutive tracks by about 2 s to crossfade.
 - Late joiners: Minecraft cannot seek into an OGG, so a cue whose `t` is already past (more than 5 ticks) when the viewer joins is skipped, like any one-shot event. A viewer who joins mid-track hears silence until the next cue.
 

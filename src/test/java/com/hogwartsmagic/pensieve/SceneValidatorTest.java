@@ -146,6 +146,15 @@ class SceneValidatorTest {
     }
 
     @Test
+    void slotOnlyForEquip() throws Exception {
+        List<String> m = validate("""
+                {"length":100,"actors":[{"id":"a","type":"minecraft:zombie","actions":[
+                  {"t":1,"do":"hold","slot":"head","item":"minecraft:stick"}]}]}""");
+        assertEquals(1, m.size(), m.toString());
+        assertEquals("actors[0].actions[0].slot: slot is only for equip", m.get(0));
+    }
+
+    @Test
     void equipBadSlot() throws Exception {
         List<String> m = validate("""
                 {"length":100,"actors":[{"id":"a","type":"minecraft:zombie","actions":[

@@ -158,6 +158,7 @@ public final class SceneValidator {
                 }
                 if (c.item() == null) out.add(cp + ".item: an equip action needs an item (minecraft:air clears the slot)");
             }
+            if (!"equip".equals(c.action()) && c.slot() != null) out.add(cp + ".slot: slot is only for equip");
             if (c.item() != null) known(out, cp + ".item", "item", c.item(), names.items());
             if (c.target() != null && c.target().actor() != null && !actorIds.contains(c.target().actor())) {
                 out.add(cp + ".target: unknown actor '" + c.target().actor() + "'");

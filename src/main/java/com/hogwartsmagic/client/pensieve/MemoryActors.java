@@ -3,6 +3,8 @@ package com.hogwartsmagic.client.pensieve;
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.client.renderer.PetrifiedRemainsRenderer;
 import com.hogwartsmagic.mixin.client.LivingEntityUseAccessor;
+import com.hogwartsmagic.pensieve.scene.EquipTimeline;
+import com.hogwartsmagic.pensieve.scene.SceneNames;
 import com.hogwartsmagic.mixin.client.PlayerModelPartsAccessor;
 import com.hogwartsmagic.pensieve.scene.SceneDef;
 import com.mojang.authlib.GameProfile;
@@ -268,9 +270,19 @@ public final class MemoryActors {
         }
 
         // Timed actions whose moment has come.
+        boolean fired = false;
         while (a.nextAction < a.actions.size() && a.actions.get(a.nextAction).t() <= t) {
             SceneDef.ActionCue cue = a.actions.get(a.nextAction++);
             fire(a, cue, cue.t() < t - 5, t);
+            fired = true;
+        }
+        // Worn items are a pure function of time (EquipTimeline), so a late joiner matches a watcher.
+        if (fired && l != null) {
+            for (String slotName : SceneNames.EQUIP_SLOTS) {
+                EquipmentSlot es = slot(slotName);
+                String id = EquipTimeline.itemAt(a.actions, a.def.items(), slotName, t);
+                if (es != null && id != null) l.setItemSlot(es, stack(id));
+            }
         }
 
         // Where it stands, and which way it faces.
@@ -453,8 +465,8 @@ public final class MemoryActors {
         } else if ("hold".equals(act)) {
             if (l != null) l.setItemSlot(EquipmentSlot.MAINHAND, stack(cue.item()));
         } else if ("use_item".equals(act)) {
+            if (l != null && cue.item() != null) l.setItemSlot(EquipmentSlot.MAINHAND, stack(cue.item()));
             if (l != null && (!silent || age < USE_TICKS)) {
-                if (cue.item() != null) l.setItemSlot(EquipmentSlot.MAINHAND, stack(cue.item()));
                 l.startUsingItem(InteractionHand.MAIN_HAND);
                 ((LivingEntityUseAccessor) l).hogwartsmagic$setFlag(1, true);
                 a.useStart = cue.t();

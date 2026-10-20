@@ -88,10 +88,10 @@ public final class MemoryAudio {
      * and then stops. A chained scene's music may still be fading under the next scene's opening.
      */
     static void cut() {
-        for (String kind : new String[]{"voice", "sfx"}) {
-            for (Cue c : cutList(kind)) Minecraft.getInstance().getSoundManager().stop(c.sound);
-            cutList(kind).clear();
-        }
+        for (Cue c : VOICES) Minecraft.getInstance().getSoundManager().stop(c.sound);
+        for (Cue c : SFX) Minecraft.getInstance().getSoundManager().stop(c.sound);
+        VOICES.clear();
+        SFX.clear();
         ducking = false;
         for (Cue c : MUSIC) ((MusicInstance) c.sound).fadeOut();
     }

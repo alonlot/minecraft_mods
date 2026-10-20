@@ -84,9 +84,11 @@ public final class MemoryWords {
     /** {@code size} scales the block about its own centre (the wrap width shrinks to match, so it stays on screen). */
     private static void narration(GuiGraphics g, Font font, String text, float alpha, int w, int h, float size) {
         float s = Math.max(1f, size);
-        int maxWidth = Math.max(120, (int) (w * 0.6f / s));
+        int maxWidth = (int) (Math.min(w * 0.9f, Math.max(120, w * 0.6f)) / s);
         List<FormattedCharSequence> lines = font.split(Component.literal(text).withStyle(ChatFormatting.ITALIC), maxWidth);
-        float cy = h * 0.78f + lines.size() * 5f;
+        // A big size is a title card, centred; plain narration sits low. Either way the block stays on screen.
+        float half = lines.size() * 5f * s;
+        float cy = Mth.clamp((s > 1f ? h * 0.5f : h * 0.78f + lines.size() * 5f), half + 4, Math.max(half + 4, h - half - 4));
         g.pose().pushPose();
         g.pose().translate(w / 2f, cy, 0);
         g.pose().scale(s, s, 1f);

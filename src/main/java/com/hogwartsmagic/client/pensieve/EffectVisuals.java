@@ -183,7 +183,8 @@ public final class EffectVisuals {
                 return;
             }
             // Drawn from the scene clock (EnchantedCeiling), so a late joiner's sky is already as revealed as
-            // everyone else's; elapsed is not needed. It never finishes: it stays until clear() ends the scene.
+            // everyone else's; elapsed (negative when MemoryEvents starts it with the scene, before its t) only says
+            // which thunder is still to come. It never finishes: it stays until clear() ends the scene.
             float hx = Mth.clamp(spread[0], 1f, 100f);
             float hz = Mth.clamp(spread[2], 1f, 100f);
             startCeiling(new EnchantedCeiling.Sky(style, at.x, at.y, at.z, hx, hz, duration, t, floodSeed(at, t),

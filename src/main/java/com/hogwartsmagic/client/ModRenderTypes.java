@@ -59,11 +59,16 @@ public final class ModRenderTypes extends RenderType {
      * with the world's own spherical fog, so the sky sinks into the Pensieve dark exactly as the walls do.
      */
     public static RenderType ceilingLayer(ResourceLocation texture) {
+        return ceilingLayer(texture, true);
+    }
+
+    /** As {@link #ceilingLayer(ResourceLocation)}; {@code blur} false keeps a block texture's pixels crisp. */
+    public static RenderType ceilingLayer(ResourceLocation texture, boolean blur) {
         return create("hogwartsmagic_ceiling_layer", DefaultVertexFormat.NEW_ENTITY, VertexFormat.Mode.QUADS, 4096,
                 false, false,
                 RenderType.CompositeState.builder()
                         .setShaderState(RENDERTYPE_EYES_SHADER)
-                        .setTextureState(new RenderStateShard.TextureStateShard(texture, true, false))
+                        .setTextureState(new RenderStateShard.TextureStateShard(texture, blur, false))
                         .setTransparencyState(TRANSLUCENT_TRANSPARENCY)
                         .setWriteMaskState(COLOR_WRITE)
                         .setCullState(NO_CULL)

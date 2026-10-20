@@ -18,8 +18,11 @@ Edits:
   3. The sorting stool (a spruce slab, seat top y 2.5) on the top step at the head of the centre aisle, in front of
      the lectern, lit by light blocks; the builder's own off-axis stool prop on the dais (x 15, z 19) is removed.
   4. Lighting: every candle lit, light blocks over the tables.
-  5. The enchanted ceiling plane sits at local y 21 (wall tops); nothing below it is removed (the roof trusses all
-     start at y 21 or higher, so no hanging post reaches below the plane).
+  5. The enchanted ceiling plane sits at local y 21 (wall tops). Over the hall interior (x 1..82, z 6..38, the
+     staff-end bay included) every block at y 21 and above is removed, roof, trusses and vault alike, so the sky's
+     cloud volume rises into open air above the walls instead of hiding behind a roof; the walls round it (side
+     walls to y 22, the end gables to y 42 and 56) stay. Nothing below the plane is removed (the trusses all
+     started at y 21 or higher, so no hanging post reached below it).
   6. Physics: unsupported sand becomes sandstone; physics_problems must be empty.
   7. Task 4b, the film look (restyle(), applied to the hall, local x <= 84): mud-brick walls and dark oak joinery
      instead of sandstone, end stone and spruce; smooth-stone flags with polished-blackstone inserts; stone-brick
@@ -906,17 +909,21 @@ def restyle(b):
     restyle_staff_window(b)
     restyle_dressing(b)
     restyle_end_walls(b)
-    cap_staff_bay(b)
 
 
-def cap_staff_bay(b):
-    """The staff-end bay (x 1..9, z 13..31) was open up to its vault at y ~42, so no sky showed over it. A solid roof
-    at the hall's ceiling height (y 21, in the walls' own material) closes it, and the ceiling plane runs over it."""
-    mat = b.get((4, 21, 12)) or WALL
-    for x in range(1, 10):
-        for z in range(13, 32):
-            if b.get((x, 21, z)) is None:
-                b.set((x, 21, z), mat)
+# the open sky's footprint, in cells: the ceiling plane's rectangle (CEIL_X, CEIL_Z)
+SKY_CELLS_X = (int(CEIL_X[0]), int(CEIL_X[1]) - 1)
+SKY_CELLS_Z = (int(CEIL_Z[0]), int(CEIL_Z[1]) - 1)
+
+
+def open_sky(b):
+    """Remove everything at and above the ceiling plane over the interior: the enchanted ceiling's clouds are a
+    volume that rises from the wall tops, so there must be open air above the plane, not a roof. Returns the count."""
+    gone = [p for p in b.g if p[1] >= CEIL_Y and SKY_CELLS_X[0] <= p[0] <= SKY_CELLS_X[1]
+            and SKY_CELLS_Z[0] <= p[2] <= SKY_CELLS_Z[1]]
+    for p in gone:
+        del b.g[p]
+    return len(gone)
 
 
 def fix_physics(b):
@@ -1073,6 +1080,7 @@ def build():
         if p[0] <= 18 and bid(s) == 'minecraft:dark_prismarine_stairs':
             b.g[p] = s.replace('dark_prismarine_stairs', 'mangrove_stairs')
     edit_lighting(b)
+    b.sky_opened = open_sky(b)
     b.sand_fixed = fix_physics(b)
     return b
 
@@ -1098,10 +1106,15 @@ def main():
     candles = [s for s in g.values() if bid(s) == 'minecraft:candle']
     assert all('lit=true' in s for s in candles)
     assert max(p[1] for p, s in g.items() if bid(s) == 'minecraft:candle') < CEIL_Y
+    assert not any(p[1] >= CEIL_Y and SKY_CELLS_X[0] <= p[0] <= SKY_CELLS_X[1]
+                   and SKY_CELLS_Z[0] <= p[2] <= SKY_CELLS_Z[1] for p in g), 'something left above the open sky'
+
     n_pal, n_blocks = write_template(g, SIZE, OUT)
     print('great_hall.nbt: size %s, %d blocks, %d palette states, %d bytes' % (SIZE, n_blocks, n_pal,
                                                                            os.path.getsize(OUT)))
     print('sand made sandstone: %d; candles: %d, all lit; physics clean' % (b.sand_fixed, len(candles)))
+    print('open sky: %d blocks removed at y >= %d over x %d..%d, z %d..%d' % ((b.sky_opened, CEIL_Y) + SKY_CELLS_X
+                                                                            + SKY_CELLS_Z))
     print('TEMPLATE_AT %s  RADIUS %d  (template x %d..%d, z %d..%d in the scene)' % (
         TEMPLATE_AT, RADIUS, TEMPLATE_AT[0], TEMPLATE_AT[0] + SIZE[0] - 1, TEMPLATE_AT[2],
         TEMPLATE_AT[2] + SIZE[2] - 1))

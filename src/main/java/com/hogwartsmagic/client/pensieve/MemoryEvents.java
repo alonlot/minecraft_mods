@@ -61,6 +61,15 @@ public final class MemoryEvents {
         next = 0;
         level = clientLevel;
         origin = at;
+        // An enchanted ceiling is there from the first frame: a solid roof (the set has none over the hall) until its
+        // t, when it dissolves into the sky. So it starts now, for everyone, late joiners included, and fire() skips it.
+        float now = PensieveClientState.sceneTime(0);
+        for (SceneDef.EventDef e : sorted) {
+            if ("effect".equals(e.kind()) && "enchanted_ceiling".equals(e.id())) {
+                EffectVisuals.play(e.id(), position(e), e.duration(), (int) (now - e.t()), e.count(), e.spread(),
+                        e.yaw(), e.t(), e.style());
+            }
+        }
     }
 
     /** Forget the events and remove everything the visuals added. Safe at any time. */
@@ -103,6 +112,7 @@ public final class MemoryEvents {
         boolean late = age > LATE_TICKS;
         String kind = e.kind();
         if ("effect".equals(kind)) {
+            if ("enchanted_ceiling".equals(e.id())) return;              // started with the scene (see start)
             // A long effect is still going: join it part-way. A short or finished one is old news. A letter flood
             // never finishes (its letters lie on the floor until the scene ends), so it is always joined, and so is an
             // enchanted ceiling, light rays and floating candles (they stay until the scene ends).

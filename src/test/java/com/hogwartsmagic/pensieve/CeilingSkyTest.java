@@ -213,6 +213,88 @@ class CeilingSkyTest {
     }
 
     @Test
+    void slicesRiseFromTheWallTopsIntoTheSky() {
+        int n = CeilingSky.SLICES;
+        assertEquals(CeilingSky.SLICE_LOW, CeilingSky.sliceHeight(0, n), 1e-5f);
+        assertEquals(CeilingSky.SKY_TOP, CeilingSky.sliceHeight(n - 1, n), 1e-4f);
+        float last = -1f, lastGap = 0f;
+        for (int i = 0; i < n; i++) {
+            float h = CeilingSky.sliceHeight(i, n);
+            assertTrue(h > last, "slices must rise");
+            if (i > 1) assertTrue(h - last >= lastGap - 1e-4f, "packed near the bottom, sparser up high");
+            if (i > 0) lastGap = h - last;
+            last = h;
+        }
+        assertTrue(CeilingSky.SKY_TOP >= 20f && CeilingSky.SKY_TOP <= 30f);
+        // Each slice reaches further past the walls than the one below it.
+        assertTrue(CeilingSky.sliceReach(CeilingSky.SKY_TOP) > CeilingSky.sliceReach(5f));
+        assertEquals(0f, CeilingSky.sliceReach(0f), 1e-6f);
+    }
+
+    @Test
+    void densityBoundedDeterministicAndContinuous() {
+        for (float x = -40; x <= 40; x += 3.7f) {
+            for (float h = 0; h <= 26; h += 2.3f) {
+                float d = CeilingSky.density(7L, x, h, x * 0.5f, 100f);
+                assertTrue(d >= 0f && d <= 1f, "density " + d);
+                assertEquals(d, CeilingSky.density(7L, x, h, x * 0.5f, 100f), 0f);
+                // A small step up the stack barely changes it: neighbouring slices agree, one volume.
+                assertTrue(Math.abs(CeilingSky.density(7L, x, h + 0.2f, x * 0.5f, 100f) - d) < 0.12f);
+            }
+        }
+        // It rolls: the field moves with time.
+        assertTrue(Math.abs(CeilingSky.density(7L, 3f, 5f, 2f, 0f) - CeilingSky.density(7L, 3f, 5f, 2f, 400f)) > 0f);
+    }
+
+    @Test
+    void lowerCloudIsDenserWithGaps() {
+        double low = 0, high = 0;
+        int gaps = 0, samples = 0;
+        for (float x = -40; x <= 40; x += 1.3f) {
+            for (float z = -20; z <= 20; z += 1.7f) {
+                float a = CeilingSky.sliceAlpha(3L, x, 1f, z, 0f);
+                low += a;
+                high += CeilingSky.sliceAlpha(3L, x, 24f, z, 0f);
+                if (a < 0.05f) gaps++;
+                samples++;
+                assertTrue(a <= CeilingSky.sliceBase(1f) + 1e-6f);
+            }
+        }
+        assertTrue(low > high * 2, "low " + low + " high " + high);
+        assertTrue(gaps > samples / 20, "the low cloud needs gaps for the stars: " + gaps + "/" + samples);
+        assertTrue(CeilingSky.sliceBase(0f) > CeilingSky.sliceBase(CeilingSky.SKY_TOP));
+    }
+
+    @Test
+    void sliceColourWarmLowCoolHighLitByFlashWithDepth() {
+        float[] lowWall = CeilingSky.sliceColour(40f, 1f, 0f, 41f, 16.5f, null);
+        float[] highWall = CeilingSky.sliceColour(40f, 24f, 0f, 41f, 16.5f, null);
+        assertTrue(lowWall[0] > lowWall[2], "low cloud by the walls is lit warm from below");
+        assertTrue(highWall[2] > highWall[0], "high cloud is cool");
+        float[] flash = {0f, 0f, 1f, 0f, 0f, 10f};
+        float at = CeilingSky.sliceColour(0f, 10f, 0f, 41f, 16.5f, flash)[2];
+        float above = CeilingSky.sliceColour(0f, 22f, 0f, 41f, 16.5f, flash)[2];
+        float none = CeilingSky.sliceColour(0f, 10f, 0f, 41f, 16.5f, null)[2];
+        assertTrue(at > none + 1f, "the slice at the strike lights up");
+        assertTrue(at - none > 4 * (above - CeilingSky.sliceColour(0f, 22f, 0f, 41f, 16.5f, null)[2]),
+                "and the light falls off with depth");
+        float[] f = CeilingSky.flash(8L, CeilingSky.strikeStart(8L, 2) + 1f);
+        assertTrue(f[5] >= 6f && f[5] <= 18f, "strike height " + f[5]);
+    }
+
+    @Test
+    void starsBarelyMoveWhileTheCloudSlides() {
+        // The camera 10 blocks under the plane (the crane shot) moves 4 blocks sideways.
+        double low = CeilingSky.parallax(4f, 10f + CeilingSky.SLICE_LOW);
+        double cloud = CeilingSky.parallax(4f, 10f + 8f);
+        double stars = CeilingSky.parallax(4f, 10f + CeilingSky.STAR_HEIGHT);
+        assertTrue(low > cloud && cloud > stars);
+        assertTrue(low > 5 * stars, "low " + low + " stars " + stars);
+        assertTrue(CeilingSky.STAR_HEIGHT >= 60f && CeilingSky.STAR_HEIGHT <= 90f);
+        assertTrue(CeilingSky.BACKDROP_HEIGHT > CeilingSky.STAR_HEIGHT);
+    }
+
+    @Test
     void planeSitsJustBelowTheRoof() {
         float y = CeilingSky.planeY(30);
         assertTrue(y < 30f && y > 29.9f, "plane at " + y);

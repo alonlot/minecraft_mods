@@ -21,6 +21,14 @@ Edits:
   5. The enchanted ceiling plane sits at local y 21 (wall tops); nothing below it is removed (the roof trusses all
      start at y 21 or higher, so no hanging post reaches below the plane).
   6. Physics: unsupported sand becomes sandstone; physics_problems must be empty.
+  7. Task 4b, the film look (restyle(), applied to the hall, local x <= 84): mud-brick walls and dark oak joinery
+     instead of sandstone, end stone and spruce; smooth-stone flags with polished-blackstone inserts; stone-brick
+     clustered piers with pointed arches over the window bays; dark oak wainscot; hopper-and-campfire braziers on
+     the piers and hanging on chains in the bays; pale stone eagles on the pier corbels; a stone chimney breast on
+     the fireplaces; the apse rebuilt as stone round a pointed stained-glass window and a rose window; a pointed
+     portal frame round the doors on the hall side; house banners high on both end walls; tables laid with gold
+     plates, goblets and a row of lit candles; half the floating block candles thinned; floor lights eased.
+     The sand is gone with the sandstone, so step 6 has nothing left to fix. Anchors are unchanged.
 """
 import gzip
 import io
@@ -547,7 +555,7 @@ def edit_lighting(b):
         for x in range(26, 74, 6):
             p = (x, 6, zc)
             if p not in g:
-                b.set(p, state('light', level=14, waterlogged=False))
+                b.set(p, state('light', level=12, waterlogged=False))   # 4b: 14 -> 12, braziers carry the walls
     # the aisle and the dais
     for x in range(23, 80, 6):
         p = (x, 6, AXIS_Z)
@@ -557,6 +565,350 @@ def edit_lighting(b):
         p = (8, 6, z)
         if p not in g:
             b.set(p, state('light', level=13, waterlogged=False))
+
+
+# ---------------------------------------------------------------- Task 4b: the film restyle
+# The hall is re-skinned from yellow sandstone and end stone to the film's warm candle-lit stone: mud-brick
+# ashlar (its own dark mortar lines), dark oak for every piece of joinery, a pale flagstone floor with small dark
+# inserts, clustered piers carrying pointed arches, dark oak wainscot, iron braziers on two heights, stone eagles
+# on the pier corbels, a tall Gothic window behind the high table and the house banners on both end walls.
+HALL_X1 = 84                      # the restyle touches local x <= 84 (the hall, its east wall and the door stop)
+PIERS = (10, 18, 26, 34, 58, 66, 74, 82)   # pier centre lines on both side walls; 42 and 50 are the fireplace's
+FIRE_BAY = (42, 50)
+
+WALL = 'minecraft:mud_bricks'
+PIER = 'minecraft:stone_bricks'
+PIER_BASE = 'minecraft:polished_andesite'
+TRIM = 'minecraft:stone_bricks'
+CARVED = 'minecraft:chiseled_stone_bricks'
+FLAG = 'minecraft:smooth_stone'
+FLAG_DOT = 'minecraft:polished_blackstone'
+
+RENAME = {
+    'smooth_sandstone': 'mud_bricks', 'sandstone': 'packed_mud', 'sand': 'mud_bricks',
+    'cut_sandstone': 'packed_mud', 'chiseled_sandstone': 'chiseled_stone_bricks',
+    'end_stone_bricks': 'mud_bricks', 'sandstone_wall': 'mud_brick_wall',
+    'smooth_sandstone_stairs': 'mud_brick_stairs', 'sandstone_stairs': 'mud_brick_stairs',
+    'smooth_sandstone_slab': 'mud_brick_slab', 'sandstone_slab': 'mud_brick_slab',
+    'spruce_planks': 'dark_oak_planks', 'stripped_spruce_wood': 'stripped_dark_oak_wood',
+    'spruce_fence': 'dark_oak_fence', 'spruce_slab': 'dark_oak_slab', 'spruce_stairs': 'dark_oak_stairs',
+    'spruce_trapdoor': 'dark_oak_trapdoor', 'spruce_wall_sign': 'dark_oak_wall_sign',
+    'birch_fence': 'dark_oak_fence', 'birch_fence_gate': 'dark_oak_fence_gate',
+}
+FLOOR_OLD = {'minecraft:end_stone_bricks', 'minecraft:sandstone', 'minecraft:sand', 'minecraft:smooth_sandstone',
+             'minecraft:azalea_leaves'}
+
+
+def mirror_z(z):
+    """The south wall is the north wall mirrored about the hall's centre line (z 22.5)."""
+    return 44 - z
+
+
+def flip(face):
+    return {'north': 'south', 'south': 'north'}.get(face, face)
+
+
+def restyle_floor(b):
+    """Pale flagstones with a small dark insert where four flags meet (every 3 blocks, centred on the aisle)."""
+    for x in range(10, 82):
+        for z in range(4, 41):
+            if b.get((x, 0, z)) in FLOOR_OLD or bid(b.get((x, 0, z))) in FLOOR_OLD:
+                dot = x % 3 == 0 and (z - AXIS_Z) % 3 == 0
+                b.set((x, 0, z), FLAG_DOT if dot else FLAG)
+
+
+def restyle_palette(b):
+    g = b.g
+    for p, s in list(g.items()):
+        if p[0] > HALL_X1:
+            continue
+        name, props = parse_state(s)
+        short = name.replace('minecraft:', '')
+        if p[0] == 9 and short in ('cut_sandstone', 'sandstone_wall'):     # the apse arch: a stone order
+            g[p] = state('stone_bricks' if short == 'cut_sandstone' else 'stone_brick_wall', **props)
+        elif short in RENAME:
+            g[p] = state(RENAME[short], **props)
+
+
+def restyle_tables(b):
+    """Dark tables laid for the feast: gold plates alternating with goblets (flower pots) down both edges, and a
+    row of small lit candles down the middle. The house runners go."""
+    for (z_lo, z_hi) in TABLES.values():
+        zc = (z_lo + z_hi) // 2
+        for x in range(BENCH_X[0], BENCH_X[1] + 1):
+            for z in (zc - 1, zc + 1):
+                if x % 2:
+                    b.set((x, 2, z), 'minecraft:flower_pot')
+                else:
+                    b.set((x, 2, z), state('light_weighted_pressure_plate', power=0))
+            if x % 2:
+                b.set((x, 2, zc), state('candle', candles=1, lit=True, waterlogged=False))
+            else:
+                b.set((x, 2, zc), None)
+        for x in (BENCH_X[0] - 1, BENCH_X[1] + 1):           # the house runners' ends
+            b.set((x, 2, zc), None)
+
+
+def _sbwall(north=False, south=False, east=False, west=False, up=True):
+    v = lambda c: 'low' if c else 'none'
+    return state('stone_brick_wall', north=v(north), south=v(south), east=v(east), west=v(west), up=up,
+                 waterlogged=False)
+
+
+def restyle_side_walls(b):
+    """Piers, arches, wainscot, braziers and eagles along both side walls. Built for the north wall (wall face at
+    z 3, hall from z 4) and mirrored onto the south one."""
+    for side in ('n', 's'):
+        Z = (lambda z: z) if side == 'n' else mirror_z
+        F = (lambda f: f) if side == 'n' else flip
+
+        def put(x, y, z, s):
+            b.set((x, y, Z(z)), s)
+
+        # wainscot: dark oak panelling on the wall face, y 1..3, with log stiles and a slab rail under the sills
+        for x in range(10, 83):
+            if any(abs(x - p) <= 1 for p in PIERS) or FIRE_BAY[0] - 1 <= x <= FIRE_BAY[1] + 1:
+                continue
+            for y in range(1, 4):
+                cur = b.get((x, y, Z(3)))
+                if cur is None or bid(cur) in PASSABLE:
+                    continue
+                stile = (x - 2) % 4 == 0
+                put(x, y, 3, state('dark_oak_log', axis='y') if stile else 'minecraft:dark_oak_planks')
+            put(x, 4, 3, state('dark_oak_slab', type='bottom', waterlogged=False))
+
+        for p in PIERS:
+            # clear the old pilaster relief, its campfire and its lights
+            for x in range(p - 1, p + 2):
+                for z in range(4, 7):
+                    for y in range(1, 20):
+                        put(x, y, z, None)
+            # the pier: a 3-wide stone pier against the wall with a shaft and two colonnettes in front of it
+            for y in range(1, 20):
+                for x in range(p - 1, p + 2):
+                    put(x, y, 4, PIER)
+                put(p, y, 5, PIER)
+                put(p - 1, y, 5, _sbwall(east=True))
+                put(p + 1, y, 5, _sbwall(west=True))
+            # base and capital rings, and a corbel course carrying the cornice
+            for x in range(p - 1, p + 2):
+                put(x, 1, 5, PIER_BASE)
+                put(x, 1, 4, PIER_BASE)
+                put(x, 13, 5, CARVED)
+                put(x, 13, 4, CARVED)
+                put(x, 19, 5, state('stone_brick_stairs', facing=F('north'), half='top', shape='straight',
+                                    waterlogged=False))
+            put(p, 1, 6, state('stone_brick_stairs', facing=F('north'), half='bottom', shape='straight',
+                               waterlogged=False))
+            # low brazier on a corbel: a hopper bowl with a fire in it
+            put(p, 6, 6, state('stone_brick_stairs', facing=F('north'), half='top', shape='straight',
+                               waterlogged=False))
+            put(p, 7, 6, state('hopper', enabled=True, facing='down'))
+            put(p, 8, 6, state('campfire', facing='east', lit=True, signal_fire=False, waterlogged=False))
+            # a pale stone eagle on the capital's corbel, wings raised
+            put(p, 14, 6, state('stone_brick_stairs', facing=F('north'), half='top', shape='straight',
+                                waterlogged=False))
+            put(p, 15, 6, 'minecraft:cut_sandstone')
+            put(p, 16, 6, 'minecraft:cut_sandstone')
+            put(p, 17, 6, state('smooth_sandstone_slab', type='bottom', waterlogged=False))
+            for x in (p - 1, p + 1):
+                put(x, 17, 6, state('sandstone_wall', north='none', south='none', east='none', west='none', up=True,
+                                    waterlogged=False))
+            put(p - 1, 16, 6, state('smooth_sandstone_stairs', facing='west', half='bottom', shape='straight',
+                                    waterlogged=False))
+            put(p + 1, 16, 6, state('smooth_sandstone_stairs', facing='east', half='bottom', shape='straight',
+                                    waterlogged=False))
+
+        # the fireplace's chimney breast: plain stone over a carved mantel, a brazier at each end
+        for x in range(FIRE_BAY[0] - 1, FIRE_BAY[1] + 2):
+            for z in range(4, 7):
+                for y in range(6, 20):
+                    put(x, y, z, None)
+        for x in range(FIRE_BAY[0], FIRE_BAY[1] + 1):
+            for y in range(6, 20):
+                put(x, y, 4, PIER)
+                put(x, y, 5, WALL if FIRE_BAY[0] < x < FIRE_BAY[1] else _sbwall(east=x == FIRE_BAY[0],
+                                                                                 west=x == FIRE_BAY[1]))
+            put(x, 6, 5, CARVED)
+            put(x, 6, 6, state('stone_brick_stairs', facing=F('north'), half='top', shape='straight',
+                               waterlogged=False))
+            put(x, 13, 5, CARVED)
+            put(x, 19, 5, state('stone_brick_stairs', facing=F('north'), half='top', shape='straight',
+                                waterlogged=False))
+        for x in FIRE_BAY:
+            put(x, 7, 6, state('hopper', enabled=True, facing='down'))
+            put(x, 8, 6, state('campfire', facing='east', lit=True, signal_fire=False, waterlogged=False))
+
+        # arches over each bay (z 4), springing from the capitals at y 14, and a hanging brazier in each bay
+        for p0, p1 in zip(PIERS, PIERS[1:]):
+            if p0 == FIRE_BAY[0] or p1 == FIRE_BAY[1] or (p0 < FIRE_BAY[0] < p1):
+                continue
+            xa, xb = p0 + 2, p1 - 2
+            c = (xa + xb + 1) / 2.0
+            half = (xb - xa + 1) / 2.0
+            for x in range(xa, xb + 1):
+                for y in range(14, 20):
+                    dz = x + 0.5 - c
+                    if arch_open(dz, y - 14, half):
+                        continue
+                    ring = any(arch_open(dz + d, y - 14 + e, half) for d, e in ((1, 0), (-1, 0), (0, -1)))
+                    put(x, y, 4, TRIM if ring else WALL)
+            # hanging brazier on a chain from the cornice, in front of the window
+            xm = int(c)
+            for y in range(12, 20):
+                put(xm, y, 5, state('chain', axis='y', waterlogged=False))
+            put(xm, 11, 5, state('campfire', facing='east', lit=True, signal_fire=False, waterlogged=False))
+            put(xm, 10, 5, state('hopper', enabled=True, facing='down'))
+
+
+GLASS = {'minecraft:glass', 'minecraft:white_stained_glass', 'minecraft:red_stained_glass',
+         'minecraft:blue_stained_glass', 'minecraft:yellow_stained_glass', 'minecraft:green_stained_glass',
+         'minecraft:gray_stained_glass'}
+GRID = GLASS | {'minecraft:dark_oak_fence', 'minecraft:dark_oak_fence_gate'}
+WIN_Z = (16, 28)                  # the staff window's lights, in the apse's back wall (x 0)
+WIN_SPRING, WIN_HALF, WIN_RATIO = 13, 6.5, 1.3     # apex near y 21: whole under the ceiling seen from the doors
+ROSE_Y, ROSE_R = 27.5, 3.6        # a rose window above it, seen from the high table
+
+
+def restyle_staff_window(b):
+    """The apse behind the high table was a glass box. It becomes stone with a tall pointed window in its back
+    wall (pale leaded lights, amber and orange, red and blue medallions, slender stone mullions and transoms) and
+    a rose window above it."""
+    rnd = random.Random(7)
+    zc = AXIS_Z + 0.5
+    for p in [p for p, s in b.g.items() if p[0] <= 8 and p[1] >= 4 and 10 <= p[2] <= 34 and bid(s) in GRID]:
+        b.set(p, None if p[0] in (0, 1) and 13 <= p[2] <= 31 else WALL)
+    mullions = (19, 22, 25)
+    transoms = (9, 13)
+
+    def lancet(dz, y):
+        return y >= 5 and arch_open(dz, y - WIN_SPRING, WIN_HALF, WIN_RATIO)
+
+    def rose(dz, y):
+        return math.hypot(dz, y + 0.5 - ROSE_Y) <= ROSE_R
+
+    for z in range(13, 32):
+        dz = z + 0.5 - zc
+        for y in range(4, 43):
+            if not (lancet(dz, y) or rose(dz, y)):
+                b.set((0, y, z), WALL)
+                ring = any(lancet(dz + d, y + e) or rose(dz + d, y + e) for d, e in ((1, 0), (-1, 0), (0, -1),
+                                                                                     (0, 1)))
+                b.set((1, y, z), TRIM if ring else None)
+                continue
+            r = rnd.random()
+            col = 'white' if r < 0.55 else ('yellow' if r < 0.85 else 'orange')
+            if lancet(dz, y):
+                light = sum(1 for m in mullions if z > m)
+                if 10 <= y <= 12 and z not in mullions and z not in (WIN_Z[0], WIN_Z[1]):
+                    col = ('red', 'blue', 'blue', 'red')[light]
+                if y >= WIN_SPRING + 3:
+                    col = 'light_blue' if (z + y) % 3 == 0 else col
+                post = z in mullions and y < WIN_SPRING + 2
+                fork = y >= WIN_SPRING + 2 and abs(abs(dz) - (y - WIN_SPRING - 2) * 0.6 - 1.5) < 0.6
+                bar = y in transoms
+            else:
+                ring_r = math.hypot(dz, y + 0.5 - ROSE_Y)
+                col = 'red' if ring_r < 1.2 else ('blue' if ring_r > 2.6 else col)
+                post = abs(dz) < 0.6 or abs(y + 0.5 - ROSE_Y) < 0.6
+                fork = bar = False
+            b.set((0, y, z), state(col + '_stained_glass'))
+            # tracery in front of the glass (x 1)
+            if post:
+                b.set((1, y, z), _sbwall(north=bar, south=bar))
+            elif bar:
+                b.set((1, y, z), _sbwall(north=True, south=True, up=False))
+            elif fork:
+                b.set((1, y, z), _sbwall())
+            else:
+                b.set((1, y, z), None)
+    for z in range(WIN_Z[0], WIN_Z[1] + 1):
+        b.set((1, 4, z), state('stone_brick_slab', type='bottom', waterlogged=False))
+    # light the glass from inside so it reads at night
+    for y, zs in ((8, (18, 22, 26)), (15, (18, 22, 26)), (27, (22,))):
+        for z in zs:
+            if b.get((3, y, z)) is None:
+                b.set((3, y, z), state('light', level=9, waterlogged=False))
+
+
+def restyle_dressing(b):
+    """Side-window glass darkened to leaded night glass; the house banners on the table ends removed; half the
+    floating block candles thinned out (the floating_candles effect carries the sea of candles); the builder's
+    level-15 floor lights eased to 13 so the braziers and candles, not a flat fill, set the mood."""
+    for p, s in list(b.g.items()):
+        x, y, z = p
+        n = bid(s)
+        if n == 'minecraft:light' and x <= HALL_X1 and y <= 5 and 'level=15' in s:
+            b.g[p] = s.replace('level=15', 'level=13')
+        if 10 <= x <= HALL_X1 and (z <= 3 or z >= 41):
+            if n == 'minecraft:glass':
+                b.g[p] = 'minecraft:gray_stained_glass'
+            elif n == 'minecraft:white_stained_glass':
+                b.g[p] = 'minecraft:light_gray_stained_glass'
+        if 22 <= x <= 76 and 6 <= z <= 38 and y <= 3 and n.endswith('_wall_banner'):
+            del b.g[p]
+        if n == 'minecraft:candle' and y >= 5 and x <= HALL_X1 and (x * 7 + y * 13 + z * 3) % 2:
+            del b.g[p]
+
+
+def restyle_end_walls(b):
+    """The doors' end gets a pointed portal frame on its hall face, and the house banners hang high on both end
+    walls."""
+    # clear the old hall-side door dressing (gold crosses, the andesite door columns, the gold band)
+    for x in (80, 81, 82):
+        for z in range(7, 38):
+            for y in range(1, 21):
+                if (x, y, z) in b.g and bid(b.g[(x, y, z)]) != 'minecraft:light':
+                    b.set((x, y, z), None)
+    for x in (82, 83):
+        for z in range(16, 29):
+            b.set((x, 0, z), 'minecraft:polished_andesite')
+    # the frame (x 82): clustered jambs at z 14..15 and 29..30, a pointed arch springing at y 12 over z 16..28
+    half, spring, ratio = 6.5, 12, 1.2
+    for z in range(13, 32):
+        dz = z + 0.5 - (AXIS_Z + 0.5)
+        for y in range(1, 21):
+            if arch_open(dz, y - spring, half, ratio):
+                continue
+            near = any(arch_open(dz + d, y - spring + e, half, ratio) for d, e in ((1, 0), (-1, 0), (0, -1), (1, -1),
+                                                                                   (-1, -1)))
+            if near:
+                b.set((82, y, z), CARVED if y in (1, spring) else PIER)
+            elif abs(dz) <= half + 2.5 and any(arch_open(dz + d, y - spring + e, half, ratio)
+                                               for d in (-2, -1, 0, 1, 2) for e in (-2, -1, 0)):
+                b.set((81, y, z), None)
+                b.set((82, y, z), _sbwall(north=True, south=True) if y > spring else _sbwall())
+    # tympanum on the wall face behind the arch, above the pocket's lintel: dark oak with a gold boss
+    for z in range(16, 29):
+        dz = z + 0.5 - (AXIS_Z + 0.5)
+        for y in range(13, 21):
+            if arch_open(dz, y - spring, half, ratio):
+                mull = z == AXIS_Z or (abs(z - AXIS_Z) == 3 and y <= 17)
+                b.set((83, y, z), state('stripped_dark_oak_wood', axis='y') if mull else 'minecraft:dark_oak_planks')
+    for z in range(16, 29):
+        b.set((83, 13, z), state('stripped_dark_oak_wood', axis='z'))
+    b.set((83, 16, AXIS_Z), 'minecraft:gold_block')
+    houses = ('red', 'yellow', 'blue', 'green')
+    # staff end (x 9 wall face, banners face east), two each side of the window bay
+    for z, colour in zip((8, 10, 34, 36), houses):
+        for y in (17, 15):
+            if b.get((10, y, z)) is None:
+                b.set((10, y, z), state(colour + '_wall_banner', facing='east'))
+    # doors end (hall face x 83), either side of the portal
+    for z, colour in zip((8, 11, 33, 36), houses):
+        for y in (17, 15):
+            if b.get((82, y, z)) is None:
+                b.set((82, y, z), state(colour + '_wall_banner', facing='west'))
+
+
+def restyle(b):
+    restyle_floor(b)
+    restyle_palette(b)
+    restyle_tables(b)
+    restyle_side_walls(b)
+    restyle_staff_window(b)
+    restyle_dressing(b)
+    restyle_end_walls(b)
 
 
 def fix_physics(b):
@@ -626,7 +978,7 @@ def write_template(grid, size, path):
 
 
 # ---------------------------------------------------------------- checks
-PASSABLE = set(FREE) | {'minecraft:spruce_wall_sign', 'minecraft:light'}
+PASSABLE = set(FREE) | {'minecraft:spruce_wall_sign', 'minecraft:dark_oak_wall_sign', 'minecraft:light'}
 SEATS = ('_slab', '_stairs')
 
 
@@ -707,7 +1059,11 @@ def build():
     b = Builder(grid)
     edit_doorway(b)
     edit_entrance_hall(b)
+    restyle(b)
     edit_stool_and_staff(b)
+    for p, s in list(b.g.items()):                   # 4b: the high table's chairs in red wood, not teal stone
+        if p[0] <= 18 and bid(s) == 'minecraft:dark_prismarine_stairs':
+            b.g[p] = s.replace('dark_prismarine_stairs', 'mangrove_stairs')
     edit_lighting(b)
     b.sand_fixed = fix_physics(b)
     return b

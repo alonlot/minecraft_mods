@@ -364,3 +364,35 @@ The user's notes on the scene:
 7. **It all feels a bit too fast.**
    - Slow the hall scene to about 100 s: longer holds (shots 4–7 s), slower camera moves, more room between beats and lines, and the doors' swing about 1.4× longer.
    - Raise `PensieveStartPacket.MAX_JSON` as engine work 10 allows (to 900,000, within the 1 MiB custom-payload limit, checked on both encode and decode) so the richer crowd fits.
+
+## Addendum 4 (2026-10-20, user): more realistic, detailed animation
+
+The user asked to "make the animations more realistic and detail". Per-actor keyframes in the scene JSON are near the size cap (sorting_hall is 734k of 900k), so realism moves into the engine as procedural player clips, and the scene uses them.
+
+**H. Task 8: procedural human motion (Opus).** Everything is client-side and computed from the scene clock plus a per-actor phase seeded from the actor id, so a late join is the same and nothing moves in unison.
+- **Always on for `player` actors**, subtle and cheap:
+  - breathing: chest and shoulders rise and fall about every 4 s;
+  - micro sway and weight shifts when standing;
+  - a natural gait driven by real path speed: stride and arm swing matched to speed, arms opposite the legs, slight torso counter-rotation, a small head bob, and blending into and out of the walk;
+  - a head lead: when `look` turns the head, the body follows a few ticks later with overlap;
+  - seated posture: when posed seated, a slight slouch, and hands resting on the knees or the table.
+
+  An actor key `"life": false` turns it off for statues and first-person rigs.
+- **New player clips** usable in `anims` (looping unless noted, blend in and out), each with natural timing variation and secondary motion:
+  - `CLAP`: hands meet in front of the chest, about 2.5 claps/s, with jittered rhythm and a slight body bounce;
+  - `CHEER`: arms thrown up, then fists pumping, with the body bouncing on the seat;
+  - `CHEER_STAND`: rises from the bench, cheers, then sits back down; one-shot, about 3 s;
+  - `TALK`: small hand gestures and head nods while speaking to someone;
+  - `WHISPER`: leans toward the `look` target with a hand raised near the mouth;
+  - `NERVOUS`: fidgeting hands, glances around and weight shifts (for the first-years);
+  - `WAVE`: Hagrid's big wave;
+  - `HANDS_CLASPED`: McGonagall's formal stance;
+  - `READ_SCROLL`: holding the scroll at reading height with small head movements;
+  - `REACH_PLACE`: a one-shot arm arc to lower an item onto a seated head in front, about 1.2 s;
+  - `SIT_DOWN` / `STAND_UP`: one-shot transitions with weight forward and arms bracing.
+- **Implementation:** a pure-maths `pensieve/scene/HumanMotion.java` (joint angles as a function of time, phase, speed and clip), with tests (bounded angles, deterministic, continuous at blends, gait phase locked to distance travelled), applied in the actor posing path (`ActorPoser` / `MemoryActors`), layered under explicit `limbs`/`poses` so authored keys still win. Validator: clip names are known for player actors. SKILL.md documents all of it.
+
+**I. Task 9: the scene uses them (Opus, the scene author).**
+- Replace the hand-keyed idle/cheer arm motion with the clips. Desynchronise per actor (`CLAP` vs `CHEER` vs `CHEER_STAND` for Gryffindor; polite `CLAP` for the others, Slytherin mostly still).
+- First-years are `NERVOUS` while waiting. The whispers use `WHISPER`. McGonagall uses `HANDS_CLASPED` / `READ_SCROLL` and `REACH_PLACE` for each hat placement. Sitting uses `SIT_DOWN` / `STAND_UP`.
+- Use the size savings for more natural variety. Keep every existing assert, including collisions and no cheering during a shout.

@@ -341,6 +341,17 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_HALL_DUMBLEDORE = register("pensieve.voice.hall_dumbledore");
     public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_HALL_HERMIONE_NERVOUS = register("pensieve.voice.hall_hermione_nervous");
     public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_HALL_RON_NERVOUS = register("pensieve.voice.hall_ron_nervous");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_WAND_HAGRID_BRICKS = register("pensieve.voice.wand_hagrid_bricks");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_WAND_HAGRID_WELCOME = register("pensieve.voice.wand_hagrid_welcome");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_WAND_HAGRID_WAND = register("pensieve.voice.wand_hagrid_wand");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_WAND_OLLI_WONDERED = register("pensieve.voice.wand_olli_wondered");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_WAND_OLLI_WANDARM = register("pensieve.voice.wand_olli_wandarm");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_WAND_OLLI_TRY = register("pensieve.voice.wand_olli_try");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_WAND_OLLI_NO = register("pensieve.voice.wand_olli_no");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_WAND_OLLI_NO2 = register("pensieve.voice.wand_olli_no2");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_WAND_OLLI_TRICKY = register("pensieve.voice.wand_olli_tricky");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_WAND_OLLI_CURIOUS = register("pensieve.voice.wand_olli_curious");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_WAND_OLLI_GREAT = register("pensieve.voice.wand_olli_great");
 
     // The Sorting Hat's spoken lines (Fish Audio takes; played by the client HatVoice from the quiz packets).
     public static final RegistryObject<SoundEvent> SORTING_VOICE_GREETING = register("sorting.voice.greeting");

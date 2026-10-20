@@ -2304,6 +2304,94 @@
       }
     ]
   },
+  "pensieve.voice.wand_hagrid_bricks": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/wand_hagrid_bricks",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.wand_hagrid_welcome": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/wand_hagrid_welcome",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.wand_hagrid_wand": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/wand_hagrid_wand",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.wand_olli_wondered": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/wand_olli_wondered",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.wand_olli_wandarm": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/wand_olli_wandarm",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.wand_olli_try": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/wand_olli_try",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.wand_olli_no": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/wand_olli_no",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.wand_olli_no2": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/wand_olli_no2",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.wand_olli_tricky": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/wand_olli_tricky",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.wand_olli_curious": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/wand_olli_curious",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.wand_olli_great": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/wand_olli_great",
+        "stream": false
+      }
+    ]
+  },
   "pensieve.voice.hall_hermione_nervous": {
     "sounds": [
       {

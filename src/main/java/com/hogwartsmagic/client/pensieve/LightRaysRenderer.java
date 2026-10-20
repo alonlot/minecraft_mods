@@ -88,8 +88,12 @@ public final class LightRaysRenderer {
         final float startT;
         final long seed;
         final float[][] shafts;
+        /** Multiplies every brightness (see {@link LightRays#intensity}). */
+        final float intensity;
 
-        Beam(Vec3 at, float yaw, float hw, float h, float len, int duration, float startT, long seed) {
+        Beam(Vec3 at, float yaw, float hw, float h, float len, int duration, float startT, long seed,
+             float intensity) {
+            this.intensity = intensity;
             this.at = at;
             this.yaw = yaw;
             this.hw = hw;
@@ -149,12 +153,12 @@ public final class LightRaysRenderer {
         // 1. The gap, the bloom on the wall face round it, and the pool on the floor.
         VertexConsumer vc = buffer.getBuffer(GLOW);
         if (front > 0f) {
-            float g = GAP_ALPHA * front;
+            float g = LightRays.scaled(GAP_ALPHA * front, beam.intensity);
             upright(vc, m, fr, -0.15f, open + 0.08f, 0f, beam.h, HOT, g);
-            float b = BLOOM_ALPHA * front * (0.4f + 0.6f * (float) Math.sqrt(gap));
+            float b = LightRays.scaled(BLOOM_ALPHA * front * (0.4f + 0.6f * (float) Math.sqrt(gap)), beam.intensity);
             upright(vc, m, fr, 0.3f, open + BLOOM_MARGIN, -0.3f, beam.h + BLOOM_MARGIN, GOLD, b);
         }
-        float pool = POOL_ALPHA * appear * (0.35f + 0.65f * (float) Math.sqrt(gap));
+        float pool = LightRays.scaled(POOL_ALPHA * appear * (0.35f + 0.65f * (float) Math.sqrt(gap)), beam.intensity);
         float reach = beam.len * POOL_REACH;
         float farHalf = open + 0.22f * reach + 0.3f;
         float y = 0.03f;
@@ -170,7 +174,7 @@ public final class LightRaysRenderer {
             float[] s = beam.shafts[i];
             float[] e = LightRays.shaftEnds(s, gap, beam.hw, beam.h, beam.len);
             float[] w = LightRays.shaftHalfWidths(s, gap, beam.hw, beam.len);
-            float a = SHAFT_ALPHA * LightRays.shimmer(now, i) * appear;
+            float a = LightRays.scaled(SHAFT_ALPHA * LightRays.shimmer(now, i) * appear, beam.intensity);
             shaft(vc, m, fr, e, w, a);
         }
         buffer.endBatch(RAY);
@@ -181,7 +185,7 @@ public final class LightRaysRenderer {
         vc = buffer.getBuffer(DOT);
         for (int i = 0; i < LightRays.MOTES; i++) {
             float[] mo = LightRays.mote(beam.seed, i, now, gap, beam.hw, beam.h, beam.len);
-            float b = mo[3] * appear * 0.9f;
+            float b = LightRays.scaled(mo[3] * appear * 0.9f, beam.intensity);
             if (b <= 0.01f) continue;
             Vector3f c = fr.p(mo[0], mo[1], mo[2]);
             put(vc, m, new Vector3f(c).sub(right).sub(up), GOLD, b, 0f, 0f);

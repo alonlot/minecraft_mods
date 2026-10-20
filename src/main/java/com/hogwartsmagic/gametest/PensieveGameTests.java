@@ -699,7 +699,7 @@ public final class PensieveGameTests {
         SceneDef.SetDef set = new SceneDef.SetDef(List.of(), List.of(new SceneDef.Fill("minecraft:gravel",
                 new int[]{3, 3, 3}, new int[]{5, 3, 5})), List.of(), List.of(), 6000L, 20);
         SceneDef.EventDef water = new SceneDef.EventDef(0f, "block", "minecraft:water", new float[]{8, 3, 0}, 1f, 1f,
-                0, null, 0, Float.NaN, null);
+                0, null, 0, Float.NaN, null, Float.NaN);
         useSessionSeam(helper, new SceneDef("gametest_physics", "Test", 400, 12, set, java.util.Map.of(),
                 List.of(), List.of(water), List.of(), null, null));
         basinWithMemory(helper);

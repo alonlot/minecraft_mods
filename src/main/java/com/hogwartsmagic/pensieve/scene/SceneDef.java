@@ -86,9 +86,10 @@ public record SceneDef(String id, String title, int length, int radius, SetDef s
      * {@code count} is -1 and {@code spread} null when the scene did not give them.
      * {@code at} may be fractional (an effect centred on a half block); a {@code block} event's must be whole, which the
      * validator checks. {@code style} is the enchanted_ceiling look ({@code "storm"} or {@code "night"}), null when absent.
+     * {@code intensity} is the light_rays brightness multiplier, NaN when absent (default 1).
      */
     public record EventDef(float t, String kind, String id, float[] at, float volume, float pitch, int count,
-                           float[] spread, int duration, float yaw, String style) {
+                           float[] spread, int duration, float yaw, String style, float intensity) {
     }
 
     public record WordDef(float t, String by, String text, boolean narration, int duration, float size) {

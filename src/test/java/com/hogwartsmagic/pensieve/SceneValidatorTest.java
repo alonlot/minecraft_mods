@@ -457,4 +457,25 @@ class SceneValidatorTest {
         assertEquals(1, m.size(), m.toString());
         assertTrue(m.get(0).contains("yaw is only for effects"), m.get(0));
     }
+
+    @Test
+    void raysIntensityRange() throws Exception {
+        String base = ",\"at\":[0,0,0],\"yaw\":0,\"spread\":[2,5,12]";
+        assertEquals(List.of(), validate(rays(base + ",\"intensity\":0.1")));
+        assertEquals(List.of(), validate(rays(base + ",\"intensity\":2")));
+        assertEquals(1, validate(rays(base + ",\"intensity\":0.05")).size());
+        assertEquals(1, validate(rays(base + ",\"intensity\":2.5")).size());
+    }
+
+    @Test
+    void intensityOnlyForLightRays() throws Exception {
+        List<String> m = validate("""
+                {"length":100,"events":[{"t":1,"kind":"effect","id":"lightning","at":[0,0,0],"intensity":1}]}""");
+        assertEquals(1, m.size(), m.toString());
+        assertTrue(m.get(0).contains("intensity is only for light_rays"), m.get(0));
+        m = validate("""
+                {"length":100,"events":[{"t":1,"kind":"particles","id":"minecraft:flame","at":[0,0,0],"intensity":1}]}""");
+        assertEquals(1, m.size(), m.toString());
+        assertTrue(m.get(0).contains("intensity is only for light_rays"), m.get(0));
+    }
 }

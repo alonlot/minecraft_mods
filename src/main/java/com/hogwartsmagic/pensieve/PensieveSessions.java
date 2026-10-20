@@ -308,9 +308,11 @@ public final class PensieveSessions {
             player.displayClientMessage(Component.translatable("message.hogwartsmagic.pensieve.no_scene"), !preview);
             return null;
         }
-        if (scene.json().length() > PensieveStartPacket.MAX_JSON) {
-            LOGGER.warn("Pensieve: scene '{}' is {} chars, over the {} the start packet carries", id,
-                    scene.json().length(), PensieveStartPacket.MAX_JSON);
+        if (!PensieveStartPacket.fits(scene.json())) {
+            LOGGER.warn("Pensieve: scene '{}' is {} chars / {} UTF-8 bytes, over the {} chars / {} bytes the start packet"
+                            + " carries (the custom payload limit is 1 MiB)", id, scene.json().length(),
+                    PensieveStartPacket.utf8Length(scene.json()), PensieveStartPacket.MAX_JSON,
+                    PensieveStartPacket.MAX_JSON_BYTES);
             player.displayClientMessage(Component.translatable("message.hogwartsmagic.pensieve.too_big"), !preview);
             return null;
         }
@@ -365,9 +367,11 @@ public final class PensieveSessions {
                     s.sceneId(), next);
             return;
         }
-        if (next.length() > PensieveStartPacket.MAX_ID || loaded.get().json().length() > PensieveStartPacket.MAX_JSON) {
-            LOGGER.warn("Pensieve: next scene '{}' of '{}' is too big for the start packet; the chain ends there",
-                    next, s.sceneId());
+        if (next.length() > PensieveStartPacket.MAX_ID || !PensieveStartPacket.fits(loaded.get().json())) {
+            LOGGER.warn("Pensieve: next scene '{}' of '{}' is too big for the start packet ({} chars / {} UTF-8 bytes,"
+                            + " limits {} / {}); the chain ends there", next, s.sceneId(), loaded.get().json().length(),
+                    PensieveStartPacket.utf8Length(loaded.get().json()), PensieveStartPacket.MAX_JSON,
+                    PensieveStartPacket.MAX_JSON_BYTES);
             return;
         }
         if (s.preview()) {

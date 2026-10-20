@@ -179,6 +179,9 @@ public final class SceneValidator {
         if (e.style() != null && !"enchanted_ceiling".equals(e.id())) {
             out.add(p + ".style: style is only for enchanted_ceiling");
         }
+        if (!Float.isNaN(e.intensity()) && !(("effect".equals(e.kind()) && "light_rays".equals(e.id())))) {
+            out.add(p + ".intensity: intensity is only for light_rays");
+        }
         if (e.id() == null) {
             out.add(p + ".id: missing required key for a " + e.kind() + " event");
             return;
@@ -261,6 +264,10 @@ public final class SceneValidator {
     private static void lightRays(List<String> out, SceneDef.EventDef e, String p) {
         if (e.at() == null) out.add(p + ": light_rays needs at");
         if (Float.isNaN(e.yaw()) || Float.isInfinite(e.yaw())) out.add(p + ": light_rays needs yaw");
+        if (!Float.isNaN(e.intensity()) && !(e.intensity() >= LightRays.MIN_INTENSITY && e.intensity() <= LightRays.MAX_INTENSITY)) {
+            out.add(p + ".intensity: " + e.intensity() + " is outside " + LightRays.MIN_INTENSITY + " to "
+                    + LightRays.MAX_INTENSITY);
+        }
         if (e.spread() == null) {
             out.add(p + ": light_rays needs spread [half-width, height, length]");
             return;

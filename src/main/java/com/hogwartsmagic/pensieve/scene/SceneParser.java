@@ -226,13 +226,13 @@ public final class SceneParser {
             checkKeys(o, path, "t", "kind", "id", "volume");
         } else {
             checkKeys(o, path, "t", "kind", "id", "at", "volume", "pitch", "count", "spread", "duration", "yaw",
-                    "style");
+                    "style", "intensity");
         }
         float[] at = floats(o, "at", path, 3, null);
         return new SceneDef.EventDef(reqTime(o, "t", path), reqStr(o, "kind", path), str(o, "id", path, null), at,
                 num(o, "volume", path, 1f), num(o, "pitch", path, 1f), integer(o, "count", path, -1),
                 floats(o, "spread", path, 3, null), Math.round(time(o, "duration", path, 0f)),
-                num(o, "yaw", path, Float.NaN), str(o, "style", path, null));
+                num(o, "yaw", path, Float.NaN), str(o, "style", path, null), num(o, "intensity", path, Float.NaN));
     }
 
     private static SceneDef.WordDef parseWord(JsonElement e, String path) throws SceneException {

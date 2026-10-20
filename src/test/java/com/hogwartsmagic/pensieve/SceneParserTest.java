@@ -214,4 +214,14 @@ class SceneParserTest {
         assertArrayEquals(new float[] {3, 2.5f, 3}, e.spread());
         assertTrue(Float.isNaN(s.events().get(1).yaw()));
     }
+
+    @Test
+    void intensityParsesOnEffectsAndDefaultsToNaN() throws Exception {
+        SceneDef s = SceneParser.parse("t", json("""
+                {"length":100,"events":[
+                  {"t":1,"kind":"effect","id":"light_rays","at":[0,0,0],"yaw":0,"spread":[2,5,12],"intensity":0.45},
+                  {"t":2,"kind":"effect","id":"light_rays","at":[0,0,0],"yaw":0,"spread":[2,5,12]}]}"""));
+        assertEquals(0.45f, s.events().get(0).intensity());
+        assertTrue(Float.isNaN(s.events().get(1).intensity()));
+    }
 }

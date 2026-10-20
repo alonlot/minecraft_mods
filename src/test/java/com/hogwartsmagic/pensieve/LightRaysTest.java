@@ -123,4 +123,16 @@ class LightRaysTest {
         assertTrue(y >= -1e-4f && y <= h + 1e-4f, "y " + y);
         assertTrue(z >= -1e-4f && z <= len + 1e-4f, "z " + z);
     }
+
+    @Test
+    void intensityScalesBrightnessLinearly() {
+        assertEquals(1f, LightRays.intensity(Float.NaN), 1e-6f);
+        assertEquals(0.45f, LightRays.intensity(0.45f), 1e-6f);
+        assertEquals(LightRays.MAX_INTENSITY, LightRays.intensity(9f), 1e-6f);
+        assertEquals(LightRays.MIN_INTENSITY, LightRays.intensity(0f), 1e-6f);
+        float base = 0.3f;
+        assertEquals(base, LightRays.scaled(base, 1f), 1e-6f);
+        assertEquals(2f * LightRays.scaled(base, 0.5f), LightRays.scaled(base, 1f), 1e-6f);
+        assertEquals(LightRays.scaled(base, 0.4f) + LightRays.scaled(base, 0.6f), LightRays.scaled(base, 1f), 1e-6f);
+    }
 }

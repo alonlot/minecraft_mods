@@ -8,6 +8,7 @@ import com.hogwartsmagic.entity.VoldemortSummoningEntity;
 import com.hogwartsmagic.pensieve.scene.Eyelids;
 import com.hogwartsmagic.pensieve.scene.FloatingCandles;
 import com.hogwartsmagic.pensieve.scene.LetterFlood;
+import com.hogwartsmagic.pensieve.scene.LightRays;
 import com.mojang.logging.LogUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.particle.Particle;
@@ -119,6 +120,12 @@ public final class EffectVisuals {
     /** As the 8-argument form, with the event's {@code style} (enchanted_ceiling only; null for the default). */
     public static void play(String effect, Vec3 at, int duration, int elapsed, int count, float[] spread, float yaw,
                             float t, String style) {
+        play(effect, at, duration, elapsed, count, spread, yaw, t, style, Float.NaN);
+    }
+
+    /** As the 9-argument form, with the event's {@code intensity} (light_rays only; NaN for the default 1). */
+    public static void play(String effect, Vec3 at, int duration, int elapsed, int count, float[] spread, float yaw,
+                            float t, String style, float intensity) {
         Minecraft mc = Minecraft.getInstance();
         if (!(mc.level instanceof ClientLevel level) || effect == null || at == null) return;
         if ("summoning_ritual".equals(effect)) {
@@ -188,7 +195,8 @@ public final class EffectVisuals {
             }
             // Like the ceiling: drawn from the scene clock (LightRaysRenderer), stays until clear() ends the scene.
             RUNNING.add(new Rays(new LightRaysRenderer.Beam(at, yaw, Mth.clamp(spread[0], 0.5f, 12f),
-                    Mth.clamp(spread[1], 1f, 24f), Mth.clamp(spread[2], 1f, 60f), duration, t, floodSeed(at, t))));
+                    Mth.clamp(spread[1], 1f, 24f), Mth.clamp(spread[2], 1f, 60f), duration, t, floodSeed(at, t),
+                    LightRays.intensity(intensity))));
         } else if ("floating_candles".equals(effect)) {
             if (spread == null || spread.length < 3) {
                 LOGGER.warn("Pensieve: floating_candles has no spread");

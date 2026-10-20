@@ -110,7 +110,7 @@ public final class MemoryEvents {
                     || "enchanted_ceiling".equals(e.id()) || "light_rays".equals(e.id())
                     || "floating_candles".equals(e.id())) {
                 EffectVisuals.play(e.id(), position(e), e.duration(), late ? (int) age : 0, e.count(), e.spread(),
-                        e.yaw(), e.t(), e.style());
+                        e.yaw(), e.t(), e.style(), e.intensity());
             }
             return;
         }

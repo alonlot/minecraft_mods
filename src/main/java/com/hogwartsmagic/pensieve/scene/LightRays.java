@@ -22,7 +22,21 @@ public final class LightRays {
     /** Ticks for the light to come up from nothing, so the first frame never pops. */
     private static final float APPEAR_TICKS = 6f;
 
+    /** The event's {@code intensity} range: a multiplier on all of the light's brightness (default 1). */
+    public static final float MIN_INTENSITY = 0.1f, MAX_INTENSITY = 2f;
+
     private LightRays() {
+    }
+
+    /** The brightness multiplier for an event's {@code intensity}: 1 when absent (NaN), else clamped to the range. */
+    public static float intensity(float eventIntensity) {
+        if (Float.isNaN(eventIntensity)) return 1f;
+        return Math.max(MIN_INTENSITY, Math.min(MAX_INTENSITY, eventIntensity));
+    }
+
+    /** A brightness (an alpha) scaled by the intensity: linear, so doubling the intensity doubles the light. */
+    public static float scaled(float brightness, float intensity) {
+        return brightness * intensity;
     }
 
     /**

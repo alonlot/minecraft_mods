@@ -249,11 +249,38 @@ def main():
           lip=(150, 120, 120))
     names.append("voldemort")
 
+    # Second looks for the house tables, so a full hall does not read as clones.
+    build("student_gryffindor_b", 13, skin=(210, 160, 128), hair=(30, 22, 18), robe=black, trim=(160, 28, 36),
+          tie=[(160, 28, 36), (212, 168, 48)], pupil=(60, 50, 40), lip=(170, 100, 90))
+    names.append("student_gryffindor_b")
+    build("student_slytherin_b", 14, skin=(236, 206, 184), hair=(40, 30, 26), robe=black, trim=(30, 110, 64),
+          tie=[(30, 110, 64), (190, 192, 198)], pupil=(70, 80, 60), lip=(176, 112, 108))
+    names.append("student_slytherin_b")
+    build("student_hufflepuff_b", 15, skin=(228, 184, 150), hair=(150, 96, 44), robe=black, trim=(236, 185, 30),
+          tie=[(236, 185, 30), (24, 24, 24)], pupil=(60, 90, 50), lip=(186, 112, 100))
+    names.append("student_hufflepuff_b")
+    build("student_ravenclaw_b", 16, skin=(196, 150, 116), hair=(20, 16, 14), robe=black, trim=(30, 60, 150),
+          tie=[(30, 60, 150), (150, 110, 60)], pupil=(50, 40, 30), lip=(160, 96, 86))
+    names.append("student_ravenclaw_b")
+    # A first-year before the Sorting: plain black robe, no house colours yet.
+    build("first_year", 17, skin=(234, 196, 168), hair=(120, 76, 40), robe=black, trim=(40, 40, 46),
+          tie=[(90, 90, 96), (60, 60, 66)], pupil=(70, 90, 110), lip=(188, 112, 104))
+    names.append("first_year")
+
     # Downloaded, not generated: NovaSkin gallery skins the user picked, kept as-is (credit their posts).
     #   sirius   https://minecraft.novaskin.me/post/7016934077/sirius-black
     #   hermione https://minecraft.novaskin.me/post/1834684774/hermione-harry-potter
     #   harry    https://minecraft.novaskin.me/post/1391313165/skin-harry-potter
-    for name in ("sirius", "hermione", "harry"):
+    #   mcgonagall          https://minecraft.novaskin.me/post/1044483149
+    #   dumbledore          https://minecraft.novaskin.me/post/3528453724
+    #   hagrid              https://minecraft.novaskin.me/post/1143443052
+    #   snape               https://minecraft.novaskin.me/post/3867473134
+    #   quirrell            https://minecraft.novaskin.me/post/5066624078
+    #   ron                 https://minecraft.novaskin.me/post/1485033249
+    #   student_hufflepuff  https://minecraft.novaskin.me/post/4747441164779520
+    #   student_ravenclaw   https://minecraft.novaskin.me/post/4832858287374336
+    for name in ("sirius", "hermione", "harry", "mcgonagall", "dumbledore", "hagrid", "snape", "quirrell", "ron",
+                 "student_hufflepuff", "student_ravenclaw"):
         if not os.path.exists(os.path.join(OUT_DIR, name + ".png")):
             raise SystemExit("missing downloaded skin " + name + ".png")
         names.append(name)

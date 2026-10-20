@@ -336,3 +336,31 @@ Keep every Task 4 anchor valid, or update them and report the diffs. Keep `physi
   - **Rendering:** client-drawn in one batched pass, no entities. Light comes from scene `minecraft:light` blocks.
   - **Tests:** pure positions are deterministic and inside the box, and the bob is bounded.
   - Replace the hall's block candles above head height with this effect in Task 6, or keep both.
+
+## Addendum 3 (2026-10-20, user feedback round 1)
+
+The user's notes on the scene:
+1. **Mind intro.** On putting on the hat, the player first sees everything black, like the Stage 1 stub, with the boy sitting on a chair "inside your mind". Only then does the Great Hall begin.
+   - The scene `sorting` becomes this intro, about 12 s:
+     - a black void, with the boy seated (viewer skin, 0.75) on a lone chair in a soft pool of light;
+     - silver memory wisps drifting;
+     - the eyes open from black;
+     - a slow orbiting camera;
+     - the hat's `hall_hat_open` line.
+   - It then chains (`next`) into `sorting_hall`, the Great Hall scene renamed. The hat line moves out of the hall scene.
+2. **Claps after each house is announced.** A table starts cheering only once the hat's house shout has finished, not over it or before it.
+3. **Ron must not walk through other students.** All walking paths are routed through free floor. The generator asserts that no moving actor comes within 0.6 blocks (horizontal) of any other actor at any sampled tick, sampled every 2 ticks, and that no walking actor passes through a table or bench cell.
+4. **A unique skin for every student.**
+   - **Older students:** about 30 per house, `student_<house>_<nn>`, procedurally generated with varied skin tone, hair colour, hair style (short, long, ponytail, curly), eye colour, and boys and girls, with the house trim and tie.
+   - **First-years:** 10, `first_year_<nn>`, with plain robes.
+   - The existing downloaded and generated house skins stay as extras.
+5. **Everyone moves freely, not in unison.**
+   - **Idle life:** each actor gets its own randomised life: head turns, glances at neighbours, small body shifts, talking gestures (an arm lifting), leaning on the table.
+   - **Timing:** all of it is desynchronised, with per-actor delays drawn over wide windows.
+   - **Group reactions:** turning to the doors, to the stool and to the name are staggered over 1.5–3 s with individual variance, and some students react late or not at all.
+6. **The door light is too bright.**
+   - `light_rays` gains an `intensity` key (0.1–2, default 1). The scene uses about 0.45.
+   - The scene also uses fewer, weaker light-block events at the doorway.
+7. **It all feels a bit too fast.**
+   - Slow the hall scene to about 100 s: longer holds (shots 4–7 s), slower camera moves, more room between beats and lines, and the doors' swing about 1.4× longer.
+   - Raise `PensieveStartPacket.MAX_JSON` as engine work 10 allows (to 900,000, within the 1 MiB custom-payload limit, checked on both encode and decode) so the richer crowd fits.

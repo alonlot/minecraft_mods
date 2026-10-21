@@ -92,6 +92,8 @@ public final class PensieveClientState {
      * with vanilla's 1 Hz time sync. Advanced once per client tick in {@link #onClockTick}, before any other tick work.
      */
     private static final SmoothedSceneClock CLOCK = new SmoothedSceneClock();
+    /** A time sync arrived since the last clock tick ({@link #onTimeSync}). */
+    private static boolean timeSynced;
     /** The raw scene time at the last clock tick, to spot the server's corrections for the debug log. */
     private static long clockLastRaw = Long.MIN_VALUE;
     /** Server corrections seen since the last debug line, and the client tick of that line (rate limit). */
@@ -469,6 +471,14 @@ public final class PensieveClientState {
     }
 
     /**
+     * The server's time sync arrived (vanilla's {@code handleSetTime}, on the main thread, after the level took the
+     * time). The clock counts it as a sample at the end of this frame's next tick, even when it moved nothing.
+     */
+    public static void onTimeSync() {
+        timeSynced = true;
+    }
+
+    /**
      * Advance the scene clock at the end of each client tick, ahead of every other END handler (the actors, events
      * and audio read it at partial 0 in theirs). The level's game time has already moved on for this tick.
      */
@@ -476,9 +486,11 @@ public final class PensieveClientState {
     public static void onClockTick(TickEvent.ClientTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
         Minecraft mc = Minecraft.getInstance();
+        boolean synced = timeSynced;
+        timeSynced = false;
         if (startGameTime < 0 || mc.level == null || mc.isPaused()) return;
         long raw = Math.max(0, mc.level.getGameTime() - startGameTime);
-        boolean snapped = CLOCK.tick(raw);
+        boolean snapped = CLOCK.tick(raw, synced);
         long step = clockLastRaw == Long.MIN_VALUE ? 1 : raw - clockLastRaw;
         clockLastRaw = raw;
         if (!LOGGER.isDebugEnabled()) {

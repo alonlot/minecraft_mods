@@ -33,7 +33,8 @@
     "client.ModelPartAccessor",
     "client.ActorPoseMixin",
     "client.LevelRendererAccessor",
-    "client.PensieveOcclusionGraphMixin"
+    "client.PensieveOcclusionGraphMixin",
+    "client.PensieveTimeSyncMixin"
   ],
   "injectors": {
     "defaultRequire": 1

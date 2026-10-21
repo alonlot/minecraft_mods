@@ -42,8 +42,10 @@ class SeaMeshTest {
         assertEquals(120.0 * 120.0, area, 1e-3, "the quads tile the area exactly once");
     }
 
-    /** Four boats on the 120 x 120 sea, sea-local {x, z, radius} (radius: hull half-length 2 plus 3). */
-    private static final double[] BOATS = {40, 30, 5, -45, 10, 5, 10, -50, 5, -20, 52, 5};
+    /** The renderer's exact-water margin past the hull (RoughSeaRenderer.BOAT_MARGIN). */
+    private static final double RADIUS_MARGIN = 2.0;
+    /** Four boats on the 120 x 120 sea, sea-local {x, z, radius} (radius: hull half-length 2 plus the margin). */
+    private static final double[] BOATS = {40, 30, 4, -45, 10, 4, 10, -50, 4, -20, 52, 4};
 
     /** A 200 x 200 sea, so a boat can sit 100 blocks from the camera. */
     private static final RoughSea.Sea BIG = new RoughSea.Sea(0, 0, 0, 100, 100, 1.0, 0f, 0, 0xB0A7L);
@@ -75,7 +77,7 @@ class SeaMeshTest {
             float t = r.nextFloat() * 2000f;
             double bx = 5 + r.nextDouble() * 10, bz = r.nextDouble() * 40 - 20;
             float yaw = r.nextFloat() * 360f;
-            double[] boats = {bx, bz, Rowboat.HALF_LENGTH + 3};
+            double[] boats = {bx, bz, Rowboat.HALF_LENGTH + RADIUS_MARGIN};
             m.build(BIG, t, -95, 6, 0, 0f, null, patch ? boats : null, patch ? 1 : 0);
             Rowboat.Pose pose = Rowboat.ride(BIG, bx, 0, bz, yaw, 1f, t);
             for (double[] p : Rowboat.WATERLINE) {
@@ -96,6 +98,64 @@ class SeaMeshTest {
         assertTrue(without > 0.1, "the test would not catch a coarse ring (" + without + ")");
     }
 
+    /** A sea away from the scene origin: boats are bound by their scene position, the patch built in sea-local ones. */
+    @Test
+    void boatsOnAnOffsetSeaArePatched() {
+        RoughSea.Sea off = new RoughSea.Sea(37, 0, -23, 100, 100, 1.0, 0f, 0, 0xC0FFEEL);
+        double[] boats = new double[SeaMesh.MAX_BOATS * 3];
+        assertEquals(1, SeaMesh.addBoat(off, 47, -18, 4, boats, 0));          // over the sea: sea-local (10, 5)
+        assertEquals(10.0, boats[0], 1e-12);
+        assertEquals(5.0, boats[1], 1e-12);
+        assertEquals(0, SeaMesh.addBoat(off, 147, -23, 4, boats, 0));          // 110 east of the centre: off the sea
+        // The far-boat check through the whole chain: scene position, binding, patch, drawn water under the hull.
+        SeaMesh m = new SeaMesh();
+        java.util.Random r = new java.util.Random(5);
+        double worst = 0;
+        for (int i = 0; i < 25; i++) {
+            float t = r.nextFloat() * 2000f;
+            double sx = 37 + 5 + r.nextDouble() * 10, sz = -23 + r.nextDouble() * 40 - 20;
+            int n = SeaMesh.addBoat(off, sx, sz, Rowboat.HALF_LENGTH + RADIUS_MARGIN, boats, 0);
+            assertEquals(1, n);
+            m.build(off, t, -95, 6, 0, 0f, null, boats, n);
+            Rowboat.Pose pose = Rowboat.ride(off, sx, 0, sz, r.nextFloat() * 360f, 1f, t);
+            for (double[] p : Rowboat.WATERLINE) {
+                double[] w = Rowboat.toWorld(pose, p);
+                double exact = off.surface(w[0], w[2], t) - off.cy();
+                worst = Math.max(worst, Math.abs(drawn(m, w[0] - off.cx(), w[2] - off.cz()) - exact));
+            }
+        }
+        assertTrue(worst <= 0.05, "offset sea: drawn water under the hull is off by " + worst);
+    }
+
+    /**
+     * Moving shots: the patch fades into the coarse surface, so beyond a boat's radius plus a cell nothing differs from
+     * the coarse water, and as the boat moves a little the drawn water near it changes only a little (no cell pops).
+     */
+    @Test
+    void thePatchBlendsIntoTheRingsWithoutPopping() {
+        SeaMesh with = new SeaMesh(), without = new SeaMesh(), moved = new SeaMesh();
+        java.util.Random r = new java.util.Random(9);
+        double far = 0, pop = 0;
+        for (int i = 0; i < 12; i++) {
+            float t = r.nextFloat() * 1500f;
+            double bx = 5 + r.nextDouble() * 10, bz = r.nextDouble() * 30 - 15, rad = Rowboat.HALF_LENGTH + RADIUS_MARGIN;
+            with.build(BIG, t, -95, 6, 0, 0f, null, new double[]{bx, bz, rad}, 1);
+            without.build(BIG, t, -95, 6, 0, 0f, null);
+            moved.build(BIG, t, -95, 6, 0, 0f, null, new double[]{bx + 0.37, bz - 0.21, rad}, 1);
+            for (int k = 0; k < 300; k++) {
+                // Within the outer ring's reach (the camera at x -95 draws water up to x 32).
+                double px = Math.min(30, bx + (r.nextDouble() * 2 - 1) * 30), pz = bz + (r.nextDouble() * 2 - 1) * 30;
+                double d = Math.max(Math.abs(px - bx), Math.abs(pz - bz));
+                double h = drawn(with, px, pz);
+                if (d >= rad + 8.5) far = Math.max(far, Math.abs(h - drawn(without, px, pz)));
+                pop = Math.max(pop, Math.abs(h - drawn(moved, px, pz)));
+            }
+        }
+        System.out.printf("Patch blend: %.6f off the coarse water beyond radius + a cell, %.4f change for a 0.43-block move%n", far, pop);
+        assertTrue(far < 1e-4, "the patch changes the water beyond its blend by " + far);
+        assertTrue(pop < 0.06, "a small boat move changes the drawn water by " + pop);
+    }
+
     /**
      * Round a boat patch nothing is cracked: every vertex that lies inside another quad's edge (a T-junction, at ring
      * seams and patch borders) has exactly that edge's straight-line height.
@@ -106,7 +166,7 @@ class SeaMeshTest {
         int checked = 0;
         for (float t = 0; t < 600; t += 97) {
             double bx = 12 + t * 0.01, bz = -7;
-            m.build(BIG, t, -95, 6, 0, 0f, null, new double[]{bx, bz, 5}, 1);
+            m.build(BIG, t, -95, 6, 0, 0f, null, new double[]{bx, bz, 4}, 1);
             assertTrue(m.patchQuadCount > 0, "no patch built");
             java.util.List<int[]> edges = new java.util.ArrayList<>();
             java.util.Set<Integer> verts = new java.util.HashSet<>();

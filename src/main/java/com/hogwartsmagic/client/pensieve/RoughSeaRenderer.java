@@ -54,8 +54,11 @@ public final class RoughSeaRenderer {
     private static final int OVERLAY = OverlayTexture.NO_OVERLAY;
     /** At most this many new block columns of the shore map are read from the set per frame. */
     private static final int SHORE_COLUMNS_PER_FRAME = 400;
-    /** Exact water reaches this far past a rowboat's bow and stern (and its sides). */
-    static final double BOAT_MARGIN = 3.0;
+    /**
+     * Exact water reaches this far past a rowboat's bow and stern (and its sides); the patch then blends into the rings
+     * over one more coarse cell. 2 keeps one boat's patch on the 8-block ring within 4 x 4 cells (1024 quads).
+     */
+    static final double BOAT_MARGIN = 2.0;
 
     private RoughSeaRenderer() {
     }
@@ -159,15 +162,13 @@ public final class RoughSeaRenderer {
             this.level = level;
             this.shoreBudget = SHORE_COLUMNS_PER_FRAME;
             int n = 0;
-            for (int i = 0; i < rowboats.size() && n < SeaMesh.MAX_BOATS; i++) {
+            for (int i = 0; i < rowboats.size(); i++) {
                 ActorRuntime b = rowboats.get(i);
-                double bx = net.minecraft.util.Mth.lerp(partial, b.entity.xo, b.entity.getX()) - ox;
-                double bz = net.minecraft.util.Mth.lerp(partial, b.entity.zo, b.entity.getZ()) - oz;
-                if (!sea.covers(bx, bz)) continue;
-                boats[n * 3] = bx;
-                boats[n * 3 + 1] = bz;
-                boats[n * 3 + 2] = com.hogwartsmagic.pensieve.scene.Rowboat.HALF_LENGTH * b.def.scale() + BOAT_MARGIN;
-                n++;
+                // Scene-relative: the world position minus the scene origin (ox is origin + the sea's centre).
+                double sx = net.minecraft.util.Mth.lerp(partial, b.entity.xo, b.entity.getX()) - ox + sea.cx();
+                double sz = net.minecraft.util.Mth.lerp(partial, b.entity.zo, b.entity.getZ()) - oz + sea.cz();
+                n = SeaMesh.addBoat(sea, sx, sz,
+                        com.hogwartsmagic.pensieve.scene.Rowboat.HALF_LENGTH * b.def.scale() + BOAT_MARGIN, boats, n);
             }
             mesh.build(sea, now, cam.x - ox, cam.y - oy, cam.z - oz, flash, this, boats, n);
         }

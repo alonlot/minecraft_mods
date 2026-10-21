@@ -387,17 +387,17 @@ public class MemoryRowboatRenderer extends EntityRenderer<MemoryRowboatEntity> {
     }
 
     /**
-     * One material: its quads are recorded (position, tint, UV, normal per vertex) and only written to a consumer in
-     * {@link #flush}, which is the one place this renderer takes a buffer. UVs are in blocks (the plank textures
-     * repeat once per block).
-     */
-    /**
      * One reusable vertex scratch array per material (render thread only; each Mesh records then flushes before the
      * next boat is drawn), so drawing a boat allocates no vertex arrays.
      */
     private static final float[][] SCRATCH = {new float[11 * 2048], new float[11 * 2048], new float[11 * 1024],
             new float[11 * 256], new float[11 * 256]};
 
+    /**
+     * One material: its quads are recorded (position, tint, UV, normal per vertex) and only written to a consumer in
+     * {@link #flush}, which is the one place this renderer takes a buffer. UVs are in blocks (the plank textures
+     * repeat once per block).
+     */
     private static final class Mesh {
         final RenderType type;
         final Matrix4f m;

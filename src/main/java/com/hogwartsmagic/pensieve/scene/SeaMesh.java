@@ -14,11 +14,15 @@ package com.hogwartsmagic.pensieve.scene;
  * {@link #FOAM_QUAD_CAP} quads on the three finest levels, nearest first: under 20,000 vertices for any sea.
  *
  * <p><b>Boat patches.</b> A rowing boat rides the exact surface, so wherever a boat sits on a ring coarser than 1 block
- * (level 2 and out, 8 blocks and more from the camera), the coarse cells within {@code radius} of it (the hull plus a
- * margin, given by the caller) are replaced by a 1-block grid of the exact surface. Where a patched cell meets a cell
- * that is not patched (or another ring), its edge vertices take that coarse edge's straight-line height, as the rings'
- * rims do, so no crack opens; between two patched cells the heights are exact on both sides. At most
- * {@link #PATCH_QUAD_CAP} patch quads a frame, for all boats together (the vertex bound grows by that much only).
+ * (level 2 and out, 8 blocks and more from the camera), the coarse cells within {@code radius} plus one cell of it
+ * (the radius being the hull plus a margin, given by the caller) are replaced by a 1-block grid. Each patch vertex blends
+ * from the coarse cell's own surface (its two triangles, height and colour) to the exact one by a smooth weight
+ * ({@link #weight}): 1 within {@code radius} of a boat (Chebyshev distance), 0 at {@code radius} plus one cell, and also
+ * eased to 0 toward the finer ring's hole and the ring's outer rim. So the patch border is exactly the coarse surface (no
+ * crack, nothing pops as cells join or leave the patch while the boat moves), and the hull sits on the exact water. A
+ * boat's cells on a level are patched all or none (when the budget, {@link #PATCH_QUAD_CAP} quads a frame for all boats
+ * together, runs short, that level stays coarse round that boat). Patch quads are listed before the rings', so the foam
+ * cap never starves them.
  *
  * <p><b>Allocation.</b> Every buffer is allocated once, in the constructor, and reused by every {@link #build}: a build
  * allocates nothing.
@@ -68,6 +72,9 @@ public final class SeaMesh {
     /** Per level, the cells a boat patch replaces (cell (i, j) of the level at j * CELLS + i). */
     private final boolean[][] patched = new boolean[LEVELS][CELLS * CELLS];
     private int patchVerts, patchBudget;
+    /** The boats of this build (sea-local x, z, radius) for the blend weight. */
+    private double[] boats;
+    private int boatCount;
 
     // Per level: grid index of the first vertex, the number of cells each way, and the unclipped region (for holes).
     private final int[] i0 = new int[LEVELS], j0 = new int[LEVELS], nx = new int[LEVELS], nz = new int[LEVELS];
@@ -108,6 +115,19 @@ public final class SeaMesh {
     /** The vertex index of grid point (i, j) of level L (i, j counted from that level's first vertex). */
     public int index(int level, int i, int j) {
         return level * POINTS + j * (nx[level] + 1) + i;
+    }
+
+    /**
+     * Add a boat at the scene-relative (sceneX, sceneZ) to {@code boats} (sea-local {x, z, radius} triples, as
+     * {@link #build} takes them) when it is over this sea; returns the new count. Use this rather than converting by
+     * hand: {@link RoughSea.Sea#covers} takes scene-relative coordinates, the mesh sea-local ones.
+     */
+    public static int addBoat(RoughSea.Sea sea, double sceneX, double sceneZ, double radius, double[] boats, int count) {
+        if (count >= MAX_BOATS || !sea.covers(sceneX, sceneZ)) return count;
+        boats[count * 3] = sceneX - sea.cx();
+        boats[count * 3 + 1] = sceneZ - sea.cz();
+        boats[count * 3 + 2] = radius;
+        return count + 1;
     }
 
     public int vertexCount() {
@@ -167,9 +187,11 @@ public final class SeaMesh {
         }
         for (int L = 0; L < LEVELS - 1; L++) stitch(L);
         int n = boats == null ? 0 : Math.min(boatCount, MAX_BOATS);
+        this.boats = boats;
+        this.boatCount = n;
         for (int k = 0; k < n; k++) mark(boats[k * 3], boats[k * 3 + 1], boats[k * 3 + 2]);
-        for (int L = 0; L < LEVELS; L++) cells(L);
         for (int L = PATCH_MIN_LEVEL; L < LEVELS; L++) patches(L);
+        for (int L = 0; L < LEVELS; L++) cells(L);
     }
 
     /** Whether level L draws its cell (gi, gj) (global grid indices): inside its clipped grid and not the finer hole. */
@@ -180,32 +202,63 @@ public final class SeaMesh {
         return !(gi >= hi0 && gi < hi0 + CELLS / 2 && gj >= hj0 && gj < hj0 + CELLS / 2);
     }
 
-    private boolean isPatched(int L, int gi, int gj) {
-        return draws(L, gi, gj) && patched[L][(gj - j0[L]) * CELLS + (gi - i0[L])];
-    }
-
-    /** Mark the coarse cells within {@code radius} of the boat at sea-local (bx, bz) on every level that is coarse there. */
+    /**
+     * Mark the coarse cells within {@code radius} plus one cell of the boat at sea-local (bx, bz), on every level that is
+     * coarse there: all of them, or none when the budget is short.
+     */
     private void mark(double bx, double bz, double radius) {
         for (int L = PATCH_MIN_LEVEL; L < LEVELS; L++) {
-            double s = spacing(L);
+            double s = spacing(L), reach = radius + s;
             int per = (int) Math.round(s / PATCH_SPACING);
-            int ga = (int) Math.floor((bx - radius) / s), gb = (int) Math.floor((bx + radius) / s);
-            int ha = (int) Math.floor((bz - radius) / s), hb = (int) Math.floor((bz + radius) / s);
+            int ga = (int) Math.floor((bx - reach) / s), gb = (int) Math.floor((bx + reach) / s);
+            int ha = (int) Math.floor((bz - reach) / s), hb = (int) Math.floor((bz + reach) / s);
+            int need = 0;
             for (int gj = ha; gj <= hb; gj++) {
                 for (int gi = ga; gi <= gb; gi++) {
-                    if (!draws(L, gi, gj)) continue;
-                    int idx = (gj - j0[L]) * CELLS + (gi - i0[L]);
-                    if (patched[L][idx] || patchBudget < per * per || patchVerts + (per + 1) * (per + 1) > PATCH_VERTS) continue;
-                    patched[L][idx] = true;
-                    patchBudget -= per * per;
-                    patchVerts += (per + 1) * (per + 1);
+                    if (draws(L, gi, gj) && !patched[L][(gj - j0[L]) * CELLS + (gi - i0[L])]) need++;
                 }
             }
+            if (need == 0 || patchBudget < need * per * per || patchVerts + need * (per + 1) * (per + 1) > PATCH_VERTS) continue;
+            for (int gj = ha; gj <= hb; gj++) {
+                for (int gi = ga; gi <= gb; gi++) {
+                    if (draws(L, gi, gj)) patched[L][(gj - j0[L]) * CELLS + (gi - i0[L])] = true;
+                }
+            }
+            patchBudget -= need * per * per;
+            patchVerts += need * (per + 1) * (per + 1);
         }
         // patchVerts is only the reservation here; patches() hands the vertices out again from 0.
     }
 
-    /** The 1-block grids replacing level L's patched cells. */
+    /**
+     * How exact the water is at sea-local (px, pz) on patch level L, 0 (the coarse surface) to 1 (exact): smoothly 1
+     * within a boat's radius, 0 from one cell beyond it, and eased to 0 over one cell toward the finer ring's hole and
+     * toward this ring's outer rim (both stitched to the coarse surface). A function of the point and level only, so
+     * two patch cells sharing an edge agree on it.
+     */
+    double weight(int L, double px, double pz) {
+        double s = spacing(L);
+        double w = 0;
+        for (int k = 0; k < boatCount; k++) {
+            double d = Math.max(Math.abs(px - boats[k * 3]), Math.abs(pz - boats[k * 3 + 1]));
+            w = Math.max(w, smooth((boats[k * 3 + 2] + s - d) / s));
+        }
+        if (w <= 0) return 0;
+        double hs = spacing(L - 1);
+        double hx0 = ri0[L - 1] * hs, hx1 = (ri0[L - 1] + CELLS) * hs, hz0 = rj0[L - 1] * hs, hz1 = (rj0[L - 1] + CELLS) * hs;
+        double outsideHole = Math.max(Math.max(hx0 - px, px - hx1), Math.max(hz0 - pz, pz - hz1));
+        double ox0 = ri0[L] * s, ox1 = (ri0[L] + CELLS) * s, oz0 = rj0[L] * s, oz1 = (rj0[L] + CELLS) * s;
+        double insideRim = Math.min(Math.min(px - ox0, ox1 - px), Math.min(pz - oz0, oz1 - pz));
+        return w * smooth(outsideHole / s) * smooth(insideRim / s);
+    }
+
+    private static double smooth(double u) {
+        if (u <= 0) return 0;
+        if (u >= 1) return 1;
+        return u * u * (3 - 2 * u);
+    }
+
+    /** The 1-block grids replacing level L's patched cells, blended from the coarse cell's surface to the exact one. */
     private void patches(int L) {
         if (L == PATCH_MIN_LEVEL) patchVerts = 0;
         double s = spacing(L), hx = sea.hx(), hz = sea.hz();
@@ -214,42 +267,42 @@ public final class SeaMesh {
             for (int ci = 0; ci < nx[L]; ci++) {
                 if (!patched[L][cj * CELLS + ci]) continue;
                 int gi = i0[L] + ci, gj = j0[L] + cj;
-                boolean west = isPatched(L, gi - 1, gj), east = isPatched(L, gi + 1, gj);
-                boolean south = isPatched(L, gi, gj - 1), north = isPatched(L, gi, gj + 1);
-                float c00 = y[index(L, ci, cj)], c10 = y[index(L, ci + 1, cj)];
-                float c01 = y[index(L, ci, cj + 1)], c11 = y[index(L, ci + 1, cj + 1)];
+                int k00 = index(L, ci, cj), k10 = index(L, ci + 1, cj), k01 = index(L, ci, cj + 1), k11 = index(L, ci + 1, cj + 1);
                 int base = LEVELS * POINTS + patchVerts;
-                for (int b = 0; b <= per; b++) {
+                for (int bv = 0; bv <= per; bv++) {
                     for (int a = 0; a <= per; a++) {
-                        int k = base + b * (per + 1) + a;
+                        int k = base + bv * (per + 1) + a;
                         double px = Math.max(-hx, Math.min(hx, (gi + a / (double) per) * s));
-                        double pz = Math.max(-hz, Math.min(hz, (gj + b / (double) per) * s));
+                        double pz = Math.max(-hz, Math.min(hz, (gj + bv / (double) per) * s));
                         vertex(k, px, pz, null, false);
-                        float fa = a / (float) per, fb = b / (float) per;
-                        boolean edgeA = a == 0 || a == per, edgeB = b == 0 || b == per;
-                        if (edgeA && edgeB) {
-                            y[k] = a == 0 ? (b == 0 ? c00 : c01) : (b == 0 ? c10 : c11);
-                        } else if (b == 0 && !south) {
-                            y[k] = c00 + (c10 - c00) * fa;
-                        } else if (b == per && !north) {
-                            y[k] = c01 + (c11 - c01) * fa;
-                        } else if (a == 0 && !west) {
-                            y[k] = c00 + (c01 - c00) * fb;
-                        } else if (a == per && !east) {
-                            y[k] = c10 + (c11 - c10) * fb;
-                        }
+                        float w = (float) weight(L, px, pz);
+                        if (w >= 1f) continue;
+                        float fa = a / (float) per, fb = bv / (float) per;
+                        // The coarse quad as the GPU draws it: triangles (00, 10, 11) and (00, 11, 01).
+                        y[k] = mixCoarse(y, k00, k10, k01, k11, fa, fb, y[k], w);
+                        r[k] = mixCoarse(r, k00, k10, k01, k11, fa, fb, r[k], w);
+                        g[k] = mixCoarse(g, k00, k10, k01, k11, fa, fb, g[k], w);
+                        b[k] = mixCoarse(b, k00, k10, k01, k11, fa, fb, b[k], w);
                     }
                 }
-                for (int b = 0; b < per; b++) {
+                for (int bq = 0; bq < per; bq++) {
                     for (int a = 0; a < per; a++) {
-                        int v0 = base + b * (per + 1) + a;
-                        addQuad(v0, v0 + 1, v0 + per + 2, v0 + per + 1, L < FOAM_LEVELS);
+                        int v0 = base + bq * (per + 1) + a;
+                        addQuad(v0, v0 + 1, v0 + per + 2, v0 + per + 1, true);
                         patchQuadCount++;
                     }
                 }
                 patchVerts += (per + 1) * (per + 1);
             }
         }
+    }
+
+    /** The coarse two-triangle value of {@code v} at cell fraction (fa, fb), blended toward {@code exact} by w. */
+    private static float mixCoarse(float[] v, int k00, int k10, int k01, int k11, float fa, float fb, float exact, float w) {
+        float coarse = fa >= fb
+                ? v[k00] + fa * (v[k10] - v[k00]) + fb * (v[k11] - v[k10])
+                : v[k00] + fb * (v[k01] - v[k00]) + fa * (v[k11] - v[k01]);
+        return coarse + (exact - coarse) * w;
     }
 
     private void addQuad(int a, int bb, int c, int d, boolean foamOk) {

@@ -481,14 +481,21 @@ public final class PensieveClientState {
         boolean snapped = CLOCK.tick(raw);
         long step = clockLastRaw == Long.MIN_VALUE ? 1 : raw - clockLastRaw;
         clockLastRaw = raw;
+        if (!LOGGER.isDebugEnabled()) {
+            clockJumps = 0;
+            clockJumpSum = 0;
+            return;
+        }
         if (step != 1 || (snapped && step != 0)) {
             clockJumps++;
             clockJumpSum += step - 1;
         }
-        if ((clockJumps > 0 || snapped) && ticks - clockLogTick >= CLOCK_LOG_EVERY && LOGGER.isDebugEnabled()) {
-            LOGGER.debug("Pensieve clock: {} server correction(s), net {} tick(s), {}; error {} ticks, rate {}",
+        if ((clockJumps > 0 || snapped) && ticks - clockLogTick >= CLOCK_LOG_EVERY) {
+            LOGGER.debug("Pensieve clock: {} server correction(s), net {} tick(s), {}; error {} ticks, rate {}, "
+                            + "server rate {}",
                     clockJumps, clockJumpSum, snapped ? "snapped" : "eased",
-                    String.format("%.3f", CLOCK.lastError()), String.format("%.3f", CLOCK.rate()));
+                    String.format("%.3f", CLOCK.lastError()), String.format("%.3f", CLOCK.rate()),
+                    String.format("%.3f", CLOCK.serverRate()));
             clockJumps = 0;
             clockJumpSum = 0;
             clockLogTick = ticks;

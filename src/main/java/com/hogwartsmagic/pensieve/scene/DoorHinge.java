@@ -39,10 +39,45 @@ public final class DoorHinge {
 
     /** As {@link #corner(float, float, int)}, for the mirrored leaf when {@code mirrored}. */
     public static double[] corner(float yawDeg, float scale, int corner, boolean mirrored) {
+        return corner(yawDeg, 0f, scale, corner, mirrored);
+    }
+
+    /** As {@link #corner(float, float, int, boolean)}, with the leaf also tipped by {@code pitchDeg} (see below). */
+    public static double[] corner(float yawDeg, float pitchDeg, float scale, int corner, boolean mirrored) {
         double x = (corner & 2) != 0 ? WIDTH * scale : 0.0;
         double y = (corner & 1) != 0 ? HEIGHT * scale : 0.0;
         double z = (corner & 4) != 0 ? THICKNESS * scale : 0.0;
+        return toWorld(yawDeg, pitchDeg, mirrored, THICKNESS * scale, x, y, z);
+    }
+
+    /**
+     * Pitch: the leaf tips about its bottom edge on the front face (the line along local X at y 0, z
+     * {@link #THICKNESS}), applied in the leaf frame before the yaw. Pitch 0 is upright; -90 has the top fall
+     * toward local +Z until the leaf lies flat on its front face, a slab of its own thickness on the floor, the
+     * top edge a leaf-height from the bottom edge. Pitch 0 gives exactly the yaw-only leaf.
+     */
+    public static double[] toWorld(float yawDeg, float pitchDeg, boolean mirrored, double pivotZ,
+                                   double x, double y, double z) {
+        if (pitchDeg != 0f) {
+            double a = Math.toRadians(-pitchDeg);
+            double sa = Math.sin(a), ca = Math.cos(a);
+            double dz = z - pivotZ;
+            double ny = y * ca - dz * sa;
+            double nz = pivotZ + y * sa + dz * ca;
+            y = ny;
+            z = nz;
+        }
         return toWorld(yawDeg, mirrored, x, y, z);
+    }
+
+    /** A point at scale 1 in the leaf frame, tipped by pitch and turned by yaw, as a world offset from the hinge. */
+    public static double[] point(float yawDeg, float pitchDeg, boolean mirrored, double x, double y, double z) {
+        return toWorld(yawDeg, pitchDeg, mirrored, THICKNESS, x, y, z);
+    }
+
+    /** A direction (a normal) in the leaf frame, tipped by pitch and turned by yaw: no pivot, so no offset. */
+    public static double[] direction(float yawDeg, float pitchDeg, boolean mirrored, double x, double y, double z) {
+        return toWorld(yawDeg, pitchDeg, mirrored, 0.0, x, y, z);
     }
 
     /** A point or direction in the leaf frame (x along the leaf, z through it) as a world offset from the hinge. */
@@ -70,10 +105,15 @@ public final class DoorHinge {
 
     /** As {@link #faceNormal(float, float, int)}, from the winding {@link #winding} gives. */
     public static double[] faceNormal(float yawDeg, float scale, int face, boolean mirrored) {
+        return faceNormal(yawDeg, 0f, scale, face, mirrored);
+    }
+
+    /** As {@link #faceNormal(float, float, int, boolean)}, for the leaf tipped by {@code pitchDeg}. */
+    public static double[] faceNormal(float yawDeg, float pitchDeg, float scale, int face, boolean mirrored) {
         int[] q = winding(face, mirrored);
-        double[] a = corner(yawDeg, scale, q[0], mirrored);
-        double[] b = corner(yawDeg, scale, q[1], mirrored);
-        double[] d = corner(yawDeg, scale, q[3], mirrored);
+        double[] a = corner(yawDeg, pitchDeg, scale, q[0], mirrored);
+        double[] b = corner(yawDeg, pitchDeg, scale, q[1], mirrored);
+        double[] d = corner(yawDeg, pitchDeg, scale, q[3], mirrored);
         double[] u = {b[0] - a[0], b[1] - a[1], b[2] - a[2]};
         double[] v = {d[0] - a[0], d[1] - a[1], d[2] - a[2]};
         double nx = u[1] * v[2] - u[2] * v[1];

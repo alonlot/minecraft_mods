@@ -41,13 +41,13 @@ public class MemoryDoorEntity extends Entity {
     }
 
     /**
-     * Covers the leaf at any yaw: at scale 4 it reaches 4 blocks sideways (either way for the mirrored leaf) and
-     * 12 up from the hinge, far outside the 1 x 3 hit box. Pensieve draws actors through
+     * Covers the leaf at any yaw and pitch: at scale 4 it reaches 4 blocks sideways (either way for the mirrored
+     * leaf) and 12 up from the hinge, or, fallen flat, 12.8 along the floor, far outside the 1 x 3 hit box. Pensieve draws actors through
      * EntityRenderDispatcher.render, which does not frustum-cull, so this only matters to a path that does.
      */
     @Override
     public AABB getBoundingBoxForCulling() {
         double x = getX(), y = getY(), z = getZ();
-        return new AABB(x - 4.5, y - 0.5, z - 4.5, x + 4.5, y + 12.5, z + 4.5);
+        return new AABB(x - 13.5, y - 0.5, z - 13.5, x + 13.5, y + 12.5, z + 13.5);
     }
 }

@@ -25,7 +25,7 @@ import java.util.Iterator;
 import java.util.Map;
 
 /**
- * Draws one door leaf as a textured box that swings about its hinge edge (see {@link DoorHinge}), with an iron
+ * Draws one door leaf as a textured box that swings about its hinge edge and tips about its bottom edge (see {@link DoorHinge}), with an iron
  * ring hanging from a stud on each face that swings as a damped pendulum ({@link DoorRing}). The mirrored
  * variant ({@code memory_door_mirrored}) is the same box with local x negated and its faces re-wound outward.
  *
@@ -94,6 +94,8 @@ public class MemoryDoorRenderer extends EntityRenderer<MemoryDoorEntity> {
         // `yaw` is the body yaw interpolated by the caller (MemoryActors) between ticks, so the swing is smooth.
         Anim anim = step(entity);
         float renderYaw = yaw;
+        // Look pitch tips the leaf about its bottom edge: 0 upright, -90 fallen flat (see DoorHinge).
+        float pitch = Mth.lerp(partialTick, entity.xRotO, entity.getXRot());
         float ringDeg = 0f;
         if (anim != null) {
             renderYaw += DoorRing.shudder(anim.shudder);
@@ -106,10 +108,10 @@ public class MemoryDoorRenderer extends EntityRenderer<MemoryDoorEntity> {
         // The light the caller passes is sampled at the actor's eye height, which is inside the jamb or the wall
         // for a door, so it is ignored: take the brightest light around the leaf instead.
         float scale = pose.last().pose().getScale(new Vector3f()).x;
-        int lit = sampleLight(entity, renderYaw, scale == 0f ? 1f : scale, light);
+        int lit = sampleLight(entity, renderYaw, pitch, scale == 0f ? 1f : scale, light);
 
         double[][] c = new double[8][];
-        for (int i = 0; i < 8; i++) c[i] = DoorHinge.corner(renderYaw, 1f, i, mirrored);
+        for (int i = 0; i < 8; i++) c[i] = DoorHinge.corner(renderYaw, pitch, 1f, i, mirrored);
 
         VertexConsumer vc = buffers.getBuffer(RenderType.entityCutout(TEXTURE));
         PoseStack.Pose p = pose.last();
@@ -118,7 +120,7 @@ public class MemoryDoorRenderer extends EntityRenderer<MemoryDoorEntity> {
         float[][] uvIndex = {{0, 1}, {1, 1}, {1, 0}, {0, 0}};
         for (int f = 0; f < DoorHinge.FACES.length; f++) {
             int[] q = DoorHinge.winding(f, mirrored);
-            double[] n = DoorHinge.faceNormal(renderYaw, 1f, f, mirrored);
+            double[] n = DoorHinge.faceNormal(renderYaw, pitch, 1f, f, mirrored);
             float[] r = RECTS[f];
             for (int i = 0; i < 4; i++) {
                 int orig = mirrored ? (4 - i) % 4 : i;
@@ -134,8 +136,8 @@ public class MemoryDoorRenderer extends EntityRenderer<MemoryDoorEntity> {
             boolean front = side == 0;
             // Out from this face: +Z on the front, -Z on the back. The door blocks a ring from swinging into it.
             float out = Mth.clamp(front ? swingZ : -swingZ, 0f, DoorRing.MAX_DEG);
-            stud(iron, m, p, renderYaw, front, lit);
-            ring(iron, m, p, renderYaw, front, out, lit);
+            stud(iron, m, p, renderYaw, pitch, front, lit);
+            ring(iron, m, p, renderYaw, pitch, front, out, lit);
         }
         super.render(entity, yaw, partialTick, pose, buffers, light);
     }
@@ -181,10 +183,10 @@ public class MemoryDoorRenderer extends EntityRenderer<MemoryDoorEntity> {
      * a leaf-width and a leaf-width along the leaf, each at 1/3 of the leaf height, 2/3 and near the top. Block
      * and sky light are maximised separately.
      */
-    private int sampleLight(MemoryDoorEntity entity, float yaw, float scale, int fallback) {
+    private int sampleLight(MemoryDoorEntity entity, float yaw, float pitch, float scale, int fallback) {
         Level level = entity.level();
         if (level == null) return fallback;
-        double[] along = DoorHinge.corner(yaw, scale, 2, mirrored);
+        double[] along = DoorHinge.corner(yaw, pitch, scale, 2, mirrored);
         double[][] offsets = {{0, 0}, {1, 0}, {-1, 0}, {0, 1}, {0, -1}, {along[0] * 0.5, along[2] * 0.5}, {along[0], along[2]}};
         double[] heights = {DoorHinge.HEIGHT * scale / 3.0, DoorHinge.HEIGHT * scale * 2.0 / 3.0, DoorHinge.HEIGHT * scale * 0.95};
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
@@ -201,27 +203,27 @@ public class MemoryDoorRenderer extends EntityRenderer<MemoryDoorEntity> {
     }
 
     /** A small iron boss standing off the face where the ring hangs. */
-    private void stud(VertexConsumer vc, Matrix4f m, PoseStack.Pose p, float yaw, boolean front, int light) {
+    private void stud(VertexConsumer vc, Matrix4f m, PoseStack.Pose p, float yaw, float pitch, boolean front, int light) {
         double z0 = front ? DoorHinge.THICKNESS : 0.0;
         double z1 = front ? DoorHinge.THICKNESS + STUD_DEPTH : -STUD_DEPTH;
         double x0 = STUD_X - STUD_HALF, x1 = STUD_X + STUD_HALF;
         double y0 = STUD_Y - STUD_HALF, y1 = STUD_Y + STUD_HALF;
         // Five faces (the one against the leaf is hidden): +z or -z cap, then the four sides.
-        quad(vc, m, p, yaw, light, 0, 0, front ? 1 : -1, new double[][] {{x0, y0, z1}, {x1, y0, z1}, {x1, y1, z1}, {x0, y1, z1}});
-        quad(vc, m, p, yaw, light, 0, 1, 0, new double[][] {{x0, y1, z0}, {x1, y1, z0}, {x1, y1, z1}, {x0, y1, z1}});
-        quad(vc, m, p, yaw, light, 0, -1, 0, new double[][] {{x0, y0, z0}, {x1, y0, z0}, {x1, y0, z1}, {x0, y0, z1}});
-        quad(vc, m, p, yaw, light, 1, 0, 0, new double[][] {{x1, y0, z0}, {x1, y1, z0}, {x1, y1, z1}, {x1, y0, z1}});
-        quad(vc, m, p, yaw, light, -1, 0, 0, new double[][] {{x0, y0, z0}, {x0, y1, z0}, {x0, y1, z1}, {x0, y0, z1}});
+        quad(vc, m, p, yaw, pitch, light, 0, 0, front ? 1 : -1, new double[][] {{x0, y0, z1}, {x1, y0, z1}, {x1, y1, z1}, {x0, y1, z1}});
+        quad(vc, m, p, yaw, pitch, light, 0, 1, 0, new double[][] {{x0, y1, z0}, {x1, y1, z0}, {x1, y1, z1}, {x0, y1, z1}});
+        quad(vc, m, p, yaw, pitch, light, 0, -1, 0, new double[][] {{x0, y0, z0}, {x1, y0, z0}, {x1, y0, z1}, {x0, y0, z1}});
+        quad(vc, m, p, yaw, pitch, light, 1, 0, 0, new double[][] {{x1, y0, z0}, {x1, y1, z0}, {x1, y1, z1}, {x1, y0, z1}});
+        quad(vc, m, p, yaw, pitch, light, -1, 0, 0, new double[][] {{x0, y0, z0}, {x0, y1, z0}, {x0, y1, z1}, {x0, y0, z1}});
     }
 
     /** One flat quad from leaf-local corners, with a leaf-local normal, textured from the iron swatch. */
-    private void quad(VertexConsumer vc, Matrix4f m, PoseStack.Pose p, float yaw, int light,
+    private void quad(VertexConsumer vc, Matrix4f m, PoseStack.Pose p, float yaw, float pitch, int light,
                       double nx, double ny, double nz, double[][] local) {
-        double[] n = DoorHinge.toWorld(yaw, mirrored, nx, ny, nz);
+        double[] n = DoorHinge.direction(yaw, pitch, mirrored, nx, ny, nz);
         float[] uv = {IRON[0] / TEX_W, IRON[1] / TEX_H, IRON[2] / TEX_W, IRON[3] / TEX_H};
         float[][] corner = {{uv[0], uv[3]}, {uv[2], uv[3]}, {uv[2], uv[1]}, {uv[0], uv[1]}};
         for (int i = 0; i < 4; i++) {
-            double[] w = DoorHinge.toWorld(yaw, mirrored, local[i][0], local[i][1], local[i][2]);
+            double[] w = DoorHinge.point(yaw, pitch, mirrored, local[i][0], local[i][1], local[i][2]);
             vertex(vc, m, p, w, corner[i][0], corner[i][1], n, light);
         }
     }
@@ -230,7 +232,7 @@ public class MemoryDoorRenderer extends EntityRenderer<MemoryDoorEntity> {
      * The ring: a closed tube of {@link #RING_SEGMENTS} segments hanging from the stud, swung {@code outDeg}
      * away from the face (about the horizontal axis through the stud).
      */
-    private void ring(VertexConsumer vc, Matrix4f m, PoseStack.Pose p, float yaw, boolean front, float outDeg, int light) {
+    private void ring(VertexConsumer vc, Matrix4f m, PoseStack.Pose p, float yaw, float pitch, boolean front, float outDeg, int light) {
         double th = Math.toRadians(outDeg), ct = Math.cos(th), st = Math.sin(th);
         double faceZ = front ? DoorHinge.THICKNESS : 0.0;
         double dir = front ? 1.0 : -1.0;
@@ -251,8 +253,8 @@ public class MemoryDoorRenderer extends EntityRenderer<MemoryDoorEntity> {
                 // Swing about the stud axis: the bottom of the ring moves away from the face.
                 double v2 = ct * dv + st * dw, w2 = ct * dw - st * dv;
                 double nv2 = ct * nv + st * nw, nw2 = ct * nw - st * nv;
-                pos[j][k] = DoorHinge.toWorld(yaw, mirrored, STUD_X + du, STUD_Y + v2, faceZ + dir * w2);
-                nor[j][k] = DoorHinge.toWorld(yaw, mirrored, nu, nv2, dir * nw2);
+                pos[j][k] = DoorHinge.point(yaw, pitch, mirrored, STUD_X + du, STUD_Y + v2, faceZ + dir * w2);
+                nor[j][k] = DoorHinge.direction(yaw, pitch, mirrored, nu, nv2, dir * nw2);
             }
         }
         for (int j = 0; j < RING_SEGMENTS; j++) {

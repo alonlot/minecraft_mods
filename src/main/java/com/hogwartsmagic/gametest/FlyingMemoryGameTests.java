@@ -119,6 +119,11 @@ public final class FlyingMemoryGameTests {
         return done;
     }
 
+    /** Whether the parked broom's chunk holds the Flying memory's region ticket (read from the distance manager). */
+    private static boolean ticket(GameTestHelper helper, BroomEntity b) {
+        return FlyingMemory.hasTicket(helper.getLevel(), b.chunkPosition());
+    }
+
     private static void pass(String name) {
         LOGGER.info("FLYINGMEMORY-GAMETEST PASS {}", name);
     }
@@ -138,7 +143,7 @@ public final class FlyingMemoryGameTests {
                     "the chain should begin at the viewer's house scene");
             helper.assertTrue(p.getVehicle() == null, "the memory dismounts the player");
             helper.assertTrue(b.isHeld(), "the broom should be held");
-            helper.assertTrue(FlyingMemory.holdsTicket(p.getUUID()), "the broom's chunk should be held");
+            helper.assertTrue(ticket(helper, b), "the broom's chunk should be held");
             helper.assertTrue(!FlyingMemory.isSeen(p), "the flag waits for the memory to be watched");
             PensieveSessions.leave(p, ExitReason.ABORT);
             logout(helper, p);
@@ -188,7 +193,7 @@ public final class FlyingMemoryGameTests {
         helper.runAfterDelay(10, () -> {
             helper.assertTrue(!PensieveSessions.isViewer(p), "no scene, no memory");
             helper.assertTrue(p.getVehicle() == b && !b.isHeld(), "the player stays on a free broom");
-            helper.assertTrue(!FlyingMemory.holdsTicket(p.getUUID()) && !FlyingMemory.isHolding(p.getUUID()),
+            helper.assertTrue(!ticket(helper, b) && !FlyingMemory.isHolding(p.getUUID()),
                     "a refused start leaves nothing held");
             helper.assertTrue(!FlyingMemory.isSeen(p), "the flag waits for the scene to exist");
             logout(helper, p);
@@ -247,7 +252,7 @@ public final class FlyingMemoryGameTests {
         });
         helper.runAfterDelay(40, () -> {
             helper.assertTrue(held.get(), "the broom was never held");
-            helper.assertTrue(FlyingMemory.holdsTicket(p.getUUID()), "the chunk ticket should be held while away");
+            helper.assertTrue(ticket(helper, b), "the chunk ticket should be held while away");
             PensieveSessions.leave(p, ExitReason.ABORT);
             helper.runAfterDelay(60, () -> {
                 logout(helper, p);
@@ -308,12 +313,12 @@ public final class FlyingMemoryGameTests {
             sawHome.set(true);
             helper.assertTrue(FlyingMemory.isSeen(p), "a chain ended with END in the snitch scene is the memory watched");
             helper.assertTrue(p.getVehicle() == null, "the broom waits out the wake");
-            helper.assertTrue(b.isHeld() && FlyingMemory.holdsTicket(p.getUUID()), "and stays held until then");
+            helper.assertTrue(b.isHeld() && ticket(helper, b), "and stays held until then");
         });
         helper.succeedWhen(() -> {
             helper.assertTrue(sawHome.get(), "not home yet");
             helper.assertTrue(p.getVehicle() == b, "after the wake the player is back on the broom");
-            helper.assertTrue(!b.isHeld() && !FlyingMemory.holdsTicket(p.getUUID()), "the hold is released");
+            helper.assertTrue(!b.isHeld() && !ticket(helper, b), "the hold is released");
             helper.assertTrue(b.position().distanceToSqr(start) < 1.0E-6, "the same broom, where it was");
             helper.assertTrue(FlyingMemory.isSeen(p), "the flag stays set");
             logout(helper, p);
@@ -330,7 +335,7 @@ public final class FlyingMemoryGameTests {
         helper.succeedWhen(() -> {
             helper.assertTrue(left.get() && !PensieveSessions.isViewer(p), "not home yet");
             helper.assertTrue(p.getVehicle() == b, "home at once, on the same broom");
-            helper.assertTrue(!b.isHeld() && !FlyingMemory.holdsTicket(p.getUUID()), "the hold is released");
+            helper.assertTrue(!b.isHeld() && !ticket(helper, b), "the hold is released");
             helper.assertTrue(!FlyingMemory.isSeen(p), "an early exit keeps the flag unset");
             logout(helper, p);
             pass(name);
@@ -360,7 +365,7 @@ public final class FlyingMemoryGameTests {
         helper.succeedWhen(() -> {
             helper.assertTrue(left.get() && !PensieveSessions.isViewer(p), "not home yet");
             helper.assertTrue(p.getVehicle() == null, "no broom: the player stands where they mounted");
-            helper.assertTrue(!FlyingMemory.isHolding(p.getUUID()) && !FlyingMemory.holdsTicket(p.getUUID()),
+            helper.assertTrue(!FlyingMemory.isHolding(p.getUUID()) && !ticket(helper, b),
                     "nothing is left held");
             helper.assertTrue(!FlyingMemory.isSeen(p), "the flag stays unset");
             logout(helper, p);
@@ -380,7 +385,7 @@ public final class FlyingMemoryGameTests {
         helper.succeedWhen(() -> {
             helper.assertTrue(died.get(), "not dead yet");
             helper.assertTrue(!b.isHeld(), "death releases the broom");
-            helper.assertTrue(!FlyingMemory.holdsTicket(p.getUUID()) && !FlyingMemory.isHolding(p.getUUID()),
+            helper.assertTrue(!ticket(helper, b) && !FlyingMemory.isHolding(p.getUUID()),
                     "and the chunk ticket");
             helper.assertTrue(p.getVehicle() == null, "no remount after death");
             helper.assertTrue(!FlyingMemory.isSeen(p), "death keeps the flag unset");
@@ -404,7 +409,7 @@ public final class FlyingMemoryGameTests {
         helper.succeedWhen(() -> {
             helper.assertTrue(gone.get(), "not logged out yet");
             helper.assertTrue(!b.isHeld(), "a disconnect releases the broom");
-            helper.assertTrue(!FlyingMemory.holdsTicket(p.getUUID()) && !FlyingMemory.isHolding(p.getUUID()),
+            helper.assertTrue(!ticket(helper, b) && !FlyingMemory.isHolding(p.getUUID()),
                     "and the chunk ticket");
             helper.assertTrue(!FlyingMemory.isSeen(p), "a disconnect keeps the flag unset");
             pass("disconnectReleasesBroom");
@@ -442,5 +447,87 @@ public final class FlyingMemoryGameTests {
                 helper.succeed();
             });
         });
+    }
+
+    // ---- Fix round 1 -------------------------------------------------------------------------------------------
+
+    @GameTest(template = EMPTY, batch = "flying_stop", timeoutTicks = 200)
+    public static void serverStopReleasesBroom(GameTestHelper helper) {
+        seam(helper, 400, true, true);
+        ServerPlayer p = player(helper, true);
+        BroomEntity b = broom(helper, new Vec3(1.5, 2, 1.5));
+        mount(helper, p, b);
+        AtomicBoolean checked = oncePlaying(helper, p, () -> {
+            helper.assertTrue(ticket(helper, b) && b.isHeld(), "held while inside");
+            FlyingMemory.releaseAll();
+            helper.assertTrue(!ticket(helper, b) && !b.isHeld() && !FlyingMemory.isHolding(p.getUUID()),
+                    "a stopping server releases the ticket and the broom");
+        });
+        helper.succeedWhen(() -> {
+            helper.assertTrue(checked.get(), "never started");
+            PensieveSessions.leave(p, ExitReason.ABORT);
+            logout(helper, p);
+            pass("serverStopReleasesBroom");
+        });
+    }
+
+    @GameTest(template = EMPTY, batch = "flying_other_wake", timeoutTicks = 100)
+    public static void mountDuringAnotherWakeDoesNotStart(GameTestHelper helper) {
+        seam(helper, 400, true, true);
+        ServerPlayer p = player(helper, true);
+        PensieveSessions.noteWakeForTests(p.getUUID(), helper.getLevel().getGameTime());
+        BroomEntity b = broom(helper, new Vec3(1.5, 2, 1.5));
+        mount(helper, p, b);
+        helper.runAfterDelay(10, () -> {
+            helper.assertTrue(!PensieveSessions.isViewer(p), "another memory's wake is playing: just mount");
+            helper.assertTrue(p.getVehicle() == b && !b.isHeld() && !ticket(helper, b), "nothing is held");
+            helper.assertTrue(!FlyingMemory.isSeen(p), "the flag stays unset");
+            logout(helper, p);
+            pass("mountDuringAnotherWakeDoesNotStart");
+            helper.succeed();
+        });
+    }
+
+    /** Mounts 30 blocks up and runs the whole chain; {@code lose} removes the broom while the player is away. */
+    private static void highWake(GameTestHelper helper, boolean lose, String name) {
+        seam(helper, 40, true, true);
+        ServerPlayer p = player(helper, true);
+        BroomEntity b = broom(helper, new Vec3(1.5, 30, 1.5));
+        mount(helper, p, b);
+        double[] homeY = {Double.NaN};
+        if (lose) oncePlaying(helper, p, b::discard);
+        helper.onEachTick(() -> {
+            if (PensieveSessions.isViewer(p) || PensieveSessions.lastWakeForTests(p.getUUID()) < 0) return;
+            // Once seated, the broom's seat is the position: the pin is for the wake before that.
+            if (p.getVehicle() != null) return;
+            if (Double.isNaN(homeY[0])) homeY[0] = p.getY();
+            helper.assertTrue(Math.abs(p.getY() - homeY[0]) < 0.05, "the player fell during the wake: " + (homeY[0] - p.getY()));
+            helper.assertTrue(p.fallDistance == 0, "fall distance must stay zero, was " + p.fallDistance);
+            helper.assertTrue(p.isAlive() && p.getHealth() == p.getMaxHealth(), "the player must be unhurt");
+        });
+        helper.succeedWhen(() -> {
+            helper.assertTrue(!Double.isNaN(homeY[0]), "not home yet");
+            helper.assertTrue(!FlyingMemory.isHolding(p.getUUID()), "the wake is not over");
+            helper.assertTrue(p.isAlive() && p.getHealth() == p.getMaxHealth() && p.fallDistance == 0, "unhurt at the end");
+            if (lose) {
+                helper.assertTrue(p.getVehicle() == null, "no broom to board");
+                helper.assertTrue(p.hasEffect(net.minecraft.world.effect.MobEffects.SLOW_FALLING),
+                        "set down safely: slow falling");
+            } else {
+                helper.assertTrue(p.getVehicle() == b, "seated on the broom again");
+            }
+            logout(helper, p);
+            pass(name);
+        });
+    }
+
+    @GameTest(template = EMPTY, batch = "flying_high_wake", timeoutTicks = 800)
+    public static void highMountSurvivesWake(GameTestHelper helper) {
+        highWake(helper, false, "highMountSurvivesWake");
+    }
+
+    @GameTest(template = EMPTY, batch = "flying_high_lost", timeoutTicks = 800)
+    public static void highMountLostBroomSetsPlayerDownSafely(GameTestHelper helper) {
+        highWake(helper, true, "highMountLostBroomSetsPlayerDownSafely");
     }
 }

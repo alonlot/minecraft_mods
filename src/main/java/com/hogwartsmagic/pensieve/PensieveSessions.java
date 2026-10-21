@@ -143,6 +143,22 @@ public final class PensieveSessions {
         testBudget = blocks < 0 ? -1 : blocks;
     }
 
+    /** Gametests: pretends a wake was sent to {@code player} at {@code time}. */
+    public static void noteWakeForTests(UUID player, long time) {
+        WAKES.put(player, time);
+    }
+
+    /** Whether a wake sent to {@code player} is still playing out on their client (any memory's). */
+    public static boolean wakeInProgress(Player player) {
+        Long at = WAKES.get(player.getUUID());
+        return at != null && player.level().getGameTime() - at < WAKE_DONE_TICKS;
+    }
+
+    /** Whether a scene with this id is loaded (a start would not be refused for lack of it). */
+    public static boolean hasScene(String sceneId) {
+        return lookup(sceneId).isPresent();
+    }
+
     /** Gametests: the game time a wake was last sent to {@code player} (just before their move home), or -1. */
     public static long lastWakeForTests(UUID player) {
         return WAKES.getOrDefault(player, -1L);

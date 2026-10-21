@@ -673,6 +673,7 @@ public class ModEvents {
         if (event.getEntity() instanceof ServerPlayer player) {
             // Out of any Pensieve memory and back to the basin before the player is saved.
             com.hogwartsmagic.pensieve.PensieveSessions.onLogout(player);
+            com.hogwartsmagic.pensieve.LetterMemory.onLogout(player);
             // Logging out mid-channel would otherwise strand the shield's light block in the world.
             ItemStack heldWand = player.getMainHandItem();
             if (player.getPersistentData().getBoolean(TAG_PATRONUS_SHIELD_CHANNELING)) {
@@ -2468,6 +2469,8 @@ public class ModEvents {
     }
 
     private static void spawnFirstYearInvite(ServerPlayer player) {
+        // The only place the Letter memory is owed: old saves never get the tag, so their letter opens directly.
+        com.hogwartsmagic.pensieve.LetterMemory.markPending(player);
         ServerLevel level = player.serverLevel();
         net.minecraft.world.item.ItemStack invite = HogwartsInviteItem.createFor(player);
         net.minecraft.world.item.ItemStack guide = new net.minecraft.world.item.ItemStack(ExampleMod.HOGWARTS_GUIDE.get());
@@ -2841,6 +2844,8 @@ public class ModEvents {
             com.hogwartsmagic.worldgen.undercroft.UndercroftBuilder.tick(event.getServer());
             // Pensieve sessions: dives, set building, scene block events, exits and region clearing.
             com.hogwartsmagic.pensieve.PensieveSessions.tick(event.getServer());
+            // The Letter memory's letter screen, once the wake that follows the memory is over.
+            com.hogwartsmagic.pensieve.LetterMemory.tick(event.getServer());
         }
         if (event.phase != net.minecraftforge.event.TickEvent.Phase.END || ACTIVE_WIZARD_RAIDS.isEmpty()) {
             return;

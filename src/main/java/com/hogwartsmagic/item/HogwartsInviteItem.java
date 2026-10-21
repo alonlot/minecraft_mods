@@ -42,6 +42,10 @@ public class HogwartsInviteItem extends Item {
     public InteractionResultHolder<ItemStack> use(Level level, net.minecraft.world.entity.player.Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            // The first time, the Letter memory plays and the screen opens when the player is home again.
+            if (com.hogwartsmagic.pensieve.LetterMemory.tryStart(serverPlayer, stack)) {
+                return InteractionResultHolder.sidedSuccess(stack, false);
+            }
             SpellPackets.CHANNEL.send(
                     new SpellPackets.OpenHogwartsInviteScreenPacket(getRecipient(stack)),
                     net.minecraftforge.network.PacketDistributor.PLAYER.with(serverPlayer)

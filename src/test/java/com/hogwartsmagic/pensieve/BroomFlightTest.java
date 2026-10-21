@@ -96,12 +96,12 @@ class BroomFlightTest {
         assertEquals(30, faster, 1e-5);
         float[][] p = BroomFlight.riderPose(0.3, 0);
         assertEquals(-19, p[HumanMotion.HEAD][0], 1e-5, "the head lifts to hold the gaze");
-        assertEquals(-70, p[HumanMotion.RIGHT_LEG][0], 0);
+        assertEquals(-30, p[HumanMotion.RIGHT_LEG][0], 0);
         assertEquals(10, p[HumanMotion.RIGHT_LEG][1], 0);
         assertEquals(-10, p[HumanMotion.LEFT_LEG][1], 0);
-        assertEquals(-50, p[HumanMotion.RIGHT_ARM][0], 0);
-        assertEquals(-25, p[HumanMotion.RIGHT_ARM][1], 0);
-        assertEquals(25, p[HumanMotion.LEFT_ARM][1], 0);
+        assertEquals(-40.5, p[HumanMotion.RIGHT_ARM][0], 1e-5, "the arms swing back with the lean");
+        assertEquals(-18, p[HumanMotion.RIGHT_ARM][1], 0);
+        assertEquals(18, p[HumanMotion.LEFT_ARM][1], 0);
     }
 
     @Test
@@ -304,59 +304,98 @@ class BroomFlightTest {
         return new double[]{x2, y1 * Math.cos(a) + z2 * Math.sin(a), -y1 * Math.sin(a) + z2 * Math.cos(a)};
     }
 
-    /** A model point (px) of a rider sitting at the rest seat, in the broom frame (blocks): yaw 0 in the broom. */
-    private static double[] inBroom(double scale, double[] model) {
-        double k = HumanMotion.pxBlocks(scale);
-        double[] seat = BroomFlight.seat(scale);
-        return new double[]{model[0] * k, seat[1] + (HumanMotion.MODEL_ORIGIN * 16 - model[1]) * k, seat[2] - model[2] * k};
-    }
-
     @Test
     void handsOnHandle() {
-        double worstGap = 0, worstClear = 9;
-        for (double scale : new double[]{0.75, 0.85, 1.0}) {
-            for (double speed : new double[]{0, 0.3, 0.6}) {
-                for (double pitch : new double[]{0, 20, 30, 45, 60}) {
-                    float[] rot = new float[18];
-                    float[] pos = {0, 0, 0, 0, 0, 0, -5, 2, 0, 5, 2, 0, -1.9f, 12, 0, 1.9f, 12, 0};
-                    BroomFlight.riderLayer(rot, pos, speed, pitch, 1f);
-                    for (int side = 0; side < 2; side++) {
-                        int arm = HumanMotion.RIGHT_ARM + side, leg = HumanMotion.RIGHT_LEG + side;
-                        double ax = Math.toRadians(rot[arm * 3]), ay = Math.toRadians(rot[arm * 3 + 1]),
-                                az = Math.toRadians(rot[arm * 3 + 2]);
-                        double[] xr = side == 0 ? new double[]{-3.25, 1.25} : new double[]{-1.25, 3.25};
-                        double gap = 9;
-                        int n = 12;
-                        for (int i = 0; i <= n; i++) {
-                            for (int j = 0; j <= n; j++) {
-                                for (int l = 0; l <= n; l++) {
-                                    double[] v = turned(xr[0] + (xr[1] - xr[0]) * i / n, 6 + 4.25 * j / n,
-                                            -2.25 + 4.5 * l / n, ax, ay, az);
-                                    double[] p = inBroom(scale, new double[]{pos[arm * 3] + v[0], pos[arm * 3 + 1] + v[1],
-                                            pos[arm * 3 + 2] + v[2]});
-                                    gap = Math.min(gap, Math.hypot(p[0], p[1]) - 1 / 16.0);
-                                }
+        // The whole fist (the arm's last 4 px with its sleeve, wide and slim arms) against the whole thigh (with its
+        // pants), both ways over their faces, and against the handle, at every rider scale, speed and dive pitch.
+        double worstGap = -9, deepest = 9, leastClear = 9;
+        double[][] thigh = {{-2.25, 2.25}, {-0.25, 12.25}, {-2.25, 2.25}};
+        for (boolean slim : new boolean[]{false, true}) {
+            for (double scale : new double[]{0.75, 0.85, 1.0}) {
+                double k = HumanMotion.pxBlocks(scale);
+                double axisY = HumanMotion.HIP_PX + (BroomFlight.SEAT_TOP + HumanMotion.legHalfWidth(scale)) / k;
+                double radius = (1 / 16.0) / k;
+                for (double speed = 0; speed <= 0.6001; speed += 0.15) {
+                    for (double pitch : new double[]{0, 20, 25, 30, 35, 45, 70}) {
+                        float armY = slim ? 2.5f : 2f;
+                        float[] rot = new float[18];
+                        float[] pos = {0, 0, 0, 0, 0, 0, -5, armY, 0, 5, armY, 0, -1.9f, 12, 0, 1.9f, 12, 0};
+                        BroomFlight.riderLayer(rot, pos, speed, pitch, 1f);
+                        for (int side = 0; side < 2; side++) {
+                            int arm = HumanMotion.RIGHT_ARM + side, leg = HumanMotion.RIGHT_LEG + side;
+                            double w = slim ? 3 : 4;
+                            double[][] fist = side == 0 ? new double[][]{{1 - w - 0.25, 1.25}, {6, 10.25}, {-2.25, 2.25}}
+                                    : new double[][]{{-1.25, w - 1 + 0.25}, {6, 10.25}, {-2.25, 2.25}};
+                            double[] ar = angles(rot, arm), lr = angles(rot, leg);
+                            double[] ap = {pos[arm * 3], pos[arm * 3 + 1], pos[arm * 3 + 2]};
+                            double[] lp = {pos[leg * 3], pos[leg * 3 + 1], pos[leg * 3 + 2]};
+                            String at = (slim ? "slim" : "wide") + " scale " + scale + " speed " + speed + " pitch " + pitch;
+                            double gap = 9, clear = 9;
+                            for (double[] q : faces(fist, 8)) {
+                                double[] m = place(ap, ar, q);
+                                gap = Math.min(gap, Math.hypot(m[0], m[1] - axisY) - radius);
+                                clear = Math.min(clear, outside(local(lp, lr, m), thigh));
                             }
+                            for (double[] q : faces(thigh, 8)) clear = Math.min(clear, outside(local(ap, ar, place(lp, lr, q)), fist));
+                            gap *= k;
+                            worstGap = Math.max(worstGap, gap);
+                            deepest = Math.min(deepest, gap);
+                            leastClear = Math.min(leastClear, clear);
+                            assertTrue(gap <= 0.06, at + ": the fist is " + gap + " off the handle");
+                            assertTrue(gap >= -0.005, at + ": the fist sinks " + -gap + " into the handle");
+                            assertTrue(clear >= 0.1, at + ": the fist is only " + clear + " px from the thigh");
                         }
-                        worstGap = Math.max(worstGap, gap);
-                        assertTrue(gap <= 0.06, "scale " + scale + " speed " + speed + " pitch " + pitch
-                                + ": the fist is " + gap + " off the handle");
-                        // The fingertips stay out of the thigh on their side.
-                        double[] tip = turned(side == 0 ? -1 : 1, 10, 0, ax, ay, az);
-                        double[] t = {pos[arm * 3] + tip[0] - pos[leg * 3], pos[arm * 3 + 1] + tip[1] - pos[leg * 3 + 1],
-                                pos[arm * 3 + 2] + tip[2] - pos[leg * 3 + 2]};
-                        double[] local = unturned(t, Math.toRadians(rot[leg * 3]), Math.toRadians(rot[leg * 3 + 1]),
-                                Math.toRadians(rot[leg * 3 + 2]));
-                        double out = Math.max(Math.max(Math.abs(local[0]) - 2.25, Math.abs(local[2]) - 2.25),
-                                Math.max(-0.25 - local[1], local[1] - 12.25));
-                        worstClear = Math.min(worstClear, out);
-                        assertTrue(out > 0, "scale " + scale + " speed " + speed + " pitch " + pitch
-                                + ": the fingertips are inside the thigh");
                     }
                 }
             }
         }
-        assertTrue(worstGap > 0, "the fists close on the handle without sinking into it: " + worstGap);
+        assertTrue(worstGap > 0.02 && leastClear > 1, "worst gap " + worstGap + ", deepest " + deepest + ", clear " + leastClear);
+    }
+
+    private static double[] angles(float[] rot, int part) {
+        return new double[]{Math.toRadians(rot[part * 3]), Math.toRadians(rot[part * 3 + 1]), Math.toRadians(rot[part * 3 + 2])};
+    }
+
+    /** A part-space point turned and moved to model px. */
+    private static double[] place(double[] pivot, double[] r, double[] q) {
+        double[] v = turned(q[0], q[1], q[2], r[0], r[1], r[2]);
+        return new double[]{pivot[0] + v[0], pivot[1] + v[1], pivot[2] + v[2]};
+    }
+
+    /** A model px point in a part's own frame. */
+    private static double[] local(double[] pivot, double[] r, double[] m) {
+        return unturned(new double[]{m[0] - pivot[0], m[1] - pivot[1], m[2] - pivot[2]}, r[0], r[1], r[2]);
+    }
+
+    /** Points over a box's six faces, an (n+1)^2 grid on each. */
+    private static List<double[]> faces(double[][] box, int n) {
+        List<double[]> out = new ArrayList<>();
+        for (int axis = 0; axis < 3; axis++) {
+            int u = axis == 0 ? 1 : 0, w = axis == 2 ? 1 : 2;
+            for (double s : box[axis]) {
+                for (int i = 0; i <= n; i++) {
+                    for (int j = 0; j <= n; j++) {
+                        double[] q = new double[3];
+                        q[axis] = s;
+                        q[u] = box[u][0] + (box[u][1] - box[u][0]) * i / n;
+                        q[w] = box[w][0] + (box[w][1] - box[w][0]) * j / n;
+                        out.add(q);
+                    }
+                }
+            }
+        }
+        return out;
+    }
+
+    /** Distance from p to the box, or minus its depth when inside. */
+    private static double outside(double[] p, double[][] box) {
+        double d2 = 0, depth = 9;
+        for (int i = 0; i < 3; i++) {
+            double d = Math.max(box[i][0] - p[i], Math.max(0, p[i] - box[i][1]));
+            d2 += d * d;
+            depth = Math.min(depth, Math.min(p[i] - box[i][0], box[i][1] - p[i]));
+        }
+        return d2 > 0 ? Math.sqrt(d2) : -depth;
     }
 
     @Test

@@ -4,8 +4,9 @@
       their JSON byte for byte (md5 of the committed files);
   spline_moves_flags_linear_track: a 6-key linear moving camera is one problem, the same keys as spline none;
   wand_sample_cam_matches: wand_scene.sample_cam on a spline track is engine_cam;
-  rider_grip: a broom rider's fists close on the handle (gap at most 0.06, tips clear of the thighs) at scales
-      0.75 / 0.85 / 1.0, speeds 0 / 0.3 / 0.6 and broom pitch 0 to 60 (the dive tuck), as BroomFlightTest.handsOnHandle;
+  rider_grip: a broom rider's fists close on the handle (gap at most 0.06, sunk at most 0.005) with the whole fist
+      box (sleeve on) at least 0.1 px clear of the thigh box (pants on), wide and slim arms, scales 0.75 / 0.85 / 1.0,
+      speeds 0 to 0.6 and broom pitch 0 to 70 (the dive tuck), as BroomFlightTest.handsOnHandle;
   rider_body_on_broom: a rider's look turns his head (clamped to 75), never his body off the broom.
 """
 import hashlib
@@ -64,8 +65,8 @@ def wand_sample_cam_matches():
 
 
 def rider_grip():
-    gap, clear = E.check_rider_grip()
-    assert 0 < gap <= E.GRIP_GAP_MAX and clear > 0, (gap, clear)
+    gap, sink, clear = E.check_rider_grip()
+    assert gap <= E.GRIP_GAP_MAX and sink >= -E.GRIP_SINK_MAX and clear >= E.FIST_CLEAR_PX, (gap, sink, clear)
 
 
 def rider_body_on_broom():

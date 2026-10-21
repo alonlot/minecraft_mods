@@ -46,12 +46,14 @@ public final class BroomFlight {
     /** The dive tuck: the body lean it reaches, smoothstepped in between these broom pitches (degrees). */
     public static final double TUCK_LEAN = 40, TUCK_FROM = 20, TUCK_TO = 40;
     /**
-     * Legs astride the handle (splayed out, so the handle shows between the knees) and arms down and in to grip it
-     * (degrees: x, and the y of the right side; the left mirrors it).
+     * Legs astride the handle, knees low (the thighs hang 30 degrees forward of straight down, splayed out), and the
+     * arms down and in to grip it (degrees: x, and the y of the right side; the left mirrors it). The arms swing back
+     * {@link #ARM_LEAN} degrees per degree of lean past {@link #LEAN_REST}, so the fists stay on the handle as the
+     * torso leans and tucks.
      */
-    public static final float LEG_X = -70, LEG_Y = 10, ARM_X = -50, ARM_Y = -25;
+    public static final float LEG_X = -30, LEG_Y = 10, ARM_X = -46, ARM_Y = -18, ARM_LEAN = 0.5f;
     /** The hunched grip: the shoulders (arm pivots) lowered and brought forward in the torso's frame, model px. */
-    public static final float SHOULDER_DROP = 3.5f, SHOULDER_FORWARD = 2f;
+    public static final float SHOULDER_DROP = 3.5f, SHOULDER_FORWARD = 3.5f;
     /** The most a rider's look turns his head off the broom (degrees); his body always faces along it. */
     public static final float HEAD_TURN = 75;
     /** How far back (ticks) the flight rule is replayed to decide, with no history, whether a broom flies now. */
@@ -249,18 +251,20 @@ public final class BroomFlight {
 
     /**
      * The base rider layer: rotations in degrees per part in {@link HumanMotion} order (head, body, right arm, left
-     * arm, right leg, left leg). The legs astride the handle {@code [-70, +-10, 0]} (splayed out), the arms down and in
-     * gripping it {@code [-50, -+25, 0]} (with the hunched shoulders of {@link #riderLayer} the fists close on the
-     * handle at every rider scale, speed and through the dive tuck: {@code BroomFlightTest.handsOnHandle}), the body
+     * arm, right leg, left leg). The legs astride the handle {@code [-30, +-10, 0]} (knees low, splayed out), the arms
+     * down and in gripping it {@code [-46 + 0.5 x (lean - 8), -+18, 0]} (with the hunched shoulders of
+     * {@link #riderLayer} the fists close on the handle, clear of the thighs, at every rider scale, speed and through
+     * the dive tuck, wide or slim arms: {@code BroomFlightTest.handsOnHandle}), the body
      * leaning forward {@link #lean}, the head lifted back by the same so the gaze holds (the look pitch adds to it).
      */
     public static float[][] riderPose(double speed, double pitch) {
         float l = (float) lean(speed, pitch);
+        float arm = (float) (ARM_X + ARM_LEAN * (l - LEAN_REST));
         return new float[][]{
                 {-l, 0, 0},
                 {l, 0, 0},
-                {ARM_X, ARM_Y, 0},
-                {ARM_X, -ARM_Y, 0},
+                {arm, ARM_Y, 0},
+                {arm, -ARM_Y, 0},
                 {LEG_X, LEG_Y, 0},
                 {LEG_X, -LEG_Y, 0}};
     }

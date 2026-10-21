@@ -171,7 +171,7 @@ def checks(scene):
             body = E.posed_parts(scene, a, t)[0][2]
             assert abs(body.yaw - E.broom_pose(scene, v, t)['yaw']) < 1e-9, (a['id'], t)
     print('riders: body yaw is the broom yaw')
-    print('grip: worst fist gap %.3f, thigh clearance %.3f' % E.check_rider_grip())
+    print('grip: worst fist gap %.3f, deepest sink %.3f, fist-to-thigh clearance %.2f px' % E.check_rider_grip())
     probs = []
     E.check_spline_moves('dev_brooms', scene, probs)
     print('spline moves:', probs or 'ok')

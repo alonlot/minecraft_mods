@@ -961,8 +961,8 @@ MAX_CLIMB, CLIMB_FADE_SPEED = 70.0, 0.05
 BOB_AMPLITUDE, BOB_HZ, BOB_FADE_SPEED = 0.04, 0.9, 0.1
 LEAN_REST, LEAN_SPEED, LEAN_FULL_SPEED = 8.0, 22.0, 0.6
 TUCK_LEAN, TUCK_FROM, TUCK_TO = 40.0, 20.0, 40.0
-LEG_X, LEG_Y, ARM_X, ARM_Y = -70.0, 10.0, -50.0, -25.0
-SHOULDER_DROP, SHOULDER_FORWARD = 3.5, 2.0      # px: the hunched grip lowers the shoulders and brings them forward
+LEG_X, LEG_Y, ARM_X, ARM_Y, ARM_LEAN = -30.0, 10.0, -46.0, -18.0, 0.5
+SHOULDER_DROP, SHOULDER_FORWARD = 3.5, 3.5      # px: the hunched grip lowers the shoulders and brings them forward
 HEAD_TURN = 75.0                                # degrees: the most a rider's look turns his head off the broom
 RIDER_BLEND = 10.0
 FLY_SPEED, LAND_SPEED = 0.025, 0.0125          # Airborne: a ridden broom flies above, has landed under (hysteresis)
@@ -1172,7 +1172,8 @@ def rider_lean(speed, pitch):
 def rider_pose(speed, pitch):
     """BroomFlight.riderPose: [head, body, right arm, left arm, right leg, left leg] rotations, degrees."""
     l = rider_lean(speed, pitch)
-    return [[-l, 0.0, 0.0], [l, 0.0, 0.0], [ARM_X, ARM_Y, 0.0], [ARM_X, -ARM_Y, 0.0], [LEG_X, LEG_Y, 0.0],
+    arm = ARM_X + ARM_LEAN * (l - LEAN_REST)
+    return [[-l, 0.0, 0.0], [l, 0.0, 0.0], [arm, ARM_Y, 0.0], [arm, -ARM_Y, 0.0], [LEG_X, LEG_Y, 0.0],
             [LEG_X, -LEG_Y, 0.0]]
 
 
@@ -1390,13 +1391,43 @@ HANDLE_RADIUS = 1.0 / 16.0        # the training handle is 2 px across
 
 
 LEFT_HAND_BOX = ((-1.25, 3.25), (6.0, 10.25), (-2.25, 2.25))      # the left arm's last 4 px
+# Slim (3 px) arms: the same last 4 px, one px narrower on the outside; their pivot sits 0.5 px lower.
+SLIM_HAND_BOX = ((-2.25, 1.25), (6.0, 10.25), (-2.25, 2.25))
+SLIM_LEFT_HAND_BOX = ((-1.25, 2.25), (6.0, 10.25), (-2.25, 2.25))
 GRIP_GAP_MAX = 0.06               # blocks: a rider's fist box to the handle's surface, at most
+GRIP_SINK_MAX = 0.005             # blocks: how far a fist may sink into the handle's surface
+FIST_CLEAR_PX = 0.1               # px: a fist box (sleeve included) to the thigh box (pants included), at least
 
 
-def rider_hand_gaps(scale, speed, pitch):
+def _box_points(box, n=6):
+    """Points over a box's six faces, an (n+1) x (n+1) grid on each (part px)."""
+    pts = []
+    for axis in range(3):
+        for side in box[axis]:
+            u, w = [j for j in range(3) if j != axis]
+            for i in range(n + 1):
+                for j in range(n + 1):
+                    q = [0.0, 0.0, 0.0]
+                    q[axis] = side
+                    q[u] = box[u][0] + (box[u][1] - box[u][0]) * i / n
+                    q[w] = box[w][0] + (box[w][1] - box[w][0]) * j / n
+                    pts.append(q)
+    return pts
+
+
+def _part_points(root, fr, scale, piv, rot, box, n=6):
+    out = []
+    for q in _box_points(box, n):
+        v = HM._turned(*q, *[math.radians(c) for c in rot])
+        out.append(model_to_world(root, fr, scale, piv[0] + v[0], piv[1] + v[1], piv[2] + v[2]))
+    return out
+
+
+def rider_hand_gaps(scale, speed, pitch, slim=False):
     """A rider at the rest seat of a broom flying straight at `speed` blocks a tick with nose-down `pitch`, posed by
-    posed_parts (the rider layer at full weight): per hand, (the gap from its fist box to the handle's surface, the
-    clearance of its tip, arm_tip, from the thigh box on its side)."""
+    posed_parts (the rider layer at full weight; `slim`: 3 px arms, their pivots 0.5 px lower): per hand, (the gap from
+    its fist box to the handle's surface, blocks; the clearance between the fist box with its sleeve and the thigh box
+    with its pants on that side, px, both ways over their faces)."""
     sc = {'poses': {}, 'actors': [
         {'id': 'b', 'type': 'hogwartsmagic:memory_broom',
          'path': [{'t': 0, 'pos': [0.0, 50.0, 0.0]}, {'t': 200, 'pos': [0.0, 50.0, speed * 200], 'ease': 'linear'}],
@@ -1406,25 +1437,35 @@ def rider_hand_gaps(scale, speed, pitch):
     b = broom_pose(sc, sc['actors'][0], t)
     parts = {q[0]: q for q in posed_parts(sc, sc['actors'][1], t)}
     axis = [[b['pos'][i] + _mat_vec(b['m'], [0.0, 0.0, k * 0.02])[i] for i in range(3)] for k in range(-40, 41)]
+    px = HM.px_blocks(scale)
     out = []
-    for side, leg, box in (('right_arm', 'right_leg', HAND_BOX), ('left_arm', 'left_leg', LEFT_HAND_BOX)):
+    boxes = ((SLIM_HAND_BOX, SLIM_LEFT_HAND_BOX) if slim else (HAND_BOX, LEFT_HAND_BOX))
+    for side, leg, box in (('right_arm', 'right_leg', boxes[0]), ('left_arm', 'left_leg', boxes[1])):
         _, root, fr, s, piv, rot = parts[side]
+        if slim:
+            piv = [piv[0], piv[1] + 0.5, piv[2]]
         gap = min(box_distance(root, fr, s, piv, rot, box, q) for q in axis) - HANDLE_RADIUS
-        tip = arm_tip(root, fr, s, side, rot, piv)
+        if gap <= 0:      # sunk in: how far the deepest fist point lies inside the handle
+            gap = min(math.hypot(*[(_mat_vec(_transpose(b['m']), [q[i] - b['pos'][i] for i in range(3)]))[c]
+                                   for c in (0, 1)]) for q in _part_points(root, fr, s, piv, rot, box)) - HANDLE_RADIUS
         _, lr, lf, ls, lp, lro = parts[leg]
-        out.append((gap, box_distance(lr, lf, ls, lp, lro, PART_BOX[leg], tip)))
+        c1 = min(box_distance(lr, lf, ls, lp, lro, PART_BOX[leg], q) for q in _part_points(root, fr, s, piv, rot, box))
+        c2 = min(box_distance(root, fr, s, piv, rot, box, q) for q in _part_points(lr, lf, ls, lp, lro, PART_BOX[leg]))
+        out.append((gap, min(c1, c2) / px))
     return out
 
 
 def check_rider_grip():
-    """The hands on the handle at every rider scale, speed and through the dive tuck. Returns (worst gap, worst
-    thigh clearance)."""
-    worst = (0.0, 9.0)
-    for sc in (0.75, 0.85, 1.0):
-        for sp in (0.0, 0.3, 0.6):
-            for pi in (0.0, 20.0, 30.0, 45.0, 60.0):
-                for gap, clear in rider_hand_gaps(sc, sp, pi):
-                    assert gap <= GRIP_GAP_MAX, ('hand off the handle', sc, sp, pi, gap)
-                    assert clear > 0.0, ('hand in the thigh', sc, sp, pi, clear)
-                    worst = (max(worst[0], gap), min(worst[1], clear))
+    """The fists on the handle (gap at most 0.06, sunk at most 0.005) and their boxes (sleeves on) clear of the
+    thigh boxes (pants on) by at least 0.1 px, wide and slim arms, scales 0.75 / 0.85 / 1.0, speeds 0 to 0.6, broom
+    pitch 0 to 70 (the dive tuck). Returns (worst gap, deepest sink, least clearance px)."""
+    worst = (0.0, 9.0, 9.0)
+    for slim in (False, True):
+        for sc in (0.75, 0.85, 1.0):
+            for sp in (0.0, 0.15, 0.3, 0.45, 0.6):
+                for pi in (0.0, 20.0, 25.0, 30.0, 35.0, 45.0, 70.0):
+                    for gap, clear in rider_hand_gaps(sc, sp, pi, slim):
+                        assert -GRIP_SINK_MAX <= gap <= GRIP_GAP_MAX, ('hand off the handle', slim, sc, sp, pi, gap)
+                        assert clear >= FIST_CLEAR_PX, ('fist in the thigh', slim, sc, sp, pi, clear)
+                        worst = (max(worst[0], gap), min(worst[1], gap), min(worst[2], clear))
     return worst

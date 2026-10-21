@@ -55,18 +55,24 @@ faces.
                                     'lower'/'upper' cells, 'closed'/'open' [lower, upper] states. Block events
                                     place only default states, so to open it place minecraft:air at both cells
                                     and show two memory_block actors with the 'open' states there (or swing
-                                    them). 'hinge' [x, y, z] is the north jamb's bottom on the hall face, with
-                                    'yaw_closed' -90 / 'yaw_open' -180 for a memory_door leaf at 'leaf_scale'
+                                    them). 'hinge' [x, y, z] is the south jamb's bottom on the hall face (the
+                                    block door's hinge side), with 'yaw_closed' 90 / 'yaw_open' 180 for a
+                                    plain memory_door leaf at 'leaf_scale'
                                     0.667 (0.67 wide, 2 tall) if a swinging leaf is wanted instead. 'outside'
                                     {pos, yaw}: the knocking spot in the hall, facing the door
   hall_mat               [x, y, z]  where letters land inside the front door (on the mat, y 0.0625)
   letter_slot            [x, y, z]  the slot on the front door's outer (street) face, y 0.9
   letter_slot_inner      [x, y, z]  the same slot on the door's inner face (a letter leaves it here)
+  letter_plate           {...}      the brass letter plate, which the SCENE must add (no block reads as one on a
+                                    door): 'block' a light weighted pressure plate state, 'scale' 0.3, and
+                                    'inner' / 'outer' {pos, pitch}: memory_block actors (pos = the block centre)
+                                    that stand the plate on the door's hall face (pitch 90) and street face
+                                    (pitch -90), a 0.26 square centred on the slot at y 0.9
   front_door             [x, y, z]  the front door's lower cell (int corner; upper cell is y + 1)
   front_door_states      [lower, upper] the closed door's block states
   front_step             {pos, yaw} the postman's / Vernon's spot outside the door, facing it
-  hall_inside_door       {pos, yaw} just inside the door on the hall side, facing the door (Vernon nails the
-                                    slot from here)
+  hall_inside_door       {pos, yaw} just inside the door on the hall side, on the mat (y 0.0625), facing the
+                                    door (Vernon nails the slot from here)
   hall_spots             {name: {pos, yaw}} standing marks along the hall (foot_of_stairs, by_cupboard,
                                     kitchen_doorway, living_doorway, mid_hall)
   stairs_path            [[x, y, z], ...] feet points down the stair treads, landing to hall (Dudley thumps
@@ -338,12 +344,9 @@ class House:
                 self.put(hx, hy, 15, plaster)
         floor = 'minecraft:spruce_planks'
         self.fill(1, -1, 1, 15, -1, 15, floor)
-        if self.full:
-            self.fill(2, 3, 2, 14, 3, 14, 'minecraft:white_concrete')       # ceiling / first floor
-            self.fill(2, 7, 2, 14, 7, 14, 'minecraft:white_concrete')       # upper ceiling
-        else:
-            self.fill(2, 3, 2, 14, 3, 14, 'minecraft:white_concrete')
-            self.fill(2, 7, 2, 14, 7, 14, 'minecraft:white_concrete')
+        self.fill(2, 3, 2, 14, 3, 14, 'minecraft:white_concrete')           # ceiling / first floor
+        self.fill(2, 7, 2, 14, 7, 14, 'minecraft:white_concrete')           # upper ceiling
+        if not self.full:
             # a spine wall so a window never shows the far side of the house
             self.fill(2, 0, 9, 14, 2, 9, plaster)
             self.fill(2, 4, 9, 14, 6, 9, plaster)
@@ -414,10 +417,10 @@ class House:
         self.put(12, -1, 0, 'minecraft:polished_andesite')            # threshold
         # canopy on brackets
         for hx in (11, 12, 13):
-            self.put(hx, 2, -1, self.s(TILE + '_stairs', facing='B', half='bottom', shape='straight',
+            self.put(hx, 3, -1, self.s(TILE + '_stairs', facing='B', half='bottom', shape='straight',
                                        waterlogged=False))
         for hx in (11, 13):
-            self.put(hx, 1, -1, self.s('spruce_stairs', facing='B', half='top', shape='straight',
+            self.put(hx, 2, -1, self.s('spruce_stairs', facing='B', half='top', shape='straight',
                                        waterlogged=False))
         self.put(12, -1, -1, 'minecraft:smooth_stone')
         # the bay: posts, base, glass, its own lean-to roof; the walls behind it open (hx 4..7)
@@ -505,7 +508,14 @@ class House:
         self.fill(11, -1, 2, 14, -1, 8, 'minecraft:spruce_planks')
         self.put(12, -1, 9, 'minecraft:spruce_planks')
         self.put(10, -1, 3, 'minecraft:spruce_planks')
-        self.put(12, 0, 1, state('brown_carpet'))
+        self.put(12, 0, 1, state('gray_carpet'))                  # the doormat, grey on the boards
+        self.put(12, 0, 2, state('gray_carpet'))
+        self.put(12, 2, 0, self.pane_x())                          # a fanlight over the front door
+        self.put(12, 2, 1, None)
+        for hy in (0, 1, 2):                                       # a glazed side panel beside it
+            self.put(13, hy, 0, self.pane_x())
+            self.put(13, hy, 1, None)
+        self.frame(11, 2, 6, 'W', 'dark_oak')                      # a picture over the radiator
         # stairs along the east wall (hx 14), rising north: treads d 4..7 at hy 0..3
         for i, d in enumerate(range(4, 8)):
             self.put(14, i, d, self.s('spruce_stairs', facing='B', half='bottom', shape='straight',
@@ -544,6 +554,12 @@ class House:
         self.put(14, 0, 7, self.s('brown_bed', facing='B', part='head', occupied=False))
         self.put(14, -1, 6, 'minecraft:spruce_planks')
         self.put(14, -1, 7, 'minecraft:spruce_planks')
+        # boards on the cupboard's outer side and back, so it reads as a cupboard, not a plastered room
+        for d in (6, 7):
+            for hy in (0, 1, 2):
+                self.put(15, hy, d, 'minecraft:spruce_planks')
+        self.put(14, 0, 8, 'minecraft:spruce_planks')
+        self.put(14, 2, 8, 'minecraft:spruce_planks')
         # the bulb, in a niche in the back wall over the pillow
         self.put(14, 1, 8, state('lantern', hanging=False, waterlogged=False))
         # the shelf: a pigeonhole unit closing the foot end, under the second tread
@@ -558,8 +574,17 @@ class House:
         self.cup_states = {'closed': [lower, upper],
                            'open': [lower.replace('open=false', 'open=true'), upper.replace('open=false', 'open=true')]}
 
+    def frame(self, hx, hy, d, back, wood='dark_oak'):
+        """A framed picture: an open trapdoor flat against the wall behind it (`back` is the side the wall is
+        on), 3/16 thick."""
+        face = {'W': 'E', 'E': 'W', 'F': 'B', 'B': 'F'}[back]
+        self.put(hx, hy, d, self.s(wood + '_trapdoor', facing=face, half='top', open=True, powered=False,
+                                   waterlogged=False))
+
     def living(self):
-        """Living room hx 2..9, d 2..8, the bay alcove hx 4..7, d 0..1."""
+        """Living room hx 2..9, d 2..8, the bay alcove hx 4..7, d 0..1. The flood box is the clear middle (hx 3..8,
+        d 2..7, hy 0..2); everything here stands in the strips round it (hx 2, hx 9, d 8, the bay) or is flush in
+        the walls, floor and ceiling."""
         carpet = 'minecraft:brown_wool'
         self.fill(2, -1, 2, 9, -1, 8, carpet)
         for hx in range(4, 8):
@@ -569,61 +594,86 @@ class House:
         for hx in range(4, 8):
             for d in range(3, 8):
                 edge = hx in (4, 7) or d in (3, 7)
-                self.put(hx, -1, d, 'minecraft:red_terracotta' if edge else 'minecraft:white_terracotta')
-        # curtains drawn back to the sides of the bay
+                self.put(hx, -1, d, 'minecraft:brown_terracotta' if edge else 'minecraft:white_terracotta')
+        # the bay: half-nets in the lower lights, curtains drawn back under a pelmet
+        for hx in range(4, 8):
+            self.put(hx, 1, -1, self.pane_x(NET))
+            self.put(hx, 2, 1, 'minecraft:pink_terracotta')                 # pelmet across the bay head
         for hx in (4, 7):
-            for hy in range(0, 3):
-                self.put(hx, hy, 0, 'minecraft:pink_wool')
-        # chimney breast hx 2, d 4..6: the opening at d 5 (hy 0) with the firebox in the wall behind it
-        breast = BRICK
+            self.put(hx, 0, 0, None)
+            for hy in (1, 2):
+                self.put(hx, hy, 0, 'minecraft:pink_terracotta')
+        # chimney breast hx 2, d 4..6, standing free between the alcoves
         for d in (4, 5, 6):
             for hy in (0, 1, 2):
-                self.put(2, hy, d, breast)
-            self.put(1, 0, d, breast)
-            self.put(1, 1, d, breast)
-            self.put(1, 2, d, breast)
+                self.put(2, hy, d, BRICK)
+                self.put(1, hy, d, BRICK)
+        # the fire surround: quartz pilasters and a quartz-lined head round a black firebox
+        self.put(2, 0, 4, WHITE)
+        self.put(2, 0, 6, WHITE)
         self.put(2, 0, 5, None)                                     # the mouth
         self.put(1, 0, 5, None)                                     # the firebox, in the wall
         self.put(0, 0, 5, 'minecraft:polished_blackstone_bricks')  # its fireback (the outer wall)
+        self.put(1, 0, 4, 'minecraft:polished_blackstone_bricks')  # its cheeks
+        self.put(1, 0, 6, 'minecraft:polished_blackstone_bricks')
         self.put(1, -1, 5, 'minecraft:polished_blackstone')
         self.put(2, -1, 5, 'minecraft:polished_blackstone')
+        for d in (4, 5, 6):
+            self.put(1, 1, d, WHITE)                                # the surround's head, under the shelf
         # hearth in front of the breast, flush with the carpet
         for d in (4, 5, 6):
             self.put(3, -1, d, 'minecraft:polished_andesite')
-        # mantel (hy 1) and the shelf over it with ornaments (hy 2 set back)
-        for d in (4, 5, 6):
+        # the mantel shelf, one wider than the breast each side, ornaments on its ends
+        for d in range(3, 8):
             self.put(2, 1, d, self.s('dark_oak_slab', type='top', waterlogged=False))
-            self.put(2, 2, d, None)
-        self.put(2, 2, 4, state('candle', candles=2, lit=False, waterlogged=False))
-        self.put(2, 2, 5, state('flower_pot'))
-        self.put(2, 2, 6, state('potted_red_tulip'))
-        # alcove units: TV on a cabinet (d 2..3), a glass display cabinet (d 7..8)
-        for d in (2, 3):
-            self.put(2, 0, d, self.s('spruce_trapdoor', facing='E', half='top', open=False, powered=False,
-                                     waterlogged=False))
-        self.put(2, 1, 3, 'minecraft:black_concrete')               # the television
-        for d in (7, 8):
-            self.put(2, 0, d, 'minecraft:dark_oak_planks')
-            self.put(2, 1, d, 'minecraft:glass')
-            self.put(2, 2, d, self.s('dark_oak_slab', type='bottom', waterlogged=False))
+        self.put(2, 2, 3, state('candle', candles=3, lit=False, waterlogged=False))
+        self.put(2, 2, 7, state('potted_red_tulip'))
+        # over the mantel the breast carries on to the ceiling with a picture set in its face
+        self.put(2, 2, 4, BRICK)
+        self.put(2, 2, 6, BRICK)
+        self.frame(2, 2, 5, 'W', 'dark_oak')
+        # the alcoves: the TV in the front corner, a glass display cabinet in the back one, pictures over them
+        self.put(2, 0, 2, self.s('spruce_trapdoor', facing='E', half='top', open=False, powered=False,
+                                 waterlogged=False))
+        self.put(2, 1, 2, 'minecraft:black_concrete')               # the television
+        self.frame(2, 2, 2, 'W', 'dark_oak')
+        self.put(2, 0, 8, 'minecraft:dark_oak_planks')
+        self.put(2, 1, 8, 'minecraft:glass')
+        self.put(2, 2, 8, self.s('dark_oak_slab', type='bottom', waterlogged=False))
         # three-seat sofa on the back wall (d 8), facing the front, arms at hx 4 and 8
-        sofa = 'granite_stairs'
+        sofa = 'polished_granite_stairs'
         for hx in (5, 6, 7):
             self.put(hx, 0, 8, self.s(sofa, facing='B', half='bottom', shape='straight', waterlogged=False))
         self.put(4, 0, 8, self.s('dark_oak_trapdoor', facing='W', half='bottom', open=True, powered=False,
                                  waterlogged=False))
         self.put(8, 0, 8, self.s('dark_oak_trapdoor', facing='E', half='bottom', open=True, powered=False,
                                  waterlogged=False))
+        # a sideboard in the corner beside the sofa
+        self.put(3, 0, 8, self.s('dark_oak_trapdoor', facing='F', half='top', open=False, powered=False,
+                                 waterlogged=False))
+        self.put(3, 1, 8, state('potted_fern'))
         # Vernon's armchair on the east side (hx 9, d 5) facing the fireplace, arms at d 4 and d 6
         self.put(9, 0, 5, self.s(sofa, facing='E', half='bottom', shape='straight', waterlogged=False))
         self.put(9, 0, 4, self.s('dark_oak_trapdoor', facing='F', half='bottom', open=True, powered=False,
                                  waterlogged=False))
         self.put(9, 0, 6, self.s('dark_oak_trapdoor', facing='B', half='bottom', open=True, powered=False,
                                  waterlogged=False))
+        # the photo wall: Dudley, framed, over the armchair and over the sofa
+        self.frame(9, 2, 4, 'E', 'dark_oak')
+        self.frame(9, 2, 6, 'E', 'dark_oak')
+        self.frame(5, 2, 8, 'B', 'dark_oak')
+        self.frame(7, 2, 8, 'B', 'dark_oak')
         # a lamp table in the corner, a pot plant by the door
         self.put(9, 0, 7, state('dark_oak_fence', waterlogged=False))
         self.put(9, 1, 7, state('lantern', hanging=False, waterlogged=False))
         self.put(9, 0, 2, state('potted_azalea_bush'))
+        # the ceiling: a quartz band round the edge for the cornice, a rose round the light
+        for hx in range(2, 10):
+            for d in range(2, 9):
+                if hx in (2, 9) or d in (2, 8):
+                    self.put(hx, 3, d, WHITE)
+        for hx, d in ((4, 5), (6, 5), (5, 4), (5, 6)):
+            self.put(hx, 3, d, 'minecraft:chiseled_quartz_block')
 
     def kitchen(self):
         """Kitchen-diner hx 2..14, d 10..14."""
@@ -704,8 +754,9 @@ class House:
         """Morning: daylight through the glass, light blocks where the camera would find the rooms dark, never
         inside the flood box."""
         lt = lambda lv: state('light', level=lv, waterlogged=False)
-        for hx, hy, d, lv in ((12, 2, 2, 11), (12, 2, 6, 11), (11, 2, 8, 10), (14, 2, 3, 10),
-                              (9, 2, 3, 12), (9, 2, 8, 12), (2, 2, 3, 10), (5, 2, 8, 12),
+        for hx, hy, d, lv in ((12, 2, 2, 13), (12, 1, 1, 12), (12, 2, 6, 11), (11, 2, 8, 10), (14, 2, 3, 11),
+                              (9, 2, 3, 12), (9, 2, 8, 12), (9, 2, 5, 11), (6, 2, 8, 12), (3, 2, 8, 10),
+                              (5, 2, 0, 10), (2, 2, 3, 10),
                               (4, 2, 12, 12), (10, 2, 12, 12), (13, 2, 11, 12), (7, 2, 13, 11),
                               (12, 6, 5, 10), (5, 6, 4, 9), (11, 6, 12, 9)):
             if self.get(hx, hy, d) is None:
@@ -713,6 +764,12 @@ class House:
         self.put(5, 3, 5, 'minecraft:pearlescent_froglight')       # living-room ceiling light
         self.put(7, 3, 12, 'minecraft:pearlescent_froglight')      # kitchen
         self.put(12, 3, 5, 'minecraft:pearlescent_froglight')      # hall
+        self.put(12, 3, 2, 'minecraft:pearlescent_froglight')      # hall, by the front door
+        # a picture rail: the top course of every plastered wall downstairs in a second cream
+        for hx in range(1, 16):
+            for d in range(1, 16):
+                if self.get(hx, 2, d) == PLASTER:
+                    self.put(hx, 2, d, 'minecraft:cut_sandstone')
 
 
 # ---------------------------------------------------------------- the street
@@ -889,9 +946,9 @@ def anchors(houses, street_owls):
     A['cupboard_door'] = {
         'lower': lc, 'upper': [lc[0], lc[1] + 1, lc[2]],
         'closed': h.cup_states['closed'], 'open': h.cup_states['open'],
-        # a memory_door leaf instead: hinge on the hall face at the north jamb, leaf spanning south (-Z) when
-        # closed (yaw -90), swung open into the hall (-X) at yaw -180; its thickness lies on the hall side
-        'hinge': h.pt(13.0, 0, 8.0), 'leaf_scale': 0.667, 'yaw_closed': -90.0, 'yaw_open': -180.0,
+        # a memory_door leaf instead: hinged like the block door, on the hall face at the south jamb, the leaf
+        # spanning north (-Z) when closed (yaw 90), swung open into the hall (-X) at yaw 180
+        'hinge': h.pt(13.0, 0, 7.0), 'leaf_scale': 0.667, 'yaw_closed': 90.0, 'yaw_open': 180.0,
         'outside': {'pos': h.cpt(12, 0, 7), 'yaw': h.yaw('E')},
     }
     A['hall_mat'] = h.pt(12.5, 1 / 16.0, 1.5)
@@ -902,7 +959,18 @@ def anchors(houses, street_owls):
     A['front_door_states'] = h.door_states
     A['front_step'] = {'pos': h.cpt(12, 0, -1), 'yaw': h.yaw('B')}
     A['no4_front'] = h.pt(12.5, 0, 0.0)
-    A['hall_inside_door'] = {'pos': h.cpt(12, 0, 2), 'yaw': h.yaw('F')}
+    A['hall_inside_door'] = {'pos': h.cpt(12, 1 / 16.0, 2), 'yaw': h.yaw('F')}
+    # the brass letter plate: no block reads as one on a door, so the scene adds it as a memory_block actor on
+    # each face (path = the block centre, scale about it). A light weighted pressure plate turned on its side:
+    # pitch +90 lays its plate on the block's north face (SKILL.md: positive pitch tips the south face down),
+    # -90 on the south face; at scale 0.3 the plate is 0.26 square and 0.02 thick, centred on the slot.
+    s_ = 0.3
+    slot = A['letter_slot']
+    A['letter_plate'] = {
+        'block': 'minecraft:light_weighted_pressure_plate[power=0]', 'scale': s_,
+        'inner': {'pos': [slot[0], 0.9, round(A['letter_slot_inner'][2] - s_ / 16 + s_ / 2, 5)], 'pitch': 90.0},
+        'outer': {'pos': [slot[0], 0.9, round(slot[2] - s_ * 7 / 16, 5)], 'pitch': -90.0},
+    }
     A['hall_spots'] = {
         'foot_of_stairs': {'pos': h.cpt(14, 0, 3), 'yaw': h.yaw('B')},
         'by_cupboard': {'pos': h.cpt(12, 0, 7), 'yaw': h.yaw('E')},
@@ -970,7 +1038,7 @@ def anchors(houses, street_owls):
             owls.append(hh.pt(19.5, 3.5, 2.5))                 # garage roof
         if i == NO4 or abs(i - NO4) == 1:
             owls.append(hh.pt(3.5, 3.5, -0.7))                 # bay roof, its west end
-            owls.append(hh.pt(12.5, 2.5, -0.7))                # porch canopy
+            owls.append(hh.pt(11.5, 3.5, -0.7))                # porch canopy, west end
             owls.append(hh.pt(4.5, 1.0, -6.5))                 # hedge
             owls.append(hh.pt(8.5, 1.0, -6.5))
     for p in street_owls:
@@ -1072,7 +1140,9 @@ def check_seat(g, name, seat, problems):
         problems.append('%s %s: no seat block at %s (%s)' % (name, seat, c, st))
     for dy in (1, 2):
         cc = (c[0], c[1] + dy, c[2])
-        if bid(g.get(cc)) not in PASSABLE:
+        b = bid(g.get(cc))
+        if b not in PASSABLE and not (dy == 2 and b.endswith('_trapdoor')
+                                         and 'open=true' in g.get(cc)):        # a frame flat on the wall
             problems.append('%s %s: cell %s above is %s' % (name, seat, cc, g.get(cc)))
     # the sitter faces away from the stair's back
     back = st.split('facing=')[1].split(',')[0].rstrip(']') if st and 'facing=' in st else None
@@ -1146,15 +1216,16 @@ def check(g, houses, A):
     # the flood box: all air, the mouth on its west face, the firebox outside
     (x1, y1, z1), (x2, y2, z2) = A['living_room_box']
     n = 0
-    for x in range(int(x1), int(x2)):
-        for y in range(int(y1), int(y2)):
-            for z in range(int(z1), int(z2)):
+    fl, ce = math.floor, math.ceil
+    for x in range(fl(x1), ce(x2)):
+        for y in range(fl(y1), ce(y2)):
+            for z in range(fl(z1), ce(z2)):
                 c = to_cell([x + 0.5, y + 0.5, z + 0.5])
                 n += 1
                 if g.get(c) is not None:
                     problems.append('living_room_box cell %s (scene %s) is %s' % (c, (x, y, z), g.get(c)))
-    for x in range(int(x1), int(x2)):
-        for z in range(int(z1), int(z2)):
+    for x in range(fl(x1), ce(x2)):
+        for z in range(fl(z1), ce(z2)):
             below = g.get(to_cell([x + 0.5, -0.5, z + 0.5]))
             if bid(below) in PASSABLE:
                 problems.append('living_room_box floor open at %s' % ((x, z),))

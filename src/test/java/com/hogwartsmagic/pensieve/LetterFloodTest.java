@@ -1,5 +1,6 @@
 package com.hogwartsmagic.pensieve;
 
+import com.hogwartsmagic.pensieve.scene.EffectSeed;
 import com.hogwartsmagic.pensieve.scene.LetterFlood;
 import org.junit.jupiter.api.Test;
 
@@ -126,5 +127,114 @@ class LetterFloodTest {
         }
         f.fastForward(50);
         for (int i = 0; i < xs.length; i++) assertEquals(xs[i], f.x(i), 0.0);
+    }
+
+    @Test
+    void restingLettersLieFlat() {
+        LetterFlood f = flood(0f, 8);
+        f.fastForward(400);
+        for (int i = 0; i < f.count(); i++) assertEquals(90f, f.pitch(i), 0.5f, "letter " + i);
+    }
+
+    @Test
+    void marginCoversTheEnvelopeCorners() {
+        double halfDiagonal = Math.hypot(LetterFlood.ENVELOPE_HALF_W, LetterFlood.ENVELOPE_HALF_H);
+        assertTrue(LetterFlood.MARGIN >= halfDiagonal, "margin " + LetterFlood.MARGIN + " < " + halfDiagonal);
+    }
+
+    /** Every corner of a flat letter (centre, yaw) must lie in the box {minX, minY, minZ, maxX, maxY, maxZ}. */
+    private static void assertCornersInBox(LetterFlood f, int i, double[] box, String msg) {
+        double yaw = Math.toRadians(f.yaw(i));
+        double cos = Math.cos(yaw), sin = Math.sin(yaw);
+        for (int sx = -1; sx <= 1; sx += 2) {
+            for (int sz = -1; sz <= 1; sz += 2) {
+                double lx = sx * LetterFlood.ENVELOPE_HALF_W, lz = sz * LetterFlood.ENVELOPE_HALF_H;
+                double wx = f.x(i) + lx * cos - lz * sin, wz = f.z(i) + lx * sin + lz * cos;
+                assertTrue(wx >= box[0] - 1e-6 && wx <= box[3] + 1e-6, msg + " corner x " + wx);
+                assertTrue(wz >= box[2] - 1e-6 && wz <= box[5] + 1e-6, msg + " corner z " + wz);
+            }
+        }
+    }
+
+    @Test
+    void offCentreBoxClampsAndKeepsCornersInside() {
+        // An explicit box that is not centred on the emitter (the emitter is on its -Z face, off to the side).
+        double[] box = {4.0, 4.0, -14.0, 9.5, 7.0, -6.0};
+        for (float yaw : YAWS) {
+            LetterFlood f = new LetterFlood(5.0, 4.0, -6.0, yaw, box, 300, 120, 21);
+            for (int tick = 0; tick < 400; tick++) {
+                f.step();
+                for (int i = 0; i < f.count(); i++) {
+                    if (!f.emitted(i)) continue;
+                    String msg = "yaw " + yaw + " tick " + tick + " letter " + i;
+                    assertTrue(f.x(i) >= box[0] + LetterFlood.MARGIN - 1e-9 && f.x(i) <= box[3] - LetterFlood.MARGIN + 1e-9, msg + " x " + f.x(i));
+                    assertTrue(f.z(i) >= box[2] + LetterFlood.MARGIN - 1e-9 && f.z(i) <= box[5] - LetterFlood.MARGIN + 1e-9, msg + " z " + f.z(i));
+                    assertTrue(f.y(i) >= box[1] - 1e-9 && f.y(i) <= box[4] - LetterFlood.MARGIN + 1e-9, msg + " y " + f.y(i));
+                }
+            }
+            for (int i = 0; i < f.count(); i++) {
+                assertTrue(f.resting(i), "letter " + i + " rests");
+                assertCornersInBox(f, i, box, "yaw " + yaw + " letter " + i);
+            }
+        }
+    }
+
+    @Test
+    void legacyBoxRestingCornersStayInside() {
+        for (float yaw : YAWS) {
+            LetterFlood f = flood(yaw, 17);
+            f.fastForward(400);
+            double[] fw = forward(yaw);
+            double cx = AX + fw[0] * HZ, cz = AZ + fw[1] * HZ;
+            double wx = fw[0] != 0 ? HZ : HX, wz = fw[1] != 0 ? HZ : HX;
+            double[] box = {cx - wx, AY, cz - wz, cx + wx, AY + 2 * HY, cz + wz};
+            for (int i = 0; i < f.count(); i++) assertCornersInBox(f, i, box, "yaw " + yaw + " letter " + i);
+        }
+    }
+
+    @Test
+    void manyLettersStillSettleInsideTheBox() {
+        for (int n : new int[] {300, 400}) {
+            LetterFlood f = new LetterFlood(AX, AY, AZ, 90f, HX, HY, HZ, n, 120, 77);
+            f.fastForward(500);
+            double[] fw = forward(90f);
+            double cx = AX + fw[0] * HZ, cz = AZ + fw[1] * HZ;
+            double wx = fw[0] != 0 ? HZ : HX, wz = fw[1] != 0 ? HZ : HX;
+            for (int i = 0; i < n; i++) {
+                assertTrue(f.emitted(i) && f.resting(i), n + " letters, letter " + i);
+                assertTrue(Math.abs(f.x(i) - cx) <= wx - LetterFlood.MARGIN + 1e-9, n + " x " + f.x(i));
+                assertTrue(Math.abs(f.z(i) - cz) <= wz - LetterFlood.MARGIN + 1e-9, n + " z " + f.z(i));
+            }
+        }
+    }
+
+    @Test
+    void sameSeedWhereverTheSceneIsPlaced() {
+        long a = EffectSeed.of(110.5 + 4096, 24, 12.5 - 8192, 4096, 0, -8192, 3.5f);
+        long b = EffectSeed.of(110.5, 24, 12.5, 0, 0, 0, 3.5f);
+        assertEquals(b, a);
+        assertTrue(EffectSeed.of(110.5, 24, 12.5, 0, 0, 0, 4f) != b, "event time is mixed in");
+        assertTrue(EffectSeed.of(111.5, 24, 12.5, 0, 0, 0, 3.5f) != b, "position is mixed in");
+    }
+
+    @Test
+    void stepsDueCatchesUpToTheSceneClock() {
+        // Just fired: one step due. Caught up: none. Behind: the gap, capped. Before the event: never negative.
+        assertEquals(1, LetterFlood.stepsDue(0, 10.2f, 10f, 20));
+        assertEquals(0, LetterFlood.stepsDue(1, 10.9f, 10f, 20));
+        assertEquals(1, LetterFlood.stepsDue(1, 11.0f, 10f, 20));
+        assertEquals(5, LetterFlood.stepsDue(2, 16.5f, 10f, 20));
+        assertEquals(20, LetterFlood.stepsDue(0, 100f, 10f, 20));
+        assertEquals(0, LetterFlood.stepsDue(0, 5f, 10f, 20));
+        assertEquals(0, LetterFlood.stepsDue(50, 12f, 10f, 20));
+    }
+
+    @Test
+    void flightAgeCountsFromTheEmitTick() {
+        LetterFlood f = flood(0f, 2);
+        f.fastForward(80);
+        for (int i = 0; i < f.count(); i++) {
+            assertEquals(f.age() - (int) Math.floor(i * (0.6 * 120) / f.count()), f.flightAge(i));
+        }
     }
 }

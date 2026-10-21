@@ -234,13 +234,23 @@ public final class SceneParser {
             checkKeys(o, path, "t", "kind", "id", "volume");
         } else {
             checkKeys(o, path, "t", "kind", "id", "at", "volume", "pitch", "count", "spread", "duration", "yaw",
-                    "style", "intensity");
+                    "style", "intensity", "box");
         }
         float[] at = floats(o, "at", path, 3, null);
         return new SceneDef.EventDef(reqTime(o, "t", path), reqStr(o, "kind", path), str(o, "id", path, null), at,
                 num(o, "volume", path, 1f), num(o, "pitch", path, 1f), integer(o, "count", path, -1),
                 floats(o, "spread", path, 3, null), Math.round(time(o, "duration", path, 0f)),
-                num(o, "yaw", path, Float.NaN), str(o, "style", path, null), num(o, "intensity", path, Float.NaN));
+                num(o, "yaw", path, Float.NaN), str(o, "style", path, null), num(o, "intensity", path, Float.NaN),
+                box(o, path));
+    }
+
+    /** The optional {@code box}: two corners of three numbers each (their order is the validator's business). */
+    private static float[][] box(JsonObject o, String path) throws SceneException {
+        if (!has(o, "box")) return null;
+        String bp = child(path, "box");
+        JsonArray a = arr(o.get("box"), bp);
+        if (a.size() != 2) throw new SceneException(bp, "expected two corners [[x1,y1,z1],[x2,y2,z2]]");
+        return new float[][] {floatsOf(a.get(0), SceneJson.index(bp, 0), 3), floatsOf(a.get(1), SceneJson.index(bp, 1), 3)};
     }
 
     private static SceneDef.WordDef parseWord(JsonElement e, String path) throws SceneException {

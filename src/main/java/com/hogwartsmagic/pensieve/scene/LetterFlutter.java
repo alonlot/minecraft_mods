@@ -4,7 +4,8 @@ package com.hogwartsmagic.pensieve.scene;
 public final class LetterFlutter {
     private static final float MIN_RATE = 0.15f;
     private static final float MAX_RATE = 0.35f;
-    private static final float RESTING_SPEED = 0.01f;
+    /** Speed (blocks per tick) at which the flutter reaches full strength; slower letters flutter proportionally less. */
+    public static final float FULL_FLUTTER_SPEED = 0.05f;
 
     private LetterFlutter() {}
 
@@ -18,9 +19,14 @@ public final class LetterFlutter {
         return 11f * wave(age, seed, 4) + 8f * wave(age, seed, 6);
     }
 
-    /** True when the speed (blocks per tick) is low enough that the letter should lie still. */
-    public static boolean resting(float speed) {
-        return speed < RESTING_SPEED;
+    /** How strongly to flutter at {@code speed} blocks per tick: 0 when still, 1 from 0.05 up, linear between. */
+    public static float amplitude(float speed) {
+        return Math.max(0f, Math.min(1f, speed / FULL_FLUTTER_SPEED));
+    }
+
+    /** A stable flutter seed for an actor id (the same every replay, unlike the global entity counter). */
+    public static int seedFor(String actorId) {
+        return (int) HumanMotion.seed(actorId);
     }
 
     private static float wave(float age, int seed, int salt) {

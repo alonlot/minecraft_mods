@@ -121,7 +121,7 @@ public final class MemoryEvents {
                     || "enchanted_ceiling".equals(e.id()) || "light_rays".equals(e.id())
                     || "floating_candles".equals(e.id())) {
                 EffectVisuals.play(e.id(), position(e), e.duration(), late ? (int) age : 0, e.count(), e.spread(),
-                        e.yaw(), e.t(), e.style(), e.intensity());
+                        e.yaw(), e.t(), e.style(), e.intensity(), e.box());
             }
             return;
         }
@@ -164,6 +164,11 @@ public final class MemoryEvents {
         return at == null || at.length < 3
                 ? Vec3.atLowerCornerOf(origin)
                 : new Vec3(origin.getX() + at[0], origin.getY() + at[1], origin.getZ() + at[2]);
+    }
+
+    /** The scene origin as a vector (the zero vector outside a memory); effect seeds are taken relative to it. */
+    static Vec3 sceneOrigin() {
+        return origin == null ? Vec3.ZERO : Vec3.atLowerCornerOf(origin);
     }
 
     /** Where a sound with no position is heard from: the viewer's own ears. */

@@ -149,6 +149,10 @@ public final class MemoryActors {
                 return null;
             }
             entity.setUUID(uuid);
+            // The flutter phase comes from the actor id: the same every replay (the entity id is not).
+            if (entity instanceof com.hogwartsmagic.entity.MemoryLetterEntity letter) {
+                letter.flutterSeed = com.hogwartsmagic.pensieve.scene.LetterFlutter.seedFor(def.id());
+            }
             if (entity instanceof MemoryBlockEntity block) {
                 BlockState state = MemoryBlockEntity.parseState(def.block());
                 if (state == null) {

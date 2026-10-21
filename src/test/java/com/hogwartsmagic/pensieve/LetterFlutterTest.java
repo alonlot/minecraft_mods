@@ -3,7 +3,7 @@ package com.hogwartsmagic.pensieve;
 import com.hogwartsmagic.pensieve.scene.LetterFlutter;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -34,10 +34,23 @@ class LetterFlutterTest {
     }
 
     @Test
-    void restingBelowThreshold() {
-        assertTrue(LetterFlutter.resting(0f));
-        assertTrue(LetterFlutter.resting(0.0099f));
-        assertFalse(LetterFlutter.resting(0.01f));
-        assertFalse(LetterFlutter.resting(0.2f));
+    void amplitudeScalesWithSpeed() {
+        assertEquals(0f, LetterFlutter.amplitude(0f), 0f);
+        assertEquals(0.5f, LetterFlutter.amplitude(0.025f), 1e-6f);
+        assertEquals(1f, LetterFlutter.amplitude(0.05f), 0f);
+        assertEquals(1f, LetterFlutter.amplitude(0.4f), 0f);
+        assertEquals(0f, LetterFlutter.amplitude(-1f), 0f);
+        // Smooth: no snap between a still letter and a moving one.
+        for (float s = 0f; s < 0.1f; s += 0.001f) {
+            assertTrue(Math.abs(LetterFlutter.amplitude(s + 0.001f) - LetterFlutter.amplitude(s)) <= 0.0201f);
+        }
+    }
+
+    @Test
+    void seedStableAcrossReplays() {
+        // The default seed comes from the actor id (stable), not the global entity counter (new on every replay).
+        assertEquals(LetterFlutter.seedFor("letter_1"), LetterFlutter.seedFor(new String("letter_1")));
+        assertNotEquals(LetterFlutter.seedFor("letter_1"), LetterFlutter.seedFor("letter_2"));
+        assertEquals(LetterFlutter.seedFor(null), LetterFlutter.seedFor(""));
     }
 }

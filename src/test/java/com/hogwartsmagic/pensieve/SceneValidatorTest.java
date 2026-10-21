@@ -352,6 +352,38 @@ class SceneValidatorTest {
         assertEquals(1, validate(flood(base + ",\"spread\":[3,2,12.5]")).size());
     }
 
+    @Test
+    void letterFloodYawMustBeAQuarterTurn() throws Exception {
+        String base = ",\"at\":[0,0,0]";
+        for (int yaw : new int[] {0, 90, 180, -90, 270, -180}) {
+            assertEquals(List.of(), validate(flood(base + ",\"yaw\":" + yaw)), "yaw " + yaw);
+        }
+        List<String> m = validate(flood(base + ",\"yaw\":45"));
+        assertEquals(1, m.size(), m.toString());
+        assertTrue(m.get(0).contains("multiple of 90"), m.get(0));
+        assertEquals(1, validate(flood(base + ",\"yaw\":91.5")).size());
+    }
+
+    @Test
+    void letterFloodBox() throws Exception {
+        String base = ",\"at\":[0,0,0],\"yaw\":0";
+        assertEquals(List.of(), validate(flood(base + ",\"box\":[[-3,0,1],[3,5,9]]")));
+        List<String> m = validate(flood(base + ",\"box\":[[3,0,1],[-3,5,9]]"));
+        assertEquals(1, m.size(), m.toString());
+        assertTrue(m.get(0).contains("box"), m.get(0));
+        assertEquals(1, validate(flood(base + ",\"box\":[[-3,0,1],[3,0,9]]")).size());   // flat in y
+        assertEquals(1, validate(flood(base + ",\"box\":[[-3,0,1],[3,5,41]]")).size());  // beyond radius 40
+        assertEquals(1, validate(flood(base + ",\"box\":[[-41,0,1],[3,5,9]]")).size());  // beyond radius 40
+        // A box of the wrong shape is a parse error.
+        org.junit.jupiter.api.Assertions.assertThrows(com.hogwartsmagic.pensieve.scene.SceneException.class,
+                () -> validate(flood(base + ",\"box\":[[-3,0,1]]")));
+        org.junit.jupiter.api.Assertions.assertThrows(com.hogwartsmagic.pensieve.scene.SceneException.class,
+                () -> validate(flood(base + ",\"box\":[[-3,0],[3,5,9]]")));
+        // box is only for letter_flood
+        assertEquals(1, validate("{\"length\":100,\"events\":[{\"t\":1,\"kind\":\"effect\",\"id\":\"lightning\","
+                + "\"at\":[0,0,0],\"box\":[[0,0,0],[1,1,1]]}]}").size());
+    }
+
     private static String ceiling(String extra) {
         return "{\"length\":100,\"events\":[{\"t\":1,\"kind\":\"effect\",\"id\":\"enchanted_ceiling\"" + extra + "}]}";
     }

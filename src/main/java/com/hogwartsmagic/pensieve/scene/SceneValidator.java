@@ -65,7 +65,7 @@ public final class SceneValidator {
         }
 
         for (int i = 0; i < scene.events().size(); i++) {
-            event(out, scene.events().get(i), "events[" + i + "]", names, length);
+            event(out, scene.events().get(i), "events[" + i + "]", names, length, scene.radius());
         }
 
         for (int i = 0; i < scene.words().size(); i++) {
@@ -197,7 +197,8 @@ public final class SceneValidator {
         }
     }
 
-    private static void event(List<String> out, SceneDef.EventDef e, String p, SceneNames names, float length) {
+    private static void event(List<String> out, SceneDef.EventDef e, String p, SceneNames names, float length,
+                              int radius) {
         time(out, p + ".t", e.t(), length);
         if (!SceneNames.EVENT_KINDS.contains(e.kind())) {
             out.add(p + ".kind: unknown event kind '" + e.kind() + "' (expected one of "
@@ -213,6 +214,9 @@ public final class SceneValidator {
         if (!Float.isNaN(e.intensity()) && !("effect".equals(e.kind())
                 && ("light_rays".equals(e.id()) || "eyes_peek".equals(e.id()) || "wand_choice".equals(e.id())))) {
             out.add(p + ".intensity: intensity is only for light_rays, eyes_peek and wand_choice");
+        }
+        if (e.box() != null && !("effect".equals(e.kind()) && "letter_flood".equals(e.id()))) {
+            out.add(p + ".box: box is only for letter_flood");
         }
         if (e.id() == null) {
             out.add(p + ".id: missing required key for a " + e.kind() + " event");
@@ -243,7 +247,7 @@ public final class SceneValidator {
                 if (!SceneNames.EFFECTS.contains(e.id())) {
                     out.add(p + ".id: unknown effect '" + e.id() + "' (expected one of " + sorted(SceneNames.EFFECTS) + ")");
                 } else if ("letter_flood".equals(e.id())) {
-                    letterFlood(out, e, p);
+                    letterFlood(out, e, p, radius);
                 } else if ("enchanted_ceiling".equals(e.id())) {
                     ceiling(out, e, p);
                 } else if ("light_rays".equals(e.id())) {
@@ -262,9 +266,28 @@ public final class SceneValidator {
     }
 
     /** The letter_flood effect: it needs a mouth and a facing, and its optional numbers have ranges. */
-    private static void letterFlood(List<String> out, SceneDef.EventDef e, String p) {
+    private static void letterFlood(List<String> out, SceneDef.EventDef e, String p, int radius) {
         if (e.at() == null) out.add(p + ": letter_flood needs at");
-        if (Float.isNaN(e.yaw()) || Float.isInfinite(e.yaw())) out.add(p + ": letter_flood needs yaw");
+        if (Float.isNaN(e.yaw()) || Float.isInfinite(e.yaw())) {
+            out.add(p + ": letter_flood needs yaw");
+        } else if (e.yaw() % 90f != 0f) {
+            out.add(p + ".yaw: " + e.yaw() + " is not a multiple of 90 (the room faces a wall)");
+        }
+        if (e.box() != null) {
+            float[] a = e.box()[0], b = e.box()[1];
+            String[] axes = {"x", "y", "z"};
+            for (int i = 0; i < 3; i++) {
+                if (!(a[i] < b[i])) {
+                    out.add(p + ".box: min " + axes[i] + " " + a[i] + " must be below max " + axes[i] + " " + b[i]
+                            + " (give the lower corner first)");
+                }
+            }
+            for (int i : new int[] {0, 2}) {
+                if (Math.abs(a[i]) > radius || Math.abs(b[i]) > radius) {
+                    out.add(p + ".box: " + axes[i] + " " + a[i] + " to " + b[i] + " is outside the scene radius " + radius);
+                }
+            }
+        }
         if (e.count() != -1 && (e.count() < 1 || e.count() > SceneNames.MAX_FLOOD_LETTERS)) {
             out.add(p + ".count: " + e.count() + " is outside 1 to " + SceneNames.MAX_FLOOD_LETTERS);
         }

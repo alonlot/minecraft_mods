@@ -2,6 +2,7 @@ package com.hogwartsmagic.client;
 
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.entity.MemoryLetterEntity;
+import com.hogwartsmagic.pensieve.scene.LetterFlood;
 import com.hogwartsmagic.pensieve.scene.LetterFlutter;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -12,16 +13,20 @@ import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
 import org.joml.Matrix4f;
 
-/** Draws the Hogwarts letter envelope on a flat double-sided quad that flutters while it moves. */
+/**
+ * Draws the Hogwarts letter envelope on a double-sided quad that flutters while it moves. The quad lies in the XY
+ * plane (facing +Z), so look pitch 0 stands it upright and pitch 90 lays it flat, the convention the scene format
+ * documents.
+ */
 public class MemoryLetterRenderer extends EntityRenderer<MemoryLetterEntity> {
+    /** The envelope cropped out of the item art and downscaled to 128 x 84, so the whole texture is the envelope. */
     private static final ResourceLocation TEXTURE =
-            ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "textures/item/hogwarts_invite.png");
-    // The envelope's opaque bounds in the 1024 x 1024 texture.
-    private static final float U0 = 0.19f, V0 = 0.265f, U1 = 0.81f, V1 = 0.672f;
-    private static final float HALF_W = 0.225f;
-    private static final float HALF_D = 0.15f;
+            ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "textures/entity/memory_letter.png");
+    private static final float HALF_W = LetterFlood.ENVELOPE_HALF_W;
+    private static final float HALF_H = LetterFlood.ENVELOPE_HALF_H;
 
     public MemoryLetterRenderer(EntityRendererProvider.Context context) {
         super(context);
@@ -40,35 +45,38 @@ public class MemoryLetterRenderer extends EntityRenderer<MemoryLetterEntity> {
         double dz = entity.getZ() - entity.zo;
         float speed = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
         float age = entity.tickCount + partialTick;
-        boolean still = LetterFlutter.resting(speed);
-        float roll = still ? 0f : LetterFlutter.roll(age, entity.flutterSeed);
-        float wobble = still ? 0f : LetterFlutter.wobble(age, entity.flutterSeed);
+        float amplitude = LetterFlutter.amplitude(speed);
+        float roll = amplitude * LetterFlutter.roll(age, entity.flutterSeed);
+        float wobble = amplitude * LetterFlutter.wobble(age, entity.flutterSeed);
+        // yaw is the dispatcher's interpolated entity yaw; the pitch is interpolated here the same way.
+        float pitch = Mth.lerp(partialTick, entity.xRotO, entity.getXRot());
 
         pose.pushPose();
         pose.translate(0.0, 0.025, 0.0);
-        pose.mulPose(Axis.YP.rotationDegrees(-entity.getYRot()));
-        pose.mulPose(Axis.XP.rotationDegrees(entity.getXRot() + wobble));
-        pose.mulPose(Axis.ZP.rotationDegrees(roll));
+        pose.mulPose(Axis.YP.rotationDegrees(-yaw));
+        pose.mulPose(Axis.XP.rotationDegrees(pitch + wobble));
+        pose.mulPose(Axis.YP.rotationDegrees(roll));
 
-        VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(TEXTURE));
+        VertexConsumer vc = buffers.getBuffer(RenderType.entityCutout(TEXTURE));
         PoseStack.Pose p = pose.last();
         Matrix4f m = p.pose();
-        // Lies in the XZ plane (pitch 0 = flat); an up-facing quad then a down-facing one so both sides show.
-        vertex(vc, m, p, -HALF_W, -HALF_D, U0, V0, 1, light);
-        vertex(vc, m, p, -HALF_W, HALF_D, U0, V1, 1, light);
-        vertex(vc, m, p, HALF_W, HALF_D, U1, V1, 1, light);
-        vertex(vc, m, p, HALF_W, -HALF_D, U1, V0, 1, light);
-        vertex(vc, m, p, HALF_W, -HALF_D, U1, V0, -1, light);
-        vertex(vc, m, p, HALF_W, HALF_D, U1, V1, -1, light);
-        vertex(vc, m, p, -HALF_W, HALF_D, U0, V1, -1, light);
-        vertex(vc, m, p, -HALF_W, -HALF_D, U0, V0, -1, light);
+        // Front face: counter-clockwise seen from +Z, normal +Z.
+        vertex(vc, m, p, -HALF_W, -HALF_H, 0f, 1f, 1, light);
+        vertex(vc, m, p, HALF_W, -HALF_H, 1f, 1f, 1, light);
+        vertex(vc, m, p, HALF_W, HALF_H, 1f, 0f, 1, light);
+        vertex(vc, m, p, -HALF_W, HALF_H, 0f, 0f, 1, light);
+        // Back face: counter-clockwise seen from -Z, normal -Z, with U mirrored so the art reads the right way round.
+        vertex(vc, m, p, HALF_W, -HALF_H, 0f, 1f, -1, light);
+        vertex(vc, m, p, -HALF_W, -HALF_H, 1f, 1f, -1, light);
+        vertex(vc, m, p, -HALF_W, HALF_H, 1f, 0f, -1, light);
+        vertex(vc, m, p, HALF_W, HALF_H, 0f, 0f, -1, light);
         pose.popPose();
         super.render(entity, yaw, partialTick, pose, buffers, light);
     }
 
-    private static void vertex(VertexConsumer vc, Matrix4f m, PoseStack.Pose p, float x, float z,
-                               float u, float v, float ny, int light) {
-        vc.addVertex(m, x, 0f, z).setColor(255, 255, 255, 255).setUv(u, v)
-                .setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(p, 0f, ny, 0f);
+    private static void vertex(VertexConsumer vc, Matrix4f m, PoseStack.Pose p, float x, float y,
+                               float u, float v, int nz, int light) {
+        vc.addVertex(m, x, y, 0f).setColor(255, 255, 255, 255).setUv(u, v)
+                .setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(p, 0f, 0f, nz);
     }
 }

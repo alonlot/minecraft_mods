@@ -9,10 +9,11 @@ import java.util.SplittableRandom;
  * state: stepping {@code n} times and {@link #fastForward(int) fast-forwarding} {@code n} are identical, and a late
  * joiner sees the swarm exactly as if watched from the start.
  *
- * <p>The room box is axis-aligned. It starts at the emitter plane (so nothing can fly behind the fireplace wall),
- * extends {@code 2 * hz} forward, is {@code hx} either side, and rises {@code 2 * hy} from the floor ({@code ay}).
- * The yaw is snapped to the nearest 90 degrees for the box, and positions are clamped after integration, so a
- * letter can never be outside it whatever the velocity.
+ * <p>The room box is axis-aligned and either given outright (the scene's {@code box} key) or, as the older fallback,
+ * derived from the emitter: it starts at the emitter plane, extends {@code 2 * hz} forward, is {@code hx} either side,
+ * and rises {@code 2 * hy} from the floor ({@code ay}), the yaw snapped to the nearest 90 degrees. Positions are clamped
+ * after integration, {@link #MARGIN} inside the walls, so a letter (corners included) can never be outside it whatever
+ * the velocity.
  */
 public final class LetterFlood {
     /** Letters leave the emitter evenly over this fraction of the duration. */
@@ -32,8 +33,13 @@ public final class LetterFlood {
     static final double REST_SPEED = 0.03;
     /** A letter that has hit the floor this many times lies still whatever its speed. */
     static final int MAX_BOUNCES = 6;
-    /** Letters stay this far inside the box walls and ceiling, so the quad never pokes into masonry. */
-    static final double MARGIN = 0.15;
+    /** Half the envelope's width and height in blocks: the renderer draws a quad this size. */
+    public static final float ENVELOPE_HALF_W = 0.225f, ENVELOPE_HALF_H = 0.15f;
+    /**
+     * Letters stay this far inside the box walls and ceiling, so no corner of the quad pokes into masonry. At least
+     * the envelope's half-diagonal (about 0.27), whatever way it is turned. The renderer also inflates the culling box by it.
+     */
+    public static final double MARGIN = 0.3;
     /** Degrees a letter's yaw/pitch may turn in one tick, so a landing eases flat rather than snapping. */
     static final float TURN_PER_TICK = 20f;
     /** Height above the floor a letter leaves the mouth at. */
@@ -57,30 +63,46 @@ public final class LetterFlood {
     private final int[] bounces;
     private int age;
 
+    /**
+     * The legacy room: centred on the emitter plus {@code forward x hz}, half-sizes {@code hx, hy, hz} (yaw snapped to
+     * 90 degrees), floor at {@code ay}.
+     */
     public LetterFlood(double ax, double ay, double az, float yawDeg, float hx, float hy, float hz, int count,
                        int duration, long seed) {
-        this.ax = ax;
-        this.ay = ay;
-        this.az = az;
-        this.yawDeg = yawDeg;
-        this.count = count;
-        this.duration = duration;
+        this(ax, ay, az, yawDeg, legacyBox(ax, ay, az, yawDeg, hx, hy, hz), count, duration, seed);
+    }
 
+    private static double[] legacyBox(double ax, double ay, double az, float yawDeg, float hx, float hy, float hz) {
         int k = Math.floorMod(Math.round(yawDeg / 90f), 4);   // 0 = +Z, 1 = -X, 2 = -Z, 3 = +X
         double fx = k == 1 ? -1 : k == 3 ? 1 : 0;
         double fz = k == 0 ? 1 : k == 2 ? -1 : 0;
         double halfX = fx != 0 ? hz : hx;
         double halfZ = fz != 0 ? hz : hx;
         double centreX = ax + fx * hz, centreZ = az + fz * hz;
-        this.cx = centreX;
-        this.cz = centreZ;
-        // The emitter-side wall is the fireplace wall: keep the margin there too.
-        this.minX = centreX - halfX + MARGIN;
-        this.maxX = centreX + halfX - MARGIN;
-        this.minZ = centreZ - halfZ + MARGIN;
-        this.maxZ = centreZ + halfZ - MARGIN;
-        this.minY = ay;
-        this.maxY = ay + 2.0 * hy - MARGIN;
+        return new double[] {centreX - halfX, ay, centreZ - halfZ, centreX + halfX, ay + 2.0 * hy, centreZ + halfZ};
+    }
+
+    /**
+     * The explicit room: {@code box} is {minX, minY, minZ, maxX, maxY, maxZ}. Letters are clamped to it (less
+     * {@link #MARGIN} at the walls and ceiling; the floor is {@code box[1]}); the emitter at (ax, ay, az) only says where
+     * they leave and, with the yaw, which way. All numbers are in whatever frame the caller uses; pass scene-relative
+     * ones so the swarm does not depend on where the scene is placed.
+     */
+    public LetterFlood(double ax, double ay, double az, float yawDeg, double[] box, int count, int duration, long seed) {
+        this.ax = ax;
+        this.ay = ay;
+        this.az = az;
+        this.yawDeg = yawDeg;
+        this.count = count;
+        this.duration = duration;
+        this.cx = (box[0] + box[3]) / 2;
+        this.cz = (box[2] + box[5]) / 2;
+        this.minX = box[0] + MARGIN;
+        this.maxX = box[3] - MARGIN;
+        this.minZ = box[2] + MARGIN;
+        this.maxZ = box[5] - MARGIN;
+        this.minY = box[1];
+        this.maxY = box[4] - MARGIN;
 
         emitTick = new int[count];
         launchOffset = new float[count];
@@ -219,6 +241,21 @@ public final class LetterFlood {
 
     public int age() {
         return age;
+    }
+
+    /** Ticks since letter {@code i} left the emitter (negative before it does): its flutter clock. */
+    public int flightAge(int i) {
+        return age - emitTick[i];
+    }
+
+    /**
+     * How many simulation steps to run now so the swarm reaches the scene clock: it should have stepped
+     * {@code floor(sceneTime - t) + 1} times (the step of the tick the event fires on counts), at most {@code cap} at a
+     * time so one long stall does not freeze a frame. Never negative.
+     */
+    public static int stepsDue(int simAge, float sceneTime, float t, int cap) {
+        int target = (int) Math.floor(sceneTime - t) + 1;
+        return Math.max(0, Math.min(cap, target - simAge));
     }
 
     public int count() {

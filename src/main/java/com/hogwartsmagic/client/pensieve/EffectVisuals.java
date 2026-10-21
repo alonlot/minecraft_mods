@@ -7,6 +7,7 @@ import com.hogwartsmagic.entity.ModEntities;
 import com.hogwartsmagic.entity.VoldemortSummoningEntity;
 import com.hogwartsmagic.pensieve.scene.Eyelids;
 import com.hogwartsmagic.pensieve.scene.FloatingCandles;
+import com.hogwartsmagic.pensieve.scene.EffectSeed;
 import com.hogwartsmagic.pensieve.scene.LetterFlood;
 import com.hogwartsmagic.pensieve.scene.LightRays;
 import com.hogwartsmagic.pensieve.scene.WandChoice;
@@ -81,6 +82,8 @@ public final class EffectVisuals {
     static final float[] DEFAULT_FLOOD_SPREAD = {3f, 2.5f, 3f};
     /** A page-turn rustle every this many ticks while letters fly. */
     private static final int FLOOD_RUSTLE_EVERY = 4;
+    /** Most simulation steps one client tick may run to catch the flood up to the scene clock. */
+    private static final int FLOOD_CATCH_UP_STEPS = 20;
     private static final int MARK_RISE_TICKS = 50;
     private static final double MARK_RISE_BLOCKS = 18.0;
     /** The smallest visual scale a DarkMarkEntity accepts. */
@@ -129,6 +132,15 @@ public final class EffectVisuals {
     /** As the 9-argument form, with the event's {@code intensity} (light_rays only; NaN for the default 1). */
     public static void play(String effect, Vec3 at, int duration, int elapsed, int count, float[] spread, float yaw,
                             float t, String style, float intensity) {
+        play(effect, at, duration, elapsed, count, spread, yaw, t, style, intensity, null);
+    }
+
+    /**
+     * As the 10-argument form, with the event's {@code box} (letter_flood only: two scene-relative corners; null falls
+     * back to the room derived from {@code at} and {@code spread}).
+     */
+    public static void play(String effect, Vec3 at, int duration, int elapsed, int count, float[] spread, float yaw,
+                            float t, String style, float intensity, float[][] box) {
         Minecraft mc = Minecraft.getInstance();
         if (!(mc.level instanceof ClientLevel level) || effect == null || at == null) return;
         if ("summoning_ritual".equals(effect)) {
@@ -188,7 +200,8 @@ public final class EffectVisuals {
                 MemorySounds.play("minecraft:block.fire.extinguish", at, 1.2f, 1.0f);
                 MemorySounds.play("minecraft:entity.breeze.wind_burst", at, 1.0f, 1.0f);
             }
-            RUNNING.add(new Flood(level, at, yaw, room, letters, total, elapsed, floodSeed(at, t)));
+            RUNNING.add(new Flood(level, MemoryEvents.sceneOrigin(), at, yaw, room, box, letters, total, elapsed,
+                    t, floodSeed(at, t)));
         } else if ("enchanted_ceiling".equals(effect)) {
             if (spread == null || spread.length < 3) {
                 LOGGER.warn("Pensieve: enchanted_ceiling has no spread");
@@ -251,12 +264,13 @@ public final class EffectVisuals {
         RUNNING.add(new Mark(mark, from, lifeTicks));
     }
 
-    /** The swarm seed: the mouth position and the event time, so the same scene always flies the same way. */
+    /**
+     * The effect seed: the event position relative to the scene origin and the event time, so the same scene always
+     * looks the same whichever session slot it plays in (see {@link EffectSeed}).
+     */
     private static long floodSeed(Vec3 at, float t) {
-        long h = Float.floatToIntBits((float) at.x);
-        h = h * 31 + Float.floatToIntBits((float) at.y);
-        h = h * 31 + Float.floatToIntBits((float) at.z);
-        return h * 31 + Float.floatToIntBits(t);
+        Vec3 o = MemoryEvents.sceneOrigin();
+        return EffectSeed.of(at.x, at.y, at.z, o.x, o.y, o.z, t);
     }
 
     /** How many letters a flood has spawned that are still alive (for the clear-on-exit check). */
@@ -659,12 +673,24 @@ public final class EffectVisuals {
         private final LetterFlood sim;
         private final MemoryLetterEntity[] letters;
         private final long seed;
+        private final float t;
+        /** The scene origin: the simulation runs in scene-relative numbers and this puts it in the world. */
+        private final Vec3 origin;
 
-        Flood(ClientLevel level, Vec3 at, float yaw, float[] room, int count, int duration, int elapsed, long seed) {
+        Flood(ClientLevel level, Vec3 origin, Vec3 at, float yaw, float[] room, float[][] box, int count, int duration,
+              int elapsed, float t, long seed) {
             this.level = level;
+            this.origin = origin;
             this.at = at;
+            this.t = t;
             this.seed = seed;
-            this.sim = new LetterFlood(at.x, at.y, at.z, yaw, room[0], room[1], room[2], count, duration, seed);
+            double ax = at.x - origin.x, ay = at.y - origin.y, az = at.z - origin.z;
+            this.sim = box != null
+                    ? new LetterFlood(ax, ay, az, yaw, new double[] {Math.min(box[0][0], box[1][0]),
+                            Math.min(box[0][1], box[1][1]), Math.min(box[0][2], box[1][2]),
+                            Math.max(box[0][0], box[1][0]), Math.max(box[0][1], box[1][1]),
+                            Math.max(box[0][2], box[1][2])}, count, duration, seed)
+                    : new LetterFlood(ax, ay, az, yaw, room[0], room[1], room[2], count, duration, seed);
             this.letters = new MemoryLetterEntity[count];
             sim.fastForward(elapsed);
             sync();
@@ -672,11 +698,14 @@ public final class EffectVisuals {
 
         @Override
         public boolean tick(ClientLevel level) {
-            if (sim.age() % FLOOD_RUSTLE_EVERY == 0 && sim.anyFlying()) {
+            // Catch up to the scene clock: the tick that fires the event can be a few ticks late, and a late joiner
+            // fast-forwards only to the tick it saw, so step until the swarm has the age the clock says it should.
+            int due = LetterFlood.stepsDue(sim.age(), PensieveClientState.sceneTime(0), t, FLOOD_CATCH_UP_STEPS);
+            if (due > 0 && sim.age() % FLOOD_RUSTLE_EVERY == 0 && sim.anyFlying()) {
                 MemorySounds.play("minecraft:item.book.page_turn", at, 0.3f + level.random.nextFloat() * 0.3f, 1.0f);
             }
-            sim.step();
-            sync();
+            for (int i = 0; i < due; i++) sim.step();
+            if (due > 0) sync();
             return true;
         }
 
@@ -689,6 +718,7 @@ public final class EffectVisuals {
                     e = new MemoryLetterEntity(ModEntities.MEMORY_LETTER.get(), level);
                     e.setId(MemoryEvents.nextEntityId());
                     e.flutterSeed = (int) (seed + i);
+                    e.tickCount = sim.flightAge(i);
                     place(e, i);
                     e.setOldPosAndRot();   // no first-frame streak from the world origin
                     level.addEntity(e);
@@ -701,13 +731,14 @@ public final class EffectVisuals {
                     e.zo = e.getZ();
                     e.yRotO = e.getYRot();
                     e.xRotO = e.getXRot();
+                    e.tickCount = sim.flightAge(i);
                     place(e, i);
                 }
             }
         }
 
         private void place(MemoryLetterEntity e, int i) {
-            e.setPos(sim.x(i), sim.y(i), sim.z(i));
+            e.setPos(origin.x + sim.x(i), origin.y + sim.y(i), origin.z + sim.z(i));
             e.setYRot(sim.yaw(i));
             e.setXRot(sim.pitch(i));
         }

@@ -118,7 +118,7 @@ public final class MemoryEvents {
             // enchanted ceiling, light rays and floating candles (they stay until the scene ends).
             if (!late || (e.duration() > 0 && age < e.duration()) || "letter_flood".equals(e.id())
                     || ("wand_choice".equals(e.id()) && age < com.hogwartsmagic.pensieve.scene.WandChoice.duration(e.duration()))
-                    || "enchanted_ceiling".equals(e.id()) || "light_rays".equals(e.id())
+                    || "enchanted_ceiling".equals(e.id()) || "light_rays".equals(e.id()) || "sky".equals(e.id())
                     || "floating_candles".equals(e.id())
                     || (("rough_sea".equals(e.id()) || "rain".equals(e.id())) && e.duration() <= 0)) {
                 EffectVisuals.play(e.id(), position(e), e.duration(), late ? (int) age : 0, e.count(), e.spread(),

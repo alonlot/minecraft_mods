@@ -118,6 +118,26 @@ public final class ModRenderTypes extends RenderType {
     }
 
     /**
+     * The {@code sky} effect's dome: plain vertex colour (no texture), straight-alpha blending so it can fade in, no
+     * depth write (it is drawn before the world and everything covers it), no culling (seen from inside). The
+     * lightning shader fades with the world's fog like the rest; the sky renderer pushes the fog out while it draws.
+     */
+    public static final RenderType SKY_DOME = create(
+            "hogwartsmagic_sky_dome",
+            DefaultVertexFormat.POSITION_COLOR,
+            VertexFormat.Mode.QUADS,
+            4096,
+            false,
+            false,
+            RenderType.CompositeState.builder()
+                    .setShaderState(RENDERTYPE_LIGHTNING_SHADER)
+                    .setWriteMaskState(COLOR_WRITE)
+                    .setTransparencyState(TRANSLUCENT_TRANSPARENCY)
+                    .setCullState(NO_CULL)
+                    .createCompositeState(false)
+    );
+
+    /**
      * Depth only: no colour, writes depth, no culling. The rowing boat's lid over its open hull, drawn just before the
      * sea so the waves never show inside the boat.
      */

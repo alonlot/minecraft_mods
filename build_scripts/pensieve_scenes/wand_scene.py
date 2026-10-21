@@ -710,6 +710,12 @@ def finish(sc, scene, extra=None, hidden_y=-2.0):
     return len(txt), n_prox
 
 
+def daylight(sc):
+    """The memory biome's sky and fog are black, so a day scene reads as night: switch the `sky` effect on from t 0
+    (a soft blue dome and a pale hazy horizon, which the fog turns to) for the whole scene."""
+    sc.ev(0, 'effect', 'sky', at=[0, 0, 0], style='day')
+
+
 # ================================================================ the crowd
 LANE_NAMES = ('north', 'mid_north', 'mid_south', 'south')
 NODES = A['lanes']['nodes']
@@ -2145,6 +2151,7 @@ def check_blocks(sc, scene, ids_prefix, half, people, problems, world_check=True
 def wall_scene():
     LEN = 21.8
     sc = Scene(WALL_ID, 'The Wall', LEN, DIAGON_W)
+    daylight(sc)
     sc.poses = {'standing': {}, 'shoulders': SHOULDERS}
     hy, by = A['hagrid_yard']['pos'], A['boy_yard']['pos']
     T_STEP, T_LINE, TAPS, T_BACK = 1.2, 2.2, (3.3, 4.7, 6.1), 8.0     # the taps on the counting; back on "Stand back"
@@ -2249,6 +2256,7 @@ def wall_scene():
 def alley_scene():
     LEN = 56.0
     sc = Scene(ALLEY_ID, 'Diagon Alley', LEN, dict(DIAGON_W))
+    daylight(sc)
     sc.ev(0, 'music', 'hogwartsmagic:pensieve.music.wand_alley', volume=1.0)   # the theme carries on from the wall
     sc.poses = {'standing': {}, 'glass': {'right_arm': [-118, 0, 12], 'left_arm': [-118, 0, -12]},
                 'shoulders': SHOULDERS}
@@ -2471,6 +2479,7 @@ def flying_block(sc, aid, state, scale, pts, t0, spin, yaw0):
 def olli_scene():
     LEN = 93.0
     sc = Scene(OLLI_ID, 'Ollivanders', LEN, OLLI_W)
+    daylight(sc)
     sc.poses = {'standing': {}, 'ladder': {'right_arm': [-158, 0, 6], 'left_arm': [-146, 0, -6]}}
     door_in = A['door_inside']['pos']
     B = A['boy_counter']['pos']                 # [-0.6, 0, -0.5], facing +x

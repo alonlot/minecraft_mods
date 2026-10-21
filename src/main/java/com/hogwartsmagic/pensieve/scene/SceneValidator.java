@@ -251,8 +251,8 @@ public final class SceneValidator {
         if (!Float.isNaN(e.yaw()) && !"effect".equals(e.kind())) {
             out.add(p + ".yaw: yaw is only for effects");
         }
-        if (e.style() != null && !"enchanted_ceiling".equals(e.id())) {
-            out.add(p + ".style: style is only for enchanted_ceiling");
+        if (e.style() != null && !"enchanted_ceiling".equals(e.id()) && !"sky".equals(e.id())) {
+            out.add(p + ".style: style is only for enchanted_ceiling and sky");
         }
         if (!Float.isNaN(e.intensity()) && !("effect".equals(e.kind())
                 && ("light_rays".equals(e.id()) || "eyes_peek".equals(e.id()) || "wand_choice".equals(e.id())
@@ -294,6 +294,8 @@ public final class SceneValidator {
                     letterFlood(out, e, p, radius);
                 } else if ("enchanted_ceiling".equals(e.id())) {
                     ceiling(out, e, p);
+                } else if ("sky".equals(e.id())) {
+                    sky(out, e, p);
                 } else if ("light_rays".equals(e.id())) {
                     lightRays(out, e, p);
                 } else if ("floating_candles".equals(e.id())) {
@@ -366,6 +368,14 @@ public final class SceneValidator {
                 out.add(p + ".spread[" + i + "]: " + s + " is outside " + SceneNames.MIN_CEILING_SPREAD + " to "
                         + SceneNames.MAX_CEILING_SPREAD);
             }
+        }
+    }
+
+    /** The sky effect: a set centre and an optional look. */
+    private static void sky(List<String> out, SceneDef.EventDef e, String p) {
+        if (e.at() == null) out.add(p + ": sky needs at");
+        if (e.style() != null && !SkyDome.STYLES.contains(e.style())) {
+            out.add(p + ".style: '" + e.style() + "' is not one of " + SkyDome.STYLES);
         }
     }
 

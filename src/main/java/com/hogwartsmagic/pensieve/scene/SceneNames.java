@@ -45,7 +45,7 @@ public record SceneNames(Set<String> entityTypes, Set<String> spells, Set<String
     /** Scripted effects an {@code effect} event may name. */
     public static final Set<String> EFFECTS = Set.of("summoning_ritual", "lightning", "dark_mark", "grey_edges",
             "patronus_light", "fiendfyre_rings", "eyes_open", "eyes_close", "eyes_peek", "letter_flood",
-            "enchanted_ceiling", "light_rays", "floating_candles", "wand_choice", "rough_sea", "rain");
+            "enchanted_ceiling", "light_rays", "floating_candles", "wand_choice", "rough_sea", "rain", "sky");
     /** The looks an enchanted_ceiling may take; the first is the default. */
     public static final java.util.List<String> CEILING_STYLES = java.util.List.of("storm", "night");
     /**

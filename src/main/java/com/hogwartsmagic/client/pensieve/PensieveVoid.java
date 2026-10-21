@@ -56,6 +56,14 @@ public final class PensieveVoid {
     }
 
     public static void fogColor(ViewportEvent.ComputeFogColor event) {
+        // A running sky effect (a daytime memory) lifts the black to its horizon colour; none, and it stays black.
+        float[] sky = SkyRenderer.fogColour((float) event.getPartialTick());
+        if (sky != null) {
+            event.setRed(sky[0]);
+            event.setGreen(sky[1]);
+            event.setBlue(sky[2]);
+            return;
+        }
         event.setRed(0);
         event.setGreen(0);
         event.setBlue(0);

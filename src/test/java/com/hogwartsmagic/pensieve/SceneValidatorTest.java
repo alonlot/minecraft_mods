@@ -426,6 +426,24 @@ class SceneValidatorTest {
         assertTrue(m.get(0).contains("style is only for enchanted_ceiling"), m.get(0));
     }
 
+    private static String sky(String extra) {
+        return "{\"length\":100,\"events\":[{\"t\":1,\"kind\":\"effect\",\"id\":\"sky\"" + extra + "}]}";
+    }
+
+    @Test
+    void skyStyleAndAt() throws Exception {
+        assertEquals(List.of(), validate(sky(",\"at\":[0,0,0]")));
+        for (String s : new String[] {"day", "overcast", "dawn"}) {
+            assertEquals(List.of(), validate(sky(",\"at\":[0,0,0],\"style\":\"" + s + "\",\"duration\":200")), s);
+        }
+        List<String> m = validate(sky(",\"at\":[0,0,0],\"style\":\"storm\""));
+        assertEquals(1, m.size(), m.toString());
+        assertTrue(m.get(0).contains("style"), m.get(0));
+        m = validate(sky(",\"style\":\"day\""));
+        assertEquals(1, m.size(), m.toString());
+        assertTrue(m.get(0).contains("sky needs at"), m.get(0));
+    }
+
     @Test
     void fractionalAtForEffectsButNotBlocks() throws Exception {
         String json = ceiling(",\"at\":[46.5,21,22.5],\"spread\":[36.5,0,17.5]");

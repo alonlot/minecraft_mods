@@ -251,6 +251,10 @@ public final class EffectVisuals {
             float[] half = {Mth.clamp(spread[0], 1f, 100f), Mth.clamp(spread[1], 1f, 100f), Mth.clamp(spread[2], 1f, 100f)};
             double in = Float.isNaN(intensity) ? 1.0 : Mth.clamp(intensity, RoughSea.MIN_INTENSITY, RoughSea.MAX_INTENSITY);
             RUNNING.add(new Rain(new RainRenderer.Shower(at, half, in, t, Math.max(0, duration), floodSeed(at, t))));
+        } else if ("sky".equals(effect)) {
+            // Drawn from the scene clock (SkyRenderer): it fades in at t, and out at the end of a finite duration; with
+            // none it stays until clear() ends the scene.
+            RUNNING.add(new SkyRun(new SkyRenderer.Sky(style, t, duration, floodSeed(at, t))));
         } else if ("wand_choice".equals(effect)) {
             int total = WandChoice.duration(duration);
             if (elapsed < total) RUNNING.add(new WandChoiceGlow(at, elapsed, total, WandChoice.intensity(intensity), floodSeed(at, t)));
@@ -385,6 +389,18 @@ public final class EffectVisuals {
     /** Run an enchanted ceiling until {@link #clear}. Package-private so the clear-with-scene test can reach it. */
     static void startCeiling(EnchantedCeiling.Sky sky) {
         RUNNING.add(new Ceiling(sky));
+    }
+
+    /** The skies running now, for {@link SkyRenderer} to draw (empty once {@link #clear} has run). */
+    static List<SkyRenderer.Sky> skies() {
+        List<SkyRenderer.Sky> out = null;
+        for (Running r : RUNNING) {
+            if (r instanceof SkyRun s) {
+                if (out == null) out = new ArrayList<>(1);
+                out.add(s.sky);
+            }
+        }
+        return out == null ? List.of() : out;
     }
 
     /** The floating candles running now, for {@link FloatingCandlesRenderer} (empty once {@link #clear} has run). */
@@ -799,6 +815,20 @@ public final class EffectVisuals {
         public boolean tick(ClientLevel level) {
             sky.tick(PensieveClientState.sceneTime(0));
             return true;
+        }
+    }
+
+    /** {@code sky}: holds the sky for {@link SkyRenderer}; it ends with a finite duration, else {@link #clear} ends it. */
+    private static final class SkyRun implements Running {
+        private final SkyRenderer.Sky sky;
+
+        SkyRun(SkyRenderer.Sky sky) {
+            this.sky = sky;
+        }
+
+        @Override
+        public boolean tick(ClientLevel level) {
+            return sky.duration <= 0 || PensieveClientState.sceneTime(0) < sky.t + sky.duration;
         }
     }
 

@@ -45,8 +45,19 @@ public final class BroomFlight {
     public static final double LEAN_REST = 8, LEAN_SPEED = 22, LEAN_FULL_SPEED = 0.6;
     /** The dive tuck: the body lean it reaches, smoothstepped in between these broom pitches (degrees). */
     public static final double TUCK_LEAN = 40, TUCK_FROM = 20, TUCK_TO = 40;
-    /** Legs astride the handle and arms forward on it (degrees, x and the outward/inward y of the right side). */
-    public static final float LEG_X = -70, LEG_Y = 6, ARM_X = -65, ARM_Y = -8;
+    /**
+     * Legs astride the handle (splayed out, so the handle shows between the knees) and arms down and in to grip it
+     * (degrees: x, and the y of the right side; the left mirrors it).
+     */
+    public static final float LEG_X = -70, LEG_Y = 10, ARM_X = -50, ARM_Y = -25;
+    /** The hunched grip: the shoulders (arm pivots) lowered and brought forward in the torso's frame, model px. */
+    public static final float SHOULDER_DROP = 3.5f, SHOULDER_FORWARD = 2f;
+    /** The most a rider's look turns his head off the broom (degrees); his body always faces along it. */
+    public static final float HEAD_TURN = 75;
+    /** How far back (ticks) the flight rule is replayed to decide, with no history, whether a broom flies now. */
+    public static final int FLIGHT_REPLAY = 50;
+    /** Ticks over which a rider's life layer goes from standing (landed) to seated (flying). */
+    public static final int SEAT_EASE = 10;
     /** Ticks over which the rider layer eases in after a ride window opens and out before it closes. */
     public static final double RIDER_BLEND = 10;
 
@@ -238,9 +249,10 @@ public final class BroomFlight {
 
     /**
      * The base rider layer: rotations in degrees per part in {@link HumanMotion} order (head, body, right arm, left
-     * arm, right leg, left leg). The legs astride the handle {@code [-70, +-6, 0]} (splayed out), the arms forward on it
-     * {@code [-65, -+8, 0]} (turned in), the body leaning forward {@link #lean}, the head lifted back by the same so the
-     * gaze holds (the scene's look pitch adds to it).
+     * arm, right leg, left leg). The legs astride the handle {@code [-70, +-10, 0]} (splayed out), the arms down and in
+     * gripping it {@code [-50, -+25, 0]} (with the hunched shoulders of {@link #riderLayer} the fists close on the
+     * handle at every rider scale, speed and through the dive tuck: {@code BroomFlightTest.handsOnHandle}), the body
+     * leaning forward {@link #lean}, the head lifted back by the same so the gaze holds (the look pitch adds to it).
      */
     public static float[][] riderPose(double speed, double pitch) {
         float l = (float) lean(speed, pitch);
@@ -276,6 +288,41 @@ public final class BroomFlight {
             for (int c = 0; c < 3; c++) rot[p * 3 + c] += (target[c] - rot[p * 3 + c]) * w;
         }
         HumanMotion.hipTurn(rot, pos, lean, 0, 0, w);
+        // The hunched grip: each shoulder drops and comes forward in the leaned torso's frame.
+        double a = Math.toRadians(lean);
+        float dy = (float) (SHOULDER_DROP * Math.cos(a) + SHOULDER_FORWARD * Math.sin(a));
+        float dz = (float) (SHOULDER_DROP * Math.sin(a) - SHOULDER_FORWARD * Math.cos(a));
+        for (int p = HumanMotion.RIGHT_ARM; p <= HumanMotion.LEFT_ARM; p++) {
+            pos[p * 3 + 1] += dy * w;
+            pos[p * 3 + 2] += dz * w;
+        }
+    }
+
+    /**
+     * A broom rider's head turn (degrees, relative to the broom): his body faces along the broom and his look yaw
+     * (relative to it) turns only his head, wrapped to [-180, 180) and clamped to {@link #HEAD_TURN}.
+     */
+    public static float headTurn(float lookYaw) {
+        float d = (float) (((lookYaw + 180.0) % 360.0 + 360.0) % 360.0 - 180.0);
+        return Math.max(-HEAD_TURN, Math.min(HEAD_TURN, d));
+    }
+
+    /**
+     * How seated a rider of a broom flying {@code path} is at t, 0 (landed: standing life) to 1 (flying: seated
+     * life), from nothing but the scene: the flight rule ({@link #flying}, with its hysteresis) replayed tick by tick
+     * from {@link #FLIGHT_REPLAY} ticks back (or from {@code since}, the ride window's start, not flying before it),
+     * and the share of the last {@link #SEAT_EASE} + 1 ticks it flew. So a late joiner sees what a viewer who watched
+     * from the start sees, and the life layer eases over SEAT_EASE ticks instead of switching.
+     */
+    public static float seatFraction(Track path, float t, float since) {
+        boolean fly = false;
+        int flown = 0;
+        for (int k = FLIGHT_REPLAY; k >= 0; k--) {
+            float s = t - k;
+            fly = s >= since && flying(path, s, fly);
+            if (k <= SEAT_EASE && fly) flown++;
+        }
+        return flown / (float) (SEAT_EASE + 1);
     }
 
     private static double smooth(double x) {

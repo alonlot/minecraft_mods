@@ -286,6 +286,12 @@ public final class MemoryActors {
         return s != null && s.broom() ? s : null;
     }
 
+    /** How seated a broom rider's life layer is at frame time t (BroomFlight.seatFraction on its broom's path). */
+    static float broomSeatFraction(ActorRuntime a, float t) {
+        SceneDef.ActorDef v = scene == null ? null : Vehicle.vehicleOf(scene, a.def);
+        return v == null ? 0f : BroomFlight.seatFraction(v.path(), t, a.def.rideFrom());
+    }
+
     /** The rowboats on screen, for the sea's depth lid ({@link RoughSeaRenderer}). */
     static List<ActorRuntime> rowboats() {
         List<ActorRuntime> out = null;
@@ -350,7 +356,6 @@ public final class MemoryActors {
         a.rideRollO = a.rideRoll;
         a.rideYawO = a.rideYaw;
         a.rideBroomO = a.rideBroom;
-        a.riderSeatO = a.riderSeat;
         // A boat rides the sea, a broom flies its path and a rider sits on its vehicle: all placed from the scene
         // alone (Rowboat, BroomFlight, Vehicle; pure).
         Rowboat.Pose boatPose = boat != null && scene != null ? Rowboat.place(scene, a.def, t) : null;
@@ -358,15 +363,6 @@ public final class MemoryActors {
         Vehicle.Seat seat = boat == null && broom == null && scene != null && a.def.ride() != null
                 ? Vehicle.seat(scene, a.def, t) : null;
         a.rideBroom = seat != null && seat.broom();
-        if (a.rideBroom) {
-            // The owl flight rule on the broom path: a flying rider sits, a landed one stands (no gait either way);
-            // the life layer seat eases over 10 ticks.
-            SceneDef.ActorDef v = Vehicle.vehicleOf(scene, a.def);
-            a.broomFlying = v != null && BroomFlight.flying(v.path(), t, a.broomFlying);
-            a.riderSeat = Mth.approach(a.riderSeat, a.broomFlying ? 1f : 0f, 0.1f);
-        } else {
-            a.broomFlying = false;
-        }
         if (l != null) {
             l.yBodyRotO = l.yBodyRot;
             l.yHeadRotO = l.yHeadRot;
@@ -439,7 +435,12 @@ public final class MemoryActors {
         // A broom rider turns exactly with its broom; anyone else with life lets the body follow the head.
         boolean follow = hasLook && a.lifeOn() && !a.rideBroom;
         boolean exact = boatPose != null || broomPose != null || (seat != null && !follow);
-        if (broomPose != null) {
+        if (a.rideBroom) {
+            // On a broom the body faces along it; the look (relative to the broom) turns the head only, clamped.
+            target = yawBase;
+            lookYaw = yawBase + BroomFlight.headTurn(hasLook && lk.length > 0 ? lk[0] : 0f);
+            hasLook = true;
+        } else if (broomPose != null) {
             // The broom faces exactly as BroomFlight says, so its riders and the drawn broom agree.
             target = broomPose.yaw();
             lookYaw = target;
@@ -479,7 +480,7 @@ public final class MemoryActors {
             a.bodyYaw += Mth.wrapDegrees(target - a.bodyYaw) * 0.3f;
         }
         a.headYaw = hasLook ? lookYaw : a.bodyYaw;
-        a.bodyYaw = a.headYaw + Mth.clamp(Mth.wrapDegrees(a.bodyYaw - a.headYaw), -75f, 75f);
+        if (!a.rideBroom) a.bodyYaw = a.headYaw + Mth.clamp(Mth.wrapDegrees(a.bodyYaw - a.headYaw), -75f, 75f);
 
         double jx = x - e.xo;
         double jy = y - e.yo;
@@ -511,8 +512,6 @@ public final class MemoryActors {
                 broom.pitchO = broom.pitch;
                 broom.rollO = broom.roll;
             }
-            a.riderSeat = a.broomFlying ? 1f : 0f;
-            a.riderSeatO = a.riderSeat;
             a.rideBroomO = a.rideBroom;
             a.ridePitchO = a.ridePitch;
             a.rideRollO = a.rideRoll;

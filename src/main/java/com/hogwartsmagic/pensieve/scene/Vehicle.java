@@ -71,7 +71,8 @@ public final class Vehicle {
     }
 
     /**
-     * A seated rider: its root (scene-relative), world yaw, the vehicle's pitch and roll in the rowboat's convention
+     * A seated rider: its root (scene-relative), world body yaw (on a broom always the broom's; the look turns only
+     * the head there, {@link BroomFlight#headTurn}), the vehicle's pitch and roll in the rowboat's convention
      * (bow up positive, left side up positive; what the renderer tilts the rider by), the vehicle's yaw and M, and for
      * a broom its path speed, its own pitch (nose down positive) and the rider layer's weight.
      */
@@ -92,7 +93,7 @@ public final class Vehicle {
             float[] p = path(rider, t);
             double[] off = p != null ? new double[]{p[0], p[1], p[2]} : BroomFlight.seat(rider.scale());
             double[] w = BroomFlight.toWorld(b.x(), b.y(), b.z(), b.m(), new double[]{off[0] * s, off[1] * s, off[2] * s});
-            return new Seat(w[0], w[1], w[2], b.yaw() + lookYaw, -b.pitch(), b.roll(), b.yaw(), b.m(), true, b.speed(),
+            return new Seat(w[0], w[1], w[2], b.yaw(), -b.pitch(), b.roll(), b.yaw(), b.m(), true, b.speed(),
                     b.pitch(), BroomFlight.riderWeight(rider.rideFrom(), rider.rideUntil(), t));
         }
         Rowboat.Pose b = Rowboat.place(scene, v, t);

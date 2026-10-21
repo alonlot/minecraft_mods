@@ -38,9 +38,11 @@ def r3(v):
 
 def build():
     boy_root = [0.0, 0.0, 0.0]
-    # The raised arm and its hand (right arm, set mode, straight forward and a little down).
+    # The raised arm and its hand: an add-mode track on the empty hand's vanilla rest (0), so the arm sway adds on
+    # top; the hand aims at the sway's middle (BOB_MID). Add mode also leaves the rider layer alone in flight (a
+    # set-mode track would hold its last value over the rider's grip for the rest of the scene).
     arm_up = [-80.0, 0.0, 0.0]
-    hand = E.arm_tip(boy_root, 0.0, BOY_SCALE, 'right_arm', arm_up)
+    hand = E.arm_tip(boy_root, 0.0, BOY_SCALE, 'right_arm', [arm_up[0] + E.BOB_MID[0], arm_up[1], arm_up[2] + E.BOB_MID[1]])
     # The broom across in front of him in the hand: yaw 90 (tip toward -X), level; grip point on the hand.
     m_hand = E.broom_matrix(90.0, 0.0, 0.0)
     g = E._mat_vec(m_hand, [0.0, 0.0, GRIP])
@@ -90,7 +92,7 @@ def build():
     boy = {'id': 'boy', 'type': 'player', 'name': '{viewer}', 'skin': {'viewer': True}, 'scale': BOY_SCALE,
            'items': {'chest': 'hogwartsmagic:gryffindor_robes'},
            'ride': {'on': 'school', 'from': MOUNT, 'until': DISMOUNT},
-           'limbs': {'right_arm': {'mode': 'set', 'rot': [
+           'limbs': {'right_arm': {'mode': 'add', 'rot': [
                {'t': 0, 'v': [0, 0, 0]}, {'t': 36, 'v': [0, 0, 0]}, {'t': 44, 'v': arm_up, 'ease': 'in_out'},
                {'t': 80, 'v': arm_up}, {'t': 96, 'v': [0, 0, 0], 'ease': 'in_out'}]}}}
     scene = {'title': 'Dev brooms', 'length': LENGTH, 'radius': R, 'actors': [school, boy]}
@@ -117,7 +119,9 @@ def build():
         bid = 'nimbus_%d' % j
         racers.append({'id': bid, 'type': 'hogwartsmagic:memory_broom_racing', 'path': rp})
         racers.append({'id': 'racer_%d' % j, 'type': 'player', 'skin': {'texture': skin}, 'scale': 0.85, 'ride': bid,
-                       'look': [{'t': 0, 'yaw': 0, 'pitch': 10}]})
+                       'look': [{'t': 0, 'yaw': 0, 'pitch': 10}, {'t': 200, 'yaw': 0, 'pitch': 10},
+                                {'t': 240, 'yaw': 50 if j == 0 else -50, 'pitch': 5, 'ease': 'in_out'},
+                                {'t': 300, 'yaw': 0, 'pitch': 10, 'ease': 'in_out'}]})
     scene['actors'] += racers
 
     camera = [
@@ -158,6 +162,16 @@ def checks(scene):
               for t in range(0, LENGTH, 2))
     print('racers: closest %.2f' % gap)
     assert gap >= 1.2, gap
+    # A broom rider's body faces along his broom; his look turns his head only.
+    for a in scene['actors']:
+        for t in range(0, LENGTH, 4):
+            v = E.broom_rider_at(scene, a, t)
+            if v is None:
+                continue
+            body = E.posed_parts(scene, a, t)[0][2]
+            assert abs(body.yaw - E.broom_pose(scene, v, t)['yaw']) < 1e-9, (a['id'], t)
+    print('riders: body yaw is the broom yaw')
+    print('grip: worst fist gap %.3f, thigh clearance %.3f' % E.check_rider_grip())
     probs = []
     E.check_spline_moves('dev_brooms', scene, probs)
     print('spline moves:', probs or 'ok')

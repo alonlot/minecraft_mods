@@ -216,20 +216,14 @@ public final class Rowboat {
     public record Seat(double x, double y, double z, float yaw, float pitch, float roll, float boatYaw, double[] m) {
     }
 
-    /** Where a rider ({@code ride} set) sits at scene time t, or null when its boat is not in the scene. */
+    /**
+     * Where a rider ({@code ride} set) sits in its boat at scene time t, or null when it does not ride a boat then (out
+     * of its window, or its boat is not in the scene): {@link Vehicle#seat}, the path MemoryActors runs.
+     */
     public static Seat rider(SceneDef scene, SceneDef.ActorDef rider, float t) {
-        if (rider.ride() == null) return null;
-        SceneDef.ActorDef boat = null;
-        for (SceneDef.ActorDef a : scene.actors()) {
-            if (a.id().equals(rider.ride())) boat = a;
-        }
-        if (boat == null) return null;
-        Pose b = place(scene, boat, t);
-        float[] off = rider.path().isEmpty() ? new float[]{0, 0, 0} : rider.path().sample(t);
-        double s = boat.scale();
-        double[] w = toWorld(b, new double[]{off[0] * s, off[1] * s, off[2] * s});
-        float look = rider.look().isEmpty() ? 0f : rider.look().sample(t)[0];
-        return new Seat(w[0], w[1], w[2], b.yaw() + look, b.pitch(), b.roll(), b.yaw(), b.m());
+        Vehicle.Seat v = Vehicle.seat(scene, rider, t);
+        if (v == null || v.broom()) return null;
+        return new Seat(v.x(), v.y(), v.z(), v.yaw(), v.pitch(), v.roll(), v.vehicleYaw(), v.m());
     }
 
     // ---- Oars -----------------------------------------------------------------------------------------------------

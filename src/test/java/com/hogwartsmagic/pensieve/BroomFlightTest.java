@@ -97,11 +97,11 @@ class BroomFlightTest {
         float[][] p = BroomFlight.riderPose(0.3, 0);
         assertEquals(-19, p[HumanMotion.HEAD][0], 1e-5, "the head lifts to hold the gaze");
         assertEquals(-70, p[HumanMotion.RIGHT_LEG][0], 0);
-        assertEquals(6, p[HumanMotion.RIGHT_LEG][1], 0);
-        assertEquals(-6, p[HumanMotion.LEFT_LEG][1], 0);
-        assertEquals(-65, p[HumanMotion.RIGHT_ARM][0], 0);
-        assertEquals(-8, p[HumanMotion.RIGHT_ARM][1], 0);
-        assertEquals(8, p[HumanMotion.LEFT_ARM][1], 0);
+        assertEquals(10, p[HumanMotion.RIGHT_LEG][1], 0);
+        assertEquals(-10, p[HumanMotion.LEFT_LEG][1], 0);
+        assertEquals(-50, p[HumanMotion.RIGHT_ARM][0], 0);
+        assertEquals(-25, p[HumanMotion.RIGHT_ARM][1], 0);
+        assertEquals(25, p[HumanMotion.LEFT_ARM][1], 0);
     }
 
     @Test
@@ -286,5 +286,115 @@ class BroomFlightTest {
         }
         assertTrue(ridden > 30, "most cases are ridden: " + ridden);
         assertTrue(windowed > 0, "a case falls in a window's easing");
+    }
+
+    // ---- the grip, the head turn, the seated life -------------------------------------------------------------------
+
+    /** (x, y, z) turned as a model part turns it: X, then Y, then Z (HumanMotion's turned). */
+    private static double[] turned(double x, double y, double z, double a, double b, double c) {
+        double y1 = y * Math.cos(a) - z * Math.sin(a), z1 = y * Math.sin(a) + z * Math.cos(a);
+        double x2 = x * Math.cos(b) + z1 * Math.sin(b), z2 = -x * Math.sin(b) + z1 * Math.cos(b);
+        return new double[]{x2 * Math.cos(c) - y1 * Math.sin(c), x2 * Math.sin(c) + y1 * Math.cos(c), z2};
+    }
+
+    /** The inverse of {@link #turned}: Z^-1, then Y^-1, then X^-1. */
+    private static double[] unturned(double[] v, double a, double b, double c) {
+        double x1 = v[0] * Math.cos(c) + v[1] * Math.sin(c), y1 = -v[0] * Math.sin(c) + v[1] * Math.cos(c);
+        double x2 = x1 * Math.cos(b) - v[2] * Math.sin(b), z2 = x1 * Math.sin(b) + v[2] * Math.cos(b);
+        return new double[]{x2, y1 * Math.cos(a) + z2 * Math.sin(a), -y1 * Math.sin(a) + z2 * Math.cos(a)};
+    }
+
+    /** A model point (px) of a rider sitting at the rest seat, in the broom frame (blocks): yaw 0 in the broom. */
+    private static double[] inBroom(double scale, double[] model) {
+        double k = HumanMotion.pxBlocks(scale);
+        double[] seat = BroomFlight.seat(scale);
+        return new double[]{model[0] * k, seat[1] + (HumanMotion.MODEL_ORIGIN * 16 - model[1]) * k, seat[2] - model[2] * k};
+    }
+
+    @Test
+    void handsOnHandle() {
+        double worstGap = 0, worstClear = 9;
+        for (double scale : new double[]{0.75, 0.85, 1.0}) {
+            for (double speed : new double[]{0, 0.3, 0.6}) {
+                for (double pitch : new double[]{0, 20, 30, 45, 60}) {
+                    float[] rot = new float[18];
+                    float[] pos = {0, 0, 0, 0, 0, 0, -5, 2, 0, 5, 2, 0, -1.9f, 12, 0, 1.9f, 12, 0};
+                    BroomFlight.riderLayer(rot, pos, speed, pitch, 1f);
+                    for (int side = 0; side < 2; side++) {
+                        int arm = HumanMotion.RIGHT_ARM + side, leg = HumanMotion.RIGHT_LEG + side;
+                        double ax = Math.toRadians(rot[arm * 3]), ay = Math.toRadians(rot[arm * 3 + 1]),
+                                az = Math.toRadians(rot[arm * 3 + 2]);
+                        double[] xr = side == 0 ? new double[]{-3.25, 1.25} : new double[]{-1.25, 3.25};
+                        double gap = 9;
+                        int n = 12;
+                        for (int i = 0; i <= n; i++) {
+                            for (int j = 0; j <= n; j++) {
+                                for (int l = 0; l <= n; l++) {
+                                    double[] v = turned(xr[0] + (xr[1] - xr[0]) * i / n, 6 + 4.25 * j / n,
+                                            -2.25 + 4.5 * l / n, ax, ay, az);
+                                    double[] p = inBroom(scale, new double[]{pos[arm * 3] + v[0], pos[arm * 3 + 1] + v[1],
+                                            pos[arm * 3 + 2] + v[2]});
+                                    gap = Math.min(gap, Math.hypot(p[0], p[1]) - 1 / 16.0);
+                                }
+                            }
+                        }
+                        worstGap = Math.max(worstGap, gap);
+                        assertTrue(gap <= 0.06, "scale " + scale + " speed " + speed + " pitch " + pitch
+                                + ": the fist is " + gap + " off the handle");
+                        // The fingertips stay out of the thigh on their side.
+                        double[] tip = turned(side == 0 ? -1 : 1, 10, 0, ax, ay, az);
+                        double[] t = {pos[arm * 3] + tip[0] - pos[leg * 3], pos[arm * 3 + 1] + tip[1] - pos[leg * 3 + 1],
+                                pos[arm * 3 + 2] + tip[2] - pos[leg * 3 + 2]};
+                        double[] local = unturned(t, Math.toRadians(rot[leg * 3]), Math.toRadians(rot[leg * 3 + 1]),
+                                Math.toRadians(rot[leg * 3 + 2]));
+                        double out = Math.max(Math.max(Math.abs(local[0]) - 2.25, Math.abs(local[2]) - 2.25),
+                                Math.max(-0.25 - local[1], local[1] - 12.25));
+                        worstClear = Math.min(worstClear, out);
+                        assertTrue(out > 0, "scale " + scale + " speed " + speed + " pitch " + pitch
+                                + ": the fingertips are inside the thigh");
+                    }
+                }
+            }
+        }
+        assertTrue(worstGap > 0, "the fists close on the handle without sinking into it: " + worstGap);
+    }
+
+    @Test
+    void riderBodyFacesTheBroomAndTheLookTurnsTheHead() throws Exception {
+        SceneDef s = scene("{\"length\":100,\"actors\":[{\"id\":\"b\",\"type\":\"hogwartsmagic:memory_broom\","
+                + "\"path\":[{\"t\":0,\"pos\":[0,5,0]}],\"look\":[{\"t\":0,\"yaw\":30}]},"
+                + "{\"id\":\"r\",\"type\":\"player\",\"ride\":\"b\",\"look\":[{\"t\":0,\"yaw\":40},{\"t\":50,\"yaw\":200}]}]}");
+        for (float t = 0; t <= 60; t += 5) {
+            Vehicle.Seat seat = Vehicle.seat(s, s.actors().get(1), t);
+            assertEquals(30, seat.yaw(), 1e-6, "the body faces the broom at " + t);
+            assertEquals(30, seat.vehicleYaw(), 1e-6);
+        }
+        assertEquals(40, BroomFlight.headTurn(40), 1e-6);
+        assertEquals(75, BroomFlight.headTurn(120), 1e-6);
+        assertEquals(-75, BroomFlight.headTurn(200), 1e-6, "200 is 160 the other way: clamped to -75");
+        assertEquals(-30, BroomFlight.headTurn(330), 1e-4);
+        assertEquals(10, BroomFlight.headTurn(-350), 1e-4);
+    }
+
+    @Test
+    void seatedLifeNeedsNoHistory() {
+        // Hover (slow), fly off, slow to a hover: the seat fraction is a pure function of t, ramps over SEAT_EASE
+        // ticks, and never steps by more than a tick's share.
+        List<Keyframe> keys = new ArrayList<>();
+        keys.add(new Keyframe(0, new float[]{0, 5, 0}, Ease.LINEAR));
+        keys.add(new Keyframe(40, new float[]{0, 5, 0.3f}, Ease.LINEAR));
+        keys.add(new Keyframe(80, new float[]{0, 5, 12}, Ease.IN_OUT));
+        keys.add(new Keyframe(140, new float[]{0, 5, 12.4f}, Ease.OUT));
+        Track path = new Track(keys);
+        assertEquals(0, BroomFlight.seatFraction(path, 20, 0), 0, "hovering: standing life");
+        assertEquals(1, BroomFlight.seatFraction(path, 65, 0), 0, "flying: seated life");
+        assertEquals(0, BroomFlight.seatFraction(path, 65, 70), 0, "not before the window");
+        float prev = BroomFlight.seatFraction(path, 0, 0);
+        for (float t = 0; t < 160; t += 0.25f) {
+            float now = BroomFlight.seatFraction(path, t, 0);
+            assertTrue(Math.abs(now - prev) <= 1f / (BroomFlight.SEAT_EASE + 1) + 1e-6, "step at " + t);
+            assertEquals(now, BroomFlight.seatFraction(path, t, 0), 0, "same answer every time");
+            prev = now;
+        }
     }
 }

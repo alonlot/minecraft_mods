@@ -48,8 +48,7 @@ final class ActorMotion {
         // On a broom the rider never walks: life with no gait, seated while the broom flies and standing while it
         // has landed, and none on the arms (on the handle) or the legs (astride it).
         boolean onBroom = rt.broomSeat != null;
-        float seat = onBroom ? PoseMath.lerp(rt.riderSeatO, rt.riderSeat, rt.framePartial)
-                : rt.clips.seat(t, poseSeat(rt, t));
+        float seat = onBroom ? rt.frameRiderSeat : rt.clips.seat(t, poseSeat(rt, t));
         if (rt.lifeOn()) {
             HumanMotion.Odometer odo = rt.odometer();
             float speed = onBroom ? 0 : odo.speed(t) * (1 - rt.clips.holdsGait(t));

@@ -961,7 +961,9 @@ MAX_CLIMB, CLIMB_FADE_SPEED = 70.0, 0.05
 BOB_AMPLITUDE, BOB_HZ, BOB_FADE_SPEED = 0.04, 0.9, 0.1
 LEAN_REST, LEAN_SPEED, LEAN_FULL_SPEED = 8.0, 22.0, 0.6
 TUCK_LEAN, TUCK_FROM, TUCK_TO = 40.0, 20.0, 40.0
-LEG_X, LEG_Y, ARM_X, ARM_Y = -70.0, 6.0, -65.0, -8.0
+LEG_X, LEG_Y, ARM_X, ARM_Y = -70.0, 10.0, -50.0, -25.0
+SHOULDER_DROP, SHOULDER_FORWARD = 3.5, 2.0      # px: the hunched grip lowers the shoulders and brings them forward
+HEAD_TURN = 75.0                                # degrees: the most a rider's look turns his head off the broom
 RIDER_BLEND = 10.0
 FLY_SPEED, LAND_SPEED = 0.025, 0.0125          # Airborne: a ridden broom flies above, has landed under (hysteresis)
 # The broom models' bounds in the broom frame at scale 1 (BroomFlight.BOX_SCHOOL / BOX_RACING): min xyz, max xyz.
@@ -1206,7 +1208,8 @@ def rider_root(scene, rider, t):
 
 
 def rider_frame(scene, rider, t):
-    """(root, RiderFrame, broom pose, look pitch) of a broom rider at tick t, or None when not on a broom then."""
+    """(root, RiderFrame (the body on the broom's yaw), broom pose, look pitch, head turn) of a broom rider at tick
+    t, or None when not on a broom then."""
     v = broom_rider_at(scene, rider, t)
     if v is None:
         return None
@@ -1215,12 +1218,19 @@ def rider_frame(scene, rider, t):
     lk = own_sample(rider, 'look', t)
     ly, lp = (lk[0], lk[1]) if lk is not None else (0.0, 0.0)
     tilt = _mat_mul(m, _transpose(broom_matrix(b['yaw'], 0.0, 0.0)))
-    return root, RiderFrame(b['yaw'] + ly, tilt), b, lp
+    return root, RiderFrame(b['yaw'], tilt), b, lp, rider_head_turn(ly)
+
+
+def rider_head_turn(look_yaw):
+    """BroomFlight.headTurn: a broom rider's body faces along the broom; his look yaw (relative to the broom) turns
+    only his head, wrapped to [-180, 180) and clamped to +-75."""
+    d = (look_yaw + 180.0) % 360.0 - 180.0
+    return max(-HEAD_TURN, min(HEAD_TURN, d))
 
 
 def rider_eye(scene, rider, t):
     """MemoryActors.actorEye for a broom rider: root + Q x (0, eye height, 0)."""
-    root, fr, _, _ = rider_frame(scene, rider, t)
+    root, fr = rider_frame(scene, rider, t)[:2]
     v = _mat_vec(fr.tilt, [0.0, actor_eye_height(rider, t), 0.0])
     return [root[i] + v[i] for i in range(3)]
 
@@ -1228,9 +1238,10 @@ def rider_eye(scene, rider, t):
 def _broom_rider_parts(scene, a, t):
     """posed_parts for a rider on a broom: the vanilla rest (and the held-item raise), the look pitch on the head,
     then the rider layer at its window weight (BroomFlight.riderLayer: body, arms and legs toward rider_pose, the
-    head lifted, the lean turning the torso about the hips), the pose cue, the limbs; all in the broom's frame."""
+    head lifted, the lean turning the torso about the hips, the shoulders hunched down and forward for the grip),
+    the pose cue, the limbs; all in the broom's frame. The body faces the broom; the look yaw turns the head only."""
     scale = a.get('scale', 1.0)
-    root, fr, b, pitch = rider_frame(scene, a, t)
+    root, fr, b, pitch, turn = rider_frame(scene, a, t)
     r = ride_of(a)
     w = rider_weight(r[1], r[2], t)
     pose_r = rider_pose(b['speed'], b['pitch'])
@@ -1248,6 +1259,7 @@ def _broom_rider_parts(scene, a, t):
             rot[0] += ITEM_ARM_X
         if part == 'head':
             rot[0] += pitch
+            rot[1] += turn
             rot[0] += pose_r[0][0] * w
         else:
             tgt = [0.0, 0.0, 0.0] if part == 'body' else pose_r[i]
@@ -1258,7 +1270,7 @@ def _broom_rider_parts(scene, a, t):
             piv = [piv[0] + neck[0] * w, piv[1] + (neck[1] + 12.0) * w, piv[2] + neck[2] * w]
         elif part in ('right_arm', 'left_arm'):
             x = -5.0 if part == 'right_arm' else 5.0
-            sh = HM._turned(x, -10.0, 0.0, ang, 0.0, 0.0)
+            sh = HM._turned(x, -10.0 + SHOULDER_DROP, -SHOULDER_FORWARD, ang, 0.0, 0.0)
             piv = [piv[0] + (sh[0] - x) * w, piv[1] + (sh[1] + 10.0) * w, piv[2] + sh[2] * w]
         if part in pz:
             rot = list(pz[part])
@@ -1370,3 +1382,49 @@ if __name__ == '__main__':
     import sys
     if '--write-broom-cases' in sys.argv:
         write_broom_cases()
+
+
+# ================================================================ the rider's grip (BroomFlightTest.handsOnHandle)
+
+HANDLE_RADIUS = 1.0 / 16.0        # the training handle is 2 px across
+
+
+LEFT_HAND_BOX = ((-1.25, 3.25), (6.0, 10.25), (-2.25, 2.25))      # the left arm's last 4 px
+GRIP_GAP_MAX = 0.06               # blocks: a rider's fist box to the handle's surface, at most
+
+
+def rider_hand_gaps(scale, speed, pitch):
+    """A rider at the rest seat of a broom flying straight at `speed` blocks a tick with nose-down `pitch`, posed by
+    posed_parts (the rider layer at full weight): per hand, (the gap from its fist box to the handle's surface, the
+    clearance of its tip, arm_tip, from the thigh box on its side)."""
+    sc = {'poses': {}, 'actors': [
+        {'id': 'b', 'type': 'hogwartsmagic:memory_broom',
+         'path': [{'t': 0, 'pos': [0.0, 50.0, 0.0]}, {'t': 200, 'pos': [0.0, 50.0, speed * 200], 'ease': 'linear'}],
+         'look': [{'t': 0, 'yaw': 0, 'pitch': pitch, 'roll': 0}]},
+        {'id': 'r', 'type': 'player', 'scale': scale, 'ride': 'b'}]}
+    t = 100.0
+    b = broom_pose(sc, sc['actors'][0], t)
+    parts = {q[0]: q for q in posed_parts(sc, sc['actors'][1], t)}
+    axis = [[b['pos'][i] + _mat_vec(b['m'], [0.0, 0.0, k * 0.02])[i] for i in range(3)] for k in range(-40, 41)]
+    out = []
+    for side, leg, box in (('right_arm', 'right_leg', HAND_BOX), ('left_arm', 'left_leg', LEFT_HAND_BOX)):
+        _, root, fr, s, piv, rot = parts[side]
+        gap = min(box_distance(root, fr, s, piv, rot, box, q) for q in axis) - HANDLE_RADIUS
+        tip = arm_tip(root, fr, s, side, rot, piv)
+        _, lr, lf, ls, lp, lro = parts[leg]
+        out.append((gap, box_distance(lr, lf, ls, lp, lro, PART_BOX[leg], tip)))
+    return out
+
+
+def check_rider_grip():
+    """The hands on the handle at every rider scale, speed and through the dive tuck. Returns (worst gap, worst
+    thigh clearance)."""
+    worst = (0.0, 9.0)
+    for sc in (0.75, 0.85, 1.0):
+        for sp in (0.0, 0.3, 0.6):
+            for pi in (0.0, 20.0, 30.0, 45.0, 60.0):
+                for gap, clear in rider_hand_gaps(sc, sp, pi):
+                    assert gap <= GRIP_GAP_MAX, ('hand off the handle', sc, sp, pi, gap)
+                    assert clear > 0.0, ('hand in the thigh', sc, sp, pi, clear)
+                    worst = (max(worst[0], gap), min(worst[1], clear))
+    return worst

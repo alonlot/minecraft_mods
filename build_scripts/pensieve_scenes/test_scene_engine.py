@@ -3,7 +3,10 @@
   letter_outputs_unchanged: regenerating the Letter scenes (and the Wand scenes, which share the maths) rewrites
       their JSON byte for byte (md5 of the committed files);
   spline_moves_flags_linear_track: a 6-key linear moving camera is one problem, the same keys as spline none;
-  wand_sample_cam_matches: wand_scene.sample_cam on a spline track is engine_cam.
+  wand_sample_cam_matches: wand_scene.sample_cam on a spline track is engine_cam;
+  rider_grip: a broom rider's fists close on the handle (gap at most 0.06, tips clear of the thighs) at scales
+      0.75 / 0.85 / 1.0, speeds 0 / 0.3 / 0.6 and broom pitch 0 to 60 (the dive tuck), as BroomFlightTest.handsOnHandle;
+  rider_body_on_broom: a rider's look turns his head (clamped to 75), never his body off the broom.
 """
 import hashlib
 import os
@@ -60,7 +63,25 @@ def wand_sample_cam_matches():
         assert max(abs(a[c] - b[c]) for c in range(3)) < 1e-12, (t, a, b)
 
 
+def rider_grip():
+    gap, clear = E.check_rider_grip()
+    assert 0 < gap <= E.GRIP_GAP_MAX and clear > 0, (gap, clear)
+
+
+def rider_body_on_broom():
+    sc = {'poses': {}, 'actors': [
+        {'id': 'b', 'type': 'hogwartsmagic:memory_broom', 'path': [{'t': 0, 'pos': [0.0, 5.0, 0.0]}],
+         'look': [{'t': 0, 'yaw': 30}]},
+        {'id': 'r', 'type': 'player', 'ride': 'b', 'look': [{'t': 0, 'yaw': 40}, {'t': 50, 'yaw': 200}]}]}
+    for t in (0, 25, 50):
+        parts = {p[0]: p for p in E.posed_parts(sc, sc['actors'][1], t)}
+        assert parts['head'][2].yaw == 30, parts['head'][2].yaw
+        assert abs(parts['head'][5][1]) <= E.HEAD_TURN, parts['head'][5]
+    assert E.rider_head_turn(200) == -75 and E.rider_head_turn(40) == 40
+
+
 if __name__ == '__main__':
-    for fn in (spline_moves_flags_linear_track, wand_sample_cam_matches, letter_outputs_unchanged):
+    for fn in (spline_moves_flags_linear_track, wand_sample_cam_matches, rider_grip, rider_body_on_broom,
+               letter_outputs_unchanged):
         fn()
         print('ok', fn.__name__)

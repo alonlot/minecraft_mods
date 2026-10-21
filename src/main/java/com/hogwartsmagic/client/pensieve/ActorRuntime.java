@@ -38,14 +38,12 @@ public final class ActorRuntime {
 
     /** A rider ({@code ride}): the vehicle's pitch, roll and yaw it rocks with, this tick and the last (degrees). */
     float ridePitch, rideRoll, rideYaw, ridePitchO, rideRollO, rideYawO;
-    /** On a broom this tick and the last; whether that broom flies (the owls' hysteresis rule, BroomFlight.flying). */
-    boolean rideBroom, rideBroomO, broomFlying;
-    /** The life layer's seat while on a broom, 0 standing (landed) to 1 seated (flying), eased; this tick and the last. */
-    float riderSeat, riderSeatO;
+    /** On a broom this tick and the last. */
+    boolean rideBroom, rideBroomO;
     /** Set by ActorPoser for the frame being drawn: the broom seat at frame time, or null when not on a broom. */
     com.hogwartsmagic.pensieve.scene.Vehicle.Seat broomSeat;
-    /** The partial tick of the frame being drawn (set with {@link #broomSeat}). */
-    float framePartial;
+    /** The life layer's seat on a broom at frame time, 0 standing (landed) to 1 seated (flying): BroomFlight.seatFraction. */
+    float frameRiderSeat;
     /** Per part: the life gain while on a broom (arms on the handle and legs astride it get none). */
     final float[] riderGain = new float[HumanMotion.PARTS];
 

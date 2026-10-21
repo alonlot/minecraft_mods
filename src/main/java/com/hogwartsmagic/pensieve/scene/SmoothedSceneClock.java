@@ -11,51 +11,71 @@ package com.hogwartsmagic.pensieve.scene;
  * tick's rate to close the error against its estimate of the server's time. Frames read {@link #at}: the tick's base
  * plus the partial tick times that rate.
  *
- * <p>How it treats each case:
+ * <p>How it works:
  * <ul>
- *   <li><b>Behind</b> (the server is ahead): catch up {@link #MAX_SPEED_UP} faster for a small lag, ramping to
- *       {@link #MAX_CATCH_UP} for a lag of several ticks. While the server is measured running fast (catching up
- *       after a hitch) the clock may follow it at that rate, at most double speed. Snap forward past
- *       {@link #SNAP_FORWARD_TICKS}.</li>
- *   <li><b>Ahead</b>: slow down as much as it takes, down to a hold, never backward. Snap back only past
- *       {@link #SNAP_BACK_TICKS}, for a real desync. A server below 20 tps is the common case: the client still adds 1
- *       a tick and each sync pulls it back.</li>
- *   <li><b>Server rate:</b> measured at each sync, as how far the client's time moved since the last pull-back. Between
- *       syncs the clock aims for the time that rate predicts, not the client's own run-ahead, so a slow server plays at a
- *       steady slower speed. A full-speed server's sync moves the client by nothing, so it cannot be seen. When a slow
- *       server's next pull-back is {@link #SYNC_MARGIN} ticks overdue, the server is taken to be back at full speed.</li>
- *   <li><b>Stall</b> ({@code /tick freeze}): the client's time stops moving, and the clock holds within a tick.</li>
- *   <li><b>Small errors:</b> once within {@link #EXACT_TICKS}, the clock lands exactly on the server's time. Tick work
- *       (actions, events) then falls on whole ticks again instead of creeping up on them from below.</li>
+ *   <li><b>The server's time</b> is estimated, not read. Each sync (a change of the client's time other than +1)
+ *       measures how far the server got since the last one. The server rate is the ratio of a running average of those
+ *       advances to a running average of the intervals. The estimate's anchor moves only part of the way to each sync's
+ *       value, so packet jitter is smoothed out, not followed.</li>
+ *   <li><b>Recovery:</b> a full-speed server's sync moves the client by nothing, so it cannot be seen. When a slow
+ *       server's next pull-back is overdue by more than the intervals' own recent jitter, the server is taken to be
+ *       back at full speed.</li>
+ *   <li><b>The playback rate</b> is the estimated server rate plus a correction for the error. Behind, the correction
+ *       is at most {@link #MAX_SPEED_UP}, ramping to {@link #MAX_CATCH_UP} when catching up after a recovery, and to
+ *       double speed after a hitch while the server races back. Ahead, the clock slows as far as a hold, never
+ *       backward. The correction is also limited so the clock can brake to the right speed without overshooting.</li>
+ *   <li><b>Rate of change:</b> the rate moves by at most {@link #MAX_RATE_STEP} a tick, so nothing produces a cliff.</li>
+ *   <li><b>Racing server</b> (measured faster than real time, catching up after a hitch): the clock aims at the
+ *       client's own time, which a sync only ever moves forward to the server's. It never extrapolates past it, so it
+ *       cannot overshoot when the race ends.</li>
+ *   <li><b>Stall</b> ({@code /tick freeze}): the client's time stops moving, and the clock brakes to a hold.</li>
+ *   <li><b>Snaps:</b> forward past {@link #SNAP_FORWARD_TICKS} (more after a hitch), back only past
+ *       {@link #SNAP_BACK_TICKS}.</li>
+ *   <li><b>Small errors:</b> within {@link #EXACT_TICKS} the clock lands exactly on the estimate. On a full-speed server
+ *       tick work (actions, events) then falls on whole ticks.</li>
  * </ul>
  */
 public final class SmoothedSceneClock {
-    /** Speed-up for a lag of up to a tick: 5%, so a one-tick lag is absorbed over about a second. */
+    /** Speed-up for an ordinary lag: 5%, so a one-tick lag is absorbed over about a second. */
     public static final double MAX_SPEED_UP = 0.05;
-    /** The speed-up ramps by this much per tick of lag beyond the first. */
+    /** The speed-up ramps by this much per tick of lag beyond the first, after a recovery or a hitch. */
     public static final double CATCH_UP_RAMP = 0.08;
-    /** The largest speed-up for a lag the server's own rate does not explain. */
+    /** The largest speed-up after a slow server recovers. */
     public static final double MAX_CATCH_UP = 0.25;
-    /** Fastest the clock follows a server measured catching up, as a rate (double speed). */
+    /** Fastest the clock runs, following a server racing back after a hitch (double speed). */
     public static final double MAX_FOLLOW_RATE = 2.0;
-    /** Rate change per tick of error behind, before the caps. */
+    /** Largest change of the playback rate in one tick. */
+    public static final double MAX_RATE_STEP = 0.05;
+    /** Rate correction per tick of error behind, before the caps. */
     public static final double GAIN_BEHIND = 0.2;
-    /** Rate change per tick of error ahead; the rate goes down to 0 (a hold), never below. */
-    public static final double GAIN_AHEAD = 0.1;
+    /** Rate correction per tick of error ahead. */
+    public static final double GAIN_AHEAD = 0.05;
     /** Behind by more than this many ticks: snap forward. */
     public static final double SNAP_FORWARD_TICKS = 10;
+    /** The forward snap limit while a server races back after a hitch, when a long lag is expected. */
+    public static final double SNAP_FORWARD_RACING_TICKS = 40;
     /** Ahead by more than this many ticks: snap back. A slow server or a hitch of up to 5 s is held, not rewound. */
     public static final double SNAP_BACK_TICKS = 100;
-    /** Within this of the server's time, land on it exactly. */
+    /** Within this of the estimate, land on it exactly. */
     public static final double EXACT_TICKS = 0.02;
     /** Server ticks between two of vanilla's time syncs. */
     static final int SYNC_TICKS = 20;
-    /** A slow server's pull-back this many client ticks overdue means it is keeping pace again. */
+    /** Smallest margin by which a slow server's pull-back must be overdue to mean it is keeping pace again. */
     public static final int SYNC_MARGIN = 2;
-    /** A change of the client's time other than +1 this soon after the last sync is not measured as a new one. */
+    /** The overdue margin is this many times the recent jitter of the sync intervals, plus a tick. */
+    static final double JITTER_MARGIN = 1.5;
+    /** Per-sync decay of the recent-jitter estimate (a decaying maximum). */
+    static final double JITTER_DECAY = 0.99;
+    /** A change of the client's time other than +1 this soon after the last sync is not measured. */
     static final int MIN_SYNC_GAP = 10;
-    /** Weight of the newest sync in the server-rate estimate. */
-    static final double RATE_MEMORY = 0.5;
+    /** Weight of the newest sync in the averaged advance and interval. */
+    static final double RATE_MEMORY = 0.3;
+    /** How far the estimate's anchor moves toward each sync's value. */
+    static final double ANCHOR_GAIN = 0.35;
+    /** A sync further than this from the estimate re-anchors it outright. */
+    static final double ANCHOR_RESET_TICKS = 8;
+    /** A server measured below this rate has really been slow: its recovery may be caught up at the ramped speed. */
+    static final double SLOW_RATE = 0.85;
 
     private boolean running;
     private double base;
@@ -63,14 +83,20 @@ public final class SmoothedSceneClock {
     private double lastError;
 
     private double lastTarget;
+    /** The estimate's (smoothed) anchor, and the client's time at the last sync. */
+    private double anchor;
     private double syncTarget;
     private int sinceSync;
-    /** Smoothed server rate (0..1 + {@link #MAX_SPEED_UP}), and the last interval's rate as measured. */
     private double serverRate = 1;
+    /** The last interval's rate as measured (above 1 while a server races back). */
     private double measuredRate = 1;
-    /** Client ticks between the last two syncs. */
-    private int syncInterval = SYNC_TICKS;
+    private double advanceAvg = SYNC_TICKS;
+    private double intervalAvg = SYNC_TICKS;
+    private double jitter;
     private int stall;
+    /** Catching up after a slow server's recovery, or after a race: the larger speed-ups are allowed. */
+    private boolean recovering;
+    private boolean wasRacing;
 
     /** Forget everything: the next {@link #tick} snaps to the authoritative time. */
     public void reset() {
@@ -78,8 +104,11 @@ public final class SmoothedSceneClock {
         base = 0;
         rate = 1;
         lastError = 0;
-        fullSpeed(0);
+        jitter = 0;
         stall = 0;
+        recovering = false;
+        wasRacing = false;
+        fullSpeed(0);
     }
 
     public boolean running() {
@@ -107,57 +136,89 @@ public final class SmoothedSceneClock {
             // Stopped (a frozen tick rate): hold here, and pick up at full speed once it moves again.
             fullSpeed(target);
         } else if (step != 1) {
-            // A sync moved the client's time. Measure the server's rate over the last interval, if it was long
-            // enough to mean anything, and aim from here.
-            if (sinceSync >= MIN_SYNC_GAP) {
-                double r = (target - syncTarget) / sinceSync;
-                measuredRate = Math.max(0, r);
-                serverRate += (Math.max(0, Math.min(1 + MAX_SPEED_UP, r)) - serverRate) * RATE_MEMORY;
-                syncInterval = sinceSync;
-            }
-            syncTarget = target;
-            sinceSync = 0;
-        } else if ((serverRate != 1 || measuredRate != 1) && sinceSync > syncInterval + SYNC_MARGIN) {
+            sync(target);
+        } else if ((serverRate != 1 || measuredRate != 1)
+                && sinceSync > intervalAvg + Math.max(SYNC_MARGIN, JITTER_MARGIN * jitter + 1)) {
             // The pull-back a slow (or racing) server would have sent is overdue: a sync came and moved nothing, so
             // the client's time is the server's again.
+            recovering = serverRate < SLOW_RATE || racing();
+            wasRacing = racing();
             fullSpeed(target);
         }
-        boolean racing = measuredRate > 1 + MAX_CATCH_UP;
-        double modelRate = racing ? Math.min(MAX_FOLLOW_RATE, measuredRate) : serverRate;
-        double model = syncTarget + modelRate * sinceSync;
-        // Slower than the client: the client's own run-ahead is not to be trusted. Faster: the client lags it.
-        double aim = modelRate <= 1 ? Math.min(target, model) : model;
+        boolean racing = racing();
+        double modelRate = racing ? 1 : serverRate;
+        double aim = racing ? target : anchor + modelRate * sinceSync;
 
         base += rate;
         double err = aim - base;
         lastError = err;
-        if (err > SNAP_FORWARD_TICKS || err < -SNAP_BACK_TICKS) {
+        double snapForward = racing || wasRacing ? SNAP_FORWARD_RACING_TICKS : SNAP_FORWARD_TICKS;
+        if (err > snapForward || err < -SNAP_BACK_TICKS) {
             snap(aim);
             return true;
         }
-        if (err >= 0 && err < EXACT_TICKS) {
-            base = aim;                       // a forward nudge too small to see
-            rate = 1;
-        } else if (err < 0 && err > -EXACT_TICKS) {
-            rate = 1 + err;                   // lands on the server's time next tick, without stepping back
-        } else if (err > 0) {
-            double cap = Math.min(MAX_CATCH_UP, MAX_SPEED_UP + CATCH_UP_RAMP * Math.max(0, err - 1));
-            if (racing) cap = Math.max(cap, Math.min(MAX_FOLLOW_RATE, measuredRate) - 1);
-            rate = 1 + Math.min(cap, err * GAIN_BEHIND);
-        } else {
-            rate = Math.max(0, 1 + err * GAIN_AHEAD);
+        if (err < 0.5) {
+            recovering = false;
+            wasRacing = false;
         }
-        if (stall >= 2 && err <= 0) rate = 0;
+        double old = rate;
+        double v0 = Math.min(1, modelRate);
+        double want;
+        if (err >= 0 && err < EXACT_TICKS && Math.abs(old - v0) <= MAX_RATE_STEP) {
+            base = aim;                       // a forward nudge too small to see
+            want = v0;
+        } else if (err < 0 && err > -EXACT_TICKS && Math.abs(old - v0) <= MAX_RATE_STEP) {
+            want = v0 + err;                  // lands on the estimate next tick, without stepping back
+        } else if (err > 0) {
+            double ramp = MAX_SPEED_UP + CATCH_UP_RAMP * Math.max(0, err - 1);
+            double cap = MAX_SPEED_UP;
+            if (recovering) cap = Math.min(MAX_CATCH_UP, ramp);
+            if (racing || wasRacing) cap = Math.max(cap, Math.min(MAX_FOLLOW_RATE - 1, ramp));
+            want = v0 + Math.min(cap, Math.min(err * GAIN_BEHIND, brake(err)));
+        } else {
+            want = Math.max(0, v0 - Math.min(1, Math.min(-err * GAIN_AHEAD, brake(-err))));
+        }
+        if (stall >= 2 && err <= 0) want = 0;
+        rate = Math.max(old - MAX_RATE_STEP, Math.min(old + MAX_RATE_STEP, want));
         return false;
+    }
+
+    /** The largest speed difference from which the rate limit can still brake within {@code err} ticks. */
+    private static double brake(double err) {
+        return Math.sqrt(2 * MAX_RATE_STEP * err);
+    }
+
+    private boolean racing() {
+        return measuredRate > 1 + MAX_CATCH_UP;
+    }
+
+    /** A sync moved the client's time to the server's {@code target}: measure, and move the estimate toward it. */
+    private void sync(double target) {
+        double predicted = anchor + (racing() ? 1 : serverRate) * sinceSync;
+        boolean measured = sinceSync >= MIN_SYNC_GAP;
+        if (measured) {
+            double advance = target - syncTarget;
+            measuredRate = Math.max(0, advance / sinceSync);
+            jitter = Math.max(Math.abs(sinceSync - intervalAvg), jitter * JITTER_DECAY);
+            advanceAvg += (advance - advanceAvg) * RATE_MEMORY;
+            intervalAvg += (sinceSync - intervalAvg) * RATE_MEMORY;
+            serverRate = Math.max(0, Math.min(1 + MAX_SPEED_UP, advanceAvg / intervalAvg));
+        }
+        boolean outright = racing() || !measured || Math.abs(target - predicted) > ANCHOR_RESET_TICKS;
+        anchor = outright ? target : predicted + ANCHOR_GAIN * (target - predicted);
+        syncTarget = target;
+        sinceSync = 0;
     }
 
     /** The server is taken to keep pace from {@code target} on. */
     private void fullSpeed(double target) {
         serverRate = 1;
         measuredRate = 1;
+        anchor = target;
         syncTarget = target;
         sinceSync = 0;
-        syncInterval = SYNC_TICKS;
+        advanceAvg = SYNC_TICKS;
+        intervalAvg = SYNC_TICKS;
     }
 
     private void snap(double target) {

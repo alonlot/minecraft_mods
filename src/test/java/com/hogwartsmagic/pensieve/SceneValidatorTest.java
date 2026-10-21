@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SceneValidatorTest {
     private static final SceneNames NAMES = new SceneNames(
-            Set.of("hogwartsmagic:basilisk", "minecraft:zombie", "player"), Set.of("stupefy"),
+            Set.of("hogwartsmagic:basilisk", "minecraft:zombie", "player", "hogwartsmagic:memory_rowboat"), Set.of("stupefy"),
             Set.of("minecraft:entity.generic.explode", "hogwartsmagic:pensieve.music.m", "hogwartsmagic:pensieve.voice.v", "hogwartsmagic:pensieve.sfx.x"), Set.of("minecraft:stone"), Set.of("minecraft:stick", "minecraft:air"),
             Set.of("hogwartsmagic:chamber_hall"), Set.of(), Set.of("minecraft:flame"), Set.of());
 
@@ -559,5 +559,54 @@ class SceneValidatorTest {
     @Test
     void wakeIsAnEndAction() throws Exception {
         assertEquals(List.of(), validate("{\"length\":100,\"end_action\":\"wake\"}"));
+    }
+
+    private static String sea(String extra) {
+        return "{\"length\":100,\"radius\":40,\"events\":[{\"t\":1,\"kind\":\"effect\",\"id\":\"rough_sea\"" + extra + "}]}";
+    }
+
+    @Test
+    void roughSeaNeedsAnAreaAndRangedIntensity() throws Exception {
+        assertEquals(List.of(), validate(sea(",\"at\":[0,0,0],\"spread\":[30,0,30]")));
+        assertEquals(List.of(), validate(sea(",\"at\":[0,0,0],\"spread\":[30,0,30],\"intensity\":2,\"duration\":60")));
+        assertMessage(validate(sea(",\"at\":[0,0,0]")), "rough_sea needs spread");
+        assertMessage(validate(sea(",\"spread\":[30,0,30]")), "rough_sea needs at");
+        assertMessage(validate(sea(",\"at\":[0,0,0],\"spread\":[1,0,30]")), "spread[0]");
+        assertMessage(validate(sea(",\"at\":[0,0,0],\"spread\":[30,0,120]")), "spread[2]");
+        assertMessage(validate(sea(",\"at\":[0,0,0],\"spread\":[30,0,30],\"intensity\":2.5")), "intensity");
+        assertMessage(validate(sea(",\"at\":[0,0,0],\"spread\":[30,0,30],\"intensity\":0.05")), "intensity");
+        // The area must lie inside the scene radius (40).
+        assertMessage(validate(sea(",\"at\":[20,0,0],\"spread\":[30,0,10]")), "radius");
+    }
+
+    private static String rain(String extra) {
+        return "{\"length\":100,\"events\":[{\"t\":1,\"kind\":\"effect\",\"id\":\"rain\"" + extra + "}]}";
+    }
+
+    @Test
+    void rainNeedsABoxAndRangedIntensity() throws Exception {
+        assertEquals(List.of(), validate(rain(",\"at\":[0,10,0],\"spread\":[20,10,20]")));
+        assertEquals(List.of(), validate(rain(",\"at\":[0,10,0],\"spread\":[20,10,20],\"intensity\":1.6")));
+        assertMessage(validate(rain(",\"at\":[0,10,0]")), "rain needs spread");
+        assertMessage(validate(rain(",\"spread\":[20,10,20]")), "rain needs at");
+        assertMessage(validate(rain(",\"at\":[0,10,0],\"spread\":[0.5,10,20]")), "spread[0]");
+        assertMessage(validate(rain(",\"at\":[0,10,0],\"spread\":[20,10,20],\"intensity\":3")), "intensity");
+    }
+
+    private static String riders(String riderType, String ride) {
+        return "{\"length\":100,\"actors\":["
+                + "{\"id\":\"boat\",\"type\":\"hogwartsmagic:memory_rowboat\"},"
+                + "{\"id\":\"zed\",\"type\":\"minecraft:zombie\"},"
+                + "{\"id\":\"r\",\"type\":\"" + riderType + "\",\"ride\":\"" + ride + "\"}]}";
+    }
+
+    @Test
+    void rideNamesARowboat() throws Exception {
+        assertEquals(List.of(), validate(riders("player", "boat")));
+        assertEquals(List.of(), validate(riders("minecraft:zombie", "boat")));
+        assertMessage(validate(riders("player", "ghost")), "ride: unknown actor 'ghost'");
+        assertMessage(validate(riders("player", "zed")), "ride: 'zed' is not a hogwartsmagic:memory_rowboat");
+        assertMessage(validate(riders("player", "r")), "ride: an actor cannot ride itself");
+        assertMessage(validate(riders("hogwartsmagic:memory_rowboat", "boat")), "ride: a boat cannot ride");
     }
 }

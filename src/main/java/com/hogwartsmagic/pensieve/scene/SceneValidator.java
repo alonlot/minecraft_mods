@@ -155,6 +155,7 @@ public final class SceneValidator {
             }
         }
         if (!a.life() && !"player".equals(a.type())) out.add(p + ".life: only a player actor has life");
+        if (a.ride() != null) ride(out, scene, a, p, actorIds);
         for (int i = 0; i < a.anims().size(); i++) {
             SceneDef.Cue c = a.anims().get(i);
             time(out, p + ".anims[" + i + "].t", c.t(), length);
@@ -197,6 +198,23 @@ public final class SceneValidator {
         }
     }
 
+    /** {@code ride}: the boat must be another actor, a rowboat, and a boat cannot itself ride. */
+    private static void ride(List<String> out, SceneDef scene, SceneDef.ActorDef a, String p, Set<String> actorIds) {
+        if (SceneNames.ROWBOAT_ACTOR.equals(a.type())) {
+            out.add(p + ".ride: a boat cannot ride another actor");
+        } else if (a.ride().equals(a.id())) {
+            out.add(p + ".ride: an actor cannot ride itself");
+        } else if (!actorIds.contains(a.ride())) {
+            out.add(p + ".ride: unknown actor '" + a.ride() + "'");
+        } else {
+            for (SceneDef.ActorDef b : scene.actors()) {
+                if (b.id().equals(a.ride()) && !SceneNames.ROWBOAT_ACTOR.equals(b.type())) {
+                    out.add(p + ".ride: '" + a.ride() + "' is not a " + SceneNames.ROWBOAT_ACTOR);
+                }
+            }
+        }
+    }
+
     private static void event(List<String> out, SceneDef.EventDef e, String p, SceneNames names, float length,
                               int radius) {
         time(out, p + ".t", e.t(), length);
@@ -212,8 +230,9 @@ public final class SceneValidator {
             out.add(p + ".style: style is only for enchanted_ceiling");
         }
         if (!Float.isNaN(e.intensity()) && !("effect".equals(e.kind())
-                && ("light_rays".equals(e.id()) || "eyes_peek".equals(e.id()) || "wand_choice".equals(e.id())))) {
-            out.add(p + ".intensity: intensity is only for light_rays, eyes_peek and wand_choice");
+                && ("light_rays".equals(e.id()) || "eyes_peek".equals(e.id()) || "wand_choice".equals(e.id())
+                || "rough_sea".equals(e.id()) || "rain".equals(e.id())))) {
+            out.add(p + ".intensity: intensity is only for light_rays, eyes_peek, wand_choice, rough_sea and rain");
         }
         if (e.box() != null && !("effect".equals(e.kind()) && "letter_flood".equals(e.id()))) {
             out.add(p + ".box: box is only for letter_flood");
@@ -256,6 +275,10 @@ public final class SceneValidator {
                     candles(out, e, p);
                 } else if ("wand_choice".equals(e.id())) {
                     wandChoice(out, e, p);
+                } else if ("rough_sea".equals(e.id())) {
+                    roughSea(out, e, p, radius);
+                } else if ("rain".equals(e.id())) {
+                    rain(out, e, p);
                 } else if ("eyes_peek".equals(e.id()) && !Float.isNaN(e.intensity())
                         && !(e.intensity() >= Eyelids.MIN_PEEK_OPEN && e.intensity() <= 1f)) {
                     out.add(p + ".intensity: " + e.intensity() + " is outside " + Eyelids.MIN_PEEK_OPEN
@@ -347,6 +370,54 @@ public final class SceneValidator {
         if (!Float.isNaN(e.intensity()) && !(e.intensity() >= WandChoice.MIN_INTENSITY && e.intensity() <= WandChoice.MAX_INTENSITY)) {
             out.add(p + ".intensity: " + e.intensity() + " is outside " + WandChoice.MIN_INTENSITY + " to "
                     + WandChoice.MAX_INTENSITY);
+        }
+    }
+
+    /** The rough_sea effect: a still-water centre, an area [hx, 0, hz] inside the radius, a ranged intensity. */
+    private static void roughSea(List<String> out, SceneDef.EventDef e, String p, int radius) {
+        if (e.at() == null) out.add(p + ": rough_sea needs at");
+        intensity(out, e, p);
+        if (e.spread() == null) {
+            out.add(p + ": rough_sea needs spread [hx, 0, hz]");
+            return;
+        }
+        boolean ranged = true;
+        for (int i = 0; i < e.spread().length; i += 2) {
+            float s = e.spread()[i];
+            if (!(s >= RoughSea.MIN_SPREAD && s <= RoughSea.MAX_SPREAD)) {
+                out.add(p + ".spread[" + i + "]: " + s + " is outside " + RoughSea.MIN_SPREAD + " to " + RoughSea.MAX_SPREAD);
+                ranged = false;
+            }
+        }
+        if (ranged && e.at() != null) {
+            float[] a = e.at(), s = e.spread();
+            if (Math.abs(a[0]) + s[0] > radius || Math.abs(a[2]) + s[2] > radius) {
+                out.add(p + ": the rough_sea area (at +- spread) reaches beyond the scene radius " + radius);
+            }
+        }
+    }
+
+    /** The rain effect: a box centre and half-size [hx, hy, hz], each ranged, and a ranged intensity. */
+    private static void rain(List<String> out, SceneDef.EventDef e, String p) {
+        if (e.at() == null) out.add(p + ": rain needs at");
+        intensity(out, e, p);
+        if (e.spread() == null) {
+            out.add(p + ": rain needs spread [hx, hy, hz]");
+            return;
+        }
+        for (int i = 0; i < e.spread().length; i++) {
+            float s = e.spread()[i];
+            if (!(s >= SceneNames.MIN_RAIN_SPREAD && s <= SceneNames.MAX_RAIN_SPREAD)) {
+                out.add(p + ".spread[" + i + "]: " + s + " is outside " + SceneNames.MIN_RAIN_SPREAD + " to "
+                        + SceneNames.MAX_RAIN_SPREAD);
+            }
+        }
+    }
+
+    /** rough_sea and rain share the intensity range 0.1 to 2. */
+    private static void intensity(List<String> out, SceneDef.EventDef e, String p) {
+        if (!Float.isNaN(e.intensity()) && !(e.intensity() >= RoughSea.MIN_INTENSITY && e.intensity() <= RoughSea.MAX_INTENSITY)) {
+            out.add(p + ".intensity: " + e.intensity() + " is outside " + RoughSea.MIN_INTENSITY + " to " + RoughSea.MAX_INTENSITY);
         }
     }
 

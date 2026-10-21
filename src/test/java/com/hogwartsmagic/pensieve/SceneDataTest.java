@@ -221,4 +221,20 @@ class SceneDataTest {
         }
         assertEquals(List.of(), chainProblems(nextById));
     }
+
+    /**
+     * The storm dev scene (written by build_scripts/pensieve_scenes/dev_storm.py into the ignored run/pensieve_dev)
+     * validates like a shipped one: a rough_sea under rain with a rowboat and four riders. Skipped where it has not
+     * been generated.
+     */
+    @Test
+    void devStormSceneValidates() throws Exception {
+        Path f = Path.of("run/pensieve_dev/dev_storm.json");
+        if (!Files.exists(f)) return;
+        SceneDef def = SceneParser.parse("dev_storm", JsonParser.parseString(read(f)).getAsJsonObject());
+        assertEquals(List.of(), SceneValidator.validate(def, harvest()));
+        assertTrue(def.events().stream().anyMatch(e -> "rough_sea".equals(e.id())));
+        assertTrue(def.events().stream().anyMatch(e -> "rain".equals(e.id())));
+        assertEquals(4, def.actors().stream().filter(a -> a.ride() != null).count());
+    }
 }

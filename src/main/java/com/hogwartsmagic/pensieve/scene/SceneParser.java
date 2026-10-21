@@ -124,7 +124,7 @@ public final class SceneParser {
     private static SceneDef.ActorDef parseActor(JsonElement e, String path) throws SceneException {
         JsonObject o = obj(e, path);
         checkKeys(o, path, "id", "type", "skin", "name", "items", "path", "look", "limbs", "poses", "anims", "actions", "scale", "life",
-                "block");
+                "block", "ride");
         String id = reqStr(o, "id", path);
         String type = reqStr(o, "type", path);
         SceneDef.SkinRef skin = null;
@@ -166,7 +166,8 @@ public final class SceneParser {
         List<SceneDef.ActionCue> actions = new ArrayList<>();
         for (Map.Entry<String, JsonObject> en : each(o, "actions", path)) actions.add(parseAction(en.getValue(), en.getKey()));
         return new SceneDef.ActorDef(id, type, skin, name, items, pathTrack, look, limbs, poses, anims, actions,
-                num(o, "scale", path, 1f), bool(o, "life", path, true), str(o, "block", path, null));
+                num(o, "scale", path, 1f), bool(o, "life", path, true), str(o, "block", path, null),
+                str(o, "ride", path, null));
     }
 
     /** A keyframe array of [x,y,z] vectors stored under {@code vecKey}. */

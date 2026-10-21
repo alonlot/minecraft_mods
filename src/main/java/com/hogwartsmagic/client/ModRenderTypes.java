@@ -99,4 +99,33 @@ public final class ModRenderTypes extends RenderType {
                         .setCullState(NO_CULL)
                         .createCompositeState(false));
     }
+
+    /**
+     * The rough sea's water: unlit (the mesh carries its own shaded colour), straight-alpha blending, but writing depth
+     * like an opaque surface so near crests hide far troughs and rain behind a wave is hidden. No culling (the camera
+     * may dip under a crest). The eyes shader fades with the world's fog, so the far sea sinks into the Pensieve dark.
+     */
+    public static RenderType seaSurface(ResourceLocation texture) {
+        return create("hogwartsmagic_sea_surface", DefaultVertexFormat.NEW_ENTITY, VertexFormat.Mode.QUADS, 262144,
+                false, false,
+                RenderType.CompositeState.builder()
+                        .setShaderState(RENDERTYPE_EYES_SHADER)
+                        .setTextureState(new RenderStateShard.TextureStateShard(texture, true, false))
+                        .setTransparencyState(TRANSLUCENT_TRANSPARENCY)
+                        .setWriteMaskState(COLOR_DEPTH_WRITE)
+                        .setCullState(NO_CULL)
+                        .createCompositeState(false));
+    }
+
+    /**
+     * Depth only: no colour, writes depth, no culling. The rowing boat's lid over its open hull, drawn just before the
+     * sea so the waves never show inside the boat.
+     */
+    public static final RenderType DEPTH_MASK = create("hogwartsmagic_depth_mask", DefaultVertexFormat.POSITION,
+            VertexFormat.Mode.QUADS, 1024, false, false,
+            RenderType.CompositeState.builder()
+                    .setShaderState(POSITION_SHADER)
+                    .setWriteMaskState(DEPTH_WRITE)
+                    .setCullState(NO_CULL)
+                    .createCompositeState(false));
 }

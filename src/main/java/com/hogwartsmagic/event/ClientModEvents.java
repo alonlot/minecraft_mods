@@ -1096,6 +1096,7 @@ public class ClientModEvents {
         event.registerEntityRenderer(ModEntities.MEMORY_DOOR.get(), com.hogwartsmagic.client.MemoryDoorRenderer::new);
         event.registerEntityRenderer(ModEntities.MEMORY_DOOR_MIRRORED.get(),
                 ctx -> new com.hogwartsmagic.client.MemoryDoorRenderer(ctx, true));
+        event.registerEntityRenderer(ModEntities.MEMORY_ROWBOAT.get(), com.hogwartsmagic.client.MemoryRowboatRenderer::new);
         event.registerEntityRenderer(ModEntities.MEMORY_BANNER_GRYFFINDOR.get(),
                 ctx -> new com.hogwartsmagic.client.MemoryBannerRenderer(ctx, "gryffindor"));
         event.registerEntityRenderer(ModEntities.MEMORY_BANNER_HUFFLEPUFF.get(),

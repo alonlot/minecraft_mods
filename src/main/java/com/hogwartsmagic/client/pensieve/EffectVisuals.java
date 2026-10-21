@@ -10,6 +10,7 @@ import com.hogwartsmagic.pensieve.scene.FloatingCandles;
 import com.hogwartsmagic.pensieve.scene.EffectSeed;
 import com.hogwartsmagic.pensieve.scene.LetterFlood;
 import com.hogwartsmagic.pensieve.scene.LightRays;
+import com.hogwartsmagic.pensieve.scene.RoughSea;
 import com.hogwartsmagic.pensieve.scene.WandChoice;
 import com.mojang.logging.LogUtils;
 import net.minecraft.client.Minecraft;
@@ -232,6 +233,24 @@ public final class EffectVisuals {
             int n = count > 0 ? Math.min(count, FloatingCandles.MAX_COUNT) : FloatingCandles.DEFAULT_COUNT;
             RUNNING.add(new Candles(new FloatingCandlesRenderer.Flock(at.x, at.y, at.z, Mth.clamp(spread[0], 0.5f, 100f),
                     Mth.clamp(spread[1], 0.5f, 100f), Mth.clamp(spread[2], 0.5f, 100f), n, floodSeed(at, t))));
+        } else if ("rough_sea".equals(effect)) {
+            if (spread == null || spread.length < 3) {
+                LOGGER.warn("Pensieve: rough_sea has no spread");
+                return;
+            }
+            // The waves are a function of the scene clock (RoughSea, the same numbers the rowing boat rides); the sea
+            // runs until its duration ends (0: until the scene ends) or clear() ends the scene.
+            Vec3 o = MemoryEvents.sceneOrigin();
+            float[] rel = {(float) (at.x - o.x), (float) (at.y - o.y), (float) (at.z - o.z)};
+            RUNNING.add(new Sea(new RoughSeaRenderer.Water(RoughSea.Sea.of(rel, spread, intensity, t, duration), o)));
+        } else if ("rain".equals(effect)) {
+            if (spread == null || spread.length < 3) {
+                LOGGER.warn("Pensieve: rain has no spread");
+                return;
+            }
+            float[] half = {Mth.clamp(spread[0], 1f, 100f), Mth.clamp(spread[1], 1f, 100f), Mth.clamp(spread[2], 1f, 100f)};
+            double in = Float.isNaN(intensity) ? 1.0 : Mth.clamp(intensity, RoughSea.MIN_INTENSITY, RoughSea.MAX_INTENSITY);
+            RUNNING.add(new Rain(new RainRenderer.Shower(at, half, in, t, Math.max(0, duration), floodSeed(at, t))));
         } else if ("wand_choice".equals(effect)) {
             int total = WandChoice.duration(duration);
             if (elapsed < total) RUNNING.add(new WandChoiceGlow(at, elapsed, total, WandChoice.intensity(intensity), floodSeed(at, t)));
@@ -387,6 +406,30 @@ public final class EffectVisuals {
             if (r instanceof Rays rays) {
                 if (out == null) out = new ArrayList<>(1);
                 out.add(rays.beam);
+            }
+        }
+        return out == null ? List.of() : out;
+    }
+
+    /** The rough seas running now, for {@link RoughSeaRenderer} and the rain (empty once {@link #clear} has run). */
+    static List<RoughSeaRenderer.Water> seas() {
+        List<RoughSeaRenderer.Water> out = null;
+        for (Running r : RUNNING) {
+            if (r instanceof Sea sea) {
+                if (out == null) out = new ArrayList<>(1);
+                out.add(sea.water);
+            }
+        }
+        return out == null ? List.of() : out;
+    }
+
+    /** The rains running now, for {@link RainRenderer} (empty once {@link #clear} has run). */
+    static List<RainRenderer.Shower> rains() {
+        List<RainRenderer.Shower> out = null;
+        for (Running r : RUNNING) {
+            if (r instanceof Rain rain) {
+                if (out == null) out = new ArrayList<>(1);
+                out.add(rain.shower);
             }
         }
         return out == null ? List.of() : out;
@@ -823,6 +866,41 @@ public final class EffectVisuals {
             }
             age++;
             return age < total;
+        }
+    }
+
+    /** {@code rough_sea}: holds the water for {@link RoughSeaRenderer}, throws its spray; ends with its duration. */
+    private static final class Sea implements Running {
+        private final RoughSeaRenderer.Water water;
+
+        Sea(RoughSeaRenderer.Water water) {
+            this.water = water;
+        }
+
+        @Override
+        public boolean tick(ClientLevel level) {
+            float now = PensieveClientState.sceneTime(0);
+            RoughSea.Sea s = water.sea;
+            if (s.duration() > 0 && now >= s.t0() + s.duration()) return false;
+            water.tick(level, now);
+            return true;
+        }
+    }
+
+    /** {@code rain}: holds the shower for {@link RainRenderer} and makes its splashes; ends with its duration. */
+    private static final class Rain implements Running {
+        private final RainRenderer.Shower shower;
+
+        Rain(RainRenderer.Shower shower) {
+            this.shower = shower;
+        }
+
+        @Override
+        public boolean tick(ClientLevel level) {
+            float now = PensieveClientState.sceneTime(0);
+            if (shower.duration > 0 && now >= shower.t0 + shower.duration) return false;
+            RainRenderer.splashes(level, shower, now);
+            return true;
         }
     }
 

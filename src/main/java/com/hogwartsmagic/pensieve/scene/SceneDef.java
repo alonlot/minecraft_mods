@@ -56,10 +56,20 @@ public record SceneDef(String id, String title, int length, int radius, SetDef s
      * {@code type} is an entity id or "player"; {@code look} values are [yaw, pitch], or [yaw, pitch, roll] when any
      * key gives a roll. {@code life} (players only, default true) turns on the procedural life layer of
      * {@link HumanMotion}. {@code block} is the block state a {@code memory_block} actor shows (null otherwise).
+     * {@code ride} is the id of a {@code memory_rowboat} actor this one sits in (null otherwise): its {@code path} is
+     * then an offset in the boat's frame and its look yaw is relative to the boat's (see {@link Rowboat}).
      */
     public record ActorDef(String id, String type, SkinRef skin, String name, Map<String, String> items,
                            Track path, Track look, Map<String, PartTrack> limbs, List<Cue> poses,
-                           List<Cue> anims, List<ActionCue> actions, float scale, boolean life, String block) {
+                           List<Cue> anims, List<ActionCue> actions, float scale, boolean life, String block,
+                           String ride) {
+        /** An actor that rides nothing. */
+        public ActorDef(String id, String type, SkinRef skin, String name, Map<String, String> items,
+                        Track path, Track look, Map<String, PartTrack> limbs, List<Cue> poses,
+                        List<Cue> anims, List<ActionCue> actions, float scale, boolean life, String block) {
+            this(id, type, skin, name, items, path, look, limbs, poses, anims, actions, scale, life, block, null);
+        }
+
         /** An actor with no block. */
         public ActorDef(String id, String type, SkinRef skin, String name, Map<String, String> items,
                         Track path, Track look, Map<String, PartTrack> limbs, List<Cue> poses,

@@ -2,10 +2,12 @@ package com.hogwartsmagic.client.pensieve;
 
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.entity.MemoryBlockEntity;
+import com.hogwartsmagic.entity.MemoryRowboatEntity;
 import com.hogwartsmagic.client.renderer.PetrifiedRemainsRenderer;
 import com.hogwartsmagic.mixin.client.LivingEntityUseAccessor;
 import com.hogwartsmagic.pensieve.scene.EquipTimeline;
 import com.hogwartsmagic.pensieve.scene.HumanMotion;
+import com.hogwartsmagic.pensieve.scene.Rowboat;
 import com.hogwartsmagic.pensieve.scene.SceneNames;
 import com.hogwartsmagic.mixin.client.PlayerModelPartsAccessor;
 import com.hogwartsmagic.pensieve.scene.SceneDef;
@@ -82,6 +84,8 @@ public final class MemoryActors {
     private static final Map<Entity, ActorRuntime> BY_ENTITY = new IdentityHashMap<>();
     private static ClientLevel level;
     private static BlockPos origin;
+    /** The scene being played: rowboats and their riders are placed from it (pure, see Rowboat). */
+    private static SceneDef scene;
     /** Puppet ids are negative so they can never collide with a real entity's id. */
     private static int nextId = -1000;
     /** True during the second (overlay) pass of a petrified actor, so its name tag is not drawn twice. */
@@ -99,6 +103,7 @@ public final class MemoryActors {
         if (scene == null || at == null || clientLevel == null) return;
         level = clientLevel;
         origin = at;
+        MemoryActors.scene = scene;
         MemoryEvents.start(scene, at, clientLevel);
         for (SceneDef.ActorDef def : scene.actors()) {
             try {
@@ -124,6 +129,7 @@ public final class MemoryActors {
         com.hogwartsmagic.client.MemoryBlockRenderer.clearCache();
         level = null;
         origin = null;
+        scene = null;
         overlayPass = false;
     }
 
@@ -243,6 +249,18 @@ public final class MemoryActors {
         return null;
     }
 
+    /** The rowboats on screen, for the sea's depth lid ({@link RoughSeaRenderer}). */
+    static List<ActorRuntime> rowboats() {
+        List<ActorRuntime> out = null;
+        for (ActorRuntime a : ACTORS) {
+            if (a.visible && a.entity instanceof MemoryRowboatEntity) {
+                if (out == null) out = new ArrayList<>(1);
+                out.add(a);
+            }
+        }
+        return out == null ? List.of() : out;
+    }
+
     private static ActorRuntime find(String id) {
         if (id == null) return null;
         for (ActorRuntime a : ACTORS) {
@@ -281,6 +299,17 @@ public final class MemoryActors {
         e.setOldPosAndRot();
         MemoryBlockEntity block = e instanceof MemoryBlockEntity b ? b : null;
         if (block != null) block.rollO = block.roll;
+        MemoryRowboatEntity boat = e instanceof MemoryRowboatEntity rb ? rb : null;
+        if (boat != null) {
+            boat.pitchO = boat.pitch;
+            boat.rollO = boat.roll;
+        }
+        a.ridePitchO = a.ridePitch;
+        a.rideRollO = a.rideRoll;
+        a.rideYawO = a.rideYaw;
+        // A boat rides the sea and a rider sits in its boat: both placed from the scene alone (Rowboat, pure).
+        Rowboat.Pose boatPose = boat != null && scene != null ? Rowboat.place(scene, a.def, t) : null;
+        Rowboat.Seat seat = boat == null && scene != null && a.def.ride() != null ? Rowboat.rider(scene, a.def, t) : null;
         if (l != null) {
             l.yBodyRotO = l.yBodyRot;
             l.yHeadRotO = l.yHeadRot;
@@ -289,9 +318,8 @@ public final class MemoryActors {
 
         // Stand on the path before anything fires, so a first-tick effect appears at the actor, not the origin.
         if (first) {
-            float[] p0 = a.def.path().isEmpty() ? new float[]{0, 0, 0} : a.def.path().sample(t);
-            e.setPos(origin.getX() + (p0.length > 0 ? p0[0] : 0), origin.getY() + (p0.length > 1 ? p0[1] : 0),
-                    origin.getZ() + (p0.length > 2 ? p0[2] : 0));
+            double[] p0 = root(a, t, boatPose, seat);
+            e.setPos(origin.getX() + p0[0], origin.getY() + p0[1], origin.getZ() + p0[2]);
         }
 
         // Timed actions whose moment has come.
@@ -311,10 +339,10 @@ public final class MemoryActors {
         }
 
         // Where it stands, and which way it faces.
-        float[] p = a.def.path().isEmpty() ? new float[]{0, 0, 0} : a.def.path().sample(t);
-        double x = origin.getX() + (p.length > 0 ? p[0] : 0);
-        double y = origin.getY() + (p.length > 1 ? p[1] : 0);
-        double z = origin.getZ() + (p.length > 2 ? p[2] : 0);
+        double[] p = root(a, t, boatPose, seat);
+        double x = origin.getX() + p[0];
+        double y = origin.getY() + p[1];
+        double z = origin.getZ() + p[2];
         if (first) {
             a.lastX = x;
             a.lastZ = z;
@@ -328,17 +356,37 @@ public final class MemoryActors {
         float pitch = 0;
         float lookYaw = 0;
         boolean hasLook = !a.def.look().isEmpty();
+        // A rider's look yaw is relative to its boat; it rocks with the boat's pitch and roll (applied in renderAll).
+        float yawBase = seat != null ? seat.boatYaw() : 0f;
+        if (seat != null) {
+            a.ridePitch = seat.pitch();
+            a.rideRoll = seat.roll();
+            a.rideYaw = seat.boatYaw();
+        }
         if (hasLook) {
             float[] lk = a.def.look().sample(t);
-            lookYaw = lk.length > 0 ? lk[0] : 0;
+            lookYaw = (lk.length > 0 ? lk[0] : 0) + yawBase;
             pitch = lk.length > 1 ? lk[1] : 0;
             if (block != null) block.roll = lk.length > 2 ? lk[2] : 0;
+        } else {
+            lookYaw = yawBase;
         }
         float target;
         boolean follow = hasLook && a.lifeOn();
-        if (follow) {
+        boolean exact = boatPose != null || (seat != null && !follow);
+        if (boatPose != null) {
+            // The boat faces exactly as Rowboat says, so the seats and the sea's lid agree with the drawn hull.
+            target = boatPose.yaw();
+            lookYaw = target;
+            hasLook = true;
+            boat.pitch = boatPose.pitch();
+            boat.roll = boatPose.roll();
+        } else if (seat != null && !hasLook) {
+            target = yawBase;                // facing along the boat
+            hasLook = true;
+        } else if (follow) {
             // The head goes where look says at once; the body follows a few ticks later (HumanMotion.followYaw).
-            target = HumanMotion.followYaw(a.def.look(), t);
+            target = HumanMotion.followYaw(a.def.look(), t) + yawBase;
         } else if (hasLook) {
             target = lookYaw;
         } else if (block != null) {
@@ -350,7 +398,7 @@ public final class MemoryActors {
         } else {
             target = a.bodyYaw;
         }
-        if (first || follow) {
+        if (first || follow || exact) {
             a.bodyYaw = target;
         } else {
             a.bodyYaw += Mth.wrapDegrees(target - a.bodyYaw) * 0.3f;
@@ -377,6 +425,13 @@ public final class MemoryActors {
         if (first) {
             e.setOldPosAndRot();
             if (block != null) block.rollO = block.roll;
+            if (boat != null) {
+                boat.pitchO = boat.pitch;
+                boat.rollO = boat.roll;
+            }
+            a.ridePitchO = a.ridePitch;
+            a.rideRollO = a.rideRoll;
+            a.rideYawO = a.rideYaw;
             if (l != null) {
                 l.yBodyRotO = l.yBodyRot;
                 l.yHeadRotO = l.yHeadRot;
@@ -384,6 +439,7 @@ public final class MemoryActors {
             a.placed = true;
         }
 
+        if (boatPose != null && !first) boatSpray(a, boat, boatPose, t);
         if (l == null) return;
 
         // Walk cycle, from the distance covered this tick (as LivingEntity#calculateEntityAnimation does). A living
@@ -391,7 +447,9 @@ public final class MemoryActors {
         if (a.lifeOn()) {
             l.walkAnimation.update(0f, 1f);
         } else {
-            l.walkAnimation.update(first ? 0 : Math.min((float) Math.sqrt(dx * dx + dz * dz) * 4.0f, 1.0f), 0.4f);
+            // A rider is carried, not walking: no leg swing however fast the boat goes.
+            float stride = first || seat != null ? 0 : Math.min((float) Math.sqrt(dx * dx + dz * dz) * 4.0f, 1.0f);
+            l.walkAnimation.update(stride, 0.4f);
         }
 
         // Swing.
@@ -431,6 +489,49 @@ public final class MemoryActors {
             } else {
                 ((LivingEntityUseAccessor) l).hogwartsmagic$setUseItemRemaining(Math.max(1, (int) (USE_TICKS - elapsed)));
             }
+        }
+    }
+
+    /** Where the actor's root is at t, relative to the origin: its path, its seat in a boat, or the boat on the sea. */
+    private static double[] root(ActorRuntime a, float t, Rowboat.Pose boatPose, Rowboat.Seat seat) {
+        if (boatPose != null) return new double[]{boatPose.x(), boatPose.y(), boatPose.z()};
+        if (seat != null) return new double[]{seat.x(), seat.y(), seat.z()};
+        float[] p = a.def.path().isEmpty() ? new float[]{0, 0, 0} : a.def.path().sample(t);
+        return new double[]{p.length > 0 ? p[0] : 0, p.length > 1 ? p[1] : 0, p.length > 2 ? p[2] : 0};
+    }
+
+    /**
+     * The boat's own spray: both blades splash as they bite at the catch and, smaller, as they leave at the finish,
+     * and the bow throws spray when it slams down into a wave (pitch falling fast).
+     */
+    private static void boatSpray(ActorRuntime a, MemoryRowboatEntity boat, Rowboat.Pose pose, float t) {
+        if (level == null || origin == null) return;
+        float amount = Rowboat.strokeAmount(a.def, t);
+        float now = Rowboat.phase(t), before = Rowboat.phase(t - 1);
+        float s = a.def.scale();
+        if (amount > 0.4f) {
+            boolean catchNow = before > now;                         // wrapped: the catch
+            boolean finish = before < 0.5f && now >= 0.5f;
+            if (catchNow || finish) {
+                double[] blade = Rowboat.blade(Rowboat.oar(catchNow ? 0f : 0.5f, amount));
+                for (int side = -1; side <= 1; side += 2) {
+                    double[] w = Rowboat.toWorld(pose, new double[]{blade[0] * side * s, 0.02, blade[2] * s});
+                    splash(w, catchNow ? 12 : 5, 0.25 * s);
+                }
+            }
+        }
+        if (boat.pitch - boat.pitchO < -1.2f) {
+            double[] bow = Rowboat.toWorld(pose, new double[]{0, 0.15 * s, (Rowboat.HALF_LENGTH - 0.1) * s});
+            splash(bow, 14, 0.5 * s);
+        }
+    }
+
+    private static void splash(double[] at, int n, double spread) {
+        double x = origin.getX() + at[0], y = origin.getY() + at[1], z = origin.getZ() + at[2];
+        for (int i = 0; i < n; i++) {
+            level.addParticle(ParticleTypes.SPLASH, x + (level.random.nextDouble() - 0.5) * spread, y,
+                    z + (level.random.nextDouble() - 0.5) * spread, (level.random.nextDouble() - 0.5) * 0.15,
+                    0.1 + level.random.nextDouble() * 0.15, (level.random.nextDouble() - 0.5) * 0.15);
         }
     }
 
@@ -623,13 +724,16 @@ public final class MemoryActors {
                 double z = Mth.lerp(partial, e.zo, e.getZ());
                 float yaw = Mth.rotLerp(partial, e.yRotO, e.getYRot());
                 float scale = a.def.scale();
-                boolean scaled = scale != 1f;
+                // A rider rocks with its boat: the boat's pitch and roll, turned into the world about the rider's root.
+                org.joml.Quaternionf tilt = rideTilt(a, partial);
+                boolean scaled = scale != 1f || tilt != null;
                 int light = LevelRenderer.getLightColor(level, BlockPos.containing(x, y + e.getEyeHeight() * scale, z));
                 if (a.stone) {
                     EntityRenderer<Entity> renderer = (EntityRenderer<Entity>) dispatcher.getRenderer(e);
                     poseStack.pushPose();
                     Vec3 off = renderer.getRenderOffset(e, partial);
                     poseStack.translate(x - cam.x + off.x, y - cam.y + off.y, z - cam.z + off.z);
+                    if (tilt != null) poseStack.mulPose(tilt);
                     if (scaled) poseStack.scale(scale, scale, scale);
                     renderer.render(e, yaw, partial, poseStack,
                             new PetrifiedRemainsRenderer.StoneBufferSource(buffer), light);
@@ -647,6 +751,7 @@ public final class MemoryActors {
                     if (scaled) {
                         poseStack.pushPose();
                         poseStack.translate(x - cam.x, y - cam.y, z - cam.z);
+                        if (tilt != null) poseStack.mulPose(tilt);
                         poseStack.scale(scale, scale, scale);
                         dispatcher.render(e, 0, 0, 0, yaw, partial, poseStack, buffer, light);
                         poseStack.popPose();
@@ -660,6 +765,19 @@ public final class MemoryActors {
             }
         }
         buffer.endBatch();
+    }
+
+    /**
+     * A rider's rocking as a world rotation about its root, Yaw * Pitch * Roll * Yaw^-1 of its boat (see Rowboat), or
+     * null when it rides nothing or the boat is level.
+     */
+    private static org.joml.Quaternionf rideTilt(ActorRuntime a, float partial) {
+        if (a.def.ride() == null) return null;
+        float pitch = Mth.lerp(partial, a.ridePitchO, a.ridePitch), roll = Mth.lerp(partial, a.rideRollO, a.rideRoll);
+        if (pitch == 0f && roll == 0f) return null;
+        float yaw = Mth.rotLerp(partial, a.rideYawO, a.rideYaw);
+        org.joml.Quaternionf q = com.hogwartsmagic.client.MemoryRowboatRenderer.rotation(yaw, pitch, roll);
+        return q.mul(com.hogwartsmagic.client.MemoryRowboatRenderer.rotation(yaw, 0f, 0f).conjugate());
     }
 
     /** Name tags: only for actors the scene named, and never twice. Vanilla would tag every puppet player. */

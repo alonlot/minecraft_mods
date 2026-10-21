@@ -108,6 +108,14 @@ public class ModEntities {
                             .clientTrackingRange(10)
                             .build("memory_door_mirrored"));
 
+    /** A small wooden rowing boat that rides a rough_sea and carries seated riders: see Rowboat. */
+    public static final RegistryObject<EntityType<MemoryRowboatEntity>> MEMORY_ROWBOAT =
+            ENTITY_TYPES.register("memory_rowboat",
+                    () -> EntityType.Builder.<MemoryRowboatEntity>of(MemoryRowboatEntity::new, MobCategory.MISC)
+                            .sized(2.0f, 0.8f)
+                            .clientTrackingRange(10)
+                            .build("memory_rowboat"));
+
     /** Hanging cloth banners, one type per design (the design picks the texture): see BannerCloth. */
     public static final RegistryObject<EntityType<MemoryBannerEntity>> MEMORY_BANNER_GRYFFINDOR =
             ENTITY_TYPES.register("memory_banner_gryffindor", () -> banner("memory_banner_gryffindor"));

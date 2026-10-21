@@ -36,6 +36,9 @@ public final class ActorRuntime {
     float bodyYaw;
     float headYaw;
 
+    /** A rider ({@code ride}): the boat's pitch, roll and yaw it rocks with, this tick and the last (degrees). */
+    float ridePitch, rideRoll, rideYaw, ridePitchO, rideRollO, rideYawO;
+
     boolean visible = true;
     boolean stone;
     boolean dying;

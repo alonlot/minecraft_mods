@@ -17,8 +17,21 @@ public final class SkyDome {
     public static final String STORM = "storm";
     /** A lightning flash lights the sky to at most this much (the ceiling's flicker peaks at 1; the open sky is dimmer). */
     public static final double FLASH_PEAK = 0.85;
-    /** Storm clouds slide this much of a texture tile a tick along the wind (unit direction), times the layer's speed. */
-    public static final float STORM_DRIFT = 0.0035f;
+    /**
+     * Storm clouds slide this much of a texture tile a tick along the wind (unit direction), times the layer's speed.
+     * Picked from the angular speed overhead ({@link #cloudAngularSpeed}): the deck drifts about 1.3 degrees a second, the
+     * scud under it about 2.3.
+     */
+    public static final float STORM_DRIFT = 0.0003f;
+    /** The storm's cloud layers, deck first: {texture scale, speed, height as a share of the dome radius}. */
+    public static final float[][] STORM_LAYERS = {{1.0f, 1.0f, 0.16f}, {0.7f, 1.4f, 0.13f}, {0.45f, 2.2f, 0.09f}};
+    /** The cloud tile is this share of the dome radius (times the layer's scale). */
+    public static final float CLOUD_TILE_SHARE = 0.6f;
+    /** The camera-centred rain sheets of a storm: radii in blocks and the alpha of each (the far ones are the thickest). */
+    public static final float[] STORM_BANDS = {35f, 70f, 130f};
+    public static final float[] STORM_BAND_ALPHA = {0.07f, 0.09f, 0.12f};
+    /** While a storm sky shows, the fog closes in to these (blocks): a haze that thickens the far stands. */
+    public static final float STORM_FOG_START = 30f, STORM_FOG_END = 240f;
     public static final String DAY = "day";
     /** The sky fades in from its {@code t}, and out over the end of a finite {@code duration}, over this many ticks. */
     public static final int FADE_TICKS = 20;
@@ -30,7 +43,7 @@ public final class SkyDome {
             {{0.80f, 0.88f, 0.96f}, {0.34f, 0.56f, 0.88f}},     // day: pale hazy horizon to a soft blue
             {{0.80f, 0.82f, 0.84f}, {0.62f, 0.65f, 0.69f}},     // overcast: English grey-white
             {{0.98f, 0.75f, 0.58f}, {0.40f, 0.52f, 0.76f}},     // dawn: warm horizon, cool blue overhead
-            {{0x3A / 255f, 0x40 / 255f, 0x48 / 255f}, {0x14 / 255f, 0x17 / 255f, 0x1C / 255f}}, // storm: slate to near-black
+            {{0x4A / 255f, 0x52 / 255f, 0x5C / 255f}, {0x26 / 255f, 0x2C / 255f, 0x35 / 255f}}, // storm: dark grey day storm
     };
 
     private SkyDome() {
@@ -129,11 +142,44 @@ public final class SkyDome {
         return Math.min(1f, best) * FLASH_PEAK;
     }
 
+    private static final float[] FLASH_TINT = {0.78f, 0.82f, 0.95f};
+
+    /** Channel {@code ch} (0 r, 1 g, 2 b) of a colour value {@code c} lit by {@code flash} toward a pale blue-white. */
+    public static float lift(float c, int ch, double flash) {
+        float f = (float) Math.max(0.0, Math.min(1.0, flash));
+        return c + (FLASH_TINT[ch] - c) * f * 0.9f;
+    }
+
     /** {@code colour} lit by a {@code flash} (0..FLASH_PEAK): toward a pale blue-white, 0 leaves it as it is. */
     public static float[] flashed(float[] colour, double flash) {
-        float f = (float) Math.max(0.0, Math.min(1.0, flash));
-        return new float[] {colour[0] + (0.78f - colour[0]) * f * 0.9f, colour[1] + (0.82f - colour[1]) * f * 0.9f,
-                colour[2] + (0.95f - colour[2]) * f * 0.9f};
+        return new float[] {lift(colour[0], 0, flash), lift(colour[1], 1, flash), lift(colour[2], 2, flash)};
+    }
+
+    /**
+     * How much of a flash reaches the sky in direction {@code (vx, vz)} when the bolt lies in direction {@code (sx, sz)}
+     * (both seen from the camera, any length): 1 toward the bolt, falling to 0.4 on the far side, so the cloud nearest the
+     * bolt is lit most. 1 when either direction is degenerate.
+     */
+    public static double flashWeight(double vx, double vz, double sx, double sz) {
+        double a = Math.sqrt(vx * vx + vz * vz), b = Math.sqrt(sx * sx + sz * sz);
+        if (a < 1.0e-6 || b < 1.0e-6) return 1.0;
+        double cos = (vx * sx + vz * sz) / (a * b);
+        return 0.4 + 0.6 * (0.5 + 0.5 * cos);
+    }
+
+    /**
+     * How fast a storm cloud layer sweeps the sky, radians a tick, at elevation {@code e} (radians; pi/2 overhead): the
+     * layer's linear speed over its height times sin(e), the worst direction across the view. Independent of the radius.
+     */
+    public static double cloudAngularSpeed(float speed, float scale, float height, double e) {
+        return STORM_DRIFT * speed * CLOUD_TILE_SHARE * scale / height * Math.sin(e);
+    }
+
+    /** The {near, far} fog of a storm {@code share} (0..1) shown: the scene's fog drawn in to the storm haze. */
+    public static float[] stormFog(float near, float far, float share) {
+        float k = Math.max(0f, Math.min(1f, share));
+        float n = Math.min(near, STORM_FOG_START), f = Math.min(far, STORM_FOG_END);
+        return new float[] {near + (n - near) * k, far + (f - far) * k};
     }
 
     /** A storm's wind direction from its {@code seed}: a unit {x, z}, the same for every viewer. */

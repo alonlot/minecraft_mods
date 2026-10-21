@@ -1,5 +1,6 @@
 package com.hogwartsmagic.client.pensieve;
 
+import com.hogwartsmagic.pensieve.scene.SkyDome;
 import com.mojang.blaze3d.shaders.FogShape;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -80,6 +81,13 @@ public final class PensieveVoid {
         } else {
             event.setNearPlaneDistance(fogStart(r));
             event.setFarPlaneDistance(Math.min(event.getFarPlaneDistance(), fogEnd(r)));
+        }
+        // A storm sky draws the haze in: far stands go grey and the curtains of rain read as depth.
+        float storm = SkyRenderer.stormShare((float) event.getPartialTick());
+        if (storm > 0f) {
+            float[] haze = SkyDome.stormFog(event.getNearPlaneDistance(), event.getFarPlaneDistance(), storm);
+            event.setNearPlaneDistance(haze[0]);
+            event.setFarPlaneDistance(haze[1]);
         }
         event.setFogShape(FogShape.SPHERE);
         event.setCanceled(true);

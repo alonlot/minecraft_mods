@@ -3,6 +3,7 @@ package com.hogwartsmagic.client.pensieve;
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.client.ModRenderTypes;
 import com.hogwartsmagic.pensieve.scene.RoughSea;
+import com.hogwartsmagic.pensieve.scene.SkyDome;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
@@ -43,6 +44,9 @@ import java.util.List;
 public final class RainRenderer {
     private static final RenderType STREAK = ModRenderTypes.ceilingLayer(
             ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "textures/entity/ceiling_dot.png"));
+    /** The storm's distant rain curtains: vertical streaks (build_scripts/generate_ceiling_textures.py, seeded). */
+    private static final RenderType SHEET = ModRenderTypes.ceilingLayer(
+            ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "textures/entity/rain_sheet.png"));
     private static final int LIGHT = LightTexture.FULL_BRIGHT;
     private static final int OVERLAY = OverlayTexture.NO_OVERLAY;
 
@@ -173,10 +177,28 @@ public final class RainRenderer {
         Vec3 origin = MemoryEvents.sceneOrigin();
         Matrix4f m = new Matrix4f();
         MultiBufferSource.BufferSource buffer = mc.renderBuffers().bufferSource();
-        VertexConsumer vc = buffer.getBuffer(STREAK);
-        float flash = Math.min(1f, level.getSkyFlashTime() / 2f);
+        // One flash for sky and rain: the sky's own flicker (two or three pulses over 1.3 s), not vanilla's 2-tick blink.
+        float flash = (float) Math.min(1.0, SkyDome.flash(now, EffectVisuals.strikes()) / SkyDome.FLASH_PEAK);
         List<RoughSeaRenderer.Water> seas = EffectVisuals.seas();
         double[] d = new double[4];
+        // Far to near: the distant curtains first (a storm sky is running), then the drops round the camera.
+        float storm = SkyRenderer.stormShare(event.getPartialTick());
+        if (storm > 0f) {
+            Shower first = null;
+            double most = 0;
+            for (Shower s : rains) {
+                double k = s.strength(now) * Math.min(1.0, s.intensity);
+                if (k > most) {
+                    most = k;
+                    first = s;
+                }
+            }
+            if (first != null) {
+                sheets(buffer.getBuffer(SHEET), m, cam, origin, wind(first, now, seas), now, (float) most * storm, flash);
+                buffer.endBatch(SHEET);
+            }
+        }
+        VertexConsumer vc = buffer.getBuffer(STREAK);
         for (Shower s : rains) {
             double k = s.strength(now);
             if (k <= 0) continue;
@@ -197,6 +219,53 @@ public final class RainRenderer {
             }
         }
         buffer.endBatch(STREAK);
+    }
+
+    /** Segments round each curtain, and the rows up it (a fade at the foot, a fade under the cloud). */
+    private static final int SHEET_SEGMENTS = 36;
+    /** A curtain's streaks repeat this many times round it, and each tile is this many tiles tall per block of radius. */
+    private static final double SHEET_REPEATS = 18.0, SHEET_TILE_HEIGHT = 0.5;
+    /** Rows of a curtain: the alpha share at its foot, 8 blocks up, 12 under its top, and its top. */
+    private static final float[] ROW_ALPHA = {0f, 1f, 1f, 0f};
+
+    /**
+     * The storm's distant rain: {@link SkyDome#STORM_BANDS} camera-centred curtains of vertical streaks, 35, 70 and 130
+     * blocks out, from the ground of the scene up under the cloud. The streaks scroll down at the fall speed and lean
+     * with the wind; a curtain's alpha is its band's share times the rain's strength, brighter in a flash. Translucent,
+     * depth-tested (the stands and the castle stand in front of them), no depth written, allocation-free.
+     */
+    private static void sheets(VertexConsumer vc, Matrix4f m, Vec3 cam, Vec3 origin, double[] wind, float now,
+                               float share, float flash) {
+        double foot = origin.y - 1.0;
+        double top = Math.max(cam.y + 40.0, origin.y + 80.0);
+        double wl = Math.hypot(wind[0], wind[1]);
+        for (int b = 0; b < SkyDome.STORM_BANDS.length; b++) {
+            double radius = SkyDome.STORM_BANDS[b];
+            double tileH = radius * SHEET_TILE_HEIGHT;
+            double fall = now * 0.65 / tileH + b * 0.31;
+            float alpha = SkyDome.STORM_BAND_ALPHA[b] * share * (1f + flash * 1.2f);
+            float br = 1f + flash * 0.6f;
+            for (int seg = 0; seg < SHEET_SEGMENTS; seg++) {
+                for (int row = 0; row < 3; row++) {
+                    for (int corner = 0; corner < 4; corner++) {
+                        // (seg, row) bottom-left, (seg+1, row), (seg+1, row+1), (seg, row+1)
+                        int sg = seg + (corner == 1 || corner == 2 ? 1 : 0);
+                        int rw = row + (corner >= 2 ? 1 : 0);
+                        double az = sg * (Math.PI * 2 / SHEET_SEGMENTS);
+                        double cs = Math.cos(az), sn = Math.sin(az);
+                        double up = rw == 0 ? 0 : rw == 1 ? 8.0 : rw == 2 ? top - foot - 12 : top - foot;
+                        // The streaks lean with the wind: along the curtain, a higher point is upwind of the foot.
+                        double lean = wl <= 1e-9 ? 0 : (wind[0] * -sn + wind[1] * cs) / 0.65 * up / (radius * 0.35);
+                        float u = (float) (az / (Math.PI * 2) * SHEET_REPEATS + lean + b * 0.43);
+                        float v = (float) (-up / tileH + fall);
+                        vc.addVertex(m, (float) (cs * radius), (float) (foot + up - cam.y),
+                                        (float) (sn * radius))
+                                .setColor(COLOUR[0] * br, COLOUR[1] * br, COLOUR[2] * br, alpha * ROW_ALPHA[rw])
+                                .setUv(u, v).setOverlay(OVERLAY).setLight(LIGHT).setNormal(0f, 1f, 0f);
+                    }
+                }
+            }
+        }
     }
 
     private static void streak(VertexConsumer vc, Matrix4f m, ClientLevel level, Shower s, double[] d, double[] wind,

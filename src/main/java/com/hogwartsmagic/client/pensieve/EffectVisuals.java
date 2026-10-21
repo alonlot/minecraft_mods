@@ -150,7 +150,7 @@ public final class EffectVisuals {
             int total = duration > 0 ? duration : DEFAULT_RITUAL_TICKS;
             if (elapsed < total) RUNNING.add(new Ritual(at, elapsed, total));
         } else if ("lightning".equals(effect)) {
-            recordStrike(t);
+            recordStrike(t, at);
             lightning(level, at);
         } else if ("dark_mark".equals(effect)) {
             int total = duration > 0 ? duration : DEFAULT_MARK_TICKS;
@@ -274,20 +274,38 @@ public final class EffectVisuals {
      * over are dropped.
      */
     private static double[] strikes = new double[0];
+    /** Where each of {@link #strikes} hit, in world x and z (parallel arrays), so the flash can favour the near cloud. */
+    private static double[] strikeX = new double[0], strikeZ = new double[0];
 
     static double[] strikes() {
         return strikes;
     }
 
-    private static void recordStrike(float t) {
+    static double[] strikeXs() {
+        return strikeX;
+    }
+
+    static double[] strikeZs() {
+        return strikeZ;
+    }
+
+    private static void recordStrike(float t, Vec3 at) {
         double now = PensieveClientState.sceneTime(0);
-        int keep = 0;
-        double[] next = new double[strikes.length + 1];
-        for (double s : strikes) {
-            if (now - s < CeilingSky.FLASH_TICKS + 1) next[keep++] = s;
+        int keep = 0, n = strikes.length + 1;
+        double[] ts = new double[n], xs = new double[n], zs = new double[n];
+        for (int i = 0; i < strikes.length; i++) {
+            if (now - strikes[i] < CeilingSky.FLASH_TICKS + 1) {
+                ts[keep] = strikes[i];
+                xs[keep] = strikeX[i];
+                zs[keep++] = strikeZ[i];
+            }
         }
-        next[keep++] = t;
-        strikes = java.util.Arrays.copyOf(next, keep);
+        ts[keep] = t;
+        xs[keep] = at.x;
+        zs[keep++] = at.z;
+        strikes = java.util.Arrays.copyOf(ts, keep);
+        strikeX = java.util.Arrays.copyOf(xs, keep);
+        strikeZ = java.util.Arrays.copyOf(zs, keep);
     }
 
     /** A client-only lightning strike: the bolt and its thunder, with no fire, damage or server. */
@@ -482,6 +500,8 @@ public final class EffectVisuals {
     static void clear() {
         RUNNING.clear();
         strikes = new double[0];
+        strikeX = new double[0];
+        strikeZ = new double[0];
         eyesStarted = false;
         for (DarkMarkEntity m : MARKS) m.discard();
         MARKS.clear();

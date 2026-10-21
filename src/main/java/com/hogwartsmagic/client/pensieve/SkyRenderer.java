@@ -15,6 +15,7 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RenderLevelStageEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 
 import java.util.List;
@@ -37,6 +38,9 @@ import java.util.List;
 public final class SkyRenderer {
     private static final RenderType CLOUDS_A = ModRenderTypes.ceilingLayer(tex("ceiling_clouds_a"));
     private static final RenderType CLOUDS_B = ModRenderTypes.ceilingLayer(tex("ceiling_clouds_b"));
+    /** The storm's own hard-edged, billowing textures (build_scripts/generate_ceiling_textures.py, seeded). */
+    private static final RenderType STORM_A = ModRenderTypes.ceilingLayer(tex("storm_clouds_a"));
+    private static final RenderType STORM_B = ModRenderTypes.ceilingLayer(tex("storm_clouds_b"));
     private static final int LIGHT = LightTexture.FULL_BRIGHT;
     private static final int OVERLAY = OverlayTexture.NO_OVERLAY;
 
@@ -45,7 +49,7 @@ public final class SkyRenderer {
             (float) (Math.PI / 2)};
     private static final int SEGMENTS = 36;
     /** The cloud grid cells along a side. */
-    private static final int CLOUD_CELLS = 16;
+    private static final int CLOUD_CELLS = 16, STORM_CELLS = 28;
     /** Fog pushed out this far while the sky draws, so the dome keeps its gradient. */
     private static final float NO_FOG_START = 1.0e6f, NO_FOG_END = 2.0e6f;
 
@@ -77,11 +81,13 @@ public final class SkyRenderer {
 
     private static Layer[] layers(String style) {
         if (SkyDome.STORM.equals(style)) {
-            // Three low, fast, torn layers: a ragged small-scale one in front, a wide slow one behind, dark slate.
+            // A full deck down to the horizon: dark billowing undersides (darker than the dome), a second deck, and
+            // lighter ragged scud under both that sweeps a little faster (SkyDome.STORM_LAYERS: scale, speed, height).
+            float[][] l = SkyDome.STORM_LAYERS;
             return new Layer[] {
-                    new Layer(CLOUDS_A, 0.30f, 0.33f, 0.38f, 0.95f, 0.8f, 2.0f, 0.11f),
-                    new Layer(CLOUDS_B, 0.22f, 0.25f, 0.30f, 0.85f, 0.5f, 3.2f, 0.14f),
-                    new Layer(CLOUDS_A, 0.16f, 0.18f, 0.22f, 0.75f, 1.3f, 1.3f, 0.18f)};
+                    new Layer(STORM_A, 0.24f, 0.27f, 0.32f, 0.97f, l[0][0], l[0][1], l[0][2]),
+                    new Layer(STORM_B, 0.20f, 0.23f, 0.28f, 0.88f, l[1][0], l[1][1], l[1][2]),
+                    new Layer(STORM_B, 0.58f, 0.62f, 0.69f, 0.50f, l[2][0], l[2][1], l[2][2])};
         }
         if ("overcast".equals(style)) {
             return new Layer[] {
@@ -112,6 +118,27 @@ public final class SkyRenderer {
 
     private static float shown(Sky sky, float now, float partial) {
         return SkyDome.fade(now - sky.t, sky.duration, sky.t) * phaseShare(partial);
+    }
+
+    /** How much of a storm sky shows right now, 0 (none) to 1: the fog closes in with it, the rain sheets follow it. */
+    static float stormShare(float partial) {
+        List<Sky> skies = EffectVisuals.skies();
+        if (skies.isEmpty() || !PensieveClientState.inMemory()) return 0f;
+        float now = PensieveClientState.sceneTime(partial);
+        float most = 0f;
+        for (Sky s : skies) {
+            if (SkyDome.STORM.equals(s.style)) most = Math.max(most, shown(s, now, partial));
+        }
+        return most;
+    }
+
+    /** The direction (world x, z, from the camera) of the latest lightning strike already begun, or null. */
+    private static double[] strikeDir(Vec3 cam, float now) {
+        double[] ts = EffectVisuals.strikes();
+        for (int i = ts.length - 1; i >= 0; i--) {
+            if (ts[i] <= now) return new double[] {EffectVisuals.strikeXs()[i] - cam.x, EffectVisuals.strikeZs()[i] - cam.z};
+        }
+        return null;
     }
 
     /**
@@ -158,6 +185,7 @@ public final class SkyRenderer {
         if (mc.level == null || !PensieveClientState.inMemory()) return;
         float partial = event.getPartialTick();
         float now = PensieveClientState.sceneTime(partial);
+        Vec3 cam = event.getCamera().getPosition();
         float far = mc.gameRenderer.getDepthFar();
         float radius = SkyDome.domeRadius(PensieveClientState.radius(), far);
         // The event matrix is the camera rotation and is not on the modelview stack yet (see the class comment).
@@ -170,9 +198,11 @@ public final class SkyRenderer {
             for (Sky sky : skies) {
                 float f = shown(sky, now, partial);
                 if (f <= 0.002f) continue;
-                double flash = SkyDome.STORM.equals(sky.style) ? SkyDome.flash(now, EffectVisuals.strikes()) : 0.0;
-                dome(sky, f, flash, radius, m, buffer);
-                clouds(sky, f, flash, now, radius, m, buffer);
+                boolean storm = SkyDome.STORM.equals(sky.style);
+                double flash = storm ? SkyDome.flash(now, EffectVisuals.strikes()) : 0.0;
+                double[] dir = flash > 0.0 ? strikeDir(cam, now) : null;
+                dome(sky, f, flash, dir, radius, m, buffer);
+                clouds(sky, f, flash, dir, now, radius, m, buffer);
             }
         } finally {
             RenderSystem.setShaderFogStart(fogStart);
@@ -180,60 +210,64 @@ public final class SkyRenderer {
         }
     }
 
-    /** The dome: rings of quads, coloured by elevation, camera-centred. */
-    private static void dome(Sky sky, float f, double flash, float radius, Matrix4f m,
+    /** The dome: rings of quads, coloured by elevation, camera-centred; a flash lights the side toward the bolt most. */
+    private static void dome(Sky sky, float f, double flash, double[] dir, float radius, Matrix4f m,
                              MultiBufferSource.BufferSource buffer) {
         VertexConsumer vc = buffer.getBuffer(ModRenderTypes.SKY_DOME);
         float[][] ringColour = new float[RINGS.length][];
         for (int i = 0; i < RINGS.length; i++) {
-            float[] c = SkyDome.colour(sky.style, Math.max(0f, RINGS[i]) / (float) (Math.PI / 2));
-            ringColour[i] = flash > 0.0 ? SkyDome.flashed(c, flash) : c;
+            ringColour[i] = SkyDome.colour(sky.style, Math.max(0f, RINGS[i]) / (float) (Math.PI / 2));
         }
         for (int i = 0; i + 1 < RINGS.length; i++) {
             for (int j = 0; j < SEGMENTS; j++) {
-                domeVertex(vc, m, radius, i, j, ringColour[i], f);
-                domeVertex(vc, m, radius, i, j + 1, ringColour[i], f);
-                domeVertex(vc, m, radius, i + 1, j + 1, ringColour[i + 1], f);
-                domeVertex(vc, m, radius, i + 1, j, ringColour[i + 1], f);
+                domeVertex(vc, m, radius, i, j, ringColour[i], f, flash, dir);
+                domeVertex(vc, m, radius, i, j + 1, ringColour[i], f, flash, dir);
+                domeVertex(vc, m, radius, i + 1, j + 1, ringColour[i + 1], f, flash, dir);
+                domeVertex(vc, m, radius, i + 1, j, ringColour[i + 1], f, flash, dir);
             }
         }
         buffer.endBatch(ModRenderTypes.SKY_DOME);
     }
 
-    private static void domeVertex(VertexConsumer vc, Matrix4f m, float radius, int ring, int seg, float[] c, float a) {
+    private static void domeVertex(VertexConsumer vc, Matrix4f m, float radius, int ring, int seg, float[] c, float a,
+                                   double flash, double[] dir) {
         float el = RINGS[ring];
         float az = seg * (float) (2 * Math.PI) / SEGMENTS;
         float flat = radius * (float) Math.cos(el);
-        vc.addVertex(m, flat * (float) Math.cos(az), radius * (float) Math.sin(el), flat * (float) Math.sin(az))
-                .setColor(clamp(c[0]), clamp(c[1]), clamp(c[2]), clamp(a));
+        float cx = (float) Math.cos(az), cz = (float) Math.sin(az);
+        double fl = flash > 0.0 ? (dir == null ? flash : flash * SkyDome.flashWeight(cx, cz, dir[0], dir[1])) : 0.0;
+        vc.addVertex(m, flat * cx, radius * (float) Math.sin(el), flat * cz)
+                .setColor(clamp(SkyDome.lift(c[0], 0, fl)), clamp(SkyDome.lift(c[1], 1, fl)),
+                        clamp(SkyDome.lift(c[2], 2, fl)), clamp(a));
     }
 
-    /** Soft cloud layers on flat planes above the camera, thinning away toward the horizon. */
-    private static void clouds(Sky sky, float f, double flash, float now, float radius, Matrix4f m,
+    /**
+     * Cloud layers on planes above the camera. The soft kinds thin away toward the horizon; a storm's are a bowl that
+     * sinks to the horizon at the edge and stays opaque almost out to it, a full deck.
+     */
+    private static void clouds(Sky sky, float f, double flash, double[] dir, float now, float radius, Matrix4f m,
                                MultiBufferSource.BufferSource buffer) {
         boolean storm = SkyDome.STORM.equals(sky.style);
+        int cells = storm ? STORM_CELLS : CLOUD_CELLS;
         float drift = SkyDome.cloudDrift(now);
         // A storm's clouds run before the wind (the rain's, when one runs); the others drift slowly their own way.
         double[] sd = storm ? windDriftOf(sky, now) : null;
         float u0 = ((sky.seed >>> 8) & 0xFF) / 255f, v0 = ((sky.seed >>> 16) & 0xFF) / 255f;
+        int n = 0;
         for (Layer layer : layers(sky.style)) {
-            float half = radius * 0.95f, y = radius * layer.height, tile = radius * 0.6f * layer.scale;
+            float half = radius * 0.95f, y = radius * layer.height, tile = radius * SkyDome.CLOUD_TILE_SHARE * layer.scale;
             float du = storm ? (float) (-sd[0] * layer.speed) : drift * layer.speed;
             float dv = storm ? (float) (-sd[1] * layer.speed) : drift * layer.speed * 0.3f;
-            float cr = layer.r, cg = layer.g, cb = layer.b;
-            if (flash > 0.0) {
-                float[] lit = SkyDome.flashed(new float[] {cr, cg, cb}, flash);
-                cr = lit[0];
-                cg = lit[1];
-                cb = lit[2];
-            }
+            // Each layer's pattern starts somewhere else, so the layers sharing a texture do not line up.
+            float lu = storm ? u0 + n * 0.37f : u0, lv = storm ? v0 + n * 0.61f : v0;
+            n++;
             VertexConsumer vc = buffer.getBuffer(layer.type);
-            for (int i = 0; i < CLOUD_CELLS; i++) {
-                for (int j = 0; j < CLOUD_CELLS; j++) {
-                    cloudVertex(vc, m, layer, cr, cg, cb, f, half, y, tile, i, j, u0, v0, du, dv);
-                    cloudVertex(vc, m, layer, cr, cg, cb, f, half, y, tile, i + 1, j, u0, v0, du, dv);
-                    cloudVertex(vc, m, layer, cr, cg, cb, f, half, y, tile, i + 1, j + 1, u0, v0, du, dv);
-                    cloudVertex(vc, m, layer, cr, cg, cb, f, half, y, tile, i, j + 1, u0, v0, du, dv);
+            for (int i = 0; i < cells; i++) {
+                for (int j = 0; j < cells; j++) {
+                    cloudVertex(vc, m, layer, f, storm, flash, dir, cells, half, y, tile, i, j, lu, lv, du, dv);
+                    cloudVertex(vc, m, layer, f, storm, flash, dir, cells, half, y, tile, i + 1, j, lu, lv, du, dv);
+                    cloudVertex(vc, m, layer, f, storm, flash, dir, cells, half, y, tile, i + 1, j + 1, lu, lv, du, dv);
+                    cloudVertex(vc, m, layer, f, storm, flash, dir, cells, half, y, tile, i, j + 1, lu, lv, du, dv);
                 }
             }
             buffer.endBatch(layer.type);
@@ -245,15 +279,26 @@ public final class SkyRenderer {
         return SkyDome.stormDrift(now, w[0], w[1]);
     }
 
-    private static void cloudVertex(VertexConsumer vc, Matrix4f m, Layer layer, float cr, float cg, float cb, float f,
-                                    float half, float y, float tile, int i, int j, float u0, float v0, float du,
-                                    float dv) {
-        float u = i / (float) CLOUD_CELLS * 2f - 1f, v = j / (float) CLOUD_CELLS * 2f - 1f;
+    private static void cloudVertex(VertexConsumer vc, Matrix4f m, Layer layer, float f, boolean storm, double flash,
+                                    double[] dir, int cells, float half, float y, float tile, int i, int j, float u0,
+                                    float v0, float du, float dv) {
+        float u = i / (float) cells * 2f - 1f, v = j / (float) cells * 2f - 1f;
         float r = (float) Math.sqrt(u * u + v * v);
-        float k = clamp((r - 0.3f) / 0.7f);
-        float a = f * layer.alpha * (1f - k * k * (3f - 2f * k));
         float x = u * half, z = v * half;
-        vc.addVertex(m, x, y, z).setColor(clamp(cr), clamp(cg), clamp(cb), clamp(a))
+        float a, py = y;
+        if (storm) {
+            float rr = Math.min(1f, r);
+            py = y * (1f - 0.93f * rr * rr);                    // the deck sinks to the horizon at the rim
+            float k = clamp((r - 0.9f) / 0.1f);
+            a = f * layer.alpha * (1f - k * k * (3f - 2f * k));
+        } else {
+            float k = clamp((r - 0.3f) / 0.7f);
+            a = f * layer.alpha * (1f - k * k * (3f - 2f * k));
+        }
+        double fl = flash > 0.0 ? (dir == null ? flash : flash * SkyDome.flashWeight(x, z, dir[0], dir[1])) : 0.0;
+        vc.addVertex(m, x, py, z)
+                .setColor(clamp(SkyDome.lift(layer.r, 0, fl)), clamp(SkyDome.lift(layer.g, 1, fl)),
+                        clamp(SkyDome.lift(layer.b, 2, fl)), clamp(a))
                 .setUv(x / tile + u0 + du, z / tile + v0 + dv)
                 .setOverlay(OVERLAY).setLight(LIGHT).setNormal(0f, -1f, 0f);
     }

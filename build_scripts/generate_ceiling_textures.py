@@ -15,6 +15,8 @@ Outputs (assets/hogwartsmagic/textures/entity/):
   storm_clouds_b.png    256x256, as a but broken into separate rolling masses: the near layer.
   storm_mist.png        128x128, tiling, straight alpha up to 0.6: soft low-contrast vapour for the mist that hangs
                         below the cloud and the curtains that fade the walls up into it.
+  rain_sheet.png        64x128, tiling, straight alpha: thin vertical rain streaks of every length, seeded. The storm's distant
+                        rain curtains (client/pensieve/RainRenderer) scroll it down at the fall speed.
   ceiling_dot.png       16x16, premultiplied for additive blending: a plain soft round dot. The faint stars use it;
                         a 64 px sprite shrunk to 3 px with no mipmaps would sparkle as the camera moves.
 
@@ -124,6 +126,24 @@ def dot():
     save("ceiling_dot.png", np.stack([v, v, v, v], axis=-1))
 
 
+def rain_sheet():
+    """Vertical streaks that wrap top to bottom: one to two pixels wide, 14 to 70 long, brighter at the head."""
+    rng = np.random.default_rng(31337)
+    w, h = 64, 128
+    a = np.zeros((h, w))
+    for _ in range(46):
+        x = int(rng.integers(0, w))
+        y0 = int(rng.integers(0, h))
+        length = int(rng.integers(14, 70))
+        peak = 0.35 + 0.65 * rng.random()
+        for k in range(length):
+            fade = (k + 1) / length
+            a[(y0 + k) % h, x] = max(a[(y0 + k) % h, x], peak * fade * fade)
+            a[(y0 + k) % h, (x + 1) % w] = max(a[(y0 + k) % h, (x + 1) % w], 0.4 * peak * fade * fade)
+    rgba = np.stack([np.full_like(a, 0.82), np.full_like(a, 0.86), np.full_like(a, 0.94), a], axis=-1)
+    save("rain_sheet.png", rgba)
+
+
 STORM_RNG = np.random.default_rng(4242)
 
 
@@ -225,6 +245,7 @@ if __name__ == "__main__":
     storm_clouds("storm_clouds_a.png", lo=0.30, soft_big=16, alpha_max=0.97)
     storm_clouds("storm_clouds_b.png", lo=0.46, soft_big=12, alpha_max=0.95)
     storm_mist()
+    rain_sheet()
     import sys
     if len(sys.argv) > 1:
         contact_sheet().save(sys.argv[1])

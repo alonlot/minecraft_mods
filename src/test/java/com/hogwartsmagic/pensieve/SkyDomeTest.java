@@ -124,10 +124,13 @@ class SkyDomeTest {
     @Test
     void stormGradient() {
         assertTrue(SkyDome.STYLES.contains("storm"));
-        assertHex(0x3A4048, SkyDome.colour("storm", 0f));
-        assertHex(0x14171C, SkyDome.colour("storm", 1f));
-        assertHex(0x3A4048, SkyDome.horizon("storm"));
-        assertHex(0x3A4048, SkyDome.fogColour("storm", 1f));
+        assertHex(0x4A525C, SkyDome.colour("storm", 0f));
+        assertHex(0x262C35, SkyDome.colour("storm", 1f));
+        assertHex(0x4A525C, SkyDome.horizon("storm"));
+        assertHex(0x4A525C, SkyDome.fogColour("storm", 1f));
+        // a dark grey DAY storm, not night: the zenith is not black and the horizon is readable grey
+        assertTrue(luma(SkyDome.colour("storm", 1f)) > 0.13f && luma(SkyDome.colour("storm", 1f)) < 0.22f);
+        assertTrue(luma(SkyDome.colour("storm", 0f)) > 0.25f && luma(SkyDome.colour("storm", 0f)) < 0.40f);
         assertTrue(luma(SkyDome.colour("storm", 0.5f)) < luma(SkyDome.colour("storm", 0f)));
         assertTrue(luma(SkyDome.colour("storm", 1f)) < luma(SkyDome.colour("storm", 0.5f)));
     }
@@ -202,6 +205,56 @@ class SkyDomeTest {
         assertArrayEquals(base, SkyDome.flashed(base, 0.0), 1e-6f);
         float[] lit = SkyDome.flashed(base, 0.85);
         assertTrue(lit[2] > base[2] + 0.3f && lit[2] >= lit[0]);
+    }
+
+    @Test
+    void stormCloudsDriftAboutADegreeASecondOverhead() {
+        double toDegPerSec = 180.0 / Math.PI * 20.0;
+        double deck = SkyDome.cloudAngularSpeed(SkyDome.STORM_LAYERS[0][1], SkyDome.STORM_LAYERS[0][0],
+                SkyDome.STORM_LAYERS[0][2], Math.PI / 2) * toDegPerSec;
+        assertTrue(deck >= 0.8 && deck <= 2.0, "the deck overhead: " + deck + " deg/s");
+        double prev = 0;
+        for (float[] l : SkyDome.STORM_LAYERS) {
+            double up = SkyDome.cloudAngularSpeed(l[1], l[0], l[2], Math.PI / 2) * toDegPerSec;
+            double low = SkyDome.cloudAngularSpeed(l[1], l[0], l[2], Math.toRadians(30)) * toDegPerSec;
+            assertTrue(up >= 0.8 && up <= 3.0, "overhead " + up);
+            assertTrue(low < up && low <= 1.6, "at 30 degrees " + low);
+            assertTrue(up >= prev - 1e-9, "lower layers sweep faster (scud under the deck): " + up);
+            prev = up;
+        }
+    }
+
+    @Test
+    void flashLightsTheCloudNearestTheBolt() {
+        assertEquals(1.0, SkyDome.flashWeight(1, 0, 5, 0), 1e-9);
+        assertEquals(0.4, SkyDome.flashWeight(-1, 0, 5, 0), 1e-9);
+        assertEquals(0.7, SkyDome.flashWeight(0, 1, 5, 0), 1e-9);
+        assertEquals(1.0, SkyDome.flashWeight(1, 0, 0, 0), 1e-9, "degenerate: even");
+    }
+
+    @Test
+    void stormFogClosesInAndOnlyInward() {
+        assertArrayEquals(new float[] {0f, 100f}, SkyDome.stormFog(0f, 100f, 1f), 1e-6f, "never pushes fog out");
+        float[] f = SkyDome.stormFog(60f, 400f, 1f);
+        assertEquals(SkyDome.STORM_FOG_START, f[0], 1e-6f);
+        assertEquals(SkyDome.STORM_FOG_END, f[1], 1e-6f);
+        assertArrayEquals(new float[] {60f, 400f}, SkyDome.stormFog(60f, 400f, 0f), 1e-6f);
+        assertEquals(320f, SkyDome.stormFog(60f, 400f, 0.5f)[1], 1e-3f);
+    }
+
+    @Test
+    void rainSheetsAreThinAndFarOnesThicker() {
+        assertEquals(SkyDome.STORM_BANDS.length, SkyDome.STORM_BAND_ALPHA.length);
+        float sum = 0;
+        for (int i = 0; i < SkyDome.STORM_BANDS.length; i++) {
+            if (i > 0) {
+                assertTrue(SkyDome.STORM_BANDS[i] > SkyDome.STORM_BANDS[i - 1]);
+                assertTrue(SkyDome.STORM_BAND_ALPHA[i] >= SkyDome.STORM_BAND_ALPHA[i - 1]);
+            }
+            assertTrue(SkyDome.STORM_BAND_ALPHA[i] > 0f && SkyDome.STORM_BAND_ALPHA[i] <= 0.15f);
+            sum += SkyDome.STORM_BAND_ALPHA[i];
+        }
+        assertTrue(sum < 0.35f, "all together still see-through");
     }
 
     @Test

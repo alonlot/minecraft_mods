@@ -2890,5 +2890,141 @@
         "stream": false
       }
     ]
+  },
+  "pensieve.sfx.flying_lawn_air": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/flying_lawn_air",
+        "stream": true
+      }
+    ]
+  },
+  "pensieve.sfx.flying_broom_up": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/flying_broom_up",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.flying_broom_whoosh": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/flying_broom_whoosh",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.flying_broom_buck": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/flying_broom_buck",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.flying_thud": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/flying_thud",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.flying_whistle": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/flying_whistle",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.flying_crate": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/flying_crate",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.flying_crowd_bed": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/flying_crowd_bed",
+        "stream": true
+      }
+    ]
+  },
+  "pensieve.sfx.flying_crowd_swell": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/flying_crowd_swell",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.flying_crowd_erupt": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/flying_crowd_erupt",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.flying_crowd_chant": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/flying_crowd_chant",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.flying_crowd_gasp": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/flying_crowd_gasp",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.flying_rain": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/flying_rain",
+        "stream": true
+      }
+    ]
+  },
+  "pensieve.sfx.flying_thunder": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/flying_thunder",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.flying_bludger_crack": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/flying_bludger_crack",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.flying_quaffle_catch": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/flying_quaffle_catch",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.flying_snitch_flutter": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/flying_snitch_flutter",
+        "stream": false
+      }
+    ]
   }
 }

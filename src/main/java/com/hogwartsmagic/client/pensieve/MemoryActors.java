@@ -3,8 +3,10 @@ package com.hogwartsmagic.client.pensieve;
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.entity.MemoryBlockEntity;
 import com.hogwartsmagic.entity.MemoryRowboatEntity;
+import com.hogwartsmagic.entity.OwlEntity;
 import com.hogwartsmagic.client.renderer.PetrifiedRemainsRenderer;
 import com.hogwartsmagic.mixin.client.LivingEntityUseAccessor;
+import com.hogwartsmagic.pensieve.scene.Airborne;
 import com.hogwartsmagic.pensieve.scene.EquipTimeline;
 import com.hogwartsmagic.pensieve.scene.HumanMotion;
 import com.hogwartsmagic.pensieve.scene.Rowboat;
@@ -414,6 +416,9 @@ public final class MemoryActors {
         double jy = y - e.yo;
         double jz = z - e.zo;
         e.setPos(x, y, z);
+        // An owl flies while its path moves and perches (wings folded) while it is held (Airborne, pure). Owls only:
+        // other models read onGround too, and every other puppet has always drawn as airborne.
+        if (e instanceof OwlEntity) e.setOnGround(!Airborne.airborne(a.def.path(), t, !first && !e.onGround()));
         if (!first && jx * jx + jy * jy + jz * jz > TELEPORT_BLOCKS * TELEPORT_BLOCKS) {
             // A jump on a cut (a swap, a park under the floor) is a teleport, not a run: do not lerp across it.
             e.xo = e.xOld = x;

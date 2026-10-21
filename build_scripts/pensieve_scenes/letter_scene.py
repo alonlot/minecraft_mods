@@ -101,7 +101,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from scene_common import write_scene, FREE, MEMORIES  # noqa: E402
-from wand_scene import (tk, r3, yaw_to, clamp, lerp, sample_path, samples_fast, sample_cam,  # noqa: E402
+from wand_scene import (tk, r3, yaw_to, clamp, lerp, sample_path, samples_fast, sample_cam, ease_f,  # noqa: E402
                         Life, Clips, Mover, pose, act)
 import human_motion as HM  # noqa: E402
 import privet_drive as PD  # noqa: E402
@@ -704,6 +704,9 @@ def finish(sc, scene, extra=None):
     problems = []
     check_camera(sc, scene['camera'], problems)
     check_keys(sc, scene['actors'])
+    if extra:
+        extra(problems)
+    sc.clearance = check_camera_clearance(sc.sid, scene, problems)
     check_lines(sc, problems)
     for e in scene['events']:
         if e['kind'] == 'block' and e['id'] == 'minecraft:light' and not in_air(sc.world, [c + 0.5 for c in e['at']]):
@@ -711,8 +714,6 @@ def finish(sc, scene, extra=None):
         if e['kind'] == 'effect' and e['id'] == 'rough_sea':
             assert e.get('intensity', 1.0) <= 1.0 + 1e-9 or not any(
                 a['type'] == 'hogwartsmagic:memory_rowboat' for a in scene['actors']), 'boat on a sea over 1'
-    if extra:
-        extra(problems)
     n_prox = check_walkers(sc, problems)
     n_legs = check_legs(sc, problems) + check_rigs(sc, problems)
     if problems:
@@ -1622,10 +1623,66 @@ def emitted_arm(actor, part, t, vanilla_pivot, vanilla_rot):
     return piv, rot
 
 
-def hagrid_vanilla_arm(bob_x=0.0, bob_z=BOB_MID[1]):
-    """Hagrid's crouched right arm holding the letter before the scene's limbs: the pivot the crouch moves it to and
-    the rotation the held-item pose, the crouch and the idle sway give it."""
-    return (-5.0, 5.2, 0.0), [ITEM_ARM_X + math.degrees(0.4) + bob_x, 0.0, bob_z]
+def hagrid_vanilla_arm(bob_x=0.0, bob_z=BOB_MID[1], holding=True):
+    """Hagrid's crouched right arm before the scene's limbs: the pivot the crouch moves it to and the rotation the
+    held-item pose (only while his main hand holds something), the crouch and the idle sway give it."""
+    return (-5.0, 5.2, 0.0), [(ITEM_ARM_X if holding else 0.0) + math.degrees(0.4) + bob_x, 0.0, bob_z]
+
+
+H11_ARC = 0.2            # how far the H11 draw-back swings out to the boy's right, at its middle
+ITEM_STEP_EPS = 0.001     # ticks: the compensating step runs over the last thousandth of a tick before the swap
+
+
+def item_raise_steps(actor, part='right_arm', slot='mainhand'):
+    """Cancel vanilla's held-item raise in an add-mode arm track where the held item comes and goes.
+
+    MemoryActors sets the item on the client tick whose scene time reaches the cue (an integer tick T), so every
+    frame from T on (scene time T + partial) draws the arm raised ITEM_ARM_X, or no longer raised. Here the keyed
+    arm steps by the opposite amount over (T - ITEM_STEP_EPS, T], so at T and after it the two cancel: the hand
+    stays where it was. The step carries through the hold the track is in, and the next move then lands where it
+    was going. T must fall on a key or inside a held stretch, so splitting the track there changes no curve.
+    Returns [(T, step degrees)]."""
+    tr = actor['limbs'][part]
+    assert tr.get('mode', 'add') == 'add', (actor['id'], part, 'item raise steps need add mode')
+    keys = tr['rot']
+    out = []
+    swaps = sorted({c['t'] for c in actor.get('actions', []) if c['do'] in ('hold', 'equip', 'use_item')})
+    for T in swaps:
+        before, after = EquipTimeline_item(actor, slot, T - 1), EquipTimeline_item(actor, slot, T)
+        if (before is None) == (after is None):
+            continue
+        d = -ITEM_ARM_X if after else ITEM_ARM_X
+        v = sample_keys(keys, T)
+        i = next((j for j, k in enumerate(keys) if k['t'] >= T), len(keys))
+        on_key = i < len(keys) and keys[i]['t'] == T
+        if not on_key:
+            assert 0 < i < len(keys) and keys[i - 1]['v'] == keys[i]['v'], (actor['id'], T, 'swap inside a move')
+            keys.insert(i, {'t': T, 'v': list(keys[i - 1]['v'])})
+        keys[i] = dict(keys[i], t=T - ITEM_STEP_EPS)
+        stepped = [v[0] + d, v[1], v[2]]
+        keys.insert(i + 1, {'t': T, 'v': [int(round(c)) for c in stepped], 'ease': 'linear'})
+        j = i + 2
+        while j < len(keys) and keys[j]['v'] == [int(round(c)) for c in v]:
+            keys[j] = dict(keys[j], v=[int(round(c)) for c in stepped])
+            j += 1
+        out.append((T, d))
+    return out
+
+
+def life_arm_corners(gain=0.35, energy=1.25):
+    """The extremes life can add to an add-mode right arm while standing still (HumanMotion.life): breathing
+    (arm pivot down 0.35 px, arm zRot +0.8 gained, torso pitch -0.7), the weight shift (every part across by
+    0.5 * energy px, torso roll -0.9) and the roll noise (0.4), the torso turns going through hipTurn at the
+    body's gain. Returns [(pivot delta px, rot delta deg)] over the corners of breath, shift and noise."""
+    out = []
+    for b in (0.0, 0.5, 1.0):
+        for ws in (-1.0, 0.0, 1.0):
+            for n in (-1.0, 0.0, 1.0):
+                pitch, roll = -0.7 * b, -0.9 * ws + 0.4 * n
+                sh = HM._turned(-5.0, -10.0, 0.0, math.radians(pitch), 0.0, math.radians(roll))
+                dp = [0.5 * energy * ws + (sh[0] + 5.0) * gain, -0.35 * b + (sh[1] + 10.0) * gain, sh[2] * gain]
+                out.append((dp, [0.0, 0.0, 0.8 * b * gain]))
+    return out
 
 
 def part_corners(root, yaw, scale, pivot, rot, box):
@@ -1654,6 +1711,220 @@ def inside_part(root, yaw, scale, pivot, rot, box, p, margin_px=0.0):
 ARM_BOX = ((-3.25, 1.25), (-2.25, 10.25), (-2.25, 2.25))          # the right arm with its sleeve layer
 HAND_BOX = ((-3.25, 1.25), (6.0, 10.25), (-2.25, 2.25))           # its last 4 px: the hand
 HEAD_BOX = ((-4.5, 4.5), (-8.5, 0.5), (-4.5, 4.5))                # the head with its hat layer
+# every player part with its outer layer (wide arms, the conservative choice)
+PART_BOX = {'head': HEAD_BOX, 'body': ((-4.25, 4.25), (-0.25, 12.25), (-2.25, 2.25)), 'right_arm': ARM_BOX,
+            'left_arm': ((-1.25, 3.25), (-2.25, 10.25), (-2.25, 2.25)),
+            'right_leg': ((-2.25, 2.25), (-0.25, 12.25), (-2.25, 2.25)),
+            'left_leg': ((-2.25, 2.25), (-0.25, 12.25), (-2.25, 2.25))}
+# HumanoidModel.setupAnim's crouch: absolute pivots and the rotation it adds
+CROUCH_PIVOT = {'head': (0, 4.2, 0), 'body': (0, 3.2, 0), 'right_arm': (-5, 5.2, 0), 'left_arm': (5, 5.2, 0),
+                'right_leg': (-1.9, 12.2, 4.0), 'left_leg': (1.9, 12.2, 4.0)}
+CROUCH_ROT = {'body': math.degrees(0.5), 'right_arm': math.degrees(0.4), 'left_arm': math.degrees(0.4)}
+
+
+def engine_blend(cam, t):
+    """(key before, key after, k) at scene tick t exactly as CameraTrack.sample picks them: a cut key holds the key
+    before it until its own tick (k 0); otherwise k is the after key's ease of the way between them."""
+    if t >= cam[-1]['t']:
+        return cam[-1], cam[-1], 0.0
+    if t <= cam[0]['t']:
+        return cam[0], cam[0], 0.0
+    for i in range(1, len(cam)):
+        b = cam[i]
+        if t < b['t']:
+            a = cam[i - 1]
+            span = b['t'] - a['t']
+            return a, b, (0.0 if b.get('cut') or span <= 0 else ease_f(b.get('ease', 'in_out'), (t - a['t']) / span))
+    return cam[-1], cam[-1], 0.0
+
+
+def engine_cam(cam, t):
+    """The camera position at scene tick t as CameraTrack.sample computes it."""
+    a, b, k = engine_blend(cam, t)
+    return [a['pos'][c] + (b['pos'][c] - a['pos'][c]) * k for c in range(3)]
+
+
+def camera_samples(cam, length, per_tick=4):
+    """(t, camera position, shot index) every 1/per_tick of a tick over the whole scene; a shot starts at each cut."""
+    cuts = [k['t'] for k in cam if k.get('cut')]
+    for i in range(int(length * per_tick) + 1):
+        t = i / per_tick
+        yield t, engine_cam(cam, t), sum(1 for c in cuts if c <= t)
+
+
+def _yaw_pitch(a, t):
+    lk = a.get('look') or [{'t': 0, 'yaw': 0}]
+    ks = [{'t': x['t'], 'pos': [x.get('yaw', 0.0), x.get('pitch', 0.0), 0], 'ease': x.get('ease', 'in_out')}
+          for x in lk]
+    v = sample_path(ks, t)
+    return v[0], v[1]
+
+
+def _last_at(cues, t):
+    best = None
+    for c in cues:
+        if c['t'] <= t:
+            best = c
+    return best
+
+
+def posed_parts(scene, a, t):
+    """A player actor's six parts at tick t from its emitted JSON: (part, root, yaw, scale, pivot px, rot deg).
+    Vanilla rest (or the crouch after a `sneak`, with the held-item arm raise), the pose cue in force (absolute),
+    the look pitch on the head, then the limbs (add or set). Life and clips are left out: a few px at most."""
+    scale = a.get('scale', 1.0)
+    root = sample_path(a['path'], t)
+    yaw, pitch = _yaw_pitch(a, t)
+    if a.get('ride'):
+        boat = next(x for x in scene['actors'] if x['id'] == a['ride'])
+        bp = sample_path(boat['path'], t)
+        by, _ = _yaw_pitch(boat, t)
+        f, lft = fwd_vec(by), (math.cos(math.radians(by)), math.sin(math.radians(by)))
+        root = [bp[0] + lft[0] * root[0] + f[0] * root[2], bp[1] + root[1], bp[2] + lft[1] * root[0] + f[1] * root[2]]
+        yaw += by
+    acts = a.get('actions', [])
+    crouch = any(x['do'] == 'sneak' and x['t'] <= t for x in acts)
+    if crouch:
+        root = [root[0], root[1] - 2.0 / 16.0 * scale, root[2]]
+    held = EquipTimeline_item(a, 'mainhand', t)
+    pose = _last_at(a.get('poses', []), t)
+    pz = scene.get('poses', {}).get(pose['name'], {}) if pose else {}
+    out = []
+    for part in PART_BOX:
+        piv = list(CROUCH_PIVOT[part] if crouch else REST[part])
+        rot = [CROUCH_ROT.get(part, 0.0) if crouch else 0.0, 0.0, 0.0]
+        if part == 'right_arm' and held:
+            rot[0] += ITEM_ARM_X
+        if part == 'head':
+            rot[0] += pitch
+        if part in pz:
+            rot = list(pz[part])
+        piv, rot = emitted_arm(a, part, t, piv, rot)
+        out.append((part, root, yaw, scale, piv, rot))
+    return out
+
+
+def EquipTimeline_item(a, slot, t):
+    """The item in a slot at tick t (EquipTimeline): the last equip (or, for the mainhand, hold) at or before t;
+    None when empty or air."""
+    item = a.get('items', {}).get(slot)
+    best = -1e9
+    for c in a.get('actions', []):
+        if c['t'] > t or c['t'] < best:
+            continue
+        if (c['do'] == 'equip' and c.get('slot') == slot) or (c['do'] in ('hold', 'use_item') and slot == 'mainhand'
+                                                              and c.get('item')):
+            best, item = c['t'], c.get('item')
+    return None if item in (None, 'minecraft:air') else item
+
+
+def box_distance(root, yaw, scale, pivot, rot, box, p):
+    """Blocks from world point p to a posed part's box (0 inside it)."""
+    o = HM.model_to_world(root, yaw, scale, *pivot)
+    loc = []
+    axes = []
+    for e in ((1, 0, 0), (0, 1, 0), (0, 0, 1)):
+        v = HM._turned(*e, *[math.radians(c) for c in rot])
+        w = HM.model_to_world(root, yaw, scale, pivot[0] + v[0], pivot[1] + v[1], pivot[2] + v[2])
+        ax = [w[i] - o[i] for i in range(3)]
+        axes.append(ax)
+        loc.append(sum((p[i] - o[i]) * ax[i] for i in range(3)) / sum(c * c for c in ax))
+    q = [min(max(loc[i], box[i][0]), box[i][1]) for i in range(3)]
+    w = [o[i] + sum(q[j] * axes[j][i] for j in range(3)) for i in range(3)]
+    return math.dist(w, p)
+
+
+CAM_CLEAR = 0.15          # blocks from the camera to any part box of any player actor (the near plane is 0.05)
+NEAR_PLANE = 0.05
+
+
+def engine_look(scene, cam, t):
+    """(the point the camera looks at, its vertical fov) at tick t, as CameraTrack.sample blends them (an actor's
+    eye: its path plus the player eye height at its scale, crouched after a sneak)."""
+    def target(k):
+        la = k.get('look_at')
+        if isinstance(la, str):
+            a_ = next(x for x in scene['actors'] if x['id'] == la[6:])
+            r = sample_path(a_['path'], t)
+            crouch = any(x['do'] == 'sneak' and x['t'] <= t for x in a_.get('actions', []))
+            return [r[0], r[1] + (1.27 if crouch else 1.62) * a_.get('scale', 1.0), r[2]]
+        if la is not None:
+            return la
+        return [k['pos'][0], k['pos'][1], k['pos'][2] + 1]
+    a, b, k = engine_blend(cam, t)
+    fa, fb = target(a), target(b)
+    fov = a.get('fov', 70) + (b.get('fov', 70) - a.get('fov', 70)) * k
+    return [fa[c] + (fb[c] - fa[c]) * k for c in range(3)], fov
+
+
+ASPECT = 2.0              # screen width over height assumed for the frustum (wider than 16:9, to be safe)
+
+
+def in_view(c, look, fov, p):
+    """Whether world point p is inside the camera's view frustum past the near plane."""
+    ax = [look[i] - c[i] for i in range(3)]
+    n = math.sqrt(sum(v * v for v in ax)) or 1.0
+    ax = [v / n for v in ax]
+    rg = [ax[2], 0.0, -ax[0]]
+    nr = math.sqrt(rg[0] ** 2 + rg[2] ** 2) or 1.0
+    rg = [v / nr for v in rg]
+    up = [rg[1] * ax[2] - rg[2] * ax[1], rg[2] * ax[0] - rg[0] * ax[2], rg[0] * ax[1] - rg[1] * ax[0]]
+    d = [p[i] - c[i] for i in range(3)]
+    z = sum(d[i] * ax[i] for i in range(3))
+    if z < NEAR_PLANE:
+        return False
+    tv = math.tan(math.radians(fov) / 2)
+    return (abs(sum(d[i] * up[i] for i in range(3))) <= z * tv
+            and abs(sum(d[i] * rg[i] for i in range(3))) <= z * tv * ASPECT)
+
+
+def box_surface(root, yaw, scale, pivot, rot, box, n=6):
+    """World points on a posed part box's six faces, an n x n grid on each."""
+    out = []
+    g = [i / (n - 1) for i in range(n)]
+    for axis in range(3):
+        for side in box[axis]:
+            u, w = [j for j in range(3) if j != axis]
+            for fu in g:
+                for fw in g:
+                    q = [0.0, 0.0, 0.0]
+                    q[axis] = side
+                    q[u] = box[u][0] + (box[u][1] - box[u][0]) * fu
+                    q[w] = box[w][0] + (box[w][1] - box[w][0]) * fw
+                    v = HM._turned(*q, *[math.radians(c) for c in rot])
+                    out.append(HM.model_to_world(root, yaw, scale, pivot[0] + v[0], pivot[1] + v[1],
+                                                 pivot[2] + v[2]))
+    return out
+
+
+def check_camera_clearance(sid, scene, problems):
+    """The interpolated camera, four times a tick over the whole scene, against every part of every player actor:
+    at least CAM_CLEAR from each part box, unless no point of that box is in the picture (inside the view frustum
+    past the near plane, as the head behind a first-person eye). Returns (smallest clearance of a part in the
+    picture, t, actor, part)."""
+    cam = scene['camera']
+    best = (9.0, None, None, None)
+    for t, c, shot in camera_samples(cam, scene['length']):
+        view = None
+        for a in scene['actors']:
+            if a.get('type', 'player') != 'player':
+                continue
+            r = sample_path(a['path'], t)
+            if not a.get('ride') and math.dist(r, c) > 3.0 * a.get('scale', 1.0):
+                continue
+            for part, root, yaw, scale, piv, rot in posed_parts(scene, a, t):
+                d = box_distance(root, yaw, scale, piv, rot, PART_BOX[part], c)
+                if d >= best[0] and d >= CAM_CLEAR:
+                    continue
+                view = view or engine_look(scene, cam, t)
+                if not any(in_view(c, view[0], view[1], q)
+                           for q in box_surface(root, yaw, scale, piv, rot, PART_BOX[part])):
+                    continue
+                if d < CAM_CLEAR:
+                    problems.append('%s: the camera at t %.2f is %.3f from %s %s' % (sid, t, d, a['id'], part))
+                    return best
+                best = (d, t, a['id'], part)
+    return best
 
 
 def solve_reach(root, yaw, scale, torso_a, target, seed=(-105.0, -25.0)):
@@ -1822,7 +2093,7 @@ def hut_scene():
     secs = sc.say(T_LET, 'letter_hagrid_letter', 45.6)
     T_TAKE = 49.6
     ha.append(act(T_TAKE, 'equip', slot='mainhand', item='minecraft:air'))
-    hl['right_arm'].change(T_TAKE + 0.2, [-40, 0, 0], 0.8)
+    hl['right_arm'].change(T_TAKE + 0.2, [-40, 0, 0], 2.0)       # slowly back: 22 degrees (the step below)
     hl['head'].change(T_TAKE + 0.4, [16, 0, 0], 0.8)
     hag = sc.actor('hagrid', skin=SKIN['hagrid'], scale=GIANT, mover=hm, life=hl, clips=hc, actions=ha)
     sc.unseen['hagrid'] = [(0.0, 10.2)]
@@ -1969,7 +2240,7 @@ def hut_scene():
 
     # H11, the boy's view: the camera at his eye, pulled 0.35 back along the view and 0.2 out to his right, beside
     # his head (asserted clear of it), so the two hands meet about 0.55 away and Hagrid's fills about half the frame
-    def fp_cam(a, head_abs, yaw, target, back=0.66, right=0.36):
+    def fp_cam(a, head_abs, yaw, target, back=0.66, right=0.36, margin=2.0):
         e = eye_of(root, yaw, KID, torso_pose(a)['head'][1], (head_abs, 0, 0))
         d = [target[i] - e[i] for i in range(3)]
         n = math.sqrt(sum(c * c for c in d))
@@ -1978,7 +2249,7 @@ def hut_scene():
         while True:                                           # out to the right until clear of the head (+2 px)
             c_ = [e[0] - d[0] / n * back + rx_ * right, e[1] - d[1] / n * back + 0.03,
                   e[2] - d[2] / n * back + rz_ * right]
-            if not inside_part(root, yaw, KID, hp, (head_abs, 0, 0), HEAD_BOX, c_, margin_px=2.0):
+            if not inside_part(root, yaw, KID, hp, (head_abs, 0, 0), HEAD_BOX, c_, margin_px=margin):
                 return c_
             right += 0.01
     MEET = [(HAND[i] + TIP[i]) / 2 for i in range(3)]
@@ -1992,15 +2263,31 @@ def hut_scene():
     sc.key(T_TAKE - 0.12, CT, MEET, 70)
     sc.key(T_TAKE + 0.15, CT, MEET, 70)
     pull = arm_tip(root, BOY_YAW, KID, 'right_arm', [-66, 0, -14], pivot_px=torso_pose(-4)['right_arm'][1])
-    C1 = fp_cam(-4, 2, BOY_YAW, pull, back=0.16, right=0.34)
-    C2 = fp_cam(-4, 6, BOY_YAW, pull, back=0.16, right=0.34)
-    sc.key(T_TAKE + 1.6, C1, pull, 66)
+    # after the take the camera closes in on the drawn-in letter, CAM_CLEAR and more from his head (3.5 px at 0.75)
+    C1 = fp_cam(-4, 2, BOY_YAW, pull, back=0.16, right=0.34, margin=3.5)
+    C2 = fp_cam(-4, 6, BOY_YAW, pull, back=0.16, right=0.34, margin=3.5)
+    # and on the way there it swings out to his right on an arc, keyed every 2 ticks (linear between, the eased
+    # progress in the keys): his head comes back as he straightens up, and the straight move from the take
+    # passed through it. The look and the fov follow the same progress, as one eased key pair would have them.
+    k0, k1 = tk(T_TAKE + 0.15), tk(T_TAKE + 1.6)
+    rgt = (-math.cos(math.radians(BOY_YAW)), -math.sin(math.radians(BOY_YAW)))
+    for tt_ in range(k0 + 2, k1, 2):
+        e = ease_f('in_out', (tt_ - k0) / (k1 - k0))
+        bul = H11_ARC * math.sin(math.pi * e)
+        p_ = [CT[i] + (C1[i] - CT[i]) * e for i in range(3)]
+        sc.key(tt_ / 20.0, [p_[0] + rgt[0] * bul, p_[1], p_[2] + rgt[1] * bul],
+               [MEET[i] + (pull[i] - MEET[i]) * e for i in range(3)], round(70 + (66 - 70) * e, 2), ease='linear')
+    sc.key(T_TAKE + 1.6, C1, pull, 66, ease='linear')
     sc.key(LEN, C2, [pull[0], pull[1] - 0.03, pull[2]], 60)
     T_CLOSE = 56.4
     sc.ev(T_CLOSE, 'effect', 'eyes_close', at=[0, 0, 0], duration=50)
     assert T_CLOSE + 2.5 < LEN
 
     scene = sc.scene(SET_ISLAND, LI.RADIUS, end_action='wake')
+    # his hand stays put when the letter comes out of his coat and when the boy takes it: vanilla's held-item raise
+    # comes on at the hold and goes at the take, and his add-mode arm steps the other way on the same tick
+    item_steps = item_raise_steps(next(a for a in scene['actors'] if a['id'] == 'hagrid'))
+    assert item_steps == [(tk(T_HOLD), -ITEM_ARM_X), (tk(T_TAKE), ITEM_ARM_X)], item_steps
     evs = scene['events']
     assert evs[-1]['id'] == 'eyes_close' and all(e['t'] < evs[-1]['t'] for e in evs[:-1]), 'eyes_close must be last'
 
@@ -2035,37 +2322,69 @@ def hut_scene():
         assert T_IN > T_FLAT, 'Hagrid steps in only once the leaves are down'
         # the take happens on screen: the boy's hand tip meets Hagrid's hand (the two held letters swap there),
         # both inside the first-person view cone, and the reaching hand comes into frame on its way there
-        # the gap, recomputed from the emitted JSON the way ActorPoser applies it (add vs set, rotation and pivot),
-        # at the four corners of the idle sway, plus the life layer's pivot drift (its weight-shift hip turn, at most
-        # 0.5 px at 1.5 on a keyed part); and the boy's rig hand from his own emitted limbs
+        # the hands recomputed from the emitted JSON the way the client draws them: Hagrid's arm is vanilla's
+        # crouched arm, raised for the held item only while MemoryActors has the letter in his hand (the item the
+        # last client tick set: the one at floor(t)), swaying (bobModelPart), with life on top (its true extremes,
+        # life_arm_corners) and then his add-mode limbs; the boy's rig hand comes from his own emitted limbs
         tt = tk(T_TAKE)
         hj = next(x for x in scene['actors'] if x['id'] == 'hagrid')
         bj = next(x for x in scene['actors'] if x['id'] == 'boy')
-        h_root = sample_path(hj['path'], tt)
-        h_root = [h_root[0], h_root[1] - 2.0 / 16.0 * GIANT, h_root[2]]
-        h_yaw = sample_path([{'t': x['t'], 'pos': [x['yaw'], 0, 0], 'ease': x.get('ease', 'in_out')}
-                             for x in hj['look']], tt)[0]
-        b_piv, b_rot = emitted_arm(bj, 'right_arm', tt, REST['right_arm'], (0, 0, 0))
-        b_yaw = sample_path([{'t': x['t'], 'pos': [x['yaw'], 0, 0], 'ease': x.get('ease', 'in_out')}
-                             for x in bj['look']], tt)[0]
-        tip_j = arm_tip(sample_path(bj['path'], tt), b_yaw, KID, 'right_arm', b_rot, pivot_px=b_piv)
-        GAP_SLACK = 0.5 * kpx(GIANT)
-        worst, hand_j = 0.0, None
+        LIFE = life_arm_corners()
+
+        def look_yaw(a_, t_):
+            return sample_path([{'t': x['t'], 'pos': [x['yaw'], 0, 0], 'ease': x.get('ease', 'in_out')}
+                                for x in a_['look']], t_)[0]
+
+        def hag_hand(t_, bx=0.0, bz=BOB_MID[1], life=None):
+            r_ = sample_path(hj['path'], t_)
+            r_ = [r_[0], r_[1] - 2.0 / 16.0 * GIANT, r_[2]]
+            vp, vr = hagrid_vanilla_arm(bx, bz, holding=EquipTimeline_item(hj, 'mainhand', math.floor(t_)))
+            if life:
+                vp = [vp[i] + life[0][i] for i in range(3)]
+                vr = [vr[i] + life[1][i] for i in range(3)]
+            piv, rot = emitted_arm(hj, 'right_arm', t_, vp, vr)
+            return arm_tip(r_, look_yaw(hj, t_), GIANT, 'right_arm', rot, pivot_px=piv), r_, piv, rot
+
+        def boy_tip(t_):
+            piv, rot = emitted_arm(bj, 'right_arm', t_, REST['right_arm'], (0, 0, 0))
+            return arm_tip(sample_path(bj['path'], t_), look_yaw(bj, t_), KID, 'right_arm', rot, pivot_px=piv)
+
+        # no jump in his hand at any tick from 780 to 1030: the hand just after each tick boundary (the new item
+        # state, the limbs past any step) against the hand just before it (the old state, the limbs before it)
+        jump_max, jump_t, move_h11 = 0.0, None, 0.0
+        for t_ in range(780, 1031):
+            jmp = math.dist(hag_hand(t_)[0], hag_hand(t_ - 2 * ITEM_STEP_EPS)[0])
+            if jmp > jump_max:
+                jump_max, jump_t = jmp, t_
+            if t_ > 912:
+                move_h11 = max(move_h11, math.dist(hag_hand(t_)[0], hag_hand(t_ - 1)[0]))
+        if jump_max > 0.03:
+            problems.append("Hagrid's hand jumps %.3f at t %d" % (jump_max, jump_t))
+        if move_h11 > 0.03:
+            problems.append("Hagrid's hand moves %.3f in one tick in the H11 close-up" % move_h11)
+        tip_j = boy_tip(tt)
+        worst = 0.0
         for bx in BOB_X + (0.0,):
             for bz in BOB_Z + (BOB_MID[1],):
-                vp, vr = hagrid_vanilla_arm(bx, bz)
-                piv, rot = emitted_arm(hj, 'right_arm', tt, vp, vr)
-                hp = arm_tip(h_root, h_yaw, GIANT, 'right_arm', rot, pivot_px=piv)
-                worst = max(worst, math.dist(hp, tip_j))
-                if bx == 0.0 and bz == BOB_MID[1]:
-                    hand_j, piv_j, rot_j = hp, piv, rot
-        if worst + GAP_SLACK > 0.15:
-            problems.append("the hands are up to %.3f (+%.3f) apart at the take" % (worst, GAP_SLACK))
+                for lf in LIFE:
+                    worst = max(worst, math.dist(hag_hand(tt, bx, bz, lf)[0], tip_j))
+        hand_j, h_root, piv_j, rot_j = hag_hand(tt)
+        h_yaw, b_yaw = look_yaw(hj, tt), look_yaw(bj, tt)
+        b_piv, b_rot = emitted_arm(bj, 'right_arm', tt, REST['right_arm'], (0, 0, 0))
+        life_px = max(math.dist(hag_hand(tt, life=lf)[0], hand_j) for lf in LIFE) / kpx(GIANT)
+        if EquipTimeline_item(hj, 'mainhand', tt) is not None:
+            problems.append('Hagrid still holds the letter at the take tick')
+        if worst > 0.15:
+            problems.append("the hands are up to %.3f apart at the take (empty hand, sway and life)" % worst)
         if math.dist(hand_j, HAND) > 0.01 or math.dist(tip_j, TIP) > 0.01:
             problems.append('the emitted hands (%s, %s) are not where the hand-over was solved (%s, %s)' % (
                 [r3(c) for c in hand_j], [r3(c) for c in tip_j], [r3(c) for c in HAND], [r3(c) for c in TIP]))
-        print('  the take, from the JSON: hands %.3f apart (sway worst %.3f), shoulder px %s rot %s' % (
-            math.dist(hand_j, tip_j), worst, [round(c, 2) for c in piv_j], [round(c, 1) for c in rot_j]))
+        sc.take_stats = {'jump': jump_max, 'jump_t': jump_t, 'gap': worst, 'life_px': life_px, 'move': move_h11}
+        print('  the take, from the JSON: hands %.3f apart (sway and life worst %.3f; life up to %.2f px), '
+              'shoulder px %s rot %s' % (math.dist(hand_j, tip_j), worst, life_px, [round(c, 2) for c in piv_j],
+                                         [round(c, 1) for c in rot_j]))
+        print("  Hagrid's hand 780-1030: largest jump %.4f at t %s; largest move a tick in H11 %.3f" % (
+            jump_max, jump_t, move_h11))
         cam = sample_cam(scene['camera'], tk(T_TAKE))
         for what, p_ in (("Hagrid's hand", hand_j), ("the boy's hand", tip_j)):
             va = view_angle(cam, MEET, p_)
@@ -2096,18 +2415,21 @@ def hut_scene():
         near = min(sum((p_[i] - cam[i]) * ax_[i] for i in range(3)) for p_ in hcorners + letter + bcorners)
         if near < 0.2:
             problems.append('the hands come %.2f from the camera plane at the take (near plane 0.05)' % near)
-        # the camera beside the boy's head, never inside it or his arm, at every H11 key
-        for key_t, c_, (a_, h_) in ((45.6, C0, POSE_PRE), (T_TAKE, CT, POSE_TAKE), (T_TAKE + 1.6, C1, (-4, 2)),
-                                    (LEN, C2, (-4, 6))):
-            tq = torso_pose(a_, head=(h_ - a_, 0, 0))
-            if inside_part(root, BOY_YAW, KID, tq['head'][1], tq['head'][0], HEAD_BOX, c_, margin_px=1.5):
-                problems.append("the H11 camera at %.1f is inside the boy's head" % key_t)
-            if inside_part(root, BOY_YAW, KID, tq['body'][1], tq['body'][0], ((-4.25, 4.25), (-0.25, 12.25), (-2.25, 2.25)),
-                           c_, margin_px=1.5):
-                problems.append("the H11 camera at %.1f is inside the boy's body" % key_t)
-            arm = tp['right_arm'] if key_t == T_TAKE else tq['right_arm']
-            if inside_part(root, BOY_YAW, KID, arm[1], arm[0], ARM_BOX, c_, margin_px=1.5):
-                problems.append("the H11 camera at %.1f is inside the boy's arm" % key_t)
+        # H11, the boy's view, all the way through (not only at its keys): the interpolated camera four times a
+        # tick stays CAM_CLEAR or more from every part box of the boy and Hagrid, in the picture or not
+        h11 = (9.0, None, None)
+        for i_ in range(tk(45.6) * 4, scene['length'] * 4 + 1):
+            t_ = i_ / 4.0
+            c_ = engine_cam(scene['camera'], t_)
+            for a_ in (hj, bj):
+                for part, r_, y_, s_, pv_, rt_ in posed_parts(scene, a_, t_):
+                    d_ = box_distance(r_, y_, s_, pv_, rt_, PART_BOX[part], c_)
+                    if d_ < h11[0]:
+                        h11 = (d_, t_, a_['id'] + ' ' + part)
+        if h11[0] < CAM_CLEAR:
+            problems.append('the H11 camera comes %.3f from %s at t %.2f' % (h11[0], h11[2], h11[1]))
+        sc.take_stats['h11'] = h11
+        print('  H11: the camera comes no nearer than %.3f to a part (%s at t %.2f)' % (h11[0], h11[2], h11[1]))
         print('  the take: frame %.2f, nearest %.2f' % (frac, near))
         print('  the take: hands %.3f apart; off the axis Hagrid %.1f, boy %.1f degrees; %.2f from the camera' % (
             D_TAKE, view_angle(cam, MEET, HAND), view_angle(cam, MEET, TIP), math.dist(cam, MEET)))
@@ -2153,6 +2475,8 @@ def main():
     total = 0.0
     for sc, scene, n_chars, n_prox, n_legs in built:
         total += sc.length
+        d, t, aid, part = sc.clearance
+        print('  %s: the camera comes no nearer than %.3f to a player part (%s %s at t %.2f)' % (sc.sid, d, aid, part, t))
         print('wrote %s.json: %d chars (cap %d), %.1f s, %d actors, %d events, %d camera keys, %d proximity checks,'
               ' %d leg corners' % (sc.sid, n_chars, MAX_JSON, sc.length, len(scene['actors']), len(scene['events']),
                                   len(scene['camera']), n_prox, n_legs))

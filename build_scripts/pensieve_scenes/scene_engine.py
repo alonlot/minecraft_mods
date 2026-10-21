@@ -6,14 +6,25 @@ Every generator that emits a memory checks it against the engine's own maths, ne
     check_camera_clearance, check_spline_moves); rekey and turn_between re-key a shot through them;
   - the player model as ActorPoser and HumanoidModel pose it: actor_eye_height (EyeEase), posed_parts, the held-item
     raise (item_raise_steps), emitted_arm, life_arm_corners, part_corners, inside_part, box_distance, box_surface;
-  - the world's block shapes: shape_hit, in_air.
+  - the world's block shapes: shape_hit, in_air;
+  - actor tracks (Track.sample, spline keys included; Vehicle's ride windows): track_sample, sample_path, own_sample;
+  - the memory brooms and their riders (BroomFlight, Vehicle): broom_pose, broom_frame, broom_bank, broom_climb,
+    broom_heading, hover_bob, broom_box, broom_lowest, rider_root, rider_pose, rider_lean, rider_weight, and
+    posed_parts, emitted_arm, arm_tip and eye_of composing a rider's frame (a RiderFrame in the yaw slot);
+  - the hand contacts' sway corners (BOB_Z, BOB_X, BOB_MID) and arm_tip, eye_of.
+
+`python -I scene_engine.py --write-broom-cases` rewrites broom_cases.json (BroomFlightTest.pythonMirrorAgrees).
 
 Imports only the standard library, scene_common and human_motion (no generator), so any generator can import it.
 """
+import json
 import math
+import os
+import sys
 
-from scene_common import FREE
-import human_motion as HM
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from scene_common import FREE  # noqa: E402
+import human_motion as HM  # noqa: E402
 
 
 def clamp(v, lo, hi):
@@ -31,16 +42,151 @@ def ease_f(e, f):
 
 
 def sample_path(path, t):
-    """An emitted path's position at tick t (the engine's rule: hold the ends, ease per segment)."""
-    if t <= path[0]['t']:
-        return path[0]['pos']
-    for a, b in zip(path, path[1:]):
+    """An emitted path's position at tick t (the engine's rule: hold the ends, ease per segment, spline keys)."""
+    return track_sample(path, t)
+
+
+EASE_SLOPES = {'linear': (1, 1), 'in': (0, 3), 'out': (3, 0), 'in_out': (0, 0), 'spline': (1, 1)}   # Ease start/end
+
+
+def track_sample(keys, t, field='pos', lo=0, hi=None):
+    """Track.sample over keys[lo:hi] (all by default) at tick t: hold the ends; a segment takes the ease of the key
+    it ends at; a `spline` key's segment is CameraTrack's Hermite (inner velocity (h1*d0 + h0*d1)/(h0+h1), the eased
+    neighbour's own speed at a run end, natural first and last ends). None when the range has no keys."""
+    hi = len(keys) if hi is None else hi
+    if hi <= lo:
+        return None
+    if t <= keys[lo]['t']:
+        return keys[lo][field]
+    for i in range(lo + 1, hi):
+        a, b = keys[i - 1], keys[i]
         if t <= b['t']:
             if b['t'] == a['t']:
-                return b['pos']
+                return b[field]
+            if b.get('ease') == 'spline':
+                return _track_spline(keys, i, t, field, lo, hi)
             f = ease_f(b.get('ease', 'in_out'), (t - a['t']) / (b['t'] - a['t']))
-            return [a['pos'][k] + (b['pos'][k] - a['pos'][k]) * f for k in range(3)]
-    return path[-1]['pos']
+            return [a[field][k] + (b[field][k] - a[field][k]) * f for k in range(min(len(a[field]), len(b[field])))]
+    return keys[hi - 1][field]
+
+
+def _track_spline(keys, b, t, field, lo, hi):
+    def spl(i):
+        return lo < i < hi and keys[i].get('ease') == 'spline' and keys[i]['t'] > keys[i - 1]['t']
+
+    def mov(i):
+        return lo < i < hi and keys[i]['t'] > keys[i - 1]['t']
+
+    a = b - 1
+    ta, tb = keys[a]['t'], keys[b]['t']
+    dt = tb - ta
+    va, vb = keys[a][field], keys[b][field]
+    n = min(len(va), len(vb))
+    vp = keys[a - 1][field] if a - 1 >= lo else None
+    vn = keys[b + 1][field] if b + 1 < hi else None
+    tp = keys[a - 1]['t'] if a - 1 >= lo else 0
+    tn = keys[b + 1]['t'] if b + 1 < hi else 0
+    start = 0 if spl(a) else 1 if mov(a) else 2
+    end = 0 if spl(b + 1) else 1 if mov(b + 1) else 2
+    if vp is not None and len(vp) < n:
+        start = 2
+    if vn is not None and len(vn) < n:
+        end = 2
+    s_in = EASE_SLOPES[keys[a].get('ease', 'in_out')][1] if mov(a) else 0
+    s_out = EASE_SLOPES[keys[b + 1].get('ease', 'in_out')][0] if mov(b + 1) else 0
+    u = max(0.0, min(1.0, (t - ta) / dt))
+    u2, u3 = u * u, u * u * u
+    h00, h10, h01, h11 = 2 * u3 - 3 * u2 + 1, u3 - 2 * u2 + u, -2 * u3 + 3 * u2, u3 - u2
+
+    def tangent(p0, p1, p2, g0, g1):
+        return (g1 * (p1 - p0) / g0 + g0 * (p2 - p1) / g1) / (g0 + g1)
+
+    out = []
+    for c in range(n):
+        sec = (vb[c] - va[c]) / dt
+        ma = (tangent(vp[c], va[c], vb[c], ta - tp, dt) if start == 0
+              else s_in * (va[c] - vp[c]) / (ta - tp) if start == 1 else None)
+        mb = (tangent(va[c], vb[c], vn[c], dt, tn - tb) if end == 0
+              else s_out * (vn[c] - vb[c]) / (tn - tb) if end == 1 else None)
+        if ma is None and mb is None:
+            ma = mb = sec
+        elif ma is None:
+            ma = (3 * sec - mb) / 2
+        elif mb is None:
+            mb = (3 * sec - ma) / 2
+        out.append(h00 * va[c] + h10 * dt * ma + h01 * vb[c] + h11 * dt * mb)
+    return out
+
+
+INF = float('inf')
+
+
+def ride_of(a):
+    """(vehicle id, from, until) of an actor's `ride` (a string rides for the whole scene), or None."""
+    r = a.get('ride')
+    if r is None:
+        return None
+    if isinstance(r, str):
+        return r, -INF, INF
+    return r['on'], r.get('from', -INF), r.get('until', INF)
+
+
+def rides_at(a, t):
+    """Vehicle.ridesAt: in its ride window [from, until) at t."""
+    r = ride_of(a)
+    return r is not None and r[1] <= t < r[2]
+
+
+def window_part(a, t):
+    """Vehicle.window: the part [lo, hi) of the actor's ride window that t falls in (all time without one)."""
+    r = ride_of(a)
+    if r is None:
+        return -INF, INF
+    if t < r[1]:
+        return -INF, r[1]
+    if t >= r[2]:
+        return r[2], INF
+    return r[1], r[2]
+
+
+def own_sample(a, key, t, field=None):
+    """Vehicle.path / Vehicle.look: the actor's own `path` (or look vectors [yaw, pitch, roll]) at t from the keys
+    of the window part t is in; None when that part has no keys."""
+    if key == 'look':
+        keys = [{'t': k['t'], 'v': [k.get('yaw', 0.0), k.get('pitch', 0.0), k.get('roll', 0.0)],
+                 'ease': k.get('ease', 'in_out')} for k in a.get('look') or []]
+        field = 'v'
+    else:
+        keys = a.get(key) or []
+        field = field or 'pos'
+    if not keys:
+        return None
+    lo_t, hi_t = window_part(a, t)
+    if lo_t == -INF and hi_t == INF:
+        return track_sample(keys, t, field)
+    lo = 0
+    while lo < len(keys) and keys[lo]['t'] < lo_t:
+        lo += 1
+    hi = lo
+    while hi < len(keys) and keys[hi]['t'] < hi_t:
+        hi += 1
+    return track_sample(keys, t, field, lo, hi)
+
+
+class RiderFrame:
+    """The yaw slot of a posed part for a rider whose vehicle tilts it: the rider's body yaw and the tilt Q
+    (row-major 3x3) the renderer turns its whole model by about its root (MemoryActors.rideTilt)."""
+    def __init__(self, yaw, tilt):
+        self.yaw, self.tilt = yaw, tilt
+
+
+def model_to_world(root, yaw, scale, mx, my, mz):
+    """HumanMotion.modelToWorld, with the yaw slot either a number or a RiderFrame (root + Q * the yawed point)."""
+    if not isinstance(yaw, RiderFrame):
+        return HM.model_to_world(root, yaw, scale, mx, my, mz)
+    v = HM.model_to_world([0.0, 0.0, 0.0], yaw.yaw, scale, mx, my, mz)
+    q = yaw.tilt
+    return [root[i] + q[3 * i] * v[0] + q[3 * i + 1] * v[1] + q[3 * i + 2] * v[2] for i in range(3)]
 
 
 PASS = set(FREE) | {'minecraft:light', 'minecraft:cobweb', 'minecraft:rose_bush', 'minecraft:poppy',
@@ -218,17 +364,17 @@ def part_corners(root, yaw, scale, pivot, rot, box):
         for y in box[1]:
             for z in box[2]:
                 v = HM._turned(x, y, z, *[math.radians(c) for c in rot])
-                out.append(HM.model_to_world(root, yaw, scale, pivot[0] + v[0], pivot[1] + v[1], pivot[2] + v[2]))
+                out.append(model_to_world(root, yaw, scale, pivot[0] + v[0], pivot[1] + v[1], pivot[2] + v[2]))
     return out
 
 
 def inside_part(root, yaw, scale, pivot, rot, box, p, margin_px=0.0):
     """Whether world point p lies inside the part's box grown by margin_px."""
-    o = HM.model_to_world(root, yaw, scale, *pivot)
+    o = model_to_world(root, yaw, scale, *pivot)
     loc = []
     for e in ((1, 0, 0), (0, 1, 0), (0, 0, 1)):
         v = HM._turned(*e, *[math.radians(c) for c in rot])
-        w = HM.model_to_world(root, yaw, scale, pivot[0] + v[0], pivot[1] + v[1], pivot[2] + v[2])
+        w = model_to_world(root, yaw, scale, pivot[0] + v[0], pivot[1] + v[1], pivot[2] + v[2])
         a = [w[i] - o[i] for i in range(3)]
         loc.append(sum((p[i] - o[i]) * a[i] for i in range(3)) / sum(c * c for c in a))
     return all(box[i][0] - margin_px <= loc[i] <= box[i][1] + margin_px for i in range(3))
@@ -256,9 +402,6 @@ CROUCH_PIVOT = {'head': (0, 4.2, 0), 'body': (0, 3.2, 0), 'right_arm': (-5, 5.2,
 
 
 CROUCH_ROT = {'body': math.degrees(0.5), 'right_arm': math.degrees(0.4), 'left_arm': math.degrees(0.4)}
-
-
-EASE_SLOPES = {'linear': (1, 1), 'in': (0, 3), 'out': (3, 0), 'in_out': (0, 0), 'spline': (1, 1)}   # Ease start/end
 
 
 def _cam_spline(cam, i):
@@ -367,14 +510,23 @@ def _last_at(cues, t):
 
 
 def posed_parts(scene, a, t):
-    """A player actor's six parts at tick t from its emitted JSON: (part, root, yaw, scale, pivot px, rot deg).
+    """A player actor's six parts at tick t from its emitted JSON: (part, root, yaw, scale, pivot px, rot deg);
+    for a rider on a broom the yaw slot is a RiderFrame (_broom_rider_parts).
     Vanilla rest (or the crouch from a `sneak` until the next `stand`, with the held-item arm raise), the pose cue in force (absolute),
     the look pitch on the head, then the limbs (add or set). Life and clips are left out: a few px at most."""
+    if broom_rider_at(scene, a, t) is not None:
+        return _broom_rider_parts(scene, a, t)
     scale = a.get('scale', 1.0)
-    root = sample_path(a['path'], t)
-    yaw, pitch = _yaw_pitch(a, t)
-    if a.get('ride'):
-        boat = next(x for x in scene['actors'] if x['id'] == a['ride'])
+    if isinstance(a.get('ride'), dict):
+        # a ride window: the path and look are world space outside it, in the vehicle frame inside it
+        root = list(own_sample(a, 'path', t) or [0.0, 0.0, 0.0])
+        lk = own_sample(a, 'look', t)
+        yaw, pitch = (lk[0], lk[1]) if lk is not None else (0.0, 0.0)
+    else:
+        root = sample_path(a['path'], t)
+        yaw, pitch = _yaw_pitch(a, t)
+    if a.get('ride') and rides_at(a, t):
+        boat = next(x for x in scene['actors'] if x['id'] == ride_of(a)[0])
         bp = sample_path(boat['path'], t)
         by, _ = _yaw_pitch(boat, t)
         f, lft = fwd_vec(by), (math.cos(math.radians(by)), math.sin(math.radians(by)))
@@ -421,12 +573,12 @@ def EquipTimeline_item(a, slot, t):
 
 def box_distance(root, yaw, scale, pivot, rot, box, p):
     """Blocks from world point p to a posed part's box (0 inside it)."""
-    o = HM.model_to_world(root, yaw, scale, *pivot)
+    o = model_to_world(root, yaw, scale, *pivot)
     loc = []
     axes = []
     for e in ((1, 0, 0), (0, 1, 0), (0, 0, 1)):
         v = HM._turned(*e, *[math.radians(c) for c in rot])
-        w = HM.model_to_world(root, yaw, scale, pivot[0] + v[0], pivot[1] + v[1], pivot[2] + v[2])
+        w = model_to_world(root, yaw, scale, pivot[0] + v[0], pivot[1] + v[1], pivot[2] + v[2])
         ax = [w[i] - o[i] for i in range(3)]
         axes.append(ax)
         loc.append(sum((p[i] - o[i]) * ax[i] for i in range(3)) / sum(c * c for c in ax))
@@ -472,7 +624,11 @@ def engine_look(scene, cam, t):
         la = k.get('look_at')
         if isinstance(la, str):
             a_ = next(x for x in scene['actors'] if x['id'] == la[6:])
-            r = sample_path(a_['path'], t)
+            if is_broom(a_):                                                  # its eye is its origin, the seat
+                return broom_pose(scene, a_, t)['pos']
+            if broom_rider_at(scene, a_, t) is not None:
+                return rider_eye(scene, a_, t)
+            r = own_sample(a_, 'path', t) if isinstance(a_.get('ride'), dict) else sample_path(a_['path'], t)
             if a_.get('type', 'player') == 'hogwartsmagic:memory_rowboat':     # its entity eye: 0.85 of 0.8 high
                 return [r[0], r[1] + 0.68 * a_.get('scale', 1.0), r[2]]
             return [r[0], r[1] + actor_eye_height(a_, t), r[2]]
@@ -524,7 +680,7 @@ def box_surface(root, yaw, scale, pivot, rot, box, n=6):
                     q[u] = box[u][0] + (box[u][1] - box[u][0]) * fu
                     q[w] = box[w][0] + (box[w][1] - box[w][0]) * fw
                     v = HM._turned(*q, *[math.radians(c) for c in rot])
-                    out.append(HM.model_to_world(root, yaw, scale, pivot[0] + v[0], pivot[1] + v[1],
+                    out.append(model_to_world(root, yaw, scale, pivot[0] + v[0], pivot[1] + v[1],
                                                  pivot[2] + v[2]))
     return out
 
@@ -758,3 +914,459 @@ def check_spline_moves(sid, scene, problems):
                         ' most %d keys)' % (sid, cam[run[0] - 1]['t'], cam[run[-1]]['t'], len(run), '/'.join(eases),
                                           LONE_MOVE_KEYS))
     return len(runs)
+
+
+# ================================================================ hand contacts: the hand, the eye, the arm sway
+
+def arm_tip(root, yaw, scale, side, rot, pivot_px=None):
+    """World position of the hand (the arm box's far end) for an arm at absolute rot [x, y, z] degrees. `yaw` may
+    be a RiderFrame (a broom rider: the broom's tilt about the rider's root)."""
+    px = pivot_px or REST[side]
+    tip = (-1.0 if side == 'right_arm' else 1.0, 10.0, 0.0)
+    v = HM._turned(tip[0], tip[1], tip[2], math.radians(rot[0]), math.radians(rot[1]), math.radians(rot[2]))
+    return model_to_world(root, yaw, scale, px[0] + v[0], px[1] + v[1], px[2] + v[2])
+
+
+def eye_of(root, yaw, scale, head_pivot=(0, 0, 0), head_rot=(0, 0, 0), fwd=0.0):
+    """The eye point (4 px up the head on its front face), moved fwd blocks out along the face: for first-person
+    cameras (fwd about 0.25 at 0.75 keeps the camera clear of the head, which renders without culling). `yaw` may be
+    a RiderFrame."""
+    def at(z):
+        v = HM._turned(0.0, -4.0, z, math.radians(head_rot[0]), math.radians(head_rot[1]), math.radians(head_rot[2]))
+        return model_to_world(root, yaw, scale, head_pivot[0] + v[0], head_pivot[1] + v[1], head_pivot[2] + v[2])
+    e, f = at(-4.0), at(-5.0)
+    d = [f[i] - e[i] for i in range(3)]
+    n = math.sqrt(sum(c * c for c in d)) or 1.0
+    return [e[i] + d[i] / n * fwd for i in range(3)]
+
+
+# AnimationUtils.bobModelPart (HumanoidModel, every arm pose but the spyglass): zRot += cos(age * 0.09) * 0.05 +
+# 0.05 and xRot += sin(age * 0.067) * 0.05 on the right arm, after the held-item pose and the crouch and before the
+# scene's limbs. The puppet's age (MemoryActors: tickCount from its seed, then one a client tick) is not tied to the
+# scene clock, so the hand-over aims at the sway's middle and asserts the gap at its corners. (A broom rider's arms
+# are set by the rider layer, which replaces the sway along with the rest of the vanilla arm pose.)
+BOB_Z = (0.0, math.degrees(0.1))
+BOB_X = (-math.degrees(0.05), math.degrees(0.05))
+BOB_MID = (0.0, sum(BOB_Z) / 2)
+
+
+# ================================================================ memory brooms (BroomFlight, Vehicle)
+
+BROOM_TYPES = ('hogwartsmagic:memory_broom', 'hogwartsmagic:memory_broom_racing')
+ROWBOAT_TYPE = 'hogwartsmagic:memory_rowboat'
+BROOM_MAX_RIDERS = 2
+SEAT_TOP, SEAT_BACK = 0.06, 0.05
+BANK_GAIN, MAX_BANK, BANK_WINDOW, BANK_FADE_SPEED = 1000.0, 45.0, 3.0, 0.05
+MAX_CLIMB, CLIMB_FADE_SPEED = 70.0, 0.05
+BOB_AMPLITUDE, BOB_HZ, BOB_FADE_SPEED = 0.04, 0.9, 0.1
+LEAN_REST, LEAN_SPEED, LEAN_FULL_SPEED = 8.0, 22.0, 0.6
+TUCK_LEAN, TUCK_FROM, TUCK_TO = 40.0, 20.0, 40.0
+LEG_X, LEG_Y, ARM_X, ARM_Y = -70.0, 6.0, -65.0, -8.0
+RIDER_BLEND = 10.0
+FLY_SPEED, LAND_SPEED = 0.025, 0.0125          # Airborne: a ridden broom flies above, has landed under (hysteresis)
+# The broom models' bounds in the broom frame at scale 1 (BroomFlight.BOX_SCHOOL / BOX_RACING): min xyz, max xyz.
+BROOM_BOX = {'hogwartsmagic:memory_broom': ((-0.156, -0.381, -1.969), (0.156, 0.166, 1.678)),
+             'hogwartsmagic:memory_broom_racing': ((-0.344, -0.508, -1.744), (0.344, 0.368, 1.217))}
+MASK64 = (1 << 64) - 1
+
+
+def _smooth(x):
+    if x <= 0:
+        return 0.0
+    if x >= 1:
+        return 1.0
+    return x * x * (3 - 2 * x)
+
+
+def _mix64(z):
+    z = ((z ^ (z >> 30)) * 0xbf58476d1ce4e5b9) & MASK64
+    z = ((z ^ (z >> 27)) * 0x94d049bb133111eb) & MASK64
+    return z ^ (z >> 31)
+
+
+def motion_seed(actor_id):
+    """HumanMotion.seed: FNV-1a over the id's UTF-16 units, then a splitmix finaliser (as an unsigned 64-bit int)."""
+    h = 0xcbf29ce484222325
+    data = actor_id.encode('utf-16-be')
+    for i in range(0, len(data), 2):
+        h ^= (data[i] << 8) | data[i + 1]
+        h = (h * 0x100000001b3) & MASK64
+    return _mix64(h)
+
+
+def is_broom(a):
+    return a is not None and a.get('type') in BROOM_TYPES
+
+
+def actor_by_id(scene, aid):
+    found = None
+    for x in scene['actors']:
+        if x['id'] == aid:
+            found = x
+    return found
+
+
+def vehicle_of(scene, rider):
+    r = ride_of(rider)
+    if r is None:
+        return None
+    v = actor_by_id(scene, r[0])
+    return v if v is not None and (v.get('type') in BROOM_TYPES or v.get('type') == ROWBOAT_TYPE) else None
+
+
+def path_speed(keys, t):
+    """Airborne.speed: blocks per tick, 3D, over [t - 1, t + 1]; 0 with fewer than two keys."""
+    if not keys or len(keys) < 2:
+        return 0.0
+    a, b = track_sample(keys, t - 1), track_sample(keys, t + 1)
+    return math.sqrt(sum((b[c] - a[c]) ** 2 for c in range(3))) / 2.0
+
+
+def broom_bank(keys, t):
+    """BroomFlight.bank: degrees, right side down positive (a right turn, yaw increasing, banks right side down)."""
+    if not keys or len(keys) < 2:
+        return 0.0
+    w = BANK_WINDOW
+    a, b, c = track_sample(keys, t - w), track_sample(keys, t), track_sample(keys, t + w)
+    vx, vz = (c[0] - a[0]) / (2 * w), (c[2] - a[2]) / (2 * w)
+    ax, az = (c[0] - 2.0 * b[0] + a[0]) / (w * w), (c[2] - 2.0 * b[2] + a[2]) / (w * w)
+    v = math.sqrt(vx * vx + vz * vz)
+    cross = vx * az - vz * ax
+    side = cross / v if v >= BANK_FADE_SPEED else cross / BANK_FADE_SPEED
+    return MAX_BANK * math.tanh(BANK_GAIN * side / MAX_BANK)
+
+
+def broom_climb(keys, t):
+    """BroomFlight.climb: the climb angle as a nose-down pitch, clamped to 70, faded to level when slow."""
+    if not keys or len(keys) < 2:
+        return 0.0
+    a, b = track_sample(keys, t - 1), track_sample(keys, t + 1)
+    vx, vy, vz = (b[0] - a[0]) / 2, (b[1] - a[1]) / 2, (b[2] - a[2]) / 2
+    h = math.sqrt(vx * vx + vz * vz)
+    s = math.sqrt(h * h + vy * vy)
+    if s == 0:
+        return 0.0
+    ang = -math.degrees(math.atan2(vy, h))
+    return max(-MAX_CLIMB, min(MAX_CLIMB, ang)) * _smooth(s / CLIMB_FADE_SPEED)
+
+
+def broom_heading(keys, t):
+    """BroomFlight.heading: the Minecraft yaw the path heads, the last (or first) one while it holds."""
+    if not keys:
+        return 0.0
+    a, b = track_sample(keys, t - 2), track_sample(keys, t + 2)
+    dx, dz = b[0] - a[0], b[2] - a[2]
+    if dx * dx + dz * dz < 1e-6:
+        dt = 10
+        while dt <= 400:
+            c, d = track_sample(keys, t - dt), track_sample(keys, t + dt)
+            dx, dz = d[0] - c[0], d[2] - c[2]
+            if dx * dx + dz * dz > 1e-6:
+                break
+            dt += 10
+        if dx * dx + dz * dz < 1e-6:
+            return 0.0
+    return math.degrees(math.atan2(-dx, dz))
+
+
+def hover_bob(speed, t, seed):
+    """BroomFlight.hoverBob: blocks added to a ridden broom's height, 0.04 at 0.9 Hz, gone by 0.1 blocks a tick."""
+    fade = 1 - _smooth(speed / BOB_FADE_SPEED)
+    if fade <= 0:
+        return 0.0
+    phase = (seed >> 11) * 2.0 ** -53
+    return BOB_AMPLITUDE * fade * math.sin(2 * math.pi * (BOB_HZ * t / 20.0 + phase))
+
+
+def broom_matrix(yaw, pitch, roll):
+    """BroomFlight.frame: M = Yaw * Pitch * Roll row-major; pitch nose down positive, roll right side down positive."""
+    y, p, r = math.radians(yaw), math.radians(-pitch), math.radians(roll)
+    cy, sy, cp, sp, cr, sr = math.cos(y), math.sin(y), math.cos(p), math.sin(p), math.cos(r), math.sin(r)
+    return _mat_mul(_mat_mul([cy, 0, -sy, 0, 1, 0, sy, 0, cy], [1, 0, 0, 0, cp, sp, 0, -sp, cp]),
+                    [cr, -sr, 0, sr, cr, 0, 0, 0, 1])
+
+
+def _mat_mul(a, b):
+    return [a[r * 3] * b[c] + a[r * 3 + 1] * b[3 + c] + a[r * 3 + 2] * b[6 + c] for r in range(3) for c in range(3)]
+
+
+def _mat_vec(m, v):
+    return [m[3 * i] * v[0] + m[3 * i + 1] * v[1] + m[3 * i + 2] * v[2] for i in range(3)]
+
+
+def _transpose(m):
+    return [m[0], m[3], m[6], m[1], m[4], m[7], m[2], m[5], m[8]]
+
+
+def broom_ridden(scene, broom_id, t):
+    """BroomFlight.ridden: how much the broom is ridden at t, the largest rider weight (0 with no rider)."""
+    w = 0.0
+    for x in scene['actors']:
+        r = ride_of(x)
+        if r and r[0] == broom_id and rides_at(x, t):
+            w = max(w, rider_weight(r[1], r[2], t))
+    return w
+
+
+def broom_pose(scene, broom, t):
+    """BroomFlight.place: {'pos' (the bob included), 'yaw', 'pitch', 'roll', 'm', 'speed'}."""
+    keys = broom.get('path') or []
+    p = list(track_sample(keys, t)) if keys else [0.0, 0.0, 0.0]
+    speed = path_speed(keys, t)
+    look = broom.get('look')
+    if look:
+        v = own_sample(broom, 'look', t)
+        yaw, pitch = v[0], v[1]
+        roll = v[2] if any('roll' in k for k in look) else broom_bank(keys, t)
+    else:
+        yaw, pitch, roll = broom_heading(keys, t), broom_climb(keys, t), broom_bank(keys, t)
+    w = broom_ridden(scene, broom['id'], t)
+    if w > 0:
+        p[1] += hover_bob(speed, t, motion_seed(broom['id'])) * w
+    return {'pos': p, 'yaw': yaw, 'pitch': pitch, 'roll': roll, 'm': broom_matrix(yaw, pitch, roll), 'speed': speed}
+
+
+def broom_frame(scene, broom_id, t):
+    """(pos, yaw, pitch, roll) of broom `broom_id` at tick t, as MemoryActors places it."""
+    b = broom_pose(scene, actor_by_id(scene, broom_id), t)
+    return b['pos'], b['yaw'], b['pitch'], b['roll']
+
+
+def broom_box(btype, scale=1.0):
+    """The broom model's bounds in its own frame, ((min x, y, z), (max x, y, z)), times scale."""
+    lo, hi = BROOM_BOX[btype]
+    return tuple(c * scale for c in lo), tuple(c * scale for c in hi)
+
+
+def broom_corners(scene, broom, t):
+    """World corners of a broom's model box at tick t."""
+    b = broom_pose(scene, broom, t)
+    lo, hi = broom_box(broom['type'], broom.get('scale', 1.0))
+    out = []
+    for x in (lo[0], hi[0]):
+        for y in (lo[1], hi[1]):
+            for z in (lo[2], hi[2]):
+                v = _mat_vec(b['m'], [x, y, z])
+                out.append([b['pos'][i] + v[i] for i in range(3)])
+    return out
+
+
+def broom_lowest(scene, broom_id, t):
+    """BroomFlight.lowest: the lowest world y of the broom's model box at tick t."""
+    return min(c[1] for c in broom_corners(scene, actor_by_id(scene, broom_id), t))
+
+
+def rider_seat(rider_scale):
+    """BroomFlight.seat: the rest offset in the broom frame, hips over the seat point, thighs on the seat top."""
+    return [0.0, HM.seated_root_y(SEAT_TOP, rider_scale), -SEAT_BACK]
+
+
+def rider_lean(speed, pitch):
+    """BroomFlight.lean: 8 + 22 x clamp(speed/0.6), eased to 40 in a dive between pitch 20 and 40."""
+    base = LEAN_REST + LEAN_SPEED * max(0.0, min(1.0, speed / LEAN_FULL_SPEED))
+    return base + (TUCK_LEAN - base) * _smooth((pitch - TUCK_FROM) / (TUCK_TO - TUCK_FROM))
+
+
+def rider_pose(speed, pitch):
+    """BroomFlight.riderPose: [head, body, right arm, left arm, right leg, left leg] rotations, degrees."""
+    l = rider_lean(speed, pitch)
+    return [[-l, 0.0, 0.0], [l, 0.0, 0.0], [ARM_X, ARM_Y, 0.0], [ARM_X, -ARM_Y, 0.0], [LEG_X, LEG_Y, 0.0],
+            [LEG_X, -LEG_Y, 0.0]]
+
+
+def rider_weight(frm, until, t):
+    """BroomFlight.riderWeight: the rider layer eased in over 10 ticks from `from` and out over 10 before `until`."""
+    i = 1.0 if frm == -INF else _smooth((t - frm) / RIDER_BLEND)
+    o = 1.0 if until == INF else _smooth((until - t) / RIDER_BLEND)
+    return i * o
+
+
+def broom_rider_at(scene, a, t):
+    """The broom `a` rides at tick t, or None."""
+    if not rides_at(a, t):
+        return None
+    v = vehicle_of(scene, a)
+    return v if is_broom(v) else None
+
+
+def rider_root(scene, rider, t):
+    """(root, M): a broom rider's root at tick t (broom + M x its offset in the broom frame, the seat when the window
+    has no path keys) and the broom's M; for anyone not on a broom then, its own path in world space and None."""
+    v = broom_rider_at(scene, rider, t)
+    if v is None:
+        p = own_sample(rider, 'path', t)
+        return (list(p) if p is not None else [0.0, 0.0, 0.0]), None
+    b = broom_pose(scene, v, t)
+    off = own_sample(rider, 'path', t)
+    if off is None:
+        off = rider_seat(rider.get('scale', 1.0))
+    s = v.get('scale', 1.0)
+    w = _mat_vec(b['m'], [off[0] * s, off[1] * s, off[2] * s])
+    return [b['pos'][i] + w[i] for i in range(3)], b['m']
+
+
+def rider_frame(scene, rider, t):
+    """(root, RiderFrame, broom pose, look pitch) of a broom rider at tick t, or None when not on a broom then."""
+    v = broom_rider_at(scene, rider, t)
+    if v is None:
+        return None
+    root, m = rider_root(scene, rider, t)
+    b = broom_pose(scene, v, t)
+    lk = own_sample(rider, 'look', t)
+    ly, lp = (lk[0], lk[1]) if lk is not None else (0.0, 0.0)
+    tilt = _mat_mul(m, _transpose(broom_matrix(b['yaw'], 0.0, 0.0)))
+    return root, RiderFrame(b['yaw'] + ly, tilt), b, lp
+
+
+def rider_eye(scene, rider, t):
+    """MemoryActors.actorEye for a broom rider: root + Q x (0, eye height, 0)."""
+    root, fr, _, _ = rider_frame(scene, rider, t)
+    v = _mat_vec(fr.tilt, [0.0, actor_eye_height(rider, t), 0.0])
+    return [root[i] + v[i] for i in range(3)]
+
+
+def _broom_rider_parts(scene, a, t):
+    """posed_parts for a rider on a broom: the vanilla rest (and the held-item raise), the look pitch on the head,
+    then the rider layer at its window weight (BroomFlight.riderLayer: body, arms and legs toward rider_pose, the
+    head lifted, the lean turning the torso about the hips), the pose cue, the limbs; all in the broom's frame."""
+    scale = a.get('scale', 1.0)
+    root, fr, b, pitch = rider_frame(scene, a, t)
+    r = ride_of(a)
+    w = rider_weight(r[1], r[2], t)
+    pose_r = rider_pose(b['speed'], b['pitch'])
+    lean = pose_r[1][0]
+    ang = math.radians(lean)
+    neck = HM._turned(0.0, -12.0, 0.0, ang, 0.0, 0.0)
+    held = EquipTimeline_item(a, 'mainhand', t)
+    pose = _last_at(a.get('poses', []), t)
+    pz = scene.get('poses', {}).get(pose['name'], {}) if pose else {}
+    out = []
+    for i, part in enumerate(PART_BOX):
+        piv = list(REST[part])
+        rot = [0.0, 0.0, 0.0]
+        if part == 'right_arm' and held:
+            rot[0] += ITEM_ARM_X
+        if part == 'head':
+            rot[0] += pitch
+            rot[0] += pose_r[0][0] * w
+        else:
+            tgt = [0.0, 0.0, 0.0] if part == 'body' else pose_r[i]
+            rot = [rot[c] + (tgt[c] - rot[c]) * w for c in range(3)]
+        if part == 'body':
+            rot[0] += lean * w
+        if part in ('head', 'body'):
+            piv = [piv[0] + neck[0] * w, piv[1] + (neck[1] + 12.0) * w, piv[2] + neck[2] * w]
+        elif part in ('right_arm', 'left_arm'):
+            x = -5.0 if part == 'right_arm' else 5.0
+            sh = HM._turned(x, -10.0, 0.0, ang, 0.0, 0.0)
+            piv = [piv[0] + (sh[0] - x) * w, piv[1] + (sh[1] + 10.0) * w, piv[2] + sh[2] * w]
+        if part in pz:
+            rot = list(pz[part])
+        piv, rot = emitted_arm(a, part, t, piv, rot)
+        out.append((part, root, fr, scale, piv, rot))
+    return out
+
+
+# ================================================================ the parity cases (BroomFlightTest.pythonMirrorAgrees)
+
+BROOM_CASES = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'broom_cases.json')
+
+
+def _case_scenes():
+    def rider(extra=None, scale=0.75):
+        a = {'id': 'r', 'type': 'player', 'scale': scale, 'ride': 'b'}
+        a.update(extra or {})
+        return a
+
+    def broom(path, look=None, btype='hogwartsmagic:memory_broom'):
+        b = {'id': 'b', 'type': btype, 'path': path}
+        if look:
+            b['look'] = look
+        return b
+
+    circle = []
+    for i in range(13):
+        th = i * math.pi / 6
+        circle.append({'t': i * 10, 'pos': [round(10 * math.sin(th), 4), 6.0, round(-10 * math.cos(th) + 10, 4)],
+                       'ease': 'spline'})
+    circle[0].pop('ease')
+    climb = [{'t': 0, 'pos': [0.0, 2.0, 0.0]}, {'t': 20, 'pos': [0.0, 2.5, 6.0], 'ease': 'spline'},
+             {'t': 40, 'pos': [0.0, 6.0, 14.0], 'ease': 'spline'}, {'t': 60, 'pos': [0.0, 12.0, 20.0], 'ease': 'spline'},
+             {'t': 80, 'pos': [0.0, 14.0, 26.0], 'ease': 'in_out'}]
+    dive = [{'t': 0, 'pos': [0.0, 30.0, 0.0]}, {'t': 20, 'pos': [0.0, 30.0, 10.0], 'ease': 'spline'},
+            {'t': 40, 'pos': [0.0, 18.0, 18.0], 'ease': 'spline'}, {'t': 60, 'pos': [0.0, 5.0, 24.0], 'ease': 'spline'},
+            {'t': 80, 'pos': [0.0, 2.0, 34.0], 'ease': 'spline'}, {'t': 100, 'pos': [0.0, 3.0, 46.0], 'ease': 'spline'}]
+    seat = rider_seat(0.75)
+    mount_root = [2.0, 0.0, 0.0]
+    mount_broom = [mount_root[i] - seat[i] for i in range(3)]        # yaw, pitch and roll 0: M is the identity
+    return {
+        'straight': {'length': 100, 'actors': [
+            broom([{'t': 0, 'pos': [0.0, 5.0, 0.0]}, {'t': 60, 'pos': [30.0, 5.0, 0.0], 'ease': 'linear'}]),
+            rider()]},
+        'turning': {'length': 140, 'actors': [broom(circle), rider({'look': [{'t': 0, 'yaw': 10, 'pitch': 5}]})]},
+        'climbing': {'length': 100, 'actors': [broom(climb, btype='hogwartsmagic:memory_broom_racing'),
+                                               rider(scale=0.85)]},
+        'diving': {'length': 120, 'actors': [broom(dive), rider()]},
+        'hovering': {'length': 100, 'actors': [
+            broom([{'t': 0, 'pos': [1.0, 3.0, -2.0]}], [{'t': 0, 'yaw': 30}, {'t': 60, 'yaw': 75, 'ease': 'spline'}]),
+            rider({'path': [{'t': 0, 'pos': [0.0, -0.3, 0.1]}]}, scale=1.0)]},
+        'mount': {'length': 200, 'actors': [
+            broom([{'t': 0, 'pos': mount_broom}, {'t': 40, 'pos': mount_broom},
+                   {'t': 70, 'pos': [mount_broom[0], mount_broom[1] + 2.0, mount_broom[2] + 3.0], 'ease': 'spline'},
+                   {'t': 110, 'pos': [mount_broom[0], mount_broom[1] + 3.0, mount_broom[2] + 12.0], 'ease': 'spline'},
+                   {'t': 140, 'pos': [mount_broom[0], mount_broom[1], mount_broom[2] + 16.0], 'ease': 'in_out'}],
+                  [{'t': 0, 'yaw': 0, 'pitch': 0, 'roll': 0}, {'t': 40, 'yaw': 0, 'pitch': 0, 'roll': 0},
+                   {'t': 90, 'yaw': 10, 'pitch': -15, 'roll': 12, 'ease': 'spline'},
+                   {'t': 140, 'yaw': 0, 'pitch': 0, 'roll': 0, 'ease': 'in_out'}]),
+            {'id': 'r', 'type': 'player', 'scale': 0.75, 'ride': {'on': 'b', 'from': 40, 'until': 150},
+             'path': [{'t': 0, 'pos': [-3.0, 0.0, 0.0]}, {'t': 30, 'pos': mount_root, 'ease': 'in_out'},
+                      {'t': 39.999, 'pos': mount_root}, {'t': 40, 'pos': seat},
+                      {'t': 149.999, 'pos': seat}, {'t': 150, 'pos': [2.0, 0.0, 16.0]},
+                      {'t': 170, 'pos': [4.0, 0.0, 19.0], 'ease': 'in_out'}],
+             'look': [{'t': 0, 'yaw': -90}, {'t': 39.999, 'yaw': 0}, {'t': 40, 'yaw': 0},
+                      {'t': 149.999, 'yaw': 0}, {'t': 150, 'yaw': 0}]}]},
+    }
+
+
+CASE_TIMES = {'straight': [0, 10.25, 30, 59.5, 61, 80, 99.75], 'turning': [5, 15.5, 33, 47.25, 60, 88.75, 121],
+              'climbing': [1, 12.5, 25, 38.75, 50, 66, 79], 'diving': [10, 24.5, 33.25, 46, 55.5, 70, 88.75],
+              'hovering': [0, 17.5, 40.25, 62, 91, 99.5],
+              'mount': [20, 39.5, 45.25, 75.5, 120, 155]}
+
+
+def broom_cases():
+    """Every case: the broom's pose, its bank, and the rider's root, M (None off the broom), pose and weight."""
+    scenes = _case_scenes()
+    cases = []
+    for name, times in CASE_TIMES.items():
+        sc = scenes[name]
+        b = actor_by_id(sc, 'b')
+        r = actor_by_id(sc, 'r')
+        for t in times:
+            bp = broom_pose(sc, b, t)
+            root, m = rider_root(sc, r, t)
+            c = {'scene': name, 't': t, 'pos': bp['pos'], 'yaw': bp['yaw'], 'pitch': bp['pitch'], 'roll': bp['roll'],
+                 'speed': bp['speed'], 'bank': broom_bank(b['path'], t), 'climb': broom_climb(b['path'], t),
+                 'heading': broom_heading(b['path'], t), 'rider_root': root, 'rider_m': m,
+                 'rider_pose': rider_pose(bp['speed'], bp['pitch']),
+                 'rider_weight': rider_weight(*ride_of(r)[1:], t) if rides_at(r, t) else None,
+                 'seed_bob': hover_bob(0.0, t, motion_seed('b'))}
+            cases.append(c)
+    return {'constants': {'SEAT_TOP': SEAT_TOP, 'SEAT_BACK': SEAT_BACK, 'BANK_GAIN': BANK_GAIN, 'MAX_BANK': MAX_BANK,
+                          'BANK_WINDOW': BANK_WINDOW, 'BOB_AMPLITUDE': BOB_AMPLITUDE, 'BOB_HZ': BOB_HZ,
+                          'RIDER_BLEND': RIDER_BLEND, 'BOX_SCHOOL': BROOM_BOX['hogwartsmagic:memory_broom'],
+                          'BOX_RACING': BROOM_BOX['hogwartsmagic:memory_broom_racing']},
+            'scenes': scenes, 'cases': cases}
+
+
+def write_broom_cases():
+    data = broom_cases()
+    with open(BROOM_CASES, 'w', newline='\n', encoding='utf-8') as f:
+        f.write(json.dumps(data, indent=1, sort_keys=True) + '\n')
+    print('wrote', BROOM_CASES, len(data['cases']), 'cases')
+
+
+if __name__ == '__main__':
+    import sys
+    if '--write-broom-cases' in sys.argv:
+        write_broom_cases()

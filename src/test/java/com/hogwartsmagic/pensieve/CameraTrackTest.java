@@ -242,10 +242,13 @@ class CameraTrackTest {
     }
 
     @Test
-    void splineIsForCameraKeysOnly() {
-        assertThrows(SceneException.class, () -> SceneParser.parse("t", JsonParser.parseString("""
+    void splineIsForCameraKeysAndActorPathsNotLimbs() throws Exception {
+        SceneParser.parse("t", JsonParser.parseString("""
                 {"length":40,"actors":[{"id":"a","type":"player",
-                  "path":[{"t":0,"pos":[0,0,0]},{"t":20,"pos":[1,0,0],"ease":"spline"}]}]}""").getAsJsonObject()));
+                  "path":[{"t":0,"pos":[0,0,0]},{"t":20,"pos":[1,0,0],"ease":"spline"}]}]}""").getAsJsonObject());
+        assertThrows(SceneException.class, () -> SceneParser.parse("t", JsonParser.parseString("""
+                {"length":40,"actors":[{"id":"a","type":"player","limbs":{"head":
+                  {"rot":[{"t":0,"v":[0,0,0]},{"t":20,"v":[1,0,0],"ease":"spline"}]}}}]}""").getAsJsonObject()));
     }
 }
 

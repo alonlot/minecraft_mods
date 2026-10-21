@@ -92,10 +92,10 @@ class MemoryBlockSceneTest {
     }
 
     @Test
-    void rollIsOnlyForTheBlockActor() throws Exception {
+    void rollIsOnlyForTheBlockActorAndBrooms() throws Exception {
         List<String> m = validate(actor("\"type\":\"player\",\"look\":[{\"t\":0,\"yaw\":0,\"roll\":20}]"));
         assertEquals(1, m.size(), m.toString());
-        assertTrue(m.get(0).contains("roll is only for hogwartsmagic:memory_block"), m.get(0));
+        assertTrue(m.get(0).contains("roll is only for [hogwartsmagic:memory_block, hogwartsmagic:memory_broom"), m.get(0));
     }
 
     @Test

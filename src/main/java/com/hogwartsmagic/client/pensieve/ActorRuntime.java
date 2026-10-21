@@ -36,8 +36,18 @@ public final class ActorRuntime {
     float bodyYaw;
     float headYaw;
 
-    /** A rider ({@code ride}): the boat's pitch, roll and yaw it rocks with, this tick and the last (degrees). */
+    /** A rider ({@code ride}): the vehicle's pitch, roll and yaw it rocks with, this tick and the last (degrees). */
     float ridePitch, rideRoll, rideYaw, ridePitchO, rideRollO, rideYawO;
+    /** On a broom this tick and the last; whether that broom flies (the owls' hysteresis rule, BroomFlight.flying). */
+    boolean rideBroom, rideBroomO, broomFlying;
+    /** The life layer's seat while on a broom, 0 standing (landed) to 1 seated (flying), eased; this tick and the last. */
+    float riderSeat, riderSeatO;
+    /** Set by ActorPoser for the frame being drawn: the broom seat at frame time, or null when not on a broom. */
+    com.hogwartsmagic.pensieve.scene.Vehicle.Seat broomSeat;
+    /** The partial tick of the frame being drawn (set with {@link #broomSeat}). */
+    float framePartial;
+    /** Per part: the life gain while on a broom (arms on the handle and legs astride it get none). */
+    final float[] riderGain = new float[HumanMotion.PARTS];
 
     boolean visible = true;
     boolean stone;
@@ -115,6 +125,7 @@ public final class ActorRuntime {
         for (int p = 0; p < HumanMotion.PARTS; p++) {
             PartTrack limb = limbTrack(def, HumanMotion.PART_NAMES.get(p));
             lifeGain[p] = limb == null ? 1f : limb.set() ? 0f : 0.35f;
+            riderGain[p] = p >= HumanMotion.RIGHT_ARM ? 0f : lifeGain[p];
         }
     }
 
@@ -131,7 +142,11 @@ public final class ActorRuntime {
     }
 
     HumanMotion.Odometer odometer() {
-        if (odometer == null) odometer = new HumanMotion.Odometer(def.path(), def.scale());
+        if (odometer == null) {
+            boolean windowed = def.ride() != null && !(Float.isInfinite(def.rideFrom()) && Float.isInfinite(def.rideUntil()));
+            odometer = windowed ? new HumanMotion.Odometer(def.path(), def.scale(), def.rideFrom(), def.rideUntil())
+                    : new HumanMotion.Odometer(def.path(), def.scale());
+        }
         return odometer;
     }
 

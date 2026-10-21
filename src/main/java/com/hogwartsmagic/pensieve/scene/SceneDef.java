@@ -56,13 +56,24 @@ public record SceneDef(String id, String title, int length, int radius, SetDef s
      * {@code type} is an entity id or "player"; {@code look} values are [yaw, pitch], or [yaw, pitch, roll] when any
      * key gives a roll. {@code life} (players only, default true) turns on the procedural life layer of
      * {@link HumanMotion}. {@code block} is the block state a {@code memory_block} actor shows (null otherwise).
-     * {@code ride} is the id of a {@code memory_rowboat} actor this one sits in (null otherwise): its {@code path} is
-     * then an offset in the boat's frame and its look yaw is relative to the boat's (see {@link Rowboat}).
+     * {@code ride} is the id of a vehicle actor ({@link Vehicle}: a {@code memory_rowboat} or a memory broom) this one
+     * rides (null otherwise), from {@code rideFrom} until (not including) {@code rideUntil} (infinite when the scene
+     * gave no window): inside the window its {@code path} is an offset in the vehicle's frame and its look yaw is
+     * relative to the vehicle's (see {@link Rowboat}, {@link BroomFlight}); outside it both are world space.
      */
     public record ActorDef(String id, String type, SkinRef skin, String name, Map<String, String> items,
                            Track path, Track look, Map<String, PartTrack> limbs, List<Cue> poses,
                            List<Cue> anims, List<ActionCue> actions, float scale, boolean life, String block,
-                           String ride) {
+                           String ride, float rideFrom, float rideUntil) {
+        /** An actor that rides {@code ride} for the whole scene (no window). */
+        public ActorDef(String id, String type, SkinRef skin, String name, Map<String, String> items,
+                        Track path, Track look, Map<String, PartTrack> limbs, List<Cue> poses,
+                        List<Cue> anims, List<ActionCue> actions, float scale, boolean life, String block,
+                        String ride) {
+            this(id, type, skin, name, items, path, look, limbs, poses, anims, actions, scale, life, block, ride,
+                    Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY);
+        }
+
         /** An actor that rides nothing. */
         public ActorDef(String id, String type, SkinRef skin, String name, Map<String, String> items,
                         Track path, Track look, Map<String, PartTrack> limbs, List<Cue> poses,

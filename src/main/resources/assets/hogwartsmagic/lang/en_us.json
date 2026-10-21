@@ -110,6 +110,8 @@
   "entity.hogwartsmagic.memory_door_mirrored": "Memory Door (Mirrored)",
   "entity.hogwartsmagic.memory_letter": "Memory Letter",
   "entity.hogwartsmagic.memory_rowboat": "Memory Rowing Boat",
+  "entity.hogwartsmagic.memory_broom": "Memory Broom",
+  "entity.hogwartsmagic.memory_broom_racing": "Memory Racing Broom",
   "item.hogwartsmagic.student_spawn_egg": "Student Spawn Egg",
   "entity.hogwartsmagic.student": "Hogwarts Student",
   "item.hogwartsmagic.dementor_spawn_egg": "Dementor Spawn Egg",

@@ -116,6 +116,21 @@ public class ModEntities {
                             .clientTrackingRange(10)
                             .build("memory_rowboat"));
 
+    /** The memory brooms, the school broom and the racing Nimbus, that riders sit on: see BroomFlight. */
+    public static final RegistryObject<EntityType<MemoryBroomEntity>> MEMORY_BROOM =
+            ENTITY_TYPES.register("memory_broom", () -> memoryBroom("memory_broom"));
+    public static final RegistryObject<EntityType<MemoryBroomEntity>> MEMORY_BROOM_RACING =
+            ENTITY_TYPES.register("memory_broom_racing", () -> memoryBroom("memory_broom_racing"));
+
+    /** A memory broom type: its eye is its origin, the seat point, so a camera looking at it aims at the seat. */
+    private static EntityType<MemoryBroomEntity> memoryBroom(String id) {
+        return EntityType.Builder.<MemoryBroomEntity>of(MemoryBroomEntity::new, MobCategory.MISC)
+                .sized(0.5f, 0.3f)
+                .eyeHeight(0f)
+                .clientTrackingRange(10)
+                .build(id);
+    }
+
     /** Hanging cloth banners, one type per design (the design picks the texture): see BannerCloth. */
     public static final RegistryObject<EntityType<MemoryBannerEntity>> MEMORY_BANNER_GRYFFINDOR =
             ENTITY_TYPES.register("memory_banner_gryffindor", () -> banner("memory_banner_gryffindor"));

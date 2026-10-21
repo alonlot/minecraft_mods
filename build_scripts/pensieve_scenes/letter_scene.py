@@ -115,8 +115,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from scene_common import write_scene, FREE, MEMORIES  # noqa: E402
 from wand_scene import tk, r3, yaw_to, lerp, samples_fast, Life, Clips, Mover, pose, act  # noqa: E402
-from scene_engine import (CAM_CLEAR, CROUCH_PIVOT, EquipTimeline_item, HAND_BOX, HEAD_BOX, ITEM_ARM_X,  # noqa: E402
-                          ITEM_STEP_EPS, PART_BOX, REST, _cam_spline, bid_of, box_distance, cell, clamp, ease_f,
+from scene_engine import (BOB_MID, BOB_X, BOB_Z, CAM_CLEAR, CROUCH_PIVOT, EquipTimeline_item, HAND_BOX,  # noqa: E402
+                          HEAD_BOX, ITEM_ARM_X, ITEM_STEP_EPS, PART_BOX, REST, _cam_spline, arm_tip, bid_of,
+                          box_distance, cell, clamp, ease_f, eye_of,
                           check_camera_clearance, check_camera_smoothness, emitted_arm, engine_cam, engine_look,
                           fwd_vec, in_air, in_view, inside_part, item_raise_steps, life_arm_corners, part_corners,
                           posed_parts, rekey, sample_path, shape_hit, turn_between, view_angle)
@@ -262,28 +263,6 @@ def on_arc(keys):
 def lerp_pose(p, q, f):
     return {k: ([p[k][0][i] + (q[k][0][i] - p[k][0][i]) * f for i in range(3)],
                 [p[k][1][i] + (q[k][1][i] - p[k][1][i]) * f for i in range(3)]) for k in p}
-
-
-def arm_tip(root, yaw, scale, side, rot, pivot_px=None):
-    """World position of the hand (the arm box's far end) for an arm at absolute rot [x, y, z] degrees."""
-    px = pivot_px or REST[side]
-    tip = (-1.0 if side == 'right_arm' else 1.0, 10.0, 0.0)
-    v = HM._turned(tip[0], tip[1], tip[2], math.radians(rot[0]), math.radians(rot[1]), math.radians(rot[2]))
-    return HM.model_to_world(root, yaw, scale, px[0] + v[0], px[1] + v[1], px[2] + v[2])
-
-
-def eye_of(root, yaw, scale, head_pivot=(0, 0, 0), head_rot=(0, 0, 0), fwd=0.0):
-    """The eye point (4 px up the head on its front face), moved fwd blocks out along the face: for first-person
-    cameras (fwd about 0.25 at 0.75 keeps the camera clear of the head, which renders without culling)."""
-    def at(z):
-        v = HM._turned(0.0, -4.0, z, math.radians(head_rot[0]), math.radians(head_rot[1]), math.radians(head_rot[2]))
-        return HM.model_to_world(root, yaw, scale, head_pivot[0] + v[0], head_pivot[1] + v[1], head_pivot[2] + v[2])
-    e, f = at(-4.0), at(-5.0)
-    d = [f[i] - e[i] for i in range(3)]
-    n = math.sqrt(sum(c * c for c in d)) or 1.0
-    return [e[i] + d[i] / n * fwd for i in range(3)]
-
-
 
 
 def ahead(p, yaw, d, side=0.0, y=None):
@@ -2248,13 +2227,7 @@ def hagrid_hand(root, yaw, arm_add, crouch=True, holding=True):
     return arm_tip(root, yaw, GIANT, 'right_arm', [x, arm_add[1], arm_add[2]])
 
 
-# AnimationUtils.bobModelPart (HumanoidModel, every arm pose but the spyglass): zRot += cos(age * 0.09) * 0.05 +
-# 0.05 and xRot += sin(age * 0.067) * 0.05 on the right arm, after the held-item pose and the crouch and before the
-# scene's limbs. The puppet's age (MemoryActors: tickCount from its seed, then one a client tick) is not tied to the
-# scene clock, so the hand-over aims at the sway's middle and asserts the gap at its corners.
-BOB_Z = (0.0, math.degrees(0.1))
-BOB_X = (-math.degrees(0.05), math.degrees(0.05))
-BOB_MID = (0.0, sum(BOB_Z) / 2)
+
 
 
 

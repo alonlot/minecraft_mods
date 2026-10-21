@@ -142,7 +142,7 @@ public final class SceneParser {
             JsonObject io = obj(o.get("items"), ip);
             for (String slot : io.keySet()) items.put(slot, strOf(io.get(slot), child(ip, slot)));
         }
-        Track pathTrack = has(o, "path") ? keyed(o.get("path"), child(path, "path"), "pos") : Track.EMPTY;
+        Track pathTrack = has(o, "path") ? keyed(o.get("path"), child(path, "path"), "pos", true) : Track.EMPTY;
         Track look = has(o, "look") ? parseLook(o.get("look"), child(path, "look")) : Track.EMPTY;
         Map<String, PartTrack> limbs = new LinkedHashMap<>();
         if (has(o, "limbs")) {
@@ -156,8 +156,8 @@ public final class SceneParser {
                 if (!"add".equals(mode) && !"set".equals(mode)) {
                     throw new SceneException(child(pp, "mode"), "must be \"add\" or \"set\", got \"" + mode + "\"");
                 }
-                Track rot = has(po, "rot") ? keyed(po.get("rot"), child(pp, "rot"), "v") : Track.EMPTY;
-                Track off = has(po, "offset") ? keyed(po.get("offset"), child(pp, "offset"), "v") : Track.EMPTY;
+                Track rot = has(po, "rot") ? keyed(po.get("rot"), child(pp, "rot"), "v", false) : Track.EMPTY;
+                Track off = has(po, "offset") ? keyed(po.get("offset"), child(pp, "offset"), "v", false) : Track.EMPTY;
                 limbs.put(part, new PartTrack(rot, off, "set".equals(mode)));
             }
         }
@@ -165,20 +165,35 @@ public final class SceneParser {
         List<SceneDef.Cue> anims = cues(o, "anims", path);
         List<SceneDef.ActionCue> actions = new ArrayList<>();
         for (Map.Entry<String, JsonObject> en : each(o, "actions", path)) actions.add(parseAction(en.getValue(), en.getKey()));
+        String ride = null;
+        float rideFrom = Float.NEGATIVE_INFINITY, rideUntil = Float.POSITIVE_INFINITY;
+        if (has(o, "ride")) {
+            String rp = child(path, "ride");
+            JsonElement re = o.get("ride");
+            if (re.isJsonObject()) {
+                JsonObject ro = re.getAsJsonObject();
+                checkKeys(ro, rp, "on", "from", "until");
+                ride = reqStr(ro, "on", rp);
+                rideFrom = time(ro, "from", rp, Float.NEGATIVE_INFINITY);
+                rideUntil = time(ro, "until", rp, Float.POSITIVE_INFINITY);
+            } else {
+                ride = strOf(re, rp);
+            }
+        }
         return new SceneDef.ActorDef(id, type, skin, name, items, pathTrack, look, limbs, poses, anims, actions,
                 num(o, "scale", path, 1f), bool(o, "life", path, true), str(o, "block", path, null),
-                str(o, "ride", path, null));
+                ride, rideFrom, rideUntil);
     }
 
-    /** A keyframe array of [x,y,z] vectors stored under {@code vecKey}. */
-    private static Track keyed(JsonElement e, String path, String vecKey) throws SceneException {
+    /** A keyframe array of [x,y,z] vectors stored under {@code vecKey}; {@code spline}: the key may ease "spline". */
+    private static Track keyed(JsonElement e, String path, String vecKey, boolean spline) throws SceneException {
         JsonArray a = arr(e, path);
         List<Keyframe> keys = new ArrayList<>();
         for (int i = 0; i < a.size(); i++) {
             String p = index(path, i);
             JsonObject k = obj(a.get(i), p);
             checkKeys(k, p, "t", vecKey, "ease");
-            keys.add(new Keyframe(reqTime(k, "t", p), reqFloats(k, vecKey, p, 3), ease(k, p)));
+            keys.add(new Keyframe(reqTime(k, "t", p), reqFloats(k, vecKey, p, 3), spline ? splineEase(k, p) : ease(k, p)));
         }
         return new Track(keys);
     }
@@ -197,7 +212,7 @@ public final class SceneParser {
             checkKeys(k, p, "t", "yaw", "pitch", "roll", "ease");
             float yaw = reqNum(k, "yaw", p), pitch = num(k, "pitch", p, 0f);
             float[] v = rolls ? new float[]{yaw, pitch, num(k, "roll", p, 0f)} : new float[]{yaw, pitch};
-            keys.add(new Keyframe(reqTime(k, "t", p), v, ease(k, p)));
+            keys.add(new Keyframe(reqTime(k, "t", p), v, splineEase(k, p)));
         }
         return new Track(keys);
     }

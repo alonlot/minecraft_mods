@@ -174,7 +174,7 @@ public final class HumanMotion {
      * the neck (head and body pivots) and the shoulders (arm pivots) move to where the turned torso puts them. A
      * model part pivots at its top, so turning only the body part would swing the hips instead of the shoulders.
      */
-    private static void hipTurn(float[] rot, float[] pos, float pitch, float yaw, float roll, float k) {
+    static void hipTurn(float[] rot, float[] pos, float pitch, float yaw, float roll, float k) {
         if (pitch == 0 && yaw == 0 && roll == 0) return;
         double a = pitch / DEG, b = yaw / DEG, c = roll / DEG;
         rot[BODY * 3] += pitch * k;
@@ -467,6 +467,21 @@ public final class HumanMotion {
         return (float) (sum / weights);
     }
 
+    /**
+     * {@link #followYaw} over only the look keys in [from, until) (a ride window part, see Vehicle), so the lag never
+     * reaches across a window edge where the look changes frame.
+     */
+    public static float followYaw(Track look, float t, float from, float until) {
+        double sum = 0, weights = 0;
+        for (int k = 1; k <= 14; k++) {
+            double w = k * Math.exp(-k / 2.2);
+            float[] v = look.sampleWithin(t - k, from, until);
+            sum += w * (v != null && v.length > 0 ? v[0] : 0);
+            weights += w;
+        }
+        return (float) (sum / weights);
+    }
+
     // ==== distance travelled ======================================================================================
 
     /**
@@ -480,6 +495,16 @@ public final class HumanMotion {
         private final float[] phase;
 
         public Odometer(Track path, float scale) {
+            this(path, scale, Float.NaN, Float.NaN);
+        }
+
+        /**
+         * The odometer of an actor that rides a vehicle from {@code rideFrom} until {@code rideUntil} (NaN: no window):
+         * the path covers no ground inside the window (it is an offset in the vehicle frame there) nor across its
+         * edges, and each part of the path is sampled on its own ({@link Track#sampleWithin}).
+         */
+        public Odometer(Track path, float scale, float rideFrom, float rideUntil) {
+            boolean windowed = !Float.isNaN(rideFrom);
             List<Keyframe> k = path.keys();
             float sc = Math.max(0.25f, scale);
             if (k.size() < 2) {
@@ -493,12 +518,17 @@ public final class HumanMotion {
             int n = Math.min(MAX_TICKS, Math.max(2, to - from + 1));
             float[] d = new float[n];
             float[] ph = new float[n];
-            float[] prev = path.sample(from);
+            float[] prev = windowed ? part(path, from, rideFrom, rideUntil) : path.sample(from);
             for (int i = 1; i < n; i++) {
-                float[] p = path.sample(from + i);
-                double dx = (p.length > 0 ? p[0] : 0) - (prev.length > 0 ? prev[0] : 0);
-                double dz = (p.length > 2 ? p[2] : 0) - (prev.length > 2 ? prev[2] : 0);
-                float step = (float) Math.sqrt(dx * dx + dz * dz);
+                float[] p = windowed ? part(path, from + i, rideFrom, rideUntil) : path.sample(from + i);
+                float step;
+                if (windowed && (rides(from + i - 1, rideFrom, rideUntil) || rides(from + i, rideFrom, rideUntil))) {
+                    step = 0;
+                } else {
+                    double dx = (p.length > 0 ? p[0] : 0) - (prev.length > 0 ? prev[0] : 0);
+                    double dz = (p.length > 2 ? p[2] : 0) - (prev.length > 2 ? prev[2] : 0);
+                    step = (float) Math.sqrt(dx * dx + dz * dz);
+                }
                 d[i] = d[i - 1] + step;
                 float speed = step * 20 / sc;
                 ph[i] = ph[i - 1] + step / (strideLength(speed) * sc);
@@ -513,6 +543,18 @@ public final class HumanMotion {
                 dist = d;
                 phase = ph;
             }
+        }
+
+        private static boolean rides(float t, float from, float until) {
+            return t >= from && t < until;
+        }
+
+        /** The path at t from the keys of the window part t is in ({0, 0, 0} when that part has none). */
+        private static float[] part(Track path, float t, float from, float until) {
+            float lo = t < from ? Float.NEGATIVE_INFINITY : t >= until ? until : from;
+            float hi = t < from ? from : t >= until ? Float.POSITIVE_INFINITY : until;
+            float[] v = path.sampleWithin(t, lo, hi);
+            return v != null ? v : new float[]{0, 0, 0};
         }
 
         private static float at(float[] table, int t0, float t) {

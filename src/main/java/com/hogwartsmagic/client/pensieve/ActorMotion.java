@@ -1,6 +1,8 @@
 package com.hogwartsmagic.client.pensieve;
 
+import com.hogwartsmagic.pensieve.scene.BroomFlight;
 import com.hogwartsmagic.pensieve.scene.HumanMotion;
+import com.hogwartsmagic.pensieve.scene.Vehicle;
 import com.hogwartsmagic.pensieve.scene.SceneDef;
 import net.minecraft.client.model.geom.ModelPart;
 
@@ -11,7 +13,8 @@ import java.util.Map;
  * out, runs a layer, copies them back. The order, from the bottom:
  * <ol>
  *   <li>the model's own {@code setupAnim} (the head follows {@code look}; the vanilla walk is off for a living
- *   actor, {@link MemoryActors} keeps its walk speed at 0);</li>
+ *   actor, {@link MemoryActors} keeps its walk speed at 0), then for a broom rider the rider layer ({@link #rider},
+ *   {@code BroomFlight.riderLayer}) as its base;</li>
  *   <li>life (breathing, weight shifts, gait, seated slouch), damped on parts the scene keys in {@code limbs};</li>
  *   <li>the pose cue and the clip cue: whichever was cued later is applied last, so it wins on the parts both
  *   drive (a clip cued after {@code seated} claps with the arms and keeps the seated legs; a pose cued after a
@@ -42,11 +45,16 @@ final class ActorMotion {
         }
         read();
         float headYaw = ROT[HumanMotion.HEAD * 3 + 1];
-        float seat = rt.clips.seat(t, poseSeat(rt, t));
+        // On a broom the rider never walks: life with no gait, seated while the broom flies and standing while it
+        // has landed, and none on the arms (on the handle) or the legs (astride it).
+        boolean onBroom = rt.broomSeat != null;
+        float seat = onBroom ? PoseMath.lerp(rt.riderSeatO, rt.riderSeat, rt.framePartial)
+                : rt.clips.seat(t, poseSeat(rt, t));
         if (rt.lifeOn()) {
             HumanMotion.Odometer odo = rt.odometer();
-            float speed = odo.speed(t) * (1 - rt.clips.holdsGait(t));
-            HumanMotion.life(ROT, POS, rt.seed, t, rt.def.scale(), speed, odo.phase(t), seat, rt.lifeGain);
+            float speed = onBroom ? 0 : odo.speed(t) * (1 - rt.clips.holdsGait(t));
+            HumanMotion.life(ROT, POS, rt.seed, t, rt.def.scale(), speed, onBroom ? 0 : odo.phase(t), seat,
+                    onBroom ? rt.riderGain : rt.lifeGain);
             write();
         }
         System.arraycopy(ROT, HumanMotion.RIGHT_LEG * 3, LIFE_LEGS, 0, 6);
@@ -76,6 +84,21 @@ final class ActorMotion {
             }
             write();
         }
+    }
+
+    /**
+     * The broom rider's base layer ({@code BroomFlight.riderLayer}) on the six parts as {@code setupAnim} left them:
+     * legs astride, arms on the handle, the lean with the speed and the dive tuck, eased in and out at the window's
+     * edges. Runs before life, poses, clips and limbs, whether or not this layer drives the model.
+     */
+    static void rider(Map<String, ModelPart> parts, Vehicle.Seat seat) {
+        for (int p = 0; p < HumanMotion.PARTS; p++) {
+            PARTS[p] = parts.get(HumanMotion.PART_NAMES.get(p));
+            if (PARTS[p] == null) return;
+        }
+        read();
+        BroomFlight.riderLayer(ROT, POS, seat.speed(), seat.broomPitch(), seat.weight());
+        write();
     }
 
     /** How seated the pose in force says the actor is: a pose that swings a leg up past 60 degrees is a seat. */

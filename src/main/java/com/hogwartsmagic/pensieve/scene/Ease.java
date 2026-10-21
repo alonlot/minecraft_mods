@@ -5,8 +5,9 @@ import java.util.function.DoubleUnaryOperator;
 /**
  * Easing curve for the keyframe segment that ends at a key. Cubic; no switch (see project rule).
  *
- * <p>{@link #SPLINE} is for camera keys only ({@link CameraTrack}): there the segment is a C1 cubic through the
- * neighbouring keys, not a curve of its own, so {@link #apply} is linear for it. Actor tracks reject it on parse.
+ * <p>{@link #SPLINE} is for camera keys ({@link CameraTrack}) and actor {@code path} and {@code look} keys
+ * ({@link Track}): there the segment is a C1 cubic through the neighbouring keys, not a curve of its own, so
+ * {@link #apply} is linear for it. Limb tracks reject it on parse.
  */
 public enum Ease {
     LINEAR(x -> x, 1, 1),

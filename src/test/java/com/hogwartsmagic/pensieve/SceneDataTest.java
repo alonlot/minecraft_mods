@@ -316,4 +316,22 @@ class SceneDataTest {
         assertTrue(def.events().stream().anyMatch(e -> "rain".equals(e.id())));
         assertEquals(4, def.actors().stream().filter(a -> a.ride() != null).count());
     }
+
+    /**
+     * The broom dev scene (written by build_scripts/pensieve_scenes/dev_brooms.py into the ignored run/pensieve_dev)
+     * validates like a shipped one: brooms, riders with ride windows, spline actor tracks. Skipped where it has not
+     * been generated.
+     */
+    @Test
+    void devBroomsSceneValidates() throws Exception {
+        Path f = Path.of("run/pensieve_dev/dev_brooms.json");
+        org.junit.jupiter.api.Assumptions.assumeTrue(Files.exists(f),
+                "run/pensieve_dev/dev_brooms.json not generated (python build_scripts/pensieve_scenes/dev_brooms.py)");
+        SceneDef def = SceneParser.parse("dev_brooms", JsonParser.parseString(read(f)).getAsJsonObject());
+        assertEquals(List.of(), SceneValidator.validate(def, harvest()));
+        assertTrue(def.actors().stream().anyMatch(a -> "hogwartsmagic:memory_broom".equals(a.type())));
+        assertTrue(def.actors().stream().anyMatch(a -> "hogwartsmagic:memory_broom_racing".equals(a.type())));
+        assertTrue(def.actors().stream().anyMatch(a -> a.ride() != null && !Float.isInfinite(a.rideFrom())),
+                "a rider mounts inside the scene");
+    }
 }

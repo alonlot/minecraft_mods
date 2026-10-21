@@ -2,6 +2,7 @@ package com.hogwartsmagic.pensieve;
 
 import com.google.gson.JsonParser;
 import com.hogwartsmagic.pensieve.scene.SceneDef;
+import com.hogwartsmagic.pensieve.scene.SceneException;
 import com.hogwartsmagic.pensieve.scene.SceneNames;
 import com.hogwartsmagic.pensieve.scene.SceneParser;
 import com.hogwartsmagic.pensieve.scene.SceneValidator;
@@ -11,11 +12,13 @@ import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SceneValidatorTest {
     private static final SceneNames NAMES = new SceneNames(
-            Set.of("hogwartsmagic:basilisk", "minecraft:zombie", "player", "hogwartsmagic:memory_rowboat"), Set.of("stupefy"),
+            Set.of("hogwartsmagic:basilisk", "minecraft:zombie", "player", "hogwartsmagic:memory_rowboat",
+                    "hogwartsmagic:memory_broom", "hogwartsmagic:memory_broom_racing", "hogwartsmagic:memory_block"), Set.of("stupefy"),
             Set.of("minecraft:entity.generic.explode", "hogwartsmagic:pensieve.music.m", "hogwartsmagic:pensieve.voice.v", "hogwartsmagic:pensieve.sfx.x"), Set.of("minecraft:stone"), Set.of("minecraft:stick", "minecraft:air"),
             Set.of("hogwartsmagic:chamber_hall"), Set.of(), Set.of("minecraft:flame"), Set.of());
 
@@ -639,8 +642,113 @@ class SceneValidatorTest {
         assertEquals(List.of(), validate(riders("player", "boat")));
         assertEquals(List.of(), validate(riders("minecraft:zombie", "boat")));
         assertMessage(validate(riders("player", "ghost")), "ride: unknown actor 'ghost'");
-        assertMessage(validate(riders("player", "zed")), "ride: 'zed' is not a hogwartsmagic:memory_rowboat");
+        assertMessage(validate(riders("player", "zed")), "ride: 'zed' is not a vehicle");
         assertMessage(validate(riders("player", "r")), "ride: an actor cannot ride itself");
-        assertMessage(validate(riders("hogwartsmagic:memory_rowboat", "boat")), "ride: a boat cannot ride");
+        assertMessage(validate(riders("hogwartsmagic:memory_rowboat", "boat")), "ride: a vehicle cannot ride");
+        assertMessage(validate(riders("hogwartsmagic:memory_broom", "boat")), "ride: a vehicle cannot ride");
+    }
+
+    // ---- brooms, ride windows, spline actor tracks -----------------------------------------------------------------
+
+    private static final String BROOM = "{\"id\":\"b\",\"type\":\"hogwartsmagic:memory_broom\"}";
+
+    private static String onBroom(String... rides) {
+        StringBuilder sb = new StringBuilder("{\"length\":200,\"actors\":[" + BROOM);
+        for (int i = 0; i < rides.length; i++) {
+            sb.append(",{\"id\":\"r").append(i).append("\",\"type\":\"player\",\"ride\":").append(rides[i]).append('}');
+        }
+        return sb.append("]}").toString();
+    }
+
+    @Test
+    void rideWindowParsed() throws Exception {
+        SceneDef d = SceneParser.parse("t", JsonParser.parseString(
+                onBroom("{\"on\":\"b\",\"from\":40,\"until\":\"6s\"}", "\"b\"")).getAsJsonObject());
+        SceneDef.ActorDef r0 = d.actors().get(1), r1 = d.actors().get(2);
+        assertEquals("b", r0.ride());
+        assertEquals(40f, r0.rideFrom());
+        assertEquals(120f, r0.rideUntil());
+        assertEquals("b", r1.ride());
+        assertEquals(Float.NEGATIVE_INFINITY, r1.rideFrom());
+        assertEquals(Float.POSITIVE_INFINITY, r1.rideUntil());
+        assertEquals(List.of(), validate(onBroom("{\"on\":\"b\",\"from\":40,\"until\":120}")));
+        assertEquals(List.of(), validate(onBroom("{\"on\":\"b\",\"from\":40}", "{\"on\":\"b\",\"until\":200}")));
+        assertMessage(validate(onBroom("{\"on\":\"b\",\"from\":120,\"until\":40}")), "must be before until");
+        assertMessage(validate(onBroom("{\"on\":\"b\",\"from\":40,\"until\":250}")), "ride.until: 250.0 is outside");
+        assertMessage(validate(onBroom("{\"on\":\"b\",\"from\":-5}")), "ride.from: -5.0 is outside");
+        assertThrows(SceneException.class, () -> validate(onBroom("{\"from\":4}")));
+        assertThrows(SceneException.class, () -> validate(onBroom("{\"on\":\"b\",\"at\":4}")));
+    }
+
+    @Test
+    void rideWindowOverlapRejected() throws Exception {
+        // Three riders take turns two at a time: fine. A third joins while two are on: rejected.
+        assertEquals(List.of(), validate(onBroom("{\"on\":\"b\",\"from\":0,\"until\":100}",
+                "{\"on\":\"b\",\"from\":50,\"until\":150}", "{\"on\":\"b\",\"from\":100,\"until\":200}")));
+        List<String> m = validate(onBroom("{\"on\":\"b\",\"from\":0,\"until\":100}",
+                "{\"on\":\"b\",\"from\":50,\"until\":150}", "{\"on\":\"b\",\"from\":99,\"until\":200}"));
+        assertMessage(m, "memory_broom 'b' carries 3 riders at t 99.0; it carries at most 2");
+    }
+
+    @Test
+    void rideOnNonVehicleRejected() throws Exception {
+        String json = "{\"length\":100,\"actors\":[{\"id\":\"z\",\"type\":\"minecraft:zombie\"},"
+                + "{\"id\":\"p\",\"type\":\"player\"},"
+                + "{\"id\":\"r\",\"type\":\"player\",\"ride\":{\"on\":\"z\",\"from\":10,\"until\":50}},"
+                + "{\"id\":\"q\",\"type\":\"player\",\"ride\":\"p\"}]}";
+        List<String> m = validate(json);
+        assertEquals(2, m.size(), m.toString());
+        assertMessage(m, "actors[2].ride: 'z' is not a vehicle");
+        assertMessage(m, "actors[3].ride: 'p' is not a vehicle");
+        // A vehicle never rides: a broom on a broom.
+        assertMessage(validate("{\"length\":100,\"actors\":[" + BROOM + ",{\"id\":\"c\",\"type\":"
+                + "\"hogwartsmagic:memory_broom_racing\",\"ride\":\"b\"}]}"), "actors[1].ride: a vehicle cannot ride");
+    }
+
+    @Test
+    void brooms3RidersRejected() throws Exception {
+        assertEquals(List.of(), validate(onBroom("\"b\"", "\"b\"")));
+        assertMessage(validate(onBroom("\"b\"", "\"b\"", "\"b\"")), "carries 3 riders at the start; it carries at most 2");
+        String racing = onBroom("\"b\"", "\"b\"", "\"b\"").replace("memory_broom\"", "memory_broom_racing\"");
+        assertMessage(validate(racing), "memory_broom_racing 'b' carries 3 riders");
+    }
+
+    @Test
+    void rowboatKeepsFourRiders() throws Exception {
+        StringBuilder sb = new StringBuilder("{\"length\":100,\"actors\":[{\"id\":\"boat\",\"type\":\"hogwartsmagic:memory_rowboat\"}");
+        for (int i = 0; i < 4; i++) sb.append(",{\"id\":\"r").append(i).append("\",\"type\":\"player\",\"ride\":\"boat\"}");
+        assertEquals(List.of(), validate(sb + "]}"));
+        sb.append(",{\"id\":\"r9\",\"type\":\"player\",\"ride\":\"boat\"}");
+        assertMessage(validate(sb + "]}"), "memory_rowboat 'boat' carries 5 riders at the start; it carries at most 4");
+    }
+
+    @Test
+    void rollAllowedOnBroom() throws Exception {
+        for (String type : new String[]{"hogwartsmagic:memory_broom", "hogwartsmagic:memory_broom_racing", "hogwartsmagic:memory_block"}) {
+            String block = type.endsWith("block") ? ",\"block\":\"minecraft:stone\"" : "";
+            assertEquals(List.of(), validate("{\"length\":100,\"actors\":[{\"id\":\"b\",\"type\":\"" + type + "\"" + block
+                    + ",\"look\":[{\"t\":0,\"yaw\":10,\"pitch\":20,\"roll\":35}]}]}"), type);
+        }
+    }
+
+    @Test
+    void rollStillRejectedOnPlayer() throws Exception {
+        assertMessage(validate("{\"length\":100,\"actors\":[{\"id\":\"p\",\"type\":\"player\","
+                + "\"look\":[{\"t\":0,\"yaw\":10,\"roll\":35}]}]}"), "actors[0].look: roll is only for");
+        assertMessage(validate("{\"length\":100,\"actors\":[{\"id\":\"p\",\"type\":\"hogwartsmagic:memory_rowboat\","
+                + "\"look\":[{\"t\":0,\"yaw\":10,\"roll\":5}]}]}"), "roll is only for");
+    }
+
+    @Test
+    void splineRejectedOnLimbs() throws Exception {
+        // Path and look keys take spline; limb keys do not.
+        assertEquals(List.of(), validate("{\"length\":100,\"actors\":[{\"id\":\"p\",\"type\":\"player\","
+                + "\"path\":[{\"t\":0,\"pos\":[0,0,0]},{\"t\":20,\"pos\":[3,0,0],\"ease\":\"spline\"}],"
+                + "\"look\":[{\"t\":0,\"yaw\":0},{\"t\":20,\"yaw\":40,\"ease\":\"spline\"}]}]}"));
+        SceneException e = assertThrows(SceneException.class,
+                () -> validate("{\"length\":100,\"actors\":[{\"id\":\"p\",\"type\":\"player\",\"limbs\":{\"right_arm\":"
+                        + "{\"rot\":[{\"t\":0,\"v\":[0,0,0]},{\"t\":9,\"v\":[-90,0,0],\"ease\":\"spline\"}]}}}]}"));
+        assertTrue(e.getMessage().contains("limbs.right_arm.rot[1].ease"), e.getMessage());
+        assertTrue(e.getMessage().contains("not limbs"), e.getMessage());
     }
 }

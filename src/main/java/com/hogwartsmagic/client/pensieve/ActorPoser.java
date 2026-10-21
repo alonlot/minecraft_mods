@@ -116,6 +116,10 @@ public final class ActorPoser {
             if (rt != null) {
                 float t = PensieveClientState.sceneTime(partial);
                 applyAnimation(model, rt, t);
+                // A broom rider: the rider layer (BroomFlight) is the base the rest builds on.
+                rt.broomSeat = model instanceof HumanoidModel<?> ? MemoryActors.broomSeat(rt, t) : null;
+                rt.framePartial = partial;
+                if (rt.broomSeat != null) ActorMotion.rider(parts, rt.broomSeat);
                 if (model instanceof HumanoidModel<?> && ActorMotion.drives(rt)) {
                     ActorMotion.apply(parts, rt, t, () -> applyPose(parts, rt, t));
                 } else {

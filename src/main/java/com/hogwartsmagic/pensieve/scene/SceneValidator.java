@@ -69,6 +69,7 @@ public final class SceneValidator {
         }
         for (int i = 0; i < scene.actors().size(); i++) {
             if (SceneNames.ROWBOAT_ACTOR.equals(scene.actors().get(i).type())) boatSea(out, scene, i, length);
+            if (Vehicle.isVehicle(scene.actors().get(i).type())) riders(out, scene, i, length);
         }
 
         for (int i = 0; i < scene.words().size(); i++) {
@@ -136,10 +137,10 @@ public final class SceneValidator {
         } else if (blockActor) {
             blockState(out, p + ".block", a.block(), names);
         }
-        if (!blockActor) {
+        if (!SceneNames.ROLL_TYPES.contains(a.type())) {
             for (Keyframe k : a.look().keys()) {
                 if (k.v().length > 2 && k.v()[2] != 0f) {
-                    out.add(p + ".look: roll is only for " + SceneNames.BLOCK_ACTOR);
+                    out.add(p + ".look: roll is only for " + sorted(SceneNames.ROLL_TYPES));
                     break;
                 }
             }
@@ -158,7 +159,7 @@ public final class SceneValidator {
             }
         }
         if (!a.life() && !"player".equals(a.type())) out.add(p + ".life: only a player actor has life");
-        if (a.ride() != null) ride(out, scene, a, p, actorIds);
+        if (a.ride() != null) ride(out, scene, a, p, actorIds, length);
         for (int i = 0; i < a.anims().size(); i++) {
             SceneDef.Cue c = a.anims().get(i);
             time(out, p + ".anims[" + i + "].t", c.t(), length);
@@ -223,19 +224,61 @@ public final class SceneValidator {
         }
     }
 
-    /** {@code ride}: the boat must be another actor, a rowboat, and a boat cannot itself ride. */
-    private static void ride(List<String> out, SceneDef scene, SceneDef.ActorDef a, String p, Set<String> actorIds) {
-        if (SceneNames.ROWBOAT_ACTOR.equals(a.type())) {
-            out.add(p + ".ride: a boat cannot ride another actor");
+    /**
+     * {@code ride}: the vehicle must be another actor of a vehicle type, a vehicle cannot itself ride, and a window
+     * lies inside the scene with {@code from} before {@code until}.
+     */
+    private static void ride(List<String> out, SceneDef scene, SceneDef.ActorDef a, String p, Set<String> actorIds,
+                             float length) {
+        if (Vehicle.isVehicle(a.type())) {
+            out.add(p + ".ride: a vehicle cannot ride another actor");
         } else if (a.ride().equals(a.id())) {
             out.add(p + ".ride: an actor cannot ride itself");
         } else if (!actorIds.contains(a.ride())) {
             out.add(p + ".ride: unknown actor '" + a.ride() + "'");
         } else {
             for (SceneDef.ActorDef b : scene.actors()) {
-                if (b.id().equals(a.ride()) && !SceneNames.ROWBOAT_ACTOR.equals(b.type())) {
-                    out.add(p + ".ride: '" + a.ride() + "' is not a " + SceneNames.ROWBOAT_ACTOR);
+                if (b.id().equals(a.ride()) && !Vehicle.isVehicle(b.type())) {
+                    out.add(p + ".ride: '" + a.ride() + "' is not a vehicle (expected one of "
+                            + sorted(SceneNames.VEHICLES) + ")");
                 }
+            }
+        }
+        boolean from = !Float.isInfinite(a.rideFrom()), until = !Float.isInfinite(a.rideUntil());
+        if (from && (a.rideFrom() < 0 || a.rideFrom() > length)) {
+            out.add(p + ".ride.from: " + a.rideFrom() + " is outside the scene (0 to " + length + ")");
+        }
+        if (until && (a.rideUntil() < 0 || a.rideUntil() > length)) {
+            out.add(p + ".ride.until: " + a.rideUntil() + " is outside the scene (0 to " + length + ")");
+        }
+        if (a.rideFrom() >= a.rideUntil()) {
+            out.add(p + ".ride: from (" + a.rideFrom() + ") must be before until (" + a.rideUntil() + ")");
+        }
+    }
+
+    /**
+     * A vehicle carries at most {@link Vehicle#capacity} riders at any moment (a broom 2, the rowboat its seats),
+     * counted over the riders' windows.
+     */
+    private static void riders(List<String> out, SceneDef scene, int index, float length) {
+        SceneDef.ActorDef v = scene.actors().get(index);
+        List<float[]> windows = new ArrayList<>();
+        for (SceneDef.ActorDef a : scene.actors()) {
+            if (v.id().equals(a.ride()) && a.rideFrom() < a.rideUntil()) windows.add(new float[]{a.rideFrom(), a.rideUntil()});
+        }
+        int cap = Vehicle.capacity(v.type());
+        if (windows.size() <= cap) return;
+        // The count only rises at a window's start: check each one.
+        for (float[] w : windows) {
+            int n = 0;
+            for (float[] o : windows) {
+                if (o[0] <= w[0] && w[0] < o[1]) n++;
+            }
+            if (n > cap) {
+                String at = Float.isInfinite(w[0]) ? "the start" : "t " + w[0];
+                out.add("actors[" + index + "]: " + v.type() + " '" + v.id() + "' carries " + n + " riders at " + at
+                        + "; it carries at most " + cap);
+                return;
             }
         }
     }

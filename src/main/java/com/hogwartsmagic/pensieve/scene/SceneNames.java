@@ -24,10 +24,16 @@ public record SceneNames(Set<String> entityTypes, Set<String> spells, Set<String
     public static final float MAX_CUE_VOLUME = 4f;
     /** Event kinds. */
     public static final Set<String> EVENT_KINDS = Set.of("block", "sound", "particles", "effect", "music", "voice", "sfx");
-    /** The actor type that shows one block state (its {@code block} key), and the only one a look {@code roll} turns. */
+    /** The actor type that shows one block state (its {@code block} key); a look {@code roll} turns it. */
     public static final String BLOCK_ACTOR = "hogwartsmagic:memory_block";
-    /** The rowing boat actor: the only type an actor may {@code ride} (see {@link Rowboat}). */
+    /** The rowing boat actor, a vehicle an actor may {@code ride} (see {@link Rowboat}). */
     public static final String ROWBOAT_ACTOR = "hogwartsmagic:memory_rowboat";
+    /** The school broom and the racing broom (a Nimbus), vehicles an actor may {@code ride} (see {@link BroomFlight}). */
+    public static final String BROOM_ACTOR = "hogwartsmagic:memory_broom", RACING_BROOM_ACTOR = "hogwartsmagic:memory_broom_racing";
+    /** Every type an actor may {@code ride} (see {@link Vehicle}). */
+    public static final Set<String> VEHICLES = Set.of(ROWBOAT_ACTOR, BROOM_ACTOR, RACING_BROOM_ACTOR);
+    /** The types whose {@code look} may give a {@code roll}: the block actor and the brooms. */
+    public static final Set<String> ROLL_TYPES = Set.of(BLOCK_ACTOR, BROOM_ACTOR, RACING_BROOM_ACTOR);
     /** A rain box's half-size range, each axis, in blocks. */
     public static final float MIN_RAIN_SPREAD = 1f, MAX_RAIN_SPREAD = 100f;
     /** The letter_flood effect's letter count (1 to this) and each room half-size (blocks). */

@@ -1,0 +1,177 @@
+{
+ "boxes": [
+  {
+   "hi": [
+    0.16875,
+    0.16875,
+    0.16875
+   ],
+   "lo": [
+    -0.16875,
+    -0.16875,
+    -0.16875
+   ],
+   "scale": 0.75,
+   "type": "hogwartsmagic:memory_bludger"
+  },
+  {
+   "hi": [
+    0.19125,
+    0.19125,
+    0.19125
+   ],
+   "lo": [
+    -0.19125,
+    -0.19125,
+    -0.19125
+   ],
+   "scale": 0.85,
+   "type": "hogwartsmagic:memory_bludger"
+  },
+  {
+   "hi": [
+    0.225,
+    0.225,
+    0.225
+   ],
+   "lo": [
+    -0.225,
+    -0.225,
+    -0.225
+   ],
+   "scale": 1.0,
+   "type": "hogwartsmagic:memory_bludger"
+  },
+  {
+   "hi": [
+    0.45,
+    0.45,
+    0.45
+   ],
+   "lo": [
+    -0.45,
+    -0.45,
+    -0.45
+   ],
+   "scale": 2.0,
+   "type": "hogwartsmagic:memory_bludger"
+  },
+  {
+   "hi": [
+    0.20625000000000002,
+    0.20625000000000002,
+    0.20625000000000002
+   ],
+   "lo": [
+    -0.20625000000000002,
+    -0.20625000000000002,
+    -0.20625000000000002
+   ],
+   "scale": 0.75,
+   "type": "hogwartsmagic:memory_quaffle"
+  },
+  {
+   "hi": [
+    0.23375,
+    0.23375,
+    0.23375
+   ],
+   "lo": [
+    -0.23375,
+    -0.23375,
+    -0.23375
+   ],
+   "scale": 0.85,
+   "type": "hogwartsmagic:memory_quaffle"
+  },
+  {
+   "hi": [
+    0.275,
+    0.275,
+    0.275
+   ],
+   "lo": [
+    -0.275,
+    -0.275,
+    -0.275
+   ],
+   "scale": 1.0,
+   "type": "hogwartsmagic:memory_quaffle"
+  },
+  {
+   "hi": [
+    0.55,
+    0.55,
+    0.55
+   ],
+   "lo": [
+    -0.55,
+    -0.55,
+    -0.55
+   ],
+   "scale": 2.0,
+   "type": "hogwartsmagic:memory_quaffle"
+  },
+  {
+   "hi": [
+    0.0825,
+    0.0825,
+    0.0825
+   ],
+   "lo": [
+    -0.0825,
+    -0.0825,
+    -0.0825
+   ],
+   "scale": 0.75,
+   "type": "hogwartsmagic:memory_remembrall"
+  },
+  {
+   "hi": [
+    0.0935,
+    0.0935,
+    0.0935
+   ],
+   "lo": [
+    -0.0935,
+    -0.0935,
+    -0.0935
+   ],
+   "scale": 0.85,
+   "type": "hogwartsmagic:memory_remembrall"
+  },
+  {
+   "hi": [
+    0.11,
+    0.11,
+    0.11
+   ],
+   "lo": [
+    -0.11,
+    -0.11,
+    -0.11
+   ],
+   "scale": 1.0,
+   "type": "hogwartsmagic:memory_remembrall"
+  },
+  {
+   "hi": [
+    0.22,
+    0.22,
+    0.22
+   ],
+   "lo": [
+    -0.22,
+    -0.22,
+    -0.22
+   ],
+   "scale": 2.0,
+   "type": "hogwartsmagic:memory_remembrall"
+  }
+ ],
+ "diameter": {
+  "hogwartsmagic:memory_bludger": 0.45,
+  "hogwartsmagic:memory_quaffle": 0.55,
+  "hogwartsmagic:memory_remembrall": 0.22
+ }
+}

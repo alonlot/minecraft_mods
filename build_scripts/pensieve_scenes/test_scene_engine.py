@@ -81,8 +81,18 @@ def rider_body_on_broom():
     assert E.rider_head_turn(200) == -75 and E.rider_head_turn(40) == 40
 
 
+def ball_box_and_lowest():
+    lo, hi = E.ball_box('hogwartsmagic:memory_quaffle', 0.85)
+    assert all(abs(c + 0.55 / 2 * 0.85) < 1e-12 for c in lo) and all(abs(c - 0.55 / 2 * 0.85) < 1e-12 for c in hi)
+    assert E.is_ball('hogwartsmagic:memory_remembrall') and not E.is_ball('hogwartsmagic:memory_broom')
+    sc = {'poses': {}, 'actors': [{'id': 'q', 'type': 'hogwartsmagic:memory_bludger', 'scale': 2.0,
+                                   'path': [{'t': 0, 'pos': [0.0, 1.0, 0.0]}, {'t': 10, 'pos': [4.0, 3.0, 0.0]}]}]}
+    assert abs(E.ball_lowest(sc, 'q', 0) - (1.0 - 0.45)) < 1e-12
+    assert abs(E.ball_pos(sc, 'q', 10)[0] - 4.0) < 1e-9
+
+
 if __name__ == '__main__':
     for fn in (spline_moves_flags_linear_track, wand_sample_cam_matches, rider_grip, rider_body_on_broom,
-               letter_outputs_unchanged):
+               ball_box_and_lowest, letter_outputs_unchanged):
         fn()
         print('ok', fn.__name__)

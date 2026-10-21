@@ -165,6 +165,9 @@ public final class MemoryActors {
             if (entity instanceof com.hogwartsmagic.entity.MemoryLetterEntity letter) {
                 letter.flutterSeed = com.hogwartsmagic.pensieve.scene.LetterFlutter.seedFor(def.id());
             }
+            if (entity instanceof com.hogwartsmagic.entity.MemoryBallEntity ball) {
+                ball.seed = com.hogwartsmagic.pensieve.scene.MemoryBall.seedFor(def.id());
+            }
             if (entity instanceof MemoryBlockEntity block) {
                 BlockState state = MemoryBlockEntity.parseState(def.block());
                 if (state == null) {
@@ -486,6 +489,14 @@ public final class MemoryActors {
         double jy = y - e.yo;
         double jz = z - e.zo;
         e.setPos(x, y, z);
+        // A ball rolls by the ground it covers; a first placement or a cut (a jump over TELEPORT_BLOCKS) does not roll it.
+        if (e instanceof com.hogwartsmagic.entity.MemoryBallEntity ball) {
+            if (first || jx * jx + jy * jy + jz * jz > TELEPORT_BLOCKS * TELEPORT_BLOCKS) {
+                ball.holdRoll();
+            } else {
+                ball.rollBy(jx, jy, jz, a.def.scale());
+            }
+        }
         // An owl flies while its path moves and perches (wings folded) while it is held (Airborne, pure). Owls only:
         // other models read onGround too, and every other puppet has always drawn as airborne.
         if (e instanceof OwlEntity) e.setOnGround(!Airborne.airborne(a.def.path(), t, !first && !e.onGround()));

@@ -13,7 +13,9 @@ Every generator that emits a memory checks it against the engine's own maths, ne
     posed_parts, emitted_arm, arm_tip and eye_of composing a rider's frame (a RiderFrame in the yaw slot);
   - the hand contacts' sway corners (BOB_Z, BOB_X, BOB_MID) and arm_tip, eye_of.
 
-`python -I scene_engine.py --write-broom-cases` rewrites broom_cases.json (BroomFlightTest.pythonMirrorAgrees).
+`python -I scene_engine.py --write-broom-cases` rewrites broom_cases.json (BroomFlightTest.pythonMirrorAgrees);
+`--write-ball-cases` rewrites ball_cases.json (MemoryBallTest.pythonMirrorAgrees). The Quidditch balls and the Remembrall
+(MemoryBall): is_ball, ball_radius, ball_box, ball_pos, ball_lowest.
 
 Imports only the standard library, scene_common and human_motion (no generator), so any generator can import it.
 """
@@ -1158,6 +1160,37 @@ def broom_lowest(scene, broom_id, t):
     return min(c[1] for c in broom_corners(scene, actor_by_id(scene, broom_id), t))
 
 
+# The Quidditch balls and the Remembrall (MemoryBall): diameters at scale 1. A ball's path is its centre.
+BALL_DIAMETER = {'hogwartsmagic:memory_quaffle': 0.55, 'hogwartsmagic:memory_bludger': 0.45,
+                 'hogwartsmagic:memory_remembrall': 0.22}
+
+
+def is_ball(btype):
+    return btype in BALL_DIAMETER
+
+
+def ball_radius(btype, scale=1.0):
+    """MemoryBall.radius."""
+    return BALL_DIAMETER[btype] / 2 * scale
+
+
+def ball_box(btype, scale=1.0):
+    """MemoryBall.box: the ball's bounds about its centre, ((min x, y, z), (max x, y, z)), at `scale`."""
+    r = ball_radius(btype, scale)
+    return (-r, -r, -r), (r, r, r)
+
+
+def ball_pos(scene, ball_id, t):
+    """The ball centre (scene-relative) at tick t: the actor's path, as MemoryActors places a ball."""
+    return track_sample(actor_by_id(scene, ball_id).get('path'), t)[:3]
+
+
+def ball_lowest(scene, ball_id, t):
+    """The lowest world y of a ball at tick t (its centre less its radius, scale included)."""
+    a = actor_by_id(scene, ball_id)
+    return ball_pos(scene, ball_id, t)[1] - ball_radius(a['type'], a.get('scale', 1.0))
+
+
 def rider_seat(rider_scale):
     """BroomFlight.seat: the rest offset in the broom frame, hips over the seat point, thighs on the seat top."""
     return [0.0, HM.seated_root_y(SEAT_TOP, rider_scale), -SEAT_BACK]
@@ -1379,10 +1412,27 @@ def write_broom_cases():
     print('wrote', BROOM_CASES, len(data['cases']), 'cases')
 
 
+BALL_CASES = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ball_cases.json')
+
+
+def write_ball_cases():
+    """ball_cases.json: the diameters and boxes MemoryBallTest.pythonMirrorAgrees checks against MemoryBall."""
+    boxes = []
+    for btype in sorted(BALL_DIAMETER):
+        for scale in (0.75, 0.85, 1.0, 2.0):
+            lo, hi = ball_box(btype, scale)
+            boxes.append({'type': btype, 'scale': scale, 'lo': list(lo), 'hi': list(hi)})
+    with open(BALL_CASES, 'w', newline=chr(10), encoding='utf-8') as f:
+        f.write(json.dumps({'diameter': BALL_DIAMETER, 'boxes': boxes}, indent=1, sort_keys=True) + chr(10))
+    print('wrote', BALL_CASES, len(boxes), 'boxes')
+
+
 if __name__ == '__main__':
     import sys
     if '--write-broom-cases' in sys.argv:
         write_broom_cases()
+    if '--write-ball-cases' in sys.argv:
+        write_ball_cases()
 
 
 # ================================================================ the rider's grip (BroomFlightTest.handsOnHandle)

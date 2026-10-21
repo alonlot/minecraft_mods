@@ -122,6 +122,23 @@ public class ModEntities {
     public static final RegistryObject<EntityType<MemoryBroomEntity>> MEMORY_BROOM_RACING =
             ENTITY_TYPES.register("memory_broom_racing", () -> memoryBroom("memory_broom_racing"));
 
+    /** The Quidditch balls and the Remembrall, as memory actors (the path is the ball centre): see MemoryBall. */
+    public static final RegistryObject<EntityType<MemoryBallEntity.Quaffle>> MEMORY_QUAFFLE =
+            ENTITY_TYPES.register("memory_quaffle", () -> ball(MemoryBallEntity.Quaffle::new, "memory_quaffle"));
+    public static final RegistryObject<EntityType<MemoryBallEntity.Bludger>> MEMORY_BLUDGER =
+            ENTITY_TYPES.register("memory_bludger", () -> ball(MemoryBallEntity.Bludger::new, "memory_bludger"));
+    public static final RegistryObject<EntityType<MemoryBallEntity.Remembrall>> MEMORY_REMEMBRALL =
+            ENTITY_TYPES.register("memory_remembrall", () -> ball(MemoryBallEntity.Remembrall::new, "memory_remembrall"));
+
+    /** A memory ball type: its eye is its origin, the ball centre. */
+    private static <T extends MemoryBallEntity> EntityType<T> ball(EntityType.EntityFactory<T> factory, String id) {
+        return EntityType.Builder.of(factory, MobCategory.MISC)
+                .sized(0.5f, 0.5f)
+                .eyeHeight(0f)
+                .clientTrackingRange(10)
+                .build(id);
+    }
+
     /** A memory broom type: its eye is its origin, the seat point, so a camera looking at it aims at the seat. */
     private static EntityType<MemoryBroomEntity> memoryBroom(String id) {
         return EntityType.Builder.<MemoryBroomEntity>of(MemoryBroomEntity::new, MobCategory.MISC)

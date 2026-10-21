@@ -20,6 +20,11 @@ public class GoldenSnitchModel<T extends GoldenSnitchEntity> extends Hierarchica
     public static final ModelLayerLocation LAYER_LOCATION = new ModelLayerLocation(
             ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "golden_snitch"), "main");
 
+    /** The wings' beat: radians per tick of age, the swing either side of the tilt, and the tilt (rad). */
+    public static final float FLAP_RATE = 3.2F, FLAP_AMPLITUDE = 1.1F, WING_TILT = 0.4F;
+    /** A wing's length and its thickness along z, and where its pivot sits on the body, in px. */
+    public static final float WING_LENGTH = 6.0F, WING_THICKNESS = 3.0F, WING_PIVOT_X = 1.5F, WING_PIVOT_Y = -0.5F;
+
     private final ModelPart root;
     private final ModelPart body;
     private final ModelPart leftWing;
@@ -51,6 +56,11 @@ public class GoldenSnitchModel<T extends GoldenSnitchEntity> extends Hierarchica
         return LayerDefinition.create(meshdefinition, 32, 32);
     }
 
+    /** The body part, whose pose (with the beat's roll) the wings hang from. */
+    public ModelPart bodyPart() {
+        return body;
+    }
+
     @Override
     public ModelPart root() {
         return this.root;
@@ -61,12 +71,12 @@ public class GoldenSnitchModel<T extends GoldenSnitchEntity> extends Hierarchica
         this.root().getAllParts().forEach(ModelPart::resetPose);
 
         // Hummingbird flutter — far faster than any bird wing in the game.
-        float flap = (float) Math.sin(ageInTicks * 3.2F) * 1.1F;
-        this.leftWing.zRot = -0.4F + flap;
-        this.rightWing.zRot = 0.4F - flap;
+        float flap = (float) Math.sin(ageInTicks * FLAP_RATE) * FLAP_AMPLITUDE;
+        this.leftWing.zRot = -WING_TILT + flap;
+        this.rightWing.zRot = WING_TILT - flap;
 
         // The body rocks with the beat and pitches into its motion.
-        this.body.zRot = (float) Math.sin(ageInTicks * 3.2F) * 0.08F;
+        this.body.zRot = (float) Math.sin(ageInTicks * FLAP_RATE) * 0.08F;
         this.body.xRot = headPitch * ((float) Math.PI / 180F) * 0.4F;
     }
 }

@@ -34,6 +34,13 @@ public record SceneNames(Set<String> entityTypes, Set<String> spells, Set<String
     public static final Set<String> VEHICLES = Set.of(ROWBOAT_ACTOR, BROOM_ACTOR, RACING_BROOM_ACTOR);
     /** The types whose {@code look} may give a {@code roll}: the block actor and the brooms. */
     public static final Set<String> ROLL_TYPES = Set.of(BLOCK_ACTOR, BROOM_ACTOR, RACING_BROOM_ACTOR);
+    /**
+     * The Quidditch balls and the Remembrall (see {@link MemoryBall}): the path is the ball centre, and each rolls on
+     * its own by the distance it travels, so none takes a look {@code roll} (they are not in {@link #ROLL_TYPES}).
+     */
+    public static final String QUAFFLE_ACTOR = "hogwartsmagic:memory_quaffle", BLUDGER_ACTOR = "hogwartsmagic:memory_bludger",
+            REMEMBRALL_ACTOR = "hogwartsmagic:memory_remembrall";
+    public static final Set<String> BALLS = Set.of(QUAFFLE_ACTOR, BLUDGER_ACTOR, REMEMBRALL_ACTOR);
     /** A rain box's half-size range, each axis, in blocks. */
     public static final float MIN_RAIN_SPREAD = 1f, MAX_RAIN_SPREAD = 100f;
     /** The letter_flood effect's letter count (1 to this) and each room half-size (blocks). */

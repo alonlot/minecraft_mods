@@ -18,7 +18,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class SceneValidatorTest {
     private static final SceneNames NAMES = new SceneNames(
             Set.of("hogwartsmagic:basilisk", "minecraft:zombie", "player", "hogwartsmagic:memory_rowboat",
-                    "hogwartsmagic:memory_broom", "hogwartsmagic:memory_broom_racing", "hogwartsmagic:memory_block"), Set.of("stupefy"),
+                    "hogwartsmagic:memory_broom", "hogwartsmagic:memory_broom_racing", "hogwartsmagic:memory_block",
+                    "hogwartsmagic:memory_quaffle", "hogwartsmagic:memory_bludger", "hogwartsmagic:memory_remembrall",
+                    "hogwartsmagic:golden_snitch"), Set.of("stupefy"),
             Set.of("minecraft:entity.generic.explode", "hogwartsmagic:pensieve.music.m", "hogwartsmagic:pensieve.voice.v", "hogwartsmagic:pensieve.sfx.x"), Set.of("minecraft:stone"), Set.of("minecraft:stick", "minecraft:air"),
             Set.of("hogwartsmagic:chamber_hall"), Set.of(), Set.of("minecraft:flame"), Set.of());
 
@@ -750,5 +752,19 @@ class SceneValidatorTest {
                         + "{\"rot\":[{\"t\":0,\"v\":[0,0,0]},{\"t\":9,\"v\":[-90,0,0],\"ease\":\"spline\"}]}}}]}"));
         assertTrue(e.getMessage().contains("limbs.right_arm.rot[1].ease"), e.getMessage());
         assertTrue(e.getMessage().contains("not limbs"), e.getMessage());
+    }
+    @Test
+    void ballTypesParse() throws Exception {
+        // The balls take a path (the centre) and a plain look; they are not vehicles and cannot ride.
+        for (String type : new String[]{"hogwartsmagic:memory_quaffle", "hogwartsmagic:memory_bludger",
+                "hogwartsmagic:memory_remembrall", "hogwartsmagic:golden_snitch"}) {
+            assertEquals(List.of(), validate("{\"length\":100,\"actors\":[{\"id\":\"ball\",\"type\":\"" + type + "\","
+                    + "\"scale\":1.0,\"path\":[{\"t\":0,\"pos\":[0,1,0]},{\"t\":20,\"pos\":[3,2,1],\"ease\":\"spline\"}]}]}"), type);
+        }
+        // They roll by themselves, so a look roll is no use to them.
+        assertMessage(validate("{\"length\":100,\"actors\":[{\"id\":\"q\",\"type\":\"hogwartsmagic:memory_quaffle\","
+                + "\"look\":[{\"t\":0,\"yaw\":10,\"roll\":35}]}]}"), "roll is only for");
+        assertMessage(validate("{\"length\":100,\"actors\":[{\"id\":\"q\",\"type\":\"hogwartsmagic:memory_quaffle\"},"
+                + "{\"id\":\"b\",\"type\":\"hogwartsmagic:memory_bludger\",\"ride\":\"q\"}]}"), "ride");
     }
 }

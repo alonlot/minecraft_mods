@@ -334,4 +334,30 @@ class SceneDataTest {
         assertTrue(def.actors().stream().anyMatch(a -> a.ride() != null && !Float.isInfinite(a.rideFrom())),
                 "a rider mounts inside the scene");
     }
+    /** The ball types, the Snitch and the display-only props are all names a scene may use. */
+    @Test
+    void harvestKnowsTheBallsAndTheProps() throws Exception {
+        SceneNames names = harvest();
+        for (String type : SceneNames.BALLS) assertTrue(names.entityTypes().contains(type), type);
+        assertTrue(names.entityTypes().contains("hogwartsmagic:golden_snitch"));
+        assertTrue(names.items().contains("hogwartsmagic:memory_remembrall"));
+        assertTrue(names.items().contains("hogwartsmagic:whistle"));
+    }
+
+    /**
+     * The balls dev scene (build_scripts/pensieve_scenes/dev_balls.py into the ignored run/pensieve_dev) validates like
+     * a shipped one. Skipped where it has not been generated.
+     */
+    @Test
+    void devBallsSceneValidates() throws Exception {
+        Path f = Path.of("run/pensieve_dev/dev_balls.json");
+        org.junit.jupiter.api.Assumptions.assumeTrue(Files.exists(f),
+                "run/pensieve_dev/dev_balls.json not generated (python build_scripts/pensieve_scenes/dev_balls.py)");
+        SceneDef def = SceneParser.parse("dev_balls", JsonParser.parseString(read(f)).getAsJsonObject());
+        assertEquals(List.of(), SceneValidator.validate(def, harvest()));
+        for (String type : SceneNames.BALLS) {
+            assertTrue(def.actors().stream().anyMatch(a -> type.equals(a.type())), type);
+        }
+        assertTrue(def.actors().stream().anyMatch(a -> "hogwartsmagic:golden_snitch".equals(a.type())));
+    }
 }

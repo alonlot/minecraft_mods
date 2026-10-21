@@ -872,6 +872,16 @@ public class ExampleMod
                     new Item.Properties().stacksTo(1).durability(24)));
 
     /**
+     * Display-only props for Pensieve memories (the Flying memory): the Remembrall a puppet or the viewer holds, and
+     * Madam Hooch's whistle. They do nothing, are in no creative tab and have no recipe: a scene puts them in a hand
+     * with an {@code items} / {@code equip} entry.
+     */
+    public static final RegistryObject<Item> MEMORY_REMEMBRALL = ITEMS.register("memory_remembrall",
+            () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final RegistryObject<Item> WHISTLE = ITEMS.register("whistle",
+            () -> new Item(new Item.Properties().stacksTo(1)));
+
+    /**
      * Gold off a cursed hoard. It burns, and there is always more of it than there was.
      * Deliberately NOT a Galleon: no goblin will take it at face value.
      */

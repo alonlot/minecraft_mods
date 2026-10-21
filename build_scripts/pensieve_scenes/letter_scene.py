@@ -100,7 +100,9 @@ inside a block shape; every seated hold and STAND_UP (Vernon's armchair, the kit
 both leg boxes clear of the set; subtitles inside their slots; every `next` names a generated scene; the flood box
 is the anchor's living_room_box and all air in the set; Hagrid's whole body (the player model's boxes at 1.5, the
 keyed stoop sampled every tick) clears the doorway; the door leaves fall from yaw 180 into the hut; the boat only
-rides seas of intensity 1 or less; eyes_open is the first event of `letter` and eyes_close the last of `letter_hut`.
+rides seas of intensity 1 or less; eyes_open is the first event of `letter` and eyes_close the last of `letter_hut`;
+every shot, sampled at 60 fps through the engine's camera maths (spline keys included), has no frame-to-frame jump
+in camera velocity or turn rate (check_camera_smoothness); the crossing's smooth boat course keeps to boat_path.
 """
 import json
 import math
@@ -112,7 +114,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from scene_common import write_scene, FREE, MEMORIES  # noqa: E402
-from wand_scene import (tk, r3, yaw_to, clamp, lerp, sample_path, samples_fast, sample_cam, ease_f,  # noqa: E402
+from wand_scene import (tk, r3, yaw_to, clamp, lerp, sample_path, samples_fast, ease_f,  # noqa: E402
                         Life, Clips, Mover, pose, act)
 import human_motion as HM  # noqa: E402
 import privet_drive as PD  # noqa: E402
@@ -424,10 +426,10 @@ class Scene:
             w['size'] = size
         self.words.append(w)
 
-    def key(self, t, pos, look, fov=70, cut=False, ease=None):
-        k = {'t': tk(t), 'pos': [r3(c) for c in pos]}
+    def key(self, t, pos, look, fov=70, cut=False, ease=None, places=3):
+        k = {'t': tk(t), 'pos': [round(c, places) for c in pos]}
         if look is not None:
-            k['look_at'] = look if isinstance(look, str) else [r3(c) for c in look]
+            k['look_at'] = look if isinstance(look, str) else [round(c, places) for c in look]
         if fov != 70:
             k['fov'] = fov
         if ease:
@@ -529,8 +531,12 @@ def check_camera(sc, cam, problems, margin=0.06):
         if i and not k.get('cut'):
             a0, a1 = cam[i - 1]['pos'], k['pos']
             n = int(max(abs(a1[j] - a0[j]) for j in range(3)) / 0.08) + 1
+            spl = _cam_spline(cam, i)
+            if spl:
+                n *= 2
             for s_ in range(1, n):
-                p = [a0[j] + (a1[j] - a0[j]) * s_ / n for j in range(3)]
+                p = (engine_cam(cam, cam[i - 1]['t'] + (k['t'] - cam[i - 1]['t']) * s_ / n) if spl
+                     else [a0[j] + (a1[j] - a0[j]) * s_ / n for j in range(3)])
                 if not in_air(w, p, margin):
                     problems.append('%s camera move into key %d (t %d) passes %s (%s)' % (
                         sc.sid, i, k['t'], [r3(c) for c in p], w.get(cell(p))))
@@ -540,7 +546,7 @@ def check_camera(sc, cam, problems, margin=0.06):
     if sc.over_sea:
         sea_y, crest, box = sc.over_sea
         for t in range(0, sc.L + 1, 2):
-            p = sample_cam(cam, t)
+            p = engine_cam(cam, t)
             if box[0] <= p[0] <= box[1] and box[2] <= p[2] <= box[3] and p[1] < sea_y + crest + 0.5:
                 problems.append('%s camera at t %d (%s) is within reach of the waves' % (sc.sid, t, [r3(c) for c in p]))
                 break
@@ -718,6 +724,7 @@ def finish(sc, scene, extra=None):
     if extra:
         extra(problems)
     sc.clearance = check_camera_clearance(sc.sid, scene, problems)
+    sc.motion = check_camera_smoothness(sc.sid, scene, problems)
     check_lines(sc, problems)
     for e in scene['events']:
         if e['kind'] == 'block' and e['id'] == 'minecraft:light' and not in_air(sc.world, [c + 0.5 for c in e['at']]):
@@ -1310,6 +1317,11 @@ def letter_scene():
     sc.key(9.4, [2.38, 1.62, -9.66], face, 66)
     sc.key(12.2, [0.42, 1.38, -9.55], [2.35, 0.75, -9.05], 58)
     sc.key(14.8, [0.36, 1.36, -9.52], [2.35, 0.72, -9.1], 56)
+    # The glance to the light and the lift off his face turn the view about 70 and 110 degrees, close to the lens:
+    # as eased key pairs the look point passed 0.4 from it and the view whipped through the middle of each move (0.2
+    # and 0.6 deg/frame of turn-rate change). Turn the view direction itself instead (turn_between).
+    turn_between(sc.camera, sc.actors, tk(7.6), tk(9.4), 36)
+    turn_between(sc.camera, sc.actors, tk(5.6), tk(6.9), 26)
 
     # ---- the street, then the post
     T_ST = 14.8
@@ -1481,7 +1493,7 @@ def letter_scene():
     def extra(problems):
         # the pull-out leaves the cupboard only after the door has swung clear
         for t in range(0, sc.L + 1):
-            p = sample_cam(scene['camera'], t)
+            p = engine_cam(scene['camera'], t)
             if 1.0 <= p[0] <= 2.0 and -10.0 <= p[2] <= -9.0 and t < tk(T_OPEN + 0.6):
                 problems.append('camera in the cupboard door cell before it opens (t %d)' % t)
                 break
@@ -1492,7 +1504,7 @@ def letter_scene():
         for f in (0.0, 0.5, 1.0):
             px, pz = hx + f * math.sin(y), hz - f * math.cos(y)
             for t in range(tk(T_OPEN + 0.7), tk(14.8)):
-                cp = sample_cam(scene['camera'], t)
+                cp = engine_cam(scene['camera'], t)
                 if math.hypot(cp[0] - px, cp[2] - pz) < 0.3 and cp[1] < 2.2:
                     problems.append('camera within 0.3 of the open cupboard door at t %d' % t)
                     break
@@ -1968,6 +1980,9 @@ def flood_scene():
     # F8: from the bay, Vernon hauls him across the room and out through the doorway; chain fade
     sc.key(T_HAUL, [-6.6, 1.7, -3.4], [-4.7, 1.0, -7.2], 70, cut=True)
     sc.key(LEN, [-6.45, 1.68, -3.5], [-2.9, 1.0, -6.0], 64)
+    # F5 looked at actor:boy live: his walk starts and stops dead and his eye drops 0.26 on the frame he crouches,
+    # and the camera took both as a jolt (7 deg in one frame). Bake his eye, glided over +-6 ticks, into spline keys.
+    rekey(sc.camera, sc.actors, tk(17.6), tk(21.6), 20, smooth=6, keep_first=False)
 
     spills = flood_spill(sc, {'camera': sc.camera, 'actors': sc.actors},
                          [('spill_snatch', snatch_rest, snatch_keys, T_GRAB)])
@@ -2053,17 +2068,6 @@ def seat_offset(name, scale):
     return [x, round(HM.seated_root_y(BOAT_SEAT_TOP, scale), 4), z]
 
 
-def polyline_at(pts, s):
-    """Point and heading yaw at arc length s along pts."""
-    for a, b in zip(pts, pts[1:]):
-        d = math.dist([a[0], a[2]], [b[0], b[2]])
-        if s <= d or b is pts[-1]:
-            f = clamp(s / d, 0, 1)
-            return [a[0] + (b[0] - a[0]) * f, a[1], a[2] + (b[2] - a[2]) * f], yaw_to(b[0] - a[0], b[2] - a[2])
-        s -= d
-    return list(pts[-1]), yaw_to(pts[-1][0] - pts[-2][0], pts[-1][2] - pts[-2][2])
-
-
 def rower_limbs(length_ticks):
     """The stroke: the torso rocks -10..+14 degrees about the HIPS (torso_pose moves the neck and shoulders where the
     turned torso puts them, so the hips stay on the legs), the head stays level, the arms swing with the oars."""
@@ -2084,34 +2088,84 @@ def rower_limbs(length_ticks):
 
 
 class Boat:
-    """The crossing's course: boat_path from its 4th point to the landing, at a steady pull easing in at the
-    ledge; pos(t) and yaw(t) (the heading smoothed over a second)."""
+    """The crossing's course: boat_path from its 4th point to the landing as a cubic B-spline (its ends clamped to the
+    first and last points, leaving along the first leg and arriving along the last), so the heading turns with no
+    corner (C2: the yaw rate has no steps either). The boat keeps a steady pull, then slows over the last DECEL of
+    the time on a half cosine to rest at the ledge (the speed has no corner where it starts to slow). pos(t) is on
+    the still water, yaw(t) the curve's heading there."""
+    DECEL = 0.25
 
     def __init__(self, t0, t1):
         self.pts = IA['boat_path'][3:]
-        self.L = sum(math.dist([a[0], a[2]], [b[0], b[2]]) for a, b in zip(self.pts, self.pts[1:]))
         self.t0, self.t1 = t0, t1
+        ctrl = [self.pts[0]] * 2 + list(self.pts) + [self.pts[-1]] * 2
+        self.ctrl = [(p[0], p[2]) for p in ctrl]
+        self.spans = len(self.ctrl) - 3
+        self.us, self.ss = [0.0], [0.0]                 # arc length table: curve parameter u -> blocks along
+        prev = self._at(0.0)
+        n = 400
+        for i in range(1, self.spans * n + 1):
+            u = i / n
+            q = self._at(u)
+            self.us.append(u)
+            self.ss.append(self.ss[-1] + math.dist(prev, q))
+            prev = q
+        self.L = self.ss[-1]
+        td = (t1 - t0) * (1 - self.DECEL)
+        self.v0 = self.L / (td + (t1 - t0) * self.DECEL / 2)    # blocks a second while pulling steadily
+        self.td = td
+
+    def _basis(self, u):
+        j = min(int(u), self.spans - 1)
+        s = u - j
+        c = self.ctrl[j:j + 4]
+        b = ((1 - s) ** 3 / 6, (3 * s ** 3 - 6 * s ** 2 + 4) / 6, (-3 * s ** 3 + 3 * s ** 2 + 3 * s + 1) / 6, s ** 3 / 6)
+        d = (-(1 - s) ** 2 / 2, (3 * s * s - 4 * s) / 2, (-3 * s * s + 2 * s + 1) / 2, s * s / 2)
+        return c, b, d
+
+    def _at(self, u):
+        c, b, _ = self._basis(u)
+        return (sum(b[i] * c[i][0] for i in range(4)), sum(b[i] * c[i][1] for i in range(4)))
+
+    def _u(self, s):
+        s = clamp(s, 0.0, self.L)
+        lo, hi = 0, len(self.ss) - 1
+        while hi - lo > 1:
+            mid = (lo + hi) // 2
+            if self.ss[mid] <= s:
+                lo = mid
+            else:
+                hi = mid
+        span = self.ss[hi] - self.ss[lo]
+        return self.us[lo] + (self.us[hi] - self.us[lo]) * ((s - self.ss[lo]) / span if span > 0 else 0.0)
 
     def s(self, t):
-        f = clamp((t - self.t0) / (self.t1 - self.t0), 0, 1)
-        # steady, then easing over the last 25%
-        g = f / 0.75 * 0.85 if f < 0.75 else 0.85 + 0.15 * (1 - (1 - (f - 0.75) / 0.25) ** 2)
-        return self.L * g
+        """Blocks along the course at t seconds."""
+        x = clamp(t - self.t0, 0.0, self.t1 - self.t0)
+        if x <= self.td:
+            return self.v0 * x
+        dd = (self.t1 - self.t0) - self.td
+        y = x - self.td
+        return self.v0 * self.td + self.v0 * (y / 2 + dd / (2 * math.pi) * math.sin(math.pi * y / dd))
 
     def pos(self, t):
-        return polyline_at(self.pts, self.s(t))[0]
+        x, z = self._at(self._u(self.s(t)))
+        return [x, self.pts[0][1], z]
 
     def yaw(self, t):
-        ys = [polyline_at(self.pts, self.s(t + d))[1] for d in (-0.6, -0.3, 0.0, 0.3, 0.6)]
-        base = ys[2]
-        acc = 0.0
-        for y in ys:
-            while y - base > 180:
-                y -= 360
-            while y - base < -180:
-                y += 360
-            acc += y
-        return acc / len(ys)
+        u = self._u(self.s(t))
+        c, _, d = self._basis(u)
+        dx, dz = sum(d[i] * c[i][0] for i in range(4)), sum(d[i] * c[i][1] for i in range(4))
+        if math.hypot(dx, dz) < 1e-6:                   # the clamped ends: along the first or the last leg
+            a, b = (self.pts[0], self.pts[1]) if u < 1 else (self.pts[-2], self.pts[-1])
+            dx, dz = b[0] - a[0], b[2] - a[2]
+        y = yaw_to(dx, dz)
+        ref = yaw_to(self.pts[1][0] - self.pts[0][0], self.pts[1][2] - self.pts[0][2])
+        while y - ref > 180:                            # one continuous branch for the whole course
+            y -= 360
+        while y - ref < -180:
+            y += 360
+        return y
 
     def frame(self, t, fwd=0.0, side=0.0, up=0.0):
         """A point fixed to the still-water boat frame: fwd toward the bow, side to the port (left) side."""
@@ -2137,13 +2191,14 @@ def crossing_scene():
     }
     T_LAND = 16.4
     boat = Boat(0.0, T_LAND)
+    # keyed every tick (the engine places the boat once a tick and draws it lerped, so per-tick linear keys of the
+    # smooth course are as smooth as it can be shown); 4 decimals, so rounding adds no jitter of its own. Actor
+    # tracks take no spline. Still when it has landed: no keys after T_LAND.
     bp, bl_ = [], []
-    t = 0.0
-    while t <= LEN + 1e-9:
-        p = boat.pos(t)
-        bp.append({'t': tk(t), 'pos': [r3(p[0]), r3(SEA_Y), r3(p[2])], 'ease': 'linear'})
-        bl_.append({'t': tk(t), 'yaw': round(boat.yaw(t), 1), 'ease': 'linear'})
-        t += 0.5
+    for t_ in range(0, tk(T_LAND) + 1):
+        p = boat.pos(t_ / 20.0)
+        bp.append({'t': t_, 'pos': [round(p[0], 4), r3(SEA_Y), round(p[2], 4)], 'ease': 'linear'})
+        bl_.append({'t': t_, 'yaw': round(boat.yaw(t_ / 20.0), 3), 'ease': 'linear'})
     sc.actor('boat', 'hogwartsmagic:memory_rowboat', path=bp, look=bl_)
     riders = (('vernon', 'oars', ADULT, 'boat_seat'), ('petunia', 'stern_left', ADULT, 'boat_clutch'),
               ('dudley', 'stern_right', KID, 'boat_huddle'), ('boy', 'bow', KID, 'boat_grip'))
@@ -2179,26 +2234,34 @@ def crossing_scene():
         if w.get(tuple(c)) in (None, 'minecraft:air'):
             fills.append({'block': 'minecraft:light', 'from': c, 'to': c})
     # ---- camera
-    sc.key(0, [31.5, 4.0, 58.0], 'actor:boat', 66)
-    sc.key(4.4, [28.0, 2.4, 53.0], 'actor:boat', 60)
-    t = 4.4
-    first = True
-    while t <= 8.4 + 1e-9:
-        p = boat.frame(t, fwd=-0.6, side=-3.4, up=1.95)
-        la = boat.frame(t + 0.15, fwd=0.3, side=0.0, up=0.7)
-        sc.key(t, p, la, 58, cut=first, ease=None if first else 'linear')
-        first = False
-        t += 0.4
-    t = 8.4
-    first = True
-    while t <= 12.0 + 1e-9:
-        p = boat.frame(t, fwd=-3.3, side=0.25, up=1.85)
-        la = boat.frame(t + 0.1, fwd=0.6, side=0.0, up=1.05)
-        sc.key(t, p, la, 54, cut=first, ease=None if first else 'linear')
-        first = False
-        t += 0.4
-    sc.key(12.0, [9.4, -5.4, 15.6], 'actor:boat', 60, cut=True)
-    sc.key(LEN, [8.7, -5.5, 16.5], 'actor:boat', 52)
+    # Every shot is a run of spline keys (C1 through each key: no hitch in the speed or the pan at a key). X1 and X4
+    # look at the boat's still-water course at its entity eye (MemoryRowboat is 0.8 high: eye 0.68), not at the
+    # drawn, heaving boat, so the frame holds steady while the boat rides the swell inside it.
+    def eye(t):
+        p = boat.pos(t)
+        return [p[0], SEA_Y + 0.68, p[2]]
+
+    def run(t0, t1, n, fn, cut):
+        for i in range(n + 1):
+            t = t0 + (t1 - t0) * i / n
+            p, la, fov = fn(t)
+            sc.key(t, p, la, round(fov, 2), cut=cut and i == 0, ease=None if i == 0 else 'spline')
+
+    def glide(a, b, f0, f1, t0, t1):
+        """The old single eased move from a to b (fov f0 to f1), looking at the boat's course."""
+        def fn(t):
+            e = ease_f('in_out', (t - t0) / (t1 - t0))
+            return lerp(a, b, e), eye(t), f0 + (f1 - f0) * e
+        return fn
+    X1, X2, X3, X4 = (0.0, 4.4), (4.4, 8.4), (8.4, 12.0), (12.0, LEN)
+    run(*X1, 8, glide([31.5, 4.0, 58.0], [28.0, 2.4, 53.0], 66, 60, *X1), False)
+    # X2/X3: fixed to the boat's still-water frame (it is C2 now, so the offset inherits no yaw steps), keyed every
+    # 0.5 / 0.6 s: the spline stays within 0.02 of the frame (asserted below)
+    x2 = (lambda t: (boat.frame(t, fwd=-0.6, side=-3.4, up=1.95), boat.frame(t + 0.15, fwd=0.3, side=0.0, up=0.7), 58))
+    x3 = (lambda t: (boat.frame(t, fwd=-3.3, side=0.25, up=1.85), boat.frame(t + 0.1, fwd=0.6, side=0.0, up=1.05), 54))
+    run(*X2, 8, x2, True)
+    run(*X3, 6, x3, True)
+    run(*X4, 10, glide([9.4, -5.4, 15.6], [8.7, -5.5, 16.5], 60, 52, *X4), True)
     set_ = dict(SET_ISLAND, fills=fills)
     scene = sc.scene(set_, LI.RADIUS, nxt='letter_hut')
 
@@ -2211,6 +2274,28 @@ def crossing_scene():
             p = boat.pos(t / 20.0)
             if abs(p[0] - c[0]) > sp[0] - 6 or abs(p[2] - c[2]) > sp[2] - 6:
                 problems.append('the boat leaves the rough_sea area at t %d' % t)
+        # the smooth course stays in the channel cut along boat_path (grown 1.45 round the hull): within 0.35 of
+        # the polyline, and it ends on the landing point facing the landing yaw
+        pts = boat.pts
+        dev = max(min(LI._seg_dist(p[0], p[2], a[0], a[2], b[0], b[2]) for a, b in zip(pts, pts[1:]))
+                  for p in (boat.pos(t / 20.0) for t in range(0, tk(T_LAND) + 1)))
+        if dev > 0.35:
+            problems.append('the boat strays %.2f from boat_path' % dev)
+        end = boat.pos(T_LAND)
+        assert math.dist(end, IA['boat_landing']) < 1e-6, end
+        assert abs((boat.yaw(T_LAND) - IA['boat_landing_yaw'] + 180) % 360 - 180) < 0.5, boat.yaw(T_LAND)
+        sc.boat_dev = dev
+        # X2/X3: the spline between keys stays on the boat frame it was keyed from
+        cam = scene['camera']
+        worst = 0.0
+        for (t0, t1), fn in ((X2, x2), (X3, x3)):
+            for i in range(tk(t0) * 2, tk(t1) * 2):
+                t = i / 2.0
+                p, la, _ = fn(t / 20.0)
+                worst = max(worst, math.dist(engine_cam(cam, t), p), math.dist(engine_look(scene, cam, t)[0], la))
+        if worst > 0.02:
+            problems.append('X2/X3 spline strays %.3f from the boat frame' % worst)
+        sc.frame_dev = worst
     return sc, scene, extra
 
 
@@ -2362,26 +2447,88 @@ CROUCH_PIVOT = {'head': (0, 4.2, 0), 'body': (0, 3.2, 0), 'right_arm': (-5, 5.2,
 CROUCH_ROT = {'body': math.degrees(0.5), 'right_arm': math.degrees(0.4), 'left_arm': math.degrees(0.4)}
 
 
+EASE_SLOPES = {'linear': (1, 1), 'in': (0, 3), 'out': (3, 0), 'in_out': (0, 0), 'spline': (1, 1)}   # Ease start/end
+
+
+def _cam_spline(cam, i):
+    """CameraTrack.isSpline: the segment ending at key i is a spline key, not a cut, of nonzero length."""
+    return (0 < i < len(cam) and cam[i].get('ease') == 'spline' and not cam[i].get('cut')
+            and cam[i]['t'] > cam[i - 1]['t'])
+
+
+def _cam_moves(i, cam):
+    """CameraTrack.moves: the segment ending at key i exists, is not a cut and has length."""
+    return 0 < i < len(cam) and not cam[i].get('cut') and cam[i]['t'] > cam[i - 1]['t']
+
+
 def engine_blend(cam, t):
-    """(key before, key after, k) at scene tick t exactly as CameraTrack.sample picks them: a cut key holds the key
-    before it until its own tick (k 0); otherwise k is the after key's ease of the way between them."""
+    """(index of the key before, index of the key after, k, spline) at scene tick t exactly as CameraTrack.sample
+    picks them: a cut key holds the key before it until its own tick (k 0); a spline segment is flagged (k unused);
+    otherwise k is the after key's ease of the way between them."""
+    n = len(cam)
     if t >= cam[-1]['t']:
-        return cam[-1], cam[-1], 0.0
+        return n - 1, n - 1, 0.0, False
     if t <= cam[0]['t']:
-        return cam[0], cam[0], 0.0
-    for i in range(1, len(cam)):
+        return 0, 0, 0.0, False
+    for i in range(1, n):
         b = cam[i]
         if t < b['t']:
             a = cam[i - 1]
             span = b['t'] - a['t']
-            return a, b, (0.0 if b.get('cut') or span <= 0 else ease_f(b.get('ease', 'in_out'), (t - a['t']) / span))
-    return cam[-1], cam[-1], 0.0
+            if _cam_spline(cam, i):
+                return i - 1, i, 0.0, True
+            return i - 1, i, (0.0 if b.get('cut') or span <= 0 else ease_f(b.get('ease', 'in_out'),
+                                                                           (t - a['t']) / span)), False
+    return n - 1, n - 1, 0.0, False
+
+
+def engine_spline(cam, b, t, values):
+    """CameraTrack.spline: the spline segment ending at key b at tick t; values(i) gives key i's interpolated values
+    (any length). A cubic Hermite whose key velocities are shared with the neighbouring segments: the parabola slope
+    between two spline segments, the eased neighbour's own speed, or a natural end."""
+    a = b - 1
+    ta, tb = cam[a]['t'], cam[b]['t']
+    dt = tb - ta
+    va, vb = values(a), values(b)
+    vp = values(a - 1) if a - 1 >= 0 else None
+    vn = values(b + 1) if b + 1 < len(cam) else None
+    tp = cam[a - 1]['t'] if a - 1 >= 0 else 0
+    tn = cam[b + 1]['t'] if b + 1 < len(cam) else 0
+    start = 0 if _cam_spline(cam, a) else 1 if _cam_moves(a, cam) else 2
+    end = 0 if _cam_spline(cam, b + 1) else 1 if _cam_moves(b + 1, cam) else 2
+    s_in = EASE_SLOPES[cam[a].get('ease', 'in_out')][1] if _cam_moves(a, cam) else 0
+    s_out = EASE_SLOPES[cam[b + 1].get('ease', 'in_out')][0] if _cam_moves(b + 1, cam) else 0
+    u = max(0.0, min(1.0, (t - ta) / dt))
+    u2, u3 = u * u, u * u * u
+    h00, h10, h01, h11 = 2 * u3 - 3 * u2 + 1, u3 - 2 * u2 + u, -2 * u3 + 3 * u2, u3 - u2
+
+    def tangent(p0, p1, p2, g0, g1):
+        return (g1 * (p1 - p0) / g0 + g0 * (p2 - p1) / g1) / (g0 + g1)
+
+    out = []
+    for c in range(len(va)):
+        sec = (vb[c] - va[c]) / dt
+        ma = (tangent(vp[c], va[c], vb[c], ta - tp, dt) if start == 0
+              else s_in * (va[c] - vp[c]) / (ta - tp) if start == 1 else None)
+        mb = (tangent(va[c], vb[c], vn[c], dt, tn - tb) if end == 0
+              else s_out * (vn[c] - vb[c]) / (tn - tb) if end == 1 else None)
+        if ma is None and mb is None:
+            ma = mb = sec
+        elif ma is None:
+            ma = (3 * sec - mb) / 2
+        elif mb is None:
+            mb = (3 * sec - ma) / 2
+        out.append(h00 * va[c] + h10 * dt * ma + h01 * vb[c] + h11 * dt * mb)
+    return out
 
 
 def engine_cam(cam, t):
     """The camera position at scene tick t as CameraTrack.sample computes it."""
-    a, b, k = engine_blend(cam, t)
-    return [a['pos'][c] + (b['pos'][c] - a['pos'][c]) * k for c in range(3)]
+    a, b, k, spl = engine_blend(cam, t)
+    if spl:
+        return engine_spline(cam, b, t, lambda i: cam[i]['pos'])
+    pa, pb = cam[a]['pos'], cam[b]['pos']
+    return [pa[c] + (pb[c] - pa[c]) * k for c in range(3)]
 
 
 def camera_samples(cam, length, per_tick=4):
@@ -2478,6 +2625,16 @@ CAM_CLEAR = 0.15          # blocks from the camera to any part box of any player
 NEAR_PLANE = 0.05
 
 
+def actor_eye_height(a, t):
+    """A player actor's eye above its root at tick t, as MemoryActors.actorEye reads it (getEyeHeight times its
+    scale): crouched (1.27) from a `sneak` until a `stand`, else 1.62. It snaps on the action's tick."""
+    crouch = False
+    for x in sorted(a.get('actions', []), key=lambda x: x['t']):
+        if x['t'] <= t and x['do'] in ('sneak', 'stand'):
+            crouch = x['do'] == 'sneak'
+    return (1.27 if crouch else 1.62) * a.get('scale', 1.0)
+
+
 def engine_look(scene, cam, t):
     """(the point the camera looks at, its vertical fov) at tick t, as CameraTrack.sample blends them (an actor's
     eye: its path plus the player eye height at its scale, crouched after a sneak)."""
@@ -2486,12 +2643,17 @@ def engine_look(scene, cam, t):
         if isinstance(la, str):
             a_ = next(x for x in scene['actors'] if x['id'] == la[6:])
             r = sample_path(a_['path'], t)
-            crouch = any(x['do'] == 'sneak' and x['t'] <= t for x in a_.get('actions', []))
-            return [r[0], r[1] + (1.27 if crouch else 1.62) * a_.get('scale', 1.0), r[2]]
+            if a_.get('type', 'player') == 'hogwartsmagic:memory_rowboat':     # its entity eye: 0.85 of 0.8 high
+                return [r[0], r[1] + 0.68 * a_.get('scale', 1.0), r[2]]
+            return [r[0], r[1] + actor_eye_height(a_, t), r[2]]
         if la is not None:
             return la
         return [k['pos'][0], k['pos'][1], k['pos'][2] + 1]
-    a, b, k = engine_blend(cam, t)
+    ia, ib, k, spl = engine_blend(cam, t)
+    if spl:
+        v = engine_spline(cam, ib, t, lambda i: list(target(cam[i])) + [cam[i].get('fov', 70)])
+        return v[:3], max(10.0, min(150.0, v[3]))
+    a, b = cam[ia], cam[ib]
     fa, fb = target(a), target(b)
     fov = a.get('fov', 70) + (b.get('fov', 70) - a.get('fov', 70)) * k
     return [fa[c] + (fb[c] - fa[c]) * k for c in range(3)], fov
@@ -2565,6 +2727,157 @@ def check_camera_clearance(sid, scene, problems):
                     return best
                 best = (d, t, a['id'], part)
     return best
+
+
+FPS_SUB = 3               # 60 fps: three frames a tick
+
+
+def camera_frames(scene):
+    """The camera as the player sees it at 60 fps through the engine's maths (engine_cam, engine_look; partial
+    ticks included), split into shots at the cuts: {shot: [(t, pos, unit view direction), ...]}."""
+    cam = scene['camera']
+    cuts = [k['t'] for k in cam if k.get('cut')]
+    out = {}
+    for i in range(scene['length'] * FPS_SUB + 1):
+        t = i / FPS_SUB
+        c = engine_cam(cam, t)
+        lk, _ = engine_look(scene, cam, t)
+        dx, dy, dz = lk[0] - c[0], lk[1] - c[1], lk[2] - c[2]
+        n = math.sqrt(dx * dx + dy * dy + dz * dz) or 1.0
+        out.setdefault(sum(1 for x in cuts if x <= t), []).append((t, c, [dx / n, dy / n, dz / n]))
+    return out
+
+
+def camera_motion(scene):
+    """Each shot's frame-to-frame motion: {shot: dict}. Per frame: v, the move (blocks a frame), and w, the turn
+    (the angular velocity of the view direction, axis times degrees a frame: free of the yaw/pitch pole and of
+    the centripetal turn of the direction itself); a = |v - v before| and aw = |w - w before|, the change of
+    velocity and of turn rate from one frame to the next (an acceleration: what a key corner or a snap shows up as);
+    the spikes ja = a - max(a of the frames either side) and jw likewise: how far one frame's change stands out
+    from its neighbours (a corner is all spike; an eased move, however brisk, has none). Keys: t0, t1, speed, turn
+    (the largest), a, aw, ja, jw (the largest, each with its tick in t_<key>)."""
+    out = {}
+    for shot, fr in camera_frames(scene).items():
+        vs, ws = [], []
+        for p, q in zip(fr, fr[1:]):
+            vs.append([q[1][j] - p[1][j] for j in range(3)])
+            a_, b_ = p[2], q[2]
+            ws.append([math.degrees(a_[1] * b_[2] - a_[2] * b_[1]), math.degrees(a_[2] * b_[0] - a_[0] * b_[2]),
+                       math.degrees(a_[0] * b_[1] - a_[1] * b_[0])])
+        acc = [math.dist(vs[i - 1], vs[i]) for i in range(1, len(vs))]
+        accw = [math.dist(ws[i - 1], ws[i]) for i in range(1, len(ws))]
+        st = {'t0': fr[0][0], 't1': fr[-1][0], 'speed': max([math.sqrt(sum(x * x for x in v)) for v in vs] or [0]),
+              'turn': max([math.sqrt(sum(x * x for x in w)) for w in ws] or [0])}
+        for key, arr in (('a', acc), ('aw', accw)):
+            st[key], st['t_' + key] = 0.0, fr[0][0]
+            for i, x in enumerate(arr):
+                if x > st[key]:
+                    st[key], st['t_' + key] = x, fr[i + 2][0]
+        for key, arr in (('ja', acc), ('jw', accw)):
+            st[key], st['t_' + key] = 0.0, fr[0][0]
+            for i in range(1, len(arr) - 1):
+                x = arr[i] - max(arr[i - 1], arr[i + 1])
+                if x > st[key]:
+                    st[key], st['t_' + key] = x, fr[i + 2][0]
+        out[shot] = st
+    return out
+
+
+# Smoothness bounds at 60 fps, from the shots that play smoothly (the eased moves of all four scenes before the
+# boat-scene fix: a 0.0011 blocks/frame and aw 0.055 deg/frame at most, spikes ja 0.00003 and jw 0.0022 at most) with
+# about 2x / 4x headroom. The boat scene's old linear X2/X3 keys broke them by 6-40x (a 0.012, ja 0.012, jw 0.18),
+# X4's look at the stepped boat course by 26x (jw 0.058), and an actor look target snapping on a crouch by 100x.
+CAM_A_MAX = 0.002         # blocks a frame: the camera's velocity change from one frame to the next
+CAM_AW_MAX = 0.08         # degrees a frame: the turn rate's change from one frame to the next
+CAM_JA_MAX = 0.0003       # blocks a frame: a velocity change standing out from both neighbouring frames' (a corner)
+CAM_JW_MAX = 0.01         # degrees a frame: likewise for the turn rate
+
+
+def check_camera_smoothness(sid, scene, problems):
+    """Every shot through the engine's camera maths at 60 fps (camera_motion): no velocity or turn-rate jump from one
+    frame to the next beyond the bounds above. Cuts are left out. Returns the per-shot motion."""
+    m = camera_motion(scene)
+    for shot, s in sorted(m.items()):
+        for key, lim, unit in (('a', CAM_A_MAX, 'blocks'), ('aw', CAM_AW_MAX, 'deg'), ('ja', CAM_JA_MAX, 'blocks'),
+                               ('jw', CAM_JW_MAX, 'deg')):
+            if s[key] > lim:
+                problems.append('%s shot %d (t %.0f-%.0f): camera %s %.5f %s/frame at t %.2f (limit %g)' % (
+                    sid, shot, s['t0'], s['t1'], key, s[key], unit, s['t_' + key], lim))
+    return m
+
+
+def rekey(cam, actors, t0, t1, n, look=None, smooth=0.0, keep_first=True):
+    """Re-key the camera from tick t0 to tick t1 (one shot, or part of one) as n spline segments sampled from the
+    engine's own path (engine_cam, the fov of engine_look), so the run is C1 through every key. The look target is
+    look(t) when given, else engine_look's, averaged over a triangle of +-smooth ticks inside [t0, t1) (which turns a
+    look target that snaps, an actor's eye height on a crouch, into a glide). The key at t0 stays unless keep_first
+    is False (its cut flag stays either way)."""
+    orig = [dict(k) for k in cam]
+    view = {'actors': actors, 'camera': orig}
+    i0 = max(i for i, k in enumerate(cam) if k['t'] == t0)
+    i1 = i0
+    while i1 + 1 < len(cam) and cam[i1 + 1]['t'] <= t1 and not cam[i1 + 1].get('cut'):
+        i1 += 1
+    assert cam[i1]['t'] == t1, (t0, t1, cam[i1]['t'])
+    hi = t1 - 1e-3
+
+    def target(t):
+        if look:
+            return look(t)
+        if not smooth:
+            return engine_look(view, orig, t)[0]
+        acc, wsum = [0.0, 0.0, 0.0], 0.0
+        steps = int(smooth * 2)
+        for j in range(-steps, steps + 1):
+            w_ = steps + 1 - abs(j)
+            q = engine_look(view, orig, clamp(t + j / 2.0, t0, hi))[0]
+            acc = [acc[c] + q[c] * w_ for c in range(3)]
+            wsum += w_
+        return [c / wsum for c in acc]
+    new = []
+    for i in range(n + 1):
+        t = t0 + (t1 - t0) * i / n
+        tt = min(t, hi)
+        k = {'t': int(round(t)), 'pos': [round(c, 4) for c in engine_cam(orig, tt)],     # 4 places: dense keys
+             'look_at': [round(c, 4) for c in target(tt)]}                              # rounded to 3 jitter
+        fov = round(engine_look(view, orig, tt)[1], 2)
+        if fov != 70:
+            k['fov'] = fov
+        if i:
+            k['ease'] = 'spline'
+        new.append(k)
+    assert all(a['t'] < b['t'] for a, b in zip(new, new[1:])), (t0, t1, n)
+    if keep_first:
+        new[0] = cam[i0]
+    elif cam[i0].get('cut'):
+        new[0]['cut'] = True
+    cam[i0:i1 + 1] = new
+
+
+def turn_between(cam, actors, ta, tb, n):
+    """Re-key the eased move between the keys at ticks ta and tb (fixed look points, the camera on its old path) so
+    the view direction turns on the great circle between the two keys' directions on a quintic smoothstep (no step
+    in the turn's acceleration, at rest at both ends) instead of the look point sliding on a chord past the lens: a
+    spline run of n segments."""
+    ia = max(i for i, k in enumerate(cam) if k['t'] == ta)
+    ib = ia + 1
+    assert cam[ib]['t'] == tb and not cam[ib].get('cut'), (ta, tb)
+    pa, pb, la, lb = cam[ia]['pos'], cam[ib]['pos'], cam[ia]['look_at'], cam[ib]['look_at']
+    da, db = [la[i] - pa[i] for i in range(3)], [lb[i] - pb[i] for i in range(3)]
+    na, nb = math.sqrt(sum(c * c for c in da)), math.sqrt(sum(c * c for c in db))
+    ua, ub = [c / na for c in da], [c / nb for c in db]
+    om = math.acos(clamp(sum(ua[i] * ub[i] for i in range(3)), -1.0, 1.0))
+    orig = [dict(k) for k in cam]
+
+    def look(t):
+        u = clamp((t - ta) / (tb - ta), 0.0, 1.0)
+        e = u * u * u * (u * (u * 6 - 15) + 10)
+        s0, s1 = math.sin((1 - e) * om) / math.sin(om), math.sin(e * om) / math.sin(om)
+        p = engine_cam(orig, t)
+        d = na + (nb - na) * e
+        return [p[i] + (ua[i] * s0 + ub[i] * s1) * d for i in range(3)]
+    rekey(cam, actors, ta, tb, n, look=look)
+    return math.degrees(om)
 
 
 def solve_reach(root, yaw, scale, torso_a, target, seed=(-105.0, -25.0)):
@@ -2866,6 +3179,10 @@ def hut_scene():
     over = ahead([root[0], 0, root[2]], y_boy - 180, -0.8, side=0.12, y=1.2)
     sc.key(29.6, over, 'actor:hagrid', 58, cut=True)
     sc.key(35.0, ahead([root[0], 0, root[2]], y_boy - 180, -0.72, side=0.12, y=1.15), 'actor:hagrid', 54)
+    # H5 and H8 looked at actor:hagrid live: his walk keys turn it in steps, and his eye drops 0.53 on the frame he
+    # crouches (11 deg in one frame). Bake his eye, glided over +-6 / +-8 ticks, into spline keys.
+    rekey(sc.camera, sc.actors, tk(T_BREAK - 0.05), tk(25.6), 25, smooth=6, keep_first=False)
+    rekey(sc.camera, sc.actors, tk(29.6), tk(35.0), 27, smooth=8, keep_first=False)
     # H9: close on the boy from his front left, clear of the crouching Hagrid
     bface = eye_of(root, y_boy - 180, KID, torso_pose(-6)['head'][1], (-36, 0, 0))
     h9 = ahead([root[0], 0, root[2]], y_boy - 180, 0.6, side=-0.78, y=1.28)
@@ -2906,18 +3223,21 @@ def hut_scene():
     # after the take the camera closes in on the drawn-in letter, CAM_CLEAR and more from his head (3.5 px at 0.75)
     C1 = fp_cam(-4, 2, BOY_YAW, pull, back=0.16, right=0.34, margin=3.5)
     C2 = fp_cam(-4, 6, BOY_YAW, pull, back=0.16, right=0.34, margin=3.5)
-    # and on the way there it swings out to his right on an arc, keyed every 2 ticks (linear between, the eased
-    # progress in the keys): his head comes back as he straightens up, and the straight move from the take
+    # and on the way there it swings out to his right on an arc, keyed every tick (a spline run, the eased
+    # progress in the keys; it starts and ends at rest beside the eased holds either side; linear keys stepped the
+    # speed at every key): his head comes back as he straightens up, and the straight move from the take
     # passed through it. The look and the fov follow the same progress, as one eased key pair would have them.
     k0, k1 = tk(T_TAKE + 0.15), tk(T_TAKE + 1.6)
     rgt = (-math.cos(math.radians(BOY_YAW)), -math.sin(math.radians(BOY_YAW)))
-    for tt_ in range(k0 + 2, k1, 2):
-        e = ease_f('in_out', (tt_ - k0) / (k1 - k0))
+    for tt_ in range(k0 + 1, k1):
+        u_ = (tt_ - k0) / (k1 - k0)
+        e = u_ * u_ * u_ * (u_ * (u_ * 6 - 15) + 10)            # quintic: no step in the acceleration mid-swing
         bul = H11_ARC * math.sin(math.pi * e)
         p_ = [CT[i] + (C1[i] - CT[i]) * e for i in range(3)]
         sc.key(tt_ / 20.0, [p_[0] + rgt[0] * bul, p_[1], p_[2] + rgt[1] * bul],
-               [MEET[i] + (pull[i] - MEET[i]) * e for i in range(3)], round(70 + (66 - 70) * e, 2), ease='linear')
-    sc.key(T_TAKE + 1.6, C1, pull, 66, ease='linear')
+               [MEET[i] + (pull[i] - MEET[i]) * e for i in range(3)], round(70 + (66 - 70) * e, 2), ease='spline',
+               places=4)                                 # 3 places jitter keys this dense and this close
+    sc.key(T_TAKE + 1.6, C1, pull, 66, ease='spline', places=4)
     sc.key(LEN, C2, [pull[0], pull[1] - 0.03, pull[2]], 60)
     T_CLOSE = 56.4
     sc.ev(T_CLOSE, 'effect', 'eyes_close', at=[0, 0, 0], duration=50)
@@ -3025,7 +3345,7 @@ def hut_scene():
                                          [round(c, 1) for c in rot_j]))
         print("  Hagrid's hand 780-1030: largest jump %.4f at t %s; largest move a tick in H11 %.3f" % (
             jump_max, jump_t, move_h11))
-        cam = sample_cam(scene['camera'], tk(T_TAKE))
+        cam = engine_cam(scene['camera'], tk(T_TAKE))
         for what, p_ in (("Hagrid's hand", hand_j), ("the boy's hand", tip_j)):
             va = view_angle(cam, MEET, p_)
             if va > 26.0:
@@ -3080,7 +3400,7 @@ def hut_scene():
             rx_ = (R0 + (REACH[0] - R0) * g) + a_
             ry_ = REACH[1] * g
             tip_ = arm_tip(root, BOY_YAW, KID, 'right_arm', [rx_, ry_, 0], pivot_px=torso_pose(a_)['right_arm'][1])
-            c_ = sample_cam(scene['camera'], tk(t_))
+            c_ = engine_cam(scene['camera'], tk(t_))
             look_ = [LOOK0[i] + (MEET[i] - LOOK0[i]) * g for i in range(3)]
             va = view_angle(c_, look_, tip_)
             if va > 32.0:
@@ -3117,6 +3437,13 @@ def main():
         total += sc.length
         d, t, aid, part = sc.clearance
         print('  %s: the camera comes no nearer than %.3f to a player part (%s %s at t %.2f)' % (sc.sid, d, aid, part, t))
+        m = sc.motion.values()
+        print('  %s: at 60 fps the camera velocity changes by at most %.5f blocks/frame (spike %.5f), its turn rate by'
+              ' %.4f deg/frame (spike %.4f)' % (sc.sid, max(s['a'] for s in m), max(s['ja'] for s in m),
+                                               max(s['aw'] for s in m), max(s['jw'] for s in m)))
+        if hasattr(sc, 'boat_dev'):
+            print('  %s: the boat keeps within %.2f of boat_path; X2/X3 within %.4f of its frame' % (
+                sc.sid, sc.boat_dev, sc.frame_dev))
         print('wrote %s.json: %d chars (cap %d), %.1f s, %d actors, %d events, %d camera keys, %d proximity checks,'
               ' %d leg corners' % (sc.sid, n_chars, MAX_JSON, sc.length, len(scene['actors']), len(scene['events']),
                                   len(scene['camera']), n_prox, n_legs))

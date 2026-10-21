@@ -96,6 +96,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from scene_common import write_scene, FREE, MEMORIES  # noqa: E402
 import diagon_set as DS  # noqa: E402
+from scene_engine import clamp, ease_f, engine_cam, sample_path  # noqa: E402,F401
 
 A = DS.ANCHORS
 MAX_JSON = 900000
@@ -155,8 +156,6 @@ def yaw_to(dx, dz):
     return math.degrees(math.atan2(-dx, dz))
 
 
-def clamp(v, lo, hi):
-    return max(lo, min(hi, v))
 
 
 def smooth(f):
@@ -169,31 +168,12 @@ def ease_out(f):
     return 1 - (1 - f) ** 3
 
 
-def ease_f(e, f):
-    if e == 'linear':
-        return f
-    if e == 'in':
-        return f ** 3
-    if e == 'out':
-        return 1 - (1 - f) ** 3
-    return 4 * f ** 3 if f < 0.5 else 1 - (-2 * f + 2) ** 3 / 2
 
 
 def lerp(a, b, f):
     return [a[k] + (b[k] - a[k]) * f for k in range(len(a))]
 
 
-def sample_path(path, t):
-    """An emitted path's position at tick t (the engine's rule: hold the ends, ease per segment)."""
-    if t <= path[0]['t']:
-        return path[0]['pos']
-    for a, b in zip(path, path[1:]):
-        if t <= b['t']:
-            if b['t'] == a['t']:
-                return b['pos']
-            f = ease_f(b.get('ease', 'in_out'), (t - a['t']) / (b['t'] - a['t']))
-            return [a['pos'][k] + (b['pos'][k] - a['pos'][k]) * f for k in range(3)]
-    return path[-1]['pos']
 
 
 def samples_fast(path, ticks):
@@ -218,16 +198,9 @@ def samples_fast(path, ticks):
 
 
 def sample_cam(cam, t):
-    """The camera position at tick t: cut keys hold the previous key until their own tick."""
-    if t <= cam[0]['t']:
-        return cam[0]['pos']
-    for a, b in zip(cam, cam[1:]):
-        if t < b['t'] or (t == b['t'] and not b.get('cut')):
-            if b.get('cut') or b['t'] == a['t']:
-                return a['pos']
-            f = ease_f(b.get('ease', 'in_out'), (t - a['t']) / (b['t'] - a['t']))
-            return lerp(a['pos'], b['pos'], f)
-    return cam[-1]['pos']
+    """The camera position at tick t, through the engine mirror (cut keys hold the previous key until their own
+    tick; spline runs follow CameraTrack.spline)."""
+    return engine_cam(cam, t)
 
 
 # ================================================================ limbs, clips, movers

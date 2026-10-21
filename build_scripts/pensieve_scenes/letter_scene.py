@@ -1044,8 +1044,8 @@ def letter_scene():
     bl.bend(T_PICK + 0.15, 0, 0.5, head=26, arms={'right_arm': [-48, 0, 6], 'left_arm': [-38, 0, -4]})
     ba.append(act(T_PICK, 'hold', item=INVITE))
     bm.face(25.4, 10, 0.4)
-    T_ADDR = 25.1
-    sc.narrate(T_ADDR, 'Mr. {viewer}, The Cupboard under the Stairs, 4 Privet Drive, Little Whinging, Surrey', 4.6)
+    T_ADDR = 24.9
+    sc.narrate(T_ADDR, 'Mr. {viewer}, The Cupboard under the Stairs, 4 Privet Drive, Little Whinging, Surrey', 3.1)
     sc.key(T_PICK - 0.9, [0.28, 1.5, -4.75], [0.6, 0.55, -3.55], 52, cut=True)
     sc.key(28.0, [0.3, 1.46, -4.62], [0.62, 0.72, -3.6], 46)
     # into the kitchen, reading
@@ -1576,14 +1576,47 @@ def crossing_scene():
 # ================================================================ letter_hut: Hagrid
 
 
-def hagrid_hand(root, yaw, arm_add, crouch=True):
-    """Hagrid's right hand (scale 1.5) with the arm keyed arm_add on top of the vanilla crouch (body 0.5 rad, arms
-    +0.4 rad, arm pivots down to y 5.2, the model lowered 2/16 of a block per scale)."""
+ITEM_ARM_X = -18.0      # vanilla ArmPose.ITEM: an arm holding something is raised pi/10 (xRot * 0.5 - pi/10 at rest)
+
+
+def hagrid_hand(root, yaw, arm_add, crouch=True, holding=True):
+    """Hagrid's right hand (scale 1.5) as PlayerRenderer poses it: vanilla's held-item arm (-18 degrees), then the
+    crouch (arms +0.4 rad, arm pivots down to y 5.2, the model lowered 2/16 of a block per scale), then the keyed
+    arm_add (limbs run last, in add mode)."""
+    x = arm_add[0] + (ITEM_ARM_X if holding else 0.0)
     if crouch:
         r = [root[0], root[1] - 2.0 / 16.0 * GIANT, root[2]]
-        return arm_tip(r, yaw, GIANT, 'right_arm', [arm_add[0] + math.degrees(0.4), arm_add[1], arm_add[2]],
+        return arm_tip(r, yaw, GIANT, 'right_arm', [x + math.degrees(0.4), arm_add[1], arm_add[2]],
                        pivot_px=(-5, 5.2, 0))
-    return arm_tip(root, yaw, GIANT, 'right_arm', arm_add)
+    return arm_tip(root, yaw, GIANT, 'right_arm', [x, arm_add[1], arm_add[2]])
+
+
+def solve_reach(root, yaw, scale, torso_a, target, seed=(-105.0, -25.0)):
+    """The boy's right arm (absolute x and y rotation) that puts his hand tip nearest `target`: coordinate descent
+    from seed over the rig's arm pivot for a torso pitched torso_a. Returns ((rx, ry), tip, distance)."""
+    piv = torso_pose(torso_a)['right_arm'][1]
+    rx, ry = seed
+    tip = arm_tip(root, yaw, scale, 'right_arm', [rx, ry, 0], pivot_px=piv)
+    d = math.dist(tip, target)
+    step = 8.0
+    while step > 0.05:
+        moved = False
+        for dx, dy in ((step, 0), (-step, 0), (0, step), (0, -step)):
+            t2 = arm_tip(root, yaw, scale, 'right_arm', [rx + dx, ry + dy, 0], pivot_px=piv)
+            d2 = math.dist(t2, target)
+            if d2 < d - 1e-9:
+                rx, ry, tip, d, moved = rx + dx, ry + dy, t2, d2, True
+        if not moved:
+            step /= 2
+    return (round(rx, 2), round(ry, 2)), tip, d
+
+
+def view_angle(cam, look, p):
+    """Degrees between the camera's axis (cam -> look) and the ray cam -> p."""
+    u = [look[i] - cam[i] for i in range(3)]
+    v = [p[i] - cam[i] for i in range(3)]
+    c = sum(u[i] * v[i] for i in range(3)) / (math.sqrt(sum(x * x for x in u)) * math.sqrt(sum(x * x for x in v)))
+    return math.degrees(math.acos(max(-1.0, min(1.0, c))))
 
 
 def hut_scene():
@@ -1687,16 +1720,22 @@ def hut_scene():
     hl['head'].change(T_SORRY - 0.3, [34, 0, 0], 0.5)         # down at the door under his boots
     hl['head'].change(T_SORRY + 1.6, [4, 0, 0], 0.5)
     hm.face(T_SORRY + 1.8, 214, 0.6)                          # a look at the Dursleys
-    # finds the boy
+    # finds the boy. The hand-over is solved (offline, then fixed here and asserted below): Hagrid crouches 1.13
+    # from the boy on the floor off the fallen leaves, his body turned 33 degrees so his right hand comes across
+    # in front of the boy, who leans in 9 degrees and turns 19 toward it; his outstretched right hand then meets
+    # Hagrid's within a few centimetres, 0.3 in front of his eyes.
     BOY = [-2.02, 0.5]                                        # the boy's hips (below)
-    CROUCH = [-0.55, in_p[1], 1.45]
-    y_boy = yaw_to(BOY[0] - CROUCH[0], BOY[1] - CROUCH[2])
+    CROUCH = [-0.895, 0.035, 0.428]                         # half on the blanket (0.0625), half on the boards
+    y_boy = yaw_to(BOY[0] - CROUCH[0], BOY[1] - CROUCH[2])   # Hagrid square to the boy
+    Y_OFFER = y_boy - 33.0                                    # and turned into the offer
+    BOY_YAW = y_boy - 180 - 19.0                              # the boy facing him, turned toward the letter
+    LEAN, LOOK = 9.0, -3.0
     hm.face(29.4, 150, 0.7)
     hm.face(30.1, yaw_to(BOY[0] - in_p[0], BOY[1] - in_p[2]), 0.5)
     T_FOUND = 30.4
     secs = sc.say(T_FOUND, 'letter_hagrid_found', 34.6, hc)
     hl['head'].change(T_FOUND, [20, 0, 0], 0.6)
-    hm.walk(31.4, [CROUCH], 0.8)
+    hm.walk(31.4, [[-0.45, in_p[1], 1.0], [-0.62, 0.035, 0.7], CROUCH], 0.8)
     hm.face(hm.t + 0.05, y_boy, 0.4)
     T_CROUCH = 33.4
     ha.append(act(T_CROUCH, 'sneak'))
@@ -1706,10 +1745,11 @@ def hut_scene():
     hc.span(T_WIZ - 0.05, T_WIZ + 0.9, 'TALK', 3, 6)
     # the letter, from his coat
     T_COAT, T_HOLD, T_OFFER = 39.9, 40.5, 41.0
-    ARM_OFFER = [-66, 8, 0]
+    ARM_OFFER = [-34.8, -14.0, 0]
     hl['right_arm'].change(T_COAT, [-70, 0, -40], 0.4)        # into the coat
     hl['right_arm'].change(T_HOLD, [-40, 0, -24], 0.3)
     hl['right_arm'].change(T_OFFER, ARM_OFFER, 0.6)
+    hm.face(T_OFFER - 0.2, Y_OFFER, 0.7)
     ha.append(act(T_HOLD, 'hold', item=INVITE))
     T_LET = 41.6
     secs = sc.say(T_LET, 'letter_hagrid_letter', 45.6)
@@ -1719,7 +1759,7 @@ def hut_scene():
     hl['head'].change(T_TAKE + 0.4, [16, 0, 0], 0.8)
     sc.actor('hagrid', skin=SKIN['hagrid'], scale=GIANT, mover=hm, life=hl, clips=hc, actions=ha)
     sc.unseen['hagrid'] = [(0.0, 10.2)]
-    HAND = hagrid_hand(CROUCH, y_boy, ARM_OFFER)
+    HAND = hagrid_hand(CROUCH, Y_OFFER, ARM_OFFER)
 
     # ---- the boy on the floor by the fire: a rig (lying, then up on his elbows, sitting, reaching)
     k = kpx(KID)
@@ -1744,15 +1784,19 @@ def hut_scene():
            (31.0, torso_pose(-14, head=(-30, 0, 0), r_arm=(40, 0, 10), l_arm=(40, 0, -10)), yaw_door),
            (32.4, torso_pose(-8, head=(-32, 0, 0), r_arm=(30, 0, 8), l_arm=(30, 0, -8)), y_boy - 180),
            (36.6, torso_pose(-6, head=(-30, 0, 0), r_arm=(20, 0, 6), l_arm=(30, 0, -8)), y_boy - 180),
+           (T_OFFER, torso_pose(-6, head=(-26, 0, 0), r_arm=(20, 0, 6), l_arm=(30, 0, -8)), y_boy - 180),
+           (T_OFFER + 1.0, torso_pose(-2, head=(-14, 0, 0), r_arm=(16, 0, 6), l_arm=(30, 0, -8)), BOY_YAW),
            ]
-    REACH = (-128, 6, 6)
+    (rx, ry), TIP, D_TAKE = solve_reach(root, BOY_YAW, KID, LEAN, HAND)
+    REACH = (rx - LEAN, ry, 0)                                # relative to the leaning torso
     T_REACH = 47.9
-    seq += [(T_REACH, torso_pose(-6, head=(-30, 0, 0), r_arm=(20, 0, 6), l_arm=(30, 0, -8)), y_boy - 180),
-            (T_TAKE - 0.15, torso_pose(-2, head=(-28, 0, 0), r_arm=REACH, l_arm=(30, 0, -8)), y_boy - 180),
-            (T_TAKE + 0.35, torso_pose(-2, head=(-26, 0, 0), r_arm=(REACH[0] + 6, 4, 6), l_arm=(30, 0, -8)),
-             y_boy - 180),
-            (T_TAKE + 1.6, torso_pose(-4, head=(6, 0, 0), r_arm=(-62, 0, -14), l_arm=(-30, 0, 10)), y_boy - 180),
-            (LEN, torso_pose(-4, head=(10, 0, 0), r_arm=(-60, 0, -14), l_arm=(-30, 0, 10)), y_boy - 180)]
+    R0 = -44.0                                                # the hand comes up, hesitant, before the reach
+    seq += [(T_REACH - 0.9, torso_pose(-2, head=(LOOK - 6, 0, 0), r_arm=(16, 0, 6), l_arm=(30, 0, -8)), BOY_YAW),
+            (T_REACH, torso_pose(-2, head=(LOOK - 6, 0, 0), r_arm=(R0, 0, 4), l_arm=(30, 0, -8)), BOY_YAW),
+            (T_TAKE - 0.12, torso_pose(LEAN, head=(LOOK, 0, 0), r_arm=REACH, l_arm=(30, 0, -8)), BOY_YAW),
+            (T_TAKE + 0.15, torso_pose(LEAN, head=(LOOK, 0, 0), r_arm=REACH, l_arm=(30, 0, -8)), BOY_YAW),
+            (T_TAKE + 1.6, torso_pose(-4, head=(6, 0, 0), r_arm=(-62, 0, -14), l_arm=(-30, 0, 10)), BOY_YAW),
+            (LEN, torso_pose(-4, head=(10, 0, 0), r_arm=(-60, 0, -14), l_arm=(-30, 0, 10)), BOY_YAW)]
     yaw_keys, limb_keys = [], []
     for t, pz, y in seq:
         limb_keys.append((t, pz, None))
@@ -1844,26 +1888,38 @@ def hut_scene():
     over = ahead([root[0], 0, root[2]], y_boy - 180, -0.8, side=0.12, y=1.2)
     sc.key(29.6, over, 'actor:hagrid', 58, cut=True)
     sc.key(35.0, ahead([root[0], 0, root[2]], y_boy - 180, -0.72, side=0.12, y=1.15), 'actor:hagrid', 54)
+    # H9: close on the boy from his front left, clear of the crouching Hagrid
     bface = eye_of(root, y_boy - 180, KID, torso_pose(-6)['head'][1], (-36, 0, 0))
-    sc.key(35.0, [-1.15, 1.38, 0.12], bface, 46, cut=True)
-    sc.key(39.6, [-1.2, 1.34, 0.08], bface, 42)
-    over2 = ahead([root[0], 0, root[2]], y_boy - 180, -0.7, side=-0.32, y=1.05)
-    sc.key(39.6, over2, [HAND[0], HAND[1] + 0.2, HAND[2]], 56, cut=True)
-    sc.key(42.6, over2, 'actor:hagrid', 54)
-    sc.key(45.6, ahead([root[0], 0, root[2]], y_boy - 180, -0.62, side=-0.3, y=1.04), 'actor:hagrid', 52)
-    # first person: the boy's eye (head tipped back to look up at Hagrid)
-    def fp_eye(t):
-        a = -6 if t < T_TAKE else -2
-        hr = -30 if t < T_TAKE + 0.4 else 6
-        return eye_of(root, y_boy - 180, KID, torso_pose(a)['head'][1], (a + hr, 0, 0), fwd=0.24)
-    E0 = fp_eye(45.6)
-    sc.key(45.6, E0, [HAND[0], HAND[1] + 0.05, HAND[2]], 64, cut=True)
-    sc.key(T_TAKE - 0.2, [E0[0], E0[1] + 0.01, E0[2]], [HAND[0], HAND[1], HAND[2]], 60)
-    pull = arm_tip(root, y_boy - 180, KID, 'right_arm', [-66, 0, -14],
-                   pivot_px=torso_pose(-4)['right_arm'][1])
-    E1 = fp_eye(T_TAKE + 1.8)
-    sc.key(T_TAKE + 1.6, [E0[0], E0[1] - 0.01, E0[2]], pull, 62)
-    sc.key(LEN, [E1[0], E1[1] - 0.02, E1[2]], [pull[0], pull[1] - 0.04, pull[2]], 56)
+    h9 = ahead([root[0], 0, root[2]], y_boy - 180, 0.6, side=-0.78, y=1.28)
+    sc.key(35.0, h9, bface, 46, cut=True)
+    sc.key(39.6, ahead([root[0], 0, root[2]], y_boy - 180, 0.62, side=-0.74, y=1.25), bface, 42)
+    # H10: over the boy's right shoulder again (H8's side of the line), on the true hand and the letter
+    over2 = ahead([root[0], 0, root[2]], y_boy - 180, -0.7, side=0.3, y=1.08)
+    sc.key(39.6, over2, [HAND[0], HAND[1] + 0.25, HAND[2]], 56, cut=True)
+    sc.key(42.6, over2, [HAND[0], HAND[1] + 0.45, HAND[2]], 54)
+    sc.key(45.6, ahead([root[0], 0, root[2]], y_boy - 180, -0.62, side=0.28, y=1.06),
+           [HAND[0], HAND[1] + 0.4, HAND[2]], 52)
+
+    # H11, first person: the camera sits just off the boy's face (the eye is on the head's front face, so 0.07 out
+    # along the view clears the head and its hat layer), looking at Hagrid's hand, then at the two hands meeting
+    def fp_cam(a, head_abs, yaw, target):
+        e = eye_of(root, yaw, KID, torso_pose(a)['head'][1], (head_abs, 0, 0))
+        d = [target[i] - e[i] for i in range(3)]
+        n = math.sqrt(sum(c * c for c in d))
+        return [e[i] + d[i] / n * 0.07 for i in range(3)]
+    MEET = [(HAND[i] + TIP[i]) / 2 for i in range(3)]
+    LOOK0 = [HAND[0], HAND[1] - 0.08, HAND[2]]
+    C0 = fp_cam(-2, -2 + LOOK - 6, BOY_YAW, LOOK0)
+    CT = fp_cam(LEAN, LEAN + LOOK, BOY_YAW, MEET)
+    sc.key(45.6, C0, LOOK0, 66, cut=True)
+    sc.key(T_REACH, C0, LOOK0, 66)
+    sc.key(T_TAKE - 0.12, CT, MEET, 70)
+    sc.key(T_TAKE + 0.15, CT, MEET, 70)
+    pull = arm_tip(root, BOY_YAW, KID, 'right_arm', [-66, 0, -14], pivot_px=torso_pose(-4)['right_arm'][1])
+    C1 = fp_cam(-4, 2, BOY_YAW, pull)
+    C2 = fp_cam(-4, 6, BOY_YAW, pull)
+    sc.key(T_TAKE + 1.6, C1, pull, 64)
+    sc.key(LEN, C2, [pull[0], pull[1] - 0.03, pull[2]], 58)
     T_CLOSE = 56.4
     sc.ev(T_CLOSE, 'effect', 'eyes_close', at=[0, 0, 0], duration=50)
     assert T_CLOSE + 2.5 < LEN
@@ -1901,11 +1957,35 @@ def hut_scene():
             a = next(x for x in scene['actors'] if x['id'] == name)
             assert a['look'][-1]['pitch'] == -90 and a['look'][-1]['yaw'] == 180, name
         assert T_IN > T_FLAT, 'Hagrid steps in only once the leaves are down'
-        # the letter hand sits in front of the boy's eye, within his reach
-        e = fp_eye(T_TAKE)
-        d = math.dist(e, HAND)
-        if not 0.45 < d < 1.3:
-            problems.append('the offered letter is %.2f from the boy\'s eye' % d)
+        # the take happens on screen: the boy's hand tip meets Hagrid's hand (the two held letters swap there),
+        # both inside the first-person view cone, and the reaching hand comes into frame on its way there
+        if D_TAKE > 0.08:
+            problems.append("the boy's hand is %.3f from Hagrid's at the take" % D_TAKE)
+        cam = sample_cam(scene['camera'], tk(T_TAKE))
+        for what, p_ in (("Hagrid's hand", HAND), ("the boy's hand", TIP)):
+            va = view_angle(cam, MEET, p_)
+            if va > 26.0:
+                problems.append('%s is %.1f degrees off the camera axis at the take' % (what, va))
+            if not 0.12 < math.dist(cam, p_) < 0.7:
+                problems.append('%s is %.2f from the camera at the take' % (what, math.dist(cam, p_)))
+        print('  the take: hands %.3f apart; off the axis Hagrid %.1f, boy %.1f degrees; %.2f from the camera' % (
+            D_TAKE, view_angle(cam, MEET, HAND), view_angle(cam, MEET, TIP), math.dist(cam, MEET)))
+        for f in (0.55, 0.7, 0.85):                           # the second half of the way in, inside fov 66
+            t_ = T_REACH + f * (T_TAKE - 0.12 - T_REACH)
+            g = 3 * f * f - 2 * f ** 3
+            a_ = -2 + (LEAN + 2) * g
+            rx_ = (R0 + (REACH[0] - R0) * g) + a_
+            ry_ = REACH[1] * g
+            tip_ = arm_tip(root, BOY_YAW, KID, 'right_arm', [rx_, ry_, 0], pivot_px=torso_pose(a_)['right_arm'][1])
+            c_ = sample_cam(scene['camera'], tk(t_))
+            look_ = [LOOK0[i] + (MEET[i] - LOOK0[i]) * g for i in range(3)]
+            va = view_angle(c_, look_, tip_)
+            if va > 32.0:
+                problems.append('the reaching hand is %.1f degrees off the axis %.0f%% of the way in' % (va, f * 100))
+        held = [a_ for a_ in scene['actors'] if a_['id'] in ('hagrid', 'boy')]
+        swaps = sorted((x['t'], a_['id'], x.get('item')) for a_ in held for x in a_.get('actions', [])
+                       if x['do'] in ('hold', 'equip') and x['t'] >= tk(T_TAKE) - 2)
+        assert [s_[0] for s_ in swaps] == [tk(T_TAKE)] * 2, swaps
     return sc, scene, extra
 
 

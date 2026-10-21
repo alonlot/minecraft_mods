@@ -224,7 +224,7 @@ public final class RainRenderer {
     /** Segments round each curtain, and the rows up it (a fade at the foot, a fade under the cloud). */
     private static final int SHEET_SEGMENTS = 36;
     /** A curtain's streaks repeat this many times round it, and each tile is this many tiles tall per block of radius. */
-    private static final double SHEET_REPEATS = 18.0, SHEET_TILE_HEIGHT = 0.5;
+    private static final double SHEET_REPEATS = 18.0;
     /** Rows of a curtain: the alpha share at its foot, 8 blocks up, 12 under its top, and its top. */
     private static final float[] ROW_ALPHA = {0f, 1f, 1f, 0f};
 
@@ -241,8 +241,6 @@ public final class RainRenderer {
         double wl = Math.hypot(wind[0], wind[1]);
         for (int b = 0; b < SkyDome.STORM_BANDS.length; b++) {
             double radius = SkyDome.STORM_BANDS[b];
-            double tileH = radius * SHEET_TILE_HEIGHT;
-            double fall = now * 0.65 / tileH + b * 0.31;
             float alpha = SkyDome.STORM_BAND_ALPHA[b] * share * (1f + flash * 1.2f);
             float br = 1f + flash * 0.6f;
             for (int seg = 0; seg < SHEET_SEGMENTS; seg++) {
@@ -257,7 +255,7 @@ public final class RainRenderer {
                         // The streaks lean with the wind: along the curtain, a higher point is upwind of the foot.
                         double lean = wl <= 1e-9 ? 0 : (wind[0] * -sn + wind[1] * cs) / 0.65 * up / (radius * 0.35);
                         float u = (float) (az / (Math.PI * 2) * SHEET_REPEATS + lean + b * 0.43);
-                        float v = (float) (-up / tileH + fall);
+                        float v = (float) SkyDome.sheetV(up, radius, now, b);   // streaks fall: see sheetV
                         vc.addVertex(m, (float) (cs * radius), (float) (foot + up - cam.y),
                                         (float) (sn * radius))
                                 .setColor(COLOUR[0] * br, COLOUR[1] * br, COLOUR[2] * br, alpha * ROW_ALPHA[rw])

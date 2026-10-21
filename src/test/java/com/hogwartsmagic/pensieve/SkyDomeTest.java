@@ -243,6 +243,31 @@ class SkyDomeTest {
     }
 
     @Test
+    void rainCurtainStreaksFallNotClimb() {
+        for (int b = 0; b < SkyDome.STORM_BANDS.length; b++) {
+            double r = SkyDome.STORM_BANDS[b];
+            double v0 = 0.37;   // any texture row (the image top is 0, the streaks' bright heads are lower)
+            double h0 = SkyDome.sheetHeightOf(v0, r, 100.0, b), h1 = SkyDome.sheetHeightOf(v0, r, 110.0, b);
+            assertTrue(h1 < h0, "band " + b + ": a streak is lower after 10 ticks");
+            assertEquals(SkyDome.SHEET_FALL * 10.0, h0 - h1, 1e-9, "at the fall speed, in blocks");
+            // the mapping and its inverse agree, and v falls with height (image top above the bottom)
+            assertEquals(v0, SkyDome.sheetV(h0, r, 100.0, b), 1e-9);
+            assertTrue(SkyDome.sheetV(20.0, r, 100.0, b) < SkyDome.sheetV(10.0, r, 100.0, b));
+            // at one fixed height the texture row shown moves toward the image top (v drops) as time passes
+            assertTrue(SkyDome.sheetV(10.0, r, 110.0, b) < SkyDome.sheetV(10.0, r, 100.0, b));
+        }
+    }
+
+    @Test
+    void stormFogScratchFormMatches() {
+        float[] out = new float[2];
+        SkyDome.stormFog(60f, 400f, 0.5f, out);
+        assertArrayEquals(SkyDome.stormFog(60f, 400f, 0.5f), out, 1e-6f);
+        SkyDome.stormFog(0f, 100f, 1f, out);
+        assertArrayEquals(new float[] {0f, 100f}, out, 1e-6f);
+    }
+
+    @Test
     void rainSheetsAreThinAndFarOnesThicker() {
         assertEquals(SkyDome.STORM_BANDS.length, SkyDome.STORM_BAND_ALPHA.length);
         float sum = 0;

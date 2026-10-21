@@ -136,10 +136,17 @@ public final class SkyRenderer {
     private static double[] strikeDir(Vec3 cam, float now) {
         double[] ts = EffectVisuals.strikes();
         for (int i = ts.length - 1; i >= 0; i--) {
-            if (ts[i] <= now) return new double[] {EffectVisuals.strikeXs()[i] - cam.x, EffectVisuals.strikeZs()[i] - cam.z};
+            if (ts[i] <= now) {
+                STRIKE_DIR[0] = EffectVisuals.strikeXs()[i] - cam.x;
+                STRIKE_DIR[1] = EffectVisuals.strikeZs()[i] - cam.z;
+                return STRIKE_DIR;
+            }
         }
         return null;
     }
+
+    /** Scratch for {@link #strikeDir}: the render thread only, read within the frame, so a flash allocates nothing. */
+    private static final double[] STRIKE_DIR = new double[2];
 
     /**
      * The fog and clear colour the sky asks for right now, or null when no sky shows (the memory's own black stands).

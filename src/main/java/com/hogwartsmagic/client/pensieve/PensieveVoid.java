@@ -70,6 +70,9 @@ public final class PensieveVoid {
         event.setBlue(0);
     }
 
+    /** Scratch for the storm haze: the render thread only, so the per-frame fog allocates nothing. */
+    private static final float[] HAZE = new float[2];
+
     public static void renderFog(ViewportEvent.RenderFog event) {
         float r = visibleRadius((float) event.getPartialTick());
         int far = PensieveClientState.fogFar();
@@ -85,9 +88,9 @@ public final class PensieveVoid {
         // A storm sky draws the haze in: far stands go grey and the curtains of rain read as depth.
         float storm = SkyRenderer.stormShare((float) event.getPartialTick());
         if (storm > 0f) {
-            float[] haze = SkyDome.stormFog(event.getNearPlaneDistance(), event.getFarPlaneDistance(), storm);
-            event.setNearPlaneDistance(haze[0]);
-            event.setFarPlaneDistance(haze[1]);
+            SkyDome.stormFog(event.getNearPlaneDistance(), event.getFarPlaneDistance(), storm, HAZE);
+            event.setNearPlaneDistance(HAZE[0]);
+            event.setFarPlaneDistance(HAZE[1]);
         }
         event.setFogShape(FogShape.SPHERE);
         event.setCanceled(true);

@@ -175,6 +175,33 @@ public final class SkyDome {
         return STORM_DRIFT * speed * CLOUD_TILE_SHARE * scale / height * Math.sin(e);
     }
 
+    /** The rain curtains' streaks fall this fast (blocks a tick) and a curtain's texture tile is this tall per block of radius. */
+    public static final double SHEET_FALL = 0.65, SHEET_TILE_HEIGHT = 0.5;
+
+    /**
+     * The texture v of a curtain of {@code radius} at {@code up} blocks above its foot, {@code now} ticks in (band
+     * {@code band} offsets its phase). The texture's image top is v 0 and its streaks are bright at the bottom (their
+     * heads), so v grows downward: v falls with height, and, for the streaks to FALL, a given texture row must sit lower
+     * as time passes, which is v dropping with time at a fixed height.
+     */
+    public static double sheetV(double up, double radius, double now, int band) {
+        double tileH = radius * SHEET_TILE_HEIGHT;
+        return -up / tileH - (now * SHEET_FALL / tileH + band * 0.31);
+    }
+
+    /** The height above a curtain's foot at which texture row {@code v} shows at {@code now}: the inverse of {@link #sheetV}. */
+    public static double sheetHeightOf(double v, double radius, double now, int band) {
+        double tileH = radius * SHEET_TILE_HEIGHT;
+        return -(v + now * SHEET_FALL / tileH + band * 0.31) * tileH;
+    }
+
+    /** As {@link #stormFog(float, float, float)} into {@code out} {near, far}: no allocation, for the per-frame fog. */
+    public static void stormFog(float near, float far, float share, float[] out) {
+        float k = Math.max(0f, Math.min(1f, share));
+        out[0] = near + (Math.min(near, STORM_FOG_START) - near) * k;
+        out[1] = far + (Math.min(far, STORM_FOG_END) - far) * k;
+    }
+
     /** The {near, far} fog of a storm {@code share} (0..1) shown: the scene's fog drawn in to the storm haze. */
     public static float[] stormFog(float near, float far, float share) {
         float k = Math.max(0f, Math.min(1f, share));

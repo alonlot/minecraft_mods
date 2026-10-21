@@ -252,14 +252,31 @@ public final class SceneParser {
             else checkKeys(o, path, "t", "kind", "id", "volume");
         } else {
             checkKeys(o, path, "t", "kind", "id", "at", "volume", "pitch", "count", "spread", "duration", "yaw",
-                    "style", "intensity", "box");
+                    "style", "intensity", "box", "rows");
         }
         float[] at = floats(o, "at", path, 3, null);
         return new SceneDef.EventDef(reqTime(o, "t", path), reqStr(o, "kind", path), str(o, "id", path, null), at,
                 num(o, "volume", path, 1f), num(o, "pitch", path, 1f), integer(o, "count", path, -1),
                 floats(o, "spread", path, 3, null), Math.round(time(o, "duration", path, 0f)),
                 num(o, "yaw", path, Float.NaN), str(o, "style", path, null), num(o, "intensity", path, Float.NaN),
-                box(o, path), bool(o, "loop", path, false));
+                box(o, path), bool(o, "loop", path, false), rows(o, path));
+    }
+
+    /** The optional {@code rows}: segments of six numbers, or seven when the last flags a standing row. */
+    private static float[][] rows(JsonObject o, String path) throws SceneException {
+        if (!has(o, "rows")) return null;
+        String rp = child(path, "rows");
+        JsonArray a = arr(o.get("rows"), rp);
+        float[][] out = new float[a.size()][];
+        for (int i = 0; i < a.size(); i++) {
+            String p = SceneJson.index(rp, i);
+            float[] r = floatsOf(a.get(i), p, 0);
+            if (r.length != 6 && r.length != 7) {
+                throw new SceneException(p, "expected a row [x1,y1,z1,x2,y2,z2] (or a seventh number 1 for a standing row)");
+            }
+            out[i] = r;
+        }
+        return out;
     }
 
     /** The optional {@code box}: two corners of three numbers each (their order is the validator's business). */

@@ -1543,3 +1543,207 @@ def check_rider_grip():
                         assert clear >= FIST_CLEAR_PX, ('fist in the thigh', slim, sc, sp, pi, clear)
                         worst = (max(worst[0], gap), min(worst[1], gap), min(worst[2], clear))
     return worst
+
+
+# ================================================================ the stadium crowd (Crowd; CrowdTest.pythonMirrorAgrees)
+
+CROWD_MIN_SPACING, CROWD_MAX_SPACING = 0.8, 1.0
+CROWD_SIDE_JITTER, CROWD_YAW_JITTER = 0.06, 6.0
+CROWD_MAX = 4000
+CROWD_MIN_SCALE, CROWD_MAX_SCALE = 0.82, 1.0
+CROWD_SEATED_EYE, CROWD_STANDER_HEIGHT, CROWD_STANDER_RADIUS, CROWD_SIGHT_REACH = 1.0, 1.8, 0.32, 6.0
+_SALT_GAP, _SALT_SIDE, _SALT_YAW, _SALT_FILL, _SALT_SCALE = 1, 2, 3, 4, 5
+_M64 = (1 << 64) - 1
+CROWD_CASES = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'crowd_cases.json')
+
+
+def _f32(v):
+    import struct
+    return struct.unpack('<f', struct.pack('<f', v))[0]
+
+
+def _f32_bits(v):
+    import struct
+    return struct.unpack('<i', struct.pack('<f', v))[0]
+
+
+def _event_time(t):
+    """An event t as the engine reads it: ticks, or seconds like "2.5s" (float32, as SceneJson.timeOf)."""
+    if isinstance(t, str) and t.strip().endswith('s'):
+        return _f32(_f32(float(t.strip()[:-1])) * _f32(20.0))
+    return _f32(float(t))
+
+
+def effect_seed(at, t):
+    """EffectSeed.of for a scene-relative point and a scene time: the seed every effect draws its random look from."""
+    h = _f32_bits(_f32(at[0])) & _M64
+    h = (h * 31 + _f32_bits(_f32(at[1]))) & _M64
+    h = (h * 31 + _f32_bits(_f32(at[2]))) & _M64
+    return (h * 31 + _f32_bits(_f32(t))) & _M64
+
+
+def _mix64(z):
+    z = (z + 0x9E3779B97F4A7C15) & _M64
+    z = ((z ^ (z >> 30)) * 0xBF58476D1CE4E5B9) & _M64
+    z = ((z ^ (z >> 27)) * 0x94D049BB133111EB) & _M64
+    return z ^ (z >> 31)
+
+
+def _crowd_unit(seed, row, k, salt):
+    h = _mix64((_mix64((_mix64((seed + salt) & _M64) + row) & _M64) + k) & _M64)
+    return (h >> 11) / float(1 << 53)
+
+
+def crowd_blocks(seat, stander, at):
+    """Crowd.blocks: whether a stander's body hides the field from a seated spectator's eye (both dicts from
+    crowd_layout; `at` the point the crowd watches)."""
+    ex, ey, ez = seat['pos'][0], seat['pos'][1] + CROWD_SEATED_EYE * seat['scale'], seat['pos'][2]
+    fx, fy, fz = stander['pos']
+    wx, wz = fx - ex, fz - ez
+    if wx * wx + wz * wz > (CROWD_SIGHT_REACH + 1) ** 2:
+        return False
+    dx, dy, dz = at[0] - ex, at[1] - ey, at[2] - ez
+    dd = math.sqrt(dx * dx + dy * dy + dz * dz)
+    if dd < 1e-6:
+        return False
+    dx, dy, dz = dx / dd, dy / dd, dz / dd
+    hh = dx * dx + dz * dz
+    if hh < 1e-9:
+        return False
+    s = (wx * dx + wz * dz) / hh
+    if s <= 0 or s > CROWD_SIGHT_REACH:
+        return False
+    cx, cz = wx - dx * s, wz - dz * s
+    if cx * cx + cz * cz > CROWD_STANDER_RADIUS ** 2:
+        return False
+    cy = ey + dy * s
+    return fy <= cy <= fy + CROWD_STANDER_HEIGHT * stander['scale']
+
+
+def crowd_layout(event):
+    """Crowd.of: every spectator a `crowd` event seats, in the engine order, as dicts {pos, yaw, scale, standing,
+    row, k, fill}, and how many standers were left out for hiding a seated eye. `pos` is the seat top (a standing
+    row: its floor), scene-relative."""
+    at = [_f32(v) for v in (event.get('at') or [0, 0, 0])]
+    seed = effect_seed(at, _event_time(event['t']))
+    intensity = _f32(event['intensity']) if 'intensity' in event else 1.0
+    count = int(event.get('count', -1))
+    seats = []
+    for r, row in enumerate(event.get('rows') or []):
+        row = [_f32(v) for v in row]
+        stand = len(row) > 6 and row[6] >= 0.5
+        dx, dy, dz = row[3] - row[0], row[4] - row[1], row[5] - row[2]
+        ln = math.sqrt(dx * dx + dy * dy + dz * dz)
+        hl = math.sqrt(dx * dx + dz * dz)
+        px, pz = (-dz / hl, dx / hl) if hl > 1e-9 else (1.0, 0.0)
+        ux, uy, uz = (dx / ln, dy / ln, dz / ln) if ln > 1e-9 else (0.0, 0.0, 0.0)
+        along, run = [0.0], 0.0
+        for k in range(100000):
+            gap = CROWD_MIN_SPACING + (CROWD_MAX_SPACING - CROWD_MIN_SPACING) * _crowd_unit(seed, r, k, _SALT_GAP)
+            if run + gap > ln:
+                break
+            run += gap
+            along.append(run)
+        offset = (ln - run) / 2
+        for k, a in enumerate(along):
+            s = offset + a
+            side = (_crowd_unit(seed, r, k, _SALT_SIDE) * 2 - 1) * CROWD_SIDE_JITTER
+            sx, sy, sz = row[0] + ux * s + px * side, row[1] + uy * s, row[2] + uz * s + pz * side
+            face = math.degrees(math.atan2(-(at[0] - sx), at[2] - sz)) + \
+                (_crowd_unit(seed, r, k, _SALT_YAW) * 2 - 1) * CROWD_YAW_JITTER
+            sc = CROWD_MIN_SCALE + (CROWD_MAX_SCALE - CROWD_MIN_SCALE) * _crowd_unit(seed, r, k, _SALT_SCALE)
+            fill = _crowd_unit(seed, r, k, _SALT_FILL)
+            if fill < intensity:
+                seats.append({'pos': (sx, sy, sz), 'yaw': face, 'scale': sc, 'standing': stand, 'row': r, 'k': k,
+                              'fill': fill})
+    seated = [s for s in seats if not s['standing']]
+    kept, dropped = [], 0
+    for s in seats:
+        if s['standing'] and any(crowd_blocks(p, s, at) for p in seated):
+            dropped += 1
+        else:
+            kept.append(s)
+    cap = min(count, CROWD_MAX) if count > 0 else CROWD_MAX
+    if len(kept) > cap:
+        chosen = set(id(s) for s in sorted(kept, key=lambda s: (s['fill'], s['row'], s['k']))[:cap])
+        kept = [s for s in kept if id(s) in chosen]
+    return kept, dropped
+
+
+def crowd_seats(event):
+    """The seats a `crowd` event fills, as (pos, yaw) in the engine order (pos: the seat top, or a standing floor)."""
+    return [(s['pos'], s['yaw']) for s in crowd_layout(event)[0]]
+
+
+def crowd_actor_gap(scene, step=5):
+    """The least horizontal distance from any real player actor (its path sampled every `step` ticks) to any crowd seat
+    of the scene, for the generators' assert that real actors keep off crowd seats (at least 0.7). Only seats within
+    1.5 blocks of the actor's height count (a tier above or below is no clash). Returns (gap, actor id, t)."""
+    seats = []
+    for e in scene.get('events', []):
+        if e.get('kind') == 'effect' and e.get('id') == 'crowd':
+            seats.extend(p for p, _ in crowd_seats(e))
+    best = (float('inf'), None, None)
+    if not seats:
+        return best
+    length = scene.get('length', 0)
+    for a in scene.get('actors', []):
+        if a.get('type') != 'player' or not a.get('path'):
+            continue
+        t = 0
+        while t <= length:
+            p = sample_path(a['path'], t)
+            for s in seats:
+                if abs(s[1] - p[1]) <= 1.5:
+                    d = math.hypot(s[0] - p[0], s[2] - p[2])
+                    if d < best[0]:
+                        best = (d, a['id'], t)
+            t += step
+    return best
+
+
+def _crowd_case_events():
+    def bowl(tiers, hx, hz, y0=0.5):
+        rows = []
+        for k in range(tiers):
+            x, z, y = hx + k, hz + k, y0 + k
+            rows += [[-x + 1, y, z, x - 1, y, z], [x - 1, y, -z, -x + 1, y, -z],
+                     [x, y, -z + 1, x, y, z - 1], [-x, y, z - 1, -x, y, -z + 1]]
+        return rows
+    return {
+        'bowl': {'t': 0, 'kind': 'effect', 'id': 'crowd', 'at': [0, 0, 0], 'style': 'mixed', 'rows': bowl(4, 18, 12)},
+        'half_full': {'t': '2.5s', 'kind': 'effect', 'id': 'crowd', 'at': [1.5, 0, -2.25], 'style': 'gryffindor',
+                      'intensity': 0.55, 'rows': bowl(5, 22, 15, 2.5)},
+        'capped': {'t': 37, 'kind': 'effect', 'id': 'crowd', 'at': [0, 0, 0], 'style': 'slytherin', 'count': 150,
+                   'rows': bowl(3, 20, 14)},
+        'rail': {'t': 0, 'kind': 'effect', 'id': 'crowd', 'at': [0, 0, 0], 'style': 'ravenclaw',
+                 'rows': [[-12, 3.5, 20, 12, 3.5, 20], [-12, 4.5, 21, 12, 4.5, 21],
+                          [-12, 3.0, 18.6, 12, 3.0, 18.6, 1], [-0.2, 3.0, 18.6, 0.2, 3.0, 18.6, 1],
+                          [15, 2.0, -6, 15, 2.0, 6, 1], [3, 0.5, 3, 3.2, 0.5, 3.1]]},
+        'sloped': {'t': 120, 'kind': 'effect', 'id': 'crowd', 'at': [10, 2, -5], 'style': 'hufflepuff',
+                   'intensity': 0.9, 'rows': [[30, 10.5, -40, 45, 16.5, 10], [-30.25, 6.5, 25.5, 40.75, 6.5, 30.125]]},
+    }
+
+
+def write_crowd_cases():
+    cases = []
+    for name, e in _crowd_case_events().items():
+        kept, dropped = crowd_layout(e)
+        cases.append({'name': name, 'event': e,
+                      'seed': str(effect_seed([_f32(v) for v in e['at']], _event_time(e['t']))),
+                      'dropped': dropped,
+                      'seats': [[round(s['pos'][0], 6), round(s['pos'][1], 6), round(s['pos'][2], 6), round(s['yaw'], 5),
+                                 1 if s['standing'] else 0] for s in kept]})
+    data = {'constants': {'MIN_SPACING': CROWD_MIN_SPACING, 'MAX_SPACING': CROWD_MAX_SPACING,
+                          'SIDE_JITTER': CROWD_SIDE_JITTER, 'YAW_JITTER': CROWD_YAW_JITTER, 'MAX_SPECTATORS': CROWD_MAX,
+                          'SEATED_EYE': CROWD_SEATED_EYE, 'STANDER_HEIGHT': CROWD_STANDER_HEIGHT,
+                          'STANDER_RADIUS': CROWD_STANDER_RADIUS, 'SIGHT_REACH': CROWD_SIGHT_REACH},
+            'cases': cases}
+    with open(CROWD_CASES, 'w', newline=chr(10), encoding='utf-8') as f:
+        f.write(json.dumps(data, sort_keys=True, separators=(',', ':')) + chr(10))
+    print('wrote', CROWD_CASES, len(cases), 'cases', sum(len(c['seats']) for c in cases), 'seats',
+          sum(c['dropped'] for c in cases), 'standers dropped')
+
+
+if __name__ == '__main__' and '--write-crowd-cases' in sys.argv:
+    write_crowd_cases()

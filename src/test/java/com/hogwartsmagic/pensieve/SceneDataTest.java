@@ -334,6 +334,28 @@ class SceneDataTest {
     }
 
     /**
+     * The crowd dev scene (build_scripts/pensieve_scenes/dev_crowd.py into the ignored run/pensieve_dev) validates like a
+     * shipped one: 3,000 spectators over four crowd events, and a goal, a gasp and an erupt. Skipped where it has not
+     * been generated.
+     */
+    @Test
+    void devCrowdSceneValidates() throws Exception {
+        Path f = Path.of("run/pensieve_dev/dev_crowd.json");
+        org.junit.jupiter.api.Assumptions.assumeTrue(Files.exists(f),
+                "run/pensieve_dev/dev_crowd.json not generated (python build_scripts/pensieve_scenes/dev_crowd.py)");
+        SceneDef def = SceneParser.parse("dev_crowd", JsonParser.parseString(read(f)).getAsJsonObject());
+        assertEquals(List.of(), SceneValidator.validate(def, harvest()));
+        int seats = 0;
+        for (SceneDef.EventDef e : def.events()) {
+            if ("crowd".equals(e.id())) seats += com.hogwartsmagic.pensieve.scene.Crowd.seatCount(e);
+        }
+        assertEquals(3000, seats);
+        for (String style : new String[] {"goal", "gasp", "erupt"}) {
+            assertTrue(def.events().stream().anyMatch(e -> "crowd_react".equals(e.id()) && style.equals(e.style())), style);
+        }
+    }
+
+    /**
      * The broom dev scene (written by build_scripts/pensieve_scenes/dev_brooms.py into the ignored run/pensieve_dev)
      * validates like a shipped one: brooms, riders with ride windows, spline actor tracks. Skipped where it has not
      * been generated.

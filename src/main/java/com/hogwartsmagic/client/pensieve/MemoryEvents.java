@@ -36,6 +36,8 @@ public final class MemoryEvents {
     static final float LATE_TICKS = 5;
 
     private static List<SceneDef.EventDef> events = List.of();
+    /** The scene's {@code crowd_react} events, which every {@code crowd} plays from the scene clock. */
+    private static List<com.hogwartsmagic.pensieve.scene.Crowd.Reaction> crowdReactions = List.of();
     private static int next;
     private static ClientLevel level;
     private static BlockPos origin;
@@ -58,6 +60,7 @@ public final class MemoryEvents {
         sorted.removeIf(e -> "block".equals(e.kind()));
         sorted.sort(Comparator.comparingDouble(SceneDef.EventDef::t));
         events = sorted;
+        crowdReactions = com.hogwartsmagic.pensieve.scene.Crowd.reactions(sorted);
         next = 0;
         level = clientLevel;
         origin = at;
@@ -75,6 +78,7 @@ public final class MemoryEvents {
     /** Forget the events and remove everything the visuals added. Safe at any time. */
     static void clear() {
         events = List.of();
+        crowdReactions = List.of();
         next = 0;
         level = null;
         origin = null;
@@ -113,6 +117,12 @@ public final class MemoryEvents {
         String kind = e.kind();
         if ("effect".equals(kind)) {
             if ("enchanted_ceiling".equals(e.id())) return;              // started with the scene (see start)
+            // A crowd stays until its duration ends, so it is always joined; its reactions are read from the clock.
+            if ("crowd".equals(e.id())) {
+                if (e.duration() <= 0 || age < e.duration()) EffectVisuals.crowd(e, crowdReactions);
+                return;
+            }
+            if ("crowd_react".equals(e.id())) return;
             // A long effect is still going: join it part-way. A short or finished one is old news. A letter flood
             // never finishes (its letters lie on the floor until the scene ends), so it is always joined, and so is an
             // enchanted ceiling, light rays and floating candles (they stay until the scene ends).

@@ -67,6 +67,7 @@ public final class SceneValidator {
         for (int i = 0; i < scene.events().size(); i++) {
             event(out, scene.events().get(i), "events[" + i + "]", names, length, scene.radius());
         }
+        crowdCap(out, scene);
         for (int i = 0; i < scene.actors().size(); i++) {
             if (SceneNames.ROWBOAT_ACTOR.equals(scene.actors().get(i).type())) boatSea(out, scene, i, length);
             if (Vehicle.isVehicle(scene.actors().get(i).type())) riders(out, scene, i, length);
@@ -329,13 +330,18 @@ public final class SceneValidator {
         if (!Float.isNaN(e.yaw()) && !"effect".equals(e.kind())) {
             out.add(p + ".yaw: yaw is only for effects");
         }
-        if (e.style() != null && !"enchanted_ceiling".equals(e.id()) && !"sky".equals(e.id())) {
-            out.add(p + ".style: style is only for enchanted_ceiling and sky");
+        boolean crowd = "effect".equals(e.kind()) && "crowd".equals(e.id());
+        boolean react = "effect".equals(e.kind()) && "crowd_react".equals(e.id());
+        if (e.style() != null && !"enchanted_ceiling".equals(e.id()) && !"sky".equals(e.id()) && !crowd && !react) {
+            out.add(p + ".style: style is only for enchanted_ceiling, sky, crowd and crowd_react");
         }
         if (!Float.isNaN(e.intensity()) && !("effect".equals(e.kind())
                 && ("light_rays".equals(e.id()) || "eyes_peek".equals(e.id()) || "wand_choice".equals(e.id())
-                || "rough_sea".equals(e.id()) || "rain".equals(e.id())))) {
-            out.add(p + ".intensity: intensity is only for light_rays, eyes_peek, wand_choice, rough_sea and rain");
+                || "rough_sea".equals(e.id()) || "rain".equals(e.id()) || crowd))) {
+            out.add(p + ".intensity: intensity is only for light_rays, eyes_peek, wand_choice, rough_sea, rain and crowd");
+        }
+        if (e.rows() != null && !crowd) {
+            out.add(p + ".rows: rows is only for crowd");
         }
         if (e.box() != null && !("effect".equals(e.kind()) && "letter_flood".equals(e.id()))) {
             out.add(p + ".box: box is only for letter_flood");
@@ -387,6 +393,10 @@ public final class SceneValidator {
                     roughSea(out, e, p, radius);
                 } else if ("rain".equals(e.id())) {
                     rain(out, e, p);
+                } else if ("crowd".equals(e.id())) {
+                    crowd(out, e, p, radius);
+                } else if ("crowd_react".equals(e.id())) {
+                    crowdReact(out, e, p);
                 } else if ("eyes_peek".equals(e.id()) && !Float.isNaN(e.intensity())
                         && !(e.intensity() >= Eyelids.MIN_PEEK_OPEN && e.intensity() <= 1f)) {
                     out.add(p + ".intensity: " + e.intensity() + " is outside " + Eyelids.MIN_PEEK_OPEN
@@ -527,6 +537,68 @@ public final class SceneValidator {
                 out.add(p + ".spread[" + i + "]: " + s + " is outside " + SceneNames.MIN_RAIN_SPREAD + " to "
                         + SceneNames.MAX_RAIN_SPREAD);
             }
+        }
+    }
+
+    /**
+     * The crowd effect: a centre to face, seat rows inside the scene radius, a style from {@link Crowd#STYLES}, a fill
+     * share of 0.1 to 1 and a positive cap.
+     */
+    private static void crowd(List<String> out, SceneDef.EventDef e, String p, int radius) {
+        if (e.at() == null) out.add(p + ": crowd needs at (the point the crowd watches)");
+        if (e.rows() == null || e.rows().length == 0) {
+            out.add(p + ": crowd needs rows [[x1,y1,z1,x2,y2,z2], ...] (seat tops)");
+        } else {
+            for (int i = 0; i < e.rows().length; i++) {
+                float[] r = e.rows()[i];
+                if (Math.abs(r[0]) > radius || Math.abs(r[2]) > radius || Math.abs(r[3]) > radius || Math.abs(r[5]) > radius) {
+                    out.add(p + ".rows[" + i + "]: reaches beyond the scene radius " + radius);
+                }
+                if (r.length > 6 && r[6] != 0f && r[6] != 1f) {
+                    out.add(p + ".rows[" + i + "][6]: the standing flag must be 0 or 1, got " + r[6]);
+                }
+            }
+        }
+        if (e.style() != null && !Crowd.STYLES.contains(e.style())) {
+            out.add(p + ".style: '" + e.style() + "' is not one of " + Crowd.STYLES);
+        }
+        if (!Float.isNaN(e.intensity()) && !(e.intensity() >= 0.1f && e.intensity() <= 1f)) {
+            out.add(p + ".intensity: " + e.intensity() + " is outside 0.1 to 1 (the share of seats filled)");
+        }
+        if (e.count() != -1 && (e.count() < 1 || e.count() > Crowd.MAX_SPECTATORS)) {
+            out.add(p + ".count: " + e.count() + " is outside 1 to " + Crowd.MAX_SPECTATORS);
+        }
+    }
+
+    /** A crowd reaction: a centre of attention, a reaction from {@link Crowd#REACTIONS}, a positive box, a long enough erupt. */
+    private static void crowdReact(List<String> out, SceneDef.EventDef e, String p) {
+        if (e.at() == null) out.add(p + ": crowd_react needs at (the centre of attention)");
+        if (e.style() == null) {
+            out.add(p + ": crowd_react needs a style, one of " + Crowd.REACTIONS);
+        } else if (!Crowd.REACTIONS.contains(e.style())) {
+            out.add(p + ".style: '" + e.style() + "' is not one of " + Crowd.REACTIONS);
+        }
+        if (e.spread() != null) {
+            for (int i = 0; i < e.spread().length; i++) {
+                if (!(e.spread()[i] > 0f)) out.add(p + ".spread[" + i + "]: " + e.spread()[i] + " must be above 0 (a half-box)");
+            }
+        }
+        if ("erupt".equals(e.style()) && e.duration() > 0 && e.duration() < Crowd.MIN_ERUPT_TICKS) {
+            out.add(p + ".duration: an erupt lasts at least " + Crowd.MIN_ERUPT_TICKS + " ticks (3 s), got " + e.duration());
+        }
+    }
+
+    /** Every crowd effect's spectators, summed over the scene, stay within {@link Crowd#MAX_SPECTATORS}. */
+    private static void crowdCap(List<String> out, SceneDef scene) {
+        int total = 0;
+        for (SceneDef.EventDef e : scene.events()) {
+            if ("effect".equals(e.kind()) && "crowd".equals(e.id()) && e.rows() != null && e.at() != null) {
+                total += Crowd.seatCount(e);
+            }
+        }
+        if (total > Crowd.MAX_SPECTATORS) {
+            out.add("events: the crowd effects seat " + total + " spectators; a scene holds at most "
+                    + Crowd.MAX_SPECTATORS + " (lower intensity or count)");
         }
     }
 

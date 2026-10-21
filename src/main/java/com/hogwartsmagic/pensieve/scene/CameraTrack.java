@@ -91,6 +91,29 @@ public final class CameraTrack {
      */
     public CameraPose sample(float t, Function<String, float[]> actorEye) {
         if (keys.isEmpty()) return new CameraPose(0, 0, 0, 0, 0, 0, DEFAULT_FOV);
+        double[] v = raw(t, actorEye);
+        double x = v[0], y = v[1], z = v[2];
+        double dx = v[3] - x;
+        double dy = v[4] - y;
+        double dz = v[5] - z;
+        double horiz = Math.sqrt(dx * dx + dz * dz);
+        float yaw = (dx == 0 && dz == 0) ? 0f : (float) Math.toDegrees(Math.atan2(-dx, dz));
+        float pitch = (horiz == 0 && dy == 0) ? 0f : (float) -Math.toDegrees(Math.atan2(dy, horiz));
+        return new CameraPose(x, y, z, yaw, pitch, (float) v[7], (float) v[6]);
+    }
+
+    /**
+     * The point the camera looks at, scene-relative, at {@code t} (the same blend {@link #sample} aims by): the crowd's
+     * heads follow it. Null for an empty track.
+     */
+    public float[] lookTarget(float t, Function<String, float[]> actorEye) {
+        if (keys.isEmpty()) return null;
+        double[] v = raw(t, actorEye);
+        return new float[]{(float) v[3], (float) v[4], (float) v[5]};
+    }
+
+    /** Position, look target, fov (clamped) and roll at {@code t}, in that order (see {@link #sample}). */
+    private double[] raw(float t, Function<String, float[]> actorEye) {
         CameraKey first = keys.get(0);
         CameraKey from = first;
         CameraKey to = first;
@@ -140,13 +163,7 @@ public final class CameraTrack {
             fov = clampFov(from.fov() + (to.fov() - from.fov()) * k);
             roll = from.roll() + (to.roll() - from.roll()) * k;
         }
-        double dx = lx - x;
-        double dy = ly - y;
-        double dz = lz - z;
-        double horiz = Math.sqrt(dx * dx + dz * dz);
-        float yaw = (dx == 0 && dz == 0) ? 0f : (float) Math.toDegrees(Math.atan2(-dx, dz));
-        float pitch = (horiz == 0 && dy == 0) ? 0f : (float) -Math.toDegrees(Math.atan2(dy, horiz));
-        return new CameraPose(x, y, z, yaw, pitch, roll, fov);
+        return new double[]{x, y, z, lx, ly, lz, fov, roll};
     }
 
     /** Whether the segment ending at key {@code i} is a spline segment: a spline key, not a cut, of nonzero length. */

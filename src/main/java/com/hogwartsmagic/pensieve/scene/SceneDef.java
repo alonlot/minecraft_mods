@@ -132,7 +132,17 @@ public record SceneDef(String id, String title, int length, int radius, SetDef s
      */
     public record EventDef(float t, String kind, String id, float[] at, float volume, float pitch, int count,
                            float[] spread, int duration, float yaw, String style, float intensity, float[][] box,
-                           boolean loop) {
+                           boolean loop, float[][] rows) {
+        /**
+         * An event with no {@code rows} (a {@code crowd}'s seat-top segments: six numbers each, a seventh 1 for a
+         * standing row; see {@link Crowd}).
+         */
+        public EventDef(float t, String kind, String id, float[] at, float volume, float pitch, int count,
+                        float[] spread, int duration, float yaw, String style, float intensity, float[][] box,
+                        boolean loop) {
+            this(t, kind, id, at, volume, pitch, count, spread, duration, yaw, style, intensity, box, loop, null);
+        }
+
         /** An event that does not loop. */
         public EventDef(float t, String kind, String id, float[] at, float volume, float pitch, int count,
                         float[] spread, int duration, float yaw, String style, float intensity, float[][] box) {

@@ -6,6 +6,8 @@ import com.hogwartsmagic.entity.MemoryLetterEntity;
 import com.hogwartsmagic.entity.ModEntities;
 import com.hogwartsmagic.entity.VoldemortSummoningEntity;
 import com.hogwartsmagic.pensieve.scene.CeilingSky;
+import com.hogwartsmagic.pensieve.scene.Crowd;
+import com.hogwartsmagic.pensieve.scene.SceneDef;
 import com.hogwartsmagic.pensieve.scene.Eyelids;
 import com.hogwartsmagic.pensieve.scene.SceneNames;
 import com.hogwartsmagic.pensieve.scene.FloatingCandles;
@@ -266,6 +268,32 @@ public final class EffectVisuals {
         } else {
             LOGGER.warn("Pensieve: unknown effect '{}' in a memory", effect);
         }
+    }
+
+    /**
+     * Start a {@code crowd}: seat its spectators (from the event alone, so every viewer seats the same people) and bind
+     * the scene's {@code crowd_react} events, which the crowd plays from the scene clock (a late joiner sees the
+     * reactions already under way). It stays until its duration ends (0: the scene) or {@link #clear}; drawn by
+     * {@link CrowdRenderer}.
+     */
+    static void crowd(SceneDef.EventDef e, List<Crowd.Reaction> reactions) {
+        if (e.rows() == null || e.at() == null) {
+            LOGGER.warn("Pensieve: crowd needs at and rows");
+            return;
+        }
+        RUNNING.add(new CrowdRun(new CrowdRenderer.Stand(Crowd.of(e).bind(reactions), e.t(), Math.max(0, e.duration()))));
+    }
+
+    /** The crowds running now, for {@link CrowdRenderer} (empty once {@link #clear} has run). */
+    static List<CrowdRenderer.Stand> crowds() {
+        List<CrowdRenderer.Stand> out = null;
+        for (Running r : RUNNING) {
+            if (r instanceof CrowdRun c) {
+                if (out == null) out = new ArrayList<>(1);
+                out.add(c.stand);
+            }
+        }
+        return out == null ? List.of() : out;
     }
 
     /**
@@ -979,6 +1007,20 @@ public final class EffectVisuals {
             if (shower.duration > 0 && now >= shower.t0 + shower.duration) return false;
             RainRenderer.splashes(level, shower, now);
             return true;
+        }
+    }
+
+    /** {@code crowd}: holds the stand for {@link CrowdRenderer}; ends with its duration, else {@link #clear} ends it. */
+    private static final class CrowdRun implements Running {
+        private final CrowdRenderer.Stand stand;
+
+        CrowdRun(CrowdRenderer.Stand stand) {
+            this.stand = stand;
+        }
+
+        @Override
+        public boolean tick(ClientLevel level) {
+            return stand.duration <= 0 || PensieveClientState.sceneTime(0) < stand.t0 + stand.duration;
         }
     }
 

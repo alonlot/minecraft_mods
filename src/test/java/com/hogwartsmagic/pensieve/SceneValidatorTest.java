@@ -799,4 +799,86 @@ class SceneValidatorTest {
         // Players are not held to it.
         assertEquals(List.of(), validate(mover("player", "{\"t\":0,\"pos\":[0,2,0]},{\"t\":20,\"pos\":[60,2,0],\"ease\":\"linear\"}")));
     }
+
+    // ------------------------------------------------------------------ the stadium crowd
+
+    private static String crowdScene(String events) {
+        return "{\"length\":400,\"radius\":60,\"events\":[" + events + "]}";
+    }
+
+    private static final String ROW = "[[-10,3.5,20,10,3.5,20]]";
+
+    @Test
+    void rowsOnlyOnCrowd() throws Exception {
+        assertEquals(List.of(), validate(crowdScene(
+                "{\"t\":0,\"kind\":\"effect\",\"id\":\"crowd\",\"at\":[0,0,0],\"rows\":" + ROW + "}")));
+        assertMessage(validate(crowdScene(
+                "{\"t\":0,\"kind\":\"effect\",\"id\":\"rain\",\"at\":[0,10,0],\"spread\":[20,10,20],\"rows\":" + ROW + "}")),
+                "rows is only for crowd");
+        assertMessage(validate(crowdScene(
+                "{\"t\":0,\"kind\":\"particles\",\"id\":\"minecraft:flame\",\"rows\":" + ROW + "}")),
+                "rows is only for crowd");
+        assertMessage(validate(crowdScene("{\"t\":0,\"kind\":\"effect\",\"id\":\"crowd\",\"at\":[0,0,0]}")),
+                "crowd needs rows");
+        // A row is six numbers, or seven with the standing flag.
+        assertThrows(SceneException.class, () -> validate(crowdScene(
+                "{\"t\":0,\"kind\":\"effect\",\"id\":\"crowd\",\"at\":[0,0,0],\"rows\":[[0,0,0,1,0]]}")));
+        assertEquals(List.of(), validate(crowdScene(
+                "{\"t\":0,\"kind\":\"effect\",\"id\":\"crowd\",\"at\":[0,0,0],\"rows\":[[-10,3,20,10,3,20,1]]}")));
+    }
+
+    @Test
+    void rowsInsideRadius() throws Exception {
+        assertMessage(validate(crowdScene(
+                "{\"t\":0,\"kind\":\"effect\",\"id\":\"crowd\",\"at\":[0,0,0],\"rows\":[[-10,3.5,20,10,3.5,20],[50,3.5,0,61,3.5,0]]}")),
+                "rows[1]: reaches beyond the scene radius 60");
+        assertMessage(validate(crowdScene(
+                "{\"t\":0,\"kind\":\"effect\",\"id\":\"crowd\",\"at\":[0,0,0],\"rows\":[[0,3.5,-61,0,3.5,-50]]}")),
+                "rows[0]: reaches beyond");
+    }
+
+    @Test
+    void crowdStyleNames() throws Exception {
+        for (String s : new String[] {"gryffindor", "hufflepuff", "ravenclaw", "slytherin", "mixed"}) {
+            assertEquals(List.of(), validate(crowdScene("{\"t\":0,\"kind\":\"effect\",\"id\":\"crowd\",\"at\":[0,0,0],\"style\":\""
+                    + s + "\",\"intensity\":0.5,\"count\":10,\"rows\":" + ROW + "}")), s);
+        }
+        assertMessage(validate(crowdScene("{\"t\":0,\"kind\":\"effect\",\"id\":\"crowd\",\"at\":[0,0,0],\"style\":\"durmstrang\",\"rows\":"
+                + ROW + "}")), "style: 'durmstrang' is not one of");
+        assertMessage(validate(crowdScene("{\"t\":0,\"kind\":\"effect\",\"id\":\"crowd\",\"at\":[0,0,0],\"intensity\":1.5,\"rows\":"
+                + ROW + "}")), "intensity: 1.5 is outside 0.1 to 1");
+        for (String s : new String[] {"cheer", "goal", "gasp", "erupt", "chant", "sit"}) {
+            assertEquals(List.of(), validate(crowdScene("{\"t\":10,\"kind\":\"effect\",\"id\":\"crowd_react\",\"at\":[0,0,0],"
+                    + "\"spread\":[30,10,30],\"style\":\"" + s + "\",\"duration\":80}")), s);
+        }
+        assertMessage(validate(crowdScene("{\"t\":10,\"kind\":\"effect\",\"id\":\"crowd_react\",\"at\":[0,0,0],\"style\":\"boo\"}")),
+                "style: 'boo' is not one of");
+        assertMessage(validate(crowdScene("{\"t\":10,\"kind\":\"effect\",\"id\":\"crowd_react\",\"at\":[0,0,0]}")),
+                "crowd_react needs a style");
+        assertMessage(validate(crowdScene("{\"t\":10,\"kind\":\"effect\",\"id\":\"crowd_react\",\"at\":[0,0,0],\"style\":\"erupt\",\"duration\":40}")),
+                "an erupt lasts at least 60 ticks");
+        assertMessage(validate(crowdScene("{\"t\":10,\"kind\":\"effect\",\"id\":\"rain\",\"at\":[0,10,0],\"spread\":[20,10,20],\"style\":\"goal\"}")),
+                "style is only for enchanted_ceiling, sky, crowd and crowd_react");
+    }
+
+    @Test
+    void crowdCap4000() throws Exception {
+        // 50 rows of 90 blocks hold about 5,000 seats: one event over the cap, two events capped at 2,500 each fit,
+        // three of them (7,500) do not: the cap counts the whole scene.
+        StringBuilder rows = new StringBuilder("[");
+        for (int i = 0; i < 50; i++) {
+            if (i > 0) rows.append(',');
+            rows.append("[-45,").append(i).append(".5,").append(10 + i).append(",45,").append(i).append(".5,").append(10 + i).append(']');
+        }
+        rows.append(']');
+        String full = "{\"t\":0,\"kind\":\"effect\",\"id\":\"crowd\",\"at\":[0,0,0],\"rows\":" + rows + "}";
+        String half = "{\"t\":0,\"kind\":\"effect\",\"id\":\"crowd\",\"at\":[0,0,0],\"count\":2000,\"rows\":" + rows + "}";
+        assertEquals(List.of(), validate(crowdScene(half + "," + half.replace("\"t\":0", "\"t\":1"))));
+        List<String> m = validate(crowdScene(half + "," + half.replace("\"t\":0", "\"t\":1") + ","
+                + half.replace("\"t\":0", "\"t\":2")));
+        assertMessage(m, "the crowd effects seat 6000 spectators; a scene holds at most 4000");
+        // One event alone is capped at 4,000 by the effect itself, so it fits.
+        assertEquals(List.of(), validate(crowdScene(full)));
+        assertMessage(validate(crowdScene(full.replace("\"rows\"", "\"count\":5000,\"rows\""))), "count: 5000 is outside 1 to 4000");
+    }
 }

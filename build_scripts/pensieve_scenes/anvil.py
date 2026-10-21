@@ -97,6 +97,9 @@ def read_region_box(world_dir, x0, y0, z0, x1, y1, z1):
             root = read_chunk(path, cx, cz)
             if root is None:
                 continue
+            if 'sections' not in root and 'Level' in root:
+                raise ValueError('chunk %d,%d is in the pre-1.18 format; open and save the world in 1.18+ first'
+                                 % (cx, cz))
             for sec in root.get('sections', []):
                 sy = sec['Y']
                 if sy * 16 + 15 < y0 or sy * 16 > y1:

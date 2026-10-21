@@ -48,6 +48,7 @@ SIZE = (2 * RADIUS + 1, 4 + PLATEAU + 112, 2 * RADIUS + 1)    # down to the rim 
 GRASS_Y = 0                                      # walking y on the field
 BUDGET = 350000                                  # template + schematic blocks
 
+PITCH_BLOCKS = 97972      # non-terrain blocks in WORLD_BOX (the survey's 98,063 less 91 buried under the field layer)
 TERRAIN = {'minecraft:grass_block', 'minecraft:dirt', 'minecraft:bedrock', 'minecraft:stone'}
 GRASS = 'minecraft:grass_block[snowy=false]'
 
@@ -152,6 +153,8 @@ def load_pitch():
         if bid(s) in TERRAIN:
             continue
         out[sc(p)] = s
+    assert len(out) == PITCH_BLOCKS, ('the pitch read back %d non-terrain blocks, the survey found %d'
+                                      % (len(out), PITCH_BLOCKS))
     return out
 
 
@@ -280,6 +283,17 @@ def _segment_ok(a, b, cells):
     return True
 
 
+def _line_in(cells, seg):
+    """Whether every point of the line seg (feet or seat height) lies over a cell of `cells`."""
+    n = max(1, int(math.ceil(math.hypot(seg[3] - seg[0], seg[5] - seg[2]) / 0.1)))
+    y = int(math.floor(seg[1] + 0.5))
+    for i in range(n + 1):
+        t = i / float(n)
+        if (int(math.floor(seg[0] + (seg[3] - seg[0]) * t)), y, int(math.floor(seg[2] + (seg[5] - seg[2]) * t)))                 not in cells:
+            return False
+    return True
+
+
 def row_segments(comp, cells):
     """Straight seat-top segments [x1, y1, z1, x2, y2, z2] covering one connected row of seat cells, walking it in
     angle order round the pitch centre and extending each segment while it stays on the row."""
@@ -312,6 +326,68 @@ def wall_house(w, x, z):
                 if s in HOUSE_KEY:
                     cnt[HOUSE_KEY[s]] = cnt.get(HOUSE_KEY[s], 0) + 1
     return max(cnt, key=cnt.get) if cnt else None
+
+
+# where a spectator's eyes are: a seated figure's 1.0 above the seat top, a standing one's 1.6 above its feet
+SEATED_EYE, STANDING_EYE = 1.0, 1.6
+# what a spectator looks at: the play, 20 up over the field's middle and four points round it, or the grass at
+# the centre spot; a place sees the match if any of them is in view. (From a tower box 50 up, the box's own rail
+# hides the near grass, as it would; the play in the air is what they watch.)
+FIELD_TARGETS = ((0.0, 20.0, 0.0), (0.0, 20.0, -60.0), (0.0, 20.0, 60.0), (-40.0, 20.0, 0.0), (40.0, 20.0, 0.0),
+                 (0.0, 1.5, 0.0))
+RAIL_LEAN = 0.2                                  # rail standers stand this far toward the field from the cell centre
+
+
+def see_through(s):
+    """Cells a sightline passes: passable cells, the thin cloth of banners and the rails of fences."""
+    n = bid(s) or ''
+    return free(s) or n.endswith('_banner') or n.endswith('_fence')    # a rail is looked through and over
+
+
+def sees_field(w, eye):
+    """Whether a straight line from eye reaches one of FIELD_TARGETS with nothing solid in the way (the first 0.6
+    of the line, the spectator's own cell, is not tested)."""
+    for t in FIELD_TARGETS:
+        d = math.dist(eye, t)
+        n = int(d / 0.25)
+        clear = True
+        for i in range(n + 1):
+            k = i * 0.25
+            if k < 0.6:
+                continue
+            q = [eye[j] + (t[j] - eye[j]) * k / d for j in range(3)]
+            if not see_through(w.get((int(math.floor(q[0])), int(math.floor(q[1])), int(math.floor(q[2]))))):
+                clear = False
+                break
+        if clear:
+            return True
+    return False
+
+
+def row_sees_field(w, seg, eye_h):
+    """Both ends and the middle of a row see the field."""
+    pts = [(seg[0], seg[1], seg[2]), ((seg[0] + seg[3]) / 2, seg[1], (seg[2] + seg[5]) / 2), (seg[3], seg[4], seg[5])]
+    return all(sees_field(w, (x, y + eye_h, z)) for x, y, z in pts)
+
+
+SOLID_FLOOR_SKIP = ('_fence', '_wall', '_slab', '_stairs', '_banner', '_trapdoor', '_pane', 'iron_bars')
+
+
+def standing_cells(w, seats):
+    """Air cells at deck height or higher (y >= 14) inside the stadium with a full block under them and two
+    passable cells: places a spectator can stand."""
+    out = set()
+    for p, s in w.items():
+        if p[1] < 13 or not in_stadium(p) or is_hoop_cell(p):
+            continue
+        n = bid(s)
+        if free(s) or any(n.endswith(k) for k in SOLID_FLOOR_SKIP):
+            continue
+        c = (p[0], p[1] + 1, p[2])
+        if c in seats or not free(w.get(c)) or not free(w.get((c[0], c[1] + 1, c[2]))):
+            continue
+        out.add(c)
+    return out
 
 
 # ---------------------------------------------------------------- additions
@@ -401,17 +477,17 @@ def hang_gallery_drapes(w, step_deg=5.0, y=12):
 
 
 def cut_team_gates(w):
-    """Tunnels through the west stand at field level (5 wide, 5 tall), lined with spruce, floored with path."""
+    """Tunnels through the west stand at field level (5 wide, 5 tall), lined with spruce, floored with coarse dirt (a full block, so the gate anchors stand flush)."""
     gates = []
     for zg in GATE_Z:
-        # the stand wall along this line: the first solid column at y 2 marching west from the field
+        # the stand wall along this line: the first solid column at y 6 (above the embankment) marching west
         x_in = None
         for x in range(-60, -100, -1):
             if not free(w.get((x, 6, zg))):
                 x_in = x
                 break
         assert x_in is not None, zg
-        # the wall's outer face: the last solid cell on this line at y 2 before open air outside
+        # the wall's outer face: the last solid cell on this line at y 6 before open air outside
         xs = [x for x in range(x_in - 12, x_in + 1) if not free(w.get((x, 6, zg)))]
         x_out = min(xs)
         # clear the embankment in front, the wall, and line the tunnel
@@ -427,7 +503,7 @@ def cut_team_gates(w):
                     w[(x, y, z)] = 'minecraft:spruce_planks' if y < GATE_H else 'minecraft:stripped_spruce_wood'
             for z in range(zg - GATE_HALF - 1, zg + GATE_HALF + 2):
                 w[(x, GATE_H, z)] = state('stripped_spruce_wood', axis='z')
-                w[(x, -1, z)] = 'minecraft:dirt_path'
+                w[(x, -1, z)] = 'minecraft:coarse_dirt'
         # posts and lintel on the field face, and a lantern either side
         for y in range(0, GATE_H + 1):
             for z in (zg - GATE_HALF - 1, zg + GATE_HALF + 1):
@@ -440,7 +516,7 @@ def cut_team_gates(w):
         for x in range(x_out - 12, x_out):                 # the path out to the grounds
             for z in range(zg - GATE_HALF, zg + GATE_HALF + 1):
                 if w.get((x, -1, z)) in (None, GRASS):
-                    w[(x, -1, z)] = 'minecraft:dirt_path'
+                    w[(x, -1, z)] = 'minecraft:coarse_dirt'
         gates.append({'field': _p(x_in + 4.5, 0, zg + 0.5), 'inside': _p((x_in + x_out) / 2.0 + 0.5, 0, zg + 0.5),
                       'outside': _p(x_out - 3.5, 0, zg + 0.5), 'yaw': -90.0, 'width': 2 * GATE_HALF + 1,
                       'height': GATE_H, 'x_range': [x_out, x_in + 1]})
@@ -559,9 +635,7 @@ def plant_trees(w, H, castle):
             ri = int(math.ceil(r))
             for dx in range(-ri, ri + 1):
                 for dz in range(-ri, ri + 1):
-                    if dx * dx + dz * dz <= r * r + 0.3 and (dx, dz) != (0, 0) or y >= top:
-                        if dx * dx + dz * dz > r * r + 0.3:
-                            continue
+                    if dx * dx + dz * dz <= r * r + 0.3 and ((dx, dz) != (0, 0) or y >= top):
                         c = (x + dx, y, z + dz)
                         if w.get(c) is None and c not in castle:
                             w[c] = state('spruce_leaves', distance=1, persistent=True, waterlogged=False)
@@ -652,7 +726,8 @@ def _build(w, with_castle):
 
 
 def make_anchors(info, w):
-    """ANCHORS from the built set (w includes the castle)."""
+    """ANCHORS from the built set (w includes the castle). Rows carry no facing: every crowd figure faces the pitch
+    centre. Seat rows give seat tops (y on a half block), standing rows (stand: True) the feet's block top."""
     seats = seat_cells(w)
     towers = info['towers']
     hoops = info['hoops']
@@ -663,7 +738,7 @@ def make_anchors(info, w):
     reserved = (commentator_t, teachers_t)
     # close rows: the gallery between those two towers (the castle side's touchline, nearest the field)
     z_lo, z_hi = commentator_t['z'][1] + 1, teachers_t['z'][0] - 1
-    stands, close_rows, box_rows = {}, [], {}
+    stands, close_rows, box_rows, hidden_seats = {}, [], {}, []
     for comp in _components(seats):
         cells = set(comp)
         owner = None
@@ -672,6 +747,9 @@ def make_anchors(info, w):
                 owner = t
         for seg in row_segments(comp, cells):
             mx, mz = (seg[0] + seg[3]) / 2.0, (seg[2] + seg[5]) / 2.0
+            if not row_sees_field(w, seg, SEATED_EYE):
+                hidden_seats.append(seg)                # e.g. the steps of a tower's spiral stair
+                continue
             if owner is not None:
                 if owner in reserved:
                     box_rows.setdefault(id(owner), []).append(seg)
@@ -685,6 +763,61 @@ def make_anchors(info, w):
             stands.setdefault(house, []).append([round(v, 3) for v in seg])
     for h in stands:
         stands[h].sort()
+
+    # standing places: the walkway along the gallery rail (the front of the crowd as seen from the field), and any
+    # other open deck or box floor that sees the match and is not a seated figure's leg room. Rail standers lean
+    # RAIL_LEAN toward the field, clear of the front row's knees.
+    stand_cells = standing_cells(w, seats)
+    box_lo, box_hi = {}, {}                             # each tower box's seat levels (its seats at y > 30)
+    for t in towers:
+        ys = [p[1] for p in seats if p[1] > 30 and in_tower(t, p[0], p[2], 1)]
+        if ys:
+            box_lo[id(t)], box_hi[id(t)] = min(ys), max(ys) + 2
+    rail = set()
+    other = set()
+    for c in stand_cells:
+        towered = any(in_tower(t, c[0], c[2], 1) for t in towers)
+        reserved_here = any(in_tower(t, c[0], c[2], 1) for t in reserved)
+        if reserved_here or (c[0] > 60 and z_lo <= c[2] <= z_hi):
+            continue                                    # the real actors' boxes and close rows
+        nb = [(c[0] + d[0], c[1], c[2] + d[1]) for d in ((1, 0), (-1, 0), (0, 1), (0, -1))]
+        at_rail = any((bid(w.get(n)) or '').endswith('_fence') for n in nb)
+        if not towered and at_rail and c[1] < 20:
+            rail.add(c)
+        elif any(n in seats for n in nb) or at_rail:
+            continue                                    # a seated figure's leg room, or a tower box's rail
+        elif not towered and c[1] < 20:
+            other.add(c)                                # the gallery deck behind and between the seat rows
+        elif towered and any(not free(w.get((c[0], c[1] + k, c[2]))) for k in range(2, 12)) and                 any(box_lo[id(t)] <= c[1] <= box_hi[id(t)] for t in towers if in_tower(t, c[0], c[2], 1)
+                    and id(t) in box_lo):
+            other.add(c)                                # a tower box floor under its canopy (not the roof)
+    rail_rows, standing_rows, hidden_stand = {}, {}, []
+    for group, target, lean in ((rail, rail_rows, RAIL_LEAN), (other, standing_rows, 0.0)):
+        for comp in _components(group):
+            cells = set(comp)
+            for seg in row_segments(comp, cells):
+                seg = list(seg)
+                seg[1] -= 0.5
+                seg[4] -= 0.5
+                if lean:
+                    leaned = list(seg)
+                    for i in (0, 3):
+                        r = math.hypot(seg[i], seg[i + 2])
+                        leaned[i] -= lean * seg[i] / r
+                        leaned[i + 2] -= lean * seg[i + 2] / r
+                    if _line_in(cells, leaned):         # only where the lean keeps the line on the walkway
+                        seg = leaned
+                if not row_sees_field(w, seg, STANDING_EYE):
+                    hidden_stand.append(seg)
+                    continue
+                mx, mz = (seg[0] + seg[3]) / 2.0, (seg[2] + seg[5]) / 2.0
+                owner = next((t for t in towers if in_tower(t, mx, mz, 1)), None)
+                house = owner['house'] if owner else wall_house(w, int(math.floor(mx)), int(math.floor(mz)))
+                target.setdefault(house, []).append([round(v, 3) for v in seg])
+    for d in (rail_rows, standing_rows):
+        for h in d:
+            d[h].sort()
+    make_anchors.hidden = {'seat_rows': hidden_seats, 'standing_rows': hidden_stand}
 
     def box_anchor(t):
         rows = sorted(box_rows.get(id(t), []), key=lambda s: s[1])
@@ -704,6 +837,8 @@ def make_anchors(info, w):
         'grass_y': GRASS_Y,
         'hoops': [{'centre': h['centre'], 'yaw': h['yaw'], 'radius': h['radius']} for h in hoops],
         'stands': [{'house': h, 'rows': stands[h]} for h in sorted(stands)],
+        'rail_rows': [{'house': h, 'stand': True, 'rows': rail_rows[h]} for h in sorted(rail_rows)],
+        'standing_rows': [{'house': h, 'stand': True, 'rows': standing_rows[h]} for h in sorted(standing_rows)],
         'close_rows': [[round(v, 3) for v in s] for s in sorted(close_rows)],
         'team_gates': [{'field': g['field'], 'inside': g['inside'], 'outside': g['outside'], 'yaw': g['yaw']}
                        for g in info['gates']],
@@ -751,6 +886,15 @@ def write_nbt(template=None):
 
 
 # ---------------------------------------------------------------- checks
+def _seg_dist(p, seg):
+    """Horizontal distance from point p (x, z) to the segment seg [x1, y1, z1, x2, y2, z2]."""
+    ax, az, bx, bz = seg[0], seg[2], seg[3], seg[5]
+    dx, dz = bx - ax, bz - az
+    L2 = dx * dx + dz * dz
+    t = 0.0 if L2 == 0 else max(0.0, min(1.0, ((p[0] - ax) * dx + (p[1] - az) * dz) / L2))
+    return math.hypot(p[0] - ax - t * dx, p[1] - az - t * dz)
+
+
 def check(anchors, info, w):
     """Problem strings; empty when the set is right. Also returns the numbers worth printing."""
     problems, numbers = [], {}
@@ -809,15 +953,72 @@ def check(anchors, info, w):
             row('%s.rows[%d]' % (k, j), r)
         if not anchors[k]['rows']:
             problems.append(k + ' has no seat rows')
+    def standing_row(name, seg):
+        n = max(1, int(math.ceil(math.hypot(seg[3] - seg[0], seg[5] - seg[2]) / 0.25)))
+        for i in range(n + 1):
+            t = i / float(n)
+            c = (int(math.floor(seg[0] + (seg[3] - seg[0]) * t)), int(math.floor(seg[1] + 1e-6)),
+                 int(math.floor(seg[2] + (seg[5] - seg[2]) * t)))
+            below = w.get((c[0], c[1] - 1, c[2]))
+            if free(below) or any((bid(below) or '').endswith(k) for k in SOLID_FLOOR_SKIP) or not free(w.get(c)) or                     not free(w.get((c[0], c[1] + 1, c[2]))):
+                problems.append('%s %s: cell %s is %s over %s' % (name, seg, c, w.get(c), below))
+                return
+        if abs(seg[1] - round(seg[1])) > 1e-6:
+            problems.append('%s %s: feet not on a block top' % (name, seg))
+
+    def sight(name, seg, eye_h):
+        if not row_sees_field(w, seg, eye_h):
+            problems.append('%s %s: cannot see the field' % (name, seg))
+
+    def figures(rows):
+        return sum(math.hypot(r[3] - r[0], r[5] - r[2]) / 0.9 + 1 for r in rows)
+
     seats = 0
     for st in anchors['stands']:
         for j, r in enumerate(st['rows']):
             row('stands.%s[%d]' % (st['house'], j), r)
-            seats += math.hypot(r[3] - r[0], r[5] - r[2]) / 0.9 + 1
+            sight('stands.%s[%d]' % (st['house'], j), r, SEATED_EYE)
+            if r[1] < 14 or 18 < r[1] < 49:
+                problems.append('stands.%s[%d] %s: neither on the gallery nor in a tower box' % (st['house'], j, r))
+        seats += figures(st['rows'])
     numbers['stand rows'] = sum(len(s['rows']) for s in anchors['stands'])
     numbers['crowd seats (about, at 0.9)'] = int(seats)
+    standers = {}
+    for key in ('rail_rows', 'standing_rows'):
+        k = 0
+        for st in anchors[key]:
+            if not st.get('stand'):
+                problems.append('%s.%s has no stand flag' % (key, st['house']))
+            for j, r in enumerate(st['rows']):
+                standing_row('%s.%s[%d]' % (key, st['house'], j), r)
+                if r[1] < 14 or 18 < r[1] < 49:
+                    problems.append('%s.%s[%d] %s: neither on the gallery nor in a tower box' % (key, st['house'], j, r))
+                sight('%s.%s[%d]' % (key, st['house'], j), r, STANDING_EYE)
+            k += figures(st['rows'])
+        standers[key] = int(k)
+        numbers['%s (rows, standers at 0.9)' % key] = (sum(len(s['rows']) for s in anchors[key]), int(k))
+    numbers['crowd total (seated + standing, at 0.9)'] = int(seats) + sum(standers.values())
+    if not anchors['rail_rows']:
+        problems.append('no rail rows')
+    # crowd places stay off the real actors' places by 0.7
+    actors = [r for r in anchors['close_rows']] + anchors['teachers_box']['rows'] + anchors['commentator_box']['rows']
+    worst = 99.0
+    for key in ('stands', 'rail_rows', 'standing_rows'):
+        for st in anchors[key]:
+            for r in st['rows']:
+                for a in actors:
+                    for p in ((r[0], r[2]), (r[3], r[5])):
+                        if abs(r[1] - a[1]) < 2.5:
+                            worst = min(worst, _seg_dist(p, a))
+    numbers['crowd row to nearest actor row'] = round(worst, 2)
+    if worst < 0.7:
+        problems.append('a crowd row is %.2f from a real actor row' % worst)
     for j, r in enumerate(anchors['close_rows']):
         row('close_rows[%d]' % j, r)
+        sight('close_rows[%d]' % j, r, SEATED_EYE)
+    for k in ('commentator_box', 'teachers_box'):
+        for j, r in enumerate(anchors[k]['rows']):
+            sight('%s.rows[%d]' % (k, j), r, SEATED_EYE)
     if not anchors['close_rows']:
         problems.append('no close rows')
     if sorted(s['house'] for s in anchors['stands']) != sorted(HOUSE_COLOUR):
@@ -871,8 +1072,6 @@ def check(anchors, info, w):
     holes = [c for c, h in info['H'].items() if free(w.get((c[0], h, c[1]))) and free(w.get((c[0], -1, c[1])))]
     if holes:
         problems.append('%d ground holes, e.g. %s' % (len(holes), holes[:5]))
-    # the castle stands on the ground: every castle cell at its foot layer has ground or castle under it... the foot
-    # layer is the ground layer itself (y -1), so check the castle has nothing below -1 and nothing floating there
     # the castle's foot sits in the ground: every castle cell near the foot with nothing of its own under it is at
     # or below the ground's surface there (it takes the place of the surface block), or stands on a solid block
     col_low = {}

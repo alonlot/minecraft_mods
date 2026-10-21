@@ -4,6 +4,7 @@ Same pipeline as letter_voices.py: key from C:\\Users\\alonl\\fish_key.txt (neve
 takes in a scratch directory outside the repo, trim silence, loudnorm -16/-1.5, mono 44.1k vorbis. Pass line ids as
 arguments to redo only those. Measured lengths merge into flying_clip_lengths.json beside the sfx lengths.
 No line contains a name for the boy. Music is not made here (Task 10).
+Mastering: linear gain to -16 LUFS integrated + alimiter -2 dBTP latency=1 (loudnorm misses on short clips).
 
 Voices:
   Hooch       9f646202b5694df98acc78d756674599  (user pick hooch_C)
@@ -13,7 +14,7 @@ Voices:
   McGonagall  d625beac29e2417faba8ace4c3d6ccdd  (same as the other memories)
   Wood        de272fd1bff547c5af60a11049d6bca5  Fish "Oliver wood", author unlisted, one take
   Commentator 7c90feecce0e4bbb8d5d1a20a98e6a11  Fish "Commentator (good)" by LeroyJr, one take
-flying_class_up is a ragged chorus: Neville, Malfoy and the viewer voice, three takes mixed with small offsets.
+flying_class_up is a ragged chorus: Neville, Hermione, Malfoy and Wood, four whisper-gated takes spread over 0.38 s (not the viewer, who has his own clip).
 """
 
 import json
@@ -56,13 +57,15 @@ LINES = {
     "flying_hooch_clean": (HOOCH, 1.0, "I want a clean game, from all of you."),
     "flying_captain": (WOOD, 1.0, "Just catch the Snitch. That's all you've got to do."),
     "flying_comm_off": (COMMENTATOR, 1.0, "And they're off!"),
-    "flying_comm_goal": (COMMENTATOR, 1.0, "Goal! Goal!"),
+    "flying_comm_goal": (COMMENTATOR, 1.0, "And it's in!"),
     "flying_comm_seeker": (COMMENTATOR, 1.0, "The Seeker has seen something!"),
 }
 
 # the chorus: (voice, speed, delay seconds, gain) takes of "Up!", mixed
+HERMIONE = "478907affa884ae7824ac8a06374aba3"
 CHORUS = {
-    "flying_class_up": [(NEVILLE, 1.0, 0.00, 1.0), (MALFOY, 1.1, 0.07, 0.9), (VIEWER, 0.9, 0.15, 0.8)],
+    "flying_class_up": [(NEVILLE, 1.0, 0.00, 1.0), (HERMIONE, 1.0, 0.12, 0.9), (MALFOY, 1.0, 0.25, 0.85),
+                        (WOOD, 1.0, 0.38, 0.8)],
 }
 
 
@@ -77,11 +80,38 @@ def tts(key, voice, speed, text, path):
         f.write(data)
 
 
+TARGET_LUFS = -16.0
+LIMIT = 0.794  # -2.0 dBTP before Vorbis, which overshoots a little
+
+
+def measure_lufs(path):
+    r = subprocess.run(["ffmpeg", "-v", "info", "-nostats", "-i", path, "-af", "ebur128=peak=true", "-f", "null", "-"],
+                       capture_output=True, text=True)
+    tail = r.stderr[r.stderr.rindex("Summary:"):]
+    for line in tail.splitlines():
+        if line.strip().startswith("I:"):
+            return float(line.split()[1])
+    raise RuntimeError("no loudness for " + path)
+
+
 def convert(src, out):
+    """Trim silence, linear gain to -16 LUFS integrated (not loudnorm's dynamic mode, which misses on short
+    clips), then alimiter at -2 dBTP with latency=1 (no head delay), mono 44.1k vorbis."""
     sil = ("silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.05,"
-           "areverse,silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.12,areverse,")
-    subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", src, "-af", sil + "loudnorm=I=-16:TP=-1.5",
-                    "-ac", "1", "-ar", "44100", "-c:a", "libvorbis", "-q:a", "5", out], check=True)
+           "areverse,silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.12,areverse")
+    tmp = out + ".trim.wav"
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", src, "-af", sil, "-ac", "1", "-ar", "44100", tmp],
+                   check=True)
+    gain = TARGET_LUFS - measure_lufs(tmp)
+    for _ in range(5):  # the limiter eats loudness on peaky clips: re-measure the result and top up the gain
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", tmp, "-af",
+                        "volume=%.2fdB,alimiter=level=disabled:limit=%.3f:latency=1" % (gain, LIMIT),
+                        "-ac", "1", "-ar", "44100", "-c:a", "libvorbis", "-q:a", "5", out], check=True)
+        miss = TARGET_LUFS - measure_lufs(out)
+        if abs(miss) < 0.25:
+            break
+        gain += miss
+    os.remove(tmp)
 
 
 def duration(path):
@@ -90,12 +120,27 @@ def duration(path):
     return float(r.stdout.strip())
 
 
+_WHISPER = []
+
+
+def heard(path):
+    if not _WHISPER:
+        import whisper
+        _WHISPER.append(whisper.load_model("small.en"))
+    return _WHISPER[0].transcribe(path, fp16=False)["text"]
+
+
 def chorus(key, name, takes, out, force):
     inputs, parts = [], []
     for i, (voice, speed, delay, gain) in enumerate(takes):
         raw = os.path.join(RAW_DIR, "%s_%d.mp3" % (name, i))
         if not os.path.exists(raw) or force:
-            tts(key, voice, speed, "Up!", raw)
+            for _ in range(8):  # gate: every take must be heard as "up" on its own
+                tts(key, voice, speed, "Up!", raw)
+                if heard(raw).strip(" .!?,").lower() == "up":
+                    break
+            else:
+                raise RuntimeError("no clean Up! from " + voice)
         inputs += ["-i", raw]
         ms = int(delay * 1000)
         parts.append("[%d]adelay=%d|%d,volume=%.2f[a%d]" % (i, ms, ms, gain, i))

@@ -1016,8 +1016,9 @@ def letter_scene():
 
     # ---- the street, then the post
     T_ST = 14.8
-    sc.key(T_ST, [-36.0, 9.0, 12.0], [2.0, 3.0, -4.0], 72, cut=True)
-    sc.key(20.0, [-28.5, 6.4, 10.0], [0.5, 2.4, -3.0], 64)
+    # over the north pavement, clear of the lamp posts along both verges (the old line passed 2.4 blocks from one)
+    sc.key(T_ST, [-33.0, 10.0, 4.0], [2.0, 3.0, -4.0], 72, cut=True)
+    sc.key(20.0, [-25.5, 7.4, 2.0], [0.5, 2.4, -3.0], 64)
     cat = [-7.5, 1.0, 4.5]
     sc.actor('cat', 'minecraft:cat', path=[{'t': 0, 'pos': cat}],
              look=[{'t': 0, 'yaw': 160}, {'t': tk(17.5), 'yaw': 160}, {'t': tk(18.3), 'yaw': 205},
@@ -1226,6 +1227,35 @@ def in_box(p, box, margin=0.3):
         box[0][1] <= p[1] <= box[1][1] - margin
 
 
+def flood_spill(sc):
+    """Still letters lying on and against the furniture, which the swarm (kept inside the all-air box) cannot reach:
+    the sofa's free seat, the armchair seat, and the floor along the sofa, the armchair side and the bay, so the
+    drift of settled letters reads continuous up to the furniture instead of stopping in a straight line. Each one
+    drops in while the swarm is settling; everything is seeded, so a regeneration is byte-identical."""
+    rnd = random.Random('flood spill')
+    seat_y, floor_y = 0.5 + 0.012, 0.012
+    spots = []
+    for i in range(3):                                           # the sofa's empty seat (hx 7), front half
+        spots.append((-4.5 + rnd.uniform(-0.2, 0.2), seat_y + 0.011 * i, -10.25 + rnd.uniform(-0.12, 0.12)))
+    for i in range(3):                                           # the armchair seat, front half
+        spots.append((-2.75 + rnd.uniform(-0.1, 0.1), seat_y + 0.011 * i, -7.5 + rnd.uniform(-0.3, 0.3)))
+    for i in range(9):                                           # along the sofa's foot
+        spots.append((-8.5 + 4.3 * i / 8 + rnd.uniform(-0.15, 0.15), floor_y + 0.003 * (i % 3),
+                      -9.85 + rnd.uniform(-0.08, 0.1)))
+    for z in (-9.2, -8.7, -8.2, -5.6, -5.1, -4.6):               # against the armchair side
+        spots.append((-3.4 + rnd.uniform(-0.1, 0.05), floor_y + rnd.uniform(0, 0.006), z + rnd.uniform(-0.1, 0.1)))
+    for i in range(7):                                           # the bay floor, against the box's front
+        spots.append((-7.6 + 3.3 * i / 6 + rnd.uniform(-0.15, 0.15), floor_y + 0.003 * (i % 3),
+                      -3.6 + rnd.uniform(-0.25, 0.2)))
+    for n, (x, y, z) in enumerate(spots):
+        t0 = round(T_BURST + 4.0 + rnd.uniform(0, 5.5), 2)
+        aid = 'spill_%02d' % n
+        keys = [(t0, [x, y + 0.6, z], 'linear'), (t0 + 0.35, [x, y, z], 'in')]
+        path = block_path(sc, aid, keys, hide_before=t0, park=PARK_PRIVET)
+        sc.actor(aid, 'hogwartsmagic:memory_letter', path=path,
+                 look=[{'t': 0, 'yaw': round(rnd.uniform(-180, 180), 1), 'pitch': 90}])
+
+
 def flood_scene():
     LEN = 30.0
     w = privet_world()
@@ -1356,6 +1386,8 @@ def flood_scene():
         look.append({'t': tk(t), 'yaw': round(30 + 400 * i / n, 1), 'pitch': round(40 + 30 * math.sin(i), 1)})
     sc.actor('hero_letter', 'hogwartsmagic:memory_letter', path=path, look=look)
 
+    flood_spill(sc)
+
     # ---- the chimney, the burst
     mouth = PA['living_fireplace_mouth']
     sc.sfx(6.8, 'chimney_rumble', 1.0)
@@ -1431,16 +1463,22 @@ def polyline_at(pts, s):
 
 
 def rower_limbs(length_ticks):
-    arms, body = [], []
+    """The stroke: the torso rocks -10..+14 degrees about the HIPS (torso_pose moves the neck and shoulders where the
+    turned torso puts them, so the hips stay on the legs), the head stays level, the arms swing with the oars."""
+    out = {part: {'rot': [], 'offset': [], 'mode': 'set'} for part in ('body', 'head', 'right_arm', 'left_arm')}
     t = 0
     while t <= length_ticks:
         s = (t % OAR_PERIOD) / OAR_PERIOD
         reach = 0.5 + 0.5 * math.cos(2 * math.pi * s)
-        arms.append({'t': t, 'v': [round(-38 - 42 * reach, 1), 0, 0], 'ease': 'linear'})
-        body.append({'t': t, 'v': [round(-10 + 24 * reach, 1), 0, 0], 'ease': 'linear'})
+        lean = round(-10 + 24 * reach, 1)
+        arm = round(-38 - 42 * reach, 1)
+        pz = torso_pose(lean, head=(-lean, 0, 0), r_arm=(arm - lean, 0, 0), l_arm=(arm - lean, 0, 0))
+        for part, d in out.items():
+            rot, off = pz[part]
+            d['rot'].append({'t': t, 'v': [round(v, 2) for v in rot], 'ease': 'linear'})
+            d['offset'].append({'t': t, 'v': [round(v, 3) for v in off], 'ease': 'linear'})
         t += OAR_PERIOD // 8
-    return {'right_arm': {'rot': arms, 'mode': 'set'}, 'left_arm': {'rot': [dict(k) for k in arms], 'mode': 'set'},
-            'body': {'rot': body, 'mode': 'set'}}
+    return out
 
 
 class Boat:

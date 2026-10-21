@@ -2432,6 +2432,46 @@
       }
     ]
   },
+  "pensieve.music.letter_cupboard": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/music/letter_cupboard",
+        "stream": true
+      }
+    ]
+  },
+  "pensieve.music.letter_flood": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/music/letter_flood",
+        "stream": true
+      }
+    ]
+  },
+  "pensieve.music.letter_crossing": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/music/letter_crossing",
+        "stream": true
+      }
+    ]
+  },
+  "pensieve.music.letter_hut": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/music/letter_hut",
+        "stream": true
+      }
+    ]
+  },
+  "pensieve.music.letter_wizard": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/music/letter_wizard",
+        "stream": true
+      }
+    ]
+  },
   "pensieve.music.wand_alley": {
     "sounds": [
       {

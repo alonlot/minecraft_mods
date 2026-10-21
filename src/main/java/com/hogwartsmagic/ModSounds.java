@@ -401,6 +401,11 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> PENSIEVE_MUSIC_HALL_PROLOGUE = register("pensieve.music.hall_prologue");
     public static final RegistryObject<SoundEvent> PENSIEVE_MUSIC_WAND_WALL = register("pensieve.music.wand_wall");
     public static final RegistryObject<SoundEvent> PENSIEVE_MUSIC_WAND_ALLEY = register("pensieve.music.wand_alley");
+    public static final RegistryObject<SoundEvent> PENSIEVE_MUSIC_LETTER_CUPBOARD = register("pensieve.music.letter_cupboard");
+    public static final RegistryObject<SoundEvent> PENSIEVE_MUSIC_LETTER_FLOOD = register("pensieve.music.letter_flood");
+    public static final RegistryObject<SoundEvent> PENSIEVE_MUSIC_LETTER_CROSSING = register("pensieve.music.letter_crossing");
+    public static final RegistryObject<SoundEvent> PENSIEVE_MUSIC_LETTER_HUT = register("pensieve.music.letter_hut");
+    public static final RegistryObject<SoundEvent> PENSIEVE_MUSIC_LETTER_WIZARD = register("pensieve.music.letter_wizard");
     public static final RegistryObject<SoundEvent> PENSIEVE_MUSIC_LAKE_DEMENTORS = register("pensieve.music.lake_dementors");
     public static final RegistryObject<SoundEvent> PENSIEVE_MUSIC_LAKE_PATRONUS_LIGHT = register("pensieve.music.lake_patronus_light");
     public static final RegistryObject<SoundEvent> PENSIEVE_MUSIC_LAKE_WINDOW = register("pensieve.music.lake_window");

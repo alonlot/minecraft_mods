@@ -3026,5 +3026,133 @@
         "stream": false
       }
     ]
+  },
+  "pensieve.voice.flying_hooch_welcome": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/flying_hooch_welcome",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.flying_hooch_left": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/flying_hooch_left",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.flying_hooch_up": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/flying_hooch_up",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.flying_class_up": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/flying_class_up",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.flying_viewer_up": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/flying_viewer_up",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.flying_neville_whoa": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/flying_neville_whoa",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.flying_hooch_nobody": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/flying_hooch_nobody",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.flying_malfoy_look": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/flying_malfoy_look",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.flying_malfoy_come": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/flying_malfoy_come",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.flying_malfoy_catch": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/flying_malfoy_catch",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.flying_mcg_follow": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/flying_mcg_follow",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.flying_hooch_clean": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/flying_hooch_clean",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.flying_captain": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/flying_captain",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.flying_comm_off": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/flying_comm_off",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.flying_comm_goal": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/flying_comm_goal",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.flying_comm_seeker": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/flying_comm_seeker",
+        "stream": false
+      }
+    ]
   }
 }

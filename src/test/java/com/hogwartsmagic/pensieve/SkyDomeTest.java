@@ -15,6 +15,7 @@ class SkyDomeTest {
     @Test
     void everyStyleHasAGradientFromHorizonToZenith() {
         for (String style : SkyDome.STYLES) {
+            if ("storm".equals(style)) continue;   // a night-dark sky: stormGradient
             float[] h = SkyDome.colour(style, 0f);
             float[] z = SkyDome.colour(style, 1f);
             assertArrayEquals(SkyDome.horizon(style), h, 1e-6f, style);
@@ -66,7 +67,8 @@ class SkyDomeTest {
     @Test
     void anUnknownOrMissingStyleIsDay() {
         assertEquals("day", SkyDome.style(null));
-        assertEquals("day", SkyDome.style("storm"));
+        assertEquals("day", SkyDome.style("blizzard"));
+        assertEquals("storm", SkyDome.style("storm"));
         assertEquals("dawn", SkyDome.style("dawn"));
         assertArrayEquals(SkyDome.colour("day", 0.4f), SkyDome.colour(null, 0.4f), 1e-6f);
     }
@@ -111,6 +113,95 @@ class SkyDomeTest {
         assertArrayEquals(SkyDome.horizon("day"), SkyDome.fogColour("day", 1f), 1e-6f);
         float[] half = SkyDome.fogColour("day", 0.5f), h = SkyDome.horizon("day");
         assertEquals(h[1] * 0.5f, half[1], 1e-6f);
+    }
+
+    private static void assertHex(int rgb, float[] c) {
+        assertEquals(((rgb >> 16) & 0xFF) / 255f, c[0], 0.5f / 255f);
+        assertEquals(((rgb >> 8) & 0xFF) / 255f, c[1], 0.5f / 255f);
+        assertEquals((rgb & 0xFF) / 255f, c[2], 0.5f / 255f);
+    }
+
+    @Test
+    void stormGradient() {
+        assertTrue(SkyDome.STYLES.contains("storm"));
+        assertHex(0x3A4048, SkyDome.colour("storm", 0f));
+        assertHex(0x14171C, SkyDome.colour("storm", 1f));
+        assertHex(0x3A4048, SkyDome.horizon("storm"));
+        assertHex(0x3A4048, SkyDome.fogColour("storm", 1f));
+        assertTrue(luma(SkyDome.colour("storm", 0.5f)) < luma(SkyDome.colour("storm", 0f)));
+        assertTrue(luma(SkyDome.colour("storm", 1f)) < luma(SkyDome.colour("storm", 0.5f)));
+    }
+
+    @Test
+    void flashPeaksAfterStrike() {
+        double[] strikes = {100.0};
+        double peak = 0;
+        for (double t = 100; t <= 126; t += 0.25) peak = Math.max(peak, SkyDome.flash(t, strikes));
+        assertEquals(0.85, peak, 0.02, "peaks at 0.85");
+        assertTrue(peak <= 0.85 + 1e-9);
+        assertTrue(SkyDome.flash(101.0, strikes) > 0.8, "the first flicker is at the strike");
+        // two or three separate flickers: count the rises
+        int rises = 0;
+        double prev = 0;
+        boolean up = false;
+        for (double t = 100; t < 126; t += 0.25) {
+            double v = SkyDome.flash(t, strikes);
+            if (v > prev + 1e-9) {
+                if (!up && t > 100.5) rises++;
+                up = true;
+            } else if (v < prev - 1e-9) {
+                up = false;
+            }
+            prev = v;
+        }
+        assertTrue(rises >= 1 && rises <= 2, "extra flickers after the first: " + rises);
+        // the same strike later gives the same shape; another strike's later ones add as a maximum
+        assertEquals(SkyDome.flash(104.0, strikes), SkyDome.flash(204.0, new double[] {200.0}), 1e-9);
+        assertTrue(SkyDome.flash(301.0, new double[] {100.0, 300.0}) > 0.8);
+    }
+
+    @Test
+    void flashIsZeroWithoutLightning() {
+        assertEquals(0.0, SkyDome.flash(50.0, null), 0.0);
+        assertEquals(0.0, SkyDome.flash(50.0, new double[0]), 0.0);
+        assertEquals(0.0, SkyDome.flash(99.9, new double[] {100.0}), 0.0, "not before the strike");
+    }
+
+    @Test
+    void flashFadesBy1_3s() {
+        double[] strikes = {100.0};
+        assertEquals(0.0, SkyDome.flash(100.0 + 26.0, strikes), 0.0);
+        assertEquals(0.0, SkyDome.flash(400.0, strikes), 0.0);
+        assertTrue(SkyDome.flash(100.0 + 25.0, strikes) < 0.02);
+    }
+
+    @Test
+    void flashSharesCeilingSkysFlicker() {
+        // C8: one flicker function, scaled: the peak of CeilingSky's shape is 1, the sky's is 0.85 of it.
+        assertEquals(1.0, com.hogwartsmagic.pensieve.scene.CeilingSky.flicker(1f, 0.6f, 0f), 1e-6);
+        assertEquals(0.0, com.hogwartsmagic.pensieve.scene.CeilingSky.flicker(-1f, 0.6f, 0.5f), 0.0);
+        assertTrue(com.hogwartsmagic.pensieve.scene.CeilingSky.flicker(6f, 0.6f, 0f) > 0.55f, "the second flicker");
+        assertEquals(0.0, com.hogwartsmagic.pensieve.scene.CeilingSky.flicker(
+                com.hogwartsmagic.pensieve.scene.CeilingSky.FLASH_TICKS, 0.6f, 0.5f), 0.0);
+    }
+
+    @Test
+    void stormWindIsAUnitDirectionFromTheSeed() {
+        double[] a = SkyDome.stormWind(42L), b = SkyDome.stormWind(42L), c = SkyDome.stormWind(43L);
+        assertEquals(1.0, Math.hypot(a[0], a[1]), 1e-9);
+        assertEquals(a[0], b[0], 0.0);
+        assertTrue(a[0] != c[0] || a[1] != c[1]);
+        double[] d = SkyDome.stormDrift(100f, 1.0, 0.0);
+        assertTrue(d[0] > 0 && d[1] == 0);
+        assertTrue(SkyDome.stormDrift(200f, 1.0, 0.0)[0] > d[0]);
+    }
+
+    @Test
+    void flashLiftsAColourTowardPaleBlue() {
+        float[] base = SkyDome.colour("storm", 0f);
+        assertArrayEquals(base, SkyDome.flashed(base, 0.0), 1e-6f);
+        float[] lit = SkyDome.flashed(base, 0.85);
+        assertTrue(lit[2] > base[2] + 0.3f && lit[2] >= lit[0]);
     }
 
     @Test

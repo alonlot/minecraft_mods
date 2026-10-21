@@ -76,6 +76,13 @@ public final class SkyRenderer {
     }
 
     private static Layer[] layers(String style) {
+        if (SkyDome.STORM.equals(style)) {
+            // Three low, fast, torn layers: a ragged small-scale one in front, a wide slow one behind, dark slate.
+            return new Layer[] {
+                    new Layer(CLOUDS_A, 0.30f, 0.33f, 0.38f, 0.95f, 0.8f, 2.0f, 0.11f),
+                    new Layer(CLOUDS_B, 0.22f, 0.25f, 0.30f, 0.85f, 0.5f, 3.2f, 0.14f),
+                    new Layer(CLOUDS_A, 0.16f, 0.18f, 0.22f, 0.75f, 1.3f, 1.3f, 0.18f)};
+        }
         if ("overcast".equals(style)) {
             return new Layer[] {
                     new Layer(CLOUDS_A, 0.86f, 0.88f, 0.90f, 1f, 1.0f, 1.0f, 0.22f),
@@ -124,7 +131,22 @@ public final class SkyRenderer {
                 best = s;
             }
         }
-        return best == null ? null : SkyDome.fogColour(best.style, most);
+        if (best == null) return null;
+        float[] fog = SkyDome.fogColour(best.style, most);
+        // The fog lights up with the lightning, a little less than the sky, so the haze flashes with it.
+        if (SkyDome.STORM.equals(best.style)) fog = SkyDome.flashed(fog, SkyDome.flash(now, EffectVisuals.strikes()) * 0.7 * most);
+        return fog;
+    }
+
+    /** The unit {x, z} wind the storm clouds slide along: the rain's own when one runs, else the sky's own from its seed. */
+    private static double[] windDir(Sky sky, float now) {
+        List<RainRenderer.Shower> rains = EffectVisuals.rains();
+        if (!rains.isEmpty()) {
+            double[] w = RainRenderer.wind(rains.get(0), now, EffectVisuals.seas());
+            double l = Math.hypot(w[0], w[1]);
+            if (l > 1.0e-9) return new double[] {w[0] / l, w[1] / l};
+        }
+        return SkyDome.stormWind(sky.seed);
     }
 
     @SubscribeEvent
@@ -148,8 +170,9 @@ public final class SkyRenderer {
             for (Sky sky : skies) {
                 float f = shown(sky, now, partial);
                 if (f <= 0.002f) continue;
-                dome(sky, f, radius, m, buffer);
-                clouds(sky, f, now, radius, m, buffer);
+                double flash = SkyDome.STORM.equals(sky.style) ? SkyDome.flash(now, EffectVisuals.strikes()) : 0.0;
+                dome(sky, f, flash, radius, m, buffer);
+                clouds(sky, f, flash, now, radius, m, buffer);
             }
         } finally {
             RenderSystem.setShaderFogStart(fogStart);
@@ -158,11 +181,13 @@ public final class SkyRenderer {
     }
 
     /** The dome: rings of quads, coloured by elevation, camera-centred. */
-    private static void dome(Sky sky, float f, float radius, Matrix4f m, MultiBufferSource.BufferSource buffer) {
+    private static void dome(Sky sky, float f, double flash, float radius, Matrix4f m,
+                             MultiBufferSource.BufferSource buffer) {
         VertexConsumer vc = buffer.getBuffer(ModRenderTypes.SKY_DOME);
         float[][] ringColour = new float[RINGS.length][];
         for (int i = 0; i < RINGS.length; i++) {
-            ringColour[i] = SkyDome.colour(sky.style, Math.max(0f, RINGS[i]) / (float) (Math.PI / 2));
+            float[] c = SkyDome.colour(sky.style, Math.max(0f, RINGS[i]) / (float) (Math.PI / 2));
+            ringColour[i] = flash > 0.0 ? SkyDome.flashed(c, flash) : c;
         }
         for (int i = 0; i + 1 < RINGS.length; i++) {
             for (int j = 0; j < SEGMENTS; j++) {
@@ -184,34 +209,52 @@ public final class SkyRenderer {
     }
 
     /** Soft cloud layers on flat planes above the camera, thinning away toward the horizon. */
-    private static void clouds(Sky sky, float f, float now, float radius, Matrix4f m,
+    private static void clouds(Sky sky, float f, double flash, float now, float radius, Matrix4f m,
                                MultiBufferSource.BufferSource buffer) {
+        boolean storm = SkyDome.STORM.equals(sky.style);
         float drift = SkyDome.cloudDrift(now);
+        // A storm's clouds run before the wind (the rain's, when one runs); the others drift slowly their own way.
+        double[] sd = storm ? windDriftOf(sky, now) : null;
         float u0 = ((sky.seed >>> 8) & 0xFF) / 255f, v0 = ((sky.seed >>> 16) & 0xFF) / 255f;
         for (Layer layer : layers(sky.style)) {
             float half = radius * 0.95f, y = radius * layer.height, tile = radius * 0.6f * layer.scale;
+            float du = storm ? (float) (-sd[0] * layer.speed) : drift * layer.speed;
+            float dv = storm ? (float) (-sd[1] * layer.speed) : drift * layer.speed * 0.3f;
+            float cr = layer.r, cg = layer.g, cb = layer.b;
+            if (flash > 0.0) {
+                float[] lit = SkyDome.flashed(new float[] {cr, cg, cb}, flash);
+                cr = lit[0];
+                cg = lit[1];
+                cb = lit[2];
+            }
             VertexConsumer vc = buffer.getBuffer(layer.type);
             for (int i = 0; i < CLOUD_CELLS; i++) {
                 for (int j = 0; j < CLOUD_CELLS; j++) {
-                    cloudVertex(vc, m, layer, f, half, y, tile, i, j, u0, v0, drift);
-                    cloudVertex(vc, m, layer, f, half, y, tile, i + 1, j, u0, v0, drift);
-                    cloudVertex(vc, m, layer, f, half, y, tile, i + 1, j + 1, u0, v0, drift);
-                    cloudVertex(vc, m, layer, f, half, y, tile, i, j + 1, u0, v0, drift);
+                    cloudVertex(vc, m, layer, cr, cg, cb, f, half, y, tile, i, j, u0, v0, du, dv);
+                    cloudVertex(vc, m, layer, cr, cg, cb, f, half, y, tile, i + 1, j, u0, v0, du, dv);
+                    cloudVertex(vc, m, layer, cr, cg, cb, f, half, y, tile, i + 1, j + 1, u0, v0, du, dv);
+                    cloudVertex(vc, m, layer, cr, cg, cb, f, half, y, tile, i, j + 1, u0, v0, du, dv);
                 }
             }
             buffer.endBatch(layer.type);
         }
     }
 
-    private static void cloudVertex(VertexConsumer vc, Matrix4f m, Layer layer, float f, float half, float y, float tile,
-                                    int i, int j, float u0, float v0, float drift) {
+    private static double[] windDriftOf(Sky sky, float now) {
+        double[] w = windDir(sky, now);
+        return SkyDome.stormDrift(now, w[0], w[1]);
+    }
+
+    private static void cloudVertex(VertexConsumer vc, Matrix4f m, Layer layer, float cr, float cg, float cb, float f,
+                                    float half, float y, float tile, int i, int j, float u0, float v0, float du,
+                                    float dv) {
         float u = i / (float) CLOUD_CELLS * 2f - 1f, v = j / (float) CLOUD_CELLS * 2f - 1f;
         float r = (float) Math.sqrt(u * u + v * v);
         float k = clamp((r - 0.3f) / 0.7f);
         float a = f * layer.alpha * (1f - k * k * (3f - 2f * k));
         float x = u * half, z = v * half;
-        vc.addVertex(m, x, y, z).setColor(clamp(layer.r), clamp(layer.g), clamp(layer.b), clamp(a))
-                .setUv(x / tile + u0 + drift * layer.speed, z / tile + v0 + drift * layer.speed * 0.3f)
+        vc.addVertex(m, x, y, z).setColor(clamp(cr), clamp(cg), clamp(cb), clamp(a))
+                .setUv(x / tile + u0 + du, z / tile + v0 + dv)
                 .setOverlay(OVERLAY).setLight(LIGHT).setNormal(0f, -1f, 0f);
     }
 

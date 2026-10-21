@@ -436,12 +436,24 @@ class SceneValidatorTest {
     }
 
     @Test
+    void skyStormAccepted() throws Exception {
+        assertEquals(List.of(), validate(sky(",\"at\":[0,0,0],\"style\":\"storm\"")));
+    }
+
+    @Test
+    void rainSpread200Accepted() throws Exception {
+        assertEquals(List.of(), validate(rain(",\"at\":[0,10,0],\"spread\":[200,20,200]")));
+        assertMessage(validate(rain(",\"at\":[0,10,0],\"spread\":[201,20,200]")), "spread[0]");
+        assertMessage(validate(rain(",\"at\":[0,10,0],\"spread\":[200,20,201]")), "spread[2]");
+    }
+
+    @Test
     void skyStyleAndAt() throws Exception {
         assertEquals(List.of(), validate(sky(",\"at\":[0,0,0]")));
-        for (String s : new String[] {"day", "overcast", "dawn"}) {
+        for (String s : new String[] {"day", "overcast", "dawn", "storm"}) {
             assertEquals(List.of(), validate(sky(",\"at\":[0,0,0],\"style\":\"" + s + "\",\"duration\":200")), s);
         }
-        List<String> m = validate(sky(",\"at\":[0,0,0],\"style\":\"storm\""));
+        List<String> m = validate(sky(",\"at\":[0,0,0],\"style\":\"blizzard\""));
         assertEquals(1, m.size(), m.toString());
         assertTrue(m.get(0).contains("style"), m.get(0));
         m = validate(sky(",\"style\":\"day\""));

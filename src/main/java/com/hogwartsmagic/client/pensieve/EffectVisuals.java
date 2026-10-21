@@ -5,7 +5,9 @@ import com.hogwartsmagic.entity.DarkMarkEntity;
 import com.hogwartsmagic.entity.MemoryLetterEntity;
 import com.hogwartsmagic.entity.ModEntities;
 import com.hogwartsmagic.entity.VoldemortSummoningEntity;
+import com.hogwartsmagic.pensieve.scene.CeilingSky;
 import com.hogwartsmagic.pensieve.scene.Eyelids;
+import com.hogwartsmagic.pensieve.scene.SceneNames;
 import com.hogwartsmagic.pensieve.scene.FloatingCandles;
 import com.hogwartsmagic.pensieve.scene.EffectSeed;
 import com.hogwartsmagic.pensieve.scene.LetterFlood;
@@ -148,6 +150,7 @@ public final class EffectVisuals {
             int total = duration > 0 ? duration : DEFAULT_RITUAL_TICKS;
             if (elapsed < total) RUNNING.add(new Ritual(at, elapsed, total));
         } else if ("lightning".equals(effect)) {
+            recordStrike(t);
             lightning(level, at);
         } else if ("dark_mark".equals(effect)) {
             int total = duration > 0 ? duration : DEFAULT_MARK_TICKS;
@@ -248,7 +251,9 @@ public final class EffectVisuals {
                 LOGGER.warn("Pensieve: rain has no spread");
                 return;
             }
-            float[] half = {Mth.clamp(spread[0], 1f, 100f), Mth.clamp(spread[1], 1f, 100f), Mth.clamp(spread[2], 1f, 100f)};
+            float[] half = {Mth.clamp(spread[0], SceneNames.MIN_RAIN_SPREAD, SceneNames.MAX_RAIN_SPREAD),
+                    Mth.clamp(spread[1], SceneNames.MIN_RAIN_SPREAD, SceneNames.MAX_RAIN_SPREAD),
+                    Mth.clamp(spread[2], SceneNames.MIN_RAIN_SPREAD, SceneNames.MAX_RAIN_SPREAD)};
             double in = Float.isNaN(intensity) ? 1.0 : Mth.clamp(intensity, RoughSea.MIN_INTENSITY, RoughSea.MAX_INTENSITY);
             RUNNING.add(new Rain(new RainRenderer.Shower(at, half, in, t, Math.max(0, duration), floodSeed(at, t))));
         } else if ("sky".equals(effect)) {
@@ -261,6 +266,28 @@ public final class EffectVisuals {
         } else {
             LOGGER.warn("Pensieve: unknown effect '{}' in a memory", effect);
         }
+    }
+
+    /**
+     * The scene ticks of the recent {@code lightning} strikes, for {@link SkyRenderer}'s storm flash. Rebuilt (not
+     * mutated) on each strike, so the renderer can read it every frame without allocating; strikes whose flicker is long
+     * over are dropped.
+     */
+    private static double[] strikes = new double[0];
+
+    static double[] strikes() {
+        return strikes;
+    }
+
+    private static void recordStrike(float t) {
+        double now = PensieveClientState.sceneTime(0);
+        int keep = 0;
+        double[] next = new double[strikes.length + 1];
+        for (double s : strikes) {
+            if (now - s < CeilingSky.FLASH_TICKS + 1) next[keep++] = s;
+        }
+        next[keep++] = t;
+        strikes = java.util.Arrays.copyOf(next, keep);
     }
 
     /** A client-only lightning strike: the bolt and its thunder, with no fire, damage or server. */
@@ -454,6 +481,7 @@ public final class EffectVisuals {
     /** Stop everything and remove every entity an effect added. */
     static void clear() {
         RUNNING.clear();
+        strikes = new double[0];
         eyesStarted = false;
         for (DarkMarkEntity m : MARKS) m.discard();
         MARKS.clear();

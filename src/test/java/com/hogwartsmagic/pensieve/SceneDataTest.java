@@ -318,6 +318,22 @@ class SceneDataTest {
     }
 
     /**
+     * The storm sky dev scene (build_scripts/pensieve_scenes/dev_storm_sky.py into the ignored run/pensieve_dev)
+     * validates like a shipped one. Skipped where it has not been generated.
+     */
+    @Test
+    void devStormSkySceneValidates() throws Exception {
+        Path f = Path.of("run/pensieve_dev/dev_storm_sky.json");
+        org.junit.jupiter.api.Assumptions.assumeTrue(Files.exists(f),
+                "run/pensieve_dev/dev_storm_sky.json not generated (python build_scripts/pensieve_scenes/dev_storm_sky.py)");
+        SceneDef def = SceneParser.parse("dev_storm_sky", JsonParser.parseString(read(f)).getAsJsonObject());
+        assertEquals(List.of(), SceneValidator.validate(def, harvest()));
+        assertTrue(def.events().stream().anyMatch(e -> "sky".equals(e.id()) && "storm".equals(e.style())));
+        assertTrue(def.events().stream().anyMatch(e -> "rain".equals(e.id()) && e.spread()[0] == 200f));
+        assertTrue(def.events().stream().filter(e -> "lightning".equals(e.id())).count() >= 4);
+    }
+
+    /**
      * The broom dev scene (written by build_scripts/pensieve_scenes/dev_brooms.py into the ignored run/pensieve_dev)
      * validates like a shipped one: brooms, riders with ride windows, spline actor tracks. Skipped where it has not
      * been generated.

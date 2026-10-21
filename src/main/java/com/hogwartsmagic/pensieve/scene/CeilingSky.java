@@ -254,9 +254,20 @@ public final class CeilingSky {
         h = mix(h);
         float third = unit(h) < 0.5f ? 0f : 0.5f + 0.4f * unit(mix(h));
         float height = 6f + 12f * unit(mix(mix(h)));
-        float i = Math.max(pulse(dt, 0f, 1f), Math.max(pulse(dt, 5f, second), pulse(dt, 12f, third)));
+        float i = flicker(dt, second, third);
         if (i <= 0.001f) return null;
         return new float[]{u, v, Math.min(1f, i), forked, k, height};
+    }
+
+    /**
+     * The shared lightning flicker, {@code dt} ticks after a strike: 0 before it and from {@link #FLASH_TICKS} on, else
+     * the strongest of a first pulse (peak 1, at tick 1), a second at tick 5 of peak {@code second} and a third at tick
+     * 12 of peak {@code third} (0 for none): two or three quick flickers. {@code CeilingSky#flash} and
+     * {@code SkyDome#flash} both use it, so the roof and the open sky flicker alike.
+     */
+    public static float flicker(float dt, float second, float third) {
+        if (dt < 0f || dt >= FLASH_TICKS) return 0f;
+        return Math.max(pulse(dt, 0f, 1f), Math.max(pulse(dt, 5f, second), pulse(dt, 12f, third)));
     }
 
     private static long strikeHash(long seed, int k) {

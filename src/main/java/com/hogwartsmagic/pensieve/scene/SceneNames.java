@@ -42,7 +42,7 @@ public record SceneNames(Set<String> entityTypes, Set<String> spells, Set<String
             REMEMBRALL_ACTOR = "hogwartsmagic:memory_remembrall";
     public static final Set<String> BALLS = Set.of(QUAFFLE_ACTOR, BLUDGER_ACTOR, REMEMBRALL_ACTOR);
     /** A rain box's half-size range, each axis, in blocks. */
-    public static final float MIN_RAIN_SPREAD = 1f, MAX_RAIN_SPREAD = 100f;
+    public static final float MIN_RAIN_SPREAD = 1f, MAX_RAIN_SPREAD = 200f;
     /** The letter_flood effect's letter count (1 to this) and each room half-size (blocks). */
     public static final int MAX_FLOOD_LETTERS = 400;
     public static final float MIN_FLOOD_SPREAD = 0.5f, MAX_FLOOD_SPREAD = 12f;

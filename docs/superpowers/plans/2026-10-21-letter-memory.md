@@ -100,7 +100,13 @@
   - the `entity.hogwartsmagic.memory_letter` lang key (already added in b2d0569; verify);
   - the SKILL.md note on the speed threshold.
   
-  Then the flood review fixes.
+  Then the flood review fixes (Opus review of ce110d6, 2026-10-21):
+  1. **Box can cross a wall (high).** `LetterFlood.java:69-82` centres the box on `at`, which `MemoryEvents.position` turns into a block corner, so the box sits up to 1 block into the far wall and 0.5 into a side wall. Add an explicit `box` key (min/max corners, from `living_room_box`) and clamp to it; `at` is only the emitter. Tests: a SceneDataTest check that the flood box is all air in the set; a `LetterFlood` test with an off-centre box.
+  2. **Corners poke through (medium).** `MARGIN` 0.15 (`LetterFlood.java:36`) is less than the envelope half-diagonal of about 0.27. Make it at least 0.3, as a constant shared with the renderer; test the corners, not just the centres.
+  3. **Swarm changes per replay (medium).** `floodSeed` (`EffectVisuals.java:255`) hashes the world-space `at`, which includes the session slot origin. Seed from the scene-relative `e.at()` + `t` and simulate relative to `at`. The same fix applies to `enchanted_ceiling`, `light_rays`, `floating_candles` and `wand_choice`. Test: the same result at different origins.
+  4. **Runs on client ticks (low-medium).** With `MemoryEvents.java:123` passing `elapsed` 0 when up to 5 ticks late, late joiners stay behind. In `Flood.tick`, step until `sim.age()` reaches `floor(sceneTime - t) + 1`, with a catch-up cap, through a pure helper with a test.
+  5. **Any yaw accepted (low).** `SceneValidator.java:267`: reject flood yaws that are not multiples of 90, with a validator test.
+  6. **Test gaps (low).** Add sim tests with 300 and 400 letters. Base the flutter phase on `sim.age() - emitTick[i]`, not `tickCount` (`MemoryLetterRenderer.java:42`). Cleanup after exit (`liveFloodLetters()`) is checked in game.
 - [ ] **Step 4:** Run `./gradlew test` under the lock and expect PASS. Commit with the message `Fix the memory letter and the letter flood from review`.
 
 ### Task 2: Storm sea, rain and the rowing boat (Opus)
@@ -134,6 +140,15 @@
   - `pitchAndYawCompose`.
 - [ ] **Step 2: Implement.** Implement it, update SKILL.md, and run the tests under the lock.
 - [ ] **Step 3: Commit** with the message `Let memory doors fall flat`.
+
+### Task 3b: A daytime sky (Sonnet; after Task 2, which also edits EffectVisuals)
+
+Added 2026-10-21 from the Task 4 review: the memory biome's sky is black (`memory_void.json` sky_color 0), so a morning Privet Drive reads as night. Diagon Alley (`time_of_day` 4000) has the same problem.
+
+**Interfaces:** an effect `sky` with keys `at` (the set centre), `style` (`"day"`, `"overcast"` or `"dawn"`), `t` and `duration` (0 means until the scene ends). It draws a large camera-centred dome with a vertical colour gradient (horizon to zenith) and a few soft cloud layers. It is drawn before the set so it is behind everything, it is deterministic (EffectSeed), and it does not touch the night or storm effects.
+- [ ] **Step 1: Write the failing tests.** Validator tests for `sky` and a pure test of the gradient colour at the horizon and the zenith per style.
+- [ ] **Step 2: Implement.** Implement it, add it to SKILL.md, and add `sky` `"day"` to `wand_wall.json`, `wand_alley.json` and `wand_ollivanders.json` through their generator (do not hand-edit the JSON). Run the tests under the lock.
+- [ ] **Step 3: Commit** with the message `Give daytime memories a sky`.
 
 ### Task 4: The Privet Drive set (Opus, design-heavy)
 
@@ -233,7 +248,8 @@
   - collisions;
   - leg boxes;
   - subtitles against the measured clip lengths;
-  - every `next` exists.
+  - every `next` exists;
+  - the `letter_flood` event's `box` (from `living_room_box`) is all air in `privet_drive.nbt` (a SceneDataTest check, carried over from Task 1).
 - [ ] **Step 3: Test.** Run `python -I build_scripts/pensieve_scenes/letter_scene.py`, then the full `./gradlew test` and `runGameTestServer` under the lock. Expect PASS.
 - [ ] **Step 4: Commit.** Message: `Stage the Letter memory`.
 

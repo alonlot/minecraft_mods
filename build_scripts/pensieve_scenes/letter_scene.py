@@ -42,10 +42,13 @@ letter_flood (30 s; the same set; a Sunday; next letter_crossing)
   F2   5.4-10.3  Close on Vernon settling back with a nod; a rumble in the chimney (soot puffs), every head turns.
   F3  10.3-13.4  Cut on the burst, low on the hearth: 300 letters erupt from the fireplace (letter_flood in the
                  living_room_box), the whoosh, the music's big swell lands here.
-  F4  13.4-17.6  High and wide: the room in a blizzard of envelopes. Vernon gets up out of the chair (STAND_UP):
-                 "Get away from them! Out! Out!" Petunia and Dudley shield their faces on the sofa.
-  F5  17.6-21.6  Low, tracking the boy as he jumps and grabs, arms out, reaching high.
-  F6  21.6-25.4  From the doorway: Vernon flailing at letters in the foreground, the boy leaping beyond him.
+  F4  13.4-17.6  High and wide: the room in a blizzard of envelopes, the boy leaping and grabbing among them (he
+                 runs in at 11.6 and jumps four times, 12.6-15.3, only while the swarm still flies round him).
+                 Vernon gets up out of the chair (STAND_UP): "Get away from them! Out! Out!" Petunia and Dudley
+                 shield their faces on the sofa. The swarm is down by 15.5; the boy stands winded, looking round.
+  F5  17.6-21.6  Low, tracking the boy: he looks round at the drifts, steps over, crouches and snatches one off the
+                 floor (into his left hand).
+  F6  21.6-25.4  From the doorway: Vernon flailing in the foreground, the boy beyond him looking at his letter.
   F7  25.4-30.0  A slow push-in on the boy's raised hand as one letter spirals down into it and his hand closes on
                  it (hold hogwarts_invite); chain fade.
 letter_crossing (17 s; letter_island at night; next letter_hut)
@@ -96,6 +99,7 @@ import json
 import math
 import os
 import random
+import struct
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -1227,11 +1231,181 @@ def in_box(p, box, margin=0.3):
         box[0][1] <= p[1] <= box[1][1] - margin
 
 
-def flood_spill(sc):
+FLOOD_COUNT, FLOOD_TICKS = 300, 120
+SETTLE_Y, SETTLE_COUNT = 0.25, 5       # "airborne": a flying letter above this; settled when fewer than this are
+SPILL_FALL_END = T_BURST + 4.0         # every spill letter is down by then, while the swarm is still falling
+SPILL_SPAWN = (T_BURST + 0.6, T_BURST + 2.0)
+SPILL_TOP = 2.7                        # the swarm's own ceiling: the box top less LetterFlood.MARGIN
+
+
+def _f32(v):
+    return struct.unpack('f', struct.pack('f', v))[0]
+
+
+def _fbits(v):
+    return struct.unpack('i', struct.pack('f', v))[0]
+
+
+def _s64(v):
+    v &= (1 << 64) - 1
+    return v - (1 << 64) if v >> 63 else v
+
+
+class _SplitRandom:
+    """java.util.SplittableRandom(seed): nextDouble only."""
+
+    def __init__(self, seed):
+        self.s = seed & ((1 << 64) - 1)
+
+    def next_double(self):
+        m = (1 << 64) - 1
+        self.s = (self.s + 0x9e3779b97f4a7c15) & m
+        z = self.s
+        z = ((z ^ (z >> 30)) * 0xbf58476d1ce4e5b9) & m
+        z = ((z ^ (z >> 27)) * 0x94d049bb133111eb) & m
+        return ((z ^ (z >> 31)) >> 11) * 2.0 ** -53
+
+
+def flood_swarm(ev):
+    """The letter_flood event's swarm as LetterFlood runs it (a transcription: the same constants, the same
+    SplittableRandom draws, the seed from EffectSeed.of over the scene-relative mouth and the event tick). Returns
+    {scene tick: [(x, y, z, flying)] of the emitted letters} until every letter rests. The step that fires on the
+    event tick counts (LetterFlood.stepsDue), so the state after step k + 1 is what tick ev.t + k shows."""
+    ax, ay, az = (float(c) for c in ev['at'])
+    yaw = _f32(ev['yaw'])
+    (b0, b1) = ev['box']
+    h = _fbits(ax)
+    for v in (ay, az, float(ev['t'])):
+        h = _s64(h * 31 + _fbits(v))
+    rng = _SplitRandom(h)
+    n, dur, mg = ev['count'], ev['duration'], 0.3
+    cx, cz = (b0[0] + b1[0]) / 2, (b0[2] + b1[2]) / 2
+    lo, hi = [b0[0] + mg, b0[1], b0[2] + mg], [b1[0] - mg, b1[1] - mg, b1[2] - mg]
+    emit_ticks = max(1.0, 0.6 * dur)
+    ls = []
+    for i in range(n):
+        ls.append({'emit': int(math.floor(i * emit_ticks / n)), 'off': _f32(rng.next_double() * 120.0 - 60.0),
+                   'lift': _f32(10.0 + rng.next_double() * 35.0), 'spd': _f32(0.35 + rng.next_double() * 0.25),
+                   'ry': rng.next_double(), 'jx': rng.next_double() * 2 - 1, 'jz': rng.next_double() * 2 - 1,
+                   'on': False, 'rest': False, 'b': 0, 'p': [0.0, 0.0, 0.0], 'v': [0.0, 0.0, 0.0]})
+    k4 = int(math.floor(yaw / 90.0 + 0.5)) % 4
+    fx, fz = (-1 if k4 == 1 else 1 if k4 == 3 else 0), (1 if k4 == 0 else -1 if k4 == 2 else 0)
+    out, age = {}, 0
+    while True:
+        over = age - dur
+        sw = 0.012 if over <= 0 else 0.012 * max(0.0, 1.0 - over / 100.0)
+        for d in ls:
+            p, v = d['p'], d['v']
+            if not d['on'] and age >= d['emit']:
+                d['on'] = True
+                a, lift = math.radians(_f32(yaw + d['off'])), math.radians(d['lift'])
+                hz = math.cos(lift) * d['spd']
+                v[:] = [-math.sin(a) * hz, math.sin(lift) * d['spd'], math.cos(a) * hz]
+                x = clamp(clamp(ax + d['jx'] * 0.3, lo[0], hi[0]) + fx * mg, lo[0], hi[0])
+                z = clamp(clamp(az + d['jz'] * 0.3, lo[2], hi[2]) + fz * mg, lo[2], hi[2])
+                p[:] = [x, clamp(ay + 0.3, lo[1], hi[1]), z]
+            if d['on'] and not d['rest']:
+                air = p[1] > lo[1] + 0.05
+                v[1] -= 0.015
+                if air:
+                    rx, rz = p[0] - cx, p[2] - cz
+                    r = math.sqrt(rx * rx + rz * rz)
+                    if r > 1e-6:
+                        v[0] += -rz / r * sw
+                        v[2] += rx / r * sw
+                for c in range(3):
+                    v[c] *= 0.97
+                    p[c] += v[c]
+                for c in (0, 2):
+                    if p[c] < lo[c]:
+                        p[c], v[c] = lo[c], abs(v[c]) * 0.4
+                    if p[c] > hi[c]:
+                        p[c], v[c] = hi[c], -abs(v[c]) * 0.4
+                if p[1] > hi[1]:
+                    p[1], v[1] = hi[1], -abs(v[1]) * 0.4
+                if p[1] <= lo[1]:
+                    p[1] = lo[1]
+                    d['b'] += 1
+                    if math.sqrt(sum(c * c for c in v)) < 0.03 or d['b'] >= 6:
+                        d['rest'] = True
+                        v[:] = [0.0, 0.0, 0.0]
+                    else:
+                        v[0], v[1], v[2] = v[0] * 0.6, abs(v[1]) * 0.4, v[2] * 0.6
+        age += 1
+        out[ev['t'] + age - 1] = [(d['p'][0], d['p'][1], d['p'][2], not d['rest']) for d in ls if d['on']]
+        if age > emit_ticks and all(d['rest'] for d in ls):
+            return out
+
+
+def airborne(state, y=SETTLE_Y):
+    return sum(1 for s in state if s[3] and s[1] > y)
+
+
+def swarm_settle(swarm):
+    """The first tick after the emission at which fewer than SETTLE_COUNT letters fly above SETTLE_Y."""
+    peak = max(swarm, key=lambda t: airborne(swarm[t]))
+    return min(t for t in swarm if t > peak and airborne(swarm[t]) < SETTLE_COUNT)
+
+
+def spill_in_view(view_scene, t, p):
+    """Whether a letter at p (its quad's corners, near enough) is in the picture at tick t."""
+    cam = view_scene['camera']
+    c = engine_cam(cam, t)
+    look, fov = engine_look(view_scene, cam, t)
+    pts = [p] + [[p[0] + dx, p[1] + dy, p[2] + dz] for dx, dy, dz in
+                 ((0.3, 0, 0), (-0.3, 0, 0), (0, 0.3, 0), (0, -0.3, 0), (0, 0, 0.3), (0, 0, -0.3))]
+    return any(in_view(c, look, fov, q) for q in pts)
+
+
+def spill_fall(rnd, spawn, rest, t0, t1):
+    """Path keys (seconds) for a letter fluttering from spawn down to rest: the drift across eased, a fall that
+    starts at speed (it is part of the swarm) and slows onto the surface, a sideways sway dying out on landing."""
+    n = max(8, int(round((t1 - t0) / 0.15)))
+    ph, amp, cyc = rnd.uniform(0, 2 * math.pi), rnd.uniform(0.12, 0.26), rnd.uniform(1.3, 2.1)
+    sa = rnd.uniform(0, 2 * math.pi)
+    sx, sz = math.cos(sa), math.sin(sa)
+    keys = []
+    for i in range(n + 1):
+        f = i / n
+        e = 3 * f * f - 2 * f ** 3
+        g = 0.55 * f + 0.45 * (1 - (1 - f) ** 2)
+        s = amp * (1 - f) ** 1.3 * math.sin(2 * math.pi * cyc * f + ph)
+        p = [spawn[0] + (rest[0] - spawn[0]) * e + sx * s, spawn[1] + (rest[1] - spawn[1]) * g,
+             spawn[2] + (rest[2] - spawn[2]) * e + sz * s]
+        keys.append((t0 + (t1 - t0) * f, p if i < n else list(rest), 'linear'))
+    return keys
+
+
+def spill_clear(w, keys, rest):
+    """Every sample of the fall in air (the letter's half-size round it), but the last few cm onto its surface."""
+    for (t_a, a, _), (t_b, b, _) in zip(keys, keys[1:]):
+        for j in range(4):
+            f = j / 4
+            q = [a[i] + (b[i] - a[i]) * f for i in range(3)]
+            if q[1] > rest[1] + 0.2 and not in_air(w, q, 0.2):
+                return False
+    return True
+
+
+def spill_ceiling(w, x, z, y0):
+    """The underside of the first solid above (x, y0, z), or SPILL_TOP + 0.3 if that is higher."""
+    y = y0
+    while y < SPILL_TOP + 0.3:
+        if shape_hit(w, [x, y, z]):
+            return y
+        y += 0.05
+    return SPILL_TOP + 0.3
+
+
+def flood_spill(sc, view_scene, extra_spots=()):
     """Still letters lying on and against the furniture, which the swarm (kept inside the all-air box) cannot reach:
     the sofa's free seat, the armchair seat, and the floor along the sofa, the armchair side and the bay, so the
     drift of settled letters reads continuous up to the furniture instead of stopping in a straight line. Each one
-    drops in while the swarm is settling; everything is seeded, so a regeneration is byte-identical."""
+    starts up at the swarm's ceiling while the swarm still fills the room (SPILL_SPAWN) and flutters down, landing by
+    SPILL_FALL_END; its starting point is the nearest ceiling point over the room whose letter is out of the picture
+    on the ticks it appears, so none comes from nowhere. extra_spots: (id, rest, extra keys after landing, hide at)
+    for letters something picks up. Everything is seeded, so a regeneration is byte-identical. Returns
+    {id: (appear tick, spawn point)}."""
     rnd = random.Random('flood spill')
     seat_y, floor_y = 0.5 + 0.012, 0.012
     spots = []
@@ -1247,13 +1421,44 @@ def flood_spill(sc):
     for i in range(7):                                           # the bay floor, against the box's front
         spots.append((-7.6 + 3.3 * i / 6 + rnd.uniform(-0.15, 0.15), floor_y + 0.003 * (i % 3),
                       -3.6 + rnd.uniform(-0.25, 0.2)))
-    for n, (x, y, z) in enumerate(spots):
-        t0 = round(T_BURST + 4.0 + rnd.uniform(0, 5.5), 2)
-        aid = 'spill_%02d' % n
-        keys = [(t0, [x, y + 0.6, z], 'linear'), (t0 + 0.35, [x, y, z], 'in')]
-        path = block_path(sc, aid, keys, hide_before=t0, park=PARK_PRIVET)
-        sc.actor(aid, 'hogwartsmagic:memory_letter', path=path,
-                 look=[{'t': 0, 'yaw': round(rnd.uniform(-180, 180), 1), 'pitch': 90}])
+    todo = [('spill_%02d' % n, list(p), (), None) for n, p in enumerate(spots)] + list(extra_spots)
+    b = FLOOD_BOX
+    grid = [[b[0][0] + 0.35 + 0.3 * i, b[0][2] + 0.35 + 0.3 * j] for i in range(19) for j in range(19)
+            if b[0][0] + 0.35 + 0.3 * i <= b[1][0] - 0.35 and b[0][2] + 0.35 + 0.3 * j <= b[1][2] - 0.35]
+    w = sc.world
+    out = {}
+    for aid, rest, after, hide in todo:
+        t0 = round(rnd.uniform(*SPILL_SPAWN), 2)
+        t1 = round(SPILL_FALL_END - rnd.uniform(0, 1.2), 2)
+        yaw0, yaw1 = rnd.uniform(-180, 180), rnd.uniform(-180, 180)
+        own = [rest[0], rest[2]]
+        cands = [own] + sorted(grid, key=lambda q: (math.hypot(q[0] - rest[0], q[1] - rest[2]), q))
+        chosen = None
+        for q in cands:
+            top = min(SPILL_TOP, spill_ceiling(w, q[0], q[1], rest[1] + 0.3) - 0.3)
+            if top < rest[1] + 1.2:
+                continue
+            spawn = [q[0], top, q[1]]
+            keys = spill_fall(random.Random('%s fall' % aid), spawn, rest, t0, t1)
+            path = block_path(sc, aid, keys + list(after), hide_before=t0, hide_after=hide, park=PARK_PRIVET)
+            a0 = tk(t0)
+            if any(spill_in_view(view_scene, a0 + f / 4, sample_path(path, a0 + f / 4)) for f in range(9)):
+                continue
+            if not spill_clear(w, keys, rest):
+                continue
+            chosen = (spawn, path)
+            break
+        assert chosen, (aid, 'no ceiling start out of the picture')
+        spawn, path = chosen
+        look = [{'t': 0, 'yaw': round(yaw0, 1), 'pitch': 60}]
+        nk = 6
+        for i in range(1, nk + 1):
+            f = i / nk
+            look.append({'t': tk(t0 + (t1 - t0) * f), 'yaw': round(yaw0 + (yaw1 - yaw0) * f, 1),
+                         'pitch': 90 if i == nk else round(90 + 32 * (1 - f) * math.sin(3.1 * i + yaw0), 1)})
+        sc.actor(aid, 'hogwartsmagic:memory_letter', path=path, look=look)
+        out[aid] = (tk(t0), spawn, tk(t1))
+    return out
 
 
 def flood_scene():
@@ -1266,6 +1471,11 @@ def flood_scene():
         'reach_r': {'right_arm': [-172, 0, -6], 'left_arm': [-42, 0, 32]},
         'reach_l': {'left_arm': [-170, 0, 6], 'right_arm': [-40, 0, -30]},
         'catch': {'right_arm': [-166, 0, -4], 'left_arm': [-34, 0, 22]},
+        'winded': {'head': [24, 0, 0], 'right_arm': [-16, 0, 8], 'left_arm': [-16, 0, -8]},
+        'winded_in': {'head': [12, 0, 0], 'right_arm': [-8, 0, 12], 'left_arm': [-8, 0, -12]},
+        'scan': {'head': [26, 0, 0]},
+        'snatch': {'head': [34, 0, 0], 'left_arm': [-18, 0, -4], 'right_arm': [-10, 0, 8]},
+        'study': {'head': [30, 0, 0], 'left_arm': [-58, 12, -6], 'right_arm': [-6, 0, 4]},
         'clutch': {'right_arm': [-64, 0, -20], 'left_arm': [-50, 0, 24], 'head': [24, 0, 0]},
     }
     sc.ev(0, 'effect', 'sky', at=[0, 0, 0], style='overcast')
@@ -1334,38 +1544,71 @@ def flood_scene():
         sc.seated[aid] = [(0.0, LEN)]
     sc.sound(10.9, 'minecraft:entity.villager.hurt', at=[-5.5, 1.3, -10.5], volume=0.5, pitch=1.5)
 
-    # ---- the boy: against the wall, then in among the letters, jumping and grabbing
+    # ---- the boy: against the wall, then in among the letters, jumping and grabbing while they fly (the swarm is
+    # all but down by 15.5 s, see swarm_settle), then winded, looking round at the drifts, and stooping for one
     bw = PA['living_spots']['boy_wall']
     bm = Mover('boy', bw['pos'], bw['yaw'])
     bl = Limbs()
     bl['head'].change(7.4, [-6, 0, 0], 0.3)
-    poses_b = [pose(13.0, 'arms_out', 4)]
-    T_RUN = 13.0
-    spots = [(14.3, [-4.7, 0, -9.0]), (15.6, [-5.3, 0, -8.4]), (16.9, [-6.1, 0, -8.9]), (18.2, [-6.6, 0, -8.0]),
-             (19.6, [-5.9, 0, -7.3]), (21.0, [-5.2, 0, -8.05]), (22.4, [-5.8, 0, -8.7]), (23.8, [-5.45, 0, -7.9])]
+    T_RUN = 11.6
+    poses_b = [pose(T_RUN, 'arms_out', 4)]
+    # each jump goes where the swarm is still thick: the room's east side, where the swirl keeps them up longest
+    spots = [(12.6, [-4.7, 0, -9.0]), (13.35, [-5.25, 0, -8.6]), (14.1, [-4.45, 0, -8.75]), (14.85, [-4.2, 0, -7.95])]
     bm.walk(T_RUN, [spots[0][1]], 2.8)
     rnd = random.Random('boy jumps')
-    heights = (0.5, 0.42, 0.56, 0.46, 0.52, 0.4, 0.55, 0.48)
+    heights = (0.5, 0.42, 0.56, 0.46)
+    JUMP_UP, JUMP_DOWN = 0.22, 0.46
+    jump_tops = []
     for i, (tj, p) in enumerate(spots):
         if i:
             bm.to(tj - 0.06, p, 'linear')
         bm.hold(tj)
         top = [p[0] + rnd.uniform(-0.08, 0.08), heights[i], p[2] + rnd.uniform(-0.08, 0.08)]
-        bm.to(tj + 0.24, top, 'out', face=False)
-        bm.to(tj + 0.5, [top[0], 0, top[2]], 'in', face=False)
-        bm.face(tj - 0.2, rnd.choice((-150, -110, -60, 30, 60, 120, 160)) if i < 7 else -30, 0.25)
+        bm.to(tj + JUMP_UP, top, 'out', face=False)
+        bm.to(tj + JUMP_DOWN, [top[0], 0, top[2]], 'in', face=False)
+        jump_tops.append((tj + JUMP_UP, top))
+        bm.face(tj - 0.2, rnd.choice((-150, -110, -60, 30, 60, 120, 160)), 0.25)
         poses_b.append(pose(tj - 0.12, 'reach_r' if i % 3 != 1 else 'reach_l', 3))
-        poses_b.append(pose(tj + 0.55, 'arms_out', 5))
         bl['head'].change(tj - 0.15, [-32, 0, 0], 0.15)
-        bl['head'].change(tj + 0.5, [-14, 0, 0], 0.3)
-    END = bm.pos
+        bl['head'].change(tj + JUMP_DOWN, [-14, 0, 0], 0.3)
+    T_LAND = spots[-1][0] + JUMP_DOWN
+    # winded: bent over the knees a little, the breath heaving (two poses in turn, then easing), looking at the floor
+    bl['head'].change(T_LAND + 0.05, [0, 0, 0], 0.4)
+    t = T_LAND + 0.05
+    k = 0
+    while t < 16.9:
+        poses_b.append(pose(t, 'winded' if k % 2 == 0 else 'winded_in', 8 if k else 5))
+        t += 0.42 + 0.04 * (k % 3)
+        k += 1
+    # looking round at the drifts: the fireplace, the sofa (Petunia and Dudley), then the floor at his feet
+    poses_b.append(pose(16.9, 'scan', 10))
+    bm.face(17.0, 95, 0.7)
+    bm.face(18.0, 175, 0.6)
+    bm.face(18.9, 120, 0.4)
+    END = [-5.404, 0, -7.96]                     # where he catches the hero letter (the F7 framing is built on it)
+    T_STEP = 19.3
+    bm.walk(T_STEP, [END], 1.3)
+    SNATCH_YAW = -160.0                          # towards the sofa, three-quarters on to the F5 camera
+    bm.face(bm.t + 0.05, SNATCH_YAW, 0.35)
+    T_SNEAK = bm.t + 0.5
+    T_GRAB = T_SNEAK + 0.45
+    T_RISE = T_GRAB + 0.4
+    poses_b.append(pose(T_SNEAK - 0.05, 'snatch', 6))
+    ba = [act(T_SNEAK, 'sneak'), act(T_GRAB, 'equip', slot='offhand', item=INVITE), act(T_RISE, 'stand')]
+    poses_b.append(pose(T_RISE, 'study', 8))
+    # the letter he takes: lies where his crouched left hand comes down, then comes up into it
+    croot = [END[0], END[1] - 2.0 / 16.0 * KID, END[2]]
+    hand_l = arm_tip(croot, SNATCH_YAW, KID, 'left_arm', sc.poses['snatch']['left_arm'], pivot_px=CROUCH_PIVOT['left_arm'])
+    snatch_rest = [hand_l[0], 0.012, hand_l[2]]
+    snatch_keys = [(T_GRAB - 0.15, snatch_rest, 'linear'), (T_GRAB, [hand_l[0], hand_l[1] - 0.04, hand_l[2]], 'out')]
     T_CATCH = 26.9
     bm.face(24.6, -30, 0.5)
     poses_b.append(pose(25.2, 'catch', 8))
     bl['head'].change(25.2, [-40, 0, 0], 0.6)
     bl['head'].change(T_CATCH + 0.3, [10, 0, 0], 0.6)
     poses_b.append(pose(T_CATCH + 0.35, 'clutch', 9))
-    ba = [act(T_CATCH, 'hold', item=INVITE)]
+    ba.append(act(T_CATCH, 'hold', item=INVITE))
+    assert math.dist(bm.pos, END) < 1e-9
     sc.actor('boy', skin=SKIN['boy'], scale=KID, mover=bm, life=bl, poses=poses_b, actions=ba)
 
     # ---- the hero letter, spiralling down into his hand
@@ -1385,8 +1628,6 @@ def flood_scene():
         t, p, _ = hl[i]
         look.append({'t': tk(t), 'yaw': round(30 + 400 * i / n, 1), 'pitch': round(40 + 30 * math.sin(i), 1)})
     sc.actor('hero_letter', 'hogwartsmagic:memory_letter', path=path, look=look)
-
-    flood_spill(sc)
 
     # ---- the chimney, the burst
     mouth = PA['living_fireplace_mouth']
@@ -1419,6 +1660,9 @@ def flood_scene():
     sc.key(25.4, cam0, [hand[0], hand[1] - 0.05, hand[2]], 52, cut=True)
     sc.key(LEN, cam1, [hand[0], hand[1] - 0.12, hand[2]], 38, ease='in')
 
+    spills = flood_spill(sc, {'camera': sc.camera, 'actors': sc.actors},
+                         [('spill_snatch', snatch_rest, snatch_keys, T_GRAB)])
+
     scene = sc.scene(SET_PRIVET, PD.RADIUS, nxt='letter_crossing')
 
     def extra(problems):
@@ -1434,6 +1678,46 @@ def flood_scene():
             if not in_box(hl[i][1], b, 0.3):
                 problems.append('hero letter leaves the room at %s' % [r3(c) for c in hl[i][1]])
                 break
+        # the boy leaps only while the swarm flies: no key off the floor once it has settled, each jump into letters
+        swarm = flood_swarm(fl[0])
+        settle = swarm_settle(swarm)
+        last_air = max(t for t in swarm if airborne(swarm[t]) > 0)
+        boy = next(a for a in scene['actors'] if a['id'] == 'boy')
+        off_floor = [k['t'] for k in boy['path'] if k['pos'][1] > 0.005]
+        if max(off_floor) >= settle:
+            problems.append('the boy is off the floor at t %d, after the swarm settles at %d' % (max(off_floor), settle))
+        reach = [p['t'] for p in boy['poses'] if p['name'] in ('reach_r', 'reach_l')]
+        if max(reach) >= settle:
+            problems.append('the boy reaches at t %d, after the swarm settles at %d' % (max(reach), settle))
+        for tj, top in jump_tops:
+            near = sum(1 for s in swarm[tk(tj)] if s[3] and s[1] > 0.4 and math.hypot(s[0] - top[0], s[2] - top[2]) < 1.5)
+            if near < 4:
+                problems.append('the boy jumps at %.2f with only %d letters flying near him' % (tj, near))
+        # no spill letter comes from nowhere: out of the picture on the ticks it appears, down before the swarm
+        cam = scene['camera']
+        for aid, (a0, spawn, a1) in sorted(spills.items()):
+            a = next(x for x in scene['actors'] if x['id'] == aid)
+            first = next(k['t'] for k in a['path'] if k['pos'] != PARK_PRIVET)
+            if first != a0:
+                problems.append('%s appears at %d, not %d' % (aid, first, a0))
+            for f in range(9):
+                t_ = first + f / 4
+                if spill_in_view(scene, t_, sample_path(a['path'], t_)):
+                    problems.append('%s is in the picture at t %.2f, as it appears' % (aid, t_))
+                    break
+            if a1 > tk(SPILL_FALL_END) or a0 < tk(T_BURST):
+                problems.append('%s falls %d-%d, outside the swarm' % (aid, a0, a1))
+            for t_ in range(a0, a1 + 1):
+                if math.dist(engine_cam(cam, t_), sample_path(a['path'], t_)) < 0.35:
+                    problems.append('%s passes within 0.35 of the camera at t %d' % (aid, t_))
+                    break
+        sc.flood_stats = (min(swarm), max(t for t in swarm if len(swarm[t]) < FLOOD_COUNT) + 1, settle, last_air,
+                          max(off_floor), tk(T_LAND), min(v[0] for v in spills.values()),
+                          max(v[2] for v in spills.values()))
+        print('  letter_flood swarm: emitted %d-%d, fewer than %d above %.2f from t %d, last flying t %d; '
+              'boy last off the floor t %d, landed t %d; spill letters appear %d-%d, all down by %d' % (
+                  sc.flood_stats[0], sc.flood_stats[1], SETTLE_COUNT, SETTLE_Y, settle, last_air,
+                  max(off_floor), tk(T_LAND), sc.flood_stats[6], sc.flood_stats[7], tk(SPILL_FALL_END)))
     return sc, scene, extra
 
 

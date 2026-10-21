@@ -928,13 +928,47 @@ def _blonde(lum, rng):
     return (min(255, int(232 * k)), min(255, int(196 * k)), min(255, int(112 * k)), 255)
 
 
+# Base-layer boxes of the modern 64x64 layout: (u, v, w, h, d). Memory skins load as plain textures, so the vanilla
+# base-layer "force opaque" pass never runs on them and any alpha below 255 in these faces is a see-through hole.
+BASE_BOXES = {"head": (0, 0, 8, 8, 8), "body": (16, 16, 8, 12, 4), "rleg": (0, 16, 4, 12, 4),
+              "rarm": (40, 16, 4, 12, 4), "lleg": (16, 48, 4, 12, 4), "larm": (32, 48, 4, 12, 4)}
+
+
+def _base_pixels(u, v, w, h, d):
+    out = []
+    for fx, fy, fw, fh in box(u, v, w, h, d).values():
+        out.extend((x, y) for y in range(fy, fy + fh) for x in range(fx, fx + fw))
+    return out
+
+
+def fill_base_holes(img):
+    """Give every transparent base-layer pixel the colour of the nearest opaque pixel of the same body part."""
+    px = img.load()
+    for part in BASE_BOXES.values():
+        pts = _base_pixels(*part)
+        solid = [p for p in pts if px[p][3] == 255]
+        for p in pts:
+            if px[p][3] < 255:
+                q = min(solid, key=lambda o: ((o[0] - p[0]) ** 2 + (o[1] - p[1]) ** 2, o[1], o[0]))
+                px[p] = px[q][:3] + (255,)
+
+
+def check_base_opaque(img, name):
+    px = img.load()
+    for pname, part in BASE_BOXES.items():
+        for p in _base_pixels(*part):
+            assert px[p][3] == 255, "%s: base layer %s has alpha %d at %s" % (name, pname, px[p][3], p)
+
+
 def touch_up_dursleys():
-    """Vernon is kept as downloaded; Petunia's hair is recoloured blonde; Dudley is made blond with a striped jumper.
+    """Vernon is kept as downloaded (base-layer holes filled); Petunia's hair is recoloured blonde; Dudley is made blond with a striped jumper.
 
     The raw downloads live in build_scripts/skin_sources/ and the touched-up skins are written to OUT_DIR.
     """
     HEAD = (0, 0, 64, 16)
     img = Image.open(os.path.join(SOURCE_DIR, "vernon.png")).convert("RGBA")
+    fill_base_holes(img)
+    check_base_opaque(img, "vernon")
     img.save(os.path.join(OUT_DIR, "vernon.png"))
 
     # Petunia: brown hair pixels (head + hat layer) become blonde at the same relative brightness.
@@ -944,8 +978,10 @@ def touch_up_dursleys():
     for y in range(HEAD[1], HEAD[3]):
         for x in range(HEAD[0], HEAD[2]):
             r, g, b, a = px[x, y]
-            if a and r < 135 and r > g > b and r - b < 70:
+            if a and r < 140 and r > g > b and r - b < 100:
                 px[x, y] = _blonde((r / 108.0) * 0.95 + 0.1, rng)
+    fill_base_holes(img)
+    check_base_opaque(img, "petunia")
     img.save(os.path.join(OUT_DIR, "petunia.png"))
 
     # Dudley: the near-black brown hair (43,35,26) becomes blond; the red plaid jumper becomes blue and cream
@@ -972,6 +1008,13 @@ def touch_up_dursleys():
                     c = stripe[(y // 2) % 2]
                     k = 1.0 + rng.uniform(-0.03, 0.03)
                     px[x, y] = (int(c[0] * k), int(c[1] * k), int(c[2] * k), 255)
+    # The tops of his legs sit under the torso; the download leaves red plaid there. Use the trouser colour.
+    for x0, y0 in ((4, 16), (20, 48)):
+        for y in range(y0, y0 + 4):
+            for x in range(x0, x0 + 4):
+                px[x, y] = (191, 180, 107, 255)
+    fill_base_holes(img)
+    check_base_opaque(img, "dudley")
     img.save(os.path.join(OUT_DIR, "dudley.png"))
 
 

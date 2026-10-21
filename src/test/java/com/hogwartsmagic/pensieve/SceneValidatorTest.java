@@ -600,6 +600,22 @@ class SceneValidatorTest {
                 + "{\"id\":\"r\",\"type\":\"" + riderType + "\",\"ride\":\"" + ride + "\"}]}";
     }
 
+    private static String boatOnSea(float intensity) {
+        return "{\"length\":200,\"radius\":40,\"actors\":[{\"id\":\"boat\",\"type\":\"hogwartsmagic:memory_rowboat\","
+                + "\"path\":[{\"t\":0,\"pos\":[-35,0,0]},{\"t\":150,\"pos\":[5,0,0]}]}],"
+                + "\"events\":[{\"t\":0,\"kind\":\"effect\",\"id\":\"rough_sea\",\"at\":[0,0,0],\"spread\":[10,0,10],"
+                + "\"intensity\":" + intensity + "}]}";
+    }
+
+    @Test
+    void aBoatMayOnlyRideASeaUpToIntensityOne() throws Exception {
+        assertEquals(List.of(), validate(boatOnSea(1.0f)));
+        // The boat reaches the sea part-way along its path: still caught.
+        assertMessage(validate(boatOnSea(1.5f)), "memory_rowboat 'boat' rides a rough_sea of intensity 1.5");
+        // A rough sea of 2 with no boat on it is fine.
+        assertEquals(List.of(), validate(sea(",\"at\":[0,0,0],\"spread\":[30,0,30],\"intensity\":2")));
+    }
+
     @Test
     void rideNamesARowboat() throws Exception {
         assertEquals(List.of(), validate(riders("player", "boat")));

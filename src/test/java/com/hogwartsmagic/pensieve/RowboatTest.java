@@ -21,7 +21,9 @@ class RowboatTest {
         Random r = new Random(7);
         double worst = 0;
         for (long seed = 0; seed < 6; seed++) {
-            for (double intensity : new double[]{0.4, 0.75, 1.0}) {
+            // Every intensity a boat may ride (the validator rejects a boat on a sea above 1).
+            for (int step = 1; step <= 10; step++) {
+                double intensity = step / 10.0;
                 RoughSea.Sea sea = new RoughSea.Sea(0, 3, 0, 60, 60, intensity, 0f, 0, seed * 7919);
                 for (int i = 0; i < 1500; i++) {
                     double x = r.nextDouble() * 80 - 40, z = r.nextDouble() * 80 - 40;

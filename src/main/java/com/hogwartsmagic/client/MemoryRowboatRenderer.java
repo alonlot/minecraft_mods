@@ -81,9 +81,11 @@ public class MemoryRowboatRenderer extends EntityRenderer<MemoryRowboatEntity> {
             inner[i] = insetSection(outer[i]);
         }
 
-        Mesh hull = new Mesh(buffers.getBuffer(RenderType.entityCutoutNoCull(HULL)), m, p, light, HULL_TINT);
-        Mesh in = new Mesh(buffers.getBuffer(RenderType.entityCutoutNoCull(INNER)), m, p, light, INNER_TINT);
-        Mesh trim = new Mesh(buffers.getBuffer(RenderType.entityCutoutNoCull(TRIM)), m, p, light, TRIM_TINT);
+        // Every material is recorded first and flushed one after another at the end: taking a second consumer from
+        // the shared BufferSource closes the first ("Not building!"), so no two may be open at once.
+        Mesh hull = new Mesh(RenderType.entityCutoutNoCull(HULL), m, p, light, HULL_TINT);
+        Mesh in = new Mesh(RenderType.entityCutoutNoCull(INNER), m, p, light, INNER_TINT);
+        Mesh trim = new Mesh(RenderType.entityCutoutNoCull(TRIM), m, p, light, TRIM_TINT);
         int n = Rowboat.SECTION.length;
 
         for (int side = -1; side <= 1; side += 2) {
@@ -133,13 +135,14 @@ public class MemoryRowboatRenderer extends EntityRenderer<MemoryRowboatEntity> {
         float now = PensieveClientState.sceneTime(partialTick);
         float amount = rt == null ? 0f : Rowboat.strokeAmount(rt.def, now);
         Rowboat.Oar oar = Rowboat.oar(Rowboat.phase(now), amount);
-        Mesh iron = new Mesh(buffers.getBuffer(RenderType.entityCutoutNoCull(IRON)), m, p, light, IRON_TINT);
-        Mesh wood = new Mesh(buffers.getBuffer(RenderType.entityCutoutNoCull(OAR)), m, p, light, OAR_TINT);
+        Mesh iron = new Mesh(RenderType.entityCutoutNoCull(IRON), m, p, light, IRON_TINT);
+        Mesh wood = new Mesh(RenderType.entityCutoutNoCull(OAR), m, p, light, OAR_TINT);
         for (int side = -1; side <= 1; side += 2) {
             double[] lock = Rowboat.alongOar(oar, 0);
             box(iron, side * lock[0], lock[1] - 0.04, lock[2], 0.035, 0.06, 0.035);
             oar(wood, oar, side);
         }
+        for (Mesh mesh : new Mesh[]{hull, in, trim, iron, wood}) mesh.flush(buffers);
         pose.popPose();
         super.render(boat, yaw, partialTick, pose, buffers, light);
     }
@@ -383,16 +386,23 @@ public class MemoryRowboatRenderer extends EntityRenderer<MemoryRowboatEntity> {
         return l < 1e-9 ? new double[]{0, 1, 0} : scale(a, 1 / l);
     }
 
-    /** One textured, tinted, lit consumer. UVs are in blocks (the plank textures repeat once per block). */
+    /**
+     * One material: its quads are recorded (position, tint, UV, normal per vertex) and only written to a consumer in
+     * {@link #flush}, which is the one place this renderer takes a buffer. UVs are in blocks (the plank textures
+     * repeat once per block).
+     */
     private static final class Mesh {
-        final VertexConsumer vc;
+        final RenderType type;
         final Matrix4f m;
         final PoseStack.Pose p;
         final int light;
         float[] tint;
+        /** Recorded vertices: x, y, z, r, g, b, u, v, nx, ny, nz. */
+        private float[] data = new float[11 * 256];
+        private int size;
 
-        Mesh(VertexConsumer vc, Matrix4f m, PoseStack.Pose p, int light, float[] tint) {
-            this.vc = vc;
+        Mesh(RenderType type, Matrix4f m, PoseStack.Pose p, int light, float[] tint) {
+            this.type = type;
             this.m = m;
             this.p = p;
             this.light = light;
@@ -424,9 +434,34 @@ public class MemoryRowboatRenderer extends EntityRenderer<MemoryRowboatEntity> {
         }
 
         private void put(double[] q, double u, double v, double[] n) {
-            vc.addVertex(m, (float) q[0], (float) q[1], (float) q[2]).setColor(tint[0], tint[1], tint[2], 1f)
-                    .setUv((float) u, (float) v).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light)
-                    .setNormal(p, (float) n[0], (float) n[1], (float) n[2]);
+            if (size + 11 > data.length) data = java.util.Arrays.copyOf(data, data.length * 2);
+            float[] d = data;
+            int k = size;
+            d[k] = (float) q[0];
+            d[k + 1] = (float) q[1];
+            d[k + 2] = (float) q[2];
+            d[k + 3] = tint[0];
+            d[k + 4] = tint[1];
+            d[k + 5] = tint[2];
+            d[k + 6] = (float) u;
+            d[k + 7] = (float) v;
+            d[k + 8] = (float) n[0];
+            d[k + 9] = (float) n[1];
+            d[k + 10] = (float) n[2];
+            size = k + 11;
+        }
+
+        /** Take this material's consumer and write every recorded vertex to it, in one go. */
+        void flush(MultiBufferSource buffers) {
+            if (size == 0) return;
+            VertexConsumer vc = buffers.getBuffer(type);
+            float[] d = data;
+            for (int k = 0; k < size; k += 11) {
+                vc.addVertex(m, d[k], d[k + 1], d[k + 2]).setColor(d[k + 3], d[k + 4], d[k + 5], 1f)
+                        .setUv(d[k + 6], d[k + 7]).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light)
+                        .setNormal(p, d[k + 8], d[k + 9], d[k + 10]);
+            }
+            size = 0;
         }
     }
 }

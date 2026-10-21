@@ -98,13 +98,11 @@ public final class RainRenderer {
     }
 
     /** The wind (unit {x, z} times blocks per tick) at scene time t: the rough sea's direction when one runs. */
-    static double[] wind(Shower s, float t) {
+    static double[] wind(Shower s, float t, List<RoughSeaRenderer.Water> seas) {
         double dx, dz;
-        List<RoughSeaRenderer.Water> seas = EffectVisuals.seas();
         if (!seas.isEmpty()) {
-            double[] w = RoughSea.wind(seas.get(0).sea.seed());
-            dx = w[0];
-            dz = w[1];
+            dx = RoughSea.windX(seas.get(0).sea.seed());
+            dz = RoughSea.windZ(seas.get(0).sea.seed());
         } else {
             double a = (mix(s.seed) >>> 11) * 0x1.0p-53 * Math.PI * 2;
             dx = Math.cos(a);
@@ -127,9 +125,10 @@ public final class RainRenderer {
 
     /**
      * Drop {@code i} of tile (tx, tz) at scene time t, into {@code out}: {x, y, z (world, the drop's head), speed}; false
-     * when it is outside the box.
+     * when it is outside the box. Tiles are counted from the scene origin {@code o}, so the rain does not depend on
+     * where the session slot sits in the world.
      */
-    private static boolean drop(Shower s, int i, int tx, int tz, float t, double[] wind, double[] out) {
+    private static boolean drop(Shower s, int i, int tx, int tz, float t, double[] wind, Vec3 o, double[] out) {
         long h = mix(s.seed ^ (i * 0x9E3779B97F4A7C15L));
         double speed = 0.55 + 0.2 * unit(h);
         double phase = unit(mix(h + 1));
@@ -141,7 +140,7 @@ public final class RainRenderer {
         double u = unit(hc) * TILE + wind[0] * fallTime, w = unit(mix(hc)) * TILE + wind[1] * fallTime;
         u -= Math.floor(u / TILE) * TILE;
         w -= Math.floor(w / TILE) * TILE;
-        double x = tx * TILE + u, z = tz * TILE + w, y = s.y1 - f * s.height;
+        double x = o.x + tx * TILE + u, z = o.z + tz * TILE + w, y = s.y1 - f * s.height;
         if (x < s.x0 || x > s.x1 || z < s.z0 || z > s.z1) return false;
         out[0] = x;
         out[1] = y;
@@ -151,9 +150,9 @@ public final class RainRenderer {
     }
 
     /** The surface a drop at (x, z) stops on: the highest motion-blocking block, or the rough sea where it is higher. */
-    static double ground(ClientLevel level, double x, double z, float t, Vec3 origin) {
+    static double ground(ClientLevel level, double x, double z, float t, Vec3 origin, List<RoughSeaRenderer.Water> seas) {
         double g = level.getHeight(Heightmap.Types.MOTION_BLOCKING, (int) Math.floor(x), (int) Math.floor(z));
-        for (RoughSeaRenderer.Water w : EffectVisuals.seas()) {
+        for (RoughSeaRenderer.Water w : seas) {
             double lx = x - origin.x, lz = z - origin.z;
             if (w.sea.covers(lx, lz) && w.sea.intensityAt(t) > 0) g = Math.max(g, origin.y + w.sea.surface(lx, lz, t));
         }
@@ -176,22 +175,23 @@ public final class RainRenderer {
         MultiBufferSource.BufferSource buffer = mc.renderBuffers().bufferSource();
         VertexConsumer vc = buffer.getBuffer(STREAK);
         float flash = Math.min(1f, level.getSkyFlashTime() / 2f);
+        List<RoughSeaRenderer.Water> seas = EffectVisuals.seas();
         double[] d = new double[4];
         for (Shower s : rains) {
             double k = s.strength(now);
             if (k <= 0) continue;
-            double[] wind = wind(s, now);
+            double[] wind = wind(s, now, seas);
             int count = (int) Math.round(s.perTile * k);
-            int tx0 = (int) Math.floor((Math.max(s.x0, cam.x - REACH)) / TILE), tx1 = (int) Math.floor((Math.min(s.x1, cam.x + REACH)) / TILE);
-            int tz0 = (int) Math.floor((Math.max(s.z0, cam.z - REACH)) / TILE), tz1 = (int) Math.floor((Math.min(s.z1, cam.z + REACH)) / TILE);
+            int tx0 = (int) Math.floor((Math.max(s.x0, cam.x - REACH) - origin.x) / TILE), tx1 = (int) Math.floor((Math.min(s.x1, cam.x + REACH) - origin.x) / TILE);
+            int tz0 = (int) Math.floor((Math.max(s.z0, cam.z - REACH) - origin.z) / TILE), tz1 = (int) Math.floor((Math.min(s.z1, cam.z + REACH) - origin.z) / TILE);
             for (int tx = tx0; tx <= tx1; tx++) {
                 for (int tz = tz0; tz <= tz1; tz++) {
                     for (int i = 0; i < count; i++) {
-                        if (!drop(s, i, tx, tz, now, wind, d)) continue;
+                        if (!drop(s, i, tx, tz, now, wind, origin, d)) continue;
                         double px = d[0] - cam.x, py = d[1] - cam.y, pz = d[2] - cam.z;
                         double dist2 = px * px + py * py + pz * pz;
                         if (dist2 > REACH * REACH) continue;
-                        streak(vc, m, level, s, d, wind, px, py, pz, Math.sqrt(dist2), now, origin, flash);
+                        streak(vc, m, level, s, d, wind, px, py, pz, Math.sqrt(dist2), now, origin, seas, flash);
                     }
                 }
             }
@@ -200,7 +200,8 @@ public final class RainRenderer {
     }
 
     private static void streak(VertexConsumer vc, Matrix4f m, ClientLevel level, Shower s, double[] d, double[] wind,
-                               double px, double py, double pz, double dist, float now, Vec3 origin, float flash) {
+                               double px, double py, double pz, double dist, float now, Vec3 origin,
+                               List<RoughSeaRenderer.Water> seas, float flash) {
         double speed = d[3];
         // Direction of travel and the streak's length (the drop's motion over 1.6 ticks).
         double vx = wind[0], vy = -speed, vz = wind[1];
@@ -209,7 +210,7 @@ public final class RainRenderer {
         vy /= vl;
         vz /= vl;
         double len = speed * 1.6;
-        double ground = ground(level, d[0], d[2], now, origin);
+        double ground = ground(level, d[0], d[2], now, origin, seas);
         double topY = d[1], botY = d[1] + vy * len;
         if (topY <= ground) return;
         double cut = botY < ground ? (topY - ground) / (topY - botY) : 1;
@@ -246,19 +247,20 @@ public final class RainRenderer {
         if (s.strength(now) <= 0) return;
         Vec3 cam = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
         Vec3 origin = MemoryEvents.sceneOrigin();
-        double[] wind = wind(s, now), d = new double[4], e = new double[4];
+        List<RoughSeaRenderer.Water> seas = EffectVisuals.seas();
+        double[] wind = wind(s, now, seas), d = new double[4], e = new double[4];
         int count = (int) Math.round(s.perTile * s.strength(now));
-        int tx0 = (int) Math.floor(Math.max(s.x0, cam.x - SPLASH_REACH) / TILE), tx1 = (int) Math.floor(Math.min(s.x1, cam.x + SPLASH_REACH) / TILE);
-        int tz0 = (int) Math.floor(Math.max(s.z0, cam.z - SPLASH_REACH) / TILE), tz1 = (int) Math.floor(Math.min(s.z1, cam.z + SPLASH_REACH) / TILE);
+        int tx0 = (int) Math.floor((Math.max(s.x0, cam.x - SPLASH_REACH) - origin.x) / TILE), tx1 = (int) Math.floor((Math.min(s.x1, cam.x + SPLASH_REACH) - origin.x) / TILE);
+        int tz0 = (int) Math.floor((Math.max(s.z0, cam.z - SPLASH_REACH) - origin.z) / TILE), tz1 = (int) Math.floor((Math.min(s.z1, cam.z + SPLASH_REACH) - origin.z) / TILE);
         int made = 0;
         for (int tx = tx0; tx <= tx1 && made < MAX_SPLASHES; tx++) {
             for (int tz = tz0; tz <= tz1 && made < MAX_SPLASHES; tz++) {
                 for (int i = 0; i < count && made < MAX_SPLASHES; i++) {
-                    if (!drop(s, i, tx, tz, now, wind, d) || !drop(s, i, tx, tz, now - 1, wind, e)) continue;
+                    if (!drop(s, i, tx, tz, now, wind, origin, d) || !drop(s, i, tx, tz, now - 1, wind, origin, e)) continue;
                     if (e[1] < d[1]) continue;                          // a new fall began: no crossing this tick
                     double dx = d[0] - cam.x, dz = d[2] - cam.z;
                     if (dx * dx + dz * dz > SPLASH_REACH * SPLASH_REACH) continue;
-                    double g = ground(level, d[0], d[2], now, origin);
+                    double g = ground(level, d[0], d[2], now, origin, seas);
                     if (d[1] <= g && e[1] > g) {
                         boolean sea = g > level.getHeight(Heightmap.Types.MOTION_BLOCKING, (int) Math.floor(d[0]), (int) Math.floor(d[2]));
                         level.addParticle(sea ? ParticleTypes.SPLASH : ParticleTypes.RAIN, d[0], g + 0.02, d[2], 0, 0, 0);

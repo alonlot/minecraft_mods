@@ -67,6 +67,9 @@ public final class SceneValidator {
         for (int i = 0; i < scene.events().size(); i++) {
             event(out, scene.events().get(i), "events[" + i + "]", names, length, scene.radius());
         }
+        for (int i = 0; i < scene.actors().size(); i++) {
+            if (SceneNames.ROWBOAT_ACTOR.equals(scene.actors().get(i).type())) boatSea(out, scene, i, length);
+        }
 
         for (int i = 0; i < scene.words().size(); i++) {
             SceneDef.WordDef w = scene.words().get(i);
@@ -194,6 +197,28 @@ public final class SceneValidator {
             if (c.item() != null) item(out, cp + ".item", c.item(), names);
             if (c.target() != null && c.target().actor() != null && !actorIds.contains(c.target().actor())) {
                 out.add(cp + ".target: unknown actor '" + c.target().actor() + "'");
+            }
+        }
+    }
+
+    /**
+     * A rowboat may only ride a rough_sea of intensity at most {@link RoughSea#MAX_BOAT_INTENSITY}: rougher swells grow
+     * faster than a 4-block hull can follow, and the hull would leave the drawn water by more than 0.15 blocks. Checked
+     * along the boat's path every 5 ticks and at each path key, with the same binding the client uses.
+     */
+    private static void boatSea(List<String> out, SceneDef scene, int index, float length) {
+        SceneDef.ActorDef boat = scene.actors().get(index);
+        List<Float> times = new ArrayList<>();
+        for (float t = 0; t <= length; t += 5) times.add(t);
+        for (Keyframe k : boat.path().keys()) times.add(k.t());
+        for (float t : times) {
+            float[] p = boat.path().isEmpty() ? new float[]{0, 0, 0} : boat.path().sample(t);
+            RoughSea.Sea sea = RoughSea.bind(scene.events(), t, p[0], p[2]);
+            if (sea != null && sea.intensity() > RoughSea.MAX_BOAT_INTENSITY + 1e-6) {
+                out.add("actors[" + index + "]: memory_rowboat '" + boat.id() + "' rides a rough_sea of intensity "
+                        + (float) sea.intensity() + " at t " + t + "; a sea a boat rides must be at most "
+                        + RoughSea.MAX_BOAT_INTENSITY + " (the hull cannot follow rougher swells)");
+                return;
             }
         }
     }

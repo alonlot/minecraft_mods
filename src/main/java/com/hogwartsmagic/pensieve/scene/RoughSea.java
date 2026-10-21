@@ -27,6 +27,8 @@ public final class RoughSea {
 
     /** The intensity range ({@code intensity} on the event; 1 when absent). */
     public static final float MIN_INTENSITY = 0.1f, MAX_INTENSITY = 2f;
+    /** The roughest sea a memory_rowboat may ride (the validator rejects more): above it the hull cannot follow. */
+    public static final float MAX_BOAT_INTENSITY = 1f;
     /** The area half-size range along x and z ({@code spread[0]} and {@code spread[2]}), blocks. */
     public static final float MIN_SPREAD = 2f, MAX_SPREAD = 100f;
     /** A sea starting after the scene's first tick, or ending at its {@code duration}, eases in or out over this long. */
@@ -72,16 +74,35 @@ public final class RoughSea {
 
     // ---- The waves of one seed ------------------------------------------------------------------------------------
 
-    /** One seed's wave set: per swell k, omega, direction and phase. Cached for the last seed asked for. */
+    /**
+     * One seed's wave set: per swell k, omega, direction and phase, and the same for the detail ripples. A few recent
+     * seeds are cached (several seas in one scene alternate without rebuilding).
+     */
     private record Waves(long seed, double[] k, double[] w, double[] dx, double[] dz, double[] phase,
-                         double[] dk, double[] ddx, double[] ddz, double[] dphase, double windX, double windZ) {
+                         double[] dk, double[] dw, double[] ddx, double[] ddz, double[] dphase, double windX,
+                         double windZ) {
     }
 
-    private static volatile Waves cached;
+    private static final int CACHE = 4;
+    private static final Waves[] CACHED = new Waves[CACHE];
+    private static int cacheNext;
 
     private static Waves waves(long seed) {
-        Waves c = cached;
-        if (c != null && c.seed == seed) return c;
+        Waves[] cache = CACHED;
+        for (int i = 0; i < CACHE; i++) {
+            Waves c = cache[i];
+            if (c != null && c.seed == seed) return c;
+        }
+        Waves c = build(seed);
+        synchronized (CACHED) {
+            cache[cacheNext] = c;
+            cacheNext = (cacheNext + 1) % CACHE;
+        }
+        return c;
+    }
+
+    private static Waves build(long seed) {
+        Waves c;
         long s = mix(seed);
         double wind = unit(s) * 2 * Math.PI;
         int n = AMP.length;
@@ -95,16 +116,16 @@ public final class RoughSea {
             ph[i] = unit(s) * 2 * Math.PI;
         }
         int m = DETAIL_LENGTH.length;
-        double[] dk = new double[m], ddx = new double[m], ddz = new double[m], dph = new double[m];
+        double[] dk = new double[m], dw = new double[m], ddx = new double[m], ddz = new double[m], dph = new double[m];
         for (int i = 0; i < m; i++) {
             s = mix(s + 101 + i);
             dk[i] = 2 * Math.PI / DETAIL_LENGTH[i];
+            dw[i] = Math.sqrt(G * dk[i]) * SPEED;
             ddx[i] = Math.cos(wind + DETAIL_ANGLE[i]);
             ddz[i] = Math.sin(wind + DETAIL_ANGLE[i]);
             dph[i] = unit(s) * 2 * Math.PI;
         }
-        c = new Waves(seed, k, w, dx, dz, ph, dk, ddx, ddz, dph, Math.cos(wind), Math.sin(wind));
-        cached = c;
+        c = new Waves(seed, k, w, dx, dz, ph, dk, dw, ddx, ddz, dph, Math.cos(wind), Math.sin(wind));
         return c;
     }
 
@@ -122,6 +143,16 @@ public final class RoughSea {
     public static double[] wind(long seed) {
         Waves v = waves(seed);
         return new double[]{v.windX, v.windZ};
+    }
+
+    /** The wind's x component (see {@link #wind}), without allocating. */
+    public static double windX(long seed) {
+        return waves(seed).windX;
+    }
+
+    /** The wind's z component (see {@link #wind}), without allocating. */
+    public static double windZ(long seed) {
+        return waves(seed).windZ;
     }
 
     // ---- Height, normal, foam -------------------------------------------------------------------------------------
@@ -202,8 +233,7 @@ public final class RoughSea {
         Waves v = waves(seed);
         double strength = detail * (0.55 + 0.45 * Math.min(intensity, 2.0));
         for (int i = 0; i < v.dk.length; i++) {
-            double w = Math.sqrt(G * v.dk[i]) * SPEED;
-            double th = v.dk[i] * (v.ddx[i] * x + v.ddz[i] * z) - w * t + v.dphase[i];
+            double th = v.dk[i] * (v.ddx[i] * x + v.ddz[i] * z) - v.dw[i] * t + v.dphase[i];
             double c = cos(th) * DETAIL_SLOPE[i] * strength;
             grad[0] += c * v.ddx[i];
             grad[1] += c * v.ddz[i];

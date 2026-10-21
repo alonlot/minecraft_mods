@@ -230,7 +230,8 @@ class SceneDataTest {
     @Test
     void devStormSceneValidates() throws Exception {
         Path f = Path.of("run/pensieve_dev/dev_storm.json");
-        if (!Files.exists(f)) return;
+        org.junit.jupiter.api.Assumptions.assumeTrue(Files.exists(f),
+                "run/pensieve_dev/dev_storm.json not generated (python build_scripts/pensieve_scenes/dev_storm.py)");
         SceneDef def = SceneParser.parse("dev_storm", JsonParser.parseString(read(f)).getAsJsonObject());
         assertEquals(List.of(), SceneValidator.validate(def, harvest()));
         assertTrue(def.events().stream().anyMatch(e -> "rough_sea".equals(e.id())));

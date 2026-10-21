@@ -760,7 +760,9 @@ public final class MemoryActors {
                     }
                 }
             } catch (RuntimeException ex) {
-                LOGGER.warn("Pensieve: actor '{}' failed to render: {}", a.def.id(), ex.toString());
+                // Logged once (the actor is hidden from then on), with the stack, so a broken renderer is never silent.
+                LOGGER.warn("Pensieve: actor '{}' ({}) failed to render and is hidden for the rest of the memory",
+                        a.def.id(), a.def.type(), ex);
                 a.visible = false;
             }
         }

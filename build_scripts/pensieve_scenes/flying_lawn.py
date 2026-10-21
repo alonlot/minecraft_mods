@@ -17,37 +17,48 @@ Using the set from a scene (flying_scene.py):
 The set
 -------
   - The lawn: a mown plateau (grass top at y -1, so everyone stands at y 0) about 48 x 45 round the lesson, from the
-    foot of the curtain wall (x -26) to x 21. Beyond it the grounds roll away over a convex brow: gently at first,
-    then faster (the fall is 0.035 d + 0.0026 d^2 at a distance d past the plateau), so from anywhere on the lawn
-    the far edge of the set sits below the brow and the eye runs out to open sky. South and east the land falls
-    about 25 blocks to a ragged, tree-dotted rim. North it falls into a valley floor (top y VALLEY_TOP) that runs
-    to the foot of the Mini Hogwarts' crag: the castle stands on ground, it never floats. One-layer ground (each
-    column is filled down only to its lowest neighbour, so no slope shows a hole), grass with a little dirt and
-    rock where the fall is steep, a worn dirt path from the plateau down toward the castle.
+    foot of the curtain wall (x -26) to x 21, in a level grass glen. North it falls over a brow to a valley floor,
+    level at VALLEY_TOP (-7), that runs to the foot of the Mini Hogwarts' crag: the castle stands on ground.
+  - The hills: a ring of steep green hills closing the glen and the valley, so no camera in the lesson or the chase
+    sees the set end. They rise from the glen's edge (GLEN_R 46 from the lawn centre, 34 behind the range, wandering
+    +-10) and the valley's sides (x +-46 wandering +-7) over HILL_W (22; the valley's sides over 22 / 1.4) to a crest
+    about HILL_TOP (35) with summits and saddles, and ridges flank the crag's low sides (SIDE_RIDGE_X / _Z). Their
+    skin is moss (green on every face, so their steps never read as dirt stripes), grey crags in patches, scrub
+    clumps on the slopes and small firs on the crests. It is one block thick and is closed only on the faces a
+    camera in CAM_REGION can see; faces turned away from every camera there (the backs of the hills) are open.
+  - The ground is one block thick in the same way, and every step in the glen shows a moss riser, not dirt.
   - The flank (full scale, people 1.8 tall), on the west, in Hogwarts grey (stone bricks with cracked, mossy, cobble
     and plain stone blocks, moss gathering at the foot; ivy climbing the lawn faces in ragged patches):
       * the curtain range: a 2-thick wall, face x -26, from the tower (z 23) to the south turret (z 70): a chamfered
         plinth, a string course at y 6, stepped buttresses every 9, two-light mullioned windows (dark glass at
         y 8..11) under hood moulds with arrow slits below; a corbel table at y 16 carrying a crenellated parapet
-        (merlons two wide, capped at y 20.5) in front of the walk at y 18; a low tiled roof behind (ridge y 22);
+        (merlons two wide, capped at y 20.5) in front of the walk at y 18; a low oak roof behind (ridge y 22);
       * the gate tower (x -31..-24, z 57..67, crenellated at y 23..25) with the hospital-wing door in its base at
         z 61..63: a shouldered arch 3 wide and 5 high under a hood mould, lanterns on brackets either side, worn
         flags at the threshold, a dark stone vestibule 11 deep with a closed door at its back;
       * the corner tower (an octagon 16 across, x -39..-24, z 8..23): shell to y 36, a corbelled machicolation and
-        crenellated parapet at y 37..40, a tiled spire to y 66; slit windows; and McGonagall's oriel on its east
+        crenellated parapet at y 37..40, an oak-shingled spire to y 66; slit windows; and McGonagall's oriel on its east
         face: 6 wide, projecting 2 (x -23, -22) on corbels, its floor at y 8 with a step up to 9.5 (she stands at
         9.5), a stone sill flush with the step that rises to 10 under the glass, a 4 x 4 leaded window (clear
         glass panes) at y 10..13 with a shouldered head, side lights, a lead roof. Behind it her study: walls of
         bookshelves, a desk with lit candles, a red rug bordered green, a beamed ceiling at y 15, a lantern on a
         chain and light blocks, so the window is lit when seen from the lawn;
-      * the south turret (round, r 4.2, to y 25, a tiled cone to y 37) closing the range at z 72.
+      * the south turret (round, r 4.2, to y 25, an oak cone to y 37) closing the range at z 72.
   - The Mini Hogwarts (SCHEMATIC, rotation 90 so its long front faces south, over the lawn) on its crag at
     x -72..72, z -180..-85, its base at y CASTLE_Y (-6) on the valley grass. Rock fills the ragged foot of the crag
     shell on the seen side (no sky through it), and stone props the schematic's loose gravel.
   - The chase volume (chase_box) over the lawn between the tower and the castle is open sky.
-  - Off the set's edges is the sky dome's haze: from the lawn the brow hides them; from high in the chase, look
-    toward the castle, the tower or the lawn rather than outward over the south and east rims, or behind the
-    range (x < -42), where the set simply ends.
+
+Cameras and the edge of the world
+---------------------------------
+  - Keep every camera inside CAM_REGION (x -27..40, z -40..70), the region the hills are built to be seen from.
+    Outside it, the open backs of the hills and of the ground can show.
+  - void_fraction(cam, look) gives the share of a frame (fov 70, aspect 16:9, no roll) that is empty space below
+    the horizon: rays that point below level and hit nothing of the set, template or castle. Task 10 asserts every
+    lesson and chase camera key against VOID_BOUND (0.02). write_nbt() asserts it for 86 probe cameras: the
+    review's views (the dive west at the tower, hovering east and south, the lawn to the north-west) and the chase
+    box's top corners and centre, looking eight ways, level and 15 degrees down. The worst is printed.
+  - Cameras up to the chase box's top (y 34) stay clear. Higher than that, check with void_fraction.
 
 ANCHORS format
 --------------
@@ -70,6 +81,8 @@ y -1, so anyone on the lawn stands at y 0 (lawn_y). yaw is Minecraft's: 0 faces 
                   the dark vestibule (out of frame from the lawn), yaw facing in (90, -X)
   chase_box       [[x1, y1, z1], [x2, y2, z2]] an all-air box (min and max corners) over the lawn for the chase
   catch_spot      {pos, yaw} the grass under the diving catch, below McGonagall's window
+  window_catch    {pos, clear} the film's version: a point in the air at her window's height, 8 blocks out from the
+                  glass, with `clear` blocks of air all round it, seen from her eye through the glass
   mcg_window      {stand, centre, yaw} McGonagall's feet behind the sill (y 9.5), the window glass's centre, and the
                   outward yaw (-90: the window faces +X, over the lawn)
   castle_view     {pos, look} a camera spot on the lawn framing the castle on its crag over the lesson, and its
@@ -90,13 +103,27 @@ OUT = os.path.join(STRUCTURES, 'flying_lawn.nbt')
 RADIUS = 200
 TIME_OF_DAY = 8000                     # a bright afternoon, the sun past noon toward the west
 FOG_FAR = 260
-MAX_BLOCKS = 60000
+MAX_BLOCKS = 62000                      # the template; with the castle it must leave Task 10 room under 100,000
+OPENING_CAP = 98500                     # template + castle: 1,500 kept free for the scenes' own fills
 
 # lawn frame
 CX, CZ = 0, 30                          # the lawn centre (middle of the aisle)
 PLATEAU = (-27, 21, 2, 47)              # x0, x1, z0, z1 of the flat lesson ground (top y -1)
 WALL_WALK = (-27, -12, 47, 69)          # and the level strip along the wall foot to the door
-VALLEY_TOP = -7                        # grass top of the valley floor before the castle crag
+VALLEY_TOP = -7                        # grass top of the valley floor before the castle crag (level)
+VALLEY_HALF = 46                        # the valley floor's half-width (x), from the lawn's brow north to the crag
+VALLEY_Z = (-150, -6)
+GLEN_R = 46                             # the open glen round the lawn centre before the hills begin
+GLEN_WEST_PULL = 12                     # ... nearer behind the range (west): 34
+GLEN_WANDER = 10                        # the glen's edge wanders in and out by this much
+VALLEY_WANDER = 7                       # ... and the valley's sides
+CREST_WANDER = 5                        # summits and saddles along the crest
+GLEN_DIP = 0.0                          # the glen floor round the lawn stays level to the hills' foot
+VALLEY_STEEP = 1.4                      # the valley's sides rise over HILL_W / VALLEY_STEEP
+HILL_W = 22                             # the hills' inner slope, foot to crest
+SIDE_RIDGE_X = (57, 72)                 # |x| of the ridges beside the crag ...
+SIDE_RIDGE_Z = (-160, -92)              # ... and their run along it
+HILL_TOP = 35                           # their crest y: above the chase cameras' eye line
 
 # the Mini Hogwarts
 CASTLE_ROT = 90
@@ -116,7 +143,7 @@ TOWER_TOP = 36                          # shell to y 36, machicolation at 37, pa
 SPIRE_BASE, SPIRE_TOP = 40, 66
 BAY_Z = (13, 18)                        # the oriel's cells (front glass z 14..17)
 BAY_X = (-23, -22)
-BAY_FLOOR = 8                           # floor cells y 8, she stands at y 9
+BAY_FLOOR = 8                           # floor cells y 8; a step up to 9.5, where she stands
 ROOM_CEIL = 15
 DOOR_Z = (61, 63)                       # the hospital-wing doorway cells
 DOOR_TOP = 4                            # opening y 0..4 (5 high), pointed head at y 4
@@ -178,28 +205,38 @@ for (_x, _y, _z) in CASTLE:
     if (_x, _z) not in CASTLE_COLS or _y < CASTLE_COLS[(_x, _z)]:
         CASTLE_COLS[(_x, _z)] = _y
 CASTLE_TOP_Y = max(p[1] for p in CASTLE)
+CASTLE_TOPS = {}
+for (_x, _y, _z) in CASTLE:
+    if _y > CASTLE_TOPS.get((_x, _z), -999):
+        CASTLE_TOPS[(_x, _z)] = _y
 
 
 def _crag_dist():
-    """Chebyshev distance (up to 10) from each cell near the crag to its nearest crag column."""
-    d = {}
+    """Chebyshev distance (up to 10) from each cell near the crag to its nearest crag column, and the crag's rock
+    height there (its top, capped at CRAG_ROCK_CAP so a tower does not count as rock): the hills meet it at that
+    height and rise away from it."""
+    d, near = {}, {}
     frontier = list(CASTLE_COLS)
     for c in frontier:
         d[c] = 0
+        near[c] = min(CASTLE_TOPS[c], CRAG_ROCK_CAP)
     for step in range(1, 11):
-        nxt = []
+        nxt = {}
         for (x, z) in frontier:
             for dx in (-1, 0, 1):
                 for dz in (-1, 0, 1):
                     n = (x + dx, z + dz)
                     if n not in d:
-                        d[n] = step
-                        nxt.append(n)
-        frontier = nxt
-    return d
+                        nxt[n] = min(nxt.get(n, 999), near[(x, z)])
+        for n in sorted(nxt):
+            d[n] = step
+            near[n] = nxt[n]
+        frontier = sorted(nxt)
+    return d, near
 
 
-CRAG_DIST = _crag_dist()
+CRAG_ROCK_CAP = 40
+CRAG_DIST, CRAG_NEAR_TOP = _crag_dist()
 
 
 # ---------------------------------------------------------------- the ground
@@ -220,45 +257,95 @@ def plateau_dist(x, z):
     return max(0.0, best + wobble) if best > -3 else 0.0
 
 
+def glen_radius(x, z):
+    """How far the open glen round the lawn reaches before the hills begin, by direction from the lawn centre:
+    closest behind the range (west), farthest to the south-east."""
+    u, v = x - CX, z - CZ
+    r = math.hypot(u, v) or 1.0
+    west = max(0.0, -u / r) ** 2
+    return GLEN_R - GLEN_WEST_PULL * west + (vnoise(x, z, 26.0, 5) - 0.5) * 2 * GLEN_WANDER
+
+
+def open_dist(x, z):
+    """Distance from (x, z) into the hills: 0 inside the glen (a disc round the lawn) or the valley floor (a band
+    north to the castle crag); the hills rise over the next HILL_W blocks to their crest."""
+    u, v = x - CX, z - CZ
+    d_disc = max(0.0, math.hypot(u, v) - glen_radius(x, z))
+    half = VALLEY_HALF + (vnoise(x * 0.3, z, 22.0, 6) - 0.5) * 2 * VALLEY_WANDER
+    dx = max(0.0, abs(x) - half)
+    dz = max(0.0, VALLEY_Z[0] - z, z - VALLEY_Z[1])
+    d_valley = math.hypot(dx, dz) * VALLEY_STEEP     # the valley's sides rise steeper (fewer columns)
+    return min(d_disc, d_valley)
+
+
+def crest_y(x, z):
+    """The hills' crest height here: HILL_TOP with summits and saddles (+-CREST_WANDER over 40 blocks) and a
+    little rough detail."""
+    return HILL_TOP + (vnoise(x, z, 40.0, 61) - 0.5) * 2 * CREST_WANDER + (fbm(x, z, 62) - 0.5) * 4.0
+
+
 def in_domain(x, z):
-    """Whether the set has ground at column (x, z)."""
+    """Whether the set has ground at column (x, z): the glen, the valley, and the hills' inner slopes to their crest
+    (nothing is built behind a crest, where no camera inside the glen can see)."""
     if (x, z) in CASTLE_COLS or range_footprint(x, z):
         return False
-    u, v = x - CX, z - CZ
-    r = math.hypot(u, v)
-    ang = math.atan2(v, u)
-    edge = 92 + (vnoise(ang * 30.0, 0.0, 3.0, 5) - 0.5) * 16
-    if x < -42 and 8 <= z <= WALL_Z[1]:
-        return False                                    # behind the range (unseen)
-    if r <= edge:
-        return True
-    # the valley to the crag: in front of and round the castle's south half
-    if -84 <= x <= 84 and -142 <= z <= -20:
-        return z >= -142 + (abs(x) > 74) * 24
-    return False
+    return open_dist(x, z) <= HILL_W + 1 or side_ridge(x, z)
 
 
-def height(x, z):
-    """Top cell y of the ground at (x, z)."""
+def side_ridge(x, z):
+    """The ridges flanking the crag (beside and behind its low west and east rims), so a ray skimming past the
+    castle from the chase lands on hillside, not on the bare haze."""
+    return SIDE_RIDGE_Z[0] <= z <= SIDE_RIDGE_Z[1] and SIDE_RIDGE_X[0] <= abs(x) <= SIDE_RIDGE_X[1]
+
+
+def base_height(x, z):
+    """The glen floor before the hills: the flat plateau, a shallow dip round it, the brow down into the valley."""
     d = plateau_dist(x, z)
     if d == 0:
-        return -1
-    u, v = x - CX, z - CZ
-    n = (fbm(x, z, 3) - 0.5) * 4.0 * min(1.0, d / 14.0)
-    fall = 0.035 * d + 0.0026 * d * d
-    # west, under the flank, the ground holds up at the wall foot a little longer
-    if x < PLATEAU[0]:
-        fall *= 0.8
-    top = -1.0 - fall + n
-    if z < PLATEAU[2]:                                 # north: into the valley, then up to the crag foot
-        top = max(VALLEY_TOP + (vnoise(x, z, 11.0, 9) - 0.5) * 1.6, top)
+        return -1.0
+    fall = min(0.035 * d + 0.0026 * d * d, GLEN_DIP)
+    top = -1.0 - fall
+    if z < PLATEAU[2]:                                 # north: down into the valley's flat floor
+        top = max(VALLEY_TOP, -1.0 - (0.035 * d + 0.0026 * d * d))
         cd = CRAG_DIST.get((x, z))
         if cd is not None:                             # a little apron up to the crag
             top = max(top, VALLEY_TOP + max(0.0, 3.0 - cd * 0.6))
+    return top
+
+
+def height(x, z):
+    """Top cell y of the ground at (x, z): the glen floor rising over the hills' inner slopes to their crest."""
+    base = base_height(x, z)
+    od = open_dist(x, z)
+    if od <= 0:
+        if z < PLATEAU[2] - 4 and base <= VALLEY_TOP + 0.01:
+            return VALLEY_TOP                          # the valley floor is level: no stray steps
+        return int(math.floor(base))
+    t = min(1.0, od / HILL_W)
+    s = t ** 1.7 * (2.0 - t) ** 0.7                  # concave foot rising out of the glen, rounding at the crest
+    top = base + (crest_y(x, z) - base) * s + fbm(x, z, 71) * 3.0 * math.sin(math.pi * t)   # bumps, never a dip
+    if side_ridge(x, z):
+        top = max(top, crest_y(x, z) - 1.0)
+    cd = CRAG_DIST.get((x, z))
+    if cd is not None and not side_ridge(x, z):        # the hills meet the crag's rock where they touch it
+        top = min(top, CRAG_NEAR_TOP[(x, z)] + cd * 3.0)
     return int(math.floor(top))
 
 
+CAM_REGION = (-27, 40, -40, 70)        # x0, x1, z0, z1: where the lesson and chase cameras stand (and the window)
+
+
+def face_seen(x, z, dx, dz):
+    """Whether the vertical face of column (x, z) toward (x + dx, z + dz) can be seen from the camera region: some
+    point of the region lies on that side. Faces turned away from every camera are left open (no fill)."""
+    x0, x1, z0, z1 = CAM_REGION
+    return any((px - (x + 0.5)) * dx + (pz - (z + 0.5)) * dz > 0 for px in (x0, x1) for pz in (z0, z1))
+
+
 def build_ground(w):
+    """One-block grass skin over the height field. A column is filled down to a lower neighbour only on the faces
+    a camera in CAM_REGION can see; faces turned away (the backs of the outer slopes) stay open, which no camera
+    inside the glen can tell."""
     H = {}
     x0, z0 = TEMPLATE_AT[0], TEMPLATE_AT[2]
     for x in range(x0, x0 + SIZE[0]):
@@ -266,19 +353,35 @@ def build_ground(w):
             if in_domain(x, z):
                 H[(x, z)] = height(x, z)
     for (x, z), h in H.items():
-        nb = [H.get((x + dx, z + dz)) for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1))]
-        lows = [v for v in nb if v is not None]
-        rim = len(lows) < 4
-        bottom = min(lows + [h]) if lows else h
-        if rim:
-            bottom = min(bottom, h - 3)                # a bank at the set's edge, not a sheet
+        bottom = h
+        for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            n = (x + dx, z + dz)
+            nh = H.get(n)
+            if nh is None:                             # beside the crag or under the range: close down to them
+                nh = CASTLE_TOPS.get(n, -1 if range_footprint(*n) else None)
+            if nh is not None and nh < bottom and face_seen(x, z, dx, dz):
+                bottom = nh
         steep = h - bottom
-        for y in range(bottom, h + 1):
-            if y == h:
-                if steep >= 4 and rnd(x, y, z, 41) < 0.35:
-                    s = 'minecraft:coarse_dirt'
+        od = open_dist(x, z) if not side_ridge(x, z) else HILL_W
+        if od / HILL_W > 0.02 + vnoise(x, z, 7.0, 43) * 0.12:
+            # the hills: a green skin of moss (green on every face, so their steps never show as dirt stripes),
+            # with a few mossy outcrops; from the lawn they read as dark wooded slopes
+            rock = vnoise(x, z, 13.0, 45) * 0.7 + vnoise(x, z, 5.0, 46) * 0.3 > 0.7 - 0.08 * min(1.0, steep / 4.0)
+            for y in range(bottom, h + 1):
+                if rock:                               # crags: grey rock in patches where the slope is steep
+                    r = rnd(x, y, z, 44)
+                    m = 'minecraft:stone' if r < 0.5 else 'minecraft:andesite' if r < 0.8 else                         'minecraft:mossy_cobblestone'
                 else:
-                    s = 'minecraft:grass_block'
+                    m = 'minecraft:moss_block'
+                w.set((x, y, z), m)
+            continue
+        for y in range(bottom, h + 1):
+            if y == h and steep >= 1:
+                s = 'minecraft:moss_block'             # a step's riser in green, not a dirt stripe
+            elif y == h:
+                s = 'minecraft:grass_block'
+            elif steep >= 1:
+                s = 'minecraft:moss_block'
             elif h - y <= 1 and steep < 4:
                 s = 'minecraft:dirt'
             else:
@@ -342,7 +445,8 @@ def pane(axis, m='gray_stained_glass_pane'):
     return state(m, north='false', south='false', east='true', west='true', waterlogged='false')
 
 
-ROOF = 'deepslate_tile'
+ROOF = 'oak'                            # the Mini Hogwarts' own roofs (oak planks, stairs and slabs): one castle
+ROOF_BLOCK = 'minecraft:oak_planks'
 
 
 class World:
@@ -376,10 +480,11 @@ def build_range(w, H):
     projecting crenellated parapet on the lawn face, buttresses, mullioned windows, a low roof behind."""
     z0, z1 = WALL_Z
     for z in range(z0, z1 + 1):
-        for x in WALL_X:
-            footing(w, H, x, z, -1)
-            for y in range(0, WALL_TOP + 1):
-                w.set((x, y, z), masonry(x, y, z, 0))
+        footing(w, H, -27, z, -1)
+        for y in range(0, WALL_TOP + 1):
+            w.set((-27, y, z), masonry(-27, y, z, 0))
+        for y in range(WALL_TOP - 1, WALL_TOP + 1):          # the inner course only under the walk
+            w.set((-28, y, z), masonry(-28, y, z, 0))
         w.set((WALL_FACE, 0, z), stairs('west'))                    # chamfered plinth
         w.set((WALL_FACE, 6, z), stairs('west', 'top'))             # string course
         w.set((WALL_FACE, WALL_TOP - 1, z), stairs('west', 'top'))  # corbel table
@@ -430,14 +535,13 @@ def build_range(w, H):
             d = abs(x + 35)
             top = WALL_TOP + 5 - (d + 1) // 2
             if d == 0:
-                w.set((x, top, z), 'minecraft:deepslate_tiles')
+                w.set((x, top, z), ROOF_BLOCK)
                 w.set((x, top + 1, z), slab('bottom', ROOF))
             elif d % 2 == 1:
                 w.set((x, top, z), stairs('west' if x > -35 else 'east', m=ROOF))
             else:
                 w.set((x, top, z), slab('top', ROOF))
-        for y in range(4, WALL_TOP + 2):
-            w.set((-41, y, z), masonry(-41, y, z, 0))
+        w.set((-41, WALL_TOP, z), masonry(-41, WALL_TOP, z, 0))  # the back eave (the back wall faces the hill)
     for x in range(-41, -28):
         for y in range(WALL_TOP + 1, WALL_TOP + 6 - (abs(x + 35) + 1) // 2):
             w.set((x, y, z1), masonry(x, y, z1, 0))
@@ -486,7 +590,6 @@ def build_door_tower(w, H):
     zc = (zt0 + zt1) // 2
     for y in range(11, 15):
         w.set((-24, y, zc), pane('z'))
-        w.set((-24, y, zc + 0), pane('z'))
         w.set((-25, y, zc), 'minecraft:black_concrete')
     w.set((-23, 10, zc), slab('top'))
     w.set((-23, 15, zc), stairs('west', 'top'))
@@ -495,7 +598,7 @@ def build_door_tower(w, H):
 
 
 def build_door(w, H):
-    """The hospital-wing doorway in the gate tower's front: a pointed arch 3 wide, 5 high, into a dark vestibule."""
+    """The hospital-wing doorway in the gate tower's front: a shouldered arch 3 wide, 5 high, into a dark vestibule."""
     z0, z1 = DOOR_Z
     xf = -24                                                    # the gate tower's front wall cells
     for z in range(z0, z1 + 1):
@@ -568,8 +671,12 @@ def build_tower(w, H):
     cells = [(x, z) for x in range(x0 - 2, x1 + 3) for z in range(z0 - 2, z1 + 3)]
     shell = [(x, z) for x, z in cells if tower_shell(x, z)]
     for x, z in shell:
-        footing(w, H, x, z, -1)
-        for y in range(0, TOWER_TOP + 1):
+        outer = not oct_in(x, z, TOWER_HALF - 1, TOWER_CHAMFER - 1)
+        if outer:
+            footing(w, H, x, z, -1)
+        # the inner course of the shell is only needed at the top (the walk round the spire); lower down nothing
+        # sees it, so the shell is one block (slits and the study set their own backing)
+        for y in range(0 if outer else TOWER_TOP - 1, TOWER_TOP + 1):
             w.set((x, y, z), masonry(x, y, z, 0))
     # battered plinth (one ring out at y 0, -1) and string courses
     ring1 = [(x, z) for x, z in cells if oct_in(x, z, TOWER_HALF + 1, TOWER_CHAMFER + 1)
@@ -578,7 +685,7 @@ def build_tower(w, H):
         if w.get((x, 0, z)) is None and not (x <= -27 and z >= WALL_Z[0]):
             footing(w, H, x, z, -1)
             w.set((x, 0, z), stairs(opposite(outward(x, z))))
-        # machicolation: corbels at y 30 and the parapet ring at 31..33
+        # machicolation: corbels at TOWER_TOP + 1 (37) and the parapet ring at 38..40
         w.set((x, TOWER_TOP + 1, z), stairs(opposite(outward(x, z)), 'top'))
         for y in (TOWER_TOP + 2, TOWER_TOP + 3):
             w.set((x, y, z), masonry(x, y, z))
@@ -589,9 +696,9 @@ def build_tower(w, H):
             for y in (TOWER_TOP + 1, TOWER_TOP + 2):
                 w.set((x, y, z), masonry(x, y, z))
     for x, z in ring1:
-        for y in (TOWER_TOP - 13,):
-            if w.get((x, y, z)) is None and not (x <= -27 and z >= WALL_Z[0] - 1):
-                w.set((x, y, z), stairs(opposite(outward(x, z)), 'top'))
+        y = TOWER_TOP - 13                             # a string course at y 23
+        if w.get((x, y, z)) is None and not (x <= -27 and z >= WALL_Z[0] - 1):
+            w.set((x, y, z), stairs(opposite(outward(x, z)), 'top'))
     # slit windows: dark recesses on each face at three levels (not where the bay is)
     for x, z in shell:
         if not oct_in(x, z, TOWER_HALF, TOWER_CHAMFER) or oct_in(x, z, TOWER_HALF - 1, TOWER_CHAMFER - 1):
@@ -611,7 +718,7 @@ def build_tower(w, H):
                 w.set((x, y, z), pane(axis))
                 w.set((inner[0], y, inner[1]), 'minecraft:black_concrete')
             w.set((x, ys[1] + 1, z), 'minecraft:chiseled_stone_bricks')
-    # the spire: an octagonal cone of tiles from y 33 to 57
+    # the spire: an octagonal cone of roof from SPIRE_BASE (40) to SPIRE_TOP (66)
     span = SPIRE_TOP - SPIRE_BASE
     for y in range(SPIRE_BASE, SPIRE_TOP + 1):
         t = (y - SPIRE_BASE) / span
@@ -622,12 +729,12 @@ def build_tower(w, H):
         for x, z in cells:
             if not oct_in(x, z, half, ch):
                 continue
-            if oct_in(x, z, half_up, ch_up) and oct_in(x, z, half - 1.5, ch - 1.5):
-                continue                                        # hollow inside (two cells of skin)
+            if oct_in(x, z, half_up, ch_up) and oct_in(x, z, half - 1.1, ch - 1.1):
+                continue                                        # hollow inside (one cell of skin)
             if not oct_in(x, z, half_up, ch_up):
                 w.set((x, y, z), stairs(opposite(outward(x, z)), m=ROOF))
             else:
-                w.set((x, y, z), 'minecraft:deepslate_tiles')
+                w.set((x, y, z), ROOF_BLOCK)
     w.set((int(TOWER_C[0]), SPIRE_TOP + 1, int(TOWER_C[1])), state('lightning_rod', facing='up', powered='false',
                                                                     waterlogged='false'))
     build_bay(w)
@@ -672,7 +779,7 @@ def build_bay(w):
     # the bay's lead roof sloping back to the tower
     for z in range(bz0, bz1 + 1):
         w.set((bx1, 16, z), stairs('west', m=ROOF))
-        w.set((bx0, 16, z), 'minecraft:deepslate_tiles')
+        w.set((bx0, 16, z), ROOF_BLOCK)
         w.set((bx0, 17, z), stairs('west', m=ROOF))
     # inner sill: the window seat ledge (a slab is the sill top inside, at 9.5)
     # pointed relieving arch over the opening through the tower wall
@@ -749,9 +856,9 @@ def build_turret(w, H):
         r_up = (TURRET_R + 0.3) * max(0.0, 1 - (y - TT) / 12.0) ** 1.1 + 0.3
         for x, z in cells:
             d = math.hypot(x + 0.5 - cx, z + 0.5 - cz)
-            if d <= r and not (d <= r - 1.5 and d <= r_up):
+            if d <= r and not (d <= r - 1.1 and d <= r_up):
                 w.set((x, y, z), stairs(opposite(outward(x, z, TURRET_C)), m=ROOF) if d > r_up
-                      else 'minecraft:deepslate_tiles')
+                      else ROOF_BLOCK)
 
 
 # ---------------------------------------------------------------- trees
@@ -788,13 +895,48 @@ def oak(w, H, x, z, height, crown, seed, leaves='oak_leaves', log='oak_log'):
 
 TREES = [  # (x, z, height, crown, kind): framing oaks at the lawn's edge, a stand down the south-east slope
     (31, 20, 7, 4.5, 'oak'), (27, 58, 6, 4.0, 'oak'), (-10, 74, 6, 4.2, 'oak'),
-    (44, 4, 6, 3.6, 'oak'), (58, 40, 6, 4.0, 'dark'), (52, 70, 6, 4.2, 'dark'), (66, 60, 5, 3.8, 'dark'),
-    (30, 92, 6, 4.0, 'dark'), (12, 100, 5, 3.6, 'dark'), (70, 22, 5, 3.4, 'oak'), (40, 84, 5, 3.8, 'dark'),
-    (-30, 96, 5, 3.6, 'dark'), (60, -20, 5, 3.6, 'oak'),
+    (44, 4, 6, 3.6, 'oak'),
 ]
 
 
+def hill_shrubs(w, H):
+    """Scrub on the hills: low clumps of leaves (a few blocks each) scattered over the slopes, and small dark firs
+    on the crests, so the hillsides are not one flat green. Cheap: about a thousand blocks in all."""
+    lv = state('dark_oak_leaves', distance='1', persistent='true', waterlogged='false')
+    az = state('azalea_leaves', distance='1', persistent='true', waterlogged='false')
+    fir = state('spruce_leaves', distance='1', persistent='true', waterlogged='false')
+    n = 0
+    for (x, z), h in sorted(H.items()):
+        od = open_dist(x, z) if not side_ridge(x, z) else HILL_W
+        if od <= 2 or bid(w.get((x, h, z))) != 'minecraft:moss_block':
+            continue
+        r = _hash(x, z, 151)
+        if r < 0.008:                                  # a clump: 3 to 6 leaves on and over the moss
+            m = lv if _hash(x, z, 152) < 0.7 else az
+            for dx, dz in ((0, 0), (1, 0), (0, 1), (-1, 0), (0, -1), (1, 1)):
+                if _hash(x + dx, z + dz, 153) < 0.75 and (x + dx, z + dz) in H:
+                    hy = H[(x + dx, z + dz)] + 1
+                    if w.get((x + dx, hy, z + dz)) is None:
+                        w.set((x + dx, hy, z + dz), m)
+                        n += 1
+            if w.get((x, h + 2, z)) is None:
+                w.set((x, h + 2, z), m)
+        elif od >= HILL_W - 3 and r < 0.016:           # a fir on the crest: a trunk and a tapering cone
+            ht = 4 + int(_hash(x, z, 154) * 4)
+            for y in range(h + 1, h + 2):
+                w.set((x, y, z), state('spruce_log', axis='y'))
+            for k in range(ht):
+                y = h + 2 + k
+                rad = 1 if k < ht - 2 else 0
+                for dx in range(-rad, rad + 1):
+                    for dz in range(-rad, rad + 1):
+                        if abs(dx) + abs(dz) <= rad and w.get((x + dx, y, z + dz)) is None:
+                            w.set((x + dx, y, z + dz), fir)
+    return n
+
+
 def build_trees(w, H):
+    hill_shrubs(w, H)
     for i, (x, z, hgt, crown, kind) in enumerate(TREES):
         if (x, z) not in H:
             continue
@@ -813,9 +955,10 @@ def dress_ground(w, H, path):
         if bid(top) != 'minecraft:grass_block' or w.get((x, h + 1, z)) is not None:
             continue
         r = rnd(x, h, z, 91)
-        if r < 0.025:
+        near = plateau_dist(x, z) < 22
+        if r < (0.025 if near else 0.006):
             w.set((x, h + 1, z), 'minecraft:short_grass')
-        elif r < 0.03:
+        elif r < (0.03 if near else 0.008):
             w.set((x, h + 1, z), 'minecraft:dandelion' if rnd(x, 1, z, 92) < 0.5 else 'minecraft:oxeye_daisy')
 
 
@@ -935,7 +1078,7 @@ def _rows():
 
 ROWS = _rows()
 WIN_C = (BAY_X[1] + 0.5, BAY_FLOOR + 4.0, (BAY_Z[0] + BAY_Z[1] + 1) / 2.0)
-CHASE_BOX = [[-20, 6, -40], [40, 40, 14]]
+CHASE_BOX = [[-20, 5, -40], [36, 35, 14]]
 
 ANCHORS = {
     'lawn_y': 0.0,
@@ -950,6 +1093,7 @@ ANCHORS = {
                       'inside': _p(-32.5, 0.0, (DOOR_Z[0] + DOOR_Z[1] + 1) / 2.0), 'yaw': 90.0},
     'chase_box': CHASE_BOX,
     'catch_spot': {'pos': _p(-5.0, 0.0, 12.0), 'yaw': -60.0},
+    'window_catch': {'pos': _p(-14.0, 11.0, 15.0), 'clear': 1.5},
     'mcg_window': {'stand': _p(BAY_X[0] + 0.65, BAY_FLOOR + 1.5, WIN_C[2]), 'centre': _p(*WIN_C), 'yaw': -90.0},
     'castle_view': {'pos': _p(6.0, 1.5, 44.0), 'look': _p(0.0, 52.0, -150.0)},
     'castle_box': [list(CASTLE_AT), [CASTLE_AT[0] + 144, CASTLE_AT[1] + 108, CASTLE_AT[2] + 95]],
@@ -989,6 +1133,11 @@ def occupied(g, p):
     return True
 
 
+GROUND = {'minecraft:grass_block', 'minecraft:dirt', 'minecraft:coarse_dirt', 'minecraft:moss_block',
+          'minecraft:dirt_path', 'minecraft:stone', 'minecraft:andesite', 'minecraft:cobblestone',
+          'minecraft:mossy_cobblestone'}
+
+
 def world_with_castle(g):
     """The whole set as SetBuilder places it: the template first, then the schematic over it."""
     out = {p: bid(s) for p, s in g.items()}
@@ -996,8 +1145,118 @@ def world_with_castle(g):
     return out
 
 
-def check(w):
+# ---------------------------------------------------------------- the edge of the world, seen from a camera
+VOID_FOV = 70.0                        # vertical, degrees (Minecraft's fov is vertical)
+VOID_ASPECT = 16.0 / 9.0
+VOID_BOUND = 0.02                      # at most 2% of a frame may be empty space below the horizon
+_SOLID = None
+
+
+def solid_set(g=None):
+    """The cells a ray stops on: every placed block of the set (template and castle) but the see-through plants.
+    Built once from build_world() when g is None."""
+    global _SOLID
+    if g is None:
+        if _SOLID is None:
+            _SOLID = solid_set(build_world()[0].g)
+        return _SOLID
+    see_through = FREE | {'minecraft:dandelion', 'minecraft:oxeye_daisy'}
+    return frozenset(p for p, b in world_with_castle(g).items() if b not in see_through)
+
+
+def _ray_hits(solid, o, d, max_dist):
+    """Voxel walk (Amanatides-Woo) from o along unit d; True when it enters a solid cell within max_dist."""
+    x, y, z = int(math.floor(o[0])), int(math.floor(o[1])), int(math.floor(o[2]))
+    steps, tmax, tdelta = [], [], []
+    for k, c in enumerate((x, y, z)):
+        if d[k] > 1e-12:
+            steps.append(1); tmax.append((c + 1 - o[k]) / d[k]); tdelta.append(1.0 / d[k])
+        elif d[k] < -1e-12:
+            steps.append(-1); tmax.append((o[k] - c) / -d[k]); tdelta.append(-1.0 / d[k])
+        else:
+            steps.append(0); tmax.append(1e30); tdelta.append(1e30)
+    sx, sy, sz = steps
+    lo_y = TEMPLATE_AT[1] - 1
+    t = 0.0
+    while t <= max_dist:
+        if (x, y, z) in solid:
+            return True
+        if y < lo_y and sy <= 0 or abs(x) > RADIUS + 2 or abs(z) > RADIUS + 2:
+            return False                                # below or beyond everything the set holds
+        if tmax[0] < tmax[1]:
+            if tmax[0] < tmax[2]:
+                t = tmax[0]; x += sx; tmax[0] += tdelta[0]
+            else:
+                t = tmax[2]; z += sz; tmax[2] += tdelta[2]
+        elif tmax[1] < tmax[2]:
+            t = tmax[1]; y += sy; tmax[1] += tdelta[1]
+        else:
+            t = tmax[2]; z += sz; tmax[2] += tdelta[2]
+    return False
+
+
+def void_fraction(cam, look, solid=None, fov=VOID_FOV, aspect=VOID_ASPECT, cols=48, rows=27, max_dist=420.0):
+    """The share of a camera's frame that is empty space below the horizon: rays (a cols x rows grid over the frame,
+    camera at `cam` looking at the point `look`, no roll) that point below level and hit no block of the set,
+    template or castle. Task 10 asserts every camera key of the lesson and chase against VOID_BOUND with it.
+    The sky dome draws above the horizon; below it, such a ray shows the bare haze where the set ends."""
+    solid = solid_set() if solid is None else solid
+    f = [look[k] - cam[k] for k in range(3)]
+    n = math.sqrt(sum(v * v for v in f)) or 1.0
+    f = [v / n for v in f]
+    r = [-f[2], 0.0, f[0]]                             # right = f x up (y up), horizontal
+    rn = math.hypot(r[0], r[2]) or 1.0
+    r = [r[0] / rn, 0.0, r[2] / rn]
+    u = [r[1] * f[2] - r[2] * f[1], r[2] * f[0] - r[0] * f[2], r[0] * f[1] - r[1] * f[0]]
+    ty = math.tan(math.radians(fov) / 2)
+    tx = ty * aspect
+    void = 0
+    for j in range(rows):
+        sy = (1 - 2 * (j + 0.5) / rows) * ty
+        for i in range(cols):
+            sx = (2 * (i + 0.5) / cols - 1) * tx
+            d = [f[k] + r[k] * sx + u[k] * sy for k in range(3)]
+            dn = math.sqrt(sum(v * v for v in d))
+            d = [v / dn for v in d]
+            if d[1] >= 0:
+                continue
+            if not _ray_hits(solid, cam, d, max_dist):
+                void += 1
+    return void / float(cols * rows)
+
+
+def _yaw_look(cam, yaw, pitch=0.0, dist=50.0):
+    """The look point `dist` ahead of cam at Minecraft yaw/pitch (pitch positive looks down)."""
+    fx, fz = _yaw_vec(yaw)
+    c = math.cos(math.radians(pitch))
+    return [cam[0] + fx * c * dist, cam[1] - math.sin(math.radians(pitch)) * dist, cam[2] + fz * c * dist]
+
+
+def void_probe_cameras():
+    """(name, cam, look) cameras round the lesson and the chase the set must hold up from: the review's views (the
+    dive west at the tower, hovering east and south, the lawn to the north-west), and the chase box's corners and
+    centre at its top looking out each of eight ways, level and 15 degrees down."""
+    (x1, y1, z1), (x2, y2, z2) = CHASE_BOX
+    cams = [('dive_west_at_tower', [25, 30, 30], [-31, 30, 16]),
+            ('chase_at_tower', [10, 34, -10], [-31, 34, 16]),
+            ('hover_east', [5, 28, 0], [60, 28, 0]), ('hover_south', [5, 28, 0], [5, 28, 60]),
+            ('lawn_nw', [0, 1.6, 30], [-40, 1.6, -10]), ('mcg_view', [-22.35, 11.12, 16.0], [-5, 0, 12])]
+    top = y2 - 1
+    for name, p in (('ne', [x2, top, z1]), ('nw', [x1, top, z1]), ('se', [x2, top, z2]), ('sw', [x1, top, z2]),
+                    ('mid', [(x1 + x2) / 2.0, (y1 + y2) / 2.0, (z1 + z2) / 2.0])):
+        for yaw in range(0, 360, 45):
+            for pitch in (0.0, 15.0):
+                cams.append(('box_%s_y%d_p%d' % (name, yaw, pitch), p, _yaw_look(p, yaw, pitch)))
+    return cams
+
+
+def check(w, H=None):
     problems = []
+    if H is None:
+        H = {}
+        for (x, y, z), st in w.g.items():
+            if bid(st) in GROUND and y > H.get((x, z), -999):
+                H[(x, z)] = y
     g = w.g
     A = ANCHORS
     full = dict(g)
@@ -1054,6 +1313,47 @@ def check(w):
     stand('catch_spot', A['catch_spot']['pos'], 1.45, 0.6)
     grass_under('catch_spot', A['catch_spot']['pos'])
     stand('mcg_window.stand', A['mcg_window']['stand'], 1.9, 0.25)
+    # the walk Hooch leads Neville on, from where he fell to the door (then into the vestibule, above)
+    n0 = A['neville_fall']['pos']
+    for i in range(41):
+        t = i / 40.0
+        q = [n0[k] + (d0[k] - n0[k]) * t for k in range(3)]
+        stand('neville to the door %.3f' % t, q, 1.9, 0.6)
+    # no dirt stripes: no dirt-sided ground block shows a side face a camera can see (steps are moss or grass-topped
+    # level ground), and the valley floor is one level
+    dirty = []
+    for (x, y, z), st in g.items():
+        if bid(st) not in ('minecraft:dirt', 'minecraft:coarse_dirt', 'minecraft:grass_block') or (x, z) not in H:
+            continue
+        for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            nh = H.get((x + dx, z + dz))
+            if nh is not None and nh < y and face_seen(x, z, dx, dz):     # a riser over lower ground
+                dirty.append((x, y, z))
+                break
+    if dirty:
+        problems.append('%d dirt-sided blocks with a seen side face, e.g. %s' % (len(dirty), dirty[:4]))
+    uneven = []
+    for x in range(-VALLEY_HALF + VALLEY_WANDER + 1, VALLEY_HALF - VALLEY_WANDER):
+        for z in range(VALLEY_Z[0], PLATEAU[2] - 45):
+            if (x, z) in CASTLE_COLS or open_dist(x, z) > 0 or CRAG_DIST.get((x, z), 99) <= 5:
+                continue
+            if bid(g.get((x, VALLEY_TOP, z))) not in ('minecraft:grass_block', 'minecraft:dirt_path',
+                                                      'minecraft:coarse_dirt') or g.get((x, VALLEY_TOP + 1, z))                     not in (None, 'minecraft:short_grass', 'minecraft:dandelion', 'minecraft:oxeye_daisy'):
+                uneven.append((x, z))
+    if uneven:
+        problems.append('%d valley floor columns off the level, e.g. %s' % (len(uneven), uneven[:4]))
+    # castle_view: a camera spot in the air, over ground
+    cv = A['castle_view']['pos']
+    if any(occupied(full, (cv[0] + dx, cv[1] + dy, cv[2] + dz)) for dx in (-0.3, 0.3) for dy in (-0.3, 0.3)
+           for dz in (-0.3, 0.3)) or not occupied(full, (cv[0], -0.5, cv[2])):
+        problems.append('castle_view.pos %s is not in the air over the lawn' % cv)
+    # window_catch: an air pocket in front of her window at its height, seen from her eye through the glass
+    wc, cl = A['window_catch']['pos'], A['window_catch']['clear']
+    for dx in (-cl, 0, cl):
+        for dy in (-cl, 0, cl):
+            for dz in (-cl, 0, cl):
+                if occupied(full, (wc[0] + dx, wc[1] + dy, wc[2] + dz)):
+                    problems.append('window_catch %s: %s is not air' % (wc, (dx, dy, dz)))
     # chase_box: all air, template and castle
     (x1, y1, z1), (x2, y2, z2) = A['chase_box']
     if not (x2 - x1 >= 50 and y2 - y1 >= 30 and z2 - z1 >= 50):
@@ -1065,7 +1365,7 @@ def check(w):
     # the window glass lies between McGonagall's eyes and the lawn: rays from her eye to lawn points
     eye = (A['mcg_window']['stand'][0], A['mcg_window']['stand'][1] + 1.62, A['mcg_window']['stand'][2])
     targets = [A['catch_spot']['pos'], A['lawn_centre'], A['broom_line']['west'][0]['student'],
-               [A['catch_spot']['pos'][0], 12.0, A['catch_spot']['pos'][2]]]
+               [A['catch_spot']['pos'][0], 12.0, A['catch_spot']['pos'][2]], A['window_catch']['pos']]
     for tgt in targets:
         hit_glass, blocked = False, None
         n = int(math.dist(eye, tgt) / 0.02)
@@ -1095,18 +1395,21 @@ def check(w):
     beyond = [p for p in full if abs(p[0]) > RADIUS or abs(p[2]) > RADIUS]
     if beyond:
         problems.append('%d cells beyond the radius, e.g. %s' % (len(beyond), beyond[0]))
-    # the castle stands on ground: every crag column on the rim (lowest block at the castle base) has grass or
-    # crag under or beside it, never an open drop to the void on the lawn's side
+    # the castle stands on ground: every crag column at its base whose side faces the cameras (CAM_REGION) has
+    # ground beside it at or above the base (the valley grass, or hillside burying the foot), never an open drop
+    tops = {}
+    for (x, y, z) in g:
+        if y >= CASTLE_Y - 3:
+            tops[(x, z)] = True
     floating = []
-    for (x, z), y0 in CASTLE_COLS.items():
-        if y0 != CASTLE_Y or z > -104 - 0 or z < CASTLE_AT[2] + 40:
+    for (x, z), y0 in sorted(CASTLE_COLS.items()):
+        if y0 != CASTLE_Y or z < CASTLE_AT[2] + 30:
             continue
-        nb = [(x + 1, z), (x - 1, z), (x, z + 1), (x, z - 1)]
-        for n in nb:
-            if n in CASTLE_COLS:
+        for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            n = (x + dx, z + dz)
+            if n in CASTLE_COLS or not face_seen(x, z, dx, dz):
                 continue
-            if bid(g.get((n[0], CASTLE_Y - 1, n[1]))) is None and not any(
-                    g.get((n[0], yy, n[1])) for yy in range(CASTLE_Y - 3, CASTLE_Y + 3)):
+            if n not in tops:
                 floating.append(n)
     if floating:
         problems.append('%d open cells at the crag foot, e.g. %s' % (len(floating), floating[:4]))
@@ -1117,26 +1420,43 @@ def local_grid(g):
     return {(x - TEMPLATE_AT[0], y - TEMPLATE_AT[1], z - TEMPLATE_AT[2]): s for (x, y, z), s in g.items()}
 
 
+def void_problems(g):
+    """The probe cameras' void fractions against VOID_BOUND; returns (problems, worst (fraction, name))."""
+    solid = solid_set(g)
+    worst, problems = (-1.0, ''), []
+    for name, cam, look in void_probe_cameras():
+        v = void_fraction(cam, look, solid)
+        worst = max(worst, (v, name))
+        if v > VOID_BOUND:
+            problems.append('camera %s %s -> %s: %.3f of the frame is void (bound %.2f)' % (
+                name, cam, look, v, VOID_BOUND))
+    return problems, worst
+
+
 def write_nbt():
-    """Builds the set, runs every check and writes structure/flying_lawn.nbt; returns (palette, blocks)."""
+    """Builds the set, runs every check and writes structure/flying_lawn.nbt; returns (palette, blocks, world)."""
     w, H = build_world()
     g = w.g
     problems = physics_problems(world_with_castle(g), RADIUS)
     assert not problems, problems
-    problems = check(w)
+    problems = check(w, H)
     assert not problems, '\n'.join(problems[:40]) + ('\n... %d in all' % len(problems))
+    problems, worst = void_problems(g)
+    assert not problems, '\n'.join(problems[:20])
+    print('  void: worst %.3f of a frame (%s), bound %.2f, %d probe cameras' % (
+        worst[0], worst[1], VOID_BOUND, len(void_probe_cameras())))
     assert len(g) <= MAX_BLOCKS, 'flying_lawn has %d blocks, over %d' % (len(g), MAX_BLOCKS)
-    assert len(g) + len(CASTLE) <= 100000, 'the opening build is %d blocks' % (len(g) + len(CASTLE))
-    return write_template(local_grid(g), SIZE, OUT)
+    assert len(g) + len(CASTLE) <= OPENING_CAP, 'the opening build is %d blocks' % (len(g) + len(CASTLE))
+    n_pal, n_blocks = write_template(local_grid(g), SIZE, OUT)
+    return n_pal, n_blocks, w
 
 
 def main():
-    n_pal, n_blocks = write_nbt()
-    w, H = build_world()
+    n_pal, n_blocks, w = write_nbt()
     print('flying_lawn.nbt: size %s, %d blocks, %d palette states, %d bytes; TEMPLATE_AT %s RADIUS %d' % (
         SIZE, n_blocks, n_pal, os.path.getsize(OUT), TEMPLATE_AT, RADIUS))
-    print('  with the Mini Hogwarts (%d): %d blocks at the opening (cap 100,000)' % (len(CASTLE),
-                                                                                    n_blocks + len(CASTLE)))
+    print('  with the Mini Hogwarts (%d): %d blocks at the opening (cap 100,000: %d left for fills)' % (
+        len(CASTLE), n_blocks + len(CASTLE), 100000 - n_blocks - len(CASTLE)))
     counts = {}
     for s in w.g.values():
         counts[bid(s)] = counts.get(bid(s), 0) + 1

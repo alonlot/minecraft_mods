@@ -10,7 +10,8 @@ Using the set from a scene (letter_scene.py):
     'set': {'templates': [{'id': 'hogwartsmagic:letter_island', 'at': list(LI.TEMPLATE_AT)}],
             'time_of_day': LI.TIME_OF_DAY}
     rough_sea:  {'at': LI.ANCHORS['sea_center'], 'spread': LI.ANCHORS['sea_spread'], ...}
-    rain:       the box LI.ANCHORS['rain_box'] ([[x1,y1,z1],[x2,y2,z2]], min and max corners)
+    rain:       {'at': LI.ANCHORS['rain']['at'], 'spread': LI.ANCHORS['rain']['spread'], ...} (the effect takes a
+                centre and half-size; ANCHORS['rain_box'] is the same box as min and max corners)
 
 The set
 -------
@@ -20,15 +21,24 @@ The set
     at.y - 2), so the block water's own surface (-10.11) stays under the deepest trough even at intensity 2
     (-9.2): the water blocks are only the deep body under the animated surface. Without a rough_sea event the
     block water reads as low tide.
-  - The rock: an irregular black crag about 36 x 30 at the waterline, with broken cliffs 7-9 blocks high (buttresses
-    and gullies, chamfered lips), a flat top round the hut (block layer y -1, so people stand at y 0), basalt crags
-    on the windward north and west up to y 6, and a skirt of wave-washed boulders round the foot. One dark tonal
-    family: cobbled deepslate and deepslate on the tops, columnar basalt and deepslate on the faces (by column),
-    wet blackstone in the band the waves wash (its top ragged by column). Seven sea stacks stand off it.
-  - The landing: six worn polished-deepslate steps cut down a rock spur on the south-east from the porch to a flat
-    ledge one block above the still water (stand y -7, dry under the crests to intensity 1.5), a rickety dark oak
-    handrail on the seaward kerb, a mooring post and a stray board; a clear channel for the boat runs in from the
-    south-east (rock cut to the bed under every hull pose).
+  - The rock: a craggy, sloping, wave-worn lump about 26 x 23 at the waterline (radii 13 east-west, 10.5 north and
+    12.5 south toward the landing, domain-warped so the coastline wanders). Its profile falls 9.5 blocks from the
+    hut to the sea over a smoothstep with buttress and gully noise (mostly 40-55 degrees, steeper in patches);
+    the crown shoulders up 2-4 blocks behind the hut on the windward north and west and falls away to the south
+    and east, so the hut sits in a shallow notch on the skyline seen from the sea. Only the hut footprint plus
+    one, a porch and a two-wide trail are forced flat (stand y 0); the rock round them slopes off about 1.4 a
+    cell. Dressing: overhanging lips on the north and west faces, wave notches cut in at -8..-7, scree aprons of
+    stairs, slabs and loose blocks at the foot of the faces, and about 34 boulder clusters along the waterline.
+    Wetness is graded: blackstone below -7, a noisy ramp of blackstone into the dry rock up to -4, dark streaks
+    up the windward gullies, a few polished blackstone patches. Five basalt crags stand on the windward
+    shoulders and five sea stacks off the islet, every one a tapered, uneven cone falling to the seabed with a
+    boulder apron at its foot (two are broken stumps awash at -7 / -6).
+  - The landing: cut steps down a rock spur on the south-east from the trail to a flat ledge one block above the
+    still water (stand y -7, dry under the crests to intensity 1.5). The rises are irregular (a double tread at a
+    halfway landing); the walking line is worn polished deepslate, the edge rough cobbled deepslate, with a
+    rickety dark oak handrail on the seaward kerb, a mooring post and a stray board. The porch trail is a groove
+    edged with slabs. A clear channel for the boat runs in from the south-east (rock cut to the bed under every
+    hull pose).
   - The hut: one room, 8 x 7 inside (x -4..3, z -3..3), walls of weathered dark oak boards (planks, stripped and
     barked wood by board, a few spruce) on a
     deepslate footing with log posts and nailed-on patch boards, a shallow sagging slab roof (ridge 6.5 at the
@@ -37,7 +47,7 @@ The set
       * the fireplace in the west wall: a recessed firebox with a burnt-down log fire on glowing embers (magma),
         a polished blackstone hearth;
       * the old faded-red sofa under the north wall where Dudley sleeps (1.5 deep, seat top 0.5);
-      * a brown blanket on the floor in front of the hearth where the boy lies;
+      * a brown blanket on the floor in front of the fire where the boy lies, his head at the hearth;
       * the Dursleys' corner (north-east): a low bed, a barrel with candles, a chair under the window;
       * the one window (east wall), lit from inside so it glows from the sea, with a sill and one shutter;
       * barrels and a crate (south-east), a log pile (south-west), a cobweb high in the north-east corner.
@@ -69,9 +79,11 @@ the porch or on the rock top stands at y 0; the landing ledge is lower (stand at
   hagrid_outside        {pos, yaw} Hagrid's mark outside the door for the pounding (scale 1.5), facing north
   hagrid_inside         {pos, yaw} his mark inside once he is through and upright, standing on the fallen leaves
                                    (y 0.2: the leaves' top face), facing north into the room
-  hagrid_entry          {from, to, stoop_deg, head_deg} his walk through the doorway (feet, x 0): stooped forward
-                                   by stoop_deg at the hips, head tipped back head_deg from the torso line, the body
-                                   clears the doorway with the margins the checks print; upright he hits the lintel
+  hagrid_entry          {from, to, stoop_deg, head_deg, x_tolerance} his walk through the doorway (feet, x 0):
+                                   stooped forward stoop_deg (45) at the hips with the chin tucked head_deg (+30,
+                                   forward of the torso line); the body clears the doorway at x 0 and at
+                                   +-x_tolerance (0.2); the least stoop with this head is 40; upright he hits the
+                                   lintel. The jambs leave him 0.25 a side at x 0 with the arms hanging
   hut_door_hinge        {pos, yaw, scale, mirrored: false, fallen_pitch, ajar_inward_yaw}  the plain memory_door
                                    leaf: hinge (bottom corner, near face) at the east jamb, closed yaw 180 (leaf
                                    spans -X to the middle, thickness toward -Z, into the hut). `look` pitch 0 -> -90
@@ -82,18 +94,22 @@ the porch or on the rock top stands at y 0; the landing ledge is lower (stand at
   hut_door_scale        float      the leaf scale (1.0: 1 wide, 3 tall, 0.2 thick each)
   hut_door_fallen_box   [[x1,y1,z1],[x2,y2,z2]] where the two flat leaves lie (floor, inside, clear)
   hut_doorway           {x: [x0, x1], y: [0, 2.5], z: [4, 5]} the opening
-  hut_interior_box      [[x1,y1,z1],[x2,y2,z2]] the room's air (for keeping rain and spray out of it)
-  boy_floor             {feet, head, yaw, surface_y} the boy lying on the blanket before the hearth; yaw is the
-                                   direction from feet to head (180: head toward -Z, the fire end)
+  hut_interior_box      [[x1,y1,z1],[x2,y2,z2]] the room inside the walls, floor to wall top (it includes the
+                                   chimney breast at x -4, z -1..1); for keeping rain and spray out of it
+  boy_floor             {feet, head, yaw, surface_y} the boy lying on the blanket in front of the fire, along x;
+                                   yaw is the direction from feet to head (90: head toward -X, the fire)
   dudley_sofa           {center, head, feet, yaw, seat_top, seat}  Dudley lying along the sofa (head west,
                                    yaw 90 from feet to head); `seat` is a seated mark facing south if he sits up
   vernon_corner         {pos, yaw, seat} Vernon's standing mark by his chair, facing the door; seat = the chair
   petunia_corner        {pos, yaw, bed_seat} Petunia's standing mark by the bed, facing the door
-  fireplace             {embers, mouth, yaw, flue_top} embers: top centre of the burnt-down fire (in the firebox);
-                                   mouth: the opening's centre on the room face; yaw faces out of it (-90, +X)
+  fireplace             {embers, mouth, yaw, flue_top, fire_cell, flue_fire_cell} embers: top centre of the
+                                   burnt-down fire (in the firebox); mouth: the opening's centre on the room face;
+                                   yaw faces out of it (-90, +X); fire_cell [-5, 0, 0] and flue_fire_cell [-5, 5, 0]
+                                   are the whole-block cells of the unlit and the lit campfire, for `block` events
   window                {center, inside, outside} the glass's centre, a spot 1 in front of it inside / outside
-  rain_box              [[x1,y1,z1],[x2,y2,z2]] the crossing and the islet (the hut is inside it: see
-                                   hut_interior_box)
+  rain_box              [[x1,y1,z1],[x2,y2,z2]] the crossing and the islet as min and max corners (the hut is
+                                   inside it: the rain stops at its roof)
+  rain                  {at, spread} the same box as the `rain` effect takes it (centre, half-size)
   RADIUS                int
 """
 import math
@@ -128,19 +144,24 @@ HINGE_Z = HZ1 - LEAF_GAP               # 3.98
 FALLEN_Z = (HINGE_Z - 0.2 * LEAF_SCALE - 3 * LEAF_SCALE, HINGE_Z - 0.2 * LEAF_SCALE)
 
 # landing
-STEPS = [(9, -2), (10, -3), (11, -4), (12, -5), (13, -6), (14, -7)]   # (z, stair cell y), x 5..6, rising north
+# (z, cell y, kind): the cut steps from the porch trail down to the ledge, rising north. Irregular: a double tread
+# (z 11/12, the halfway landing is a full block) and a deeper last drop onto the ledge.
+STEPS = [(9, -2, 'stair'), (10, -3, 'stair'), (11, -4, 'stair'), (12, -4, 'landing'), (13, -5, 'stair'),
+         (14, -6, 'stair'), (15, -7, 'stair')]
 STEP_X = (5, 6)
-LEDGE = (4, 8, 15, 16, -8)             # x0, x1, z0, z1, top cell y (stand at -7, one above the still water)
+LEDGE = (4, 8, 16, 17, -8)             # x0, x1, z0, z1, top cell y (stand at -7, one above the still water)
 
-BOAT_PATH = [(30.5, 64.6), (27.6, 57.1), (23.9, 48.9), (19.6, 40.7), (15.4, 33.3), (11.4, 27.7), (8.2, 24.1),
-             (6.2, 21.7), (6.0, 19.6)]
+BOAT_PATH = [(30.5, 64.6), (27.6, 57.1), (23.9, 48.9), (19.6, 40.7), (15.4, 33.3), (11.4, 27.9), (8.2, 25.1),
+             (6.2, 22.7), (6.0, 20.6)]
 HULL_HALF_LEN, HULL_HALF_W = 2.2, 0.95
 
-# (x, z, radius, top cell y): basalt crags on the cliff band and sea stacks off the islet
-SPIRES = [(-8, -10, 3.4, 6), (-3, -12, 2.6, 3), (4, -11, 2.4, 2), (-13, -4, 3.0, 4), (-12, 3, 2.0, 1),
-          (13, -6, 2.8, 4), (13, 3, 2.0, 0), (-9, 9, 2.2, 0)]
-SKERRIES = [(-24, -15, 2.8, -2), (-19, 17, 2.0, -5), (21, -13, 2.4, -1), (26, 6, 1.6, -5), (-7, 26, 1.7, -6),
-            (-28, 2, 1.5, -6), (33, 24, 1.3, -7)]
+# (x, z, radius, top cell y, lean x, lean z): basalt crags on the windward (north and west) shoulders only, so the
+# hut stands on the skyline from the sea, and sea stacks off the islet (two broken stumps awash, so they foam).
+# Every crag falls to the seabed; lean shifts its centre by that many blocks per block of height.
+SPIRES = [(-6, -8, 3.0, 4, 0.0, -0.15), (-2, -9.5, 2.4, 2, 0.1, -0.1), (-10, -3, 2.8, 3, -0.15, 0.0),
+          (-9, 3, 2.0, 0, -0.1, 0.05), (8, -7, 2.2, 1, 0.1, -0.1)]
+SKERRIES = [(-21, -13, 2.6, 1, -0.12, 0.05), (19, -12, 2.2, -2, 0.1, -0.08), (-17, 15, 1.8, -4, -0.08, 0.1),
+            (24, 7, 1.6, -7, 0.0, 0.0), (-9, 22, 1.5, -6, 0.0, 0.0)]
 
 
 # ---------------------------------------------------------------- noise
@@ -225,21 +246,53 @@ HULL_CELLS = _hull_cells()
 
 
 def flat_zone(x, z):
-    """Cells forced to the plateau top (y -1): hut, chimney, eaves, porch and the walk to the steps."""
-    if -8 <= x <= 7 and -6 <= z <= 6:
+    """Cells forced to the stand height (top cell y -1): the hut footprint plus one (chimney and eaves inside it),
+    the porch, and the two-wide trail from the porch to the top step."""
+    if -7 <= x <= 5 and -5 <= z <= 5:
         return True
-    if -3 <= x <= 7 and 6 <= z <= 8:
+    if -2 <= x <= 1 and 5 <= z <= 7:
+        return True
+    if 1 <= x <= 6 and 6 <= z <= 8:
+        return True
+    if x == 6 and -1 <= z <= 1:                            # a foothold under the window
         return True
     return False
 
 
-def _crag(cx, cz, x0, z0, r, top, seed):
-    """A cluster of basalt columns: a jagged cone, each column its own height."""
-    d = math.hypot(cx - x0, cz - z0) + (vnoise(cx, cz, 1.6, seed) - 0.5) * 1.3
-    if d >= r:
-        return None
-    jitter = (_hash(int(math.floor(cx)), int(math.floor(cz)), seed + 1) - 0.5) * 2.6
-    return top - (d / r) ** 1.3 * (top + 4.0) + jitter
+def trail_zone(x, z):
+    """The porch and the trail (outside the hut footprint): kept flat, with its own edging."""
+    return flat_zone(x, z) and not (-7 <= x <= 5 and -5 <= z <= 5)
+
+
+def _smoothstep(a, b, t):
+    t = max(0.0, min(1.0, (t - a) / (b - a)))
+    return t * t * (3 - 2 * t)
+
+
+def _crag(cx, cz, x0, z0, r, top, lean, seed):
+    """A tapered, uneven stack of columns falling all the way to the seabed: the column top is `top` at the centre
+    and BED_Y at distance r, each column jittered, the centre leaning by `lean` blocks per block of height."""
+    best = None
+    for k in range(3):                                   # sample the lean at three heights, keep the highest
+        y_guess = top - k * (top - BED_Y) / 3.0
+        ox, oz = x0 + lean[0] * (y_guess - BED_Y), z0 + lean[1] * (y_guess - BED_Y)
+        d = max(0.0, math.hypot(cx - ox, cz - oz) + (vnoise(cx, cz, 1.6, seed) - 0.5) * 1.1)
+        if d >= r * 1.45:
+            continue
+        if d < r:
+            jitter = (_hash(int(math.floor(cx)), int(math.floor(cz)), seed + 1) - 0.5) * 2.2
+            h = top - (d / r) ** 1.7 * (top - BED_Y) + jitter * (1 - d / r)
+        else:                                            # a flared foot: a boulder apron at the waterline
+            h = WATER_TOP + 0.5 + (vnoise(cx, cz, 1.2, seed + 2) - 0.5) * 3.0 - (d - r) / (0.45 * r) * 2.0
+        best = h if best is None else max(best, h)
+    return best
+
+
+def _bias(cx, cz):
+    """How much the summit rises on this side: about 1 north and west (windward), about 0.3 south and east."""
+    L = math.hypot(cx, cz - 0.5) or 1.0
+    ux, uz = cx / L, (cz - 0.5) / L
+    return max(0.25, min(1.05, 0.65 - 0.4 * (ux + uz)))
 
 
 def height(x, z):
@@ -250,34 +303,38 @@ def height(x, z):
         return BED_Y
     cx, cz = x + 0.5, z + 0.5
     n = fbm(cx, cz, 11)
-    r = math.hypot(cx / 18.0, (cz - 0.5) / 15.0) + (n - 0.5) * 0.30
-    if r < 0.6:
-        h = -2 if (n < 0.2 and r > 0.52) else -1
-        h += max(0.0, vnoise(cx, cz, 4.0, 27) - 0.5) * 9.0 * min(1.0, r / 0.35)    # knolls of bare rock
-    elif r < 0.97:
-        t = (r - 0.6) / 0.37
-        h = -1 - 8.6 * t ** 0.8
-        h += (vnoise(cx, cz, 3.5, 25) - 0.5) * 5.0 * math.sin(math.pi * t)      # buttresses and gullies
-        h += (_hash(x, z, 24) - 0.5) * 1.4                                       # column-to-column ragged edge
-    elif r < 1.12:
-        h = SEA_Y - 1.5 + (vnoise(cx, cz, 2.2, 29) - 0.55) * 5.0
-    else:
-        h = SEA_Y - 3 - (r - 1.12) * 25
-    # the spur the landing steps are cut through: rock walls a little above the steps on both sides, falling
-    # away east and west, down to the ledge
-    if 1 <= x <= 11 and 8 <= z <= 17:
-        step_y = -1 - (z - 8) if z <= STEPS[-1][0] else LEDGE[4]
-        if cx < 6.0:                                    # the landward (west) wall stands over the steps
-            spur = step_y + 1.6 - max(0.0, 5.0 - cx) * 1.1 + (_hash(x, z, 26) - 0.5) * 1.2
-        else:                                           # seaward it falls away, so the steps show from the boat
+    rz = 12.5 if cz > 0.5 else 10.5                       # the front (south) runs out longer toward the landing
+    r0 = math.hypot(cx / 13.0, (cz - 0.5) / rz)
+    rw = r0 + (n - 0.5) * 0.36                            # domain-warped: the coastline wanders
+    b = _bias(cx, cz)
+    h = -1 - 9.5 * _smoothstep(0.5, 1.08, rw)
+    if rw < 0.8:                                          # the crown rises behind the hut, not a plateau
+        h += 4.5 * min(1.0, (0.8 - rw) / 0.35) * (b - 0.25) * 1.3
+    h += (fbm(cx, cz, 23) - 0.5) * 3.0
+    butt = vnoise(cx, cz, 3.2, 25)
+    h += (butt - 0.5) * 4.0 * math.sin(math.pi * min(1.0, max(0.0, (rw - 0.3) / 0.75)))
+    h += (_hash(x, z, 24) - 0.5) * 1.2
+    if rw > 1.05:
+        h = min(h, WATER_TOP - 0.5 - (rw - 1.05) * 24)
+    # the spur the landing steps are cut down: a landward wall over the steps, falling away seaward
+    if 1 <= x <= 11 and 8 <= z <= LEDGE[3] + 1:
+        step_y = LEDGE[4]
+        for sz, sy, _ in STEPS:
+            if sz == z:
+                step_y = sy
+        if z < STEPS[0][0]:
+            step_y = -1
+        if cx < 6.0:
+            spur = step_y + 1.6 - max(0.0, 5.0 - cx) * 1.0 + (_hash(x, z, 26) - 0.5) * 1.2
+        else:
             spur = step_y - 0.6 - max(0.0, cx - 7.0) * 1.3 + (_hash(x, z, 26) - 0.5) * 0.8
         h = max(h, spur)
-    for i, (sx, sz, sr, top) in enumerate(SPIRES):
-        c = _crag(cx, cz, sx, sz, sr, top, 31 + i)
+    for i, (sx, sz, sr, top, lx, lz) in enumerate(SPIRES):
+        c = _crag(cx, cz, sx, sz, sr, top, (lx, lz), 31 + i)
         if c is not None:
             h = max(h, c)
-    for i, (sx, sz, sr, top) in enumerate(SKERRIES):
-        c = _crag(cx, cz, sx, sz, sr * 1.3, top, 61 + i)
+    for i, (sx, sz, sr, top, lx, lz) in enumerate(SKERRIES):
+        c = _crag(cx, cz, sx, sz, sr, top, (lx, lz), 61 + i)
         if c is not None:
             h = max(h, c)
     return max(BED_Y, min(8, int(math.floor(h))))
@@ -285,15 +342,21 @@ def height(x, z):
 
 # ---------------------------------------------------------------- materials
 def rock_state(x, y, z, exposed_up, exposed_side):
-    """Dark rock in one tonal family (deepslate, cobbled deepslate, basalt: all within a few luma of each other).
-    Cliff faces take their material by column, so columnar basalt reads as jointed columns; the band the waves
-    wash is wet blackstone, its top edge ragged by column."""
+    """Dark rock in one tonal family (deepslate, cobbled deepslate, basalt, blackstone). Faces take their material
+    by column, so basalt reads as jointed columns. Wetness is graded: blackstone below -7, a noisy ramp of
+    blackstone into the dry rock from -7 to -4, dark streaks running up the windward gullies to -2, and a few
+    polished blackstone patches for a wet sheen."""
     col = vnoise(x + 0.5, z + 0.5, 2.4, 51)
     patch = vnoise(x + 0.5, z + 0.5, 4.0, 53)
     r = rnd01(x, y, z, 52)
-    wet_top = SEA_Y + 0.5 + _hash(x, z, 54) * 1.8
-    if y < wet_top:
-        return 'minecraft:blackstone' if r < 0.85 else state('basalt', axis='y')
+    wet = vnoise(x + 0.5 + y * 0.6, z + 0.5 - y * 0.4, 1.8, 55)
+    gully = vnoise(x + 0.5, z + 0.5, 3.2, 25) < 0.3 and _bias(x + 0.5, z + 0.5) > 0.7
+    if y <= -8:
+        return 'minecraft:polished_blackstone' if r < 0.03 else 'minecraft:blackstone'
+    if y <= -4 and wet > (y + 8) / 4.0:
+        return 'minecraft:polished_blackstone' if r < 0.04 else 'minecraft:blackstone'
+    if exposed_side and gully and y <= -2 and wet < 0.6:
+        return 'minecraft:blackstone'
     if exposed_up:
         if patch < 0.5:
             return 'minecraft:cobbled_deepslate'
@@ -338,11 +401,28 @@ def build_sea_and_rock(w):
     for x in range(-SEA_HALF, SEA_HALF):
         for z in range(-SEA_HALF, SEA_HALF):
             H[(x, z)] = height(x, z)
+    # the rock round the walks shoulders up to them: no cell near the forced flat falls away as a sheer wall,
+    # it slopes off about 1.4 per cell
+    flat = [c for c in H if flat_zone(*c)]
+    near = {}
+    for fx, fz in flat:
+        for dx in range(-4, 5):
+            for dz in range(-4, 5):
+                c = (fx + dx, fz + dz)
+                if c in H and not flat_zone(*c):
+                    d = max(abs(dx), abs(dz))
+                    near[c] = min(near.get(c, 9), d)
+    for (x, z), d in near.items():
+        if (x, z) in HULL_CELLS or (STEP_X[0] - 2 <= x <= STEP_X[1] + 5 and z >= 8):
+            continue
+        floor_h = -1 - int(round((d - 1) * 1.4 + (_hash(x, z, 27) - 0.5) * 1.2))
+        if H[(x, z)] < floor_h:
+            H[(x, z)] = floor_h
     # carve the steps and the ledge into the height field
     for x in range(LEDGE[0], LEDGE[1] + 1):
         for z in range(LEDGE[2], LEDGE[3] + 1):
             H[(x, z)] = LEDGE[4]
-    for z, y in STEPS:
+    for z, y, _ in STEPS:
         for x in STEP_X:
             H[(x, z)] = y
         H[(STEP_X[1] + 1, z)] = y                       # the seaward kerb the handrail stands on
@@ -368,7 +448,7 @@ def build_sea_and_rock(w):
     for (x, z), h in H.items():
         if h < SEA_Y or flat_zone(x, z) or (x, z) in HULL_CELLS:
             continue
-        if any(LEDGE[0] - 1 <= x <= LEDGE[1] + 1 and LEDGE[2] - 1 <= z <= LEDGE[3] + 1 for _ in (0,)):
+        if LEDGE[0] - 1 <= x <= LEDGE[1] + 1 and LEDGE[2] - 1 <= z <= LEDGE[3] + 1:
             continue
         if x in STEP_X and 8 <= z <= LEDGE[2]:
             continue
@@ -392,35 +472,148 @@ def build_sea_and_rock(w):
         if h - low >= 2 and len(highs) <= 2 and rnd01(x, h, z, 63) < 0.6:
             w.set((x, h, z), state('cobbled_deepslate_stairs', facing=facing, half='bottom', shape='straight',
                                    waterlogged='false'))
+    weather_rock(w, H)
     return H
 
 
+def _protected(x, z, grow=1):
+    """Cells the rock dressing must not touch: the boat channel (plus `grow`), the walks, steps and ledge."""
+    for dx in range(-grow, grow + 1):
+        for dz in range(-grow, grow + 1):
+            if (x + dx, z + dz) in HULL_CELLS:
+                return True
+    if flat_zone(x, z):
+        return True
+    if LEDGE[0] - 1 <= x <= LEDGE[1] + 1 and LEDGE[2] - 1 <= z <= LEDGE[3] + 1:
+        return True
+    if STEP_X[0] - 1 <= x <= STEP_X[1] + 1 and 8 <= z <= LEDGE[3] + 1:
+        return True
+    return False
+
+
+SIDES = ((1, 0, 'east', 'west'), (-1, 0, 'west', 'east'), (0, 1, 'south', 'north'), (0, -1, 'north', 'south'))
+
+
+def weather_rock(w, H):
+    """Overhangs on the windward faces, wave notches at the waterline, scree aprons at the foot of the faces and
+    boulders along the waterline."""
+    def hh(x, z):
+        return H.get((x, z), BED_Y)
+    dark = ('minecraft:blackstone', state('basalt', axis='y'))
+    # overhangs: the lip of a north or west face juts a cell out over a drop of 3 or more
+    for (x, z), h in list(H.items()):
+        if h < -6 or _protected(x, z, 2) or _bias(x + 0.5, z + 0.5) < 0.7:
+            continue
+        for dx, dz, _, _ in SIDES:
+            nx, nz = x + dx, z + dz
+            if (dx, dz) not in ((-1, 0), (0, -1)) or _protected(nx, nz, 2):
+                continue
+            if hh(nx, nz) <= h - 3 and rnd01(x, h, z, 71) < 0.3:
+                depth = 1 if rnd01(x, h, z, 72) < 0.6 else 2
+                for k in range(depth):
+                    w.set((nx, h - k, nz), w.get((x, h - k, z)) or 'minecraft:deepslate')
+                break
+    # wave notches: one block cut back into a face at -8..-7 where 3 or more of rock stands above
+    for (x, z), h in list(H.items()):
+        if h < -4 or _protected(x, z, 2):
+            continue
+        if any(hh(x + dx, z + dz) < -8 for dx, dz, _, _ in SIDES) and rnd01(x, 0, z, 73) < 0.55:
+            for y in (-8, -7):
+                if y <= h - 3:
+                    w.set((x, y, z), None)
+    # scree: aprons at the foot of the faces, stairs facing out, slabs and loose blocks, 2-4 cells
+    for (x, z), h in list(H.items()):
+        if not (-10 <= h <= -5) or _protected(x, z, 2):
+            continue
+        for dx, dz, out_face, in_face in SIDES:
+            if hh(x - dx, z - dz) >= h + 3:              # the face rises on the far side: the apron runs this way
+                length = 2 + int(rnd01(x, h, z, 74) * 3)
+                for k in range(length):
+                    cx_, cz_ = x + dx * k, z + dz * k
+                    if _protected(cx_, cz_, 2):
+                        break
+                    top = hh(cx_, cz_)
+                    y = top + 1
+                    if y > WATER_TOP + 4 or w.get((cx_, y, cz_)) is not None:
+                        continue
+                    r = rnd01(cx_, y, cz_, 75)
+                    m = 'blackstone' if y <= -7 else 'cobbled_deepslate'
+                    if k == 0 or r < 0.45:
+                        w.set((cx_, y, cz_), state('%s_stairs' % m, facing=in_face, half='bottom',
+                                                   shape='straight', waterlogged='false'))
+                    elif r < 0.8:
+                        w.set((cx_, y, cz_), state('%s_slab' % m, type='bottom', waterlogged='false'))
+                    else:
+                        w.set((cx_, y, cz_), 'minecraft:' + m)
+                break
+    # boulders: clusters of 1-3 blocks, tops at -8..-6, round the waterline and a little offshore
+    n = 0
+    for i in range(400):
+        if n >= 34:
+            break
+        ang = _hash(i, 1, 81) * 2 * math.pi
+        rad = 0.98 + _hash(i, 2, 82) * 0.32
+        bx = int(math.floor(math.cos(ang) * 13.0 * rad))
+        bz = int(math.floor(0.5 + math.sin(ang) * (12.5 if math.sin(ang) > 0 else 10.5) * rad))
+        if _protected(bx, bz, 2) or hh(bx, bz) > -8:
+            continue
+        n += 1
+        size = 1 + int(_hash(i, 3, 83) * 3)
+        for k in range(size):
+            px, pz = bx + (k % 2), bz + (k // 2)
+            if _protected(px, pz, 1):
+                continue
+            top = -8 + int(_hash(i, 4 + k, 84) * 3) - (1 if k else 0)
+            for y in range(BED_Y + 1, top + 1):
+                w.set((px, y, pz), dark[int(_hash(px, y, 85) * 2)])
+            H[(px, pz)] = max(hh(px, pz), top)
+            f = SIDES[int(_hash(i, 9 + k, 86) * 4)][3]
+            if top + 1 <= -6:
+                w.set((px, top + 1, pz), state('blackstone_stairs', facing=f, half='bottom', shape='straight',
+                                               waterlogged='false'))
+
+
 def build_landing(w, H):
-    for z, y in STEPS:
+    fence = state('dark_oak_fence', north='false', south='false', east='false', west='false', waterlogged='false')
+    for z, y, kind in STEPS:
+        worn = True                                      # the walking line (x 5) is worn smooth, the edge rough
         for x in STEP_X:
-            w.set((x, y, z), state('polished_deepslate_stairs', facing='north', half='bottom', shape='straight',
-                                   waterlogged='false'))
+            if kind == 'landing':
+                w.set((x, y, z), 'minecraft:polished_deepslate' if worn and x == STEP_X[0] else
+                      'minecraft:cobbled_deepslate')
+            else:
+                m = 'polished_deepslate' if x == STEP_X[0] or rnd01(x, y, z, 87) < 0.25 else 'cobbled_deepslate'
+                w.set((x, y, z), state('%s_stairs' % m, facing='north', half='bottom', shape='straight',
+                                       waterlogged='false'))
             w.clear(x, y + 1, z, x, y + 4, z)
-        # a rickety handrail on the seaward kerb: dark oak posts, every other one missing near the bottom
+        # a rickety handrail on the seaward kerb: dark oak posts, one missing
         kx = STEP_X[1] + 1
         w.set((kx, y, z), 'minecraft:cobbled_deepslate')
         w.clear(kx, y + 1, z, kx, y + 3, z)
-        if z <= 12 or z % 2 == 0:
-            w.set((kx, y + 1, z), state('dark_oak_fence', north='false', south='false', east='false', west='false',
-                                        waterlogged='false'))
-    # the walk from the porch to the top step: keep it clear
-    w.clear(1, 0, 6, 7, 3, 8)
+        if z != 13:
+            w.set((kx, y + 1, z), fence)
+    # the porch and the trail to the stair head: a groove worn into the rock, edged by slabs where the rock
+    # beside it is no higher than the trail
+    for (x, z), h in H.items():
+        if not trail_zone(x, z):
+            continue
+        w.clear(x, 0, z, x, 4, z)
+        for dx, dz, _, _ in SIDES:
+            nx, nz = x + dx, z + dz
+            if flat_zone(nx, nz) or (nx in STEP_X and nz >= STEPS[0][0]) or (nx, nz) in HULL_CELLS:
+                continue
+            if H.get((nx, nz), BED_Y) == -1 and w.get((nx, 0, nz)) is None:
+                w.set((nx, 0, nz), state('cobbled_deepslate_slab', type='bottom', waterlogged='false'))
     # ledge: flat dark flags with a mooring post and a stray board
     for x in range(LEDGE[0], LEDGE[1] + 1):
         for z in range(LEDGE[2], LEDGE[3] + 1):
             w.set((x, LEDGE[4], z), 'minecraft:polished_blackstone' if rnd01(x, 0, z, 81) < 0.3
                   else 'minecraft:cobbled_deepslate')
             w.clear(x, LEDGE[4] + 1, z, x, LEDGE[4] + 4, z)
-    w.set((8, -7, 15), state('stripped_dark_oak_log', axis='y'))
-    w.set((8, -6, 15), state('dark_oak_fence', north='false', south='false', east='false', west='false',
-                             waterlogged='false'))
-    w.set((4, -7, 16), state('spruce_trapdoor', facing='east', half='bottom', open='false', powered='false',
-                             waterlogged='false'))
+    w.set((LEDGE[1], LEDGE[4] + 1, LEDGE[2]), state('dark_oak_log', axis='y'))
+    w.set((LEDGE[1], LEDGE[4] + 2, LEDGE[2]), fence)
+    w.set((LEDGE[0], LEDGE[4] + 1, LEDGE[3]), state('spruce_trapdoor', facing='east', half='bottom', open='false',
+                                                    powered='false', waterlogged='false'))
 
 
 def plank(x, y, z):
@@ -497,14 +690,14 @@ def build_hut(w):
             w.set((x, 4, z), state('stripped_dark_oak_log', axis='x'))
     # the doorway: posts, lintel (top slab: opening 2.5 high), beam over it
     for y in range(0, 3):
-        w.set((DOOR_X[0] - 1, y, HZ1), state('stripped_dark_oak_log', axis='y'))
-        w.set((DOOR_X[1] + 1, y, HZ1), state('stripped_dark_oak_log', axis='y'))
+        w.set((DOOR_X[0] - 1, y, HZ1), state('dark_oak_log', axis='y'))
+        w.set((DOOR_X[1] + 1, y, HZ1), state('dark_oak_log', axis='y'))
     for x in DOOR_X:
         w.clear(x, 0, HZ1, x, 1, HZ1)
         w.set((x, 2, HZ1), state('dark_oak_slab', type='top', waterlogged='false'))
         w.set((x, -1, HZ1), 'minecraft:dark_oak_planks')                       # threshold board
     for x in range(DOOR_X[0] - 1, DOOR_X[1] + 2):
-        w.set((x, 3, HZ1), state('stripped_dark_oak_log', axis='x'))
+        w.set((x, 3, HZ1), state('dark_oak_log', axis='x'))
     # porch flags and a doorstep
     for x in range(-2, 2):
         for z in (5, 6):
@@ -582,8 +775,8 @@ def build_furniture(w):
         w.set((1, 0, z), state('dark_oak_trapdoor', facing='east', half='bottom', open='true', powered='false',
                                waterlogged='false'))
     # the boy's blanket before the hearth
-    for z in (1, 2):
-        w.set((-3, 0, z), 'minecraft:brown_carpet')
+    for x in (-3, -2):
+        w.set((x, 0, 0), 'minecraft:brown_carpet')
     # the Dursleys' corner (north-east): a low bed, a barrel with candles, a chair under the window
     w.set((3, 0, -3), state('brown_bed', facing='north', part='head', occupied='false'))
     w.set((3, 0, -2), state('brown_bed', facing='north', part='foot', occupied='false'))
@@ -611,19 +804,20 @@ def build_furniture(w):
 
 def build(world=None):
     """Fills `world` (a dict scene cell -> block state; a new one when None) with the set and returns ANCHORS."""
-    w = World({} if world is None else world)
+    _build(World({} if world is None else world))
+    return ANCHORS
+
+
+def _build(w):
     H = build_sea_and_rock(w)
     build_landing(w, H)
     build_hut(w)
-    return ANCHORS
+    return H
 
 
 def build_world():
     w = World()
-    H = build_sea_and_rock(w)
-    build_landing(w, H)
-    build_hut(w)
-    return w, H
+    return w, _build(w)
 
 
 # ---------------------------------------------------------------- anchors
@@ -642,8 +836,8 @@ def _yaw_of(dx, dz):
 
 def _landing_steps():
     pts = [_p(6.0, LEDGE[4] + 1, LEDGE[2] + 0.6)]
-    for z, y in reversed(STEPS):
-        pts.append(_p(6.0, y + 1, z + 0.3))
+    for z, y, kind in reversed(STEPS):
+        pts.append(_p(6.0, y + 1, z + (0.5 if kind == 'landing' else 0.3)))
     pts.append(_p(6.0, 0, 7.6))
     pts.append(_p(3.0, 0, 7.2))
     pts.append(_p(0.0, 0, 6.6))
@@ -651,7 +845,8 @@ def _landing_steps():
 
 
 _b0, _b1 = BOAT_PATH[0], BOAT_PATH[1]
-HAGRID_STOOP, HAGRID_HEAD = 62.0, -25.0
+HAGRID_STOOP, HAGRID_HEAD = 45.0, 30.0
+HAGRID_X_TOL = 0.2
 
 ANCHORS = {
     'sea_center': _p(0.0, SEA_Y, 0.0),
@@ -667,7 +862,7 @@ ANCHORS = {
     'hagrid_outside': {'pos': _p(0.0, 0, 6.35), 'yaw': 180.0},
     'hagrid_inside': {'pos': _p(0.0, 0.2, 2.1), 'yaw': 180.0},
     'hagrid_entry': {'from': _p(0.0, 0, 6.35), 'to': _p(0.0, 0.2, 2.1), 'stoop_deg': HAGRID_STOOP,
-                     'head_deg': HAGRID_HEAD},
+                     'head_deg': HAGRID_HEAD, 'x_tolerance': HAGRID_X_TOL},
     'hut_door_hinge': {'pos': _p(DOOR_X[1] + 1.0, 0, HINGE_Z), 'yaw': 180.0, 'scale': LEAF_SCALE,
                        'mirrored': False, 'fallen_pitch': -90.0, 'ajar_inward_yaw': 174.0},
     'hut_door_hinge_mirrored': {'pos': _p(DOOR_X[0] * 1.0, 0, HINGE_Z), 'yaw': 180.0, 'scale': LEAF_SCALE,
@@ -676,16 +871,18 @@ ANCHORS = {
     'hut_door_fallen_box': [_p(DOOR_X[0], 0, FALLEN_Z[0]), _p(DOOR_X[1] + 1, 0.2 * LEAF_SCALE, FALLEN_Z[1])],
     'hut_doorway': {'x': [DOOR_X[0], DOOR_X[1] + 1], 'y': [0, LINTEL_Y], 'z': [HZ1, HZ1 + 1]},
     'hut_interior_box': [[IX0, 0, IZ0], [IX1 + 1, 4, IZ1 + 1]],
-    'boy_floor': {'feet': _p(-2.5, 1 / 16.0, 2.45), 'head': _p(-2.5, 1 / 16.0, 1.1), 'yaw': 180.0,
+    'boy_floor': {'feet': _p(-1.55, 1 / 16.0, 0.5), 'head': _p(-2.9, 1 / 16.0, 0.5), 'yaw': 90.0,
                   'surface_y': 1 / 16.0},
     'dudley_sofa': {'center': _p(-0.5, 0.5, -1.85), 'head': _p(-1.2, 0.5, -1.85), 'feet': _p(0.15, 0.5, -1.85),
                     'yaw': 90.0, 'seat_top': 0.5, 'seat': [-0.5, 0.5, -1.7, 0.0]},
     'vernon_corner': {'pos': _p(2.4, 0, 0.3), 'yaw': 33.0, 'seat': [3.4, 0.5, 0.5, 90.0]},
     'petunia_corner': {'pos': _p(2.2, 0, -2.4), 'yaw': 19.0, 'bed_seat': [3.3, 0.5625, -2.5, 90.0]},
     'fireplace': {'embers': _p(-4.5, 0.4375, 0.5), 'mouth': _p(-3.0, 0.5, 0.5), 'yaw': -90.0,
+                  'fire_cell': [-5, 0, 0], 'flue_fire_cell': [-5, 5, 0],
                   'flue_top': _p(-4.5, 7.0, 0.5)},
     'window': {'center': _p(HX1 + 0.5, 1.5, 0.5), 'inside': _p(HX1 - 1.8, 0, 0.5), 'outside': _p(HX1 + 2.5, 0, 0.5)},
     'rain_box': [[-26, int(SEA_Y) - 1, -24], [40, 16, 70]],
+    'rain': {'at': [7.0, 3.5, 23.0], 'spread': [33.0, 12.5, 47.0]},
     'RADIUS': RADIUS,
 }
 
@@ -785,13 +982,13 @@ def hagrid_points(root, stoop_deg, head_deg, yaw_deg=180.0):
     return out
 
 
-def hagrid_pass(w, stoop, head, z_from, z_to, y_at):
+def hagrid_pass(w, stoop, head, z_from, z_to, y_at, x=0.0):
     """Worst clearance problems for the walk through the doorway: list of (root z, point) that hit a block."""
     hits = []
     n = int(abs(z_from - z_to) / 0.05)
     for i in range(n + 1):
         z = z_from + (z_to - z_from) * i / n
-        root = (0.0, y_at(z), z)
+        root = (x, y_at(z), z)
         for q in hagrid_points(root, stoop, head):
             if occupied(w, q):
                 hits.append((round(z, 2), tuple(round(v, 3) for v in q)))
@@ -799,7 +996,7 @@ def hagrid_pass(w, stoop, head, z_from, z_to, y_at):
     return hits
 
 
-def check(w, H):
+def check(w):
     problems = []
     A = ANCHORS
     g = w.g
@@ -834,9 +1031,13 @@ def check(w, H):
     # the doorway: stooped he clears it, upright he does not
     def y_at(z):
         return 0.2 if z < FALLEN_Z[1] else 0.0
-    hits = hagrid_pass(w, HAGRID_STOOP, HAGRID_HEAD, 7.2, 2.1, y_at)
-    if hits:
-        problems.append('stooped Hagrid hits the doorway: %s' % hits[:3])
+    for xo in (0.0, -HAGRID_X_TOL, HAGRID_X_TOL):
+        hits = hagrid_pass(w, HAGRID_STOOP, HAGRID_HEAD, 7.2, 2.1, y_at, xo)
+        if hits:
+            problems.append('stooped Hagrid at x %+.2f hits the doorway: %s' % (xo, hits[:3]))
+    ms = min_stoop(w, HAGRID_HEAD)
+    if ms is None or ms > HAGRID_STOOP - 4:
+        problems.append('the anchor stoop %.0f is not 4 degrees past the least that clears (%s)' % (HAGRID_STOOP, ms))
     if not hagrid_pass(w, 0, 0, 7.2, 2.1, y_at):
         problems.append('upright Hagrid clears the doorway: it is not low enough')
     # the closed leaves: their volume (back face to front face, 3 tall) is air
@@ -925,6 +1126,10 @@ def check(w, H):
         problems.append('bow %.2f is not just off the ledge face %d' % (bow_z, ledge_face))
     # rain box covers the path and the islet; the sea spread covers the path with margin
     (rx1, ry1, rz1), (rx2, ry2, rz2) = A['rain_box']
+    rc = [(rx1 + rx2) / 2.0, (ry1 + ry2) / 2.0, (rz1 + rz2) / 2.0]
+    rs = [(rx2 - rx1) / 2.0, (ry2 - ry1) / 2.0, (rz2 - rz1) / 2.0]
+    if rc != A['rain']['at'] or rs != A['rain']['spread'] or not all(1 <= v <= 100 for v in rs):
+        problems.append('rain at/spread %s does not match rain_box %s' % (A['rain'], A['rain_box']))
     for x, z in BOAT_PATH + [(-13, -12), (13, 13)]:
         if not (rx1 + 6 <= x <= rx2 - 6 and rz1 + 4 <= z <= rz2 - 4):
             problems.append('rain box does not cover %s with margin' % ((x, z),))
@@ -951,11 +1156,13 @@ def local_grid(g):
     return {(x - TEMPLATE_AT[0], y - TEMPLATE_AT[1], z - TEMPLATE_AT[2]): s for (x, y, z), s in g.items()}
 
 
-def min_stoop(w):
+def min_stoop(w, head=None, x=0.0):
+    head = HAGRID_HEAD if head is None else head
+
     def y_at(z):
         return 0.2 if z < FALLEN_Z[1] else 0.0
     for a in range(0, 91):
-        if not hagrid_pass(w, a, HAGRID_HEAD, 7.2, 2.1, y_at):
+        if not hagrid_pass(w, a, head, 7.2, 2.1, y_at, x):
             return a
     return None
 
@@ -981,7 +1188,7 @@ def main():
         assert -RADIUS <= lo and hi <= RADIUS, ('template beyond radius', axis, lo, hi)
     assert WATER_TOP <= SEA_Y - 2, 'the block water must sit at least a block under the rough_sea surface'
     assert LEDGE[4] + 1 > SEA_Y + 0.6 * 1.5, 'the landing ledge must stay above the crests at intensity 1.5'
-    problems = check(w, H)
+    problems = check(w)
     assert not problems, '\n'.join(problems[:40]) + ('\n... %d in all' % len(problems))
     n_pal, n_blocks = write_template(local_grid(g), SIZE, OUT)
     print('letter_island.nbt: size %s, %d blocks, %d palette states, %d bytes; TEMPLATE_AT %s RADIUS %d' % (
@@ -993,8 +1200,11 @@ def main():
                                     sorted(counts.items(), key=lambda kv: -kv[1])[:24]))
     top, side = lintel_clearance(HAGRID_STOOP, HAGRID_HEAD)
     print('  Hagrid at 1.5: stooped %.0f deg (head %+.0f) top under the lintel %.3f (lintel %.2f), jamb margin %.3f;'
-          ' the least stoop that clears the walk: %s deg' % (HAGRID_STOOP, HAGRID_HEAD, top, LINTEL_Y, side,
-                                                             min_stoop(w)))
+          ' the least stoop that clears the walk: %s deg (at x +-%.2f: %s / %s)' % (
+              HAGRID_STOOP, HAGRID_HEAD, top, LINTEL_Y, side, min_stoop(w), HAGRID_X_TOL,
+              min_stoop(w, None, -HAGRID_X_TOL), min_stoop(w, None, HAGRID_X_TOL)))
+    for hd in (-25, 0, 20, 30, 40):
+        print('    head %+d: least stoop %s' % (hd, min_stoop(w, hd)))
     for k, v in ANCHORS.items():
         print('  %s: %s' % (k, v))
 

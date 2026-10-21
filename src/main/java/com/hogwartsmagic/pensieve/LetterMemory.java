@@ -27,6 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class LetterMemory {
     public static final String SCENE = "letter";
+    public static final String HUT_SCENE = "letter_hut";
     public static final String TAG_PENDING = "LetterMemoryPending";
     private static final String PERSISTED = "PlayerPersisted";
     private static final Logger LOGGER = LogUtils.getLogger();
@@ -37,6 +38,11 @@ public final class LetterMemory {
     private static final Map<UUID, String> RECIPIENT = new ConcurrentHashMap<>();
     /** Gametests: how many times each player's letter screen has been opened by this class. */
     private static final Map<UUID, Integer> OPENED = new ConcurrentHashMap<>();
+
+    /** Players whose chain reached {@code letter_hut}: only an END there counts as the memory watched whole. */
+    private static final java.util.Set<UUID> IN_HUT = ConcurrentHashMap.newKeySet();
+    /** Players who died during the memory (or its wake): the letter opens when they have respawned. */
+    private static final Map<UUID, String> AFTER_RESPAWN = new ConcurrentHashMap<>();
 
     private static boolean listening;
     private static boolean warnedMissing;
@@ -52,6 +58,11 @@ public final class LetterMemory {
         if (listening) return;
         listening = true;
         PensieveSessions.addHomeListener(LetterMemory::onHome);
+        PensieveSessions.addSceneEnterListener(HUT_SCENE, (player, session) -> {
+            if (RECIPIENT.containsKey(player.getUUID())) IN_HUT.add(player.getUUID());
+        });
+        net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener(LetterMemory::onDeath);
+        net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener(LetterMemory::onRespawn);
     }
 
     private static CompoundTag persisted(Player player) {
@@ -90,6 +101,7 @@ public final class LetterMemory {
             return false;
         }
         RECIPIENT.put(player.getUUID(), recipient);
+        IN_HUT.remove(player.getUUID());
         return true;
     }
 
@@ -99,7 +111,8 @@ public final class LetterMemory {
         String recipient = RECIPIENT.remove(player.getUUID());
         if (recipient == null) return;
         // Only the last scene ends the chain with END; leaving or a yank mid-chain keeps the flag.
-        if (reason == ExitReason.END) clearPending(player);
+        // and only the last one counts: a chain that ended early (a missing next scene) never reached the hut.
+        if (IN_HUT.remove(player.getUUID()) && reason == ExitReason.END) clearPending(player);
         long now = player.level().getGameTime();
         // A wake (sent just before the move home, same tick) plays out before the letter appears.
         boolean woke = PensieveSessions.lastWakeForTests(player.getUUID()) >= now - 1;
@@ -108,6 +121,26 @@ public final class LetterMemory {
         } else {
             open(player, recipient);
         }
+    }
+
+    /**
+     * Died during the memory or the wake after it: the tag stays, the recipient is dropped (so a later preview of
+     * the scene is not mistaken for the real trigger) and the letter opens once the player has respawned.
+     */
+    private static void onDeath(net.minecraftforge.event.entity.living.LivingDeathEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+        UUID id = player.getUUID();
+        String recipient = RECIPIENT.remove(id);
+        Due due = DUE.remove(id);
+        IN_HUT.remove(id);
+        if (recipient == null && due != null) recipient = due.recipient();
+        if (recipient != null) AFTER_RESPAWN.put(id, recipient);
+    }
+
+    private static void onRespawn(net.minecraftforge.event.entity.player.PlayerEvent.PlayerRespawnEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+        String recipient = AFTER_RESPAWN.remove(player.getUUID());
+        if (recipient != null) open(player, recipient);
     }
 
     /** Every server tick (END phase): opens the letters whose wake is over. */
@@ -136,6 +169,13 @@ public final class LetterMemory {
     public static void onLogout(ServerPlayer player) {
         DUE.remove(player.getUUID());
         RECIPIENT.remove(player.getUUID());
+        AFTER_RESPAWN.remove(player.getUUID());
+        IN_HUT.remove(player.getUUID());
+    }
+
+    /** Gametests: whether a memory this class started still holds a recipient for the player. */
+    public static boolean hasRecipient(UUID id) {
+        return RECIPIENT.containsKey(id);
     }
 
     /** Gametests: whether the letter screen is waiting on a wake. */

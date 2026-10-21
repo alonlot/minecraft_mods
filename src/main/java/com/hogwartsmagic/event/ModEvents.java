@@ -490,6 +490,11 @@ public class ModEvents {
         if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player) {
             // A crash or stop mid-memory: back out of the memory dimension to where they dived.
             com.hogwartsmagic.pensieve.PensieveSessions.onLogin(player);
+            // Attached first: a new player has none, and a detached compound written back below would erase
+            // whatever spawnFirstYearInvite put in the real one (the Letter memory's pending flag).
+            if (!player.getPersistentData().contains("PlayerPersisted")) {
+                player.getPersistentData().put("PlayerPersisted", new net.minecraft.nbt.CompoundTag());
+            }
             net.minecraft.nbt.CompoundTag persisted = player.getPersistentData().getCompound("PlayerPersisted");
             net.minecraft.nbt.CompoundTag modData = persisted.getCompound(ExampleMod.MODID);
             String learned = modData.getString("LearnedSpells");

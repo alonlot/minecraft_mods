@@ -1591,6 +1591,42 @@ def hagrid_hand(root, yaw, arm_add, crouch=True, holding=True):
     return arm_tip(root, yaw, GIANT, 'right_arm', [x, arm_add[1], arm_add[2]])
 
 
+def hagrid_hand_set(root, yaw, rot):
+    """Hagrid's right hand with the arm in limbs mode set at absolute rot: vanilla's held-item raise, the crouch's
+    +0.4 rad and AnimationUtils.bobModelPart's idle sway (up to 0.1 rad z, 0.05 rad x) are all overwritten, so the
+    only vanilla state left is the crouch's arm pivot (y 5.2) and the model lowered 2/16 per scale."""
+    r = [root[0], root[1] - 2.0 / 16.0 * GIANT, root[2]]
+    return arm_tip(r, yaw, GIANT, 'right_arm', rot, pivot_px=(-5, 5.2, 0))
+
+
+def part_corners(root, yaw, scale, pivot, rot, box):
+    """World corners of a model part's box (px ranges ((x0, x1), (y0, y1), (z0, z1)) about its pivot)."""
+    out = []
+    for x in box[0]:
+        for y in box[1]:
+            for z in box[2]:
+                v = HM._turned(x, y, z, *[math.radians(c) for c in rot])
+                out.append(HM.model_to_world(root, yaw, scale, pivot[0] + v[0], pivot[1] + v[1], pivot[2] + v[2]))
+    return out
+
+
+def inside_part(root, yaw, scale, pivot, rot, box, p, margin_px=0.0):
+    """Whether world point p lies inside the part's box grown by margin_px."""
+    o = HM.model_to_world(root, yaw, scale, *pivot)
+    loc = []
+    for e in ((1, 0, 0), (0, 1, 0), (0, 0, 1)):
+        v = HM._turned(*e, *[math.radians(c) for c in rot])
+        w = HM.model_to_world(root, yaw, scale, pivot[0] + v[0], pivot[1] + v[1], pivot[2] + v[2])
+        a = [w[i] - o[i] for i in range(3)]
+        loc.append(sum((p[i] - o[i]) * a[i] for i in range(3)) / sum(c * c for c in a))
+    return all(box[i][0] - margin_px <= loc[i] <= box[i][1] + margin_px for i in range(3))
+
+
+ARM_BOX = ((-3.25, 1.25), (-2.25, 10.25), (-2.25, 2.25))          # the right arm with its sleeve layer
+HAND_BOX = ((-3.25, 1.25), (6.0, 10.25), (-2.25, 2.25))           # its last 4 px: the hand
+HEAD_BOX = ((-4.5, 4.5), (-8.5, 0.5), (-4.5, 4.5))                # the head with its hat layer
+
+
 def solve_reach(root, yaw, scale, torso_a, target, seed=(-105.0, -25.0)):
     """The boy's right arm (absolute x and y rotation) that puts his hand tip nearest `target`: coordinate descent
     from seed over the rig's arm pivot for a torso pitched torso_a. Returns ((rx, ry), tip, distance)."""
@@ -1745,7 +1781,9 @@ def hut_scene():
     hc.span(T_WIZ - 0.05, T_WIZ + 0.9, 'TALK', 3, 6)
     # the letter, from his coat
     T_COAT, T_HOLD, T_OFFER = 39.9, 40.5, 41.0
-    ARM_OFFER = [-34.8, -14.0, 0]
+    # the right arm runs in limbs mode set (below): the offer is absolute, the same hand as the solved add-mode
+    # offer [-34.8, -14, 0] on top of the held-item raise and the crouch, now without the idle sway
+    ARM_OFFER = [round(-34.8 + ITEM_ARM_X + math.degrees(0.4)), -14, 0]   # whole degrees, as the limbs emit them
     hl['right_arm'].change(T_COAT, [-70, 0, -40], 0.4)        # into the coat
     hl['right_arm'].change(T_HOLD, [-40, 0, -24], 0.3)
     hl['right_arm'].change(T_OFFER, ARM_OFFER, 0.6)
@@ -1757,9 +1795,10 @@ def hut_scene():
     ha.append(act(T_TAKE, 'equip', slot='mainhand', item='minecraft:air'))
     hl['right_arm'].change(T_TAKE + 0.2, [-40, 0, 0], 0.8)
     hl['head'].change(T_TAKE + 0.4, [16, 0, 0], 0.8)
-    sc.actor('hagrid', skin=SKIN['hagrid'], scale=GIANT, mover=hm, life=hl, clips=hc, actions=ha)
+    hag = sc.actor('hagrid', skin=SKIN['hagrid'], scale=GIANT, mover=hm, life=hl, clips=hc, actions=ha)
+    hag['limbs']['right_arm']['mode'] = 'set'             # no vanilla item raise, crouch lift or idle sway
     sc.unseen['hagrid'] = [(0.0, 10.2)]
-    HAND = hagrid_hand(CROUCH, Y_OFFER, ARM_OFFER)
+    HAND = hagrid_hand_set(CROUCH, Y_OFFER, ARM_OFFER)
 
     # ---- the boy on the floor by the fire: a rig (lying, then up on his elbows, sitting, reaching)
     k = kpx(KID)
@@ -1900,26 +1939,35 @@ def hut_scene():
     sc.key(45.6, ahead([root[0], 0, root[2]], y_boy - 180, -0.62, side=0.28, y=1.06),
            [HAND[0], HAND[1] + 0.4, HAND[2]], 52)
 
-    # H11, first person: the camera sits just off the boy's face (the eye is on the head's front face, so 0.07 out
-    # along the view clears the head and its hat layer), looking at Hagrid's hand, then at the two hands meeting
-    def fp_cam(a, head_abs, yaw, target):
+    # H11, the boy's view: the camera at his eye, pulled 0.35 back along the view and 0.2 out to his right, beside
+    # his head (asserted clear of it), so the two hands meet about 0.55 away and Hagrid's fills about half the frame
+    def fp_cam(a, head_abs, yaw, target, back=0.38, right=0.36):
         e = eye_of(root, yaw, KID, torso_pose(a)['head'][1], (head_abs, 0, 0))
         d = [target[i] - e[i] for i in range(3)]
         n = math.sqrt(sum(c * c for c in d))
-        return [e[i] + d[i] / n * 0.07 for i in range(3)]
+        rx_, rz_ = -math.cos(math.radians(yaw)), -math.sin(math.radians(yaw))
+        hp = torso_pose(a)['head'][1]
+        while True:                                           # out to the right until clear of the head (+2 px)
+            c_ = [e[0] - d[0] / n * back + rx_ * right, e[1] - d[1] / n * back + 0.03,
+                  e[2] - d[2] / n * back + rz_ * right]
+            if not inside_part(root, yaw, KID, hp, (head_abs, 0, 0), HEAD_BOX, c_, margin_px=2.0):
+                return c_
+            right += 0.01
     MEET = [(HAND[i] + TIP[i]) / 2 for i in range(3)]
     LOOK0 = [HAND[0], HAND[1] - 0.08, HAND[2]]
-    C0 = fp_cam(-2, -2 + LOOK - 6, BOY_YAW, LOOK0)
-    CT = fp_cam(LEAN, LEAN + LOOK, BOY_YAW, MEET)
-    sc.key(45.6, C0, LOOK0, 66, cut=True)
-    sc.key(T_REACH, C0, LOOK0, 66)
+    POSE_PRE = (-2, -2 + LOOK - 6)                            # (torso, absolute head) before and at the take
+    POSE_TAKE = (LEAN, LEAN + LOOK)
+    C0 = fp_cam(POSE_PRE[0], POSE_PRE[1], BOY_YAW, LOOK0)
+    CT = fp_cam(POSE_TAKE[0], POSE_TAKE[1], BOY_YAW, MEET)
+    sc.key(45.6, C0, LOOK0, 70, cut=True)
+    sc.key(T_REACH, C0, LOOK0, 70)
     sc.key(T_TAKE - 0.12, CT, MEET, 70)
     sc.key(T_TAKE + 0.15, CT, MEET, 70)
     pull = arm_tip(root, BOY_YAW, KID, 'right_arm', [-66, 0, -14], pivot_px=torso_pose(-4)['right_arm'][1])
-    C1 = fp_cam(-4, 2, BOY_YAW, pull)
-    C2 = fp_cam(-4, 6, BOY_YAW, pull)
-    sc.key(T_TAKE + 1.6, C1, pull, 64)
-    sc.key(LEN, C2, [pull[0], pull[1] - 0.03, pull[2]], 58)
+    C1 = fp_cam(-4, 2, BOY_YAW, pull, back=0.16, right=0.34)
+    C2 = fp_cam(-4, 6, BOY_YAW, pull, back=0.16, right=0.34)
+    sc.key(T_TAKE + 1.6, C1, pull, 66)
+    sc.key(LEN, C2, [pull[0], pull[1] - 0.03, pull[2]], 60)
     T_CLOSE = 56.4
     sc.ev(T_CLOSE, 'effect', 'eyes_close', at=[0, 0, 0], duration=50)
     assert T_CLOSE + 2.5 < LEN
@@ -1959,18 +2007,56 @@ def hut_scene():
         assert T_IN > T_FLAT, 'Hagrid steps in only once the leaves are down'
         # the take happens on screen: the boy's hand tip meets Hagrid's hand (the two held letters swap there),
         # both inside the first-person view cone, and the reaching hand comes into frame on its way there
-        if D_TAKE > 0.08:
-            problems.append("the boy's hand is %.3f from Hagrid's at the take" % D_TAKE)
+        # the gap, with the worst case of what is not keyed: Hagrid's arm is in set mode (no vanilla sway), but his
+        # life layer still nudges the arm pivot with its weight shifts (a few degrees of hip turn: <= 0.5 px at 1.5)
+        GAP_SLACK = 0.5 * kpx(GIANT)
+        if D_TAKE + GAP_SLACK > 0.15:
+            problems.append("the boy's hand is %.3f (+%.3f) from Hagrid's at the take" % (D_TAKE, GAP_SLACK))
+        assert hag['limbs']['right_arm']['mode'] == 'set'
         cam = sample_cam(scene['camera'], tk(T_TAKE))
         for what, p_ in (("Hagrid's hand", HAND), ("the boy's hand", TIP)):
             va = view_angle(cam, MEET, p_)
             if va > 26.0:
                 problems.append('%s is %.1f degrees off the camera axis at the take' % (what, va))
-            if not 0.12 < math.dist(cam, p_) < 0.7:
+            if not 0.45 < math.dist(cam, p_) < 0.8:
                 problems.append('%s is %.2f from the camera at the take' % (what, math.dist(cam, p_)))
+        # how much of the frame the hands fill, and nothing of them near the near plane (0.05)
+        fov = 70.0
+        ax_ = [MEET[i] - cam[i] for i in range(3)]
+        na = math.sqrt(sum(c * c for c in ax_))
+        ax_ = [c / na for c in ax_]
+        hcorners = part_corners(CROUCH, Y_OFFER, GIANT, (-5, 5.2, 0), ARM_OFFER, HAND_BOX)
+        hcorners = [[c[0], c[1] - 2.0 / 16.0 * GIANT, c[2]] for c in hcorners]
+        letter = [[HAND[0] + dx, HAND[1] + dy, HAND[2] + dz] for dx in (-0.16, 0.16) for dy in (-0.16, 0.16)
+                  for dz in (-0.16, 0.16)]
+        tp = torso_pose(LEAN, head=(LOOK, 0, 0), r_arm=REACH)
+        bcorners = part_corners(root, BOY_YAW, KID, tp['right_arm'][1], tp['right_arm'][0], HAND_BOX)
+        up0 = (0.0, 1.0, 0.0)                              # the screen's vertical: its share of the frame height
+        rgt = [ax_[1] * up0[2] - ax_[2] * up0[1], ax_[2] * up0[0] - ax_[0] * up0[2], ax_[0] * up0[1] - ax_[1] * up0[0]]
+        nr = math.sqrt(sum(c * c for c in rgt))
+        rgt = [c / nr for c in rgt]
+        upv = [rgt[1] * ax_[2] - rgt[2] * ax_[1], rgt[2] * ax_[0] - rgt[0] * ax_[2], rgt[0] * ax_[1] - rgt[1] * ax_[0]]
+        elev = [math.degrees(math.atan2(sum((p_[i] - cam[i]) * upv[i] for i in range(3)),
+                                        sum((p_[i] - cam[i]) * ax_[i] for i in range(3)))) for p_ in hcorners]
+        frac = (max(elev) - min(elev)) / fov
+        if frac > 0.6:
+            problems.append("Hagrid's hand fills %.2f of the frame height at the take" % frac)
+        near = min(sum((p_[i] - cam[i]) * ax_[i] for i in range(3)) for p_ in hcorners + letter + bcorners)
+        if near < 0.2:
+            problems.append('the hands come %.2f from the camera plane at the take (near plane 0.05)' % near)
+        # the camera beside the boy's head, never inside it or his arm, at every H11 key
+        for key_t, c_, (a_, h_) in ((45.6, C0, POSE_PRE), (T_TAKE, CT, POSE_TAKE), (T_TAKE + 1.6, C1, (-4, 2)),
+                                    (LEN, C2, (-4, 6))):
+            tq = torso_pose(a_, head=(h_ - a_, 0, 0))
+            if inside_part(root, BOY_YAW, KID, tq['head'][1], tq['head'][0], HEAD_BOX, c_, margin_px=1.5):
+                problems.append("the H11 camera at %.1f is inside the boy's head" % key_t)
+            arm = tp['right_arm'] if key_t == T_TAKE else tq['right_arm']
+            if inside_part(root, BOY_YAW, KID, arm[1], arm[0], ARM_BOX, c_, margin_px=1.5):
+                problems.append("the H11 camera at %.1f is inside the boy's arm" % key_t)
+        print('  the take: frame %.2f, nearest %.2f' % (frac, near))
         print('  the take: hands %.3f apart; off the axis Hagrid %.1f, boy %.1f degrees; %.2f from the camera' % (
             D_TAKE, view_angle(cam, MEET, HAND), view_angle(cam, MEET, TIP), math.dist(cam, MEET)))
-        for f in (0.55, 0.7, 0.85):                           # the second half of the way in, inside fov 66
+        for f in (0.55, 0.7, 0.85):                           # the second half of the way in, inside fov 70
             t_ = T_REACH + f * (T_TAKE - 0.12 - T_REACH)
             g = 3 * f * f - 2 * f ** 3
             a_ = -2 + (LEAN + 2) * g

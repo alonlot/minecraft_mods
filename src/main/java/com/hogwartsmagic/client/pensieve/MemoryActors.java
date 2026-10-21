@@ -6,6 +6,7 @@ import com.hogwartsmagic.entity.MemoryRowboatEntity;
 import com.hogwartsmagic.entity.OwlEntity;
 import com.hogwartsmagic.client.renderer.PetrifiedRemainsRenderer;
 import com.hogwartsmagic.mixin.client.LivingEntityUseAccessor;
+import com.hogwartsmagic.pensieve.scene.EyeEase;
 import com.hogwartsmagic.pensieve.scene.Airborne;
 import com.hogwartsmagic.pensieve.scene.EquipTimeline;
 import com.hogwartsmagic.pensieve.scene.HumanMotion;
@@ -246,10 +247,20 @@ public final class MemoryActors {
             Entity e = a.entity;
             return new float[]{
                     (float) (Mth.lerp(partial, e.xo, e.getX()) - origin.getX()),
-                    (float) (Mth.lerp(partial, e.yo, e.getY()) + e.getEyeHeight() * a.def.scale() - origin.getY()),
+                    (float) (Mth.lerp(partial, e.yo, e.getY()) + eyeHeightOf(a) * a.def.scale() - origin.getY()),
                     (float) (Mth.lerp(partial, e.zo, e.getZ()) - origin.getZ())};
         }
         return null;
+    }
+
+    /**
+     * The eye height a camera aims at: a player actor's eases between standing and crouching over
+     * {@link EyeEase#TICKS} from its sneak/stand cues (vanilla swaps it in one frame, which jolts a following
+     * camera); anything else keeps the entity's own.
+     */
+    private static float eyeHeightOf(ActorRuntime a) {
+        if (!a.player) return a.entity.getEyeHeight();
+        return EyeEase.eyeHeight(a.crouchFraction(PensieveClientState.sceneTime(PensieveClientState.partial())));
     }
 
     /** The rowboats on screen, for the sea's depth lid ({@link RoughSeaRenderer}). */

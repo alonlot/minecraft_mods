@@ -2625,14 +2625,28 @@ CAM_CLEAR = 0.15          # blocks from the camera to any part box of any player
 NEAR_PLANE = 0.05
 
 
+EYE_EASE_TICKS = 4.0
+
+
 def actor_eye_height(a, t):
-    """A player actor's eye above its root at tick t, as MemoryActors.actorEye reads it (getEyeHeight times its
-    scale): crouched (1.27) from a `sneak` until a `stand`, else 1.62. It snaps on the action's tick."""
-    crouch = False
+    """A player actor's eye above its root at tick t, as MemoryActors.actorEye reads it (EyeEase: 1.62 standing,
+    1.27 crouched, smoothstepped over 4 ticks from each `sneak`/`stand`, an interrupted change continuing from where
+    it had got to, times its scale)."""
+    def at(frm, tgt, start, tt):
+        u = (tt - start) / EYE_EASE_TICKS
+        if not u > 0:
+            return frm
+        if u >= 1:
+            return tgt
+        return frm + (tgt - frm) * (u * u * (3 - 2 * u))
+    frm, tgt, start = 0.0, 0.0, float('-inf')
     for x in sorted(a.get('actions', []), key=lambda x: x['t']):
-        if x['t'] <= t and x['do'] in ('sneak', 'stand'):
-            crouch = x['do'] == 'sneak'
-    return (1.27 if crouch else 1.62) * a.get('scale', 1.0)
+        if x['do'] in ('sneak', 'stand') and x['t'] <= t:
+            frm = at(frm, tgt, start, x['t'])
+            tgt = 1.0 if x['do'] == 'sneak' else 0.0
+            start = x['t']
+    f = at(frm, tgt, start, t)
+    return (1.62 + (1.27 - 1.62) * f) * a.get('scale', 1.0)
 
 
 def engine_look(scene, cam, t):

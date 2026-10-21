@@ -71,6 +71,27 @@ public final class ActorRuntime {
     /** Per humanoid part (HumanMotion order): how much life it gets; damped where the scene keys that part. */
     final float[] lifeGain = new float[HumanMotion.PARTS];
 
+    private float[] crouchTimes;
+    private boolean[] crouchPoses;
+
+    /** How far into a crouch this actor is at scene time {@code t} (0 standing, 1 crouched), eased. */
+    float crouchFraction(float t) {
+        if (crouchTimes == null) {
+            int n = 0;
+            for (SceneDef.ActionCue c : actions) if ("sneak".equals(c.action()) || "stand".equals(c.action())) n++;
+            crouchTimes = new float[n];
+            crouchPoses = new boolean[n];
+            int i = 0;
+            for (SceneDef.ActionCue c : actions) {
+                if ("sneak".equals(c.action()) || "stand".equals(c.action())) {
+                    crouchTimes[i] = c.t();
+                    crouchPoses[i++] = "sneak".equals(c.action());
+                }
+            }
+        }
+        return com.hogwartsmagic.pensieve.scene.EyeEase.fraction(crouchTimes, crouchPoses, t);
+    }
+
     ActorRuntime(SceneDef.ActorDef def, Entity entity, boolean player, List<SceneDef.ActionCue> actions) {
         this.poseCues = byTime(def.poses());
         this.animCues = byTime(def.anims());

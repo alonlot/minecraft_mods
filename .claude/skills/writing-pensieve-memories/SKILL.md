@@ -247,6 +247,7 @@ Effects: `lightning` - one visual-only bolt with thunder; `eyes_open` / `eyes_cl
 ### `camera[]`
 `{ t, pos:[x,y,z], look_at?, fov?, roll?, ease?, cut? }`, sorted by time. Defaults: `fov` 70, `roll` 0, ease `in_out`.
 - `pos` is the camera (eye) position. `look_at` is `"actor:<id>"` (that actor's eye) or `[x,y,z]`; without it the camera looks straight along +Z.
+- A player actor's eye (`look_at: "actor:<id>"`) eases between 1.62 and 1.27 (times scale) over 4 ticks (smoothstep) from each `sneak`/`stand`, so a crouch does not jolt the camera (`EyeEase`); a generator mirrors it as `actor_eye_height`.
 - Between keys position, look target, fov and roll are interpolated (so `look_at` can slide from one actor to another).
 - `"cut": true`: the camera holds the previous key until this key's `t`, then jumps to it with no blend. Use for hard cuts. Put the cut key slightly before the action it should catch. A cut is a hard cut anywhere in the set: the client meshes the sections round each shot a cut lands in (camera and `look_at` point, within 40 blocks) up to 3 s ahead (`client/pensieve/SetWarmup`), and on the frame the camera jumps it rebuilds the visible-section list at once (`PensieveOcclusionGraphMixin`), so the new shot never streams in. A shot whose interest is farther than 40 blocks from both its camera and its `look_at` point can still show far sections arriving: aim `look_at` at what matters.
 - Before the first key it holds the first; after the last it holds the last.

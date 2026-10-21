@@ -93,12 +93,16 @@ public final class PensieveSessions {
     public static final int HANDOVER_FADE_TICKS = 20;
     /** The {@code wake} end action: how long the eyes take to open on the real world once the return is over. */
     public static final int WAKE_TICKS = 40;
+    /** Ticks the client holds its return black after a move home (its {@code PensieveTimeline.RETURN_TICKS}). */
+    public static final int RETURN_TICKS = 15;
+    /** Ticks from the move home until that return is over and the world shows again, with a little slack. */
+    public static final int RETURN_DONE_TICKS = RETURN_TICKS + 5;
     /**
      * Ticks from the move home until a {@code wake} has played out on the client: its return (the camera rising out
      * of the basin, {@code PensieveTimeline.RETURN_TICKS}, held black) plus {@link #WAKE_TICKS}, and a little slack.
      * Whatever should come after the wake (the Sorting's house reveal) waits this long after the home callback.
      */
-    public static final int WAKE_DONE_TICKS = 15 + WAKE_TICKS + 5;
+    public static final int WAKE_DONE_TICKS = RETURN_TICKS + WAKE_TICKS + 5;
 
     private static final List<Session> SESSIONS = new ArrayList<>();
     private static final Map<UUID, Session> BY_VIEWER = new ConcurrentHashMap<>();

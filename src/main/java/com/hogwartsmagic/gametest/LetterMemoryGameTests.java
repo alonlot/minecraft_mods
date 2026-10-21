@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * The Letter memory trigger: the once-only flag, the old-save path, what each way home does to the flag and when the
@@ -96,6 +97,31 @@ public final class LetterMemoryGameTests {
             left.set(true);
             PensieveSessions.leave(p, reason);
         });
+    }
+
+    /**
+     * Watches the way home of a player who left early (no wake): the letter must be queued and not yet open on the
+     * tick the player is back, and open only {@code RETURN_DONE_TICKS} later, when the client's return black is over.
+     * Returns the two game times (home, opened), -1 until seen.
+     */
+    private static AtomicLong[] watchReturnDelay(GameTestHelper helper, ServerPlayer p, AtomicBoolean left) {
+        AtomicLong home = new AtomicLong(-1), opened = new AtomicLong(-1);
+        helper.onEachTick(() -> {
+            long now = helper.getLevel().getGameTime();
+            if (left.get() && home.get() < 0 && !PensieveSessions.isViewer(p)) {
+                home.set(now);
+                helper.assertTrue(LetterMemory.openedCount(p.getUUID()) == 0, "the letter must wait out the return");
+                helper.assertTrue(LetterMemory.awaitingOpen(p.getUUID()), "the letter should be queued");
+            }
+            if (home.get() >= 0 && opened.get() < 0 && LetterMemory.openedCount(p.getUUID()) == 1) opened.set(now);
+        });
+        return new AtomicLong[] {home, opened};
+    }
+
+    private static void assertReturnDelay(GameTestHelper helper, AtomicLong[] times) {
+        helper.assertTrue(times[0].get() >= 0 && times[1].get() >= 0, "not home and opened yet");
+        helper.assertTrue(times[1].get() - times[0].get() >= PensieveSessions.RETURN_DONE_TICKS - 1,
+                "the letter opened " + (times[1].get() - times[0].get()) + " ticks after the move home, before the return black was over");
     }
 
     @GameTest(template = EMPTY, batch = "letter_pending_starts", timeoutTicks = 100)
@@ -177,11 +203,13 @@ public final class LetterMemoryGameTests {
         helper.assertTrue(LetterMemory.tryStart(p, letter(p)), "the memory should start");
         AtomicBoolean left = new AtomicBoolean();
         leaveOncePlaying(helper, p, ExitReason.LEFT, left);
+        AtomicLong[] times = watchReturnDelay(helper, p, left);
         helper.succeedWhen(() -> {
             helper.assertTrue(left.get(), "not left yet");
             helper.assertTrue(!PensieveSessions.isViewer(p), "still a viewer");
             helper.assertTrue(LetterMemory.isPending(p), "leaving early keeps the flag");
             helper.assertTrue(LetterMemory.openedCount(p.getUUID()) == 1, "the letter should open once");
+            assertReturnDelay(helper, times);
             helper.assertTrue(LetterMemory.tryStart(p, letter(p)), "the next use plays the memory again");
             PensieveSessions.leave(p, ExitReason.ABORT);
             logout(helper, p);
@@ -197,11 +225,13 @@ public final class LetterMemoryGameTests {
         helper.assertTrue(LetterMemory.tryStart(p, letter(p)), "the memory should start");
         AtomicBoolean yanked = new AtomicBoolean();
         leaveOncePlaying(helper, p, ExitReason.YANK, yanked);
+        AtomicLong[] times = watchReturnDelay(helper, p, yanked);
         helper.succeedWhen(() -> {
             helper.assertTrue(yanked.get(), "not yanked yet");
             helper.assertTrue(!PensieveSessions.isViewer(p), "still a viewer");
             helper.assertTrue(LetterMemory.isPending(p), "a yank keeps the flag");
             helper.assertTrue(LetterMemory.openedCount(p.getUUID()) == 1, "the letter should open once");
+            assertReturnDelay(helper, times);
             logout(helper, p);
             LOGGER.info("LETTERMEMORY-GAMETEST PASS yankKeepsPending");
         });

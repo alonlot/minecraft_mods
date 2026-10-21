@@ -119,7 +119,8 @@ public final class LetterMemory {
         if (woke) {
             DUE.put(player.getUUID(), new Due(recipient, now + PensieveSessions.WAKE_DONE_TICKS));
         } else {
-            open(player, recipient);
+            // Not a wake: the client still holds the return black for RETURN_TICKS; open once the world shows.
+            DUE.put(player.getUUID(), new Due(recipient, now + PensieveSessions.RETURN_DONE_TICKS));
         }
     }
 

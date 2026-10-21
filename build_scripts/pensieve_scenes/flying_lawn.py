@@ -19,13 +19,23 @@ The set
   - The lawn: a mown plateau (grass top at y -1, so everyone stands at y 0) about 48 x 45 round the lesson, from the
     foot of the curtain wall (x -26) to x 21, in a level grass glen. North it falls over a brow to a valley floor,
     level at VALLEY_TOP (-7), that runs to the foot of the Mini Hogwarts' crag: the castle stands on ground.
-  - The hills: a ring of steep green hills closing the glen and the valley, so no camera in the lesson or the chase
-    sees the set end. They rise from the glen's edge (GLEN_R 46 from the lawn centre, 34 behind the range, wandering
-    +-10) and the valley's sides (x +-46 wandering +-7) over HILL_W (22; the valley's sides over 22 / 1.4) to a crest
-    about HILL_TOP (35) with summits and saddles, and ridges flank the crag's low sides (SIDE_RIDGE_X / _Z). Their
-    skin is moss (green on every face, so their steps never read as dirt stripes), grey crags in patches, scrub
-    clumps on the slopes and small firs on the crests. It is one block thick and is closed only on the faces a
-    camera in CAM_REGION can see; faces turned away from every camera there (the backs of the hills) are open.
+  - The hills: a ring of Highland hillsides closing the glen and the valley, so no camera in the lesson or the chase
+    sees the set end. They rise from the glen's edge (GLEN_R 41 from the lawn centre, 29 behind the range, wandering
+    +-10) and the valley's sides (x +-46 wandering +-7) over HILL_W (22; the valley's sides over 22 / 1.4) to a
+    crest line of sharp summits and low saddles (CREST_LIMITS 31..44), and ridges flank the crag's low sides
+    (SIDE_RIDGE_X / _Z). Knolls (KNOLLS) stand out in the glen in front of them, for depth. The surface:
+      * broad rock outcrops (stone, andesite, tuff, ragged at the edges, a jagged top) high on the slopes, with
+        scree (coarse dirt, andesite, cobble) fanning downhill below each, and cliffs of rock wherever a face drops
+        6 or more;
+      * woods (patches of spruce and dark oak leaves);
+      * a darker band along the crests (green terracotta, moss, more woods), so the far skyline reads darker;
+      * elsewhere a mixed sward: moss, grassy patches, coarse dirt, grass and podzol on the level tops, heather
+        (alliums) in patches;
+      * sparse single-trunk firs in clumps of one to four down the slopes and thicker along the valley's edges,
+        and low scrub between.
+    It is one block thick and is closed only on the faces a camera in CAM_REGION can see; faces turned away from
+    every camera there (the backs of the hills) are open, and a hill's face beside the crag is closed only
+    CRAG_FACE_DEPTH (30) down, where the crag's rock hides the rest.
   - The ground is one block thick in the same way, and every step in the glen shows a moss riser, not dirt.
   - The flank (full scale, people 1.8 tall), on the west, in Hogwarts grey (stone bricks with cracked, mossy, cobble
     and plain stone blocks, moss gathering at the foot; ivy climbing the lawn faces in ragged patches):
@@ -103,8 +113,8 @@ OUT = os.path.join(STRUCTURES, 'flying_lawn.nbt')
 RADIUS = 200
 TIME_OF_DAY = 8000                     # a bright afternoon, the sun past noon toward the west
 FOG_FAR = 260
-MAX_BLOCKS = 62000                      # the template; with the castle it must leave Task 10 room under 100,000
-OPENING_CAP = 98500                     # template + castle: 1,500 kept free for the scenes' own fills
+MAX_BLOCKS = 63500                      # the template; with the castle it must leave Task 10 room under 100,000
+OPENING_CAP = 99500                     # template + castle: 500 kept free for the scenes' own fills
 
 # lawn frame
 CX, CZ = 0, 30                          # the lawn centre (middle of the aisle)
@@ -113,17 +123,21 @@ WALL_WALK = (-27, -12, 47, 69)          # and the level strip along the wall foo
 VALLEY_TOP = -7                        # grass top of the valley floor before the castle crag (level)
 VALLEY_HALF = 46                        # the valley floor's half-width (x), from the lawn's brow north to the crag
 VALLEY_Z = (-150, -6)
-GLEN_R = 46                             # the open glen round the lawn centre before the hills begin
+GLEN_R = 41                             # the open glen round the lawn centre before the hills begin
 GLEN_WEST_PULL = 12                     # ... nearer behind the range (west): 34
 GLEN_WANDER = 10                        # the glen's edge wanders in and out by this much
 VALLEY_WANDER = 7                       # ... and the valley's sides
-CREST_WANDER = 5                        # summits and saddles along the crest
 GLEN_DIP = 0.0                          # the glen floor round the lawn stays level to the hills' foot
 VALLEY_STEEP = 1.4                      # the valley's sides rise over HILL_W / VALLEY_STEEP
 HILL_W = 22                             # the hills' inner slope, foot to crest
 SIDE_RIDGE_X = (57, 72)                 # |x| of the ridges beside the crag ...
 SIDE_RIDGE_Z = (-160, -92)              # ... and their run along it
-HILL_TOP = 35                           # their crest y: above the chase cameras' eye line
+CREST_LIMITS = (31, 44)                 # the hills' crest: saddles to summits
+CHASE_BOX_XZ = [[-20, 5, -40], [36, 35, 14]]   # = ANCHORS['chase_box'] (the terrain keeps out of it)
+CRAG_FACE_DEPTH = 30                    # how far a hill's face beside the crag is closed down
+KNOLLS = [  # (x, z, radius, height): knolls standing out in the glen in front of the hills, for depth
+    (40, 50, 13, 9), (12, 82, 12, 8), (-42, 88, 11, 7), (47, 17, 9, 7),
+]
 
 # the Mini Hogwarts
 CASTLE_ROT = 90
@@ -279,17 +293,31 @@ def open_dist(x, z):
 
 
 def crest_y(x, z):
-    """The hills' crest height here: HILL_TOP with summits and saddles (+-CREST_WANDER over 40 blocks) and a
-    little rough detail."""
-    return HILL_TOP + (vnoise(x, z, 40.0, 61) - 0.5) * 2 * CREST_WANDER + (fbm(x, z, 62) - 0.5) * 4.0
+    """The hills' crest here: low saddles (CREST_LIMITS[0]) between sharp summits (to CREST_LIMITS[1]), the summits
+    spaced about 26 blocks apart round the ring, with rougher detail on top."""
+    v = vnoise(x, z, 26.0, 61)
+    lo, hi = CREST_LIMITS
+    return lo + (hi - lo) * v ** 1.4 + (vnoise(x, z, 9.0, 63) - 0.5) * 4.0
+
+
+def knoll(x, z):
+    """Height of the knolls standing out in the glen in front of the hills (0 elsewhere)."""
+    best = 0.0
+    for kx, kz, kr, kh in KNOLLS:
+        d = math.hypot(x + 0.5 - kx, z + 0.5 - kz)
+        if d < kr:
+            q = 1 - (d / kr) ** 2
+            best = max(best, kh * q * q * (0.8 + 0.4 * vnoise(x, z, 4.0, 65)))
+    return best
 
 
 def in_domain(x, z):
-    """Whether the set has ground at column (x, z): the glen, the valley, and the hills' inner slopes to their crest
-    (nothing is built behind a crest, where no camera inside the glen can see)."""
+    """Whether the set has ground at column (x, z): the glen, the valley and the hills to their crest (nothing is
+    built behind a crest, where no camera inside the glen can see)."""
     if (x, z) in CASTLE_COLS or range_footprint(x, z):
         return False
-    return open_dist(x, z) <= HILL_W + 1 or side_ridge(x, z)
+    od = open_dist(x, z)
+    return od <= HILL_W + 1 or side_ridge(x, z)
 
 
 def side_ridge(x, z):
@@ -299,7 +327,7 @@ def side_ridge(x, z):
 
 
 def base_height(x, z):
-    """The glen floor before the hills: the flat plateau, a shallow dip round it, the brow down into the valley."""
+    """The glen floor before the hills: the flat plateau, level ground round it, the brow down into the valley."""
     d = plateau_dist(x, z)
     if d == 0:
         return -1.0
@@ -313,22 +341,33 @@ def base_height(x, z):
     return top
 
 
+def on_valley_floor(x, z):
+    return z < PLATEAU[2] - 4 and base_height(x, z) <= VALLEY_TOP + 0.01
+
+
 def height(x, z):
-    """Top cell y of the ground at (x, z): the glen floor rising over the hills' inner slopes to their crest."""
+    """Top cell y of the ground at (x, z): the glen floor (with its knolls) rising over the hills' slopes to their
+    crest."""
     base = base_height(x, z)
     od = open_dist(x, z)
+    k = 0.0 if on_valley_floor(x, z) or plateau_dist(x, z) < 8 else knoll(x, z)
     if od <= 0:
-        if z < PLATEAU[2] - 4 and base <= VALLEY_TOP + 0.01:
+        if on_valley_floor(x, z):
             return VALLEY_TOP                          # the valley floor is level: no stray steps
-        return int(math.floor(base))
+        return int(math.floor(base + k))
+    c = crest_y(x, z)
     t = min(1.0, od / HILL_W)
     s = t ** 1.7 * (2.0 - t) ** 0.7                  # concave foot rising out of the glen, rounding at the crest
-    top = base + (crest_y(x, z) - base) * s + fbm(x, z, 71) * 3.0 * math.sin(math.pi * t)   # bumps, never a dip
+    top = base + (c - base) * s + fbm(x, z, 71) * 3.0 * math.sin(math.pi * t)   # bumps, never a dip
+    top = max(top, base + k)
     if side_ridge(x, z):
-        top = max(top, crest_y(x, z) - 1.0)
+        top = max(top, CREST_LIMITS[1] - 4.0 + (vnoise(x, z, 12.0, 64) - 0.5) * 6.0)
     cd = CRAG_DIST.get((x, z))
-    if cd is not None and not side_ridge(x, z):        # the hills meet the crag's rock where they touch it
-        top = min(top, CRAG_NEAR_TOP[(x, z)] + cd * 3.0)
+    if cd is not None:                                 # the hills meet the crag's rock where they touch it
+        top = min(top, CRAG_NEAR_TOP[(x, z)] + cd * (5.0 if side_ridge(x, z) else 3.0))
+    (bx1, by1, bz1), (bx2, _, bz2) = CHASE_BOX_XZ
+    dbox = math.hypot(max(bx1 - x - 0.5, 0, x + 0.5 - bx2), max(bz1 - z - 0.5, 0, z + 0.5 - bz2))
+    top = min(top, by1 - 1 + dbox * 3.0)              # the hills stand back from the chase box
     return int(math.floor(top))
 
 
@@ -342,16 +381,82 @@ def face_seen(x, z, dx, dz):
     return any((px - (x + 0.5)) * dx + (pz - (z + 0.5)) * dz > 0 for px in (x0, x1) for pz in (z0, z1))
 
 
+def _rock_noise(x, z):
+    return vnoise(x, z, 17.0, 45) * 0.75 + vnoise(x, z, 6.0, 46) * 0.25
+
+
+def _outward(x, z):
+    """A unit step up the hill (toward larger open_dist) at (x, z)."""
+    gx = open_dist(x + 1, z) - open_dist(x - 1, z)
+    gz = open_dist(x, z + 1) - open_dist(x, z - 1)
+    n = math.hypot(gx, gz) or 1.0
+    return gx / n, gz / n
+
+
+def hill_material(x, z, od, steep):
+    """(top, fill) of a hill column. Rock outcrops in broad patches high on the slopes, with scree fanning down
+    below them; cliffs of rock wherever a face drops 6 or more; woods (leaves, over moss on the level) in
+    patches; a darker band of woods and terracotta along the crests (the far tone); grass and
+    podzol on the level tops (their earth sides would show on a step), moss elsewhere."""
+    t = od / HILL_W
+    if steep >= 6:
+        return 'rock', 'rock'
+    rn = _rock_noise(x, z)
+    if t > 0.3 and rn > 0.65 + (_hash(x, z, 90) - 0.5) * 0.08:
+        if rn < 0.72 and _hash(x, z, 91) < 0.3:       # a ragged edge: turf and heather between the stones
+            return 'minecraft:moss_block', 'rock'
+        return 'rock', 'rock'
+    ox, oz = _outward(x, z)
+    if t > 0.12 and any(_rock_noise(int(math.floor(x + ox * d)), int(math.floor(z + oz * d))) > 0.65
+                        for d in (3, 6, 9)):
+        return 'scree', 'scree'
+    band = t > 0.78 + (vnoise(x, z, 8.0, 86) - 0.5) * 0.2
+    wood = vnoise(x, z, 11.0, 87) > (0.5 if band else 0.58)
+    if wood:
+        m = 'minecraft:spruce_leaves' if band or _hash(x, z, 88) < 0.4 else 'minecraft:dark_oak_leaves'
+        return m, m
+    if band:
+        return ('minecraft:green_terracotta' if _hash(x, z, 85) < 0.6 else 'minecraft:moss_block'), \
+            'minecraft:green_terracotta'
+    v = vnoise(x, z, 14.0, 81) + (vnoise(x, z, 4.0, 89) - 0.5) * 0.25
+    if steep == 0:
+        return ('minecraft:grass_block' if v < 0.55 else 'minecraft:podzol'), 'minecraft:dirt'
+    if v < 0.3:                                        # grassy patches: a grass edge over a moss bank
+        return 'minecraft:grass_block', 'minecraft:moss_block'
+    if v > 0.82:
+        return 'minecraft:coarse_dirt', 'minecraft:moss_block'
+    return 'minecraft:moss_block', 'minecraft:moss_block'
+
+
+def _pick(kind, x, y, z):
+    r = rnd(x, y, z, 44)
+    if kind == 'rock':
+        return 'minecraft:stone' if r < 0.5 else 'minecraft:andesite' if r < 0.78 else \
+            'minecraft:tuff' if r < 0.9 else 'minecraft:mossy_cobblestone'
+    if kind == 'scree':
+        return 'minecraft:coarse_dirt' if r < 0.4 else 'minecraft:andesite' if r < 0.62 else \
+            'minecraft:cobblestone' if r < 0.8 else 'minecraft:tuff' if r < 0.9 else 'minecraft:stone'
+    if kind == 'minecraft:grass_block':
+        return state('grass_block', snowy='false')
+    if kind == 'minecraft:podzol':
+        return state('podzol', snowy='false')
+    if kind.endswith('_leaves'):
+        return state(kind.split(':')[1], distance='1', persistent='true', waterlogged='false')
+    return kind
+
+
 def build_ground(w):
-    """One-block grass skin over the height field. A column is filled down to a lower neighbour only on the faces
-    a camera in CAM_REGION can see; faces turned away (the backs of the outer slopes) stay open, which no camera
-    inside the glen can tell."""
+    """One-block skin over the height field. A column is filled down to a lower neighbour only on the faces a
+    camera in CAM_REGION can see; faces turned away (the backs of the hills) stay open, which no camera inside the
+    glen can tell. Beside a column the set leaves out (past a crest), the face closes down to where the hill there
+    would be."""
     H = {}
     x0, z0 = TEMPLATE_AT[0], TEMPLATE_AT[2]
     for x in range(x0, x0 + SIZE[0]):
         for z in range(z0, z0 + SIZE[2]):
             if in_domain(x, z):
                 H[(x, z)] = height(x, z)
+    HILLY.clear()
     for (x, z), h in H.items():
         bottom = h
         for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)):
@@ -359,21 +464,24 @@ def build_ground(w):
             nh = H.get(n)
             if nh is None:                             # beside the crag or under the range: close down to them
                 nh = CASTLE_TOPS.get(n, -1 if range_footprint(*n) else None)
+                if n in CASTLE_TOPS:                   # ... the crag's own rock hides all but the top of the face
+                    nh = max(nh, h - CRAG_FACE_DEPTH)
+                if nh is None and face_seen(x, z, dx, dz):
+                    nh = height(*n)                    # the hill that would stand there, past the edge
             if nh is not None and nh < bottom and face_seen(x, z, dx, dz):
                 bottom = nh
         steep = h - bottom
         od = open_dist(x, z) if not side_ridge(x, z) else HILL_W
-        if od / HILL_W > 0.02 + vnoise(x, z, 7.0, 43) * 0.12:
-            # the hills: a green skin of moss (green on every face, so their steps never show as dirt stripes),
-            # with a few mossy outcrops; from the lawn they read as dark wooded slopes
-            rock = vnoise(x, z, 13.0, 45) * 0.7 + vnoise(x, z, 5.0, 46) * 0.3 > 0.7 - 0.08 * min(1.0, steep / 4.0)
+        hilly = od / HILL_W > 0.02 + vnoise(x, z, 7.0, 43) * 0.12 or (od <= 0 and h > base_height(x, z) + 0.5)
+        if hilly:
+            HILLY.add((x, z))
+            top, fill = hill_material(x, z, od, steep)
+            if top.endswith('_leaves') and bottom == h:
+                bottom, fill = h - 1, 'minecraft:moss_block'   # woods on the level: leaves over moss, not the hollow
             for y in range(bottom, h + 1):
-                if rock:                               # crags: grey rock in patches where the slope is steep
-                    r = rnd(x, y, z, 44)
-                    m = 'minecraft:stone' if r < 0.5 else 'minecraft:andesite' if r < 0.8 else                         'minecraft:mossy_cobblestone'
-                else:
-                    m = 'minecraft:moss_block'
-                w.set((x, y, z), m)
+                w.set((x, y, z), _pick(top if y == h else fill, x, y, z))
+            if top == 'rock' and rnd(x, h, z, 47) < 0.35 and w.get((x, h + 1, z)) is None:
+                w.set((x, h + 1, z), _pick('rock', x, h + 1, z))   # a jagged edge to the crag
             continue
         for y in range(bottom, h + 1):
             if y == h and steep >= 1:
@@ -390,6 +498,9 @@ def build_ground(w):
                      'minecraft:cobblestone' if r < 0.85 else 'minecraft:dirt')
             w.set((x, y, z), state('grass_block', snowy='false') if s == 'minecraft:grass_block' else s)
     return H
+
+
+HILLY = set()
 
 
 def build_path(w, H):
@@ -894,49 +1005,66 @@ def oak(w, H, x, z, height, crown, seed, leaves='oak_leaves', log='oak_log'):
 
 
 TREES = [  # (x, z, height, crown, kind): framing oaks at the lawn's edge, a stand down the south-east slope
-    (31, 20, 7, 4.5, 'oak'), (27, 58, 6, 4.0, 'oak'), (-10, 74, 6, 4.2, 'oak'),
-    (44, 4, 6, 3.6, 'oak'),
+    (31, 20, 7, 4.5, 'oak'),
 ]
 
 
-def hill_shrubs(w, H):
-    """Scrub on the hills: low clumps of leaves (a few blocks each) scattered over the slopes, and small dark firs
-    on the crests, so the hillsides are not one flat green. Cheap: about a thousand blocks in all."""
+def fir(w, x, y0, z, big):
+    """A single-trunk fir: a short trunk and a tapering cone of spruce leaves (about 20 blocks, 45 when big)."""
+    fl = state('spruce_leaves', distance='1', persistent='true', waterlogged='false')
+    w.set((x, y0, z), state('spruce_log', axis='y'))
+    w.set((x, y0 + 1, z), state('spruce_log', axis='y'))
+    layers = [2, 1, 2, 1, 1, 0, 0] if big else [1, 1, 1, 0, 0]
+    for k, rad in enumerate(layers):
+        y = y0 + 1 + k
+        for dx in range(-rad, rad + 1):
+            for dz in range(-rad, rad + 1):
+                if abs(dx) + abs(dz) <= rad and (dx or dz or k > 0) and w.get((x + dx, y, z + dz)) is None:
+                    w.set((x + dx, y, z + dz), fl)
+    w.set((x, y0 + 1, z), state('spruce_log', axis='y'))
+
+
+def near_chase_box(x, z, margin=3):
+    (bx1, _, bz1), (bx2, _, bz2) = CHASE_BOX_XZ
+    return bx1 - margin <= x <= bx2 + margin and bz1 - margin <= z <= bz2 + margin
+
+
+def hill_trees(w, H):
+    """Sparse firs in clumps of one to four down the hill slopes and along the valley's edges, scrub (low clumps
+    of leaves) between, and heather (purple alliums) in patches on the tops. Returns the fir count."""
     lv = state('dark_oak_leaves', distance='1', persistent='true', waterlogged='false')
     az = state('azalea_leaves', distance='1', persistent='true', waterlogged='false')
-    fir = state('spruce_leaves', distance='1', persistent='true', waterlogged='false')
-    n = 0
+    sward = ('minecraft:grass_block', 'minecraft:moss_block', 'minecraft:podzol', 'minecraft:green_terracotta')
+    firs = 0
     for (x, z), h in sorted(H.items()):
-        od = open_dist(x, z) if not side_ridge(x, z) else HILL_W
-        if od <= 2 or bid(w.get((x, h, z))) != 'minecraft:moss_block':
+        if (x, z) not in HILLY or bid(w.get((x, h, z))) not in sward:
             continue
+        od = open_dist(x, z)
         r = _hash(x, z, 151)
-        if r < 0.008:                                  # a clump: 3 to 6 leaves on and over the moss
+        valley_edge = z < VALLEY_Z[1] and od <= 6
+        if r < (0.012 if valley_edge else 0.0075) and od <= HILL_W:
+            n = 1 + int(_hash(x, z, 155) * 4)
+            for i in range(n):
+                fx = x + int((_hash(i, x, 156) - 0.5) * 7)
+                fz = z + int((_hash(i, z, 157) - 0.5) * 7)
+                if (fx, fz) in HILLY and not near_chase_box(fx, fz) and \
+                        bid(w.get((fx, H[(fx, fz)], fz))) in sward and w.get((fx, H[(fx, fz)] + 1, fz)) is None:
+                    fir(w, fx, H[(fx, fz)] + 1, fz, _hash(fx, fz, 158) < 0.3)
+                    firs += 1
+        elif r < 0.0105:                               # scrub: 3 to 6 leaves on and over the sward
             m = lv if _hash(x, z, 152) < 0.7 else az
             for dx, dz in ((0, 0), (1, 0), (0, 1), (-1, 0), (0, -1), (1, 1)):
                 if _hash(x + dx, z + dz, 153) < 0.75 and (x + dx, z + dz) in H:
                     hy = H[(x + dx, z + dz)] + 1
                     if w.get((x + dx, hy, z + dz)) is None:
                         w.set((x + dx, hy, z + dz), m)
-                        n += 1
-            if w.get((x, h + 2, z)) is None:
-                w.set((x, h + 2, z), m)
-        elif od >= HILL_W - 3 and r < 0.016:           # a fir on the crest: a trunk and a tapering cone
-            ht = 4 + int(_hash(x, z, 154) * 4)
-            for y in range(h + 1, h + 2):
-                w.set((x, y, z), state('spruce_log', axis='y'))
-            for k in range(ht):
-                y = h + 2 + k
-                rad = 1 if k < ht - 2 else 0
-                for dx in range(-rad, rad + 1):
-                    for dz in range(-rad, rad + 1):
-                        if abs(dx) + abs(dz) <= rad and w.get((x + dx, y, z + dz)) is None:
-                            w.set((x + dx, y, z + dz), fir)
-    return n
+        elif vnoise(x, z, 10.0, 84) > 0.7 and rnd(x, h, z, 159) < 0.08 and w.get((x, h + 1, z)) is None:
+            w.set((x, h + 1, z), 'minecraft:allium')           # heather
+    return firs
 
 
 def build_trees(w, H):
-    hill_shrubs(w, H)
+    hill_trees(w, H)
     for i, (x, z, hgt, crown, kind) in enumerate(TREES):
         if (x, z) not in H:
             continue
@@ -1078,7 +1206,7 @@ def _rows():
 
 ROWS = _rows()
 WIN_C = (BAY_X[1] + 0.5, BAY_FLOOR + 4.0, (BAY_Z[0] + BAY_Z[1] + 1) / 2.0)
-CHASE_BOX = [[-20, 5, -40], [36, 35, 14]]
+CHASE_BOX = CHASE_BOX_XZ
 
 ANCHORS = {
     'lawn_y': 0.0,
@@ -1237,7 +1365,7 @@ def void_probe_cameras():
     dive west at the tower, hovering east and south, the lawn to the north-west), and the chase box's corners and
     centre at its top looking out each of eight ways, level and 15 degrees down."""
     (x1, y1, z1), (x2, y2, z2) = CHASE_BOX
-    cams = [('dive_west_at_tower', [25, 30, 30], [-31, 30, 16]),
+    cams = [('dive_west_at_tower', [25, 30, 30], [-31, 30, 16]), ('chase_over_tower', [20, 26, 40], [-10, 20, -60]),
             ('chase_at_tower', [10, 34, -10], [-31, 34, 16]),
             ('hover_east', [5, 28, 0], [60, 28, 0]), ('hover_south', [5, 28, 0], [5, 28, 60]),
             ('lawn_nw', [0, 1.6, 30], [-40, 1.6, -10]), ('mcg_view', [-22.35, 11.12, 16.0], [-5, 0, 12])]
@@ -1319,12 +1447,13 @@ def check(w, H=None):
         t = i / 40.0
         q = [n0[k] + (d0[k] - n0[k]) * t for k in range(3)]
         stand('neville to the door %.3f' % t, q, 1.9, 0.6)
-    # no dirt stripes: no dirt-sided ground block shows a side face a camera can see (steps are moss or grass-topped
-    # level ground), and the valley floor is one level
+    # no dirt stripes on the glen and the valley: no dirt-sided ground block there shows a side face a camera can see
+    # (their steps are moss), and the valley floor is one level
     dirty = []
     for (x, y, z), st in g.items():
-        if bid(st) not in ('minecraft:dirt', 'minecraft:coarse_dirt', 'minecraft:grass_block') or (x, z) not in H:
-            continue
+        if bid(st) not in ('minecraft:dirt', 'minecraft:coarse_dirt', 'minecraft:grass_block') or \
+                (x, z) not in H or (x, z) in HILLY:
+            continue                                   # (the hills' own mixed sward may show earth banks)
         for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)):
             nh = H.get((x + dx, z + dz))
             if nh is not None and nh < y and face_seen(x, z, dx, dz):     # a riser over lower ground
@@ -1338,7 +1467,8 @@ def check(w, H=None):
             if (x, z) in CASTLE_COLS or open_dist(x, z) > 0 or CRAG_DIST.get((x, z), 99) <= 5:
                 continue
             if bid(g.get((x, VALLEY_TOP, z))) not in ('minecraft:grass_block', 'minecraft:dirt_path',
-                                                      'minecraft:coarse_dirt') or g.get((x, VALLEY_TOP + 1, z))                     not in (None, 'minecraft:short_grass', 'minecraft:dandelion', 'minecraft:oxeye_daisy'):
+                                                      'minecraft:coarse_dirt') or \
+                    g.get((x, VALLEY_TOP + 1, z)) not in (None, 'minecraft:short_grass', 'minecraft:dandelion', 'minecraft:oxeye_daisy'):
                 uneven.append((x, z))
     if uneven:
         problems.append('%d valley floor columns off the level, e.g. %s' % (len(uneven), uneven[:4]))

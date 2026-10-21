@@ -344,6 +344,16 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> PENSIEVE_SFX_LETTER_POUND = register("pensieve.sfx.letter_pound");
     public static final RegistryObject<SoundEvent> PENSIEVE_SFX_LETTER_DOOR_CRASH = register("pensieve.sfx.letter_door_crash");
     public static final RegistryObject<SoundEvent> PENSIEVE_SFX_LETTER_FIRE = register("pensieve.sfx.letter_fire");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_LETTER_PETUNIA_UP = register("pensieve.voice.letter_petunia_up");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_LETTER_VERNON_MINE = register("pensieve.voice.letter_vernon_mine");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_LETTER_VERNON_NOMAIL = register("pensieve.voice.letter_vernon_nomail");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_LETTER_VERNON_SUNDAY = register("pensieve.voice.letter_vernon_sunday");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_LETTER_VERNON_SHOUT = register("pensieve.voice.letter_vernon_shout");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_LETTER_VERNON_GUN = register("pensieve.voice.letter_vernon_gun");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_LETTER_HAGRID_SORRY = register("pensieve.voice.letter_hagrid_sorry");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_LETTER_HAGRID_FOUND = register("pensieve.voice.letter_hagrid_found");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_LETTER_HAGRID_WIZARD = register("pensieve.voice.letter_hagrid_wizard");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_LETTER_HAGRID_LETTER = register("pensieve.voice.letter_hagrid_letter");
     public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_HALL_HAT_OPEN = register("pensieve.voice.hall_hat_open");
     public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_HALL_MCG_DOORS = register("pensieve.voice.hall_mcg_doors");
     public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_HALL_MCG_CALL = register("pensieve.voice.hall_mcg_call");

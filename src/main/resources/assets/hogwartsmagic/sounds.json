@@ -2770,5 +2770,85 @@
         "stream": false
       }
     ]
+  },
+  "pensieve.voice.letter_petunia_up": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/letter_petunia_up",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.letter_vernon_mine": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/letter_vernon_mine",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.letter_vernon_nomail": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/letter_vernon_nomail",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.letter_vernon_sunday": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/letter_vernon_sunday",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.letter_vernon_shout": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/letter_vernon_shout",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.letter_vernon_gun": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/letter_vernon_gun",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.letter_hagrid_sorry": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/letter_hagrid_sorry",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.letter_hagrid_found": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/letter_hagrid_found",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.letter_hagrid_wizard": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/letter_hagrid_wizard",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.letter_hagrid_letter": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/letter_hagrid_letter",
+        "stream": false
+      }
+    ]
   }
 }

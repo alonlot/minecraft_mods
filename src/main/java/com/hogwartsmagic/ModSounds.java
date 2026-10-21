@@ -333,6 +333,17 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> PENSIEVE_SFX_WAND_FIZZLE = register("pensieve.sfx.wand_fizzle");
     public static final RegistryObject<SoundEvent> PENSIEVE_SFX_WAND_CHOICE = register("pensieve.sfx.wand_choice");
     public static final RegistryObject<SoundEvent> PENSIEVE_SFX_WAND_TAPE = register("pensieve.sfx.wand_tape");
+    public static final RegistryObject<SoundEvent> PENSIEVE_SFX_LETTER_SLOT = register("pensieve.sfx.letter_slot");
+    public static final RegistryObject<SoundEvent> PENSIEVE_SFX_LETTER_HAMMER = register("pensieve.sfx.letter_hammer");
+    public static final RegistryObject<SoundEvent> PENSIEVE_SFX_LETTER_OWLS = register("pensieve.sfx.letter_owls");
+    public static final RegistryObject<SoundEvent> PENSIEVE_SFX_LETTER_CHIMNEY_RUMBLE = register("pensieve.sfx.letter_chimney_rumble");
+    public static final RegistryObject<SoundEvent> PENSIEVE_SFX_LETTER_WHOOSH = register("pensieve.sfx.letter_whoosh");
+    public static final RegistryObject<SoundEvent> PENSIEVE_SFX_LETTER_STORM = register("pensieve.sfx.letter_storm");
+    public static final RegistryObject<SoundEvent> PENSIEVE_SFX_LETTER_WAVES = register("pensieve.sfx.letter_waves");
+    public static final RegistryObject<SoundEvent> PENSIEVE_SFX_LETTER_THUNDER = register("pensieve.sfx.letter_thunder");
+    public static final RegistryObject<SoundEvent> PENSIEVE_SFX_LETTER_POUND = register("pensieve.sfx.letter_pound");
+    public static final RegistryObject<SoundEvent> PENSIEVE_SFX_LETTER_DOOR_CRASH = register("pensieve.sfx.letter_door_crash");
+    public static final RegistryObject<SoundEvent> PENSIEVE_SFX_LETTER_FIRE = register("pensieve.sfx.letter_fire");
     public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_HALL_HAT_OPEN = register("pensieve.voice.hall_hat_open");
     public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_HALL_MCG_DOORS = register("pensieve.voice.hall_mcg_doors");
     public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_HALL_MCG_CALL = register("pensieve.voice.hall_mcg_call");

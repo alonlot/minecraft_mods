@@ -2682,5 +2682,93 @@
       }
     ],
     "subtitle": "subtitles.hogwartsmagic.sorting.voice"
+  },
+  "pensieve.sfx.letter_slot": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/letter_slot",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.letter_hammer": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/letter_hammer",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.letter_owls": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/letter_owls",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.letter_chimney_rumble": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/letter_chimney_rumble",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.letter_whoosh": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/letter_whoosh",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.letter_storm": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/letter_storm",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.letter_waves": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/letter_waves",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.letter_thunder": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/letter_thunder",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.letter_pound": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/letter_pound",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.letter_door_crash": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/letter_door_crash",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.letter_fire": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/letter_fire",
+        "stream": false
+      }
+    ]
   }
 }

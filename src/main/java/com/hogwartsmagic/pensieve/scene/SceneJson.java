@@ -153,7 +153,20 @@ final class SceneJson {
     static Ease ease(JsonObject o, String path) throws SceneException {
         String s = str(o, "ease", path, null);
         Ease e = Ease.parse(s);
+        if (e == Ease.SPLINE) {
+            throw new SceneException(child(path, "ease"), "\"spline\" is for camera keys only (linear, in, out, in_out)");
+        }
         if (e == null) throw new SceneException(child(path, "ease"), "unknown ease \"" + s + "\" (linear, in, out, in_out)");
+        return e;
+    }
+
+    /** A camera key's ease: the track eases plus {@code "spline"}. */
+    static Ease cameraEase(JsonObject o, String path) throws SceneException {
+        String s = str(o, "ease", path, null);
+        Ease e = Ease.parse(s);
+        if (e == null) {
+            throw new SceneException(child(path, "ease"), "unknown ease \"" + s + "\" (linear, in, out, in_out, spline)");
+        }
         return e;
     }
 }

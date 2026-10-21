@@ -18,6 +18,13 @@ package com.hogwartsmagic.pensieve.scene;
  * instead of dragging the estimate for the whole window. Two samples always fit, so the newest two are the shortest
  * run; with a single sample (just after a reset) the server is taken to keep pace.
  *
+ * <p><b>Late syncs.</b> A sync only ever reads low (it carries the time it was sent with), and TCP delivers in order,
+ * so syncs held up in transit arrive together, a few ticks apart, carrying 20 ticks each. Two rules keep that from
+ * reading as a server racing: a rate above 1 needs three samples agreeing over at least {@link #RACE_SPAN_TICKS}
+ * (until then the line of the samples before them is kept, the newest sample as a floor); and when the newest sample
+ * lands back on the line of the samples before the last few, while those few lie below it, they were late and are
+ * dropped.
+ *
  * <p>The estimate is also kept under the <b>schedule</b>: the highest line of slope 1 through any sample of the last
  * {@link #SCHEDULE_TICKS} ticks. A server keeps to a real-time schedule and only runs faster than it to catch up
  * with it after a hitch, never past it. So a server racing back is expected to stop racing where it meets the
@@ -51,11 +58,12 @@ public final class SmoothedSceneClock {
     /** The fitted server rate is kept within 0..this. */
     public static final double MAX_SERVER_RATE = 2.5;
     /**
-     * Behind by more than this many ticks: snap forward. About three times the largest lag a recovery reaches (a
-     * slow server recovering, or the end of a freeze), so it only fires on a real desync, which easing would turn
-     * into seconds of fast-forward.
+     * Behind by more than this many ticks: snap forward. Past the deepest lag anything ordinary causes: about 12 after
+     * a slow server recovers, up to about 37 after a spell of 1.5 s network lag (the clock follows the late syncs down,
+     * then catches up when they come on time again). Beyond it is a real desync, which easing would turn into seconds
+     * of fast-forward.
      */
-    public static final double SNAP_FORWARD_TICKS = 30;
+    public static final double SNAP_FORWARD_TICKS = 45;
     /**
      * Ahead by more than this many ticks: snap back. A stalled server cannot be seen until it syncs again, so the
      * clock runs on by the whole stall; this holds a stall of up to 5 s, never rewinding it.
@@ -69,6 +77,14 @@ public final class SmoothedSceneClock {
     public static final int FIT_SAMPLES = 12;
     /** A sample further than this from the fitted line ends the run of samples the line is fitted to. */
     public static final double FIT_TOLERANCE = 4;
+    /**
+     * A server is taken to run faster than real time (racing back after a hitch) only when at least three samples
+     * spanning this many ticks agree on it. Syncs held up in transit and then released together (TCP delivers in
+     * order) arrive a few ticks apart carrying 20 ticks each: two of them alone would read as a race.
+     */
+    public static final int RACE_SPAN_TICKS = 20;
+    /** At most this many late samples in a row are recognised and dropped. */
+    static final int MAX_STALE = 6;
     /** The schedule is the highest slope-1 line through a sample of this many recent ticks. */
     public static final int SCHEDULE_TICKS = 200;
     /** Samples kept (enough for the schedule at a racing server's sync rate). */
@@ -172,9 +188,35 @@ public final class SmoothedSceneClock {
         sampleTick[i] = tick;
         sampleValue[i] = value;
         count++;
+        dropStale();
         while (count > 2 && tick - sampleTick[first] > SCHEDULE_TICKS) {
             first = (first + 1) % CAPACITY;
             count--;
+        }
+    }
+
+    /**
+     * Syncs held up in transit. A late sync only ever reads low (it carries the time it was sent with), and over TCP
+     * the ones behind it wait and arrive together. When the newest sample is back on the line of the samples before
+     * the last few, and those few all lie below that line, the server never left it: they were late, and are dropped.
+     * A server that really slowed (or stalled and skipped ticks) does not come back to its old line, so is kept.
+     */
+    private void dropStale() {
+        for (int p = 1; p <= MAX_STALE && count - p - 1 >= 2; p++) {
+            if (!fitRun(p + 1)) return;
+            if (fitSlope > 1) continue; // a race's line says nothing about where the server would be
+            int s0 = index(0);
+            if (Math.abs(sampleValue[s0] - lineAt(sampleTick[s0])) > FIT_TOLERANCE) continue;
+            boolean late = true;
+            for (int j = 1; j <= p && late; j++) {
+                int i = index(j);
+                late = sampleValue[i] < lineAt(sampleTick[i]) - FIT_TOLERANCE;
+            }
+            if (!late) continue;
+            sampleTick[index(p)] = sampleTick[s0];
+            sampleValue[index(p)] = sampleValue[s0];
+            count -= p;
+            return;
         }
     }
 
@@ -183,23 +225,33 @@ public final class SmoothedSceneClock {
         return (first + count - 1 - back) % CAPACITY;
     }
 
-    /** The server's time and rate at {@link #now}, under the schedule. */
-    private void fitEstimate() {
-        int newest = index(0);
-        long kn = sampleTick[newest];
-        double vn = sampleValue[newest];
-        // The fit's samples: the newest two, then on back while they are recent enough.
+    // The line of the last fitRun: its value at fitTick, its slope, and how many samples it used.
+    private long fitTick;
+    private double fitValue;
+    private double fitSlope;
+    private int fitCount;
+
+    private double lineAt(long tick) {
+        return fitValue + fitSlope * (tick - fitTick);
+    }
+
+    /**
+     * Fits the longest run of samples, from the one {@code skip} places before the newest back, that lie on one line
+     * within {@link #FIT_TOLERANCE} (at most {@link #FIT_SAMPLES}, at most {@link #FIT_WINDOW_TICKS} older than the run's
+     * newest; two always fit). False when fewer than two samples are there.
+     */
+    private boolean fitRun(int skip) {
+        if (count - skip < 2) return false;
+        long kn = sampleTick[index(skip)];
+        double vn = sampleValue[index(skip)];
         int n = 2;
-        while (n < Math.min(count, FIT_SAMPLES) && kn - sampleTick[index(n)] <= FIT_WINDOW_TICKS) n++;
-        n = Math.min(n, count);
-        double atNewest = vn;
-        double slope = 1;
+        while (n < Math.min(count - skip, FIT_SAMPLES) && kn - sampleTick[index(skip + n)] <= FIT_WINDOW_TICKS) n++;
         for (int m = n; m >= 2; m--) {
-            // Least squares on the newest m samples, as offsets from a slope-1 line through the newest one. A server
-            // keeping pace gives all zeros, so the fit (and the clock) stays exact.
+            // Least squares on m samples, as offsets from a slope-1 line through the run's newest. A server keeping
+            // pace gives all zeros, so the fit (and the clock) stays exact.
             double sx = 0;
             double sz = 0;
-            for (int j = 0; j < m; j++) {
+            for (int j = skip; j < skip + m; j++) {
                 int i = index(j);
                 sx += sampleTick[i] - kn;
                 sz += (sampleValue[i] - sampleTick[i]) - (vn - kn);
@@ -208,7 +260,7 @@ public final class SmoothedSceneClock {
             double mz = sz / m;
             double sxx = 0;
             double sxz = 0;
-            for (int j = 0; j < m; j++) {
+            for (int j = skip; j < skip + m; j++) {
                 int i = index(j);
                 double x = sampleTick[i] - kn - mx;
                 sxx += x * x;
@@ -218,14 +270,42 @@ public final class SmoothedSceneClock {
             double at = vn + (mz - c * mx);
             double b = 1 + c;
             boolean fits = true;
-            for (int j = 0; j < m && fits && m > 2; j++) {
+            for (int j = skip; j < skip + m && fits && m > 2; j++) {
                 int i = index(j);
                 fits = Math.abs(sampleValue[i] - (at + b * (sampleTick[i] - kn))) <= FIT_TOLERANCE;
             }
             if (fits) {
-                atNewest = at;
-                slope = b;
-                break;
+                fitTick = kn;
+                fitValue = at;
+                fitSlope = b;
+                fitCount = m;
+                return true;
+            }
+        }
+        return false; // not reached: two samples always fit
+    }
+
+    /** The server's time and rate at {@link #now}, under the schedule. */
+    private void fitEstimate() {
+        int newest = index(0);
+        long kn = sampleTick[newest];
+        double vn = sampleValue[newest];
+        double atNewest = vn;
+        double slope = 1;
+        if (fitRun(0)) {
+            atNewest = fitValue;
+            slope = fitSlope;
+            int m = fitCount;
+            if (slope > 1 && (m < 3 || kn - sampleTick[index(m - 1)] < RACE_SPAN_TICKS)) {
+                // Faster than real time, on evidence a bunch of late syncs could fake: fewer than three samples, or
+                // over less than a sync interval. Keep to the line before them until more agree; the newest sample is
+                // still a floor (a late sync only reads low).
+                if (fitRun(m)) {
+                    slope = Math.min(fitSlope, 1);
+                    atNewest = Math.max(fitValue + slope * (kn - fitTick), vn);
+                } else {
+                    slope = 1;
+                }
             }
         }
         serverRate = Math.max(0, Math.min(MAX_SERVER_RATE, slope));

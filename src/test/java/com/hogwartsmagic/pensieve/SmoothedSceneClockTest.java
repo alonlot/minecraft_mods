@@ -286,9 +286,9 @@ class SmoothedSceneClockTest {
                             smooth(r, what);
                             noSnap(r, what);
                             assertTrue(r.maxAhead() <= h + 1 + j, "ahead " + r.maxAhead() + ": " + what);
-                            assertTrue(r.maxBehind() <= 7 + 2.5 * j, "behind " + r.maxBehind() + ": " + what);
+                            assertTrue(r.maxBehind() <= 8 + 3.5 * j, "behind " + r.maxBehind() + ": " + what);
                             if (catchUp) {
-                                assertTrue(r.recoverPeak() <= 7 + 2.5 * j, "after the race " + r.recoverPeak() + ": " + what);
+                                assertTrue(r.recoverPeak() <= 8 + 3 * j, "after the race " + r.recoverPeak() + ": " + what);
                             }
                             assertTrue(r.tail() <= 1 + 1.5 * j, "tail " + r.tail() + ": " + what);
                         }
@@ -308,7 +308,7 @@ class SmoothedSceneClockTest {
                 .recoverFrom(315 + 90).run();
         smooth(r, "hitch 45 at phase 15");
         noSnap(r, "hitch 45 at phase 15");
-        assertTrue(r.recoverPeak() < 0.5, "after the race " + r.recoverPeak());
+        assertTrue(r.recoverPeak() < 1, "after the race " + r.recoverPeak());
         assertTrue(r.maxRate() <= 1.5, "rate " + r.maxRate());
         assertEquals(0, r.tail(), 1e-6);
     }
@@ -324,6 +324,61 @@ class SmoothedSceneClockTest {
             assertTrue(r.maxAhead() <= 20 && r.maxBehind() <= 16, "error " + r.maxAhead() + " / " + r.maxBehind());
             assertTrue(r.minRate() == 0, "it held");
             assertEquals(0, r.tail(), 1e-6, "freeze " + f);
+        }
+    }
+
+    /**
+     * Two syncs held up in transit and released together (TCP is in order): the first {@code d} ticks late, the second
+     * right behind it. Round 4 read the pair as a race on a slow server, passed the forward snap and ran up to 77
+     * ahead. Every delay 4-30 x gap 0-19, at 20/18/15 tps, jitter 0 and 1: no snap, never far ahead, no long hold.
+     */
+    @Test
+    void bunchedLateSyncsAreNotARace() {
+        for (double tps : new double[]{20, 18, 15}) {
+            for (int j = 0; j <= 1; j++) {
+                for (int d = 4; d <= 30; d++) {
+                    for (int gap = 0; gap < 20; gap++) {
+                        for (int at = 10; at <= 11; at++) {
+                            int dd = d;
+                            int gg = gap;
+                            int first = at;
+                            double rate = tps / 20;
+                            String what = tps + " tps, delay " + d + " gap " + gap + " sync " + at + ", jitter " + j;
+                            SceneClockSim.Result r = new SceneClockSim().rate(k -> rate).ticks(1100, 200)
+                                    .jitter(j, d * 100L + gap)
+                                    .delay(i -> i == first ? dd : i == first + 1 ? Math.max(0, dd - 20 + gg) : 0).run();
+                            smooth(r, what);
+                            noSnap(r, what);
+                            assertTrue(r.maxAhead() <= 5, "ahead " + r.maxAhead() + ": " + what);
+                            assertTrue(r.longestHold() <= 20, "held " + r.longestHold() + " ticks: " + what);
+                            assertTrue(r.tail() <= 1 + 1.5 * j, "tail " + r.tail() + ": " + what);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /** A spell of network lag: 2-8 syncs in a row each 5-30 ticks late, in order, at 20/18/15 tps. */
+    @Test
+    void aSpellOfNetworkLagIsRiddenOut() {
+        for (int b : new int[]{2, 3, 5, 8}) {
+            for (int seed = 0; seed < 20; seed++) {
+                java.util.Random random = new java.util.Random(seed);
+                int[] late = new int[b];
+                for (int i = 0; i < b; i++) late[i] = 5 + random.nextInt(26);
+                for (double rate : new double[]{1, 0.9, 0.75}) {
+                    int bb = b;
+                    String what = b + " late syncs, seed " + seed + ", rate " + rate;
+                    SceneClockSim.Result r = new SceneClockSim().rate(k -> rate).ticks(1500, 200).jitter(1, seed)
+                            .delay(i -> i >= 10 && i < 10 + bb ? late[i - 10] : 0).run();
+                    smooth(r, what);
+                    noSnap(r, what);
+                    assertTrue(r.maxAhead() <= 20, "ahead " + r.maxAhead() + ": " + what);
+                    assertTrue(r.longestHold() <= 20, "held " + r.longestHold() + " ticks: " + what);
+                    assertTrue(r.tail() <= 2.5, "tail " + r.tail() + ": " + what);
+                }
+            }
         }
     }
 

@@ -40,12 +40,12 @@ public class GoldenSnitchRenderer extends MobRenderer<GoldenSnitchEntity, Golden
      * The wing blur of a Snitch that is a memory puppet: a translucent disc sector per wing, the area the wing sweeps
      * in its beat (the wings themselves keep their flutter, but at half a turn a tick the eye sees only a haze). The
      * real Snitch in the world is untouched. The sector runs between the wing's two extreme angles (the model's
-     * constants), a wing thick in z, drawn as both faces of the sweep from the wing's pivot, brightest at the root.
+     * constants), a wing thick in z, drawn as both faces of the sweep, each drawn once from the wing's pivot, brightest at the root.
      */
     private static final class WingBlurLayer extends RenderLayer<GoldenSnitchEntity, GoldenSnitchModel<GoldenSnitchEntity>> {
         private static final int STEPS = 10;
         /** Alpha at the wing root and at the tip of the sweep. */
-        private static final int ROOT_ALPHA = 150, TIP_ALPHA = 28;
+        private static final int ROOT_ALPHA = 120, TIP_ALPHA = 22;
         /** A pale pixel of the wing texture (the wing's feather colour), as uv. */
         private static final float U = 8.5f / 32f, V = 9.5f / 32f;
 
@@ -69,7 +69,7 @@ public class GoldenSnitchRenderer extends MobRenderer<GoldenSnitchEntity, Golden
             pose.popPose();
         }
 
-        /** Both faces (z = +-half the wing's thickness, each wound both ways) of the sector from a to b about a pivot. */
+        /** Both faces (z = +-half the wing's thickness, one winding each) of the sector from a to b about a pivot. */
         private static void sector(VertexConsumer vc, PoseStack pose, float cx, float cy, float side, float a, float b) {
             Matrix4f m = pose.last().pose();
             float len = GoldenSnitchModel.WING_LENGTH / 16f;
@@ -79,14 +79,10 @@ public class GoldenSnitchRenderer extends MobRenderer<GoldenSnitchEntity, Golden
                 float x0 = cx + side * len * (float) Math.cos(a0), y0 = cy + side * len * (float) Math.sin(a0);
                 float x1 = cx + side * len * (float) Math.cos(a1), y1 = cy + side * len * (float) Math.sin(a1);
                 for (float z : new float[]{-half, half}) {
-                    // Front then back winding, so the haze shows from either side.
+                    // One winding per face: entityTranslucent does not cull, so each face shows from either side once.
                     corner(vc, pose, m, cx, cy, z, ROOT_ALPHA);
                     corner(vc, pose, m, x0, y0, z, TIP_ALPHA);
                     corner(vc, pose, m, x1, y1, z, TIP_ALPHA);
-                    corner(vc, pose, m, cx, cy, z, ROOT_ALPHA);
-                    corner(vc, pose, m, cx, cy, z, ROOT_ALPHA);
-                    corner(vc, pose, m, x1, y1, z, TIP_ALPHA);
-                    corner(vc, pose, m, x0, y0, z, TIP_ALPHA);
                     corner(vc, pose, m, cx, cy, z, ROOT_ALPHA);
                 }
             }

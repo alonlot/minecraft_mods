@@ -767,4 +767,24 @@ class SceneValidatorTest {
         assertMessage(validate("{\"length\":100,\"actors\":[{\"id\":\"q\",\"type\":\"hogwartsmagic:memory_quaffle\"},"
                 + "{\"id\":\"b\",\"type\":\"hogwartsmagic:memory_bludger\",\"ride\":\"q\"}]}"), "ride");
     }
+
+    private static String mover(String type, String keys) {
+        return "{\"length\":100,\"actors\":[{\"id\":\"m\",\"type\":\"" + type + "\",\"path\":[" + keys + "]}]}";
+    }
+
+    @Test
+    void ballsAndSnitchMustStayUnderTheCutSpeed() throws Exception {
+        for (String type : new String[]{"hogwartsmagic:memory_bludger", "hogwartsmagic:memory_quaffle",
+                "hogwartsmagic:memory_remembrall", "hogwartsmagic:golden_snitch"}) {
+            // 1.9 blocks a tick is fine; 3 a tick is a cut by accident: no interpolation, no roll.
+            assertEquals(List.of(), validate(mover(type, "{\"t\":0,\"pos\":[0,2,0]},{\"t\":20,\"pos\":[38,2,0],\"ease\":\"linear\"}")), type);
+            assertMessage(validate(mover(type, "{\"t\":0,\"pos\":[0,2,0]},{\"t\":20,\"pos\":[60,2,0],\"ease\":\"linear\"}")),
+                    "moves 3.0 blocks in a tick");
+            // A deliberate cut (two keys under half a tick apart) is allowed.
+            assertEquals(List.of(), validate(mover(type, "{\"t\":0,\"pos\":[0,2,0]},{\"t\":10,\"pos\":[0,2,0]},"
+                    + "{\"t\":10.001,\"pos\":[40,2,0],\"ease\":\"linear\"},{\"t\":20,\"pos\":[40,2,0]}")), type);
+        }
+        // Players are not held to it.
+        assertEquals(List.of(), validate(mover("player", "{\"t\":0,\"pos\":[0,2,0]},{\"t\":20,\"pos\":[60,2,0],\"ease\":\"linear\"}")));
+    }
 }

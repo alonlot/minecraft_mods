@@ -73,10 +73,15 @@ public class MemoryBallRenderer extends EntityRenderer<MemoryBallEntity> {
         if (smokeTexture != null) {
             drawGlass(ball, r, partialTick, pose, buffers, light);
         } else {
-            // The Bludger's tremor, in blocks at scale 1 (the stack's scale is already on).
-            double[] shake = MemoryBall.vibration(ball.speed, ball.tickCount + partialTick);
-            pose.translate(shake[0], shake[1], shake[2]);
-            pose.mulPose(spin(ball, partialTick));
+            // The Bludger's tremor, in blocks at scale 1 (the stack's scale is already on), on the scene clock.
+            double now = PensieveClientState.sceneTime(partialTick);
+            if (ball.roll != null) {
+                if (ball instanceof MemoryBallEntity.Bludger) {
+                    double[] shake = MemoryBall.vibration(ball.roll.speed(now), now);
+                    pose.translate(shake[0], shake[1], shake[2]);
+                }
+                pose.mulPose(spin(ball.roll, now));
+            }
             Mesh mesh = MESHES.computeIfAbsent(type, k -> Mesh.build(LAT, LON, k));
             mesh.emit(buffers.getBuffer(RenderType.entityCutoutNoCull(texture)), pose.last(), r, light, WHITE);
         }
@@ -101,12 +106,10 @@ public class MemoryBallRenderer extends EntityRenderer<MemoryBallEntity> {
         glass.emit(buffers.getBuffer(RenderType.entityTranslucent(texture)), pose.last(), r, light, WHITE);
     }
 
-    /** The interpolated roll as a quaternion. */
-    private static Quaternionf spin(MemoryBallEntity ball, float partial) {
-        double[] a = ball.spinO.quaternion(), b = ball.spin.quaternion();
-        Quaternionf qa = new Quaternionf((float) a[1], (float) a[2], (float) a[3], (float) a[0]);
-        Quaternionf qb = new Quaternionf((float) b[1], (float) b[2], (float) b[3], (float) b[0]);
-        return qa.slerp(qb, partial);
+    /** The roll at scene time t as a quaternion (the pure Roll turns each tick by its own axis and angle, forward). */
+    private static Quaternionf spin(MemoryBall.Roll roll, double t) {
+        double[] q = roll.at(t).quaternion();
+        return new Quaternionf((float) q[1], (float) q[2], (float) q[3], (float) q[0]);
     }
 
     /**

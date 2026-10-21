@@ -70,6 +70,9 @@ public final class SceneValidator {
         for (int i = 0; i < scene.actors().size(); i++) {
             if (SceneNames.ROWBOAT_ACTOR.equals(scene.actors().get(i).type())) boatSea(out, scene, i, length);
             if (Vehicle.isVehicle(scene.actors().get(i).type())) riders(out, scene, i, length);
+            if (MemoryBall.isBall(scene.actors().get(i).type()) || SNITCH.equals(scene.actors().get(i).type())) {
+                fastMover(out, scene.actors().get(i), i);
+            }
         }
 
         for (int i = 0; i < scene.words().size(); i++) {
@@ -202,6 +205,38 @@ public final class SceneValidator {
         }
     }
 
+    /** The Snitch's entity type (a living actor that darts like the balls). */
+    private static final String SNITCH = "hogwartsmagic:golden_snitch";
+
+    /**
+     * A ball or the Snitch must not move {@link MemoryBall#MAX_STEP} blocks or more in one tick: the client reads such
+     * a step as a cut (no interpolation, no roll), so a path that does it by accident would step at 20 Hz. Two keys
+     * under half a tick apart are a deliberate cut and exempt that tick.
+     */
+    private static void fastMover(List<String> out, SceneDef.ActorDef a, int index) {
+        List<Keyframe> keys = a.path().keys();
+        if (keys.size() < 2) return;
+        int from = (int) Math.floor(keys.get(0).t()), to = (int) Math.ceil(keys.get(keys.size() - 1).t());
+        for (int t = from; t < to; t++) {
+            boolean cut = false;
+            for (int i = 1; i < keys.size(); i++) {
+                float k0 = keys.get(i - 1).t(), k1 = keys.get(i).t();
+                if (k1 - k0 < 0.5f && k1 > t && k0 < t + 1) cut = true;
+            }
+            if (cut) continue;
+            float[] p = a.path().sample(t), q = a.path().sample(t + 1);
+            double dx = q[0] - p[0], dy = (q.length > 1 ? q[1] : 0) - (p.length > 1 ? p[1] : 0),
+                    dz = (q.length > 2 ? q[2] : 0) - (p.length > 2 ? p[2] : 0);
+            double d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            if (d >= MemoryBall.MAX_STEP) {
+                out.add("actors[" + index + "]: " + a.type().substring(a.type().indexOf(':') + 1) + " '" + a.id()
+                        + "' moves " + (Math.round(d * 10) / 10.0) + " blocks in a tick at t " + t + "; at most "
+                        + MemoryBall.MAX_STEP + " (more is read as a cut: no interpolation, no roll)");
+                return;
+            }
+        }
+    }
+
     /**
      * A rowboat may only ride a rough_sea of intensity at most {@link RoughSea#MAX_BOAT_INTENSITY}: rougher swells grow
      * faster than a 4-block hull can follow, and the hull would leave the drawn water by more than 0.15 blocks. Checked
@@ -324,6 +359,9 @@ public final class SceneValidator {
             case "sound" -> known(out, p + ".id", "sound", e.id(), names.sounds());
             case "music", "voice", "sfx" -> {
                 known(out, p + ".id", "sound", e.id(), names.sounds());
+                if ("sfx".equals(e.kind())) {
+                    out.addAll(CueKinds.loopProblems(p, e.loop(), e.duration(), e.t(), length));
+                }
                 float v = e.volume();
                 if (Float.isNaN(v) || v < 0 || v > SceneNames.MAX_CUE_VOLUME) {
                     out.add(p + ".volume: " + v + " is outside 0 to " + SceneNames.MAX_CUE_VOLUME);

@@ -7,7 +7,8 @@ Entity textures are 64 x 32 equirectangular maps of the unit sphere (u = longitu
                               scratches. The renderer also dents the mesh (MemoryBall.dent).
   memory_remembrall.png       clear glass, mostly transparent with a faint blue tint and white window glints.
   memory_remembrall_smoke.png a 16 x 16 soft white puff for the smoke inside it.
-Items (16 x 16): memory_remembrall.png (the glass ball with its smoke) and whistle.png (a brass whistle).
+Items (16 x 16): memory_remembrall.png (the glass ball with its smoke: the particle and GUI sprite), the item model's
+memory_remembrall_glass.png and memory_remembrall_smoke.png, and whistle.png (a brass whistle).
 Run from the repo root: python build_scripts/generate_memory_ball_textures.py
 """
 import math
@@ -133,6 +134,21 @@ def smoke():
     return img
 
 
+def item_glass():
+    """The Remembrall item model's glass cubes: pale blue, mostly clear, a bright glint corner."""
+    img = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
+    px = img.load()
+    for y in range(16):
+        for x in range(16):
+            a = 62
+            if x < 3 and y < 3 or (x, y) in ((3, 1), (1, 3)):
+                a = 200
+            if x in (0, 15) or y in (0, 15):
+                a = 96
+            px[x, y] = (210, 228, 246, a)
+    return img
+
+
 def item_remembrall():
     img = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
     px = img.load()
@@ -181,6 +197,8 @@ def main():
         "entity/memory_remembrall.png": glass(),
         "entity/memory_remembrall_smoke.png": smoke(),
         "item/memory_remembrall.png": item_remembrall(),
+        "item/memory_remembrall_glass.png": item_glass(),
+        "item/memory_remembrall_smoke.png": smoke(),
         "item/whistle.png": item_whistle(),
     }
     for name, img in out.items():

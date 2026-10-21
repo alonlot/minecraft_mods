@@ -3,12 +3,16 @@ package com.hogwartsmagic.pensieve;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.hogwartsmagic.pensieve.scene.Ease;
+import com.hogwartsmagic.pensieve.scene.Keyframe;
 import com.hogwartsmagic.pensieve.scene.MemoryBall;
+import com.hogwartsmagic.pensieve.scene.Track;
 import com.hogwartsmagic.pensieve.scene.SceneNames;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -24,16 +28,17 @@ class MemoryBallTest {
         // A ball that travels distance d rolls through d / radius radians, whatever the direction (and the speed it
         // took, in however many ticks).
         double r = 0.275;
-        double[][] directions = {{1, 0, 0}, {0, 0, -1}, {0.6, 0, 0.8}, {0.5, 0.5, 0.70710678}, {0, 1, 0}};
+        double[][] directions = {{1, 0, 0}, {0, 0, -1}, {0.6, 0, 0.8}, {0.5, 0.5, 0.70710678}};
         for (double[] d : directions) {
             double len = Math.sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
+            double horizontal = Math.sqrt(d[0] * d[0] + d[2] * d[2]) / len;
             for (int steps : new int[]{1, 7, 40}) {
                 MemoryBall.Spin s = new MemoryBall.Spin();
                 double total = 0.6;
                 for (int i = 0; i < steps; i++) {
                     s.roll(d[0] / len * total / steps, d[1] / len * total / steps, d[2] / len * total / steps, r);
                 }
-                assertEquals(total / r, s.angle(), 1e-9, "angle for " + java.util.Arrays.toString(d) + " in " + steps);
+                assertEquals(total * horizontal / r, s.angle(), 1e-9, "angle for " + java.util.Arrays.toString(d) + " in " + steps);
             }
         }
     }
@@ -219,5 +224,137 @@ class MemoryBallTest {
 
     private static double[] sub(double[] a, double[] b) {
         return new double[]{a[0] - b[0], a[1] - b[1], a[2] - b[2]};
+    }
+    private static Track line(double vx, double vz, int ticks) {
+        return new Track(List.of(
+                new Keyframe(0, new float[]{0, 2, 0}, Ease.LINEAR),
+                new Keyframe(ticks, new float[]{(float) (vx * ticks), 2, (float) (vz * ticks)}, Ease.LINEAR)));
+    }
+
+    @Test
+    void verticalDropDoesNotSpin() {
+        Track drop = new Track(List.of(
+                new Keyframe(0, new float[]{1, 5, 1}, Ease.LINEAR),
+                new Keyframe(30, new float[]{1, 0.3f, 1}, Ease.LINEAR)));
+        MemoryBall.Roll roll = new MemoryBall.Roll(drop, 0.275);
+        for (double t = 0; t <= 40; t += 0.25) assertEquals(0, roll.at(t).angle(), 1e-9, "t " + t);
+    }
+
+    @Test
+    void fastBallsSpinForwardAtEveryPartial() {
+        // A shortest-arc slerp between ticks runs backwards above pi x radius per tick (0.71 blocks/tick for a
+        // Bludger). Each tick's own axis and angle are applied in proportion, so any speed turns forward and the
+        // turn is exactly the distance rolled so far, at 10 partials a tick.
+        double r = 0.225;
+        for (double v : new double[]{0.5, 1.0, 1.5, 1.9}) {
+            MemoryBall.Roll roll = new MemoryBall.Roll(line(v, 0, 40), r);
+            for (int i = 0; i <= 300; i++) {
+                double t = i / 10.0;
+                MemoryBall.Spin want = new MemoryBall.Spin();
+                want.rollAbout(0, -1, v * t / r);   // the same turn in one go: the axis across a +x travel
+                for (double[] probe : new double[][]{{0, 1, 0}, {0.6, 0, 0.8}}) {
+                    assertArrayEquals(want.turn(probe), roll.at(t).turn(probe), 1e-4, "v " + v + " t " + t);
+                }
+                if (i > 0) {
+                    // Each tenth of a tick turns the top toward +x by a tenth of that tick's angle (mod a turn).
+                    double step = v / 10 / r;
+                    double[] a = roll.at(t - 0.1).turn(new double[]{0, 1, 0}), b = roll.at(t).turn(new double[]{0, 1, 0});
+                    double ang = Math.atan2(a[1] * b[0] - a[0] * b[1], a[0] * b[0] + a[1] * b[1]);
+                    assertEquals(Math.atan2(Math.sin(step), Math.cos(step)), ang, 1e-4, "step v " + v + " t " + t);
+                    assertTrue(step < Math.PI, "a tenth of a tick turns less than half a turn");
+                }
+            }
+        }
+    }
+
+    @Test
+    void lateJoinerGetsTheSameRoll() {
+        // The roll is a pure function of the path and the clock: a second Roll (a late joiner) asked out of order
+        // agrees with one asked in order, on a curving path.
+        Track curve = new Track(List.of(
+                new Keyframe(0, new float[]{0, 2, 0}, Ease.LINEAR),
+                new Keyframe(20, new float[]{10, 3, 2}, Ease.LINEAR),
+                new Keyframe(40, new float[]{12, 2, 14}, Ease.LINEAR),
+                new Keyframe(60, new float[]{-3, 2, 15}, Ease.LINEAR)));
+        MemoryBall.Roll first = new MemoryBall.Roll(curve, 0.2), late = new MemoryBall.Roll(curve, 0.2);
+        double[] ts = {59.5, 3.25, 40, 12.75, 0, 33.3, 61, 25};
+        double[] got = new double[ts.length];
+        for (int i = 0; i < ts.length; i++) got[i] = late.at(ts[i]).angle();
+        for (double t = 0; t <= 61; t += 0.25) first.at(t);
+        for (int i = 0; i < ts.length; i++) assertEquals(first.at(ts[i]).angle(), got[i], 0, "t " + ts[i]);
+        assertTrue(first.at(59.5).angle() > 1, "it did roll");
+    }
+
+    @Test
+    void aCutDoesNotRollTheBall() {
+        Track cut = new Track(List.of(
+                new Keyframe(0, new float[]{0, 2, 0}, Ease.LINEAR),
+                new Keyframe(10, new float[]{0, 2, 0}, Ease.LINEAR),
+                new Keyframe(10.001f, new float[]{30, 2, 0}, Ease.LINEAR),
+                new Keyframe(20, new float[]{30, 2, 0}, Ease.LINEAR)));
+        assertEquals(0, new MemoryBall.Roll(cut, 0.25).at(20).angle(), 1e-9);
+    }
+
+    @Test
+    void speedIsThePathsOwnStep() {
+        MemoryBall.Roll roll = new MemoryBall.Roll(line(0.8, 0.6, 40), 0.25);
+        assertEquals(1.0, roll.speed(20.5), 1e-4);
+        assertEquals(0.0, roll.speed(100), 1e-9);
+    }
+
+    /** Extent of the item model's elements along any axis, in model units (rotated cubes included). */
+    private static double modelDiameter(JsonObject model) {
+        double lo = 1e9, hi = -1e9;
+        for (var e : model.getAsJsonArray("elements")) {
+            JsonObject el = e.getAsJsonObject();
+            JsonArray from = el.getAsJsonArray("from"), to = el.getAsJsonArray("to");
+            double deg = 0;
+            String axis = "y";
+            if (el.has("rotation")) {
+                deg = el.getAsJsonObject("rotation").get("angle").getAsDouble();
+                axis = el.getAsJsonObject("rotation").get("axis").getAsString();
+            }
+            double c = Math.cos(Math.toRadians(deg)), s = Math.sin(Math.toRadians(deg));
+            for (int i = 0; i < 8; i++) {
+                double[] p = new double[3];
+                for (int k = 0; k < 3; k++) {
+                    p[k] = ((i >> k & 1) == 0 ? from.get(k).getAsDouble() : to.get(k).getAsDouble()) - 8;
+                }
+                double[] q = p.clone();
+                if (axis.equals("y")) {
+                    q[0] = p[0] * c + p[2] * s;
+                    q[2] = -p[0] * s + p[2] * c;
+                } else if (axis.equals("x")) {
+                    q[1] = p[1] * c - p[2] * s;
+                    q[2] = p[1] * s + p[2] * c;
+                } else {
+                    q[0] = p[0] * c - p[1] * s;
+                    q[1] = p[0] * s + p[1] * c;
+                }
+                for (double v : q) {
+                    lo = Math.min(lo, v);
+                    hi = Math.max(hi, v);
+                }
+            }
+        }
+        return hi - lo;
+    }
+
+    @Test
+    void remembrallItemMatchesTheActorSize() throws Exception {
+        // The item model is a small glass sphere of cubes whose in-hand diameter (model extent x display scale) is the
+        // actor's 0.22 in third and first person, both hands, so the swap at the catch does not pop. The held item is
+        // drawn inside the holder's scale (the PoseStack), so give the Remembrall actor its holder's scale.
+        JsonObject model = JsonParser.parseString(Files.readString(Path.of(
+                "src/main/resources/assets/hogwartsmagic/models/item/memory_remembrall.json"))).getAsJsonObject();
+        double diameter = modelDiameter(model) / 16.0;   // blocks at display scale 1
+        JsonObject display = model.getAsJsonObject("display");
+        for (String slot : new String[]{"thirdperson_righthand", "thirdperson_lefthand", "firstperson_righthand",
+                "firstperson_lefthand"}) {
+            JsonArray scale = display.getAsJsonObject(slot).getAsJsonArray("scale");
+            assertEquals(scale.get(0).getAsDouble(), scale.get(1).getAsDouble(), 0, slot);
+            assertEquals(scale.get(0).getAsDouble(), scale.get(2).getAsDouble(), 0, slot);
+            assertEquals(MemoryBall.diameter(SceneNames.REMEMBRALL_ACTOR), diameter * scale.get(0).getAsDouble(), 0.004, slot);
+        }
     }
 }

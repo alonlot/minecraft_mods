@@ -167,6 +167,8 @@ public final class MemoryActors {
             }
             if (entity instanceof com.hogwartsmagic.entity.MemoryBallEntity ball) {
                 ball.seed = com.hogwartsmagic.pensieve.scene.MemoryBall.seedFor(def.id());
+                ball.roll = new com.hogwartsmagic.pensieve.scene.MemoryBall.Roll(def.path(),
+                        com.hogwartsmagic.pensieve.scene.MemoryBall.radius(def.type(), def.scale()));
             }
             if (entity instanceof MemoryBlockEntity block) {
                 BlockState state = MemoryBlockEntity.parseState(def.block());
@@ -336,7 +338,7 @@ public final class MemoryActors {
     }
 
     /** A path that moves an actor farther than this in one tick is a cut, and the client does not interpolate it. */
-    private static final double TELEPORT_BLOCKS = 2.0;
+    private static final double TELEPORT_BLOCKS = com.hogwartsmagic.pensieve.scene.MemoryBall.MAX_STEP;
 
     private static void step(ActorRuntime a, float t) {
         Entity e = a.entity;
@@ -489,14 +491,6 @@ public final class MemoryActors {
         double jy = y - e.yo;
         double jz = z - e.zo;
         e.setPos(x, y, z);
-        // A ball rolls by the ground it covers; a first placement or a cut (a jump over TELEPORT_BLOCKS) does not roll it.
-        if (e instanceof com.hogwartsmagic.entity.MemoryBallEntity ball) {
-            if (first || jx * jx + jy * jy + jz * jz > TELEPORT_BLOCKS * TELEPORT_BLOCKS) {
-                ball.holdRoll();
-            } else {
-                ball.rollBy(jx, jy, jz, a.def.scale());
-            }
-        }
         // An owl flies while its path moves and perches (wings folded) while it is held (Airborne, pure). Owls only:
         // other models read onGround too, and every other puppet has always drawn as airborne.
         if (e instanceof OwlEntity) e.setOnGround(!Airborne.airborne(a.def.path(), t, !first && !e.onGround()));

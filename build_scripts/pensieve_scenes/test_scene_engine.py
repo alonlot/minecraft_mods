@@ -91,8 +91,23 @@ def ball_box_and_lowest():
     assert abs(E.ball_pos(sc, 'q', 10)[0] - 4.0) < 1e-9
 
 
+def ball_speed_check():
+    def sc(keys):
+        return {'actors': [{'id': 'b', 'type': 'hogwartsmagic:memory_bludger', 'path': keys}]}
+    bad = []
+    assert abs(E.check_ball_speeds('t', sc([{'t': 0, 'pos': [0, 2, 0]}, {'t': 20, 'pos': [38, 2, 0], 'ease': 'linear'}]), bad) - 1.9) < 1e-9
+    assert not bad
+    E.check_ball_speeds('t', sc([{'t': 0, 'pos': [0, 2, 0]}, {'t': 20, 'pos': [60, 2, 0], 'ease': 'linear'}]), bad)
+    assert len(bad) == 1 and '3.0 blocks in a tick' in bad[0], bad
+    cut = [{'t': 0, 'pos': [0, 2, 0]}, {'t': 10, 'pos': [0, 2, 0]}, {'t': 10.001, 'pos': [40, 2, 0], 'ease': 'linear'},
+           {'t': 20, 'pos': [40, 2, 0]}]
+    ok = []
+    E.check_ball_speeds('t', sc(cut), ok)
+    assert not ok, ok
+
+
 if __name__ == '__main__':
     for fn in (spline_moves_flags_linear_track, wand_sample_cam_matches, rider_grip, rider_body_on_broom,
-               ball_box_and_lowest, letter_outputs_unchanged):
+               ball_box_and_lowest, ball_speed_check, letter_outputs_unchanged):
         fn()
         print('ok', fn.__name__)

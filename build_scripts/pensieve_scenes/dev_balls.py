@@ -36,7 +36,6 @@ QUAFFLE, BLUDGER, REMEMBRALL = ('hogwartsmagic:memory_quaffle', 'hogwartsmagic:m
                                 'hogwartsmagic:memory_remembrall')
 ARM_UP = [-80.0, 0.0, 0.0]
 CATCH_GAP = 0.15               # assert 5: ball centre to hand, every sway corner
-TELEPORT = 2.0                 # MemoryActors.TELEPORT_BLOCKS: a ball moving farther than this in a tick is cut
 BOY_AT, CATCHER_AT = [0.0, 0.0, 0.0], [0.0, 0.0, 16.0]
 
 
@@ -174,17 +173,10 @@ def build():
 
 def checks(scene, catches):
     """Speeds under the cut limit, the grass under the rolling ball, the hands on the catches, the Bludger's gap."""
-    worst = 0.0
-    for a in scene['actors']:
-        if not (E.is_ball(a['type']) or a['type'] == 'hogwartsmagic:golden_snitch'):
-            continue
-        prev = E.track_sample(a['path'], 0)[:3]
-        for i in range(1, LENGTH * 4 + 1):
-            cur = E.track_sample(a['path'], i / 4.0)[:3]
-            worst = max(worst, math.dist(prev, cur) * 4)
-            prev = cur
-    print('fastest mover: %.2f blocks/tick (the cut limit is %.1f)' % (worst, TELEPORT))
-    assert worst < TELEPORT - 0.1, worst
+    fast = []
+    worst = E.check_ball_speeds('dev_balls', scene, fast)
+    print('fastest mover: %.2f blocks/tick (the cut limit is %.1f)' % (worst, E.BALL_MAX_STEP))
+    assert not fast, fast
     # The Quaffle's last rolling stretch stays on the grass: its lowest point within a hair of y 0, never under.
     q = E.actor_by_id(scene, 'quaffle')
     land = [key for key in q['path'] if key['pos'][1] <= E.ball_radius(QUAFFLE) + 1e-9][0]['t']

@@ -1,5 +1,6 @@
 package com.hogwartsmagic.pensieve.scene;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -45,33 +46,36 @@ public final class MemoryBall {
     // ---- Rolling ----------------------------------------------------------------------------------------------------
 
     /**
-     * A ball's orientation, a unit quaternion advanced by the ground it covers: every step rolls it through
-     * distance / radius radians about up x direction (so the top of a ball heading +x goes forward, +x). For straight
-     * up or down, where that axis is undefined, it turns about +x.
+     * The most a ball may move in one tick (blocks). MemoryActors treats a bigger step as a cut (a teleport: no
+     * interpolation and no roll), so a scene keeps its balls and the Snitch under it (SceneValidator checks), unless
+     * two path keys under half a tick apart cut on purpose.
+     */
+    public static final double MAX_STEP = 2.0;
+
+    /**
+     * A ball's orientation, a unit quaternion. {@link #roll} turns it by the ground covered: through horizontal
+     * distance / radius radians about the horizontal axis across the travel (up x direction, so the top of a ball
+     * heading +x goes forward, +x). A vertical move does not turn it.
      */
     public static final class Spin {
         private double w = 1, x, y, z;
 
-        /** Rolls the ball through a move of (dx, dy, dz) blocks. */
+        /** Rolls the ball through a move of (dx, dy, dz) blocks: only the horizontal part turns it. */
         public void roll(double dx, double dy, double dz, double radius) {
-            double dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-            if (dist <= 0 || radius <= 0) return;
-            double ax = dz, ay = 0, az = -dx;
-            double len = Math.sqrt(ax * ax + az * az);
-            if (len < dist * 1e-6) {
-                ax = 1;
-                az = 0;
-                len = 1;
-            }
-            ax /= len;
-            az /= len;
-            double half = dist / radius / 2, s = Math.sin(half);
-            double qw = Math.cos(half), qx = ax * s, qy = ay * s, qz = az * s;
-            // q = dq * q: the turn is about a world axis.
-            double nw = qw * w - qx * x - qy * y - qz * z;
-            double nx = qw * x + qx * w + qy * z - qz * y;
-            double ny = qw * y - qx * z + qy * w + qz * x;
-            double nz = qw * z + qx * y - qy * x + qz * w;
+            double[] step = step(dx, dz, radius);
+            if (step != null) rollAbout(step[0], step[1], step[2]);
+        }
+
+        /** Turns the ball by {@code angle} radians about the horizontal world axis (ax, 0, az), a unit vector there. */
+        public void rollAbout(double ax, double az, double angle) {
+            if (angle == 0) return;
+            double half = angle / 2, s = Math.sin(half);
+            double qw = Math.cos(half), qx = ax * s, qz = az * s;
+            // q = dq * q: the turn is about a world axis (dq has no y part).
+            double nw = qw * w - qx * x - qz * z;
+            double nx = qw * x + qx * w - qz * y;
+            double ny = qw * y - qx * z + qz * x;
+            double nz = qw * z + qx * y + qz * w;
             double n = Math.sqrt(nw * nw + nx * nx + ny * ny + nz * nz);
             w = nw / n;
             x = nx / n;
@@ -104,6 +108,98 @@ public final class MemoryBall {
                     v[0] + 2 * (w * cx + y * cz - z * cy),
                     v[1] + 2 * (w * cy + z * cx - x * cz),
                     v[2] + 2 * (w * cz + x * cy - y * cx)};
+        }
+    }
+
+    /** One tick's roll for a horizontal move (dx, dz): {axis x, axis z, angle}, or null when it does not turn. */
+    static double[] step(double dx, double dz, double radius) {
+        double h = Math.sqrt(dx * dx + dz * dz);
+        if (h <= 0 || radius <= 0) return null;
+        // up x direction = (dz, 0, -dx)
+        return new double[]{dz / h, -dx / h, h / radius};
+    }
+
+    /**
+     * A ball's roll as a pure function of its path and the clock, so a late joiner and a replay see the same turn:
+     * the orientation after every whole tick is built once from the path (each tick's horizontal move rolls it,
+     * except a step over {@link #MAX_STEP}, a cut), and a time between ticks applies that tick's own axis and
+     * angle in proportion on top of the tick before, so the ball turns forward at any speed (a shortest-arc blend
+     * between two orientations would run backwards past half a turn a tick).
+     */
+    public static final class Roll {
+        private static final int MAX_TICKS = 72_000;
+        private final Track path;
+        private final int t0;
+        private final int n;
+        private final double[] q;       // w, x, y, z after each whole tick
+        private final double[] axis;    // ax, az, angle of the step that ends at each tick
+
+        public Roll(Track path, double radius) {
+            this.path = path;
+            List<Keyframe> k = path.keys();
+            if (k.isEmpty()) {
+                t0 = 0;
+                n = 1;
+            } else {
+                t0 = (int) Math.floor(k.get(0).t());
+                n = Math.min(MAX_TICKS, Math.max(1, (int) Math.ceil(k.get(k.size() - 1).t()) - t0 + 2));
+            }
+            q = new double[n * 4];
+            axis = new double[n * 3];
+            Spin spin = new Spin();
+            double[] prev = pos(t0);
+            put(0, spin);
+            for (int i = 1; i < n; i++) {
+                double[] cur = pos(t0 + i);
+                double dx = cur[0] - prev[0], dy = cur[1] - prev[1], dz = cur[2] - prev[2];
+                boolean cut = Math.sqrt(dx * dx + dy * dy + dz * dz) > MAX_STEP;
+                double[] st = cut ? null : step(dx, dz, radius);
+                if (st != null) {
+                    spin.rollAbout(st[0], st[1], st[2]);
+                    System.arraycopy(st, 0, axis, i * 3, 3);
+                }
+                put(i, spin);
+                prev = cur;
+            }
+        }
+
+        private double[] pos(double t) {
+            if (path.isEmpty()) return new double[]{0, 0, 0};
+            float[] p = path.sample((float) t);
+            return new double[]{p.length > 0 ? p[0] : 0, p.length > 1 ? p[1] : 0, p.length > 2 ? p[2] : 0};
+        }
+
+        private void put(int i, Spin s) {
+            double[] v = s.quaternion();
+            System.arraycopy(v, 0, q, i * 4, 4);
+        }
+
+        /** The orientation at scene time t (ticks, any fraction). */
+        public Spin at(double t) {
+            Spin s = new Spin();
+            int k = (int) Math.floor(t) - t0;
+            if (k < 0) return s;
+            if (k >= n - 1) {
+                load(s, n - 1);
+                return s;
+            }
+            load(s, k);
+            double frac = t - Math.floor(t);
+            s.rollAbout(axis[(k + 1) * 3], axis[(k + 1) * 3 + 1], axis[(k + 1) * 3 + 2] * frac);
+            return s;
+        }
+
+        private void load(Spin s, int i) {
+            s.w = q[i * 4];
+            s.x = q[i * 4 + 1];
+            s.y = q[i * 4 + 2];
+            s.z = q[i * 4 + 3];
+        }
+
+        /** Blocks moved in the tick that ends at t (the path's own step), for the Bludger's tremor. */
+        public double speed(double t) {
+            double[] a = pos(t - 1), b = pos(t);
+            return Math.sqrt((b[0] - a[0]) * (b[0] - a[0]) + (b[1] - a[1]) * (b[1] - a[1]) + (b[2] - a[2]) * (b[2] - a[2]));
         }
     }
 

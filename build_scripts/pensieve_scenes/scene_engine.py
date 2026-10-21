@@ -15,7 +15,7 @@ Every generator that emits a memory checks it against the engine's own maths, ne
 
 `python -I scene_engine.py --write-broom-cases` rewrites broom_cases.json (BroomFlightTest.pythonMirrorAgrees);
 `--write-ball-cases` rewrites ball_cases.json (MemoryBallTest.pythonMirrorAgrees). The Quidditch balls and the Remembrall
-(MemoryBall): is_ball, ball_radius, ball_box, ball_pos, ball_lowest.
+(MemoryBall): is_ball, ball_radius, ball_box, ball_pos, ball_lowest, check_ball_speeds.
 
 Imports only the standard library, scene_common and human_motion (no generator), so any generator can import it.
 """
@@ -1183,6 +1183,30 @@ def ball_box(btype, scale=1.0):
 def ball_pos(scene, ball_id, t):
     """The ball centre (scene-relative) at tick t: the actor's path, as MemoryActors places a ball."""
     return track_sample(actor_by_id(scene, ball_id).get('path'), t)[:3]
+
+
+BALL_MAX_STEP = 2.0                       # MemoryBall.MAX_STEP: blocks per tick, then the client reads a cut
+FAST_MOVERS = tuple(BALL_DIAMETER) + ('hogwartsmagic:golden_snitch',)
+
+
+def check_ball_speeds(sid, scene, problems):
+    """SceneValidator.fastMover: no ball or Snitch path moves BALL_MAX_STEP blocks or more in a tick (two keys under
+    half a tick apart cut on purpose and are exempt). Returns the fastest step seen."""
+    worst = 0.0
+    for a in scene['actors']:
+        keys = a.get('path') or []
+        if a['type'] not in FAST_MOVERS or len(keys) < 2:
+            continue
+        for t in range(int(math.floor(keys[0]['t'])), int(math.ceil(keys[-1]['t']))):
+            if any(k1['t'] - k0['t'] < 0.5 and k1['t'] > t and k0['t'] < t + 1 for k0, k1 in zip(keys, keys[1:])):
+                continue
+            d = math.dist(track_sample(keys, t)[:3], track_sample(keys, t + 1)[:3])
+            worst = max(worst, d)
+            if d >= BALL_MAX_STEP:
+                problems.append('%s: %s %r moves %.1f blocks in a tick at t %d (at most %.1f)'
+                                % (sid, a['type'], a['id'], d, t, BALL_MAX_STEP))
+                break
+    return worst
 
 
 def ball_lowest(scene, ball_id, t):

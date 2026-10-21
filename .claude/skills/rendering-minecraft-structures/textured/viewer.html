@@ -132,7 +132,10 @@ async function main() {
 
   const gl = canvas.getContext('webgl', { preserveDrawingBuffer: true })
   if (!gl) fail('no webgl context')
-  const renderer = new StructureRenderer(gl, structure, resources)
+  // useInvisibleBlockBuffer off: deepslate otherwise walks every cell of the bounding box building
+  // an outline cube per air cell -- a mesh this page never draws. At 96x109x145 (Mini Hogwarts,
+  // 1.5M cells) that froze the tab for minutes, even with a single block in the box.
+  const renderer = new StructureRenderer(gl, structure, resources, { useInvisibleBlockBuffer: false })
 
   // Frame the whole build unless a distance was asked for. 0.85 rather than 1.5: at 1.5 a 26-wide
   // build sat in the middle of the canvas surrounded by empty space, which wastes exactly the

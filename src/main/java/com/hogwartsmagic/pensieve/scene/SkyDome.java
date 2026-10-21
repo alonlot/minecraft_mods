@@ -68,6 +68,18 @@ public final class SkyDome {
         return Math.min(in, out);
     }
 
+    /**
+     * {@link #fade(float, int)} for a sky keyed at scene tick {@code startT}: one keyed at tick 0 is the scene's own
+     * sky, so it shows in full from the first tick instead of fading in out of the reveal; a later one fades in as
+     * usual. A finite {@code duration} still fades out at its end.
+     */
+    public static float fade(float local, int duration, float startT) {
+        if (startT > 0) return fade(local, duration);
+        if (local < 0f) return 0f;
+        if (duration <= 0) return 1f;
+        return smooth((duration - local) / FADE_TICKS);
+    }
+
     private static float smooth(float x) {
         float k = Math.max(0f, Math.min(1f, x));
         return k * k * (3f - 2f * k);

@@ -84,6 +84,19 @@ class SkyDomeTest {
     }
 
     @Test
+    void aSkyKeyedAtTickZeroShowsAtOnceAndOthersStillFadeIn() {
+        assertEquals(1f, SkyDome.fade(0f, 0, 0), 1e-6f, "the scene's own sky is there on the first tick");
+        assertEquals(1f, SkyDome.fade(3f, 0, 0), 1e-6f);
+        assertEquals(0f, SkyDome.fade(-1f, 0, 0), 1e-6f, "but not before the scene");
+        assertEquals(1f, SkyDome.fade(0f, 400, 0), 1e-6f);
+        assertEquals(SkyDome.fade(390f, 400), SkyDome.fade(390f, 400, 0), 1e-6f, "the end still fades out");
+        assertEquals(0f, SkyDome.fade(400f, 400, 0), 1e-6f);
+        assertEquals(0f, SkyDome.fade(0f, 0, 200), 1e-6f, "a mid-scene sky starts from nothing");
+        assertEquals(SkyDome.fade(7f, 0), SkyDome.fade(7f, 0, 200), 1e-6f, "and eases in as before");
+        assertEquals(1f, SkyDome.fade(SkyDome.FADE_TICKS, 0, 200), 1e-6f);
+    }
+
+    @Test
     void domeSitsBeyondTheSetAndInsideTheFarPlane() {
         float r = SkyDome.domeRadius(120f, 512f);
         assertTrue(r > 120f && r < 512f, "" + r);

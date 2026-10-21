@@ -104,7 +104,7 @@ public final class SkyRenderer {
     }
 
     private static float shown(Sky sky, float now, float partial) {
-        return SkyDome.fade(now - sky.t, sky.duration) * phaseShare(partial);
+        return SkyDome.fade(now - sky.t, sky.duration, sky.t) * phaseShare(partial);
     }
 
     /**

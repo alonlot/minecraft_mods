@@ -172,6 +172,7 @@ public final class LetterFlood {
         z[i] = clamp(z[i] + f[1] * MARGIN, minZ, maxZ);
         y[i] = clamp(ay + MOUTH_HEIGHT, minY, maxY);
         yaw[i] = (float) Math.toDegrees(Math.atan2(-vx[i], vz[i]));
+        pitch[i] = 90f;   // leaves the mouth lying flat, so it never swings up from upright
     }
 
     private double[] forwardUnit() {
@@ -228,7 +229,7 @@ public final class LetterFlood {
             targetPitch = 90f;
         } else {
             if (vx[i] * vx[i] + vz[i] * vz[i] > 1e-4) targetYaw = (float) Math.toDegrees(Math.atan2(-vx[i], vz[i]));
-            targetPitch = (float) Math.max(-45.0, Math.min(45.0, -vy[i] * 100.0));
+            targetPitch = 90f + (float) Math.max(-45.0, Math.min(45.0, -vy[i] * 100.0));
         }
         float dy = ((targetYaw - yaw[i]) % 360f + 540f) % 360f - 180f;
         yaw[i] += Math.max(-TURN_PER_TICK, Math.min(TURN_PER_TICK, dy));

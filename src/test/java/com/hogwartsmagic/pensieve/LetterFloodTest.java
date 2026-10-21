@@ -237,4 +237,19 @@ class LetterFloodTest {
             assertEquals(f.age() - (int) Math.floor(i * (0.6 * 120) / f.count()), f.flightAge(i));
         }
     }
+
+    @Test
+    void flyingLettersTiltAroundFlat() {
+        for (float yaw : YAWS) {
+            LetterFlood f = flood(yaw, 4);
+            for (int tick = 0; tick < 300; tick++) {
+                f.step();
+                for (int i = 0; i < f.count(); i++) {
+                    if (!f.emitted(i)) continue;
+                    assertTrue(f.pitch(i) >= 45f - 1e-3f && f.pitch(i) <= 135f + 1e-3f,
+                            "yaw " + yaw + " tick " + tick + " letter " + i + " pitch " + f.pitch(i));
+                }
+            }
+        }
+    }
 }

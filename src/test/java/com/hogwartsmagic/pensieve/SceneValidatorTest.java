@@ -863,8 +863,8 @@ class SceneValidatorTest {
 
     @Test
     void crowdCap4000() throws Exception {
-        // 50 rows of 90 blocks hold about 5,000 seats: one event over the cap, two events capped at 2,500 each fit,
-        // three of them (7,500) do not: the cap counts the whole scene.
+        // 50 rows of 90 blocks hold about 5,000 seats: one event is capped at 4,000 by itself, two events capped at
+        // 2,000 each fit, three of them (6,000) do not: the cap counts the whole scene.
         StringBuilder rows = new StringBuilder("[");
         for (int i = 0; i < 50; i++) {
             if (i > 0) rows.append(',');
@@ -880,5 +880,31 @@ class SceneValidatorTest {
         // One event alone is capped at 4,000 by the effect itself, so it fits.
         assertEquals(List.of(), validate(crowdScene(full)));
         assertMessage(validate(crowdScene(full.replace("\"rows\"", "\"count\":5000,\"rows\""))), "count: 5000 is outside 1 to 4000");
+    }
+
+    @Test
+    void standersAcrossCrowdEventsValidate() throws Exception {
+        // Seats and their rail in separate crowd events (ruling C11 allows one event per stand): valid, and the rail's
+        // stander in front of the seat is left out scene-wide, so the scene seats 1 + the rest of the rail.
+        String seats = "{\"t\":0,\"kind\":\"effect\",\"id\":\"crowd\",\"at\":[0,0,0],\"rows\":[[-0.4,3.5,20,0.4,3.5,20]]}";
+        String rail = "{\"t\":0,\"kind\":\"effect\",\"id\":\"crowd\",\"at\":[0,0,0],\"rows\":[[-0.2,3,18.6,0.2,3,18.6,1]]}";
+        String json = crowdScene(seats + "," + rail);
+        assertEquals(List.of(), validate(json));
+        SceneDef def = SceneParser.parse("t", JsonParser.parseString(json).getAsJsonObject());
+        int total = 0;
+        for (com.hogwartsmagic.pensieve.scene.Crowd c : com.hogwartsmagic.pensieve.scene.Crowd.ofScene(def.events())) total += c.size();
+        assertEquals(1, total, "the blocking stander is not seated");
+    }
+
+    @Test
+    void crowdKeysStayInTheScene() throws Exception {
+        assertMessage(validate(crowdScene("{\"t\":10,\"kind\":\"effect\",\"id\":\"crowd_react\",\"at\":[0,0,61],\"style\":\"goal\"}")),
+                "centre of attention is beyond the scene radius 60");
+        assertMessage(validate(crowdScene("{\"t\":300,\"kind\":\"effect\",\"id\":\"crowd\",\"at\":[0,0,0],\"duration\":200,\"rows\":"
+                + ROW + "}")), "duration: 200 must be 0");
+        assertMessage(validate(crowdScene("{\"t\":0,\"kind\":\"effect\",\"id\":\"crowd\",\"at\":[0,0,0],\"rows\":[[0,400,20,5,400,20]]}")),
+                "y must be -64 to 320");
+        assertMessage(validate(crowdScene("{\"t\":0,\"kind\":\"effect\",\"id\":\"crowd\",\"at\":[0,0,0],\"rows\":[[0,3,59.97,5,3,59.97]]}")),
+                "reaches beyond the scene radius");
     }
 }

@@ -329,6 +329,41 @@ class CrowdTest {
     }
 
     @Test
+    void blendChainsWithoutPop() throws Exception {
+        // Three reactions landing inside each other's rise: the pose shown is the pose blended from, so no channel jumps.
+        Crowd c = react(Crowd.layout(bowl(3, 20, 14), AT, "mixed", 1, 0, 47L),
+                "{\"t\":100,\"kind\":\"effect\",\"id\":\"crowd_react\",\"at\":[0,0,0],\"style\":\"cheer\"},"
+                        + "{\"t\":103,\"kind\":\"effect\",\"id\":\"crowd_react\",\"at\":[0,0,0],\"style\":\"gasp\"},"
+                        + "{\"t\":106,\"kind\":\"effect\",\"id\":\"crowd_react\",\"at\":[0,0,0],\"style\":\"sit\"}");
+        float[] a = new float[Crowd.CHANNELS], b = new float[Crowd.CHANNELS];
+        int[] watch = {Crowd.STAND, Crowd.ARM_L, Crowd.HANDS_HEAD, Crowd.FLAG_UP};
+        for (int i = 0; i < c.size(); i += 3) {
+            for (float t = 95; t < 160; t += 0.05f) {
+                c.pose(i, t, a, 0);
+                c.pose(i, t + 0.05f, b, 0);
+                for (int ch : watch) {
+                    assertTrue(Math.abs(a[ch] - b[ch]) < 0.03f, "channel " + ch + " pops at t " + t + ": " + a[ch] + " -> " + b[ch]);
+                }
+            }
+        }
+    }
+
+    @Test
+    void standersResolvedAcrossEvents() throws Exception {
+        // The seats in one crowd event and the rail in another: the stander in front of the seat is still left out.
+        SceneDef s = SceneParser.parse("t", JsonParser.parseString("{\"length\":100,\"events\":["
+                + "{\"t\":0,\"kind\":\"effect\",\"id\":\"crowd\",\"at\":[0,0,0],\"rows\":[[-0.4,3.5,20,0.4,3.5,20]]},"
+                + "{\"t\":0,\"kind\":\"effect\",\"id\":\"crowd\",\"at\":[0,0,0],\"rows\":[[-0.2,3,18.6,0.2,3,18.6,1],[2,3,18.6,8,3,18.6,1]]}]}")
+                .getAsJsonObject());
+        List<Crowd> scene = Crowd.ofScene(s.events());
+        assertEquals(2, scene.size());
+        assertEquals(1, scene.get(0).size());
+        assertEquals(1, scene.get(1).droppedStanders(), "resolved against the other event's seats");
+        assertEquals(0, Crowd.of(s.events().get(1)).droppedStanders(), "alone, the rail event cannot see the seat");
+        assertTrue(scene.get(0).event() == s.events().get(0));
+    }
+
+    @Test
     void chunksCoverEveryone() {
         Crowd c = Crowd.layout(bowl(10, 30, 20), AT, "mixed", 1, 0, 29L);
         int[][] chunks = c.chunks(12f, 96);

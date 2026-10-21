@@ -27,7 +27,7 @@ public final class CrowdMesh {
     public static final float FULL_RANGE = 40f, MID_RANGE = 120f;
     public static final int MAX_FULL = 400, MAX_MID = 2000;
     /** The most vertices one spectator may take at each level. */
-    public static final int FULL_MAX_VERTS = 9 * 24, MID_MAX_VERTS = 2 * 20 + 2 * 24 + 24, STRIP_MAX_VERTS = 12;
+    public static final int FULL_MAX_VERTS = 9 * 24, MID_MAX_VERTS = 2 * 20 + 2 * 24 + 24, STRIP_MAX_VERTS = 16;
     /** The most vertices a frame's crowd may take: the caps filled at each level, the rest as strips. */
     public static final int VERTEX_BUDGET = MAX_FULL * FULL_MAX_VERTS + MAX_MID * MID_MAX_VERTS
             + (Crowd.MAX_SPECTATORS - MAX_FULL - MAX_MID) * STRIP_MAX_VERTS;
@@ -72,7 +72,8 @@ public final class CrowdMesh {
     /** Spectator {@code i} at level {@code lod}. */
     public void figure(Crowd c, int i, float t, int lod, float fx, float fy, float fz, Sink sink) {
         sink.figure(i);
-        c.pose(i, t, pose, 0);
+        // Beyond full detail the idle pose holds still (and so do flags), so an idle far stand is never rebuilt.
+        c.pose(i, t, pose, 0, lod != FULL);
         float sc = c.scale(i);
         float s = pose[Crowd.STAND];
         float seatTop = c.standing(i) ? c.y(i) + 0.5f : c.y(i);
@@ -109,7 +110,7 @@ public final class CrowdMesh {
             }
             if ((gear & (Crowd.FLAG | Crowd.BANNER)) != 0) {
                 handPos(ox, pelvisY, oz, sc, -1, raiseR, hands);
-                flag(c, i, t, sc, gear, first, second, false, sink);
+                flag(c, i, t, sc, gear, first, second, false, false, sink);
             }
             return;
         }
@@ -165,18 +166,19 @@ public final class CrowdMesh {
         }
         if ((gear & (Crowd.FLAG | Crowd.BANNER)) != 0) {
             handPos(ox, pelvisY, oz, sc, -1, raiseR, hands);
-            flag(c, i, t, sc, gear, first, second, true, sink);
+            flag(c, i, t, sc, gear, first, second, true, true, sink);
         }
     }
 
-    /** A strip figure: flat quads facing the pitch (the body's front plane), the arms a band above the head. */
+    /** A strip figure: flat quads facing the pitch (the body's front plane, the face under a hair band), the arms a band above the head. */
     private void strip(float ox, float pelvisY, float oz, float seatTop, float s, float sc, int body, int skin, int hair,
                        float raise, Sink sink) {
         float bottom = s > 0.5f ? pelvisY - 0.75f * sc : seatTop - 0.45f;
         float top = pelvisY + 0.75f * sc;
         float zf = 0.14f * sc;
         quad(yawM, ox, oz, -0.27f * sc, bottom, 0.27f * sc, top, zf, shade(body, 0.85f), sink);
-        quad(yawM, ox, oz, -0.25f * sc, top, 0.25f * sc, top + 0.5f * sc, zf, shade(skin, 0.85f), sink);
+        quad(yawM, ox, oz, -0.25f * sc, top, 0.25f * sc, top + 0.34f * sc, zf, shade(skin, 0.85f), sink);
+        quad(yawM, ox, oz, -0.25f * sc, top + 0.34f * sc, 0.25f * sc, top + 0.5f * sc, zf, shade(hair, 0.9f), sink);
         if (raise > 0.5f) {
             quad(yawM, ox, oz, -0.36f * sc, top + 0.45f * sc, 0.36f * sc, top + (0.45f + 0.45f * raise) * sc, zf - 0.01f,
                     shade(body, 0.8f), sink);
@@ -224,7 +226,8 @@ public final class CrowdMesh {
     }
 
     /** A flag or banner on a pole standing up from the hand at {@link #q}; {@code pole} false draws the cloth only. */
-    private void flag(Crowd c, int i, float t, float sc, int gear, int first, int second, boolean pole, Sink sink) {
+    private void flag(Crowd c, int i, float t, float sc, int gear, int first, int second, boolean pole, boolean flutter,
+                      Sink sink) {
         boolean banner = (gear & Crowd.BANNER) != 0;
         float hp = (banner ? 1.3f : 1.0f) * sc, w = (banner ? 1.1f : 0.55f) * sc, hc = (banner ? 0.6f : 0.36f) * sc;
         copy(yawM, partM);
@@ -233,7 +236,7 @@ public final class CrowdMesh {
             fill(faces, POLE);
             box(partM, q[0], q[1], q[2], -0.03f * sc, 0, -0.03f * sc, 0.03f * sc, hp, 0.03f * sc, faces, 0b111111, sink);
         }
-        rotY(partM, 0.35f * (float) Math.sin(t * 0.45f + c.phase(i) * 2f));
+        rotY(partM, flutter ? 0.35f * (float) Math.sin(t * 0.45f + c.phase(i) * 2f) : 0.35f * (float) Math.sin(c.phase(i) * 2f));
         fill(faces, banner ? second : first);
         box(partM, q[0], q[1], q[2], 0.03f * sc, hp - hc, -0.015f * sc, 0.03f * sc + w, hp, 0.015f * sc, faces, 0b111111, sink);
     }

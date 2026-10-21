@@ -76,6 +76,7 @@ public final class Crowd {
     private final boolean[] standing;
     private final byte[] house, outfit, skin, hair, gear;
     private final int dropped;
+    private SceneDef.EventDef event;
     /** The scene's reactions, and each one's onset per spectator (NaN: not in its box). */
     private Reaction[] reactions = new Reaction[0];
     private float[][] onset = new float[0][];
@@ -141,6 +142,45 @@ public final class Crowd {
      * filled; {@code count}: a cap (0 or less: {@link #MAX_SPECTATORS}).
      */
     public static Crowd layout(float[][] rows, float[] at, String style, double intensity, int count, long seed) {
+        Draft d = draft(rows, at, style, intensity, count, seed);
+        return finish(d, List.of(d));
+    }
+
+    /**
+     * Every {@code crowd} event of a scene seated together, in event order: as {@link #of} each, except that a stander is
+     * tested against the seated spectators of <em>every</em> crowd event (each looking at its own {@code at}), so rails
+     * kept in an event of their own still never blind a front row. The scene's real crowd: the client and the
+     * validator use this.
+     */
+    public static List<Crowd> ofScene(List<SceneDef.EventDef> events) {
+        List<Draft> drafts = new ArrayList<>();
+        for (SceneDef.EventDef e : events) {
+            if (!"effect".equals(e.kind()) || !"crowd".equals(e.id()) || e.rows() == null || e.at() == null) continue;
+            float intensity = Float.isNaN(e.intensity()) ? 1f : e.intensity();
+            Draft d = draft(e.rows(), e.at(), e.style(), intensity, e.count(), seed(e));
+            d.event = e;
+            drafts.add(d);
+        }
+        List<Crowd> out = new ArrayList<>(drafts.size());
+        for (Draft d : drafts) out.add(finish(d, drafts));
+        return out;
+    }
+
+    /** The {@code crowd} event each of {@link #ofScene}'s crowds came from. */
+    public SceneDef.EventDef event() {
+        return event;
+    }
+
+    /** One event's filled seats before standers are resolved against the scene and the cap applied. */
+    private static final class Draft {
+        float[] at;
+        int houseStyle, count;
+        long seed;
+        List<double[]> seats;                               // x, y, z, yaw, scale, standing, row, k, fill
+        SceneDef.EventDef event;
+    }
+
+    private static Draft draft(float[][] rows, float[] at, String style, double intensity, int count, long seed) {
         int houseStyle = style == null ? 4 : STYLES.indexOf(style);
         if (houseStyle < 0) houseStyle = 4;
         List<double[]> seats = new ArrayList<>();          // x, y, z, yaw, scale, standing, row, k, fill
@@ -174,11 +214,24 @@ public final class Crowd {
                 if (fill < intensity) seats.add(new double[]{sx, sy, sz, face, sc, stand ? 1 : 0, r, k, fill});
             }
         }
-        // Standers who would hide the field from a seated spectator's eye stay home.
-        List<double[]> kept = new ArrayList<>(seats.size());
+        Draft d = new Draft();
+        d.at = at;
+        d.houseStyle = houseStyle;
+        d.count = count;
+        d.seed = seed;
+        d.seats = seats;
+        return d;
+    }
+
+    private static Crowd finish(Draft d, List<Draft> scene) {
+        float[] at = d.at;
+        int houseStyle = d.houseStyle, count = d.count;
+        long seed = d.seed;
+        // Standers who would hide the field from any seated spectator's eye (of any crowd in the scene) stay home.
+        List<double[]> kept = new ArrayList<>(d.seats.size());
         int dropped = 0;
-        for (double[] s : seats) {
-            if (s[5] > 0 && blocksAny(s, seats, at)) dropped++;
+        for (double[] s : d.seats) {
+            if (s[5] > 0 && blocksAny(s, scene)) dropped++;
             else kept.add(s);
         }
         int cap = count > 0 ? Math.min(count, MAX_SPECTATORS) : MAX_SPECTATORS;
@@ -191,6 +244,7 @@ public final class Crowd {
             kept.removeIf(s -> !chosen.contains(s));
         }
         Crowd c = new Crowd(kept.size(), at, dropped);
+        c.event = d.event;
         for (int i = 0; i < c.n; i++) {
             double[] s = kept.get(i);
             int r = (int) s[6], k = (int) s[7];
@@ -219,9 +273,13 @@ public final class Crowd {
         return c;
     }
 
-    private static boolean blocksAny(double[] stander, List<double[]> seats, float[] at) {
-        for (double[] s : seats) {
-            if (s[5] == 0 && blocks(s[0], s[1], s[2], s[4], stander[0], stander[1], stander[2], stander[4], at)) return true;
+    private static boolean blocksAny(double[] stander, List<Draft> scene) {
+        for (Draft d : scene) {
+            for (double[] s : d.seats) {
+                if (s[5] == 0 && blocks(s[0], s[1], s[2], s[4], stander[0], stander[1], stander[2], stander[4], d.at)) {
+                    return true;
+                }
+            }
         }
         return false;
     }
@@ -327,48 +385,77 @@ public final class Crowd {
      * share, the lean (radians, forward) and sway (radians), how high a flag is held, and a scarf wave. No allocation.
      */
     public void pose(int i, float t, float[] out, int off) {
-        int cur = -1, prev = -1;
-        float curOn = Float.NEGATIVE_INFINITY, prevOn = Float.NEGATIVE_INFINITY;
+        pose(i, t, out, off, false);
+    }
+
+    /**
+     * As {@link #pose(int, float, float[], int)}; {@code still}: the idle pose holds still (no sway, lean or scarf wave),
+     * for figures drawn too small to show it, so an idle far stand never needs rebuilding.
+     */
+    public void pose(int i, float t, float[] out, int off, boolean still) {
+        this.still = still;
+        evaluate(i, t, Float.POSITIVE_INFINITY, out, off, 0);
+        if (standing[i]) out[off + STAND] = 1f;
+    }
+
+    /** Blends nest at most this deep (reactions landing within each other's rise); deeper starts from idle. */
+    private static final int MAX_BLEND_DEPTH = 6;
+    private final float[] blendScratch = new float[CHANNELS * MAX_BLEND_DEPTH];
+    private boolean still;
+
+    /**
+     * The pose at {@code t} from the reactions whose onset is before {@code before}: the latest of them, blended in over
+     * its rise from the pose actually shown at its onset (worked out the same way, so reactions landing close together
+     * chain without a pop).
+     */
+    private void evaluate(int i, float t, float before, float[] out, int off, int depth) {
+        int cur = -1;
+        float curOn = Float.NEGATIVE_INFINITY;
         for (int r = 0; r < reactions.length; r++) {
             float o = onset[r][i];
-            if (o != o || o > t) continue;               // NaN: not theirs; later: not yet
+            if (o != o || o > t || o >= before) continue;  // NaN: not theirs; later: not yet
             if (o >= curOn) {
-                prev = cur;
-                prevOn = curOn;
                 cur = r;
                 curOn = o;
-            } else if (o >= prevOn) {
-                prev = r;
-                prevOn = o;
             }
         }
         if (cur < 0) {
             idle(i, t, out, off);
-        } else {
-            // Where the reaction before had them at this one's onset, blended into this one over its rise.
-            float tau = t - curOn;
-            float rise = reactions[cur].kind() == SIT ? SIT_RISE : RISE;
-            if (tau < rise) {
-                if (prev >= 0) react(i, prev, curOn - prevOn, curOn, out, off);
-                else idle(i, curOn, out, off);
-                float r0 = out[off], r1 = out[off + 1], r2 = out[off + 2], r3 = out[off + 3], r4 = out[off + 4],
-                        r5 = out[off + 5], r6 = out[off + 6], r7 = out[off + 7], r8 = out[off + 8];
-                react(i, cur, tau, t, out, off);
-                float w = smooth(tau / rise);
-                out[off] = r0 + (out[off] - r0) * w;
-                out[off + 1] = r1 + (out[off + 1] - r1) * w;
-                out[off + 2] = r2 + (out[off + 2] - r2) * w;
-                out[off + 3] = r3 + (out[off + 3] - r3) * w;
-                out[off + 4] = r4 + (out[off + 4] - r4) * w;
-                out[off + 5] = r5 + (out[off + 5] - r5) * w;
-                out[off + 6] = r6 + (out[off + 6] - r6) * w;
-                out[off + 7] = r7 + (out[off + 7] - r7) * w;
-                out[off + 8] = r8 + (out[off + 8] - r8) * w;
-            } else {
-                react(i, cur, tau, t, out, off);
-            }
+            return;
         }
-        if (standing[i]) out[off + STAND] = 1f;
+        float tau = t - curOn;
+        float rise = reactions[cur].kind() == SIT ? SIT_RISE : RISE;
+        if (tau >= rise || depth >= MAX_BLEND_DEPTH) {
+            react(i, cur, tau, t, out, off);
+            return;
+        }
+        int so = depth * CHANNELS;
+        evaluate(i, curOn, curOn, blendScratch, so, depth + 1);
+        react(i, cur, tau, t, out, off);
+        float w = smooth(tau / rise);
+        for (int ch = 0; ch < CHANNELS; ch++) {
+            float from = blendScratch[so + ch];
+            out[off + ch] = from + (out[off + ch] - from) * w;
+        }
+    }
+
+    /**
+     * Whether spectator {@code i}'s pose is changing at {@code t} (a reaction has started and not yet let go): outside
+     * these windows a figure drawn still is exactly its idle pose, unchanged since the last build.
+     */
+    public boolean moving(int i, float t) {
+        for (int r = 0; r < reactions.length; r++) {
+            float o = onset[r][i];
+            if (o == o && o <= t && t <= o + span(r)) return true;
+        }
+        return false;
+    }
+
+    /** How long reaction {@code r} moves a spectator after their onset (its rise, hold and fall), in ticks. */
+    public float span(int r) {
+        Reaction re = reactions[r];
+        if (re.kind() == SIT) return SIT_RISE;
+        return Math.max(RISE, re.hold() + (re.kind() == GASP ? 10f : FALL));
     }
 
     /** Reaction {@code r} at {@code tau} ticks after spectator {@code i}'s onset ({@code t}: the scene time then). */
@@ -428,6 +515,15 @@ public final class Crowd {
         out[off + STAND] = 0f;
         out[off + JUMP] = 0f;
         out[off + HANDS_HEAD] = 0f;
+        if (still) {
+            out[off + LEAN] = 0.06f;
+            out[off + SWAY] = 0f;
+            out[off + WAVE] = 0f;
+            out[off + ARM_L] = 0f;
+            out[off + ARM_R] = 0f;
+            out[off + FLAG_UP] = 0.15f;
+            return;
+        }
         out[off + LEAN] = 0.06f + 0.03f * (float) Math.sin(2 * Math.PI * t / (swayTicks[i] * 1.7f) + ph * 1.3f);
         out[off + SWAY] = 0.05f * (float) Math.sin(2 * Math.PI * t / swayTicks[i] + ph);
         float wave = 0f;

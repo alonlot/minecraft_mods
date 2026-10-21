@@ -38,6 +38,8 @@ public final class MemoryEvents {
     private static List<SceneDef.EventDef> events = List.of();
     /** The scene's {@code crowd_react} events, which every {@code crowd} plays from the scene clock. */
     private static List<com.hogwartsmagic.pensieve.scene.Crowd.Reaction> crowdReactions = List.of();
+    /** The scene's crowds, seated together (standers resolved against every crowd's seats), by their event. */
+    private static java.util.Map<SceneDef.EventDef, com.hogwartsmagic.pensieve.scene.Crowd> crowds = java.util.Map.of();
     private static int next;
     private static ClientLevel level;
     private static BlockPos origin;
@@ -61,6 +63,11 @@ public final class MemoryEvents {
         sorted.sort(Comparator.comparingDouble(SceneDef.EventDef::t));
         events = sorted;
         crowdReactions = com.hogwartsmagic.pensieve.scene.Crowd.reactions(sorted);
+        java.util.Map<SceneDef.EventDef, com.hogwartsmagic.pensieve.scene.Crowd> seated = new java.util.IdentityHashMap<>();
+        for (com.hogwartsmagic.pensieve.scene.Crowd c : com.hogwartsmagic.pensieve.scene.Crowd.ofScene(sorted)) {
+            seated.put(c.event(), c);
+        }
+        crowds = seated;
         next = 0;
         level = clientLevel;
         origin = at;
@@ -79,6 +86,7 @@ public final class MemoryEvents {
     static void clear() {
         events = List.of();
         crowdReactions = List.of();
+        crowds = java.util.Map.of();
         next = 0;
         level = null;
         origin = null;
@@ -119,7 +127,7 @@ public final class MemoryEvents {
             if ("enchanted_ceiling".equals(e.id())) return;              // started with the scene (see start)
             // A crowd stays until its duration ends, so it is always joined; its reactions are read from the clock.
             if ("crowd".equals(e.id())) {
-                if (e.duration() <= 0 || age < e.duration()) EffectVisuals.crowd(e, crowdReactions);
+                if (e.duration() <= 0 || age < e.duration()) EffectVisuals.crowd(e, crowds.get(e), crowdReactions);
                 return;
             }
             if ("crowd_react".equals(e.id())) return;

@@ -394,9 +394,9 @@ public final class SceneValidator {
                 } else if ("rain".equals(e.id())) {
                     rain(out, e, p);
                 } else if ("crowd".equals(e.id())) {
-                    crowd(out, e, p, radius);
+                    crowd(out, e, p, radius, length);
                 } else if ("crowd_react".equals(e.id())) {
-                    crowdReact(out, e, p);
+                    crowdReact(out, e, p, radius);
                 } else if ("eyes_peek".equals(e.id()) && !Float.isNaN(e.intensity())
                         && !(e.intensity() >= Eyelids.MIN_PEEK_OPEN && e.intensity() <= 1f)) {
                     out.add(p + ".intensity: " + e.intensity() + " is outside " + Eyelids.MIN_PEEK_OPEN
@@ -544,15 +544,20 @@ public final class SceneValidator {
      * The crowd effect: a centre to face, seat rows inside the scene radius, a style from {@link Crowd#STYLES}, a fill
      * share of 0.1 to 1 and a positive cap.
      */
-    private static void crowd(List<String> out, SceneDef.EventDef e, String p, int radius) {
+    private static void crowd(List<String> out, SceneDef.EventDef e, String p, int radius, float length) {
         if (e.at() == null) out.add(p + ": crowd needs at (the point the crowd watches)");
         if (e.rows() == null || e.rows().length == 0) {
             out.add(p + ": crowd needs rows [[x1,y1,z1,x2,y2,z2], ...] (seat tops)");
         } else {
             for (int i = 0; i < e.rows().length; i++) {
                 float[] r = e.rows()[i];
-                if (Math.abs(r[0]) > radius || Math.abs(r[2]) > radius || Math.abs(r[3]) > radius || Math.abs(r[5]) > radius) {
+                // A seat may be nudged sideways off its row, so the row keeps that far inside the radius.
+                double reach = radius - Crowd.SIDE_JITTER;
+                if (Math.abs(r[0]) > reach || Math.abs(r[2]) > reach || Math.abs(r[3]) > reach || Math.abs(r[5]) > reach) {
                     out.add(p + ".rows[" + i + "]: reaches beyond the scene radius " + radius);
+                }
+                if (r[1] < -64 || r[1] > 320 || r[4] < -64 || r[4] > 320) {
+                    out.add(p + ".rows[" + i + "]: y must be -64 to 320 (scene-relative), got " + r[1] + " to " + r[4]);
                 }
                 if (r.length > 6 && r[6] != 0f && r[6] != 1f) {
                     out.add(p + ".rows[" + i + "][6]: the standing flag must be 0 or 1, got " + r[6]);
@@ -568,11 +573,19 @@ public final class SceneValidator {
         if (e.count() != -1 && (e.count() < 1 || e.count() > Crowd.MAX_SPECTATORS)) {
             out.add(p + ".count: " + e.count() + " is outside 1 to " + Crowd.MAX_SPECTATORS);
         }
+        if (e.duration() < 0 || (e.duration() > 0 && e.t() + e.duration() > length)) {
+            out.add(p + ".duration: " + e.duration() + " must be 0 (until the scene ends) or end inside the scene (length "
+                    + length + ")");
+        }
     }
 
     /** A crowd reaction: a centre of attention, a reaction from {@link Crowd#REACTIONS}, a positive box, a long enough erupt. */
-    private static void crowdReact(List<String> out, SceneDef.EventDef e, String p) {
-        if (e.at() == null) out.add(p + ": crowd_react needs at (the centre of attention)");
+    private static void crowdReact(List<String> out, SceneDef.EventDef e, String p, int radius) {
+        if (e.at() == null) {
+            out.add(p + ": crowd_react needs at (the centre of attention)");
+        } else if (Math.abs(e.at()[0]) > radius || Math.abs(e.at()[2]) > radius) {
+            out.add(p + ".at: the centre of attention is beyond the scene radius " + radius);
+        }
         if (e.style() == null) {
             out.add(p + ": crowd_react needs a style, one of " + Crowd.REACTIONS);
         } else if (!Crowd.REACTIONS.contains(e.style())) {
@@ -588,14 +601,13 @@ public final class SceneValidator {
         }
     }
 
-    /** Every crowd effect's spectators, summed over the scene, stay within {@link Crowd#MAX_SPECTATORS}. */
+    /**
+     * Every crowd effect's spectators, summed over the scene (seated together, standers resolved against every crowd),
+     * stay within {@link Crowd#MAX_SPECTATORS}.
+     */
     private static void crowdCap(List<String> out, SceneDef scene) {
         int total = 0;
-        for (SceneDef.EventDef e : scene.events()) {
-            if ("effect".equals(e.kind()) && "crowd".equals(e.id()) && e.rows() != null && e.at() != null) {
-                total += Crowd.seatCount(e);
-            }
-        }
+        for (Crowd c : Crowd.ofScene(scene.events())) total += c.size();
         if (total > Crowd.MAX_SPECTATORS) {
             out.add("events: the crowd effects seat " + total + " spectators; a scene holds at most "
                     + Crowd.MAX_SPECTATORS + " (lower intensity or count)");

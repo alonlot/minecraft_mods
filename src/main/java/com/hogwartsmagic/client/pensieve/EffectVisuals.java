@@ -271,17 +271,18 @@ public final class EffectVisuals {
     }
 
     /**
-     * Start a {@code crowd}: seat its spectators (from the event alone, so every viewer seats the same people) and bind
+     * Start a {@code crowd}: its spectators (seated with the scene's other crowds, {@code Crowd.ofScene}, so every viewer
+     * seats the same people) and bind
      * the scene's {@code crowd_react} events, which the crowd plays from the scene clock (a late joiner sees the
      * reactions already under way). It stays until its duration ends (0: the scene) or {@link #clear}; drawn by
      * {@link CrowdRenderer}.
      */
-    static void crowd(SceneDef.EventDef e, List<Crowd.Reaction> reactions) {
-        if (e.rows() == null || e.at() == null) {
+    static void crowd(SceneDef.EventDef e, Crowd crowd, List<Crowd.Reaction> reactions) {
+        if (crowd == null) {
             LOGGER.warn("Pensieve: crowd needs at and rows");
             return;
         }
-        RUNNING.add(new CrowdRun(new CrowdRenderer.Stand(Crowd.of(e).bind(reactions), e.t(), Math.max(0, e.duration()))));
+        RUNNING.add(new CrowdRun(new CrowdRenderer.Stand(crowd.bind(reactions), e.t(), Math.max(0, e.duration()))));
     }
 
     /** The crowds running now, for {@link CrowdRenderer} (empty once {@link #clear} has run). */

@@ -3,6 +3,7 @@ package com.hogwartsmagic.client.pensieve;
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.pensieve.scene.Crowd;
 import com.hogwartsmagic.pensieve.scene.CrowdMesh;
+import com.hogwartsmagic.pensieve.scene.CrowdSchedule;
 import com.hogwartsmagic.pensieve.scene.SceneDef;
 import com.hogwartsmagic.pensieve.scene.SkyDome;
 import com.mojang.blaze3d.shaders.Uniform;
@@ -28,6 +29,7 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RenderLevelStageEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import org.joml.Matrix4f;
 import org.slf4j.Logger;
 
 import java.util.ArrayList;
@@ -35,104 +37,78 @@ import java.util.List;
 
 /**
  * The {@code crowd} effect: thousands of spectators drawn in one batched pass, no entities. Each {@link Stand} (one
- * {@code crowd} event) is cut into chunks of nearby spectators ({@link Crowd#chunks}); each chunk is a GPU vertex
- * buffer that is rebuilt only when its pose step comes round (every tick near the camera, every 2 ticks in two-box
- * range, every 5 beyond, staggered so chunks do not all rebuild on one frame) or never again once the stand stops, and
- * otherwise just drawn. A frame rebuilds at most {@link #REBUILD_VERTICES} vertices; the rest keep last step's pose
- * a frame longer. The geometry is {@link CrowdMesh}, scene-relative; the draw is the terrain's own: the solid block
- * shader with the chunk offset set to the scene origin less the camera, so the figures take the world's fog and
- * lightmap like the stands they sit in. The lightmap value is sampled at each figure's head (refreshed every 2 s, so a
- * set that is still building lights them once it is done), and a lightning flash ({@link SkyDome#flash}) lifts them
- * toward blue-white through the colour modulator.
+ * {@code crowd} event) is cut into chunks of nearby spectators; each chunk is a GPU vertex buffer that is rebuilt and
+ * re-uploaded only when {@link CrowdSchedule} says its figures changed (the nearest ~150 every frame, other full-detail
+ * chunks every tick, reacting chunks on their pose step, idle far chunks never), and otherwise just drawn. A frame
+ * rebuilds at most {@link #REBUILD_VERTICES} vertices beyond the every-frame chunks; the rest keep their pose a frame
+ * longer. The geometry is {@link CrowdMesh}, scene-relative; the draw is the terrain's own: the solid block shader with
+ * the chunk offset set to the scene origin less the camera, so the figures take the world's fog and lightmap like the
+ * stands they sit in. The lightmap value is sampled at each figure's head (re-read every 2 s, a change rebuilds the
+ * chunk, so a set still building lights them once it is done), and a lightning flash ({@link SkyDome#flash}) lifts
+ * them toward blue-white through the colour modulator.
+ *
+ * <p><b>The matrices.</b> This draws at {@code AFTER_CUTOUT_BLOCKS}, which Forge fires from inside
+ * {@code LevelRenderer.renderSectionLayer} for the cutout layer (1.21: LevelRenderer l.954, dispatched at l.1304),
+ * before {@code renderLevel} pushes the camera rotation onto RenderSystem's model-view stack (l.979-982). So
+ * RenderSystem's model-view is still identity here, and the event's pose matrix is the frustum (rotation) matrix that
+ * vanilla's own section draw passes to the same shader: use the event's matrices, as the terrain does. (At
+ * {@code AFTER_TRANSLUCENT_BLOCKS} and later the rotation is on RenderSystem's stack instead.)
  *
  * <p>In a {@code dev_} scene a debug line logs the crowd's frame cost every 5 s: CPU time spent here per frame (mesh
- * rebuilds, uploads and draw calls), average and worst, with the level-of-detail counts.
+ * rebuilds, uploads and draw calls), average and worst, the vertices and bytes uploaded per frame, and the
+ * level-of-detail counts.
  */
 @Mod.EventBusSubscriber(modid = ExampleMod.MODID, value = Dist.CLIENT)
 public final class CrowdRenderer {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final ResourceLocation WHITE = ResourceLocation.withDefaultNamespace("textures/misc/white.png");
-    /** The chunk cell (blocks) and the most spectators in one chunk. */
-    static final float CHUNK_CELL = 12f;
-    static final int CHUNK_MAX = 96;
-    /** The most vertices one frame rebuilds (the rest wait a frame). */
+    /** The most vertices one frame rebuilds beyond its every-frame chunks (the rest wait a frame). */
     static final int REBUILD_VERTICES = 60_000;
-    /** Pose step periods in ticks: full-detail chunks, two-box chunks and strips. */
-    static final int NEAR_PERIOD = 1, MID_PERIOD = 2, FAR_PERIOD = 5;
-    /** How often a chunk re-reads the light at its figures' heads (ticks). */
+    /** How often a chunk re-reads the light at its figures' heads (ticks), and how many chunks may do so a frame. */
     static final float LIGHT_REFRESH = 40f;
+    static final int LIGHT_CHUNKS_PER_FRAME = 4;
+    /** Bytes per vertex of the block format (position, colour, uv, light, normal and pad). */
+    static final int VERTEX_BYTES = 32;
     /** A lightning flash lifts the figures by this much per channel at its peak (r, g, b). */
     private static final float[] FLASH_LIFT = {0.55f, 0.6f, 0.75f};
 
     private static final CrowdMesh MESH = new CrowdMesh();
-    private static final int[] BINS = new int[96];
-    private static final float[] CUT = new float[2];
+    private static final Sink SINK = new Sink();
+    private static final BlockPos.MutableBlockPos AT = new BlockPos.MutableBlockPos();
+    private static final float[] FOCUS = new float[3];
     /** The stands holding GPU buffers, to release them once their effect is gone. */
     private static final List<Stand> DRAWN = new ArrayList<>();
     private static ByteBufferBuilder bytes;
-    private static int rebuildCursor;
+    private static long frame;
 
     // The debug timer.
-    private static long timedNanos, worstNanos, lastLog;
-    private static int timedFrames, rebuiltVerts, drawnVerts, lastFull, lastMid, lastStrip;
+    private static long timedNanos, worstNanos, lastLog, uploadedVerts;
+    private static int timedFrames, drawnVerts, lastFull, lastMid, lastStrip;
 
     private CrowdRenderer() {
     }
 
-    /** One running crowd: its spectators, chunks and their GPU buffers. */
+    /** One running crowd: its spectators, its rebuild schedule and its chunks' GPU buffers. */
     static final class Stand {
         final Crowd crowd;
         final float t0;
         final int duration;
-        final int[][] chunks;
-        final float[] chunkX, chunkY, chunkZ, chunkR;
-        final int[] stagger;
-        final long[] built;
+        final CrowdSchedule schedule;
         final int[] verts;
         final float[] lightAt;
         final int[] light;
-        final float[] d2;
         VertexBuffer[] buffers;
-        /** The figure the sink is writing (its light). */
-        int current;
 
         Stand(Crowd crowd, float t0, int duration) {
             this.crowd = crowd;
             this.t0 = t0;
             this.duration = duration;
-            this.chunks = crowd.chunks(CHUNK_CELL, CHUNK_MAX);
-            int nc = chunks.length;
-            chunkX = new float[nc];
-            chunkY = new float[nc];
-            chunkZ = new float[nc];
-            chunkR = new float[nc];
-            stagger = new int[nc];
-            built = new long[nc];
+            this.schedule = new CrowdSchedule(crowd);
+            int nc = schedule.chunks.length;
             verts = new int[nc];
             lightAt = new float[nc];
-            java.util.Arrays.fill(built, Long.MIN_VALUE);
             java.util.Arrays.fill(lightAt, Float.NEGATIVE_INFINITY);
-            for (int c = 0; c < nc; c++) {
-                float sx = 0, sy = 0, sz = 0;
-                for (int i : chunks[c]) {
-                    sx += crowd.x(i);
-                    sy += crowd.y(i);
-                    sz += crowd.z(i);
-                }
-                int m = Math.max(1, chunks[c].length);
-                chunkX[c] = sx / m;
-                chunkY[c] = sy / m + 1f;
-                chunkZ[c] = sz / m;
-                float r = 0;
-                for (int i : chunks[c]) {
-                    float dx = crowd.x(i) - chunkX[c], dz = crowd.z(i) - chunkZ[c];
-                    r = Math.max(r, (float) Math.sqrt(dx * dx + dz * dz));
-                }
-                chunkR[c] = r + 1f;
-                stagger[c] = (c * 7) % 10;
-            }
             light = new int[crowd.size()];
-            d2 = new float[crowd.size()];
         }
 
         boolean showing(float now) {
@@ -148,7 +124,25 @@ public final class CrowdRenderer {
         }
     }
 
+    /** Writes the mesh into the block format, with the light of the figure being written. */
+    private static final class Sink implements CrowdMesh.Sink {
+        BufferBuilder bb;
+        int[] light;
+        int current;
+
+        @Override
+        public void figure(int index) {
+            current = light[index];
+        }
+
+        @Override
+        public void vertex(float x, float y, float z, int argb) {
+            bb.addVertex(x, y, z, argb, 0.5f, 0.5f, OverlayTexture.NO_OVERLAY, current, 0f, 1f, 0f);
+        }
+    }
+
     @SubscribeEvent
+    @SuppressWarnings("removal")
     public static void onRenderLevelStage(RenderLevelStageEvent event) {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_CUTOUT_BLOCKS) return;
         List<Stand> stands = EffectVisuals.crowds();
@@ -159,48 +153,38 @@ public final class CrowdRenderer {
             return;
         }
         long start = System.nanoTime();
+        frame++;
         float partial = event.getPartialTick();
         float now = PensieveClientState.sceneTime(partial);
         Vec3 cam = event.getCamera().getPosition();
         Vec3 origin = MemoryEvents.sceneOrigin();
         float cx = (float) (cam.x - origin.x), cy = (float) (cam.y - origin.y), cz = (float) (cam.z - origin.z);
-        float[] focus = focus(now, stands.get(0).crowd);
+        focus(now, stands.get(0).crowd);
         int budget = REBUILD_VERTICES;
         int drawn = 0;
         lastFull = lastMid = lastStrip = 0;
         for (Stand s : stands) {
             if (!s.showing(now)) continue;
             if (s.buffers == null) {
-                s.buffers = new VertexBuffer[s.chunks.length];
+                s.buffers = new VertexBuffer[s.schedule.chunks.length];
                 DRAWN.add(s);
             }
-            Crowd crowd = s.crowd;
-            for (int i = 0; i < crowd.size(); i++) {
-                float dx = crowd.x(i) - cx, dy = crowd.y(i) + 1f - cy, dz = crowd.z(i) - cz;
-                s.d2[i] = dx * dx + dy * dy + dz * dz;
-            }
-            Crowd.lodCutoffs(s.d2, crowd.size(), CrowdMesh.FULL_RANGE, CrowdMesh.MID_RANGE, CrowdMesh.MAX_FULL,
-                    CrowdMesh.MAX_MID, BINS, CUT);
-            for (int i = 0; i < crowd.size(); i++) {
-                if (s.d2[i] <= CUT[0]) lastFull++;
-                else if (s.d2[i] <= CUT[1]) lastMid++;
-                else lastStrip++;
-            }
-            int nc = s.chunks.length;
-            for (int k = 0; k < nc; k++) {
-                int c = (k + rebuildCursor) % nc;
-                float dx = s.chunkX[c] - cx, dy = s.chunkY[c] - cy, dz = s.chunkZ[c] - cz;
-                float near = Math.max(0f, (float) Math.sqrt(dx * dx + dy * dy + dz * dz) - s.chunkR[c]);
-                int period = near * near <= CUT[0] ? NEAR_PERIOD : near * near <= CUT[1] ? MID_PERIOD : FAR_PERIOD;
-                long step = (long) Math.floor((now + s.stagger[c]) / period);
-                long key = step * 8 + period;
-                if (key == s.built[c] || budget <= 0) continue;
-                budget -= rebuild(level, s, c, now, cx, cy, cz, focus, origin);
-                s.built[c] = key;
+            refreshLight(level, s, now, origin);
+            CrowdSchedule plan = s.schedule;
+            int dirty = plan.plan(now, frame, cx, cy, cz);
+            lastFull += plan.full;
+            lastMid += plan.mid;
+            lastStrip += plan.strip;
+            for (int k = 0; k < dirty; k++) {
+                int c = plan.chunk(k);
+                boolean always = plan.everyFrame(c);
+                if (!always && budget <= 0) continue;
+                int n = rebuild(s, c, now, cx, cy, cz, plan.cut());
+                if (!always) budget -= Math.max(1, n);
+                plan.built(c);
             }
         }
-        rebuildCursor++;
-        // Draw every chunk with the terrain's solid shader: its fog, its lightmap, a white texture.
+        // Draw every chunk with the terrain's solid shader and the terrain's matrices (see the class comment).
         RenderType.solid().setupRenderState();
         RenderSystem.setShaderTexture(0, WHITE);
         double flash = SkyDome.flash(now, EffectVisuals.strikes()) * SkyRenderer.stormShare(partial);
@@ -208,10 +192,10 @@ public final class CrowdRenderer {
                 1f + (float) flash * FLASH_LIFT[2], 1f);
         ShaderInstance shader = GameRenderer.getRendertypeSolidShader();
         if (shader != null) {
-            shader.setDefaultUniforms(VertexFormat.Mode.QUADS, RenderSystem.getModelViewMatrix(),
-                    RenderSystem.getProjectionMatrix(), mc.getWindow());
+            Matrix4f view = event.getPoseStack();
+            shader.setDefaultUniforms(VertexFormat.Mode.QUADS, view, event.getProjectionMatrix(), mc.getWindow());
             shader.apply();
-            // Every chunk is scene-relative, so one offset serves them all (set in double, then narrowed).
+            // Every chunk is scene-relative, so one offset serves them all (taken in double, then narrowed).
             Uniform offset = shader.CHUNK_OFFSET;
             if (offset != null) {
                 offset.set((float) (origin.x - cam.x), (float) (origin.y - cam.y), (float) (origin.z - cam.z));
@@ -219,7 +203,7 @@ public final class CrowdRenderer {
             }
             for (Stand s : stands) {
                 if (s.buffers == null || !s.showing(now)) continue;
-                for (int c = 0; c < s.chunks.length; c++) {
+                for (int c = 0; c < s.buffers.length; c++) {
                     VertexBuffer b = s.buffers[c];
                     if (b == null || s.verts[c] == 0) continue;
                     b.bind();
@@ -237,33 +221,34 @@ public final class CrowdRenderer {
         debugTimer(System.nanoTime() - start);
     }
 
-    /** Rebuild chunk {@code c} of {@code s} at {@code now}; returns the vertices written. */
-    private static int rebuild(ClientLevel level, Stand s, int c, float now, float cx, float cy, float cz, float[] focus,
-                               Vec3 origin) {
-        Crowd crowd = s.crowd;
-        if (now - s.lightAt[c] >= LIGHT_REFRESH) {
+    /** Re-read the light at the heads of a few chunks whose reading is old; a change makes the chunk rebuild. */
+    private static void refreshLight(ClientLevel level, Stand s, float now, Vec3 origin) {
+        int done = 0;
+        int[][] chunks = s.schedule.chunks;
+        for (int c = 0; c < chunks.length; c++) {
+            boolean first = s.lightAt[c] == Float.NEGATIVE_INFINITY;   // never read: read now, before its first build
+            if (!first && (done >= LIGHT_CHUNKS_PER_FRAME || now - s.lightAt[c] < LIGHT_REFRESH)) continue;
             s.lightAt[c] = now;
-            BlockPos.MutableBlockPos at = new BlockPos.MutableBlockPos();
-            for (int i : s.chunks[c]) {
-                at.set(Math.floor(origin.x + crowd.x(i)), Math.floor(origin.y + crowd.y(i) + 1.2), Math.floor(origin.z + crowd.z(i)));
-                s.light[i] = LevelRenderer.getLightColor(level, at);
+            done++;
+            long sig = 0;
+            for (int i : chunks[c]) {
+                AT.set(Math.floor(origin.x + s.crowd.x(i)), Math.floor(origin.y + s.crowd.y(i) + 1.2),
+                        Math.floor(origin.z + s.crowd.z(i)));
+                s.light[i] = LevelRenderer.getLightColor(level, AT);
+                sig = sig * 31 + s.light[i];
             }
+            s.schedule.light(c, sig);
         }
-        if (bytes == null) bytes = new ByteBufferBuilder(1 << 20);
-        BufferBuilder bb = new BufferBuilder(bytes, VertexFormat.Mode.QUADS, DefaultVertexFormat.BLOCK);
-        CrowdMesh.Sink sink = new CrowdMesh.Sink() {
-            @Override
-            public void figure(int index) {
-                s.current = s.light[index];
-            }
+    }
 
-            @Override
-            public void vertex(float x, float y, float z, int argb) {
-                bb.addVertex(x, y, z, argb, 0.5f, 0.5f, OverlayTexture.NO_OVERLAY, s.current, 0f, 1f, 0f);
-            }
-        };
-        int n = MESH.build(crowd, s.chunks[c], now, cx, cy, cz, focus[0], focus[1], focus[2], CUT[0], CUT[1], sink);
-        MeshData mesh = bb.build();
+    /** Rebuild chunk {@code c} of {@code s} at {@code now}; returns the vertices written. */
+    private static int rebuild(Stand s, int c, float now, float cx, float cy, float cz, float[] cut) {
+        if (bytes == null) bytes = new ByteBufferBuilder(1 << 20);
+        SINK.bb = new BufferBuilder(bytes, VertexFormat.Mode.QUADS, DefaultVertexFormat.BLOCK);
+        SINK.light = s.light;
+        int n = MESH.build(s.crowd, s.schedule.chunks[c], now, cx, cy, cz, FOCUS[0], FOCUS[1], FOCUS[2], cut[0], cut[1], SINK);
+        MeshData mesh = SINK.bb.build();
+        SINK.bb = null;
         s.verts[c] = 0;
         if (mesh != null) {
             if (s.buffers[c] == null) s.buffers[c] = new VertexBuffer(VertexBuffer.Usage.DYNAMIC);
@@ -272,18 +257,20 @@ public final class CrowdRenderer {
             VertexBuffer.unbind();
             s.verts[c] = n;
         }
-        rebuiltVerts += n;
-        return Math.max(n, 1);
+        uploadedVerts += n;
+        return n;
     }
 
     /**
-     * Where the heads turn: the camera's look target, averaged over the last second (so the crowd follows the play
-     * rather than every whip pan), or the crowd's own centre when the scene has no camera.
+     * Where the heads turn ({@link #FOCUS}): the camera's look target, averaged over the last second (so the crowd
+     * follows the play rather than every whip pan), or the crowd's own centre when the scene has no camera.
      */
-    private static float[] focus(float now, Crowd first) {
+    private static void focus(float now, Crowd first) {
         SceneDef scene = PensieveClientState.scene();
-        float[] out = {first.atX(), first.atY(), first.atZ()};
-        if (scene == null || scene.camera() == null || scene.camera().isEmpty()) return out;
+        FOCUS[0] = first.atX();
+        FOCUS[1] = first.atY();
+        FOCUS[2] = first.atZ();
+        if (scene == null || scene.camera() == null || scene.camera().isEmpty()) return;
         float x = 0, y = 0, z = 0, w = 0;
         for (int k = 0; k < 5; k++) {
             float[] p = scene.camera().lookTarget(Math.max(0f, now - k * 5f), MemoryActors::actorEye);
@@ -295,11 +282,10 @@ public final class CrowdRenderer {
             w += wk;
         }
         if (w > 0) {
-            out[0] = x / w;
-            out[1] = y / w;
-            out[2] = z / w;
+            FOCUS[0] = x / w;
+            FOCUS[1] = y / w;
+            FOCUS[2] = z / w;
         }
-        return out;
     }
 
     /** Release the GPU buffers of every stand that is no longer running. */
@@ -320,7 +306,7 @@ public final class CrowdRenderer {
         }
     }
 
-    /** The dev scenes' frame-time line: CPU time per frame spent on the crowd, every 5 s. */
+    /** The dev scenes' frame-time line: CPU time and upload per frame spent on the crowd, every 5 s. */
     private static void debugTimer(long nanos) {
         SceneDef scene = PensieveClientState.scene();
         if (scene == null || !scene.id().startsWith("dev_")) return;
@@ -330,13 +316,17 @@ public final class CrowdRenderer {
         long wall = System.currentTimeMillis();
         if (lastLog == 0) lastLog = wall;
         if (wall - lastLog < 5000) return;
-        LOGGER.info("Pensieve crowd: {} spectators (full {}, two-box {}, strip {}), {} vertices drawn, {} rebuilt per frame, "
-                        + "CPU {} ms per frame on average, {} ms at worst, over {} frames",
-                lastFull + lastMid + lastStrip, lastFull, lastMid, lastStrip, drawnVerts, rebuiltVerts / Math.max(1, timedFrames),
+        long perFrame = uploadedVerts / Math.max(1, timedFrames);
+        LOGGER.info("Pensieve crowd: t {} s, {} spectators (full {}, two-box {}, strip {}), {} vertices drawn, {} vertices "
+                        + "({} KB) uploaded per frame, CPU {} ms per frame on average, {} ms at worst, over {} frames",
+                String.format(java.util.Locale.ROOT, "%.1f", PensieveClientState.sceneTime(0) / 20f),
+                lastFull + lastMid + lastStrip, lastFull, lastMid, lastStrip, drawnVerts, perFrame,
+                perFrame * VERTEX_BYTES / 1024,
                 String.format(java.util.Locale.ROOT, "%.3f", timedNanos / 1e6 / timedFrames),
                 String.format(java.util.Locale.ROOT, "%.3f", worstNanos / 1e6), timedFrames);
         timedNanos = worstNanos = 0;
-        timedFrames = rebuiltVerts = 0;
+        timedFrames = 0;
+        uploadedVerts = 0;
         lastLog = wall;
     }
 }

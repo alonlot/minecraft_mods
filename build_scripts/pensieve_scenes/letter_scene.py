@@ -34,8 +34,11 @@ letter (56 s; Privet Drive, an overcast morning; next letter_flood)
   C10 42.4-46.4  Low at the door: a stream of twenty, rattling the plate, piling on the mat.
   C11 46.4-51.0  Behind Vernon at the door: "No more post! Not one more letter comes through that door!" He nails two
                  boards over the slot (hammer sfx, the boards pressed on, a swing per blow).
-  C12 51.0-56.0  The street: owls on every ridge, chimney, canopy, hedge and lamp post (66), their heads turning one
-                 after another to No. 4; the owls sfx. Slow push on the house; chain fade.
+  C12 51.0-56.0  The street: owls on every ridge, chimney, canopy, hedge and lamp post (66). 48 sit there already,
+                 wings folded, heads turning one after another to No. 4 (glances aside, one in four ruffling); the 14
+                 perches nearest the door fill as we watch, an owl flying in on a curve about every 0.25 s and
+                 landing with a flare; 4 circle over the close all through. The owls sfx. Slow push on the house;
+                 chain fade.
 letter_flood (30 s; the same set; a Sunday; next letter_crossing)
   F1   0.0- 5.4  The living room wide from the bay: Vernon smug in his armchair, Petunia and Dudley on the sofa, the
                  boy against the wall. "Fine day, Sunday. No post on Sundays!"
@@ -44,13 +47,17 @@ letter_flood (30 s; the same set; a Sunday; next letter_crossing)
                  living_room_box), the whoosh, the music's big swell lands here.
   F4  13.4-17.6  High and wide: the room in a blizzard of envelopes, the boy leaping and grabbing among them (he
                  runs in at 11.6 and jumps four times, 12.6-15.3, only while the swarm still flies round him).
-                 Vernon gets up out of the chair (STAND_UP): "Get away from them! Out! Out!" Petunia and Dudley
-                 shield their faces on the sofa. The swarm is down by 15.5; the boy stands winded, looking round.
+                 Vernon gets up out of the chair (STAND_UP) and swats at them while they fly. Petunia and Dudley
+                 shield their faces on the sofa. The swarm is down by 15.5 (Vernon's arms drop with it); the boy
+                 stands winded, looking round.
   F5  17.6-21.6  Low, tracking the boy: he looks round at the drifts, steps over, crouches and snatches one off the
                  floor (into his left hand).
-  F6  21.6-25.4  From the doorway: Vernon flailing in the foreground, the boy beyond him looking at his letter.
-  F7  25.4-30.0  A slow push-in on the boy's raised hand as one letter spirals down into it and his hand closes on
-                 it (hold hogwarts_invite); chain fade.
+  F6  21.6-25.4  From the doorway: Vernon in the foreground rounds on the boy, who stands beyond him looking at his
+                 letter: "Get away from them! Out! Out!" (a jab at him on each "Out!").
+  F7  25.4-27.4  A push-in on the boy's raised hand as one letter spirals down into it and his hand closes on it
+                 (hold hogwarts_invite).
+  F8  27.4-30.0  From the bay: Vernon strides over, takes him by the shoulder and hauls him across the room and out
+                 through the doorway toward the front door, the boy looking back at the letters; chain fade.
 letter_crossing (17 s; letter_island at night; next letter_hut)
   X1   0.0- 4.4  High and wide over the storm: the little boat far below, heading for the rock, lightning shows the
                  hut on top.
@@ -915,6 +922,292 @@ def mat_spot(rnd, i, n):
     return [round(SLOT[0] + rnd.uniform(-0.32, 0.32), 3), round(-2.55 - 1.35 * a * (0.5 + 0.5 * i / max(1, n)), 3)]
 
 
+# ================================================================ the owls over Privet Drive (letter, C12)
+# Airborne.java: an owl flaps while its path moves faster than 0.5 blocks a second (0.025 a tick) and folds its wings
+# once it is under 0.25 (0.0125 a tick), both measured over the ticks either side of now. The generator mirrors it.
+OWL_FLY, OWL_LAND = 0.025, 0.0125
+OWL_LANDERS, OWL_CIRCLERS = 14, (30, 42, 46, 50)   # the circlers leave the far chimneys (unseen in the shot)
+OWL_CRUISE = 8.0                                   # blocks a second on the way in (each bird 1.1-1.4 times it)
+OWL_DECEL = 0.5                                    # seconds of ease-out onto the perch
+OWL_MARGIN = 0.22                                  # the bird's half-width at scale 0.95, near enough
+SHOT_ASPECT = 16 / 9.0
+
+
+def owl_speed(path, t):
+    """Airborne.speed: blocks per tick over [t - 1, t + 1]."""
+    a, b = sample_path(path, t - 1), sample_path(path, t + 1)
+    return math.dist(a, b) / 2.0
+
+
+def owl_flying(path, ticks):
+    """Airborne.airborne with its hysteresis, tick by tick: {tick: flying}."""
+    out, was = {}, False
+    for t in ticks:
+        v = owl_speed(path, t) if len(path) > 1 else 0.0
+        was = v >= OWL_LAND if was else v > OWL_FLY
+        out[t] = was
+    return out
+
+
+def owl_clear(w, p, margin=OWL_MARGIN):
+    """The bird's feet and body (0.1 and 0.5 above its root) both in air with the margin all round."""
+    return in_air(w, [p[0], p[1] + 0.1, p[2]], margin) and in_air(w, [p[0], p[1] + 0.5, p[2]], margin)
+
+
+def bezier(p0, p1, p2, p3, u):
+    v = 1 - u
+    return [v * v * v * p0[i] + 3 * v * v * u * p1[i] + 3 * v * u * u * p2[i] + u * u * u * p3[i] for i in range(3)]
+
+
+def owl_arrival(rnd, perch, t_land, cam_of, look_of, w):
+    """A curved flight in to the perch, touching down at t_land (seconds): a cubic Bezier from a start 14-22 blocks
+    out and 6-9 above (out of the picture when the flight starts in the shot), cruising, then easing out onto the
+    spot from a little above and behind it. Returns ([(tick, pos)], start tick) or None if no try stays in air."""
+    for _ in range(60):
+        ang = rnd.uniform(0, 2 * math.pi)
+        dist = rnd.uniform(14, 22)
+        up = rnd.uniform(6, 9)
+        s = [perch[0] + dist * math.cos(ang), perch[1] + up, perch[2] + dist * math.sin(ang)]
+        if s[2] < -2.5 or abs(s[0]) > 110:
+            continue                                     # over the houses' backs: the roofs would be in the way
+        hx, hz = (s[0] - perch[0]) / dist, (s[2] - perch[2]) / dist
+        side = rnd.choice((-1, 1)) * rnd.uniform(2.5, 6.0)
+        c1 = [s[0] - hx * dist * 0.4 - hz * side, s[1] + rnd.uniform(-0.5, 1.0), s[2] - hz * dist * 0.4 + hx * side]
+        back = rnd.uniform(2.2, 2.8)
+        c2 = [perch[0] + hx * back, perch[1] + rnd.uniform(1.3, 1.7), perch[2] + hz * back]
+        pts = [bezier(s, c1, c2, perch, i / 400.0) for i in range(401)]
+        cum = [0.0]
+        for a, b in zip(pts, pts[1:]):
+            cum.append(cum[-1] + math.dist(a, b))
+        L = cum[-1]
+        dur = clamp(L / (OWL_CRUISE * rnd.uniform(1.1, 1.4)) + OWL_DECEL - OWL_DECEL / 3.0, 1.6, 2.4)
+        v = L / (dur - OWL_DECEL + OWL_DECEL / 3.0)
+        t0 = t_land - dur
+        k0, k1 = tk(t0), tk(t_land)
+        keys = []
+        for tick in list(range(k0, k1, 2)) + [k1]:
+            ts = tick / 20.0 - t0
+            if ts <= dur - OWL_DECEL:
+                sd = v * ts
+            else:
+                f = (ts - (dur - OWL_DECEL)) / OWL_DECEL
+                sd = v * (dur - OWL_DECEL) + v * OWL_DECEL / 3.0 * (1 - (1 - min(1.0, f)) ** 3)
+            sd = min(sd, L)
+            j = max(1, next((i for i, c in enumerate(cum) if c >= sd), len(cum) - 1))
+            f = 0 if cum[j] == cum[j - 1] else (sd - cum[j - 1]) / (cum[j] - cum[j - 1])
+            keys.append((tick, [r3(c) for c in lerp(pts[j - 1], pts[j], f)]))
+        keys[-1] = (k1, list(perch))
+        ok = all(owl_clear(w, p) for tk_, p in keys if math.dist(p, perch) > 0.45)
+        # every tick, not just the keys (the engine draws straight lines between them)
+        for (ta, pa), (tb, pb) in zip(keys, keys[1:]):
+            for q in range(tb - ta):
+                p = lerp(pa, pb, q / (tb - ta))
+                if math.dist(p, perch) > 0.45 and not owl_clear(w, p):
+                    ok = False
+                    break
+            if not ok:
+                break
+        if not ok:
+            continue
+        if k0 >= tk(51.0):
+            c, (lk, fov) = cam_of(k0), look_of(k0)
+            if any(in_view(c, lk, fov, [s[0] + dx, s[1] + dy, s[2] + dz])
+                   for dx in (-0.5, 0.5) for dy in (0, 0.8) for dz in (-0.5, 0.5)):
+                continue
+        return keys, k0
+    return None
+
+
+def owl_look(keys):
+    """The heading along the flight (the body faces where it goes), one yaw per path key, unwrapped."""
+    out, prev = [], None
+    for (ta, pa), (tb, pb) in zip(keys, keys[1:]):
+        y = yaw_to(pb[0] - pa[0], pb[2] - pa[2])
+        if prev is not None:
+            while y - prev > 180:
+                y -= 360
+            while y - prev < -180:
+                y += 360
+        out.append((ta, y))
+        prev = y
+    out.append((keys[-1][0], prev))
+    return out
+
+
+def unwrap_to(y, ref):
+    while y - ref > 180:
+        y -= 360
+    while y - ref < -180:
+        y += 360
+    return y
+
+
+def stage_owls(sc, T_OWL, LEN, cam_of, look_of):
+    """C12: 48 owls already perched (wings folded, heads turning, one in four ruffling), 14 flying in on curved
+    arrivals one about every 0.25 s and landing with a flare, and 4 circling over the close for the whole shot.
+    Returns {owl id: role} for the checks."""
+    w = sc.world
+    rnd = random.Random('owls')
+    look_at = PA['owl_look_at']
+    spots = PA['roof_owl_spots']
+    mid = tk((T_OWL + LEN) / 2)
+    c_mid, (l_mid, f_mid) = cam_of(mid), look_of(mid)
+    seen = [i for i, p in enumerate(spots) if i not in OWL_CIRCLERS and in_view(c_mid, l_mid, f_mid, p)]
+    landers = sorted(seen, key=lambda i: math.dist(spots[i], look_at))[:OWL_LANDERS]
+    order = list(landers)
+    rnd.shuffle(order)
+    t_land = {i: T_OWL + 0.6 + 0.25 * n + rnd.uniform(-0.06, 0.06) for n, i in enumerate(order)}
+    roles = {}
+    for i, p in enumerate(spots):
+        aid = 'owl_%02d' % i
+        scale = round(rnd.uniform(0.8, 0.95), 2)
+        life = Life()
+        yt = yaw_to(look_at[0] - p[0], look_at[2] - p[2])
+        pitch = clamp(math.degrees(math.atan2(p[1] - look_at[1], math.hypot(look_at[0] - p[0], look_at[2] - p[2]))),
+                      0, 40)
+        if i in OWL_CIRCLERS:
+            roles[aid] = 'circle'
+            k = OWL_CIRCLERS.index(i)
+            h = rnd.uniform(10.5, 12.5)
+            lap = rnd.uniform(7, 9)
+            ph = k * math.pi / 2 + rnd.uniform(-0.4, 0.4)
+            dirn = 1 if k % 2 == 0 else -1
+            bob_ph = rnd.uniform(0, 2 * math.pi)
+            cx, cz, ax_, az_ = 0.5, 4.0, 9.0, 6.0
+            k0, k1 = tk(T_OWL - 0.5), sc.L
+            keys = []
+            for tick in list(range(k0, k1, 2)) + [k1]:
+                a = ph + dirn * 2 * math.pi * (tick - k0) / (lap * 20)
+                keys.append((tick, [r3(cx + ax_ * math.cos(a)), r3(h + 0.6 * math.sin(a * 2.3 + bob_ph)),
+                                    r3(cz + az_ * math.sin(a))]))
+            path = [{'t': 0, 'pos': PARK_PRIVET}, {'t': k0 - 1, 'pos': PARK_PRIVET, 'ease': 'linear'}]
+            path += [{'t': t_, 'pos': q, 'ease': 'linear'} for t_, q in keys]
+            look = [{'t': t_, 'yaw': round(y, 1), 'ease': 'linear'} for t_, y in owl_look(keys)]
+            look.insert(0, {'t': 0, 'yaw': look[0]['yaw']})
+            sc.actor(aid, 'hogwartsmagic:owl', scale=scale, path=path, look=look)
+            continue
+        if i in t_land:
+            roles[aid] = 'land'
+            tl = t_land[i]
+            got = owl_arrival(rnd, p, tl, cam_of, look_of, w)
+            assert got, ('no clear way in for', aid, p)
+            keys, k0 = got
+            td = keys[-1][0] / 20.0
+            path = [{'t': 0, 'pos': PARK_PRIVET}, {'t': k0 - 1, 'pos': PARK_PRIVET, 'ease': 'linear'}]
+            path += [{'t': t_, 'pos': q, 'ease': 'linear'} for t_, q in keys]
+            fl = owl_look(keys)
+            y_land = fl[-1][1]
+            look = [{'t': 0, 'yaw': round(fl[0][1], 1)}] + [{'t': t_, 'yaw': round(y, 1), 'ease': 'linear'}
+                                                            for t_, y in fl]
+            tt = td + rnd.uniform(0.3, 0.8)
+            yt = unwrap_to(yt, y_land)
+            look.append({'t': tk(tt), 'yaw': round(y_land, 1)})
+            look.append({'t': tk(tt + 0.35), 'yaw': round(yt, 1), 'pitch': round(pitch, 1)})
+            # the flare: the body tips back and the wings spread wide over the last beats, then fold
+            life['body'].change(td - 0.35, [-30, 0, 0], 0.25)
+            life['body'].change(td, [0, 0, 0], 0.15)
+            life['left_wing'].change(td - 0.35, [0, 0, -50], 0.2)
+            life['right_wing'].change(td - 0.35, [0, 0, 50], 0.2)
+            life['left_wing'].change(td + 0.05, [0, 0, 0], 0.2)
+            life['right_wing'].change(td + 0.05, [0, 0, 0], 0.2)
+            settled = tt + 0.5
+            sound_t = td
+        else:
+            roles[aid] = 'perch'
+            y0 = rnd.uniform(-180, 180)
+            yt = unwrap_to(yt, y0)
+            tt = T_OWL + 0.5 + rnd.uniform(0, 2.6)
+            path = [{'t': 0, 'pos': p}]
+            look = [{'t': 0, 'yaw': round(y0, 1)}, {'t': tk(tt), 'yaw': round(y0, 1)},
+                    {'t': tk(tt + 0.35), 'yaw': round(yt, 1), 'pitch': round(pitch, 1)}]
+            settled = T_OWL + 0.2
+            sound_t = tt + 0.2
+        # perched life: a glance or two aside (the head alone), and one in four ruffles its feathers
+        glances = []
+        for _ in range(rnd.choice((1, 2))):
+            g = rnd.uniform(settled, LEN - 0.6)
+            if all(abs(g - h) > 0.7 for h in glances) and not (tt - 0.5 < g < tt + 0.8):
+                glances.append(g)
+        for g in sorted(glances):
+            life['head'].change(g, [0, rnd.choice((-1, 1)) * rnd.uniform(15, 25), 0], 0.12)
+            life['head'].change(g + 0.42, [0, 0, 0], 0.15)
+        if rnd.random() < 0.25:
+            r = rnd.uniform(settled, LEN - 0.8)
+            for part, v in (('left_wing', [0, 0, -20]), ('right_wing', [0, 0, 20]), ('body', [6, 0, 0])):
+                life[part].change(r, v, 0.12)
+                life[part].change(r + 0.25, [0, 0, 0], 0.25)
+        sc.actor(aid, 'hogwartsmagic:owl', scale=scale, path=path, look=look, life=life)
+        if i % 9 == 0:
+            sc.sound(sound_t, 'hogwartsmagic:owl.ambient', at=p, volume=0.8, pitch=rnd.uniform(0.9, 1.1))
+    return roles
+
+
+def check_owls(sc, scene, roles, T_OWL, problems):
+    """Every flying owl in air on every tick; landers touch down slow, on their spot, in the picture; circlers fly
+    the whole shot, never near the lens; perched owls never fly."""
+    w = sc.world
+    cam = scene['camera']
+    ticks = list(range(0, sc.L + 1))
+    by = {a['id']: a for a in scene['actors']}
+    stats = {'land': [], 'circle': 0, 'perch': 0}
+    for aid, role in sorted(roles.items()):
+        a = by[aid]
+        path = a['path']
+        fly = owl_flying(path, ticks)
+        if role == 'perch':
+            if any(fly.values()):
+                problems.append('%s is perched but flies' % aid)
+            stats['perch'] += 1
+            continue
+        k0 = next(k['t'] for k in path if k['pos'] != PARK_PRIVET)
+        for t in range(k0, sc.L + 1):
+            p = sample_path(path, t)
+            perch = path[-1]['pos']
+            if role == 'land' and math.dist(p, perch) <= 0.45:
+                continue
+            if not owl_clear(w, p):
+                problems.append('%s flies into %s at t %d (%s)' % (aid, w.get(cell([p[0], p[1] + 0.5, p[2]])), t,
+                                                                  [r3(c) for c in p]))
+                break
+            if t >= tk(T_OWL) and math.dist(engine_cam(cam, t), p) < 1.5:
+                problems.append('%s flies within 1.5 of the camera at t %d' % (aid, t))
+                break
+        if role == 'land':
+            tl = path[-1]['t']
+            # it settles: slow at the perch tick, under 3 blocks a second 4 ticks out, no sudden stop on the way
+            sp = [owl_speed(path, t) for t in range(tl - 14, tl + 2)]
+            if (owl_speed(path, tl) >= OWL_FLY or owl_speed(path, tl + 1) >= OWL_LAND
+                    or owl_speed(path, tl - 4) >= 0.15 or any(a_ - b_ > 0.15 for a_, b_ in zip(sp, sp[1:]))):
+                problems.append('%s comes in too fast at its perch (t %d: %s)' % (aid, tl, [r3(v) for v in sp]))
+            if not any(fly[t] for t in range(k0, tl)) or any(fly[t] for t in range(tl + 1, sc.L + 1)):
+                problems.append('%s does not fly in and stay down' % aid)
+            down = next(t for t in range(tl - 6, sc.L + 1) if not fly[t])
+            c = engine_cam(cam, down)
+            lk, fov = engine_look(scene, cam, down)
+            if down < tk(T_OWL) or not in_view(c, lk, fov, path[-1]['pos'], SHOT_ASPECT):
+                problems.append('%s lands out of the shot (t %d)' % (aid, down))
+            if k0 >= tk(T_OWL) and spill_in_view(scene, k0, sample_path(path, k0)):
+                problems.append('%s appears in the picture at t %d' % (aid, k0))
+            stats['land'].append(down)
+        else:
+            if not all(fly[t] for t in range(tk(T_OWL), sc.L + 1)):
+                problems.append('%s stops flying during the shot' % aid)
+            for t in range(tk(T_OWL), sc.L + 1):
+                if math.dist(engine_cam(cam, t), sample_path(path, t)) < 3.0:
+                    problems.append('%s circles within 3 of the camera at t %d' % (aid, t))
+                    break
+            stats['circle'] += 1
+    stats['land'].sort()
+    gaps = [b - a for a, b in zip(stats['land'], stats['land'][1:])]
+    if len(stats['land']) != OWL_LANDERS or stats['circle'] != len(OWL_CIRCLERS) or max(gaps) > 8:
+        problems.append('owls: %d landers, %d circlers, touchdown gaps %s' % (len(stats['land']), stats['circle'],
+                                                                             gaps))
+    sc.owl_stats = stats
+    print('  letter owls: %d perched, %d land (touchdowns t %d-%d, gaps %d-%d ticks), %d circle the shot' % (
+        stats['perch'], len(stats['land']), stats['land'][0], stats['land'][-1], min(gaps), max(gaps), stats['circle']))
+
+
+
 def letter_scene():
     LEN = 56.0
     w = privet_world()
@@ -1172,29 +1465,14 @@ def letter_scene():
     sc.unseen['vernon'] = [(38.4, 38.7), (46.2, 46.5)]
     sc.actor('boy', skin=SKIN['boy'], scale=KID, mover=bm, life=bl, actions=ba)
 
-    # ---- the owls
+    # ---- the owls (stage_owls): perched ones fold their wings, the near ones fly in and land, four circle
     T_OWL = 51.0
     sc.key(T_OWL, [0.5, 2.5, 17.5], [0.5, 3.6, -4.0], 72, cut=True)
     sc.key(LEN, [0.5, 2.9, 13.2], [0.5, 3.4, -4.0], 62, ease='in')
     sc.sfx(T_OWL + 0.2, 'owls', 0.9)
-    rnd = random.Random('owls')
-    look_at = PA['owl_look_at']
-    for i, p in enumerate(PA['roof_owl_spots']):
-        y0 = rnd.uniform(-180, 180)
-        yt = yaw_to(look_at[0] - p[0], look_at[2] - p[2])
-        while yt - y0 > 180:
-            yt -= 360
-        while yt - y0 < -180:
-            yt += 360
-        tt = T_OWL + 0.5 + rnd.uniform(0, 2.6)
-        pitch = clamp(math.degrees(math.atan2(p[1] - look_at[1], math.hypot(look_at[0] - p[0], look_at[2] - p[2]))),
-                      0, 40)
-        sc.actor('owl_%02d' % i, 'hogwartsmagic:owl', scale=round(rnd.uniform(0.8, 0.95), 2),
-                 path=[{'t': 0, 'pos': p}],
-                 look=[{'t': 0, 'yaw': round(y0, 1)}, {'t': tk(tt), 'yaw': round(y0, 1)},
-                       {'t': tk(tt + 0.35), 'yaw': round(yt, 1), 'pitch': round(pitch, 1)}])
-        if i % 9 == 0:
-            sc.sound(tt + 0.2, 'hogwartsmagic:owl.ambient', at=p, volume=0.8, pitch=rnd.uniform(0.9, 1.1))
+    view = {'camera': sc.camera, 'actors': sc.actors}
+    owl_roles = stage_owls(sc, T_OWL, LEN, lambda t: engine_cam(sc.camera, t),
+                           lambda t: engine_look(view, sc.camera, t))
 
     scene = sc.scene(SET_PRIVET, PD.RADIUS, nxt='letter_flood')
     evs = scene['events']
@@ -1218,6 +1496,7 @@ def letter_scene():
                 if math.hypot(cp[0] - px, cp[2] - pz) < 0.3 and cp[1] < 2.2:
                     problems.append('camera within 0.3 of the open cupboard door at t %d' % t)
                     break
+        check_owls(sc, scene, owl_roles, T_OWL, problems)
     return sc, scene, extra
 
 
@@ -1481,6 +1760,11 @@ def flood_scene():
     sc.ev(0, 'effect', 'sky', at=[0, 0, 0], style='overcast')
     sc.music('letter_flood')
     plate_actors(sc)
+    mouth = PA['living_fireplace_mouth']
+    FLOOD_EV = {'t': tk(T_BURST), 'at': [mouth[0], mouth[1], mouth[2]], 'yaw': PA['living_fireplace_yaw'],
+                'count': FLOOD_COUNT, 'duration': FLOOD_TICKS, 'box': [list(FLOOD_BOX[0]), list(FLOOD_BOX[1])]}
+    SWARM = flood_swarm(FLOOD_EV)
+    T_SETTLE = swarm_settle(SWARM) / 20.0          # fewer than SETTLE_COUNT letters still up (15.45 s)
     # the boards stay over the slot (the house remembers last week)
     for bi, yb in enumerate((1.03, 0.73)):
         for j, xb in enumerate((0.2, 0.5, 0.8)):
@@ -1513,22 +1797,42 @@ def flood_scene():
     vl['body'].change(T_STAND - 0.2, [0, 0, 0], 0.3)
     vc.cue(T_STAND, 'STAND_UP', 2)
     vc.cue(T_STAND + 1.1, 'IDLE', 4)
-    T_OUT = 14.0
-    secs = sc.say(T_OUT, 'letter_vernon_shout', 17.8)
     vm.walk(T_STAND + 1.25, [[-3.62, 0, -6.72]], 1.6)
     rnd = random.Random('vernon flails')
-    t = T_OUT
-    while t < 25.2:                                           # swatting at letters
+    t = T_STAND + 1.2
+    while t + 0.5 <= T_SETTLE:                                # swatting at letters, only while they fly
         side = 'right_arm' if rnd.random() < 0.6 else 'left_arm'
         sg = -1 if side == 'right_arm' else 1
         vl[side].change(t, [rnd.uniform(-160, -120), 0, sg * rnd.uniform(5, 25)], 0.18)
         vl[side].change(t + 0.25, [rnd.uniform(-60, -20), 0, sg * 10], 0.25)
-        t += rnd.uniform(0.55, 0.9)
-    vl['right_arm'].change(25.6, [0, 0, 0], 0.5)
-    vl['left_arm'].change(25.6, [0, 0, 0], 0.5)
-    for t, y in ((15.6, 120), (17.0, 70), (18.8, 135), (20.4, 95), (22.0, 140), (23.6, 110)):
+        t += rnd.uniform(0.5, 0.75)
+    vl['right_arm'].change(T_SETTLE, [0, 0, 0], 0.5)          # the air clears: the arms come down
+    vl['left_arm'].change(T_SETTLE, [0, 0, 0], 0.5)
+    for t, y in ((15.6, 120), (17.0, 70), (18.8, 135), (20.4, 95)):
         vm.face(t, y, 0.4)
     vm.walk(21.2, [[-3.42, 0, -6.3]], 0.8)
+    # F6: he rounds on the boy, who stands there with a letter: "Get away from them! Out! Out!"
+    END = [-5.404, 0, -7.96]                     # where the boy stands from 20.25 (see below)
+    T_OUT = 21.95
+    vm.face_point(21.6, END, 0.3)
+    vl['body'].change(T_OUT - 0.1, [8, 0, 0], 0.3)
+    secs = sc.say(T_OUT, 'letter_vernon_shout', 25.4, vc)
+    for to in (T_OUT + 1.85, T_OUT + 2.6):                    # "Out!" "Out!": a jab at him each time
+        vl['right_arm'].change(to - 0.12, [-88, 0, -6], 0.12)
+        vl['right_arm'].change(to + 0.2, [-30, 0, 0], 0.3)
+    vl['right_arm'].change(T_OUT + secs + 0.1, [0, 0, 0], 0.4)
+    vl['body'].change(T_OUT + secs, [0, 0, 0], 0.4)
+    # F8: on the cut he has the boy by the shoulder and hauls him across the room and out into the hall
+    T_HAUL = 27.4
+    HAUL = [[-3.0, 0, -5.5], [-1.5, 0, -5.5], [-0.4, 0, -5.55], [0.5, MAT_Y, -5.0]]   # out to the front door
+    V_GRAB = [-4.85, 0, -7.5]
+    vm.walk(T_HAUL, [V_GRAB], 2.6)                            # two strides to him
+    T_COLLAR = vm.t
+    vl['right_arm'].change(T_COLLAR - 0.25, [-70, 0, -10], 0.2)  # a hand on his shoulder
+    vm.face_point(T_COLLAR, HAUL[0], 0.15)
+    vm.walk(T_COLLAR + 0.1, HAUL, 2.8)
+    vl['right_arm'].change(T_COLLAR + 0.1, [34, 0, 8], 0.2)     # and he hauls him along behind
+    vl['body'].change(T_COLLAR + 0.1, [10, 0, 0], 0.3)          # leaning into it
     sc.actor('vernon', skin=SKIN['vernon'], mover=vm, life=vl, clips=vc,
              poses=[pose(0, 'seated', 1), pose(T_STAND + 1.15, 'standing', 1)])
 
@@ -1585,7 +1889,7 @@ def flood_scene():
     bm.face(17.0, 95, 0.7)
     bm.face(18.0, 175, 0.6)
     bm.face(18.9, 120, 0.4)
-    END = [-5.404, 0, -7.96]                     # where he catches the hero letter (the F7 framing is built on it)
+    assert END == [-5.404, 0, -7.96]             # where he catches the hero letter (the F7 framing is built on it)
     T_STEP = 19.3
     bm.walk(T_STEP, [END], 1.3)
     SNATCH_YAW = -160.0                          # towards the sofa, three-quarters on to the F5 camera
@@ -1609,6 +1913,9 @@ def flood_scene():
     poses_b.append(pose(T_CATCH + 0.35, 'clutch', 9))
     ba.append(act(T_CATCH, 'hold', item=INVITE))
     assert math.dist(bm.pos, END) < 1e-9
+    # hauled out by the shoulder, a step behind Vernon, looking back at the letters
+    bm.walk(T_COLLAR + 0.2, HAUL[:3], 2.8)
+    bl['head'].change(T_COLLAR + 0.6, [6, 48, 0], 0.4)
     sc.actor('boy', skin=SKIN['boy'], scale=KID, mover=bm, life=bl, poses=poses_b, actions=ba)
 
     # ---- the hero letter, spiralling down into his hand
@@ -1630,13 +1937,12 @@ def flood_scene():
     sc.actor('hero_letter', 'hogwartsmagic:memory_letter', path=path, look=look)
 
     # ---- the chimney, the burst
-    mouth = PA['living_fireplace_mouth']
     sc.sfx(6.8, 'chimney_rumble', 1.0)
     for t, c in ((7.1, 6), (8.3, 10), (9.4, 14), (10.15, 22)):
         sc.particles(t, 'minecraft:large_smoke', [mouth[0] - 0.4, 0.7, mouth[2]], c, [0.25, 0.3, 0.3])
         sc.particles(t + 0.1, 'minecraft:ash', [mouth[0] - 0.2, 1.4, mouth[2]], c * 2, [0.4, 0.6, 0.5])
-    sc.ev(T_BURST, 'effect', 'letter_flood', at=[mouth[0], mouth[1], mouth[2]], yaw=PA['living_fireplace_yaw'],
-          count=300, duration=120, box=[list(FLOOD_BOX[0]), list(FLOOD_BOX[1])])
+    sc.ev(T_BURST, 'effect', 'letter_flood', at=FLOOD_EV['at'], yaw=FLOOD_EV['yaw'], count=FLOOD_EV['count'],
+          duration=FLOOD_EV['duration'], box=FLOOD_EV['box'])
     sc.sfx(T_BURST - 0.05, 'whoosh', 1.0)
     sc.sfx(T_BURST + 1.6, 'whoosh', 0.75)
     sc.sfx(T_BURST + 3.4, 'whoosh', 0.55)
@@ -1658,7 +1964,10 @@ def flood_scene():
     cam0 = ahead(END, -30, 1.75, side=-0.35, y=1.05)
     cam1 = ahead(END, -30, 1.05, side=-0.2, y=1.25)
     sc.key(25.4, cam0, [hand[0], hand[1] - 0.05, hand[2]], 52, cut=True)
-    sc.key(LEN, cam1, [hand[0], hand[1] - 0.12, hand[2]], 38, ease='in')
+    sc.key(T_HAUL, lerp(cam0, cam1, 0.6), [hand[0], hand[1] - 0.09, hand[2]], 44, ease='in')
+    # F8: from the bay, Vernon hauls him across the room and out through the doorway; chain fade
+    sc.key(T_HAUL, [-6.6, 1.7, -3.4], [-4.7, 1.0, -7.2], 70, cut=True)
+    sc.key(LEN, [-6.45, 1.68, -3.5], [-2.9, 1.0, -6.0], 64)
 
     spills = flood_spill(sc, {'camera': sc.camera, 'actors': sc.actors},
                          [('spill_snatch', snatch_rest, snatch_keys, T_GRAB)])
@@ -1689,6 +1998,15 @@ def flood_scene():
         reach = [p['t'] for p in boy['poses'] if p['name'] in ('reach_r', 'reach_l')]
         if max(reach) >= settle:
             problems.append('the boy reaches at t %d, after the swarm settles at %d' % (max(reach), settle))
+        # nor does Vernon swat at the air once it is clear: no arm raised over the shoulder (a swat peaks at -120
+        # to -160; his jabs at the boy stop at -88)
+        assert settle == tk(T_SETTLE), (settle, T_SETTLE)
+        vern = next(a for a in scene['actors'] if a['id'] == 'vernon')
+        for side in ('right_arm', 'left_arm'):
+            ks = [{'t': k['t'], 'pos': list(k['v'])} for k in vern['limbs'][side]['rot']]
+            high = [t_ for t_ in range(settle, sc.L + 1) if sample_path(ks, t_)[0] < -100]
+            if high:
+                problems.append('Vernon swats (%s) at t %d, after the swarm settles at %d' % (side, high[0], settle))
         for tj, top in jump_tops:
             near = sum(1 for s in swarm[tk(tj)] if s[3] and s[1] > 0.4 and math.hypot(s[0] - top[0], s[2] - top[2]) < 1.5)
             if near < 4:
@@ -2182,8 +2500,8 @@ def engine_look(scene, cam, t):
 ASPECT = 2.0              # screen width over height assumed for the frustum (wider than 16:9, to be safe)
 
 
-def in_view(c, look, fov, p):
-    """Whether world point p is inside the camera's view frustum past the near plane."""
+def in_view(c, look, fov, p, aspect=ASPECT):
+    """Whether world point p is inside the camera's view frustum past the near plane (`aspect`: width over height)."""
     ax = [look[i] - c[i] for i in range(3)]
     n = math.sqrt(sum(v * v for v in ax)) or 1.0
     ax = [v / n for v in ax]
@@ -2197,7 +2515,7 @@ def in_view(c, look, fov, p):
         return False
     tv = math.tan(math.radians(fov) / 2)
     return (abs(sum(d[i] * up[i] for i in range(3))) <= z * tv
-            and abs(sum(d[i] * rg[i] for i in range(3))) <= z * tv * ASPECT)
+            and abs(sum(d[i] * rg[i] for i in range(3))) <= z * tv * aspect)
 
 
 def box_surface(root, yaw, scale, pivot, rot, box, n=6):

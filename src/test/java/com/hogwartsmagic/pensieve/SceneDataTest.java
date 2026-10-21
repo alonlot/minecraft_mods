@@ -223,6 +223,84 @@ class SceneDataTest {
     }
 
     /**
+     * Every shipped letter_flood with a {@code box} flies in clear air: each cell of the box is air (or absent) in
+     * every template the scene places over it, and no fill or disk of the set reaches into it. The Letter memory's
+     * flood uses Privet Drive's living_room_box (build_scripts/pensieve_scenes/privet_drive.py); a letter clamped to
+     * a box with furniture in it would sink into the sofa. Also checks that some scene does ship such a flood, so the
+     * check cannot pass by finding nothing.
+     */
+    @Test
+    void letterFloodBoxesAreAllAir() throws Exception {
+        if (!Files.isDirectory(MEMORIES)) return;
+        List<String> problems = new ArrayList<>();
+        int floods = 0;
+        try (Stream<Path> files = Files.list(MEMORIES)) {
+            for (Path f : files.filter(p -> p.toString().endsWith(".json")).sorted().toList()) {
+                String name = f.getFileName().toString();
+                if (name.startsWith("_")) continue;
+                String id = name.substring(0, name.length() - 5);
+                SceneDef def = SceneParser.parse(id, JsonParser.parseString(read(f)).getAsJsonObject());
+                for (SceneDef.EventDef e : def.events()) {
+                    if (!"letter_flood".equals(e.id()) || e.box() == null) continue;
+                    floods++;
+                    int[] lo = new int[3], hi = new int[3];
+                    for (int i = 0; i < 3; i++) {
+                        lo[i] = (int) Math.floor(e.box()[0][i]);
+                        hi[i] = (int) Math.ceil(e.box()[1][i]) - 1;
+                    }
+                    for (SceneDef.TemplateRef tr : def.set().templates()) {
+                        String tn = tr.id().substring(tr.id().indexOf(':') + 1);
+                        java.util.Map<Long, String> cells = templateBlocks(STRUCTURES.resolve(tn + ".nbt"));
+                        for (int x = lo[0]; x <= hi[0]; x++) {
+                            for (int y = lo[1]; y <= hi[1]; y++) {
+                                for (int z = lo[2]; z <= hi[2]; z++) {
+                                    String b = cells.get(key(x - tr.at()[0], y - tr.at()[1], z - tr.at()[2]));
+                                    if (b != null && !b.equals("minecraft:air") && !b.equals("minecraft:structure_void")) {
+                                        problems.add(id + ": flood box cell " + x + "," + y + "," + z + " is " + b
+                                                + " in " + tr.id());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    for (SceneDef.Fill fl : def.set().fills()) {
+                        boolean overlaps = true;
+                        for (int i = 0; i < 3; i++) {
+                            int a = Math.min(fl.from()[i], fl.to()[i]), b = Math.max(fl.from()[i], fl.to()[i]);
+                            overlaps &= a <= hi[i] && b >= lo[i];
+                        }
+                        if (overlaps) problems.add(id + ": a " + fl.block() + " fill reaches into the flood box");
+                    }
+                }
+            }
+        }
+        assertEquals(List.of(), problems);
+        assertTrue(floods > 0, "no shipped scene has a letter_flood with a box");
+    }
+
+    private static long key(int x, int y, int z) {
+        return ((long) (x & 0xFFFFF) << 40) | ((long) (y & 0xFFFFF) << 20) | (z & 0xFFFFF);
+    }
+
+    /** A structure template's blocks as packed local position -> block id (properties dropped). */
+    private static java.util.Map<Long, String> templateBlocks(Path nbt) throws IOException {
+        net.minecraft.nbt.CompoundTag root = net.minecraft.nbt.NbtIo.readCompressed(nbt,
+                net.minecraft.nbt.NbtAccounter.unlimitedHeap());
+        net.minecraft.nbt.ListTag pal = root.contains("palette")
+                ? root.getList("palette", 10) : root.getList("palettes", 9).getList(0);
+        List<String> names = new ArrayList<>();
+        for (int i = 0; i < pal.size(); i++) names.add(pal.getCompound(i).getString("Name"));
+        java.util.Map<Long, String> out = new java.util.HashMap<>();
+        net.minecraft.nbt.ListTag blocks = root.getList("blocks", 10);
+        for (int i = 0; i < blocks.size(); i++) {
+            net.minecraft.nbt.CompoundTag b = blocks.getCompound(i);
+            net.minecraft.nbt.ListTag pos = b.getList("pos", 3);
+            out.put(key(pos.getInt(0), pos.getInt(1), pos.getInt(2)), names.get(b.getInt("state")));
+        }
+        return out;
+    }
+
+    /**
      * The storm dev scene (written by build_scripts/pensieve_scenes/dev_storm.py into the ignored run/pensieve_dev)
      * validates like a shipped one: a rough_sea under rain with a rowboat and four riders. Skipped where it has not
      * been generated.

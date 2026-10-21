@@ -919,6 +919,62 @@ def generate_crowd():
     return names
 
 
+SOURCE_DIR = os.path.join(ROOT, "build_scripts", "skin_sources")
+
+
+def _blonde(lum, rng):
+    """A blonde hair pixel at brightness lum (0..1 of the mid tone), with a little grain."""
+    k = lum * (1.0 + rng.uniform(-0.04, 0.04))
+    return (min(255, int(232 * k)), min(255, int(196 * k)), min(255, int(112 * k)), 255)
+
+
+def touch_up_dursleys():
+    """Vernon is kept as downloaded; Petunia's hair is recoloured blonde; Dudley is made blond with a striped jumper.
+
+    The raw downloads live in build_scripts/skin_sources/ and the touched-up skins are written to OUT_DIR.
+    """
+    HEAD = (0, 0, 64, 16)
+    img = Image.open(os.path.join(SOURCE_DIR, "vernon.png")).convert("RGBA")
+    img.save(os.path.join(OUT_DIR, "vernon.png"))
+
+    # Petunia: brown hair pixels (head + hat layer) become blonde at the same relative brightness.
+    img = Image.open(os.path.join(SOURCE_DIR, "petunia.png")).convert("RGBA")
+    rng = random.Random(71)
+    px = img.load()
+    for y in range(HEAD[1], HEAD[3]):
+        for x in range(HEAD[0], HEAD[2]):
+            r, g, b, a = px[x, y]
+            if a and r < 135 and r > g > b and r - b < 70:
+                px[x, y] = _blonde((r / 108.0) * 0.95 + 0.1, rng)
+    img.save(os.path.join(OUT_DIR, "petunia.png"))
+
+    # Dudley: the near-black brown hair (43,35,26) becomes blond; the red plaid jumper becomes blue and cream
+    # stripes (2 px bands; the base and overlay layers are 16/32 px apart so the bands line up).
+    img = Image.open(os.path.join(SOURCE_DIR, "dudley.png")).convert("RGBA")
+    rng = random.Random(72)
+    px = img.load()
+    for y in range(HEAD[1], HEAD[3]):
+        for x in range(HEAD[0], HEAD[2]):
+            if px[x, y] == (43, 35, 26, 255):
+                px[x, y] = _blonde(1.0, rng)
+    # The download has no eyes drawn; give him two small blue ones under the fringe.
+    for ex in (10, 13):
+        px[ex, 13] = (46, 70, 140, 255)
+    skin_c = (254, 219, 168, 255)
+    stripe = [(52, 84, 170), (234, 228, 208)]
+    jumper = [(16, 16, 40, 32), (16, 32, 40, 48), (40, 16, 56, 32), (40, 32, 56, 48), (32, 48, 48, 64),
+              (48, 48, 64, 64)]
+    for x0, y0, x1, y1 in jumper:
+        for y in range(y0, y1):
+            for x in range(x0, x1):
+                r, g, b, a = px[x, y]
+                if a and (r, g, b, a) != skin_c:
+                    c = stripe[(y // 2) % 2]
+                    k = 1.0 + rng.uniform(-0.03, 0.03)
+                    px[x, y] = (int(c[0] * k), int(c[1] * k), int(c[2] * k), 255)
+    img.save(os.path.join(OUT_DIR, "dudley.png"))
+
+
 def main():
     os.makedirs(OUT_DIR, exist_ok=True)
     black = (22, 22, 26)
@@ -983,11 +1039,19 @@ def main():
     #   ron                 https://minecraft.novaskin.me/post/1485033249
     #   student_hufflepuff  https://minecraft.novaskin.me/post/4747441164779520
     #   student_ravenclaw   https://minecraft.novaskin.me/post/4832858287374336
+    # Dursleys (NovaSkin ids 1aisrt9qman, 2740043036, 4202223350; raw files in build_scripts/skin_sources/, touched up
+    # by touch_up_dursleys() above):
+    #   vernon              https://minecraft.novaskin.me/post/1aisrt9qman
+    #   petunia             https://minecraft.novaskin.me/post/2740043036  (hair recoloured blonde)
+    #   dudley              https://minecraft.novaskin.me/post/4202223350  (blond, striped jumper)
     for name in ("sirius", "hermione", "harry", "mcgonagall", "dumbledore", "hagrid", "snape", "quirrell", "ron",
                  "student_hufflepuff", "student_ravenclaw"):
         if not os.path.exists(os.path.join(OUT_DIR, name + ".png")):
             raise SystemExit("missing downloaded skin " + name + ".png")
         names.append(name)
+
+    touch_up_dursleys()
+    names.extend(["vernon", "petunia", "dudley"])
 
     names.extend(generate_students())
     names.extend(generate_crowd())

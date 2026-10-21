@@ -77,7 +77,20 @@ public final class MemoryAudio {
     static void playSfx(String id, float volume, float pitch) {
         SoundEvent event = lookup(id);
         if (event == null) return;
-        SfxInstance s = new SfxInstance(event, volume, pitch);
+        SfxInstance s = new SfxInstance(event, volume, pitch, false, 0);
+        SFX.add(new Cue(s, clock));
+        Minecraft.getInstance().getSoundManager().play(s);
+    }
+
+    /**
+     * Start a looping sound effect (scene {@code sfx} with {@code loop}): the file repeats seamlessly (the engine loops
+     * it, so there is no re-cue gap or overlap swell) until {@code ticks} ticks have passed, or until the memory ends
+     * when {@code ticks} is 0, and then fades out over {@link CueKinds#LOOP_FADE_TICKS} ticks.
+     */
+    static void playLoop(String id, float volume, int ticks) {
+        SoundEvent event = lookup(id);
+        if (event == null) return;
+        SfxInstance s = new SfxInstance(event, volume, 1f, true, ticks);
         SFX.add(new Cue(s, clock));
         Minecraft.getInstance().getSoundManager().play(s);
     }
@@ -94,9 +107,13 @@ public final class MemoryAudio {
      */
     static void cut() {
         for (Cue c : VOICES) Minecraft.getInstance().getSoundManager().stop(c.sound);
-        for (Cue c : SFX) Minecraft.getInstance().getSoundManager().stop(c.sound);
+        // A looping effect fades out like music (it stays listed until the fade finishes); other effects stop at once.
+        SFX.removeIf(c -> {
+            if (((SfxInstance) c.sound).fadeOut()) return false;
+            Minecraft.getInstance().getSoundManager().stop(c.sound);
+            return true;
+        });
         VOICES.clear();
-        SFX.clear();
         ducking = false;
         for (Cue c : MUSIC) ((MusicInstance) c.sound).fadeOut();
     }
@@ -200,20 +217,50 @@ public final class MemoryAudio {
         }
     }
 
-    /** One sound effect: non-positional, full pitch, no echo, no ducking. */
+    /**
+     * One sound effect: non-positional, full pitch, no echo, no ducking. A looping one repeats until its duration (if
+     * any) runs out or {@link #fadeOut()} is called, then eases to silence and stops.
+     */
     private static final class SfxInstance extends AbstractTickableSoundInstance {
-        SfxInstance(SoundEvent event, float volume, float pitch) {
+        private final float base;
+        private final boolean loop;
+        private int remaining;      // ticks until the fade starts; <= 0 with no limit means "until told"
+        private final boolean limited;
+        private int fadeTicks = -1;
+
+        SfxInstance(SoundEvent event, float volume, float pitch, boolean loop, int ticks) {
             super(event, SoundSource.AMBIENT, RandomSource.create());
+            this.base = volume;
             this.volume = volume;
             this.pitch = pitch;
-            this.looping = false;
+            this.looping = loop;
+            this.loop = loop;
+            this.limited = loop && ticks > 0;
+            this.remaining = ticks;
             this.delay = 0;
             this.attenuation = SoundInstance.Attenuation.NONE;
             this.relative = true;
         }
 
+        /** Begin the fade-out of a loop; false (and nothing done) for a one-shot, which the caller stops instead. */
+        boolean fadeOut() {
+            if (!loop) return false;
+            if (fadeTicks < 0) fadeTicks = 0;
+            return true;
+        }
+
         @Override
         public void tick() {
+            if (!loop) return;
+            if (fadeTicks < 0 && limited && --remaining <= 0) fadeTicks = 0;
+            if (fadeTicks >= 0) {
+                fadeTicks++;
+                if (fadeTicks >= CueKinds.LOOP_FADE_TICKS) {
+                    stop();
+                    return;
+                }
+                this.volume = base * CueKinds.loopFade(fadeTicks, CueKinds.LOOP_FADE_TICKS);
+            }
         }
     }
 }

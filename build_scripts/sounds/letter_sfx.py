@@ -170,7 +170,7 @@ def master_loop(name):
     gain = TARGETS.get(name, TARGET_RMS) - rms_db(out)
     pcm = (np.clip(out, -1, 1) * 32767).astype(np.int16).tobytes()
     dst = os.path.join(OUT_DIR, "letter_%s.ogg" % name)
-    filt = "volume=%.2fdB,alimiter=level=disabled:limit=%.2f" % (gain, LIMIT)
+    filt = "volume=%.2fdB,alimiter=level=disabled:limit=%.2f:latency=1" % (gain, LIMIT)
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "s16le", "-ar", "44100", "-ac", "1", "-i", "-",
                     "-af", filt, "-ac", "1", "-ar", "44100", "-c:a", "libvorbis", "-q:a", "5", dst],
                    input=pcm, check=True)
@@ -197,7 +197,7 @@ def master(name):
         filt += ",afade=t=in:st=0:d=%.3f" % fi
     if fo > 0:
         filt += ",afade=t=out:st=%.3f:d=%.3f" % (dur - fo, fo)
-    filt += ",alimiter=level=disabled:limit=%.2f" % LIMIT
+    filt += ",alimiter=level=disabled:limit=%.2f:latency=1" % LIMIT
     os.makedirs(OUT_DIR, exist_ok=True)
     out = os.path.join(OUT_DIR, "letter_%s.ogg" % name)
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", str(start), "-i", src, "-t", str(dur),

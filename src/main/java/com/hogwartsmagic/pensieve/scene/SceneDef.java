@@ -127,9 +127,18 @@ public record SceneDef(String id, String title, int length, int radius, SetDef s
      * validator checks. {@code style} is the enchanted_ceiling look ({@code "storm"} or {@code "night"}), null when absent.
      * {@code intensity} is the light_rays brightness multiplier, NaN when absent (default 1).
      * {@code box} is the letter_flood room, two scene-relative corners {@code {{x1,y1,z1},{x2,y2,z2}}}, null when absent.
+     * {@code loop} is for {@code sfx} cues only: the sound repeats seamlessly until {@code duration} ticks have passed
+     * (or the scene ends when {@code duration} is 0) and then fades out.
      */
     public record EventDef(float t, String kind, String id, float[] at, float volume, float pitch, int count,
-                           float[] spread, int duration, float yaw, String style, float intensity, float[][] box) {
+                           float[] spread, int duration, float yaw, String style, float intensity, float[][] box,
+                           boolean loop) {
+        /** An event that does not loop. */
+        public EventDef(float t, String kind, String id, float[] at, float volume, float pitch, int count,
+                        float[] spread, int duration, float yaw, String style, float intensity, float[][] box) {
+            this(t, kind, id, at, volume, pitch, count, spread, duration, yaw, style, intensity, box, false);
+        }
+
         /** An event with no {@code box}. */
         public EventDef(float t, String kind, String id, float[] at, float volume, float pitch, int count,
                         float[] spread, int duration, float yaw, String style, float intensity) {

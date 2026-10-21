@@ -126,6 +126,13 @@ public final class MemoryEvents {
             }
             return;
         }
+        if ("sfx".equals(kind) && e.loop()) {
+            // A loop that is still going is joined part-way (it cannot be sought into, so it starts from its head).
+            if (!late || e.duration() <= 0 || age < e.duration()) {
+                MemoryAudio.playLoop(e.id(), e.volume(), e.duration() > 0 ? Math.max(1, Math.round(e.duration() - age)) : 0);
+            }
+            return;
+        }
         if (late) return;
         if ("sound".equals(kind)) {
             MemorySounds.play(e.id(), e.at() != null ? position(e) : listener(), e.volume(), e.pitch());

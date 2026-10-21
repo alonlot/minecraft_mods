@@ -12,8 +12,27 @@ Mastering follows the ElevenLabs note: explicit (start, end) window read off the
 RMS level-match, alimiter, and ffmpeg INPUT seeking (-ss before -i) in the measuring and the
 encoding pass alike. Loops are crossfaded (equal power) so the file's end runs into its start.
 
-WINDOWS (measured cut points, filled in from the envelopes; see the table below the dict):
-see the WINDOWS and LOOPS dicts. Columns: take, start, end, fade_in, fade_out (seconds).
+WINDOWS: measured cut points, read off the 100 ms envelopes (seconds of the chosen raw take)
+
+  name           take  start   end    fade in/out   note
+  broom_up         1   0.28    0.88   0 / 0.20      spike at 0.30; compressed
+  broom_whoosh     1   0.55    1.75   0.10 / 0.30   rush 0.6-1.4
+  broom_buck       1   0.20    2.20   0.02 / 0.25   continuous rattle until 2.2
+  thud             1   0.00    0.80   0 / 0.20      thump in the first 0.1 s
+  whistle          1   0.05    1.55   0.02 / 0.25   steady blast 0.1-1.1, then decay
+  crate            1   0.28    1.78   0 / 0.30      lid bang at 0.3, chains after
+  crowd_swell      2   0.00    4.00   0 / 0.80      rises from -20 to -9 by 0.7 s
+  crowd_erupt      2   0.00    8.00   0 / 1.00      dense -4..-8 first 5 s; compressed flat to a sustained roar
+  crowd_chant      2   0.00    8.00   0 / 0.80      steady rhythmic -8..-15
+  crowd_gasp       2   0.10    2.10   0 / 0.50      gasp opens at 0.1
+  thunder          1   0.10    5.10   0.02 / 1.50   crack at 0.4, roll to 5
+  bludger_crack    1   0.00    0.60   0 / 0.15      crack at 0
+  quaffle_catch    2   0.15    0.55   0 / 0.12      hit at 0.16 (pre-echo from 0.13); compressed
+
+LOOPS (take, start, length, crossfade): lawn_air 1/0.9/18.5/1.9 (start chosen by scan so the head and tail levels match), crowd_bed 1/0/20/2,
+rain 2/0.3/19/2, snitch_flutter 1/1.3/2/0.5. The limiter runs with latency=1: without it
+alimiter delays its output by its attack time (~4.4 ms of silence at the head, the same cut
+off the tail), which puts a dropout at every loop seam.
 """
 
 import json
@@ -114,7 +133,7 @@ WINDOWS = {
     "crowd_gasp": (2, 0.1, 2.1, 0.0, 0.5),
     "thunder": (1, 0.1, 5.1, 0.02, 1.5),
     "bludger_crack": (1, 0.0, 0.6, 0.0, 0.15),
-    "quaffle_catch": (2, 0.09, 0.49, 0.0, 0.12),
+    "quaffle_catch": (2, 0.15, 0.55, 0.0, 0.12),
 }
 
 # Seamless loops: name -> (take, start, length, crossfade). The `crossfade` seconds of source
@@ -122,15 +141,25 @@ WINDOWS = {
 # start. The source tops out at 22 s, so lawn_air (quiet first 1.5 s) and rain are a little
 # under the brief's 20 s; the real lengths are in flying_clip_lengths.json.
 LOOPS = {
-    "lawn_air": (2, 1.5, 18.5, 1.9),
+    "lawn_air": (1, 0.9, 18.5, 1.9),
     "crowd_bed": (1, 0.0, 20.0, 2.0),
-    "rain": (2, 0.2, 19.6, 2.0),
-    "snitch_flutter": (1, 0.0, 2.0, 0.5),
+    "rain": (2, 0.3, 19.0, 2.0),
+    "snitch_flutter": (1, 1.3, 2.0, 0.5),
 }
 
 # Per-sound RMS overrides (dBFS). Crowd layers and beds sit under the rain and wind; the
 # scene mixes the rest with the playSound volume argument.
+# Per-sound compression applied before the level match (turns a spike over a thin body into a
+# solid hit, or a roar that decays into a sustained one).
+COMPRESS = {
+    "broom_up": "acompressor=threshold=0.05:ratio=4:attack=2:release=80:makeup=2",
+    "quaffle_catch": "acompressor=threshold=0.02:ratio=12:attack=1:release=60:makeup=4",
+    "crowd_erupt": "acompressor=threshold=0.03:ratio=20:attack=20:release=300:makeup=6",
+}
+
 TARGETS = {
+    "crowd_erupt": -14.0,
+    "crowd_swell": -16.0,
     "lawn_air": -24.0,
     "crowd_bed": -22.0,
     "rain": -22.0,
@@ -164,7 +193,10 @@ def gen(names):
 def decode(path, start=0.0, dur=None):
     """Decode to float mono as (L+R)/2 in numpy. Always asks ffmpeg for stereo (a mono source is
     upmixed by duplication, so (L+R)/2 is the source itself) -- the same formula the encode
-    pass applies, since ffmpeg's own -ac 1 downmix differs from it by ~3 dB."""
+    pass applies, since ffmpeg's own -ac 1 downmix differs from it by ~3 dB.
+    Note: a MONO file decodes 3 dB low here (the upmix puts 0.707 in each channel), so the printed
+    RMS of a finished .ogg is 3 dB below its true level; the match is consistent, TARGETS are in
+    these units, and the true levels are the printed ones + 3 dB."""
     cmd = ["ffmpeg", "-v", "error", "-ss", str(start), "-i", path]
     if dur is not None:
         cmd += ["-t", str(dur)]
@@ -210,7 +242,7 @@ def master_loop(name):
     pcm = (np.clip(out, -1, 1) * 32767).astype(np.int16).tobytes()
     os.makedirs(OUT_DIR, exist_ok=True)
     dst = os.path.join(OUT_DIR, "flying_%s.ogg" % name)
-    filt = "volume=%.2fdB,alimiter=level=disabled:limit=%.2f" % (gain, LIMIT)
+    filt = "volume=%.2fdB,alimiter=level=disabled:limit=%.2f:latency=1" % (gain, LIMIT)
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "s16le", "-ar", "44100", "-ac", "1", "-i", "-",
                     "-af", filt, "-ac", "1", "-ar", "44100", "-c:a", "libvorbis", "-q:a", "5", dst],
                    input=pcm, check=True)
@@ -229,7 +261,19 @@ def master(name):
     total = len(decode(src)) / 44100
     _, start, end, fi, fo = WINDOWS.get(name, (1, 0.0, total, 0.0, 0.0))
     dur = end - start
-    seg = decode(src, start, dur)                          # measuring pass: input seeking
+    comp = COMPRESS.get(name)
+    orig_start = start
+    if comp:
+        # Compress first (to a scratch wav), then measure and encode from that.
+        os.makedirs(RAW_DIR, exist_ok=True)
+        tmp = os.path.join(RAW_DIR, "%s_comp.wav" % name)
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", str(start), "-i", src, "-t", str(dur), "-af",
+                        "aformat=channel_layouts=stereo,pan=mono|c0=0.5*c0+0.5*c1," + comp,
+                        "-ac", "1", "-ar", "44100", tmp], check=True)
+        src, start = tmp, 0.0
+        seg = decode(src, 0.0, dur)
+    else:
+        seg = decode(src, start, dur)                      # measuring pass: input seeking
     cur = rms_db(seg)
     gain = TARGETS.get(name, TARGET_RMS) - cur
     # aformat upmixes a mono source to stereo so the pan filter below always has c1.
@@ -238,7 +282,7 @@ def master(name):
         filt += ",afade=t=in:st=0:d=%.3f" % fi
     if fo > 0:
         filt += ",afade=t=out:st=%.3f:d=%.3f" % (dur - fo, fo)
-    filt += ",alimiter=level=disabled:limit=%.2f" % LIMIT
+    filt += ",alimiter=level=disabled:limit=%.2f:latency=1" % LIMIT
     os.makedirs(OUT_DIR, exist_ok=True)
     out = os.path.join(OUT_DIR, "flying_%s.ogg" % name)
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", str(start), "-i", src, "-t", str(dur),
@@ -247,7 +291,7 @@ def master(name):
     res = decode(out)
     _lens[name] = round(len(res) / 44100, 2)
     print("%-16s window %.2f-%.2f (%.2fs)  gain %+.1f dB  out %.2fs  RMS %.1f dBFS  peak %.1f dBFS"
-          % (name, start, end, dur, gain, len(res) / 44100, rms_db(res), db(float(np.max(np.abs(res))))))
+          % (name, orig_start, end, dur, gain, len(res) / 44100, rms_db(res), db(float(np.max(np.abs(res))))))
 
 
 def check():

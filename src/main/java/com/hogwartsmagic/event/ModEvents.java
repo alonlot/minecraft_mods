@@ -679,6 +679,7 @@ public class ModEvents {
             // Out of any Pensieve memory and back to the basin before the player is saved.
             com.hogwartsmagic.pensieve.PensieveSessions.onLogout(player);
             com.hogwartsmagic.pensieve.LetterMemory.onLogout(player);
+            com.hogwartsmagic.pensieve.FlyingMemory.onLogout(player);
             // Logging out mid-channel would otherwise strand the shield's light block in the world.
             ItemStack heldWand = player.getMainHandItem();
             if (player.getPersistentData().getBoolean(TAG_PATRONUS_SHIELD_CHANNELING)) {
@@ -2851,6 +2852,8 @@ public class ModEvents {
             com.hogwartsmagic.pensieve.PensieveSessions.tick(event.getServer());
             // The Letter memory's letter screen, once the wake that follows the memory is over.
             com.hogwartsmagic.pensieve.LetterMemory.tick(event.getServer());
+            // The Flying memory: first broom mounts to start, and players due back on their broom.
+            com.hogwartsmagic.pensieve.FlyingMemory.tick(event.getServer());
         }
         if (event.phase != net.minecraftforge.event.TickEvent.Phase.END || ACTIVE_WIZARD_RAIDS.isEmpty()) {
             return;

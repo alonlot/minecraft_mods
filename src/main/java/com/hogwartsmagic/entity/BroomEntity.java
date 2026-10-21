@@ -55,6 +55,27 @@ public class BroomEntity extends Entity {
     public BroomEntity(EntityType<?> type, Level level) {
         super(type, level);
     }
+
+    /**
+     * Server only, never saved: the player whose Flying memory has this broom parked. A held broom stays exactly
+     * where it is (no gravity, no motion) and nobody can mount it, until {@link #releaseHold}.
+     */
+    @javax.annotation.Nullable
+    private java.util.UUID heldFor;
+
+    public void holdFor(java.util.UUID player) {
+        this.heldFor = player;
+        this.setDeltaMovement(Vec3.ZERO);
+        this.setNoGravity(true);
+    }
+
+    public void releaseHold() {
+        this.heldFor = null;
+    }
+
+    public boolean isHeld() {
+        return this.heldFor != null;
+    }
     
     @Override
     public EntityDimensions getDimensions(net.minecraft.world.entity.Pose pose) {
@@ -167,6 +188,14 @@ public class BroomEntity extends Entity {
     public void tick() {
         this.debugTick(); // TEMPORARY DEBUG
         this.prevDisplayRoll = this.displayRoll;
+        if (this.heldFor != null && !this.level().isClientSide) {
+            // Parked for a memory: not a step of flight, gravity or damping, so nothing can move it.
+            this.setNoGravity(true);
+            this.setDeltaMovement(Vec3.ZERO);
+            this.fallDistance = 0.0f;
+            super.tick();
+            return;
+        }
         float yawBefore = this.getYRot();
 
         if (this.isVehicle()) {
@@ -597,7 +626,13 @@ public class BroomEntity extends Entity {
     @Override
     public InteractionResult interact(Player player, InteractionHand hand) {
         if (!this.level().isClientSide) {
-            return player.startRiding(this) ? InteractionResult.CONSUME : InteractionResult.PASS;
+            boolean mounted = player.startRiding(this);
+            // The Flying memory: a real player's first mount (a mob mounts with startRiding(broom, true), never here).
+            if (mounted && player instanceof net.minecraft.server.level.ServerPlayer sp
+                    && com.hogwartsmagic.pensieve.FlyingMemory.isRealPlayer(sp)) {
+                com.hogwartsmagic.pensieve.FlyingMemory.scheduleStart(sp, this);
+            }
+            return mounted ? InteractionResult.CONSUME : InteractionResult.PASS;
         }
         return InteractionResult.SUCCESS;
     }
@@ -690,7 +725,7 @@ public class BroomEntity extends Entity {
 
     @Override
     protected boolean canAddPassenger(Entity passenger) {
-        return this.getPassengers().size() < 1;
+        return this.heldFor == null && this.getPassengers().size() < 1;
     }
 
     @Override

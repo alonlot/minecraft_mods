@@ -13,6 +13,13 @@ package com.hogwartsmagic.pensieve.scene;
  * the edge). At most 1024 + 4 x 768 = 4096 water quads (16,384 vertices sent as quads), plus a foam pass capped at
  * {@link #FOAM_QUAD_CAP} quads on the three finest levels, nearest first: under 20,000 vertices for any sea.
  *
+ * <p><b>Boat patches.</b> A rowing boat rides the exact surface, so wherever a boat sits on a ring coarser than 1 block
+ * (level 2 and out, 8 blocks and more from the camera), the coarse cells within {@code radius} of it (the hull plus a
+ * margin, given by the caller) are replaced by a 1-block grid of the exact surface. Where a patched cell meets a cell
+ * that is not patched (or another ring), its edge vertices take that coarse edge's straight-line height, as the rings'
+ * rims do, so no crack opens; between two patched cells the heights are exact on both sides. At most
+ * {@link #PATCH_QUAD_CAP} patch quads a frame, for all boats together (the vertex bound grows by that much only).
+ *
  * <p><b>Allocation.</b> Every buffer is allocated once, in the constructor, and reused by every {@link #build}: a build
  * allocates nothing.
  *
@@ -43,16 +50,24 @@ public final class SeaMesh {
     public static final float[] FOAM_TINT = {0.60f, 0.64f, 0.65f};
 
     private static final int POINTS = (CELLS + 1) * (CELLS + 1);
+    /** The boat patches' grid spacing, the first level that gets patched, and the patch budget (quads and vertices). */
+    public static final double PATCH_SPACING = 1.0;
+    public static final int PATCH_MIN_LEVEL = 2, PATCH_QUAD_CAP = 1536, MAX_BOATS = 4;
+    private static final int PATCH_VERTS = PATCH_QUAD_CAP * 9 / 4;
+    private static final int VERTS = LEVELS * POINTS + PATCH_VERTS;
 
     // Per vertex, level-major (level L's vertices at L * POINTS).
     /** Sea-local x, the height above the still surface, sea-local z. */
-    public final float[] x = new float[LEVELS * POINTS], y = new float[LEVELS * POINTS], z = new float[LEVELS * POINTS];
-    public final float[] r = new float[LEVELS * POINTS], g = new float[LEVELS * POINTS], b = new float[LEVELS * POINTS];
-    public final float[] alpha = new float[LEVELS * POINTS], foam = new float[LEVELS * POINTS];
-    /** Water quads, four vertex indices each, and foam quads. */
-    public final int[] quads = new int[LEVELS * CELLS * CELLS * 4];
+    public final float[] x = new float[VERTS], y = new float[VERTS], z = new float[VERTS];
+    public final float[] r = new float[VERTS], g = new float[VERTS], b = new float[VERTS];
+    public final float[] alpha = new float[VERTS], foam = new float[VERTS];
+    /** Water quads (the rings' and the boat patches'), four vertex indices each, and foam quads. */
+    public final int[] quads = new int[(LEVELS * CELLS * CELLS + PATCH_QUAD_CAP) * 4];
     public final int[] foamQuads = new int[FOAM_QUAD_CAP * 4];
-    public int quadCount, foamQuadCount;
+    public int quadCount, foamQuadCount, patchQuadCount;
+    /** Per level, the cells a boat patch replaces (cell (i, j) of the level at j * CELLS + i). */
+    private final boolean[][] patched = new boolean[LEVELS][CELLS * CELLS];
+    private int patchVerts, patchBudget;
 
     // Per level: grid index of the first vertex, the number of cells each way, and the unclipped region (for holes).
     private final int[] i0 = new int[LEVELS], j0 = new int[LEVELS], nx = new int[LEVELS], nz = new int[LEVELS];
@@ -104,6 +119,16 @@ public final class SeaMesh {
      * to the still surface's centre); {@code flash} 0 to 1 brightens the sky reflection; {@code shore} may be null.
      */
     public void build(RoughSea.Sea sea, float now, double camX, double camY, double camZ, float flash, Shore shore) {
+        build(sea, now, camX, camY, camZ, flash, shore, null, 0);
+    }
+
+    /**
+     * As {@link #build(RoughSea.Sea, float, double, double, double, float, Shore)}, with {@code boatCount} boats on this
+     * sea: {@code boats} holds sea-local {x, z, radius} for each, the radius being how far round it the water must be
+     * exact (the hull's half-length plus a margin). At most {@link #MAX_BOATS} are patched.
+     */
+    public void build(RoughSea.Sea sea, float now, double camX, double camY, double camZ, float flash, Shore shore,
+                      double[] boats, int boatCount) {
         this.sea = sea;
         this.in = sea.intensityAt(now);
         this.clock = sea.clock(now);
@@ -119,6 +144,10 @@ public final class SeaMesh {
         lightZ = lz / ll;
         quadCount = 0;
         foamQuadCount = 0;
+        patchQuadCount = 0;
+        patchVerts = 0;
+        patchBudget = PATCH_QUAD_CAP;
+        for (boolean[] p : patched) java.util.Arrays.fill(p, false);
         if (in <= 0) return;
         double hx = sea.hx(), hz = sea.hz();
         for (int L = 0; L < LEVELS; L++) {
@@ -137,7 +166,108 @@ public final class SeaMesh {
             vertices(L, shore);
         }
         for (int L = 0; L < LEVELS - 1; L++) stitch(L);
+        int n = boats == null ? 0 : Math.min(boatCount, MAX_BOATS);
+        for (int k = 0; k < n; k++) mark(boats[k * 3], boats[k * 3 + 1], boats[k * 3 + 2]);
         for (int L = 0; L < LEVELS; L++) cells(L);
+        for (int L = PATCH_MIN_LEVEL; L < LEVELS; L++) patches(L);
+    }
+
+    /** Whether level L draws its cell (gi, gj) (global grid indices): inside its clipped grid and not the finer hole. */
+    private boolean draws(int L, int gi, int gj) {
+        if (gi < i0[L] || gj < j0[L] || gi >= i0[L] + nx[L] || gj >= j0[L] + nz[L]) return false;
+        if (L == 0) return true;
+        int hi0 = ri0[L - 1] / 2, hj0 = rj0[L - 1] / 2;
+        return !(gi >= hi0 && gi < hi0 + CELLS / 2 && gj >= hj0 && gj < hj0 + CELLS / 2);
+    }
+
+    private boolean isPatched(int L, int gi, int gj) {
+        return draws(L, gi, gj) && patched[L][(gj - j0[L]) * CELLS + (gi - i0[L])];
+    }
+
+    /** Mark the coarse cells within {@code radius} of the boat at sea-local (bx, bz) on every level that is coarse there. */
+    private void mark(double bx, double bz, double radius) {
+        for (int L = PATCH_MIN_LEVEL; L < LEVELS; L++) {
+            double s = spacing(L);
+            int per = (int) Math.round(s / PATCH_SPACING);
+            int ga = (int) Math.floor((bx - radius) / s), gb = (int) Math.floor((bx + radius) / s);
+            int ha = (int) Math.floor((bz - radius) / s), hb = (int) Math.floor((bz + radius) / s);
+            for (int gj = ha; gj <= hb; gj++) {
+                for (int gi = ga; gi <= gb; gi++) {
+                    if (!draws(L, gi, gj)) continue;
+                    int idx = (gj - j0[L]) * CELLS + (gi - i0[L]);
+                    if (patched[L][idx] || patchBudget < per * per || patchVerts + (per + 1) * (per + 1) > PATCH_VERTS) continue;
+                    patched[L][idx] = true;
+                    patchBudget -= per * per;
+                    patchVerts += (per + 1) * (per + 1);
+                }
+            }
+        }
+        // patchVerts is only the reservation here; patches() hands the vertices out again from 0.
+    }
+
+    /** The 1-block grids replacing level L's patched cells. */
+    private void patches(int L) {
+        if (L == PATCH_MIN_LEVEL) patchVerts = 0;
+        double s = spacing(L), hx = sea.hx(), hz = sea.hz();
+        int per = (int) Math.round(s / PATCH_SPACING);
+        for (int cj = 0; cj < nz[L]; cj++) {
+            for (int ci = 0; ci < nx[L]; ci++) {
+                if (!patched[L][cj * CELLS + ci]) continue;
+                int gi = i0[L] + ci, gj = j0[L] + cj;
+                boolean west = isPatched(L, gi - 1, gj), east = isPatched(L, gi + 1, gj);
+                boolean south = isPatched(L, gi, gj - 1), north = isPatched(L, gi, gj + 1);
+                float c00 = y[index(L, ci, cj)], c10 = y[index(L, ci + 1, cj)];
+                float c01 = y[index(L, ci, cj + 1)], c11 = y[index(L, ci + 1, cj + 1)];
+                int base = LEVELS * POINTS + patchVerts;
+                for (int b = 0; b <= per; b++) {
+                    for (int a = 0; a <= per; a++) {
+                        int k = base + b * (per + 1) + a;
+                        double px = Math.max(-hx, Math.min(hx, (gi + a / (double) per) * s));
+                        double pz = Math.max(-hz, Math.min(hz, (gj + b / (double) per) * s));
+                        vertex(k, px, pz, null, false);
+                        float fa = a / (float) per, fb = b / (float) per;
+                        boolean edgeA = a == 0 || a == per, edgeB = b == 0 || b == per;
+                        if (edgeA && edgeB) {
+                            y[k] = a == 0 ? (b == 0 ? c00 : c01) : (b == 0 ? c10 : c11);
+                        } else if (b == 0 && !south) {
+                            y[k] = c00 + (c10 - c00) * fa;
+                        } else if (b == per && !north) {
+                            y[k] = c01 + (c11 - c01) * fa;
+                        } else if (a == 0 && !west) {
+                            y[k] = c00 + (c01 - c00) * fb;
+                        } else if (a == per && !east) {
+                            y[k] = c10 + (c11 - c10) * fb;
+                        }
+                    }
+                }
+                for (int b = 0; b < per; b++) {
+                    for (int a = 0; a < per; a++) {
+                        int v0 = base + b * (per + 1) + a;
+                        addQuad(v0, v0 + 1, v0 + per + 2, v0 + per + 1, L < FOAM_LEVELS);
+                        patchQuadCount++;
+                    }
+                }
+                patchVerts += (per + 1) * (per + 1);
+            }
+        }
+    }
+
+    private void addQuad(int a, int bb, int c, int d, boolean foamOk) {
+        if (alpha[a] + alpha[bb] + alpha[c] + alpha[d] <= 0f) return;
+        int q = quadCount * 4;
+        quads[q] = a;
+        quads[q + 1] = bb;
+        quads[q + 2] = c;
+        quads[q + 3] = d;
+        quadCount++;
+        if (foamOk && foamQuadCount < FOAM_QUAD_CAP && foam[a] + foam[bb] + foam[c] + foam[d] >= 0.04f) {
+            int f = foamQuadCount * 4;
+            foamQuads[f] = a;
+            foamQuads[f + 1] = bb;
+            foamQuads[f + 2] = c;
+            foamQuads[f + 3] = d;
+            foamQuadCount++;
+        }
     }
 
     private void vertices(int L, Shore shore) {
@@ -148,28 +278,34 @@ public final class SeaMesh {
                 int k = index(L, i, j);
                 double px = Math.max(-hx, Math.min(hx, (i0[L] + i) * s));
                 double pz = Math.max(-hz, Math.min(hz, (j0[L] + j) * s));
-                double h1 = RoughSea.eval(px, pz, clock, seed, grad);
-                double h = h1 * in;
-                double fo = RoughSea.foamFrom(h1, grad[0], grad[1], px, pz, clock, seed, in);
-                double dx = px - camX, dy = h - camY, dz = pz - camZ;
-                double dist = Math.max(1e-4, Math.sqrt(dx * dx + dy * dy + dz * dz));
-                slope[0] = grad[0] * in;
-                slope[1] = grad[1] * in;
-                RoughSea.addDetail(px, pz, clock, seed, in, Math.max(0, 1 - dist / DETAIL_REACH), slope);
-                if (shore != null && L < SHORE_LEVELS) {
-                    float sh = shore.at(px, pz);
-                    if (sh > 0) fo = Math.max(fo, sh * (0.55 + 0.45 * RoughSea.sin(px * 1.7 + pz * 1.3 - clock * 0.11)));
-                }
-                x[k] = (float) px;
-                y[k] = (float) h;
-                z[k] = (float) pz;
-                foam[k] = (float) Math.min(1, fo);
-                shade(k, slope[0], slope[1], h1, fo, dx, dy, dz, dist);
-                double edge = Math.min(hx - Math.abs(px), hz - Math.abs(pz));
-                double f = Math.max(0, Math.min(1, edge / EDGE_FADE));
-                alpha[k] *= (float) (f * f * (3 - 2 * f));
+                vertex(k, px, pz, shore, L < SHORE_LEVELS);
             }
         }
+    }
+
+    /** One vertex at sea-local (px, pz): the exact height, foam, shading and the edge fade. */
+    private void vertex(int k, double px, double pz, Shore shore, boolean useShore) {
+        double hx = sea.hx(), hz = sea.hz();
+        double h1 = RoughSea.eval(px, pz, clock, seed, grad);
+        double h = h1 * in;
+        double fo = RoughSea.foamFrom(h1, grad[0], grad[1], px, pz, clock, seed, in);
+        double dx = px - camX, dy = h - camY, dz = pz - camZ;
+        double dist = Math.max(1e-4, Math.sqrt(dx * dx + dy * dy + dz * dz));
+        slope[0] = grad[0] * in;
+        slope[1] = grad[1] * in;
+        RoughSea.addDetail(px, pz, clock, seed, in, Math.max(0, 1 - dist / DETAIL_REACH), slope);
+        if (shore != null && useShore) {
+            float sh = shore.at(px, pz);
+            if (sh > 0) fo = Math.max(fo, sh * (0.55 + 0.45 * RoughSea.sin(px * 1.7 + pz * 1.3 - clock * 0.11)));
+        }
+        x[k] = (float) px;
+        y[k] = (float) h;
+        z[k] = (float) pz;
+        foam[k] = (float) Math.min(1, fo);
+        shade(k, slope[0], slope[1], h1, fo, dx, dy, dz, dist);
+        double edge = Math.min(hx - Math.abs(px), hz - Math.abs(pz));
+        double f = Math.max(0, Math.min(1, edge / EDGE_FADE));
+        alpha[k] *= (float) (f * f * (3 - 2 * f));
     }
 
     private void shade(int k, double gx, double gz, double h1, double fo, double dx, double dy, double dz, double dist) {
@@ -245,23 +381,9 @@ public final class SeaMesh {
             for (int i = 0; i < n; i++) {
                 int gi = i0[L] + i, gj = j0[L] + j;
                 if (hole && gi >= hi0 && gi < hi1 && gj >= hj0 && gj < hj1) continue;
+                if (patched[L][j * CELLS + i]) continue;          // replaced by a boat patch
                 int a = index(L, i, j), bb = index(L, i + 1, j), c = index(L, i + 1, j + 1), d = index(L, i, j + 1);
-                if (alpha[a] + alpha[bb] + alpha[c] + alpha[d] <= 0f) continue;
-                int q = quadCount * 4;
-                quads[q] = a;
-                quads[q + 1] = bb;
-                quads[q + 2] = c;
-                quads[q + 3] = d;
-                quadCount++;
-                if (L < FOAM_LEVELS && foamQuadCount < FOAM_QUAD_CAP
-                        && foam[a] + foam[bb] + foam[c] + foam[d] >= 0.04f) {
-                    int f = foamQuadCount * 4;
-                    foamQuads[f] = a;
-                    foamQuads[f + 1] = bb;
-                    foamQuads[f + 2] = c;
-                    foamQuads[f + 3] = d;
-                    foamQuadCount++;
-                }
+                addQuad(a, bb, c, d, L < FOAM_LEVELS);
             }
         }
     }

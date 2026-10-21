@@ -1,6 +1,7 @@
 package com.hogwartsmagic.pensieve;
 
 import com.hogwartsmagic.pensieve.scene.RoughSea;
+import com.hogwartsmagic.pensieve.scene.Rowboat;
 import com.hogwartsmagic.pensieve.scene.SeaMesh;
 import org.junit.jupiter.api.Test;
 
@@ -25,6 +26,10 @@ class SeaMeshTest {
                 assertTrue(m.quadCount * 4 <= 16384, "water vertices " + m.quadCount * 4);
                 assertTrue(m.foamQuadCount <= SeaMesh.FOAM_QUAD_CAP);
                 assertTrue(m.vertexCount() < 20000, "vertices " + m.vertexCount());
+                // With boats, only the patches' own budget is added.
+                m.build(SEA, t, cam[0], cam[1], cam[2], 0f, null, BOATS, 4);
+                assertTrue(m.patchQuadCount <= SeaMesh.PATCH_QUAD_CAP);
+                assertTrue(m.vertexCount() < 20000 + SeaMesh.PATCH_QUAD_CAP * 4, "vertices with boats " + m.vertexCount());
             }
         }
         // From the middle, every square block of the 120 x 120 area is under some quad.
@@ -35,6 +40,100 @@ class SeaMeshTest {
             area += Math.abs(m.x[c] - m.x[a]) * Math.abs(m.z[c] - m.z[a]);
         }
         assertEquals(120.0 * 120.0, area, 1e-3, "the quads tile the area exactly once");
+    }
+
+    /** Four boats on the 120 x 120 sea, sea-local {x, z, radius} (radius: hull half-length 2 plus 3). */
+    private static final double[] BOATS = {40, 30, 5, -45, 10, 5, 10, -50, 5, -20, 52, 5};
+
+    /** A 200 x 200 sea, so a boat can sit 100 blocks from the camera. */
+    private static final RoughSea.Sea BIG = new RoughSea.Sea(0, 0, 0, 100, 100, 1.0, 0f, 0, 0xB0A7L);
+
+    /** The drawn surface at (x, z): the quad under it, split into the two triangles the GPU draws (a b c, a c d). */
+    private static double drawn(SeaMesh m, double x, double z) {
+        for (int n = 0; n < m.quadCount; n++) {
+            int[] v = {m.quads[n * 4], m.quads[n * 4 + 1], m.quads[n * 4 + 2], m.quads[n * 4 + 3]};
+            for (int[] tri : new int[][]{{v[0], v[1], v[2]}, {v[0], v[2], v[3]}}) {
+                double x0 = m.x[tri[0]], z0 = m.z[tri[0]], x1 = m.x[tri[1]], z1 = m.z[tri[1]], x2 = m.x[tri[2]], z2 = m.z[tri[2]];
+                double det = (z1 - z2) * (x0 - x2) + (x2 - x1) * (z0 - z2);
+                if (Math.abs(det) < 1e-12) continue;
+                double l0 = ((z1 - z2) * (x - x2) + (x2 - x1) * (z - z2)) / det;
+                double l1 = ((z2 - z0) * (x - x2) + (x0 - x2) * (z - z2)) / det;
+                double l2 = 1 - l0 - l1;
+                if (l0 < -1e-7 || l1 < -1e-7 || l2 < -1e-7) continue;
+                return l0 * m.y[tri[0]] + l1 * m.y[tri[1]] + l2 * m.y[tri[2]];
+            }
+        }
+        throw new AssertionError("no water drawn at " + x + ", " + z);
+    }
+
+    /** The worst gap between the drawn water and the exact surface under a hull's waterline, over many poses. */
+    private static double worstUnderHull(boolean patch) {
+        SeaMesh m = new SeaMesh();
+        java.util.Random r = new java.util.Random(11);
+        double worst = 0;
+        for (int i = 0; i < 40; i++) {
+            float t = r.nextFloat() * 2000f;
+            double bx = 5 + r.nextDouble() * 10, bz = r.nextDouble() * 40 - 20;
+            float yaw = r.nextFloat() * 360f;
+            double[] boats = {bx, bz, Rowboat.HALF_LENGTH + 3};
+            m.build(BIG, t, -95, 6, 0, 0f, null, patch ? boats : null, patch ? 1 : 0);
+            Rowboat.Pose pose = Rowboat.ride(BIG, bx, 0, bz, yaw, 1f, t);
+            for (double[] p : Rowboat.WATERLINE) {
+                double[] w = Rowboat.toWorld(pose, p);
+                double exact = BIG.surface(w[0], w[2], t);
+                worst = Math.max(worst, Math.abs(drawn(m, w[0], w[2]) - exact));
+            }
+        }
+        return worst;
+    }
+
+    /** Wide shots: a boat 100 blocks from the camera sits on exact water, not the 8-block outer ring. */
+    @Test
+    void waterUnderAFarBoatIsExact() {
+        double with = worstUnderHull(true), without = worstUnderHull(false);
+        System.out.printf("Far boat: drawn water under the hull off by %.4f with the patch, %.4f without%n", with, without);
+        assertTrue(with <= 0.05, "drawn water under the hull is off by " + with);
+        assertTrue(without > 0.1, "the test would not catch a coarse ring (" + without + ")");
+    }
+
+    /**
+     * Round a boat patch nothing is cracked: every vertex that lies inside another quad's edge (a T-junction, at ring
+     * seams and patch borders) has exactly that edge's straight-line height.
+     */
+    @Test
+    void boatPatchesMeetTheRingsWithoutCracks() {
+        SeaMesh m = new SeaMesh();
+        int checked = 0;
+        for (float t = 0; t < 600; t += 97) {
+            double bx = 12 + t * 0.01, bz = -7;
+            m.build(BIG, t, -95, 6, 0, 0f, null, new double[]{bx, bz, 5}, 1);
+            assertTrue(m.patchQuadCount > 0, "no patch built");
+            java.util.List<int[]> edges = new java.util.ArrayList<>();
+            java.util.Set<Integer> verts = new java.util.HashSet<>();
+            for (int n = 0; n < m.quadCount; n++) {
+                int[] v = {m.quads[n * 4], m.quads[n * 4 + 1], m.quads[n * 4 + 2], m.quads[n * 4 + 3]};
+                boolean near = false;
+                for (int k : v) near |= Math.abs(m.x[k] - bx) < 24 && Math.abs(m.z[k] - bz) < 24;
+                if (!near) continue;
+                for (int e = 0; e < 4; e++) edges.add(new int[]{v[e], v[(e + 1) % 4]});
+                for (int k : v) verts.add(k);
+            }
+            for (int k : verts) {
+                for (int[] e : edges) {
+                    double ax = m.x[e[0]], az = m.z[e[0]], cx = m.x[e[1]], cz = m.z[e[1]];
+                    double len = Math.hypot(cx - ax, cz - az);
+                    if (len < 1e-9) continue;
+                    double u = ((m.x[k] - ax) * (cx - ax) + (m.z[k] - az) * (cz - az)) / (len * len);
+                    if (u <= 1e-6 || u >= 1 - 1e-6) continue;
+                    double off = Math.abs((m.x[k] - ax) * (cz - az) - (m.z[k] - az) * (cx - ax)) / len;
+                    if (off > 1e-5) continue;
+                    double want = m.y[e[0]] + (m.y[e[1]] - m.y[e[0]]) * u;
+                    assertEquals(want, m.y[k], 1e-4, "crack at (" + m.x[k] + ", " + m.z[k] + ")");
+                    checked++;
+                }
+            }
+        }
+        assertTrue(checked > 50, "only " + checked + " T-junctions checked");
     }
 
     /** Each finer ring's rim takes the coarser ring's straight-line heights, so no crack opens between rings. */
@@ -81,18 +180,18 @@ class SeaMeshTest {
     void repeatedBuildsAllocateNothingAndAreFast() {
         SeaMesh m = new SeaMesh();
         SeaMesh.Shore shore = (x, z) -> Math.abs(x - 20) < 3 && Math.abs(z - 20) < 3 ? 1f : 0f;
-        for (int i = 0; i < 200; i++) m.build(SEA, i * 0.5f, 3, 2, -2, 0.2f, shore);   // warm up the JIT
+        for (int i = 0; i < 200; i++) m.build(SEA, i * 0.5f, 3, 2, -2, 0.2f, shore, BOATS, 4);   // warm up the JIT
         com.sun.management.ThreadMXBean bean = (com.sun.management.ThreadMXBean) ManagementFactory.getThreadMXBean();
         long tid = Thread.currentThread().getId();
         int runs = 200;
         long before = bean.getThreadAllocatedBytes(tid);
         long start = System.nanoTime();
-        for (int i = 0; i < runs; i++) m.build(SEA, 100 + i * 0.5f, 3 + i * 0.01, 2, -2, 0.2f, shore);
+        for (int i = 0; i < runs; i++) m.build(SEA, 100 + i * 0.5f, 3 + i * 0.01, 2, -2, 0.2f, shore, BOATS, 4);
         long nanos = System.nanoTime() - start;
         long allocated = bean.getThreadAllocatedBytes(tid) - before;
         double ms = nanos / 1e6 / runs;
-        System.out.printf("SeaMesh 120x120: %d water + %d foam quads (%d vertices), %.3f ms per build, %d bytes over %d builds%n",
-                m.quadCount, m.foamQuadCount, m.vertexCount(), ms, allocated, runs);
+        System.out.printf("SeaMesh 120x120 with 4 boats: %d water (%d patch) + %d foam quads (%d vertices), %.3f ms per build, %d bytes over %d builds%n",
+                m.quadCount, m.patchQuadCount, m.foamQuadCount, m.vertexCount(), ms, allocated, runs);
         // A handful of bytes may come from the measurement itself; a per-vertex array would be megabytes.
         assertTrue(allocated < 4096, "builds allocated " + allocated + " bytes");
         assertTrue(ms < 8.0, "a build took " + ms + " ms");

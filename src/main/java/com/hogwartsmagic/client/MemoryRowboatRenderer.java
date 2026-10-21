@@ -83,9 +83,9 @@ public class MemoryRowboatRenderer extends EntityRenderer<MemoryRowboatEntity> {
 
         // Every material is recorded first and flushed one after another at the end: taking a second consumer from
         // the shared BufferSource closes the first ("Not building!"), so no two may be open at once.
-        Mesh hull = new Mesh(RenderType.entityCutoutNoCull(HULL), m, p, light, HULL_TINT);
-        Mesh in = new Mesh(RenderType.entityCutoutNoCull(INNER), m, p, light, INNER_TINT);
-        Mesh trim = new Mesh(RenderType.entityCutoutNoCull(TRIM), m, p, light, TRIM_TINT);
+        Mesh hull = new Mesh(0, RenderType.entityCutoutNoCull(HULL), m, p, light, HULL_TINT);
+        Mesh in = new Mesh(1, RenderType.entityCutoutNoCull(INNER), m, p, light, INNER_TINT);
+        Mesh trim = new Mesh(2, RenderType.entityCutoutNoCull(TRIM), m, p, light, TRIM_TINT);
         int n = Rowboat.SECTION.length;
 
         for (int side = -1; side <= 1; side += 2) {
@@ -135,8 +135,8 @@ public class MemoryRowboatRenderer extends EntityRenderer<MemoryRowboatEntity> {
         float now = PensieveClientState.sceneTime(partialTick);
         float amount = rt == null ? 0f : Rowboat.strokeAmount(rt.def, now);
         Rowboat.Oar oar = Rowboat.oar(Rowboat.phase(now), amount);
-        Mesh iron = new Mesh(RenderType.entityCutoutNoCull(IRON), m, p, light, IRON_TINT);
-        Mesh wood = new Mesh(RenderType.entityCutoutNoCull(OAR), m, p, light, OAR_TINT);
+        Mesh iron = new Mesh(3, RenderType.entityCutoutNoCull(IRON), m, p, light, IRON_TINT);
+        Mesh wood = new Mesh(4, RenderType.entityCutoutNoCull(OAR), m, p, light, OAR_TINT);
         for (int side = -1; side <= 1; side += 2) {
             double[] lock = Rowboat.alongOar(oar, 0);
             box(iron, side * lock[0], lock[1] - 0.04, lock[2], 0.035, 0.06, 0.035);
@@ -391,17 +391,27 @@ public class MemoryRowboatRenderer extends EntityRenderer<MemoryRowboatEntity> {
      * {@link #flush}, which is the one place this renderer takes a buffer. UVs are in blocks (the plank textures
      * repeat once per block).
      */
+    /**
+     * One reusable vertex scratch array per material (render thread only; each Mesh records then flushes before the
+     * next boat is drawn), so drawing a boat allocates no vertex arrays.
+     */
+    private static final float[][] SCRATCH = {new float[11 * 2048], new float[11 * 2048], new float[11 * 1024],
+            new float[11 * 256], new float[11 * 256]};
+
     private static final class Mesh {
         final RenderType type;
         final Matrix4f m;
         final PoseStack.Pose p;
         final int light;
         float[] tint;
-        /** Recorded vertices: x, y, z, r, g, b, u, v, nx, ny, nz. */
-        private float[] data = new float[11 * 256];
+        /** Recorded vertices: x, y, z, r, g, b, u, v, nx, ny, nz, in a scratch array reused frame to frame. */
+        private float[] data;
+        private final int slot;
         private int size;
 
-        Mesh(RenderType type, Matrix4f m, PoseStack.Pose p, int light, float[] tint) {
+        Mesh(int slot, RenderType type, Matrix4f m, PoseStack.Pose p, int light, float[] tint) {
+            this.slot = slot;
+            this.data = SCRATCH[slot];
             this.type = type;
             this.m = m;
             this.p = p;
@@ -434,7 +444,10 @@ public class MemoryRowboatRenderer extends EntityRenderer<MemoryRowboatEntity> {
         }
 
         private void put(double[] q, double u, double v, double[] n) {
-            if (size + 11 > data.length) data = java.util.Arrays.copyOf(data, data.length * 2);
+            if (size + 11 > data.length) {
+                data = java.util.Arrays.copyOf(data, data.length * 2);
+                SCRATCH[slot] = data;                       // keep the grown array for the next frame
+            }
             float[] d = data;
             int k = size;
             d[k] = (float) q[0];

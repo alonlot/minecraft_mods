@@ -3,6 +3,8 @@ package com.hogwartsmagic.pensieve;
 import com.hogwartsmagic.pensieve.scene.SmoothedSceneClock;
 import org.junit.jupiter.api.Test;
 
+import java.util.function.IntToDoubleFunction;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -38,7 +40,7 @@ class SmoothedSceneClockTest {
         int offset = 0;
         c.tick(0);
         double last = c.at((float) (FRAMES - 1) / FRAMES); // the last frame drawn before tick 1
-        double maxStep = (1 + SmoothedSceneClock.MAX_SPEED_UP) / FRAMES;
+        double maxStep = (1 + SmoothedSceneClock.MAX_CATCH_UP) / FRAMES;
         for (int k = 1; k <= 400; k++) {
             if (k % 20 == 0) offset += (k / 20) % 2 == 0 ? -1 : 1;
             assertFalse(c.tick(k + offset), "a one-tick correction must not snap, t " + k);
@@ -75,7 +77,7 @@ class SmoothedSceneClockTest {
         c.tick(0);
         for (int k = 1; k <= 50; k++) {
             c.tick(k + (k > 5 ? 8 : 0)); // a big but sub-snap lag
-            assertTrue(c.rate() <= 1 + SmoothedSceneClock.MAX_SPEED_UP + EPS, "rate " + c.rate());
+            assertTrue(c.rate() <= 1 + SmoothedSceneClock.MAX_CATCH_UP + EPS, "rate " + c.rate());
             assertTrue(c.rate() >= 0, "rate " + c.rate());
         }
     }
@@ -106,9 +108,9 @@ class SmoothedSceneClockTest {
         assertTrue(c.rate() < 0.2, "rate " + c.rate());
         SmoothedSceneClock d = new SmoothedSceneClock();
         d.tick(0);
-        for (int k = 1; k <= 60; k++) d.tick(k);
-        assertTrue(d.tick(61 - SmoothedSceneClock.SNAP_BACK_TICKS - 2));
-        assertEquals(61 - SmoothedSceneClock.SNAP_BACK_TICKS - 2, d.at(0), EPS);
+        for (int k = 1; k <= 150; k++) d.tick(k);
+        assertTrue(d.tick(151 - SmoothedSceneClock.SNAP_BACK_TICKS - 2));
+        assertEquals(151 - SmoothedSceneClock.SNAP_BACK_TICKS - 2, d.at(0), EPS);
     }
 
     @Test
@@ -136,7 +138,8 @@ class SmoothedSceneClockTest {
     // ---- a vanilla-like client clock on a slow server -------------------------------------------------------
 
     /** What happened over a run: the largest backward frame step, the worst error against the server, the rates. */
-    private record Run(double worstBack, double maxError, double minRate, double maxRate, double meanRate, int snaps) {
+    private record Run(double worstBack, double maxError, double minRate, double maxRate, double meanRate, int snaps,
+                       int settled) {
     }
 
     /**
@@ -145,6 +148,11 @@ class SmoothedSceneClockTest {
      * to {@code freezeTo} the client's time stops ({@code /tick freeze}). Measured after a 100-tick settle.
      */
     private static Run run(double tps, int ticks, int freezeFrom, int freezeTo) {
+        return run(k -> tps, ticks, freezeFrom, freezeTo, 100);
+    }
+
+    /** As above, with the server's rate a function of the client tick, measured from client tick {@code from}. */
+    private static Run run(IntToDoubleFunction tps, int ticks, int freezeFrom, int freezeTo, int from) {
         SmoothedSceneClock c = new SmoothedSceneClock();
         long raw = 0;
         long serverTicks = 0;
@@ -157,11 +165,12 @@ class SmoothedSceneClockTest {
         double sumRate = 0;
         int n = 0;
         int snaps = 0;
+        int lastBad = from;
         for (int k = 1; k <= ticks; k++) {
             boolean frozen = k >= freezeFrom && k < freezeTo;
             if (!frozen) {
                 raw++;
-                acc += tps / 20.0;
+                acc += tps.applyAsDouble(k) / 20.0;
                 while (acc >= 1) {
                     acc -= 1;
                     serverTicks++;
@@ -175,15 +184,16 @@ class SmoothedSceneClockTest {
                 if (!Double.isNaN(last)) worstBack = Math.min(worstBack, now - last);
                 last = now;
             }
-            if (k > 100) {
+            if (k > from) {
                 maxError = Math.max(maxError, Math.abs(c.at(0) - server));
+                if (Math.abs(c.at(0) - server) >= 1) lastBad = k;
                 minRate = Math.min(minRate, c.rate());
                 maxRate = Math.max(maxRate, c.rate());
                 sumRate += c.rate();
                 n++;
             }
         }
-        return new Run(worstBack, maxError, minRate, maxRate, sumRate / n, snaps);
+        return new Run(worstBack, maxError, minRate, maxRate, sumRate / n, snaps, lastBad - from);
     }
 
     @Test
@@ -230,5 +240,60 @@ class SmoothedSceneClockTest {
         assertTrue(held - 50 < 2.5, "held " + held);
         for (int k = 51; k <= 120; k++) c.tick(k);
         assertEquals(120, c.at(0), 0.05);
+    }
+
+    /**
+     * A slow server back at full speed: its syncs no longer move the client, so the clock learns it only when the
+     * pull-back it expects is overdue. The lag that builds up meanwhile is bounded and closed within about 3.5 s.
+     */
+    @Test
+    void aServerRecoveringFrom15TpsIsCaughtUp() {
+        for (int at = 400; at < 427; at += 3) {
+            int sw = at;
+            Run r = run(k -> k < sw ? 15 : 20, 800, -1, -1, sw);
+            assertEquals(0, r.worstBack(), EPS, "never a step back, switch " + sw);
+            assertEquals(0, r.snaps(), "switch " + sw);
+            assertTrue(r.maxError() < 6, "error " + r.maxError() + ", switch " + sw);
+            assertTrue(r.settled() <= 75, "within 1 tick after " + r.settled() + " ticks, switch " + sw);
+            assertTrue(r.maxRate() <= 1 + SmoothedSceneClock.MAX_CATCH_UP + EPS, "rate " + r.maxRate());
+        }
+    }
+
+    @Test
+    void aServerRecoveringFrom18TpsIsCaughtUp() {
+        for (int at = 400; at < 423; at += 2) {
+            int sw = at;
+            Run r = run(k -> k < sw ? 18 : 20, 800, -1, -1, sw);
+            assertEquals(0, r.worstBack(), EPS, "never a step back, switch " + sw);
+            assertEquals(0, r.snaps(), "switch " + sw);
+            assertTrue(r.maxError() < 3, "error " + r.maxError() + ", switch " + sw);
+            assertTrue(r.settled() <= 60, "within 1 tick after " + r.settled() + " ticks, switch " + sw);
+        }
+    }
+
+    /**
+     * A singleplayer hitch: the integrated server stops for {@code d} ticks while the client keeps ticking, then runs
+     * at double speed until it has caught up. The clock cannot know during the stop, so it runs on. Once the
+     * pull-back comes it holds instead of rewinding, then follows the server racing back, never snapping.
+     */
+    @Test
+    void aSingleplayerHitchIsHeldThenFollowed() {
+        for (int d : new int[]{10, 20, 40, 60}) {
+            Run r = run(k -> k < 300 ? 20 : k < 300 + d ? 0 : k < 300 + 2 * d ? 40 : 20, 900, -1, -1, 300);
+            assertEquals(0, r.worstBack(), EPS, "never a step back, hitch " + d);
+            assertEquals(0, r.snaps(), "hitch " + d);
+            assertTrue(r.maxError() <= d + 1, "error " + r.maxError() + ", hitch " + d);
+            assertTrue(r.settled() <= 2 * d + 60, "within 1 tick after " + r.settled() + " ticks, hitch " + d);
+            assertTrue(r.maxRate() <= SmoothedSceneClock.MAX_FOLLOW_RATE + EPS, "rate " + r.maxRate());
+        }
+    }
+
+    /** A full-speed server going slow: the clock slows to it without rewinding. */
+    @Test
+    void aServerDroppingTo15TpsIsFollowedDown() {
+        Run r = run(k -> k < 400 ? 20 : 15, 900, -1, -1, 400);
+        assertEquals(0, r.worstBack(), EPS);
+        assertEquals(0, r.snaps());
+        assertTrue(r.maxError() < 8, "error " + r.maxError());
     }
 }

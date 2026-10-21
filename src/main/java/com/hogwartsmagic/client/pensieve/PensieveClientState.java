@@ -9,6 +9,7 @@ import com.hogwartsmagic.pensieve.scene.Eyelids;
 import com.hogwartsmagic.pensieve.scene.SceneDef;
 import com.hogwartsmagic.pensieve.scene.SceneParser;
 import com.hogwartsmagic.pensieve.scene.SessionClock;
+import com.hogwartsmagic.pensieve.scene.SmoothedSceneClock;
 import com.mojang.logging.LogUtils;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
@@ -19,6 +20,7 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RenderHighlightEvent;
 import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.network.PacketDistributor;
@@ -85,6 +87,18 @@ public final class PensieveClientState {
     private static String sceneId;
     private static BlockPos origin;
     private static long startGameTime = -1;
+    /**
+     * The scene clock every reader sees ({@link #sceneTime}): eased toward the server's game time instead of jumping
+     * with vanilla's 1 Hz time sync. Advanced once per client tick in {@link #onClockTick}, before any other tick work.
+     */
+    private static final SmoothedSceneClock CLOCK = new SmoothedSceneClock();
+    /** The raw scene time at the last clock tick, to spot the server's corrections for the debug log. */
+    private static long clockLastRaw = Long.MIN_VALUE;
+    /** Server corrections seen since the last debug line, and the client tick of that line (rate limit). */
+    private static int clockJumps;
+    private static long clockJumpSum;
+    private static long clockLogTick = Long.MIN_VALUE / 2;
+    private static final int CLOCK_LOG_EVERY = 20;
     private static int buildTicks;
     private static boolean preview;
     /** PLAY was reached straight from FALL (a late joiner) or by a chain's hand-over: it fades in from black. */
@@ -148,6 +162,7 @@ public final class PensieveClientState {
         sceneId = null;
         origin = null;
         startGameTime = -1;
+        resetClock();
         lateJoin = false;
         handedOver = false;
         holdForSet = false;
@@ -193,6 +208,7 @@ public final class PensieveClientState {
         origin = at;
         buildTicks = build;
         preview = isPreview;
+        if (start != startGameTime) resetClock();
         startGameTime = start;
         if (phase == SWALLOW || phase == FALL) {
             // The server is often ready the moment the viewer crosses; the fall through the dark still plays.
@@ -435,11 +451,48 @@ public final class PensieveClientState {
         return (ticks - revealStart) + partial;
     }
 
-    /** Scene time from the shared game clock; 0 while the set is building. */
+    /**
+     * Scene time from the shared game clock; 0 while the set is building. Eased ({@link #CLOCK}): it follows the
+     * server's time but never jumps with the 1 Hz time sync, so cameras, limbs and effects sampled with a partial
+     * tick move smoothly, and tick work (actors, events) reads the same clock at partial 0.
+     */
     public static float sceneTime(float partial) {
         Minecraft mc = Minecraft.getInstance();
         if (startGameTime < 0 || mc.level == null) return 0;
-        return SessionClock.elapsed(startGameTime, mc.level.getGameTime(), partial);
+        if (!CLOCK.running()) return SessionClock.elapsed(startGameTime, mc.level.getGameTime(), partial);
+        return (float) Math.max(0, CLOCK.at(partial));
+    }
+
+    private static void resetClock() {
+        CLOCK.reset();
+        clockLastRaw = Long.MIN_VALUE;
+    }
+
+    /**
+     * Advance the scene clock at the end of each client tick, ahead of every other END handler (the actors, events
+     * and audio read it at partial 0 in theirs). The level's game time has already moved on for this tick.
+     */
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public static void onClockTick(TickEvent.ClientTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) return;
+        Minecraft mc = Minecraft.getInstance();
+        if (startGameTime < 0 || mc.level == null || mc.isPaused()) return;
+        long raw = Math.max(0, mc.level.getGameTime() - startGameTime);
+        boolean snapped = CLOCK.tick(raw);
+        long step = clockLastRaw == Long.MIN_VALUE ? 1 : raw - clockLastRaw;
+        clockLastRaw = raw;
+        if (step != 1 || (snapped && step != 0)) {
+            clockJumps++;
+            clockJumpSum += step - 1;
+        }
+        if ((clockJumps > 0 || snapped) && ticks - clockLogTick >= CLOCK_LOG_EVERY && LOGGER.isDebugEnabled()) {
+            LOGGER.debug("Pensieve clock: {} server correction(s), net {} tick(s), {}; error {} ticks, rate {}",
+                    clockJumps, clockJumpSum, snapped ? "snapped" : "eased",
+                    String.format("%.3f", CLOCK.lastError()), String.format("%.3f", CLOCK.rate()));
+            clockJumps = 0;
+            clockJumpSum = 0;
+            clockLogTick = ticks;
+        }
     }
 
     /**
@@ -517,6 +570,7 @@ public final class PensieveClientState {
         origin = null;
         basin = null;
         startGameTime = -1;
+        resetClock();
         returnStart = -1;
         lateJoin = false;
         handedOver = false;

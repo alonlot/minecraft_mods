@@ -250,6 +250,7 @@ Effects: `lightning` - one visual-only bolt with thunder; `eyes_open` / `eyes_cl
 - Between keys position, look target, fov and roll are interpolated (so `look_at` can slide from one actor to another).
 - `"cut": true`: the camera holds the previous key until this key's `t`, then jumps to it with no blend. Use for hard cuts. Put the cut key slightly before the action it should catch. A cut is a hard cut anywhere in the set: the client meshes the sections round each shot a cut lands in (camera and `look_at` point, within 40 blocks) up to 3 s ahead (`client/pensieve/SetWarmup`), and on the frame the camera jumps it rebuilds the visible-section list at once (`PensieveOcclusionGraphMixin`), so the new shot never streams in. A shot whose interest is farther than 40 blocks from both its camera and its `look_at` point can still show far sections arriving: aim `look_at` at what matters.
 - Before the first key it holds the first; after the last it holds the last.
+- The scene clock the camera, actors and effects read is eased on the client: it follows the server's game time but never jumps with vanilla's 1 Hz time sync (it speeds up or slows by at most 5%, and snaps only past a 10-tick error). Worn items are switched on the frame the clock reaches their cue, the same frame a limb step keyed on that moment lands.
 
 ### Scene hooks and hand-overs (server code, not scene keys)
 A scene can be driven by mod code as well as by its own clock (`pensieve/PensieveSessions`):

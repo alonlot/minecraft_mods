@@ -47,6 +47,12 @@ public final class ActorRuntime {
     int swingTicks = -1;
     /** Scene time the current use_item began, or -1. */
     float useStart = -1;
+    /**
+     * The item id last put in each slot (by the tick or by {@link MemoryActors#renderAll}'s per-frame sync), and
+     * whether any action changes a worn item at all: with none, nothing is synced per frame.
+     */
+    final Map<String, String> wornItems = new java.util.HashMap<>();
+    final boolean changesItems;
 
     /** Task 10: the last pose/anim cue applied, so a cue is only (re)started once. */
     public int appliedPoseCue = -1;
@@ -77,6 +83,12 @@ public final class ActorRuntime {
         this.living = entity instanceof LivingEntity l ? l : null;
         this.player = player;
         this.actions = actions;
+        boolean changes = false;
+        for (SceneDef.ActionCue c : actions) {
+            String act = c.action();
+            if ("equip".equals(act) || "hold".equals(act) || ("use_item".equals(act) && c.item() != null)) changes = true;
+        }
+        this.changesItems = changes;
         this.seed = HumanMotion.seed(def.id());
         this.clips = new HumanMotion.Clips(player ? animCues : List.of(), seed, def.path());
         for (int p = 0; p < HumanMotion.PARTS; p++) {

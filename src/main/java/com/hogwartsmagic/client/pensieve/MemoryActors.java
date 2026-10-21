@@ -180,6 +180,7 @@ public final class MemoryActors {
         List<SceneDef.ActionCue> sorted = new ArrayList<>(def.actions());
         sorted.sort(Comparator.comparingDouble(SceneDef.ActionCue::t));
         ActorRuntime rt = new ActorRuntime(def, entity, player, sorted);
+        rt.wornItems.putAll(def.items());
         // The vanilla idle arm bob runs off tickCount: start each puppet at its own age so they do not bob in unison.
         if (player) entity.tickCount = (int) (rt.seed & 0x3FF);
         return rt;
@@ -334,7 +335,10 @@ public final class MemoryActors {
             for (String slotName : SceneNames.EQUIP_SLOTS) {
                 EquipmentSlot es = slot(slotName);
                 String id = EquipTimeline.itemAt(a.actions, a.def.items(), slotName, t);
-                if (es != null && id != null) l.setItemSlot(es, stack(id));
+                if (es != null && id != null) {
+                    l.setItemSlot(es, stack(id));
+                    a.wornItems.put(slotName, id);
+                }
             }
         }
 
@@ -707,6 +711,25 @@ public final class MemoryActors {
 
     // ---- Rendering --------------------------------------------------------------------------------------------
 
+    /**
+     * Worn items at the frame's own scene time, the time {@link ActorPoser} samples the limbs at. The tick sets them
+     * at partial 0 too, but the eased scene clock ({@link PensieveClientState#sceneTime}) does not land on whole
+     * ticks, so a cue can fall between two ticks: synced here, the item and a limb step keyed on the same moment
+     * (the held-item raise a scene cancels at a hand-over) change on the same frame. Only changes are applied.
+     */
+    private static void syncItems(ActorRuntime a, float t) {
+        LivingEntity l = a.living;
+        if (l == null || !a.changesItems) return;
+        for (String slotName : SceneNames.EQUIP_SLOTS) {
+            String id = EquipTimeline.itemAt(a.actions, a.def.items(), slotName, t);
+            if (id == null || id.equals(a.wornItems.get(slotName))) continue;
+            EquipmentSlot es = slot(slotName);
+            if (es == null) continue;
+            l.setItemSlot(es, stack(id));
+            a.wornItems.put(slotName, id);
+        }
+    }
+
     /** Draw every visible puppet. {@code poseStack} must be an identity stack: see {@link MemoryActorEvents}. */
     @SuppressWarnings("unchecked")
     public static void renderAll(PoseStack poseStack, MultiBufferSource.BufferSource buffer, Camera camera, float partial) {
@@ -715,7 +738,9 @@ public final class MemoryActors {
         if (mc.level != level) return;
         EntityRenderDispatcher dispatcher = mc.getEntityRenderDispatcher();
         Vec3 cam = camera.getPosition();
+        float now = PensieveClientState.sceneTime(partial);
         for (ActorRuntime a : ACTORS) {
+            syncItems(a, now);
             if (!a.visible) continue;
             Entity e = a.entity;
             try {

@@ -12,14 +12,18 @@ Using the set from a scene (first_task_scene.py):
 
 The set
 -------
-  - The tent: a canvas marquee 15 x 9 x 20 (cells x -7..7, y 0..8, z -10..9), its long axis along z, the flap on the
+  - The tent: a canvas marquee 15 x 12 x 20 (cells x -7..7, y 0..11, z -10..9), its long axis along z, the flap on the
     south (+z) end. Walls 4 high (y 0..3) of white wool in panels that alternate with cream (mushroom stem; the two
-    stay inside a 25 luma spread, so it reads as weathered canvas, not a chessboard), a stepped pitched roof to a
-    ridge at y 8, a darker band at the eaves (a valance, light grey wool) and seams at the poles. Inside:
-      * a frame of stripped spruce: two centre poles (x 0, z -6 and z 1) under a ridge beam at y 7, wall poles at
-        the corners and under two tie beams across the tent at y 4 (z -6, z 1); the four lantern points hang under
-        those tie beams (`lanterns`);
-      * a floor of packed earth (coarse dirt, dirt, rooted dirt), a worn rug in the back half;
+    stay inside a 25 luma spread, so it reads as weathered canvas, not a chessboard), a light grey eave band at y 4
+    hung with a valance of white banners, and a true 1:1 pitched roof to a ridge at y 11: smooth quartz and smooth
+    sandstone stairs in 3-wide panels, an upside-down stair under every step so the ceiling inside is one continuous
+    slope, one cell of overhang at each gable. Guy lines (a pole, a rope of posts, a stake) stand outside each pole
+    line. Inside:
+      * a frame of thin spruce poles: two centre poles (x 0, z -6 and z 1) under a ridge pole at y 10, rising
+        through the ridge to finials with red and blue pennants; tie poles across the tent at y 4 (z -6, z 1) and
+        wall poles; the four lantern points hang under the tie poles (`lanterns`);
+      * a floor of packed earth in coherent patches (coarse dirt, dirt, packed mud, rooted dirt by the walls), two
+        large layered rugs over the back half and a rush mat down the walk to the flap;
       * two braziers (campfires on blackstone pedestals) either side of the middle, light blocks low in the
         corners so the dim back of the tent still reads;
       * the bench the viewer waits on (spruce slabs, x -1..1, z 4), facing the flap;
@@ -32,8 +36,10 @@ The set
     back of a timber stand that closes the view south (z 20..36, x -28..28, 16 high): posts and beams, boarded at
     the foot, open lattice above showing the stepped underside of its seat rows, zigzag bracing, an access stair
     up its back, house banners under the top beam and flags on poles along its crest, and a dark passage under it
-    in line with the flap (the way into the arena). Two smaller tents (red and blue) stand to either side, with
-    barrels, a cart, a trough and fence posts, on grass that rises into a wooded bank at the set's edge.
+    in line with the flap (the way into the arena): 14 deep, lined with dark oak darkening to deepslate tiles, its
+    last 3 cells turning east past a dim glow, so it bends out of sight. Two smaller tents (red and blue) stand to
+    either side, with barrels, a cart, a trough and fence posts, on grass that rises into a wooded bank at the
+    set's edge.
   - Closed underneath: the ground is one layer at y -1 everywhere inside the set (the tent's floor included).
 
 ANCHORS format
@@ -77,7 +83,8 @@ SIZE = (97, 26, 97)                      # x -48..48, y -2..23, z -48..48
 TENT_X = 7                              # walls at |x - 0| = 7 (cells -7..7), so the tent's middle is x 0.5
 TENT_Z = (-10, 9)                       # gables at z -10 (back) and z 9 (flap end)
 WALL_TOP = 3                            # canvas walls y 0..3
-RIDGE = 8
+RIDGE = 11                              # the ridge: a true 1:1 pitch from the eaves at y 4
+EAVE = 4
 FLAP_X = (-2, 2)                        # the opening's cells
 FLAP_TOP = 4                            # y 0..4
 POLE_Z = (-6, 1)                        # centre poles, tie beams and their wall poles
@@ -86,6 +93,7 @@ STAND_Z = 20                            # the stand's back frame
 STAND_X = (-28, 28)
 STAND_TOP = 16
 STAND_ROWS = 5
+PASSAGE_DEPTH = 14                      # the dark passage under the stand, turning east at its end
 
 
 # ---------------------------------------------------------------- noise
@@ -184,9 +192,14 @@ CREAM = 'minecraft:mushroom_stem[down=true,east=true,north=true,south=true,up=tr
 VALANCE = 'minecraft:light_gray_wool'
 
 
+ROOF_WHITE = 'smooth_quartz_stairs'
+ROOF_CREAM = 'smooth_sandstone_stairs'
+ROOF_IDS = ('minecraft:' + ROOF_WHITE, 'minecraft:' + ROOF_CREAM, 'minecraft:smooth_quartz', 'minecraft:spruce_fence')
+
+
 def roof_h(x):
-    ax = abs(x - 0)
-    return int(round(WALL_TOP + 1 + (TENT_X - ax) * (RIDGE - WALL_TOP - 1) / float(TENT_X)))
+    """The roof's outer stair y over column x: 1:1 from the eave band (y 4 at |x| 7) to the ridge (y 11 at x 0)."""
+    return EAVE + TENT_X - abs(x)
 
 
 def canvas(x, z):
@@ -196,8 +209,8 @@ def canvas(x, z):
     return CANVAS if ((z + 30) // 3) % 2 == 0 else CREAM
 
 
-def roof_canvas(x, z):
-    return CANVAS if ((z + 30) // 3) % 2 == 0 else CREAM
+def roof_kind(z):
+    return ROOF_WHITE if ((z + 30) // 3) % 2 == 0 else ROOF_CREAM
 
 
 def log(axis, kind='stripped_spruce_log'):
@@ -205,25 +218,31 @@ def log(axis, kind='stripped_spruce_log'):
 
 
 def build_tent(w):
+    """The marquee: wool walls, a true pitched roof of stairs (smooth quartz and smooth sandstone panels) with an
+    upside-down stair under every step so the ceiling inside is one continuous slope, a valance of white banners
+    from the eave band, finials with pennants on the centre poles, the flap tied back, guy lines outside."""
     z0, z1 = TENT_Z
     for x in range(-TENT_X, TENT_X + 1):
         h = roof_h(x)
-        outer = x - 1 if x <= 0 else x + 1
-        lo = roof_h(outer) + 1 if abs(outer) <= TENT_X else h
-        lo = min(lo, h)
-        for z in range(z0, z1 + 1):
-            # the roof surface, stepped, with each step closed down to its outer neighbour
-            for y in range(lo, h + 1):
-                w.set((x, y, z), roof_canvas(x, z))
+        up = 'east' if x < 0 else 'west'                       # the high side of each step, toward the ridge
+        for z in range(z0 - 1, z1 + 2):                         # one cell of overhang over each gable
+            kind = roof_kind(z)
             if abs(x) == TENT_X:
-                for y in range(0, WALL_TOP + 1):
-                    w.set((x, y, z), canvas(x, z))
-                w.set((x, WALL_TOP + 1, z), VALANCE)           # the eave band
-        # the gables
+                if z0 <= z <= z1:
+                    for y in range(0, WALL_TOP + 1):
+                        w.set((x, y, z), canvas(x, z))
+                    w.set((x, EAVE, z), VALANCE)               # the eave band
+                continue
+            if x == 0:
+                w.set((x, h, z), 'minecraft:smooth_quartz')    # the ridge
+                continue
+            w.set((x, h, z), state(kind, facing=up, half='bottom', shape='straight', waterlogged='false'))
+            w.set((x, h - 1, z), state(kind, facing=OPP[up], half='top', shape='straight', waterlogged='false'))
+        # the gables, closed up to the roof's underside
         for z in (z0, z1):
-            for y in range(0, h):
-                if abs(x) >= TENT_X:
-                    continue
+            if abs(x) >= TENT_X:
+                continue
+            for y in range(0, h - 1 if x else h):
                 if z == z1 and FLAP_X[0] <= x <= FLAP_X[1] and y <= FLAP_TOP:
                     continue
                 w.set((x, y, z), CANVAS if abs(x) % 4 != 1 else CREAM)
@@ -233,20 +252,40 @@ def build_tent(w):
             w.set((sx, y, z1 + 1), CREAM if y % 2 else CANVAS)
         w.set((sx, FLAP_TOP + 1, z1 + 1), VALANCE)
     for sx in (FLAP_X[0], FLAP_X[1]):
-        w.set((sx, FLAP_TOP + 1, z1 + 1), CANVAS)             # the fold's top, over the opening's edge
-    # the floor: packed earth
+        w.set((sx, FLAP_TOP + 1, z1 + 1), CANVAS)             # the fold top, over the opening edge
+    # a valance of white banners hanging from the eave band, and along the back gable
+    for z in range(z0, z1 + 1):
+        if z in POLE_Z:
+            continue
+        for sx, f in ((-TENT_X - 1, 'west'), (TENT_X + 1, 'east')):
+            w.set((sx, EAVE, z), state('white_wall_banner', facing=f))
+    for x in range(-TENT_X + 2, TENT_X - 1):
+        if x % 2:
+            continue
+        w.set((x, EAVE - 1, z0 - 1), state('white_wall_banner', facing='north'))
+    # the floor: packed earth in coherent patches - coarse dirt and dirt, worn to packed mud, rooted dirt by the walls
     for x in range(-TENT_X, TENT_X + 1):
         for z in range(z0, z1 + 1):
-            r = vnoise(x, z, 2.5, 21) * 0.7 + rnd(x, 0, z, 22) * 0.3
-            w.set((x, -1, z), 'minecraft:coarse_dirt' if r < 0.5 else 'minecraft:dirt')
-    # the frame, in thin spruce poles (fences; connect_fences joins them): ridge pole, centre poles, tie poles
-    # across the tent, wall poles
+            r = vnoise(x, z, 2.5, 21) * 0.75 + rnd(x, 0, z, 22) * 0.25
+            m = vnoise(x, z, 4.0, 23)
+            if m < 0.3:
+                s = 'minecraft:packed_mud'
+            elif abs(x) >= TENT_X - 1 and m > 0.65:
+                s = 'minecraft:rooted_dirt'
+            else:
+                s = 'minecraft:coarse_dirt' if r < 0.5 else 'minecraft:dirt'
+            w.set((x, -1, z), s)
+    # the frame, in thin spruce poles (fences; connect_fences joins them): ridge pole, centre poles through the
+    # ridge to finials with pennants, tie poles across the tent, wall poles
     for z in range(z0 + 1, z1):
         w.set((0, RIDGE - 1, z), POLE)
-    for pz in POLE_Z:
+    for i, pz in enumerate(POLE_Z):
         for y in range(0, RIDGE - 1):
             w.set((0, y, pz), POLE)
-        for x in range(-TENT_X + 1, TENT_X):
+        for y in range(RIDGE + 1, RIDGE + 4):
+            w.set((0, y, pz), POLE)                            # the finial, standing out of the ridge
+        w.set((0, RIDGE + 4, pz), state(('red', 'blue')[i] + '_banner', rotation=4))
+        for x in range(-TENT_X + 2, TENT_X - 1):
             w.set((x, TIE_Y, pz), POLE)
         for sx in (-TENT_X + 1, TENT_X - 1):
             for y in range(0, TIE_Y):
@@ -255,6 +294,18 @@ def build_tent(w):
         for sz in (z0 + 1, z1 - 1):
             for y in range(0, WALL_TOP + 1):
                 w.set((sx, y, sz), POLE)
+    # guy lines: a pole outside each pole line and corner, a rope of fence posts stepping down to a stake
+    for pz in POLE_Z + (z0 + 1, z1 - 1):
+        for sgn in (-1, 1):
+            gx = sgn * (TENT_X + 2)
+            for y in range(0, 3):
+                w.set((gx, y, pz), POLE)
+            for k, (dx, y) in enumerate(((1, 2), (2, 1), (3, 0))):
+                w.set((gx + sgn * dx, y, pz), POLE if k < 2 else state('spruce_trapdoor', facing='north',
+                      half='bottom', open='false', powered='false', waterlogged='false'))
+
+
+OPP = {'north': 'south', 'south': 'north', 'east': 'west', 'west': 'east'}
 
 
 POLE = 'minecraft:spruce_fence'
@@ -314,14 +365,22 @@ def build_furniture(w):
     # the second bench along the west wall (where one of the others sits)
     for z in (-4, -3, -2):
         w.set((-5, 0, z), state('spruce_slab', type='bottom', waterlogged='false'))
-    # a worn rug in the back half
-    for x in range(-2, 4):
-        for z in range(-5, -1):
-            if (x, z) == (0, -6):
-                continue
-            edge = x in (-2, 3) or z in (-5, -2)
-            w.set((x, 0, z), 'minecraft:brown_carpet' if edge else
-                  'minecraft:red_carpet' if (x + z) % 3 else 'minecraft:orange_carpet')
+    # two large layered rugs over the back half (a border, a field, an inner panel), on the empty floor only
+    def rug(xr, zr, border, field, inner):
+        for x in range(xr[0], xr[1] + 1):
+            for z in range(zr[0], zr[1] + 1):
+                if w.get((x, 0, z)) is not None:
+                    continue
+                edge = x in xr or z in zr
+                core = xr[0] + 2 <= x <= xr[1] - 2 and zr[0] + 2 <= z <= zr[1] - 2
+                w.set((x, 0, z), 'minecraft:%s_carpet' % (border if edge else inner if core else field))
+    rug((-4, 3), (-9, -6), 'brown', 'red', 'orange')
+    rug((-3, 4), (-5, -1), 'black', 'blue', 'cyan')
+    # a rush mat of yellow and brown down the walk to the flap
+    for z in range(5, 9):
+        for x in (0, 1):
+            if w.get((x, 0, z)) is None:
+                w.set((x, 0, z), 'minecraft:yellow_carpet' if (z + x) % 3 == 0 else 'minecraft:brown_carpet')
     # three faded school banners on the back wall
     for x, c in ((-2, 'blue'), (0, 'red'), (2, 'yellow')):
         w.set((x, 3, TENT_Z[0] + 1), state(c + '_wall_banner', facing='south'))
@@ -392,20 +451,44 @@ def build_stand(w):
                 w.set((bx, ylo + i, STAND_Z), state('spruce_stairs', facing='east' if not flip else 'west',
                                                     half='bottom', shape='straight', waterlogged='false'))
     # the dark passage under the stand, in line with the flap (the way to the arena)
+    depth = PASSAGE_DEPTH
     for x in range(passage[0], passage[1] + 1):
-        for z in range(STAND_Z, STAND_Z + 9):
+        for z in range(STAND_Z, STAND_Z + depth):
             for y in range(0, 5):
                 w.set((x, y, z), None)
-            w.set((x, -1, z), 'minecraft:coarse_dirt')
+            w.set((x, -1, z), 'minecraft:coarse_dirt' if z < STAND_Z + depth - 5 else 'minecraft:packed_mud')
             w.set((x, 5, z), 'minecraft:dark_oak_planks')
         w.set((x, 4, STAND_Z), log('x', 'spruce_log'))
-    for z in range(STAND_Z, STAND_Z + 9):
+
+    def lining(z, y):
+        # dark oak by the mouth, darkening to deepslate tiles toward the end
+        deep = z >= STAND_Z + depth - 6
+        if deep and (y + z) % 3:
+            return 'minecraft:deepslate_tiles'
+        return 'minecraft:dark_oak_planks'
+    turn = range(STAND_Z + depth - 3, STAND_Z + depth)
+    for z in range(STAND_Z, STAND_Z + depth):
         for y in range(0, 5):
-            w.set((passage[0] - 1, y, z), 'minecraft:dark_oak_planks')
-            w.set((passage[1] + 1, y, z), 'minecraft:dark_oak_planks')
-    for x in range(passage[0], passage[1] + 1):
+            w.set((passage[0] - 1, y, z), lining(z, y))
+            if z not in turn:
+                w.set((passage[1] + 1, y, z), lining(z, y))
+    for x in range(passage[0] - 1, passage[1] + 2):
+        for y in range(0, 6):
+            w.set((x, y, STAND_Z + depth), 'minecraft:deepslate_tiles')     # the end wall
+    # the turn: the last 3 cells open east into a dark side passage that bends out of sight
+    for x in range(passage[1] + 1, passage[1] + 6):
+        for z in turn:
+            for y in range(0, 5):
+                w.set((x, y, z), None)
+            w.set((x, -1, z), 'minecraft:packed_mud')
+            w.set((x, 5, z), 'minecraft:dark_oak_planks')
         for y in range(0, 5):
-            w.set((x, y, STAND_Z + 9), 'minecraft:dark_oak_planks')     # it bends out of sight
+            w.set((x, y, turn[0] - 1), 'minecraft:deepslate_tiles')
+            w.set((x, y, turn[-1] + 1), 'minecraft:deepslate_tiles')
+    for z in turn:
+        for y in range(0, 6):
+            w.set((passage[1] + 6, y, z), 'minecraft:deepslate_tiles')
+    w.set((passage[1], 3, turn[1]), state('light', level=7, waterlogged='false'))     # a glow at the bend
     # posts either side of the passage mouth
     for x in (passage[0] - 1, passage[1] + 1):
         for y in range(0, 6):
@@ -543,7 +626,7 @@ ANCHORS = {
         {'pos': _p(1.6, 0.0, -7.6), 'yaw': 20.0, 'pose': 'stand'},
     ],
     'lanterns': [{'pivot': _p(x, TIE_Y, z + 0.5), 'hang': 0.9} for z in POLE_Z for x in (-2.5, 3.5)],
-    'dust_boxes': [[[-6, 4.5, -9], [-1, 6.5, 8]], [[2, 4.5, -9], [7, 6.5, 8]]],
+    'dust_boxes': [[[-4, 4.6, -9], [0, 5.9, 9]], [[1, 4.6, -9], [5, 5.9, 9]]],
     'braziers': [_p(-3.5, 1.3, -0.5), _p(5.5, 1.3, -0.5)],
     'cam_spots': [
         {'pos': _p(-4.6, 2.6, -8.4), 'look': _p(0.8, 1.2, 9.5)},
@@ -676,7 +759,7 @@ def check(w):
     for (x0, y0, z0), (x1, y1, z1) in a['dust_boxes']:
         for x in range(int(x0), int(x1)):
             for z in range(int(z0), int(z1)):
-                if not any(bid(g.get((x, y, z))) in (CANVAS, bid(CREAM)) for y in range(int(math.floor(y0)), RIDGE + 1)):
+                if not any(bid(g.get((x, y, z))) in ROOF_IDS for y in range(int(math.floor(y0)), RIDGE + 1)):
                     problems.append('dust box column (%d, %d) has no canvas above' % (x, z))
     # nothing outside the template or beyond the radius
     for (x, y, z) in g:

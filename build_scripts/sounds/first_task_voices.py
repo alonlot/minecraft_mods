@@ -11,7 +11,7 @@ No line contains the player's name. Not registered in sounds.json (Task 12).
 
 Voices:
   Commentator 7c90feecce0e4bbb8d5d1a20a98e6a11  (user pick: Fish "Commentator (good)" by LeroyJr)
-  Viewer      67ccf061bf3b4f9c8b635addc77eba6f  (young Harry clone, sounds about 11; default for Accio)
+  Viewer      42cbd05f78814d6f8b47d90a3cb37f0b  (user pick accio_C2: Fish "Harry potter" by Akshay Srivastava; the shipped take is that sample)
   Alternatives for the 14-year-old champion (samples only): b841aacef7dc48f9b18b6e89bf573e80, 42cbd05f78814d6f8b47d90a3cb37f0b
 first_task_comm_call_muffled is the same call take through a 900 Hz low-pass and a short room reverb (the tent plays it).
 """
@@ -34,7 +34,7 @@ RAW_DIR = flying_voices.RAW_DIR.replace("flying_audio", "first_task_audio")
 SAMPLE_DIR = os.path.join(ROOT, "run", "voice_samples", "first_task")
 
 COMMENTATOR = "7c90feecce0e4bbb8d5d1a20a98e6a11"
-VIEWER = "67ccf061bf3b4f9c8b635addc77eba6f"
+VIEWER = "42cbd05f78814d6f8b47d90a3cb37f0b"  # user pick accio_C2 (2026-10-23)
 ALTS = [("B", "b841aacef7dc48f9b18b6e89bf573e80", "Young teenager (boy) with deep voice", "Carter Lively"),
         ("C", "42cbd05f78814d6f8b47d90a3cb37f0b", "Harry potter", "Akshay Srivastava")]
 
@@ -86,7 +86,7 @@ def samples(key):
     line = "Accio Firebolt!"
     rows = ["First Task memory voice samples: the viewer's \"%s\" (Fish Audio, speech-1.6)" % line,
             "Champion is 14; the default clone (A) sounds about 11. Pick one; the take must pass the whisper gate.", ""]
-    cands = [("A", VIEWER, "Harry Potter (young clone, current default)", "(Flying viewer voice)")] + ALTS
+    cands = [("A", "67ccf061bf3b4f9c8b635addc77eba6f", "Harry Potter (young clone, current default)", "(Flying viewer voice)")] + ALTS
     for tag, vid, title, author in cands:
         for n in range(1, 4):
             name = "accio_%s%d.mp3" % (tag, n)

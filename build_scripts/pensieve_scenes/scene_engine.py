@@ -14,7 +14,8 @@ Every generator that emits a memory checks it against the engine's own maths, ne
   - the hand contacts' sway corners (BOB_Z, BOB_X, BOB_MID) and arm_tip, eye_of.
 
 `python -I scene_engine.py --write-broom-cases` rewrites broom_cases.json (BroomFlightTest.pythonMirrorAgrees);
-`--write-ball-cases` rewrites ball_cases.json (MemoryBallTest.pythonMirrorAgrees). The Quidditch balls and the Remembrall
+`--write-ball-cases` rewrites ball_cases.json (MemoryBallTest.pythonMirrorAgrees); `--write-heading-cases` rewrites
+heading_cases.json (BroomHeadingTest.pythonMirrorAgrees). The Quidditch balls and the Remembrall
 (MemoryBall): is_ball, ball_radius, ball_box, ball_pos, ball_lowest, check_ball_speeds.
 
 Imports only the standard library, scene_common and human_motion (no generator), so any generator can import it.
@@ -1073,6 +1074,62 @@ def broom_heading(keys, t):
     return math.degrees(math.atan2(-dx, dz))
 
 
+HEADING_HOLD_SPEED, HEADING_FULL_SPEED, REVERSE_CREEP, HEADING_SEARCH = 0.01, 0.06, 0.15, 400
+
+
+def firm_velocity(keys, t):
+    """BroomFlight.firmVelocity: (yaw, speed) of (p(t+2) - p(t-2)) / 4 in x and z; the speed is 0 when the key pair
+    round t has no horizontal chord (or t is outside the keys), or when it runs against that chord slower than
+    REVERSE_CREEP (a spline overshoot creeping back)."""
+    a, b = track_sample(keys, t - 2), track_sample(keys, t + 2)
+    vx, vz = (b[0] - a[0]) / 4.0, (b[2] - a[2]) / 4.0
+    speed = math.sqrt(vx * vx + vz * vz)
+    yaw = math.degrees(math.atan2(-vx, vz))
+    i = 1
+    while i < len(keys) and keys[i]['t'] <= t:
+        i += 1
+    if t < keys[0]['t'] or i >= len(keys):
+        return yaw, 0.0
+    p0, p1 = keys[i - 1]['pos'], keys[i]['pos']
+    cx, cz = p1[0] - p0[0], p1[2] - p0[2]
+    if math.sqrt(cx * cx + cz * cz) < 1e-3:
+        return yaw, 0.0
+    if vx * cx + vz * cz < 0 and speed < REVERSE_CREEP:
+        return yaw, 0.0
+    return yaw, speed
+
+
+def _held_yaw(keys, t):
+    s0 = int(math.floor(t))
+    first, last = keys[0]['t'], keys[-1]['t']
+    s = s0
+    while s >= max(first, s0 - HEADING_SEARCH):
+        y, v = firm_velocity(keys, s)
+        if v >= HEADING_FULL_SPEED:
+            return y
+        s -= 1
+    s = s0 + 1
+    while s <= min(last, s0 + HEADING_SEARCH):
+        y, v = firm_velocity(keys, s)
+        if v >= HEADING_FULL_SPEED:
+            return y
+        s += 1
+    return 0.0
+
+
+def broom_heading_held(keys, t):
+    """BroomFlight.heldHeading: broom_heading that holds the last forward heading through a hover (below 0.01
+    blocks/tick of firm horizontal speed), equal to the chord yaw from 0.06, a smoothstep of the speed between."""
+    if not keys or len(keys) < 2:
+        return broom_heading(keys, t)
+    yaw, v = firm_velocity(keys, t)
+    w = _smooth((v - HEADING_HOLD_SPEED) / (HEADING_FULL_SPEED - HEADING_HOLD_SPEED))
+    if w >= 1:
+        return yaw
+    held = _held_yaw(keys, t)
+    return held + (((yaw - held) % 360 + 540) % 360 - 180) * w
+
+
 def hover_bob(speed, t, seed):
     """BroomFlight.hoverBob: blocks added to a ridden broom's height, 0.04 at 0.9 Hz, gone by 0.1 blocks a tick."""
     fade = 1 - _smooth(speed / BOB_FADE_SPEED)
@@ -1436,6 +1493,50 @@ def write_broom_cases():
     print('wrote', BROOM_CASES, len(data['cases']), 'cases')
 
 
+HEADING_CASES = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'heading_cases.json')
+
+
+def _heading_tracks():
+    """The parity tracks for broom_heading_held: the two probes of the First Task fire review (a dead hover, then a
+    departure whose spline backs up first; arriving north, hovering, leaving west), a straight climb, and the broom
+    cases' straight and turning flights."""
+    sp = lambda t, p: {'t': t, 'pos': p, 'ease': 'spline'}
+    scenes = _case_scenes()
+    return {
+        'overshoot': [{'t': 0, 'pos': [0.0, 5.0, 0.0]}, {'t': 80, 'pos': [0.0, 5.0, 0.0]}, sp(100, [0.0, 5.0, 2.0]),
+                      sp(120, [0.0, 5.0, 22.0]), sp(140, [0.0, 5.0, 42.0])],
+        'north_then_west': [{'t': 0, 'pos': [0.0, 5.0, -30.0]}, sp(20, [0.0, 5.0, -15.0]),
+                            {'t': 40, 'pos': [0.0, 5.0, 0.0]}, {'t': 120, 'pos': [0.0, 5.0, 0.0]},
+                            sp(140, [-3.0, 5.0, 0.0]), sp(160, [-15.0, 5.0, 0.0]), sp(180, [-30.0, 5.0, 0.0])],
+        'climb': [{'t': 0, 'pos': [0.0, 2.0, 0.0]}, sp(20, [3.0, 2.0, 4.0]), {'t': 40, 'pos': [6.0, 2.0, 8.0]},
+                  {'t': 80, 'pos': [6.0, 30.0, 8.0]}, sp(100, [6.0, 34.0, 14.0]), sp(120, [6.0, 36.0, 24.0])],
+        'straight': actor_by_id(scenes['straight'], 'b')['path'],
+        'turning': actor_by_id(scenes['turning'], 'b')['path'],
+    }
+
+
+def heading_cases():
+    tracks = _heading_tracks()
+    cases = []
+    for name, keys in sorted(tracks.items()):
+        end = keys[-1]['t']
+        t = -3.0
+        while t <= end + 3:
+            cases.append({'track': name, 't': t, 'held': broom_heading_held(keys, t), 'heading': broom_heading(keys, t),
+                          'firm': list(firm_velocity(keys, t))})
+            t = round(t + 1.75, 4)
+    return {'constants': {'HEADING_HOLD_SPEED': HEADING_HOLD_SPEED, 'HEADING_FULL_SPEED': HEADING_FULL_SPEED,
+                          'REVERSE_CREEP': REVERSE_CREEP, 'HEADING_SEARCH': HEADING_SEARCH},
+            'tracks': tracks, 'cases': cases}
+
+
+def write_heading_cases():
+    data = heading_cases()
+    with open(HEADING_CASES, 'w', newline=chr(10), encoding='utf-8') as f:
+        f.write(json.dumps(data, indent=1, sort_keys=True) + chr(10))
+    print('wrote', HEADING_CASES, len(data['cases']), 'cases')
+
+
 BALL_CASES = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ball_cases.json')
 
 
@@ -1457,6 +1558,8 @@ if __name__ == '__main__':
         write_broom_cases()
     if '--write-ball-cases' in sys.argv:
         write_ball_cases()
+    if '--write-heading-cases' in sys.argv:
+        write_heading_cases()
 
 
 # ================================================================ the rider's grip (BroomFlightTest.handsOnHandle)
@@ -1582,7 +1685,8 @@ def effect_seed(at, t):
     return (h * 31 + _f32_bits(_f32(t))) & _M64
 
 
-def _mix64(z):
+def _crowd_mix64(z):
+    """Crowd.mix (with the golden-gamma step); not HumanMotion.mix, which motion_seed uses (_mix64)."""
     z = (z + 0x9E3779B97F4A7C15) & _M64
     z = ((z ^ (z >> 30)) * 0xBF58476D1CE4E5B9) & _M64
     z = ((z ^ (z >> 27)) * 0x94D049BB133111EB) & _M64
@@ -1590,7 +1694,7 @@ def _mix64(z):
 
 
 def _crowd_unit(seed, row, k, salt):
-    h = _mix64((_mix64((_mix64((seed + salt) & _M64) + row) & _M64) + k) & _M64)
+    h = _crowd_mix64((_crowd_mix64((_crowd_mix64((seed + salt) & _M64) + row) & _M64) + k) & _M64)
     return (h >> 11) / float(1 << 53)
 
 

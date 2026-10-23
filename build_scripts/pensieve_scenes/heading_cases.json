@@ -1,0 +1,4059 @@
+{
+ "cases": [
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -36.86989764584402,
+   "held": -36.86989764584402,
+   "t": -3.0,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -36.86989764584401,
+    0.0
+   ],
+   "heading": -36.86989764584401,
+   "held": -36.86989764584402,
+   "t": -1.25,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -36.86989764584401,
+    0.23315429687500003
+   ],
+   "heading": -36.86989764584401,
+   "held": -36.86989764584401,
+   "t": 0.5,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -36.86989764584401,
+    0.36900390624999996
+   ],
+   "heading": -36.86989764584401,
+   "held": -36.86989764584401,
+   "t": 2.25,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -36.86989764584402,
+    0.35875000000000007
+   ],
+   "heading": -36.86989764584402,
+   "held": -36.86989764584402,
+   "t": 4.0,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -36.86989764584402,
+    0.34275390625000013
+   ],
+   "heading": -36.86989764584402,
+   "held": -36.86989764584402,
+   "t": 5.75,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -36.86989764584401,
+    0.3210156249999999
+   ],
+   "heading": -36.86989764584401,
+   "held": -36.86989764584401,
+   "t": 7.5,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -36.86989764584404,
+    0.29353515625
+   ],
+   "heading": -36.86989764584404,
+   "held": -36.86989764584404,
+   "t": 9.25,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -36.869897645844034,
+    0.26031249999999984
+   ],
+   "heading": -36.869897645844034,
+   "held": -36.869897645844034,
+   "t": 11.0,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -36.86989764584402,
+    0.22134765624999997
+   ],
+   "heading": -36.86989764584402,
+   "held": -36.86989764584402,
+   "t": 12.75,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -36.86989764584403,
+    0.17664062499999983
+   ],
+   "heading": -36.86989764584403,
+   "held": -36.86989764584403,
+   "t": 14.5,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -36.869897645844105,
+    0.1261914062500004
+   ],
+   "heading": -36.869897645844105,
+   "held": -36.869897645844105,
+   "t": 16.25,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -36.869897645844006,
+    0.06999999999999991
+   ],
+   "heading": -36.869897645844006,
+   "held": -36.869897645844006,
+   "t": 18.0,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -36.86989764584422,
+    0.02619018554687498
+   ],
+   "heading": -36.86989764584422,
+   "held": -36.86989764584406,
+   "t": 19.75,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -36.86989764584407,
+    0.02795898437500015
+   ],
+   "heading": -36.86989764584407,
+   "held": -36.869897645844006,
+   "t": 21.5,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -36.869897645844055,
+    0.08921875
+   ],
+   "heading": -36.869897645844055,
+   "held": -36.869897645844055,
+   "t": 23.25,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -36.86989764584402,
+    0.1974999999999999
+   ],
+   "heading": -36.86989764584402,
+   "held": -36.86989764584402,
+   "t": 25.0,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -36.86989764584403,
+    0.35171874999999997
+   ],
+   "heading": -36.86989764584403,
+   "held": -36.86989764584403,
+   "t": 26.75,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -36.86989764584401,
+    0.5425000000000001
+   ],
+   "heading": -36.86989764584401,
+   "held": -36.86989764584401,
+   "t": 28.5,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -36.86989764584402,
+    0.6081249999999999
+   ],
+   "heading": -36.86989764584402,
+   "held": -36.86989764584402,
+   "t": 30.25,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -36.869897645844034,
+    0.48999999999999994
+   ],
+   "heading": -36.869897645844034,
+   "held": -36.869897645844034,
+   "t": 32.0,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -36.86989764584399,
+    0.3029687499999999
+   ],
+   "heading": -36.86989764584399,
+   "held": -36.86989764584399,
+   "t": 33.75,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -36.869897645844006,
+    0.1618749999999999
+   ],
+   "heading": -36.869897645844006,
+   "held": -36.869897645844006,
+   "t": 35.5,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -36.869897645843906,
+    0.06671875000000012
+   ],
+   "heading": -36.869897645843906,
+   "held": -36.869897645843906,
+   "t": 37.25,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -36.86989764584372,
+    0.01687500000000002
+   ],
+   "heading": -36.86989764584372,
+   "held": -36.86989764584407,
+   "t": 39.0,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -36.86989764584402,
+    0.0
+   ],
+   "heading": -36.86989764584402,
+   "held": -36.869897645844084,
+   "t": 40.75,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -36.86989764584402,
+   "held": -36.869897645844084,
+   "t": 42.5,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -36.869897645844006,
+   "held": -36.869897645844084,
+   "t": 44.25,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -36.86989764584402,
+   "held": -36.869897645844084,
+   "t": 46.0,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -36.86989764584474,
+   "held": -36.869897645844084,
+   "t": 47.75,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -36.86989764584402,
+   "held": -36.869897645844084,
+   "t": 49.5,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -36.86989764584402,
+   "held": -36.869897645844084,
+   "t": 51.25,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -36.86989764584402,
+   "held": -36.869897645844084,
+   "t": 53.0,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -36.869897645844055,
+   "held": -36.869897645844084,
+   "t": 54.75,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -36.86989764584393,
+   "held": -36.869897645844084,
+   "t": 56.5,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -36.8698976458425,
+   "held": -36.869897645844084,
+   "t": 58.25,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -20.556045219583467,
+   "held": -36.869897645844084,
+   "t": 60.0,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -0.0,
+   "held": -36.869897645844084,
+   "t": 61.75,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -0.0,
+   "held": -36.869897645844084,
+   "t": 63.5,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -0.0,
+   "held": -36.869897645844084,
+   "t": 65.25,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -0.0,
+   "held": -36.869897645844084,
+   "t": 67.0,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -0.0,
+   "held": -36.869897645844084,
+   "t": 68.75,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -0.0,
+   "held": -36.869897645844084,
+   "t": 70.5,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -0.0,
+   "held": -36.869897645844084,
+   "t": 72.25,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -0.0,
+   "held": -36.869897645844084,
+   "t": 74.0,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -0.0,
+   "held": -36.869897645844084,
+   "t": 75.75,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -0.0,
+   "held": -36.869897645844084,
+   "t": 77.5,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -0.0,
+   "held": -36.869897645844084,
+   "t": 79.25,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.05287499999999978
+   ],
+   "heading": -0.0,
+   "held": -2.032691609877702,
+   "t": 81.0,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.12415624999999952
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 82.75,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.19262500000000005
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 84.5,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.2519062499999998
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 86.25,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    4.2126552072364516e-14,
+    0.3019999999999996
+   ],
+   "heading": 4.2126552072364516e-14,
+   "held": 4.2126552072364516e-14,
+   "t": 88.0,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.34290624999999997
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 89.75,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.37462499999999954
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 91.5,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.3971562500000001
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 93.25,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.41049999999999986
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 95.0,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.4146562499999997
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 96.75,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.4104179687500005
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 98.5,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.41229443359374995
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 100.25,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.42799999999999994
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 102.0,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.4504765625
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 103.75,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.4706562500000002
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 105.5,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.4885390625000001
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 107.25,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.5041250000000002
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 109.0,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.5174140625000003
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 110.75,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.5284062500000006
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 112.5,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.5371015624999993
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 114.25,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.5435000000000008
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 116.0,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.5476015624999997
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 117.75,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.34326171875
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 119.5,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -0.0,
+   "held": 0.0,
+   "t": 121.25,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -0.0,
+   "held": 0.0,
+   "t": 123.0,
+   "track": "climb"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -0.0,
+   "held": 0.0,
+   "t": -3.0,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -0.0,
+   "held": 0.0,
+   "t": -1.25,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.699462890625
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 0.5,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    1.10701171875
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 2.25,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    1.07625
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 4.0,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    1.0282617187500005
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 5.75,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.963046874999999
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 7.5,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.8806054687499998
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 9.25,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.7809374999999994
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 11.0,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.6640429687500005
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 12.75,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.5299218749999994
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 14.5,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.37857421875000163
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 16.25,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.20999999999999996
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 18.0,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.07857055664062518
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 19.75,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.08387695312500076
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 21.5,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.26765624999999993
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 23.25,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.5924999999999998
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 25.0,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    1.05515625
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 26.75,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    1.6275000000000008
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 28.5,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    1.8243750000000003
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 30.25,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    1.4699999999999998
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 32.0,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.9089062500000002
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 33.75,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.48562499999999975
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 35.5,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.20015625000000048
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 37.25,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0506249999999997
+   ],
+   "heading": -0.0,
+   "held": 0.0,
+   "t": 39.0,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -0.0,
+   "held": 0.0,
+   "t": 40.75,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -0.0,
+   "held": 0.0,
+   "t": 42.5,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -0.0,
+   "held": 0.0,
+   "t": 44.25,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -0.0,
+   "held": 0.0,
+   "t": 46.0,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -0.0,
+   "held": 0.0,
+   "t": 47.75,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -0.0,
+   "held": 0.0,
+   "t": 49.5,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -0.0,
+   "held": 0.0,
+   "t": 51.25,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -0.0,
+   "held": 0.0,
+   "t": 53.0,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -0.0,
+   "held": 0.0,
+   "t": 54.75,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -0.0,
+   "held": 0.0,
+   "t": 56.5,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -0.0,
+   "held": 0.0,
+   "t": 58.25,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -0.0,
+   "held": 0.0,
+   "t": 60.0,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -0.0,
+   "held": 0.0,
+   "t": 61.75,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -0.0,
+   "held": 0.0,
+   "t": 63.5,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -0.0,
+   "held": 0.0,
+   "t": 65.25,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -0.0,
+   "held": 0.0,
+   "t": 67.0,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -0.0,
+   "held": 0.0,
+   "t": 68.75,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -0.0,
+   "held": 0.0,
+   "t": 70.5,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -0.0,
+   "held": 0.0,
+   "t": 72.25,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -0.0,
+   "held": 0.0,
+   "t": 74.0,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -0.0,
+   "held": 0.0,
+   "t": 75.75,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -0.0,
+   "held": 0.0,
+   "t": 77.5,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -0.0,
+   "held": 0.0,
+   "t": 79.25,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": 90.0,
+   "held": 0.0,
+   "t": 81.0,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": 90.0,
+   "held": 0.0,
+   "t": 82.75,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": 90.0,
+   "held": 0.0,
+   "t": 84.5,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": 90.0,
+   "held": 0.0,
+   "t": 86.25,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": 90.0,
+   "held": 0.0,
+   "t": 88.0,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": 90.0,
+   "held": 0.0,
+   "t": 89.75,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": 90.0,
+   "held": 0.0,
+   "t": 91.5,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": 90.0,
+   "held": 0.0,
+   "t": 93.25,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": 90.0,
+   "held": 0.0,
+   "t": 95.0,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": 90.0,
+   "held": 0.0,
+   "t": 96.75,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": 90.0,
+   "held": 0.0,
+   "t": 98.5,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": 90.0,
+   "held": 0.0,
+   "t": 100.25,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": 90.0,
+   "held": 0.0,
+   "t": 102.0,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": 90.0,
+   "held": 0.0,
+   "t": 103.75,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": 90.0,
+   "held": 0.0,
+   "t": 105.5,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": 90.0,
+   "held": 0.0,
+   "t": 107.25,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": 90.0,
+   "held": 0.0,
+   "t": 109.0,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": 90.0,
+   "held": 0.0,
+   "t": 110.75,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": 90.0,
+   "held": 0.0,
+   "t": 112.5,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": 90.0,
+   "held": 0.0,
+   "t": 114.25,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": 90.0,
+   "held": 0.0,
+   "t": 116.0,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": 90.0,
+   "held": 0.0,
+   "t": 117.75,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    90.0,
+    0.0
+   ],
+   "heading": 90.0,
+   "held": 0.0,
+   "t": 119.5,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    90.0,
+    0.01151147460937501
+   ],
+   "heading": 90.0,
+   "held": 0.2417596048581467,
+   "t": 121.25,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    90.0,
+    0.028312499999999997
+   ],
+   "heading": 90.0,
+   "held": 27.374429179687496,
+   "t": 123.0,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    90.0,
+    0.04906640625
+   ],
+   "heading": 90.0,
+   "held": 78.97144224921227,
+   "t": 124.75,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    90.0,
+    0.07326562499999993
+   ],
+   "heading": 90.0,
+   "held": 90.0,
+   "t": 126.5,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    90.0,
+    0.10091015624999997
+   ],
+   "heading": 90.0,
+   "held": 90.0,
+   "t": 128.25,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    90.0,
+    0.13200000000000006
+   ],
+   "heading": 90.0,
+   "held": 90.0,
+   "t": 130.0,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    90.0,
+    0.16653515625000004
+   ],
+   "heading": 90.0,
+   "held": 90.0,
+   "t": 131.75,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    90.0,
+    0.2045156250000002
+   ],
+   "heading": 90.0,
+   "held": 90.0,
+   "t": 133.5,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    90.0,
+    0.2459414062500001
+   ],
+   "heading": 90.0,
+   "held": 90.0,
+   "t": 135.25,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    90.0,
+    0.29081250000000014
+   ],
+   "heading": 90.0,
+   "held": 90.0,
+   "t": 137.0,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    90.0,
+    0.3395969238281248
+   ],
+   "heading": 90.0,
+   "held": 90.0,
+   "t": 138.75,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    90.0,
+    0.3945527343749997
+   ],
+   "heading": 90.0,
+   "held": 90.0,
+   "t": 140.5,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    90.0,
+    0.45217968750000004
+   ],
+   "heading": 90.0,
+   "held": 90.0,
+   "t": 142.25,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    90.0,
+    0.5055000000000002
+   ],
+   "heading": 90.0,
+   "held": 90.0,
+   "t": 144.0,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    90.0,
+    0.5519296874999999
+   ],
+   "heading": 90.0,
+   "held": 90.0,
+   "t": 145.75,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    90.0,
+    0.5914687500000004
+   ],
+   "heading": 90.0,
+   "held": 90.0,
+   "t": 147.5,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    90.0,
+    0.6241171875
+   ],
+   "heading": 90.0,
+   "held": 90.0,
+   "t": 149.25,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    90.0,
+    0.649875
+   ],
+   "heading": 90.0,
+   "held": 90.0,
+   "t": 151.0,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    90.0,
+    0.6687421874999999
+   ],
+   "heading": 90.0,
+   "held": 90.0,
+   "t": 152.75,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    90.0,
+    0.6807187499999992
+   ],
+   "heading": 90.0,
+   "held": 90.0,
+   "t": 154.5,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    90.0,
+    0.6858046875000006
+   ],
+   "heading": 90.0,
+   "held": 90.0,
+   "t": 156.25,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    90.0,
+    0.6839999999999997
+   ],
+   "heading": 90.0,
+   "held": 90.0,
+   "t": 158.0,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    90.0,
+    0.6828592529296871
+   ],
+   "heading": 90.0,
+   "held": 90.0,
+   "t": 159.75,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    90.0,
+    0.6914443359374993
+   ],
+   "heading": 90.0,
+   "held": 90.0,
+   "t": 161.5,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    90.0,
+    0.7082167968749999
+   ],
+   "heading": 90.0,
+   "held": 90.0,
+   "t": 163.25,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    90.0,
+    0.7238437500000003
+   ],
+   "heading": 90.0,
+   "held": 90.0,
+   "t": 165.0,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    90.0,
+    0.7377480468749997
+   ],
+   "heading": 90.0,
+   "held": 90.0,
+   "t": 166.75,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    90.0,
+    0.7499296874999999
+   ],
+   "heading": 90.0,
+   "held": 90.0,
+   "t": 168.5,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    90.0,
+    0.7603886718750008
+   ],
+   "heading": 90.0,
+   "held": 90.0,
+   "t": 170.25,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    90.0,
+    0.769124999999999
+   ],
+   "heading": 90.0,
+   "held": 90.0,
+   "t": 172.0,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    90.0,
+    0.7761386718749996
+   ],
+   "heading": 90.0,
+   "held": 90.0,
+   "t": 173.75,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    90.0,
+    0.7814296875000002
+   ],
+   "heading": 90.0,
+   "held": 90.0,
+   "t": 175.5,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    90.0,
+    0.7849980468749989
+   ],
+   "heading": 90.0,
+   "held": 90.0,
+   "t": 177.25,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    90.0,
+    0.5899921875000009
+   ],
+   "heading": 90.0,
+   "held": 90.0,
+   "t": 179.0,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    90.0,
+    0.0
+   ],
+   "heading": 90.0,
+   "held": 90.0,
+   "t": 180.75,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": 90.0,
+   "held": 90.0,
+   "t": 182.5,
+   "track": "north_then_west"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": -3.0,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": -1.25,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 0.5,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 2.25,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 4.0,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 5.75,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 7.5,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 9.25,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 11.0,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 12.75,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 14.5,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 16.25,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 18.0,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 19.75,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 21.5,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 23.25,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 25.0,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 26.75,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 28.5,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 30.25,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 32.0,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 33.75,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 35.5,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 37.25,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 39.0,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 40.75,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 42.5,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 44.25,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 46.0,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 47.75,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 49.5,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 51.25,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 53.0,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 54.75,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 56.5,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 58.25,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 60.0,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 61.75,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 63.5,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 65.25,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 67.0,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 68.75,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 70.5,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 72.25,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 74.0,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 75.75,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": 0.0,
+   "t": 77.5,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -180.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": -0.0,
+   "t": 79.25,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -180.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": -0.0,
+   "t": 81.0,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -180.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": -0.0,
+   "t": 82.75,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -180.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": -0.0,
+   "t": 84.5,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -180.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": -0.0,
+   "t": 86.25,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -180.0,
+    0.0
+   ],
+   "heading": -180.0,
+   "held": -0.0,
+   "t": 88.0,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.009289062499999945
+   ],
+   "heading": -0.0,
+   "held": 0.0,
+   "t": 89.75,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.06315625000000002
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 91.5,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.13310156249999994
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 93.25,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.21912499999999985
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 95.0,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.32122656250000003
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 96.75,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.4396562500000001
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 98.5,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.574296875
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 100.25,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.7120000000000002
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 102.0,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.8355390625
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 103.75,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.9384062500000001
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 105.5,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    1.0206015625000007
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 107.25,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    1.0821250000000011
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 109.0,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    1.1229765625000008
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 110.75,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    1.1431562499999997
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 112.5,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    1.1426640625000006
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 114.25,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    1.121500000000002
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 116.0,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    1.079664062500001
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 117.75,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    1.03076171875
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 119.5,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    1.0030454101562514
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 121.25,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    1.0
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 123.0,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    1.0
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 124.75,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    1.0000000000000009
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 126.5,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    1.0
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 128.25,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    1.0
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 130.0,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.9999999999999991
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 131.75,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    1.0
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 133.5,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    1.0000000000000018
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 135.25,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    1.0
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 137.0,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.8124999999999982
+   ],
+   "heading": -0.0,
+   "held": -0.0,
+   "t": 138.75,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -0.0,
+   "held": 0.0,
+   "t": 140.5,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -0.0,
+   "held": 0.0,
+   "t": 142.25,
+   "track": "overshoot"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -90.0,
+   "held": -90.0,
+   "t": -3.0,
+   "track": "straight"
+  },
+  {
+   "firm": [
+    -90.0,
+    0.0
+   ],
+   "heading": -90.0,
+   "held": -90.0,
+   "t": -1.25,
+   "track": "straight"
+  },
+  {
+   "firm": [
+    -90.0,
+    0.3125
+   ],
+   "heading": -90.0,
+   "held": -90.0,
+   "t": 0.5,
+   "track": "straight"
+  },
+  {
+   "firm": [
+    -90.0,
+    0.5
+   ],
+   "heading": -90.0,
+   "held": -90.0,
+   "t": 2.25,
+   "track": "straight"
+  },
+  {
+   "firm": [
+    -90.0,
+    0.5
+   ],
+   "heading": -90.0,
+   "held": -90.0,
+   "t": 4.0,
+   "track": "straight"
+  },
+  {
+   "firm": [
+    -90.0,
+    0.5000000000000001
+   ],
+   "heading": -90.0,
+   "held": -90.0,
+   "t": 5.75,
+   "track": "straight"
+  },
+  {
+   "firm": [
+    -90.0,
+    0.5
+   ],
+   "heading": -90.0,
+   "held": -90.0,
+   "t": 7.5,
+   "track": "straight"
+  },
+  {
+   "firm": [
+    -90.0,
+    0.5
+   ],
+   "heading": -90.0,
+   "held": -90.0,
+   "t": 9.25,
+   "track": "straight"
+  },
+  {
+   "firm": [
+    -90.0,
+    0.5
+   ],
+   "heading": -90.0,
+   "held": -90.0,
+   "t": 11.0,
+   "track": "straight"
+  },
+  {
+   "firm": [
+    -90.0,
+    0.5
+   ],
+   "heading": -90.0,
+   "held": -90.0,
+   "t": 12.75,
+   "track": "straight"
+  },
+  {
+   "firm": [
+    -90.0,
+    0.5
+   ],
+   "heading": -90.0,
+   "held": -90.0,
+   "t": 14.5,
+   "track": "straight"
+  },
+  {
+   "firm": [
+    -90.0,
+    0.5
+   ],
+   "heading": -90.0,
+   "held": -90.0,
+   "t": 16.25,
+   "track": "straight"
+  },
+  {
+   "firm": [
+    -90.0,
+    0.5
+   ],
+   "heading": -90.0,
+   "held": -90.0,
+   "t": 18.0,
+   "track": "straight"
+  },
+  {
+   "firm": [
+    -90.0,
+    0.5
+   ],
+   "heading": -90.0,
+   "held": -90.0,
+   "t": 19.75,
+   "track": "straight"
+  },
+  {
+   "firm": [
+    -90.0,
+    0.5
+   ],
+   "heading": -90.0,
+   "held": -90.0,
+   "t": 21.5,
+   "track": "straight"
+  },
+  {
+   "firm": [
+    -90.0,
+    0.5
+   ],
+   "heading": -90.0,
+   "held": -90.0,
+   "t": 23.25,
+   "track": "straight"
+  },
+  {
+   "firm": [
+    -90.0,
+    0.5
+   ],
+   "heading": -90.0,
+   "held": -90.0,
+   "t": 25.0,
+   "track": "straight"
+  },
+  {
+   "firm": [
+    -90.0,
+    0.5
+   ],
+   "heading": -90.0,
+   "held": -90.0,
+   "t": 26.75,
+   "track": "straight"
+  },
+  {
+   "firm": [
+    -90.0,
+    0.5
+   ],
+   "heading": -90.0,
+   "held": -90.0,
+   "t": 28.5,
+   "track": "straight"
+  },
+  {
+   "firm": [
+    -90.0,
+    0.5
+   ],
+   "heading": -90.0,
+   "held": -90.0,
+   "t": 30.25,
+   "track": "straight"
+  },
+  {
+   "firm": [
+    -90.0,
+    0.5
+   ],
+   "heading": -90.0,
+   "held": -90.0,
+   "t": 32.0,
+   "track": "straight"
+  },
+  {
+   "firm": [
+    -90.0,
+    0.5
+   ],
+   "heading": -90.0,
+   "held": -90.0,
+   "t": 33.75,
+   "track": "straight"
+  },
+  {
+   "firm": [
+    -90.0,
+    0.5
+   ],
+   "heading": -90.0,
+   "held": -90.0,
+   "t": 35.5,
+   "track": "straight"
+  },
+  {
+   "firm": [
+    -90.0,
+    0.5
+   ],
+   "heading": -90.0,
+   "held": -90.0,
+   "t": 37.25,
+   "track": "straight"
+  },
+  {
+   "firm": [
+    -90.0,
+    0.5
+   ],
+   "heading": -90.0,
+   "held": -90.0,
+   "t": 39.0,
+   "track": "straight"
+  },
+  {
+   "firm": [
+    -90.0,
+    0.5
+   ],
+   "heading": -90.0,
+   "held": -90.0,
+   "t": 40.75,
+   "track": "straight"
+  },
+  {
+   "firm": [
+    -90.0,
+    0.5
+   ],
+   "heading": -90.0,
+   "held": -90.0,
+   "t": 42.5,
+   "track": "straight"
+  },
+  {
+   "firm": [
+    -90.0,
+    0.5
+   ],
+   "heading": -90.0,
+   "held": -90.0,
+   "t": 44.25,
+   "track": "straight"
+  },
+  {
+   "firm": [
+    -90.0,
+    0.5
+   ],
+   "heading": -90.0,
+   "held": -90.0,
+   "t": 46.0,
+   "track": "straight"
+  },
+  {
+   "firm": [
+    -90.0,
+    0.5
+   ],
+   "heading": -90.0,
+   "held": -90.0,
+   "t": 47.75,
+   "track": "straight"
+  },
+  {
+   "firm": [
+    -90.0,
+    0.5
+   ],
+   "heading": -90.0,
+   "held": -90.0,
+   "t": 49.5,
+   "track": "straight"
+  },
+  {
+   "firm": [
+    -90.0,
+    0.5
+   ],
+   "heading": -90.0,
+   "held": -90.0,
+   "t": 51.25,
+   "track": "straight"
+  },
+  {
+   "firm": [
+    -90.0,
+    0.5
+   ],
+   "heading": -90.0,
+   "held": -90.0,
+   "t": 53.0,
+   "track": "straight"
+  },
+  {
+   "firm": [
+    -90.0,
+    0.5
+   ],
+   "heading": -90.0,
+   "held": -90.0,
+   "t": 54.75,
+   "track": "straight"
+  },
+  {
+   "firm": [
+    -90.0,
+    0.5
+   ],
+   "heading": -90.0,
+   "held": -90.0,
+   "t": 56.5,
+   "track": "straight"
+  },
+  {
+   "firm": [
+    -90.0,
+    0.46875
+   ],
+   "heading": -90.0,
+   "held": -90.0,
+   "t": 58.25,
+   "track": "straight"
+  },
+  {
+   "firm": [
+    -90.0,
+    0.0
+   ],
+   "heading": -90.0,
+   "held": -90.0,
+   "t": 60.0,
+   "track": "straight"
+  },
+  {
+   "firm": [
+    -90.0,
+    0.0
+   ],
+   "heading": -90.0,
+   "held": -90.0,
+   "t": 61.75,
+   "track": "straight"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -78.58717048003456,
+   "held": -81.63223424583971,
+   "t": -3.0,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    -81.85989210416186,
+    0.0
+   ],
+   "heading": -81.85989210416186,
+   "held": -81.63223424583971,
+   "t": -1.25,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    -81.48283190092717,
+    0.33582818297031636
+   ],
+   "heading": -81.48283190092717,
+   "held": -81.48283190092717,
+   "t": 0.5,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    -80.61784036361523,
+    0.5342123010262672
+   ],
+   "heading": -80.61784036361523,
+   "held": -80.61784036361523,
+   "t": 2.25,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    -78.38002341433888,
+    0.5268746523764454
+   ],
+   "heading": -78.38002341433888,
+   "held": -78.38002341433888,
+   "t": 4.0,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    -74.77195399068651,
+    0.5170884150742651
+   ],
+   "heading": -74.77195399068651,
+   "held": -74.77195399068651,
+   "t": 5.75,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    -69.6752641211103,
+    0.5072138112278441
+   ],
+   "heading": -69.6752641211103,
+   "held": -69.6752641211103,
+   "t": 7.5,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    -63.26639494832188,
+    0.5031083260076679
+   ],
+   "heading": -63.26639494832188,
+   "held": -63.26639494832188,
+   "t": 9.25,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    -56.84810291555143,
+    0.5113282802036191
+   ],
+   "heading": -56.84810291555143,
+   "held": -56.84810291555143,
+   "t": 11.0,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    -51.36959108363487,
+    0.5249164873990702
+   ],
+   "heading": -51.36959108363487,
+   "held": -51.36959108363487,
+   "t": 12.75,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    -46.39428026530121,
+    0.5318474786988511
+   ],
+   "heading": -46.39428026530121,
+   "held": -46.39428026530121,
+   "t": 14.5,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    -41.499970742962354,
+    0.5299474325353786
+   ],
+   "heading": -41.499970742962354,
+   "held": -41.499970742962354,
+   "t": 16.25,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    -36.401124864528164,
+    0.5193205013121279
+   ],
+   "heading": -36.401124864528164,
+   "held": -36.401124864528164,
+   "t": 18.0,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    -30.821500542263326,
+    0.5108569230097194
+   ],
+   "heading": -30.821500542263326,
+   "held": -30.821500542263326,
+   "t": 19.75,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    -25.142096335532116,
+    0.5155839331027415
+   ],
+   "heading": -25.142096335532116,
+   "held": -25.142096335532116,
+   "t": 21.5,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    -19.922539700032708,
+    0.5277753943255038
+   ],
+   "heading": -19.922539700032708,
+   "held": -19.922539700032708,
+   "t": 23.25,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    -14.99933474285419,
+    0.5321995092328464
+   ],
+   "heading": -14.99933474285419,
+   "held": -14.99933474285419,
+   "t": 25.0,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    -10.076280992478692,
+    0.5277755502315077
+   ],
+   "heading": -10.076280992478692,
+   "held": -10.076280992478692,
+   "t": 26.75,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    -4.85718387738025,
+    0.5155834633039743
+   ],
+   "heading": -4.85718387738025,
+   "held": -4.85718387738025,
+   "t": 28.5,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    0.8215772054667616,
+    0.5108538495586407
+   ],
+   "heading": 0.8215772054667616,
+   "held": 0.8215772054667616,
+   "t": 30.25,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    6.40069697127327,
+    0.5193135079678943
+   ],
+   "heading": 6.40069697127327,
+   "held": 6.40069697127327,
+   "t": 32.0,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    11.499329627881792,
+    0.5299374682114788
+   ],
+   "heading": 11.499329627881792,
+   "held": 11.499329627881792,
+   "t": 33.75,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    16.393628222324253,
+    0.5318368440081439
+   ],
+   "heading": 16.393628222324253,
+   "held": 16.393628222324253,
+   "t": 35.5,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    21.369060564599046,
+    0.5249078708238087
+   ],
+   "heading": 21.369060564599046,
+   "held": 21.369060564599046,
+   "t": 37.25,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    26.73393608142463,
+    0.5128910910508209
+   ],
+   "heading": 26.73393608142463,
+   "held": 26.73393608142463,
+   "t": 39.0,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    32.456493047493055,
+    0.5119457237677266
+   ],
+   "heading": 32.456493047493055,
+   "held": 32.456493047493055,
+   "t": 40.75,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    37.89618056099921,
+    0.5232216005473211
+   ],
+   "heading": 37.89618056099921,
+   "held": 37.89618056099921,
+   "t": 42.5,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    42.90653734618313,
+    0.5313944298638948
+   ],
+   "heading": 42.90653734618313,
+   "held": 42.90653734618313,
+   "t": 44.25,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    47.795102306142105,
+    0.5307608501723914
+   ],
+   "heading": 47.795102306142105,
+   "held": 47.795102306142105,
+   "t": 46.0,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    52.846598271658024,
+    0.5213555191639612
+   ],
+   "heading": 52.846598271658024,
+   "held": 52.846598271658024,
+   "t": 47.75,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    58.358921316784915,
+    0.5112658130300577
+   ],
+   "heading": 58.358921316784915,
+   "held": 58.358921316784915,
+   "t": 49.5,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    64.0670679571971,
+    0.5141058535440513
+   ],
+   "heading": 64.0670679571971,
+   "held": 64.0670679571971,
+   "t": 51.25,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    69.357563548463,
+    0.5264290895637155
+   ],
+   "heading": 69.357563548463,
+   "held": 69.357563548463,
+   "t": 53.0,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    74.30392794275066,
+    0.5321088084484822
+   ],
+   "heading": 74.30392794275066,
+   "held": 74.30392794275066,
+   "t": 54.75,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    79.20970783305286,
+    0.5289454039473638
+   ],
+   "heading": 79.20970783305286,
+   "held": 79.20970783305286,
+   "t": 56.5,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    84.36412364317542,
+    0.5173211085560907
+   ],
+   "heading": 84.36412364317542,
+   "held": 84.36412364317542,
+   "t": 58.25,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    89.9999999999999,
+    0.5107176
+   ],
+   "heading": 89.9999999999999,
+   "held": 89.9999999999999,
+   "t": 60.0,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    95.63587635682468,
+    0.517321108556091
+   ],
+   "heading": 95.63587635682468,
+   "held": 95.63587635682468,
+   "t": 61.75,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    100.79029216694714,
+    0.5289454039473641
+   ],
+   "heading": 100.79029216694714,
+   "held": 100.79029216694714,
+   "t": 63.5,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    105.69607205724945,
+    0.5321088084484822
+   ],
+   "heading": 105.69607205724945,
+   "held": 105.69607205724945,
+   "t": 65.25,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    110.6424364515369,
+    0.5264290895637154
+   ],
+   "heading": 110.6424364515369,
+   "held": 110.6424364515369,
+   "t": 67.0,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    115.93293204280292,
+    0.5141058535440513
+   ],
+   "heading": 115.93293204280292,
+   "held": 115.93293204280292,
+   "t": 68.75,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    121.64107868321513,
+    0.5112658130300588
+   ],
+   "heading": 121.64107868321513,
+   "held": 121.64107868321513,
+   "t": 70.5,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    127.15340172834188,
+    0.5213555191639611
+   ],
+   "heading": 127.15340172834188,
+   "held": 127.15340172834188,
+   "t": 72.25,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    132.20489769385796,
+    0.530760850172391
+   ],
+   "heading": 132.20489769385796,
+   "held": 132.20489769385796,
+   "t": 74.0,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    137.09346265381686,
+    0.5313944298638956
+   ],
+   "heading": 137.09346265381686,
+   "held": 137.09346265381686,
+   "t": 75.75,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    142.1038194390008,
+    0.5232216005473206
+   ],
+   "heading": 142.1038194390008,
+   "held": 142.1038194390008,
+   "t": 77.5,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    147.54350695250693,
+    0.5119457237677268
+   ],
+   "heading": 147.54350695250693,
+   "held": 147.54350695250693,
+   "t": 79.25,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    153.26606391857536,
+    0.5128910910508214
+   ],
+   "heading": 153.26606391857536,
+   "held": 153.26606391857536,
+   "t": 81.0,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    158.63093943540093,
+    0.5249078708238083
+   ],
+   "heading": 158.63093943540093,
+   "held": 158.63093943540093,
+   "t": 82.75,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    163.60637177767578,
+    0.5318368440081434
+   ],
+   "heading": 163.60637177767578,
+   "held": 163.60637177767578,
+   "t": 84.5,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    168.5006703721182,
+    0.5299374682114788
+   ],
+   "heading": 168.5006703721182,
+   "held": 168.5006703721182,
+   "t": 86.25,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    173.59930302872678,
+    0.5193135079678939
+   ],
+   "heading": 173.59930302872678,
+   "held": 173.59930302872678,
+   "t": 88.0,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    179.17842279453325,
+    0.5108538495586402
+   ],
+   "heading": 179.17842279453325,
+   "held": 179.17842279453325,
+   "t": 89.75,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    -175.14281612261985,
+    0.5155834633039733
+   ],
+   "heading": -175.14281612261985,
+   "held": -175.14281612261985,
+   "t": 91.5,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    -169.9237190075213,
+    0.5277755502315077
+   ],
+   "heading": -169.9237190075213,
+   "held": -169.9237190075213,
+   "t": 93.25,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    -165.0006652571458,
+    0.5321995092328463
+   ],
+   "heading": -165.0006652571458,
+   "held": -165.0006652571458,
+   "t": 95.0,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    -160.0774602999673,
+    0.5277753943255038
+   ],
+   "heading": -160.0774602999673,
+   "held": -160.0774602999673,
+   "t": 96.75,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    -154.85790366446793,
+    0.5155839331027414
+   ],
+   "heading": -154.85790366446793,
+   "held": -154.85790366446793,
+   "t": 98.5,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    -149.1784994577366,
+    0.5108569230097199
+   ],
+   "heading": -149.1784994577366,
+   "held": -149.1784994577366,
+   "t": 100.25,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    -143.59887513547187,
+    0.519320501312128
+   ],
+   "heading": -143.59887513547187,
+   "held": -143.59887513547187,
+   "t": 102.0,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    -138.50002925703765,
+    0.5299474325353786
+   ],
+   "heading": -138.50002925703765,
+   "held": -138.50002925703765,
+   "t": 103.75,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    -133.6057197346988,
+    0.5318474786988516
+   ],
+   "heading": -133.6057197346988,
+   "held": -133.6057197346988,
+   "t": 105.5,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    -128.63040891636513,
+    0.5249164873990704
+   ],
+   "heading": -128.63040891636513,
+   "held": -128.63040891636513,
+   "t": 107.25,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    -123.15189708444855,
+    0.5113282802036198
+   ],
+   "heading": -123.15189708444855,
+   "held": -123.15189708444855,
+   "t": 109.0,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    -116.73360505167813,
+    0.5031083260076681
+   ],
+   "heading": -116.73360505167813,
+   "held": -116.73360505167813,
+   "t": 110.75,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    -110.32473587888968,
+    0.5072138112278444
+   ],
+   "heading": -110.32473587888968,
+   "held": -110.32473587888968,
+   "t": 112.5,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    -105.22804600931349,
+    0.5170884150742648
+   ],
+   "heading": -105.22804600931349,
+   "held": -105.22804600931349,
+   "t": 114.25,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    -101.61997658566114,
+    0.5268746523764453
+   ],
+   "heading": -101.61997658566114,
+   "held": -101.61997658566114,
+   "t": 116.0,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    -99.38215963638478,
+    0.5342123010262672
+   ],
+   "heading": -99.38215963638478,
+   "held": -99.38215963638478,
+   "t": 117.75,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    -98.51716809907285,
+    0.3358281829703163
+   ],
+   "heading": -98.51716809907285,
+   "held": -98.51716809907285,
+   "t": 119.5,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    -98.14010789583813,
+    0.0
+   ],
+   "heading": -98.14010789583813,
+   "held": -98.7001881044064,
+   "t": 121.25,
+   "track": "turning"
+  },
+  {
+   "firm": [
+    -0.0,
+    0.0
+   ],
+   "heading": -101.41282951996546,
+   "held": -98.7001881044064,
+   "t": 123.0,
+   "track": "turning"
+  }
+ ],
+ "constants": {
+  "HEADING_FULL_SPEED": 0.06,
+  "HEADING_HOLD_SPEED": 0.01,
+  "HEADING_SEARCH": 400,
+  "REVERSE_CREEP": 0.15
+ },
+ "tracks": {
+  "climb": [
+   {
+    "pos": [
+     0.0,
+     2.0,
+     0.0
+    ],
+    "t": 0
+   },
+   {
+    "ease": "spline",
+    "pos": [
+     3.0,
+     2.0,
+     4.0
+    ],
+    "t": 20
+   },
+   {
+    "pos": [
+     6.0,
+     2.0,
+     8.0
+    ],
+    "t": 40
+   },
+   {
+    "pos": [
+     6.0,
+     30.0,
+     8.0
+    ],
+    "t": 80
+   },
+   {
+    "ease": "spline",
+    "pos": [
+     6.0,
+     34.0,
+     14.0
+    ],
+    "t": 100
+   },
+   {
+    "ease": "spline",
+    "pos": [
+     6.0,
+     36.0,
+     24.0
+    ],
+    "t": 120
+   }
+  ],
+  "north_then_west": [
+   {
+    "pos": [
+     0.0,
+     5.0,
+     -30.0
+    ],
+    "t": 0
+   },
+   {
+    "ease": "spline",
+    "pos": [
+     0.0,
+     5.0,
+     -15.0
+    ],
+    "t": 20
+   },
+   {
+    "pos": [
+     0.0,
+     5.0,
+     0.0
+    ],
+    "t": 40
+   },
+   {
+    "pos": [
+     0.0,
+     5.0,
+     0.0
+    ],
+    "t": 120
+   },
+   {
+    "ease": "spline",
+    "pos": [
+     -3.0,
+     5.0,
+     0.0
+    ],
+    "t": 140
+   },
+   {
+    "ease": "spline",
+    "pos": [
+     -15.0,
+     5.0,
+     0.0
+    ],
+    "t": 160
+   },
+   {
+    "ease": "spline",
+    "pos": [
+     -30.0,
+     5.0,
+     0.0
+    ],
+    "t": 180
+   }
+  ],
+  "overshoot": [
+   {
+    "pos": [
+     0.0,
+     5.0,
+     0.0
+    ],
+    "t": 0
+   },
+   {
+    "pos": [
+     0.0,
+     5.0,
+     0.0
+    ],
+    "t": 80
+   },
+   {
+    "ease": "spline",
+    "pos": [
+     0.0,
+     5.0,
+     2.0
+    ],
+    "t": 100
+   },
+   {
+    "ease": "spline",
+    "pos": [
+     0.0,
+     5.0,
+     22.0
+    ],
+    "t": 120
+   },
+   {
+    "ease": "spline",
+    "pos": [
+     0.0,
+     5.0,
+     42.0
+    ],
+    "t": 140
+   }
+  ],
+  "straight": [
+   {
+    "pos": [
+     0.0,
+     5.0,
+     0.0
+    ],
+    "t": 0
+   },
+   {
+    "ease": "linear",
+    "pos": [
+     30.0,
+     5.0,
+     0.0
+    ],
+    "t": 60
+   }
+  ],
+  "turning": [
+   {
+    "pos": [
+     0.0,
+     6.0,
+     0.0
+    ],
+    "t": 0
+   },
+   {
+    "ease": "spline",
+    "pos": [
+     5.0,
+     6.0,
+     1.3397
+    ],
+    "t": 10
+   },
+   {
+    "ease": "spline",
+    "pos": [
+     8.6603,
+     6.0,
+     5.0
+    ],
+    "t": 20
+   },
+   {
+    "ease": "spline",
+    "pos": [
+     10.0,
+     6.0,
+     10.0
+    ],
+    "t": 30
+   },
+   {
+    "ease": "spline",
+    "pos": [
+     8.6603,
+     6.0,
+     15.0
+    ],
+    "t": 40
+   },
+   {
+    "ease": "spline",
+    "pos": [
+     5.0,
+     6.0,
+     18.6603
+    ],
+    "t": 50
+   },
+   {
+    "ease": "spline",
+    "pos": [
+     0.0,
+     6.0,
+     20.0
+    ],
+    "t": 60
+   },
+   {
+    "ease": "spline",
+    "pos": [
+     -5.0,
+     6.0,
+     18.6603
+    ],
+    "t": 70
+   },
+   {
+    "ease": "spline",
+    "pos": [
+     -8.6603,
+     6.0,
+     15.0
+    ],
+    "t": 80
+   },
+   {
+    "ease": "spline",
+    "pos": [
+     -10.0,
+     6.0,
+     10.0
+    ],
+    "t": 90
+   },
+   {
+    "ease": "spline",
+    "pos": [
+     -8.6603,
+     6.0,
+     5.0
+    ],
+    "t": 100
+   },
+   {
+    "ease": "spline",
+    "pos": [
+     -5.0,
+     6.0,
+     1.3397
+    ],
+    "t": 110
+   },
+   {
+    "ease": "spline",
+    "pos": [
+     -0.0,
+     6.0,
+     0.0
+    ],
+    "t": 120
+   }
+  ]
+ }
+}

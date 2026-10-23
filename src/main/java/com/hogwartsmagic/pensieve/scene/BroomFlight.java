@@ -210,6 +210,88 @@ public final class BroomFlight {
         return (float) Math.toDegrees(Math.atan2(-dx, dz));
     }
 
+    /** {@link #heldHeading}: below this horizontal speed (blocks per tick) the broom holds its last forward heading. */
+    public static final double HEADING_HOLD_SPEED = 0.01;
+    /** {@link #heldHeading}: from this horizontal speed (blocks per tick) it is exactly {@link #heading}'s chord yaw. */
+    public static final double HEADING_FULL_SPEED = 0.06;
+    /** {@link #heldHeading}: a horizontal velocity against its segment's chord slower than this is a spline overshoot. */
+    public static final double REVERSE_CREEP = 0.15;
+    /** {@link #heldHeading}: how far (ticks) it marches back, or on, for the held heading. */
+    public static final int HEADING_SEARCH = 400;
+
+    private static final java.util.Map<Track, java.util.Map<Integer, Float>> HELD_CACHE =
+            java.util.Collections.synchronizedMap(new java.util.WeakHashMap<>());
+
+    /**
+     * The firm horizontal velocity at t, {@code (p(t+2) - p(t-2)) / 4} in x and z: {yaw, speed}. The speed counts as 0
+     * when the key pair round t ({@code keys[i-1].t <= t < keys[i].t}) has no horizontal chord (a hover, a straight
+     * climb, or t outside the keys), or when the velocity runs against that chord slower than {@link #REVERSE_CREEP}
+     * (a spline overshoot creeping back; a real U-turn flies faster).
+     */
+    public static double[] firmVelocity(Track path, double t) {
+        float[] a = at(path, t - 2), b = at(path, t + 2);
+        double vx = ((double) b[0] - a[0]) / 4, vz = ((double) b[2] - a[2]) / 4;
+        double speed = Math.sqrt(vx * vx + vz * vz);
+        double yaw = Math.toDegrees(Math.atan2(-vx, vz));
+        java.util.List<Keyframe> keys = path.keys();
+        int i = 1;
+        while (i < keys.size() && keys.get(i).t() <= t) i++;
+        if (t < keys.get(0).t() || i >= keys.size()) return new double[]{yaw, 0};
+        float[] p0 = keys.get(i - 1).v(), p1 = keys.get(i).v();
+        double cx = (double) p1[0] - p0[0], cz = (double) p1[2] - p0[2];
+        if (Math.sqrt(cx * cx + cz * cz) < 1e-3) return new double[]{yaw, 0};
+        if (vx * cx + vz * cz < 0 && speed < REVERSE_CREEP) return new double[]{yaw, 0};
+        return new double[]{yaw, speed};
+    }
+
+    /** The firm velocity's yaw at the latest whole tick at or before t where it is at full speed (see heldHeading). */
+    private static float heldYaw(Track path, double t) {
+        int s0 = (int) Math.floor(t);
+        java.util.Map<Integer, Float> cache =
+                HELD_CACHE.computeIfAbsent(path, p -> new java.util.concurrent.ConcurrentHashMap<>());
+        Float hit = cache.get(s0);
+        if (hit != null) return hit;
+        java.util.List<Keyframe> keys = path.keys();
+        float first = keys.get(0).t(), last = keys.get(keys.size() - 1).t();
+        float yaw = 0f;
+        boolean found = false;
+        for (int s = s0; s >= Math.max(first, s0 - HEADING_SEARCH); s--) {
+            double[] v = firmVelocity(path, s);
+            if (v[1] >= HEADING_FULL_SPEED) {
+                yaw = (float) v[0];
+                found = true;
+                break;
+            }
+        }
+        for (int s = s0 + 1; !found && s <= Math.min(last, s0 + HEADING_SEARCH); s++) {
+            double[] v = firmVelocity(path, s);
+            if (v[1] >= HEADING_FULL_SPEED) {
+                yaw = (float) v[0];
+                found = true;
+            }
+        }
+        cache.put(s0, yaw);
+        return yaw;
+    }
+
+    /**
+     * {@link #heading} that holds through a hover (opt-in; {@link #heading} is unchanged). Below
+     * {@link #HEADING_HOLD_SPEED} of firm horizontal speed ({@link #firmVelocity}) it keeps the last forward heading:
+     * the yaw at the latest whole tick at full speed before t, else the first one after t, else 0. From
+     * {@link #HEADING_FULL_SPEED} it is exactly {@link #heading}'s chord yaw. In between it turns from the held heading
+     * to the chord yaw by a smoothstep of the speed. Pure, so a late joiner agrees. Mirror:
+     * {@code scene_engine.broom_heading_held}.
+     */
+    public static float heldHeading(Track path, double t) {
+        if (path == null || path.keys().size() < 2) return heading(path, t);
+        double[] v = firmVelocity(path, t);
+        double w = smooth((v[1] - HEADING_HOLD_SPEED) / (HEADING_FULL_SPEED - HEADING_HOLD_SPEED));
+        if (w >= 1) return (float) v[0];
+        float held = heldYaw(path, t);
+        double d = ((v[0] - held) % 360 + 540) % 360 - 180;
+        return (float) (held + d * w);
+    }
+
     /**
      * The ridden hover bob (blocks, added to the broom's height): {@link #BOB_AMPLITUDE} at {@link #BOB_HZ}, its phase
      * from {@code seed}, fading out smoothly to 0 at {@link #BOB_FADE_SPEED}.

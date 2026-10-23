@@ -558,4 +558,38 @@ class CrowdTest {
         assertEquals(a.size(), b.size());
         assertNotEquals(0, a.size());
     }
+
+    /**
+     * The triwizard style (the First Task's stands): in 2,000 seats the four houses hold 70% between them (17.5% each),
+     * Beauxbatons 15% and Durmstrang 15%, each within 4 points; the seat layout is the same as any other style's, and no
+     * other style ever seats a visiting school.
+     */
+    @Test
+    void triwizardStyleMixesSchools() {
+        float[][] rows = bowl(30, 40, 30);
+        Crowd c = Crowd.layout(rows, AT, "triwizard", 1, 2000, 17L);
+        assertEquals(2000, c.size());
+        int[] n = new int[6];
+        for (int i = 0; i < c.size(); i++) n[c.house(i)]++;
+        int houses = n[0] + n[1] + n[2] + n[3];
+        assertEquals(0.70, houses / 2000.0, 0.04, "the four houses " + java.util.Arrays.toString(n));
+        assertEquals(0.15, n[Crowd.BEAUXBATONS] / 2000.0, 0.04, "Beauxbatons " + java.util.Arrays.toString(n));
+        assertEquals(0.15, n[Crowd.DURMSTRANG] / 2000.0, 0.04, "Durmstrang " + java.util.Arrays.toString(n));
+        for (int h = 0; h < 4; h++) assertEquals(0.175, n[h] / 2000.0, 0.04, "house " + h);
+        // The same seats as the mixed style: the style only picks colours.
+        Crowd m = Crowd.layout(rows, AT, "mixed", 1, 2000, 17L);
+        assertEquals(m.size(), c.size());
+        for (int i = 0; i < c.size(); i++) {
+            assertEquals(m.x(i), c.x(i));
+            assertEquals(m.z(i), c.z(i));
+            assertEquals(m.yaw(i), c.yaw(i));
+            assertEquals(m.outfit(i), c.outfit(i));
+            assertTrue(m.house(i) < 4, "mixed seats only the four houses");
+        }
+        for (String style : new String[]{"gryffindor", "hufflepuff", "ravenclaw", "slytherin"}) {
+            Crowd one = Crowd.layout(rows, AT, style, 1, 200, 17L);
+            for (int i = 0; i < one.size(); i++) assertEquals(Crowd.STYLES.indexOf(style), one.house(i), style);
+        }
+        assertTrue(Crowd.STYLES.contains("triwizard"));
+    }
 }

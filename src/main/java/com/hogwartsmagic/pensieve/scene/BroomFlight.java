@@ -69,17 +69,21 @@ public final class BroomFlight {
      */
     public static final double[] BOX_SCHOOL = {-0.156, -0.381, -1.969, 0.156, 0.166, 1.678};
     public static final double[] BOX_RACING = {-0.344, -0.508, -1.744, 0.344, 0.368, 1.217};
+    /** The Firebolt's (BroomModelV2's Firebolt layer, wisp and stirrups included); BroomFlightTest measures it. */
+    public static final double[] BOX_FIREBOLT = {-0.350, -0.521, -2.270, 0.350, 0.218, 1.595};
 
     /** A broom's pose: its root (scene-relative, the bob included), yaw, pitch and roll in degrees, M, its path speed. */
     public record Pose(double x, double y, double z, float yaw, float pitch, float roll, double[] m, double speed) {
     }
 
     public static boolean isBroom(String type) {
-        return SceneNames.BROOM_ACTOR.equals(type) || SceneNames.RACING_BROOM_ACTOR.equals(type);
+        return SceneNames.BROOM_ACTOR.equals(type) || SceneNames.RACING_BROOM_ACTOR.equals(type)
+                || SceneNames.FIREBOLT_BROOM_ACTOR.equals(type);
     }
 
     public static double[] box(String type) {
-        return SceneNames.RACING_BROOM_ACTOR.equals(type) ? BOX_RACING : BOX_SCHOOL;
+        return SceneNames.FIREBOLT_BROOM_ACTOR.equals(type) ? BOX_FIREBOLT
+                : SceneNames.RACING_BROOM_ACTOR.equals(type) ? BOX_RACING : BOX_SCHOOL;
     }
 
     /** The rider's path offset at rest on a broom of scale 1: hips over the seat point, thighs on the seat top. */

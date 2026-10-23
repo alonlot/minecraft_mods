@@ -382,6 +382,33 @@ class SceneDataTest {
         assertTrue(names.items().contains("hogwartsmagic:whistle"));
     }
 
+    /** The Firebolt, the golden egg, the champion's robes and the egg prop are all names a scene may use. */
+    @Test
+    void harvestKnowsTheFirstTaskProps() throws Exception {
+        SceneNames names = harvest();
+        assertTrue(names.entityTypes().contains("hogwartsmagic:memory_broom_firebolt"));
+        assertTrue(names.entityTypes().contains("hogwartsmagic:memory_golden_egg"));
+        assertTrue(names.items().contains("hogwartsmagic:golden_egg_prop"));
+        assertTrue(names.items().contains("hogwartsmagic:triwizard_robes"));
+    }
+
+    /**
+     * The First Task props dev scene (build_scripts/pensieve_scenes/dev_first_task_props.py into the ignored
+     * run/pensieve_dev) validates like a shipped one: a Firebolt with the champion in her robes, the golden egg, the
+     * held egg prop and a triwizard crowd. Skipped where it has not been generated.
+     */
+    @Test
+    void devFirstTaskPropsSceneValidates() throws Exception {
+        Path f = Path.of("run/pensieve_dev/dev_first_task_props.json");
+        org.junit.jupiter.api.Assumptions.assumeTrue(Files.exists(f),
+                "run/pensieve_dev/dev_first_task_props.json not generated (python build_scripts/pensieve_scenes/dev_first_task_props.py)");
+        SceneDef def = SceneParser.parse("dev_first_task_props", JsonParser.parseString(read(f)).getAsJsonObject());
+        assertEquals(List.of(), SceneValidator.validate(def, harvest()));
+        assertTrue(def.actors().stream().anyMatch(a -> "hogwartsmagic:memory_broom_firebolt".equals(a.type())));
+        assertTrue(def.actors().stream().anyMatch(a -> "hogwartsmagic:memory_golden_egg".equals(a.type())));
+        assertTrue(def.events().stream().anyMatch(e -> "crowd".equals(e.id()) && "triwizard".equals(e.style())));
+    }
+
     /**
      * The balls dev scene (build_scripts/pensieve_scenes/dev_balls.py into the ignored run/pensieve_dev) validates like
      * a shipped one. Skipped where it has not been generated.

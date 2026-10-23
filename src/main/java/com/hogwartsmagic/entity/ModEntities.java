@@ -121,6 +121,8 @@ public class ModEntities {
             ENTITY_TYPES.register("memory_broom", () -> memoryBroom("memory_broom"));
     public static final RegistryObject<EntityType<MemoryBroomEntity>> MEMORY_BROOM_RACING =
             ENTITY_TYPES.register("memory_broom_racing", () -> memoryBroom("memory_broom_racing"));
+    public static final RegistryObject<EntityType<MemoryBroomEntity>> MEMORY_BROOM_FIREBOLT =
+            ENTITY_TYPES.register("memory_broom_firebolt", () -> memoryBroom("memory_broom_firebolt"));
 
     /** The Quidditch balls and the Remembrall, as memory actors (the path is the ball centre): see MemoryBall. */
     public static final RegistryObject<EntityType<MemoryBallEntity.Quaffle>> MEMORY_QUAFFLE =
@@ -129,6 +131,9 @@ public class ModEntities {
             ENTITY_TYPES.register("memory_bludger", () -> ball(MemoryBallEntity.Bludger::new, "memory_bludger"));
     public static final RegistryObject<EntityType<MemoryBallEntity.Remembrall>> MEMORY_REMEMBRALL =
             ENTITY_TYPES.register("memory_remembrall", () -> ball(MemoryBallEntity.Remembrall::new, "memory_remembrall"));
+    /** The golden egg of the First Task, a memory actor (the path is its centre): see GoldenEgg. */
+    public static final RegistryObject<EntityType<MemoryBallEntity.GoldenEgg>> MEMORY_GOLDEN_EGG =
+            ENTITY_TYPES.register("memory_golden_egg", () -> ball(MemoryBallEntity.GoldenEgg::new, "memory_golden_egg"));
 
     /** A memory ball type: its eye is its origin, the ball centre. */
     private static <T extends MemoryBallEntity> EntityType<T> ball(EntityType.EntityFactory<T> factory, String id) {

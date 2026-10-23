@@ -33,7 +33,15 @@ public final class Crowd {
     /** The most spectators a scene's {@code crowd} events may seat between them. */
     public static final int MAX_SPECTATORS = 4000;
     /** The {@code style} names of a {@code crowd}: whose colours the robes, scarves and flags are. */
-    public static final List<String> STYLES = List.of("gryffindor", "hufflepuff", "ravenclaw", "slytherin", "mixed");
+    public static final List<String> STYLES = List.of("gryffindor", "hufflepuff", "ravenclaw", "slytherin", "mixed",
+            "triwizard");
+    /**
+     * The {@code triwizard} style (the First Task's stands): the four houses share {@link #TRIWIZARD_HOUSES} of the
+     * crowd between them, Beauxbatons (powder blue) {@link #TRIWIZARD_BEAUXBATONS} and Durmstrang (blood red with brown
+     * fur) the rest. House ids 4 and 5.
+     */
+    public static final double TRIWIZARD_HOUSES = 0.70, TRIWIZARD_BEAUXBATONS = 0.15;
+    public static final int BEAUXBATONS = 4, DURMSTRANG = 5;
     /** The {@code style} names of a {@code crowd_react}; the index is the reaction kind. */
     public static final List<String> REACTIONS = List.of("cheer", "goal", "gasp", "erupt", "chant", "sit");
     public static final int CHEER = 0, GOAL = 1, GASP = 2, ERUPT = 3, CHANT = 4, SIT = 5;
@@ -254,7 +262,8 @@ public final class Crowd {
             c.yaw[i] = (float) s[3];
             c.scale[i] = (float) s[4];
             c.standing[i] = s[5] > 0;
-            c.house[i] = (byte) (houseStyle < 4 ? houseStyle : Math.min(3, (int) (unit(seed, r, k, SALT_HOUSE) * 4)));
+            c.house[i] = (byte) (houseStyle < 4 ? houseStyle : houseStyle == 5
+                    ? triwizardHouse(unit(seed, r, k, SALT_HOUSE)) : Math.min(3, (int) (unit(seed, r, k, SALT_HOUSE) * 4)));
             double o = unit(seed, r, k, SALT_OUTFIT);
             c.outfit[i] = (byte) (o < 0.55 ? JUMPER : o < 0.8 ? ROBE : SECOND);
             c.skin[i] = (byte) Math.min(5, (int) (unit(seed, r, k, SALT_SKIN) * 6));
@@ -271,6 +280,12 @@ public final class Crowd {
             c.cheerDraw[i] = (float) unit(seed, r, k, SALT_CHEER);
         }
         return c;
+    }
+
+    /** The school a {@code triwizard} spectator at house draw u (in [0, 1)) belongs to: a house id 0 to 3, 4 or 5. */
+    static int triwizardHouse(double u) {
+        if (u < TRIWIZARD_HOUSES) return Math.min(3, (int) (u / TRIWIZARD_HOUSES * 4));
+        return u < TRIWIZARD_HOUSES + TRIWIZARD_BEAUXBATONS ? BEAUXBATONS : DURMSTRANG;
     }
 
     private static boolean blocksAny(double[] stander, List<Draft> scene) {
@@ -653,7 +668,7 @@ public final class Crowd {
         return standing[i];
     }
 
-    /** 0 Gryffindor, 1 Hufflepuff, 2 Ravenclaw, 3 Slytherin. */
+    /** 0 Gryffindor, 1 Hufflepuff, 2 Ravenclaw, 3 Slytherin, 4 Beauxbatons, 5 Durmstrang (the last two: triwizard only). */
     public int house(int i) {
         return house[i];
     }

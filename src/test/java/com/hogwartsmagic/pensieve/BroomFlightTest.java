@@ -4,6 +4,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.hogwartsmagic.client.BroomModelV2;
 import com.hogwartsmagic.pensieve.scene.BroomFlight;
 import com.hogwartsmagic.pensieve.scene.Ease;
 import com.hogwartsmagic.pensieve.scene.HumanMotion;
@@ -12,6 +13,11 @@ import com.hogwartsmagic.pensieve.scene.SceneDef;
 import com.hogwartsmagic.pensieve.scene.SceneParser;
 import com.hogwartsmagic.pensieve.scene.Track;
 import com.hogwartsmagic.pensieve.scene.Vehicle;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.client.model.geom.builders.LayerDefinition;
+import net.minecraft.util.RandomSource;
+import org.joml.Vector4f;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
@@ -244,48 +250,81 @@ class BroomFlightTest {
         assertEquals(40, cases.size());
         int ridden = 0, windowed = 0;
         for (JsonElement ce : cases) {
-            JsonObject c = ce.getAsJsonObject();
-            SceneDef s = scenes.get(c.get("scene").getAsString());
-            float t = c.get("t").getAsFloat();
-            String at = c.get("scene").getAsString() + " t " + t;
-            SceneDef.ActorDef b = s.actors().get(0), r = s.actors().get(1);
-            BroomFlight.Pose p = BroomFlight.place(s, b, t);
-            double[] pos = doubles(c.get("pos"));
-            close(pos[0], p.x(), 1e-3, at + " x");
-            close(pos[1], p.y(), 1e-3, at + " y");
-            close(pos[2], p.z(), 1e-3, at + " z");
-            close(c.get("yaw").getAsDouble(), p.yaw(), 0.02, at + " yaw");
-            close(c.get("pitch").getAsDouble(), p.pitch(), 0.02, at + " pitch");
-            close(c.get("roll").getAsDouble(), p.roll(), 0.02, at + " roll");
-            close(c.get("speed").getAsDouble(), p.speed(), 1e-4, at + " speed");
-            close(c.get("bank").getAsDouble(), BroomFlight.bank(b.path(), t), 0.02, at + " bank");
-            close(c.get("climb").getAsDouble(), BroomFlight.climb(b.path(), t), 0.02, at + " climb");
-            close(c.get("heading").getAsDouble(), BroomFlight.heading(b.path(), t), 0.02, at + " heading");
-            close(c.get("seed_bob").getAsDouble(), BroomFlight.hoverBob(0, t, HumanMotion.seed("b")), 1e-9, at + " bob");
-            double[] root = doubles(c.get("rider_root"));
-            double[] jr = Vehicle.root(s, r, t);
-            for (int i = 0; i < 3; i++) close(root[i], jr[i], 1e-3, at + " rider root " + i);
-            Vehicle.Seat seat = Vehicle.seat(s, r, t);
-            if (c.get("rider_m").isJsonNull()) {
-                assertNull(seat, at);
-            } else {
-                assertNotNull(seat, at);
-                ridden++;
-                double[] m = doubles(c.get("rider_m"));
-                for (int i = 0; i < 9; i++) close(m[i], seat.m()[i], 1e-3, at + " m" + i);
-                double w = c.get("rider_weight").getAsDouble();
-                close(w, seat.weight(), 1e-5, at + " weight");
-                if (w < 1) windowed++;
-            }
-            float[][] pose = BroomFlight.riderPose(p.speed(), p.pitch());
-            JsonArray want = c.getAsJsonArray("rider_pose");
-            for (int part = 0; part < 6; part++) {
-                double[] wv = doubles(want.get(part));
-                for (int i = 0; i < 3; i++) close(wv[i], pose[part][i], 0.02, at + " pose " + part + "." + i);
-            }
+            int[] r = checkCase(scenes, ce.getAsJsonObject());
+            ridden += r[0];
+            windowed += r[1];
         }
         assertTrue(ridden > 30, "most cases are ridden: " + ridden);
         assertTrue(windowed > 0, "a case falls in a window's easing");
+    }
+
+    /** One parity case against the Java: the broom's pose, the rider's root, frame, weight and pose. Returns {ridden, windowed}. */
+    private static int[] checkCase(Map<String, SceneDef> scenes, JsonObject c) {
+        int ridden = 0, windowed = 0;
+        SceneDef s = scenes.get(c.get("scene").getAsString());
+        float t = c.get("t").getAsFloat();
+        String at = c.get("scene").getAsString() + " t " + t;
+        SceneDef.ActorDef b = s.actors().get(0), r = s.actors().get(1);
+        BroomFlight.Pose p = BroomFlight.place(s, b, t);
+        double[] pos = doubles(c.get("pos"));
+        close(pos[0], p.x(), 1e-3, at + " x");
+        close(pos[1], p.y(), 1e-3, at + " y");
+        close(pos[2], p.z(), 1e-3, at + " z");
+        close(c.get("yaw").getAsDouble(), p.yaw(), 0.02, at + " yaw");
+        close(c.get("pitch").getAsDouble(), p.pitch(), 0.02, at + " pitch");
+        close(c.get("roll").getAsDouble(), p.roll(), 0.02, at + " roll");
+        close(c.get("speed").getAsDouble(), p.speed(), 1e-4, at + " speed");
+        close(c.get("bank").getAsDouble(), BroomFlight.bank(b.path(), t), 0.02, at + " bank");
+        close(c.get("climb").getAsDouble(), BroomFlight.climb(b.path(), t), 0.02, at + " climb");
+        close(c.get("heading").getAsDouble(), BroomFlight.heading(b.path(), t), 0.02, at + " heading");
+        close(c.get("seed_bob").getAsDouble(), BroomFlight.hoverBob(0, t, HumanMotion.seed("b")), 1e-9, at + " bob");
+        double[] root = doubles(c.get("rider_root"));
+        double[] jr = Vehicle.root(s, r, t);
+        for (int i = 0; i < 3; i++) close(root[i], jr[i], 1e-3, at + " rider root " + i);
+        Vehicle.Seat seat = Vehicle.seat(s, r, t);
+        if (c.get("rider_m").isJsonNull()) {
+            assertNull(seat, at);
+        } else {
+            assertNotNull(seat, at);
+            ridden = 1;
+            double[] m = doubles(c.get("rider_m"));
+            for (int i = 0; i < 9; i++) close(m[i], seat.m()[i], 1e-3, at + " m" + i);
+            double w = c.get("rider_weight").getAsDouble();
+            close(w, seat.weight(), 1e-5, at + " weight");
+            if (w < 1) windowed = 1;
+        }
+        float[][] pose = BroomFlight.riderPose(p.speed(), p.pitch());
+        JsonArray want = c.getAsJsonArray("rider_pose");
+        for (int part = 0; part < 6; part++) {
+            double[] wv = doubles(want.get(part));
+            for (int i = 0; i < 3; i++) close(wv[i], pose[part][i], 0.02, at + " pose " + part + "." + i);
+        }
+        return new int[]{ridden, windowed};
+    }
+
+    /**
+     * Six Firebolt cases (firebolt_cases.json, written by first_task_props.py: the same scenes as the school and
+     * Nimbus cases flown on a Firebolt) agree with the Java: the frame, the bank, the rider's seat and pose are the
+     * same maths for every broom, and the box constants are the model's.
+     */
+    @Test
+    void fireboltMirrorAgrees() throws Exception {
+        JsonObject all = JsonParser.parseString(Files.readString(
+                Path.of("build_scripts/pensieve_scenes/firebolt_cases.json"))).getAsJsonObject();
+        JsonArray box = all.getAsJsonObject("constants").getAsJsonArray("BOX_FIREBOLT");
+        for (int i = 0; i < 6; i++) {
+            assertEquals(BroomFlight.BOX_FIREBOLT[i], box.get(i / 3).getAsJsonArray().get(i % 3).getAsDouble(), 0);
+        }
+        Map<String, SceneDef> scenes = new HashMap<>();
+        for (Map.Entry<String, JsonElement> e : all.getAsJsonObject("scenes").entrySet()) {
+            scenes.put(e.getKey(), SceneParser.parse(e.getKey(), e.getValue().getAsJsonObject()));
+            assertEquals("hogwartsmagic:memory_broom_firebolt", scenes.get(e.getKey()).actors().get(0).type());
+        }
+        JsonArray cases = all.getAsJsonArray("cases");
+        assertEquals(6, cases.size());
+        int ridden = 0;
+        for (JsonElement ce : cases) ridden += checkCase(scenes, ce.getAsJsonObject())[0];
+        assertTrue(ridden >= 5, "most Firebolt cases are ridden: " + ridden);
     }
 
     // ---- the grip, the head turn, the seated life -------------------------------------------------------------------
@@ -306,6 +345,66 @@ class BroomFlightTest {
 
     @Test
     void handsOnHandle() {
+        gripsTheHandle(1 / 16.0);
+    }
+
+    /**
+     * The Firebolt's handle is the real model's body cube: its radius and its height (the model's axis, 16.8 px, the
+     * seat point of every broom) are read from BroomModelV2's Firebolt layer, and the riders' grip, which is the
+     * school broom's, must hold on it at every rider scale (0.85, the champion's, among them), speed and dive pitch.
+     */
+    @Test
+    void fireboltHandsOnHandle() {
+        ModelPart root = BroomModelV2.createFireboltLayer().bakeRoot();
+        ModelPart broom = root.getChild("broom");
+        assertEquals(16.8, broom.y, 1e-4, "the handle axis is the school broom's, 16.8 px up the model");
+        ModelPart.Cube body = root.getChild("broom").getChild("body").getRandomCube(RandomSource.create(1));
+        assertEquals(body.maxX - body.minX, body.maxY - body.minY, 1e-6, "a square handle");
+        assertEquals(0, body.minX + body.maxX, 1e-6, "centred on the axis");
+        assertEquals(0, body.minY + body.maxY, 1e-6, "centred on the axis");
+        double radius = (body.maxX - body.minX) / 2 / 16.0;
+        assertEquals(1 / 16.0, radius, 1e-9, "the Firebolt handle is as thick as the school broom's");
+        gripsTheHandle(radius);
+    }
+
+    /** The model boxes in the broom frame (what the renderer draws), measured from the baked layer. */
+    private static double[] modelBox(LayerDefinition layer) {
+        ModelPart root = layer.bakeRoot();
+        double[] box = {1e9, 1e9, 1e9, -1e9, -1e9, -1e9};
+        root.visit(new PoseStack(), (pose, path, index, cube) -> {
+            for (int i = 0; i < 8; i++) {
+                Vector4f v = new Vector4f((i & 1) == 0 ? cube.minX / 16f : cube.maxX / 16f,
+                        (i >> 1 & 1) == 0 ? cube.minY / 16f : cube.maxY / 16f,
+                        (i >> 2 & 1) == 0 ? cube.minZ / 16f : cube.maxZ / 16f, 1f).mul(pose.pose());
+                // The renderer's map: model (x, y, z) -> (x, 16.8 px - y, -z).
+                double x = v.x, y = 1.05 - v.y, z = -v.z;
+                double[] p = {x, y, z};
+                for (int k = 0; k < 3; k++) {
+                    box[k] = Math.min(box[k], p[k]);
+                    box[3 + k] = Math.max(box[3 + k], p[k]);
+                }
+            }
+        });
+        return box;
+    }
+
+    /** BOX_SCHOOL, BOX_RACING and BOX_FIREBOLT are the three real layers' bounds in the broom frame. */
+    @Test
+    void broomBoxesMatchTheModelLayers() {
+        double[][] want = {BroomFlight.BOX_SCHOOL, BroomFlight.BOX_RACING, BroomFlight.BOX_FIREBOLT};
+        LayerDefinition[] layers = {BroomModelV2.createTrainingLayer(), BroomModelV2.createNimbusLayer(),
+                BroomModelV2.createFireboltLayer()};
+        for (int b = 0; b < 3; b++) {
+            double[] got = modelBox(layers[b]);
+            for (int i = 0; i < 6; i++) {
+                assertEquals(want[b][i], got[i], 0.0011, "broom " + b + " bound " + i);
+            }
+        }
+        assertEquals(BroomFlight.BOX_FIREBOLT, BroomFlight.box("hogwartsmagic:memory_broom_firebolt"));
+        assertTrue(BroomFlight.isBroom("hogwartsmagic:memory_broom_firebolt"));
+    }
+
+    private void gripsTheHandle(double handleRadius) {
         // The whole fist (the arm's last 4 px with its sleeve, wide and slim arms) against the whole thigh (with its
         // pants), both ways over their faces, and against the handle, at every rider scale, speed and dive pitch.
         double worstGap = -9, deepest = 9, leastClear = 9;
@@ -314,7 +413,7 @@ class BroomFlightTest {
             for (double scale : new double[]{0.75, 0.85, 1.0}) {
                 double k = HumanMotion.pxBlocks(scale);
                 double axisY = HumanMotion.HIP_PX + (BroomFlight.SEAT_TOP + HumanMotion.legHalfWidth(scale)) / k;
-                double radius = (1 / 16.0) / k;
+                double radius = handleRadius / k;
                 for (double speed = 0; speed <= 0.6001; speed += 0.15) {
                     for (double pitch : new double[]{0, 20, 25, 30, 35, 45, 70}) {
                         float armY = slim ? 2.5f : 2f;

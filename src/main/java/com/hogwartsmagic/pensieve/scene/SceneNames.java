@@ -30,8 +30,10 @@ public record SceneNames(Set<String> entityTypes, Set<String> spells, Set<String
     public static final String ROWBOAT_ACTOR = "hogwartsmagic:memory_rowboat";
     /** The school broom and the racing broom (a Nimbus), vehicles an actor may {@code ride} (see {@link BroomFlight}). */
     public static final String BROOM_ACTOR = "hogwartsmagic:memory_broom", RACING_BROOM_ACTOR = "hogwartsmagic:memory_broom_racing";
+    /** The Firebolt (BroomModelV2's Firebolt layer), a third broom type: the champion's broom of the First Task. */
+    public static final String FIREBOLT_BROOM_ACTOR = "hogwartsmagic:memory_broom_firebolt";
     /** Every type an actor may {@code ride} (see {@link Vehicle}). */
-    public static final Set<String> VEHICLES = Set.of(ROWBOAT_ACTOR, BROOM_ACTOR, RACING_BROOM_ACTOR);
+    public static final Set<String> VEHICLES = Set.of(ROWBOAT_ACTOR, BROOM_ACTOR, RACING_BROOM_ACTOR, FIREBOLT_BROOM_ACTOR);
     /**
      * The Hungarian Horntail as a memory actor (see {@link DragonFlight} and {@link HorntailCues}): her {@code path} is
      * the ground point under her body, her {@code anims} cues are her attack states ({@link #HORNTAIL_ANIMS}).
@@ -41,7 +43,7 @@ public record SceneNames(Set<String> entityTypes, Set<String> spells, Set<String
     public static final java.util.List<String> HORNTAIL_ANIMS = java.util.List.of("IDLE", "FLY", "TAKEOFF", "LAND",
             "ROAR", "BITE", "TAIL_WHIP", "BREATH_WINDUP", "BREATH", "WING_GUST", "DIVE", "STAGGER", "AIR_BREATH");
     /** The types whose {@code look} may give a {@code roll}: the block actor, the brooms and the Horntail. */
-    public static final Set<String> ROLL_TYPES = Set.of(BLOCK_ACTOR, BROOM_ACTOR, RACING_BROOM_ACTOR, HORNTAIL_ACTOR);
+    public static final Set<String> ROLL_TYPES = Set.of(BLOCK_ACTOR, BROOM_ACTOR, RACING_BROOM_ACTOR, FIREBOLT_BROOM_ACTOR, HORNTAIL_ACTOR);
     /**
      * The Quidditch balls and the Remembrall (see {@link MemoryBall}): the path is the ball centre, and each rolls on
      * its own by the distance it travels, so none takes a look {@code roll} (they are not in {@link #ROLL_TYPES}).
@@ -49,6 +51,11 @@ public record SceneNames(Set<String> entityTypes, Set<String> spells, Set<String
     public static final String QUAFFLE_ACTOR = "hogwartsmagic:memory_quaffle", BLUDGER_ACTOR = "hogwartsmagic:memory_bludger",
             REMEMBRALL_ACTOR = "hogwartsmagic:memory_remembrall";
     public static final Set<String> BALLS = Set.of(QUAFFLE_ACTOR, BLUDGER_ACTOR, REMEMBRALL_ACTOR);
+    /**
+     * The golden egg (see {@link GoldenEgg}): the path is its centre. It stands upright, is the same from every side
+     * (so a yaw shows nothing) and takes no roll; it is not a ball (it does not roll), but it is read as a fast mover.
+     */
+    public static final String GOLDEN_EGG_ACTOR = "hogwartsmagic:memory_golden_egg";
     /** A rain box's half-size range, each axis, in blocks. */
     public static final float MIN_RAIN_SPREAD = 1f, MAX_RAIN_SPREAD = 200f;
     /** The letter_flood effect's letter count (1 to this) and each room half-size (blocks). */

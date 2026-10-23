@@ -20,7 +20,8 @@ class SceneValidatorTest {
             Set.of("hogwartsmagic:basilisk", "minecraft:zombie", "player", "hogwartsmagic:memory_rowboat",
                     "hogwartsmagic:memory_broom", "hogwartsmagic:memory_broom_racing", "hogwartsmagic:memory_block",
                     "hogwartsmagic:memory_quaffle", "hogwartsmagic:memory_bludger", "hogwartsmagic:memory_remembrall",
-                    "hogwartsmagic:golden_snitch", "hogwartsmagic:memory_horntail"), Set.of("stupefy"),
+                    "hogwartsmagic:golden_snitch", "hogwartsmagic:memory_horntail", "hogwartsmagic:memory_broom_firebolt",
+                    "hogwartsmagic:memory_golden_egg"), Set.of("stupefy"),
             Set.of("minecraft:entity.generic.explode", "hogwartsmagic:pensieve.music.m", "hogwartsmagic:pensieve.voice.v", "hogwartsmagic:pensieve.sfx.x"), Set.of("minecraft:stone"), Set.of("minecraft:stick", "minecraft:air"),
             Set.of("hogwartsmagic:chamber_hall"), Set.of(), Set.of("minecraft:flame"), Set.of());
 
@@ -796,6 +797,31 @@ class SceneValidatorTest {
                 + "{\"id\":\"b\",\"type\":\"hogwartsmagic:memory_bludger\",\"ride\":\"q\"}]}"), "ride");
     }
 
+    @Test
+    void fireboltAndGoldenEggParse() throws Exception {
+        // The Firebolt is a broom: it rolls, carries two riders and cannot carry three; the egg takes a path and a yaw only.
+        String fire = "hogwartsmagic:memory_broom_firebolt";
+        assertEquals(List.of(), validate("{\"length\":100,\"actors\":[{\"id\":\"b\",\"type\":\"" + fire + "\","
+                + "\"path\":[{\"t\":0,\"pos\":[0,5,0]},{\"t\":40,\"pos\":[0,6,20],\"ease\":\"spline\"}],"
+                + "\"look\":[{\"t\":0,\"yaw\":10,\"roll\":20}]},"
+                + "{\"id\":\"r\",\"type\":\"player\",\"scale\":0.85,\"ride\":\"b\"}]}"));
+        assertMessage(validate("{\"length\":100,\"actors\":[{\"id\":\"b\",\"type\":\"" + fire + "\"},"
+                + "{\"id\":\"a\",\"type\":\"player\",\"ride\":\"b\"},{\"id\":\"c\",\"type\":\"player\",\"ride\":\"b\"},"
+                + "{\"id\":\"d\",\"type\":\"player\",\"ride\":\"b\"}]}"), "memory_broom_firebolt 'b' carries 3 riders");
+        String egg = "hogwartsmagic:memory_golden_egg";
+        assertEquals(List.of(), validate("{\"length\":100,\"actors\":[{\"id\":\"e\",\"type\":\"" + egg + "\",\"scale\":0.85,"
+                + "\"path\":[{\"t\":0,\"pos\":[0,1,0]},{\"t\":20,\"pos\":[3,2,1],\"ease\":\"spline\"}],"
+                + "\"look\":[{\"t\":0,\"yaw\":10}]}]}"));
+        assertMessage(validate("{\"length\":100,\"actors\":[{\"id\":\"e\",\"type\":\"" + egg
+                + "\",\"look\":[{\"t\":0,\"yaw\":10,\"roll\":35}]}]}"), "roll is only for");
+        assertMessage(validate("{\"length\":100,\"actors\":[{\"id\":\"e\",\"type\":\"" + egg + "\"},"
+                + "{\"id\":\"b\",\"type\":\"player\",\"ride\":\"e\"}]}"), "ride");
+        // Like the balls, the egg must stay under the cut speed.
+        assertEquals(List.of(), validate(mover(egg, "{\"t\":0,\"pos\":[0,2,0]},{\"t\":20,\"pos\":[38,2,0],\"ease\":\"linear\"}")));
+        assertMessage(validate(mover(egg, "{\"t\":0,\"pos\":[0,2,0]},{\"t\":20,\"pos\":[60,2,0],\"ease\":\"linear\"}")),
+                "moves 3.0 blocks in a tick");
+    }
+
     private static String mover(String type, String keys) {
         return "{\"length\":100,\"actors\":[{\"id\":\"m\",\"type\":\"" + type + "\",\"path\":[" + keys + "]}]}";
     }
@@ -855,7 +881,7 @@ class SceneValidatorTest {
 
     @Test
     void crowdStyleNames() throws Exception {
-        for (String s : new String[] {"gryffindor", "hufflepuff", "ravenclaw", "slytherin", "mixed"}) {
+        for (String s : new String[] {"gryffindor", "hufflepuff", "ravenclaw", "slytherin", "mixed", "triwizard"}) {
             assertEquals(List.of(), validate(crowdScene("{\"t\":0,\"kind\":\"effect\",\"id\":\"crowd\",\"at\":[0,0,0],\"style\":\""
                     + s + "\",\"intensity\":0.5,\"count\":10,\"rows\":" + ROW + "}")), s);
         }

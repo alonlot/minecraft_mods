@@ -78,6 +78,7 @@ public final class SceneValidator {
             if (SceneNames.ROWBOAT_ACTOR.equals(scene.actors().get(i).type())) boatSea(out, scene, i, length);
             if (Vehicle.isVehicle(scene.actors().get(i).type())) riders(out, scene, i, length);
             if (MemoryBall.isBall(scene.actors().get(i).type()) || SNITCH.equals(scene.actors().get(i).type())
+                    || GoldenEgg.isEgg(scene.actors().get(i).type())
                     || SceneNames.HORNTAIL_ACTOR.equals(scene.actors().get(i).type())) {
                 fastMover(out, scene.actors().get(i), i);
             }

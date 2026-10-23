@@ -46,6 +46,11 @@ public class MemoryBroomRenderer extends EntityRenderer<MemoryBroomEntity> {
         return new MemoryBroomRenderer(context, BroomModelV2.NIMBUS_LAYER, "broom_nimbus_2000_v2");
     }
 
+    /** The Firebolt: BroomModelV2's Firebolt layer and texture (the champion's broom of the First Task). */
+    public static MemoryBroomRenderer firebolt(EntityRendererProvider.Context context) {
+        return new MemoryBroomRenderer(context, BroomModelV2.FIREBOLT_LAYER, "broom_firebolt_v2");
+    }
+
     @Override
     public ResourceLocation getTextureLocation(MemoryBroomEntity entity) {
         return texture;

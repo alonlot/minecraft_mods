@@ -1103,6 +1103,8 @@ public class ClientModEvents {
         event.registerEntityRenderer(ModEntities.MEMORY_REMEMBRALL.get(), com.hogwartsmagic.client.MemoryBallRenderer::remembrall);
         event.registerEntityRenderer(ModEntities.MEMORY_BROOM.get(), com.hogwartsmagic.client.MemoryBroomRenderer::school);
         event.registerEntityRenderer(ModEntities.MEMORY_BROOM_RACING.get(), com.hogwartsmagic.client.MemoryBroomRenderer::racing);
+        event.registerEntityRenderer(ModEntities.MEMORY_BROOM_FIREBOLT.get(), com.hogwartsmagic.client.MemoryBroomRenderer::firebolt);
+        event.registerEntityRenderer(ModEntities.MEMORY_GOLDEN_EGG.get(), com.hogwartsmagic.client.MemoryEggRenderer::new);
         event.registerEntityRenderer(ModEntities.MEMORY_BANNER_GRYFFINDOR.get(),
                 ctx -> new com.hogwartsmagic.client.MemoryBannerRenderer(ctx, "gryffindor"));
         event.registerEntityRenderer(ModEntities.MEMORY_BANNER_HUFFLEPUFF.get(),

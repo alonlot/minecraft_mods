@@ -35,8 +35,13 @@ public final class CrowdMesh {
     /** Levels of detail. */
     public static final int FULL = 0, MID = 1, STRIP = 2;
 
-    /** House colours, {first, second} per house (0 Gryffindor, 1 Hufflepuff, 2 Ravenclaw, 3 Slytherin): bright enough to read in a storm. */
-    static final int[][] HOUSE = {{0x9E1B1B, 0xDDAA3A}, {0xE8BA30, 0x2E2824}, {0x2A4A9E, 0xB0824A}, {0x1F7340, 0xB8BCC2}};
+    /**
+     * House colours, {first, second} per house (0 Gryffindor, 1 Hufflepuff, 2 Ravenclaw, 3 Slytherin): bright enough to
+     * read in a storm. 4 Beauxbatons (powder blue, silver) and 5 Durmstrang (blood red, brown fur) are visiting schools:
+     * they never wear the black Hogwarts robe, their robe is their first colour.
+     */
+    static final int[][] HOUSE = {{0x9E1B1B, 0xDDAA3A}, {0xE8BA30, 0x2E2824}, {0x2A4A9E, 0xB0824A}, {0x1F7340, 0xB8BCC2},
+            {0x8FB4E4, 0xCBD9EC}, {0x8B1A22, 0x6B4A2F}};
     static final int[] SKIN = {0xF1C9A5, 0xE0AC88, 0xC68863, 0xA86B4A, 0x7D4B32, 0x5A3524};
     static final int[] HAIR = {0x1E1A17, 0x3B2618, 0x6A4426, 0x8A3B1F, 0xC9A25E, 0xB0541E};
     static final int ROBE_BLACK = 0x26262C, TROUSERS = 0x34343C, SHOES = 0x1A1716, POLE = 0x6B4A2B;
@@ -87,7 +92,8 @@ public final class CrowdMesh {
         int h = c.house(i);
         int first = HOUSE[h][0], second = HOUSE[h][1];
         int outfit = c.outfit(i);
-        int body = outfit == Crowd.JUMPER ? first : outfit == Crowd.ROBE ? ROBE_BLACK : second;
+        int robe = h < 4 ? ROBE_BLACK : first;
+        int body = outfit == Crowd.JUMPER ? first : outfit == Crowd.ROBE ? robe : second;
         int skin = SKIN[c.skin(i)], hair = HAIR[c.hair(i)];
         int gear = c.gear(i);
         float raiseL = pose[Crowd.ARM_L], raiseR = pose[Crowd.ARM_R], hands = pose[Crowd.HANDS_HEAD];
@@ -121,7 +127,7 @@ public final class CrowdMesh {
         fill(faces, body);
         box(torsoM, ox, pelvisY, oz, -0.25f * sc, 0, -0.125f * sc, 0.25f * sc, 0.75f * sc, 0.125f * sc, faces, 0b111111, sink);
         // Legs: thighs folded forward on the seat, straight down standing; shins hang from the knee.
-        int legs = outfit == Crowd.ROBE ? ROBE_BLACK : TROUSERS;
+        int legs = outfit == Crowd.ROBE ? robe : TROUSERS;
         copy(yawM, partM);
         rotX(partM, -(1 - s) * (float) (Math.PI / 2));
         fill(faces, legs);

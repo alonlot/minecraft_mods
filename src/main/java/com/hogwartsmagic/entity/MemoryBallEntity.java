@@ -94,4 +94,19 @@ public abstract class MemoryBallEntity extends Entity {
             return SceneNames.REMEMBRALL_ACTOR;
         }
     }
+
+    /**
+     * The golden egg of the First Task (see {@code pensieve/scene/GoldenEgg}). It rides this class for the seed the
+     * memory gives every ball (the glint's clock); it never rolls, and its renderer ignores {@link #roll}.
+     */
+    public static final class GoldenEgg extends MemoryBallEntity {
+        public GoldenEgg(EntityType<? extends MemoryBallEntity> type, Level level) {
+            super(type, level);
+        }
+
+        @Override
+        public String ballType() {
+            return SceneNames.GOLDEN_EGG_ACTOR;
+        }
+    }
 }

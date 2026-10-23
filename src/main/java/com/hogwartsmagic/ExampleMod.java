@@ -882,6 +882,18 @@ public class ExampleMod
             () -> new Item(new Item.Properties().stacksTo(1)));
 
     /**
+     * Display-only props for the First Task memory: the golden egg the champion holds at the grab (its in-hand size is
+     * the memory_golden_egg actor's), and the champion's robes, charcoal with bronze trim and house-neutral. No recipe,
+     * in no creative tab: a scene puts them on a puppet or the viewer with an {@code items} / {@code equip} entry.
+     */
+    public static final RegistryObject<Item> GOLDEN_EGG_PROP = ITEMS.register("golden_egg_prop",
+            () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final RegistryObject<ArmorMaterial> TRIWIZARD_ROBES_MATERIAL = ARMOR_MATERIALS.register("triwizard_robes",
+            () -> createRobeMaterial("triwizard_robes"));
+    public static final RegistryObject<Item> TRIWIZARD_ROBES = ITEMS.register("triwizard_robes",
+            () -> new ArmorItem(TRIWIZARD_ROBES_MATERIAL.getHolder().orElseThrow(), ArmorItem.Type.CHESTPLATE, new Item.Properties().stacksTo(1)));
+
+    /**
      * Gold off a cursed hoard. It burns, and there is always more of it than there was.
      * Deliberately NOT a Galleon: no goblin will take it at face value.
      */

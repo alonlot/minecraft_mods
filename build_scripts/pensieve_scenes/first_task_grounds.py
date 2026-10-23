@@ -16,36 +16,54 @@ Using the set from a scene (first_task_scene.py):
 
 The set
 -------
-  - The arena (centre ARENA_C, floor at stand y 0): a ravine of grey rock, a rounded-rectangle floor about 60 x 44
-    of coarse dirt, gravel and tuff with dragon-scorched patches, scree and loose boulders, closed by cliffs of
-    stone, andesite, tuff and cobble that climb 16 to the rim (stand y 16) with ragged ledges. In it:
-      * the nest east of centre: a heap of boulders with a flat rock shelf at its back where she perches and a
-        bowl in front holding her clutch (vanilla dragon eggs on rock) with a gap for the golden egg;
-      * the hiding rock between the nest and the entrance, a boulder about 3.5 tall with a flat face to the nest;
+  - The arena (centre ARENA_C, floor at stand y AF = -10): a deep ravine, a rounded-rectangle floor about 64 x 48
+    of gravel, tuff and andesite, gently rolling (half steps are slabs, level round the anchors), scorched black
+    round the nest and the hiding rock. Cliffs climb 26 to the rim (stand y 16) over ragged ledges, cut by gullies,
+    with buttresses leaning out from their foot and lips overhanging the drop under the stand fronts. The rock is
+    dark at the foot (cobbled deepslate, deepslate, tuff), andesite and stone with tuff strata up the wall, stone at
+    the lip with moss on the ledges, streaked with basalt and blackstone near the nest and the hiding rock. Big
+    rounded boulders lean on the cliff foot and a few pinnacles stand out on the floor. In it:
+      * the nest east of centre: a crater of head-sized boulders (each one stone) round a bowl dished one below the
+        floor and lined with blackstone and rooted dirt, her clutch (vanilla dragon eggs) on stone in it with a gap
+        for the golden egg, her perch at the back one big flat-topped rock; its west side, toward the entrance and
+        the egg-grab dive, is kept low;
+      * the hiding rock between the nest and the entrance, a boulder 4 tall with a flat face to the nest;
       * the stake behind the nest for her chain;
       * the champions' entrance: a timber-lined tunnel through the west cliff under the west stand.
-  - The stands: four straight timber grandstands on the rim, one on each side, 15 rows each (a seat slab with the
-    next row's deck behind it as the back rest), aisles of stairs, a fascia of school colours along each front,
-    a back wall with posts and beams, flags on poles along the crest. The commentator's booth is at the top of the
-    north stand, and the two cannon platforms are at the top corners of the south stand. Rock crags fill the
-    corners between the stands, lower in the north-east so the castle shows from the arena.
+  - The stands: four timber grandstands on stilts, one on each side, their front rows carried out over the drop on
+    spruce legs footed down the cliff (a rock collar under each foot). Row 0 stands 5 over the rim and the rows climb
+    2 every 2 (45 degrees), so the crowd stacks up into view from the floor. Each stand is a wing of 12 rows, a
+    centre of 15 and a wing of 12, with a one-cell stair between them climbing to a timber stair tower (a pyramid
+    cap and a flag) at the centre's back. Under the decks an open trestle: legs every 4 both ways, ledgers every 4
+    up, X-bracing of stairs in the outer bays, boards on the bottom three courses round a gate. The decks are thin
+    (spruce, dark oak risers), a seat slab on each row with the next row's deck as its back rest, aisles of
+    stairs. Along each front a beam, a fascia of school colours, a rail and banners draped over the lip. Each
+    centre carries a pavilion over its top four rows (gabled wool striped in the stand's colours, its underside 3.5
+    over the seats, banners scalloped from its front beam, flags on its peaks); the wings stay open, so the
+    skyline steps. The commentator's booth is at the top of the north centre (its towers the tallest), the two
+    cannon platforms at the outer ends of the south wings. Rock crags fill the corners between the stands, lower
+    in the north-east so the castle shows from the arena.
   - The ground: a Highland plateau at stand y 16 (grass, moss, coarse dirt, scattered boulders, heather), rising to
     snow-capped mountains round the set's edge so no chase-height camera sees the set end.
   - The castle: the Mini Hogwarts (SCHEMATIC, rotation 180 so its spire face looks west at the arena) on the
     plateau, its crag foot closed with rock, its loose gravel propped.
   - The gorge: a canyon about 36 wide and 38 deep with a stream, running north to south past the castle's west
-    side, rising into the mountains in the north and ending in a head south of the viaduct.
-  - The viaduct: a stone bridge 3 wide across the gorge at z -20, from a watch tower on the west rim to the castle
-    side: a central arch 18 wide over the stream (springing y 2, crown underside y 11, so 33 of air under it),
-    a side arch either way, tall piers on the canyon walls, a parapet. The dragon hits its central span.
+    side, rising into the mountains in the north. South of the viaduct it runs level to z 40, then bends 17 east
+    and climbs to its head at z 70, so the arch frames a long receding canyon under the mountains.
+  - The viaduct: a stone bridge across the gorge at z -20 (a deck 3 wide between parapets), from a round watch
+    tower on the west rim (a corbelled machicolation under its parapet, arrow slits up every side, an oak cone) to
+    a small gate arch at the castle end: a pointed central arch 20 wide over the stream (springing y -2, crown
+    underside y 12, so 34 of air under it) with a dark soffit of deepslate tiles and a voussoir ring a cell proud of
+    both faces under a hood mould, a pointed side arch either way, tall piers on the canyon walls, a parapet on a
+    corbel course with lamp piers every 4. The dragon hits its central span.
 
 ANCHORS format
 --------------
 Every coordinate is a SCENE coordinate (template local + TEMPLATE_AT). The arena floor is the block layer at
-y -1, so anyone on it stands at y 0 (ground_y); the plateau outside stands at y 16 (plateau_y). yaw is
+y -11, so anyone on it stands at y -10 (ground_y); the plateau outside stands at y 16 (plateau_y). yaw is
 Minecraft's: 0 faces +Z (south), 90 -X (west), 180 -Z (north), -90 +X (east).
 
-  ground_y, plateau_y  0.0 and 16.0
+  ground_y, plateau_y  -10.0 and 16.0
   nest_centre      [x, y, z] the middle of the nest at floor level
   nest_perch       {pos: [x, y, z] the point between her feet on the rock shelf (y on its top), yaw: 90 (facing
                    west, at the entrance and the hiding rock), shelf: [[x1, y1, z1], [x2, y2, z2]] its top's
@@ -57,12 +75,13 @@ Minecraft's: 0 faces +Z (south), 90 -X (west), 180 -Z (north), -90 +X (east).
   hide_rock        {spot: [x, y, z] the viewer's crouch behind it, face_centre, face_normal, face_box:
                    [[x1, y1, z1], [x2, y2, z2]] the flat face toward the nest, top_y}
   stake            [x, y, z] the top of the chain's post (where the last link hooks)
-  cannon_spots     2 x {muzzle: [x, y, z], dir: [dx, dy, dz], smoke: [x, y, z]} on the south stand's corners
+  cannon_spots     2 x {muzzle: [x, y, z], dir: [dx, dy, dz], smoke: [x, y, z]} at the south wings' outer ends
   stands           [{name, school, facing_yaw, rows: [[x1, y1, z1, x2, y2, z2], ...]}] seat-top segments
-                   (bottom slabs, 2 air above), split at the aisles; figures face facing_yaw
+                   (bottom slabs, 3.5 clear above), split at the aisles and sections; figures face facing_yaw
   commentator_box  {stand: [x, y, z], yaw, look: [x, y, z]} the booth's front at the top of the north stand
-  broom_lane       [[x, y, z], ...] spline waypoints for the Firebolt from the north-east, over the north stand,
-                   down to the hiding rock (the last point is beside the rock, 1.3 above the floor)
+  broom_lane       [[x, y, z], ...] spline waypoints for the Firebolt from the north-east, in over the corner
+                   between the north and east stands, down to the hiding rock (the last point is beside the rock,
+                   2.2 above the floor)
   arena_air_box    [[x1, y1, z1], [x2, y2, z2]] an all-air box over the arena floor (above the nest)
   launch_lane      [[x, y, z], ...] her climb out of the arena over the north-east crags toward the castle
   castle_route     [[x, y, z], ...] air waypoints over and between the towers, each 6 or more from every block
@@ -359,18 +378,24 @@ STAND_COLS = stand_footprint()
 
 
 # ---------------------------------------------------------------- the gorge
+GORGE_LEVEL_Z = 40                      # the floor is level from the mountains to here, south of the viaduct
+GORGE_BEND = (38, 32, 17.0)             # past z 38 the canyon bends east, 17 over the next 32
+
+
 def gorge_cx(z):
-    return -1.0 + 4.0 * math.sin(z / 37.0) + 2.0 * math.sin(z / 13.0 + 1.0)
+    b0, blen, bx = GORGE_BEND
+    t = clamp((z - b0) / float(blen), 0.0, 1.0)
+    return -1.0 + 4.0 * math.sin(z / 37.0) + 2.0 * math.sin(z / 13.0 + 1.0) + bx * _smooth(t)
 
 
-GORGE_Z = (-168, 32)                    # its north end (in the mountains) and its head
+GORGE_Z = (-168, 70)                    # its north end (in the mountains) and its head
 GORGE_FLOOR = -23                       # top block of the floor (stand y -22)
 
 
 def gorge_floor_y(z):
     """The gorge floor's top y along it: level, rising at the head (south) and into the mountains (north)."""
-    if z > 6:
-        return GORGE_FLOOR + (z - 6) * (GT - GORGE_FLOOR) / float(GORGE_Z[1] - 6)
+    if z > GORGE_LEVEL_Z:
+        return GORGE_FLOOR + (z - GORGE_LEVEL_Z) * (GT - GORGE_FLOOR) / float(GORGE_Z[1] - GORGE_LEVEL_Z)
     if z < -140:
         return GORGE_FLOOR + (-140 - z) * 1.6
     return GORGE_FLOOR
@@ -676,7 +701,7 @@ def build_ground(w, H):
 
 def build_stream(w, H):
     """Still water along the gorge floor's middle, one deep, on stone, rock either side."""
-    for z in range(-138, 17):
+    for z in range(-138, GORGE_LEVEL_Z - 3):
         cx = gorge_cx(z)
         for x in range(int(math.floor(cx - 1.4)), int(math.floor(cx + 1.4)) + 1):
             if H.get((x, z)) != GORGE_FLOOR:
@@ -1557,12 +1582,17 @@ def build_viaduct(w, H):
                 lo = max(under, gtop + 1)
             for y in range(lo, DECK_Y + 1):
                 w.set((x, y, z), masonry(x, y, z))
-            # the arch ring and the keystone: stone bricks with a chiselled crown
+            # the soffit: dark, so the opening reads as an opening
             if under is not None and under >= gtop + 1:
-                w.set((x, under, z), 'minecraft:stone_bricks')
+                w.set((x, under, z), 'minecraft:deepslate_tiles' if rnd(x, under, z, 132) < 0.75 else
+                      'minecraft:cobbled_deepslate')
             w.set((x, DECK_Y, z), 'minecraft:stone_bricks' if z == (z0 + z1) // 2 else 'minecraft:polished_andesite')
-        for z in (z0, z1):
-            w.set((x, DECK_Y + 1, z), 'minecraft:stone_brick_wall')
+        for z in (z0 - 1, z1 + 1):
+            # the parapet: a slab plinth on a corbel course, a wall on it (2 high over the deck)
+            w.set((x, DECK_Y, z), 'minecraft:stone_brick_stairs[facing=%s,half=top,shape=straight,waterlogged=false]'
+                  % ('south' if z < z0 else 'north'))
+            w.set((x, DECK_Y + 1, z), 'minecraft:stone_brick_slab[type=bottom,waterlogged=false]')
+            w.set((x, DECK_Y + 2, z), 'minecraft:stone_brick_wall')
         for z in range(z0, z1 + 1):
             if under is not None:
                 for y in range(min(H.get((x, z), GT), GT) + 1, under):
@@ -1578,10 +1608,50 @@ def build_viaduct(w, H):
             for z in range(z0 - 1, z1 + 2):
                 w.set((x, SPRING_C + 2, z), 'minecraft:stone_brick_slab[type=bottom,waterlogged=false]'
                       if z in (z0 - 1, z1 + 1) or x in (p0 - 1, p1 + 1) else w.get((x, SPRING_C + 2, z)))
-    # lamps on the parapet
-    for x in range(dx0 + 2, dx1, 8):
-        for z in (z0, z1):
-            w.set((x, DECK_Y + 2, z), 'minecraft:lantern[hanging=false,waterlogged=false]')
+    # the central arch's voussoir ring, a cell proud of both faces (chiselled stone bricks and polished andesite in
+    # turn, two deep), under a hood mould of upside-down stone brick stairs
+    for x in range(c0, c1 + 1):
+        under = int(math.floor(arch_underside(x, c0, c1, SPRING_C)))
+        for z, f in ((z0 - 1, 'south'), (z1 + 1, 'north')):
+            for k in (0, 1):
+                w.set((x, under + k, z), 'minecraft:chiseled_stone_bricks' if (x + k) % 2 == 0 else
+                      'minecraft:polished_andesite')
+            if under + 2 < DECK_Y:
+                w.set((x, under + 2, z), 'minecraft:stone_brick_stairs[facing=%s,half=top,shape=straight,'
+                      'waterlogged=false]' % f)
+    # piers on the parapet every 4, each carrying a lantern
+    for x in range(dx0 + 1, dx1, 4):
+        for z in (z0 - 1, z1 + 1):
+            w.set((x, DECK_Y + 1, z), 'minecraft:stone_bricks')
+            w.set((x, DECK_Y + 2, z), 'minecraft:stone_brick_wall')
+            w.set((x, DECK_Y + 3, z), 'minecraft:stone_brick_wall')
+            w.set((x, DECK_Y + 4, z), 'minecraft:lantern[hanging=false,waterlogged=false]')
+    # a small gate arch at the castle end, to match the watch tower at the west end
+    gx = dx1
+    for z in (z0 - 2, z0 - 1, z1 + 1, z1 + 2):
+        for x in (gx - 1, gx):
+            for y in range(GT + 1, GT + 8):
+                w.set((x, y, z), masonry(x, y, z))
+    for z in range(z0 - 2, z1 + 3):
+        for x in (gx - 1, gx):
+            w.set((x, GT + 6, z), masonry(x, GT + 6, z))
+            w.set((x, GT + 7, z), 'minecraft:stone_brick_slab[type=bottom,waterlogged=false]' if z in (z0 - 2, z1 + 2)
+                  else masonry(x, GT + 7, z))
+        for x in (gx - 1, gx):
+            if z0 <= z <= z1:
+                w.set((x, GT + 5, z), 'minecraft:stone_brick_stairs[facing=%s,half=top,shape=straight,'
+                      'waterlogged=false]' % ('south' if z == z0 else 'north' if z == z1 else 'east'))
+                if z == (z0 + z1) // 2:
+                    w.set((x, GT + 5, z), None)
+    for x in (gx - 1, gx):
+        for z in range(z0, z1 + 1):
+            for y in range(GT + 1, GT + 5):
+                w.set((x, y, z), None)
+    for z in (z0 - 2, z1 + 2):
+        w.set((gx + 1, GT + 4, z), 'minecraft:lantern[hanging=false,waterlogged=false]')
+        w.set((gx + 1, GT + 3, z), 'minecraft:stone_brick_wall')
+        w.set((gx + 1, GT + 2, z), 'minecraft:stone_brick_wall')
+        w.set((gx + 1, GT + 1, z), 'minecraft:stone_bricks')
     # the deck continues as a path to the castle and to the tower
     for x in range(dx1 + 1, CASTLE_FOOT[0] + 4):
         for z in range(z0, z1 + 1):
@@ -1607,10 +1677,18 @@ def build_tower(w, H):
                         w.set((x, y, z), masonry(x, y, z))
                     else:
                         w.set((x, y, z), None)
-                # the parapet and the cone roof
-                if shell:
-                    if (x + z) % 2 == 0:
-                        w.set((x, top + 1, z), masonry(x, top + 1, z))
+            elif d <= r + 1.15:
+                # the machicolation: upside-down stairs corbelled out under the parapet, the parapet on them
+                dx_, dz_ = x + 0.5 - tx, z + 0.5 - tz
+                if abs(dx_) >= abs(dz_):
+                    f = 'west' if dx_ > 0 else 'east'
+                else:
+                    f = 'north' if dz_ > 0 else 'south'
+                w.set((x, top, z), 'minecraft:stone_brick_stairs[facing=%s,half=top,shape=straight,waterlogged=false]'
+                      % f)
+                w.set((x, top + 1, z), masonry(x, top + 1, z))
+                if (x + z) % 2 == 0:
+                    w.set((x, top + 2, z), masonry(x, top + 2, z))
             # the roof
     for y in range(top + 1, top + 12):
         rr = (r - 0.3) * (1 - (y - top - 1) / 11.0)
@@ -1624,8 +1702,13 @@ def build_tower(w, H):
         for z in range(BRIDGE_Z[0], BRIDGE_Z[1] + 1):
             w.set((BR['deck'][0] - 1 + 0, y, z), None)
             w.set((int(tx + r) - 0, y, z), None)
-    for y in (G + 8, G + 9, G + 13, G + 14):
-        w.set((int(tx), y, int(tz - r)), None)
+    # arrow slits: two up each side
+    for y in (G + 6, G + 7, G + 11, G + 12):
+        for (sx, sz) in ((int(tx), int(tz - r)), (int(tx), int(math.floor(tz + r))), (int(math.floor(tx - r)), int(tz)),
+                         (int(math.floor(tx + r)), int(tz))):
+            if y <= G + 2:
+                continue
+            w.set((sx, y, sz), None)
 
 
 # ---------------------------------------------------------------- the castle's foot
@@ -1851,8 +1934,8 @@ def bridge_anchor():
     crown = int(math.floor(arch_crown(c0, c1, SPRING_C)))
     bx = (c0, c1 + 1)
     return {
-        'span_box': [[BR['deck'][0], SPRING_C, z0], [BR['deck'][1] + 1, DECK_Y + 2, z1 + 1]],
-        'break_box': [[bx[0], crown - 2, z0], [bx[1], DECK_Y + 3, z1 + 1]],
+        'span_box': [[BR['deck'][0], SPRING_C, z0 - 1], [BR['deck'][1] + 1, DECK_Y + 5, z1 + 2]],
+        'break_box': [[bx[0], crown - 2, z0 - 1], [bx[1], DECK_Y + 5, z1 + 2]],
         'underside_y': float(crown),
         'deck_y': float(DECK_Y + 1),
         'arch': {'x1': c0, 'x2': c1 + 1, 'spring_y': SPRING_C, 'crown_y': crown},
@@ -1897,13 +1980,14 @@ ANCHORS = {
 # ---------------------------------------------------------------- routes and the roofs the tail smashes
 CASTLE_ROUTE = [[14, 46, 8], [32, 58, 8], [46, 82, 10], [60, 99, 2], [78, 90, -10], [86, 72, -34], [102, 62, -40],
                 [118, 58, -50], [116, 54, -68], [110, 52, -86], [94, 56, -104], [62, 50, -110], [30, 44, -100], [10, 36, -92]]
-GORGE_LANE_Z = [-92, -78, -62, -46, -32, -20, -8, 4, 16, 26]
-GORGE_LANE_Y = [30, 14, 2, -4, -5, -5, -4, 0, 8, 20]
+GORGE_LANE_Z = [-92, -78, -62, -46, -32, -20, -8, 4, 16, 28, 40, 52, 62]
+GORGE_LANE_Y = [30, 14, 2, -4, -5, -5, -5, -5, -4, -3, 0, 6, 18]
 
 
 def gorge_lane():
     pts = [[round(gorge_cx(z) + 0.5, 3), float(y), float(z)] for z, y in zip(GORGE_LANE_Z, GORGE_LANE_Y)]
-    pts.append([-30.0, 34.0, 44.0])                         # out over the head, back toward the arena
+    pts.append([-6.0, 30.0, 58.0])                          # out over the head's west rim, back toward the arena
+    pts.append([-30.0, 36.0, 44.0])
     return pts
 
 

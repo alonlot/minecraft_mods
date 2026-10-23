@@ -294,15 +294,18 @@ def build_tent(w):
         for sz in (z0 + 1, z1 - 1):
             for y in range(0, WALL_TOP + 1):
                 w.set((sx, y, sz), POLE)
-    # guy lines: a pole outside each pole line and corner, a rope of fence posts stepping down to a stake
+    # guy lines: a pole outside each pole line and corner, a rope stepping down from its top to a stake (two
+    # spruce stairs, their high side to the pole, so the line reads as one taut diagonal), the stake a trapdoor
     for pz in POLE_Z + (z0 + 1, z1 - 1):
         for sgn in (-1, 1):
             gx = sgn * (TENT_X + 2)
             for y in range(0, 3):
                 w.set((gx, y, pz), POLE)
-            for k, (dx, y) in enumerate(((1, 2), (2, 1), (3, 0))):
-                w.set((gx + sgn * dx, y, pz), POLE if k < 2 else state('spruce_trapdoor', facing='north',
-                      half='bottom', open='false', powered='false', waterlogged='false'))
+            for dx, y in ((1, 2), (2, 1)):
+                w.set((gx + sgn * dx, y, pz), state('spruce_stairs', facing='west' if sgn > 0 else 'east',
+                                                     half='bottom', shape='straight', waterlogged='false'))
+            w.set((gx + sgn * 3, 0, pz), state('spruce_trapdoor', facing='north', half='bottom', open='false',
+                                               powered='false', waterlogged='false'))
 
 
 OPP = {'north': 'south', 'south': 'north', 'east': 'west', 'west': 'east'}

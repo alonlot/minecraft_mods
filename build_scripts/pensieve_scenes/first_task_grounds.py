@@ -24,9 +24,10 @@ The set
     the lip with moss on the ledges, streaked with basalt and blackstone near the nest and the hiding rock. Big
     rounded boulders lean on the cliff foot and a few pinnacles stand out on the floor. In it:
       * the nest east of centre: a crater of head-sized boulders (each one stone) round a bowl dished one below the
-        floor and lined with blackstone and rooted dirt, her clutch (vanilla dragon eggs) on stone in it with a gap
-        for the golden egg, her perch at the back one big flat-topped rock; its west side, toward the entrance and
-        the egg-grab dive, is kept low;
+        floor and lined with blackstone and rooted dirt, her clutch (vanilla dragon eggs) on stone in it, the golden
+        egg on the prize rock (a stone column four tall in the bowl's west half, its top 3 over the floor, so a
+        rider skimming past at 0.6 over the nest's rocks can take it and low cameras see it), her perch at the back
+        one big flat-topped rock; its west side, toward the entrance and the egg-grab dive, is kept low;
       * the hiding rock between the nest and the entrance, a boulder 4 tall with a flat face to the nest;
       * the stake behind the nest for her chain;
       * the champions' entrance: a timber-lined tunnel through the west cliff under the west stand.
@@ -68,7 +69,7 @@ Minecraft's: 0 faces +Z (south), 90 -X (west), 180 -Z (north), -90 +X (east).
   nest_perch       {pos: [x, y, z] the point between her feet on the rock shelf (y on its top), yaw: 90 (facing
                    west, at the entrance and the hiding rock), shelf: [[x1, y1, z1], [x2, y2, z2]] its top's
                    bounds}
-  egg_spot         [x, y, z] the golden egg's centre in the gap of the clutch (it rests on rock)
+  egg_spot         [x, y, z] the golden egg's centre (scale 1) on the prize rock's top, 0.2 in from its north edge
   eggs             [[x, y, z], ...] the dragon eggs' cell centres
   entrance         {pos: [x, y, z] the tunnel mouth on the arena floor, yaw: -90 (facing in, +X), inside: a spot
                    back in the dark tunnel}
@@ -720,7 +721,9 @@ SHELF = (8, 11, -2, 2)                  # lx0, lx1, lz0, lz1 of the perch shelf 
 BOWL_C = (4.5, 0.5)
 BOWL_R = 3.1                            # the dished bowl: its lining one below the floor
 EGG_CELLS = [(3, -1), (4, 1), (5, -1), (3, 1), (5, 2)]
-GOLD_CELL = (4, -1)
+GOLD_CELL = (4, -1)                     # the old gap in the clutch: a sixth dragon egg now
+PRIZE = (2, 0)                          # the prize rock's column (floor-relative y -1..2: its top 3 over the floor)
+PRIZE_TOP = 3
 HIDE = (-18, -15, 5, 9)                 # the hiding rock's cells lx0, lx1, lz0, lz1 (flat face at lx -15's east)
 STAKE_LC = (18, 5)
 ROCK_IDS = ('minecraft:stone', 'minecraft:smooth_stone', 'minecraft:andesite', 'minecraft:polished_andesite',
@@ -842,10 +845,14 @@ def build_nest(w):
             if BOWL_R < db < 4.6 and fget(w, lx, 0, lz) is None:
                 if rnd(lx, 1, lz, 106) < 0.35 and not (SHELF[0] <= lx <= SHELF[1] + 1):
                     fset(w, lx, 0, lz, 'minecraft:cobblestone_slab[type=bottom,waterlogged=false]')
-    # her clutch on the stone, with the golden egg's gap
-    for (lx, lz) in EGG_CELLS:
+    # her clutch on the stone (the old gap filled with a sixth egg), and the prize rock: one column of stone rising
+    # out of the bowl's west half, the golden egg on its top (Task 13: a skimming rider can reach it)
+    for (lx, lz) in EGG_CELLS + [GOLD_CELL]:
         fset(w, lx, -1, lz, 'minecraft:dragon_egg')
-    fset(w, GOLD_CELL[0], -1, GOLD_CELL[1], None)
+    for y in range(-1, PRIZE_TOP):
+        r = rnd(PRIZE[0], y, PRIZE[1], 109)
+        fset(w, PRIZE[0], y, PRIZE[1], 'minecraft:polished_andesite' if y == PRIZE_TOP - 1 else
+             'minecraft:tuff' if r < 0.35 else 'minecraft:andesite' if r < 0.7 else 'minecraft:stone')
     # dry grass and dead bushes caught in the ring
     for lx, lz in ((0, 4), (8, -5), (1, -4), (3, 5)):
         x, z = to_scene(lx, lz)
@@ -1950,8 +1957,8 @@ ANCHORS = {
     'nest_centre': NEST_SC,
     'nest_perch': {'pos': fa(10.0, 2.0, 0.5), 'yaw': 90.0,
                    'shelf': [fa(SHELF[0], 2.0, SHELF[2]), fa(SHELF[1] + 1, 2.0, SHELF[3] + 1)]},
-    'egg_spot': fa(GOLD_CELL[0] + 0.5, -0.6, GOLD_CELL[1] + 0.5),
-    'eggs': [fa(lx + 0.5, -0.5, lz + 0.5) for (lx, lz) in EGG_CELLS],
+    'egg_spot': fa(PRIZE[0] + 0.5, PRIZE_TOP + 0.18, PRIZE[1] + 0.2),
+    'eggs': [fa(lx + 0.5, -0.5, lz + 0.5) for (lx, lz) in EGG_CELLS + [GOLD_CELL]],
     'entrance': {'pos': fa(MOUTH + 1.5, 0.0, 0.5), 'yaw': -90.0, 'inside': fa(TUNNEL_END + 6.5, 0.0, 0.5)},
     'hide_rock': {'spot': fa(HIDE[0] - 2.2, 0.0, 7.5), 'face_centre': fa(HIDE[1] + 1.0, 1.5, 7.5),
                   'face_normal': [1.0, 0.0, 0.0],

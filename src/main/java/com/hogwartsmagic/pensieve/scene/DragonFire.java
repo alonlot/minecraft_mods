@@ -421,6 +421,17 @@ public final class DragonFire {
             hits.add(t);
         }
 
+        /** {@link #hit}, forgetting the oldest hit first when {@code max} are held (the open world scorch never ends). */
+        public void hitCapped(double t, int max) {
+            if (hits.size() >= max) hits.remove(0);
+            hits.add(t);
+        }
+
+        /** How many hits it holds. */
+        public int hitCount() {
+            return hits.size();
+        }
+
         /** Ticks of fire on it by t (each puff counts {@code 1 / PUFFS_PER_TICK}). */
         public double hitAge(double t) {
             int n = 0;

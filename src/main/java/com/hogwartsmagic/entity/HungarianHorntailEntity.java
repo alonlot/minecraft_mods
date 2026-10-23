@@ -80,6 +80,9 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
     private static final EntityDataAccessor<Boolean> DATA_FLYING =
             SynchedEntityData.defineId(HungarianHorntailEntity.class, EntityDataSerializers.BOOLEAN);
     /** Which way the body spins during a tail sweep — the model needs it to trail the tail correctly. */
+    /** The smoothed fire aim (unit), synched so clients draw the jet along the line the damage cone is cast on. */
+    private static final EntityDataAccessor<org.joml.Vector3f> DATA_BREATH_AIM =
+            SynchedEntityData.defineId(HungarianHorntailEntity.class, EntityDataSerializers.VECTOR3);
     private static final EntityDataAccessor<Boolean> DATA_SWEEP_LEFT =
             SynchedEntityData.defineId(HungarianHorntailEntity.class, EntityDataSerializers.BOOLEAN);
 
@@ -207,6 +210,7 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
         builder.define(DATA_RAGING, false);
         builder.define(DATA_FLYING, false);
         builder.define(DATA_SWEEP_LEFT, false);
+        builder.define(DATA_BREATH_AIM, new org.joml.Vector3f(com.hogwartsmagic.fire.BreathAim.DEFAULT));
     }
 
     @Override
@@ -254,6 +258,16 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
 
     public boolean isSweepingLeft() {
         return this.entityData.get(DATA_SWEEP_LEFT);
+    }
+
+    /** The unit direction the fire jet is cast along now (the server's smoothed aim, synched), {x, y, z}. */
+    public double[] breathAimSynced() {
+        return com.hogwartsmagic.fire.BreathAim.decode(this.entityData.get(DATA_BREATH_AIM));
+    }
+
+    /** Publishes the current {@link #breathAim} to the clients (a no-op while it has not changed). */
+    private void syncBreathAim() {
+        this.entityData.set(DATA_BREATH_AIM, com.hogwartsmagic.fire.BreathAim.encode(this.breathAim));
     }
 
     // -------------------------------------------------------------------------------------------
@@ -644,6 +658,7 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
         if (t == 0) {
             this.breathAim = this.getLookAngle();
             if (target != null) this.breathAim = aimAt(target);
+            syncBreathAim();
         }
         if (t == 2) this.playSound(SoundEvents.FIRECHARGE_USE, 2.5F, 0.5F);
         if (this.level() instanceof ServerLevel sl) {
@@ -690,6 +705,7 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
             double turn = airborne ? 0.16D : 0.11D;
             this.breathAim = this.breathAim.add(want.subtract(this.breathAim).scale(turn)).normalize();
         }
+        syncBreathAim();
         Vec3 dir = this.breathAim;
         // Point the head where the fire actually goes, THEN read the muzzle position off it, so the
         // jet leaves the snout the client is drawing rather than trailing it by a tick.
@@ -698,55 +714,10 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
         Vec3 mouth = mouthPos();
 
         double jet = jetLength(mouth, dir);
-        Vec3 side = dir.cross(new Vec3(0.0D, 1.0D, 0.0D));
-        if (side.lengthSqr() < 1.0E-5D) side = new Vec3(1.0D, 0.0D, 0.0D);
-        side = side.normalize();
-        Vec3 up = side.cross(dir).normalize();
-
-        float ramp = Math.min(1.0F, (t + 1) / 5.0F);
-        // Flame particles have friction 0.96, so travel ~= speed/0.04. Tune the muzzle velocity to the
-        // clipped jet length and the fire naturally stops where the world stops it.
-        double baseSpeed = Mth.clamp(jet * 0.052D, 0.30D, 1.05D);
-        // Each of these is its own particle packet (count=0 is the only form that carries a velocity),
-        // so the count is a deliberate bandwidth/density trade-off, not an arbitrary number.
-        int core = Math.max(1, Math.round((isRaging() ? 14 : 10) * ramp));
-
-        for (int i = 0; i < core; i++) {
-            double a = this.random.nextDouble() * Math.PI * 2.0D;
-            double r = Math.sqrt(this.random.nextDouble()) * 0.32D;
-            Vec3 p = mouth.add(dir.scale(0.35D + this.random.nextDouble() * 0.7D))
-                    .add(side.scale(Math.cos(a) * r)).add(up.scale(Math.sin(a) * r));
-            // Narrow near the mouth, spreading with distance -> a real cone, not a ball of fire.
-            double spread = 0.05D + this.random.nextDouble() * 0.15D;
-            Vec3 vel = dir.add(side.scale(Math.cos(a) * spread)).add(up.scale(Math.sin(a) * spread))
-                    .normalize().scale(baseSpeed * (0.7D + this.random.nextDouble() * 0.6D));
-            ParticleOptions type = this.random.nextInt(4) == 0 ? ParticleTypes.SMALL_FLAME : ParticleTypes.FLAME;
-            sl.sendParticles(type, p.x, p.y, p.z, 0, vel.x, vel.y, vel.z, 1.0D);
-        }
-
-        // Black smoke boiling off the back of the jet — the thing that sells it as fire and not sparks.
-        for (int i = 0; i < 2; i++) {
-            double f = 0.25D + this.random.nextDouble() * 0.75D;
-            double a = this.random.nextDouble() * Math.PI * 2.0D;
-            double r = (BREATH_CONE_BASE + jet * f * BREATH_CONE_GROWTH) * (0.6D + this.random.nextDouble() * 0.5D);
-            Vec3 p = mouth.add(dir.scale(jet * f))
-                    .add(side.scale(Math.cos(a) * r)).add(up.scale(Math.sin(a) * r));
-            Vec3 vel = dir.scale(0.10D).add(0.0D, 0.05D, 0.0D);
-            sl.sendParticles(ParticleTypes.LARGE_SMOKE, p.x, p.y, p.z, 0, vel.x, vel.y, vel.z, 1.0D);
-        }
-
-        // Splash where the jet lands: flame rolls out along the surface, embers spatter, smoke column.
         Vec3 end = mouth.add(dir.scale(jet));
-        for (int i = 0; i < 3; i++) {
-            double a = this.random.nextDouble() * Math.PI * 2.0D;
-            Vec3 out = side.scale(Math.cos(a)).add(up.scale(Math.sin(a))).normalize();
-            Vec3 vel = out.scale(0.35D + this.random.nextDouble() * 0.35D).add(dir.scale(0.08D));
-            sl.sendParticles(ParticleTypes.FLAME, end.x, end.y, end.z, 0, vel.x, vel.y, vel.z, 1.0D);
-        }
-        sl.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, end.x, end.y + 0.2D, end.z, 1, 0.4D, 0.1D, 0.4D, 0.005D);
-        if (this.random.nextInt(3) == 0) {
-            sl.sendParticles(ParticleTypes.LAVA, end.x, end.y, end.z, 1, 0.3D, 0.2D, 0.3D, 0.0D);
-        }
+
+        // The flame itself is drawn on the clients (client/pensieve/DragonFireRenderer, the same fire as the First
+        // Task memory) from the synched aim and the model snout; only the damage and the ignition live here.
 
         // Damage on a slower cadence — LivingEntity invulnerability makes per-tick chip damage useless.
         if (t % 8 == 4) applyBreathDamage(sl, mouth, dir, jet);
@@ -869,6 +840,7 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
         if (this.airBreathCooldown <= 0 && t > 22 && this.hasLineOfSight(target)
                 && this.distanceToSqr(target) < 26.0D * 26.0D) {
             this.breathAim = aimAt(target);
+            syncBreathAim();
             setAttackState(AttackState.AIR_BREATH);
             return;
         }
@@ -1084,6 +1056,11 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
      * front of the entity origin at 1.65 blocks up, and the neck + skull run 3.05 blocks out from
      * there along the head's aim.
      */
+    /** Where the fire leaves her, from her head turn (the client falls back to this when her snout was not drawn). */
+    public Vec3 mouthEstimate() {
+        return mouthPos();
+    }
+
     private Vec3 mouthPos() {
         float headYaw = this.yHeadRot * Mth.DEG_TO_RAD;
         float pitch = this.getXRot() * Mth.DEG_TO_RAD;
@@ -1103,7 +1080,7 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
     void beginRoar() { setAttackState(AttackState.ROAR); hasRoared = true; }
     void beginBite() { setAttackState(AttackState.BITE); }
     void beginTailWhip() { beginTailWhipInternal(); }
-    void beginBreath() { setAttackState(AttackState.BREATH_WINDUP); }
+    public void beginBreath() { setAttackState(AttackState.BREATH_WINDUP); }
     void beginWingGust() { setAttackState(AttackState.WING_GUST); }
     void beginFlight() { beginTakeoff(); }
 

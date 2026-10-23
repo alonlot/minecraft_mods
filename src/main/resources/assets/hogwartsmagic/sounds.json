@@ -3186,5 +3186,221 @@
         "stream": false
       }
     ]
+  },
+  "pensieve.sfx.first_task_tent_crowd": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/first_task_tent_crowd",
+        "stream": true
+      }
+    ]
+  },
+  "pensieve.sfx.first_task_ground_thud": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/first_task_ground_thud",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.first_task_cannon": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/first_task_cannon",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.first_task_crowd_bed": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/first_task_crowd_bed",
+        "stream": true
+      }
+    ]
+  },
+  "pensieve.sfx.first_task_crowd_hush": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/first_task_crowd_hush",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.first_task_horntail_roar": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/first_task_horntail_roar",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.first_task_horntail_snap": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/first_task_horntail_snap",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.first_task_wingbeat": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/first_task_wingbeat",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.first_task_fire_roar": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/first_task_fire_roar",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.first_task_fire_scorch": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/first_task_fire_scorch",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.first_task_chain_snap": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/first_task_chain_snap",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.first_task_slate_smash": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/first_task_slate_smash",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.first_task_bridge_crash": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/first_task_bridge_crash",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.first_task_accio": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/first_task_accio",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.sfx.first_task_wind_high": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/first_task_wind_high",
+        "stream": true
+      }
+    ]
+  },
+  "pensieve.sfx.first_task_egg_grab": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/sfx/first_task_egg_grab",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.first_task_comm_call": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/first_task_comm_call",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.first_task_comm_call_muffled": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/first_task_comm_call_muffled",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.first_task_comm_horntail": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/first_task_comm_horntail",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.first_task_comm_accio": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/first_task_comm_accio",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.first_task_comm_chain": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/first_task_comm_chain",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.first_task_comm_egg": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/first_task_comm_egg",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.first_task_viewer_accio": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/first_task_viewer_accio",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.music.first_task_tent": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/music/first_task_tent",
+        "stream": true
+      }
+    ]
+  },
+  "pensieve.music.first_task_arena": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/music/first_task_arena",
+        "stream": true
+      }
+    ]
+  },
+  "pensieve.music.first_task_chase": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/music/first_task_chase",
+        "stream": true
+      }
+    ]
+  },
+  "pensieve.music.first_task_egg": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/music/first_task_egg",
+        "stream": true
+      }
+    ]
   }
 }

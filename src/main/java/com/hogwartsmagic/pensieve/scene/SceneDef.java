@@ -130,8 +130,17 @@ public record SceneDef(String id, String title, int length, int radius, SetDef s
     public record Cue(float t, String name, float blend) {
     }
 
-    /** Actions: swing, sneak, stand, hurt, die, vanish, appear, stone, unstone, cast, use_item, hold, ignite, equip ({@code slot} + {@code item}). */
-    public record ActionCue(float t, String action, String spell, Target target, String item, String slot) {
+    /**
+     * Actions: swing, sneak, stand, hurt, die, vanish, appear, stone, unstone, cast, use_item, hold, ignite, equip
+     * ({@code slot} + {@code item}), breathe (the memory Horntail's fire, {@link DragonFire}; {@code duration} in ticks,
+     * NaN when absent, is only for it).
+     */
+    public record ActionCue(float t, String action, String spell, Target target, String item, String slot,
+                            float duration) {
+        /** An action with no {@code duration}. */
+        public ActionCue(float t, String action, String spell, Target target, String item, String slot) {
+            this(t, action, spell, target, item, slot, Float.NaN);
+        }
     }
 
     public record Target(String actor, float[] point) {

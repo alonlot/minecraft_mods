@@ -15,7 +15,7 @@ public record SceneNames(Set<String> entityTypes, Set<String> spells, Set<String
                          Set<String> skins) {
     /** Actor actions a scene may use. */
     public static final Set<String> ACTIONS = Set.of("swing", "sneak", "stand", "hurt", "die", "vanish", "appear",
-            "stone", "unstone", "cast", "use_item", "hold", "ignite", "equip");
+            "stone", "unstone", "cast", "use_item", "hold", "ignite", "equip", "breathe");
     /** Slots an {@code equip} action may fill. */
     public static final Set<String> EQUIP_SLOTS = Set.of("head", "mainhand", "offhand", "chest", "legs", "feet");
     /** Range of a narration word's {@code size}. */

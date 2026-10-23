@@ -120,7 +120,8 @@ public class MemoryHorntailRenderer extends HungarianHorntailRenderer {
             double len = Math.sqrt(d.x * d.x + d.y * d.y + d.z * d.z);
             if (len < 1e-9) return;
             m.setSnout(new double[]{p.x + cam.x, p.y + cam.y, p.z + cam.z},
-                    new double[]{d.x / len, d.y / len, d.z / len});
+                    new double[]{d.x / len, d.y / len, d.z / len},
+                    com.hogwartsmagic.client.pensieve.DragonFireRenderer.frame());
             DevLog.check(m, partialTick);
         }
     }

@@ -230,9 +230,10 @@ public final class SceneParser {
     }
 
     private static SceneDef.ActionCue parseAction(JsonObject c, String p) throws SceneException {
-        checkKeys(c, p, "t", "do", "spell", "target", "item", "slot");
+        checkKeys(c, p, "t", "do", "spell", "target", "item", "slot", "duration");
         SceneDef.Target target = has(c, "target") ? parseTarget(c.get("target"), child(p, "target")) : null;
-        return new SceneDef.ActionCue(reqTime(c, "t", p), reqStr(c, "do", p), str(c, "spell", p, null), target, str(c, "item", p, null), str(c, "slot", p, null));
+        return new SceneDef.ActionCue(reqTime(c, "t", p), reqStr(c, "do", p), str(c, "spell", p, null), target, str(c, "item", p, null), str(c, "slot", p, null),
+                time(c, "duration", p, Float.NaN));
     }
 
     /** Targets are "actor:ID" or an [x,y,z] point. */

@@ -49,6 +49,8 @@ public class MemoryHorntailEntity extends HungarianHorntailEntity {
 
     /** The mouth drawn this frame, world space, and the head's forward direction there (unit); null before a frame. */
     private double[] snoutPoint, snoutDir;
+    /** The render frame the snout was drawn in (the client's frame counter), so a stale one can be told apart. */
+    private long snoutFrame = Long.MIN_VALUE;
 
     public MemoryHorntailEntity(EntityType<? extends MemoryHorntailEntity> type, Level level) {
         super(type, level);
@@ -160,8 +162,22 @@ public class MemoryHorntailEntity extends HungarianHorntailEntity {
 
     /** Stores the mouth the renderer drew this frame (world space) and its forward direction. */
     public void setSnout(double[] point, double[] dir) {
+        setSnout(point, dir, Long.MIN_VALUE);
+    }
+
+    /** As {@link #setSnout(double[], double[])}, stamped with the render frame it was drawn in. */
+    public void setSnout(double[] point, double[] dir, long frame) {
         this.snoutPoint = point;
         this.snoutDir = dir;
+        this.snoutFrame = frame;
+    }
+
+    /**
+     * The snout as {@link #snout()} if it was drawn in render frame {@code frame}, else null: she was not drawn this
+     * frame (hidden, or her renderer failed), so the stored mouth is an old one and the fire must not leave it.
+     */
+    public double[] snoutIn(long frame) {
+        return frame == snoutFrame && frame != Long.MIN_VALUE ? snout() : null;
     }
 
     /**

@@ -1067,11 +1067,212 @@ def neck_counter_check():
     return None
 
 
+# ================================================================ DragonFire (the `breathe` action)
+
+FIRE_ACTION = 'breathe'
+FIRE_SPEED = 1.2                        # blocks a tick, the gas and the jet's front
+FIRE_MAX_REACH = 18.0
+FIRE_MIN_DURATION, FIRE_MAX_DURATION, FIRE_DEFAULT_DURATION = 10, 80, 40
+FIRE_RISE, FIRE_GUTTER = 3.0, 8.0
+SCORCH_MAX, SCORCH_TICKS, EMBER_TICKS = 2.5, 30.0, 60.0
+AIR_BREATH_OPEN = AIR_BREATH_WINDUP     # the jaw opens wide at this tick of an AIR_BREATH
+FIRE_CASES = os.path.join(HERE, 'dragon_fire_cases.json')
+
+
+def fire_front(age):
+    """DragonFire.front: how far the jet reaches `age` ticks into the breathe."""
+    return 0.0 if age <= 0 else min(FIRE_MAX_REACH, age * FIRE_SPEED)
+
+
+def fire_strength(age, duration):
+    """DragonFire.strength: up over 3 ticks, full, guttering over the last 8."""
+    if age < 0 or age > duration:
+        return 0.0
+    return min(smooth(age / FIRE_RISE), smooth((duration - age) / FIRE_GUTTER))
+
+
+def scorch_radius(hit_age):
+    """DragonFire.scorchRadius: 0 to 2.5 blocks over 30 ticks of hit, easing out."""
+    x = min(1.0, max(0.0, hit_age / SCORCH_TICKS))
+    return SCORCH_MAX * (1 - (1 - x) * (1 - x))
+
+
+def smoke_rate(age, duration):
+    """DragonFire.smokeRate: the share of puffs born at `age` that leave smoke."""
+    gutter = 1 - smooth((duration - age) / FIRE_GUTTER)
+    return min(1.0, 0.35 + 0.4 * smooth(age / 30.0) + 0.6 * gutter)
+
+
+def fire_radius(s):
+    """DragonFire.radius: a puff's radius (scale 1) `s` blocks out."""
+    return 0.24 + 0.095 * max(0.0, s)
+
+
+def fire_visible_radius(s):
+    """DragonFire.visibleRadius: how far from the centre line the flame shows, `s` blocks out (scale 1)."""
+    return 2.1 * fire_radius(s)
+
+
+def fire_window(actor, t):
+    """DragonFire.fireWindow: (t0, t1), the ticks the BREATH or AIR_BREATH cue in force at t has her jaw open at full
+    fire (from the cue plus its fade-in, default 6, at least 12 ticks in for an AIR_BREATH; to the end of the one-shot
+    or the next cue), or None when neither is in force."""
+    st = horntail_cue(actor, t)
+    if st['name'] not in ('BREATH', 'AIR_BREATH'):
+        return None
+    cue_t = t - st['time']
+    cues = sorted(actor.get('anims') or [], key=lambda c: c['t'])
+    cue, nxt = None, E.INF
+    for c in cues:
+        if cue is None and abs(c['t'] - cue_t) < 1e-4 and c['name'].upper() == st['name']:
+            cue = c
+        elif cue is not None and c['t'] > cue['t']:
+            nxt = c['t']
+            break
+    if cue is None:
+        return None
+    blend = cue.get('blend', 0) or DEFAULT_BLEND
+    opened = max(AIR_BREATH_OPEN, blend) if st['name'] == 'AIR_BREATH' else blend
+    return cue['t'] + opened, min(cue['t'] + DURATIONS[st['name']], nxt)
+
+
+def breathes(actor):
+    """The actor's breathe actions as (t, duration, target), in time order."""
+    out = []
+    for a in actor.get('actions') or []:
+        if a.get('do') == FIRE_ACTION:
+            out.append((a['t'], a.get('duration', FIRE_DEFAULT_DURATION), a.get('target')))
+    return sorted(out, key=lambda b: b[0])
+
+
+def fire_target(scene, target):
+    """A breathe target as a scene point: [x, y, z] as given; "actor:<id>" its chest (its path at t, plus 0.65 x a
+    player's 1.8 height, x scale), as MemoryActors aims a cast; None for no target. Takes t for an actor."""
+    if target is None:
+        return None
+    if isinstance(target, list):
+        return lambda t: list(target)
+    aid = target.split(':', 1)[1]
+    other = E.actor_by_id(scene, aid)
+    h = 1.8 if other.get('type') == 'player' else 1.0
+
+    def at(t):
+        p = E.sample_path(other.get('path') or [], t)
+        return [p[0], p[1] + 0.65 * h * other.get('scale', 1.0), p[2]]
+    return at
+
+
+def _norm(v):
+    n = math.sqrt(sum(c * c for c in v))
+    return [c / n for c in v] if n > 1e-9 else [0.0, 0.0, 1.0]
+
+
+def fire_jet(scene, aid, t, world, step=0.05):
+    """(origin, dir, length) of Horntail `aid`'s fire at tick t, scene space: from her mouth (horntail_snout) toward
+    the breathe's target (else along her head), its length the front (fire_front) cut at the first solid cell
+    (scene_engine.shape_hit in `world`, marched in `step`s); None when no breathe is emitting at t. The drawn jet bends
+    where her head sweeps (each puff keeps its own birth ray) and widens to fire_visible_radius: this is its centre
+    line now, the right thing for aiming and hits."""
+    actor = E.actor_by_id(scene, aid)
+    for t0, dur, target in breathes(actor):
+        if not t0 <= t <= t0 + dur:
+            continue
+        o, hd = horntail_snout(scene, aid, t)
+        to = fire_target(scene, target)
+        d = hd
+        if to is not None:
+            p = to(t)
+            v = [p[i] - o[i] for i in range(3)]
+            if math.sqrt(sum(c * c for c in v)) >= 0.5:
+                d = _norm(v)
+        length = fire_front(t - t0)
+        s = 0.0
+        while s < length:
+            p = [o[i] + d[i] * s for i in range(3)]
+            if E.shape_hit(world, p) is not None:
+                return o, d, s
+            s += step
+        return o, d, length
+    return None
+
+
+def fire_clearance(scene, aid, t, world, point):
+    """How far `point` is outside the drawn flame of the jet at t (distance to the centre line minus the visible
+    radius there, x scale), or None when no jet: what a 'the fire never touches the viewer' assert compares."""
+    jet = fire_jet(scene, aid, t, world)
+    if jet is None:
+        return None
+    o, d, length = jet
+    v = [point[i] - o[i] for i in range(3)]
+    s = max(0.0, min(length, sum(v[i] * d[i] for i in range(3))))
+    q = [o[i] + d[i] * s for i in range(3)]
+    dist = math.sqrt(sum((point[i] - q[i]) ** 2 for i in range(3)))
+    scale = E.actor_by_id(scene, aid).get('scale', 1.0)
+    return dist - fire_visible_radius(s) * scale
+
+
+def _f5(v):
+    return round(v, 5)
+
+
+def fire_cases():
+    """The parity cases for DragonFireTest.pythonMirrorAgrees."""
+    ages = [-1, 0, 0.5, 1.5, 3, 5, 14.9, 15, 30, 36, 39.5, 40, 41]
+    anims = {
+        'ground': [{'t': 10, 'name': 'BREATH_WINDUP'}, {'t': 32, 'name': 'BREATH'}, {'t': 120, 'name': 'IDLE'}],
+        'blended': [{'t': 0, 'name': 'IDLE'}, {'t': 20, 'name': 'BREATH', 'blend': 9}, {'t': 50, 'name': 'ROAR'}],
+        'air': [{'t': 0, 'name': 'FLY'}, {'t': 30, 'name': 'AIR_BREATH'}, {'t': 100, 'name': 'AIR_BREATH', 'blend': 14},
+                {'t': 140, 'name': 'FLY'}],
+    }
+    windows = []
+    for name, cues in anims.items():
+        for t in (0, 15, 25, 33, 40, 60, 77, 79, 85, 101, 115, 125, 139, 150):
+            w = fire_window({'anims': cues}, t)
+            windows.append({'anims': name, 't': t, 'window': None if w is None else [_f5(w[0]), _f5(w[1])]})
+    return {
+        'constants': {'speed': FIRE_SPEED, 'max_reach': FIRE_MAX_REACH, 'scorch_max': SCORCH_MAX,
+                      'scorch_ticks': SCORCH_TICKS, 'ember_ticks': EMBER_TICKS, 'min_duration': FIRE_MIN_DURATION,
+                      'max_duration': FIRE_MAX_DURATION, 'default_duration': FIRE_DEFAULT_DURATION,
+                      'air_breath_open': AIR_BREATH_OPEN},
+        'front': [[a, _f5(fire_front(a))] for a in ages],
+        'strength': [[a, d, _f5(fire_strength(a, d))] for d in (10, 40, 80) for a in ages],
+        'scorch': [[h, _f5(scorch_radius(h))] for h in (-2, 0, 1, 5, 15, 29, 30, 45)],
+        'smoke': [[a, d, _f5(smoke_rate(a, d))] for d in (10, 40) for a in ages],
+        'radius': [[s, _f5(fire_radius(s)), _f5(fire_visible_radius(s))] for s in (0, 3, 10, 18)],
+        'anims': anims,
+        'windows': windows,
+    }
+
+
+def write_fire_cases():
+    from scene_common import dump
+    data = fire_cases()
+    with open(FIRE_CASES, 'w', newline='\n', encoding='utf-8') as f:
+        f.write(dump(data, 0, 150) + '\n')
+    print('wrote', FIRE_CASES, len(data['windows']), 'windows')
+
+
+def fire_self_check():
+    problems = []
+    if not (fire_front(5) == 6.0 and fire_front(100) == FIRE_MAX_REACH):
+        problems.append('fire front')
+    if not (fire_strength(20, 40) == 1.0 and fire_strength(40, 40) == 0.0 and fire_strength(36, 40) < 1.0):
+        problems.append('fire strength')
+    if abs(scorch_radius(30) - SCORCH_MAX) > 1e-9:
+        problems.append('scorch radius')
+    w = fire_window({'anims': [{'t': 0, 'name': 'FLY'}, {'t': 30, 'name': 'AIR_BREATH'}]}, 50)
+    if w != (42, 82):
+        problems.append('air breath window %s' % (w,))
+    return problems
+
+
 if __name__ == '__main__':
     if '--write-cases' in sys.argv:
         write_cases()
+    elif '--write-fire-cases' in sys.argv:
+        write_fire_cases()
     else:
-        pr = self_check()
+        pr = self_check() + fire_self_check()
         for x in pr:
             print('PROBLEM', x)
         sys.exit(1 if pr else 0)

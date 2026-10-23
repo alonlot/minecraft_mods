@@ -211,10 +211,40 @@ public final class SceneValidator {
                 if (c.item() == null) out.add(cp + ".item: an equip action needs an item (minecraft:air clears the slot)");
             }
             if (!"equip".equals(c.action()) && c.slot() != null) out.add(cp + ".slot: slot is only for equip");
+            breathe(out, a, c, cp);
             if (c.item() != null) item(out, cp + ".item", c.item(), names);
             if (c.target() != null && c.target().actor() != null && !actorIds.contains(c.target().actor())) {
                 out.add(cp + ".target: unknown actor '" + c.target().actor() + "'");
             }
+        }
+    }
+
+    /**
+     * The Horntail's fire ({@link DragonFire}): {@code breathe} only on her, {@code duration} only on it and within
+     * {@link DragonFire#MIN_DURATION}..{@link DragonFire#MAX_DURATION}, and the whole breathe inside the fire window of
+     * a {@code BREATH} or {@code AIR_BREATH} cue (her jaw open at full fire, {@link DragonFire#fireWindow}).
+     */
+    private static void breathe(List<String> out, SceneDef.ActorDef a, SceneDef.ActionCue c, String cp) {
+        boolean breathe = DragonFire.ACTION.equals(c.action());
+        if (!breathe) {
+            if (!Float.isNaN(c.duration())) out.add(cp + ".duration: duration is only for breathe");
+            return;
+        }
+        if (!SceneNames.HORNTAIL_ACTOR.equals(a.type())) {
+            out.add(cp + ".do: breathe is only for " + SceneNames.HORNTAIL_ACTOR);
+            return;
+        }
+        float d = Float.isNaN(c.duration()) ? DragonFire.DEFAULT_DURATION : c.duration();
+        if (d < DragonFire.MIN_DURATION || d > DragonFire.MAX_DURATION) {
+            out.add(cp + ".duration: " + d + " is out of range (" + DragonFire.MIN_DURATION + " to "
+                    + DragonFire.MAX_DURATION + " ticks)");
+            return;
+        }
+        double[] w = DragonFire.fireWindow(a.anims(), c.t());
+        if (w == null || c.t() < w[0] - 1e-3 || c.t() + d > w[1] + 1e-3) {
+            out.add(cp + ": breathe at t " + c.t() + " for " + d + " ticks lies outside the fire window of a BREATH or "
+                    + "AIR_BREATH cue" + (w == null ? " (none is in force then)"
+                    : " (her jaw is open at full fire from " + w[0] + " to " + w[1] + ")"));
         }
     }
 

@@ -969,4 +969,60 @@ class SceneValidatorTest {
         assertMessage(validate(horntail(",\"path\":[{\"t\":0,\"pos\":[0,10,0]},"
                 + "{\"t\":10,\"pos\":[0,10,30],\"ease\":\"linear\"}]")), "memory_horntail 'h' moves 3.0 blocks in a tick");
     }
+
+    // ---- the Horntail's fire -------------------------------------------------------------------------------------
+
+    /** A ground breath: the BREATH cue at 20 opens her jaw at full fire from 26 (its 6-tick fade) to 66. */
+    private static final String BREATH_CUES = ",\"anims\":[{\"t\":0,\"name\":\"BREATH_WINDUP\"},{\"t\":20,\"name\":\"BREATH\"}]";
+
+    @Test
+    void breatheOnlyOnHorntail() throws Exception {
+        assertEquals(List.of(), validate(horntail(BREATH_CUES + ",\"actions\":[{\"t\":26,\"do\":\"breathe\","
+                + "\"target\":[0,0,12]}]")));
+        assertMessage(validate(actorScene("player", "\"actions\":[{\"t\":26,\"do\":\"breathe\"}]")),
+                "actors[0].actions[0].do: breathe is only for hogwartsmagic:memory_horntail");
+        assertMessage(validate(actorScene("hogwartsmagic:basilisk", "\"actions\":[{\"t\":26,\"do\":\"breathe\"}]")),
+                "breathe is only for hogwartsmagic:memory_horntail");
+        // An actor target must exist, as for a cast.
+        assertMessage(validate(horntail(BREATH_CUES + ",\"actions\":[{\"t\":26,\"do\":\"breathe\","
+                + "\"target\":\"actor:nobody\"}]")), "unknown actor 'nobody'");
+        // Outside the fire window (before the BREATH's fade is over, past its end, or with no breath cue) it is refused.
+        assertMessage(validate(horntail(BREATH_CUES + ",\"actions\":[{\"t\":22,\"do\":\"breathe\"}]")),
+                "lies outside the fire window of a BREATH or AIR_BREATH cue (her jaw is open at full fire from 26.0 to 66.0)");
+        assertMessage(validate(horntail(BREATH_CUES + ",\"actions\":[{\"t\":30,\"do\":\"breathe\"}]")),
+                "lies outside the fire window");
+        assertMessage(validate(horntail(",\"anims\":[{\"t\":0,\"name\":\"ROAR\"}],\"actions\":[{\"t\":10,"
+                + "\"do\":\"breathe\"}]")), "(none is in force then)");
+        // An air breath opens its jaw at tick 12.
+        String air = ",\"anims\":[{\"t\":0,\"name\":\"FLY\"},{\"t\":40,\"name\":\"AIR_BREATH\"}]";
+        assertEquals(List.of(), validate(horntail(air + ",\"actions\":[{\"t\":52,\"do\":\"breathe\"}]")));
+        assertMessage(validate(horntail(air + ",\"actions\":[{\"t\":46,\"do\":\"breathe\"}]")), "from 52.0 to 92.0");
+    }
+
+    @Test
+    void breatheDurationRange() throws Exception {
+        for (String d : new String[]{"10", "25", "\"1s\""}) {
+            assertEquals(List.of(), validate(horntail(BREATH_CUES + ",\"actions\":[{\"t\":26,\"do\":\"breathe\","
+                    + "\"duration\":" + d + "}]")), d);
+        }
+        assertMessage(validate(horntail(BREATH_CUES + ",\"actions\":[{\"t\":26,\"do\":\"breathe\",\"duration\":9}]")),
+                "actors[0].actions[0].duration: 9.0 is out of range (10 to 80 ticks)");
+        assertMessage(validate(horntail(",\"anims\":[{\"t\":0,\"name\":\"FLY\"},{\"t\":10,\"name\":\"AIR_BREATH\"},"
+                + "{\"t\":50,\"name\":\"AIR_BREATH\"},{\"t\":90,\"name\":\"AIR_BREATH\"}],"
+                + "\"actions\":[{\"t\":22,\"do\":\"breathe\",\"duration\":81}]")), "out of range");
+        // A breathe longer than its window is refused even inside the range.
+        assertMessage(validate(horntail(BREATH_CUES + ",\"actions\":[{\"t\":26,\"do\":\"breathe\",\"duration\":41}]")),
+                "for 41.0 ticks lies outside the fire window");
+    }
+
+    @Test
+    void durationKeyOnlyOnBreathe() throws Exception {
+        assertMessage(validate(actorScene("player", "\"actions\":[{\"t\":5,\"do\":\"swing\",\"duration\":20}]")),
+                "actors[0].actions[0].duration: duration is only for breathe");
+        assertMessage(validate(horntail(BREATH_CUES + ",\"actions\":[{\"t\":26,\"do\":\"hurt\",\"duration\":20}]")),
+                "duration is only for breathe");
+        // Any other unknown key is still a parse error.
+        assertThrows(SceneException.class, () -> validate(horntail(BREATH_CUES + ",\"actions\":[{\"t\":26,"
+                + "\"do\":\"breathe\",\"length\":20}]")));
+    }
 }

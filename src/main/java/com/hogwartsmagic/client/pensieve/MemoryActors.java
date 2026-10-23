@@ -319,6 +319,23 @@ public final class MemoryActors {
         return out == null ? List.of() : out;
     }
 
+    /** The memory Horntails, for their fire ({@link DragonFireRenderer}). */
+    static List<ActorRuntime> horntails() {
+        List<ActorRuntime> out = null;
+        for (ActorRuntime a : ACTORS) {
+            if (a.entity instanceof MemoryHorntailEntity) {
+                if (out == null) out = new ArrayList<>(1);
+                out.add(a);
+            }
+        }
+        return out == null ? List.of() : out;
+    }
+
+    /** The actor with this id, or null (a fire's target, {@link DragonFireRenderer}). */
+    static ActorRuntime actor(String id) {
+        return find(id);
+    }
+
     private static ActorRuntime find(String id) {
         if (id == null) return null;
         for (ActorRuntime a : ACTORS) {

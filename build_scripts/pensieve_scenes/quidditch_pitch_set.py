@@ -632,20 +632,11 @@ def plant_trees(w, H, castle):
         # a log spine to the spire tip; leaves are see-through, so the cone is built to be backed (leaf_backing): the
         # radius steps down every 3 rows (a short bottom group joins the one above it) and a row is an octagon whose
         # every open face has a log or three leaves behind it
-        rows = list(range(base + 3, top + 1))
-        for y in range(base, top + 2):
+        for y in range(base, top - LB.SPINE_BELOW + 1):          # (the spine stops 2 under the tip: leaves cap it)
             w[(x, y, z)] = state('spruce_log', axis='y')
-        for k, y in enumerate(reversed(rows)):          # k = 0 at the top
-            g = k // 3
-            if len(rows) - g * 3 < 3 and g > 0:
-                g -= 1
-            ri = g + 1
-            for dx in range(-ri, ri + 1):
-                for dz in range(-ri, ri + 1):
-                    if (dx or dz) and abs(dx) + abs(dz) <= ri + (ri + 1) // 2:
-                        c = (x + dx, y, z + dz)
-                        if w.get(c) is None and c not in castle:
-                            w[c] = state('spruce_leaves', distance=1, persistent=True, waterlogged=False)
+        for c in LB.spruce_cone(x, z, base + 3, top):
+            if w.get(c) is None and c not in castle:
+                w[c] = state('spruce_leaves', distance=1, persistent=True, waterlogged=False)
         n += 1
     return n
 

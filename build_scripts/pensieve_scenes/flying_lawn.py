@@ -1026,13 +1026,15 @@ TREES = [  # (x, z, height, crown, kind): framing oaks at the lawn's edge, a sta
 def fir(w, x, y0, z, big):
     """A single-trunk fir: a log spine up the middle of a stacked cone of spruce leaves (about 30 blocks, 60 when big).
     Leaves are see-through, so the cone is built to be backed: rows are 3 deep wherever a row changes width, a row of
-    half-width 1 is a full 3x3, and the spine is a log to the tip (the leaf_backing rule holds from every side)."""
+    half-width 1 is a full 3x3, and the spine stops 2 under the tip, leaves over it (the leaf_backing rule holds from every side)."""
     fl = state('spruce_leaves', distance='1', persistent='true', waterlogged='false')
     log = state('spruce_log', axis='y')
-    rows = [2, 2, 2, 1, 1, 1, 0, 0] if big else [1, 1, 1, 0, 0]
-    cells = [(x, y0, z)] + [(x, y0 + 1 + k, z) for k in range(len(rows))]
+    rows = [2, 2, 2, 1, 1, 1, 1] if big else [1, 1, 1, 1]
+    n = len(rows)
+    cells = [(x, y0, z)] + [(x, y0 + 1 + k, z) for k in range(n - LB.SPINE_BELOW)]   # the spine stops 2 under the tip
     leaves = [(x + dx, y0 + 1 + k, z + dz) for k, a in enumerate(rows) for dx in range(-a, a + 1)
-              for dz in range(-a, a + 1) if (dx or dz) and (a < 2 or abs(dx) + abs(dz) <= 2)]
+              for dz in range(-a, a + 1) if (dx or dz or k >= n - LB.SPINE_BELOW)
+              and (a < 2 or abs(dx) + abs(dz) <= 2)]
     if any(w.get(c) is not None for c in cells):
         return False
     if any(w.get(c) is not None and not LB.is_opaque(w.get(c)) for c in leaves):

@@ -1737,7 +1737,7 @@ def support_castle(w, H):
 def spruce(w, x, y0, z, height, seed):
     """A conifer with a log spine to its tip. Leaves are see-through, so the cone is built backed (leaf_backing)."""
     top = y0 + height
-    for y in range(y0, top + 2):
+    for y in range(y0, top - LB.SPINE_BELOW + 1):
         w.set((x, y, z), 'minecraft:spruce_log[axis=y]')
     for p in LB.spruce_cone(x, z, y0 + 2, top):
         if abs(p[0]) > RADIUS or abs(p[2]) > RADIUS:

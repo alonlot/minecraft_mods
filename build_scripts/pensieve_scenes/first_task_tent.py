@@ -548,7 +548,7 @@ def tree(w, x, z, height, seed):
     """A conifer with a log spine to its tip. Leaves are see-through, so the cone is built backed (leaf_backing)."""
     base = bank_height(x, z)
     top = base + height
-    for y in range(base, top + 2):
+    for y in range(base, top - LB.SPINE_BELOW + 1):
         w.set((x, y, z), log('y', 'spruce_log'))
     for p in LB.spruce_cone(x, z, base + 2, top):
         if max(abs(p[0]), abs(p[2])) > RADIUS:

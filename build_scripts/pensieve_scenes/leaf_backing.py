@@ -15,6 +15,7 @@ has nothing behind it.
 and asserts the check then fails (the mutation bite).
 """
 THICK = 3
+SPINE_BELOW = 2                                  # a conifer's log spine ends this far under its tip
 DIRS = ((1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1))
 _SEE_THROUGH = set(('glass', 'pane', 'slab', 'stairs', 'fence', 'wall', 'vine', 'grass', 'fern', 'flower', 'torch',
                 'lantern', 'door', 'carpet', 'button', 'ladder', 'chain', 'bars', 'allium', 'dandelion', 'daisy',
@@ -151,7 +152,8 @@ def trim_crown(w, cells, extra=None, seen=None, rounds=8):
 
 def spruce_cone(x, z, y_first, y_top):
     """Leaf cells of a backed conifer: rows y_first..y_top (inclusive) round a log spine at (x, z) that the caller
-    runs up to y_top + 1. The radius steps down every 3 rows from the top (a short bottom group joins the one
+    runs up to y_top - SPINE_BELOW only: the top two rows also take a leaf over the spine, so the tip is leaves
+    over leaves and no bare log pokes out of the crown. The radius steps down every 3 rows from the top (a short bottom group joins the one
     above), and a row is an octagon (|dx| + |dz| <= r + (r + 1) // 2), so every open face of a leaf has a log or three
     leaves behind it."""
     rows = list(range(y_first, y_top + 1))
@@ -163,6 +165,6 @@ def spruce_cone(x, z, y_first, y_top):
         r = g + 1
         for dx in range(-r, r + 1):
             for dz in range(-r, r + 1):
-                if (dx or dz) and abs(dx) + abs(dz) <= r + (r + 1) // 2:
+                if (dx or dz or y > y_top - SPINE_BELOW) and abs(dx) + abs(dz) <= r + (r + 1) // 2:
                     out.append((x + dx, y, z + dz))
     return out

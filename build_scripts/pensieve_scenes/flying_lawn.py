@@ -107,6 +107,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from scene_common import (physics_problems, FREE, STRUCTURES, schematic_grid, rotate_xz,  # noqa: E402
                           SCHEMATIC_SKIPPED)
+import leaf_backing as LB  # noqa: E402
 from great_hall_set import state, bid, parse_state, write_template  # noqa: E402
 
 OUT = os.path.join(STRUCTURES, 'flying_lawn.nbt')
@@ -445,6 +446,11 @@ def _pick(kind, x, y, z):
     return kind
 
 
+CROWN = []                              # the oak crown's leaves: thin outline bits are trimmed off
+SCRUB = []                              # the scrub clumps' leaves: backed by moss at the foot of the clump
+WOODS = []                              # (x, y, z) of every leaf the hill woods place: the backing pass starts here
+
+
 def build_ground(w):
     """One-block skin over the height field. A column is filled down to a lower neighbour only on the faces a
     camera in CAM_REGION can see; faces turned away (the backs of the hills) stay open, which no camera inside the
@@ -457,6 +463,9 @@ def build_ground(w):
             if in_domain(x, z):
                 H[(x, z)] = height(x, z)
     HILLY.clear()
+    WOODS.clear()
+    SCRUB.clear()
+    CROWN.clear()
     for (x, z), h in H.items():
         bottom = h
         for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)):
@@ -476,8 +485,11 @@ def build_ground(w):
         if hilly:
             HILLY.add((x, z))
             top, fill = hill_material(x, z, od, steep)
-            if top.endswith('_leaves') and bottom == h:
-                bottom, fill = h - 1, 'minecraft:moss_block'   # woods on the level: leaves over moss, not the hollow
+            if top.endswith('_leaves'):
+                # woods: ONE layer of leaves, a skin over solid moss. Leaves are see-through, so a column of them
+                # (or a lid over the hollow) shows the void inside the hill; the moss behind makes them read as woods.
+                bottom, fill = min(bottom, h - 1), 'minecraft:moss_block'
+                WOODS.append((x, h, z))
             for y in range(bottom, h + 1):
                 w.set((x, y, z), _pick(top if y == h else fill, x, y, z))
             if top == 'rock' and rnd(x, h, z, 47) < 0.35 and w.get((x, h + 1, z)) is None:
@@ -1002,6 +1014,7 @@ def oak(w, H, x, z, height, crown, seed, leaves='oak_leaves', log='oak_log'):
                     if d <= br + (rnd(px, py, pz, seed + 9) - 0.5) * 1.2 and w.get((px, py, pz)) is None:
                         if py > H.get((px, pz), -99) + 2:
                             w.set((px, py, pz), lv)
+                            CROWN.append((px, py, pz))
 
 
 TREES = [  # (x, z, height, crown, kind): framing oaks at the lawn's edge, a stand down the south-east slope
@@ -1010,18 +1023,26 @@ TREES = [  # (x, z, height, crown, kind): framing oaks at the lawn's edge, a sta
 
 
 def fir(w, x, y0, z, big):
-    """A single-trunk fir: a short trunk and a tapering cone of spruce leaves (about 20 blocks, 45 when big)."""
+    """A single-trunk fir: a log spine up the middle of a stacked cone of spruce leaves (about 30 blocks, 60 when big).
+    Leaves are see-through, so the cone is built to be backed: rows are 3 deep wherever a row changes width, a row of
+    half-width 1 is a full 3x3, and the spine is a log to the tip (the leaf_backing rule holds from every side)."""
     fl = state('spruce_leaves', distance='1', persistent='true', waterlogged='false')
-    w.set((x, y0, z), state('spruce_log', axis='y'))
-    w.set((x, y0 + 1, z), state('spruce_log', axis='y'))
-    layers = [2, 1, 2, 1, 1, 0, 0] if big else [1, 1, 1, 0, 0]
-    for k, rad in enumerate(layers):
-        y = y0 + 1 + k
-        for dx in range(-rad, rad + 1):
-            for dz in range(-rad, rad + 1):
-                if abs(dx) + abs(dz) <= rad and (dx or dz or k > 0) and w.get((x + dx, y, z + dz)) is None:
-                    w.set((x + dx, y, z + dz), fl)
-    w.set((x, y0 + 1, z), state('spruce_log', axis='y'))
+    log = state('spruce_log', axis='y')
+    rows = [2, 2, 2, 1, 1, 1, 0, 0] if big else [1, 1, 1, 0, 0]
+    cells = [(x, y0, z)] + [(x, y0 + 1 + k, z) for k in range(len(rows))]
+    leaves = [(x + dx, y0 + 1 + k, z + dz) for k, a in enumerate(rows) for dx in range(-a, a + 1)
+              for dz in range(-a, a + 1) if (dx or dz) and (a < 2 or abs(dx) + abs(dz) <= 2)]
+    if any(w.get(c) is not None for c in cells):
+        return False
+    if any(w.get(c) is not None and not LB.is_opaque(w.get(c)) for c in leaves):
+        return False                                   # another tree or a plant in the way: no half-grown cone
+    for c in cells:
+        w.set(c, log)
+    for c in leaves:
+        if w.get(c) is None:                           # (the hill itself may bite a corner out of the cone)
+            w.set(c, fl)
+            SCRUB.append(c)                            # (backed by moss like the scrub where the bite leaves a view)
+    return True
 
 
 def near_chase_box(x, z, margin=3):
@@ -1049,8 +1070,7 @@ def hill_trees(w, H):
                 fz = z + int((_hash(i, z, 157) - 0.5) * 7)
                 if (fx, fz) in HILLY and not near_chase_box(fx, fz) and \
                         bid(w.get((fx, H[(fx, fz)], fz))) in sward and w.get((fx, H[(fx, fz)] + 1, fz)) is None:
-                    fir(w, fx, H[(fx, fz)] + 1, fz, _hash(fx, fz, 158) < 0.3)
-                    firs += 1
+                    firs += fir(w, fx, H[(fx, fz)] + 1, fz, _hash(fx, fz, 158) < 0.3)
         elif r < 0.0105:                               # scrub: 3 to 6 leaves on and over the sward
             m = lv if _hash(x, z, 152) < 0.7 else az
             for dx, dz in ((0, 0), (1, 0), (0, 1), (-1, 0), (0, -1), (1, 1)):
@@ -1058,6 +1078,7 @@ def hill_trees(w, H):
                     hy = H[(x + dx, z + dz)] + 1
                     if w.get((x + dx, hy, z + dz)) is None:
                         w.set((x + dx, hy, z + dz), m)
+                        SCRUB.append((x + dx, hy, z + dz))
         elif vnoise(x, z, 10.0, 84) > 0.7 and rnd(x, h, z, 159) < 0.08 and w.get((x, h + 1, z)) is None:
             w.set((x, h + 1, z), 'minecraft:allium')           # heather
     return firs
@@ -1144,6 +1165,7 @@ def _build(w):
     build_trees(w, H)
     dress_ground(w, H, path)
     support_castle(w)
+    back_woods(w)
     return H
 
 
@@ -1174,6 +1196,21 @@ def support_castle(w):
                 r = rnd(x, y, z, 47)
                 w.set((x, y, z), 'minecraft:stone' if r < 0.6 else 'minecraft:andesite' if r < 0.8 else
                       'minecraft:cobblestone')
+
+
+def leaf_seen(p, d):
+    """A camera can be above or below a leaf, or on the side of it that faces the camera region."""
+    return d[1] != 0 or face_seen(p[0], p[2], d[0], d[2])
+
+
+def set_bounds():
+    return (TEMPLATE_AT, tuple(TEMPLATE_AT[i] + SIZE[i] - 1 for i in range(3)))
+
+
+def back_woods(w):
+    """The woods are a skin of leaves; every one a camera can see through gets a moss block one in (leaf_backing)."""
+    LB.trim_crown(w, CROWN, CASTLE, leaf_seen)
+    return LB.back_leaves(w, list(WOODS) + list(SCRUB), set_bounds(), leaf_seen, extra=CASTLE)
 
 
 def build_world():
@@ -1543,6 +1580,7 @@ def check(w, H=None):
                 floating.append(n)
     if floating:
         problems.append('%d open cells at the crag foot, e.g. %s' % (len(floating), floating[:4]))
+    problems += LB.problems(g, 'flying_lawn', CASTLE, seen=leaf_seen)   # leaves are see-through: backed (leaf_backing)
     return problems
 
 

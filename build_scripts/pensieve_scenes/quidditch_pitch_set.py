@@ -32,6 +32,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from scene_common import (read_nbt, physics_problems, FREE, STRUCTURES, SCHEMATICS, SCHEMATIC_SKIPPED,  # noqa: E402
                           rotate_xz)
+import leaf_backing as LB  # noqa: E402
 from great_hall_set import write_template, state, parse_state, bid  # noqa: E402
 from anvil import read_region_box  # noqa: E402
 
@@ -370,7 +371,7 @@ def row_sees_field(w, seg, eye_h):
     return all(sees_field(w, (x, y + eye_h, z)) for x, y, z in pts)
 
 
-SOLID_FLOOR_SKIP = ('_fence', '_wall', '_slab', '_stairs', '_banner', '_trapdoor', '_pane', 'iron_bars')
+SOLID_FLOOR_SKIP = ('_fence', '_wall', '_slab', '_stairs', '_banner', '_trapdoor', '_pane', 'iron_bars', '_leaves')   # (nobody stands on a treetop)
 
 
 def standing_cells(w, seats):
@@ -628,14 +629,20 @@ def plant_trees(w, H, castle):
         for y in range(base, base + hgt):
             w[(x, y, z)] = state('spruce_log', axis='y')
         top = base + hgt
-        for y in range(base + 3, top + 2):
-            r = max(0.6, (top + 1 - y) * 0.42)
-            if (y - base) % 2 == 1:
-                r *= 0.7
-            ri = int(math.ceil(r))
+        # a log spine to the spire tip; leaves are see-through, so the cone is built to be backed (leaf_backing): the
+        # radius steps down every 3 rows (a short bottom group joins the one above it) and a row is an octagon whose
+        # every open face has a log or three leaves behind it
+        rows = list(range(base + 3, top + 1))
+        for y in range(base, top + 2):
+            w[(x, y, z)] = state('spruce_log', axis='y')
+        for k, y in enumerate(reversed(rows)):          # k = 0 at the top
+            g = k // 3
+            if len(rows) - g * 3 < 3 and g > 0:
+                g -= 1
+            ri = g + 1
             for dx in range(-ri, ri + 1):
                 for dz in range(-ri, ri + 1):
-                    if dx * dx + dz * dz <= r * r + 0.3 and ((dx, dz) != (0, 0) or y >= top):
+                    if (dx or dz) and abs(dx) + abs(dz) <= ri + (ri + 1) // 2:
                         c = (x + dx, y, z + dz)
                         if w.get(c) is None and c not in castle:
                             w[c] = state('spruce_leaves', distance=1, persistent=True, waterlogged=False)
@@ -1085,6 +1092,8 @@ def check(anchors, info, w):
     low = min(p[1] for p in info['castle'])
     if low != CASTLE_AT[1]:
         problems.append('castle foot at %d, not %d' % (low, CASTLE_AT[1]))
+    # leaves are see-through: every one of the set's own has a log or enough leaves behind it (the schematic's are its own)
+    problems += LB.problems(tmpl, 'quidditch_pitch', info['castle'])
     return problems, numbers
 
 
@@ -1094,6 +1103,7 @@ def main():
     info = build.info
     problems, numbers = check(anchors, info, w)
     assert not problems, '\n'.join(problems[:40]) + ('\n... %d in all' % len(problems))
+    LB.assert_bites(info['template'], info['castle'])      # the mutation bite: a log out of a spine and the check fails
     n_pal, n_blocks = write_nbt(info['template'])
     print('quidditch_pitch.nbt: size %s, %d blocks, %d palette states, %d bytes' % (SIZE, n_blocks, n_pal,
                                                                                 os.path.getsize(OUT)))

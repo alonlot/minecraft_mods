@@ -3,11 +3,11 @@
 Run from the repo root:  python build_scripts/generate_first_task_textures.py
 
 Writes, under src/main/resources/assets/hogwartsmagic/:
-  textures/entity/memory_golden_egg.png    128 x 64 equirectangular map of the golden egg actor (u = longitude, v = the
+  textures/entity/memory_golden_egg.png    256 x 128 equirectangular map of the golden egg actor (u = longitude, v = the
                                            polar angle from the top pole, as client/MemoryEggRenderer maps it): gold, with
                                            etched bands, a lattice band at the waist and a seam
   textures/entity/golden_egg_glint.png     64 x 64 additive star sprite for the glint at the egg's top
-  textures/item/golden_egg_prop.png        16 x 16 item texture (the egg's gold and bands, side-on, top at v 0)
+  textures/item/golden_egg_prop.png        64 x 64 item texture (the egg's gold and bands, side-on, top at v 0)
   models/item/golden_egg_prop.json         the held egg: eight slices of boxes (each an axis-aligned one and one turned 45
                                            degrees), sized so model extent x display scale is the actor's 0.36 x 0.26
   textures/item/triwizard_robes.png        the champion's robes, 16 x 16: charcoal with bronze trim
@@ -32,9 +32,10 @@ ASSETS = Path("src/main/resources/assets/hogwartsmagic")
 LENGTH, WIDTH = 0.36, 0.26
 
 GOLD = (214, 168, 52)
-GOLD_LIGHT = (247, 212, 100)
-GOLD_DARK = (152, 104, 26)
-ETCH = (104, 70, 18)
+GOLD_LIGHT = (250, 220, 118)
+GOLD_DARK = (122, 80, 18)
+ETCH = (84, 54, 12)
+WHITE_GOLD = (255, 246, 205)
 
 
 def clamp(v):
@@ -42,69 +43,95 @@ def clamp(v):
 
 
 def mix(a, b, t):
-    return tuple(clamp(a[i] + (b[i] - a[i]) * t) for i in range(3))
+    t = max(0.0, min(1.0, t))
+    return tuple(a[i] + (b[i] - a[i]) * t for i in range(3))
 
 
-def band_weight(y, centre, half):
-    """1 inside a band centred at height fraction `centre` (-1..1) with half-width `half`, with a 1-texel soft edge."""
-    d = abs(y - centre)
-    if d <= half:
-        return 1.0
-    return max(0.0, 1.0 - (d - half) / 0.025)
+def smooth(a, b, x):
+    t = max(0.0, min(1.0, (x - a) / (b - a)))
+    return t * t * (3 - 2 * t)
 
 
-# Etched bands as (height fraction of the egg, half-width): a double line near each end and a wide waist band.
-BANDS = [(0.80, 0.018), (0.70, 0.018), (-0.12, 0.17), (-0.64, 0.018), (-0.74, 0.018)]
+def gauss(x, c, w):
+    return math.exp(-((x - c) / w) ** 2)
 
 
-def egg_pixel(u, y, rnd):
-    """The egg's colour at longitude fraction u (0..1) and height fraction y (-1 bottom, +1 top)."""
-    n = rnd.randint(-5, 5)
-    # Gold shaded a little toward the lower half so the light seems to come from above.
-    base = mix(GOLD, GOLD_LIGHT, 0.25 + 0.3 * y)
-    r, g, b = base[0] + n, base[1] + n, base[2] + n // 2
-    # Soft vertical flutes.
-    flute = math.sin(u * 2 * math.pi * 12)
-    r, g, b = r + flute * 5, g + flute * 4, b + flute * 2
-    wide = band_weight(y, BANDS[2][0], BANDS[2][1])
-    # The waist band: a raised lattice, darker lines at 45 degrees both ways.
-    if wide > 0.5:
-        lat = (u * 24 + y * 7.0) % 1.0
-        lat2 = (u * 24 - y * 7.0) % 1.0
-        shade = 1.0 if lat > 0.12 and lat2 > 0.12 else 0.0
-        base = mix(GOLD_DARK, GOLD_LIGHT, 0.55 if shade else 0.0)
-        r, g, b = base[0] + n, base[1] + n, base[2] + n // 2
-    for i, (c, h) in enumerate(BANDS):
-        if i == 2:
-            continue
-        w = band_weight(y, c, h)
-        if w > 0:
-            e = mix((r, g, b), ETCH, 0.85 * w)
-            r, g, b = e
-    # The seam: a thin dark meridian at u = 0 (and 0.5), with a bright lip beside it.
-    for m in (0.0, 0.5):
-        du = min(abs(u - m), 1 - abs(u - m))
-        if du < 0.006:
-            r, g, b = ETCH
-        elif du < 0.014:
-            r, g, b = mix((r, g, b), GOLD_LIGHT, 0.5)
-    # The ends are a little darker where the egg turns away.
-    if abs(y) > 0.93:
-        k = (abs(y) - 0.93) / 0.07
-        r, g, b = mix((r, g, b), GOLD_DARK, 0.5 * k)
-    return clamp(r), clamp(g), clamp(b), 255
+# The egg's surface in blocks: the circumference at the widest is pi * WIDTH, the half height LENGTH / 2.
+CIRC, HALF = math.pi * WIDTH, LENGTH / 2
+
+# Etched bands as (height fraction, half-width): a double line near each end, each a few texels thick even on the 64 px
+# item texture; the waist band carries the lattice.
+LINES = [(0.80, 0.032), (0.65, 0.032), (-0.68, 0.032), (-0.83, 0.032)]
+WAIST_C, WAIST_H = -0.10, 0.20
+LATTICE_CELL = CIRC / 16.0          # one diamond's width, in blocks
+LATTICE_LINE = 0.0105               # a lattice line's thickness, in blocks (about 3 texels on the actor map)
+STREAKS = (0.125, 0.375, 0.625, 0.875)   # longitudes of the baked highlight streaks (the egg looks the same from all sides)
+
+
+def egg_pixel(u, y):
+    """The egg colour at longitude fraction u (0..1) and height fraction y (-1 bottom, +1 top). Polished gold: the
+    luminance follows what a mirrored egg would reflect (bright sky above, a dark horizon, a warm bounce below), with
+    soft baked highlight streaks, crisp etched lines and a diamond lattice round the waist. Pure, no noise."""
+    lum = (0.52 + 0.34 * y - 0.30 * gauss(y, -0.12, 0.17) + 0.24 * gauss(y, -0.62, 0.18)
+           - 0.30 * smooth(0.82, 1.0, abs(y)))
+    if lum < 0.5:
+        col = mix(GOLD_DARK, GOLD, lum / 0.5)
+    else:
+        col = mix(GOLD, GOLD_LIGHT, (lum - 0.5) / 0.4)
+    # Highlight streaks: tall, narrow, brightest on the shoulders.
+    for c0 in STREAKS:
+        du = min(abs(u - c0), 1 - abs(u - c0))
+        s = gauss(du, 0, 0.03) * smooth(-0.55, 0.0, y) * (1 - smooth(0.78, 0.97, y))
+        col = mix(col, WHITE_GOLD, 0.92 * s)
+        col = mix(col, GOLD_DARK, 0.35 * gauss(du, 0.07, 0.03) * smooth(-0.6, 0.0, y) * (1 - smooth(0.7, 0.95, y)))
+    # The thin etched lines: a dark core with a bright lip on the upper side.
+    for c, h in LINES:
+        d = y - c
+        if abs(d) <= h:
+            col = mix(col, ETCH, 0.9)
+        elif -h - 0.03 < d < -h:
+            col = mix(col, GOLD_LIGHT, 0.45)
+    # The waist: a dark ground with a diamond lattice of bright raised lines, closed by a dark rule above and below.
+    d = y - WAIST_C
+    if abs(d) <= WAIST_H:
+        s, hgt = u * CIRC, y * HALF
+        a = ((s + hgt) / LATTICE_CELL) % 1.0
+        b = ((s - hgt) / LATTICE_CELL) % 1.0
+        w = LATTICE_LINE / LATTICE_CELL
+        da = min(a, 1 - a)
+        db = min(b, 1 - b)
+        on = da < w / 2 or db < w / 2
+        ground = mix(GOLD_DARK, GOLD, 0.25 + 0.25 * (0.5 + 0.5 * y))
+        line = mix(GOLD, GOLD_LIGHT, 0.55 + 0.3 * (0.5 + 0.5 * y))
+        col = line if on else ground
+        if abs(d) > WAIST_H - 0.035:
+            col = ETCH
+    return col
+
+
+def sample(u0, u1, y0, y1, n=8):
+    """The average of egg_pixel over a texel (u0..u1, y0..y1), n x n subsamples: antialiased, crisp lines."""
+    r = g = b = 0.0
+    for j in range(n):
+        y = y0 + (y1 - y0) * (j + 0.5) / n
+        for i in range(n):
+            c = egg_pixel((u0 + (u1 - u0) * (i + 0.5) / n) % 1.0, y)
+            r += c[0]
+            g += c[1]
+            b += c[2]
+    k = n * n
+    return clamp(r / k), clamp(g / k), clamp(b / k), 255
 
 
 def egg_texture():
-    W, H = 128, 64
-    rnd = random.Random(23)
+    W, H = 256, 128
     img = Image.new("RGBA", (W, H))
     px = img.load()
     for j in range(H):
-        phi = math.pi * (j + 0.5) / H
-        y = math.cos(phi)
+        # Row j covers the polar angle phi in [pi j / H, pi (j + 1) / H]; y = cos(phi).
+        ya, yb = math.cos(math.pi * j / H), math.cos(math.pi * (j + 1) / H)
         for i in range(W):
-            px[i, j] = egg_pixel((i + 0.5) / W, y, rnd)
+            px[i, j] = sample(i / W, (i + 1) / W, yb, ya, 6)
     return img
 
 
@@ -126,33 +153,25 @@ def glint_texture():
             core = math.exp(-r * r * 38)
             glow = 0.35 * math.exp(-r * r * 6)
             v = min(1.0, spike + diag + core + glow)
-            v *= max(0.0, 1.0 - r) ** 0.6
+            v *= max(0.0, 1 - r) ** 0.6
             col = mix((255, 226, 140), (255, 255, 250), min(1.0, core * 1.5))
             a = clamp(255 * v)
             px[i, j] = (clamp(col[0] * v), clamp(col[1] * v), clamp(col[2] * v), a)
     return img
 
 
-def item_egg_texture():
-    """The held egg, side-on: 16 x 16, the top of the egg at v 0 (the model maps its slices onto these rows)."""
-    rnd = random.Random(7)
-    img = Image.new("RGBA", (16, 16))
-    px = img.load()
-    for j in range(16):
-        y = 1 - 2 * (j + 0.5) / 16
-        for i in range(16):
-            r, g, b, a = egg_pixel(0.12 + (i + 0.5) / 16 * 0.3, y, rnd)
-            px[i, j] = (r, g, b, 255)
-    return img
+# ---- The held egg model --------------------------------------------------------------------------------------------
 
-
-# ---- The held egg's model ------------------------------------------------------------------------------------------
-
-SLICES = 8
-MODEL_L = 12.0                          # px tall; display scale = LENGTH * 16 / MODEL_L
-DISPLAY = LENGTH * 16 / MODEL_L
-MODEL_W = WIDTH * 16 / DISPLAY          # the widest extent in model px
+ITEM_PX = 64                            # the item texture is ITEM_PX square; row j is the height band of the egg at v = j
+ITEM_U = 0.25                           # the item sides show this share of the longitudes, starting at 0
+SLICES = 14                             # stacked slices, equal steps in the polar angle (thin ones at the pointed ends)
+POLY = 4                                # boxes per slice, turned 0, 22.5, 45, 67.5 degrees: a 16-gon
+MODEL_L = 12.0                          # px tall
+DISPLAY_FIRST = LENGTH * 16 / MODEL_L   # first person and the ground: model extent x scale is the actor size
+DISPLAY = DISPLAY_FIRST / 0.9375        # third person: the player model is drawn at 15/16 (HumanMotion.MODEL_SCALE)
 TAPER = 0.14
+CORNER = 1.0      # the 0 and 67.5 degree boxes put a corner on the x and z axes: the extent there is the corner radius
+MODEL_W = WIDTH * 16 / DISPLAY_FIRST    # the widest extent in model px (measured at the first-person scale)
 
 
 def profile(v):
@@ -162,34 +181,46 @@ def profile(v):
 PEAK = max(profile(-1 + i / 1000.0) for i in range(2001))
 
 
+def item_egg_texture():
+    """The held egg, side-on, ITEM_PX square: row j covers a height band of the egg (the top at row 0), the columns the
+    longitudes 0..ITEM_U. Made by the same function as the actor map, antialiased, so the bands and the lattice are the
+    actor ones."""
+    img = Image.new("RGBA", (ITEM_PX, ITEM_PX))
+    px = img.load()
+    for j in range(ITEM_PX):
+        ya, yb = 1 - 2 * j / ITEM_PX, 1 - 2 * (j + 1) / ITEM_PX
+        for i in range(ITEM_PX):
+            px[i, j] = sample(ITEM_U * i / ITEM_PX, ITEM_U * (i + 1) / ITEM_PX, yb, ya, 6)
+    return img
+
+
 def egg_model():
-    """The item model: SLICES stacked slices, each an axis-aligned box and a box turned 45 degrees about y."""
+    """The item model: SLICES stacked slices, each POLY boxes turned about y (a 16-gon), whose radius follows the egg
+    profile, sized so model extent x display scale is the actor 0.36 x 0.26."""
     top = 8 + MODEL_L / 2
-    h = MODEL_L / SLICES
-    # The widest slice's rotated corners reach MODEL_W / 2: half-side a = MODEL_W / 2 / sqrt(2) at the peak.
-    a_peak = MODEL_W / 2 / math.sqrt(2)
+    r_peak = MODEL_W / 2 / CORNER           # the corner radius of the widest slice
     elements = []
     for s in range(SLICES):
-        y0 = 8 - MODEL_L / 2 + s * h
-        y1 = y0 + h
-        v = ((y0 + y1) / 2 - 8) / (MODEL_L / 2)
-        # The widest slice is the peak; use the slice's own profile height so the maximum is exactly a_peak.
-        a = a_peak * profile(v) / max(profile(((k + 0.5) * h - MODEL_L / 2) / (MODEL_L / 2)) for k in range(SLICES))
-        v0 = (top - y1) / MODEL_L * 16
-        v1 = (top - y0) / MODEL_L * 16
+        pa, pb = math.pi * s / SLICES, math.pi * (s + 1) / SLICES
+        y1, y0 = 8 + MODEL_L / 2 * math.cos(pa), 8 + MODEL_L / 2 * math.cos(pb)
+        r = r_peak * profile(math.cos((pa + pb) / 2)) / PEAK
+        a = r / math.sqrt(2)                # the half side of the square whose corner radius is r
+        # The sides map the band of the texture this slice covers; up and down use a plain gold patch.
+        v0, v1 = (top - y1) / MODEL_L * 16, (top - y0) / MODEL_L * 16
         faces = {side: {"uv": [0, round(v0, 4), 16, round(v1, 4)], "texture": "#egg"}
                  for side in ("north", "south", "east", "west")}
-        faces["up"] = {"uv": [4, 0, 12, 4], "texture": "#egg"}
-        faces["down"] = {"uv": [4, 12, 12, 16], "texture": "#egg"}
-        box = {"from": [round(8 - a, 4), round(y0, 4), round(8 - a, 4)], "to": [round(8 + a, 4), round(y1, 4), round(8 + a, 4)],
-               "faces": faces}
-        elements.append(box)
-        turned = json.loads(json.dumps(box))
-        turned["rotation"] = {"origin": [8, 8, 8], "axis": "y", "angle": 45}
-        elements.append(turned)
-    hand = {"rotation": [0, 0, 0], "translation": [0, 3, 1], "scale": [round(DISPLAY, 4)] * 3}
-    first_r = {"rotation": [0, -90, 25], "translation": [1.13, 3.2, 1.13], "scale": [round(DISPLAY, 4)] * 3}
-    first_l = {"rotation": [0, 90, -25], "translation": [1.13, 3.2, 1.13], "scale": [round(DISPLAY, 4)] * 3}
+        faces["up"] = {"uv": [0, 4, 3, 6], "texture": "#egg"}
+        faces["down"] = {"uv": [0, 4, 3, 6], "texture": "#egg"}
+        for k in range(POLY):
+            box = {"from": [round(8 - a, 4), round(y0, 4), round(8 - a, 4)],
+                   "to": [round(8 + a, 4), round(y1, 4), round(8 + a, 4)], "faces": faces}
+            if k:
+                box["rotation"] = {"origin": [8, 8, 8], "axis": "y", "angle": 90.0 / POLY * k}
+            elements.append(json.loads(json.dumps(box)))
+    d3, d1 = [round(DISPLAY, 4)] * 3, [round(DISPLAY_FIRST, 4)] * 3
+    hand = {"rotation": [0, 0, 0], "translation": [0, 3, 1], "scale": d3}
+    first_r = {"rotation": [0, -90, 25], "translation": [1.13, 3.2, 1.13], "scale": d1}
+    first_l = {"rotation": [0, 90, -25], "translation": [1.13, 3.2, 1.13], "scale": d1}
     return {
         "textures": {"egg": "hogwartsmagic:item/golden_egg_prop", "particle": "hogwartsmagic:item/golden_egg_prop"},
         "elements": elements,
@@ -197,7 +228,7 @@ def egg_model():
             "thirdperson_righthand": hand, "thirdperson_lefthand": hand,
             "firstperson_righthand": first_r, "firstperson_lefthand": first_l,
             "gui": {"rotation": [20, 30, 0], "translation": [0, 0, 0], "scale": [1.25, 1.25, 1.25]},
-            "ground": {"rotation": [0, 0, 0], "translation": [0, 2, 0], "scale": [round(DISPLAY, 4)] * 3},
+            "ground": {"rotation": [0, 0, 0], "translation": [0, 2, 0], "scale": d1},
             "fixed": {"rotation": [0, 180, 0], "translation": [0, 0, 0], "scale": [1.0, 1.0, 1.0]},
         },
     }

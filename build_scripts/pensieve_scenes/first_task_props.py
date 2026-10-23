@@ -37,36 +37,13 @@ EGG_CASES = os.path.join(HERE, 'egg_cases.json')
 M64 = (1 << 64) - 1
 
 
-def _hm_mix(z):
-    """HumanMotion.mix: the splitmix finaliser WITHOUT the golden-gamma step."""
-    z = ((z ^ (z >> 30)) * 0xbf58476d1ce4e5b9) & M64
-    z = ((z ^ (z >> 27)) * 0x94d049bb133111eb) & M64
-    return z ^ (z >> 31)
-
-
-def motion_seed(actor_id):
-    """HumanMotion.seed: FNV-1a over the id's UTF-16 units, then the finaliser above (an unsigned 64-bit int).
-
-    scene_engine.motion_seed is meant to be this, but scene_engine.py defines _mix64 twice (line ~985 for the
-    motion seed, line ~1585 for the crowd, which adds the golden-gamma step), and the later def replaces the earlier
-    for every caller: since the crowd was added, scene_engine.motion_seed no longer matches Java (a regenerated
-    broom_cases.json would carry the wrong seed_bob and hover bob). register() patches the engine's name with this
-    correct one, so everything generated through first_task_props agrees with HumanMotion.seed.
-    """
-    h = 0xcbf29ce484222325
-    data = actor_id.encode('utf-16-be')
-    for i in range(0, len(data), 2):
-        h ^= (data[i] << 8) | data[i + 1]
-        h = (h * 0x100000001b3) & M64
-    return _hm_mix(h)
-
-
 def register():
-    """Teach scene_engine the Firebolt (idempotent) and give it the correct motion seed (see motion_seed)."""
-    E.motion_seed = motion_seed
+    """Teach scene_engine the Firebolt and the egg (idempotent)."""
     if FIREBOLT not in E.BROOM_TYPES:
         E.BROOM_TYPES = tuple(E.BROOM_TYPES) + (FIREBOLT,)
     E.BROOM_BOX[FIREBOLT] = FIREBOLT_BOX
+    if EGG not in E.FAST_MOVERS:
+        E.FAST_MOVERS = tuple(E.FAST_MOVERS) + (EGG,)    # SceneValidator.fastMover counts the egg too
     E.egg_box = egg_box
     E.egg_glint = egg_glint
 
@@ -100,7 +77,7 @@ def _mix(z):
 
 def egg_seed(actor_id):
     """MemoryBall.seedFor: HumanMotion.seed(id) cut to a signed 32-bit int."""
-    low = motion_seed(actor_id) & 0xFFFFFFFF
+    low = E.motion_seed(actor_id) & 0xFFFFFFFF
     return low - (1 << 32) if low >= (1 << 31) else low
 
 
@@ -169,7 +146,7 @@ def firebolt_cases():
                           'climb': E.broom_climb(b['path'], t), 'heading': E.broom_heading(b['path'], t),
                           'rider_root': root, 'rider_m': m, 'rider_pose': E.rider_pose(bp['speed'], bp['pitch']),
                           'rider_weight': E.rider_weight(*E.ride_of(r)[1:], t) if E.rides_at(r, t) else None,
-                          'seed_bob': E.hover_bob(0.0, t, motion_seed('b'))})
+                          'seed_bob': E.hover_bob(0.0, t, E.motion_seed('b'))})
     return {'constants': {'BOX_FIREBOLT': [list(FIREBOLT_BOX[0]), list(FIREBOLT_BOX[1])]}, 'scenes': scenes,
             'cases': cases}
 

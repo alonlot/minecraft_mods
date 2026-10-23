@@ -37,11 +37,17 @@ public final class CrowdMesh {
 
     /**
      * House colours, {first, second} per house (0 Gryffindor, 1 Hufflepuff, 2 Ravenclaw, 3 Slytherin): bright enough to
-     * read in a storm. 4 Beauxbatons (powder blue, silver) and 5 Durmstrang (blood red, brown fur) are visiting schools:
-     * they never wear the black Hogwarts robe, their robe is their first colour.
+     * read in a storm. 4 Beauxbatons (powder blue, silver) and 5 Durmstrang (dark oxblood, brown fur) are visiting schools:
+     * they never wear the black Hogwarts robe. Beauxbatons' robe is its first colour; Durmstrang's robe is its fur
+     * brown, so the fur shows on the robes and the oxblood (kept well clear of Gryffindor's red) on the jumpers.
      */
     static final int[][] HOUSE = {{0x9E1B1B, 0xDDAA3A}, {0xE8BA30, 0x2E2824}, {0x2A4A9E, 0xB0824A}, {0x1F7340, 0xB8BCC2},
-            {0x8FB4E4, 0xCBD9EC}, {0x8B1A22, 0x6B4A2F}};
+            {0x8FB4E4, 0xCBD9EC}, {0x5A1420, 0x7A5636}};
+    /** One colour of a house's pair ({@code slot} 0 first, 1 second): for tests and tools. */
+    public static int houseColour(int house, int slot) {
+        return HOUSE[house][slot];
+    }
+
     static final int[] SKIN = {0xF1C9A5, 0xE0AC88, 0xC68863, 0xA86B4A, 0x7D4B32, 0x5A3524};
     static final int[] HAIR = {0x1E1A17, 0x3B2618, 0x6A4426, 0x8A3B1F, 0xC9A25E, 0xB0541E};
     static final int ROBE_BLACK = 0x26262C, TROUSERS = 0x34343C, SHOES = 0x1A1716, POLE = 0x6B4A2B;
@@ -92,7 +98,7 @@ public final class CrowdMesh {
         int h = c.house(i);
         int first = HOUSE[h][0], second = HOUSE[h][1];
         int outfit = c.outfit(i);
-        int robe = h < 4 ? ROBE_BLACK : first;
+        int robe = h < 4 ? ROBE_BLACK : h == Crowd.DURMSTRANG ? second : first;
         int body = outfit == Crowd.JUMPER ? first : outfit == Crowd.ROBE ? robe : second;
         int skin = SKIN[c.skin(i)], hair = HAIR[c.hair(i)];
         int gear = c.gear(i);

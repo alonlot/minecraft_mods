@@ -5,6 +5,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.hogwartsmagic.pensieve.scene.GoldenEgg;
+import com.hogwartsmagic.pensieve.scene.HumanMotion;
 import com.hogwartsmagic.pensieve.scene.MemoryBall;
 import com.hogwartsmagic.pensieve.scene.SceneNames;
 import org.junit.jupiter.api.Test;
@@ -150,15 +151,16 @@ class GoldenEggTest {
         for (String slot : new String[]{"thirdperson_righthand", "thirdperson_lefthand", "firstperson_righthand",
                 "firstperson_lefthand"}) {
             JsonArray scale = display.getAsJsonObject(slot).getAsJsonArray("scale");
-            double d = scale.get(0).getAsDouble();
-            assertEquals(d, scale.get(1).getAsDouble(), 0, slot);
-            assertEquals(d, scale.get(2).getAsDouble(), 0, slot);
-            assertEquals(GoldenEgg.LENGTH, ext[1] / 16.0 * d, 0.004, slot + ": the height");
-            assertEquals(GoldenEgg.WIDTH, ext[0] / 16.0 * d, 0.004, slot + ": the width (x)");
-            assertEquals(GoldenEgg.WIDTH, ext[2] / 16.0 * d, 0.004, slot + ": the width (z)");
+            // Third person draws the item inside the player model, which is scaled by 15/16; first person does not.
+            double d = scale.get(0).getAsDouble() * (slot.startsWith("third") ? HumanMotion.MODEL_SCALE : 1.0);
+            assertEquals(scale.get(0).getAsDouble(), scale.get(1).getAsDouble(), 0, slot);
+            assertEquals(scale.get(0).getAsDouble(), scale.get(2).getAsDouble(), 0, slot);
+            assertEquals(GoldenEgg.LENGTH, ext[1] / 16.0 * d, 0.002, slot + ": the height");
+            assertEquals(GoldenEgg.WIDTH, ext[0] / 16.0 * d, 0.002, slot + ": the width (x)");
+            assertEquals(GoldenEgg.WIDTH, ext[2] / 16.0 * d, 0.002, slot + ": the width (z)");
         }
         // And its slices and textures exist.
-        assertTrue(model.getAsJsonArray("elements").size() >= 8);
+        assertTrue(model.getAsJsonArray("elements").size() >= 48, "fine slices, not an octagram of blunt steps");
         for (String f : new String[]{"textures/item/golden_egg_prop.png", "textures/entity/memory_golden_egg.png",
                 "textures/entity/golden_egg_glint.png"}) {
             assertTrue(Files.exists(Path.of("src/main/resources/assets/hogwartsmagic/" + f)), f);

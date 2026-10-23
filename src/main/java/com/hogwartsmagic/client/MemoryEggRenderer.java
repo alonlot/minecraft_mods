@@ -48,12 +48,13 @@ public class MemoryEggRenderer extends EntityRenderer<MemoryBallEntity> {
         double now = PensieveClientState.sceneTime(partialTick);
         double glint = GoldenEgg.glint(now, egg.seed);
         if (glint > 0.01) {
-            float half = (float) (GoldenEgg.STAR_SIZE * (0.45 + 0.55 * glint) / 2);
+            float half = (float) (GoldenEgg.STAR_SIZE * (0.2 + 0.8 * glint) / 2);
             pose.translate(0, GoldenEgg.LENGTH / 2 + GoldenEgg.STAR_LIFT, 0);
             pose.mulPose(this.entityRenderDispatcher.cameraOrientation());
             pose.mulPose(com.mojang.math.Axis.ZP.rotationDegrees((float) GoldenEgg.starTurn(now, egg.seed)));
-            int a = (int) Math.min(255, 255 * glint);
-            int argb = (a << 24) | 0xFFFFFF;
+            // RenderType.eyes adds (ONE, ONE): alpha is ignored, so the fade has to scale the colour itself.
+            int c = (int) Math.min(255, 255 * glint);
+            int argb = 0xFF000000 | (c << 16) | (c << 8) | c;
             Matrix4f m = pose.last().pose();
             VertexConsumer vc = buffers.getBuffer(RenderType.eyes(GLINT));
             star(vc, pose.last(), m, -half, -half, 0f, 1f, argb);

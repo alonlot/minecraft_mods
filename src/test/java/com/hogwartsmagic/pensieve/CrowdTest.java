@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -591,5 +592,77 @@ class CrowdTest {
             for (int i = 0; i < one.size(); i++) assertEquals(Crowd.STYLES.indexOf(style), one.house(i), style);
         }
         assertTrue(Crowd.STYLES.contains("triwizard"));
+    }
+
+    /** Distance in RGB between two colours. */
+    private static double rgbDistance(int a, int b) {
+        int dr = ((a >> 16) & 255) - ((b >> 16) & 255), dg = ((a >> 8) & 255) - ((b >> 8) & 255),
+                db = (a & 255) - (b & 255);
+        return Math.sqrt(dr * dr + dg * dg + db * db);
+    }
+
+    /** Whether {@code argb} is {@code rgb} shaded by one uniform factor in the mesh's range (0.6 to 1.0). */
+    private static boolean isShadeOf(int argb, int rgb) {
+        double k = -1;
+        for (int sh = 16; sh >= 0; sh -= 8) {
+            int base = (rgb >> sh) & 255, got = (argb >> sh) & 255;
+            if (base < 40) return false;
+            double q = got / (double) base;
+            if (q < 0.6 || q > 1.02 || (k >= 0 && Math.abs(q - k) > 0.04)) return false;
+            k = q;
+        }
+        return true;
+    }
+
+    /** Collects, per figure, every colour emitted. */
+    private static final class Colours implements CrowdMesh.Sink {
+        final java.util.List<java.util.Set<Integer>> perFigure = new java.util.ArrayList<>();
+
+        @Override
+        public void figure(int index) {
+            perFigure.add(new java.util.HashSet<>());
+        }
+
+        @Override
+        public void vertex(float x, float y, float z, int argb) {
+            perFigure.get(perFigure.size() - 1).add(argb);
+        }
+    }
+
+    /**
+     * The visiting schools read as themselves in the stands: Durmstrang's oxblood stays well clear of Gryffindor's red
+     * (and its brown of the houses' second colours), every house id 0 to 5 builds, and a Beauxbatons or Durmstrang robe
+     * seat wears the school colour, never the black Hogwarts robe.
+     */
+    @Test
+    void triwizardMeshColoursReadAsTheSchools() {
+        int gryff = CrowdMesh.houseColour(0, 0), durm = CrowdMesh.houseColour(Crowd.DURMSTRANG, 0);
+        assertTrue(rgbDistance(gryff, durm) >= 40, "Durmstrang vs Gryffindor " + rgbDistance(gryff, durm));
+        for (int h = 0; h < 4; h++) {
+            assertTrue(rgbDistance(durm, CrowdMesh.houseColour(h, 0)) >= 40, "Durmstrang vs house " + h);
+        }
+        assertTrue(rgbDistance(CrowdMesh.houseColour(Crowd.DURMSTRANG, 1), CrowdMesh.houseColour(1, 1)) >= 30,
+                "Durmstrang fur vs Hufflepuff's second");
+        float[][] rows = bowl(30, 40, 30);
+        Crowd c = Crowd.layout(rows, AT, "triwizard", 1, 2000, 17L);
+        CrowdMesh mesh = new CrowdMesh();
+        boolean[] seen = new boolean[6];
+        boolean beauxRobe = false, durmRobe = false;
+        for (int i = 0; i < c.size(); i++) {
+            Colours sink = new Colours();
+            mesh.figure(c, i, 10f, CrowdMesh.FULL, 0, 20, 0, sink);
+            int h = c.house(i);
+            seen[h] = true;
+            java.util.Set<Integer> got = sink.perFigure.get(0);
+            assertFalse(got.isEmpty(), "house " + h + " builds");
+            if (c.outfit(i) != Crowd.ROBE || h < 4) continue;
+            int want = CrowdMesh.houseColour(h, h == Crowd.DURMSTRANG ? 1 : 0);
+            boolean has = got.stream().anyMatch(v -> isShadeOf(v, want));
+            assertTrue(has, "house " + h + " ROBE seat " + i + " wears " + Integer.toHexString(want));
+            if (h == Crowd.BEAUXBATONS) beauxRobe = true;
+            else durmRobe = true;
+        }
+        for (int h = 0; h < 6; h++) assertTrue(seen[h], "house " + h + " seated");
+        assertTrue(beauxRobe && durmRobe, "both schools have a robe seat");
     }
 }

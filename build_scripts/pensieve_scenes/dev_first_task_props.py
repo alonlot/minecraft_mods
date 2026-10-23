@@ -10,7 +10,7 @@ What it shows, on a flat lawn by day:
   - the golden egg standing at scale 1 on a low rock, glinting every 1.5 to 2.5 s (a close shot, 0-6 s);
   - the champion (14 years old, scale 0.85, the viewer's skin, the champion's robes in `chest`) flying a Firebolt in a
     banked circuit (6-13 s), the grip asserted against the real model's handle;
-  - a ten-tier stand of 500 `triwizard` spectators, house robes and the Beauxbatons powder blue and Durmstrang blood red
+  - a ten-tier stand of 500 `triwizard` spectators, house robes and the Beauxbatons powder blue and Durmstrang oxblood
     among them (13-17 s);
   - the held egg (`golden_egg_prop`, in the hand of a second champion) beside an egg actor at the same scale, to compare
     their size (17-20 s).

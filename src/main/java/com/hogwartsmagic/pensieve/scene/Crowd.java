@@ -37,7 +37,7 @@ public final class Crowd {
             "triwizard");
     /**
      * The {@code triwizard} style (the First Task's stands): the four houses share {@link #TRIWIZARD_HOUSES} of the
-     * crowd between them, Beauxbatons (powder blue) {@link #TRIWIZARD_BEAUXBATONS} and Durmstrang (blood red with brown
+     * crowd between them, Beauxbatons (powder blue) {@link #TRIWIZARD_BEAUXBATONS} and Durmstrang (dark oxblood with brown
      * fur) the rest. House ids 4 and 5.
      */
     public static final double TRIWIZARD_HOUSES = 0.70, TRIWIZARD_BEAUXBATONS = 0.15;

@@ -76,6 +76,8 @@ public final class FirstTaskMemoryGameTests {
         Vec3 at = helper.absoluteVec(new Vec3(1.5, 2, 1.5));
         p.teleportTo(helper.getLevel(), at.x, at.y, at.z, java.util.Set.of(), 0f, 0f);
         p.getPersistentData().remove("PlayerPersisted");
+        // Mock players are never ticked through move(), so nothing would ever land them.
+        p.setOnGround(true);
         return p;
     }
 
@@ -103,26 +105,24 @@ public final class FirstTaskMemoryGameTests {
         return at;
     }
 
+    /** A real logout: the player list saves the player and posts PlayerLoggedOutEvent, which the trigger hears. */
     private static void logout(GameTestHelper helper, ServerPlayer p) {
         helper.getLevel().getServer().getPlayerList().remove(p);
-        FirstTaskMemory.onLogout(p);
     }
 
-    /** The player list's own list (getPlayers() is a read-only view), so a test can put a player back on login. */
-    @SuppressWarnings("unchecked")
-    private static List<ServerPlayer> backingList(GameTestHelper helper, ServerPlayer p) {
-        var list = helper.getLevel().getServer().getPlayerList();
-        for (java.lang.reflect.Field f : net.minecraft.server.players.PlayerList.class.getDeclaredFields()) {
-            if (!List.class.isAssignableFrom(f.getType())) continue;
-            try {
-                f.setAccessible(true);
-                Object v = f.get(list);
-                if (v instanceof java.util.ArrayList<?> a && a.contains(p)) return (List<ServerPlayer>) a;
-            } catch (ReflectiveOperationException | RuntimeException e) {
-                // try the next field
-            }
-        }
-        throw new IllegalStateException("PlayerList has no backing player list");
+    /**
+     * A real login with the same profile: a new player object loaded from what {@code remove} saved, placed through
+     * {@code placeNewPlayer}, which posts PlayerLoggedInEvent. No reflection, no hand-called listener.
+     */
+    private static ServerPlayer login(GameTestHelper helper, ServerPlayer old) {
+        var server = helper.getLevel().getServer();
+        var cookie = net.minecraft.server.network.CommonListenerCookie.createInitial(old.getGameProfile(), false);
+        ServerPlayer np = new ServerPlayer(server, helper.getLevel(), cookie.gameProfile(), cookie.clientInformation());
+        var conn = new net.minecraft.network.Connection(net.minecraft.network.protocol.PacketFlow.SERVERBOUND);
+        new io.netty.channel.embedded.EmbeddedChannel(conn);
+        server.getPlayerList().placeNewPlayer(conn, np, cookie);
+        np.setOnGround(true);
+        return np;
     }
 
     private static boolean inChain(ServerPlayer p) {
@@ -299,10 +299,9 @@ public final class FirstTaskMemoryGameTests {
         seam(helper, 400, true);
         ServerPlayer p = player(helper);
         HungarianHorntailEntity d = dragon(helper);
-        // An arrow (or a spell bolt) is the direct entity; the shooter or caster is the cause the hook reads.
-        Arrow arrow = new Arrow(EntityType.ARROW, helper.getLevel());
-        hit(helper, d, d.damageSources().arrow(arrow, p));
-        helper.assertTrue(FirstTaskMemory.hasRecord(p.getUUID()), "the shooter is recorded");
+        // The mod spell damage: indirect magic that names the caster.
+        hit(helper, d, com.hogwartsmagic.spell.damage.DamageSupport.magicFrom(d, p));
+        helper.assertTrue(FirstTaskMemory.hasRecord(p.getUUID()), "the caster is recorded");
         kill(helper, d, d.damageSources().generic());
         helper.succeedWhen(() -> {
             helper.assertTrue(inChain(p), "the caster gets it");
@@ -310,6 +309,80 @@ public final class FirstTaskMemoryGameTests {
             logout(helper, p);
             pass("spellDamageCountsCaster");
         });
+    }
+
+    @GameTest(template = EMPTY, batch = "first_task_arrow", timeoutTicks = 200)
+    public static void arrowDamageCountsShooter(GameTestHelper helper) {
+        seam(helper, 400, true);
+        ServerPlayer p = player(helper);
+        HungarianHorntailEntity d = dragon(helper);
+        Arrow arrow = new Arrow(EntityType.ARROW, helper.getLevel());
+        hit(helper, d, d.damageSources().arrow(arrow, p));
+        helper.assertTrue(FirstTaskMemory.hasRecord(p.getUUID()), "the shooter is recorded");
+        kill(helper, d, d.damageSources().generic());
+        helper.succeedWhen(() -> {
+            helper.assertTrue(inChain(p), "the shooter gets it");
+            PensieveSessions.leave(p, ExitReason.ABORT);
+            logout(helper, p);
+            pass("arrowDamageCountsShooter");
+        });
+    }
+
+    @GameTest(template = EMPTY, batch = "first_task_stun", timeoutTicks = 200)
+    public static void attackerlessSpellCreditsCaster(GameTestHelper helper) {
+        // Stupefy, Accio and the steam combo hurt through plain magic(): no attacker in the source, only the
+        // caster credit on the mob.
+        seam(helper, 400, true);
+        ServerPlayer p = player(helper);
+        HungarianHorntailEntity d = dragon(helper);
+        d.setLastHurtByMob(p);
+        helper.assertTrue(!FirstTaskMemory.hasRecord(p.getUUID()), "the damage event recorded nothing");
+        kill(helper, d, d.damageSources().generic());
+        helper.assertTrue(FirstTaskMemory.isPending(p), "the credited caster counts as a damager");
+        helper.succeedWhen(() -> {
+            helper.assertTrue(inChain(p), "and gets it");
+            PensieveSessions.leave(p, ExitReason.ABORT);
+            logout(helper, p);
+            pass("attackerlessSpellCreditsCaster");
+        });
+    }
+
+    @GameTest(template = EMPTY, batch = "first_task_cancelled", timeoutTicks = 100)
+    public static void cancelledDeathMakesNobodyPending(GameTestHelper helper) {
+        seam(helper, 400, true);
+        ServerPlayer p = player(helper);
+        HungarianHorntailEntity d = dragon(helper);
+        hit(helper, d, d.damageSources().playerAttack(p));
+        // Another mod revive, at a priority that runs before the trigger lowest-priority listener.
+        java.util.function.Consumer<net.minecraftforge.event.entity.living.LivingDeathEvent> revive = e -> {
+            if (e.getEntity() == d) e.setCanceled(true);
+        };
+        net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener(
+                net.minecraftforge.eventbus.api.EventPriority.LOW, false,
+                net.minecraftforge.event.entity.living.LivingDeathEvent.class, revive);
+        try {
+            kill(helper, d, d.damageSources().playerAttack(p));
+        } finally {
+            net.minecraftforge.common.MinecraftForge.EVENT_BUS.unregister(revive);
+        }
+        helper.assertTrue(!FirstTaskMemory.isPending(p), "a death that was cancelled makes nobody pending");
+        d.discard();
+        nobodyAfter(helper, 40, "cancelledDeathMakesNobodyPending", p, false);
+    }
+
+    @GameTest(template = EMPTY, batch = "first_task_dimension", timeoutTicks = 100)
+    public static void damagerInOtherDimensionDoesNot(GameTestHelper helper) {
+        seam(helper, 400, true);
+        ServerPlayer p = player(helper);
+        HungarianHorntailEntity d = dragon(helper);
+        hit(helper, d, d.damageSources().playerAttack(p));
+        var nether = helper.getLevel().getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        helper.assertTrue(nether != null && nether != helper.getLevel(), "the test server has a nether");
+        p.setServerLevel(nether);
+        kill(helper, d, d.damageSources().playerAttack(p));
+        helper.assertTrue(!FirstTaskMemory.isPending(p), "a damager in another dimension is not eligible");
+        p.setServerLevel(helper.getLevel());
+        nobodyAfter(helper, 40, "damagerInOtherDimensionDoesNot", p, false);
     }
 
     @GameTest(template = EMPTY, batch = "first_task_pet", timeoutTicks = 100)
@@ -432,23 +505,67 @@ public final class FirstTaskMemoryGameTests {
         ServerPlayer p = player(helper);
         HungarianHorntailEntity d = dragon(helper);
         hit(helper, d, d.damageSources().playerAttack(p));
-        // Dead at the kill (the same player object; a real respawn copies PlayerPersisted across).
         p.setHealth(0.0F);
         helper.assertTrue(!p.isAlive(), "the player is dead");
         kill(helper, d, d.damageSources().fellOutOfWorld());
         helper.assertTrue(FirstTaskMemory.isPending(p), "a dead damager is still pending");
-        AtomicBoolean back = new AtomicBoolean();
+        java.util.concurrent.atomic.AtomicReference<ServerPlayer> back = new java.util.concurrent.atomic.AtomicReference<>();
         helper.runAfterDelay(60, () -> {
             helper.assertTrue(!PensieveSessions.isViewer(p) && FirstTaskMemory.isPending(p), "nothing starts for the dead");
-            back.set(true);
-            p.setHealth(p.getMaxHealth());
+            // The real respawn: a new player object, with Forge copying the persistent data across.
+            ServerPlayer np = helper.getLevel().getServer().getPlayerList()
+                    .respawn(p, false, net.minecraft.world.entity.Entity.RemovalReason.KILLED);
+            np.setOnGround(true);
+            helper.assertTrue(np != p && np.isAlive(), "a fresh living player");
+            helper.assertTrue(FirstTaskMemory.isPending(np), "the pending flag survived the respawn");
+            back.set(np);
         });
         helper.succeedWhen(() -> {
-            helper.assertTrue(back.get(), "still dead");
-            helper.assertTrue(inChain(p), "alive again: it begins");
+            ServerPlayer np = back.get();
+            helper.assertTrue(np != null, "still dead");
+            helper.assertTrue(inChain(np), "alive again: it begins");
+            PensieveSessions.leave(np, ExitReason.ABORT);
+            logout(helper, np);
+            pass("deadAtKillStartsAfterRespawn");
+        });
+    }
+
+    @GameTest(template = EMPTY, batch = "first_task_airborne", timeoutTicks = 400)
+    public static void mountedOrAirbornePlayerWaitsUntilLanded(GameTestHelper helper) {
+        seam(helper, 400, true);
+        ServerPlayer p = player(helper);
+        com.hogwartsmagic.entity.BroomEntity broom = new com.hogwartsmagic.entity.BroomEntity(
+                ModEntities.BROOM.get(), helper.getLevel());
+        Vec3 at = helper.absoluteVec(new Vec3(1.5, 2, 1.5));
+        broom.setPos(at.x, at.y, at.z);
+        helper.getLevel().addFreshEntity(broom);
+        broom.interact(p, net.minecraft.world.InteractionHand.MAIN_HAND);
+        helper.assertTrue(p.getVehicle() == broom, "the player is on the broom");
+        HungarianHorntailEntity d = dragon(helper);
+        hit(helper, d, d.damageSources().playerAttack(p));
+        kill(helper, d, d.damageSources().playerAttack(p));
+        AtomicLong phase = new AtomicLong();
+        helper.runAfterDelay(60, () -> {
+            helper.assertTrue(!PensieveSessions.isViewer(p) && FirstTaskMemory.isPending(p),
+                    "never started on a broom");
+            p.stopRiding();
+            p.setOnGround(false);
+            phase.set(1);
+        });
+        helper.runAfterDelay(120, () -> {
+            helper.assertTrue(!PensieveSessions.isViewer(p) && FirstTaskMemory.isPending(p),
+                    "never started in the air");
+            p.setOnGround(true);
+            phase.set(2);
+        });
+        helper.succeedWhen(() -> {
+            helper.assertTrue(phase.get() == 2, "still airborne");
+            helper.assertTrue(inChain(p), "landed: it begins");
+            helper.assertTrue(!FirstTaskMemory.isPending(p), "no longer pending");
+            broom.discard();
             PensieveSessions.leave(p, ExitReason.ABORT);
             logout(helper, p);
-            pass("deadAtKillStartsAfterRespawn");
+            pass("mountedOrAirbornePlayerWaitsUntilLanded");
         });
     }
 
@@ -456,43 +573,56 @@ public final class FirstTaskMemoryGameTests {
     public static void logoutKeepsPendingStartsAfterLogin(GameTestHelper helper) {
         seam(helper, 400, true);
         ServerPlayer p = player(helper);
-        List<ServerPlayer> backing = backingList(helper, p);
         HungarianHorntailEntity d = dragon(helper);
         hit(helper, d, d.damageSources().playerAttack(p));
         kill(helper, d, d.damageSources().playerAttack(p));
         helper.assertTrue(FirstTaskMemory.isPending(p), "pending");
-        // Gone before the 21 ticks are up.
+        // Gone before the 21 ticks are up: the real logout saves the player and posts the event.
         logout(helper, p);
+        java.util.concurrent.atomic.AtomicReference<ServerPlayer> back = new java.util.concurrent.atomic.AtomicReference<>();
         AtomicLong loggedIn = new AtomicLong(-1);
         helper.runAfterDelay(50, () -> {
             helper.assertTrue(!PensieveSessions.isViewer(p), "an absent player is not started");
-            helper.assertTrue(FirstTaskMemory.isPending(p), "the pending flag is saved with them");
-            backing.add(p);
-            // The removal also took the entity out of its level: a real login builds a new one.
-            try {
-                var m = net.minecraft.world.entity.Entity.class.getDeclaredMethod("unsetRemoved");
-                m.setAccessible(true);
-                m.invoke(p);
-            } catch (ReflectiveOperationException e) {
-                throw new IllegalStateException(e);
-            }
-            helper.getLevel().addNewPlayer(p);
-            FirstTaskMemory.onLogin(p);
+            ServerPlayer np = login(helper, p);
+            helper.assertTrue(np != p, "a new player object, built from the save");
+            helper.assertTrue(FirstTaskMemory.isPending(np), "the pending flag came back from the saved data");
+            back.set(np);
             loggedIn.set(helper.getLevel().getGameTime());
         });
         helper.onEachTick(() -> {
             if (loggedIn.get() < 0) return;
             long age = helper.getLevel().getGameTime() - loggedIn.get();
-            if (age < FirstTaskMemory.LOGIN_DELAY) helper.assertTrue(!PensieveSessions.isViewer(p), "after the login delay: " + age);
+            if (age < FirstTaskMemory.LOGIN_DELAY) {
+                helper.assertTrue(!PensieveSessions.isViewer(back.get()), "after the login delay: " + age);
+            }
         });
         helper.succeedWhen(() -> {
             helper.assertTrue(loggedIn.get() >= 0 && helper.getLevel().getGameTime() - loggedIn.get() >= FirstTaskMemory.LOGIN_DELAY,
                     "not logged in long enough");
-            helper.assertTrue(inChain(p), "back online: the memory begins");
-            helper.assertTrue(!FirstTaskMemory.isPending(p), "no longer pending");
-            PensieveSessions.leave(p, ExitReason.ABORT);
-            logout(helper, p);
+            ServerPlayer np = back.get();
+            helper.assertTrue(inChain(np), "back online: the memory begins");
+            helper.assertTrue(!FirstTaskMemory.isPending(np), "no longer pending");
+            PensieveSessions.leave(np, ExitReason.ABORT);
+            logout(helper, np);
             pass("logoutKeepsPendingStartsAfterLogin");
+        });
+    }
+
+    @GameTest(template = EMPTY, batch = "first_task_logout_try", timeoutTicks = 200)
+    public static void logoutDropsTheScheduledTry(GameTestHelper helper) {
+        // Pending, then gone before the first try: the logout listener must forget the try.
+        seam(helper, 400, true);
+        ServerPlayer p = player(helper);
+        HungarianHorntailEntity d = dragon(helper);
+        hit(helper, d, d.damageSources().playerAttack(p));
+        kill(helper, d, d.damageSources().playerAttack(p));
+        helper.assertTrue(FirstTaskMemory.hasTry(p.getUUID()), "a try is scheduled");
+        logout(helper, p);
+        helper.assertTrue(!FirstTaskMemory.hasTry(p.getUUID()), "the real logout dropped it");
+        helper.runAfterDelay(30, () -> {
+            helper.assertTrue(FirstTaskMemory.isPending(p), "still pending, saved with the player");
+            pass("logoutDropsTheScheduledTry");
+            helper.succeed();
         });
     }
 
@@ -596,6 +726,49 @@ public final class FirstTaskMemoryGameTests {
             PensieveSessions.leave(p, ExitReason.ABORT);
             logout(helper, p);
             pass("nextKillAfterEarlyLeavePlaysAgain");
+        });
+    }
+
+    @GameTest(template = EMPTY, batch = "first_task_command", timeoutTicks = 800)
+    public static void commandStartOfFirstTaskLeavesFlags(GameTestHelper helper) {
+        seam(helper, 40, true);
+        ServerPlayer p = player(helper);
+        helper.assertTrue(PensieveSessions.startSolo(p, FirstTaskMemory.SCENE), "a command-style start");
+        AtomicBoolean went = new AtomicBoolean();
+        helper.onEachTick(() -> {
+            if (PensieveSessions.isViewer(p)) went.set(true);
+        });
+        helper.succeedWhen(() -> {
+            helper.assertTrue(went.get() && !PensieveSessions.isViewer(p), "not home yet");
+            helper.assertTrue(PensieveSessions.lastWakeForTests(p.getUUID()) >= 0, "it ran to its end");
+            helper.assertTrue(!FirstTaskMemory.isSeen(p), "a start the trigger did not make never marks it seen");
+            logout(helper, p);
+            pass("commandStartOfFirstTaskLeavesFlags");
+        });
+    }
+
+    @GameTest(template = EMPTY, batch = "first_task_end_early", timeoutTicks = 800)
+    public static void endBeforeLastSceneKeepsUnseen(GameTestHelper helper) {
+        // first_task whose next scene does not exist: the chain ends with END, but not in the last scene.
+        seam(helper, 40, true);
+        String json = "{\"actors\":[]}";
+        PensieveSessions.overrideForTests(helper.getLevel(), id -> FirstTaskMemory.SCENE.equals(id)
+                ? Optional.of(new MemoryRegistry.LoadedScene(stubScene(id, 40, "first_task_no_such_scene"), json))
+                : Optional.empty());
+        ServerPlayer p = player(helper);
+        HungarianHorntailEntity d = dragon(helper);
+        hit(helper, d, d.damageSources().playerAttack(p));
+        kill(helper, d, d.damageSources().playerAttack(p));
+        AtomicBoolean went = new AtomicBoolean();
+        helper.onEachTick(() -> {
+            if (PensieveSessions.isViewer(p)) went.set(true);
+        });
+        helper.succeedWhen(() -> {
+            helper.assertTrue(went.get() && !PensieveSessions.isViewer(p), "not home yet");
+            helper.assertTrue(PensieveSessions.lastWakeForTests(p.getUUID()) >= 0, "it ran to its end");
+            helper.assertTrue(!FirstTaskMemory.isSeen(p), "END before the last scene is not the memory watched");
+            logout(helper, p);
+            pass("endBeforeLastSceneKeepsUnseen");
         });
     }
 }

@@ -76,7 +76,9 @@ public final class FirstTaskMemory {
         var bus = MinecraftForge.EVENT_BUS;
         bus.addListener(net.minecraftforge.eventbus.api.EventPriority.LOWEST, false, LivingDamageEvent.class,
                 FirstTaskMemory::onDamage);
-        bus.addListener(FirstTaskMemory::onDeathEvent);
+        // Lowest and not for cancelled deaths: another mod's revive must not make anyone pending.
+        bus.addListener(net.minecraftforge.eventbus.api.EventPriority.LOWEST, false, LivingDeathEvent.class,
+                FirstTaskMemory::onDeathEvent);
         bus.addListener((TickEvent.ServerTickEvent e) -> {
             if (e.phase == TickEvent.Phase.END) tick(e.getServer());
         });
@@ -144,6 +146,13 @@ public final class FirstTaskMemory {
         long now = level.getGameTime();
         prune(now);
         Map<UUID, Long> hits = RECORDS.remove(dragon.getUUID());
+        // Spell damage that has no attacker (stun, accio, the steam combo) still credits the caster through
+        // setLastHurtByMob, so that player counts as a damager too.
+        if (dragon.getLastHurtByMob() instanceof ServerPlayer last
+                && dragon.tickCount - dragon.getLastHurtByMobTimestamp() <= WINDOW_TICKS) {
+            if (hits == null) hits = new java.util.HashMap<>();
+            hits.merge(last.getUUID(), now, Math::max);
+        }
         if (hits == null) return;
         for (Map.Entry<UUID, Long> hit : hits.entrySet()) {
             if (now - hit.getValue() > WINDOW_TICKS) continue;
@@ -184,6 +193,15 @@ public final class FirstTaskMemory {
         if (!p.isAlive() || p.hasDisconnected() || PensieveSessions.isViewer(p) || PensieveSessions.wakeInProgress(p)) {
             return false;
         }
+        // Not mid-air: the return point is where they stand now, and nothing holds them through the wake, so a
+        // fall from a broom or elytra fight could kill them and drop their items. The next retry starts it on landing.
+        if (airborne(p)) return false;
+        // Already in the memory dimension without being a viewer (an op exploring): a start only nags them.
+        if (PensieveDimension.isMemory(p.level())) return false;
+        if (PensieveSessions.memoryLevel(p.server) == null) {
+            if (WARNED_MISSING.add("level")) LOGGER.warn("First Task memory: no memory level; waiting");
+            return false;
+        }
         if (!PensieveSessions.hasScene(SCENE)) {
             if (WARNED_MISSING.add(SCENE)) LOGGER.warn("First Task memory: scene '{}' is not loaded; waiting", SCENE);
             return false;
@@ -196,6 +214,12 @@ public final class FirstTaskMemory {
         }
         persisted(p).remove(TAG_PENDING);
         return true;
+    }
+
+    /** Riding, gliding, or in the air with nothing under them (water, a ladder and creative flight are fine). */
+    private static boolean airborne(ServerPlayer p) {
+        if (p.isPassenger() || p.isFallFlying()) return true;
+        return !(p.onGround() || p.isInWaterOrBubble() || p.onClimbable() || p.getAbilities().flying);
     }
 
     /** Every server tick (END phase): tries the pending players whose time has come. */
@@ -243,6 +267,12 @@ public final class FirstTaskMemory {
         NEXT_TRY.clear();
         STARTED.clear();
         IN_LAST.clear();
+        WARNED_MISSING.clear();
+    }
+
+    /** Gametests: whether a try is scheduled for the player. */
+    public static boolean hasTry(UUID player) {
+        return NEXT_TRY.containsKey(player);
     }
 
     /** Gametests: whether the player has a record against any dragon. */

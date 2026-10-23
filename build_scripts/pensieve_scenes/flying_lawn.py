@@ -448,6 +448,7 @@ def _pick(kind, x, y, z):
 
 CROWN = []                              # the oak crown's leaves: thin outline bits are trimmed off
 SCRUB = []                              # the scrub clumps' leaves: backed by moss at the foot of the clump
+WOODS_BACK = 'minecraft:moss_block'          # the solid under and behind the woods' leaf skin
 WOODS = []                              # (x, y, z) of every leaf the hill woods place: the backing pass starts here
 
 
@@ -487,8 +488,8 @@ def build_ground(w):
             top, fill = hill_material(x, z, od, steep)
             if top.endswith('_leaves'):
                 # woods: ONE layer of leaves, a skin over solid moss. Leaves are see-through, so a column of them
-                # (or a lid over the hollow) shows the void inside the hill; the moss behind makes them read as woods.
-                bottom, fill = min(bottom, h - 1), 'minecraft:moss_block'
+                # (or a lid over the hollow) shows the void inside the hill; the moss behind them reads as turf under the trees.
+                bottom, fill = min(bottom, h - 1), WOODS_BACK
                 WOODS.append((x, h, z))
             for y in range(bottom, h + 1):
                 w.set((x, y, z), _pick(top if y == h else fill, x, y, z))
@@ -1210,7 +1211,8 @@ def set_bounds():
 def back_woods(w):
     """The woods are a skin of leaves; every one a camera can see through gets a moss block one in (leaf_backing)."""
     LB.trim_crown(w, CROWN, CASTLE, leaf_seen)
-    return LB.back_leaves(w, list(WOODS) + list(SCRUB), set_bounds(), leaf_seen, extra=CASTLE)
+    n = LB.back_leaves(w, list(WOODS), set_bounds(), leaf_seen, WOODS_BACK, extra=CASTLE)
+    return n + LB.back_leaves(w, list(SCRUB), set_bounds(), leaf_seen, extra=CASTLE)
 
 
 def build_world():

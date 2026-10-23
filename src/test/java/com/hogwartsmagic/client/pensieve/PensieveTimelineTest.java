@@ -74,6 +74,51 @@ class PensieveTimelineTest {
     }
 
     @Test
+    void whiteHandoverFadesToWhite() {
+        float[] mid = PensieveTimeline.handoverColour(false, true, 0f, PensieveTimeline.chainEndDarkness(190, 200));
+        assertEquals(0f, mid[0], 1e-6f);
+        assertEquals(0.5f, mid[1], 1e-6f);
+        float[] end = PensieveTimeline.handoverColour(false, true, 0f, PensieveTimeline.chainEndDarkness(200, 200));
+        assertEquals(0f, end[0], 1e-6f);
+        assertEquals(1f, end[1], 1e-6f);
+        // A black hand-over is the old behaviour: all black, no white.
+        float[] black = PensieveTimeline.handoverColour(false, false, 0f, 0.5f);
+        assertEquals(0.5f, black[0], 1e-6f);
+        assertEquals(0f, black[1], 1e-6f);
+        // Nothing covers the view mid-scene.
+        float[] none = PensieveTimeline.handoverColour(true, true, 0f, 0f);
+        assertEquals(0f, none[0], 1e-6f);
+        assertEquals(0f, none[1], 1e-6f);
+    }
+
+    @Test
+    void whiteHoldsThroughTheBuild() {
+        // The hand-over holds the reveal at 0 (darkness 1) while the set is drawn: still fully white.
+        float[] held = PensieveTimeline.handoverColour(true, false, PensieveTimeline.revealDarkness(0f), 0f);
+        assertEquals(0f, held[0], 1e-6f);
+        assertEquals(1f, held[1], 1e-6f);
+        // Even if the new scene itself hands over through black later, the held cover is the carried white.
+        float[] heldB = PensieveTimeline.handoverColour(true, true, 1f, 0f);
+        assertEquals(1f, heldB[1], 1e-6f);
+    }
+
+    @Test
+    void nextSceneFadesInFromWhite() {
+        float half = PensieveTimeline.revealDarkness(PensieveTimeline.reveal(10, PensieveTimeline.LATE_FADE_TICKS));
+        float[] in = PensieveTimeline.handoverColour(true, false, half, 0f);
+        assertEquals(0f, in[0], 1e-6f);
+        assertEquals(half, in[1], 1e-6f);
+        float[] done = PensieveTimeline.handoverColour(true, false,
+                PensieveTimeline.revealDarkness(PensieveTimeline.reveal(20, PensieveTimeline.LATE_FADE_TICKS)), 0f);
+        assertEquals(0f, done[0], 1e-6f);
+        assertEquals(0f, done[1], 1e-6f);
+        // A carried-black scene fades in from black.
+        float[] black = PensieveTimeline.handoverColour(false, false, half, 0f);
+        assertEquals(half, black[0], 1e-6f);
+        assertEquals(0f, black[1], 1e-6f);
+    }
+
+    @Test
     void chainedSceneFadesToBlackOverItsLastTwentyTicksAndHoldsBlack() {
         assertEquals(0f, PensieveTimeline.chainEndDarkness(0, 200), 1e-6f);
         assertEquals(0f, PensieveTimeline.chainEndDarkness(180, 200), 1e-6f);

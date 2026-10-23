@@ -5,7 +5,8 @@
 writes dev_chain_a.json (night, red wool floor, one actor; next: dev_chain_b) and dev_chain_b.json (noon, blue wool
 floor, a different actor) to run/pensieve_dev/, never to memories/. Point the common config's pensieveDevSceneDir
 at that folder and run `/pensieve preview dev_chain_a`: the red scene, a fade to black, then the blue scene fading
-in at noon, then home.
+in at noon, then home. `dev_chain_c` -> `dev_chain_d` is the white pair: C fades to white, holds white while D's set
+arrives, and D fades in from white.
 """
 import os
 
@@ -15,7 +16,7 @@ OUT = os.path.join(REPO, 'run', 'pensieve_dev')
 R = 12
 
 
-def scene(title, floor, time_of_day, actor, nxt=None):
+def scene(title, floor, time_of_day, actor, nxt=None, colour=None):
     s = {
         'title': title,
         'length': '10s',
@@ -32,6 +33,8 @@ def scene(title, floor, time_of_day, actor, nxt=None):
     }
     if nxt:
         s['next'] = nxt
+    if colour:
+        s['handover_colour'] = colour
     return s
 
 
@@ -47,8 +50,21 @@ B = scene('Dev chain B', 'minecraft:blue_wool', 6000, {
     'look': [{'t': 0, 'yaw': 90, 'pitch': 0}],
 })
 
+# The white pair: C hands over to D through white (a flash of light), D fades in from white.
+C = scene('Dev chain C (white)', 'minecraft:white_wool', 18000, {
+    'id': 'walker_c', 'type': 'player', 'name': 'Grey', 'skin': {'texture': 'death_eater'},
+    'path': [{'t': 0, 'pos': [-5, 0, 0]}, {'t': '10s', 'pos': [5, 0, 0]}],
+    'look': [{'t': 0, 'yaw': -90, 'pitch': 0}],
+}, nxt='dev_chain_d', colour='white')
+
+D = scene('Dev chain D', 'minecraft:green_wool', 6000, {
+    'id': 'walker_d', 'type': 'player', 'name': 'Green', 'skin': {'texture': 'voldemort'},
+    'path': [{'t': 0, 'pos': [5, 0, 3]}, {'t': '10s', 'pos': [-5, 0, 3]}],
+    'look': [{'t': 0, 'yaw': 90, 'pitch': 0}],
+})
+
 os.makedirs(OUT, exist_ok=True)
-for sid, s in (('dev_chain_a', A), ('dev_chain_b', B)):
+for sid, s in (('dev_chain_a', A), ('dev_chain_b', B), ('dev_chain_c', C), ('dev_chain_d', D)):
     path = os.path.join(OUT, sid + '.json')
     with open(path, 'w', newline='\n', encoding='utf-8') as f:
         f.write(dump(s) + '\n')

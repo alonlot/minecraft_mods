@@ -72,8 +72,8 @@ public final class PensievePost {
         int p = PensieveClientState.phase();
         // A chained scene's fade to black at its length holds through a hand-over, and through an exit after it.
         if (p == PensieveClientState.BUILD || p == PensieveClientState.PLAY) {
-            return Math.max(revealDarkness(PensieveClientState.reveal(partial)),
-                    PensieveClientState.chainEndDarkness(partial));
+            // Only the black part: a white hand-over is drawn over the view by PensieveOverlay.
+            return PensieveClientState.handoverCover(partial)[0];
         }
         if (p == PensieveClientState.EXIT) {
             return Math.max(exitDarkness(PensieveClientState.phaseTime(partial)),

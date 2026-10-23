@@ -63,6 +63,7 @@ public final class PensieveOverlay {
             wisps(g, w, h, clock, k, true);
         } else if (phase == PensieveClientState.BUILD || phase == PensieveClientState.PLAY) {
             fallbackDarkness(g, w, h, partial);
+            whiteHandover(g, w, h, partial);
             greyEdges(g, partial, clock);
             patronusWash(g, w, h, partial);
             wandBloom(g, w, h, partial);
@@ -201,6 +202,15 @@ public final class PensieveOverlay {
         g.fillGradient(0, band - soft, w, band, black, clear);
         g.fill(0, h - band + soft, w, h, black);
         g.fillGradient(0, h - band, w, h - band + soft, clear, black);
+        RenderSystem.disableBlend();
+    }
+
+    /** A chain's white hand-over: the view fades to white at the scene's end, holds, and fades in from white. */
+    private static void whiteHandover(GuiGraphics g, int w, int h, float partial) {
+        float a = PensieveClientState.handoverCover(partial)[1];
+        if (a <= 0f) return;
+        RenderSystem.enableBlend();
+        g.fill(0, 0, w, h, argb(a, 0xFFFFFF));
         RenderSystem.disableBlend();
     }
 

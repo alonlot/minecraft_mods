@@ -110,6 +110,8 @@ public final class PensieveClientState {
      * is not revealed out of the fog again (see {@link #setReveal}).
      */
     private static boolean handedOver;
+    /** The previous scene handed over through white: this scene fades in from white, not black. */
+    private static boolean carriedWhite;
     /**
      * A hand-over is holding black until the new set is drawn around the camera ({@link SetWarmup#ready}); the
      * fade in begins when it is, or when the hold gives up ({@link PensieveTimeline#handOverHeld}).
@@ -167,6 +169,7 @@ public final class PensieveClientState {
         resetClock();
         lateJoin = false;
         handedOver = false;
+        carriedWhite = false;
         holdForSet = false;
         opensShut = false;
         heldAtExit = false;
@@ -202,6 +205,7 @@ public final class PensieveClientState {
         // A different scene while one is already on screen: the server handed this viewer on to a chained scene. A
         // scene handed over to itself (a hold scene looping) is a new session in a new slot: its origin differs.
         boolean switched = sceneId != null && (!id.equals(sceneId) || (origin != null && !origin.equals(at)));
+        boolean previousWhite = switched && scene != null && scene.handoverWhite();
         if (scene == null || switched) {
             scene = parse(id, json);
             sceneId = id;
@@ -218,7 +222,7 @@ public final class PensieveClientState {
             return;
         }
         if (switched) {
-            handOver();
+            handOver(previousWhite);
             return;
         }
         applyStart();
@@ -234,6 +238,7 @@ public final class PensieveClientState {
         } else if (phase != PLAY) {
             lateJoin = phase != BUILD;
             handedOver = false;
+            carriedWhite = false;
             holdForSet = false;
             setPhase(PLAY);
             // A new memory is starting: nothing of an old one may linger, not even music still fading out.
@@ -255,8 +260,9 @@ public final class PensieveClientState {
      * chunks arrive and are drawn after the move; the screen holds black until they are ({@link #holdForSet}).
      * The time of day follows the new scene through {@link #syncTimeOfDay}.
      */
-    private static void handOver() {
+    private static void handOver(boolean fromWhite) {
         fadeStart = -1;
+        carriedWhite = fromWhite;
         MemoryActors.clear();
         MemoryAudio.cut();
         if (startGameTime < 0) {
@@ -522,6 +528,19 @@ public final class PensieveClientState {
         float asked = fadeStart < 0 ? 0 : PensieveTimeline.smoothstep(((ticks - fadeStart) + partial) / fadeTicks);
         if (scene == null || scene.next() == null || startGameTime < 0) return asked;
         return Math.max(asked, PensieveTimeline.chainEndDarkness(sceneTime(partial), scene.length()));
+    }
+
+    /**
+     * The hand-over cover as {black, white} amounts ({@link PensieveTimeline#handoverColour}): the scene's fade
+     * to the next, and the next one's fade in, in the colour the chain handed over through. A mid-scene
+     * hand-over asked of the server is always black. Outside a hand-over this is the plain reveal and chain
+     * darkness, in black.
+     */
+    public static float[] handoverCover(float partial) {
+        float chain = chainEndDarkness(partial);
+        boolean sceneWhite = scene != null && scene.next() != null && scene.handoverWhite() && fadeStart < 0;
+        return PensieveTimeline.handoverColour(carriedWhite && handedOver, sceneWhite,
+                PensieveTimeline.revealDarkness(reveal(partial)), chain);
     }
 
     /** Red-edge strength from the last hit on the body, decaying over 12 ticks. */

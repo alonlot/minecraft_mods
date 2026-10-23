@@ -7,7 +7,24 @@ import java.util.Map;
 public record SceneDef(String id, String title, int length, int radius, SetDef set,
                        Map<String, Map<String, float[]>> poses, List<ActorDef> actors,
                        List<EventDef> events, List<WordDef> words, CameraTrack camera, String endAction,
-                       int fogFar, String next) {
+                       int fogFar, String next, String handoverColour) {
+
+    /** The hand-over colours a scene may name. */
+    public static final String BLACK = "black";
+    public static final String WHITE = "white";
+
+    /** A scene whose hand-over goes through black ({@code handoverColour} {@code "black"}). */
+    public SceneDef(String id, String title, int length, int radius, SetDef set,
+                    Map<String, Map<String, float[]>> poses, List<ActorDef> actors,
+                    List<EventDef> events, List<WordDef> words, CameraTrack camera, String endAction,
+                    int fogFar, String next) {
+        this(id, title, length, radius, set, poses, actors, events, words, camera, endAction, fogFar, next, BLACK);
+    }
+
+    /** True when this chained scene hands over through white. */
+    public boolean handoverWhite() {
+        return WHITE.equals(handoverColour);
+    }
 
     /** A scene with no follow-on scene ({@code next} null). */
     public SceneDef(String id, String title, int length, int radius, SetDef set,

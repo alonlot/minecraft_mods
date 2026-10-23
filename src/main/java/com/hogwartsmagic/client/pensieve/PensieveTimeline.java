@@ -125,6 +125,23 @@ public final class PensieveTimeline {
     }
 
     /**
+     * The colour of a chain's hand-over, as {black, white} cover amounts (0..1; at most one is above 0). The cover is
+     * whichever is deeper of the entering scene's fade-in ({@code revealDarkness}, 1 while the hand-over holds for
+     * the set) and the leaving scene's fade ({@code chainDarkness}); the deeper one supplies the colour:
+     * {@code carriedWhite} for the fade-in (the previous scene handed over through white) and {@code sceneWhite}
+     * for the fade out. So white holds through the build and fades in from white.
+     */
+    public static float[] handoverColour(boolean carriedWhite, boolean sceneWhite, float revealDarkness,
+                                         float chainDarkness) {
+        float rd = clamp01(revealDarkness);
+        float cd = clamp01(chainDarkness);
+        boolean fadingIn = rd >= cd;
+        float amount = fadingIn ? rd : cd;
+        boolean white = fadingIn ? carriedWhite : sceneWhite;
+        return white ? new float[]{0f, amount} : new float[]{amount, 0f};
+    }
+
+    /**
      * How far above its key the camera is while it lands in the memory: {@link #SETTLE_HEIGHT} easing to 0 over
      * {@link #SETTLE_TICKS} of reveal time. A chain's hand-over fades in on the next shot as it is: no drop.
      */

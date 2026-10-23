@@ -28,6 +28,12 @@ public final class SceneValidator {
             else if (scene.next().equals(scene.id())) out.add("next: a scene cannot chain to itself");
         }
 
+        if (!SceneDef.BLACK.equals(scene.handoverColour()) && !SceneDef.WHITE.equals(scene.handoverColour())) {
+            out.add("handover_colour: must be \"black\" or \"white\", got '" + scene.handoverColour() + "'");
+        } else if (SceneDef.WHITE.equals(scene.handoverColour()) && scene.next() == null) {
+            out.add("handover_colour: \"white\" needs a next scene to hand over to");
+        }
+
         Set<String> actorIds = new HashSet<>();
         for (int i = 0; i < scene.actors().size(); i++) {
             String id = scene.actors().get(i).id();

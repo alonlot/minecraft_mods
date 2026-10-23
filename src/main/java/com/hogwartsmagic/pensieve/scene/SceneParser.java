@@ -18,7 +18,7 @@ public final class SceneParser {
 
     public static SceneDef parse(String id, JsonObject json) throws SceneException {
         checkKeys(json, "", "title", "length", "radius", "set", "poses", "actors", "events", "words", "camera", "end_action",
-                "fog_far", "next");
+                "fog_far", "next", "handover_colour");
         String title = str(json, "title", "", id);
         int length = Math.round(reqTime(json, "length", ""));
         int radius = integer(json, "radius", "", 40);
@@ -43,8 +43,9 @@ public final class SceneParser {
         String endAction = str(json, "end_action", "", null);
         int fogFar = integer(json, "fog_far", "", 0);
         String next = str(json, "next", "", null);
+        String handoverColour = str(json, "handover_colour", "", SceneDef.BLACK);
         CameraTrack camera = has(json, "camera") ? CameraTrack.parse(arr(json.get("camera"), "camera"), "camera") : CameraTrack.EMPTY;
-        return new SceneDef(id, title, length, radius, set, poses, actors, events, words, camera, endAction, fogFar, next);
+        return new SceneDef(id, title, length, radius, set, poses, actors, events, words, camera, endAction, fogFar, next, handoverColour);
     }
 
     private static SceneDef.SetDef emptySet() {

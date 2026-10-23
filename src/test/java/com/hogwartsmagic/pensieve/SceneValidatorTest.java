@@ -322,6 +322,22 @@ class SceneValidatorTest {
     }
 
     @Test
+    void handoverColourNames() throws Exception {
+        assertEquals(0, validate("{\"length\":100,\"next\":\"b\",\"handover_colour\":\"white\"}").size());
+        assertEquals(0, validate("{\"length\":100,\"next\":\"b\",\"handover_colour\":\"black\"}").size());
+        assertMessage(validate("{\"length\":100,\"next\":\"b\",\"handover_colour\":\"red\"}"),
+                "handover_colour: must be \"black\" or \"white\"");
+    }
+
+    @Test
+    void handoverColourNeedsNext() throws Exception {
+        assertMessage(validate("{\"length\":100,\"handover_colour\":\"white\"}"),
+                "handover_colour: \"white\" needs a next scene");
+        assertEquals(0, validate("{\"length\":100,\"handover_colour\":\"black\"}").size());
+        assertEquals(0, validate("{\"length\":100}").size());
+    }
+
+    @Test
     void nextCannotBeSelf() throws Exception {
         assertMessage(validateAs("a", "{\"length\":100,\"next\":\"a\"}"), "next: a scene cannot chain to itself");
     }

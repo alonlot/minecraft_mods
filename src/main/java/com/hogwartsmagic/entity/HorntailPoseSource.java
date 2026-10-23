@@ -31,4 +31,31 @@ public interface HorntailPoseSource {
 
     /** The body's pitch in flight (radians, model xRot), given the beat. */
     float flightPitch(float beat);
+
+    /**
+     * One wing bone's flight beat (bone 0 the humerus, 1 the forearm, 2 the finger: DragonFlight.HUMERUS and so on).
+     * By default every bone beats with {@link #wingBeat}, as the wild dragon always has; the memory dragon lags the
+     * outer bones.
+     */
+    default float wingBoneBeat(float ageInTicks, float rate, int bone) {
+        return wingBeat(ageInTicks, rate);
+    }
+
+    /** One wing bone's takeoff beat at the takeoff's progress p; by default {@link #takeoffBeat} for every bone. */
+    default float takeoffBoneBeat(float p, int bone) {
+        return takeoffBeat(p);
+    }
+
+    /**
+     * A roll (radians, as the model's body zRot) the neck counters in level flight on top of the body's own bank: 0
+     * for the wild dragon, which banks its body; the memory dragon's whole-body roll, which her renderer applies.
+     */
+    default float neckCounterRoll() {
+        return 0F;
+    }
+
+    /** The body's bob while breathing fire in the air, -1 to 1 ({@link HorntailFlightPose#airBreathBob}). */
+    default float airBreathBob(float ageInTicks) {
+        return HorntailFlightPose.airBreathBob(ageInTicks);
+    }
 }

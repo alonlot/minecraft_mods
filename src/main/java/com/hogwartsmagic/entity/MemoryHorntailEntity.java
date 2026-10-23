@@ -21,7 +21,8 @@ import java.util.List;
  * {@link DragonFlight}); the model poses from them through {@link MemoryHorntailPose}, and the getters and flight hooks
  * below answer the same way. MemoryActors places it each tick and sets {@link #pitch} and {@link #roll} (with their
  * previous values), which the renderer turns the whole dragon by about her body pivot. The renderer stores the drawn
- * mouth, {@link #snout()}, each frame for the fire.
+ * mouth, {@link #snout()}, each frame for the fire. It also sets {@link #headYaw} and {@link #headPitch} from her
+ * {@code limbs.head_look} channel and {@link #neckRoll} from her drawn roll, which the model reads for her head.
  */
 public class MemoryHorntailEntity extends HungarianHorntailEntity {
     private static final HorntailCues.State REST = new HorntailCues.State("NONE", 0, false, 0);
@@ -39,6 +40,12 @@ public class MemoryHorntailEntity extends HungarianHorntailEntity {
     /** The wing phase (radians) and amplitude this frame. */
     public double wingPhase;
     public float wingAmplitude = (float) DragonFlight.HOVER_AMP;
+    /** Her {@code limbs.head_look} rot track (DragonFlight.headLook), set by MemoryActors; empty: none. */
+    public Track headLook = Track.EMPTY;
+    /** This frame's head look relative to her body (degrees, the model's netHeadYaw and headPitch). */
+    public float headYaw, headPitch;
+    /** This frame's roll for her neck to counter (radians, DragonFlight.neckRoll of her drawn roll). */
+    public float neckRoll;
 
     /** The mouth drawn this frame, world space, and the head's forward direction there (unit); null before a frame. */
     private double[] snoutPoint, snoutDir;
@@ -71,7 +78,7 @@ public class MemoryHorntailEntity extends HungarianHorntailEntity {
     /** This frame's model inputs for the state now (the model itself also poses the state it fades out of). */
     public MemoryHorntailPose pose() {
         HorntailCues.Blend f = this.frame;
-        return new MemoryHorntailPose(f == null ? REST : f.now(), this.wingPhase, this.wingAmplitude);
+        return new MemoryHorntailPose(f == null ? REST : f.now(), this.wingPhase, this.wingAmplitude, this.neckRoll);
     }
 
     @Override
@@ -117,6 +124,26 @@ public class MemoryHorntailEntity extends HungarianHorntailEntity {
     @Override
     public float takeoffBeat(float p) {
         return pose().takeoffBeat(p);
+    }
+
+    @Override
+    public float wingBoneBeat(float ageInTicks, float rate, int bone) {
+        return pose().wingBoneBeat(ageInTicks, rate, bone);
+    }
+
+    @Override
+    public float takeoffBoneBeat(float p, int bone) {
+        return pose().takeoffBoneBeat(p, bone);
+    }
+
+    @Override
+    public float neckCounterRoll() {
+        return this.neckRoll;
+    }
+
+    @Override
+    public float airBreathBob(float ageInTicks) {
+        return pose().airBreathBob(ageInTicks);
     }
 
     @Override

@@ -58,16 +58,19 @@ class DragonFlightTest {
         double hover = DragonFlight.beatRate(0, 0), cruise = DragonFlight.beatRate(0.8, 0);
         double glide = DragonFlight.beatRate(1.0, -0.3);
         assertTrue(hover > cruise && cruise > glide, hover + " " + cruise + " " + glide);
-        assertEquals(0.34, hover, 1e-12);
-        assertEquals(0.20, cruise, 1e-12);
+        assertEquals(0.24, hover, 1e-12);
+        assertEquals(0.14, cruise, 1e-12);
         assertEquals(0, glide, 1e-12);
-        // Climbing beats harder: x 1.6 at 0.3 blocks a tick up.
-        assertEquals(0.34 * 1.6, DragonFlight.beatRate(0, 0.3), 1e-12);
-        assertEquals(0.20 * 1.6, DragonFlight.beatRate(0.8, 0.5), 1e-12);
-        // Amplitudes: hover or climb 0.85, cruise 0.60, glide 0.15.
-        assertEquals(0.85, DragonFlight.wingAmp(0, 0), 1e-12);
+        // Climbing beats harder: x 1.35 at 0.3 blocks a tick up.
+        assertEquals(0.24 * 1.35, DragonFlight.beatRate(0, 0.3), 1e-12);
+        assertEquals(0.14 * 1.35, DragonFlight.beatRate(0.8, 0.5), 1e-12);
+        // A hover stroke lasts about 1.3 s, a cruise stroke about 2.2 s: heavy, for her size.
+        assertEquals(1.3, 2 * Math.PI / hover / 20, 0.05);
+        assertEquals(2.24, 2 * Math.PI / cruise / 20, 0.05);
+        // Amplitudes: hover or climb 0.70, cruise 0.60, glide 0.15.
+        assertEquals(0.70, DragonFlight.wingAmp(0, 0), 1e-12);
         assertEquals(0.60, DragonFlight.wingAmp(0.8, 0), 1e-12);
-        assertEquals(0.85, DragonFlight.wingAmp(0.8, 0.3), 1e-12);
+        assertEquals(0.70, DragonFlight.wingAmp(0.8, 0.3), 1e-12);
         assertEquals(0.15, DragonFlight.wingAmp(1.0, -0.3), 1e-12);
     }
 
@@ -110,16 +113,60 @@ class DragonFlightTest {
     }
 
     @Test
-    void downstrokesAreWingBottoms() {
+    void strokeIsQuickDownAndSmooth() {
+        double d = DragonFlight.DOWNSTROKE_SHARE;
+        // The top stays at -pi/2, the bottom comes DOWNSTROKE_SHARE of a beat later, mid-downstroke halfway there.
+        assertEquals(-Math.PI / 2, DragonFlight.strokeAngle(-Math.PI / 2), 1e-12);
+        assertEquals(Math.PI / 2, DragonFlight.strokeAngle(-Math.PI / 2 + 2 * Math.PI * d), 1e-12);
+        assertEquals(0, DragonFlight.strokeAngle(DragonFlight.MID_DOWNSTROKE), 1e-12);
+        assertEquals(4 * Math.PI, DragonFlight.strokeAngle(4 * Math.PI + DragonFlight.MID_DOWNSTROKE), 1e-9);
+        // Monotone, and the beat is smooth: no step in its value or its slope.
+        double step = 1e-3, last = DragonFlight.strokeAngle(-10), lastSlope = Double.NaN, worstKink = 0;
+        for (double ph = -10 + step; ph < 10; ph += step) {
+            double a = DragonFlight.strokeAngle(ph);
+            assertTrue(a > last, "the stroke angle runs backwards at " + ph);
+            last = a;
+            double slope = (DragonFlight.boneBeat(ph, 0) - DragonFlight.boneBeat(ph - step, 0)) / step;
+            if (!Double.isNaN(lastSlope)) worstKink = Math.max(worstKink, Math.abs(slope - lastSlope));
+            lastSlope = slope;
+        }
+        assertTrue(worstKink < 0.01, "the beat kinks by " + worstKink);
+        // The outer bones trail the humerus.
+        for (double ph = 0; ph < 7; ph += 0.3) {
+            assertEquals(DragonFlight.boneBeat(ph - DragonFlight.FOREARM_LAG, 0), DragonFlight.boneBeat(ph, 1), 1e-12);
+            assertEquals(DragonFlight.boneBeat(ph - DragonFlight.FINGER_LAG, 0), DragonFlight.boneBeat(ph, 2), 1e-12);
+        }
+    }
+
+    @Test
+    void headLookIsClampedAndNeckCountersTheRoll() {
+        Track rot = new Track(List.of(new Keyframe(0, new float[]{10, -20}, Ease.IN_OUT),
+                new Keyframe(10, new float[]{80, 100}, Ease.IN_OUT)));
+        float[] at0 = DragonFlight.headLook(rot, 0);
+        assertEquals(-20, at0[0], 1e-6);
+        assertEquals(10, at0[1], 1e-6);
+        float[] at10 = DragonFlight.headLook(rot, 10);
+        assertEquals(DragonFlight.HEAD_YAW_LIMIT, at10[0], 1e-6);
+        assertEquals(DragonFlight.HEAD_PITCH_LIMIT, at10[1], 1e-6);
+        assertArrayEquals(new float[]{0, 0}, DragonFlight.headLook(Track.EMPTY, 5), 0f);
+        assertEquals(-Math.toRadians(30), DragonFlight.neckRoll(30), 1e-6);
+        assertEquals(Math.toRadians(DragonFlight.MAX_BANK), DragonFlight.neckRoll(-170), 1e-6);
+    }
+
+    @Test
+    void downstrokesAreMidDownstroke() {
         Track path = line(0, 0.1, 0.5, 300);
         int[] d = DragonFlight.downstrokes(path, 0, 300);
-        assertTrue(d.length > 8, "expected a stroke every 20 ticks or so, got " + d.length);
+        assertTrue(d.length > 8, "expected a stroke every 30 ticks or so, got " + d.length);
         DragonFlight.WingClock clock = new DragonFlight.WingClock(path);
         for (int tick : d) {
-            // The nearest tick to the moment sin(phase) = 1: within half a tick's turn of it.
-            double half = DragonFlight.rateAt(path, tick) / 2 + 1e-9;
-            assertTrue(Math.sin(clock.phase(tick)) >= Math.cos(half) - 1e-6, "tick " + tick + " sin "
-                    + Math.sin(clock.phase(tick)));
+            // The nearest tick to the moment the stroke angle is 0 (the beat rising through 0): within half a tick's
+            // turn of it, which mid-downstroke is the rate / (2 DOWNSTROKE_SHARE).
+            double half = DragonFlight.rateAt(path, tick) / (4 * DragonFlight.DOWNSTROKE_SHARE) + 1e-9;
+            double ang = DragonFlight.strokeAngle(clock.phase(tick));
+            assertTrue(Math.cos(ang) >= Math.cos(half) - 1e-6, "tick " + tick + " stroke angle " + ang);
+            // ... and on the way down: the humerus beat rising.
+            assertTrue(DragonFlight.boneBeat(clock.phase(tick) + 0.05, 0) > DragonFlight.boneBeat(clock.phase(tick) - 0.05, 0));
         }
         for (int i = 1; i < d.length; i++) {
             int gap = d[i] - d[i - 1];
@@ -133,7 +180,7 @@ class DragonFlightTest {
         List<SceneDef.Cue> flying = List.of(new SceneDef.Cue(0, "FLY", 0), new SceneDef.Cue(100, "DIVE", 0));
         int[] f = DragonFlight.downstrokes(path, flying, 0, 300);
         for (int tick : f) assertTrue(tick < 100 || tick >= 144, "a dive holds the wings, yet a stroke at " + tick);
-        assertTrue(f.length > 4);
+        assertTrue(f.length > 3);
     }
 
     @Test
@@ -231,6 +278,14 @@ class DragonFlightTest {
         assertEquals(DragonFlight.CRUISE_AMP, k.get("CRUISE_AMP").getAsDouble(), 0);
         assertEquals(DragonFlight.GLIDE_AMP, k.get("GLIDE_AMP").getAsDouble(), 0);
         assertEquals(HorntailCues.DEFAULT_BLEND, k.get("DEFAULT_BLEND").getAsDouble(), 0);
+        assertEquals(DragonFlight.CLIMB_BOOST, k.get("CLIMB_BOOST").getAsDouble(), 0);
+        assertEquals(DragonFlight.TAKEOFF_GAIN, k.get("TAKEOFF_GAIN").getAsDouble(), 0);
+        assertEquals(DragonFlight.DOWNSTROKE_SHARE, k.get("DOWNSTROKE_SHARE").getAsDouble(), 0);
+        assertEquals(DragonFlight.FOREARM_LAG, k.get("FOREARM_LAG").getAsDouble(), 0);
+        assertEquals(DragonFlight.FINGER_LAG, k.get("FINGER_LAG").getAsDouble(), 0);
+        assertEquals(DragonFlight.HEAD_YAW_LIMIT, k.get("HEAD_YAW_LIMIT").getAsDouble(), 0);
+        assertEquals(DragonFlight.HEAD_PITCH_LIMIT, k.get("HEAD_PITCH_LIMIT").getAsDouble(), 0);
+        assertEquals(DragonFlight.MIDPLANE_CLEARANCE, k.get("MIDPLANE_CLEARANCE").getAsDouble(), 0);
         for (Map.Entry<String, JsonElement> d : k.getAsJsonObject("DURATIONS").entrySet()) {
             assertEquals(HorntailCues.duration(d.getKey()), d.getValue().getAsInt(), d.getKey());
         }
@@ -239,8 +294,8 @@ class DragonFlightTest {
             scenes.put(e.getKey(), SceneParser.parse(e.getKey(), e.getValue().getAsJsonObject()));
         }
         JsonArray cases = all.getAsJsonArray("cases");
-        assertEquals(40, cases.size());
-        int blending = 0, beating = 0;
+        assertEquals(44, cases.size());
+        int blending = 0, beating = 0, nested = 0, looking = 0;
         for (JsonElement ce : cases) {
             JsonObject c = ce.getAsJsonObject();
             SceneDef s = scenes.get(c.get("scene").getAsString());
@@ -276,6 +331,27 @@ class DragonFlightTest {
                 blending++;
             }
             close(c.get("weight").getAsDouble(), b.weight(), 1e-6, at + " weight");
+            // The whole chain of nested fades.
+            JsonArray chain = c.getAsJsonArray("blend_chain");
+            HorntailCues.Blend link = b;
+            for (int i = 0; i < chain.size(); i++, link = link.older()) {
+                JsonArray want = chain.get(i).getAsJsonArray();
+                assertTrue(link != null, at + " blend chain ends at " + i);
+                assertEquals(want.get(0).getAsString(), link.now().name(), at + " chain " + i);
+                assertEquals(want.get(1).isJsonNull() ? null : want.get(1).getAsString(),
+                        link.before() == null ? null : link.before().name(), at + " chain " + i + " before");
+                close(want.get(2).getAsDouble(), link.weight(), 1e-6, at + " chain " + i + " weight");
+            }
+            assertEquals(null, link, at + " blend chain longer than the mirror's");
+            if (chain.size() > 1) nested++;
+            // Her head look and the neck's counter-roll.
+            com.hogwartsmagic.pensieve.scene.PartTrack hl = h.limbs().get(DragonFlight.HEAD_LOOK);
+            float[] look = DragonFlight.headLook(hl == null ? null : hl.rot(), t);
+            double[] wantLook = doubles(c.get("head_look"));
+            close(wantLook[0], look[0], 1e-3, at + " head yaw");
+            close(wantLook[1], look[1], 1e-3, at + " head pitch");
+            if (look[0] != 0 || look[1] != 0) looking++;
+            close(c.get("neck_roll").getAsDouble(), DragonFlight.neckRoll(p.roll()), 1e-3, at + " neck roll");
             int t0 = Math.max(0, (int) Math.floor(t) - 40), t1 = (int) Math.floor(t);
             int[] want = ints(c.get("downstrokes"));
             assertArrayEquals(want, DragonFlight.downstrokes(h.path(), t0, t1), at + " downstrokes");
@@ -285,6 +361,8 @@ class DragonFlightTest {
         }
         assertTrue(blending >= 3, "the cases cover cross-fades: " + blending);
         assertTrue(beating >= 10, "the cases cover wingbeats: " + beating);
+        assertTrue(nested >= 2, "the cases cover nested fades: " + nested);
+        assertTrue(looking >= 4, "the cases cover the head look: " + looking);
     }
 
     private static int[] ints(JsonElement e) {

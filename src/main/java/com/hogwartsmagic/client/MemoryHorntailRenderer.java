@@ -44,7 +44,9 @@ import java.util.Map;
  * <ul>
  *   <li>each frame it sets the puppet's {@code frame} from the scene clock: the state and its cross-fade
  *       ({@link HorntailCues#blendAt}) and the wing phase and amplitude ({@link DragonFlight}), so wingbeats follow the
- *       path at any frame rate and a late joiner sees the same stroke;</li>
+ *       path at any frame rate and a late joiner sees the same stroke, and her head look
+ *       ({@link DragonFlight#headLook}, the {@code limbs.head_look} channel) and the neck's counter-roll
+ *       ({@link DragonFlight#neckRoll});</li>
  *   <li>it turns the whole dragon by her lerped pitch and roll about her body pivot ({@link DragonFlight#PIVOT_Y}),
  *       Yaw x Pitch x Roll as {@link DragonFlight#place} gives it (the vanilla renderer adds the yaw itself);</li>
  *   <li>a layer stores the drawn mouth and the head's direction on the puppet ({@link MemoryHorntailEntity#snout()})
@@ -74,6 +76,11 @@ public class MemoryHorntailRenderer extends HungarianHorntailRenderer {
         m.wingAmplitude = (float) DragonFlight.wingAmp(DragonFlight.speed(m.path, t), DragonFlight.climbRate(m.path, t));
         float pitch = Mth.lerp(partial, m.pitchO, m.pitch);
         float roll = Mth.lerp(partial, m.rollO, m.roll);
+        // Her head look and the neck's counter to her drawn roll, which the model reads off the puppet.
+        float[] look = DragonFlight.headLook(m.headLook, t);
+        m.headYaw = look[0];
+        m.headPitch = look[1];
+        m.neckRoll = DragonFlight.neckRoll(roll);
         if (pitch == 0f && roll == 0f) {
             super.render(entity, yaw, partial, pose, buffers, light);
             return;

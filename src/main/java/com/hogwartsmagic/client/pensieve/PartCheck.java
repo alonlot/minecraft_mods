@@ -58,6 +58,9 @@ final class PartCheck {
         String has = list(parts.keySet());
 
         for (String limb : def.limbs().keySet()) {
+            // The Horntail's head look is a channel of its own (DragonFlight.headLook), not a part.
+            if (com.hogwartsmagic.pensieve.scene.SceneNames.HORNTAIL_ACTOR.equals(def.type())
+                    && com.hogwartsmagic.pensieve.scene.DragonFlight.HEAD_LOOK.equals(limb)) continue;
             if (!parts.containsKey(limb) && !parts.containsKey(PoseMath.snake(limb))) {
                 out.add(at + ".limbs." + limb + ": no part '" + limb + "' on " + def.type() + " (has: " + has + ")");
             }

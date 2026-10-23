@@ -128,4 +128,29 @@ class HorntailCuesTest {
             last = w;
         }
     }
+
+    @Test
+    void quickCuesNestTheirFades() {
+        // A bite 4 ticks into the roar's 8-tick fade, then a tail whip 3 ticks into the bite's.
+        List<SceneDef.Cue> c = List.of(cue(0, "IDLE"), new SceneDef.Cue(20, "ROAR", 8), cue(24, "BITE"),
+                cue(27, "TAIL_WHIP"));
+        HorntailCues.Blend justBefore = HorntailCues.blendAt(c, 24 - 1e-6);
+        HorntailCues.Blend bite = HorntailCues.blendAt(c, 24);
+        assertEquals("BITE", bite.now().name());
+        assertEquals("ROAR", bite.before().name());
+        assertEquals(0, bite.weight(), 1e-9);
+        // The bite fades out of what was drawn: the roar still fading in from the rest, not the roar alone.
+        assertEquals("ROAR", bite.older().now().name());
+        assertEquals("NONE", bite.older().before().name());
+        assertEquals(justBefore.weight(), bite.older().weight(), 1e-5);
+        // Two deep at the tail whip, and the oldest fade runs on in its own time until it is done.
+        HorntailCues.Blend whip = HorntailCues.blendAt(c, 27.5);
+        assertEquals("TAIL_WHIP", whip.now().name());
+        assertEquals("BITE", whip.older().now().name());
+        assertEquals("ROAR", whip.older().older().now().name());
+        assertNull(HorntailCues.blendAt(c, 28.5).older().older(), "the roar's fade is over by 28");
+        // A change outside the fade nests nothing.
+        List<SceneDef.Cue> apart = List.of(cue(0, "IDLE"), new SceneDef.Cue(20, "ROAR", 8), cue(30, "BITE"));
+        assertNull(HorntailCues.blendAt(apart, 31).older());
+    }
 }

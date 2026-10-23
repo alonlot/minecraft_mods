@@ -3,7 +3,7 @@
 The dragon (`hogwartsmagic:memory_horntail`) as the game draws her:
   - her cues (HorntailCues): horntail_cue, horntail_blend;
   - her flight (DragonFlight): horntail_frame, horntail_pose, dragon_bank, dragon_climb, climb_rate;
-  - her wingbeats (DragonFlight): beat_rate, wing_amp, wing_phase, downstroke_ticks;
+  - her wingbeats (DragonFlight): beat_rate, wing_amp, wing_phase, stroke_angle, bone_beat, downstroke_ticks;
   - her model as HungarianHorntailModel.setupAnim poses it (with MemoryHorntailModel's cross-fade): model_pose,
     part_matrices; and from it horntail_parts (conservative capsules for every part, the wings at their swept extent
     for the current amplitude) and horntail_snout (the mouth and the head's direction, as MemoryHorntailRenderer
@@ -12,10 +12,11 @@ The dragon (`hogwartsmagic:memory_horntail`) as the game draws her:
 `python -I dragon_engine.py --write-cases` rewrites horntail_cases.json (DragonFlightTest.pythonMirrorAgrees);
 `python -I dragon_engine.py` runs the self-checks.
 
-The model mirror follows setupAnim exactly with two simplifications: the head-tracking inputs are 0 (the memory dragon's
-head turns with her body: MemoryActors gives her no separate head yaw or pitch), and the ground gait is not mirrored
-(a knuckle-walking stride moves the legs and wing wrists up to about 0.3 blocks; the capsules of a walking dragon are
-the standing pose's). The age (breathing, tail drift) is the scene time, as MemoryActors sets it.
+The model mirror follows setupAnim exactly with one simplification: the ground gait is not mirrored (a knuckle-walking
+stride moves the legs and wing wrists up to about 0.3 blocks; the capsules of a walking dragon are the standing pose's).
+Her head look is the actor's `limbs.head_look` rot channel (v: [pitch, yaw, 0], degrees, clamped: DragonFlight.headLook),
+her neck counters her whole-body roll in level flight (DragonFlight.neckRoll), and the age (breathing, tail drift) is the
+scene time, as MemoryActors sets it.
 """
 import json
 import math
@@ -35,10 +36,16 @@ PIVOT_Y = (24 - 9) / 16.0 * RENDER_SCALE
 MODEL_LIFT = 1.501                     # LivingEntityRenderer's translate(0, -1.501, 0)
 BANK_GAIN, MAX_BANK, BANK_FADE_SPEED, BANK_WINDOW = 1000.0, 50.0, 0.1, 3.0
 MAX_CLIMB, CLIMB_FADE_SPEED = 45.0, 0.05
-HOVER_RATE, CRUISE_RATE, HOVER_SPEED, CRUISE_SPEED = 0.34, 0.20, 0.1, 0.8
-CLIMB_BOOST, CLIMB_FULL = 0.6, 0.3
+HOVER_RATE, CRUISE_RATE, HOVER_SPEED, CRUISE_SPEED = 0.24, 0.14, 0.1, 0.8
+CLIMB_BOOST, CLIMB_FULL = 0.35, 0.3
 GLIDE_SPEED, GLIDE_SINK, GLIDE_RAMP = 0.9, 0.15, 0.1
-HOVER_AMP, CRUISE_AMP, GLIDE_AMP = 0.85, 0.60, 0.15
+HOVER_AMP, CRUISE_AMP, GLIDE_AMP = 0.70, 0.60, 0.15
+TAKEOFF_GAIN = 0.75                    # the memory takeoff's own beat, scaled
+MIDPLANE_CLEARANCE = 0.4               # blocks (scale 1) a fingertip keeps from her midplane at any stroke phase
+DOWNSTROKE_SHARE, FOREARM_LAG, FINGER_LAG = 0.42, 0.35, 0.70
+MID_DOWNSTROKE = math.pi * DOWNSTROKE_SHARE - math.pi / 2
+HEAD_YAW_LIMIT, HEAD_PITCH_LIMIT = 60.0, 40.0
+HEAD_LOOK = 'head_look'
 
 smooth = E._smooth
 
@@ -122,14 +129,14 @@ def _cruise(speed):
 
 
 def beat_rate(speed, climb):
-    """DragonFlight.beatRate: rad/tick, 0.34 hovering, 0.20 cruising, up to x1.6 climbing, 0 gliding."""
+    """DragonFlight.beatRate: rad/tick, 0.24 hovering, 0.14 cruising, up to x1.35 climbing, 0 gliding."""
     rate = HOVER_RATE + (CRUISE_RATE - HOVER_RATE) * _cruise(speed)
     rate *= 1 + CLIMB_BOOST * smooth(climb / CLIMB_FULL)
     return rate * (1 - glide(speed, climb))
 
 
 def wing_amp(speed, climb):
-    """DragonFlight.wingAmp: 0.85 hovering or climbing, 0.60 cruising, 0.15 gliding."""
+    """DragonFlight.wingAmp: 0.70 hovering or climbing, 0.60 cruising, 0.15 gliding."""
     amp = HOVER_AMP + (CRUISE_AMP - HOVER_AMP) * _cruise(speed)
     amp += (HOVER_AMP - amp) * smooth(climb / CLIMB_FULL)
     return amp + (GLIDE_AMP - amp) * glide(speed, climb)
@@ -164,8 +171,28 @@ def wing_phase(actor, t):
     return _sums(keys, n)[n] + (t - n) * rate_at(keys, n)
 
 
+def stroke_angle(phase):
+    """DragonFlight.strokeAngle: the phase warped so DOWNSTROKE_SHARE of a beat goes down; the top stays at -pi/2."""
+    tau, d = 2 * math.pi, DOWNSTROKE_SHARE
+    shifted = phase + math.pi / 2
+    u = shifted - tau * math.floor(shifted / tau)
+    psi = u / (2 * d) if u < tau * d else math.pi + (u - tau * d) / (2 * (1 - d))
+    return psi - math.pi / 2 + (shifted - u)
+
+
+def bone_beat(phase, bone):
+    """DragonFlight.boneBeat: 0 humerus, 1 forearm (lags FOREARM_LAG), 2 finger (lags FINGER_LAG)."""
+    lag = FOREARM_LAG if bone == 1 else FINGER_LAG if bone == 2 else 0.0
+    return math.sin(stroke_angle(phase - lag))
+
+
+def bone_beats(phase):
+    return [bone_beat(phase, b) for b in range(3)]
+
+
 def raw_downstrokes(keys, t0, t1):
-    """DragonFlight.downstrokes(path, t0, t1): the ticks sin(phase) reaches +1 (wings lowest), nearest whole tick."""
+    """DragonFlight.downstrokes(path, t0, t1): the ticks the humerus is mid-downstroke (stroke angle 0 mod 2 pi, the
+    beat rising through 0, where the whump peaks), nearest whole tick."""
     out = []
     a_actor = {'path': keys}
     for n in range(max(0, t0 - 1), t1 + 1):
@@ -174,8 +201,8 @@ def raw_downstrokes(keys, t0, t1):
         if rate <= 0:
             continue
         b = a + rate
-        m = math.ceil((a - math.pi / 2) / (2 * math.pi))
-        target = math.pi / 2 + 2 * math.pi * m
+        m = math.ceil((a - MID_DOWNSTROKE) / (2 * math.pi))
+        target = MID_DOWNSTROKE + 2 * math.pi * m
         while target < b:
             if target >= a:
                 tick = int(math.floor(n + (target - a) / rate + 0.5))
@@ -252,18 +279,42 @@ def horntail_cue(actor, t):
     return _state(segs[_seg_at(segs, t)], t)
 
 
-def horntail_blend(actor, t):
-    """HorntailCues.blendAt: (now, before or None, weight of now)."""
-    segs = _timeline(actor)
-    i = _seg_at(segs, t)
+MAX_NESTED_BLENDS = 3
+
+
+def _blend_of(segs, i, t, depth):
     now = _state(segs[i], t)
     if i == 0:
-        return now, None, 1.0
+        return {'now': now, 'before': None, 'weight': 1.0, 'older': None}
     into = t - segs[i][1]
     ticks = segs[i][3] if segs[i][3] > 0 else DEFAULT_BLEND
     if into >= ticks:
-        return now, None, 1.0
-    return now, _state(segs[i - 1], t), smooth(into / ticks)
+        return {'now': now, 'before': None, 'weight': 1.0, 'older': None}
+    prev = _blend_of(segs, i - 1, t, depth - 1) if depth > 0 else None
+    return {'now': now, 'before': _state(segs[i - 1], t), 'weight': smooth(into / ticks),
+            'older': prev if prev is not None and prev['before'] is not None else None}
+
+
+def horntail_blend_tree(actor, t):
+    """HorntailCues.blendAt in full: {'now', 'before', 'weight', 'older'}; `older` is the fade `before` was still in
+    when `now` began (nested up to MAX_NESTED_BLENDS deep), else None."""
+    segs = _timeline(actor)
+    return _blend_of(segs, _seg_at(segs, t), t, MAX_NESTED_BLENDS)
+
+
+def blend_chain(b):
+    """A blend as [[now, weight or None], ...] down its older fades: what the parity cases compare."""
+    out = []
+    while b is not None:
+        out.append([b['now']['name'], b['before']['name'] if b['before'] else None, b['weight']])
+        b = b['older']
+    return out
+
+
+def horntail_blend(actor, t):
+    """HorntailCues.blendAt, the top fade only: (now, before or None, weight of now)."""
+    b = horntail_blend_tree(actor, t)
+    return b['now'], b['before'], b['weight']
 
 
 # ================================================================ HungarianHorntailModel
@@ -334,9 +385,13 @@ def tail_trail(p):
     return TAIL_TRAIL * 0.25 * (1.0 - w)
 
 
-def model_pose(state, age, beat, amp):
+def model_pose(state, age, phase, amp, head=(0.0, 0.0), neck_roll=0.0):
     """HungarianHorntailModel.setupAnim for the memory dragon in one state: {'rot': part -> [x, y, z] radians,
-    'body_y': px}. `beat` is sin(wing phase), `amp` the scene's wing amplitude (MemoryHorntailEntity's hooks)."""
+    'body_y': px}. `phase` is the wing phase (each bone's beat from it: bone_beat), `amp` the scene's wing amplitude,
+    `head` her (yaw, pitch) look in degrees (netHeadYaw, headPitch) and `neck_roll` the roll her neck counters
+    (radians): MemoryHorntailPose's hooks."""
+    beats = bone_beats(phase)
+    beat = beats[0]
     r = _rest()
     by = BODY_Y
     r['neck1'] = [STAND_NECK1_X, 0.0, 0.0]
@@ -346,8 +401,13 @@ def model_pose(state, age, beat, amp):
     r['tail1'], r['tail2'], r['tail3'], r['tail4'] = [0.14, 0, 0], [0.10, 0, 0], [0.04, 0, 0], [-0.05, 0, 0]
     _set_wings(r, STAND_HUMERUS_Z, 0.0, 0.0, STAND_FOREARM_Z, 0.0, STAND_FINGER_Z, STAND_FINGER_Y)
     _set_legs(r, STAND_THIGH_X, STAND_SHANK_X, STAND_FOOT_X, STAND_THIGH_X, STAND_SHANK_X, STAND_FOOT_X)
-    # head tracking: netHeadYaw = headPitch = 0
-    pitch = 0.0
+    # head tracking, split along the neck
+    yaw, pitch = math.radians(head[0]), math.radians(head[1])
+    r['neck1'][1] = yaw * 0.30
+    r['neck2'][1] = yaw * 0.40
+    r['head'][1] = yaw * 0.30
+    r['neck2'][0] = STAND_NECK2_X + pitch * 0.35
+    r['head'][0] = STAND_HEAD_X + pitch * 0.65
     breathe = math.sin(age * 0.055)
     by = BODY_Y + breathe * 0.35
     r['neck1'][0] = STAND_NECK1_X + breathe * 0.035
@@ -359,7 +419,8 @@ def model_pose(state, age, beat, amp):
     r['tail4'] = [-0.05 + math.sin(drift - 2.1) * 0.07, math.sin(drift * 0.9 - 1.8) * 0.19, 0.0]
     name, t = state['name'], state['time']
     if state['flying']:
-        _set_wings(r, 0.10 + beat * amp, 0.15, 0.0, 0.14 + beat * amp * 0.55, -0.10, 0.06 + beat * amp * 0.75, -0.22)
+        _set_wings(r, 0.10 + beats[0] * amp, 0.15, 0.0, 0.14 + beats[1] * amp * 0.55, -0.10,
+                   0.06 + beats[2] * amp * 0.75, -0.22)
         _set_legs(r, 0.75, 0.55, 0.25, 0.75, 0.55, 0.25)
         r['neck1'][0] = -0.28
         r['neck2'][0] = 0.22
@@ -369,8 +430,8 @@ def model_pose(state, age, beat, amp):
         r['tail4'][0] = 0.0 + beat * 0.07
         if name == 'FLY':
             r['body'] = [beat * 0.05, 0.0, 0.0]        # flightBank 0, flightPitch = beat * 0.05
-            r['neck1'][2] = 0.0
-            r['neck2'][2] = 0.0
+            r['neck1'][2] = -neck_roll * 0.55          # neckCounterRoll: her whole-body roll
+            r['neck2'][2] = -neck_roll * 0.35
     # (the ground gait with no stride is the rest pose: see the module docstring)
     if name == 'ROAR':
         p = _c01(t / DURATIONS['ROAR'])
@@ -471,8 +532,8 @@ def model_pose(state, age, beat, amp):
         p = _c01(t / DURATIONS['TAKEOFF'])
         crouch = p / 0.2 if p < 0.2 else max(0.0, 1.0 - (p - 0.2) / 0.25)
         launch = _c01((p - 0.2) / 0.8)
-        b = beat                                       # MemoryHorntailEntity.takeoffBeat: the scene's beat
-        _set_wings(r, 0.08 + b * 0.95, 0.2, 0.0, 0.12 + b * 0.6, -0.1, 0.05 + b * 0.8,
+        b = [x * TAKEOFF_GAIN for x in beats]          # MemoryHorntailPose.takeoffBoneBeat: the scene's, scaled
+        _set_wings(r, 0.08 + b[0] * 0.95, 0.2, 0.0, 0.12 + b[1] * 0.6, -0.1, 0.05 + b[2] * 0.8,
                    _lerp(STAND_FINGER_Y, -0.22, launch))
         r['body'][0] = -0.32 * launch
         by = BODY_Y + 2.5 * crouch
@@ -488,7 +549,7 @@ def model_pose(state, age, beat, amp):
     elif name == 'AIR_BREATH':
         charge = _c01(t / AIR_BREATH_WINDUP)
         firing = t >= AIR_BREATH_WINDUP
-        r['body'][0] = -0.22 + math.sin(age * 0.42) * 0.05
+        r['body'][0] = -0.22 + beat * 0.05             # airBreathBob: her own humerus beat
         r['neck1'][0] = STAND_NECK1_X + 0.25 * charge
         r['neck2'][0] = STAND_NECK2_X + 0.30 * charge + pitch * 0.4
         r['head'][0] = STAND_HEAD_X + pitch * 0.55
@@ -530,20 +591,46 @@ def model_pose(state, age, beat, amp):
     return {'rot': r, 'body_y': by}
 
 
-def blended_model_pose(actor, t, beat=None):
-    """MemoryHorntailModel.setupAnim at scene time t: the state's pose, cross-faded from the one before it.
-    `beat` overrides sin(wing phase) (horntail_parts sweeps the wings with it)."""
-    keys = path_of(actor)
-    b = math.sin(wing_phase(actor, t)) if beat is None else beat
-    amp = wing_amp(E.path_speed(keys, t), climb_rate(keys, t))
-    age = t
-    now, before, w = horntail_blend(actor, t)
-    cur = model_pose(now, age, b, amp)
-    if before is None:
-        return cur
-    old = model_pose(before, age, b, amp)
+def head_look(actor, t):
+    """DragonFlight.headLook: (yaw, pitch) degrees from the actor's limbs.head_look rot (v: [pitch, yaw, 0]), clamped."""
+    keys = ((actor.get('limbs') or {}).get(HEAD_LOOK) or {}).get('rot') or []
+    if not keys:
+        return 0.0, 0.0
+    v = E.sample_keys(keys, t)
+    pitch = v[0] if len(v) > 0 else 0.0
+    yaw = v[1] if len(v) > 1 else 0.0
+    return (max(-HEAD_YAW_LIMIT, min(HEAD_YAW_LIMIT, yaw)), max(-HEAD_PITCH_LIMIT, min(HEAD_PITCH_LIMIT, pitch)))
+
+
+def neck_roll(roll):
+    """DragonFlight.neckRoll: her whole-body roll (degrees, right side down positive) limited to MAX_BANK, as a model
+    body zRot in radians (the model's y and z point the other way, so the sign flips)."""
+    return -math.radians(max(-MAX_BANK, min(MAX_BANK, roll)))
+
+
+def _mix(old, cur, w):
     rot = {p: [old['rot'][p][c] + (cur['rot'][p][c] - old['rot'][p][c]) * w for c in range(3)] for p in PARTS}
     return {'rot': rot, 'body_y': old['body_y'] + (cur['body_y'] - old['body_y']) * w}
+
+
+def blended_model_pose(actor, t, phase=None):
+    """MemoryHorntailModel.setupAnim at scene time t: the state's pose, cross-faded from the one before it (or from
+    the whole fade that was still running when it began). `phase` overrides the wing phase (horntail_parts sweeps the
+    wings with it)."""
+    keys = path_of(actor)
+    ph = wing_phase(actor, t) if phase is None else phase
+    amp = wing_amp(E.path_speed(keys, t), climb_rate(keys, t))
+    age = t
+    head = head_look(actor, t)
+    roll = neck_roll(horntail_pose(actor, t)['roll'])
+
+    def pose_of(b):
+        if b['before'] is None or b['weight'] >= 1.0:
+            return model_pose(b['now'], age, ph, amp, head, roll)
+        old = pose_of(b['older']) if b['older'] is not None else model_pose(b['before'], age, ph, amp, head, roll)
+        return _mix(old, model_pose(b['now'], age, ph, amp, head, roll), b['weight'])
+
+    return pose_of(horntail_blend_tree(actor, t))
 
 
 # ---------------------------------------------------------------- the part chain
@@ -599,12 +686,12 @@ def _local_dir(d):
 # ---------------------------------------------------------------- capsules
 
 def _spike(name, parent, x, y, z, xrot, zrot, length, width=2.0):
-    return {'name': name, 'part': parent, 'child': ((x, y, z), _rot_zyx(xrot, 0.0, zrot)),
+    return {'name': name, 'part': parent, 'child': ((x, y, z), _rot_zyx(xrot, 0.0, zrot)), 'child_pose': [x, y, z, xrot, zrot],
             'box': ((-width / 2, -length, -width / 2), (width / 2, 0.0, width / 2))}
 
 
 def _box(name, part, x, y, z, dx, dy, dz):
-    return {'name': name, 'part': part, 'child': None, 'box': ((x, y, z), (x + dx, y + dy, z + dz))}
+    return {'name': name, 'part': part, 'child': None, 'child_pose': None, 'box': ((x, y, z), (x + dx, y + dy, z + dz))}
 
 
 def _capsule_specs():
@@ -678,7 +765,7 @@ def _capsule_specs():
 
 CAPSULES = _capsule_specs()
 WING_PARTS = ('humerus', 'forearm', 'finger')
-SWEEP_BEATS = (-1.0, -0.5, 0.0, 0.5, 1.0)
+SWEEP_PHASES = 12                       # wing poses sampled around a stroke for the swept capsules
 
 
 def _spec_point(mats, spec, p):
@@ -711,16 +798,17 @@ def _uses_beat(actor, t):
 def horntail_parts(scene, aid, t, swept=True):
     """Conservative capsules of every part of Horntail `aid` at tick t: [(name, (a, b, r))], scene space, r in blocks.
     Each capsule holds its whole box (spikes and horns are capsules of their own). With `swept` (the default), while
-    she flies each wing capsule is given at five points of the stroke at the current amplitude (the beat at -1, -0.5,
-    0, 0.5 and 1: names `<part>~0` to `<part>~4`), each widened by half the way to its neighbours, so together they
-    hold the wing wherever it is in the stroke and a check at a few samples a tick cannot miss a wingtip. Without it,
-    the wings are where they are drawn at t."""
+    she flies each wing capsule is given at SWEEP_PHASES evenly spaced phases of the stroke at the current amplitude
+    (names `<part>~0` to `<part>~11`; the bones lag each other, so a phase, not a beat, fixes the whole wing), each
+    widened by half the way to its neighbours round the cycle, so together they hold the wing wherever it is in the
+    stroke and a check at a few samples a tick cannot miss a wingtip. Without it, the wings are where they are drawn
+    at t."""
     actor = E.actor_by_id(scene, aid)
     scale = actor.get('scale', 1.0)
     pose = horntail_pose(actor, t)
     mats = part_matrices(blended_model_pose(actor, t))
-    sweep = ([part_matrices(blended_model_pose(actor, t, beat=b)) for b in SWEEP_BEATS]
-             if swept and _uses_beat(actor, t) else [])
+    sweep = ([part_matrices(blended_model_pose(actor, t, phase=2 * math.pi * k / SWEEP_PHASES))
+              for k in range(SWEEP_PHASES)] if swept and _uses_beat(actor, t) else [])
 
     def world(m, spec, p):
         return to_world(pose, scale, model_to_local(_spec_point(m, spec, p)))
@@ -733,9 +821,8 @@ def horntail_parts(scene, aid, t, swept=True):
             segs = [(world(m, spec, spec['seg'][0]), world(m, spec, spec['seg'][1])) for m in sweep]
             for i, (a, b) in enumerate(segs):
                 gap = 0.0
-                for j in (i - 1, i + 1):
-                    if 0 <= j < len(segs):
-                        gap = max(gap, math.dist(a, segs[j][0]) / 2, math.dist(b, segs[j][1]) / 2)
+                for j in ((i - 1) % len(segs), (i + 1) % len(segs)):
+                    gap = max(gap, math.dist(a, segs[j][0]) / 2, math.dist(b, segs[j][1]) / 2)
                 out.append(('%s~%d' % (spec['name'], i), (a, b, r + gap)))
         else:
             out.append((spec['name'], (world(mats, spec, spec['seg'][0]), world(mats, spec, spec['seg'][1]), r)))
@@ -770,6 +857,7 @@ def model_snout(actor, t):
 # ================================================================ the parity cases (DragonFlightTest.pythonMirrorAgrees)
 
 CASES = os.path.join(HERE, 'horntail_cases.json')
+WINGTIP = (24.0, 0.0, 0.0)              # the left finger's tip, part px (its bone is 24 px long)
 
 
 def _spline(pts, t0, dt, last_ease='in_out'):
@@ -785,10 +873,12 @@ def _spline(pts, t0, dt, last_ease='in_out'):
 
 
 def _case_scenes():
-    def dragon(path, anims, look=None):
+    def dragon(path, anims, look=None, head=None):
         a = {'id': 'h', 'type': HORNTAIL_TYPE, 'path': path, 'anims': anims}
         if look:
             a['look'] = look
+        if head:
+            a['limbs'] = {HEAD_LOOK: {'rot': head}}
         return {'length': 200, 'actors': [a]}
 
     still = [{'t': 0, 'pos': [0.0, 0.0, 0.0]}]
@@ -810,10 +900,11 @@ def _case_scenes():
               {'t': 50, 'yaw': 40, 'pitch': 30, 'roll': 110, 'ease': 'spline'},
               {'t': 60, 'yaw': 60, 'pitch': 50, 'roll': 160, 'ease': 'in_out'}]
     return {
-        'perched': dragon(still, [{'t': 0, 'name': 'IDLE'}]),
+        'perched': dragon(still, [{'t': 0, 'name': 'IDLE'}],
+                          head=[{'t': 0, 'v': [0, 0, 0]}, {'t': 10, 'v': [15, 40, 0]}, {'t': 37, 'v': [-20, -75, 0]}]),
         'roar': dragon(still, [{'t': 0, 'name': 'idle'}, {'t': 20, 'name': 'ROAR', 'blend': 8}]),
         'takeoff': dragon(rise, [{'t': 0, 'name': 'IDLE'}, {'t': 20, 'name': 'TAKEOFF'}]),
-        'hover': dragon(hover, [{'t': 0, 'name': 'FLY'}]),
+        'hover': dragon(hover, [{'t': 0, 'name': 'FLY'}], head=[{'t': 0, 'v': [0, 0, 0]}, {'t': 60, 'v': [25, -35, 0]}]),
         'cruise': dragon(cruise, [{'t': 0, 'name': 'FLY'}]),
         'climb': dragon(climb, [{'t': 0, 'name': 'FLY'}]),
         'glide': dragon(glide_p, [{'t': 0, 'name': 'FLY'}]),
@@ -821,13 +912,17 @@ def _case_scenes():
         'air_breath': dragon(hover, [{'t': 0, 'name': 'FLY'}, {'t': 20, 'name': 'AIR_BREATH'}]),
         'stagger': dragon(fall, [{'t': 0, 'name': 'FLY'}, {'t': 30, 'name': 'STAGGER'}, {'t': 52, 'name': 'LAND'}],
                           tumble),
+        # cues inside each other's fades: the fades nest (no TAIL_WHIP: its pose calls HungarianHorntailEntity.tailTrail,
+        # whose class cannot initialise in a unit test without the registries)
+        'quick': dragon(still, [{'t': 0, 'name': 'IDLE'}, {'t': 20, 'name': 'ROAR', 'blend': 8},
+                                {'t': 24, 'name': 'BITE'}, {'t': 27, 'name': 'BREATH_WINDUP'}]),
     }
 
 
 CASE_TIMES = {'perched': [0, 10.5, 37, 80], 'roar': [15, 22.5, 47.25, 77], 'takeoff': [25, 35.5, 52, 60],
               'hover': [12, 40.5, 77.25, 150], 'cruise': [5, 33.5, 90, 151.75], 'climb': [8, 42.5, 99, 160],
               'glide': [10, 55.5, 100, 170.25], 'banked': [20, 61.25, 110, 180],
-              'air_breath': [18, 23.5, 40, 75], 'stagger': [25, 33.5, 45.25, 70]}
+              'air_breath': [18, 23.5, 40, 75], 'stagger': [25, 33.5, 45.25, 70], 'quick': [22, 25.5, 28.5, 40]}
 
 
 def horntail_cases():
@@ -843,7 +938,12 @@ def horntail_cases():
             ms, md = model_snout(h, t)
             pt, dr = horntail_snout(sc, 'h', t)
             ti = int(math.floor(t))
+            mats = part_matrices(blended_model_pose(h, t))
+            points = [[_r5(_spec_point(mats, spec, spec['seg'][k])) for k in (0, 1)] for spec in CAPSULES]
             cases.append({'scene': name, 't': t, 'pos': p['pos'], 'yaw': p['yaw'], 'pitch': p['pitch'],
+                          'head_look': list(head_look(h, t)), 'neck_roll': neck_roll(p['roll']),
+                          'blend_chain': blend_chain(horntail_blend_tree(h, t)),
+                          'part_points': points, 'wingtip': _r5(model_point(mats, 'left_finger', WINGTIP)),
                           'roll': p['roll'], 'speed': p['speed'], 'climb': p['climb'],
                           'bank': dragon_bank(h['path'], t), 'climb_pitch': dragon_climb(h['path'], t),
                           'beat_rate': beat_rate(p['speed'], p['climb']), 'wing_amp': wing_amp(p['speed'], p['climb']),
@@ -856,14 +956,25 @@ def horntail_cases():
                           'BANK_FADE_SPEED': BANK_FADE_SPEED, 'MAX_CLIMB': MAX_CLIMB, 'HOVER_RATE': HOVER_RATE,
                           'CRUISE_RATE': CRUISE_RATE, 'HOVER_AMP': HOVER_AMP, 'CRUISE_AMP': CRUISE_AMP,
                           'GLIDE_AMP': GLIDE_AMP, 'DEFAULT_BLEND': DEFAULT_BLEND, 'DURATIONS': DURATIONS,
-                          'SNOUT': list(SNOUT)},
+                          'SNOUT': list(SNOUT), 'CLIMB_BOOST': CLIMB_BOOST, 'TAKEOFF_GAIN': TAKEOFF_GAIN,
+                          'DOWNSTROKE_SHARE': DOWNSTROKE_SHARE, 'FOREARM_LAG': FOREARM_LAG, 'FINGER_LAG': FINGER_LAG,
+                          'HEAD_YAW_LIMIT': HEAD_YAW_LIMIT, 'HEAD_PITCH_LIMIT': HEAD_PITCH_LIMIT,
+                          'MIDPLANE_CLEARANCE': MIDPLANE_CLEARANCE, 'WINGTIP': list(WINGTIP),
+                          'TREE': {k: v[0] for k, v in TREE.items()},
+                          'CAPSULES': [{'name': c['name'], 'part': c['part'], 'child': c['child_pose'],
+                                        'seg': [list(c['seg'][0]), list(c['seg'][1])]} for c in CAPSULES]},
             'scenes': scenes, 'cases': cases}
 
 
+def _r5(v):
+    return [round(c, 5) for c in v]
+
+
 def write_cases():
+    from scene_common import dump
     data = horntail_cases()
     with open(CASES, 'w', newline='\n', encoding='utf-8') as f:
-        f.write(json.dumps(data, indent=1, sort_keys=True) + '\n')
+        f.write(dump(data, 0, 150) + '\n')
     print('wrote', CASES, len(data['cases']), 'cases')
 
 
@@ -893,15 +1004,67 @@ def self_check():
     parts = dict(horntail_parts(sc, 'h', 10))
     if capsule_distance(parts['head.snout'], p) > 0.05:
         problems.append('the snout point is outside the snout capsule')
-    # a wingbeat lands on a downstroke: the wings are at their lowest there
+    # a wingbeat lands mid-downstroke: the humerus beat rising through 0
     fly = _case_scenes()['hover']['actors'][0]
-    ds = raw_downstrokes(fly['path'], 0, 120)
+    ds = raw_downstrokes(fly['path'], 0, 160)
     for tick in ds:
-        if math.sin(wing_phase(fly, tick)) < 0.9:
-            problems.append('downstroke at %d is not a wing bottom (sin %.2f)' % (tick, math.sin(wing_phase(fly, tick))))
-    print('dragon_engine: beat rate worst step %.4f rad/tick, %d capsules, hover downstrokes %s'
-          % (worst, len(parts), ds[:6]))
+        ang = stroke_angle(wing_phase(fly, tick))
+        if math.cos(ang) < 0.9:
+            problems.append('downstroke at %d is not mid-downstroke (stroke angle %.2f)' % (tick, ang))
+    # a positive beat lowers the wingtip (model y is down)
+    st = {'name': 'FLY', 'tick': 0, 'time': 0.0, 'flying': True}
+    low = model_point(part_matrices(model_pose(st, 0.0, math.pi / 2, HOVER_AMP)), 'left_finger', WINGTIP)
+    high = model_point(part_matrices(model_pose(st, 0.0, -math.pi / 2, HOVER_AMP)), 'left_finger', WINGTIP)
+    if not low[1] > high[1]:
+        problems.append('a positive beat does not lower the wingtip (y %.2f vs %.2f)' % (low[1], high[1]))
+    gap, where = midplane_clearance()
+    if gap < MIDPLANE_CLEARANCE:
+        problems.append('a fingertip comes %.2f from her midplane (%s)' % (gap, where))
+    tilt = neck_counter_check()
+    if tilt is not None:
+        problems.append(tilt)
+    print('dragon_engine: beat rate worst step %.4f rad/tick, %d capsules, hover downstrokes %s, fingertips at least '
+          '%.2f from the midplane (%s)' % (worst, len(parts), ds[:6], gap, where))
     return problems
+
+
+def midplane_clearance(steps=720):
+    """How near (blocks, scale 1) either fingertip comes to her body midplane (model x = 0) at any stroke phase, in
+    every state that beats the wings at the largest amplitude (FLY, AIR_BREATH, BITE in the air) and through a
+    takeoff: (gap, where). The model is mirrored, so the left tip answers for both."""
+    worst = (1e9, None)
+    states = [('FLY', [0.0]), ('AIR_BREATH', [0.0, 20.0]), ('BITE', [0.0, 9.0, 14.0]),
+              ('TAKEOFF', [2.0 * k for k in range(16)])]
+    for name, times in states:
+        for time in times:
+            st = {'name': name, 'tick': int(time), 'time': time, 'flying': True}
+            for i in range(steps):
+                ph = 2 * math.pi * i / steps
+                m = part_matrices(model_pose(st, 0.0, ph, HOVER_AMP))
+                x = model_point(m, 'left_finger', WINGTIP)[0] * RENDER_SCALE
+                if x < worst[0]:
+                    worst = (x, '%s t %.0f phase %.2f' % (name, time, ph))
+    return worst
+
+
+def neck_counter_check():
+    """In a banked turn her head rolls less than her body: the neck counters the whole-body roll (the head's left
+    axis is at most half as far off the horizontal as without the counter)."""
+    sc = _case_scenes()['banked']
+    h = sc['actors'][0]
+    t = 110
+    pose = horntail_pose(h, t)
+    if abs(pose['roll']) < 5:
+        return 'the banked case does not bank (%.1f)' % pose['roll']
+
+    def head_side(roll_in):
+        st = horntail_cue(h, t)
+        m = part_matrices(model_pose(st, t, wing_phase(h, t), HOVER_AMP, (0.0, 0.0), roll_in))
+        left = E._mat_vec(pose['m'], _local_dir(model_dir(m, 'head', [1.0, 0.0, 0.0])))
+        return abs(left[1])                     # the head's left axis off the horizontal
+    if not head_side(neck_roll(pose['roll'])) < 0.5 * head_side(0.0):
+        return 'the neck does not counter her roll (%.3f vs %.3f)' % (head_side(neck_roll(pose['roll'])), head_side(0.0))
+    return None
 
 
 if __name__ == '__main__':

@@ -177,6 +177,8 @@ public final class MemoryActors {
                 dragon.anims = def.anims();
                 dragon.path = def.path();
                 dragon.wingClock = new DragonFlight.WingClock(def.path());
+                com.hogwartsmagic.pensieve.scene.PartTrack look = def.limbs().get(DragonFlight.HEAD_LOOK);
+                dragon.headLook = look == null ? com.hogwartsmagic.pensieve.scene.Track.EMPTY : look.rot();
             }
             if (entity instanceof MemoryBlockEntity block) {
                 BlockState state = MemoryBlockEntity.parseState(def.block());

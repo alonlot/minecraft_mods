@@ -38,4 +38,9 @@ public final class HorntailFlightPose {
     public static float takeoffBeat(float p) {
         return Mth.sin(p * Mth.PI * 3.0F);
     }
+
+    /** The air breath's body bob: the wild dragon's hard hover beat, a fixed 0.42 rad/tick sine of its age. */
+    public static float airBreathBob(float ageInTicks) {
+        return Mth.sin(ageInTicks * 0.42F);
+    }
 }

@@ -13,8 +13,8 @@ What it shows, on an open lawn by day, 43 s:
     auto-bank leans her in), a steep climb (the beat quickens), then a glide down (the wings stop and hold);
   - the pull-out into a hover, an AIR_BREATH, a BITE in the air, the descent and the LAND, back to IDLE;
   - a second dragon hovering on the far side who STAGGERs and tumbles to the ground (look pitch and roll keyed).
-Every wingbeat sound lands on a downstroke (dragon_engine.downstroke_ticks); every pose and capsule comes from the
-mirror in dragon_engine.py.
+Every wingbeat sound lands mid-downstroke (dragon_engine.downstroke_ticks); every pose and capsule comes from the
+mirror in dragon_engine.py. The tumbler's STAGGER is re-cued through the fall so she never beats while tumbling.
 """
 import math
 import os
@@ -113,7 +113,10 @@ def build():
               {'t': 736, 'yaw': -32, 'pitch': 12, 'roll': 260, 'ease': 'spline'},
               {'t': 748, 'yaw': -26, 'pitch': 0, 'roll': 360, 'ease': 'in_out'}]
     tumbler = {'id': 'tumbler', 'type': D.HORNTAIL_TYPE, 'path': fall, 'look': tumble,
+               # STAGGER is 18 ticks: re-cued so she stays stunned (wings unbeating) for the whole fall
                'anims': [{'t': 0, 'name': 'FLY'}, {'t': STAGGER, 'name': 'STAGGER', 'blend': 3},
+                         {'t': STAGGER + 18, 'name': 'STAGGER', 'blend': 3},
+                         {'t': STAGGER + 36, 'name': 'STAGGER', 'blend': 3},
                          {'t': 748, 'name': 'IDLE', 'blend': 8}]}
     scene = {'title': 'Dev horntail', 'length': LENGTH, 'radius': R, 'actors': [h, tumbler]}
 
@@ -169,12 +172,16 @@ def build():
 
 def checks(scene, flaps):
     problems = []
-    # Wingbeats: each flap on a downstroke, the wings at their lowest.
+    # Wingbeats: each flap mid-downstroke (the humerus beat rising through 0, where the whump peaks).
     for aid, ticks in flaps.items():
         a = E.actor_by_id(scene, aid)
         for t in ticks:
-            if math.sin(D.wing_phase(a, t)) < 0.85:
+            if math.cos(D.stroke_angle(D.wing_phase(a, t))) < 0.9:
                 problems.append('%s flap at %d off the downstroke' % (aid, t))
+    # The tumbler beats no wings while she falls.
+    for t in flaps['tumbler']:
+        if STAGGER <= t <= 748:
+            problems.append('the tumbler flaps at %d while she tumbles' % t)
     print('wingbeats: %d for the main dragon, %d for the tumbler' % (len(flaps['h']), len(flaps['tumbler'])))
     # The main dragon clear of the lawn (top y 0) in flight: every capsule at least 0.8 above it.
     worst = (1e9, None, None)

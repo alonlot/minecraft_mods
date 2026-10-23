@@ -61,9 +61,19 @@ public final class HorntailCues {
     public record State(String name, int stateTick, boolean flying, double time) {
     }
 
-    /** The state now, and the one fading out ({@code before}, null when none) with the weight of {@code now}. */
-    public record Blend(State now, State before, double weight) {
+    /**
+     * The state now, and the one fading out ({@code before}, null when none) with the weight of {@code now}. When the
+     * change came while {@code before} was itself still fading in, {@code older} is that fade (its {@code now} is
+     * {@code before}), so the pose fades out of what was really drawn rather than snapping to {@code before} alone.
+     */
+    public record Blend(State now, State before, double weight, Blend older) {
+        public Blend(State now, State before, double weight) {
+            this(now, before, weight, null);
+        }
     }
+
+    /** How many fades deep a quick run of cues keeps (beyond it the oldest fade is dropped). */
+    public static final int MAX_NESTED_BLENDS = 3;
 
     /** A one-shot's length in ticks, or -1 for a held state ({@code IDLE}, {@code FLY}). */
     public static int duration(String name) {
@@ -129,16 +139,23 @@ public final class HorntailCues {
 
     /**
      * The state at t and, within the cross-fade after it began, the state before it (still playing on its own
-     * clock: an ended one-shot holds its last frame) and the weight of the new one, a smoothstep from 0 to 1.
+     * clock: an ended one-shot holds its last frame) and the weight of the new one, a smoothstep from 0 to 1. A cue
+     * that lands inside the previous change's fade nests it ({@link Blend#older}, up to {@link #MAX_NESTED_BLENDS}
+     * deep), every fade running on in its own time.
      */
     public static Blend blendAt(List<SceneDef.Cue> anims, double t) {
         List<Segment> segs = timeline(anims);
-        int i = segmentAt(segs, t);
+        return blendOf(segs, segmentAt(segs, t), t, MAX_NESTED_BLENDS);
+    }
+
+    private static Blend blendOf(List<Segment> segs, int i, double t, int depth) {
         Segment s = segs.get(i);
         State now = stateOf(s, t);
         if (i == 0) return new Blend(now, null, 1);
         double into = t - s.start(), ticks = blendTicks(s);
         if (into >= ticks) return new Blend(now, null, 1);
-        return new Blend(now, stateOf(segs.get(i - 1), t), DragonFlight.smooth(into / ticks));
+        Blend prev = depth > 0 ? blendOf(segs, i - 1, t, depth - 1) : null;
+        return new Blend(now, stateOf(segs.get(i - 1), t), DragonFlight.smooth(into / ticks),
+                prev != null && prev.before() != null ? prev : null);
     }
 }

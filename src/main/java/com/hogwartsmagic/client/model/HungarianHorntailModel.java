@@ -384,7 +384,7 @@ public class HungarianHorntailModel extends EntityModel<HungarianHorntailEntity>
         } else if (state == HungarianHorntailEntity.AttackState.TAKEOFF) {
             applyTakeoff(entity, t);
         } else if (state == HungarianHorntailEntity.AttackState.AIR_BREATH) {
-            applyAirBreath(t, ageInTicks, pitch);
+            applyAirBreath(entity, t, ageInTicks, pitch);
         } else if (state == HungarianHorntailEntity.AttackState.DIVE) {
             applyDive(ageInTicks);
         } else if (state == HungarianHorntailEntity.AttackState.LAND) {
@@ -510,12 +510,14 @@ public class HungarianHorntailModel extends EntityModel<HungarianHorntailEntity>
         // The beat and its amplitude come from the entity (HorntailFlightPose for the wild dragon: a fixed-rate
         // sine; the memory dragon's are matched to its path's speed and climb).
         float beat = entity.wingBeat(ageInTicks, rate);
+        float fore = entity.wingBoneBeat(ageInTicks, rate, 1);
+        float tip = entity.wingBoneBeat(ageInTicks, rate, 2);
         float amp = entity.wingAmp(hard ? 0.85F : 0.60F);
 
         // Downstroke drives the arm down and the tip trails behind it — a proper flapping wave.
         setWings(0.10F + beat * amp, 0.15F, 0.0F,
-                0.14F + beat * amp * 0.55F, -0.10F,
-                0.06F + beat * amp * 0.75F, -0.22F);
+                0.14F + fore * amp * 0.55F, -0.10F,
+                0.06F + tip * amp * 0.75F, -0.22F);
 
         // Legs trail back, neck extends, tail streams out behind.
         setLegs(0.75F, 0.55F, 0.25F, 0.75F, 0.55F, 0.25F);
@@ -530,9 +532,10 @@ public class HungarianHorntailModel extends EntityModel<HungarianHorntailEntity>
             // Bank into the turn, and pitch with the climb/descent — this is what sells real flight.
             this.body.zRot = entity.flightBank();
             this.body.xRot = entity.flightPitch(beat);
-            // The head stays level with the horizon while the body banks.
-            this.neck1.zRot = -this.body.zRot * 0.55F;
-            this.neck2.zRot = -this.body.zRot * 0.35F;
+            // The head stays level with the horizon while the body banks (or the whole dragon rolls: the memory one).
+            float roll = this.body.zRot + entity.neckCounterRoll();
+            this.neck1.zRot = -roll * 0.55F;
+            this.neck2.zRot = -roll * 0.35F;
         }
     }
 
@@ -686,10 +689,12 @@ public class HungarianHorntailModel extends EntityModel<HungarianHorntailEntity>
         float crouch = p < 0.2F ? (p / 0.2F) : Math.max(0.0F, 1.0F - (p - 0.2F) / 0.25F);
         float launch = clamp01((p - 0.2F) / 0.8F);
         float beat = entity.takeoffBeat(p);
+        float fore = entity.takeoffBoneBeat(p, 1);
+        float tip = entity.takeoffBoneBeat(p, 2);
 
         setWings(0.08F + beat * 0.95F, 0.2F, 0.0F,
-                0.12F + beat * 0.6F, -0.1F,
-                0.05F + beat * 0.8F, Mth.lerp(launch, STAND_FINGER_Y, -0.22F));
+                0.12F + fore * 0.6F, -0.1F,
+                0.05F + tip * 0.8F, Mth.lerp(launch, STAND_FINGER_Y, -0.22F));
         this.body.xRot = -0.32F * launch;
         this.body.y = BODY_Y + 2.5F * crouch;
         this.neck1.xRot = STAND_NECK1_X - 0.25F * launch;
@@ -706,11 +711,11 @@ public class HungarianHorntailModel extends EntityModel<HungarianHorntailEntity>
         this.tail2.xRot = -0.15F * launch;
     }
 
-    private void applyAirBreath(float t, float ageInTicks, float pitch) {
+    private void applyAirBreath(HorntailPoseSource entity, float t, float ageInTicks, float pitch) {
         // Hovering: fast, shallow, hard beats while the neck arcs down over the target.
         float charge = clamp01((float) t / HungarianHorntailEntity.AIR_BREATH_WINDUP);
         boolean firing = t >= HungarianHorntailEntity.AIR_BREATH_WINDUP;
-        this.body.xRot = -0.22F + Mth.sin(ageInTicks * 0.42F) * 0.05F;
+        this.body.xRot = -0.22F + entity.airBreathBob(ageInTicks) * 0.05F;
         this.neck1.xRot = STAND_NECK1_X + 0.25F * charge;
         this.neck2.xRot = STAND_NECK2_X + 0.30F * charge + pitch * 0.4F;
         this.head.xRot = STAND_HEAD_X + pitch * 0.55F;

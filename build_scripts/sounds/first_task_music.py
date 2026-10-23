@@ -9,19 +9,20 @@
 The sources are film soundtrack excerpts the user supplied for private use only (run/music/first_task/, not in git):
 harry_sees_dragons.mp3 (113 s) and golden_egg.mp3 (370 s). Cues are cut, faded (baked in: a music event plays the
 whole file from its t), kept stereo 44.1 kHz and given one gain per source, as in letter_music.py. The scenes cue them
-with about 2 s overlaps across each hand-over. Cut points are FIRST PICKS from the `points` envelope; Task 13 retimes
-CUES to the final beats and reruns the script.
+with about 2 s overlaps across each hand-over. Cut points come from the `points` envelope, retimed
+to the scenes' final beats (Task 13):
   first_task_tent   harry_sees_dragons 20.5-38.5 (18 s): the track is silent at 20 s and re-enters on a swell at 20.8, then
                     climbs steadily (-29 to -24 dB by 38 s) with no hit to fight the scene: the tense waiting bed,
                     out with the white fade
-  first_task_arena  golden_egg 0-38 (38 s): the track opens after a silent second on a hit at 1.0 (+10 dB; the reveal /
-                    the roar, cue t 1.0) and stays loud, with a second big onset at 23.1 (+14 dB; the summon, cue t 23.1)
-  first_task_chase  golden_egg 128-177 (49 s): a quiet pulse that breaks into the chase at 133.5 (+7 dB, cue t 5.5),
-                    then builds to its strongest hits at 156.0 and 163.0 (cue t 28.0 and 35.0: candidates for the
-                    chain snap and the crash), sustained to 177
-  first_task_egg    golden_egg 335-353 (18 s): the dive on the onsets at 336.1 and 338.2 (cue t 1.1, 3.2), a one-second
-                    hush, then the track's biggest hit of all at 341.0 (+37 dB; the grab, cue t 6.0), the triumph
-                    after it, out into the wake
+  first_task_arena  golden_egg 0-33 (33 s, from scene t 0.3): the track opens after a silent second on a hit at 1.0 (the
+                    reveal), its hit at 9.7 lands on the roar (scene t 10.0), the hush at 21.5-22.9 holds the summon
+                    ("Accio Firebolt!" at 21.8) and the big onset at 23.1 meets the Firebolt over the stands (23.4);
+                    2 s over the hand-over
+  first_task_chase  golden_egg 123.5-172.5 (49 s, from scene t 0): the break at 133.5 lands on the chain snap (10.0)
+                    and the hit at 163.0 on the bridge crash (39.5); 2 s over the hand-over
+  first_task_egg    golden_egg 331-349 (18 s, from scene t 0): the onsets at 336.1 and 338.2 round the west end and
+                    into the dive (5.1, 7.2), the hush, then the track's biggest hit at 341.0 (+37 dB) on the grab
+                    (10.0), the triumph after it, out into the wake
 """
 import array
 import os
@@ -37,9 +38,9 @@ OUT = os.path.join(REPO, 'src', 'main', 'resources', 'assets', 'hogwartsmagic', 
 # cue: (source file, start s, end s, fade in s, fade out s)
 CUES = {
     'first_task_tent': ('harry_sees_dragons', 20.5, 38.5, 0.6, 2.5),
-    'first_task_arena': ('golden_egg', 0.0, 38.0, 0.3, 2.5),
-    'first_task_chase': ('golden_egg', 128.0, 177.0, 1.0, 2.5),
-    'first_task_egg': ('golden_egg', 335.0, 353.0, 0.4, 2.5),
+    'first_task_arena': ('golden_egg', 0.0, 33.0, 0.3, 2.5),
+    'first_task_chase': ('golden_egg', 123.5, 172.5, 1.0, 2.5),
+    'first_task_egg': ('golden_egg', 331.0, 349.0, 0.4, 2.5),
 }
 # per source: the cue its gain is set from, and that cue's target integrated loudness (LUFS)
 LEVEL = {'harry_sees_dragons': ('first_task_tent', -22.0), 'golden_egg': ('first_task_chase', -20.0)}

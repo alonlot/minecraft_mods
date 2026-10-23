@@ -27,27 +27,33 @@ first_task_arena
   A10 26.1-27.7 FIRST PERSON: astride, he lifts off as her third breath slams into the rock
   A11 27.7-31.0 low from the north-west: he rockets up out of the fire (the stands erupt)
 first_task_chase
-  C1  0.0- 3.5  behind him banking round over the arena; she breathes the scorch back onto the rock
+  C1  0.0- 3.5  behind him banking round over the arena, the look tipped down onto her: she breathes the scorch
+                back along the floor and onto the rock
   C2  3.5- 6.4  low off her flank: her head swings after him as he dives at her
-  C3  6.4- 8.3  close on her head: the bite, her jaws snap a block from him (gasp)
-  C4  8.3-11.3  wide and low: she rears against the chain; it snaps (music break 133.5 s); the commentator
+  C3  6.4- 8.3  close on her head: the bite, she springs at him, her snout 1.7 from him, the jaws clap behind his
+                broom (gasp)
+  C4  8.3-11.3  wide and low: she rears against the chain; it snaps (music onset 156.0 s); the commentator
   C5 11.3-15.0  behind her on the floor as she beats up after him
-  C6 15.0-19.0  wide alongside the two of them out over the plateau, the castle ahead
-  C7 19.0-23.0  ahead of him looking back: she breathes on the great hall roof, swoops and smashes a turret
-                spire with her tail
-  C8 23.0-27.0  high over the castle: the two of them sweep on
-  C9 27.0-31.0  behind her: her wings filling the frame, him ahead; she breathes on the north range roof
-  C10 31.0-35.0 alongside, west along the north range toward the gorge
-  C11 35.0-39.4 low in the gorge: he shoots under the bridge's arch past us; she slams into the span
-  C12 39.4-42.4 from the gorge's side: the span breaks (music hit 163 s), she tumbles down into the gorge
-  C13 42.4-47.0 alone: he climbs out of the gorge into the open sky and turns home
+  C6 15.0-18.7  wide alongside the two of them over the plateau, the castle ahead: she gains on him
+  C7 18.7-19.8  the insert: beside her head, her jaws open, the fire bursts onto the great hall roof
+  C8 19.8-21.7  over his shoulder looking back: her jaws pouring fire a few blocks off his broom
+  C9 21.7-24.3  outside her swoop, 17 from the turret's spire: her tail smashes its cap, the shingles tumble
+  C10 24.3-27.0 a static angle north of the gap: he dives through the 4-block slot between the hall wall and the
+                turret, her flame licking his broom's tail (gasp), whips past; she is forced up over the turret
+  C11 27.0-29.6 behind her as she stoops off the turret after him, her wings filling the frame
+  C12 29.6-32.4 alongside, west along the castle's north side, she on his tail
+  C13 32.4-35.6 from the gorge's west rim: they dive over the edge into it
+  C14 35.6-39.2 low in the gorge: he shoots under the bridge's arch past us; she comes on high at the span
+  C15 39.2-42.5 from the gorge's side, cut in just before: she slams into the span (music 185.5 s), it breaks all
+                along, she tumbles down into the gorge
+  C16 42.5-47.0 alone: he climbs out of the gorge into the open sky and turns home
 first_task_egg (wake)
   E1  0.0- 5.0  behind the east stand: he sweeps back over it (cheer) and away over the ravine
-  E2  5.0- 7.2  high behind him round the west end: the golden egg in the bowl far below (seen, occlusion ray)
+  E2  5.0- 7.2  a low crane 27 from the egg: the golden egg glints on its rock (seen, occlusion ray, 1.2% of frame)
   E3  7.2- 9.1  low on the shelf behind the egg: he dives at us straight at the egg on its rock
-  E4  9.1-10.3  FIRST PERSON: his hand out, the egg rushing up; it is in his hand (music hit 341 s)
-  E5 10.3-13.1  low in the bowl: he climbs away with the egg held high; erupt, the cannons smoke; the commentator
-  E6 13.1-16.0  wide from the north stand: he flies the egg along the cheering south stand; the eyes close
+  E4  9.1-10.6  FIRST PERSON: his hand out, the egg rushing up; it is in his hand (music hit 341 s), the roar
+  E5 10.6-12.9  the cutaway: close on the east stand as it erupts, 23 from its front rows; the cannons
+  E6 12.9-16.0  wide from the north stand: he flies the egg held high along the cheering south stand; the eyes close
 """
 import copy
 import hashlib
@@ -68,6 +74,8 @@ import flying_scene as F  # noqa: E402
 import first_task_kit as K  # noqa: E402
 import first_task_tent as FT  # noqa: E402
 import first_task_grounds as FG  # noqa: E402
+sys.path.insert(0, os.path.join(HERE, '..', 'sounds'))
+import first_task_music as M  # noqa: E402  (its measured music hits)
 
 tk, r3, r4, add, sub, lerp, smooth, smoother, yaw_to, unwrap, norm = (F.tk, F.r3, F.r4, F.add, F.sub, F.lerp, F.smooth,
                                                                      F.smoother, F.yaw_to, F.unwrap, F.norm)
@@ -621,6 +629,7 @@ def arena_scene(world, solid, tent=None):
     arena_sound(sc, d, T, B)
     arena_camera(sc, d, T, B)
     arena_reactions(sc, d, T, B, world)
+    sc.notes['wingbeats'] = K.voice_wingbeats(sc, 'horntail')
     scene = sc.scene(GROUNDS_SET, FG.RADIUS, nxt='first_task_chase', fog_far=FG.FOG_FAR)
     sc.notes['extra_checks'] = dragon_checks('horntail')
     return sc, scene
@@ -999,53 +1008,67 @@ def dragon_checks(aid):
             ('chain', lambda sc, s, P_: K.check_chain(sc, s, P_, aid)),
             ('blend depth', lambda sc, s, P_: K.check_blend_depth(sc, s, P_, aid)),
             ('rolls', lambda sc, s, P_: K.check_rolls(sc, s, P_, aid)),
-            ('seen', lambda sc, s, P_: [K.check_seen(sc, s, P_, sc.world, fn, t0, t1, need, label)
-                                        for fn, t0, t1, need, label in sc.notes.get('seen', [])])]
+            ('seen', lambda sc, s, P_: [K.check_seen(sc, s, P_, sc.world, *x) for x in sc.notes.get('seen', [])])]
 
 
 # ================================================================ the chase: first_task_chase
 LC_ = 47.0
-TCH = {'rebreathe': 0, 'bite': 131, 'roar': 166, 'snap': 200, 'turn': (170, 222), 'takeoff': 226, 'fly': 256,
-       'pass': 140, 'arch': 774, 'crash': 790, 'out': 878, 'air1': (366, 420), 'air2': (490, 515), 'closed': 540,
-       'slate': (440, 464)}
-PP = [-117.4, -6.3, 81.4]                        # where he flashes past her jaws
+TCH = {'rebreathe': 0, 'bite': 128, 'roar': 166, 'snap': 200, 'turn': (170, 222), 'takeoff': 226, 'fly': 256,
+       'pass': 140, 'arch': 782, 'crash': 793, 'out': 878, 'closed': 420}
+PP = [-116.4, -7.0, 81.7]                        # where he flashes past her jaws (solved: her snout 1.7 off him)
 RIDER_TO_PP = [[-112.0, 20.0, 66.0], [-97.0, 19.0, 70.5], [-92.5, 14.0, 86.0], [-104.0, 7.5, 97.5],
                [-115.5, 2.0, 96.0], [-117.8, -2.6, 90.3]]
 RIDER_OUT = [[-116.6, -3.6, 72.0], [-108.0, 5.0, 63.0], [-95.0, 14.0, 61.0], [-80.0, 26.0, 60.5],
              [-68.0, 36.0, 54.0], [-50.0, 46.0, 36.0], [-18.0, 52.0, 4.0]]
-ARCH_AT = [GA['bridge']['arch']['x1'] / 2.0 + GA['bridge']['arch']['x2'] / 2.0, -5.0, -20.0]
+ARCH_Y = 3.0                                     # he flies the arch this high (its crown 12): she hits the span above
+ARCH_AT = [GA['bridge']['arch']['x1'] / 2.0 + GA['bridge']['arch']['x2'] / 2.0, ARCH_Y, -20.0]
+GORGE_Y = {-62.0: 6.0, -46.0: 3.5, -32.0: 3.0, -8.0: 3.0, 4.0: 2.5, 16.0: 2.0, 28.0: 2.0}   # his height down the gorge
 GORGE_IN = [[14.0, 39.0, -97.0], [2.0, 33.0, -93.0], [-2.6, 24.0, -86.0]]     # a wide turn down into the gorge
 GORGE_OUT = [[8.0, 6.0, 52.0], [13.5, 15.5, 60.0], [12.5, 24.5, 68.5], [0.0, 31.0, 71.0], [-14.0, 40.0, 67.0],
              [-27.0, 49.0, 64.0]]                # up out of its head and round home toward the arena
-JOIN_LAG = 70                                    # she joins his line where he was this many ticks before her climb ends
+# the slalom: off the castle's top he dives down past the round north-east tower and threads the 4-block gap between
+# the hall's east wall (x 91, 79 high) and the turret (its cone at x 96-98, 68 high), out past the north-east tower
+SLALOM = [[92.6, 64.5, -47.0], [92.8, 61.6, -56.0], [94.0, 60.8, -64.0], [96.6, 60.2, -71.5], [101.0, 57.5, -82.0]]
+SLOT_AT = SLALOM[2]
+NORTH_Y = 56.0                                   # his height along the castle's north side, level to the gorge's dive
+V_ARCH = 1.0                                     # his speed under the arch, where his two runs join
+OVER_TURRET = [5.2, 13.5]                        # she is forced up and over the turret: this far east and up off his line
+JOIN_LAG = 44                                    # she joins his line where he was this many ticks before her climb ends
 HIT_BEFORE = 3.0                                 # she meets the span this far along his line before the arch
-CRASH_SPEED = 1.15
-HIGH_IN_GORGE = 17.5                             # she stays this high over his line down the gorge (into the span)
+HIGH_IN_GORGE = 9.0                              # she stays this high over his line down the gorge (into the span)
 CHASE_GAP = 8.0
-BITE_HOP = 1.4
+CLOSE_BLEND = 16                                 # ticks either side of TCH['closed'] her run blends onto his line
+SINK_MAX = 0.12                                  # her sink (blocks a tick) outside a named dive: she beats, not glides
+DIVE_SINK = 0.9                                  # inside one
+BITE_HOP = 2.4
 BITE_TICKS = 32
+BITE_SNAP = 10                                   # the BITE pose claps its jaw shut (p 0.45-0.57) 9-11 ticks in: the snap
+BITE_REACH = 2.0                                 # her snout passes this close to his nearest part at the snap, or closer
 LEAP = 5.5                                       # she springs this much higher off the floor as she launches
 LEAP_TICKS = 9
-LAG_B = 28.0                                     # her lag behind him (ticks) once she has closed on him
+LAG_B = 13.5                                     # her lag behind him (ticks) once she has closed on him
 FALL_AT = [-3.5, 0.0, -19.5]                     # where she comes to lie, at the foot of the fall column
 FALL_TICKS = 32
 CRASH_INTO = 3
 AIR_BREATH_T = 34                                # an air breath's length: inside AIR_BREATH's fire window
 BITE_LIFT = 30.0                                 # degrees her head comes up off the floor as she lands from the bite
-DEBRIS_N = 36
+DEBRIS_PER_SLICE = 8
 C2_CAM = [-107.5, -8.6, 75.0]
 C3_CAM = [-122.8, -6.9, 80.0]
 C4_CAM = [-127.0, -5.0, 76.5]
 C5_CAM = [-129.0, -6.8, 84.5]
 C11_CAM = [6.5, -2.0, -2.0]
 C12_CAM = [9.0, 2.0, -34.0]
-M_CHASE = 0                                      # the chase cue: its file's hits at 10.0 s (the snap) and 39.5 (the crash)
+M_CHASE = 0                                      # the chase cue from t 0: first_task_music.HITS lands it
 
 
 def speed_run(length, t0, t1, v0, v1, ramp=0.3):
     """eased_run with ramps a fraction of the run at each end."""
     n = float(t1 - t0)
     return eased_run(length, t0, t1, ramp * n, ramp * n, v_in=v0, v_out=v1)
+
+
+RUN_SCALE = 0.05                                 # a corner run may be time-scaled at most this much to fit its ticks
 
 
 def corner_run(at, s0, s1, t0, t1, v_in, v_out, a_lat=0.042, a_t=0.03, step=0.5):
@@ -1100,8 +1123,9 @@ def corner_run(at, s0, s1, t0, t1, v_in, v_out, a_lat=0.042, a_t=0.03, step=0.5)
             hi = m
     vmax = (lo + hi) / 2
     ts = times(profile(vmax))
-    assert abs(ts[-1] - t1) < 8.0, ('the run cannot be flown in its time', ts[-1], t1)     # then scaled to fit
-    ts = [t0 + (x - t0) * (t1 - t0) / (ts[-1] - t0) for x in ts]
+    scale = (t1 - t0) / (ts[-1] - t0)              # then scaled to fit: within RUN_SCALE (Task 13 review M12)
+    assert abs(scale - 1.0) <= RUN_SCALE, ('the run cannot be flown in its time', ts[-1], t1, scale)
+    ts = [t0 + (x - t0) * scale for x in ts]
 
     def f(t):
         if t <= t0:
@@ -1117,20 +1141,27 @@ def corner_run(at, s0, s1, t0, t1, v_in, v_out, a_lat=0.042, a_t=0.03, step=0.5)
                 hi_ = m
         u = (t - ts[lo_]) / (ts[hi_] - ts[lo_])
         return ss[lo_] + (ss[hi_] - ss[lo_]) * u
+    f.scale = scale
     return f, vmax
 
 
 def rider_route(sc, start, v_start):
     """His flight as fn(t): the arena's climb carried on round over the arena and down past her jaws (PP at
-    TCH['pass']), up and out over the north-east corner, the castle route, down the gorge, under the arch (ARCH_AT at
-    TCH['arch']), out of the gorge's head and home toward the arena: one curve through every point (so its direction
-    is continuous), three runs along it joined at PP and the arch, each slowing for its corners (corner_run)."""
-    gl = [list(map(float, p)) for p in GA['gorge_lane']]
-    lane = [list(map(float, p)) for p in GA['castle_route'][:-1]] + GORGE_IN + gl[1:5]
+    TCH['pass']), up and out over the north-east corner, the castle route over its top, the dive off it into the
+    slalom (SLALOM: through the 4-block gap between the hall's east wall and the turret), level along the north side
+    (NORTH_Y), down the gorge, under the arch (ARCH_AT at TCH['arch'], ARCH_Y high), out of the gorge's head and home
+    toward the arena: one curve through every point (so its direction is continuous), three runs along it joined at
+    PP and the arch, each slowing for its corners (corner_run)."""
+    gl = [[p[0], GORGE_Y.get(float(p[2]), p[1]), p[2]] for p in (list(map(float, q)) for q in GA['gorge_lane'])]
+    cr = [list(map(float, p)) for p in GA['castle_route']]
+    cr[0][1] = 53.0                                 # level out over the plateau (no dip for her to glide down)
+    north = [[p[0], NORTH_Y, p[2]] for p in cr[10:13]]   # level along the north side, then the dive into the gorge
+    lane = cr[:6] + SLALOM + north + GORGE_IN + gl[1:5]
     tail = gl[6:11] + GORGE_OUT
     ahead = add(start, v_start, 6.0)
     pts = [start, ahead] + RIDER_TO_PP + [PP] + RIDER_OUT + lane + [ARCH_AT] + tail
     i_pp, i_arch = 2 + len(RIDER_TO_PP), 3 + len(RIDER_TO_PP) + len(RIDER_OUT) + len(lane)
+    i_lane = i_pp + 1 + len(RIDER_OUT)
     assert pts[i_pp] == PP and pts[i_arch] == ARCH_AT
     at, length, ks = by_length(pts, knots=True)
     s_pp, s_arch = ks[i_pp], ks[i_arch]
@@ -1138,11 +1169,11 @@ def rider_route(sc, start, v_start):
     runs = []
     # (the first run is flown alone - she is on the floor - so it may corner harder than the ones she follows)
     for s_a, s_b, t0, t1, va, vb, al in ((0.0, s_pp, 0, TCH['pass'], v0, 0.9, 0.06),
-                                         (s_pp, s_arch, TCH['pass'], TCH['arch'], 0.9, 1.1, 0.045),
-                                         (s_arch, length, TCH['arch'], sc.L, 1.1, 0.8, 0.05)):
+                                         (s_pp, s_arch, TCH['pass'], TCH['arch'], 0.9, V_ARCH, 0.045),
+                                         (s_arch, length, TCH['arch'], sc.L, V_ARCH, 0.8, 0.06)):
         fs, vmax = corner_run(at, s_a, s_b, t0, t1, va, vb, a_lat=al)
         runs.append((t0, t1, fs, vmax))
-    sc.notes['rider_speeds'] = [round(r[3], 3) for r in runs]
+    sc.notes['rider_speeds'] = [(round(r[3], 3), round(r[2].scale, 3)) for r in runs]
 
     def s_of(t):
         for t0, t1, fs, vmax in runs:
@@ -1151,8 +1182,12 @@ def rider_route(sc, start, v_start):
 
     def f(t):
         return at(s_of(t))
+    i_slot = i_lane + 6 + 2
+    assert pts[i_slot] == SLOT_AT
     sc.notes['curve'] = {'at': at, 'length': length, 's_of': s_of, 's_arch': s_arch, 's_pp': s_pp,
-                         's_gorge': ks[i_arch - len(GA['gorge_lane'][1:5]) - len(GORGE_IN)]}
+                         's_gorge': ks[i_arch - len(GA['gorge_lane'][1:5]) - len(GORGE_IN)],
+                         's_top': ks[i_lane + 3], 's_dive_end': ks[i_lane + 5], 's_slot': ks[i_slot],
+                         's_slalom': (ks[i_lane + 6], ks[i_lane + 10])}
     return f
 
 
@@ -1185,11 +1220,15 @@ def chase_scene(world, solid, arena):
     # ---- the dragon: on the floor at her chain's end, the scorch breathed back onto the rock, the bite, the strain
     # and the snap, the launch after him, the chase over the castle, the bridge
     d = K.Dragon(sc, 'horntail', her0[0], her0[1], DRAGON_SCALE)
+    # the scorch carried over (Task 13 review I8): the first breath's trail across the floor breathed again along
+    # its own hits, then the rock face, both in the one BREATH cue's fire window
+    sc.notes['arena_scorch'] = breath_hits(Va, 'horntail', world, TA['windup1'] + 28, BREATH1)
     d.cue(0, 'BREATH', 4)
-    d.breathe(6, 20, FACE_AIM)
+    d.breathe(REBREATHE[0][0], REBREATHE[0][1])
+    d.breathe(REBREATHE[1][0], REBREATHE[1][1], FACE_AIM)
     d.cue(48, 'IDLE', 10)
     d.cue(T['bite'], 'BITE', 4)
-    d.cue(T['bite'] + 10, 'IDLE', 6)                # the jaws snap shut at +10: her head comes up after him
+    d.cue(T['bite'] + BITE_SNAP + 4, 'IDLE', 6)     # the jaws snap shut at +11: her head comes up after him
     d.cue(T['roar'], 'ROAR', 6)
     d.cue(T['takeoff'], 'TAKEOFF')
     d.cue(T['fly'], 'FLY', 8)
@@ -1209,7 +1248,7 @@ def chase_scene(world, solid, arena):
     chase_rider_look(sc, v, T)
     chase_sound(sc, d, T, breaths, world)
     chase_camera(sc, d, T, breaths)
-    chase_wingbeats(sc, d)
+    sc.notes['wingbeats'] = K.voice_wingbeats(sc, 'horntail')
     sc.broom_dragon_ok.append((T['bite'] - 6, T['bite'] + 18, 0.6, 'the bite: he flashes past her jaws'))
     sc.dragon_ok += [(0, T['takeoff'] + 2, ('leg', 'tail', 'body', 'wing'), 'on the floor at her chain\'s end', 'floor'),
                      (0, T['takeoff'] + 30, ('tail',), 'her tail lies back over the west boulders'),
@@ -1220,17 +1259,23 @@ def chase_scene(world, solid, arena):
                      (100, 165, ('head', 'neck'), 'the bite: her jaws and neck low over the floor after him'),
                      (T['roar'], T['takeoff'], ('wing', 'head', 'neck'),
                       'she rears, roars and strains: a wingtip and her jaw low over the rim boulders')]
-    sc.dragon_speed_ok.append((T['takeoff'] - 1, T['takeoff'] + LEAP_TICKS + 2, 'the launch: she springs off the floor'))
+    sc.dragon_speed_ok.append((T['takeoff'] - 1, T['takeoff'] + LEAP_TICKS + 8, 'the launch: she springs off the floor'))
+    t_hop = T['bite'] + BITE_SNAP - BITE_TICKS // 2
+    sc.dragon_speed_ok.append((t_hop - 1, t_hop + BITE_TICKS + 2, 'the bite: she springs off the floor at him'))
+    sc.notes['hops'] = [(t_hop, t_hop + BITE_TICKS, BITE_HOP + 0.3, 'the bite: she springs off the floor at him')]
     sc.notes['dragon_ground'] = {'horntail': lambda t, p: K.ground_top(solid, p[0], p[2], p[1] + 0.5)}
-    sc.notes['extra_checks'] = dragon_checks('horntail')
+    sc.notes['extra_checks'] = dragon_checks('horntail') + chase_checks()
     return sc, d, b, v
 
 
 def chase_dragon_path(sc, d, route, her0):
     """Her path: on the floor until the launch, turning to face him as she strains; the launch up over the nest onto
-    his line well behind him; then along his own curve on her own speed run (corner_run: she corners harder than he
-    dares and so closes on the straights, never closer than CHASE_GAP behind him), lifted high down the gorge so she
-    meets the bridge's span where he flies under its arch. Keyed every 2 ticks as one spline run from the launch."""
+    his line behind him; then along his own curve on her own speed run (corner_run: she corners harder than he dares
+    and so closes on him by TCH['closed']), then LAG_B ticks behind him on his own line (her head 6-12 off his eye,
+    never closer than CHASE_GAP along it), forced up and east over the turret where he threads the gap (OVER_TURRET),
+    lifted down the gorge so she meets the bridge's span where he flies under its arch. Outside the named dives
+    (sc.notes['dive_ticks']) she sinks at most SINK_MAX, so she beats rather than glides (Task 13 review I3). Keyed
+    every 2 ticks as one spline run from the launch."""
     T = sc.notes['T']
     T0 = T['takeoff']
     base = list(her0[0])
@@ -1242,13 +1287,13 @@ def chase_dragon_path(sc, d, route, her0):
     v_join = (s_him(climb_end - JOIN_LAG + 1) - s_join)
     up = [[-106.0, -5.0, 79.0], [-97.0, 3.0, 73.0], [-87.0, 13.0, 67.0], join]
     at, length = by_length([base] + up)
-    dist, _ = eased_run(length, T0, climb_end, 30, 0, v_in=0.0, v_out=v_join)
+    dist, _ = eased_run(length, T0, climb_end, 40, 0, v_in=0.0, v_out=v_join)
     # she closes on him along the straight lane out of the arena (her own run, cornering harder than he does), then
     # holds about LAG_B ticks behind him on his own line (so his corners are hers) to the bridge
     s_hit = cv['s_arch'] - HIT_BEFORE
     TA = T['closed']
     v_a = s_him(TA - LAG_B + 1) - s_him(TA - LAG_B)
-    fa, vmax = corner_run(at_c, s_join, s_him(TA - LAG_B), climb_end, TA, v_join, v_a, a_lat=0.065, a_t=0.03)
+    fa, vmax = corner_run(at_c, s_join, s_him(TA - LAG_B), climb_end, TA, v_join, v_a, a_lat=0.065, a_t=0.045)
     lo, hi = 0.0, 60.0
     for _ in range(50):
         m = (lo + hi) / 2
@@ -1259,21 +1304,64 @@ def chase_dragon_path(sc, d, route, her0):
     lag_end = (lo + hi) / 2
 
     def lag(t):
-        return LAG_B + (lag_end - LAG_B) * smooth((t - TA) / float(T['crash'] - TA))
+        return LAG_B + (lag_end - LAG_B) * smooth((t - TA) / float(T['crash'] - TA)) if t > TA else LAG_B
 
     def fs(t):
-        return fa(t) if t <= TA else s_him(t - lag(t))
+        # her own run hands over to his line at TA, blended over CLOSE_BLEND ticks so her speed changes smoothly
+        if t <= TA - 2 * CLOSE_BLEND:
+            return fa(t)
+        if t >= TA:
+            return s_him(t - lag(t))
+        return fa(t) + (s_him(t - lag(t)) - fa(t)) * smoother((t - TA + 2 * CLOSE_BLEND) / (2.0 * CLOSE_BLEND))
     sc.notes['dragon_vmax'] = round(vmax, 3)
     sc.notes['lag_end'] = round(lag_end, 2)
-    s_g = cv['s_gorge']
+    s_g, s_slot = cv['s_gorge'], cv['s_slot']
 
     def lift(sv):
-        return HIGH_IN_GORGE * smoother((sv - s_g) / 60.0)
+        # up and over the turret as he threads the gap (east of it and high), then down the gorge high over his line
+        b = smoother((sv - (s_slot - 58.0)) / 50.0) * (1 - smoother((sv - (s_slot + 6.0)) / 44.0))
+        return [OVER_TURRET[0] * b, OVER_TURRET[1] * b + HIGH_IN_GORGE * smoother((sv - s_g) / 60.0)]
+    # the named dives, where she may sink as fast as she likes (a stoop, wings back): off the castle's top after him
+    # (the spire swoop in it), down off the turret, and down the gorge into the span; elsewhere she holds her height
+    # over his line (SINK_MAX), beating
+    dives = [(cv['s_top'], s_slot - 30.0, 'the dive off the castle top after him'),
+             (s_slot + 2.0, s_slot + 56.0, 'the stoop down off the turret'),
+             (s_g - 26.0, cv['s_arch'] + 6.0, 'the dive down the gorge into the span')]
+    sc.notes['dives_s'] = dives
 
-    def chase(t):
+    def raw(t):
         sv = fs(t)
         p = at_c(sv)
-        return [p[0], p[1] + lift(sv), p[2]]
+        q = lift(sv)
+        return [p[0] + q[0], p[1] + q[1], p[2]]
+    t_a, t_b = climb_end - 30, T['crash'] + 20
+    ys = {}
+    y = raw(t_a)[1]
+    for t in range(t_a, t_b + 1):
+        sv = fs(t)
+        rate = DIVE_SINK if any(a <= sv <= b for a, b, _ in dives) else SINK_MAX
+        y = max(raw(t)[1], y - rate)
+        ys[t] = y - raw(t)[1]
+    sig = 7.0
+    ex = {}
+    for t in range(t_a, t_b + 1):
+        w = [(math.exp(-0.5 * ((u - t) / sig) ** 2), ys[u]) for u in range(max(t_a, t - 21), min(t_b, t + 21) + 1)]
+        ex[t] = sum(a * b for a, b in w) / sum(a for a, _ in w)
+    sc.notes['held_height'] = round(max(ex.values()), 2)
+
+    def excess(t):
+        if t <= t_a or t >= t_b:
+            return 0.0
+        i = int(math.floor(t))
+        return ex[i] + (ex[min(t_b, i + 1)] - ex[i]) * (t - i)
+
+    def chase(t):
+        p = raw(t)
+        return [p[0], p[1] + excess(t), p[2]]
+    over = [t for t in range(t_a, t_b) if lift(fs(t))[0] > 0.25 * OVER_TURRET[0]]
+    sc.notes.setdefault('gap_ok', []).append((min(over), max(over), 'she is forced up and over the turret'))
+    sc.notes['dive_ticks'] = [(min(t for t in range(t_a, t_b) if a <= fs(t) <= b),
+                               max(t for t in range(t_a, t_b) if a <= fs(t) <= b), why) for a, b, why in dives]
     p_end = at(dist(climb_end))
     v_end = sub(p_end, at(dist(climb_end - 1)))
 
@@ -1288,8 +1376,9 @@ def chase_dragon_path(sc, d, route, her0):
             return chase(t)
         c = chase(t) if t >= climb_end else at_c(s_join + v_join * (t - climb_end))
         return lerp(climb(t), c, smoother((t - climb_end + 24) / 48.0))
-    # the bite: she lunges up off the floor at him, 1.3 at the top, as her jaws snap
-    tb = T['bite']
+    # the bite: she springs up off the floor at him, BITE_HOP at the top just as her jaws snap (the BITE pose drops
+    # her head into its lunge: the spring carries her snout up to him)
+    tb = T['bite'] + BITE_SNAP - BITE_TICKS // 2
     d.path.hold(tb)
     d.path.run(tb, tb + BITE_TICKS, lambda t: [base[0], base[1] + BITE_HOP * math.sin(math.pi * (t - tb) / float(BITE_TICKS)) ** 2,
                                                base[2]], 2)
@@ -1305,6 +1394,47 @@ def chase_dragon_path(sc, d, route, her0):
     sc.notes['chase_gap'] = round(min(gaps), 2)
     assert min(gaps) >= CHASE_GAP, ('she would catch him', min(gaps))
     return {'s': fs, 'climb_end': climb_end, 'chase': chase}
+
+
+REBREATHE = ((4, 20), (26, 20))                  # (tick, ticks): the floor trail again, then the rock face
+SCORCH_KEPT = 1.5                                # every arena hit point has a chase hit this close
+
+
+def breath_hits(scene, aid, world, t0, dur):
+    """Where each tick's puff ray meets a block within FIRE_MAX_REACH through the breathe at t0 (its mouth and
+    aim from dragon_engine.fire_jet; DragonFireRenderer lays a scorch hit there, timed for the gas to arrive, however
+    short the front is yet): the points its scorch is laid down on, in time order."""
+    out = []
+    for t in range(int(t0), int(t0 + dur) + 1):
+        jet = D.fire_jet(scene, aid, t, world)
+        if jet is None:
+            continue
+        o, dd, _ = jet
+        ln = D.ray_hit(world, o, dd, D.FIRE_MAX_REACH)[0]
+        if ln < D.FIRE_MAX_REACH - 1e-6:
+            p = [o[i] + dd[i] * ln for i in range(3)]
+            if not out or math.dist(out[-1], p) > 0.4:
+                out.append(p)
+    return out
+
+
+def check_scorch_kept(sc, scene, problems):
+    """Task 13 review I8: the arena's first breath left its scorch along the floor; the chase opens on the same
+    floor, so a chase breathe (the first 60 ticks) must lay a hit within SCORCH_KEPT of every one of the arena's hit
+    points. Returns the worst."""
+    a = E.actor_by_id(scene, 'horntail')
+    ours = []
+    for t0, dur, _ in D.breathes(a):
+        if t0 < 60:
+            ours += breath_hits(scene, 'horntail', sc.world, t0, dur)
+    worst = 0.0
+    for p in sc.notes['arena_scorch']:
+        g = min([math.dist(p, q) for q in ours] or [99.0])
+        worst = max(worst, g)
+    if worst > SCORCH_KEPT:
+        problems.append('%s: an arena scorch point is %.2f from every chase hit (the floor trail is gone)' % (
+            sc.sid, worst))
+    return round(worst, 2), len(sc.notes['arena_scorch'])
 
 
 def first_contact(scene, aid, box, t0, t1, parts=None):
@@ -1354,6 +1484,9 @@ def chase_slate(sc, d, world, solid):
     near_after = near - set(cs)                   # the cap is gone from the smash on
     W = SLATE_W
     best = None
+    # the swoop's bottom near where her own line passes the cap
+    t_near = min(range(T['fly'], T['arch']), key=lambda t: math.dist(E.track_sample(keys0, t), q))
+    T['slate'] = (t_near - 8, t_near + 16)
     for tc in range(T['slate'][0], T['slate'][1] + 1, 4):
         d.path.k = [dict(k) for k in keys0]
         d.anims = list(anims0)
@@ -1405,7 +1538,9 @@ def chase_slate(sc, d, world, solid):
     d.overrides = ov0 + [rear(tc)]
     d.sync()
     d.bake()
-    sc.notes['slate'] = {'centre': tc, 'depth_scale': k_, 'tick': t_s, 'clear': round(clear, 2), 'into': round(depth, 2)}
+    sc.notes['slate'] = {'centre': tc, 'depth_scale': k_, 'tick': t_s, 'clear': round(clear, 2), 'into': round(depth, 2),
+                         'cap': [lo, hi], 'centre_point': q}
+    sc.notes.setdefault('gap_ok', []).append((t_s - 16, t_s + 30, 'she swoops down onto the spire and climbs out'))
     sc.dragon_ok.append((t_s - 2, t_s + 14, ('tail',), 'her tail lashes through the turret spire\'s shingles'))
     # the shingles: the cap to air, each one tumbling off the turret down its fall
     for c in cs:
@@ -1491,8 +1626,14 @@ def chase_crash(sc, d, world):
     for c in cells:
         sc.ev(t_c, 'block', 'minecraft:air', at=list(c))
     rnd = random.Random('bridge')
-    near = sorted(cells, key=lambda c: math.dist([c[0] + 0.5, c[1] + 0.5, c[2] + 0.5], p_c))
-    pick = [near[i] for i in range(0, min(len(near), 160), 4)][:DEBRIS_N]
+    # the debris taken all along the span (Task 13 review I7): DEBRIS_PER_SLICE from every DEBRIS_SLICE blocks of
+    # it, spread through each slice's cells, flung harder the nearer her
+    lo_x = int(box[0][0])
+    pick = []
+    for x0 in range(lo_x, int(box[1][0]), DEBRIS_SLICE):
+        sl = sorted(c for c in cells if x0 <= c[0] < x0 + DEBRIS_SLICE)
+        k = max(1, len(sl) // DEBRIS_PER_SLICE)
+        pick += [sl[(i * k + rnd.randrange(k)) % len(sl)] for i in range(min(DEBRIS_PER_SLICE, len(sl)))]
     ids = []
     floor = GA['bridge']['fall_column'][0][1]
     for i, c in enumerate(pick):
@@ -1501,8 +1642,9 @@ def chase_crash(sc, d, world):
         st = st if not E.bid_of(st).endswith(('_wall', 'lantern', '_fence')) else 'minecraft:stone_bricks'
         p0 = [c[0] + 0.5, c[1] + 0.5, c[2] + 0.5]
         out = norm(sub(p0, p_c))
-        v0 = [v_c[0] * 0.5 + out[0] * rnd.uniform(0.15, 0.4), rnd.uniform(0.05, 0.3),
-              v_c[2] * 0.5 + out[2] * rnd.uniform(0.15, 0.4)]
+        f = max(0.25, 1.0 - math.dist(p0, p_c) / 14.0)          # the nearer her, the harder
+        v0 = [v_c[0] * 0.5 * f + out[0] * rnd.uniform(0.1, 0.4) * f, rnd.uniform(0.02, 0.3) * f,
+              v_c[2] * 0.5 * f + out[2] * rnd.uniform(0.1, 0.4) * f]
         g = 0.05
         land_t = (v0[1] + math.sqrt(v0[1] ** 2 + 2 * g * (p0[1] - floor - 0.5))) / g
         k = Keys().at(0, PARK).hold(t_c - 0.25)
@@ -1526,6 +1668,13 @@ def chase_crash(sc, d, world):
         sc.ev(t_c, 'particles', 'minecraft:explosion', at=r3(q), count=6, spread=[3.0, 2.0, 2.0])
         sc.ev(t_c, 'particles', 'minecraft:large_smoke', at=r3(q), count=n_, spread=[5.0, 3.0, 2.5])
         sc.ev(t_c + 2, 'particles', 'minecraft:poof', at=r3(q), count=n_, spread=[6.0, 4.0, 3.0])
+    # and dust all along the span as it goes, every DUST_EVERY blocks
+    zc, yc = (box[0][2] + box[1][2]) / 2.0, (box[0][1] + box[1][1]) / 2.0
+    nb = int(math.ceil((box[1][0] - box[0][0] - 2.0) / DUST_EVERY)) + 1
+    for k in range(nb):
+        x = box[0][0] + 1.0 + (box[1][0] - box[0][0] - 2.0) * k / (nb - 1.0)
+        sc.ev(t_c, 'particles', 'minecraft:large_smoke', at=r3([x, yc, zc]), count=50, spread=[2.5, 3.0, 2.0])
+        sc.ev(t_c + 2, 'particles', 'minecraft:poof', at=r3([x, yc - 1.0, zc]), count=40, spread=[3.0, 3.5, 2.5])
     sc.ev(t_c + FALL_TICKS, 'particles', 'minecraft:large_smoke', at=r3(rest), count=90, spread=[4.0, 1.5, 4.0])
     sc.sfx(t_c + FALL_TICKS, 'first_task_ground_thud', 1.0)
     sc.smashes.append({'tick': t_c, 'label': 'the bridge', 'cells': [list(c) for c in cells], 'box': box,
@@ -1574,14 +1723,14 @@ def chase_chain(sc, d, solid, arena):
 
 
 def chase_breaths(sc, d, world):
-    """Two breaths in the air at the castle roofs behind him (AIR_BREATH, the jaw open at 12): the great hall's
-    south-west gable and the north range's roof (the grounds' slate patches 1 and 3). Each is breathed at the tick
-    in its window whose jet (dragon_engine.fire_jet, with the breathe in place) lands on that roof for the most ticks
-    while him being well off its line; her head is turned onto it afterwards (heads). Returns the breathe ticks."""
+    """Two breaths in the air (AIR_BREATH, the jaw open at 12): the great hall's south-west gable (the grounds' slate
+    patch 1), breathed at the tick in her reach whose jet (dragon_engine.fire_jet, with the breathe in place) lands
+    on it for the most ticks; then the lick (lick_breath), at the round north-east tower's roof just behind him. Her
+    head is turned onto each afterwards (heads). Returns the breathe ticks."""
     T = sc.notes['T']
     out = []
-    for name, patch, (w0, w1) in (('the great hall roof', GA['slate_roofs'][0], T['air1']),
-                                  ('the north range roof', GA['slate_roofs'][2], T['air2'])):
+    V = K.view(sc)
+    for name, patch in (('the great hall roof', GA['slate_roofs'][0]),):
         q = patch['centre']
         tgt = [q[0], q[1] - 0.4, q[2]]
         cs = patch['cells']
@@ -1589,6 +1738,10 @@ def chase_breaths(sc, d, world):
         hi = [max(c[i] for c in cs) + 2.5 for i in range(3)]
         best = None
         anims, actions = list(d.anims), list(d.actions)
+        near = [t for t in range(T['fly'], T['slate'][0]) if 6.0 <= math.dist(d.pos(t + 10), tgt) <= 17.0]
+        assert near, 'she never comes within reach of %s' % name
+        w0, w1 = min(near), max(near)
+        T['air1'] = (w0, w1)
         for tb in range(w0, w1 + 1, 2):
             nxt = min([c['t'] for c in anims if c['t'] > tb - 12] or [10 ** 9])
             if tb + AIR_BREATH_T > nxt - 2:
@@ -1617,7 +1770,91 @@ def chase_breaths(sc, d, world):
         sc.fire_hits.append((tb + 6, tb + AIR_BREATH_T, name, [lo, hi]))
         sc.notes.setdefault('roof_targets', []).append((tb, tgt))
         out.append(tb)
+    out.append(lick_breath(sc, d, world))
     return out
+
+
+LICK = (0.6, 2.2)                                # the second breath's flame licks his broom's tail this close
+LICK_BODY = 1.7                                  # while it stays this far off him (assert 12 holds 1.5)
+
+
+def broom_tail(scene, bid, t):
+    """The tail end of the broom's box (its brush), scene space: the end of its long axis behind its travel."""
+    b = E.actor_by_id(scene, bid)
+    lo, hi = E.broom_box(b['type'], b.get('scale', 1.0))
+    bp = E.broom_pose(scene, b, t)
+    ends = [add(bp['pos'], E._mat_vec(bp['m'], [0.0, (lo[1] + hi[1]) / 2, z])) for z in (lo[2], hi[2])]
+    v = sub(E.track_sample(b['path'], t + 0.5), E.track_sample(b['path'], t - 0.5))
+    return min(ends, key=lambda p: sum((p[i] - bp['pos'][i]) * v[i] for i in range(3)))
+
+
+def him_gap(scene, geom, t, viewer='viewer'):
+    """The least gap from the drawn flame to his part boxes (fire_gap at their corners)."""
+    v = E.actor_by_id(scene, viewer)
+    return min(K.fire_gap(geom, q) for part, rt, yaw, s, piv, rot in E.posed_parts(scene, v, t)
+               for q in E.part_corners(rt, yaw, s, piv, rot, E.PART_BOX[part]))
+
+
+def lick_breath(sc, d, world):
+    """The second air breath: as he dives past the round north-east tower into the gap, she breathes at its roof
+    just behind him, so the flame licks his broom's tail (LICK) while it keeps LICK_BODY off him: the breathe tick
+    and the roof point solved over the tower's open faces (the jet's ray lands on the tower for 5 ticks or more).
+    A near miss (the gasp), its roar and the scorch. Returns the breathe tick."""
+    T = sc.notes['T']
+    tower = K.cells_in_box(sc.notes['solid'], [93, 54, -60], [104, 66, -48])
+    sol = set(tower)
+    faces = []
+    for c in tower:
+        for n in ((0, 1, 0), (-1, 0, 0), (0, 0, 1), (0, 0, -1)):
+            if (c[0] + n[0], c[1] + n[1], c[2] + n[2]) not in sol:
+                faces.append([c[0] + 0.5 + 0.55 * n[0], c[1] + 0.5 + 0.55 * n[1], c[2] + 0.5 + 0.55 * n[2]])
+    faces.sort()
+    V0 = K.view(sc)
+    t_slot = min(range(T['fly'], T['arch']), key=lambda t: math.dist(E.track_sample(E.actor_by_id(V0, 'firebolt')['path'], t), SLOT_AT))
+    anims, actions = list(d.anims), list(d.actions)
+    best = None
+    for tb in range(t_slot - 44, t_slot - 13, 3):
+        nxt = min([c['t'] for c in anims if c['t'] > tb - 12] or [10 ** 9])
+        if tb + AIR_BREATH_T > nxt - 2:
+            continue
+        for tgt in faces[::2]:
+            d.anims, d.actions = list(anims), list(actions)
+            d.cue(tb - 12, 'AIR_BREATH', 8)
+            d.breathe(tb, AIR_BREATH_T, tgt)
+            V = K.view(sc)
+            hits, body, tail = 0, 9.0, (9.0, None)
+            for t in range(tb + 2, tb + AIR_BREATH_T + 1):
+                jet = D.fire_jet(V, 'horntail', t, world)
+                if jet is None:
+                    continue
+                o, dd, ln = jet
+                if ln < D.FIRE_MAX_REACH - 1e-6 and math.dist([o[i] + dd[i] * ln for i in range(3)], tgt) < 2.0:
+                    hits += 1
+                g = (o, dd, ln, 1.0, [])
+                body = min(body, him_gap(V, g, t))
+                gt = K.fire_gap(g, broom_tail(V, 'firebolt', t))
+                if gt < tail[0]:
+                    tail = (gt, t)
+                if body < LICK_BODY:
+                    break
+            if hits < 5 or body < LICK_BODY:
+                continue
+            score = (LICK[0] <= tail[0] <= LICK[1], -abs(tail[0] - sum(LICK) / 2.0), hits)
+            if best is None or score > best[0]:
+                best = (score, tb, tgt, tail, body, hits)
+    d.anims, d.actions = anims, actions
+    assert best is not None and best[0][0], ('no breath licks his tail', best)
+    _, tb, tgt, tail, body, hits = best
+    d.cue(tb - 12, 'AIR_BREATH', 8)
+    d.cue(tb + 44, 'FLY', 8)
+    d.breathe(tb, AIR_BREATH_T, tgt)
+    lo, hi = [tgt[i] - 2.0 for i in range(3)], [tgt[i] + 2.0 for i in range(3)]
+    sc.fire_hits.append((tb + 2, tb + AIR_BREATH_T, 'the round tower roof behind him', [lo, hi]))
+    sc.notes.setdefault('roof_targets', []).append((tb, tgt))
+    sc.notes['lick'] = {'tick': tail[1], 'tail': round(tail[0], 2), 'body': round(body, 2), 'breathe': tb,
+                        'target': r3(tgt), 'hits': hits, 'slot_tick': t_slot}
+    T['air2'] = tb
+    return tb
 
 
 _ROOFS = []
@@ -1639,12 +1876,16 @@ def chase_heads(sc, d, T, breaths):
     after him as she launches, then forward with a glance after him, and onto each roof she breathes at."""
     V = K.view(sc)
     him = lambda t: F.eye_fn(V, 'viewer')(t)
-    head_track(sc, d, d.head, lambda t: FACE_AIM, 2, 28, 6)
+    trail = sc.notes['arena_scorch']
+    (r0, rd), (f0, fd) = REBREATHE
+    head_track(sc, d, d.head, lambda t: trail[min(len(trail) - 1, int(len(trail) * (t - r0) / float(rd)))], 2,
+               r0 + rd, 2)
+    head_track(sc, d, d.head, lambda t: FACE_AIM, f0, f0 + fd + 2, 4)
     head_track(sc, d, d.head, him, 52, T['takeoff'] - 2, 6)
     tb = T['bite']
     for k in d.head:                                # up off the floor as she comes down from the bite
-        if tb + 10 < k['t'] < tb + BITE_TICKS + 12:
-            u = math.sin(math.pi * (k['t'] - tb - 10) / float(BITE_TICKS + 2)) ** 2
+        if tb + BITE_SNAP < k['t'] < tb + BITE_TICKS + 12:
+            u = math.sin(math.pi * (k['t'] - tb - BITE_SNAP) / float(BITE_TICKS + 2)) ** 2
             k['v'][0] = round(min(40.0, k['v'][0] + BITE_LIFT * u), 2)
     d.sync()
     d.look_head(T['takeoff'] + 10, 0, 0, None)
@@ -1681,11 +1922,12 @@ def chase_sound(sc, d, T, breaths, world):
     sc.ev(0, 'effect', 'sky', at=r3(GA['nest_centre']), style='overcast')
     sc.music(M_CHASE, 'first_task_chase')
     sc.sfx(0, 'first_task_crowd_bed', 0.42, loop=True, duration=T['takeoff'] + 120)
-    sc.sfx(6, 'first_task_fire_roar', 0.4, hit=6, label='the scorch breathed back')
+    for t0, _ in REBREATHE:
+        sc.sfx(t0, 'first_task_fire_roar', 0.35, hit=t0, label='the scorch breathed back')
     for tb in breaths:
         sc.sfx(tb, 'first_task_fire_roar', 1.0, hit=tb, label='an air breath')
         sc.sfx(tb + 8, 'first_task_fire_scorch', 0.7)
-    tb_ = T['bite'] + 10
+    tb_ = T['bite'] + BITE_SNAP
     sc.sfx(tb_, 'first_task_horntail_snap', 1.1, hit=tb_, label='the jaws snap shut')
     sc.sfx(T['roar'], 'first_task_horntail_roar', 1.2, hit=T['roar'], label='she rears against the chain')
     sc.sfx(T['snap'], 'first_task_chain_snap', 1.2, hit=T['snap'], label='the chain snaps')
@@ -1695,28 +1937,58 @@ def chase_sound(sc, d, T, breaths, world):
     # the crowd: a gasp at the snap of her jaws by him, a scream at the chain
     V = K.view(sc)
     v = E.actor_by_id(V, 'viewer')
-    jaws = min(range(T['bite'], T['bite'] + 20), key=lambda t: math.dist(K.dragon_head(V, 'horntail', t), F.eye_fn(V, 'viewer')(t)))
-    dj = math.dist(K.dragon_head(V, 'horntail', jaws), F.eye_fn(V, 'viewer')(jaws))
-    sc.notes['bite_gap'] = round(dj, 2)
+    dj, tj = bite_pass(V, T['bite'])                # her snout at its nearest to him, the jaws open, then the clap
+    jaws = int(math.ceil(tj))
+    sc.notes['bite_gap'] = (round(dj, 2), tj, round(jaws_gap(V, T['bite'] + BITE_SNAP), 2))
     sc.near_misses.append((jaws, 'jaws', 'her jaws %.1f from him' % dj))
     sc.sfx(jaws + 3, 'flying_crowd_gasp', 0.95)
     crowd_all(sc, jaws + 5, 'gasp', ('near miss', jaws), stagger=3)
     sc.sfx(T['snap'] + 3, 'flying_crowd_gasp', 1.0)
     crowd_all(sc, T['snap'] + 5, 'gasp', ('the chain snaps', T['snap']), stagger=3)
+    # the second air breath licks his broom's tail: the far stands gasp
+    lk = sc.notes['lick']
+    sc.near_misses.append((lk['tick'], 'fire', 'her flame %.1f off his broom' % lk['tail']))
+    sc.sfx(lk['tick'] + 4, 'flying_crowd_gasp', 0.45)
+    crowd_all(sc, lk['tick'] + 6, 'gasp', ('near miss', lk['tick']), stagger=2)
 
 
-def chase_wingbeats(sc, d):
-    """A wingbeat sound on each of her downstrokes where the camera is within 30 blocks of her (assert 13)."""
-    V = K.view(sc)
-    a = E.actor_by_id(V, 'horntail')
-    n = 0
-    for t in D.downstroke_ticks(a, 0, sc.L):
-        c = E.engine_cam(sc.camera, t)
-        dd = math.dist(c, D.horntail_frame(V, 'horntail', t)[0])
-        if dd < 30.0:
-            sc.sfx(t, 'first_task_wingbeat', round(max(0.35, 1.0 - dd / 40.0), 3))
-            n += 1
-    sc.notes['wingbeats'] = n
+def jaws_gap(scene, t):
+    """Her snout (horntail_snout) to his nearest part box at t."""
+    return K.body_gap(scene, 'viewer', t, D.horntail_snout(scene, 'horntail', t)[0])[0]
+
+
+def bite_pass(scene, cue_t):
+    """(least snout-to-him gap, its tick) over the BITE cue at cue_t, every quarter tick."""
+    return min((jaws_gap(scene, q / 4.0), q / 4.0) for q in range((cue_t + 2) * 4, (cue_t + 22) * 4 + 1))
+
+
+SNAP_AFTER = 2.5                                 # the jaws clap at most this many ticks after her snout's nearest pass
+SNAP_GAP = 3.0                                   # and he is at most this far off them as they clap
+
+
+def check_bite(sc, scene, problems):
+    """The bite (Task 13 review I5): her snout passes within BITE_REACH of his nearest part, the jaws clap (the
+    BITE cue + BITE_SNAP, the snap sfx on it) at most SNAP_AFTER ticks after that nearest pass and with him at most
+    SNAP_GAP off them. Returns (nearest gap, its tick, the gap at the clap)."""
+    a = E.actor_by_id(scene, 'horntail')
+    cues = [c['t'] for c in a.get('anims', []) if c['name'] == 'BITE']
+    if not cues:
+        problems.append('%s: no BITE cue' % sc.sid)
+        return None
+    tb = cues[0]
+    snap = tb + BITE_SNAP
+    g, tg = bite_pass(scene, tb)
+    gs = jaws_gap(scene, snap)
+    if g > BITE_REACH:
+        problems.append('%s: her snout comes only %.2f from him at the bite (needs %.1f)' % (sc.sid, g, BITE_REACH))
+    if not 0.0 <= snap - tg <= SNAP_AFTER:
+        problems.append('%s: the jaws clap at t %d, %.2f ticks after her nearest pass (t %.2f)' % (sc.sid, snap,
+                                                                                               snap - tg, tg))
+    if gs > SNAP_GAP:
+        problems.append('%s: he is %.2f from her jaws as they clap (t %d)' % (sc.sid, gs, snap))
+    if not any(e.get('id') == K.SFX + 'first_task_horntail_snap' and abs(e['t'] - snap) <= 1 for e in scene['events']):
+        problems.append('%s: no snap sfx on the clap (t %d)' % (sc.sid, snap))
+    return round(g, 2), tg, round(gs, 2)
 
 
 def chase_camera(sc, d, T, breaths):
@@ -1727,19 +1999,26 @@ def chase_camera(sc, d, T, breaths):
     head = lambda t: K.dragon_head(V, 'horntail', t)
     L = sc.L
     tc = T['crash_tick']
-    # C1 0-3.5 high behind him as he banks round over the arena, the Horntail small on the floor below, still
-    # breathing fire at the rock
+    t_s = sc.notes['slate']['tick']
+    a1, a2 = breaths
+    lick = sc.notes['lick']
+    cuts = sc.notes['cuts'] = chase_cuts(T, t_s, a1, a2, tc)
     sbl = smoothed(boy, 4.0)
     mid = lambda t: lerp(boy(t), her_eye(t), 0.5)
     sml = smoothed(mid, 6.0)
+    she = smoothed(her_eye, 5.0)
+    # C1 0-3.5 high behind him as he banks round over the arena, the look tipped down onto her on the floor below,
+    # her fire pouring along the scorched floor and onto the rock (Task 13 review M10), then back up after him
     raw, sb, hb = F.follow_cam(boy, lambda t: [-8.0, 3.2, 2.4], 8.0, L)
     cam = K.spring_cam(raw, 0, 70)
-    sc.shot(0, 70, cam, lambda t: lerp(add(sbl(t), hb(t), 5.0), her_eye(t), 0.15), ramp(66.0, 62.0, 0, 70), 4)
+    sc.shot(0, 70, cam, lambda t: lerp(add(sbl(t), hb(t), 5.0), she(t), 0.42 - 0.27 * smooth((t - 40) / 30.0)),
+            ramp(68.0, 62.0, 0, 70), 4)
     # C2 3.5-6.4 low on the floor off her flank: her head swings after him as he comes down at her out of the south
     pf = move(C2_CAM, add(C2_CAM, [0.3, 0.1, 0.4]), 70, 128)
     sc.shot(70, 128, pf, smoothed(lambda t: lerp(head(t), boy(t), smooth((t - 90) / 30.0) * 0.45), 5.0),
             ramp(58.0, 54.0, 70, 128), 4)
-    # C3 6.4-8.3 close on her head from the west: the bite as he flashes past her jaws
+    # C3 6.4-8.3 close on her head from the west: she springs at him, her open jaws a block and a half from him, and
+    # snap shut behind his broom
     pf = move(C3_CAM, add(C3_CAM, [0.0, 0.05, 0.25]), 128, 166)
     sc.shot(128, 166, pf, smoothed(lambda t: lerp(head(t), PP, 0.4), 5.5), ramp(48.0, 46.0, 128, 166), 4)
     # C4 8.3-11.3 wide and low from the south-west: she rears against the chain, and it snaps
@@ -1748,38 +2027,60 @@ def chase_camera(sc, d, T, breaths):
     # C5 11.3-15.0 behind her on the floor as she beats up into the sky after him
     pf = move(C5_CAM, add(C5_CAM, [0.6, 0.5, -0.4]), 226, 300)
     sc.shot(226, 300, pf, smoothed(lambda t: lerp(her_eye(t), boy(t), 0.3), 8.0), ramp(62.0, 70.0, 226, 300), 4)
-    # C6 15.0-19.0 alongside the two of them out over the plateau, the castle ahead
-    raw, sm, hm = F.follow_cam(mid, lambda t: [0.0, 6.0, -40.0], 8.0, L)
-    cam = K.spring_cam(raw, 300, 380)
-    sc.shot(300, 380, cam, sml, ramp(64.0, 60.0, 300, 380), 4)
-    # C7 19.0-23.0 ahead of him looking back: the castle round them, she breathes fire on the great hall roof behind
-    # him, then swoops and smashes a turret spire with her tail
-    raw, sb, hb = F.follow_cam(boy, lambda t: [9.0, 2.0, 3.0], 8.0, L)
-    cam = K.spring_cam(raw, 380, 460)
-    sc.shot(380, 460, cam, lambda t: lerp(sbl(t), her_eye(t), 0.3), ramp(64.0, 60.0, 380, 460), 4)
-    # C8 23.0-27.0 high over the great tower: the two of them sweep past it and down into the courtyard
-    raw, sb, hb = F.follow_cam(mid, lambda t: [-6.0, 12.0, 9.5], 8.0, L)
-    cam = K.spring_cam(raw, 460, 540)
-    sc.shot(460, 540, cam, sml, ramp(66.0, 62.0, 460, 540), 4)
-    # C9 27.0-31.0 behind her: her wings filling the frame, him ahead between the towers
-    raw, sh, hh = F.follow_cam(her_eye, lambda t: [-11.0, 4.0, 3.0], 8.0, L)
-    cam = K.spring_cam(raw, 540, 620)
-    she = smoothed(her_eye, 5.0)
-    sc.shot(540, 620, cam, lambda t: lerp(she(t), sbl(t), 0.55), ramp(62.0, 58.0, 540, 620), 4)
-    # C10 31.0-35.0 alongside, west along the north range toward the gorge
-    raw, sm2, hm2 = F.follow_cam(mid, lambda t: [1.0, 2.5, 15.0], 8.0, L)
-    cam = K.spring_cam(raw, 620, 700)
-    sc.shot(620, 700, cam, sml, ramp(58.0, 56.0, 620, 700), 4)
-    # C11 35.0-39.5 low in the gorge south of the bridge: he shoots down the gorge, under the arch and past us; she
-    # slams into the span
-    pf = move(C11_CAM, add(C11_CAM, [0.2, 0.3, 0.2]), 700, tc)
-    sc.shot(700, tc, pf, smoothed(lambda t: lerp(ARCH_AT, lerp(boy(t), her_eye(t), 0.5), 0.55), 6.0),
-            ramp(66.0, 70.0, 700, tc), 4)
-    # C12 39.5-42.5 from the gorge's side: the span breaks, she tumbles down through it into the gorge
-    pf = move(C12_CAM, add(C12_CAM, [-0.4, -0.3, 0.3]), tc, tc + 60)
-    sc.shot(tc, tc + 60, pf, smoothed(lambda t: lerp([ARCH_AT[0], 4.0, -20.0], her(t), 0.45), 4.0),
-            ramp(60.0, 56.0, tc, tc + 60), 4)
-    # C13 42.5-47.0 alone: he climbs out of the gorge's head into the open sky and turns home, a slow push in
+    # C6 wide alongside the two of them out over the plateau, the castle ahead: she gains on him, wingbeat by
+    # wingbeat
+    c6, c7, c8, c9, c10, c11, c12, c13, c14, c15 = cuts
+    raw, sm, hm = F.follow_cam(mid, lambda t: [2.0, 5.0, -30.0 + 8.0 * smooth((t - c6) / float(c7 - c6))], 8.0, L)
+    cam = K.spring_cam(raw, c6, c7)
+    sc.shot(c6, c7, cam, sml, ramp(60.0, 54.0, c6, c7), 4)
+    # C7 the insert: close beside her head as her jaws open and the fire bursts out onto the great hall roof below
+    tgt1 = next(q for t_, q in sc.notes['roof_targets'] if t_ == a1)
+    side = insert_side(V, a1 + 6, tgt1)
+    raw, sh, hh = F.follow_cam(head, lambda t: [1.2, 2.8, 4.6 * side], 5.0, L)
+    cam = K.spring_cam(raw, c7, c8)
+    sc.shot(c7, c8, cam, smoothed(lambda t: add(head(t), [0.0, -0.3, 0.0]), 3.0), ramp(46.0, 42.0, c7, c8), 4)
+    # C8 over his shoulder looking back: her open jaws, still pouring fire on the roof, a few blocks off his broom
+    raw, sb2, hb2 = F.follow_cam(boy, lambda t: [0.4, 0.75, -0.95], 4.0, L)
+    cam = K.spring_cam(raw, c8, c9, omega=0.12, a_max=0.0016)
+    sc.shot(c8, c9, cam, smoothed(lambda t: lerp(head(t), boy(t), 0.12), 3.0), ramp(64.0, 60.0, c8, c9), 4)
+    # C9 the spire (Task 13 review I2): outside her swoop, 14-20 from the turret's cap, her tail lashing in and the
+    # shingles tumbling
+    cap = sc.notes['slate']['centre_point']
+    c0 = SPIRE_CAM
+    pf = move(c0, add(c0, [0.6, -0.4, 0.5]), c9, c10)
+    sc.shot(c9, c10, pf, smoothed(lambda t: lerp(cap, her_eye(t), 0.35 * (1 - smooth((t - t_s + 14) / 14.0)) +
+                                                 0.15 * smooth((t - t_s - 8) / 20.0)), 4.0),
+            ramp(54.0, 50.0, c9, c10), 4)
+    # C10 a static angle north of the gap: he dives through the slot between the hall wall and the turret at us, her
+    # flame licking his broom's tail, and whips past; she is forced up and over the turret
+    pf = move(GAP_CAM, add(GAP_CAM, [0.3, 0.2, -0.3]), c10, c11)
+    slot = list(SLOT_AT)
+    sc.shot(c10, c11, pf, smoothed(lambda t: lerp(lerp(slot, boy(min(t, lick['slot_tick'] - 2)), 0.6),
+                                                  her_eye(t), 0.15 + 0.6 * smooth((t - lick['slot_tick'] + 6) / 16.0)), 5.0),
+            ramp(60.0, 56.0, c10, c11), 4)
+    # C11 behind her as she stoops down off the turret after him, her wings filling the frame, him ahead
+    raw, sh, hh = F.follow_cam(her_eye, lambda t: [-10.0, 3.5, 3.0], 8.0, L)
+    cam = K.spring_cam(raw, c11, c12)
+    sc.shot(c11, c12, cam, lambda t: lerp(she(t), sbl(t), 0.55), ramp(62.0, 58.0, c11, c12), 4)
+    # C12 alongside, west along the castle's north side toward the gorge, she right on his tail
+    raw, sm2, hm2 = F.follow_cam(mid, lambda t: [1.0, 2.5, 13.0], 8.0, L)
+    cam = K.spring_cam(raw, c12, c13)
+    sc.shot(c12, c13, cam, sml, ramp(56.0, 54.0, c12, c13), 4)
+    # C13 from the gorge's west rim: they dive over the edge and down into it past us
+    pf = move(RIM_CAM, add(RIM_CAM, [0.4, -0.6, 0.6]), c13, c14)
+    sc.shot(c13, c14, pf, smoothed(lambda t: lerp(boy(t), her_eye(t), 0.4 + 0.35 * smooth((t - c13 - 20) / 30.0)), 6.0),
+            ramp(62.0, 60.0, c13, c14), 4)
+    # C14 low in the gorge south of the bridge: he shoots down the gorge, under the arch and past us; she comes on
+    # high behind him, at the span
+    pf = move(C11_CAM, add(C11_CAM, [0.2, 0.3, 0.2]), c14, c15)
+    sc.shot(c14, c15, pf, smoothed(lambda t: lerp(ARCH_AT, lerp(boy(t), her_eye(t), 0.5), 0.55), 6.0),
+            ramp(66.0, 70.0, c14, c15), 4)
+    # C15 from the gorge's side, cut in just before she hits (Task 13 review I7): she slams into the span, it breaks
+    # all along, she tumbles down through it into the gorge
+    pf = move(C12_CAM, add(C12_CAM, [-0.4, -0.3, 0.3]), c15, tc + 60)
+    sc.shot(c15, tc + 60, pf, smoothed(lambda t: lerp([ARCH_AT[0], 12.0, -20.0], her(t), 0.75 * smooth((t - tc) / 22.0)),
+                                       4.0), ramp(58.0, 56.0, c15, tc + 60), 4)
+    # C16 alone: he climbs out of the gorge's head into the open sky and turns home, a slow push in
     raw, sb, hb = F.follow_cam(boy, lambda t: [3.6 - 1.0 * smooth((t - tc - 60) / 120.0), 0.6, 2.2], 8.0, L)
     cam = K.spring_cam(raw, tc + 60, L)
     sc.shot(tc + 60, L, cam, sbl, ramp(50.0, 44.0, tc + 60, L), 4)
@@ -1787,13 +2088,193 @@ def chase_camera(sc, d, T, breaths):
     sc.notes['tamed'] = K.tame_shot_ends(sc)
     E_ = lambda sc_, t: E.rider_eye(sc_, E.actor_by_id(sc_, 'viewer'), t)
     D_ = lambda sc_, t: K.dragon_eye(sc_, 'horntail', t)
-    sc.framing += [(4, 66, E_, 'the champion banking round (C1)'), (74, 124, D_, 'the Horntail (C2)'),
-                   (132, 150, lambda sc_, t: K.dragon_head(sc_, 'horntail', t), 'the bite (C3)'),
+    H_ = lambda sc_, t: K.dragon_head(sc_, 'horntail', t)
+    sm_ = next(x for x in sc.smashes if x['label'] != 'the bridge')
+    deb = lambda sc_, t: [sum(E.track_sample(E.actor_by_id(sc_, i)['path'], t)[k] for i in sm_['debris']) /
+                          len(sm_['debris']) for k in range(3)]
+    sc.framing += [(4, 66, E_, 'the champion banking round (C1)'), (10, 40, D_, 'the Horntail breathing below (C1)'),
+                   (74, 124, D_, 'the Horntail (C2)'), (132, 150, H_, 'the bite (C3)'),
                    (170, 222, D_, 'she rears (C4)'), (230, 296, D_, 'her launch (C5)'),
-                   (304, 376, E_, 'the champion (C6)'), (304, 376, D_, 'the Horntail (C6)'),
-                   (384, 456, E_, 'the champion (C7)'), (384, 456, D_, 'the Horntail (C7)'),
-                   (544, 616, E_, 'the champion ahead (C9)'), (704, tc - 4, lambda sc_, t: ARCH_AT, 'the arch (C11)'),
-                   (tc + 2, tc + 30, D_, 'her fall (C12)'), (tc + 64, L - 4, E_, 'the champion alone (C13)')]
+                   (c6 + 4, c7 - 4, E_, 'the champion (C6)'), (c6 + 4, c7 - 4, D_, 'the Horntail gaining (C6)'),
+                   (c7 + 2, c8 - 2, H_, 'her head and jaws as she breathes (C7)'),
+                   (c8 + 2, c9 - 2, H_, 'her jaws behind him (C8)'),
+                   (c9 + 2, c10 - 2, lambda sc_, t: cap, 'the turret spire (C9)'),
+                   (t_s, min(c10 - 2, t_s + 20), deb, 'the shingles tumbling (C9)'),
+                   (c10 + 2, lick['slot_tick'] - 2, E_, 'the champion through the gap (C10)'),
+                   (lick['slot_tick'] + 10, c11 - 2, D_, 'the Horntail over the turret (C10)'),
+                   (c11 + 2, c12 - 2, D_, 'the Horntail stooping (C11)'), (c11 + 2, c12 - 2, E_, 'the champion ahead (C11)'),
+                   (c12 + 2, c13 - 2, D_, 'the Horntail on his tail (C12)'), (c12 + 2, c13 - 2, E_, 'the champion (C12)'),
+                   (c13 + 2, c14 - 2, D_, 'the Horntail diving into the gorge (C13)'),
+                   (c14 + 4, c15 - 4, lambda sc_, t: ARCH_AT, 'the arch (C14)'),
+                   (c15 + 2, tc + 30, D_, 'she hits the span and falls (C15)'), (tc + 64, L - 4, E_, 'the champion alone (C16)')]
+    sc.notes['seen'] = sc.notes.get('seen', []) + [
+        (lambda sc_, t: cap_face(cap, SPIRE_CAM), t_s - 6, t_s + 10, 12, 'the turret spire as her tail smashes it (C9)')]
+
+
+SPIRE_CAM = [54.0, 83.0, 13.5]                   # south-west of the north-west turret's spire, outside her swoop
+GAP_CAM = [104.5, 64.0, -70.0]                   # north-east of the gap, looking back south down the slot
+RIM_CAM = [-13.0, 31.0, -86.0]                   # on the gorge's west rim where they dive in
+
+
+def chase_cuts(T, t_s, a1, a2, tc):
+    """The chase's cuts from C6 on, from its beats: C7 (the insert) on the great hall breath's jaws opening, C8
+    (over his shoulder) from the breath's middle, C9 (the spire) t_s - 23, C10 (the gap) as the second breath's jaws
+    open, C11-C14 through the stoop, the north side and the gorge, C15 seven ticks before the crash."""
+    return (300, a1 - 8, a1 + 15, t_s - 23, a2 - 8, a2 + 46, a2 + 98, a2 + 154, a2 + 218, tc - 7)
+
+
+def insert_side(scene, t, target):
+    """+1 or -1: the side of her head (follow_cam's right) away from where she breathes, for the insert camera."""
+    h = D.horntail_snout(scene, 'horntail', t)
+    v = sub(target, h[0])
+    hd = norm([h[1][0], 0.0, h[1][2]])
+    r = [-hd[2], 0.0, hd[0]]
+    return -1.0 if v[0] * r[0] + v[2] * r[2] > 0 else 1.0
+
+
+def cap_face(cap, cam):
+    """A point just outside the spire's cap toward the camera (so the occlusion ray does not end inside it)."""
+    return add(cap, norm(sub(cam, cap)), 2.2)
+
+
+GAP_MAX, GAP_MEAN = 17.0, 13.0                   # her head to his eye once she has closed on him: at most, on average
+GLIDE_RUN = 24                                   # the longest still-winged glide she may show in frame, outside a dive
+
+
+def check_chase_gap(sc, scene, problems):
+    """Task 13 review I1: from TCH['closed'] to the crash her head is at most GAP_MAX from his eye (GAP_MEAN on
+    average), but where she is named over the turret. Returns (nearest, farthest, mean)."""
+    T = sc.notes['T']
+    v = E.actor_by_id(scene, 'viewer')
+    gs = []
+    for t in range(T['closed'], T['crash_tick'] + 1, 2):
+        if any(a <= t <= b for a, b, _ in sc.notes.get('gap_ok', [])):
+            continue
+        g = math.dist(K.dragon_head(scene, 'horntail', t), E.rider_eye(scene, v, t))
+        gs.append(g)
+        if g > GAP_MAX:
+            problems.append('%s: at t %d she is %.1f behind him (at most %.0f)' % (sc.sid, t, g, GAP_MAX))
+            break
+    mean = sum(gs) / max(1, len(gs))
+    if mean > GAP_MEAN:
+        problems.append('%s: she runs %.1f behind him on average (at most %.0f)' % (sc.sid, mean, GAP_MEAN))
+    return round(min(gs), 2), round(max(gs), 2), round(mean, 2)
+
+
+def glide_ticks(scene, aid):
+    """The ticks she flies a beating cue (FLY, AIR_BREATH) with her wings held in the glide (dragon_engine.glide at
+    0.5 or more), and the ticks she flies a beating cue."""
+    a = E.actor_by_id(scene, aid)
+    keys = a['path']
+    fly, gl = [], []
+    for t in range(0, scene['length'] + 1):
+        st = D.horntail_cue(a, t)
+        if not st['flying'] or st['name'] not in ('FLY', 'AIR_BREATH'):
+            continue
+        fly.append(t)
+        if D.glide(E.path_speed(keys, t), D.climb_rate(keys, t)) >= 0.5:
+            gl.append(t)
+    return gl, fly
+
+
+def check_glide(sc, scene, problems):
+    """Task 13 review I3: outside her named dives no run of still-winged glide longer than GLIDE_RUN ticks while she
+    is in frame within 50 blocks. Returns (gliding ticks, flying ticks, the longest such run)."""
+    gl, fly = glide_ticks(scene, 'horntail')
+    dives = sc.notes.get('dive_ticks', [])
+    worst, run, prev = 0, 0, None
+    for t in gl:
+        c = E.engine_cam(scene['camera'], t)
+        lk, fov = E.engine_look(scene, scene['camera'], t)
+        p = K.dragon_eye(scene, 'horntail', t)
+        ok = (not any(a <= t <= b for a, b, _ in dives) and math.dist(c, p) < 50.0
+              and E.in_view(c, lk, fov, p, aspect=16 / 9.0))
+        run = (run + 1 if prev == t - 1 else 1) if ok else 0
+        prev = t
+        worst = max(worst, run)
+    if worst > GLIDE_RUN:
+        problems.append('%s: she glides with still wings %d ticks running in frame (at most %d)' % (sc.sid, worst,
+                                                                                                GLIDE_RUN))
+    return len(gl), len(fly), worst
+
+
+DEBRIS_SLICE, DEBRIS_PER = 3, 8                  # the span's debris: at least this many in every slice this wide
+DUST_EVERY = 5.0                                 # and a dust burst within this of every point along it
+
+
+def check_debris_span(sc, scene, problems):
+    """Task 13 review I7: the bridge's debris starts all along the break box (DEBRIS_PER in every DEBRIS_SLICE
+    blocks of x) and its dust bursts cover the span (one within DUST_EVERY / 2 of every x), on the crash tick.
+    Returns (the fewest in a slice, the farthest x from a burst)."""
+    sm = next(x for x in sc.smashes if x['label'] == 'the bridge')
+    T = sm['tick']
+    lo, hi = sm['box']
+    xs = [E.track_sample(E.actor_by_id(scene, did)['path'], T)[0] for did in sm['debris']]
+    fewest = 99
+    x = lo[0]
+    while x < hi[0] - 1e-6:
+        n = sum(1 for q in xs if x <= q < x + DEBRIS_SLICE)
+        fewest = min(fewest, n)
+        if n < DEBRIS_PER:
+            problems.append('%s: only %d debris start in x %.0f..%.0f of the span' % (sc.sid, n, x, x + DEBRIS_SLICE))
+            break
+        x += DEBRIS_SLICE
+    dust = [e['at'][0] for e in scene['events'] if e.get('kind') == 'particles' and T <= e['t'] <= T + 2
+            and lo[2] - 3 <= e['at'][2] <= hi[2] + 3]
+    far = max(min([abs(x_ - q) for q in dust] or [99.0])
+              for x_ in [lo[0] + 0.5 * k for k in range(int((hi[0] - lo[0]) * 2) + 1)])
+    if far > DUST_EVERY / 2.0 + 1e-6:
+        problems.append('%s: a stretch of the span %.1f from any dust burst' % (sc.sid, far))
+    return fewest, round(far, 2)
+
+
+HIT_SLACK = 0.15                                 # seconds
+
+
+def check_music_hits(sc, scene, problems):
+    """Task 13 review I6: the music cue's measured hits (first_task_music.HITS) land on their beats: each hit's
+    scene tick (the music event's t plus its file time) within HIT_SLACK of the sfx it is named for. Returns
+    [(sfx, offset seconds)]."""
+    out = []
+    for e in scene['events']:
+        if e.get('kind') != 'music':
+            continue
+        cue = e['id'].split('.')[-1]
+        for sec, sfx in M.HITS.get(cue, []):
+            t_hit = e['t'] + sec * 20.0
+            ts = [x['t'] for x in scene['events'] if x.get('id') == K.SFX + sfx]
+            off = min([(x - t_hit) / 20.0 for x in ts], key=abs) if ts else None
+            out.append((sfx, None if off is None else round(off, 2)))
+            if off is None or abs(off) > HIT_SLACK:
+                problems.append('%s: the hit at %.2f s of %s is %s s off its %s' % (sc.sid, sec, cue, off, sfx))
+    return out
+
+
+def check_lick(sc, scene, problems):
+    """Task 13 review I1: the second air breath's drawn flame licks his broom's tail within LICK[1] (assert 12
+    keeps it 1.5 off him). Returns the least gap."""
+    a = E.actor_by_id(scene, 'horntail')
+    tb = sc.notes['T']['air2']
+    best = 9.0
+    for t0, dur, _ in D.breathes(a):
+        if t0 != tb:
+            continue
+        for q in range(int(t0) * 2, int(t0 + dur) * 2 + 1):
+            t = q / 2.0
+            jet = D.fire_jet(scene, 'horntail', t, sc.world)
+            if jet is None:
+                continue
+            g = K.fire_gap((jet[0], jet[1], jet[2], a.get('scale', 1.0), []), broom_tail(scene, 'firebolt', t))
+            best = min(best, g)
+    if best > LICK[1]:
+        problems.append('%s: the second air breath comes only %.2f from his broom (needs %.1f)' % (sc.sid, best,
+                                                                                               LICK[1]))
+    return round(best, 2)
+
+
+def chase_checks():
+    return [('bite', check_bite), ('scorch kept', check_scorch_kept), ('chase gap', check_chase_gap),
+            ('glide', check_glide), ('debris span', check_debris_span), ('lick', check_lick)]
 
 
 # ================================================================ the egg: first_task_egg
@@ -1812,8 +2293,11 @@ GRAB_DIR = [-0.745, -0.65, 0.12]                 # his right arm down and out to
 RAISE_DIR = [-0.25, 1.0, 0.2]                    # and up over his head with it
 V_GRAB = 0.7
 E1_CAM = [-46.0, 47.5, 52.5]
+E2_CAM = [-113.0, 9.0, 65.0]                     # 27 from the egg, high over the north-west of the bowl
 E3_CAM = [-86.5, -5.0, 79.0]
-E5_CAM = [-111.0, -6.6, 79.0]
+E5_CAM = [-84.0, 14.0, 70.0]                     # 21 from the east stand's front rows
+E5_LOOK = [-56.0, 30.0, 82.0]
+E5_CUT, E6_CUT = 212, 258                        # the first person to the cutaway (the erupt + 10), the cutaway to E6
 E6_CAM = [-108.0, 34.0, 50.0]
 
 
@@ -1829,7 +2313,7 @@ def egg_route(sc, start, v_start, g):
     v0 = math.sqrt(sum(c * c for c in v_start))
     fa, va = corner_run(at, 0.0, s_g, 0, TE['grab'], v0, V_GRAB, a_lat=0.06, a_t=0.015)
     fb, vb = corner_run(at, s_g, length, TE['grab'], sc.L, V_GRAB, 0.55, a_lat=0.05, a_t=0.012)
-    sc.notes['egg_speeds'] = [round(va, 3), round(vb, 3)]
+    sc.notes['egg_speeds'] = [(round(va, 3), round(fa.scale, 3)), (round(vb, 3), round(fb.scale, 3))]
 
     def f(t):
         return at(fa(t) if t <= TE['grab'] else fb(t))
@@ -1971,20 +2455,15 @@ def egg_camera(sc, T):
     # E1 0-5.0 behind the east stand's back rows: he sweeps in over the stand past us and away over the ravine
     pf = move(E1_CAM, add(E1_CAM, [-1.0, 0.4, 0.6]), 0, 100)
     sc.shot(0, 100, pf, smoothed(boy, 6.0), ramp(66.0, 60.0, 0, 100), 4)
-    # E2 5.0-7.2 high behind him as he banks round the west end: the golden egg glints in the bowl far below
-    sb = smoothed(F.extrap(boy, L), 10.0)
-    sbl = smoothed(boy, 4.0)
-    cam = lambda t: add(add(sb(t), norm(sub(sb(t), EGG_AT)), 7.0), [0.0, 1.2, 0.0])     # on the line egg-him, behind him
-    def look2(t):
-        c = cam(t)
-        d = lerp(norm(sub(sbl(t), c)), norm(sub(EGG_AT, c)), 0.35 + 0.15 * smooth((t - 100) / 44.0))
-        return add(c, norm(d), 12.0)
-    sc.shot(100, T['dive'], cam, look2,
-            ramp(62.0, 58.0, 100, T['dive']), 4)
+    # E2 5.0-7.2 a low crane over the north-west of the bowl, 27 from the egg (Task 13 review M11): the golden egg
+    # glints on its rock among her black eggs as he rounds the west end high behind us
+    pf = move(E2_CAM, add(E2_CAM, [0.5, -0.4, 0.4]), 100, T['dive'])
+    sc.shot(100, T['dive'], pf, move(add(EGG_AT, [0.0, 0.6, 0.0]), add(EGG_AT, [-0.3, 0.3, 0.0]), 100, T['dive']),
+            ramp(48.0, 42.0, 100, T['dive']), 4)
     # E3 7.2-9.1 low on the shelf at the egg's back: he dives at us out of the sky straight at the egg on its rock
     pf = move(E3_CAM, add(E3_CAM, [0.25, 0.05, 0.0]), T['dive'], 182)
     sc.shot(T['dive'], 182, pf, smoothed(lambda t: lerp(EGG_AT, boy(t), 0.35), 4.0), ramp(62.0, 54.0, T['dive'], 182), 4)
-    # E4 9.1-10.3 FIRST PERSON: down the dive, his hand out, the egg rushing up; it is in his hand
+    # E4 9.1-10.6 FIRST PERSON: down the dive, his hand out, the egg rushing up; it is in his hand, the roar breaks
     eye_v = lambda t: F.head_eye(V, E.actor_by_id(V, 'viewer'), t, 0.1)
     def aim(t):
         e = eye_v(t)
@@ -1992,22 +2471,29 @@ def egg_camera(sc, T):
         fwd = add(e, [8.0, 0.6, 0.0])
         q = lerp(lerp(EGG_AT, down, smooth((t - 184) / 12.0)), fwd, smooth((t - TG + 2) / 26.0))
         return add(e, norm(sub(q, e)), 4.0)
-    F.first_person(sc, V, 'viewer', 182, 206, fwd=0.1, fov=74.0, look_fn=smoothed(aim, 6.0), sigma=5.0)
-    # E5 10.3-13.1 low on the bowl floor: he climbs away out of the bowl, the egg held high, the stands erupting
-    pf = move(E5_CAM, add(E5_CAM, [0.2, 0.3, 0.3]), 206, 262)
-    sc.shot(206, 262, pf, smoothed(boy, 6.0), ramp(56.0, 62.0, 206, 262), 4)
-    # E6 13.1-16.0 wide from the north stand: he flies the egg along the cheering south stand, the eyes close
-    pf = move(E6_CAM, add(E6_CAM, [-2.0, 0.5, 1.5]), 262, L)
-    sc.shot(262, L, pf, smoothed(boy, 8.0), ramp(52.0, 48.0, 262, L), 4)
+    F.first_person(sc, V, 'viewer', 182, E5_CUT, fwd=0.1, fov=74.0, look_fn=smoothed(aim, 6.0), sigma=5.0)
+    # E5 10.6-12.9 the cutaway (Task 13 review I9): close on the east stand as it erupts, the crowd on its feet, 20
+    # from its front rows
+    pf = move(E5_CAM, add(E5_CAM, [0.4, 0.3, 0.6]), E5_CUT, E6_CUT)
+    sc.shot(E5_CUT, E6_CUT, pf, move(E5_LOOK, add(E5_LOOK, [0.0, 1.0, 2.0]), E5_CUT, E6_CUT),
+            ramp(54.0, 52.0, E5_CUT, E6_CUT), 4)
+    sc.notes['crowd_shots'] = [(E5_CUT + 2, E6_CUT - 2, 'the east stand erupting (E5)')]
+    # E6 12.9-16.0 wide from the north stand: he flies the egg held high along the cheering south stand, the eyes
+    # close
+    pf = move(E6_CAM, add(E6_CAM, [-2.0, 0.5, 1.5]), E6_CUT, L)
+    sc.shot(E6_CUT, L, pf, smoothed(boy, 8.0), ramp(52.0, 48.0, E6_CUT, L), 4)
     sc.notes['softened'] = K.soften_shots(sc)
     sc.notes['tamed'] = K.tame_shot_ends(sc)
     E_ = lambda sc_, t: E.rider_eye(sc_, E.actor_by_id(sc_, 'viewer'), t)
     egg = lambda sc_, t: list(EGG_AT)
-    sc.framing += [(20, 96, E_, 'the champion over the east stand (E1)'), (104, 140, E_, 'the champion (E2)'),
+    sc.framing += [(20, 96, E_, 'the champion over the east stand (E1)'), (104, 140, egg, 'the egg (E2)'),
                    (148, 180, E_, 'the champion diving (E3)'), (148, 180, egg, 'the egg on its rock (E3)'),
-                   (186, 199, egg, 'the egg in his own eyes (E4)'),
-                   (210, 258, E_, 'the champion climbing out (E5)'), (266, L - 4, E_, 'the champion and the egg (E6)')]
-    sc.notes['seen'] = [(egg, 100, T['dive'], 16, 'the golden egg before the dive (E2)')]
+                   (186, 199, egg, 'the egg in his own eyes (E4)'), (E6_CUT + 6, L - 4, E_, 'the champion and the egg (E6)')]
+    lo, hi = P.egg_box(CHAMP)
+    sc.notes['seen'] = [(egg, 100, T['dive'], 16, 'the golden egg before the dive (E2)', 60.0, hi[1] - lo[1], EGG_SHARE)]
+
+
+EGG_SHARE = 0.009                                # the egg fills at least this share of the frame's height in E2
 
 
 def egg_checks():
@@ -2017,8 +2503,8 @@ def egg_checks():
             ('dive over', lambda sc, s, P_: K.check_dive_over(sc, s, P_, solid_of(sc))),
             ('backslide', lambda sc, s, P_: K.check_backslide(sc, s, P_, ['firebolt'])),
             ('fliers', lambda sc, s, P_: K.check_fliers(sc, s, P_, sc.cam_world, [])),
-            ('seen', lambda sc, s, P_: [K.check_seen(sc, s, P_, sc.world, fn, t0, t1, need, label)
-                                        for fn, t0, t1, need, label in sc.notes.get('seen', [])])]
+            ('seen', lambda sc, s, P_: [K.check_seen(sc, s, P_, sc.world, *x) for x in sc.notes.get('seen', [])]),
+            ('crowd shots', K.check_crowd_shots)]
 
 
 # ================================================================ the checks, per scene
@@ -2052,6 +2538,7 @@ def run_checks(sc, scene, world, solid=None, dragon=None):
     out['clearance'] = F.check_clearance(sc, scene, P_)
     out['egg camera'] = K.check_egg_camera(sc, scene, P_)
     out['cannons'] = K.check_cannons(sc, scene, P_, [c['smoke'] for c in GA['cannon_spots']])
+    out['music hits'] = check_music_hits(sc, scene, P_)
     if any(e.get('id') == 'crowd' for e in scene['events']):
         out['crowd gap'] = F.check_crowd_gap(sc, scene, P_)
     out['problems'] = P_
@@ -2391,7 +2878,7 @@ def bites(built, counts):
             if 100 <= k['t'] <= 144:
                 k['look_at'] = [0.0, 80.0, 0.0]
     bite('the egg in frame before the dive (E2 looking away)', G_, look_away,
-         lambda sc, m, P: [K.check_seen(sc, m, P, sc.world, fn, t0, t1, need, label) for fn, t0, t1, need, label in sc.notes['seen']])
+         lambda sc, m, P: [K.check_seen(sc, m, P, sc.world, *x) for x in sc.notes['seen']])
 
     def frame_away(m, sc):
         for k in m['camera']:
@@ -2435,6 +2922,99 @@ def bites(built, counts):
         k = keys_near(a['path'], 100)
         k['pos'] = [k['pos'][0], k['pos'][1] - 1.0, k['pos'][2]]
     bite('walkers (the champion 1.0 into the floor)', A_, walker_under, lambda sc, m, P: K.check_walkers(sc, m, P, sc.world))
+
+    # ---- fix round 1 (Task 13 review): each new assert bites
+    def lag_her(m, sc):
+        a = E.actor_by_id(m, 'horntail')
+        T = sc.notes['T']
+        keys = copy.deepcopy(a['path'])
+        for k in a['path']:
+            if T['closed'] + 10 <= k['t'] <= T['crash_tick'] - 10:
+                k['pos'] = r4(E.track_sample(keys, k['t'] - 20))
+    bite('I1 the chase gap (her 20 ticks further behind)', C_, lag_her, check_chase_gap)
+
+    def miss_tail(m, sc):
+        a = E.actor_by_id(m, 'horntail')
+        for x in a['actions']:
+            if x['t'] == sc.notes['T']['air2']:
+                x['target'] = [x['target'][0] + 9.0, x['target'][1] - 4.0, x['target'][2]]
+    bite('I1 the flame licks his broom (the second breath 9 east)', C_, miss_tail, check_lick)
+
+    def spire_away(m, sc):
+        t_s = sc.notes['slate']['tick']
+        for k in m['camera']:
+            if t_s - 30 <= k['t'] <= t_s + 30:
+                k['look_at'] = [k['pos'][0], k['pos'][1] + 40.0, k['pos'][2] + 1.0]
+    bite('I2 the spire smash is seen (C9 looks at the sky)', C_, spire_away,
+         lambda sc, m, P: [K.check_seen(sc, m, P, sc.world, *x) for x in sc.notes['seen']])
+
+    def sink_her(m, sc):
+        a = E.actor_by_id(m, 'horntail')
+        for k in a['path']:
+            if 596 <= k['t'] <= 650:
+                k['pos'] = [k['pos'][0], k['pos'][1] + 0.2 * (623 - k['t']), k['pos'][2]]
+    bite('I3 no long glide in frame (her line sinking 0.2 a tick on the north side)', C_, sink_her, check_glide)
+
+    def drop_beat(m, sc):
+        a = E.actor_by_id(m, 'horntail')
+        near = [t for t in D.downstroke_ticks(a, 0, m['length'])
+                if math.dist(E.engine_cam(m['camera'], t), D.horntail_frame(m, 'horntail', t)[0]) < K.WINGBEAT_COVER]
+        m['events'] = [e for e in m['events'] if not (e.get('id') == K.SFX + 'first_task_wingbeat'
+                                                     and abs(e['t'] - near[0]) <= 1)]
+    bite('I4 wingbeat coverage (a near downstroke unvoiced)', C_, drop_beat,
+         lambda sc, m, P: K.check_wingbeats(sc, m, P, 'horntail'))
+
+    def late_bite(m, sc):
+        a = E.actor_by_id(m, 'horntail')
+        for c in a['anims']:
+            if c['name'] == 'BITE':
+                c['t'] += 4
+    bite('I5 the jaws clap on her nearest pass (the BITE cue 4 late)', C_, late_bite, check_bite)
+
+    def late_music(m, sc):
+        for e in m['events']:
+            if e.get('kind') == 'music':
+                e['t'] += 10
+    bite('I6 the crash on a music hit (the chase cue 0.5 s late)', C_, late_music, check_music_hits)
+
+    def thin_debris(m, sc):
+        sm = next(x for x in sc.smashes if x['label'] == 'the bridge')
+        T, lo = sm['tick'], sm['box'][0][0]
+        keep = [i for i in sm['debris'] if not lo <= E.track_sample(E.actor_by_id(m, i)['path'], T)[0] < lo + 3]
+        sc.smashes = [dict(x, debris=keep) if x is sm else x for x in sc.smashes]
+    bite('I7 debris along the whole span (the west slice without debris)', C_, thin_debris, check_debris_span)
+
+    def no_rebreath(m, sc):
+        a = E.actor_by_id(m, 'horntail')
+        a['actions'] = [x for x in a['actions'] if x['t'] != REBREATHE[0][0]]
+    bite('I8 the floor scorch kept (the floor re-breath gone)', C_, no_rebreath, check_scorch_kept)
+
+    def crowd_away(m, sc):
+        for k in m['camera']:
+            if E5_CUT <= k['t'] <= E6_CUT:
+                k['look_at'] = [k['pos'][0] - 30.0, k['pos'][1] - 10.0, k['pos'][2]]
+    bite('I9 a close-crowd cutaway (E5 looks into the bowl)', G_, crowd_away, K.check_crowd_shots)
+
+    def crab_her(m, sc):
+        a = E.actor_by_id(m, 'horntail')
+        for k in a['look']:
+            if 596 <= k['t'] <= 680:
+                k['yaw'] += 80.0 * min(1.0, (k['t'] - 596) / 24.0, (680 - k['t']) / 24.0)
+
+    def crab_run(sc, m, P):
+        Q = []
+        K.check_dragon_motion(sc, m, Q, 'horntail')
+        P.extend(q for q in Q if 'off her own heading' in q)
+    bite('M13 her crab (her look yawed 80 off her heading at speed)', C_, crab_her, crab_run)
+
+    P_ = []
+    try:
+        at = lambda d_: [d_, 0.0, 0.0]
+        corner_run(at, 0.0, 150.0, 0, 60, 0.4, 0.4, a_t=0.03)
+    except AssertionError as e:
+        P_.append('corner_run: %s' % (e,))
+    out.append(('M12 a corner run time-scaled past 5% (150 blocks in 3 s from 0.4)', len(P_), P_[0] if P_ else None))
+    assert P_
     return out
 
 

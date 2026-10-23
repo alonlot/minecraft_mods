@@ -573,7 +573,7 @@ def check_dragon_motion(sc, scene, problems, aid):
         if h < 0.05 and st['flying'] and st['name'] not in ('TAKEOFF', 'LAND', 'STAGGER'):
             problems.append('%s: %s stands at t %d in %s (flying)' % (sc.sid, aid, t, st['name']))
             break
-        if h > 1.5 and not st['flying'] and not any(w[0] <= t <= w[1] for w in sc.dragon_ok if w[2] is None):
+        if h > 1.5 and not st['flying'] and not any(w[0] <= t <= w[1] for w in sc.dragon_ok if w[2] is None) and                 not any(w[0] <= t <= w[1] and h <= w[2] for w in sc.notes.get('hops', [])):
             problems.append('%s: %s is %.1f up at t %d in the ground cue %s' % (sc.sid, aid, h, t, st['name']))
             break
     prev = None
@@ -628,8 +628,36 @@ def check_backslide(sc, scene, problems, ids, eps=0.005):
     return worst
 
 
+WINGBEAT_HEARD = 70.0         # a downstroke is voiced where she is in frame or this near the camera
+WINGBEAT_COVER = 50.0         # and every one this near must be (assert 13's coverage leg)
+
+
+def wingbeat_volume(d):
+    """The whump's volume at d blocks from the camera (the cue is not positional): about 0.92 at 16, 0.5 at 45."""
+    return max(0.3, min(1.0, 1.15 - d / WINGBEAT_HEARD))
+
+
+def voice_wingbeats(sc, aid):
+    """A first_task_wingbeat on each of her downstrokes where she is in frame or within WINGBEAT_HEARD of the camera,
+    at wingbeat_volume. Returns the number voiced."""
+    V = view(sc)
+    a = E.actor_by_id(V, aid)
+    n = 0
+    for t in D.downstroke_ticks(a, 0, sc.L):
+        c = E.engine_cam(sc.camera, t)
+        p = D.horntail_frame(V, aid, t)[0]
+        dd = math.dist(c, p)
+        lk, fov = E.engine_look(V, sc.camera, t)
+        if dd < WINGBEAT_HEARD or E.in_view(c, lk, fov, p, aspect=16 / 9.0):
+            sc.sfx(t, 'first_task_wingbeat', round(wingbeat_volume(dd), 3))
+            n += 1
+    return n
+
+
 def check_wingbeats(sc, scene, problems, aid):
-    """Assert 13: every first_task_wingbeat cue within a tick of a downstroke (dragon_engine.downstroke_ticks)."""
+    """Assert 13: every first_task_wingbeat cue within a tick of a downstroke (dragon_engine.downstroke_ticks), and
+    every downstroke within WINGBEAT_COVER of the camera voiced (Task 13 review I4). Returns (cues, worst offset,
+    strokes, strokes within WINGBEAT_COVER)."""
     a = E.actor_by_id(scene, aid)
     strokes = D.downstroke_ticks(a, 0, scene['length'])
     worst = 0
@@ -639,7 +667,15 @@ def check_wingbeats(sc, scene, problems, aid):
         worst = max(worst, d)
         if d > 1:
             problems.append('%s: the wingbeat at t %d is %d ticks off a downstroke' % (sc.sid, t, d))
-    return len(cues), worst
+    near = 0
+    for t in strokes:
+        if math.dist(E.engine_cam(scene['camera'], t), D.horntail_frame(scene, aid, t)[0]) >= WINGBEAT_COVER:
+            continue
+        near += 1
+        if not any(abs(t - c) <= 1 for c in cues):
+            problems.append('%s: the downstroke at t %d, %.0f from the camera, has no wingbeat' % (
+                sc.sid, t, math.dist(E.engine_cam(scene['camera'], t), D.horntail_frame(scene, aid, t)[0])))
+    return len(cues), worst, len(strokes), near
 
 
 def check_smashes(sc, scene, problems, aid):
@@ -894,6 +930,26 @@ def check_walkers(sc, scene, problems, world, step=2):
     return n
 
 
+def box_gap(corners, p):
+    """The distance from p to the solid box with these 8 corners (part_corners' order: x outer, then y, then z)."""
+    o = corners[0]
+    axes = [sub(corners[4], o), sub(corners[2], o), sub(corners[1], o)]
+    q = list(o)
+    v = sub(p, o)
+    for a in axes:
+        n2 = sum(c * c for c in a)
+        u = max(0.0, min(1.0, sum(v[i] * a[i] for i in range(3)) / n2)) if n2 > 1e-12 else 0.0
+        q = [q[i] + a[i] * u for i in range(3)]
+    return math.dist(p, q)
+
+
+def body_gap(scene, aid, t, p):
+    """(least distance from p to any of the player's part boxes, that part)."""
+    a = E.actor_by_id(scene, aid)
+    return min((box_gap(E.part_corners(rt, yaw, s, piv, rot, E.PART_BOX[part]), p), part)
+               for part, rt, yaw, s, piv, rot in E.posed_parts(scene, a, t))
+
+
 def ray_clear(world, a, b, step=0.1, skip_end=0.2):
     """Whether the straight line from a to b meets no block shape (its last skip_end left out)."""
     d = math.dist(a, b)
@@ -905,15 +961,22 @@ def ray_clear(world, a, b, step=0.1, skip_end=0.2):
     return True
 
 
-def check_seen(sc, scene, problems, world, aid_point, t0, t1, need, label, max_dist=60.0):
+def screen_share(size, dist, fov):
+    """The share of the frame's height an object `size` tall fills at `dist` under a vertical fov (degrees)."""
+    return size / (2.0 * max(1e-6, dist) * math.tan(math.radians(fov) / 2.0))
+
+
+def check_seen(sc, scene, problems, world, aid_point, t0, t1, need, label, max_dist=60.0, size=None, share=0.0):
     """The point is in the 16:9 frame, unoccluded (a ray from the camera to it meets no block), for at least `need`
-    ticks running between t0 and t1. Returns the best run."""
+    ticks running between t0 and t1; with `size`, it also fills at least `share` of the frame's height (Task 13
+    review M11: no speck). Returns the best run."""
     best, run = 0, 0
     for t in range(t0, t1 + 1):
         c = E.engine_cam(scene['camera'], t)
         lk, fov = E.engine_look(scene, scene['camera'], t)
         p = aid_point(scene, t)
-        if (E.in_view(c, lk, fov, p, aspect=16 / 9.0) and math.dist(c, p) < max_dist and ray_clear(world, c, p)):
+        if (E.in_view(c, lk, fov, p, aspect=16 / 9.0) and math.dist(c, p) < max_dist and ray_clear(world, c, p)
+                and (size is None or screen_share(size, math.dist(c, p), fov) >= share)):
             run += 1
             best = max(best, run)
         else:
@@ -922,6 +985,32 @@ def check_seen(sc, scene, problems, world, aid_point, t0, t1, need, label, max_d
         problems.append('%s: %s is in frame and unoccluded only %d ticks running (needs %d)' % (sc.sid, label, best,
                                                                                                need))
     return best
+
+
+CROWD_NEAR = 25.0             # a close-crowd cutaway: the nearest seat in frame at most this far
+CROWD_IN = 150                # and at least this many seats in frame
+
+
+def check_crowd_shots(sc, scene, problems):
+    """Task 13 review I9 (the Flying I7 lesson): each named crowd cutaway (sc.notes['crowd_shots']: (t0, t1,
+    label)) has at least CROWD_IN seats in the 16:9 frame, the nearest of them within CROWD_NEAR, every tick.
+    Returns [(label, the farthest nearest seat, the fewest seats in frame)]."""
+    seats = [p for e in scene['events'] if e.get('id') == 'crowd' for p, _ in E.crowd_seats(e)]
+    out = []
+    for t0, t1, label in sc.notes.get('crowd_shots', []):
+        far, few = 0.0, 10 ** 9
+        for t in range(t0, t1 + 1, 2):
+            c = E.engine_cam(scene['camera'], t)
+            lk, fov = E.engine_look(scene, scene['camera'], t)
+            seen = [math.dist(c, p) for p in seats if E.in_view(c, lk, fov, p, aspect=16 / 9.0)]
+            near = min(seen or [999.0])
+            far, few = max(far, near), min(few, len(seen))
+            if near > CROWD_NEAR or len(seen) < CROWD_IN:
+                problems.append('%s: %s at t %d: %d seats in frame, the nearest %.1f (needs %d within %.0f)' % (
+                    sc.sid, label, t, len(seen), near, CROWD_IN, CROWD_NEAR))
+                break
+        out.append((label, round(far, 1), few))
+    return out
 
 
 def check_egg(sc, scene, problems):

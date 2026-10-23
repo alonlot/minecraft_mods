@@ -892,6 +892,31 @@ public class ExampleMod
             () -> createRobeMaterial("triwizard_robes"));
     public static final RegistryObject<Item> TRIWIZARD_ROBES = ITEMS.register("triwizard_robes",
             () -> new ArmorItem(TRIWIZARD_ROBES_MATERIAL.getHolder().orElseThrow(), ArmorItem.Type.CHESTPLATE, new Item.Properties().stacksTo(1)));
+    /**
+     * Quidditch kits for the Flying memory: a house-coloured tunic (chest) with leather arm guards and gloves per
+     * house, and one pair of leather shin guards (legs) for all. Display-only like the champion's robes: no recipe,
+     * in no creative tab; a scene's {@code items} / {@code equip} entry puts them on a puppet or the viewer.
+     */
+    public static final RegistryObject<ArmorMaterial> GRYFFINDOR_QUIDDITCH_ROBES_MATERIAL = ARMOR_MATERIALS.register("gryffindor_quidditch_robes",
+            () -> createRobeMaterial("gryffindor_quidditch_robes"));
+    public static final RegistryObject<Item> GRYFFINDOR_QUIDDITCH_ROBES = ITEMS.register("gryffindor_quidditch_robes",
+            () -> new ArmorItem(GRYFFINDOR_QUIDDITCH_ROBES_MATERIAL.getHolder().orElseThrow(), ArmorItem.Type.CHESTPLATE, new Item.Properties().stacksTo(1)));
+    public static final RegistryObject<ArmorMaterial> HUFFLEPUFF_QUIDDITCH_ROBES_MATERIAL = ARMOR_MATERIALS.register("hufflepuff_quidditch_robes",
+            () -> createRobeMaterial("hufflepuff_quidditch_robes"));
+    public static final RegistryObject<Item> HUFFLEPUFF_QUIDDITCH_ROBES = ITEMS.register("hufflepuff_quidditch_robes",
+            () -> new ArmorItem(HUFFLEPUFF_QUIDDITCH_ROBES_MATERIAL.getHolder().orElseThrow(), ArmorItem.Type.CHESTPLATE, new Item.Properties().stacksTo(1)));
+    public static final RegistryObject<ArmorMaterial> RAVENCLAW_QUIDDITCH_ROBES_MATERIAL = ARMOR_MATERIALS.register("ravenclaw_quidditch_robes",
+            () -> createRobeMaterial("ravenclaw_quidditch_robes"));
+    public static final RegistryObject<Item> RAVENCLAW_QUIDDITCH_ROBES = ITEMS.register("ravenclaw_quidditch_robes",
+            () -> new ArmorItem(RAVENCLAW_QUIDDITCH_ROBES_MATERIAL.getHolder().orElseThrow(), ArmorItem.Type.CHESTPLATE, new Item.Properties().stacksTo(1)));
+    public static final RegistryObject<ArmorMaterial> SLYTHERIN_QUIDDITCH_ROBES_MATERIAL = ARMOR_MATERIALS.register("slytherin_quidditch_robes",
+            () -> createRobeMaterial("slytherin_quidditch_robes"));
+    public static final RegistryObject<Item> SLYTHERIN_QUIDDITCH_ROBES = ITEMS.register("slytherin_quidditch_robes",
+            () -> new ArmorItem(SLYTHERIN_QUIDDITCH_ROBES_MATERIAL.getHolder().orElseThrow(), ArmorItem.Type.CHESTPLATE, new Item.Properties().stacksTo(1)));
+    public static final RegistryObject<ArmorMaterial> QUIDDITCH_SHIN_GUARDS_MATERIAL = ARMOR_MATERIALS.register("quidditch_shin_guards",
+            () -> createRobeMaterial("quidditch_shin_guards"));
+    public static final RegistryObject<Item> QUIDDITCH_SHIN_GUARDS = ITEMS.register("quidditch_shin_guards",
+            () -> new ArmorItem(QUIDDITCH_SHIN_GUARDS_MATERIAL.getHolder().orElseThrow(), ArmorItem.Type.LEGGINGS, new Item.Properties().stacksTo(1)));
 
     /**
      * Gold off a cursed hoard. It burns, and there is always more of it than there was.

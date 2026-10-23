@@ -392,6 +392,15 @@ class SceneDataTest {
         assertTrue(names.items().contains("hogwartsmagic:triwizard_robes"));
     }
 
+    /** The four house Quidditch tunics and the shared shin guards are names a scene may use. */
+    @Test
+    void harvestKnowsTheQuidditchKits() throws Exception {
+        SceneNames names = harvest();
+        for (String house : new String[] {"gryffindor", "hufflepuff", "ravenclaw", "slytherin"})
+            assertTrue(names.items().contains("hogwartsmagic:" + house + "_quidditch_robes"), house);
+        assertTrue(names.items().contains("hogwartsmagic:quidditch_shin_guards"));
+    }
+
     /**
      * The First Task props dev scene (build_scripts/pensieve_scenes/dev_first_task_props.py into the ignored
      * run/pensieve_dev) validates like a shipped one: a Firebolt with the champion in her robes, the golden egg, the

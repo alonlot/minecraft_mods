@@ -1018,6 +1018,238 @@ def touch_up_dursleys():
     img.save(os.path.join(OUT_DIR, "dudley.png"))
 
 
+# ---------------------------------------------------------------------------------------------------------------
+# Flying memory: Madam Hooch (film referee) and young Draco Malfoy, painted by hand rather than downloaded.
+# ---------------------------------------------------------------------------------------------------------------
+
+def _parts():
+    return dict(head=box(0, 0, 8, 8, 8), hat=box(32, 0, 8, 8, 8), body=box(16, 16, 8, 12, 4),
+                jacket=box(16, 32, 8, 12, 4), rleg=box(0, 16, 4, 12, 4), rleg_o=box(0, 32, 4, 12, 4),
+                lleg=box(16, 48, 4, 12, 4), lleg_o=box(0, 48, 4, 12, 4), rarm=box(40, 16, 4, 12, 4),
+                rarm_o=box(40, 32, 4, 12, 4), larm=box(32, 48, 4, 12, 4), larm_o=box(48, 48, 4, 12, 4))
+
+
+def _put(s, rect, x, y, c):
+    s.img.putpixel((rect[0] + x, rect[1] + y), c if len(c) == 4 else (c[0], c[1], c[2], 255))
+
+
+def build_hooch():
+    """Madam Hooch as the films dress her: short spiky grey-white hair, yellow hawk eyes, a weathered tan face, a
+    stand collar and black-and-white striped referee robes, and a whistle on a gold cord."""
+    s = Skin("hooch")
+    rng = s.rng
+    p = _parts()
+    skin = (226, 188, 152)
+    skin_d = shade(skin, 0.84)
+    ink, paper = (22, 22, 27), (232, 232, 236)
+
+    def hair(a=0.1):
+        k = rng.uniform(-a, a)
+        base = rng.choice([(206, 206, 210), (224, 224, 228), (186, 186, 192), (238, 238, 240)])
+        return shade(base, 1 + k)
+
+    # head, then hair: cropped close at the sides, standing up on top (the hat layer carries the spikes)
+    s.fill_box(p["head"], lambda x, y, w, h: s.noisy(skin, 0.025))
+    s.paint(p["head"]["bottom"], lambda x, y, w, h: skin_d)
+    s.paint(p["head"]["top"], lambda x, y, w, h: hair())
+    s.paint(p["head"]["back"], lambda x, y, w, h: hair() if y < 5 else None)
+    s.paint(p["head"]["right"], lambda x, y, w, h: hair() if (y < 2 or (x < 3 and y < 5)) else None)
+    s.paint(p["head"]["left"], lambda x, y, w, h: hair() if (y < 2 or (x > 4 and y < 5)) else None)
+    # a ragged fringe: row 0 solid, row 1 mostly, row 2 only the odd tooth
+    s.paint(p["head"]["front"], lambda x, y, w, h: hair() if (y == 0 or (y == 1 and x not in (3,)) or
+                                                              (y == 2 and x in (0, 2, 5, 7))) else None)
+    # hat layer: spikes
+    s.paint(p["hat"]["top"], lambda x, y, w, h: hair(0.14) if rng.random() < 0.8 else None)
+    s.paint(p["hat"]["front"], lambda x, y, w, h: hair() if (y == 0 and x != 3) or (y == 1 and x in (1, 4, 6)) else None)
+    s.paint(p["hat"]["back"], lambda x, y, w, h: hair() if y < 2 or (y < 4 and x in (1, 3, 5)) else None)
+    s.paint(p["hat"]["right"], lambda x, y, w, h: hair() if y == 0 or (y == 1 and x % 2 == 0) or (y == 2 and x in (1, 4)) else None)
+    s.paint(p["hat"]["left"], lambda x, y, w, h: hair() if y == 0 or (y == 1 and x % 2 == 1) or (y == 2 and x in (2, 5)) else None)
+
+    # the face (head front 8x8): brows row 3, hawk eyes row 4, nose row 5, a firm mouth row 6, creases
+    f = p["head"]["front"]
+    brow = (92, 92, 100)
+    for x in (1, 2, 5, 6):
+        _put(s, f, x, 3, brow)
+    _put(s, f, 2, 2 if False else 3, shade(brow, 0.7))
+    _put(s, f, 5, 3, shade(brow, 0.7))
+    for ex in (1, 5):                       # outer corner pale yellow, inner the iris, with the pupil beside it
+        _put(s, f, ex, 4, (250, 224, 84))
+        _put(s, f, ex + 1, 4, (236, 190, 24))
+    _put(s, f, 2, 4, (30, 24, 14)); _put(s, f, 5, 4, (30, 24, 14))
+    _put(s, f, 1, 4, (252, 232, 110)); _put(s, f, 6, 4, (252, 232, 110))
+    for x in (1, 2, 5, 6):                  # the heavy lid above the hawk eye
+        _put(s, f, x, 3, shade(skin, 0.7) if x in (1, 6) else brow)
+    _put(s, f, 3, 5, skin_d); _put(s, f, 4, 5, shade(skin, 0.78))
+    for x in (3, 4):
+        _put(s, f, x, 6, (172, 116, 102))
+    _put(s, f, 2, 6, shade(skin, 0.8)); _put(s, f, 5, 6, shade(skin, 0.8))
+    _put(s, f, 1, 5, shade(skin, 0.93)); _put(s, f, 6, 5, shade(skin, 0.93))   # cheek lines
+    _put(s, f, 3, 7, skin_d); _put(s, f, 4, 7, skin_d)
+
+    # ---- robes: vertical black-and-white stripes, 2 px wide, black stand collar and cuffs, boots ----
+    def stripe(x, y, w, h, off=0):
+        base = ink if ((x + off) // 2) % 2 == 0 else paper
+        return s.noisy(base, 0.03)
+
+    for name in ("body", "jacket"):
+        s.paint(p[name]["front"], lambda x, y, w, h: stripe(x, y, w, h))
+        s.paint(p[name]["back"], lambda x, y, w, h: stripe(x, y, w, h))
+        s.paint(p[name]["right"], lambda x, y, w, h: stripe(x, y, w, h, 1))
+        s.paint(p[name]["left"], lambda x, y, w, h: stripe(x, y, w, h, 1))
+        s.paint(p[name]["top"], lambda x, y, w, h: ink)
+        s.paint(p[name]["bottom"], lambda x, y, w, h: ink)
+    # stand collar (rows 0-1 black), robe front seam, a black hem
+    for part in ("body", "jacket"):
+        for face in ("front", "back", "right", "left"):
+            s.paint(p[part][face], lambda x, y, w, h: ink if y < 2 else (shade(ink, 1.0) if y == h - 1 else None))
+    s.paint(p["jacket"]["front"], lambda x, y, w, h: (60, 60, 68) if x == 4 and 2 <= y < h - 1 else None)
+    s.paint(p["jacket"]["front"], lambda x, y, w, h: (200, 200, 208) if y == 1 and x in (3, 4) else None)
+
+    # whistle on a gold cord: a V from the collar to a silver whistle at the breastbone
+    jf = p["jacket"]["front"]
+    cord = (214, 172, 52)
+    for (x, y) in ((1, 2), (2, 3), (3, 4), (6, 2), (5, 3), (4, 4)):
+        _put(s, jf, x, y, cord if (x + y) % 2 else shade(cord, 0.8))
+    for (x, y, c) in ((3, 5, (206, 208, 216)), (4, 5, (232, 234, 240)), (3, 6, (150, 152, 164)),
+                      (4, 6, (190, 192, 202))):
+        _put(s, jf, x, y, c)
+    _put(s, jf, 4, 5, (232, 234, 240)); _put(s, jf, 3, 7, (60, 60, 70))   # the mouthpiece's slot
+
+    # legs: striped robe to the hem, black boots
+    for leg, over in ((p["rleg"], p["rleg_o"]), (p["lleg"], p["lleg_o"])):
+        for part in (leg, over):
+            for face in ("front", "back", "right", "left"):
+                s.paint(part[face], lambda x, y, w, h: ink if y >= h - 2 else (stripe(x, y, w, h, 1)
+                                                                              if part is over or True else None))
+        s.paint(leg["top"], lambda x, y, w, h: ink); s.paint(leg["bottom"], lambda x, y, w, h: shade(ink, 0.8))
+        # the overlay's lower rows stay clear so the boots and the robe's hem read as separate things
+        for face in ("front", "back", "right", "left"):
+            s.paint(over[face], lambda x, y, w, h: None if y >= h - 2 else None)
+        s.paint(over["front"], lambda x, y, w, h: (70, 70, 78) if y == h - 3 else None)
+    # arms: striped sleeves, black cuffs (rows 8-9), bare hands (rows 10-11)
+    for arm, over in ((p["rarm"], p["rarm_o"]), (p["larm"], p["larm_o"])):
+        for face in ("front", "back", "right", "left"):
+            s.paint(arm[face], lambda x, y, w, h: s.noisy(skin, 0.03) if y >= h - 2 else (
+                ink if y in (8, 9) else stripe(x, y, w, h, 0)))
+            s.paint(over[face], lambda x, y, w, h: (ink if y in (8, 9) else stripe(x, y, w, h, 0))
+                    if y < h - 2 else None)
+        s.paint(arm["top"], lambda x, y, w, h: ink); s.paint(arm["bottom"], lambda x, y, w, h: skin_d)
+        s.paint(over["top"], lambda x, y, w, h: ink)
+    path = os.path.join(OUT_DIR, "hooch.png")
+    s.img.save(path)
+    return path
+
+
+def build_malfoy_young():
+    """Young Draco Malfoy: slicked-back platinum hair, a pale pointed face and a sneer; black school robes over a
+    grey vest, white collar and a Slytherin tie."""
+    s = Skin("malfoy_young")
+    rng = s.rng
+    p = _parts()
+    skin = (246, 229, 218)
+    skin_d = shade(skin, 0.88)
+    robe, vest = (22, 22, 27), (118, 120, 126)
+
+    def hair(row=0.0, a=0.05):
+        # slicked-back streaks: lighter toward the front, a faint dark comb line now and then
+        base = (240, 237, 218)
+        if rng.random() < 0.18:
+            base = (214, 210, 190)
+        elif rng.random() < 0.2:
+            base = (252, 251, 242)
+        return shade(base, 1 + rng.uniform(-a, a) + row)
+
+    s.fill_box(p["head"], lambda x, y, w, h: s.noisy(skin, 0.02))
+    s.paint(p["head"]["bottom"], lambda x, y, w, h: skin_d)
+    # combed straight back: top rows get a long front-to-back streak pattern (columns share a tone)
+    col_tone = [rng.uniform(-0.05, 0.07) for _ in range(8)]
+    s.paint(p["head"]["top"], lambda x, y, w, h: hair(col_tone[x] + y * 0.005, 0.02))
+    s.paint(p["head"]["back"], lambda x, y, w, h: hair(-0.03 - 0.01 * y) if y < 6 else None)
+    s.paint(p["head"]["right"], lambda x, y, w, h: hair(-0.02) if (y < 2 or (x < 4 and y < 5)) else None)
+    s.paint(p["head"]["left"], lambda x, y, w, h: hair(-0.02) if (y < 2 or (x > 3 and y < 5)) else None)
+    # a high, slicked hairline: hair on row 0, a widow's peak dip at the centre on row 1, temples only on row 2
+    s.paint(p["head"]["front"], lambda x, y, w, h: hair(0.04) if (y == 0 or (y == 1 and x in (0, 1, 3, 4, 6, 7)) or
+                                                                  (y == 2 and x in (0, 7))) else None)
+    # a thin hat layer: the nape and a little lift at the crown, kept flat to stay sleek
+    s.paint(p["hat"]["back"], lambda x, y, w, h: hair(-0.04) if 1 <= y <= 4 and 1 <= x <= 6 else None)
+    s.paint(p["hat"]["top"], lambda x, y, w, h: hair(0.05) if y >= 3 and rng.random() < 0.5 else None)
+    s.paint(p["hat"]["right"], lambda x, y, w, h: hair(-0.05) if y <= 1 and x < 5 else None)
+    s.paint(p["hat"]["left"], lambda x, y, w, h: hair(-0.05) if y <= 1 and x > 2 else None)
+
+    # face: faint pale brows, cold grey-blue eyes, tight cheeks, a sneer (mouth curled up on the viewer's right)
+    f = p["head"]["front"]
+    brow = (206, 196, 164)
+    for x in (1, 2):
+        _put(s, f, x, 3, shade(brow, 0.9) if x == 2 else brow)
+    for x in (5, 6):
+        _put(s, f, x, 3, brow)
+    _put(s, f, 2, 3, (176, 164, 134))           # brows drawn down toward the nose: a scowl
+    _put(s, f, 5, 3, (176, 164, 134))
+    for x in (1, 6):                                # the cold iris on the outside, the pupil beside the nose
+        _put(s, f, x, 4, (122, 150, 186))
+    for x in (2, 5):
+        _put(s, f, x, 4, (38, 52, 78))
+    for x in (1, 2, 5, 6):                          # a pale lid line, so the stare is hooded
+        _put(s, f, x, 3, (214, 190, 178) if x in (1, 6) else (176, 164, 134))
+    _put(s, f, 1, 5, shade(skin, 0.95)); _put(s, f, 6, 5, shade(skin, 0.95))      # faint under-eye shadow
+    _put(s, f, 3, 5, skin_d); _put(s, f, 4, 5, shade(skin, 0.8))                   # the nose, shaded on one side
+    lip = (200, 146, 142)
+    _put(s, f, 2, 6, shade(skin, 0.8)); _put(s, f, 3, 6, shade(lip, 0.9)); _put(s, f, 4, 6, lip)
+    _put(s, f, 5, 6, shade(skin, 0.78)); _put(s, f, 6, 5, shade(skin, 0.7))        # the curl of the sneer
+    _put(s, f, 3, 7, skin_d)
+
+    # body: black robes, grey vest, white collar, Slytherin tie
+    def robe_fn(x, y, w, h):
+        return s.noisy(robe if (x * 3 + y // 5) % 4 else shade(robe, 1.35), 0.03)
+    s.fill_box(p["jacket"], robe_fn)
+    s.fill_box(p["body"], lambda x, y, w, h: s.noisy(vest, 0.03))
+    bf = p["body"]["front"]
+    for x in (2, 3, 4, 5):
+        for y in (0, 1):
+            _put(s, bf, x, y, (236, 236, 240) if y == 0 or x in (3, 4) else (214, 214, 220))
+    for y in range(2, 9):
+        _put(s, bf, 3, y, (30, 100, 56) if y % 2 else (196, 198, 204))
+        _put(s, bf, 4, y, (24, 82, 46) if y % 2 else (170, 172, 180))
+    _put(s, bf, 3, 2, (22, 80, 44)); _put(s, bf, 4, 2, (22, 80, 44))
+    # the robe hangs open at the front: the jacket overlay's centre columns are clear from the collar down
+    s.paint(p["jacket"]["front"], lambda x, y, w, h: (0, 0, 0, 0) if x in (2, 3, 4, 5) and 0 < y < h - 3 and
+            not (x in (2, 5) and y > 8) else None)
+    for x in (2, 5):                              # the robe's lapel edge, a shade lighter
+        for y in range(0, 9):
+            _put(s, p["jacket"]["front"], x, y, shade(robe, 1.6))
+    # a small Slytherin crest over the heart on the left lapel
+    for (x, y, c) in ((6, 2, (196, 200, 206)), (6, 3, (30, 100, 56)), (7, 2, (30, 100, 56))):
+        _put(s, p["jacket"]["front"], x, y, c)
+    s.paint(p["jacket"]["top"], lambda x, y, w, h: robe)
+    # legs: grey trousers under black robe ends, black shoes
+    for leg, over in ((p["rleg"], p["rleg_o"]), (p["lleg"], p["lleg_o"])):
+        s.fill_box(leg, lambda x, y, w, h: s.noisy((70, 72, 78), 0.03) if y < h - 2 else s.noisy((14, 14, 16), 0.1))
+        s.paint(leg["bottom"], lambda x, y, w, h: (10, 10, 12))
+        for face in ("front", "back", "right", "left"):
+            s.paint(over[face], lambda x, y, w, h: robe_fn(x, y, w, h) if y < 7 else None)
+    for arm, over in ((p["rarm"], p["rarm_o"]), (p["larm"], p["larm_o"])):
+        s.fill_box(arm, lambda x, y, w, h: s.noisy(skin, 0.02) if y >= h - 2 else (
+            (236, 236, 240) if y == h - 3 else s.noisy(vest, 0.03)))
+        s.paint(arm["bottom"], lambda x, y, w, h: skin_d)
+        for face in ("front", "back", "right", "left"):
+            s.paint(over[face], lambda x, y, w, h: robe_fn(x, y, w, h) if y < h - 3 else None)
+        s.paint(over["top"], lambda x, y, w, h: robe)
+    path = os.path.join(OUT_DIR, "malfoy_young.png")
+    s.img.save(path)
+    return path
+
+
+def generate_flying_skins():
+    from skin_preview import preview, head_closeup
+    outs = [build_hooch(), build_malfoy_young()]
+    pdir = os.path.join(ROOT, "build_scripts", "pensieve_scenes", "previews")
+    for path in outs:
+        n = os.path.basename(path)[:-4]
+        preview(path, os.path.join(pdir, "skin_" + n + ".png"))
+        head_closeup(path, os.path.join(pdir, "skin_" + n + "_head.png"))
+    return ["hooch", "malfoy_young"]
+
+
 def main():
     os.makedirs(OUT_DIR, exist_ok=True)
     black = (22, 22, 26)
@@ -1095,6 +1327,7 @@ def main():
 
     touch_up_dursleys()
     names.extend(["vernon", "petunia", "dudley"])
+    names.extend(generate_flying_skins())
 
     names.extend(generate_students())
     names.extend(generate_crowd())

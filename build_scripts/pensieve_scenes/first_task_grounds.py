@@ -1239,7 +1239,7 @@ ANCHORS = {
     'slate_roofs': [],
     'bridge': bridge_anchor(),
     'castle_view': {'pos': la(48, 40, -44), 'look': _p(76, 60, -28)},
-    'arena_view': {'pos': la(-58, 48, 52), 'look': la(4, 0, 0)},
+    'arena_view': {'pos': la(-48, 66, 70), 'look': la(10, 0, -10)},
     'gorge_view': {'pos': _p(BR['cx'] + 0.5, 2.0, -48.0), 'look': _p(BR['cx'] + 0.5, 4.0, -20.0)},
     'castle_box': [list(CASTLE_AT), [CASTLE_FOOT[1] + 1, CASTLE_TOP_Y + 1, CASTLE_FOOT[3] + 1]],
     'RADIUS': RADIUS,

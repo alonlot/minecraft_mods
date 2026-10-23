@@ -183,7 +183,7 @@ public final class RoughSeaRenderer {
         if (seas.isEmpty()) return;
         Minecraft mc = Minecraft.getInstance();
         if (!(mc.level instanceof ClientLevel level) || !PensieveClientState.inMemory()) return;
-        float partial = event.getPartialTick();
+        float partial = PensieveClientState.partial();
         float now = PensieveClientState.sceneTime(partial);
         Camera camera = event.getCamera();
         Vec3 cam = camera.getPosition();

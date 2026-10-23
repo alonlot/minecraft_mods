@@ -190,7 +190,7 @@ public final class SkyRenderer {
         if (skies.isEmpty()) return;
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || !PensieveClientState.inMemory()) return;
-        float partial = event.getPartialTick();
+        float partial = PensieveClientState.partial();
         float now = PensieveClientState.sceneTime(partial);
         Vec3 cam = event.getCamera().getPosition();
         float far = mc.gameRenderer.getDepthFar();

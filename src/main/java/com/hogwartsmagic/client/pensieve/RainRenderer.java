@@ -171,7 +171,7 @@ public final class RainRenderer {
         if (rains.isEmpty()) return;
         Minecraft mc = Minecraft.getInstance();
         if (!(mc.level instanceof ClientLevel level) || !PensieveClientState.inMemory()) return;
-        float now = PensieveClientState.sceneTime(event.getPartialTick());
+        float now = PensieveClientState.sceneTime(PensieveClientState.partial());
         Camera camera = event.getCamera();
         Vec3 cam = camera.getPosition();
         Vec3 origin = MemoryEvents.sceneOrigin();
@@ -182,7 +182,7 @@ public final class RainRenderer {
         List<RoughSeaRenderer.Water> seas = EffectVisuals.seas();
         double[] d = new double[4];
         // Far to near: the distant curtains first (a storm sky is running), then the drops round the camera.
-        float storm = SkyRenderer.stormShare(event.getPartialTick());
+        float storm = SkyRenderer.stormShare(PensieveClientState.partial());
         if (storm > 0f) {
             Shower first = null;
             double most = 0;

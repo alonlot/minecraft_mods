@@ -591,7 +591,14 @@ public final class PensieveClientState {
         return Eyelids.closed(true, (ticks - wakeStart) + partial, wakeTicks);
     }
 
-    static float partial() {
+    /**
+     * This frame's partial tick: the camera's (GameRenderer hands {@code Camera#setup} the same value). Every
+     * {@code RenderLevelStageEvent} handler must use this, never {@code event.getPartialTick()}: Forge 51's
+     * {@code Stage.dispatch} fills that with {@code getRealtimeDeltaTicks()}, the frame's length in ticks (about 0.33
+     * at 60 fps), not the partial tick. Lerped with it, a memory actor stood nearly still through each tick and jumped
+     * at the next, and scene time read from it stepped 20 times a second: the Flying brooms and riders jittered at speed.
+     */
+    public static float partial() {
         return Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(true);
     }
 

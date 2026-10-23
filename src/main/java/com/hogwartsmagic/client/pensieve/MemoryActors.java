@@ -132,6 +132,7 @@ public final class MemoryActors {
     /** Forget every puppet. Safe to call at any time, including when there are none. */
     public static void clear() {
         MemoryEvents.clear();
+        JitterProbe.clear();
         ACTORS.clear();
         BY_ENTITY.clear();
         com.hogwartsmagic.client.MemoryDoorRenderer.clearState();
@@ -883,6 +884,7 @@ public final class MemoryActors {
         EntityRenderDispatcher dispatcher = mc.getEntityRenderDispatcher();
         Vec3 cam = camera.getPosition();
         float now = PensieveClientState.sceneTime(partial);
+        boolean probe = JitterProbe.on();
         for (ActorRuntime a : ACTORS) {
             syncItems(a, now);
             if (!a.visible) continue;
@@ -893,6 +895,7 @@ public final class MemoryActors {
                 double z = Mth.lerp(partial, e.zo, e.getZ());
                 float yaw = Mth.rotLerp(partial, e.yRotO, e.getYRot());
                 float scale = a.def.scale();
+                if (probe) JitterProbe.sample(a, x - cam.x, y - cam.y, z - cam.z);
                 // A rider rocks with its boat: the boat's pitch and roll, turned into the world about the rider's root.
                 org.joml.Quaternionf tilt = rideTilt(a, partial);
                 boolean scaled = scale != 1f || tilt != null;
@@ -936,6 +939,7 @@ public final class MemoryActors {
             }
         }
         buffer.endBatch();
+        if (probe) JitterProbe.endFrame(partial);
     }
 
     /**

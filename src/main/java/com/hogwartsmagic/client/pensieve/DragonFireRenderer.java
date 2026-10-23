@@ -314,7 +314,7 @@ public final class DragonFireRenderer {
             if (!JETS.isEmpty() || forScene != null) clear();
             return;
         }
-        float now = PensieveClientState.sceneTime(event.getPartialTick());
+        float now = PensieveClientState.sceneTime(PensieveClientState.partial());
         sync(now);
         if (JETS.isEmpty()) return;
         long start = System.nanoTime();

@@ -154,7 +154,7 @@ public final class CrowdRenderer {
         }
         long start = System.nanoTime();
         frame++;
-        float partial = event.getPartialTick();
+        float partial = PensieveClientState.partial();
         float now = PensieveClientState.sceneTime(partial);
         Vec3 cam = event.getCamera().getPosition();
         Vec3 origin = MemoryEvents.sceneOrigin();

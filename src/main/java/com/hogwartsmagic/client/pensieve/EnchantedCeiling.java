@@ -206,7 +206,7 @@ public final class EnchantedCeiling {
         if (skies.isEmpty()) return;
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || !PensieveClientState.inMemory()) return;
-        float now = PensieveClientState.sceneTime(event.getPartialTick());
+        float now = PensieveClientState.sceneTime(PensieveClientState.partial());
         Vec3 cam = event.getCamera().getPosition();
         // Identity, deliberately: the camera rotation is already on RenderSystem's modelview stack.
         Matrix4f m = new Matrix4f();

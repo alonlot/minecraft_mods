@@ -3,6 +3,7 @@ package com.hogwartsmagic.client.pensieve;
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.entity.MemoryBlockEntity;
 import com.hogwartsmagic.entity.MemoryBroomEntity;
+import com.hogwartsmagic.entity.MemoryHorntailEntity;
 import com.hogwartsmagic.entity.MemoryRowboatEntity;
 import com.hogwartsmagic.entity.OwlEntity;
 import com.hogwartsmagic.client.renderer.PetrifiedRemainsRenderer;
@@ -10,6 +11,7 @@ import com.hogwartsmagic.mixin.client.LivingEntityUseAccessor;
 import com.hogwartsmagic.pensieve.scene.EyeEase;
 import com.hogwartsmagic.pensieve.scene.Airborne;
 import com.hogwartsmagic.pensieve.scene.BroomFlight;
+import com.hogwartsmagic.pensieve.scene.DragonFlight;
 import com.hogwartsmagic.pensieve.scene.Vehicle;
 import com.hogwartsmagic.pensieve.scene.EquipTimeline;
 import com.hogwartsmagic.pensieve.scene.HumanMotion;
@@ -169,6 +171,12 @@ public final class MemoryActors {
                 ball.seed = com.hogwartsmagic.pensieve.scene.MemoryBall.seedFor(def.id());
                 ball.roll = new com.hogwartsmagic.pensieve.scene.MemoryBall.Roll(def.path(),
                         com.hogwartsmagic.pensieve.scene.MemoryBall.radius(def.type(), def.scale()));
+            }
+            // The Horntail flies and beats from its own path and cues (DragonFlight, HorntailCues; pure).
+            if (entity instanceof MemoryHorntailEntity dragon) {
+                dragon.anims = def.anims();
+                dragon.path = def.path();
+                dragon.wingClock = new DragonFlight.WingClock(def.path());
             }
             if (entity instanceof MemoryBlockEntity block) {
                 BlockState state = MemoryBlockEntity.parseState(def.block());
@@ -357,6 +365,11 @@ public final class MemoryActors {
             broom.pitchO = broom.pitch;
             broom.rollO = broom.roll;
         }
+        MemoryHorntailEntity dragon = e instanceof MemoryHorntailEntity mh ? mh : null;
+        if (dragon != null) {
+            dragon.pitchO = dragon.pitch;
+            dragon.rollO = dragon.roll;
+        }
         a.ridePitchO = a.ridePitch;
         a.rideRollO = a.rideRoll;
         a.rideYawO = a.rideYaw;
@@ -365,6 +378,7 @@ public final class MemoryActors {
         // alone (Rowboat, BroomFlight, Vehicle; pure).
         Rowboat.Pose boatPose = boat != null && scene != null ? Rowboat.place(scene, a.def, t) : null;
         BroomFlight.Pose broomPose = broom != null && scene != null ? BroomFlight.place(scene, a.def, t) : null;
+        DragonFlight.Pose dragonPose = dragon != null ? DragonFlight.place(a.def, t) : null;
         Vehicle.Seat seat = boat == null && broom == null && scene != null && a.def.ride() != null
                 ? Vehicle.seat(scene, a.def, t) : null;
         a.rideBroom = seat != null && seat.broom();
@@ -373,10 +387,12 @@ public final class MemoryActors {
             l.yHeadRotO = l.yHeadRot;
         }
         e.tickCount++;
+        // The dragon's breathing and tail drift run off its age: the scene clock, so every viewer sees the same.
+        if (dragon != null) e.tickCount = (int) Math.floor(t);
 
         // Stand on the path before anything fires, so a first-tick effect appears at the actor, not the origin.
         if (first) {
-            double[] p0 = root(a, t, boatPose, broomPose, seat);
+            double[] p0 = root(a, t, boatPose, broomPose, dragonPose, seat);
             e.setPos(origin.getX() + p0[0], origin.getY() + p0[1], origin.getZ() + p0[2]);
         }
 
@@ -400,7 +416,7 @@ public final class MemoryActors {
         }
 
         // Where it stands, and which way it faces.
-        double[] p = root(a, t, boatPose, broomPose, seat);
+        double[] p = root(a, t, boatPose, broomPose, dragonPose, seat);
         double x = origin.getX() + p[0];
         double y = origin.getY() + p[1];
         double z = origin.getZ() + p[2];
@@ -439,12 +455,21 @@ public final class MemoryActors {
         float target;
         // A broom rider turns exactly with its broom; anyone else with life lets the body follow the head.
         boolean follow = hasLook && a.lifeOn() && !a.rideBroom;
-        boolean exact = boatPose != null || broomPose != null || (seat != null && !follow);
+        boolean exact = boatPose != null || broomPose != null || dragonPose != null || (seat != null && !follow);
         if (a.rideBroom) {
             // On a broom the body faces along it; the look (relative to the broom) turns the head only, clamped.
             target = yawBase;
             lookYaw = yawBase + BroomFlight.headTurn(hasLook && lk.length > 0 ? lk[0] : 0f);
             hasLook = true;
+        } else if (dragonPose != null) {
+            // The dragon faces exactly as DragonFlight says; its pitch and roll turn the whole body (the renderer), so
+            // the head gets no pitch of its own.
+            target = dragonPose.yaw();
+            lookYaw = target;
+            hasLook = true;
+            pitch = 0;
+            dragon.pitch = dragonPose.pitch();
+            dragon.roll = dragonPose.roll();
         } else if (broomPose != null) {
             // The broom faces exactly as BroomFlight says, so its riders and the drawn broom agree.
             target = broomPose.yaw();
@@ -517,6 +542,10 @@ public final class MemoryActors {
                 broom.pitchO = broom.pitch;
                 broom.rollO = broom.roll;
             }
+            if (dragon != null) {
+                dragon.pitchO = dragon.pitch;
+                dragon.rollO = dragon.roll;
+            }
             a.rideBroomO = a.rideBroom;
             a.ridePitchO = a.ridePitch;
             a.rideRollO = a.rideRoll;
@@ -586,9 +615,10 @@ public final class MemoryActors {
      * vehicle, or its own path (in world space outside a ride window).
      */
     private static double[] root(ActorRuntime a, float t, Rowboat.Pose boatPose, BroomFlight.Pose broomPose,
-                                 Vehicle.Seat seat) {
+                                 DragonFlight.Pose dragonPose, Vehicle.Seat seat) {
         if (boatPose != null) return new double[]{boatPose.x(), boatPose.y(), boatPose.z()};
         if (broomPose != null) return new double[]{broomPose.x(), broomPose.y(), broomPose.z()};
+        if (dragonPose != null) return new double[]{dragonPose.x(), dragonPose.y(), dragonPose.z()};
         if (seat != null) return new double[]{seat.x(), seat.y(), seat.z()};
         float[] p = Vehicle.path(a.def, t);
         if (p == null) p = new float[]{0, 0, 0};

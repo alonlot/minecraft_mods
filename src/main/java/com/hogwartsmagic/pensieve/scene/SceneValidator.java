@@ -71,7 +71,8 @@ public final class SceneValidator {
         for (int i = 0; i < scene.actors().size(); i++) {
             if (SceneNames.ROWBOAT_ACTOR.equals(scene.actors().get(i).type())) boatSea(out, scene, i, length);
             if (Vehicle.isVehicle(scene.actors().get(i).type())) riders(out, scene, i, length);
-            if (MemoryBall.isBall(scene.actors().get(i).type()) || SNITCH.equals(scene.actors().get(i).type())) {
+            if (MemoryBall.isBall(scene.actors().get(i).type()) || SNITCH.equals(scene.actors().get(i).type())
+                    || SceneNames.HORNTAIL_ACTOR.equals(scene.actors().get(i).type())) {
                 fastMover(out, scene.actors().get(i), i);
             }
         }
@@ -168,6 +169,11 @@ public final class SceneValidator {
             SceneDef.Cue c = a.anims().get(i);
             time(out, p + ".anims[" + i + "].t", c.t(), length);
             // Creature animation names need the client's models (PartCheck); player clips are known here.
+            if (SceneNames.HORNTAIL_ACTOR.equals(a.type())
+                    && !SceneNames.HORNTAIL_ANIMS.contains(c.name().toUpperCase(java.util.Locale.ROOT))) {
+                out.add(p + ".anims[" + i + "].name: unknown Horntail cue '" + c.name() + "' (expected one of "
+                        + String.join(", ", SceneNames.HORNTAIL_ANIMS) + ")");
+            }
             if ("player".equals(a.type()) && HumanMotion.clipName(c.name()) == null) {
                 out.add(p + ".anims[" + i + "].name: unknown player clip '" + c.name() + "' (expected one of "
                         + String.join(", ", HumanMotion.CLIPS) + ")");
@@ -210,9 +216,9 @@ public final class SceneValidator {
     private static final String SNITCH = "hogwartsmagic:golden_snitch";
 
     /**
-     * A ball or the Snitch must not move {@link MemoryBall#MAX_STEP} blocks or more in one tick: the client reads such
-     * a step as a cut (no interpolation, no roll), so a path that does it by accident would step at 20 Hz. Two keys
-     * under half a tick apart are a deliberate cut and exempt that tick.
+     * A ball, the Snitch or the Horntail must not move {@link MemoryBall#MAX_STEP} blocks or more in one tick: the
+     * client reads such a step as a cut (no interpolation, no roll), so a path that does it by accident would step at
+     * 20 Hz. Two keys under half a tick apart are a deliberate cut and exempt that tick.
      */
     private static void fastMover(List<String> out, SceneDef.ActorDef a, int index) {
         List<Keyframe> keys = a.path().keys();

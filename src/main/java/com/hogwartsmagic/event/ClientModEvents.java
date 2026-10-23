@@ -1056,6 +1056,7 @@ public class ClientModEvents {
         event.registerEntityRenderer(ModEntities.GIANT.get(),
                 com.hogwartsmagic.client.renderer.GiantRenderer::new);
         event.registerEntityRenderer(ModEntities.HUNGARIAN_HORNTAIL.get(), HungarianHorntailRenderer::new);
+        event.registerEntityRenderer(ModEntities.MEMORY_HORNTAIL.get(), com.hogwartsmagic.client.MemoryHorntailRenderer::new);
         event.registerEntityRenderer(ModEntities.PETRIFIED_REMAINS.get(), PetrifiedRemainsRenderer::new);
         event.registerEntityRenderer(ModEntities.THROWN_BREW.get(),
                 net.minecraft.client.renderer.entity.ThrownItemRenderer::new);

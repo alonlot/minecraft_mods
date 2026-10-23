@@ -32,8 +32,16 @@ public record SceneNames(Set<String> entityTypes, Set<String> spells, Set<String
     public static final String BROOM_ACTOR = "hogwartsmagic:memory_broom", RACING_BROOM_ACTOR = "hogwartsmagic:memory_broom_racing";
     /** Every type an actor may {@code ride} (see {@link Vehicle}). */
     public static final Set<String> VEHICLES = Set.of(ROWBOAT_ACTOR, BROOM_ACTOR, RACING_BROOM_ACTOR);
-    /** The types whose {@code look} may give a {@code roll}: the block actor and the brooms. */
-    public static final Set<String> ROLL_TYPES = Set.of(BLOCK_ACTOR, BROOM_ACTOR, RACING_BROOM_ACTOR);
+    /**
+     * The Hungarian Horntail as a memory actor (see {@link DragonFlight} and {@link HorntailCues}): her {@code path} is
+     * the ground point under her body, her {@code anims} cues are her attack states ({@link #HORNTAIL_ANIMS}).
+     */
+    public static final String HORNTAIL_ACTOR = "hogwartsmagic:memory_horntail";
+    /** The cue names a {@link #HORNTAIL_ACTOR} may use (case-insensitive; {@link HorntailCues}). */
+    public static final java.util.List<String> HORNTAIL_ANIMS = java.util.List.of("IDLE", "FLY", "TAKEOFF", "LAND",
+            "ROAR", "BITE", "TAIL_WHIP", "BREATH_WINDUP", "BREATH", "WING_GUST", "DIVE", "STAGGER", "AIR_BREATH");
+    /** The types whose {@code look} may give a {@code roll}: the block actor, the brooms and the Horntail. */
+    public static final Set<String> ROLL_TYPES = Set.of(BLOCK_ACTOR, BROOM_ACTOR, RACING_BROOM_ACTOR, HORNTAIL_ACTOR);
     /**
      * The Quidditch balls and the Remembrall (see {@link MemoryBall}): the path is the ball centre, and each rolls on
      * its own by the distance it travels, so none takes a look {@code roll} (they are not in {@link #ROLL_TYPES}).

@@ -80,7 +80,9 @@ final class PartCheck {
         }
         for (int j = 0; j < def.anims().size(); j++) {
             String name = def.anims().get(j).name();
-            if (a.player) {
+            if (com.hogwartsmagic.pensieve.scene.SceneNames.HORNTAIL_ACTOR.equals(def.type())) {
+                continue; // her cues are attack states, checked by the validator (SceneNames.HORNTAIL_ANIMS)
+            } else if (a.player) {
                 if (!ActorMotion.knownClip(def.anims().get(j))) {
                     out.add(at + ".anims[" + j + "]: no player clip '" + name + "' (has: "
                             + list(HumanMotion.CLIPS) + ")");

@@ -305,6 +305,15 @@ public class ModEntities {
                             .fireImmune()
                             .build("hungarian_horntail"));
 
+    /** The Horntail as a Pensieve memory actor: a client puppet, discarded at once if made on a server. */
+    public static final RegistryObject<EntityType<MemoryHorntailEntity>> MEMORY_HORNTAIL =
+            ENTITY_TYPES.register("memory_horntail",
+                    () -> EntityType.Builder.<MemoryHorntailEntity>of(MemoryHorntailEntity::new, MobCategory.MISC)
+                            .sized(3.0F, 3.2F)
+                            .clientTrackingRange(10)
+                            .fireImmune()
+                            .build("memory_horntail"));
+
     public static final RegistryObject<EntityType<PetrifiedRemainsEntity>> PETRIFIED_REMAINS =
             ENTITY_TYPES.register("petrified_remains",
                     () -> EntityType.Builder.<PetrifiedRemainsEntity>of(PetrifiedRemainsEntity::new, MobCategory.MISC)

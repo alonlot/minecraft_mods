@@ -19,7 +19,12 @@ public class HungarianHorntailRenderer extends MobRenderer<HungarianHorntailEnti
             ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "textures/entity/hungarian_horntail.png");
 
     public HungarianHorntailRenderer(EntityRendererProvider.Context context) {
-        super(context, new HungarianHorntailModel(context.bakeLayer(HungarianHorntailModel.LAYER_LOCATION)), 1.6F);
+        this(context, new HungarianHorntailModel(context.bakeLayer(HungarianHorntailModel.LAYER_LOCATION)));
+    }
+
+    /** With a model of its own (the memory dragon's blends its poses: client/MemoryHorntailRenderer). */
+    protected HungarianHorntailRenderer(EntityRendererProvider.Context context, HungarianHorntailModel model) {
+        super(context, model, 1.6F);
         this.addLayer(new EyesLayer(this));
     }
 

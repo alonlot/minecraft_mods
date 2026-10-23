@@ -153,6 +153,11 @@ public final class BroomFlight {
      * {@link #BANK_FADE_SPEED} the sideways acceleration is scaled down with the speed, to 0 at rest.
      */
     public static double bank(Track path, double t) {
+        return bank(path, t, BANK_GAIN, MAX_BANK, BANK_FADE_SPEED);
+    }
+
+    /** {@link #bank} with its own gain, limit and fade speed (the memory Horntail's, {@link DragonFlight#bank}). */
+    public static double bank(Track path, double t, double gain, double maxBank, double fadeSpeed) {
         if (path == null || path.keys().size() < 2) return 0;
         float[] a = at(path, t - BANK_WINDOW), b = at(path, t), c = at(path, t + BANK_WINDOW);
         double vx = ((double) c[0] - a[0]) / (2 * BANK_WINDOW), vz = ((double) c[2] - a[2]) / (2 * BANK_WINDOW);
@@ -160,8 +165,8 @@ public final class BroomFlight {
         double az = ((double) c[2] - 2.0 * b[2] + a[2]) / (BANK_WINDOW * BANK_WINDOW);
         double v = Math.sqrt(vx * vx + vz * vz);
         double cross = vx * az - vz * ax;
-        double side = v >= BANK_FADE_SPEED ? cross / v : cross / BANK_FADE_SPEED;
-        return MAX_BANK * Math.tanh(BANK_GAIN * side / MAX_BANK);
+        double side = v >= fadeSpeed ? cross / v : cross / fadeSpeed;
+        return maxBank * Math.tanh(gain * side / maxBank);
     }
 
     /**
@@ -169,6 +174,11 @@ public final class BroomFlight {
      * {@link #MAX_CLIMB} and smoothstepped to level below {@link #CLIMB_FADE_SPEED}.
      */
     public static double climb(Track path, double t) {
+        return climb(path, t, MAX_CLIMB, CLIMB_FADE_SPEED);
+    }
+
+    /** {@link #climb} with its own clamp and fade speed (the memory Horntail's, {@link DragonFlight#climbPitch}). */
+    public static double climb(Track path, double t, double maxClimb, double fadeSpeed) {
         if (path == null || path.keys().size() < 2) return 0;
         float[] a = at(path, t - 1), b = at(path, t + 1);
         double vx = (b[0] - (double) a[0]) / 2, vy = (b[1] - (double) a[1]) / 2, vz = (b[2] - (double) a[2]) / 2;
@@ -176,7 +186,7 @@ public final class BroomFlight {
         double s = Math.sqrt(h * h + vy * vy);
         if (s == 0) return 0;
         double angle = -Math.toDegrees(Math.atan2(vy, h));
-        return Math.max(-MAX_CLIMB, Math.min(MAX_CLIMB, angle)) * smooth(s / CLIMB_FADE_SPEED);
+        return Math.max(-maxClimb, Math.min(maxClimb, angle)) * smooth(s / fadeSpeed);
     }
 
     /** The way the path heads (Minecraft yaw), keeping the last (or first) heading while it holds or moves straight up. */

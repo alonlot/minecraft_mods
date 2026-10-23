@@ -20,7 +20,7 @@ class SceneValidatorTest {
             Set.of("hogwartsmagic:basilisk", "minecraft:zombie", "player", "hogwartsmagic:memory_rowboat",
                     "hogwartsmagic:memory_broom", "hogwartsmagic:memory_broom_racing", "hogwartsmagic:memory_block",
                     "hogwartsmagic:memory_quaffle", "hogwartsmagic:memory_bludger", "hogwartsmagic:memory_remembrall",
-                    "hogwartsmagic:golden_snitch"), Set.of("stupefy"),
+                    "hogwartsmagic:golden_snitch", "hogwartsmagic:memory_horntail"), Set.of("stupefy"),
             Set.of("minecraft:entity.generic.explode", "hogwartsmagic:pensieve.music.m", "hogwartsmagic:pensieve.voice.v", "hogwartsmagic:pensieve.sfx.x"), Set.of("minecraft:stone"), Set.of("minecraft:stick", "minecraft:air"),
             Set.of("hogwartsmagic:chamber_hall"), Set.of(), Set.of("minecraft:flame"), Set.of());
 
@@ -906,5 +906,51 @@ class SceneValidatorTest {
                 "y must be -64 to 320");
         assertMessage(validate(crowdScene("{\"t\":0,\"kind\":\"effect\",\"id\":\"crowd\",\"at\":[0,0,0],\"rows\":[[0,3,59.97,5,3,59.97]]}")),
                 "reaches beyond the scene radius");
+    }
+
+    // ---- the memory Horntail -------------------------------------------------------------------------------------
+
+    private static String horntail(String extra) {
+        return "{\"length\":200,\"actors\":[{\"id\":\"h\",\"type\":\"hogwartsmagic:memory_horntail\"" + extra + "}]}";
+    }
+
+    @Test
+    void horntailAnimNamesChecked() throws Exception {
+        // Every attack-state cue, in any case, is fine.
+        StringBuilder all = new StringBuilder(",\"anims\":[");
+        for (int i = 0; i < SceneNames.HORNTAIL_ANIMS.size(); i++) {
+            String n = SceneNames.HORNTAIL_ANIMS.get(i);
+            all.append(i > 0 ? "," : "").append("{\"t\":").append(i * 10).append(",\"name\":\"")
+                    .append(i % 2 == 0 ? n : n.toLowerCase(java.util.Locale.ROOT)).append("\"}");
+        }
+        assertEquals(List.of(), validate(horntail(all + "]")));
+        // Anything else is not, and the message lists the names.
+        List<String> m = validate(horntail(",\"anims\":[{\"t\":0,\"name\":\"FLY\"},{\"t\":10,\"name\":\"SOAR\"}]"));
+        assertEquals(1, m.size(), m.toString());
+        assertMessage(m, "actors[0].anims[1].name: unknown Horntail cue 'SOAR'");
+        assertMessage(m, "AIR_BREATH");
+        // A player clip name is no Horntail cue.
+        assertMessage(validate(horntail(",\"anims\":[{\"t\":0,\"name\":\"CHEER\"}]")), "unknown Horntail cue 'CHEER'");
+    }
+
+    @Test
+    void rollAllowedOnHorntail() throws Exception {
+        assertEquals(List.of(), validate(horntail(",\"look\":[{\"t\":0,\"yaw\":10,\"pitch\":20,\"roll\":35},"
+                + "{\"t\":40,\"yaw\":30,\"pitch\":-10,\"roll\":-50,\"ease\":\"spline\"}]")));
+        assertTrue(SceneNames.ROLL_TYPES.contains(SceneNames.HORNTAIL_ACTOR));
+    }
+
+    @Test
+    void splineAcceptedOnHorntailPath() throws Exception {
+        assertEquals(List.of(), validate(horntail(",\"path\":[{\"t\":0,\"pos\":[0,0,0]},"
+                + "{\"t\":20,\"pos\":[0,4,10],\"ease\":\"spline\"},{\"t\":40,\"pos\":[10,8,20],\"ease\":\"spline\"},"
+                + "{\"t\":60,\"pos\":[20,8,20],\"ease\":\"in_out\"}],\"anims\":[{\"t\":0,\"name\":\"TAKEOFF\"}]")));
+    }
+
+    @Test
+    void horntailFasterThanTwoBlocksATickRejected() throws Exception {
+        // MemoryActors reads a step of 2 blocks or more as a cut, as for the balls.
+        assertMessage(validate(horntail(",\"path\":[{\"t\":0,\"pos\":[0,10,0]},"
+                + "{\"t\":10,\"pos\":[0,10,30],\"ease\":\"linear\"}]")), "memory_horntail 'h' moves 3.0 blocks in a tick");
     }
 }

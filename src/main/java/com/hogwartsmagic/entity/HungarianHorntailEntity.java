@@ -56,7 +56,7 @@ import java.util.Set;
  * client only reads the synced attack state + tick to drive animation. See the project's
  * server/client-safety rule.
  */
-public class HungarianHorntailEntity extends Monster {
+public class HungarianHorntailEntity extends Monster implements HorntailPoseSource {
 
     public enum AttackState {
         // NOTE: append new constants at the END — the ordinal is what gets synced to clients.
@@ -254,6 +254,41 @@ public class HungarianHorntailEntity extends Monster {
 
     public boolean isSweepingLeft() {
         return this.entityData.get(DATA_SWEEP_LEFT);
+    }
+
+    // -------------------------------------------------------------------------------------------
+    // Model hooks: what the model asks of the entity each frame (HorntailFlightPose holds the wild
+    // dragon's answers; the memory dragon overrides them from its scene).
+    // -------------------------------------------------------------------------------------------
+
+    /** The state's age the overlays animate by, in ticks: the synced whole ticks. */
+    public float animStateTick() {
+        return getStateTick();
+    }
+
+    /** The flight beat, -1 (wings up) to 1 (wings down), for a model beat rate in rad/tick. */
+    public float wingBeat(float ageInTicks, float rate) {
+        return HorntailFlightPose.wingBeat(ageInTicks, rate);
+    }
+
+    /** The flight beat's amplitude, given the model's own for the state. */
+    public float wingAmp(float amp) {
+        return HorntailFlightPose.wingAmp(amp);
+    }
+
+    /** The takeoff overlay's beat at its progress p (0 to 1). */
+    public float takeoffBeat(float p) {
+        return HorntailFlightPose.takeoffBeat(p);
+    }
+
+    /** The body's bank in flight (radians, model zRot). */
+    public float flightBank() {
+        return HorntailFlightPose.flightBank(this.getYRot(), this.yRotO);
+    }
+
+    /** The body's pitch in flight (radians, model xRot), given the beat. */
+    public float flightPitch(float beat) {
+        return HorntailFlightPose.flightPitch(this.getDeltaMovement().y, beat);
     }
 
     private void setAttackState(AttackState state) {

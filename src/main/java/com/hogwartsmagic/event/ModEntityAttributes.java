@@ -40,6 +40,7 @@ public class ModEntityAttributes {
         event.put(ModEntities.TROLL.get(), TrollEntity.createAttributes().build());
         event.put(ModEntities.GIANT.get(), com.hogwartsmagic.entity.GiantEntity.createAttributes().build());
         event.put(ModEntities.HUNGARIAN_HORNTAIL.get(), HungarianHorntailEntity.createAttributes().build());
+        event.put(ModEntities.MEMORY_HORNTAIL.get(), HungarianHorntailEntity.createAttributes().build());
         event.put(ModEntities.UKRAINIAN_IRONBELLY.get(),
                 UkrainianIronbellyEntity.createIronbellyAttributes().build());
         event.put(ModEntities.LYCANTHROPE_VILLAGER.get(), LycanthropeVillagerEntity.createAttributes().build());

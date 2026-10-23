@@ -1,6 +1,7 @@
 package com.hogwartsmagic.client.model;
 
 import com.hogwartsmagic.ExampleMod;
+import com.hogwartsmagic.entity.HorntailPoseSource;
 import com.hogwartsmagic.entity.HungarianHorntailEntity;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -318,11 +319,20 @@ public class HungarianHorntailModel extends EntityModel<HungarianHorntailEntity>
     @Override
     public void setupAnim(HungarianHorntailEntity entity, float limbSwing, float limbSwingAmount,
                           float ageInTicks, float netHeadYaw, float headPitch) {
+        pose(entity, limbSwing, limbSwingAmount, ageInTicks, netHeadYaw, headPitch);
+    }
+
+    /**
+     * The whole animation, from whatever {@code entity} reports: the wild dragon's entity, or the memory dragon's
+     * scene state (entity/MemoryHorntailPose, through client/model/MemoryHorntailModel).
+     */
+    public void pose(HorntailPoseSource entity, float limbSwing, float limbSwingAmount,
+                     float ageInTicks, float netHeadYaw, float headPitch) {
         resetPose();
 
         boolean flying = entity.isFlying();
         HungarianHorntailEntity.AttackState state = entity.getAttackState();
-        int t = entity.getStateTick();
+        float t = entity.animStateTick();
 
         // Head tracking, split across both neck segments so the neck snakes rather than hinging.
         float yaw = netHeadYaw * Mth.DEG_TO_RAD;
@@ -372,7 +382,7 @@ public class HungarianHorntailModel extends EntityModel<HungarianHorntailEntity>
         } else if (state == HungarianHorntailEntity.AttackState.WING_GUST) {
             applyWingGust(t);
         } else if (state == HungarianHorntailEntity.AttackState.TAKEOFF) {
-            applyTakeoff(t);
+            applyTakeoff(entity, t);
         } else if (state == HungarianHorntailEntity.AttackState.AIR_BREATH) {
             applyAirBreath(t, ageInTicks, pitch);
         } else if (state == HungarianHorntailEntity.AttackState.DIVE) {
@@ -492,13 +502,15 @@ public class HungarianHorntailModel extends EntityModel<HungarianHorntailEntity>
     }
 
     /** Flight base pose: the three wing bones straighten out into a sail and beat. */
-    private void applyFlight(HungarianHorntailEntity entity, float ageInTicks,
+    private void applyFlight(HorntailPoseSource entity, float ageInTicks,
                              HungarianHorntailEntity.AttackState state) {
         boolean hard = state == HungarianHorntailEntity.AttackState.TAKEOFF
                 || state == HungarianHorntailEntity.AttackState.AIR_BREATH;
         float rate = hard ? 0.42F : 0.26F;
-        float beat = Mth.sin(ageInTicks * rate);
-        float amp = hard ? 0.85F : 0.60F;
+        // The beat and its amplitude come from the entity (HorntailFlightPose for the wild dragon: a fixed-rate
+        // sine; the memory dragon's are matched to its path's speed and climb).
+        float beat = entity.wingBeat(ageInTicks, rate);
+        float amp = entity.wingAmp(hard ? 0.85F : 0.60F);
 
         // Downstroke drives the arm down and the tip trails behind it — a proper flapping wave.
         setWings(0.10F + beat * amp, 0.15F, 0.0F,
@@ -516,17 +528,15 @@ public class HungarianHorntailModel extends EntityModel<HungarianHorntailEntity>
 
         if (state == HungarianHorntailEntity.AttackState.FLY) {
             // Bank into the turn, and pitch with the climb/descent — this is what sells real flight.
-            float turn = Mth.wrapDegrees(entity.getYRot() - entity.yRotO);
-            this.body.zRot = Mth.clamp(turn * 0.055F, -0.7F, 0.7F);
-            this.body.xRot = Mth.clamp((float) -entity.getDeltaMovement().y * 0.55F, -0.45F, 0.45F)
-                    + beat * 0.05F;
+            this.body.zRot = entity.flightBank();
+            this.body.xRot = entity.flightPitch(beat);
             // The head stays level with the horizon while the body banks.
             this.neck1.zRot = -this.body.zRot * 0.55F;
             this.neck2.zRot = -this.body.zRot * 0.35F;
         }
     }
 
-    private void applyRoar(int t) {
+    private void applyRoar(float t) {
         float p = clamp01((float) t / HungarianHorntailEntity.ROAR_DURATION);
         float peak = Mth.sin(p * Mth.PI);
         // Rear up, throw the head back and hold the maw wide open.
@@ -550,7 +560,7 @@ public class HungarianHorntailModel extends EntityModel<HungarianHorntailEntity>
         this.tail3.yRot += Mth.sin(p * Mth.PI * 4.0F - 1.4F) * 0.26F;
     }
 
-    private void applyBite(int t) {
+    private void applyBite(float t) {
         float p = clamp01((float) t / HungarianHorntailEntity.BITE_DURATION);
         // Coil back, then fire the head forward on a straightening neck.
         float coil = p < 0.35F ? (p / 0.35F) : 0.0F;
@@ -576,7 +586,7 @@ public class HungarianHorntailModel extends EntityModel<HungarianHorntailEntity>
      * that spin by exactly {@link HungarianHorntailEntity#tailTrail}, which is also what the damage
      * arc is computed from — so the spikes hit what they visibly pass through.
      */
-    private void applyTailWhip(int t, boolean sweepLeft) {
+    private void applyTailWhip(float t, boolean sweepLeft) {
         float p = clamp01((float) t / HungarianHorntailEntity.TAIL_WHIP_DURATION);
         float sign = sweepLeft ? 1.0F : -1.0F;
         float trail = -HungarianHorntailEntity.tailTrail(p) * sign;
@@ -607,7 +617,7 @@ public class HungarianHorntailModel extends EntityModel<HungarianHorntailEntity>
                 STAND_THIGH_X + 0.2F * flat, STAND_SHANK_X + 0.15F * flat, STAND_FOOT_X);
     }
 
-    private void applyBreathWindup(int t) {
+    private void applyBreathWindup(float t) {
         float p = clamp01((float) t / HungarianHorntailEntity.BREATH_WINDUP_DURATION);
         float e = p * p; // accelerating inhale
         // Draws the head back over the shoulders, chest swelling, jaw cracking open.
@@ -622,7 +632,7 @@ public class HungarianHorntailModel extends EntityModel<HungarianHorntailEntity>
                 Mth.lerp(e, STAND_FINGER_Z, -1.4F), STAND_FINGER_Y);
     }
 
-    private void applyBreath(int t, float ageInTicks, float pitch) {
+    private void applyBreath(float t, float ageInTicks, float pitch) {
         float p = clamp01((float) t / HungarianHorntailEntity.BREATH_DURATION);
         float thrust = Mth.sin(Math.min(p / 0.15F, 1.0F) * (Mth.PI / 2.0F));
         // Head drives forward and the neck straightens out behind the jet.
@@ -647,7 +657,7 @@ public class HungarianHorntailModel extends EntityModel<HungarianHorntailEntity>
         this.tail4.xRot = -0.04F;
     }
 
-    private void applyWingGust(int t) {
+    private void applyWingGust(float t) {
         float p = clamp01((float) t / HungarianHorntailEntity.WING_GUST_DURATION);
         float beat;
         if (p < 0.42F) {
@@ -670,12 +680,12 @@ public class HungarianHorntailModel extends EntityModel<HungarianHorntailEntity>
         this.jaw.xRot = 0.04F + 0.4F * rear;
     }
 
-    private void applyTakeoff(int t) {
+    private void applyTakeoff(HorntailPoseSource entity, float t) {
         float p = clamp01((float) t / HungarianHorntailEntity.TAKEOFF_DURATION);
         // First it compresses, then hammers three downbeats and folds the legs away.
         float crouch = p < 0.2F ? (p / 0.2F) : Math.max(0.0F, 1.0F - (p - 0.2F) / 0.25F);
         float launch = clamp01((p - 0.2F) / 0.8F);
-        float beat = Mth.sin(p * Mth.PI * 3.0F);
+        float beat = entity.takeoffBeat(p);
 
         setWings(0.08F + beat * 0.95F, 0.2F, 0.0F,
                 0.12F + beat * 0.6F, -0.1F,
@@ -696,7 +706,7 @@ public class HungarianHorntailModel extends EntityModel<HungarianHorntailEntity>
         this.tail2.xRot = -0.15F * launch;
     }
 
-    private void applyAirBreath(int t, float ageInTicks, float pitch) {
+    private void applyAirBreath(float t, float ageInTicks, float pitch) {
         // Hovering: fast, shallow, hard beats while the neck arcs down over the target.
         float charge = clamp01((float) t / HungarianHorntailEntity.AIR_BREATH_WINDUP);
         boolean firing = t >= HungarianHorntailEntity.AIR_BREATH_WINDUP;
@@ -732,7 +742,7 @@ public class HungarianHorntailModel extends EntityModel<HungarianHorntailEntity>
         this.tail4.xRot = -0.10F;
     }
 
-    private void applyLand(int t) {
+    private void applyLand(float t) {
         float p = clamp01((float) t / HungarianHorntailEntity.LAND_DURATION);
         // Flare: wings cupped forward to brake, body pitched nose-up, legs reaching for the ground.
         float flare = 1.0F - p;
@@ -751,7 +761,7 @@ public class HungarianHorntailModel extends EntityModel<HungarianHorntailEntity>
         this.tail2.xRot = -0.20F * flare;
     }
 
-    private void applyStagger(int t) {
+    private void applyStagger(float t) {
         float p = clamp01((float) t / HungarianHorntailEntity.STAGGER_DURATION);
         float recoil = Mth.sin(p * Mth.PI);
         this.neck1.xRot = STAND_NECK1_X - 0.45F * recoil;
@@ -774,5 +784,34 @@ public class HungarianHorntailModel extends EntityModel<HungarianHorntailEntity>
     public void renderToBuffer(PoseStack poseStack, VertexConsumer vertexConsumer, int packedLight,
                                int packedOverlay, int color) {
         this.root.render(poseStack, vertexConsumer, packedLight, packedOverlay, color);
+    }
+
+    // -------------------------------------------------------------------------------------------
+    // For the memory dragon (client/MemoryHorntailRenderer): pose blending and the snout.
+    // -------------------------------------------------------------------------------------------
+
+    /** The mouth in the head part's space (px): between the jaws, at the front of the upper snout. */
+    public static final float SNOUT_Y = 3.0F, SNOUT_Z = -19.5F;
+
+    /** Every part {@link #setupAnim} moves, in a fixed order (for snapshotting and blending poses). */
+    public java.util.List<ModelPart> animatedParts() {
+        return java.util.List.of(this.body, this.neck1, this.neck2, this.head, this.jaw,
+                this.tail1, this.tail2, this.tail3, this.tail4,
+                this.leftHumerus, this.leftForearm, this.leftFinger,
+                this.rightHumerus, this.rightForearm, this.rightFinger,
+                this.leftThigh, this.leftShank, this.leftFoot,
+                this.rightThigh, this.rightShank, this.rightFoot);
+    }
+
+    /**
+     * Moves {@code poseStack} from the model root into the head part's space through the posed body and neck (as the
+     * parts are drawn), so a point given in head px lands where the drawn head has it.
+     */
+    public void translateToHead(PoseStack poseStack) {
+        this.root.translateAndRotate(poseStack);
+        this.body.translateAndRotate(poseStack);
+        this.neck1.translateAndRotate(poseStack);
+        this.neck2.translateAndRotate(poseStack);
+        this.head.translateAndRotate(poseStack);
     }
 }

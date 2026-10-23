@@ -33,13 +33,13 @@ flying_<h>_chase, 40.5 s, the lawn
   C7  16.8-21.0  the chase: behind and above the boy, Malfoy ahead, the castle beyond
   C8  21.0-24.4  wide from high in the east: both bank round a U-turn, the corner tower beyond
   C9  24.4-26.6  over the boy's shoulder: "Go on, then. Fetch!" and the throw
-  C10 26.6-28.0  from the grass: the ball arcing down, the boy plunging after it
-  C11 28.0-29.7  FIRST PERSON: down the ball's own line, closing on it; his hand takes it out of the air
-  C12 29.7-32.5  over McGonagall's shoulder through her window: he pulls out and glides down the aisle
-  C13 32.5-34.8  her face through the glass; she turns away
-  C14 34.8-36.2  the boy landed in the aisle, the ball held up, his house cheering
-  C15 36.2-37.8  McGonagall in the hospital wing door: "You. With me. Now."
-  C16 37.8-40.5  the boy turns to her: a slow push in
+  C10 26.6-28.6  from the grass ahead: the ball arcing over, the boy plunging after it, pulling out low at us
+  C11 28.6-29.7  FIRST PERSON: skimming the grass, it drops out of the sky into his hand
+  C12 29.7-32.2  over McGonagall's shoulder through her window: he skims on and glides down the aisle
+  C13 32.2-34.3  her face through the glass; she turns away
+  C14 34.3-36.4  the boy landed in the aisle, the ball held up, his house cheering
+  C15 36.4-38.5  McGonagall in the hospital wing door: "You. With me. Now."
+  C16 38.5-40.5  the boy turns to her: a slow push in
 flying_<h>_match, 50.0 s, the pitch beside Hogwarts under the storm (rain, lightning, 1,530 in the stands)
   M1  0.0-5.0    high over the west stand: from the castle lit through the rain down to the empty pitch
   M2  5.0-9.4    outside the stand the team waits astride; the captain to his Seeker ("Just catch the Snitch...")
@@ -50,7 +50,7 @@ flying_<h>_match, 50.0 s, the pitch beside Hogwarts under the storm (rain, light
   M7a 23.4-27.4  alongside the Chasers racing up the pitch, passing ("And they're off!")
   M7b 27.4-29.2  behind the far middle hoop: the shot comes through the ring at the camera
   M8  29.2-32.0  the boy's house on its feet in the stand, roaring ("And it's in!")
-  M10 32.0-34.5  the hunt: behind the boy high over the game, the castle through the rain (the stand chants)
+  M10 32.0-34.5  the hunt: behind the boy high over the game and the storm (the stand chants)
   M9  34.5-36.6  behind a Beater: he cracks the Bludger away at a rival's head; the stadium gasps
   M11 36.6-41.0  the rival Seeker drifts up on the boy's shoulder
   M12 41.0-45.0  wide over the far stands: the crowd, the rain sheets, the game below, the lightning
@@ -58,13 +58,14 @@ flying_<h>_match, 50.0 s, the pitch beside Hogwarts under the storm (rain, light
 flying_<h>_snitch, 40.0 s, the pitch (ends on eyes_close, end_action wake)
   N1  0.0-3.2    high behind the boy as he circles, hunting
   N2  3.2-5.2    the glint: low by the foot of the dive column, the Snitch hangs in the rain
-  N3  5.2-6.4    his face: he has seen it ("The Seeker has seen something!")
-  N4  6.4-9.0    from the grass, straight up the column: he tips over and comes down at us, the rival after him
+  N3  5.2-7.2    his face: he has seen it ("The Seeker has seen something!") and swings away toward it
+  N4  7.2-9.0    from the grass, straight up the column: he tips over and comes down at us, the rival after him
   N5  9.0-10.8   falling beside them: the two Seekers side by side, the grass rushing up
   N6  10.8-12.3  out of the dive just over the grass; the rival peels away above
   N7  12.3-14.7  FIRST PERSON: skimming the grass, the Snitch just ahead; his hand closes on it (the stands erupt)
-  N8  14.7-18.5  he slows over the grass and lifts it to the stands
-  N9  18.5-23.0  his team swoops in round him
+  N7b 14.7-17.0  cut away: his house's stand on its feet, erupting in the rain
+  N8  17.0-19.2  he slows over the grass and lifts it to the stands
+  N9  19.2-23.0  his team swoops in round him
   N10 23.0-28.0  the crane up and out: the stands on their feet in the storm
   N11 28.0-34.0  closer, among them: the Snitch held high
   N12 34.0-40.0  his face, the rain on it, a slow push in as the eyes close
@@ -932,11 +933,12 @@ def lesson_brooms(sc, people, P, B, S, R, ACT, out_t):
     b.turn(tc + 14, y1 + 10.0, 0.0, 0.0)
     rest[b.id] = tc - 6
     sc.speed_ok[b.id] = [(tc - 6, tc + 14, 'the broom that leaps up and smacks a boy')]
+    sc.notes.setdefault('yaw_ok', {})[b.id] = [(tc - 6, tc + 14, 'the broom spins round and smacks a boy')]
     sc.notes['smack'] = (tc, SMACK)
     sc.notes['first_up'][SMACK] = tk(T1['chorus'])
     sc.contacts.append(('%s: the broom tip into his face' % SMACK, SMACK, 'face', tc,
                         ('broom', b.id, [0.0, 0.0, 1.6]), 'smack'))
-    sc.sfx(tc, 'broom_up', 0.7, hit=tc, label='the smack')
+    sc.sfx(tc, 'thud', 0.85, hit=tc, label='the smack')
     a, rg = S[SMACK], R[SMACK]
     ACT[SMACK].append({'t': tc, 'do': 'hurt'})
     rg.r('head').to(tc, tc + 3, [-30, 8, 0])
@@ -998,19 +1000,21 @@ def lesson_neville(sc, P, B, S, R, ACT):
     prev = p['broom_yaw']
     rnd = random.Random('buck')
     last = NEVILLE_FLIGHT[-1][0]
-    for t in range(NEVILLE_FLIGHT[0][0] + 3, last + 1, 3):
-        hd = unwrap(E.broom_heading(b.path.k, t), prev)
+    ts = list(range(NEVILLE_FLIGHT[0][0] + 3, last + 1, 3))
+    for t, hd in steady_yaws(b.path.k, ts, prev, t_start=NEVILLE_FLIGHT[0][0]):
         prev = hd
         cl = E.broom_climb(b.path.k, t)
         amp = (0.25 if t < 604 else 1.0 if t < 664 else max(0.0, 1.0 - (t - 664) / 70.0))
         ph = (t - 584) / 20.0
         pitch = cl + amp * (18.0 * math.sin(2 * math.pi * 2.6 * ph) + rnd.uniform(-4, 4))
         roll = amp * (32.0 * math.sin(2 * math.pi * 1.9 * ph + 0.7) + rnd.uniform(-6, 6))
-        yj = amp * 14.0 * math.sin(2 * math.pi * 1.3 * ph + 1.9)
+        yj = amp * 14.0 * math.sin(2 * math.pi * 1.3 * ph + 1.9) * max(0.0, min(1.0, (672 - t) / 8.0))   # still after
         e = 'spline' if t + 3 <= last else None
         b.turn(t, hd + yj, max(-70.0, min(70.0, pitch)), roll, e)
     b.turn(last + 6, prev, 0.0, 0.0)
     sc.speed_ok[b.id] = [(NEVILLE_FLIGHT[0][0], last + 6, "Neville's broom bolts and bucks")]
+    sc.sfx(tk(T1['bolt']), 'broom_buck', 0.85, loop=True, duration=68)        # the bucking, to the throw
+    sc.notes.setdefault('yaw_ok', {})[b.id] = [(604, 672, "Neville's broom bucks")]
     b.sync()
 
     # the rider: on from tm until he is thrown at T_FALL; flailing from the bolt, still by 660; arms up as he falls
@@ -1033,6 +1037,7 @@ def lesson_neville(sc, P, B, S, R, ACT):
                              off[2] + (land[2] - off[2]) * f], 'spline')
     path.at(T_LAND, land, 'linear')
     sc.notes['neville']['g'] = g
+    sc.sfx(T_LAND, 'thud', 1.0, hit=T_LAND, label='Neville hits the grass')
     # flailing (add mode on top of the grip), decaying to nothing by 660
     for part, amp, base in (('right_arm', 38, [-35, 0, 12]), ('left_arm', 38, [-35, 0, -12]),
                             ('right_leg', 24, [-10, 0, 6]), ('left_leg', 24, [-10, 0, -6])):
@@ -1081,7 +1086,7 @@ def path_yaws(keys, t0, t1, step, start_yaw):
     """Look keys facing along a walker's path (its heading through the mirror), unwrapped."""
     out, prev = [], start_yaw
     for t in range(t0, t1 + 1, step):
-        y = unwrap(E.broom_heading(keys, t), prev)
+        y = unwrap(E.broom_heading_held(keys, t), prev)
         prev = y
         out.append((t, y))
     return out
@@ -1846,14 +1851,14 @@ VIEWER_CHASE = [(16.6, [-1.0, 6.8, 31.2]), (17.6, [-3.6, 8.0, 27.6]), (18.6, [-3
                 (19.6, [-0.8, 11.6, 13.6]), (20.6, [3.2, 13.2, 5.6]), (21.6, [7.0, 14.6, -2.2]),
                 (22.6, [8.6, 15.6, -8.0]), (23.4, [6.4, 16.1, -11.0]), (23.8, [4.6, 16.25, -11.1]),
                 (24.1, [3.6, 16.3, -11.0]), (24.4, [3.1, 16.3, -10.85]), (24.8, [3.0, 16.3, -10.8])]
-# the dive: at the throw he wheels off the stand-off into the Remembrall's own line by FP0 and runs down it,
-# DIVE_LAG ticks of its travel behind it, closing to nothing at the catch (its flight under REM_G, a light glass
-# ball hurled down at the lawn); then the pull-out two blocks over the grass and the glide down the aisle
-FP0, DIVE_LAG, REM_G = 560, 7.0, 0.002
+# the dive: at the throw he wheels off the stand-off and plunges, pulls out low by FP0 and skims the lawn after the
+# falling Remembrall (its flight under REM_G, a light glass ball hurled down at the lawn), which drops into his hand
+# about 1.4 over the grass; then on, and the glide down the aisle
+FP0, REM_G = 572, 0.002
+SKIM_Y, SKIM_SPEED, SKIM_AT = 1.25, 0.9, (-0.5, 13.3)     # the skim's seat height, speed, and (x, z) at the catch
 V_LAND = (660, [0.0, 0.0, 33.2], -4.0)          # tick, his feet in the aisle, the broom's yaw
 PARK_MCG = [-30.0, -30.0, 40.0]
-REACH_LOCAL = [-0.17, 0.42, 0.68]               # the catching hand, forward down the broom (broom frame)
-RAISE_LOCAL = [-0.21, 0.77, 0.24]               # held up high
+REACH_DIR = [-0.05, 1.3, 1.0]                   # the catching arm: up and out ahead, palm to the sky (broom frame)
 
 
 def ball_world(scene, bid, t):
@@ -1872,13 +1877,48 @@ def final_state(scene, aid, t=None):
     return {'pos': root, 'yaw': yaw, 'pitch': pitch, 'riding': m is not None}
 
 
-def flight_look(b, t0, t1, start_yaw, step=4):
-    """Look keys for a flying broom from its own path: the heading and the climb (the mirror's), unwrapped, spline;
-    the roll stays the auto-bank (a broom made with roll_keys False)."""
+YAW_RATE = 9.0           # degrees a tick: the most a look key turns a broom from the key before (a spline run's
+                         # middle turns up to 1.5x its keys' rate, so the drawn yaw stays under YAW_RATE_LIMIT)
+YAW_RATE_LIMIT = 15.0    # the drawn yaw rate assert (the spline between keys may overshoot the keys' own rate a little)
+
+
+def horizontal_speed(keys, t):
+    a, b = E.track_sample(keys, t - 2), E.track_sample(keys, t + 2)
+    return math.hypot(b[0] - a[0], b[2] - a[2]) / 4.0
+
+
+def steady_yaws(keys, ts, start_yaw, hover=(), pins=(), rate=YAW_RATE, t_start=None):
+    """The yaw a broom faces at each tick of ts, from its own path: the held heading (E.broom_heading_held, which
+    holds through a hover and ignores a spline creeping back) blended in by horizontal speed (0 at 0.03 blocks a
+    tick, all of it from 0.15: in a straight dive or a slow drift the broom keeps the yaw it had); inside a `hover`
+    window (t0, t1, yaw) it turns to that yaw as it slows; inside a `pins` window it faces that yaw whatever the path
+    does (a keeper sliding side-on to the play). Each key turns at most `rate` degrees a tick from the last (the
+    first from start_yaw at t_start, when given)."""
+    out, prev, tp = [], start_yaw, t_start
+    for t in ts:
+        hd = unwrap(E.broom_heading_held(keys, t), prev)
+        want = prev + (hd - prev) * smooth((horizontal_speed(keys, t) - 0.03) / 0.12)
+        hv = next((y for t0, t1, y in hover if t0 <= t <= t1), None)
+        if hv is not None:
+            hy = unwrap(hv, prev)
+            want = hy + (want - hy) * smooth((E.path_speed(keys, t) - 0.04) / 0.12)
+        pin = next((y for t0, t1, y in pins if t0 <= t <= t1), None)
+        if pin is not None:
+            want = unwrap(pin, prev)
+        if tp is not None:
+            lim = rate * (t - tp)
+            want = prev + max(-lim, min(lim, want - prev))
+        prev, tp = want, t
+        out.append((t, want))
+    return out
+
+
+def flight_look(b, t0, t1, start_yaw, step=4, pins=()):
+    """Look keys for a flying broom from its own path: the steady heading (steady_yaws) and the climb (the
+    mirror's), spline; the roll stays the auto-bank (a broom made with roll_keys False)."""
     prev = unwrap(start_yaw, b.yaw())
     b.hold_look(t0)
-    for t in range(t0 + step, t1 + 1, step):
-        hd = unwrap(E.broom_heading(b.path.k, t), prev)
+    for t, hd in steady_yaws(b.path.k, list(range(t0 + step, t1 + 1, step)), prev, pins=pins, t_start=t0):
         prev = hd
         b.turn(t, hd, E.broom_climb(b.path.k, t), 0.0, 'spline')
     return prev
@@ -2117,10 +2157,9 @@ def chase_malfoy(sc, P, B, S, R, ACT):
     rg.r('right_arm').to(T_FLEE - 6, T_FLEE + 6, [0, 0, 0])
     T_CORNER = tk(T2['cornered'])
     sc.notes['malfoy'] = {'hover': (tu1_, T_FLEE), 'taunt_end': T_FLEE + 6, 'cornered': T_CORNER, 'mount': tm}
-    last = flight_look(b, T_FLEE, T_CORNER - 8, b.yaw())
     vb, mb = VIEWER_CHASE[-1][1], MALFOY_FLIGHT[-1][1]
-    face = unwrap(yaw_to(vb[0] - mb[0], vb[2] - mb[2]), last)
-    b.turn(T_CORNER, face, 0.0)
+    face = yaw_to(vb[0] - mb[0], vb[2] - mb[2])           # round to face the boy as he slows into the stand-off
+    flight_look(b, T_FLEE, T_CORNER, b.yaw(), pins=[(T_CORNER - 10, T_CORNER, face)])
     look += [{'t': T_FLEE, 'yaw': 0.0, 'pitch': 4.0}, {'t': T_FLEE + 12, 'yaw': 55.0, 'pitch': -8.0},
              {'t': T_FLEE + 26, 'yaw': 0.0, 'pitch': 5.0}, {'t': T_CORNER - 30, 'yaw': 0.0, 'pitch': 5.0},
              {'t': T_CORNER - 14, 'yaw': -60.0, 'pitch': 0.0}, {'t': T_CORNER, 'yaw': 0.0, 'pitch': 0.0}]
@@ -2177,8 +2216,8 @@ def parabola(p0, p1, t0, t1, g):
 
 def chase_viewer(sc, P, B, S, R, ACT):
     """The boy: astride for the whole scene. He watches Malfoy, kicks off after him, follows him round, faces him;
-    at the throw he wheels and plunges down the Remembrall's own line, closing on it (first person), takes it out of
-    the air two blocks over the grass, pulls out and glides down the aisle between the two rows to land."""
+    at the throw he wheels and plunges, pulls out just over the grass and skims it after the falling Remembrall
+    (first person), which drops into his hand; then on down the aisle between the two rows to land."""
     V = view(sc)
     p, b, a, rg = P['viewer'], B['viewer'], S['viewer'], R['viewer']
     start = list(b.path.last())
@@ -2192,68 +2231,44 @@ def chase_viewer(sc, P, B, S, R, ACT):
             (T_OFF + 28, [1.6, 4.2, 30.4])] + [(tk(t), q) for t, q in VIEWER_CHASE]
     b.path.through(rise)
     b.turn(T_OFF + 6, b.yaw(), -25.0)
-    last = flight_look(b, T_OFF + 6, T_CORNER - 8, b.yaw())
     mb = MALFOY_FLIGHT[-1][1]
     vs = VIEWER_CHASE[-1][1]
-    face = unwrap(yaw_to(mb[0] - vs[0], mb[2] - vs[2]), last)
-    b.turn(T_CORNER, face, 0.0)
-    b.path.hold(T_THROW + 4)
-    b.hold_look(T_THROW + 4)
+    face = yaw_to(mb[0] - vs[0], mb[2] - vs[2])
+    flight_look(b, T_OFF + 6, T_CORNER, b.yaw(), pins=[(T_CORNER - 10, T_CORNER, face)])
+    b.path.hold(T_THROW + 1)
+    b.hold_look(T_THROW + 1)
     sc.notes['viewer_off'] = T_OFF
-    base_path, base_look = copy.deepcopy(b.path.k), copy.deepcopy(b.look)
-    # the dive and the catch, solved round the ball's flight: the ball's line ends in his hand, his broom runs
-    # down that line DIVE_LAG ticks of the ball's travel behind it at FP0, closing to nothing at the catch
+    # the dive and the catch: he wheels off the stand-off and plunges almost straight down, nose over, while the
+    # ball arcs out over him; he pulls out low and skims the lawn level at SKIM_Y, a little faster than the falling
+    # ball, so it drops out of the sky into his outstretched hand SKIM_Y + 0.2 over the grass; on past it, then
+    # down the aisle between the rows to land
     p0 = hand(V, E.actor_by_id(V, 'malfoy'), 'right_arm', T_THROW)
     t1 = T_C - 0.25
-    C = [-0.6, 4.0, 12.0]
-    Hoff = [0.0, 0.0, 0.7]
     r0, r1 = tk(T2['reach'][0]), tk(T2['reach'][1])
     land_at, feet, land_yaw = V_LAND
-    for _ in range(4):
-        b.path.k[:] = copy.deepcopy(base_path)
-        b.look[:] = copy.deepcopy(base_look)
-        fly = parabola(p0, C, T_THROW, T_C, REM_G)
-        lag = lambda t: DIVE_LAG * (T_C - t) / float(T_C - FP0)
-        line = lambda t: sub(fly(t - lag(t)), Hoff)
-        vel = lambda t: [(line(t)[i] - line(t - 1.0)[i]) for i in range(3)]
-        # off the stand-off (at rest) into the line by FP0
-        entry = hermite(vs, [0.0, 0.0, 0.0], line(FP0), vel(FP0), T_THROW + 4, FP0)
-        for t in range(T_THROW + 8, FP0, 4):
-            b.path.at(t, entry(t), 'spline')
-        for t in range(FP0, T_C + 1, 4):
-            b.path.at(t, line(t), 'spline')
-        # on down the line a beat past the catch, out of the dive just over the grass, then down the aisle
-        vc = vel(T_C)
-        ext = lambda t: add(line(T_C), vc, t - T_C)
-        T_P = T_C + 4
-        for t in (T_C + 2, T_P):
-            b.path.at(t, ext(t), 'spline')
-        hz = norm([vc[0], 0.0, vc[2]])
-        bottom = [ext(T_P)[0] + hz[0] * 10.5, 1.48, ext(T_P)[2] + hz[2] * 10.5]
-        pull = hermite(ext(T_P), vc, bottom, [hz[0] * 0.5, 0.0, hz[2] * 0.5], T_P, T_P + 20)
-        for t in range(T_P + 4, T_P + 21, 4):
-            b.path.at(t, pull(t), 'spline')
-        lp = broom_under(feet, land_yaw, KID)
-        lp[1] += 0.05
-        glide = hermite(bottom, [hz[0] * 0.5, 0.0, hz[2] * 0.5], lp, [0.0, 0.0, 0.0], T_P + 20, land_at)
-        ts = list(range(T_P + 24, land_at - 3, 4))
-        for t in ts:
-            b.path.at(t, glide(t), 'spline')
-        b.path.at(land_at, lp)
-        hd = unwrap(E.broom_heading(b.path.k, T_THROW + 16), face)
-        b.turn(T_THROW + 16, hd, 25.0)
-        last = flight_look(b, T_THROW + 16, land_at - 12, hd)
-        b.turn(land_at, unwrap(land_yaw, last), 0.0)
-        b.sync()
-        # his right hand off the handle, forward into the ball's line; held up high once he has it
-        rg.rot.pop('right_arm', None)
-        refresh(a, rg)
-        res = reach(sc, a, rg, 'right_arm', r0, r1, broom_point(V, b.id, r1, REACH_LOCAL))
-        assert res < 0.05, res
-        hc = hand(V, a, 'right_arm', T_C)
-        Hoff = sub(hc, E.track_sample(b.path.k, T_C))
-        C = list(hc)
-    res2 = reach(sc, a, rg, 'right_arm', T_C + 6, T_C + 40, broom_point(V, b.id, T_C + 40, RAISE_LOCAL))
+    v_lev = [0.02, 0.0, SKIM_SPEED]
+    level = lambda t: add([SKIM_AT[0], LAWN_Y + SKIM_Y, SKIM_AT[1]], v_lev, t - T_C)
+    T_LEVEL = FP0 - 4                                               # level, and steady, before his own eyes
+    p_pull, v_pull = [-0.4, LAWN_Y + 6.4, level(T_LEVEL)[2] - 6.5], [0.02, -0.5, 0.45]
+    T_PULL, T_ON = T_LEVEL - 14, T_C + 8
+    dive = hermite(vs, [0.0, 0.0, 0.0], p_pull, v_pull, T_THROW + 1, T_PULL)
+    pull = hermite(p_pull, v_pull, level(T_LEVEL), v_lev, T_PULL, T_LEVEL)
+    lp = broom_under(feet, land_yaw, KID)
+    lp[1] += 0.05
+    glide = hermite(level(T_ON), v_lev, lp, [0.0, 0.0, 0.0], T_ON, land_at)
+    for t in range(T_THROW + 5, land_at - 3, 4):
+        f = dive if t <= T_PULL else pull if t <= T_LEVEL else level if t <= T_ON else glide
+        b.path.at(t, f(t), 'spline')
+    b.path.at(land_at, lp)
+    wheel = yaw_to(v_lev[0], v_lev[2])                              # round to face down the ball's line
+    last = flight_look(b, T_THROW + 1, land_at - 12, b.yaw(), pins=[(T_THROW + 1, T_PULL + 4, wheel)])
+    b.turn(land_at, unwrap(land_yaw, last), 0.0)
+    b.sync()
+    sc.speed_ok.setdefault(b.id, []).append((T_PULL - 2, T_LEVEL + 2, 'the pull-out over the grass'))
+    # his right hand off the handle, forward and low into the ball's path; held up high once he has it
+    res = reach(sc, a, rg, 'right_arm', r0, r1, arm_target(V, a, b.id, r1, REACH_DIR))
+    assert res < 0.05, res
+    res2 = reach(sc, a, rg, 'right_arm', T_C + 6, T_C + 40, arm_target(V, a, b.id, T_C + 40, [-0.3, 1.0, 0.35]))
     assert res2 < 0.06, res2
     rg.r('right_arm').to(tk(T2['follow']) + 10, tk(T2['follow']) + 36, [-40, 0, 10])
     refresh(a, rg)
@@ -2269,9 +2284,10 @@ def chase_viewer(sc, P, B, S, R, ACT):
     aim_rider(sc, 'viewer', look, 20, T_OFF, mal, step=12, gain=0.9)
     aim_rider(sc, 'viewer', look, T_OFF + 6, T_THROW, mal, step=8, gain=0.8)
     fly = sc.notes['remembrall_fly']
-    aim_rider(sc, 'viewer', look, T_THROW + 2, FP0 - 10, lambda t: fly(min(t, t1)), step=6, max_pitch=70.0)
-    look.append({'t': FP0 - 4, 'yaw': -4.0, 'pitch': 8.0})
-    look.append({'t': T_C + 12, 'yaw': -4.0, 'pitch': 8.0})
+    aim_rider(sc, 'viewer', look, T_THROW + 2, FP0 - 12, lambda t: fly(min(t, t1)), step=6, max_pitch=70.0)
+    look.append({'t': FP0 - 2, 'yaw': 4.0, 'pitch': -6.0})         # still through his own eyes: up the ball's line
+    look.append({'t': T_C + 2, 'yaw': 4.0, 'pitch': -6.0})
+    look.append({'t': T_C + 12, 'yaw': -4.0, 'pitch': 12.0})
     aim_rider(sc, 'viewer', look, T_C + 12, tk(T2['land']), lambda t: hand(view(sc), E.actor_by_id(view(sc), 'viewer'),
                                                                          'right_arm', t), step=10, max_pitch=70.0)
     door = [DOOR['door'][0] + 1.3, 1.6, DOOR['door'][2] - 0.7]
@@ -2411,34 +2427,47 @@ def chase_camera(sc, P, B, S):
     vb = VIEWER_CHASE[-1][1]
     pf = move([vb[0] + 0.95, vb[1] + 1.35, vb[2] + 1.75], [vb[0] + 0.9, vb[1] + 1.3, vb[2] + 1.45], 488, 532)
     sc.shot(488, 532, pf, smoothed(lambda t: lerp(mal(t), m_hand(t), 0.25), 5.0), ramp(44.0, 40.0, 488, 532), 6)
-    # C10 26.6-28.8 the dive: from the grass under it, the ball arcing over, the boy plunging after it
-    pf = move([-5.2, 1.05, 16.5], [-5.0, 0.95, 16.0], 532, FP0)
-    sc.shot(532, FP0, pf, smoothed(lambda t: lerp(boy(t), rem(min(t, T_C - 1)), 0.45), 5.0), ramp(62.0, 66.0, 532, FP0), 4)
-    # C11 28.8-30.8 FIRST PERSON: racing level over the grass, it drops out of the sky into his hand
+    # C10 26.6-28.6 from the grass ahead of him: the ball arcing over, the boy plunging after it and pulling out low,
+    # straight at us
+    pf = move([-4.4, 0.9, 8.0], [-4.2, 0.85, 7.4], 532, FP0)
+    sc.shot(532, FP0, pf, smoothed(lambda t: lerp(boy(t), rem(min(t, T_C - 1)), 0.45), 5.0), ramp(64.0, 60.0, 532, FP0), 4)
+    # C11 28.6-29.7 FIRST PERSON: skimming the grass, eyes on it as it drops out of the sky into his hand
     v_hand = lambda t: hand(V, E.actor_by_id(V, 'viewer'), 'right_arm', t)
     vb_ = E.actor_by_id(V, 'broom_viewer')
-    up_ahead = [-0.14, math.sin(math.radians(-30.0)), math.cos(math.radians(-30.0))]
     eye_v = lambda t: head_eye(V, E.actor_by_id(V, 'viewer'), t, 0.12)
-    aim = smoothed(lambda t: add(eye_v(t), E._mat_vec(E.broom_pose(V, vb_, t)['m'], up_ahead), 4.0), 5.0)
-    first_person(sc, V, 'viewer', FP0, T_C + 2, fwd=0.12, fov=80.0, look_fn=aim, sigma=1.5)
-    # C12 30.8-32.8 over McGonagall's shoulder through her window: he comes down the aisle, the ball held high
+
+    # the camera does not chase the ball (it comes in steeply and meets the hand beside his face): it tilts slowly
+    # from up the ball's line, as it falls toward him, down to his outstretched hand, both in frame throughout
+    e0 = eye_v(FP0)
+    q0 = sub(ball_world(V, 'remembrall', FP0), e0)
+    hq = math.hypot(q0[0], q0[2])
+    d0 = [q0[0] / hq, math.tan(math.radians(9.0)), q0[2] / hq]
+    eC = eye_v(T_C)
+    ahead_ = E._mat_vec(E.broom_pose(V, vb_, T_C)['m'], [0.0, 0.0, 1.0])
+    d1 = slerp_dir(ahead_, sub(v_hand(T_C), eC), 0.62)
+    hd1 = math.hypot(d1[0], d1[2])
+    d1 = [d1[0] / hd1, math.tan(math.radians(-13.0)), d1[2] / hd1]
+    tilt = lambda t: smoother((t - FP0 + 6) / float(T_C - FP0 + 14))     # the ease runs past both cuts: no jolt
+    aim = lambda t: add(eye_v(t), slerp_dir(d0, d1, tilt(t)), 4.0)
+    first_person(sc, V, 'viewer', FP0, T_C + 2, fwd=0.12, fov=84.0, look_fn=aim, sigma=3.0)
+    # C12 29.7-32.2 over McGonagall's shoulder through her window: he comes down the aisle, the ball held high
     st = MCG['stand']
-    pf = move([st[0] - 0.95, st[1] + 1.85, st[2] + 0.55], [st[0] - 0.9, st[1] + 1.82, st[2] + 0.5], T_C + 2, 650)
-    sc.shot(T_C + 2, 650, pf, smoothed(boy, 8.0), ramp(44.0, 40.0, T_C + 2, 650), 6)
-    # C13 32.8-34.8 her face through the glass from outside: she watches him land, then turns away
-    pf = move([-19.6, 11.55, 15.35], [-19.75, 11.5, 15.6], 650, 696)
+    pf = move([st[0] - 0.95, st[1] + 1.85, st[2] + 0.55], [st[0] - 0.9, st[1] + 1.82, st[2] + 0.5], T_C + 2, 644)
+    sc.shot(T_C + 2, 644, pf, smoothed(boy, 8.0), ramp(44.0, 40.0, T_C + 2, 644), 6)
+    # C13 32.2-34.3 her face through the glass from outside: she watches him land, then turns away
+    pf = move([-19.6, 11.55, 15.35], [-19.75, 11.5, 15.6], 644, 686)
     mc = eye_fn(V, 'mcgonagall')
-    sc.shot(650, 696, pf, smoothed(lambda t: mc(min(t, tk(T2['mcg_turn']) + 6)), 4.0), const(40.0), 6)
-    # C14 34.8-36.2 the boy in the aisle with it held up, the class cheering round him
+    sc.shot(644, 686, pf, smoothed(lambda t: mc(min(t, tk(T2['mcg_turn']) + 6)), 4.0), const(40.0), 6)
+    # C14 34.3-36.4 the boy in the aisle with it held up, the class cheering round him
     land_at, feet, _ = V_LAND
-    pf = move([feet[0] + 0.9, 0.85, feet[2] + 2.5], [feet[0] + 0.85, 0.87, feet[2] + 2.2], 696, 724)
-    sc.shot(696, 724, pf, smoothed(boy, 4.0), const(50.0), 4)
-    # C15 36.2-37.8 McGonagall in the hospital wing door: "You. With me. Now."
-    pf = move([-15.0, 1.45, 58.4], [-15.3, 1.47, 58.8], 724, 756)
-    sc.shot(724, 756, pf, smoothed(mc, 4.0), const(44.0), 4)
-    # C16 37.8-40.5 the boy turns to look at her: a slow push in
-    pf = move([feet[0] + 0.55, 1.02, feet[2] + 2.3], [feet[0] + 0.32, 1.1, feet[2] + 1.55], 756, sc.L)
-    sc.shot(756, sc.L, pf, smoothed(boy, 5.0), ramp(48.0, 42.0, 756, sc.L), 6)
+    pf = move([feet[0] + 0.9, 0.85, feet[2] + 2.5], [feet[0] + 0.85, 0.87, feet[2] + 2.2], 686, 728)
+    sc.shot(686, 728, pf, smoothed(boy, 4.0), const(50.0), 4)
+    # C15 36.4-38.5 McGonagall in the hospital wing door: "You. With me. Now." (her line starts on the cut)
+    pf = move([-15.0, 1.45, 58.4], [-15.3, 1.47, 58.8], 728, 770)
+    sc.shot(728, 770, pf, smoothed(mc, 4.0), const(44.0), 4)
+    # C16 38.5-40.5 the boy turns to look at her: a slow push in
+    pf = move([feet[0] + 0.55, 1.02, feet[2] + 2.3], [feet[0] + 0.32, 1.1, feet[2] + 1.55], 770, sc.L)
+    sc.shot(770, sc.L, pf, smoothed(boy, 5.0), ramp(48.0, 42.0, 770, sc.L), 6)
     # whooshes where a broom tears past the camera
     for bid, t0, t1 in (('broom_viewer', 290, 336), ('broom_viewer', 532, FP0)):
         whoosh(sc, bid, t0, t1)
@@ -2452,9 +2481,9 @@ def chase_camera(sc, P, B, S):
                    (534, FP0 - 2, eye('viewer'), 'the dive (C10)'),
                    (FP0 + 2, T_C - 2, lambda sc_, t: ball_world(sc_, 'remembrall', t), 'the falling Remembrall (C11)'),
                    (T_C - 3, T_C + 1, lambda sc_, t: hand(sc_, E.actor_by_id(sc_, 'viewer'), 'right_arm', t), 'his hand (C11)'),
-                   (600, 648, eye('viewer'), 'the boy below the window (C12)'), (652, 686, eye('mcgonagall'), 'McGonagall (C13)'),
-                   (698, 722, eye('viewer'), 'the boy (C14)'), (728, 754, eye('mcgonagall'), 'McGonagall at the door (C15)'),
-                   (758, sc.L - 2, eye('viewer'), 'the boy (C16)')]
+                   (600, 642, eye('viewer'), 'the boy below the window (C12)'), (646, 684, eye('mcgonagall'), 'McGonagall (C13)'),
+                   (690, 726, eye('viewer'), 'the boy (C14)'), (732, 768, eye('mcgonagall'), 'McGonagall at the door (C15)'),
+                   (774, sc.L - 2, eye('viewer'), 'the boy (C16)')]
 
 
 def raise_steps_standing(scene, a, part='right_arm'):
@@ -2594,6 +2623,29 @@ def check_moments_chase(sc, scene, problems):
                 break
 
 
+def check_yaw_rates(sc, scene, problems):
+    """No broom (and so no rider) turns faster than YAW_RATE_LIMIT degrees a tick: the drawn yaw (E.broom_pose, as
+    BroomFlight.place draws it) every quarter tick, except the scripted windows by name (sc.notes['yaw_ok']).
+    Returns (worst rate, broom, tick)."""
+    worst = (0.0, None, None)
+    ok = sc.notes.get('yaw_ok', {})
+    for b in [a for a in scene['actors'] if E.is_broom(a)]:
+        wins = ok.get(b['id'], [])
+        prev = None
+        for q in range(0, scene['length'] * 4 + 1):
+            t = q / 4.0
+            y = E.broom_pose(scene, b, t)['yaw']
+            if prev is not None and not any(t0 <= t <= t1 for t0, t1, _ in wins):
+                r = abs(((y - prev) % 360 + 540) % 360 - 180) * 4
+                if r > worst[0]:
+                    worst = (r, b['id'], t)
+                if r > YAW_RATE_LIMIT:
+                    problems.append('%s: broom %s turns %.1f degrees a tick at t %.2f' % (sc.sid, b['id'], r, t))
+                    break
+            prev = y
+    return (round(worst[0], 2), worst[1], worst[2])
+
+
 _SOLID = {}
 
 
@@ -2621,6 +2673,7 @@ def run_checks(sc, scene, world, skip=()):
     out['items'] = check_items(sc, scene, P)
     out['rides'] = check_rides(sc, scene, P)
     out['fliers'] = check_fliers(sc, scene, P)
+    out['yaw rate'] = check_yaw_rates(sc, scene, P)
     out['dives'] = check_dives(sc, scene, P)
     if sc.lying:
         out['lying'] = check_lying(sc, scene, P)
@@ -2652,10 +2705,61 @@ RIV = ['r_k', 'r_b1', 'r_c3', 'r_c1', 'r_c2', 'r_b2', 'r_s']
 ROLE = {'k': 'keeper', 'c1': 'chaser', 'c2': 'chaser', 'c3': 'chaser', 'b1': 'beater', 'b2': 'beater', 's': 'seeker'}
 KIT_POOL = (3, 7, 11, 15, 19, 23, 29)
 PARK_PITCH = [-60.0, -40.0, 150.0]
-STORM_STRIKES = {'match': [(2.0, [150, 0, -60]), (10.5, [-120, 0, 90]), (15.0, [140, 0, 80]), (29.5, [-130, 0, -100]),
-                           (35.4, [150, 0, 20]), (43.0, [120, 0, -110]), (47.5, [-140, 0, 40])],
-                 'snitch': [(3.0, [140, 0, -70]), (11.0, [-130, 0, 60]), (19.5, [150, 0, 30]), (27.0, [-120, 0, -90]),
-                            (34.0, [140, 0, 90])]}
+# the strikes, 6-12 s apart: (seconds, where it would strike if it could be anywhere); storm() moves each to the
+# nearest spot on the ring round the stadium that its shot can see, so every bolt is on screen
+STORM_STRIKES = {'match': [(2.0, [150, 0, -60]), (10.5, [-120, 0, 90]), (18.5, [140, 0, 80]), (27.0, [-130, 0, -100]),
+                           (35.4, [150, 0, 20]), (43.0, [-60, 0, 110]), (49.2, [-140, 0, 40])],
+                 'snitch': [(1.5, [140, 0, -70]), (7.5, [-60, 0, 120]), (14.5, [150, 0, 30]), (21.5, [-130, 0, 60]),
+                            (28.5, [-120, 0, -90]), (35.5, [140, 0, 90])]}
+SOUND_SPEED = 17.0     # blocks a tick: thunder comes after the flash by the distance to the camera
+STRIKE_YS = (25.0, 50.0, 80.0)          # points up the bolt that must be on screen
+
+
+def strike_seen(scene, t, at):
+    c = E.engine_cam(scene['camera'], t)
+    lk, fov = E.engine_look(scene, scene['camera'], t)
+    seen = [E.in_view(c, lk, fov, [at[0], y, at[2]], aspect=16 / 9.0) for y in STRIKE_YS]
+    return seen[1] and (seen[0] or seen[2])          # the middle of the bolt and one end of it
+
+
+def strike_spot(sc, t, want):
+    """want if its shot sees it at t, else the nearest spot that it does on rings 130-150 blocks out."""
+    V = view(sc)
+    if strike_seen(V, t, want):
+        return list(want)
+    best = None
+    for r in (150.0, 140.0, 130.0):                  # out past the stands, over the towers and the castle
+        for k in range(48):
+            a = 2 * math.pi * k / 48.0
+            p = [round(r * math.cos(a)), 0, round(r * math.sin(a))]
+            if strike_seen(V, t, p):
+                d = math.dist(p, want)
+                if best is None or d < best[0]:
+                    best = (d, p)
+    return best[1] if best else list(want)
+
+
+def check_lightning(sc, scene, problems):
+    """The lightning: at least two in three strikes on screen at their tick (the middle of the bolt and one end in
+    the 16:9 frame; a face close-up only sees the flicker), the strikes 6 to 12 s apart, each followed by its thunder
+    after the distance to the camera at the speed of sound. Returns (strikes on screen, strikes)."""
+    ev = [e for e in scene['events'] if e.get('id') == 'lightning']
+    th = [e['t'] for e in scene['events'] if e.get('id') == SFX + 'thunder']
+    seen = sum(1 for e in ev if strike_seen(scene, e['t'], e['at']))
+    if 3 * seen < 2 * len(ev):
+        problems.append('%s: only %d of %d lightning strikes are on screen' % (sc.sid, seen, len(ev)))
+    for t0, t1, label in sc.notes.get('strike_shots', []):
+        if not any(t0 <= e['t'] <= t1 and strike_seen(scene, e['t'], e['at']) for e in ev):
+            problems.append('%s: no lightning on screen in %s' % (sc.sid, label))
+    for e in ev:
+        delay = math.dist(E.engine_cam(scene['camera'], e['t']), [e['at'][0], 40.0, e['at'][2]]) / SOUND_SPEED
+        if not any(abs(x - (e['t'] + delay)) <= 1.0 for x in th):
+            problems.append('%s: no thunder %.0f ticks after the lightning at t %d' % (sc.sid, delay, e['t']))
+    ts = sorted(e['t'] for e in ev)
+    for a, b in zip(ts, ts[1:]):
+        if not 120 <= b - a <= 240:
+            problems.append('%s: lightning %d ticks apart at t %d' % (sc.sid, b - a, b))
+    return seen, len(ev)
 
 
 def set_pitch(anchors, world):
@@ -2734,8 +2838,25 @@ def react(sc, t, house, style, cause, duration=None):
 def storm(sc, part):
     sc.ev(0, 'effect', 'sky', at=[0.0, 0.0, 0.0], style='storm')
     sc.ev(0, 'effect', 'rain', at=QA['rain']['at'], spread=QA['rain']['spread'], intensity=1.3)
-    for s, at in STORM_STRIKES[part]:
-        sc.ev(tk(s), 'effect', 'lightning', at=list(at))
+    prev = None
+    for s, want in STORM_STRIKES[part]:
+        # at its time or as near it as keeps the 6-12 s rhythm, where its shot can see it
+        V = view(sc)
+        fits = [tk(s) + dt for dt in [0] + [d * sg for d in range(4, 81, 4) for sg in (1, -1)]
+                if 0 < tk(s) + dt < sc.L - 20 and (prev is None or 120 <= tk(s) + dt - prev <= 240)]
+        if not fits:
+            continue                                 # no room left for it in the rhythm
+        t, at = fits[0], list(want)                  # a face close-up may not see the sky: then it only flickers
+        for t_ in fits:
+            at_ = strike_spot(sc, t_, want)
+            if strike_seen(V, t_, at_):
+                t, at = t_, at_
+                break
+        prev = t
+        sc.ev(t, 'effect', 'lightning', at=at)
+        delay = math.dist(E.engine_cam(sc.camera, t), [at[0], 40.0, at[2]]) / SOUND_SPEED
+        tt = min(sc.L - 1, int(round(t + delay)))
+        sc.sfx(tt, 'thunder', 0.9 if delay < 8 else 0.75)
     sc.sfx(0, 'rain', 0.75, loop=True)
     sc.sfx(0, 'crowd_bed', 0.45, loop=True)
     for hh in HOUSES:
@@ -2764,6 +2885,7 @@ class Flier:
         self.sc, self.id, self.house = sc, aid, house
         self.route = []
         self.hover = []           # (t0, t1, yaw)
+        self.pins = []            # (t0, t1, yaw): faces yaw whatever the path does
         self.rig = Rig()
         self.items = {'chest': robes(house)}
         self.skin = {'viewer': True} if skin is None else {'texture': skin}
@@ -2789,16 +2911,9 @@ class Flier:
         b.sync()
         # the look: the heading and climb while it flies, the hover yaw while it hangs, blended by speed
         keys = b.path.k
-        prev = self.hover[0][2] if self.hover else E.broom_heading(keys, 0)
+        prev = self.hover[0][2] if self.hover and self.hover[0][0] <= 0 else E.broom_heading_held(keys, 0)
         b.look = [[0, prev, 0.0, None, None]]
-        for t in range(4, sc.L + 1, 4):
-            spd = E.path_speed(keys, t)
-            hd = unwrap(E.broom_heading(keys, t), prev)
-            want = next((y for t0, t1, y in self.hover if t0 <= t <= t1), None)
-            if want is not None:
-                f = smooth((spd - 0.04) / 0.12)
-                hd = unwrap(want, prev) + (hd - unwrap(want, prev)) * f
-            prev = hd
+        for t, hd in steady_yaws(keys, list(range(4, sc.L + 1, 4)), prev, self.hover, self.pins, t_start=0):
             pitch = E.broom_climb(keys, t)
             b.look.append([t, hd, round(pitch, 3), None, 'spline' if t + 4 <= sc.L else None])
         b.look[-1][4] = None
@@ -2835,6 +2950,7 @@ def match(h, world, chase_scene=None):
     match_hooch(sc, F_, hooch)
     match_balls(sc, F_, hooch)
     match_bludger_play(sc, F_)
+    match_play_on(sc, F_)
     match_riders(sc, F_)
     for f in F_.values():
         refresh(f.a, f.rig)
@@ -2845,7 +2961,8 @@ def match(h, world, chase_scene=None):
     scene = sc.scene(pitch_set(), QP.RADIUS, nxt='flying_%s_snitch' % h)
     qc = sc.notes['quaffle_contacts']
     sc.notes.update(extra_checks=[('crowd gap', check_crowd_gap), ('quaffle ring', check_quaffle_ring),
-                                  ('reactions', check_reactions), ('bludgers', check_bludgers)],
+                                  ('reactions', check_reactions), ('bludgers', check_bludgers),
+                                  ('lightning', check_lightning)],
                     ball_paths=[('quaffle_%d' % (i + 1), qc) for i in range(3)] + sc.notes['ball_paths_extra'])
     return sc, scene
 
@@ -2911,20 +3028,24 @@ def game_routes(sc, F_):
     # the attack: c1 takes the Quaffle out of the air over Hooch and the three race up the pitch, climbing to the
     # far hoops; c1 passes to c2 (right), c2 to c3 (left), c3 shoots through the middle hoop
     hoop = QA['hoops'][4]['centre']
-    P_c = [0.6, 9.4, 1.4]
+    P_c = [-3.4, 9.4, 2.6]
     P_s = [-2.2, 46.6, 88.0]
     A0 = hermite(P_c, [0.0, 0.18, 0.55], P_s, [0.05, 0.3, 1.0], T['c1_catch'], T['shot'])
     A = lambda t: (add(P_c, [0.0, 0.18, 0.55], t - T['c1_catch']) if t < T['c1_catch'] else
                    add(P_s, [0.05, 0.3, 1.0], t - T['shot']) if t > T['shot'] else A0(t))
     sc.notes['attack'] = A
-    off = {'o_c1': lambda t: [0.0, 0.0, 0.0], 'o_c2': lambda t: [6.0, 1.2, -3.0], 'o_c3': lambda t: [-6.0, 0.6, -1.5]}
+    off = {'o_c1': lambda t: [0.0, 0.0, 0.0], 'o_c2': lambda t: [6.5, 1.2, -3.0], 'o_c3': lambda t: [-6.0, 0.6, -1.5]}
+    # off the line the three swoop round in tight banked U-turns (their line faced the rivals, their hoops are
+    # behind them), c1 under the Quaffle as it goes up, c2 round to the right, c3 to the left
     c = F_['o_c1']
-    c.at(456, [0.4, 10.8, 2.4]).at(466, [0.5, 9.6, -1.6])
+    c.at(452, [0.2, 12.2, 3.6]).at(460, [-1.6, 11.2, 0.8]).at(467, [-3.6, 10.2, 0.6])
     follow(F_, 'o_c1', lambda t: A(t), T['c1_catch'], T['shot'], 8, 'spline')
-    F_['o_c2'].at(458, [5.0, 11.4, 2.0])
-    follow(F_, 'o_c2', lambda t: add(A(t), off['o_c2'](t)), 482, T['shot'], 8, 'spline')
-    F_['o_c3'].at(458, [-6.0, 10.6, 2.0])
-    follow(F_, 'o_c3', lambda t: add(A(t), off['o_c3'](t)), 482, T['shot'], 8, 'spline')
+    F_['o_c2'].at(450, [3.3, 12.0, 4.2]).at(458, [4.8, 11.9, 1.8]).at(466, [6.6, 11.9, 1.6])
+    F_['o_c2'].at(474, [6.6, 12.0, 3.8]).at(482, [5.2, 12.2, 6.4])
+    follow(F_, 'o_c2', lambda t: add(A(t), off['o_c2'](t)), 490, T['shot'], 8, 'spline')
+    F_['o_c3'].at(450, [-3.3, 11.8, 4.2]).at(458, [-4.8, 11.4, 1.8]).at(466, [-6.6, 11.0, 1.6])
+    F_['o_c3'].at(474, [-7.4, 11.0, 3.6]).at(482, [-8.4, 11.3, 6.4])
+    follow(F_, 'o_c3', lambda t: add(A(t), off['o_c3'](t)), 490, T['shot'], 8, 'spline')
     # after the shot: c3 pulls up over the hoops, c1 and c2 bank away, all three loop back down the pitch
     vS = [0.05, 0.3, 1.0]
     F_['o_c3'].at(T['shot'] + 12, [-6.0, 52.0, 100.5]).at(T['shot'] + 26, [-11.0, 59.0, 106.0])
@@ -2936,22 +3057,30 @@ def game_routes(sc, F_):
     rc = {'r_c1': ([1.0, -2.5, -2.0], 20), 'r_c2': ([-8.0, -1.5, -4.0], 26), 'r_c3': ([7.0, -4.0, -6.0], 32)}
     for aid, (o, dt) in rc.items():
         f = F_[aid]
-        f.at(462, add(f.slot, [o[0] * 0.3, -1.5, -4.0]))
+        f.at(462, add(f.slot, [o[0] * 0.3, -1.5, 2.0]))          # forward off the line (+z for the rivals)
         follow(F_, aid, lagged(dt, o), 490, T['shot'] + 6, 8, 'spline')
     # the beaters ride shotgun on the attack, high and wide
-    for aid, o, dt in (('o_b1', [-13.0, 7.0, -6.0], 6), ('o_b2', [13.0, 8.0, -9.0], 10),
-                       ('r_b1', [14.0, 3.0, -18.0], 30), ('r_b2', [-12.0, 2.0, -22.0], 36)):
+    for aid, o, dt in (('o_b1', [-13.0, 7.0, -6.0], 6), ('o_b2', [16.0, 8.0, -4.0], 10),
+                       ('r_b1', [14.0, 3.0, -4.0], 30), ('r_b2', [-12.0, 2.0, -6.0], 36)):
         f = F_[aid]
-        f.at(462, add(f.slot, [o[0] * 0.08, 4.0, 2.0 if aid[0] == 'o' else -2.0]))
-        follow(F_, aid, lagged(dt, o), 486, T['shot'] - 8, 10, 'spline')
+        f.at(462, add(f.slot, [o[0] * 0.08, 4.0, -2.0 if aid[0] == 'o' else 2.0]))     # forward off the line
+        t_f = max(486, T['c1_catch'] + dt)                     # on the attack once it moves
+        if aid == 'o_b1':                  # and round, wide, to ride with their Chasers up the pitch behind them
+            f.at(474, add(f.slot, [o[0] * 0.55, 4.6, -7.0]))
+        elif aid == 'o_b2':
+            f.at(474, add(f.slot, [5.6, 4.6, -5.2])).at(486, add(f.slot, [8.0, 5.4, -3.4]))
+            t_f = 496
+        follow(F_, aid, lagged(dt, o), t_f, T['shot'] - 8, 10, 'spline')
     # the keepers to their hoops
-    for aid, z, y, ta in (('o_k', -100.0, 46.0, 600), ('r_k', 101.0, 48.0, 548)):
+    for aid, z, y, ta in (('o_k', -100.0, 46.0, 600), ('r_k', 101.0, 48.0, 524)):      # r_k turned before the shot
         f = F_[aid]
         run = move(f.slot, [0.0, y, z], 446, ta)
         for t in range(452, ta, 8):
             f.at(t, add(run(t), [0.0, 6.0 * math.sin(math.pi * (t - 446) / (ta - 446)), 0.0]))
         f.at(ta, [0.0, y, z], 'in_out')
         f.hover.append((ta, sc.L, 0.0 if z < 0 else 180.0))
+        # as he comes in he turns to face the play, and holds it through his lunges (sliding side-on)
+        f.pins.append((ta - 4, ta + 72 if z < 0 else sc.L, 0.0 if z < 0 else 180.0))
     # the rival keeper guards the ring and lunges the wrong way at the shot
     rk = F_['r_k']
     rk.at(T['shot'] - 4, [1.2, 48.0, 101.0], 'in_out').at(T['shot'] + 10, [-4.2, 47.4, 101.4], 'in_out')
@@ -2967,9 +3096,9 @@ def game_routes(sc, F_):
     so = orbit(0.0, 4.0, 31.0, 31.0, 55.5, SEEK_PERIOD, ph - 0.2, 1.0, 1.0)   # a little behind, inside, below
     sc.notes['seeker_orbits'] = (vo, so)
     MATCH_FUNCS['viewer'], MATCH_FUNCS['r_s'] = vo, so
-    F_['viewer'].at(470, [9.0, 26.0, 12.0])
+    F_['viewer'].at(458, [10.5, 18.0, 2.0]).at(470, [13.0, 25.0, -1.0])     # up and out off the line, forward
     follow(F_, 'viewer', vo, 540, sc.L, 10, 'spline')
-    F_['r_s'].at(470, [-9.0, 24.0, -10.0])
+    F_['r_s'].at(458, [-10.5, 17.0, -2.0]).at(470, [-13.0, 24.0, 1.0])
     follow(F_, 'r_s', so, 540, sc.L, 10, 'spline')
     # everyone else, once their part is played: loose circuits round the pitch below the Seekers
     loops = {'o_c1': (40.0, 70.0, 34.0, 420.0, 1.1, 1.0), 'o_c2': (48.0, 78.0, 38.0, 460.0, 0.75, 1.0),
@@ -3138,10 +3267,16 @@ def match_balls(sc, F_, hooch):
     sc.notes['b1_keys'] = b1
     b2 = Keys().at(0, PARK_PITCH).hold(T_CR + 3.75).at(T_CR + 4, top)
     b2.through([(T_CR + 10, [cr[0] - 0.5, 7.0, cr[2] - 0.5]), (T_CR + 20, [1.0, 18.0, -3.0]),
-                (T_CR + 36, [-6.0, 30.0, -14.0]), (T_CR + 70, [-22.0, 42.0, -40.0]), (T_CR + 110, [-46.0, 52.0, -70.0]),
-                (T_CR + 150, [-70.0, 60.0, -96.0])], settle=False)
-    b2.k[-1]['ease'] = 'linear'                 # a linear last key: no spline tangent into the jump away
-    b2.at(T_CR + 150.25, PARK_PITCH, 'linear')
+                (T_CR + 36, [-6.0, 30.0, -14.0]), (T_CR + 70, [-22.0, 42.0, -40.0]), (T_CR + 110, [-34.0, 50.0, -62.0])],
+               settle=False)
+    # then it swings round and back through the game for the rest of the match, on the loop clearest of the riders
+    t_b = T_CR + 110
+    v_b = sub(E.track_sample(b2.k, t_b), E.track_sample(b2.k, t_b - 1))
+    loop, least, pick = bludger_loop(sc, F_, t_b, b2.last(), v_b)
+    for t in range(t_b + 4, sc.L + 1, 4):
+        b2.at(t, loop(t), 'spline')
+    sc.notes['b2_loop'] = (round(least, 2), pick)
+    MATCH_FUNCS['bludger_2'] = loop
     sc.actor({'id': 'bludger_2', 'type': BLUDGER, 'path': b2.k})
     # the Snitch: a flicker of gold up out of the crate, a hover, and gone
     sn = Keys().at(0, PARK_PITCH).hold(tk(T3['snitch_out']) - 0.25).at(tk(T3['snitch_out']), top)
@@ -3152,7 +3287,7 @@ def match_balls(sc, F_, hooch):
     sn.k[-1]['ease'] = 'linear'                 # a linear last key: no spline tangent into the jump away
     sn.at(ts + 44.25, PARK_PITCH, 'linear')
     sc.actor({'id': 'snitch', 'type': SNITCH, 'path': sn.k})
-    sc.notes['ball_paths_extra'] = [('snitch', [ts, ts + 44]), ('bludger_2', [T_CR + 4, T_CR + 150])]
+    sc.notes['ball_paths_extra'] = [('snitch', [ts, ts + 44]), ('bludger_2', [T_CR + 4])]
 
 
 def match_bludger_play(sc, F_):
@@ -3225,6 +3360,126 @@ def match_bludger_play(sc, F_):
     F_['r_b2'].a['items'] = dict(F_['r_b2'].a['items'], mainhand=BAT)
 
 
+def carry_quaffle(sc, F_, qid, aid, t_in, t_out, scale=THIRD):
+    """A Quaffle actor on aid's hand from t_in (in his hand) to t_out (his throw; None: to the end): parked before,
+    an offset in his broom frame while he has it (keyed with the hand), world from the throw (the caller keys the
+    flight and the park). Returns its Keys."""
+    V = view(sc)
+    f = F_[aid]
+    rh = lambda t: hand(V, f.a, 'right_arm', t)
+    k = Keys()
+    k.at(0, PARK_PITCH).hold(t_in - 0.25)
+    k.at(t_in - 0.001, rh(t_in), 'linear')
+    end = sc.L if t_out is None else t_out
+    ts = sorted(set([t_in] + list(range(t_in + 8, end - 8, 8)) + [x for x in range(end - 8, end, 2) if x > t_in]))
+    for t in ts:
+        k.at(t, ride_offset(V, f.b.id, t, rh(t)), 'spline' if t > t_in else None)
+    if t_out is not None:
+        k.at(t_out - 0.001, ride_offset(V, f.b.id, t_out - 0.001, rh(t_out)), 'linear')
+        k.at(t_out, rh(t_out))
+    ride = {'on': f.b.id, 'from': t_in}
+    if t_out is not None:
+        ride['until'] = t_out
+    sc.actor({'id': qid, 'type': QUAFFLE, 'scale': scale, 'ride': ride, 'path': k.k})
+    return k
+
+
+def chaser_arms(sc, F_, aid, tc, tp):
+    """aid's right arm out for a catch at tc, held at his side with it, thrown forward at tp (None: kept)."""
+    V = view(sc)
+    f = F_[aid]
+    r = reach(sc, f.a, f.rig, 'right_arm', tc - 16, tc - 1, arm_target(V, f.a, f.b.id, tc - 1, CARRY_DIR))
+    assert r < 0.06, (aid, r)
+    if tp is not None:
+        r = reach(sc, f.a, f.rig, 'right_arm', max(tc + 1, tp - 7), tp, arm_target(V, f.a, f.b.id, tp, RELEASE_DIR),
+                  'in')
+        assert r < 0.06, (aid, r)
+        f.rig.r('right_arm').to(tp + 2, tp + 16, [0, 0, 0])
+    refresh(f.a, f.rig)
+
+
+def find_pass(V, F_, a, b, t0, t1, speed=1.0, lo=14, hi=50):
+    """The first (throw, catch) ticks from t0 where a can reach b with a flight no faster than `speed` a tick."""
+    for tp in range(t0, t1, 2):
+        e0 = E.rider_eye(V, F_[a].a, tp)
+        for tn in range(tp + lo, tp + hi, 2):
+            if math.dist(E.rider_eye(V, F_[b].a, tn), e0) / (tn - tp) <= speed:
+                return tp, tn
+    return None
+
+
+def match_play_on(sc, F_):
+    """The game goes on after the goal. The rival keeper has a new Quaffle (quaffle_4, in his hand from ring + 30,
+    out of every shot) and throws it out to r_c1 (quaffle_5) at ring + 40; r_c1 carries it round his loop and
+    passes it to r_c2 (quaffle_6), who carries it on into the Snitch scene."""
+    V = view(sc)
+    T = sc.notes['T']
+    t_get, t_out = T['ring'] + 30, T['ring'] + 40
+    rk = F_['r_k']
+    r = reach(sc, rk.a, rk.rig, 'right_arm', t_get - 14, t_get, arm_target(V, rk.a, rk.b.id, t_get, CARRY_DIR))
+    assert r < 0.06, r
+    r = reach(sc, rk.a, rk.rig, 'right_arm', t_out - 7, t_out, arm_target(V, rk.a, rk.b.id, t_out, RELEASE_DIR), 'in')
+    assert r < 0.06, r
+    rk.rig.r('right_arm').to(t_out + 2, t_out + 16, [0, 0, 0])
+    refresh(rk.a, rk.rig)
+    p1 = find_pass(V, F_, 'r_k', 'r_c1', t_out, t_out + 1, speed=1.2, hi=70)
+    assert p1, 'r_c1 is never in reach of the keeper'
+    tc1 = p1[1]
+    p2 = find_pass(V, F_, 'r_c1', 'r_c2', tc1 + 60, sc.L - 120)
+    assert p2, 'r_c1 never comes in reach of r_c2'
+    tp2, tc2 = p2
+    chaser_arms(sc, F_, 'r_c1', tc1, tp2)
+    chaser_arms(sc, F_, 'r_c2', tc2, None)
+    rh = lambda aid, t: hand(V, F_[aid].a, 'right_arm', t)
+    k4 = carry_quaffle(sc, F_, 'quaffle_4', 'r_k', t_get, t_out)
+    fly1 = parabola(rh('r_k', t_out), rh('r_c1', tc1), t_out, tc1, QG)
+    flight_keys(k4, fly1, t_out, tc1 - 0.25)
+    k4.at(tc1, PARK_PITCH, 'linear')
+    k5 = carry_quaffle(sc, F_, 'quaffle_5', 'r_c1', tc1, tp2)
+    fly2 = parabola(rh('r_c1', tp2), rh('r_c2', tc2), tp2, tc2, QG)
+    flight_keys(k5, fly2, tp2, tc2 - 0.25)
+    k5.at(tc2, PARK_PITCH, 'linear')
+    carry_quaffle(sc, F_, 'quaffle_6', 'r_c2', tc2, None)
+    for label, aid, t, qid, kind in (('r_k: the new Quaffle in his hand', 'r_k', t_get, 'quaffle_4', 'catch'),
+                                     ('r_k: the Quaffle thrown out', 'r_k', t_out, 'quaffle_4', 'throw'),
+                                     ('r_c1: the Quaffle into his hand', 'r_c1', tc1, 'quaffle_5', 'catch'),
+                                     ('r_c1: the Quaffle away', 'r_c1', tp2, 'quaffle_5', 'throw'),
+                                     ('r_c2: the Quaffle into his hand', 'r_c2', tc2, 'quaffle_6', 'catch')):
+        sc.contacts.append((label, aid, 'right_arm', t, ('ball', qid, t), kind))
+    sc.notes['ball_paths_extra'] += [('quaffle_4', [t_get, tc1]), ('quaffle_5', [tc1, tc2]), ('quaffle_6', [tc2])]
+    sc.notes['play_on'] = [('quaffle_3', T['ring'], t_get), ('quaffle_4', t_get, tc1), ('quaffle_5', tc1, tc2),
+                           ('quaffle_6', tc2, sc.L + 1)]
+    sc.notes['catches'] += [('r_c1', tc1), ('r_c2', tc2)]
+    MATCH_FUNCS['carrier'] = 'r_c2'
+
+
+def bludger_loop(sc, F_, t0, p0, v0):
+    """Bludger 2's loop back through the game from (t0, p0, v0): the orbit (of a few candidates) that keeps furthest
+    from every rider, joined on by a Hermite. Returns (fn(t), least distance to a rider's seat or head, its
+    parameters)."""
+    best = None
+    ts = list(range(t0, sc.L + 1, 2))
+    seats = {aid: [E.track_sample(f.b.path.k, t) for t in ts] for aid, f in F_.items()}
+    for y0 in (30.0, 36.0, 42.0):
+        for ph in (0.0, 1.2, 2.4, 3.6, 4.8):
+            for per in (260.0, 320.0):
+                orb = orbit(0.0, 0.0, 30.0, 62.0, y0, per, ph, 1.0, 6.0)
+                tj = t0 + 60
+                jn = hermite(p0, v0, orb(tj), sub(orb(tj + 1), orb(tj)), t0, tj)
+                fn = (lambda jn_, orb_, tj_: (lambda t: jn_(t) if t < tj_ else orb_(t)))(jn, orb, tj)
+                if max(math.dist(fn(t), fn(t + 1)) for t in range(t0, tj + 1)) > 1.3:
+                    continue                                       # no faster than a Bludger flies elsewhere
+                least = 99.0
+                for i, t in enumerate(ts):
+                    p = fn(t)
+                    for aid in seats:
+                        s = seats[aid][i]
+                        least = min(least, math.dist(p, s), math.dist(p, [s[0], s[1] + 1.0, s[2]]))
+                if best is None or least > best[1]:
+                    best = (fn, least, (y0, ph, per))
+    return best
+
+
 def match_riders(sc, F_):
     """Where every rider looks: ahead before the whistle; then at the Quaffle in play, the Seekers scanning."""
     V = view(sc)
@@ -3232,10 +3487,22 @@ def match_riders(sc, F_):
     seq = sc.notes['quaffle_seq']
 
     def quaffle(t):
+        if t >= T['ring']:                         # the play goes on: the ball after the goal, then the new one
+            qid = next(q for q, a, b in sc.notes['play_on'] if a <= t < b)
+            return ball_world(V, qid, min(t, T['ring'] + 29) if qid == 'quaffle_3' else t)
         for i, (aid, tc, tp) in enumerate(seq):
             if t < tp or i == 2:
-                return ball_world(V, 'quaffle_%d' % (i + 1), min(t, T['ring']))
-        return ball_world(V, 'quaffle_3', T['ring'])
+                return ball_world(V, 'quaffle_%d' % (i + 1), t)
+        return ball_world(V, 'quaffle_3', t)
+
+    def bludger(aid):
+        # a Beater watches the nearest Bludger in play (the Quaffle before they are out)
+        def f(t):
+            me = E.rider_eye(V, F_[aid].a, t)
+            near = [ball_world(V, b, t) for b in ('bludger_1', 'bludger_2')] if t >= T['crate'] + 4 else []
+            near = [p for p in near if p[1] > -5]
+            return min(near, key=lambda p: math.dist(p, me)) if near else quaffle(t)
+        return f
     # the captain and his Seeker, waiting at the front outside the tunnel, turn to each other
     aim_rider(sc, 'o_k', F_['o_k'].a['look'], 104, 180, lambda t: E.rider_eye(V, F_['viewer'].a, t), step=16)
     aim_rider(sc, 'viewer', F_['viewer'].a['look'], 112, 186, lambda t: E.rider_eye(V, F_['o_k'].a, t), step=16)
@@ -3244,7 +3511,8 @@ def match_riders(sc, F_):
         if aid in ('viewer', 'r_s'):
             continue
         rnd = random.Random('look' + aid)
-        aim_rider(sc, aid, look, T['throw'] - 6, sc.L - 4, quaffle, step=16 + rnd.randint(0, 4), gain=0.8)
+        aim_rider(sc, aid, look, T['throw'] - 6, sc.L - 4, bludger(aid) if ROLE[aid[2:]] == 'beater' else quaffle,
+                  step=16 + rnd.randint(0, 4), gain=0.8)
     # the Seekers: eyes on the whistle and the Snitch out of the crate, then scanning the storm as they circle
     for aid in ('viewer', 'r_s'):
         f = F_[aid]
@@ -3292,7 +3560,7 @@ def match_sound(sc, F_, h):
         react(sc, tm + 6, o, 'gasp', ('near miss', tm))
     tc = tk(T3['chant'])
     sc.sfx(tc, 'crowd_chant', 0.7)
-    react(sc, tc, h, 'chant', ('chant', tc), 150)
+    react(sc, tc, h, 'chant', ('goal', tg), 150)
 
 
 def check_crowd_gap(sc, scene, problems):
@@ -3355,7 +3623,7 @@ def check_reactions(sc, scene, problems):
     """Assert 7, the crowd: every crowd_react in the JSON belongs to a reaction with a cause; a goal/cheer within 0.5 s
     after its goal or entrance, a gasp within 1 s of its near miss, the erupt within 0.3 s of the catch; nobody
     reacts before the cause."""
-    limits = {'goal': 10, 'cheer': 10, 'gasp': 20, 'erupt': 6, 'chant': 0, 'sit': 10}
+    limits = {'goal': 10, 'cheer': 10, 'gasp': 20, 'erupt': 6, 'chant': 200, 'sit': 10}
     n_events = sum(1 for e in scene['events'] if e.get('id') == 'crowd_react')
     n_rec = sum(len(CROWD_BOXES[hh]) for _, _, hh, _ in sc.reactions)
     if n_events != n_rec:
@@ -3494,10 +3762,10 @@ def match_camera(sc, F_):
     pf = move(add(base, side, -1.0), add(base, side, 1.0), 584, 640)
     sc.shot(584, 640, pf, const([c[0], c[1] + 1.4, c[2]]), ramp(56.0, 52.0, 584, 640), 8)
     sc.notes['stand_shot'] = (584, 640, c)
-    # M10 32-34.5 the hunt: behind the boy, high over the game, the castle through the rain
+    # M10 32-34.5 the hunt: behind the boy, high over the game and the storm
     cam, s_v, h_v = follow_cam(eye('viewer'), lambda t: [-4.4, 1.1, 1.3], 16.0, sc.L)
     sc.shot(640, 690, cam, lambda t: add(add(s_v(t), h_v(t), 14.0), [0.0, -2.0, 0.0]), const(62.0), 4)
-    # M9 34.5-37.5 the Bludger: behind o_b1 as it comes at him; he cracks it away at a rival's head
+    # M9 34.5-36.6 the Bludger: behind o_b1 as it comes at him; he cracks it away at a rival's head
     tcr = T['crack']
     vid, tmiss = sc.notes['near_misses'][0][1], sc.notes['near_misses'][0][2]
     b1 = lambda t: ball_world(V, 'bludger_1', t)
@@ -3509,13 +3777,14 @@ def match_camera(sc, F_):
     cam, s_b, h_b = follow_cam(eye('o_b1'), lambda t: [-4.6, 1.3, 2.2], 14.0, sc.L)
     focus = lambda t: lerp(add(s_b(t), h_b(t), 6.0), eye(vid)(t), 0.7 * smooth((t - tcr + 10) / float(tmiss - tcr + 26)))
     sc.shot(690, 732, cam, smoothed(lambda t: focus(min(t, tmiss + 4)), 10.0), ramp(62.0, 68.0, 690, 732), 4)
-    # M11 37.5-41 the rival Seeker drifts up on the boy's shoulder: both, from ahead and outside the circle
+    # M11 36.6-41 the rival Seeker drifts up on the boy's shoulder: both, from ahead and outside the circle
     two = lambda t: lerp(eye('viewer')(t), eye('r_s')(t), 0.5)
     cam, s2, h2 = follow_cam(two, lambda t: [9.5, 1.0, -6.0], 16.0, sc.L)
     sc.shot(732, 820, cam, smoothed(two, 8.0), ramp(56.0, 52.0, 732, 820), 4)
     # M12 41-45 wide over the far stands: the crowd, the rain sheets, the game below, the lightning
     pf = move([60.0, 64.0, -88.0], [56.0, 67.0, -78.0], 820, 900)
     sc.shot(820, 900, pf, move([0.0, 30.0, 10.0], [0.0, 34.0, 14.0], 820, 900), const(74.0), 6)
+    sc.notes['strike_shots'] = [(820, 900, 'M12, which promises it')]
     # M13a 45-47.5 under him, looking up past him into the storm, searching
     cam, s_v, h_v = follow_cam(eye('viewer'), lambda t: [-3.0, -1.6, -1.6], 16.0, sc.L)
     sc.shot(900, 950, cam, lambda t: add(add(s_v(t), h_v(t), 10.0), [0.0, 2.5, 0.0]), const(60.0), 4)
@@ -3560,11 +3829,11 @@ def snitch_scene(h, world, match_scene=None):
     v = F_['viewer']
     follow(F_, 'viewer', carry('viewer'), 0, T4['leave'], 10, 'spline')
     p_top = [cx + 1.3, 63.0, cz]
-    v.at(112, [-12.0, 61.6, 40.6]).at(128, [-22.0, 62.4, 44.6])
-    top_in = hermite([-22.0, 62.4, 44.6], [-0.42, 0.03, 0.12], p_top, [-0.2, -0.1, 0.0], 128, T4['top'])
+    # he breaks off his circle in one sweeping turn up to the top of the column, heading in toward it
+    v.at(112, [cx + 3.5, 61.0, cz - 16.5]).at(124, [cx + 0.5, 62.0, cz - 11.5]).at(134, [cx + 0.7, 62.8, cz - 5.5])
     v.at(T4['top'], p_top)
     full = [cx + 1.3, p_top[1] - 9.0, cz]
-    dive_in = hermite(p_top, [-0.2, -0.1, 0.0], full, [0.0, -SNITCH_CRY, 0.0], T4['top'], T4['dive_full'])
+    dive_in = hermite(p_top, [0.0, -0.1, 0.3], full, [0.0, -SNITCH_CRY, 0.0], T4['top'], T4['dive_full'])
     for t in range(T4['top'] + 4, T4['dive_full'], 4):
         v.at(t, dive_in(t))
     y_line = lambda t: full[1] - SNITCH_CRY * (t - T4['dive_full'])
@@ -3631,6 +3900,7 @@ def snitch_scene(h, world, match_scene=None):
     for f in F_.values():
         f.build()
     snitch_viewer(sc, F_)
+    snitch_play(sc, F_)
     snitch_ball(sc, F_)
     snitch_riders(sc, F_)
     for f in F_.values():
@@ -3641,8 +3911,9 @@ def snitch_scene(h, world, match_scene=None):
     score(sc, '_snitch')
     sc.ev(T4['close'], 'effect', 'eyes_close', at=[0, 0, 0], duration=40)
     scene = sc.scene(pitch_set(), QP.RADIUS, end_action='wake')
-    sc.notes.update(extra_checks=[('crowd gap', check_crowd_gap), ('reactions', check_reactions),
-                                  ('snitch framed', check_snitch_seen)],
+    sc.notes.update(moments=[check_moments_snitch], extra_checks=[('crowd gap', check_crowd_gap), ('reactions', check_reactions),
+                                  ('snitch framed', check_snitch_seen), ('bludgers', check_bludgers),
+                                  ('lightning', check_lightning)],
                     dives=[('broom_viewer', 'viewer', T4['pull'] - 10, T4['catch'] + 20, 0.0),
                            ('broom_r_s', 'r_s', T4['r_pull'] - 10, T4['r_pull_end'] + 10, 0.0)],
                     ball_paths=[('snitch', [T4['catch']])])
@@ -3663,6 +3934,30 @@ def snitch_viewer(sc, F_):
     refresh(f.a, f.rig)
     f.a['actions'] = [{'t': T_C, 'do': 'hold', 'item': SNITCH_ITEM}]
     sc.notes['catch_hand'] = hand(V, f.a, 'right_arm', T_C)
+
+
+def snitch_play(sc, F_):
+    """The game goes on round the hunt, carried over from the match: r_c2 still has the Quaffle (quaffle_6 there),
+    Bludger 2 still loops through the game."""
+    V = view(sc)
+    off = int(round(L3 * 20))
+    aid = MATCH_FUNCS.get('carrier')
+    if aid:
+        f = F_[aid]
+        r = reach(sc, f.a, f.rig, 'right_arm', 0, 2, arm_target(V, f.a, f.b.id, 2, CARRY_DIR))
+        assert r < 0.06, r
+        refresh(f.a, f.rig)
+        rh = lambda t: hand(V, f.a, 'right_arm', t)
+        k = Keys()
+        for t in [0] + list(range(2, sc.L, 8)) + [sc.L]:
+            k.at(t, ride_offset(V, f.b.id, t, rh(t)), 'spline' if t > 0 else None)
+        sc.actor({'id': 'quaffle', 'type': QUAFFLE, 'scale': THIRD, 'ride': f.b.id, 'path': k.k})
+    loop = MATCH_FUNCS.get('bludger_2')
+    if loop:
+        k = Keys()
+        for t in range(0, sc.L + 1, 4):
+            k.at(t, loop(t + off), 'spline' if t else None)
+        sc.actor({'id': 'bludger_2', 'type': BLUDGER, 'path': k.k})
 
 
 def snitch_ball(sc, F_):
@@ -3719,10 +4014,19 @@ def snitch_riders(sc, F_):
     rl = F_['r_s'].a['look']
     aim_rider(sc, 'r_s', rl, 120, T4['r_pull'], sn, step=10, max_pitch=70.0)
     boy = lambda t: E.rider_eye(V, F_['viewer'].a, t)
+    has = {a['id'] for a in V['actors']}
+    play = lambda t: ball_world(V, 'quaffle', t) if 'quaffle' in has else boy(t)
+
+    def watch(aid):
+        # the play (the Beaters the Bludger) while the game goes on; from the dive, everyone turns to the Seekers
+        me = lambda t: E.rider_eye(V, F_[aid].a, t)
+        ball = (lambda t: ball_world(V, 'bludger_2', t)) if ROLE[aid[2:]] == 'beater' and 'bludger_2' in has else play
+        w = lambda t: smooth((t - T4['top']) / 24.0)
+        return lambda t: add(me(t), slerp_dir(sub(ball(t), me(t)), sub(boy(t), me(t)), w(t)), 20.0)
     for aid, f in F_.items():
         if aid in ('viewer', 'r_s'):
             continue
-        aim_rider(sc, aid, f.a['look'], 20, sc.L - 4, boy, step=18, gain=0.7)
+        aim_rider(sc, aid, f.a['look'], 20, sc.L - 4, watch(aid), step=18, gain=0.7)
 
 
 def snitch_sound(sc, F_, h):
@@ -3736,7 +4040,20 @@ def snitch_sound(sc, F_, h):
             react(sc, T_C + 2, o, 'erupt', ('catch', T_C), 200)
     react(sc, T_C + 4, rival(h), 'sit', ('catch', T_C))
     sc.sfx(T_C + 80, 'crowd_chant', 0.8)
-    react(sc, T_C + 220, h, 'chant', ('chant', T_C + 220), 160)
+    react(sc, T_C + 180, h, 'chant', ('catch', T_C), 160)
+
+
+def check_moments_snitch(sc, scene, problems):
+    """Assert 7 in the Snitch scene: once the rival Seeker has pulled out (r_pull_end) he stops diving: his broom
+    never sinks faster than 0.05 blocks a tick again, and its pitch is out of the tuck (under TUCK_FROM, 20)."""
+    b = E.actor_by_id(scene, 'broom_r_s')
+    for t in range(T4['r_pull_end'], scene['length'] + 1):
+        vy = (E.track_sample(b['path'], t + 1)[1] - E.track_sample(b['path'], t - 1)[1]) / 2.0
+        pitch = E.broom_pose(scene, b, t)['pitch']
+        if vy < -0.05 or pitch >= 20.0:
+            problems.append('%s: the rival Seeker still dives at t %d (%.2f blocks a tick, pitch %.0f)' % (
+                sc.sid, t, vy, pitch))
+            break
 
 
 def check_snitch_seen(sc, scene, problems):
@@ -3764,62 +4081,73 @@ def snitch_camera(sc, F_):
     p_hov = vlin['hover']
     sn = sc.notes['snitch_hover']
     T_C = T4['catch']
-    # S1 0-3.2 high over the game, behind the boy as he circles, hunting
+    # N1 0-3.2 high over the game, behind the boy as he circles, hunting
     cam, s_v, h_v = follow_cam(eye('viewer'), lambda t: [-4.5, 1.2, 1.4], 16.0, sc.L)
     sc.shot(0, 64, cam, lambda t: add(add(s_v(t), h_v(t), 14.0), [0.0, -3.0, 0.0]), const(64.0), 4)
-    # S2 3.2-5.2 the glint: low by the foot of the column, the Snitch hangs in the rain, a flash of gold
+    # N2 3.2-5.2 the glint: low by the foot of the column, the Snitch hangs in the rain, a flash of gold
     sp = smoothed(sn, 6.0)
     pf = move([cx + 4.4, 3.9, cz + 0.6], [cx + 4.3, 3.85, cz + 0.8], 64, 104)
     sc.shot(64, 104, pf, sp, ramp(38.0, 34.0, 64, 104), 4)
-    # S3 5.2-7.1 his face: he has seen it
-    cam, s_v, h_v = follow_cam(eye('viewer'), lambda t: [1.8, 0.15, 0.7], 14.0, sc.L)
-    sc.shot(104, 128, cam, s_v, ramp(46.0, 42.0, 104, 128), 4)
-    # S4 7.1-9 from the grass at the foot of the column, looking straight up it: he tips over and comes down at us
-    pf = move([cx + 6.5, 1.3, cz + 6.0], [cx + 6.4, 1.35, cz + 5.9], 128, 180)
-    sc.shot(128, 180, pf, smoothed(lambda t: lerp(eye('viewer')(t), [cx, 30.0, cz], 0.3), 8.0),
+    # N3 5.2-7.2 his face: he has seen it, and swings away toward it
+    cam, s_v, h_v = follow_cam(eye('viewer'), lambda t: [4.4, 0.35, 1.6], 26.0, sc.L)
+    sc.shot(104, 144, cam, smoothed(eye('viewer'), 9.0), ramp(40.0, 36.0, 104, 144), 4)
+    # N4 7.2-9 from the grass at the foot of the column, looking straight up it: he tips over and comes down at us
+    pf = move([cx + 6.5, 1.3, cz + 6.0], [cx + 6.4, 1.35, cz + 5.9], 144, 180)
+    sc.shot(144, 180, pf, smoothed(lambda t: lerp(eye('viewer')(t), [cx, 30.0, cz], 0.3), 8.0),
             ramp(70.0, 66.0, 142, 180), 4)
-    # S5 9-10.8 falling beside them: the two Seekers side by side down the column, the grass rushing up
+    # N5 9-10.8 falling beside them: the two Seekers side by side down the column, the grass rushing up
     mid = lambda t: lerp(eye('viewer')(t), eye('r_s')(t), 0.5)
     ym = smoothed(lambda t: [0.0, vlin['y'](t), 0.0], 6.0)
     sc.shot(180, 216, lambda t: [cx + 0.3, ym(t)[1] + 1.4, cz + 5.6], smoothed(mid, 6.0), const(64.0), 4)
-    # S6 10.8-12.3 out of the dive just over the grass, the rival peeling away above
+    # N6 10.8-12.3 out of the dive just over the grass, the rival peeling away above
     pf = move([cx + 6.0, 0.9, cz + 14.0], [cx + 6.1, 0.92, cz + 14.2], 216, 246)
     sc.shot(216, 246, pf, smoothed(eye('viewer'), 9.0), ramp(60.0, 64.0, 216, 246), 4)
-    # S7 12.3-14.7 FIRST PERSON: skimming the grass, the Snitch just ahead, his hand closes on it
+    # N7 12.3-14.7 FIRST PERSON: skimming the grass, the Snitch just ahead, his hand closes on it
     vb_ = E.actor_by_id(V, 'broom_viewer')
     ahead = [-0.14, math.sin(math.radians(-30.0)), math.cos(math.radians(-30.0))]
     eye_v = lambda t: head_eye(V, E.actor_by_id(V, 'viewer'), t, 0.12)
     aim = smoothed(lambda t: add(eye_v(t), E._mat_vec(E.broom_pose(V, vb_, t)['m'], ahead), 4.0), 5.0)
     first_person(sc, V, 'viewer', T4['fp'][0], T4['fp'][1], fwd=0.12, fov=78.0, look_fn=aim, sigma=1.5)
-    # S8 14.7-18.5 he slows over the grass and lifts it up to the stands as they erupt
+    # N7b 14.7-17.0 cut away to his house's stand erupting, on their feet in the rain (as M8)
+    c, half = best_box(sc.h)
+    toward = norm([-c[0], 0.0, -c[2]])
+    side = [-toward[2], 0.0, toward[0]]
+    base = [c[0] + toward[0] * 21.0, c[1] + 3.0, c[2] + toward[2] * 21.0]
+    pf = move(add(base, side, 1.0), add(base, side, -1.0), 294, 340)
+    sc.shot(294, 340, pf, const([c[0], c[1] + 1.4, c[2]]), ramp(56.0, 52.0, 294, 340), 8)
+    sc.notes['stand_shot'] = (294, 340, c)
+    # N8 17.0-19.2 he slows over the grass and lifts it up to the stands
     e_h = [p_hov[0], p_hov[1] + 0.95, p_hov[2]]
-    pf = move(add(e_h, [-3.6, -0.3, 4.6]), add(e_h, [-3.9, -0.2, 4.0]), 294, 370)
-    sc.shot(294, 370, pf, smoothed(eye('viewer'), 6.0), ramp(52.0, 48.0, 294, 370), 6)
-    # S9 18.5-23 his team swoops in round him
-    pf = move(add(e_h, [12.0, 3.0, -4.0]), add(e_h, [11.0, 3.4, -1.5]), 370, 460)
-    sc.shot(370, 460, pf, const(add(e_h, [0.0, 0.6, 0.0])), ramp(58.0, 54.0, 370, 460), 6)
-    # S10 23-28 the crane up and out: the stands on their feet in the storm
+    pf = move(add(e_h, [-3.7, -0.25, 4.3]), add(e_h, [-3.9, -0.2, 4.0]), 340, 384)
+    sc.shot(340, 384, pf, smoothed(eye('viewer'), 6.0), ramp(50.0, 48.0, 340, 384), 6)
+    # N9 19.2-23 his team swoops in round him
+    pf = move(add(e_h, [12.0, 3.0, -4.0]), add(e_h, [11.0, 3.4, -1.5]), 384, 460)
+    sc.shot(384, 460, pf, const(add(e_h, [0.0, 0.6, 0.0])), ramp(58.0, 54.0, 384, 460), 6)
+    # N10 23-28 the crane up and out: the stands on their feet in the storm
     pf = move(add(e_h, [5.0, 1.0, 7.0]), add(e_h, [17.0, 22.0, 22.0]), 460, 560)
     sc.shot(460, 560, pf, const(add(e_h, [0.0, 0.5, 0.0])), ramp(56.0, 74.0, 460, 560), 6)
-    # S11 28-34 closer, among them: the Snitch held high
+    # N11 28-34 closer, among them: the Snitch held high
     pf = move(add(e_h, [-4.6, 1.8, -2.6]), add(e_h, [-4.3, 1.9, -1.9]), 560, 680)
     sc.shot(560, 680, pf, const(add(e_h, [0.0, 0.5, 0.0])), ramp(50.0, 46.0, 560, 680), 8)
-    # S12 34-40 his face, the rain on it, a slow push in as the memory closes
+    # N12 34-40 his face, the rain on it, a slow push in as the memory closes
     pf = move(add(e_h, [0.55, 0.05, 1.75]), add(e_h, [0.42, 0.03, 1.3]), 680, sc.L)
     sc.shot(680, sc.L, pf, const(e_h), ramp(46.0, 40.0, 680, sc.L), 8)
+    whoosh(sc, 'broom_viewer', 144, 180)            # down the column at us
+    whoosh(sc, 'broom_r_s', 180, 216)               # the rival past the falling camera
     whoosh(sc, 'broom_viewer', 216, 246)
     E_ = lambda aid: (lambda sc_, t: E.rider_eye(sc_, E.actor_by_id(sc_, aid), t))
-    sc.framing += [(4, 60, E_('viewer'), 'the boy hunting (S1)'),
-                   (66, 102, lambda sc_, t: ball_world(sc_, 'snitch', t), 'the Snitch (S2)'),
-                   (108, 126, E_('viewer'), 'his face (S3)'), (150, 178, E_('viewer'), 'the dive (S4)'),
-                   (184, 212, E_('viewer'), 'the boy diving (S5)'), (184, 212, E_('r_s'), 'the rival diving (S5)'),
-                   (226, 244, E_('viewer'), 'the pull-out (S6)'),
-                   (T4['fp'][0] + 2, T_C - 2, lambda sc_, t: ball_world(sc_, 'snitch', t), 'the Snitch (S7)'),
-                   (T_C - 3, T_C + 6, lambda sc_, t: hand(sc_, E.actor_by_id(sc_, 'viewer'), 'right_arm', t), 'his hand (S7)'),
-                   (298, 368, E_('viewer'), 'the boy (S8)'),
-                   (T4['raise'][1], 368, lambda sc_, t: hand(sc_, E.actor_by_id(sc_, 'viewer'), 'right_arm', t), 'the Snitch held up (S8)'),
-                   (374, 458, E_('viewer'), 'the boy (S9)'), (562, 678, E_('viewer'), 'the boy (S11)'),
-                   (684, T4['close'], E_('viewer'), 'his face (S12)')]
+    sc.framing += [(4, 60, E_('viewer'), 'the boy hunting (N1)'),
+                   (66, 102, lambda sc_, t: ball_world(sc_, 'snitch', t), 'the Snitch (N2)'),
+                   (108, 142, E_('viewer'), 'his face (N3)'), (150, 178, E_('viewer'), 'the dive (N4)'),
+                   (184, 212, E_('viewer'), 'the boy diving (N5)'), (184, 212, E_('r_s'), 'the rival diving (N5)'),
+                   (226, 244, E_('viewer'), 'the pull-out (N6)'),
+                   (T4['fp'][0] + 2, T_C - 2, lambda sc_, t: ball_world(sc_, 'snitch', t), 'the Snitch (N7)'),
+                   (T_C - 3, T_C + 6, lambda sc_, t: hand(sc_, E.actor_by_id(sc_, 'viewer'), 'right_arm', t), 'his hand (N7)'),
+                   (298, 338, lambda sc_, t: [c[0], c[1] + 1.0, c[2]], 'the stand erupting (N7b)'),
+                   (344, 382, E_('viewer'), 'the boy (N8)'),
+                   (T4['raise'][1], 382, lambda sc_, t: hand(sc_, E.actor_by_id(sc_, 'viewer'), 'right_arm', t), 'the Snitch held up (N8)'),
+                   (388, 458, E_('viewer'), 'the boy (N9)'), (562, 678, E_('viewer'), 'the boy (N11)'),
+                   (684, T4['close'], E_('viewer'), 'his face (N12)')]
 
 
 # ================================================================ the chain: wiring, budget, sizes, mirrors
@@ -4050,6 +4378,35 @@ def bites(built, lawn, pitch_w):
     bite('the Remembrall\'s path (a 3-block jump in flight)', L2_, jump_rem,
          lambda sc, m, P: check_ball_path(sc, m, P, 'remembrall', [sc.notes['malfoy_pick'], sc.notes['throw'],
                                                                    sc.notes['catch']]))
+
+    def spin_key(m, sc):
+        b = E.actor_by_id(m, 'broom_o_c2')
+        k = next(k for k in b['look'] if k['t'] >= 700)
+        k['yaw'] += 150.0
+    bite('yaw rate (one Flier look key turned 150 degrees)', L3_, spin_key, lambda sc, m, P: check_yaw_rates(sc, m, P))
+
+    def rival_dives_on(m, sc):
+        b = E.actor_by_id(m, 'broom_r_s')
+        k = min(b['path'], key=lambda k: abs(k['t'] - 260))
+        k['pos'] = [k['pos'][0], k['pos'][1] - 3.0, k['pos'][2]]
+    bite('7 the rival stays out of the dive (a key 3 lower at 260)', L4_, rival_dives_on,
+         lambda sc, m, P: check_moments_snitch(sc, m, P))
+
+    def strikes_behind(m, sc):
+        for e in m['events']:
+            if e.get('id') == 'lightning':
+                c = E.engine_cam(m['camera'], e['t'])
+                lk, _ = E.engine_look(m, m['camera'], e['t'])
+                d = norm([c[0] - lk[0], 0.0, c[2] - lk[2]])
+                e['at'] = [round(c[0] + d[0] * 140), 0, round(c[2] + d[2] * 140)]
+    bite('lightning on screen (every strike behind the camera)', L3_, strikes_behind,
+         lambda sc, m, P: check_lightning(sc, m, P))
+
+    def stand_away(m, sc):
+        for k in m['camera']:
+            if 296 <= k['t'] <= 340:
+                k['look_at'] = [0.0, 60.0, 0.0]
+    bite('framing (the cutaway to the stand looks away)', L4_, stand_away, lambda sc, m, P: check_framing(sc, m, P))
 
     def short_chase(m, sc):
         m['length'] = 100

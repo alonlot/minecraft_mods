@@ -17,7 +17,7 @@ flying_scene.py's MUSIC_SLOTS cue them at these scene times:
   flying_lesson   flying_<h> t 2.0, source 0.0: the quiet woodwind opening under Madam Hooch's lesson and the
                   "Up!" chorus; the track's first hit (source 28.0, -30 to -16 LUFS) lands on Neville's broom
                   bolting (t 30.2), its frantic run under the bucking, the fall and "Nobody moves!"
-  flying_chase    flying_<h>_chase t 0.0, source 126.4: the chase section; its peak (source 150-152) under the
+  flying_chase    flying_<h>_chase t 0.0, source 126.05: the chase section; its peak (source 150-152) under the
                   dive and the big hit at source 156.0 on the catch (t 29.6); the hit at 163.0 on McGonagall's
                   "You. With me. Now." (t 36.3)
   flying_match    flying_<h>_match t 0.0, source 3.5: the brooding storm intro under the waiting team and the
@@ -42,7 +42,7 @@ OUT = os.path.join(REPO, 'src', 'main', 'resources', 'assets', 'hogwartsmagic', 
 # cue: (source file, start s, end s, fade in s, fade out s); end = start + (scene length - cue t) + 1 s overlap
 CUES = {
     'flying_lesson': ('mr_longbottom_flies', 0.0, 42.0, 0.8, 2.0),
-    'flying_chase': ('mr_longbottom_flies', 126.4, 167.9, 1.5, 2.0),
+    'flying_chase': ('mr_longbottom_flies', 126.05, 167.55, 1.5, 2.0),
     'flying_match': ('quidditch_third_year', 3.5, 54.5, 1.0, 2.0),
     'flying_snitch': ('the_quidditch_match', 444.0, 484.0, 0.6, 3.0),
 }

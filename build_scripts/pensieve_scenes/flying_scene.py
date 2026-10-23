@@ -747,6 +747,7 @@ def lesson(h, world):
     sc.ev(0, 'effect', 'sky', at=r3(LA['lawn_centre']), style='day')
     sc.sfx(0, 'lawn_air', 0.55, loop=True)
     scene = sc.scene(LAWN_SET, FL.RADIUS, nxt='flying_%s_chase' % h, fog_far=FL.FOG_FAR)
+    sc.notes.update(lawn=True, moments=[check_moments_lesson], ball_paths=[('remembrall', [tk(T1['land'])])])
     return sc, scene
 
 
@@ -1044,12 +1045,13 @@ def lesson_hooch(sc, hooch, hrig, S):
     for t, y in path_yaws(path.k, T_LEAVE + 4, sc.L, 8, look[-1][1]):
         look.append((t, y, 4.0))
     a['look'] = [{'t': t, 'yaw': round(y, 2), 'pitch': round(pi, 2)} for t, y, pi in look]
+    talk = lambda line: tk(T1[line] + float(CLIP['flying_hooch_' + line]) - 0.2)    # she gestures while she speaks
     a['anims'] = [{'t': tk(T1['welcome']), 'name': 'TALK', 'blend': 6},
-                  {'t': tk(T1['welcome'] + 4.6), 'name': 'IDLE', 'blend': 8},
+                  {'t': talk('welcome'), 'name': 'IDLE', 'blend': 8},
                   {'t': tk(T1['left']), 'name': 'TALK', 'blend': 6},
-                  {'t': tk(T1['left'] + 5.6), 'name': 'IDLE', 'blend': 8},
+                  {'t': talk('left'), 'name': 'IDLE', 'blend': 8},
                   {'t': tk(T1['up']), 'name': 'TALK', 'blend': 6},
-                  {'t': tk(T1['up'] + 4.4), 'name': 'IDLE', 'blend': 8}]
+                  {'t': talk('up'), 'name': 'IDLE', 'blend': 8}]
     a['actions'] = [{'t': tk(T1['kneel']), 'do': 'sneak'}, {'t': T_STAND, 'do': 'stand'}]
     # the whistle to her lips as the class waits mounted; down again when Neville's broom moves
     w0, w1 = tk(T1['whistle'][0]), tk(T1['whistle'][1])
@@ -1096,7 +1098,9 @@ def lesson_remembrall(sc, S):
     drop = [LA['remembrall_drop'][0], r, LA['remembrall_drop'][2]]
     rest = [-6.4, r, 37.3]
     k = Keys().at(0, PARK_LAWN).hold(T_LAND - 0.25)
-    k.at(T_LAND, pocket, 'linear')
+    # the jump out of the park is an in_out key: the spline run after it then starts from rest (a `linear` key
+    # would hand the run the jump's own speed, 150 blocks a tick, and fling the ball 40 blocks up)
+    k.at(T_LAND, pocket)
     for dt in (2, 4, 6, 8):
         f = dt / 10.0
         q = lerp(pocket, drop, f)
@@ -1244,7 +1248,7 @@ def check_clearance(sc, scene, problems):
                 return best
             best = [d, t, b['id']]
         for b in balls:
-            bp = E.track_sample(b['path'], t)
+            bp = ball_world(scene, b['id'], t)
             rad = E.ball_radius(b['type'], b.get('scale', 1.0)) if E.is_ball(b['type']) else 0.15 * b.get('scale', 1.0)
             d = math.dist(bp, c) - rad
             if d >= best[0] and d >= E.CAM_CLEAR:
@@ -1292,7 +1296,7 @@ def contact_target(scene, spec, t):
     if kind == 'broom':
         return broom_point(scene, spec[1], t, spec[2])
     if kind == 'ball':
-        return E.track_sample(E.actor_by_id(scene, spec[1])['path'], t)[:3]
+        return ball_world(scene, spec[1], t if len(spec) < 3 else spec[2])
     if kind == 'mouth':
         return mouth(scene, E.actor_by_id(scene, spec[1]), t)
     if kind == 'point':
@@ -1358,10 +1362,11 @@ def check_items(sc, scene, problems):
         for side in ('right_arm', 'left_arm'):
             prev = None
             for t in range(t0, t1 + 1):
+                cam = E.engine_cam(scene['camera'], t)
                 h = hand(scene, a, side, t)
+                rel = sub(h, cam)                       # the hand as the viewer sees it: relative to his own eye
                 if prev is not None:
-                    st = math.dist(h, prev)
-                    cam = E.engine_cam(scene['camera'], t)
+                    st = math.dist(rel, prev)
                     lk = E.engine_look(scene, scene['camera'], t)
                     if E.in_view(cam, lk[0], lk[1], h) and math.dist(cam, h) < 1.5:
                         worst[1] = max(worst[1], st)
@@ -1369,7 +1374,7 @@ def check_items(sc, scene, problems):
                             problems.append('%s: %s %s hand moves %.3f in one tick at t %d in a first-person close-up' % (
                                 sc.sid, aid, side, st, t))
                             break
-                prev = h
+                prev = rel
     return worst
 
 
@@ -1620,13 +1625,12 @@ def eye_fn(scene, aid, up=0.0):
     return f
 
 
-def first_person(sc, scene, aid, t0, t1, fwd=0.2, dist=2.5, fov=72.0, step=2, look_fn=None):
+def first_person(sc, scene, aid, t0, t1, fwd=0.2, dist=2.5, fov=72.0, step=2, look_fn=None, sigma=0.0):
     """A first-person shot at the actor's posed eye (fwd blocks out of his face), looking where his head looks
-    (or at look_fn(t)); the head is exempt from the clearance check inside the shot."""
+    (or at look_fn(t)); the head is exempt from the clearance check inside the shot. `sigma` (ticks) steadies the
+    eye a little (a flier's lean and bank), as a camera operator would."""
     a = E.actor_by_id(scene, aid)
-
-    def cam(t):
-        return head_eye(scene, a, t, fwd)
+    cam = smoothed(lambda t: head_eye(scene, a, t, fwd), sigma)
 
     def look(t):
         if look_fn:
@@ -1749,3 +1753,820 @@ def check_framing(sc, scene, problems):
                 problems.append('%s: %s is out of frame at t %d' % (sc.sid, label, t))
                 break
     return n
+
+
+# ================================================================ the chase: flying_<h>_chase
+L2 = 40.5
+T2 = {'turn': (1.0, 1.6), 'walk': (1.6, 2.6), 'bend': (2.6, 3.2), 'pick': 3.2, 'look': 3.9, 'back': (6.2, 7.4),
+      'm_mount': 9.0, 'm_up': (10.0, 12.2), 'come': 12.5, 'v_off': 14.4, 'flee': 16.6, 'cornered': 24.4,
+      'fetch': 24.5, 'throw': 26.4, 'reach': (26.5, 29.0), 'catch': 29.6, 'land': 33.0, 'mcg_in': 28.6,
+      'mcg_turn': 34.4, 'mcg_gone': 35.0, 'mcg_door': 35.2, 'follow': 36.3}
+DOOR = LA['hospital_exit']
+MCG = LA['mcg_window']
+REM_REST = [-6.4, E.ball_radius(REMEMBRALL, KID) + 0.002, 37.3]   # where the lesson leaves the Remembrall
+
+# Malfoy's flight (seconds, seat point): from his hover over the west row away north into chase_box, round in a
+# climbing U-turn to a stand-off facing back south; the boy's, a beat behind on the inside of his line.
+MALFOY_FLIGHT = [(16.6, [-6.5, 7.2, 34.0]), (17.6, [-6.8, 8.4, 29.4]), (18.6, [-5.6, 10.4, 21.8]),
+                 (19.6, [-2.4, 12.4, 12.8]), (20.6, [2.6, 14.0, 3.6]), (21.6, [7.4, 15.4, -5.2]),
+                 (22.6, [10.2, 16.4, -13.4]), (23.4, [7.4, 17.0, -18.6]), (24.0, [3.2, 17.0, -18.3]),
+                 (24.3, [1.9, 16.95, -17.3]), (24.6, [1.4, 16.9, -16.8]), (24.9, [1.25, 16.9, -16.65])]
+VIEWER_CHASE = [(16.6, [-1.0, 6.8, 31.2]), (17.6, [-3.6, 8.0, 27.6]), (18.6, [-3.4, 9.8, 21.4]),
+                (19.6, [-0.8, 11.6, 13.6]), (20.6, [3.2, 13.2, 5.6]), (21.6, [7.0, 14.6, -2.2]),
+                (22.6, [8.6, 15.6, -8.0]), (23.4, [6.4, 16.1, -11.0]), (23.8, [4.6, 16.25, -11.1]),
+                (24.1, [3.6, 16.3, -11.0]), (24.4, [3.1, 16.3, -10.85]), (24.8, [3.0, 16.3, -10.8])]
+# the dive: at the throw he wheels off the stand-off into the Remembrall's own line by FP0 and runs down it,
+# DIVE_LAG ticks of its travel behind it, closing to nothing at the catch (its flight under REM_G, a light glass
+# ball hurled down at the lawn); then the pull-out two blocks over the grass and the glide down the aisle
+FP0, DIVE_LAG, REM_G = 560, 7.0, 0.002
+V_LAND = (660, [0.0, 0.0, 33.2], -4.0)          # tick, his feet in the aisle, the broom's yaw
+PARK_MCG = [-30.0, -30.0, 40.0]
+REACH_LOCAL = [-0.17, 0.42, 0.68]               # the catching hand, forward down the broom (broom frame)
+RAISE_LOCAL = [-0.21, 0.77, 0.24]               # held up high
+
+
+def ball_world(scene, bid, t):
+    """A ball's centre in the world at tick t: its own path, or the broom frame it rides in (rider_root)."""
+    return E.rider_root(scene, E.actor_by_id(scene, bid), t)[0]
+
+
+def final_state(scene, aid, t=None):
+    a = E.actor_by_id(scene, aid)
+    t = scene['length'] if t is None else t
+    if E.is_broom(a):
+        b = E.broom_pose(scene, a, t)
+        return {'pos': list(E.track_sample(a['path'], t)), 'yaw': b['yaw'], 'pitch': b['pitch'], 'roll': b['roll']}
+    root, m = E.rider_root(scene, a, t)
+    yaw, pitch = (E.own_sample(a, 'look', t) or [0.0, 0.0, 0.0])[:2]
+    return {'pos': root, 'yaw': yaw, 'pitch': pitch, 'riding': m is not None}
+
+
+def flight_look(b, t0, t1, start_yaw, step=4):
+    """Look keys for a flying broom from its own path: the heading and the climb (the mirror's), unwrapped, spline;
+    the roll stays the auto-bank (a broom made with roll_keys False)."""
+    prev = unwrap(start_yaw, b.yaw())
+    b.hold_look(t0)
+    for t in range(t0 + step, t1 + 1, step):
+        hd = unwrap(E.broom_heading(b.path.k, t), prev)
+        prev = hd
+        b.turn(t, hd, E.broom_climb(b.path.k, t), 0.0, 'spline')
+    return prev
+
+
+def rel_look(scene, rider, t, target, max_pitch=60.0):
+    """(yaw, pitch) of a broom rider's look (relative to the broom) toward a world point, the head turn clamped."""
+    a = E.actor_by_id(scene, rider)
+    v = E.broom_rider_at(scene, a, t)
+    b = E.broom_pose(scene, v, t)
+    root = E.rider_root(scene, a, t)[0]
+    eye = [root[0], root[1] + 1.2 * a.get('scale', 1.0), root[2]]
+    d = sub(target, eye)
+    yw = unwrap(yaw_to(d[0], d[2]) - b['yaw'], 0.0)
+    yw = max(-E.HEAD_TURN + 3, min(E.HEAD_TURN - 3, yw))
+    pi = -math.degrees(math.atan2(d[1], math.hypot(d[0], d[2]))) - b['pitch']
+    return yw, max(-max_pitch, min(max_pitch, pi))
+
+
+def aim_rider(sc, rider, keys, t0, t1, target_fn, step=6, max_pitch=60.0, gain=1.0):
+    """Spline look keys (relative) for a rider from t0 to t1, his head on target_fn(t), a world point; at rest
+    at t1. A hold key at t0 first (a spline run straight after a hold overshoots)."""
+    V = view(sc)
+    if keys and t0 > keys[-1]['t'] + 1e-9:
+        keys.append({'t': t0, 'yaw': keys[-1]['yaw'], 'pitch': keys[-1]['pitch']})
+    n = max(1, int(round((t1 - t0) / float(step))))
+    for i in range(1, n + 1):
+        t = t0 + (t1 - t0) * i / n
+        yw, pi = rel_look(V, rider, t, target_fn(t), max_pitch)
+        k = {'t': round(t, 3), 'yaw': round(yw * gain, 2), 'pitch': round(pi * gain, 2)}
+        if i < n:
+            k['ease'] = 'spline'
+        keys.append(k)
+    return keys
+
+
+def world_look(sc, aid, keys, t0, t1, target_fn, step=12, body=None, span=None, max_pitch=40.0):
+    """Spline look keys (world) for someone on his feet from t0 to t1 toward target_fn(t); the turn kept within
+    `span` of `body` when given."""
+    V = view(sc)
+    a = E.actor_by_id(V, aid)
+    if keys and t0 > keys[-1]['t'] + 1e-9:
+        keys.append({'t': t0, 'yaw': keys[-1]['yaw'], 'pitch': keys[-1]['pitch']})
+    n = max(1, int(round((t1 - t0) / float(step))))
+    prev = keys[-1]['yaw']
+    for i in range(1, n + 1):
+        t = t0 + (t1 - t0) * i / n
+        p = E.sample_path(a['path'], t) if not isinstance(a.get('ride'), dict) else E.own_sample(a, 'path', t)
+        d = sub(target_fn(t), [p[0], p[1] + 1.2 * a.get('scale', 1.0), p[2]])
+        yw = unwrap(yaw_to(d[0], d[2]), prev)
+        if body is not None and span is not None:
+            yw = body + max(-span, min(span, unwrap(yw, body) - body))
+        prev = yw
+        pi = -math.degrees(math.atan2(d[1], math.hypot(d[0], d[2])))
+        k = {'t': round(t, 3), 'yaw': round(yw, 2), 'pitch': round(max(-max_pitch, min(max_pitch, pi)), 2)}
+        if i < n:
+            k['ease'] = 'spline'
+        keys.append(k)
+    return keys
+
+
+def chase(h, world, lesson_scene):
+    sc = Sc('flying_%s_chase' % h, 'The Remembrall', L2, world, h)
+    people = lesson_people(h)
+    P = {p['id']: p for p in people}
+    LS = lesson_scene
+    mounted = ('viewer', 'e1', 'e7', 'w3', 'w6')
+    sc.notes['mounted'] = mounted
+    # ---- the brooms where the lesson left them (Neville's has flown off for good)
+    B = {}
+    for p in people:
+        if p['id'] == 'neville':
+            continue
+        f = final_state(LS, 'broom_' + p['id'])
+        B[p['id']] = Broom(sc, 'broom_' + p['id'], f['pos'], f['yaw'], roll_keys=p['id'] not in ('viewer', 'malfoy'))
+        if p['id'] not in mounted:
+            sc.lying.append(('broom_' + p['id'], None))
+    # ---- the class
+    S, R, ACT = {}, {}, {}
+    for p in people:
+        aid = p['id']
+        if aid == 'neville':
+            continue
+        a = student_actor(sc, p)
+        S[aid], R[aid], ACT[aid] = a, Rig(), []
+        f = final_state(LS, aid)
+        if aid in mounted:
+            a['ride'] = 'broom_' + aid
+            a['path'] = [{'t': 0, 'pos': r4(E.rider_seat(KID))}]
+            lf = E.own_sample(E.actor_by_id(LS, aid), 'look', LS['length'])
+            a['look'] = [{'t': 0, 'yaw': round(lf[0], 2), 'pitch': round(lf[1], 2)}]
+        else:
+            a['path'] = Keys().at(0, f['pos']).k
+            a['look'] = [{'t': 0, 'yaw': round(f['yaw'], 2), 'pitch': round(f['pitch'], 2)}]
+    nev = sc.actor({'id': 'neville', 'type': 'player', 'scale': KID, 'skin': {'texture': P['neville']['skin']},
+                    'items': {'chest': robes('gryffindor')}})
+    hooch = sc.actor({'id': 'hooch', 'type': 'player', 'skin': {'texture': 'witch_05'}, 'items': {'mainhand': WHISTLE}})
+    mcg = sc.actor({'id': 'mcgonagall', 'type': 'player', 'skin': {'texture': 'mcgonagall'}})
+    chase_walkers(sc, LS, nev, hooch)
+    chase_malfoy(sc, P, B, S, R, ACT)
+    chase_viewer(sc, P, B, S, R, ACT)
+    chase_remembrall(sc, S)
+    chase_mcgonagall(sc, mcg)
+    chase_class(sc, people, P, B, S, R, ACT)
+    for aid, a in S.items():
+        if ACT[aid]:
+            a['actions'] = sorted(ACT[aid], key=lambda x: x['t'])
+        refresh(a, R[aid])
+    raise_steps_standing(view(sc), S['malfoy'])
+    for b in B.values():
+        b.sync()
+    chase_camera(sc, P, B, S)
+    sc.ev(0, 'effect', 'sky', at=r3(LA['lawn_centre']), style='day')
+    sc.sfx(0, 'lawn_air', 0.55, loop=True)
+    scene = sc.scene(LAWN_SET, FL.RADIUS, nxt='flying_%s_match' % h, fog_far=FL.FOG_FAR)
+    sc.notes.update(lawn=True, moments=[check_moments_chase],
+                    ball_paths=[('remembrall', [sc.notes['malfoy_pick'], sc.notes['throw'], sc.notes['catch']])],
+                    dives=[('broom_viewer', 'viewer', 548, tk(T2['catch']) + 20, LAWN_Y)])
+    return sc, scene
+
+
+def chase_walkers(sc, LS, nev, hooch):
+    """Hooch leads Neville on to the hospital wing and in: through the door by 12 s, out of sight in the dark
+    vestibule from 14.5 (Hooch is away for the whole chase)."""
+    door, inside = DOOR['door'], DOOR['inside']
+    for a, side in ((hooch, 0.75), (nev, -0.75)):
+        f = final_state(LS, a['id'])
+        k = Keys().at(0, f['pos'])
+        k.through([(60, [-16.4 + side * 0.83, 0.0, 47.0 + side * 0.55]),
+                   (130, [-19.4 + side * 0.9, 0.0, 54.8 + side * 0.4]),
+                   (200, [door[0] + 1.5, 0.0, door[2] + side]), (240, [door[0] - 2.0, 0.0, door[2] + side]),
+                   (300, [inside[0] + 3.0, 0.0, inside[2] + side])])
+        a['path'] = k.k
+        lk = [{'t': 0, 'yaw': round(f['yaw'], 2), 'pitch': 6.0}]
+        for t, y in path_yaws(k.k, 8, 296, 8, f['yaw']):
+            lk.append({'t': t, 'yaw': round(y, 2), 'pitch': 6.0})
+        a['look'] = lk
+        sc.hidden.setdefault(a['id'], []).append((290, sc.L))
+    sc.notes['hooch_away'] = 0
+    nr = Rig()
+    nr.r('right_arm').set(0, [-38, 0, 14], None)
+    nr.r('left_arm').set(0, [-52, -18, -24], None)
+    nr.r('head').set(0, [10, 0, 0], None)
+    refresh(nev, nr)
+
+
+def chase_malfoy(sc, P, B, S, R, ACT):
+    p, b, a, rg = P['malfoy'], B['malfoy'], S['malfoy'], R['malfoy']
+    spot = list(a['path'][0]['pos'])
+    rest = REM_REST
+    t_turn0, t_turn1 = tk(T2['turn'][0]), tk(T2['turn'][1])
+    t_w0, t_w1 = tk(T2['walk'][0]), tk(T2['walk'][1])
+    T_PICK = tk(T2['pick'])
+    stand = [rest[0] + 0.6, 0.0, rest[2] + 0.12]          # facing west, the ball just ahead and to his right
+    k = Keys().at(0, spot).hold(t_w0)
+    k.through([(t_w1, stand)])
+    y0 = a['look'][0]['yaw']
+    west = unwrap(90.0, y0)
+    look = [{'t': 0, 'yaw': y0, 'pitch': 5.0}, {'t': t_turn0, 'yaw': y0, 'pitch': 10.0},
+            {'t': t_turn1, 'yaw': round(west, 2), 'pitch': 30.0}]
+    a['path'] = k.k
+    a['look'] = look
+    # the bend: crouch, the torso pitched forward about the hips, the right hand down to the ball
+    tb0, tb1 = tk(T2['bend'][0]), tk(T2['bend'][1])
+    ACT['malfoy'] += [{'t': tb0, 'do': 'sneak'}, {'t': T_PICK + 8, 'do': 'stand'}]
+    a['actions'] = list(ACT['malfoy'])
+    bp = bend_pose(70.0)
+    for part, (rot, off) in bp.items():
+        if part != 'right_arm':
+            rg.r(part).to(tb0, tb1, rot if part != 'head' else [-25, 0, 0])
+        rg.o(part).to(tb0, tb1, off)
+    refresh(a, rg)
+    res = reach(sc, a, rg, 'right_arm', tb0, tb1, rest)
+    assert res < 0.05, res
+    rg.r('right_arm').to(T_PICK, T_PICK + 1, rg.r('right_arm').v())
+    refresh(a, rg)
+    sc.contacts.append(('malfoy: the Remembrall off the grass', 'malfoy', 'right_arm', T_PICK,
+                        ('point', list(rest)), 'pick'))
+    ACT['malfoy'].append({'t': T_PICK, 'do': 'hold', 'item': REMEMBRALL_ITEM})
+    sc.notes['malfoy_pick'] = T_PICK
+    # up again, holding it up to the light to look at it, then back to his broom
+    tu1 = T_PICK + 14
+    for part, (rot, off) in bp.items():
+        if part != 'right_arm':
+            rg.r(part).to(T_PICK + 2, tu1, [0, 0, 0])
+        rg.o(part).to(T_PICK + 2, tu1, [0, 0, 0])
+    refresh(a, rg)
+    T_LOOK = tk(T2['look'])
+    rg.r('right_arm').to(T_PICK + 2, T_LOOK, [-105, 0, 10])
+    look += [{'t': T_PICK + 4, 'yaw': round(west, 2), 'pitch': 20.0},
+             {'t': T_LOOK, 'yaw': round(west + 8, 2), 'pitch': -12.0}]
+    tb_0, tb_1 = tk(T2['back'][0]), tk(T2['back'][1])
+    k.hold(tb_0)
+    k.through([(tb_1, spot)])
+    east = unwrap(-90.0, west + 8)
+    look += [{'t': tb_0 - 4, 'yaw': round(west + 8, 2), 'pitch': -5.0},
+             {'t': tb_0 + 10, 'yaw': round(east, 2), 'pitch': 5.0}, {'t': tb_1, 'yaw': round(east, 2), 'pitch': 5.0}]
+    rg.r('right_arm').to(tb_0 - 6, tb_0 + 6, [-40, 0, 8])
+    sc.say(T_LOOK, 'flying_malfoy_look')
+    # the mount (out of shot: the boy's close-up), the kick-off and the rise, backward, facing the class
+    tm = tk(T2['m_mount'])
+    under = broom_under(spot, p['broom_yaw'], KID)
+    b.path.hold(tm - 10)
+    b.hold_look(tm - 10)
+    b.path.at(tm, under)
+    b.turn(tm, p['broom_yaw'], 0.0)
+    sc.flier_ok.setdefault(b.id, []).append((tm - 10, tm + 4))
+    rg.r('right_arm').to(tm - 10, tm, [0, 0, 0])
+    a['ride'] = {'on': b.id, 'from': tm}
+    k.hold(tm - 0.001).at(tm, E.rider_seat(KID))
+    look.append({'t': tm - 0.001, 'yaw': round(east, 2), 'pitch': 5.0})
+    look.append({'t': tm, 'yaw': 0.0, 'pitch': 5.0})
+    tu0, tu1_ = tk(T2['m_up'][0]), tk(T2['m_up'][1])
+    hover = MALFOY_FLIGHT[0][1]
+    b.path.hold(tu0)
+    arc = lambda t: add(lerp(under, hover, smoother((t - tu0) / float(tu1_ - tu0))),
+                        [0.0, 0.0, 0.0])
+    b.path.run(tu0, tu1_, arc, 4)
+    b.hold_look(tu0)
+    b.turn(tu0 + 14, p['broom_yaw'] + 8, -12.0)
+    b.turn(tu0 + 28, p['broom_yaw'] + 4, -8.0)
+    b.turn(tu1_, p['broom_yaw'], 0.0)
+    # the taunt: he holds it up over his head at the class
+    T_COME = tk(T2['come'])
+    rg.r('right_arm').to(tu1_ - 8, T_COME, [-135, 0, 12])
+    rg.r('right_arm').to(T_COME + 36, T_COME + 46, [-70, 0, 10])
+    look += [{'t': tu0, 'yaw': 0.0, 'pitch': 5.0}, {'t': tu1_, 'yaw': 0.0, 'pitch': 14.0},
+             {'t': T_COME, 'yaw': 0.0, 'pitch': 4.0}]
+    sc.say(T_COME, 'flying_malfoy_come')
+    # away north as the boy comes up at him, through chase_box, round to face him
+    T_FLEE = tk(T2['flee'])
+    b.path.hold(T_FLEE)
+    b.hold_look(T_FLEE)
+    b.path.through([(tk(t), q) for t, q in MALFOY_FLIGHT[1:]])
+    rg.r('right_arm').to(T_FLEE - 6, T_FLEE + 6, [0, 0, 0])
+    T_CORNER = tk(T2['cornered'])
+    sc.notes['malfoy'] = {'hover': (tu1_, T_FLEE), 'taunt_end': T_FLEE + 6, 'cornered': T_CORNER, 'mount': tm}
+    last = flight_look(b, T_FLEE, T_CORNER - 8, b.yaw())
+    vb, mb = VIEWER_CHASE[-1][1], MALFOY_FLIGHT[-1][1]
+    face = unwrap(yaw_to(vb[0] - mb[0], vb[2] - mb[2]), last)
+    b.turn(T_CORNER, face, 0.0)
+    look += [{'t': T_FLEE, 'yaw': 0.0, 'pitch': 4.0}, {'t': T_FLEE + 12, 'yaw': 55.0, 'pitch': -8.0},
+             {'t': T_FLEE + 26, 'yaw': 0.0, 'pitch': 5.0}, {'t': T_CORNER - 30, 'yaw': 0.0, 'pitch': 5.0},
+             {'t': T_CORNER - 14, 'yaw': -60.0, 'pitch': 0.0}, {'t': T_CORNER, 'yaw': 0.0, 'pitch': 0.0}]
+    # "Go on, then. Fetch!" and the throw, past the boy toward the lawn
+    T_THROW = tk(T2['throw'])
+    sc.say(tk(T2['fetch']), 'flying_malfoy_catch')
+    rg.r('right_arm').to(T_CORNER + 2, T_CORNER + 14, [-125, 0, 12])          # holding it up, teasing
+    rg.r('right_arm').to(T_THROW - 14, T_THROW - 5, [-175, 0, 22])            # the wind-up, back over the shoulder
+    rg.r('right_arm').to(T_THROW - 5, T_THROW, [-95, 0, 6], 'in')             # over the top, the release
+    rg.r('right_arm').to(T_THROW + 4, T_THROW + 16, [0, 0, 0])
+    ACT['malfoy'].append({'t': T_THROW, 'do': 'hold', 'item': 'minecraft:air'})
+    look += [{'t': T_THROW - 16, 'yaw': 0.0, 'pitch': 0.0}, {'t': T_THROW + 8, 'yaw': 20.0, 'pitch': 25.0},
+             {'t': T_THROW + 40, 'yaw': 10.0, 'pitch': 30.0}]
+    sc.notes['throw'] = T_THROW
+    # then back down to the lawn, well out of the boy's way, landing west of the west row
+    land = broom_under([-8.0, 0.0, 41.0], 0.0, KID)
+    land[1] += 0.05
+    b.path.hold(T_THROW + 18)
+    b.hold_look(T_THROW + 18)
+    b.path.through([(T_THROW + 60, [-3.0, 14.0, -12.0]), (T_THROW + 110, [-10.0, 9.0, 12.0]),
+                    (T_THROW + 160, [-11.0, 3.0, 32.0]), (T_THROW + 200, land)])
+    flight_look(b, T_THROW + 18, T_THROW + 188, b.yaw())
+    b.turn(T_THROW + 200, unwrap(0.0, b.yaw()), 0.0)
+    sc.flier_ok.setdefault(b.id, []).append((T_THROW + 180, sc.L))
+    sc.speed_ok.setdefault(b.id, []).append((tu0, tu1_ + 2, 'the kick-off from the grass'))
+    a['path'] = k.k
+    a['look'] = sorted(look, key=lambda x: x['t'])
+    refresh(a, rg)
+    b.sync()
+
+
+def hermite(p0, v0, p1, v1, t0, t1):
+    """A cubic from p0 (velocity v0, blocks a tick) at t0 to p1 (v1) at t1."""
+    dt = float(t1 - t0)
+
+    def f(t):
+        u = (t - t0) / dt
+        h00, h10, h01, h11 = 2 * u ** 3 - 3 * u ** 2 + 1, u ** 3 - 2 * u ** 2 + u, -2 * u ** 3 + 3 * u ** 2, u ** 3 - u ** 2
+        return [h00 * p0[i] + h10 * dt * v0[i] + h01 * p1[i] + h11 * dt * v1[i] for i in range(3)]
+    return f
+
+
+def parabola(p0, p1, t0, t1, g):
+    """A ball from p0 at t0 to p1 at t1 under gravity g (blocks a tick squared)."""
+    n = float(t1 - t0)
+    v0 = [(p1[i] - p0[i]) / n for i in range(3)]
+    v0[1] += 0.5 * g * n
+
+    def f(t):
+        s = t - t0
+        return [p0[0] + v0[0] * s, p0[1] + v0[1] * s - 0.5 * g * s * s, p0[2] + v0[2] * s]
+    return f
+
+
+def chase_viewer(sc, P, B, S, R, ACT):
+    """The boy: astride for the whole scene. He watches Malfoy, kicks off after him, follows him round, faces him;
+    at the throw he wheels and plunges down the Remembrall's own line, closing on it (first person), takes it out of
+    the air two blocks over the grass, pulls out and glides down the aisle between the two rows to land."""
+    V = view(sc)
+    p, b, a, rg = P['viewer'], B['viewer'], S['viewer'], R['viewer']
+    start = list(b.path.last())
+    T_OFF, T_CORNER, T_THROW = tk(T2['v_off']), tk(T2['cornered']), tk(T2['throw'])
+    T_C = tk(T2['catch'])
+    mal = eye_fn(V, 'malfoy')
+    # the kick-off and the chase
+    b.path.hold(T_OFF)
+    b.hold_look(T_OFF)
+    rise = [(T_OFF + 12, [start[0] - 0.5, start[1] + 1.0, start[2] + 0.5]),
+            (T_OFF + 28, [1.6, 4.2, 30.4])] + [(tk(t), q) for t, q in VIEWER_CHASE]
+    b.path.through(rise)
+    b.turn(T_OFF + 6, b.yaw(), -25.0)
+    last = flight_look(b, T_OFF + 6, T_CORNER - 8, b.yaw())
+    mb = MALFOY_FLIGHT[-1][1]
+    vs = VIEWER_CHASE[-1][1]
+    face = unwrap(yaw_to(mb[0] - vs[0], mb[2] - vs[2]), last)
+    b.turn(T_CORNER, face, 0.0)
+    b.path.hold(T_THROW + 4)
+    b.hold_look(T_THROW + 4)
+    sc.notes['viewer_off'] = T_OFF
+    base_path, base_look = copy.deepcopy(b.path.k), copy.deepcopy(b.look)
+    # the dive and the catch, solved round the ball's flight: the ball's line ends in his hand, his broom runs
+    # down that line DIVE_LAG ticks of the ball's travel behind it at FP0, closing to nothing at the catch
+    p0 = hand(V, E.actor_by_id(V, 'malfoy'), 'right_arm', T_THROW)
+    t1 = T_C - 0.25
+    C = [-0.6, 4.0, 12.0]
+    Hoff = [0.0, 0.0, 0.7]
+    r0, r1 = tk(T2['reach'][0]), tk(T2['reach'][1])
+    land_at, feet, land_yaw = V_LAND
+    for _ in range(4):
+        b.path.k[:] = copy.deepcopy(base_path)
+        b.look[:] = copy.deepcopy(base_look)
+        fly = parabola(p0, C, T_THROW, T_C, REM_G)
+        lag = lambda t: DIVE_LAG * (T_C - t) / float(T_C - FP0)
+        line = lambda t: sub(fly(t - lag(t)), Hoff)
+        vel = lambda t: [(line(t)[i] - line(t - 1.0)[i]) for i in range(3)]
+        # off the stand-off (at rest) into the line by FP0
+        entry = hermite(vs, [0.0, 0.0, 0.0], line(FP0), vel(FP0), T_THROW + 4, FP0)
+        for t in range(T_THROW + 8, FP0, 4):
+            b.path.at(t, entry(t), 'spline')
+        for t in range(FP0, T_C + 1, 4):
+            b.path.at(t, line(t), 'spline')
+        # on down the line a beat past the catch, out of the dive just over the grass, then down the aisle
+        vc = vel(T_C)
+        ext = lambda t: add(line(T_C), vc, t - T_C)
+        T_P = T_C + 4
+        for t in (T_C + 2, T_P):
+            b.path.at(t, ext(t), 'spline')
+        hz = norm([vc[0], 0.0, vc[2]])
+        bottom = [ext(T_P)[0] + hz[0] * 10.5, 1.48, ext(T_P)[2] + hz[2] * 10.5]
+        pull = hermite(ext(T_P), vc, bottom, [hz[0] * 0.5, 0.0, hz[2] * 0.5], T_P, T_P + 20)
+        for t in range(T_P + 4, T_P + 21, 4):
+            b.path.at(t, pull(t), 'spline')
+        lp = broom_under(feet, land_yaw, KID)
+        lp[1] += 0.05
+        glide = hermite(bottom, [hz[0] * 0.5, 0.0, hz[2] * 0.5], lp, [0.0, 0.0, 0.0], T_P + 20, land_at)
+        ts = list(range(T_P + 24, land_at - 3, 4))
+        for t in ts:
+            b.path.at(t, glide(t), 'spline')
+        b.path.at(land_at, lp)
+        hd = unwrap(E.broom_heading(b.path.k, T_THROW + 16), face)
+        b.turn(T_THROW + 16, hd, 25.0)
+        last = flight_look(b, T_THROW + 16, land_at - 12, hd)
+        b.turn(land_at, unwrap(land_yaw, last), 0.0)
+        b.sync()
+        # his right hand off the handle, forward into the ball's line; held up high once he has it
+        rg.rot.pop('right_arm', None)
+        refresh(a, rg)
+        res = reach(sc, a, rg, 'right_arm', r0, r1, broom_point(V, b.id, r1, REACH_LOCAL))
+        assert res < 0.05, res
+        hc = hand(V, a, 'right_arm', T_C)
+        Hoff = sub(hc, E.track_sample(b.path.k, T_C))
+        C = list(hc)
+    res2 = reach(sc, a, rg, 'right_arm', T_C + 6, T_C + 40, broom_point(V, b.id, T_C + 40, RAISE_LOCAL))
+    assert res2 < 0.06, res2
+    rg.r('right_arm').to(tk(T2['follow']) + 10, tk(T2['follow']) + 36, [-40, 0, 10])
+    refresh(a, rg)
+    ACT['viewer'].append({'t': T_C, 'do': 'hold', 'item': REMEMBRALL_ITEM})
+    sc.flier_ok.setdefault(b.id, []).append((land_at - 16, sc.L))
+    sc.notes['dive'] = (T_THROW, land_at)
+    sc.notes['catch'] = T_C
+    sc.notes['catch_hand'] = hand(V, a, 'right_arm', T_C)
+    sc.notes['remembrall_fly'] = parabola(p0, sc.notes['catch_hand'], T_THROW, T_C, REM_G)
+    # his head: on Malfoy until the throw, the ball as it goes, still in his own eyes, his prize, then McGonagall
+    look = a['look']
+    look[:] = look[:1]
+    aim_rider(sc, 'viewer', look, 20, T_OFF, mal, step=12, gain=0.9)
+    aim_rider(sc, 'viewer', look, T_OFF + 6, T_THROW, mal, step=8, gain=0.8)
+    fly = sc.notes['remembrall_fly']
+    aim_rider(sc, 'viewer', look, T_THROW + 2, FP0 - 10, lambda t: fly(min(t, t1)), step=6, max_pitch=70.0)
+    look.append({'t': FP0 - 4, 'yaw': -4.0, 'pitch': 8.0})
+    look.append({'t': T_C + 12, 'yaw': -4.0, 'pitch': 8.0})
+    aim_rider(sc, 'viewer', look, T_C + 12, tk(T2['land']), lambda t: hand(view(sc), E.actor_by_id(view(sc), 'viewer'),
+                                                                         'right_arm', t), step=10, max_pitch=70.0)
+    door = [DOOR['door'][0] + 1.3, 1.6, DOOR['door'][2] - 0.7]
+    aim_rider(sc, 'viewer', look, tk(T2['follow']) - 4, tk(T2['follow']) + 16, const(door), step=10)
+
+
+def chase_remembrall(sc, S):
+    """The Remembrall: on the grass where the lesson left it until Malfoy's hand closes on it (the item from that
+    tick), out of the world until it leaves his hand at the throw, its flight from his hand to the boy's, out of the
+    world again from the catch (the item in the boy's hand)."""
+    T_PICK, T_THROW, T_C = sc.notes['malfoy_pick'], sc.notes['throw'], sc.notes['catch']
+    fly = sc.notes['remembrall_fly']
+    t1 = T_C - 0.25
+    k = Keys().at(0, REM_REST).hold(T_PICK - 0.25)
+    k.at(T_PICK, PARK_LAWN, 'linear')
+    k.hold(T_THROW - 0.25)
+    k.at(T_THROW, fly(T_THROW))
+    for t in range(T_THROW + 3, int(t1) - 1, 3):
+        k.at(t, fly(t), 'spline')
+    k.at(t1, fly(T_C), 'linear')           # in the hand a quarter tick early; linear: the run keeps its speed
+    k.at(T_C, PARK_LAWN, 'linear')
+    sc.actor({'id': 'remembrall', 'type': REMEMBRALL, 'scale': KID, 'path': k.k})
+    sc.notes['remembrall'] = {'pick': T_PICK, 'throw': T_THROW, 'catch': T_C, 'fly': fly, 'g': REM_G}
+    sc.contacts.append(('malfoy: the throw leaves his hand', 'malfoy', 'right_arm', T_THROW,
+                        ('ball', 'remembrall', T_THROW), 'throw'))
+    sc.contacts.append(('viewer: the Remembrall into his hand', 'viewer', 'right_arm', T_C,
+                        ('ball', 'remembrall', t1), 'catch'))
+    sc.sfx(T_C, 'quaffle_catch', 0.55, hit=T_C, label='the Remembrall caught')
+
+
+def chase_mcgonagall(sc, mcg):
+    """McGonagall: at her window from mcg_in, watching the boy, turning away into the study at mcg_turn (gone at
+    mcg_gone); out of the hospital wing door from mcg_door, calling him over. Off stage otherwise."""
+    st = MCG['stand']
+    t_in, t_turn, t_gone = tk(T2['mcg_in']), tk(T2['mcg_turn']), tk(T2['mcg_gone'])
+    t_door, t_call = tk(T2['mcg_door']), tk(T2['follow'])
+    k = Keys().at(0, PARK_MCG).hold(t_in - 0.25)
+    k.at(t_in, st)
+    k.hold(t_turn + 6)
+    k.through([(t_gone, [st[0] - 1.7, st[1], st[2] + 0.2])])
+    k.at(t_gone + 0.25, PARK_MCG, 'linear')
+    k.hold(t_door - 0.25)
+    inside = [DOOR['door'][0] - 2.4, 0.0, DOOR['door'][2]]
+    out = [DOOR['door'][0] + 1.3, 0.0, DOOR['door'][2] - 0.7]
+    k.at(t_door, inside)
+    k.through([(t_call - 4, out)])
+    mcg['path'] = k.k
+    sc.hidden['mcgonagall'] = [(0, t_in - 1), (t_gone - 2, t_door + 2)]
+    V = view(sc)
+    boy = eye_fn(V, 'viewer')
+    look = [{'t': 0, 'yaw': -90.0, 'pitch': 20.0}, {'t': t_in, 'yaw': -90.0, 'pitch': 20.0}]
+    world_look(sc, 'mcgonagall', look, t_in + 4, t_turn, boy, step=10, max_pitch=40.0)
+    look += [{'t': t_turn + 10, 'yaw': unwrap(90.0, look[-1]['yaw']), 'pitch': 0.0}]
+    look += [{'t': t_gone + 0.25, 'yaw': look[-1]['yaw'], 'pitch': 0.0}]
+    yb = unwrap(-90.0, look[-1]['yaw'])
+    look += [{'t': t_door, 'yaw': yb, 'pitch': 0.0}]
+    world_look(sc, 'mcgonagall', look, t_call - 4, sc.L, boy, step=14, max_pitch=20.0)
+    mcg['look'] = look
+    mcg['anims'] = [{'t': t_in, 'name': 'HANDS_CLASPED', 'blend': 8}, {'t': t_door, 'name': 'IDLE', 'blend': 4},
+                    {'t': t_call, 'name': 'TALK', 'blend': 6},
+                    {'t': t_call + tk(float(CLIP['flying_mcg_follow'])), 'name': 'HANDS_CLASPED', 'blend': 10}]
+    sc.say(t_call, 'flying_mcg_follow')
+
+
+def chase_class(sc, people, P, B, S, R, ACT):
+    """The rest of the class keep their feet on the grass (Hooch said so): heads and bodies turn with the chase;
+    the boy's own house cheer the catch; the ones astride turn their heads only."""
+    V = view(sc)
+    mal, boy = eye_fn(V, 'malfoy'), eye_fn(V, 'viewer')
+    T_C = sc.notes['catch']
+    door = [DOOR['door'][0] + 1.3, 1.6, DOOR['door'][2] - 0.7]
+
+    def action(t):
+        if t < 290:
+            return mal(t)
+        if t < 560:
+            return lerp(mal(t), boy(t), smooth((t - 290) / 120.0))
+        if t < 716:
+            return boy(t)
+        return door
+    for p in people:
+        aid = p['id']
+        if aid in ('viewer', 'malfoy', 'neville'):
+            continue
+        a = S[aid]
+        rnd = random.Random('chase' + aid)
+        if aid in sc.notes['mounted']:
+            aim_rider(sc, aid, a['look'], 12 + rnd.randint(0, 10), sc.L - 10, action, step=14, gain=0.85)
+            continue
+        look = a['look']
+        world_look(sc, aid, look, 14 + rnd.randint(0, 12), sc.L - 8, action, step=14 + rnd.randint(0, 4))
+        if p['house'] == sc.h and aid.startswith('e'):
+            t0 = T_C + 10 + rnd.randint(0, 14)
+            a['anims'] = [{'t': t0, 'name': 'CHEER' if rnd.random() < 0.5 else 'CLAP', 'blend': 6},
+                          {'t': tk(T2['mcg_door']) + rnd.randint(0, 10), 'name': 'IDLE', 'blend': 10}]
+
+
+def chase_camera(sc, P, B, S):
+    V = view(sc)
+    mal, boy = eye_fn(V, 'malfoy'), eye_fn(V, 'viewer')
+    T_THROW, T_C = sc.notes['throw'], sc.notes['catch']
+    rem = sc.notes['remembrall']['fly']
+    ball = lambda t: ball_world(V, 'remembrall', t)
+    # C1 0-3.4 low in the grass behind the Remembrall: Malfoy turns, sees it, comes over and bends for it
+    pf = move([-8.9, 0.34, 36.85], [-8.7, 0.36, 37.05], 0, 68)
+    mid = smoothed(lambda t: lerp(REM_REST, mal(t), 0.55), 6.0)
+    sc.shot(0, 68, pf, mid, ramp(52.0, 48.0, 0, 68), 6)
+    # C2 3.4-6.4 Malfoy, medium close: he holds it up to the light ("Look what the clumsy idiot dropped")
+    m_hand = lambda t: hand(V, E.actor_by_id(V, 'malfoy'), 'right_arm', t)
+    pf = move([-7.55, 1.0, 36.55], [-7.4, 1.02, 36.75], 68, 128)
+    sc.shot(68, 128, pf, smoothed(lambda t: lerp(mal(t), m_hand(t), 0.35), 5.0), const(44.0), 6)
+    # C3 6.4-9.3 the boy astride his broom, watching him (Malfoy mounts out of shot)
+    pf = move([2.35, 0.92, 27.95], [2.45, 0.93, 28.1], 128, 186)
+    sc.shot(128, 186, pf, smoothed(boy, 4.0), ramp(44.0, 41.0, 128, 186), 6)
+    # C4 9.3-12.2 Malfoy kicks off and rises, from low by the west row
+    pf = move([-1.3, 0.55, 32.0], [-1.55, 0.75, 32.5], 186, 244)
+    sc.shot(186, 244, pf, smoothed(mal, 6.0), ramp(58.0, 62.0, 186, 244), 6)
+    # C5 12.2-14.5 Malfoy hovering, the Remembrall held up ("Want it? Come up and take it, then.")
+    pf = move([-3.1, 6.35, 33.0], [-3.3, 6.5, 33.3], 244, 290)
+    sc.shot(244, 290, pf, smoothed(lambda t: lerp(mal(t), m_hand(t), 0.3), 5.0), const(48.0), 6)
+    # C6 14.5-16.8 the boy kicks off: from the grass in the aisle he shoots up over the camera
+    pf = move([1.5, 0.45, 26.8], [1.45, 0.5, 26.9], 290, 336)
+    sc.shot(290, 336, pf, smoothed(boy, 4.0), ramp(66.0, 72.0, 290, 336), 4)
+    # C7 16.8-21.0 the chase: behind and above the boy's right shoulder, Malfoy ahead, the castle beyond
+    sb = smoothed(boy, 20.0)
+    dirf = smoothed(lambda t: norm(sub(sb(t + 4), sb(t - 4))), 16.0)
+
+    def chase_cam(t):
+        d = dirf(t)
+        hx, hz = norm([d[0], 0.0, d[2]])[0], norm([d[0], 0.0, d[2]])[2]
+        return add(sb(t), [-hx * 3.4 - hz * 1.1, 1.0, -hz * 3.4 + hx * 1.1])
+    sc.shot(336, 420, chase_cam, smoothed(lambda t: lerp(boy(t), mal(t), 0.6), 8.0), const(68.0), 4)
+    # C8 21.0-24.4 wide from high in the east: both bank round the U-turn, the corner tower beyond
+    pf = move([27.0, 22.0, -5.0], [26.0, 21.5, -8.5], 420, 488)
+    sc.shot(420, 488, pf, smoothed(lambda t: lerp(boy(t), mal(t), 0.5), 10.0), ramp(46.0, 42.0, 420, 488), 6)
+    # C9 24.4-26.6 over the boy's shoulder at Malfoy: "Go on, then. Fetch!" and the throw
+    vb = VIEWER_CHASE[-1][1]
+    pf = move([vb[0] + 0.95, vb[1] + 1.35, vb[2] + 1.75], [vb[0] + 0.9, vb[1] + 1.3, vb[2] + 1.45], 488, 532)
+    sc.shot(488, 532, pf, smoothed(lambda t: lerp(mal(t), m_hand(t), 0.25), 5.0), ramp(44.0, 40.0, 488, 532), 6)
+    # C10 26.6-28.8 the dive: from the grass under it, the ball arcing over, the boy plunging after it
+    pf = move([-5.2, 1.05, 16.5], [-5.0, 0.95, 16.0], 532, FP0)
+    sc.shot(532, FP0, pf, smoothed(lambda t: lerp(boy(t), rem(min(t, T_C - 1)), 0.45), 5.0), ramp(62.0, 66.0, 532, FP0), 4)
+    # C11 28.8-30.8 FIRST PERSON: racing level over the grass, it drops out of the sky into his hand
+    v_hand = lambda t: hand(V, E.actor_by_id(V, 'viewer'), 'right_arm', t)
+    vb_ = E.actor_by_id(V, 'broom_viewer')
+    up_ahead = [-0.14, math.sin(math.radians(-30.0)), math.cos(math.radians(-30.0))]
+    eye_v = lambda t: head_eye(V, E.actor_by_id(V, 'viewer'), t, 0.12)
+    aim = smoothed(lambda t: add(eye_v(t), E._mat_vec(E.broom_pose(V, vb_, t)['m'], up_ahead), 4.0), 5.0)
+    first_person(sc, V, 'viewer', FP0, T_C + 2, fwd=0.12, fov=80.0, look_fn=aim, sigma=1.5)
+    # C12 30.8-32.8 over McGonagall's shoulder through her window: he comes down the aisle, the ball held high
+    st = MCG['stand']
+    pf = move([st[0] - 0.95, st[1] + 1.85, st[2] + 0.55], [st[0] - 0.9, st[1] + 1.82, st[2] + 0.5], T_C + 2, 650)
+    sc.shot(T_C + 2, 650, pf, smoothed(boy, 8.0), ramp(44.0, 40.0, T_C + 2, 650), 6)
+    # C13 32.8-34.8 her face through the glass from outside: she watches him land, then turns away
+    pf = move([-19.6, 11.55, 15.35], [-19.75, 11.5, 15.6], 650, 696)
+    mc = eye_fn(V, 'mcgonagall')
+    sc.shot(650, 696, pf, smoothed(lambda t: mc(min(t, tk(T2['mcg_turn']) + 6)), 4.0), const(40.0), 6)
+    # C14 34.8-36.2 the boy in the aisle with it held up, the class cheering round him
+    land_at, feet, _ = V_LAND
+    pf = move([feet[0] + 0.9, 0.85, feet[2] + 2.5], [feet[0] + 0.85, 0.87, feet[2] + 2.2], 696, 724)
+    sc.shot(696, 724, pf, smoothed(boy, 4.0), const(50.0), 4)
+    # C15 36.2-37.8 McGonagall in the hospital wing door: "You. With me. Now."
+    pf = move([-15.0, 1.45, 58.4], [-15.3, 1.47, 58.8], 724, 756)
+    sc.shot(724, 756, pf, smoothed(mc, 4.0), const(44.0), 4)
+    # C16 37.8-40.5 the boy turns to look at her: a slow push in
+    pf = move([feet[0] + 0.55, 1.02, feet[2] + 2.3], [feet[0] + 0.32, 1.1, feet[2] + 1.55], 756, sc.L)
+    sc.shot(756, sc.L, pf, smoothed(boy, 5.0), ramp(48.0, 42.0, 756, sc.L), 6)
+    # whooshes where a broom tears past the camera
+    for bid, t0, t1 in (('broom_viewer', 290, 336), ('broom_viewer', 532, FP0)):
+        whoosh(sc, bid, t0, t1)
+    eye = lambda aid: (lambda sc_, t: eye_fn(sc_, aid)(t))
+    sc.framing += [(40, 66, lambda sc_, t: REM_REST, 'the Remembrall in the grass (C1)'),
+                   (70, 126, eye('malfoy'), 'Malfoy (C2)'), (130, 184, eye('viewer'), 'the boy (C3)'),
+                   (190, 242, eye('malfoy'), 'Malfoy rising (C4)'), (246, 288, eye('malfoy'), 'Malfoy hovering (C5)'),
+                   (292, 330, eye('viewer'), 'the boy kicks off (C6)'), (338, 418, eye('viewer'), 'the boy (C7)'),
+                   (338, 418, eye('malfoy'), 'Malfoy ahead (C7)'), (422, 486, eye('viewer'), 'the boy (C8)'),
+                   (422, 486, eye('malfoy'), 'Malfoy (C8)'), (490, 530, eye('malfoy'), 'Malfoy throws (C9)'),
+                   (534, FP0 - 2, eye('viewer'), 'the dive (C10)'),
+                   (FP0 + 2, T_C - 2, lambda sc_, t: ball_world(sc_, 'remembrall', t), 'the falling Remembrall (C11)'),
+                   (T_C - 3, T_C + 1, lambda sc_, t: hand(sc_, E.actor_by_id(sc_, 'viewer'), 'right_arm', t), 'his hand (C11)'),
+                   (600, 648, eye('viewer'), 'the boy below the window (C12)'), (652, 686, eye('mcgonagall'), 'McGonagall (C13)'),
+                   (698, 722, eye('viewer'), 'the boy (C14)'), (728, 754, eye('mcgonagall'), 'McGonagall at the door (C15)'),
+                   (758, sc.L - 2, eye('viewer'), 'the boy (C16)')]
+
+
+def raise_steps_standing(scene, a, part='right_arm'):
+    """item_raise_steps for the swaps a standing actor makes: on a broom the rider layer replaces the arm pose, the
+    held-item raise included, so a swap in the saddle needs (and must get) no step."""
+    keep = [x for x in a.get('actions', []) if not (x['do'] in ('hold', 'equip', 'use_item')
+                                                    and E.broom_rider_at(scene, a, x['t']) is not None)]
+    return E.item_raise_steps(dict(a, actions=keep), part)
+
+
+def whoosh(sc, bid, t0, t1, volume=0.9):
+    """A broom_whoosh where broom bid passes the camera closest between t0 and t1 (assert 7: within a tick)."""
+    V = view(sc)
+    b = E.actor_by_id(V, bid)
+    best = min(range(t0, t1 + 1), key=lambda t: math.dist(E.engine_cam(sc.camera, t), E.track_sample(b['path'], t)))
+    sc.sfx(best, 'broom_whoosh', volume, hit=best, label='%s passes the camera' % bid)
+    sc.notes.setdefault('passes', []).append((bid, t0, t1, best))
+    return best
+
+
+# ================================================================ more checks, and the whole battery
+def check_sfx_hits(sc, scene, problems):
+    """Assert 7, sounds: every crack, catch, whistle and whoosh cue lands within a tick of its contact or pass;
+    each whoosh's pass is found again from the emitted JSON (the broom's closest approach to the camera)."""
+    worst = 0
+    for name, t, hit, label in sc.sfx_hits:
+        worst = max(worst, abs(t - hit))
+        if abs(t - hit) > 1:
+            problems.append('%s: the %s cue at t %s is %d ticks off its moment (%s)' % (sc.sid, name, t, t - hit, label))
+    for bid, t0, t1, best in sc.notes.get('passes', []):
+        b = E.actor_by_id(scene, bid)
+        again = min(range(t0, t1 + 1), key=lambda t: math.dist(E.engine_cam(scene['camera'], t),
+                                                                E.track_sample(b['path'], t)))
+        cue = [e for e in scene['events'] if e['id'] == SFX + 'broom_whoosh' and abs(e['t'] - again) <= 1]
+        if not cue:
+            problems.append('%s: %s passes the camera at t %d with no whoosh' % (sc.sid, bid, again))
+    return worst
+
+
+def check_ball_path(sc, scene, problems, bid, contacts):
+    """The Remembrall (or any ball): its world path is continuous (under 1.2 a tick) everywhere it is on stage, and it
+    jumps on or off stage only at the listed contact ticks (a hand takes it, or lets it go)."""
+    a = E.actor_by_id(scene, bid)
+    if a is None:
+        return 0.0
+    worst = 0.0
+    prev = ball_world(scene, bid, 0)
+    for t4 in range(1, scene['length'] * 4 + 1):
+        t = t4 / 4.0
+        p = ball_world(scene, bid, t)
+        d = math.dist(p, prev)
+        if d > 0.3:                                   # 1.2 a tick
+            if not any(abs(t - c) <= 0.5 for c in contacts):
+                problems.append('%s: %s jumps %.2f at t %.2f, not at a contact' % (sc.sid, bid, d, t))
+                return d
+        else:
+            worst = max(worst, d * 4)
+        prev = p
+    return worst
+
+
+def lowest_leg(scene, a, t):
+    lo = 99.0
+    for part, rt, yaw, s, piv, rot in E.posed_parts(scene, a, t):
+        if part in ('right_leg', 'left_leg'):
+            for c in E.part_corners(rt, yaw, s, piv, rot, E.PART_BOX[part]):
+                lo = min(lo, c[1])
+    return lo
+
+
+def check_dives(sc, scene, problems):
+    """Assert 8, the dives: the lowest broom point at least 0.6 above the grass, the rider's leg boxes 0.1."""
+    worst = (9.0, 9.0)
+    for bid, rider, t0, t1, grass in sc.notes.get('dives', []):
+        a = E.actor_by_id(scene, rider)
+        for t in range(t0, t1 + 1):
+            lb = E.broom_lowest(scene, bid, t) - grass
+            ll = lowest_leg(scene, a, t) - grass
+            worst = (min(worst[0], lb), min(worst[1], ll))
+            if lb < 0.6 or ll < 0.1:
+                problems.append('%s: in the dive at t %d broom %s is %.2f above the grass, the legs %.2f' % (
+                    sc.sid, t, bid, lb, ll))
+                break
+    return worst
+
+
+def check_moments_lesson(sc, scene, problems):
+    """Assert 7 in the lesson: no classmate's broom stirs before his "Up!", Neville's flailing is over before he
+    is thrown."""
+    for aid, t_up in sc.notes['first_up'].items():
+        b = E.actor_by_id(scene, 'broom_' + aid)
+        p0, l0 = E.track_sample(b['path'], 0), E.own_sample(b, 'look', 0)
+        for t in range(0, t_up):
+            if math.dist(E.track_sample(b['path'], t), p0) > 1e-4 or max(abs(x - y) for x, y in zip(
+                    E.own_sample(b, 'look', t), l0)) > 1e-3:
+                problems.append('%s: %s broom stirs at t %d before his Up! (%d)' % (sc.sid, aid, t, t_up))
+                break
+    nv = sc.notes['neville']
+    for part, d in E.actor_by_id(scene, 'neville').get('limbs', {}).items():
+        if part in ('right_leg', 'left_leg'):
+            if d['rot'][-1]['t'] > nv['fall']:
+                problems.append('%s: Neville still flails at t %s after the fall' % (sc.sid, d['rot'][-1]['t']))
+    if nv['flail_end'] > nv['fall']:
+        problems.append('%s: the flailing ends after the fall' % sc.sid)
+
+
+def check_moments_chase(sc, scene, problems):
+    """Assert 7 in the chase: Malfoy's taunt and hover end when the boy reaches him; nobody on the lawn leaves the
+    ground while Hooch is away but Malfoy and the boy."""
+    m = sc.notes['malfoy']
+    tf = m['hover'][1]
+    mb, vb = E.actor_by_id(scene, 'broom_malfoy'), E.actor_by_id(scene, 'broom_viewer')
+    d = math.dist(E.track_sample(mb['path'], tf), E.track_sample(vb['path'], tf))
+    if d > 7.0:
+        problems.append('%s: Malfoy flees at t %d with the boy still %.1f away' % (sc.sid, tf, d))
+    arm = E.actor_by_id(scene, 'malfoy')['limbs']['right_arm']['rot']
+    up = [k for k in arm if tf - 40 <= k['t'] <= tf + 30]
+    if up and any(abs(c) > 1 for c in E.sample_keys(arm, m['taunt_end'])):
+        problems.append('%s: Malfoy still holds it up at t %d' % (sc.sid, m['taunt_end']))
+    hold = E.track_sample(mb['path'], m['hover'][0])
+    if math.dist(E.track_sample(mb['path'], tf - 1), hold) > 0.05:
+        problems.append('%s: Malfoy leaves his hover before t %d' % (sc.sid, tf))
+    for a in scene['actors']:
+        if a['id'] in ('viewer', 'malfoy', 'broom_viewer', 'broom_malfoy', 'remembrall', 'mcgonagall'):
+            continue
+        for t in range(0, scene['length'] + 1, 4):
+            if E.is_broom(a):
+                y = E.track_sample(a['path'], t)[1]
+                bad = y > 1.0
+            elif a.get('type') == 'player':
+                y = E.rider_root(scene, a, t)[0][1]
+                bad = y > 0.15
+            else:
+                break
+            if bad:
+                problems.append('%s: %s leaves the ground at t %d (y %.2f)' % (sc.sid, a['id'], t, y))
+                break
+
+
+_SOLID = {}
+
+
+def solid_of(world):
+    key = id(world)
+    if key not in _SOLID:
+        _SOLID[key] = frozenset(c for c, s in world.items() if E.bid_of(s) not in (PLANTS | set(FL.FREE)))
+    return _SOLID[key]
+
+
+def run_checks(sc, scene, world, skip=()):
+    """Every assert on one scene: {name: worst number}, and 'problems'."""
+    P = []
+    out = {}
+    if not hasattr(sc, 'cam_world'):
+        sc.cam_world = cam_world(world)
+    out['spline runs'] = E.check_spline_moves(sc.sid, scene, P)
+    m = E.check_camera_smoothness(sc.sid, scene, P)
+    out['smooth'] = 'a %.5f aw %.4f ja %.5f jw %.4f' % (max(s['a'] for s in m.values()), max(s['aw'] for s in m.values()),
+                                                        max(s['ja'] for s in m.values()), max(s['jw'] for s in m.values()))
+    out['air points'] = check_camera_air(sc, scene, P)
+    cs = check_contacts(sc, scene, P)
+    out['contacts'] = max([g for _, g in cs] or [0.0])
+    out['contact list'] = ', '.join('%s %.3f' % (l.split(':')[0], g) for l, g in cs)
+    out['items'] = check_items(sc, scene, P)
+    out['rides'] = check_rides(sc, scene, P)
+    out['fliers'] = check_fliers(sc, scene, P)
+    out['dives'] = check_dives(sc, scene, P)
+    if sc.lying:
+        out['lying'] = check_lying(sc, scene, P)
+    check_lines(sc, scene, P)
+    check_keys(sc, scene, P)
+    out['walkers'] = check_walkers(sc, scene, P)
+    out['framing'] = check_framing(sc, scene, P)
+    out['ball speed'] = E.check_ball_speeds(sc.sid, scene, P)
+    out['sfx'] = check_sfx_hits(sc, scene, P)
+    for fn in sc.notes.get('moments', []):
+        fn(sc, scene, P)
+    for bid, contacts in sc.notes.get('ball_paths', []):
+        out['path ' + bid] = check_ball_path(sc, scene, P, bid, contacts)
+    for name, fn in sc.notes.get('extra_checks', []):
+        out[name] = fn(sc, scene, P)
+    if 'clear' not in skip:
+        out['clearance'] = check_clearance(sc, scene, P)
+    if 'void' not in skip and sc.notes.get('lawn'):
+        out['void'] = check_void(sc, scene, P, solid_of(world))
+    out['problems'] = P
+    return out

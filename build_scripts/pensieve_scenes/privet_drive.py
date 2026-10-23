@@ -124,6 +124,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from scene_common import physics_problems, FREE, STRUCTURES  # noqa: E402
+import leaf_backing as LB  # noqa: E402
 from great_hall_set import state, bid, Builder, write_template  # noqa: E402
 
 OUT = os.path.join(STRUCTURES, 'privet_drive.nbt')
@@ -164,6 +165,7 @@ PLASTER = 'minecraft:smooth_sandstone'      # cream emulsion on every inside fac
 GLASS = 'glass_pane'
 NET = 'white_stained_glass_pane'
 LEAVES = state('oak_leaves', persistent=True, distance=1, waterlogged=False)
+HEDGE_BACK = 'minecraft:moss_block'          # the solid row behind a hedge's leaves
 
 REL = {'N': {'F': 'south', 'B': 'north', 'E': 'east', 'W': 'west'},
        'S': {'F': 'north', 'B': 'south', 'E': 'west', 'W': 'east'},
@@ -287,12 +289,16 @@ class House:
             for d in range(-7, 1):
                 self.put(hx, -1, d, 'minecraft:polished_andesite')
         # the privet hedge along the pavement, gaps for the path and the drive; low hedges between plots
+        # (leaves are see-through, so each hedge has a moss block on its garden side: the hedge reads as two rows
+        # deep, and nothing behind a leaf is the sky or the next garden; leaf_backing checks it)
         for hx in range(-3, 25):
             if hx == 12 or 17 <= hx <= 21:
                 continue
             self.put(hx, 0, -7, LEAVES)
+            self.put(hx, 0, -6, HEDGE_BACK)
         for d in range(-6, 0):
             self.put(-3, 0, d, LEAVES)
+            self.put(-2, 0, d, HEDGE_BACK)
         # flower borders: under the front wall and along the inside of the hedge
         flowers = ('minecraft:poppy', 'minecraft:red_tulip', 'minecraft:pink_tulip', 'minecraft:oxeye_daisy',
                    'minecraft:allium', 'minecraft:azure_bluet', 'minecraft:white_tulip', 'minecraft:cornflower')
@@ -301,7 +307,7 @@ class House:
                 self.put(hx, 0, -1, rnd.choice(flowers))
         for hx in range(-2, 11):
             if rnd.random() < 0.55:
-                self.put(hx, 0, -6, rnd.choice(flowers))
+                self.put(hx, 1, -6, rnd.choice(flowers))             # (on the hedge's moss: a dirt-tag block)
         for hx in (0, 2, 15):
             self.put(hx, 0, -1, state('rose_bush', half='lower'))
             self.put(hx, 1, -1, state('rose_bush', half='upper'))
@@ -773,19 +779,24 @@ class House:
 
 
 # ---------------------------------------------------------------- the street
+CROWNS = []                                  # every street tree's leaves: thin outline bits are trimmed (leaf_backing)
+
+
 def tree(g, x, z, h, rnd, base_y=0):
-    """A young street tree: a trunk and a rounded crown (local x, z; base_y scene)."""
-    for y in range(h):
+    """A young street tree: a trunk with a log spine through a rounded crown (local x, z; base_y scene). Leaves are
+    see-through, so the crown is a solid mass 5 across with its spine inside it, not a thin shell (leaf_backing)."""
+    for y in range(h + 2):
         g.set((x, base_y + y + LY, z), state('oak_log', axis='y'))
     top = base_y + h + LY
-    for dx in range(-2, 3):
-        for dz in range(-2, 3):
-            for dy in range(-2, 2):
-                r = dx * dx + dz * dz + (dy + 0.5) ** 2 * 1.3
-                if r <= 4.6 and not (dx == 0 and dz == 0 and dy < 0) and rnd.random() > 0.08:
+    for dx in range(-3, 4):
+        for dz in range(-3, 4):
+            for dy in range(-2, 3):
+                r = dx * dx + dz * dz + dy * dy * 1.5
+                if r <= 7.0 and not (dx == 0 and dz == 0 and dy < 0) and rnd.random() > 0.04:
                     p = (x + dx, top + dy, z + dz)
                     if g.get(p) is None:
                         g.set(p, LEAVES)
+                        CROWNS.append(p)
 
 
 def lamp_post(g, x, z, dx, dz):
@@ -892,14 +903,17 @@ def build_street(g):
     # the corner lot by the junction (south side, before the first south plot): hedged, two trees
     for x in range(MAIN_X[1] + 1, S_X0[0] - 3):
         g.set((x, 0 + LY, PAVE_S[1] + 1), LEAVES)
+        g.set((x, 0 + LY, PAVE_S[1] + 2), HEDGE_BACK)
     for z in range(PAVE_S[1] + 1, SIZE[2]):
         g.set((MAIN_X[1] + 1, 0 + LY, z), LEAVES)
+        g.set((MAIN_X[1] + 2, 0 + LY, z), HEDGE_BACK)
     tree(g, MAIN_X[1] + 6, 54, 6, rnd)
     tree(g, MAIN_X[1] + 11, 66, 5, rnd)
     # the green by the turning head: a bench, two trees, a hedge behind
     gx0, gx1 = GREEN_X
     for x in range(gx0, gx1 + 1):
         g.set((x, 0 + LY, SIZE[2] - 2), LEAVES)
+        g.set((x, 0 + LY, SIZE[2] - 1), HEDGE_BACK)
     tree(g, gx0 + 4, 56, 5, rnd)
     tree(g, gx1 - 3, 66, 5, rnd)
     for x in (gx0 + 6, gx0 + 7):
@@ -927,6 +941,7 @@ def build_grid():
     for x, z in ((4, 4), (14, 8), (6, 16), (8, 58), (20, 64), (5, 72), (16, 74), (210, 6), (222, 14),
                  (204, 20), (214, 62), (224, 70), (206, 72), (196, 6), (196, 70)):
         tree(g, x, z, 5 + rnd.randint(0, 2), rnd)
+    LB.trim_crown(g, CROWNS)
     return g, houses, street_owls
 
 

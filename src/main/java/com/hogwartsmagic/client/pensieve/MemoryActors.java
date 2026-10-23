@@ -10,6 +10,7 @@ import com.hogwartsmagic.client.renderer.PetrifiedRemainsRenderer;
 import com.hogwartsmagic.mixin.client.LivingEntityUseAccessor;
 import com.hogwartsmagic.pensieve.scene.EyeEase;
 import com.hogwartsmagic.pensieve.scene.Airborne;
+import com.hogwartsmagic.pensieve.scene.ActorStep;
 import com.hogwartsmagic.pensieve.scene.BroomFlight;
 import com.hogwartsmagic.pensieve.scene.DragonFlight;
 import com.hogwartsmagic.pensieve.scene.Vehicle;
@@ -538,8 +539,12 @@ public final class MemoryActors {
         // An owl flies while its path moves and perches (wings folded) while it is held (Airborne, pure). Owls only:
         // other models read onGround too, and every other puppet has always drawn as airborne.
         if (e instanceof OwlEntity) e.setOnGround(!Airborne.airborne(a.def.path(), t, !first && !e.onGround()));
-        if (!first && jx * jx + jy * jy + jz * jz > TELEPORT_BLOCKS * TELEPORT_BLOCKS) {
-            // A jump on a cut (a swap, a park under the floor) is a teleport, not a run: do not lerp across it.
+        boolean longStep = !first && jx * jx + jy * jy + jz * jz > TELEPORT_BLOCKS * TELEPORT_BLOCKS;
+        float lastT = a.lastT;
+        a.lastT = t;
+        if (longStep && ActorStep.isCut(scene, a.def, lastT, t)) {
+            // A jump on a cut (a swap, a park under the floor) is a teleport, not a run: do not lerp across it. A
+            // long step the path flies continuously (a fast broom) is motion and is lerped (ActorStep).
             e.xo = e.xOld = x;
             e.yo = e.yOld = y;
             e.zo = e.zOld = z;

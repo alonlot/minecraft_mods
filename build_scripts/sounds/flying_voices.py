@@ -7,13 +7,13 @@ No line contains a name for the boy. Music is not made here (Task 10).
 Mastering: linear gain to -16 LUFS integrated + alimiter -2 dBTP latency=1 (loudnorm misses on short clips).
 
 Voices:
-  Hooch       9f646202b5694df98acc78d756674599  (user pick hooch_C)
+  Hooch       0887ed97dc294cfab9ffccc608d80605  (user pick hooch_B, 2026-10-23)
   Neville     ebe169afb0934b5bbcc5c1ed62a024b5  (user pick neville_A)
-  Malfoy      b817c2a28b90454ea1c54f1342fdabd2  (draco_A)
+  Malfoy      0fe8aa6bccf64c48b67f034aa17c6058  (user pick draco_D, 2026-10-23)
   Viewer      67ccf061bf3b4f9c8b635addc77eba6f  (young Harry, age 13)
   McGonagall  d625beac29e2417faba8ace4c3d6ccdd  (same as the other memories)
-  Wood        de272fd1bff547c5af60a11049d6bca5  Fish "Oliver wood", author unlisted, one take
-  Commentator 7c90feecce0e4bbb8d5d1a20a98e6a11  Fish "Commentator (good)" by LeroyJr, one take
+  Wood        32d9e4819f9e4bd79845fd64536300a4  (user pick wood_B: Fish "Oliver Wood" by kat faw, 2026-10-23)
+  Commentator 7c90feecce0e4bbb8d5d1a20a98e6a11  (user pick commentator_A: Fish "Commentator (good)" by LeroyJr)
 flying_class_up is a ragged chorus: Neville, Hermione, Malfoy and Wood, four whisper-gated takes spread over 0.38 s (not the viewer, who has his own clip).
 """
 
@@ -34,12 +34,12 @@ LENGTHS = os.path.join(HERE, "flying_clip_lengths.json")
 RAW_DIR = (r"C:\Users\alonl\AppData\Local\Temp\claude\C--Users-alonl-OneDrive-Desktop-harry-potter-mod"
            r"\eca4c2f1-9bf3-4c65-b86d-13bbb709117a\scratchpad\flying_audio")
 
-HOOCH = "9f646202b5694df98acc78d756674599"
+HOOCH = "0887ed97dc294cfab9ffccc608d80605"
 NEVILLE = "ebe169afb0934b5bbcc5c1ed62a024b5"
-MALFOY = "b817c2a28b90454ea1c54f1342fdabd2"
+MALFOY = "0fe8aa6bccf64c48b67f034aa17c6058"
 VIEWER = "67ccf061bf3b4f9c8b635addc77eba6f"
 MCGONAGALL = "d625beac29e2417faba8ace4c3d6ccdd"
-WOOD = "de272fd1bff547c5af60a11049d6bca5"
+WOOD = "32d9e4819f9e4bd79845fd64536300a4"
 COMMENTATOR = "7c90feecce0e4bbb8d5d1a20a98e6a11"
 
 # id -> (voice, speed, text)

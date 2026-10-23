@@ -476,7 +476,7 @@ class SceneDataTest {
 
     /**
      * The opponent: a Slytherin's chain plays Gryffindor, every other house's plays Slytherin. In the match and the
-     * Snitch scenes every rival player (ids r_...) wears the rival house's robes and a student skin of that house,
+     * Snitch scenes every rival player (ids r_...) wears the rival house's Quidditch kit and a student skin of that house,
      * and every one of the boy's team (o_...) his own.
      */
     @Test
@@ -491,8 +491,10 @@ class SceneDataTest {
                     if (!a.get("type").getAsString().equals("player")) continue;
                     String team = id.startsWith("r_") ? rival : id.startsWith("o_") || id.equals("viewer") ? h : null;
                     if (team == null) continue;
-                    assertEquals("hogwartsmagic:" + team + "_robes",
+                    assertEquals("hogwartsmagic:" + team + "_quidditch_robes",
                             a.getAsJsonObject("items").get("chest").getAsString(), h + part + " " + id);
+                    assertEquals("hogwartsmagic:quidditch_shin_guards",
+                            a.getAsJsonObject("items").get("legs").getAsString(), h + part + " " + id);
                     if (!id.equals("viewer")) {
                         assertTrue(a.getAsJsonObject("skin").get("texture").getAsString()
                                 .startsWith("student_" + team + "_"), h + part + " " + id);

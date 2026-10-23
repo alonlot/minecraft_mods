@@ -1615,7 +1615,7 @@
       "id": "malfoy",
       "type": "player",
       "scale": 0.75,
-      "skin": {"texture": "student_slytherin_27"},
+      "skin": {"texture": "malfoy_young"},
       "items": {"chest": "hogwartsmagic:slytherin_robes"},
       "path": [{"t": 0, "pos": [-4.0, 0.0, 37.95]}],
       "look": [
@@ -1698,7 +1698,7 @@
     {
       "id": "hooch",
       "type": "player",
-      "skin": {"texture": "witch_05"},
+      "skin": {"texture": "hooch"},
       "items": {"mainhand": "hogwartsmagic:whistle"},
       "path": [
         {"t": 0, "pos": [-1.5, 0.0, 6.0]},

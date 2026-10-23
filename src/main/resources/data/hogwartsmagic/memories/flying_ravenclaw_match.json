@@ -524,7 +524,7 @@
       "type": "player",
       "scale": 0.85,
       "skin": {"texture": "student_ravenclaw_03"},
-      "items": {"chest": "hogwartsmagic:ravenclaw_robes"},
+      "items": {"chest": "hogwartsmagic:ravenclaw_quidditch_robes", "legs": "hogwartsmagic:quidditch_shin_guards"},
       "ride": "broom_o_k",
       "path": [{"t": 0, "pos": [0.0, -0.4264, -0.05]}],
       "look": [
@@ -1085,7 +1085,7 @@
       "type": "player",
       "scale": 0.85,
       "skin": {"texture": "student_ravenclaw_07"},
-      "items": {"chest": "hogwartsmagic:ravenclaw_robes", "mainhand": "minecraft:mace"},
+      "items": {"chest": "hogwartsmagic:ravenclaw_quidditch_robes", "legs": "hogwartsmagic:quidditch_shin_guards", "mainhand": "minecraft:mace"},
       "ride": "broom_o_b1",
       "path": [{"t": 0, "pos": [0.0, -0.4264, -0.05]}],
       "look": [
@@ -1648,7 +1648,7 @@
       "type": "player",
       "scale": 0.85,
       "skin": {"texture": "student_ravenclaw_11"},
-      "items": {"chest": "hogwartsmagic:ravenclaw_robes"},
+      "items": {"chest": "hogwartsmagic:ravenclaw_quidditch_robes", "legs": "hogwartsmagic:quidditch_shin_guards"},
       "ride": "broom_o_c3",
       "path": [{"t": 0, "pos": [0.0, -0.4264, -0.05]}],
       "look": [
@@ -2212,7 +2212,7 @@
       "type": "player",
       "scale": 0.85,
       "skin": {"texture": "student_ravenclaw_15"},
-      "items": {"chest": "hogwartsmagic:ravenclaw_robes"},
+      "items": {"chest": "hogwartsmagic:ravenclaw_quidditch_robes", "legs": "hogwartsmagic:quidditch_shin_guards"},
       "ride": "broom_o_c1",
       "path": [{"t": 0, "pos": [0.0, -0.4264, -0.05]}],
       "look": [
@@ -2777,7 +2777,7 @@
       "type": "player",
       "scale": 0.85,
       "skin": {"texture": "student_ravenclaw_19"},
-      "items": {"chest": "hogwartsmagic:ravenclaw_robes"},
+      "items": {"chest": "hogwartsmagic:ravenclaw_quidditch_robes", "legs": "hogwartsmagic:quidditch_shin_guards"},
       "ride": "broom_o_c2",
       "path": [{"t": 0, "pos": [0.0, -0.4264, -0.05]}],
       "look": [
@@ -3347,7 +3347,7 @@
       "type": "player",
       "scale": 0.85,
       "skin": {"texture": "student_ravenclaw_23"},
-      "items": {"chest": "hogwartsmagic:ravenclaw_robes", "mainhand": "minecraft:mace"},
+      "items": {"chest": "hogwartsmagic:ravenclaw_quidditch_robes", "legs": "hogwartsmagic:quidditch_shin_guards", "mainhand": "minecraft:mace"},
       "ride": "broom_o_b2",
       "path": [{"t": 0, "pos": [0.0, -0.4264, -0.05]}],
       "look": [
@@ -3901,7 +3901,7 @@
       "type": "player",
       "scale": 0.85,
       "skin": {"viewer": true},
-      "items": {"chest": "hogwartsmagic:ravenclaw_robes"},
+      "items": {"chest": "hogwartsmagic:ravenclaw_quidditch_robes", "legs": "hogwartsmagic:quidditch_shin_guards"},
       "ride": "broom_viewer",
       "path": [{"t": 0, "pos": [0.0, -0.4264, -0.05]}],
       "look": [
@@ -4448,7 +4448,7 @@
       "type": "player",
       "scale": 0.85,
       "skin": {"texture": "student_slytherin_03"},
-      "items": {"chest": "hogwartsmagic:slytherin_robes"},
+      "items": {"chest": "hogwartsmagic:slytherin_quidditch_robes", "legs": "hogwartsmagic:quidditch_shin_guards"},
       "ride": "broom_r_k",
       "path": [{"t": 0, "pos": [0.0, -0.4264, -0.05]}],
       "look": [
@@ -5013,7 +5013,7 @@
       "type": "player",
       "scale": 0.85,
       "skin": {"texture": "student_slytherin_07"},
-      "items": {"chest": "hogwartsmagic:slytherin_robes", "mainhand": "minecraft:mace"},
+      "items": {"chest": "hogwartsmagic:slytherin_quidditch_robes", "legs": "hogwartsmagic:quidditch_shin_guards", "mainhand": "minecraft:mace"},
       "ride": "broom_r_b1",
       "path": [{"t": 0, "pos": [0.0, -0.4264, -0.05]}],
       "look": [
@@ -5584,7 +5584,7 @@
       "type": "player",
       "scale": 0.85,
       "skin": {"texture": "student_slytherin_11"},
-      "items": {"chest": "hogwartsmagic:slytherin_robes"},
+      "items": {"chest": "hogwartsmagic:slytherin_quidditch_robes", "legs": "hogwartsmagic:quidditch_shin_guards"},
       "ride": "broom_r_c3",
       "path": [{"t": 0, "pos": [0.0, -0.4264, -0.05]}],
       "look": [
@@ -6138,7 +6138,7 @@
       "type": "player",
       "scale": 0.85,
       "skin": {"texture": "student_slytherin_15"},
-      "items": {"chest": "hogwartsmagic:slytherin_robes"},
+      "items": {"chest": "hogwartsmagic:slytherin_quidditch_robes", "legs": "hogwartsmagic:quidditch_shin_guards"},
       "ride": "broom_r_c1",
       "path": [{"t": 0, "pos": [0.0, -0.4264, -0.05]}],
       "look": [
@@ -6705,7 +6705,7 @@
       "type": "player",
       "scale": 0.85,
       "skin": {"texture": "student_slytherin_19"},
-      "items": {"chest": "hogwartsmagic:slytherin_robes"},
+      "items": {"chest": "hogwartsmagic:slytherin_quidditch_robes", "legs": "hogwartsmagic:quidditch_shin_guards"},
       "ride": "broom_r_c2",
       "path": [{"t": 0, "pos": [0.0, -0.4264, -0.05]}],
       "look": [
@@ -7260,7 +7260,7 @@
       "type": "player",
       "scale": 0.85,
       "skin": {"texture": "student_slytherin_23"},
-      "items": {"chest": "hogwartsmagic:slytherin_robes", "mainhand": "minecraft:mace"},
+      "items": {"chest": "hogwartsmagic:slytherin_quidditch_robes", "legs": "hogwartsmagic:quidditch_shin_guards", "mainhand": "minecraft:mace"},
       "ride": "broom_r_b2",
       "path": [{"t": 0, "pos": [0.0, -0.4264, -0.05]}],
       "look": [
@@ -7817,7 +7817,7 @@
       "type": "player",
       "scale": 0.85,
       "skin": {"texture": "student_slytherin_29"},
-      "items": {"chest": "hogwartsmagic:slytherin_robes"},
+      "items": {"chest": "hogwartsmagic:slytherin_quidditch_robes", "legs": "hogwartsmagic:quidditch_shin_guards"},
       "ride": "broom_r_s",
       "path": [{"t": 0, "pos": [0.0, -0.4264, -0.05]}],
       "look": [
@@ -7846,7 +7846,7 @@
     {
       "id": "hooch",
       "type": "player",
-      "skin": {"texture": "witch_05"},
+      "skin": {"texture": "hooch"},
       "items": {"offhand": "hogwartsmagic:whistle"},
       "path": [{"t": 0, "pos": [0.5, 0, 0.5]}],
       "look": [
@@ -8966,9 +8966,9 @@
     {"t": 454, "kind": "voice", "id": "hogwartsmagic:pensieve.voice.flying_comm_off", "volume": 1.0},
     {"t": 474, "kind": "sfx", "id": "hogwartsmagic:pensieve.sfx.flying_quaffle_catch", "volume": 0.6},
     {"t": 520, "kind": "sfx", "id": "hogwartsmagic:pensieve.sfx.flying_quaffle_catch", "volume": 0.6},
-    {"t": 540, "kind": "effect", "id": "lightning", "at": [-126, 0, 34]},
-    {"t": 548, "kind": "sfx", "id": "hogwartsmagic:pensieve.sfx.flying_thunder", "volume": 0.75},
+    {"t": 540, "kind": "effect", "id": "lightning", "at": [-169, 0, 22]},
     {"t": 550, "kind": "sfx", "id": "hogwartsmagic:pensieve.sfx.flying_quaffle_catch", "volume": 0.6},
+    {"t": 551, "kind": "sfx", "id": "hogwartsmagic:pensieve.sfx.flying_thunder", "volume": 0.75},
     {"t": 573, "kind": "sfx", "id": "hogwartsmagic:pensieve.sfx.flying_crowd_swell", "volume": 1.0},
     {"t": 574, "kind": "effect", "id": "crowd_react", "at": [74.52, 36.3, 78.51], "spread": [3.62, 22.4, 5.56], "style": "goal", "duration": 80},
     {"t": 574, "kind": "effect", "id": "crowd_react", "at": [67.44, 33.55, 88.47], "spread": [4.61, 20.15, 8.58], "style": "goal", "duration": 80},
@@ -9107,9 +9107,9 @@
       "duration": 150
     },
     {"t": 678, "kind": "sfx", "id": "hogwartsmagic:pensieve.sfx.flying_quaffle_catch", "volume": 0.6},
-    {"t": 708, "kind": "effect", "id": "lightning", "at": [113, 0, -65]},
+    {"t": 708, "kind": "effect", "id": "lightning", "at": [130, 0, -75]},
     {"t": 714, "kind": "sfx", "id": "hogwartsmagic:pensieve.sfx.flying_bludger_crack", "volume": 1.0},
-    {"t": 716, "kind": "sfx", "id": "hogwartsmagic:pensieve.sfx.flying_thunder", "volume": 0.9},
+    {"t": 717, "kind": "sfx", "id": "hogwartsmagic:pensieve.sfx.flying_thunder", "volume": 0.75},
     {"t": 733, "kind": "sfx", "id": "hogwartsmagic:pensieve.sfx.flying_crowd_gasp", "volume": 0.9},
     {"t": 735, "kind": "effect", "id": "crowd_react", "at": [30.46, 16.05, 130.91], "spread": [4.66, 2.65, 4.2], "style": "gasp"},
     {"t": 735, "kind": "effect", "id": "crowd_react", "at": [37.4, 16.05, 126.4], "spread": [2.62, 2.65, 1.48], "style": "gasp"},
@@ -9239,8 +9239,8 @@
     {"t": 735, "kind": "effect", "id": "crowd_react", "at": [-61.97, 34.05, -100.48], "spread": [5.12, 20.65, 10.62], "style": "gasp"},
     {"t": 735, "kind": "effect", "id": "crowd_react", "at": [-59.41, 54.8, -115.99], "spread": [3.52, 4.9, 6.06], "style": "gasp"},
     {"t": 752, "kind": "sfx", "id": "hogwartsmagic:pensieve.sfx.flying_quaffle_catch", "volume": 0.6},
-    {"t": 860, "kind": "effect", "id": "lightning", "at": [-60, 0, 110]},
-    {"t": 873, "kind": "sfx", "id": "hogwartsmagic:pensieve.sfx.flying_thunder", "volume": 0.75}
+    {"t": 860, "kind": "effect", "id": "lightning", "at": [-96, 0, 115]},
+    {"t": 875, "kind": "sfx", "id": "hogwartsmagic:pensieve.sfx.flying_thunder", "volume": 0.75}
   ],
   "words": [
     {"t": 120, "text": "Just catch the Snitch. That's all you've got to do.", "subtitle": true, "speaker": "The Captain", "duration": 56},

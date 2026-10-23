@@ -109,6 +109,13 @@ def robes(h):
     return 'hogwartsmagic:%s_robes' % h
 
 
+def quidditch_robes(h):
+    return 'hogwartsmagic:%s_quidditch_robes' % h
+
+
+SHIN_GUARDS = 'hogwartsmagic:quidditch_shin_guards'
+
+
 # The spoken lines: (speaker shown in the subtitle, subtitle text). Wood's subtitle reads "got to" (his take says
 # "gotta"; Task 9's ruling). No line names the boy: he is "you" or "the Seeker", his name only ever {viewer}.
 LINES = {
@@ -674,7 +681,7 @@ def lesson_people(h):
             elif aid == 'w1':
                 aid, skin, hs = 'neville', 'student_gryffindor_01', 'gryffindor'
             elif aid == 'w8':
-                aid, skin, hs = 'malfoy', 'student_slytherin_27', 'slytherin'
+                aid, skin, hs = 'malfoy', 'malfoy_young', 'slytherin'
             yaw = e['student_yaw']
             spot = ahead(e['student'], yaw, 0.0, side=STEP_IN)
             out.append({'id': aid, 'house': hs, 'skin': skin, 'spot': spot, 'yaw': yaw,
@@ -762,7 +769,7 @@ def lesson(h, world):
         ACT[p['id']] = []
         CLIPS[p['id']] = []
         S[p['id']]['path'] = Keys().at(0, p['spot']).k
-    hooch = sc.actor({'id': 'hooch', 'type': 'player', 'skin': {'texture': 'witch_05'},
+    hooch = sc.actor({'id': 'hooch', 'type': 'player', 'skin': {'texture': 'hooch'},
                       'items': {'mainhand': WHISTLE}})
     hrig = Rig()
 
@@ -1853,9 +1860,9 @@ VIEWER_CHASE = [(16.6, [-1.0, 6.8, 31.2]), (17.6, [-3.6, 8.0, 27.6]), (18.6, [-3
                 (24.1, [3.6, 16.3, -11.0]), (24.4, [3.1, 16.3, -10.85]), (24.8, [3.0, 16.3, -10.8])]
 # the dive: at the throw he wheels off the stand-off and plunges, pulls out low by FP0 and skims the lawn after the
 # falling Remembrall (its flight under REM_G, a light glass ball hurled down at the lawn), which drops into his hand
-# about 1.4 over the grass; then on, and the glide down the aisle
+# about 1.9 over the grass (his raised hand); then on, and the glide down the aisle
 FP0, REM_G = 572, 0.002
-SKIM_Y, SKIM_SPEED, SKIM_AT = 1.25, 0.9, (-0.5, 13.3)     # the skim's seat height, speed, and (x, z) at the catch
+SKIM_Y, SKIM_SPEED, SKIM_AT = 1.25, 0.75, (-0.5, 13.3)     # the skim's seat height, speed at the catch, and (x, z) there
 V_LAND = (660, [0.0, 0.0, 33.2], -4.0)          # tick, his feet in the aisle, the broom's yaw
 PARK_MCG = [-30.0, -30.0, 40.0]
 REACH_DIR = [-0.05, 1.3, 1.0]                   # the catching arm: up and out ahead, palm to the sky (broom frame)
@@ -1879,6 +1886,7 @@ def final_state(scene, aid, t=None):
 
 YAW_RATE = 9.0           # degrees a tick: the most a look key turns a broom from the key before (a spline run's
                          # middle turns up to 1.5x its keys' rate, so the drawn yaw stays under YAW_RATE_LIMIT)
+CRAB_LIMIT, CRAB_SPEED = 65.0, 0.25     # drawn yaw within CRAB_LIMIT degrees of the path heading at CRAB_SPEED blocks a tick or more
 YAW_RATE_LIMIT = 15.0    # the drawn yaw rate assert (the spline between keys may overshoot the keys' own rate a little)
 
 
@@ -2015,7 +2023,7 @@ def chase(h, world, lesson_scene):
             a['look'] = [{'t': 0, 'yaw': round(f['yaw'], 2), 'pitch': round(f['pitch'], 2)}]
     nev = sc.actor({'id': 'neville', 'type': 'player', 'scale': KID, 'skin': {'texture': P['neville']['skin']},
                     'items': {'chest': robes('gryffindor')}})
-    hooch = sc.actor({'id': 'hooch', 'type': 'player', 'skin': {'texture': 'witch_05'}, 'items': {'mainhand': WHISTLE}})
+    hooch = sc.actor({'id': 'hooch', 'type': 'player', 'skin': {'texture': 'hooch'}, 'items': {'mainhand': WHISTLE}})
     mcg = sc.actor({'id': 'mcgonagall', 'type': 'player', 'skin': {'texture': 'mcgonagall'}})
     chase_walkers(sc, LS, nev, hooch)
     chase_malfoy(sc, P, B, S, R, ACT)
@@ -2240,17 +2248,18 @@ def chase_viewer(sc, P, B, S, R, ACT):
     sc.notes['viewer_off'] = T_OFF
     # the dive and the catch: he wheels off the stand-off and plunges almost straight down, nose over, while the
     # ball arcs out over him; he pulls out low and skims the lawn level at SKIM_Y, a little faster than the falling
-    # ball, so it drops out of the sky into his outstretched hand SKIM_Y + 0.2 over the grass; on past it, then
+    # ball, so it drops out of the sky into his outstretched hand about 1.9 over the grass; on past it, then
     # down the aisle between the rows to land
     p0 = hand(V, E.actor_by_id(V, 'malfoy'), 'right_arm', T_THROW)
     t1 = T_C - 0.25
     r0, r1 = tk(T2['reach'][0]), tk(T2['reach'][1])
     land_at, feet, land_yaw = V_LAND
     v_lev = [0.02, 0.0, SKIM_SPEED]
-    level = lambda t: add([SKIM_AT[0], LAWN_Y + SKIM_Y, SKIM_AT[1]], v_lev, t - T_C)
     T_LEVEL = FP0 - 4                                               # level, and steady, before his own eyes
-    p_pull, v_pull = [-0.4, LAWN_Y + 6.4, level(T_LEVEL)[2] - 6.5], [0.02, -0.5, 0.45]
-    T_PULL, T_ON = T_LEVEL - 14, T_C + 8
+    level = lambda t: add([SKIM_AT[0], LAWN_Y + SKIM_Y, SKIM_AT[1]], v_lev, t - T_C)
+    # the pull-out starts ahead of the stand-off, so the plunge never runs back against the wheel
+    p_pull, v_pull = [-0.4, LAWN_Y + 7.4, vs[2] + 1.4], [0.02, -0.5, 0.15]
+    T_PULL, T_ON = T_LEVEL - 18, T_C + 8
     dive = hermite(vs, [0.0, 0.0, 0.0], p_pull, v_pull, T_THROW + 1, T_PULL)
     pull = hermite(p_pull, v_pull, level(T_LEVEL), v_lev, T_PULL, T_LEVEL)
     lp = broom_under(feet, land_yaw, KID)
@@ -2441,7 +2450,7 @@ def chase_camera(sc, P, B, S):
     e0 = eye_v(FP0)
     q0 = sub(ball_world(V, 'remembrall', FP0), e0)
     hq = math.hypot(q0[0], q0[2])
-    d0 = [q0[0] / hq, math.tan(math.radians(9.0)), q0[2] / hq]
+    d0 = [q0[0] / hq, math.tan(math.radians(28.0)), q0[2] / hq]
     eC = eye_v(T_C)
     ahead_ = E._mat_vec(E.broom_pose(V, vb_, T_C)['m'], [0.0, 0.0, 1.0])
     d1 = slerp_dir(ahead_, sub(v_hand(T_C), eC), 0.62)
@@ -2480,7 +2489,7 @@ def chase_camera(sc, P, B, S):
                    (422, 486, eye('malfoy'), 'Malfoy (C8)'), (490, 530, eye('malfoy'), 'Malfoy throws (C9)'),
                    (534, FP0 - 2, eye('viewer'), 'the dive (C10)'),
                    (FP0 + 2, T_C - 2, lambda sc_, t: ball_world(sc_, 'remembrall', t), 'the falling Remembrall (C11)'),
-                   (T_C - 3, T_C + 1, lambda sc_, t: hand(sc_, E.actor_by_id(sc_, 'viewer'), 'right_arm', t), 'his hand (C11)'),
+                   (T_C - 2, T_C + 1, lambda sc_, t: hand(sc_, E.actor_by_id(sc_, 'viewer'), 'right_arm', t), 'his hand (C11)'),
                    (600, 642, eye('viewer'), 'the boy below the window (C12)'), (646, 684, eye('mcgonagall'), 'McGonagall (C13)'),
                    (690, 726, eye('viewer'), 'the boy (C14)'), (732, 768, eye('mcgonagall'), 'McGonagall at the door (C15)'),
                    (774, sc.L - 2, eye('viewer'), 'the boy (C16)')]
@@ -2626,12 +2635,23 @@ def check_moments_chase(sc, scene, problems):
 def check_yaw_rates(sc, scene, problems):
     """No broom (and so no rider) turns faster than YAW_RATE_LIMIT degrees a tick: the drawn yaw (E.broom_pose, as
     BroomFlight.place draws it) every quarter tick, except the scripted windows by name (sc.notes['yaw_ok']).
-    Returns (worst rate, broom, tick)."""
+    Also none flies sideways: wherever it moves 0.25 blocks a tick or faster, its drawn yaw is within 65 degrees of
+    its path's heading (the Flier pins, the keepers', and the yaw_ok windows exempt). Returns (worst rate, broom, tick)."""
     worst = (0.0, None, None)
     ok = sc.notes.get('yaw_ok', {})
+    crab_ok = sc.notes.get('crab_ok', {})
     for b in [a for a in scene['actors'] if E.is_broom(a)]:
         wins = ok.get(b['id'], [])
         prev = None
+        for t in range(0, scene['length']):
+            a0, a1 = E.track_sample(b['path'], t), E.track_sample(b['path'], t + 1)
+            if math.hypot(a1[0] - a0[0], a1[2] - a0[2]) < CRAB_SPEED or any(
+                    t0 <= t <= t1 for t0, t1, _ in wins + crab_ok.get(b['id'], [])):
+                continue
+            c = abs(((E.broom_pose(scene, b, t)['yaw'] - E.broom_heading(b['path'], t)) % 360 + 540) % 360 - 180)
+            if c > CRAB_LIMIT:
+                problems.append('%s: broom %s flies %.0f degrees off its own heading at t %d' % (sc.sid, b['id'], c, t))
+                break
         for q in range(0, scene['length'] * 4 + 1):
             t = q / 4.0
             y = E.broom_pose(scene, b, t)['yaw']
@@ -2708,8 +2728,8 @@ PARK_PITCH = [-60.0, -40.0, 150.0]
 # the strikes, 6-12 s apart: (seconds, where it would strike if it could be anywhere); storm() moves each to the
 # nearest spot on the ring round the stadium that its shot can see, so every bolt is on screen
 STORM_STRIKES = {'match': [(2.0, [150, 0, -60]), (10.5, [-120, 0, 90]), (18.5, [140, 0, 80]), (27.0, [-130, 0, -100]),
-                           (35.4, [150, 0, 20]), (43.0, [-60, 0, 110]), (49.2, [-140, 0, 40])],
-                 'snitch': [(1.5, [140, 0, -70]), (7.5, [-60, 0, 120]), (14.5, [150, 0, 30]), (21.5, [-130, 0, 60]),
+                           (35.4, [150, 0, 20]), (43.0, [-96, 0, 115]), (49.2, [-140, 0, 40])],
+                 'snitch': [(1.5, [140, 0, -70]), (7.5, [-96, 0, 115]), (14.5, [150, 0, 30]), (21.5, [-130, 0, 60]),
                             (28.5, [-120, 0, -90]), (35.5, [140, 0, 90])]}
 SOUND_SPEED = 17.0     # blocks a tick: thunder comes after the flash by the distance to the camera
 STRIKE_YS = (25.0, 50.0, 80.0)          # points up the bolt that must be on screen
@@ -2722,28 +2742,57 @@ def strike_seen(scene, t, at):
     return seen[1] and (seen[0] or seen[2])          # the middle of the bolt and one end of it
 
 
+STRIKE_CLEAR = 25.0                     # a bolt lands at least this far (horizontally) from every seat
+_SEATS_XZ = []
+
+
+def seats_xz(events):
+    """(x, z) of every seat the crowd events in `events` fill."""
+    out = []
+    for e in events:
+        if e.get('kind') == 'effect' and e.get('id') == 'crowd':
+            out.extend((p[0], p[2]) for p, _ in E.crowd_seats(e))
+    return out
+
+
+def strike_clear(at, seats):
+    return all(math.hypot(at[0] - x, at[2] - z) >= STRIKE_CLEAR for x, z in seats)
+
+
 def strike_spot(sc, t, want):
-    """want if its shot sees it at t, else the nearest spot that it does on rings 130-150 blocks out."""
+    """want if its shot sees it at t and it is clear of the stands, else the nearest spot that is clear and that the
+    shot sees, on rings 150-190 blocks out (the end stands' seats reach 141.5); failing that the nearest clear spot."""
     V = view(sc)
-    if strike_seen(V, t, want):
+    if not _SEATS_XZ:
+        _SEATS_XZ.extend(seats_xz([crowd_event(hh) for hh in HOUSES]))
+    if strike_clear(want, _SEATS_XZ) and strike_seen(V, t, want):
         return list(want)
-    best = None
-    for r in (150.0, 140.0, 130.0):                  # out past the stands, over the towers and the castle
+    best = unseen = None
+    for r in (150.0, 160.0, 170.0, 180.0, 190.0):
         for k in range(48):
             a = 2 * math.pi * k / 48.0
             p = [round(r * math.cos(a)), 0, round(r * math.sin(a))]
-            if strike_seen(V, t, p):
-                d = math.dist(p, want)
-                if best is None or d < best[0]:
-                    best = (d, p)
-    return best[1] if best else list(want)
+            if not strike_clear(p, _SEATS_XZ):
+                continue
+            d = math.dist(p, want)
+            if unseen is None or d < unseen[0]:
+                unseen = (d, p)
+            if strike_seen(V, t, p) and (best is None or d < best[0]):
+                best = (d, p)
+    return (best or unseen)[1]
 
 
 def check_lightning(sc, scene, problems):
     """The lightning: at least two in three strikes on screen at their tick (the middle of the bolt and one end in
-    the 16:9 frame; a face close-up only sees the flicker), the strikes 6 to 12 s apart, each followed by its thunder
+    the 16:9 frame; a face close-up only sees the flicker), none within STRIKE_CLEAR blocks of a seat, the strikes 6 to
+    12 s apart, each followed by its thunder
     after the distance to the camera at the speed of sound. Returns (strikes on screen, strikes)."""
     ev = [e for e in scene['events'] if e.get('id') == 'lightning']
+    seats = seats_xz(scene['events'])
+    for e in ev:
+        if not strike_clear(e['at'], seats):
+            problems.append('%s: the lightning at t %d strikes within %.0f blocks of the stands' % (
+                sc.sid, e['t'], STRIKE_CLEAR))
     th = [e['t'] for e in scene['events'] if e.get('id') == SFX + 'thunder']
     seen = sum(1 for e in ev if strike_seen(scene, e['t'], e['at']))
     if 3 * seen < 2 * len(ev):
@@ -2846,7 +2895,7 @@ def storm(sc, part):
                 if 0 < tk(s) + dt < sc.L - 20 and (prev is None or 120 <= tk(s) + dt - prev <= 240)]
         if not fits:
             continue                                 # no room left for it in the rhythm
-        t, at = fits[0], list(want)                  # a face close-up may not see the sky: then it only flickers
+        t, at = fits[0], strike_spot(sc, fits[0], want)                # a face close-up may not see the sky: then it only flickers
         for t_ in fits:
             at_ = strike_spot(sc, t_, want)
             if strike_seen(V, t_, at_):
@@ -2887,7 +2936,7 @@ class Flier:
         self.hover = []           # (t0, t1, yaw)
         self.pins = []            # (t0, t1, yaw): faces yaw whatever the path does
         self.rig = Rig()
-        self.items = {'chest': robes(house)}
+        self.items = {'chest': quidditch_robes(house), 'legs': SHIN_GUARDS}
         self.skin = {'viewer': True} if skin is None else {'texture': skin}
 
     def at(self, t, p, ease='spline'):
@@ -2918,6 +2967,7 @@ class Flier:
             b.look.append([t, hd, round(pitch, 3), None, 'spline' if t + 4 <= sc.L else None])
         b.look[-1][4] = None
         b.sync()
+        sc.notes.setdefault('crab_ok', {})[b.id] = [(t0, t1, 'pinned') for t0, t1, _ in self.pins]
         a = {'id': self.id, 'type': 'player', 'scale': THIRD, 'skin': self.skin, 'items': self.items,
              'ride': b.id, 'path': [{'t': 0, 'pos': r4(E.rider_seat(THIRD))}],
              'look': [{'t': 0, 'yaw': 0.0, 'pitch': 0.0}]}
@@ -2944,7 +2994,7 @@ def match(h, world, chase_scene=None):
     match_routes(sc, F_)
     for f in F_.values():
         f.build()
-    hooch = sc.actor({'id': 'hooch', 'type': 'player', 'skin': {'texture': 'witch_05'}, 'items': {'offhand': WHISTLE},
+    hooch = sc.actor({'id': 'hooch', 'type': 'player', 'skin': {'texture': 'hooch'}, 'items': {'offhand': WHISTLE},
                       'path': [{'t': 0, 'pos': list(QA['hooch_spot'])}],
                       'look': [{'t': 0, 'yaw': -90.0, 'pitch': 10.0}]})
     match_hooch(sc, F_, hooch)
@@ -4383,7 +4433,21 @@ def bites(built, lawn, pitch_w):
         b = E.actor_by_id(m, 'broom_o_c2')
         k = next(k for k in b['look'] if k['t'] >= 700)
         k['yaw'] += 150.0
-    bite('yaw rate (one Flier look key turned 150 degrees)', L3_, spin_key, lambda sc, m, P: check_yaw_rates(sc, m, P))
+    def rate_run(sc, m, P):
+        Q = []
+        check_yaw_rates(sc, m, Q)
+        P.extend(q for q in Q if 'degrees a tick' in q)
+    bite('yaw rate (one Flier look key turned 150 degrees)', L3_, spin_key, rate_run)
+
+    def dive_slides_back(m, sc):
+        b = E.actor_by_id(m, 'broom_viewer')
+        k = min(b['path'], key=lambda k: abs(k['t'] - 540))
+        k['pos'] = [k['pos'][0], k['pos'][1], k['pos'][2] - 4.0]
+    def crab_run(sc, m, P):
+        Q = []
+        check_yaw_rates(sc, m, Q)
+        P.extend(q for q in Q if 'own heading' in q)
+    bite('yaw rate (crab: a dive key 4 blocks back, the broom flies sideways)', L2_, dive_slides_back, crab_run)
 
     def rival_dives_on(m, sc):
         b = E.actor_by_id(m, 'broom_r_s')
@@ -4399,8 +4463,22 @@ def bites(built, lawn, pitch_w):
                 lk, _ = E.engine_look(m, m['camera'], e['t'])
                 d = norm([c[0] - lk[0], 0.0, c[2] - lk[2]])
                 e['at'] = [round(c[0] + d[0] * 140), 0, round(c[2] + d[2] * 140)]
-    bite('lightning on screen (every strike behind the camera)', L3_, strikes_behind,
-         lambda sc, m, P: check_lightning(sc, m, P))
+    def screen_run(sc, m, P):
+        Q = []
+        check_lightning(sc, m, Q)
+        P.extend(q for q in Q if 'on screen' in q)
+    bite('lightning on screen (every strike behind the camera)', L3_, strikes_behind, screen_run)
+
+    def strike_on_seat(m, sc):
+        e = [e for e in m['events'] if e.get('id') == 'lightning'][0]
+        cr = [c for c in m['events'] if c.get('id') == 'crowd'][0]
+        p = E.crowd_seats(cr)[0][0]
+        e['at'] = [p[0], 0, p[2]]
+    def stands_run(sc, m, P):
+        Q = []
+        check_lightning(sc, m, Q)
+        P.extend(q for q in Q if 'stands' in q)
+    bite('lightning clear of the stands (one strike on a seat)', L3_, strike_on_seat, stands_run)
 
     def stand_away(m, sc):
         for k in m['camera']:

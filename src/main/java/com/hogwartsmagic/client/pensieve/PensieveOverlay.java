@@ -82,6 +82,8 @@ public final class PensieveOverlay {
                 if (black > 0) g.fill(0, 0, w, h, argb(black, 0));
             } else if (pt < EXIT_COLLAPSE_TICKS) {
                 fallbackDarkness(g, w, h, partial);
+                // Leaving during a white chain fade: the white drains into the collapse's black instead of flipping.
+                exitWhite(g, w, h, partial, pt);
                 // A memory that ended on eyes_close stays black through the collapse: no flash of the scene.
                 eyelids(g, w, h, partial);
             } else {
@@ -208,6 +210,14 @@ public final class PensieveOverlay {
     /** A chain's white hand-over: the view fades to white at the scene's end, holds, and fades in from white. */
     private static void whiteHandover(GuiGraphics g, int w, int h, float partial) {
         float a = PensieveClientState.handoverCover(partial)[1];
+        if (a <= 0f) return;
+        RenderSystem.enableBlend();
+        g.fill(0, 0, w, h, argb(a, 0xFFFFFF));
+        RenderSystem.disableBlend();
+    }
+
+    private static void exitWhite(GuiGraphics g, int w, int h, float partial, float pt) {
+        float a = PensieveClientState.handoverCover(partial)[1] * (1 - PensieveTimeline.exitDarkness(pt));
         if (a <= 0f) return;
         RenderSystem.enableBlend();
         g.fill(0, 0, w, h, argb(a, 0xFFFFFF));

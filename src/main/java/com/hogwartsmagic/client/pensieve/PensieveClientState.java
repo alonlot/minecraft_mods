@@ -205,7 +205,7 @@ public final class PensieveClientState {
         // A different scene while one is already on screen: the server handed this viewer on to a chained scene. A
         // scene handed over to itself (a hold scene looping) is a new session in a new slot: its origin differs.
         boolean switched = sceneId != null && (!id.equals(sceneId) || (origin != null && !origin.equals(at)));
-        boolean previousWhite = switched && scene != null && scene.handoverWhite();
+        boolean previousWhite = PensieveTimeline.carriesWhite(switched, scene != null && scene.handoverWhite(), fadeStart >= 0);
         if (scene == null || switched) {
             scene = parse(id, json);
             sceneId = id;
@@ -538,7 +538,8 @@ public final class PensieveClientState {
      */
     public static float[] handoverCover(float partial) {
         float chain = chainEndDarkness(partial);
-        boolean sceneWhite = scene != null && scene.next() != null && scene.handoverWhite() && fadeStart < 0;
+        boolean sceneWhite = scene != null
+                && PensieveTimeline.sceneFadesWhite(scene.next() != null, scene.handoverWhite(), fadeStart >= 0);
         return PensieveTimeline.handoverColour(carriedWhite && handedOver, sceneWhite,
                 PensieveTimeline.revealDarkness(reveal(partial)), chain);
     }
@@ -612,6 +613,7 @@ public final class PensieveClientState {
         returnStart = -1;
         lateJoin = false;
         handedOver = false;
+        carriedWhite = false;
         holdForSet = false;
         opensShut = false;
         heldAtExit = false;

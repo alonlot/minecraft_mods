@@ -77,7 +77,7 @@ public final class PensievePost {
         }
         if (p == PensieveClientState.EXIT) {
             return Math.max(exitDarkness(PensieveClientState.phaseTime(partial)),
-                    PensieveClientState.chainEndDarkness(partial));
+                    PensieveClientState.handoverCover(partial)[0]);
         }
         return 0;
     }

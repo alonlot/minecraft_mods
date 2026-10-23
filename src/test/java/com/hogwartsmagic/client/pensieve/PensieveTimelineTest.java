@@ -74,6 +74,18 @@ class PensieveTimelineTest {
     }
 
     @Test
+    void askedHandOverCarriesBlack() {
+        // A chain end from a white scene carries white; a hand-over the server asked of it (fade started) is black.
+        assertTrue(PensieveTimeline.carriesWhite(true, true, false));
+        assertFalse(PensieveTimeline.carriesWhite(true, true, true));
+        assertFalse(PensieveTimeline.carriesWhite(true, false, false));
+        assertFalse(PensieveTimeline.carriesWhite(false, true, false));
+        assertTrue(PensieveTimeline.sceneFadesWhite(true, true, false));
+        assertFalse(PensieveTimeline.sceneFadesWhite(true, true, true));
+        assertFalse(PensieveTimeline.sceneFadesWhite(false, true, false));
+    }
+
+    @Test
     void whiteHandoverFadesToWhite() {
         float[] mid = PensieveTimeline.handoverColour(false, true, 0f, PensieveTimeline.chainEndDarkness(190, 200));
         assertEquals(0f, mid[0], 1e-6f);

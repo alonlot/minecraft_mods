@@ -141,6 +141,16 @@ public final class PensieveTimeline {
         return white ? new float[]{0f, amount} : new float[]{amount, 0f};
     }
 
+    /** Whether a hand-over carries white into the next scene: only a chain end, never one the server asked for. */
+    public static boolean carriesWhite(boolean switched, boolean oldSceneWhite, boolean fadeAsked) {
+        return switched && oldSceneWhite && !fadeAsked;
+    }
+
+    /** Whether the scene's own chain fade goes to white: it has a next, is white, and no asked fade took over. */
+    public static boolean sceneFadesWhite(boolean hasNext, boolean white, boolean fadeAsked) {
+        return hasNext && white && !fadeAsked;
+    }
+
     /**
      * How far above its key the camera is while it lands in the memory: {@link #SETTLE_HEIGHT} easing to 0 over
      * {@link #SETTLE_TICKS} of reveal time. A chain's hand-over fades in on the next shot as it is: no drop.

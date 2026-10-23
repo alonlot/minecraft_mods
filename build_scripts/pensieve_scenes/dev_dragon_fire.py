@@ -17,7 +17,19 @@ What it shows, on an open lawn by day, 36 s:
   - the takeoff and a climbing turn to a hover over a cottage, an AIR_BREATH at its roof (scorched slates);
   - a last wide shot of the three scorches, embers dying.
 Her head is aimed with `limbs.head_look`, solved against the mirror so the jet leaves along her head (the aim error is
-printed and checked); every fire check runs on dragon_engine's fire mirror.
+printed and checked); every fire check runs on dragon_engine's fire mirror, the splash included (fire_clearance), and
+a jet landing on the lawn just before the boulder must splash up to its face, not through it (the splash clamp).
+
+The preview checklist (`/pensieve preview dev_dragon_fire`, no gradle in flight; the user's in-game pass):
+  - the look: the boulder breath (t 112-160, side on, then from behind the boulder with the boy) and the air breath at
+    the roof (t 512-560): brightness against the day sky, the shimmer (it may read as pale steam), the soot's rim, the
+    smoke in front of the jet from the stands' side (drawn over the flame since fix round 1);
+  - the `Pensieve fire:` lines: CPU ms a frame (budget 1.0 for two jets and their smoke), the scorch's own ms, the
+    soot and ember cells (at most 6,000 a pass), the fps and frame time, and the sprite overdraw estimate (screens a
+    frame: past about 3 the GPU fill is worth a look, near the lens especially);
+  - one frame with Fabulous graphics on (the line says which): the additive layers must still glow, not turn dull or
+    opaque; if they do, the additive passes move to AFTER_WEATHER;
+  - the `Pensieve horntail:` lines: the worst snout gap at most 0.5.
 """
 import math
 import os
@@ -134,7 +146,7 @@ def flight_path():
             hover = [x, y, z]
         if (t + 1 - t0) % 5 == 0:
             keys.append({'t': t + 1, 'pos': r3([x, y, z]), 'ease': 'spline'})
-    return keys, hover, E.broom_heading(keys, FIRE3 + 20)
+    return keys, hover, E.broom_heading_held(keys, FIRE3 + 20)
 
 
 def aim_error(scene, t, target):
@@ -312,6 +324,27 @@ def checks(scene, world, flaps, info):
             worst_cam = min(worst_cam, c)
     if worst_boy < 1.5:
         problems.append('the fire comes %.2f from the boy' % worst_boy)
+    # A jet landing on the lawn just before the boulder splashes up to its face, never on through the rock.
+    o, _ = D.horntail_snout(scene, 'h', FIRE1 + 20)
+    short = [0.5, 0.0, BOULDER_FACE[2] - 1.5]
+    d = D._norm([short[i] - o[i] for i in range(3)])
+    hit, n = D.ray_hit(world, o, d, D.FIRE_MAX_REACH)
+    held = D.splash_centres(world, o, d, hit, n, 1.0)
+    loose = D.splash_centres(world, o, d, hit, n, 1.0, clamp=False)
+
+    def into_rock(cs):
+        return max(c[2] for c, _ in cs if -3.5 <= c[0] <= 5.5 and c[1] < 3.0) - BOULDER_FACE[2]
+    splash_in, loose_in = into_rock(held), into_rock(loose)
+    if n is None or splash_in > 0:
+        problems.append('a jet landing before the boulder splashes %.2f into it' % splash_in)
+    # Her mouth as the fire estimates it when she is not drawn (a late joiner) stays near the drawn snout.
+    worst_mouth = 0.0
+    for t0, dur, _ in D.breathes(h):
+        for k in range(0, int(dur * 4), 2):          # every other puff's birth (DragonFire.birth: 4 a tick)
+            t = t0 + k / 4.0
+            worst_mouth = max(worst_mouth, math.dist(D.mouth_estimate(h, t)[0], D.horntail_snout(scene, 'h', t)[0]))
+    if worst_mouth > 0.5:
+        problems.append('the mouth estimate strays %.2f from her snout while she breathes' % worst_mouth)
     if worst_cam < 1.0:
         problems.append('the fire comes %.2f from the camera' % worst_cam)
     # The dragon clear of the set in flight: every capsule 0.8 from the lawn (top y 0) and from the cottage's box.
@@ -358,6 +391,8 @@ def checks(scene, world, flaps, info):
           'head looks %s and %s' % (hits['boulder'], hits['roof'], worst_aim, info['look1'], info['look3']))
     print('fire: at least %.2f from the boy, %.2f from the camera; %d wingbeats; worst speed change %.4f; spline moves %s'
           % (worst_boy, worst_cam, len(flaps), acc, probs or 'ok'))
+    print('fire: a jet landing 1.5 before the boulder splashes to %.2f of its face (%.2f into it unheld); the mouth '
+          'estimate within %.2f of her snout while she breathes' % (-splash_in, loose_in, worst_mouth))
     return problems
 
 

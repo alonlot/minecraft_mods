@@ -1026,6 +1026,17 @@ class SceneValidatorTest {
     }
 
     @Test
+    void breatheActorTargetIsAPlayer() throws Exception {
+        String boy = ",{\"id\":\"boy\",\"type\":\"player\",\"path\":[{\"t\":0,\"pos\":[0,0,12]}]}";
+        String sheep = ",{\"id\":\"sheep\",\"type\":\"minecraft:sheep\",\"path\":[{\"t\":0,\"pos\":[0,0,12]}]}";
+        String at = BREATH_CUES + ",\"actions\":[{\"t\":26,\"do\":\"breathe\",\"target\":\"actor:%s\"}]}";
+        String head = "{\"length\":200,\"actors\":[{\"id\":\"h\",\"type\":\"hogwartsmagic:memory_horntail\"";
+        assertEquals(List.of(), validate(head + String.format(at, "boy") + boy + "]}"));
+        assertMessage(validate(head + String.format(at, "sheep") + sheep + "]}"),
+                "actors[0].actions[0].target: a breathe actor target must be a player actor ('sheep' is minecraft:sheep)");
+    }
+
+    @Test
     void breatheDurationRange() throws Exception {
         for (String d : new String[]{"10", "25", "\"1s\""}) {
             assertEquals(List.of(), validate(horntail(BREATH_CUES + ",\"actions\":[{\"t\":26,\"do\":\"breathe\","

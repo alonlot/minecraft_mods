@@ -5,8 +5,8 @@ import com.hogwartsmagic.client.ModRenderTypes;
 import com.hogwartsmagic.entity.MemoryHorntailEntity;
 import com.hogwartsmagic.pensieve.scene.DragonFire;
 import com.hogwartsmagic.pensieve.scene.DragonFlight;
-import com.hogwartsmagic.pensieve.scene.HorntailCues;
 import com.hogwartsmagic.pensieve.scene.SceneDef;
+import com.hogwartsmagic.pensieve.scene.ScorchDecal;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.logging.LogUtils;
 import net.minecraft.client.Camera;
@@ -15,6 +15,7 @@ import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.culling.Frustum;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -67,13 +68,23 @@ import java.util.Map;
  * </ul>
  * <b>Where the jet leaves from:</b> her drawn mouth, stored on the puppet by its renderer this very frame
  * ({@link MemoryHorntailEntity#snoutIn}, stamped with {@link #frame()}); a snout from an older frame (she was not drawn)
- * is never used: the mouth is then estimated from her pose ({@link DragonFlight#place}, the state's mouth offset). A
- * puff born between two frames takes the mouth between them. The aim is the {@code target} (a point, or an actor's
- * chest), else her head's direction; each puff's ray is cut at the first block (a client raycast against the set).
+ * is never used: the mouth is then estimated from her pose and head look ({@link DragonFlight#mouthEstimate}). A
+ * puff born between two frames takes the mouth between them ({@link DragonFire#birth}). The aim is the {@code target}
+ * (a point, or an actor's chest), else her head's direction; each puff's ray is cut at the first block (a client
+ * raycast against the set), and where it splashes, one more ray along its splash direction holds the splash short of
+ * any block beside or behind the face ({@link DragonFire#splashReach}).
+ *
+ * <p><b>The scorch's cost</b> ({@link ScorchDecal}): each spot's cells are baked once for its radius and replayed;
+ * spots out of view or past {@link ScorchDecal#CULL_DISTANCE} are skipped, and a pass draws at most
+ * {@link ScorchDecal#MAX_FRAME_CELLS} cells, nearest first. A spot's faces are listed at most
+ * {@link ScorchDecal#MAX_BUILDS_PER_FRAME} spots a frame and rechecked against the set a few spots a tick, so soot on a
+ * block a memory event removes goes with it.
  *
  * <p>Drawn at {@code AFTER_TRANSLUCENT_BLOCKS}, after the actors (so the mouth is this frame's), from an identity
- * matrix (stages after the camera push start from identity). In a {@code dev_} scene a {@code Pensieve fire:} line logs
- * the CPU cost every 5 s.
+ * matrix (stages after the camera push start from identity). Smoke farther than the jet is drawn before the flame and
+ * smoke nearer the camera after it. In a {@code dev_} scene a {@code Pensieve fire:} line logs the CPU cost every 5 s
+ * (the scorch's share apart), the frame rate, an estimate of the sprites' screen overdraw and whether Fabulous
+ * graphics is on.
  */
 @Mod.EventBusSubscriber(modid = ExampleMod.MODID, value = Dist.CLIENT)
 public final class DragonFireRenderer {
@@ -93,20 +104,10 @@ public final class DragonFireRenderer {
     private static final int LIGHT = LightTexture.FULL_BRIGHT;
     private static final int OVERLAY = OverlayTexture.NO_OVERLAY;
 
-    /** At most this many scorch spots a jet, and faces a spot. */
-    private static final int MAX_SPOTS = 24, MAX_FACES = 120;
-    /** Decals sit this far off their face. */
-    private static final double DECAL_LIFT = 0.012;
-
-    /**
-     * The mouth in the dragon's local frame (blocks at scale 1, from her root) and the way it faces, per state, when
-     * no drawn snout is at hand (from {@code dragon_engine.horntail_snout}, head look 0).
-     */
-    private static final Map<String, double[]> MOUTH = Map.of(
-            "BREATH", new double[]{0, 0.54, 3.75, 0, -0.66, 0.75},
-            "AIR_BREATH", new double[]{0, 0.65, 3.49, 0, -0.68, 0.74},
-            "FLY", new double[]{0, 1.61, 4.13, 0, -0.19, 0.98});
-    private static final double[] REST_MOUTH = {0, 1.30, 4.0, 0, -0.36, 0.93};
+    /** A smoke sprite's half-size is held to this share of its distance to the camera (overdraw near the lens). */
+    private static final double SMOKE_NEAR_CAP = 0.6;
+    /** Spots whose faces are rechecked against the set each client tick. */
+    private static final int FACE_CHECKS_PER_TICK = 2;
 
     /** The render frame: the Horntail renderer stamps her snout with it, this class moves it on after drawing. */
     private static long frame;
@@ -117,9 +118,15 @@ public final class DragonFireRenderer {
     private static float lastNow;
 
     // The dev timer.
-    private static long timedNanos, worstNanos, lastLog;
-    private static int timedFrames, staleFrames, lastPuffs, lastSmoke, lastDecals;
-    private static double worstAim;
+    private static long timedNanos, worstNanos, decalNanos, worstDecalNanos, lastLog;
+    private static int timedFrames, staleFrames, lastPuffs, lastSmoke, lastDecals, lastEmbers, droppedSpots, faceDrops;
+    private static double worstAim, overdraw, sumOverdraw, worstOverdraw;
+    /** This frame's projection scale (1 / tan of the half fov, across and up), for the overdraw estimate. */
+    private static double projX = 1, projY = 1;
+    private static Vec3 viewDir = new Vec3(0, 0, 1);
+    private static int faceCheckCursor;
+    /** The camera-facing core sprites for ribbon points seen end on, this frame: {x, y, z, half, r, g, b, cell}. */
+    private static final List<double[]> HEAD_ON = new ArrayList<>();
 
     private DragonFireRenderer() {
     }
@@ -139,7 +146,7 @@ public final class DragonFireRenderer {
         final Rec[] recs;
         int made;
         final List<DragonFire.Spot> spots = new ArrayList<>();
-        final Map<DragonFire.Spot, List<Face>> faces = new java.util.IdentityHashMap<>();
+        final Map<DragonFire.Spot, SpotDraw> draws = new java.util.IdentityHashMap<>();
         final DragonFire.Budget budget = new DragonFire.Budget(DragonFire.MAX_PARTICLES);
         double[] lastO, lastD;
         float lastT = Float.NaN;
@@ -167,13 +174,18 @@ public final class DragonFireRenderer {
         }
     }
 
-    /** One puff, as born: mouth, aim, where its ray meets a block (distance, normal) and its look. */
-    private record Rec(double[] o, double[] d, double hit, double[] n, DragonFire.Look look, double tb, double birthAge,
-                       boolean emitted, boolean smokes) {
+    /**
+     * One puff, as born: mouth, aim, where its ray meets a block (distance, normal), how far its splash may spread
+     * before a block, and its look.
+     */
+    private record Rec(double[] o, double[] d, double hit, double[] n, double splashReach, DragonFire.Look look,
+                       double tb, double birthAge, boolean emitted, boolean smokes) {
     }
 
-    /** A block face near a scorch spot: its four corners (world) and its normal. */
-    private record Face(double[] c0, double[] c1, double[] c2, double[] c3, Direction dir, int hash) {
+    /** A scorch spot's faces (null until listed) and its baked soot and embers (null until baked, or stale). */
+    private static final class SpotDraw {
+        List<ScorchDecal.Face> faces;
+        ScorchDecal.Baked soot, embers;
     }
 
     // ---- Keeping up with the scene --------------------------------------------------------------------------------
@@ -217,35 +229,37 @@ public final class DragonFireRenderer {
         } else if (j.emitting(now)) {
             staleFrames++;
         }
+        double[] org = {origin.x, origin.y, origin.z};
+        double[] to = target(j, org);
         while (j.made < j.recs.length) {
             int k = j.made;
             double tb = j.t0 + DragonFire.birth(k);
             if (tb > now) break;
-            double[] o, hd;
-            if (curO != null && j.lastO != null && tb >= j.lastT - 1e-6 && now > j.lastT && now - tb <= 2) {
-                double f = (tb - j.lastT) / (now - j.lastT);
-                o = lerp(j.lastO, curO, f);
-                hd = normalize(lerp(j.lastD, curD, f));
-            } else if (curO != null && now - tb <= 0.75) {
-                o = curO;
-                hd = curD;
-            } else {
-                double[] m = mouthFromPose(j.actor.def, tb, origin);
-                o = new double[]{m[0], m[1], m[2]};
-                hd = new double[]{m[3], m[4], m[5]};
-            }
-            double[] d = aim(j, o, hd, origin);
-            worstAim = Math.max(worstAim, Math.toDegrees(Math.acos(Mth.clamp(dot(d, hd), -1, 1))));
+            double lastT = j.lastO == null ? Double.NaN : j.lastT;
+            DragonFire.Birth b = DragonFire.birth(tb, now, j.lastO, j.lastD, lastT, curO, curD,
+                    () -> mouthFromPose(j.actor.def, tb, org), to);
+            double[] o = b.o(), d = b.d();
+            worstAim = Math.max(worstAim, Math.toDegrees(Math.acos(Mth.clamp(dot(d, b.head()), -1, 1))));
             double[] n = new double[3];
-            double hit = raycast(level, o, d, n);
+            double hit = raycast(level, o, d, n, DragonFire.MAX_REACH);
             DragonFire.Look look = DragonFire.look(j.seed, k);
             double age = DragonFire.birth(k);
             boolean emitted = DragonFire.emitted(look, age, j.duration);
-            Rec r = new Rec(o, d, hit, n, look, tb, age, emitted, emitted && DragonFire.smokes(look, age, j.duration));
-            j.recs[k] = r;
+            double reach = Double.POSITIVE_INFINITY;
+            if (emitted && hit < DragonFire.MAX_REACH) {
+                // One more ray along its splash: it never spreads through the rock beside or behind the face.
+                double[] e = DragonFire.splashDir(d, n, look);
+                double lift = DragonFire.SPLASH_RAY_LIFT;
+                double[] from = {o[0] + d[0] * hit + n[0] * lift, o[1] + d[1] * hit + n[1] * lift,
+                        o[2] + d[2] * hit + n[2] * lift};
+                reach = DragonFire.splashReach(raycast(level, from, e, new double[3],
+                        DragonFire.SPLASH_SPREAD * j.scale()));
+            }
+            j.recs[k] = new Rec(o, d, hit, n, reach, look, tb, age, emitted,
+                    emitted && DragonFire.smokes(look, age, j.duration));
             if (emitted && hit < DragonFire.MAX_REACH) {
                 DragonFire.addHit(j.spots, o[0] + d[0] * hit, o[1] + d[1] * hit, o[2] + d[2] * hit, n,
-                        tb + hit / DragonFire.SPEED, MAX_SPOTS);
+                        tb + hit / DragonFire.SPEED, ScorchDecal.MAX_SPOTS);
             }
             j.made++;
         }
@@ -256,38 +270,29 @@ public final class DragonFireRenderer {
         }
     }
 
-    /** Her mouth from her pose alone (world, and the head's direction): the state's mouth offset turned with her body. */
-    private static double[] mouthFromPose(SceneDef.ActorDef def, double t, Vec3 origin) {
-        DragonFlight.Pose pose = DragonFlight.place(def, t);
-        double[] m = MOUTH.getOrDefault(HorntailCues.at(def.anims(), t).name(), REST_MOUTH);
-        double[] p = DragonFlight.toWorld(pose, def.scale(), new double[]{m[0], m[1], m[2]});
-        double[] d = com.hogwartsmagic.pensieve.scene.BroomFlight.toWorld(0, 0, 0, pose.m(), new double[]{m[3], m[4], m[5]});
-        d = normalize(d);
-        return new double[]{p[0] + origin.x, p[1] + origin.y, p[2] + origin.z, d[0], d[1], d[2]};
+    /** Her mouth from her pose and head look alone (world, and the head's direction): DragonFlight.mouthEstimate. */
+    private static double[] mouthFromPose(SceneDef.ActorDef def, double t, double[] origin) {
+        double[] m = DragonFlight.mouthEstimate(def, t);
+        return new double[]{m[0] + origin[0], m[1] + origin[1], m[2] + origin[2], m[3], m[4], m[5]};
     }
 
-    /** Toward the breathe's target (a point, or an actor's chest), else along her head. */
-    private static double[] aim(Jet j, double[] o, double[] head, Vec3 origin) {
+    /** The breathe's target in the world (a point, or an actor's chest), or null for none: then she aims along her head. */
+    private static double[] target(Jet j, double[] origin) {
         SceneDef.Target t = j.cue.target();
-        double[] to = null;
         if (t != null && t.actor() != null) {
             ActorRuntime other = MemoryActors.actor(t.actor());
-            if (other != null) {
-                Entity e = other.entity;
-                to = new double[]{e.getX(), e.getY() + e.getBbHeight() * other.def.scale() * 0.65, e.getZ()};
-            }
-        } else if (t != null && t.point() != null && t.point().length >= 3) {
-            to = new double[]{origin.x + t.point()[0], origin.y + t.point()[1], origin.z + t.point()[2]};
+            if (other == null) return null;
+            Entity e = other.entity;
+            return new double[]{e.getX(), e.getY() + e.getBbHeight() * other.def.scale() * 0.65, e.getZ()};
         }
-        if (to == null) return head;
-        double[] d = {to[0] - o[0], to[1] - o[1], to[2] - o[2]};
-        return Math.sqrt(dot(d, d)) < 0.5 ? head : normalize(d);
+        if (t != null && t.point() != null && t.point().length >= 3) return DragonFire.pointTarget(t.point(), origin);
+        return null;
     }
 
     /** The distance to the first block along the ray (the face normal into {@code n}), or +infinity within the reach. */
-    private static double raycast(ClientLevel level, double[] o, double[] d, double[] n) {
+    private static double raycast(ClientLevel level, double[] o, double[] d, double[] n, double reach) {
         Vec3 from = new Vec3(o[0], o[1], o[2]);
-        Vec3 to = from.add(d[0] * DragonFire.MAX_REACH, d[1] * DragonFire.MAX_REACH, d[2] * DragonFire.MAX_REACH);
+        Vec3 to = from.add(d[0] * reach, d[1] * reach, d[2] * reach);
         BlockHitResult r = level.clip(new ClipContext(from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE,
                 CollisionContext.empty()));
         if (r.getType() != HitResult.Type.BLOCK) return Double.POSITIVE_INFINITY;
@@ -317,22 +322,25 @@ public final class DragonFireRenderer {
         Vec3 cam = camera.getPosition();
         Vec3 origin = MemoryEvents.sceneOrigin();
         for (Jet j : JETS.values()) update(j, level, now, thisFrame, origin);
-        Vector3f left = camera.getLeftVector(), up = camera.getUpVector();
+        Vector3f left = camera.getLeftVector(), up = camera.getUpVector(), look = camera.getLookVector();
         double[] R = {-left.x(), -left.y(), -left.z()}, U = {up.x(), up.y(), up.z()};
+        viewDir = new Vec3(look.x(), look.y(), look.z());
+        Matrix4f proj = event.getProjectionMatrix();
+        projX = Math.abs(proj.m00());
+        projY = Math.abs(proj.m11());
+        overdraw = 0;
         Matrix4f m = new Matrix4f();
         MultiBufferSource.BufferSource buffer = mc.renderBuffers().bufferSource();
-        int puffs = 0, smoke = 0, decals = 0;
+        int puffs = 0, smoke = 0;
 
         // 1. The soot on the scorched faces, then its embers (depth-tested, so the set hides what is behind it).
-        VertexConsumer vc = buffer.getBuffer(SCORCH);
-        for (Jet j : JETS.values()) decals += scorch(vc, m, level, j, now, cam, false);
-        buffer.endBatch(SCORCH);
-        vc = buffer.getBuffer(EMBERS);
-        for (Jet j : JETS.values()) scorch(vc, m, level, j, now, cam, true);
-        buffer.endBatch(EMBERS);
-        // 2. Smoke behind the fire.
-        vc = buffer.getBuffer(SPRITE_SMOKE);
-        for (Jet j : JETS.values()) smoke += smoke(vc, m, j, now, cam, R, U);
+        long decalStart = System.nanoTime();
+        scorchPasses(buffer, m, level, now, cam, event.getFrustum());
+        long decalTime = System.nanoTime() - decalStart;
+        // 2. Smoke behind the fire: the puffs no nearer the camera than the jet's nearest point.
+        double near = nearestFire(now, cam);
+        VertexConsumer vc = buffer.getBuffer(SPRITE_SMOKE);
+        for (Jet j : JETS.values()) smoke += smoke(vc, m, j, now, cam, R, U, near, false);
         buffer.endBatch(SPRITE_SMOKE);
         // 3. The heat shimmer.
         vc = buffer.getBuffer(SHIMMER);
@@ -342,16 +350,56 @@ public final class DragonFireRenderer {
         vc = buffer.getBuffer(SPRITE_SMOKE);
         for (Jet j : JETS.values()) billows(vc, m, j, now, cam, R, U, true);
         buffer.endBatch(SPRITE_SMOKE);
+        HEAD_ON.clear();
         vc = buffer.getBuffer(BODY);
         for (Jet j : JETS.values()) core(vc, m, j, now, cam);
         buffer.endBatch(BODY);
         vc = buffer.getBuffer(SPRITE_GLOW);
         for (Jet j : JETS.values()) puffs += billows(vc, m, j, now, cam, R, U, false);
+        // Where a ribbon is seen end on (looking down the jet) it thins to nothing: a camera-facing core instead.
+        for (double[] h : HEAD_ON) {
+            sprite(vc, m, h[0], h[1], h[2], h[3], now * 0.07, (int) h[7] & 3, 0, cam, R, U,
+                    new float[]{(float) h[4], (float) h[5], (float) h[6]}, 1f);
+        }
         buffer.endBatch(SPRITE_GLOW);
+        // 5. Smoke in front of the fire, over it.
+        vc = buffer.getBuffer(SPRITE_SMOKE);
+        for (Jet j : JETS.values()) smoke += smoke(vc, m, j, now, cam, R, U, near, true);
+        buffer.endBatch(SPRITE_SMOKE);
         lastPuffs = puffs;
         lastSmoke = smoke;
-        lastDecals = decals;
-        debugTimer(System.nanoTime() - start);
+        debugTimer(System.nanoTime() - start, decalTime, mc);
+    }
+
+    /** How near the camera the fire comes this frame: its jets' centre lines and the splashes landing now. */
+    private static double nearestFire(float now, Vec3 cam) {
+        double near = Double.POSITIVE_INFINITY;
+        for (Jet j : JETS.values()) {
+            if (!j.burning(now)) continue;
+            for (double[] p : axis(j, now)) near = Math.min(near, dist(p, cam));
+            for (DragonFire.Spot s : j.spots) {
+                if (now - s.lastHit(now) <= DragonFire.SPLASH_TICKS) near = Math.min(near, dist(new double[]{s.x, s.y, s.z}, cam));
+            }
+        }
+        return near;
+    }
+
+    private static double dist(double[] p, Vec3 cam) {
+        double dx = p[0] - cam.x, dy = p[1] - cam.y, dz = p[2] - cam.z;
+        return Math.sqrt(dx * dx + dy * dy + dz * dz);
+    }
+
+    /**
+     * Adds a quad of {@code area} square blocks centred at p to this frame's overdraw estimate: the share of the
+     * screen it covers (at most 1), from the projection's scale. In front of the camera only.
+     */
+    private static void countOverdraw(double x, double y, double z, double area, Vec3 cam) {
+        double dx = x - cam.x, dy = y - cam.y, dz = z - cam.z;
+        double depth = dx * viewDir.x + dy * viewDir.y + dz * viewDir.z;
+        double d2 = dx * dx + dy * dy + dz * dz;
+        if (depth <= 0.05 && d2 > area) return;
+        // NDC spans 2 x 2: a quad of side a at distance d covers (a * px / d) x (a * py / d) of it.
+        overdraw += Math.min(1, area * projX * projY / (4 * Math.max(0.05, d2)));
     }
 
     /** The live flying puffs' centre line, newest (at the mouth) first: {x, y, z, s, birthAge} per point. */
@@ -390,14 +438,23 @@ public final class DragonFireRenderer {
     private static void ribbon(VertexConsumer vc, Matrix4f m, Vec3 cam, double[] a, double[] b, double[] layer, Jet j,
                                float now, double sc, int n, int i) {
         double dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2];
-        double[] sa = side(a, dx, dy, dz, cam), sb = side(b, dx, dy, dz, cam);
-        if (sa == null || sb == null) return;
         double wa = DragonFire.radius(a[3]) * sc * layer[0], wb = DragonFire.radius(b[3]) * sc * layer[0];
         // The jet's tail fades over its last points, and each point carries its puff's strength.
         double fa = DragonFire.strength(a[4], j.duration) * tailFade(i, n), fb = DragonFire.strength(b[4], j.duration) * tailFade(i + 1, n);
         float[] ca = heatColour(Math.min(1, DragonFire.heat(a[3]) + layer[2])), cb = heatColour(Math.min(1, DragonFire.heat(b[3]) + layer[2]));
+        // Seen end on, the ribbon fades out (its width across the view goes to nothing) and a core sprite fades in.
+        double end = endOn(a, dx, dy, dz, cam);
+        double keep = smooth((end - 0.15) / 0.15);
+        if (keep < 1 && layer[1] * fa * (1 - keep) > 0.004) {
+            double k = layer[1] * fa * (1 - keep) * 0.8;
+            HEAD_ON.add(new double[]{a[0], a[1], a[2], wa * 1.1, ca[0] * k, ca[1] * k, ca[2] * k, i});
+        }
+        double[] sa = side(a, dx, dy, dz, cam), sb = side(b, dx, dy, dz, cam);
+        if (sa == null || sb == null || keep <= 0) return;
+        countOverdraw((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2,
+                (wa + wb) * Math.sqrt(dx * dx + dy * dy + dz * dz), cam);
         // Additive (ONE, ONE): the light added is the colour itself, so the strength scales the colour.
-        float ka = (float) (layer[1] * fa), kb = (float) (layer[1] * fb);
+        float ka = (float) (layer[1] * fa * keep), kb = (float) (layer[1] * fb * keep);
         ca = new float[]{ca[0] * ka, ca[1] * ka, ca[2] * ka};
         cb = new float[]{cb[0] * kb, cb[1] * kb, cb[2] * kb};
         float va = (float) (-a[4] * DragonFire.SPEED * layer[3] + now * layer[4]), vb = (float) (-b[4] * DragonFire.SPEED * layer[3] + now * layer[4]);
@@ -423,6 +480,15 @@ public final class DragonFireRenderer {
         return l < 1e-6 ? null : new double[]{cx / l, cy / l, cz / l};
     }
 
+    /** How square-on a segment is to the view at p: |seg x view| / (|seg| |view|), 0 end on, 1 side on. */
+    private static double endOn(double[] p, double dx, double dy, double dz, Vec3 cam) {
+        double vx = p[0] - cam.x, vy = p[1] - cam.y, vz = p[2] - cam.z;
+        double cx = dy * vz - dz * vy, cy = dz * vx - dx * vz, cz = dx * vy - dy * vx;
+        double ls = Math.sqrt(dx * dx + dy * dy + dz * dz), lv = Math.sqrt(vx * vx + vy * vy + vz * vz);
+        if (ls < 1e-9 || lv < 1e-9) return 1;
+        return Math.sqrt(cx * cx + cy * cy + cz * cz) / (ls * lv);
+    }
+
     /**
      * The puffs. {@code body} true: their straight-alpha body, a deep flame colour that holds on a bright sky (additive
      * light alone washes out to white in daylight). False: the light over it, billowing sprites (licking tongues where
@@ -437,7 +503,7 @@ public final class DragonFireRenderer {
             Rec r = j.recs[k];
             if (!r.emitted()) continue;
             double a = now - r.tb();
-            DragonFire.Flame f = DragonFire.flame(r.o(), r.d(), r.hit(), r.n(), r.look(), a, sc);
+            DragonFire.Flame f = DragonFire.flame(r.o(), r.d(), r.hit(), r.n(), r.look(), a, sc, r.splashReach());
             if (f == null) continue;
             double str = DragonFire.strength(r.birthAge(), j.duration);
             double rot = r.look().spin() + r.look().spinRate() * a;
@@ -494,21 +560,28 @@ public final class DragonFireRenderer {
         return drawn;
     }
 
-    /** Smoke puffs: lit orange near the fire, rolling up black. */
-    private static int smoke(VertexConsumer vc, Matrix4f m, Jet j, float now, Vec3 cam, double[] R, double[] U) {
+    /**
+     * Smoke puffs: lit orange near the fire, rolling up black. {@code front} false draws the puffs at least
+     * {@code near} from the camera (behind the fire), true the nearer ones (in front of it, drawn after the flame).
+     */
+    private static int smoke(VertexConsumer vc, Matrix4f m, Jet j, float now, Vec3 cam, double[] R, double[] U,
+                             double near, boolean front) {
         double sc = j.scale();
         int drawn = 0;
         if (now > j.t0 + DragonFire.lifetime(j.duration)) return 0;
         for (int k = 0; k < j.made; k++) {
             Rec r = j.recs[k];
             if (!r.smokes()) continue;
-            DragonFire.Smoke s = DragonFire.smoke(r.o(), r.d(), r.hit(), r.n(), r.look(), now - r.tb(), sc);
+            DragonFire.Smoke s = DragonFire.smoke(r.o(), r.d(), r.hit(), r.n(), r.look(), now - r.tb(), sc, r.splashReach());
             if (s == null) continue;
+            double d = dist(new double[]{s.x(), s.y(), s.z()}, cam);
+            if ((d < near) != front) continue;
             float soot = (float) s.soot();
             float[] c = {Mth.lerp(soot, 0.62f, 0.07f), Mth.lerp(soot, 0.32f, 0.065f), Mth.lerp(soot, 0.13f, 0.06f)};
             double rot = r.look().spin() * 0.5 + (now - r.tb()) * 0.02 * (r.look().spinRate() > 0 ? 1 : -1);
-            sprite(vc, m, s.x(), s.y(), s.z(), s.radius() * 1.7, rot, r.look().sprite(), 1, cam, R, U, c,
-                    (float) (0.62 * s.alpha()));
+            // Held to a share of its distance: a puff rolling past the lens does not fill the screen.
+            double half = Math.min(s.radius() * 1.7, SMOKE_NEAR_CAP * d);
+            sprite(vc, m, s.x(), s.y(), s.z(), half, rot, r.look().sprite(), 1, cam, R, U, c, (float) (0.62 * s.alpha()));
             drawn++;
         }
         return drawn;
@@ -561,79 +634,130 @@ public final class DragonFireRenderer {
 
     // ---- The scorch ------------------------------------------------------------------------------------------------
 
-    /** The soot ({@code embers} false) or the glowing embers on every scorched face; returns the quads drawn. */
-    private static int scorch(VertexConsumer vc, Matrix4f m, ClientLevel level, Jet j, float now, Vec3 cam, boolean embers) {
+    /** One spot as this frame sees it. */
+    private record SpotView(Jet jet, DragonFire.Spot spot, SpotDraw draw, double radius, double distance,
+                            boolean visible) {
+    }
+
+    /**
+     * The soot on every scorched face, then the glowing embers: each spot baked for its radius (rebaked only when the
+     * radius changes or its faces do) and replayed, culled by the frustum and {@link ScorchDecal#CULL_DISTANCE}, at
+     * most {@link ScorchDecal#MAX_FRAME_CELLS} cells a pass, nearest first.
+     */
+    private static void scorchPasses(MultiBufferSource.BufferSource buffer, Matrix4f m, ClientLevel level, float now,
+                                     Vec3 cam, Frustum frustum) {
+        List<SpotView> views = new ArrayList<>();
+        int builds = 0;
+        for (Jet j : JETS.values()) {
+            for (DragonFire.Spot s : j.spots) {
+                double rad = s.radius(now);
+                if (rad < 0.05) continue;
+                double d = dist(new double[]{s.x, s.y, s.z}, cam);
+                if (d > ScorchDecal.CULL_DISTANCE + rad) continue;
+                SpotDraw sd = j.draws.computeIfAbsent(s, x -> new SpotDraw());
+                if (sd.faces == null) {
+                    // A late joiner's first frame would list every spot's faces at once: a few a frame instead.
+                    if (builds >= ScorchDecal.MAX_BUILDS_PER_FRAME) continue;
+                    sd.faces = facesNear(level, s);
+                    builds++;
+                }
+                double e = rad + 0.5;
+                boolean vis = frustum == null || frustum.isVisible(new AABB(s.x - e, s.y - e, s.z - e, s.x + e, s.y + e, s.z + e));
+                views.add(new SpotView(j, s, sd, rad, d, vis));
+            }
+        }
+        int n = views.size();
+        double[] dist = new double[n], rad = new double[n];
+        boolean[] vis = new boolean[n];
+        int[] cells = new int[n];
+        for (int i = 0; i < n; i++) {
+            SpotView v = views.get(i);
+            dist[i] = v.distance();
+            rad[i] = v.radius();
+            vis[i] = v.visible();
+            if (v.visible() && (v.draw().soot == null || v.draw().soot.reach != v.radius())) {
+                v.draw().soot = ScorchDecal.bake(v.draw().faces, v.spot().x, v.spot().y, v.spot().z, v.radius());
+            }
+            cells[i] = v.visible() ? v.draw().soot.cells : 0;
+        }
+        int[] soot = ScorchDecal.plan(dist, rad, vis, cells, ScorchDecal.MAX_FRAME_CELLS);
+        VertexConsumer vc = buffer.getBuffer(SCORCH);
         int quads = 0;
-        for (DragonFire.Spot s : j.spots) {
-            double rad = s.radius(now);
-            if (rad < 0.05) continue;
-            double glow = embers ? DragonFire.emberGlow(now, s.lastHit(now)) : 1;
-            if (embers && glow <= 0.01) continue;
-            List<Face> faces = j.faces.computeIfAbsent(s, sp -> facesNear(level, sp));
-            double reach = embers ? rad * 0.8 : rad;
-            for (Face f : faces) {
-                double flick = embers ? 0.7 + 0.3 * Math.sin(now * 0.37 + f.hash() * 0.71) * Math.sin(now * 0.23 + f.hash()) : 1;
-                quads += decal(vc, m, f, s, reach, cam, embers, (float) (glow * flick));
+        for (int i : soot) quads += replay(vc, m, views.get(i), views.get(i).draw().soot, now, cam, false, 1);
+        buffer.endBatch(SCORCH);
+        // The embers, while they glow: baked over 0.8 of the radius, each face flickering on its own.
+        for (int i = 0; i < n; i++) {
+            SpotView v = views.get(i);
+            double glow = DragonFire.emberGlow(now, v.spot().lastHit(now));
+            cells[i] = 0;
+            if (!v.visible() || glow <= 0.01) continue;
+            double reach = v.radius() * 0.8;
+            if (v.draw().embers == null || v.draw().embers.reach != reach) {
+                v.draw().embers = ScorchDecal.bake(v.draw().faces, v.spot().x, v.spot().y, v.spot().z, reach);
+            }
+            cells[i] = v.draw().embers.cells;
+        }
+        int[] embers = ScorchDecal.plan(dist, rad, vis, cells, ScorchDecal.MAX_FRAME_CELLS);
+        vc = buffer.getBuffer(EMBERS);
+        int emberQuads = 0;
+        for (int i : embers) {
+            SpotView v = views.get(i);
+            double glow = DragonFire.emberGlow(now, v.spot().lastHit(now));
+            emberQuads += replay(vc, m, v, v.draw().embers, now, cam, true, (float) glow);
+        }
+        buffer.endBatch(EMBERS);
+        int shown = 0;
+        for (boolean b : vis) if (b) shown++;
+        droppedSpots = Math.max(droppedSpots, shown - soot.length);
+        lastDecals = quads;
+        lastEmbers = emberQuads;
+    }
+
+    /** Replays a baked decal with the camera offset and this distance's lift; the embers scaled by glow and flicker. */
+    private static int replay(VertexConsumer vc, Matrix4f m, SpotView v, ScorchDecal.Baked b, float now, Vec3 cam,
+                              boolean embers, float glow) {
+        List<ScorchDecal.Face> faces = v.draw().faces;
+        double lift = ScorchDecal.lift(v.distance());
+        double ox = v.spot().x - cam.x, oy = v.spot().y - cam.y, oz = v.spot().z - cam.z;
+        float[] flick = null;
+        if (embers) {
+            flick = new float[faces.size()];
+            for (int f = 0; f < flick.length; f++) {
+                int h = faces.get(f).hash();
+                flick[f] = (float) (glow * (0.7 + 0.3 * Math.sin(now * 0.37 + h * 0.71) * Math.sin(now * 0.23 + h)));
             }
         }
-        return quads;
-    }
-
-    /** A face, split 3 x 3, its alpha falling off with the distance from the spot's centre; the soot tiles in world space. */
-    private static int decal(VertexConsumer vc, Matrix4f m, Face f, DragonFire.Spot s, double reach, Vec3 cam,
-                             boolean embers, float k) {
-        int n = 3, drawn = 0;
-        double lx = f.dir().getStepX() * DECAL_LIFT, ly = f.dir().getStepY() * DECAL_LIFT, lz = f.dir().getStepZ() * DECAL_LIFT;
-        float[] col = embers ? new float[]{1f, 0.62f, 0.32f} : new float[]{1f, 1f, 1f};
-        for (int a = 0; a < n; a++) {
-            for (int b = 0; b < n; b++) {
-                double[][] q = {bil(f, (double) a / n, (double) b / n), bil(f, (double) (a + 1) / n, (double) b / n),
-                        bil(f, (double) (a + 1) / n, (double) (b + 1) / n), bil(f, (double) a / n, (double) (b + 1) / n)};
-                float[] al = new float[4];
-                boolean any = false;
-                for (int i = 0; i < 4; i++) {
-                    double x = s.distance(q[i][0], q[i][1], q[i][2]) / reach;
-                    double fall = 1 - smooth((x - 0.5) / 0.5);
-                    al[i] = (float) (fall * (embers ? k * fall : 0.93));
-                    any |= al[i] > 0.003f;
+        float[] col = new float[3];
+        for (int c = 0; c < b.cells; c++) {
+            ScorchDecal.Face f = faces.get(b.face[c]);
+            double lx = f.nx() * lift + ox, ly = f.ny() * lift + oy, lz = f.nz() * lift + oz;
+            for (int i = 0; i < 4; i++) {
+                float fall = b.fall[c * 4 + i];
+                float k;
+                if (embers) {
+                    // Additive: the colour is the light, falling off twice as fast as the soot.
+                    float a = fall * flick[b.face[c]] * fall;
+                    col[0] = a;
+                    col[1] = 0.62f * a;
+                    col[2] = 0.32f * a;
+                    k = 1f;
+                } else {
+                    col[0] = col[1] = col[2] = 1f;
+                    k = fall * 0.93f;
                 }
-                if (!any) continue;
-                for (int i = 0; i < 4; i++) {
-                    float[] uv = worldUv(f.dir(), q[i]);
-                    float[] c = embers ? new float[]{col[0] * al[i], col[1] * al[i], col[2] * al[i]} : col;
-                    vertex(vc, m, q[i][0] + lx - cam.x, q[i][1] + ly - cam.y, q[i][2] + lz - cam.z, c,
-                            embers ? 1f : al[i], uv[0], uv[1]);
-                }
-                drawn++;
+                vertex(vc, m, b.xyz[c * 12 + i * 3] + lx, b.xyz[c * 12 + i * 3 + 1] + ly, b.xyz[c * 12 + i * 3 + 2] + lz,
+                        col, k, b.uv[c * 8 + i * 2], b.uv[c * 8 + i * 2 + 1]);
             }
         }
-        return drawn;
-    }
-
-    private static double[] bil(Face f, double u, double v) {
-        double[] out = new double[3];
-        for (int i = 0; i < 3; i++) {
-            double top = f.c0()[i] + (f.c1()[i] - f.c0()[i]) * u;
-            double bot = f.c3()[i] + (f.c2()[i] - f.c3()[i]) * u;
-            out[i] = top + (bot - top) * v;
-        }
-        return out;
-    }
-
-    /** The soot texture laid in world space on the face's own plane, so neighbouring faces join without a seam. */
-    private static float[] worldUv(Direction d, double[] p) {
-        double s = 0.42;
-        if (d.getAxis() == Direction.Axis.Y) return new float[]{(float) (p[0] * s), (float) (p[2] * s)};
-        if (d.getAxis() == Direction.Axis.X) return new float[]{(float) (p[2] * s), (float) (p[1] * s)};
-        return new float[]{(float) (p[0] * s), (float) (p[1] * s)};
+        return b.cells;
     }
 
     /**
      * The open faces of the blocks round a spot (on the shape's own box), facing out of the stone toward air, within
-     * the widest scorch of its centre, nearest first; worked out once a spot.
+     * the widest scorch of its centre, nearest first, at most {@link ScorchDecal#MAX_FACES}.
      */
-    private static List<Face> facesNear(ClientLevel level, DragonFire.Spot s) {
-        List<Face> out = new ArrayList<>();
+    private static List<ScorchDecal.Face> facesNear(ClientLevel level, DragonFire.Spot s) {
+        List<ScorchDecal.Face> out = new ArrayList<>();
         List<Double> dist = new ArrayList<>();
         double reach = DragonFire.SCORCH_MAX + 0.8;
         int r = (int) Math.ceil(reach) + 1;
@@ -655,8 +779,8 @@ public final class DragonFireRenderer {
                         BlockPos nb = p.relative(d);
                         BlockState ns = level.getBlockState(nb);
                         if (!ns.isAir() && ns.isSolidRender(level, nb) && touches(bb, d)) continue;
-                        Face f = face(p, bb, d);
-                        double[] mid = bil(f, 0.5, 0.5);
+                        ScorchDecal.Face f = face(p, bb, d);
+                        double[] mid = f.at(0.5, 0.5);
                         double dd = s.distance(mid[0], mid[1], mid[2]);
                         if (dd > reach) continue;
                         out.add(f);
@@ -668,9 +792,37 @@ public final class DragonFireRenderer {
         Integer[] idx = new Integer[out.size()];
         for (int i = 0; i < idx.length; i++) idx[i] = i;
         java.util.Arrays.sort(idx, Comparator.comparingDouble(dist::get));
-        List<Face> sorted = new ArrayList<>();
-        for (int i = 0; i < Math.min(MAX_FACES, idx.length); i++) sorted.add(out.get(idx[i]));
+        List<ScorchDecal.Face> sorted = new ArrayList<>();
+        for (int i = 0; i < Math.min(ScorchDecal.MAX_FACES, idx.length); i++) sorted.add(out.get(idx[i]));
         return sorted;
+    }
+
+    /**
+     * Drops the faces of a few spots a tick whose block has gone (air, or no shape left: a memory event smashed it),
+     * so their soot does not hang in the air; the spot is rebaked on its next frame.
+     */
+    private static void recheckFaces(ClientLevel level) {
+        List<SpotDraw> all = new ArrayList<>();
+        for (Jet j : JETS.values()) {
+            for (SpotDraw sd : j.draws.values()) if (sd.faces != null) all.add(sd);
+        }
+        if (all.isEmpty()) return;
+        BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+        for (int k = 0; k < Math.min(FACE_CHECKS_PER_TICK, all.size()); k++) {
+            SpotDraw sd = all.get(Math.floorMod(faceCheckCursor++, all.size()));
+            List<ScorchDecal.Face> kept = new ArrayList<>(sd.faces.size());
+            for (ScorchDecal.Face f : sd.faces) {
+                p.set(BlockPos.getX(f.block()), BlockPos.getY(f.block()), BlockPos.getZ(f.block()));
+                BlockState st = level.getBlockState(p);
+                if (!st.isAir() && !st.getCollisionShape(level, p).isEmpty()) kept.add(f);
+            }
+            if (kept.size() != sd.faces.size()) {
+                faceDrops += sd.faces.size() - kept.size();
+                sd.faces = kept;
+                sd.soot = null;
+                sd.embers = null;
+            }
+        }
     }
 
     /** Whether the shape's face on side d lies on the block's own boundary (so a solid neighbour hides it). */
@@ -685,7 +837,7 @@ public final class DragonFireRenderer {
     }
 
     /** The face of box {@code bb} (block-local) of the block at p on side d: four corners in order round it. */
-    private static Face face(BlockPos p, AABB bb, Direction d) {
+    private static ScorchDecal.Face face(BlockPos p, AABB bb, Direction d) {
         double x0 = p.getX() + bb.minX, x1 = p.getX() + bb.maxX, y0 = p.getY() + bb.minY, y1 = p.getY() + bb.maxY;
         double z0 = p.getZ() + bb.minZ, z1 = p.getZ() + bb.maxZ;
         double[][] c;
@@ -696,7 +848,8 @@ public final class DragonFireRenderer {
         else if (d == Direction.SOUTH) c = new double[][]{{x0, y0, z1}, {x1, y0, z1}, {x1, y1, z1}, {x0, y1, z1}};
         else c = new double[][]{{x0, y0, z0}, {x1, y0, z0}, {x1, y1, z0}, {x0, y1, z0}};
         int hash = (p.getX() * 73856093) ^ (p.getY() * 19349663) ^ (p.getZ() * 83492791) ^ d.ordinal();
-        return new Face(c[0], c[1], c[2], c[3], d, hash & 0xFFFF);
+        return new ScorchDecal.Face(c[0], c[1], c[2], c[3], d.getStepX(), d.getStepY(), d.getStepZ(), hash & 0xFFFF,
+                p.asLong());
     }
 
     // ---- The particle sprinkle ---------------------------------------------------------------------------------------
@@ -708,6 +861,7 @@ public final class DragonFireRenderer {
         if (!(mc.level instanceof ClientLevel level) || mc.isPaused() || !PensieveClientState.inMemory()) return;
         float now = PensieveClientState.sceneTime(0);
         long tick = (long) Math.floor(now);
+        recheckFaces(level);
         for (Jet j : JETS.values()) {
             try {
                 particles(level, j, now, tick);
@@ -725,7 +879,7 @@ public final class DragonFireRenderer {
             for (int k = 0; k < j.made; k++) {
                 Rec r = j.recs[k];
                 if (!r.emitted()) continue;
-                DragonFire.Flame f = DragonFire.flame(r.o(), r.d(), r.hit(), r.n(), r.look(), now - r.tb(), sc);
+                DragonFire.Flame f = DragonFire.flame(r.o(), r.d(), r.hit(), r.n(), r.look(), now - r.tb(), sc, r.splashReach());
                 if (f == null) continue;
                 (f.stage() == DragonFire.Flame.SPLASHING ? splashing : flying).add(f);
             }
@@ -789,6 +943,7 @@ public final class DragonFireRenderer {
     private static void sprite(VertexConsumer vc, Matrix4f m, double x, double y, double z, double half, double rot,
                                int cell, int row, Vec3 cam, double[] R, double[] U, float[] c, float k, boolean additive) {
         if (k <= 0.002f || half <= 0) return;
+        countOverdraw(x, y, z, 4 * half * half, cam);
         double cs = Math.cos(rot) * half, sn = Math.sin(rot) * half;
         double ax = R[0] * cs + U[0] * sn, ay = R[1] * cs + U[1] * sn, az = R[2] * cs + U[2] * sn;
         double bx = -R[0] * sn + U[0] * cs, by = -R[1] * sn + U[1] * cs, bz = -R[2] * sn + U[2] * cs;
@@ -837,25 +992,20 @@ public final class DragonFireRenderer {
         return c * c * (3 - 2 * c);
     }
 
-    private static double[] lerp(double[] a, double[] b, double f) {
-        return new double[]{a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f};
-    }
-
     private static double dot(double[] a, double[] b) {
         return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
     }
 
-    private static double[] normalize(double[] a) {
-        double l = Math.sqrt(dot(a, a));
-        return l < 1e-9 ? new double[]{0, 0, 1} : new double[]{a[0] / l, a[1] / l, a[2] / l};
-    }
-
     /** The dev scenes' frame-time line: CPU time per frame spent on the fire, every 5 s. */
-    private static void debugTimer(long nanos) {
+    private static void debugTimer(long nanos, long decal, Minecraft mc) {
         SceneDef scene = PensieveClientState.scene();
         if (scene == null || !scene.id().startsWith("dev_")) return;
         timedNanos += nanos;
         worstNanos = Math.max(worstNanos, nanos);
+        decalNanos += decal;
+        worstDecalNanos = Math.max(worstDecalNanos, decal);
+        sumOverdraw += overdraw;
+        worstOverdraw = Math.max(worstOverdraw, overdraw);
         timedFrames++;
         long wall = System.currentTimeMillis();
         if (lastLog == 0) lastLog = wall;
@@ -867,16 +1017,28 @@ public final class DragonFireRenderer {
             spots += j.spots.size();
             alive += j.budget.alive((long) Math.floor(now));
         }
-        LOGGER.info("Pensieve fire: t {} s, {} jets ({} burning), {} flame puffs, {} smoke puffs, {} scorch quads on {} "
-                        + "spots, {} particles alive, {} frames on a stale snout, aim off her head by {} degrees at most, "
-                        + "CPU {} ms per frame on average, {} ms at worst, over {} frames",
+        int fps = mc.getFps();
+        LOGGER.info("Pensieve fire: t {} s, {} jets ({} burning), {} flame puffs, {} smoke puffs, {} soot and {} ember "
+                        + "cells on {} spots ({} in view left out by the cell cap at most, {} faces dropped as their "
+                        + "blocks went), {} particles alive, {} frames on a stale snout, aim off her head by {} degrees "
+                        + "at most, CPU {} ms per frame on average, {} ms at worst (the scorch {} ms on average, {} at "
+                        + "worst), over {} frames; {} fps ({} ms a frame), sprite overdraw {} screens on average, {} "
+                        + "at worst; Fabulous graphics {}",
                 String.format(Locale.ROOT, "%.1f", now / 20f), JETS.size(), burning, lastPuffs, lastSmoke, lastDecals,
-                spots, alive, staleFrames, String.format(Locale.ROOT, "%.1f", worstAim),
+                lastEmbers, spots, droppedSpots, faceDrops, alive, staleFrames,
+                String.format(Locale.ROOT, "%.1f", worstAim),
                 String.format(Locale.ROOT, "%.3f", timedNanos / 1e6 / timedFrames),
-                String.format(Locale.ROOT, "%.3f", worstNanos / 1e6), timedFrames);
-        timedNanos = worstNanos = 0;
+                String.format(Locale.ROOT, "%.3f", worstNanos / 1e6),
+                String.format(Locale.ROOT, "%.3f", decalNanos / 1e6 / timedFrames),
+                String.format(Locale.ROOT, "%.3f", worstDecalNanos / 1e6), timedFrames, fps,
+                String.format(Locale.ROOT, "%.1f", fps > 0 ? 1000.0 / fps : 0),
+                String.format(Locale.ROOT, "%.2f", sumOverdraw / timedFrames),
+                String.format(Locale.ROOT, "%.2f", worstOverdraw), Minecraft.useShaderTransparency() ? "on" : "off");
+        timedNanos = worstNanos = decalNanos = worstDecalNanos = 0;
+        sumOverdraw = worstOverdraw = 0;
         timedFrames = 0;
         staleFrames = 0;
+        droppedSpots = 0;
         worstAim = 0;
         lastLog = wall;
     }

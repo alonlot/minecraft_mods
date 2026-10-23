@@ -17,7 +17,8 @@ import java.util.List;
  *
  * <p><b>Flying her path</b> ({@link #place}). With a {@code look} she takes its yaw and pitch, and its roll when any
  * look key gives one (else the auto-bank). Without one, through {@link BroomFlight}'s path helpers: the yaw follows
- * the heading, the pitch the climb angle (clamped to {@link #MAX_CLIMB}, smoothstepped to level below
+ * the held heading ({@link BroomFlight#heldHeading}: through a hover she keeps the way she came, so a spline's
+ * small backward overshoot as she leaves never turns her round), the pitch the climb angle (clamped to {@link #MAX_CLIMB}, smoothstepped to level below
  * {@link #CLIMB_FADE_SPEED}) and the roll is {@link #bank}.
  *
  * <p><b>Wingbeats</b> are a pure function of the path and the clock, so a late joiner sees the same stroke: the rate
@@ -116,7 +117,7 @@ public final class DragonFlight {
             pitch = lk.length > 1 ? lk[1] : 0;
             roll = lk.length > 2 ? lk[2] : (float) bank(path, t);
         } else {
-            yaw = BroomFlight.heading(path, t);
+            yaw = BroomFlight.heldHeading(path, t);
             pitch = (float) climbPitch(path, t);
             roll = (float) bank(path, t);
         }
@@ -129,6 +130,48 @@ public final class DragonFlight {
         double[] rel = {local[0], local[1] - PIVOT_Y, local[2]};
         double[] w = BroomFlight.toWorld(0, 0, 0, pose.m(), rel);
         return new double[]{pose.x() + scale * w[0], pose.y() + scale * (w[1] + PIVOT_Y), pose.z() + scale * w[2]};
+    }
+
+    /**
+     * Her mouth per state when no drawn snout is at hand: {mouth x, y, z (her local frame, blocks at scale 1, from the
+     * root), the way it faces at head look 0 (x, y, z), the head look's pivot y and z (local), the share of the look's
+     * pitch that moves the mouth and the share that turns its direction}. Fitted on {@code dragon_engine.horntail_snout}
+     * (mirror: {@code dragon_engine.MOUTH_ESTIMATE}); the look's yaw turns both fully.
+     */
+    private static final java.util.Map<String, double[]> MOUTH = java.util.Map.of(
+            "BREATH", new double[]{0, 0.53, 3.75, 0, -0.66, 0.75, 2.40, 1.95, 0.60, 1.05},
+            "AIR_BREATH", new double[]{0, 0.83, 3.51, 0, -0.64, 0.77, 2.50, 2.05, 0.70, 0.90},
+            "FLY", new double[]{0, 1.48, 4.14, 0, -0.22, 0.975, 2.30, 2.00, 0.40, 0.70});
+    private static final double[] REST_MOUTH = {0, 1.27, 3.99, 0, -0.37, 0.93, 2.25, 2.10, 0.70, 1.00};
+
+    /**
+     * Her mouth estimated from her pose alone, scene space: {x, y, z, dx, dy, dz}, the direction unit. The state's
+     * mouth offset ({@link #MOUTH}) turned about the head look's pivot by her {@link #headLook} (pitch, then yaw),
+     * then carried by her pose ({@link #place}, {@link #toWorld}). Within about 0.3 of the drawn snout over the head
+     * look's range (mirror: {@code dragon_engine.mouth_estimate}).
+     */
+    public static double[] mouthEstimate(SceneDef.ActorDef dragon, double t) {
+        Pose pose = place(dragon, t);
+        double[] k = MOUTH.getOrDefault(HorntailCues.at(dragon.anims(), t).name(), REST_MOUTH);
+        PartTrack lk = dragon.limbs().get(HEAD_LOOK);
+        float[] look = headLook(lk == null ? null : lk.rot(), t);
+        double[] p = turn(new double[]{k[0], k[1] - k[6], k[2] - k[7]}, look[1] * k[8], look[0]);
+        p[1] += k[6];
+        p[2] += k[7];
+        double[] d = turn(new double[]{k[3], k[4], k[5]}, look[1] * k[9], look[0]);
+        double[] w = toWorld(pose, dragon.scale(), p);
+        double[] wd = BroomFlight.toWorld(0, 0, 0, pose.m(), d);
+        double l = Math.sqrt(wd[0] * wd[0] + wd[1] * wd[1] + wd[2] * wd[2]);
+        return new double[]{w[0], w[1], w[2], wd[0] / l, wd[1] / l, wd[2] / l};
+    }
+
+    /** A local vector (x left, y up, z forward) pitched nose down by {@code pitch}, then yawed right by {@code yaw} (degrees). */
+    static double[] turn(double[] v, double pitch, double yaw) {
+        double a = Math.toRadians(pitch), b = -Math.toRadians(yaw);
+        double y = v[1] * Math.cos(a) - v[2] * Math.sin(a), z = v[1] * Math.sin(a) + v[2] * Math.cos(a);
+        double x = v[0] * Math.cos(b) + z * Math.sin(b);
+        z = -v[0] * Math.sin(b) + z * Math.cos(b);
+        return new double[]{x, y, z};
     }
 
     // ---- Wingbeats ------------------------------------------------------------------------------------------------

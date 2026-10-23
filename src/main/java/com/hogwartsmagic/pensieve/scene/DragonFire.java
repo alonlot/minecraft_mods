@@ -208,6 +208,64 @@ public final class DragonFire {
         return look.smoke() < smokeRate(birthAge, duration);
     }
 
+    // ---- Where a puff is born (the renderer's choice, pure so it is the same about any session origin) -------------
+
+    /** Where a puff's mouth came from: the drawn snout between two frames, this frame's drawn snout, or her pose. */
+    public static final int FROM_LERP = 0, FROM_NOW = 1, FROM_POSE = 2;
+
+    /** A puff's birth: its mouth and her head's direction there (world), its aim (unit) and where the mouth came from. */
+    public record Birth(double[] o, double[] head, double[] d, int from) {
+    }
+
+    /**
+     * The puff born at scene tick {@code tb}, seen at {@code now}. Its mouth is her drawn snout: this frame's
+     * ({@code curO}, {@code curD}; null when she was not drawn this frame) interpolated from the last frame's
+     * ({@code lastO}, {@code lastD} at {@code lastT}; null or NaN when none) when tb lies between the two and within 2
+     * ticks; else this frame's when within 0.75 ticks; else her pose's estimate ({@code pose}: world
+     * {x, y, z, dx, dy, dz}, asked for only then). It aims at {@code target} (world; null for none), else, or when
+     * the target is nearer than 0.5, along her head.
+     */
+    public static Birth birth(double tb, double now, double[] lastO, double[] lastD, double lastT, double[] curO,
+                              double[] curD, java.util.function.Supplier<double[]> pose, double[] target) {
+        double[] o, hd;
+        int from;
+        if (curO != null && lastO != null && tb >= lastT - 1e-6 && now > lastT && now - tb <= 2) {
+            double f = (tb - lastT) / (now - lastT);
+            o = lerp(lastO, curO, f);
+            hd = unitOr(lerp(lastD, curD, f));
+            from = FROM_LERP;
+        } else if (curO != null && now - tb <= 0.75) {
+            o = curO.clone();
+            hd = curD.clone();
+            from = FROM_NOW;
+        } else {
+            double[] m = pose.get();
+            o = new double[]{m[0], m[1], m[2]};
+            hd = unitOr(new double[]{m[3], m[4], m[5]});
+            from = FROM_POSE;
+        }
+        double[] d = hd;
+        if (target != null) {
+            double[] v = {target[0] - o[0], target[1] - o[1], target[2] - o[2]};
+            if (Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]) >= 0.5) d = unitOr(v);
+        }
+        return new Birth(o, hd, d, from);
+    }
+
+    /** A breathe's point target (scene-relative) in the world of a session slot at {@code origin}. */
+    public static double[] pointTarget(float[] point, double[] origin) {
+        return new double[]{origin[0] + point[0], origin[1] + point[1], origin[2] + point[2]};
+    }
+
+    private static double[] lerp(double[] a, double[] b, double f) {
+        return new double[]{a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f};
+    }
+
+    private static double[] unitOr(double[] a) {
+        double l = Math.sqrt(a[0] * a[0] + a[1] * a[1] + a[2] * a[2]);
+        return l < 1e-9 ? new double[]{0, 0, 1} : new double[]{a[0] / l, a[1] / l, a[2] / l};
+    }
+
     // ---- Where a puff is ------------------------------------------------------------------------------------------
 
     /** A puff of burning gas now: where (world), its radius, heat and alpha share, and the stage it is in. */
@@ -221,6 +279,17 @@ public final class DragonFire {
      * once it no longer burns. {@code scale} is the dragon's.
      */
     public static Flame flame(double[] o, double[] d, double hit, double[] n, Look look, double a, double scale) {
+        return flame(o, d, hit, n, look, a, scale, Double.POSITIVE_INFINITY);
+    }
+
+    /**
+     * {@link #flame} with the splash's spread along the surface held to {@code splashReach} blocks: the free run along
+     * the puff's own {@link #splashDir} before a block (the renderer casts one ray a puff at its birth, from
+     * {@link #SPLASH_RAY_LIFT} off the face, and passes {@link #splashReach} of it), so a splash never licks through
+     * the rock beside or behind the face it hit.
+     */
+    public static Flame flame(double[] o, double[] d, double hit, double[] n, Look look, double a, double scale,
+                              double splashReach) {
         if (a < 0) return null;
         double reach = Math.min(hit, MAX_REACH);
         double aEnd = reach / SPEED;
@@ -233,25 +302,14 @@ public final class DragonFire {
         double b = a - aEnd;
         if (hit < MAX_REACH) {
             if (b > SPLASH_TICKS) return null;
-            // Spread along the surface: mostly forward along the jet's own run over it, eased out.
-            double dn = d[0] * n[0] + d[1] * n[1] + d[2] * n[2];
-            double[] e1 = {d[0] - n[0] * dn, d[1] - n[1] * dn, d[2] - n[2] * dn};
-            double l = Math.sqrt(e1[0] * e1[0] + e1[1] * e1[1] + e1[2] * e1[2]);
-            if (l < 0.2) {
-                e1 = p1.clone();
-            } else {
-                e1[0] /= l;
-                e1[1] /= l;
-                e1[2] /= l;
-            }
-            double[] e2 = cross(n, e1);
-            double cs = Math.cos(look.splash()), sn = Math.sin(look.splash());
-            double spread = 3.2 * scale * (1 - Math.exp(-b / 3.5));
+            // Spread along the surface: mostly forward along the jet's own run over it, eased out, never past a block.
+            double[] e = splashDir(d, n, look);
+            double spread = Math.min(SPLASH_SPREAD * scale * (1 - Math.exp(-b / 3.5)), Math.max(0, splashReach));
             double lift = (0.25 + 0.06 * b) * scale;
             double r = radius(hit) * scale * look.size() * (1 + 0.09 * b);
-            double x = o[0] + d[0] * hit + n[0] * lift + (e1[0] * cs + e2[0] * sn) * spread;
-            double y = o[1] + d[1] * hit + n[1] * lift + (e1[1] * cs + e2[1] * sn) * spread + 0.012 * b * b;
-            double z = o[2] + d[2] * hit + n[2] * lift + (e1[2] * cs + e2[2] * sn) * spread;
+            double x = o[0] + d[0] * hit + n[0] * lift + e[0] * spread;
+            double y = o[1] + d[1] * hit + n[1] * lift + e[1] * spread + 0.012 * b * b;
+            double z = o[2] + d[2] * hit + n[2] * lift + e[2] * spread;
             double heat = heat(hit) * (1 - 0.5 * b / SPLASH_TICKS);
             double alpha = 1 - smooth((b - SPLASH_TICKS * 0.45) / (SPLASH_TICKS * 0.55));
             return new Flame(x, y, z, r, heat, alpha, Flame.SPLASHING);
@@ -260,6 +318,44 @@ public final class DragonFire {
         double s = reach + SPEED * 0.6 * b;
         return along(o, d, p1, p2, look, a, s, scale, heat(s) * (1 - 0.3 * b / FADE_TICKS), 1 - b / FADE_TICKS,
                 Flame.FADING);
+    }
+
+    /** How far a splash spreads along the surface at most, blocks at scale 1. */
+    public static final double SPLASH_SPREAD = 3.2;
+    /** The splash ray starts this far off the hit face (blocks). */
+    public static final double SPLASH_RAY_LIFT = 0.3;
+    /** A splash stops this far short of the block its ray meets (blocks), so its centre stays off the rock. */
+    public static final double SPLASH_WALL_GAP = 0.25;
+
+    /**
+     * The unit direction a puff that hit a face of normal {@code n} spreads in along it: the jet's own run over the
+     * surface (its aim {@code d} less the normal part), turned within the face by the puff's {@link Look#splash}
+     * angle; across the jet's basis when it hits the face head on.
+     */
+    public static double[] splashDir(double[] d, double[] n, Look look) {
+        double dn = d[0] * n[0] + d[1] * n[1] + d[2] * n[2];
+        double[] e1 = {d[0] - n[0] * dn, d[1] - n[1] * dn, d[2] - n[2] * dn};
+        double l = Math.sqrt(e1[0] * e1[0] + e1[1] * e1[1] + e1[2] * e1[2]);
+        if (l < 0.2) {
+            double[] p1 = new double[3], p2 = new double[3];
+            basis(d, p1, p2);
+            e1 = p1;
+        } else {
+            e1[0] /= l;
+            e1[1] /= l;
+            e1[2] /= l;
+        }
+        double[] e2 = cross(n, e1);
+        double cs = Math.cos(look.splash()), sn = Math.sin(look.splash());
+        return new double[]{e1[0] * cs + e2[0] * sn, e1[1] * cs + e2[1] * sn, e1[2] * cs + e2[2] * sn};
+    }
+
+    /**
+     * The splash reach to pass {@link #flame}: the free run {@code free} its splash ray found before a block (or
+     * +infinity), less {@link #SPLASH_WALL_GAP}, at least 0.
+     */
+    public static double splashReach(double free) {
+        return Math.max(0, free - SPLASH_WALL_GAP);
     }
 
     private static Flame along(double[] o, double[] d, double[] p1, double[] p2, Look look, double a, double s,
@@ -284,10 +380,16 @@ public final class DragonFire {
      * fire is out or after the smoke is gone. It rises from where the fire ended, spreading and drifting.
      */
     public static Smoke smoke(double[] o, double[] d, double hit, double[] n, Look look, double a, double scale) {
+        return smoke(o, d, hit, n, look, a, scale, Double.POSITIVE_INFINITY);
+    }
+
+    /** {@link #smoke} rising from where a splash held to {@code splashReach} ended (see {@link #flame}). */
+    public static Smoke smoke(double[] o, double[] d, double hit, double[] n, Look look, double a, double scale,
+                              double splashReach) {
         double life = flameLife(hit);
         double b = a - life + 3;       // the smoke starts 3 ticks before the fire is out, under it
         if (b < 0 || b > SMOKE_TICKS) return null;
-        Flame end = flame(o, d, hit, n, look, life - 1e-6, scale);
+        Flame end = flame(o, d, hit, n, look, life - 1e-6, scale, splashReach);
         if (end == null) return null;
         double up = (0.05 * b + 0.0011 * b * b) * scale;
         double drift = 0.018 * b * scale;

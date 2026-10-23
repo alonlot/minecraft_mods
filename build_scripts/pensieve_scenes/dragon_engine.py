@@ -90,7 +90,8 @@ def climb_rate(keys, t):
 
 
 def horntail_pose(actor, t):
-    """DragonFlight.place: {'pos', 'yaw', 'pitch', 'roll', 'm', 'speed', 'climb'}."""
+    """DragonFlight.place: {'pos', 'yaw', 'pitch', 'roll', 'm', 'speed', 'climb'}. Without a look her yaw is the held
+    heading (scene_engine.broom_heading_held): through a hover she keeps the way she came."""
     keys = path_of(actor)
     p = list(E.track_sample(keys, t)) if keys else [0.0, 0.0, 0.0]
     look = actor.get('look')
@@ -99,7 +100,7 @@ def horntail_pose(actor, t):
         yaw, pitch = v[0], v[1]
         roll = v[2] if any('roll' in k for k in look) else dragon_bank(keys, t)
     else:
-        yaw, pitch, roll = E.broom_heading(keys, t), dragon_climb(keys, t), dragon_bank(keys, t)
+        yaw, pitch, roll = E.broom_heading_held(keys, t), dragon_climb(keys, t), dragon_bank(keys, t)
     return {'pos': p, 'yaw': yaw, 'pitch': pitch, 'roll': roll, 'm': E.broom_matrix(yaw, pitch, roll),
             'speed': E.path_speed(keys, t), 'climb': climb_rate(keys, t)}
 
@@ -848,6 +849,44 @@ def horntail_snout(scene, aid, t):
     return p, [c / n for c in d]
 
 
+# DragonFlight.MOUTH: per state {mouth x, y, z (local, scale 1), its direction at head look 0, the head look's pivot
+# y and z, the share of the look's pitch that moves the mouth, the share that turns its direction}; fitted on
+# horntail_snout over the head look's range (see mouth_estimate_check).
+MOUTH_ESTIMATE = {
+    'BREATH': (0.0, 0.53, 3.75, 0.0, -0.66, 0.75, 2.40, 1.95, 0.60, 1.05),
+    'AIR_BREATH': (0.0, 0.83, 3.51, 0.0, -0.64, 0.77, 2.50, 2.05, 0.70, 0.90),
+    'FLY': (0.0, 1.48, 4.14, 0.0, -0.22, 0.975, 2.30, 2.00, 0.40, 0.70),
+}
+REST_MOUTH_ESTIMATE = (0.0, 1.27, 3.99, 0.0, -0.37, 0.93, 2.25, 2.10, 0.70, 1.00)
+
+
+def _turn(v, pitch, yaw):
+    """DragonFlight.turn: a local vector pitched nose down by `pitch`, then yawed right by `yaw` (degrees)."""
+    a, b = math.radians(pitch), -math.radians(yaw)
+    y = v[1] * math.cos(a) - v[2] * math.sin(a)
+    z = v[1] * math.sin(a) + v[2] * math.cos(a)
+    x = v[0] * math.cos(b) + z * math.sin(b)
+    z = -v[0] * math.sin(b) + z * math.cos(b)
+    return [x, y, z]
+
+
+def mouth_estimate(actor, t):
+    """DragonFlight.mouthEstimate: her mouth from her pose and head look alone, scene space, (point, unit dir): the
+    state's mouth offset turned about the look's pivot, then carried by her pose. What the fire uses when she was
+    not drawn this frame (a late joiner's past puffs)."""
+    pose = horntail_pose(actor, t)
+    k = MOUTH_ESTIMATE.get(horntail_cue(actor, t)['name'], REST_MOUTH_ESTIMATE)
+    yaw, pitch = head_look(actor, t)
+    p = _turn([k[0], k[1] - k[6], k[2] - k[7]], pitch * k[8], yaw)
+    p[1] += k[6]
+    p[2] += k[7]
+    d = _turn([k[3], k[4], k[5]], pitch * k[9], yaw)
+    w = to_world(pose, actor.get('scale', 1.0), p)
+    wd = E._mat_vec(pose['m'], d)
+    n = math.sqrt(sum(c * c for c in wd))
+    return w, [c / n for c in wd]
+
+
 def model_snout(actor, t):
     """The mouth in model space (blocks, model y down) at scene time t: what the Java model test compares."""
     mats = part_matrices(blended_model_pose(actor, t))
@@ -1023,6 +1062,7 @@ def self_check():
     tilt = neck_counter_check()
     if tilt is not None:
         problems.append(tilt)
+    problems += heading_hold_check()
     print('dragon_engine: beat rate worst step %.4f rad/tick, %d capsules, hover downstrokes %s, fingertips at least '
           '%.2f from the midplane (%s)' % (worst, len(parts), ds[:6], gap, where))
     return problems
@@ -1045,6 +1085,35 @@ def midplane_clearance(steps=720):
                 if x < worst[0]:
                     worst = (x, '%s t %.0f phase %.2f' % (name, time, ph))
     return worst
+
+
+def heading_hold_check():
+    """Her heading holds through a dead hover (the fire review's probes on broom_heading): a hover followed by a
+    spline departure that speeds up (whose start runs backwards 0.375 blocks) never turns her round, and a hover
+    between two directions keeps the arrival heading until she leaves."""
+    problems = []
+    depart = {'id': 'h', 'type': HORNTAIL_TYPE, 'anims': [{'t': 0, 'name': 'FLY'}],
+              'path': [{'t': 0, 'pos': [0.0, 10.0, 0.0]}, {'t': 80, 'pos': [0.0, 10.0, 0.0], 'ease': 'in_out'},
+                       {'t': 100, 'pos': [0.0, 10.0, 2.0], 'ease': 'spline'},
+                       {'t': 120, 'pos': [0.0, 10.0, 22.0], 'ease': 'spline'},
+                       {'t': 140, 'pos': [0.0, 10.0, 42.0], 'ease': 'spline'}]}
+    worst = max(abs(((horntail_pose(depart, t / 2.0)['yaw'] + 180) % 360) - 180) for t in range(0, 280))
+    if worst > 2.0:
+        problems.append('a hover then a spline departure turns her %.1f degrees off her way' % worst)
+    turn = {'id': 'h', 'type': HORNTAIL_TYPE, 'anims': [{'t': 0, 'name': 'FLY'}],
+            'path': [{'t': 0, 'pos': [0.0, 10.0, -40.0]}, {'t': 20, 'pos': [0.0, 10.0, -20.0], 'ease': 'spline'},
+                     {'t': 40, 'pos': [0.0, 10.0, 0.0], 'ease': 'in_out'},
+                     {'t': 120, 'pos': [0.0, 10.0, 0.0], 'ease': 'in_out'},
+                     {'t': 140, 'pos': [-2.0, 10.0, 0.0], 'ease': 'spline'},
+                     {'t': 160, 'pos': [-22.0, 10.0, 0.0], 'ease': 'spline'},
+                     {'t': 180, 'pos': [-42.0, 10.0, 0.0], 'ease': 'spline'}]}
+    held = max(abs(((horntail_pose(turn, t)['yaw'] + 180) % 360) - 180) for t in range(20, 121))
+    left = abs(horntail_pose(turn, 170)['yaw'] - 90)
+    if held > 2.0 or left > 2.0:
+        problems.append('a hover between two ways: %.1f off the arrival while hovering, %.1f off the departure' % (held, left))
+    print('dragon_engine heading: a hover then a speeding departure %.2f degrees off her way at most; a hover between '
+          'two ways %.2f off the arrival, %.2f off the departure' % (worst, held, left))
+    return problems
 
 
 def neck_counter_check():
@@ -1076,6 +1145,12 @@ FIRE_MIN_DURATION, FIRE_MAX_DURATION, FIRE_DEFAULT_DURATION = 10, 80, 40
 FIRE_RISE, FIRE_GUTTER = 3.0, 8.0
 SCORCH_MAX, SCORCH_TICKS, EMBER_TICKS = 2.5, 30.0, 60.0
 AIR_BREATH_OPEN = AIR_BREATH_WINDUP     # the jaw opens wide at this tick of an AIR_BREATH
+FIRE_SPLASH_TICKS = 10.0                # DragonFire.SPLASH_TICKS
+SPLASH_SPREAD = 3.2                     # DragonFire.SPLASH_SPREAD: how far a splash spreads along the surface (scale 1)
+SPLASH_RAY_LIFT = 0.3                   # DragonFire.SPLASH_RAY_LIFT: the splash ray starts this far off the face
+SPLASH_WALL_GAP = 0.25                  # DragonFire.SPLASH_WALL_GAP: a splash stops this far short of a block
+SPLASH_ANGLE = 0.75 * math.pi           # a puff's splash angle lies within +-this of the jet's run (Look.splash)
+SPLASH_SIZE = 1.2                       # the largest Look.size
 FIRE_CASES = os.path.join(HERE, 'dragon_fire_cases.json')
 
 
@@ -1147,14 +1222,17 @@ def breathes(actor):
 
 def fire_target(scene, target):
     """A breathe target as a scene point: [x, y, z] as given; "actor:<id>" its chest (its path at t, plus 0.65 x a
-    player's 1.8 height, x scale), as MemoryActors aims a cast; None for no target. Takes t for an actor."""
+    player's 1.8 height, x scale), as DragonFireRenderer aims it; None for no target. Takes t for an actor. An actor
+    target must be a player (SceneValidator.breathe), so the height is the player's."""
     if target is None:
         return None
     if isinstance(target, list):
         return lambda t: list(target)
     aid = target.split(':', 1)[1]
     other = E.actor_by_id(scene, aid)
-    h = 1.8 if other.get('type') == 'player' else 1.0
+    if other.get('type') != 'player':
+        raise ValueError('a breathe actor target must be a player actor, not %s' % other.get('type'))
+    h = 1.8
 
     def at(t):
         p = E.sample_path(other.get('path') or [], t)
@@ -1185,20 +1263,112 @@ def fire_jet(scene, aid, t, world, step=0.05):
             v = [p[i] - o[i] for i in range(3)]
             if math.sqrt(sum(c * c for c in v)) >= 0.5:
                 d = _norm(v)
-        length = fire_front(t - t0)
-        s = 0.0
-        while s < length:
-            p = [o[i] + d[i] * s for i in range(3)]
-            if E.shape_hit(world, p) is not None:
-                return o, d, s
-            s += step
-        return o, d, length
+        hit = ray_hit(world, o, d, fire_front(t - t0), step)
+        return o, d, hit[0]
     return None
 
 
-def fire_clearance(scene, aid, t, world, point):
-    """How far `point` is outside the drawn flame of the jet at t (distance to the centre line minus the visible
-    radius there, x scale), or None when no jet: what a 'the fire never touches the viewer' assert compares."""
+def ray_hit(world, o, d, reach, step=0.05):
+    """(distance, normal) to the first solid cell along the ray from o (scene_engine.shape_hit, marched in `step`s),
+    or (reach, None) when it meets nothing within `reach`. The normal is the face it came in through: the axis whose
+    move alone carries the last free point into the block, else the ray's largest axis (a unit axis vector)."""
+    s, prev = 0.0, list(o)
+    while s < reach:
+        p = [o[i] + d[i] * s for i in range(3)]
+        if E.shape_hit(world, p) is not None:
+            axis = None
+            for i in (1, 0, 2):
+                q = list(prev)
+                q[i] = p[i]
+                if E.shape_hit(world, q) is not None:
+                    axis = i
+                    break
+            if axis is None:
+                axis = max(range(3), key=lambda i: abs(d[i]))
+            n = [0.0, 0.0, 0.0]
+            n[axis] = -1.0 if d[axis] > 0 else 1.0
+            return s, n
+        prev = p
+        s += step
+    return reach, None
+
+
+def _cross(a, b):
+    return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]
+
+
+def fire_basis(d):
+    """DragonFire.basis: (p1, p2), p1 horizontal across d (unless d is vertical), p2 = p1 x d."""
+    a = _cross(d, [0.0, 1.0, 0.0])
+    if math.sqrt(sum(c * c for c in a)) < 1e-4:
+        a = _cross(d, [1.0, 0.0, 0.0])
+    p1 = _norm(a)
+    return p1, _cross(p1, d)
+
+
+def splash_dir(d, n, angle):
+    """DragonFire.splashDir: the way a puff with splash angle `angle` spreads along a face of normal n hit by a jet
+    along d: the jet's run over the surface, turned within the face by the angle."""
+    dn = sum(d[i] * n[i] for i in range(3))
+    e1 = [d[i] - n[i] * dn for i in range(3)]
+    if math.sqrt(sum(c * c for c in e1)) < 0.2:
+        e1 = fire_basis(d)[0]
+    else:
+        e1 = _norm(e1)
+    e2 = _cross(n, e1)
+    cs, sn = math.cos(angle), math.sin(angle)
+    return [e1[i] * cs + e2[i] * sn for i in range(3)]
+
+
+def splash_reach(world, hit_point, n, e, scale, clamp=True):
+    """DragonFire.splashReach of the renderer's splash ray: the free run along e from hit + n x SPLASH_RAY_LIFT, up
+    to SPLASH_SPREAD x scale, less SPLASH_WALL_GAP (infinity when it meets nothing). `clamp` False: always infinity,
+    the splash before this fix (for the mutation check)."""
+    if not clamp:
+        return E.INF
+    start = [hit_point[i] + n[i] * SPLASH_RAY_LIFT for i in range(3)]
+    reach = SPLASH_SPREAD * scale
+    free, nn = ray_hit(world, start, e, reach)
+    if nn is None:
+        return E.INF
+    return max(0.0, free - SPLASH_WALL_GAP)
+
+
+def splash_centre(o, d, hit, n, angle, b, scale, reach, size=1.0):
+    """DragonFire.flame for a SPLASHING puff `b` ticks into its splash: (centre, radius). Its spread along the face
+    is held to `reach`."""
+    e = splash_dir(d, n, angle)
+    spread = min(SPLASH_SPREAD * scale * (1 - math.exp(-b / 3.5)), max(0.0, reach))
+    lift = (0.25 + 0.06 * b) * scale
+    c = [o[i] + d[i] * hit + n[i] * lift + e[i] * spread for i in range(3)]
+    c[1] += 0.012 * b * b
+    return c, fire_radius(hit) * scale * size * (1 + 0.09 * b)
+
+
+def splash_centres(world, o, d, hit, n, scale, clamp=True, angles=13, steps=11):
+    """Where the splash of a jet along d from o that hits at `hit` on a face of normal n can be drawn: (centre, half
+    size) over the splash angles and its ten ticks, each centre's spread held by its own splash ray (as the renderer
+    does at a puff's birth). The half size is the drawn tongue's (DragonFireRenderer.billows: 1.4 x 1.1 x the
+    radius, the largest look), its centre raised by 0.35 of it."""
+    hp = [o[i] + d[i] * hit for i in range(3)]
+    out = []
+    for k in range(angles):
+        ang = -SPLASH_ANGLE + 2 * SPLASH_ANGLE * k / (angles - 1)
+        reach = splash_reach(world, hp, n, splash_dir(d, n, ang), scale, clamp)
+        for j in range(steps):
+            b = FIRE_SPLASH_TICKS * j / (steps - 1)
+            c, r = splash_centre(o, d, hit, n, ang, b, scale, reach, SPLASH_SIZE)
+            half = 1.4 * 1.1 * r
+            c[1] += 0.35 * half
+            out.append((c, half))
+    return out
+
+
+def fire_clearance(scene, aid, t, world, point, clamp=True):
+    """How far `point` is outside the drawn flame of the jet at t, or None when no jet: what a 'the fire never
+    touches the viewer' assert compares. The lesser of the distance to the centre line minus the visible radius
+    there (x scale), and where the jet has hit a block, the distance to its splash (splash_centres: each tongue's
+    centre less its half size). `clamp` False measures the splash as it was before it was held off the rock."""
     jet = fire_jet(scene, aid, t, world)
     if jet is None:
         return None
@@ -1208,7 +1378,12 @@ def fire_clearance(scene, aid, t, world, point):
     q = [o[i] + d[i] * s for i in range(3)]
     dist = math.sqrt(sum((point[i] - q[i]) ** 2 for i in range(3)))
     scale = E.actor_by_id(scene, aid).get('scale', 1.0)
-    return dist - fire_visible_radius(s) * scale
+    best = dist - fire_visible_radius(s) * scale
+    hit, n = ray_hit(world, o, d, length + 0.1)
+    if n is not None and hit <= length + 1e-6:
+        for c, half in splash_centres(world, o, d, hit, n, scale, clamp):
+            best = min(best, math.dist(c, point) - half)
+    return best
 
 
 def _f5(v):
@@ -1241,7 +1416,82 @@ def fire_cases():
         'radius': [[s, _f5(fire_radius(s)), _f5(fire_visible_radius(s))] for s in (0, 3, 10, 18)],
         'anims': anims,
         'windows': windows,
+        'splash_constants': {'spread': SPLASH_SPREAD, 'ray_lift': SPLASH_RAY_LIFT, 'wall_gap': SPLASH_WALL_GAP},
+        'splashes': splash_cases(),
+        'mouth_scenes': _mouth_scenes(),
+        'mouths': mouth_cases(),
     }
+
+
+def splash_cases():
+    """DragonFire.splashDir and a SPLASHING flame's centre for given aims, faces, angles, ticks and reaches."""
+    out = []
+    aims = [([0.0, -0.3, 1.0], [0.0, 0.0, -1.0]), ([0.2, -0.9, 0.4], [0.0, 1.0, 0.0]), ([0.0, 0.0, 1.0], [0.0, 0.0, -1.0]),
+            ([-0.6, -0.5, 0.2], [1.0, 0.0, 0.0])]
+    for d, n in aims:
+        d = _norm(d)
+        for ang in (-2.0, -0.4, 0.0, 1.1, 2.3):
+            for b, reach in ((0.5, E.INF), (4.0, 1.2), (9.0, E.INF), (9.0, 0.0)):
+                c, r = splash_centre([1.5, 6.0, -2.0], d, 7.25, n, ang, b, 1.3, reach, 0.9)
+                out.append({'d': d, 'n': n, 'angle': ang, 'b': b,
+                            'reach': None if reach == E.INF else reach,
+                            'dir': [_f5(x) for x in splash_dir(d, n, ang)], 'centre': [_f5(x) for x in c],
+                            'radius': _f5(r)})
+    return out
+
+
+def _mouth_scenes():
+    """Small scenes for the mouth estimate's parity: a ground breath with a head look sweeping, an air breath, a
+    flight and a rest pose, scaled."""
+    def dragon(path, anims, head, scale=1.0):
+        return {'length': 200, 'actors': [{'id': 'h', 'type': HORNTAIL_TYPE, 'path': path, 'anims': anims,
+                                           'limbs': {HEAD_LOOK: {'rot': head}}, 'scale': scale}]}
+    look = [{'t': 0, 'v': [0, 0, 0]}, {'t': 40, 'v': [20, 45, 0]}, {'t': 80, 'v': [-30, -60, 0]}]
+    fly = _spline([[0.0, 12.0, 0.6 * 10 * i] for i in range(0, 21)], 0, 10, None)
+    return {
+        'breath': dragon([{'t': 0, 'pos': [3.0, 4.0, -2.0]}], [{'t': 0, 'name': 'IDLE'}, {'t': 10, 'name': 'BREATH'}],
+                         look),
+        'air': dragon(fly, [{'t': 0, 'name': 'FLY'}, {'t': 10, 'name': 'AIR_BREATH'}], look, 1.2),
+        'fly': dragon(fly, [{'t': 0, 'name': 'FLY'}], look),
+        'rest': dragon([{'t': 0, 'pos': [0.0, 0.0, 0.0]}], [{'t': 0, 'name': 'IDLE'}], look),
+    }
+
+
+MOUTH_TIMES = (12, 30, 47.5, 66, 80)
+
+
+def mouth_cases():
+    out = []
+    for name, sc in _mouth_scenes().items():
+        h = sc['actors'][0]
+        for t in MOUTH_TIMES:
+            p, d = mouth_estimate(h, t)
+            q, dq = horntail_snout(sc, 'h', t)
+            w = fire_window(h, t)
+            settled = horntail_blend(h, t)[2] >= 1.0 and (name not in ('breath', 'air') or
+                                                          (w is not None and w[0] <= t <= w[1]))
+            out.append({'scene': name, 't': t, 'mouth': [_f5(x) for x in p], 'dir': [_f5(x) for x in d],
+                        'snout': [_f5(x) for x in q], 'settled': settled})
+    return out
+
+
+def mouth_estimate_check():
+    """The estimate stays within 0.5 of the drawn snout over the mouth scenes (worst gap, where), wherever she can
+    breathe: inside the breath scenes' fire windows, anywhere once settled in the others. (Inside a cue's fade it
+    does not follow the cross-fade.)"""
+    worst = (0.0, None)
+    for name, sc in _mouth_scenes().items():
+        h = sc['actors'][0]
+        for t in range(10, 100, 3):
+            w = fire_window(h, t)
+            if name in ('breath', 'air') and (w is None or not w[0] <= t <= w[1]) or horntail_blend(h, t)[2] < 1.0:
+                continue
+            p, _ = mouth_estimate(h, t)
+            q, _ = horntail_snout(sc, 'h', t)
+            g = math.dist(p, q) / h.get('scale', 1.0)
+            if g > worst[0]:
+                worst = (g, '%s t %d' % (name, t))
+    return worst
 
 
 def write_fire_cases():
@@ -1263,6 +1513,20 @@ def fire_self_check():
     w = fire_window({'anims': [{'t': 0, 'name': 'FLY'}, {'t': 30, 'name': 'AIR_BREATH'}]}, 50)
     if w != (42, 82):
         problems.append('air breath window %s' % (w,))
+    gap, where = mouth_estimate_check()
+    if gap > 0.5:
+        problems.append('the mouth estimate is %.2f from the snout (%s)' % (gap, where))
+    # A splash on the floor just before a wall is held off it; unheld it would run on into the wall.
+    world = {(x, y, z): 'minecraft:stone' for x in range(-6, 7) for z in range(-4, 12) for y in (-1,)}
+    world.update({(x, y, 3): 'minecraft:stone' for x in range(-6, 7) for y in range(0, 4)})
+    o, d = [0.5, 6.0, -8.0], _norm([0.0, -6.0, 9.5])
+    hit, n = ray_hit(world, o, d, FIRE_MAX_REACH)
+    held = max(c[2] for c, _ in splash_centres(world, o, d, hit, n, 1.0))
+    loose = max(c[2] for c, _ in splash_centres(world, o, d, hit, n, 1.0, clamp=False))
+    if n != [0.0, 1.0, 0.0] or not held < 3.0 <= loose:
+        problems.append('the splash clamp: normal %s, held to z %.2f, unheld %.2f (the wall at z 3)' % (n, held, loose))
+    print('dragon_engine fire: the mouth estimate within %.2f of the snout (%s); a floor splash before a wall held to '
+          'z %.2f (unheld %.2f, the wall at 3)' % (gap, where, held, loose))
     return problems
 
 

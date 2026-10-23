@@ -212,7 +212,7 @@ public final class SceneValidator {
                 if (c.item() == null) out.add(cp + ".item: an equip action needs an item (minecraft:air clears the slot)");
             }
             if (!"equip".equals(c.action()) && c.slot() != null) out.add(cp + ".slot: slot is only for equip");
-            breathe(out, a, c, cp);
+            breathe(out, scene, a, c, cp);
             if (c.item() != null) item(out, cp + ".item", c.item(), names);
             if (c.target() != null && c.target().actor() != null && !actorIds.contains(c.target().actor())) {
                 out.add(cp + ".target: unknown actor '" + c.target().actor() + "'");
@@ -223,9 +223,11 @@ public final class SceneValidator {
     /**
      * The Horntail's fire ({@link DragonFire}): {@code breathe} only on her, {@code duration} only on it and within
      * {@link DragonFire#MIN_DURATION}..{@link DragonFire#MAX_DURATION}, and the whole breathe inside the fire window of
-     * a {@code BREATH} or {@code AIR_BREATH} cue (her jaw open at full fire, {@link DragonFire#fireWindow}).
+     * a {@code BREATH} or {@code AIR_BREATH} cue (her jaw open at full fire, {@link DragonFire#fireWindow}); an actor
+     * target must be a player (the fire and its mirror aim at a player's chest).
      */
-    private static void breathe(List<String> out, SceneDef.ActorDef a, SceneDef.ActionCue c, String cp) {
+    private static void breathe(List<String> out, SceneDef scene, SceneDef.ActorDef a, SceneDef.ActionCue c,
+                                String cp) {
         boolean breathe = DragonFire.ACTION.equals(c.action());
         if (!breathe) {
             if (!Float.isNaN(c.duration())) out.add(cp + ".duration: duration is only for breathe");
@@ -240,6 +242,15 @@ public final class SceneValidator {
             out.add(cp + ".duration: " + d + " is out of range (" + DragonFire.MIN_DURATION + " to "
                     + DragonFire.MAX_DURATION + " ticks)");
             return;
+        }
+        // An actor target is aimed at its chest from a player's height (DragonFireRenderer, dragon_engine.fire_target).
+        if (c.target() != null && c.target().actor() != null) {
+            for (SceneDef.ActorDef other : scene.actors()) {
+                if (other.id().equals(c.target().actor()) && !"player".equals(other.type())) {
+                    out.add(cp + ".target: a breathe actor target must be a player actor ('" + other.id() + "' is "
+                            + other.type() + "); aim at a point instead");
+                }
+            }
         }
         double[] w = DragonFire.fireWindow(a.anims(), c.t());
         if (w == null || c.t() < w[0] - 1e-3 || c.t() + d > w[1] + 1e-3) {

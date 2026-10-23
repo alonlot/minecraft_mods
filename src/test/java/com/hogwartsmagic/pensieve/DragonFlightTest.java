@@ -262,6 +262,41 @@ class DragonFlightTest {
         assertTrue(Math.abs(want - got) <= tol, what + ": python " + want + ", java " + got);
     }
 
+    /** The fire review's probes (dragon_engine.heading_hold_check): her heading holds through a dead hover. */
+    @Test
+    void holdsHerHeadingThroughAHover() throws Exception {
+        // A dead hover, then a spline departure that speeds up: its start runs 0.375 blocks backwards.
+        SceneDef.ActorDef depart = dragon("[{\"t\":0,\"pos\":[0,10,0]},{\"t\":80,\"pos\":[0,10,0],\"ease\":\"in_out\"},"
+                + "{\"t\":100,\"pos\":[0,10,2],\"ease\":\"spline\"},{\"t\":120,\"pos\":[0,10,22],\"ease\":\"spline\"},"
+                + "{\"t\":140,\"pos\":[0,10,42],\"ease\":\"spline\"}]");
+        double last = 0;
+        for (int i = 0; i < 280; i++) {
+            double yaw = DragonFlight.place(depart, i / 2.0).yaw();
+            assertTrue(Math.abs(wrap(yaw)) <= 2, "she turns round at t " + i / 2.0 + ": " + yaw);
+            assertTrue(Math.abs(wrap(yaw - last)) <= 3, "a step at t " + i / 2.0);
+            last = yaw;
+        }
+        // Arriving heading south (+z), hovering 80 ticks, leaving west (-x): the arrival heading until she leaves.
+        SceneDef.ActorDef turn = dragon("[{\"t\":0,\"pos\":[0,10,-40]},{\"t\":20,\"pos\":[0,10,-20],\"ease\":\"spline\"},"
+                + "{\"t\":40,\"pos\":[0,10,0],\"ease\":\"in_out\"},{\"t\":120,\"pos\":[0,10,0],\"ease\":\"in_out\"},"
+                + "{\"t\":140,\"pos\":[-2,10,0],\"ease\":\"spline\"},{\"t\":160,\"pos\":[-22,10,0],\"ease\":\"spline\"},"
+                + "{\"t\":180,\"pos\":[-42,10,0],\"ease\":\"spline\"}]");
+        for (int t = 20; t <= 120; t++) {
+            assertTrue(Math.abs(wrap(DragonFlight.place(turn, t).yaw())) <= 2, "hovering at t " + t);
+        }
+        assertEquals(90, DragonFlight.place(turn, 170).yaw(), 2, "leaving west");
+    }
+
+    private static SceneDef.ActorDef dragon(String path) throws Exception {
+        String json = "{\"length\":200,\"actors\":[{\"id\":\"h\",\"type\":\"hogwartsmagic:memory_horntail\","
+                + "\"anims\":[{\"t\":0,\"name\":\"FLY\"}],\"path\":" + path + "}]}";
+        return SceneParser.parse("probe", JsonParser.parseString(json).getAsJsonObject()).actors().get(0);
+    }
+
+    private static double wrap(double deg) {
+        return ((deg % 360) + 540) % 360 - 180;
+    }
+
     @Test
     void pythonMirrorAgrees() throws Exception {
         JsonObject all = JsonParser.parseString(Files.readString(

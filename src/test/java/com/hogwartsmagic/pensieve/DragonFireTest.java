@@ -5,11 +5,13 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.hogwartsmagic.pensieve.scene.DragonFire;
+import com.hogwartsmagic.pensieve.scene.DragonFlight;
 import com.hogwartsmagic.pensieve.scene.EffectSeed;
 import com.hogwartsmagic.pensieve.scene.SceneDef;
 import com.hogwartsmagic.pensieve.scene.SceneNames;
 import com.hogwartsmagic.pensieve.scene.SceneParser;
 import com.hogwartsmagic.pensieve.scene.SceneValidator;
+import com.hogwartsmagic.pensieve.scene.ScorchDecal;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
@@ -24,6 +26,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -109,7 +112,7 @@ class DragonFireTest {
     }
 
     @Test
-    void deterministicAcrossOrigins() {
+    void deterministicAcrossOrigins() throws Exception {
         // The seed is the breathe's scene-relative time and place: the session slot's origin never enters it.
         float[] root = {3.5f, 0f, -12f};
         long a = DragonFire.seed("horntail", 120f, root);
@@ -118,32 +121,195 @@ class DragonFireTest {
         assertTrue(a != DragonFire.seed("horntail", 121f, root), "two breaths differ");
         // EffectSeed of the same relative point from two slot origins is the same.
         assertEquals(EffectSeed.of(1003.5, 64, 988, 1000, 64, 1000, 120f), EffectSeed.of(-4996.5, 64, 4988, -5000, 64, 5000, 120f));
-        // Every puff, flame and smoke is the same about two origins, shifted by the origin.
-        double[] o1 = {1000.5, 70, 1000.5}, o2 = {-30000.5, 70, 52000.5};
-        double[] d = norm(new double[]{0.3, -0.4, 1});
+        // Each puff's birth (DragonFire.birth, as the renderer calls it) about two session origins: the drawn snout
+        // between two frames, this frame's, or her pose's estimate, aimed at a point target or along her head.
+        SceneDef.ActorDef dragon = mouthScene().actors().get(0);
+        float[] point = {4f, 0.5f, 13f};
+        double[] g1 = {1000, 64, 1000}, g2 = {-30000, 70, 52000};
+        int[] seen = new int[3];
+        for (double tb = 20; tb < 60; tb += 0.25) {
+            double now = Math.floor(tb) + 0.6, lastT = now - 0.55;
+            double[] relLast = {0.3, 4.6 + 0.01 * tb, 3.0}, relCur = {0.35, 4.62 + 0.01 * tb, 3.1};
+            double[] dLast = norm(new double[]{0.1, -0.6, 0.8}), dCur = norm(new double[]{0.12, -0.58, 0.8});
+            boolean drawn = ((int) tb) % 3 != 0;
+            for (float[] target : new float[][]{point, null}) {
+                DragonFire.Birth b1 = birthAbout(g1, tb, now, relLast, dLast, lastT, drawn ? relCur : null, dCur, dragon, target);
+                DragonFire.Birth b2 = birthAbout(g2, tb, now, relLast, dLast, lastT, drawn ? relCur : null, dCur, dragon, target);
+                assertEquals(b1.from(), b2.from());
+                seen[b1.from()]++;
+                for (int i = 0; i < 3; i++) {
+                    assertEquals(b1.o()[i] - g1[i], b2.o()[i] - g2[i], 1e-6, "mouth at " + tb);
+                    assertEquals(b1.d()[i], b2.d()[i], 1e-9, "aim at " + tb);
+                    assertEquals(b1.head()[i], b2.head()[i], 1e-9, "head at " + tb);
+                }
+                if (target == null) assertArrayEquals(b1.head(), b1.d(), 0, "no target: along her head");
+            }
+        }
+        assertTrue(seen[DragonFire.FROM_LERP] > 0 && seen[DragonFire.FROM_NOW] > 0 && seen[DragonFire.FROM_POSE] > 0,
+                "every mouth source is exercised: " + java.util.Arrays.toString(seen));
+        // The pose's mouth is scene-relative: the same estimate about any origin.
+        double[] m = DragonFlight.mouthEstimate(dragon, 30);
+        DragonFire.Birth p1 = birthAbout(g1, 30, 40, null, null, Double.NaN, null, null, dragon, point);
+        assertEquals(DragonFire.FROM_POSE, p1.from());
+        assertEquals(m[0], p1.o()[0] - g1[0], 1e-9);
+    }
+
+    /** DragonFire.birth with every world input built from scene-relative ones about the slot origin {@code g}. */
+    private static DragonFire.Birth birthAbout(double[] g, double tb, double now, double[] relLast, double[] dLast,
+                                               double lastT, double[] relCur, double[] dCur, SceneDef.ActorDef dragon,
+                                               float[] target) {
+        double[] last = relLast == null ? null : new double[]{relLast[0] + g[0], relLast[1] + g[1], relLast[2] + g[2]};
+        double[] cur = relCur == null ? null : new double[]{relCur[0] + g[0], relCur[1] + g[1], relCur[2] + g[2]};
+        return DragonFire.birth(tb, now, last, dLast, lastT, cur, dCur, () -> {
+            double[] e = DragonFlight.mouthEstimate(dragon, tb);
+            return new double[]{e[0] + g[0], e[1] + g[1], e[2] + g[2], e[3], e[4], e[5]};
+        }, target == null ? null : DragonFire.pointTarget(target, g));
+    }
+
+    private static SceneDef mouthScene() throws Exception {
+        JsonObject all = JsonParser.parseString(Files.readString(
+                Path.of("build_scripts/pensieve_scenes/dragon_fire_cases.json"))).getAsJsonObject();
+        return SceneParser.parse("breath", all.getAsJsonObject("mouth_scenes").getAsJsonObject("breath"));
+    }
+
+    @Test
+    void splashIsHeldOffAWall() {
+        // A jet from up and back lands on a floor (y 0) 2 blocks before a wall (z 3): every splashing puff, its
+        // spread held by its own splash ray (as the renderer casts it), stays on this side of the wall.
+        double[] o = {0.5, 6, -8}, target = {0.5, 0, 1};
+        double[] d = norm(new double[]{target[0] - o[0], target[1] - o[1], target[2] - o[2]});
+        double hit = (0 - o[1]) / d[1];
         double[] n = {0, 1, 0};
+        long seed = DragonFire.seed("h", 40f, new float[]{0, 0, 0});
+        double worstHeld = -1e9, worstLoose = -1e9;
         for (int k = 0; k < DragonFire.puffs(40); k++) {
-            DragonFire.Look l1 = DragonFire.look(a, k), l2 = DragonFire.look(a, k);
-            assertEquals(l1, l2);
-            for (double age : new double[]{0.3, 4, 9.5, 14, 20, 45}) {
-                for (double hit : new double[]{7.5, Double.POSITIVE_INFINITY}) {
-                    DragonFire.Flame f1 = DragonFire.flame(o1, d, hit, n, l1, age, 1);
-                    DragonFire.Flame f2 = DragonFire.flame(o2, d, hit, n, l2, age, 1);
-                    assertEquals(f1 == null, f2 == null);
-                    if (f1 != null) {
-                        assertEquals(f1.x() - o1[0], f2.x() - o2[0], 1e-6);
-                        assertEquals(f1.y() - o1[1], f2.y() - o2[1], 1e-6);
-                        assertEquals(f1.z() - o1[2], f2.z() - o2[2], 1e-6);
-                        assertEquals(f1.radius(), f2.radius(), 0);
-                        assertEquals(f1.heat(), f2.heat(), 0);
+            DragonFire.Look look = DragonFire.look(seed, k);
+            double[] e = DragonFire.splashDir(d, n, look);
+            assertEquals(0, e[0] * n[0] + e[1] * n[1] + e[2] * n[2], 1e-9, "the splash runs along the face");
+            double startZ = o[2] + d[2] * hit + n[2] * DragonFire.SPLASH_RAY_LIFT;
+            double free = e[2] > 1e-9 ? (3 - startZ) / e[2] : Double.POSITIVE_INFINITY;
+            if (free > DragonFire.SPLASH_SPREAD) free = Double.POSITIVE_INFINITY;
+            double reach = DragonFire.splashReach(free);
+            for (double a = hit / DragonFire.SPEED; a <= DragonFire.flameLife(hit); a += 0.25) {
+                DragonFire.Flame f = DragonFire.flame(o, d, hit, n, look, a, 1, reach);
+                if (f != null && f.stage() == DragonFire.Flame.SPLASHING) worstHeld = Math.max(worstHeld, f.z());
+                DragonFire.Flame g = DragonFire.flame(o, d, hit, n, look, a, 1);
+                if (g != null && g.stage() == DragonFire.Flame.SPLASHING) worstLoose = Math.max(worstLoose, g.z());
+            }
+            DragonFire.Smoke sm = DragonFire.smoke(o, d, hit, n, look, DragonFire.flameLife(hit), 1, reach);
+            if (sm != null) assertTrue(sm.z() < 3, "its smoke rises from this side of the wall");
+        }
+        assertTrue(worstHeld < 3 - 0.05, "held short of the wall: " + worstHeld);
+        assertTrue(worstLoose > 3, "unheld, the splash would run on into the wall: " + worstLoose);
+        assertEquals(0, DragonFire.splashReach(0.1), 0);
+        assertEquals(Double.POSITIVE_INFINITY, DragonFire.splashReach(Double.POSITIVE_INFINITY), 0);
+    }
+
+    @Test
+    void drawCountsBounded() {
+        // Two 40-tick jets hitting a wall 12 out, sampled every quarter tick: flame and smoke puffs drawn a jet.
+        double[] o = {0, 10, 0}, d = {0, 0, 1}, n = {0, 0, -1};
+        int peakFlame = 0, peakSmoke = 0;
+        for (long seed : new long[]{DragonFire.seed("h", 100f, new float[]{0, 0, 0}), DragonFire.seed("h2", 100f, new float[]{5, 0, 0})}) {
+            for (double t = 0; t <= DragonFire.lifetime(40) + 1; t += 0.25) {
+                int flames = 0, smoke = 0;
+                for (int k = 0; k < DragonFire.puffs(40); k++) {
+                    double age = DragonFire.birth(k);
+                    if (age > t) break;
+                    DragonFire.Look look = DragonFire.look(seed, k);
+                    if (!DragonFire.emitted(look, age, 40)) continue;
+                    if (DragonFire.flame(o, d, 12, n, look, t - age, 1) != null) flames++;
+                    if (DragonFire.smokes(look, age, 40) && DragonFire.smoke(o, d, 12, n, look, t - age, 1) != null) smoke++;
+                }
+                peakFlame = Math.max(peakFlame, flames);
+                peakSmoke = Math.max(peakSmoke, smoke);
+            }
+        }
+        assertTrue(peakFlame <= 110 && peakFlame > 60, "flame puffs a jet at the peak: " + peakFlame);
+        assertTrue(peakSmoke <= 180 && peakSmoke > 60, "smoke puffs a jet at the peak: " + peakSmoke);
+        // The scorch: whatever the jets leave, a pass draws at most MAX_FRAME_CELLS cells (the worst case: three
+        // breathes of full spots, every face a full 3 x 3), nearest first, none out of view or past the cull distance.
+        int spots = 3 * ScorchDecal.MAX_SPOTS;
+        double[] dist = new double[spots], rad = new double[spots];
+        boolean[] vis = new boolean[spots];
+        int[] cells = new int[spots];
+        Random r = new Random(4);
+        for (int i = 0; i < spots; i++) {
+            dist[i] = r.nextDouble() * 140;
+            rad[i] = DragonFire.SCORCH_MAX;
+            vis[i] = r.nextInt(5) != 0;
+            cells[i] = ScorchDecal.MAX_FACES * ScorchDecal.SPLIT * ScorchDecal.SPLIT;
+        }
+        int[] plan = ScorchDecal.plan(dist, rad, vis, cells, ScorchDecal.MAX_FRAME_CELLS);
+        int total = 0;
+        double last = -1;
+        for (int i : plan) {
+            total += cells[i];
+            assertTrue(vis[i] && dist[i] <= ScorchDecal.CULL_DISTANCE + rad[i], "culled spot " + i + " drawn");
+            assertTrue(dist[i] >= last, "nearest first");
+            last = dist[i];
+        }
+        assertTrue(total <= ScorchDecal.MAX_FRAME_CELLS, "cells a pass: " + total);
+        assertTrue(plan.length > 0);
+        // A realistic sweep (24 spots of about 180 cells) is drawn whole.
+        int[] small = new int[24];
+        double[] near = new double[24], r24 = new double[24];
+        boolean[] all = new boolean[24];
+        java.util.Arrays.fill(small, 180);
+        java.util.Arrays.fill(r24, 2.5);
+        java.util.Arrays.fill(all, true);
+        for (int i = 0; i < 24; i++) near[i] = 10 + i;
+        assertEquals(24, ScorchDecal.plan(near, r24, all, small, ScorchDecal.MAX_FRAME_CELLS).length);
+    }
+
+    @Test
+    void scorchDecalBakesOnceAndFallsOff() {
+        // A flat 7 x 7 patch of block tops round a spot at its centre.
+        List<ScorchDecal.Face> faces = new ArrayList<>();
+        for (int x = -3; x <= 3; x++) {
+            for (int z = -3; z <= 3; z++) {
+                faces.add(new ScorchDecal.Face(new double[]{x, 1, z}, new double[]{x + 1, 1, z}, new double[]{x + 1, 1, z + 1},
+                        new double[]{x, 1, z + 1}, 0, 1, 0, x * 31 + z, 0L));
+            }
+        }
+        ScorchDecal.Baked b = ScorchDecal.bake(faces, 0.5, 1, 0.5, 2.5);
+        assertTrue(b.cells > 0 && b.cells <= faces.size() * ScorchDecal.SPLIT * ScorchDecal.SPLIT, "cells " + b.cells);
+        assertTrue(b.cells < faces.size() * 9, "the far corners fade to nothing and are left out: " + b.cells);
+        for (int c = 0; c < b.cells; c++) {
+            for (int i = 0; i < 4; i++) {
+                double x = b.xyz[c * 12 + i * 3], y = b.xyz[c * 12 + i * 3 + 1], z = b.xyz[c * 12 + i * 3 + 2];
+                assertEquals(0, y, 1e-6, "relative to the spot's centre, on the face");
+                double dd = Math.sqrt(x * x + z * z);
+                assertEquals(ScorchDecal.fall(dd / 2.5), b.fall[c * 4 + i], 1e-5);
+            }
+        }
+        assertEquals(1, ScorchDecal.fall(0.4), 0);
+        assertEquals(0, ScorchDecal.fall(1.0), 1e-12);
+        // The lift grows with the camera's distance (depth precision), never under the base.
+        assertEquals(ScorchDecal.LIFT, ScorchDecal.lift(5), 0);
+        assertTrue(ScorchDecal.lift(100) > 0.012);
+        assertEquals(b.cells, ScorchDecal.bake(faces, 0.5, 1, 0.5, 2.5).cells, "baking is pure");
+        // The soot texture is laid in world space: two spots (here 1.7 apart) give a shared corner texture
+        // coordinates a whole repeat apart, so overlapping soot and neighbouring faces join without a seam.
+        ScorchDecal.Baked other = ScorchDecal.bake(faces, 2.2, 1, 0.5, 2.5);
+        int shared = 0;
+        for (int c = 0; c < b.cells; c++) {
+            for (int i = 0; i < 4; i++) {
+                double wx = b.xyz[c * 12 + i * 3] + 0.5, wz = b.xyz[c * 12 + i * 3 + 2] + 0.5;
+                for (int c2 = 0; c2 < other.cells; c2++) {
+                    for (int i2 = 0; i2 < 4; i2++) {
+                        double ox = other.xyz[c2 * 12 + i2 * 3] + 2.2, oz = other.xyz[c2 * 12 + i2 * 3 + 2] + 0.5;
+                        if (Math.abs(ox - wx) > 1e-4 || Math.abs(oz - wz) > 1e-4) continue;
+                        double du = b.uv[c * 8 + i * 2] - other.uv[c2 * 8 + i2 * 2];
+                        double dv = b.uv[c * 8 + i * 2 + 1] - other.uv[c2 * 8 + i2 * 2 + 1];
+                        assertEquals(Math.rint(du), du, 1e-4, "u apart by whole repeats");
+                        assertEquals(Math.rint(dv), dv, 1e-4, "v apart by whole repeats");
+                        shared++;
                     }
-                    DragonFire.Smoke s1 = DragonFire.smoke(o1, d, hit, n, l1, age, 1);
-                    DragonFire.Smoke s2 = DragonFire.smoke(o2, d, hit, n, l2, age, 1);
-                    assertEquals(s1 == null, s2 == null);
-                    if (s1 != null) assertEquals(s1.y() - o1[1], s2.y() - o2[1], 1e-6);
                 }
             }
         }
+        assertTrue(shared > 20, "shared corners " + shared);
     }
 
     @Test
@@ -257,6 +423,63 @@ class DragonFireTest {
             }
         }
         assertTrue(windows >= 10, "the cases cover open windows: " + windows);
+        JsonObject sk = all.getAsJsonObject("splash_constants");
+        assertEquals(DragonFire.SPLASH_SPREAD, sk.get("spread").getAsDouble(), 0);
+        assertEquals(DragonFire.SPLASH_RAY_LIFT, sk.get("ray_lift").getAsDouble(), 0);
+        assertEquals(DragonFire.SPLASH_WALL_GAP, sk.get("wall_gap").getAsDouble(), 0);
+        int splashes = 0;
+        for (JsonElement e : all.getAsJsonArray("splashes")) {
+            JsonObject c = e.getAsJsonObject();
+            double[] d = doubles(c.get("d")), n = doubles(c.get("n"));
+            double b = c.get("b").getAsDouble();
+            double reach = c.get("reach").isJsonNull() ? Double.POSITIVE_INFINITY : c.get("reach").getAsDouble();
+            DragonFire.Look look = new DragonFire.Look(0, 0, 0, 0, 0, 0.9, c.get("angle").getAsDouble(), 0, 0, 0, 0);
+            double[] dir = DragonFire.splashDir(d, n, look), want = doubles(c.get("dir"));
+            double[] o = {1.5, 6.0, -2.0};
+            DragonFire.Flame f = DragonFire.flame(o, d, 7.25, n, look, 7.25 / DragonFire.SPEED + b, 1.3, reach);
+            assertEquals(DragonFire.Flame.SPLASHING, f.stage(), c.toString());
+            double[] centre = doubles(c.get("centre"));
+            for (int i = 0; i < 3; i++) {
+                assertEquals(want[i], dir[i], 1e-4, "splash dir " + c);
+            }
+            assertEquals(centre[0], f.x(), 1e-4, "splash x " + c);
+            assertEquals(centre[1], f.y(), 1e-4, "splash y " + c);
+            assertEquals(centre[2], f.z(), 1e-4, "splash z " + c);
+            assertEquals(c.get("radius").getAsDouble(), f.radius(), 1e-4, "splash radius " + c);
+            splashes++;
+        }
+        assertEquals(80, splashes);
+        Map<String, SceneDef> scenes = new HashMap<>();
+        for (Map.Entry<String, JsonElement> e : all.getAsJsonObject("mouth_scenes").entrySet()) {
+            scenes.put(e.getKey(), SceneParser.parse(e.getKey(), e.getValue().getAsJsonObject()));
+        }
+        int settled = 0;
+        for (JsonElement e : all.getAsJsonArray("mouths")) {
+            JsonObject c = e.getAsJsonObject();
+            SceneDef.ActorDef h = scenes.get(c.get("scene").getAsString()).actors().get(0);
+            double t = c.get("t").getAsDouble();
+            double[] m = DragonFlight.mouthEstimate(h, t), want = doubles(c.get("mouth")), dir = doubles(c.get("dir"));
+            String at = c.get("scene").getAsString() + " t " + t;
+            for (int i = 0; i < 3; i++) {
+                assertEquals(want[i], m[i], 1e-3, "mouth " + at);
+                assertEquals(dir[i], m[3 + i], 1e-3, "mouth dir " + at);
+            }
+            // Wherever she can breathe, the estimate is near her drawn snout (the mirror's horntail_snout).
+            if (c.get("settled").getAsBoolean()) {
+                double[] sn = doubles(c.get("snout"));
+                double gap = Math.sqrt(Math.pow(m[0] - sn[0], 2) + Math.pow(m[1] - sn[1], 2) + Math.pow(m[2] - sn[2], 2));
+                assertTrue(gap <= 0.5, "the estimate is " + gap + " from the snout at " + at);
+                settled++;
+            }
+        }
+        assertTrue(settled >= 10, "settled mouth cases " + settled);
+    }
+
+    private static double[] doubles(JsonElement e) {
+        JsonArray a = e.getAsJsonArray();
+        double[] out = new double[a.size()];
+        for (int i = 0; i < out.length; i++) out[i] = a.get(i).getAsDouble();
+        return out;
     }
 
     /** Every name is accepted: the dev scene is validated for its structure and the fire rules. */

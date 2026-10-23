@@ -475,6 +475,35 @@ class SceneDataTest {
     }
 
     /**
+     * The First Task memory (build_scripts/pensieve_scenes/first_task_scene.py): the champions' tent, the arena, the
+     * chase and the golden egg, wired by next in that order; the tent hands over through white, the first opens on
+     * eyes_open at t 0 and the egg scene ends in a wake.
+     */
+    @Test
+    void firstTaskChainIsWired() throws Exception {
+        String[] chain = {"first_task", "first_task_arena", "first_task_chase", "first_task_egg"};
+        for (int i = 0; i < chain.length; i++) {
+            com.google.gson.JsonObject s = scene(chain[i]);
+            SceneDef def = SceneParser.parse(chain[i], s);
+            if (i < chain.length - 1) {
+                assertEquals(chain[i + 1], def.next(), chain[i] + " hands over to the next scene of the chain");
+                assertFalse(s.has("end_action"), chain[i] + " does not end the memory");
+            } else {
+                assertEquals(null, def.next(), chain[i] + " is the end of the chain");
+                assertEquals("wake", s.get("end_action").getAsString(), chain[i] + " ends in a wake");
+            }
+            assertEquals(i == 0, s.has("handover_colour") && s.get("handover_colour").getAsString().equals("white"),
+                    chain[i] + (i == 0 ? " hands over through white" : " hands over without a colour"));
+        }
+        boolean opens = false;
+        for (var e : scene(chain[0]).getAsJsonArray("events")) {
+            var o = e.getAsJsonObject();
+            if (o.get("id").getAsString().equals("eyes_open") && o.get("t").getAsDouble() == 0) opens = true;
+        }
+        assertTrue(opens, chain[0] + " opens on eyes_open at t 0");
+    }
+
+    /**
      * The opponent: a Slytherin's chain plays Gryffindor, every other house's plays Slytherin. In the match and the
      * Snitch scenes every rival player (ids r_...) wears the rival house's Quidditch kit and a student skin of that house,
      * and every one of the boy's team (o_...) his own.

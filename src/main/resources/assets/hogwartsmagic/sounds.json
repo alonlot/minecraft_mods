@@ -2472,6 +2472,38 @@
       }
     ]
   },
+  "pensieve.music.flying_lesson": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/music/flying_lesson",
+        "stream": true
+      }
+    ]
+  },
+  "pensieve.music.flying_chase": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/music/flying_chase",
+        "stream": true
+      }
+    ]
+  },
+  "pensieve.music.flying_match": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/music/flying_match",
+        "stream": true
+      }
+    ]
+  },
+  "pensieve.music.flying_snitch": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/music/flying_snitch",
+        "stream": true
+      }
+    ]
+  },
   "pensieve.music.wand_alley": {
     "sounds": [
       {

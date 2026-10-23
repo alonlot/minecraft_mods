@@ -71,6 +71,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from scene_common import physics_problems, FREE, STRUCTURES  # noqa: E402
+import leaf_backing as LB  # noqa: E402
 from great_hall_set import state, bid, parse_state, write_template  # noqa: E402
 
 OUT = os.path.join(STRUCTURES, 'first_task_tent.nbt')
@@ -544,25 +545,16 @@ def small_tent(w, cx, cz, half_x, z0, z1, wall, stripe, door_z):
 
 
 def tree(w, x, z, height, seed):
+    """A conifer with a log spine to its tip. Leaves are see-through, so the cone is built backed (leaf_backing)."""
     base = bank_height(x, z)
-    for y in range(base, base + height):
-        w.set((x, y, z), log('y', 'spruce_log'))
     top = base + height
-    for y in range(base + 2, top + 2):
-        r = max(0, int((top + 1 - y) * 0.45 + 0.6))
-        for dx in range(-r, r + 1):
-            for dz in range(-r, r + 1):
-                if abs(dx) + abs(dz) > r + (1 if r > 1 else 0):
-                    continue
-                if (dx, dz) == (0, 0) and y < top:
-                    continue
-                if rnd(x + dx, y, z + dz, seed) < 0.12 and r > 1:
-                    continue
-                p = (x + dx, y, z + dz)
-                if max(abs(p[0]), abs(p[2])) > RADIUS:
-                    continue
-                if w.get(p) is None:
-                    w.set(p, state('spruce_leaves', distance=1, persistent='true', waterlogged='false'))
+    for y in range(base, top + 2):
+        w.set((x, y, z), log('y', 'spruce_log'))
+    for p in LB.spruce_cone(x, z, base + 2, top):
+        if max(abs(p[0]), abs(p[2])) > RADIUS:
+            continue
+        if w.get(p) is None:
+            w.set(p, state('spruce_leaves', distance=1, persistent='true', waterlogged='false'))
 
 
 def build_props(w):
@@ -773,6 +765,7 @@ def check(w):
             problems.append('cell %s beyond the radius' % ((x, y, z),))
     if len(g) > MAX_BLOCKS:
         problems.append('first_task_tent has %d blocks, over %d' % (len(g), MAX_BLOCKS))
+    problems += LB.problems(g, 'first_task_tent')          # leaves are see-through: every one backed (leaf_backing)
     return problems
 
 
@@ -785,6 +778,7 @@ def write_nbt():
     w = _build(World())
     problems = check(w)
     assert not problems, '\n'.join(problems[:40]) + ('\n... %d in all' % len(problems))
+    LB.assert_bites(w.g)                                   # the mutation bite: a spine log out and the check fails
     n_pal, n_blocks = write_template(local_grid(w.g), SIZE, OUT)
     return n_pal, n_blocks, w
 

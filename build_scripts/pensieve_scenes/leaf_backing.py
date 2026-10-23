@@ -147,3 +147,22 @@ def trim_crown(w, cells, extra=None, seen=None, rounds=8):
             w.set(p, None)
             removed += 1
     return removed
+
+
+def spruce_cone(x, z, y_first, y_top):
+    """Leaf cells of a backed conifer: rows y_first..y_top (inclusive) round a log spine at (x, z) that the caller
+    runs up to y_top + 1. The radius steps down every 3 rows from the top (a short bottom group joins the one
+    above), and a row is an octagon (|dx| + |dz| <= r + (r + 1) // 2), so every open face of a leaf has a log or three
+    leaves behind it."""
+    rows = list(range(y_first, y_top + 1))
+    out = []
+    for k, y in enumerate(reversed(rows)):             # k = 0 at the top
+        g = k // 3
+        if len(rows) - g * 3 < 3 and g > 0:
+            g -= 1
+        r = g + 1
+        for dx in range(-r, r + 1):
+            for dz in range(-r, r + 1):
+                if (dx or dz) and abs(dx) + abs(dz) <= r + (r + 1) // 2:
+                    out.append((x + dx, y, z + dz))
+    return out

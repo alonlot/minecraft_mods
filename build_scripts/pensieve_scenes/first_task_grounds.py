@@ -104,6 +104,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from scene_common import (physics_problems, FREE, STRUCTURES, schematic_grid, rotate_xz,  # noqa: E402
                           SCHEMATIC_SKIPPED, is_gravity)
+import leaf_backing as LB  # noqa: E402
 from great_hall_set import state, bid, parse_state, write_template  # noqa: E402
 
 OUT = os.path.join(STRUCTURES, 'first_task_grounds.nbt')
@@ -1734,22 +1735,15 @@ def support_castle(w, H):
 
 # ---------------------------------------------------------------- dressing
 def spruce(w, x, y0, z, height, seed):
-    for y in range(y0, y0 + height):
-        w.set((x, y, z), 'minecraft:spruce_log[axis=y]')
+    """A conifer with a log spine to its tip. Leaves are see-through, so the cone is built backed (leaf_backing)."""
     top = y0 + height
-    for y in range(y0 + 2, top + 2):
-        r = max(0, int((top + 1 - y) * 0.42 + 0.5))
-        for dx in range(-r, r + 1):
-            for dz in range(-r, r + 1):
-                if abs(dx) + abs(dz) > r + (1 if r > 1 else 0):
-                    continue
-                if (dx, dz) == (0, 0) and y < top:
-                    continue
-                p = (x + dx, y, z + dz)
-                if abs(p[0]) > RADIUS or abs(p[2]) > RADIUS:
-                    continue
-                if w.get(p) is None:
-                    w.set(p, 'minecraft:spruce_leaves[distance=1,persistent=true,waterlogged=false]')
+    for y in range(y0, top + 2):
+        w.set((x, y, z), 'minecraft:spruce_log[axis=y]')
+    for p in LB.spruce_cone(x, z, y0 + 2, top):
+        if abs(p[0]) > RADIUS or abs(p[2]) > RADIUS:
+            continue
+        if w.get(p) is None:
+            w.set(p, 'minecraft:spruce_leaves[distance=1,persistent=true,waterlogged=false]')
 
 
 def keep_clear(x, z):
@@ -2357,6 +2351,7 @@ def check(w, with_void=True):
                 problems.append('camera %s %s -> %s: %.3f of the frame is void' % (name, cam, look, v))
             numbers['void'][name] = round(v, 4)
         numbers['void_worst'] = worst
+    problems += LB.problems(g, 'first_task_grounds')       # leaves are see-through: every one backed (leaf_backing)
     return problems, numbers
 
 
@@ -2374,6 +2369,7 @@ def write_nbt():
     w = _build(World())
     problems, numbers = check(w)
     assert not problems, '\n'.join(problems[:40]) + ('\n... %d in all' % len(problems))
+    LB.assert_bites(w.g)                                   # the mutation bite: a spine log out and the check fails
     n_pal, n_blocks = write_template(local_grid(w.g), SIZE, OUT)
     return n_pal, n_blocks, w, numbers
 

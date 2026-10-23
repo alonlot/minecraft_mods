@@ -96,15 +96,19 @@ GT = G - 1
 TEMPLATE_AT = (-200, -30, -200)
 SIZE = (401, 170, 401)                  # y -30..139
 
-ARENA_C = (-102, 82)                    # the arena's centre (x, z); its floor stands at y 0
+ARENA_C = (-102, 82)                    # the arena's centre (x, z)
+AF = -10                                # the arena floor: its top blocks at y AF - 1, so feet stand at y AF
 FLOOR_A, FLOOR_B, SUPER_N = 32.0, 24.0, 3.2
-RIM_S = 1.22                            # the rim, in floor-normalised superellipse units
-NROWS = 13
+RIM_S = 1.45                            # the rim, in floor-normalised superellipse units
+ROWS_C, ROWS_W = 15, 12                 # rows in a stand's centre section and in its wings
+NROWS = ROWS_C
+STILT = 5                               # row 0's deck stands this high over the rim, on legs down the cliff
 
 
 def row_y(k):
-    """The deck block y of row k: the rows climb 3 every 2 (a steep stand, about 37 degrees)."""
-    return GT + (3 * k) // 2
+    """The deck block y of row k: lifted STILT over the rim, the rows climbing 2 every 2 (45 degrees, so the
+    crowd stacks up into view from the arena floor)."""
+    return GT + STILT + 2 * k
 CASTLE_ROT = 180
 CASTLE_AT = (28, GT, -100)
 SCHEMATIC = {'id': 'hogwartsmagic:mini_hogwarts', 'at': list(CASTLE_AT), 'rotation': CASTLE_ROT}
@@ -203,14 +207,58 @@ def in_arena_rect(lx, lz, margin=0):
     return abs(lx) <= ARENA_EXT[0] + margin and abs(lz) <= ARENA_EXT[1] + margin
 
 
+# Gullies: narrow notches cut back into the cliff (angle round the arena in radians, half-width, depth in s units)
+GULLIES = [(0.42, 0.045, 0.17), (1.18, 0.05, 0.15), (2.05, 0.04, 0.18), (2.4, 0.05, 0.14), (-0.55, 0.05, 0.16),
+           (-1.32, 0.04, 0.17), (-2.2, 0.05, 0.15)]
+
+
+def arena_angle(lx, lz):
+    return math.atan2(lz / FLOOR_B, lx / FLOOR_A)
+
+
+def gully(lx, lz):
+    th = arena_angle(lx, lz)
+    best = 0.0
+    for (g, hw, depth) in GULLIES:
+        d = abs((th - g + math.pi) % (2 * math.pi) - math.pi)
+        hw2 = hw * (0.8 + 0.5 * vnoise(lx, lz, 3.0, 17))
+        if d < hw2:
+            best = max(best, depth * (1 - d / hw2) ** 0.35)
+    return best
+
+
+def floor_level_zone(lx, lz):
+    """Floor columns kept dead level (the anchors stand there): the entrance run, the hiding rock, the stake and
+    the nest."""
+    if lx < -12 and -7 <= lz <= 13:
+        return True
+    if HIDE[0] - 5 <= lx <= HIDE[1] + 4 and HIDE[2] - 5 <= lz <= HIDE[3] + 5:
+        return True
+    if abs(lx - STAKE_LC[0]) <= 3 and abs(lz - STAKE_LC[1]) <= 3:
+        return True
+    return math.hypot(lx - NEST_LC[0], lz - NEST_LC[1]) < 14
+
+
+def floor_undulation(lx, lz):
+    """-1, 0 or +1: a gentle roll in the floor (half steps are slabs), level round the anchors."""
+    if floor_level_zone(lx, lz):
+        return 0
+    n = vnoise(lx, lz, 8.0, 211) * 0.8 + vnoise(lx, lz, 3.0, 212) * 0.2
+    return -1 if n < 0.3 else 1 if n > 0.7 else 0
+
+
+def ravine_s(lx, lz):
+    return arena_s(lx, lz) + (vnoise(lx, lz, 7.0, 3) - 0.5) * 0.07 - gully(lx, lz)
+
+
 def arena_wall_top(lx, lz):
     """The ravine's ground top y at a column inside the rim (None outside it)."""
-    s = arena_s(lx, lz) + (vnoise(lx, lz, 7.0, 3) - 0.5) * 0.07
+    s = ravine_s(lx, lz)
     if s >= RIM_S:
         return None
     if s < 1.0:
-        # the floor, with scree mounds rising toward the cliff foot
-        base = -1
+        # the floor, gently rolling, with scree mounds rising toward the cliff foot
+        base = AF - 1 + floor_undulation(lx, lz)
         if s > 0.9:
             base += int((s - 0.9) / 0.1 * 2.2 * vnoise(lx, lz, 4.0, 5) + 0.3)
         return base
@@ -218,21 +266,38 @@ def arena_wall_top(lx, lz):
     # a steep cliff with two ragged ledges (terraces at about a third and two thirds)
     f = t ** 0.55
     terr = 0.25 * (math.floor(f * 3) / 3.0) + 0.75 * f
-    h = -1 + 16 * terr + (vnoise(lx, lz, 3.0, 9) - 0.5) * 2.4
-    return int(clamp(round(h), -1, GT))
+    h = AF - 1 + (GT - AF + 1) * terr + (vnoise(lx, lz, 3.0, 9) - 0.5) * 2.4
+    return int(clamp(round(h), AF - 1, GT))
+
+
+def is_floor(lx, lz):
+    return ravine_s(lx, lz) < 1.0
 
 
 # ---------------------------------------------------------------- the stands
 STAND_DEFS = [
     # name, axis along which the rows run, outward sign, inner cell of row 0, the run's range, facing yaw, school
-    ('north', 'x', -1, -31, (-36, 35), 0.0, 'hogwarts'),
-    ('south', 'x', +1, 31, (-36, 35), 180.0, 'hogwarts'),
-    ('east', 'z', +1, 40, (-28, 27), 90.0, 'beauxbatons'),
-    ('west', 'z', -1, -40, (-28, 27), -90.0, 'durmstrang'),
+    ('north', 'x', -1, -29, (-36, 35), 0.0, 'hogwarts'),
+    ('south', 'x', +1, 29, (-36, 35), 180.0, 'hogwarts'),
+    ('east', 'z', +1, 38, (-28, 27), 90.0, 'beauxbatons'),
+    ('west', 'z', -1, -38, (-28, 27), -90.0, 'durmstrang'),
 ]
-AISLES = {'north': (-12, 11), 'south': (-12, 11), 'east': (0,), 'west': (0,)}
-BOOTH = ('north', (-3, 2), 9)           # the commentator's booth: stand, run cells, first row it replaces
-CANNONS = [('south', (27, 33), 9), ('south', (-34, -28), 9)]
+# Each stand is a wing, a taller centre and a wing: (first seat cell, last seat cell, rows). A side line of posts
+# and rails closes each section one cell outside its seats; a one-cell stair climbs between two sections to a
+# timber stair tower at the centre's back.
+SECTIONS = {
+    'north': [(-36, -15, ROWS_W), (-11, 10, ROWS_C), (14, 35, ROWS_W)],
+    'south': [(-36, -15, ROWS_W), (-11, 10, ROWS_C), (14, 35, ROWS_W)],
+    'east': [(-28, -11, ROWS_W), (-7, 6, ROWS_C), (10, 27, ROWS_W)],
+    'west': [(-28, -11, ROWS_W), (-7, 6, ROWS_C), (10, 27, ROWS_W)],
+}
+GAPS = {'north': (-13, 12), 'south': (-13, 12), 'east': (-9, 8), 'west': (-9, 8)}
+AISLES = {'north': (-26, 0, 25), 'south': (-26, 0, 25), 'east': (-20, 0, 19), 'west': (-20, 0, 19)}
+CANOPY_K = ROWS_C - 4                   # the centre's canopy covers its top four rows
+CANOPY_BAYS = {'north': 2, 'south': 2, 'east': 1, 'west': 1}
+CANOPY_BASE = int(math.ceil(GT + STILT + 2 * (ROWS_C - 1) + 1.5 + 3.5))    # its underside: 3.5 over the seat tops
+BOOTH = ('north', (-3, 3), ROWS_C - 4)          # the commentator's booth: stand, run cells, first row it replaces
+CANNONS = [('south', (29, 35), ROWS_W - 3), ('south', (-36, -30), ROWS_W - 3)]
 FASCIA = {'north': ('red_wool', 'yellow_wool'), 'south': ('blue_wool', 'green_wool'),
           'east': ('light_blue_wool', 'white_wool'), 'west': ('red_wool', 'brown_wool')}
 FLAGS = {'north': ('red', 'yellow', 'red', 'yellow'), 'south': ('blue', 'green', 'blue', 'green'),
@@ -246,8 +311,20 @@ def row_cells(sd, k):
     return inner, inner + sgn
 
 
+def section_back(sd, rows):
+    """The back line's depth (one cell behind the last row)."""
+    return sd[3] + sd[2] * 2 * rows
+
+
 def stand_back(sd):
-    return sd[3] + sd[2] * 2 * NROWS
+    return section_back(sd, ROWS_C)
+
+
+def section_at(sd, a):
+    for sec in SECTIONS[sd[0]]:
+        if sec[0] - 1 <= a <= sec[1] + 1:
+            return sec
+    return None
 
 
 def in_box(sd, a, k):
@@ -265,12 +342,13 @@ def to_scene(lx, lz):
 
 
 def stand_footprint():
-    """{(x, z) scene column: True} under every stand (incl. its back wall) - the ground stays at the plateau."""
+    """{(x, z) scene column} under every stand (its front line to the centre's back) - the ground stays at the
+    plateau there."""
     cols = set()
     for sd in STAND_DEFS:
         a0, a1 = sd[4]
         for a in range(a0 - 1, a1 + 2):
-            d0, d1 = sorted((sd[3] - sd[2], stand_back(sd)))
+            d0, d1 = sorted((sd[3] - sd[2], stand_back(sd) + sd[2]))
             for d in range(d0, d1 + 1):
                 lx, lz = (a, d) if sd[1] == 'x' else (d, a)
                 cols.add(to_scene(lx, lz))
@@ -462,6 +540,55 @@ def rock(x, y, z, seed=0):
     return 'minecraft:cobblestone'
 
 
+HIDE_SC = (-16.5 + ARENA_C[0], 7.5 + ARENA_C[1])    # scorch centres (scene x, z): the hiding rock, the nest
+NEST_SCORCH = (6.5 + ARENA_C[0], 0.5 + ARENA_C[1])
+
+
+def scorch_streak(x, y, z):
+    """Fire-blackened streaks on the walls nearest the nest and the hiding rock: narrow, running up the rock."""
+    dn = math.hypot(x - NEST_SCORCH[0], z - NEST_SCORCH[1])
+    dh = math.hypot(x - HIDE_SC[0], z - HIDE_SC[1])
+    near = max(0.0, 1 - dn / 36.0) + max(0.0, 1 - dh / 22.0)
+    if near <= 0.25 or y > GT - 2:
+        return None
+    # tall narrow bands: the noise runs fast round the wall and slowly up it
+    lx, lz = arena_local(x, z)
+    u = arena_angle(lx, lz) * 34.0                       # about one unit per cell round the wall
+    v = vnoise(u, y / 10.0, 1.3, 205) * 0.85 + vnoise(u, y / 3.0, 2.0, 206) * 0.15
+    if v > 0.84 - 0.18 * min(1.0, near):
+        return 'minecraft:basalt[axis=y]' if vnoise(x + z, y / 4.0, 1.5, 207) < 0.6 else 'minecraft:blackstone'
+    return None
+
+
+def ravine_rock(x, y, z):
+    """The ravine's rock, dark at the cliff foot and lighter up the wall, in coherent zones (each inside about 40
+    luma): cobbled deepslate, deepslate and tuff at the foot; andesite and stone with tuff strata in the middle;
+    stone and andesite up to the lip. Scorch streaks near the nest and the hiding rock."""
+    sc = scorch_streak(x, y, z)
+    if sc:
+        return sc
+    yy = y - AF + (vnoise(x, z, 9.0, 201) - 0.5) * 6
+    r = vnoise(x + y * 0.7, z - y * 0.5, 4.0, 202) * 0.7 + rnd(x, y, z, 203) * 0.3
+    r = vnoise(x + y * 0.4, z - y * 0.3, 5.0, 202) * 0.85 + rnd(x, y, z, 203) * 0.15
+    if yy < 7:
+        if r < 0.4:
+            return 'minecraft:cobbled_deepslate'
+        if r < 0.75:
+            return 'minecraft:deepslate[axis=y]'
+        return 'minecraft:tuff'
+    if yy < 9.5:
+        return 'minecraft:tuff' if r < 0.6 else 'minecraft:deepslate[axis=y]'
+    if yy < 18:
+        if (y + int(vnoise(x, z, 21.0, 80) * 5)) % 7 == 0:
+            return 'minecraft:tuff'
+        if r < 0.5:
+            return 'minecraft:andesite'
+        return 'minecraft:stone'
+    if r < 0.6:
+        return 'minecraft:stone'
+    return 'minecraft:andesite'
+
+
 def slope_at(H, x, z):
     h = H[(x, z)]
     m = 0
@@ -477,22 +604,38 @@ def top_block(H, x, z):
     s = slope_at(H, x, z)
     lx, lz = arena_local(x, z)
     in_ravine = arena_wall_top(lx, lz) is not None
-    if in_ravine and h <= -1:
-        # the arena floor
+    if in_ravine and is_floor(lx, lz):
+        # the arena floor, with a scorched ring of blackstone and basalt round the nest
         r = vnoise(x, z, 4.0, 91) * 0.75 + rnd(x, 0, z, 92) * 0.25
         dn = math.hypot(lx - NEST_LC[0], lz - NEST_LC[1])
-        if dn < 16 and vnoise(x, z, 3.5, 93) < 0.33 * (1 - dn / 16) + 0.08:
-            return 'minecraft:blackstone' if rnd(x, 1, z, 94) < 0.6 else 'minecraft:basalt[axis=y]'
+        ring = 12.0 + 2.5 * vnoise(x, z, 5.0, 93)
+        if dn < ring and (dn < ring - 3 or vnoise(x, z, 3.0, 95) < 0.55):
+            q = vnoise(x, z, 3.5, 94)
+            if q < 0.5:
+                return 'minecraft:blackstone'
+            if q < 0.75:
+                return 'minecraft:basalt[axis=y]'
+            return 'minecraft:coarse_dirt' if dn > 7 else 'minecraft:blackstone'
+        dh = math.hypot(lx - HIDE_C[0], lz - HIDE_C[2])
+        if dh < 6.5 and vnoise(x, z, 3.0, 96) < 0.5 * (1 - dh / 6.5) + 0.12:
+            return 'minecraft:blackstone' if dh < 4.5 else 'minecraft:basalt[axis=y]'
         if r < 0.42:
             return 'minecraft:gravel'
         if r < 0.62:
             return 'minecraft:tuff'
         if r < 0.78:
             return 'minecraft:andesite'
-        return 'minecraft:coarse_dirt' if vnoise(x, z, 2.5, 90) < 0.5 else 'minecraft:gravel'
+        return 'minecraft:coarse_dirt' if vnoise(x, z, 2.5, 90) < 0.25 else 'minecraft:gravel'
+    if in_ravine:
+        # the cliff: ledges carry moss up the wall, gravel and dark scree at the foot
+        if s <= 1 and h - AF > 4 and vnoise(x, z, 5.0, 97) < 0.5:
+            return 'minecraft:moss_block' if rnd(x, h, z, 98) < 0.6 else 'minecraft:mossy_cobblestone'
+        if s <= 1 and h - AF <= 4 and rnd(x, h, z, 96) < 0.5:
+            return 'minecraft:gravel'
+        return ravine_rock(x, h, z)
     if (x, z) in CRAG_COLS:
         return rock(x, h, z, 2)
-    if in_ravine or (gorge_top(x, z) is not None and h < GT - 1):
+    if gorge_top(x, z) is not None and h < GT - 1:
         if h <= GORGE_FLOOR + 1 and not in_ravine:
             r = rnd(x, 0, z, 95)
             return 'minecraft:gravel' if r < 0.4 else 'minecraft:mossy_cobblestone' if r < 0.6 else rock(x, h, z, 3)
@@ -523,8 +666,10 @@ def build_ground(w, H):
             if n is not None and n < lo:
                 lo = n
         w.set((x, h, z), top_block(H, x, z))
+        lx, lz = arena_local(x, z)
+        rk = ravine_rock if in_arena_rect(lx, lz) else rock
         for y in range(lo + 1, h):
-            w.set((x, y, z), rock(x, y, z))
+            w.set((x, y, z), rk(x, y, z))
         if bid(w.get((x, h, z))) == 'minecraft:gravel' and h - 1 < lo + 1:
             w.set((x, h - 1, z), 'minecraft:stone')         # gravel never over air
 
@@ -544,13 +689,17 @@ def build_stream(w, H):
 
 
 # ---------------------------------------------------------------- the arena's pieces
+# Every y in this section is floor-relative (fset / fa add AF): 0 is where feet stand on the arena floor.
 NEST_LC = (6.5, 0.5)                    # arena-local centre of the nest
 SHELF = (8, 11, -2, 2)                  # lx0, lx1, lz0, lz1 of the perch shelf (top y 2.0)
 BOWL_C = (4.5, 0.5)
+BOWL_R = 3.1                            # the dished bowl: its lining one below the floor
 EGG_CELLS = [(3, -1), (4, 1), (5, -1), (3, 1), (5, 2)]
 GOLD_CELL = (4, -1)
 HIDE = (-18, -15, 5, 9)                 # the hiding rock's cells lx0, lx1, lz0, lz1 (flat face at lx -15's east)
 STAKE_LC = (18, 5)
+ROCK_IDS = ('minecraft:stone', 'minecraft:smooth_stone', 'minecraft:andesite', 'minecraft:polished_andesite',
+            'minecraft:deepslate', 'minecraft:cobbled_deepslate', 'minecraft:tuff')
 
 
 def lset(w, lx, y, lz, s):
@@ -558,42 +707,129 @@ def lset(w, lx, y, lz, s):
     w.set((x, y, z), s)
 
 
+def fset(w, lx, y, lz, s):
+    """lset with a floor-relative y."""
+    lset(w, lx, y + AF, lz, s)
+
+
+def fget(w, lx, y, lz):
+    x, z = to_scene(lx, lz)
+    return w.get((x, y + AF, z))
+
+
+def ellipsoid(w, c, r, mat, noise=0.25, seed=0, keep=None, only_air=True, flat_top=None):
+    """Fills a jittered ellipsoid (centre c, radii r, floor-relative y) with mat(lx, y, lz) where it is air.
+    keep(lx, y, lz) -> False leaves a cell alone; flat_top cuts it level at that floor-relative y."""
+    cx, cy, cz = c
+    rx, ry, rz = r
+    n = 0
+    for lx in range(int(math.floor(cx - rx - 1)), int(math.ceil(cx + rx + 1)) + 1):
+        for lz in range(int(math.floor(cz - rz - 1)), int(math.ceil(cz + rz + 1)) + 1):
+            for y in range(int(math.floor(cy - ry - 1)), int(math.ceil(cy + ry + 1)) + 1):
+                if flat_top is not None and y >= flat_top:
+                    continue
+                d = ((lx + 0.5 - cx) / rx) ** 2 + ((y + 0.5 - cy) / ry) ** 2 + ((lz + 0.5 - cz) / rz) ** 2
+                d += (vnoise(lx * 1.3 + y * 0.7, lz * 1.3 - y * 0.7, 2.0, 300 + seed) - 0.5) * noise
+                if d > 1.0:
+                    continue
+                if keep is not None and not keep(lx, y, lz):
+                    continue
+                if only_air and fget(w, lx, y, lz) is not None:
+                    continue
+                fset(w, lx, y, lz, mat(lx, y, lz))
+                n += 1
+    return n
+
+
+def boulder_mat(seed, mossy=0.0, dark=0.0):
+    def mat(lx, y, lz):
+        r = rnd(lx, y, lz, 310 + seed)
+        m = vnoise(lx * 1.1, lz * 1.1 + y, 2.0, 311 + seed)
+        if mossy and m < mossy:
+            return 'minecraft:mossy_cobblestone' if r < 0.5 else 'minecraft:moss_block'
+        if dark and r < dark:
+            return 'minecraft:cobbled_deepslate' if r < dark * 0.5 else 'minecraft:deepslate[axis=y]'
+        return ('minecraft:stone' if r < 0.45 else 'minecraft:andesite' if r < 0.78 else 'minecraft:tuff')
+    return mat
+
+
+# The nest's ring: (angle from the bowl's centre in degrees, ring radius, horizontal radius, height, palette). The
+# west side (180, toward the entrance and the hiding rock) is kept low for the egg-grab dive; the east is her perch.
+NEST_RING = [(42, 7.8, 2.8, 5.4, 0), (70, 7.4, 3.3, 6.2, 2), (98, 8.0, 2.9, 5.0, 1), (124, 7.5, 3.1, 5.6, 3),
+             (150, 7.4, 2.5, 3.0, 0), (172, 7.2, 2.2, 2.3, 2), (194, 7.3, 2.3, 2.4, 4), (216, 7.5, 2.5, 2.9, 1),
+             (240, 7.6, 3.0, 5.0, 3), (266, 7.9, 3.4, 6.0, 2), (292, 7.5, 3.0, 5.6, 0), (318, 7.8, 2.7, 4.6, 4)]
+NEST_PALETTES = [('minecraft:stone', 'minecraft:andesite'), ('minecraft:tuff', 'minecraft:andesite'),
+                 ('minecraft:cobbled_deepslate', 'minecraft:deepslate[axis=y]'), ('minecraft:andesite', 'minecraft:stone'),
+                 ('minecraft:stone', 'minecraft:tuff')]
+
+
+def palette_mat(seed, pal, mossy=0.0):
+    """One boulder, one stone: a main block with coherent patches of a second, moss on its crown."""
+    def mat(lx, y, lz):
+        if mossy and y >= 2 and vnoise(lx * 1.2, lz * 1.2, 2.0, 312 + seed) < mossy:
+            return 'minecraft:mossy_cobblestone' if rnd(lx, y, lz, 313 + seed) < 0.6 else 'minecraft:moss_block'
+        return pal[1] if vnoise(lx + y * 0.6, lz - y * 0.6, 2.2, 311 + seed) < 0.3 else pal[0]
+    return mat
+
+
 def build_nest(w):
-    for lx in range(-2, 16):  # noqa
-        for lz in range(-9, 10):
-            d = math.hypot(lx + 0.5 - NEST_LC[0], (lz + 0.5 - NEST_LC[1]) * 1.15)
-            if d > 8.2:
+    """The nest: a crater of big rounded boulders round a bowl dished below the floor and lined with dark ash, the
+    clutch on stone in it, and her perch at the back - one big flat-topped slab rock."""
+    bx, bz = BOWL_C
+    # the bowl: its floor one below the arena's, lined with blackstone and rooted dirt, stone under the eggs
+    for lx in range(int(bx - BOWL_R) - 1, int(bx + BOWL_R) + 2):
+        for lz in range(int(bz - BOWL_R) - 1, int(bz + BOWL_R) + 2):
+            db = math.hypot(lx + 0.5 - bx, lz + 0.5 - bz)
+            if db > BOWL_R:
                 continue
-            on_shelf = SHELF[0] <= lx <= SHELF[1] and SHELF[2] <= lz <= SHELF[3]
-            db = math.hypot(lx + 0.5 - BOWL_C[0], lz + 0.5 - BOWL_C[1])
-            if on_shelf:
-                top = 1                                   # cells y 0..1: the shelf top at 2.0
-            elif db < 2.9:
-                top = 0                                   # the bowl's floor at 1.0
-            elif d < 6.2:
-                top = 1 + int(vnoise(lx, lz, 2.2, 101) * 2.6)
-            else:
-                top = int(vnoise(lx, lz, 2.0, 103) * 2.2) - 1
-            for y in range(0, top + 1):
-                r = rnd(lx, y, lz, 104)
-                s = ('minecraft:stone' if r < 0.35 else 'minecraft:andesite' if r < 0.6 else
-                     'minecraft:cobblestone' if r < 0.8 else 'minecraft:mossy_cobblestone')
-                if on_shelf and y == top:
-                    s = 'minecraft:smooth_stone' if r < 0.5 else 'minecraft:polished_andesite'
-                if db < 2.9 and not on_shelf:
-                    s = 'minecraft:coarse_dirt' if r < 0.6 else 'minecraft:stone'
-                lset(w, lx, y, lz, s)
-    # her clutch on the bowl's floor, with the golden egg's gap
+            fset(w, lx, -1, lz, None)
+            r = rnd(lx, 0, lz, 105)
+            s = ('minecraft:blackstone' if r < 0.5 else 'minecraft:rooted_dirt' if r < 0.8 else
+                 'minecraft:basalt[axis=y]')
+            if (lx, lz) in EGG_CELLS or (lx, lz) == GOLD_CELL:
+                s = 'minecraft:stone' if (lx + lz) % 2 else 'minecraft:smooth_stone'
+            fset(w, lx, -2, lz, s)
+    # the perch: one big rock with a flat top at 2.0 (smooth stone and polished andesite), rounded below
+    ellipsoid(w, (10.6, 0.6, 0.5), (4.3, 2.3, 4.6), palette_mat(1, NEST_PALETTES[3]), noise=0.2, seed=1, flat_top=2,
+              keep=lambda lx, y, lz: y >= 0)
+    for lx in range(SHELF[0], SHELF[1] + 1):
+        for lz in range(SHELF[2], SHELF[3] + 1):
+            for y in range(0, 2):
+                fset(w, lx, y, lz, 'minecraft:stone' if y == 0 else
+                     ('minecraft:smooth_stone' if rnd(lx, y, lz, 107) < 0.55 else 'minecraft:polished_andesite'))
+            for y in range(2, 7):
+                fset(w, lx, y, lz, None)
+    # the ring of boulders, each about the size of her head
+    for i, (ang, rr, hr, ht, pal) in enumerate(NEST_RING):
+        a = math.radians(ang + (_hash(i, 1, 108) - 0.5) * 8)
+        cx = bx + math.cos(a) * rr
+        cz = bz + math.sin(a) * rr
+        ry = ht / 2.0 + 0.4
+        mossy = 0.3 if i % 4 == 1 else 0.0
+        ellipsoid(w, (cx, ry - 0.9, cz), (hr, ry, hr * (0.85 + 0.3 * _hash(i, 2, 108))),
+                  palette_mat(10 + i, NEST_PALETTES[pal], mossy=mossy), noise=0.25, seed=10 + i,
+                  keep=lambda lx, y, lz: y >= 0 and not (SHELF[0] - 1 <= lx <= SHELF[1] + 1 and
+                                                          SHELF[2] - 1 <= lz <= SHELF[3] + 1))
+    # the bowl's lip: a low ring of ash and scattered rock between the bowl and the boulders
+    for lx in range(int(bx - 6), int(bx + 7)):
+        for lz in range(int(bz - 6), int(bz + 7)):
+            db = math.hypot(lx + 0.5 - bx, lz + 0.5 - bz)
+            if BOWL_R < db < 4.6 and fget(w, lx, 0, lz) is None:
+                if rnd(lx, 1, lz, 106) < 0.35 and not (SHELF[0] <= lx <= SHELF[1] + 1):
+                    fset(w, lx, 0, lz, 'minecraft:cobblestone_slab[type=bottom,waterlogged=false]')
+    # her clutch on the stone, with the golden egg's gap
     for (lx, lz) in EGG_CELLS:
-        lset(w, lx, 1, lz, 'minecraft:dragon_egg')
-    lset(w, GOLD_CELL[0], 1, GOLD_CELL[1], None)
-    # straw-like dry grass and bones round the rim
-    for lx, lz in ((1, 4), (9, -5), (11, 4), (0, -3)):
+        fset(w, lx, -1, lz, 'minecraft:dragon_egg')
+    fset(w, GOLD_CELL[0], -1, GOLD_CELL[1], None)
+    # dry grass and dead bushes caught in the ring
+    for lx, lz in ((0, 4), (8, -5), (1, -4), (3, 5)):
         x, z = to_scene(lx, lz)
-        top = max([y for y in range(-1, 4) if w.get((x, y, z))], default=-1)
-        w.set((x, top + 1, z), 'minecraft:dead_bush')
-        if bid(w.get((x, top + 1, z))) == 'minecraft:dead_bush':
+        top = max([y for y in range(AF - 2, AF + 6) if w.get((x, y, z))], default=None)
+        if top is None:
+            continue
+        if bid(w.get((x, top, z))) in ROCK_IDS + ('minecraft:blackstone', 'minecraft:gravel', 'minecraft:tuff'):
             w.set((x, top, z), 'minecraft:coarse_dirt')
+            w.set((x, top + 1, z), 'minecraft:dead_bush')
 
 
 HIDE_C = (-15.6, 0.4, 7.5)               # the boulder: an ellipsoid (centre, radii) cut flat on its nest side
@@ -601,7 +837,7 @@ HIDE_R = (2.8, 3.4, 3.2)
 
 
 def build_hide_rock(w):
-    """The hiding rock: a weathered boulder about 3.5 tall and 6 across, its east side split off flat (the face
+    """The hiding rock: a weathered boulder 4 tall and about 6 across, its east side split off flat (the face
     toward the nest), mossy on its back."""
     cx, cy, cz = HIDE_C
     rx, ry, rz = HIDE_R
@@ -619,12 +855,12 @@ def build_hide_rock(w):
                     s_ = 'minecraft:mossy_cobblestone'
                 else:
                     s_ = 'minecraft:stone' if r < 0.45 else 'minecraft:andesite' if r < 0.8 else 'minecraft:cobblestone'
-                lset(w, lx, y, lz, s_)
+                fset(w, lx, y, lz, s_)
     # the flat face toward the nest is whole: 5 wide, 3 tall
     for lz in range(HIDE[2], HIDE[3] + 1):
         for y in range(0, 3):
-            lset(w, HIDE[1], y, lz, 'minecraft:stone' if (lz + y) % 3 else 'minecraft:smooth_stone')
-            lset(w, HIDE[1] - 1, y, lz, 'minecraft:stone')
+            fset(w, HIDE[1], y, lz, 'minecraft:stone' if (lz + y) % 3 else 'minecraft:smooth_stone')
+            fset(w, HIDE[1] - 1, y, lz, 'minecraft:stone')
 
 
 def build_stake(w):
@@ -632,36 +868,128 @@ def build_stake(w):
     for dx in (-1, 0, 1):
         for dz in (-1, 0, 1):
             if (dx, dz) != (0, 0):
-                lset(w, lx + dx, 0, lz + dz, 'minecraft:cobblestone_slab[type=bottom,waterlogged=false]')
-    lset(w, lx, 0, lz, 'minecraft:stripped_dark_oak_log[axis=y]')
-    lset(w, lx, 1, lz, 'minecraft:stripped_dark_oak_log[axis=y]')
-    lset(w, lx, 2, lz, 'minecraft:chain[axis=y,waterlogged=false]')
+                fset(w, lx + dx, 0, lz + dz, 'minecraft:cobblestone_slab[type=bottom,waterlogged=false]')
+    fset(w, lx, 0, lz, 'minecraft:stripped_dark_oak_log[axis=y]')
+    fset(w, lx, 1, lz, 'minecraft:stripped_dark_oak_log[axis=y]')
+    fset(w, lx, 2, lz, 'minecraft:chain[axis=y,waterlogged=false]')
 
 
-def build_boulders(w, H):
-    """Loose boulders and scree on the floor, kept off the nest, the hiding rock, the stake and the run to it."""
-    for i in range(46):
+def floor_point(theta, s=1.0):
+    """The arena-local (lx, lz) where the ray from the centre at angle theta (arena_angle's sense) reaches s."""
+    c, sn = math.cos(theta), math.sin(theta)
+    lo, hi = 0.0, 3.0
+    for _ in range(40):
+        m = (lo + hi) / 2
+        if arena_s(c * FLOOR_A * m, sn * FLOOR_B * m) < s:
+            lo = m
+        else:
+            hi = m
+    return c * FLOOR_A * lo, sn * FLOOR_B * lo
+
+
+def clear_of_runs(lx, lz, y=0):
+    """False where relief may not stand: the entrance run and its tunnel mouth, the hiding rock, the nest, the
+    stake, and the open air over the floor (the arena air box)."""
+    if lx < -14 and -8 <= lz <= 14:
+        return False
+    if HIDE[0] - 5 <= lx <= HIDE[1] + 4 and HIDE[2] - 5 <= lz <= HIDE[3] + 5:
+        return False
+    if math.hypot(lx - NEST_LC[0], lz - NEST_LC[1]) < 15:
+        return False
+    if abs(lx - STAKE_LC[0]) <= 4 and abs(lz - STAKE_LC[1]) <= 4:
+        return False
+    if abs(lx) <= 23 and abs(lz) <= 15 and y >= 5:
+        return False
+    return True
+
+
+# Buttresses: (angle, how far they reach out over the floor, height up the wall, girth)
+SPURS = [(0.12, 6.0, 24, 3.6), (0.7, 4.0, 17, 3.0), (0.98, 3.0, 26, 2.6), (1.55, 6.5, 22, 3.8),
+         (1.95, 3.5, 13, 2.8), (2.45, 5.0, 20, 3.4), (-0.3, 5.0, 19, 3.2), (-0.85, 7.0, 25, 4.0),
+         (-1.12, 3.0, 11, 2.4), (-1.62, 4.5, 15, 3.0), (-2.05, 6.0, 23, 3.6), (-2.6, 3.5, 12, 2.6)]
+
+
+def build_relief(w):
+    """Rock masses on the heightfield: buttresses and spurs leaning out from the cliff foot, lips overhanging the
+    drop under the stand fronts, big rounded boulders at the cliff foot and a few pinnacles on the floor."""
+    n = 0
+    for i, (th, reach, hgt, girth) in enumerate(SPURS):
+        fx, fz = floor_point(th, 1.0)
+        nx, nz = -math.cos(th), -math.sin(th)           # inward, toward the arena centre
+        steps = int(hgt / 2.4) + 1
+        for j in range(steps):
+            t = j / float(max(1, steps - 1))
+            out = reach * (1 - t) ** 1.3 - 1.0
+            cx, cz = fx + nx * out, fz + nz * out
+            jit = (_hash(i, j, 320) - 0.5) * 1.6
+            cx += -nz * jit
+            cz += nx * jit
+            cy = j * 2.4 - 0.5
+            rr = girth * (1.05 - 0.45 * t) * (0.85 + 0.3 * _hash(i, j, 321))
+            n += ellipsoid(w, (cx, cy, cz), (rr, 2.2, rr), lambda lx, y, lz: ravine_rock(
+                to_scene(lx, lz)[0], y + AF, to_scene(lx, lz)[1]), noise=0.35, seed=20 + i,
+                keep=lambda lx, y, lz: y >= -1 and clear_of_runs(lx, lz, y))
+    # the overhanging lips at the rim, under the stand fronts: thin slabs of rock with air under them
+    for i in range(22):
+        th = -math.pi + (i + 0.5) * 2 * math.pi / 22 + (_hash(i, 1, 330) - 0.5) * 0.12
+        if abs(abs(th) - math.pi) < 0.25:
+            continue                                    # not over the tunnel mouth
+        px, pz = floor_point(th, RIM_S - 0.05)
+        nx, nz = -math.cos(th), -math.sin(th)
+        cx, cz = px + nx * 1.2, pz + nz * 1.2
+        ly = GT - AF - 2 - int(_hash(i, 2, 330) * 3)
+        rr = 3.5 + 3.0 * _hash(i, 3, 330)
+        n += ellipsoid(w, (cx, ly, cz), (rr, 1.3, rr), lambda lx, y, lz: ravine_rock(
+            to_scene(lx, lz)[0], y + AF, to_scene(lx, lz)[1]), noise=0.3, seed=40 + i)
+    # big rounded boulders leaning on the cliff foot
+    for i in range(12):
+        th = -math.pi + (i + 0.3 + 0.4 * _hash(i, 1, 340)) * 2 * math.pi / 12
+        fx, fz = floor_point(th, 0.93)
+        r = 2.5 + 2.0 * _hash(i, 2, 340)
+        h = 3.0 + 3.0 * _hash(i, 3, 340)
+        if not clear_of_runs(fx, fz, 0):
+            continue
+        n += ellipsoid(w, (fx, h / 2.0 - 0.6, fz), (r, h / 2.0 + 0.4, r * (0.8 + 0.4 * _hash(i, 4, 340))),
+                       boulder_mat(50 + i, mossy=0.22 if i % 3 == 0 else 0.0, dark=0.3), noise=0.3, seed=50 + i,
+                       keep=lambda lx, y, lz: y >= -1 and clear_of_runs(lx, lz, y))
+    # a few rock pinnacles standing out on the floor
+    for i, (px, pz, ph) in enumerate(((-26, -17, 9), (25, 18, 10), (27, -13, 7), (-9, 19, 8), (12, -19, 6))):
+        steps = int(ph / 1.6) + 1
+        for j in range(steps):
+            t = j / float(steps - 1)
+            rr = 2.6 * (1 - t) + 0.8 * t
+            jx = (_hash(i, j, 350) - 0.5) * 0.8
+            jz = (_hash(i, j, 351) - 0.5) * 0.8
+            n += ellipsoid(w, (px + jx, j * 1.6 - 0.4, pz + jz), (rr, 1.4, rr * 0.9), lambda lx, y, lz:
+                           ravine_rock(to_scene(lx, lz)[0], y + AF, to_scene(lx, lz)[1]), noise=0.3, seed=60 + i,
+                           keep=lambda lx, y, lz: y >= -1)
+    # small rocks scattered on the floor
+    for i in range(30):
         lx = int(-29 + _hash(i, 1, 121) * 58)
         lz = int(-21 + _hash(i, 2, 121) * 42)
-        if math.hypot(lx - NEST_LC[0], lz - NEST_LC[1]) < 10 or abs(lx - STAKE_LC[0]) + abs(lz - STAKE_LC[1]) < 4:
+        if not clear_of_runs(lx, lz, 0) or not is_floor(lx, lz):
             continue
-        if HIDE[0] - 4 <= lx <= HIDE[1] + 3 and HIDE[2] - 3 <= lz <= HIDE[3] + 3:
-            continue
-        if lx < -14 and -6 <= lz <= 12:
-            continue                                     # the run from the entrance to the rock
-        x, z = to_scene(lx, lz)
-        if H[(x, z)] != -1:
-            continue
-        size = 1 + int(_hash(i, 3, 121) * 2.4)
-        for dx in range(-size + 1, size):
-            for dz in range(-size + 1, size):
-                if abs(dx) + abs(dz) > size:
-                    continue
-                hh = size - abs(dx) - abs(dz) + (1 if _hash(i, dx * 7 + dz, 122) < 0.4 else 0) - 1
-                for y in range(0, max(0, hh)):
-                    r = rnd(lx + dx, y, lz + dz, 123)
-                    lset(w, lx + dx, y, lz + dz, 'minecraft:andesite' if r < 0.5 else 'minecraft:stone' if r < 0.8
-                         else 'minecraft:tuff')
+        r = 0.8 + 0.9 * _hash(i, 3, 121)
+        n += ellipsoid(w, (lx + 0.5, 0.0, lz + 0.5), (r, 0.9 + 0.5 * _hash(i, 4, 121), r), boulder_mat(70 + i),
+                       noise=0.4, seed=70 + i, keep=lambda lx, y, lz: y >= 0)
+    return n
+
+
+def floor_slabs(w, H):
+    """Half steps where the rolling floor rises a block: a stone or andesite slab on the lower cell."""
+    for lx in range(-34, 35):
+        for lz in range(-26, 27):
+            if not is_floor(lx, lz) or floor_level_zone(lx, lz):
+                continue
+            x, z = to_scene(lx, lz)
+            h = H.get((x, z))
+            if h is None or w.get((x, h + 1, z)) is not None:
+                continue
+            up = any(H.get((x + dx, z + dz)) == h + 1 and is_floor(lx + dx, lz + dz)
+                     for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)))
+            if up and rnd(x, h, z, 360) < 0.75:
+                w.set((x, h + 1, z), 'minecraft:stone_slab[type=bottom,waterlogged=false]' if rnd(x, h, z, 361) < 0.5
+                      else 'minecraft:andesite_slab[type=bottom,waterlogged=false]')
 
 
 MOUTH = -int(FLOOR_A) + 2                # the tunnel mouth's frame column (arena-local x)
@@ -674,30 +1002,33 @@ def build_entrance(w):
     for lx in range(TUNNEL_END + 1, MOUTH + 2):
         for lz in range(-3, 4):
             for y in range(0, 6):
-                lset(w, lx, y, lz, None)
+                fset(w, lx, y, lz, None)
     for lx in range(TUNNEL_END + 1, MOUTH + 1):
         for lz in zs:
-            lset(w, lx, -1, lz, 'minecraft:coarse_dirt' if (lx + lz) % 3 else 'minecraft:dirt_path')
+            fset(w, lx, -1, lz, 'minecraft:coarse_dirt' if (lx + lz) % 3 else 'minecraft:dirt_path')
         for y in range(0, 6):
-            lset(w, lx, y, -3, 'minecraft:spruce_planks' if lx % 4 else 'minecraft:spruce_log[axis=y]')
-            lset(w, lx, y, 3, 'minecraft:spruce_planks' if lx % 4 else 'minecraft:spruce_log[axis=y]')
+            fset(w, lx, y, -3, 'minecraft:spruce_planks' if lx % 4 else 'minecraft:spruce_log[axis=y]')
+            fset(w, lx, y, 3, 'minecraft:spruce_planks' if lx % 4 else 'minecraft:spruce_log[axis=y]')
         for lz in range(-3, 4):
-            lset(w, lx, 5, lz, 'minecraft:spruce_log[axis=z]' if lx % 4 == 0 else 'minecraft:dark_oak_planks')
+            fset(w, lx, 5, lz, 'minecraft:spruce_log[axis=z]' if lx % 4 == 0 else 'minecraft:dark_oak_planks')
     for lz in range(-3, 4):
         for y in range(0, 6):
-            lset(w, TUNNEL_END, y, lz, 'minecraft:dark_oak_planks')
-    # the mouth: a heavy timber frame in the cliff, torches either side
+            fset(w, TUNNEL_END, y, lz, 'minecraft:dark_oak_planks')
+    # the mouth: a heavy timber frame in the cliff, torches either side, rock over it
     for y in range(0, 6):
-        lset(w, MOUTH, y, -3, 'minecraft:spruce_log[axis=y]')
-        lset(w, MOUTH, y, 3, 'minecraft:spruce_log[axis=y]')
+        fset(w, MOUTH, y, -3, 'minecraft:spruce_log[axis=y]')
+        fset(w, MOUTH, y, 3, 'minecraft:spruce_log[axis=y]')
     for lz in range(-3, 4):
-        lset(w, MOUTH, 5, lz, 'minecraft:spruce_log[axis=z]')
-        lset(w, MOUTH, 6, lz, rock(lz, 6, MOUTH))
+        fset(w, MOUTH, 5, lz, 'minecraft:spruce_log[axis=z]')
+        for y in (6, 7):
+            x, z = to_scene(MOUTH, lz)
+            fset(w, MOUTH, y, lz, ravine_rock(x, y + AF, z))
     for lz in (-4, 4):
-        for y in range(0, 7):
-            lset(w, MOUTH, y, lz, rock(lz, y, MOUTH, 1))
-    lset(w, MOUTH + 1, 3, -4, 'minecraft:wall_torch[facing=east]')
-    lset(w, MOUTH + 1, 3, 4, 'minecraft:wall_torch[facing=east]')
+        for y in range(0, 8):
+            x, z = to_scene(MOUTH, lz)
+            fset(w, MOUTH, y, lz, ravine_rock(x, y + AF, z))
+    fset(w, MOUTH + 1, 3, -4, 'minecraft:wall_torch[facing=east]')
+    fset(w, MOUTH + 1, 3, 4, 'minecraft:wall_torch[facing=east]')
 
 
 # ---------------------------------------------------------------- stands
@@ -710,6 +1041,12 @@ def sset(w, sd, a, d, y, s):
     lset(w, lx, y, lz, s)
 
 
+def sget(w, sd, a, d, y):
+    lx, lz = stand_lc(sd, a, d)
+    x, z = to_scene(lx, lz)
+    return w.get((x, y, z))
+
+
 def out_facing(sd):
     """The blockstate facing that points outward (away from the arena) for a stand."""
     if sd[1] == 'x':
@@ -718,67 +1055,360 @@ def out_facing(sd):
 
 
 def in_facing(sd):
-    return {'north': 'south', 'south': 'north', 'east': 'west', 'west': 'east'}[out_facing(sd)]
+    return OPPOSITE[out_facing(sd)]
 
 
-def build_stand(w, sd):
-    name = sd[0]
-    a0, a1 = sd[4]
-    aisles = AISLES[name]
-    out_f = out_facing(sd)
-    sgn = sd[2]
-    back = stand_back(sd)
-    top_y = row_y(NROWS - 1) + 4
-    for a in range(a0, a1 + 1):
-        box = None
-        for k in range(NROWS):
+OPPOSITE = {'north': 'south', 'south': 'north', 'east': 'west', 'west': 'east'}
+
+
+def run_facing(sd, sign):
+    """The facing along the run: +1 toward +a, -1 toward -a."""
+    if sd[1] == 'x':
+        return 'east' if sign > 0 else 'west'
+    return 'south' if sign > 0 else 'north'
+
+
+def depth_facing(sd, sign):
+    """The facing along the depth axis: +1 toward +d, -1 toward -d."""
+    if sd[1] == 'x':
+        return 'south' if sign > 0 else 'north'
+    return 'east' if sign > 0 else 'west'
+
+
+def spruce_stair(f, half='bottom'):
+    return state('spruce_stairs', facing=f, half=half, shape='straight', waterlogged='false')
+
+
+SLAB = 'minecraft:spruce_slab[type=bottom,waterlogged=false]'
+FENCE = 'minecraft:spruce_fence'
+LEG = 'minecraft:spruce_log[axis=y]'
+LEVELS = list(range(GT + STILT - 1 - 4 * 8, 110, 4))   # the ledgers' heights: under the front beam and every 4
+
+
+def depth_axis(sd):
+    return 'z' if sd[1] == 'x' else 'x'
+
+
+def deck_bottom(w, sd, a, d):
+    """The lowest block of the stand's structure over a column (scanning up from the plateau), or None."""
+    for y in range(G, 100):
+        if sget(w, sd, a, d, y) is not None:
+            return y
+    return None
+
+
+def ground_below(w, sd, a, d, y):
+    for yy in range(y - 1, AF - 4, -1):
+        if sget(w, sd, a, d, yy) is not None:
+            return yy
+    return AF - 4
+
+
+def build_decks(w, sd):
+    """The seat rows: a thin stepped deck (spruce, with dark oak risers) on every section, bottom-slab seats on the
+    outer cell of each row, aisles of stairs, rails on the side lines; the front beam, fascia, rail and banners."""
+    name, sgn, f0 = sd[0], sd[2], sd[3]
+    out_f, in_f = out_facing(sd), in_facing(sd)
+    for (s0, s1, rows) in SECTIONS[name]:
+        lo, hi = s0 - 1, s1 + 1
+        for a in range(lo, hi + 1):
+            for k in range(rows):
+                if in_box(sd, a, k):
+                    continue
+                inner, outer = row_cells(sd, k)
+                fy = row_y(k)
+                for d in (inner, outer):
+                    sset(w, sd, a, d, fy, 'minecraft:spruce_planks')
+                    for y in range(fy + 1, fy + 5):
+                        sset(w, sd, a, d, y, None)
+                sset(w, sd, a, inner, fy - 1, 'minecraft:dark_oak_planks')     # the riser
+                if a in (lo, hi):
+                    sset(w, sd, a, inner, fy + 1, FENCE)
+                    sset(w, sd, a, outer, fy + 1, FENCE)
+                elif a in AISLES[name]:
+                    sset(w, sd, a, outer, fy + 1, spruce_stair(out_f))
+                else:
+                    sset(w, sd, a, outer, fy + 1, SLAB)
+    # the one-cell stairs between the sections, from the front to the centre's back
+    for ag in GAPS[name]:
+        for k in range(ROWS_C):
             inner, outer = row_cells(sd, k)
             fy = row_y(k)
-            box = in_box(sd, a, k)
-            prev = row_y(k - 1) if k else GT
-            for d in (inner, outer):
-                sset(w, sd, a, d, fy, 'minecraft:spruce_planks' if (a + k) % 7 else 'minecraft:dark_oak_planks')
-                for y in range(prev + 1, fy):
-                    sset(w, sd, a, d, y, 'minecraft:spruce_planks')      # the riser under a 2-high step
-                for y in range(fy + 1, fy + 4):
-                    sset(w, sd, a, d, y, None)
-            if box:
+            sset(w, sd, ag, inner, fy - 1, spruce_stair(out_f))
+            sset(w, sd, ag, outer, fy, spruce_stair(out_f))
+            for y in range(fy, fy + 4):
+                sset(w, sd, ag, inner, y, None)
+                sset(w, sd, ag, outer, y + 1, None)
+    # the front: a heavy beam on the legs, the fascia of school colours on it, a rail, banners draped over the lip
+    a0, a1 = sd[4]
+    front = f0 - sgn
+    y0 = row_y(0)
+    for a in range(a0 - 1, a1 + 2):
+        i = (a - a0 + 1) // 3
+        sset(w, sd, a, front, y0, 'minecraft:' + FASCIA[name][i % 2])
+        sset(w, sd, a, front, y0 - 1, 'minecraft:stripped_spruce_log[axis=%s]' % sd[1])
+        sset(w, sd, a, front, y0 + 1, FENCE)
+        if (a - a0 + 1) % 3 == 1:
+            col = FLAGS[name][i % len(FLAGS[name])]
+            sset(w, sd, a, front - sgn, y0, state(col + '_wall_banner', facing=in_f))
+
+
+def build_back(w, sd, sec):
+    """A section's back line: posts to the crest, a parapet behind the top row, the crest beam, house banners
+    hanging outside, flags on the wings' crest."""
+    name, sgn = sd[0], sd[2]
+    s0, s1, rows = sec
+    lo, hi = s0 - 1, s1 + 1
+    back = section_back(sd, rows)
+    top = row_y(rows - 1)
+    crest = top + 4
+    out_f = out_facing(sd)
+    posts = post_runs(lo, hi)
+    for a in range(lo, hi + 1):
+        sset(w, sd, a, back, top, 'minecraft:stripped_spruce_log[axis=%s]' % sd[1])
+        sset(w, sd, a, back, top + 1, FENCE)
+        sset(w, sd, a, back, crest, 'minecraft:stripped_spruce_log[axis=%s]' % sd[1])
+    for a in posts:
+        for y in range(G, crest + 1):
+            sset(w, sd, a, back, y, LEG)
+        col = FLAGS[name][(a - lo) // 4 % len(FLAGS[name])]
+        sset(w, sd, a, back + sgn, crest - 1, state(col + '_wall_banner', facing=out_f))
+        if rows < ROWS_C and (a - lo) % 8 == 4:
+            for y in range(crest + 1, crest + 5):
+                sset(w, sd, a, back, y, FENCE)
+            sset(w, sd, a, back, crest + 5, state(col + '_banner', rotation=int(round(sd[5] / 22.5)) % 16))
+    return back
+
+
+def post_runs(lo, hi, step=4):
+    ps = list(range(lo, hi + 1, step))
+    if hi - ps[-1] <= 1:
+        ps[-1] = hi
+    else:
+        ps.append(hi)
+    return ps
+
+
+def post_depths(sd, rows):
+    front, back = sd[3] - sd[2], section_back(sd, rows)
+    out = []
+    d = front
+    while (back - d) * sd[2] > 2:
+        out.append(d)
+        d += 4 * sd[2]
+    return out + [back]
+
+
+def build_trestle(w, sd, sec):
+    """The open timber trestle under a section: legs every 4 both ways (the front ones footed down the cliff,
+    with a rock collar), ledgers every 4 up, X-bracing in the bays of the outer faces, boards on the bottom three
+    courses of the back and sides round a gate."""
+    name, sgn = sd[0], sd[2]
+    s0, s1, rows = sec
+    lo, hi = s0 - 1, s1 + 1
+    back = section_back(sd, rows)
+    front = sd[3] - sgn
+    pa = post_runs(lo, hi)
+    pd = post_depths(sd, rows)
+    # legs (the back line's are built with it)
+    foot, top = {}, {}
+    for a in pa:
+        for d in pd:
+            if d == back:
+                foot[(a, d)], top[(a, d)] = GT, row_y(rows - 1) + 4
                 continue
-            if a in aisles:
-                sset(w, sd, a, outer, fy + 1, state('spruce_stairs', facing=out_f, half='bottom', shape='straight',
-                                                    waterlogged='false'))
-            else:
-                sset(w, sd, a, outer, fy + 1, state('spruce_slab', type='bottom', waterlogged='false'))
-        # the fascia of school colours along the front, on the rim
-        c = FASCIA[name][((a - a0) // 3) % 2]
-        sset(w, sd, a, sd[3] - sgn, G, 'minecraft:' + c)
-        # the back wall: posts every 4, beams, boards
-        for y in range(G, top_y + 1):
-            post = (a - a0) % 4 == 0
-            if post:
-                sset(w, sd, a, back, y, 'minecraft:spruce_log[axis=y]')
-            elif y in (G + 5, G + 11, top_y):
-                sset(w, sd, a, back, y, 'minecraft:stripped_spruce_log[axis=%s]' % sd[1])
-            else:
-                sset(w, sd, a, back, y, 'minecraft:spruce_planks' if (a + y) % 5 else 'minecraft:dark_oak_planks')
-        # flags along the crest
-        if (a - a0) % 8 == 4:
-            for y in range(top_y + 1, top_y + 5):
-                sset(w, sd, a, back, y, 'minecraft:spruce_fence')
-            col = FLAGS[name][((a - a0) // 8) % len(FLAGS[name])]
-            sset(w, sd, a, back, top_y + 5, state(col + '_banner', rotation=int(round(sd[5] / 22.5)) % 16))
-        # house banners hanging on the back wall's outside, under the crest
-        if (a - a0) % 4 == 2:
-            col = FLAGS[name][((a - a0) // 4) % len(FLAGS[name])]
-            sset(w, sd, a, back + sgn, top_y - 1, state(col + '_wall_banner', facing=out_f))
-    # the side walls at both ends: boarded under the deck, a rail above it
-    for a in (a0 - 1, a1 + 1):
-        for k in range(NROWS):
-            for d in row_cells(sd, k):
-                for y in range(G, row_y(k) + 3):
-                    sset(w, sd, a, d, y, 'minecraft:spruce_planks' if y <= row_y(k) + 1 else 'minecraft:spruce_fence')
-        for y in range(G, top_y + 1):
-            sset(w, sd, a, back, y, 'minecraft:spruce_log[axis=y]')
+            db = deck_bottom(w, sd, a, d)
+            if db is None:
+                continue
+            g = ground_below(w, sd, a, d, db)
+            for y in range(g + 1, db):
+                sset(w, sd, a, d, y, LEG)
+            foot[(a, d)], top[(a, d)] = g, db
+            if g < GT:
+                # a rock collar where the leg stands on the cliff
+                for da, dd in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                    if sget(w, sd, a + da, d + dd, g + 1) is None and sget(w, sd, a + da, d + dd, g) is not None:
+                        lx, lz = stand_lc(sd, a + da, d + dd)
+                        x, z = to_scene(lx, lz)
+                        sset(w, sd, a + da, d + dd, g + 1, ravine_rock(x, g + 1, z) if rnd(x, g, z, 370) < 0.7
+                             else 'minecraft:cobblestone')
+
+    def free(a, d, y):
+        if sget(w, sd, a, d, y) is not None:
+            return False
+        db = deck_bottom(w, sd, a, d)
+        return db is not None and y < db and ground_below(w, sd, a, d, y + 1) < y
+
+    run_axis = 'minecraft:stripped_spruce_log[axis=%s]' % sd[1]
+    dep_axis = 'minecraft:stripped_spruce_log[axis=%s]' % depth_axis(sd)
+    # ledgers along the run at every post depth, and along the depth at every post run
+    for d in pd:
+        for i in range(len(pa) - 1):
+            p, q = (pa[i], d), (pa[i + 1], d)
+            if p not in foot or q not in foot:
+                continue
+            for y in LEVELS:
+                if not (max(foot[p], foot[q]) < y < min(top[p], top[q])):
+                    continue
+                for a in range(pa[i] + 1, pa[i + 1]):
+                    if free(a, d, y):
+                        sset(w, sd, a, d, y, run_axis)
+    for a in pa:
+        for i in range(len(pd) - 1):
+            p, q = (a, pd[i]), (a, pd[i + 1])
+            if p not in foot or q not in foot:
+                continue
+            for y in LEVELS:
+                if not (max(foot[p], foot[q]) < y < min(top[p], top[q])):
+                    continue
+                for d in range(pd[i] + sgn, pd[i + 1], sgn):
+                    if free(a, d, y):
+                        sset(w, sd, a, d, y, dep_axis)
+    # X-bracing in the bays of the front, the back and both sides
+    def brace_face(cells_line, facing_up, facing_down, fixed):
+        for i in range(len(cells_line) - 1):
+            u0, u1 = cells_line[i], cells_line[i + 1]
+            p, q = fixed(u0), fixed(u1)
+            if p not in foot or q not in foot:
+                continue
+            span = abs(u1 - u0)
+            if span < 3:
+                continue
+            step = 1 if u1 > u0 else -1
+            for y in LEVELS:
+                if not (max(foot[p], foot[q]) < y and y + 4 < min(top[p], top[q]) + 1):
+                    continue
+                for j in range(1, span):
+                    yy = y + int(round(j * 4.0 / span))
+                    if yy <= y or yy >= y + 4:
+                        continue
+                    for (u, f) in ((u0 + step * j, facing_up), (u1 - step * j, facing_down)):
+                        a, d = fixed(u)
+                        if free(a, d, yy):
+                            sset(w, sd, a, d, yy, spruce_stair(f))
+
+    for d in (front, back):
+        brace_face(pa, run_facing(sd, 1), run_facing(sd, -1), lambda u, d=d: (u, d))
+    for a in (lo, hi):
+        brace_face(pd, depth_facing(sd, sgn), depth_facing(sd, -sgn), lambda u, a=a: (a, u))
+    # boards on the bottom three courses of the back and the sides, with a gate in the back
+    mid = (lo + hi) // 2
+    for a in range(lo, hi + 1):
+        if abs(a - mid) <= 1:
+            continue
+        for y in range(G, G + 3):
+            if sget(w, sd, a, back, y) is None:
+                sset(w, sd, a, back, y, 'minecraft:spruce_planks' if (a + y) % 4 else 'minecraft:dark_oak_planks')
+    for a in (lo, hi):
+        for d in range(front, back, sgn):
+            for y in range(G, G + 3):
+                if sget(w, sd, a, d, y) is None and ground_below(w, sd, a, d, y + 1) == y - 1:
+                    sset(w, sd, a, d, y, 'minecraft:spruce_planks' if (d + y) % 4 else 'minecraft:dark_oak_planks')
+
+
+def build_canopy(w, sd, sec):
+    """The centre's pavilion roof over its top rows: wool striped in the stand's colours every 3, gabled in bays
+    facing the arena, on the back posts and poles at the side lines, with banners scalloped from its front beam
+    and flags on its peaks."""
+    name, sgn = sd[0], sd[2]
+    s0, s1, rows = sec
+    lo, hi = s0 - 1, s1 + 1
+    back = section_back(sd, rows)
+    dcf = row_cells(sd, CANOPY_K)[0]
+    base = CANOPY_BASE
+    nb = CANOPY_BAYS[name]
+    width = hi - lo + 1
+    bays = []
+    for b in range(nb):
+        b0 = lo + (width * b) // nb
+        b1 = lo + (width * (b + 1)) // nb - 1
+        bays.append((b0, b1))
+
+    def h_at(a):
+        for b0, b1 in bays:
+            if b0 <= a <= b1:
+                return min(a - b0, b1 - a)
+        return 0
+
+    for a in range(lo, hi + 1):
+        col = 'minecraft:' + FASCIA[name][((a - lo) // 3) % 2]
+        h = h_at(a)
+        for d in range(dcf, back + sgn, sgn):
+            sset(w, sd, a, d, base + h, col)
+        for d in (dcf, back):
+            for y in range(base, base + h):
+                sset(w, sd, a, d, y, col)
+        sset(w, sd, a, dcf, base - 1, 'minecraft:stripped_spruce_log[axis=%s]' % sd[1])
+        if (a - lo) % 2 == 0:
+            fl = FLAGS[name][((a - lo) // 2) % len(FLAGS[name])]
+            sset(w, sd, a, dcf - sgn, base - 1, state(fl + '_wall_banner', facing=in_facing(sd)))
+    # poles at the side lines and between the bays, from the deck (or the booth's roof) to the beam
+    for a in sorted(set([lo, hi] + [b0 for b0, _ in bays[1:]])):
+        y = base - 2
+        while y > G and sget(w, sd, a, dcf, y) is None:
+            sset(w, sd, a, dcf, y, FENCE)
+            y -= 1
+    # the back posts carry it
+    for a in post_runs(lo, hi):
+        for y in range(row_y(rows - 1) + 5, base):
+            sset(w, sd, a, back, y, LEG)
+    # flags on the peaks
+    for b0, b1 in bays:
+        ac = (b0 + b1) // 2
+        hp = h_at(ac)
+        for d in (dcf, back):
+            for y in range(base + hp + 1, base + hp + 4):
+                sset(w, sd, ac, d, y, FENCE)
+            fl = FLAGS[name][(b0 // 3) % len(FLAGS[name])]
+            sset(w, sd, ac, d, base + hp + 4, state(fl + '_banner', rotation=int(round(sd[5] / 22.5)) % 16))
+    return base + max(h_at(a) for a in range(lo, hi + 1))
+
+
+def build_stair_tower(w, sd, ag, top_t):
+    """A 3-wide timber stair tower at the centre's back, between two sections: log corners, plank walls with
+    slits, a door where the stair arrives, a pyramid cap of spruce stairs and a flag."""
+    name, sgn = sd[0], sd[2]
+    back = stand_back(sd)
+    d0 = back - 2 * sgn
+    ds = (d0, back - sgn, back)
+    for y in range(G, top_t + 1):
+        for i, a in enumerate((ag - 1, ag, ag + 1)):
+            for j, d in enumerate(ds):
+                if i == 1 and j == 1:
+                    if y > row_y(ROWS_C - 1):
+                        sset(w, sd, a, d, y, None)
+                    continue
+                corner = i != 1 and j != 1
+                if corner:
+                    sset(w, sd, a, d, y, LEG)
+                elif y % 6 == 3 and y > G + 4:
+                    sset(w, sd, a, d, y, None)                       # a slit
+                else:
+                    sset(w, sd, a, d, y, 'minecraft:spruce_planks' if y % 5 else 'minecraft:dark_oak_planks')
+    # the door at the stair's top
+    ys = row_y(ROWS_C - 1)
+    for y in range(ys, ys + 3):
+        sset(w, sd, ag, d0, y, None)
+    sset(w, sd, ag, back - sgn, ys, spruce_stair(out_facing(sd)))
+    # the cap
+    for lvl, r in ((1, 2), (2, 1)):
+        y = top_t + lvl
+        for da in range(-r, r + 1):
+            for dd in range(-r, r + 1):
+                a, d = ag + da, back - sgn + dd * sgn
+                if max(abs(da), abs(dd)) < r:
+                    sset(w, sd, a, d, y, 'minecraft:spruce_planks')
+                    continue
+                if abs(da) >= abs(dd):
+                    f = run_facing(sd, -1 if da > 0 else 1)
+                else:
+                    f = depth_facing(sd, -sgn if dd > 0 else sgn)
+                sset(w, sd, a, d, y, spruce_stair(f))
+    sset(w, sd, ag, back - sgn, top_t + 3, 'minecraft:spruce_planks')
+    for y in range(top_t + 4, top_t + 8):
+        sset(w, sd, ag, back - sgn, y, FENCE)
+    fl = FLAGS[name][0]
+    sset(w, sd, ag, back - sgn, top_t + 8, state(fl + '_banner', rotation=int(round(sd[5] / 22.5)) % 16))
 
 
 def build_booth(w):
@@ -791,7 +1421,7 @@ def build_booth(w):
     for a in range(a0, a1 + 1):
         for d in ds:
             sset(w, sd, a, d, fy, 'minecraft:dark_oak_planks')
-            for y in range(fy + 1, row_y(NROWS - 1) + 4):
+            for y in range(fy + 1, CANOPY_BASE - 1):
                 sset(w, sd, a, d, y, None)
             sset(w, sd, a, d, fy + 5, 'minecraft:dark_oak_slab[type=bottom,waterlogged=false]')
         sset(w, sd, a, d_front, fy + 1, 'minecraft:dark_oak_fence')
@@ -810,20 +1440,21 @@ def build_booth(w):
 def build_cannons(w):
     for name, (a0, a1), k0 in CANNONS:
         sd = [s for s in STAND_DEFS if s[0] == name][0]
+        sec = section_at(sd, a0)
         fy = row_y(k0)
         d_front, _ = row_cells(sd, k0)
-        back = stand_back(sd)
+        back = section_back(sd, sec[2])
         ds = list(range(min(d_front, back - sd[2]), max(d_front, back - sd[2]) + 1))
         for a in range(a0, a1 + 1):
             for d in ds:
                 sset(w, sd, a, d, fy, 'minecraft:stone_bricks' if (a + d) % 3 else 'minecraft:cracked_stone_bricks')
-                for y in range(fy + 1, row_y(NROWS - 1) + 4):
+                for y in range(fy + 1, fy + 6):
                     sset(w, sd, a, d, y, None)
             sset(w, sd, a, d_front, fy + 1, 'minecraft:stone_brick_wall')
         ac = (a0 + a1) // 2
         # the cannon: a carriage and a barrel along the depth axis, pointing into the arena
         d1, d2 = d_front + sd[2], d_front + 2 * sd[2]
-        axis = 'z' if sd[1] == 'x' else 'x'
+        axis = depth_axis(sd)
         sset(w, sd, ac, d_front, fy + 1, 'minecraft:polished_basalt[axis=%s]' % axis)   # through the embrasure
         sset(w, sd, ac, d1, fy + 1, 'minecraft:polished_basalt[axis=%s]' % axis)
         sset(w, sd, ac, d2, fy + 1, 'minecraft:polished_blackstone_wall')
@@ -836,9 +1467,20 @@ def build_cannons(w):
 
 def build_stands(w):
     for sd in STAND_DEFS:
-        build_stand(w, sd)
+        build_decks(w, sd)
     build_booth(w)
     build_cannons(w)
+    for sd in STAND_DEFS:
+        ridge = None
+        for sec in SECTIONS[sd[0]]:
+            build_back(w, sd, sec)
+            if sec[2] == ROWS_C:
+                ridge = build_canopy(w, sd, sec)
+        top_t = ridge + 3 if sd[0] == BOOTH[0] else row_y(ROWS_C - 1) + 8
+        for ag in GAPS[sd[0]]:
+            build_stair_tower(w, sd, ag, top_t)
+        for sec in SECTIONS[sd[0]]:
+            build_trestle(w, sd, sec)
 
 
 # ---------------------------------------------------------------- the viaduct
@@ -1086,7 +1728,8 @@ def _build(w):
     build_nest(w)
     build_hide_rock(w)
     build_stake(w)
-    build_boulders(w, H)
+    build_relief(w)
+    floor_slabs(w, H)
     build_entrance(w)
     build_stands(w)
     build_viaduct(w, H)
@@ -1142,27 +1785,32 @@ def la(lx, y, lz):
     return _p(lx + ARENA_C[0], y, lz + ARENA_C[1])
 
 
+def fa(lx, y, lz):
+    """Arena-local point with a floor-relative y to a scene point."""
+    return la(lx, y + AF, lz)
+
+
 def stands_anchor():
     out = []
     for sd in STAND_DEFS:
-        a0, a1 = sd[4]
         rows = []
-        for k in range(NROWS):
-            _, outer = row_cells(sd, k)
-            seat_top = row_y(k) + 1.5
-            run = []
-            for a in range(a0, a1 + 2):
-                ok = a <= a1 and a not in AISLES[sd[0]] and not in_box(sd, a, k)
-                if ok:
-                    run.append(a)
-                    continue
-                if run:
-                    p0 = stand_lc(sd, run[0], outer)
-                    p1 = stand_lc(sd, run[-1], outer)
-                    q0 = la(p0[0] + 0.5, seat_top, p0[1] + 0.5)
-                    q1 = la(p1[0] + 0.5, seat_top, p1[1] + 0.5)
-                    rows.append(q0 + q1)
-                    run = []
+        for (s0, s1, nrows) in SECTIONS[sd[0]]:
+            for k in range(nrows):
+                _, outer = row_cells(sd, k)
+                seat_top = row_y(k) + 1.5
+                run = []
+                for a in range(s0, s1 + 2):
+                    ok = a <= s1 and a not in AISLES[sd[0]] and not in_box(sd, a, k)
+                    if ok:
+                        run.append(a)
+                        continue
+                    if run:
+                        p0 = stand_lc(sd, run[0], outer)
+                        p1 = stand_lc(sd, run[-1], outer)
+                        q0 = la(p0[0] + 0.5, seat_top, p0[1] + 0.5)
+                        q1 = la(p1[0] + 0.5, seat_top, p1[1] + 0.5)
+                        rows.append(q0 + q1)
+                        run = []
         out.append({'name': sd[0], 'school': sd[6], 'facing_yaw': sd[5], 'rows': rows})
     return out
 
@@ -1194,7 +1842,7 @@ def booth_anchor():
     (a0, a1), k0 = BOOTH[1], BOOTH[2]
     d_front, _ = row_cells(sd, k0)
     lx, lz = stand_lc(sd, (a0 + a1 + 1) / 2.0, d_front + sd[2] * 1)
-    return {'stand': la(lx, row_y(k0) + 1, lz + 0.5), 'yaw': sd[5], 'look': la(NEST_LC[0], 2.0, NEST_LC[1])}
+    return {'stand': la(lx, row_y(k0) + 1, lz + 0.5), 'yaw': sd[5], 'look': fa(NEST_LC[0], 2.0, NEST_LC[1])}
 
 
 def bridge_anchor():
@@ -1212,34 +1860,34 @@ def bridge_anchor():
     }
 
 
-NEST_SC = la(NEST_LC[0], 0.0, NEST_LC[1])
+NEST_SC = fa(NEST_LC[0], 0.0, NEST_LC[1])
 ANCHORS = {
-    'ground_y': 0.0,
+    'ground_y': float(AF),
     'plateau_y': float(G),
     'nest_centre': NEST_SC,
-    'nest_perch': {'pos': la(10.0, 2.0, 0.5), 'yaw': 90.0,
-                   'shelf': [la(SHELF[0], 2.0, SHELF[2]), la(SHELF[1] + 1, 2.0, SHELF[3] + 1)]},
-    'egg_spot': la(GOLD_CELL[0] + 0.5, 1.4, GOLD_CELL[1] + 0.5),
-    'eggs': [la(lx + 0.5, 1.5, lz + 0.5) for (lx, lz) in EGG_CELLS],
-    'entrance': {'pos': la(MOUTH + 1.5, 0.0, 0.5), 'yaw': -90.0, 'inside': la(TUNNEL_END + 6.5, 0.0, 0.5)},
-    'hide_rock': {'spot': la(HIDE[0] - 2.2, 0.0, 7.5), 'face_centre': la(HIDE[1] + 1.0, 1.5, 7.5),
+    'nest_perch': {'pos': fa(10.0, 2.0, 0.5), 'yaw': 90.0,
+                   'shelf': [fa(SHELF[0], 2.0, SHELF[2]), fa(SHELF[1] + 1, 2.0, SHELF[3] + 1)]},
+    'egg_spot': fa(GOLD_CELL[0] + 0.5, -0.6, GOLD_CELL[1] + 0.5),
+    'eggs': [fa(lx + 0.5, -0.5, lz + 0.5) for (lx, lz) in EGG_CELLS],
+    'entrance': {'pos': fa(MOUTH + 1.5, 0.0, 0.5), 'yaw': -90.0, 'inside': fa(TUNNEL_END + 6.5, 0.0, 0.5)},
+    'hide_rock': {'spot': fa(HIDE[0] - 2.2, 0.0, 7.5), 'face_centre': fa(HIDE[1] + 1.0, 1.5, 7.5),
                   'face_normal': [1.0, 0.0, 0.0],
-                  'face_box': [la(HIDE[1] + 1.0, 0.0, HIDE[2]), la(HIDE[1] + 1.0, 3.0, HIDE[3] + 1)],
-                  'top_y': 4.0},
-    'stake': la(STAKE_LC[0] + 0.5, 2.6, STAKE_LC[1] + 0.5),
+                  'face_box': [fa(HIDE[1] + 1.0, 0.0, HIDE[2]), fa(HIDE[1] + 1.0, 3.0, HIDE[3] + 1)],
+                  'top_y': float(AF + 4)},
+    'stake': fa(STAKE_LC[0] + 0.5, 2.6, STAKE_LC[1] + 0.5),
     'cannon_spots': cannons_anchor(),
     'stands': stands_anchor(),
     'commentator_box': booth_anchor(),
-    'broom_lane': [la(120, 64, -150), la(70, 58, -100), la(20, 50, -64), la(2, 40, -42), la(-8, 22, -18),
-                   la(-14, 8, 2), la(-20.0, 2.2, 6.8)],
-    'arena_air_box': [la(-22, 6, -14), la(22, 33, 14)],
-    'launch_lane': [la(9, 6, 0.5), la(16, 16, -6), la(30, 32, -22), la(52, 44, -46), la(84, 50, -78)],
+    'broom_lane': [la(120, 70, -150), la(70, 62, -100), la(46, 48, -52), la(26, 26, -22), fa(-2, 18, -8),
+                   fa(-14, 8, 2), fa(-20.0, 2.2, 6.8)],
+    'arena_air_box': [fa(-22, 6, -14), fa(22, 33, 14)],
+    'launch_lane': [fa(9, 6, 0.5), fa(16, 18, -6), la(30, 34, -22), la(52, 46, -46), la(84, 52, -78)],
     'castle_route': [],                 # filled in by plan_routes() below
     'gorge_lane': [],
     'slate_roofs': [],
     'bridge': bridge_anchor(),
     'castle_view': {'pos': la(48, 40, -44), 'look': _p(76, 60, -28)},
-    'arena_view': {'pos': la(-48, 66, 70), 'look': la(10, 0, -10)},
+    'arena_view': {'pos': la(-48, 74, 56), 'look': fa(5, 2, -2)},
     'gorge_view': {'pos': _p(BR['cx'] + 0.5, 2.0, -48.0), 'look': _p(BR['cx'] + 0.5, 4.0, -20.0)},
     'castle_box': [list(CASTLE_AT), [CASTLE_FOOT[1] + 1, CASTLE_TOP_Y + 1, CASTLE_FOOT[3] + 1]],
     'RADIUS': RADIUS,
@@ -1385,6 +2033,12 @@ def stands_ok(ids, problems):
                 head = cell_of([x, y1 + 1.2, z])
                 if ids.get(head) not in PASS:
                     problems.append('a head at %s of %s hits %s' % (head, st['name'], ids.get(head)))
+                # nothing (a canopy, a banner, a beam) within 3.5 over the seat top
+                for dy in (1, 2, 3):
+                    if ids.get((c[0], c[1] + dy, c[2])) not in PASS:
+                        problems.append('seat %s of %s: %s within 3.5 above' % (c, st['name'],
+                                                                                ids.get((c[0], c[1] + dy, c[2]))))
+                        break
             seats += n
     return seats
 
@@ -1520,11 +2174,11 @@ def check(w, with_void=True):
     if ids.get((pc[0], pc[1] - 1, pc[2])) not in ('minecraft:smooth_stone', 'minecraft:polished_andesite'):
         problems.append('nest_perch is not on the shelf (%s)' % ids.get((pc[0], pc[1] - 1, pc[2])))
     ec = cell_of(a['egg_spot'])
-    if ids.get(ec) is not None or ids.get((ec[0], ec[1] - 1, ec[2])) in PASS:
+    if ids.get(ec) is not None or ids.get((ec[0], ec[1] - 1, ec[2])) not in ROCK_IDS:
         problems.append('egg_spot %s: cell %s, under %s' % (ec, ids.get(ec), ids.get((ec[0], ec[1] - 1, ec[2]))))
     for e in a['eggs']:
         c = cell_of(e)
-        if ids.get(c) != 'minecraft:dragon_egg' or ids.get((c[0], c[1] - 1, c[2])) in PASS:
+        if ids.get(c) != 'minecraft:dragon_egg' or ids.get((c[0], c[1] - 1, c[2])) not in ROCK_IDS:
             problems.append('egg at %s is %s on %s' % (c, ids.get(c), ids.get((c[0], c[1] - 1, c[2]))))
     sc = cell_of(a['stake'])
     if ids.get(sc) != 'minecraft:chain' or ids.get((sc[0], sc[1] - 1, sc[2])) != 'minecraft:stripped_dark_oak_log':
@@ -1536,8 +2190,8 @@ def check(w, with_void=True):
             if ids.get((int(fx) - 1, y, z)) in PASS or ids.get((int(fx), y, z)) not in PASS:
                 problems.append('hide_rock face cell (%d, %d, %d) is not a flat face' % (int(fx) - 1, y, z))
     sp = a['hide_rock']['spot']
-    eye = [sp[0], 1.0, sp[2]]
-    head = [a['nest_perch']['pos'][0] - 6.0, 4.5, a['nest_perch']['pos'][2]]
+    eye = [sp[0], AF + 1.0, sp[2]]
+    head = [a['nest_perch']['pos'][0] - 6.0, AF + 4.5, a['nest_perch']['pos'][2]]
     dl = math.dist(eye, head)
     if not _ray_hits(solid, head, [(eye[k] - head[k]) / dl for k in range(3)], dl - 0.6):
         problems.append('the hiding rock does not shield the crouch from her head')

@@ -1,11 +1,73 @@
-"""The Flying memory's scenes (Task 10) - WORK IN PROGRESS.
+"""The Flying memory's scenes: memories/flying_<h>.json, _chase, _match and _snitch for each house h.
 
-Done: the shared helpers, the engine-mirror checks (spline moves, 60 fps smoothness, clearance against player parts,
-brooms and balls, camera air, hand contacts, items, ride edges, fliers, lying brooms, lines, keys, walkers,
-framing, lawn void fraction) and the lesson scene builder lesson(h, world), which passes all of them.
-Not done: the chase, match and snitch scenes, main() (writing memories/flying_*.json), the mutation bites, the
-build-budget assert, the SceneDataTest tests. See .superpowers/sdd/2026-10-21-flying-memory/task-10-report.md.
-Nothing here writes a scene yet.
+    python -I build_scripts/pensieve_scenes/flying_scene.py           build, check and write the 16 scenes
+    python -I build_scripts/pensieve_scenes/flying_scene.py --bite    show that every assert bites (writes nothing)
+
+The chains differ only in robes, skins, crowd reactions and the rival (rival(h): Slytherin, or Gryffindor for a
+Slytherin); the staging, timing and cameras are shared. Every assert runs on the emitted JSON through the
+scene_engine mirrors, on every scene of every house, prints its worst number, and fails the run on any problem.
+
+Shot list (seconds; ticks in the code)
+--------------------------------------
+flying_<h>, 43.0 s, the castle lawn under a day sky (opens on eyes_open)
+  S1  0.0-6.4    establishing crane from high over the lawn, the castle on its crag, down to the class
+  S2  6.4-10.0   Madam Hooch, medium, a slow push ("Good afternoon, class...")
+  S3  10.0-13.8  dolly down the east row at hand height as the hands go out over the handles
+  S4  13.8-16.6  the boy, front left, his hand over his broom
+  S5  16.6-19.4  Hooch close ("Now, firmly, and mean it: say 'Up!'")
+  S6  19.4-21.4  over his right shoulder, the west row beyond
+  S7  21.4-24.2  the chorus across the aisle: brooms twitch and roll, one leaps and smacks a boy in the face
+  S8  24.2-27.0  FIRST PERSON: his broom leaps into his hand on the first try
+  S9  27.0-29.6  Hooch raises the whistle; the class mounts
+  S10 29.6-33.0  Neville's broom lifts him, bolts and bucks ("It's going on its own!")
+  S11 33.0-35.6  wide: he is thrown and falls; the broom shoots off over the wall
+  S12 35.6-37.6  the Remembrall rolls out of the grass and comes to rest
+  S13 37.6-43.0  "Nobody moves!" Hooch gets Neville up and leads him away
+flying_<h>_chase, 40.5 s, the lawn
+  C1  0.0-3.4    low in the grass behind the Remembrall: Malfoy turns, sees it, bends for it
+  C2  3.4-6.4    Malfoy holds it up to the light ("Look what the clumsy idiot dropped.")
+  C3  6.4-9.3    the boy astride his broom, watching (Malfoy mounts out of shot)
+  C4  9.3-12.2   Malfoy kicks off and rises, from low by the west row
+  C5  12.2-14.5  Malfoy hovering, holding it up ("Want it? Come up and take it, then.")
+  C6  14.5-16.8  the boy kicks off and shoots up over the camera
+  C7  16.8-21.0  the chase: behind and above the boy, Malfoy ahead, the castle beyond
+  C8  21.0-24.4  wide from high in the east: both bank round a U-turn, the corner tower beyond
+  C9  24.4-26.6  over the boy's shoulder: "Go on, then. Fetch!" and the throw
+  C10 26.6-28.0  from the grass: the ball arcing down, the boy plunging after it
+  C11 28.0-29.7  FIRST PERSON: down the ball's own line, closing on it; his hand takes it out of the air
+  C12 29.7-32.5  over McGonagall's shoulder through her window: he pulls out and glides down the aisle
+  C13 32.5-34.8  her face through the glass; she turns away
+  C14 34.8-36.2  the boy landed in the aisle, the ball held up, his house cheering
+  C15 36.2-37.8  McGonagall in the hospital wing door: "You. With me. Now."
+  C16 37.8-40.5  the boy turns to her: a slow push in
+flying_<h>_match, 50.0 s, the pitch beside Hogwarts under the storm (rain, lightning, 1,530 in the stands)
+  M1  0.0-5.0    high over the west stand: from the castle lit through the rain down to the empty pitch
+  M2  5.0-9.4    outside the stand the team waits astride; the captain to his Seeker ("Just catch the Snitch...")
+  M3  9.4-13.4   low by the tunnel mouth: the team bursts out into the roar (the home stands on their feet)
+  M4  13.4-17.0  wide from high in the east: both teams sweep round the stadium
+  M5  17.0-21.0  under the two lines behind Hooch: "I want a clean game, from all of you."
+  M6  21.0-23.4  the crate thrown open: the Bludgers and the Snitch burst out, the whistle, the Quaffle up
+  M7a 23.4-27.4  alongside the Chasers racing up the pitch, passing ("And they're off!")
+  M7b 27.4-29.2  behind the far middle hoop: the shot comes through the ring at the camera
+  M8  29.2-32.0  the boy's house on its feet in the stand, roaring ("And it's in!")
+  M10 32.0-34.5  the hunt: behind the boy high over the game, the castle through the rain (the stand chants)
+  M9  34.5-36.6  behind a Beater: he cracks the Bludger away at a rival's head; the stadium gasps
+  M11 36.6-41.0  the rival Seeker drifts up on the boy's shoulder
+  M12 41.0-45.0  wide over the far stands: the crowd, the rain sheets, the game below, the lightning
+  M13 45.0-50.0  under him, looking up past him into the storm; then his face, searching
+flying_<h>_snitch, 40.0 s, the pitch (ends on eyes_close, end_action wake)
+  N1  0.0-3.2    high behind the boy as he circles, hunting
+  N2  3.2-5.2    the glint: low by the foot of the dive column, the Snitch hangs in the rain
+  N3  5.2-6.4    his face: he has seen it ("The Seeker has seen something!")
+  N4  6.4-9.0    from the grass, straight up the column: he tips over and comes down at us, the rival after him
+  N5  9.0-10.8   falling beside them: the two Seekers side by side, the grass rushing up
+  N6  10.8-12.3  out of the dive just over the grass; the rival peels away above
+  N7  12.3-14.7  FIRST PERSON: skimming the grass, the Snitch just ahead; his hand closes on it (the stands erupt)
+  N8  14.7-18.5  he slows over the grass and lifts it to the stands
+  N9  18.5-23.0  his team swoops in round him
+  N10 23.0-28.0  the crane up and out: the stands on their feet in the storm
+  N11 28.0-34.0  closer, among them: the Snitch held high
+  N12 34.0-40.0  his face, the rain on it, a slow push in as the eyes close
 """
 import copy
 import hashlib
@@ -70,16 +132,23 @@ for _l, (_who, _txt) in LINES.items():
     assert 'Harry' not in _txt and 'Potter' not in _txt and '{' not in _txt, _l
 assert LINES['flying_captain'][1].endswith("you've got to do."), 'Wood: got to'
 
-# Music: the user has not supplied the tracks yet (ruling: build without music, leave the slots). Each slot is the
-# scene it starts in and its time there, with about 2 s of overlap across a hand-over (the outgoing cue fades over
-# the chain's last 20 ticks while the next one starts at 0). flying_music.py cuts the user's tracks to these when
-# they arrive; until then no music event is emitted (an unregistered id would fail validation).
+# Music (flying_music.py cuts the user's tracks to these): each cue is the scene suffix it starts in and its time
+# there in seconds. Each runs a second past its scene's end; the engine fades the outgoing cue over the hand-over's
+# last 20 ticks while the next starts at 0, so they overlap by about 2 s. The hits land on Neville's broom bolting,
+# the Remembrall catch and McGonagall's call, the team bursting into the stadium, the glint and the Snitch catch.
 MUSIC_SLOTS = {
-    'flying_lesson': ('', 0.0, "The Norwegian Ridgeback and a Change of Season / Hedwig's Theme: the lesson"),
-    'flying_chase': ('_chase', 0.0, 'the Remembrall chase and the catch'),
-    'flying_match': ('_match', 0.0, 'Quidditch, Third Year: the walk-out to the hunt'),
-    'flying_snitch': ('_snitch', 0.0, 'Quidditch, Third Year: the dive and the catch'),
+    'flying_lesson': ('', 2.0, 'Mr. Longbottom Flies: the lesson, its first hit on the bolting broom'),
+    'flying_chase': ('_chase', 0.0, 'Mr. Longbottom Flies: the chase, the dive and the catch'),
+    'flying_match': ('_match', 0.0, 'Quidditch, Third Year: the storm, the fly-out, the game, the hunt'),
+    'flying_snitch': ('_snitch', 0.0, 'The Quidditch Match: the glint, the dive and the catch'),
 }
+
+
+def score(sc, suffix):
+    """The scene's music cue from MUSIC_SLOTS (when its file is registered)."""
+    for cue, (suf, at, _) in sorted(MUSIC_SLOTS.items()):
+        if suf == suffix and 'pensieve.music.' + cue in REGISTERED:
+            sc.ev(tk(at), 'music', 'hogwartsmagic:pensieve.music.' + cue, volume=1.0)
 
 
 def tk(s):
@@ -747,6 +816,7 @@ def lesson(h, world):
     sc.ev(0, 'effect', 'eyes_open', at=[0, 0, 0], duration=60)
     sc.ev(0, 'effect', 'sky', at=r3(LA['lawn_centre']), style='day')
     sc.sfx(0, 'lawn_air', 0.55, loop=True)
+    score(sc, '')
     scene = sc.scene(LAWN_SET, FL.RADIUS, nxt='flying_%s_chase' % h, fog_far=FL.FOG_FAR)
     sc.notes.update(lawn=True, moments=[check_moments_lesson], ball_paths=[('remembrall', [tk(T1['land'])])])
     return sc, scene
@@ -1923,6 +1993,7 @@ def chase(h, world, lesson_scene):
     chase_camera(sc, P, B, S)
     sc.ev(0, 'effect', 'sky', at=r3(LA['lawn_centre']), style='day')
     sc.sfx(0, 'lawn_air', 0.55, loop=True)
+    score(sc, '_chase')
     scene = sc.scene(LAWN_SET, FL.RADIUS, nxt='flying_%s_match' % h, fog_far=FL.FOG_FAR)
     sc.notes.update(lawn=True, moments=[check_moments_chase],
                     ball_paths=[('remembrall', [sc.notes['malfoy_pick'], sc.notes['throw'], sc.notes['catch']])],
@@ -2743,6 +2814,8 @@ class Flier:
 
 
 L3, L4 = 50.0, 40.0
+MATCH_FUNCS = {}                   # aid -> route fn(t) on the match's clock that the Snitch scene carries on with
+SEEK_PERIOD, SEEK_BEARING, SEEK_TURN = 360.0, 112.0, 84
 T3 = {'captain': 6.0, 'entrance': 10.3, 'clean': 17.2, 'crate': 21.0, 'snitch_out': 21.3, 'whistle': (21.6, 22.0),
       'throw': 22.5, 'off': 22.7, 'c1_catch': 23.7, 'pass1': 25.3, 'catch2': 26.0, 'pass2': 26.6, 'catch3': 27.5,
       'shot': 27.8, 'ring': 28.6, 'comm_goal': 29.2, 'whip': 34.7, 'crack': 35.4, 'miss': 36.1, 'chant': 32.5}
@@ -2768,6 +2841,7 @@ def match(h, world, chase_scene=None):
     match_camera(sc, F_)
     match_sound(sc, F_, h)
     storm(sc, 'match')
+    score(sc, '_match')
     scene = sc.scene(pitch_set(), QP.RADIUS, nxt='flying_%s_snitch' % h)
     qc = sc.notes['quaffle_contacts']
     sc.notes.update(extra_checks=[('crowd gap', check_crowd_gap), ('quaffle ring', check_quaffle_ring),
@@ -2885,14 +2959,18 @@ def game_routes(sc, F_):
     ok = F_['o_k']
     ok.at(700, [-2.0, 46.4, -100.0], 'in_out').at(sc.L, [1.5, 46.0, -100.0], 'in_out')
     # the Seekers climb out of the game and circle high over it, hunting
-    vo = orbit_from([9.0, 26.0, 40.0], 516, 34.0, 34.0, 60.0, 360.0, 1.0, 1.2, cz=4.0)
-    so = orbit(0.0, 4.0, 31.0, 31.0, 55.5, 360.0, math.atan2((40.0 - 4.0) / 34.0, 9.0 / 34.0) - 0.2 -
-               2 * math.pi / 360.0 * 516, 1.0, 1.0)      # a little behind the boy, inside his circle and below it
+    # their phase is set by the Snitch scene: SEEK_TURN ticks into it the boy is at the bearing SEEK_BEARING, the
+    # nearest he comes to the dive column (both orbits run on through the hand-over on the match's clock)
+    w = 2 * math.pi / SEEK_PERIOD
+    ph = math.radians(SEEK_BEARING) - w * (sc.L + SEEK_TURN)
+    vo = orbit(0.0, 4.0, 34.0, 34.0, 60.0, SEEK_PERIOD, ph, 1.0, 1.2)
+    so = orbit(0.0, 4.0, 31.0, 31.0, 55.5, SEEK_PERIOD, ph - 0.2, 1.0, 1.0)   # a little behind, inside, below
     sc.notes['seeker_orbits'] = (vo, so)
+    MATCH_FUNCS['viewer'], MATCH_FUNCS['r_s'] = vo, so
     F_['viewer'].at(470, [9.0, 26.0, 12.0])
-    follow(F_, 'viewer', vo, 510, sc.L, 10, 'spline')
+    follow(F_, 'viewer', vo, 540, sc.L, 10, 'spline')
     F_['r_s'].at(470, [-9.0, 24.0, -10.0])
-    follow(F_, 'r_s', so, 510, sc.L, 10, 'spline')
+    follow(F_, 'r_s', so, 540, sc.L, 10, 'spline')
     # everyone else, once their part is played: loose circuits round the pitch below the Seekers
     loops = {'o_c1': (40.0, 70.0, 34.0, 420.0, 1.1, 1.0), 'o_c2': (48.0, 78.0, 38.0, 460.0, 0.75, 1.0),
              'o_c3': (32.0, 62.0, 42.0, 400.0, 1.55, 1.0), 'r_c1': (44.0, 74.0, 26.0, 440.0, 2.4, -1.0),
@@ -2905,6 +2983,7 @@ def game_routes(sc, F_):
         t0 = last + 40
         fn = orbit_from(lp, t0, rx, rz, y0, per, sense, 2.0)
         sc.notes['loops'][aid] = fn
+        MATCH_FUNCS[aid] = fn
         follow(F_, aid, fn, t0, sc.L, 10, 'spline')
 
 
@@ -3276,7 +3355,7 @@ def check_reactions(sc, scene, problems):
     """Assert 7, the crowd: every crowd_react in the JSON belongs to a reaction with a cause; a goal/cheer within 0.5 s
     after its goal or entrance, a gasp within 1 s of its near miss, the erupt within 0.3 s of the catch; nobody
     reacts before the cause."""
-    limits = {'goal': 10, 'cheer': 10, 'gasp': 20, 'erupt': 6, 'chant': 0}
+    limits = {'goal': 10, 'cheer': 10, 'gasp': 20, 'erupt': 6, 'chant': 0, 'sit': 10}
     n_events = sum(1 for e in scene['events'] if e.get('id') == 'crowd_react')
     n_rec = sum(len(CROWD_BOXES[hh]) for _, _, hh, _ in sc.reactions)
     if n_events != n_rec:
@@ -3341,10 +3420,10 @@ def heading_fn(pos_fn, sigma=10.0, dt=4.0):
 def extrap(fn, L):
     """fn past the scene's end carried on at its last velocity (a smoothing window at the end then sees no stop)."""
     def f(t):
-        if t <= L:
+        if 0 <= t <= L:
             return fn(t)
-        a, b = fn(L - 1), fn(L)
-        return [b[i] + (b[i] - a[i]) * (t - L) for i in range(3)]
+        a, b = (fn(L - 1), fn(L)) if t > L else (fn(1), fn(0))
+        return [b[i] + (b[i] - a[i]) * abs(t - (L if t > L else 0)) for i in range(3)]
     return f
 
 
@@ -3432,8 +3511,8 @@ def match_camera(sc, F_):
     sc.shot(690, 732, cam, smoothed(lambda t: focus(min(t, tmiss + 4)), 10.0), ramp(62.0, 68.0, 690, 732), 4)
     # M11 37.5-41 the rival Seeker drifts up on the boy's shoulder: both, from ahead and outside the circle
     two = lambda t: lerp(eye('viewer')(t), eye('r_s')(t), 0.5)
-    cam, s2, h2 = follow_cam(two, lambda t: [8.0, 0.6, -5.0], 16.0, sc.L)
-    sc.shot(732, 820, cam, smoothed(two, 8.0), ramp(52.0, 48.0, 732, 820), 4)
+    cam, s2, h2 = follow_cam(two, lambda t: [9.5, 1.0, -6.0], 16.0, sc.L)
+    sc.shot(732, 820, cam, smoothed(two, 8.0), ramp(56.0, 52.0, 732, 820), 4)
     # M12 41-45 wide over the far stands: the crowd, the rain sheets, the game below, the lightning
     pf = move([60.0, 64.0, -88.0], [56.0, 67.0, -78.0], 820, 900)
     sc.shot(820, 900, pf, move([0.0, 30.0, 10.0], [0.0, 34.0, 14.0], 820, 900), const(74.0), 6)
@@ -3458,3 +3537,569 @@ def match_camera(sc, F_):
                    (tmiss - 2, tmiss + 2, E_(vid), 'the near miss (M9)'),
                    (762, 816, E_('viewer'), 'the boy (M11)'), (762, 816, E_('r_s'), 'the rival Seeker (M11)'),
                    (904, 946, E_('viewer'), 'the boy (M13a)'), (954, sc.L - 2, E_('viewer'), 'his face (M13b)')]
+
+
+# ================================================================ the Snitch: flying_<h>_snitch
+T4 = {'leave': 100, 'top': 142, 'dive_full': 170, 'pull': 220, 'level': 240, 'catch': 280, 'hover': 340,
+      'r_top': 160, 'r_pull': 212, 'r_pull_end': 232, 'seeker': 108, 'fp': (246, 294), 'raise': (310, 344),
+      'ring': 430, 'close': 760}
+SNITCH_CRY = 0.9                        # the dive's speed, blocks a tick
+
+
+def snitch_scene(h, world, match_scene=None):
+    sc = Sc('flying_%s_snitch' % h, 'The Snitch', L4, world, h)
+    sc.notes['pitch'] = True
+    kits = team_kits(h)
+    F_ = {aid: Flier(sc, aid, kits[aid][0], kits[aid][1]) for aid in OWN + RIV}
+    dc = QA['dive_column']
+    cx, cz = dc['at'][0], dc['at'][2]
+    sc.notes['column'] = (cx, cz)
+    off = int(round(L3 * 20))
+    carry = lambda aid: (lambda s: MATCH_FUNCS[aid](s + off))
+    # ---- the boy: on round his circle, away to the top of the column, down it, out above the grass, the chase
+    v = F_['viewer']
+    follow(F_, 'viewer', carry('viewer'), 0, T4['leave'], 10, 'spline')
+    p_top = [cx + 1.3, 63.0, cz]
+    v.at(112, [-12.0, 61.6, 40.6]).at(128, [-22.0, 62.4, 44.6])
+    top_in = hermite([-22.0, 62.4, 44.6], [-0.42, 0.03, 0.12], p_top, [-0.2, -0.1, 0.0], 128, T4['top'])
+    v.at(T4['top'], p_top)
+    full = [cx + 1.3, p_top[1] - 9.0, cz]
+    dive_in = hermite(p_top, [-0.2, -0.1, 0.0], full, [0.0, -SNITCH_CRY, 0.0], T4['top'], T4['dive_full'])
+    for t in range(T4['top'] + 4, T4['dive_full'], 4):
+        v.at(t, dive_in(t))
+    y_line = lambda t: full[1] - SNITCH_CRY * (t - T4['dive_full'])
+    for t in range(T4['dive_full'], T4['pull'] + 1, 6):
+        v.at(t, [cx + 1.3, y_line(t), cz])
+    p_pull = [cx + 1.3, y_line(T4['pull']), cz]
+    p_lev = [cx + 2.3, 1.6, cz + 8.5]
+    v_lev = [0.04, 0.0, 0.62]
+    pull = hermite(p_pull, [0.0, -SNITCH_CRY, 0.0], p_lev, v_lev, T4['pull'], T4['level'])
+    for t in range(T4['pull'] + 4, T4['level'] + 1, 4):
+        v.at(t, pull(t))
+    p_hov = [cx + 3.8, 3.0, cz + 38.5]
+    level = hermite(p_lev, v_lev, p_hov, [0.0, 0.0, 0.0], T4['level'], T4['hover'])
+    for t in range(T4['level'] + 4, T4['hover'], 4):
+        v.at(t, level(t))
+    v.at(T4['hover'], p_hov, 'in_out').at(sc.L, p_hov, 'in_out')
+    v.hover.append((T4['hover'], sc.L, 0.0))
+    sc.notes['viewer_line'] = {'y': y_line, 'pull': pull, 'level': level, 'hover': p_hov}
+    # ---- the rival Seeker: on round, then the column beside the boy, catching him up; he pulls out first
+    r = F_['r_s']
+    follow(F_, 'r_s', carry('r_s'), 0, 112, 10, 'spline')
+    r_top = [cx - 1.3, 64.6, cz]
+    r.at(140, [-18.0, 62.0, 42.5]).at(T4['r_top'], r_top)
+    y_r = lambda t: y_line(t) + 7.5 * (1.0 - smooth((t - T4['r_top']) / 40.0)) if t >= T4['dive_full'] else None
+    for t in range(T4['r_top'] + 6, T4['r_pull'] + 1, 6):
+        yy = y_r(t) if t >= T4['dive_full'] else r_top[1] - (r_top[1] - y_r(T4['dive_full'])) * smooth(
+            (t - T4['r_top']) / float(T4['dive_full'] - T4['r_top']))
+        r.at(t, [cx - 1.3, yy, cz])
+    rp = [cx - 1.3, y_r(T4['r_pull']), cz]
+    rpe = add(rp, [-1.5, -5.0, -9.0])
+    rpull = hermite(rp, [0.0, -SNITCH_CRY, 0.0], rpe, [0.0, 0.15, -0.6], T4['r_pull'], T4['r_pull_end'])
+    for t in range(T4['r_pull'] + 4, T4['r_pull_end'] + 1, 4):
+        r.at(t, rpull(t))
+    r.at(270, [cx - 3.0, 16.0, cz - 30.0]).at(320, [cx - 1.0, 21.0, cz - 46.0])
+    r.at(370, [cx + 2.0, 22.0, cz - 50.0], 'in_out').at(sc.L, [cx + 2.5, 22.4, cz - 50.5], 'in_out')
+    r.hover.append((370, sc.L, 0.0))
+    sc.notes['rival_pull'] = T4['r_pull']
+    # ---- the rest: the game goes on round them; once he has it his own team swoops in round him
+    ring = ['o_c1', 'o_c2', 'o_c3', 'o_b1', 'o_b2']
+    for aid in OWN + RIV:
+        if aid in ('viewer', 'r_s'):
+            continue
+        f = F_[aid]
+        if aid in ('o_k', 'r_k'):
+            p = (final_state(match_scene, 'broom_' + aid)['pos'] if match_scene else
+                 [0.0, 46.0, -100.0] if aid == 'o_k' else [0.0, 48.0, 101.0])
+            f.at(0, p, 'in_out').at(sc.L, add(p, [0.6, 0.2, 0.0]), 'in_out')
+            f.hover.append((0, sc.L, 0.0 if aid == 'o_k' else 180.0))
+            continue
+        if aid in ring:
+            k = ring.index(aid)
+            follow(F_, aid, carry(aid), 0, T4['catch'] + 30, 10, 'spline')
+            th = math.radians(200 + 72 * k)
+            slot = [p_hov[0] + 6.2 * math.cos(th), p_hov[1] + 0.6 + 0.5 * (k % 3), p_hov[2] + 6.2 * math.sin(th)]
+            t0 = T4['catch'] + 30
+            gl = hermite(carry(aid)(t0), sub(carry(aid)(t0 + 1), carry(aid)(t0)), slot, [0.0, 0.0, 0.0], t0,
+                         T4['ring'] + 10)
+            for t in range(t0 + 6, T4['ring'] + 10, 6):
+                f.at(t, gl(t))
+            f.at(T4['ring'] + 10, slot, 'in_out').at(sc.L, add(slot, [0.0, 0.3, 0.0]), 'in_out')
+            f.hover.append((T4['ring'], sc.L, unwrap(yaw_to(p_hov[0] - slot[0], p_hov[2] - slot[2]), 0.0)))
+        else:
+            follow(F_, aid, carry(aid), 0, sc.L, 10, 'spline')
+    for f in F_.values():
+        f.build()
+    snitch_viewer(sc, F_)
+    snitch_ball(sc, F_)
+    snitch_riders(sc, F_)
+    for f in F_.values():
+        refresh(f.a, f.rig)
+    snitch_camera(sc, F_)
+    snitch_sound(sc, F_, h)
+    storm(sc, 'snitch')
+    score(sc, '_snitch')
+    sc.ev(T4['close'], 'effect', 'eyes_close', at=[0, 0, 0], duration=40)
+    scene = sc.scene(pitch_set(), QP.RADIUS, end_action='wake')
+    sc.notes.update(extra_checks=[('crowd gap', check_crowd_gap), ('reactions', check_reactions),
+                                  ('snitch framed', check_snitch_seen)],
+                    dives=[('broom_viewer', 'viewer', T4['pull'] - 10, T4['catch'] + 20, 0.0),
+                           ('broom_r_s', 'r_s', T4['r_pull'] - 10, T4['r_pull_end'] + 10, 0.0)],
+                    ball_paths=[('snitch', [T4['catch']])])
+    return sc, scene
+
+
+def snitch_viewer(sc, F_):
+    """His right hand forward off the handle for the catch; the Snitch in it from the catch; held up high."""
+    V = view(sc)
+    f = F_['viewer']
+    T_C = T4['catch']
+    r = reach(sc, f.a, f.rig, 'right_arm', T4['fp'][0] - 18, T_C - 2,
+              arm_target(V, f.a, f.b.id, T_C - 2, [-0.12, -0.04, 1.0]))
+    assert r < 0.05, r
+    r = reach(sc, f.a, f.rig, 'right_arm', T4['raise'][0], T4['raise'][1],
+              arm_target(V, f.a, f.b.id, T4['raise'][1], [-0.18, 1.0, 0.12]))
+    assert r < 0.06, r
+    refresh(f.a, f.rig)
+    f.a['actions'] = [{'t': T_C, 'do': 'hold', 'item': SNITCH_ITEM}]
+    sc.notes['catch_hand'] = hand(V, f.a, 'right_arm', T_C)
+
+
+def snitch_ball(sc, F_):
+    """The Snitch: fluttering low by the foot of the column, then away low across the grass just ahead of him,
+    closing into his hand at the catch (parked the same tick, the item in his hand)."""
+    V = view(sc)
+    cx, cz = sc.notes['column']
+    T_C = T4['catch']
+    va = F_['viewer'].a
+    base = [cx + 2.0, 3.2, cz + 2.5]
+    hov = lambda t: [base[0] + 1.2 * math.sin(0.11 * t), base[1] + 0.5 * math.sin(0.17 * t + 1.0),
+                     base[2] + 1.0 * math.cos(0.13 * t)]
+    hn = lambda t: hand(V, va, 'right_arm', t)
+    tb = 226
+    d0 = sub(hov(tb), hn(tb))
+    fwd = norm(sub(hn(T_C), hn(T_C - 10)))
+
+    def chase(t):
+        u = (t - tb) / float(T_C - tb)
+        g = 1.0 - smoother(u)
+        bump = math.sin(math.pi * u) * 3.0
+        wig = 0.25 * math.sin(0.9 * t) * math.sin(math.pi * u)
+        return [hn(t)[i] + d0[i] * g + fwd[i] * bump + (wig if i == 1 else 0.0) for i in range(3)]
+    k = Keys().at(0, hov(0))
+    for t in range(3, tb, 3):
+        k.at(t, hov(t), 'spline')
+    blend = lambda t: lerp(hov(t), chase(t), smooth((t - tb) / 10.0))
+    for t in range(tb, T_C - 1, 2):
+        k.at(t, blend(t) if t < tb + 10 else chase(t), 'spline')
+    k.at(T_C - 0.25, sc.notes['catch_hand'], 'linear')
+    k.at(T_C, PARK_PITCH, 'linear')
+    sc.actor({'id': 'snitch', 'type': SNITCH, 'path': k.k})
+    sc.contacts.append(('viewer: his hand closes on the Snitch', 'viewer', 'right_arm', T_C,
+                        ('ball', 'snitch', T_C - 0.25), 'catch'))
+    sc.notes['snitch_hover'] = hov
+
+
+def snitch_riders(sc, F_):
+    V = view(sc)
+    sn = lambda t: ball_world(V, 'snitch', min(t, T4['catch'] - 1))
+    vl = F_['viewer'].a['look']
+    rnd = random.Random('scan2')
+    t = 8
+    while t < 92:
+        vl.append({'t': t, 'yaw': round(rnd.uniform(-50, 50), 1), 'pitch': round(rnd.uniform(5, 25), 1),
+                   'ease': 'spline'})
+        t += rnd.randint(28, 40)
+    vl.append({'t': 96, 'yaw': vl[-1]['yaw'], 'pitch': vl[-1]['pitch']})
+    aim_rider(sc, 'viewer', vl, 104, T4['fp'][0] - 8, sn, step=10, max_pitch=70.0)
+    vl.append({'t': T4['fp'][0] - 2, 'yaw': -4.0, 'pitch': 6.0})
+    vl.append({'t': T4['fp'][1] + 6, 'yaw': -4.0, 'pitch': 6.0})
+    aim_rider(sc, 'viewer', vl, T4['raise'][0], T4['raise'][1] + 20,
+              lambda t: hand(V, F_['viewer'].a, 'right_arm', t), step=10, max_pitch=60.0)
+    rl = F_['r_s'].a['look']
+    aim_rider(sc, 'r_s', rl, 120, T4['r_pull'], sn, step=10, max_pitch=70.0)
+    boy = lambda t: E.rider_eye(V, F_['viewer'].a, t)
+    for aid, f in F_.items():
+        if aid in ('viewer', 'r_s'):
+            continue
+        aim_rider(sc, aid, f.a['look'], 20, sc.L - 4, boy, step=18, gain=0.7)
+
+
+def snitch_sound(sc, F_, h):
+    T_C = T4['catch']
+    sc.say(T4['seeker'], 'flying_comm_seeker')
+    sc.sfx(64, 'snitch_flutter', 0.5, loop=True, duration=T_C - 64)
+    sc.sfx(T_C, 'quaffle_catch', 0.5, hit=T_C, label='the Snitch caught')
+    sc.sfx(T_C + 1, 'crowd_erupt', 1.0)
+    for o in HOUSES:
+        if o != rival(h):
+            react(sc, T_C + 2, o, 'erupt', ('catch', T_C), 200)
+    react(sc, T_C + 4, rival(h), 'sit', ('catch', T_C))
+    sc.sfx(T_C + 80, 'crowd_chant', 0.8)
+    react(sc, T_C + 220, h, 'chant', ('chant', T_C + 220), 160)
+
+
+def check_snitch_seen(sc, scene, problems):
+    """The Snitch is in the 16:9 frame for at least 0.6 s (12 ticks running) before the dive begins."""
+    best, run = 0, 0
+    for t in range(0, T4['top'] + 1):
+        c = E.engine_cam(scene['camera'], t)
+        lk, fov = E.engine_look(scene, scene['camera'], t)
+        p = ball_world(scene, 'snitch', t)
+        if E.in_view(c, lk, fov, p, aspect=16 / 9.0) and math.dist(c, p) < 12.0:
+            run += 1
+            best = max(best, run)
+        else:
+            run = 0
+    if best < 12:
+        problems.append('%s: the Snitch is in frame only %d ticks running before the dive' % (sc.sid, best))
+    return best
+
+
+def snitch_camera(sc, F_):
+    V = view(sc)
+    eye = lambda aid: (lambda t: E.rider_eye(V, F_[aid].a, t))
+    cx, cz = sc.notes['column']
+    vlin = sc.notes['viewer_line']
+    p_hov = vlin['hover']
+    sn = sc.notes['snitch_hover']
+    T_C = T4['catch']
+    # S1 0-3.2 high over the game, behind the boy as he circles, hunting
+    cam, s_v, h_v = follow_cam(eye('viewer'), lambda t: [-4.5, 1.2, 1.4], 16.0, sc.L)
+    sc.shot(0, 64, cam, lambda t: add(add(s_v(t), h_v(t), 14.0), [0.0, -3.0, 0.0]), const(64.0), 4)
+    # S2 3.2-5.2 the glint: low by the foot of the column, the Snitch hangs in the rain, a flash of gold
+    sp = smoothed(sn, 6.0)
+    pf = move([cx + 4.4, 3.9, cz + 0.6], [cx + 4.3, 3.85, cz + 0.8], 64, 104)
+    sc.shot(64, 104, pf, sp, ramp(38.0, 34.0, 64, 104), 4)
+    # S3 5.2-7.1 his face: he has seen it
+    cam, s_v, h_v = follow_cam(eye('viewer'), lambda t: [1.8, 0.15, 0.7], 14.0, sc.L)
+    sc.shot(104, 128, cam, s_v, ramp(46.0, 42.0, 104, 128), 4)
+    # S4 7.1-9 from the grass at the foot of the column, looking straight up it: he tips over and comes down at us
+    pf = move([cx + 6.5, 1.3, cz + 6.0], [cx + 6.4, 1.35, cz + 5.9], 128, 180)
+    sc.shot(128, 180, pf, smoothed(lambda t: lerp(eye('viewer')(t), [cx, 30.0, cz], 0.3), 8.0),
+            ramp(70.0, 66.0, 142, 180), 4)
+    # S5 9-10.8 falling beside them: the two Seekers side by side down the column, the grass rushing up
+    mid = lambda t: lerp(eye('viewer')(t), eye('r_s')(t), 0.5)
+    ym = smoothed(lambda t: [0.0, vlin['y'](t), 0.0], 6.0)
+    sc.shot(180, 216, lambda t: [cx + 0.3, ym(t)[1] + 1.4, cz + 5.6], smoothed(mid, 6.0), const(64.0), 4)
+    # S6 10.8-12.3 out of the dive just over the grass, the rival peeling away above
+    pf = move([cx + 6.0, 0.9, cz + 14.0], [cx + 6.1, 0.92, cz + 14.2], 216, 246)
+    sc.shot(216, 246, pf, smoothed(eye('viewer'), 9.0), ramp(60.0, 64.0, 216, 246), 4)
+    # S7 12.3-14.7 FIRST PERSON: skimming the grass, the Snitch just ahead, his hand closes on it
+    vb_ = E.actor_by_id(V, 'broom_viewer')
+    ahead = [-0.14, math.sin(math.radians(-30.0)), math.cos(math.radians(-30.0))]
+    eye_v = lambda t: head_eye(V, E.actor_by_id(V, 'viewer'), t, 0.12)
+    aim = smoothed(lambda t: add(eye_v(t), E._mat_vec(E.broom_pose(V, vb_, t)['m'], ahead), 4.0), 5.0)
+    first_person(sc, V, 'viewer', T4['fp'][0], T4['fp'][1], fwd=0.12, fov=78.0, look_fn=aim, sigma=1.5)
+    # S8 14.7-18.5 he slows over the grass and lifts it up to the stands as they erupt
+    e_h = [p_hov[0], p_hov[1] + 0.95, p_hov[2]]
+    pf = move(add(e_h, [-3.6, -0.3, 4.6]), add(e_h, [-3.9, -0.2, 4.0]), 294, 370)
+    sc.shot(294, 370, pf, smoothed(eye('viewer'), 6.0), ramp(52.0, 48.0, 294, 370), 6)
+    # S9 18.5-23 his team swoops in round him
+    pf = move(add(e_h, [12.0, 3.0, -4.0]), add(e_h, [11.0, 3.4, -1.5]), 370, 460)
+    sc.shot(370, 460, pf, const(add(e_h, [0.0, 0.6, 0.0])), ramp(58.0, 54.0, 370, 460), 6)
+    # S10 23-28 the crane up and out: the stands on their feet in the storm
+    pf = move(add(e_h, [5.0, 1.0, 7.0]), add(e_h, [17.0, 22.0, 22.0]), 460, 560)
+    sc.shot(460, 560, pf, const(add(e_h, [0.0, 0.5, 0.0])), ramp(56.0, 74.0, 460, 560), 6)
+    # S11 28-34 closer, among them: the Snitch held high
+    pf = move(add(e_h, [-4.6, 1.8, -2.6]), add(e_h, [-4.3, 1.9, -1.9]), 560, 680)
+    sc.shot(560, 680, pf, const(add(e_h, [0.0, 0.5, 0.0])), ramp(50.0, 46.0, 560, 680), 8)
+    # S12 34-40 his face, the rain on it, a slow push in as the memory closes
+    pf = move(add(e_h, [0.55, 0.05, 1.75]), add(e_h, [0.42, 0.03, 1.3]), 680, sc.L)
+    sc.shot(680, sc.L, pf, const(e_h), ramp(46.0, 40.0, 680, sc.L), 8)
+    whoosh(sc, 'broom_viewer', 216, 246)
+    E_ = lambda aid: (lambda sc_, t: E.rider_eye(sc_, E.actor_by_id(sc_, aid), t))
+    sc.framing += [(4, 60, E_('viewer'), 'the boy hunting (S1)'),
+                   (66, 102, lambda sc_, t: ball_world(sc_, 'snitch', t), 'the Snitch (S2)'),
+                   (108, 126, E_('viewer'), 'his face (S3)'), (150, 178, E_('viewer'), 'the dive (S4)'),
+                   (184, 212, E_('viewer'), 'the boy diving (S5)'), (184, 212, E_('r_s'), 'the rival diving (S5)'),
+                   (226, 244, E_('viewer'), 'the pull-out (S6)'),
+                   (T4['fp'][0] + 2, T_C - 2, lambda sc_, t: ball_world(sc_, 'snitch', t), 'the Snitch (S7)'),
+                   (T_C - 3, T_C + 6, lambda sc_, t: hand(sc_, E.actor_by_id(sc_, 'viewer'), 'right_arm', t), 'his hand (S7)'),
+                   (298, 368, E_('viewer'), 'the boy (S8)'),
+                   (T4['raise'][1], 368, lambda sc_, t: hand(sc_, E.actor_by_id(sc_, 'viewer'), 'right_arm', t), 'the Snitch held up (S8)'),
+                   (374, 458, E_('viewer'), 'the boy (S9)'), (562, 678, E_('viewer'), 'the boy (S11)'),
+                   (684, T4['close'], E_('viewer'), 'his face (S12)')]
+
+
+# ================================================================ the chain: wiring, budget, sizes, mirrors
+ENGINE_NAMES = {n for n in dir(E) if callable(getattr(E, n)) and not n.startswith('_')}
+
+
+def check_mirrors(src, problems):
+    """Assert 1: every camera, look, eye, pose, rider and broom position comes from scene_engine: this generator
+    defines no function of the engine's own names (a private copy of a mirror)."""
+    import re
+    own = set(re.findall(r'^def ([a-z_0-9]+)\(', src, re.M))
+    clash = sorted(own & ENGINE_NAMES)
+    if clash:
+        problems.append('flying_scene.py defines private copies of engine mirrors: %s' % ', '.join(clash))
+    return len(own)
+
+
+def check_chain(scenes, problems):
+    """Assert 10, wiring: every house's four scenes exist and hand over in order, the first opens on eyes_open at t 0,
+    the Snitch scene ends in a wake on shut lids; no next anywhere else."""
+    for h in HOUSES:
+        ids = ['flying_' + h, 'flying_%s_chase' % h, 'flying_%s_match' % h, 'flying_%s_snitch' % h]
+        for i, sid in enumerate(ids):
+            s = scenes.get(sid)
+            if s is None:
+                problems.append('%s is missing' % sid)
+                continue
+            want = ids[i + 1] if i < 3 else None
+            if s.get('next') != want:
+                problems.append('%s hands over to %s, not %s' % (sid, s.get('next'), want))
+            if (s.get('end_action') == 'wake') != (i == 3):
+                problems.append('%s end_action %s' % (sid, s.get('end_action')))
+        first = scenes.get(ids[0])
+        if first and not any(e['id'] == 'eyes_open' and e['t'] == 0 for e in first['events']):
+            problems.append('%s does not open on eyes_open at t 0' % ids[0])
+        last = scenes.get(ids[3])
+        if last and not any(e['id'] == 'eyes_close' and e['t'] + e.get('duration', 40) <= last['length']
+                            for e in last['events']):
+            problems.append('%s does not end on shut lids' % ids[3])
+
+
+def template_blocks(name):
+    from scene_common import template_grid
+    return sum(1 for s in template_grid(name).values() if not s.startswith('minecraft:air'))
+
+
+def check_budget(scenes, problems, counts):
+    """The build budget: the lawn scenes' set (template + castle) at most 100,000 blocks, built at the opening; the
+    pitch set is built as a standby during the chase and the match, each at least twice its build ticks."""
+    lawn = counts['flying_lawn'] + counts['castle']
+    pitch = counts['quidditch_pitch'] + counts['castle']
+    ticks = int(math.ceil(pitch / 4000.0))
+    if lawn > 100000:
+        problems.append('the lawn set is %d blocks (at most 100,000)' % lawn)
+    for h in HOUSES:
+        for sid in ('flying_%s_chase' % h, 'flying_%s_match' % h):
+            if scenes[sid]['length'] < 2 * ticks:
+                problems.append('%s lasts %d ticks, under twice the pitch build (2 x %d)' % (sid, scenes[sid]['length'],
+                                                                                       ticks))
+    return lawn, pitch, ticks
+
+
+def check_size(sid, txt, problems):
+    n, b = len(txt), len(txt.encode('utf-8'))
+    if n > MAX_JSON or b >= 1000000:
+        problems.append('%s is %d characters, %d bytes' % (sid, n, b))
+    return n
+
+
+def build_all(lawn, pitch_w, pitch_a):
+    """All sixteen scenes: {id: (sc, scene)}."""
+    set_pitch(pitch_a, pitch_w)
+    out = {}
+    for h in HOUSES:
+        MATCH_FUNCS.clear()
+        sc1, s1 = lesson(h, lawn)
+        sc2, s2 = chase(h, lawn, s1)
+        sc3, s3 = match(h, pitch_w, s2)
+        sc4, s4 = snitch_scene(h, pitch_w, s3)
+        for sc, s in ((sc1, s1), (sc2, s2), (sc3, s3), (sc4, s4)):
+            sc.cam_world = cam_world(lawn if sc.notes.get('lawn') else pitch_w)
+            out[sc.sid] = (sc, s)
+    return out
+
+
+def worlds():
+    w, _ = FL.build_world()
+    lawn = dict(w.g)
+    lawn.update(FL.CASTLE)
+    pw = {}
+    pa = QP.build(pw)
+    return lawn, pw, pa
+
+
+def bites(built, lawn, pitch_w):
+    """Each assert shown to bite: one mutation of the emitted JSON (or the source) per assert, which must give it a
+    problem. Returns [(assert, problems the mutation raised)]."""
+    out = []
+
+    def bite(name, sid, mutate, run):
+        sc, s = built[sid]
+        m = copy.deepcopy(s)
+        sc2 = copy.copy(sc)
+        sc2.notes = dict(sc.notes)
+        mutate(m, sc2)
+        P = []
+        run(sc2, m, P)
+        out.append((name, len(P), P[0] if P else None))
+        assert P, 'the %s assert did not bite' % name
+    h = 'gryffindor'
+    L1_, L2_, L3_, L4_ = ('flying_' + h, 'flying_%s_chase' % h, 'flying_%s_match' % h, 'flying_%s_snitch' % h)
+    src = open(os.path.abspath(__file__), encoding='utf-8').read()
+    P = []
+    check_mirrors(src + '\ndef track_sample(keys, t):\n    pass\n', P)
+    out.append(('1 mirrors (a private track_sample)', len(P), P[0] if P else None))
+    assert P
+
+    def run_keys(i, ease):
+        def f(m, sc):
+            for k in m['camera'][i:i + 3]:
+                k['ease'] = ease
+        return f
+    bite('2 spline moves (three linear keys)', L1_, run_keys(5, 'linear'),
+         lambda sc, m, P: E.check_spline_moves(sc.sid, m, P))
+
+    def kink(m, sc):
+        m['camera'][6]['pos'] = [m['camera'][6]['pos'][0] + 0.4] + m['camera'][6]['pos'][1:]
+    bite('3 smoothness (a key 0.4 off its line)', L1_, kink, lambda sc, m, P: E.check_camera_smoothness(sc.sid, m, P))
+
+    def into_head(m, sc):
+        k = next(k for k in m['camera'] if k['t'] >= 140 and not k.get('cut'))
+        a = E.actor_by_id(m, 'hooch')
+        k['pos'] = r4(head_eye(m, a, k['t'], 0.0))
+    bite('4 clearance (a camera key in Hooch\'s head)', L1_, into_head, lambda sc, m, P: check_clearance(sc, m, P))
+
+    def into_ground(m, sc):
+        k = next(k for k in m['camera'] if k['t'] >= 140)
+        k['pos'] = [k['pos'][0], -1.5, k['pos'][2]]
+    bite('4 camera air (a key in the ground)', L1_, into_ground, lambda sc, m, P: check_camera_air(sc, m, P))
+
+    def drift_ball(m, sc):
+        tc = sc.notes['T']['c1_catch']
+        q = E.actor_by_id(m, 'quaffle_1')
+        k = next(k for k in q['path'] if abs(k['t'] - tc) < 1e-6)            # its offset in c1's broom frame
+        k['pos'] = [k['pos'][0] + 0.4] + k['pos'][1:]
+    bite('5 hand contacts (the Quaffle 0.4 off c1\'s hand)', L3_, drift_ball, lambda sc, m, P: check_contacts(sc, m, P))
+
+    def late_item(m, sc):
+        a = E.actor_by_id(m, 'malfoy')
+        x = next(x for x in a['actions'] if x['do'] == 'hold' and x.get('item') == REMEMBRALL_ITEM)
+        x['t'] += 3
+    bite('6 held items (Malfoy takes it 3 ticks late)', L2_, late_item, lambda sc, m, P: check_items(sc, m, P))
+
+    def late_goal(m, sc):
+        tg = sc.notes['goal_tick']
+        sc.reactions = [(t + 15 if c[0] == 'goal' else t, st, hh, c) for t, st, hh, c in sc.reactions]
+    bite('7 crowd timing (the goal roar 0.75 s late)', L3_, late_goal, lambda sc, m, P: check_reactions(sc, m, P))
+
+    def late_crack(m, sc):
+        sc.sfx_hits = [(n, t + (4 if n == 'bludger_crack' else 0), hit, lab) for n, t, hit, lab in sc.sfx_hits]
+    bite('7 sound timing (the crack 4 ticks late)', L3_, late_crack, lambda sc, m, P: check_sfx_hits(sc, m, P))
+
+    def early_twitch(m, sc):
+        b = E.actor_by_id(m, 'broom_e0')
+        b['path'].insert(1, {'t': 60, 'pos': [b['path'][0]['pos'][0], b['path'][0]['pos'][1] + 0.1,
+                                              b['path'][0]['pos'][2]]})
+    bite('7 actions in their moment (a broom stirs before its Up!)', L1_, early_twitch,
+         lambda sc, m, P: check_moments_lesson(sc, m, P))
+
+    def into_stand(m, sc):
+        b = E.actor_by_id(m, 'broom_o_c2')
+        k = next(k for k in b['path'] if k['t'] >= 900)
+        k['pos'] = [86.0, 15.0, 0.0]
+    bite('8 fliers (a broom into the east stand)', L3_, into_stand, lambda sc, m, P: check_fliers(sc, m, P))
+
+    def low_dive(m, sc):
+        b = E.actor_by_id(m, 'broom_viewer')
+        for k in b['path']:
+            if T4['pull'] <= k['t'] <= T4['level'] + 8:
+                k['pos'] = [k['pos'][0], k['pos'][1] - 1.2, k['pos'][2]]
+    bite('8 the dive (pulled out 1.2 lower)', L4_, low_dive, lambda sc, m, P: check_dives(sc, m, P))
+
+    def jolt_ride(m, sc):
+        a = E.actor_by_id(m, 'malfoy')
+        tm = a['ride']['from']
+        k = next(k for k in a['path'] if abs(k['t'] - (tm - 0.001)) < 1e-6)
+        k['pos'] = [k['pos'][0] + 0.1] + k['pos'][1:]
+    bite('9 ride windows (Malfoy mounts 0.1 off the seat)', L2_, jolt_ride, lambda sc, m, P: check_rides(sc, m, P))
+
+    def miswire(m, sc):
+        m['next'] = 'flying_%s_snitch' % h
+    def chain_run(sc, m, P):
+        sc_all = {k: v[1] for k, v in built.items()}
+        sc_all[L2_] = m
+        check_chain(sc_all, P)
+    bite('10 wiring (the chase hands over to the Snitch)', L2_, miswire, chain_run)
+
+    def onto_seat(m, sc):
+        e = next(e for e in m['events'] if e['id'] == 'crowd')
+        p = E.crowd_seats(e)[0][0]
+        a = E.actor_by_id(m, 'hooch')
+        a['path'] = [{'t': 0, 'pos': [p[0], p[1], p[2]]}]
+    bite('crowd seats (Hooch on a seat)', L3_, onto_seat, lambda sc, m, P: check_crowd_gap(sc, m, P))
+
+    def wide_shot(m, sc):
+        q = E.actor_by_id(m, 'quaffle_3')
+        for k in q['path']:
+            if sc.notes['T']['shot'] < k['t'] < 0.5 + sc.notes['T']['ring'] + 30:
+                k['pos'] = [k['pos'][0] + 2.7] + k['pos'][1:]
+    bite('Quaffle ring margin (the shot 2.7 wide)', L3_, wide_shot, lambda sc, m, P: check_quaffle_ring(sc, m, P))
+
+    def look_away(m, sc):
+        for k in m['camera']:
+            if 64 <= k['t'] <= 104:
+                k['look_at'] = [0.0, 30.0, -60.0]
+    bite('the Snitch seen before the dive (S2 looking away)', L4_, look_away, lambda sc, m, P: check_snitch_seen(sc, m, P))
+
+    def lift_broom(m, sc):
+        b = E.actor_by_id(m, 'broom_e0')
+        b['path'][0]['pos'] = [b['path'][0]['pos'][0], b['path'][0]['pos'][1] + 0.2, b['path'][0]['pos'][2]]
+    bite('lying brooms (one 0.2 off the grass)', L1_, lift_broom, lambda sc, m, P: check_lying(sc, m, P))
+
+    def jump_rem(m, sc):
+        r = E.actor_by_id(m, 'remembrall')
+        i = next(i for i, k in enumerate(r['path']) if k['t'] > sc.notes['throw'] + 10)
+        k = r['path'][i]
+        r['path'].insert(i + 1, {'t': k['t'] + 0.3, 'pos': [k['pos'][0] + 3.0] + k['pos'][1:], 'ease': 'linear'})
+    bite('the Remembrall\'s path (a 3-block jump in flight)', L2_, jump_rem,
+         lambda sc, m, P: check_ball_path(sc, m, P, 'remembrall', [sc.notes['malfoy_pick'], sc.notes['throw'],
+                                                                   sc.notes['catch']]))
+
+    def short_chase(m, sc):
+        m['length'] = 100
+    def budget_run(sc, m, P):
+        sc_all = {k: v[1] for k, v in built.items()}
+        sc_all[L2_] = m
+        check_budget(sc_all, P, COUNTS)
+    bite('build budget (a 5 s chase)', L2_, short_chase, budget_run)
+    return out
+
+
+COUNTS = {}
+
+
+def main():
+    import time
+    t0 = time.time()
+    bite_only = '--bite' in sys.argv
+    lawn, pw, pa = worlds()
+    COUNTS.update(flying_lawn=template_blocks('flying_lawn'), quidditch_pitch=template_blocks('quidditch_pitch'),
+                  castle=len(QP.schematic_cells()[0]))
+    built = build_all(lawn, pw, pa)
+    print('built %d scenes in %.0f s' % (len(built), time.time() - t0))
+    problems = []
+    check_mirrors(open(os.path.abspath(__file__), encoding='utf-8').read(), problems)
+    scenes = {k: v[1] for k, v in built.items()}
+    check_chain(scenes, problems)
+    lawn_n, pitch_n, ticks = check_budget(scenes, problems, COUNTS)
+    print('sets: lawn %d blocks (cap 100,000), pitch %d blocks = %d build ticks (chase and match at least %d)' % (
+        lawn_n, pitch_n, ticks, 2 * ticks))
+    if bite_only:
+        for name, n, first in bites(built, lawn, pw):
+            print('  bites: %-58s %d problem(s), e.g. %s' % (name, n, (first or '')[:110]))
+        return
+    from scene_common import write_scene
+    worst = {}
+    for sid in sorted(built):
+        sc, s = built[sid]
+        nums = run_checks(sc, s, lawn if sc.notes.get('lawn') else pw)
+        problems += nums.pop('problems')
+        txt = write_scene(s, sid)
+        n = check_size(sid, txt, problems)
+        print('%-28s %5.1f s  %7d chars  md5 %s' % (sid, s['length'] / 20.0, n, hashlib.md5(txt.encode('utf-8')).hexdigest()))
+        for k, v in nums.items():
+            print('    %-16s %s' % (k, v if not isinstance(v, float) else round(v, 5)))
+        worst[sid] = nums
+    print('%.0f s' % (time.time() - t0))
+    assert not problems, '\n'.join(problems[:80]) + '\n%d problems' % len(problems)
+    print('0 problems')
+
+
+if __name__ == '__main__':
+    main()

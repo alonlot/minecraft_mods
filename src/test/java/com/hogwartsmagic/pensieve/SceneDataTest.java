@@ -398,4 +398,73 @@ class SceneDataTest {
         }
         assertTrue(def.actors().stream().anyMatch(a -> "hogwartsmagic:golden_snitch".equals(a.type())));
     }
+
+    private static final List<String> HOUSES = List.of("gryffindor", "hufflepuff", "ravenclaw", "slytherin");
+
+    private static com.google.gson.JsonObject scene(String id) throws IOException {
+        Path f = MEMORIES.resolve(id + ".json");
+        assertTrue(Files.exists(f), id + ".json is missing");
+        return JsonParser.parseString(read(f)).getAsJsonObject();
+    }
+
+    /**
+     * The Flying memory (build_scripts/pensieve_scenes/flying_scene.py) ships a whole chain for every house:
+     * flying_h, then _chase, _match and _snitch, wired by next in that order, opening on eyes_open at t 0 and
+     * ending in a wake (FlyingMemory.sceneFor and SNITCH_SUFFIX name the first and the last).
+     */
+    @Test
+    void everyHouseHasAFlyingChain() throws Exception {
+        for (String h : HOUSES) {
+            String[] chain = {"flying_" + h, "flying_" + h + "_chase", "flying_" + h + "_match", "flying_" + h + "_snitch"};
+            for (int i = 0; i < chain.length; i++) {
+                com.google.gson.JsonObject s = scene(chain[i]);
+                SceneDef def = SceneParser.parse(chain[i], s);
+                if (i < chain.length - 1) {
+                    assertEquals(chain[i + 1], def.next(), chain[i] + " hands over to the next scene of the chain");
+                    assertFalse(s.has("end_action"), chain[i] + " does not end the memory");
+                } else {
+                    assertEquals(null, def.next(), chain[i] + " is the end of the chain");
+                    assertEquals("wake", s.get("end_action").getAsString(), chain[i] + " ends in a wake");
+                }
+            }
+            boolean opens = false;
+            for (var e : scene(chain[0]).getAsJsonArray("events")) {
+                var o = e.getAsJsonObject();
+                if (o.get("id").getAsString().equals("eyes_open") && o.get("t").getAsDouble() == 0) opens = true;
+            }
+            assertTrue(opens, chain[0] + " opens on eyes_open at t 0");
+            assertEquals(com.hogwartsmagic.pensieve.FlyingMemory.sceneFor(
+                    com.hogwartsmagic.sorting.HogwartsHouse.valueOf(h.toUpperCase(java.util.Locale.ROOT))), chain[0]);
+        }
+    }
+
+    /**
+     * The opponent: a Slytherin's chain plays Gryffindor, every other house's plays Slytherin. In the match and the
+     * Snitch scenes every rival player (ids r_...) wears the rival house's robes and a student skin of that house,
+     * and every one of the boy's team (o_...) his own.
+     */
+    @Test
+    void slytherinFacesGryffindor() throws Exception {
+        for (String h : HOUSES) {
+            String rival = h.equals("slytherin") ? "gryffindor" : "slytherin";
+            for (String part : List.of("_match", "_snitch")) {
+                int rivals = 0;
+                for (var e : scene("flying_" + h + part).getAsJsonArray("actors")) {
+                    var a = e.getAsJsonObject();
+                    String id = a.get("id").getAsString();
+                    if (!a.get("type").getAsString().equals("player")) continue;
+                    String team = id.startsWith("r_") ? rival : id.startsWith("o_") || id.equals("viewer") ? h : null;
+                    if (team == null) continue;
+                    assertEquals("hogwartsmagic:" + team + "_robes",
+                            a.getAsJsonObject("items").get("chest").getAsString(), h + part + " " + id);
+                    if (!id.equals("viewer")) {
+                        assertTrue(a.getAsJsonObject("skin").get("texture").getAsString()
+                                .startsWith("student_" + team + "_"), h + part + " " + id);
+                    }
+                    if (team.equals(rival)) rivals++;
+                }
+                assertEquals(7, rivals, h + part + ": seven rival players");
+            }
+        }
+    }
 }

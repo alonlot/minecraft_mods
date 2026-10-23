@@ -1176,6 +1176,7 @@ public class ExampleMod
         event.enqueueWork(com.hogwartsmagic.pensieve.WandMemory::register);
         event.enqueueWork(com.hogwartsmagic.pensieve.LetterMemory::register);
         event.enqueueWork(com.hogwartsmagic.pensieve.FlyingMemory::register);
+        event.enqueueWork(com.hogwartsmagic.pensieve.FirstTaskMemory::register);
     }
 
     /**

@@ -100,6 +100,9 @@ public final class SerpensortiaSpell {
         if (!SerpensortiaRules.parseltongue(SpellMasteryData.getRank(player, SpellType.SERPENSORTIA))) {
             return;
         }
+        if (CombatEffects.isCastingBlocked(player)) {
+            return; // stunned or silenced: no Parseltongue either
+        }
         CompoundTag data = player.getPersistentData();
         long now = player.level().getGameTime();
         if (data.contains(TAG_LAST_COMMAND) && now - data.getLong(TAG_LAST_COMMAND) < SerpensortiaRules.COMMAND_COOLDOWN_TICKS) {

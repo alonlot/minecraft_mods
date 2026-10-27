@@ -1156,9 +1156,9 @@ Only one relic of each type can be equipped.
 - A brew scores the mean of its ingredient part (fine rare ingredients added, out of all rare ingredients added) and its stir part (precise stirs out of all stirs), counting only the parts the recipe has.
 - Rhythm: a stir is precise when it comes 10 to 30 ticks after the previous stir, or at least 10 ticks after a step that was not a stir. About one turn a second is right. A precise stir plays a chime; spam-clicked stirs do not.
 - A score of 0.5 makes the brew Fine; 0.9 makes it Exceptional. Recipes with neither rare ingredients nor stirring stay Standard. Polyjuice and the Failed Potion are not graded.
-- Fine lasts 1.5 times as long and Exceptional twice as long; amounts (healing, mana, Remorse) are 1.25 and 1.5 times. For example, Wiggenweld heals 8, 10 or 12 health.
+- Fine lasts 1.5 times as long and Exceptional twice as long; amounts (healing, mana, Remorse) are 1.25 and 1.5 times. For example, Wiggenweld heals 8, 10 or 12 health. Wiggenweld's regeneration and the Draught of Living Death's stun scale like amounts (1.25 and 1.5 times), not like durations.
 - The quality shows on the bottle's tooltip. Bottling an Exceptional potion earns an advancement.
-- Recipes without rare ingredients (Wiggenweld, the Pepperup herbs) can reach Exceptional on stirring alone; Essence of Dittany also needs fine Dittany for Exceptional (plain Dittany with steady stirs gives Fine).
+- Wiggenweld has no rare ingredient and can reach Exceptional on stirring alone; Pepperup cannot (its Mandrake Root is gradable: a plain root with perfect stirring gives Fine); Essence of Dittany also needs fine Dittany for Exceptional (plain Dittany with steady stirs gives Fine).
 
 ### Failed Potion
 

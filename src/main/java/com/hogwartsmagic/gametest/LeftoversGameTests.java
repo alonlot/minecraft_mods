@@ -101,8 +101,7 @@ public final class LeftoversGameTests {
     }
 
     /**
-     * A rogue serpent burns the mob beside it but not the protected player (the mock player is creative,
-     * and a caster-less serpent could not harm another player anyway) nor an armor stand.
+     * A rogue serpent burns the mob beside it but not the protected survival player nor an armor stand.
      */
     @GameTest(template = EMPTY, timeoutTicks = 100)
     public static void rogueSerpentSparesBystanders(GameTestHelper helper) {
@@ -112,7 +111,7 @@ public final class LeftoversGameTests {
         zombie.setHealth(zombie.getMaxHealth());
         ArmorStand stand = helper.spawn(EntityType.ARMOR_STAND, 0, 1, 1);
         stand.setNoGravity(true);
-        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        ServerPlayer player = survivalPlayerWithDarkness(helper, "Bystander", 0.0F);
         Vec3 playerAt = helper.absoluteVec(new Vec3(1.5, 1, 0.5));
         player.moveTo(playerAt.x, playerAt.y, playerAt.z);
 
@@ -132,11 +131,44 @@ public final class LeftoversGameTests {
                 serpent.discard();
                 zombie.discard();
                 stand.discard();
-                player.discard();
+                leave(helper, player);
             }
             helper.succeed();
             LOGGER.info("LEFTOVERS-GAMETEST PASS rogueSerpentSparesBystanders");
         });
+    }
+
+    /** Serpensortia cast at a survival player with PvP off leaves every snake without a player target. */
+    @GameTest(template = EMPTY, timeoutTicks = 60, batch = "leftovers_pvp")
+    public static void serpensortiaSparesPlayersWithPvpOff(GameTestHelper helper) {
+        var server = helper.getLevel().getServer();
+        boolean pvp = server.isPvpAllowed();
+        ServerPlayer caster = survivalPlayerWithDarkness(helper, "Conjurer", 0.0F);
+        com.hogwartsmagic.item.MagicBookItem.learnSpellIfAbsent(caster, com.hogwartsmagic.spell.SpellType.SERPENSORTIA);
+        ServerPlayer victim = null;
+        try {
+            victim = survivalPlayerWithDarkness(helper, "Victim", 0.0F);
+            server.setPvpAllowed(false);
+            Vec3 at = helper.absoluteVec(new Vec3(2.5, 2, 2.5));
+            int spawned = com.hogwartsmagic.spell.summon.SerpensortiaSpell.conjureAt(helper.getLevel(), at, victim, caster);
+            helper.assertTrue(spawned > 0, "the cast should conjure snakes");
+            var snakes = helper.getLevel().getEntitiesOfClass(SnakeEntity.class, new net.minecraft.world.phys.AABB(at, at).inflate(8));
+            helper.assertTrue(!snakes.isEmpty(), "the snakes should exist");
+            for (SnakeEntity snake : snakes) {
+                helper.assertTrue(!(snake.getTarget() instanceof net.minecraft.world.entity.player.Player), "a snake targeted a player with PvP off");
+                snake.setTarget(victim);
+                helper.assertTrue(snake.getTarget() != victim, "setTarget must refuse a player with PvP off");
+                snake.discard();
+            }
+        } finally {
+            server.setPvpAllowed(pvp);
+            if (victim != null) {
+                leave(helper, victim);
+            }
+            leave(helper, caster);
+        }
+        helper.succeed();
+        LOGGER.info("LEFTOVERS-GAMETEST PASS serpensortiaSparesPlayersWithPvpOff");
     }
 
     /** A conjured snake refuses its owner as a target, even when handed it directly through setTarget. */

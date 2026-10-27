@@ -140,7 +140,7 @@ public class SnakeEntity extends PathfinderMob implements OwnableEntity {
     }
 
     /**
-     * Who this snake may bite. A wild snake may bite anyone; a conjured one never its owner, the owner's
+     * Who this snake may bite. A wild snake may bite anyone; a conjured one never its owner, a player while PvP is off or the owner may not harm them, the owner's
      * other snakes or owned mobs, team-mates, ALLIED mobs (player owners) or creative/spectator players.
      */
     public boolean isFairTarget(@Nullable LivingEntity candidate) {
@@ -169,6 +169,14 @@ public class SnakeEntity extends PathfinderMob implements OwnableEntity {
             }
             if (owner instanceof Player && candidate.getTags().contains(CombatTags.ALLIED)) {
                 return false;
+            }
+            // Snake bites are mob damage, so the PvP guard never sees them: a player is only fair game
+            // while PvP is on and the owner may harm them (teams, friendly fire).
+            if (owner instanceof Player ownerPlayer && candidate instanceof Player victim) {
+                net.minecraft.server.MinecraftServer server = this.level().getServer();
+                if (server == null || !server.isPvpAllowed() || !ownerPlayer.canHarmPlayer(victim)) {
+                    return false;
+                }
             }
         }
         return true;

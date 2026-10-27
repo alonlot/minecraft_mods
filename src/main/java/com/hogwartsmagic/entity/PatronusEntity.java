@@ -239,7 +239,7 @@ public class PatronusEntity extends PathfinderMob {
         super.remove(reason);
     }
 
-    /** Night Vision for the caster and allies nearby; undead and Inferi are pushed out and forget the players. */
+    /** Night Vision for the caster and every player nearby; undead and Inferi are pushed out and forget the players. */
     private void tickMasterAura() {
         if (this.tickCount % PatronusRules.NIGHT_VISION_INTERVAL == 0) {
             net.minecraft.server.level.ServerPlayer ownerPlayer = this.resolveOwner();

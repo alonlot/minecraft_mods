@@ -8,6 +8,7 @@ import com.hogwartsmagic.entity.MemoryRowboatEntity;
 import com.hogwartsmagic.entity.OwlEntity;
 import com.hogwartsmagic.client.renderer.PetrifiedRemainsRenderer;
 import com.hogwartsmagic.mixin.client.LivingEntityUseAccessor;
+import com.hogwartsmagic.pensieve.capture.RecordedTrackSampler;
 import com.hogwartsmagic.pensieve.scene.EyeEase;
 import com.hogwartsmagic.pensieve.scene.Airborne;
 import com.hogwartsmagic.pensieve.scene.ActorStep;
@@ -132,6 +133,7 @@ public final class MemoryActors {
     /** Forget every puppet. Safe to call at any time, including when there are none. */
     public static void clear() {
         MemoryEvents.clear();
+        RecordedActors.clear();
         JitterProbe.clear();
         ACTORS.clear();
         BY_ENTITY.clear();
@@ -147,8 +149,11 @@ public final class MemoryActors {
         UUID uuid = UUID.nameUUIDFromBytes(("pensieve:" + def.id()).getBytes(StandardCharsets.UTF_8));
         Entity entity;
         boolean player = "player".equals(def.type()) || "minecraft:player".equals(def.type());
+        // A recorded memory's actor: its track says where it stands, and its player keeps the original uuid and name.
+        com.hogwartsmagic.pensieve.capture.Recording.Track track = RecordedActors.trackFor(def.id());
         if (player) {
-            RemotePlayer p = new RemotePlayer(lvl, new GameProfile(uuid, profileName(def)));
+            RemotePlayer p = new RemotePlayer(lvl, track != null && track.player() ? RecordedActors.profile(track)
+                    : new GameProfile(uuid, profileName(def)));
             // Hat, jacket, sleeves and pants layers: a vanilla remote player gets these from its synched byte.
             p.getEntityData().set(PlayerModelPartsAccessor.hogwartsmagic$modelParts(), (byte) 0x7F);
             entity = p;
@@ -203,6 +208,7 @@ public final class MemoryActors {
         List<SceneDef.ActionCue> sorted = new ArrayList<>(def.actions());
         sorted.sort(Comparator.comparingDouble(SceneDef.ActionCue::t));
         ActorRuntime rt = new ActorRuntime(def, entity, player, sorted);
+        rt.track = track;
         rt.wornItems.putAll(def.items());
         // The vanilla idle arm bob runs off tickCount: start each puppet at its own age so they do not bob in unison.
         if (player) entity.tickCount = (int) (rt.seed & 0x3FF);
@@ -370,6 +376,10 @@ public final class MemoryActors {
     private static final double TELEPORT_BLOCKS = com.hogwartsmagic.pensieve.scene.MemoryBall.MAX_STEP;
 
     private static void step(ActorRuntime a, float t) {
+        if (a.track != null) {
+            stepRecorded(a, t);
+            return;
+        }
         Entity e = a.entity;
         LivingEntity l = a.living;
         boolean first = !a.placed;
@@ -594,7 +604,27 @@ public final class MemoryActors {
             float stride = first || seat != null ? 0 : Math.min((float) Math.sqrt(dx * dx + dz * dz) * 4.0f, 1.0f);
             l.walkAnimation.update(stride, 0.4f);
         }
+        livingTail(a, l, t);
+    }
 
+    /**
+     * A recorded actor's tick: its timed actions (swing, hurt, die, cast, from the recording's acts and casts), then
+     * its pose, data, equipment and walk cycle from the track ({@link RecordedActors#step}), then the swing, hurt and
+     * death upkeep it shares with every living puppet. No root, look, life, ride or boat logic applies.
+     */
+    private static void stepRecorded(ActorRuntime a, float t) {
+        a.entity.tickCount++;
+        while (a.nextAction < a.actions.size() && a.actions.get(a.nextAction).t() <= t) {
+            SceneDef.ActionCue cue = a.actions.get(a.nextAction++);
+            fire(a, cue, cue.t() < t - 5, t);
+        }
+        RecordedActors.step(a, t);
+        a.lastT = t;
+        if (a.living != null) livingTail(a, a.living, t);
+    }
+
+    /** Swing, hurt flash, death tilt and the use-item arm: what ticks a living puppet whatever drives its path. */
+    private static void livingTail(ActorRuntime a, LivingEntity l, float t) {
         // Swing.
         l.oAttackAnim = l.attackAnim;
         if (l.swinging) {
@@ -777,6 +807,8 @@ public final class MemoryActors {
     /** The cast: a spell from the actor's wand hand to its target, drawn by {@link SpellVisuals}. */
     private static void cast(ActorRuntime a, SceneDef.ActionCue cue) {
         if (!(level instanceof ClientLevel lvl) || origin == null || cue.spell() == null) return;
+        // A recorded beam flies as its own event (recorded_beam), over the ticks it really took.
+        if (a.track != null && SceneNames.SPELL_BEAMS.contains(cue.spell())) return;
         Entity e = a.entity;
         Vec3 eye = e.position().add(0, e.getEyeHeight() * a.def.scale() * 0.9, 0);
         Vec3 to = castTarget(a, cue, eye);
@@ -888,6 +920,7 @@ public final class MemoryActors {
         for (ActorRuntime a : ACTORS) {
             syncItems(a, now);
             if (!a.visible) continue;
+            if (a.track != null && !RecordedTrackSampler.present(a.track, now)) continue;
             Entity e = a.entity;
             try {
                 double x = Mth.lerp(partial, e.xo, e.getX());

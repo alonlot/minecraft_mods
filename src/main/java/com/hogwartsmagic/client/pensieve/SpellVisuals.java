@@ -110,21 +110,37 @@ public final class SpellVisuals {
 
     // ---- Beams ------------------------------------------------------------------------------------------------
 
+    /**
+     * A recorded beam: the same flight as {@link #cast}'s, but over the {@code ticks} it really took (speed
+     * {@code dist / max(1, ticks)}), and without the cast sound, which the recording already plays. A spell that is
+     * not a beam draws nothing.
+     */
+    public static void beamTimed(ClientLevel level, Vec3 from, Vec3 to, String spellId, int ticks) {
+        if (level == null || from == null || to == null || spellId == null) return;
+        if (!SceneNames.SPELL_BEAMS.contains(spellId)) return;
+        beam(level, from, to, SpellType.fromId(spellId), (float) (to.subtract(from).length() / Math.max(1, ticks)),
+                false);
+    }
+
     private static void beam(ClientLevel level, Vec3 from, Vec3 to, SpellType spell) {
+        beam(level, from, to, spell, BEAM_SPEED, true);
+    }
+
+    private static void beam(ClientLevel level, Vec3 from, Vec3 to, SpellType spell, float speed, boolean sound) {
         Vec3 delta = to.subtract(from);
         double dist = delta.length();
         if (dist < 0.05) return;
         SpellBeamEntity beam = new SpellBeamEntity(ModEntities.SPELL_BEAM.get(), level);
         beam.setVisualSpell(spell);
-        beam.setVisualOnly((int) Math.ceil(dist / BEAM_SPEED));
+        beam.setVisualOnly((int) Math.ceil(dist / speed));
         beam.setId(MemoryEvents.nextEntityId());
         beam.setPos(from.x, from.y - BEAM_RENDER_LIFT, from.z);
-        beam.shoot(delta.x, delta.y, delta.z, BEAM_SPEED, 0.0f);
+        beam.shoot(delta.x, delta.y, delta.z, speed, 0.0f);
         // Without this the first frame interpolates from the world origin: a one-frame streak across the sky.
         beam.setOldPosAndRot();
         level.addEntity(beam);
         BEAMS.add(beam);
-        MemorySounds.play(spell.getSoundEvent(), from, 1.0f, 1.0f);
+        if (sound) MemorySounds.play(spell.getSoundEvent(), from, 1.0f, 1.0f);
     }
 
     // ---- Ticking ----------------------------------------------------------------------------------------------

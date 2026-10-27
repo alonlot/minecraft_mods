@@ -147,7 +147,10 @@ public record SceneDef(String id, String title, int length, int radius, SetDef s
     }
 
     /**
-     * Kinds: block, sound, particles, effect, music, voice, sfx. {@code yaw} is for effects only ({@code Float.NaN} when absent);
+     * Kinds: block, sound, particles, effect, music, voice, sfx. A further kind, {@code recorded_beam} (a spell beam
+     * from a recorded memory: {@code id} the spell, {@code at} its start, {@code box} {@code {start, end}},
+     * {@code duration} its ticks), is built only by {@code RecordingScene} and is never valid in a JSON file: the
+     * validator still rejects it in shipped scenes. {@code yaw} is for effects only ({@code Float.NaN} when absent);
      * {@code count} is -1 and {@code spread} null when the scene did not give them.
      * {@code at} may be fractional (an effect centred on a half block); a {@code block} event's must be whole, which the
      * validator checks. {@code style} is the enchanted_ceiling look ({@code "storm"} or {@code "night"}), null when absent.

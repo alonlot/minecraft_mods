@@ -9,6 +9,7 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerPlayer;
 import com.hogwartsmagic.entity.SnakeEntity;
+import com.hogwartsmagic.spell.summon.SerpensortiaRules;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.animal.Pig;
 import net.minecraft.world.entity.npc.Villager;
@@ -218,5 +219,51 @@ public final class LeftoversGameTests {
         }
         helper.succeed();
         LOGGER.info("LEFTOVERS-GAMETEST PASS serpensortiaConjuresByRank");
+    }
+
+    /**
+     * Aimed at another player, a Master's command is refused while PvP is off: the snakes neither attack
+     * nor switch mode. With PvP on the command is not refused (the helper's mock player is creative, so it
+     * is no fair target and the command falls through to the follow/guard toggle).
+     */
+    @GameTest(template = EMPTY, timeoutTicks = 100, batch = "leftovers_pvp")
+    public static void parseltongueRespectsPvp(GameTestHelper helper) {
+        net.minecraft.server.MinecraftServer server = helper.getLevel().getServer();
+        boolean savedPvp = server.isPvpAllowed();
+        ServerPlayer caster = helper.makeMockServerPlayerInLevel();
+        ServerPlayer victim = helper.makeMockServerPlayerInLevel();
+        com.hogwartsmagic.item.MagicBookItem.learnSpellIfAbsent(caster, com.hogwartsmagic.spell.SpellType.SERPENSORTIA);
+        com.hogwartsmagic.spell.mastery.SpellMasteryData.setXp(caster, com.hogwartsmagic.spell.SpellType.SERPENSORTIA,
+                com.hogwartsmagic.Config.getMasteryThresholds()[3]);
+        Vec3 at = helper.absoluteVec(new Vec3(1.5, 2, 0.5));
+        Vec3 away = helper.absoluteVec(new Vec3(1.5, 2, 2.5));
+        caster.moveTo(at.x, at.y, at.z, 0.0F, 0.0F);
+        victim.moveTo(away.x, away.y, away.z);
+        try {
+            helper.assertTrue(com.hogwartsmagic.spell.summon.SerpensortiaSpell.conjureAt(helper.getLevel(), at, null, caster) > 0,
+                    "the Master should conjure snakes");
+            SnakeEntity snake = com.hogwartsmagic.spell.summon.SerpensortiaSpell.snakesOf(helper.getLevel(), caster).get(0);
+
+            helper.assertTrue(snake.getMode() == SerpensortiaRules.MODE_FOLLOW, "new snakes should be following");
+
+            server.setPvpAllowed(false);
+            com.hogwartsmagic.spell.summon.SerpensortiaSpell.command(caster);
+            helper.assertTrue(snake.getTarget() != victim, "snakes must not be sent at a player while PvP is off");
+            helper.assertTrue(snake.getMode() == SerpensortiaRules.MODE_FOLLOW, "a refused command must change nothing");
+
+            caster.getPersistentData().remove("hogwartsmagic:parseltongue_at");
+            server.setPvpAllowed(true);
+            com.hogwartsmagic.spell.summon.SerpensortiaSpell.command(caster);
+            helper.assertTrue(snake.getMode() == SerpensortiaRules.MODE_GUARD, "with PvP on the command should not be refused");
+        } finally {
+            server.setPvpAllowed(savedPvp);
+            for (SnakeEntity s : com.hogwartsmagic.spell.summon.SerpensortiaSpell.snakesOf(helper.getLevel(), caster)) {
+                s.discard();
+            }
+            caster.discard();
+            victim.discard();
+        }
+        helper.succeed();
+        LOGGER.info("LEFTOVERS-GAMETEST PASS parseltongueRespectsPvp");
     }
 }

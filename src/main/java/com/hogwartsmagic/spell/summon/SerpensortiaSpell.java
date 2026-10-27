@@ -6,7 +6,18 @@ import com.hogwartsmagic.spell.SpellType;
 import com.hogwartsmagic.spell.combat.CombatEffects;
 import com.hogwartsmagic.spell.combat.CombatTags;
 import com.hogwartsmagic.spell.disable.DisableSupport;
+import com.hogwartsmagic.spell.mastery.SpellMasteryData;
+import net.minecraft.ChatFormatting;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.projectile.ProjectileUtil;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
@@ -75,6 +86,77 @@ public final class SerpensortiaSpell {
             level.playSound(null, at.x, at.y, at.z, SoundEvents.CAT_HISS, SoundSource.HOSTILE, 0.8f, 1.5f);
         }
         return spawned;
+    }
+
+    private static final String TAG_LAST_COMMAND = "hogwartsmagic:parseltongue_at";
+
+    /**
+     * Parseltongue (Master): aimed at a creature within COMMAND_RANGE, every snake of the caster attacks
+     * it; aimed anywhere else, they switch between following the caster and guarding the aimed spot (or
+     * the caster's feet when aiming at the sky). Never costs mana or starts a cooldown. A player is only
+     * a legal target while PvP is on and the caster may harm them (teams, friendly fire).
+     */
+    public static void command(ServerPlayer player) {
+        if (!SerpensortiaRules.parseltongue(SpellMasteryData.getRank(player, SpellType.SERPENSORTIA))) {
+            return;
+        }
+        CompoundTag data = player.getPersistentData();
+        long now = player.level().getGameTime();
+        if (data.contains(TAG_LAST_COMMAND) && now - data.getLong(TAG_LAST_COMMAND) < SerpensortiaRules.COMMAND_COOLDOWN_TICKS) {
+            return;
+        }
+        data.putLong(TAG_LAST_COMMAND, now);
+
+        ServerLevel level = player.serverLevel();
+        List<SnakeEntity> snakes = snakesOf(level, player);
+        if (snakes.isEmpty()) {
+            player.displayClientMessage(Component.translatable("message.hogwartsmagic.parseltongue.no_snakes")
+                    .withStyle(ChatFormatting.DARK_GREEN), true);
+            return;
+        }
+        LivingEntity aimed = aimedCreature(player, snakes);
+        if (aimed instanceof Player victim && victim != player
+                && !SerpensortiaRules.commandMayHitPlayer(level.getServer().isPvpAllowed(), player.canHarmPlayer(victim))) {
+            player.displayClientMessage(Component.translatable("message.hogwartsmagic.parseltongue.no_pvp")
+                    .withStyle(ChatFormatting.DARK_GREEN), true);
+            return;
+        }
+        if (aimed != null && snakes.get(0).isFairTarget(aimed)) {
+            for (SnakeEntity snake : snakes) {
+                snake.commandAttack(aimed);
+            }
+            player.displayClientMessage(Component.translatable("message.hogwartsmagic.parseltongue.attack", aimed.getDisplayName())
+                    .withStyle(ChatFormatting.DARK_GREEN), true);
+        } else {
+            int mode = SerpensortiaRules.toggledMode(snakes.get(0).getMode());
+            BlockPos anchor = player.blockPosition();
+            HitResult hit = player.pick(SerpensortiaRules.COMMAND_RANGE, 1.0F, false);
+            if (hit.getType() == HitResult.Type.BLOCK && hit instanceof BlockHitResult blockHit) {
+                anchor = blockHit.getBlockPos().relative(blockHit.getDirection());
+            }
+            for (SnakeEntity snake : snakes) {
+                snake.commandMode(mode, anchor, level.dimension());
+            }
+            player.displayClientMessage(Component.translatable(mode == SerpensortiaRules.MODE_GUARD
+                    ? "message.hogwartsmagic.parseltongue.guard" : "message.hogwartsmagic.parseltongue.follow")
+                    .withStyle(ChatFormatting.DARK_GREEN), true);
+        }
+        level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.CAT_HISS, SoundSource.PLAYERS, 0.7f, 1.8f);
+    }
+
+    @Nullable
+    private static LivingEntity aimedCreature(ServerPlayer player, List<SnakeEntity> own) {
+        double range = SerpensortiaRules.COMMAND_RANGE;
+        Vec3 start = player.getEyePosition();
+        Vec3 look = player.getLookAngle();
+        HitResult block = player.pick(range, 1.0F, false);
+        double reach = block.getType() == HitResult.Type.MISS ? range : block.getLocation().distanceTo(start);
+        Vec3 end = start.add(look.scale(reach));
+        AABB box = player.getBoundingBox().expandTowards(look.scale(reach)).inflate(1.0D);
+        EntityHitResult hit = ProjectileUtil.getEntityHitResult(player.level(), player, start, end, box,
+                entity -> entity instanceof LivingEntity living && living.isAlive() && entity.isPickable()
+                        && !entity.isSpectator() && !own.contains(entity));
+        return hit != null && hit.getEntity() instanceof LivingEntity living ? living : null;
     }
 
     /** The conjured snakes belonging to {@code owner} within DISMISS_RADIUS. */

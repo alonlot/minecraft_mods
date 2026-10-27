@@ -988,6 +988,12 @@ public class SpellPackets {
                 return;
             }
 
+            // Parseltongue: a left-click with Serpensortia commands the caster's snakes (Master) and never casts.
+            if (spell == SpellType.SERPENSORTIA && p.selfCastProtego) {
+                com.hogwartsmagic.spell.summon.SerpensortiaSpell.command(player);
+                return;
+            }
+
             long now = player.level().getGameTime();
             net.minecraft.nbt.CompoundTag playerData = player.getPersistentData();
 

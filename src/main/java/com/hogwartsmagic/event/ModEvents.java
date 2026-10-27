@@ -3831,7 +3831,8 @@ public class ModEvents {
                 || spell == SpellType.HEAL
                 || spell == SpellType.ARRESTO_MOMENTUM
                 || spell == SpellType.LUMOS
-                || spell == SpellType.REPARO;
+                || spell == SpellType.REPARO
+                || spell == SpellType.SERPENSORTIA;
     }
 
     @SubscribeEvent

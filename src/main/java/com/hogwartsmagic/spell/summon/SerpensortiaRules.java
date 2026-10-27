@@ -39,6 +39,11 @@ public final class SerpensortiaRules {
         return RankIndex.of(rank) == 3;
     }
 
+    /** A commanded attack on another player needs the server's PvP on and the caster able to harm them. */
+    public static boolean commandMayHitPlayer(boolean pvpAllowed, boolean casterCanHarm) {
+        return pvpAllowed && casterCanHarm;
+    }
+
     public static int toggledMode(int mode) {
         return mode == MODE_FOLLOW ? MODE_GUARD : MODE_FOLLOW;
     }

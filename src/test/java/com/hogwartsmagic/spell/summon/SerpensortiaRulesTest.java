@@ -42,4 +42,12 @@ class SerpensortiaRulesTest {
         assertEquals(-0.8, SerpensortiaRules.spawnOffset(0, 3), 1e-9);
         assertEquals(0.8, SerpensortiaRules.spawnOffset(2, 3), 1e-9);
     }
+
+    @Test
+    void commandedAttackOnAPlayerNeedsPvpAndPermissionToHarm() {
+        assertTrue(SerpensortiaRules.commandMayHitPlayer(true, true));
+        assertFalse(SerpensortiaRules.commandMayHitPlayer(false, true));
+        assertFalse(SerpensortiaRules.commandMayHitPlayer(true, false));
+        assertFalse(SerpensortiaRules.commandMayHitPlayer(false, false));
+    }
 }

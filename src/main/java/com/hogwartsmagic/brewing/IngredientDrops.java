@@ -30,8 +30,9 @@ public final class IngredientDrops {
             return;
         }
         if (PotionRules.rolls(dead.getRandom().nextDouble(), PotionRules.ASHWINDER_BLAZE_CHANCE)) {
-            event.getDrops().add(new ItemEntity(dead.level(), dead.getX(), dead.getY(), dead.getZ(),
-                    new ItemStack(ExampleMod.ASHWINDER_EGG.get())));
+            ItemStack egg = new ItemStack(ExampleMod.ASHWINDER_EGG.get());
+            egg.set(ExampleMod.FINE_INGREDIENT.get(), true); // a Blaze-hatched egg is fine
+            event.getDrops().add(new ItemEntity(dead.level(), dead.getX(), dead.getY(), dead.getZ(), egg));
         }
     }
 }

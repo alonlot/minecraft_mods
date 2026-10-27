@@ -83,4 +83,15 @@ class TomeRulesTest {
         assertNull(TomeRules.pickTome(0.0, 0, 0, 0, 0, true, true));
         assertNull(TomeRules.pickTome(0.0, -1, -1, -1, -1, true, true));
     }
+
+    @Test
+    void trialVaultsAndExistingTablesAreClassified() {
+        assertTrue(TomeRules.isDungeonTierTable("minecraft:chests/trial_chambers/reward"));
+        assertTrue(TomeRules.isDungeonTierTable("minecraft:chests/trial_chambers/reward_unique"));
+        assertTrue(TomeRules.isEndgameTable("minecraft:chests/trial_chambers/reward_ominous"));
+        assertTrue(TomeRules.isEndgameTable("minecraft:chests/trial_chambers/reward_ominous_rare"));
+        assertFalse(TomeRules.isEndgameTable("minecraft:chests/trial_chambers/reward"));
+        assertTrue(TomeRules.isDungeonTierTable("minecraft:chests/simple_dungeon"));
+        assertTrue(TomeRules.isEndgameTable("hogwartsmagic:chests/gringotts_vault"));
+    }
 }

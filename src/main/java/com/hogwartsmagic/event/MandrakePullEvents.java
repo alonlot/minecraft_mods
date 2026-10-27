@@ -218,6 +218,7 @@ public final class MandrakePullEvents {
 
         level.removeBlock(pull.pos, false);
         ItemStack root = new ItemStack(ExampleMod.MANDRAKE_ROOT.get());
+        root.set(ExampleMod.FINE_INGREDIENT.get(), true); // a root pulled by hand is fine
         ItemEntity drop = new ItemEntity(level,
                 pull.pos.getX() + 0.5D,
                 pull.pos.getY() + 0.25D,

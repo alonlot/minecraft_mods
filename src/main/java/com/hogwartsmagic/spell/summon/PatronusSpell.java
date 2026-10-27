@@ -42,8 +42,17 @@ public final class PatronusSpell {
         patronus.setYHeadRot(player.getYRot());
         patronus.setYBodyRot(player.getYRot());
         patronus.setFormId(form.id());
+        patronus.setOwner(player.getUUID());
+        patronus.setMasterAura(PatronusRules.masterAura(rank));
         player.level().addFreshEntity(patronus);
         return patronus;
+    }
+
+    /** Testing aid for ops (/patronus form): overwrite the stored personal form. */
+    public static void setForm(ServerPlayer player, PatronusForm form) {
+        CompoundTag modData = PlayerMagicData.getModData(player);
+        modData.putInt(FORM_KEY, form.id());
+        PlayerMagicData.saveModData(player, modData);
     }
 
     /**

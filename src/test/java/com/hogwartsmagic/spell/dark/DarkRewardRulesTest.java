@@ -256,4 +256,10 @@ class DarkRewardRulesTest {
         assertEquals(50.0D, hoursAlone, 1.0e-9);
         assertEquals(25.0D, hoursWithHeals, 1.0e-9);
     }
+
+    @Test
+    void greySpellsNeverGetTheDiscount() {
+        assertEquals(1.0f, DarkRewardRules.manaMultiplier("obliviate", DarkRules.LOST), EPS);
+        assertEquals(1.0f, DarkRewardRules.manaMultiplier("confundo", DarkRules.LOST), EPS);
+    }
 }

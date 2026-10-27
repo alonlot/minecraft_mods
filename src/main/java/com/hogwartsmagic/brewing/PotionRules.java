@@ -21,6 +21,21 @@ public final class PotionRules {
     /** Both splash potions reach this far (a sphere). */
     public static final double SPLASH_RADIUS = 4.0;
 
+    /** Potion of Remorse: the Darkness it lifts, the pain of the drink, and the play-time window between lightenings. */
+    public static final float REMORSE_DARKNESS = 5.0f;
+    public static final int REMORSE_NAUSEA_TICKS = 160;
+    public static final int REMORSE_WEAKNESS_TICKS = 600;
+    public static final int DEFAULT_REMORSE_COOLDOWN_TICKS = 144_000;
+
+    /** Veritaserum: villager gossip gained, the day between confessions (per villager), and the Glowing it gives. */
+    public static final int VERITASERUM_GOSSIP = 25;
+    public static final long VERITASERUM_COOLDOWN_TICKS = 24_000L;
+    public static final int VERITASERUM_GLOW_TICKS = 600;
+    public static final int VERITASERUM_SELF_GLOW_TICKS = 200;
+    public static final double VERITASERUM_ACCOMPLICE_RADIUS = 48.0;
+    /** How long Veritaserum shows a cloaked player. */
+    public static final int VERITASERUM_CLOAK_REVEAL_TICKS = 200;
+
     public static final double VALERIAN_RUIN_CAMP_CHANCE = 0.25;
     public static final double ASHWINDER_DEATH_EATER_CAMP_CHANCE = 0.10;
     public static final double ASHWINDER_CHAMBER_CHANCE = 0.15;
@@ -34,9 +49,31 @@ public final class PotionRules {
         return luckAmplifier >= FELIX_LUCK_AMPLIFIER ? FELIX_XP_MULTIPLIER : 1.0;
     }
 
+    /** The magic damage of a Remorse drink: up to 3, never enough to kill, never below 0. */
+    public static float remorseDamage(float health) {
+        return Math.max(0.0f, Math.min(3.0f, health - 1.0f));
+    }
+
     /** An entity this far (squared) from the impact is splashed. */
     public static boolean inSplash(double distanceSqr) {
         return distanceSqr <= SPLASH_RADIUS * SPLASH_RADIUS;
+    }
+
+    /** A duration scaled by the brew's grade: Standard x1.0, Fine x1.5, Exceptional x2.0 (rounded; grades clamp). */
+    public static int qualityTicks(int baseTicks, int grade) {
+        int g = BrewQuality.clampGrade(grade);
+        return Math.round(baseTicks * (g == BrewQuality.EXCEPTIONAL ? 2.0f : g == BrewQuality.FINE ? 1.5f : 1.0f));
+    }
+
+    /** An amount scaled by the brew's grade: Standard x1.0, Fine x1.25, Exceptional x1.5 (grades clamp). */
+    public static float qualityAmount(float base, int grade) {
+        int g = BrewQuality.clampGrade(grade);
+        return base * (g == BrewQuality.EXCEPTIONAL ? 1.5f : g == BrewQuality.FINE ? 1.25f : 1.0f);
+    }
+
+    /** A villager confesses again only a day after the last time (or never before). */
+    public static boolean veritaserumReady(boolean hasRecord, long lastAt, long now) {
+        return !hasRecord || now - lastAt >= VERITASERUM_COOLDOWN_TICKS;
     }
 
     /** A roll in [0, 1) lands when it is below the chance. */

@@ -48,7 +48,9 @@ public class HogwartsGuideScreen extends Screen {
     private static final int TAB_HEIGHT = 20;
     private static final int TAB_PITCH = 22;
 
-    private Section currentSection = Section.WELCOME;
+    /** True when opened by the Advanced Potion-Making book: only the ADVANCED_POTIONS section, no tabs. */
+    private final boolean advancedBook;
+    private Section currentSection;
     private int currentPage;
     private int left;
     private int top;
@@ -56,7 +58,14 @@ public class HogwartsGuideScreen extends Screen {
     private final Map<Section, List<Sheet>> sheets = new EnumMap<>(Section.class);
 
     public HogwartsGuideScreen() {
-        super(Component.translatable("gui.hogwartsmagic.hogwarts_guide"));
+        this(false);
+    }
+
+    public HogwartsGuideScreen(boolean advancedBook) {
+        super(Component.translatable(advancedBook
+                ? "gui.hogwartsmagic.advanced_potion_making" : "gui.hogwartsmagic.hogwarts_guide"));
+        this.advancedBook = advancedBook;
+        this.currentSection = advancedBook ? Section.ADVANCED_POTIONS : Section.WELCOME;
     }
 
     @Override
@@ -66,9 +75,19 @@ public class HogwartsGuideScreen extends Screen {
         this.top = (this.height - PAGE_HEIGHT) / 2;
         this.sheets.clear();
         for (Section section : Section.values()) {
-            this.sheets.put(section, layOut(section));
+            if (shown(section)) {
+                this.sheets.put(section, layOut(section));
+            }
         }
         rebuildButtons();
+    }
+
+    /** The guide lists every section but ADVANCED_POTIONS; the book shows only that one. */
+    private boolean shown(Section section) {
+        if (this.advancedBook) {
+            return section == Section.ADVANCED_POTIONS;
+        }
+        return section != Section.ADVANCED_POTIONS;
     }
 
     private void rebuildButtons() {
@@ -77,6 +96,9 @@ public class HogwartsGuideScreen extends Screen {
         int tabX = this.left - 126;
         int tabY = this.top + 16;
         for (Section section : Section.values()) {
+            if (this.advancedBook || !shown(section)) {
+                continue;
+            }
             Section target = section;
             this.addRenderableWidget(Button.builder(section.label(), button -> {
                 this.currentSection = target;
@@ -115,7 +137,7 @@ public class HogwartsGuideScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+        renderTransparentBackground(guiGraphics);
         guiGraphics.fill(0, 0, this.width, this.height, 0xB0100906);
 
         guiGraphics.fill(this.left - 2, this.top - 2, this.left + PAGE_WIDTH + 2, this.top + PAGE_HEIGHT + 2, 0xFF6A4A25);
@@ -126,8 +148,10 @@ public class HogwartsGuideScreen extends Screen {
 
         super.render(guiGraphics, mouseX, mouseY, partialTick);
 
-        guiGraphics.drawCenteredString(this.font, Component.translatable("gui.hogwartsmagic.hogwarts_guide.header"), this.left + PAGE_WIDTH / 2, this.top + 14, 0x5A3420);
-        guiGraphics.drawCenteredString(this.font, this.currentSection.label(), this.left + PAGE_WIDTH / 2, this.top + 30, 0x6D4725);
+        guiGraphics.drawCenteredString(this.font, this.advancedBook ? this.title : Component.translatable("gui.hogwartsmagic.hogwarts_guide.header"), this.left + PAGE_WIDTH / 2, this.top + 14, 0x5A3420);
+        if (!this.advancedBook) { // the book's header already names the section
+            guiGraphics.drawCenteredString(this.font, this.currentSection.label(), this.left + PAGE_WIDTH / 2, this.top + 30, 0x6D4725);
+        }
 
         List<Sheet> pages = this.sheets.get(this.currentSection);
         this.currentPage = Mth.clamp(this.currentPage, 0, Math.max(0, pages.size() - 1));
@@ -245,11 +269,11 @@ public class HogwartsGuideScreen extends Screen {
                 page("gringotts", "ironbelly", 2)
         )),
         DARK_MAGIC("gui.hogwartsmagic.hogwarts_guide.section.dark_magic", List.of(
-                page("dark_magic", "weight", 4),
+                page("dark_magic", "weight", 5),
                 page("dark_magic", "five_states", 3),
                 page("dark_magic", "costs", 5),
                 page("dark_magic", "offers", 4),
-                page("dark_magic", "way_back", 4)
+                page("dark_magic", "way_back", 5)
         )),
         CREATURES("gui.hogwartsmagic.hogwarts_guide.section.creatures", List.of(
                 page("creatures", "friends_and_terrors", 2),
@@ -272,7 +296,7 @@ public class HogwartsGuideScreen extends Screen {
         )),
         POTIONS("gui.hogwartsmagic.hogwarts_guide.section.potions", List.of(
                 page("potions", "the_wizard_cauldron", 4),
-                page("potions", "signs_in_the_liquid", 3),
+                page("potions", "signs_in_the_liquid", 4),
                 page("potions", "wiggenweld_potion", 5),
                 page("potions", "pepperup_potion", 5),
                 page("potions", "polyjuice_potion", 6),
@@ -280,12 +304,19 @@ public class HogwartsGuideScreen extends Screen {
                 page("potions", "essence_of_dittany", 4),
                 page("potions", "mandrake_restorative_draught", 6),
                 page("potions", "using_the_mandrake_draught", 3),
+                page("potions", "advanced_book", 3),
+                page("potions", "potion_of_remorse", 6),
+                page("potions", "where_ingredients_grow", 5),
+                page("potions", "turned_to_stone", 3)
+        )),
+        ADVANCED_POTIONS("gui.hogwartsmagic.advanced_potion_making", List.of(
+                page("potions", "advanced_intro", 3),
                 page("potions", "draught_of_living_death", 5),
                 page("potions", "living_death_the_finish", 4),
                 page("potions", "felix_felicis", 5),
                 page("potions", "felix_felicis_patience", 3),
-                page("potions", "where_ingredients_grow", 4),
-                page("potions", "turned_to_stone", 3)
+                page("potions", "veritaserum", 7),
+                page("potions", "veritaserum_use", 4)
         ));
 
         private final Component label;

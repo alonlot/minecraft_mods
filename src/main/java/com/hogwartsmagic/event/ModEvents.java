@@ -154,12 +154,6 @@ public class ModEvents {
     private static final double PATRONUS_SHIELD_STANDOFF = com.hogwartsmagic.spell.PatronusShield.STANDOFF;
     /** Extra mana per drain interval for each Dementor currently being held off. */
     private static final float PATRONUS_SHIELD_PER_DEMENTOR_COST = 0.5f;
-    private static final String TAG_FIENDFYRE_CHANNELING = "hogwartsmagic:fiendfyre_channeling";
-    private static final String TAG_FIENDFYRE_LAST_DRAIN = "hogwartsmagic:fiendfyre_last_drain";
-    private static final String TAG_FIENDFYRE_LAST_SEEN = "hogwartsmagic:fiendfyre_last_seen";
-    private static final String TAG_FIENDFYRE_ENTITY = "hogwartsmagic:fiendfyre_entity";
-    private static final int FIENDFYRE_UPKEEP_INTERVAL = 4;
-    private static final int FIENDFYRE_HEARTBEAT_TIMEOUT = 4;
     private static final String TAG_IMPERIO_RECENT_HIT_TARGET = "hogwartsmagic:imperio_recent_hit_target";
     private static final String TAG_IMPERIO_RECENT_HIT_EXPIRY = "hogwartsmagic:imperio_recent_hit_expiry";
     // ── Apparition (channeled self-teleport with a minimap destination picker) ──
@@ -449,6 +443,25 @@ public class ModEvents {
         return other.getItem() instanceof com.hogwartsmagic.pensieve.EmptyMemoryPhialItem;
     }
 
+    /**
+     * Veritaserum on a villager, Death Eater or player. Entity.interact runs before the item's own hook, and a
+     * villager opens its trade screen there, so the potion is handled here and the event cancelled with its result.
+     */
+    @SubscribeEvent
+    public static void onVeritaserumInteract(PlayerInteractEvent.EntityInteract event) {
+        if (event.getLevel().isClientSide() || !(event.getItemStack().getItem() instanceof com.hogwartsmagic.item.BrewedPotionItem potion)
+                || potion.kind() != com.hogwartsmagic.item.BrewedPotionItem.Kind.VERITASERUM
+                || !(event.getTarget() instanceof LivingEntity target)) {
+            return;
+        }
+        net.minecraft.world.InteractionResult result = potion.interactLivingEntity(event.getItemStack(), event.getEntity(),
+                target, event.getHand());
+        if (result != net.minecraft.world.InteractionResult.PASS) {
+            event.setCancellationResult(result);
+            event.setCanceled(true);
+        }
+    }
+
     @SubscribeEvent
     public static void onEntityInteractSpecific(PlayerInteractEvent.EntityInteractSpecific event) {
         if (!event.getItemStack().is(ExampleMod.OWL_ROUTE_TAG.get())) {
@@ -704,8 +717,8 @@ public class ModEvents {
             }
             // Likewise a Fiendfyre serpent, a levitated target, a Protego Maxima bubble or an open
             // Apparition channel would otherwise stay live in the world until the player returns.
-            if (player.getPersistentData().getBoolean(TAG_FIENDFYRE_CHANNELING)) {
-                stopFiendfyreChannel(player, heldWand);
+            if (com.hogwartsmagic.spell.summon.FiendfyreChannel.isChanneling(player)) {
+                com.hogwartsmagic.spell.summon.FiendfyreChannel.stop(player, heldWand, true);
             }
             if (player.getPersistentData().getBoolean(TAG_WINGARDIUM_CHANNELING)) {
                 stopWingardiumChannel(player, heldWand);
@@ -831,7 +844,7 @@ public class ModEvents {
             tickPendingFlooTravel(player, modData);
             tickProtegoMaximaChannel(player, modData);
             tickPatronusShieldChannel(player, modData);
-            tickFiendfyreChannel(player, modData);
+            com.hogwartsmagic.spell.summon.FiendfyreChannel.tick(player, modData);
             tickWingardiumChannel(player, modData);
             tickApparitionChannel(player, modData);
             tickAccioPull(player);
@@ -1384,59 +1397,6 @@ public class ModEvents {
         return upkeep * com.hogwartsmagic.spell.dark.DarkCosts.shieldUpkeepMultiplier(player);
     }
 
-    private static void tickFiendfyreChannel(ServerPlayer player, net.minecraft.nbt.CompoundTag modData) {
-        if (!player.getPersistentData().getBoolean(TAG_FIENDFYRE_CHANNELING)) {
-            return;
-        }
-
-        ItemStack wand = player.getMainHandItem();
-        SpellType selected = MagicWandItem.isAnyWand(wand) ? MagicWandItem.getSelectedSpell(wand) : null;
-        if (!MagicWandItem.isAnyWand(wand) || selected != SpellType.FIENDFYRE || !player.isAlive()) {
-            stopFiendfyreChannel(player, wand);
-            return;
-        }
-
-        long gameTime = player.level().getGameTime();
-        long lastSeen = player.getPersistentData().getLong(TAG_FIENDFYRE_LAST_SEEN);
-        if (gameTime - lastSeen > FIENDFYRE_HEARTBEAT_TIMEOUT) {
-            stopFiendfyreChannel(player, wand);
-            return;
-        }
-
-        if (!(player.level() instanceof ServerLevel serverLevel)) {
-            return;
-        }
-
-        com.hogwartsmagic.entity.FiendfyreSerpentEntity fiendfyre = getOrCreateFiendfyreEntity(player, serverLevel);
-        if (fiendfyre == null) {
-            stopFiendfyreChannel(player, wand);
-            return;
-        }
-        fiendfyre.setCaster(player);
-
-        float maxMana = PlayerMagicData.getMaxMana(player);
-        float currentMana = modData.contains("Mana") ? modData.getFloat("Mana") : maxMana;
-        float upkeepCost = getFiendfyreUpkeepCost(player, wand);
-        long lastDrain = player.getPersistentData().getLong(TAG_FIENDFYRE_LAST_DRAIN);
-
-        if (!player.isCreative() && gameTime - lastDrain >= FIENDFYRE_UPKEEP_INTERVAL) {
-            if (currentMana < upkeepCost) {
-                stopFiendfyreChannel(player, wand);
-                player.displayClientMessage(Component.literal("Fiendfyre collapses").withStyle(net.minecraft.ChatFormatting.GOLD), true);
-                return;
-            }
-
-            float previousMana = currentMana;
-            currentMana -= upkeepCost;
-            modData.putFloat("Mana", currentMana);
-            player.getPersistentData().getCompound("PlayerPersisted").put(ExampleMod.MODID, modData);
-            player.getPersistentData().putLong(TAG_FIENDFYRE_LAST_DRAIN, gameTime);
-            if ((int) previousMana != (int) currentMana) {
-                SpellPackets.CHANNEL.send(new SpellPackets.SyncManaPacket(currentMana, maxMana), PacketDistributor.PLAYER.with(player));
-            }
-        }
-    }
-
     private static void tickWingardiumChannel(ServerPlayer player, net.minecraft.nbt.CompoundTag modData) {
         if (!player.getPersistentData().getBoolean(TAG_WINGARDIUM_CHANNELING)) {
             return;
@@ -1626,9 +1586,7 @@ public class ModEvents {
         if (player.getPersistentData().getBoolean(TAG_PROTEGO_MAXIMA_CHANNELING)) {
             stopProtegoMaximaChannel(player, wand);
         }
-        if (player.getPersistentData().getBoolean(TAG_FIENDFYRE_CHANNELING)) {
-            stopFiendfyreChannel(player, wand);
-        }
+        com.hogwartsmagic.spell.summon.FiendfyreChannel.release(player, wand);
         if (player.getPersistentData().getBoolean(TAG_PATRONUS_SHIELD_CHANNELING)) {
             stopPatronusShieldChannel(player, wand);
         }
@@ -1663,47 +1621,6 @@ public class ModEvents {
         return Math.max(0.75f, (SpellType.IMPERIO.getManaCost() * MagicWandItem.getManaCostMultiplier(wand)
                 * SpellCosts.masteryMultiplier(player, SpellType.IMPERIO)
                 * SpellCosts.darkMultiplier(player, SpellType.IMPERIO)) / 18.0f);
-    }
-
-    private static com.hogwartsmagic.entity.FiendfyreSerpentEntity getOrCreateFiendfyreEntity(ServerPlayer player, ServerLevel level) {
-        if (player.getPersistentData().hasUUID(TAG_FIENDFYRE_ENTITY)) {
-            net.minecraft.world.entity.Entity existing = level.getEntity(player.getPersistentData().getUUID(TAG_FIENDFYRE_ENTITY));
-            if (existing instanceof com.hogwartsmagic.entity.FiendfyreSerpentEntity fiendfyre) {
-                return fiendfyre;
-            }
-        }
-
-        com.hogwartsmagic.entity.FiendfyreSerpentEntity fiendfyre = new com.hogwartsmagic.entity.FiendfyreSerpentEntity(com.hogwartsmagic.entity.ModEntities.FIENDFYRE_SERPENT.get(), level);
-        fiendfyre.setCaster(player);
-        fiendfyre.moveTo(player.getX(), player.getEyeY(), player.getZ(), player.getYRot(), player.getXRot());
-        level.addFreshEntity(fiendfyre);
-        player.getPersistentData().putUUID(TAG_FIENDFYRE_ENTITY, fiendfyre.getUUID());
-        return fiendfyre;
-    }
-
-    private static void stopFiendfyreChannel(ServerPlayer player, ItemStack wand) {
-        player.getPersistentData().remove(TAG_FIENDFYRE_CHANNELING);
-        player.getPersistentData().remove(TAG_FIENDFYRE_LAST_DRAIN);
-        player.getPersistentData().remove(TAG_FIENDFYRE_LAST_SEEN);
-        if (player.getPersistentData().hasUUID(TAG_FIENDFYRE_ENTITY) && player.level() instanceof ServerLevel serverLevel) {
-            net.minecraft.world.entity.Entity existing = serverLevel.getEntity(player.getPersistentData().getUUID(TAG_FIENDFYRE_ENTITY));
-            if (existing instanceof com.hogwartsmagic.entity.FiendfyreSerpentEntity fiendfyre) {
-                fiendfyre.discard();
-            }
-        }
-        player.getPersistentData().remove(TAG_FIENDFYRE_ENTITY);
-
-        if (!player.isCreative() && MagicWandItem.isAnyWand(wand)) {
-            SpellType spell = SpellType.FIENDFYRE;
-            long now = player.level().getGameTime();
-            SpellCosts.startCooldown(player, wand, spell, now);
-        }
-    }
-
-    private static float getFiendfyreUpkeepCost(Player player, ItemStack wand) {
-        return Math.max(1.25f, (SpellType.FIENDFYRE.getManaCost() * MagicWandItem.getManaCostMultiplier(wand)
-                * SpellCosts.masteryMultiplier(player, SpellType.FIENDFYRE)
-                * SpellCosts.darkMultiplier(player, SpellType.FIENDFYRE)) / 14.0f);
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -3917,7 +3834,8 @@ public class ModEvents {
                 || spell == SpellType.HEAL
                 || spell == SpellType.ARRESTO_MOMENTUM
                 || spell == SpellType.LUMOS
-                || spell == SpellType.REPARO;
+                || spell == SpellType.REPARO
+                || spell == SpellType.SERPENSORTIA;
     }
 
     @SubscribeEvent

@@ -437,6 +437,14 @@ public class ModEntities {
                             .fireImmune()
                             .build("living_statue"));
 
+    // Serpensortia snakes. Long and low: the box is the coiled body, the model tail trails behind it.
+    public static final RegistryObject<EntityType<SnakeEntity>> SNAKE =
+            ENTITY_TYPES.register("snake",
+                    () -> EntityType.Builder.<SnakeEntity>of(SnakeEntity::new, MobCategory.MONSTER)
+                            .sized(0.6F, 0.35F)
+                            .clientTrackingRange(8)
+                            .build("snake"));
+
     public static final RegistryObject<EntityType<CaveBoatEntity>> CAVE_BOAT =
             ENTITY_TYPES.register("cave_boat",
                     () -> EntityType.Builder.<CaveBoatEntity>of(CaveBoatEntity::new, MobCategory.MISC)

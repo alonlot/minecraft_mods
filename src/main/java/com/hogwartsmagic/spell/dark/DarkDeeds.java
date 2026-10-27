@@ -3,6 +3,7 @@ package com.hogwartsmagic.spell.dark;
 import com.hogwartsmagic.Config;
 import com.hogwartsmagic.entity.HouseElfEntity;
 import com.hogwartsmagic.entity.StudentEntity;
+import com.hogwartsmagic.sorting.HousePerks;
 import com.hogwartsmagic.spell.mastery.MasteryAwards;
 import com.hogwartsmagic.spell.mind.MindControl;
 import com.hogwartsmagic.spell.mind.PossessionManager;
@@ -28,8 +29,13 @@ import javax.annotation.Nullable;
 public final class DarkDeeds {
     /** The play-time stat (online ticks) at the last redemption. */
     public static final String KEY_LAST_REDEMPTION = "DarkMagicLastRedemption";
+    /** The play-time stat (online ticks) at the last Potion of Remorse that lightened the soul. */
+    public static final String KEY_LAST_REMORSE = "DarkMagicLastRemorse";
     private static final String KEY_INNOCENT = "gui.hogwartsmagic.dark.innocent";
     private static final String KEY_REDEEMED = "gui.hogwartsmagic.dark.redeemed";
+
+    /** What a Potion of Remorse did to the drinker's Darkness. */
+    public enum RemorseResult { LIGHTENED, NOTHING_TO_REGRET, SPENT, OFF }
 
     private DarkDeeds() {
     }
@@ -90,7 +96,32 @@ public final class DarkDeeds {
         }
         modData.putInt(KEY_LAST_REDEMPTION, played);
         PlayerMagicData.saveModData(healer, modData);
-        DarkMagicData.add(healer, -DarkRules.REDEMPTION_AMOUNT);
+        DarkMagicData.add(healer, -(float) (DarkRules.REDEMPTION_AMOUNT
+                * DarkRules.houseRedemptionMultiplier(DarkRules.houseKey(HousePerks.getHouse(healer)))));
         healer.displayClientMessage(Component.translatable(KEY_REDEEMED).withStyle(ChatFormatting.GRAY), true);
+    }
+
+    /**
+     * From the Potion of Remorse. Lightens the drinker by amount, at most once per remorseCooldownTicks of play. A
+     * drinker with nothing to lighten (Clean, or at the Horcrux floor) changes nothing and keeps the window.
+     */
+    public static RemorseResult onRemorse(ServerPlayer drinker, float amount) {
+        if (!Config.isDarkMagicEnabled() || !DarkRules.earns(drinker.isCreative(), drinker.isSpectator())) {
+            return RemorseResult.OFF;
+        }
+        if (DarkMagicData.getStored(drinker) <= DarkMagicData.floor(drinker)) {
+            return RemorseResult.NOTHING_TO_REGRET;
+        }
+        CompoundTag modData = PlayerMagicData.getModData(drinker);
+        int played = drinker.getStats().getValue(Stats.CUSTOM.get(Stats.PLAY_TIME));
+        if (!DarkRewardRules.redemptionWindowOpen(modData.contains(KEY_LAST_REMORSE), played,
+                modData.getInt(KEY_LAST_REMORSE), Config.getRemorseCooldownTicks())) {
+            return RemorseResult.SPENT;
+        }
+        modData.putInt(KEY_LAST_REMORSE, played);
+        PlayerMagicData.saveModData(drinker, modData);
+        DarkMagicData.add(drinker, -(float) (amount
+                * DarkRules.houseRedemptionMultiplier(DarkRules.houseKey(HousePerks.getHouse(drinker)))));
+        return RemorseResult.LIGHTENED;
     }
 }

@@ -89,7 +89,7 @@ class PetrificationRulesTest {
 
     @Test
     void theWardLastsEightSeconds() {
-        assertEquals(1160L, PetrificationRules.wardUntil(1000L));
+        assertEquals(1160L, PetrificationRules.wardUntil(1000L, com.hogwartsmagic.brewing.PotionRules.MANDRAKE_GAZE_WARD_TICKS));
         assertTrue(PetrificationRules.warded(1160L, 1159L));
         assertFalse(PetrificationRules.warded(1160L, 1160L));
         assertFalse(PetrificationRules.warded(0L, 5L));

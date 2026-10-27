@@ -2,6 +2,7 @@ package com.hogwartsmagic.brewing;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Cauldron brewing: the recipe table, the step model, how a history matches the recipes, when time simmers, the
@@ -30,6 +31,9 @@ public final class BrewRules {
     public static final String ASHWINDER_EGG = "hogwartsmagic:ashwinder_egg";
     public static final String ARCANE_DUST = "hogwartsmagic:arcane_dust";
     public static final String GOLD_NUGGET = "minecraft:gold_nugget";
+    public static final String GHAST_TEAR = "minecraft:ghast_tear";
+    public static final String FEATHER = "minecraft:feather";
+    public static final String AMETHYST_SHARD = "minecraft:amethyst_shard";
 
     /** Felix Felicis is the one brew that gives a single dose (spec decision 7). */
     public static final int FELIX_DOSES = 1;
@@ -163,10 +167,51 @@ public final class BrewRules {
             List.of(0xD9542B, 0x8E9A3A, 0xC9A23A, 0xE0B84A, 0xF2C94C, 0xFFD966),
             List.of(), List.of(), FELIX_DOSES);
 
+    /** The Potion of Remorse: a Ghast Tear for grief, Dittany for mending, a slow anticlockwise stir. */
+    public static final Recipe REMORSE = new Recipe("remorse",
+            List.of(Step.add(GHAST_TEAR, 1), Step.add(DITTANY, 2), Step.stirAnticlockwise(3), Step.simmer(90)),
+            List.of(0x9FB4C8, 0x7E98A8, 0x6C7F96, 0x8FA8C8),
+            List.of(), List.of(), MAX_DOSES);
+
+    /** Veritaserum: a feather for truth, an amethyst shard for clarity; the clear brew of the Advanced book. */
+    public static final Recipe VERITASERUM = new Recipe("veritaserum",
+            List.of(Step.add(FEATHER, 1), Step.add(AMETHYST_SHARD, 1), Step.add(VALERIAN_SPRIGS, 2),
+                    Step.stirClockwise(7), Step.simmer(120), Step.add(ARCANE_DUST, 1)),
+            List.of(0xDCE6EA, 0xC9B8E8, 0xD6CCE8, 0xE4ECF0, 0xEEF4F6, 0xF4FAFC),
+            List.of(), List.of(), MAX_DOSES);
+
     public static final List<Recipe> RECIPES = List.of(WIGGENWELD, PEPPERUP, POLYJUICE, DITTANY_ESSENCE,
-            MANDRAKE_DRAUGHT, LIVING_DEATH, FELIX_FELICIS);
+            MANDRAKE_DRAUGHT, LIVING_DEATH, FELIX_FELICIS, REMORSE, VERITASERUM);
+
+    /** Recipes taught only by the Advanced Potion-Making book. */
+    public static final Set<String> ADVANCED_RECIPE_IDS = Set.of("living_death", "felix_felicis", "veritaserum");
 
     private BrewRules() {
+    }
+
+    public static boolean isAdvanced(Recipe recipe) {
+        return ADVANCED_RECIPE_IDS.contains(recipe.id());
+    }
+
+    /**
+     * True when the history is not empty, no ordinary recipe fits it and some advanced recipe does: a step
+     * that only the book teaches. A history that fits nothing is ruined, not gated.
+     */
+    public static boolean needsBook(List<Step> history) {
+        if (history.isEmpty()) {
+            return false;
+        }
+        boolean advanced = false;
+        for (Recipe recipe : RECIPES) {
+            if (fit(recipe, history) == null) {
+                continue;
+            }
+            if (!isAdvanced(recipe)) {
+                return false;
+            }
+            advanced = true;
+        }
+        return advanced;
     }
 
     /** The history after one more action: merged into the last run when it is the same action. */

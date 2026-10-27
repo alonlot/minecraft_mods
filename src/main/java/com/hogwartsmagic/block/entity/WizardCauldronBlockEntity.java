@@ -2,7 +2,9 @@ package com.hogwartsmagic.block.entity;
 
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.block.WizardCauldronBlock;
+import com.hogwartsmagic.brewing.AdvancedPotions;
 import com.hogwartsmagic.brewing.BrewAdvancements;
+import com.hogwartsmagic.brewing.BrewQuality;
 import com.hogwartsmagic.brewing.BrewRules;
 import com.hogwartsmagic.polyjuice.PolyjuiceData;
 import com.hogwartsmagic.polyjuice.PolyjuiceStacks;
@@ -55,6 +57,13 @@ public class WizardCauldronBlockEntity extends BlockEntity {
     private int color = BrewRules.CLASSIC_GREEN;
     /** Simmered seconds since the client colour was last refreshed. Not saved. */
     private int simmerSinceSync;
+    /** Quality counters: rare ingredients added and how many were fine, stirs and how many were precise. */
+    private int gradableAdds;
+    private int fineAdds;
+    private int stirs;
+    private int preciseStirs;
+    /** Game time of the last ingredient or stir; -1 when unknown. */
+    private long lastActionTick = -1L;
 
     public WizardCauldronBlockEntity(BlockPos pos, BlockState state) {
         super(ExampleMod.WIZARD_CAULDRON_BLOCK_ENTITY.get(), pos, state);
@@ -202,6 +211,14 @@ public class WizardCauldronBlockEntity extends BlockEntity {
             result = bottledPotion(match.recipe());
             if (!result.is(ExampleMod.FAILED_POTION.get())) {
                 BrewAdvancements.grant(player, BrewAdvancements.FIRST_BREW);
+                if (result.getItem() instanceof com.hogwartsmagic.item.BrewedPotionItem
+                        || result.getItem() instanceof com.hogwartsmagic.item.SplashBrewItem) {
+                    int grade = BrewQuality.grade(currentScore());
+                    result.set(ExampleMod.BREW_QUALITY.get(), grade);
+                    if (grade == BrewQuality.EXCEPTIONAL) {
+                        BrewAdvancements.grant(player, BrewAdvancements.OUTSTANDING_BREW);
+                    }
+                }
             }
         }
         player.setItemInHand(hand, ItemUtils.createFilledResult(stack, player, result));
@@ -227,12 +244,18 @@ public class WizardCauldronBlockEntity extends BlockEntity {
         if (BrewRules.FELIX_FELICIS.id().equals(id)) {
             return new ItemStack(ExampleMod.FELIX_FELICIS.get());
         }
+        if (BrewRules.REMORSE.id().equals(id)) {
+            return new ItemStack(ExampleMod.POTION_OF_REMORSE.get());
+        }
         if (BrewRules.MANDRAKE_DRAUGHT.id().equals(id)) {
             return new ItemStack(BrewRules.usedTail(history, BrewRules.GUNPOWDER)
                     ? ExampleMod.SPLASH_MANDRAKE_DRAUGHT.get() : ExampleMod.MANDRAKE_DRAUGHT.get());
         }
         if (BrewRules.LIVING_DEATH.id().equals(id)) {
             return new ItemStack(ExampleMod.DRAUGHT_OF_LIVING_DEATH.get());
+        }
+        if (BrewRules.VERITASERUM.id().equals(id)) {
+            return new ItemStack(ExampleMod.VERITASERUM.get());
         }
         if (BrewRules.POLYJUICE.id().equals(id) && !polyjuiceTarget.isEmpty()) {
             return PolyjuiceStacks.make(polyjuiceTarget,
@@ -251,17 +274,54 @@ public class WizardCauldronBlockEntity extends BlockEntity {
             tell(player, "ruined_already");
             return;
         }
+        BrewRules.Step turn = player.isShiftKeyDown()
+                ? BrewRules.Step.stirAnticlockwise(1)
+                : BrewRules.Step.stirClockwise(1);
+        if (refusedForWantOfBook(player, turn)) {
+            return;
+        }
         level.playSound(null, worldPosition, SoundEvents.GENERIC_SPLASH, SoundSource.BLOCKS, 0.4f, 1.4f);
         level.sendParticles(ParticleTypes.SPLASH, cx(), surfaceY(), cz(), 6, 0.2, 0.02, 0.2, 0.05);
         if (history.isEmpty()) {
             tell(player, "stir_water");
             return;
         }
-        BrewRules.Step turn = player.isShiftKeyDown()
-                ? BrewRules.Step.stirAnticlockwise(1)
-                : BrewRules.Step.stirClockwise(1);
-        applyStep(level, turn, player);
+        BrewRules.Kind lastKind = history.get(history.size() - 1).kind();
+        boolean previousWasStir = lastKind == BrewRules.Kind.STIR_CLOCKWISE || lastKind == BrewRules.Kind.STIR_ANTICLOCKWISE;
+        long now = level.getGameTime();
+        long gap = lastActionTick < 0 ? Long.MAX_VALUE : now - lastActionTick;
+        if (applyStep(level, turn, player)) {
+            stirs++;
+            if (BrewQuality.preciseStir(previousWasStir, gap)) {
+                preciseStirs++;
+                level.playSound(null, worldPosition, SoundEvents.NOTE_BLOCK_CHIME.value(), SoundSource.BLOCKS, 0.5f, 1.6f);
+                level.sendParticles(ParticleTypes.ENCHANT, cx(), surfaceY(), cz(), 4, 0.2, 0.1, 0.2, 0.1);
+            }
+            lastActionTick = now;
+        }
         changed();
+    }
+
+    /**
+     * True (after telling the player) when the step would start or continue a recipe that only the Advanced
+     * Potion-Making book teaches and this player has not read it. Nothing is consumed and the brew is untouched.
+     */
+    private boolean refusedForWantOfBook(Player player, BrewRules.Step action) {
+        if (BrewRules.needsBook(BrewRules.append(history, action)) && !AdvancedPotions.hasRead(player)) {
+            tell(player, "needs_book");
+            return true;
+        }
+        return false;
+    }
+
+    /** Test accessor: how many runs the brew has. */
+    public int historySize() {
+        return history.size();
+    }
+
+    /** Test accessor. */
+    public boolean isRuined() {
+        return ruined;
     }
 
     private void addIngredient(ServerLevel level, Player player, InteractionHand hand, ItemStack stack) {
@@ -283,9 +343,22 @@ public class WizardCauldronBlockEntity extends BlockEntity {
             tell(player, "empty_sample");
             return;
         }
+        if (refusedForWantOfBook(player, BrewRules.Step.add(id, 1))) {
+            return;
+        }
         CompoundTag sample = filledSample ? PolyjuiceData.getSample(stack) : null;
+        boolean fine = stack.getOrDefault(ExampleMod.FINE_INGREDIENT.get(), false);
         consumeOne(player, hand, stack);
         boolean accepted = applyStep(level, BrewRules.Step.add(id, 1), player);
+        if (accepted) {
+            if (BrewQuality.gradable(id)) {
+                gradableAdds++;
+                if (fine) {
+                    fineAdds++;
+                }
+            }
+            lastActionTick = level.getGameTime();
+        }
         if (accepted && sample != null) {
             // BrewRules sees only the item name; the target travels with the brew.
             polyjuiceTarget = sample;
@@ -327,6 +400,7 @@ public class WizardCauldronBlockEntity extends BlockEntity {
         history = new ArrayList<>();
         overbrewSeconds = 0;
         polyjuiceTarget = new CompoundTag();
+        resetQuality();
         level.playSound(null, worldPosition, SoundEvents.FIRE_EXTINGUISH, SoundSource.BLOCKS, 0.8f, 0.7f);
         level.playSound(null, worldPosition, SoundEvents.NOTE_BLOCK_BASS.value(), SoundSource.BLOCKS, 1.0f, 0.5f);
         level.sendParticles(ParticleTypes.SMOKE, cx(), surfaceY(), cz(), 16, 0.25, 0.1, 0.25, 0.02);
@@ -342,11 +416,26 @@ public class WizardCauldronBlockEntity extends BlockEntity {
         level.playSound(null, worldPosition, SoundEvents.BREWING_STAND_BREW, SoundSource.BLOCKS, 0.8f, 1.0f);
         level.sendParticles(ParticleTypes.END_ROD, cx(), surfaceY() + 0.1, cz(), 16, 0.25, 0.2, 0.25, 0.02);
         if (player != null) {
-            tell(player, "finished", Component.translatable("brew.hogwartsmagic." + recipe.id()));
+            Component name = Component.translatable("brew.hogwartsmagic." + recipe.id());
+            tell(player, "finished_quality", name,
+                    Component.translatable(BrewQuality.langKey(BrewQuality.grade(currentScore()))));
         }
     }
 
+    private double currentScore() {
+        return BrewQuality.score(gradableAdds, fineAdds, stirs, preciseStirs);
+    }
+
+    private void resetQuality() {
+        gradableAdds = 0;
+        fineAdds = 0;
+        stirs = 0;
+        preciseStirs = 0;
+        lastActionTick = -1L;
+    }
+
     private void reset() {
+        resetQuality();
         doses = 0;
         history = new ArrayList<>();
         ruined = false;
@@ -452,6 +541,11 @@ public class WizardCauldronBlockEntity extends BlockEntity {
         tag.putBoolean("Ruined", ruined);
         tag.putInt("Overbrew", overbrewSeconds);
         tag.putInt("Color", color);
+        tag.putInt("QGradable", gradableAdds);
+        tag.putInt("QFine", fineAdds);
+        tag.putInt("QStirs", stirs);
+        tag.putInt("QPrecise", preciseStirs);
+        tag.putLong("QLastAction", lastActionTick);
         ListTag list = new ListTag();
         for (BrewRules.Step step : history) {
             CompoundTag entry = new CompoundTag();
@@ -474,6 +568,11 @@ public class WizardCauldronBlockEntity extends BlockEntity {
         doses = Mth.clamp(tag.getInt("Doses"), 0, BrewRules.MAX_DOSES);
         ruined = tag.getBoolean("Ruined");
         overbrewSeconds = tag.getInt("Overbrew");
+        gradableAdds = Math.max(0, tag.getInt("QGradable"));
+        fineAdds = Math.max(0, tag.getInt("QFine"));
+        stirs = Math.max(0, tag.getInt("QStirs"));
+        preciseStirs = Math.max(0, tag.getInt("QPrecise"));
+        lastActionTick = tag.contains("QLastAction") ? tag.getLong("QLastAction") : -1L;
         history = new ArrayList<>();
         boolean damaged = false;
         ListTag list = tag.getList("History", Tag.TAG_COMPOUND);

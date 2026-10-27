@@ -54,6 +54,7 @@ public class ModEntityAttributes {
         event.put(ModEntities.BOGGART.get(), com.hogwartsmagic.entity.boggart.BoggartEntity.createAttributes().build());
         event.put(ModEntities.WHOMPING_WILLOW.get(), com.hogwartsmagic.entity.WhompingWillowEntity.createAttributes().build());
         event.put(ModEntities.LIVING_STATUE.get(), com.hogwartsmagic.entity.LivingStatueEntity.createAttributes().build());
+        event.put(ModEntities.SNAKE.get(), com.hogwartsmagic.entity.SnakeEntity.createAttributes().build());
         event.put(ModEntities.PENSIEVE_BODY.get(), com.hogwartsmagic.pensieve.PensieveBodyEntity.createAttributes().build());
     }
 }

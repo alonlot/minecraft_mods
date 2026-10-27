@@ -90,8 +90,8 @@ public final class PetrificationRules {
         return stillPetrified && alive;
     }
 
-    public static long wardUntil(long now) {
-        return now + PotionRules.MANDRAKE_GAZE_WARD_TICKS;
+    public static long wardUntil(long now, int ticks) {
+        return now + ticks;
     }
 
     public static boolean warded(long wardUntil, long now) {

@@ -4,8 +4,6 @@ import com.hogwartsmagic.Config;
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.block.entity.FlooFireplaceBlockEntity;
 import com.hogwartsmagic.caveinimicum.CaveInimicumWardBounds;
-import com.hogwartsmagic.entity.FiendfyreSerpentEntity;
-import com.hogwartsmagic.entity.ModEntities;
 import com.hogwartsmagic.entity.SpellBeamEntity;
 import com.hogwartsmagic.item.MagicWandItem;
 import com.hogwartsmagic.spell.SpellCosts;
@@ -261,6 +259,11 @@ public class SpellPackets {
                 .encoder((p, buf) -> {})
                 .decoder(buf -> new OpenHogwartsGuideScreenPacket())
                 .consumerMainThread(OpenHogwartsGuideScreenPacket::handle)
+                .add();
+        CHANNEL.messageBuilder(OpenAdvancedPotionsScreenPacket.class)
+                .encoder((p, buf) -> {})
+                .decoder(buf -> new OpenAdvancedPotionsScreenPacket())
+                .consumerMainThread(OpenAdvancedPotionsScreenPacket::handle)
                 .add();
         CHANNEL.messageBuilder(SetFlooNamePacket.class)
                 .encoder((p, buf) -> {
@@ -929,11 +932,6 @@ public class SpellPackets {
         private static final String TAG_PROTEGO_MAXIMA_LAST_DRAIN = "hogwartsmagic:protego_maxima_last_drain";
         private static final String TAG_PROTEGO_MAXIMA_LAST_SEEN = "hogwartsmagic:protego_maxima_last_seen";
         private static final int PROTEGO_MAXIMA_UPKEEP_INTERVAL = 10;
-        private static final String TAG_FIENDFYRE_CHANNELING = "hogwartsmagic:fiendfyre_channeling";
-        private static final String TAG_FIENDFYRE_LAST_DRAIN = "hogwartsmagic:fiendfyre_last_drain";
-        private static final String TAG_FIENDFYRE_LAST_SEEN = "hogwartsmagic:fiendfyre_last_seen";
-        private static final String TAG_FIENDFYRE_ENTITY = "hogwartsmagic:fiendfyre_entity";
-        private static final String TAG_FIENDFYRE_ADVANCE = "hogwartsmagic:fiendfyre_advance";
         private static final String TAG_PATRONUS_SHIELD_CHANNELING = com.hogwartsmagic.entity.DementorEntity.TAG_PATRONUS_SHIELD_CHANNELING;
         private static final String TAG_PATRONUS_SHIELD_LAST_DRAIN = "hogwartsmagic:patronus_shield_last_drain";
         private static final String TAG_PATRONUS_SHIELD_LAST_SEEN = "hogwartsmagic:patronus_shield_last_seen";
@@ -1008,6 +1006,12 @@ public class SpellPackets {
                 return;
             }
 
+            // Parseltongue: a left-click with Serpensortia commands the caster's snakes (Master) and never casts.
+            if (spell == SpellType.SERPENSORTIA && p.selfCastProtego) {
+                com.hogwartsmagic.spell.summon.SerpensortiaSpell.command(player);
+                return;
+            }
+
             long now = player.level().getGameTime();
             net.minecraft.nbt.CompoundTag playerData = player.getPersistentData();
 
@@ -1017,16 +1021,13 @@ public class SpellPackets {
                 if (playerData.getBoolean(TAG_PROTEGO_MAXIMA_CHANNELING)) {
                     stopProtegoMaximaChannel(player, wand, now, creative);
                 }
-                if (playerData.getBoolean(TAG_FIENDFYRE_CHANNELING)) {
-                    stopFiendfyreChannel(player, wand, now, creative);
-                }
+                com.hogwartsmagic.spell.summon.FiendfyreChannel.release(player, wand);
                 if (playerData.getBoolean(TAG_PATRONUS_SHIELD_CHANNELING)) {
                     com.hogwartsmagic.event.ModEvents.stopPatronusShieldChannel(player, wand);
                 }
                 if (playerData.getBoolean(TAG_WINGARDIUM_CHANNELING)) {
                     com.hogwartsmagic.event.ModEvents.stopWingardiumChannel(player, wand);
                 }
-                playerData.remove(TAG_FIENDFYRE_ADVANCE);
                 playerData.remove(TAG_PATRONUS_CAST_SPENT);
                 return;
             }
@@ -1073,42 +1074,8 @@ public class SpellPackets {
             }
 
             if (p.channelHeartbeat && spell == SpellType.FIENDFYRE) {
-                if (!creative && MagicWandItem.isOnCooldown(wand, spell, now)) return;
-
-                net.minecraft.nbt.CompoundTag modData = playerData.getCompound("PlayerPersisted").getCompound(ExampleMod.MODID);
-                float maxMana = PlayerMagicData.getMaxMana(player);
-                float currentMana = modData.contains("Mana") ? modData.getFloat("Mana") : maxMana;
-                float startupCost = getFiendfyreStartupCost(player, wand);
-
-                if (playerData.getBoolean(TAG_FIENDFYRE_CHANNELING)) {
-                    playerData.putLong(TAG_FIENDFYRE_LAST_SEEN, now);
-                    playerData.putBoolean(TAG_FIENDFYRE_ADVANCE, p.fiendfyreAdvance);
-                    ensureFiendfyreExists(player);
-                    return;
-                }
-
-                if (!creative && currentMana < startupCost) {
-                    player.displayClientMessage(net.minecraft.network.chat.Component.literal("Not enough mana!").withStyle(net.minecraft.ChatFormatting.RED), true);
-                    return;
-                }
-
-                if (!creative) {
-                    currentMana -= startupCost;
-                    modData.putFloat("Mana", currentMana);
-                    PlayerMagicData.saveModData(player, modData);
-                    CHANNEL.send(new SyncManaPacket(currentMana, maxMana), net.minecraftforge.network.PacketDistributor.PLAYER.with(player));
-                }
-
-                // Dark Magic: the channel start is the paid Fiendfyre cast (its startup mana was just taken).
-                com.hogwartsmagic.spell.dark.DarkMagicData.onDarkCastPaid(player, spell);
-                playerData.putBoolean(TAG_FIENDFYRE_CHANNELING, true);
-                playerData.putLong(TAG_FIENDFYRE_LAST_DRAIN, now);
-                playerData.putLong(TAG_FIENDFYRE_LAST_SEEN, now);
-                playerData.putBoolean(TAG_FIENDFYRE_ADVANCE, p.fiendfyreAdvance);
-                ensureFiendfyreExists(player);
-                com.hogwartsmagic.event.ModEvents.revealInvisibilityCloak(player);
-                player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
-                        spell.getSoundEvent(), SoundSource.PLAYERS, 1.0f, 0.86f);
+                // The whole channel (rank duration, serpents, rogue roll, upkeep) is FiendfyreChannel's.
+                com.hogwartsmagic.spell.summon.FiendfyreChannel.heartbeat(player, wand, p.fiendfyreAdvance);
                 return;
             }
 
@@ -1431,49 +1398,6 @@ public class SpellPackets {
                     SpellType.EXPECTO_PATRONUM.getSoundEvent(), SoundSource.PLAYERS, 1.0f, 1.22f);
         }
 
-        private static float getFiendfyreStartupCost(ServerPlayer player, ItemStack wand) {
-            return Math.max(3.0f, SpellType.FIENDFYRE.getManaCost() * MagicWandItem.getManaCostMultiplier(wand)
-                    * SpellCosts.masteryMultiplier(player, SpellType.FIENDFYRE) * 0.16f
-                    * SpellCosts.darkMultiplier(player, SpellType.FIENDFYRE));
-        }
-
-        private static void ensureFiendfyreExists(ServerPlayer player) {
-            net.minecraft.nbt.CompoundTag playerData = player.getPersistentData();
-            if (playerData.hasUUID(TAG_FIENDFYRE_ENTITY)) {
-                net.minecraft.world.entity.Entity existing = player.serverLevel().getEntity(playerData.getUUID(TAG_FIENDFYRE_ENTITY));
-                if (existing instanceof FiendfyreSerpentEntity fiendfyre) {
-                    fiendfyre.setCaster(player);
-                    return;
-                }
-            }
-
-            FiendfyreSerpentEntity fiendfyre = new FiendfyreSerpentEntity(ModEntities.FIENDFYRE_SERPENT.get(), player.level());
-            fiendfyre.setCaster(player);
-            fiendfyre.moveTo(player.getX(), player.getEyeY(), player.getZ(), player.getYRot(), player.getXRot());
-            player.level().addFreshEntity(fiendfyre);
-            playerData.putUUID(TAG_FIENDFYRE_ENTITY, fiendfyre.getUUID());
-        }
-
-        private static void stopFiendfyreChannel(ServerPlayer player, ItemStack wand, long now, boolean creative) {
-            net.minecraft.nbt.CompoundTag playerData = player.getPersistentData();
-            playerData.remove(TAG_FIENDFYRE_CHANNELING);
-            playerData.remove(TAG_FIENDFYRE_LAST_DRAIN);
-            playerData.remove(TAG_FIENDFYRE_LAST_SEEN);
-            playerData.remove(TAG_FIENDFYRE_ADVANCE);
-            if (playerData.hasUUID(TAG_FIENDFYRE_ENTITY)) {
-                net.minecraft.world.entity.Entity existing = player.serverLevel().getEntity(playerData.getUUID(TAG_FIENDFYRE_ENTITY));
-                if (existing instanceof FiendfyreSerpentEntity fiendfyre) {
-                    fiendfyre.discard();
-                }
-            }
-            playerData.remove(TAG_FIENDFYRE_ENTITY);
-
-            if (!creative && MagicWandItem.isAnyWand(wand)) {
-                SpellType spell = SpellType.FIENDFYRE;
-                SpellCosts.startCooldown(player, wand, spell, now);
-            }
-        }
-
         private static void stopProtegoMaximaChannel(ServerPlayer player, ItemStack wand, long now, boolean creative) {
             net.minecraft.nbt.CompoundTag playerData = player.getPersistentData();
             playerData.remove(TAG_PROTEGO_MAXIMA_CHANNELING);
@@ -1632,6 +1556,12 @@ public class SpellPackets {
     public record OpenHogwartsGuideScreenPacket() {
         public static void handle(OpenHogwartsGuideScreenPacket p, CustomPayloadEvent.Context ctx) {
             enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("openHogwartsGuideScreen", p));
+        }
+    }
+
+    public record OpenAdvancedPotionsScreenPacket() {
+        public static void handle(OpenAdvancedPotionsScreenPacket p, CustomPayloadEvent.Context ctx) {
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("openAdvancedPotionsScreen", p));
         }
     }
 

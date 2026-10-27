@@ -71,5 +71,10 @@ public class SplashBrewItem extends Item {
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
         tooltip.add(Component.translatable("item.hogwartsmagic." + kind.id() + ".tooltip").withStyle(ChatFormatting.GRAY));
+        int quality = stack.getOrDefault(com.hogwartsmagic.ExampleMod.BREW_QUALITY.get(), 0);
+        if (quality > 0) {
+            tooltip.add(Component.translatable(com.hogwartsmagic.brewing.BrewQuality.langKey(quality))
+                    .withStyle(quality >= com.hogwartsmagic.brewing.BrewQuality.EXCEPTIONAL ? ChatFormatting.GOLD : ChatFormatting.AQUA));
+        }
     }
 }

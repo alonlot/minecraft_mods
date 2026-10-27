@@ -22,8 +22,6 @@ import net.minecraftforge.common.loot.IGlobalLootModifier;
 import net.minecraftforge.common.loot.LootModifier;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.Set;
-
 /**
  * Tomes of Mastery in chests: one roll per chest, at most one tome. Common and Uncommon can turn
  * up in any chest that can roll a spell book; Rare only in dungeon-tier chests and mod
@@ -36,32 +34,6 @@ public class TomeOfMasteryLootModifier extends LootModifier {
     /** Mod structures, for chests inside them that use a vanilla table. */
     private static final TagKey<Structure> RARE_STRUCTURES = TagKey.create(Registries.STRUCTURE,
             ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "tome_rare"));
-
-    private static final Set<ResourceLocation> ENDGAME_TABLES = Set.of(
-            ResourceLocation.parse("hogwartsmagic:chests/gringotts_vault"),
-            ResourceLocation.parse("hogwartsmagic:chests/chamber_of_secrets")
-    );
-
-    private static final Set<ResourceLocation> DUNGEON_TIER_TABLES = Set.of(
-            ResourceLocation.parse("minecraft:chests/simple_dungeon"),
-            ResourceLocation.parse("minecraft:chests/abandoned_mineshaft"),
-            ResourceLocation.parse("minecraft:chests/desert_pyramid"),
-            ResourceLocation.parse("minecraft:chests/jungle_temple"),
-            ResourceLocation.parse("minecraft:chests/stronghold_library"),
-            ResourceLocation.parse("minecraft:chests/stronghold_corridor"),
-            ResourceLocation.parse("minecraft:chests/stronghold_crossing"),
-            ResourceLocation.parse("minecraft:chests/ancient_city"),
-            ResourceLocation.parse("minecraft:chests/ancient_city_ice_box"),
-            ResourceLocation.parse("minecraft:chests/woodland_mansion"),
-            ResourceLocation.parse("minecraft:chests/end_city_treasure"),
-            ResourceLocation.parse("minecraft:chests/bastion_treasure"),
-            ResourceLocation.parse("minecraft:chests/bastion_other"),
-            ResourceLocation.parse("minecraft:chests/bastion_bridge"),
-            ResourceLocation.parse("minecraft:chests/bastion_hoglin_stable"),
-            ResourceLocation.parse("minecraft:chests/nether_bridge"),
-            ResourceLocation.parse("minecraft:chests/buried_treasure"),
-            ResourceLocation.parse("minecraft:chests/shipwreck_treasure")
-    );
 
     public static final MapCodec<TomeOfMasteryLootModifier> CODEC = RecordCodecBuilder.mapCodec(inst ->
             codecStart(inst).apply(inst, TomeOfMasteryLootModifier::new));
@@ -77,9 +49,9 @@ public class TomeOfMasteryLootModifier extends LootModifier {
         if (tableId == null || !tableId.getPath().startsWith("chests/")) {
             return generatedLoot;
         }
-        boolean endgame = ENDGAME_TABLES.contains(tableId) || insideStructure(context, ENDGAME_STRUCTURES);
+        boolean endgame = TomeRules.isEndgameTable(tableId.toString()) || insideStructure(context, ENDGAME_STRUCTURES);
         boolean rare = endgame
-                || DUNGEON_TIER_TABLES.contains(tableId)
+                || TomeRules.isDungeonTierTable(tableId.toString())
                 || ExampleMod.MODID.equals(tableId.getNamespace())
                 || insideStructure(context, RARE_STRUCTURES);
         SpellLootRarity tier = TomeRules.pickTome(context.getRandom().nextDouble(),

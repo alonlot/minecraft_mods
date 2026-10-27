@@ -174,12 +174,32 @@ public class TomePickerScreen extends Screen {
             y += ROW_HEIGHT;
         }
         g.disableScissor();
+        drawScrollCue(g);
 
         super.render(g, mouseX, mouseY, partialTick);
 
         // After everything else and outside the scissor, so the tooltip is never clipped.
         if (hovered >= 0 && hovered < spells.size()) {
             g.renderTooltip(this.font, upgradeTooltip(spells.get(hovered)), mouseX, mouseY);
+        }
+    }
+
+    /** A thin track with a thumb at the list's right edge, plus an arrow where more rows hide. */
+    private void drawScrollCue(GuiGraphics g) {
+        float max = maxScroll();
+        if (max <= 0.0F) {
+            return;
+        }
+        int height = listBottom - listTop;
+        int[] thumb = ScrollCue.thumb(scroll, max, height, 8);
+        g.fill(listRight, listTop, listRight + 3, listBottom, 0x40FFFFFF);
+        g.fill(listRight, listTop + thumb[0], listRight + 3, listTop + thumb[0] + thumb[1], COLOR_NAME);
+        int arrowX = listRight - 8;
+        if (ScrollCue.moreAbove(scroll)) {
+            g.drawString(this.font, "▲", arrowX, listTop - 10, COLOR_RANK);
+        }
+        if (ScrollCue.moreBelow(scroll, max)) {
+            g.drawString(this.font, "▼", arrowX, listBottom + 2, COLOR_RANK);
         }
     }
 

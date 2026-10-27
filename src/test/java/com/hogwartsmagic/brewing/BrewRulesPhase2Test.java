@@ -186,4 +186,30 @@ class BrewRulesPhase2Test {
         assertEquals(Status.RUINED, BrewRules.match(run(add(NUGGET))).status());
         assertEquals(Status.RUINED, BrewRules.match(run(add(DUST))).status());
     }
+
+    @Test
+    void remorseBrewsFromAGhastTear() {
+        List<Step> history = simmer(run(add("minecraft:ghast_tear"), add(DITTANY), add(DITTANY), ccw(), ccw(), ccw()), 90);
+        Match match = BrewRules.match(history);
+        assertEquals(Status.FINISHED, match.status());
+        assertSame(BrewRules.REMORSE, match.recipe());
+        assertEquals(BrewRules.MAX_DOSES, match.recipe().doses());
+        assertTrue(BrewRules.isIngredient("minecraft:ghast_tear"));
+        assertSame(BrewRules.REMORSE, BrewRules.match(run(add("minecraft:ghast_tear"))).recipe());
+    }
+
+    @Test
+    void veritaserumBrewsFromAFeatherAndAnAmethystShard() {
+        List<Step> history = run(add(BrewRules.FEATHER), add(BrewRules.AMETHYST_SHARD), add(VALERIAN), add(VALERIAN));
+        for (int i = 0; i < 7; i++) {
+            history = run(history, cw());
+        }
+        history = run(simmer(history, 120), add(DUST));
+        Match match = BrewRules.match(history);
+        assertEquals(Status.FINISHED, match.status());
+        assertSame(BrewRules.VERITASERUM, match.recipe());
+        assertEquals(BrewRules.MAX_DOSES, match.recipe().doses());
+        assertTrue(BrewRules.isAdvanced(BrewRules.VERITASERUM));
+        assertTrue(BrewRules.isIngredient(BrewRules.AMETHYST_SHARD));
+    }
 }

@@ -88,6 +88,19 @@ public class ExampleMod
                     .networkSynchronized(net.minecraft.network.codec.ByteBufCodecs.VAR_INT.map(
                             com.hogwartsmagic.spell.motion.AlatusRules::clampQuality, q -> q))
                     .build());
+    /** Brew quality of a bottled potion: 0 standard, 1 fine, 2 exceptional. Absent reads as standard. */
+    public static final RegistryObject<net.minecraft.core.component.DataComponentType<Integer>> BREW_QUALITY =
+            DATA_COMPONENTS.register("brew_quality", () -> net.minecraft.core.component.DataComponentType.<Integer>builder()
+                    .persistent(com.mojang.serialization.Codec.intRange(0, 2))
+                    .networkSynchronized(net.minecraft.network.codec.ByteBufCodecs.VAR_INT.map(
+                            com.hogwartsmagic.brewing.BrewQuality::clampGrade, q -> q))
+                    .build());
+    /** True on a fine variant of a rare brewing ingredient; it lifts the brew it goes into. */
+    public static final RegistryObject<net.minecraft.core.component.DataComponentType<Boolean>> FINE_INGREDIENT =
+            DATA_COMPONENTS.register("fine_ingredient", () -> net.minecraft.core.component.DataComponentType.<Boolean>builder()
+                    .persistent(com.mojang.serialization.Codec.BOOL)
+                    .networkSynchronized(net.minecraft.network.codec.ByteBufCodecs.BOOL)
+                    .build());
     /** Sneakoscope: true while a carried Sneakoscope detects something. Synced to clients, never saved (transient). */
     public static final RegistryObject<net.minecraft.core.component.DataComponentType<Boolean>> SNEAKOSCOPE_SPINNING =
             DATA_COMPONENTS.register("sneakoscope_spinning", () -> net.minecraft.core.component.DataComponentType.<Boolean>builder()
@@ -692,6 +705,14 @@ public class ExampleMod
                     .rarity(net.minecraft.world.item.Rarity.EPIC)
                     .component(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true),
                     com.hogwartsmagic.item.BrewedPotionItem.Kind.FELIX));
+    public static final RegistryObject<Item> POTION_OF_REMORSE = ITEMS.register("potion_of_remorse",
+            () -> new com.hogwartsmagic.item.BrewedPotionItem(new Item.Properties()
+                    .rarity(net.minecraft.world.item.Rarity.UNCOMMON),
+                    com.hogwartsmagic.item.BrewedPotionItem.Kind.REMORSE));
+    public static final RegistryObject<Item> VERITASERUM = ITEMS.register("veritaserum",
+            () -> new com.hogwartsmagic.item.BrewedPotionItem(new Item.Properties()
+                    .rarity(net.minecraft.world.item.Rarity.RARE),
+                    com.hogwartsmagic.item.BrewedPotionItem.Kind.VERITASERUM));
     public static final RegistryObject<Item> MANDRAKE_DRAUGHT = ITEMS.register("mandrake_draught",
             () -> new com.hogwartsmagic.item.BrewedPotionItem(new Item.Properties()
                     .rarity(net.minecraft.world.item.Rarity.UNCOMMON),
@@ -715,6 +736,8 @@ public class ExampleMod
             () -> new HogwartsInviteItem(new Item.Properties()));
     public static final RegistryObject<Item> HOGWARTS_GUIDE = ITEMS.register("hogwarts_guide",
             () -> new HogwartsGuideItem(new Item.Properties()));
+    public static final RegistryObject<Item> ADVANCED_POTION_MAKING = ITEMS.register("advanced_potion_making",
+            () -> new com.hogwartsmagic.item.AdvancedPotionMakingItem(new Item.Properties()));
     public static final RegistryObject<Item> FLOO_BINDING_TOKEN = ITEMS.register("floo_binding_token",
             () -> new com.hogwartsmagic.item.FlooBindingTokenItem(new Item.Properties()));
     public static final RegistryObject<Item> CAVE_INIMICUM_TOTEM = ITEMS.register("cave_inimicum_totem",
@@ -971,6 +994,9 @@ public class ExampleMod
     public static final RegistryObject<Item> WHOMPING_WILLOW_SPAWN_EGG = ITEMS.register("whomping_willow_spawn_egg",
             () -> new net.minecraftforge.common.ForgeSpawnEggItem(ModEntities.WHOMPING_WILLOW, 0x42372A, 0x4A5C30, new Item.Properties()));
 
+    public static final RegistryObject<Item> SNAKE_SPAWN_EGG = ITEMS.register("snake_spawn_egg",
+            () -> new net.minecraftforge.common.ForgeSpawnEggItem(ModEntities.SNAKE, 0x3A6B2E, 0xC9B458, new Item.Properties()));
+
     // A barbed lakebed-stone spear. Unremarkable in air, nasty underwater --
     // see MerpersonSpearItem for where the bonus is applied.
     // Nacre and lake pearl: soft as armour, which is not what it is for.
@@ -1080,6 +1106,7 @@ public class ExampleMod
                 output.accept(OWL_ROUTE_TAG.get());
                 output.accept(HOGWARTS_INVITE.get());
                 output.accept(HOGWARTS_GUIDE.get());
+                output.accept(ADVANCED_POTION_MAKING.get());
                 output.accept(FLOO_BINDING_TOKEN.get());
                 output.accept(CAVE_INIMICUM_TOTEM.get());
                 output.accept(FLOO_POWDER.get());
@@ -1110,6 +1137,8 @@ public class ExampleMod
                 output.accept(FAILED_POTION.get());
                 output.accept(ESSENCE_OF_DITTANY.get());
                 output.accept(FELIX_FELICIS.get());
+                output.accept(POTION_OF_REMORSE.get());
+                output.accept(VERITASERUM.get());
                 output.accept(MANDRAKE_DRAUGHT.get());
                 output.accept(SPLASH_MANDRAKE_DRAUGHT.get());
                 output.accept(DRAUGHT_OF_LIVING_DEATH.get());
@@ -1140,6 +1169,7 @@ public class ExampleMod
                 output.accept(INFERIUS_SPAWN_EGG.get()); // Inferius Spawn Egg
                 output.accept(BOGGART_SPAWN_EGG.get()); // Boggart Spawn Egg
                 output.accept(WHOMPING_WILLOW_SPAWN_EGG.get()); // Whomping Willow Spawn Egg
+                output.accept(SNAKE_SPAWN_EGG.get()); // Wild Snake Spawn Egg
                 output.accept(GALLEON.get());
                 output.accept(CURSED_GALLEON.get());
                 output.accept(CLANKERS.get()); // Galleon
@@ -1271,6 +1301,7 @@ public class ExampleMod
         com.hogwartsmagic.command.SpellMasteryCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.DarkMagicCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.CrowdControlCommand.register(event.getDispatcher());
+        com.hogwartsmagic.command.PatronusCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.ImperioCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.LockInfoCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.ColloportusCommand.register(event.getDispatcher());

@@ -112,4 +112,62 @@ class PatronusRulesTest {
         pool[0] = PatronusForm.GENERIC;
         assertNotEquals(PatronusForm.GENERIC, PatronusForms.pool(0)[0]);
     }
+
+    @Test
+    void masterAuraOnlyAtMaster() {
+        assertFalse(PatronusRules.masterAura(3));
+        assertTrue(PatronusRules.masterAura(4));
+        assertTrue(PatronusRules.masterAura(9));
+    }
+
+    @Test
+    void repelsUndeadInsideSixBlocksButNotBosses() {
+        assertTrue(PatronusRules.repels(true, false, 36.0));
+        assertFalse(PatronusRules.repels(true, false, 36.01));
+        assertFalse(PatronusRules.repels(true, true, 1.0));
+        assertFalse(PatronusRules.repels(false, false, 1.0));
+    }
+
+    @Test
+    void nightVisionNeverFlickers() {
+        // Vanilla flickers Night Vision under 200 ticks; a refresh every 40 keeps it above that.
+        assertTrue(PatronusRules.NIGHT_VISION_TICKS - PatronusRules.NIGHT_VISION_INTERVAL > 200);
+    }
+
+    @Test
+    void onlyAMasterSendsMessages() {
+        assertFalse(PatronusRules.sendsMessages(3));
+        assertTrue(PatronusRules.sendsMessages(4));
+    }
+
+    @Test
+    void messagesReachFiveHundredBlocksAndCoolDown() {
+        assertTrue(PatronusRules.inMessageRange(500.0 * 500.0));
+        assertFalse(PatronusRules.inMessageRange(500.1 * 500.1));
+        assertEquals(0L, PatronusRules.messageCooldownLeft(false, 0L, 10L));
+        assertEquals(500L, PatronusRules.messageCooldownLeft(true, 100L, 200L));
+        assertEquals(0L, PatronusRules.messageCooldownLeft(true, 100L, 700L));
+        // A clock that ran backwards (stored stamp in the future) never locks the caster out at all.
+        assertEquals(0L, PatronusRules.messageCooldownLeft(true, 100000L, 5L));
+    }
+
+    @Test
+    void messagesAreTrimmedStrippedAndCapped() {
+        assertEquals("hello", PatronusRules.sanitizeMessage("  hello  "));
+        // The section sign is what turns text into a colour code; removing it is enough, and the
+        // letter that followed it stays as plain text.
+        assertEquals("cred text", PatronusRules.sanitizeMessage("\u00a7cred text"));
+        assertEquals("ab", PatronusRules.sanitizeMessage("a\nb"));
+        assertEquals("", PatronusRules.sanitizeMessage("   "));
+        assertEquals("", PatronusRules.sanitizeMessage(null));
+        assertEquals(200, PatronusRules.sanitizeMessage("x".repeat(500)).length());
+        // Whitespace is stripped before the cap, so leading blanks do not eat the budget.
+        assertEquals(200, PatronusRules.sanitizeMessage(" ".repeat(300) + "x".repeat(300)).length());
+        // A surrogate pair straddling the cap is dropped whole, never split.
+        String pair = "\uD83D\uDE00";
+        String capped = PatronusRules.sanitizeMessage("x".repeat(199) + pair + "tail");
+        assertEquals(199, capped.length());
+        assertFalse(Character.isHighSurrogate(capped.charAt(capped.length() - 1)));
+        assertEquals(200, PatronusRules.sanitizeMessage("x".repeat(198) + pair + "tail").length());
+    }
 }

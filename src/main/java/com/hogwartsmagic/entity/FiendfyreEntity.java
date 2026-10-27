@@ -1,26 +1,44 @@
 package com.hogwartsmagic.entity;
 
+import com.hogwartsmagic.spell.TerrainRules;
+import com.hogwartsmagic.spell.combat.CombatEffects;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 
+import javax.annotation.Nullable;
+import java.util.UUID;
+
 /**
  * Entity that manages the spreading of Fiendfyre.
- * It starts small and spreads to nearby blocks (even non-flammable ones) for 15 seconds. The clients draw the dragon's
- * billows and smoke over the fire it lights, and scorch under it (client/pensieve/DragonFireRenderer).
+ * It starts small and spreads to nearby blocks (even non-flammable ones) for 15 seconds. Every fire block
+ * goes through TerrainRules.canPlace as its caster (an NPC, an unknown or an offline caster falls back to
+ * the mobGriefing rule), so claims, spawn protection and Cave Inimicum wards hold.
+ * The clients draw the dragon's billows and smoke over the fire it lights, and scorch under it
+ * (client/pensieve/DragonFireRenderer).
  */
 public class FiendfyreEntity extends Entity {
     private static final EntityDataAccessor<Integer> DATA_LIFE_TICKS = SynchedEntityData.defineId(FiendfyreEntity.class, EntityDataSerializers.INT);
     private static final int MAX_LIFE = 300; // 15 seconds (20 ticks per second)
 
+    @Nullable
+    private UUID casterUuid;
+
     public FiendfyreEntity(EntityType<?> type, Level level) {
         super(type, level);
+    }
+
+    /** Whoever cast the beam (a projectile's owner is resolved to the caster). Call before adding it. */
+    public void setCaster(@Nullable Entity caster) {
+        Entity responsible = CombatEffects.responsible(caster);
+        this.casterUuid = responsible == null ? null : responsible.getUUID();
     }
 
     @Override
@@ -31,11 +49,15 @@ public class FiendfyreEntity extends Entity {
     @Override
     protected void readAdditionalSaveData(CompoundTag tag) {
         setLifeTicks(tag.getInt("LifeTicks"));
+        this.casterUuid = tag.hasUUID("Caster") ? tag.getUUID("Caster") : null;
     }
 
     @Override
     protected void addAdditionalSaveData(CompoundTag tag) {
         tag.putInt("LifeTicks", getLifeTicks());
+        if (this.casterUuid != null) {
+            tag.putUUID("Caster", this.casterUuid);
+        }
     }
 
     public int getLifeTicks() {
@@ -62,8 +84,8 @@ public class FiendfyreEntity extends Entity {
             // Only the server advances the synched counter; the client receives it.
             setLifeTicks(ticks + 1);
             // Spreading logic every 10 ticks
-            if (ticks % 10 == 0) {
-                spreadFire();
+            if (ticks % 10 == 0 && this.level() instanceof ServerLevel serverLevel) {
+                spreadFire(serverLevel);
             }
         }
     }
@@ -73,19 +95,23 @@ public class FiendfyreEntity extends Entity {
         return 1 + (getLifeTicks() / 40);
     }
 
-    private void spreadFire() {
+    private void spreadFire(ServerLevel level) {
         // Randomly pick blocks around the center to ignite
         BlockPos center = this.blockPosition();
         int radius = spreadRadius();
-        
+        Entity caster = this.casterUuid == null ? null : level.getEntity(this.casterUuid);
+
         for (int i = 0; i < 5; i++) {
             int rx = this.random.nextInt(radius * 2 + 1) - radius;
             int ry = this.random.nextInt(3) - 1;
             int rz = this.random.nextInt(radius * 2 + 1) - radius;
             
             BlockPos target = center.offset(rx, ry, rz);
-            if (this.level().isEmptyBlock(target)) {
-                this.level().setBlockAndUpdate(target, Blocks.FIRE.defaultBlockState());
+            if (!level.isLoaded(target) || !level.isEmptyBlock(target)) {
+                continue;
+            }
+            if (TerrainRules.canPlace(level, target, caster)) {
+                level.setBlockAndUpdate(target, Blocks.FIRE.defaultBlockState());
             }
         }
     }

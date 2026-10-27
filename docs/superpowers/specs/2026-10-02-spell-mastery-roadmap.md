@@ -282,6 +282,15 @@ Patronus forms (tinted vanilla models, chosen by UUID + house), a Serpensortia s
 block carrying, Arresto projectile freezing, Tenebris pass-through, Alatus broom quality rolls
 (after fixing the broom bench slot filter).
 
+**Status (2026-10-27): built.** Patronus forms and the Master Patronus (follows you, Night Vision, repels
+undead, the `/patronus` messenger), the Serpensortia snake with Parseltongue at Master, Fiendfyre by rank
+(rogue telegraph, up to three serpents, dispatch, Horcrux devouring), Wingardium blocks, Arresto, Tenebris
+and Alatus all shipped (plans `phase7a`, `phase7b` and `2026-10-27-roadmap-leftovers.md`). The Phase 1b leftovers
+shipped too: creative players keep their tome, the tome picker shows a scroll cue, and trial vaults drop tomes.
+
+**Still deferred:** the stun knock-ons (free horses and tick-driven bosses ignore stun; a silenced NPC's
+non-beam casts still go off).
+
 ---
 
 ## Global constraints (apply to every phase)

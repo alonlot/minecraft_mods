@@ -2,8 +2,10 @@ package com.hogwartsmagic.spell.dark;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * Dark Magic rules, free of Minecraft so they are unit-tested: which spells are dark and how much Darkness a paid
@@ -70,6 +72,8 @@ public final class DarkRules {
     }
 
     private static final Map<String, Float> GAIN;
+    /** Grey charms: they darken the soul a little but are not dark spells (no mana discount, no deeds). */
+    private static final Map<String, Float> GREY_GAIN = Map.of("obliviate", 0.2f, "confundo", 0.1f);
 
     static {
         Map<String, Float> gain = new LinkedHashMap<>();
@@ -97,10 +101,33 @@ public final class DarkRules {
         return spellId != null && GAIN.containsKey(spellId);
     }
 
-    /** Darkness per paid cast before the multiplier; 0 for a spell that is not dark. */
+    /** True for the grey charms, Obliviate and Confundo: a little Darkness per cast, yet not dark spells. */
+    public static boolean isGrey(String spellId) {
+        return spellId != null && GREY_GAIN.containsKey(spellId);
+    }
+
+    /** Darkness per paid cast before the multiplier; 0 for a spell that is neither dark nor grey. */
     public static float baseGain(String spellId) {
         Float gain = spellId == null ? null : GAIN.get(spellId);
+        if (gain == null && spellId != null) {
+            gain = GREY_GAIN.get(spellId);
+        }
         return gain == null ? 0.0f : gain;
+    }
+
+    /** Slytherins darken more slowly: three quarters of the gain. Any other house, or none, gains in full. */
+    public static double houseGainMultiplier(@Nullable String house) {
+        return "slytherin".equals(house) ? 0.75 : 1.0;
+    }
+
+    /** Hufflepuffs find their way back faster: half again as much redemption and remorse. */
+    public static double houseRedemptionMultiplier(@Nullable String house) {
+        return "hufflepuff".equals(house) ? 1.5 : 1.0;
+    }
+
+    /** The lower-case name of a house enum constant, or null for no house. */
+    public static @Nullable String houseKey(@Nullable Enum<?> house) {
+        return house == null ? null : house.name().toLowerCase(Locale.ROOT);
     }
 
     /** Darkness per paid cast after the server multiplier, rounded to two decimals. 0 for a bad multiplier. */

@@ -18,7 +18,13 @@
       "entries": [
         {
           "type": "minecraft:item",
-          "name": "hogwartsmagic:dittany"
+          "name": "hogwartsmagic:dittany",
+          "functions": [
+            {
+              "function": "minecraft:set_components",
+              "components": { "hogwartsmagic:fine_ingredient": true }
+            }
+          ]
         }
       ],
       "conditions": [

@@ -50,4 +50,40 @@ class PotionRulesTest {
         assertEquals(0.15, PotionRules.ASHWINDER_CHAMBER_CHANCE);
         assertEquals(0.05, PotionRules.ASHWINDER_BLAZE_CHANCE);
     }
+
+    @Test
+    void remorseHurtsButNeverKills() {
+        assertEquals(3.0f, PotionRules.remorseDamage(20f));
+        assertEquals(1.5f, PotionRules.remorseDamage(2.5f));
+        assertEquals(0.0f, PotionRules.remorseDamage(1f));
+        assertEquals(0.0f, PotionRules.remorseDamage(0.5f));
+        assertEquals(5.0f, PotionRules.REMORSE_DARKNESS);
+        assertEquals(144_000, PotionRules.DEFAULT_REMORSE_COOLDOWN_TICKS);
+    }
+
+    @Test
+    void betterBrewsLastLonger() {
+        assertEquals(48, PotionRules.qualityTicks(48, 0));
+        assertEquals(72, PotionRules.qualityTicks(48, 1));
+        assertEquals(96, PotionRules.qualityTicks(48, 2));
+        assertEquals(96, PotionRules.qualityTicks(48, 9));
+        assertEquals(48, PotionRules.qualityTicks(48, -3));
+    }
+
+    @Test
+    void betterBrewsWorkHarder() {
+        assertEquals(40f, PotionRules.qualityAmount(40f, 0));
+        assertEquals(50f, PotionRules.qualityAmount(40f, 1));
+        assertEquals(6f, PotionRules.qualityAmount(4f, 2));
+        assertEquals(7.5f, PotionRules.qualityAmount(PotionRules.REMORSE_DARKNESS, 2));
+        assertEquals(4f, PotionRules.qualityAmount(4f, -1));
+        assertEquals(6f, PotionRules.qualityAmount(4f, 7));
+    }
+
+    @Test
+    void veritaserumWorksOncePerVillagerPerDay() {
+        assertTrue(PotionRules.veritaserumReady(false, 0, 5));
+        assertFalse(PotionRules.veritaserumReady(true, 100, 24_099));
+        assertTrue(PotionRules.veritaserumReady(true, 100, 24_100));
+    }
 }

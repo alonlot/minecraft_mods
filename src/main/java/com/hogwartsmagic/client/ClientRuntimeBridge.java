@@ -38,6 +38,7 @@ public final class ClientRuntimeBridge {
             case "openFlooNamingScreen" -> openFlooNamingScreen((SpellPackets.OpenFlooNamingScreenPacket) payload);
             case "openHogwartsInviteScreen" -> openHogwartsInviteScreen((SpellPackets.OpenHogwartsInviteScreenPacket) payload);
             case "openHogwartsGuideScreen" -> openHogwartsGuideScreen();
+            case "openAdvancedPotionsScreen" -> openAdvancedPotionsScreen();
             case "syncCaveInimicumRegion" -> syncCaveInimicumRegion((SpellPackets.CaveInimicumRegionSyncPacket) payload);
             case "syncCaveInimicumBlockDelta" -> syncCaveInimicumBlockDelta((SpellPackets.CaveInimicumBlockDeltaPacket) payload);
             case "syncActiveWards" -> syncActiveWards((SpellPackets.CaveInimicumActiveWardsPacket) payload);
@@ -233,6 +234,10 @@ public final class ClientRuntimeBridge {
     private static void openHogwartsInviteScreen(SpellPackets.OpenHogwartsInviteScreenPacket packet) {
         net.minecraft.client.Minecraft.getInstance().setScreen(
                 new HogwartsInviteScreen(packet.recipient()));
+    }
+
+    private static void openAdvancedPotionsScreen() {
+        net.minecraft.client.Minecraft.getInstance().setScreen(new HogwartsGuideScreen(true));
     }
 
     private static void openHogwartsGuideScreen() {

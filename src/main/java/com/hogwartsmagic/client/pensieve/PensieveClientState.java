@@ -118,6 +118,8 @@ public final class PensieveClientState {
      * is not revealed out of the fog again (see {@link #setReveal}).
      */
     private static boolean handedOver;
+    /** The viewer was a free ghost when the exit began: noclip lasts until they are home. */
+    private static boolean exitGhost;
     /** The previous scene handed over through white: this scene fades in from white, not black. */
     private static boolean carriedWhite;
     /**
@@ -193,6 +195,7 @@ public final class PensieveClientState {
         RecordingCache.clear();
         GhostCamera.release();
         SilverGhosts.clear();
+        exitGhost = false;
         PensieveGhost.localNoclip = false;
         recording = null;
         pendingRecording = null;
@@ -339,6 +342,7 @@ public final class PensieveClientState {
     public static void onExit(int reason) {
         if (phase == NONE) return;
         returnStart = -1;
+        if (GhostCamera.active()) exitGhost = true;
         if (reason == REASON_YANK) {
             if (phase == YANK) return;
             setPhase(YANK);
@@ -691,6 +695,7 @@ public final class PensieveClientState {
         MemoryActors.clear();
         GhostCamera.release();
         SilverGhosts.clear();
+        exitGhost = false;
         PensieveGhost.localNoclip = false;
         PensieveSounds.stopAll();
         syncTimeOfDay();
@@ -716,7 +721,9 @@ public final class PensieveClientState {
             return;
         }
         if (!mc.isPaused()) ticks++;
-        PensieveGhost.localNoclip = GhostCamera.active();
+        // A ghost who leaves keeps flying through walls until they are back at the basin, as on the server.
+        PensieveGhost.localNoclip = GhostCamera.active()
+                || (exitGhost && (phase == EXIT || phase == YANK) && !backAtBasin(mc));
         retryRecordingStart();
         long t = ticks - phaseStart;
         if (phase == SWALLOW && t >= PensieveTimeline.SWALLOW_TICKS) {

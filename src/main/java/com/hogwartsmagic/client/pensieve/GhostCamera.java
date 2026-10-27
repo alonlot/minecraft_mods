@@ -24,10 +24,10 @@ import net.minecraftforge.fml.common.Mod;
 public final class GhostCamera {
     /** Start taking the outward speed away this far inside the radius. */
     private static final double EASE_INSIDE = 1.0;
-    /** Past this far outside the radius the position itself is pulled back. */
-    private static final double HARD_OUTSIDE = 0.5;
 
     private static boolean snap;
+    /** The owner's last valid view, held when their track is gone. */
+    private static float[] lastView;
 
     private GhostCamera() {
     }
@@ -56,6 +56,7 @@ public final class GhostCamera {
     /** Drop the snap (the memory ended or a new one starts). */
     static void release() {
         snap = false;
+        lastView = null;
     }
 
     /** The owner's recorded track, or null. */
@@ -63,24 +64,24 @@ public final class GhostCamera {
         return RecordedActors.trackFor("owner");
     }
 
-    /** The owner's eye at scene time {@code t} in world space: the puppet's, else the recorded track's. Null if neither. */
-    static Vec3 ownerEye(float t) {
+    /**
+     * The owner's view at scene time {@code t}: {@code {x, y, z, yaw, pitch}} with the eye in world space. The puppet's
+     * eye when it stands, else the recorded track's; the track is sampled once. Once the owner's track has ended the
+     * last view is held rather than a stale puppet. Null if the owner has never been seen.
+     */
+    static float[] ownerView(float t) {
         BlockPos o = PensieveClientState.origin();
         if (o == null) return null;
+        Recording.Track tr = ownerTrack();
+        if (tr == null) return lastView;
+        if (!RecordedTrackSampler.present(tr, t)) return lastView;
+        float[] p = RecordedTrackSampler.pose(tr, t);
         float[] eye = MemoryActors.actorEye("owner");
-        if (eye != null) return new Vec3(o.getX() + eye[0], o.getY() + eye[1], o.getZ() + eye[2]);
-        Recording.Track tr = ownerTrack();
-        if (tr == null) return null;
-        float[] p = RecordedTrackSampler.pose(tr, t);
-        return new Vec3(o.getX() + p[0], o.getY() + p[1] + 1.62, o.getZ() + p[2]);
-    }
-
-    /** {@code {yaw, pitch}} of the owner's head at scene time {@code t}, or null. */
-    static float[] ownerLook(float t) {
-        Recording.Track tr = ownerTrack();
-        if (tr == null) return null;
-        float[] p = RecordedTrackSampler.pose(tr, t);
-        return new float[] {p[4], p[6]};
+        float[] v = eye != null
+                ? new float[] {o.getX() + eye[0], o.getY() + eye[1], o.getZ() + eye[2], p[4], p[6]}
+                : new float[] {o.getX() + p[0], (float) (o.getY() + p[1] + 1.62), o.getZ() + p[2], p[4], p[6]};
+        lastView = v;
+        return v;
     }
 
     /** Client tick: the soft island bounds, and the silver ghosts' motes. */
@@ -111,7 +112,8 @@ public final class GhostCamera {
                 me.setDeltaMovement(v.x - out * dx / len, v.y - out * dy / len, v.z - out * dz / len);
             }
         }
-        if (len > radius + HARD_OUTSIDE) {
+        if (len > radius) {
+            // Every tick, so holding into the edge is a soft wall of tiny corrections and not a creep and a snap.
             double[] at = IslandBounds.clamp(me.getX(), me.getY(), me.getZ(), cx, cy, cz, radius);
             me.setPos(at[0], at[1], at[2]);
         }

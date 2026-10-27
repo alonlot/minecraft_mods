@@ -95,14 +95,13 @@ public final class PensieveCamera {
             }
             // A recorded memory's viewer who snapped sees through the owner's own eyes, wherever the owner goes.
             if (phase == PensieveClientState.PLAY && GhostCamera.snapped()) {
-                Vec3 oe = GhostCamera.ownerEye(t);
-                float[] look = GhostCamera.ownerLook(t);
-                if (oe != null && look != null) {
-                    x = oe.x;
-                    y = oe.y;
-                    z = oe.z;
-                    yaw = look[0];
-                    pitch = look[1];
+                float[] ov = GhostCamera.ownerView(t);
+                if (ov != null) {
+                    x = ov[0];
+                    y = ov[1];
+                    z = ov[2];
+                    yaw = ov[3];
+                    pitch = ov[4];
                     roll = 0;
                     fovTarget = 70f;
                     fovMix = 1;

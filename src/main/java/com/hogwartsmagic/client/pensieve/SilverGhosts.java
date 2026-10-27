@@ -58,7 +58,7 @@ public final class SilverGhosts {
     }
 
     public static boolean isGhost(Player p) {
-        return p != null && !ghosts.isEmpty() && !p.isLocalPlayer() && ghosts.contains(p.getUUID());
+        return p != null && !ghosts.isEmpty() && PensieveClientState.phase() != PensieveClientState.NONE && !p.isLocalPlayer() && ghosts.contains(p.getUUID());
     }
 
     /** The ghost's translucency, pulsing slowly. */

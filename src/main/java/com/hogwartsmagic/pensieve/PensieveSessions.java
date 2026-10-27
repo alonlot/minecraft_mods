@@ -194,13 +194,16 @@ public final class PensieveSessions {
         return player == null ? Optional.empty() : Optional.ofNullable(BY_VIEWER.get(player.getUUID()));
     }
 
-    /** True for a viewer inside (not swallowing or leaving) a recorded memory: free to fly through its island. */
+    /**
+     * True for a viewer inside a recorded memory, until they are moved home: free to fly through its island. Also
+     * while exiting, so a viewer who leaves from inside a wall is not pushed out of it (and rubber-banded) before the move.
+     */
     public static boolean isFreeGhost(Player player) {
         if (player == null) return false;
         Session s = BY_VIEWER.get(player.getUUID());
         if (s == null || s.recording == null) return false;
         Session.Viewer v = s.viewers().get(player.getUUID());
-        return v != null && v.stage == Session.Viewer.Stage.INSIDE;
+        return v != null && (v.stage == Session.Viewer.Stage.INSIDE || v.stage == Session.Viewer.Stage.EXITING);
     }
 
     /** True while anyone is inside the memory playing from this basin (for the take-out rule). */

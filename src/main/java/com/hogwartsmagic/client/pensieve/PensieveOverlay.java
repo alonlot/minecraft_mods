@@ -254,7 +254,7 @@ public final class PensieveOverlay {
         Component line = free
                 ? Component.translatable("hint.hogwartsmagic.pensieve.free",
                         ClientModEvents.PENSIEVE_SNAP_KEY.getTranslatedKeyMessage(),
-                        rec.ownerName() == null ? "" : rec.ownerName(),
+                        rec.ownerName() == null || rec.ownerName().isEmpty() ? "the owner" : rec.ownerName(),
                         ClientModEvents.PENSIEVE_LEAVE_KEY.getTranslatedKeyMessage())
                 : Component.translatable("gui.hogwartsmagic.pensieve.leave_hint",
                         ClientModEvents.PENSIEVE_LEAVE_KEY.getTranslatedKeyMessage());

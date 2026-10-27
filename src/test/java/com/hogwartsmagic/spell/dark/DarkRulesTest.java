@@ -295,4 +295,33 @@ class DarkRulesTest {
         assertEquals(0.0f, DarkRules.MIN_DARKNESS, EPS);
         assertEquals(100.0f, DarkRules.MAX_DARKNESS, EPS);
     }
+
+    @Test
+    void greySpellsDarkenSlightlyButAreNotDark() {
+        assertFalse(DarkRules.isDark("obliviate"));
+        assertTrue(DarkRules.isGrey("obliviate"));
+        assertTrue(DarkRules.isGrey("confundo"));
+        assertFalse(DarkRules.isGrey("avada_kedavra"));
+        assertEquals(0.2f, DarkRules.gain("obliviate", 1.0), 1e-6);
+        assertEquals(0.1f, DarkRules.gain("confundo", 1.0), 1e-6);
+        assertEquals(9, DarkRules.darkSpellIds().size());
+    }
+
+    @Test
+    void slytherinsDarkenSlowerAndHufflepuffsRedeemFaster() {
+        assertEquals(0.75, DarkRules.houseGainMultiplier("slytherin"), 1e-9);
+        assertEquals(1.0, DarkRules.houseGainMultiplier("gryffindor"), 1e-9);
+        assertEquals(1.0, DarkRules.houseGainMultiplier(null), 1e-9);
+        assertEquals(1.5, DarkRules.houseRedemptionMultiplier("hufflepuff"), 1e-9);
+        assertEquals(1.0, DarkRules.houseRedemptionMultiplier("slytherin"), 1e-9);
+        assertEquals(4.5f, DarkRules.gain("avada_kedavra", 1.0 * DarkRules.houseGainMultiplier("slytherin")), 1e-6);
+    }
+
+    private enum Fake { RAVENCLAW }
+
+    @Test
+    void houseKeyIsTheLowerCaseNameOrNull() {
+        assertEquals("ravenclaw", DarkRules.houseKey(Fake.RAVENCLAW));
+        assertEquals(null, DarkRules.houseKey(null));
+    }
 }

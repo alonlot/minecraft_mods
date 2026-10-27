@@ -2,6 +2,7 @@ package com.hogwartsmagic.spell.dark;
 
 import com.hogwartsmagic.Config;
 import com.hogwartsmagic.network.SpellPackets;
+import com.hogwartsmagic.sorting.HousePerks;
 import com.hogwartsmagic.spell.SpellType;
 import com.hogwartsmagic.spell.mind.PossessionManager;
 import com.hogwartsmagic.util.PlayerMagicData;
@@ -70,8 +71,8 @@ public final class DarkMagicData {
         if (!Config.isDarkMagicEnabled()) {
             return;
         }
-        float amount = DarkRules.gain(spell.getId(), Config.getDarkMagicGainMultiplier());
-        if (!(amount > 0.0f)) {
+        float base = DarkRules.gain(spell.getId(), Config.getDarkMagicGainMultiplier());
+        if (!(base > 0.0f)) {
             return;
         }
         UUID puppeteer = PossessionManager.castingPuppeteer;
@@ -89,6 +90,9 @@ public final class DarkMagicData {
         modData.putLong(KEY_LAST_DARK_CAST, payer.level().getGameTime());
         modData.putInt(KEY_DECAY_PROGRESS, 0);
         PlayerMagicData.saveModData(payer, modData);
+        // The payer's own house counts, not the puppet's.
+        float amount = DarkRules.gain(spell.getId(), Config.getDarkMagicGainMultiplier()
+                * DarkRules.houseGainMultiplier(DarkRules.houseKey(HousePerks.getHouse(payer))));
         write(payer, DarkRules.afterGain(getStored(payer), amount));
     }
 

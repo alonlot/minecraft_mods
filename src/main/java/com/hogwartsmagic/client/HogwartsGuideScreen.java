@@ -245,11 +245,11 @@ public class HogwartsGuideScreen extends Screen {
                 page("gringotts", "ironbelly", 2)
         )),
         DARK_MAGIC("gui.hogwartsmagic.hogwarts_guide.section.dark_magic", List.of(
-                page("dark_magic", "weight", 4),
+                page("dark_magic", "weight", 5),
                 page("dark_magic", "five_states", 3),
                 page("dark_magic", "costs", 5),
                 page("dark_magic", "offers", 4),
-                page("dark_magic", "way_back", 4)
+                page("dark_magic", "way_back", 5)
         )),
         CREATURES("gui.hogwartsmagic.hogwarts_guide.section.creatures", List.of(
                 page("creatures", "friends_and_terrors", 2),

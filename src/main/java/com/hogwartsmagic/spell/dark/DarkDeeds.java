@@ -3,6 +3,7 @@ package com.hogwartsmagic.spell.dark;
 import com.hogwartsmagic.Config;
 import com.hogwartsmagic.entity.HouseElfEntity;
 import com.hogwartsmagic.entity.StudentEntity;
+import com.hogwartsmagic.sorting.HousePerks;
 import com.hogwartsmagic.spell.mastery.MasteryAwards;
 import com.hogwartsmagic.spell.mind.MindControl;
 import com.hogwartsmagic.spell.mind.PossessionManager;
@@ -95,7 +96,8 @@ public final class DarkDeeds {
         }
         modData.putInt(KEY_LAST_REDEMPTION, played);
         PlayerMagicData.saveModData(healer, modData);
-        DarkMagicData.add(healer, -DarkRules.REDEMPTION_AMOUNT);
+        DarkMagicData.add(healer, -(float) (DarkRules.REDEMPTION_AMOUNT
+                * DarkRules.houseRedemptionMultiplier(DarkRules.houseKey(HousePerks.getHouse(healer)))));
         healer.displayClientMessage(Component.translatable(KEY_REDEEMED).withStyle(ChatFormatting.GRAY), true);
     }
 
@@ -118,7 +120,8 @@ public final class DarkDeeds {
         }
         modData.putInt(KEY_LAST_REMORSE, played);
         PlayerMagicData.saveModData(drinker, modData);
-        DarkMagicData.add(drinker, -amount);
+        DarkMagicData.add(drinker, -(float) (amount
+                * DarkRules.houseRedemptionMultiplier(DarkRules.houseKey(HousePerks.getHouse(drinker)))));
         return RemorseResult.LIGHTENED;
     }
 }

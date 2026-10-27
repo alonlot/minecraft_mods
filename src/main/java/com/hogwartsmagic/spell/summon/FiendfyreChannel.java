@@ -7,6 +7,7 @@ import com.hogwartsmagic.item.MagicWandItem;
 import com.hogwartsmagic.network.SpellPackets;
 import com.hogwartsmagic.spell.SpellCosts;
 import com.hogwartsmagic.spell.SpellType;
+import com.hogwartsmagic.spell.combat.CombatTags;
 import com.hogwartsmagic.spell.dark.DarkMagicData;
 import com.hogwartsmagic.spell.mastery.SpellMasteryData;
 import com.hogwartsmagic.util.PlayerMagicData;
@@ -21,10 +22,19 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.OwnableEntity;
+import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.network.PacketDistributor;
 
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -43,6 +53,7 @@ public final class FiendfyreChannel {
     private static final String TAG_LAST_SEEN = "hogwartsmagic:fiendfyre_last_seen";
     private static final String TAG_SERPENTS = "hogwartsmagic:fiendfyre_serpents";
     private static final String TAG_STARTED = "hogwartsmagic:fiendfyre_started";
+    private static final String TAG_DISPATCH_INDEX = "hogwartsmagic:fiendfyre_dispatch_index";
     private static final String TAG_RANK = "hogwartsmagic:fiendfyre_rank";
     /** The single-serpent key used before the rank rules; cleared on stop so old saves don't keep it. */
     private static final String LEGACY_TAG_ENTITY = "hogwartsmagic:fiendfyre_entity";
@@ -65,8 +76,13 @@ public final class FiendfyreChannel {
             return;
         }
         if (data.getBoolean(TAG_CHANNELING)) {
+            boolean wasAdvancing = data.getBoolean(TAG_ADVANCE);
             data.putLong(TAG_LAST_SEEN, now);
             data.putBoolean(TAG_ADVANCE, advance);
+            // A fresh attack press at Master sends the next serpent at whatever is under the crosshair.
+            if (advance && !wasAdvancing && FiendfyreRules.dispatches(Math.max(1, data.getInt(TAG_RANK)))) {
+                dispatchNext(player, now);
+            }
             return;
         }
 
@@ -127,6 +143,7 @@ public final class FiendfyreChannel {
         data.remove(TAG_SERPENTS);
         data.remove(TAG_STARTED);
         data.remove(TAG_RANK);
+        data.remove(TAG_DISPATCH_INDEX);
         data.remove(LEGACY_TAG_ENTITY);
         if (startCooldown && !player.isCreative() && MagicWandItem.isAnyWand(wand)) {
             SpellCosts.startCooldown(player, wand, SpellType.FIENDFYRE, player.level().getGameTime());
@@ -209,6 +226,57 @@ public final class FiendfyreChannel {
         return out;
     }
 
+    private static void dispatchNext(ServerPlayer player, long now) {
+        LivingEntity target = aimedTarget(player);
+        if (target == null) {
+            return;
+        }
+        List<FiendfyreSerpentEntity> free = new ArrayList<>();
+        for (FiendfyreSerpentEntity serpent : serpents(player)) {
+            if (serpent.isAvailableForDispatch()) {
+                free.add(serpent);
+            }
+        }
+        if (free.isEmpty()) {
+            return;
+        }
+        CompoundTag data = player.getPersistentData();
+        int index = Math.floorMod(data.getInt(TAG_DISPATCH_INDEX), free.size());
+        free.get(index).dispatchAt(target, now);
+        data.putInt(TAG_DISPATCH_INDEX, index + 1);
+        player.displayClientMessage(Component.translatable("message.hogwartsmagic.fiendfyre.dispatch", target.getDisplayName())
+                .withStyle(ChatFormatting.GOLD), true);
+    }
+
+    /** The creature under the crosshair within DISPATCH_RANGE (stopping at the first block) that dispatchMayTarget allows. */
+    @Nullable
+    private static LivingEntity aimedTarget(ServerPlayer player) {
+        double range = FiendfyreRules.DISPATCH_RANGE;
+        Vec3 start = player.getEyePosition();
+        Vec3 look = player.getLookAngle();
+        HitResult block = player.pick(range, 1.0F, false);
+        double reach = block.getType() == HitResult.Type.MISS ? range : block.getLocation().distanceTo(start);
+        Vec3 end = start.add(look.scale(reach));
+        AABB box = player.getBoundingBox().expandTowards(look.scale(reach)).inflate(1.5D);
+        EntityHitResult hit = ProjectileUtil.getEntityHitResult(player.level(), player, start, end, box,
+                entity -> entity instanceof LivingEntity living && living.isAlive() && entity.isPickable()
+                        && !entity.isSpectator() && (living instanceof Mob || living instanceof Player)
+                        && dispatchMayTarget(player, living));
+        return hit != null && hit.getEntity() instanceof LivingEntity living ? living : null;
+    }
+
+    private static boolean dispatchMayTarget(ServerPlayer caster, LivingEntity target) {
+        boolean isPlayer = target instanceof Player;
+        boolean creativeOrSpectator = target instanceof Player other && (other.isCreative() || other.isSpectator());
+        boolean casterCanHarm = isPlayer && caster.canHarmPlayer((Player) target);
+        boolean allied = isPlayer
+                ? target.isAlliedTo(caster)
+                : target.getTags().contains(CombatTags.ALLIED)
+                        && target instanceof OwnableEntity ownable && caster.getUUID().equals(ownable.getOwnerUUID());
+        return FiendfyreRules.dispatchMayTarget(target == caster, isPlayer, creativeOrSpectator,
+                caster.server.isPvpAllowed(), casterCanHarm, allied);
+    }
+
     /** One roll per cast decides whether a serpent will turn, which one, and when. */
     private static void spawnSerpents(ServerPlayer player, int rank) {
         ServerLevel level = player.serverLevel();
@@ -226,6 +294,7 @@ public final class FiendfyreChannel {
             FiendfyreSerpentEntity serpent = new FiendfyreSerpentEntity(ModEntities.FIENDFYRE_SERPENT.get(), level);
             serpent.setCaster(player);
             serpent.configure(i, count, i == rogueIndex ? turnTick : -1, duration);
+            serpent.setDestroysHorcrux(FiendfyreRules.destroysHorcrux(rank));
             serpent.moveTo(player.getX(), player.getEyeY(), player.getZ(), player.getYRot(), player.getXRot());
             level.addFreshEntity(serpent);
             ids.add(NbtUtils.createUUID(serpent.getUUID()));

@@ -76,11 +76,25 @@ class FiendfyreRulesTest {
 
     @Test
     void rogueSparesTheProtected() {
-        assertFalse(FiendfyreRules.rogueMayTarget(true, true, true, true, true));    // creative caster
-        assertTrue(FiendfyreRules.rogueMayTarget(true, true, false, false, false));  // its own caster, PvP off
-        assertFalse(FiendfyreRules.rogueMayTarget(false, true, false, false, true)); // other player, PvP off
-        assertFalse(FiendfyreRules.rogueMayTarget(false, true, false, true, false)); // caster may not harm them
-        assertTrue(FiendfyreRules.rogueMayTarget(false, true, false, true, true));
-        assertTrue(FiendfyreRules.rogueMayTarget(false, false, false, false, false)); // any mob
+        assertFalse(FiendfyreRules.rogueMayTarget(true, true, true, true, true, true));    // creative caster
+        assertTrue(FiendfyreRules.rogueMayTarget(true, true, false, false, false, true));  // its own caster, PvP off
+        assertFalse(FiendfyreRules.rogueMayTarget(false, true, false, false, true, true)); // other player, PvP off
+        assertFalse(FiendfyreRules.rogueMayTarget(false, true, false, true, false, true)); // caster may not harm them
+        assertTrue(FiendfyreRules.rogueMayTarget(false, true, false, true, true, true));
+        assertTrue(FiendfyreRules.rogueMayTarget(false, false, false, false, false, true)); // any mob
+        assertFalse(FiendfyreRules.rogueMayTarget(false, false, false, false, false, false)); // an armor stand
+    }
+
+    @Test
+    void dispatchSparesTheCasterAlliesAndProtectedPlayers() {
+        // (isCaster, isPlayer, creativeOrSpectator, pvpAllowed, casterCanHarm, alliedToCaster)
+        assertFalse(FiendfyreRules.dispatchMayTarget(true, true, false, true, true, false));   // the caster
+        assertFalse(FiendfyreRules.dispatchMayTarget(false, true, true, true, true, false));   // creative or spectator
+        assertFalse(FiendfyreRules.dispatchMayTarget(false, false, false, true, true, true));  // an owned allied mob
+        assertFalse(FiendfyreRules.dispatchMayTarget(false, true, false, true, true, true));   // an allied player
+        assertFalse(FiendfyreRules.dispatchMayTarget(false, true, false, false, true, false)); // other player, PvP off
+        assertTrue(FiendfyreRules.dispatchMayTarget(false, true, false, true, true, false));   // other player, PvP on
+        assertFalse(FiendfyreRules.dispatchMayTarget(false, true, false, true, false, false)); // caster may not harm them
+        assertTrue(FiendfyreRules.dispatchMayTarget(false, false, false, false, false, false)); // any other mob
     }
 }

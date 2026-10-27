@@ -83,16 +83,33 @@ public final class FiendfyreRules {
     }
 
     /**
-     * Whether a rogue serpent may hunt this target. It never hunts a creative or spectator player; it may
-     * always hunt its own caster; another player only when PvP is on and the caster could harm them.
+     * Whether a rogue serpent may hunt this target. Only mobs and players are prey (never an armor stand).
+     * It never hunts a creative or spectator player; it may always hunt its own caster; another player
+     * only when PvP is on and the caster could harm them.
      */
     public static boolean rogueMayTarget(boolean isCaster, boolean isPlayer, boolean creativeOrSpectator,
-                                         boolean pvpAllowed, boolean casterCanHarm) {
-        if (creativeOrSpectator) {
+                                         boolean pvpAllowed, boolean casterCanHarm, boolean isMobOrPlayer) {
+        if (!isMobOrPlayer || creativeOrSpectator) {
             return false;
         }
         if (isCaster) {
             return true;
+        }
+        if (isPlayer) {
+            return pvpAllowed && casterCanHarm;
+        }
+        return true;
+    }
+
+    /**
+     * Whether a Master may send a serpent at this target. Never the caster, a creative or spectator
+     * player, or an ally (an owned mob fighting for the caster, or a player allied to them); another
+     * player only when PvP is on and the caster could harm them.
+     */
+    public static boolean dispatchMayTarget(boolean isCaster, boolean isPlayer, boolean creativeOrSpectator,
+                                            boolean pvpAllowed, boolean casterCanHarm, boolean alliedToCaster) {
+        if (isCaster || creativeOrSpectator || alliedToCaster) {
+            return false;
         }
         if (isPlayer) {
             return pvpAllowed && casterCanHarm;

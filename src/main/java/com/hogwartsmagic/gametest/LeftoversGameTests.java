@@ -7,6 +7,10 @@ import com.hogwartsmagic.entity.ModEntities;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
@@ -80,6 +84,45 @@ public final class LeftoversGameTests {
             serpent.discard(); // a rogue serpent hunts for 16 blocks: keep it out of the neighbouring tests
             helper.succeed();
             LOGGER.info("LEFTOVERS-GAMETEST PASS serpentTelegraphsThenTurns");
+        });
+    }
+
+    /**
+     * A rogue serpent burns the mob beside it but not the protected player (the mock player is creative,
+     * and a caster-less serpent could not harm another player anyway) nor an armor stand.
+     */
+    @GameTest(template = EMPTY, timeoutTicks = 100)
+    public static void rogueSerpentSparesBystanders(GameTestHelper helper) {
+        Zombie zombie = helper.spawn(EntityType.ZOMBIE, 2, 1, 2);
+        zombie.setNoAi(true);
+        zombie.setNoGravity(true);
+        zombie.setHealth(zombie.getMaxHealth());
+        ArmorStand stand = helper.spawn(EntityType.ARMOR_STAND, 0, 1, 1);
+        stand.setNoGravity(true);
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        Vec3 playerAt = helper.absoluteVec(new Vec3(1.5, 1, 0.5));
+        player.moveTo(playerAt.x, playerAt.y, playerAt.z);
+
+        FiendfyreSerpentEntity serpent = new FiendfyreSerpentEntity(ModEntities.FIENDFYRE_SERPENT.get(), helper.getLevel());
+        serpent.configure(0, 1, 1, 120); // turns on its first tick
+        Vec3 at = helper.absoluteVec(new Vec3(1.5, 1.5, 1.5));
+        serpent.moveTo(at.x, at.y, at.z);
+        helper.getLevel().addFreshEntity(serpent);
+
+        helper.runAtTickTime(8, () -> {
+            try {
+                helper.assertTrue(serpent.isRogue(), "the serpent should have turned rogue");
+                helper.assertTrue(zombie.isOnFire() || zombie.getHealth() < zombie.getMaxHealth(), "the rogue serpent should burn the mob");
+                helper.assertTrue(player.getHealth() >= player.getMaxHealth() && !player.isOnFire(), "the protected player must not be burnt");
+                helper.assertTrue(stand.isAlive() && !stand.isOnFire(), "the armor stand must not be burnt");
+            } finally {
+                serpent.discard();
+                zombie.discard();
+                stand.discard();
+                player.discard();
+            }
+            helper.succeed();
+            LOGGER.info("LEFTOVERS-GAMETEST PASS rogueSerpentSparesBystanders");
         });
     }
 }

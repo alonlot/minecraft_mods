@@ -1,5 +1,7 @@
 package com.hogwartsmagic.entity;
 
+import com.hogwartsmagic.ExampleMod;
+import com.hogwartsmagic.block.entity.HorcruxBlockEntity;
 import com.hogwartsmagic.spell.TerrainRules;
 import com.hogwartsmagic.spell.summon.FiendfyreChannel;
 import com.hogwartsmagic.spell.summon.FiendfyreRules;
@@ -20,9 +22,11 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Vector3f;
@@ -31,6 +35,7 @@ import javax.annotation.Nullable;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.UUID;
+import java.util.function.Predicate;
 
 /**
  * One serpent of a held Fiendfyre channel (FiendfyreChannel). While controlled it flies where its
@@ -67,6 +72,10 @@ public class FiendfyreSerpentEntity extends Entity {
     private int rogueEndTick = -1;
     @Nullable
     private UUID rogueTargetId;
+    @Nullable
+    private UUID dispatchTargetId;
+    private long dispatchUntil;
+    private boolean destroysHorcrux;
     private final Deque<Vec3> trailPoints = new ArrayDeque<>();
 
     public FiendfyreSerpentEntity(EntityType<?> type, Level level) {
@@ -89,6 +98,7 @@ public class FiendfyreSerpentEntity extends Entity {
         this.rogueTurnTick = tag.contains("RogueTurn") ? tag.getInt("RogueTurn") : -1;
         this.rogueEndTick = tag.contains("RogueEnd") ? tag.getInt("RogueEnd") : -1;
         this.setState(tag.getByte("State"));
+        this.destroysHorcrux = tag.getBoolean("DestroysHorcrux");
     }
 
     @Override
@@ -102,6 +112,7 @@ public class FiendfyreSerpentEntity extends Entity {
         tag.putInt("RogueTurn", this.rogueTurnTick);
         tag.putInt("RogueEnd", this.rogueEndTick);
         tag.putByte("State", this.getState());
+        tag.putBoolean("DestroysHorcrux", this.destroysHorcrux);
     }
 
     public int getLifeTicks() {
@@ -179,12 +190,17 @@ public class FiendfyreSerpentEntity extends Entity {
         }
 
         if (caster != null) {
-            steerToCasterAim(caster, ticks);
+            if (this.getState() != STATE_DISPATCHED || !tickDispatch(serverLevel, caster)) {
+                steerToCasterAim(caster, ticks);
+            }
         } else {
             moveToward(this.position().add(0.0D, Math.sin(ticks * 0.3D) * 0.3D, 0.0D), MAX_STEP, TURN_RESPONSE);
         }
         recordTrail();
-        scorchNearby(caster);
+        scorchNearby(caster, null);
+        if (this.destroysHorcrux && ticks % FiendfyreRules.HORCRUX_SCAN_INTERVAL == 0) {
+            devourHorcruxes(serverLevel, caster);
+        }
 
         if (ticks % 2 == 0) {
             spreadFire(serverLevel, caster);
@@ -193,6 +209,70 @@ public class FiendfyreSerpentEntity extends Entity {
         spawnBurstParticles(serverLevel, ticks);
         if (this.isTelegraphing() && ticks % 2 == 0) {
             serverLevel.sendParticles(WARNING_DUST, this.getX(), this.getY(), this.getZ(), 6, 0.5D, 0.5D, 0.5D, 0.0D);
+        }
+    }
+
+    public void setDestroysHorcrux(boolean destroys) {
+        this.destroysHorcrux = destroys;
+    }
+
+    public boolean isAvailableForDispatch() {
+        return this.getState() == STATE_CONTROLLED;
+    }
+
+    /** Master: home in on {@code target} for DISPATCH_TICKS, then rejoin the formation. */
+    public void dispatchAt(LivingEntity target, long now) {
+        this.dispatchTargetId = target.getUUID();
+        this.dispatchUntil = now + FiendfyreRules.DISPATCH_TICKS;
+        this.setState(STATE_DISPATCHED);
+    }
+
+    /** Returns false (and rejoins the formation) once the target is gone, out of range or time is up. */
+    private boolean tickDispatch(ServerLevel level, ServerPlayer caster) {
+        LivingEntity target = null;
+        if (this.dispatchTargetId != null && level.getEntity(this.dispatchTargetId) instanceof LivingEntity living && living.isAlive()) {
+            target = living;
+        }
+        if (target == null || level.getGameTime() > this.dispatchUntil
+                || target.distanceToSqr(caster) > FiendfyreRules.DISPATCH_RANGE * FiendfyreRules.DISPATCH_RANGE) {
+            this.dispatchTargetId = null;
+            this.setState(STATE_CONTROLLED);
+            return false;
+        }
+        moveToward(target.position().add(0.0D, target.getBbHeight() * 0.5D, 0.0D), ADVANCE_MAX_STEP, ADVANCE_TURN_RESPONSE);
+        return true;
+    }
+
+    /**
+     * Master: an active or primed Horcrux within HORCRUX_REACH is destroyed (canon: Fiendfyre is one of the
+     * few things that can). TerrainRules.canBreak is the last check; it posts the real BreakEvent, which is
+     * what runs the Horcrux's own break effects, and a true result means the block is destroyed now.
+     */
+    private void devourHorcruxes(ServerLevel level, @Nullable Entity caster) {
+        BlockPos center = this.blockPosition();
+        int reach = FiendfyreRules.HORCRUX_REACH;
+        for (BlockPos scan : BlockPos.betweenClosed(center.offset(-reach, -reach, -reach), center.offset(reach, reach, reach))) {
+            if (!level.isLoaded(scan)) {
+                continue;
+            }
+            BlockState state = level.getBlockState(scan);
+            if (!state.is(ExampleMod.HORCRUX.get())) {
+                continue;
+            }
+            if (!(level.getBlockEntity(scan) instanceof HorcruxBlockEntity horcrux) || !(horcrux.isActive() || horcrux.isPrimed())) {
+                continue;
+            }
+            BlockPos pos = scan.immutable();
+            if (!TerrainRules.canBreak(level, pos, state, caster)) {
+                continue;
+            }
+            level.destroyBlock(pos, false);
+            level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, pos.getX() + 0.5D, pos.getY() + 0.6D, pos.getZ() + 0.5D,
+                    30, 0.4D, 0.4D, 0.4D, 0.04D);
+            if (caster instanceof ServerPlayer player) {
+                player.displayClientMessage(Component.translatable("message.hogwartsmagic.fiendfyre.horcrux")
+                        .withStyle(ChatFormatting.GOLD), true);
+            }
         }
     }
 
@@ -243,7 +323,7 @@ public class FiendfyreSerpentEntity extends Entity {
                 : this.position().add(0.0D, Math.sin(ticks * 0.3D) * 0.3D, 0.0D);
         moveToward(desired, MAX_STEP, TURN_RESPONSE);
         recordTrail();
-        scorchNearby(null);
+        scorchNearby(null, victim -> mayHunt(level, victim, caster)); // PvP rules protect bystanders
         if (ticks % 2 == 0) {
             spreadFire(level, caster);
             level.sendParticles(WARNING_DUST, this.getX(), this.getY(), this.getZ(), 6, 0.5D, 0.5D, 0.5D, 0.0D);
@@ -275,7 +355,8 @@ public class FiendfyreSerpentEntity extends Entity {
         boolean creativeOrSpectator = candidate instanceof Player player && (player.isCreative() || player.isSpectator());
         boolean pvpAllowed = level.getServer().isPvpAllowed();
         boolean casterCanHarm = isPlayer && caster != null && caster.canHarmPlayer((Player) candidate);
-        return FiendfyreRules.rogueMayTarget(isCaster, isPlayer, creativeOrSpectator, pvpAllowed, casterCanHarm);
+        boolean isMobOrPlayer = candidate instanceof Mob || isPlayer;
+        return FiendfyreRules.rogueMayTarget(isCaster, isPlayer, creativeOrSpectator, pvpAllowed, casterCanHarm, isMobOrPlayer);
     }
 
     private void steerToCasterAim(ServerPlayer caster, int ticks) {
@@ -325,10 +406,14 @@ public class FiendfyreSerpentEntity extends Entity {
         }
     }
 
-    /** Burns everything close; {@code spared} (the caster of a controlled serpent) is left alone. */
-    private void scorchNearby(@Nullable Entity spared) {
+    /**
+     * Burns everything close; {@code spared} (the caster of a controlled serpent) is left alone, and
+     * when {@code only} is given just the creatures it accepts are burnt.
+     */
+    private void scorchNearby(@Nullable Entity spared, @Nullable Predicate<LivingEntity> only) {
         AABB area = this.getBoundingBox().inflate(2.6D, 1.4D, 2.6D);
-        for (LivingEntity target : this.level().getEntitiesOfClass(LivingEntity.class, area, entity -> entity.isAlive() && entity != spared)) {
+        for (LivingEntity target : this.level().getEntitiesOfClass(LivingEntity.class, area,
+                entity -> entity.isAlive() && entity != spared && (only == null || only.test(entity)))) {
             target.igniteForSeconds(5);
             target.hurt(target.damageSources().onFire(), 4.0f);
             Vec3 lift = target.position().subtract(this.position());

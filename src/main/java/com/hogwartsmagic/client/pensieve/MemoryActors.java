@@ -917,10 +917,13 @@ public final class MemoryActors {
         Vec3 cam = camera.getPosition();
         float now = PensieveClientState.sceneTime(partial);
         boolean probe = JitterProbe.on();
+        boolean snapped = GhostCamera.snapped();
         for (ActorRuntime a : ACTORS) {
             syncItems(a, now);
             if (!a.visible) continue;
             if (a.track != null && !RecordedTrackSampler.present(a.track, now)) continue;
+            // Seen through the owner's eyes, they do not stand in their own view.
+            if (snapped && "owner".equals(a.def.id())) continue;
             Entity e = a.entity;
             try {
                 double x = Mth.lerp(partial, e.xo, e.getX());

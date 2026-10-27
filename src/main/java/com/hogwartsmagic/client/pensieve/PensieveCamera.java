@@ -93,6 +93,21 @@ public final class PensieveCamera {
                 fovTarget = p.fov();
                 fovMix = 1;
             }
+            // A recorded memory's viewer who snapped sees through the owner's own eyes, wherever the owner goes.
+            if (phase == PensieveClientState.PLAY && GhostCamera.snapped()) {
+                Vec3 oe = GhostCamera.ownerEye(t);
+                float[] look = GhostCamera.ownerLook(t);
+                if (oe != null && look != null) {
+                    x = oe.x;
+                    y = oe.y;
+                    z = oe.z;
+                    yaw = look[0];
+                    pitch = look[1];
+                    roll = 0;
+                    fovTarget = 70f;
+                    fovMix = 1;
+                }
+            }
             // Landing in the memory: the camera settles down onto its first shot. Not on a chain's hand-over, which
             // fades in from black on the next shot as it is.
             y += settleHeight(PensieveClientState.revealTime(partial), PensieveClientState.handedOver());

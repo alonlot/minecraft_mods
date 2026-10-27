@@ -14,6 +14,7 @@ import com.hogwartsmagic.pensieve.scene.SessionClock;
 import com.hogwartsmagic.pensieve.scene.SmoothedSceneClock;
 import com.mojang.logging.LogUtils;
 import net.minecraft.client.CameraType;
+import com.hogwartsmagic.pensieve.PensieveGhost;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
@@ -190,6 +191,9 @@ public final class PensieveClientState {
         PensieveSounds.stopAll();
         MemoryActors.clear();
         RecordingCache.clear();
+        GhostCamera.release();
+        SilverGhosts.clear();
+        PensieveGhost.localNoclip = false;
         recording = null;
         pendingRecording = null;
         scene = null;
@@ -685,6 +689,9 @@ public final class PensieveClientState {
             wakeStart = ticks;
         }
         MemoryActors.clear();
+        GhostCamera.release();
+        SilverGhosts.clear();
+        PensieveGhost.localNoclip = false;
         PensieveSounds.stopAll();
         syncTimeOfDay();
     }
@@ -709,6 +716,7 @@ public final class PensieveClientState {
             return;
         }
         if (!mc.isPaused()) ticks++;
+        PensieveGhost.localNoclip = GhostCamera.active();
         retryRecordingStart();
         long t = ticks - phaseStart;
         if (phase == SWALLOW && t >= PensieveTimeline.SWALLOW_TICKS) {

@@ -122,6 +122,12 @@ public class ClientModEvents {
             GLFW.GLFW_KEY_X,
             "key.categories.hogwartsmagic"
     );
+    /** See through the owner's eyes in a recorded memory (V). Toggled by the client tick; story memories ignore it. */
+    public static final KeyMapping PENSIEVE_SNAP_KEY = new KeyMapping(
+            "key.hogwartsmagic.pensieve_snap",
+            GLFW.GLFW_KEY_V,
+            "key.categories.hogwartsmagic"
+    );
     private static boolean wasGrimoireDown = false;
     private static final KeyMapping[] SPELL_SLOT_KEYS = createSpellSlotKeys();
 
@@ -174,6 +180,12 @@ public class ClientModEvents {
                     HorcruxClientState.clear();
                 }
                 HorcruxClientState.tick(mc);
+                while (PENSIEVE_SNAP_KEY.consumeClick()) {
+                    if (com.hogwartsmagic.client.pensieve.GhostCamera.active()) {
+                        com.hogwartsmagic.client.pensieve.GhostCamera.toggleSnap();
+                    }
+                }
+                com.hogwartsmagic.client.pensieve.GhostCamera.tick();
                 // Sprint/boost packets first so nothing in the broom sound path can prevent them from sending.
                 if (mc.player != null && mc.player.getVehicle() instanceof com.hogwartsmagic.entity.BroomEntity broom) {
                     // Respect stamina lock: if broom is overheated, suppress boost input client-side
@@ -790,6 +802,7 @@ public class ClientModEvents {
             WAND_RADIAL_MENU_KEY.setKeyConflictContext(context);
             GRIMOIRE_KEY.setKeyConflictContext(context);
             PENSIEVE_LEAVE_KEY.setKeyConflictContext(context);
+            PENSIEVE_SNAP_KEY.setKeyConflictContext(context);
             for (KeyMapping spellSlotKey : SPELL_SLOT_KEYS) {
                 spellSlotKey.setKeyConflictContext(context);
             }
@@ -802,6 +815,7 @@ public class ClientModEvents {
         event.register(GRIMOIRE_KEY);
         event.register(com.hogwartsmagic.client.PetrificationClient.GIVE_IN_KEY);
         event.register(PENSIEVE_LEAVE_KEY);
+        event.register(PENSIEVE_SNAP_KEY);
         for (KeyMapping spellSlotKey : SPELL_SLOT_KEYS) {
             event.register(spellSlotKey);
         }

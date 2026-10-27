@@ -284,7 +284,9 @@ public class PatronusEntity extends PathfinderMob {
 
     /** A Master Patronus keeps close to its caster so its light goes with them. */
     private final class FollowOwnerGoal extends Goal {
+        private static final int REPATH_INTERVAL = 10;
         private net.minecraft.server.level.ServerPlayer target;
+        private int repathIn;
 
         FollowOwnerGoal() {
             this.setFlags(EnumSet.of(Goal.Flag.MOVE));
@@ -300,6 +302,7 @@ public class PatronusEntity extends PathfinderMob {
                 return false;
             }
             this.target = p;
+            this.repathIn = 0;
             return PatronusEntity.this.distanceToSqr(p) > PatronusRules.FOLLOW_START * PatronusRules.FOLLOW_START;
         }
 
@@ -333,7 +336,11 @@ public class PatronusEntity extends PathfinderMob {
                 }
                 return;
             }
-            self.getNavigation().moveTo(this.target, 1.2D);
+            // Re-path every 10 ticks like vanilla FollowOwnerGoal, not every tick.
+            if (--this.repathIn <= 0) {
+                this.repathIn = REPATH_INTERVAL;
+                self.getNavigation().moveTo(this.target, 1.2D);
+            }
         }
     }
 

@@ -278,10 +278,13 @@ public final class LeftoversGameTests {
         helper.runAfterDelay(40, () -> {
             double pushed = near.position().distanceTo(master.position());
             double kept = calm.position().distanceTo(plain.position());
+            // The control must still exist, or a dead pair would read as 'stayed put'.
+            boolean controlsAlive = calm.isAlive() && plain.isAlive();
             master.discard();
             plain.discard();
             near.discard();
             calm.discard();
+            helper.assertTrue(controlsAlive, "the control zombie and Patronus should both still be alive");
             helper.assertTrue(pushed > 3.5, "the zombie should be driven past 3.5 blocks, was " + pushed);
             helper.assertTrue(kept <= 3.2, "without the aura the zombie should stay put, was " + kept);
             helper.succeed();

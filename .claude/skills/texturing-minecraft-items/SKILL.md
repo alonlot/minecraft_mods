@@ -53,8 +53,9 @@ shimmers. A 1024x1024 sprite takes 4096 times the atlas space of a 16x16 one.
    sheet and look at it**. The first three tiles are true GUI size on the slot, the hotbar and the sky.
    Ask: does it read as the thing at 1x? Does it look like it belongs in the same row as the vanilla
    references? Iterate on the grid until yes.
-7. **Families.** Variants (tiers, houses, colours) share one master grid with palette swaps
-   (`recolor()`), so the set reads as a set.
+7. **Families.** Variants (tiers, houses, colours) share one master grid: palette swaps with
+   `recolor()`, or a per-member emblem grid painted on with `overlay()`. Keep a 1px gap between an
+   emblem and a frame of the same colour. Lay the whole family out in one preview.
 
 Auditing a whole mod: `python scripts/texlint.py --audit src/main/resources/assets/<modid>` lints every
 texture that an item model uses, worst first. Then preview the clean-but-suspicious ones: the linter

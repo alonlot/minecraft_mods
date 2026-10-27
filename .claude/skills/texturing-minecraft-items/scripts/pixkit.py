@@ -155,6 +155,27 @@ def recolor(img, mapping):
     return out
 
 
+def overlay(base, grid, palette, origin=(0, 0)):
+    """Paint a smaller character grid onto a copy of `base` at `origin`; '.' leaves base showing.
+
+    For families whose members differ by an emblem (house crests, tiers): one shared
+    base sprite plus one small grid per member. Keep a 1px gap between an emblem and
+    a frame of the same colour, or the two merge at 1x.
+    """
+    out = base.copy()
+    px = out.load()
+    rows = [r.strip() for r in grid.strip("
+").splitlines() if r.strip()]
+    for y, row in enumerate(rows):
+        for x, ch in enumerate(row):
+            if ch == ".":
+                continue
+            if ch not in palette:
+                raise ValueError(f"overlay row {y} col {x}: char {ch!r} not in palette")
+            px[origin[0] + x, origin[1] + y] = hexc(palette[ch])
+    return out
+
+
 def save(img, path):
     """Save as a plain RGBA PNG, refusing anything that would not be a clean item sprite."""
     px = img.load()

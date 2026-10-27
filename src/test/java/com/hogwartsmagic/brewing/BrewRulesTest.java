@@ -286,7 +286,7 @@ class BrewRulesTest {
             }
         }
         assertEquals(List.of(BrewRules.WIGGENWELD, BrewRules.PEPPERUP, BrewRules.POLYJUICE, BrewRules.DITTANY_ESSENCE,
-                BrewRules.MANDRAKE_DRAUGHT, BrewRules.LIVING_DEATH, BrewRules.FELIX_FELICIS, BrewRules.REMORSE), BrewRules.RECIPES);
+                BrewRules.MANDRAKE_DRAUGHT, BrewRules.LIVING_DEATH, BrewRules.FELIX_FELICIS, BrewRules.REMORSE, BrewRules.VERITASERUM), BrewRules.RECIPES);
     }
 
     @Test
@@ -312,6 +312,7 @@ class BrewRulesTest {
         assertFalse(BrewRules.needsBook(List.of()));
         assertTrue(BrewRules.needsBook(run(Step.add(BrewRules.ASPHODEL, 1))));
         assertTrue(BrewRules.needsBook(run(Step.add(BrewRules.ASHWINDER_EGG, 1))));
+        assertTrue(BrewRules.needsBook(run(Step.add(BrewRules.FEATHER, 1))));
         assertFalse(BrewRules.needsBook(run(Step.add(BrewRules.DITTANY, 1))));
         assertFalse(BrewRules.needsBook(run(Step.add(BrewRules.HONEY_BOTTLE, 1))));
         // fits nothing: it ruins rather than gates

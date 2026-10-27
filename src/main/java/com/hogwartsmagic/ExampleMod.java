@@ -709,6 +709,10 @@ public class ExampleMod
             () -> new com.hogwartsmagic.item.BrewedPotionItem(new Item.Properties()
                     .rarity(net.minecraft.world.item.Rarity.UNCOMMON),
                     com.hogwartsmagic.item.BrewedPotionItem.Kind.REMORSE));
+    public static final RegistryObject<Item> VERITASERUM = ITEMS.register("veritaserum",
+            () -> new com.hogwartsmagic.item.BrewedPotionItem(new Item.Properties()
+                    .rarity(net.minecraft.world.item.Rarity.RARE),
+                    com.hogwartsmagic.item.BrewedPotionItem.Kind.VERITASERUM));
     public static final RegistryObject<Item> MANDRAKE_DRAUGHT = ITEMS.register("mandrake_draught",
             () -> new com.hogwartsmagic.item.BrewedPotionItem(new Item.Properties()
                     .rarity(net.minecraft.world.item.Rarity.UNCOMMON),
@@ -1126,6 +1130,7 @@ public class ExampleMod
                 output.accept(ESSENCE_OF_DITTANY.get());
                 output.accept(FELIX_FELICIS.get());
                 output.accept(POTION_OF_REMORSE.get());
+                output.accept(VERITASERUM.get());
                 output.accept(MANDRAKE_DRAUGHT.get());
                 output.accept(SPLASH_MANDRAKE_DRAUGHT.get());
                 output.accept(DRAUGHT_OF_LIVING_DEATH.get());

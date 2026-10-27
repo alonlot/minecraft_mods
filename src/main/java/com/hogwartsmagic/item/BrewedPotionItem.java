@@ -40,7 +40,8 @@ public class BrewedPotionItem extends Item {
         DITTANY("essence_of_dittany", 0xC9E3A6),
         FELIX("felix_felicis", 0xFFD966),
         MANDRAKE("mandrake_draught", 0x5FD3C0),
-        REMORSE("potion_of_remorse", 0x8FA8C8);
+        REMORSE("potion_of_remorse", 0x8FA8C8),
+        VERITASERUM("veritaserum", 0xEEF4F6);
 
         private final String id;
         private final int color;
@@ -160,6 +161,14 @@ public class BrewedPotionItem extends Item {
             }
         } else if (kind == Kind.REMORSE) {
             drinkRemorse(drinker, grade);
+        } else if (kind == Kind.VERITASERUM) {
+            // Your own disguise falls away and you glow: nothing about you stays hidden for a moment.
+            if (drinker instanceof ServerPlayer player) {
+                com.hogwartsmagic.event.ModEvents.breakPolyjuiceDisguise(player);
+                player.displayClientMessage(Component.translatable("message.hogwartsmagic.veritaserum.self"), true);
+            }
+            drinker.addEffect(new MobEffectInstance(MobEffects.GLOWING,
+                    com.hogwartsmagic.brewing.PotionRules.qualityTicks(com.hogwartsmagic.brewing.PotionRules.VERITASERUM_SELF_GLOW_TICKS, grade), 0));
         } else {
             drinker.addEffect(new MobEffectInstance(MobEffects.CONFUSION, FAILED_NAUSEA_TICKS, 0));
             drinker.addEffect(new MobEffectInstance(MobEffects.POISON, FAILED_POISON_TICKS, 0));
@@ -185,10 +194,17 @@ public class BrewedPotionItem extends Item {
         }
     }
 
-    /** A Mandrake Draught used on a player turned to stone brings them back (one dose). */
+    /**
+     * A Mandrake Draught used on a player turned to stone brings them back (one dose). Veritaserum used on a
+     * villager, a Death Eater or another player makes them tell the truth. The server decides everything; a refusal
+     * returns CONSUME so the trade screen does not open, and never uses a dose.
+     */
     @Override
     public net.minecraft.world.InteractionResult interactLivingEntity(ItemStack stack, Player player, LivingEntity target,
                                                                       InteractionHand hand) {
+        if (kind == Kind.VERITASERUM) {
+            return useVeritaserum(stack, player, target, hand);
+        }
         if (kind != Kind.MANDRAKE || !com.hogwartsmagic.petrification.Petrification.isPetrified(target)) {
             return net.minecraft.world.InteractionResult.PASS;
         }
@@ -200,6 +216,78 @@ public class BrewedPotionItem extends Item {
             return net.minecraft.world.InteractionResult.CONSUME;
         }
         return net.minecraft.world.InteractionResult.PASS; // nothing happened on the server
+    }
+
+    /** Persistent villager key: the game time of the last confession. */
+    public static final String VERITASERUM_AT = "hogwartsmagic:veritaserum_at";
+
+    private static net.minecraft.world.InteractionResult useVeritaserum(ItemStack stack, Player player, LivingEntity target,
+                                                                        InteractionHand hand) {
+        boolean villager = target instanceof net.minecraft.world.entity.npc.Villager v && !v.isBaby();
+        boolean wizard = target instanceof com.hogwartsmagic.entity.WizardEntity;
+        boolean other = target instanceof Player;
+        if (!villager && !wizard && !other) {
+            return net.minecraft.world.InteractionResult.PASS;
+        }
+        if (player.level().isClientSide()) {
+            return net.minecraft.world.InteractionResult.SUCCESS;
+        }
+        if (!(player.level() instanceof ServerLevel level)) {
+            return net.minecraft.world.InteractionResult.PASS;
+        }
+        // Read before the dose is used up; a bottle without the component is Standard.
+        int grade = stack.getOrDefault(com.hogwartsmagic.ExampleMod.BREW_QUALITY.get(), 0);
+        if (villager) {
+            net.minecraft.world.entity.npc.Villager v = (net.minecraft.world.entity.npc.Villager) target;
+            net.minecraft.nbt.CompoundTag data = v.getPersistentData();
+            long now = level.getGameTime();
+            if (!com.hogwartsmagic.brewing.PotionRules.veritaserumReady(data.contains(VERITASERUM_AT),
+                    data.getLong(VERITASERUM_AT), now)) {
+                player.displayClientMessage(Component.translatable("message.hogwartsmagic.veritaserum.already"), true);
+                return net.minecraft.world.InteractionResult.CONSUME;
+            }
+            v.getGossips().add(player.getUUID(), net.minecraft.world.entity.ai.gossip.GossipType.MINOR_POSITIVE,
+                    Math.round(com.hogwartsmagic.brewing.PotionRules.qualityAmount(com.hogwartsmagic.brewing.PotionRules.VERITASERUM_GOSSIP, grade)));
+            data.putLong(VERITASERUM_AT, now);
+            level.sendParticles(ParticleTypes.HAPPY_VILLAGER, v.getX(), v.getY(0.6), v.getZ(), 8, 0.4, 0.5, 0.4, 0.0);
+            player.displayClientMessage(Component.translatable("message.hogwartsmagic.veritaserum.villager"), true);
+        } else if (wizard) {
+            if (com.hogwartsmagic.spell.combat.CombatTags.isBoss(target)) {
+                player.displayClientMessage(Component.translatable("message.hogwartsmagic.veritaserum.resists"), true);
+                return net.minecraft.world.InteractionResult.CONSUME;
+            }
+            double radius = com.hogwartsmagic.brewing.PotionRules.VERITASERUM_ACCOMPLICE_RADIUS;
+            int glow = com.hogwartsmagic.brewing.PotionRules.qualityTicks(com.hogwartsmagic.brewing.PotionRules.VERITASERUM_GLOW_TICKS, grade);
+            int betrayed = 0;
+            for (com.hogwartsmagic.entity.WizardEntity friend : level.getEntitiesOfClass(com.hogwartsmagic.entity.WizardEntity.class,
+                    target.getBoundingBox().inflate(radius), w -> w != target && w.isAlive())) {
+                if (friend.distanceToSqr(target) <= radius * radius) {
+                    friend.addEffect(new MobEffectInstance(MobEffects.GLOWING, glow, 0));
+                    betrayed++;
+                }
+            }
+            player.displayClientMessage(Component.translatable("message.hogwartsmagic.veritaserum.accomplices",
+                    target.getDisplayName(), betrayed), true);
+        } else {
+            if (!(target instanceof ServerPlayer victim) || !(player instanceof ServerPlayer giver)) {
+                return net.minecraft.world.InteractionResult.PASS;
+            }
+            if (!(level.getServer().isPvpAllowed() && giver.canHarmPlayer(victim))) {
+                player.displayClientMessage(Component.translatable("message.hogwartsmagic.veritaserum.refuses",
+                        victim.getDisplayName()), true);
+                return net.minecraft.world.InteractionResult.CONSUME;
+            }
+            com.hogwartsmagic.event.ModEvents.breakPolyjuiceDisguise(victim);
+            com.hogwartsmagic.event.ModEvents.revealInvisibilityCloak(victim,
+                    com.hogwartsmagic.brewing.PotionRules.qualityTicks(200, grade));
+            victim.addEffect(new MobEffectInstance(MobEffects.GLOWING,
+                    com.hogwartsmagic.brewing.PotionRules.qualityTicks(com.hogwartsmagic.brewing.PotionRules.VERITASERUM_GLOW_TICKS, grade), 0));
+            victim.displayClientMessage(Component.translatable("message.hogwartsmagic.veritaserum.victim"), true);
+            giver.displayClientMessage(Component.translatable("message.hogwartsmagic.veritaserum.player",
+                    victim.getDisplayName()), true);
+        }
+        useUpDose(player, hand, stack);
+        return net.minecraft.world.InteractionResult.CONSUME;
     }
 
     /**

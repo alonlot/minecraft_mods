@@ -79,4 +79,11 @@ class PotionRulesTest {
         assertEquals(4f, PotionRules.qualityAmount(4f, -1));
         assertEquals(6f, PotionRules.qualityAmount(4f, 7));
     }
+
+    @Test
+    void veritaserumWorksOncePerVillagerPerDay() {
+        assertTrue(PotionRules.veritaserumReady(false, 0, 5));
+        assertFalse(PotionRules.veritaserumReady(true, 100, 24_099));
+        assertTrue(PotionRules.veritaserumReady(true, 100, 24_100));
+    }
 }

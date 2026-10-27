@@ -254,6 +254,9 @@ public class WizardCauldronBlockEntity extends BlockEntity {
         if (BrewRules.LIVING_DEATH.id().equals(id)) {
             return new ItemStack(ExampleMod.DRAUGHT_OF_LIVING_DEATH.get());
         }
+        if (BrewRules.VERITASERUM.id().equals(id)) {
+            return new ItemStack(ExampleMod.VERITASERUM.get());
+        }
         if (BrewRules.POLYJUICE.id().equals(id) && !polyjuiceTarget.isEmpty()) {
             return PolyjuiceStacks.make(polyjuiceTarget,
                     BrewRules.usedTail(history, BrewRules.REDSTONE),

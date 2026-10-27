@@ -314,7 +314,9 @@ public class HogwartsGuideScreen extends Screen {
                 page("potions", "draught_of_living_death", 5),
                 page("potions", "living_death_the_finish", 4),
                 page("potions", "felix_felicis", 5),
-                page("potions", "felix_felicis_patience", 3)
+                page("potions", "felix_felicis_patience", 3),
+                page("potions", "veritaserum", 7),
+                page("potions", "veritaserum_use", 4)
         ));
 
         private final Component label;

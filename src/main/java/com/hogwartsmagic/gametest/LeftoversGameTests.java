@@ -626,4 +626,37 @@ public final class LeftoversGameTests {
         entry.putInt("Amount", amount);
         return entry;
     }
+
+    /** Veritaserum on a villager: gossip rises by 25 and the bottle is spent; a second try the same day is refused. */
+    @GameTest(template = EMPTY, timeoutTicks = 60)
+    public static void veritaserumMakesAVillagerConfessOnce(GameTestHelper helper) {
+        ServerPlayer player = survivalPlayerWithDarkness(helper, "veritaserum-giver", 0.0f);
+        Villager villager = helper.spawn(EntityType.VILLAGER, new Vec3(1.5, 2, 1.5));
+        villager.setNoAi(true);
+        try {
+            var hand = net.minecraft.world.InteractionHand.MAIN_HAND;
+            java.util.UUID id = player.getUUID();
+            int before = villager.getGossips().getReputation(id, t -> true);
+
+            net.minecraft.world.item.ItemStack first = new net.minecraft.world.item.ItemStack(ExampleMod.VERITASERUM.get());
+            player.setItemInHand(hand, first);
+            first.getItem().interactLivingEntity(first, player, villager, hand);
+            int after = villager.getGossips().getReputation(id, t -> true);
+            helper.assertTrue(after - before == 25, "the villager should confess for 25, was " + (after - before));
+            helper.assertTrue(player.getItemInHand(hand).is(net.minecraft.world.item.Items.GLASS_BOTTLE),
+                    "the dose should be spent, hand holds " + player.getItemInHand(hand));
+
+            net.minecraft.world.item.ItemStack second = new net.minecraft.world.item.ItemStack(ExampleMod.VERITASERUM.get());
+            player.setItemInHand(hand, second);
+            second.getItem().interactLivingEntity(second, player, villager, hand);
+            helper.assertTrue(villager.getGossips().getReputation(id, t -> true) == after, "a second use must not add gossip");
+            helper.assertTrue(player.getItemInHand(hand).is(ExampleMod.VERITASERUM.get())
+                    && player.getItemInHand(hand).getCount() == 1, "a refused use must keep the dose");
+        } finally {
+            villager.discard();
+            leave(helper, player);
+        }
+        helper.succeed();
+        LOGGER.info("LEFTOVERS-GAMETEST PASS veritaserumMakesAVillagerConfessOnce");
+    }
 }

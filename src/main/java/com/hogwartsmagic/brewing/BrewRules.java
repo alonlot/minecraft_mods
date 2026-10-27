@@ -32,6 +32,8 @@ public final class BrewRules {
     public static final String ARCANE_DUST = "hogwartsmagic:arcane_dust";
     public static final String GOLD_NUGGET = "minecraft:gold_nugget";
     public static final String GHAST_TEAR = "minecraft:ghast_tear";
+    public static final String FEATHER = "minecraft:feather";
+    public static final String AMETHYST_SHARD = "minecraft:amethyst_shard";
 
     /** Felix Felicis is the one brew that gives a single dose (spec decision 7). */
     public static final int FELIX_DOSES = 1;
@@ -171,11 +173,18 @@ public final class BrewRules {
             List.of(0x9FB4C8, 0x7E98A8, 0x6C7F96, 0x8FA8C8),
             List.of(), List.of(), MAX_DOSES);
 
+    /** Veritaserum: a feather for truth, an amethyst shard for clarity; the clear brew of the Advanced book. */
+    public static final Recipe VERITASERUM = new Recipe("veritaserum",
+            List.of(Step.add(FEATHER, 1), Step.add(AMETHYST_SHARD, 1), Step.add(VALERIAN_SPRIGS, 2),
+                    Step.stirClockwise(7), Step.simmer(120), Step.add(ARCANE_DUST, 1)),
+            List.of(0xDCE6EA, 0xC9B8E8, 0xD6CCE8, 0xE4ECF0, 0xEEF4F6, 0xF4FAFC),
+            List.of(), List.of(), MAX_DOSES);
+
     public static final List<Recipe> RECIPES = List.of(WIGGENWELD, PEPPERUP, POLYJUICE, DITTANY_ESSENCE,
-            MANDRAKE_DRAUGHT, LIVING_DEATH, FELIX_FELICIS, REMORSE);
+            MANDRAKE_DRAUGHT, LIVING_DEATH, FELIX_FELICIS, REMORSE, VERITASERUM);
 
     /** Recipes taught only by the Advanced Potion-Making book. */
-    public static final Set<String> ADVANCED_RECIPE_IDS = Set.of("living_death", "felix_felicis");
+    public static final Set<String> ADVANCED_RECIPE_IDS = Set.of("living_death", "felix_felicis", "veritaserum");
 
     private BrewRules() {
     }

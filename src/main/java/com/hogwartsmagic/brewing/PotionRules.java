@@ -27,6 +27,13 @@ public final class PotionRules {
     public static final int REMORSE_WEAKNESS_TICKS = 600;
     public static final int DEFAULT_REMORSE_COOLDOWN_TICKS = 144_000;
 
+    /** Veritaserum: villager gossip gained, the day between confessions (per villager), and the Glowing it gives. */
+    public static final int VERITASERUM_GOSSIP = 25;
+    public static final long VERITASERUM_COOLDOWN_TICKS = 24_000L;
+    public static final int VERITASERUM_GLOW_TICKS = 600;
+    public static final int VERITASERUM_SELF_GLOW_TICKS = 200;
+    public static final double VERITASERUM_ACCOMPLICE_RADIUS = 48.0;
+
     public static final double VALERIAN_RUIN_CAMP_CHANCE = 0.25;
     public static final double ASHWINDER_DEATH_EATER_CAMP_CHANCE = 0.10;
     public static final double ASHWINDER_CHAMBER_CHANCE = 0.15;
@@ -60,6 +67,11 @@ public final class PotionRules {
     public static float qualityAmount(float base, int grade) {
         int g = BrewQuality.clampGrade(grade);
         return base * (g == BrewQuality.EXCEPTIONAL ? 1.5f : g == BrewQuality.FINE ? 1.25f : 1.0f);
+    }
+
+    /** A villager confesses again only a day after the last time (or never before). */
+    public static boolean veritaserumReady(boolean hasRecord, long lastAt, long now) {
+        return !hasRecord || now - lastAt >= VERITASERUM_COOLDOWN_TICKS;
     }
 
     /** A roll in [0, 1) lands when it is below the chance. */

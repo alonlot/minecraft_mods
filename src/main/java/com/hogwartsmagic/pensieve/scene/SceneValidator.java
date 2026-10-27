@@ -439,6 +439,10 @@ public final class SceneValidator {
                     sky(out, e, p);
                 } else if ("light_rays".equals(e.id())) {
                     lightRays(out, e, p);
+                } else if ("shield_dome".equals(e.id())) {
+                    shieldDome(out, e, p);
+                } else if ("shield_hit".equals(e.id())) {
+                    if (e.at() == null) out.add(p + ": shield_hit needs at");
                 } else if ("floating_candles".equals(e.id())) {
                     candles(out, e, p);
                 } else if ("wand_choice".equals(e.id())) {
@@ -541,6 +545,21 @@ public final class SceneValidator {
         for (int i = 0; i < 3 && i < e.spread().length; i++) {
             float s = e.spread()[i];
             if (!(s >= lo[i] && s <= hi[i])) out.add(p + ".spread[" + i + "]: " + s + " is outside " + lo[i] + " to " + hi[i]);
+        }
+    }
+
+    /** The shield_dome effect: a base centre and half-axes [rx, ry, rz], each ranged. */
+    private static void shieldDome(List<String> out, SceneDef.EventDef e, String p) {
+        if (e.at() == null) out.add(p + ": shield_dome needs at");
+        if (e.spread() == null || e.spread().length < 3) {
+            out.add(p + ": shield_dome needs spread [rx, ry, rz]");
+            return;
+        }
+        for (int i = 0; i < 3; i++) {
+            float s = e.spread()[i];
+            if (!(s >= ShieldDome.MIN_SPREAD && s <= ShieldDome.MAX_SPREAD)) {
+                out.add(p + ".spread[" + i + "]: " + s + " is outside " + ShieldDome.MIN_SPREAD + " to " + ShieldDome.MAX_SPREAD);
+            }
         }
     }
 

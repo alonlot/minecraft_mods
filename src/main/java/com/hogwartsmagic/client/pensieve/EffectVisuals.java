@@ -14,6 +14,7 @@ import com.hogwartsmagic.pensieve.scene.FloatingCandles;
 import com.hogwartsmagic.pensieve.scene.EffectSeed;
 import com.hogwartsmagic.pensieve.scene.LetterFlood;
 import com.hogwartsmagic.pensieve.scene.LightRays;
+import com.hogwartsmagic.pensieve.scene.ShieldDome;
 import com.hogwartsmagic.pensieve.scene.RoughSea;
 import com.hogwartsmagic.pensieve.scene.WandChoice;
 import com.mojang.logging.LogUtils;
@@ -99,6 +100,8 @@ public final class EffectVisuals {
     private static final List<LightningBolt> BOLTS = new ArrayList<>();
     /** Every client-only letter a flood spawned; {@link #clear} discards them so none outlives the memory. */
     private static final List<MemoryLetterEntity> LETTERS = new ArrayList<>();
+    /** Every shield_hit of the scene so far, for the domes' ripples and break point; {@link #clear} empties it. */
+    private static final List<ShieldDomeRenderer.Hit> SHIELD_HITS = new ArrayList<>();
     /** An eyelid effect has started since the last {@link #clear} (the scene's own eyes have taken over). */
     private static boolean eyesStarted;
 
@@ -229,6 +232,19 @@ public final class EffectVisuals {
             RUNNING.add(new Rays(new LightRaysRenderer.Beam(at, yaw, Mth.clamp(spread[0], 0.5f, 12f),
                     Mth.clamp(spread[1], 1f, 24f), Mth.clamp(spread[2], 1f, 60f), duration, t, floodSeed(at, t),
                     LightRays.intensity(intensity))));
+        } else if ("shield_dome".equals(effect)) {
+            if (spread == null || spread.length < 3) {
+                LOGGER.warn("Pensieve: shield_dome has no spread");
+                return;
+            }
+            // Drawn from the scene clock (ShieldDomeRenderer): it stands until its duration, then burns away.
+            RUNNING.add(new Shield(new ShieldDomeRenderer.Dome(at,
+                    Mth.clamp(spread[0], ShieldDome.MIN_SPREAD, ShieldDome.MAX_SPREAD),
+                    Mth.clamp(spread[1], ShieldDome.MIN_SPREAD, ShieldDome.MAX_SPREAD),
+                    Mth.clamp(spread[2], ShieldDome.MIN_SPREAD, ShieldDome.MAX_SPREAD), t, Math.max(0, duration))));
+        } else if ("shield_hit".equals(effect)) {
+            // Kept for the scene: the last hit before a dome's end is where it starts to burn.
+            SHIELD_HITS.add(new ShieldDomeRenderer.Hit(at, t));
         } else if ("floating_candles".equals(effect)) {
             if (spread == null || spread.length < 3) {
                 LOGGER.warn("Pensieve: floating_candles has no spread");
@@ -489,6 +505,23 @@ public final class EffectVisuals {
         return out == null ? List.of() : out;
     }
 
+    /** The shield domes running now, for {@link ShieldDomeRenderer} (empty once {@link #clear} has run). */
+    static List<ShieldDomeRenderer.Dome> shieldDomes() {
+        List<ShieldDomeRenderer.Dome> out = null;
+        for (Running r : RUNNING) {
+            if (r instanceof Shield sh) {
+                if (out == null) out = new ArrayList<>(1);
+                out.add(sh.dome);
+            }
+        }
+        return out == null ? List.of() : out;
+    }
+
+    /** Every shield_hit played since the scene began (cleared with it). */
+    static List<ShieldDomeRenderer.Hit> shieldHits() {
+        return SHIELD_HITS;
+    }
+
     /** The light_rays running now, for {@link LightRaysRenderer} to draw (empty once {@link #clear} has run). */
     static List<LightRaysRenderer.Beam> lightRays() {
         List<LightRaysRenderer.Beam> out = null;
@@ -538,6 +571,7 @@ public final class EffectVisuals {
         BOLTS.clear();
         for (MemoryLetterEntity l : LETTERS) l.discard();
         LETTERS.clear();
+        SHIELD_HITS.clear();
     }
 
     private interface Running {
@@ -1022,6 +1056,20 @@ public final class EffectVisuals {
         @Override
         public boolean tick(ClientLevel level) {
             return stand.duration <= 0 || PensieveClientState.sceneTime(0) < stand.t0 + stand.duration;
+        }
+    }
+
+    /** {@code shield_dome}: holds the dome for {@link ShieldDomeRenderer} until it has burnt away. */
+    private static final class Shield implements Running {
+        private final ShieldDomeRenderer.Dome dome;
+
+        Shield(ShieldDomeRenderer.Dome dome) {
+            this.dome = dome;
+        }
+
+        @Override
+        public boolean tick(ClientLevel level) {
+            return ShieldDome.alive(PensieveClientState.sceneTime(0) - dome.startT(), dome.duration());
         }
     }
 

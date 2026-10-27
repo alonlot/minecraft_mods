@@ -141,6 +141,7 @@ public final class MemoryEvents {
                     || ("wand_choice".equals(e.id()) && age < com.hogwartsmagic.pensieve.scene.WandChoice.duration(e.duration()))
                     || "enchanted_ceiling".equals(e.id()) || "light_rays".equals(e.id()) || "sky".equals(e.id())
                     || "floating_candles".equals(e.id())
+                    || ("shield_dome".equals(e.id()) && com.hogwartsmagic.pensieve.scene.ShieldDome.alive(age, e.duration()))
                     || (("rough_sea".equals(e.id()) || "rain".equals(e.id())) && e.duration() <= 0)) {
                 EffectVisuals.play(e.id(), position(e), e.duration(), late ? (int) age : 0, e.count(), e.spread(),
                         e.yaw(), e.t(), e.style(), e.intensity(), e.box());

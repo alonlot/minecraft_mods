@@ -1,0 +1,254 @@
+{
+  "title": "The Battle of Hogwarts: Dawn",
+  "length": "34s",
+  "radius": 200,
+  "fog_far": 260,
+  "set": {
+    "templates": [{"id": "hogwartsmagic:flying_lawn", "at": [-96, -40, -170]}],
+    "schematics": [{"id": "mini_hogwarts", "at": [-72, -6, -180], "rotation": 90}],
+    "time_of_day": 23800,
+    "build_ticks": 100
+  },
+  "poses": {"standing": {}},
+  "actors": [
+    {
+      "id": "harry",
+      "type": "player",
+      "skin": {"texture": "harry"},
+      "items": {"mainhand": "hogwartsmagic:harry_potter_wand", "offhand": "hogwartsmagic:elder_wand"},
+      "path": [{"t": "0s", "pos": [0.0, 0.0, 6.0]}],
+      "look": [
+        {"t": "0s", "yaw": 180.0, "pitch": 0.0},
+        {"t": "11s", "yaw": 180.0, "pitch": 0.0},
+        {"t": "11.8s", "yaw": 190.0, "pitch": 10.0},
+        {"t": "21s", "yaw": 190.0, "pitch": 10.0},
+        {"t": "21.6s", "yaw": 180.0, "pitch": -4.0}
+      ],
+      "actions": [
+        {"t": "16.4s", "do": "hold", "item": "minecraft:air"},
+        {"t": "18.2s", "do": "equip", "slot": "offhand", "item": "minecraft:air"},
+        {"t": "20.8s", "do": "hold", "item": "hogwartsmagic:harry_potter_wand"}
+      ],
+      "limbs": {
+        "left_arm": {
+          "rot": [
+            {"t": "16.4s", "v": [0.0, 0.0, 0.0]},
+            {"t": "17.2s", "v": [-60.0, 0.0, -20.0]},
+            {"t": "18.3s", "v": [-50.0, 0.0, -30.0]},
+            {"t": "19.6s", "v": [0.0, 0.0, 0.0]}
+          ]
+        },
+        "right_arm": {
+          "rot": [
+            {"t": "16.4s", "v": [0.0, 0.0, 0.0]},
+            {"t": "17.2s", "v": [-60.0, 0.0, 20.0]},
+            {"t": "18.3s", "v": [-50.0, 0.0, 30.0]},
+            {"t": "19.1s", "v": [-160.0, 0.0, 10.0]},
+            {"t": "19.6s", "v": [-40.0, 0.0, 0.0]},
+            {"t": "20.8s", "v": [0.0, 0.0, 0.0]}
+          ]
+        }
+      }
+    },
+    {
+      "id": "ron",
+      "type": "player",
+      "skin": {"texture": "student_gryffindor"},
+      "items": {"mainhand": "hogwartsmagic:unicorn_core_wand"},
+      "path": [
+        {"t": "0s", "pos": [-3.6, 0.0, 12.6]},
+        {"t": "6.8s", "pos": [-3.6, 0.0, 12.6]},
+        {"t": "7.53s", "pos": [-3.17, 0.0, 11.59], "ease": "linear"},
+        {"t": "8.26s", "pos": [-2.75, 0.0, 10.58], "ease": "linear"},
+        {"t": "8.99s", "pos": [-2.32, 0.0, 9.57], "ease": "linear"},
+        {"t": "9.73s", "pos": [-1.9, 0.0, 8.55], "ease": "linear"},
+        {"t": "10.46s", "pos": [-1.47, 0.0, 7.54], "ease": "linear"},
+        {"t": "10.92s", "pos": [-1.2, 0.0, 6.9], "ease": "out"}
+      ],
+      "look": [
+        {"t": "0s", "yaw": 160.0, "pitch": 0.0},
+        {"t": "10.92s", "yaw": 160.0, "pitch": 0.0},
+        {"t": "11.52s", "yaw": 170.0, "pitch": 0.0},
+        {"t": "12s", "yaw": 170.0, "pitch": 0.0},
+        {"t": "12.4s", "yaw": 120.0, "pitch": 14.0},
+        {"t": "21.2s", "yaw": 120.0, "pitch": 14.0},
+        {"t": "21.8s", "yaw": 180.0, "pitch": -4.0}
+      ]
+    },
+    {
+      "id": "hermione",
+      "type": "player",
+      "skin": {"texture": "hermione"},
+      "items": {"mainhand": "hogwartsmagic:phoenix_core_wand"},
+      "path": [
+        {"t": "0s", "pos": [3.6, 0.0, 12.6]},
+        {"t": "7.1s", "pos": [3.6, 0.0, 12.6]},
+        {"t": "7.83s", "pos": [3.17, 0.0, 11.59], "ease": "linear"},
+        {"t": "8.56s", "pos": [2.75, 0.0, 10.58], "ease": "linear"},
+        {"t": "9.29s", "pos": [2.32, 0.0, 9.57], "ease": "linear"},
+        {"t": "10.03s", "pos": [1.9, 0.0, 8.55], "ease": "linear"},
+        {"t": "10.76s", "pos": [1.47, 0.0, 7.54], "ease": "linear"},
+        {"t": "11.22s", "pos": [1.2, 0.0, 6.9], "ease": "out"}
+      ],
+      "look": [
+        {"t": "0s", "yaw": 200.0, "pitch": 0.0},
+        {"t": "11.22s", "yaw": 200.0, "pitch": 0.0},
+        {"t": "11.82s", "yaw": 190.0, "pitch": 0.0},
+        {"t": "21.4s", "yaw": 190.0, "pitch": 0.0},
+        {"t": "22s", "yaw": 180.0, "pitch": -4.0}
+      ]
+    },
+    {
+      "id": "survivor_1",
+      "type": "player",
+      "skin": {"texture": "student_gryffindor"},
+      "path": [{"t": "0s", "pos": [-17.06, 0.0, 48.89]}],
+      "look": [{"t": "0s", "yaw": 270.0, "pitch": 6.0}],
+      "poses": [{"t": "0s", "name": "kneel", "blend": 1}]
+    },
+    {
+      "id": "survivor_2",
+      "type": "player",
+      "skin": {"texture": "student_slytherin"},
+      "path": [{"t": "0s", "pos": [-16.16, 0.0, 49.09]}],
+      "look": [{"t": "0s", "yaw": 90.0, "pitch": 6.0}]
+    },
+    {
+      "id": "survivor_3",
+      "type": "player",
+      "skin": {"texture": "student_gryffindor"},
+      "path": [{"t": "0s", "pos": [10.91, 0.0, 46.59]}],
+      "look": [{"t": "0s", "yaw": 270.0, "pitch": 6.0}]
+    },
+    {
+      "id": "survivor_4",
+      "type": "player",
+      "skin": {"texture": "student_gryffindor"},
+      "path": [{"t": "0s", "pos": [11.81, 0.0, 46.79]}],
+      "look": [{"t": "0s", "yaw": 90.0, "pitch": 6.0}],
+      "poses": [{"t": "0s", "name": "kneel", "blend": 1}]
+    },
+    {
+      "id": "survivor_5",
+      "type": "player",
+      "skin": {"texture": "student_slytherin"},
+      "path": [{"t": "0s", "pos": [-3.1, 0.0, 37.7]}],
+      "look": [{"t": "0s", "yaw": 270.0, "pitch": 6.0}]
+    },
+    {
+      "id": "survivor_6",
+      "type": "player",
+      "skin": {"texture": "student_gryffindor"},
+      "path": [{"t": "0s", "pos": [-2.2, 0.0, 37.9]}],
+      "look": [{"t": "0s", "yaw": 90.0, "pitch": 6.0}]
+    },
+    {
+      "id": "survivor_7",
+      "type": "player",
+      "skin": {"texture": "student_gryffindor"},
+      "path": [{"t": "0s", "pos": [-17.31, 0.0, 29.62]}],
+      "look": [{"t": "0s", "yaw": 185.65, "pitch": 0.0}],
+      "poses": [{"t": "0s", "name": "kneel", "blend": 1}]
+    },
+    {
+      "id": "survivor_8",
+      "type": "player",
+      "skin": {"texture": "student_slytherin"},
+      "path": [{"t": "0s", "pos": [13.04, 0.0, 49.43]}],
+      "look": [{"t": "0s", "yaw": 185.64, "pitch": 10.0}]
+    },
+    {
+      "id": "survivor_9",
+      "type": "player",
+      "skin": {"texture": "student_gryffindor"},
+      "path": [{"t": "0s", "pos": [-14.81, 0.0, 42.21]}],
+      "look": [{"t": "0s", "yaw": 167.76, "pitch": 0.0}]
+    },
+    {
+      "id": "survivor_10",
+      "type": "player",
+      "skin": {"texture": "student_gryffindor"},
+      "path": [{"t": "0s", "pos": [10.81, 0.0, 56.72]}],
+      "look": [{"t": "0s", "yaw": 203.02, "pitch": 0.0}],
+      "poses": [{"t": "0s", "name": "kneel", "blend": 1}]
+    },
+    {
+      "id": "wand_piece_1",
+      "type": "hogwartsmagic:memory_block",
+      "scale": 0.25,
+      "block": "minecraft:end_rod",
+      "path": [
+        {"t": "0s", "pos": [0.0, 1.3, 5.6]},
+        {"t": "19.2s", "pos": [0.2, 1.9, 5.6]},
+        {"t": "19.4s", "pos": [0.01, 2.48, 3.85], "ease": "spline"},
+        {"t": "19.6s", "pos": [-0.17, 2.71, 2.1], "ease": "spline"},
+        {"t": "19.8s", "pos": [-0.36, 2.6, 0.35], "ease": "spline"},
+        {"t": "20s", "pos": [-0.55, 2.15, -1.4], "ease": "spline"},
+        {"t": "20.2s", "pos": [-0.74, 1.35, -3.15], "ease": "spline"},
+        {"t": "20.4s", "pos": [-0.93, 0.21, -4.9], "ease": "spline"},
+        {"t": "20.6s", "pos": [-1.11, -1.27, -6.65], "ease": "spline"},
+        {"t": "20.8s", "pos": [-1.3, -3.1, -8.4], "ease": "in_out"}
+      ],
+      "look": [{"t": "19.2s", "yaw": 0.0, "pitch": 0.0}, {"t": "20.8s", "yaw": -300.0, "pitch": 900.0, "ease": "linear"}],
+      "actions": [{"t": "0s", "do": "vanish"}, {"t": "19.2s", "do": "appear"}, {"t": "20.8s", "do": "vanish"}]
+    },
+    {
+      "id": "wand_piece_2",
+      "type": "hogwartsmagic:memory_block",
+      "scale": 0.25,
+      "block": "minecraft:end_rod",
+      "path": [
+        {"t": "0s", "pos": [0.0, 1.3, 5.6]},
+        {"t": "19.2s", "pos": [0.2, 1.9, 5.6]},
+        {"t": "19.4s", "pos": [0.39, 2.48, 3.85], "ease": "spline"},
+        {"t": "19.6s", "pos": [0.57, 2.71, 2.1], "ease": "spline"},
+        {"t": "19.8s", "pos": [0.76, 2.6, 0.35], "ease": "spline"},
+        {"t": "20s", "pos": [0.95, 2.15, -1.4], "ease": "spline"},
+        {"t": "20.2s", "pos": [1.14, 1.35, -3.15], "ease": "spline"},
+        {"t": "20.4s", "pos": [1.32, 0.21, -4.9], "ease": "spline"},
+        {"t": "20.6s", "pos": [1.51, -1.27, -6.65], "ease": "spline"},
+        {"t": "20.8s", "pos": [1.7, -3.1, -8.4], "ease": "in_out"}
+      ],
+      "look": [{"t": "19.2s", "yaw": 0.0, "pitch": 0.0}, {"t": "20.8s", "yaw": 300.0, "pitch": 900.0, "ease": "linear"}],
+      "actions": [{"t": "0s", "do": "vanish"}, {"t": "19.2s", "do": "appear"}, {"t": "20.8s", "do": "vanish"}]
+    }
+  ],
+  "events": [
+    {"t": "0s", "kind": "effect", "id": "sky", "at": [0.0, 0.0, 30.0], "style": "dawn"},
+    {"t": "0s", "kind": "block", "id": "minecraft:campfire", "at": [-14, 0, 40]},
+    {"t": "0s", "kind": "block", "id": "minecraft:campfire", "at": [9, 0, 50]},
+    {"t": "0s", "kind": "block", "id": "minecraft:campfire", "at": [-6, 0, 58]},
+    {"t": "0s", "kind": "block", "id": "minecraft:campfire", "at": [15, 0, 36]},
+    {"t": "0s", "kind": "block", "id": "minecraft:campfire", "at": [-20, 0, 54]},
+    {"t": "0s", "kind": "block", "id": "minecraft:campfire", "at": [4, 0, 30]},
+    {"t": "0s", "kind": "sfx", "id": "hogwartsmagic:pensieve.sfx.flying_lawn_air", "volume": 0.4, "loop": true},
+    {"t": "0.6s", "kind": "music", "id": "hogwartsmagic:pensieve.music.lake_window", "volume": 1.0},
+    {"t": "2s", "kind": "sound", "id": "minecraft:ambient.cave", "volume": 0.3, "pitch": 1.2},
+    {"t": "14.2s", "kind": "music", "id": "hogwartsmagic:pensieve.music.chamber_reunion", "volume": 1.0},
+    {"t": "18.2s", "kind": "sound", "id": "minecraft:entity.item.break", "at": [0.0, 1.3, 5.6], "volume": 1.6, "pitch": 0.7},
+    {"t": "18.2s", "kind": "particles", "id": "minecraft:crit", "at": [0.0, 1.3, 5.5], "count": 30, "spread": [0.15, 0.15, 0.15]},
+    {"t": "18.25s", "kind": "sound", "id": "minecraft:block.wood.break", "at": [0.0, 1.3, 5.6], "volume": 1.2, "pitch": 0.9}
+  ],
+  "words": [
+    {"t": "2.4s", "text": "Dawn.", "narration": true, "duration": "3.4s", "size": 2},
+    {"t": "12s", "text": "That's the Elder Wand. The most powerful wand ever made.", "subtitle": true, "duration": "3.6s", "speaker": "Ron"},
+    {"t": "15.4s", "text": "It's done enough harm.", "subtitle": true, "duration": "2.6s", "speaker": "Harry"},
+    {"t": "28.4s", "text": "All was well.", "narration": true, "duration": "5s", "size": 2}
+  ],
+  "camera": [
+    {"t": "0s", "pos": [10.0, 5.0, 60.0], "look_at": [0.0, 40.0, -120.0], "fov": 72},
+    {"t": "6s", "pos": [9.0, 6.4, 57.0], "look_at": [0.0, 42.0, -120.0], "fov": 70},
+    {"t": "6s", "pos": [-14.0, 1.5, 49.0], "look_at": [-6.0, 1.2, 44.0], "fov": 64, "cut": true},
+    {"t": "11s", "pos": [-9.0, 1.6, 48.0], "look_at": [0.0, 1.2, 40.0], "fov": 64, "ease": "linear"},
+    {"t": "11s", "pos": [7.0, 1.55, 7.6], "look_at": [0.0, 1.6, 6.4], "fov": 52, "cut": true},
+    {"t": "16s", "pos": [6.4, 1.55, 7.4], "look_at": [0.0, 1.6, 6.4], "fov": 50},
+    {"t": "16s", "pos": [1.4, 1.7, 3.4], "look_at": [0.0, 1.35, 5.6], "fov": 50, "cut": true, "roll": -3},
+    {"t": "21s", "pos": [1.6, 1.8, 3.0], "look_at": [-0.6, 3.0, -4.0], "fov": 56, "roll": -2},
+    {"t": "21s", "pos": [0.2, 1.8, 13.0], "look_at": [0.0, 30.0, -120.0], "fov": 62, "cut": true},
+    {"t": "26s", "pos": [0.1, 1.8, 11.6], "look_at": [0.0, 32.0, -120.0], "fov": 56},
+    {"t": "26s", "pos": [0.0, 2.2, 11.0], "look_at": [0.0, 1.6, 6.5], "fov": 64, "cut": true},
+    {"t": "30s", "pos": [0.0, 2.3, 10.2], "look_at": [0.0, 1.6, 6.5], "fov": 60},
+    {"t": "30s", "pos": [1.2, 3.6, 16.0], "look_at": [0.0, 6.0, -40.0], "fov": 64, "cut": true},
+    {"t": "34s", "pos": [6.0, 20.0, 34.0], "look_at": [0.0, 26.0, -100.0], "fov": 70}
+  ]
+}

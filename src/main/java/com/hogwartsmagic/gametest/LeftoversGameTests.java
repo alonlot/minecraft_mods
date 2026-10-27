@@ -452,4 +452,31 @@ public final class LeftoversGameTests {
         helper.succeed();
         LOGGER.info("LEFTOVERS-GAMETEST PASS remorseAtTheFloorKeepsTheWindow");
     }
+
+    /** A grey charm adds its small Darkness but leaves the quiet window and fade progress alone; a dark spell resets them. */
+    @GameTest(template = EMPTY, timeoutTicks = 60)
+    public static void greyCastLeavesTheFadeClockUntouched(GameTestHelper helper) {
+        ServerPlayer player = survivalPlayerWithDarkness(helper, "grey-clock", 50.0f);
+        try {
+            net.minecraft.nbt.CompoundTag data = com.hogwartsmagic.util.PlayerMagicData.getModData(player);
+            data.putLong(com.hogwartsmagic.spell.dark.DarkMagicData.KEY_LAST_DARK_CAST, -100000L);
+            data.putInt(com.hogwartsmagic.spell.dark.DarkMagicData.KEY_DECAY_PROGRESS, 77);
+            com.hogwartsmagic.util.PlayerMagicData.saveModData(player, data);
+            com.hogwartsmagic.spell.dark.DarkMagicData.onDarkCastPaid(player, com.hogwartsmagic.spell.SpellType.OBLIVIATE);
+            data = com.hogwartsmagic.util.PlayerMagicData.getModData(player);
+            helper.assertTrue(com.hogwartsmagic.spell.dark.DarkMagicData.getStored(player) > 50.0f, "the grey cast should still darken");
+            helper.assertTrue(data.getLong(com.hogwartsmagic.spell.dark.DarkMagicData.KEY_LAST_DARK_CAST) == -100000L,
+                    "a grey cast must not restart the quiet window");
+            helper.assertTrue(data.getInt(com.hogwartsmagic.spell.dark.DarkMagicData.KEY_DECAY_PROGRESS) == 77,
+                    "a grey cast must not reset the fade progress");
+            com.hogwartsmagic.spell.dark.DarkMagicData.onDarkCastPaid(player, com.hogwartsmagic.spell.SpellType.CRUCIO);
+            data = com.hogwartsmagic.util.PlayerMagicData.getModData(player);
+            helper.assertTrue(data.getInt(com.hogwartsmagic.spell.dark.DarkMagicData.KEY_DECAY_PROGRESS) == 0,
+                    "a dark cast must reset the fade progress");
+        } finally {
+            leave(helper, player);
+        }
+        helper.succeed();
+        LOGGER.info("LEFTOVERS-GAMETEST PASS greyCastLeavesTheFadeClockUntouched");
+    }
 }

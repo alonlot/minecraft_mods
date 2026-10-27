@@ -65,7 +65,7 @@ public final class DarkMagicData {
     /**
      * The cast hook: called right after a cast's mana is paid (castAs main block, Fiendfyre channel start), hit or
      * miss. A puppet cast charges the puppeteer; any other forced cast charges nobody; creative and spectator payers
-     * gain nothing. A paid dark cast also restarts the quiet window and the decay progress.
+     * gain nothing. A paid dark cast (not a grey one) also restarts the quiet window and the decay progress.
      */
     public static void onDarkCastPaid(ServerPlayer body, SpellType spell) {
         if (!Config.isDarkMagicEnabled()) {
@@ -86,10 +86,13 @@ public final class DarkMagicData {
         if (payer == null || !DarkRules.earns(payer.isCreative(), payer.isSpectator())) {
             return;
         }
-        CompoundTag modData = PlayerMagicData.getModData(payer);
-        modData.putLong(KEY_LAST_DARK_CAST, payer.level().getGameTime());
-        modData.putInt(KEY_DECAY_PROGRESS, 0);
-        PlayerMagicData.saveModData(payer, modData);
+        if (DarkRules.isDark(spell.getId())) {
+            // Only a dark spell holds back the fading; a grey charm darkens a little but leaves the clock alone.
+            CompoundTag modData = PlayerMagicData.getModData(payer);
+            modData.putLong(KEY_LAST_DARK_CAST, payer.level().getGameTime());
+            modData.putInt(KEY_DECAY_PROGRESS, 0);
+            PlayerMagicData.saveModData(payer, modData);
+        }
         // The payer's own house counts, not the puppet's.
         float amount = DarkRules.gain(spell.getId(), Config.getDarkMagicGainMultiplier()
                 * DarkRules.houseGainMultiplier(DarkRules.houseKey(HousePerks.getHouse(payer))));

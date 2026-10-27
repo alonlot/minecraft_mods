@@ -306,4 +306,18 @@ class BrewRulesTest {
         assertNull(BrewRules.Kind.byName("BOIL"));
         assertNull(BrewRules.Kind.byName(""));
     }
+
+    @Test
+    void onlyTheBookRecipesNeedTheBook() {
+        assertFalse(BrewRules.needsBook(List.of()));
+        assertTrue(BrewRules.needsBook(run(Step.add(BrewRules.ASPHODEL, 1))));
+        assertTrue(BrewRules.needsBook(run(Step.add(BrewRules.ASHWINDER_EGG, 1))));
+        assertFalse(BrewRules.needsBook(run(Step.add(BrewRules.DITTANY, 1))));
+        assertFalse(BrewRules.needsBook(run(Step.add(BrewRules.HONEY_BOTTLE, 1))));
+        // fits nothing: it ruins rather than gates
+        assertFalse(BrewRules.needsBook(run(Step.add("minecraft:gold_nugget", 1))));
+        assertTrue(BrewRules.isAdvanced(BrewRules.FELIX_FELICIS));
+        assertTrue(BrewRules.isAdvanced(BrewRules.LIVING_DEATH));
+        assertFalse(BrewRules.isAdvanced(BrewRules.POLYJUICE));
+    }
 }

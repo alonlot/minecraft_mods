@@ -44,7 +44,7 @@ public class SpellPackets {
 
     public static final SimpleChannel CHANNEL = ChannelBuilder
             .named(ExampleMod.MODID + ":spells")
-            .networkProtocolVersion(10)
+            .networkProtocolVersion(11)
             .simpleChannel();
 
     public static void register() {
@@ -259,6 +259,11 @@ public class SpellPackets {
                 .encoder((p, buf) -> {})
                 .decoder(buf -> new OpenHogwartsGuideScreenPacket())
                 .consumerMainThread(OpenHogwartsGuideScreenPacket::handle)
+                .add();
+        CHANNEL.messageBuilder(OpenAdvancedPotionsScreenPacket.class)
+                .encoder((p, buf) -> {})
+                .decoder(buf -> new OpenAdvancedPotionsScreenPacket())
+                .consumerMainThread(OpenAdvancedPotionsScreenPacket::handle)
                 .add();
         CHANNEL.messageBuilder(SetFlooNamePacket.class)
                 .encoder((p, buf) -> {
@@ -1539,6 +1544,12 @@ public class SpellPackets {
     public record OpenHogwartsGuideScreenPacket() {
         public static void handle(OpenHogwartsGuideScreenPacket p, CustomPayloadEvent.Context ctx) {
             enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("openHogwartsGuideScreen", p));
+        }
+    }
+
+    public record OpenAdvancedPotionsScreenPacket() {
+        public static void handle(OpenAdvancedPotionsScreenPacket p, CustomPayloadEvent.Context ctx) {
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("openAdvancedPotionsScreen", p));
         }
     }
 

@@ -277,6 +277,7 @@ public class ModVillagers {
             sells(event, 1, 3, 2, some(Items.WRITABLE_BOOK, 1), 12, 2);
             sells(event, 2, 9, 4, one(ExampleMod.ENCHANTED_INKWELL), 8, 5);
             sells(event, 3, 12, 5, one(ExampleMod.ARCANE_DUST), 8, 10);
+            sells(event, 3, 22, 6, one(ExampleMod.ADVANCED_POTION_MAKING), 4, 10);
             sells(event, 4, 20, 6, one(ExampleMod.ARCANE_FOCUS), 4, 20);
             sells(event, 5, 32, 8, one(ExampleMod.SAMPLE_COLLECTOR), 2, 30);
 

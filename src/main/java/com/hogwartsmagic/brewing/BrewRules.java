@@ -2,6 +2,7 @@ package com.hogwartsmagic.brewing;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Cauldron brewing: the recipe table, the step model, how a history matches the recipes, when time simmers, the
@@ -173,7 +174,35 @@ public final class BrewRules {
     public static final List<Recipe> RECIPES = List.of(WIGGENWELD, PEPPERUP, POLYJUICE, DITTANY_ESSENCE,
             MANDRAKE_DRAUGHT, LIVING_DEATH, FELIX_FELICIS, REMORSE);
 
+    /** Recipes taught only by the Advanced Potion-Making book. */
+    public static final Set<String> ADVANCED_RECIPE_IDS = Set.of("living_death", "felix_felicis");
+
     private BrewRules() {
+    }
+
+    public static boolean isAdvanced(Recipe recipe) {
+        return ADVANCED_RECIPE_IDS.contains(recipe.id());
+    }
+
+    /**
+     * True when the history is not empty, no ordinary recipe fits it and some advanced recipe does: a step
+     * that only the book teaches. A history that fits nothing is ruined, not gated.
+     */
+    public static boolean needsBook(List<Step> history) {
+        if (history.isEmpty()) {
+            return false;
+        }
+        boolean advanced = false;
+        for (Recipe recipe : RECIPES) {
+            if (fit(recipe, history) == null) {
+                continue;
+            }
+            if (!isAdvanced(recipe)) {
+                return false;
+            }
+            advanced = true;
+        }
+        return advanced;
     }
 
     /** The history after one more action: merged into the last run when it is the same action. */

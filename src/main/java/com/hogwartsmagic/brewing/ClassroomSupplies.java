@@ -18,6 +18,10 @@ public final class ClassroomSupplies {
     public static final String STIRRING_ROD = "hogwartsmagic:fine_wood_stick";
     /** Each chest holds one Ashwinder egg with this chance. */
     public static final double ASHWINDER_CHANCE = 0.10;
+    /** The Advanced Potion-Making textbook. */
+    public static final String ADVANCED_BOOK = "hogwartsmagic:advanced_potion_making";
+    /** Each chest holds the book with this chance. */
+    public static final double ADVANCED_BOOK_CHANCE = 0.25;
 
     /** One kind of supply: between min and max of item, both inclusive. */
     public record Supply(String item, int min, int max) {
@@ -47,9 +51,10 @@ public final class ClassroomSupplies {
 
     /**
      * One chest, in CHEST order. between(min, max) picks a count (clamped to the range); eggRoll is a roll in
-     * [0, 1): below ASHWINDER_CHANCE adds one Ashwinder egg at the end.
+     * [0, 1): below ASHWINDER_CHANCE adds one Ashwinder egg at the end; bookRoll likewise adds the Advanced
+     * Potion-Making book after it, below ADVANCED_BOOK_CHANCE.
      */
-    public static List<Stack> roll(IntBinaryOperator between, double eggRoll) {
+    public static List<Stack> roll(IntBinaryOperator between, double eggRoll, double bookRoll) {
         List<Stack> out = new ArrayList<>();
         for (Supply supply : CHEST) {
             int count = between.applyAsInt(supply.min(), supply.max());
@@ -57,6 +62,9 @@ public final class ClassroomSupplies {
         }
         if (eggRoll < ASHWINDER_CHANCE) {
             out.add(new Stack(BrewRules.ASHWINDER_EGG, 1));
+        }
+        if (bookRoll < ADVANCED_BOOK_CHANCE) {
+            out.add(new Stack(ADVANCED_BOOK, 1));
         }
         return out;
     }

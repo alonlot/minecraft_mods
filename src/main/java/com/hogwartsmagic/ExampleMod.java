@@ -732,6 +732,8 @@ public class ExampleMod
             () -> new HogwartsInviteItem(new Item.Properties()));
     public static final RegistryObject<Item> HOGWARTS_GUIDE = ITEMS.register("hogwarts_guide",
             () -> new HogwartsGuideItem(new Item.Properties()));
+    public static final RegistryObject<Item> ADVANCED_POTION_MAKING = ITEMS.register("advanced_potion_making",
+            () -> new com.hogwartsmagic.item.AdvancedPotionMakingItem(new Item.Properties()));
     public static final RegistryObject<Item> FLOO_BINDING_TOKEN = ITEMS.register("floo_binding_token",
             () -> new com.hogwartsmagic.item.FlooBindingTokenItem(new Item.Properties()));
     public static final RegistryObject<Item> CAVE_INIMICUM_TOTEM = ITEMS.register("cave_inimicum_totem",
@@ -1092,6 +1094,7 @@ public class ExampleMod
                 output.accept(OWL_ROUTE_TAG.get());
                 output.accept(HOGWARTS_INVITE.get());
                 output.accept(HOGWARTS_GUIDE.get());
+                output.accept(ADVANCED_POTION_MAKING.get());
                 output.accept(FLOO_BINDING_TOKEN.get());
                 output.accept(CAVE_INIMICUM_TOTEM.get());
                 output.accept(FLOO_POWDER.get());

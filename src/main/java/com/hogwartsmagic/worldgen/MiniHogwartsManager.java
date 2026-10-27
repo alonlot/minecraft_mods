@@ -369,7 +369,7 @@ public final class MiniHogwartsManager {
                     continue;
                 }
                 List<ClassroomSupplies.Stack> stacks = ClassroomSupplies.roll(
-                        (min, max) -> min + rng.nextInt(max - min + 1), rng.nextDouble());
+                        (min, max) -> min + rng.nextInt(max - min + 1), rng.nextDouble(), rng.nextDouble());
                 int[] slots = shuffledSlots(chest.getContainerSize(), rng);
                 int next = 0;
                 for (ClassroomSupplies.Stack stack : stacks) {

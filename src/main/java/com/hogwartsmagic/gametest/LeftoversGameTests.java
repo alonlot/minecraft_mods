@@ -588,6 +588,37 @@ public final class LeftoversGameTests {
         LOGGER.info("LEFTOVERS-GAMETEST PASS wildDittanyDropsFineLeaves");
     }
 
+    /** A player who has not read Advanced Potion-Making is refused the first Asphodel without loss; once read, it is taken. */
+    @GameTest(template = EMPTY, timeoutTicks = 100)
+    public static void unreadPlayerIsRefusedWithoutLoss(GameTestHelper helper) {
+        BlockPos pos = new BlockPos(1, 2, 1);
+        helper.setBlock(pos, ExampleMod.WIZARD_CAULDRON.get());
+        ServerPlayer player = survivalPlayerWithDarkness(helper, "unread-book", 0.0f);
+        try {
+            player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
+                    new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.WATER_BUCKET));
+            helper.useBlock(pos, player);
+            net.minecraft.world.item.ItemStack asphodel = new net.minecraft.world.item.ItemStack(ExampleMod.ASPHODEL.get(), 3);
+            player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, asphodel);
+            helper.useBlock(pos, player);
+            helper.assertTrue(player.getMainHandItem().getCount() == 3,
+                    "an unread player must keep the asphodel, have " + player.getMainHandItem().getCount());
+            var cauldron = (com.hogwartsmagic.block.entity.WizardCauldronBlockEntity) helper.getBlockEntity(pos);
+            helper.assertTrue(cauldron.historySize() == 0, "a refused step must not enter the history");
+            helper.assertTrue(!cauldron.isRuined(), "a refused step must not ruin the brew");
+            helper.assertTrue(com.hogwartsmagic.brewing.AdvancedPotions.markRead(player), "first reading should report true");
+            helper.assertTrue(!com.hogwartsmagic.brewing.AdvancedPotions.markRead(player), "second reading should report false");
+            helper.useBlock(pos, player);
+            helper.assertTrue(player.getMainHandItem().getCount() == 2,
+                    "a reader's asphodel is taken, have " + player.getMainHandItem().getCount());
+            helper.assertTrue(cauldron.historySize() == 1 && !cauldron.isRuined(), "the reader starts Living Death");
+        } finally {
+            leave(helper, player);
+        }
+        helper.succeed();
+        LOGGER.info("LEFTOVERS-GAMETEST PASS unreadPlayerIsRefusedWithoutLoss");
+    }
+
     private static net.minecraft.nbt.CompoundTag historyEntry(String kind, String item, int amount) {
         net.minecraft.nbt.CompoundTag entry = new net.minecraft.nbt.CompoundTag();
         entry.putString("Kind", kind);

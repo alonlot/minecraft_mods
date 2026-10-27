@@ -62,10 +62,10 @@ class ClassroomSuppliesTest {
 
     @Test
     void countsStayInsideTheirRange() {
-        List<ClassroomSupplies.Stack> low = ClassroomSupplies.roll((min, max) -> min, 0.99);
-        List<ClassroomSupplies.Stack> high = ClassroomSupplies.roll((min, max) -> max, 0.99);
-        List<ClassroomSupplies.Stack> tooHigh = ClassroomSupplies.roll((min, max) -> 1000, 0.99);
-        List<ClassroomSupplies.Stack> tooLow = ClassroomSupplies.roll((min, max) -> -5, 0.99);
+        List<ClassroomSupplies.Stack> low = ClassroomSupplies.roll((min, max) -> min, 0.99, 0.99);
+        List<ClassroomSupplies.Stack> high = ClassroomSupplies.roll((min, max) -> max, 0.99, 0.99);
+        List<ClassroomSupplies.Stack> tooHigh = ClassroomSupplies.roll((min, max) -> 1000, 0.99, 0.99);
+        List<ClassroomSupplies.Stack> tooLow = ClassroomSupplies.roll((min, max) -> -5, 0.99, 0.99);
         assertEquals(ClassroomSupplies.CHEST.size(), low.size());
         for (int i = 0; i < ClassroomSupplies.CHEST.size(); i++) {
             ClassroomSupplies.Supply supply = ClassroomSupplies.CHEST.get(i);
@@ -79,11 +79,23 @@ class ClassroomSuppliesTest {
 
     @Test
     void anAshwinderEggOnlyBelowTheChance() {
-        List<ClassroomSupplies.Stack> lucky = ClassroomSupplies.roll((min, max) -> min, 0.05);
+        List<ClassroomSupplies.Stack> lucky = ClassroomSupplies.roll((min, max) -> min, 0.05, 0.99);
         assertTrue(lucky.contains(new ClassroomSupplies.Stack(BrewRules.ASHWINDER_EGG, 1)));
         assertEquals(ClassroomSupplies.CHEST.size() + 1, lucky.size());
-        assertFalse(hasEgg(ClassroomSupplies.roll((min, max) -> min, ClassroomSupplies.ASHWINDER_CHANCE)));
-        assertFalse(hasEgg(ClassroomSupplies.roll((min, max) -> min, 0.5)));
+        assertFalse(hasEgg(ClassroomSupplies.roll((min, max) -> min, ClassroomSupplies.ASHWINDER_CHANCE, 0.99)));
+        assertFalse(hasEgg(ClassroomSupplies.roll((min, max) -> min, 0.5, 0.99)));
+    }
+
+    @Test
+    void theAdvancedBookOnlyBelowItsChance() {
+        List<ClassroomSupplies.Stack> book = ClassroomSupplies.roll((min, max) -> min, 0.99, 0.24);
+        assertEquals(new ClassroomSupplies.Stack(ClassroomSupplies.ADVANCED_BOOK, 1), book.get(book.size() - 1));
+        assertEquals(ClassroomSupplies.CHEST.size() + 1, book.size());
+        List<ClassroomSupplies.Stack> none = ClassroomSupplies.roll((min, max) -> min, 0.99, 0.25);
+        assertEquals(ClassroomSupplies.CHEST.size(), none.size());
+        List<ClassroomSupplies.Stack> both = ClassroomSupplies.roll((min, max) -> min, 0.05, 0.1);
+        assertEquals(new ClassroomSupplies.Stack(BrewRules.ASHWINDER_EGG, 1), both.get(both.size() - 2));
+        assertEquals(new ClassroomSupplies.Stack(ClassroomSupplies.ADVANCED_BOOK, 1), both.get(both.size() - 1));
     }
 
     @Test
@@ -96,6 +108,6 @@ class ClassroomSuppliesTest {
         assertFalse(items.contains(BrewRules.ASHWINDER_EGG));
         assertFalse(items.contains(BrewRules.ACROMANTULA_VENOM));
         assertFalse(items.contains(BrewRules.POLYJUICE_SAMPLE));
-        assertTrue(ClassroomSupplies.CHEST.size() + 1 <= 27, "everything fits one chest");
+        assertTrue(ClassroomSupplies.CHEST.size() + 2 <= 27, "everything fits one chest");
     }
 }

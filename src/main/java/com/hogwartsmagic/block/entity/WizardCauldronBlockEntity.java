@@ -2,6 +2,7 @@ package com.hogwartsmagic.block.entity;
 
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.block.WizardCauldronBlock;
+import com.hogwartsmagic.brewing.AdvancedPotions;
 import com.hogwartsmagic.brewing.BrewAdvancements;
 import com.hogwartsmagic.brewing.BrewQuality;
 import com.hogwartsmagic.brewing.BrewRules;
@@ -270,15 +271,18 @@ public class WizardCauldronBlockEntity extends BlockEntity {
             tell(player, "ruined_already");
             return;
         }
+        BrewRules.Step turn = player.isShiftKeyDown()
+                ? BrewRules.Step.stirAnticlockwise(1)
+                : BrewRules.Step.stirClockwise(1);
+        if (refusedForWantOfBook(player, turn)) {
+            return;
+        }
         level.playSound(null, worldPosition, SoundEvents.GENERIC_SPLASH, SoundSource.BLOCKS, 0.4f, 1.4f);
         level.sendParticles(ParticleTypes.SPLASH, cx(), surfaceY(), cz(), 6, 0.2, 0.02, 0.2, 0.05);
         if (history.isEmpty()) {
             tell(player, "stir_water");
             return;
         }
-        BrewRules.Step turn = player.isShiftKeyDown()
-                ? BrewRules.Step.stirAnticlockwise(1)
-                : BrewRules.Step.stirClockwise(1);
         BrewRules.Kind lastKind = history.get(history.size() - 1).kind();
         boolean previousWasStir = lastKind == BrewRules.Kind.STIR_CLOCKWISE || lastKind == BrewRules.Kind.STIR_ANTICLOCKWISE;
         long now = level.getGameTime();
@@ -293,6 +297,28 @@ public class WizardCauldronBlockEntity extends BlockEntity {
             lastActionTick = now;
         }
         changed();
+    }
+
+    /**
+     * True (after telling the player) when the step would start or continue a recipe that only the Advanced
+     * Potion-Making book teaches and this player has not read it. Nothing is consumed and the brew is untouched.
+     */
+    private boolean refusedForWantOfBook(Player player, BrewRules.Step action) {
+        if (BrewRules.needsBook(BrewRules.append(history, action)) && !AdvancedPotions.hasRead(player)) {
+            tell(player, "needs_book");
+            return true;
+        }
+        return false;
+    }
+
+    /** Test accessor: how many runs the brew has. */
+    public int historySize() {
+        return history.size();
+    }
+
+    /** Test accessor. */
+    public boolean isRuined() {
+        return ruined;
     }
 
     private void addIngredient(ServerLevel level, Player player, InteractionHand hand, ItemStack stack) {
@@ -312,6 +338,9 @@ public class WizardCauldronBlockEntity extends BlockEntity {
         boolean filledSample = stack.is(ExampleMod.POLYJUICE_SAMPLE.get()) && PolyjuiceData.hasSample(stack);
         if (BrewRules.refusesEmptySample(id, filledSample)) {
             tell(player, "empty_sample");
+            return;
+        }
+        if (refusedForWantOfBook(player, BrewRules.Step.add(id, 1))) {
             return;
         }
         CompoundTag sample = filledSample ? PolyjuiceData.getSample(stack) : null;

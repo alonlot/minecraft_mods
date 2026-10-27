@@ -4,7 +4,8 @@
 
 Writes textures/item/magic_books/magic_book_<spell>.png and textures/item/magic_book.png.
 Cover and glow colours were sampled from the original painted 1024-2048px books
-(sample_colours.py), so each spell keeps its colour identity at 16x16.
+(sample_colours.py). The redrawn set was rejected: the mod keeps the painted books,
+so this script refuses to overwrite an existing texture.
 """
 import os, sys
 
@@ -62,13 +63,20 @@ GENERIC = Spell("#73271f", "star", "#f0b830", core="#fff4c2", metal="gold")   # 
 
 
 def main(names):
-    todo = names or list(SPELLS) + ["_generic"]
-    for n in todo:
-        if n == "_generic":
-            save_book(GENERIC, os.path.join(OUT, "magic_book.png"))
-        else:
-            save_book(SPELLS[n], os.path.join(OUT, "magic_books", f"magic_book_{n}.png"))
-    print(f"wrote {len(todo)} spellbook sprites")
+    """Build only the named spells, and never over an existing texture: the mod's
+    spellbooks are the original painted books (the 16x16 redraw was rejected 2026-10-27)."""
+    force = "--force" in names
+    names = [n for n in names if n != "--force"]
+    if not names:
+        print("usage: spellbooks.py <spell> [...] [--force]  (writes only spells with no texture yet)")
+        return
+    for n in names:
+        path = os.path.join(OUT, "magic_book.png") if n == "_generic" else             os.path.join(OUT, "magic_books", f"magic_book_{n}.png")
+        if os.path.exists(path) and not force:
+            print(f"skip {n}: {path} exists")
+            continue
+        save_book(GENERIC if n == "_generic" else SPELLS[n], path)
+        print("wrote", path)
 
 
 if __name__ == "__main__":

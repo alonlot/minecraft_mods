@@ -5,6 +5,11 @@ description: Use when a spellbook, spell tome or magic book item texture is need
 
 # Texturing Spellbooks
 
+> **Status (2026-10-27):** the user rejected the 16x16 redraw of the existing books and the mod
+> went back to the original painted spellbooks. Do not regenerate existing books; the build script
+> refuses to overwrite them. Ask the user before using this master for a new spell, because it will
+> not match the painted set.
+
 ## Overview
 
 Every spellbook is **one master sprite** with three per-spell choices: cover colour, a 5x5 cover

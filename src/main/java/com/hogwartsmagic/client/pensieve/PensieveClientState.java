@@ -761,7 +761,7 @@ public final class PensieveClientState {
         if (RecordingCache.scene(p.id) != null) {
             pendingRecording = null;
             onStart(p.id, p.json, p.at, p.start, p.build, p.preview);
-        } else if (++p.waited > RECORDING_WAIT_TICKS && phase != SWALLOW) {
+        } else if (!Minecraft.getInstance().isPaused() && ++p.waited > RECORDING_WAIT_TICKS && phase != SWALLOW) {
             pendingRecording = null;
             requestLeave();
         }

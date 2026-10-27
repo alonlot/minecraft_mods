@@ -69,7 +69,7 @@ final class RecordedFx {
         }
         while (nextEvent < events.size() && events.get(nextEvent).tick() <= t) {
             Recording.LevelEvt e = events.get(nextEvent++);
-            if (t - e.tick() > LATE_TICKS) continue;
+            if (t - e.tick() > LATE_TICKS || !replayable(e.type())) continue;
             try {
                 level.levelEvent(null, e.type(),
                         new BlockPos(origin.getX() + e.x(), origin.getY() + e.y(), origin.getZ() + e.z()), e.data());
@@ -77,6 +77,14 @@ final class RecordedFx {
                 warnOnce("level event", ex);
             }
         }
+    }
+
+    /**
+     * Level events not to replay: the jukebox (1010) starts a song nothing here would stop, and the global ones
+     * (wither spawn, dragon death, end portal opening) are heard across the whole dimension.
+     */
+    static boolean replayable(int type) {
+        return type != 1010 && type != 1023 && type != 1028 && type != 1038;
     }
 
     /** The vanilla client's handling of a particle packet: a spread of {@code count}, or one flung by the delta. */

@@ -100,4 +100,19 @@ class RecordingAssemblyTest {
                 () -> RecordingAssembly.thin(big, 100));
         assertEquals(RecordingAssembly.TOO_BIG, e.key);
     }
+
+    @Test
+    void farPlayersAreNotCandidatesButTheOwnerAlwaysIs() {
+        List<EntitySelect.Candidate> all = List.of(
+                new EntitySelect.Candidate(0, true, true, 500),
+                new EntitySelect.Candidate(1, true, false, 3000),
+                new EntitySelect.Candidate(2, true, false, 32 + RecordingAssembly.CANDIDATE_MARGIN),
+                new EntitySelect.Candidate(3, false, false, 5),
+                new EntitySelect.Candidate(4, false, false, 32 + RecordingAssembly.CANDIDATE_MARGIN + 1));
+        List<EntitySelect.Candidate> near = RecordingAssembly.withinReach(all, 32);
+        assertEquals(List.of(0, 2, 3), near.stream().map(EntitySelect.Candidate::actor).toList());
+        // With room for one, the nearby mob is no longer evicted by the player 3000 blocks away.
+        assertEquals(List.of(0), EntitySelect.pick(near, 1));
+        assertEquals(List.of(0, 2), EntitySelect.pick(near, 2));
+    }
 }

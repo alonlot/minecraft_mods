@@ -28,6 +28,7 @@ public final class EntityHistory {
     private static final int LANES = 7;
     /** A hole this long or shorter (an entity leaving the watched area briefly) is bridged by holding the last pose. */
     private static final int MAX_BRIDGE = 40;
+    private static final int START_LEN = 64;
     private static final EquipmentSlot[] SLOTS = EquipmentSlot.values();
 
     public static final class DataRec {
@@ -79,6 +80,8 @@ public final class EntityHistory {
     public final UUID uuid;
     public final String type;
     public final boolean player;
+    /** Living entities keep their history a minute after they vanish; arrows, items and orbs only a few seconds. */
+    public final boolean living;
     public String name;
     public String skinValue;
     public String skinSignature;
@@ -89,6 +92,8 @@ public final class EntityHistory {
     /** Positions are stored as floats relative to this block, so a far-from-spawn entity keeps its precision. */
     private double ox, oy, oz;
     private final int cap;
+    /** Allocated ring length: grows geometrically from {@link #START_LEN} up to {@code cap}. */
+    private int len;
     private final float[][] lanes = new float[LANES][];
     private int start;
     private int count;
@@ -100,11 +105,13 @@ public final class EntityHistory {
     private final ItemStack[] lastEquip = new ItemStack[SLOTS.length];
     private final List<ActRec> acts = new ArrayList<>();
     private boolean baselined;
+    private boolean skinChecked;
 
-    public EntityHistory(UUID uuid, String type, boolean player, int capTicks) {
+    public EntityHistory(UUID uuid, String type, boolean player, boolean living, int capTicks) {
         this.uuid = uuid;
         this.type = type;
         this.player = player;
+        this.living = living;
         this.cap = Math.max(8, capTicks);
         Arrays.fill(lastEquip, ItemStack.EMPTY);
     }
@@ -122,7 +129,7 @@ public final class EntityHistory {
     }
 
     public float at(int lane, long tick) {
-        return lanes[lane][(start + (int) (tick - firstTick())) % cap];
+        return lanes[lane][(start + (int) (tick - firstTick())) % len];
     }
 
     /** The world position at a recorded tick. */
@@ -151,7 +158,7 @@ public final class EntityHistory {
             if (tick - lastTick - 1 > MAX_BRIDGE) {
                 reset();
             } else {
-                int idx = (start + count - 1) % cap;
+                int idx = (start + count - 1) % len;
                 float[] hold = new float[LANES];
                 for (int l = 0; l < LANES; l++) {
                     hold[l] = lanes[l][idx];
@@ -172,15 +179,27 @@ public final class EntityHistory {
 
     private void push(float x, float y, float z, float yaw, float head, float body, float pitch) {
         if (lanes[0] == null) {
+            len = Math.min(START_LEN, cap);
             for (int l = 0; l < LANES; l++) {
-                lanes[l] = new float[cap];
+                lanes[l] = new float[len];
             }
+        } else if (count == len && len < cap) {
+            int bigger = Math.min(cap, len * 2);
+            for (int l = 0; l < LANES; l++) {
+                float[] grown = new float[bigger];
+                for (int k = 0; k < count; k++) {
+                    grown[k] = lanes[l][(start + k) % len];
+                }
+                lanes[l] = grown;
+            }
+            start = 0;
+            len = bigger;
         }
-        if (count == cap) {
-            start = (start + 1) % cap;
+        if (count == len) {
+            start = (start + 1) % len;
             count--;
         }
-        int idx = (start + count) % cap;
+        int idx = (start + count) % len;
         lanes[X][idx] = x;
         lanes[Y][idx] = y;
         lanes[Z][idx] = z;
@@ -272,7 +291,11 @@ public final class EntityHistory {
     /** Whole-entity sample for one tick: pose, data, equipment. */
     public void sample(Entity e, long tick, ServerLevel level) {
         ref = e;
-        if (e instanceof ServerPlayer sp && skinValue == null) {
+        if (!(e instanceof LivingEntity alive) || !alive.isDeadOrDying()) {
+            killed = false; // a respawned player reuses this history
+        }
+        if (e instanceof ServerPlayer sp && !skinChecked) {
+            skinChecked = true; // offline-mode profiles have no textures: look once
             sp.getGameProfile().getProperties().get("textures").stream().findFirst().ifPresent(p -> {
                 skinValue = p.value();
                 skinSignature = p.signature();
@@ -297,7 +320,7 @@ public final class EntityHistory {
             long first = firstTick();
             if (first < cutoff) {
                 int drop = (int) Math.min(count, cutoff - first);
-                start = (start + drop) % cap;
+                start = (start + drop) % len;
                 count -= drop;
             }
         }
@@ -379,9 +402,9 @@ public final class EntityHistory {
         s.gone = !killed && lastTick < now;
         int n = (int) (b - a + 1);
         s.lanes = new float[LANES][n];
-        int from0 = (start + (int) (a - firstTick())) % cap;
+        int from0 = (start + (int) (a - firstTick())) % len;
         for (int l = 0; l < LANES; l++) {
-            int firstRun = Math.min(n, cap - from0);
+            int firstRun = Math.min(n, len - from0);
             System.arraycopy(lanes[l], from0, s.lanes[l], 0, firstRun);
             if (firstRun < n) {
                 System.arraycopy(lanes[l], 0, s.lanes[l], firstRun, n - firstRun);
@@ -392,7 +415,7 @@ public final class EntityHistory {
             if (d.tick < a) {
                 dataCarry.put(d.key, d);
             } else if (d.tick <= b) {
-                s.data.add(d);
+                s.data.add(new DataRec(d.tick, d.key, d.value));
             }
         }
         List<DataRec> carried = new ArrayList<>();
@@ -404,7 +427,7 @@ public final class EntityHistory {
             if (q.tick < a) {
                 equipCarry.put(q.slot, q);
             } else if (q.tick <= b) {
-                s.equipment.add(q);
+                s.equipment.add(new EquipRec(q.tick, q.slot, q.stack));
             }
         }
         List<EquipRec> carriedEquip = new ArrayList<>();

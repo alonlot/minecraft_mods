@@ -1922,6 +1922,7 @@ public class ModEvents {
 
         crackEffect(level, from.x, from.y, from.z, true);
         player.teleportTo(landing.x, landing.y, landing.z);
+        com.hogwartsmagic.pensieve.capture.CaptureHooks.markDiscontinuity(player); // a memory never reaches back across a jump
         player.fallDistance = 0.0f;
         crackEffect(level, landing.x, landing.y, landing.z, false);
 
@@ -2016,6 +2017,7 @@ public class ModEvents {
         Vec3 from = player.position();
         crackEffect(level, from.x, from.y, from.z, true);
         player.teleportTo(x, y, z);
+        com.hogwartsmagic.pensieve.capture.CaptureHooks.markDiscontinuity(player); // a memory never reaches back across a jump
         player.fallDistance = 0.0f;
         crackEffect(level, x, y, z, false);
         for (LivingEntity passenger : passengers) {
@@ -2403,6 +2405,7 @@ public class ModEvents {
 
         BlockPos exitPos = destinationPos.above();
         player.teleportTo(exitPos.getX() + 0.5, exitPos.getY(), exitPos.getZ() + 0.5);
+        com.hogwartsmagic.pensieve.capture.CaptureHooks.markDiscontinuity(player); // a memory never reaches back across a jump
         com.hogwartsmagic.assignment.AssignmentEvents.onFlooTravel(player);
         serverLevel.sendParticles(ParticleTypes.SOUL_FIRE_FLAME,
                 player.getX(), player.getY() + 0.6, player.getZ(),

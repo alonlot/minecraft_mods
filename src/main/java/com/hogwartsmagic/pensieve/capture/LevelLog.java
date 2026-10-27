@@ -11,6 +11,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.ChunkPos;
 
 import java.util.ArrayDeque;
@@ -76,6 +77,8 @@ public final class LevelLog {
     private static final int MAX_BEAMS = 500;
     /** How long a history lives after its entity was last sampled. */
     private static final int HISTORY_GRACE = 20 * 60;
+    /** Arrows, items and orbs are only worth keeping this long after they vanish. */
+    private static final int NON_LIVING_GRACE = 60;
     private static final int TRIM_EVERY = 20;
 
     private final int maxChanges;
@@ -323,7 +326,7 @@ public final class LevelLog {
             EntityHistory h = entities.get(e.getUUID());
             if (h == null) {
                 h = new EntityHistory(e.getUUID(), BuiltInRegistries.ENTITY_TYPE.getKey(e.getType()).toString(),
-                        e instanceof ServerPlayer, capTicks);
+                        e instanceof ServerPlayer, e instanceof LivingEntity, capTicks);
                 entities.put(e.getUUID(), h);
             }
             h.sample(e, now, level);
@@ -331,8 +334,8 @@ public final class LevelLog {
     }
 
     /**
-     * Data changes made after the level ticked (a packet handler, a command) are still flagged dirty when the whole
-     * server tick ends, before the next tick's send clears them. Picks those up.
+     * Data changes made between ticks (a packet handler, a command) are still flagged dirty at the start of the next
+     * server tick, before that tick's send clears them. Picks those up.
      */
     public void sampleLateData(ServerLevel level, long now) {
         if (entities.isEmpty()) {
@@ -357,7 +360,7 @@ public final class LevelLog {
         }
         for (Iterator<EntityHistory> it = entities.values().iterator(); it.hasNext(); ) {
             EntityHistory h = it.next();
-            if (now - h.lastTick() > HISTORY_GRACE) {
+            if (now - h.lastTick() > (h.living ? HISTORY_GRACE : NON_LIVING_GRACE)) {
                 it.remove();
                 continue;
             }

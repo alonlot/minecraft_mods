@@ -86,7 +86,7 @@ public final class CaptureLogs {
         }
     }
 
-    /** End of a whole server tick: data changes made outside the level tick (packets, commands). */
+    /** Start of a server tick: data changes made between ticks (packets, commands) are still flagged dirty. */
     public static void lateTick(net.minecraft.server.MinecraftServer server) {
         if (LEVELS.isEmpty()) {
             return;

@@ -9,6 +9,7 @@ import net.minecraft.commands.arguments.blocks.BlockStateParser;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.SectionPos;
+import net.minecraft.core.particles.ItemParticleOption;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -69,6 +70,8 @@ public final class RecordingAssembly {
     }
 
     private static final int SOUND_MARGIN = 16;
+    /** How far past the island radius a creature or player may have come close and still be remembered. */
+    static final int CANDIDATE_MARGIN = 8;
     private static volatile boolean[] opaqueById;
 
     private RecordingAssembly() {
@@ -95,6 +98,8 @@ public final class RecordingAssembly {
         final List<LevelLog.CastRec> casts = new ArrayList<>();
         final List<Recording.Sound> sounds = new ArrayList<>();
         final List<LevelLog.ParticleRec> particles = new ArrayList<>();
+        /** Parallel to particles: bytes encoded on the server thread for options that hold a mutable stack, else null. */
+        final List<byte[]> particleBytes = new ArrayList<>();
         final List<Recording.LevelEvt> levelEvents = new ArrayList<>();
         final List<Recording.BlockEntityData> blockEntities = new ArrayList<>();
         final List<Recording.Chat> chat = new ArrayList<>();
@@ -308,6 +313,7 @@ public final class RecordingAssembly {
         for (LevelLog.ParticleRec r : log.particles) {
             if (r.tick() >= p.start && r.tick() <= p.now && inBox(r.x(), r.y(), r.z(), c, half)) {
                 p.particles.add(r);
+                p.particleBytes.add(r.options() instanceof ItemParticleOption ? encode(r.options(), p.access) : null);
             }
         }
         for (LevelLog.LevelEvtRec e : log.levelEvents) {
@@ -389,7 +395,8 @@ public final class RecordingAssembly {
             EntityHistory.Slice s = p.slices.get(i);
             candidates.add(new EntitySelect.Candidate(i, s.player, i == 0, minDistance(s, p.centre)));
         }
-        List<Integer> picked = EntitySelect.pick(candidates, Math.max(1, Config.pensieveCaptureMaxEntities));
+        List<Integer> picked = EntitySelect.pick(withinReach(candidates, p.radius),
+                Math.max(1, Config.pensieveCaptureMaxEntities));
         Map<UUID, Integer> actorOf = new HashMap<>();
         List<Recording.Track> tracks = new ArrayList<>();
         for (int actor = 0; actor < picked.size(); actor++) {
@@ -416,16 +423,32 @@ public final class RecordingAssembly {
             }
         }
         List<Recording.Particle> particles = new ArrayList<>(p.particles.size());
-        for (LevelLog.ParticleRec r : p.particles) {
+        for (int pi = 0; pi < p.particles.size(); pi++) {
+            LevelLog.ParticleRec r = p.particles.get(pi);
             particles.add(new Recording.Particle((int) (r.tick() - p.start), (float) (r.x() - p.centre[0]),
                     (float) (r.y() - p.centre[1]), (float) (r.z() - p.centre[2]), (float) r.dx(), (float) r.dy(),
-                    (float) r.dz(), (float) r.speed(), r.count(), encode(r.options(), p.access)));
+                    (float) r.dz(), (float) r.speed(), r.count(),
+                    p.particleBytes.get(pi) != null ? p.particleBytes.get(pi) : encode(r.options(), p.access)));
         }
 
         Recording recording = new Recording(p.id, p.owner, p.ownerName, p.title, p.day, p.dimension, p.centre,
                 p.radius, p.length, p.dayTime, blocks, tracks, beams, casts, p.sounds, particles, p.levelEvents,
                 p.chat);
         return thin(recording, Config.pensieveCaptureMaxKb * 1024);
+    }
+
+    /**
+     * The candidates worth remembering: the owner always, anyone else only if they came within the island radius plus
+     * {@link #CANDIDATE_MARGIN} at some point. Without this a player far away would outrank every nearby creature.
+     */
+    static List<EntitySelect.Candidate> withinReach(List<EntitySelect.Candidate> all, int radius) {
+        List<EntitySelect.Candidate> out = new ArrayList<>();
+        for (EntitySelect.Candidate c : all) {
+            if (c.owner() || c.minDistance() <= radius + CANDIDATE_MARGIN) {
+                out.add(c);
+            }
+        }
+        return out;
     }
 
     private static int[] currentCells(Prepared p, int size, int d) {

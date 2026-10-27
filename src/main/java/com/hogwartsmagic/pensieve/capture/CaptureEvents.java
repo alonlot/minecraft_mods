@@ -36,7 +36,9 @@ public final class CaptureEvents {
 
     @SubscribeEvent
     public static void onServerTick(TickEvent.ServerTickEvent event) {
-        if (event.phase == TickEvent.Phase.END) {
+        // START: packet handlers run after the levels tick, and the next level tick clears the dirty flags
+        // (it sends them), so the only moment between is the start of the server tick.
+        if (event.phase == TickEvent.Phase.START) {
             try {
                 CaptureLogs.lateTick(event.getServer());
             } catch (RuntimeException e) {

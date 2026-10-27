@@ -61,9 +61,9 @@ public class PensieveBlockEntity extends BlockEntity {
         this.memory = stack.copyWithCount(1);
         this.pourer = who;
         if (level instanceof net.minecraft.server.level.ServerLevel serverLevel
-                && stack.getItem() instanceof PensieveMemory memory) {
+                && stack.getItem() instanceof PensieveMemory recorded) {
             // A recorded memory is read from the world save: start loading it before the diver arrives.
-            com.hogwartsmagic.pensieve.capture.RecordingScene.idOf(memory.sceneId(stack)).ifPresent(
+            com.hogwartsmagic.pensieve.capture.RecordingScene.idOf(recorded.sceneId(stack)).ifPresent(
                     id -> com.hogwartsmagic.pensieve.capture.RecordingStore.prefetch(serverLevel.getServer(), id));
         }
         sync();

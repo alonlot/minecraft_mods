@@ -216,6 +216,48 @@ public final class PensieveCaptureGameTests {
     }
 
     @GameTest(template = EMPTY, batch = BATCH, timeoutTicks = 100)
+    public static void respawnClearsTheKilledMark(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        net.minecraft.world.entity.monster.Zombie body = helper.spawn(EntityType.ZOMBIE, 1, 2, 1);
+        body.setNoAi(true);
+        EntityHistory h = new EntityHistory(body.getUUID(), "minecraft:zombie", false, true, 200);
+        h.sample(body, 1, level);
+        body.setHealth(0f);
+        h.killed = true; // what the death event sets
+        h.sample(body, 2, level);
+        helper.assertTrue(h.copy(0, 10, 2).killed, "a dying entity stays marked as killed");
+        // The same uuid comes back alive, as a respawned player does.
+        net.minecraft.world.entity.monster.Zombie again = helper.spawn(EntityType.ZOMBIE, 1, 2, 1);
+        again.setNoAi(true);
+        h.sample(again, 3, level);
+        EntityHistory.Slice s = h.copy(0, 10, 3);
+        helper.assertTrue(!s.killed && !s.gone, "after the respawn the track is no longer killed");
+        pass("respawnClearsTheKilledMark");
+        helper.succeed();
+    }
+
+    @GameTest(template = EMPTY, batch = BATCH, timeoutTicks = 200)
+    public static void betweenTickDataChangeIsRecorded(GameTestHelper helper) {
+        ServerPlayer p = player(helper);
+        ServerLevel level = helper.getLevel();
+        Sheep sheep = helper.spawn(EntityType.SHEEP, 1, 2, 1);
+        sheep.setNoAi(true);
+        int[] before = new int[1];
+        helper.runAfterDelay(10, () -> {
+            before[0] = CaptureLogs.of(level).entities.get(sheep.getUUID()).copy(0, Long.MAX_VALUE, level.getGameTime()).data.size();
+            // A task queued like a packet handler: it runs between two server ticks.
+            level.getServer().execute(() -> sheep.setColor(DyeColor.PINK));
+        });
+        helper.runAfterDelay(20, () -> {
+            int after = CaptureLogs.of(level).entities.get(sheep.getUUID()).copy(0, Long.MAX_VALUE, level.getGameTime()).data.size();
+            helper.assertTrue(after > before[0], "the change made between ticks was recorded: " + before[0] + " -> " + after);
+            logout(helper, p);
+            pass("betweenTickDataChangeIsRecorded");
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = EMPTY, batch = BATCH, timeoutTicks = 100)
     public static void storeRoundTrips(GameTestHelper helper) throws Exception {
         UUID id = UUID.randomUUID();
         Recording.Blocks blocks = new Recording.Blocks(List.of("minecraft:air", "minecraft:stone"), 1,

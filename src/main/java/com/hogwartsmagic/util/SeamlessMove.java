@@ -21,5 +21,6 @@ public final class SeamlessMove {
         target.addDuringTeleport(player);
         player.connection.teleport(x, y, z, yRot, xRot);
         player.connection.resetPosition();
+        com.hogwartsmagic.pensieve.capture.CaptureHooks.markDiscontinuity(player);
     }
 }

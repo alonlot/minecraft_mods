@@ -965,6 +965,9 @@ public class ExampleMod
     public static final RegistryObject<Item> WHOMPING_WILLOW_SPAWN_EGG = ITEMS.register("whomping_willow_spawn_egg",
             () -> new net.minecraftforge.common.ForgeSpawnEggItem(ModEntities.WHOMPING_WILLOW, 0x42372A, 0x4A5C30, new Item.Properties()));
 
+    public static final RegistryObject<Item> SNAKE_SPAWN_EGG = ITEMS.register("snake_spawn_egg",
+            () -> new net.minecraftforge.common.ForgeSpawnEggItem(ModEntities.SNAKE, 0x3A6B2E, 0xC9B458, new Item.Properties()));
+
     // A barbed lakebed-stone spear. Unremarkable in air, nasty underwater --
     // see MerpersonSpearItem for where the bonus is applied.
     // Nacre and lake pearl: soft as armour, which is not what it is for.
@@ -1132,6 +1135,7 @@ public class ExampleMod
                 output.accept(INFERIUS_SPAWN_EGG.get()); // Inferius Spawn Egg
                 output.accept(BOGGART_SPAWN_EGG.get()); // Boggart Spawn Egg
                 output.accept(WHOMPING_WILLOW_SPAWN_EGG.get()); // Whomping Willow Spawn Egg
+                output.accept(SNAKE_SPAWN_EGG.get()); // Wild Snake Spawn Egg
                 output.accept(GALLEON.get());
                 output.accept(CURSED_GALLEON.get());
                 output.accept(CLANKERS.get()); // Galleon

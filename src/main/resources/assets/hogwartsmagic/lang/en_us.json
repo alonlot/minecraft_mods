@@ -764,6 +764,8 @@
   "advancement.hogwartsmagic.riddikulus.description": "Laugh a Boggart out of existence",
   "entity.hogwartsmagic.whomping_willow": "Whomping Willow",
   "item.hogwartsmagic.whomping_willow_spawn_egg": "Whomping Willow Spawn Egg",
+  "entity.hogwartsmagic.snake": "Snake",
+  "item.hogwartsmagic.snake_spawn_egg": "Snake Spawn Egg",
   "subtitles.hogwartsmagic.whomping_willow.ambient": "Willow creaks",
   "subtitles.hogwartsmagic.whomping_willow.alert": "Willow strains",
   "subtitles.hogwartsmagic.whomping_willow.whip": "Branch whips",

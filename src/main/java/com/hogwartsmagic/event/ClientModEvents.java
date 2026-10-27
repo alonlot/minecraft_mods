@@ -1007,6 +1007,8 @@ public class ClientModEvents {
         // build_scripts/generate_living_statue_model.py, which uses its own naming.
         event.registerLayerDefinition(com.hogwartsmagic.client.LivingStatueModel.LAYER,
                 com.hogwartsmagic.client.LivingStatueModel::createBodyLayer);
+        event.registerLayerDefinition(com.hogwartsmagic.client.model.SnakeModel.LAYER_LOCATION,
+                com.hogwartsmagic.client.model.SnakeModel::createBodyLayer);
     }
 
     @SubscribeEvent
@@ -1083,6 +1085,8 @@ public class ClientModEvents {
                 com.hogwartsmagic.client.renderer.WhompingWillowRenderer::new);
         event.registerEntityRenderer(ModEntities.LIVING_STATUE.get(),
                 com.hogwartsmagic.client.LivingStatueRenderer::new);
+        event.registerEntityRenderer(ModEntities.SNAKE.get(),
+                com.hogwartsmagic.client.renderer.SnakeRenderer::new);
 
         event.registerEntityRenderer(ModEntities.DARK_MARK.get(), DarkMarkRenderer::new);
         event.registerEntityRenderer(ModEntities.VOLDEMORT_SUMMONING.get(),

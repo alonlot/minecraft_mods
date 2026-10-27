@@ -8,7 +8,10 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerPlayer;
+import com.hogwartsmagic.entity.SnakeEntity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.animal.Pig;
+import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.level.GameRules;
@@ -123,6 +126,59 @@ public final class LeftoversGameTests {
             }
             helper.succeed();
             LOGGER.info("LEFTOVERS-GAMETEST PASS rogueSerpentSparesBystanders");
+        });
+    }
+
+    /** A conjured snake refuses its owner as a target, even when handed it directly through setTarget. */
+    @GameTest(template = EMPTY, timeoutTicks = 160)
+    public static void snakeNeverTurnsOnItsOwner(GameTestHelper helper) {
+        Villager owner = helper.spawn(EntityType.VILLAGER, new Vec3(1.5, 2, 1.5));
+        owner.setNoAi(true);
+        Zombie zombie = helper.spawn(EntityType.ZOMBIE, new Vec3(5.5, 2, 1.5));
+        zombie.setNoAi(true);
+        SnakeEntity snake = new SnakeEntity(ModEntities.SNAKE.get(), helper.getLevel());
+        snake.conjure(owner, 400, 0);
+        Vec3 at = helper.absoluteVec(new Vec3(2.5, 2, 1.5));
+        snake.moveTo(at.x, at.y, at.z);
+        helper.getLevel().addFreshEntity(snake);
+        snake.setTarget(owner);
+
+        helper.runAtTickTime(100, () -> {
+            try {
+                helper.assertTrue(snake.getTarget() != owner, "the snake must not have targeted its owner");
+                snake.setTarget(owner);
+                helper.assertTrue(snake.getTarget() != owner, "setTarget must refuse the owner");
+            } finally {
+                snake.discard();
+                owner.discard();
+                zombie.discard();
+            }
+            helper.succeed();
+            LOGGER.info("LEFTOVERS-GAMETEST PASS snakeNeverTurnsOnItsOwner");
+        });
+    }
+
+    /** Remove the owner and the conjured snake must go within a couple of seconds, never turning wild. */
+    @GameTest(template = EMPTY, timeoutTicks = 120)
+    public static void snakeVanishesWhenItsOwnerIsGone(GameTestHelper helper) {
+        Pig owner = helper.spawn(EntityType.PIG, new Vec3(1.5, 2, 1.5));
+        owner.setNoAi(true);
+        SnakeEntity snake = new SnakeEntity(ModEntities.SNAKE.get(), helper.getLevel());
+        snake.conjure(owner, 1200, 0);
+        Vec3 at = helper.absoluteVec(new Vec3(2.5, 2, 1.5));
+        snake.moveTo(at.x, at.y, at.z);
+        helper.getLevel().addFreshEntity(snake);
+
+        helper.runAtTickTime(5, owner::discard);
+        helper.runAtTickTime(100, () -> {
+            if (!snake.isRemoved()) {
+                snake.discard();
+                helper.fail("the snake should have vanished after its owner was gone");
+            }
+        });
+        helper.succeedWhen(() -> {
+            helper.assertTrue(snake.isRemoved(), "the snake should vanish when its owner is gone");
+            LOGGER.info("LEFTOVERS-GAMETEST PASS snakeVanishesWhenItsOwnerIsGone");
         });
     }
 }

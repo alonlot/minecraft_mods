@@ -310,6 +310,37 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_LAKE_HARRY_CAST = register("pensieve.voice.lake_harry_cast");
     public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_LAKE_HARRY_KNEW = register("pensieve.voice.lake_harry_knew");
 
+    // BATTLE VOICES BEGIN (battle_voices.py writes this block)
+    // Voice lines of the Battle of Hogwarts memory (Fish Audio takes; played by the scenes' voice cues).
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_BH_MCG_THREAT = register("pensieve.voice.bh_mcg_threat");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_BH_MCG_PIERTOTUM = register("pensieve.voice.bh_mcg_piertotum");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_BH_MCG_QUIP = register("pensieve.voice.bh_mcg_quip");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_BH_FLITWICK_SHIELD = register("pensieve.voice.bh_flitwick_shield");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_BH_NEVILLE_BRILLIANT = register("pensieve.voice.bh_neville_brilliant");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_BH_VOLD_FOOLS = register("pensieve.voice.bh_vold_fools");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_BH_VOLD_HOUR = register("pensieve.voice.bh_vold_hour");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_BH_VOLD_BEGIN = register("pensieve.voice.bh_vold_begin");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_BH_RON_HOLD = register("pensieve.voice.bh_ron_hold");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_BH_HERMIONE_HOLD = register("pensieve.voice.bh_hermione_hold");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_BH_NEV_TAUNT = register("pensieve.voice.bh_nev_taunt");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_BH_SEAMUS_RUN = register("pensieve.voice.bh_seamus_run");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_BH_NEV_NOW = register("pensieve.voice.bh_nev_now");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_BH_NEV_HA = register("pensieve.voice.bh_nev_ha");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_BH_RON_SPIDERS = register("pensieve.voice.bh_ron_spiders");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_BH_HERMIONE_RUN = register("pensieve.voice.bh_hermione_run");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_BH_VOLD_WITHDRAW = register("pensieve.voice.bh_vold_withdraw");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_BH_BELLA_PLAY = register("pensieve.voice.bh_bella_play");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_BH_MOLLY_DAUGHTER = register("pensieve.voice.bh_molly_daughter");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_BH_BELLA_CHILDREN = register("pensieve.voice.bh_bella_children");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_BH_VOLD_COME_TO_DIE = register("pensieve.voice.bh_vold_come_to_die");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_BH_HARRY_FINISH = register("pensieve.voice.bh_harry_finish");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_BH_HARRY_EXPELLIARMUS = register("pensieve.voice.bh_harry_expelliarmus");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_BH_VOLD_AVADA = register("pensieve.voice.bh_vold_avada");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_BH_RON_ELDER = register("pensieve.voice.bh_ron_elder");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_BH_HARRY_DONT_WANT = register("pensieve.voice.bh_harry_dont_want");
+    public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_BH_NARR_ALLWELL = register("pensieve.voice.bh_narr_allwell");
+    // BATTLE VOICES END
+
     // Great Hall memory: ElevenLabs effects and Fish Audio voices (played by sfx and sound events).
     public static final RegistryObject<SoundEvent> PENSIEVE_SFX_HALL_DOOR_GROAN = register("pensieve.sfx.hall_door_groan");
     public static final RegistryObject<SoundEvent> PENSIEVE_SFX_HALL_DOOR_BOOM = register("pensieve.sfx.hall_door_boom");

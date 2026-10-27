@@ -3411,5 +3411,221 @@
         "stream": true
       }
     ]
+  },
+  "pensieve.voice.bh_mcg_threat": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/bh_mcg_threat",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.bh_mcg_piertotum": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/bh_mcg_piertotum",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.bh_mcg_quip": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/bh_mcg_quip",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.bh_flitwick_shield": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/bh_flitwick_shield",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.bh_neville_brilliant": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/bh_neville_brilliant",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.bh_vold_fools": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/bh_vold_fools",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.bh_vold_hour": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/bh_vold_hour",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.bh_vold_begin": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/bh_vold_begin",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.bh_ron_hold": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/bh_ron_hold",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.bh_hermione_hold": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/bh_hermione_hold",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.bh_nev_taunt": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/bh_nev_taunt",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.bh_seamus_run": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/bh_seamus_run",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.bh_nev_now": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/bh_nev_now",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.bh_nev_ha": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/bh_nev_ha",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.bh_ron_spiders": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/bh_ron_spiders",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.bh_hermione_run": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/bh_hermione_run",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.bh_vold_withdraw": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/bh_vold_withdraw",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.bh_bella_play": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/bh_bella_play",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.bh_molly_daughter": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/bh_molly_daughter",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.bh_bella_children": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/bh_bella_children",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.bh_vold_come_to_die": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/bh_vold_come_to_die",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.bh_harry_finish": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/bh_harry_finish",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.bh_harry_expelliarmus": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/bh_harry_expelliarmus",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.bh_vold_avada": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/bh_vold_avada",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.bh_ron_elder": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/bh_ron_elder",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.bh_harry_dont_want": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/bh_harry_dont_want",
+        "stream": false
+      }
+    ]
+  },
+  "pensieve.voice.bh_narr_allwell": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/voice/bh_narr_allwell",
+        "stream": false
+      }
+    ]
   }
 }

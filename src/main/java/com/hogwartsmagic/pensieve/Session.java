@@ -54,6 +54,12 @@ public final class Session {
     final List<BlockPos> eventPlaced = new ArrayList<>();
     /** Index of the next block event (events are kept sorted by time). */
     int nextEvent;
+    /** The set itself is placed; {@link #built} waits for the block events at t <= 0 too. */
+    boolean setPlaced;
+    /** Cells of the block event being placed, waiting for the block budget (a box spreads over a few ticks). */
+    final java.util.ArrayDeque<BlockPos> pendingFill = new java.util.ArrayDeque<>();
+    @Nullable net.minecraft.world.level.block.state.BlockState pendingFillState;
+    @Nullable net.minecraft.world.level.levelgen.structure.BoundingBox pendingFillBox;
     final List<SceneDef.EventDef> blockEvents;
     /** The basin's chunk while this session holds an entity-ticking ticket on it (the body must stay live). */
     @Nullable ChunkPos basinTicket;

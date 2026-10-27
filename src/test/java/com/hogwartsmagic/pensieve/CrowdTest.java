@@ -665,4 +665,63 @@ class CrowdTest {
         for (int h = 0; h < 6; h++) assertTrue(seen[h], "house " + h + " seated");
         assertTrue(beauxRobe && durmRobe, "both schools have a robe seat");
     }
+
+    /**
+     * The death_eaters style (Voldemort's army): everyone in the black robe, no scarves, flags or banners, 5% with the hood
+     * down (pale skin, dark hair), on exactly the seats of any other style, and the figures build within the vertex
+     * budgets at every level of detail, a hooded one in a bone mask over black and a chanting one holding a wand.
+     */
+    @Test
+    void deathEatersStyleIsAnArmyInBlack() throws Exception {
+        float[][] rows = bowl(30, 40, 30);
+        Crowd c = Crowd.layout(rows, AT, "death_eaters", 1, 2000, 17L);
+        assertTrue(Crowd.STYLES.contains("death_eaters"));
+        assertEquals(2000, c.size());
+        Crowd m = Crowd.layout(rows, AT, "mixed", 1, 2000, 17L);
+        int unhooded = 0;
+        for (int i = 0; i < c.size(); i++) {
+            assertEquals(Crowd.DEATH_EATERS, c.house(i));
+            assertEquals(Crowd.ROBE, c.outfit(i));
+            assertEquals(0, c.gear(i) & (Crowd.SCARF | Crowd.FLAG | Crowd.BANNER), "no scarf or flag at " + i);
+            assertEquals(m.x(i), c.x(i));
+            assertEquals(m.z(i), c.z(i));
+            assertEquals(m.yaw(i), c.yaw(i));
+            if ((c.gear(i) & Crowd.UNHOODED) != 0) {
+                unhooded++;
+                assertEquals(0, c.skin(i), "pale skin");
+                assertTrue(c.hair(i) <= 1, "dark hair");
+            }
+        }
+        assertEquals(Crowd.UNHOODED_SHARE, unhooded / 2000.0, 0.025, "unhooded " + unhooded);
+        // No other style has the UNHOODED bit or the army's house.
+        for (int i = 0; i < m.size(); i++) assertEquals(0, m.gear(i) & Crowd.UNHOODED);
+
+        // The mesh: black robes, a bone mask on the hooded, the wand only on a raised right arm.
+        react(c, "{\"t\":50,\"kind\":\"effect\",\"id\":\"crowd_react\",\"at\":[0,0,0],\"style\":\"chant\",\"duration\":300}");
+        CrowdMesh mesh = new CrowdMesh();
+        int hooded = -1;
+        for (int i = 0; i < c.size() && hooded < 0; i++) if ((c.gear(i) & Crowd.UNHOODED) == 0) hooded = i;
+        int[] one = {hooded};
+        for (float t : new float[]{0f, 70f, 120f}) {
+            for (int lod = CrowdMesh.FULL; lod <= CrowdMesh.STRIP; lod++) {
+                float full2 = lod == CrowdMesh.FULL ? 1e9f : 0f, mid2 = lod == CrowdMesh.STRIP ? 0f : 1e9f;
+                Colours sink = new Colours();
+                int verts = mesh.build(c, one, t, 0, 20, 0, 0, 5, 0, full2, mid2, sink);
+                int cap = lod == CrowdMesh.FULL ? CrowdMesh.FULL_MAX_VERTS : lod == CrowdMesh.MID ? CrowdMesh.MID_MAX_VERTS
+                        : CrowdMesh.STRIP_MAX_VERTS;
+                assertTrue(verts > 0 && verts <= cap, "lod " + lod + " at " + t + ": " + verts + " vertices, cap " + cap);
+                java.util.Set<Integer> got = sink.perFigure.get(0);
+                assertTrue(got.stream().anyMatch(v -> isShadeOf(v, CrowdMesh.MASK)), "the mask shows, lod " + lod);
+                assertTrue(got.stream().noneMatch(v -> isShadeOf(v, 0xF1C9A5) || isShadeOf(v, 0xE0AC88)), "no bare skin, lod " + lod);
+            }
+        }
+        // The wand and the eye slits are full-figure details: a chanting full figure has more vertices than an idle one.
+        Colours idle = new Colours(), chanting = new Colours();
+        int a = mesh.build(c, one, 0f, 0, 20, 0, 0, 5, 0, 1e9f, 1e9f, idle);
+        int b = mesh.build(c, one, 100f, 0, 20, 0, 0, 5, 0, 1e9f, 1e9f, chanting);
+        assertTrue(b > a, "wand while chanting: " + b + " vs " + a);
+        assertTrue(chanting.perFigure.get(0).stream().anyMatch(v -> isShadeOf(v, CrowdMesh.WAND)), "the wand shows");
+        assertTrue(idle.perFigure.get(0).stream().noneMatch(v -> isShadeOf(v, CrowdMesh.WAND)), "no wand at rest");
+        assertTrue(idle.perFigure.get(0).stream().anyMatch(v -> isShadeOf(v, CrowdMesh.HOOD) || ((v & 255) < 20)), "black hood");
+    }
 }

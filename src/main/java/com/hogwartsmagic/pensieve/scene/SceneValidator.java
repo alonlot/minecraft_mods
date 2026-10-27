@@ -172,6 +172,10 @@ public final class SceneValidator {
         }
         if (!a.life() && !"player".equals(a.type())) out.add(p + ".life: only a player actor has life");
         if (a.ride() != null) ride(out, scene, a, p, actorIds, length);
+        // The smoke trail follows the scene path, which a rider's vehicle frame is not.
+        if (a.ride() != null && a.actions().stream().anyMatch(c -> "smoke".equals(c.action()))) {
+            out.add(p + ".actions: smoke is not for an actor that rides (the trail follows its own path)");
+        }
         for (int i = 0; i < a.anims().size(); i++) {
             SceneDef.Cue c = a.anims().get(i);
             time(out, p + ".anims[" + i + "].t", c.t(), length);
@@ -180,6 +184,10 @@ public final class SceneValidator {
                     && !SceneNames.HORNTAIL_ANIMS.contains(c.name().toUpperCase(java.util.Locale.ROOT))) {
                 out.add(p + ".anims[" + i + "].name: unknown Horntail cue '" + c.name() + "' (expected one of "
                         + String.join(", ", SceneNames.HORNTAIL_ANIMS) + ")");
+            }
+            if (SceneNames.LIVING_STATUE_ACTOR.equals(a.type()) && !StatueCues.known(c.name())) {
+                out.add(p + ".anims[" + i + "].name: unknown Living Statue cue '" + c.name() + "' (expected one of "
+                        + String.join(", ", SceneNames.STATUE_ANIMS) + ")");
             }
             if ("player".equals(a.type()) && HumanMotion.clipName(c.name()) == null) {
                 out.add(p + ".anims[" + i + "].name: unknown player clip '" + c.name() + "' (expected one of "
@@ -397,6 +405,9 @@ public final class SceneValidator {
         if (e.rows() != null && !crowd) {
             out.add(p + ".rows: rows is only for crowd");
         }
+        if (e.to() != null && !"block".equals(e.kind())) {
+            out.add(p + ".to: to is only for block events");
+        }
         if (e.box() != null && !("effect".equals(e.kind()) && "letter_flood".equals(e.id()))) {
             out.add(p + ".box: box is only for letter_flood");
         }
@@ -415,6 +426,7 @@ public final class SceneValidator {
                         }
                     }
                 }
+                if (e.to() != null) blockBox(out, e, p, radius);
             }
             case "sound" -> known(out, p + ".id", "sound", e.id(), names.sounds());
             case "music", "voice", "sfx" -> {
@@ -465,6 +477,34 @@ public final class SceneValidator {
     }
 
     /** The letter_flood effect: it needs a mouth and a facing, and its optional numbers have ranges. */
+    /**
+     * A block event's {@code to}: the far corner of the box it fills from {@code at}. Whole blocks, both corners inside
+     * the scene radius in X and Z, and at most {@link SceneNames#MAX_BLOCK_BOX_CELLS} cells.
+     */
+    private static void blockBox(List<String> out, SceneDef.EventDef e, String p, int radius) {
+        if (e.at() == null) {
+            out.add(p + ".to: a block event with a to needs an at");
+            return;
+        }
+        boolean whole = true;
+        for (float c : e.to()) whole &= c == Math.rint(c);
+        if (!whole) {
+            out.add(p + ".to: a block event needs whole-block coordinates");
+            return;
+        }
+        for (int i = 0; i < 3; i += 2) {
+            if (Math.abs(e.at()[i]) > radius || Math.abs(e.to()[i]) > radius) {
+                out.add(p + ".to: the box is outside the scene radius " + radius + " in " + (i == 0 ? "X" : "Z"));
+                return;
+            }
+        }
+        long cells = 1;
+        for (int i = 0; i < 3; i++) cells *= (long) Math.abs(Math.rint(e.to()[i]) - Math.rint(e.at()[i])) + 1;
+        if (cells > SceneNames.MAX_BLOCK_BOX_CELLS) {
+            out.add(p + ".to: the box is " + cells + " cells; at most " + SceneNames.MAX_BLOCK_BOX_CELLS);
+        }
+    }
+
     private static void letterFlood(List<String> out, SceneDef.EventDef e, String p, int radius) {
         if (e.at() == null) out.add(p + ": letter_flood needs at");
         if (Float.isNaN(e.yaw()) || Float.isInfinite(e.yaw())) {

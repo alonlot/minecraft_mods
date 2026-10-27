@@ -1,0 +1,137 @@
+[
+ {
+  "name": "bh_mcg_threat",
+  "speaker": "mcgonagall",
+  "text": "Hogwarts is under threat. To the walls, all of you. Guard this school with everything you have."
+ },
+ {
+  "name": "bh_mcg_piertotum",
+  "speaker": "mcgonagall",
+  "text": "Piertotum Locomotor!"
+ },
+ {
+  "name": "bh_mcg_quip",
+  "speaker": "mcgonagall",
+  "text": "I have been waiting years to cast that."
+ },
+ {
+  "name": "bh_flitwick_shield",
+  "speaker": "flitwick",
+  "text": "Protego Maxima. Fianto Duri. Repello Inimicum!"
+ },
+ {
+  "name": "bh_neville_brilliant",
+  "speaker": "neville",
+  "text": "Brilliant."
+ },
+ {
+  "name": "bh_vold_fools",
+  "speaker": "voldemort",
+  "text": "Many of you mean to fight me. You believe it brave. It is only foolish."
+ },
+ {
+  "name": "bh_vold_hour",
+  "speaker": "voldemort",
+  "text": "Bring me Harry Potter, and I will spare every one of you. Refuse, and none of you will see the dawn."
+ },
+ {
+  "name": "bh_vold_begin",
+  "speaker": "voldemort",
+  "text": "Begin."
+ },
+ {
+  "name": "bh_ron_hold",
+  "speaker": "ron",
+  "text": "It won't hold. It can't."
+ },
+ {
+  "name": "bh_hermione_hold",
+  "speaker": "hermione",
+  "text": "It only has to hold long enough."
+ },
+ {
+  "name": "bh_nev_taunt",
+  "speaker": "neville",
+  "text": "Well? Come on, then! What are you waiting for?"
+ },
+ {
+  "name": "bh_seamus_run",
+  "speaker": "seamus",
+  "text": "Neville! Run!"
+ },
+ {
+  "name": "bh_nev_now",
+  "speaker": "neville",
+  "text": "Now, Seamus! Now!"
+ },
+ {
+  "name": "bh_nev_ha",
+  "speaker": "neville",
+  "text": "Ha! Did you see that?"
+ },
+ {
+  "name": "bh_ron_spiders",
+  "speaker": "ron",
+  "text": "Spiders. Why is it always spiders?"
+ },
+ {
+  "name": "bh_hermione_run",
+  "speaker": "hermione",
+  "text": "Ron, run!"
+ },
+ {
+  "name": "bh_vold_withdraw",
+  "speaker": "voldemort",
+  "text": "You have fought bravely, and I honour it. My forces will withdraw. See to your dead."
+ },
+ {
+  "name": "bh_bella_play",
+  "speaker": "bellatrix",
+  "text": "Oh, look at the little ones. Shall we play?"
+ },
+ {
+  "name": "bh_molly_daughter",
+  "speaker": "molly",
+  "text": "NOT MY DAUGHTER, YOU WITCH!"
+ },
+ {
+  "name": "bh_bella_children",
+  "speaker": "bellatrix",
+  "text": "Ha! And who will mind your brats when you are dead, hmm?"
+ },
+ {
+  "name": "bh_vold_come_to_die",
+  "speaker": "voldemort",
+  "text": "Harry Potter. The boy who lived. And now you come to me to die."
+ },
+ {
+  "name": "bh_harry_finish",
+  "speaker": "harry",
+  "text": "Then let's finish it, Tom. Just you and me."
+ },
+ {
+  "name": "bh_harry_expelliarmus",
+  "speaker": "harry",
+  "text": "Expelliarmus!"
+ },
+ {
+  "name": "bh_vold_avada",
+  "speaker": "voldemort",
+  "text": "Avada Kedavra!"
+ },
+ {
+  "name": "bh_ron_elder",
+  "speaker": "ron",
+  "text": "That's the Elder Wand, mate. Nothing could stand against it. We'd never lose again."
+ },
+ {
+  "name": "bh_harry_dont_want",
+  "speaker": "harry",
+  "text": "I don't want it. It's done enough."
+ },
+ {
+  "name": "bh_narr_allwell",
+  "speaker": "narrator",
+  "text": "All was well."
+ }
+]

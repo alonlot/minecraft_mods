@@ -254,14 +254,14 @@ public final class SceneParser {
             else checkKeys(o, path, "t", "kind", "id", "volume");
         } else {
             checkKeys(o, path, "t", "kind", "id", "at", "volume", "pitch", "count", "spread", "duration", "yaw",
-                    "style", "intensity", "box", "rows");
+                    "style", "intensity", "box", "rows", "to");
         }
         float[] at = floats(o, "at", path, 3, null);
         return new SceneDef.EventDef(reqTime(o, "t", path), reqStr(o, "kind", path), str(o, "id", path, null), at,
                 num(o, "volume", path, 1f), num(o, "pitch", path, 1f), integer(o, "count", path, -1),
                 floats(o, "spread", path, 3, null), Math.round(time(o, "duration", path, 0f)),
                 num(o, "yaw", path, Float.NaN), str(o, "style", path, null), num(o, "intensity", path, Float.NaN),
-                box(o, path), bool(o, "loop", path, false), rows(o, path));
+                box(o, path), bool(o, "loop", path, false), rows(o, path), floats(o, "to", path, 3, null));
     }
 
     /** The optional {@code rows}: segments of six numbers, or seven when the last flags a standing row. */

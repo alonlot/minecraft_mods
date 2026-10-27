@@ -56,6 +56,8 @@ public final class ActorRuntime {
 
     boolean visible = true;
     boolean stone;
+    /** When the actor is smoke (its {@code smoke} / {@code unsmoke} actions, SmokeFlight; pure), or null when it never is. */
+    final com.hogwartsmagic.pensieve.scene.SmokeFlight.Timeline smoke;
     boolean dying;
     /** Set while a late joiner catches up on a die cue, so its poof is not replayed. */
     boolean skipPoof;
@@ -125,6 +127,7 @@ public final class ActorRuntime {
             if ("equip".equals(act) || "hold".equals(act) || ("use_item".equals(act) && c.item() != null)) changes = true;
         }
         this.changesItems = changes;
+        this.smoke = com.hogwartsmagic.pensieve.scene.SmokeFlight.Timeline.of(actions);
         this.seed = HumanMotion.seed(def.id());
         this.clips = new HumanMotion.Clips(player ? animCues : List.of(), seed, def.path());
         for (int p = 0; p < HumanMotion.PARTS; p++) {

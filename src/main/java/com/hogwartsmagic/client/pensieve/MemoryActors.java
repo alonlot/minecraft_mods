@@ -21,6 +21,7 @@ import com.hogwartsmagic.pensieve.scene.Rowboat;
 import com.hogwartsmagic.pensieve.scene.SceneNames;
 import com.hogwartsmagic.mixin.client.PlayerModelPartsAccessor;
 import com.hogwartsmagic.pensieve.scene.SceneDef;
+import com.hogwartsmagic.pensieve.scene.SmokeFlight;
 import com.mojang.authlib.GameProfile;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.logging.LogUtils;
@@ -352,6 +353,16 @@ public final class MemoryActors {
         return null;
     }
 
+    /** Every puppet, for the smoke ribbons ({@link SmokeTrailRenderer}); empty outside a memory. */
+    static List<ActorRuntime> actors() {
+        return ACTORS;
+    }
+
+    /** The memory's origin block, or null outside a memory. */
+    static BlockPos origin() {
+        return origin;
+    }
+
     // ---- Ticking ----------------------------------------------------------------------------------------------
 
     public static void tick() {
@@ -550,6 +561,15 @@ public final class MemoryActors {
         // An owl flies while its path moves and perches (wings folded) while it is held (Airborne, pure). Owls only:
         // other models read onGround too, and every other puppet has always drawn as airborne.
         if (e instanceof OwlEntity) e.setOnGround(!Airborne.airborne(a.def.path(), t, !first && !e.onGround()));
+        // A Living Statue's wake, crumble and blows are synced counters its own tick would advance: set them from the
+        // cues and the clock (StatueCues, pure) so it rises, crumbles and swings for every viewer alike.
+        if (e instanceof com.hogwartsmagic.entity.LivingStatueEntity statue) {
+            com.hogwartsmagic.pensieve.scene.StatueCues.State s = com.hogwartsmagic.pensieve.scene.StatueCues.at(a.animCues, t);
+            com.hogwartsmagic.pensieve.scene.StatueCues.Swing blow = com.hogwartsmagic.pensieve.scene.StatueCues.swing(a.actions, t);
+            statue.setMemoryState(s.wakeTicks(), s.crumbleTicks(), blow == null ? -1 : blow.combo(), blow == null ? 0 : blow.ticks());
+        }
+        // A smoke-flight actor trails black smoke from where it is, visible beyond the 32-block particle cull.
+        if (a.visible && a.smoke != null && a.smoke.on(t)) smokeTrail(a);
         boolean longStep = !first && jx * jx + jy * jy + jz * jz > TELEPORT_BLOCKS * TELEPORT_BLOCKS;
         float lastT = a.lastT;
         a.lastT = t;
@@ -781,6 +801,10 @@ public final class MemoryActors {
             // The vanilla fire overlay: a puppet is never ticked, so the fire ticks never run down.
             e.setRemainingFireTicks(IGNITE_FIRE_TICKS);
             if (!silent) flameBurst(a);
+        } else if ("smoke".equals(act) || "unsmoke".equals(act)) {
+            // Whether it is smoke is a pure function of the clock (SmokeFlight.Timeline, read per tick and per frame);
+            // this is only the puff of smoke at the change.
+            if (!silent) smokeBurst(a);
         } else if ("stone".equals(act)) {
             a.stone = true;
         } else if ("unstone".equals(act)) {
@@ -857,6 +881,26 @@ public final class MemoryActors {
         MemorySounds.play(SoundEvents.FIRECHARGE_USE, e.position(), 0.7f, 0.8f + level.random.nextFloat() * 0.3f);
     }
 
+    /** The thick black smoke a smoke-flight actor leaves each tick: dust smoke every tick, a large puff every other. */
+    private static void smokeTrail(ActorRuntime a) {
+        if (level == null) return;
+        Entity e = a.entity;
+        double s = a.def.scale();
+        double mid = SmokeFlight.BODY_MIDDLE * s;
+        double r = 0.35 * s;
+        // The dust honours the particle setting (the ribbon carries the streak at range); the big puff stays visible.
+        for (int i = 0; i < 2; i++) {
+            level.addParticle(DARK_SMOKE, e.getX() + (level.random.nextDouble() - 0.5) * r * 2,
+                    e.getY() + mid + (level.random.nextDouble() - 0.5) * r * 2,
+                    e.getZ() + (level.random.nextDouble() - 0.5) * r * 2, 0, 0.01, 0);
+        }
+        if (((e.tickCount + (int) (a.seed & 1)) & 1) == 0) {
+            level.addAlwaysVisibleParticle(ParticleTypes.LARGE_SMOKE, e.getX() + (level.random.nextDouble() - 0.5) * r,
+                    e.getY() + mid + (level.random.nextDouble() - 0.5) * r,
+                    e.getZ() + (level.random.nextDouble() - 0.5) * r, 0, 0.01, 0);
+        }
+    }
+
     private static void smokeBurst(ActorRuntime a) {
         if (level == null) return;
         Entity e = a.entity;
@@ -921,6 +965,8 @@ public final class MemoryActors {
         for (ActorRuntime a : ACTORS) {
             syncItems(a, now);
             if (!a.visible) continue;
+            // Smoke has no model, name tag, held items or shadow: SmokeTrailRenderer draws its streak instead.
+            if (a.smoke != null && a.smoke.on(now)) continue;
             if (a.track != null && !RecordedTrackSampler.present(a.track, now)) continue;
             // Seen through the owner's eyes, they do not stand in their own view.
             if (snapped && "owner".equals(a.def.id())) continue;
@@ -995,7 +1041,7 @@ public final class MemoryActors {
     public static void onNameTag(RenderNameTagEvent event) {
         ActorRuntime a = runtimeFor(event.getEntity());
         if (a == null) return;
-        if (overlayPass || !a.hasName()) {
+        if (overlayPass || !a.hasName() || (a.smoke != null && a.smoke.on(PensieveClientState.sceneTime(PensieveClientState.partial())))) {
             event.setResult(Event.Result.DENY);
         } else {
             net.minecraft.client.player.LocalPlayer me = net.minecraft.client.Minecraft.getInstance().player;

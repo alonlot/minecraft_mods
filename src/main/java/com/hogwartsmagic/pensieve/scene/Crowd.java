@@ -34,7 +34,7 @@ public final class Crowd {
     public static final int MAX_SPECTATORS = 4000;
     /** The {@code style} names of a {@code crowd}: whose colours the robes, scarves and flags are. */
     public static final List<String> STYLES = List.of("gryffindor", "hufflepuff", "ravenclaw", "slytherin", "mixed",
-            "triwizard");
+            "triwizard", "death_eaters");
     /**
      * The {@code triwizard} style (the First Task's stands): the four houses share {@link #TRIWIZARD_HOUSES} of the
      * crowd between them, Beauxbatons (powder blue) {@link #TRIWIZARD_BEAUXBATONS} and Durmstrang (dark oxblood with brown
@@ -42,6 +42,14 @@ public final class Crowd {
      */
     public static final double TRIWIZARD_HOUSES = 0.70, TRIWIZARD_BEAUXBATONS = 0.15;
     public static final int BEAUXBATONS = 4, DURMSTRANG = 5;
+    /**
+     * The {@code death_eaters} style (Voldemort's army massed on a hillside): everyone in black robes and a black hood
+     * over a bone-white mask ({@link CrowdMesh}), no scarves, flags or banners, and {@link #UNHOODED_SHARE} with the hood
+     * down (pale skin, dark hair, the {@link #UNHOODED} gear bit). House id 6. On a {@code chant} (and any reaction that
+     * throws the arms up) the right hand holds a raised wand.
+     */
+    public static final int DEATH_EATERS = 6;
+    public static final double UNHOODED_SHARE = 0.05;
     /** The {@code style} names of a {@code crowd_react}; the index is the reaction kind. */
     public static final List<String> REACTIONS = List.of("cheer", "goal", "gasp", "erupt", "chant", "sit");
     public static final int CHEER = 0, GOAL = 1, GASP = 2, ERUPT = 3, CHANT = 4, SIT = 5;
@@ -69,14 +77,14 @@ public final class Crowd {
     public static final int STAND = 0, JUMP = 1, ARM_L = 2, ARM_R = 3, HANDS_HEAD = 4, LEAN = 5, SWAY = 6, FLAG_UP = 7,
             WAVE = 8, CHANNELS = 9;
     /** Gear bits. */
-    public static final int SCARF = 1, FLAG = 2, BANNER = 4;
+    public static final int SCARF = 1, FLAG = 2, BANNER = 4, UNHOODED = 8;
     /** Outfit kinds: a jumper in the house's first colour, a black school robe, or the house's second colour. */
     public static final int JUMPER = 0, ROBE = 1, SECOND = 2;
 
     // The random salts, one per draw (the Python mirror uses the same numbers).
     static final int SALT_GAP = 1, SALT_SIDE = 2, SALT_YAW = 3, SALT_FILL = 4, SALT_SCALE = 5, SALT_HOUSE = 6,
             SALT_OUTFIT = 7, SALT_SKIN = 8, SALT_HAIR = 9, SALT_GEAR = 10, SALT_PHASE = 11, SALT_SWAY = 12,
-            SALT_WAVE = 13, SALT_DELAY = 14, SALT_CHEER = 15;
+            SALT_WAVE = 13, SALT_DELAY = 14, SALT_CHEER = 15, SALT_HOOD = 16;
 
     private final int n;
     private final float ax, ay, az;
@@ -262,16 +270,23 @@ public final class Crowd {
             c.yaw[i] = (float) s[3];
             c.scale[i] = (float) s[4];
             c.standing[i] = s[5] > 0;
-            c.house[i] = (byte) (houseStyle < 4 ? houseStyle : houseStyle == 5
+            boolean deathEater = houseStyle == STYLES.indexOf("death_eaters");
+            c.house[i] = (byte) (deathEater ? DEATH_EATERS : houseStyle < 4 ? houseStyle : houseStyle == 5
                     ? triwizardHouse(unit(seed, r, k, SALT_HOUSE)) : Math.min(3, (int) (unit(seed, r, k, SALT_HOUSE) * 4)));
             double o = unit(seed, r, k, SALT_OUTFIT);
-            c.outfit[i] = (byte) (o < 0.55 ? JUMPER : o < 0.8 ? ROBE : SECOND);
+            c.outfit[i] = (byte) (deathEater ? ROBE : o < 0.55 ? JUMPER : o < 0.8 ? ROBE : SECOND);
             c.skin[i] = (byte) Math.min(5, (int) (unit(seed, r, k, SALT_SKIN) * 6));
             c.hair[i] = (byte) Math.min(5, (int) (unit(seed, r, k, SALT_HAIR) * 6));
             double g = unit(seed, r, k, SALT_GEAR);
             int gear = g < SCARF_SHARE ? SCARF : 0;
             if (g >= 1 - FLAG_SHARE) gear |= FLAG;
             else if (g >= 1 - FLAG_SHARE - BANNER_SHARE) gear |= BANNER;
+            if (deathEater) {
+                // No scarves or flags in the army; a few have the hood down, with pale skin and dark hair.
+                gear = unit(seed, r, k, SALT_HOOD) < UNHOODED_SHARE ? UNHOODED : 0;
+                c.skin[i] = 0;
+                c.hair[i] = (byte) Math.min(1, (int) (unit(seed, r, k, SALT_HAIR) * 2));
+            }
             c.gear[i] = (byte) gear;
             c.phase[i] = (float) (unit(seed, r, k, SALT_PHASE) * Math.PI * 2);
             c.swayTicks[i] = (float) (60 + 50 * unit(seed, r, k, SALT_SWAY));
@@ -668,7 +683,10 @@ public final class Crowd {
         return standing[i];
     }
 
-    /** 0 Gryffindor, 1 Hufflepuff, 2 Ravenclaw, 3 Slytherin, 4 Beauxbatons, 5 Durmstrang (the last two: triwizard only). */
+    /**
+     * 0 Gryffindor, 1 Hufflepuff, 2 Ravenclaw, 3 Slytherin, 4 Beauxbatons, 5 Durmstrang (the last two: triwizard only),
+     * 6 {@link #DEATH_EATERS} (that style only).
+     */
     public int house(int i) {
         return house[i];
     }

@@ -42,7 +42,7 @@ public final class CrowdMesh {
      * brown, so the fur shows on the robes and the oxblood (kept well clear of Gryffindor's red) on the jumpers.
      */
     static final int[][] HOUSE = {{0x9E1B1B, 0xDDAA3A}, {0xE8BA30, 0x2E2824}, {0x2A4A9E, 0xB0824A}, {0x1F7340, 0xB8BCC2},
-            {0x8FB4E4, 0xCBD9EC}, {0x5A1420, 0x7A5636}};
+            {0x8FB4E4, 0xCBD9EC}, {0x5A1420, 0x7A5636}, {0x17171D, 0x17171D}};
     /** One colour of a house's pair ({@code slot} 0 first, 1 second): for tests and tools. */
     public static int houseColour(int house, int slot) {
         return HOUSE[house][slot];
@@ -50,6 +50,8 @@ public final class CrowdMesh {
 
     static final int[] SKIN = {0xF1C9A5, 0xE0AC88, 0xC68863, 0xA86B4A, 0x7D4B32, 0x5A3524};
     static final int[] HAIR = {0x1E1A17, 0x3B2618, 0x6A4426, 0x8A3B1F, 0xC9A25E, 0xB0541E};
+    /** The death_eaters style: the bone-white mask, the black hood over it, the dark eye slits and the wand. */
+    public static final int MASK = 0xDCDAD0, HOOD = 0x0D0D11, EYE_SLIT = 0x050507, WAND = 0x8A6A44;
     static final int ROBE_BLACK = 0x26262C, TROUSERS = 0x34343C, SHOES = 0x1A1716, POLE = 0x6B4A2B;
 
     private final float[] pose = new float[Crowd.CHANNELS];
@@ -100,8 +102,12 @@ public final class CrowdMesh {
         int outfit = c.outfit(i);
         int robe = h < 4 ? ROBE_BLACK : h == Crowd.DURMSTRANG ? second : first;
         int body = outfit == Crowd.JUMPER ? first : outfit == Crowd.ROBE ? robe : second;
-        int skin = SKIN[c.skin(i)], hair = HAIR[c.hair(i)];
         int gear = c.gear(i);
+        // The army: a bone mask under a black hood (the front is the mask, the rest hood) and black gloves; a few have
+        // the hood down and show pale skin and dark hair.
+        boolean deathEater = h == Crowd.DEATH_EATERS, masked = deathEater && (gear & Crowd.UNHOODED) == 0;
+        int skin = masked ? MASK : SKIN[c.skin(i)], hair = masked ? HOOD : HAIR[c.hair(i)];
+        int hand = deathEater ? robe : skin;
         float raiseL = pose[Crowd.ARM_L], raiseR = pose[Crowd.ARM_R], hands = pose[Crowd.HANDS_HEAD];
         if (lod == STRIP) {
             strip(ox, pelvisY, oz, seatTop, s, sc, body, skin, hair, Math.max(raiseL, raiseR), sink);
@@ -112,13 +118,13 @@ public final class CrowdMesh {
             fill(faces, body);
             box(yawM, ox, 0, oz, -0.27f * sc, bottom, -0.14f * sc, 0.27f * sc, pelvisY + 0.75f * sc,
                     (0.14f + 0.3f * (1 - s)) * sc, faces, 0b110111, sink);
-            headFaces(skin, hair);
+            headFaces(skin, hair, masked);
             box(yawM, ox, pelvisY + 0.75f * sc, oz, -0.25f * sc, 0, -0.25f * sc, 0.25f * sc, 0.5f * sc, 0.25f * sc, faces,
                     0b110111, sink);
             copy(yawM, torsoM);
             if (Math.max(Math.max(raiseL, raiseR), hands) > 0.3f) {
-                arm(c, i, ox, pelvisY, oz, sc, 1, raiseL, hands, body, skin, sink);
-                arm(c, i, ox, pelvisY, oz, sc, -1, raiseR, hands, body, skin, sink);
+                arm(c, i, ox, pelvisY, oz, sc, 1, raiseL, hands, body, hand, sink);
+                arm(c, i, ox, pelvisY, oz, sc, -1, raiseR, hands, body, hand, sink);
             }
             if ((gear & (Crowd.FLAG | Crowd.BANNER)) != 0) {
                 handPos(ox, pelvisY, oz, sc, -1, raiseR, hands);
@@ -154,10 +160,24 @@ public final class CrowdMesh {
         pitch = Math.max(-0.6f, Math.min(0.45f, pitch)) - 0.3f * hands;
         setYaw(headM, yawDeg + rel);
         rotX(headM, pitch);
-        headFaces(skin, hair);
+        headFaces(skin, hair, masked);
         box(headM, nx, ny, nz, -0.25f * sc, 0, -0.25f * sc, 0.25f * sc, 0.5f * sc, 0.25f * sc, faces, 0b111111, sink);
-        arm(c, i, ox, pelvisY, oz, sc, 1, raiseL, hands, body, skin, sink);
-        arm(c, i, ox, pelvisY, oz, sc, -1, raiseR, hands, body, skin, sink);
+        if (masked) {
+            // The mask's eye slits: two thin dark bars just proud of the front face.
+            fill(faces, EYE_SLIT);
+            box(headM, nx, ny, nz, -0.17f * sc, 0.27f * sc, 0.25f * sc, -0.05f * sc, 0.33f * sc, 0.256f * sc, faces, 0b010000, sink);
+            box(headM, nx, ny, nz, 0.05f * sc, 0.27f * sc, 0.25f * sc, 0.17f * sc, 0.33f * sc, 0.256f * sc, faces, 0b010000, sink);
+        }
+        arm(c, i, ox, pelvisY, oz, sc, 1, raiseL, hands, body, hand, sink);
+        arm(c, i, ox, pelvisY, oz, sc, -1, raiseR, hands, body, hand, sink);
+        if (deathEater && raiseR > 0.3f && hands < 0.5f) {
+            // A wand in the raised right fist, carrying on along the arm past the hand.
+            armMatrix(-1, raiseR, hands);
+            shoulder(ox, pelvisY, oz, sc, -1);
+            fill(faces, WAND);
+            box(partM, p[0], p[1], p[2], -0.02f * sc, -1.0f * sc, -0.02f * sc, 0.02f * sc, -0.58f * sc, 0.02f * sc, faces,
+                    0b111111, sink);
+        }
         if ((gear & Crowd.SCARF) != 0) {
             fill(faces, first);
             box(torsoM, ox, pelvisY, oz, -0.27f * sc, 0.6f * sc, -0.15f * sc, 0.27f * sc, 0.74f * sc, 0.15f * sc, faces,
@@ -253,10 +273,15 @@ public final class CrowdMesh {
         box(partM, q[0], q[1], q[2], 0.03f * sc, hp - hc, -0.015f * sc, 0.03f * sc + w, hp, 0.015f * sc, faces, 0b111111, sink);
     }
 
-    private void headFaces(int skin, int hair) {
+    private void headFaces(int skin, int hair, boolean hooded) {
         fill(faces, skin);
         faces[2] = hair;            // top
         faces[5] = hair;            // back
+        if (hooded) {               // a hood: only the front is the face
+            faces[0] = hair;
+            faces[1] = hair;
+            faces[3] = hair;
+        }
     }
 
     // ------------------------------------------------------------------ boxes and quads

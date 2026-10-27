@@ -23,8 +23,14 @@ AIR = {'minecraft:air', 'minecraft:cave_air', 'minecraft:void_air'}
 
 
 def _state(entry):
-    name = entry['Name']
-    props = entry.get('Properties')
+    # Newer saves (1.21.5+) may write a state with no properties as a bare string, and a list mixing those with
+    # compounds wraps each bare value as {'': value}.
+    if isinstance(entry, str):
+        return entry
+    if '' in entry and 'Name' not in entry:
+        return entry['']
+    name = entry['Name'] if 'Name' in entry else entry['id']          # 26.x: {id, properties}
+    props = entry.get('Properties', entry.get('properties'))
     if not props:
         return name
     return name + '[' + ','.join('%s=%s' % (k, str(v).lower()) for k, v in sorted(props.items())) + ']'

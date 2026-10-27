@@ -881,7 +881,7 @@ class SceneValidatorTest {
 
     @Test
     void crowdStyleNames() throws Exception {
-        for (String s : new String[] {"gryffindor", "hufflepuff", "ravenclaw", "slytherin", "mixed", "triwizard"}) {
+        for (String s : new String[] {"gryffindor", "hufflepuff", "ravenclaw", "slytherin", "mixed", "triwizard", "death_eaters"}) {
             assertEquals(List.of(), validate(crowdScene("{\"t\":0,\"kind\":\"effect\",\"id\":\"crowd\",\"at\":[0,0,0],\"style\":\""
                     + s + "\",\"intensity\":0.5,\"count\":10,\"rows\":" + ROW + "}")), s);
         }

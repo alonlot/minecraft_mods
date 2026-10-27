@@ -244,6 +244,19 @@ public class LivingStatueEntity extends Monster {
         }
     }
 
+    /**
+     * A Pensieve memory puppet's state, set by the client each tick from the scene clock
+     * ({@code pensieve/scene/StatueCues}): the puppet is never added to the level, so the counters
+     * {@link #tick()} would advance never move on their own. {@code combo} is -1 when no blow is in
+     * flight. Only ever called on such a puppet, client side; a real statue never reaches it.
+     */
+    public void setMemoryState(int wake, int crumble, int combo, int swing) {
+        this.entityData.set(DATA_WAKE, wake);
+        this.entityData.set(DATA_CRUMBLE, crumble);
+        this.entityData.set(DATA_COMBO, combo);
+        this.entityData.set(DATA_SWING, swing);
+    }
+
     public void bindTo(Player owner, BlockPos home) {
         this.ownerUUID = owner.getUUID();
         this.homePos = home;

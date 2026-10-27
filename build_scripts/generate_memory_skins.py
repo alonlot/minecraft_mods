@@ -1250,6 +1250,888 @@ def generate_flying_skins():
     return ["hooch", "malfoy_young"]
 
 
+# ---------------------------------------------------------------------------------------------------------------
+# Battle of Hogwarts cast (Deathly Hallows Part 2 look), generic battle students, Death Eaters, Snatchers, teachers.
+# Seen at a distance: strong silhouettes and readable colours first, then a face that still reads up close.
+#
+# SLIM skins (3-px arms; use {"texture": "<name>", "slim": true} in a scene) are listed in BATTLE_SLIM below:
+#   mcgonagall_dh, ginny, luna, molly, bellatrix, battle_*_girl (all four houses), teacher_b.
+# All other battle skins are classic 4-px arms.
+# mcgonagall_dh and hagrid_dh carry a _dh suffix because mcgonagall.png and hagrid.png are the downloaded skins
+# existing memories already use (this script never regenerates those).
+# ---------------------------------------------------------------------------------------------------------------
+
+BATTLE_SLIM = {"mcgonagall_dh", "ginny", "luna", "molly", "bellatrix",
+               "battle_gryffindor_girl", "battle_hufflepuff_girl", "battle_ravenclaw_girl", "battle_slytherin_girl",
+               "teacher_b"}
+
+_HAIR_STYLE = {  # side_top, back_cols, back_depth, back_rows, sideburn_rows
+    "short": (2, 2, 5, 6, 3), "scruffy": (3, 3, 6, 7, 3), "bun": (2, 2, 5, 6, 3), "long": (2, 4, 8, 8, 7),
+    "wild": (3, 4, 8, 8, 6), "pinned": (2, 2, 5, 6, 3), "wisp": (2, 2, 6, 6, 3), "slick": (2, 2, 4, 5, 2),
+}
+
+
+def _bset(s, rect, x, y, c):
+    x0, y0, w, h = rect
+    if 0 <= x < w and 0 <= y < h:
+        s.img.putpixel((x0 + x, y0 + y), c if len(c) == 4 else (c[0], c[1], c[2], 255))
+
+
+def _bget(s, rect, x, y):
+    return s.img.getpixel((rect[0] + x, rect[1] + y))
+
+
+def _cl(s, base, x, y, w, h, off=0):
+    """Cloth with vertical folds, a darker hem and a lit shoulder; dark cloth gets a stronger fold contrast."""
+    lum = (base[0] + base[1] + base[2]) / 3
+    amp = 1.0 if lum > 110 else 1.6 if lum > 50 else 2.4
+    m = (x + off) % 4
+    k = 1 - 0.17 * amp if m == 0 else 1 + 0.12 * amp if m == 2 else 1.0
+    if y > h - 3:
+        k *= 0.9
+    if y < 2:
+        k *= 1.05
+    c = shade(base, k + s.rng.uniform(-0.03, 0.03))
+    if lum <= 50 and m == 2:
+        c = (c[0] + 5, c[1] + 5, c[2] + 7, 255)
+    return c
+
+
+def _bparts(slim):
+    aw = 3 if slim else 4
+    return dict(head=box(0, 0, 8, 8, 8), hat=box(32, 0, 8, 8, 8), body=box(16, 16, 8, 12, 4),
+                jacket=box(16, 32, 8, 12, 4), rleg=box(0, 16, 4, 12, 4), lleg=box(16, 48, 4, 12, 4),
+                rleg_o=box(0, 32, 4, 12, 4), lleg_o=box(0, 48, 4, 12, 4), rarm=box(40, 16, aw, 12, 4),
+                larm=box(32, 48, aw, 12, 4), rarm_o=box(40, 32, aw, 12, 4), larm_o=box(48, 48, aw, 12, 4))
+
+
+def _bhair(s, B, style, c, streak=None):
+    head, hat, rng = B["head"], B["hat"], s.rng
+    hp = lambda a=0.12: s.noisy(c, a)
+    st, bc, bd, br, burn = _HAIR_STYLE[style]
+    s.paint(head["top"], lambda x, y, w, h: hp())
+    s.paint(head["back"], lambda x, y, w, h: hp() if y < br else None)
+
+    def side(right):
+        def fn(x, y, w, h):
+            fb = x if right else 7 - x
+            if y < st or (fb < bc and y < bd) or (fb == 7 and y < burn):
+                return hp()
+            return None
+        return fn
+    s.paint(head["right"], side(True))
+    s.paint(head["left"], side(False))
+
+    def front(x, y):
+        if y == 0:
+            return True
+        if style == "short" or style == "slick":
+            return y == 1 and (x in (0, 1, 2, 4, 5, 7) or rng.random() < 0.3) if style == "short" else (
+                y == 1 and x in (0, 7))
+        if style == "scruffy":
+            if y == 1:
+                return rng.random() < 0.85 or x in (0, 7)
+            if y == 2:
+                return x in (0, 7) or (x in (1, 3, 6) and rng.random() < 0.5)
+            return y == 3 and x in (0, 7)
+        if style in ("bun", "pinned"):
+            return y == 1 and x in (0, 7) or (y == 1 and style == "pinned" and x in (1, 6))
+        if style in ("long", "wild"):
+            if y == 1:
+                return True
+            if y == 2:
+                return x in (0, 1, 6, 7) or (style == "wild" and rng.random() < 0.5)
+            return x in (0, 7) and y <= 5
+        if style == "wisp":
+            return y == 1 and x in (0, 1, 3, 6, 7)
+        return False
+    s.paint(head["front"], lambda x, y, w, h: hp() if front(x, y) else None)
+    s.paint(head["top"], lambda x, y, w, h: shade(c, 1.2) if y == 3 and x in (1, 2, 5) else None)
+
+    # hat layer volume
+    def vol(rows, p):
+        return lambda x, y, w, h: shade(c, 0.75 + 0.5 * rng.random()) if (y < rows and rng.random() < p) else None
+    if style in ("scruffy", "wisp"):
+        for f, r in (("top", 8), ("back", 4), ("right", 3), ("left", 3)):
+            s.paint(hat[f], vol(r, 0.45))
+        s.paint(hat["front"], lambda x, y, w, h: shade(c, 0.8 + 0.4 * rng.random()) if y == 0 and rng.random() < 0.5 else None)
+    elif style == "wild":
+        s.paint(hat["top"], vol(8, 0.9))
+        s.paint(hat["back"], vol(8, 0.85))
+        s.paint(hat["right"], lambda x, y, w, h: vol(8, 0.8)(x, y, w, h) if (y < 4 or x < 5) else None)
+        s.paint(hat["left"], lambda x, y, w, h: vol(8, 0.8)(x, y, w, h) if (y < 4 or x > 2) else None)
+        s.paint(hat["front"], lambda x, y, w, h: vol(3, 0.7)(x, y, w, h) if (y < 2 or x in (0, 7)) else None)
+        if streak:  # one pale streak sweeping from the brow over the crown and down the back
+            for (f, xs, ys) in (("front", (2,), (0, 1)), ("top", (2, 3), range(8)), ("back", (4, 5), range(8))):
+                for xx in xs:
+                    for yy in ys:
+                        _bset(s, hat[f], xx, yy, shade(streak, 0.85 + 0.3 * rng.random()))
+    elif style == "long":
+        s.paint(hat["back"], lambda x, y, w, h: hp() if y >= 1 else None)
+        s.paint(hat["right"], lambda x, y, w, h: hp() if y >= 3 and x < 4 else None)
+        s.paint(hat["left"], lambda x, y, w, h: hp() if y >= 3 and x > 3 else None)
+        s.paint(hat["top"], vol(8, 0.25))
+    elif style == "bun":  # a knot at the crown-back
+        for yy in range(5, 8):
+            for xx in range(2, 6):
+                _bset(s, hat["top"], xx, yy, shade(c, 1.15 - 0.1 * (yy - 5) + rng.uniform(-0.05, 0.05)))
+        for yy in range(0, 3):
+            for xx in range(2, 6):
+                _bset(s, hat["back"], xx, yy, shade(c, 1.0 - 0.12 * yy + rng.uniform(-0.05, 0.05)))
+    elif style == "pinned":
+        s.paint(hat["top"], vol(8, 0.9))
+        s.paint(hat["back"], vol(5, 0.9))
+        s.paint(hat["right"], vol(3, 0.7))
+        s.paint(hat["left"], vol(3, 0.7))
+        s.paint(hat["front"], lambda x, y, w, h: shade(c, 0.9 + 0.3 * rng.random()) if y == 0 else None)
+
+
+def _bface(s, B, skin, eyes, brow, lip, bald=False, tags=(), hair=None):
+    head, hat, rng = B["head"], B["hat"], s.rng
+    F = head["front"]
+    sk_d = shade(skin, 0.84)
+    white = (236, 236, 238)
+    heavy, stern, lash = "heavy" in tags, "stern" in tags, "lashes" in tags
+    for y in range(8):
+        for x in range(8):
+            c = None
+            if y == 4 and x in (1, 2, 5, 6):
+                c = eyes if x in (2, 5) else white
+                if "wide" in tags:
+                    c = eyes if x in (2, 5) else shade(eyes, 1.25)
+            elif y == 3 and x in (1, 2, 5, 6):
+                c = brow
+                if stern and x in (2, 5):
+                    c = shade(brow, 0.8)
+                if heavy:
+                    c = (74, 56, 76)
+                if "wide" in tags:
+                    c = shade(skin, 0.9) if bald else shade(brow, 1.1)
+            elif y == 5 and x in (3, 4):
+                c = sk_d if x == 3 else shade(skin, 0.9)
+            elif y == 6 and x in (2, 3, 4, 5):
+                c = lip
+                if stern and x in (3, 4):
+                    c = shade(lip, 0.7)
+            elif lash and y == 5 and x in (1, 6) and False:
+                c = None
+            if c is not None:
+                _bset(s, F, x, y, c)
+    if "gaunt" in tags:
+        for y in (5, 6):
+            for x in (1, 6):
+                _bset(s, F, x, y, shade(skin, 0.68))
+        for x in (1, 2, 5, 6):
+            _bset(s, F, x, 5, shade(skin, 0.74))   # sockets / hollow
+        _bset(s, F, 0, 5, shade(skin, 0.78)); _bset(s, F, 7, 5, shade(skin, 0.78))
+    if "wrinkles" in tags:
+        for x in (0, 7):
+            _bset(s, F, x, 4, shade(skin, 0.8)); _bset(s, F, x, 6, shade(skin, 0.82))
+        for x in (1, 6):
+            _bset(s, F, x, 5, shade(skin, 0.88))
+    if "rosy" in tags:
+        cheek = (min(255, skin[0] + 8), int(skin[1] * 0.78), int(skin[2] * 0.78))
+        for x in (1, 6):
+            _bset(s, F, x, 5, cheek)
+        for x in (0, 7):
+            _bset(s, F, x, 5, shade(cheek, 1.0))
+    if "freckles" in tags:
+        for fx, fy in [(1, 5), (2, 5), (5, 5), (6, 5), (3, 4), (4, 4), (0, 5), (7, 5), (2, 6), (5, 6)]:
+            if rng.random() < 0.85:
+                _bset(s, F, fx, fy, shade(skin, 0.62) if sum(skin) > 520 else shade(skin, 0.72))
+    if "stubble" in tags:
+        for y in (5, 6, 7):
+            for x in range(8):
+                if _bget(s, F, x, y)[3] and rng.random() < 0.6 and not (y == 6 and x in (3, 4)):
+                    _bset(s, F, x, y, shade(skin, 0.66))
+        for y in (4, 5, 6, 7):
+            for x in (0, 7):
+                _bset(s, F, x, y, shade(skin, 0.7))
+    if "walrus" in tags:   # big drooping moustache hiding the mouth
+        mo = hair or (210, 196, 160)
+        for x in range(1, 7):
+            _bset(s, F, x, 5, shade(mo, 0.95 + 0.1 * rng.random()))
+        for x in (1, 2, 5, 6):
+            _bset(s, F, x, 6, shade(mo, 0.85 + 0.15 * rng.random()))
+        _bset(s, F, 3, 6, (120, 70, 66)); _bset(s, F, 4, 6, (120, 70, 66))
+    if "moustache" in tags:   # a bushy white moustache, mouth still showing below
+        mo = hair or (236, 236, 240)
+        for x in range(1, 7):
+            _bset(s, F, x, 5, shade(mo, 0.92 + 0.12 * rng.random()))
+        for x in (1, 6):
+            _bset(s, F, x, 6, shade(mo, 0.85))
+    if "beard" in tags:   # Hagrid: the beard swallows everything below the eyes and half the cheeks
+        bc = hair or (14, 12, 14)
+        for y in range(3, 8):
+            for x in range(8):
+                if y <= 4 and x not in (0, 7):
+                    continue
+                if y == 5 and x in (3, 4):
+                    _bset(s, F, x, y, shade(skin, 0.95))   # the nose, ruddy
+                    continue
+                _bset(s, F, x, y, shade(bc, 0.8 + 0.5 * rng.random()))
+        _bset(s, F, 3, 6, (60, 30, 30)); _bset(s, F, 4, 6, (60, 30, 30))   # mouth shows through the hair
+        # beard juts out on the hat layer: sides and chin
+        for y in range(4, 8):
+            for x in range(8):
+                if y == 4 and x not in (0, 7):
+                    continue
+                if (y == 5 and x in (2, 3, 4, 5)) or (y == 6 and x in (3, 4)):
+                    continue
+                _bset(s, hat["front"], x, y, shade(bc, 0.8 + 0.5 * rng.random()))
+        for side in ("right", "left"):
+            s.paint(hat[side], lambda x, y, w, h, side=side: shade(bc, 0.8 + 0.5 * rng.random()) if (
+                y >= 4 and ((side == "right" and x >= 3) or (side == "left" and x <= 4))) else None)
+        s.paint(hat["bottom"], lambda x, y, w, h: shade(bc, 0.8 + 0.5 * rng.random()))
+    if "shortbeard" in tags:   # a trimmed grey beard along the jaw
+        bc = hair or (170, 170, 176)
+        for y in (5, 6, 7):
+            for x in range(8):
+                if y == 5 and x not in (0, 1, 6, 7):
+                    continue
+                if y == 6 and x in (3, 4):
+                    continue
+                _bset(s, F, x, y, shade(bc, 0.85 + 0.25 * rng.random()))
+    if "glasses" in tags:
+        gc = (150, 150, 158)
+        for x in (1, 2, 5, 6):
+            _bset(s, F, x, 3, gc) if False else None
+        for x in range(8):
+            if x in (0, 3, 4, 7):
+                _bset(s, F, x, 4, gc)
+            if x in (1, 2, 5, 6):
+                _bset(s, F, x, 5, gc)
+
+
+def _bdirt(s, rect, n, col, rng_x=(0, 8), rng_y=(0, 8), a=0.0):
+    x0, x1 = rng_x
+    y0, y1 = rng_y
+    for _ in range(n):
+        x, y = s.rng.randrange(x0, x1), s.rng.randrange(y0, y1)
+        p = _bget(s, rect, x, y)
+        if p[3]:
+            mix = s.rng.uniform(0.35, 0.65)
+            _bset(s, rect, x, y, tuple(int(p[i] * (1 - mix) + col[i] * mix) for i in range(3)))
+
+
+def _bscratch(s, B, skin, x, y, length=3):
+    for i in range(length):
+        _bset(s, B["head"]["front"], x + i, y + (i // 2), (150, 40, 40) if i != 1 else (120, 30, 32))
+
+
+def _bcap(s, B, col, band=None, rows=2):
+    """A cap on the hat layer: crown plus a band of `rows` around the head, brow left open."""
+    hat, rng = B["hat"], s.rng
+    for f in ("top", "back", "right", "left"):
+        s.paint(hat[f], lambda x, y, w, h, f=f: (_cl(s, col, x, y, w, h) if (f == "top" or y < rows) else None))
+    s.paint(hat["front"], lambda x, y, w, h: _cl(s, col, x, y, w, h) if y < rows else None)
+    if band:
+        for f in ("back", "right", "left", "front"):
+            s.paint(hat[f], lambda x, y, w, h: band if y == rows - 1 else None)
+
+
+def _bwitchhat(s, B, col, band):
+    """Tall pointed witch's hat seen as a texture: brim ring around the head, crown shaded to a bright seam."""
+    hat = B["hat"]
+    s.paint(hat["top"], lambda x, y, w, h: shade(col, 0.7 + 0.18 * (1 - abs(x - 3.5) / 3.5) + 0.0 * y)
+            if True else None)
+    for yy in range(8):
+        _bset(s, hat["top"], 3, yy, shade(col, 1.9)); _bset(s, hat["top"], 4, yy, shade(col, 1.5))
+    for f in ("back", "right", "left"):
+        s.paint(hat[f], lambda x, y, w, h: _cl(s, col, x, y, w, h) if y < 2 else None)
+    s.paint(hat["front"], lambda x, y, w, h: _cl(s, col, x, y, w, h) if y < 2 else None)
+    for f in ("front", "back", "right", "left"):
+        s.paint(hat[f], lambda x, y, w, h: band if y == 1 else None)
+    # the brim's underside hangs lower at the front and sides, in shadow
+    s.paint(hat["front"], lambda x, y, w, h: shade(col, 0.45) if (y == 2 and x in (0, 1, 2, 5, 6, 7)) else None)
+    s.paint(hat["right"], lambda x, y, w, h: shade(col, 0.45) if y == 2 else None)
+    s.paint(hat["left"], lambda x, y, w, h: shade(col, 0.45) if y == 2 else None)
+
+
+def _bbody(s, B, *, base, sleeve, skin, legs, shoes, arm_o=None, jacket=None, jopen=False, lining=None, hem=None,
+           cuff=None, leg_o=None, leg_o_rows=10, ragged=False, off=0, hand_rows=2, body_trim=None):
+    rng = s.rng
+    s.fill_box(B["body"], lambda x, y, w, h: _cl(s, base, x, y, w, h, off))
+    for a in ("rarm", "larm"):
+        s.fill_box(B[a], lambda x, y, w, h: s.noisy(skin, 0.03) if y >= h - hand_rows else _cl(s, sleeve, x, y, w, h, off))
+        if cuff:
+            s.paint(B[a]["front"], lambda x, y, w, h: cuff if y == h - hand_rows - 1 else None)
+            s.paint(B[a]["back"], lambda x, y, w, h: cuff if y == h - hand_rows - 1 else None)
+    for l in ("rleg", "lleg"):
+        s.fill_box(B[l], lambda x, y, w, h: s.noisy(shoes, 0.2) if y >= h - 2 else _cl(s, legs, x, y, w, h, off + 1))
+    if jacket is not None:
+        s.fill_box(B["jacket"], lambda x, y, w, h: _cl(s, jacket, x, y, w, h, off))
+        if jopen:
+            s.paint(B["jacket"]["front"], lambda x, y, w, h: (0, 0, 0, 0) if (2 <= x <= 5 and y <= h - 3) else (
+                shade(lining or jacket, 0.6) if x in (1, 6) and y <= h - 3 else None))
+        if hem:
+            for f in ("front", "back", "right", "left"):
+                s.paint(B["jacket"][f], lambda x, y, w, h: hem if y == h - 1 else None)
+        if ragged:
+            for f in ("front", "back", "right", "left"):
+                s.paint(B["jacket"][f], lambda x, y, w, h: (0, 0, 0, 0) if (y == h - 1 and rng.random() < 0.5) or (
+                    y == h - 2 and rng.random() < 0.15) else None)
+    if arm_o is not None:
+        for a in ("rarm_o", "larm_o"):
+            s.fill_box(B[a], lambda x, y, w, h: _cl(s, arm_o, x, y, w, h, off) if y < h - hand_rows else None)
+            if cuff:
+                s.paint(B[a]["front"], lambda x, y, w, h: cuff if y == h - hand_rows - 1 else None)
+                s.paint(B[a]["back"], lambda x, y, w, h: cuff if y == h - hand_rows - 1 else None)
+    if leg_o is not None:
+        for l in ("rleg_o", "lleg_o"):
+            s.fill_box(B[l], lambda x, y, w, h: _cl(s, leg_o, x, y, w, h, off + 2) if y < leg_o_rows else None)
+            if hem:
+                s.paint(B[l]["front"], lambda x, y, w, h: hem if y == leg_o_rows - 1 else None)
+            if ragged:
+                for f in ("front", "back", "right", "left"):
+                    s.paint(B[l][f], lambda x, y, w, h: (0, 0, 0, 0) if (
+                        y >= leg_o_rows - 2 and y < leg_o_rows and rng.random() < 0.4) else None)
+
+
+def _bsoot(s, B, n, col=(26, 22, 22), parts=("body", "rarm", "larm", "rleg", "lleg", "jacket", "rarm_o", "larm_o")):
+    for p in parts:
+        for f in ("front", "back", "right", "left"):
+            rect = B[p][f]
+            for _ in range(max(1, n // len(parts))):
+                x, y = s.rng.randrange(rect[2]), s.rng.randrange(rect[3])
+                px = _bget(s, rect, x, y)
+                if px[3]:
+                    k = s.rng.uniform(0.3, 0.55)
+                    _bset(s, rect, x, y, tuple(int(px[i] * (1 - k) + col[i] * k) for i in range(3)))
+
+
+def _bfinish(s, name):
+    s.img.save(os.path.join(OUT_DIR, name + ".png"))
+
+
+def _bnew(name, seed):
+    s = Skin(seed)
+    return s, _bparts(name in BATTLE_SLIM)
+
+
+def _bhead_base(s, B, skin):
+    s.fill_box(B["head"], lambda x, y, w, h: s.noisy(skin, 0.03))
+    s.paint(B["head"]["bottom"], lambda x, y, w, h: shade(skin, 0.82))
+
+
+# --- named cast ---------------------------------------------------------------------------------------------
+
+def build_mcgonagall_dh():
+    s, B = _bnew("mcgonagall_dh", 701)
+    skin = (232, 206, 188)
+    _bhead_base(s, B, skin)
+    _bhair(s, B, "bun", (156, 156, 162))
+    _bface(s, B, skin, (60, 90, 80), (110, 110, 116), (150, 96, 96), tags=("stern", "wrinkles"))
+    emerald, deep = (22, 88, 54), (12, 46, 30)
+    _bwitchhat(s, B, (18, 18, 22), (22, 88, 54))
+    _bbody(s, B, base=emerald, sleeve=emerald, skin=skin, legs=deep, shoes=(20, 18, 20), arm_o=emerald,
+           jacket=emerald, jopen=True, lining=deep, hem=deep, cuff=deep, leg_o=emerald, leg_o_rows=10)
+    # high collar and a thin silver clasp
+    s.paint(B["body"]["front"], lambda x, y, w, h: shade(deep, 1.3) if y < 2 and 1 <= x <= 6 else None)
+    s.paint(B["jacket"]["front"], lambda x, y, w, h: (190, 192, 198) if (y == 0 and x in (3, 4)) else None)
+    s.paint(B["body"]["front"], lambda x, y, w, h: (22, 20, 24) if (x in (3, 4) and y > 1) else None)
+    _bsoot(s, B, 8, (20, 40, 30))
+    _bfinish(s, "mcgonagall_dh")
+
+
+def build_neville_dh():
+    s, B = _bnew("neville_dh", 702)
+    skin = (236, 200, 172)
+    _bhead_base(s, B, skin)
+    _bhair(s, B, "scruffy", (98, 68, 42))
+    _bface(s, B, skin, (96, 112, 150), (84, 58, 38), (186, 118, 108), tags=("rosy",))
+    _bdirt(s, B["head"]["front"], 14, (70, 54, 44))
+    _bdirt(s, B["head"]["front"], 4, (60, 40, 36), (0, 8), (4, 8))
+    _bscratch(s, B, skin, 5, 5, 3)
+    _bscratch(s, B, skin, 1, 6, 2)
+    grey, shirt = (118, 118, 126), (230, 228, 222)
+    _bbody(s, B, base=grey, sleeve=grey, skin=skin, legs=(48, 46, 56), shoes=(30, 24, 22), cuff=shade(grey, 0.7))
+    # white shirt collar and a torn gap down the front
+    s.paint(B["body"]["front"], lambda x, y, w, h: shirt if (y < 3 and 2 <= x <= 5 and not (y == 2 and x in (2, 5))) else None)
+    s.paint(B["body"]["front"], lambda x, y, w, h: shade(grey, 0.62) if (y == 2 and x in (3, 4)) else None)
+    # tears: shirt shows through the jumper, one sleeve ripped to the elbow
+    for (x, y) in [(1, 6), (2, 6), (1, 7), (5, 8), (6, 8), (6, 9)]:
+        _bset(s, B["body"]["front"], x, y, shirt if (x + y) % 2 else shade(shirt, 0.8))
+    for (x, y) in [(0, 3), (1, 3), (1, 4), (2, 4), (1, 5)]:
+        _bset(s, B["rarm"]["front"], x, y, skin if y > 3 else shirt)
+    for (x, y) in [(0, 2), (0, 3)]:
+        _bset(s, B["larm"]["front"], x, y, shirt)
+    s.paint(B["rarm"]["right"], lambda x, y, w, h: skin if (y in (4, 5) and x in (1, 2)) else None)
+    _bsoot(s, B, 24, (34, 28, 26), parts=("body", "rarm", "larm", "rleg", "lleg"))
+    _bfinish(s, "neville_dh")
+
+
+def build_ron_dh():
+    s, B = _bnew("ron_dh", 703)
+    skin = (240, 208, 184)
+    _bhead_base(s, B, skin)
+    _bhair(s, B, "scruffy", (182, 78, 34))
+    _bface(s, B, skin, (66, 106, 156), (160, 70, 34), (190, 120, 110), tags=("freckles",))
+    _bdirt(s, B["head"]["front"], 9, (80, 62, 50))
+    maroon, dark = (96, 46, 42), (36, 36, 46)
+    _bbody(s, B, base=dark, sleeve=maroon, skin=skin, legs=(52, 56, 74), shoes=(34, 26, 22), arm_o=maroon,
+           jacket=maroon, jopen=True, lining=(60, 30, 30), hem=shade(maroon, 0.7), cuff=shade(maroon, 0.7))
+    # grey shirt collar peeking, a buttoned inner shirt strip
+    s.paint(B["body"]["front"], lambda x, y, w, h: (150, 150, 156) if (y < 2 and 2 <= x <= 5) else (
+        shade(dark, 1.5) if x in (3, 4) and y % 3 == 1 else None))
+    _bsoot(s, B, 30, (40, 32, 28))
+    _bfinish(s, "ron_dh")
+
+
+def build_ginny():
+    s, B = _bnew("ginny", 704)
+    skin = (242, 212, 190)
+    _bhead_base(s, B, skin)
+    _bhair(s, B, "long", (190, 84, 38))
+    _bface(s, B, skin, (110, 80, 48), (160, 72, 34), (196, 112, 112), tags=("freckles", "lashes"))
+    _bdirt(s, B["head"]["front"], 5, (86, 66, 54))
+    jk = (38, 36, 46)
+    _bbody(s, B, base=(60, 40, 50), sleeve=jk, skin=skin, legs=(54, 58, 76), shoes=(30, 24, 24), arm_o=jk, jacket=jk,
+           jopen=True, lining=(70, 30, 36), hem=shade(jk, 1.7), cuff=shade(jk, 1.7))
+    s.paint(B["body"]["front"], lambda x, y, w, h: (190, 150, 130) if (y < 2 and 2 <= x <= 5) else None)
+    s.paint(B["jacket"]["front"], lambda x, y, w, h: shade(jk, 1.9) if (y < 2 and x in (1, 6)) else None)
+    _bsoot(s, B, 14, (34, 28, 26))
+    _bfinish(s, "ginny")
+
+
+def build_luna():
+    s, B = _bnew("luna", 705)
+    skin = (248, 224, 206)
+    _bhead_base(s, B, skin)
+    _bhair(s, B, "long", (232, 218, 168))
+    _bface(s, B, skin, (150, 172, 196), (190, 172, 124), (210, 138, 140), tags=("wide", "lashes"))
+    # radish earrings on the sides of the head
+    for side in ("right", "left"):
+        _bset(s, B["head"][side], 4, 5, (214, 70, 60))
+        _bset(s, B["head"][side], 4, 6, (230, 120, 100))
+    blue, lilac = (92, 108, 178), (156, 130, 200)
+    _bbody(s, B, base=blue, sleeve=blue, skin=skin, legs=(96, 90, 140), shoes=(70, 46, 40), arm_o=lilac,
+           jacket=lilac, jopen=True, lining=shade(lilac, 0.7), hem=shade(lilac, 0.7), cuff=shade(blue, 0.8),
+           leg_o=(110, 100, 170), leg_o_rows=6)
+    s.paint(B["body"]["front"], lambda x, y, w, h: (232, 222, 214) if (y < 2 and 2 <= x <= 5) else None)
+    _bsoot(s, B, 12, (80, 70, 70))
+    _bfinish(s, "luna")
+
+
+def build_seamus():
+    s, B = _bnew("seamus", 706)
+    skin = (240, 206, 178)
+    _bhead_base(s, B, skin)
+    _bhair(s, B, "scruffy", (186, 146, 90))
+    _bface(s, B, skin, (96, 120, 90), (140, 104, 62), (190, 118, 104), tags=("rosy",))
+    _bdirt(s, B["head"]["front"], 18, (28, 24, 24))
+    _bdirt(s, B["head"]["front"], 6, (28, 24, 24), (0, 8), (0, 3))
+    red, gold = (148, 32, 40), (212, 168, 48)
+    _bbody(s, B, base=red, sleeve=red, skin=skin, legs=(46, 46, 56), shoes=(28, 24, 22), cuff=gold)
+    s.paint(B["body"]["front"], lambda x, y, w, h: (232, 230, 226) if (y < 2 and 2 <= x <= 5) else (
+        gold if y == h - 1 else None))
+    s.paint(B["body"]["front"], lambda x, y, w, h: (24, 24, 28) if (y == 2 and x in (3, 4)) else None)
+    s.paint(B["body"]["back"], lambda x, y, w, h: gold if y == h - 1 else None)
+    _bsoot(s, B, 36, (22, 20, 20))
+    _bfinish(s, "seamus")
+
+
+def build_molly():
+    s, B = _bnew("molly", 707)
+    skin = (242, 208, 184)
+    _bhead_base(s, B, skin)
+    _bhair(s, B, "pinned", (188, 86, 40))
+    _bface(s, B, skin, (96, 70, 44), (160, 80, 44), (196, 92, 100), tags=("rosy", "lashes"))
+    card, skirt, blouse = (112, 70, 90), (78, 50, 54), (226, 210, 184)
+    _bbody(s, B, base=blouse, sleeve=card, skin=skin, legs=skirt, shoes=(50, 34, 30), arm_o=card, jacket=card,
+           jopen=True, lining=shade(card, 0.7), hem=shade(card, 0.65), cuff=(214, 190, 160),
+           leg_o=skirt, leg_o_rows=10)
+    # buttons on the cardigan edges, a small brooch
+    s.paint(B["jacket"]["front"], lambda x, y, w, h: (206, 176, 120) if (x == 1 and y in (2, 5, 8)) else None)
+    s.paint(B["body"]["front"], lambda x, y, w, h: (150, 80, 100) if (x in (3, 4) and y == 1) else None)
+    # a warm stripe of knit across the cardigan sleeves
+    for a in ("rarm_o", "larm_o"):
+        for f in ("front", "back", "right", "left"):
+            s.paint(B[a][f], lambda x, y, w, h: (150, 96, 70) if y in (3, 4) else None)
+    _bsoot(s, B, 6, (90, 74, 70))
+    _bfinish(s, "molly")
+
+
+def build_bellatrix():
+    s, B = _bnew("bellatrix", 708)
+    skin = (234, 226, 226)
+    _bhead_base(s, B, skin)
+    _bhair(s, B, "wild", (14, 12, 16), streak=(176, 176, 182))
+    _bface(s, B, skin, (36, 28, 30), (22, 18, 20), (96, 22, 42), tags=("heavy", "lashes", "stern"))
+    # dark smudged eye-shadow beneath the eyes and cheek hollows
+    for x in (1, 2, 5, 6):
+        _bset(s, B["head"]["front"], x, 5, (176, 160, 168))
+    black, lace = (20, 18, 24), (62, 58, 68)
+    _bbody(s, B, base=black, sleeve=(150, 138, 146), skin=skin, legs=(26, 24, 30), shoes=(18, 16, 18), arm_o=black,
+           jacket=black, jopen=False, hem=lace, cuff=lace, leg_o=black, leg_o_rows=10, ragged=True)
+    # corset: boning, lacing criss-cross at the centre of the back and a sweetheart neckline at the front
+    s.paint(B["jacket"]["front"], lambda x, y, w, h: (0, 0, 0, 0) if y > 6 else None)
+    s.paint(B["body"]["front"], lambda x, y, w, h: skin if (y < 2 and 1 <= x <= 6 and not (y == 1 and x in (1, 6))) else (
+        shade(black, 2.0) if (x in (2, 5) and y >= 2) else None))
+    s.paint(B["jacket"]["front"], lambda x, y, w, h: shade(black, 1.9) if (x in (2, 5) and 0 <= y <= 6) else (
+        (118, 114, 128) if (x in (3, 4) and y <= 6 and (x + y) % 2 == 0) else (
+            shade(black, 1.4) if y <= 6 and x in (3, 4) else None)))
+    s.paint(B["jacket"]["back"], lambda x, y, w, h: (118, 114, 128) if (x in (3, 4) and y <= 6 and (x + y) % 2 == 0)
+            else (shade(black, 1.4) if (y <= 6 and x in (3, 4)) else None))
+    # lace sleeves: a net of black over pale skin
+    for a in ("rarm_o", "larm_o"):
+        for f in ("front", "back", "right", "left"):
+            s.paint(B[a][f], lambda x, y, w, h: (lace if (x + y) % 2 == 0 else (0, 0, 0, 0)) if (y < h - 2 and y > 1)
+                    else (black if y <= 1 else None))
+        for f in ("front", "back", "right", "left"):
+            s.paint(B[a][f], lambda x, y, w, h: lace if y == h - 3 else None)
+    # the pale inner arm shows through the lace
+    for a in ("rarm", "larm"):
+        s.fill_box(B[a], lambda x, y, w, h: s.noisy((206, 196, 200), 0.03) if y < h - 2 else s.noisy(skin, 0.03))
+    _bfinish(s, "bellatrix")
+
+
+def build_hagrid_dh():
+    s, B = _bnew("hagrid_dh", 709)
+    skin = (214, 160, 130)
+    _bhead_base(s, B, skin)
+    _bhair(s, B, "wild", (14, 12, 14))
+    _bface(s, B, skin, (30, 24, 20), (14, 12, 14), (120, 60, 56), tags=("beard", "wrinkles"), hair=(16, 14, 16))
+    coat, dk = (98, 68, 42), (62, 42, 28)
+    _bbody(s, B, base=(120, 90, 64), sleeve=coat, skin=skin, legs=(60, 44, 32), shoes=(30, 22, 18), arm_o=coat,
+           jacket=coat, jopen=True, lining=dk, hem=shade(coat, 0.72), cuff=shade(coat, 0.7), leg_o=None)
+    # shirt, belt with a buckle and brass buttons, big patched pockets, worn patches
+    s.paint(B["body"]["front"], lambda x, y, w, h: (150, 130, 100) if (y < 3 and 2 <= x <= 5) else None)
+    s.paint(B["jacket"]["front"], lambda x, y, w, h: (40, 28, 20) if y == 6 else (
+        (196, 164, 76) if (x in (1, 6) and y in (1, 3, 5, 8, 10)) else (
+            shade(dk, 0.9) if (y in (7, 8, 9) and x in (0, 7)) else None)))
+    s.paint(B["jacket"]["front"], lambda x, y, w, h: (206, 176, 80) if (y == 6 and x in (2, 5)) else None)
+    s.paint(B["jacket"]["back"], lambda x, y, w, h: shade(dk, 0.85) if (3 <= x <= 5 and 2 <= y <= 6) else None)
+    _bdirt(s, B["jacket"]["front"], 8, (50, 36, 28))
+    _bsoot(s, B, 20, (44, 32, 24), parts=("jacket", "rarm_o", "larm_o", "rleg", "lleg"))
+    _bfinish(s, "hagrid_dh")
+
+
+def build_kingsley():
+    s, B = _bnew("kingsley", 710)
+    skin = (98, 64, 46)
+    _bhead_base(s, B, skin)
+    _bface(s, B, skin, (36, 26, 22), shade(skin, 0.62), (140, 70, 66), bald=True, tags=("stern",))
+    for x in (1, 2, 5, 6):   # heavy brow ridge and a shaved scalp sheen
+        _bset(s, B["head"]["front"], x, 3, shade(skin, 0.6))
+    for x in range(8):
+        _bset(s, B["head"]["top"], x, 3, shade(skin, 1.18))
+    _bcap(s, B, (44, 38, 112), band=(190, 162, 72), rows=2)
+    purple, blue = (70, 52, 138), (36, 40, 110)
+    _bbody(s, B, base=blue, sleeve=purple, skin=skin, legs=(34, 32, 70), shoes=(20, 18, 24), arm_o=purple,
+           jacket=purple, jopen=True, lining=shade(blue, 0.8), hem=(190, 162, 72), cuff=(190, 162, 72),
+           leg_o=purple, leg_o_rows=10)
+    s.paint(B["body"]["front"], lambda x, y, w, h: (190, 162, 72) if (y < 2 and 2 <= x <= 5) else None)
+    for side in ("right", "left"):   # gold earring
+        _bset(s, B["head"][side], 4, 5, (222, 190, 70)); _bset(s, B["head"][side], 4, 6, (222, 190, 70))
+    _bsoot(s, B, 6, (30, 26, 40))
+    _bfinish(s, "kingsley")
+
+
+def build_flitwick():
+    s, B = _bnew("flitwick", 711)
+    skin = (232, 202, 178)
+    _bhead_base(s, B, skin)
+    _bhair(s, B, "wisp", (238, 238, 242))
+    _bface(s, B, skin, (60, 90, 140), (220, 220, 224), (190, 120, 110), tags=("moustache", "wrinkles", "rosy"),
+           hair=(240, 240, 244))
+    robe, trim = (38, 36, 48), (120, 120, 138)
+    _bbody(s, B, base=robe, sleeve=robe, skin=skin, legs=(30, 28, 38), shoes=(20, 18, 20), arm_o=robe, jacket=robe,
+           jopen=True, lining=(26, 24, 34), hem=trim, cuff=trim, leg_o=robe, leg_o_rows=10)
+    # white cravat and a row of silver buttons
+    s.paint(B["body"]["front"], lambda x, y, w, h: (236, 236, 240) if (y < 3 and 2 <= x <= 5) else None)
+    s.paint(B["jacket"]["front"], lambda x, y, w, h: (190, 192, 200) if (x == 1 and y % 3 == 1) else None)
+    _bsoot(s, B, 4, (60, 56, 60))
+    _bfinish(s, "flitwick")
+
+
+def build_slughorn():
+    s, B = _bnew("slughorn", 712)
+    skin = (232, 184, 156)
+    _bhead_base(s, B, skin)
+    for x in range(8):   # bare head with a pale fringe of hair at the back and sides
+        for y in range(3, 6):
+            _bset(s, B["head"]["back"], x, y, s.noisy((196, 186, 160), 0.1))
+    for side, fb in (("right", 0), ("left", 7)):
+        for y in range(3, 5):
+            for x in (fb, fb + (1 if fb == 0 else -1)):
+                _bset(s, B["head"][side], x, y, s.noisy((196, 186, 160), 0.1))
+    _bface(s, B, skin, (96, 104, 130), (214, 200, 170), (180, 100, 96), bald=True, tags=("walrus", "rosy"),
+           hair=(220, 208, 174))
+    for x in (1, 2, 5, 6):
+        _bset(s, B["head"]["front"], x, 3, (216, 204, 176))   # bushy pale brows
+    for x in range(8):
+        _bset(s, B["head"]["top"], x, 3, shade(skin, 1.12))
+    must, brown, shirt = (178, 134, 46), (96, 60, 36), (232, 222, 196)
+    _bbody(s, B, base=must, sleeve=brown, skin=skin, legs=(56, 42, 34), shoes=(36, 26, 22), arm_o=brown,
+           jacket=brown, jopen=True, lining=must, hem=shade(brown, 0.7), cuff=shirt, leg_o=None)
+    s.paint(B["jacket"]["front"], lambda x, y, w, h: shade(must, 1.05) if (x in (2, 3, 4, 5) and y <= h - 3 and False) else None)
+    s.paint(B["body"]["front"], lambda x, y, w, h: shirt if (y < 2 and 2 <= x <= 5) else (
+        (230, 200, 90) if (x in (3, 4) and y in (3, 5, 7, 9)) else (
+            (222, 190, 70) if ((x, y) in ((1, 5), (2, 6), (5, 6), (6, 5))) else None)))
+    _bsoot(s, B, 4, (70, 56, 40))
+    _bfinish(s, "slughorn")
+
+
+# --- generic battle students -------------------------------------------------------------------------------
+
+BATTLE_HOUSES = {   # jumper colour, tie/trim colour, second trim
+    "gryffindor": ((150, 34, 42), (212, 168, 48)),
+    "hufflepuff": ((214, 168, 38), (26, 26, 28)),
+    "ravenclaw": ((40, 72, 152), (156, 112, 64)),
+    "slytherin": ((36, 112, 68), (192, 194, 200)),
+}
+# name -> skin, hair, hair style, eyes, robe over the jumper?, torn sleeve side, glasses
+BATTLE_STUDENTS = {
+    "battle_gryffindor_boy": dict(house="gryffindor", girl=False, skin=(232, 190, 160), hair=(92, 60, 36), style="scruffy",
+                                  eyes=(70, 110, 70), robe=False, torn="r"),
+    "battle_gryffindor_girl": dict(house="gryffindor", girl=True, skin=(124, 82, 56), hair=(22, 18, 20), style="long",
+                                   eyes=(50, 34, 26), robe=True, torn=None),
+    "battle_hufflepuff_boy": dict(house="hufflepuff", girl=False, skin=(246, 215, 190), hair=(214, 184, 110),
+                                  style="scruffy", eyes=(96, 120, 150), robe=True, torn=None),
+    "battle_hufflepuff_girl": dict(house="hufflepuff", girl=True, skin=(212, 160, 118), hair=(124, 54, 34),
+                                   style="pinned", eyes=(90, 64, 40), robe=False, torn="l"),
+    "battle_ravenclaw_boy": dict(house="ravenclaw", girl=False, skin=(164, 112, 76), hair=(26, 22, 24), style="short",
+                                 eyes=(48, 36, 30), robe=False, torn=None),
+    "battle_ravenclaw_girl": dict(house="ravenclaw", girl=True, skin=(238, 200, 168), hair=(50, 34, 26), style="long",
+                                  eyes=(100, 124, 150), robe=True, torn=None, glasses=True),
+    "battle_slytherin_boy": dict(house="slytherin", girl=False, skin=(255, 228, 212), hair=(232, 222, 182),
+                                 style="short", eyes=(120, 134, 148), robe=True, torn="l"),
+    "battle_slytherin_girl": dict(house="slytherin", girl=True, skin=(190, 136, 96), hair=(18, 16, 18), style="bun",
+                                  eyes=(60, 44, 32), robe=False, torn=None),
+}
+
+
+def build_battle_student(name, i):
+    p = BATTLE_STUDENTS[name]
+    s, B = _bnew(name, 800 + i)
+    skin, hair = p["skin"], p["hair"]
+    jumper, tie = BATTLE_HOUSES[p["house"]]
+    jumper = shade(jumper, 0.9)
+    _bhead_base(s, B, skin)
+    _bhair(s, B, p["style"], hair)
+    tags = ["rosy"] if i % 2 else []
+    if p["girl"]:
+        tags.append("lashes")
+    if p.get("glasses"):
+        tags.append("glasses")
+    lip = (min(255, int(skin[0] * 0.86 + 22)), int(skin[1] * 0.62), int(skin[2] * 0.62)) if p["girl"] else shade(skin, 0.74)
+    _bface(s, B, skin, p["eyes"], shade(hair, 0.8) if sum(hair) > 300 else shade(hair, 1.0), lip, tags=tuple(tags))
+    _bdirt(s, B["head"]["front"], 8, (40, 36, 34))
+    if i % 3 == 0:
+        _bscratch(s, B, skin, 5, 5, 2)
+    black = (28, 28, 34)
+    legs = (60, 58, 68) if p["girl"] else (50, 50, 60)
+    skirt = (60, 58, 72) if p["girl"] else None
+    _bbody(s, B, base=jumper, sleeve=jumper, skin=skin, legs=(24, 22, 28) if p["girl"] else legs,
+           shoes=(26, 22, 22), arm_o=black if p["robe"] else None, jacket=black if p["robe"] else None, jopen=True,
+           lining=shade(jumper, 0.7), hem=tie if p["robe"] else None, cuff=tie, leg_o=skirt,
+           leg_o_rows=5 if skirt else 10, off=i)
+    # white collar, house tie, V-neck
+    s.paint(B["body"]["front"], lambda x, y, w, h: (232, 232, 236) if (y < 2 and 2 <= x <= 5) else None)
+    s.paint(B["body"]["front"], lambda x, y, w, h: (tie if (y % 2 == 0) else shade(jumper, 0.7)) if (
+        x in (3, 4) and 2 <= y <= 7) else None)
+    if p["house"] == "hufflepuff":   # black stripes on the yellow jumper hem
+        s.paint(B["body"]["front"], lambda x, y, w, h: (26, 26, 28) if y in (h - 2,) else None)
+    else:
+        s.paint(B["body"]["front"], lambda x, y, w, h: shade(jumper, 0.75) if y == h - 2 else None)
+    if not p["robe"]:
+        for a in ("rarm", "larm"):
+            for f in ("front", "back"):
+                s.paint(B[a][f], lambda x, y, w, h: tie if y == h - 3 else None)
+    # torn sleeve: the outer sleeve (or the jumper sleeve) frayed to the elbow with skin showing
+    if p["torn"]:
+        a = ("rarm" if p["torn"] == "r" else "larm")
+        tgt = (a + "_o") if p["robe"] else a
+        for f in ("front", "back", "right", "left"):
+            rect = B[tgt][f]
+            for y in range(3, 9):
+                for x in range(rect[2]):
+                    if y < 6 or s.rng.random() < 0.5:
+                        if tgt == a and y >= 4:
+                            _bset(s, rect, x, y, skin if s.rng.random() < 0.85 else shade(skin, 0.8))
+                        elif tgt != a:
+                            _bset(s, rect, x, y, (0, 0, 0, 0))
+        if tgt != a:   # robe sleeve gone: the jumper sleeve shows, itself split above the elbow
+            for f in ("front", "right"):
+                for y in (5, 6):
+                    for x in range(1):
+                        _bset(s, B[a][f], x, y, skin)
+    _bsoot(s, B, 40 if i % 2 == 0 else 26, (36, 32, 30))
+    _bfinish(s, name)
+
+
+# --- Death Eaters and Snatchers ---------------------------------------------------------------------------
+
+_MASKS = {
+    "death_eater_mask_a": ["hhhhhhhh", "hhhhhhhh", "hHSSSSHh", "hSSSSSSh", "hSKSSKSh", "hSSDDSSh", "hSDKKDSh", "hhSSSShh"],
+    "death_eater_mask_b": ["hhhhhhhh", "hhhhhhhh", "hSGSSGSh", "SGSSSSGS", "SKKSSKKS", "hSDGGDSh", "hSGSSGSh", "hhSGGShh"],
+    "death_eater_mask_c": ["hhhhhhhh", "hhhhhhhh", "hSSSSSSh", "hSDSSDSh", "hSKSSKSh", "hSSLLSSh", "hhSLLShh", "hhhDDhhh"],
+}
+_MASK_PAL = {"S": (176, 178, 186), "H": (226, 228, 236), "D": (104, 106, 116), "K": (6, 6, 8), "G": (198, 162, 66),
+             "L": (210, 212, 220)}
+
+
+def build_death_eater_masked(name, seed):
+    s, B = _bnew(name, seed)
+    hood = (18, 18, 24)
+    robe = (24, 24, 30)
+    grid = _MASKS[name]
+    head, hat = B["head"], B["hat"]
+    s.fill_box(head, lambda x, y, w, h: shade(hood, 1.0 + s.rng.uniform(-0.15, 0.2)))
+    for y, row in enumerate(grid):
+        for x, ch in enumerate(row):
+            c = shade(hood, 1.3 + 0.2 * s.rng.random()) if ch == "h" else _MASK_PAL[ch]
+            if ch not in "hK":
+                c = shade(c, 1 + s.rng.uniform(-0.04, 0.04))
+            _bset(s, head["front"], x, y, c)
+    # hood on the hat layer: crown, back, sides, brow and a deep fold beside the face
+    for f in ("top", "back", "right", "left"):
+        s.paint(hat[f], lambda x, y, w, h: _cl(s, hood, x, y, w, h, 1))
+    s.paint(hat["front"], lambda x, y, w, h: _cl(s, hood, x, y, w, h) if (y < 2 or x == 0 or x == 7) else None)
+    s.paint(hat["front"], lambda x, y, w, h: shade(hood, 0.5) if (y == 2 and 1 <= x <= 6) else None)
+    if name.endswith("_c"):   # the beak stands proud of the face
+        for (x, y, k) in [(3, 5, 1.0), (4, 5, 1.0), (3, 6, 0.9), (4, 6, 0.9), (3, 7, 0.5), (4, 7, 0.5)]:
+            _bset(s, hat["front"], x, y, shade(_MASK_PAL["L"], k))
+    if name.endswith("_b"):   # gold crest over the brow
+        for x in (2, 3, 4, 5):
+            _bset(s, hat["front"], x, 1, _MASK_PAL["G"])
+        _bset(s, hat["front"], 3, 0, _MASK_PAL["G"]); _bset(s, hat["front"], 4, 0, _MASK_PAL["G"])
+    skin = (212, 206, 202)
+    _bbody(s, B, base=robe, sleeve=robe, skin=skin, legs=(22, 22, 28), shoes=(14, 14, 16), arm_o=robe, jacket=robe,
+           jopen=True, lining=(10, 10, 14), hem=(44, 44, 54), cuff=(54, 54, 66), leg_o=robe, leg_o_rows=10,
+           off=seed)
+    s.paint(B["body"]["front"], lambda x, y, w, h: _MASK_PAL["S"] if (y == 0 and x in (3, 4)) else shade(robe, 1.6)
+            if (y < 2 and 1 <= x <= 6) else None)
+    s.paint(B["jacket"]["front"], lambda x, y, w, h: (22, 22, 28) if (name.endswith("_b") and y == 5 and x in (1, 6))
+            else None)
+    # a pale silver clasp at the throat, differs per mask
+    _bset(s, B["body"]["front"], 3, 0, _MASK_PAL["G" if name.endswith("_b") else "S"])
+    _bset(s, B["body"]["front"], 4, 0, _MASK_PAL["G" if name.endswith("_b") else "S"])
+    _bsoot(s, B, 10, (8, 8, 10))
+    _bfinish(s, name)
+
+
+def build_death_eater_bare(name, seed, hair, hstyle, eyes, skin):
+    s, B = _bnew(name, seed)
+    _bhead_base(s, B, skin)
+    _bhair(s, B, hstyle, hair)
+    _bface(s, B, skin, eyes, shade(hair, 0.75) if sum(hair) > 360 else shade(hair, 1.2), (150, 100, 100),
+           tags=("gaunt", "stern"))
+    robe, trim = (24, 24, 30), (50, 50, 62)
+    _bbody(s, B, base=robe, sleeve=robe, skin=skin, legs=(22, 22, 28), shoes=(14, 14, 16), arm_o=robe, jacket=robe,
+           jopen=True, lining=(10, 10, 14), hem=trim, cuff=trim, leg_o=robe, leg_o_rows=10, off=seed)
+    # a high collar, a silver clasp
+    s.paint(B["body"]["front"], lambda x, y, w, h: shade(robe, 1.8) if (y < 2 and 1 <= x <= 6) else None)
+    _bset(s, B["body"]["front"], 3, 1, _MASK_PAL["S"]); _bset(s, B["body"]["front"], 4, 1, _MASK_PAL["S"])
+    if hstyle == "long":   # pale, long, Malfoy-fashion: a green thread in the lining
+        s.paint(B["jacket"]["front"], lambda x, y, w, h: (36, 100, 60) if (x in (1, 6) and 1 <= y <= 8) else None)
+    _bdirt(s, B["head"]["front"], 3, (60, 56, 56))
+    _bsoot(s, B, 10, (8, 8, 10))
+    _bfinish(s, name)
+
+
+def build_snatcher(name, seed, variant):
+    s, B = _bnew(name, seed)
+    if variant == "a":
+        skin, hair, eyes = (214, 168, 138), (70, 52, 38), (76, 60, 40)
+        coat, vest, pants, scarf = (84, 58, 38), (46, 40, 36), (50, 46, 40), (110, 40, 40)
+        sleeve_l, sleeve_r = (84, 58, 38), (54, 54, 46)
+    else:
+        skin, hair, eyes = (224, 182, 150), (120, 108, 94), (90, 100, 90)
+        coat, vest, pants, scarf = (62, 66, 54), (96, 66, 40), (70, 56, 44), (150, 150, 140)
+        sleeve_l, sleeve_r = (62, 66, 54), (110, 82, 54)
+    _bhead_base(s, B, skin)
+    _bhair(s, B, "scruffy", hair)
+    _bface(s, B, skin, eyes, shade(hair, 0.8), shade(skin, 0.66), tags=("stubble", "wrinkles", "stern"))
+    _bdirt(s, B["head"]["front"], 10, (62, 46, 34))
+    if variant == "b":
+        _bscratch(s, B, skin, 5, 4, 3)
+    _bbody(s, B, base=vest, sleeve=sleeve_l, skin=skin, legs=pants, shoes=(28, 22, 18), arm_o=sleeve_l, jacket=coat,
+           jopen=True, lining=shade(coat, 0.55), hem=shade(coat, 0.6), cuff=shade(coat, 0.6), leg_o=None, ragged=True,
+           off=seed)
+    # mismatched right sleeve (and right half patch), belt, scarf, patches
+    s.fill_box(B["rarm_o"], lambda x, y, w, h: _cl(s, sleeve_r, x, y, w, h, 1) if y < h - 2 else None)
+    s.fill_box(B["rarm"], lambda x, y, w, h: s.noisy(skin, 0.03) if y >= h - 2 else _cl(s, shade(sleeve_r, 0.8), x, y, w, h))
+    s.paint(B["jacket"]["front"], lambda x, y, w, h: _cl(s, sleeve_r, x, y, w, h) if (x >= 6 and y > 2 and y < 9) else None)
+    s.paint(B["jacket"]["front"], lambda x, y, w, h: (30, 22, 18) if y == 7 else None)
+    s.paint(B["jacket"]["back"], lambda x, y, w, h: shade(sleeve_r, 1.1) if (2 <= x <= 4 and 3 <= y <= 6) else None)
+    for xx in range(8):   # scarf wrapped at the neck
+        _bset(s, B["body"]["front"], xx, 0, shade(scarf, 0.9 + 0.2 * (xx % 2)))
+        _bset(s, B["body"]["front"], xx, 1, shade(scarf, 0.7 + 0.2 * (xx % 2))) if xx in (2, 3, 4, 5) else None
+    for xx in (3, 4):   # a hanging scarf end
+        for yy in range(2, 5):
+            _bset(s, B["body"]["front"], xx, yy, shade(scarf, 0.75 + 0.15 * (yy % 2)))
+    # a patch on one knee
+    s.paint(B["lleg"]["front"], lambda x, y, w, h: shade(coat, 1.0) if (1 <= x <= 2 and 4 <= y <= 6) else None)
+    _bdirt(s, B["jacket"]["front"], 6, (30, 26, 22))
+    _bsoot(s, B, 24, (30, 24, 20))
+    _bfinish(s, name)
+
+
+# --- teachers -----------------------------------------------------------------------------------------------
+
+def build_teacher_a():
+    s, B = _bnew("teacher_a", 901)
+    skin = (226, 190, 162)
+    _bhead_base(s, B, skin)
+    _bhair(s, B, "short", (176, 176, 182))
+    _bface(s, B, skin, (70, 90, 110), (150, 150, 156), (170, 110, 104), tags=("wrinkles", "shortbeard", "stern"),
+           hair=(176, 176, 182))
+    robe, trim = (34, 34, 50), (150, 152, 166)
+    _bbody(s, B, base=(48, 48, 66), sleeve=robe, skin=skin, legs=(28, 28, 40), shoes=(18, 16, 18), arm_o=robe,
+           jacket=robe, jopen=True, lining=(20, 20, 32), hem=trim, cuff=trim, leg_o=robe, leg_o_rows=10)
+    s.paint(B["body"]["front"], lambda x, y, w, h: (220, 220, 226) if (y < 2 and 2 <= x <= 5) else None)
+    s.paint(B["jacket"]["front"], lambda x, y, w, h: (190, 192, 204) if (x == 1 and y in (2, 5, 8)) else None)
+    _bsoot(s, B, 14, (30, 28, 36))
+    _bfinish(s, "teacher_a")
+
+
+def build_teacher_b():
+    s, B = _bnew("teacher_b", 902)
+    skin = (238, 208, 186)
+    _bhead_base(s, B, skin)
+    _bhair(s, B, "bun", (190, 190, 196))
+    _bface(s, B, skin, (96, 110, 90), (150, 150, 156), (176, 108, 108), tags=("wrinkles", "glasses"))
+    robe, trim = (44, 30, 48), (150, 120, 150)
+    _bbody(s, B, base=(70, 50, 74), sleeve=robe, skin=skin, legs=(30, 24, 34), shoes=(20, 16, 20), arm_o=robe,
+           jacket=robe, jopen=True, lining=(24, 16, 28), hem=trim, cuff=trim, leg_o=robe, leg_o_rows=10)
+    s.paint(B["body"]["front"], lambda x, y, w, h: (226, 216, 226) if (y < 2 and 2 <= x <= 5) else None)
+    s.paint(B["jacket"]["front"], lambda x, y, w, h: (200, 170, 200) if (y == 0 and x in (1, 6)) else None)
+    _bsoot(s, B, 10, (34, 26, 38))
+    _bfinish(s, "teacher_b")
+
+
+def generate_battle_skins():
+    build_mcgonagall_dh()
+    build_neville_dh()
+    build_ron_dh()
+    build_ginny()
+    build_luna()
+    build_seamus()
+    build_molly()
+    build_bellatrix()
+    build_hagrid_dh()
+    build_kingsley()
+    build_flitwick()
+    build_slughorn()
+    for i, n in enumerate(BATTLE_STUDENTS):
+        build_battle_student(n, i)
+    build_death_eater_masked("death_eater_mask_a", 1001)
+    build_death_eater_masked("death_eater_mask_b", 1002)
+    build_death_eater_masked("death_eater_mask_c", 1003)
+    build_death_eater_bare("death_eater_bare_a", 1004, (30, 26, 28), "slick", (74, 70, 70), (214, 204, 196))
+    build_death_eater_bare("death_eater_bare_b", 1005, (226, 218, 190), "long", (120, 140, 160), (236, 228, 222))
+    build_snatcher("snatcher_a", 1006, "a")
+    build_snatcher("snatcher_b", 1007, "b")
+    build_teacher_a()
+    build_teacher_b()
+    return ["mcgonagall_dh", "neville_dh", "ron_dh", "ginny", "luna", "seamus", "molly", "bellatrix", "hagrid_dh",
+            "kingsley", "flitwick", "slughorn"] + list(BATTLE_STUDENTS) + [
+        "death_eater_mask_a", "death_eater_mask_b", "death_eater_mask_c", "death_eater_bare_a", "death_eater_bare_b",
+        "snatcher_a", "snatcher_b", "teacher_a", "teacher_b"]
+
+
 def main():
     os.makedirs(OUT_DIR, exist_ok=True)
     black = (22, 22, 26)
@@ -1329,6 +2211,7 @@ def main():
     names.extend(["vernon", "petunia", "dudley"])
     names.extend(generate_flying_skins())
 
+    names.extend(generate_battle_skins())
     names.extend(generate_students())
     names.extend(generate_crowd())
 

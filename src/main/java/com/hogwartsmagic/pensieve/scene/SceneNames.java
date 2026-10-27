@@ -15,7 +15,7 @@ public record SceneNames(Set<String> entityTypes, Set<String> spells, Set<String
                          Set<String> skins) {
     /** Actor actions a scene may use. */
     public static final Set<String> ACTIONS = Set.of("swing", "sneak", "stand", "hurt", "die", "vanish", "appear",
-            "stone", "unstone", "cast", "use_item", "hold", "ignite", "equip", "breathe");
+            "stone", "unstone", "cast", "use_item", "hold", "ignite", "equip", "breathe", "smoke", "unsmoke");
     /** Slots an {@code equip} action may fill. */
     public static final Set<String> EQUIP_SLOTS = Set.of("head", "mainhand", "offhand", "chest", "legs", "feet");
     /** Range of a narration word's {@code size}. */
@@ -24,6 +24,8 @@ public record SceneNames(Set<String> entityTypes, Set<String> spells, Set<String
     public static final float MAX_CUE_VOLUME = 4f;
     /** Event kinds. */
     public static final Set<String> EVENT_KINDS = Set.of("block", "sound", "particles", "effect", "music", "voice", "sfx");
+    /** The most cells one {@code block} event may fill with its {@code to}. */
+    public static final int MAX_BLOCK_BOX_CELLS = 4096;
     /** The actor type that shows one block state (its {@code block} key); a look {@code roll} turns it. */
     public static final String BLOCK_ACTOR = "hogwartsmagic:memory_block";
     /** The rowing boat actor, a vehicle an actor may {@code ride} (see {@link Rowboat}). */
@@ -42,6 +44,13 @@ public record SceneNames(Set<String> entityTypes, Set<String> spells, Set<String
     /** The cue names a {@link #HORNTAIL_ACTOR} may use (case-insensitive; {@link HorntailCues}). */
     public static final java.util.List<String> HORNTAIL_ANIMS = java.util.List.of("IDLE", "FLY", "TAKEOFF", "LAND",
             "ROAR", "BITE", "TAIL_WHIP", "BREATH_WINDUP", "BREATH", "WING_GUST", "DIVE", "STAGGER", "AIR_BREATH");
+    /**
+     * The Living Statue as a memory actor (see {@link StatueCues}): its {@code anims} cues are its states
+     * ({@link #STATUE_ANIMS}), and a {@code swing} action is one blow of its halberd combo.
+     */
+    public static final String LIVING_STATUE_ACTOR = "hogwartsmagic:living_statue";
+    /** The cue names a {@link #LIVING_STATUE_ACTOR} may use (case-insensitive; {@link StatueCues}). */
+    public static final java.util.List<String> STATUE_ANIMS = java.util.List.of("IDLE", "WAKE", "CRUMBLE");
     /** The types whose {@code look} may give a {@code roll}: the block actor, the brooms and the Horntail. */
     public static final Set<String> ROLL_TYPES = Set.of(BLOCK_ACTOR, BROOM_ACTOR, RACING_BROOM_ACTOR, FIREBOLT_BROOM_ACTOR, HORNTAIL_ACTOR);
     /**

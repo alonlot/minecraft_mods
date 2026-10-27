@@ -782,8 +782,13 @@ public final class PensieveSessions {
 
     private static void buildStep(Session s, int[] budget) {
         if (!s.built && s.builder != null && budget[0] > 0) {
-            s.built = s.builder.advance(budget);
-            recordPlaced(s);
+            if (!s.setPlaced) {
+                s.setPlaced = s.builder.advance(budget);
+                recordPlaced(s);
+            }
+            // The block events at t <= 0 belong to the set (a bridge already broken): placed on the same budget
+            // before anyone sees it, so the set never shows without them and the first PLAY tick does no burst.
+            if (s.setPlaced) s.built = placeEvents(s, 0f, budget);
         }
     }
 
@@ -1082,7 +1087,30 @@ public final class PensieveSessions {
             RegionData.get(s.level).expand(s.slot(), pos);
             budget[0]--;
         }
-        while (s.nextEvent < s.blockEvents.size() && s.blockEvents.get(s.nextEvent).t() <= elapsed) {
+        placeEvents(s, elapsed, budget);
+    }
+
+    /**
+     * Places the block events due by {@code elapsed}, in order, on the shared block budget: a box event (with a
+     * `to`, every cell from `at` to `to`, inclusive, any corner order) queues its cells and spreads over ticks, and no
+     * later event jumps the queue. True once every due event is placed.
+     */
+    private static boolean placeEvents(Session s, float elapsed, int[] budget) {
+        while (true) {
+            while (!s.pendingFill.isEmpty() && budget[0] > 0) {
+                BlockPos at = s.pendingFill.poll();
+                if (s.level.getBlockState(at).hasBlockEntity()) s.level.removeBlockEntity(at);
+                s.level.setBlock(at, s.pendingFillState, SetBuilder.FLAGS);
+                if (s.changedCells.add(at.asLong())) s.eventPlaced.add(at);
+                budget[0]--;
+            }
+            if (!s.pendingFill.isEmpty()) return false;
+            if (s.pendingFillBox != null) {
+                // onPlace still schedules ticks under these flags: water placed by an event must not start flowing.
+                SetBuilder.clearTicks(s.level, s.pendingFillBox);
+                s.pendingFillBox = null;
+            }
+            if (s.nextEvent >= s.blockEvents.size() || s.blockEvents.get(s.nextEvent).t() > elapsed) return true;
             SceneDef.EventDef e = s.blockEvents.get(s.nextEvent++);
             if (e.id() == null || e.at() == null || e.at().length < 3) continue;
             ResourceLocation rl = ResourceLocation.tryParse(e.id());
@@ -1090,12 +1118,21 @@ public final class PensieveSessions {
             if (block.isEmpty()) continue;
             // Whole numbers (the validator rejects a fractional block position); floor is the safe reading anyway.
             BlockPos pos = s.origin().offset(Mth.floor(e.at()[0]), Mth.floor(e.at()[1]), Mth.floor(e.at()[2]));
-            if (s.level.getBlockState(pos).hasBlockEntity()) s.level.removeBlockEntity(pos);
-            s.level.setBlock(pos, block.get().defaultBlockState(), SetBuilder.FLAGS);
-            // onPlace still schedules ticks under these flags: water placed by an event must not start flowing.
-            SetBuilder.clearTicks(s.level, new BoundingBox(pos));
-            s.eventPlaced.add(pos);
-            RegionData.get(s.level).expand(s.slot(), pos);
+            BlockPos far = e.to() != null && e.to().length >= 3
+                    ? s.origin().offset(Mth.floor(e.to()[0]), Mth.floor(e.to()[1]), Mth.floor(e.to()[2])) : pos;
+            BoundingBox raw = BoundingBox.fromCorners(pos, far);
+            // Only cells inside the build height: the saved region box must not reach past the world either.
+            int y0 = Math.max(raw.minY(), s.level.getMinBuildHeight());
+            int y1 = Math.min(raw.maxY(), s.level.getMaxBuildHeight() - 1);
+            if (y0 > y1) continue;
+            BoundingBox box = new BoundingBox(raw.minX(), y0, raw.minZ(), raw.maxX(), y1, raw.maxZ());
+            for (BlockPos cell : BlockPos.betweenClosed(box.minX(), box.minY(), box.minZ(), box.maxX(), box.maxY(), box.maxZ())) {
+                s.pendingFill.add(cell.immutable());
+            }
+            s.pendingFillState = block.get().defaultBlockState();
+            s.pendingFillBox = box;
+            RegionData.get(s.level).expand(s.slot(), new BlockPos(box.minX(), box.minY(), box.minZ()));
+            RegionData.get(s.level).expand(s.slot(), new BlockPos(box.maxX(), box.maxY(), box.maxZ()));
         }
     }
 

@@ -147,8 +147,8 @@ class PatronusRulesTest {
         assertEquals(0L, PatronusRules.messageCooldownLeft(false, 0L, 10L));
         assertEquals(500L, PatronusRules.messageCooldownLeft(true, 100L, 200L));
         assertEquals(0L, PatronusRules.messageCooldownLeft(true, 100L, 700L));
-        // A clock that ran backwards (stored stamp in the future) never locks the caster out for longer than the cooldown.
-        assertEquals(600L, PatronusRules.messageCooldownLeft(true, 100000L, 5L));
+        // A clock that ran backwards (stored stamp in the future) never locks the caster out at all.
+        assertEquals(0L, PatronusRules.messageCooldownLeft(true, 100000L, 5L));
     }
 
     @Test
@@ -161,5 +161,13 @@ class PatronusRulesTest {
         assertEquals("", PatronusRules.sanitizeMessage("   "));
         assertEquals("", PatronusRules.sanitizeMessage(null));
         assertEquals(200, PatronusRules.sanitizeMessage("x".repeat(500)).length());
+        // Whitespace is stripped before the cap, so leading blanks do not eat the budget.
+        assertEquals(200, PatronusRules.sanitizeMessage(" ".repeat(300) + "x".repeat(300)).length());
+        // A surrogate pair straddling the cap is dropped whole, never split.
+        String pair = "\uD83D\uDE00";
+        String capped = PatronusRules.sanitizeMessage("x".repeat(199) + pair + "tail");
+        assertEquals(199, capped.length());
+        assertFalse(Character.isHighSurrogate(capped.charAt(capped.length() - 1)));
+        assertEquals(200, PatronusRules.sanitizeMessage("x".repeat(198) + pair + "tail").length());
     }
 }

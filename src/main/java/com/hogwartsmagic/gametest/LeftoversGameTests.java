@@ -172,16 +172,13 @@ public final class LeftoversGameTests {
         snake.conjure(owner, 1200, 0);
         Vec3 at = helper.absoluteVec(new Vec3(2.5, 2, 1.5));
         snake.moveTo(at.x, at.y, at.z);
+        // No AI keeps it from strolling out of the force-loaded area; aiStep still runs the owner-gone logic.
+        snake.setNoAi(true);
         helper.getLevel().addFreshEntity(snake);
 
         helper.runAtTickTime(5, owner::discard);
-        helper.runAtTickTime(100, () -> {
-            if (!snake.isRemoved()) {
-                snake.discard();
-                helper.fail("the snake should have vanished after its owner was gone");
-            }
-        });
         helper.succeedWhen(() -> {
+            helper.assertTrue(snake.getTarget() == null, "the snake must never gain a target");
             helper.assertTrue(snake.isRemoved(), "the snake should vanish when its owner is gone");
             LOGGER.info("LEFTOVERS-GAMETEST PASS snakeVanishesWhenItsOwnerIsGone");
         });
@@ -331,5 +328,34 @@ public final class LeftoversGameTests {
         z.setNoGravity(true);
         helper.getLevel().addFreshEntity(z);
         return z;
+    }
+
+    /** Only a Master may send a Patronus message, and a second send straight away is refused by the cooldown. */
+    @GameTest(template = EMPTY, timeoutTicks = 100)
+    public static void patronusMessengerGatesAndCoolsDown(GameTestHelper helper) {
+        ServerPlayer sender = helper.makeMockServerPlayerInLevel();
+        ServerPlayer recipient = helper.makeMockServerPlayerInLevel();
+        com.hogwartsmagic.spell.SpellType spell = com.hogwartsmagic.spell.SpellType.EXPECTO_PATRONUM;
+        com.hogwartsmagic.item.MagicBookItem.learnSpellIfAbsent(sender, spell);
+        sender.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
+                new net.minecraft.world.item.ItemStack(ExampleMod.HARRY_POTTER_WAND.get()));
+        Vec3 at = helper.absoluteVec(new Vec3(1.5, 2, 0.5));
+        Vec3 away = helper.absoluteVec(new Vec3(1.5, 2, 2.5));
+        sender.moveTo(at.x, at.y, at.z);
+        recipient.moveTo(away.x, away.y, away.z);
+        try {
+            helper.assertFalse(com.hogwartsmagic.spell.summon.PatronusMessenger.send(sender, recipient, "hello"),
+                    "a non-Master must be refused");
+            com.hogwartsmagic.spell.mastery.SpellMasteryData.setXp(sender, spell, com.hogwartsmagic.Config.getMasteryThresholds()[3]);
+            helper.assertTrue(com.hogwartsmagic.spell.summon.PatronusMessenger.send(sender, recipient, "hello"),
+                    "a Master should send the first message");
+            helper.assertFalse(com.hogwartsmagic.spell.summon.PatronusMessenger.send(sender, recipient, "hello again"),
+                    "an immediate second message must hit the cooldown");
+        } finally {
+            sender.discard();
+            recipient.discard();
+        }
+        helper.succeed();
+        LOGGER.info("LEFTOVERS-GAMETEST PASS patronusMessengerGatesAndCoolsDown");
     }
 }

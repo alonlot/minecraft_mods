@@ -57,29 +57,42 @@ public final class PatronusRules {
         return distanceSqr <= (double) MESSAGE_RANGE * MESSAGE_RANGE;
     }
 
-    /** Ticks until the next message may be sent; 0 when ready or when none was ever sent. */
+    /**
+     * Ticks until the next message may be sent; 0 when ready, when none was ever sent, or when the stored stamp
+     * lies in the future (a clock that ran backwards must never lock the caster out).
+     */
     public static long messageCooldownLeft(boolean sentBefore, long lastSentAt, long now) {
-        if (!sentBefore) {
+        if (!sentBefore || lastSentAt > now) {
             return 0L;
         }
-        // Capped so a stored stamp from a clock that later ran backwards cannot lock the caster out.
-        return Math.min(MESSAGE_COOLDOWN_TICKS, Math.max(0L, lastSentAt + MESSAGE_COOLDOWN_TICKS - now));
+        return Math.max(0L, lastSentAt + MESSAGE_COOLDOWN_TICKS - now);
     }
 
-    /** Drops the section sign (colour codes) and control characters, caps the length and trims. */
+    /**
+     * Drops the section sign (colour codes) and control characters, trims, then caps the length, never cutting a
+     * surrogate pair in two.
+     */
     public static String sanitizeMessage(String raw) {
         if (raw == null) {
             return "";
         }
-        StringBuilder out = new StringBuilder();
-        for (int i = 0; i < raw.length() && out.length() < MESSAGE_MAX_LENGTH; i++) {
+        StringBuilder out = new StringBuilder(raw.length());
+        for (int i = 0; i < raw.length(); i++) {
             char c = raw.charAt(i);
             if (c == '\u00a7' || Character.isISOControl(c)) {
                 continue;
             }
             out.append(c);
         }
-        return out.toString().strip();
+        String text = out.toString().strip();
+        if (text.length() > MESSAGE_MAX_LENGTH) {
+            int cut = MESSAGE_MAX_LENGTH;
+            if (Character.isHighSurrogate(text.charAt(cut - 1))) {
+                cut--;
+            }
+            text = text.substring(0, cut).stripTrailing();
+        }
+        return text;
     }
 
     /** Undead and Inferi inside the radius are driven back; bosses are never moved. */

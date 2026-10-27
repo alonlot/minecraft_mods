@@ -12,6 +12,7 @@ import com.hogwartsmagic.spell.combat.CombatEffects;
 import com.hogwartsmagic.spell.dark.DarkCosts;
 import com.hogwartsmagic.spell.mastery.SpellMasteryData;
 import com.hogwartsmagic.spell.support.SupportMana;
+import com.hogwartsmagic.util.PlayerMagicData;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
@@ -76,7 +77,8 @@ public final class PatronusMessenger {
         }
         // The cooldown applies to everyone, creative included: it is the spam limit on a message that
         // lands in another player's chat.
-        CompoundTag data = sender.getPersistentData();
+        // Kept under the persisted sub-tag, which a death copies across; the bare persistent data is not.
+        CompoundTag data = PlayerMagicData.getModData(sender);
         long now = sender.level().getGameTime();
         long left = PatronusRules.messageCooldownLeft(data.contains(TAG_LAST_SENT), data.getLong(TAG_LAST_SENT), now);
         if (left > 0L) {
@@ -88,6 +90,7 @@ public final class PatronusMessenger {
             return false;
         }
         data.putLong(TAG_LAST_SENT, now);
+        PlayerMagicData.saveModData(sender, data);
 
         departFrom(sender);
         arriveAt(recipient, sender, text);

@@ -22,6 +22,12 @@ public final class PatronusRules {
     public static final double FOLLOW_STOP = 3.0;
     public static final double TELEPORT_DISTANCE = 24.0;
 
+    /** Master: a message by Patronus reaches a player this many blocks away, in the same dimension. */
+    public static final int MESSAGE_RANGE = 500;
+    public static final int MESSAGE_MAX_LENGTH = 200;
+    public static final int MESSAGE_COOLDOWN_TICKS = 600;
+    public static final int MESSENGER_TICKS = 100;
+
     private PatronusRules() {
     }
 
@@ -41,6 +47,39 @@ public final class PatronusRules {
 
     public static boolean masterAura(int rank) {
         return rank >= MASTER_RANK;
+    }
+
+    public static boolean sendsMessages(int rank) {
+        return rank >= MASTER_RANK;
+    }
+
+    public static boolean inMessageRange(double distanceSqr) {
+        return distanceSqr <= (double) MESSAGE_RANGE * MESSAGE_RANGE;
+    }
+
+    /** Ticks until the next message may be sent; 0 when ready or when none was ever sent. */
+    public static long messageCooldownLeft(boolean sentBefore, long lastSentAt, long now) {
+        if (!sentBefore) {
+            return 0L;
+        }
+        // Capped so a stored stamp from a clock that later ran backwards cannot lock the caster out.
+        return Math.min(MESSAGE_COOLDOWN_TICKS, Math.max(0L, lastSentAt + MESSAGE_COOLDOWN_TICKS - now));
+    }
+
+    /** Drops the section sign (colour codes) and control characters, caps the length and trims. */
+    public static String sanitizeMessage(String raw) {
+        if (raw == null) {
+            return "";
+        }
+        StringBuilder out = new StringBuilder();
+        for (int i = 0; i < raw.length() && out.length() < MESSAGE_MAX_LENGTH; i++) {
+            char c = raw.charAt(i);
+            if (c == '\u00a7' || Character.isISOControl(c)) {
+                continue;
+            }
+            out.append(c);
+        }
+        return out.toString().strip();
     }
 
     /** Undead and Inferi inside the radius are driven back; bosses are never moved. */

@@ -133,4 +133,33 @@ class PatronusRulesTest {
         // Vanilla flickers Night Vision under 200 ticks; a refresh every 40 keeps it above that.
         assertTrue(PatronusRules.NIGHT_VISION_TICKS - PatronusRules.NIGHT_VISION_INTERVAL > 200);
     }
+
+    @Test
+    void onlyAMasterSendsMessages() {
+        assertFalse(PatronusRules.sendsMessages(3));
+        assertTrue(PatronusRules.sendsMessages(4));
+    }
+
+    @Test
+    void messagesReachFiveHundredBlocksAndCoolDown() {
+        assertTrue(PatronusRules.inMessageRange(500.0 * 500.0));
+        assertFalse(PatronusRules.inMessageRange(500.1 * 500.1));
+        assertEquals(0L, PatronusRules.messageCooldownLeft(false, 0L, 10L));
+        assertEquals(500L, PatronusRules.messageCooldownLeft(true, 100L, 200L));
+        assertEquals(0L, PatronusRules.messageCooldownLeft(true, 100L, 700L));
+        // A clock that ran backwards (stored stamp in the future) never locks the caster out for longer than the cooldown.
+        assertEquals(600L, PatronusRules.messageCooldownLeft(true, 100000L, 5L));
+    }
+
+    @Test
+    void messagesAreTrimmedStrippedAndCapped() {
+        assertEquals("hello", PatronusRules.sanitizeMessage("  hello  "));
+        // The section sign is what turns text into a colour code; removing it is enough, and the
+        // letter that followed it stays as plain text.
+        assertEquals("cred text", PatronusRules.sanitizeMessage("\u00a7cred text"));
+        assertEquals("ab", PatronusRules.sanitizeMessage("a\nb"));
+        assertEquals("", PatronusRules.sanitizeMessage("   "));
+        assertEquals("", PatronusRules.sanitizeMessage(null));
+        assertEquals(200, PatronusRules.sanitizeMessage("x".repeat(500)).length());
+    }
 }

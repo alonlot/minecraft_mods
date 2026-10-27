@@ -48,6 +48,13 @@ public final class PatronusSpell {
         return patronus;
     }
 
+    /** Testing aid for ops (/patronus form): overwrite the stored personal form. */
+    public static void setForm(ServerPlayer player, PatronusForm form) {
+        CompoundTag modData = PlayerMagicData.getModData(player);
+        modData.putInt(FORM_KEY, form.id());
+        PlayerMagicData.saveModData(player, modData);
+    }
+
     /**
      * The caster's personal form: picked from their UUID and house the first time it is needed, then
      * stored and never re-rolled, even if the house changes later. The caster is told once.

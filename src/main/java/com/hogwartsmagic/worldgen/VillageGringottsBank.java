@@ -18,6 +18,7 @@ import net.minecraft.world.entity.ai.village.poi.PoiTypes;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.material.Fluids;
@@ -176,8 +177,20 @@ public final class VillageGringottsBank {
      * bank placed at any elevation, and a schematic somebody re-exports with the doorway one block
      * wider, both come out right. A hard-coded rectangle would come out sideways in a wall.
      */
-    /** Package-private so GringottsFurnishing can run it for the alley's copy of the bank too. */
     static void lockGate(ServerLevel level, BlockPos anchor) {
+        lockGate(level, anchor, Rotation.NONE);
+    }
+
+    /**
+     * Package-private so GringottsFurnishing can run it for the Diagon Alley copy of the bank too,
+     * which may have been turned to face down whichever way the street runs.
+     *
+     * <p>Every schematic-local offset goes through {@link GringottsFurnishing#at} so it lands where
+     * the turned building actually is. The doorway flood is confined to the plane of the screen, and
+     * that plane turns too: the screen is one block thick along the schematic X axis, so its
+     * sideways direction is the schematic Z axis as turned.
+     */
+    static void lockGate(ServerLevel level, BlockPos anchor, Rotation rotation) {
         GringottsSchematic schem = GringottsSchematic.get();
         if (schem == null) {
             return;
@@ -190,21 +203,24 @@ public final class VillageGringottsBank {
         int floorY = anchor.getY() + marks.islandY;
 
         int swapped = 0;
+        // Two opposite corners of the search box; betweenClosed sorts out which is the low one, so
+        // turning them is all the rotation this needs.
         for (BlockPos pos : BlockPos.betweenClosed(
-                new BlockPos(anchor.getX() + marks.gateX - 2, floorY - 1,
-                        anchor.getZ() + marks.minZ - 3),
-                new BlockPos(anchor.getX() + marks.maxX + 2, floorY + GATE_HEIGHT,
-                        anchor.getZ() + marks.maxZ + 3))) {
+                GringottsFurnishing.at(anchor, rotation, marks.gateX - 2, marks.islandY - 1,
+                        marks.minZ - 3),
+                GringottsFurnishing.at(anchor, rotation, marks.maxX + 2, marks.islandY + GATE_HEIGHT,
+                        marks.maxZ + 3))) {
             if (level.getBlockState(pos).is(Blocks.IRON_BARS)) {
                 level.setBlock(pos.immutable(), gate, Block.UPDATE_CLIENTS);
                 swapped++;
             }
         }
 
+        int[] sideways = GringottsFurnishing.turn(0, 1, rotation);
         int filled = fillDoorway(level,
-                new BlockPos(anchor.getX() + marks.gateX, floorY + 1,
-                        anchor.getZ() + marks.islandZ),
-                gate, floorY);
+                GringottsFurnishing.at(anchor, rotation, marks.gateX, marks.islandY + 1,
+                        marks.islandZ),
+                gate, floorY, sideways[0], sideways[1]);
         LOGGER.info("Gringotts gate locked: {} bars replaced, {} cells of doorway filled",
                 swapped, filled);
     }
@@ -212,10 +228,13 @@ public final class VillageGringottsBank {
     /**
      * Floods the doorway void with gate, staying inside the plane of the screen.
      *
-     * <p>Confined to one X column on purpose: the screen is one block thick, and a flood that can
-     * step in X would pour out of the doorway and fill the rotunda behind it.
+     * <p>Confined to one column of the schematic on purpose: the screen is one block thick, and a
+     * flood that can step across it would pour out of the doorway and fill the rotunda behind it.
+     * {@code sideX}/{@code sideZ} is the world direction of the screen sideways (schematic Z, turned
+     * with the building); the flood may step along that, up and down, and nowhere else.
      */
-    private static int fillDoorway(ServerLevel level, BlockPos seed, BlockState gate, int floorY) {
+    private static int fillDoorway(ServerLevel level, BlockPos seed, BlockState gate, int floorY,
+                                    int sideX, int sideZ) {
         if (!level.getBlockState(seed).isAir()) {
             return 0;
         }
@@ -228,7 +247,8 @@ public final class VillageGringottsBank {
             BlockPos pos = queue.poll();
             level.setBlock(pos, gate, Block.UPDATE_CLIENTS);
             filled++;
-            for (BlockPos next : new BlockPos[]{pos.above(), pos.below(), pos.north(), pos.south()}) {
+            for (BlockPos next : new BlockPos[]{pos.above(), pos.below(),
+                    pos.offset(sideX, 0, sideZ), pos.offset(-sideX, 0, -sideZ)}) {
                 if (next.getY() < floorY || next.getY() > floorY + GATE_HEIGHT
                         || !seen.add(next.immutable()) || !level.getBlockState(next).isAir()) {
                     continue;

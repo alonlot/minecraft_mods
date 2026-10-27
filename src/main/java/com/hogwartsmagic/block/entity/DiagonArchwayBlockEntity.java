@@ -143,6 +143,7 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
     private static final String ARMED_KEY = "Armed";
     private static final String KEY_KEY = "KeyBrick";
     private static final String CLOSING_KEY = "Closing";
+    private static final String HOLDING_KEY = "Holding";
     private static final String AXES_KEY = "Axes";
     private static final String CENTRE_KEY = "ArchCentre";
 
@@ -172,6 +173,16 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
      * one block at a time, which read as the arch badly reopening rather than as it closing.
      */
     private boolean closing;
+    /**
+     * The server is holding the sequence at the end of the shudder until the street exists.
+     *
+     * <p>Sent to the client, which counts ticks on its own between packets: without it the client
+     * ran on to the end of the animation while the server stood still, leaving the whole wall
+     * invisible-but-solid until the build finished and then playing no peel at all. With it the
+     * client freezes on the same tick the server does, and picks up again from the packet that ends
+     * the hold.
+     */
+    private boolean holding;
 
     /** The cells that leave. Empty on every brick but the one running the sequence. */
     private final List<BlockPos> arch = new ArrayList<>();
@@ -196,6 +207,16 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
 
     public int ticks() {
         return this.ticks;
+    }
+
+    /** Is the sequence paused, waiting for the street? The renderer then shows the held tick exactly. */
+    public boolean holding() {
+        return this.holding;
+    }
+
+    /** Is the sequence running backwards? The renderer reads the clock the other way round then. */
+    public boolean closing() {
+        return this.closing;
     }
 
     public List<BlockPos> archCells() {
@@ -288,7 +309,7 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
         // than one that shuts when you did not quite mean it.
         if (!standingOpen
                 && com.hogwartsmagic.worldgen.DiagonAlleyPortal.openDoorwayNear(
-                        level, this.worldPosition) != null) {
+                        level, this.worldPosition, wall) != null) {
             standingOpen = true;
         }
         if (standingOpen) {
@@ -317,7 +338,16 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
             }
         }
 
-        if (!this.armed) {
+        // From inside the alley the wall is the way out, and there is nothing to arm and no
+        // dustbin: the alley-side bricks are never cast at and the cauldron stands in a courtyard
+        // that is not built there. A player who is in there when the arch is shut -- by anyone, from
+        // either side -- would otherwise be shut in for good. So three taps on any brick of a
+        // registered doorway's wall open it, exactly as the key brick does outside.
+        boolean fromInside = com.hogwartsmagic.worldgen.DiagonAlleyDimension.isAlley(level)
+                && com.hogwartsmagic.worldgen.DiagonAlleyPortal.doorwayFor(
+                        level, this.worldPosition, wall) != null;
+
+        if (!fromInside && !this.armed) {
             // Unarmed: a knock and dust, whatever brick it is. No message, because the wall being
             // inert is not an error the player made -- it is the state every wall starts in.
             level.playSound(null, this.worldPosition, com.hogwartsmagic.ModSounds.ARCHWAY_KNOCK.get(), SoundSource.BLOCKS,
@@ -330,9 +360,14 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
         if (now - this.lastTapAt > TAP_MEMORY) {
             this.taps = 0;
         }
+        if (fromInside) {
+            // The taps of the wall, not of the brick: somebody shut in is not going to tap the same
+            // brick three times, they are going to knock all over it.
+            this.taps = Math.max(this.taps, recentTapsOnWall(level, wall, now));
+        }
         this.lastTapAt = now;
 
-        if (!isKeyBrick(level)) {
+        if (!fromInside && !isKeyBrick(level)) {
             // A dull knock and a little dust. Deliberately not a failure message: finding the brick
             // is the puzzle, and telling the player they got it wrong gives away that there is a
             // right one nearby.
@@ -350,10 +385,26 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
         dust(level, this.worldPosition, 6);
 
         if (this.taps < TAPS_NEEDED) {
+            if (fromInside && player != null) {
+                player.displayClientMessage(Component.literal(this.taps == 1
+                        ? "The bricks stir. Twice more..." : "The bricks stir. Once more..."), true);
+            }
             return;
         }
         this.taps = 0;
         beginOpening(level, player);
+    }
+
+    /** The highest tap count among the bricks of this wall that were tapped recently enough to count. */
+    private int recentTapsOnWall(ServerLevel level, List<BlockPos> wall, long now) {
+        int most = 0;
+        for (BlockPos p : wall) {
+            if (level.getBlockEntity(p) instanceof DiagonArchwayBlockEntity other
+                    && now - other.lastTapAt <= TAP_MEMORY) {
+                most = Math.max(most, other.taps);
+            }
+        }
+        return most;
     }
 
     /**
@@ -370,7 +421,7 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
             return;
         }
         measureAxes(found);
-        buildArch(found);
+        buildArch(level, found);
         this.panel.clear();
         for (BlockPos p : found) {
             this.panel.add(p.immutable());
@@ -388,6 +439,52 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
             player.displayClientMessage(Component.literal(
                     "The bricks fold themselves back, and the wall knits shut."), true);
         }
+    }
+
+    /**
+     * The block this entity belongs to is being removed -- broken, replaced, exploded.
+     *
+     * <p>If a sequence is running it is the only thing that will ever put the panel back: the
+     * cells sit at {@code MOVING}, invisible but solid, and it is this brick's clock that turns them
+     * back into brick. Take the clock away and they stay that way for good, a wall that cannot be
+     * seen and cannot be walked through. So the panel is returned to {@code SHUT} here, on both
+     * sides, and the sequence abandoned -- except for cells that are already open.
+     */
+    public void abortSequence(ServerLevel level) {
+        if (this.ticks < 0) {
+            return;
+        }
+        LOGGER.info("The tapped brick at {} was removed mid-sequence; shutting the wall", this.worldPosition);
+        BlockPos doorway = archCentrePos();
+        // Cells that have already been freed stay free. They are OPEN because their bricks have
+        // flown clear, and somebody may well be standing in the gap by now -- turning it back into
+        // brick around them would entomb them. The other world is told to match, or the half-open
+        // arch would lead from here into solid wall there.
+        List<BlockPos> toShut = new ArrayList<>();
+        List<BlockPos> stillOpen = new ArrayList<>();
+        for (BlockPos p : this.panel) {
+            BlockState s = level.getBlockState(p);
+            if (s.getBlock() instanceof DiagonArchwayBlock
+                    && s.getValue(DiagonArchwayBlock.PHASE) == DiagonArchwayBlock.OPEN) {
+                stillOpen.add(p);
+            } else {
+                toShut.add(p);
+            }
+        }
+        List<BlockPos> archShut = new ArrayList<>();
+        for (BlockPos p : this.arch) {
+            if (toShut.contains(p)) {
+                archShut.add(p);
+            }
+        }
+        this.ticks = -1;
+        this.closing = false;
+        this.holding = false;
+        this.arch.clear();
+        this.panel.clear();
+        setPhase(level, toShut, DiagonArchwayBlock.SHUT);
+        com.hogwartsmagic.worldgen.DiagonAlleyPortal.mirrorArch(level, doorway, archShut, false);
+        com.hogwartsmagic.worldgen.DiagonAlleyPortal.mirrorArch(level, doorway, stillOpen, true);
     }
 
     /** The middle of the opening, at its threshold -- the one cell that names this doorway. */
@@ -531,7 +628,7 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
             return;
         }
         measureAxes(panel);
-        buildArch(panel);
+        buildArch(level, panel);
         if (this.arch.isEmpty()) {
             return;
         }
@@ -653,9 +750,10 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
 
     /**
      * The cells that move: a five-wide opening with straight jambs and a rounded head, centred on
-     * the tapped brick but nudged so it cannot hang off the end of the panel.
+     * the wall's registered doorway if it has one and otherwise on the tapped brick, but nudged so
+     * it cannot hang off the end of the panel.
      */
-    private void buildArch(List<BlockPos> panel) {
+    private void buildArch(ServerLevel level, List<BlockPos> panel) {
         this.arch.clear();
         int minA = Integer.MAX_VALUE, maxA = Integer.MIN_VALUE, minY = Integer.MAX_VALUE;
         for (BlockPos p : panel) {
@@ -665,6 +763,19 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
             minY = Math.min(minY, p.getY());
         }
         int centre = axis(this.worldPosition, this.acrossAxis);
+        // If this wall already has a doorway the arch is cut where that doorway is, whichever brick
+        // was tapped. Centring on the tapped brick builds a different arch for every brick, and the
+        // registry -- which names the doorway by one cell -- then closes one side of it only.
+        com.hogwartsmagic.worldgen.DiagonAlleyRegistry.Entry doorway =
+                com.hogwartsmagic.worldgen.DiagonAlleyPortal.doorwayFor(level, this.worldPosition, panel);
+        if (doorway != null) {
+            // Only if that doorway is actually in this panel: a second wall further along the same
+            // line is another wall, and gets its own arch rather than a clamped copy of the first.
+            int registered = axis(doorway.arch(), this.acrossAxis);
+            if (registered >= minA + HALF_WIDTH && registered <= maxA - HALF_WIDTH) {
+                centre = registered;
+            }
+        }
         centre = Math.max(minA + HALF_WIDTH, Math.min(maxA - HALF_WIDTH, centre));
         this.archCentre = centre;
         this.archBottom = minY;
@@ -723,10 +834,22 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
         // The build normally finishes inside the wind-up, but on a slow server or a big clear
         // it can run long, and an arch that opens onto a hole in the ground is worse than an
         // arch that takes a moment longer. The wall keeps rippling while it waits.
-        if (brick.ticks >= PEEL_START
+        // Not while closing: a wall folding shut has nothing to wait for, and pinning it here would
+        // snap it from the middle of its animation to the start of the peel.
+        if (!brick.closing && brick.ticks >= PEEL_START
                 && com.hogwartsmagic.worldgen.DiagonAlleyManager.isBusy()) {
             brick.ticks = PEEL_START;
+            if (!brick.holding) {
+                brick.holding = true;           // tell the client to stop counting
+                brick.setChanged();
+                brick.sync(server);
+            }
             return;
+        }
+        if (brick.holding) {
+            brick.holding = false;              // the street is up; the client carries on from here
+            brick.setChanged();
+            brick.sync(server);
         }
         if (brick.closing) {
             brick.ticks--;
@@ -800,7 +923,17 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
 
     public static void clientTick(Level level, BlockPos pos, BlockState state,
                                   DiagonArchwayBlockEntity brick) {
-        if (brick.ticks >= 0 && brick.ticks < TOTAL) {
+        if (brick.closing) {
+            // The server counts down from TOTAL while closing, so the client has to as well: only
+            // counting up left a closing wall frozen at its fully-open pose until the final packet
+            // snapped it shut. It stops at GLOW, where the renderer has nothing left to draw, and the
+            // server's closing packet (ticks = -1) takes it from there.
+            if (brick.ticks > GLOW) {
+                brick.ticks--;
+            }
+        } else if (brick.holding && brick.ticks >= PEEL_START) {
+            brick.ticks = PEEL_START;           // frozen with the server, ripple still running
+        } else if (brick.ticks >= 0 && brick.ticks < TOTAL) {
             brick.ticks++;
         }
     }
@@ -915,6 +1048,7 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
         tag.putBoolean(ARMED_KEY, this.armed);
         tag.putBoolean(KEY_KEY, this.isKey);
         tag.putBoolean(CLOSING_KEY, this.closing);
+        tag.putBoolean(HOLDING_KEY, this.holding);
     }
 
     @Override
@@ -942,6 +1076,7 @@ public class DiagonArchwayBlockEntity extends BlockEntity {
         this.armed = tag.getBoolean(ARMED_KEY);
         this.isKey = tag.getBoolean(KEY_KEY);
         this.closing = tag.getBoolean(CLOSING_KEY);
+        this.holding = tag.getBoolean(HOLDING_KEY);
     }
 
     @Override

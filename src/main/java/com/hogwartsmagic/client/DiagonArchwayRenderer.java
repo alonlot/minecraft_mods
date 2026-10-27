@@ -91,9 +91,16 @@ public class DiagonArchwayRenderer implements BlockEntityRenderer<DiagonArchwayB
         this.brick = LayerDefinition.create(mesh, 64, 32).bakeRoot().getChild("brick");
     }
 
+    /**
+     * Only the brick running the sequence has anything to draw -- every other brick of the wall
+     * sits at {@code ticks = -1} and returns immediately from {@link #render}. Answering true for
+     * all of them put every brick of every archway wall (thirteen thousand in the old template) in
+     * the always-render list, each paying a light lookup every frame for nothing. The wall is still
+     * drawn by its real blocks when idle, and the section recompiles when the phase changes.
+     */
     @Override
     public boolean shouldRenderOffScreen(DiagonArchwayBlockEntity wall) {
-        return true;
+        return wall.ticks() >= 0;
     }
 
     @Override
@@ -117,7 +124,12 @@ public class DiagonArchwayRenderer implements BlockEntityRenderer<DiagonArchwayB
         if (ticks < 0 || wall.panelCells().isEmpty() || wall.getLevel() == null) {
             return;
         }
-        float t = Math.min(ticks + partialTick, DiagonArchwayBlockEntity.TOTAL);
+        // Closing counts down, so the fraction between two client ticks runs the other way too.
+        // A held wall is not advancing, so there is no fraction of a tick to add.
+        float t = wall.closing()
+                ? Mth.clamp(ticks - partialTick, 0.0F, DiagonArchwayBlockEntity.TOTAL)
+                : wall.holding() ? ticks
+                : Math.min(ticks + partialTick, DiagonArchwayBlockEntity.TOTAL);
         if (t <= DiagonArchwayBlockEntity.GLOW) {
             return;                     // the seam beat: the real blocks are still drawing themselves
         }
@@ -207,13 +219,18 @@ public class DiagonArchwayRenderer implements BlockEntityRenderer<DiagonArchwayB
                             0.0F, 1.0F);
                     float jitter = hash(cell.getX(), cell.getY() * 8 + sub, cell.getZ(), 13);
                     float amp = env * settle * (0.5F + jitter);
-                    if (amp < 0.002F) {
-                        continue;                   // at rest: nothing to draw but the real block
+                    // A brick at rest is still drawn, in place. The real block it belongs to is
+                    // MOVING for the whole animation -- RenderShape.INVISIBLE -- so there is no
+                    // "real block" underneath to fall back on: skipping a resting brick leaves a hole
+                    // in the surround, which is what a wall that was opening (or, on closing, the
+                    // whole surround from the first frame) looked like. Below the threshold the
+                    // pose is simply the rest pose.
+                    if (amp >= 0.002F) {
+                        dn = amp * RIPPLE_OUT;
+                        spin = amp * RIPPLE_SPIN * (jitter * 2.0F - 1.0F);
+                        tip = amp * RIPPLE_SPIN * (hash(cell.getX(), sub, cell.getZ(), 19) - 0.5F);
+                        hot = env > 0.75F;
                     }
-                    dn = amp * RIPPLE_OUT;
-                    spin = amp * RIPPLE_SPIN * (jitter * 2.0F - 1.0F);
-                    tip = amp * RIPPLE_SPIN * (hash(cell.getX(), sub, cell.getZ(), 19) - 0.5F);
-                    hot = env > 0.75F;
                 }
 
                 float[] offset = new float[3];

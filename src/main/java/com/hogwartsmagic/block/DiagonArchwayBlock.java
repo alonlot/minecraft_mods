@@ -126,6 +126,22 @@ public class DiagonArchwayBlock extends BaseEntityBlock {
                 : (lvl, pos, st, be) -> DiagonArchwayBlockEntity.serverTick(lvl, pos, st, (DiagonArchwayBlockEntity) be);
     }
 
+    /**
+     * If the brick running the opening sequence is broken, the sequence dies with it and the rest of
+     * the panel -- sitting at {@code MOVING}, invisible but solid -- would stay that way for good.
+     * The entity puts the wall back before it goes. Only when the block itself is replaced: a change
+     * of {@code PHASE} or {@code LIT} keeps the same block and must not abort anything.
+     */
+    @Override
+    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState,
+                            boolean moving) {
+        if (!state.is(newState.getBlock()) && level instanceof ServerLevel server
+                && level.getBlockEntity(pos) instanceof DiagonArchwayBlockEntity brick) {
+            brick.abortSequence(server);
+        }
+        super.onRemove(state, level, pos, newState, moving);
+    }
+
     /** A bare hand or anything else: it is a tap either way. A wand is not required to get in. */
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos,

@@ -39,9 +39,26 @@ public class DiagonAlleyRegistry extends SavedData {
 
     private static final String NAME = "hogwartsmagic_diagon_alleys";
 
-    /** One wall, and the street behind it. */
+    /**
+     * One wall, and the street behind it.
+     *
+     * <p>{@code templateCrc} and {@code complete} exist because a street is built once and then kept
+     * forever, which is only safe if the thing kept is the thing wanted. {@code templateCrc} is the
+     * {@link DiagonAlleyTemplate#fingerprint()} of the file the street was pasted from, so a new
+     * version of the template can be told apart from the old and the street rebuilt; {@code complete}
+     * is set only when the paste has actually finished, so a server stopped halfway through leaves a
+     * street that is recognisably unfinished rather than one that is reused as it stands. Entries
+     * saved before either field existed load with neither -- stale and incomplete, which is exactly
+     * how an old street should be treated.
+     */
     public record Entry(String sourceDimension, BlockPos arch, BlockPos anchor, Direction facing,
-                        int sizeX, int sizeY, int sizeZ) {
+                        int sizeX, int sizeY, int sizeZ, int templateCrc, boolean complete) {
+
+        /** The same entry, marked as fully built. */
+        public Entry asComplete() {
+            return new Entry(sourceDimension, arch, anchor, facing, sizeX, sizeY, sizeZ,
+                    templateCrc, true);
+        }
 
         /** Is this world position inside the street this entry built? */
         public boolean contains(BlockPos pos) {
@@ -144,6 +161,20 @@ public class DiagonAlleyRegistry extends SavedData {
         setDirty();
     }
 
+    /** The paste behind this wall has finished. A no-op if the entry was replaced in the meantime. */
+    public void markComplete(String sourceDimension, BlockPos arch) {
+        for (int i = 0; i < entries.size(); i++) {
+            Entry e = entries.get(i);
+            if (e.arch().equals(arch) && e.sourceDimension().equals(sourceDimension)) {
+                if (!e.complete()) {
+                    entries.set(i, e.asComplete());
+                    setDirty();
+                }
+                return;
+            }
+        }
+    }
+
     /** Forget a wall, so tapping it builds a fresh street. Used when the wall itself is destroyed. */
     public void forget(ServerLevel source, BlockPos arch) {
         String dim = source.dimension().location().toString();
@@ -170,11 +201,15 @@ public class DiagonAlleyRegistry extends SavedData {
                 continue;
             }
             Direction facing = Direction.from3DDataValue(e.getInt("Facing"));
+            // Absent in saves from before streets were versioned: 0 and false, i.e. stale and
+            // unfinished, so the next tap on that wall rebuilds it from the current template.
+            int crc = e.contains("Crc", Tag.TAG_INT) ? e.getInt("Crc") : 0;
+            boolean complete = e.contains("Complete") && e.getBoolean("Complete");
             data.entries.add(new Entry(
                     e.getString("From"),
                     new BlockPos(arch[0], arch[1], arch[2]),
                     new BlockPos(anchor[0], anchor[1], anchor[2]),
-                    facing, size[0], size[1], size[2]));
+                    facing, size[0], size[1], size[2], crc, complete));
         }
         return data;
     }
@@ -190,6 +225,8 @@ public class DiagonAlleyRegistry extends SavedData {
                     new int[]{e.anchor().getX(), e.anchor().getY(), e.anchor().getZ()});
             c.putIntArray("Size", new int[]{e.sizeX(), e.sizeY(), e.sizeZ()});
             c.putInt("Facing", e.facing().get3DDataValue());
+            c.putInt("Crc", e.templateCrc());
+            c.putBoolean("Complete", e.complete());
             list.add(c);
         }
         tag.put("Alleys", list);

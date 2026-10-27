@@ -52,11 +52,14 @@ public final class DiagonAlleyView {
     public static void showAlley(ServerPlayer viewer, ServerLevel alley,
                                  DiagonAlleyRegistry.Entry entry, BlockPos archCentre,
                                  Direction facing) {
+        // Through the portal's non-blocking delivery: a chunk of the street that is not resident is
+        // requested by ticket and sent when it arrives, not loaded here on the server thread.
         forEachChunk(viewer, entry, (cx, cz, straddles) -> {
+            ChunkPos pos = new ChunkPos(cx, cz);
             if (straddles) {
-                sendFarHalf(viewer, alley, archCentre, facing, new ChunkPos(cx, cz), entry);
+                DiagonAlleyPortal.deliver(viewer, viewer.serverLevel(), pos, alley, false, entry, entry);
             } else {
-                sendWholeChunk(viewer, alley, cx, cz);
+                DiagonAlleyPortal.deliver(viewer, viewer.serverLevel(), pos, alley, true, null, entry);
             }
         });
     }
@@ -69,7 +72,9 @@ public final class DiagonAlleyView {
      */
     public static void showRealWorld(ServerPlayer viewer, ServerLevel source,
                                      DiagonAlleyRegistry.Entry entry) {
-        forEachChunk(viewer, entry, (cx, cz, straddles) -> sendWholeChunk(viewer, source, cx, cz));
+        forEachChunk(viewer, entry, (cx, cz, straddles) ->
+                DiagonAlleyPortal.deliver(viewer, viewer.serverLevel(), new ChunkPos(cx, cz), source,
+                        true, null, null));
     }
 
     /** Is any part of this chunk through the arch? */
@@ -84,9 +89,9 @@ public final class DiagonAlleyView {
     }
 
     /** Where a chunk sits relative to the wall. */
-    private static final int NEAR = 0;          // entirely on the viewer own side
-    private static final int STRADDLING = 1;    // the wall runs through it
-    private static final int BEYOND = 2;        // entirely through the arch
+    public static final int NEAR = 0;           // entirely on the viewer own side
+    public static final int STRADDLING = 1;     // the wall runs through it
+    public static final int BEYOND = 2;         // entirely through the arch
 
     /**
      * Which side of the wall a chunk is on, measured against the wall plane itself.
@@ -97,7 +102,7 @@ public final class DiagonAlleyView {
      * replaced the ground the player was standing on with the alley -- and with the void underneath
      * it, which is why the world appeared to have a hole cut in it.
      */
-    private static int sideOf(int chunkX, int chunkZ, DiagonAlleyRegistry.Entry entry) {
+    public static int sideOf(int chunkX, int chunkZ, DiagonAlleyRegistry.Entry entry) {
         boolean alongX = entry.facing().getAxis() == Direction.Axis.X;
         int step = entry.facing().getAxisDirection().getStep();
         int wall = alongX ? entry.arch().getX() : entry.arch().getZ();
@@ -140,8 +145,14 @@ public final class DiagonAlleyView {
         }
     }
 
-    private static void sendWholeChunk(ServerPlayer viewer, ServerLevel from, int cx, int cz) {
-        LevelChunk chunk = from.getChunk(cx, cz);
+    /**
+     * Send a chunk that is already in hand, whole, straight down the player's connection.
+     *
+     * <p>Not through {@code PlayerChunkSender.sendChunk}, on purpose: that is the method
+     * {@code PlayerChunkSenderMixin} intercepts, so a substitute sent through it would be
+     * substituted again.
+     */
+    public static void sendChunk(ServerPlayer viewer, ServerLevel from, LevelChunk chunk) {
         viewer.connection.send(new ClientboundLevelChunkWithLightPacket(
                 chunk, from.getLightEngine(), null, null));
     }
@@ -153,8 +164,12 @@ public final class DiagonAlleyView {
      * {@link ClientboundSectionBlocksUpdatePacket} reads its states out of a section rather than
      * taking them directly -- a section is the only way to say "pretend these cells are these
      * blocks" in one packet instead of one packet per block.
+     *
+     * <p>Public because the chunk-send mixin needs it too: a straddling chunk is never sent from
+     * either world alone. The viewer's own world supplies the whole chunk and this lays the far
+     * half of the other one over it.
      */
-    private static void sendFarHalf(ServerPlayer viewer, ServerLevel alley, BlockPos archCentre,
+    public static void sendFarHalf(ServerPlayer viewer, ServerLevel alley, BlockPos archCentre,
                                     Direction facing, ChunkPos chunk,
                                     DiagonAlleyRegistry.Entry entry) {
         int step = facing.getAxisDirection().getStep();

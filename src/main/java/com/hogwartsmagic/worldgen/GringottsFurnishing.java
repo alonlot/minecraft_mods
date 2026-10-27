@@ -10,6 +10,7 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.Rotation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,22 +56,61 @@ public final class GringottsFurnishing {
      * a larger template.
      */
     public static void furnish(ServerLevel level, BlockPos anchor, RandomSource rng) {
-        staff(level, anchor, rng);
-        VillageGringottsBank.lockGate(level, anchor);
+        furnish(level, anchor, rng, Rotation.NONE);
+    }
+
+    /**
+     * As {@link #furnish(ServerLevel, BlockPos, RandomSource)}, for a bank that has been turned.
+     *
+     * <p>{@code anchor} is then the world position of the schematic origin <em>after</em> turning,
+     * and every schematic offset below is turned by {@code rotation} before it is added -- see
+     * {@link #at}. Adding the unturned offset to a turned bank puts the tellers and the gate in the
+     * right shape of building and the wrong place, which in three of the four orientations is out in
+     * the street.
+     */
+    public static void furnish(ServerLevel level, BlockPos anchor, RandomSource rng, Rotation rotation) {
+        staff(level, anchor, rng, rotation);
+        VillageGringottsBank.lockGate(level, anchor, rotation);
+    }
+
+    /**
+     * Turn a schematic-local horizontal offset the way the bank was turned.
+     *
+     * <p>A pure rotation about the origin, with no translation: the translation is already carried
+     * by the anchor, which is where the schematic origin ended up. Matches {@link Rotation} as
+     * {@code BlockState.rotate} applies it, which is what turned the blocks themselves.
+     */
+    static int[] turn(int x, int z, Rotation rotation) {
+        return switch (rotation) {
+            case CLOCKWISE_90 -> new int[]{-z, x};
+            case CLOCKWISE_180 -> new int[]{-x, -z};
+            case COUNTERCLOCKWISE_90 -> new int[]{z, -x};
+            default -> new int[]{x, z};
+        };
+    }
+
+    /** The world position of a schematic-local cell, for a bank whose origin is at {@code anchor}. */
+    static BlockPos at(BlockPos anchor, Rotation rotation, int x, int y, int z) {
+        int[] t = turn(x, z, rotation);
+        return new BlockPos(anchor.getX() + t[0], anchor.getY() + y, anchor.getZ() + t[1]);
     }
 
     /** A teller behind each counter, and a couple of guards loose in the hall. */
     public static void staff(ServerLevel level, BlockPos anchor, RandomSource rng) {
+        staff(level, anchor, rng, Rotation.NONE);
+    }
+
+    public static void staff(ServerLevel level, BlockPos anchor, RandomSource rng, Rotation rotation) {
         GringottsSchematic schem = GringottsSchematic.get();
         if (schem == null) {
             return;
         }
 
-        List<BlockPos> tellerSpots = findTellerSpots(schem, anchor);
+        List<BlockPos> tellerSpots = findTellerSpots(schem, anchor, rotation);
         if (tellerSpots.isEmpty()) {
             // No recognisable counters; fall back to any standing room.
             LOGGER.warn("No teller counters found in the Gringotts schematic; using open floor");
-            tellerSpots = findStandingRoom(schem, anchor, 3);
+            tellerSpots = findStandingRoom(schem, anchor, rotation, 3);
         }
 
         for (BlockPos pos : tellerSpots) {
@@ -79,12 +119,12 @@ public final class GringottsFurnishing {
                 continue;
             }
             teller.moveTo(pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D,
-                    yawTowardHall(schem, anchor, pos), 0.0F);
+                    yawTowardHall(schem, anchor, rotation, pos), 0.0F);
             teller.makeTeller("Gringotts Teller");
             level.addFreshEntity(teller);
         }
 
-        for (BlockPos pos : findStandingRoom(schem, anchor, 2)) {
+        for (BlockPos pos : findStandingRoom(schem, anchor, rotation, 2)) {
             GoblinGuardEntity guard = ModEntities.GOBLIN_GUARD.get().create(level);
             if (guard == null) {
                 continue;
@@ -100,14 +140,19 @@ public final class GringottsFurnishing {
     }
 
     /** Turns a teller to face the middle of the building, i.e. the customers. */
-    private static float yawTowardHall(GringottsSchematic schem, BlockPos anchor, BlockPos pos) {
-        double dx = (anchor.getX() + schem.width() / 2.0D) - pos.getX();
-        double dz = (anchor.getZ() + schem.length() / 2.0D) - pos.getZ();
+    private static float yawTowardHall(GringottsSchematic schem, BlockPos anchor, Rotation rotation,
+                                       BlockPos pos) {
+        // The middle of the building is turned like everything else; measured from the unturned
+        // middle, every teller of a turned bank would face the wrong wall.
+        int[] middle = turn(schem.width(), schem.length(), rotation);
+        double dx = (anchor.getX() + middle[0] / 2.0D) - pos.getX();
+        double dz = (anchor.getZ() + middle[1] / 2.0D) - pos.getZ();
         return (float) (Math.toDegrees(Math.atan2(-dx, dz)));
     }
 
     /** One standing position behind each gold-plated counter. */
-    private static List<BlockPos> findTellerSpots(GringottsSchematic schem, BlockPos anchor) {
+    private static List<BlockPos> findTellerSpots(GringottsSchematic schem, BlockPos anchor,
+                                                  Rotation rotation) {
         List<BlockPos> spots = new ArrayList<>();
         int width = schem.width();
         int length = schem.length();
@@ -123,8 +168,7 @@ public final class GringottsFurnishing {
             if (behind == null) {
                 continue;
             }
-            BlockPos pos = new BlockPos(anchor.getX() + behind[0],
-                    anchor.getY() + behind[1], anchor.getZ() + behind[2]);
+            BlockPos pos = at(anchor, rotation, behind[0], behind[1], behind[2]);
             if (farEnough(spots, pos, 4.0D)) {
                 spots.add(pos);
             }
@@ -192,7 +236,8 @@ public final class GringottsFurnishing {
     }
 
     /** Finds up to {@code wanted} well-separated spots with head room inside the build. */
-    private static List<BlockPos> findStandingRoom(GringottsSchematic schem, BlockPos anchor, int wanted) {
+    private static List<BlockPos> findStandingRoom(GringottsSchematic schem, BlockPos anchor,
+                                                   Rotation rotation, int wanted) {
         List<BlockPos> found = new ArrayList<>();
         int width = schem.width();
         int length = schem.length();
@@ -216,8 +261,7 @@ public final class GringottsFurnishing {
                         boolean feet = schem.isAir(schem.indexOf(x, y, z));
                         boolean head = schem.isAir(schem.indexOf(x, y + 1, z));
                         if (floor && feet && head) {
-                            BlockPos pos = new BlockPos(anchor.getX() + x,
-                                    anchor.getY() + y, anchor.getZ() + z);
+                            BlockPos pos = at(anchor, rotation, x, y, z);
                             if (farEnough(found, pos, 6.0D)) {
                                 found.add(pos);
                             }

@@ -1,5 +1,6 @@
 package com.hogwartsmagic.worldgen;
 
+import com.hogwartsmagic.block.DiagonArchwayBlock;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -14,6 +15,9 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -91,6 +95,9 @@ public final class DiagonAlleyManager {
      * through the arch show the world they came from: there is simply nothing there to send.
      */
     private static final int WALL_X = 14;
+
+    /** How long to keep sweeping for entities after the old blocks are gone; see clearOld. */
+    private static final int ENTITY_SETTLE_TICKS = 20;
 
     private static PlacementJob activeJob;
 
@@ -197,6 +204,7 @@ public final class DiagonAlleyManager {
                 LOGGER.info("Diagon Alley placement complete ({} blocks, {} entities)",
                         job.placed, job.spawned);
                 activeJob = null;
+                job.finish();
             }
         } catch (Exception e) {
             // Without this a single bad block entity or entity tag would rethrow from the tick
@@ -219,7 +227,9 @@ public final class DiagonAlleyManager {
         Component msg = Component.literal(
                         "[Hogwarts Magic] Diagon Alley is rising at " + centre.getX() + ", "
                                 + centre.getY() + ", " + centre.getZ()
-                                + " — tap the wall behind the Leaky Cauldron, three up and two across from the bin.")
+                                + " — build a wall of Diagon archway brick behind the Leaky Cauldron, arm it with a"
+                                + " spell (Alohomora or Revelio), then tap the glowing brick, three up and two"
+                                + " across from the bin, three times.")
                 .withStyle(Style.EMPTY.withColor(ChatFormatting.GOLD));
         for (ServerPlayer p : server.getPlayerList().getPlayers()) {
             p.sendSystemMessage(msg);
@@ -238,7 +248,10 @@ public final class DiagonAlleyManager {
      * and a long jump cannot be hidden (see {@link DiagonAlleyPortal}).
      *
      * <p>Built once per wall. A wall that has been opened before is already standing behind itself,
-     * so this returns immediately and the arch opens onto a street that never went away.
+     * so this returns immediately and the arch opens onto a street that never went away -- provided
+     * that street is both finished and built from the current template. One that is not (a server
+     * stopped mid-paste, or a template that has changed since) is cleared, entities included, and
+     * built again, unless somebody is standing in it.
      *
      * <p>Returns the anchor, or null if the dimension or the template is missing, or a build is
      * already running.
@@ -260,10 +273,30 @@ public final class DiagonAlleyManager {
 
         DiagonAlleyRegistry registry = DiagonAlleyRegistry.get(alley);
         DiagonAlleyRegistry.Entry already = registry.forArch(from, archCentre);
+        java.util.List<DiagonAlleyRegistry.Entry> doomed = new java.util.ArrayList<>();
         if (already != null) {
-            LOGGER.info("Reopening the alley behind {}; it is already built at {}",
-                    archCentre, already.anchor());
-            return already.anchor();
+            boolean outdated = !already.complete()
+                    || already.templateCrc() != template.fingerprint();
+            if (!outdated) {
+                LOGGER.info("Reopening the alley behind {}; it is already built at {}",
+                        archCentre, already.anchor());
+                return already.anchor();
+            }
+            // A street is kept so that a wall is built once, but kept is not the same as right: it
+            // may be half a street left by a server that stopped mid-paste, or a street from before
+            // the template was last changed. Both are rebuilt -- unless somebody is standing in it,
+            // in which case pulling it out from under them is worse than showing them an old one.
+            if (playerInside(alley, already)) {
+                LOGGER.info("The alley behind {} is {}, but somebody is inside it; reusing it as it is",
+                        archCentre, already.complete() ? "from an older template" : "unfinished");
+                return already.anchor();
+            }
+            LOGGER.info("Rebuilding the alley behind {}: it is {}", archCentre,
+                    already.complete() ? "from an older template" : "unfinished");
+            // The street stays where it was, facing the way it was, so the rebuild lands on the
+            // ground it already occupies instead of growing a second street beside it.
+            facing = already.facing();
+            doomed.add(already);
         }
 
         Rotation rotation = rotationFor(facing);
@@ -273,13 +306,25 @@ public final class DiagonAlleyManager {
         // A wall rebuilt a block or two over would otherwise leave its old street standing and,
         // worse, its old doorway in the registry -- two doorways in range of one player is what
         // made the view thrash badly enough to exhaust the heap.
-        java.util.List<DiagonAlleyRegistry.Entry> stale =
-                registry.overlapping(anchor, footprint[0], template.sizeY(), footprint[1]);
+        for (DiagonAlleyRegistry.Entry old
+                : registry.overlapping(anchor, footprint[0], template.sizeY(), footprint[1])) {
+            if (!doomed.contains(old)) {
+                doomed.add(old);
+            }
+        }
         int[] clearBox = null;
-        if (!stale.isEmpty()) {
+        if (!doomed.isEmpty()) {
+            // Checked before anything is removed, so refusing leaves the registry as it was.
+            for (DiagonAlleyRegistry.Entry old : doomed) {
+                if (playerInside(alley, old)) {
+                    LOGGER.warn("Not building the alley behind {}: it would clear the one behind {}, "
+                            + "and somebody is standing in that", archCentre, old.arch());
+                    return null;
+                }
+            }
             int x0 = anchor.getX(), y0 = anchor.getY(), z0 = anchor.getZ();
             int x1 = x0 + footprint[0] - 1, y1 = y0 + template.sizeY() - 1, z1 = z0 + footprint[1] - 1;
-            for (DiagonAlleyRegistry.Entry old : stale) {
+            for (DiagonAlleyRegistry.Entry old : doomed) {
                 x0 = Math.min(x0, old.anchor().getX());
                 y0 = Math.min(y0, old.anchor().getY());
                 z0 = Math.min(z0, old.anchor().getZ());
@@ -287,20 +332,40 @@ public final class DiagonAlleyManager {
                 y1 = Math.max(y1, old.anchor().getY() + old.sizeY() - 1);
                 z1 = Math.max(z1, old.anchor().getZ() + old.sizeZ() - 1);
                 registry.remove(old);
-                LOGGER.info("Dropping the alley behind {}; a new wall overlaps it", old.arch());
+                LOGGER.info("Dropping the alley behind {}; a new build covers it", old.arch());
             }
             clearBox = new int[]{x0, y0, z0, x1, y1, z1};
         }
 
-        activeJob = new PlacementJob(alley, template, anchor, rotation, true, clearBox);
+        PlacementJob job = new PlacementJob(alley, template, anchor, rotation, true, clearBox);
+        String sourceName = from.dimension().location().toString();
+        BlockPos archKey = archCentre.immutable();
+        // Only a job that runs to the end gets to call its street finished. One that throws is
+        // abandoned, one that is cut short by a server stop never gets here, and both leave an
+        // entry that open() will see is unfinished and build again.
+        job.onComplete = () -> {
+            registry.markComplete(sourceName, archKey);
+            alley.getDataStorage().save();
+        };
+        activeJob = job;
         registry.record(new DiagonAlleyRegistry.Entry(
-                from.dimension().location().toString(), archCentre, anchor, facing,
-                footprint[0], template.sizeY(), footprint[1]));
+                sourceName, archKey, anchor, facing,
+                footprint[0], template.sizeY(), footprint[1], template.fingerprint(), false));
         alley.getDataStorage().save();
         DiagonAlleyTracker.get(from).add(archCentre);
         LOGGER.info("Building Diagon Alley: arch {} facing {}, anchor {}, rotation {}",
                 archCentre, facing, anchor, rotation);
         return anchor;
+    }
+
+    /** Is any player standing inside the street this entry built? */
+    private static boolean playerInside(ServerLevel alley, DiagonAlleyRegistry.Entry entry) {
+        for (ServerPlayer player : alley.players()) {
+            if (entry.contains(player.blockPosition())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -309,15 +374,43 @@ public final class DiagonAlleyManager {
      * <p>The template is authored with the courtyard at low x and the street leaving it at
      * {@link #COURTYARD_END_X}; rotating that entry point and subtracting it from the world cell
      * just through the arch puts the two together whichever way the wall faces.
+     *
+     * <p>Vertically the template's own wall panel is what has to meet the player wall, not its
+     * paving. {@code archCentre.y} is the lowest brick of the wall the player built, so the lowest
+     * archway brick of the template's panel is placed exactly there; the paving then lands one row
+     * under it, level with the ground the wall stands on. Anchoring the paving at the arch instead
+     * -- which is what this used to do -- raised the whole street by the height of the panel's
+     * foundation, so the two panels were a row apart and the door could not be found from inside.
      */
     public static BlockPos anchorFor(DiagonAlleyTemplate template, BlockPos archCentre,
                                      Direction facing, Rotation rotation) {
         int entryZ = streetEntryZ(template);
-        int[] entry = rotate(COURTYARD_END_X, 1, entryZ, template.sizeX(), template.sizeZ(), rotation);
+        int panelBottom = panelBottomY(template);
+        int[] entry = rotate(COURTYARD_END_X, panelBottom, entryZ, template.sizeX(), template.sizeZ(),
+                rotation);
         BlockPos worldEntry = archCentre.relative(facing);
         return new BlockPos(worldEntry.getX() - entry[0],
-                worldEntry.getY() - entry[1],
+                archCentre.getY() - panelBottom,
                 worldEntry.getZ() - entry[2]);
+    }
+
+    /**
+     * The template row its wall panel starts on: the lowest archway brick in the wall column,
+     * measured rather than written down for the same reason {@link #streetEntryZ} is.
+     */
+    private static int panelBottomY(DiagonAlleyTemplate template) {
+        int lowest = Integer.MAX_VALUE;
+        for (int i = 0; i < template.count(); i++) {
+            if (template.localX(i) == WALL_X
+                    && template.stateAt(i).getBlock() instanceof DiagonArchwayBlock) {
+                lowest = Math.min(lowest, template.localY(i));
+            }
+        }
+        if (lowest == Integer.MAX_VALUE) {
+            LOGGER.warn("No archway brick in the template's wall column; assuming the panel starts at y=2");
+            return 2;
+        }
+        return lowest;
     }
 
     /**
@@ -399,6 +492,15 @@ public final class DiagonAlleyManager {
          */
         private final int[] clearBox;
         private int oldCursor;
+        /** True once the entities standing in the clear box have been swept for the first time. */
+        private boolean sweptAtStart;
+        /**
+         * Ticks still to wait, after the blocks are gone, for entities in chunks that were not yet
+         * loaded when the clear began. -1 until the block pass has finished.
+         */
+        private int settleTicks = -1;
+        /** Run once, when the whole job has finished. Not run if it throws or the server stops. */
+        Runnable onComplete;
 
         /** Footprint after rotation. */
         private final int fx;
@@ -503,6 +605,13 @@ public final class DiagonAlleyManager {
             return (ly * fz + lz) * fx + lx;
         }
 
+        /** The job has run to the end. */
+        void finish() {
+            if (onComplete != null) {
+                onComplete.run();
+            }
+        }
+
         /** One tick's worth of work. Returns true when the whole job is finished. */
         boolean advance() {
             switch (phase) {
@@ -530,26 +639,65 @@ public final class DiagonAlleyManager {
             return phase >= 6;
         }
 
-        /** Empty the box an older street left behind, a slice per tick like everything else. */
+        /**
+         * Empty the box an older street left behind, a slice per tick like everything else.
+         *
+         * <p>Entities first, then blocks, then entities again. The old street was staffed: villagers
+         * behind counters, owls on perches, goblins in the bank, items in frames. Clearing only the
+         * blocks left every one of them standing in mid-air, and the rebuilt street then added its
+         * own on top, so each rebuild doubled the population. Entities in chunks that were not loaded
+         * when the sweep began only appear once clearing the blocks has pulled those chunks in, hence
+         * the later sweeps.
+         */
         private void clearOld() {
+            if (!sweptAtStart) {
+                sweptAtStart = true;
+                sweepEntities();
+            }
             int sx = clearBox[3] - clearBox[0] + 1;
             int sy = clearBox[4] - clearBox[1] + 1;
             int sz = clearBox[5] - clearBox[2] + 1;
             int total = sx * sy * sz;
-            int end = Math.min(total, oldCursor + CELLS_PER_TICK);
-            for (int idx = oldCursor; idx < end; idx++) {
-                int lx = idx % sx;
-                int rest = idx / sx;
-                int lz = rest % sz;
-                int ly = rest / sz;
-                cursor.set(clearBox[0] + lx, clearBox[1] + ly, clearBox[2] + lz);
-                if (!level.getBlockState(cursor).isAir()) {
-                    level.setBlock(cursor, Blocks.AIR.defaultBlockState(), FLAGS);
+            if (oldCursor < total) {
+                int end = Math.min(total, oldCursor + CELLS_PER_TICK);
+                for (int idx = oldCursor; idx < end; idx++) {
+                    int lx = idx % sx;
+                    int rest = idx / sx;
+                    int lz = rest % sz;
+                    int ly = rest / sz;
+                    cursor.set(clearBox[0] + lx, clearBox[1] + ly, clearBox[2] + lz);
+                    if (!level.getBlockState(cursor).isAir()) {
+                        level.setBlock(cursor, Blocks.AIR.defaultBlockState(), FLAGS);
+                    }
                 }
+                oldCursor = end;
+                if (oldCursor >= total) {
+                    settleTicks = ENTITY_SETTLE_TICKS;
+                }
+                return;
             }
-            oldCursor = end;
-            if (oldCursor >= total) {
+            if (settleTicks % 5 == 0) {
+                sweepEntities();
+            }
+            if (--settleTicks <= 0) {
                 phase = 2;
+            }
+        }
+
+        /**
+         * Discard everything that is not a player inside the clear box. Players are left to the
+         * caller, which refuses to clear a street somebody is standing in.
+         */
+        private void sweepEntities() {
+            AABB box = new AABB(clearBox[0], clearBox[1], clearBox[2],
+                    clearBox[3] + 1.0D, clearBox[4] + 1.0D, clearBox[5] + 1.0D);
+            int gone = 0;
+            for (Entity entity : level.getEntities((Entity) null, box, e -> !(e instanceof Player))) {
+                entity.discard();
+                gone++;
+            }
+            if (gone > 0) {
+                LOGGER.info("Cleared {} entities out of the old street", gone);
             }
         }
 
@@ -677,7 +825,19 @@ public final class DiagonAlleyManager {
                     return e;
                 });
                 if (entity != null) {
-                    entity.setYRot(entity.getYRot() + rotationDegrees(rotation));
+                    float yaw = entity.getYRot() + rotationDegrees(rotation);
+                    entity.setYRot(yaw);
+                    entity.yRotO = yaw;
+                    if (entity instanceof LivingEntity living) {
+                        // A mob is drawn and aims by its head and body yaw, not by its entity yaw,
+                        // and both were loaded from the template unturned. Left alone, a keeper in
+                        // a turned alley faces the way it did in the template -- away from its
+                        // counter -- until something makes it look elsewhere.
+                        living.setYHeadRot(yaw);
+                        living.setYBodyRot(yaw);
+                        living.yHeadRotO = yaw;
+                        living.yBodyRotO = yaw;
+                    }
                     if (level.addFreshEntity(entity)) {
                         spawned++;
                     }
@@ -717,14 +877,17 @@ public final class DiagonAlleyManager {
                 if (!rstate[i].is(Blocks.DARK_PRISMARINE)) {
                     continue;
                 }
-                // The marker is rotated with everything else, so the offset back to the building's
-                // own origin has to be rotated the same way before it can be subtracted.
-                int[] off = rotate(marks.islandX, marks.islandY, marks.islandZ,
-                        schem.width(), schem.length(), rotation);
+                // The marker is turned with everything else, so the offset back to the building's own
+                // origin has to be turned the same way before it can be subtracted -- a pure
+                // rotation, not the template-sized rotate() above: that one also translates, and
+                // the translation belongs to the template, not to a building pasted inside it.
+                // What comes out is where the schematic origin ended up, and every offset
+                // GringottsFurnishing adds to it is turned the same way.
+                int[] off = GringottsFurnishing.turn(marks.islandX, marks.islandZ, rotation);
                 BlockPos bankAnchor = new BlockPos(anchor.getX() + rx[i] - off[0],
-                        anchor.getY() + ry[i] - off[1],
-                        anchor.getZ() + rz[i] - off[2]);
-                GringottsFurnishing.furnish(level, bankAnchor, level.getRandom());
+                        anchor.getY() + ry[i] - marks.islandY,
+                        anchor.getZ() + rz[i] - off[1]);
+                GringottsFurnishing.furnish(level, bankAnchor, level.getRandom(), rotation);
                 LOGGER.info("Staffed the alley's Gringotts, anchored at {}", bankAnchor);
                 return;
             }

@@ -15,6 +15,12 @@ public final class SeamlessMove {
     public static void move(ServerPlayer player, ServerLevel target, double x, double y, double z,
                             float yRot, float xRot) {
         ServerLevel from = player.serverLevel();
+        // Off the horse, out of the boat, and nobody on their shoulders. Removing a player by the
+        // CHANGED_DIMENSION route takes the player and only the player: the mount is left standing
+        // in the old world and the rider arrives in the new one still believing they are on it,
+        // so every tick after that fights over a vehicle in a level it is not in.
+        player.stopRiding();
+        player.ejectPassengers();
         from.removePlayerImmediately(player, Entity.RemovalReason.CHANGED_DIMENSION);
         player.revive();
         player.setServerLevel(target);

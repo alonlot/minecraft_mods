@@ -560,6 +560,9 @@ public class ModEvents {
                     .getCompound(ExampleMod.MODID);
             HousePerks.applyHouseAttributes(serverPlayer);
             HorcruxData.applyMaxHealthPenalty(serverPlayer);
+            // A respawn hands the client a brand new world, so whatever the Diagon Alley view code
+            // believes it has already shown or is still holding for this player is no longer true.
+            com.hogwartsmagic.worldgen.DiagonAlleyPortal.forget(serverPlayer);
 
             String learned = modData.getString("LearnedSpells");
             if (!learned.isEmpty()) {
@@ -710,6 +713,9 @@ public class ModEvents {
     public static void onPlayerChangedDimension(net.minecraftforge.event.entity.player.PlayerEvent.PlayerChangedDimensionEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             cancelApparitionChannel(player, player.getMainHandItem());
+            // Same reason as on respawn: a real dimension change replaces the client's world, which
+            // the seamless arch crossing deliberately never does.
+            com.hogwartsmagic.worldgen.DiagonAlleyPortal.forget(player);
             syncPersistentMagicState(player);
             com.hogwartsmagic.caveinimicum.CaveInimicumManager.get(player.serverLevel()).syncRelevantWardsToPlayer(player);
         }

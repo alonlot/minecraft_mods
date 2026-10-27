@@ -13,9 +13,13 @@ import net.minecraft.world.level.block.state.BlockState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayInputStream;
+import java.io.DataInputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.zip.CRC32;
+import java.util.zip.GZIPInputStream;
 
 /**
  * Loads {@code diagon_alley.nbt} once and caches it.
@@ -53,10 +57,16 @@ public final class DiagonAlleyTemplate {
     private final CompoundTag[] blockEntity;      // null for all but a few hundred
     private final BlockState[] palette;
     private final List<CompoundTag> entities;
+    /**
+     * CRC32 of the template's uncompressed NBT. {@link DiagonAlleyRegistry} records it against every
+     * street it builds, so a street built from an older version of the file can be told apart from
+     * one built from this version and rebuilt the next time somebody opens its wall.
+     */
+    private final int fingerprint;
 
     private DiagonAlleyTemplate(int sizeX, int sizeY, int sizeZ, short[] x, short[] y, short[] z,
                                 short[] state, CompoundTag[] blockEntity, BlockState[] palette,
-                                List<CompoundTag> entities) {
+                                List<CompoundTag> entities, int fingerprint) {
         this.sizeX = sizeX;
         this.sizeY = sizeY;
         this.sizeZ = sizeZ;
@@ -67,6 +77,18 @@ public final class DiagonAlleyTemplate {
         this.blockEntity = blockEntity;
         this.palette = palette;
         this.entities = entities;
+        this.fingerprint = fingerprint;
+    }
+
+    /**
+     * Identifies this version of the template file. Computed once, at load.
+     *
+     * <p>Taken over the <i>uncompressed</i> bytes rather than the file as shipped: gzip writes a
+     * modification time into its header, so a generator that regenerates an identical template would
+     * otherwise change the fingerprint every run and force a pointless rebuild of every street.
+     */
+    public int fingerprint() {
+        return this.fingerprint;
     }
 
     public int sizeX() {
@@ -131,14 +153,24 @@ public final class DiagonAlleyTemplate {
 
     private static DiagonAlleyTemplate load() throws Exception {
         CompoundTag root;
+        int fingerprint;
         try (InputStream in = DiagonAlleyTemplate.class.getResourceAsStream(RESOURCE)) {
             if (in == null) {
                 throw new IllegalStateException("Template not on the classpath: " + RESOURCE);
             }
+            // Decompressed by hand so the same bytes can be both fingerprinted and parsed.
+            byte[] raw;
+            try (GZIPInputStream unzipped = new GZIPInputStream(in)) {
+                raw = unzipped.readAllBytes();
+            }
+            CRC32 crc = new CRC32();
+            crc.update(raw, 0, raw.length);
+            fingerprint = (int) crc.getValue();
             // unlimitedHeap: the default accounter caps at 2 MiB and this template is bigger than
             // that uncompressed, so the default fails with a bare "Tried to read NBT tag that was
             // too big" that says nothing about which file.
-            root = NbtIo.readCompressed(in, NbtAccounter.unlimitedHeap());
+            root = NbtIo.read(new DataInputStream(new ByteArrayInputStream(raw)),
+                    NbtAccounter.unlimitedHeap());
         }
 
         ListTag sizeTag = root.getList("size", Tag.TAG_INT);
@@ -180,9 +212,9 @@ public final class DiagonAlleyTemplate {
             }
         }
 
-        LOGGER.info("Loaded the Diagon Alley template: {}x{}x{}, {} blocks, {} palette entries, {} entities",
-                sx, sy, sz, n, palette.length, ents.size());
-        return new DiagonAlleyTemplate(sx, sy, sz, xs, ys, zs, st, bes, palette, ents);
+        LOGGER.info("Loaded the Diagon Alley template: {}x{}x{}, {} blocks, {} palette entries, {} entities, fingerprint {}",
+                sx, sy, sz, n, palette.length, ents.size(), Integer.toHexString(fingerprint));
+        return new DiagonAlleyTemplate(sx, sy, sz, xs, ys, zs, st, bes, palette, ents, fingerprint);
     }
 
     /**

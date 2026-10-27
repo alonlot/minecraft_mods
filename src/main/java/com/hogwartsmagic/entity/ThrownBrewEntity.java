@@ -51,23 +51,26 @@ public class ThrownBrewEntity extends ThrowableItemProjectile {
         SplashBrewItem.Kind kind = this.getItem().getItem() instanceof SplashBrewItem brew
                 ? brew.kind() : SplashBrewItem.Kind.LIVING_DEATH;
         AABB area = this.getBoundingBox().inflate(PotionRules.SPLASH_RADIUS, 2.0D, PotionRules.SPLASH_RADIUS);
+        int grade = this.getItem().getOrDefault(ExampleMod.BREW_QUALITY.get(), 0);
         if (kind == SplashBrewItem.Kind.MANDRAKE) {
-            Petrification.splashMandrake(level, this, area, this.getOwner());
+            Petrification.splashMandrake(level, this, area, this.getOwner(),
+                    PotionRules.qualityTicks(PotionRules.MANDRAKE_GAZE_WARD_TICKS, grade));
         } else {
-            splashLivingDeath(level, area);
+            splashLivingDeath(level, area, grade);
         }
         level.levelEvent(LevelEvent.PARTICLES_SPELL_POTION_SPLASH, this.blockPosition(), kind.color());
         this.discard();
     }
 
-    private void splashLivingDeath(ServerLevel level, AABB area) {
+    private void splashLivingDeath(ServerLevel level, AABB area, int grade) {
         Holder<MobEffect> stunned = ExampleMod.STUNNED.getHolder().orElse(null);
         if (stunned == null) {
             return;
         }
         for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, area,
                 e -> e.isAlive() && !Petrification.isPetrified(e) && PotionRules.inSplash(this.distanceToSqr(e)))) {
-            CrowdControl.apply(target, stunned, PotionRules.LIVING_DEATH_STUN_TICKS, this);
+            CrowdControl.apply(target, stunned,
+                    Math.round(PotionRules.qualityAmount(PotionRules.LIVING_DEATH_STUN_TICKS, grade)), this);
         }
     }
 }

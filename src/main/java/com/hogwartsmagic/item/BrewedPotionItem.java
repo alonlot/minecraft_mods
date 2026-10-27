@@ -88,7 +88,7 @@ public class BrewedPotionItem extends Item {
     @Override
     public ItemStack finishUsingItem(ItemStack stack, Level level, LivingEntity drinker) {
         if (!level.isClientSide) {
-            applyDrink(level, drinker);
+            applyDrink(stack, level, drinker);
         }
         if (drinker instanceof ServerPlayer serverPlayer) {
             CriteriaTriggers.CONSUME_ITEM.trigger(serverPlayer, stack);
@@ -109,16 +109,20 @@ public class BrewedPotionItem extends Item {
         return stack;
     }
 
-    private void applyDrink(Level level, LivingEntity drinker) {
+    private void applyDrink(ItemStack stack, Level level, LivingEntity drinker) {
+        // Read before the stack shrinks; a bottle without the component is Standard.
+        int grade = stack.getOrDefault(com.hogwartsmagic.ExampleMod.BREW_QUALITY.get(), 0);
         if (kind == Kind.WIGGENWELD) {
             // The only removal path for Bleeding that the drink guard lets through.
             HealSpell.cureBleeding(drinker);
-            drinker.addEffect(new MobEffectInstance(MobEffects.REGENERATION, WIGGENWELD_REGEN_TICKS, WIGGENWELD_REGEN_AMPLIFIER));
+            drinker.addEffect(new MobEffectInstance(MobEffects.REGENERATION,
+                    Math.round(com.hogwartsmagic.brewing.PotionRules.qualityAmount(WIGGENWELD_REGEN_TICKS, grade)), WIGGENWELD_REGEN_AMPLIFIER));
         } else if (kind == Kind.PEPPERUP) {
             if (drinker instanceof ServerPlayer player) {
-                SupportMana.add(player, PEPPERUP_MANA);
+                SupportMana.add(player, com.hogwartsmagic.brewing.PotionRules.qualityAmount(PEPPERUP_MANA, grade));
             }
-            drinker.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, PEPPERUP_FIRE_RESISTANCE_TICKS, 0));
+            drinker.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE,
+                    com.hogwartsmagic.brewing.PotionRules.qualityTicks(PEPPERUP_FIRE_RESISTANCE_TICKS, grade), 0));
             if (level instanceof ServerLevel server) {
                 // Steam from the ears.
                 server.sendParticles(ParticleTypes.CLOUD, drinker.getX(), drinker.getEyeY() + 0.1, drinker.getZ(),
@@ -129,19 +133,21 @@ public class BrewedPotionItem extends Item {
         } else if (kind == Kind.DITTANY) {
             // The only removal path for Cursed Wound that the drink guard lets through.
             com.hogwartsmagic.spell.combat.CombatEffects.cureCursedWound(drinker);
-            drinker.heal(com.hogwartsmagic.brewing.PotionRules.DITTANY_HEAL);
+            drinker.heal(com.hogwartsmagic.brewing.PotionRules.qualityAmount(com.hogwartsmagic.brewing.PotionRules.DITTANY_HEAL, grade));
             if (level instanceof ServerLevel server) {
                 server.sendParticles(ParticleTypes.HAPPY_VILLAGER, drinker.getX(), drinker.getY(0.5), drinker.getZ(),
                         8, 0.3, 0.4, 0.3, 0.0);
             }
         } else if (kind == Kind.MANDRAKE) {
             // A free drinker: the basilisk's hold is gone and cannot build for 8 seconds.
-            com.hogwartsmagic.petrification.Petrification.wardGaze(drinker);
+            com.hogwartsmagic.petrification.Petrification.wardGaze(drinker,
+                    com.hogwartsmagic.brewing.PotionRules.qualityTicks(com.hogwartsmagic.brewing.PotionRules.MANDRAKE_GAZE_WARD_TICKS, grade));
             if (drinker instanceof Player player) {
                 player.displayClientMessage(Component.translatable("message.hogwartsmagic.mandrake.drink"), true);
             }
         } else if (kind == Kind.FELIX) {
-            drinker.addEffect(new MobEffectInstance(MobEffects.LUCK, com.hogwartsmagic.brewing.PotionRules.FELIX_TICKS,
+            drinker.addEffect(new MobEffectInstance(MobEffects.LUCK,
+                    com.hogwartsmagic.brewing.PotionRules.qualityTicks(com.hogwartsmagic.brewing.PotionRules.FELIX_TICKS, grade),
                     com.hogwartsmagic.brewing.PotionRules.FELIX_LUCK_AMPLIFIER));
             if (level instanceof ServerLevel server) {
                 server.sendParticles(ParticleTypes.WAX_ON, drinker.getX(), drinker.getY(0.6), drinker.getZ(),
@@ -153,7 +159,7 @@ public class BrewedPotionItem extends Item {
                 player.displayClientMessage(Component.translatable("message.hogwartsmagic.felix.drink"), true);
             }
         } else if (kind == Kind.REMORSE) {
-            drinkRemorse(drinker);
+            drinkRemorse(drinker, grade);
         } else {
             drinker.addEffect(new MobEffectInstance(MobEffects.CONFUSION, FAILED_NAUSEA_TICKS, 0));
             drinker.addEffect(new MobEffectInstance(MobEffects.POISON, FAILED_POISON_TICKS, 0));
@@ -161,7 +167,7 @@ public class BrewedPotionItem extends Item {
     }
 
     /** Remorse always hurts; whether the soul is lightened depends on the Darkness and the play-time window. */
-    private static void drinkRemorse(LivingEntity drinker) {
+    private static void drinkRemorse(LivingEntity drinker, int grade) {
         float damage = com.hogwartsmagic.brewing.PotionRules.remorseDamage(drinker.getHealth());
         if (damage > 0.0f) {
             drinker.hurt(drinker.damageSources().magic(), damage);
@@ -170,7 +176,8 @@ public class BrewedPotionItem extends Item {
         drinker.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, com.hogwartsmagic.brewing.PotionRules.REMORSE_WEAKNESS_TICKS, 0));
         if (drinker instanceof ServerPlayer player) {
             com.hogwartsmagic.spell.dark.DarkDeeds.RemorseResult result =
-                    com.hogwartsmagic.spell.dark.DarkDeeds.onRemorse(player, com.hogwartsmagic.brewing.PotionRules.REMORSE_DARKNESS);
+                    com.hogwartsmagic.spell.dark.DarkDeeds.onRemorse(player,
+                            com.hogwartsmagic.brewing.PotionRules.qualityAmount(com.hogwartsmagic.brewing.PotionRules.REMORSE_DARKNESS, grade));
             String key = result == com.hogwartsmagic.spell.dark.DarkDeeds.RemorseResult.LIGHTENED ? "lightened"
                     : result == com.hogwartsmagic.spell.dark.DarkDeeds.RemorseResult.NOTHING_TO_REGRET ? "nothing"
                     : result == com.hogwartsmagic.spell.dark.DarkDeeds.RemorseResult.SPENT ? "spent" : "off";

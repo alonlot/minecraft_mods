@@ -50,6 +50,18 @@ public final class PotionRules {
         return distanceSqr <= SPLASH_RADIUS * SPLASH_RADIUS;
     }
 
+    /** A duration scaled by the brew's grade: Standard x1.0, Fine x1.5, Exceptional x2.0 (rounded; grades clamp). */
+    public static int qualityTicks(int baseTicks, int grade) {
+        int g = BrewQuality.clampGrade(grade);
+        return Math.round(baseTicks * (g == BrewQuality.EXCEPTIONAL ? 2.0f : g == BrewQuality.FINE ? 1.5f : 1.0f));
+    }
+
+    /** An amount scaled by the brew's grade: Standard x1.0, Fine x1.25, Exceptional x1.5 (grades clamp). */
+    public static float qualityAmount(float base, int grade) {
+        int g = BrewQuality.clampGrade(grade);
+        return base * (g == BrewQuality.EXCEPTIONAL ? 1.5f : g == BrewQuality.FINE ? 1.25f : 1.0f);
+    }
+
     /** A roll in [0, 1) lands when it is below the chance. */
     public static boolean rolls(double roll, double chance) {
         return roll < chance;

@@ -193,9 +193,13 @@ public final class Petrification {
 
     /** A drink of Mandrake Draught: the gaze's hold is gone, and for 8 seconds it cannot build. */
     public static void wardGaze(LivingEntity entity) {
+        wardGaze(entity, PotionRules.MANDRAKE_GAZE_WARD_TICKS);
+    }
+
+    /** The same ward for a chosen length: a better brew lasts longer. */
+    public static void wardGaze(LivingEntity entity, int ticks) {
         entity.removeEffect(ExampleMod.BASILISK_GAZE.getHolder().get());
-        entity.getPersistentData().putLong(PetrificationRules.WARD_KEY,
-                PetrificationRules.wardUntil(entity.level().getGameTime()));
+        entity.getPersistentData().putLong(PetrificationRules.WARD_KEY, entity.level().getGameTime() + ticks);
     }
 
     public static boolean isGazeWarded(LivingEntity entity) {
@@ -237,6 +241,12 @@ public final class Petrification {
      */
     public static void splashMandrake(ServerLevel level, Entity center, net.minecraft.world.phys.AABB area,
                                       @Nullable Entity thrower) {
+        splashMandrake(level, center, area, thrower, PotionRules.MANDRAKE_GAZE_WARD_TICKS);
+    }
+
+    /** As above, with the ward length of the thrown bottle's quality; the cure itself is the same. */
+    public static void splashMandrake(ServerLevel level, Entity center, net.minecraft.world.phys.AABB area,
+                                      @Nullable Entity thrower, int wardTicks) {
         for (LivingEntity entity : level.getEntitiesOfClass(LivingEntity.class, area, LivingEntity::isAlive)) {
             if (!PotionRules.inSplash(center.distanceToSqr(entity))) {
                 continue;
@@ -244,7 +254,7 @@ public final class Petrification {
             if (entity instanceof ServerPlayer player && (hasPetrifiedFlag(player) || isPetrified(player))) {
                 cure(player, thrower);
             } else if (!isPetrified(entity)) {
-                wardGaze(entity);
+                wardGaze(entity, wardTicks);
             }
         }
         for (com.hogwartsmagic.entity.PetrifiedRemainsEntity statue

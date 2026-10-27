@@ -60,4 +60,23 @@ class PotionRulesTest {
         assertEquals(5.0f, PotionRules.REMORSE_DARKNESS);
         assertEquals(144_000, PotionRules.DEFAULT_REMORSE_COOLDOWN_TICKS);
     }
+
+    @Test
+    void betterBrewsLastLonger() {
+        assertEquals(48, PotionRules.qualityTicks(48, 0));
+        assertEquals(72, PotionRules.qualityTicks(48, 1));
+        assertEquals(96, PotionRules.qualityTicks(48, 2));
+        assertEquals(96, PotionRules.qualityTicks(48, 9));
+        assertEquals(48, PotionRules.qualityTicks(48, -3));
+    }
+
+    @Test
+    void betterBrewsWorkHarder() {
+        assertEquals(40f, PotionRules.qualityAmount(40f, 0));
+        assertEquals(50f, PotionRules.qualityAmount(40f, 1));
+        assertEquals(6f, PotionRules.qualityAmount(4f, 2));
+        assertEquals(7.5f, PotionRules.qualityAmount(PotionRules.REMORSE_DARKNESS, 2));
+        assertEquals(4f, PotionRules.qualityAmount(4f, -1));
+        assertEquals(6f, PotionRules.qualityAmount(4f, 7));
+    }
 }

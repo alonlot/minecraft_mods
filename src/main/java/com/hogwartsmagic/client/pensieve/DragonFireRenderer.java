@@ -2,9 +2,12 @@ package com.hogwartsmagic.client.pensieve;
 
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.client.ModRenderTypes;
+import com.hogwartsmagic.entity.FiendfyreEntity;
 import com.hogwartsmagic.entity.HungarianHorntailEntity;
 import com.hogwartsmagic.entity.MemoryHorntailEntity;
 import com.hogwartsmagic.fire.BreathAim;
+import com.hogwartsmagic.fire.FireBreather;
+import com.hogwartsmagic.fire.LooseFlame;
 import com.hogwartsmagic.fire.WildScorch;
 import com.hogwartsmagic.pensieve.scene.DragonFire;
 import com.hogwartsmagic.pensieve.scene.DragonFlight;
@@ -24,6 +27,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.particles.SimpleParticleType;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
@@ -85,6 +89,11 @@ import java.util.Map;
  * {@link ScorchDecal#MAX_BUILDS_PER_FRAME} spots a frame and rechecked against the set a few spots a tick, so soot on a
  * block a memory event removes goes with it.
  *
+ * <p><b>The open world</b> uses the same fire: the wild Horntail and the Fiendfyre serpent breathe this jet (any
+ * {@link FireBreather}, on the world clock, from its synched aim), their scorch fading ({@link WildScorch}); and loose
+ * puffs ({@link LooseFlame}) are shed off what burns: the serpent's body (stamped by its renderer,
+ * {@link #stampBody}) and the fire blocks a {@link FiendfyreEntity} lights, which scorch the ground under them too.
+ *
  * <p>Drawn at {@code AFTER_TRANSLUCENT_BLOCKS}, after the actors (so the mouth is this frame's), from an identity
  * matrix (stages after the camera push start from identity). Smoke farther than the jet is drawn before the flame and
  * smoke nearer the camera after it. In a {@code dev_} scene a {@code Pensieve fire:} line logs the CPU cost every 5 s
@@ -135,7 +144,10 @@ public final class DragonFireRenderer {
 
     // ---- The wild dragons ---------------------------------------------------------------------------------------
 
-    /** The wild (and Ironbelly) dragons drawn in the world, by entity id; entries go when the entity does. */
+    /**
+     * The wild breathers drawn in the world (the Horntail, the Ironbelly, the Fiendfyre serpent), by entity id; entries
+     * go when the entity does.
+     */
     private static final Map<Integer, WildDragon> DRAGONS = new LinkedHashMap<>();
     /** Every wild dragon scorch spot, capped, fading and owned by entity id; and what each is drawn from. */
     private static final WildScorch BOOK = new WildScorch();
@@ -154,9 +166,10 @@ public final class DragonFireRenderer {
     private static long wildTimedNanos, wildWorstNanos, wildDecalNanos, wildLastLog;
     private static int wildTimedFrames, wildBurningFrames;
 
-    /** A wild dragon as the fire sees it: its drawn mouth, its aim over the last tick, and its breath now. */
+    /** A wild breather as the fire sees it: its drawn mouth, its aim over the last tick, and its breath now. */
     private static final class WildDragon {
-        final HungarianHorntailEntity entity;
+        final Entity entity;
+        final FireBreather breather;
         final int id;
         double[] snoutPoint, snoutDir;
         long snoutFrame = Long.MIN_VALUE;
@@ -164,10 +177,11 @@ public final class DragonFireRenderer {
         Jet current;
         int serial;
 
-        WildDragon(HungarianHorntailEntity e) {
+        WildDragon(Entity e, FireBreather b) {
             this.entity = e;
+            this.breather = b;
             this.id = e.getId();
-            this.aimPrev = this.aimCur = e.breathAimSynced();
+            this.aimPrev = this.aimCur = b.breathAimSynced();
         }
 
         double[] snoutIn(long thisFrame) {
@@ -177,15 +191,16 @@ public final class DragonFireRenderer {
     }
 
     /**
-     * Called by a wild Horntail renderer (a layer on the posed model, in this frame) with the drawn mouth and the way
-     * the head faces; a dragon not drawn this frame leaves the stale mouth, which {@link WildDragon#snoutIn} refuses.
+     * Called by a wild breather's renderer (for the Horntail a layer on the posed model, in this frame) with the drawn
+     * mouth and the way the head faces; one not drawn this frame leaves the stale mouth, which
+     * {@link WildDragon#snoutIn} refuses.
      */
-    public static void stampWild(HungarianHorntailEntity e, double[] point, double[] dir) {
-        if (e instanceof MemoryHorntailEntity || e.isRemoved()) return;
+    public static void stampWild(Entity e, double[] point, double[] dir) {
+        if (!(e instanceof FireBreather b) || e instanceof MemoryHorntailEntity || e.isRemoved()) return;
         WildDragon d = DRAGONS.get(e.getId());
         if (d == null || d.entity != e) {
             if (d != null) removeDragon(d.id);
-            d = new WildDragon(e);
+            d = new WildDragon(e, b);
             DRAGONS.put(d.id, d);
         }
         d.snoutPoint = point;
@@ -195,9 +210,16 @@ public final class DragonFireRenderer {
 
     /** Forgets a dragon: its jets, its scorch and what the scorch was drawn from. */
     private static void removeDragon(int id) {
+        removeDragon(id, true);
+    }
+
+    /** Forgets a breather and its jets; its scorch too, or (false) leaves the scorch to fade where it is. */
+    private static void removeDragon(int id, boolean scorchToo) {
         WildDragon d = DRAGONS.remove(id);
         JETS.values().removeIf(j -> j.wild != null && j.wild.id == id);
-        for (DragonFire.Spot sp : BOOK.removeOwner(id)) WILD_DRAWS.remove(sp);
+        if (scorchToo) {
+            for (DragonFire.Spot sp : BOOK.removeOwner(id)) WILD_DRAWS.remove(sp);
+        }
         if (d != null) d.current = null;
     }
 
@@ -207,6 +229,155 @@ public final class DragonFireRenderer {
         BOOK.clear();
         WILD_DRAWS.clear();
         BLOOMS.clear();
+        SHEDDERS.clear();
+        LOOSE.clear();
+    }
+
+    // ---- The loose fire -------------------------------------------------------------------------------------------
+
+    /** Loose puffs alive at most (flame and smoke): past this nothing more is shed until some are gone. */
+    private static final int MAX_LOOSE = 800;
+    /** Loose puffs a burning body sheds a tick, and fire-block samples a Fiendfyre area takes a tick. */
+    private static final int BODY_PUFFS = 6, AREA_SAMPLES = 16;
+    /** Every loose puff alive, on the world clock. */
+    private static final List<LooseFlame.Puff> LOOSE = new ArrayList<>();
+
+    /** A burning body as its renderer last drew it: samples {x, y, z, radius, tx, ty, tz} (world), head first. */
+    private static final class Shedder {
+        final Entity entity;
+        double[][] samples;
+        long tick;
+
+        Shedder(Entity e) {
+            this.entity = e;
+        }
+    }
+
+    private static final Map<Integer, Shedder> SHEDDERS = new LinkedHashMap<>();
+
+    /**
+     * Called by a burning body's renderer (the Fiendfyre serpent) each frame it is drawn with its samples, head first,
+     * each {x, y, z, radius, tx, ty, tz}: world centre, radius, unit tangent toward the tail. It sheds puffs off them
+     * while it is drawn.
+     */
+    public static void stampBody(Entity e, double[][] samples) {
+        if (e.isRemoved() || samples.length < 2) return;
+        Shedder sh = SHEDDERS.get(e.getId());
+        if (sh == null || sh.entity != e) {
+            sh = new Shedder(e);
+            SHEDDERS.put(e.getId(), sh);
+        }
+        sh.samples = samples;
+        sh.tick = e.level().getGameTime();
+    }
+
+    /** One tick of loose fire: gone puffs dropped, then puffs shed off the bodies drawn lately and the Fiendfyre areas. */
+    private static void looseTick(ClientLevel level, float now) {
+        LOOSE.removeIf(p -> p.gone(now));
+        long game = level.getGameTime();
+        var rnd = level.random;
+        SHEDDERS.values().removeIf(sh -> sh.entity.isRemoved() || sh.entity.level() != level || game - sh.tick > 40);
+        for (Shedder sh : SHEDDERS.values()) {
+            if (game - sh.tick > 2) continue;
+            for (int i = 0; i < BODY_PUFFS && LOOSE.size() < MAX_LOOSE; i++) shed(sh, now, rnd);
+        }
+        for (Entity e : level.entitiesForRendering()) {
+            if (e instanceof FiendfyreEntity f && !f.isRemoved()) burnArea(level, f, now, rnd);
+        }
+    }
+
+    /** A puff torn off the body: off its surface, outward, rising and trailing back toward the tail. */
+    private static void shed(Shedder sh, float now, net.minecraft.util.RandomSource rnd) {
+        double[][] s = sh.samples;
+        // Off the thick of the body, not the thin tail.
+        double[] c = s[rnd.nextInt(Math.max(1, (int) (s.length * 0.85)))];
+        double[] t = {c[4], c[5], c[6]}, p1 = new double[3], p2 = new double[3];
+        DragonFire.basis(t, p1, p2);
+        double ang = rnd.nextDouble() * Math.PI * 2, cs = Math.cos(ang), sn = Math.sin(ang);
+        double[] rad = {p1[0] * cs + p2[0] * sn, p1[1] * cs + p2[1] * sn, p1[2] * cs + p2[2] * sn};
+        double r = c[3];
+        double out = 0.03 + 0.03 * rnd.nextDouble(), back = 0.02 + 0.04 * rnd.nextDouble();
+        LOOSE.add(new LooseFlame.Puff(c[0] + rad[0] * r * 0.6, c[1] + rad[1] * r * 0.6, c[2] + rad[2] * r * 0.6,
+                rad[0] * out + t[0] * back, rad[1] * out + t[1] * back + 0.05, rad[2] * out + t[2] * back,
+                Math.max(0.25, r * 0.55) * (0.8 + 0.4 * rnd.nextDouble()), now, 8 + 6 * rnd.nextDouble(),
+                rnd.nextInt(4), rnd.nextDouble() * Math.PI * 2, (rnd.nextDouble() - 0.5) * 0.5,
+                rnd.nextDouble() * Math.PI * 2, rnd.nextDouble() < 0.35));
+    }
+
+    /**
+     * A Fiendfyre area: a few random places a tick within the radius it is lighting; on each fire block there a billow
+     * rises (and now and then soot is laid on the floor under it, owned by the area).
+     */
+    private static void burnArea(ClientLevel level, FiendfyreEntity f, float now, net.minecraft.util.RandomSource rnd) {
+        int radius = f.spreadRadius() + 1;
+        BlockPos c = f.blockPosition();
+        BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+        for (int i = 0; i < AREA_SAMPLES && LOOSE.size() < MAX_LOOSE; i++) {
+            p.set(c.getX() + rnd.nextInt(radius * 2 + 1) - radius, c.getY() + rnd.nextInt(5) - 2,
+                    c.getZ() + rnd.nextInt(radius * 2 + 1) - radius);
+            if (!level.getBlockState(p).is(BlockTags.FIRE)) continue;
+            double x = p.getX() + 0.2 + 0.6 * rnd.nextDouble(), z = p.getZ() + 0.2 + 0.6 * rnd.nextDouble();
+            LOOSE.add(new LooseFlame.Puff(x, p.getY() + 0.3, z, (rnd.nextDouble() - 0.5) * 0.02,
+                    0.06 + 0.05 * rnd.nextDouble(), (rnd.nextDouble() - 0.5) * 0.02, 0.3 + 0.2 * rnd.nextDouble(), now,
+                    9 + 7 * rnd.nextDouble(), rnd.nextInt(4), rnd.nextDouble() * Math.PI * 2,
+                    (rnd.nextDouble() - 0.5) * 0.5, rnd.nextDouble() * Math.PI * 2, rnd.nextDouble() < 0.45));
+            if (rnd.nextDouble() < 0.15) {
+                for (DragonFire.Spot ev : BOOK.hit(f.getId(), p.getX() + 0.5, p.getY(), p.getZ() + 0.5,
+                        new double[]{0, 1, 0}, now)) {
+                    WILD_DRAWS.remove(ev);
+                }
+            }
+        }
+    }
+
+    /**
+     * The loose puffs' flame: {@code body} true their straight-alpha body, false the light over it (the billow and,
+     * every fourth puff, a soft haze), as {@link #billows} draws a jet's.
+     */
+    private static int loose(VertexConsumer vc, Matrix4f m, float now, Vec3 cam, double[] R, double[] U, boolean body) {
+        int drawn = 0;
+        for (int k = 0; k < LOOSE.size(); k++) {
+            LooseFlame.Puff p = LOOSE.get(k);
+            double a = now - p.tb();
+            DragonFire.Flame f = LooseFlame.flame(p, a);
+            if (f == null) continue;
+            double rot = p.spin() + p.spinRate() * a;
+            // Held to a share of its distance, as the smoke is: a puff beside the lens does not fill the screen.
+            double size = Math.min(f.radius() * 2.0, SMOKE_NEAR_CAP * dist(new double[]{f.x(), f.y(), f.z()}, cam));
+            if (body) {
+                float[] c = heatColour(f.heat() - 0.12);
+                c = new float[]{c[0] * 0.95f, c[1] * 0.95f, c[2] * 0.95f};
+                sprite(vc, m, f.x(), f.y(), f.z(), size, rot, p.sprite(), 0, cam, R, U, c, (float) (0.7 * f.alpha()), false);
+                drawn++;
+                continue;
+            }
+            float[] c = heatColour(f.heat());
+            sprite(vc, m, f.x(), f.y(), f.z(), size, rot, p.sprite(), 0, cam, R, U, c, (float) (0.05 * f.alpha()));
+            if ((k & 3) == 0) {
+                sprite(vc, m, f.x(), f.y(), f.z(), size * 2.1, 0, 0, 2, cam, R, U, c, (float) (0.03 * f.alpha()));
+            }
+        }
+        return drawn;
+    }
+
+    /** The loose puffs' smoke, split about {@code near} as {@link #smoke} splits a jet's. */
+    private static int looseSmoke(VertexConsumer vc, Matrix4f m, float now, Vec3 cam, double[] R, double[] U,
+                                  double near, boolean front) {
+        int drawn = 0;
+        for (LooseFlame.Puff p : LOOSE) {
+            double a = now - p.tb();
+            DragonFire.Smoke s = LooseFlame.smoke(p, a);
+            if (s == null) continue;
+            double d = dist(new double[]{s.x(), s.y(), s.z()}, cam);
+            if ((d < near) != front) continue;
+            float soot = (float) s.soot();
+            float[] c = {Mth.lerp(soot, 0.62f, 0.07f), Mth.lerp(soot, 0.32f, 0.065f), Mth.lerp(soot, 0.13f, 0.06f)};
+            double rot = p.spin() * 0.5 + a * 0.02 * (p.spinRate() > 0 ? 1 : -1);
+            double half = Math.min(s.radius() * 1.7, SMOKE_NEAR_CAP * d);
+            sprite(vc, m, s.x(), s.y(), s.z(), half, rot, p.sprite(), 1, cam, R, U, c, (float) (0.62 * s.alpha()));
+            drawn++;
+        }
+        return drawn;
     }
 
     /** The clock a jet runs on: the scene clock for a memory actor, the world clock for a wild dragon. */
@@ -284,8 +455,9 @@ public final class DragonFireRenderer {
         }
 
         double scale() {
-            // The wild dragon is drawn at its real size: scale 1 (the memory actor scale is relative to that).
-            return actor == null ? 1.0 : actor.def.scale();
+            // The wild dragon is drawn at its real size, scale 1 (the memory actor scale is relative to that); other
+            // breathers say their own.
+            return actor == null ? wild.breather.fireScale() : actor.def.scale();
         }
 
         /** Forgets the puffs once nothing of the jet is left to draw (its scorch lives on in the book). */
@@ -380,7 +552,7 @@ public final class DragonFireRenderer {
             staleFrames++;
         }
         births(j, level, now, curO, curD, null, tb -> {
-            net.minecraft.world.phys.Vec3 m = d.entity.mouthEstimate();
+            net.minecraft.world.phys.Vec3 m = d.breather.mouthEstimate();
             return new double[]{m.x, m.y, m.z, aim[0], aim[1], aim[2]};
         });
     }
@@ -490,7 +662,7 @@ public final class DragonFireRenderer {
         float partial = mc.getTimer().getGameTimeDeltaPartialTick(false);
         wildNow = wildClock(level, partial);
         wildFrame(thisFrame);
-        if (JETS.isEmpty() && BOOK.size() == 0 && BLOOMS.isEmpty()) return;
+        if (JETS.isEmpty() && BOOK.size() == 0 && BLOOMS.isEmpty() && LOOSE.isEmpty()) return;
         Camera camera = event.getCamera();
         Vec3 cam = camera.getPosition();
         Vec3 origin = memory ? MemoryEvents.sceneOrigin() : null;
@@ -524,6 +696,7 @@ public final class DragonFireRenderer {
         double near = nearestFire(cam, wildSpots);
         VertexConsumer vc = buffer.getBuffer(SPRITE_SMOKE);
         for (Jet j : JETS.values()) smoke += smoke(vc, m, j, nowFor(j), cam, R, U, near, false);
+        smoke += looseSmoke(vc, m, wildNow, cam, R, U, near, false);
         buffer.endBatch(SPRITE_SMOKE);
         // 3. The heat shimmer.
         vc = buffer.getBuffer(SHIMMER);
@@ -533,6 +706,7 @@ public final class DragonFireRenderer {
         // 4. The flame: its body (straight alpha), then the light over it: ribbons, billows, glows.
         vc = buffer.getBuffer(SPRITE_SMOKE);
         for (Jet j : JETS.values()) billows(vc, m, j, nowFor(j), cam, R, U, true);
+        loose(vc, m, wildNow, cam, R, U, true);
         buffer.endBatch(SPRITE_SMOKE);
         HEAD_ON.clear();
         vc = buffer.getBuffer(BODY);
@@ -540,6 +714,7 @@ public final class DragonFireRenderer {
         buffer.endBatch(BODY);
         vc = buffer.getBuffer(SPRITE_GLOW);
         for (Jet j : JETS.values()) puffs += billows(vc, m, j, nowFor(j), cam, R, U, false);
+        puffs += loose(vc, m, wildNow, cam, R, U, false);
         // The wild dragons: the glow where their jets land, and the bloom in the mouth as the breath gathers.
         spotGlows(vc, m, wildSpots, 1.0, wildNow, cam, R, U);
         for (double[] b : BLOOMS) {
@@ -556,12 +731,14 @@ public final class DragonFireRenderer {
         // 5. Smoke in front of the fire, over it.
         vc = buffer.getBuffer(SPRITE_SMOKE);
         for (Jet j : JETS.values()) smoke += smoke(vc, m, j, nowFor(j), cam, R, U, near, true);
+        smoke += looseSmoke(vc, m, wildNow, cam, R, U, near, true);
         buffer.endBatch(SPRITE_SMOKE);
         lastPuffs = puffs;
         lastSmoke = smoke;
         long total = System.nanoTime() - start;
         if (memory) debugTimer(total, decalTime, mc);
-        wildTimer(total, decalTime, mc, wildBurning || !wildSpots.isEmpty(), puffs, smoke, wildSpots.size());
+        wildTimer(total, decalTime, mc, wildBurning || !wildSpots.isEmpty() || !LOOSE.isEmpty(), puffs, smoke,
+                wildSpots.size());
     }
 
     /**
@@ -571,20 +748,12 @@ public final class DragonFireRenderer {
     private static void wildFrame(long thisFrame) {
         BLOOMS.clear();
         for (WildDragon d : DRAGONS.values()) {
-            HungarianHorntailEntity e = d.entity;
-            HungarianHorntailEntity.AttackState st = e.getAttackState();
-            int tick = e.getStateTick();
-            int age = -1;
-            float dur = 0;
-            if (st == HungarianHorntailEntity.AttackState.BREATH) {
-                age = tick;
-                dur = HungarianHorntailEntity.BREATH_DURATION;
-            } else if (st == HungarianHorntailEntity.AttackState.AIR_BREATH && tick >= HungarianHorntailEntity.AIR_BREATH_WINDUP) {
-                age = tick - HungarianHorntailEntity.AIR_BREATH_WINDUP;
-                dur = HungarianHorntailEntity.AIR_BREATH_DURATION - HungarianHorntailEntity.AIR_BREATH_WINDUP;
-            }
+            Entity e = d.entity;
+            FireBreather b = d.breather;
+            int age = b.breathAge();
             if (age >= 0) {
                 if (d.current == null) {
+                    float dur = b.breathDuration();
                     float t0 = wildNow - age;
                     long seed = DragonFire.seed(e.getUUID().toString(), t0,
                             new float[]{(float) e.getX(), (float) e.getY(), (float) e.getZ()});
@@ -596,12 +765,7 @@ public final class DragonFireRenderer {
                 d.current.limit = d.current.made;
                 d.current = null;
             }
-            float charge = -1;
-            if (st == HungarianHorntailEntity.AttackState.BREATH_WINDUP) {
-                charge = tick / (float) HungarianHorntailEntity.BREATH_WINDUP_DURATION;
-            } else if (st == HungarianHorntailEntity.AttackState.AIR_BREATH && tick < HungarianHorntailEntity.AIR_BREATH_WINDUP) {
-                charge = tick / (float) HungarianHorntailEntity.AIR_BREATH_WINDUP;
-            }
+            float charge = b.breathCharge();
             if (charge >= 0) {
                 double[] sn = d.snoutIn(thisFrame);
                 double x, y, z;
@@ -610,12 +774,13 @@ public final class DragonFireRenderer {
                     y = sn[1];
                     z = sn[2];
                 } else {
-                    Vec3 mo = e.mouthEstimate();
+                    Vec3 mo = b.mouthEstimate();
                     x = mo.x;
                     y = mo.y;
                     z = mo.z;
                 }
-                BLOOMS.add(new double[]{x, y, z, 0.35 + 0.65 * Math.min(1, charge), Math.min(1, charge)});
+                double sc = b.fireScale();
+                BLOOMS.add(new double[]{x, y, z, (0.35 + 0.65 * Math.min(1, charge)) * sc, Math.min(1, charge)});
             }
         }
         java.util.Iterator<Jet> it = JETS.values().iterator();
@@ -642,6 +807,10 @@ public final class DragonFireRenderer {
         }
         for (DragonFire.Spot s : wildSpots) {
             if (wildNow - s.lastHit(wildNow) <= DragonFire.SPLASH_TICKS) near = Math.min(near, dist(new double[]{s.x, s.y, s.z}, cam));
+        }
+        for (LooseFlame.Puff p : LOOSE) {
+            DragonFire.Flame f = LooseFlame.flame(p, wildNow - p.tb());
+            if (f != null) near = Math.min(near, dist(new double[]{f.x(), f.y(), f.z()}, cam));
         }
         return near;
     }
@@ -1192,11 +1361,12 @@ public final class DragonFireRenderer {
     }
 
     /**
-     * One client tick of the wild fire: each dragon aim moves on a tick (the frame blends between the two), a dragon
+     * One client tick of the wild fire: the loose fire is shed, each dragon aim moves on a tick (the frame blends between the two), a dragon
      * that has left the world is forgotten with its jets and scorch, the scorch that has faded or lost its block or
      * strayed far from the player goes, and the vanilla sprinkle is spawned.
      */
     private static void wildTick(Minecraft mc, ClientLevel level) {
+        looseTick(level, wildClock(level, 0));
         if (DRAGONS.isEmpty() && BOOK.size() == 0) return;
         List<Integer> gone = new ArrayList<>();
         for (WildDragon d : DRAGONS.values()) {
@@ -1204,7 +1374,7 @@ public final class DragonFireRenderer {
                 gone.add(d.id);
             } else {
                 d.aimPrev = d.aimCur;
-                d.aimCur = d.entity.breathAimSynced();
+                d.aimCur = d.breather.breathAimSynced();
             }
         }
         for (int id : gone) removeDragon(id);
@@ -1231,11 +1401,14 @@ public final class DragonFireRenderer {
         }
     }
 
-    /** A wild dragon left the client world (death, unloaded chunk, out of tracking range): its fire goes with it. */
+    /**
+     * A wild breather left the client world (death, unloaded chunk, out of tracking range): its fire goes with it, and
+     * a dragon's scorch; a Fiendfyre serpent's scorch (its caster let it go) is left to fade.
+     */
     @SubscribeEvent
     public static void onEntityLeave(EntityLeaveLevelEvent event) {
-        if (event.getLevel().isClientSide() && event.getEntity() instanceof HungarianHorntailEntity) {
-            removeDragon(event.getEntity().getId());
+        if (event.getLevel().isClientSide() && event.getEntity() instanceof FireBreather) {
+            removeDragon(event.getEntity().getId(), event.getEntity() instanceof HungarianHorntailEntity);
         }
     }
 

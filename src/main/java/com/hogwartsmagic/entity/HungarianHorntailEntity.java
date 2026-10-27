@@ -56,7 +56,7 @@ import java.util.Set;
  * client only reads the synced attack state + tick to drive animation. See the project's
  * server/client-safety rule.
  */
-public class HungarianHorntailEntity extends Monster implements HorntailPoseSource {
+public class HungarianHorntailEntity extends Monster implements HorntailPoseSource, com.hogwartsmagic.fire.FireBreather {
 
     public enum AttackState {
         // NOTE: append new constants at the END — the ordinal is what gets synced to clients.
@@ -261,8 +261,33 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
     }
 
     /** The unit direction the fire jet is cast along now (the server's smoothed aim, synched), {x, y, z}. */
+    @Override
     public double[] breathAimSynced() {
         return com.hogwartsmagic.fire.BreathAim.decode(this.entityData.get(DATA_BREATH_AIM));
+    }
+
+    /** The fire leaves her mouth through a ground BREATH, and an AIR_BREATH once its windup is over. */
+    @Override
+    public int breathAge() {
+        AttackState st = getAttackState();
+        int tick = getStateTick();
+        if (st == AttackState.BREATH) return tick;
+        if (st == AttackState.AIR_BREATH && tick >= AIR_BREATH_WINDUP) return tick - AIR_BREATH_WINDUP;
+        return -1;
+    }
+
+    @Override
+    public float breathDuration() {
+        return getAttackState() == AttackState.AIR_BREATH ? AIR_BREATH_DURATION - AIR_BREATH_WINDUP : BREATH_DURATION;
+    }
+
+    @Override
+    public float breathCharge() {
+        AttackState st = getAttackState();
+        int tick = getStateTick();
+        if (st == AttackState.BREATH_WINDUP) return tick / (float) BREATH_WINDUP_DURATION;
+        if (st == AttackState.AIR_BREATH && tick < AIR_BREATH_WINDUP) return tick / (float) AIR_BREATH_WINDUP;
+        return -1;
     }
 
     /** Publishes the current {@link #breathAim} to the clients (a no-op while it has not changed). */
@@ -1057,6 +1082,7 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
      * there along the head's aim.
      */
     /** Where the fire leaves her, from her head turn (the client falls back to this when her snout was not drawn). */
+    @Override
     public Vec3 mouthEstimate() {
         return mouthPos();
     }

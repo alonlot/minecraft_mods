@@ -1,7 +1,9 @@
 package com.hogwartsmagic.client;
 
 import com.hogwartsmagic.ExampleMod;
+import com.hogwartsmagic.client.pensieve.DragonFireRenderer;
 import com.hogwartsmagic.entity.FiendfyreSerpentEntity;
+import com.hogwartsmagic.fire.SerpentRoar;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -31,8 +33,11 @@ import java.util.Map;
  * The body is a spline-smoothed tube that slithers, drawn as a dark smoky crust under three additive
  * shells of scrolling fire texture (red haze, orange body, yellow-white core) whose surfaces roil.
  * Flame tongues tear off it backwards and upwards. The head is a pair of lofted jaws that gape and
- * snap in a roar, with fangs, a white-hot throat, slit eyes in dark sockets and a mane of flame.
+ * wrench wide in a roar, with fangs, a white-hot throat, slit eyes in dark sockets and a mane of flame.
  * Textures come from {@code build_scripts/generate_fiendfyre_textures.py}.
+ * <p>
+ * The dragon's fire ({@link DragonFireRenderer}) is handed the drawn jaws each frame, which it roars the Horntail's jet
+ * out of on the {@link SerpentRoar} beat, and the body, which it sheds its billows and smoke off.
  */
 public class FiendfyreSerpentRenderer extends EntityRenderer<FiendfyreSerpentEntity> {
     private static final ResourceLocation BODY_TEX =
@@ -124,7 +129,8 @@ public class FiendfyreSerpentRenderer extends EntityRenderer<FiendfyreSerpentEnt
         Body body = trail.size() < 2 ? null : buildBody(new ArrayList<>(trail), currentPos, age, heading);
         Vec3 fwd = body == null ? heading : body.tangents[0].scale(-1.0D);
         Vec3 neck = body == null ? Vec3.ZERO : body.centers[0];
-        Head head = new Head(neck.add(fwd.scale(HEAD_FORWARD)), fwd, jawOpen(age));
+        Head head = new Head(neck.add(fwd.scale(HEAD_FORWARD)), fwd, jawOpen(entity, partialTick, age));
+        stampFire(entity, currentPos, head, body);
 
         // Crust first: straight-alpha smoke darkens the seams the additive fire then lights around.
         VertexConsumer crust = buffer.getBuffer(CHAR);
@@ -368,14 +374,27 @@ public class FiendfyreSerpentRenderer extends EntityRenderer<FiendfyreSerpentEnt
         }
     }
 
-    /** Jaws hang half open, breathe, and every three seconds snap wide in a roar. */
-    private static float jawOpen(float age) {
+    /** Jaws hang half open and breathe, and are wrenched wide while the roar's fire gathers and pours out. */
+    private static float jawOpen(FiendfyreSerpentEntity entity, float partialTick, float age) {
         float open = 0.35f + 0.18f * (float) Math.sin(age * 0.15f);
-        float p = (age % 60.0f) / 60.0f;
-        if (p < 0.3f) {
-            open += 0.50f * (float) Math.sin(p / 0.3f * Math.PI);
+        int roar = SerpentRoar.roarTick(entity.getLifeTicks());
+        return open + 0.50f * SerpentRoar.gape(roar < 0 ? -1.0f : roar + partialTick);
+    }
+
+    /** Hands the dragon's fire the jaws (world, and the way they point) and the body samples (world, radius, tangent). */
+    private static void stampFire(FiendfyreSerpentEntity entity, Vec3 at, Head head, Body body) {
+        float mid = (head.upperAngle + head.lowerAngle) * 0.5f;
+        Vec3 lip = at.add(head.point(0.9D, 0.0D, 0.0D, mid));
+        Vec3 out = head.dir(1.0D, 0.0D, 0.0D, mid);
+        DragonFireRenderer.stampWild(entity, new double[]{lip.x, lip.y, lip.z}, new double[]{out.x, out.y, out.z});
+        if (body == null) return;
+        double[][] samples = new double[body.centers.length][];
+        for (int i = 0; i < samples.length; i++) {
+            Vec3 c = at.add(body.centers[i]);
+            Vec3 t = body.tangents[i];
+            samples[i] = new double[]{c.x, c.y, c.z, body.radius[i], t.x, t.y, t.z};
         }
-        return open;
+        DragonFireRenderer.stampBody(entity, samples);
     }
 
     private static void drawJaw(VertexConsumer vc, Matrix4f m, Head head, float[][] stations, float angle,
@@ -422,18 +441,7 @@ public class FiendfyreSerpentRenderer extends EntityRenderer<FiendfyreSerpentEnt
         billboard(vc, m, mouth, cam, (1.0f + 1.6f * head.open) * HEAD_SCALE,
                 0.5f, 0.0f, 0.75f, 0.25f, 1.0f * throat, 0.75f * throat, 0.35f * throat, 1.0f);
 
-        // Fire belching from the mouth while it roars.
-        if (head.open > 0.55f) {
-            float roar = Math.min(1.0f, (head.open - 0.55f) / 0.3f);
-            Vec3 lip = head.point(0.9D, 0.0D, 0.0D, (up + low) * 0.5f);
-            Vec3 out = head.dir(1.0D, 0.0D, 0.0D, (up + low) * 0.5f);
-            for (int j = 0; j < 3; j++) {
-                float life = life(500 + j, age * 1.8f);
-                float len = (2.8f + 1.4f * hash(600 + j)) * HEAD_SCALE * roar * (0.4f + 0.6f * life);
-                Vec3 dir = out.add(head.right.scale((j - 1) * 0.25D)).add(head.up.scale(0.15D)).normalize();
-                flame(vc, m, lip, dir, len, len * 0.55f, cam, j % 2, roar, 0.8f * roar, 0.5f * roar);
-            }
-        }
+        // The fire it roars out of the jaws is the dragon's jet (DragonFireRenderer), handed the lip in stampFire.
 
         // Mane: flames streaming back off the skull.
         int id = 1000;

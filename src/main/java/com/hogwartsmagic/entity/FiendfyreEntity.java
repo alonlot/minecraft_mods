@@ -1,12 +1,10 @@
 package com.hogwartsmagic.entity;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.Level;
@@ -14,7 +12,8 @@ import net.minecraft.world.level.block.Blocks;
 
 /**
  * Entity that manages the spreading of Fiendfyre.
- * It starts small and spreads to nearby blocks (even non-flammable ones) for 15 seconds.
+ * It starts small and spreads to nearby blocks (even non-flammable ones) for 15 seconds. The clients draw the dragon's
+ * billows and smoke over the fire it lights, and scorch under it (client/pensieve/DragonFireRenderer).
  */
 public class FiendfyreEntity extends Entity {
     private static final EntityDataAccessor<Integer> DATA_LIFE_TICKS = SynchedEntityData.defineId(FiendfyreEntity.class, EntityDataSerializers.INT);
@@ -66,19 +65,18 @@ public class FiendfyreEntity extends Entity {
             if (ticks % 10 == 0) {
                 spreadFire();
             }
-            
-            // Visuals on server (particles)
-            if (this.level() instanceof ServerLevel serverLevel && ticks % 2 == 0) {
-                serverLevel.sendParticles(ParticleTypes.FLAME, this.getX(), this.getY() + 0.5, this.getZ(), 5, 0.5, 0.5, 0.5, 0.05);
-                serverLevel.sendParticles(ParticleTypes.LAVA, this.getX(), this.getY() + 0.5, this.getZ(), 1, 0.3, 0.3, 0.3, 0.02);
-            }
         }
+    }
+
+    /** How far from its centre it is lighting fires now (blocks): from 1 to 8 over its 15 seconds. */
+    public int spreadRadius() {
+        return 1 + (getLifeTicks() / 40);
     }
 
     private void spreadFire() {
         // Randomly pick blocks around the center to ignite
         BlockPos center = this.blockPosition();
-        int radius = 1 + (getLifeTicks() / 40); // Grows from 1 to 8 radius over 15s (300 ticks)
+        int radius = spreadRadius();
         
         for (int i = 0; i < 5; i++) {
             int rx = this.random.nextInt(radius * 2 + 1) - radius;

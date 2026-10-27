@@ -1,7 +1,10 @@
 package com.hogwartsmagic.entity;
 
+import com.hogwartsmagic.fire.BreathAim;
+import com.hogwartsmagic.fire.FireBreather;
+import com.hogwartsmagic.fire.SerpentRoar;
+import com.hogwartsmagic.pensieve.scene.DragonFire;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
@@ -11,17 +14,26 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
-import java.util.ArrayDeque;
-import java.util.Deque;
 import java.util.UUID;
 
-public class FiendfyreSerpentEntity extends Entity {
+/**
+ * The Fiendfyre serpent, steered by its caster's aim. Its fire is drawn on the clients: the serpent itself
+ * (client/FiendfyreSerpentRenderer), the dragon's billows and smoke it sheds, and the dragon's own jet it roars from its
+ * jaws on the {@link SerpentRoar} beat (client/pensieve/DragonFireRenderer), along the synched aim the jet's damage is
+ * cast on here.
+ */
+public class FiendfyreSerpentEntity extends Entity implements FireBreather {
     private static final EntityDataAccessor<Integer> DATA_LIFE_TICKS = SynchedEntityData.defineId(FiendfyreSerpentEntity.class, EntityDataSerializers.INT);
+    /** The roar's aim (unit): the caster's look, so the jet carries on along it from the jaws. */
+    private static final EntityDataAccessor<org.joml.Vector3f> DATA_BREATH_AIM =
+            SynchedEntityData.defineId(FiendfyreSerpentEntity.class, EntityDataSerializers.VECTOR3);
     private static final String TAG_FIENDFYRE_CHANNELING = "hogwartsmagic:fiendfyre_channeling";
     private static final String TAG_FIENDFYRE_ADVANCE = "hogwartsmagic:fiendfyre_advance";
     private static final double CONTROL_DISTANCE = 6.2D;
@@ -30,10 +42,10 @@ public class FiendfyreSerpentEntity extends Entity {
     private static final double ADVANCE_MAX_STEP = 1.08D;
     private static final double TURN_RESPONSE = 0.18D;
     private static final double ADVANCE_TURN_RESPONSE = 0.12D;
-    private static final int TRAIL_LENGTH = 18;
+    /** How far in front of the serpent's position its jaws are (FiendfyreSerpentRenderer's lip, in blocks). */
+    private static final double MOUTH_FORWARD = 1.8D;
 
     private UUID casterUuid;
-    private final Deque<Vec3> trailPoints = new ArrayDeque<>();
 
     public FiendfyreSerpentEntity(EntityType<?> type, Level level) {
         super(type, level);
@@ -43,6 +55,7 @@ public class FiendfyreSerpentEntity extends Entity {
     @Override
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
         builder.define(DATA_LIFE_TICKS, 0);
+        builder.define(DATA_BREATH_AIM, new org.joml.Vector3f(BreathAim.DEFAULT));
     }
 
     @Override
@@ -73,6 +86,99 @@ public class FiendfyreSerpentEntity extends Entity {
         this.casterUuid = caster.getUUID();
     }
 
+    // ---- The roar: the dragon's fire from its jaws ------------------------------------------------------------------
+
+    @Override
+    public double[] breathAimSynced() {
+        return BreathAim.decode(this.entityData.get(DATA_BREATH_AIM));
+    }
+
+    @Override
+    public Vec3 mouthEstimate() {
+        return this.position().add(heading().scale(MOUTH_FORWARD));
+    }
+
+    @Override
+    public int breathAge() {
+        return SerpentRoar.breathAge(getLifeTicks());
+    }
+
+    @Override
+    public float breathDuration() {
+        return SerpentRoar.BREATH;
+    }
+
+    @Override
+    public float breathCharge() {
+        return SerpentRoar.charge(getLifeTicks());
+    }
+
+    @Override
+    public double fireScale() {
+        return SerpentRoar.SCALE;
+    }
+
+    /** The way the serpent is moving (its head leads), else the way it faces. */
+    private Vec3 heading() {
+        Vec3 v = this.getDeltaMovement();
+        if (v.lengthSqr() > 1.0E-4D) return v.normalize();
+        float yaw = this.getYRot() * net.minecraft.util.Mth.DEG_TO_RAD;
+        return new Vec3(-Math.sin(yaw), 0.0D, Math.cos(yaw));
+    }
+
+    /**
+     * One tick of the roar's fire: the aim follows the caster's look; the jet reaches as far as the drawn puffs have
+     * flown ({@link DragonFire#front}), stops at the first block, burns what is inside the width the clients draw and
+     * sets fire where it lands.
+     */
+    private void roar(ServerLevel level, ServerPlayer caster) {
+        Vec3 look = caster.getLookAngle();
+        if (look.lengthSqr() > 1.0E-6D) {
+            this.entityData.set(DATA_BREATH_AIM, BreathAim.encode(look));
+        }
+        int age = breathAge();
+        if (age < 0) return;
+        if (age == 0) {
+            this.playSound(com.hogwartsmagic.ModSounds.HORNTAIL_FIRE_BREATH.get(), 3.0F, 0.9F);
+        }
+        double[] a = breathAimSynced();
+        Vec3 dir = new Vec3(a[0], a[1], a[2]);
+        Vec3 mouth = mouthEstimate();
+        double reach = DragonFire.front(age + 1);
+        HitResult hit = level.clip(new ClipContext(mouth, mouth.add(dir.scale(reach)), ClipContext.Block.COLLIDER,
+                ClipContext.Fluid.NONE, this));
+        boolean landed = hit.getType() != HitResult.Type.MISS;
+        double jet = landed ? hit.getLocation().distanceTo(mouth) : reach;
+        if (age % 8 == 2) {
+            burnJet(level, caster, mouth, dir, jet);
+        }
+        if (landed && this.random.nextFloat() < 0.3F) {
+            BlockPos at = BlockPos.containing(hit.getLocation().subtract(dir.scale(0.3D)));
+            for (BlockPos p : new BlockPos[]{at, at.above(), at.below()}) {
+                if (level.isEmptyBlock(p) && !level.isEmptyBlock(p.below())) {
+                    level.setBlockAndUpdate(p, Blocks.FIRE.defaultBlockState());
+                    break;
+                }
+            }
+        }
+    }
+
+    /** Burns everything but the caster inside the drawn jet: along its axis, within its visible width there. */
+    private void burnJet(ServerLevel level, ServerPlayer caster, Vec3 mouth, Vec3 dir, double jet) {
+        double widest = DragonFire.visibleRadius(jet) * SerpentRoar.SCALE;
+        AABB scan = new AABB(mouth, mouth.add(dir.scale(jet))).inflate(widest + 0.5D);
+        for (LivingEntity victim : level.getEntitiesOfClass(LivingEntity.class, scan,
+                e -> e.isAlive() && e != caster)) {
+            Vec3 to = victim.getBoundingBox().getCenter().subtract(mouth);
+            double along = to.dot(dir);
+            if (along < 0.0D || along > jet) continue;
+            double perp = to.subtract(dir.scale(along)).length();
+            if (perp > DragonFire.visibleRadius(along) * SerpentRoar.SCALE + victim.getBbWidth() * 0.5D) continue;
+            victim.hurt(victim.damageSources().onFire(), 6.0f);
+            victim.igniteForSeconds(6);
+        }
+    }
+
     @Override
     public void tick() {
         super.tick();
@@ -93,14 +199,12 @@ public class FiendfyreSerpentEntity extends Entity {
         }
 
         steerToCasterAim(caster, ticks);
-        recordTrail();
         scorchNearby(caster);
+        roar(serverLevel, caster);
 
         if (ticks % 2 == 0) {
             spreadFire();
         }
-        spawnTrailParticles(serverLevel, ticks);
-        spawnBurstParticles(serverLevel, ticks);
     }
 
     private ServerPlayer getCaster(ServerLevel level) {
@@ -143,13 +247,6 @@ public class FiendfyreSerpentEntity extends Entity {
         }
     }
 
-    private void recordTrail() {
-        this.trailPoints.addFirst(this.position());
-        while (this.trailPoints.size() > TRAIL_LENGTH) {
-            this.trailPoints.removeLast();
-        }
-    }
-
     private void scorchNearby(ServerPlayer caster) {
         AABB area = this.getBoundingBox().inflate(2.6D, 1.4D, 2.6D);
         for (LivingEntity target : this.level().getEntitiesOfClass(LivingEntity.class, area, entity -> entity.isAlive() && entity != caster)) {
@@ -159,48 +256,6 @@ public class FiendfyreSerpentEntity extends Entity {
             if (lift.lengthSqr() > 1.0E-4D) {
                 Vec3 push = lift.normalize().scale(0.32D);
                 target.push(push.x, 0.12D, push.z);
-            }
-        }
-    }
-
-    private void spawnTrailParticles(ServerLevel serverLevel, int ticks) {
-        Vec3 previous = null;
-        int index = 0;
-        for (Vec3 point : this.trailPoints) {
-            serverLevel.sendParticles(ParticleTypes.FLAME, point.x, point.y, point.z, 3, 0.18D, 0.18D, 0.18D, 0.01D);
-            if (index % 2 == 0) {
-                serverLevel.sendParticles(ParticleTypes.LAVA, point.x, point.y, point.z, 1, 0.08D, 0.08D, 0.08D, 0.0D);
-            }
-            if (previous != null) {
-                Vec3 segment = previous.subtract(point);
-                int steps = Math.max(2, (int) Math.ceil(segment.length() * 5.0D));
-                for (int i = 1; i < steps; i++) {
-                    Vec3 mid = point.add(segment.scale(i / (double) steps));
-                    serverLevel.sendParticles(ParticleTypes.SMALL_FLAME, mid.x, mid.y, mid.z, 1, 0.03D, 0.03D, 0.03D, 0.0D);
-                }
-            }
-            previous = point;
-            index++;
-        }
-
-        if (ticks % 3 == 0) {
-            serverLevel.sendParticles(ParticleTypes.LARGE_SMOKE, this.getX(), this.getY(), this.getZ(), 2, 0.2D, 0.25D, 0.2D, 0.01D);
-        }
-    }
-
-    private void spawnBurstParticles(ServerLevel serverLevel, int ticks) {
-        if (ticks % 4 != 0) {
-            return;
-        }
-        for (int i = 0; i < 12; i++) {
-            double angle = (Math.PI * 2.0D * i) / 12.0D + ticks * 0.08D;
-            double radius = 1.4D + Math.sin(ticks * 0.22D + i) * 0.25D;
-            double x = this.getX() + Math.cos(angle) * radius;
-            double y = this.getY() + 0.2D + (i % 3) * 0.18D;
-            double z = this.getZ() + Math.sin(angle) * radius;
-            serverLevel.sendParticles(ParticleTypes.FLAME, x, y, z, 1, 0.04D, 0.04D, 0.04D, 0.01D);
-            if (i % 2 == 0) {
-                serverLevel.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, x, y, z, 1, 0.01D, 0.05D, 0.01D, 0.0D);
             }
         }
     }

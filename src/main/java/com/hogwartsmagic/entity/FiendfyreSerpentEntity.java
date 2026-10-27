@@ -214,8 +214,12 @@ public class FiendfyreSerpentEntity extends Entity {
             int ry = this.random.nextInt(5) - 2;
             int rz = this.random.nextInt(radius * 2 + 1) - radius;
             BlockPos target = center.offset(rx, ry, rz);
-            if (this.level().isEmptyBlock(target)) {
-                this.level().setBlockAndUpdate(target, Blocks.FIRE.defaultBlockState());
+            if (!(this.level() instanceof ServerLevel serverLevel)
+                    || !serverLevel.isLoaded(target) || !serverLevel.isEmptyBlock(target)) {
+                continue;
+            }
+            if (com.hogwartsmagic.spell.TerrainRules.canPlace(serverLevel, target, getCaster(serverLevel))) {
+                serverLevel.setBlockAndUpdate(target, Blocks.FIRE.defaultBlockState());
             }
         }
     }

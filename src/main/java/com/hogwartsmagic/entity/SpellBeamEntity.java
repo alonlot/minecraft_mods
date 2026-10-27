@@ -802,6 +802,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
                     // Spawn Fiendfyre management entity
                     FiendfyreEntity fiendfyre = new FiendfyreEntity(ModEntities.FIENDFYRE.get(), this.level());
                     fiendfyre.moveTo(this.getX(), this.getY(), this.getZ());
+                    fiendfyre.setCaster(getOwner());
                     this.level().addFreshEntity(fiendfyre);
                     hitSuccessful = true;
                 } else if (spell == SpellType.CAVE_INIMICUM) {

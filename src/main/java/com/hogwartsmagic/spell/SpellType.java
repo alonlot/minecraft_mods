@@ -217,6 +217,7 @@ public enum SpellType {
                 // Spawn Fiendfyre management entity at target location
                 com.hogwartsmagic.entity.FiendfyreEntity fiendfyre = new com.hogwartsmagic.entity.FiendfyreEntity(com.hogwartsmagic.entity.ModEntities.FIENDFYRE.get(), target.level());
                 fiendfyre.moveTo(target.getX(), target.getY(), target.getZ());
+                fiendfyre.setCaster(caster);
                 target.level().addFreshEntity(fiendfyre);
             }
             case SECTUMSEMPRA -> com.hogwartsmagic.spell.damage.SectumsempraSpell.apply(target, caster);

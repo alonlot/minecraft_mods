@@ -215,6 +215,15 @@ public final class Config {
                     "Relative paths resolve against the game run directory. Empty (the default) uses only the scenes shipped in data packs.")
             .define("pensieveDevSceneDir", "");
 
+    public static final ForgeConfigSpec.ConfigValue<String> PENSIEVE_DEV_AUTO_PREVIEW = BUILDER
+            .comment("Pensieve (dev): a scene id the client previews by itself 5 s after joining a world (needs op). Empty (the default) does nothing.")
+            .define("pensieveDevAutoPreview", "");
+
+    public static final ForgeConfigSpec.DoubleValue PENSIEVE_DEV_SHOT_SECONDS = BUILDER
+            .comment("Pensieve (dev): while a memory plays, the client saves a screenshot every this many seconds of scene time",
+                    "(screenshots/pensieve_<scene>_<time>.png), so a cinematic can be reviewed frame by frame. 0 (the default) is off.")
+            .defineInRange("pensieveDevShotSeconds", 0.0, 0.0, 600.0);
+
     public static final ForgeConfigSpec.IntValue PENSIEVE_BLOCKS_PER_TICK = BUILDER
             .comment("Pensieve: how many blocks of a memory set are placed (or cleared) per server tick, so building a set never stalls the server.")
             .defineInRange("pensieveBlocksPerTick", 4000, 1, 1000000);
@@ -294,6 +303,8 @@ public final class Config {
     public static int darkMagicRedemptionTicks = 36000;
     public static int remorseCooldownTicks = 144000;
     public static String pensieveDevSceneDir = "";
+    public static String pensieveDevAutoPreview = "";
+    public static double pensieveDevShotSeconds = 0.0;
     public static int pensieveBlocksPerTick = 4000;
     public static boolean pensieveCaptureEnabled = true;
     public static int pensieveCaptureSeconds = 60;
@@ -357,6 +368,8 @@ public final class Config {
         darkMagicRedemptionTicks = DARK_MAGIC_REDEMPTION_TICKS.get();
         remorseCooldownTicks = REMORSE_COOLDOWN_TICKS.get();
         pensieveDevSceneDir = PENSIEVE_DEV_SCENE_DIR.get();
+        pensieveDevAutoPreview = PENSIEVE_DEV_AUTO_PREVIEW.get();
+        pensieveDevShotSeconds = PENSIEVE_DEV_SHOT_SECONDS.get();
         pensieveBlocksPerTick = PENSIEVE_BLOCKS_PER_TICK.get();
         pensieveCaptureEnabled = PENSIEVE_CAPTURE_ENABLED.get();
         pensieveCaptureSeconds = PENSIEVE_CAPTURE_SECONDS.get();

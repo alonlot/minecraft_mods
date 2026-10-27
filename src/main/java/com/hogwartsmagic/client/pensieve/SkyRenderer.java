@@ -80,7 +80,7 @@ public final class SkyRenderer {
     }
 
     private static Layer[] layers(String style) {
-        if (SkyDome.STORM.equals(style)) {
+        if (SkyDome.isStorm(style)) {
             // A full deck down to the horizon: dark billowing undersides (darker than the dome), a second deck, and
             // lighter ragged scud under both that sweeps a little faster (SkyDome.STORM_LAYERS: scale, speed, height).
             float[][] l = SkyDome.STORM_LAYERS;
@@ -120,14 +120,24 @@ public final class SkyRenderer {
         return SkyDome.fade(now - sky.t, sky.duration, sky.t) * phaseShare(partial);
     }
 
-    /** How much of a storm sky shows right now, 0 (none) to 1: the fog closes in with it, the rain sheets follow it. */
+    /** How much of a storm sky (either storm) shows right now, 0 (none) to 1: the rain sheets and flashes follow it. */
     static float stormShare(float partial) {
+        return stormShare(partial, false);
+    }
+
+    /** As {@link #stormShare(float)} for the haze: only the {@code storm} style draws the fog in. */
+    static float stormHazeShare(float partial) {
+        return stormShare(partial, true);
+    }
+
+    private static float stormShare(float partial, boolean hazeOnly) {
         List<Sky> skies = EffectVisuals.skies();
         if (skies.isEmpty() || !PensieveClientState.inMemory()) return 0f;
         float now = PensieveClientState.sceneTime(partial);
         float most = 0f;
         for (Sky s : skies) {
-            if (SkyDome.STORM.equals(s.style)) most = Math.max(most, shown(s, now, partial));
+            boolean counts = hazeOnly ? SkyDome.STORM.equals(s.style) : SkyDome.isStorm(s.style);
+            if (counts) most = Math.max(most, shown(s, now, partial));
         }
         return most;
     }
@@ -168,7 +178,7 @@ public final class SkyRenderer {
         if (best == null) return null;
         float[] fog = SkyDome.fogColour(best.style, most);
         // The fog lights up with the lightning, a little less than the sky, so the haze flashes with it.
-        if (SkyDome.STORM.equals(best.style)) fog = SkyDome.flashed(fog, SkyDome.flash(now, EffectVisuals.strikes()) * 0.7 * most);
+        if (SkyDome.isStorm(best.style)) fog = SkyDome.flashed(fog, SkyDome.flash(now, EffectVisuals.strikes()) * 0.7 * most);
         return fog;
     }
 
@@ -205,7 +215,7 @@ public final class SkyRenderer {
             for (Sky sky : skies) {
                 float f = shown(sky, now, partial);
                 if (f <= 0.002f) continue;
-                boolean storm = SkyDome.STORM.equals(sky.style);
+                boolean storm = SkyDome.isStorm(sky.style);
                 double flash = storm ? SkyDome.flash(now, EffectVisuals.strikes()) : 0.0;
                 double[] dir = flash > 0.0 ? strikeDir(cam, now) : null;
                 dome(sky, f, flash, dir, radius, m, buffer);
@@ -254,7 +264,7 @@ public final class SkyRenderer {
      */
     private static void clouds(Sky sky, float f, double flash, double[] dir, float now, float radius, Matrix4f m,
                                MultiBufferSource.BufferSource buffer) {
-        boolean storm = SkyDome.STORM.equals(sky.style);
+        boolean storm = SkyDome.isStorm(sky.style);
         int cells = storm ? STORM_CELLS : CLOUD_CELLS;
         float drift = SkyDome.cloudDrift(now);
         // A storm's clouds run before the wind (the rain's, when one runs); the others drift slowly their own way.

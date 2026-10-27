@@ -13,8 +13,13 @@ import java.util.List;
  */
 public final class SkyDome {
     /** The looks a sky may take; the first is the default. */
-    public static final List<String> STYLES = List.of("day", "overcast", "dawn", "storm");
+    public static final List<String> STYLES = List.of("day", "overcast", "dawn", "storm", "storm_far");
     public static final String STORM = "storm";
+    /**
+     * A night storm seen across a distance: the storm's clouds, scud and lightning over a darker sky, but without its
+     * haze, so the scene's own {@code fog_far} decides how far one sees (a castle 150 blocks off stays sharp).
+     */
+    public static final String STORM_FAR = "storm_far";
     /** A lightning flash lights the sky to at most this much (the ceiling's flicker peaks at 1; the open sky is dimmer). */
     public static final double FLASH_PEAK = 0.85;
     /**
@@ -44,9 +49,15 @@ public final class SkyDome {
             {{0.80f, 0.82f, 0.84f}, {0.62f, 0.65f, 0.69f}},     // overcast: English grey-white
             {{0.98f, 0.75f, 0.58f}, {0.40f, 0.52f, 0.76f}},     // dawn: warm horizon, cool blue overhead
             {{0x4A / 255f, 0x52 / 255f, 0x5C / 255f}, {0x26 / 255f, 0x2C / 255f, 0x35 / 255f}}, // storm: dark grey day storm
+            {{0x34 / 255f, 0x3B / 255f, 0x46 / 255f}, {0x15 / 255f, 0x19 / 255f, 0x21 / 255f}}, // storm_far: a night storm
     };
 
     private SkyDome() {
+    }
+
+    /** Either storm: the clouds, the scud and the lightning flashes (only {@link #STORM} draws the haze in). */
+    public static boolean isStorm(String style) {
+        return STORM.equals(style) || STORM_FAR.equals(style);
     }
 
     /** {@code style} if it is one of {@link #STYLES}, else the default (an absent or unknown style is day). */

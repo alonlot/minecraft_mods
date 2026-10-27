@@ -17,6 +17,23 @@ import battle_ground as BG  # noqa: E402
 from scene_common import write_scene  # noqa: E402
 
 BEAM_SPEED = 1.55 * 20          # blocks a second
+# blocks a view passes through (thin or clear): they stop a lens being put inside them, not a line of sight
+SEE_THROUGH = ('fence', 'bars', 'pane', 'chain', 'glass', 'lantern', 'torch', 'rod', 'candle', 'wall_banner', 'sign',
+               'button', 'ladder', 'trapdoor', 'cobweb', 'scaffolding')
+# where each creature's eyes are, per unit of scale (the client aims at the entity's own eye)
+EYE = {'player': 1.62, 'hogwartsmagic:giant': 3.9, 'hogwartsmagic:living_statue': 2.5,
+       'hogwartsmagic:acromantula': 0.9, 'hogwartsmagic:troll': 2.9, 'hogwartsmagic:dementor': 2.6,
+       'hogwartsmagic:patronus': 1.6, 'hogwartsmagic:memory_block': 0.0}
+
+
+# (height, radius) of each body per unit of scale, for keeping lenses out of them: the spider's legs spread wide
+BODY = {'hogwartsmagic:giant': (4.4, 1.3), 'hogwartsmagic:acromantula': (1.8, 3.3), 'hogwartsmagic:troll': (3.2, 1.1),
+        'hogwartsmagic:living_statue': (2.9, 0.7)}
+
+
+def sees_through(x, y, z):
+    b = BG.block(x, y, z)
+    return b is None or not BG.solid(x, y, z) or any(k in b for k in SEE_THROUGH)
 
 
 # ---------------------------------------------------------------- small helpers
@@ -146,6 +163,7 @@ class Film:
         self.events, self.words, self.cam, self.actors = [], [], [], []
         self.poses = {'standing': {}}
         self.ids = set()
+        self.cam_issues = []
 
     def ev(self, t, kind, id_, **kw):
         if t > self.L:
@@ -336,6 +354,7 @@ class Film:
             p = k['pos']
             if BG.solid(*p):
                 problems.append('camera at %s inside %s' % (k['t'], BG.block(*p)))
+        problems += self.camera_problems(s)
         cuts = [0.0] + [tval(k['t']) for k in s['camera'] if k.get('cut')] + [L]
         lens = [round(b - a, 2) for a, b in zip(cuts, cuts[1:])]
         for ln in lens:
@@ -365,8 +384,235 @@ class Film:
                     break
         return problems, lens
 
+    # ---- solved shots: say what the shot is of, the solver finds a lens position that works for all of it
+    def _target(self, subject, t):
+        if subject is None:
+            return None
+        if isinstance(subject, Actor):
+            return subject.eye(t)
+        if callable(subject):
+            return tuple(subject(t))
+        return tuple(subject)
+
+    def lens_clear(self, pos, tgt, t, ignore=(), lens_r=0.35, actor_margin=0.3):
+        """None if a lens at pos looking at tgt at time t sees cleanly, else why not."""
+        for dx, dy, dz in ((0, 0, 0), (lens_r, 0, 0), (-lens_r, 0, 0), (0, lens_r, 0), (0, -lens_r, 0),
+                           (0, 0, lens_r), (0, 0, -lens_r)):
+            if BG.solid(pos[0] + dx, pos[1] + dy, pos[2] + dz):
+                return 'block'
+        d = math.dist(pos, tgt)
+        m = max(2, int(d / 0.25))
+        for j in range(1, m):
+            q = [pos[c] + (tgt[c] - pos[c]) * j / m for c in range(3)]
+            if math.dist(q, tgt) < 1.0:
+                break
+            if not sees_through(*q):
+                return 'wall'
+        for a in self.actors:
+            if a.d['type'] == 'hogwartsmagic:memory_block' or a.id in ignore or not a.shown(t) or a.in_smoke(t):
+                continue
+            p = a.pos_at(t)
+            h, r = BODY.get(a.d['type'], (1.9, 0.45))
+            h, r = h * a.scale, r * a.scale
+            cy = min(max(pos[1], p[1]), p[1] + h)
+            if math.dist(pos, (p[0], cy, p[2])) < r + actor_margin:
+                return 'actor ' + a.id
+            # and nobody standing right across the near part of the view (a head filling the frame)
+            near = min(d - 1.0, 3.0)
+            if near > 0.6:
+                for j in range(1, 6):
+                    q = [pos[c] + (tgt[c] - pos[c]) * (near * j / 5) / d for c in range(3)]
+                    cq = min(max(q[1], p[1]), p[1] + h)
+                    if math.dist(q, (p[0], cq, p[2])) < r:
+                        return 'blocker ' + a.id
+        for a, tp in self.protegos:
+            if tp - 0.1 <= t <= tp + 2.0 and math.dist(pos, a.chest(t)) < 2.4:
+                return 'protego ' + a.id
+        return None
+
+    @property
+    def protegos(self):
+        out = []
+        for a in self.actors:
+            for k in a.actions:
+                if k['do'] == 'cast' and k.get('spell') == 'protego':
+                    out.append((a, tval(k['t'])))
+        return out
+
+    def frame(self, t0, t1, subject, dist=6.0, height=0.3, az=None, fov=60, move='push', amount=0.18,
+              look_offset=(0, 0, 0), cut=True, track=False, ignore=(), tries=None, name='', lifts=None):
+        """A solved shot from t0 to t1 of `subject` (an Actor, a point, or a function of time giving a point).
+        The lens sits `dist` from the subject's eye (or the point) on the azimuth `az` (degrees, Minecraft yaw of
+        the direction from the subject to the lens; default: in front of an actor, three-quarter), `height` above
+        it, and moves: 'push' in / 'pull' out by `amount` of the distance, 'slide' round by amount*60 degrees,
+        'rise' up by amount*dist, 'static'. With `track` the lens keeps its offset to a moving subject (keyed every
+        second). Candidates round the preferred one are tried until the whole shot is clean: no block at the lens,
+        no wall in the view, nobody in or crowding the lens, no Protego round it. Returns the problem if none was."""
+        def tgt(t):
+            p = self._target(subject, t)
+            return (p[0] + look_offset[0], p[1] + look_offset[1], p[2] + look_offset[2])
+        ig = set(ignore)
+        if isinstance(subject, Actor):
+            ig.add(subject.id)
+            if az is None:
+                az = subject.yaw_at(t0) + 28.0
+        if az is None:
+            az = 0.0
+        offsets = tries or [0, 20, -20, 40, -40, 60, -60, 90, -90, 120, -120, 150, -150, 180]
+        scales = [1.0, 0.8, 1.25, 0.65, 1.5, 1.9]
+        lifts = lifts or [0.0, 1.2, 2.5, -0.5, 4.0]
+        best = None
+        for sc in scales:
+            for lift in lifts:
+                for off in offsets:
+                    a = math.radians(az + off)
+                    def lens(t, f, a=a, sc=sc, lift=lift):
+                        base = tgt(t0 if not track else t)
+                        dd = dist * sc
+                        aa = a
+                        hh = height + lift
+                        if move == 'push':
+                            dd *= 1 - amount * f
+                        elif move == 'pull':
+                            dd *= 1 + amount * f
+                        elif move == 'slide':
+                            aa = a + math.radians(amount * 60 * f)
+                        elif move == 'rise':
+                            hh += amount * dd * f
+                        return (base[0] - math.sin(aa) * dd, base[1] + hh, base[2] + math.cos(aa) * dd)
+                    bad = None
+                    n = max(2, int((t1 - t0) / 0.25))
+                    for i in range(n + 1):
+                        f = i / n
+                        e = 4 * f ** 3 if f < 0.5 else 1 - (-2 * f + 2) ** 3 / 2
+                        t = t0 + (t1 - t0) * f
+                        why = self.lens_clear(lens(t, e), tgt(t), t, ignore=ig)
+                        if why:
+                            bad = why
+                            break
+                    if bad is None:
+                        self._emit_frame(t0, t1, lens, tgt, subject, fov, cut, track, look_offset)
+                        return None
+                    if best is None:
+                        best = (bad, lens)
+        # nothing clean: take the preferred lens anyway and report it
+        self._emit_frame(t0, t1, best[1], tgt, subject, fov, cut, track, look_offset)
+        issue = '%s %.1f-%.1f: no clean lens (%s)' % (name or 'shot', t0, t1, best[0])
+        self.cam_issues.append(issue)
+        return issue
+
+    def _emit_frame(self, t0, t1, lens, tgt, subject, fov, cut, track, look_offset):
+        look = subject.target if isinstance(subject, Actor) and look_offset == (0, 0, 0) else None
+        def key(t, f, first):
+            pos = lens(t, f)
+            k = {'t': T(t), 'pos': [r2(v) for v in pos],
+                 'look_at': look if look else [r2(v) for v in tgt(t)], 'fov': fov}
+            if first and cut and t0 > 0:
+                k['cut'] = True
+            return k
+        if not track:
+            self.cam.append(key(t0, 0.0, True))
+            self.cam.append(key(t1, 1.0, False))
+            return
+        n = max(2, int(math.ceil((t1 - t0) / 1.0)))
+        for i in range(n + 1):
+            f = i / n
+            k = key(t0 + (t1 - t0) * f, f, i == 0)
+            if 0 < i < n:
+                k['ease'] = 'spline'
+            self.cam.append(k)
+
+    # ---- the camera, sampled the way the client eases it (close enough for clearance checks)
+    def cam_at(self, t):
+        """(pos, look point, fov) of the camera at time t."""
+        ks = self.cam
+        def look(k, t):
+            la = k['look_at']
+            if isinstance(la, str):
+                a = next(x for x in self.actors if x.id == la.split(':', 1)[1])
+                return a.eye(t)
+            return tuple(la)
+        times = [tval(k['t']) for k in ks]
+        if t <= times[0]:
+            return tuple(ks[0]['pos']), look(ks[0], t), ks[0]['fov']
+        for i in range(1, len(ks)):
+            t0, t1 = times[i - 1], times[i]
+            if t <= t1:
+                k0, k1 = ks[i - 1], ks[i]
+                if k1.get('cut'):
+                    return tuple(k0['pos']), look(k0, t), k0['fov']
+                f = 0 if t1 == t0 else (t - t0) / (t1 - t0)
+                e = k1.get('ease', 'in_out')
+                if e == 'in_out':
+                    f = 4 * f ** 3 if f < 0.5 else 1 - (-2 * f + 2) ** 3 / 2
+                elif e == 'in':
+                    f = f ** 3
+                elif e == 'out':
+                    f = 1 - (1 - f) ** 3
+                pos = tuple(k0['pos'][c] + (k1['pos'][c] - k0['pos'][c]) * f for c in range(3))
+                la, lb = look(k0, t), look(k1, t)
+                return pos, tuple(la[c] + (lb[c] - la[c]) * f for c in range(3)), k0['fov'] + (k1['fov'] - k0['fov']) * f
+        return tuple(ks[-1]['pos']), look(ks[-1], t), ks[-1]['fov']
+
+    def camera_problems(self, s, step=0.25):
+        """What a viewer would see go wrong: the lens in or against a block, a wall between the lens and what it
+        looks at, someone walking through the lens, the lens inside a Protego bubble."""
+        out = []
+        protego = []
+        for a in self.actors:
+            for k in a.actions:
+                if k['do'] == 'cast' and k.get('spell') == 'protego':
+                    protego.append((a, tval(k['t'])))
+        flagged = set()
+        n = int(self.L / step)
+        for i in range(n + 1):
+            t = i * step
+            pos, tgt, fov = self.cam_at(t)
+            shot = max(k_t for k_t in [tval(k['t']) for k in s['camera'] if k.get('cut') or tval(k['t']) == 0.0] if k_t <= t + 1e-6)
+            key = None
+            for dx, dy, dz in ((0, 0, 0), (0.3, 0, 0), (-0.3, 0, 0), (0, 0.3, 0), (0, -0.3, 0), (0, 0, 0.3), (0, 0, -0.3)):
+                if BG.solid(pos[0] + dx, pos[1] + dy, pos[2] + dz):
+                    key = ('block', shot)
+                    msg = 'lens against %s at %.2f %s' % (BG.block(pos[0] + dx, pos[1] + dy, pos[2] + dz), t,
+                                                         [r2(c) for c in pos])
+                    break
+            if key is None:
+                d = math.dist(pos, tgt)
+                m = max(2, int(d / 0.25))
+                for j in range(1, m):
+                    f = j / m
+                    q = [pos[c] + (tgt[c] - pos[c]) * f for c in range(3)]
+                    if math.dist(q, tgt) < 1.2:
+                        break
+                    if not sees_through(*q):
+                        key = ('wall', shot)
+                        msg = 'view blocked by %s at %.2f (%.1f of %.1f to target)' % (
+                            BG.block(*q), t, math.dist(pos, q), d)
+                        break
+            if key is None:
+                for a in self.actors:
+                    if a.d['type'] == 'hogwartsmagic:memory_block' or not a.shown(t) or a.in_smoke(t):
+                        continue
+                    p = a.pos_at(t)
+                    h, r = BODY.get(a.d['type'], (1.8, 0.45))
+                    h, r = h * a.scale, r * a.scale
+                    cy = min(max(pos[1], p[1]), p[1] + h)
+                    if math.dist(pos, (p[0], cy, p[2])) < r + 0.25:
+                        key = ('actor', shot, a.id)
+                        msg = '%s in the lens at %.2f' % (a.id, t)
+                        break
+                for a, tp in protego:
+                    if tp - 0.1 <= t <= tp + 2.0 and math.dist(pos, a.chest(t)) < 2.4:
+                        key = ('protego', shot, a.id)
+                        msg = 'lens inside %s Protego at %.2f' % (a.id, t)
+                        break
+            if key and key not in flagged:
+                flagged.add(key)
+                out.append(msg)
+        return out
+
     def write(self, s, width=400):
-        txt = write_scene(s, self.id, width=width)
+        txt = write_scene(s, self.id, width=width, tight=True)
         return txt
 
 
@@ -456,7 +702,7 @@ class Actor:
 
     def eye(self, t):
         p = self.pos_at(t)
-        return (p[0], p[1] + 1.62 * self.scale, p[2])
+        return (p[0], p[1] + EYE.get(self.d['type'], 1.62) * self.scale, p[2])
 
     def wand(self, t):
         p = self.pos_at(t)
@@ -623,7 +869,7 @@ class Actor:
             d['path'].append(k)
         d['look'] = []
         for t, yw, pt, e in self.look:
-            k = {'t': T(t), 'yaw': r2(yw), 'pitch': r2(pt)}
+            k = {'t': T(t), 'yaw': round(yw + 0.0, 1), 'pitch': round(pt + 0.0, 1)}
             if e:
                 k['ease'] = e
             d['look'].append(k)
@@ -636,10 +882,12 @@ class Actor:
 
 
 # ---------------------------------------------------------------- the battle simulator
-GOOD_SPELLS = ['stupefy', 'expelliarmus', 'petrificus_totalus', 'depulso', 'confringo', 'incarcerous', 'bombarda',
-               'stupefy', 'glacius', 'expelliarmus']
-BAD_SPELLS = ['avada_kedavra', 'crucio', 'sectumsempra', 'dolohov_curse', 'bombarda', 'incendio', 'confringo',
-              'avada_kedavra', 'stupefy']
+# No bombarda in the melee: its beam trails explosion clouds and bursts into a huge white emitter, and a crowd
+# casting it buries the frame in white (it stays for scripted blasts)
+GOOD_SPELLS = ['stupefy', 'expelliarmus', 'petrificus_totalus', 'depulso', 'confringo', 'incarcerous', 'stupefy',
+               'glacius', 'expelliarmus', 'depulso']
+BAD_SPELLS = ['avada_kedavra', 'crucio', 'sectumsempra', 'dolohov_curse', 'incendio', 'confringo', 'avada_kedavra',
+              'stupefy', 'incendio']
 
 
 class Fighter:
@@ -662,6 +910,7 @@ class Melee:
         self.t_end = t_end or film.L
         self.fighters = []
         self.zones = []                    # (x, z, r, weight): where the fight gathers
+        self.miss, self.block = 0.28, 0.35   # how often a curse goes wide, and how often a hit is shielded
 
     def add(self, actor, side, enter, hp=2, speed=3.6, aggression=0.5):
         f = Fighter(actor, side, enter, hp, speed, aggression)
@@ -746,7 +995,7 @@ class Melee:
                 tgt = me.target
                 aim = tgt.a.chest(tc)
                 me.a.face_point(t, tc - 0.05, aim)
-                miss = rng.chance(0.28)
+                miss = rng.chance(self.miss)
                 if miss:
                     aim = (aim[0] + rng.uni(-2.5, 2.5), aim[1] + rng.uni(-0.5, 2.0), aim[2] + rng.uni(-2.5, 2.5))
                     me.a.cast(tc, spell, aim)
@@ -754,7 +1003,7 @@ class Melee:
                     me.a.cast(tc, spell, tgt.a.target)
                 land = tc + math.dist(me.a.wand(tc), aim) / BEAM_SPEED
                 if not miss:
-                    blocked = rng.chance(0.35) and tgt.busy <= land - 0.2
+                    blocked = rng.chance(self.block) and tgt.busy <= land - 0.2
                     if blocked:
                         tgt.a.act(max(tgt.enter, land - 0.2), 'cast', spell='protego')
                         tgt.busy = max(tgt.busy, land + 0.3)
@@ -762,16 +1011,15 @@ class Melee:
                         tgt.a.act(land + 0.03, 'hurt')
                         tgt.hits += 1
                         tgt.busy = max(tgt.busy, land + 0.6)
-                        if spell in ('bombarda', 'confringo') and rng.chance(0.5):
+                        if spell in ('bombarda', 'confringo') and rng.chance(0.3):
                             self.f.blast(land, tgt.a.chest(land), rng=rng)
                         if tgt.hits >= tgt.hp:
                             self.fall(tgt, land + 0.1)
-                elif rng.chance(0.3):
-                    self.f.part(land, 'minecraft:explosion', aim, 2, (0.3, 0.3, 0.3))
+                elif rng.chance(0.12):
+                    self.f.part(land, 'minecraft:explosion', aim, 1, (0.3, 0.3, 0.3))
                 me.busy = tc + rng.uni(0.6, 1.4) * (1.4 - me.aggr)
             t = round(t + step, 2)
 
     def fall(self, f, t):
         f.alive = False
-        f.a.act(t, 'die')
-        self.f.part(t + 0.6, 'minecraft:poof', f.a.chest(t), 12, (0.4, 0.6, 0.4))
+        f.a.act(t, 'die')                  # the die action makes its own small poof; no second cloud over it

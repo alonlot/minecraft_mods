@@ -29,6 +29,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import battle_ground as BG  # noqa: E402
 import hogwarts_battle_set as HB  # noqa: E402
+from battle_life import liven  # noqa: E402
 from battle_kit import Film, Melee, Rng, yaw_to, dist2, walkable, BEAM_SPEED, r2, T  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -108,6 +109,7 @@ def line(film, t, who, text, key):
 
 # ---------------------------------------------------------------- places (scene coordinates)
 COURT = (-45.0, -2.0, -18.0, 17.0)             # open floor box (x0, x1, z0, z1), feet y 0
+COURTSIDE = [0, 12, -12, 24, -24, 36, -36]      # frame() tries that keep a lens on the courtyard side of a wall
 FOUNTAIN = (-22.5, 0.0, -1.5)
 BRIDGE_Z = -0.5                                # walkway centre line (cells z -2..0; only z -1 at the colonnade)
 BRIDGE_X = (11.0, 121.0)
@@ -116,8 +118,8 @@ GROUNDS = (140.0, -2.0, -1.0)
 HILL_V = (150.0, None, 72.0)                   # Voldemort on the hill (y from the ground)
 
 # the shield over the castle: its east wall stands across the bridge's first third
-DOME_C = (-70.0, -50.0, 0.0)
-DOME_R = (110.0, 130.0, 100.0)
+DOME_C = (-90.0, -50.0, 0.0)
+DOME_R = (130.0, 140.0, 190.0)
 
 
 def dome_point(y, z):
@@ -276,38 +278,37 @@ def scene_defences():
         F.effect(t, 'lightning', at)
     F.narrate(1.2, 'THE BATTLE OF HOGWARTS', 4.4, size=3)
 
-    # --- camera
-    F.shot(0.0, (150.0, 34.0, 70.0), (-30.0, 30.0, 0.0), 62, cut=False)
-    F.shot(6.5, (140.0, 30.0, 62.0), (-30.0, 26.0, 0.0), 58, cut=False)
-    F.shot(6.5, (-4.0, 1.2, 14.0), (-22.0, 2.0, -6.0), 72)                         # the bustle, low
-    F.shot(11.5, (-7.0, 1.4, 13.0), (-26.0, 2.2, -4.0), 72, cut=False)
-    F.shot(11.5, (-26.0, 2.4, -16.0), mcg.target, 55)                             # she comes out
-    F.shot(17.0, (-29.0, 2.1, -12.0), mcg.target, 52, cut=False)
-    F.shot(17.0, (-5.0, 3.6, -1.5), (-33.5, 1.8, -1.5), 50)                       # over the crowd to her
-    F.shot(22.5, (-9.0, 3.2, -1.5), (-33.5, 1.8, -1.5), 46, cut=False)
-    F.shot(22.5, (-30.5, 1.6, -3.0), mcg.target, 42, roll=-2)                     # close, the order
-    F.shot(T_SPELL - 0.3, (-30.6, 1.5, -2.6), mcg.target, 40, cut=False, roll=-3)
-    F.shot(T_SPELL - 0.3, (-36.0, 0.6, -12.0), statues[2].target, 60)             # a knight's head lifts
-    F.shot(T_SPELL + 2.5, (-36.4, 0.8, -12.4), statues[2].target, 56, cut=False)
-    F.shot(T_SPELL + 2.5, (-8.0, 7.0, 0.0), (-24.0, 1.0, -1.0), 82)               # they all rise
-    F.shot(T_QUIP - 0.6, (-9.0, 8.0, 1.5), (-26.0, 1.0, -1.0), 82, cut=False)
-    F.shot(T_QUIP - 0.6, (-31.0, 1.7, 0.6), mcg.target, 46)                       # the quip
-    F.shot(T_QUIP + 3.2, (-31.4, 1.7, 0.9), mcg.target, 44, cut=False)
-    F.shot(T_QUIP + 3.2, (-2.0, 0.7, -5.5), (-14.0, 2.0, -1.0), 70, roll=3)       # the file comes at the lens
-    F.shot(T_QUIP + 8.2, (-1.0, 0.8, -5.0), (-4.0, 2.4, -1.0), 72, cut=False, roll=3)
-    F.shot(T_QUIP + 8.2, (60.0, 2.0, 3.5), (30.0, 1.6, -1.0), 60)                 # on the bridge, toward them
-    F.shot(T_QUIP + 14.0, (58.0, 2.2, 3.4), (20.0, 1.8, -1.0), 60, cut=False)
-    F.shot(T_QUIP + 14.0, (40.0, -6.0, 26.0), (40.0, 2.0, -1.0), 70)               # the file under the roof, from the ravine air
-    F.shot(T_QUIP + 19.5, (46.0, -5.0, 25.0), (44.0, 2.0, -1.0), 68, cut=False)
-    F.shot(T_QUIP + 19.5, (-14.0, 1.0, 4.0), (-24.0, 6.0, -2.0), 80)              # wands up
-    F.shot(T_SHIELD + 0.6, (-15.0, 1.1, 4.4), (-24.0, 12.0, -2.0), 84, cut=False)
-    F.shot(T_SHIELD + 0.6, (150.0, 34.0, 70.0), (-40.0, 20.0, 0.0), 64)           # the dome climbs the castle
-    F.shot(T_SHIELD + 6.6, (146.0, 32.0, 66.0), (-40.0, 40.0, 0.0), 66, cut=False)
-    F.shot(T_SHIELD + 6.6, (-10.0, 1.2, 12.0), (-22.0, 30.0, -4.0), 90)           # overhead, closing
-    F.shot(T_SHIELD + 12.6, (-10.4, 1.2, 12.6), (-22.0, 50.0, -4.0), 92, cut=False)
-    F.shot(T_SHIELD + 12.6, (-12.6, 1.5, 7.2), neville.target, 48)                # Neville
+    # --- camera (solved shots: subject, distance, side, move)
+    fr = F.frame
+    CASTLE_MID = (-40.0, 32.0, 0.0)
+    COURT_MID = (-22.0, 2.0, 0.0)
+    T1 = T_SPELL - 0.3
+    fr(0.0, 6.5, CASTLE_MID, dist=165, height=6, az=-68, fov=58, move='push', amount=0.06, name='establish',
+       lifts=[0, 8, 16, 28, 45])
+    fr(6.5, 11.5, COURT_MID, dist=15, height=-0.4, az=-50, fov=72, move='slide', amount=0.35, name='bustle')
+    fr(11.5, 17.0, mcg, dist=4.5, height=-0.1, fov=50, track=True, name='mcg comes')
+    fr(17.0, 22.5, mcg, dist=19, height=2.0, az=-90, fov=42, move='push', amount=0.12, name='over the crowd')
+    fr(22.5, T1, mcg, dist=2.9, height=-0.05, az=-70, fov=42, move='push', amount=0.12, name='the order')
+    fr(T1, T_SPELL + 2.5, statues[2], dist=3.2, height=-0.4, fov=56, move='push', amount=0.1,
+       look_offset=(0, -0.5, 0), name='a knight lifts')
+    fr(T_SPELL + 2.5, T_QUIP - 0.6, COURT_MID, dist=24, height=8, az=-55, fov=78, move='slide', amount=0.25,
+       name='they all rise')
+    fr(T_QUIP - 0.6, T_QUIP + 3.2, mcg, dist=2.7, height=-0.05, az=-110, fov=44, move='push', amount=0.08,
+       name='the quip')
+    fr(T_QUIP + 3.2, T_QUIP + 8.2, (-6.0, 1.6, BRIDGE_Z), dist=11, height=0.2, az=-60, fov=68, move='pull',
+       amount=0.2, name='the file comes')
+    fr(T_QUIP + 8.2, T_QUIP + 14.0, (30.0, 1.6, BRIDGE_Z), dist=46, height=0.2, az=-90, fov=34, move='pull',
+       amount=0.05, name='on the bridge, down its length')
+    fr(T_QUIP + 14.0, T_QUIP + 19.5, (46.0, 1.8, BRIDGE_Z), dist=30, height=-7, az=-15, fov=66, move='push',
+       amount=0.12, name='from the ravine air')
+    fr(T_QUIP + 19.5, T_SHIELD + 0.6, trio[0], dist=3.0, height=-0.7, fov=80, look_offset=(0, 3.5, 0),
+       move='push', amount=0.1, name='wands up')
+    fr(T_SHIELD + 0.6, T_SHIELD + 6.6, (-60.0, 34.0, 0.0), dist=170, height=12, az=-72, fov=64, move='push',
+       amount=0.05, name='the dome climbs', lifts=[0, 8, 16, 28, 45])
+    fr(T_SHIELD + 6.6, T_SHIELD + 12.6, (-22.0, 34.0, -4.0), dist=20, height=-32, az=-40, fov=90, move='slide',
+       amount=0.2, name='it closes overhead')
     F.L = round(T_SHIELD + 18.4, 2)
-    F.shot(F.L, (-13.4, 1.5, 7.9), neville.target, 40, cut=False)
+    fr(T_SHIELD + 12.6, F.L, neville, dist=2.5, height=-0.05, fov=44, move='push', amount=0.15, name='Neville')
     return F
 
 
@@ -432,34 +433,31 @@ def scene_siege():
     F.sfx(0.0, 'first_task_wind_high', 0.35, loop=True, duration=int(72 * 20) - 40)
     for t, at in ((4.0, (300, 0, 120)), (24.0, (100, 0, 190)), (45.0, (-150, 0, -180)), (T_BREAK + 0.5, (40, 0, 40))):
         F.effect(t, 'lightning', at)
-    # camera
-    V = vold.target
-    F.shot(0.0, (100.0, 18.0, 98.0), (150.0, 20.0, 70.0), 70, cut=False)          # the hillside, the army
-    F.shot(6.0, (104.0, 20.0, 100.0), (150.0, 22.0, 70.0), 66, cut=False)
-    F.shot(6.0, (vx - 6.0, vpos[1] + 1.2, vz - 5.0), V, 44, roll=-3)              # him, from below
-    F.shot(12.0, (vx - 5.4, vpos[1] + 1.3, vz - 4.4), V, 40, cut=False, roll=-4)
-    F.shot(12.0, (17.0, 1.6, 0.6), (13.6, 1.6, -0.8), 50)                         # the trio listening
-    F.shot(18.0, (17.6, 1.6, 0.5), (13.6, 1.6, -0.8), 46, cut=False)
-    F.shot(18.0, (vx + 8.0, vpos[1] + 6.0, vz + 12.0), (0.0, 30.0, 0.0), 66)      # over the army at the castle
-    F.shot(24.0, (vx + 7.0, vpos[1] + 6.5, vz + 11.0), (0.0, 34.0, 0.0), 62, cut=False)
-    F.shot(24.0, (vx - 3.5, vpos[1] + 1.8, vz - 3.0), V, 50)                      # the wand comes up
-    F.shot(T_V + 1.0, (vx - 3.0, vpos[1] + 1.9, vz - 2.6), V, 46, cut=False)
-    F.shot(T_V + 1.0, (vx + 20.0, vpos[1] + 4.0, vz + 2.0), (40.0, 30.0, 0.0), 74)  # the volley flies
-    F.shot(T_V + 6.5, (vx + 18.0, vpos[1] + 5.0, vz + 1.0), (30.0, 40.0, 0.0), 76, cut=False)
-    F.shot(T_V + 6.5, (8.0, 1.0, 3.0), (30.0, 30.0, 6.0), 94, roll=4)             # under it, the dome rippling
-    F.shot(T_V + 12.5, (8.4, 1.1, 3.4), (30.0, 40.0, 6.0), 96, cut=False, roll=5)
-    F.shot(T_V + 12.5, (17.0, 1.5, 0.6), (14.0, 1.7, -0.8), 48)                   # Ron and Hermione
-    F.shot(T_BREAK - 6.5, (17.4, 1.5, 0.5), (14.0, 1.7, -0.8), 46, cut=False)
-    F.shot(T_BREAK - 6.5, (-8.0, 0.8, 2.0), (-2.0, 12.0, -1.0), 88, roll=-3)      # the courtyard, faces up at the flashes
-    F.shot(T_BREAK - 3.0, (-8.4, 0.9, 2.4), (-2.0, 16.0, -1.0), 90, cut=False, roll=-4)
-    F.shot(T_BREAK - 3.0, (vx + 2.2, vpos[1] + 2.3, vz + 1.6), (40.0, 30.0, 10.0), 58)  # over his shoulder
-    F.shot(T_BREAK + 1.5, (vx + 2.6, vpos[1] + 2.5, vz + 2.0), (30.0, 34.0, 10.0), 62, cut=False)
-    F.shot(T_BREAK + 1.5, (50.0, 45.0, 45.0), (-20.0, 40.0, 0.0), 90)             # the burn races over the castle
-    F.shot(T_BREAK + 7.5, (46.0, 47.0, 41.0), (-30.0, 50.0, 0.0), 92, cut=False)
-    F.shot(T_BREAK + 7.5, (90.0, 10.0, 70.0), (150.0, 20.0, 75.0), 72)            # the army roars
-    F.shot(F.L - 6.5, (92.0, 11.0, 72.0), (150.0, 22.0, 75.0), 68, cut=False)
-    F.shot(F.L - 6.5, (17.0, 1.5, 0.6), trio[0].target, 46)                       # Harry
-    F.shot(F.L, (16.6, 1.5, 0.5), trio[0].target, 38, cut=False)
+    # camera (solved shots)
+    fr = F.frame
+    ARMY = (150.0, vpos[1] + 2.0, 74.0)
+    CASTLE_MID = (-40.0, 32.0, 0.0)
+    fr(0.0, 6.0, ARMY, dist=60, height=8, az=-20, fov=68, move='slide', amount=0.2, name='the army', lifts=[0, 1.5, 4, 8, 14, -2])
+    fr(6.0, 12.0, vold, dist=4.5, height=-0.8, fov=44, move='push', amount=0.12, name='him from below')
+    fr(12.0, 18.0, trio[0], dist=3.2, height=0.0, az=-130, fov=50, move='push', amount=0.1, name='the trio listen')
+    fr(18.0, 24.0, CASTLE_MID, dist=182, height=-2, az=-69, fov=56, move='push', amount=0.04,
+       ignore=tuple(e.id for e in eaters), name='over the army at the castle')
+    fr(24.0, T_V + 1.0, vold, dist=3.6, height=-0.2, fov=48, move='push', amount=0.12, name='the wand comes up')
+    fr(T_V + 1.0, T_V + 6.5, (80.0, 30.0, 30.0), dist=45, height=-2, az=-150, fov=74, move='slide', amount=0.15,
+       name='the volley flies')
+    fr(T_V + 6.5, T_V + 12.5, (25.0, 30.0, 0.0), dist=30, height=-28, az=-60, fov=94, move='slide', amount=0.15,
+       name='under it, rippling')
+    fr(T_V + 12.5, T_BREAK - 6.5, trio[1], dist=2.8, height=0.0, az=-140, fov=48, move='push', amount=0.1,
+       name='Ron and Hermione')
+    fr(T_BREAK - 6.5, T_BREAK - 3.0, (-20.0, 14.0, 0.0), dist=14, height=-12.5, az=-60, fov=88, move='push',
+       amount=0.1, name='the courtyard faces up')
+    fr(T_BREAK - 3.0, T_BREAK + 1.5, vold, dist=4.0, height=0.6, az=vold.yaw_at(T_BREAK) + 160, fov=58,
+       look_offset=(-40, 10, -30), name='over his shoulder')
+    fr(T_BREAK + 1.5, T_BREAK + 7.5, CASTLE_MID, dist=120, height=12, az=-55, fov=82, move='push', amount=0.06,
+       name='the burn', lifts=[0, 1.5, 4, 8, 14, -2])
+    fr(T_BREAK + 7.5, F.L - 6.5, ARMY, dist=40, height=5, az=-30, fov=70, move='push', amount=0.08,
+       name='the army roars')
+    fr(F.L - 6.5, F.L, trio[0], dist=2.6, height=-0.05, az=-120, fov=42, move='push', amount=0.15, name='Harry')
     return F
 
 
@@ -581,30 +579,26 @@ def scene_bridge():
     sea.face_point(T_SAFE + 3.0, T_SAFE + 3.6, nev.eye(T_SAFE + 4))
     F.music(0.0, 'first_task_chase', 0.9)
     F.sfx(0.0, 'first_task_wind_high', 0.3, loop=True, duration=int((T_SAFE + 10.5) * 20) - 40)
-    # camera
+    # camera (solved shots)
+    fr = F.frame
     N = nev.target
-    F.shot(0.0, (60.0, 6.0, 12.0), (100.0, 2.0, -1.0), 62, cut=False)              # the bridge from outside, him on it
-    F.shot(6.0, (66.0, 5.0, 11.0), (106.0, 2.0, -1.0), 58, cut=False)
-    F.shot(6.0, (104.0, 1.0, BRIDGE_Z), N, 48)                                        # behind him walking out
-    F.shot(11.5, (106.0, 1.0, BRIDGE_Z), N, 48, cut=False)
-    F.shot(11.5, (124.0, 1.6, BRIDGE_Z), (150.0, 1.6, -1.0), 56)                      # what he sees: the Snatchers
-    F.shot(16.5, (123.0, 1.6, BRIDGE_Z), (150.0, 1.6, -1.0), 52, cut=False)
-    F.shot(16.5, (115.4, 1.4, BRIDGE_Z), N, 44)                                        # the taunt
-    F.shot(T_CHARGE, (115.0, 1.4, BRIDGE_Z), N, 40, cut=False)
-    F.shot(T_CHARGE, (128.0, 1.0, BRIDGE_Z), (150.0, 2.0, -1.0), 70, roll=-4)          # they come
-    F.shot(T_RUN + 1.0, (128.5, 1.0, BRIDGE_Z), (140.0, 2.0, -1.0), 72, cut=False, roll=-4)
-    nx = nev.pos_at(T_RUN + 1.0)[0]
-    F.shot(T_RUN + 1.0, (nx - 9.0, 1.2, BRIDGE_Z), N, 66)                              # running at the lens, the fire behind
-    F.shot(T_RUN + 6.0, (nev.pos_at(T_RUN + 6.0)[0] - 9.0, 1.2, BRIDGE_Z), N, 66, cut=False, ease='linear')
-    F.shot(T_RUN + 6.0, (40.0, -10.0, 30.0), (nev.pos_at(T_RUN + 8.0)[0], -2.0, -1.0), 80)  # side on from the ravine air
-    F.shot(T_RUN + 12.0, (34.0, -10.0, 30.0), (nev.pos_at(T_RUN + 12.0)[0] + 6, -4.0, -1.0), 82, cut=False)
-    F.shot(T_RUN + 12.0, (7.5, 1.4, BRIDGE_Z + 0.2), N, 60)                            # from the courtyard end
-    F.shot(T_SAFE, (7.5, 1.4, BRIDGE_Z + 0.2), N, 54, cut=False)
-    F.shot(T_SAFE, (60.0, -30.0, 22.0), (60.0, -30.0, -1.0), 80)                       # the wreck falls into the ravine
-    F.shot(T_SAFE + 4.5, (62.0, -32.0, 24.0), (64.0, -40.0, -1.0), 82, cut=False)
-    F.shot(T_SAFE + 4.5, (2.4, 1.2, -1.6), N, 46)                                      # Neville on the stub
+    BRIDGE_MID = (70.0, 1.0, BRIDGE_Z)
+    fr(0.0, 6.0, BRIDGE_MID, dist=55, height=10, az=-20, fov=60, move='slide', amount=0.15, name='the bridge', lifts=[0, 1.5, 4, 8, 14, -2])
+    fr(6.0, 11.5, nev, dist=5.0, height=0.1, az=90, fov=50, track=True,
+       name='behind him walking out')
+    fr(11.5, 16.5, (150.0, 1.5, -1.0), dist=26, height=1.0, az=90, fov=54, move='push', amount=0.12,
+       name='what he sees')
+    fr(16.5, T_CHARGE, nev, dist=2.8, height=-0.05, fov=44, move='push', amount=0.1, name='the taunt')
+    fr(T_CHARGE, T_RUN + 1.0, (145.0, 1.5, -1.0), dist=14, height=-0.5, az=90, fov=72, move='push', amount=0.15,
+       ignore=tuple(s.id for s in snatchers), name='they come')
+    fr(T_RUN + 1.0, T_RUN + 6.0, nev, dist=7.0, height=0.0, az=90, fov=64, track=True, name='running at us')
+    fr(T_RUN + 6.0, T_RUN + 12.0, (lambda t: (nev.pos_at(t)[0] + 4, 0.5, -0.5)), dist=32, height=-6, az=0,
+       fov=78, track=True, name='side on from the ravine', lifts=[0, 1.5, 4, 8, 14, -2])
+    fr(T_RUN + 12.0, T_SAFE, nev, dist=8.0, height=0.0, az=90, fov=58, track=True, name='to the courtyard end')
+    fr(T_SAFE, T_SAFE + 4.5, (60.0, -25.0, -1.0), dist=30, height=-6, az=25, fov=80, move='push', amount=0.1,
+       name='the wreck falls')
     F.L = round(T_SAFE + 10.5, 2)
-    F.shot(F.L, (2.8, 1.3, -1.8), N, 40, cut=False)
+    fr(T_SAFE + 4.5, F.L, nev, dist=2.5, height=-0.1, fov=42, move='push', amount=0.12, name='Neville on the stub')
     return F
 
 
@@ -627,6 +621,7 @@ def scene_courtyard():
     F = Film('battle_of_hogwarts_courtyard', 'The Battle of Hogwarts: The Courtyard', 150.0)
     bridge_gone(F)
     melee = Melee(F, COURT, rng, y=0.0)
+    melee.miss, melee.block = 0.55, 0.5          # a long, ragged fight, not a massacre of each wave as it lands
     taken = []
 
     def spot(box=COURT, margin=2.0):
@@ -671,7 +666,7 @@ def scene_courtyard():
             F.part(t_land, 'minecraft:large_smoke', land, 30, (0.7, 1.0, 0.7))
             if k % 3 == 0:
                 F.snd(t_land, 'minecraft:entity.illusioner.mirror_move', at=land, volume=1.4, pitch=rng.uni(0.5, 0.7))
-            melee.add(e, 1, t_land + 0.3, hp=rng.pick([2, 2, 3]), speed=rng.uni(3.2, 4.4), aggression=rng.uni(0.5, 0.9))
+            melee.add(e, 1, t_land + 0.3, hp=rng.pick([3, 4, 5]), speed=rng.uni(3.2, 4.4), aggression=rng.uni(0.5, 0.9))
             eaters.append(e)
     melee.t_end = 140.0
     melee.run()
@@ -702,11 +697,11 @@ def scene_courtyard():
             e.act(t1 + 0.4, 'hurt')
             t = t1 + rng.uni(2.0, 3.2)
     # --- a giant on the south terrace, reaching over the arcade; three knights bring it down
-    g = F.actor('giant_1', 'hogwartsmagic:giant', (-24.0, 0.0, 22.5), 180.0, scale=1.7)
+    g = F.actor('giant_1', 'hogwartsmagic:giant', (-24.0, 0.0, 22.5), 180.0, scale=4.0)  # ~17 drawn: head over the arcade
     g.anim(0.0, 'IDLE')
     g.act(0.0, 'vanish')
     g.act(34.0, 'appear')
-    g.key(34.0, (-60.0, 0.0, 22.5))
+    g.key(34.0, (-46.0, 0.0, 22.5))
     g.anim(34.0, 'WALK', 4)
     g.face(34.0, -90.0)
     g.key(41.0, (-24.0, 0.0, 22.5), 'out')
@@ -716,13 +711,13 @@ def scene_courtyard():
     for k in range(6):
         F.snd(34.4 + 1.1 * k, 'hogwartsmagic:giant.step', at=g.pos_at(34.4 + 1.1 * k), volume=3.0, pitch=0.8)
     g.anim(44.5, 'SWIPE', 4)
-    F.snd(45.3, 'hogwartsmagic:giant.swipe', at=(-24, 6, 18), volume=3.0)
-    F.blast(45.4, (-24.0, 7.0, 18.0), big=True, rng=rng)
-    F.rubble(45.5, (-24.0, 7.5, 18.5), 10, rng, spread=3.0, fall=0.0, out=(0.0, -3.0))
+    F.snd(45.3, 'hogwartsmagic:giant.swipe', at=(-24, 14, 19), volume=3.0)
+    F.blast(45.4, (-24.0, 14.0, 18.5), big=True, rng=rng)
+    F.rubble(45.5, (-24.0, 14.5, 18.5), 10, rng, spread=3.0, fall=0.0, out=(0.0, -3.0))
     g.anim(48.0, 'IDLE', 6)
     g.anim(55.0, 'SWIPE', 4)
-    F.blast(55.9, (-30.0, 7.0, 18.0), big=True, rng=rng)
-    F.rubble(56.0, (-30.0, 7.5, 18.5), 8, rng, spread=3.0, fall=0.0, out=(0.0, -3.0))
+    F.blast(55.9, (-30.0, 14.0, 18.5), big=True, rng=rng)
+    F.rubble(56.0, (-30.0, 14.5, 18.5), 8, rng, spread=3.0, fall=0.0, out=(0.0, -3.0))
     knights = statues[3:6]
     for i, s in enumerate(knights):
         t = 58.0 + 0.6 * i
@@ -843,36 +838,49 @@ def scene_courtyard():
         if tt < T_TRUCE:
             F.snd(tt, 'minecraft:entity.generic.explode', at=(rng.uni(-44, -4), 2, rng.uni(-16, 16)), volume=1.0,
                   pitch=rng.uni(0.6, 1.0))
-    # --- camera
-    def wide_high(t0, t1, a, b):
-        F.shot(t0, a[0], a[1], a[2], cut=t0 > 0)
-        F.shot(t1, b[0], b[1], b[2], cut=False)
-    wide_high(0.0, 6.0, ((90.0, 30.0, 40.0), (-24.0, 6.0, 0.0), 66), ((84.0, 28.0, 36.0), (-24.0, 4.0, 0.0), 62))      # smoke streams in
-    wide_high(6.0, 11.0, ((-8.0, 0.6, 8.0), (-22.0, 3.0, -2.0), 84), ((-8.4, 0.7, 7.6), (-22.0, 6.0, -2.0), 86))      # they slam down among them
-    wide_high(11.0, 17.0, ((-44.0, 24.0, -14.0), (-20.0, 0.0, 2.0), 76), ((-44.0, 24.0, -10.0), (-18.0, 0.0, 2.0), 74))  # high, the whole court
-    wide_high(17.0, 22.5, ((-40.0, 1.6, -4.0), 'actor:mcgonagall', 52), ((-39.0, 1.6, -5.0), 'actor:mcgonagall', 50))
-    wide_high(22.5, 28.0, ((-6.0, 1.7, -12.0), (-30.0, 1.6, 4.0), 62), ((-14.0, 1.7, -12.0), (-30.0, 1.6, 6.0), 62))  # tracking along
-    wide_high(28.0, 33.5, ((-20.0, 1.5, 12.0), 'actor:kingsley', 48), ((-21.0, 1.5, 11.0), 'actor:kingsley', 46))
-    wide_high(33.5, 39.0, ((-10.0, 10.0, 4.0), (-40.0, 3.0, 20.0), 78), ((-12.0, 10.0, 6.0), (-30.0, 6.0, 20.0), 78))  # the giant comes along the terrace
-    wide_high(39.0, 44.5, ((-24.0, 0.5, 6.0), (-24.0, 12.0, 22.0), 86), ((-24.0, 0.6, 7.0), (-24.0, 14.0, 22.0), 88))  # it rears over the arcade
-    wide_high(44.5, 50.0, ((-14.0, 2.0, 6.0), (-24.0, 4.0, 17.0), 74), ((-15.0, 2.2, 5.0), (-24.0, 3.0, 17.0), 74))  # the swipe, the rubble
-    wide_high(50.0, 55.5, ((-30.0, 1.5, 0.0), 'actor:neville', 52), ((-31.0, 1.5, 1.0), 'actor:neville', 50))
-    wide_high(55.5, 61.0, ((-34.0, 1.0, 10.0), (-24.0, 6.0, 20.0), 72), ((-33.0, 1.1, 11.0), (-24.0, 6.0, 20.0), 70))  # knights at the giant
-    wide_high(61.0, 66.5, ((-20.0, 3.0, 8.0), (-24.0, 6.0, 22.0), 64), ((-21.0, 3.2, 9.0), (-24.0, 6.0, 22.0), 64))
-    wide_high(66.5, 72.0, ((-12.0, 2.0, 12.0), (-24.0, 4.0, 22.0), 74), ((-12.6, 2.2, 12.6), (-24.0, 1.0, 22.0), 76))  # it falls
-    wide_high(72.0, 77.5, ((-24.0, 1.0, -8.0), (-24.0, 14.0, -21.0), 80), ((-24.0, 1.0, -7.0), (-24.0, 8.0, -18.0), 82))  # spiders over the wall
-    wide_high(77.5, 83.0, ((-34.0, 1.6, -11.0), 'actor:ron', 52), ((-34.6, 1.6, -11.6), 'actor:ron', 50))
-    wide_high(83.0, 88.5, ((-6.0, 1.4, -15.5), 'actor:ron', 66), ((-8.0, 1.4, -15.5), 'actor:ron', 66))       # they run at the lens
-    wide_high(88.5, 94.0, ((-10.0, 1.6, -12.5), 'actor:hermione', 50), ((-10.4, 1.6, -12.8), 'actor:hermione', 48))
-    wide_high(94.0, 99.5, ((-26.0, 1.7, 14.0), (-30.0, 1.4, -2.0), 64), ((-34.0, 1.7, 14.0), (-34.0, 1.4, -2.0), 64))  # tracking the chaos
-    wide_high(99.5, 105.0, ((-11.0, 2.0, 0.0), (-50.0, 30.0, -2.0), 74), ((-12.0, 1.8, 0.0), (-48.0, 4.0, -2.0), 78))  # the tower is hit
-    wide_high(105.0, 110.5, ((-36.0, 1.6, 9.0), 'actor:luna', 50), ((-36.4, 1.6, 9.6), 'actor:luna', 48))
-    wide_high(110.5, 116.0, ((-4.0, 6.0, 15.0), (-28.0, 1.0, -6.0), 70), ((-6.0, 6.5, 13.0), (-28.0, 1.0, -6.0), 70))
-    wide_high(116.0, 121.5, ((-36.0, 1.5, -6.0), 'actor:mcgonagall', 48), ((-36.4, 1.5, -6.6), 'actor:mcgonagall', 46))
-    wide_high(121.5, 127.0, ((-44.0, 24.0, 12.0), (-20.0, 0.0, -2.0), 76), ((-44.0, 25.0, 10.0), (-20.0, 0.0, -2.0), 74))
-    wide_high(127.0, 132.5, ((-2.0, 1.0, 4.0), (-24.0, 20.0, -2.0), 84), ((-2.4, 1.0, 4.4), (-24.0, 30.0, -2.0), 86))  # they leave as smoke
+    # --- camera (solved shots)
+    fr = F.frame
+    mcg_a, kings, neville_a, luna_a = named[0], named[1], named[3], named[6]
+    COURT_C = (-22.0, 2.0, 0.0)
+    fr(0.0, 6.0, COURT_C, dist=90, height=25, az=-70, fov=64, move='push', amount=0.08,
+       ignore=tuple(e.id for e in eaters), name='smoke streams in', lifts=[0, 1.5, 4, 8, 14, -2])
+    fr(6.0, 11.0, (-20.0, 1.0, -2.0), dist=12, height=-0.4, az=-120, fov=82, move='slide', amount=0.2,
+       name='they slam down')
+    fr(11.0, 17.0, COURT_C, dist=30, height=20, az=150, fov=74, move='slide', amount=0.15, name='the whole court')
+    fr(17.0, 22.5, mcg_a, dist=4.0, height=0.0, fov=50, move='push', amount=0.1, name='McGonagall')
+    fr(22.5, 28.0, (-26.0, 1.4, 6.0), dist=10, height=0.2, az=-150, fov=64, move='slide', amount=0.4,
+       name='tracking along')
+    fr(28.0, 33.5, kings, dist=4.0, height=0.0, fov=48, move='push', amount=0.1, name='Kingsley')
+    fr(33.5, 39.0, (-34.0, 16.5, 22.5), dist=24, height=-12, az=180, fov=78, move='slide', amount=0.08,
+       tries=COURTSIDE, name='the giant looms along the arcade roof', lifts=[0, 3, 6, 9, -2])
+    fr(39.0, 44.5, (lambda t: (g.pos_at(t)[0], 16.5, 22.5)), dist=20, height=-5, az=180, fov=80, move='push',
+       amount=0.1, tries=COURTSIDE, name='it rears over the arcade', lifts=[0, 1.5, 3, -1])
+    fr(44.5, 50.0, (-24.0, 14.0, 19.0), dist=16, height=-10, az=170, fov=74, move='pull', amount=0.15,
+       tries=COURTSIDE, name='the swipe')
+    fr(50.0, 55.5, neville_a, dist=3.6, height=0.0, fov=50, move='push', amount=0.1, name='Neville')
+    fr(55.5, 61.0, (-24.0, 16.5, 22.0), dist=20, height=-4, az=180, fov=72, move='slide', amount=0.15,
+       tries=COURTSIDE, name='knights at the giant')
+    fr(61.0, 66.5, (-24.0, 16.5, 22.0), dist=18, height=-5, az=200, fov=64, move='push', amount=0.1,
+       tries=COURTSIDE, name='blows')
+    fr(66.5, 72.0, (-24.0, 16.5, 19.5), dist=20, height=-5, az=150, fov=76, move='pull', amount=0.12,
+       tries=COURTSIDE, name='it falls')
+    fr(72.0, 77.5, (-24.0, 10.0, -19.0), dist=16, height=-8, az=0, fov=82, move='push', amount=0.1,
+       tries=COURTSIDE, name='spiders over the wall')
+    fr(77.5, 83.0, ron, dist=3.2, height=0.0, fov=50, move='push', amount=0.1, name='Ron sees it')
+    fr(83.0, 88.5, ron, dist=7.0, height=0.0, az=-90, fov=66, track=True, name='they run at us')
+    fr(88.5, 94.0, her, dist=3.0, height=0.0, fov=48, move='push', amount=0.1, name='Hermione blasts it')
+    fr(94.0, 99.5, (-30.0, 1.4, 0.0), dist=12, height=0.3, az=170, fov=64, move='slide', amount=0.4,
+       name='tracking the chaos')
+    fr(99.5, 105.0, (-50.0, 30.0, -2.0), dist=40, height=-25, az=-90, fov=74, move='push', amount=0.08,
+       name='the tower is hit')
+    fr(105.0, 110.5, luna_a, dist=3.6, height=0.0, fov=50, move='push', amount=0.1, name='Luna')
+    fr(110.5, 116.0, COURT_C, dist=20, height=6, az=-30, fov=70, move='slide', amount=0.2, name='the knots')
+    fr(116.0, 121.5, mcg_a, dist=3.4, height=0.0, fov=46, move='push', amount=0.1, name='McGonagall again')
+    fr(121.5, 127.0, COURT_C, dist=32, height=22, az=60, fov=74, move='slide', amount=0.15, name='high wide')
+    fr(127.0, 132.5, COURT_C, dist=14, height=-1.0, az=-100, fov=84, look_offset=(0, 18, 0), move='push',
+       amount=0.08, name='they leave as smoke')
     F.L = 138.0
-    wide_high(132.5, F.L, ((-30.0, 1.6, 6.0), 'actor:neville', 46), ((-30.4, 1.6, 6.6), 'actor:neville', 38))
+    fr(132.5, F.L, neville_a, dist=2.6, height=-0.05, fov=40, move='push', amount=0.15, name='Neville, after')
     return F
 
 
@@ -1042,26 +1050,34 @@ def scene_hall():
     F.effect(0.0, 'floating_candles', (30.0, 13.0, 0.5), spread=[24.0, 3.0, 13.0], count=180)
     for t0 in (12.0, 60.0):
         F.sfx(t0, 'hall_murmur_b', 0.4)
-    # camera
-    def shot2(t0, t1, a, b):
-        F.shot(t0, a[0], a[1], a[2], cut=t0 > 0)
-        F.shot(t1, b[0], b[1], b[2], cut=False)
-    shot2(0.0, 6.0, ((62.0, 6.0, 0.5), (20.0, 2.0, 0.5), 74), ((60.0, 5.0, 0.5), (20.0, 1.0, 0.5), 70))          # the hall of the wounded
-    shot2(6.0, 12.0, ((52.0, 1.4, 8.0), (30.0, 0.6, 8.0), 60), ((40.0, 1.4, 8.0), (20.0, 0.6, 8.0), 60))        # along the aisle
-    shot2(12.0, 18.0, ((33.0, 1.3, -1.8), molly.target, 46), ((33.4, 1.3, -2.2), molly.target, 42))            # Molly over Fred
-    shot2(18.0, 24.0, ((44.0, 1.6, 1.5), harry.target, 50), ((43.0, 1.6, 1.6), harry.target, 46))              # Harry sees
-    shot2(24.0, 30.0, ((36.0, 1.0, 2.6), (30.0, 0.4, 0.5), 50), ((35.0, 1.0, 2.4), (30.0, 0.4, 0.5), 46))
-    shot2(30.0, 35.5, ((50.0, 1.2, 8.0), (64.0, 3.0, 0.5), 80), ((49.0, 1.2, 8.0), (60.0, 2.0, 0.5), 82))      # they burst in
-    shot2(35.5, 41.0, ((24.0, 8.0, -8.0), (44.0, 1.0, 0.5), 76), ((26.0, 8.0, -8.0), (44.0, 1.0, 0.5), 74))
-    shot2(41.0, 46.0, ((20.0, 1.2, -1.5), bella.target, 54), ((19.0, 1.3, -1.4), bella.target, 50))            # Bellatrix lands
-    shot2(46.0, 51.5, ((19.0, 1.4, -8.0), (19.0, 1.4, 0.5), 60), ((18.4, 1.4, -8.0), (18.4, 1.4, 0.5), 60))     # the girls duel her
-    shot2(51.5, T_MOLLY + 1.0, ((14.0, 1.4, 1.8), ginny.target, 48), ((14.4, 1.4, 1.6), ginny.target, 44))
-    shot2(T_MOLLY + 1.0, T_MOLLY + 6.5, ((19.0, 1.5, -1.4), molly.target, 44), ((19.4, 1.5, -1.0), molly.target, 40))
-    shot2(T_MOLLY + 6.5, T_MOLLY + 12.0, ((20.6, 1.4, 5.0), (20.6, 1.4, 0.5), 62), ((21.0, 1.4, 5.0), (21.0, 1.4, 0.5), 62))
-    shot2(T_MOLLY + 12.0, T_STONE + 2.0, ((24.0, 1.4, -1.6), bella.target, 46), ((23.6, 1.4, -1.4), bella.target, 42))
-    shot2(T_STONE + 2.0, T_SHATTER + 4.0, ((15.0, 1.5, 2.4), (22.0, 1.4, 0.5), 56), ((15.4, 1.5, 2.2), (22.0, 1.0, 0.5), 54))
+    # camera (solved shots)
+    fr = F.frame
+    HALL = (30.0, 2.0, 0.5)
+    fr(0.0, 6.0, HALL, dist=30, height=4.0, az=-90, fov=72, move='push', amount=0.1, name='the hall of the wounded')
+    fr(6.0, 12.0, (28.0, 0.8, 8.0), dist=14, height=0.4, az=-90, fov=60, move='slide', amount=0.2,
+       name='along the aisle')
+    fr(12.0, 18.0, molly, dist=3.0, height=0.1, az=60, fov=46, move='push', amount=0.12, name='Molly over Fred')
+    fr(18.0, 24.0, harry, dist=3.2, height=0.0, fov=48, move='push', amount=0.1, name='Harry sees')
+    fr(24.0, 30.0, fred, dist=3.0, height=0.8, az=30, fov=48, look_offset=(0, -1.2, 0), move='push',
+       amount=0.08, name='Fred')
+    fr(30.0, 35.5, (60.0, 2.0, 0.5), dist=14, height=0.2, az=90, fov=80, move='push', amount=0.1,
+       name='they burst in')
+    fr(35.5, 41.0, (44.0, 1.5, 0.5), dist=18, height=7, az=180, fov=74, move='slide', amount=0.15,
+       name='the hall fights')
+    fr(41.0, 46.0, (24.0, 1.55, 0.5), dist=6.0, height=0.1, az=90, fov=54, move='push', amount=0.1,
+       name='Bellatrix lands', tries=[0, 8, -8, 15, -15], lifts=[0, 1.0, 2.0, -0.4])
+    fr(46.0, 51.5, (19.0, 1.5, 0.5), dist=8.0, height=0.2, az=180, fov=60, move='slide', amount=0.2,
+       name='the girls duel her')
+    fr(51.5, T_MOLLY + 1.0, ginny, dist=3.2, height=0.0, fov=46, move='push', amount=0.1, name='Ginny')
+    fr(T_MOLLY + 1.0, T_MOLLY + 6.5, molly, dist=3.0, height=0.0, fov=42, move='push', amount=0.12, name='Molly')
+    fr(T_MOLLY + 6.5, T_MOLLY + 12.0, (20.6, 1.5, 0.5), dist=6.0, height=0.0, az=0, fov=60, move='slide',
+       amount=0.2, name='the duel, profile')
+    fr(T_MOLLY + 12.0, T_STONE + 2.0, bella, dist=3.2, height=0.0, fov=44, move='push', amount=0.1,
+       name='Bellatrix laughs')
+    fr(T_STONE + 2.0, T_SHATTER + 4.0, (22.0, 1.4, 0.5), dist=6.5, height=0.2, az=150, fov=54, move='push',
+       amount=0.08, name='stone, then dust')
     F.L = round(T_SHATTER + 9.5, 2)
-    shot2(T_SHATTER + 4.0, F.L, ((20.0, 1.5, -1.6), molly.target, 46), ((19.6, 1.5, -1.2), molly.target, 38))
+    fr(T_SHATTER + 4.0, F.L, molly, dist=2.8, height=-0.05, fov=42, move='push', amount=0.15, name='Molly after')
     return F
 
 
@@ -1275,30 +1291,35 @@ def scene_duel():
     F.music(0.0, 'cave_despair', 0.8)
     F.music(T_X - 2.0, 'chamber_duel', 1.0)
     F.sfx(0.0, 'first_task_wind_high', 0.3, loop=True, duration=int((T_GONE + 8.0) * 20))
-    # camera
-    def s2(t0, t1, a, b):
-        F.shot(t0, a[0], a[1], a[2], cut=t0 > 0)
-        F.shot(t1, b[0], b[1], b[2], cut=False)
-    H, V = harry.target, vold.target
+    # camera (solved shots)
+    fr = F.frame
     Z = DUEL_Z
-    s2(0.0, 6.0, ((-44.0, 24.0, -14.0), (-20.0, 0.0, 6.0), 72), ((-44.0, 22.0, -12.0), (-18.0, 0.0, 6.0), 68))   # the ruins at grey dawn
-    s2(6.0, 11.0, ((-4.0, 1.5, 4.0), H, 52), ((-4.4, 1.5, 4.4), H, 48))                                          # Harry comes off the stub
-    s2(11.0, 17.0, ((-31.0, 1.0, Z - 4.0), V, 50), ((-32.0, 1.0, Z - 3.6), V, 46))                               # him, waiting
-    s2(17.0, 23.0, ((-23.0, 7.5, Z - 9.5), (-23.0, 1.5, Z), 60), ((-23.0, 7.0, Z - 8.5), (-23.0, 1.5, Z), 58))   # the two of them, the ring
+    MIDP = (MID[0], 1.5, Z)
+    fr(0.0, 6.0, (-22.0, 2.0, 4.0), dist=40, height=22, az=-140, fov=70, move='push', amount=0.08,
+       name='the ruins at grey dawn', lifts=[0, 1.5, 4, 8, 14, -2])
+    fr(6.0, 11.0, harry, dist=5.0, height=0.0, fov=50, track=True, name='Harry comes off the stub')
+    fr(11.0, 17.0, vold, dist=4.5, height=-0.4, fov=46, move='push', amount=0.12, name='him, waiting')
+    fr(17.0, 23.0, MIDP, dist=16, height=6, az=180, fov=60, move='push', amount=0.1, name='the ring')
     T_MID = round((23.0 + T_X + 0.5) / 2, 2)
-    s2(23.0, T_MID, ((-31.5, 1.6, Z - 2.0), V, 44), ((-31.7, 1.6, Z - 2.3), V, 40))                              # come to die
-    s2(T_MID, T_X + 0.5, ((-14.0, 1.6, Z - 1.5), H, 44), ((-14.2, 1.6, Z - 1.8), H, 40))
-    s2(T_X + 0.5, T_X + 6.0, ((-23.0, 8.0, Z - 9.0), (-23.0, 1.0, Z), 66), ((-21.0, 8.0, Z - 9.0), (-23.0, 1.0, Z), 66))  # circling
-    s2(T_X + 6.0, T_X + 11.5, ((-28.0, 1.2, Z + 5.0), (-20.0, 1.4, Z), 70), ((-26.0, 1.2, Z + 5.0), (-20.0, 1.4, Z), 70))
-    s2(T_X + 11.5, T_X + 15.5, ((-23.0, 0.7, Z - 5.0), (-23.0, 1.5, Z), 74), ((-23.0, 0.75, Z - 4.6), (-23.0, 1.5, Z), 72))
-    s2(T_X + 15.5, T_CAST + 0.5, ((-17.0, 1.0, Z + 4.0), (-25.0, 1.5, Z), 64), ((-17.6, 1.0, Z + 3.6), (-25.0, 1.5, Z), 62))
-    s2(T_CAST + 0.5, T_CAST + 4.0, ((-12.6, 1.65, Z - 1.6), H, 40), ((-12.8, 1.62, Z - 1.9), H, 36))
-    s2(T_CAST + 4.0, T_PUSH - 1.0, ((-33.4, 1.65, Z + 1.7), V, 40), ((-33.2, 1.62, Z + 2.0), V, 36))
-    s2(T_PUSH - 1.0, T_WIN + 2.0, ((-23.0, 1.4, Z + 4.4), (-23.0, 1.5, Z), 62), ((-23.6, 1.5, Z + 4.8), (-26.0, 1.5, Z), 60))
-    s2(T_WIN + 2.0, T_GONE + 1.5, ((-32.0, 1.5, Z + 2.2), (V_DUEL[0], 1.8, Z), 46), ((-32.4, 1.6, Z + 2.6), (V_DUEL[0], 2.6, Z), 44))
-    s2(T_GONE + 1.5, T_GONE + 6.0, ((-19.0, 1.9, Z), H, 56), ((-18.0, 1.9, Z), H, 52))
+    fr(23.0, T_MID, vold, dist=3.0, height=-0.05, fov=42, move='push', amount=0.1, name='come to die')
+    fr(T_MID, T_X + 0.5, harry, dist=3.0, height=-0.05, fov=42, move='push', amount=0.1, name='finish it')
+    fr(T_X + 0.5, T_X + 6.0, MIDP, dist=14, height=6, az=180, fov=66, move='slide', amount=0.3, name='circling')
+    fr(T_X + 6.0, T_X + 11.5, MIDP, dist=9, height=-0.3, az=10, fov=72, move='slide', amount=0.3,
+       name='the exchange')
+    fr(T_X + 11.5, T_X + 15.5, MIDP, dist=7, height=-0.8, az=180, fov=74, move='push', amount=0.1, name='low')
+    fr(T_X + 15.5, T_CAST + 0.5, MIDP, dist=9, height=0.0, az=20, fov=62, move='push', amount=0.1,
+       name='wands up')
+    fr(T_CAST + 0.5, T_CAST + 4.0, harry, dist=2.4, height=-0.05, az=harry.yaw_at(T_CAST) + 35, fov=40,
+       move='push', amount=0.08, name='Harry straining')
+    fr(T_CAST + 4.0, T_PUSH - 1.0, vold, dist=2.4, height=-0.05, az=vold.yaw_at(T_CAST) - 35, fov=40,
+       move='push', amount=0.08, name='Voldemort straining')
+    fr(T_PUSH - 1.0, T_WIN + 2.0, MIDP, dist=10, height=0.1, az=0, fov=62, move='slide', amount=0.15,
+       name='the turn')
+    fr(T_WIN + 2.0, T_GONE + 1.5, vold, dist=3.4, height=0.2, fov=46, move='pull', amount=0.12, name='ash')
+    fr(T_GONE + 1.5, T_GONE + 6.0, harry, dist=7.0, height=0.3, az=harry.yaw_at(T_GONE) + 180, fov=56,
+       move='push', amount=0.12, name='Harry alone')
     F.L = round(T_GONE + 10.5, 2)
-    s2(T_GONE + 6.0, F.L, ((-12.8, 1.66, Z - 1.8), H, 46), ((-12.2, 1.65, Z - 1.4), H, 30))
+    fr(T_GONE + 6.0, F.L, harry, dist=2.6, height=-0.05, fov=46, move='push', amount=0.3, name='into the white')
     return F
 
 
@@ -1367,22 +1388,26 @@ def scene_dawn():
     VOICE_LINES.append({'name': 'bh_narr_allwell', 'speaker': 'narrator', 'text': 'All was well.'})
     if clip_seconds('bh_narr_allwell'):
         F.voice(T_END - 6.0, 'bh_narr_allwell')
-    # camera
-    def s2(t0, t1, a, b):
-        F.shot(t0, a[0], a[1], a[2], cut=t0 > 0)
-        F.shot(t1, b[0], b[1], b[2], cut=False)
-    H = harry.target
-    s2(0.0, 6.0, ((60.0, -6.0, 30.0), (0.0, 20.0, -10.0), 66), ((56.0, -5.0, 28.0), (0.0, 22.0, -10.0), 64))   # dawn over the castle, the broken bridge
-    s2(6.0, 11.5, ((-24.0, 2.0, 8.0), (-10.0, 1.0, -2.0), 64), ((-22.0, 2.0, 8.0), (-8.0, 1.0, -2.0), 62))      # the courtyard after
-    s2(11.5, 17.0, ((24.0, 1.8, 6.0), (12.0, 1.6, -0.5), 52), ((23.0, 1.8, 5.6), (12.0, 1.6, -0.5), 50))        # the three at the edge, from the air
+    # camera (solved shots)
+    fr = F.frame
     T_M = round((17.0 + T_SNAP - 1.5) / 2, 2)
-    s2(17.0, T_M, ((9.0, 1.6, 0.6), 'actor:ron', 44), ((9.4, 1.6, 0.4), 'actor:ron', 42))
-    s2(T_M, T_SNAP - 1.5, ((10.0, 1.6, -1.6), H, 44), ((10.4, 1.6, -1.4), H, 40))
-    s2(T_SNAP - 1.5, T_SNAP + 3.5, ((14.6, 1.4, 1.4), (12.6, 1.3, -0.5), 50), ((14.8, 1.4, 1.6), (13.0, 1.3, -0.5), 48))
-    s2(T_SNAP + 3.5, T_SNAP + 8.5, ((30.0, -2.0, 14.0), (12.0, 1.0, -0.5), 54), ((30.0, -3.0, 14.0), (12.0, 1.0, -0.5), 52))
-    s2(T_SNAP + 8.5, T_SNAP + 13.0, ((7.0, 1.7, -0.5), (60.0, 6.0, -0.5), 60), ((8.0, 1.7, -0.5), (60.0, 6.0, -0.5), 58))
+    fr(0.0, 6.0, (0.0, 20.0, -10.0), dist=70, height=-15, az=-45, fov=64, move='push', amount=0.08,
+       name='dawn over the castle', lifts=[0, 1.5, 4, 8, 14, -2])
+    fr(6.0, 11.5, (-22.0, 1.5, 0.0), dist=18, height=1.5, az=-60, fov=62, move='slide', amount=0.2,
+       name='the courtyard after')
+    fr(11.5, 17.0, (12.0, 1.6, -0.5), dist=12, height=0.5, az=-60, fov=50, move='push', amount=0.1,
+       name='the three at the edge')
+    fr(17.0, T_M, ron, dist=2.8, height=-0.05, fov=44, move='push', amount=0.08, name='Ron')
+    fr(T_M, T_SNAP - 1.5, harry, dist=2.8, height=-0.05, fov=42, move='push', amount=0.08, name='Harry')
+    fr(T_SNAP - 1.5, T_SNAP + 3.5, harry, dist=2.6, height=-0.4, az=harry.yaw_at(T_SNAP) + 60, fov=50,
+       look_offset=(0, -0.3, 0), move='push', amount=0.08, name='the wand snaps')
+    fr(T_SNAP + 3.5, T_SNAP + 8.5, (14.0, 0.0, -0.5), dist=22, height=-2, az=0, fov=54, move='push',
+       amount=0.08, name='thrown away', lifts=[0, 4, -6, 8])
+    fr(T_SNAP + 8.5, T_SNAP + 13.0, harry, dist=4.0, height=0.2, az=harry.yaw_at(T_SNAP) + 180, fov=58,
+       move='push', amount=0.08, name='looking out')
     F.L = round(T_END, 2)
-    s2(T_SNAP + 13.0, F.L, ((20.0, 1.4, -0.5), (0.0, 4.0, -0.5), 66), ((60.0, 30.0, 40.0), (0.0, 10.0, -0.5), 72))
+    fr(T_SNAP + 13.0, F.L, (0.0, 4.0, -0.5), dist=30, height=14, az=-60, fov=72, move='pull', amount=0.6,
+       name='crane away', lifts=[0, 1.5, 4, 8, 14, -2])
     return F
 
 
@@ -1392,19 +1417,96 @@ CHAIN = ['battle_of_hogwarts', 'battle_of_hogwarts_siege', 'battle_of_hogwarts_b
          'battle_of_hogwarts_dawn']
 
 
+# ---------------------------------------------------------------- background life (battle_life.liven)
+DARK = ('death_eater', 'snatcher', 'voldemort', 'bellatrix')
+WATCH = {'glance': 3, 'look': 4, 'step': 1.4, 'talk': 2, 'nervous': 1.4, 'point': 0.6}
+FIGHT = {'volley': 4, 'cast': 3, 'protego': 1.4, 'step': 2, 'duck': 0.8, 'glance': 0.7}
+JEER = {'glance': 2, 'look': 2, 'step': 1.5, 'talk': 1.4, 'raise': 1.6, 'point': 0.8}
+MOURN = {'glance': 2, 'look': 2.5, 'talk': 1.6, 'step': 0.5}
+TENSE = {'glance': 2, 'look': 5, 'step': 0.8, 'nervous': 1.2}
+GIANT = {'roar': 1, 'swipe': 0.8, 'stomp': 1.4, 'glance': 2}
+KNIGHT = {'swing': 3, 'glance': 1, 'step': 1}
+SPIDER = {'skitter': 4, 'glance': 1}
+# where a scene's onlookers look: the dome going up, the army on the hill, the gate, the duel, the bridge
+LOOKS = {'battle_of_hogwarts': (-60.0, 45.0, 0.0), 'battle_of_hogwarts_siege': (150.0, 15.0, 72.0),
+         'battle_of_hogwarts_bridge': (110.0, 0.0, -0.5), 'battle_of_hogwarts_dawn': (12.6, 1.5, BRIDGE_Z)}
+FIGHTING = ('battle_of_hogwarts_courtyard', 'battle_of_hogwarts_hall')
+STILL = ('voldemort', 'fred', 'elder_wand')              # held still on purpose (and never props)
+
+
+def side_of(a):
+    return 1 if a.id.startswith(DARK) else 0
+
+
+def mood_for(F):
+    """battle_life mood for each actor of a scene: the fights fight on, onlookers look, the wounded stir."""
+    players = [a for a in F.actors if a.d['type'] == 'player']
+    look = LOOKS.get(F.id)
+    if F.id == 'battle_of_hogwarts_duel':
+        by = {a.id: a for a in F.actors}
+        h, v = by['harry'], by['voldemort']
+
+        def look_fn(t):
+            p, q = h.pos_at(t), v.pos_at(t)
+            return ((p[0] + q[0]) / 2, 1.5, (p[2] + q[2]) / 2)
+    else:
+        def look_fn(t):
+            return look
+
+    def foes(side):
+        return lambda t: [o for o in players if side_of(o) != side]
+
+    def mood(a):
+        typ = a.d['type']
+        if a.id in STILL or typ == 'hogwartsmagic:memory_block':
+            return None
+        if typ == 'hogwartsmagic:giant':
+            return {'acts': GIANT, 'pace': (1.5, 4.0), 'look': look_fn}
+        if typ == 'hogwartsmagic:living_statue':
+            return {'acts': KNIGHT if F.id in FIGHTING else {'glance': 1, 'step': 1}, 'pace': (0.8, 2.5),
+                    'foes': foes(0)}
+        if typ == 'hogwartsmagic:acromantula':
+            return {'acts': SPIDER, 'pace': (0.2, 1.2)}
+        if typ != 'player':
+            return None
+        side = side_of(a)
+        if a.id.startswith('wounded'):
+            return {'acts': {'stir': 1}, 'pace': (2.0, 6.0)}
+        if a.id.startswith('tending'):
+            return {'acts': {'glance': 2, 'talk': 1}, 'pace': (1.0, 3.0)}
+        if F.id in FIGHTING:
+            # the courtyard's own melee is already dense and long: there the gaps get a slower pace (size cap)
+            pace = (1.8, 3.8) if F.id == 'battle_of_hogwarts_courtyard' else (0.2, 0.9)
+            return {'acts': FIGHT, 'foes': foes(side), 'side': side, 'pace': pace, 'look': look_fn}
+        if F.id == 'battle_of_hogwarts_duel':
+            return {'acts': TENSE if side == 0 else JEER, 'look': look_fn, 'pace': (1.0, 3.0)}
+        if F.id == 'battle_of_hogwarts_dawn':
+            return {'acts': MOURN, 'look': look_fn, 'pace': (1.5, 3.5)}
+        if a.id in CAST and F.id != 'battle_of_hogwarts_bridge':
+            return {'acts': {'glance': 2, 'look': 1}, 'look': look_fn, 'pace': (1.5, 4.0)}
+        return {'acts': JEER if side else WATCH, 'look': look_fn, 'pace': (0.6, 2.2)}
+    return mood
+
+
 def main():
     all_problems = []
     for fn in SCENES:
         F = fn()
+        filled = liven(F, Rng(sum(map(ord, F.id))), mood_for(F))
         i = CHAIN.index(F.id)
         nxt = CHAIN[i + 1] if i + 1 < len(CHAIN) and fn is not SCENES[-1] else None
+        if getattr(F, 'set_', CASTLE_SET) is CASTLE_SET and not any(e['id'] == 'sky' for e in F.events):
+            # a night storm over the castle: clouds, scud and the lightning flashes, and a sky to see it against
+            F.effect(0.0, 'sky', (0, 0, 0), style='storm_far')
         s = F.scene(getattr(F, 'set_', CASTLE_SET), getattr(F, 'radius', R), getattr(F, 'tod', 18000), nxt=nxt,
-                    white=getattr(F, 'white', False), fog_far=FOG)
+                    white=getattr(F, 'white', False), fog_far=FOG, build_ticks=260)
+        for issue in F.cam_issues:
+            all_problems.append('%s: %s' % (F.id, issue))
         problems, lens = F.check(s)
         BG.use('hogwarts_battle', HB.TEMPLATE_AT)
         txt = F.write(s)
-        print('%-30s %5.1fs actors %3d events %4d chars %7d shots %s' % (F.id, F.L, len(s['actors']),
-                                                                      len(s['events']), len(txt), lens))
+        print('%-30s %5.1fs actors %3d events %4d chars %7d shots %s livened %d' % (
+            F.id, F.L, len(s['actors']), len(s['events']), len(txt), lens, filled))
         all_problems += ['%s: %s' % (F.id, p) for p in problems]
     with open(os.path.join(HERE, 'battle_voice_lines.json'), 'w', encoding='utf-8', newline='\n') as f:
         json.dump(VOICE_LINES, f, indent=1)

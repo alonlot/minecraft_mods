@@ -99,6 +99,12 @@ public final class PensieveSessions {
      * (the client's {@code PensieveTimeline.CHAIN_FADE_TICKS}, the fade a chained scene does at its length).
      */
     public static final int HANDOVER_FADE_TICKS = 20;
+    /**
+     * A chain's hand-over between two built sets: the viewers stand on the next set this many ticks, still behind the
+     * old scene's black, before it starts, so their clients have its chunks drawn by the first frame (a big set
+     * otherwise opens on actors standing in an empty sky).
+     */
+    public static final int HANDOVER_SETTLE_TICKS = 80;
     /** The {@code wake} end action: how long the eyes take to open on the real world once the return is over. */
     public static final int WAKE_TICKS = 40;
     /** Ticks the client holds its return black after a move home (its {@code PensieveTimeline.RETURN_TICKS}). */
@@ -839,6 +845,18 @@ public final class PensieveSessions {
             }
             return;
         }
+        if (s.recording == null && next.recording == null && next.level == s.level) {
+            if (s.handoverMovedAt < 0) {
+                for (Session.Viewer v : s.viewers().values()) {
+                    if (v.stage != Session.Viewer.Stage.INSIDE) continue;
+                    ServerPlayer p = server.getPlayerList().getPlayer(v.id());
+                    if (p != null) moveTo(p, next.level, next.anchor(), p.getYRot(), p.getXRot());
+                }
+                s.handoverMovedAt = now;
+                return;
+            }
+            if (now - s.handoverMovedAt < HANDOVER_SETTLE_TICKS) return;
+        }
         s.nextSession = null;
         next.standby = false;
         next.basinTicket = s.basinTicket;
@@ -896,12 +914,12 @@ public final class PensieveSessions {
             if (s.recording != null) {
                 bound(s, p);
             } else {
-                hold(p, s.anchor());
+                hold(p, holdAt(s));
                 applyGhost(p);
             }
         } else {
             if (v.crossed) {
-                if (p.level() == memory) hold(p, s.anchor());
+                if (p.level() == memory) hold(p, holdAt(s));
             } else if (p.level().dimension().equals(v.returnDim())) {
                 hold(p, v.returnPos());
             }
@@ -927,6 +945,11 @@ public final class PensieveSessions {
                 }
             }
         }
+    }
+
+    /** Where {@code s} pins its viewers: its anchor, or the next set's once a hand-over has moved them onto it. */
+    private static Vec3 holdAt(Session s) {
+        return s.handoverMovedAt >= 0 && s.nextSession != null ? s.nextSession.anchor() : s.anchor();
     }
 
     /** Pins the player in place; the camera is the client's business, so their own rotation is kept. */

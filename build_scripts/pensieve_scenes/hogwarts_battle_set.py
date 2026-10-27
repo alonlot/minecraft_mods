@@ -6,7 +6,7 @@ great_hall.nbt).
 
 The world defaults to C:/Users/alonl/Downloads/Best Hogwarts made in Minecraft, the extracted save (only its
 dimensions/minecraft/overworld/region files are read; nothing from it is run); pass another folder if it lives
-elsewhere. The strip cut is world x 250..620, y 0..140, z 250..440: the Paved Courtyard
+elsewhere. The cut is world x 230..630, y 0..150, z 145..545 (the radius all round): the south wing with the Astronomy Tower, the Library and the Transfiguration Courtyard, the Paved Courtyard
 (world ~265..335, 290..400), the Duelling Club range, the Clock Tower and its courtyard (380..440, 315..375, the
 fountain at ~405, 342) and the covered wooden bridge east over the ravine (440..565, z ~340..348, floor of the ravine
 near y 3) onto the grounds toward Hagrid's (to x 620).
@@ -32,7 +32,7 @@ from scene_common import STRUCTURES  # noqa: E402
 from great_hall_set import write_template  # noqa: E402
 
 WORLD = r'C:/Users/alonl/Downloads/Best Hogwarts made in Minecraft'
-BOX = (250, 0, 250, 620, 140, 440)         # world x0, y0, z0, x1, y1, z1 (inclusive)
+BOX = (230, 0, 145, 630, 150, 545)         # world x0, y0, z0, x1, y1, z1 (inclusive): the scene radius 200 all round
 ORIGIN = (430, 50, 345)                    # world cell that is scene (0, 0, 0)
 TEMPLATE_AT = (BOX[0] - ORIGIN[0], BOX[1] - ORIGIN[1], BOX[2] - ORIGIN[2])
 SIZE = (BOX[3] - BOX[0] + 1, BOX[4] - BOX[1] + 1, BOX[5] - BOX[2] + 1)
@@ -71,8 +71,16 @@ def full(state):
     return not any(k in n for k in NONFULL)
 
 
+# The army's hillside south-east of the bridge end is forest in the world: cleared to open grass for the crowd (world
+# box x0, z0, x1, z1); trunks, leaves and undergrowth only.
+CLEARING = (530, 380, 630, 445)
+CLEAR_KINDS = ('leaves', '_log', '_wood', 'short_grass', 'tall_grass', 'fern', 'bush', 'vine', 'sweet_berry', 'azalea')
+
+
 def mapped(state):
     name = state.split('[')[0]
+    if 'shulker_box' in name:          # decor whose contents and colour lid the cut cannot carry
+        return None
     if name not in MAP:
         return state
     new, keep = MAP[name]
@@ -137,6 +145,8 @@ def main():
     keep = visible(cells)
     grid = {}
     for (x, y, z), s in keep.items():
+        if CLEARING[0] <= x <= CLEARING[2] and CLEARING[1] <= z <= CLEARING[3] and                 any(k in s.split('[')[0] for k in CLEAR_KINDS):
+            continue
         m = mapped(s)
         if m is not None:
             grid[(x - BOX[0], y - BOX[1], z - BOX[2])] = m

@@ -75,6 +75,11 @@ public final class Session {
     boolean handOverAsked;
     /** Memory-level game time the asked-for hand-over's fade to black is over. */
     long handOverNotBefore = -1;
+    /**
+     * Memory-level game time the viewers were moved onto the next scene's set, still behind this scene's black, so
+     * their clients load its chunks before it starts (-1: not moved yet).
+     */
+    long handoverMovedAt = -1;
     /** Ticks a hand-over has waited for the next recorded scene to be ready for the clients. */
     int handoverWaitTicks;
     /** The scene id that began the chain; a fresh session's own id. */

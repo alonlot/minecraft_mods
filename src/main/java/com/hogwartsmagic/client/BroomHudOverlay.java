@@ -9,6 +9,8 @@ public class BroomHudOverlay {
     public static void render(GuiGraphics guiGraphics, int width, int height) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.player.isSpectator()) return;
+        // A memory plays as a film: no HUD (the Pensieve subtitles still go through the chat overlay event).
+        if (com.hogwartsmagic.client.pensieve.PensieveClientState.hidesHud()) return;
         if (!(mc.player.getVehicle() instanceof BroomEntity broom)) return;
 
         int stamina = broom.getStaminaPercent();

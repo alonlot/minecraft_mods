@@ -10,6 +10,8 @@ public class ManaOverlay {
     public static void render(GuiGraphics guiGraphics, int width, int height) {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.player == null || minecraft.player.isSpectator()) return;
+        // A memory plays as a film: no HUD (the Pensieve subtitles still go through the chat overlay event).
+        if (com.hogwartsmagic.client.pensieve.PensieveClientState.hidesHud()) return;
 
         // Ensure we are holding the wand
         boolean holdingWand = com.hogwartsmagic.item.MagicWandItem.isAnyWand(minecraft.player.getMainHandItem()) ||

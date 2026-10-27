@@ -15,7 +15,7 @@ class SkyDomeTest {
     @Test
     void everyStyleHasAGradientFromHorizonToZenith() {
         for (String style : SkyDome.STYLES) {
-            if ("storm".equals(style)) continue;   // a night-dark sky: stormGradient
+            if (SkyDome.isStorm(style)) continue;   // the night-dark skies: stormGradient
             float[] h = SkyDome.colour(style, 0f);
             float[] z = SkyDome.colour(style, 1f);
             assertArrayEquals(SkyDome.horizon(style), h, 1e-6f, style);

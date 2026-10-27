@@ -86,7 +86,7 @@ public final class PensieveVoid {
             event.setFarPlaneDistance(Math.min(event.getFarPlaneDistance(), fogEnd(r)));
         }
         // A storm sky draws the haze in: far stands go grey and the curtains of rain read as depth.
-        float storm = SkyRenderer.stormShare((float) event.getPartialTick());
+        float storm = SkyRenderer.stormHazeShare((float) event.getPartialTick());
         if (storm > 0f) {
             SkyDome.stormFog(event.getNearPlaneDistance(), event.getFarPlaneDistance(), storm, HAZE);
             event.setNearPlaneDistance(HAZE[0]);

@@ -100,8 +100,10 @@ public final class ShieldDome {
 
     /** A rim glow: faint face-on, bright where the view grazes the surface ({@code cos} = |normal . view|). */
     public static float fresnel(float cos) {
+        // a narrow rim: a wide one turns a far, edge-on dome into a haze over the whole castle
         float g = 1f - clamp01(cos);
-        return 0.05f + 0.55f * g * g * g;
+        float g2 = g * g;
+        return 0.025f + 0.5f * g2 * g2 * g;
     }
 
     /** A slow shimmer over the surface, 0.75 to 1.25, from the longitude and height share and the scene clock. */

@@ -28,6 +28,8 @@ import net.minecraftforge.gametest.GameTestHolder;
 public final class LeftoversGameTests {
     private static final org.slf4j.Logger LOGGER = com.mojang.logging.LogUtils.getLogger();
     private static final String EMPTY = "hogwartsmagic:gametest/empty3";
+    /** 9x4x9 of air, for tests whose actors need more than 3 blocks between them. */
+    private static final String ROOMY = "hogwartsmagic:gametest/empty9";
 
     /** The owner is removed at tick 5 and the snake gives up after OWNER_GONE_TICKS; a few ticks of slack on top. */
     private static final int SNAKE_VANISH_DEADLINE = 5 + SerpensortiaRules.OWNER_GONE_TICKS + 5;
@@ -274,33 +276,31 @@ public final class LeftoversGameTests {
         LOGGER.info("LEFTOVERS-GAMETEST PASS parseltongueRespectsPvp");
     }
 
-    /** A Master Patronus pushes a zombie 3 blocks away out past 3.5 blocks; one without the aura leaves its zombie be. */
-    @GameTest(template = EMPTY, timeoutTicks = 100, batch = "leftovers_patronus")
+    /** A Master Patronus pushes a zombie 3 blocks away out past 3.5 blocks. */
+    @GameTest(template = ROOMY, timeoutTicks = 100, batch = "leftovers_patronus")
     public static void masterPatronusRepelsUndead(GameTestHelper helper) {
-        // The pairs sit 10 blocks apart, outside the 3x3x3 template, so neither Patronus follows or lights anything but its own pair.
         com.hogwartsmagic.entity.PatronusEntity master = patronusAt(helper, new Vec3(1.5, 2, 1.5), true);
         Zombie near = noAiZombie(helper, new Vec3(4.5, 2, 1.5));
-        com.hogwartsmagic.entity.PatronusEntity plain = patronusAt(helper, new Vec3(1.5, 2, 11.5), false);
-        Zombie calm = noAiZombie(helper, new Vec3(4.5, 2, 11.5));
-        // The pairs sit outside the template, so a timed-out test must clear them itself.
-        helper.runAtTickTime(95, () -> {
-            master.discard();
-            plain.discard();
-            near.discard();
-            calm.discard();
-        });
-        // The control must still exist, or a dead pair would read as 'stayed put'.
         helper.succeedWhen(() -> {
-            helper.assertTrue(calm.isAlive() && plain.isAlive(), "the control zombie and Patronus should both still be alive");
+            helper.assertTrue(master.isAlive() && near.isAlive(), "the Master Patronus and its zombie should both still be alive");
             double pushed = near.position().distanceTo(master.position());
+            helper.assertTrue(pushed > 3.5, "the zombie should be driven past 3.5 blocks, was " + pushed);
+            LOGGER.info("LEFTOVERS-GAMETEST PASS masterPatronusRepelsUndead");
+        });
+    }
+
+    /** The control: a Patronus without the Master aura leaves its zombie where it stood. */
+    @GameTest(template = ROOMY, timeoutTicks = 100, batch = "leftovers_patronus")
+    public static void plainPatronusLeavesUndeadBe(GameTestHelper helper) {
+        com.hogwartsmagic.entity.PatronusEntity plain = patronusAt(helper, new Vec3(1.5, 2, 1.5), false);
+        Zombie calm = noAiZombie(helper, new Vec3(4.5, 2, 1.5));
+        // Long enough for the aura to have pushed a Master's zombie (the Master test succeeds well inside this).
+        helper.runAfterDelay(60, () -> {
+            helper.assertTrue(plain.isAlive() && calm.isAlive(), "the control zombie and Patronus should both still be alive");
             double kept = calm.position().distanceTo(plain.position());
             helper.assertTrue(kept <= 3.2, "without the aura the zombie should stay put, was " + kept);
-            helper.assertTrue(pushed > 3.5, "the zombie should be driven past 3.5 blocks, was " + pushed);
-            master.discard();
-            plain.discard();
-            near.discard();
-            calm.discard();
-            LOGGER.info("LEFTOVERS-GAMETEST PASS masterPatronusRepelsUndead");
+            helper.succeed();
+            LOGGER.info("LEFTOVERS-GAMETEST PASS plainPatronusLeavesUndeadBe");
         });
     }
 

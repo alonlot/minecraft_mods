@@ -1,20 +1,25 @@
 package com.hogwartsmagic.pensieve;
 
+import com.hogwartsmagic.pensieve.capture.Recording;
 import com.hogwartsmagic.pensieve.scene.SceneDef;
 import com.hogwartsmagic.worldgen.MiniHogwartsSchematic;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.logging.LogUtils;
+import net.minecraft.commands.arguments.blocks.BlockStateParser;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtUtils;
+import net.minecraft.nbt.TagParser;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.TicketType;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.WorldGenLevel;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -23,6 +28,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.feature.ConfiguredFeature;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 
 import java.lang.reflect.InvocationTargetException;
@@ -87,12 +93,29 @@ public final class SetBuilder {
     private final Set<String> warned = new HashSet<>();
     private final Tickets tickets;
     private final Touched touched = new Touched();
+    /** A recorded memory's island, built in place of the scene's templates, fills and disks; null for a story set. */
+    @Nullable private final Recording.Blocks snapshot;
+    private int blockEntityCursor;
 
     public SetBuilder(ServerLevel level, BlockPos origin, SceneDef.SetDef set, int radius) {
         this.level = level;
         this.origin = origin;
         this.set = set;
         this.radius = radius;
+        this.snapshot = null;
+        this.tickets = new Tickets(level, origin, radius);
+    }
+
+    /**
+     * A recorded memory's island: every cell of {@code snapshot} that is not -1 and not air goes to
+     * {@code origin + (x, y, z)}, then its block entities load. Air needs no write: the slot is empty.
+     */
+    public SetBuilder(ServerLevel level, BlockPos origin, Recording.Blocks snapshot, int radius) {
+        this.level = level;
+        this.origin = origin;
+        this.set = new SceneDef.SetDef(List.of(), List.of(), List.of(), List.of(), 0L, 0);
+        this.radius = radius;
+        this.snapshot = snapshot;
         this.tickets = new Tickets(level, origin, radius);
     }
 
@@ -132,6 +155,14 @@ public final class SetBuilder {
                 left[0]--;
             }
             if (cursor < order.size()) return false;
+            if (snapshot != null) {
+                List<Recording.BlockEntityData> entities = snapshot.blockEntities();
+                while (blockEntityCursor < entities.size() && left[0] > 0) {
+                    loadBlockEntity(entities.get(blockEntityCursor++));
+                    left[0]--;
+                }
+                if (blockEntityCursor < entities.size()) return false;
+            }
             List<SceneDef.FeatureRef> features = set.features();
             while (featureCursor < features.size() && left[0] > 0) {
                 placeFeature(features.get(featureCursor++), left);
@@ -153,9 +184,67 @@ public final class SetBuilder {
         return Math.abs(x - origin.getX()) <= radius && Math.abs(z - origin.getZ()) <= radius;
     }
 
+    /** The palette's strings as block states, index for index; a string that names no block becomes air, warned once. */
+    static BlockState[] parsePalette(ServerLevel level, List<String> palette, Set<String> warned) {
+        BlockState[] states = new BlockState[palette.size()];
+        for (int i = 0; i < states.length; i++) {
+            try {
+                states[i] = BlockStateParser.parseForBlock(level.holderLookup(Registries.BLOCK), palette.get(i), false)
+                        .blockState();
+            } catch (CommandSyntaxException | RuntimeException e) {
+                if (warned.add("palette " + palette.get(i))) {
+                    LOGGER.warn("Pensieve set: unknown or bad recorded block {}; replaced by air", palette.get(i));
+                }
+                states[i] = Blocks.AIR.defaultBlockState();
+            }
+        }
+        return states;
+    }
+
+    private void prepareSnapshot(Recording.Blocks blocks) {
+        BlockState[] palette = parsePalette(level, blocks.palette(), warned);
+        Map<BlockState, Integer> index = new LinkedHashMap<>();
+        int[] stateOf = new int[palette.length];
+        for (int i = 0; i < palette.length; i++) {
+            stateOf[i] = palette[i].isAir() ? -1 : stateIndex(palette[i], index);
+        }
+        int size = blocks.size();
+        int side = 2 * size + 1;
+        int[] cells = blocks.cells();
+        List<int[]> list = new ArrayList<>();
+        for (int i = 0; i < cells.length; i++) {
+            int cell = cells[i];
+            if (cell < 0 || cell >= stateOf.length || stateOf[cell] < 0) continue;
+            int x = i % side - size, z = (i / side) % side - size, y = i / (side * side) - size;
+            if (!inRegion(origin.getX() + x, origin.getZ() + z)) continue;
+            list.add(new int[]{origin.getX() + x, origin.getY() + y, origin.getZ() + z, stateOf[cell]});
+        }
+        states.addAll(index.keySet());
+        order = BuildOrder.sortOutward(list, new int[]{origin.getX(), origin.getY(), origin.getZ()});
+    }
+
+    /** Restores one recorded block entity (a chest's items, a sign's text) onto the block placed at its cell. */
+    private void loadBlockEntity(Recording.BlockEntityData data) {
+        BlockPos pos = origin.offset(data.x(), data.y(), data.z());
+        BlockEntity be = level.getBlockEntity(pos);
+        if (be == null) return;
+        try {
+            be.loadWithComponents(TagParser.parseTag(data.snbt()), level.registryAccess());
+            be.setChanged();
+            // The client got the block before its data: send it again now the data is in.
+            level.sendBlockUpdated(pos, be.getBlockState(), be.getBlockState(), 2);
+        } catch (CommandSyntaxException | RuntimeException e) {
+            warnOnce("block entity at " + data.x() + "," + data.y() + "," + data.z());
+        }
+    }
+
     private void prepare() {
         if (prepared) return;
         prepared = true;
+        if (snapshot != null) {
+            prepareSnapshot(snapshot);
+            return;
+        }
         Map<Long, int[]> byPos = new LinkedHashMap<>();
         Map<BlockState, Integer> index = new LinkedHashMap<>();
 

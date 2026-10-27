@@ -3,8 +3,14 @@ package com.hogwartsmagic.pensieve;
 import com.hogwartsmagic.Config;
 import com.hogwartsmagic.pensieve.net.PensieveEnterPacket;
 import com.hogwartsmagic.pensieve.net.PensieveExitPacket;
+import com.hogwartsmagic.pensieve.capture.IslandBounds;
+import com.hogwartsmagic.pensieve.capture.Recording;
+import com.hogwartsmagic.pensieve.capture.RecordingScene;
+import com.hogwartsmagic.pensieve.capture.RecordingStore;
 import com.hogwartsmagic.pensieve.net.PensieveFadePacket;
+import com.hogwartsmagic.pensieve.net.PensieveGhostsPacket;
 import com.hogwartsmagic.pensieve.net.PensieveNet;
+import com.hogwartsmagic.pensieve.net.PensieveRecordingPacket;
 import com.hogwartsmagic.pensieve.net.PensieveStartPacket;
 import com.hogwartsmagic.pensieve.net.PensieveThudPacket;
 import com.hogwartsmagic.pensieve.net.PensieveWakePacket;
@@ -186,6 +192,15 @@ public final class PensieveSessions {
         return player == null ? Optional.empty() : Optional.ofNullable(BY_VIEWER.get(player.getUUID()));
     }
 
+    /** True for a viewer inside (not swallowing or leaving) a recorded memory: free to fly through its island. */
+    public static boolean isFreeGhost(Player player) {
+        if (player == null) return false;
+        Session s = BY_VIEWER.get(player.getUUID());
+        if (s == null || s.recording == null) return false;
+        Session.Viewer v = s.viewers().get(player.getUUID());
+        return v != null && v.stage == Session.Viewer.Stage.INSIDE;
+    }
+
     /** True while anyone is inside the memory playing from this basin (for the take-out rule). */
     public static boolean anyoneInside(Level level, BlockPos basin) {
         Session s = sessionAt(level.dimension(), basin);
@@ -299,6 +314,12 @@ public final class PensieveSessions {
         String id = memoryItem.sceneId(stack);
         Optional<MemoryRegistry.LoadedScene> scene = lookup(id);
         if (scene.isEmpty()) {
+            if (RecordingScene.idOf(id).isPresent()) {
+                // A recording that is missing, corrupt, from a newer format or from another world: the memory fades.
+                LOGGER.warn("Pensieve: the recording '{}' for the memory in the basin at {} could not be loaded", id, pos);
+                player.displayClientMessage(Component.translatable("message.hogwartsmagic.pensieve.memory_faded"), true);
+                return;
+            }
             LOGGER.warn("Pensieve: no scene '{}' is loaded for the memory in the basin at {}", id, pos);
             player.displayClientMessage(Component.translatable("message.hogwartsmagic.pensieve.no_scene"), true);
             return;
@@ -415,7 +436,19 @@ public final class PensieveSessions {
         return json.equals(scene.json()) ? scene : new MemoryRegistry.LoadedScene(scene.def(), json);
     }
 
+    /** The recording behind a {@code recorded/<uuid>} scene id; empty for other ids and for a recording that will not load. */
+    private static Optional<Recording> recordingOf(String id) {
+        Optional<java.util.UUID> uuid = RecordingScene.idOf(id);
+        MinecraftServer server = initServer;
+        if (uuid.isEmpty() || server == null) return Optional.empty();
+        return RecordingStore.load(server, uuid.get());
+    }
+
     private static Optional<MemoryRegistry.LoadedScene> lookup(String id) {
+        if (RecordingScene.idOf(id).isPresent()) {
+            // A recorded memory carries no scene JSON: the clients get the recording itself, in parts.
+            return recordingOf(id).map(r -> new MemoryRegistry.LoadedScene(RecordingScene.toScene(r), ""));
+        }
         if (testScenes != null) return testScenes.apply(id);
         Optional<SceneDef> def = MemoryRegistry.get(id);
         Optional<String> json = MemoryRegistry.rawJson(id);
@@ -428,12 +461,20 @@ public final class PensieveSessions {
                                          MemoryRegistry.LoadedScene scene, @Nullable ResourceKey<Level> basinDim,
                                          @Nullable BlockPos basinPos, boolean preview, Map<String, String> context) {
         scene = filled(scene, context);
+        Recording recording = null;
+        if (RecordingScene.idOf(id).isPresent()) {
+            recording = recordingOf(id).orElse(null);
+            if (recording == null) {
+                player.displayClientMessage(Component.translatable("message.hogwartsmagic.pensieve.memory_faded"), !preview);
+                return null;
+            }
+        }
         if (id.length() > PensieveStartPacket.MAX_ID) {
             LOGGER.warn("Pensieve: scene id '{}...' is over {} chars", id.substring(0, 32), PensieveStartPacket.MAX_ID);
             player.displayClientMessage(Component.translatable("message.hogwartsmagic.pensieve.no_scene"), !preview);
             return null;
         }
-        if (!PensieveStartPacket.fits(scene.json())) {
+        if (recording == null && !PensieveStartPacket.fits(scene.json())) {
             LOGGER.warn("Pensieve: scene '{}' is {} chars / {} UTF-8 bytes, over the {} chars / {} bytes the start packet"
                             + " carries (the custom payload limit is 1 MiB)", id, scene.json().length(),
                     PensieveStartPacket.utf8Length(scene.json()), PensieveStartPacket.MAX_JSON,
@@ -441,7 +482,7 @@ public final class PensieveSessions {
             player.displayClientMessage(Component.translatable("message.hogwartsmagic.pensieve.too_big"), !preview);
             return null;
         }
-        Session s = newSession(memory, id, scene, basinDim, basinPos, preview);
+        Session s = newSession(memory, id, scene, basinDim, basinPos, preview, recording);
         s.context = context;
         // A no-op on a derived level (the memory dimension shares the overworld clock); the client applies the
         // scene's time of day itself from the scene JSON.
@@ -455,14 +496,24 @@ public final class PensieveSessions {
     /** A session in a fresh slot with its builder set up, not yet in {@link #SESSIONS}. */
     private static Session newSession(ServerLevel memory, String id, MemoryRegistry.LoadedScene scene,
                                       @Nullable ResourceKey<Level> basinDim, @Nullable BlockPos basinPos,
-                                      boolean preview) {
+                                      boolean preview, @Nullable Recording recording) {
         int slot = allocator.acquire();
         int[] o = RegionAllocator.originFor(slot);
         BlockPos origin = new BlockPos(o[0], o[1], o[2]);
         Session s = new Session(id, scene.json(), scene.def(), slot, origin, basinDim, basinPos, preview);
         s.level = memory;
         int radius = Math.max(1, Math.min(MAX_RADIUS, scene.def().radius()));
-        s.builder = new SetBuilder(memory, origin, scene.def().set(), radius);
+        s.radius = radius;
+        if (recording == null) {
+            s.builder = new SetBuilder(memory, origin, scene.def().set(), radius);
+        } else {
+            s.recording = recording;
+            s.builder = new SetBuilder(memory, origin, recording.blocks(), radius);
+            s.recordedChanges.addAll(recording.blocks().changes());
+            s.recordedChanges.sort((a, b) -> Integer.compare(a.tick(), b.tick()));
+            s.recordedStates = SetBuilder.parsePalette(memory, recording.blocks().palette(), new java.util.HashSet<>());
+            s.anchorOverride = recordedAnchor(recording, origin, radius);
+        }
         return s;
     }
 
@@ -504,7 +555,13 @@ public final class PensieveSessions {
         }
         // The chain's own context: a wand chosen at the start is the wand in every scene after it.
         loaded = Optional.of(filled(loaded.get(), s.context));
-        if (next.length() > PensieveStartPacket.MAX_ID || !PensieveStartPacket.fits(loaded.get().json())) {
+        Recording nextRecording = recordingOf(next).orElse(null);
+        boolean recorded = RecordingScene.idOf(next).isPresent();
+        if (recorded && nextRecording == null) {
+            LOGGER.warn("Pensieve: the recording '{}' after '{}' could not be loaded; the chain ends there", next, s.sceneId());
+            return null;
+        }
+        if (next.length() > PensieveStartPacket.MAX_ID || (!recorded && !PensieveStartPacket.fits(loaded.get().json()))) {
             LOGGER.warn("Pensieve: scene '{}' after '{}' is too big for the start packet ({} chars / {} UTF-8 bytes,"
                             + " limits {} / {}); the chain ends there", next, s.sceneId(), loaded.get().json().length(),
                     PensieveStartPacket.utf8Length(loaded.get().json()), PensieveStartPacket.MAX_JSON,
@@ -523,7 +580,7 @@ public final class PensieveSessions {
                 return null;
             }
         }
-        Session n = newSession(s.level, next, loaded.get(), s.basinDim(), s.basinPos(), s.preview());
+        Session n = newSession(s.level, next, loaded.get(), s.basinDim(), s.basinPos(), s.preview(), nextRecording);
         n.standby = true;
         n.chainRoot = s.chainRoot;
         n.chainIds.addAll(s.chainIds);
@@ -668,6 +725,7 @@ public final class PensieveSessions {
             finish(s);
             return;
         }
+        updateGhosts(server, s);
         long now = memory.getGameTime();
         if (s.phase == Session.Phase.BUILD) {
             buildStep(s, budget);
@@ -688,7 +746,7 @@ public final class PensieveSessions {
                 entered(watching, s);
             }
         } else if (s.phase == Session.Phase.PLAY) {
-            applyBlockEvents(s, now);
+            applyBlockEvents(s, now, budget);
             if (SessionClock.finished(s.startGameTime, now, s.scene().length())) {
                 // A hold scene may loop or move on instead of ending: its timeout listeners may hand over.
                 if (s.nextSession == null) timedOut(server, s);
@@ -762,6 +820,8 @@ public final class PensieveSessions {
         List<ServerPlayer> watching = new ArrayList<>();
         for (Session.Viewer v : new ArrayList<>(s.viewers().values())) {
             s.viewers().remove(v.id());
+            // Each recorded memory has its own recording to send; the next scene may be another one.
+            v.recordingSent = false;
             next.viewers().put(v.id(), v);
             BY_VIEWER.put(v.id(), next);
             if (v.stage != Session.Viewer.Stage.INSIDE) continue;
@@ -788,8 +848,12 @@ public final class PensieveSessions {
                 beginExit(p, v, ExitReason.LEFT);
                 return;
             }
-            hold(p, s.anchor());
-            applyGhost(p);
+            if (s.recording != null) {
+                bound(s, p);
+            } else {
+                hold(p, s.anchor());
+                applyGhost(p);
+            }
         } else {
             if (v.crossed) {
                 if (p.level() == memory) hold(p, s.anchor());
@@ -842,10 +906,100 @@ public final class PensieveSessions {
         if (s.phase == Session.Phase.PLAY) entered(List.of(p), s);
     }
 
+    /**
+     * A recorded memory's client blob, in parts of at most {@link PensieveRecordingPacket#MAX_PART} bytes, in order,
+     * ahead of the start packet. Once per viewer: a viewer already holding it is not sent it again.
+     */
+    private static void sendRecording(ServerPlayer p, Session s) {
+        Recording rec = s.recording;
+        Session.Viewer v = s.viewers().get(p.getUUID());
+        if (rec == null || v == null || v.recordingSent) return;
+        byte[] blob = RecordingStore.clientBlob(p.server, rec.id());
+        if (blob == null) {
+            LOGGER.error("Pensieve: no client form for recording {}; {} will see an empty memory", rec.id(),
+                    p.getScoreboardName());
+            return;
+        }
+        int parts = PensieveRecordingPacket.partsFor(blob.length);
+        for (int i = 0; i < parts; i++) {
+            int from = i * PensieveRecordingPacket.MAX_PART;
+            int to = Math.min(blob.length, from + PensieveRecordingPacket.MAX_PART);
+            PensieveNet.send(p, new PensieveRecordingPacket(s.sceneId(), i, parts,
+                    java.util.Arrays.copyOfRange(blob, from, to)));
+        }
+        v.recordingSent = true;
+    }
+
+    /**
+     * Tells every viewer inside a recorded memory who the other ghosts are, whenever the set of viewers inside
+     * changes (someone crossed in, started out, logged off, died).
+     */
+    private static void updateGhosts(MinecraftServer server, Session s) {
+        if (s.recording == null) return;
+        java.util.Set<UUID> inside = new java.util.LinkedHashSet<>();
+        for (Session.Viewer v : s.viewers().values()) {
+            if (v.stage == Session.Viewer.Stage.INSIDE) inside.add(v.id());
+        }
+        if (inside.equals(s.ghostSet)) return;
+        s.ghostSet = inside;
+        for (UUID id : inside) {
+            ServerPlayer p = server.getPlayerList().getPlayer(id);
+            if (p == null) continue;
+            List<UUID> others = new ArrayList<>();
+            for (UUID other : inside) {
+                if (!other.equals(id) && others.size() < PensieveGhostsPacket.MAX_GHOSTS) others.add(other);
+            }
+            PensieveNet.send(p, new PensieveGhostsPacket(others));
+        }
+    }
+
     private static void sendStart(ServerPlayer p, Session s) {
+        sendRecording(p, s);
         long start = s.phase == Session.Phase.PLAY ? s.startGameTime : -1;
         PensieveNet.send(p, new PensieveStartPacket(s.sceneId(), s.rawJson(), s.origin(), start,
                 s.scene().set().buildTicks(), s.preview()));
+    }
+
+    /** The middle of a recorded memory island: the sphere the capture culled to is centred here. */
+    private static Vec3 islandCentre(BlockPos origin) {
+        return new Vec3(origin.getX() + 0.5, origin.getY(), origin.getZ() + 0.5);
+    }
+
+    /**
+     * Where the viewers of a recorded memory start: the owner at tick 0, moved 3 blocks back along their yaw and up
+     * 1.6 (the camera trails them), kept 2 blocks inside the island. With no owner track: just above the origin.
+     */
+    private static Vec3 recordedAnchor(Recording rec, BlockPos origin, int radius) {
+        Recording.Track owner = null;
+        for (Recording.Track t : rec.tracks()) {
+            if (t.uuid() != null && t.uuid().equals(rec.owner()) && t.x().length > 0) {
+                owner = t;
+                break;
+            }
+        }
+        if (owner == null) return new Vec3(origin.getX() + 0.5, origin.getY() + 1, origin.getZ() + 0.5);
+        double yaw = Math.toRadians(owner.yaw()[0]);
+        double x = origin.getX() + owner.x()[0] + 3 * Math.sin(yaw);
+        double y = origin.getY() + owner.y()[0] + 1.6;
+        double z = origin.getZ() + owner.z()[0] - 3 * Math.cos(yaw);
+        Vec3 c = islandCentre(origin);
+        double[] at = IslandBounds.clamp(x, y, z, c.x, c.y, c.z, Math.max(1, radius - 2));
+        return new Vec3(at[0], at[1], at[2]);
+    }
+
+    /**
+     * A free ghost of a recorded memory flies where it likes: the client clamps it softly at the island radius, and
+     * the server only snaps it back to the radius once it is more than 4 blocks past it.
+     */
+    static void bound(Session s, ServerPlayer p) {
+        applyGhost(p);
+        Vec3 c = islandCentre(s.origin());
+        if (IslandBounds.outside(p.getX(), p.getY(), p.getZ(), c.x, c.y, c.z, s.radius + 4)) {
+            double[] to = IslandBounds.clamp(p.getX(), p.getY(), p.getZ(), c.x, c.y, c.z, s.radius);
+            p.connection.teleport(to[0], to[1], to[2], p.getYRot(), p.getXRot());
+            p.setDeltaMovement(Vec3.ZERO);
+        }
+        p.fallDistance = 0;
     }
 
     /**
@@ -862,8 +1016,25 @@ public final class PensieveSessions {
         }
     }
 
-    private static void applyBlockEvents(Session s, long now) {
+    private static void applyBlockEvents(Session s, long now, int[] budget) {
         float elapsed = SessionClock.elapsed(s.startGameTime, now, 0f);
+        // The block changes of a recorded memory, each at its own tick. They draw on the shared block budget, so a
+        // burst (TNT) spreads over a few ticks instead of landing in one; a change never jumps the queue.
+        while (s.nextChange < s.recordedChanges.size() && s.recordedChanges.get(s.nextChange).tick() <= elapsed
+                && budget[0] > 0) {
+            Recording.BlockChange c = s.recordedChanges.get(s.nextChange++);
+            if (c.state() < 0 || c.state() >= s.recordedStates.length || Math.abs(c.x()) > s.radius
+                    || Math.abs(c.z()) > s.radius) {
+                continue;
+            }
+            BlockPos pos = s.origin().offset(c.x(), c.y(), c.z());
+            if (s.level.isOutsideBuildHeight(pos)) continue;
+            s.level.setBlock(pos, s.recordedStates[c.state()], SetBuilder.FLAGS);
+            SetBuilder.clearTicks(s.level, new BoundingBox(pos));
+            if (s.changedCells.add(pos.asLong())) s.eventPlaced.add(pos);
+            RegionData.get(s.level).expand(s.slot(), pos);
+            budget[0]--;
+        }
         while (s.nextEvent < s.blockEvents.size() && s.blockEvents.get(s.nextEvent).t() <= elapsed) {
             SceneDef.EventDef e = s.blockEvents.get(s.nextEvent++);
             if (e.id() == null || e.at() == null || e.at().length < 3) continue;

@@ -38,6 +38,12 @@ public final class PensieveNet {
         SpellPackets.CHANNEL.messageBuilder(PensieveCaptureFxPacket.class)
                 .encoder(PensieveCaptureFxPacket::encode).decoder(PensieveCaptureFxPacket::decode)
                 .consumerMainThread(PensieveCaptureFxPacket::handle).add();
+        SpellPackets.CHANNEL.messageBuilder(PensieveRecordingPacket.class)
+                .encoder(PensieveRecordingPacket::encode).decoder(PensieveRecordingPacket::decode)
+                .consumerMainThread(PensieveRecordingPacket::handle).add();
+        SpellPackets.CHANNEL.messageBuilder(PensieveGhostsPacket.class)
+                .encoder(PensieveGhostsPacket::encode).decoder(PensieveGhostsPacket::decode)
+                .consumerMainThread(PensieveGhostsPacket::handle).add();
     }
 
     /** Client to server. */

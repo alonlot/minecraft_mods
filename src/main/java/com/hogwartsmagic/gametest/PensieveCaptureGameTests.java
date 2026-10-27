@@ -1,8 +1,12 @@
 package com.hogwartsmagic.gametest;
 
 import com.hogwartsmagic.ExampleMod;
+import com.hogwartsmagic.pensieve.ExitReason;
+import com.hogwartsmagic.pensieve.PensieveBlockEntity;
 import com.hogwartsmagic.pensieve.PensieveDimension;
+import com.hogwartsmagic.pensieve.PensieveSessions;
 import com.hogwartsmagic.pensieve.RecordedMemoryItem;
+import com.hogwartsmagic.pensieve.Session;
 import com.hogwartsmagic.pensieve.capture.MemoryCapture;
 import com.hogwartsmagic.pensieve.capture.CaptureLogs;
 import com.hogwartsmagic.pensieve.capture.EntityHistory;
@@ -12,6 +16,7 @@ import com.hogwartsmagic.pensieve.capture.RecordingAssembly;
 import com.hogwartsmagic.pensieve.capture.RecordingCodec;
 import com.hogwartsmagic.pensieve.capture.RecordingStore;
 import net.minecraft.core.BlockPos;
+import net.minecraft.gametest.framework.AfterBatch;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
@@ -30,7 +35,11 @@ import net.minecraftforge.gametest.GameTestHolder;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import java.util.concurrent.TimeUnit;
 
 /** The always-on recorder and the assembly of a recording, exercised in a real level with a mock player. */
@@ -55,8 +64,10 @@ public final class PensieveCaptureGameTests {
         return p;
     }
 
-    private static void logout(GameTestHelper helper, ServerPlayer p) {
-        helper.getLevel().getServer().getPlayerList().remove(p);
+    private static void logout(GameTestHelper helper, ServerPlayer... players) {
+        for (ServerPlayer p : players) {
+            helper.getLevel().getServer().getPlayerList().remove(p);
+        }
     }
 
     /** Assembles and waits: the background half never needs the server thread, so blocking it here is safe. */
@@ -422,6 +433,305 @@ public final class PensieveCaptureGameTests {
                 pass("wandWithoutPhialChangesNothing");
                 helper.succeed();
             });
+        });
+    }
+
+    // ---- Recorded sessions ----
+    // The GameTestServer builds no memory dimension, so the test level stands in for it (PensieveSessions.overrideForTests)
+    // and the recordings are hand-built and served by RecordingStore.overrideForTests. In production the same code
+    // runs in hogwartsmagic:memory with recordings read from the world save; that path is checked by runServer only.
+
+    private static final String RECORDED = "recorded_sessions";
+    private static final BlockPos BASIN = new BlockPos(1, 2, 1);
+    private static final java.util.Map<UUID, Recording> RECORDINGS = new ConcurrentHashMap<>();
+
+    /** The override outlives a batch otherwise, and the capture batch reads real files through RecordingStore. */
+    // Forge prefixes the batch of a test with its mod id; an after-batch hook must name the prefixed one.
+    @AfterBatch(batch = ExampleMod.MODID + "." + RECORDED)
+    public static void afterRecordedSessions(ServerLevel level) {
+        RecordingStore.overrideForTests(null);
+        RECORDINGS.clear();
+        LOGGER.info("PENSIEVE-CAPTURE-GAMETEST recorded_sessions batch over: recording override cleared");
+    }
+
+    private static void recordedSeam(GameTestHelper helper) {
+        PensieveSessions.overrideForTests(helper.getLevel(), id -> Optional.empty());
+        RecordingStore.overrideForTests(id -> Optional.ofNullable(RECORDINGS.get(id)));
+    }
+
+    /**
+     * A 5 cubed island (size 2) whose only blocks are a 3 by 1 by 3 stone floor at y = -1; the palette is
+     * air, stone, dirt. The owner stands at the middle, facing south.
+     */
+    private static Recording floorRecording(UUID id, int length, int radius, List<Recording.BlockChange> changes) {
+        int size = 2;
+        int[] cells = new int[5 * 5 * 5];
+        java.util.Arrays.fill(cells, -1);
+        for (int x = -1; x <= 1; x++) {
+            for (int z = -1; z <= 1; z++) {
+                cells[Recording.Blocks.index(x, -1, z, size)] = 1;
+            }
+        }
+        Recording.Blocks blocks = new Recording.Blocks(List.of("minecraft:air", "minecraft:stone", "minecraft:dirt"),
+                size, cells, List.of(), changes);
+        UUID owner = UUID.randomUUID();
+        float[] zero = new float[1];
+        Recording.Track track = new Recording.Track(0, "minecraft:player", owner, "Owner", true, null, null, 0, 0,
+                Recording.REMOVAL_NONE, zero, zero, zero, zero, zero, zero, zero, List.of(), List.of(), List.of());
+        Recording rec = new Recording(id, owner, "Owner", "Test", 1, "minecraft:overworld", new int[] {0, 64, 0}, radius,
+                length, 6000, blocks, List.of(track), List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
+        RECORDINGS.put(id, rec);
+        return rec;
+    }
+
+    private static PensieveBlockEntity basinHolding(GameTestHelper helper, BlockPos at, UUID memoryId) {
+        helper.setBlock(at, ExampleMod.PENSIEVE.get());
+        PensieveBlockEntity be = (PensieveBlockEntity) helper.getBlockEntity(at);
+        be.pour(RecordedMemoryItem.create(ExampleMod.MEMORY.get(), memoryId, UUID.randomUUID(), "Owner", 1, 10), null);
+        return be;
+    }
+
+    /** A mock player standing at (x, 2, z) of the template. */
+    private static ServerPlayer playerNear(GameTestHelper helper, double x, double z) {
+        ServerPlayer p = helper.makeMockServerPlayerInLevel();
+        Vec3 at = helper.absoluteVec(new Vec3(x, 2, z));
+        p.teleportTo(helper.getLevel(), at.x, at.y, at.z, java.util.Set.of(), 30f, 10f);
+        return p;
+    }
+
+    /** Survival, and past the spawn grace, so a hit forwarded from the body counts. */
+    private static void survival(ServerPlayer p) {
+        p.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
+        for (int i = 0; i < 70; i++) {
+            p.tick();
+        }
+    }
+
+    /** Runs {@code then} once, on the first tick the player is a free ghost in a session that is playing. */
+    private static void whenPlaying(GameTestHelper helper, ServerPlayer p, Consumer<Session> then) {
+        AtomicBoolean fired = new AtomicBoolean();
+        helper.onEachTick(() -> {
+            Optional<Session> s = PensieveSessions.sessionOf(p);
+            if (!fired.get() && s.isPresent() && s.get().phase() == Session.Phase.PLAY
+                    && PensieveSessions.isFreeGhost(p)) {
+                fired.set(true);
+                then.accept(s.get());
+            }
+        });
+    }
+
+    private static Vec3 islandCentre(Session s) {
+        return new Vec3(s.origin().getX() + 0.5, s.origin().getY(), s.origin().getZ() + 0.5);
+    }
+
+    @GameTest(template = EMPTY, batch = RECORDED, timeoutTicks = 300)
+    public static void recordedMemoryBuildsSnapshot(GameTestHelper helper) {
+        recordedSeam(helper);
+        UUID id = UUID.randomUUID();
+        floorRecording(id, 200, 8, List.of());
+        basinHolding(helper, BASIN, id);
+        ServerPlayer p = playerNear(helper, 1.5, 2.5);
+        helper.useBlock(BASIN, p);
+        helper.assertTrue(PensieveSessions.isViewer(p), "diving into a recorded memory makes a viewer");
+        helper.runAfterDelay(20, () -> {
+            Session s = PensieveSessions.sessionOf(p).orElseThrow();
+            helper.assertTrue(s.recording() != null && s.recording().id().equals(id), "the session keeps its recording");
+            BlockPos o = s.origin();
+            ServerLevel level = helper.getLevel();
+            for (int x = -1; x <= 1; x++) {
+                for (int z = -1; z <= 1; z++) {
+                    helper.assertTrue(level.getBlockState(o.offset(x, -1, z)).is(Blocks.STONE),
+                            "stone at the floor cell " + x + "," + z);
+                }
+            }
+            // Counted from the builder, not the world: other tests leave blocks in neighbouring slots' cubes.
+            helper.assertTrue(s.placedBlocks() == 9, "only the 9 floor cells were placed, builder wrote " + s.placedBlocks());
+            logout(helper, p);
+            pass("recordedMemoryBuildsSnapshot");
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = EMPTY, batch = RECORDED, timeoutTicks = 400)
+    public static void recordedBlockChangesReplayInOrder(GameTestHelper helper) {
+        recordedSeam(helper);
+        UUID id = UUID.randomUUID();
+        // The floor cell (0,-1,0) starts as stone; at tick 5 it becomes dirt, at tick 15 air. Listed out of order.
+        floorRecording(id, 300, 8, List.of(new Recording.BlockChange(15, 0, -1, 0, 0),
+                new Recording.BlockChange(5, 0, -1, 0, 2)));
+        basinHolding(helper, BASIN, id);
+        ServerPlayer p = playerNear(helper, 1.5, 2.5);
+        helper.useBlock(BASIN, p);
+        AtomicBoolean seenStone = new AtomicBoolean();
+        AtomicBoolean seenDirt = new AtomicBoolean();
+        helper.onEachTick(() -> {
+            Optional<Session> found = PensieveSessions.sessionOf(p);
+            if (found.isEmpty() || found.get().phase() != Session.Phase.PLAY) {
+                return;
+            }
+            Session s = found.get();
+            long elapsed = helper.getLevel().getGameTime() - s.startGameTime();
+            net.minecraft.world.level.block.state.BlockState at =
+                    helper.getLevel().getBlockState(s.origin().offset(0, -1, 0));
+            if (elapsed <= 3) {
+                helper.assertTrue(at.is(Blocks.STONE), "before its change the cell is stone at PLAY + " + elapsed);
+                seenStone.set(true);
+            } else if (elapsed == 6) {
+                helper.assertTrue(at.is(Blocks.DIRT), "at PLAY + 6 the cell is dirt, is " + at);
+                seenDirt.set(true);
+            } else if (elapsed == 16) {
+                helper.assertTrue(seenStone.get() && seenDirt.get(), "the earlier checks ran");
+                helper.assertTrue(at.isAir(), "at PLAY + 16 the cell is air, is " + at);
+                logout(helper, p);
+                pass("recordedBlockChangesReplayInOrder");
+                helper.succeed();
+            }
+        });
+    }
+
+    @GameTest(template = EMPTY, batch = RECORDED, timeoutTicks = 400)
+    public static void ghostIsClampedToIsland(GameTestHelper helper) {
+        recordedSeam(helper);
+        UUID id = UUID.randomUUID();
+        floorRecording(id, 300, 8, List.of());
+        basinHolding(helper, BASIN, id);
+        ServerPlayer p = playerNear(helper, 1.5, 2.5);
+        helper.useBlock(BASIN, p);
+        whenPlaying(helper, p, s -> {
+            Vec3 c = islandCentre(s);
+            p.teleportTo(helper.getLevel(), c.x + 50, c.y, c.z, java.util.Set.of(), 0f, 0f);
+            helper.runAfterDelay(3, () -> {
+                double d = p.position().distanceTo(c);
+                helper.assertTrue(d <= 8 + 0.01, "the ghost is back within the radius, " + d + " from the centre");
+                helper.assertTrue(PensieveSessions.isViewer(p), "and still a viewer");
+                helper.assertTrue(p.level() == helper.getLevel(), "and still in the memory level");
+                logout(helper, p);
+                pass("ghostIsClampedToIsland");
+                helper.succeed();
+            });
+        });
+    }
+
+    @GameTest(template = EMPTY, batch = RECORDED, timeoutTicks = 400)
+    public static void ghostCanMoveInsideIsland(GameTestHelper helper) {
+        recordedSeam(helper);
+        UUID id = UUID.randomUUID();
+        floorRecording(id, 300, 8, List.of());
+        basinHolding(helper, BASIN, id);
+        ServerPlayer p = playerNear(helper, 1.5, 2.5);
+        helper.useBlock(BASIN, p);
+        whenPlaying(helper, p, s -> {
+            Vec3 to = islandCentre(s).add(3, 1, 2);
+            p.teleportTo(helper.getLevel(), to.x, to.y, to.z, java.util.Set.of(), 0f, 0f);
+            helper.runAfterDelay(3, () -> {
+                helper.assertTrue(p.position().distanceTo(to) < 0.2,
+                        "the ghost stays where it moved, " + p.position() + " vs " + to);
+                helper.assertTrue(p.position().distanceTo(s.anchor()) > 1, "and is not pinned to the anchor");
+                logout(helper, p);
+                pass("ghostCanMoveInsideIsland");
+                helper.succeed();
+            });
+        });
+    }
+
+    @GameTest(template = EMPTY, batch = RECORDED, timeoutTicks = 100)
+    public static void missingRecordingFadesQuietly(GameTestHelper helper) {
+        recordedSeam(helper);
+        UUID unknown = UUID.randomUUID();
+        PensieveBlockEntity basin = basinHolding(helper, BASIN, unknown);
+        ServerPlayer p = playerNear(helper, 1.5, 2.5);
+        helper.useBlock(BASIN, p);
+        helper.runAfterDelay(5, () -> {
+            helper.assertTrue(!PensieveSessions.isViewer(p), "no session starts for a recording that is not there");
+            helper.assertTrue(unknown.equals(RecordedMemoryItem.memoryId(basin.memory())),
+                    "the memory is still in the basin");
+            helper.assertTrue(p.level() == helper.getLevel(), "the player never left");
+            logout(helper, p);
+            pass("missingRecordingFadesQuietly");
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = EMPTY, batch = RECORDED, timeoutTicks = 300)
+    public static void recordedSessionLifecycle(GameTestHelper helper) {
+        recordedSeam(helper);
+        UUID id = UUID.randomUUID();
+        floorRecording(id, 400, 8, List.of());
+        BlockPos basinA = new BlockPos(0, 2, 0);
+        BlockPos basinB = new BlockPos(1, 2, 1);
+        BlockPos basinC = new BlockPos(2, 2, 2);
+        basinHolding(helper, basinA, id);
+        basinHolding(helper, basinB, id);
+        basinHolding(helper, basinC, id);
+        ServerPlayer a = playerNear(helper, 0.5, 1.5);
+        ServerPlayer b = playerNear(helper, 1.5, 2.5);
+        ServerPlayer c = playerNear(helper, 2.5, 1.5);
+        survival(b);
+        Vec3 retA = a.position();
+        Vec3 retB = b.position();
+        Vec3 retC = c.position();
+        helper.useBlock(basinA, a);
+        helper.useBlock(basinB, b);
+        helper.useBlock(basinC, c);
+        helper.runAtTickTime(40, () -> {
+            helper.assertTrue(PensieveSessions.isViewer(a) && PensieveSessions.isViewer(b) && PensieveSessions.isViewer(c),
+                    "all three are inside");
+            // A: the basin is broken under them.
+            helper.destroyBlock(basinA);
+            // B: the body takes a heavy hit, which tears the viewer out.
+            Session sb = PensieveSessions.sessionOf(b).orElseThrow();
+            UUID bodyId = sb.viewers().get(b.getUUID()).bodyId();
+            helper.assertTrue(bodyId != null && helper.getLevel().getEntity(bodyId) != null, "B has a body");
+            helper.getLevel().getEntity(bodyId).hurt(helper.getLevel().damageSources().generic(), 14f);
+            helper.assertTrue(sb.viewers().get(b.getUUID()).exitReason() == ExitReason.YANK, "B is on a YANK exit");
+            // C: the server dies mid-memory. Only the return tag survives, and the next login uses it.
+            net.minecraft.nbt.CompoundTag saved = com.hogwartsmagic.util.PlayerMagicData.getModData(c)
+                    .getCompound(PensieveSessions.RETURN_TAG).copy();
+            helper.assertTrue(saved.contains("Dim"), "C carries a return tag");
+            PensieveSessions.onLogout(c);
+            net.minecraft.nbt.CompoundTag mod = com.hogwartsmagic.util.PlayerMagicData.getModData(c);
+            mod.put(PensieveSessions.RETURN_TAG, saved);
+            com.hogwartsmagic.util.PlayerMagicData.saveModData(c, mod);
+            Vec3 stray = helper.absoluteVec(new Vec3(0.5, 2, 0.5));
+            c.teleportTo(helper.getLevel(), stray.x, stray.y, stray.z, java.util.Set.of(), 0f, 0f);
+            PensieveSessions.onLogin(c);
+            helper.assertTrue(c.position().distanceTo(retC) < 0.1, "C is back at the return point: " + c.position());
+            helper.assertTrue(!com.hogwartsmagic.util.PlayerMagicData.getModData(c).contains(PensieveSessions.RETURN_TAG),
+                    "and the return tag is gone");
+        });
+        helper.runAtTickTime(64, () -> {
+            helper.assertTrue(!PensieveSessions.isViewer(a), "A left within 20 ticks of the break");
+            helper.assertTrue(a.position().distanceTo(retA) < 0.1, "A is home: " + a.position());
+            helper.assertTrue(!PensieveSessions.isViewer(b), "B was yanked out");
+            helper.assertTrue(b.position().distanceTo(retB) < 0.1, "B is home: " + b.position());
+            helper.assertTrue(!a.isInvisible() && !a.isInvulnerable() && !b.isInvisible(), "the ghost state is undone");
+            logout(helper, a, b, c);
+            pass("recordedSessionLifecycle");
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = EMPTY, batch = RECORDED, timeoutTicks = 400)
+    public static void joinerGetsSameRecording(GameTestHelper helper) {
+        recordedSeam(helper);
+        UUID id = UUID.randomUUID();
+        floorRecording(id, 400, 8, List.of());
+        basinHolding(helper, BASIN, id);
+        ServerPlayer first = playerNear(helper, 1.5, 2.5);
+        ServerPlayer second = playerNear(helper, 0.5, 1.5);
+        helper.useBlock(BASIN, first);
+        helper.runAtTickTime(40, () -> helper.useBlock(BASIN, second));
+        helper.runAtTickTime(130, () -> {
+            Session s1 = PensieveSessions.sessionOf(first).orElse(null);
+            Session s2 = PensieveSessions.sessionOf(second).orElse(null);
+            helper.assertTrue(s1 != null && s1 == s2, "both watch the same session");
+            helper.assertTrue(s1.phase() == Session.Phase.PLAY && s1.startGameTime() >= 0, "and it is playing");
+            helper.assertTrue(s1.viewers().get(first.getUUID()).recordingSent(), "the first viewer was sent the recording");
+            helper.assertTrue(s2.viewers().get(second.getUUID()).recordingSent(), "so was the joiner");
+            helper.assertTrue(s2.recording().id().equals(id), "the same recording");
+            logout(helper, first, second);
+            pass("joinerGetsSameRecording");
+            helper.succeed();
         });
     }
 }

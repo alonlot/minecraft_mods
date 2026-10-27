@@ -1,5 +1,6 @@
 package com.hogwartsmagic.pensieve;
 
+import com.hogwartsmagic.pensieve.capture.Recording;
 import com.hogwartsmagic.pensieve.scene.SceneDef;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
@@ -7,6 +8,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
@@ -76,6 +78,22 @@ public final class Session {
      * placeholders, such as {@code {viewer_wand}}, in this scene and every scene the chain hands over to.
      */
     Map<String, String> context = Map.of();
+    /** The recording a recorded memory replays; null for a story memory. */
+    @Nullable Recording recording;
+    /** A recorded memory's block changes, oldest first, replayed from PLAY by {@code PensieveSessions}. */
+    final List<Recording.BlockChange> recordedChanges = new ArrayList<>();
+    /** The cells a recorded change has already put into {@link #eventPlaced}, so each is cleared once. */
+    final java.util.Set<Long> changedCells = new java.util.HashSet<>();
+    /** Index of the next recorded block change. */
+    int nextChange;
+    /** The recording's palette as block states (unknown blocks are air), indexed like the recorded changes. */
+    BlockState[] recordedStates = new BlockState[0];
+    /** Where viewers float instead of one block above the origin (a recorded memory's start); null for none. */
+    @Nullable Vec3 anchorOverride;
+    /** The set's radius, as the builder clips it; the island a free ghost may roam. */
+    int radius = 1;
+    /** The viewers last told who the other ghosts are (recorded memories only). */
+    java.util.Set<UUID> ghostSet = new java.util.HashSet<>();
 
     Session(String sceneId, String rawJson, SceneDef scene, int slot, BlockPos origin,
             @Nullable ResourceKey<Level> basinDim, @Nullable BlockPos basinPos, boolean preview) {
@@ -99,6 +117,12 @@ public final class Session {
         this.blockEvents = blocks;
     }
 
+    /** The recording this session replays, or null for a story memory. */
+    @Nullable
+    public Recording recording() {
+        return recording;
+    }
+
     public String sceneId() {
         return sceneId;
     }
@@ -113,6 +137,11 @@ public final class Session {
 
     public int slot() {
         return slot;
+    }
+
+    /** How many blocks the builder has put down so far (the block events and recorded changes are extra). */
+    public int placedBlocks() {
+        return builder == null ? 0 : builder.placed().size();
     }
 
     /** The set's origin in the memory dimension. */
@@ -166,6 +195,7 @@ public final class Session {
 
     /** Where viewers float: one block above the origin, centred. */
     public Vec3 anchor() {
+        if (anchorOverride != null) return anchorOverride;
         return Vec3.atBottomCenterOf(origin).add(0, 1, 0);
     }
 
@@ -199,6 +229,8 @@ public final class Session {
         @Nullable final GameType wasMode;
         /** True when this viewer was already inside as PLAY began: only they have seen the memory whole. */
         boolean sawStart;
+        /** True once this viewer was sent the recording's parts (a recorded memory only; once per viewer). */
+        boolean recordingSent;
 
         public Viewer(UUID id, Vec3 returnPos, float yRot, float xRot, ResourceKey<Level> returnDim,
                       int swallowTicksLeft, @Nullable UUID bodyId) {
@@ -244,6 +276,11 @@ public final class Session {
 
         public int swallowTicksLeft() {
             return swallowTicksLeft;
+        }
+
+        /** True once the recording was sent to this viewer. */
+        public boolean recordingSent() {
+            return recordingSent;
         }
 
         /** True when this viewer was inside before PLAY began (see {@link #sawStart}). */

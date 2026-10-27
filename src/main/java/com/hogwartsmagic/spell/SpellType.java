@@ -291,17 +291,9 @@ public enum SpellType {
             }
             case CONFUNDO -> com.hogwartsmagic.spell.mind.ConfundoSpell.apply(target, caster);
             case SERPENSORTIA -> {
+                // Real snakes now (Spell Mastery Phase 7a), owned by the caster and sent at the creature hit.
                 if (target.level() instanceof ServerLevel serverLevel) {
-                    for (int i = 0; i < 3; i++) {
-                        net.minecraft.world.entity.monster.CaveSpider snake = new net.minecraft.world.entity.monster.CaveSpider(net.minecraft.world.entity.EntityType.CAVE_SPIDER, serverLevel);
-                        snake.moveTo(target.getX() + (serverLevel.random.nextDouble() - 0.5) * 2, target.getY(), target.getZ() + (serverLevel.random.nextDouble() - 0.5) * 2, serverLevel.random.nextFloat() * 360F, 0.0F);
-                        if (caster instanceof LivingEntity livingCaster) {
-                            snake.setTarget(null);
-                            // Set allied to caster by making them target what caster targets or attack who hurts caster (vanilla behavior doesn't support easy allies for spiders, we can add tag and ignore in Wizard logic)
-                            snake.addTag(com.hogwartsmagic.spell.combat.CombatTags.ALLIED);
-                        }
-                        serverLevel.addFreshEntity(snake);
-                    }
+                    com.hogwartsmagic.spell.summon.SerpensortiaSpell.conjureAt(serverLevel, target.position(), target, caster);
                 }
             }
             case ARRESTO_MOMENTUM -> {

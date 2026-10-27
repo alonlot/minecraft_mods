@@ -194,7 +194,7 @@
   "spell.hogwartsmagic.alatus": "Alatus",
   "spell.hogwartsmagic.alatus.desc": "Channels flight magic into a Broom Workbench that holds a valid recipe. The infusion takes 5.5s (Novice), 4s (Adept), 3s (Expert) or 2s (Master). Adept: 15%% chance of a Fine broom (+5%% speed). Expert: Fine 30%%, Masterwork 5%% (+10%% speed, +15%% boost stamina). Master: Fine 40%%, Masterwork 15%%, and you can re-infuse a finished broom with 4 Arcane Dust to reroll its quality.",
   "spell.hogwartsmagic.serpensortia": "Serpensortia",
-  "spell.hogwartsmagic.serpensortia.desc": "Summons several allied, venomous spiders to attack your enemies.",
+  "spell.hogwartsmagic.serpensortia.desc": "Conjures snakes loyal to you that bite with poison: 1 for 20s (Novice), 2 for 30s (Adept), 3 for 40s with Poison II (Expert), 3 for 60s (Master).",
   "spell.hogwartsmagic.arresto_momentum": "Arresto Momentum",
   "spell.hogwartsmagic.arresto_momentum.desc": "Softens a fall and bleeds away momentum. Self-cast to survive a plunge or strike a target to slow its descent. Expert: arrows, tridents, fireballs and venom within 4 blocks of where it lands (around you on a self-cast) stop in midair for 2s, then drop. It never stops spells. Master: 6 blocks.",
   "spell.hogwartsmagic.reparo": "Reparo",

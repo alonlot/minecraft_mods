@@ -686,6 +686,12 @@ public class SpellBeamEntity extends ThrowableProjectile {
                     // rather than to being opened.
                     hitSuccessful = this.level() instanceof ServerLevel serverLevel
                             && com.hogwartsmagic.block.ChamberDoorBlock.speakTo(serverLevel, pos);
+                } else if (spell == SpellType.SERPENSORTIA) {
+                    // Snakes rise from the face the beam struck and wait at the caster's side for a fight.
+                    if (this.level() instanceof ServerLevel serpentLevel) {
+                        hitSuccessful = com.hogwartsmagic.spell.summon.SerpensortiaSpell.conjureAt(serpentLevel,
+                                Vec3.atBottomCenterOf(pos.relative(blockHit.getDirection())), null, getOwner()) > 0;
+                    }
                 } else if (spell == SpellType.ACCIO) {
                     // Summons loose items near the impact; from Expert, the first stack of a container
                     // the caster could open. (A mandrake is handled by the branch above.)

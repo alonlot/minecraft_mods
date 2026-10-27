@@ -181,4 +181,38 @@ public final class LeftoversGameTests {
             LOGGER.info("LEFTOVERS-GAMETEST PASS snakeVanishesWhenItsOwnerIsGone");
         });
     }
+
+    /** Serpensortia conjures 1 snake at Novice and 3 at Expert, owned and allied, and a new cast dismisses the old ones. */
+    @GameTest(template = EMPTY, timeoutTicks = 100)
+    public static void serpensortiaConjuresByRank(GameTestHelper helper) {
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        com.hogwartsmagic.item.MagicBookItem.learnSpellIfAbsent(player, com.hogwartsmagic.spell.SpellType.SERPENSORTIA);
+        Vec3 at = helper.absoluteVec(new Vec3(2.5, 2, 2.5));
+        player.moveTo(at.x, at.y, at.z);
+        java.util.List<SnakeEntity> all = new java.util.ArrayList<>();
+        try {
+            helper.assertTrue(com.hogwartsmagic.spell.summon.SerpensortiaSpell.conjureAt(helper.getLevel(), at, null, player) == 1,
+                    "a Novice should conjure one snake");
+            java.util.List<SnakeEntity> first = com.hogwartsmagic.spell.summon.SerpensortiaSpell.snakesOf(helper.getLevel(), player);
+            all.addAll(first);
+            helper.assertTrue(first.size() == 1, "exactly one snake should belong to the caster");
+            SnakeEntity snake = first.get(0);
+            helper.assertTrue(player.getUUID().equals(snake.getOwnerUUID()), "the snake should belong to the caster");
+            helper.assertTrue(snake.getTags().contains(com.hogwartsmagic.spell.combat.CombatTags.ALLIED), "the snake should be tagged allied");
+
+            com.hogwartsmagic.spell.mastery.SpellMasteryData.setXp(player, com.hogwartsmagic.spell.SpellType.SERPENSORTIA,
+                    com.hogwartsmagic.Config.getMasteryThresholds()[2]);
+            helper.assertTrue(com.hogwartsmagic.spell.summon.SerpensortiaSpell.conjureAt(helper.getLevel(), at, null, player) == 3,
+                    "an Expert should conjure three snakes");
+            all.addAll(com.hogwartsmagic.spell.summon.SerpensortiaSpell.snakesOf(helper.getLevel(), player));
+            helper.assertTrue(snake.isRemoved(), "a new cast should dismiss the earlier snake");
+        } finally {
+            for (SnakeEntity s : all) {
+                s.discard();
+            }
+            player.discard();
+        }
+        helper.succeed();
+        LOGGER.info("LEFTOVERS-GAMETEST PASS serpensortiaConjuresByRank");
+    }
 }

@@ -186,4 +186,15 @@ class BrewRulesPhase2Test {
         assertEquals(Status.RUINED, BrewRules.match(run(add(NUGGET))).status());
         assertEquals(Status.RUINED, BrewRules.match(run(add(DUST))).status());
     }
+
+    @Test
+    void remorseBrewsFromAGhastTear() {
+        List<Step> history = simmer(run(add("minecraft:ghast_tear"), add(DITTANY), add(DITTANY), ccw(), ccw(), ccw()), 90);
+        Match match = BrewRules.match(history);
+        assertEquals(Status.FINISHED, match.status());
+        assertSame(BrewRules.REMORSE, match.recipe());
+        assertEquals(BrewRules.MAX_DOSES, match.recipe().doses());
+        assertTrue(BrewRules.isIngredient("minecraft:ghast_tear"));
+        assertSame(BrewRules.REMORSE, BrewRules.match(run(add("minecraft:ghast_tear"))).recipe());
+    }
 }

@@ -692,6 +692,10 @@ public class ExampleMod
                     .rarity(net.minecraft.world.item.Rarity.EPIC)
                     .component(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true),
                     com.hogwartsmagic.item.BrewedPotionItem.Kind.FELIX));
+    public static final RegistryObject<Item> POTION_OF_REMORSE = ITEMS.register("potion_of_remorse",
+            () -> new com.hogwartsmagic.item.BrewedPotionItem(new Item.Properties()
+                    .rarity(net.minecraft.world.item.Rarity.UNCOMMON),
+                    com.hogwartsmagic.item.BrewedPotionItem.Kind.REMORSE));
     public static final RegistryObject<Item> MANDRAKE_DRAUGHT = ITEMS.register("mandrake_draught",
             () -> new com.hogwartsmagic.item.BrewedPotionItem(new Item.Properties()
                     .rarity(net.minecraft.world.item.Rarity.UNCOMMON),
@@ -1105,6 +1109,7 @@ public class ExampleMod
                 output.accept(FAILED_POTION.get());
                 output.accept(ESSENCE_OF_DITTANY.get());
                 output.accept(FELIX_FELICIS.get());
+                output.accept(POTION_OF_REMORSE.get());
                 output.accept(MANDRAKE_DRAUGHT.get());
                 output.accept(SPLASH_MANDRAKE_DRAUGHT.get());
                 output.accept(DRAUGHT_OF_LIVING_DEATH.get());

@@ -954,7 +954,8 @@ public class ClientModEvents {
                         ? net.minecraft.util.FastColor.ARGB32.opaque(potion.kind().color())
                         : -1,
                 ExampleMod.WIGGENWELD_POTION.get(), ExampleMod.PEPPERUP_POTION.get(), ExampleMod.FAILED_POTION.get(),
-                ExampleMod.ESSENCE_OF_DITTANY.get(), ExampleMod.FELIX_FELICIS.get(), ExampleMod.MANDRAKE_DRAUGHT.get());
+                ExampleMod.ESSENCE_OF_DITTANY.get(), ExampleMod.FELIX_FELICIS.get(), ExampleMod.MANDRAKE_DRAUGHT.get(),
+                ExampleMod.POTION_OF_REMORSE.get());
         event.register(
                 (stack, tintIndex) -> tintIndex == 0 && stack.getItem() instanceof com.hogwartsmagic.item.SplashBrewItem splash
                         ? net.minecraft.util.FastColor.ARGB32.opaque(splash.kind().color())

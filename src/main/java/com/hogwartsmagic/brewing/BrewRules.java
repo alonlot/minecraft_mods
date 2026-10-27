@@ -30,6 +30,7 @@ public final class BrewRules {
     public static final String ASHWINDER_EGG = "hogwartsmagic:ashwinder_egg";
     public static final String ARCANE_DUST = "hogwartsmagic:arcane_dust";
     public static final String GOLD_NUGGET = "minecraft:gold_nugget";
+    public static final String GHAST_TEAR = "minecraft:ghast_tear";
 
     /** Felix Felicis is the one brew that gives a single dose (spec decision 7). */
     public static final int FELIX_DOSES = 1;
@@ -163,8 +164,14 @@ public final class BrewRules {
             List.of(0xD9542B, 0x8E9A3A, 0xC9A23A, 0xE0B84A, 0xF2C94C, 0xFFD966),
             List.of(), List.of(), FELIX_DOSES);
 
+    /** The Potion of Remorse: a Ghast Tear for grief, Dittany for mending, a slow anticlockwise stir. */
+    public static final Recipe REMORSE = new Recipe("remorse",
+            List.of(Step.add(GHAST_TEAR, 1), Step.add(DITTANY, 2), Step.stirAnticlockwise(3), Step.simmer(90)),
+            List.of(0x9FB4C8, 0x7E98A8, 0x6C7F96, 0x8FA8C8),
+            List.of(), List.of(), MAX_DOSES);
+
     public static final List<Recipe> RECIPES = List.of(WIGGENWELD, PEPPERUP, POLYJUICE, DITTANY_ESSENCE,
-            MANDRAKE_DRAUGHT, LIVING_DEATH, FELIX_FELICIS);
+            MANDRAKE_DRAUGHT, LIVING_DEATH, FELIX_FELICIS, REMORSE);
 
     private BrewRules() {
     }

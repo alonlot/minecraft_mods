@@ -50,4 +50,14 @@ class PotionRulesTest {
         assertEquals(0.15, PotionRules.ASHWINDER_CHAMBER_CHANCE);
         assertEquals(0.05, PotionRules.ASHWINDER_BLAZE_CHANCE);
     }
+
+    @Test
+    void remorseHurtsButNeverKills() {
+        assertEquals(3.0f, PotionRules.remorseDamage(20f));
+        assertEquals(1.5f, PotionRules.remorseDamage(2.5f));
+        assertEquals(0.0f, PotionRules.remorseDamage(1f));
+        assertEquals(0.0f, PotionRules.remorseDamage(0.5f));
+        assertEquals(5.0f, PotionRules.REMORSE_DARKNESS);
+        assertEquals(144_000, PotionRules.DEFAULT_REMORSE_COOLDOWN_TICKS);
+    }
 }

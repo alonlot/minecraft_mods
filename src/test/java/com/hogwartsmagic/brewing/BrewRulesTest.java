@@ -286,7 +286,7 @@ class BrewRulesTest {
             }
         }
         assertEquals(List.of(BrewRules.WIGGENWELD, BrewRules.PEPPERUP, BrewRules.POLYJUICE, BrewRules.DITTANY_ESSENCE,
-                BrewRules.MANDRAKE_DRAUGHT, BrewRules.LIVING_DEATH, BrewRules.FELIX_FELICIS), BrewRules.RECIPES);
+                BrewRules.MANDRAKE_DRAUGHT, BrewRules.LIVING_DEATH, BrewRules.FELIX_FELICIS, BrewRules.REMORSE), BrewRules.RECIPES);
     }
 
     @Test

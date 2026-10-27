@@ -227,6 +227,9 @@ public class WizardCauldronBlockEntity extends BlockEntity {
         if (BrewRules.FELIX_FELICIS.id().equals(id)) {
             return new ItemStack(ExampleMod.FELIX_FELICIS.get());
         }
+        if (BrewRules.REMORSE.id().equals(id)) {
+            return new ItemStack(ExampleMod.POTION_OF_REMORSE.get());
+        }
         if (BrewRules.MANDRAKE_DRAUGHT.id().equals(id)) {
             return new ItemStack(BrewRules.usedTail(history, BrewRules.GUNPOWDER)
                     ? ExampleMod.SPLASH_MANDRAKE_DRAUGHT.get() : ExampleMod.MANDRAKE_DRAUGHT.get());

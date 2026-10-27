@@ -39,7 +39,8 @@ public class BrewedPotionItem extends Item {
         FAILED("failed_potion", 0x6B5A45),
         DITTANY("essence_of_dittany", 0xC9E3A6),
         FELIX("felix_felicis", 0xFFD966),
-        MANDRAKE("mandrake_draught", 0x5FD3C0);
+        MANDRAKE("mandrake_draught", 0x5FD3C0),
+        REMORSE("potion_of_remorse", 0x8FA8C8);
 
         private final String id;
         private final int color;
@@ -151,9 +152,29 @@ public class BrewedPotionItem extends Item {
             if (drinker instanceof Player player) {
                 player.displayClientMessage(Component.translatable("message.hogwartsmagic.felix.drink"), true);
             }
+        } else if (kind == Kind.REMORSE) {
+            drinkRemorse(drinker);
         } else {
             drinker.addEffect(new MobEffectInstance(MobEffects.CONFUSION, FAILED_NAUSEA_TICKS, 0));
             drinker.addEffect(new MobEffectInstance(MobEffects.POISON, FAILED_POISON_TICKS, 0));
+        }
+    }
+
+    /** Remorse always hurts; whether the soul is lightened depends on the Darkness and the play-time window. */
+    private static void drinkRemorse(LivingEntity drinker) {
+        float damage = com.hogwartsmagic.brewing.PotionRules.remorseDamage(drinker.getHealth());
+        if (damage > 0.0f) {
+            drinker.hurt(drinker.damageSources().magic(), damage);
+        }
+        drinker.addEffect(new MobEffectInstance(MobEffects.CONFUSION, com.hogwartsmagic.brewing.PotionRules.REMORSE_NAUSEA_TICKS, 0));
+        drinker.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, com.hogwartsmagic.brewing.PotionRules.REMORSE_WEAKNESS_TICKS, 0));
+        if (drinker instanceof ServerPlayer player) {
+            com.hogwartsmagic.spell.dark.DarkDeeds.RemorseResult result =
+                    com.hogwartsmagic.spell.dark.DarkDeeds.onRemorse(player, com.hogwartsmagic.brewing.PotionRules.REMORSE_DARKNESS);
+            String key = result == com.hogwartsmagic.spell.dark.DarkDeeds.RemorseResult.LIGHTENED ? "lightened"
+                    : result == com.hogwartsmagic.spell.dark.DarkDeeds.RemorseResult.NOTHING_TO_REGRET ? "nothing"
+                    : result == com.hogwartsmagic.spell.dark.DarkDeeds.RemorseResult.SPENT ? "spent" : "off";
+            player.displayClientMessage(Component.translatable("message.hogwartsmagic.remorse." + key), true);
         }
     }
 

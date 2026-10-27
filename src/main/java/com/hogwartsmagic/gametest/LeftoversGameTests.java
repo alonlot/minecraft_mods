@@ -358,4 +358,75 @@ public final class LeftoversGameTests {
         helper.succeed();
         LOGGER.info("LEFTOVERS-GAMETEST PASS patronusMessengerGatesAndCoolsDown");
     }
+
+    /**
+     * A real survival player: the helper mock overrides isCreative to true, which would make Remorse read as OFF.
+     * Placed through the player list like a login, and removed again with {@link #leave}.
+     */
+    private static ServerPlayer survivalPlayerWithDarkness(GameTestHelper helper, float darkness) {
+        var server = helper.getLevel().getServer();
+        var cookie = net.minecraft.server.network.CommonListenerCookie.createInitial(
+                new com.mojang.authlib.GameProfile(java.util.UUID.randomUUID(), "remorse-tester"), false);
+        ServerPlayer player = new ServerPlayer(server, helper.getLevel(), cookie.gameProfile(), cookie.clientInformation());
+        var conn = new net.minecraft.network.Connection(net.minecraft.network.protocol.PacketFlow.SERVERBOUND);
+        new io.netty.channel.embedded.EmbeddedChannel(conn);
+        server.getPlayerList().placeNewPlayer(conn, player, cookie);
+        player.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
+        player.setHealth(player.getMaxHealth());
+        com.hogwartsmagic.spell.dark.DarkMagicData.set(player, darkness);
+        return player;
+    }
+
+    private static void leave(GameTestHelper helper, ServerPlayer player) {
+        helper.getLevel().getServer().getPlayerList().remove(player);
+    }
+
+    private static void drinkRemorse(ServerPlayer player) {
+        net.minecraft.world.item.ItemStack stack = new net.minecraft.world.item.ItemStack(ExampleMod.POTION_OF_REMORSE.get());
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, stack);
+        player.invulnerableTime = 0;
+        stack.getItem().finishUsingItem(stack, player.level(), player);
+    }
+
+    /** One Remorse lightens the soul by 5; a second drink inside the window still hurts but lightens nothing. */
+    @GameTest(template = EMPTY, timeoutTicks = 120)
+    public static void remorseLightensOnceAWindow(GameTestHelper helper) {
+        ServerPlayer player = survivalPlayerWithDarkness(helper, 50.0f);
+        // A freshly placed player is hurt-proof for 60 ticks, so the pain would read as nothing.
+        helper.runAfterDelay(65, () -> {
+            try {
+                drinkRemorse(player);
+                helper.assertTrue(com.hogwartsmagic.spell.dark.DarkMagicData.getStored(player) == 45.0f,
+                        "the first drink should lighten 50 to 45, was " + com.hogwartsmagic.spell.dark.DarkMagicData.getStored(player));
+                float healthAfterFirst = player.getHealth();
+                helper.assertTrue(healthAfterFirst < player.getMaxHealth(), "the drink should hurt");
+                drinkRemorse(player);
+                helper.assertTrue(com.hogwartsmagic.spell.dark.DarkMagicData.getStored(player) == 45.0f,
+                        "the second drink inside the window must lighten nothing");
+                helper.assertTrue(player.getHealth() < healthAfterFirst, "the second drink should still hurt");
+            } finally {
+                leave(helper, player);
+            }
+            helper.succeed();
+            LOGGER.info("LEFTOVERS-GAMETEST PASS remorseLightensOnceAWindow");
+        });
+    }
+
+    /** A drink with nothing to lighten changes nothing and does not spend the window. */
+    @GameTest(template = EMPTY, timeoutTicks = 60)
+    public static void remorseAtTheFloorKeepsTheWindow(GameTestHelper helper) {
+        ServerPlayer player = survivalPlayerWithDarkness(helper, 0.0f);
+        try {
+            drinkRemorse(player);
+            helper.assertTrue(com.hogwartsmagic.spell.dark.DarkMagicData.getStored(player) == 0.0f, "Clean stays Clean");
+            com.hogwartsmagic.spell.dark.DarkMagicData.set(player, 50.0f);
+            drinkRemorse(player);
+            helper.assertTrue(com.hogwartsmagic.spell.dark.DarkMagicData.getStored(player) == 45.0f,
+                    "the window must not have been spent by the drink at the floor");
+        } finally {
+            leave(helper, player);
+        }
+        helper.succeed();
+        LOGGER.info("LEFTOVERS-GAMETEST PASS remorseAtTheFloorKeepsTheWindow");
+    }
 }

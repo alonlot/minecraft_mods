@@ -21,6 +21,12 @@ public final class PotionRules {
     /** Both splash potions reach this far (a sphere). */
     public static final double SPLASH_RADIUS = 4.0;
 
+    /** Potion of Remorse: the Darkness it lifts, the pain of the drink, and the play-time window between lightenings. */
+    public static final float REMORSE_DARKNESS = 5.0f;
+    public static final int REMORSE_NAUSEA_TICKS = 160;
+    public static final int REMORSE_WEAKNESS_TICKS = 600;
+    public static final int DEFAULT_REMORSE_COOLDOWN_TICKS = 144_000;
+
     public static final double VALERIAN_RUIN_CAMP_CHANCE = 0.25;
     public static final double ASHWINDER_DEATH_EATER_CAMP_CHANCE = 0.10;
     public static final double ASHWINDER_CHAMBER_CHANCE = 0.15;
@@ -32,6 +38,11 @@ public final class PotionRules {
     /** The mastery XP multiplier for a caster whose Luck amplifier is this (-1 without Luck). Luck III or more is Felix. */
     public static double felixXpMultiplier(int luckAmplifier) {
         return luckAmplifier >= FELIX_LUCK_AMPLIFIER ? FELIX_XP_MULTIPLIER : 1.0;
+    }
+
+    /** The magic damage of a Remorse drink: up to 3, never enough to kill, never below 0. */
+    public static float remorseDamage(float health) {
+        return Math.max(0.0f, Math.min(3.0f, health - 1.0f));
     }
 
     /** An entity this far (squared) from the impact is splashed. */

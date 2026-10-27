@@ -354,6 +354,19 @@ public class SpellPackets {
                 .decoder(buf -> new FinishHorcruxDeathSequencePacket())
                 .consumerMainThread(FinishHorcruxDeathSequencePacket::handle)
                 .add();
+        CHANNEL.messageBuilder(ProtegoShieldPacket.class)
+                .encoder((p, buf) -> {
+                    buf.writeInt(p.entityId);
+                    buf.writeInt(p.layers);
+                    buf.writeInt(p.remaining);
+                    buf.writeBoolean(p.dome);
+                    buf.writeBoolean(p.ranked);
+                    buf.writeByte(p.kind);
+                })
+                .decoder(buf -> new ProtegoShieldPacket(buf.readInt(), buf.readInt(), buf.readInt(),
+                        buf.readBoolean(), buf.readBoolean(), buf.readByte()))
+                .consumerMainThread(ProtegoShieldPacket::handle)
+                .add();
         CHANNEL.messageBuilder(PatronusShieldStatePacket.class)
                 .encoder((p, buf) -> {
                     buf.writeInt(p.casterId);
@@ -1466,9 +1479,7 @@ public class SpellPackets {
             playerData.remove(TAG_PROTEGO_MAXIMA_LAST_DRAIN);
             playerData.remove(TAG_PROTEGO_MAXIMA_LAST_SEEN);
 
-            if (player.hasEffect(ExampleMod.PROTEGO_EFFECT.getHolder().get())) {
-                player.removeEffect(ExampleMod.PROTEGO_EFFECT.getHolder().get());
-            }
+            com.hogwartsmagic.spell.support.ProtegoShield.remove(player, com.hogwartsmagic.spell.support.ProtegoShield.DROPPED);
 
             if (!creative && MagicWandItem.isAnyWand(wand)) {
                 SpellType spell = SpellType.PROTEGO_MAXIMA;
@@ -1702,6 +1713,16 @@ public class SpellPackets {
     public record FinishHorcruxDeathSequencePacket() {
         public static void handle(FinishHorcruxDeathSequencePacket p, CustomPayloadEvent.Context ctx) {
             enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("finishHorcruxDeathSequence", p));
+        }
+    }
+
+    /**
+     * Server → client: {@code entityId}'s Protego shield ({@code layers} -1 when it came down) and what just
+     * happened to it ({@link com.hogwartsmagic.spell.support.ProtegoShield#HIT} and the rest).
+     */
+    public record ProtegoShieldPacket(int entityId, int layers, int remaining, boolean dome, boolean ranked, byte kind) {
+        public static void handle(ProtegoShieldPacket p, CustomPayloadEvent.Context ctx) {
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("protegoShield", p));
         }
     }
 

@@ -426,7 +426,7 @@ public class VoldemortEntity extends WizardEntity {
         }
 
         if (spell == SpellType.PROTEGO) {
-            this.addEffect(new MobEffectInstance(ExampleMod.PROTEGO_EFFECT.getHolder().get(), 220, 2));
+            com.hogwartsmagic.spell.support.ProtegoShield.raise(this, 220, 2);
             this.level().playSound(null, this.getX(), this.getY(), this.getZ(), ModSounds.SPELL_PROTEGO.get(), SoundSource.HOSTILE, 1.0f, 0.95f);
             return;
         }
@@ -453,7 +453,7 @@ public class VoldemortEntity extends WizardEntity {
         if (this.getHealth() < this.getMaxHealth() * 0.45F && !isSpellOnCooldown(SpellType.HEAL, now) && this.getRandom().nextFloat() < 0.22f) {
             return SpellType.HEAL;
         }
-        if (this.wasRecentlyHit(now) && !this.hasEffect(ExampleMod.PROTEGO_EFFECT.getHolder().get()) && !isSpellOnCooldown(SpellType.PROTEGO, now) && this.getRandom().nextFloat() < 0.35f) {
+        if (this.wasRecentlyHit(now) && !com.hogwartsmagic.spell.support.ProtegoShield.has(this) && !isSpellOnCooldown(SpellType.PROTEGO, now) && this.getRandom().nextFloat() < 0.35f) {
             return SpellType.PROTEGO;
         }
         if (!isSpellOnCooldown(SpellType.AVADA_KEDAVRA, now) && this.getRandom().nextFloat() < 0.28f) {

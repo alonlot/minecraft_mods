@@ -87,34 +87,16 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
     public boolean hurt(net.minecraft.world.damagesource.DamageSource source, float damage) {
         if (this.level().isClientSide) return super.hurt(source, damage);
         // Intercept damage if we have Protego, unless it's void/starve/drown damage
-        if (!source.is(net.minecraft.tags.DamageTypeTags.BYPASSES_INVULNERABILITY) && !com.hogwartsmagic.spell.mind.AvadaSpell.isLanding(this) && this.hasEffect(ExampleMod.PROTEGO_EFFECT.getHolder().get())) {
-            net.minecraft.world.effect.MobEffectInstance currentEffect = this.getEffect(ExampleMod.PROTEGO_EFFECT.getHolder().get());
-            if (currentEffect != null) {
-                int currentAmplifier = currentEffect.getAmplifier();
-                
-                // Play absorption / clink sound
+        if (!source.is(net.minecraft.tags.DamageTypeTags.BYPASSES_INVULNERABILITY) && !com.hogwartsmagic.spell.mind.AvadaSpell.isLanding(this) && com.hogwartsmagic.spell.support.ProtegoShield.has(this)) {
+            // Play absorption / clink sound
+            this.level().playSound(null, this.getX(), this.getY(), this.getZ(),
+                    net.minecraft.sounds.SoundEvents.SHIELD_BLOCK, net.minecraft.sounds.SoundSource.NEUTRAL, 1.0f, 1.5f);
+            // If it was the last layer, the shield shatters
+            if (com.hogwartsmagic.spell.support.ProtegoShield.absorbHit(this)) {
                 this.level().playSound(null, this.getX(), this.getY(), this.getZ(),
-                        net.minecraft.sounds.SoundEvents.SHIELD_BLOCK, net.minecraft.sounds.SoundSource.HOSTILE, 1.0f, 1.5f);
-                
-                // If it was the last charge, break the shield
-                if (currentAmplifier <= 0) {
-                    this.removeEffect(ExampleMod.PROTEGO_EFFECT.getHolder().get());
-                    this.level().playSound(null, this.getX(), this.getY(), this.getZ(),
-                            net.minecraft.sounds.SoundEvents.GLASS_BREAK, net.minecraft.sounds.SoundSource.HOSTILE, 1.0f, 1.0f);
-                    
-                    // Break particles
-                    if (this.level() instanceof net.minecraft.server.level.ServerLevel sl) {
-                        sl.sendParticles(net.minecraft.core.particles.ParticleTypes.CRIT, this.getX(), this.getY() + 1.0, this.getZ(), 20, 0.5, 0.5, 0.5, 0.1);
-                    }
-                } else {
-                    // Reduce charges. addEffect never lowers an amplifier, so the old charge has to go first.
-                    this.removeEffect(ExampleMod.PROTEGO_EFFECT.getHolder().get());
-                    this.addEffect(new net.minecraft.world.effect.MobEffectInstance(ExampleMod.PROTEGO_EFFECT.getHolder().get(), currentEffect.getDuration(), currentAmplifier - 1));
-                }
-                
-                // Block the damage completely
-                return false; 
+                        net.minecraft.sounds.SoundEvents.GLASS_BREAK, net.minecraft.sounds.SoundSource.NEUTRAL, 1.0f, 1.0f);
             }
+            return false;
         }
         
         recordHit(); // Track that wizard was hit
@@ -146,7 +128,7 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
 
     @Override
     public IllagerArmPose getArmPose() {
-        if (this.hasEffect(ExampleMod.PROTEGO_EFFECT.getHolder().get())) {
+        if (com.hogwartsmagic.spell.support.ProtegoShield.has(this)) {
             return IllagerArmPose.CROSSED; // They hold hands up/crossed when shielding
         }
         if (this.isCasting()) {
@@ -720,8 +702,8 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
                 return false;
             }
 
-            if (spell != SpellType.PROTEGO && this.wizard.hasEffect(ExampleMod.PROTEGO_EFFECT.getHolder().get())) {
-                this.wizard.removeEffect(ExampleMod.PROTEGO_EFFECT.getHolder().get());
+            if (spell != SpellType.PROTEGO && com.hogwartsmagic.spell.support.ProtegoShield.has(this.wizard)) {
+                com.hogwartsmagic.spell.support.ProtegoShield.remove(this.wizard, com.hogwartsmagic.spell.support.ProtegoShield.DROPPED);
             }
 
             this.wizard.swing(InteractionHand.MAIN_HAND);
@@ -765,9 +747,9 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
                     }
                 }
             }
-            if (needsShield && !this.wizard.hasEffect(ExampleMod.PROTEGO_EFFECT.getHolder().get()) && !this.wizard.isSpellOnCooldown(SpellType.PROTEGO, now)) {
+            if (needsShield && !com.hogwartsmagic.spell.support.ProtegoShield.has(this.wizard) && !this.wizard.isSpellOnCooldown(SpellType.PROTEGO, now)) {
                 // Cast self-shield (with 1 extra charge = amplifier 1 = absorbs 2 hits)
-                this.wizard.addEffect(new net.minecraft.world.effect.MobEffectInstance(ExampleMod.PROTEGO_EFFECT.getHolder().get(), 300, 1));
+                com.hogwartsmagic.spell.support.ProtegoShield.raise(this.wizard, 300, 1);
                 this.wizard.setSpellCooldown(SpellType.PROTEGO, now + SpellType.PROTEGO.getCooldownTicks());
                 this.wizard.level().playSound(null, this.wizard.getX(), this.wizard.getY(), this.wizard.getZ(),
                         ModSounds.SPELL_PROTEGO.get(), SoundSource.HOSTILE, 1.0f, 1.0f);
@@ -831,8 +813,8 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
                 spell.applyHitEffect(this.wizard, this.wizard);
             } else {
                 // Break Protego if casting offensive spell
-                if (spell != SpellType.PROTEGO && this.wizard.hasEffect(ExampleMod.PROTEGO_EFFECT.getHolder().get())) {
-                     this.wizard.removeEffect(ExampleMod.PROTEGO_EFFECT.getHolder().get());
+                if (spell != SpellType.PROTEGO && com.hogwartsmagic.spell.support.ProtegoShield.has(this.wizard)) {
+                     com.hogwartsmagic.spell.support.ProtegoShield.remove(this.wizard, com.hogwartsmagic.spell.support.ProtegoShield.DROPPED);
                      this.wizard.level().playSound(null, this.wizard.getX(), this.wizard.getY(), this.wizard.getZ(),
                              net.minecraft.sounds.SoundEvents.GLASS_BREAK, net.minecraft.sounds.SoundSource.HOSTILE, 1.0f, 1.0f);
                      if (this.wizard.level() instanceof net.minecraft.server.level.ServerLevel sl) {

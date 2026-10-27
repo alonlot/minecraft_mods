@@ -38,6 +38,25 @@ public final class ModRenderTypes extends RenderType {
     );
 
     /**
+     * The Protego bubble: the same additive, depth-tested, no-depth-write light as {@link #PATRONUS_LIGHT}, but
+     * unsorted -- additive blending doesn't care about order, and the bubble is thousands of quads.
+     */
+    public static final RenderType PROTEGO_LIGHT = create(
+            "hogwartsmagic_protego_light",
+            DefaultVertexFormat.POSITION_COLOR,
+            VertexFormat.Mode.QUADS,
+            16384,
+            false,
+            false,
+            RenderType.CompositeState.builder()
+                    .setShaderState(RENDERTYPE_LIGHTNING_SHADER)
+                    .setWriteMaskState(COLOR_WRITE)
+                    .setTransparencyState(LIGHTNING_TRANSPARENCY)
+                    .setCullState(NO_CULL)
+                    .createCompositeState(false)
+    );
+
+    /**
      * Unlit, linearly filtered smoke for the Dark Mark: straight-alpha blending, no depth write so
      * the stacked layers of the volume all show, no culling so it reads from behind too. Sorted on
      * upload so the layers composite back to front.

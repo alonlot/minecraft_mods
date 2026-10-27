@@ -6,16 +6,12 @@ import com.hogwartsmagic.spell.SpellCosts;
 import com.hogwartsmagic.spell.SpellType;
 import com.hogwartsmagic.spell.combat.CombatEffects;
 import com.hogwartsmagic.spell.disable.DisableSupport;
-import net.minecraft.core.Holder;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.damagesource.DamageSource;
-import net.minecraft.world.effect.MobEffect;
-import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
@@ -43,17 +39,12 @@ public final class ProtegoSpell {
     private ProtegoSpell() {
     }
 
-    private static Holder<MobEffect> shield() {
-        return ExampleMod.PROTEGO_EFFECT.getHolder().orElseThrow();
-    }
-
     public static void raise(LivingEntity target, @Nullable Entity caster) {
         if (target.level().isClientSide()) {
             return;
         }
         int rank = DisableSupport.casterRank(caster, SpellType.PROTEGO);
         long now = target.level().getGameTime();
-        target.addEffect(new MobEffectInstance(shield(), ProtegoRules.SHIELD_TICKS, 0));
         CompoundTag data = target.getPersistentData();
         data.putLong(TAG_RAISED_AT, now);
         data.putLong(TAG_UNTIL, now + ProtegoRules.SHIELD_TICKS);
@@ -68,12 +59,13 @@ public final class ProtegoSpell {
                 data.putFloat(TAG_REFUND, refund);
             }
         }
+        // Last, so the first sync already reports the shield as ranked (front-facing).
+        ProtegoShield.raise(target, ProtegoRules.SHIELD_TICKS, 0);
     }
 
-    /** A ranked shield: raised by {@link #raise}, still inside its 60 ticks, and not Protego Maxima's amplifier-3 bubble. */
+    /** A ranked shield: raised by {@link #raise}, still inside its 60 ticks, and not a layered or Maxima shield. */
     public static boolean isRankedShield(LivingEntity entity) {
-        MobEffectInstance instance = entity.getEffect(shield());
-        if (instance == null || instance.getAmplifier() != 0) {
+        if (ProtegoShield.layers(entity) != 0) {
             return false;
         }
         CompoundTag data = entity.getPersistentData();
@@ -102,19 +94,19 @@ public final class ProtegoSpell {
             int mode = ProtegoRules.parryMode(rank);
             if (mode != ProtegoRules.PARRY_DISSOLVE && ProtegoRules.canReflect(unforgivable, beam.isReflected())) {
                 reflect(level, holder, beam, mode);
+                ProtegoShield.flash(holder, ProtegoShield.PARRIED);
                 parryFeedback(level, holder, true);
                 return BeamOutcome.REFLECTED;
             }
+            ProtegoShield.flash(holder, ProtegoShield.PARRIED);
             parryFeedback(level, holder, false);
             return BeamOutcome.PARRIED;
         }
         // Outside the window, or an Unforgivable: the shield takes the beam and breaks.
-        holder.removeEffect(shield());
+        ProtegoShield.remove(holder, ProtegoShield.SHATTERED);
         data.remove(TAG_UNTIL);
         level.playSound(null, holder.getX(), holder.getY(), holder.getZ(),
                 SoundEvents.GLASS_BREAK, SoundSource.PLAYERS, 1.0f, 1.0f);
-        level.sendParticles(ParticleTypes.CRIT, holder.getX(), holder.getY() + 1.0, holder.getZ(),
-                20, 0.5, 0.5, 0.5, 0.1);
         return BeamOutcome.BLOCKED;
     }
 
@@ -132,6 +124,7 @@ public final class ProtegoSpell {
         }
         int rank = holder.getPersistentData().getInt(TAG_RANK);
         event.setAmount(ProtegoRules.reducedDamage(event.getAmount(), rank));
+        ProtegoShield.flash(holder, ProtegoShield.HIT);
         holder.level().playSound(null, holder.getX(), holder.getY(), holder.getZ(),
                 SoundEvents.SHIELD_BLOCK, SoundSource.PLAYERS, 1.0f, 1.0f);
         if (ProtegoRules.knocksBackMelee(rank)
@@ -180,10 +173,8 @@ public final class ProtegoSpell {
         level.addFreshEntity(copy);
     }
 
+    /** The flare itself is the bubble's (a {@link ProtegoShield#PARRIED} sync); this is the sound of it. */
     private static void parryFeedback(ServerLevel level, LivingEntity holder, boolean reflected) {
-        Vec3 front = holder.getEyePosition().add(holder.getLookAngle().scale(0.8));
-        level.sendParticles(ParticleTypes.END_ROD, front.x, front.y, front.z, reflected ? 18 : 10, 0.25, 0.25, 0.25, 0.04);
-        level.sendParticles(ParticleTypes.FLASH, front.x, front.y, front.z, 1, 0.0, 0.0, 0.0, 0.0);
         level.playSound(null, holder.getX(), holder.getY(), holder.getZ(),
                 SoundEvents.SHIELD_BLOCK, SoundSource.PLAYERS, 1.0f, reflected ? 1.7f : 1.4f);
         level.playSound(null, holder.getX(), holder.getY(), holder.getZ(),

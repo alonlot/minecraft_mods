@@ -1112,8 +1112,7 @@ public class ModEvents {
             }
         }
 
-        player.addEffect(new net.minecraft.world.effect.MobEffectInstance(
-                ExampleMod.PROTEGO_EFFECT.getHolder().get(), 12, 3, false, false, true));
+        com.hogwartsmagic.spell.support.ProtegoShield.raise(player, 12, 3, true);
 
         if (player.level() instanceof ServerLevel serverLevel) {
             spawnProtegoMaximaSkyBeam(serverLevel, player);
@@ -1138,7 +1137,7 @@ public class ModEvents {
         player.getPersistentData().remove(TAG_PROTEGO_MAXIMA_LAST_SEEN);
         player.getPersistentData().remove(TAG_PROTEGO_MAXIMA_HEALTH);
         player.getPersistentData().remove(TAG_PROTEGO_MAXIMA_LAST_HIT);
-        player.removeEffect(ExampleMod.PROTEGO_EFFECT.getHolder().get());
+        com.hogwartsmagic.spell.support.ProtegoShield.remove(player, com.hogwartsmagic.spell.support.ProtegoShield.DROPPED);
 
         if (!player.isCreative() && MagicWandItem.isAnyWand(wand)) {
             SpellType spell = SpellType.PROTEGO_MAXIMA;
@@ -2654,29 +2653,20 @@ public class ModEvents {
         } else if (com.hogwartsmagic.spell.support.ProtegoSpell.isRankedShield(event.getEntity())) {
             // A player's Protego (Spell Mastery): blunts blows from the front, never cancels them outright.
             com.hogwartsmagic.spell.support.ProtegoSpell.onShieldedHurt(event);
-        } else if (event.getEntity().hasEffect(ExampleMod.PROTEGO_EFFECT.getHolder().get())) {
+        } else if (com.hogwartsmagic.spell.support.ProtegoShield.has(event.getEntity())) {
             // Cancel the damage
             event.setCanceled(true);
-            
-            // Physical attacks and spells now wear down the shield!
-            // Play a breaking/deflecting sound
+
+            // Physical attacks and spells wear down the shield, a layer a blow.
             event.getEntity().level().playSound(null, event.getEntity().getX(), event.getEntity().getY(), event.getEntity().getZ(),
                 net.minecraft.sounds.SoundEvents.SHIELD_BLOCK, net.minecraft.sounds.SoundSource.PLAYERS, 1.0f, 1.0f);
-
-            var instance = event.getEntity().getEffect(ExampleMod.PROTEGO_EFFECT.getHolder().get());
-            if (instance != null) {
-                int amp = instance.getAmplifier();
-                event.getEntity().removeEffect(ExampleMod.PROTEGO_EFFECT.getHolder().get());
-                if (amp > 0) {
-                    event.getEntity().addEffect(new net.minecraft.world.effect.MobEffectInstance(ExampleMod.PROTEGO_EFFECT.getHolder().get(), instance.getDuration(), amp - 1));
-                } else {
-                    // Shield absolutely shatters
-                    event.getEntity().level().playSound(null, event.getEntity().getX(), event.getEntity().getY(), event.getEntity().getZ(),
-                        net.minecraft.sounds.SoundEvents.GLASS_BREAK, net.minecraft.sounds.SoundSource.PLAYERS, 1.0f, 0.5f);
-                }
+            if (com.hogwartsmagic.spell.support.ProtegoShield.absorbHit(event.getEntity())) {
+                // Shield absolutely shatters
+                event.getEntity().level().playSound(null, event.getEntity().getX(), event.getEntity().getY(), event.getEntity().getZ(),
+                    net.minecraft.sounds.SoundEvents.GLASS_BREAK, net.minecraft.sounds.SoundSource.PLAYERS, 1.0f, 0.5f);
             }
         }
-        
+
         if (event.getEntity().hasEffect(ExampleMod.TENEBRIS_FLIGHT_EFFECT.getHolder().get())) {
             event.setCanceled(true); // Invulnerability
         }
@@ -3532,12 +3522,6 @@ public class ModEvents {
             tickVillagerFleeNearbyWerewolfLycanthrope(villager);
         }
 
-        if (entity.hasEffect(ExampleMod.PROTEGO_EFFECT.getHolder().get())) {
-            if (entity.level().isClientSide) {
-                spawnProtegoParticles(entity);
-            }
-        }
-
         // Handle Tenebris Flight effect - either apply flight behavior or cleanup when effect ends
         if (entity.hasEffect(ExampleMod.TENEBRIS_FLIGHT_EFFECT.getHolder().get())) {
             handleTenebrisFlight(entity);
@@ -3901,29 +3885,6 @@ public class ModEvents {
         }
     }
 
-    private static void spawnProtegoParticles(net.minecraft.world.entity.LivingEntity entity) {
-        double x = entity.getX();
-        double y = entity.getY() + entity.getBbHeight() / 2.0;
-        double z = entity.getZ();
-        // Smaller, tighter bubble radius
-        double radius = entity.getBbWidth() * 0.7;
-        if (radius < 0.5) radius = 0.5; // ensure it's not invisible on tiny mobs
-        
-        // Dense spherical bubble (double particles to 60)
-        for (int i = 0; i < 60; i++) {
-            double u = entity.getRandom().nextDouble();
-            double v = entity.getRandom().nextDouble();
-            double theta = 2 * Math.PI * u;
-            double phi = Math.acos(2 * v - 1);
-            double dx = radius * Math.sin(phi) * Math.cos(theta);
-            double dy = radius * Math.sin(phi) * Math.sin(theta);
-            double dz = radius * Math.cos(phi);
-            
-            entity.level().addParticle(net.minecraft.core.particles.ParticleTypes.END_ROD, 
-                x + dx, y + dy, z + dz, dx * 0.01, dy * 0.01, dz * 0.01);
-        }
-    }
-
     /**
      * Spells a wand left-click casts on yourself. Also the server-side whitelist for the packet's
      * selfCastProtego flag, so a client cannot self-cast anything else.
@@ -4047,14 +4008,7 @@ public class ModEvents {
                 }
                 SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(false, false, false, false), PacketDistributor.SERVER.noArg());
                 player.swing(InteractionHand.MAIN_HAND);
-                
-                // Break Protego on cast! Server side will handle actual spell logic, but we can do visuals here if we want, or rely on server syncing.
-                if (player.hasEffect(ExampleMod.PROTEGO_EFFECT.getHolder().get())) {
-                    if (selected != null && selected != SpellType.HEAL && selected != SpellType.PROTEGO) {
-                         // Note: Real removal must happen on server. The CastSpellPacket handler should remove it.
-                    }
-                }
-                
+                                
                 return true;
             }
         }

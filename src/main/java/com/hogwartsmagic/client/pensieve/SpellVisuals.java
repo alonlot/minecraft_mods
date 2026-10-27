@@ -1,10 +1,10 @@
 package com.hogwartsmagic.client.pensieve;
 
 import com.hogwartsmagic.ModSounds;
+import com.hogwartsmagic.client.ProtegoShieldRenderer;
 import com.hogwartsmagic.entity.ModEntities;
 import com.hogwartsmagic.entity.SpellBeamEntity;
 import com.hogwartsmagic.pensieve.scene.SceneNames;
-import com.hogwartsmagic.spell.ProtegoEffect;
 import com.hogwartsmagic.spell.SpellType;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
@@ -227,8 +227,7 @@ public final class SpellVisuals {
     }
 
     /**
-     * Protego: the real spell's shield sparkle ({@link ProtegoEffect#emitShieldParticles}) around the caster,
-     * held for 40 ticks. The caster stands one wand-hand height below {@code hand}.
+     * Protego: the real spell's bubble ({@link ProtegoShieldRenderer}) around the caster, held for 40 ticks. The caster stands one wand-hand height below {@code hand}.
      */
     private static final class ProtegoDome implements Active {
         private static final double HAND_ABOVE_FEET = 1.3;
@@ -241,13 +240,7 @@ public final class SpellVisuals {
 
         @Override
         public boolean tick(ClientLevel level) {
-            // A wider, taller sphere than a bare player's, and thrice the sparkle, so the dome reads from across a hall.
-            for (int i = 0; i < 3; i++) {
-                ProtegoEffect.emitShieldParticles(level, feet, 2.2, 2.4, false);
-            }
-            if (age == 0) {
-                level.addParticle(ParticleTypes.FLASH, feet.x, feet.y + 1.2, feet.z, 0, 0, 0);
-            }
+            ProtegoShieldRenderer.holdAt(this, feet, age, PROTEGO_TICKS);
             return ++age < PROTEGO_TICKS;
         }
     }

@@ -94,31 +94,16 @@ public class StudentEntity extends AbstractIllager implements DisarmableWandUser
             this.stopSleeping();
         }
         // Intercept damage if we have Protego, unless it's void/starve/drown damage
-        if (!source.is(net.minecraft.tags.DamageTypeTags.BYPASSES_INVULNERABILITY) && this.hasEffect(ExampleMod.PROTEGO_EFFECT.getHolder().get())) {
-            net.minecraft.world.effect.MobEffectInstance currentEffect = this.getEffect(ExampleMod.PROTEGO_EFFECT.getHolder().get());
-            if (currentEffect != null) {
-                int currentAmplifier = currentEffect.getAmplifier();
-                
-                // Play absorption / clink sound
+        if (!source.is(net.minecraft.tags.DamageTypeTags.BYPASSES_INVULNERABILITY) && com.hogwartsmagic.spell.support.ProtegoShield.has(this)) {
+            // Play absorption / clink sound
+            this.level().playSound(null, this.getX(), this.getY(), this.getZ(),
+                    net.minecraft.sounds.SoundEvents.SHIELD_BLOCK, net.minecraft.sounds.SoundSource.NEUTRAL, 1.0f, 1.5f);
+            // If it was the last layer, the shield shatters
+            if (com.hogwartsmagic.spell.support.ProtegoShield.absorbHit(this)) {
                 this.level().playSound(null, this.getX(), this.getY(), this.getZ(),
-                        net.minecraft.sounds.SoundEvents.SHIELD_BLOCK, net.minecraft.sounds.SoundSource.NEUTRAL, 1.0f, 1.5f);
-                
-                // If it was the last charge, break the shield
-                if (currentAmplifier <= 0) {
-                    this.removeEffect(ExampleMod.PROTEGO_EFFECT.getHolder().get());
-                    this.level().playSound(null, this.getX(), this.getY(), this.getZ(),
-                            net.minecraft.sounds.SoundEvents.GLASS_BREAK, net.minecraft.sounds.SoundSource.NEUTRAL, 1.0f, 1.0f);
-                    
-                    if (this.level() instanceof net.minecraft.server.level.ServerLevel sl) {
-                        sl.sendParticles(net.minecraft.core.particles.ParticleTypes.CRIT, this.getX(), this.getY() + 1.0, this.getZ(), 20, 0.5, 0.5, 0.5, 0.1);
-                    }
-                } else {
-                    // addEffect never lowers an amplifier, so the charge has to be removed before it is re-applied one tier down.
-                    this.removeEffect(ExampleMod.PROTEGO_EFFECT.getHolder().get());
-                    this.addEffect(new net.minecraft.world.effect.MobEffectInstance(ExampleMod.PROTEGO_EFFECT.getHolder().get(), currentEffect.getDuration(), currentAmplifier - 1));
-                }
-                return false; 
+                        net.minecraft.sounds.SoundEvents.GLASS_BREAK, net.minecraft.sounds.SoundSource.NEUTRAL, 1.0f, 1.0f);
             }
+            return false;
         }
         
         recordHit();
@@ -127,7 +112,7 @@ public class StudentEntity extends AbstractIllager implements DisarmableWandUser
 
     @Override
     public IllagerArmPose getArmPose() {
-        if (this.hasEffect(ExampleMod.PROTEGO_EFFECT.getHolder().get())) {
+        if (com.hogwartsmagic.spell.support.ProtegoShield.has(this)) {
             return IllagerArmPose.CROSSED; // They hold hands up/crossed when shielding
         }
         if (this.isCasting()) {
@@ -734,8 +719,8 @@ public class StudentEntity extends AbstractIllager implements DisarmableWandUser
                 return false;
             }
 
-            if (spell != SpellType.PROTEGO && this.student.hasEffect(ExampleMod.PROTEGO_EFFECT.getHolder().get())) {
-                this.student.removeEffect(ExampleMod.PROTEGO_EFFECT.getHolder().get());
+            if (spell != SpellType.PROTEGO && com.hogwartsmagic.spell.support.ProtegoShield.has(this.student)) {
+                com.hogwartsmagic.spell.support.ProtegoShield.remove(this.student, com.hogwartsmagic.spell.support.ProtegoShield.DROPPED);
             }
 
             this.student.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
@@ -785,8 +770,8 @@ public class StudentEntity extends AbstractIllager implements DisarmableWandUser
                     }
                 }
             }
-            if (needsShield && !this.student.hasEffect(ExampleMod.PROTEGO_EFFECT.getHolder().get()) && !this.student.isSpellOnCooldown(SpellType.PROTEGO, now)) {
-                this.student.addEffect(new net.minecraft.world.effect.MobEffectInstance(ExampleMod.PROTEGO_EFFECT.getHolder().get(), 300, 1));
+            if (needsShield && !com.hogwartsmagic.spell.support.ProtegoShield.has(this.student) && !this.student.isSpellOnCooldown(SpellType.PROTEGO, now)) {
+                com.hogwartsmagic.spell.support.ProtegoShield.raise(this.student, 300, 1);
                 this.student.setSpellCooldown(SpellType.PROTEGO, now + SpellType.PROTEGO.getCooldownTicks());
                 this.student.level().playSound(null, this.student.getX(), this.student.getY(), this.student.getZ(),
                         com.hogwartsmagic.ModSounds.SPELL_PROTEGO.get(), net.minecraft.sounds.SoundSource.NEUTRAL, 1.0f, 1.0f);
@@ -820,8 +805,8 @@ public class StudentEntity extends AbstractIllager implements DisarmableWandUser
                 spell.applyHitEffect(this.student, this.student);
             } else {
                 // Break Protego if casting offensive spell
-                if (spell != SpellType.PROTEGO && this.student.hasEffect(ExampleMod.PROTEGO_EFFECT.getHolder().get())) {
-                     this.student.removeEffect(ExampleMod.PROTEGO_EFFECT.getHolder().get());
+                if (spell != SpellType.PROTEGO && com.hogwartsmagic.spell.support.ProtegoShield.has(this.student)) {
+                     com.hogwartsmagic.spell.support.ProtegoShield.remove(this.student, com.hogwartsmagic.spell.support.ProtegoShield.DROPPED);
                      this.student.level().playSound(null, this.student.getX(), this.student.getY(), this.student.getZ(),
                              net.minecraft.sounds.SoundEvents.GLASS_BREAK, net.minecraft.sounds.SoundSource.NEUTRAL, 1.0f, 1.0f);
                      if (this.student.level() instanceof net.minecraft.server.level.ServerLevel sl) {
@@ -902,7 +887,7 @@ public class StudentEntity extends AbstractIllager implements DisarmableWandUser
          * Group shield. Triggers when at least two ally students are within 6 blocks AND
          * the caster has been recently hurt or a hostile beam is incoming. The student
          * raises their wand (look-up animation via the LookControl), then applies the
-         * existing PROTEGO_EFFECT to themselves and every ally in 8 blocks — a longer
+         * a Maxima-strength Protego to themselves and every ally in 8 blocks — a longer
          * duration than a single Protego so the buff "feels" like the larger spell.
          */
         private boolean tryProtegoMaximaGroupShield(long now) {
@@ -933,20 +918,16 @@ public class StudentEntity extends AbstractIllager implements DisarmableWandUser
             this.student.level().playSound(null, this.student.getX(), this.student.getY(), this.student.getZ(),
                     SpellType.PROTEGO_MAXIMA.getSoundEvent(), net.minecraft.sounds.SoundSource.NEUTRAL, 1.2f, 0.85f);
 
-            // Shield self + allies. Amplifier >= 3 is the trigger that makes
-            // ProtegoEffect.applyEffectTick switch from the small per-entity sparkle
-            // to the larger 4.5-block "maximaBarrier" bubble shell rendering — that's
-            // the iconic dome the film cast looks like, so use amplifier 3 here.
+            // Shield self + allies at Maxima strength (3 layers). Only the caster's bubble is drawn at
+            // the 4.5-block dome size -- the film's group shield -- so the allies' don't stack into a fog.
             int durationTicks = 300;
             int amplifier = 3;
-            this.student.addEffect(new net.minecraft.world.effect.MobEffectInstance(
-                    ExampleMod.PROTEGO_EFFECT.getHolder().get(), durationTicks, amplifier));
+            com.hogwartsmagic.spell.support.ProtegoShield.raise(this.student, durationTicks, amplifier, true);
             net.minecraft.world.phys.AABB shieldArea = this.student.getBoundingBox().inflate(8.0D);
             java.util.List<LivingEntity> protectees = this.student.level().getEntitiesOfClass(
                     LivingEntity.class, shieldArea, e -> e instanceof StudentEntity || e instanceof net.minecraft.world.entity.player.Player);
             for (LivingEntity p : protectees) {
-                p.addEffect(new net.minecraft.world.effect.MobEffectInstance(
-                        ExampleMod.PROTEGO_EFFECT.getHolder().get(), durationTicks, amplifier));
+                com.hogwartsmagic.spell.support.ProtegoShield.raise(p, durationTicks, amplifier, false);
             }
 
             if (this.student.level() instanceof net.minecraft.server.level.ServerLevel sl) {

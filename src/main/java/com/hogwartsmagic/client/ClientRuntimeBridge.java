@@ -46,6 +46,7 @@ public final class ClientRuntimeBridge {
             case "finishHorcruxDeathSequence" -> finishHorcruxDeathSequence();
             case "cloakTransition" -> cloakTransition((SpellPackets.CloakTransitionPacket) payload);
             case "patronusShieldState" -> patronusShieldState((SpellPackets.PatronusShieldStatePacket) payload);
+            case "protegoShield" -> protegoShield((SpellPackets.ProtegoShieldPacket) payload);
             case "openApparitionMap" -> openApparitionMap((SpellPackets.OpenApparitionMapPacket) payload);
             case "closeApparitionMap" -> closeApparitionMap();
             case "openTomePicker" -> openTomePicker((SpellPackets.OpenTomePickerPacket) payload);
@@ -321,6 +322,14 @@ public final class ClientRuntimeBridge {
 
     private static void patronusShieldState(SpellPackets.PatronusShieldStatePacket packet) {
         PatronusShieldClientState.set(packet.casterId(), packet.active());
+    }
+
+    private static void protegoShield(SpellPackets.ProtegoShieldPacket packet) {
+        net.minecraft.client.Minecraft minecraft = net.minecraft.client.Minecraft.getInstance();
+        if (minecraft.level != null) {
+            com.hogwartsmagic.spell.support.ProtegoShield.accept(packet.entityId(), packet.layers(), packet.remaining(),
+                    packet.dome(), packet.ranked(), packet.kind(), minecraft.level.getGameTime());
+        }
     }
 
     private static void cloakTransition(SpellPackets.CloakTransitionPacket packet) {

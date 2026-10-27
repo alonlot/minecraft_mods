@@ -898,32 +898,17 @@ public class SpellBeamEntity extends ThrowableProjectile {
                 if (parry != com.hogwartsmagic.spell.support.ProtegoSpell.BeamOutcome.NOT_SHIELDED) {
                     hitSuccessful = false; // stopped at the shield; a reflected copy is already in flight
                 } else if (!com.hogwartsmagic.spell.support.ProtegoSpell.isRankedShield(living)
-                        && living.hasEffect(com.hogwartsmagic.ExampleMod.PROTEGO_EFFECT.getHolder().get()) && spell != SpellType.AVADA_KEDAVRA && spell != SpellType.HEAL
+                        && com.hogwartsmagic.spell.support.ProtegoShield.has(living) && spell != SpellType.AVADA_KEDAVRA && spell != SpellType.HEAL
                         && spell != SpellType.LUMOS) {
                     // NPC layer shields and Protego Maxima keep the old rule: the shield eats the beam.
-                    net.minecraft.world.effect.MobEffectInstance currentEffect = living.getEffect(com.hogwartsmagic.ExampleMod.PROTEGO_EFFECT.getHolder().get());
-                    if (currentEffect != null) {
-                        int currentAmplifier = currentEffect.getAmplifier();
-                        
+                    this.level().playSound(null, living.getX(), living.getY(), living.getZ(),
+                            net.minecraft.sounds.SoundEvents.SHIELD_BLOCK, net.minecraft.sounds.SoundSource.NEUTRAL, 1.0f, 1.5f);
+                    if (com.hogwartsmagic.spell.support.ProtegoShield.absorbHit(living)) {
                         this.level().playSound(null, living.getX(), living.getY(), living.getZ(),
-                                net.minecraft.sounds.SoundEvents.SHIELD_BLOCK, net.minecraft.sounds.SoundSource.NEUTRAL, 1.0f, 1.5f);
-                                
-                        if (currentAmplifier <= 0) {
-                            living.removeEffect(com.hogwartsmagic.ExampleMod.PROTEGO_EFFECT.getHolder().get());
-                            this.level().playSound(null, living.getX(), living.getY(), living.getZ(),
-                                    net.minecraft.sounds.SoundEvents.GLASS_BREAK, net.minecraft.sounds.SoundSource.NEUTRAL, 1.0f, 1.0f);
-                            
-                            if (this.level() instanceof net.minecraft.server.level.ServerLevel sl) {
-                                sl.sendParticles(net.minecraft.core.particles.ParticleTypes.CRIT, living.getX(), living.getY() + 1.0, living.getZ(), 20, 0.5, 0.5, 0.5, 0.1);
-                            }
-                        } else {
-                            living.removeEffect(com.hogwartsmagic.ExampleMod.PROTEGO_EFFECT.getHolder().get());
-                            living.addEffect(new net.minecraft.world.effect.MobEffectInstance(com.hogwartsmagic.ExampleMod.PROTEGO_EFFECT.getHolder().get(), currentEffect.getDuration(), currentAmplifier - 1));
-                        }
-                        
-                        // Treat the hit as blocked/fizzled 
-                        hitSuccessful = false;
+                                net.minecraft.sounds.SoundEvents.GLASS_BREAK, net.minecraft.sounds.SoundSource.NEUTRAL, 1.0f, 1.0f);
                     }
+                    // Treat the hit as blocked/fizzled
+                    hitSuccessful = false;
                 } else {
                     // Normal hit
                     if (spell != SpellType.ALOHOMORA) {

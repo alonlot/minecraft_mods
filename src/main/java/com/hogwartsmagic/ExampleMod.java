@@ -148,7 +148,7 @@ public class ExampleMod
                 }
             });
 
-    // Protego Shield Effect
+    // Retired: Protego is ProtegoShield state now. Kept registered so old worlds load cleanly; do not apply it.
     public static final RegistryObject<net.minecraft.world.effect.MobEffect> PROTEGO_EFFECT = MOB_EFFECTS.register("protego",
             com.hogwartsmagic.spell.ProtegoEffect::new);
 

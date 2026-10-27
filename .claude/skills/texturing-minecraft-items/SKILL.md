@@ -45,7 +45,7 @@ shimmers. A 1024x1024 sprite takes 4096 times the atlas space of a 16x16 one.
    next to vanilla. For a new material, `ramp(base, n)` in `scripts/pixkit.py` follows vanilla's
    recipe; hand-pick from it.
 4. **Author the grid.** Write a per-item script with a 16-row character grid, one character per
-   shade, and `sprite(GRID, PALETTE)` → `save()`. `save()` refuses semi-transparent pixels. Keep the
+   shade (no spaces inside rows; use `.` for transparent), and `sprite(GRID, PALETTE)` → `save()`. `save()` refuses semi-transparent pixels. Keep the
    script in the repo so the sprite can be regenerated and edited.
 5. **Lint.** `python scripts/texlint.py out.png`. Fix every ERROR. Each WARN is a prompt to look:
    fix it, or know why it is right.
@@ -66,7 +66,7 @@ cannot see "looks like a placeholder".
 |---|---|
 | Downscaling a painting or AI image to 16x16 | Redraw it as a grid. A downscale gives mush: lots of single-pixel colours and no outline |
 | Front-on box (`box-silhouette`) | Tilt it: books lie at 3/4, scrolls curl, tags hang on a diagonal |
-| Opaque milky bottle | The glass interior is transparent apart from the liquid; the glass edge is light blue (vanilla `#d4e5f7`→`#5d8fc2`), with a highlight streak on the left. Vanilla glass trips `no-dark`; if a filled bottle then vanishes on the slot, darken only its bottom/right glass edge one step |
+| Opaque milky bottle | The glass interior is transparent apart from the liquid; the glass edge is light blue (vanilla `#d4e5f7`→`#5d8fc2`), with a highlight streak on the left. Correct vanilla-style glass trips `no-dark`, `no-outline` and `slot-contrast` (vanilla `potion` does too): expected. Only if the bottle then vanishes on the slot preview, darken its bottom/right glass edge one step |
 | Pendant, amulet, locket | The chain is a 1px diagonal arc over the top corners; the body is a compact shape filling the lower 10x10; leave out chain links that don't fit |
 | Chain or sparkles as loose pixels | Connect them diagonally, or drop them; loose pixels float as voxels in hand |
 | Pure black outline everywhere | Outline with the darkest shade of each material's own ramp |

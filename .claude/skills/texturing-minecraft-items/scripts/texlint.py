@@ -81,7 +81,9 @@ def lint_sprite(im):
     lost = sum(1 for p in edge if abs(lum(px[p]) - SLOT_LUM) < 16)
     if lost / len(edge) > 0.45:
         out.append(("WARN", "slot-contrast", f"{100 * lost // len(edge)}% of the outline is the slot grey: silhouette vanishes in inventory"))
-    if bw >= 0.75 * w and bh >= 0.75 * h and len(op) / (bw * bh) > 0.9:
+    x0, y0, x1, y1 = min(xs), min(ys), max(xs), max(ys)
+    corners = sum(1 for cx, cy in ((x0, y0), (x1, y0), (x0, y1), (x1, y1)) if px[cx, cy][3])
+    if bw >= 0.75 * w and bh >= 0.75 * h and len(op) / (bw * bh) > 0.85 and corners >= 3:
         out.append(("WARN", "box-silhouette", f"sprite fills {100 * len(op) // (bw * bh)}% of its {bw}x{bh} box: "
                     "a front-on rectangle reads as a tile or placeholder -- give it a 3/4 or diagonal silhouette"))
     lums = [lum(c) for c in counts]

@@ -82,19 +82,19 @@ def main(argv):
             rows.append(("vanilla:" + r, load(p)))
         else:
             print("no vanilla ref", p)
-    rowh = 16 * 8 + 18
+    rowh = 16 * 8 + 22
     W = 4 + 36 + 8 + 36 + 8 + 36 + 8 + 128 + 8 + 70 + 8
     sheet = Image.new("RGB", (W, rowh * len(rows) + 4), (30, 30, 30))
     d = ImageDraw.Draw(sheet)
     for k, (name, im) in enumerate(rows):
-        y = 4 + k * rowh
+        d.text((4, 4 + k * rowh), name[:60], fill=(255, 220, 120) if name.startswith("vanilla") else (255, 255, 255))
+        y = 4 + k * rowh + 16
         x = 4
         for tile in (slot(im, 2), flat(im, 2, HOTBAR), flat(im, 2, SKY)):
             sheet.paste(tile, (x, y)); x += tile.size[0] + 8
         z = zoom(im)
         sheet.paste(z, (x, y)); x += z.size[0] + 8
         sheet.paste(slot(im, 4), (x, y))
-        d.text((4, y + 16 * 8 + 3), name[:60], fill=(255, 220, 120) if name.startswith("vanilla") else (255, 255, 255))
     sheet.save(out)
     print(out, sheet.size)
 

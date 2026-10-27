@@ -430,9 +430,23 @@ public class ModEvents {
         if (event.isCanceled()) {
             return;
         }
+        boolean capture = isCaptureGesture(event.getEntity(), event.getItemStack());
         if (handleWandUse(event.getEntity(), event.getItemStack())) {
             event.setCanceled(true);
+            if (capture) {
+                // A success result stops the off-hand phial use from sending a second capture packet.
+                event.setCancellationResult(net.minecraft.world.InteractionResult.SUCCESS);
+            }
         }
+    }
+
+    /** Client side: sneaking with a wand while the other hand holds an empty memory phial. */
+    private static boolean isCaptureGesture(Player player, ItemStack heldItem) {
+        if (!player.level().isClientSide() || !player.isShiftKeyDown() || !MagicWandItem.isAnyWand(heldItem)) {
+            return false;
+        }
+        ItemStack other = heldItem == player.getMainHandItem() ? player.getOffhandItem() : player.getMainHandItem();
+        return other.getItem() instanceof com.hogwartsmagic.pensieve.EmptyMemoryPhialItem;
     }
 
     @SubscribeEvent

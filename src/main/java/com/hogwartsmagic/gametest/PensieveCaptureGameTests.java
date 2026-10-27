@@ -325,6 +325,7 @@ public final class PensieveCaptureGameTests {
     @GameTest(template = EMPTY, batch = BATCH, timeoutTicks = 300)
     public static void captureTurnsPhialIntoMemory(GameTestHelper helper) {
         ServerPlayer p = player(helper);
+        p.setShiftKeyDown(true);
         hold(p, InteractionHand.MAIN_HAND, wand());
         hold(p, InteractionHand.OFF_HAND, phial());
         helper.runAfterDelay(65, () -> MemoryCapture.capture(p));
@@ -351,6 +352,7 @@ public final class PensieveCaptureGameTests {
     @GameTest(template = EMPTY, batch = BATCH, timeoutTicks = 200)
     public static void noWandMeansHintAndNoCapture(GameTestHelper helper) {
         ServerPlayer p = player(helper);
+        p.setShiftKeyDown(true);
         hold(p, InteractionHand.OFF_HAND, phial());
         ServerLevel level = helper.getLevel();
         helper.runAfterDelay(65, () -> {
@@ -373,6 +375,7 @@ public final class PensieveCaptureGameTests {
     @GameTest(template = EMPTY, batch = BATCH, timeoutTicks = 200)
     public static void insideMemoryRefused(GameTestHelper helper) {
         ServerPlayer p = player(helper);
+        p.setShiftKeyDown(true);
         hold(p, InteractionHand.MAIN_HAND, wand());
         hold(p, InteractionHand.OFF_HAND, phial());
         ServerLevel memory = PensieveDimension.level(helper.getLevel().getServer());
@@ -401,6 +404,7 @@ public final class PensieveCaptureGameTests {
     @GameTest(template = EMPTY, batch = BATCH, timeoutTicks = 200)
     public static void wandWithoutPhialChangesNothing(GameTestHelper helper) {
         ServerPlayer p = player(helper);
+        p.setShiftKeyDown(true);
         ItemStack held = wand();
         hold(p, InteractionHand.MAIN_HAND, held);
         ServerLevel level = helper.getLevel();

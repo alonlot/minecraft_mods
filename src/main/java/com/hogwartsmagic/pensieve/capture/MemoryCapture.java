@@ -62,8 +62,8 @@ public final class MemoryCapture {
 
     /** The server handler of the capture packet. */
     public static void capture(ServerPlayer player) {
-        // Silent no-ops: a dead or watching player, a repeat press, and a wand used without any phial.
-        if (!player.isAlive() || PensieveSessions.isViewer(player)) {
+        // Silent no-ops: a dead, standing or watching player, a repeat press, and a wand used without any phial.
+        if (!player.isAlive() || !player.isShiftKeyDown() || PensieveSessions.isViewer(player)) {
             return;
         }
         ServerLevel level = player.serverLevel();
@@ -128,27 +128,43 @@ public final class MemoryCapture {
         level.playSound(null, player.getX(), player.getY(), player.getZ(), ModSounds.PENSIEVE_CAPTURE.get(),
                 SoundSource.PLAYERS, 0.8f, 1.0f);
 
+        UUID ownerId = player.getUUID();
+        net.minecraft.world.phys.Vec3 at = player.position();
         assembled.thenCompose(rec -> RecordingStore.save(server, rec).thenApply(v -> rec))
                 .whenComplete((rec, error) -> server.execute(() -> {
                     if (error != null || rec == null) {
                         if (RecordingAssembly.failureKey(error) == null) {
                             LOGGER.warn("Capturing a memory for {} failed", name, error);
                         }
-                        give(player, phialHand, new ItemStack(ExampleMod.EMPTY_MEMORY_PHIAL.get()));
-                        hint(player, failureHint(error));
+                        ServerPlayer back = give(server, level, ownerId, at, phialHand,
+                                new ItemStack(ExampleMod.EMPTY_MEMORY_PHIAL.get()));
+                        if (back != null) {
+                            hint(back, failureHint(error));
+                        }
                         return;
                     }
-                    give(player, phialHand, RecordedMemoryItem.create(ExampleMod.MEMORY.get(), rec.id(), rec.owner(),
+                    give(server, level, ownerId, at, phialHand, RecordedMemoryItem.create(ExampleMod.MEMORY.get(), rec.id(), rec.owner(),
                             rec.ownerName(), day, Math.max(1, Math.round(rec.length() / 20f))));
                 }));
     }
 
-    /** Into the hand that held the phial if it is empty, else the inventory, else at the player's feet. */
-    private static void give(ServerPlayer player, InteractionHand hand, ItemStack stack) {
+    /**
+     * Into the hand that held the phial if it is empty, else the inventory, else at the player's feet. The player is
+     * looked up again by uuid, since they may have logged out or died while the recording was saved; a player who is
+     * gone or dead gets the item dropped where the capture happened. Returns the player it went to, or null.
+     */
+    private static ServerPlayer give(MinecraftServer server, ServerLevel level, UUID ownerId,
+                                     net.minecraft.world.phys.Vec3 at, InteractionHand hand, ItemStack stack) {
+        ServerPlayer player = server.getPlayerList().getPlayer(ownerId);
+        if (player == null || !player.isAlive()) {
+            level.addFreshEntity(new net.minecraft.world.entity.item.ItemEntity(level, at.x, at.y, at.z, stack));
+            return null;
+        }
         if (player.getItemInHand(hand).isEmpty()) {
             player.setItemInHand(hand, stack);
         } else if (!player.getInventory().add(stack)) {
             player.drop(stack, false);
         }
+        return player;
     }
 }

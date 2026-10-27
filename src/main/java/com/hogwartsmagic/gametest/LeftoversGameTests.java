@@ -2,6 +2,7 @@ package com.hogwartsmagic.gametest;
 
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.entity.FiendfyreEntity;
+import com.hogwartsmagic.entity.FiendfyreSerpentEntity;
 import com.hogwartsmagic.entity.ModEntities;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
@@ -56,6 +57,29 @@ public final class LeftoversGameTests {
             }
             helper.succeed();
             LOGGER.info("LEFTOVERS-GAMETEST PASS groundFireRespectsMobGriefing");
+        });
+    }
+
+    /** A serpent fated to turn at life tick 60 glows red for a second first, then goes rogue. */
+    @GameTest(template = EMPTY, timeoutTicks = 200)
+    public static void serpentTelegraphsThenTurns(GameTestHelper helper) {
+        FiendfyreSerpentEntity serpent = new FiendfyreSerpentEntity(ModEntities.FIENDFYRE_SERPENT.get(), helper.getLevel());
+        serpent.configure(0, 1, 60, 120);
+        Vec3 at = helper.absoluteVec(new Vec3(1.5, 3, 1.5));
+        serpent.moveTo(at.x, at.y, at.z);
+        helper.getLevel().addFreshEntity(serpent);
+
+        helper.runAtTickTime(45, () -> {
+            helper.assertTrue(serpent.isAlive(), "the serpent should still be burning at tick 45");
+            helper.assertTrue(serpent.isTelegraphing(), "the serpent should glow red before it turns");
+            helper.assertFalse(serpent.isRogue(), "the serpent should not have turned yet");
+        });
+        helper.runAtTickTime(65, () -> {
+            helper.assertTrue(serpent.isAlive(), "the serpent should still be burning at tick 65");
+            helper.assertTrue(serpent.isRogue(), "the serpent should have turned by tick 65");
+            serpent.discard(); // a rogue serpent hunts for 16 blocks: keep it out of the neighbouring tests
+            helper.succeed();
+            LOGGER.info("LEFTOVERS-GAMETEST PASS serpentTelegraphsThenTurns");
         });
     }
 }

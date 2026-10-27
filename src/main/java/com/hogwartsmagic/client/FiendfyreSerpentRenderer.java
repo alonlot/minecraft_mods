@@ -53,6 +53,9 @@ public class FiendfyreSerpentRenderer extends EntityRenderer<FiendfyreSerpentEnt
     private static final float NECK_RADIUS = 0.95f;
     private static final float TAIL_RADIUS = 0.10f;
     private static final Vec3 WORLD_UP = new Vec3(0.0D, 1.0D, 0.0D);
+    /** Red tint for the serpent being drawn; render() sets it and clears it (render thread only). */
+    private static boolean warning;
+    private static float warningPulse = 1.0f;
 
     // radius multiplier, r, g, b, u repeats round the body, blocks per v repeat, v scroll per tick, u twist per block
     private static final float[][] SHELLS = new float[][] {
@@ -117,6 +120,10 @@ public class FiendfyreSerpentRenderer extends EntityRenderer<FiendfyreSerpentEnt
 
         Vec3 heading = getHeading(entity, trail);
         float age = entity.tickCount + partialTick;
+        // A serpent about to turn (or already rogue) burns blood red; while it is only warning, the glow
+        // also pulses (roadmap Decision 11). Every vertex goes through vert(), which applies it.
+        warning = entity.isTelegraphing() || entity.isRogue();
+        warningPulse = entity.isTelegraphing() ? 0.7f + 0.3f * (float) Math.sin(age * 1.6f) : 1.0f;
         Matrix4f m = poseStack.last().pose();
         Camera camera = this.entityRenderDispatcher.camera;
         Vec3 cam = camera == null ? heading.scale(10.0D) : camera.getPosition().subtract(currentPos);
@@ -156,6 +163,8 @@ public class FiendfyreSerpentRenderer extends EntityRenderer<FiendfyreSerpentEnt
         drawSockets(buffer.getBuffer(SOOT), m, head, cam);
         drawEyes(buffer.getBuffer(FX_GLOW), m, head, cam, age);
 
+        warning = false;
+        warningPulse = 1.0f;
         poseStack.popPose();
         super.render(entity, entityYaw, partialTick, poseStack, buffer, packedLight);
     }
@@ -610,6 +619,12 @@ public class FiendfyreSerpentRenderer extends EntityRenderer<FiendfyreSerpentEnt
     }
 
     private static void vert(VertexConsumer vc, Matrix4f m, Vec3 p, float r, float g, float b, float a, float u, float v) {
+        if (warning) {
+            r = Math.max(r, Math.max(g, b)); // keep each layer's brightness, drain it of orange
+            g *= 0.18f;
+            b *= 0.18f;
+            a *= warningPulse;
+        }
         vc.addVertex(m, (float) p.x, (float) p.y, (float) p.z).setColor(r, g, b, a).setUv(u, v).setLight(LIGHT)
                 .setNormal(0.0f, 1.0f, 0.0f);
     }

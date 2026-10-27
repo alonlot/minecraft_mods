@@ -44,7 +44,7 @@ public class SpellPackets {
 
     public static final SimpleChannel CHANNEL = ChannelBuilder
             .named(ExampleMod.MODID + ":spells")
-            .networkProtocolVersion(11)
+            .networkProtocolVersion(12)
             .simpleChannel();
 
     public static void register() {

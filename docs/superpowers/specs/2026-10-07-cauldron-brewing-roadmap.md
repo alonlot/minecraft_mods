@@ -151,7 +151,8 @@ Each potion ties to a system that already exists. Numbers are first values to tu
 | **Draught of Living Death** | Splash only. `stunned` for 20 s base, through `CrowdControl.apply`, so the existing rules apply: diminishing returns, half duration on bosses, 60% in PvP | Crowd control |
 | **Felix Felicis** | 3 minutes of Luck III (vanilla loot rolls) and +25% mastery XP. Brewing takes 10 minutes of simmer and gives 1 dose | Mastery, Gringotts loot |
 
-**Cut from this pass:** Veritaserum (Revelio already reveals Polyjuice, so it would add little),
+**Cut from this pass:** Veritaserum (Revelio already reveals Polyjuice, so it would add little; built
+later, see "Later"),
 Amortentia (no mechanic to hang it on), Skele-Gro (no bone-loss mechanic), Wolfsbane (it needs a
 player werewolf system, which does not exist).
 
@@ -345,10 +346,18 @@ petrified state survives a relog on a dedicated server.
   schematic changed, so it may move to the Mini Hogwarts plan if one exists by then.
 - Update `MOD_FEATURES_WIKI.md` and the web wiki.
 
-### Later (not planned)
+### Later
 
-Brewing quality tiers, an "Advanced Potion-Making" book that gates recipes, a datapack recipe format
-with JEI, Veritaserum, Wolfsbane.
+**Built 2026-10-27 (plan `2026-10-27-roadmap-leftovers.md`, branch `roadmap-leftovers`):**
+- Brewing quality tiers: Standard, Fine and Exceptional, from fine ingredients and a steady stirring rhythm
+  (durations x1.5/x2, amounts x1.25/x1.5).
+- The "Advanced Potion-Making" book, which gates the Draught of Living Death, Felix Felicis and Veritaserum
+  (Polyjuice stays ungated). Sold by the Bookseller at level 3, found in Mini Hogwarts classroom chests.
+- Veritaserum, which this roadmap cut from the first pass: it is given, not thrown, and breaks disguises,
+  makes villagers confess and makes Death Eaters give up accomplices.
+- The Potion of Remorse (from the Dark Magic roadmap).
+
+**Still not planned:** a datapack recipe format with JEI, Wolfsbane.
 
 ---
 

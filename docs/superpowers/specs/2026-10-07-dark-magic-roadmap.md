@@ -236,11 +236,15 @@ a Morsmordre cast at Lost gives an escort, and healing villagers brings a Lost p
   `CriterionTrigger`).
 - `MOD_FEATURES_WIKI.md`, the web wiki, and the Hogwarts Guide.
 
-### Later (not planned)
+### Later
 
-Revelio showing another player's tier at Master, Obliviate and Confundo as "grey" spells, a
-Remorse potion (it can come from the brewing roadmap if both ship), house reactions (Slytherin
-gains slower), and Dementors that ignore Lost players.
+**Built 2026-10-27 (plan `2026-10-27-roadmap-leftovers.md`, branch `roadmap-leftovers`):**
+- Obliviate (0.2) and Confundo (0.1) as grey spells: a little Darkness per paid cast, but not dark spells.
+- The Potion of Remorse (5 Darkness, once per 2 hours of play, scaled by quality).
+- House reactions: Slytherins gain Darkness at 0.75 times the rate, Hufflepuffs redeem (Heal, Remorse)
+  1.5 times as much.
+
+**Still deferred:** Revelio showing another player's tier at Master, and Dementors that ignore Lost players.
 
 ---
 

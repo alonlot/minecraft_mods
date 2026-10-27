@@ -210,6 +210,19 @@ Each spell below lists the implemented gameplay behavior currently present in th
 - Spawns a Fiendfyre management entity.
 - Supports sustained cursed-fire behavior.
 - Interacts with a hold/channel system.
+- Hold to loose serpents of cursed fire that follow your aim; holding attack drives them further.
+- Cursed fire is dangerous to its caster. A Novice, Adept or Expert serpent can turn rogue: it glows red and writhes for about a second (a chat line warns you), then hunts the nearest target, you included. Creative and spectator players are never chased, and a rogue serpent does not hunt players with PvP off or your allies.
+- Rank table:
+
+| Rank | Serpents | Burns for | Chance one turns on you |
+|---|---|---|---|
+| Novice | 1 | 6 s | 15% |
+| Adept | 1 | 8 s | 8% |
+| Expert | 2 | 10 s | 3% |
+| Master | 3 | 12 s | never |
+
+- Master: left-click while holding sends the next serpent at the creature you aim at. It will not go for a friend or a player with PvP off. The fire devours any Horcrux it reaches, and the Horcrux breaks with its usual effects.
+- Fire is placed through the terrain rules: with `mobGriefing` off an NPC's Fiendfyre places no fire, and player Fiendfyre places none in spawn protection or inside a ward or claim.
 
 ### Sectumsempra
 
@@ -263,6 +276,8 @@ Each spell below lists the implemented gameplay behavior currently present in th
 - Dementors cannot close inside 3 blocks of you while they are in the cone, and their aura of dread cannot reach you while you hold it.
 - Drains mana continuously, and drains faster for every Dementor it is currently holding off. Running dry collapses the shield.
 - Because it is the weaker half of the charm and already mana-gated, the shield's cooldown is a quarter of the full Patronus cooldown.
+- Master: the corporeal Patronus follows you instead of staying where it appeared, so its light goes with you. You, and players near it, get Night Vision. Undead (the `#minecraft:undead` tag and Inferi) within 6 blocks of it are shoved back and drop a player target. Bosses are spared. Below Master none of this happens.
+- Master messenger: `/patronus <player> <message>` sends a Patronus of your own form to a player within 500 blocks in the same dimension. It appears beside them and speaks your message, with your name. You pay the spell's mana (no combat cooldown, no mastery XP), and a second message within 30 seconds is refused. From Tainted Darkness it is refused, as no corporeal Patronus can take shape there.
 
 ### Bombarda
 
@@ -339,9 +354,19 @@ Each spell below lists the implemented gameplay behavior currently present in th
 
 ### Serpensortia
 
-- Currently summons allied cave spiders rather than a custom snake mob.
-- Summons multiple allied attackers around the target zone.
-- Uses allied tags so they work with allied-target rules.
+- Conjures snakes (a real snake mob, no longer cave spiders) loyal to the caster. They bite with poison and never bite their owner.
+- Rank table:
+
+| Rank | Snakes | Lifetime | Bite |
+|---|---|---|---|
+| Novice | 1 | 20 s | Poison |
+| Adept | 2 | 30 s | Poison |
+| Expert | 3 | 40 s | Poison II |
+| Master | 3 | 60 s | Poison II |
+
+- Casting again dismisses your previous snakes (within loaded range). Snakes do not survive logout, and they vanish about 2 seconds after their owner can no longer be found.
+- Master speaks Parseltongue: left-click a creature and the snakes attack it (never a friend, and never a player with PvP off); left-click the floor and they guard that spot; click again and they follow you. Wild and spawn-egg snakes ignore a Master, and attack a Novice, Adept or Expert.
+- NPC casters conjure by their own rank: bosses as Expert, other NPCs as Novice.
 
 ### Arresto Momentum
 
@@ -508,6 +533,7 @@ Each spell below lists the implemented gameplay behavior currently present in th
 - Pushes Dementors away in expanding rings.
 - Places temporary magical light blocks.
 - Is very resistant to normal harm.
+- A Master's Patronus follows its caster, gives Night Vision nearby and repels the undead (see Expecto Patronum). The same entity delivers `/patronus` messages.
 
 ### Basilisk
 
@@ -581,6 +607,15 @@ Each spell below lists the implemented gameplay behavior currently present in th
 - Steers based on caster aim.
 - Burns targets on contact.
 - Produces dramatic trail and burst particles.
+- A rogue serpent glows red and pulses during its telegraph, then hunts (see Fiendfyre for the rank odds).
+- A dispatched serpent (Master) homes on the creature the caster aimed at.
+- Up to three serpents at once, depending on rank.
+
+### Snake
+
+- Conjured by Serpensortia; a hand-modelled snake, also available from a spawn egg.
+- Bites with poison and obeys its owner (follow, guard, attack on Parseltongue commands at Master).
+- Short-lived: it vanishes when its lifetime ends or its owner is gone.
 
 ### Dark Mark
 
@@ -705,7 +740,9 @@ Each spell below lists the implemented gameplay behavior currently present in th
 - Brewing cauldron. Fill it with a water bucket or three water bottles and put heat under it (a lit campfire or soul campfire, fire, soul fire, lava or a magma block).
 - Right-click with ingredients in order, stir with a Fine Wood Stick (sneak for anticlockwise), and let simmer steps run on the heat. The liquid changes colour at every correct step; a wrong step ruins the brew.
 - A finished brew gives 3 doses (glass bottles). Left on the heat more than 120 seconds after its last simmer, it is ruined. A ruined brew bottles as Failed Potion or is poured away with a bucket.
-- Recipes: Wiggenweld Potion, Pepperup Potion, Essence of Dittany, Mandrake Restorative Draught, Draught of Living Death, Felix Felicis and Polyjuice Potion (Hogwarts Guide, Potions). Each is described under Potions and Effects.
+- Recipes: Wiggenweld Potion, Pepperup Potion, Essence of Dittany, Mandrake Restorative Draught, Draught of Living Death, Felix Felicis, Polyjuice Potion, Potion of Remorse and Veritaserum (Hogwarts Guide, Potions). Each is described under Potions and Effects.
+- Three recipes are advanced and need Advanced Potion-Making: Draught of Living Death, Felix Felicis and Veritaserum. A player who has not read the book is refused at the first step and loses nothing.
+- Quality: every brew is graded Standard, Fine or Exceptional and the grade is stored on the bottles (see Quality under Potions and Effects).
 - Felix Felicis gives a single dose; every other brew gives 3.
 - Crafting: seven iron ingots in a cauldron shape round one Arcane Dust. An Apothecary or a Cauldron Smith villager also sells one.
 - Gunpowder after a finished Mandrake Restorative Draught makes every dose a splash potion. The Draught of Living Death always ends with Gunpowder: it is splash only.
@@ -790,6 +827,13 @@ These are decorative house-themed blocks.
 - Right-clicking a spellbook teaches the spell permanently.
 - Spellbooks can appear in chest loot.
 - In the same chests, a spell can come as a Hogwarts Assignment instead: a task that turns into the book (see Hogwarts Assignments).
+
+### Tomes of Mastery
+
+- A tome lifts one spell a rank, only up to its own tier (Common, Uncommon, Rare, Epic).
+- A tome is consumed when it works, except for creative players, who keep it.
+- The tome picker shows a scrollbar and up and down arrows when it lists more spells than fit (12 or more).
+- Trial chamber vaults can drop tomes: a normal vault counts as dungeon tier (up to Rare), an ominous vault as endgame (up to Epic). The chances are the existing config values.
 
 ### Memory of the Cave
 
@@ -887,6 +931,9 @@ Hand-made scenes that teach by showing. They are silent films with a directed ca
 
 - Everyday ingredients
   Honey Bottle and Glow Berries (Wiggenweld), Blaze Powder (Pepperup), Arcane Dust (Mandrake Draught), Gold Nugget (Felix Felicis), Gillyweed (Polyjuice), and Redstone Dust and Gunpowder to extend Polyjuice or make a splash potion.
+
+- Fine ingredients
+  Dittany, Mandrake Root, Asphodel, Wormwood, Valerian Sprigs and Ashwinder Eggs have a fine variant (its tooltip says so) that lifts a brew's quality. Fine stock comes from wild Dittany (one fine and one plain per plant, only from wild patches), Mandrakes pulled by hand, Ashwinder Eggs dropped by Blazes, and three level-5 Apothecary trades (fine Asphodel, fine Wormwood, fine Valerian Sprigs). Chest and classroom ingredients are standard. Fine and standard stacks of the same item do not merge.
 
 - Where to buy
   Apothecaries sell Dittany and Valerian Sprigs from their first level and Asphodel and Wormwood from their second. Each apothecary stocks only some of them, so try another shop. The Potions classroom in Mini Hogwarts has two chests of supplies.
@@ -1060,6 +1107,39 @@ Only one relic of each type can be equipped.
 - Brewed: 1 Ashwinder Egg, 1 Acromantula Venom, 1 Gold Nugget, stir clockwise 3 times, simmer 10 minutes, stir anticlockwise once. One dose only.
 - 3 minutes of Luck III (better loot) and a quarter more spell mastery XP.
 
+### Potion of Remorse
+
+- Brewed: 1 Ghast Tear, 2 Dittany, stir anticlockwise 3 times, simmer 90 seconds. 3 doses.
+- Painful to drink: it hurts (3 damage, never lethal), and gives 8 seconds of Nausea and 30 seconds of Weakness.
+- It lightens Darkness by 5 (6.25 for a Fine brew, 7.5 for an Exceptional one), once every 2 hours of play (config `remorseCooldownTicks`). The Hufflepuff redemption bonus applies.
+- It never takes you below the Horcrux floor. A drink that cannot lighten you (a clean soul, or the floor) says so and does not use up the 2 hours; a second drink inside the window hurts but changes nothing ("spent").
+- With decay and Heal redemption, a determined player can go from 100 to 0 in about 15 hours of play.
+
+### Veritaserum
+
+- Brewed: 1 Feather, 1 Amethyst Shard, 2 Valerian Sprigs, stir clockwise 7 times, simmer 120 seconds, then 1 Arcane Dust. 3 doses. Needs Advanced Potion-Making.
+- It is given, not thrown: right-click a target with the bottle (plain right-click, no sneaking).
+- Villagers confess their padded prices: +25 minor-positive gossip, so prices drop. Once per villager per day; a second dose that day is refused.
+- Death Eaters give up their accomplices: every Death Eater within 48 blocks glows for 30 seconds.
+- Players lose their Polyjuice disguise and their Invisibility Cloak and glow. The usual PvP rules apply: it works only on someone you could strike. Drinking it yourself breaks your own disguise.
+- Bosses (Lord Voldemort and the like) resist. A better brew glows longer.
+
+### Advanced Potion-Making
+
+- A book by Libatius Borage. Reading it once teaches the advanced recipes for good: a per-player flag that survives death and loss of the book.
+- Gates the Draught of Living Death, Felix Felicis and Veritaserum. Polyjuice stays in the Hogwarts Guide.
+- Reading is personal: a friend who has not read it is refused at the cauldron. Hand them the book. Players who brewed Felix before the book existed must read it once.
+- Where to find it: the Bookseller in Diagon Alley sells it from level 3 (22 to 27 emeralds), about one Mini Hogwarts classroom chest in four holds a copy, and creative players have it. There is no crafting recipe.
+
+### Quality
+
+- A brew scores the mean of its ingredient part (fine rare ingredients added, out of all rare ingredients added) and its stir part (precise stirs out of all stirs), counting only the parts the recipe has.
+- Rhythm: a stir is precise when it comes 10 to 30 ticks after the previous stir, or at least 10 ticks after a step that was not a stir. About one turn a second is right. A precise stir plays a chime; spam-clicked stirs do not.
+- A score of 0.5 makes the brew Fine; 0.9 makes it Exceptional. Recipes with neither rare ingredients nor stirring stay Standard. Polyjuice and the Failed Potion are not graded.
+- Fine lasts 1.5 times as long and Exceptional twice as long; amounts (healing, mana, Remorse) are 1.25 and 1.5 times. For example, Wiggenweld heals 8, 10 or 12 health.
+- The quality shows on the bottle's tooltip. Bottling an Exceptional potion earns an advancement.
+- Recipes without rare ingredients (Wiggenweld, the Pepperup herbs) can reach Exceptional on stirring alone; Essence of Dittany also needs fine Dittany for Exceptional (plain Dittany with steady stirs gives Fine).
+
 ### Failed Potion
 
 - What a ruined brew bottles as. Drinking it gives 10 seconds of Nausea and 3 seconds of Poison.
@@ -1123,11 +1203,13 @@ Every player has a hidden score, Darkness, from 0 to 100. Dark spells raise it, 
 | Dolohov's Curse | 0.4 |
 | Serpensortia | 0.3 |
 
+- Grey spells: Obliviate (0.2) and Confundo (0.1) add a little Darkness for each paid cast. They are not dark spells: they get no Corrupted mana discount, and unlike dark spells they do not reset the quiet window or hold back fading.
 - Ten Avada Kedavra casts take a Clean soul to Corrupted. Mastering an Unforgivable means a dark soul.
 - Killing an innocent with Avada Kedavra (a villager, a Hogwarts Student, a House Elf or a peaceful animal) adds 3 more.
 - Forging a Horcrux adds 30 and lifts you to at least 60. While your Horcrux exists and your Darkness is 60 or more, it cannot fall below 60; a value under 60 is never held. When the Horcrux shatters or is destroyed, that floor goes.
 - A dark spell cast through a body you possess with Imperio darkens you, the puppeteer, never the victim. Creative and spectator players gain nothing. NPCs have no Darkness.
 - The server setting `darkMagicGainMultiplier` scales every gain.
+- House reactions: a Slytherin gains Darkness from casts at three quarters of the rate (an Avada Kedavra cast adds 4.5, not 6). Deeds are never scaled (the innocent-kill bonus, the Horcrux). Gryffindor and Ravenclaw are unchanged.
 
 ### Tiers
 
@@ -1164,6 +1246,8 @@ Each tier keeps the costs of the tiers below it, except where a harder cost repl
 
 - Decay: once you have cast no dark spell for 10 minutes, Darkness falls by 1 for every 30 minutes of online play, at every tier. From 100 to 0 takes 50 hours; each tier of 20 points takes 10.
 - Redemption: a Heal that heals another hurt living thing (not yourself) removes 1 Darkness, at most once per 30 minutes of play. That at most doubles the pace: 100 to 0 in about 25 hours. A heal that cannot lighten you (at 0 Darkness, or at the Horcrux floor) does not use up the 30 minutes. A Heal cast in creative or through a possessed body redeems nobody.
+- Potion of Remorse: 5 points, once per 2 hours of play (see Potions and Effects).
+- Hufflepuff: redemption counts 1.5 times (a Heal removes 1.5, a Standard Remorse 7.5).
 - Decay and redemption both stop at the Horcrux floor, so a soul at 60 or more stays Corrupted or darker while its Horcrux exists.
 
 ### Sneakoscope
@@ -1394,7 +1478,7 @@ The mod includes advancement progression for:
 
 ## Notes and Honest Caveats
 
-- `Serpensortia` currently summons allied cave spiders, not a custom snake mob.
+- Still deferred: free horses and tick-driven bosses ignore stun, and a silenced NPC's non-beam casts still go off; Revelio does not show another player's tier; Dementors still chase Lost players; Wolfsbane, a datapack recipe format and JEI support do not exist.
 - Some spell behavior is split across several systems.
   Example: `Protego Maxima`, `Reparo`, `Alatus`, `Revelio`, and `Cave Inimicum` rely on event handlers, workbench logic, or block entities in addition to the spell enum.
 - Several decorative items and house-reveal items are mostly cosmetic or thematic rather than deep active mechanics.

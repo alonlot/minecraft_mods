@@ -833,6 +833,12 @@ public class ExampleMod
     public static final RegistryObject<Item> CAVE_MEMORY = ITEMS.register("cave_memory",
             () -> new com.hogwartsmagic.item.CaveMemoryItem(new Item.Properties()));
 
+    public static final RegistryObject<Item> EMPTY_MEMORY_PHIAL = ITEMS.register("empty_memory_phial",
+            () -> new com.hogwartsmagic.pensieve.EmptyMemoryPhialItem(new Item.Properties()));
+
+    public static final RegistryObject<Item> MEMORY = ITEMS.register("memory",
+            () -> new com.hogwartsmagic.pensieve.RecordedMemoryItem(new Item.Properties()));
+
     public static final RegistryObject<Item> CHAMBER_MEMORY = ITEMS.register("chamber_memory",
             () -> new com.hogwartsmagic.pensieve.StoryMemoryItem(new Item.Properties(), "chamber"));
 
@@ -1012,6 +1018,8 @@ public class ExampleMod
                 output.accept(HARRY_POTTER_WAND.get());
                 output.accept(SLYTHERINS_LOCKET.get());
                 output.accept(CAVE_MEMORY.get());
+                output.accept(EMPTY_MEMORY_PHIAL.get());
+                output.accept(MEMORY.get());
                 output.accept(CHAMBER_MEMORY.get());
                 output.accept(SUMMONING_MEMORY.get());
                 output.accept(PATRONUS_MEMORY.get());

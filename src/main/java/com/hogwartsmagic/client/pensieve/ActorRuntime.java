@@ -47,6 +47,13 @@ public final class ActorRuntime {
     /** Per part: the life gain while on a broom (arms on the handle and legs astride it get none). */
     final float[] riderGain = new float[HumanMotion.PARTS];
 
+    /** A recorded memory's track for this actor, or null in a story memory (see {@link RecordedActors}). */
+    com.hogwartsmagic.pensieve.capture.Recording.Track track;
+    /** Recorded actors: the next synched-data and equipment patch not yet applied, and whether decoding failed. */
+    int nextData;
+    int nextEquip;
+    boolean patchesFailed;
+
     boolean visible = true;
     boolean stone;
     boolean dying;

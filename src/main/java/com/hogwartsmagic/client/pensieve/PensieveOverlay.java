@@ -3,6 +3,7 @@ package com.hogwartsmagic.client.pensieve;
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.client.BasiliskGazeOverlay;
 import com.hogwartsmagic.event.ClientModEvents;
+import com.hogwartsmagic.pensieve.capture.Recording;
 import com.hogwartsmagic.pensieve.scene.Eyelids;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
@@ -245,9 +246,18 @@ public final class PensieveOverlay {
         if (mc.options.hideGui) return;
         float a = clamp01(revealTime / 20f);
         if (phase == PensieveClientState.PLAY) a *= 1 - clamp01((pt - 80) / 40f);
+        Recording rec = PensieveClientState.recording();
+        // A recorded memory is flown through: its hint, for the first six seconds of play, names the snap key too.
+        boolean free = rec != null && phase == PensieveClientState.PLAY;
+        if (free) a = clamp01(revealTime / 20f) * (1 - clamp01((pt - 100) / 20f));
         if (a <= 0.03f) return;
-        Component line = Component.translatable("gui.hogwartsmagic.pensieve.leave_hint",
-                ClientModEvents.PENSIEVE_LEAVE_KEY.getTranslatedKeyMessage());
+        Component line = free
+                ? Component.translatable("hint.hogwartsmagic.pensieve.free",
+                        ClientModEvents.PENSIEVE_SNAP_KEY.getTranslatedKeyMessage(),
+                        rec.ownerName() == null || rec.ownerName().isEmpty() ? "the owner" : rec.ownerName(),
+                        ClientModEvents.PENSIEVE_LEAVE_KEY.getTranslatedKeyMessage())
+                : Component.translatable("gui.hogwartsmagic.pensieve.leave_hint",
+                        ClientModEvents.PENSIEVE_LEAVE_KEY.getTranslatedKeyMessage());
         RenderSystem.enableBlend();
         g.drawCenteredString(mc.font, line, w / 2, h - 34, argb(0.75f * a, HINT_COLOR));
         RenderSystem.disableBlend();

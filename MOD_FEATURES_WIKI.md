@@ -736,6 +736,16 @@ Each spell below lists the implemented gameplay behavior currently present in th
 - **Watching only.** Viewers cannot place, break, hit, use or pick up anything, and nothing inside reacts to them.
 - Ops and authors have `/pensieve validate`, `list`, `preview <id>` and `leave`.
 
+#### Capturing a memory
+
+- **The gesture.** Hold an Empty Memory Phial in one hand and a wand in the other, sneak and use. A silver thread is drawn from your temple through the wand into the phial, and you get a Memory. The phial is spent at once and handed back if the capture fails.
+- **What is kept.** The last 60 seconds (config) of the area within 32 blocks (config) of where you stood: the blocks as they were and every change, including a crater or an opened door; you, other players and up to 64 creatures with their poses, gear, hits and deaths; thrown and dropped items; beams and the casts of spells, particles, sounds and the public chat you saw. The memory starts when you arrived within range, so a capture right after a Floo trip, an apparition or a teleport covers only the time after it. Mod effects that are drawn on the client alone (the Patronus dome, chains, Protego Maxima and similar), riding poses, sign and banner edits and weather are not kept.
+- **Refusals.** Not sneaking with a wand does nothing; sneaking with no wand shows a hint. A memory shorter than 2 seconds, a capture inside a memory, and a server with capturing switched off are refused with a message (and the phial kept). One capture a second.
+- **Watching.** Pour the Memory into a Pensieve and dive like any other. You are a ghost: you fly, pass through walls and are held softly inside the island. Press V to see through the owner's eyes and V again to come back to where you were floating; X leaves. Other viewers appear as pulsing silver ghosts with no name tag. Memories can be renamed at an anvil, traded and watched by anyone; they are not used up by watching.
+- **Keys.** X leave (as before), V snap to the owner's eyes (HogwartsMagic controls, both rebindable).
+- **Config.** `pensieveCaptureEnabled` (default true), `pensieveCaptureSeconds` (60, 10-120), `pensieveCaptureRadius` (32, 8-64), `pensieveCaptureMaxEntities` (64), `pensieveCaptureMaxBlockChanges` (200000, per dimension), `pensieveCaptureMaxKb` (4096; bigger memories lose particles, then their farthest creatures).
+- **Storage.** One file per memory under `<world>/data/hogwartsmagic_memories/`. Files of destroyed Memory items are not cleaned up. A memory replays the other players' movements and the public chat the owner saw, so on a shared server it can be given away: switch `pensieveCaptureEnabled` off to stop capturing.
+
 ### Gillyweed Plant
 
 - Custom underwater plant.
@@ -808,6 +818,16 @@ These are decorative house-themed blocks.
 - Plays the Voldemort summoning scene in a Pensieve (about 53 seconds).
 - Found in Death Eater camp chests (about 15%) and dropped by Death Eaters killed by a player (about 2%, more with Looting).
 - Watching it does not use it up.
+
+### Empty Memory Phial
+
+- A glass phial to draw a memory into. Crafting: a glass bottle and Arcane Dust, shapeless, giving 1. Stacks to 16.
+- Hold a wand in the other hand, sneak and use to capture the last moments (see Capturing a memory under Pensieve). Held without a wand it shows a hint.
+
+### Memory
+
+- A phial of silver thought holding a captured scene, named "<owner>'s Memory - Day N" (N = world day + 1), with its length in the tooltip. Stacks to 1; rename it at an anvil.
+- Pour it into a Pensieve to watch it as a free-flying ghost. Watching does not use it up. If its file is gone it fades with a message.
 
 ### Story memories
 

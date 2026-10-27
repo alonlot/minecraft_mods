@@ -82,49 +82,74 @@ public final class SpellVisuals {
     public static void cast(ClientLevel level, Vec3 from, Vec3 to, String spellId) {
         if (level == null || from == null || to == null || spellId == null) return;
         if (SceneNames.SPELL_BEAMS.contains(spellId)) {
-            beam(level, from, to, SpellType.fromId(spellId));
+            beam(level, from, to, SpellType.fromId(spellId), BEAM_SPEED, !recordedScene());
         } else if ("revelio".equals(spellId)) {
             SpellType spell = SpellType.REVELIO;
-            MemorySounds.play(spell.getSoundEvent(), from, 1.0f, 1.0f);
+            sfx(spell.getSoundEvent(), from, 1.0f, 1.0f);
             ACTIVE.add(new RevelioPulse(spell, to));
         } else if ("lumos".equals(spellId)) {
-            MemorySounds.play(SpellType.LUMOS.getSoundEvent(), from, 1.0f, 1.0f);
+            sfx(SpellType.LUMOS.getSoundEvent(), from, 1.0f, 1.0f);
             ACTIVE.add(new LumosOrb(from));
         } else if ("protego".equals(spellId)) {
-            MemorySounds.play(SpellType.PROTEGO.getSoundEvent(), from, 1.0f, 1.0f);
+            sfx(SpellType.PROTEGO.getSoundEvent(), from, 1.0f, 1.0f);
             ACTIVE.add(new ProtegoDome(from));
         } else if ("morsmordre".equals(spellId)) {
-            MemorySounds.play(SpellType.MORSMORDRE.getSoundEvent(), from, 1.0f, 1.0f);
+            sfx(SpellType.MORSMORDRE.getSoundEvent(), from, 1.0f, 1.0f);
             EffectVisuals.darkMark(level, to, MORSMORDRE_TICKS);
         } else if ("expecto_patronum".equals(spellId)) {
-            MemorySounds.play(ModSounds.SPELL_EXPECTO_PATRONUM.get(), from, 1.0f, 1.0f);
+            sfx(ModSounds.SPELL_EXPECTO_PATRONUM.get(), from, 1.0f, 1.0f);
             ACTIVE.add(new PatronusStream(from, aim(from, to, PATRONUS_DEFAULT_REACH), PATRONUS_MAX_REACH, false));
         } else if ("patronus_wisp".equals(spellId)) {
-            MemorySounds.play(ModSounds.SPELL_EXPECTO_PATRONUM.get(), from, 0.5f, 0.85f);
+            sfx(ModSounds.SPELL_EXPECTO_PATRONUM.get(), from, 0.5f, 0.85f);
             ACTIVE.add(new PatronusStream(from, aim(from, to, 5.0), WISP_MAX_REACH, true));
         } else if ("fiendfyre".equals(spellId)) {
-            MemorySounds.play(ModSounds.SPELL_FIENDFYRE.get(), from, 1.4f, 0.9f);
+            sfx(ModSounds.SPELL_FIENDFYRE.get(), from, 1.4f, 0.9f);
             ACTIVE.add(new FiendfyreGout(from, aim(from, to, FIENDFYRE_DEFAULT_REACH)));
         }
     }
 
+    /** A recorded memory's own sounds are in the recording, so its casts draw without theirs (they would double). */
+    private static boolean recordedScene() {
+        return PensieveClientState.recording() != null;
+    }
+
+    private static void sfx(net.minecraft.sounds.SoundEvent event, Vec3 at, float volume, float pitch) {
+        if (!recordedScene()) MemorySounds.play(event, at, volume, pitch);
+    }
+
     // ---- Beams ------------------------------------------------------------------------------------------------
 
+    /**
+     * A recorded beam: the same flight as {@link #cast}'s, but over the {@code ticks} it really took (speed
+     * {@code dist / max(1, ticks)}), and without the cast sound, which the recording already plays. A spell that is
+     * not a beam draws nothing.
+     */
+    public static void beamTimed(ClientLevel level, Vec3 from, Vec3 to, String spellId, int ticks) {
+        if (level == null || from == null || to == null || spellId == null) return;
+        if (!SceneNames.SPELL_BEAMS.contains(spellId)) return;
+        beam(level, from, to, SpellType.fromId(spellId), (float) (to.subtract(from).length() / Math.max(1, ticks)),
+                false);
+    }
+
     private static void beam(ClientLevel level, Vec3 from, Vec3 to, SpellType spell) {
+        beam(level, from, to, spell, BEAM_SPEED, true);
+    }
+
+    private static void beam(ClientLevel level, Vec3 from, Vec3 to, SpellType spell, float speed, boolean sound) {
         Vec3 delta = to.subtract(from);
         double dist = delta.length();
         if (dist < 0.05) return;
         SpellBeamEntity beam = new SpellBeamEntity(ModEntities.SPELL_BEAM.get(), level);
         beam.setVisualSpell(spell);
-        beam.setVisualOnly((int) Math.ceil(dist / BEAM_SPEED));
+        beam.setVisualOnly((int) Math.ceil(dist / speed));
         beam.setId(MemoryEvents.nextEntityId());
         beam.setPos(from.x, from.y - BEAM_RENDER_LIFT, from.z);
-        beam.shoot(delta.x, delta.y, delta.z, BEAM_SPEED, 0.0f);
+        beam.shoot(delta.x, delta.y, delta.z, speed, 0.0f);
         // Without this the first frame interpolates from the world origin: a one-frame streak across the sky.
         beam.setOldPosAndRot();
         level.addEntity(beam);
         BEAMS.add(beam);
-        MemorySounds.play(spell.getSoundEvent(), from, 1.0f, 1.0f);
+        if (sound) MemorySounds.play(spell.getSoundEvent(), from, 1.0f, 1.0f);
     }
 
     // ---- Ticking ----------------------------------------------------------------------------------------------

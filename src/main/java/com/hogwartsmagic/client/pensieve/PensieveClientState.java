@@ -4,6 +4,8 @@ import com.google.gson.JsonParser;
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.event.ClientModEvents;
 import com.hogwartsmagic.network.SpellPackets;
+import com.hogwartsmagic.pensieve.capture.Recording;
+import com.hogwartsmagic.pensieve.capture.RecordingScene;
 import com.hogwartsmagic.pensieve.net.PensieveLeavePacket;
 import com.hogwartsmagic.pensieve.scene.Eyelids;
 import com.hogwartsmagic.pensieve.scene.SceneDef;
@@ -12,6 +14,7 @@ import com.hogwartsmagic.pensieve.scene.SessionClock;
 import com.hogwartsmagic.pensieve.scene.SmoothedSceneClock;
 import com.mojang.logging.LogUtils;
 import net.minecraft.client.CameraType;
+import com.hogwartsmagic.pensieve.PensieveGhost;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
@@ -84,6 +87,11 @@ public final class PensieveClientState {
     private static float enterPitch;
 
     private static SceneDef scene;
+    /** The recorded memory being watched (null for a story memory); {@link #scene} is built from it. */
+    private static Recording recording;
+    /** A recorded memory's start that arrived before its recording was complete: retried each tick, then given up. */
+    private static PendingStart pendingRecording;
+    private static final int RECORDING_WAIT_TICKS = 200;
     private static String sceneId;
     private static BlockPos origin;
     private static long startGameTime = -1;
@@ -110,6 +118,8 @@ public final class PensieveClientState {
      * is not revealed out of the fog again (see {@link #setReveal}).
      */
     private static boolean handedOver;
+    /** The viewer was a free ghost when the exit began: noclip lasts until they are home. */
+    private static boolean exitGhost;
     /** The previous scene handed over through white: this scene fades in from white, not black. */
     private static boolean carriedWhite;
     /**
@@ -155,6 +165,26 @@ public final class PensieveClientState {
     private PensieveClientState() {
     }
 
+    /** The arguments of an {@link #onStart} held until its recording is complete. */
+    private static final class PendingStart {
+        final String id;
+        final String json;
+        final BlockPos at;
+        final long start;
+        final int build;
+        final boolean preview;
+        int waited;
+
+        PendingStart(String id, String json, BlockPos at, long start, int build, boolean preview) {
+            this.id = id;
+            this.json = json;
+            this.at = at;
+            this.start = start;
+            this.build = build;
+            this.preview = preview;
+        }
+    }
+
     // ---- Server hooks (through ClientRuntimeBridge) ----------------------------------------------------------
 
     /** The local player dived into the basin at {@code basin}. */
@@ -162,6 +192,13 @@ public final class PensieveClientState {
         Minecraft mc = Minecraft.getInstance();
         PensieveSounds.stopAll();
         MemoryActors.clear();
+        RecordingCache.clear();
+        GhostCamera.release();
+        SilverGhosts.clear();
+        exitGhost = false;
+        PensieveGhost.localNoclip = false;
+        recording = null;
+        pendingRecording = null;
         scene = null;
         sceneId = null;
         origin = null;
@@ -202,12 +239,26 @@ public final class PensieveClientState {
     /** The local player is in the memory; {@code startGameTime} is -1 while the set is still building. */
     public static void onStart(String id, String json, BlockPos at, long start, int build, boolean isPreview) {
         if (phase == EXIT || phase == YANK) return;
+        if (id.startsWith(RecordingScene.PREFIX) && RecordingCache.scene(id) == null) {
+            // The recording is not complete (or could not be read): hold this start and retry it every tick.
+            int waited = pendingRecording != null && pendingRecording.id.equals(id) ? pendingRecording.waited : 0;
+            pendingRecording = new PendingStart(id, json, at, start, build, isPreview);
+            pendingRecording.waited = waited;
+            return;
+        }
+        pendingRecording = null;
         // A different scene while one is already on screen: the server handed this viewer on to a chained scene. A
         // scene handed over to itself (a hold scene looping) is a new session in a new slot: its origin differs.
         boolean switched = sceneId != null && (!id.equals(sceneId) || (origin != null && !origin.equals(at)));
         boolean previousWhite = PensieveTimeline.carriesWhite(switched, scene != null && scene.handoverWhite(), fadeStart >= 0);
         if (scene == null || switched) {
-            scene = parse(id, json);
+            recording = null;
+            if (id.startsWith(RecordingScene.PREFIX)) {
+                scene = RecordingCache.scene(id);
+                recording = RecordingCache.recording(id);
+            } else {
+                scene = parse(id, json);
+            }
             sceneId = id;
             opensShut = scene != null && Eyelids.opensShut(scene.events());
         }
@@ -291,6 +342,7 @@ public final class PensieveClientState {
     public static void onExit(int reason) {
         if (phase == NONE) return;
         returnStart = -1;
+        if (GhostCamera.active()) exitGhost = true;
         if (reason == REASON_YANK) {
             if (phase == YANK) return;
             setPhase(YANK);
@@ -375,6 +427,11 @@ public final class PensieveClientState {
     /** The parsed scene, or null before onStart or when the JSON failed to parse. */
     public static SceneDef scene() {
         return scene;
+    }
+
+    /** The recorded memory on screen, or null for a story memory. */
+    public static Recording recording() {
+        return recording;
     }
 
     public static BlockPos origin() {
@@ -615,6 +672,9 @@ public final class PensieveClientState {
         sceneId = null;
         origin = null;
         basin = null;
+        recording = null;
+        pendingRecording = null;
+        RecordingCache.clear();
         startGameTime = -1;
         resetClock();
         returnStart = -1;
@@ -633,6 +693,10 @@ public final class PensieveClientState {
             wakeStart = ticks;
         }
         MemoryActors.clear();
+        GhostCamera.release();
+        SilverGhosts.clear();
+        exitGhost = false;
+        PensieveGhost.localNoclip = false;
         PensieveSounds.stopAll();
         syncTimeOfDay();
     }
@@ -657,6 +721,10 @@ public final class PensieveClientState {
             return;
         }
         if (!mc.isPaused()) ticks++;
+        // A ghost who leaves keeps flying through walls until they are back at the basin, as on the server.
+        PensieveGhost.localNoclip = GhostCamera.active()
+                || (exitGhost && (phase == EXIT || phase == YANK) && !backAtBasin(mc));
+        retryRecordingStart();
         long t = ticks - phaseStart;
         if (phase == SWALLOW && t >= PensieveTimeline.SWALLOW_TICKS) {
             setPhase(FALL);
@@ -696,6 +764,22 @@ public final class PensieveClientState {
         }
         handleLeaveKey();
         syncTimeOfDay();
+    }
+
+    /**
+     * A recorded memory's start waits for its recording: once the parts have all arrived the start is replayed; if
+     * they have not within {@link #RECORDING_WAIT_TICKS} ticks (or the recording cannot be read) the dive is left.
+     */
+    private static void retryRecordingStart() {
+        PendingStart p = pendingRecording;
+        if (p == null) return;
+        if (RecordingCache.scene(p.id) != null) {
+            pendingRecording = null;
+            onStart(p.id, p.json, p.at, p.start, p.build, p.preview);
+        } else if (!Minecraft.getInstance().isPaused() && ++p.waited > RECORDING_WAIT_TICKS && phase != SWALLOW) {
+            pendingRecording = null;
+            requestLeave();
+        }
     }
 
     @SubscribeEvent

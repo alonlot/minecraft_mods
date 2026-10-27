@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {
+      "item": "minecraft:glass_bottle"
+    },
+    {
+      "item": "hogwartsmagic:arcane_dust"
+    }
+  ],
+  "result": {
+    "id": "hogwartsmagic:empty_memory_phial",
+    "count": 1
+  }
+}

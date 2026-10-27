@@ -7,6 +7,7 @@ import com.hogwartsmagic.pensieve.scene.Track;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -34,32 +35,38 @@ public final class RecordingScene {
         }
     }
 
-    /**
-     * The actor id of one track, ignoring repeated names. The owner's track is the player track with actor 0
-     * (the capture always puts the owner first). {@link #toScene} also disambiguates repeated player names.
-     */
-    public static String actorId(Recording.Track t) {
-        if (t.player() && t.actor() == 0) return "owner";
-        return t.player() ? "p_" + t.name() : "e" + t.actor();
+    private static boolean isOwner(Recording r, Recording.Track t) {
+        return t.uuid() != null && t.uuid().equals(r.owner());
     }
 
-    private static String actorId(Recording.Track t, Map<String, Integer> nameCounts) {
-        String id = actorId(t);
-        if (t.player() && t.actor() != 0 && nameCounts.getOrDefault(t.name(), 0) > 1) {
-            return id + "_" + t.actor();
+    /**
+     * The actor id of every track, in track order: {@code "owner"} for the track whose uuid is the recording's owner,
+     * {@code "p_" + name} for other players ({@code "p_" + name + "_" + actor} when a player name repeats), and
+     * {@code "e" + actor} for everyone else.
+     */
+    public static Map<String, Recording.Track> actorIds(Recording r) {
+        Map<String, Integer> nameCounts = new HashMap<>();
+        for (Recording.Track t : r.tracks()) {
+            if (t.player() && !isOwner(r, t)) nameCounts.merge(t.name(), 1, Integer::sum);
         }
-        return id;
+        Map<String, Recording.Track> ids = new LinkedHashMap<>();
+        for (Recording.Track t : r.tracks()) {
+            String id;
+            if (isOwner(r, t)) {
+                id = "owner";
+            } else if (t.player()) {
+                id = "p_" + t.name() + (nameCounts.get(t.name()) > 1 ? "_" + t.actor() : "");
+            } else {
+                id = "e" + t.actor();
+            }
+            ids.put(id, t);
+        }
+        return ids;
     }
 
     public static SceneDef toScene(Recording r) {
-        Map<String, Integer> nameCounts = new HashMap<>();
-        for (Recording.Track t : r.tracks()) {
-            if (t.player() && t.actor() != 0) nameCounts.merge(t.name(), 1, Integer::sum);
-        }
         List<SceneDef.ActorDef> actors = new ArrayList<>();
-        for (Recording.Track t : r.tracks()) {
-            actors.add(actor(r, t, actorId(t, nameCounts)));
-        }
+        actorIds(r).forEach((id, t) -> actors.add(actor(r, t, id)));
 
         List<SceneDef.EventDef> events = new ArrayList<>();
         for (Recording.Sound s : r.sounds()) {
@@ -102,7 +109,10 @@ public final class RecordingScene {
         }
         actions.sort(Comparator.comparingDouble(SceneDef.ActionCue::t));
         SceneDef.SkinRef skin = t.player() ? new SceneDef.SkinRef(null, t.name(), false) : null;
-        return new SceneDef.ActorDef(id, t.player() ? "player" : t.type(), skin, t.name(), Map.of(),
+        return new SceneDef.ActorDef(id, t.player() ? "player" : t.type(), skin,
+                // The scene shows a name tag for any non-blank name, so mobs stay unnamed: a Track does not say
+                // whether a mob had a custom name (Task 4 would have to store it).
+                t.player() ? escape(t.name()) : "", Map.of(),
                 Track.EMPTY, Track.EMPTY, Map.of(), List.of(), List.of(), actions, 1f, false);
     }
 

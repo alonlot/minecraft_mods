@@ -60,6 +60,12 @@ public class PensieveBlockEntity extends BlockEntity {
     public void pour(ItemStack stack, @Nullable UUID who) {
         this.memory = stack.copyWithCount(1);
         this.pourer = who;
+        if (level instanceof net.minecraft.server.level.ServerLevel serverLevel
+                && stack.getItem() instanceof PensieveMemory recorded) {
+            // A recorded memory is read from the world save: start loading it before the diver arrives.
+            com.hogwartsmagic.pensieve.capture.RecordingScene.idOf(recorded.sceneId(stack)).ifPresent(
+                    id -> com.hogwartsmagic.pensieve.capture.RecordingStore.prefetch(serverLevel.getServer(), id));
+        }
         sync();
     }
 
@@ -98,6 +104,17 @@ public class PensieveBlockEntity extends BlockEntity {
         pourer = tag.hasUUID("Pourer") ? tag.getUUID("Pourer") : null;
         publicBasin = tag.getBoolean("Public");
         playing = tag.getBoolean("Playing");
+    }
+
+    @Override
+    public void onLoad() {
+        super.onLoad();
+        // After a restart a poured recorded memory is not cached: warm it so the first dive does not wait.
+        if (level instanceof net.minecraft.server.level.ServerLevel serverLevel && !memory.isEmpty()
+                && memory.getItem() instanceof PensieveMemory recorded) {
+            com.hogwartsmagic.pensieve.capture.RecordingScene.idOf(recorded.sceneId(memory)).ifPresent(
+                    id -> com.hogwartsmagic.pensieve.capture.RecordingStore.prefetch(serverLevel.getServer(), id));
+        }
     }
 
     @Override

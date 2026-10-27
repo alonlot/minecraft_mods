@@ -214,6 +214,30 @@ public final class Config {
             .comment("Pensieve: how many blocks of a memory set are placed (or cleared) per server tick, so building a set never stalls the server.")
             .defineInRange("pensieveBlocksPerTick", 4000, 1, 1000000);
 
+    public static final ForgeConfigSpec.BooleanValue PENSIEVE_CAPTURE_ENABLED = BUILDER
+            .comment("Pensieve: keep a rolling record of every player's surroundings so a phial can capture the last moments as a memory.")
+            .define("pensieveCaptureEnabled", true);
+
+    public static final ForgeConfigSpec.IntValue PENSIEVE_CAPTURE_SECONDS = BUILDER
+            .comment("Pensieve: how many seconds a captured memory covers.")
+            .defineInRange("pensieveCaptureSeconds", 60, 10, 120);
+
+    public static final ForgeConfigSpec.IntValue PENSIEVE_CAPTURE_RADIUS = BUILDER
+            .comment("Pensieve: radius in blocks of the area a captured memory remembers, around where the owner stood.")
+            .defineInRange("pensieveCaptureRadius", 32, 8, 64);
+
+    public static final ForgeConfigSpec.IntValue PENSIEVE_CAPTURE_MAX_ENTITIES = BUILDER
+            .comment("Pensieve: the most creatures and players one captured memory keeps (the nearest win).")
+            .defineInRange("pensieveCaptureMaxEntities", 64, 1, 256);
+
+    public static final ForgeConfigSpec.IntValue PENSIEVE_CAPTURE_MAX_BLOCK_CHANGES = BUILDER
+            .comment("Pensieve: how many block changes per dimension the recorder remembers. When it overflows, the oldest are forgotten and a memory starts later.")
+            .defineInRange("pensieveCaptureMaxBlockChanges", 200000, 1000, 2000000);
+
+    public static final ForgeConfigSpec.IntValue PENSIEVE_CAPTURE_MAX_KB = BUILDER
+            .comment("Pensieve: the largest a captured memory may be on disk, in kilobytes. Bigger ones lose particles, then their farthest creatures.")
+            .defineInRange("pensieveCaptureMaxKb", 4096, 256, 16384);
+
     static final ForgeConfigSpec SPEC = BUILDER.build();
 
     public static double baseMaxMana = 100;
@@ -265,6 +289,12 @@ public final class Config {
     public static int darkMagicRedemptionTicks = 36000;
     public static String pensieveDevSceneDir = "";
     public static int pensieveBlocksPerTick = 4000;
+    public static boolean pensieveCaptureEnabled = true;
+    public static int pensieveCaptureSeconds = 60;
+    public static int pensieveCaptureRadius = 32;
+    public static int pensieveCaptureMaxEntities = 64;
+    public static int pensieveCaptureMaxBlockChanges = 200000;
+    public static int pensieveCaptureMaxKb = 4096;
 
     private Config() {
     }
@@ -321,6 +351,12 @@ public final class Config {
         darkMagicRedemptionTicks = DARK_MAGIC_REDEMPTION_TICKS.get();
         pensieveDevSceneDir = PENSIEVE_DEV_SCENE_DIR.get();
         pensieveBlocksPerTick = PENSIEVE_BLOCKS_PER_TICK.get();
+        pensieveCaptureEnabled = PENSIEVE_CAPTURE_ENABLED.get();
+        pensieveCaptureSeconds = PENSIEVE_CAPTURE_SECONDS.get();
+        pensieveCaptureRadius = PENSIEVE_CAPTURE_RADIUS.get();
+        pensieveCaptureMaxEntities = PENSIEVE_CAPTURE_MAX_ENTITIES.get();
+        pensieveCaptureMaxBlockChanges = PENSIEVE_CAPTURE_MAX_BLOCK_CHANGES.get();
+        pensieveCaptureMaxKb = PENSIEVE_CAPTURE_MAX_KB.get();
         if (!com.hogwartsmagic.spell.mastery.MasteryMath.thresholdsValid(masteryXpAdept, masteryXpExpert, masteryXpMaster)) {
             LOGGER.warn("Spell mastery XP thresholds {} / {} / {} are not strictly rising; using the defaults 30 / 120 / 350.",
                     masteryXpAdept, masteryXpExpert, masteryXpMaster);

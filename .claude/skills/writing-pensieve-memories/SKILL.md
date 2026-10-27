@@ -10,6 +10,9 @@ a pure function of the scene clock, so you author it as data and never write Jav
 keys with the JSON path, so a typo is loud. Source of truth if this file ever disagrees with the code:
 `pensieve/scene/SceneParser.java`, `SceneValidator.java`, `SceneNames.java`, `CameraTrack.java`.
 
+
+**Recorded memories are not hand-authored.** A player captures one with an Empty Memory Phial (sneak, wand in the other hand). It is saved as a `Recording` in a `.hpm` file under `<world>/data/hogwartsmagic_memories/` and plays as the scene `recorded/<uuid>` (`RecordingScene`), whose start packet carries empty JSON; the client builds the set, actors, beams and sounds from the `Recording` itself. Do not write JSON for them; this skill covers authored story memories only.
+
 ## Step 0 - Shot list first
 
 Before any JSON, write (in your reply) the beats and shots: what happens, who is where, one line per shot with

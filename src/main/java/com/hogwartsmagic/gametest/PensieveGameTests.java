@@ -1450,4 +1450,30 @@ public final class PensieveGameTests {
             LOGGER.info("PENSIEVE-GAMETEST PASS viewerWandFillsTheChain");
         });
     }
+
+    // Redstone in a rebuilt island must not leave TNT or items behind: the memory level refuses them, and a slot is swept.
+    @GameTest(template = EMPTY)
+    public static void memoryLevelRefusesAndSweepsStrayEntities(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos at = helper.absolutePos(new BlockPos(1, 2, 1));
+        net.minecraft.world.phys.Vec3 v = net.minecraft.world.phys.Vec3.atBottomCenterOf(at);
+        // Not the memory level yet: both are admitted, as in the real world.
+        net.minecraft.world.entity.item.PrimedTnt tnt = new net.minecraft.world.entity.item.PrimedTnt(level, v.x, v.y, v.z, null);
+        tnt.setFuse(1000);
+        helper.assertTrue(level.addFreshEntity(tnt), "TNT joins an ordinary level");
+        com.hogwartsmagic.pensieve.PensieveEvents.overrideMemoryForTests(level);
+        try {
+            net.minecraft.world.entity.item.PrimedTnt refused = new net.minecraft.world.entity.item.PrimedTnt(level, v.x, v.y, v.z, null);
+            helper.assertTrue(!level.addFreshEntity(refused), "TNT is refused in the memory level");
+            net.minecraft.world.entity.item.ItemEntity item = new net.minecraft.world.entity.item.ItemEntity(level, v.x, v.y, v.z,
+                    new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.STICK));
+            helper.assertTrue(!level.addFreshEntity(item), "an item is refused in the memory level");
+        } finally {
+            com.hogwartsmagic.pensieve.PensieveEvents.overrideMemoryForTests(null);
+        }
+        helper.assertTrue(com.hogwartsmagic.pensieve.PensieveSessions.sweepEntities(level, at, 3) >= 1, "the sweep found the TNT");
+        helper.assertTrue(tnt.isRemoved(), "the sweep discarded the TNT");
+        LOGGER.info("PENSIEVE-GAMETEST PASS memoryLevelRefusesAndSweepsStrayEntities");
+        helper.succeed();
+    }
 }

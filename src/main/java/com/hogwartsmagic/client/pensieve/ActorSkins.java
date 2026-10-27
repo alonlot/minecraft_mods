@@ -31,6 +31,9 @@ public final class ActorSkins {
     /** Username skins, by lower-case name. Entries are created and read on the render thread. */
     private static final Map<String, Fetch> USERNAMES = new HashMap<>();
 
+    /** Recorded players' skins, by profile object (a profile is made once per recorded track). Render thread only. */
+    private static final Map<GameProfile, Fetch> PROFILES = new java.util.IdentityHashMap<>();
+
     private static final class Fetch {
         volatile PlayerSkin skin;
     }
@@ -58,6 +61,26 @@ public final class ActorSkins {
             if (s != null) return s;
         }
         return DefaultPlayerSkin.get(fallback);
+    }
+
+    /**
+     * The skin a profile carrying a textures property resolves to, loaded once through the skin manager. Until it has
+     * loaded the default skin for the profile's UUID shows. Keep one profile object per player: it is the cache key.
+     */
+    public static PlayerSkin skinForProfile(GameProfile profile) {
+        Fetch f = PROFILES.get(profile);
+        if (f == null) {
+            f = new Fetch();
+            PROFILES.put(profile, f);
+            Fetch fetch = f;
+            try {
+                Minecraft.getInstance().getSkinManager().getOrLoad(profile).thenAccept(s -> fetch.skin = s);
+            } catch (RuntimeException e) {
+                LOGGER.debug("Pensieve: skin load for '{}' failed to start: {}", profile.getName(), e.toString());
+            }
+        }
+        PlayerSkin s = f.skin;
+        return s != null ? s : DefaultPlayerSkin.get(profile.getId());
     }
 
     private static PlayerSkin texture(String name, boolean slim) {
@@ -106,6 +129,7 @@ public final class ActorSkins {
 
     /** Forget cached username lookups (a new session may want a retry after being offline). */
     public static void clearUsernames() {
+        PROFILES.clear();
         USERNAMES.entrySet().removeIf(e -> e.getValue().skin == null);
     }
 }

@@ -13,7 +13,14 @@
     "PlayerBleedingMixin",
     "LivingEntityLastHurtAccessor",
     "BlockStateSignalMixin",
-    "BasePressurePlateTypeAccessor"
+    "BasePressurePlateTypeAccessor",
+    "SynchedEntityDataAccessor",
+    "LevelChunkCaptureMixin",
+    "ServerLevelCaptureMixin",
+    "LivingEntitySwingCaptureMixin",
+    "ServerPlayerChatCaptureMixin",
+    "PlayerGhostNoclipMixin",
+    "ServerLevelMemoryTickMixin"
   ],
   "client": [
     "client.InvisibilityCloakArmorLayerMixin",

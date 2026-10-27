@@ -430,9 +430,23 @@ public class ModEvents {
         if (event.isCanceled()) {
             return;
         }
+        boolean capture = isCaptureGesture(event.getEntity(), event.getItemStack());
         if (handleWandUse(event.getEntity(), event.getItemStack())) {
             event.setCanceled(true);
+            if (capture) {
+                // A success result stops the off-hand phial use from sending a second capture packet.
+                event.setCancellationResult(net.minecraft.world.InteractionResult.SUCCESS);
+            }
         }
+    }
+
+    /** Client side: sneaking with a wand while the other hand holds an empty memory phial. */
+    private static boolean isCaptureGesture(Player player, ItemStack heldItem) {
+        if (!player.level().isClientSide() || !player.isShiftKeyDown() || !MagicWandItem.isAnyWand(heldItem)) {
+            return false;
+        }
+        ItemStack other = heldItem == player.getMainHandItem() ? player.getOffhandItem() : player.getMainHandItem();
+        return other.getItem() instanceof com.hogwartsmagic.pensieve.EmptyMemoryPhialItem;
     }
 
     @SubscribeEvent
@@ -1928,6 +1942,7 @@ public class ModEvents {
 
         crackEffect(level, from.x, from.y, from.z, true);
         player.teleportTo(landing.x, landing.y, landing.z);
+        com.hogwartsmagic.pensieve.capture.CaptureHooks.markDiscontinuity(player); // a memory never reaches back across a jump
         player.fallDistance = 0.0f;
         crackEffect(level, landing.x, landing.y, landing.z, false);
 
@@ -2022,6 +2037,7 @@ public class ModEvents {
         Vec3 from = player.position();
         crackEffect(level, from.x, from.y, from.z, true);
         player.teleportTo(x, y, z);
+        com.hogwartsmagic.pensieve.capture.CaptureHooks.markDiscontinuity(player); // a memory never reaches back across a jump
         player.fallDistance = 0.0f;
         crackEffect(level, x, y, z, false);
         for (LivingEntity passenger : passengers) {
@@ -2409,6 +2425,7 @@ public class ModEvents {
 
         BlockPos exitPos = destinationPos.above();
         player.teleportTo(exitPos.getX() + 0.5, exitPos.getY(), exitPos.getZ() + 0.5);
+        com.hogwartsmagic.pensieve.capture.CaptureHooks.markDiscontinuity(player); // a memory never reaches back across a jump
         com.hogwartsmagic.assignment.AssignmentEvents.onFlooTravel(player);
         serverLevel.sendParticles(ParticleTypes.SOUL_FIRE_FLAME,
                 player.getX(), player.getY() + 0.6, player.getZ(),
@@ -3931,6 +3948,15 @@ public class ModEvents {
     private static boolean handleWandUse(Player player, ItemStack heldItem) {
         if (player.level().isClientSide() && MagicWandItem.isAnyWand(heldItem)) {
             if (player.isShiftKeyDown()) {
+                // Sneak-using a wand with an empty phial in the other hand draws a memory instead of opening the menu.
+                boolean wandInMain = heldItem == player.getMainHandItem();
+                ItemStack otherHand = wandInMain ? player.getOffhandItem() : player.getMainHandItem();
+                if (otherHand.getItem() instanceof com.hogwartsmagic.pensieve.EmptyMemoryPhialItem) {
+                    com.hogwartsmagic.pensieve.net.PensieveNet.sendToServer(
+                            new com.hogwartsmagic.pensieve.net.PensieveCapturePacket());
+                    player.swing(wandInMain ? InteractionHand.MAIN_HAND : InteractionHand.OFF_HAND);
+                    return true;
+                }
                 openMenu(player);
                 return true;
             } else {

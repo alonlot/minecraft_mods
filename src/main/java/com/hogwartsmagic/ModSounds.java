@@ -300,6 +300,7 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> PENSIEVE_GASP = register("pensieve.gasp");
     public static final RegistryObject<SoundEvent> PENSIEVE_DISTANT_THUD = register("pensieve.distant_thud");
     public static final RegistryObject<SoundEvent> PENSIEVE_POUR = register("pensieve.pour");
+    public static final RegistryObject<SoundEvent> PENSIEVE_CAPTURE = register("pensieve.capture");
 
     // Voice lines of the lake_patronus memory (Fish Audio takes; played by the scene's sound events).
     public static final RegistryObject<SoundEvent> PENSIEVE_VOICE_LAKE_NARRATION = register("pensieve.voice.lake_narration");

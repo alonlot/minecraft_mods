@@ -71,6 +71,7 @@ public final class MemoryEvents {
         next = 0;
         level = clientLevel;
         origin = at;
+        RecordedFx.start(PensieveClientState.recording(), at, clientLevel);
         // An enchanted ceiling is there from the first frame: a solid roof (the set has none over the hall) until its
         // t, when it dissolves into the sky. So it starts now, for everyone, late joiners included, and fire() skips it.
         float now = PensieveClientState.sceneTime(0);
@@ -90,6 +91,7 @@ public final class MemoryEvents {
         next = 0;
         level = null;
         origin = null;
+        RecordedFx.clear();
         SpellVisuals.clear();
         EffectVisuals.clear();
         MemorySounds.clear();
@@ -114,6 +116,7 @@ public final class MemoryEvents {
                 LOGGER.warn("Pensieve: event '{}' at {} failed: {}", e.kind(), e.t(), ex.toString());
             }
         }
+        RecordedFx.tick(t);
         SpellVisuals.tick(level);
         EffectVisuals.tick(level);
         MemorySounds.tick();
@@ -162,7 +165,18 @@ public final class MemoryEvents {
             MemoryAudio.playSfx(e.id(), e.volume());
         } else if ("particles".equals(kind)) {
             particles(e);
+        } else if ("recorded_beam".equals(kind)) {
+            recordedBeam(e);
         }
+    }
+
+    /** A recorded spell beam: from {@code box[0]} to {@code box[1]} (origin-relative) over {@code duration} ticks. */
+    private static void recordedBeam(SceneDef.EventDef e) {
+        if (e.box() == null || e.box().length < 2 || e.box()[0].length < 3 || e.box()[1].length < 3) return;
+        float[] a = e.box()[0];
+        float[] b = e.box()[1];
+        SpellVisuals.beamTimed(level, new Vec3(origin.getX() + a[0], origin.getY() + a[1], origin.getZ() + a[2]),
+                new Vec3(origin.getX() + b[0], origin.getY() + b[1], origin.getZ() + b[2]), e.id(), e.duration());
     }
 
     private static void particles(SceneDef.EventDef e) {

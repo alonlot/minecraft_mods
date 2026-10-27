@@ -479,4 +479,87 @@ public final class LeftoversGameTests {
         helper.succeed();
         LOGGER.info("LEFTOVERS-GAMETEST PASS greyCastLeavesTheFadeClockUntouched");
     }
+
+    // ---- brewing quality
+
+    private static void brewAt(GameTestHelper helper, net.minecraft.world.entity.player.Player player, BlockPos pos,
+                               long tick, net.minecraft.world.item.ItemStack stack) {
+        helper.runAtTickTime(tick, () -> {
+            player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, stack);
+            helper.useBlock(pos, player);
+        });
+    }
+
+    /** Wiggenweld on a campfire: water, honey, two glow berries, three stirs at the given ticks, 20 s simmer, then a bottle. */
+    private static void brewWiggenweld(GameTestHelper helper, long[] stirTicks, int expectedGrade, String name) {
+        BlockPos fire = new BlockPos(1, 2, 1);
+        BlockPos pos = new BlockPos(1, 3, 1);
+        helper.setBlock(fire, Blocks.CAMPFIRE);
+        helper.setBlock(pos, ExampleMod.WIZARD_CAULDRON.get());
+        net.minecraft.world.entity.player.Player player = helper.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
+        brewAt(helper, player, pos, 1, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.WATER_BUCKET));
+        brewAt(helper, player, pos, 5, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.HONEY_BOTTLE));
+        brewAt(helper, player, pos, 25, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.GLOW_BERRIES));
+        brewAt(helper, player, pos, 45, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.GLOW_BERRIES));
+        for (long t : stirTicks) {
+            brewAt(helper, player, pos, t, new net.minecraft.world.item.ItemStack(ExampleMod.FINE_WOOD_STICK.get()));
+        }
+        // The simmer needs 20 heated seconds after the stirs; the cauldron ticks once a second.
+        helper.runAtTickTime(stirTicks[stirTicks.length - 1] + 20 * 20 + 80, () -> {
+            player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.GLASS_BOTTLE));
+            helper.useBlock(pos, player);
+            net.minecraft.world.item.ItemStack result = player.getMainHandItem();
+            helper.assertTrue(result.is(ExampleMod.WIGGENWELD_POTION.get()), "expected a Wiggenweld potion, got " + result);
+            int grade = result.getOrDefault(ExampleMod.BREW_QUALITY.get(), 0);
+            helper.assertTrue(grade == expectedGrade, "expected grade " + expectedGrade + ", got " + grade);
+            helper.succeed();
+            LOGGER.info("LEFTOVERS-GAMETEST PASS " + name);
+        });
+    }
+
+    @GameTest(template = EMPTY, timeoutTicks = 1000)
+    public static void steadyStirsBrewExceptionalWiggenweld(GameTestHelper helper) {
+        brewWiggenweld(helper, new long[]{65, 85, 105}, com.hogwartsmagic.brewing.BrewQuality.EXCEPTIONAL,
+                "steadyStirsBrewExceptionalWiggenweld");
+    }
+
+    @GameTest(template = EMPTY, timeoutTicks = 1000)
+    public static void spammedStirsBrewStandardWiggenweld(GameTestHelper helper) {
+        brewWiggenweld(helper, new long[]{65, 66, 67}, com.hogwartsmagic.brewing.BrewQuality.STANDARD,
+                "spammedStirsBrewStandardWiggenweld");
+    }
+
+    /** A cauldron saved before quality tracking (no Q keys) loads with zero counters and bottles Standard. */
+    @GameTest(template = EMPTY, timeoutTicks = 100)
+    public static void oldCauldronSaveLoadsAsStandard(GameTestHelper helper) {
+        BlockPos pos = new BlockPos(1, 2, 1);
+        helper.setBlock(pos, ExampleMod.WIZARD_CAULDRON.get());
+        var be = helper.getBlockEntity(pos);
+        net.minecraft.nbt.CompoundTag tag = new net.minecraft.nbt.CompoundTag();
+        tag.putBoolean("Initialized", true);
+        tag.putInt("Doses", 3);
+        net.minecraft.nbt.ListTag history = new net.minecraft.nbt.ListTag();
+        history.add(historyEntry("ADD", "minecraft:honey_bottle", 1));
+        history.add(historyEntry("ADD", "minecraft:glow_berries", 2));
+        history.add(historyEntry("STIR_CLOCKWISE", "", 3));
+        history.add(historyEntry("SIMMER", "", 20));
+        tag.put("History", history);
+        be.loadCustomOnly(tag, helper.getLevel().registryAccess());
+        net.minecraft.world.entity.player.Player player = helper.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.GLASS_BOTTLE));
+        helper.useBlock(pos, player);
+        net.minecraft.world.item.ItemStack result = player.getMainHandItem();
+        helper.assertTrue(result.is(ExampleMod.WIGGENWELD_POTION.get()), "expected a Wiggenweld potion, got " + result);
+        helper.assertTrue(result.getOrDefault(ExampleMod.BREW_QUALITY.get(), 0) == 0, "an old save must grade Standard");
+        helper.succeed();
+        LOGGER.info("LEFTOVERS-GAMETEST PASS oldCauldronSaveLoadsAsStandard");
+    }
+
+    private static net.minecraft.nbt.CompoundTag historyEntry(String kind, String item, int amount) {
+        net.minecraft.nbt.CompoundTag entry = new net.minecraft.nbt.CompoundTag();
+        entry.putString("Kind", kind);
+        entry.putString("Item", item);
+        entry.putInt("Amount", amount);
+        return entry;
+    }
 }

@@ -88,6 +88,19 @@ public class ExampleMod
                     .networkSynchronized(net.minecraft.network.codec.ByteBufCodecs.VAR_INT.map(
                             com.hogwartsmagic.spell.motion.AlatusRules::clampQuality, q -> q))
                     .build());
+    /** Brew quality of a bottled potion: 0 standard, 1 fine, 2 exceptional. Absent reads as standard. */
+    public static final RegistryObject<net.minecraft.core.component.DataComponentType<Integer>> BREW_QUALITY =
+            DATA_COMPONENTS.register("brew_quality", () -> net.minecraft.core.component.DataComponentType.<Integer>builder()
+                    .persistent(com.mojang.serialization.Codec.intRange(0, 2))
+                    .networkSynchronized(net.minecraft.network.codec.ByteBufCodecs.VAR_INT.map(
+                            com.hogwartsmagic.brewing.BrewQuality::clampGrade, q -> q))
+                    .build());
+    /** True on a fine variant of a rare brewing ingredient; it lifts the brew it goes into. */
+    public static final RegistryObject<net.minecraft.core.component.DataComponentType<Boolean>> FINE_INGREDIENT =
+            DATA_COMPONENTS.register("fine_ingredient", () -> net.minecraft.core.component.DataComponentType.<Boolean>builder()
+                    .persistent(com.mojang.serialization.Codec.BOOL)
+                    .networkSynchronized(net.minecraft.network.codec.ByteBufCodecs.BOOL)
+                    .build());
     /** Sneakoscope: true while a carried Sneakoscope detects something. Synced to clients, never saved (transient). */
     public static final RegistryObject<net.minecraft.core.component.DataComponentType<Boolean>> SNEAKOSCOPE_SPINNING =
             DATA_COMPONENTS.register("sneakoscope_spinning", () -> net.minecraft.core.component.DataComponentType.<Boolean>builder()

@@ -272,7 +272,7 @@ public class HogwartsGuideScreen extends Screen {
         )),
         POTIONS("gui.hogwartsmagic.hogwarts_guide.section.potions", List.of(
                 page("potions", "the_wizard_cauldron", 4),
-                page("potions", "signs_in_the_liquid", 3),
+                page("potions", "signs_in_the_liquid", 4),
                 page("potions", "wiggenweld_potion", 5),
                 page("potions", "pepperup_potion", 5),
                 page("potions", "polyjuice_potion", 6),

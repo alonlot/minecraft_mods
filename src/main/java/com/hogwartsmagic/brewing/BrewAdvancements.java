@@ -21,6 +21,9 @@ public final class BrewAdvancements {
     /** hogwartsmagic:hp/ruined_brew: a step of yours ruined a brew. */
     public static final String RUINED_BREW = "ruined_brew";
 
+    /** hogwartsmagic:hp/outstanding_brew: bottled a potion of Exceptional quality. */
+    public static final String OUTSTANDING_BREW = "outstanding_brew";
+
     private BrewAdvancements() {
     }
 

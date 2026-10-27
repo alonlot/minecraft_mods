@@ -223,11 +223,35 @@ public final class SetBuilder {
         order = BuildOrder.sortOutward(list, new int[]{origin.getX(), origin.getY(), origin.getZ()});
     }
 
+    /**
+     * The block entities whose recorded data is only a picture: sign and hanging sign text, banner patterns, heads,
+     * bed colours, the sherds of a decorated pot and the book on a lectern. Everything else (chests, furnaces,
+     * hoppers, spawners, command blocks) is left as freshly placed: loaded, it would hold items that drop when the
+     * island clears, spawn mobs or run commands.
+     */
+    static boolean displayOnly(BlockEntity be) {
+        return be instanceof net.minecraft.world.level.block.entity.SignBlockEntity
+                || be instanceof net.minecraft.world.level.block.entity.BannerBlockEntity
+                || be instanceof net.minecraft.world.level.block.entity.SkullBlockEntity
+                || be instanceof net.minecraft.world.level.block.entity.BedBlockEntity
+                || be instanceof net.minecraft.world.level.block.entity.DecoratedPotBlockEntity
+                || be instanceof net.minecraft.world.level.block.entity.LecternBlockEntity;
+    }
+
+    /**
+     * Sets a position to air without anything dropping: the block entity goes first, so a chest, lectern or pot
+     * has no contents left for its block to pop out when it is removed.
+     */
+    static boolean setAir(ServerLevel level, BlockPos pos) {
+        if (level.getBlockState(pos).hasBlockEntity()) level.removeBlockEntity(pos);
+        return level.setBlock(pos, Blocks.AIR.defaultBlockState(), FLAGS);
+    }
+
     /** Restores one recorded block entity (a chest's items, a sign's text) onto the block placed at its cell. */
     private void loadBlockEntity(Recording.BlockEntityData data) {
         BlockPos pos = origin.offset(data.x(), data.y(), data.z());
         BlockEntity be = level.getBlockEntity(pos);
-        if (be == null) return;
+        if (be == null || !displayOnly(be)) return;
         try {
             be.loadWithComponents(TagParser.parseTag(data.snbt()), level.registryAccess());
             be.setChanged();
@@ -551,7 +575,7 @@ public final class SetBuilder {
             Touched touched = new Touched();
             while (cursor < positions.size() && left[0] > 0) {
                 BlockPos pos = positions.get(cursor++);
-                level.setBlock(pos, Blocks.AIR.defaultBlockState(), FLAGS);
+                setAir(level, pos);
                 touched.add(pos.getX(), pos.getY(), pos.getZ());
                 left[0]--;
             }

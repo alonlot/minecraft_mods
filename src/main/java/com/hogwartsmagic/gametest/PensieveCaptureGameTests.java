@@ -734,4 +734,107 @@ public final class PensieveCaptureGameTests {
             helper.succeed();
         });
     }
+
+    // ---- Recorded block entities stay inert ----
+
+    /**
+     * An island holding a chest with diamonds and a lectern with a book at its middle cells. The chest is never
+     * loaded with its items; the lectern book is display data, loaded, and must not drop when the lectern goes.
+     * When {@code replayToAir} is set both cells turn to air at tick 5.
+     */
+    private static Recording containerRecording(UUID id, boolean replayToAir) {
+        int size = 2;
+        int[] cells = new int[5 * 5 * 5];
+        java.util.Arrays.fill(cells, -1);
+        cells[Recording.Blocks.index(0, 0, 0, size)] = 3;
+        cells[Recording.Blocks.index(1, 0, 0, size)] = 4;
+        List<Recording.BlockEntityData> entities = List.of(
+                new Recording.BlockEntityData(0, 0, 0,
+                        "{id:\"minecraft:chest\",Items:[{Slot:0b,id:\"minecraft:diamond\",count:5}]}"),
+                new Recording.BlockEntityData(1, 0, 0, "{id:\"minecraft:lectern\",Book:{id:\"minecraft:book\",count:1}}"));
+        List<Recording.BlockChange> changes = replayToAir
+                ? List.of(new Recording.BlockChange(5, 0, 0, 0, 0), new Recording.BlockChange(5, 1, 0, 0, 0))
+                : List.of();
+        Recording.Blocks blocks = new Recording.Blocks(List.of("minecraft:air", "minecraft:stone", "minecraft:dirt",
+                "minecraft:chest[facing=north,type=single,waterlogged=false]",
+                "minecraft:lectern[facing=north,has_book=true,powered=false]"), size, cells, entities, changes);
+        UUID owner = UUID.randomUUID();
+        float[] zero = new float[1];
+        Recording.Track track = new Recording.Track(0, "minecraft:player", owner, "Owner", true, null, null, 0, 0,
+                Recording.REMOVAL_NONE, zero, zero, zero, zero, zero, zero, zero, List.of(), List.of(), List.of());
+        Recording rec = new Recording(id, owner, "Owner", "Test", 1, "minecraft:overworld", new int[] {0, 64, 0}, 8,
+                300, 6000, blocks, List.of(track), List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
+        RECORDINGS.put(id, rec);
+        return rec;
+    }
+
+    private static List<net.minecraft.world.entity.item.ItemEntity> itemsAround(GameTestHelper helper, BlockPos o) {
+        return helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
+                new net.minecraft.world.phys.AABB(o).inflate(6));
+    }
+
+    @GameTest(template = EMPTY, batch = RECORDED, timeoutTicks = 400)
+    public static void replayedContainersToAirDropNothing(GameTestHelper helper) {
+        recordedSeam(helper);
+        UUID id = UUID.randomUUID();
+        containerRecording(id, true);
+        basinHolding(helper, BASIN, id);
+        ServerPlayer p = playerNear(helper, 1.5, 2.5);
+        helper.useBlock(BASIN, p);
+        AtomicBoolean checkedBefore = new AtomicBoolean();
+        helper.onEachTick(() -> {
+            Optional<Session> found = PensieveSessions.sessionOf(p);
+            if (found.isEmpty() || found.get().phase() != Session.Phase.PLAY) {
+                return;
+            }
+            Session s = found.get();
+            long elapsed = helper.getLevel().getGameTime() - s.startGameTime();
+            BlockPos chest = s.origin();
+            BlockPos lectern = s.origin().offset(1, 0, 0);
+            if (elapsed <= 3 && !checkedBefore.get()) {
+                checkedBefore.set(true);
+                helper.assertTrue(helper.getLevel().getBlockState(chest).is(Blocks.CHEST), "the chest was built");
+                helper.assertTrue(helper.getLevel().getBlockEntity(chest) instanceof net.minecraft.world.Container c
+                        && c.isEmpty(), "the chest holds nothing: recorded contents are not loaded");
+                helper.assertTrue(helper.getLevel().getBlockEntity(lectern)
+                        instanceof net.minecraft.world.level.block.entity.LecternBlockEntity l && !l.getBook().isEmpty(),
+                        "the lectern shows its book");
+            } else if (elapsed == 12) {
+                helper.assertTrue(checkedBefore.get(), "the first check ran");
+                helper.assertTrue(helper.getLevel().getBlockState(chest).isAir()
+                        && helper.getLevel().getBlockState(lectern).isAir(), "both cells replayed to air");
+                helper.assertTrue(itemsAround(helper, s.origin()).isEmpty(),
+                        "nothing dropped: " + itemsAround(helper, s.origin()));
+                logout(helper, p);
+                pass("replayedContainersToAirDropNothing");
+                helper.succeed();
+            }
+        });
+    }
+
+    @GameTest(template = EMPTY, batch = RECORDED, timeoutTicks = 400)
+    public static void clearingContainersDropsNothing(GameTestHelper helper) {
+        recordedSeam(helper);
+        UUID id = UUID.randomUUID();
+        containerRecording(id, false);
+        basinHolding(helper, BASIN, id);
+        ServerPlayer p = playerNear(helper, 1.5, 2.5);
+        helper.useBlock(BASIN, p);
+        BlockPos[] origin = new BlockPos[1];
+        helper.runAfterDelay(20, () -> {
+            Session s = PensieveSessions.sessionOf(p).orElseThrow();
+            origin[0] = s.origin();
+            helper.assertTrue(helper.getLevel().getBlockState(origin[0]).is(Blocks.CHEST)
+                    && helper.getLevel().getBlockState(origin[0].offset(1, 0, 0)).is(Blocks.LECTERN), "both were built");
+            logout(helper, p);
+        });
+        helper.runAfterDelay(40, () -> {
+            helper.assertTrue(helper.getLevel().getBlockState(origin[0]).isAir()
+                    && helper.getLevel().getBlockState(origin[0].offset(1, 0, 0)).isAir(), "the island cleared");
+            helper.assertTrue(itemsAround(helper, origin[0]).isEmpty(),
+                    "nothing dropped: " + itemsAround(helper, origin[0]));
+            pass("clearingContainersDropsNothing");
+            helper.succeed();
+        });
+    }
 }

@@ -82,6 +82,8 @@ import java.util.function.Function;
 public final class PensieveSessions {
     private static final Logger LOGGER = LogUtils.getLogger();
     public static final int SWALLOW_TICKS = 30;
+    /** How long a dive waits for a recording to be encoded for the client before giving up. */
+    private static final int BLOB_WAIT_TICKS = 400;
     public static final String RETURN_TAG = "PensieveReturn";
     private static final int MAX_RADIUS = 200;
     /**
@@ -508,6 +510,7 @@ public final class PensieveSessions {
             s.builder = new SetBuilder(memory, origin, scene.def().set(), radius);
         } else {
             s.recording = recording;
+            RecordingStore.prefetch(memory.getServer(), recording.id());
             s.builder = new SetBuilder(memory, origin, recording.blocks(), radius);
             s.recordedChanges.addAll(recording.blocks().changes());
             s.recordedChanges.sort((a, b) -> Integer.compare(a.tick(), b.tick()));
@@ -806,7 +809,7 @@ public final class PensieveSessions {
         }
         // A hand-over asked for mid-scene first lets the scene on screen fade to black.
         if (s.handOverAsked && now < s.handOverNotBefore) return;
-        if (!next.built) return;
+        if (!next.built || (next.recording != null && !RecordingStore.clientBlobReady(next.recording.id()))) return;
         s.nextSession = null;
         next.standby = false;
         next.basinTicket = s.basinTicket;
@@ -828,6 +831,7 @@ public final class PensieveSessions {
             ServerPlayer p = server.getPlayerList().getPlayer(v.id());
             if (p == null) continue;
             moveTo(p, next.level, next.anchor(), p.getYRot(), p.getXRot());
+            if (s.recording != null && next.recording == null) PensieveNet.send(p, new PensieveGhostsPacket(List.of()));
             sendStart(p, next);
             watching.add(p);
         }
@@ -841,7 +845,19 @@ public final class PensieveSessions {
     private static void tickViewer(Session s, Session.Viewer v, ServerPlayer p, ServerLevel memory) {
         if (v.stage == Session.Viewer.Stage.SWALLOW) {
             if (p.level().dimension().equals(v.returnDim())) hold(p, v.returnPos());
-            if (--v.swallowTicksLeft <= 0) cross(s, v, p, memory);
+            if (--v.swallowTicksLeft <= 0) {
+                if (s.recording != null && !RecordingStore.clientBlobReady(s.recording.id())) {
+                    // The client form is still being encoded off-thread: wait here rather than encode on this tick.
+                    RecordingStore.prefetch(p.server, s.recording.id());
+                    if (v.swallowTicksLeft < -BLOB_WAIT_TICKS) {
+                        LOGGER.error("Pensieve: recording {} never got a client form; sending {} home", s.recording.id(),
+                                p.getScoreboardName());
+                        beginExit(p, v, ExitReason.LEFT);
+                    }
+                    return;
+                }
+                cross(s, v, p, memory);
+            }
         } else if (v.stage == Session.Viewer.Stage.INSIDE) {
             if (p.level() != memory) {
                 // Moved out some other way: treat it as leaving, so they still go home with their state restored.
@@ -914,7 +930,7 @@ public final class PensieveSessions {
         Recording rec = s.recording;
         Session.Viewer v = s.viewers().get(p.getUUID());
         if (rec == null || v == null || v.recordingSent) return;
-        byte[] blob = RecordingStore.clientBlob(p.server, rec.id());
+        byte[] blob = RecordingStore.readyClientBlob(rec.id());
         if (blob == null) {
             LOGGER.error("Pensieve: no client form for recording {}; {} will see an empty memory", rec.id(),
                     p.getScoreboardName());
@@ -941,6 +957,11 @@ public final class PensieveSessions {
             if (v.stage == Session.Viewer.Stage.INSIDE) inside.add(v.id());
         }
         if (inside.equals(s.ghostSet)) return;
+        // Someone who was inside and no longer is (still online, on their way home) forgets the ghosts.
+        for (UUID gone : s.ghostSet) {
+            ServerPlayer p = inside.contains(gone) ? null : server.getPlayerList().getPlayer(gone);
+            if (p != null) PensieveNet.send(p, new PensieveGhostsPacket(List.of()));
+        }
         s.ghostSet = inside;
         for (UUID id : inside) {
             ServerPlayer p = server.getPlayerList().getPlayer(id);
@@ -1023,12 +1044,14 @@ public final class PensieveSessions {
         while (s.nextChange < s.recordedChanges.size() && s.recordedChanges.get(s.nextChange).tick() <= elapsed
                 && budget[0] > 0) {
             Recording.BlockChange c = s.recordedChanges.get(s.nextChange++);
-            if (c.state() < 0 || c.state() >= s.recordedStates.length || Math.abs(c.x()) > s.radius
-                    || Math.abs(c.z()) > s.radius) {
+            int size = s.recording == null ? s.radius : s.recording.blocks().size();
+            if (c.state() < 0 || c.state() >= s.recordedStates.length || Math.abs(c.x()) > Math.min(s.radius, size)
+                    || Math.abs(c.z()) > Math.min(s.radius, size) || Math.abs(c.y()) > size) {
                 continue;
             }
             BlockPos pos = s.origin().offset(c.x(), c.y(), c.z());
             if (s.level.isOutsideBuildHeight(pos)) continue;
+            if (s.level.getBlockState(pos).hasBlockEntity()) s.level.removeBlockEntity(pos);
             s.level.setBlock(pos, s.recordedStates[c.state()], SetBuilder.FLAGS);
             SetBuilder.clearTicks(s.level, new BoundingBox(pos));
             if (s.changedCells.add(pos.asLong())) s.eventPlaced.add(pos);
@@ -1043,6 +1066,7 @@ public final class PensieveSessions {
             if (block.isEmpty()) continue;
             // Whole numbers (the validator rejects a fractional block position); floor is the safe reading anyway.
             BlockPos pos = s.origin().offset(Mth.floor(e.at()[0]), Mth.floor(e.at()[1]), Mth.floor(e.at()[2]));
+            if (s.level.getBlockState(pos).hasBlockEntity()) s.level.removeBlockEntity(pos);
             s.level.setBlock(pos, block.get().defaultBlockState(), SetBuilder.FLAGS);
             // onPlace still schedules ticks under these flags: water placed by an event must not start flowing.
             SetBuilder.clearTicks(s.level, new BoundingBox(pos));
@@ -1532,7 +1556,7 @@ public final class PensieveSessions {
                             pos.set(x, y, z);
                             visits++;
                             if (!chunk.getBlockState(pos).isAir()) {
-                                level.setBlock(pos, Blocks.AIR.defaultBlockState(), SetBuilder.FLAGS);
+                                SetBuilder.setAir(level, pos);
                                 left[0]--;
                             }
                         }

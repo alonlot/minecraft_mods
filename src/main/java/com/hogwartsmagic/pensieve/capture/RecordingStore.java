@@ -104,18 +104,39 @@ public final class RecordingStore {
         }
     }
 
-    /** Starts loading a recording in the background so the next {@link #load} is a cache hit. */
+    /**
+     * Starts loading a recording in the background, then encoding its client form there too, so neither the next
+     * {@link #load} nor {@link #readyClientBlob} costs the server thread anything. Idempotent while one is running.
+     */
     public static void prefetch(MinecraftServer server, UUID id) {
-        if (override != null || CACHE.containsKey(id) || !LOADING.add(id)) {
+        if (override != null) {
             return;
         }
-        CompletableFuture.runAsync(() -> {
-            try {
-                load(server, id);
-            } finally {
-                LOADING.remove(id);
-            }
-        }, Util.ioPool());
+        Entry cached = CACHE.get(id);
+        if ((cached != null && cached.clientBlob != null) || !LOADING.add(id)) {
+            return;
+        }
+        CompletableFuture.runAsync(() -> load(server, id), Util.ioPool())
+                .thenRunAsync(() -> clientBlob(id), Util.backgroundExecutor())
+                .whenComplete((v, e) -> LOADING.remove(id));
+    }
+
+    /** Whether {@link #readyClientBlob} would answer at once. */
+    public static boolean clientBlobReady(UUID id) {
+        return readyClientBlob(id) != null;
+    }
+
+    /**
+     * The client form if it is already encoded, never encoding it here (that is up to 16 MB of compression). With a
+     * test override it is built on the spot, since tests have no background prefetch.
+     */
+    @Nullable
+    public static byte[] readyClientBlob(UUID id) {
+        if (override != null) {
+            return clientBlob(id);
+        }
+        Entry entry = CACHE.get(id);
+        return entry == null ? null : entry.clientBlob;
     }
 
     /** The client form of a cached recording (no island), encoded once. Null when it is not in the cache. */

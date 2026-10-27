@@ -19,7 +19,8 @@
     "ServerLevelCaptureMixin",
     "LivingEntitySwingCaptureMixin",
     "ServerPlayerChatCaptureMixin",
-    "PlayerGhostNoclipMixin"
+    "PlayerGhostNoclipMixin",
+    "ServerLevelMemoryTickMixin"
   ],
   "client": [
     "client.InvisibilityCloakArmorLayerMixin",

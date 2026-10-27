@@ -29,6 +29,9 @@ public final class LeftoversGameTests {
     private static final org.slf4j.Logger LOGGER = com.mojang.logging.LogUtils.getLogger();
     private static final String EMPTY = "hogwartsmagic:gametest/empty3";
 
+    /** The owner is removed at tick 5 and the snake gives up after OWNER_GONE_TICKS; a few ticks of slack on top. */
+    private static final int SNAKE_VANISH_DEADLINE = 5 + SerpensortiaRules.OWNER_GONE_TICKS + 5;
+
     private LeftoversGameTests() {
     }
 
@@ -177,6 +180,13 @@ public final class LeftoversGameTests {
         helper.getLevel().addFreshEntity(snake);
 
         helper.runAtTickTime(5, owner::discard);
+        // With noAi the target check alone is vacuous: the real assertion is that it is gone in time.
+        helper.runAtTickTime(SNAKE_VANISH_DEADLINE, () -> {
+            if (!snake.isRemoved()) {
+                snake.discard();
+                helper.fail("the snake should vanish within " + SNAKE_VANISH_DEADLINE + " ticks of its owner going");
+            }
+        });
         helper.succeedWhen(() -> {
             helper.assertTrue(snake.getTarget() == null, "the snake must never gain a target");
             helper.assertTrue(snake.isRemoved(), "the snake should vanish when its owner is gone");
@@ -272,19 +282,24 @@ public final class LeftoversGameTests {
         Zombie near = noAiZombie(helper, new Vec3(4.5, 2, 1.5));
         com.hogwartsmagic.entity.PatronusEntity plain = patronusAt(helper, new Vec3(1.5, 2, 11.5), false);
         Zombie calm = noAiZombie(helper, new Vec3(4.5, 2, 11.5));
-        helper.runAfterDelay(40, () -> {
-            double pushed = near.position().distanceTo(master.position());
-            double kept = calm.position().distanceTo(plain.position());
-            // The control must still exist, or a dead pair would read as 'stayed put'.
-            boolean controlsAlive = calm.isAlive() && plain.isAlive();
+        // The pairs sit outside the template, so a timed-out test must clear them itself.
+        helper.runAtTickTime(95, () -> {
             master.discard();
             plain.discard();
             near.discard();
             calm.discard();
-            helper.assertTrue(controlsAlive, "the control zombie and Patronus should both still be alive");
-            helper.assertTrue(pushed > 3.5, "the zombie should be driven past 3.5 blocks, was " + pushed);
+        });
+        // The control must still exist, or a dead pair would read as 'stayed put'.
+        helper.succeedWhen(() -> {
+            helper.assertTrue(calm.isAlive() && plain.isAlive(), "the control zombie and Patronus should both still be alive");
+            double pushed = near.position().distanceTo(master.position());
+            double kept = calm.position().distanceTo(plain.position());
             helper.assertTrue(kept <= 3.2, "without the aura the zombie should stay put, was " + kept);
-            helper.succeed();
+            helper.assertTrue(pushed > 3.5, "the zombie should be driven past 3.5 blocks, was " + pushed);
+            master.discard();
+            plain.discard();
+            near.discard();
+            calm.discard();
             LOGGER.info("LEFTOVERS-GAMETEST PASS masterPatronusRepelsUndead");
         });
     }
@@ -363,17 +378,25 @@ public final class LeftoversGameTests {
      * A real survival player: the helper mock overrides isCreative to true, which would make Remorse read as OFF.
      * Placed through the player list like a login, and removed again with {@link #leave}.
      */
-    private static ServerPlayer survivalPlayerWithDarkness(GameTestHelper helper, float darkness) {
+    private static ServerPlayer survivalPlayerWithDarkness(GameTestHelper helper, String name, float darkness) {
         var server = helper.getLevel().getServer();
         var cookie = net.minecraft.server.network.CommonListenerCookie.createInitial(
-                new com.mojang.authlib.GameProfile(java.util.UUID.randomUUID(), "remorse-tester"), false);
+                new com.mojang.authlib.GameProfile(java.util.UUID.randomUUID(), name), false);
         ServerPlayer player = new ServerPlayer(server, helper.getLevel(), cookie.gameProfile(), cookie.clientInformation());
         var conn = new net.minecraft.network.Connection(net.minecraft.network.protocol.PacketFlow.SERVERBOUND);
         new io.netty.channel.embedded.EmbeddedChannel(conn);
         server.getPlayerList().placeNewPlayer(conn, player, cookie);
-        player.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
-        player.setHealth(player.getMaxHealth());
-        com.hogwartsmagic.spell.dark.DarkMagicData.set(player, darkness);
+        try {
+            // Login puts the player at world spawn; bring it into the test structure's bounds.
+            Vec3 at = helper.absoluteVec(new Vec3(1.5, 2, 1.5));
+            player.moveTo(at.x, at.y, at.z);
+            player.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
+            player.setHealth(player.getMaxHealth());
+            com.hogwartsmagic.spell.dark.DarkMagicData.set(player, darkness);
+        } catch (RuntimeException | Error e) {
+            leave(helper, player);
+            throw e;
+        }
         return player;
     }
 
@@ -391,7 +414,7 @@ public final class LeftoversGameTests {
     /** One Remorse lightens the soul by 5; a second drink inside the window still hurts but lightens nothing. */
     @GameTest(template = EMPTY, timeoutTicks = 120)
     public static void remorseLightensOnceAWindow(GameTestHelper helper) {
-        ServerPlayer player = survivalPlayerWithDarkness(helper, 50.0f);
+        ServerPlayer player = survivalPlayerWithDarkness(helper, "remorse-window", 50.0f);
         // A freshly placed player is hurt-proof for 60 ticks, so the pain would read as nothing.
         helper.runAfterDelay(65, () -> {
             try {
@@ -415,7 +438,7 @@ public final class LeftoversGameTests {
     /** A drink with nothing to lighten changes nothing and does not spend the window. */
     @GameTest(template = EMPTY, timeoutTicks = 60)
     public static void remorseAtTheFloorKeepsTheWindow(GameTestHelper helper) {
-        ServerPlayer player = survivalPlayerWithDarkness(helper, 0.0f);
+        ServerPlayer player = survivalPlayerWithDarkness(helper, "remorse-floor", 0.0f);
         try {
             drinkRemorse(player);
             helper.assertTrue(com.hogwartsmagic.spell.dark.DarkMagicData.getStored(player) == 0.0f, "Clean stays Clean");

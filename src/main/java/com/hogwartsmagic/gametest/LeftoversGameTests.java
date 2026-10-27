@@ -24,7 +24,7 @@ public final class LeftoversGameTests {
     }
 
     /** With mobGriefing off, a caster-less Fiendfyre must not light a single block. */
-    @GameTest(template = EMPTY, timeoutTicks = 200)
+    @GameTest(template = EMPTY, timeoutTicks = 200, batch = "leftovers_griefing")
     public static void groundFireRespectsMobGriefing(GameTestHelper helper) {
         GameRules.BooleanValue rule = helper.getLevel().getGameRules().getRule(GameRules.RULE_MOBGRIEFING);
         boolean saved = rule.get();
@@ -43,6 +43,7 @@ public final class LeftoversGameTests {
 
         helper.runAtTickTime(120, () -> {
             try {
+                helper.assertTrue(fire.isAlive() && fire.getLifeTicks() > 0, "the fire entity should still be ticking");
                 for (int x = 0; x < 9; x++) {
                     for (int y = 2; y < 5; y++) {
                         for (int z = 0; z < 9; z++) {

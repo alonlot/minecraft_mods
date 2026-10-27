@@ -1,5 +1,6 @@
 package com.hogwartsmagic.entity;
 
+import com.hogwartsmagic.spell.TerrainRules;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
@@ -206,6 +207,10 @@ public class FiendfyreSerpentEntity extends Entity {
     }
 
     private void spreadFire() {
+        if (!(this.level() instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        ServerPlayer caster = getCaster(serverLevel);
         BlockPos center = this.blockPosition();
         int radius = 2 + Math.min(5, getLifeTicks() / 20);
 
@@ -214,11 +219,10 @@ public class FiendfyreSerpentEntity extends Entity {
             int ry = this.random.nextInt(5) - 2;
             int rz = this.random.nextInt(radius * 2 + 1) - radius;
             BlockPos target = center.offset(rx, ry, rz);
-            if (!(this.level() instanceof ServerLevel serverLevel)
-                    || !serverLevel.isLoaded(target) || !serverLevel.isEmptyBlock(target)) {
+            if (!serverLevel.isLoaded(target) || !serverLevel.isEmptyBlock(target)) {
                 continue;
             }
-            if (com.hogwartsmagic.spell.TerrainRules.canPlace(serverLevel, target, getCaster(serverLevel))) {
+            if (TerrainRules.canPlace(serverLevel, target, caster)) {
                 serverLevel.setBlockAndUpdate(target, Blocks.FIRE.defaultBlockState());
             }
         }

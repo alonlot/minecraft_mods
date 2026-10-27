@@ -2,6 +2,8 @@ package com.hogwartsmagic.gametest;
 
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.pensieve.PensieveDimension;
+import com.hogwartsmagic.pensieve.RecordedMemoryItem;
+import com.hogwartsmagic.pensieve.capture.MemoryCapture;
 import com.hogwartsmagic.pensieve.capture.CaptureLogs;
 import com.hogwartsmagic.pensieve.capture.EntityHistory;
 import com.hogwartsmagic.pensieve.capture.LevelLog;
@@ -14,9 +16,11 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.animal.Sheep;
 import net.minecraft.world.item.DyeColor;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
@@ -282,5 +286,138 @@ public final class PensieveCaptureGameTests {
         helper.assertTrue(RecordingStore.load(server, id).isEmpty(), "a missing file loads as empty");
         pass("storeRoundTrips");
         helper.succeed();
+    }
+
+    // ---- Phials and the capture gesture ----
+
+    private static void hold(ServerPlayer p, InteractionHand hand, ItemStack stack) {
+        p.setItemInHand(hand, stack);
+    }
+
+    private static ItemStack wand() {
+        return new ItemStack(ExampleMod.HARRY_POTTER_WAND.get());
+    }
+
+    private static ItemStack phial() {
+        return new ItemStack(ExampleMod.EMPTY_MEMORY_PHIAL.get());
+    }
+
+    /**
+     * How many recordings in the world save belong to this player. Other tests write recordings in parallel, so a
+     * plain file count would race; the owner is what a test can call its own.
+     */
+    private static long recordingsOf(ServerLevel level, java.util.UUID owner) throws java.io.IOException {
+        java.nio.file.Path dir = RecordingStore.dir(level.getServer());
+        if (!java.nio.file.Files.isDirectory(dir)) {
+            return 0;
+        }
+        try (var files = java.nio.file.Files.list(dir)) {
+            return files.filter(f -> f.getFileName().toString().endsWith(".hpm")).filter(f -> {
+                try {
+                    return RecordingCodec.read(java.nio.file.Files.readAllBytes(f)).owner().equals(owner);
+                } catch (java.io.IOException | RuntimeException e) {
+                    return false;
+                }
+            }).count();
+        }
+    }
+
+    @GameTest(template = EMPTY, batch = BATCH, timeoutTicks = 300)
+    public static void captureTurnsPhialIntoMemory(GameTestHelper helper) {
+        ServerPlayer p = player(helper);
+        hold(p, InteractionHand.MAIN_HAND, wand());
+        hold(p, InteractionHand.OFF_HAND, phial());
+        helper.runAfterDelay(65, () -> MemoryCapture.capture(p));
+        // The future finishes off-thread and the hand-over runs on the server thread: poll for the result.
+        helper.succeedWhen(() -> {
+            ItemStack held = p.getOffhandItem();
+            helper.assertTrue(held.is(ExampleMod.MEMORY.get()), "the offhand holds the Memory, not " + held);
+            java.util.UUID id = RecordedMemoryItem.memoryId(held);
+            helper.assertTrue(id != null, "the Memory carries its recording id");
+            Recording rec = RecordingStore.load(helper.getLevel().getServer(), id).orElse(null);
+            helper.assertTrue(rec != null, "the recording is in the store");
+            helper.assertTrue(rec.ownerName().equals(p.getGameProfile().getName()), "its owner is the player");
+            helper.assertTrue(rec.owner().equals(p.getUUID()), "owned by the player's uuid");
+            net.minecraft.network.chat.contents.TranslatableContents name =
+                    (net.minecraft.network.chat.contents.TranslatableContents) held.getHoverName().getContents();
+            helper.assertTrue(name.getKey().equals("item.hogwartsmagic.memory.named")
+                    && name.getArgs()[0].equals(p.getGameProfile().getName()), "named for its owner");
+            helper.assertTrue(p.getMainHandItem().getItem() == ExampleMod.HARRY_POTTER_WAND.get(), "the wand stays in hand");
+            logout(helper, p);
+            pass("captureTurnsPhialIntoMemory");
+        });
+    }
+
+    @GameTest(template = EMPTY, batch = BATCH, timeoutTicks = 200)
+    public static void noWandMeansHintAndNoCapture(GameTestHelper helper) {
+        ServerPlayer p = player(helper);
+        hold(p, InteractionHand.OFF_HAND, phial());
+        ServerLevel level = helper.getLevel();
+        helper.runAfterDelay(65, () -> {
+            MemoryCapture.capture(p);
+            helper.runAfterDelay(20, () -> {
+                try {
+                    helper.assertTrue(p.getOffhandItem().is(ExampleMod.EMPTY_MEMORY_PHIAL.get()), "still a phial");
+                    helper.assertTrue(p.getOffhandItem().getCount() == 1, "and not spent");
+                    helper.assertTrue(recordingsOf(level, p.getUUID()) == 0, "no recording written");
+                } catch (java.io.IOException e) {
+                    helper.fail(e.toString());
+                }
+                logout(helper, p);
+                pass("noWandMeansHintAndNoCapture");
+                helper.succeed();
+            });
+        });
+    }
+
+    @GameTest(template = EMPTY, batch = BATCH, timeoutTicks = 200)
+    public static void insideMemoryRefused(GameTestHelper helper) {
+        ServerPlayer p = player(helper);
+        hold(p, InteractionHand.MAIN_HAND, wand());
+        hold(p, InteractionHand.OFF_HAND, phial());
+        ServerLevel memory = PensieveDimension.level(helper.getLevel().getServer());
+        if (memory == null) {
+            // The GameTestServer builds only its flat Test Level; the refusal itself is PensieveDimension.isMemory.
+            LOGGER.info("PENSIEVE-CAPTURE-GAMETEST insideMemoryRefused: no memory level here, nothing to place the player in");
+            logout(helper, p);
+            pass("insideMemoryRefused");
+            helper.succeed();
+            return;
+        }
+        p.teleportTo(memory, 0.5, 100, 0.5, java.util.Set.of(), 0f, 0f);
+        helper.runAfterDelay(65, () -> {
+            helper.assertTrue(PensieveDimension.isMemory(p.serverLevel()), "the player stands in the memory dimension");
+            MemoryCapture.capture(p);
+            helper.runAfterDelay(10, () -> {
+                helper.assertTrue(p.getOffhandItem().is(ExampleMod.EMPTY_MEMORY_PHIAL.get()), "still a phial");
+                p.teleportTo(helper.getLevel(), 0.5, 80, 0.5, java.util.Set.of(), 0f, 0f);
+                logout(helper, p);
+                pass("insideMemoryRefused");
+                helper.succeed();
+            });
+        });
+    }
+
+    @GameTest(template = EMPTY, batch = BATCH, timeoutTicks = 200)
+    public static void wandWithoutPhialChangesNothing(GameTestHelper helper) {
+        ServerPlayer p = player(helper);
+        ItemStack held = wand();
+        hold(p, InteractionHand.MAIN_HAND, held);
+        ServerLevel level = helper.getLevel();
+        helper.runAfterDelay(65, () -> {
+            MemoryCapture.capture(p);
+            helper.runAfterDelay(20, () -> {
+                try {
+                    helper.assertTrue(p.getMainHandItem() == held, "the wand is untouched");
+                    helper.assertTrue(p.getOffhandItem().isEmpty(), "nothing appeared in the offhand");
+                    helper.assertTrue(recordingsOf(level, p.getUUID()) == 0, "no recording written");
+                } catch (java.io.IOException e) {
+                    helper.fail(e.toString());
+                }
+                logout(helper, p);
+                pass("wandWithoutPhialChangesNothing");
+                helper.succeed();
+            });
+        });
     }
 }

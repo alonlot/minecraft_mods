@@ -73,6 +73,10 @@ public final class ClientRuntimeBridge {
                     ((com.hogwartsmagic.pensieve.net.PensieveFadePacket) payload).ticks());
             case "pensieveWake" -> com.hogwartsmagic.client.pensieve.PensieveClientState.onWake(
                     ((com.hogwartsmagic.pensieve.net.PensieveWakePacket) payload).ticks());
+            case "pensieveCaptureFx" -> {
+                var p = (com.hogwartsmagic.pensieve.net.PensieveCaptureFxPacket) payload;
+                com.hogwartsmagic.client.pensieve.CaptureFx.start(p.entityId(), p.mainHandWand());
+            }
             default -> throw new IllegalArgumentException("Unknown client packet action: " + action);
         }
     }

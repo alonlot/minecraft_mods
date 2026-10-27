@@ -2015,6 +2015,15 @@
       }
     ]
   },
+  "pensieve.capture": {
+    "subtitle": "subtitles.hogwartsmagic.pensieve.capture",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:pensieve/capture",
+        "stream": false
+      }
+    ]
+  },
   "pensieve.pour": {
     "subtitle": "subtitles.hogwartsmagic.pensieve.pour",
     "sounds": [

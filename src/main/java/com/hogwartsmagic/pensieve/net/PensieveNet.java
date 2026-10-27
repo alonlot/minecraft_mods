@@ -32,6 +32,17 @@ public final class PensieveNet {
         SpellPackets.CHANNEL.messageBuilder(PensieveWakePacket.class)
                 .encoder(PensieveWakePacket::encode).decoder(PensieveWakePacket::decode)
                 .consumerMainThread(PensieveWakePacket::handle).add();
+        SpellPackets.CHANNEL.messageBuilder(PensieveCapturePacket.class)
+                .encoder(PensieveCapturePacket::encode).decoder(PensieveCapturePacket::decode)
+                .consumerMainThread(PensieveCapturePacket::handle).add();
+        SpellPackets.CHANNEL.messageBuilder(PensieveCaptureFxPacket.class)
+                .encoder(PensieveCaptureFxPacket::encode).decoder(PensieveCaptureFxPacket::decode)
+                .consumerMainThread(PensieveCaptureFxPacket::handle).add();
+    }
+
+    /** Client to server. */
+    public static void sendToServer(Object packet) {
+        SpellPackets.CHANNEL.send(packet, PacketDistributor.SERVER.noArg());
     }
 
     public static void send(ServerPlayer player, Object packet) {

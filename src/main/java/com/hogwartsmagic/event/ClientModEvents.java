@@ -649,6 +649,11 @@ public class ClientModEvents {
                 event.setRoll(com.hogwartsmagic.client.pensieve.PensieveCamera.roll());
                 return;
             }
+            // Drawing a memory out of the head tips the camera back a few degrees (looking up is negative pitch).
+            float captureTilt = com.hogwartsmagic.client.pensieve.CaptureFx.pitchOffset((float) event.getPartialTick());
+            if (captureTilt != 0f) {
+                event.setPitch(event.getPitch() - captureTilt);
+            }
             Minecraft mc = Minecraft.getInstance();
             if (mc.player == null) {
                 return;

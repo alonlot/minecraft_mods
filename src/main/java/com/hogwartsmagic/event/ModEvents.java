@@ -3928,6 +3928,15 @@ public class ModEvents {
     private static boolean handleWandUse(Player player, ItemStack heldItem) {
         if (player.level().isClientSide() && MagicWandItem.isAnyWand(heldItem)) {
             if (player.isShiftKeyDown()) {
+                // Sneak-using a wand with an empty phial in the other hand draws a memory instead of opening the menu.
+                boolean wandInMain = heldItem == player.getMainHandItem();
+                ItemStack otherHand = wandInMain ? player.getOffhandItem() : player.getMainHandItem();
+                if (otherHand.getItem() instanceof com.hogwartsmagic.pensieve.EmptyMemoryPhialItem) {
+                    com.hogwartsmagic.pensieve.net.PensieveNet.sendToServer(
+                            new com.hogwartsmagic.pensieve.net.PensieveCapturePacket());
+                    player.swing(wandInMain ? InteractionHand.MAIN_HAND : InteractionHand.OFF_HAND);
+                    return true;
+                }
                 openMenu(player);
                 return true;
             } else {

@@ -164,8 +164,7 @@ def overlay(base, grid, palette, origin=(0, 0)):
     """
     out = base.copy()
     px = out.load()
-    rows = [r.strip() for r in grid.strip("
-").splitlines() if r.strip()]
+    rows = [r.strip() for r in grid.strip("\n").splitlines() if r.strip()]
     for y, row in enumerate(rows):
         for x, ch in enumerate(row):
             if ch == ".":

@@ -199,7 +199,7 @@ public final class Petrification {
     /** The same ward for a chosen length: a better brew lasts longer. */
     public static void wardGaze(LivingEntity entity, int ticks) {
         entity.removeEffect(ExampleMod.BASILISK_GAZE.getHolder().get());
-        entity.getPersistentData().putLong(PetrificationRules.WARD_KEY, entity.level().getGameTime() + ticks);
+        entity.getPersistentData().putLong(PetrificationRules.WARD_KEY, PetrificationRules.wardUntil(entity.level().getGameTime(), ticks));
     }
 
     public static boolean isGazeWarded(LivingEntity entity) {

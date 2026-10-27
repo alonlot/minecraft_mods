@@ -73,6 +73,10 @@ cannot see "looks like a placeholder".
 | Pure black outline everywhere | Outline with the darkest shade of each material's own ramp |
 | Pillow shading (bright centre, dark rim on all sides) | Light from the top-left: highlights hug the top-left edges, shadow the bottom-right |
 | Glow made with semi-transparent halo pixels | Glow is a pale, saturated core with no dark outline (the `blaze_rod` recipe), alpha stays binary |
+| Thin pale rod (wand, bone) whose lit edge is slot grey | The linter's slot check can miss a 3px-wide rod: look at the slot tile; push the lit edge lighter or darker than #8b8b8b by 25+ lum |
+| Colour changing on every strand of a 1:1 diagonal | That is a checkerboard: keep each diagonal strand one colour, or vary in runs of 3+ |
+| Ring/collar drawn as a horizontal run across a diagonal rod | A band around a 1:1 rod is a 2-row staircase of ~4 pixels perpendicular to the rod |
+| Long item with a head (broom, brush, axe) squeezed into the tip | The corner limits width near the tip: curve the head so it fills the top-right corner, and run the handle from the bottom-left |
 | 32x32 "for more detail" | 16x16. HD sprites look like another game next to vanilla |
 | Judging the 8x zoom only | Judge the 1x slot tile; the zoom is for finding the pixel to fix |
 

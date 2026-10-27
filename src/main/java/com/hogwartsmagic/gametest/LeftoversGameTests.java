@@ -49,22 +49,26 @@ public final class LeftoversGameTests {
         fire.setCaster(null);
         helper.getLevel().addFreshEntity(fire);
 
-        helper.runAtTickTime(120, () -> {
-            try {
-                helper.assertTrue(fire.isAlive() && fire.getLifeTicks() > 0, "the fire entity should still be ticking");
-                for (int x = 0; x < 9; x++) {
-                    for (int y = 2; y < 5; y++) {
-                        for (int z = 0; z < 9; z++) {
-                            helper.assertBlockNotPresent(Blocks.FIRE, new BlockPos(x, y, z));
-                        }
+        // The fire sits outside the 3x3x3 template, so a neighbouring test may discard it before tick 120:
+        // drive it synchronously instead of waiting on the clock.
+        try {
+            for (int i = 0; i < 120; i++) {
+                fire.tick();
+            }
+            helper.assertTrue(fire.getLifeTicks() >= 120, "the fire should have lived 120 ticks, lived " + fire.getLifeTicks());
+            for (int x = 0; x < 9; x++) {
+                for (int y = 2; y < 5; y++) {
+                    for (int z = 0; z < 9; z++) {
+                        helper.assertBlockNotPresent(Blocks.FIRE, new BlockPos(x, y, z));
                     }
                 }
-            } finally {
-                rule.set(saved, helper.getLevel().getServer());
             }
-            helper.succeed();
-            LOGGER.info("LEFTOVERS-GAMETEST PASS groundFireRespectsMobGriefing");
-        });
+        } finally {
+            fire.discard();
+            rule.set(saved, helper.getLevel().getServer());
+        }
+        helper.succeed();
+        LOGGER.info("LEFTOVERS-GAMETEST PASS groundFireRespectsMobGriefing");
     }
 
     /** A serpent fated to turn at life tick 60 glows red for a second first, then goes rogue. */

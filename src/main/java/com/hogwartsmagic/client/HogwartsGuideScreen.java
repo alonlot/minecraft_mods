@@ -285,7 +285,7 @@ public class HogwartsGuideScreen extends Screen {
                 page("potions", "felix_felicis", 5),
                 page("potions", "felix_felicis_patience", 3),
                 page("potions", "potion_of_remorse", 6),
-                page("potions", "where_ingredients_grow", 4),
+                page("potions", "where_ingredients_grow", 5),
                 page("potions", "turned_to_stone", 3)
         ));
 

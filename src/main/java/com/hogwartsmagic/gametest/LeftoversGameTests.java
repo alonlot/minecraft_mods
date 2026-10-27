@@ -555,6 +555,39 @@ public final class LeftoversGameTests {
         LOGGER.info("LEFTOVERS-GAMETEST PASS oldCauldronSaveLoadsAsStandard");
     }
 
+    /** A wild dittany plant drops a fine leaf (beside the plain one); a planted one drops no fine leaf. */
+    @GameTest(template = EMPTY, timeoutTicks = 60)
+    public static void wildDittanyDropsFineLeaves(GameTestHelper helper) {
+        BlockPos pos = new BlockPos(1, 1, 1);
+        BlockPos abs = helper.absolutePos(pos);
+        for (boolean wild : new boolean[] {true, false}) {
+            net.minecraft.world.level.block.state.BlockState state = ExampleMod.DITTANY_PLANT.get().defaultBlockState()
+                    .setValue(com.hogwartsmagic.block.DittanyPlantBlock.WILD, wild);
+            helper.setBlock(pos, state);
+            java.util.List<net.minecraft.world.item.ItemStack> drops =
+                    net.minecraft.world.level.block.Block.getDrops(state, helper.getLevel(), abs, null);
+            int fine = 0;
+            int plain = 0;
+            for (net.minecraft.world.item.ItemStack s : drops) {
+                if (!s.is(ExampleMod.DITTANY.get())) {
+                    continue;
+                }
+                if (s.getOrDefault(ExampleMod.FINE_INGREDIENT.get(), false)) {
+                    fine += s.getCount();
+                } else {
+                    plain += s.getCount();
+                }
+            }
+            if (wild) {
+                helper.assertTrue(fine == 1 && plain == 1, "wild dittany should drop 1 fine + 1 plain leaf, got fine=" + fine + " plain=" + plain);
+            } else {
+                helper.assertTrue(fine == 0 && plain == 1, "planted dittany should drop 1 plain leaf, got fine=" + fine + " plain=" + plain);
+            }
+        }
+        helper.succeed();
+        LOGGER.info("LEFTOVERS-GAMETEST PASS wildDittanyDropsFineLeaves");
+    }
+
     private static net.minecraft.nbt.CompoundTag historyEntry(String kind, String item, int amount) {
         net.minecraft.nbt.CompoundTag entry = new net.minecraft.nbt.CompoundTag();
         entry.putString("Kind", kind);

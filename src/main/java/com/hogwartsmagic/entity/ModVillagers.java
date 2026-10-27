@@ -152,6 +152,12 @@ public class ModVillagers {
         return new ItemStack(item.get(), n);
     }
 
+    /** Marks a stack as a fine ingredient (it brews a stronger potion). */
+    private static ItemStack fine(ItemStack stack) {
+        stack.set(ExampleMod.FINE_INGREDIENT.get(), true);
+        return stack;
+    }
+
     // Vanilla stock is a plain Item, mod stock is a RegistryObject; overloads so the trade tables
     // below read the same either way.
     private static ItemStack one(Item item) {
@@ -197,6 +203,9 @@ public class ModVillagers {
             sells(event, 3, 14, 5, one(ExampleMod.ARCANE_DUST), 10, 10);
             sells(event, 3, 12, 4, one(ExampleMod.WIZARD_CAULDRON_ITEM), 4, 10);
             sells(event, 4, 22, 6, one(ExampleMod.POLYJUICE_POTION), 3, 15);
+            sells(event, 4, 14, 4, fine(one(ExampleMod.ASPHODEL)), 6, 15);
+            sells(event, 4, 12, 3, fine(some(ExampleMod.WORMWOOD, 2)), 6, 15);
+            sells(event, 4, 10, 3, fine(some(ExampleMod.VALERIAN_SPRIGS, 2)), 6, 15);
             sells(event, 5, 30, 8, one(ExampleMod.ARCANE_CORE), 2, 25);
 
         } else if (p == BOOKSELLER.get()) {

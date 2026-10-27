@@ -679,4 +679,66 @@ public final class LeftoversGameTests {
         helper.succeed();
         LOGGER.info("LEFTOVERS-GAMETEST PASS creativeKeepsItsTome");
     }
+
+    /** The real order: the EntityInteract event first (a villager would open its trade screen after it), then the entity. */
+    private static net.minecraft.world.InteractionResult clickWith(ServerPlayer player, net.minecraft.world.entity.LivingEntity target) {
+        var hand = net.minecraft.world.InteractionHand.MAIN_HAND;
+        var event = new net.minecraftforge.event.entity.player.PlayerInteractEvent.EntityInteract(player, hand, target);
+        net.minecraftforge.common.MinecraftForge.EVENT_BUS.post(event);
+        return event.isCanceled() ? event.getCancellationResult() : player.interactOn(target, hand);
+    }
+
+    /** A plain right-click: the confession happens, no trade screen opens, and a refusal keeps the dose. */
+    @GameTest(template = EMPTY, timeoutTicks = 60)
+    public static void veritaserumReachesAVillagerOnAPlainClick(GameTestHelper helper) {
+        ServerPlayer player = survivalPlayerWithDarkness(helper, "veritaserum-click", 0.0f);
+        Villager villager = helper.spawn(EntityType.VILLAGER, new Vec3(1.5, 2, 1.5));
+        villager.setNoAi(true);
+        try {
+            var hand = net.minecraft.world.InteractionHand.MAIN_HAND;
+            java.util.UUID id = player.getUUID();
+            int before = villager.getGossips().getReputation(id, t -> true);
+            player.setItemInHand(hand, new net.minecraft.world.item.ItemStack(ExampleMod.VERITASERUM.get()));
+            var result = clickWith(player, villager);
+            helper.assertTrue(result.consumesAction(), "the click should be consumed");
+            helper.assertTrue(player.containerMenu == player.inventoryMenu, "no trade screen may open");
+            int after = villager.getGossips().getReputation(id, t -> true);
+            helper.assertTrue(after - before == 25, "the villager should confess for 25, was " + (after - before));
+            helper.assertTrue(player.getItemInHand(hand).is(net.minecraft.world.item.Items.GLASS_BOTTLE), "the dose should be spent");
+
+            player.setItemInHand(hand, new net.minecraft.world.item.ItemStack(ExampleMod.VERITASERUM.get()));
+            clickWith(player, villager);
+            helper.assertTrue(player.containerMenu == player.inventoryMenu, "a refusal must not open the trade screen either");
+            helper.assertTrue(villager.getGossips().getReputation(id, t -> true) == after, "a second click must add nothing");
+            helper.assertTrue(player.getItemInHand(hand).is(ExampleMod.VERITASERUM.get()), "a refusal must keep the dose");
+        } finally {
+            villager.discard();
+            leave(helper, player);
+        }
+        helper.succeed();
+        LOGGER.info("LEFTOVERS-GAMETEST PASS veritaserumReachesAVillagerOnAPlainClick");
+    }
+
+    /** With PvP off another player is refused and the dose is kept. */
+    @GameTest(template = EMPTY, timeoutTicks = 60)
+    public static void veritaserumRefusesAPlayerWhenPvpIsOff(GameTestHelper helper) {
+        var server = helper.getLevel().getServer();
+        boolean savedPvp = server.isPvpAllowed();
+        server.setPvpAllowed(false);
+        ServerPlayer giver = survivalPlayerWithDarkness(helper, "veritaserum-giver2", 0.0f);
+        ServerPlayer target = survivalPlayerWithDarkness(helper, "veritaserum-target", 0.0f);
+        try {
+            var hand = net.minecraft.world.InteractionHand.MAIN_HAND;
+            giver.setItemInHand(hand, new net.minecraft.world.item.ItemStack(ExampleMod.VERITASERUM.get()));
+            clickWith(giver, target);
+            helper.assertTrue(giver.getItemInHand(hand).is(ExampleMod.VERITASERUM.get()), "the dose must not be used");
+            helper.assertTrue(!target.hasEffect(net.minecraft.world.effect.MobEffects.GLOWING), "the target must not glow");
+        } finally {
+            server.setPvpAllowed(savedPvp);
+            leave(helper, target);
+            leave(helper, giver);
+        }
+        helper.succeed();
+        LOGGER.info("LEFTOVERS-GAMETEST PASS veritaserumRefusesAPlayerWhenPvpIsOff");
+    }
 }

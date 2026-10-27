@@ -33,6 +33,8 @@ public final class PotionRules {
     public static final int VERITASERUM_GLOW_TICKS = 600;
     public static final int VERITASERUM_SELF_GLOW_TICKS = 200;
     public static final double VERITASERUM_ACCOMPLICE_RADIUS = 48.0;
+    /** How long Veritaserum shows a cloaked player. */
+    public static final int VERITASERUM_CLOAK_REVEAL_TICKS = 200;
 
     public static final double VALERIAN_RUIN_CAMP_CHANCE = 0.25;
     public static final double ASHWINDER_DEATH_EATER_CAMP_CHANCE = 0.10;

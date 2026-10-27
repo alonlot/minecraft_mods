@@ -221,7 +221,11 @@ public class BrewedPotionItem extends Item {
     /** Persistent villager key: the game time of the last confession. */
     public static final String VERITASERUM_AT = "hogwartsmagic:veritaserum_at";
 
-    private static net.minecraft.world.InteractionResult useVeritaserum(ItemStack stack, Player player, LivingEntity target,
+    /**
+     * The Veritaserum logic, shared by the item hook and by ModEvents' EntityInteract handler (a plain right-click on a
+     * villager reaches the trade screen before the item hook ever runs). PASS means: not a Veritaserum target.
+     */
+    public static net.minecraft.world.InteractionResult useVeritaserum(ItemStack stack, Player player, LivingEntity target,
                                                                         InteractionHand hand) {
         boolean villager = target instanceof net.minecraft.world.entity.npc.Villager v && !v.isBaby();
         boolean wizard = target instanceof com.hogwartsmagic.entity.WizardEntity;
@@ -272,14 +276,15 @@ public class BrewedPotionItem extends Item {
             if (!(target instanceof ServerPlayer victim) || !(player instanceof ServerPlayer giver)) {
                 return net.minecraft.world.InteractionResult.PASS;
             }
-            if (!(level.getServer().isPvpAllowed() && giver.canHarmPlayer(victim))) {
+            if (victim.isCreative() || victim.isSpectator()
+                    || !(level.getServer().isPvpAllowed() && giver.canHarmPlayer(victim))) {
                 player.displayClientMessage(Component.translatable("message.hogwartsmagic.veritaserum.refuses",
                         victim.getDisplayName()), true);
                 return net.minecraft.world.InteractionResult.CONSUME;
             }
             com.hogwartsmagic.event.ModEvents.breakPolyjuiceDisguise(victim);
             com.hogwartsmagic.event.ModEvents.revealInvisibilityCloak(victim,
-                    com.hogwartsmagic.brewing.PotionRules.qualityTicks(200, grade));
+                    com.hogwartsmagic.brewing.PotionRules.qualityTicks(com.hogwartsmagic.brewing.PotionRules.VERITASERUM_CLOAK_REVEAL_TICKS, grade));
             victim.addEffect(new MobEffectInstance(MobEffects.GLOWING,
                     com.hogwartsmagic.brewing.PotionRules.qualityTicks(com.hogwartsmagic.brewing.PotionRules.VERITASERUM_GLOW_TICKS, grade), 0));
             victim.displayClientMessage(Component.translatable("message.hogwartsmagic.veritaserum.victim"), true);

@@ -429,6 +429,25 @@ public class ModEvents {
         }
     }
 
+    /**
+     * Veritaserum on a villager, Death Eater or player. Entity.interact runs before the item's own hook, and a
+     * villager opens its trade screen there, so the potion is handled here and the event cancelled with its result.
+     */
+    @SubscribeEvent
+    public static void onVeritaserumInteract(PlayerInteractEvent.EntityInteract event) {
+        if (event.getLevel().isClientSide() || !(event.getItemStack().getItem() instanceof com.hogwartsmagic.item.BrewedPotionItem potion)
+                || potion.kind() != com.hogwartsmagic.item.BrewedPotionItem.Kind.VERITASERUM
+                || !(event.getTarget() instanceof LivingEntity target)) {
+            return;
+        }
+        net.minecraft.world.InteractionResult result = potion.interactLivingEntity(event.getItemStack(), event.getEntity(),
+                target, event.getHand());
+        if (result != net.minecraft.world.InteractionResult.PASS) {
+            event.setCancellationResult(result);
+            event.setCanceled(true);
+        }
+    }
+
     @SubscribeEvent
     public static void onEntityInteractSpecific(PlayerInteractEvent.EntityInteractSpecific event) {
         if (!event.getItemStack().is(ExampleMod.OWL_ROUTE_TAG.get())) {

@@ -809,7 +809,18 @@ public final class PensieveSessions {
         }
         // A hand-over asked for mid-scene first lets the scene on screen fade to black.
         if (s.handOverAsked && now < s.handOverNotBefore) return;
-        if (!next.built || (next.recording != null && !RecordingStore.clientBlobReady(next.recording.id()))) return;
+        if (!next.built) return;
+        if (next.recording != null && !RecordingStore.clientBlobReady(next.recording.id())) {
+            // Its client form is still (or again) being prepared off-thread. Ask again, and give up after the same
+            // wait a dive gives, so a recording that cannot load never holds the viewers and the slot forever.
+            RecordingStore.prefetch(server, next.recording.id());
+            if (++s.handoverWaitTicks > BLOB_WAIT_TICKS) {
+                LOGGER.error("Pensieve: recording {} never got a client form; ending '{}' instead of handing over",
+                        next.recording.id(), s.sceneId());
+                endScene(server, s);
+            }
+            return;
+        }
         s.nextSession = null;
         next.standby = false;
         next.basinTicket = s.basinTicket;

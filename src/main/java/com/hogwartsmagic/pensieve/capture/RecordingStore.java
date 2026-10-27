@@ -45,6 +45,9 @@ public final class RecordingStore {
                 }
             });
     private static final Set<UUID> WARNED = Collections.synchronizedSet(new HashSet<>());
+    /** When (ms) a prefetch last failed to produce a client form, so a missing recording is not re-read every tick. */
+    private static final Map<UUID, Long> FAILED = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final long RETRY_MS = 1000;
     private static final Set<UUID> LOADING = Collections.synchronizedSet(new HashSet<>());
     @Nullable
     private static volatile Function<UUID, Optional<Recording>> override;
@@ -113,12 +116,22 @@ public final class RecordingStore {
             return;
         }
         Entry cached = CACHE.get(id);
-        if ((cached != null && cached.clientBlob != null) || !LOADING.add(id)) {
+        Long failed = FAILED.get(id);
+        if ((cached != null && cached.clientBlob != null)
+                || (failed != null && System.currentTimeMillis() - failed < RETRY_MS) || !LOADING.add(id)) {
             return;
         }
         CompletableFuture.runAsync(() -> load(server, id), Util.ioPool())
                 .thenRunAsync(() -> clientBlob(id), Util.backgroundExecutor())
-                .whenComplete((v, e) -> LOADING.remove(id));
+                .whenComplete((v, e) -> {
+                    Entry done = CACHE.get(id);
+                    if (e != null || done == null || done.clientBlob == null) {
+                        FAILED.put(id, System.currentTimeMillis());
+                    } else {
+                        FAILED.remove(id);
+                    }
+                    LOADING.remove(id);
+                });
     }
 
     /** Whether {@link #readyClientBlob} would answer at once. */
@@ -175,6 +188,7 @@ public final class RecordingStore {
     public static void clearCache() {
         CACHE.clear();
         WARNED.clear();
+        FAILED.clear();
     }
 
     /** Tests: replaces disk loading. Null restores it. */

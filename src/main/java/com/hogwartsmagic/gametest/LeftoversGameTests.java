@@ -659,4 +659,24 @@ public final class LeftoversGameTests {
         helper.succeed();
         LOGGER.info("LEFTOVERS-GAMETEST PASS veritaserumMakesAVillagerConfessOnce");
     }
+
+    /** A creative player raises a spell with a tome and keeps the tome. */
+    @GameTest(template = EMPTY, timeoutTicks = 60)
+    public static void creativeKeepsItsTome(GameTestHelper helper) {
+        ServerPlayer player = survivalPlayerWithDarkness(helper, "creative-tome", 0.0f);
+        try {
+            player.setGameMode(net.minecraft.world.level.GameType.CREATIVE);
+            com.hogwartsmagic.item.MagicBookItem.learnSpellIfAbsent(player, com.hogwartsmagic.spell.SpellType.LUMOS);
+            player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
+                    com.hogwartsmagic.item.TomeOfMasteryItem.stackFor(com.hogwartsmagic.spell.SpellLootRarity.COMMON));
+            helper.assertTrue(com.hogwartsmagic.item.TomeOfMasteryItem.tryRaise(player, true, "lumos"),
+                    "a learned Common spell should be raised");
+            helper.assertTrue(player.getMainHandItem().getCount() == 1,
+                    "creative keeps the tome, have " + player.getMainHandItem().getCount());
+        } finally {
+            leave(helper, player);
+        }
+        helper.succeed();
+        LOGGER.info("LEFTOVERS-GAMETEST PASS creativeKeepsItsTome");
+    }
 }

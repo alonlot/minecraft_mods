@@ -137,7 +137,9 @@ public class TomeOfMasteryItem extends Item {
             return false;
         }
         SpellMasteryData.setXp(player, spell, nextXp);
-        stack.shrink(1);
+        if (!player.hasInfiniteMaterials()) {
+            stack.shrink(1);
+        }
         MasteryAwards.celebrate(player, spell, SpellMasteryData.getRank(player, spell));
         return true;
     }

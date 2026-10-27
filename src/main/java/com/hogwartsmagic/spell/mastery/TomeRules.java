@@ -2,6 +2,8 @@ package com.hogwartsmagic.spell.mastery;
 
 import com.hogwartsmagic.spell.SpellLootRarity;
 
+import java.util.Set;
+
 /**
  * The Tome of Mastery rules, kept free of Minecraft types so they are unit-tested directly.
  * A tome raises spells of its own tier or below, by exactly one rank, and a chest gives at most
@@ -9,6 +11,50 @@ import com.hogwartsmagic.spell.SpellLootRarity;
  */
 public final class TomeRules {
     private TomeRules() {
+    }
+
+    /** Loot tables whose every chest is endgame: Rare and Epic tomes can drop. */
+    public static final Set<String> ENDGAME_TABLES = Set.of(
+            "hogwartsmagic:chests/gringotts_vault",
+            "hogwartsmagic:chests/chamber_of_secrets",
+            "minecraft:chests/trial_chambers/reward_ominous",
+            "minecraft:chests/trial_chambers/reward_ominous_common",
+            "minecraft:chests/trial_chambers/reward_ominous_rare",
+            "minecraft:chests/trial_chambers/reward_ominous_unique"
+    );
+
+    /** Dungeon-tier vanilla tables: Rare tomes can drop, Epic cannot. */
+    public static final Set<String> DUNGEON_TIER_TABLES = Set.of(
+            "minecraft:chests/simple_dungeon",
+            "minecraft:chests/abandoned_mineshaft",
+            "minecraft:chests/desert_pyramid",
+            "minecraft:chests/jungle_temple",
+            "minecraft:chests/stronghold_library",
+            "minecraft:chests/stronghold_corridor",
+            "minecraft:chests/stronghold_crossing",
+            "minecraft:chests/ancient_city",
+            "minecraft:chests/ancient_city_ice_box",
+            "minecraft:chests/woodland_mansion",
+            "minecraft:chests/end_city_treasure",
+            "minecraft:chests/bastion_treasure",
+            "minecraft:chests/bastion_other",
+            "minecraft:chests/bastion_bridge",
+            "minecraft:chests/bastion_hoglin_stable",
+            "minecraft:chests/nether_bridge",
+            "minecraft:chests/buried_treasure",
+            "minecraft:chests/shipwreck_treasure",
+            "minecraft:chests/trial_chambers/reward",
+            "minecraft:chests/trial_chambers/reward_common",
+            "minecraft:chests/trial_chambers/reward_rare",
+            "minecraft:chests/trial_chambers/reward_unique"
+    );
+
+    public static boolean isEndgameTable(String id) {
+        return ENDGAME_TABLES.contains(id);
+    }
+
+    public static boolean isDungeonTierTable(String id) {
+        return DUNGEON_TIER_TABLES.contains(id);
     }
 
     /** Tiers compare by ordinal: COMMON < UNCOMMON < RARE < EPIC. */

@@ -18,6 +18,7 @@ public final class WindowRules {
         if (ownerTicks.length > 0) {
             start = Math.max(start, ownerTicks[0]);
         }
+        // Trade-off: island cells beyond the watched square may not be rewound (fidelity vs memory length).
         double far = radius + WATCH_MARGIN;
         for (int i = 0; i < ownerTicks.length; i++) {
             double x = ownerXyz[i * 3];

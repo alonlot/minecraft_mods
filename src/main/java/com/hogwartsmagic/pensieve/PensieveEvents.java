@@ -28,6 +28,32 @@ public final class PensieveEvents {
     private PensieveEvents() {
     }
 
+    /**
+     * The memory dimension holds players and nothing else. Rebuilt islands run their redstone and fire onPlace, so
+     * a torch could fuse TNT or a piston could drop items there; they would outlive the session in a reused slot.
+     * No server-side code puts an entity into the memory level (the scene's creatures are client-side puppets, and
+     * a viewer's body stands in the real world), so everything but players and the body is refused.
+     */
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public static void onEntityJoin(net.minecraftforge.event.entity.EntityJoinLevelEvent event) {
+        if (!event.getLevel().isClientSide && isMemoryLevel(event.getLevel())
+                && !(event.getEntity() instanceof Player) && !(event.getEntity() instanceof PensieveBodyEntity)) {
+            event.setCanceled(true);
+        }
+    }
+
+    @org.jetbrains.annotations.Nullable
+    private static volatile net.minecraft.world.level.Level testMemory;
+
+    /** Gametests: treat this level as the memory dimension (the test server has none). Null restores. */
+    public static void overrideMemoryForTests(@org.jetbrains.annotations.Nullable net.minecraft.world.level.Level level) {
+        testMemory = level;
+    }
+
+    private static boolean isMemoryLevel(net.minecraft.world.level.Level level) {
+        return PensieveDimension.isMemory(level) || level == testMemory;
+    }
+
     @SubscribeEvent
     public static void onAddReloadListeners(AddReloadListenerEvent event) {
         event.addListener(new MemoryRegistry());

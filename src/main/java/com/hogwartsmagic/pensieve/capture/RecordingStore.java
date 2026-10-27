@@ -107,6 +107,21 @@ public final class RecordingStore {
         }
     }
 
+    /** Never touches the disk: from the cache (or the test override) only. Empty also while it is still loading. */
+    public static Optional<Recording> loadCached(UUID id) {
+        Function<UUID, Optional<Recording>> fn = override;
+        if (fn != null) {
+            return fn.apply(id);
+        }
+        Entry cached = CACHE.get(id);
+        return cached == null ? Optional.empty() : Optional.of(cached.recording);
+    }
+
+    /** Whether the last background load of this recording failed (missing, unreadable, from another world). */
+    public static boolean failedToLoad(UUID id) {
+        return FAILED.containsKey(id);
+    }
+
     /**
      * Starts loading a recording in the background, then encoding its client form there too, so neither the next
      * {@link #load} nor {@link #readyClientBlob} costs the server thread anything. Idempotent while one is running.

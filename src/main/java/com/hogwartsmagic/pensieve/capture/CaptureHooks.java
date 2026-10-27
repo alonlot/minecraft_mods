@@ -211,8 +211,20 @@ public final class CaptureHooks {
 
     // ---- chat ----
 
+    /** Whispers (/msg, /tell) and team messages, both directions: never recorded. */
+    public static boolean isPrivateChatType(Holder<net.minecraft.network.chat.ChatType> type) {
+        return type.is(net.minecraft.network.chat.ChatType.MSG_COMMAND_INCOMING)
+                || type.is(net.minecraft.network.chat.ChatType.MSG_COMMAND_OUTGOING)
+                || type.is(net.minecraft.network.chat.ChatType.TEAM_MSG_COMMAND_INCOMING)
+                || type.is(net.minecraft.network.chat.ChatType.TEAM_MSG_COMMAND_OUTGOING);
+    }
+
     public static void onChat(ServerPlayer receiver, @Nullable String sender, String text) {
         try {
+            // CaptureLogs.CHAT is a plain map: a mod sending a message from another thread must not touch it.
+            if (!receiver.server.isSameThread()) {
+                return;
+            }
             if (!com.hogwartsmagic.Config.pensieveCaptureEnabled || PensieveDimension.isMemory(receiver.level())) {
                 return;
             }
@@ -231,6 +243,9 @@ public final class CaptureHooks {
     /** The player jumped, changed dimension, respawned or logged in: a memory must start after now. */
     public static void markDiscontinuity(ServerPlayer player) {
         try {
+            if (!player.server.isSameThread()) {
+                return;
+            }
             CaptureLogs.chat(player.getUUID()).lastDiscontinuity = player.level().getGameTime();
         } catch (Throwable t) {
             fail(t);

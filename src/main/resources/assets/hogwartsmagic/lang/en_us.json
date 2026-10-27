@@ -1017,6 +1017,7 @@
   "message.hogwartsmagic.pensieve.capture.disabled": "Drawing memories is switched off on this server.",
   "message.hogwartsmagic.pensieve.capture.failed": "The memory slipped away. Try again.",
   "message.hogwartsmagic.pensieve.memory_faded": "This memory has faded.",
+  "message.hogwartsmagic.pensieve.memory_surfacing": "The memory is still surfacing. Try again in a moment.",
   "subtitles.hogwartsmagic.pensieve.capture": "A memory is drawn out",
   "item.hogwartsmagic.chamber_memory": "Memory of the Chamber",
   "item.hogwartsmagic.summoning_memory": "Memory of the Summoning",

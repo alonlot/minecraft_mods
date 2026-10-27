@@ -203,7 +203,7 @@ public final class PensieveSessions {
         Session s = BY_VIEWER.get(player.getUUID());
         if (s == null || s.recording == null) return false;
         Session.Viewer v = s.viewers().get(player.getUUID());
-        return v != null && (v.stage == Session.Viewer.Stage.INSIDE || v.stage == Session.Viewer.Stage.EXITING);
+        return v != null && (v.stage == Session.Viewer.Stage.INSIDE || (v.stage == Session.Viewer.Stage.EXITING && v.crossed));
     }
 
     /** True while anyone is inside the memory playing from this basin (for the take-out rule). */
@@ -319,7 +319,13 @@ public final class PensieveSessions {
         String id = memoryItem.sceneId(stack);
         Optional<MemoryRegistry.LoadedScene> scene = lookup(id);
         if (scene.isEmpty()) {
-            if (RecordingScene.idOf(id).isPresent()) {
+            Optional<java.util.UUID> recId = RecordingScene.idOf(id);
+            if (recId.isPresent() && !RecordingStore.failedToLoad(recId.get())) {
+                // Still being read from the world save (lookup started that): ask the diver to try again.
+                player.displayClientMessage(Component.translatable("message.hogwartsmagic.pensieve.memory_surfacing"), true);
+                return;
+            }
+            if (recId.isPresent()) {
                 // A recording that is missing, corrupt, from a newer format or from another world: the memory fades.
                 LOGGER.warn("Pensieve: the recording '{}' for the memory in the basin at {} could not be loaded", id, pos);
                 player.displayClientMessage(Component.translatable("message.hogwartsmagic.pensieve.memory_faded"), true);
@@ -446,7 +452,11 @@ public final class PensieveSessions {
         Optional<java.util.UUID> uuid = RecordingScene.idOf(id);
         MinecraftServer server = initServer;
         if (uuid.isEmpty() || server == null) return Optional.empty();
-        return RecordingStore.load(server, uuid.get());
+        // Never from disk on the server thread: a cold recording starts loading in the background and reads as
+        // absent until it is cached (callers that care ask for it again; see startOrJoin).
+        Optional<Recording> cached = RecordingStore.loadCached(uuid.get());
+        if (cached.isEmpty()) RecordingStore.prefetch(server, uuid.get());
+        return cached;
     }
 
     private static Optional<MemoryRegistry.LoadedScene> lookup(String id) {
@@ -1340,6 +1350,21 @@ public final class PensieveSessions {
         BY_VIEWER.remove(v.id(), s);
     }
 
+    /** Discards whatever non-player entity ended up in a slot's cell (the join guard should leave none). */
+    private static int sweepEntities(ServerLevel level, BlockPos origin) {
+        return sweepEntities(level, origin, RegionAllocator.SPACING / 2);
+    }
+
+    /** As above over a square of half-width {@code half} blocks (tests use a small one). */
+    public static int sweepEntities(ServerLevel level, BlockPos origin, int half) {
+        net.minecraft.world.phys.AABB box = new net.minecraft.world.phys.AABB(origin.getX() - half, level.getMinBuildHeight(),
+                origin.getZ() - half, origin.getX() + half, level.getMaxBuildHeight(), origin.getZ() + half);
+        List<net.minecraft.world.entity.Entity> stray = level.getEntities((net.minecraft.world.entity.Entity) null, box,
+                e -> !(e instanceof Player));
+        for (net.minecraft.world.entity.Entity e : stray) e.discard();
+        return stray.size();
+    }
+
     /**
      * Last viewer gone (or all handed over): release the builder's tickets first (shared ticket type), then clear
      * and free the slot. A standby next scene goes with it.
@@ -1359,6 +1384,7 @@ public final class PensieveSessions {
             placed.addAll(s.builder.placed());
         }
         placed.addAll(s.eventPlaced);
+        sweepEntities(s.level, s.origin());
         if (placed.isEmpty()) {
             RegionData.get(s.level).remove(s.slot());
             allocator.release(s.slot());

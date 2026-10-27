@@ -18,6 +18,9 @@ public abstract class ServerPlayerChatCaptureMixin {
             at = @At("HEAD"))
     private void hogwartsmagic$captureChat(OutgoingChatMessage message, boolean filtered, ChatType.Bound bound,
                                            CallbackInfo ci) {
+        if (CaptureHooks.isPrivateChatType(bound.chatType())) {
+            return; // whispers and team messages are the owner's alone, not for every viewer of the memory
+        }
         CaptureHooks.onChatComponent((ServerPlayer) (Object) this, bound.name(), message.content());
     }
 

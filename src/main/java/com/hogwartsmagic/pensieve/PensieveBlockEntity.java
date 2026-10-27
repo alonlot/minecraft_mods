@@ -107,6 +107,17 @@ public class PensieveBlockEntity extends BlockEntity {
     }
 
     @Override
+    public void onLoad() {
+        super.onLoad();
+        // After a restart a poured recorded memory is not cached: warm it so the first dive does not wait.
+        if (level instanceof net.minecraft.server.level.ServerLevel serverLevel && !memory.isEmpty()
+                && memory.getItem() instanceof PensieveMemory recorded) {
+            com.hogwartsmagic.pensieve.capture.RecordingScene.idOf(recorded.sceneId(memory)).ifPresent(
+                    id -> com.hogwartsmagic.pensieve.capture.RecordingStore.prefetch(serverLevel.getServer(), id));
+        }
+    }
+
+    @Override
     public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
         CompoundTag tag = super.getUpdateTag(registries);
         tag.putBoolean("Playing", playing);

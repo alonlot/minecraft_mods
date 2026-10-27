@@ -1260,6 +1260,7 @@ public class SpellPackets {
             }
             // Dark Magic: a paid dark cast darkens the payer, hit or miss (a puppet cast charges the puppeteer).
             com.hogwartsmagic.spell.dark.DarkMagicData.onDarkCastPaid(player, spell);
+            com.hogwartsmagic.pensieve.capture.CaptureHooks.onCast(player, spell.getId());
 
             if (p.selfCastProtego) {
                 spell.applyHitEffect(player, player);

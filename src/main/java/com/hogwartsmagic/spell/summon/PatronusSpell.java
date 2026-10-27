@@ -42,6 +42,8 @@ public final class PatronusSpell {
         patronus.setYHeadRot(player.getYRot());
         patronus.setYBodyRot(player.getYRot());
         patronus.setFormId(form.id());
+        patronus.setOwner(player.getUUID());
+        patronus.setMasterAura(PatronusRules.masterAura(rank));
         player.level().addFreshEntity(patronus);
         return patronus;
     }

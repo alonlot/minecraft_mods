@@ -266,4 +266,67 @@ public final class LeftoversGameTests {
         helper.succeed();
         LOGGER.info("LEFTOVERS-GAMETEST PASS parseltongueRespectsPvp");
     }
+
+    /** A Master Patronus pushes a zombie 3 blocks away out past 3.5 blocks; one without the aura leaves its zombie be. */
+    @GameTest(template = EMPTY, timeoutTicks = 100, batch = "leftovers_patronus")
+    public static void masterPatronusRepelsUndead(GameTestHelper helper) {
+        // The pairs sit 10 blocks apart, outside the 3x3x3 template, so neither Patronus follows or lights anything but its own pair.
+        com.hogwartsmagic.entity.PatronusEntity master = patronusAt(helper, new Vec3(1.5, 2, 1.5), true);
+        Zombie near = noAiZombie(helper, new Vec3(4.5, 2, 1.5));
+        com.hogwartsmagic.entity.PatronusEntity plain = patronusAt(helper, new Vec3(1.5, 2, 11.5), false);
+        Zombie calm = noAiZombie(helper, new Vec3(4.5, 2, 11.5));
+        helper.runAfterDelay(40, () -> {
+            double pushed = near.position().distanceTo(master.position());
+            double kept = calm.position().distanceTo(plain.position());
+            master.discard();
+            plain.discard();
+            near.discard();
+            calm.discard();
+            helper.assertTrue(pushed > 3.5, "the zombie should be driven past 3.5 blocks, was " + pushed);
+            helper.assertTrue(kept <= 3.2, "without the aura the zombie should stay put, was " + kept);
+            helper.succeed();
+            LOGGER.info("LEFTOVERS-GAMETEST PASS masterPatronusRepelsUndead");
+        });
+    }
+
+    /** The caster of a Master Patronus standing 2 blocks away has Night Vision within a few seconds. */
+    @GameTest(template = EMPTY, timeoutTicks = 100, batch = "leftovers_patronus")
+    public static void masterPatronusGivesNightVision(GameTestHelper helper) {
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        Vec3 at = helper.absoluteVec(new Vec3(1.5, 2, 1.5));
+        player.moveTo(at.x, at.y, at.z);
+        com.hogwartsmagic.entity.PatronusEntity master = patronusAt(helper, new Vec3(1.5, 2, 1.5), true);
+        master.setOwner(player.getUUID());
+        master.moveTo(at.x + 2.0, at.y, at.z);
+        helper.runAfterDelay(45, () -> {
+            boolean has = player.hasEffect(net.minecraft.world.effect.MobEffects.NIGHT_VISION);
+            master.discard();
+            player.discard();
+            helper.assertTrue(has, "the caster should have Night Vision");
+            helper.succeed();
+            LOGGER.info("LEFTOVERS-GAMETEST PASS masterPatronusGivesNightVision");
+        });
+    }
+
+    private static com.hogwartsmagic.entity.PatronusEntity patronusAt(GameTestHelper helper, Vec3 rel, boolean aura) {
+        com.hogwartsmagic.entity.PatronusEntity p = new com.hogwartsmagic.entity.PatronusEntity(ModEntities.PATRONUS.get(), helper.getLevel());
+        Vec3 at = helper.absoluteVec(rel);
+        p.moveTo(at.x, at.y, at.z);
+        p.setMasterAura(aura);
+        p.setNoAi(true);
+        helper.getLevel().addFreshEntity(p);
+        return p;
+    }
+
+    private static Zombie noAiZombie(GameTestHelper helper, Vec3 rel) {
+        Zombie z = new Zombie(helper.getLevel());
+        Vec3 at = helper.absoluteVec(rel);
+        z.moveTo(at.x, at.y, at.z);
+        // A truly no-AI mob never travels, so it could not be pushed: keep the AI on but give it no goals.
+        z.goalSelector.removeAllGoals(g -> true);
+        z.targetSelector.removeAllGoals(g -> true);
+        z.setNoGravity(true);
+        helper.getLevel().addFreshEntity(z);
+        return z;
+    }
 }

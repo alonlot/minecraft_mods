@@ -112,4 +112,25 @@ class PatronusRulesTest {
         pool[0] = PatronusForm.GENERIC;
         assertNotEquals(PatronusForm.GENERIC, PatronusForms.pool(0)[0]);
     }
+
+    @Test
+    void masterAuraOnlyAtMaster() {
+        assertFalse(PatronusRules.masterAura(3));
+        assertTrue(PatronusRules.masterAura(4));
+        assertTrue(PatronusRules.masterAura(9));
+    }
+
+    @Test
+    void repelsUndeadInsideSixBlocksButNotBosses() {
+        assertTrue(PatronusRules.repels(true, false, 36.0));
+        assertFalse(PatronusRules.repels(true, false, 36.01));
+        assertFalse(PatronusRules.repels(true, true, 1.0));
+        assertFalse(PatronusRules.repels(false, false, 1.0));
+    }
+
+    @Test
+    void nightVisionNeverFlickers() {
+        // Vanilla flickers Night Vision under 200 ticks; a refresh every 40 keeps it above that.
+        assertTrue(PatronusRules.NIGHT_VISION_TICKS - PatronusRules.NIGHT_VISION_INTERVAL > 200);
+    }
 }

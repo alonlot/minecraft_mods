@@ -168,7 +168,7 @@
   "subtitles.hogwartsmagic.horntail.tail_whip": "Tail crashes",
   "entity.hogwartsmagic.lycanthrope_villager": "Villager",
   "spell.hogwartsmagic.expecto_patronum": "Expecto Patronum",
-  "spell.hogwartsmagic.expecto_patronum.desc": "Hold to throw a shield of silver light that holds Dementors back while it drains your mana. Sometimes the charm answers in full and a corporeal Patronus takes the field: 15%% of casts at Novice, more as you rank up.",
+  "spell.hogwartsmagic.expecto_patronum.desc": "Hold to throw a shield of silver light that holds Dementors back while it drains your mana. Sometimes the charm answers in full and a corporeal Patronus takes the field: 15%% of casts at Novice, more as you rank up. A Master's Patronus follows you, lights the dark around you and drives the undead back.",
   "item.hogwartsmagic.magic_book": "Spellbook",
   "spell.hogwartsmagic.bombarda": "Bombarda",
   "spell.hogwartsmagic.bombarda.desc": "Blasts open walls and tunnels, breaking blocks around the impact (never bedrock, spawners, containers or warded blocks). Weaker against creatures than Confringo. Higher ranks blast wider and break harder stone; at Master it breaks obsidian.",

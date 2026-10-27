@@ -43,6 +43,7 @@ always produces byte-identical .nbt and the diffs stay honest.
 import math
 import os
 import sys
+import zlib
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -59,7 +60,19 @@ __all__ = [
     'villager', 'lantern', 'chain_lamp', 'connect_all', 'pitched_roof',
     'shopfront', 'ShopSpec', 'text_component', 'loot_chest', 'barrel',
     'flower_box', 'crate_pile', 'awning', 'bay_window',
+    'shash', 'fence_gate', 'wall_banner', 'door_x',
 ]
+
+
+def shash(text):
+    """A stable hash of a string.
+
+    Python's own `hash()` of a str is salted per process (PYTHONHASHSEED), so every shop's salt,
+    jitter and awning came out different on every run: the same source wrote a different street
+    each time, and the "byte-identical output" promise above was quietly false. CRC32 is the same
+    everywhere, forever.
+    """
+    return zlib.crc32(text.encode('utf-8'))
 
 
 # ---------------------------------------------------------------------------------------------
@@ -299,6 +312,34 @@ def barrel(b, pos, facing='up'):
     b[pos] = ('minecraft:barrel', {'facing': facing, 'open': 'false'}, None)
 
 
+def fence_gate(b, pos, wood, facing):
+    """A shut gate. `facing` is the way it swings open, so a gate in a wall running along X faces
+    north or south.
+
+    The reason shops have these rather than a gap in the counter: villagers open doors but cannot
+    open gates. With a gap, every shopkeeper eventually wandered out from behind the counter, out of
+    the door and into the street, and the alley filled up with Madam Malkins standing in puddles."""
+    b[pos] = ('minecraft:%s_fence_gate' % wood,
+              {'facing': facing, 'in_wall': 'false', 'open': 'false', 'powered': 'false'}, None)
+
+
+def wall_banner(b, pos, colour, facing, patterns=()):
+    """A banner hung flat against a wall. `patterns` is [(pattern, colour), ...] in 1.21 ids."""
+    name = 'minecraft:%s_wall_banner' % colour
+    layers = [('compound', {'pattern': ('string', 'minecraft:' + p), 'color': ('string', c)})
+              for p, c in patterns]
+    be = {'id': 'minecraft:banner'}
+    if layers:
+        be['patterns'] = ('list', 'compound', layers)
+    b[pos] = (name, {'facing': facing}, be)
+
+
+def door_x(s):
+    """Which column a shop's door is in. One rule, shared by the shopfront and by anything that has
+    to keep clear of the door (lamps, barrows, crates)."""
+    return s.x0 + 1 if (s.salt % 2) else s.x1 - 1
+
+
 # ---------------------------------------------------------------------------------------------
 # Connection pass
 # ---------------------------------------------------------------------------------------------
@@ -493,7 +534,7 @@ class ShopSpec:
         self.glass = glass or GLASS_LIT
         self.door_wood = door_wood
         self.chimneys, self.hip, self.awning, self.bay = chimneys, hip, awning, bay
-        self.salt = salt or (abs(hash(name)) % 9973)
+        self.salt = salt or (shash(name) % 9973)
 
     # -- derived geometry ----------------------------------------------------------------------
     @property
@@ -630,7 +671,7 @@ def _ground_floor(b, s, y0, y1, fz):
     salt = s.salt
     side = s.side
     x0, x1 = s.x0, s.x1
-    dx = x0 + 1 if (salt % 2) else x1 - 1          # door at one end, not the middle
+    dx = door_x(s)                                  # door at one end, not the middle
     out = s.facing_out
 
     # display window: the whole frontage except the door bay and the corner posts
@@ -657,8 +698,9 @@ def _ground_floor(b, s, y0, y1, fz):
          hinge='left' if dx == x0 + 1 else 'right')
     b[(dx, y0 + 2, fz)] = ('minecraft:brown_stained_glass_pane', {}, None)
     b[(dx, y0 + 3, fz)] = (tex(s.frame, dx, y0 + 3, fz, salt + 4), {'axis': 'x'}, None)
-    # a step up to the door
-    slab(b, (dx, 0, fz + side), 'minecraft:stone_brick_slab')
+    # A worn threshold stone in front of the door. This used to be a bottom slab *at street level*,
+    # which is not a step up to the door but a half-block pothole in front of every shop.
+    put(b, (dx, 0, fz + side), 'minecraft:smooth_stone')
 
     # bay window: one bay pushed a block out into the street, for depth
     if s.bay and s.width >= 9:
@@ -678,10 +720,13 @@ def _ground_floor(b, s, y0, y1, fz):
         for x in range(wx0, wx1 + 1):
             stair(b, (x, y0 + 3, fz + side), 'minecraft:dark_oak_stairs', s.facing_in, 'bottom')
 
-    # the sign, hung off a bracket at fascia height
+    # The sign, hung off a bracket at fascia height and turned end-on to the street, so it is read
+    # by people walking along the alley rather than only from the far kerb. It used to face out,
+    # which also left it hanging by nothing: a wall hanging sign holds on to the blocks either side
+    # of its board, and facing out those are both empty air in front of the shop.
     sx = x0 + 1 if dx != x0 + 1 else x1 - 1
-    hanging_sign(b, (sx, y1 - 1, fz + side), s.sign_wood, s.facing_out,
-                 _wrap_sign(s.sign), s.sign_colour, s.sign_glow)
+    hanging_sign(b, (sx, y1 - 1, fz + side), s.sign_wood, 'east',
+                 getattr(s, 'sign_lines', None) or _wrap_sign(s.sign), s.sign_colour, s.sign_glow)
     # street lamp on the other side of the door
     chain_lamp(b, dx + (1 if dx == x0 + 1 else -1), y1 - 1, fz + side, drop=1)
 
@@ -714,9 +759,11 @@ def _upper_windows(b, s, k, y0, y1, fz, studs):
                 if y <= y1 - 1:
                     b[(x, y, fz)] = (tex(s.glass, x, y, fz, salt + k), {}, None)
             slab(b, (x, y0, fz), 'minecraft:dark_oak_slab', 'top')     # sill
-        # a lantern one block in, so the panes glow
+        # A lantern one block in, so the panes glow -- standing on a barrel. It used to stand at
+        # sill height on nothing, floating a block above the floor in fifty-eight windows.
         if (salt + i + k) % 3 == 0:
-            lantern(b, (a, y0 + 2, fz - side), hanging=False)
+            barrel(b, (a, y0, fz - side))
+            lantern(b, (a, y0 + 1, fz - side), hanging=False)
         # a flower box under an occasional window
         if (salt + i * 7 + k) % 5 == 0:
             flower_box(b, a, c, y0, fz + side, salt + i)

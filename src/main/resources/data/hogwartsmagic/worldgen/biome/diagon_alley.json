@@ -8,7 +8,11 @@
     "water_color": 4159204,
     "water_fog_color": 329011,
     "grass_color": 8168791,
-    "foliage_color": 7842607
+    "foliage_color": 7842607,
+    "additions_sound": {
+      "sound": "hogwartsmagic:owl.ambient",
+      "tick_chance": 0.0012
+    }
   },
   "carvers": {},
   "features": [

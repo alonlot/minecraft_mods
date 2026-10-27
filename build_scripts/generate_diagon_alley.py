@@ -19,10 +19,14 @@ West to east, along +X:
                 the archway animation opens
     x 15..117   the alley proper: eight shops on the north terrace, nine on the south, and the
                 mouth of Knockturn Alley two thirds of the way down
-    x 118..132  the square, with the fountain
+    x 118..132  the square, with the fountain, closed on both sides by four more shops
     x 133..232  Gringotts -- the building the mod already ships, imported from its schematic
                 rather than hand-built here: a hundred blocks deep, thirty-four across, and a
                 cathedral inside
+
+Behind the shops, yards with a floor (the alley dimension is void underneath), and round the whole
+thing a boundary built as the backs of more buildings -- windows, gables, chimneys -- rather than a
+blank wall.
 
 Across, before the curve is applied, the section is:
 
@@ -59,7 +63,7 @@ from diagon_kit import (                                                        
     GLASS_LIT, GLASS_PLAIN, GLASS_DARK,
     door, trapdoor, hanging_sign, wall_sign, standing_sign, villager, lantern, chain_lamp,
     connect_all, pitched_roof, chimney, shopfront, ShopSpec, text_component, loot_chest, barrel,
-    crate_pile, flower_box,
+    crate_pile, flower_box, shash, fence_gate, wall_banner, door_x, PARTY,
 )
 # blit is not re-exported by diagon_kit, so it comes straight from the other build script.
 from generate_biome_structures import blit                                      # noqa: E402
@@ -87,11 +91,10 @@ X_SQUARE1 = 132
 X_BANK0 = X_SQUARE1 + 1                 # local x=0 of the imported schematic
 X_BANK1 = X_BANK0 + 99                  # ...which is 100 long
 
-# How high the boundary wall stands. Above the terraces' eaves, so the alley reads as
-# enclosed, and well below Gringotts, which is meant to rise out of it.
-PERIMETER_HEIGHT = 24
-
 _GRINGOTTS_CACHE = None
+
+# Every shop's spec once it is laid out, by name, so later passes ask rather than recompute.
+SPECS = {}
 
 
 def curve(x):
@@ -106,7 +109,7 @@ def curve(x):
 
 def jitter(name):
     """A stable -1/0/+1 per shop, so the building line is never straight."""
-    return (abs(hash(name)) % 3) - 1
+    return (shash(name) % 3) - 1
 
 
 # =================================================================================================
@@ -120,23 +123,24 @@ def pave(b):
     very little gravel -- because paving is the largest single surface in the build and anything
     with real contrast in it turns the whole street into a chessboard.
     """
+    # The section, measured from the crown of the road: carriageway out to 2, a kerb at 3, and
+    # pavement from 4 to the shopfronts, which stand at about 5. The first version put the pavement
+    # at 5 and 6 and the kerb at 5 -- which is *under* the front walls -- so the street was cobbles
+    # wall to wall and the kerb line existed only inside the shops' floors.
     for x in range(0, X_SQUARE1 + 1):
         c = curve(x)
         z0, z1 = ZC - 8 + c, ZC + 8 + c
         for z in range(z0, z1 + 1):
             d = abs(z - (ZC + c))
-            if d >= 7:
-                blk = tex(KERB, x, 0, z, 11)            # under the shopfronts
-            elif d >= 5:
-                blk = tex(KERB, x, 0, z, 12)            # pavement
+            if d >= 4:
+                blk = tex(KERB, x, 0, z, 12)            # pavement flags
+            elif d == 3:
+                blk = 'minecraft:polished_andesite'     # kerb stones
             elif d == 0 and x % 7 != 0:
                 blk = tex(GUTTER, x, 0, z, 13)          # gutter channel down the crown
             else:
                 blk = tex(COBBLE, x, 0, z, 14)
             put(b, (x, 0, z), blk)
-        # kerb stones between pavement and carriageway
-        for s in (-1, 1):
-            put(b, (x, 0, ZC + c + s * 5), 'minecraft:polished_andesite')
         # foundation course so the street is not floating when the placer sinks it
         for z in range(z0, z1 + 1):
             put(b, (x, -1, z), 'minecraft:stone')
@@ -149,56 +153,88 @@ def street_furniture(b):
     because the fastest way to make a street look generated is to leave objects floating or to space
     them evenly.  Position and spacing are both hashed.
     """
+    # Lamps stand on the kerb. They used to stand at five out from the crown, which is the plane of
+    # the shopfronts themselves, and since this pass runs after the shops it punched lamp posts
+    # straight through windows, fascias and -- now and then -- both halves of a door.
     x = X_ALLEY0 + 6
     while x < X_ALLEY1 - 4:
         c = curve(x)
         side = 1 if noise(x, 0, 0, 21) > 0.5 else -1
-        z = ZC + c + side * 5
+        z = ZC + c + side * 3
+        if not _near_door(b, x, z, side):
+            gas_lamp(b, x, z)
 
-        # lamp standard: plinth, post, bracket, hanging lantern
-        put(b, (x, 1, z), 'minecraft:cobblestone_wall')
-        for y in (2, 3, 4):
-            put(b, (x, y, z), 'minecraft:iron_bars')
-        put(b, (x, 5, z), 'minecraft:dark_oak_fence')
-        chain_lamp(b, x, 5, z - side, drop=1)
-        put(b, (x, 5, z - side), 'minecraft:chain')
-
-        # a barrow or a crate pile opposite, further along
+        # a barrow or a crate pile on the pavement opposite, further along
         bx = x + 4 + int(noise(x, 1, 0, 22) * 5)
         if bx < X_ALLEY1 - 6:
             bc = curve(bx)
             bz = ZC + bc - side * 4
-            roll = noise(bx, 0, bz, 23)
-            if roll < 0.45:
-                _barrow(b, bx, bz, 'east' if side > 0 else 'west')
-            else:
-                crate_pile(b, bx, 1, bz, 24)
+            if (not _near_door(b, bx, bz, -side) and not _near_door(b, bx + 1, bz, -side)
+                    and all((bx + i, 1, bz) not in b for i in (-1, 0, 1, 2))):
+                if noise(bx, 0, bz, 23) < 0.45:
+                    _barrow(b, bx, bz)
+                else:
+                    crate_pile(b, bx, 1, bz, 24)
         x += 11 + int(noise(x, 2, 0, 25) * 5)
 
     # puddles in the gutter, where a gutter would actually hold water
     for x in range(X_ALLEY0, X_ALLEY1, 3):
         c = curve(x)
-        if noise(x, 0, 0, 26) > 0.72:
+        if noise(x, 0, 0, 26) > 0.72 and b.get((x, 0, ZC + c), ('',))[0] != 'minecraft:water':
             put(b, (x, 0, ZC + c), 'minecraft:water')
 
 
-def _barrow(b, x, z, facing):
-    """A market barrow: two wheels, a bed of planks, a canopy and goods on top."""
-    put(b, (x, 1, z), 'minecraft:dark_oak_slab')
-    put(b, (x, 1, z + 1), 'minecraft:dark_oak_slab')
-    put(b, (x - 1, 1, z), 'minecraft:oak_trapdoor')
+def gas_lamp(b, x, z, base_y=1):
+    """A street lamp: a dark iron post with the lantern standing on top, like a gas lamp.
+
+    The old standard was three panes of iron bars on a cobblestone wall -- a post the thickness of a
+    pencil, which disappeared against the facades -- with a fence bracket and a chain floating next
+    to it. A wall-block post reads as cast iron at this scale, and a lantern standing on the post
+    reads as a lamp from the far end of the street.
+    """
+    for y in range(base_y, base_y + 4):
+        put(b, (x, y, z), 'minecraft:polished_blackstone_wall')
+    lantern(b, (x, base_y + 4, z), hanging=False)
+
+
+def _near_door(b, x, z, out):
+    """Is there a door in the facade this pavement cell faces, at this column or the next one?
+
+    `out` is the sign of the cell's offset from the crown of the road (+1 or -1): the facade lies
+    further out in that direction, so the search walks away from the street until it meets a wall.
+    """
+    for dx in (-1, 0, 1):
+        for dz in range(1, 5):
+            cell = b.get((x + dx, 1, z + out * dz))
+            if cell is None:
+                continue
+            if cell[0].endswith('_door'):
+                return True
+            break
+    return False
+
+
+def _barrow(b, x, z):
+    """A market barrow, two long along the street: a bed of planks, a handle, goods and a canopy.
+
+    Laid along X. Laid across the street it ran its second block into the shopfront behind it on the
+    south side of the road.
+    """
+    slab(b, (x, 1, z), 'minecraft:dark_oak_slab', 'top')
+    slab(b, (x + 1, 1, z), 'minecraft:dark_oak_slab', 'top')
     b[(x - 1, 1, z)] = ('minecraft:oak_trapdoor',
-                        {'facing': facing, 'half': 'bottom', 'open': 'true',
+                        {'facing': 'west', 'half': 'bottom', 'open': 'true',
                          'powered': 'false', 'waterlogged': 'false'}, None)
-    put(b, (x, 2, z), 'minecraft:barrel')
+    barrel(b, (x, 2, z))
     if noise(x, 2, z, 31) > 0.5:
-        put(b, (x, 2, z + 1), 'minecraft:hay_block')
+        put(b, (x + 1, 2, z), 'minecraft:hay_block')
     else:
-        put(b, (x, 2, z + 1), 'minecraft:pumpkin')
-    for dz in (0, 1):
-        put(b, (x + 1, 3, z + dz), 'minecraft:dark_oak_fence')
-    for dz in (0, 1):
-        b[(x + 1, 4, z + dz)] = ('minecraft:red_wool', None, None)
+        put(b, (x + 1, 2, z), 'minecraft:carved_pumpkin', {'facing': 'south'})
+    # a striped canopy on two poles, so the barrow reads as a stall from down the street
+    put(b, (x, 3, z), 'minecraft:dark_oak_fence')
+    put(b, (x + 1, 3, z), 'minecraft:dark_oak_fence')
+    put(b, (x, 4, z), 'minecraft:red_wool')
+    put(b, (x + 1, 4, z), 'minecraft:white_wool')
 
 
 # =================================================================================================
@@ -344,11 +380,13 @@ def build_shops(b, ents):
                 sign=name, sign_colour=colour, sign_glow=glow,
                 jetty=[0, 1, 2, 2, 2][:len(storeys)],
                 glass=GLASS_DARK if paint in ('soot', 'bottle') else GLASS_LIT,
-                awning=(abs(hash(name)) % 3 == 0),
+                awning=(shash(name) % 3 == 0),
                 chimneys=(0.25, 0.8) if len(storeys) >= 4 else (0.35,),
             )
-            if lines:
-                spec.sign = name
+            # Explicit lines were declared for Ollivanders and then thrown away -- this used to
+            # read `spec.sign = name`, so the most important sign in the street just said its name.
+            spec.sign_lines = lines
+            SPECS[name] = spec
             shopfront(b, spec)
             _shop_interior(b, ents, spec, prof, keeper)
 
@@ -396,7 +434,11 @@ def _shop_interior(b, ents, s, profession, keeper):
     # A full block with a slab on it: waist height, and the one strong horizontal in the room.
     for x in range(x0, x1 + 1):
         if x == cx:
-            continue                          # the gap the keeper walks through
+            # A gate, not a gap. Villagers open doors but not gates, so with a plain gap every
+            # keeper in the street eventually walked out from behind the counter, out of the shop
+            # door and off down the alley. The player can still let themselves through.
+            fence_gate(b, (x, 1, inz), 'dark_oak', s.facing_out)
+            continue
         put(b, (x, 1, inz), 'minecraft:dark_oak_planks')
         slab(b, (x, 2, inz), 'minecraft:dark_oak_slab', 'bottom')
     # a lip along the customer side, so it reads as a counter and not a bench
@@ -441,6 +483,16 @@ def _shop_interior(b, ents, s, profession, keeper):
     chain_lamp(b, cx, ceiling, inz - side, drop=1)
     chain_lamp(b, cx, ceiling, fz - side * 1, drop=1)
 
+    # A portrait on the customers' side wall, opposite the door, and candles floating over the
+    # keeper's side of the counter. Nothing else in the room says "wizarding" rather than "shop".
+    if door_x(s) == s.x0 + 1:
+        put(b, (x1, 3, fz - 2 * side), 'hogwartsmagic:moving_portrait', {'facing': 'west'})
+    else:
+        put(b, (x0, 3, fz - 2 * side), 'hogwartsmagic:moving_portrait', {'facing': 'east'})
+    for fx in (x0 + 1, x1 - 1):
+        if (fx, 3, inz - 2 * side) not in b:
+            put(b, (fx, 3, inz - 2 * side), 'hogwartsmagic:candle_cluster')
+
     ents.append(villager(cx, 1, inz - side, profession, keeper))
     loot_chest(b, (x1, 1, bz - side), s.facing_out, 'hogwartsmagic:chests/diagon_shop')
 
@@ -475,10 +527,12 @@ def character(b, ents):
     for y in range(1, 5):
         b[(ox0 + 2, y, backz)] = ('minecraft:ladder', {'facing': 'north', 'waterlogged': 'false'},
                                   None)
-    # the wand on a cushion in the window, on a faded purple stand
+    # The wand in the window: a single glowing wand standing on a faded purple plinth. This used to
+    # be a purple carpet at ozf - 1, which on the south terrace is the far side of the glass -- the
+    # cushion was lying on the pavement outside, with nothing on it.
     wx = (ox0 + ox1) // 2
-    put(b, (wx, 1, ozf - 1), 'minecraft:purple_carpet')
-    b[(wx, 1, ozf - 1)] = ('minecraft:purple_carpet', None, None)
+    put(b, (wx, 1, ozf + 1), 'minecraft:purple_wool')
+    put(b, (wx, 2, ozf + 1), 'minecraft:end_rod', {'facing': 'up'})
     # the workbench, which is also the wandmaker's POI so he stays put
     put(b, (wx, 1, inz), 'hogwartsmagic:wand_workbench')
     # Dust, in the corners where the ceiling meets the wall. Hung in mid-air they read as
@@ -551,6 +605,29 @@ def character(b, ents):
             put(b, (x, 1, azf - sgn * 2), 'hogwartsmagic:wizard_cauldron')
             put(b, (x, 3, azf - sgn * 5), 'hogwartsmagic:candle_cluster')
 
+    # --- Potage's: the heap of cauldrons outside, every size, spilling across the pavement -------
+    p = _spec_of(SOUTH, "Potages Cauldron Shop")
+    px0, pzf = p[0], p[2]
+    heap = [(0, 1, 0), (1, 1, 0), (2, 1, 0), (0, 1, -1), (1, 1, -1),
+            (0, 2, 0), (1, 2, 0), (0, 3, 0)]
+    for i, (dx, y, dz) in enumerate(heap):
+        pos = (px0 + 3 + dx, y, pzf - 1 + dz)
+        if pos in b and y == 1:
+            continue
+        if i % 3 == 1:
+            put(b, pos, 'hogwartsmagic:wizard_cauldron', {'level': '0'})
+        else:
+            put(b, pos, 'minecraft:cauldron')
+
+    # --- Flourish and Blotts: a book cart outside, so the bookshop reads from up the street -------
+    fbs = SPECS['Flourish and Blotts']
+    bx = fbs.x0 + 3 if door_x(fbs) != fbs.x0 + 1 else fbs.x1 - 4
+    for dx in (0, 1):
+        put(b, (bx + dx, 1, fbs.zf + 1), 'minecraft:bookshelf')
+        put(b, (bx + dx, 2, fbs.zf + 1), 'hogwartsmagic:enchanted_book_pile')
+    b[(bx + 2, 1, fbs.zf + 1)] = ('minecraft:lectern', {'facing': 'south', 'has_book': 'false',
+                                                       'powered': 'false'}, None)
+
     # --- Flourish and Blotts: books, in quantity ------------------------------------------------
     fb = _spec_of(NORTH, 'Flourish and Blotts')
     for x in range(fb[0] + 2, fb[1] - 1):
@@ -563,14 +640,8 @@ def character(b, ents):
 
 def _spec_of(terrace, name):
     """(x0, x1, zf) for a shop already laid out, so character pieces can find it."""
-    for row in terrace:
-        if row[0] == name:
-            x0, x1 = row[1], row[2]
-            side = 1 if terrace is NORTH else -1
-            base = NORTH_FRONT if side > 0 else SOUTH_FRONT
-            zf = base + curve((x0 + x1) // 2) + jitter(name) * side
-            return (x0, x1, zf)
-    raise KeyError(name)
+    s = SPECS[name]
+    return (s.x0, s.x1, s.zf)
 
 
 def _weasley_giant(b, x, z, y0):
@@ -599,141 +670,400 @@ def _weasley_giant(b, x, z, y0):
 # =================================================================================================
 
 def knockturn(b, ents):
-    """A gap between two shops that turns into a lane.  Narrower, darker and dirtier: five blocks
-    wide against the alley's nine, soul lanterns instead of lanterns, and the buildings meet
-    overhead so it is roofed for most of its length."""
+    """A gap between two shops that turns into a lane. Narrower, darker and dirtier than the alley:
+    five wide at the cobbles against nine, soul lanterns instead of lanterns, and the buildings on
+    either side jetty out twice so that by the third storey they almost touch -- the lane is a slot
+    of sky for its first few yards and roofed after that.
+
+    The first version had the lane and none of the buildings: two flat fourteen-high walls with no
+    window or door in either, a lid, and mushrooms. It read as a service corridor. The lane is all
+    shopfronts now, every one of them shuttered except the one at the end.
+    """
     x0, x1 = 98, 104
     c = curve((x0 + x1) // 2)
     z0 = SOUTH_FRONT + c
-    z1 = z0 + 26
+    zb = z0 + 15                     # the front of Borgin and Burkes
+    z1 = zb + 10                     # its back wall
 
-    # the lane floor, and the walls of the buildings that form it
+    lane = [('minecraft:cobblestone', 6), ('minecraft:mossy_cobblestone', 4),
+            ('minecraft:andesite', 2), ('minecraft:gravel', 1)]
     for x in range(x0, x1 + 1):
         for z in range(z0, z1 + 1):
-            put(b, (x, 0, z), tex([('minecraft:cobblestone', 6), ('minecraft:mossy_cobblestone', 5),
-                                   ('minecraft:andesite', 2), ('minecraft:gravel', 2)], x, 0, z, 51))
+            put(b, (x, 0, z), tex(lane, x, 0, z, 51))
             put(b, (x, -1, z), 'minecraft:stone')
 
-    for z in range(z0, z1 + 1):
-        for y in range(1, 15):
-            put(b, (x0, y, z), tex(PAINTS['soot'], x0, y, z, 52))
-            put(b, (x1, y, z), tex(PAINTS['dust'], x1, y, z, 53))
-    # roofed over from z0+6 onward -- the buildings lean until they touch
-    for z in range(z0 + 6, z1 + 1):
-        for x in range(x0 + 1, x1):
-            put(b, (x, 14, z), tex(PAINTS['soot'], x, 14, z, 54))
-    for z in range(z0, z0 + 6):
-        for x in range(x0 + 1, x1):
-            if noise(x, 0, z, 55) > 0.55:
-                put(b, (x, 14, z), tex(PAINTS['soot'], x, 14, z, 54))
+    # The walls, jettied twice: at the cobbles they stand at x0/x1, from 7 up one block in, from 11
+    # up two in. Each jetty is carried on a course of upside-down stairs.
+    tiers = ((1, 6, 0), (7, 10, 1), (11, 14, 2))
+    for z in range(z0, zb):
+        for (ya, yb, inset) in tiers:
+            for y in range(ya, yb + 1):
+                put(b, (x0 + inset, y, z), tex(PAINTS['soot'], x0 + inset, y, z, 52))
+                put(b, (x1 - inset, y, z), tex(PAINTS['dust'], x1 - inset, y, z, 53))
+            if inset:
+                stair(b, (x0 + inset, ya - 1, z), 'minecraft:dark_oak_stairs', 'west', 'top')
+                stair(b, (x1 - inset, ya - 1, z), 'minecraft:dark_oak_stairs', 'east', 'top')
+        # floor beams along each jetty, timber against the render
+        for (ya, yb, inset) in tiers:
+            b[(x0 + inset, yb, z)] = ('minecraft:dark_oak_log', {'axis': 'z'}, None)
+            b[(x1 - inset, yb, z)] = ('minecraft:dark_oak_log', {'axis': 'z'}, None)
+        # the slot of sky at the top: open near the street, roofed deeper in
+        if z >= z0 + 5 or noise(101, 0, z, 55) > 0.6:
+            for x in range(x0 + 2, x1 - 1):
+                put(b, (x, 15, z), tex(ROOF_SOOT, x, 15, z, 54))
 
-    # soul lanterns, sparse, so it is genuinely dim
-    for z in range(z0 + 4, z1, 6):
+    # Shopfronts down both sides: a window and a door in turn, all of them shut up.
+    names_w = ['Noggin and Bonce', 'Cobbs and Co', 'Spindle and Bauble']
+    names_e = ['Shrunken Heads', 'Mr Mulpepper', 'Noctem Candles']
+    for wall_x, out, inward, names, salt in ((x0, -1, 'east', names_w, 0),
+                                             (x1, 1, 'west', names_e, 7)):
+        for k, z in enumerate(range(z0 + 2, zb - 2, 4)):
+            if k % 2 == 0:
+                # a window of grimy glass with something dim behind it
+                for dz in (0, 1):
+                    for y in (2, 3):
+                        b[(wall_x, y, z + dz)] = (tex(GLASS_DARK, wall_x, y, z + dz, 62 + salt),
+                                                  {}, None)
+                        back = (wall_x + out, y, z + dz)
+                        if back not in b:
+                            glow = noise(wall_x, y, z + dz, 63 + salt) > 0.75
+                            b[back] = ('minecraft:verdant_froglight' if glow
+                                       else 'minecraft:black_terracotta',
+                                       {'axis': 'y'} if glow else None, None)
+                    slab(b, (wall_x - out, 1, z + dz), 'minecraft:dark_oak_slab', 'top')
+            else:
+                # an iron door: shut, and nobody in here is going to open it for you
+                door(b, wall_x, 1, z, 'minecraft:iron_door', inward)
+                for y in (1, 2):
+                    if (wall_x + out, y, z) not in b:
+                        put(b, (wall_x + out, y, z), 'minecraft:blackstone')
+                put(b, (wall_x, 3, z), 'minecraft:dark_oak_log', {'axis': 'z'})
+            # a projecting sign on each shop, readable from the far end of the lane
+            if k < len(names):
+                hanging_sign(b, (wall_x - out, 4, z), 'dark_oak', 'north',
+                             _split_name(names[k]), 'gray')
+            if noise(wall_x, 1, z, 64 + salt) > 0.55 and (wall_x - out, 1, z + 2) not in b:
+                put(b, (wall_x - out, 1, z + 2), 'minecraft:skeleton_skull',
+                    {'rotation': str(int(noise(wall_x, 2, z, 65) * 16))})
+
+    # A gateway at the mouth: a black beam across, and the name hanging from it.
+    for x in range(x0 + 1, x1):
+        b[(x, 6, z0)] = ('minecraft:dark_oak_log', {'axis': 'x'}, None)
+    b[(x0 + 3, 5, z0)] = ('minecraft:dark_oak_hanging_sign',
+                          {'rotation': '8', 'attached': 'false', 'waterlogged': 'false'},
+                          _ceiling_sign_nbt('minecraft:dark_oak_hanging_sign',
+                                            ['', 'Knockturn', 'Alley', ''], 'gray'))
+
+    # Soul lanterns, sparse, hung from the jetties, so it is genuinely dim.
+    for z in range(z0 + 3, zb, 5):
         chain_lamp(b, x0 + 1, 6, z, drop=1, soul=True)
+        chain_lamp(b, x1 - 1, 6, z + 2, drop=1, soul=True)
 
-    # damp, and things growing where nothing should
+    # Damp: puddles, and fungus only where the roof keeps the sun off it.
     for x in range(x0 + 1, x1):
-        for z in range(z0 + 1, z1):
+        for z in range(z0 + 1, zb):
             n = noise(x, 1, z, 56)
-            if n > 0.9:
+            if (x, 1, z) in b:
+                continue
+            if n > 0.92 and z >= z0 + 6:
                 put(b, (x, 1, z), 'minecraft:brown_mushroom')
-            elif n > 0.86:
+            elif n > 0.88:
                 put(b, (x, 0, z), 'minecraft:water')
-    for x in (x0 + 1, x1 - 1):
-        for z in range(z0 + 2, z1, 5):
-            put(b, (x, 12, z), 'minecraft:cobweb')
+    for z in range(z0 + 3, zb, 4):
+        put(b, (x0 + 2, 13, z), 'minecraft:cobweb')
+        put(b, (x1 - 2, 12, z + 2), 'minecraft:cobweb')
 
-    standing_sign(b, (x0 + 1, 1, z0 + 1), 'dark_oak', 'north',
-                  ['Knockturn', 'Alley', '', ''], 'dark_gray')
-
-    _borgin_and_burkes(b, ents, x0, x1, z0 + 12)
+    _borgin_and_burkes(b, ents, x0, x1, zb, z1)
 
 
-def _borgin_and_burkes(b, ents, x0, x1, z):
-    """The black shop.  Its window is the only thing in the lane with any light in it, and what is
-    in the window is a hand."""
-    front = z - 1
+ROOF_SOOT = [('minecraft:blackstone', 6), ('minecraft:polished_blackstone_bricks', 3),
+             ('minecraft:deepslate_tiles', 2)]
+
+
+def _split_name(text):
+    """Two lines for a narrow projecting sign: 'Noggin and Bonce' -> 'Noggin', 'and Bonce'."""
+    words = text.split()
+    if len(words) == 1:
+        return ['', words[0], '', '']
+    return ['', words[0], ' '.join(words[1:]), '']
+
+
+def _ceiling_sign_nbt(block_id, lines, colour, glowing=False):
+    msgs = [text_component(l) for l in (list(lines) + ['', '', '', ''])[:4]]
+    face = ('compound', {
+        'messages': ('list', 'string', [('string', m) for m in msgs]),
+        'color': ('string', colour),
+        'has_glowing_text': ('byte', 1 if glowing else 0),
+    })
+    return {'id': block_id, 'front_text': face, 'back_text': face, 'is_waxed': ('byte', 1)}
+
+
+def _borgin_and_burkes(b, ents, x0, x1, zb, z1):
+    """The black shop at the dead end. Its window is the only warm light in the lane, and what is in
+    the window is a skull on a cushion beside a cluster of candles.
+
+    Inside: a counter with a gate (Mr Borgin stays behind it), the vanishing cabinet against the
+    back wall, cases of things nobody should buy, and the chest of stock.
+    """
+    # front: timber posts, a bay of dark glass, a door
+    for y in range(1, 7):
+        for x in range(x0 + 1, x1):
+            put(b, (x, y, zb), tex(PAINTS['soot'], x, y, zb, 61))
+        put(b, (x0 + 1, y, zb), 'minecraft:dark_oak_log', {'axis': 'y'})
+        put(b, (x1 - 1, y, zb), 'minecraft:dark_oak_log', {'axis': 'y'})
     for x in range(x0 + 1, x1):
-        for y in range(1, 6):
-            put(b, (x, y, front), tex(PAINTS['soot'], x, y, front, 61))
-    # window with a display
-    for x in range(x0 + 2, x1 - 1):
-        for y in (2, 3):
-            b[(x, y, front)] = (tex(GLASS_DARK, x, y, front, 62), {}, None)
-    door(b, x0 + 1, 1, front, 'minecraft:dark_oak_door', 'north')
-    hanging_sign(b, (x1 - 1, 4, front - 1), 'dark_oak', 'north',
-                 ['Borgin', 'and Burkes', '', ''], 'red')
-    # the shop behind the glass
-    fill(b, x0 + 1, 1, z, x1 - 1, 4, z + 6, 'minecraft:air')
+        b[(x, 5, zb)] = ('minecraft:dark_oak_log', {'axis': 'x'}, None)
+    for x in (x0 + 3, x0 + 4):
+        for y in (2, 3, 4):
+            b[(x, y, zb)] = (tex(GLASS_DARK, x, y, zb, 62), {}, None)
+        put(b, (x, 1, zb), 'minecraft:polished_blackstone_bricks')
+    door(b, x0 + 2, 1, zb, 'minecraft:dark_oak_door', 'north', hinge='right')
+    hanging_sign(b, (x1 - 2, 4, zb - 1), 'dark_oak', 'west',
+                 ['Borgin', 'and Burkes', '', ''], 'red', True)
+
+    # the shell
+    zi0, zi1 = zb + 1, z1 - 1
+    for z in range(zi0, z1 + 1):
+        for y in range(0, 7):
+            for x in (x0, x1):
+                put(b, (x, y, z), tex(PAINTS['soot'], x, y, z, 61))
     for x in range(x0 + 1, x1):
-        for y in range(1, 6):
-            put(b, (x, y, z + 7), tex(PAINTS['soot'], x, y, z + 7, 61))
-            put(b, (x0, y, z + 7), tex(PAINTS['soot'], x0, y, z + 7, 61))
+        for y in range(1, 7):
+            put(b, (x, y, z1), tex(PAINTS['soot'], x, y, z1, 61))
+        for z in range(zi0, zi1 + 1):
+            put(b, (x, 0, z), tex([('minecraft:dark_oak_planks', 5),
+                                   ('minecraft:spruce_planks', 2)], x, 0, z, 66))
+            for y in range(1, 6):
+                b[(x, y, z)] = ('minecraft:air', None, None)
+            put(b, (x, 6, z), 'minecraft:dark_oak_planks')
+    pitched_roof(b, x0, x1, zb, z1, 7, 'tile', ridge_axis='z', overhang=0)
+
+    # the window display, behind the glass
+    for x in (x0 + 3, x0 + 4):
+        put(b, (x, 1, zi0), 'minecraft:dark_oak_planks')
+    put(b, (x0 + 3, 2, zi0), 'hogwartsmagic:candle_cluster')
+    put(b, (x0 + 4, 2, zi0), 'minecraft:skeleton_skull', {'rotation': '8'})
+
+    # the counter, with a gate, across the shop
+    cz = zi0 + 3
     for x in range(x0 + 1, x1):
-        put(b, (x, 5, z + 3), tex(PAINTS['soot'], x, 5, z + 3, 61))
-    put(b, (x0 + 2, 1, z + 1), 'minecraft:dark_oak_slab')
-    slab(b, (x0 + 2, 1, z + 1), 'minecraft:dark_oak_slab', 'top')
-    # the vanishing cabinet, and a skull or two
-    fill(b, x1 - 1, 1, z + 5, x1 - 1, 3, z + 5, 'minecraft:dark_oak_planks')
-    put(b, (x1 - 1, 2, z + 4), 'minecraft:dark_oak_door')
-    door(b, x1 - 1, 1, z + 4, 'minecraft:dark_oak_door', 'north')
-    put(b, (x0 + 1, 2, z + 2), 'minecraft:skeleton_skull')
-    chain_lamp(b, x0 + 2, 4, z + 2, drop=1, soul=True)
-    ents.append(villager(x0 + 2, 1, z + 2, 'hogwartsmagic:curio_dealer', 'Mr Borgin'))
-    loot_chest(b, (x1 - 1, 1, z + 1), 'north', 'hogwartsmagic:chests/knockturn')
+        if x == x0 + 2:
+            fence_gate(b, (x, 1, cz), 'dark_oak', 'north')
+            continue
+        put(b, (x, 1, cz), 'minecraft:polished_blackstone_bricks')
+        slab(b, (x, 2, cz), 'minecraft:polished_blackstone_slab')
+    put(b, (x0 + 4, 3, cz), 'hogwartsmagic:crystal_goblet')
+
+    # The vanishing cabinet: a tall black wardrobe against the back wall. It is a real cupboard --
+    # open the door and there is room inside to step in, which is rather the point of it.
+    for z in (zi1 - 1, zi1):
+        for y in (1, 2, 3):
+            put(b, (x0 + 3, y, z), 'minecraft:dark_oak_planks')
+            put(b, (x0 + 5, y, z), 'minecraft:dark_oak_planks')
+        put(b, (x0 + 4, 3, z), 'minecraft:dark_oak_planks')
+    door(b, x0 + 4, 1, zi1 - 1, 'minecraft:dark_oak_door', 'north')
+    stair(b, (x0 + 4, 4, zi1 - 1), 'minecraft:dark_oak_stairs', 'south', 'top')
+
+    # cases and curios along the walls
+    for z in range(zi0 + 1, cz):
+        b[(x1 - 1, 1, z)] = ('minecraft:tinted_glass', None, None)
+    put(b, (x1 - 1, 2, zi0 + 1), 'minecraft:wither_skeleton_skull', {'rotation': '4'})
+    put(b, (x1 - 1, 2, zi0 + 2), 'hogwartsmagic:candle_cluster')
+    for z in range(cz + 1, zi1):
+        put(b, (x0 + 1, 3, z), 'minecraft:chiseled_bookshelf', {'facing': 'east'})
+        put(b, (x0 + 1, 2, z), 'minecraft:chiseled_bookshelf', {'facing': 'east'})
+    for z in (zi0 + 1, cz + 2):
+        put(b, (x0 + 1, 4, z), 'minecraft:cobweb')
+    chain_lamp(b, x0 + 3, 5, cz - 1, drop=1, soul=True)
+    chain_lamp(b, x0 + 3, 5, cz + 2, drop=1, soul=True)
+
+    ents.append(villager(x0 + 3, 1, cz + 1, 'hogwartsmagic:curio_dealer', 'Mr Borgin'))
+    loot_chest(b, (x1 - 1, 1, cz + 2), 'west', 'hogwartsmagic:chests/knockturn')
 
 
 # =================================================================================================
 # The square and Gringotts
 # =================================================================================================
 
-def square(b):
+def square(b, ents):
     """A widening at the end of the alley, so Gringotts has somewhere to be seen from."""
     for x in range(X_ALLEY1 + 1, X_SQUARE1 + 1):
         c = curve(x)
-        for z in range(ZC - 14 + c, ZC + 15 + c):
+        for z in range(ZC - 16 + c, ZC + 17 + c):
             d = abs(z - (ZC + c))
             put(b, (x, 0, z), tex(KERB if d > 9 else COBBLE, x, 0, z, 71))
             put(b, (x, -1, z), 'minecraft:stone')
 
     cx, cz = (X_ALLEY1 + X_SQUARE1) // 2, ZC + curve((X_ALLEY1 + X_SQUARE1) // 2)
+    fountain(b, cx, cz)
 
-    # The fountain, and the basin that actually holds it.
-    #
-    # The first version filled r2 <= 18 with water and laid a kerb over 18 < r2 <= 26, inside a
-    # loop that only ran dx,dz from -4 to 4. Water at (4,0) is r2 = 16, and its neighbour at (5,0)
-    # is a cell the loop never visited -- so the square flooded, out across the paving, round
-    # Gringotts, and down the street. Deriving the kerb from the water rather than from a second
-    # guessed radius means the basin cannot spring a leak however the pool is reshaped.
-    pool = {(dx, dz) for dx in range(-5, 6) for dz in range(-5, 6)
-            if dx * dx + dz * dz <= 12}
-    kerb = set()
+    # A ring of flags round the fountain, so it stands on something rather than on road.
+    for dx in range(-6, 7):
+        for dz in range(-6, 7):
+            r2 = dx * dx + dz * dz
+            if 20 <= r2 <= 36 and (cx + dx, 1, cz + dz) not in b:
+                put(b, (cx + dx, 0, cz + dz), tex(MARBLE_TRIM if r2 <= 26 else KERB,
+                                                  cx + dx, 0, cz + dz, 74))
+
+    # Benches facing the water, on the two sides people actually walk past.
+    for sgn in (-1, 1):
+        for dx in (-1, 0, 1):
+            stair(b, (cx + dx, 1, cz + sgn * 6), 'minecraft:dark_oak_stairs',
+                  'south' if sgn < 0 else 'north')
+        for dx in (-2, 2):
+            put(b, (cx + dx, 1, cz + sgn * 6), 'minecraft:dark_oak_trapdoor',
+                {'facing': 'east' if dx < 0 else 'west', 'half': 'bottom', 'open': 'true',
+                 'powered': 'false', 'waterlogged': 'false'})
+
+    # Lamps at the corners: a cast-iron standard with three lanterns, the square's chandelier.
+    for dx, dz in ((-6, -9), (6, -9), (-6, 9), (6, 9)):
+        triple_lamp(b, cx + dx, cz + dz)
+
+    # Market stalls along the shopfronts of the square.
+    _stall(b, cx - 3, cz - 11, 'south', 'minecraft:yellow_wool', [
+        'hogwartsmagic:candle_cluster', 'minecraft:barrel', 'hogwartsmagic:candle_cluster'])
+    _stall(b, cx + 1, cz + 11, 'north', 'minecraft:purple_wool', [
+        'hogwartsmagic:wizard_cauldron', 'hogwartsmagic:crystal_goblet', 'minecraft:brewing_stand'])
+
+    square_shops(b, ents)
+
+
+# The shops that close the square, so it is a room rather than a gap in front of a blank wall.
+# name, x0, x1, storeys, paint, roof, ridge, frame, profession, keeper
+SQUARE_NORTH = [
+    ('Obscurus Books', 118, 124, (5, 4, 4, 4), 'teal', 'slate', 'z', FRAME_DARK,
+     'hogwartsmagic:bookseller', 'Mr Obscurus'),
+    ('The Daily Prophet', 125, 132, (5, 4, 4, 4, 4), 'cream', 'lead', 'x', FRAME_GREY,
+     'hogwartsmagic:scribe', 'Mr Cuffe'),
+]
+SQUARE_SOUTH = [
+    ('Amanuensis Quills', 118, 124, (5, 4, 4), 'plum', 'tile', 'x', FRAME_MID,
+     'hogwartsmagic:scribe', 'Miss Quill'),
+    ('Junk Shop', 125, 132, (5, 4, 4, 4), 'brown', 'shingle', 'z', FRAME_DARK,
+     'hogwartsmagic:curio_dealer', 'Mr Hoarde'),
+]
+
+
+def square_shops(b, ents):
+    for terrace, side in ((SQUARE_NORTH, 1), (SQUARE_SOUTH, -1)):
+        for (name, x0, x1, storeys, paint, roof, ridge, frame, prof, keeper) in terrace:
+            xm = (x0 + x1) // 2
+            zf = ZC + curve(xm) - side * 15
+            spec = ShopSpec(
+                name, x0, x1, zf, side, depth=10, storeys=storeys, paint=paint, frame=frame,
+                roof=roof, ridge=ridge, sign=name, jetty=[0, 1, 2, 2, 2][:len(storeys)],
+                glass=GLASS_LIT, awning=(shash(name) % 2 == 0),
+                chimneys=(0.25, 0.8) if len(storeys) >= 4 else (0.35,),
+            )
+            SPECS[name] = spec
+            shopfront(b, spec)
+            _shop_interior(b, ents, spec, prof, keeper)
+
+
+def fountain(b, cx, cz):
+    """A tiered fountain: a sunken stone basin, a fluted pedestal, an upper bowl and a bronze finial.
+
+    The old one was a white quartz drum with a column in it -- a blob, from the street, the same
+    white as Gringotts behind it so the two ran together. Grey stone against the bank's marble, and
+    weathered copper on top, separates them and gives the square a centre of its own colour.
+
+    Every source block is boxed on all four sides and from below, and nothing above the bowl is
+    water, so the fountain cannot leak however the game updates it. (The first version flooded the
+    square, round Gringotts and down the street.)
+    """
+    pool = {(dx, dz) for dx in range(-5, 6) for dz in range(-5, 6) if dx * dx + dz * dz <= 13}
+    rim = set()
     for dx, dz in pool:
-        for ax, az in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+        for ax, az in ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)):
             if (dx + ax, dz + az) not in pool:
-                kerb.add((dx + ax, dz + az))
+                rim.add((dx + ax, dz + az))
 
+    # sunk one course: the water sits at street level inside a knee-high kerb
     for dx, dz in pool:
+        # Nothing below -1: that is the bottom course of the whole template, and DiagonAlleyManager
+        # finds the street by expecting the paving one course above the template's floor.
+        put(b, (cx + dx, -1, cz + dz), 'minecraft:prismarine_bricks')
+        put(b, (cx + dx, 0, cz + dz), 'minecraft:water')
         put(b, (cx + dx, 1, cz + dz), 'minecraft:water')
-    for dx, dz in kerb:
-        put(b, (cx + dx, 1, cz + dz), tex(MARBLE_TRIM, cx + dx, 1, cz + dz, 72))
-        slab(b, (cx + dx, 2, cz + dz), 'minecraft:quartz_slab', 'bottom')
+    for dx, dz in rim:
+        for y in (-1, 0):
+            put(b, (cx + dx, y, cz + dz), 'minecraft:stone_bricks')
+        put(b, (cx + dx, 1, cz + dz), tex([('minecraft:polished_andesite', 5),
+                                           ('minecraft:stone_bricks', 3)], cx + dx, 1, cz + dz, 75))
+        slab(b, (cx + dx, 2, cz + dz), 'minecraft:smooth_stone_slab')
 
-    # The column out of the middle of it. No water above the basin: a source block at y=2 with
-    # nothing round it is just another leak.
+    # the pedestal: a 3x3 plinth, then a single fluted shaft
+    for dx in (-1, 0, 1):
+        for dz in (-1, 0, 1):
+            put(b, (cx + dx, 0, cz + dz), 'minecraft:chiseled_stone_bricks')
+            put(b, (cx + dx, 1, cz + dz), 'minecraft:stone_bricks')
+    for d, (fx, fz) in (('north', (0, -1)), ('south', (0, 1)), ('east', (1, 0)), ('west', (-1, 0))):
+        stair(b, (cx + fx, 2, cz + fz), 'minecraft:stone_brick_stairs', OPP[d])
+    put(b, (cx, 2, cz), 'minecraft:stone_bricks')
+    put(b, (cx, 3, cz), 'minecraft:polished_andesite')
+    put(b, (cx, 4, cz), 'minecraft:chiseled_stone_bricks')
+
+    # The upper bowl. Its floor is the 3x3 ring at 4, carried on upside-down stairs flaring out
+    # from the shaft; the ring of water at 5 is held in by a stone lip on the 5x5 ring, whose
+    # corners are left off so the bowl reads round rather than square.
+    for dx in range(-2, 3):
+        for dz in range(-2, 3):
+            ring = max(abs(dx), abs(dz))
+            if ring == 1:
+                put(b, (cx + dx, 4, cz + dz), 'minecraft:stone_bricks')
+                put(b, (cx + dx, 5, cz + dz), 'minecraft:water')
+            elif ring == 2 and not (abs(dx) == 2 and abs(dz) == 2):
+                stair(b, (cx + dx, 4, cz + dz), 'minecraft:stone_brick_stairs',
+                      _inward(dx, dz), 'top')
+                # a low lip, so the water stands brim-full above it (slabs still hold it in)
+                slab(b, (cx + dx, 5, cz + dz), 'minecraft:smooth_stone_slab')
+    # the finial: a slender weathered-bronze post rising out of the bowl, a crystal at its tip
+    put(b, (cx, 5, cz), 'minecraft:chiseled_stone_bricks')
+    put(b, (cx, 6, cz), 'minecraft:oxidized_cut_copper')
+    put(b, (cx, 7, cz), 'minecraft:oxidized_copper_bulb', {'lit': 'true', 'powered': 'false'})
+    put(b, (cx, 8, cz), 'hogwartsmagic:arcane_cluster', {'facing': 'up', 'waterlogged': 'false'})
+
+
+OPP = {'north': 'south', 'south': 'north', 'east': 'west', 'west': 'east'}
+
+
+def _inward(dx, dz):
+    if abs(dx) > abs(dz):
+        return 'west' if dx > 0 else 'east'
+    return 'north' if dz > 0 else 'south'
+
+
+def triple_lamp(b, x, z):
+    """A cast-iron standard with a lantern on top and two more hung from arms either side."""
     for y in range(1, 6):
-        put(b, (cx, y, cz), tex(MARBLE, cx, y, cz, 73))
-    put(b, (cx, 6, cz), 'minecraft:quartz_stairs')
-    for d, f in (('north', (0, -1)), ('south', (0, 1)), ('east', (1, 0)), ('west', (-1, 0))):
-        stair(b, (cx + f[0], 5, cz + f[1]), 'minecraft:quartz_stairs', d, 'top')
-    put(b, (cx, 7, cz), 'hogwartsmagic:arcane_cluster')
+        put(b, (x, y, z), 'minecraft:polished_blackstone_wall')
+    lantern(b, (x, 6, z), hanging=False)
+    for dx in (-1, 1):
+        put(b, (x + dx, 5, z), 'minecraft:iron_bars')
+        lantern(b, (x + dx, 4, z), hanging=True)
 
-    # lamps around the square
-    for dx, dz in ((-8, -8), (8, -8), (-8, 8), (8, 8)):
-        put(b, (cx + dx, 1, cz + dz), 'minecraft:cobblestone_wall')
-        for y in (2, 3, 4):
-            put(b, (cx + dx, y, cz + dz), 'minecraft:iron_bars')
-        lantern(b, (cx + dx, 5, cz + dz), hanging=False)
+
+def _stall(b, x, z, facing, canopy, goods):
+    """A three-wide market stall: a counter of goods, corner poles and a striped canopy."""
+    for i, good in enumerate(goods):
+        put(b, (x + i, 1, z), 'minecraft:spruce_planks')
+        if good == 'minecraft:barrel':
+            barrel(b, (x + i, 2, z))
+        elif good == 'minecraft:brewing_stand':
+            put(b, (x + i, 2, z), good, {'has_bottle_0': 'true', 'has_bottle_1': 'false',
+                                         'has_bottle_2': 'true'})
+        elif good == 'hogwartsmagic:wizard_cauldron':
+            put(b, (x + i, 2, z), good, {'level': '3'})
+        else:
+            put(b, (x + i, 2, z), good)
+    back = -1 if facing == 'south' else 1
+    for px in (x - 1, x + 3):
+        for y in (1, 2, 3):
+            put(b, (px, y, z), 'minecraft:spruce_fence')
+    for i in range(-1, 4):
+        for dz in (0, back):
+            colour = canopy if (i % 2 == 0) else 'minecraft:white_wool'
+            put(b, (x + i, 4, z + dz), colour)
 
 
 def load_gringotts():
@@ -865,6 +1195,99 @@ def gringotts(b, ents):
     return ox, oy, oz
 
 # =================================================================================================
+# The first view, and what hangs over the street
+# =================================================================================================
+
+def entrance_arch(b):
+    """A wrought-iron arch over the street just through the wall, with the name hanging from it.
+
+    This is the frame for the first view of the alley -- the shot the films hold on as the bricks
+    fold away. It stands in the one-block slot between the wall and the first two shops, the only
+    place in the street with no jetty overhead, so it can rise to a point instead of being squashed
+    under a floor.
+    """
+    x = X_ALLEY0 + 1
+    zc = ZC + curve(x)
+    cells = set()
+    for y in range(1, 7):
+        cells.add((-4, y))
+        cells.add((4, y))
+    cells |= {(-4, 7), (-3, 7), (3, 7), (4, 7), (-3, 8), (-2, 8), (2, 8), (3, 8),
+              (-2, 9), (-1, 9), (0, 9), (1, 9), (2, 9)}
+    for d, y in cells:
+        if abs(d) == 4 and y <= 6:
+            put(b, (x, y, zc + d), 'minecraft:polished_blackstone_wall')
+        else:
+            put(b, (x, y, zc + d), 'minecraft:iron_bars')
+    # gilded finials on the posts and the crown
+    for d in (-4, 4):
+        put(b, (x, 8, zc + d), 'minecraft:gold_block')
+    put(b, (x, 10, zc), 'minecraft:lightning_rod', {'facing': 'up', 'powered': 'false',
+                                                   'waterlogged': 'false'})
+    # the name, in gold, hanging from the crown and readable from both ends
+    b[(x, 8, zc)] = ('minecraft:dark_oak_hanging_sign',
+                     {'rotation': '4', 'attached': 'false', 'waterlogged': 'false'},
+                     _ceiling_sign_nbt('minecraft:dark_oak_hanging_sign',
+                                       ['', 'DIAGON', 'ALLEY', ''], 'yellow', True))
+    # a lantern on each post, hung from the arch
+    for d in (-3, 3):
+        lantern(b, (x, 6, zc + d), hanging=True)
+
+
+def overhead(b):
+    """Strings of lanterns across the street between the upper storeys, and a banner on each shop.
+
+    Both are things that only exist because the street is narrow. The facades come within five
+    blocks of each other at the third storey, close enough to hang a chain across -- and a chain of
+    lights receding down a curving street is most of what makes it read as a street at night rather
+    than as two rows of buildings that happen to face each other.
+    """
+    strung = 0
+    x = X_ALLEY0 + 9
+    while x < X_ALLEY1 - 2:
+        zc = ZC + curve(x)
+        y = 13 if noise(x, 0, 0, 111) > 0.4 else 12
+        north = south = None
+        for dz in range(1, 8):
+            if north is None and (x, y, zc - dz) in b:
+                north = zc - dz
+            if south is None and (x, y, zc + dz) in b:
+                south = zc + dz
+        if north is not None and south is not None and 3 <= south - north - 1 <= 9 \
+                and all((x, y, z) not in b for z in range(north + 1, south)):
+            for z in range(north + 1, south):
+                b[(x, y, z)] = ('minecraft:chain', {'axis': 'z', 'waterlogged': 'false'}, None)
+            # two lanterns, each on a short drop so it is held from above
+            span = south - north - 1
+            for z in {north + 1 + span // 3, south - 1 - span // 3}:
+                b[(x, y - 1, z)] = ('minecraft:chain', {'axis': 'y', 'waterlogged': 'false'}, None)
+                lantern(b, (x, y - 2, z), hanging=True)
+            strung += 1
+        x += 8 + int(noise(x, 1, 0, 112) * 6)
+
+    # Banners: one per shop, hung under the jetty above the first floor, in the shop's own colour.
+    colours = {'ochre': 'yellow', 'green': 'green', 'bottle': 'green', 'maroon': 'red',
+               'teal': 'cyan', 'navy': 'blue', 'plum': 'purple', 'orange': 'orange',
+               'purple': 'purple', 'cream': 'white', 'brown': 'brown', 'soot': 'black',
+               'dust': 'gray', 'iron': 'light_gray'}
+    emblems = ['rhombus', 'cross', 'circle', 'triangle_top', 'stripe_center', 'flower']
+    for name, s in SPECS.items():
+        if len(s.storeys) < 3:
+            continue
+        colour = colours.get(s.paint, 'red')
+        trim = 'yellow' if colour not in ('yellow', 'orange') else 'black'
+        emblem = emblems[shash(name) % len(emblems)]
+        bx = s.x1 if door_x(s) == s.x0 + 1 else s.x0
+        y = s.floor_y(1) + s.storeys[1] - 1
+        z = s.front_z(1) + s.side
+        if (bx, y, z) in b:
+            continue
+        wall_banner(b, (bx, y, z), colour, s.facing_out,
+                    [('border', trim), (emblem, trim)])
+    return strung
+
+
+# =================================================================================================
 # Assembly
 # =================================================================================================
 
@@ -890,57 +1313,181 @@ def normalise(blocks, entities):
     return out, moved, (-mx, -my, -mz)
 
 
+def backyards(b):
+    """Ground under everything inside the boundary that is not street, shop or bank.
+
+    The terraces are twelve deep but the boundary is wherever the furthest building reaches, and
+    Knockturn runs twenty-six back -- so behind most shops there was a strip up to fifteen blocks
+    wide with no floor at all. In the alley dimension that is a hole straight down into the void, a
+    long way below a street that players fly brooms over. Now it is yards: trodden earth, gravel,
+    a little grass, and the junk that collects behind shops.
+    """
+    xs = [p[0] for p in b]
+    zs = [p[2] for p in b]
+    x0, x1 = max(min(xs), X_ALLEY0), max(xs)
+    z0, z1 = min(zs), max(zs)
+    yard = [('minecraft:coarse_dirt', 6), ('minecraft:packed_mud', 3), ('minecraft:gravel', 3),
+            ('minecraft:cobblestone', 2), ('minecraft:mossy_cobblestone', 1)]
+    floored = []
+    for x in range(x0, x1 + 1):
+        for z in range(z0, z1 + 1):
+            if (x, 0, z) in b:
+                continue
+            put(b, (x, 0, z), tex(yard, x, 0, z, 81))
+            put(b, (x, -1, z), 'minecraft:stone')
+            floored.append((x, z))
+
+    # Clutter, only up against a wall, because junk is stacked against walls and a barrel standing
+    # in the middle of a yard reads as scattered by a script.
+    for x, z in floored:
+        if (x, 1, z) in b:
+            continue
+        walls = sum(1 for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1))
+                    if (x + dx, 1, z + dz) in b and _blocking(b[(x + dx, 1, z + dz)][0]))
+        n = noise(x, 1, z, 82)
+        near_door = any(b.get((x + dx, y, z + dz), ('',))[0].endswith('_door')
+                        for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)) for y in (1, 2, 3))
+        if near_door:
+            continue                    # Gringotts has side doors onto the yards; keep them clear
+        if walls and n > 0.93:
+            barrel(b, (x, 1, z))
+            if n > 0.975:
+                barrel(b, (x, 2, z))
+        elif walls and n > 0.9:
+            put(b, (x, 1, z), 'minecraft:stripped_spruce_log', {'axis': 'x'})
+        elif n < 0.06 and b[(x, 0, z)][0] == 'minecraft:coarse_dirt':
+            put(b, (x, 1, z), 'minecraft:short_grass')
+        elif n < 0.075 and b[(x, 0, z)][0] == 'minecraft:coarse_dirt':
+            put(b, (x, 1, z), 'minecraft:fern')
+    return len(floored)
+
+
+# The backs of the buildings beyond the boundary. Three families, each inside the 40-luma rule,
+# so neighbouring segments differ in colour and not in noise.
+BACKDROP = [
+    PARTY,
+    [('minecraft:mud_bricks', 6), ('minecraft:packed_mud', 2), ('minecraft:terracotta', 2)],
+    [('minecraft:stone_bricks', 6), ('minecraft:andesite', 3), ('minecraft:cracked_stone_bricks', 2)],
+    [('minecraft:brown_terracotta', 6), ('minecraft:spruce_planks', 2),
+     ('minecraft:dark_oak_planks', 2)],
+]
+
+
 def perimeter(b):
-    """A wall of the same magic brick right round the alley, joined to the entrance wall.
+    """The boundary: the backs of the city the alley is wedged into.
 
-    Diagon Alley is a pocket, not a clearing: the archway should be the only way in or out, and the
-    boundary should be made of the same brick you tapped to get through. Without this the terraces
-    enclose the middle of the street and the ends and corners are simply open, so you can walk out
-    of the side of the illusion and stand looking at it from a field.
+    Diagon Alley is a pocket, not a clearing -- the archway should be the only way in or out, and
+    without a boundary the terraces enclose the middle of the street while the ends and corners are
+    simply open onto void.
 
-    This can be the archway block, and joined to the player's own wall, because floodPanel measures
-    the wall it is standing in and then trims itself to that plane. Before that it would have run
-    round the corner and off down the boundary, and the tapped wall would have been measured as two
-    hundred blocks wide with its arch somewhere out among the shops.
+    It used to be a flat slab of hogwartsmagic:diagon_archway_brick, twenty-four high, all the way
+    round. Two things wrong with that. It was 13,000 block entities -- every one of them ticking on
+    both sides and on the renderer's always-draw list -- for a wall that never opens. And wherever it
+    showed, round the square and down the flanks of Gringotts, it was an enormous blank brown
+    rampart, which is not what stands behind a London street.
+
+    So now it is the rear elevation of more buildings: segments of different heights and materials,
+    each with its own rows of windows -- some lit, most dark -- stepped gables and chimney stacks
+    against the sky. Windows are a pane in the boundary with a backing block one further out, lit
+    (ochre froglight) or curtained, so they read as rooms without opening onto the void.
 
     Existing blocks are never overwritten, so where a terrace or Gringotts already reaches the
-    boundary the wall simply stops and lets the building be the wall.
+    boundary the building is the wall.
     """
     xs = [p[0] for p in b]
     zs = [p[2] for p in b]
     x0, x1 = min(xs), max(xs)
     z0, z1 = min(zs), max(zs)
 
-    ring = []
-    for x in range(x0, x1 + 1):
-        ring.append((x, z0))
-        ring.append((x, z1))
-    for z in range(z0 + 1, z1):
-        ring.append((x0, z))
-        ring.append((x1, z))
-
-    # The entrance face too, minus the gap the arch comes through. The player's own wall is only
-    # as wide as they built it -- seven or ten blocks, say -- while the alley is fifty-one across,
-    # so without this you can simply walk round the end of their wall and in through the side.
+    # (edge, positions along it as (x, z), outward step)
+    edges = [
+        ('n', [(x, z0) for x in range(X_ALLEY0, x1 + 1)], (0, -1)),
+        ('s', [(x, z1) for x in range(X_ALLEY0, x1 + 1)], (0, 1)),
+        ('e', [(x1, z) for z in range(z0 + 1, z1)], (1, 0)),
+        # The entrance face: the back of the Leaky Cauldron, which is the view when you turn round
+        # in the street. The player's own wall is only as wide as they built it while the alley is
+        # fifty across, so without this face you could walk round the end of their wall.
+        ('w', [(X_ALLEY0, z) for z in range(z0 + 1, z1)], (-1, 0)),
+    ]
     entry_z = ZC + curve(X_ALLEY0)
-    for z in range(min(zs), max(zs) + 1):
-        if abs(z - entry_z) <= 3:
-            continue                        # the way through, lined up with the street
-        ring.append((X_ALLEY0, z))
 
     laid = 0
-    for x, z in ring:
-        # Leave the courtyard end alone: that is where the player built their own wall, and
-        # those columns are skipped at placement time anyway.
-        if x < X_ALLEY0:
-            continue
-        for y in range(0, PERIMETER_HEIGHT + 1):
-            pos = (x, y, z)
-            if pos in b:
-                continue                    # a building already closes the boundary here
-            b[pos] = (ARCH_BRICK, {'lit': 'false'}, None)
-            laid += 1
+    for name, cells, (ox, oz) in edges:
+        i = 0
+        seg = 0
+        while i < len(cells):
+            length = 7 + int(noise(seg, 0, ord(name), 91) * 6)
+            part = cells[i:i + length]
+            if name == 'w':
+                height, gable, pal = 17, False, PARTY
+            else:
+                height = 20 + int(noise(seg, 1, ord(name), 92) * 9)
+                gable = noise(seg, 2, ord(name), 93) > 0.5
+                pal = BACKDROP[int(noise(seg, 3, ord(name), 94) * len(BACKDROP))]
+            n = len(part)
+            for t, (x, z) in enumerate(part):
+                edge_t = min(t, n - 1 - t)
+                top = height + (min(edge_t, 4) if gable else 0)
+                for y in range(0, top + 1):
+                    pos = (x, y, z)
+                    if pos in b:
+                        continue
+                    if name == 'w' and abs(z - entry_z) <= 3 and y <= 9:
+                        continue            # the way through the arch, lined up with the street
+                    if name == 'w' and abs(z - entry_z) <= 3 and y == 10:
+                        b[pos] = (tex(PLINTH, x, y, z, 95), None, None)     # lintel over it
+                        laid += 1
+                        continue
+                    window = (2 <= edge_t and (t - 2) % 3 == 0 and y >= 5 and y <= top - 3
+                              and (y - 5) % 4 in (0, 1))
+                    if name == 'w' and abs(z - entry_z) <= 5 and y <= 12:
+                        window = False      # keep the masonry round the arch solid
+                    if window:
+                        lit = noise(x, (y - 5) // 4, z, 96) > 0.8
+                        b[pos] = ('minecraft:orange_stained_glass_pane' if lit
+                                  else 'minecraft:gray_stained_glass_pane', {}, None)
+                        back = (x + ox, y, z + oz)
+                        if back not in b:
+                            b[back] = ('minecraft:ochre_froglight' if lit
+                                       else 'minecraft:black_terracotta',
+                                       {'axis': 'y'} if lit else None, None)
+                    elif t == 0 or t == n - 1:
+                        b[pos] = (tex(PLINTH, x, y, z, 97), None, None)     # a pier between
+                    else:
+                        b[pos] = (tex(pal, x, y, z, 98 + seg), None, None)
+                    laid += 1
+                # the skyline: stairs up a gable's slope, coping on a flat parapet
+                cap = (x, top + 1, z)
+                if cap not in b:
+                    if gable and edge_t < 4 and 0 < t < n - 1:
+                        rise = _toward(part, t)
+                        stair(b, cap, 'minecraft:deepslate_tile_stairs', rise)
+                    else:
+                        slab(b, cap, 'minecraft:stone_brick_slab')
+                    laid += 1
+            # a chimney stack on most segments, never two the same height
+            if n >= 5 and noise(seg, 4, ord(name), 99) > 0.3:
+                t = 1 + int(noise(seg, 5, ord(name), 100) * (n - 2))
+                x, z = part[t]
+                edge_t = min(t, n - 1 - t)
+                base = height + (min(edge_t, 4) if gable else 0) + 1     # replaces the cap
+                stack = 3 + int(noise(seg, 6, ord(name), 101) * 4)
+                for y in range(base, base + stack):
+                    put(b, (x, y, z), tex(BRICK, x, y, z, 102))
+                b[(x, base + stack, z)] = ('minecraft:brick_wall', {}, None)
+            i += length
+            seg += 1
     return laid
+
+
+def _toward(part, t):
+    """The facing of a gable stair at position t: up-slope, toward the middle of the segment."""
+    (xa, za), (xb, zb) = part[0], part[-1]
+    mid = (len(part) - 1) / 2.0
+    ahead = t < mid
+    if xa != xb:
+        return 'east' if ahead else 'west'
+    return 'south' if ahead else 'north'
 
 
 def build():
@@ -950,9 +1497,12 @@ def build():
     build_shops(b, ents)
     character(b, ents)
     knockturn(b, ents)
-    square(b)
+    square(b, ents)
     gringotts(b, ents)
     street_furniture(b)
+    entrance_arch(b)
+    overhead(b)
+    backyards(b)
     perimeter(b)
     connect_all(b)
     return b, ents
@@ -963,16 +1513,53 @@ def audit(blocks, entities):
     that -- but they catch the failures that are invisible in a picture."""
     problems = []
 
+    def air(pos):
+        cell = blocks.get(pos)
+        return cell is None or cell[0] == 'minecraft:air'
+
+    # Lanterns: a hanging one needs something above it, a standing one something below.
     floating = 0
-    for (x, y, z), (name, _, _) in blocks.items():
+    for (x, y, z), (name, props, _) in blocks.items():
         if name in ('minecraft:lantern', 'minecraft:soul_lantern'):
-            above = blocks.get((x, y + 1, z))
-            below = blocks.get((x, y - 1, z))
-            hang = (_, _, _) if False else None
-            if above is None and below is None:
+            hanging = (props or {}).get('hanging') == 'true'
+            if air((x, y + 1, z) if hanging else (x, y - 1, z)):
                 floating += 1
     if floating:
-        problems.append('%d lanterns with nothing above or below them' % floating)
+        problems.append('%d lanterns with nothing to hang from or stand on' % floating)
+
+    # Water: every source must be boxed in on four sides and below, or the first block update
+    # sends it across the street. (The first fountain flooded the square and half the alley.)
+    leaks = []
+    for (x, y, z), (name, _, _) in blocks.items():
+        if name != 'minecraft:water':
+            continue
+        for d in ((1, 0, 0), (-1, 0, 0), (0, 0, 1), (0, 0, -1), (0, -1, 0)):
+            if air((x + d[0], y + d[1], z + d[2])):
+                leaks.append((x, y, z))
+                break
+    if leaks:
+        problems.append('%d water blocks that can leak, e.g. %s' % (len(leaks), leaks[:3]))
+
+    # Doors: something walkable in front of and behind the lower half, or the door opens onto a
+    # wall. Iron doors in Knockturn are meant to be blind, so they are skipped.
+    blind = []
+    step = {'north': (0, -1), 'south': (0, 1), 'east': (1, 0), 'west': (-1, 0)}
+    for (x, y, z), (name, props, _) in blocks.items():
+        if not name.endswith('_door') or name == 'minecraft:iron_door':
+            continue
+        if x < X_WALL:
+            continue                    # the pub's back door: the courtyard only exists for /spawnalley
+        if (props or {}).get('half') != 'lower':
+            continue
+        dx, dz = step[props['facing']]
+        for sgn in (1, -1):
+            for h in (0, 1):
+                cell = blocks.get((x + sgn * dx, y + h, z + sgn * dz))
+                if cell is not None and _blocking(cell[0]):
+                    blind.append((x, y, z))
+    if blind:
+        problems.append('%d door sides opening onto a solid block, e.g. %s'
+                        % (len(blind), sorted(set(blind))[:4]))
 
     doors = {}
     for (x, y, z), (name, props, _) in blocks.items():
@@ -1018,6 +1605,10 @@ def census(blocks, top=22):
 if __name__ == '__main__':
     blocks, entities = build()
     blocks, entities, shift = normalise(blocks, entities)
+    if shift[1] != 1:
+        # The street's paving must land at template y=1, the anchoring code depends on it.
+        print('  PROBLEM  template floor moved: y shift is %d, expected 1' % shift[1])
+        raise SystemExit(1)
     size = [max(p[i] for p in blocks) + 1 for i in range(3)]
 
     problems = audit(blocks, entities)

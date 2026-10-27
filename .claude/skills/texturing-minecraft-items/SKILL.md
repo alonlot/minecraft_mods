@@ -77,6 +77,8 @@ cannot see "looks like a placeholder".
 | Colour changing on every strand of a 1:1 diagonal | That is a checkerboard: keep each diagonal strand one colour, or vary in runs of 3+ |
 | Ring/collar drawn as a horizontal run across a diagonal rod | A band around a 1:1 rod is a 2-row staircase of ~4 pixels perpendicular to the rod |
 | Long item with a head (broom, brush, axe) squeezed into the tip | The corner limits width near the tip: curve the head so it fills the top-right corner, and run the handle from the bottom-left |
+| Round blue gem in a light grey setting | Reads as a potion bottle (vanilla outlines glass light): use a mid-grey or gold setting and a pointed drop shape |
+| Forcing a short, chunky object (whistle, key) onto the 45° diagonal | The diagonal rule is for long items; a side profile with a lit top face reads better for short ones |
 | 32x32 "for more detail" | 16x16. HD sprites look like another game next to vanilla |
 | Judging the 8x zoom only | Judge the 1x slot tile; the zoom is for finding the pixel to fix |
 

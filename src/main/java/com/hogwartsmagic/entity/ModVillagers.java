@@ -203,9 +203,9 @@ public class ModVillagers {
             sells(event, 3, 14, 5, one(ExampleMod.ARCANE_DUST), 10, 10);
             sells(event, 3, 12, 4, one(ExampleMod.WIZARD_CAULDRON_ITEM), 4, 10);
             sells(event, 4, 22, 6, one(ExampleMod.POLYJUICE_POTION), 3, 15);
-            sells(event, 4, 14, 4, fine(one(ExampleMod.ASPHODEL)), 6, 15);
-            sells(event, 4, 12, 3, fine(some(ExampleMod.WORMWOOD, 2)), 6, 15);
-            sells(event, 4, 10, 3, fine(some(ExampleMod.VALERIAN_SPRIGS, 2)), 6, 15);
+            sells(event, 5, 14, 4, fine(one(ExampleMod.ASPHODEL)), 6, 15);
+            sells(event, 5, 12, 3, fine(some(ExampleMod.WORMWOOD, 2)), 6, 15);
+            sells(event, 5, 10, 3, fine(some(ExampleMod.VALERIAN_SPRIGS, 2)), 6, 15);
             sells(event, 5, 30, 8, one(ExampleMod.ARCANE_CORE), 2, 25);
 
         } else if (p == BOOKSELLER.get()) {
@@ -217,6 +217,7 @@ public class ModVillagers {
             sellsBook(event, 2, common, 12, 5, 12, 5);
             sells(event, 2, 10, 4, one(ExampleMod.ENCHANTED_INKWELL), 8, 5);
             sellsBook(event, 3, advanced, 22, 7, 10, 10);
+            sells(event, 3, 22, 6, one(ExampleMod.ADVANCED_POTION_MAKING), 4, 10);
             sells(event, 4, 16, 5, one(ExampleMod.ENCHANTED_BOOK_PILE_ITEM), 6, 15);
             sells(event, 5, 40, 10, one(ExampleMod.HOGWARTS_INVITE), 2, 30);
 
@@ -277,7 +278,6 @@ public class ModVillagers {
             sells(event, 1, 3, 2, some(Items.WRITABLE_BOOK, 1), 12, 2);
             sells(event, 2, 9, 4, one(ExampleMod.ENCHANTED_INKWELL), 8, 5);
             sells(event, 3, 12, 5, one(ExampleMod.ARCANE_DUST), 8, 10);
-            sells(event, 3, 22, 6, one(ExampleMod.ADVANCED_POTION_MAKING), 4, 10);
             sells(event, 4, 20, 6, one(ExampleMod.ARCANE_FOCUS), 4, 20);
             sells(event, 5, 32, 8, one(ExampleMod.SAMPLE_COLLECTOR), 2, 30);
 

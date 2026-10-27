@@ -137,7 +137,7 @@ public class HogwartsGuideScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+        renderTransparentBackground(guiGraphics);
         guiGraphics.fill(0, 0, this.width, this.height, 0xB0100906);
 
         guiGraphics.fill(this.left - 2, this.top - 2, this.left + PAGE_WIDTH + 2, this.top + PAGE_HEIGHT + 2, 0xFF6A4A25);
@@ -149,7 +149,9 @@ public class HogwartsGuideScreen extends Screen {
         super.render(guiGraphics, mouseX, mouseY, partialTick);
 
         guiGraphics.drawCenteredString(this.font, this.advancedBook ? this.title : Component.translatable("gui.hogwartsmagic.hogwarts_guide.header"), this.left + PAGE_WIDTH / 2, this.top + 14, 0x5A3420);
-        guiGraphics.drawCenteredString(this.font, this.currentSection.label(), this.left + PAGE_WIDTH / 2, this.top + 30, 0x6D4725);
+        if (!this.advancedBook) { // the book's header already names the section
+            guiGraphics.drawCenteredString(this.font, this.currentSection.label(), this.left + PAGE_WIDTH / 2, this.top + 30, 0x6D4725);
+        }
 
         List<Sheet> pages = this.sheets.get(this.currentSection);
         this.currentPage = Mth.clamp(this.currentPage, 0, Math.max(0, pages.size() - 1));

@@ -24,6 +24,12 @@ class RecordedTrackSamplerTest {
     }
 
     @Test
+    void emptyArraysGiveZeros() {
+        Recording.Track t = track(0, Recording.REMOVAL_NONE, new float[0], new float[0]);
+        assertEquals(7, RecordedTrackSampler.pose(t, 3f).length);
+    }
+
+    @Test
     void yawWrapsShortWay() {
         Recording.Track t = track(0, Recording.REMOVAL_NONE, new float[] {0, 0}, new float[] {179, -179});
         assertEquals(180f, Math.abs(RecordedTrackSampler.pose(t, 0.5f)[3]), 1e-4);

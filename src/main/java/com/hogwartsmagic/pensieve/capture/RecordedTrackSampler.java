@@ -20,6 +20,7 @@ public final class RecordedTrackSampler {
     public static float[] pose(Recording.Track t, float tick) {
         float rel = tick - t.first();
         int n = t.x().length;
+        if (n == 0) return new float[7];
         int i0 = (int) Math.floor(rel);
         float f = rel - i0;
         int a = Math.max(0, Math.min(n - 1, i0));

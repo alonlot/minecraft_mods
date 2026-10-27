@@ -13,10 +13,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class RecordingSceneTest {
     private static final UUID OWNER = UUID.randomUUID();
 
+    private static int ownerActor = 0;
+
     private static Recording.Track track(int actor, String type, String name, boolean player,
                                          List<Recording.Act> acts) {
         float[] a = new float[3];
-        return new Recording.Track(actor, type, UUID.randomUUID(), name, player, null, null, 0, 2, 0,
+        return new Recording.Track(actor, type, player && actor == ownerActor ? OWNER : UUID.randomUUID(), name, player, null, null, 0, 2, 0,
                 a, a, a, a, a, a, a, List.of(), List.of(), acts);
     }
 
@@ -52,6 +54,29 @@ class RecordingSceneTest {
                 track(4, "minecraft:player", "Bea", true, List.of())), List.of(), List.of(), List.of());
         assertEquals(List.of("owner", "p_Bea_1", "p_Bea_4"),
                 RecordingScene.toScene(r).actors().stream().map(SceneDef.ActorDef::id).toList());
+    }
+
+    @Test
+    void ownerIsFoundByUuidNotPosition() {
+        ownerActor = 3;
+        try {
+            Recording r = recording(List.of(track(1, "minecraft:player", "Bea", true, List.of()),
+                    track(3, "minecraft:player", "Alon", true, List.of())), List.of(), List.of(), List.of());
+            assertEquals(List.of("p_Bea", "owner"), List.copyOf(RecordingScene.actorIds(r).keySet()));
+        } finally {
+            ownerActor = 0;
+        }
+    }
+
+    @Test
+    void mobsAreUnnamedAndPlayerNamesEscaped() {
+        Recording r = recording(List.of(track(0, "minecraft:player", "Alon", true, List.of()),
+                track(1, "minecraft:player", "{viewer}", true, List.of()),
+                track(2, "minecraft:zombie", "Zombie", false, List.of())), List.of(), List.of(), List.of());
+        List<SceneDef.ActorDef> a = RecordingScene.toScene(r).actors();
+        assertEquals("Alon", a.get(0).name());
+        assertEquals("{​viewer}", a.get(1).name());
+        assertEquals("", a.get(2).name());
     }
 
     @Test

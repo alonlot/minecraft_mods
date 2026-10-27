@@ -22,7 +22,7 @@ public final class SnapshotCull {
                     int i = (x * d + y) * d + z;
                     if (!inside(d, size, r2, x, y, z) || before[i] == 0) {
                         cells[i] = -1;
-                    } else if (!keep.contains(i) && buried(before, d, size, r2, x, y, z, opaque)) {
+                    } else if (!keep.contains(i) && buried(before, d, size, r2, keep, x, y, z, opaque)) {
                         cells[i] = -1;
                     }
                 }
@@ -40,17 +40,21 @@ public final class SnapshotCull {
         return dx * dx + dy * dy + dz * dz <= r2;
     }
 
-    private static boolean buried(int[] before, int d, int size, long r2, int x, int y, int z, IntPredicate opaque) {
-        return hides(before, d, size, r2, x + 1, y, z, opaque) && hides(before, d, size, r2, x - 1, y, z, opaque)
-                && hides(before, d, size, r2, x, y + 1, z, opaque) && hides(before, d, size, r2, x, y - 1, z, opaque)
-                && hides(before, d, size, r2, x, y, z + 1, opaque) && hides(before, d, size, r2, x, y, z - 1, opaque);
+    private static boolean buried(int[] before, int d, int size, long r2, Set<Integer> keep, int x, int y, int z, IntPredicate opaque) {
+        return hides(before, d, size, r2, keep, x + 1, y, z, opaque) && hides(before, d, size, r2, keep, x - 1, y, z, opaque)
+                && hides(before, d, size, r2, keep, x, y + 1, z, opaque) && hides(before, d, size, r2, keep, x, y - 1, z, opaque)
+                && hides(before, d, size, r2, keep, x, y, z + 1, opaque) && hides(before, d, size, r2, keep, x, y, z - 1, opaque);
     }
 
-    private static boolean hides(int[] before, int d, int size, long r2, int x, int y, int z, IntPredicate opaque) {
+    private static boolean hides(int[] before, int d, int size, long r2, Set<Integer> keep, int x, int y, int z, IntPredicate opaque) {
         if (!inside(d, size, r2, x, y, z)) {
             return false;
         }
-        int s = before[(x * d + y) * d + z];
+        int n = (x * d + y) * d + z;
+        if (keep.contains(n)) {
+            return false; // a changing cell can vanish, so it does not hide its neighbours
+        }
+        int s = before[n];
         return s > 0 && opaque.test(s);
     }
 }

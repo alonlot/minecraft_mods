@@ -33,4 +33,11 @@ class BlockRewindTest {
         assertArrayEquals(new int[] {STONE}, BlockRewind.rewind(current, List.of(new Change(5, 0, STONE, AIR))));
         assertArrayEquals(new int[] {AIR}, current);
     }
+
+    @Test
+    void unorderedInputIsSorted() {
+        List<Change> shuffled = List.of(new Change(9, 0, STONE, AIR), new Change(5, 0, AIR, STONE));
+        assertArrayEquals(new int[] {AIR}, BlockRewind.rewind(new int[] {AIR}, shuffled));
+        assertEquals(5, BlockRewind.forward(shuffled).get(0).tick());
+    }
 }

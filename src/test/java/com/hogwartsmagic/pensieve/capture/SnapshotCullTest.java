@@ -65,4 +65,15 @@ class SnapshotCullTest {
         // the centre now touches air, so it is no longer fully hidden
         assertEquals(STONE, cells[idx(0, 0, 0)]);
     }
+
+    @Test
+    void changedCellDoesNotHideItsNeighbours() {
+        int[] cells = cube();
+        SnapshotCull.cull(cells, SIZE, 2, s -> s == STONE, Set.of(idx(0, 0, 0)));
+        assertEquals(STONE, cells[idx(0, 0, 0)]);
+        int[][] n = {{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
+        for (int[] o : n) {
+            assertEquals(STONE, cells[idx(o[0], o[1], o[2])], o[0] + "," + o[1] + "," + o[2]);
+        }
+    }
 }

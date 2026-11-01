@@ -862,6 +862,10 @@ public class ModEvents {
             if (player.tickCount % 20 == 0) {
                 com.hogwartsmagic.worldgen.MiniHogwartsManager.maybeShowTitle(player);
             }
+            // Twice as often: the first step into a castle's Great Hall plays its ceiling's reveal for that player.
+            if (player.tickCount % 10 == 0) {
+                com.hogwartsmagic.worldgen.MiniHogwartsManager.maybeRevealHall(player);
+            }
 
             // Give some villages a Gringotts branch the first time a player walks
             // into one. Self-throttling, and each village is only ever judged once.

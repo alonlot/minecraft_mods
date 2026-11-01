@@ -99,6 +99,12 @@ def yaw(local_yaw):
     return y - 360 if y > 180 else y
 
 
+def door_yaw(local_yaw):
+    """A door leaf's local yaw (DoorHinge's convention, which turns against Minecraft's) to the castle frame."""
+    y = (local_yaw - 90 * TURNS) % 360
+    return y - 360 if y > 180 else y
+
+
 def in_old_wing(x, z):
     """Whether castle column (x, z) is inside the old wing's outline."""
     x -= BASE_SHIFT[0]
@@ -891,7 +897,9 @@ def place_hall(grid):
     place_hall.stats = {'removed': removed, 'plinth': plinth, 'skirt': skirt, 'floor_lights': lights,
                         'outer_faces': dict(seen), 'windows': len(windows)}
 
-    doors = [{'hinge': point(*h), 'yaw_closed': yaw(-90), 'mirrored': i == 1}
+    # A door leaf's yaw runs the other way round to a Minecraft yaw (DoorHinge puts yaw 0's free edge on +X and yaw -90's
+    # on +Z), so turning the set clockwise by TURNS quarter turns takes it from -90 to -90 - 90 * TURNS.
+    doors = [{'hinge': point(*h), 'yaw_closed': door_yaw(-90), 'mirrored': i == 1}
              for i, h in enumerate(G.DOOR_HINGES)]
     return {
         'hall_ceiling': _ceiling(grid),

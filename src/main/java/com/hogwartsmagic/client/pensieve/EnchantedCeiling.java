@@ -1,6 +1,9 @@
 package com.hogwartsmagic.client.pensieve;
 
 import com.hogwartsmagic.ExampleMod;
+import com.hogwartsmagic.ambience.AmbientEffect;
+import com.hogwartsmagic.client.ambience.AmbienceClock;
+import com.hogwartsmagic.client.ambience.WorldAmbience;
 import com.hogwartsmagic.client.ModRenderTypes;
 import com.hogwartsmagic.pensieve.scene.CeilingSky;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -12,6 +15,7 @@ import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RenderLevelStageEvent;
@@ -20,7 +24,11 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.joml.Matrix4f;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 /**
  * The {@code enchanted_ceiling} effect: the Great Hall's bewitched sky, open above the walls (the set has no roof over
@@ -60,6 +68,11 @@ import java.util.List;
  * <p>Fabulous graphics: there the translucent layers render into their own targets and are composited by a post pass,
  * and which target is bound when this stage fires has not been checked. Fancy and Fast are the tested path; Fabulous is
  * on the Task 7 in-game check list.
+ *
+ * <p>Outside a memory the same drawing serves the world's own ceilings (the registered {@code KIND_CEILING} effects, the
+ * castle's hall and the ceiling spell's rooms) within 128 blocks of the camera: always the real style, on the world's
+ * clock ({@code AmbienceClock}) rather than the scene's, open unless the server told this client a reveal
+ * ({@code WorldAmbience#revealStart}), when the roof dissolves from that moment. The Pensieve path is unchanged.
  *
  * <p>Textures come from {@code build_scripts/generate_ceiling_textures.py}.
  */
@@ -148,6 +161,12 @@ public final class EnchantedCeiling {
         final float hy;
         final int duration;
         final float startT;
+        /**
+         * When the roof starts to dissolve, on the same clock as {@code startT}. A memory's ceiling reveals at its own
+         * start, so the two are equal; a world ceiling keeps a fixed {@code startT} (its lightning does not move) and
+         * has this set from the reveal the server told.
+         */
+        float revealT;
         final long seed;
         final float[][] stars;
         final float[][] tints;
@@ -174,6 +193,7 @@ public final class EnchantedCeiling {
             this.hz = hz;
             this.duration = duration > 0 ? duration : CeilingSky.DEFAULT_REVEAL_TICKS;
             this.startT = startT;
+            this.revealT = startT;
             this.seed = seed;
             this.stars = CeilingSky.stars(seed, hx, hz, CeilingSky.starCount(hx, hz));
             this.tints = tints(seed, stars.length);
@@ -220,12 +240,26 @@ public final class EnchantedCeiling {
     @SubscribeEvent(priority = EventPriority.HIGH)
     public static void onRenderLevelStage(RenderLevelStageEvent event) {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) return;
-        List<Sky> skies = EffectVisuals.ceilings();
-        if (skies.isEmpty()) return;
         Minecraft mc = Minecraft.getInstance();
-        if (mc.level == null || !PensieveClientState.inMemory()) return;
-        float now = PensieveClientState.sceneTime(PensieveClientState.partial());
+        if (PensieveClientState.inMemory()) {
+            List<Sky> skies = EffectVisuals.ceilings();
+            if (skies.isEmpty() || mc.level == null) return;
+            drawAll(skies, PensieveClientState.sceneTime(PensieveClientState.partial()), event.getCamera().getPosition(),
+                    mc);
+            return;
+        }
+        // Not in a memory: the world's own ceilings (the castle's hall, a bewitched room), on the world clock.
+        if (mc.level == null || WorldAmbience.ofKind(AmbientEffect.KIND_CEILING).isEmpty()) {
+            WORLD_SKIES.clear();
+            return;
+        }
         Vec3 cam = event.getCamera().getPosition();
+        List<Sky> skies = worldSkies(mc.level, cam);
+        if (skies.isEmpty()) return;
+        drawAll(skies, AmbienceClock.now(mc.level, PensieveClientState.partial()), cam, mc);
+    }
+
+    private static void drawAll(List<Sky> skies, float now, Vec3 cam, Minecraft mc) {
         // Identity, deliberately: the camera rotation is already on RenderSystem's modelview stack.
         Matrix4f m = new Matrix4f();
         MultiBufferSource.BufferSource buffer = mc.renderBuffers().bufferSource();
@@ -234,13 +268,50 @@ public final class EnchantedCeiling {
         }
     }
 
+    /** Ceilings further than this from the camera (to the nearest point of their box) are not drawn. */
+    private static final double WORLD_RANGE = 128.0;
+    /** A world ceiling's reveal has long finished at its fixed start; lightning is timed from it as well. */
+    private static final float WORLD_START = -2f * CeilingSky.DEFAULT_REVEAL_TICKS;
+    /** The sky built for each world ceiling, kept while it is registered and unchanged (its star field is not free). */
+    private static final Map<UUID, WorldSky> WORLD_SKIES = new HashMap<>();
+
+    private record WorldSky(AmbientEffect effect, Sky sky) {
+    }
+
+    /**
+     * The world's ceilings in range, as skies ready to draw: the real-sky style, open (or, from the reveal the server
+     * told, with the roof dissolving out of its start), one cached per effect.
+     */
+    private static List<Sky> worldSkies(ClientLevel level, Vec3 cam) {
+        List<AmbientEffect> ceilings = WorldAmbience.ofKind(AmbientEffect.KIND_CEILING);
+        WORLD_SKIES.keySet().removeIf(id -> ceilings.stream().noneMatch(e -> e.id().equals(id)));
+        List<Sky> out = new ArrayList<>(ceilings.size());
+        for (AmbientEffect e : ceilings) {
+            if (WorldAmbience.distanceSqr(e, cam) > WORLD_RANGE * WORLD_RANGE) continue;
+            WorldSky cached = WORLD_SKIES.get(e.id());
+            if (cached == null || !cached.effect.equals(e)) {
+                // Real style: the sky follows the client level's clock and weather when drawn. No duration, so the
+                // reveal takes the default; the seed comes from the id, so every viewer's stars are the same.
+                Sky sky = new Sky(CeilingSky.REAL, e.x(), e.y(), e.z(), Mth.clamp(e.hx(), 1f, 100f),
+                        Mth.clamp(e.hz(), 1f, 100f), Mth.clamp(e.hy(), 0f, 100f), 0, WORLD_START,
+                        e.id().getMostSignificantBits() ^ e.id().getLeastSignificantBits(), 0f);
+                cached = new WorldSky(e, sky);
+                WORLD_SKIES.put(e.id(), cached);
+            }
+            long reveal = WorldAmbience.revealStart(e.id());
+            cached.sky.revealT = reveal == WorldAmbience.NO_REVEAL ? WORLD_START : AmbienceClock.at(level, reveal);
+            out.add(cached.sky);
+        }
+        return out;
+    }
+
     /** The plane being drawn: anchor (camera-relative), grid size, reveal. */
     private record Plane(Sky sky, float ax, float ay, float az, int nx, int nz, float reveal) {
     }
 
     private static void draw(Sky sky, float now, Vec3 cam, Matrix4f m, MultiBufferSource.BufferSource buffer) {
         float local = now - sky.startT;
-        float reveal = CeilingSky.revealAt(local, sky.duration);
+        float reveal = CeilingSky.revealAt(now - sky.revealT, sky.duration);
         // Camera-relative anchor, once, in double precision; everything else is a small offset from it.
         Plane p = new Plane(sky, (float) (sky.x - cam.x), (float) (CeilingSky.planeY((float) sky.y) - cam.y),
                 (float) (sky.z - cam.z), cells(sky.hx), cells(sky.hz), reveal);

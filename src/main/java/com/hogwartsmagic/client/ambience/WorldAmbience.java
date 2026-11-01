@@ -5,6 +5,7 @@ import com.hogwartsmagic.ambience.AmbienceNet;
 import com.hogwartsmagic.ambience.AmbientEffect;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -27,8 +28,10 @@ import java.util.UUID;
 @Mod.EventBusSubscriber(modid = ExampleMod.MODID, value = Dist.CLIENT)
 public final class WorldAmbience {
     private static final Map<UUID, AmbientEffect> EFFECTS = new LinkedHashMap<>();
-    /** Ceiling id to the game time its reveal started at. */
-    private static final Map<UUID, Float> REVEALS = new HashMap<>();
+    /** What {@link #revealStart} says when no reveal is pending. */
+    public static final long NO_REVEAL = Long.MIN_VALUE;
+    /** Ceiling id to the (whole tick) game time its reveal started at; a long, a float loses ticks past 16.7 million. */
+    private static final Map<UUID, Long> REVEALS = new HashMap<>();
     @SuppressWarnings("unchecked")
     private static final List<AmbientEffect>[] BY_KIND = new List[AmbientEffect.KIND_COUNT];
     /** The level the contents belong to; a different current level empties the store. */
@@ -50,11 +53,14 @@ public final class WorldAmbience {
         return BY_KIND[kind];
     }
 
-    /** The game time the ceiling's reveal started at, or {@code Float.NaN} when none is pending. */
-    public static float revealStart(UUID ceiling) {
+    /**
+     * The game time (a whole tick, on the level's clock) the ceiling's reveal started at, or {@link #NO_REVEAL} when
+     * none has been told: the ceiling is then simply open. Turn it into drawing time with {@link AmbienceClock#at}.
+     */
+    public static long revealStart(UUID ceiling) {
         dropIfLevelChanged();
-        Float start = REVEALS.get(ceiling);
-        return start == null ? Float.NaN : start;
+        Long start = REVEALS.get(ceiling);
+        return start == null ? NO_REVEAL : start;
     }
 
     /** Replaces everything with the server's list for the level the client is in now. */
@@ -95,7 +101,35 @@ public final class WorldAmbience {
             return;
         }
         dropIfLevelChanged();
-        REVEALS.put(ceiling, (float) level.getGameTime());
+        REVEALS.put(ceiling, level.getGameTime());
+    }
+
+    /**
+     * Squared distance from {@code cam} to the nearest point of the effect's volume, for the renderers' range test (a
+     * big hall must not vanish because its centre is far while the viewer stands at its wall). A ceiling reaches from its
+     * plane up its clearance, candles are the box round them, a ray stands on its window and reaches as far as its
+     * widest extent, and a door is its hinge.
+     */
+    public static double distanceSqr(AmbientEffect e, Vec3 cam) {
+        double hx = e.hx(), hy = 0.0, hz = e.hz();
+        double y0 = e.y(), y1 = e.y();
+        if (e.kind() == AmbientEffect.KIND_CEILING) {
+            y1 = e.y() + Math.max(0f, e.hy());
+        } else if (e.kind() == AmbientEffect.KIND_CANDLES) {
+            hy = e.hy();
+        } else if (e.kind() == AmbientEffect.KIND_RAYS) {
+            double reach = Math.max(e.hx(), e.hz());
+            hx = reach;
+            hz = reach;
+            y1 = e.y() + e.hy();
+        } else {
+            hx = 0.0;
+            hz = 0.0;
+        }
+        double dx = Math.max(0.0, Math.abs(cam.x - e.x()) - hx);
+        double dz = Math.max(0.0, Math.abs(cam.z - e.z()) - hz);
+        double dy = Math.max(0.0, Math.max(y0 - hy - cam.y, cam.y - (y1 + hy)));
+        return dx * dx + dy * dy + dz * dz;
     }
 
     private static void dropIfLevelChanged() {

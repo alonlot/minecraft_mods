@@ -795,4 +795,216 @@ public final class MiniHogwartsGameTests {
         LOGGER.info("MINIHOGWARTS-GAMETEST PASS shippedAnchorsFitTheShippedCastle");
         helper.succeed();
     }
+
+    // ---------------------------------------------------------------- the castle's ambience
+
+    /** A stand-in castle's anchors with one of every ambient effect: a ceiling, two candle boxes, a ray and a door pair. */
+    private static com.hogwartsmagic.worldgen.MiniHogwartsAnchors ambienceAnchors() {
+        return com.hogwartsmagic.worldgen.MiniHogwartsAnchors.parse(com.google.gson.JsonParser.parseString("""
+                {"hall_ceiling": {"min": [1, 1], "max": [14, 18], "y": 6, "clearance": 9},
+                 "hall_box": {"min": [1, 1, 1], "max": [14, 5, 18]},
+                 "main_entrance": [1, 1, 1],
+                 "candles": [{"at": [7.5, 3, 9.5], "spread": [5, 1.5, 7], "count": 20},
+                             {"at": [7.5, 5, 3], "spread": [2, 1, 2], "count": 5}],
+                 "rays": [{"at": [15, 2, 5], "spread": [1.5, 3, 6], "yaw": 90}],
+                 "doors": [{"hinge": [8.5, 1, 19], "mirrored": false, "yaw_closed": 180},
+                           {"hinge": [6.5, 1, 19], "mirrored": true, "yaw_closed": 180}]}
+                """).getAsJsonObject());
+    }
+
+    private static void decorateAllFour(net.minecraft.server.level.ServerLevel level, BlockPos anchor,
+                                        net.minecraft.world.level.ChunkPos chunk) {
+        var piece = new com.hogwartsmagic.worldgen.structure.MiniHogwartsPiece(anchor);
+        for (int cx = 0; cx <= 1; cx++) {
+            for (int cz = 0; cz <= 1; cz++) {
+                var c = new net.minecraft.world.level.ChunkPos(chunk.x + cx, chunk.z + cz);
+                var box = new net.minecraft.world.level.levelgen.structure.BoundingBox(
+                        c.getMinBlockX(), level.getMinBuildHeight(), c.getMinBlockZ(),
+                        c.getMaxBlockX(), level.getMaxBuildHeight(), c.getMaxBlockZ());
+                piece.postProcess(level, level.structureManager(), level.getChunkSource().getGenerator(),
+                        level.getRandom(), box, c, anchor);
+            }
+        }
+    }
+
+    /**
+     * Decorating the castle registers its ambient effects in the level once: the hall ceiling over the anchors
+     * rectangle (the plane at the anchor plus the local height, the roof clearance as {@code hy}), a candle effect per
+     * box, a ray per window and a door per leaf (count 1 marks the mirrored one), all in world space. Decorating the
+     * same castle again changes nothing and tells nobody.
+     */
+    @GameTest(template = EMPTY, batch = "mh_ambience_register", timeoutTicks = 200)
+    public static void castleRegistersEffectsWhenFurnished(GameTestHelper helper) {
+        var level = helper.getLevel();
+        BlockPos far = helper.absolutePos(BlockPos.ZERO).offset(-4096, 0, 4096);
+        var chunk = new net.minecraft.world.level.ChunkPos(far);
+        List<net.minecraft.world.level.ChunkPos> forced = forceChunks(level, chunk, 2);
+        ServerPlayer watcher = helper.makeMockServerPlayerInLevel();
+        List<Object[]> sent = new ArrayList<>();
+        AmbienceNet.setSendObserverForTests((player, packet) -> sent.add(new Object[]{player, packet}));
+        int ground = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE,
+                chunk.getMinBlockX() + 8, chunk.getMinBlockZ() + 8);
+        BlockPos anchor = new BlockPos(chunk.getMinBlockX() + 8, ground - 2, chunk.getMinBlockZ() + 8);
+        var anchors = ambienceAnchors();
+        List<AmbientEffect> expected = com.hogwartsmagic.worldgen.MiniHogwartsAmbience.effectsFor(anchor, anchors, 0L);
+        Runnable cleanup = () -> {
+            AmbienceNet.setSendObserverForTests(null);
+            var registry = AmbienceRegistry.get(level);
+            for (AmbientEffect e : expected) {
+                registry.remove(level, e.id());
+            }
+            level.getServer().getPlayerList().remove(watcher);
+            release(level, forced);
+        };
+        try {
+            com.hogwartsmagic.worldgen.MiniHogwartsSchematic.overrideForTests(furnishedCastle());
+            com.hogwartsmagic.worldgen.MiniHogwartsAnchors.overrideForTests(anchors);
+            try {
+                decorateAllFour(level, anchor, chunk);
+            } finally {
+                com.hogwartsmagic.worldgen.MiniHogwartsSchematic.overrideForTests(null);
+                com.hogwartsmagic.worldgen.MiniHogwartsAnchors.overrideForTests(null);
+            }
+            helper.runAfterDelay(5, () -> {
+                try {
+                    var registry = AmbienceRegistry.get(level);
+                    helper.assertTrue(expected.size() == 6, "the stand-in castle describes six effects, got " + expected.size());
+                    for (AmbientEffect e : expected) {
+                        helper.assertTrue(registry.get(e.id()) != null,
+                                "the castle did not register its kind " + e.kind() + " effect " + e.id());
+                    }
+                    AmbientEffect ceiling = registry.get(com.hogwartsmagic.worldgen.MiniHogwartsAmbience.ceilingId(anchor));
+                    helper.assertTrue(ceiling.kind() == AmbientEffect.KIND_CEILING
+                                    && ceiling.x() == anchor.getX() + 7.5 && ceiling.z() == anchor.getZ() + 9.5
+                                    && ceiling.y() == anchor.getY() + 6 && ceiling.hx() == 6.5f && ceiling.hz() == 8.5f
+                                    && ceiling.hy() == 9f && ceiling.owner() == null,
+                            "the ceiling is the anchors rectangle in world space, got " + ceiling);
+                    long candles = expected.stream().filter(e -> e.kind() == AmbientEffect.KIND_CANDLES).count();
+                    long rays = expected.stream().filter(e -> e.kind() == AmbientEffect.KIND_RAYS).count();
+                    var doors = expected.stream().filter(e -> e.kind() == AmbientEffect.KIND_DOOR).toList();
+                    helper.assertTrue(candles == 2 && rays == 1 && doors.size() == 2, "two candle boxes, a ray, two doors");
+                    var plain = registry.get(doors.get(0).id());
+                    var mirrored = registry.get(doors.get(1).id());
+                    helper.assertTrue(plain.count() == 0 && mirrored.count() == 1, "count 1 marks the mirrored leaf");
+                    helper.assertTrue(plain.x() == anchor.getX() + 8.5 && plain.y() == anchor.getY() + 1
+                                    && plain.z() == anchor.getZ() + 19 && plain.yaw() == 180f,
+                            "the door is at its hinge in world space, got " + plain);
+                    int told = (int) sent.stream().filter(s -> s[0] == watcher && s[1] instanceof AmbienceNet.AmbienceDeltaPacket d
+                            && d.add()).count();
+                    helper.assertTrue(told >= 6, "the level's players were told, got " + told);
+
+                    // The same castle decorated again (a regenerated chunk, a restart) registers and tells nothing.
+                    sent.clear();
+                    com.hogwartsmagic.worldgen.MiniHogwartsSchematic.overrideForTests(furnishedCastle());
+                    com.hogwartsmagic.worldgen.MiniHogwartsAnchors.overrideForTests(anchors);
+                    try {
+                        decorateAllFour(level, anchor, chunk);
+                    } finally {
+                        com.hogwartsmagic.worldgen.MiniHogwartsSchematic.overrideForTests(null);
+                        com.hogwartsmagic.worldgen.MiniHogwartsAnchors.overrideForTests(null);
+                    }
+                    helper.runAfterDelay(5, () -> {
+                        try {
+                            long again = sent.stream().filter(s -> s[1] instanceof AmbienceNet.AmbienceDeltaPacket).count();
+                            helper.assertTrue(again == 0, "decorating twice told the players " + again + " more times");
+                            helper.assertTrue(AmbienceRegistry.get(level).all().stream()
+                                            .filter(e -> expected.stream().anyMatch(x -> x.id().equals(e.id()))).count() == 6,
+                                    "still exactly the castle's six effects");
+                            LOGGER.info("MINIHOGWARTS-GAMETEST PASS castleRegistersEffectsWhenFurnished");
+                            cleanup.run();
+                            helper.succeed();
+                        } catch (RuntimeException ex) {
+                            cleanup.run();
+                            throw ex;
+                        }
+                    });
+                } catch (RuntimeException ex) {
+                    cleanup.run();
+                    throw ex;
+                }
+            });
+        } catch (RuntimeException ex) {
+            cleanup.run();
+            throw ex;
+        }
+    }
+
+    /**
+     * The first step into the Great Hall plays the ceiling's reveal for that player alone: one packet to the first
+     * player when they enter, none when they step out and in again, and one to a second player when they enter.
+     */
+    @GameTest(template = EMPTY, batch = "mh_reveal", timeoutTicks = 100)
+    public static void revealOncePerPlayer(GameTestHelper helper) {
+        var level = helper.getLevel();
+        BlockPos anchor = new BlockPos(-9000, 64, 9000);
+        var anchors = ambienceAnchors();
+        var tracker = com.hogwartsmagic.worldgen.MiniHogwartsTracker.get(level);
+        var castle = tracker.add(anchor.offset(10, 3, 10), anchor);
+        helper.assertTrue(anchor.equals(castle.anchor()), "the castle is recorded at its anchor");
+        ServerPlayer a = helper.makeMockServerPlayerInLevel();
+        ServerPlayer b = helper.makeMockServerPlayerInLevel();
+        List<Object[]> sent = new ArrayList<>();
+        AmbienceNet.setSendObserverForTests((player, packet) -> sent.add(new Object[]{player, packet}));
+        List<AmbientEffect> effects = com.hogwartsmagic.worldgen.MiniHogwartsAmbience.effectsFor(anchor, anchors, 0L);
+        try {
+            com.hogwartsmagic.worldgen.MiniHogwartsAnchors.overrideForTests(anchors);
+            com.hogwartsmagic.worldgen.MiniHogwartsAmbience.register(level, anchor, anchors);
+            UUID ceiling = com.hogwartsmagic.worldgen.MiniHogwartsAmbience.ceilingId(anchor);
+            sent.clear();
+            var inside = new net.minecraft.world.phys.Vec3(anchor.getX() + 7.5, anchor.getY() + 2, anchor.getZ() + 9.5);
+            var outside = new net.minecraft.world.phys.Vec3(anchor.getX() + 40, anchor.getY() + 2, anchor.getZ() + 9.5);
+
+            a.moveTo(outside.x, outside.y, outside.z);
+            helper.assertTrue(com.hogwartsmagic.worldgen.MiniHogwartsManager.maybeRevealHall(a) == null,
+                    "outside the hall nothing is revealed");
+            helper.assertTrue(revealsTo(sent, a, ceiling) == 0 && !castle.enteredHall().contains(a.getUUID()),
+                    "outside the hall nothing is sent or remembered");
+
+            a.moveTo(inside.x, inside.y, inside.z);
+            helper.assertTrue(com.hogwartsmagic.worldgen.MiniHogwartsManager.maybeRevealHall(a) == castle,
+                    "the first step in reveals the hall");
+            helper.assertTrue(revealsTo(sent, a, ceiling) == 1, "one reveal packet to the first player, got "
+                    + revealsTo(sent, a, ceiling));
+            helper.assertTrue(castle.enteredHall().contains(a.getUUID()), "the castle remembers the first player");
+
+            helper.assertTrue(com.hogwartsmagic.worldgen.MiniHogwartsManager.maybeRevealHall(a) == null,
+                    "a second look while inside reveals nothing");
+            a.moveTo(outside.x, outside.y, outside.z);
+            com.hogwartsmagic.worldgen.MiniHogwartsManager.maybeRevealHall(a);
+            a.moveTo(inside.x, inside.y, inside.z);
+            helper.assertTrue(com.hogwartsmagic.worldgen.MiniHogwartsManager.maybeRevealHall(a) == null,
+                    "stepping out and in again reveals nothing");
+            helper.assertTrue(revealsTo(sent, a, ceiling) == 1, "still just the one packet to the first player");
+            helper.assertTrue(revealsTo(sent, b, ceiling) == 0, "nothing was sent to the second player");
+
+            b.moveTo(inside.x, inside.y, inside.z);
+            helper.assertTrue(com.hogwartsmagic.worldgen.MiniHogwartsManager.maybeRevealHall(b) == castle,
+                    "a second player gets their own reveal");
+            helper.assertTrue(revealsTo(sent, b, ceiling) == 1 && revealsTo(sent, a, ceiling) == 1,
+                    "one packet each, to the player who entered");
+        } finally {
+            com.hogwartsmagic.worldgen.MiniHogwartsAnchors.overrideForTests(null);
+            AmbienceNet.setSendObserverForTests(null);
+            var registry = AmbienceRegistry.get(level);
+            for (AmbientEffect e : effects) {
+                registry.remove(level, e.id());
+            }
+            tracker.castles().remove(castle);
+            level.getServer().getPlayerList().remove(a);
+            level.getServer().getPlayerList().remove(b);
+        }
+        LOGGER.info("MINIHOGWARTS-GAMETEST PASS revealOncePerPlayer");
+        helper.succeed();
+    }
+
+    /** How many reveal packets for {@code ceiling} were sent to {@code player}. */
+    private static int revealsTo(List<Object[]> sent, ServerPlayer player, UUID ceiling) {
+        int n = 0;
+        for (Object[] s : sent) {
+            if (s[0] == player && s[1] instanceof AmbienceNet.CeilingRevealPacket r && r.id().equals(ceiling)) {
+                n++;
+            }
+        }
+        return n;
+    }
 }

@@ -41,6 +41,11 @@ public final class AmbienceRegistry extends SavedData {
         return Collections.unmodifiableList(new ArrayList<>(effects.values()));
     }
 
+    /** The effect with this id, or null when there is none. */
+    public @Nullable AmbientEffect get(UUID id) {
+        return effects.get(id);
+    }
+
     /** Registers the effect (replacing one with the same id) and tells every player in the level. */
     public void add(ServerLevel level, AmbientEffect effect) {
         if (!effects.containsKey(effect.id()) && effects.size() >= MAX_EFFECTS) {

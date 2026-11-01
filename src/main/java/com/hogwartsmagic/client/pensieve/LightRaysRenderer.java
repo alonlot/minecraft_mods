@@ -1,6 +1,9 @@
 package com.hogwartsmagic.client.pensieve;
 
 import com.hogwartsmagic.ExampleMod;
+import com.hogwartsmagic.ambience.AmbientEffect;
+import com.hogwartsmagic.client.ambience.AmbienceClock;
+import com.hogwartsmagic.client.ambience.WorldAmbience;
 import com.hogwartsmagic.client.ModRenderTypes;
 import com.hogwartsmagic.pensieve.scene.LightRays;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -10,7 +13,9 @@ import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RenderLevelStageEvent;
@@ -21,7 +26,11 @@ import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 /**
  * The {@code light_rays} effect: warm god-rays pouring through a doorway as the doors open, into the dark beyond.
@@ -40,6 +49,10 @@ import java.util.List;
  * camera-relative in double precision once; no depth write, so the first-years in the doorway stand silhouetted
  * against it. The eyes shader fades it with the world's fog. State lives in {@link EffectVisuals}, so its
  * {@code clear()} removes the light with the scene.
+ *
+ * <p>Outside a memory it draws the world's registered {@code KIND_RAYS} windows (the castle's hall) within 128 blocks
+ * of the camera instead, fully open, on the world clock ({@code AmbienceClock}), only while the sun is up
+ * ({@link AmbienceClock#daylight} above 0.2) and it is not raining, and as bright as the daylight.
  *
  * <p>Textures: {@code build_scripts/generate_light_ray_textures.py} ({@code light_ray}, {@code light_glow}); motes use
  * the ceiling's {@code ceiling_dot}.
@@ -110,18 +123,73 @@ public final class LightRaysRenderer {
     @SubscribeEvent(priority = EventPriority.LOW)
     public static void onRenderLevelStage(RenderLevelStageEvent event) {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) return;
-        List<Beam> beams = EffectVisuals.lightRays();
-        if (beams.isEmpty()) return;
         Minecraft mc = Minecraft.getInstance();
-        if (mc.level == null || !PensieveClientState.inMemory()) return;
-        float now = PensieveClientState.sceneTime(PensieveClientState.partial());
         Camera camera = event.getCamera();
+        List<Beam> beams;
+        float now;
+        float daylight = 1f;
+        if (PensieveClientState.inMemory()) {
+            beams = EffectVisuals.lightRays();
+            if (beams.isEmpty() || mc.level == null) return;
+            now = PensieveClientState.sceneTime(PensieveClientState.partial());
+        } else {
+            // Not in a memory: the world's own rays (the castle's hall windows), on the world clock, only while the sun
+            // is up and it is not raining, as bright as the day.
+            if (mc.level == null || WorldAmbience.ofKind(AmbientEffect.KIND_RAYS).isEmpty()) {
+                WORLD_BEAMS.clear();
+                return;
+            }
+            float partial = PensieveClientState.partial();
+            daylight = worldDaylight(mc.level, partial);
+            if (daylight <= MIN_DAYLIGHT) return;
+            beams = worldBeams(camera.getPosition());
+            if (beams.isEmpty()) return;
+            now = AmbienceClock.now(mc.level, partial);
+        }
         // Identity, deliberately: the camera rotation is already on RenderSystem's modelview stack.
         Matrix4f m = new Matrix4f();
         MultiBufferSource.BufferSource buffer = mc.renderBuffers().bufferSource();
         for (Beam beam : beams) {
-            draw(beam, now, camera.getPosition(), camera.rotation(), m, buffer);
+            draw(beam, now, camera.getPosition(), camera.rotation(), m, buffer, beam.intensity * daylight);
         }
+    }
+
+    /** World light needs more daylight than this, and less rain than {@link #MAX_RAIN}, to show at all. */
+    private static final float MIN_DAYLIGHT = 0.2f, MAX_RAIN = 0.2f;
+    /** World rays further than this from the camera are not drawn. */
+    private static final double WORLD_RANGE = 128.0;
+    /** A world beam's start: long enough ago that the doorway is fully open and the light fully up. */
+    private static final float WORLD_START = -1000f;
+    /** The beam built for each world ray, kept while it is registered and unchanged. */
+    private static final Map<UUID, WorldBeam> WORLD_BEAMS = new HashMap<>();
+
+    private record WorldBeam(AmbientEffect effect, Beam beam) {
+    }
+
+    /** How much of the sun's light the world's rays get right now: 0 at night, in rain, or in a level with no sky light. */
+    private static float worldDaylight(ClientLevel level, float partial) {
+        if (!level.dimensionType().hasSkyLight() || level.getRainLevel(partial) >= MAX_RAIN) return 0f;
+        return AmbienceClock.daylight(level.getSunAngle(partial));
+    }
+
+    /** The world's rays in range as beams, one cached per effect. */
+    private static List<Beam> worldBeams(Vec3 cam) {
+        List<AmbientEffect> rays = WorldAmbience.ofKind(AmbientEffect.KIND_RAYS);
+        WORLD_BEAMS.keySet().removeIf(id -> rays.stream().noneMatch(e -> e.id().equals(id)));
+        List<Beam> out = new ArrayList<>(rays.size());
+        for (AmbientEffect e : rays) {
+            if (WorldAmbience.distanceSqr(e, cam) > WORLD_RANGE * WORLD_RANGE) continue;
+            WorldBeam cached = WORLD_BEAMS.get(e.id());
+            if (cached == null || !cached.effect.equals(e)) {
+                // The same clamps as a memory's light_rays: the half width, the height and the reach.
+                cached = new WorldBeam(e, new Beam(new Vec3(e.x(), e.y(), e.z()), e.yaw(), Mth.clamp(e.hx(), 0.5f, 12f),
+                        Mth.clamp(e.hy(), 1f, 24f), Mth.clamp(e.hz(), 1f, 60f), 0, WORLD_START,
+                        e.id().getMostSignificantBits() ^ e.id().getLeastSignificantBits(), 1f));
+                WORLD_BEAMS.put(e.id(), cached);
+            }
+            out.add(cached.beam);
+        }
+        return out;
     }
 
     /** The beam's frame, camera-relative: the doorway anchor, then lateral, up and along unit vectors. */
@@ -131,8 +199,9 @@ public final class LightRaysRenderer {
         }
     }
 
+    /** {@code strength} multiplies every brightness: the beam's own intensity, and for the world also the daylight. */
     private static void draw(Beam beam, float now, Vec3 cam, Quaternionf camRot, Matrix4f m,
-                             MultiBufferSource.BufferSource buffer) {
+                             MultiBufferSource.BufferSource buffer, float strength) {
         float elapsed = now - beam.startT;
         float appear = LightRays.appear(elapsed);
         if (appear <= 0f) return;
@@ -153,12 +222,12 @@ public final class LightRaysRenderer {
         // 1. The gap, the bloom on the wall face round it, and the pool on the floor.
         VertexConsumer vc = buffer.getBuffer(GLOW);
         if (front > 0f) {
-            float g = LightRays.scaled(GAP_ALPHA * front, beam.intensity);
+            float g = LightRays.scaled(GAP_ALPHA * front, strength);
             upright(vc, m, fr, -0.15f, open + 0.08f, 0f, beam.h, HOT, g);
-            float b = LightRays.scaled(BLOOM_ALPHA * front * (0.4f + 0.6f * (float) Math.sqrt(gap)), beam.intensity);
+            float b = LightRays.scaled(BLOOM_ALPHA * front * (0.4f + 0.6f * (float) Math.sqrt(gap)), strength);
             upright(vc, m, fr, 0.3f, open + BLOOM_MARGIN, -0.3f, beam.h + BLOOM_MARGIN, GOLD, b);
         }
-        float pool = LightRays.scaled(POOL_ALPHA * appear * (0.35f + 0.65f * (float) Math.sqrt(gap)), beam.intensity);
+        float pool = LightRays.scaled(POOL_ALPHA * appear * (0.35f + 0.65f * (float) Math.sqrt(gap)), strength);
         float reach = beam.len * POOL_REACH;
         float farHalf = open + 0.22f * reach + 0.3f;
         float y = 0.03f;
@@ -174,7 +243,7 @@ public final class LightRaysRenderer {
             float[] s = beam.shafts[i];
             float[] e = LightRays.shaftEnds(s, gap, beam.hw, beam.h, beam.len);
             float[] w = LightRays.shaftHalfWidths(s, gap, beam.hw, beam.len);
-            float a = LightRays.scaled(SHAFT_ALPHA * LightRays.shimmer(now, i) * appear, beam.intensity);
+            float a = LightRays.scaled(SHAFT_ALPHA * LightRays.shimmer(now, i) * appear, strength);
             shaft(vc, m, fr, e, w, a);
         }
         buffer.endBatch(RAY);
@@ -185,7 +254,7 @@ public final class LightRaysRenderer {
         vc = buffer.getBuffer(DOT);
         for (int i = 0; i < LightRays.MOTES; i++) {
             float[] mo = LightRays.mote(beam.seed, i, now, gap, beam.hw, beam.h, beam.len);
-            float b = LightRays.scaled(mo[3] * appear * 0.9f, beam.intensity);
+            float b = LightRays.scaled(mo[3] * appear * 0.9f, strength);
             if (b <= 0.01f) continue;
             Vector3f c = fr.p(mo[0], mo[1], mo[2]);
             put(vc, m, new Vector3f(c).sub(right).sub(up), GOLD, b, 0f, 0f);

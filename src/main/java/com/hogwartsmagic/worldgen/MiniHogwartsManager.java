@@ -1,6 +1,8 @@
 package com.hogwartsmagic.worldgen;
 
 import com.hogwartsmagic.ExampleMod;
+import com.hogwartsmagic.ambience.AmbienceNet;
+import com.hogwartsmagic.ambience.AmbienceRegistry;
 import com.hogwartsmagic.brewing.ClassroomSupplies;
 import com.hogwartsmagic.spell.SpellType;
 import com.hogwartsmagic.util.Titles;
@@ -135,6 +137,53 @@ public final class MiniHogwartsManager {
             }
             Titles.send(player, "Hogwarts", "School of Witchcraft and Wizardry", 20, 70, 30);
             tracker.markTitled(player.getUUID(), castle);
+            return castle;
+        }
+        return null;
+    }
+
+    /** A player further than this from a castle's centre (blocks) is nowhere near its hall: skipped without a box test. */
+    private static final double HALL_CHECK_REACH = 200.0;
+
+    /**
+     * Called every 10 ticks per player. The first time a player walks into a castle's Great Hall (the anchors'
+     * {@code hall_box} placed on the castle) it remembers that player for that castle and tells that player alone to
+     * play the hall ceiling's reveal, the plank roof dissolving into sky; after that the ceiling is simply open.
+     * Reads only positions and the tracker, never a block, so it loads no chunk. Returns the castle entered, or null
+     * (also when the castle never registered its ceiling, as in a world from before the ceiling existed: nothing to
+     * reveal, nothing remembered).
+     */
+    @Nullable
+    public static MiniHogwartsTracker.Castle maybeRevealHall(ServerPlayer player) {
+        ServerLevel level = player.serverLevel();
+        MiniHogwartsTracker tracker = MiniHogwartsTracker.get(level);
+        if (tracker.castles().isEmpty()) {
+            return null;
+        }
+        MiniHogwartsAnchors anchors = MiniHogwartsAnchors.get();
+        if (anchors == null) {
+            return null;
+        }
+        Vec3 at = player.position();
+        for (MiniHogwartsTracker.Castle castle : tracker.castles()) {
+            BlockPos anchor = castle.anchor();
+            if (anchor == null || castle.enteredHall().contains(player.getUUID())) {
+                continue;
+            }
+            double dx = castle.center().getX() + 0.5 - at.x;
+            double dz = castle.center().getZ() + 0.5 - at.z;
+            if (dx * dx + dz * dz > HALL_CHECK_REACH * HALL_CHECK_REACH) {
+                continue;
+            }
+            if (!anchors.hallBox().move(anchor.getX(), anchor.getY(), anchor.getZ()).contains(at)) {
+                continue;
+            }
+            java.util.UUID ceiling = MiniHogwartsAmbience.ceilingId(anchor);
+            if (AmbienceRegistry.get(level).get(ceiling) == null) {
+                continue;
+            }
+            tracker.markEnteredHall(player.getUUID(), castle);
+            AmbienceNet.sendReveal(player, ceiling);
             return castle;
         }
         return null;

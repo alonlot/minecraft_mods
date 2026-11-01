@@ -1,5 +1,7 @@
 package com.hogwartsmagic.worldgen.structure;
 
+import com.hogwartsmagic.worldgen.MiniHogwartsAmbience;
+import com.hogwartsmagic.worldgen.MiniHogwartsAnchors;
 import com.hogwartsmagic.worldgen.MiniHogwartsManager;
 import com.hogwartsmagic.worldgen.MiniHogwartsSchematic;
 import com.hogwartsmagic.worldgen.MiniHogwartsTracker;
@@ -31,7 +33,7 @@ import org.slf4j.LoggerFactory;
  * columns that fall in it, and the furnishings whose positions fall in it. That is the vanilla-safe way to build
  * something many chunks wide (woodland mansions and ancient cities do the same); a worldgen Feature writing the
  * whole castle at once is what produced the "setBlock in a far chunk" crash. Nothing here loads a chunk, and the
- * one piece of level-wide state, the castle tracker, is handed to the server thread.
+ * level-wide state, the castle tracker and the ambience registry, is handed to the server thread.
  *
  * <p>The bounding box is the schematic's box extended {@link #MAX_SKIRT_DEPTH} blocks down, so the chunks under
  * the skirt are decorated too. The terrain is bearded to the schematic's own box (not the skirt), so the ground
@@ -181,7 +183,16 @@ public class MiniHogwartsPiece extends StructurePiece implements PieceBeardifier
             if (server != null && serverLevel != null) {
                 BlockPos center = new BlockPos(centreX, ay + schem.height() / 3, centreZ);
                 BlockPos at = anchor;
-                server.execute(() -> MiniHogwartsTracker.get(serverLevel).add(center, at));
+                // The anchors are immutable, so they are read here and handed over; the castle's ambient effects (the
+                // hall's ceiling, candles, light rays and doors) are registered by the same server-thread task. Their
+                // ids come from the anchor, so a chunk decorated again registers nothing twice.
+                MiniHogwartsAnchors anchors = MiniHogwartsAnchors.forSchematic(schem);
+                server.execute(() -> {
+                    MiniHogwartsTracker.get(serverLevel).add(center, at);
+                    if (anchors != null) {
+                        MiniHogwartsAmbience.register(serverLevel, at, anchors);
+                    }
+                });
                 LOGGER.info("Mini Hogwarts generated: anchor {} {} {}, centre {}", ax, ay, az, center);
             }
         }

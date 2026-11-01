@@ -65,8 +65,14 @@ public final class MiniHogwartsAnchors {
     public record Banner(BlockPos at, Direction facing, String house) {
     }
 
-    /** The enchanted ceiling plane: its XZ corners and its height. */
-    public record Ceiling(double minX, double minZ, double maxX, double maxZ, double y) {
+    /**
+     * The enchanted ceiling plane: its XZ corners and its height, and {@code clearance}, the blocks from the plane up to
+     * the roof's underside (0 when the file does not say, which the renderers treat as no room for storm cloud).
+     */
+    public record Ceiling(double minX, double minZ, double maxX, double maxZ, double y, double clearance) {
+        public Ceiling(double minX, double minZ, double maxX, double maxZ, double y) {
+            this(minX, minZ, maxX, maxZ, y, 0.0);
+        }
     }
 
     /** A box of floating candles: where, how far each axis may scatter, and how many. */
@@ -327,7 +333,8 @@ public final class MiniHogwartsAnchors {
         JsonObject o = e.getAsJsonObject();
         double[] min = numbers(o.get("min"), 2);
         double[] max = numbers(o.get("max"), 2);
-        return new Ceiling(min[0], min[1], max[0], max[1], o.get("y").getAsDouble());
+        return new Ceiling(min[0], min[1], max[0], max[1], o.get("y").getAsDouble(),
+                o.has("clearance") ? Math.max(0.0, o.get("clearance").getAsDouble()) : 0.0);
     }
 
     private static Box box(JsonElement e) {

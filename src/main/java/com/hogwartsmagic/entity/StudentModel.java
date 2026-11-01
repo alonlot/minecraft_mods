@@ -19,6 +19,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.HumanoidArm;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.math.Axis;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -34,6 +35,11 @@ public class StudentModel<T extends Entity> extends EntityModel<T> implements ne
 
 	// Rest pose of the arms group (matches the part definition rotation).
 	private static final float REST_ARMS_X_ROT = -0.7505F;
+
+	// Wand hold in translateToHand: tilt at rest per hand, plus how much it grows per radian the arms rise.
+	private static final float WAND_TILT_RIGHT = 20.3F * Mth.DEG_TO_RAD;
+	private static final float WAND_TILT_LEFT = 105.7F * Mth.DEG_TO_RAD;
+	private static final float WAND_TILT_PER_RAISE = 1.5232F;
 
 	private final ModelPart head;
 	private final ModelPart nose;
@@ -86,10 +92,13 @@ public class StudentModel<T extends Entity> extends EntityModel<T> implements ne
 
 		PartDefinition left_leg = partdefinition.addOrReplaceChild("left_leg", CubeListBuilder.create().texOffs(60, 46).addBox(-2.0F, 0.0F, -2.0F, 4.0F, 12.0F, 4.0F, new CubeDeformation(0.0F)), PartPose.offset(2.0F, 12.0F, 0.0F));
 
-		PartDefinition bone = partdefinition.addOrReplaceChild("bone", CubeListBuilder.create().texOffs(28, 17).addBox(-5.0F, -36.0F, -5.0F, 10.0F, 3.0F, 10.0F, new CubeDeformation(0.0F))
-		.texOffs(0, 0).addBox(-6.0F, -35.0F, -6.0F, 12.0F, 5.0F, 12.0F, new CubeDeformation(0.0F))
-		.texOffs(48, 0).addBox(-4.0F, -40.0F, -4.0F, 8.0F, 7.0F, 8.0F, new CubeDeformation(0.0F))
-		.texOffs(60, 30).addBox(-3.0F, -43.0F, -3.0F, 6.0F, 10.0F, 6.0F, new CubeDeformation(0.0F)), PartPose.offset(0.0F, 24.0F, 0.0F));
+		// The hat. Blockbench exported it pivoting at the feet (y=24); it now pivots at the neck like
+		// the head (boxes shifted up by 24, same world placement) so setupAnim can copy the head's
+		// rotation onto it — otherwise the head turned and nodded while the hat stayed put.
+		PartDefinition bone = partdefinition.addOrReplaceChild("bone", CubeListBuilder.create().texOffs(28, 17).addBox(-5.0F, -12.0F, -5.0F, 10.0F, 3.0F, 10.0F, new CubeDeformation(0.0F))
+		.texOffs(0, 0).addBox(-6.0F, -11.0F, -6.0F, 12.0F, 5.0F, 12.0F, new CubeDeformation(0.0F))
+		.texOffs(48, 0).addBox(-4.0F, -16.0F, -4.0F, 8.0F, 7.0F, 8.0F, new CubeDeformation(0.0F))
+		.texOffs(60, 30).addBox(-3.0F, -19.0F, -3.0F, 6.0F, 10.0F, 6.0F, new CubeDeformation(0.0F)), PartPose.offset(0.0F, 0.0F, 0.0F));
 
 		return LayerDefinition.create(meshdefinition, 128, 128);
 	}
@@ -108,6 +117,9 @@ public class StudentModel<T extends Entity> extends EntityModel<T> implements ne
 		this.headwear.xRot = this.head.xRot;
 		this.headwear.yRot = this.head.yRot;
 		this.headwear.zRot = this.head.zRot;
+		this.bone.xRot = this.head.xRot;
+		this.bone.yRot = this.head.yRot;
+		this.bone.zRot = this.head.zRot;
 
 		// Walk: legs swing opposite, slight body sway with footfalls.
 		float walk = Mth.cos(limbSwing * 0.6662F) * 1.4F * limbSwingAmount;
@@ -202,10 +214,22 @@ public class StudentModel<T extends Entity> extends EntityModel<T> implements ne
 
 	@Override
 	public void translateToHand(HumanoidArm arm, PoseStack poseStack) {
-		// Vanilla VillagerModel pre-translates by (0, 0.4, 0) before applying the arms-group
-		// transform — this puts the item at chest level in front of the villager instead of
-		// jutting out of the rotated arms pivot at a steep downward angle. Match that.
-		poseStack.translate(0.0F, 0.4F, 0.0F);
+		// ItemInHandLayer follows this with the humanoid hand offset (10px down a 12px arm) plus a
+		// fixed -90X/180Y turn. Applied to the crossed-arms group that left the wand at thigh height
+		// 8px in front of the hands, and pointing up-and-backward mid-cast. Instead: move to the
+		// front of the folded hands, tilt so the wand reads ~35° up at rest and level at full cast
+		// (tilt grows with the arm raise), then cancel the layer's own offset so the wand's grip
+		// (15% up from the butt) is what lands on the hands. Constants are solved for
+		// harry_potter_wand.json's third-person display; left and right display transforms differ.
+		boolean right = arm == HumanoidArm.RIGHT;
 		this.arms.translateAndRotate(poseStack);
+		poseStack.translate((right ? -1.0F : 1.0F) / 16.0F, 4.0F / 16.0F, -3.5F / 16.0F);
+		float tilt = (right ? WAND_TILT_RIGHT : WAND_TILT_LEFT) + WAND_TILT_PER_RAISE * (REST_ARMS_X_ROT - this.arms.xRot);
+		poseStack.mulPose(Axis.XP.rotation(tilt));
+		if (right) {
+			poseStack.translate(1.0F / 16.0F, -10.86F / 16.0F, 1.21F / 16.0F);
+		} else {
+			poseStack.translate(-1.0F / 16.0F, -14.47F / 16.0F, 6.36F / 16.0F);
+		}
 	}
 }

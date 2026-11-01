@@ -6,7 +6,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.io.InputStreamReader;
@@ -122,29 +121,39 @@ class MiniHogwartsAnchorsTest {
         }
     }
 
-    /** Every key the generator writes today parses, with the counts the finished rooms give so far. */
+    /**
+     * Every key the generator writes parses, with the counts of the castle as regenerated after the rooms, the
+     * corridors pass and the runtime came together (Task 9b): 5 chests, 33 student spots, 6 house-elf spots,
+     * 22 statues, 7 candle boxes, 18 paintings, 4 banners, 17 rays, the two hall doors closed at yaw 180 (R37).
+     */
     @Test
     void shippedFileParses() throws Exception {
         MiniHogwartsAnchors a = shipped();
 
-        assertTrue(a.chests().size() >= 2, "chests " + a.chests().size());
-        assertTrue(a.statues().size() >= 8, "statues " + a.statues().size());
-        assertTrue(a.candles().size() >= 4, "candles " + a.candles().size());
-        assertTrue(!a.studentSpots().isEmpty(), "student spots");
-        assertTrue(!a.paintings().isEmpty(), "paintings");
+        assertTrue(a.chests().size() >= 5, "chests " + a.chests().size());
+        assertTrue(a.studentSpots().size() >= 33, "student spots " + a.studentSpots().size());
+        assertTrue(a.elfSpots().size() >= 6, "house-elf spots " + a.elfSpots().size());
+        assertTrue(a.statues().size() >= 22, "statues " + a.statues().size());
+        assertTrue(a.candles().size() >= 7, "candles " + a.candles().size());
+        assertTrue(a.paintings().size() >= 18, "paintings " + a.paintings().size());
+        assertTrue(a.banners().size() >= 4, "banners " + a.banners().size());
+        assertTrue(a.rays().size() >= 17, "rays " + a.rays().size());
+        assertEquals(2, a.doors().size(), "the hall's two doors");
+        for (MiniHogwartsAnchors.Door door : a.doors()) {
+            assertEquals(180.0F, door.yawClosed(), "a hall door's closed yaw (R37)");
+        }
         assertNotNull(a.pensieve());
         assertNotNull(a.fatLady());
         assertNotNull(a.stool());
-        assertTrue(!a.rays().isEmpty() && !a.doors().isEmpty(), "rays and doors");
+        assertNotNull(a.titlePoint());
         assertTrue(a.hallBox().getXsize() > 10, "hall box");
         for (MiniHogwartsAnchors.Chest chest : a.chests()) {
             assertTrue(!chest.theme().isBlank(), "a chest names its theme");
         }
     }
 
-    /** The thresholds the finished castle must reach; enabled by the final check once every room is built. */
+    /** The thresholds the finished castle must reach (build_castle's check 61 holds the generator to them too). */
     @Test
-    @Disabled("enabled when all rooms are built")
     void shippedFileFinalCounts() throws Exception {
         MiniHogwartsAnchors a = shipped();
 

@@ -40,6 +40,7 @@ world gets no dark cavities. Outdoor air stays plain air.
 """
 
 import json
+import math
 import os
 import subprocess
 import sys
@@ -61,7 +62,9 @@ VIEWER_NBT = os.path.join(REPO, 'build', 'mh', 'mini_hogwarts.nbt')
 from mini_hogwarts import (checks, hall, rooms_below, rooms_classrooms, rooms_library, rooms_staircase,  # noqa: E402
                            rooms_towers)
 from mini_hogwarts import rooms_corridors  # noqa: E402
-from mini_hogwarts.grid import Grid, air_at, enclosed_air, load_schem, seal_interiors as _seal, write_schem  # noqa: E402
+from mini_hogwarts.grid import (Grid, air_at, enclosed_air, is_air, load_schem, seal_interiors as _seal,  # noqa: E402
+                                write_schem)
+import schem_to_nbt  # noqa: E402  (decode_schem: check 62 reads the written stream back as the Java does)
 
 
 # The gatehouse gate (old frame x 37..39, z 101, a closed oak-log pair of leaves under a pointed arch at
@@ -335,6 +338,8 @@ def verify(grid):
     verify_below(grid, base, walk)
     verify_corridors(grid, base, walk)
     verify_sealed(grid, walk)
+    verify_castle(grid, walk)
+    verify_schematic(grid)
     return walk
 
 
@@ -851,10 +856,160 @@ def verify_corridors(grid, base, walk):
     _, top = K.title_point(cells)
     assert abs(tx + 0.5 - hall.OLD_TOWER[0]) <= 1 and abs(tz + 0.5 - hall.OLD_TOWER[1] - BASE_SHIFT[2]) <= 1 \
         and MAIN_FLOOR_Y < ty < top, ('title point', a['title_point'])
-    for x, y, z in K.GALLERY_SPOTS + K.ENTRANCE_SPOTS:
+    for x, y, z in K.GALLERY_SPOTS + K.ENTRANCE_SPOTS + K.FILL_SPOTS:
         assert [x, y, z] in a['student_spots'], (x, y, z)
         assert ((x, y, z) in walk and grid.is_air(x, y, z) and grid.is_air(x, y + 1, z)
                 and checks.supports(grid.get(x, y - 1, z))), ('student spot not a free, walked floor cell', (x, y, z))
+
+
+# The whole-castle caps (plan Task 9 Step 1). The candle cap is the Great Hall set's own block candles (its house
+# tables', which are not ours to cut) plus CANDLE_ALLOWANCE for every room since (ruling R6).
+COBWEB_CAP = 40
+CANDLE_ALLOWANCE = 150
+TORCH_LANTERN_CAP = 900
+MIN_CHESTS = 5
+MIN_STUDENT_SPOTS = 32
+MIN_STATUES = 10 + 8                    # the Grand Staircase's ten and eight or more beyond them
+SCHEM_DIM_MAX = 0x7FFF                  # write_schem packs Width/Height/Length as signed shorts; Java reads them unsigned
+PALETTE_MAX = 32767                     # MiniHogwartsSchematic keeps palette ids in a short[]
+VERIFY_SCHEM = os.path.join(REPO, 'build', 'mh', 'verify_mini_hogwarts.schem')
+
+
+def set_candles():
+    """The block candles the Great Hall set already has (the memory's own table candles), before any room adds its own."""
+    return sum(1 for s in hall.G.build(open_roof=False).g.values() if checks.block_id(s).endswith('candle'))
+
+
+def verify_castle(grid, walk):
+    """The whole castle's promises, over every room at once: every room box is reached from the main entrance, no room
+    floor is dark, every anchor stands where the Java side can use it, the castle keeps under its block caps, and the
+    anchors hold the counts the furnishing needs."""
+    a = grid.anchors
+    cells = grid.cells
+    rooms = ROOMS or collect_rooms(grid)
+
+    def box_cells(b):
+        x0, y0, z0, x1, y1, z1 = b
+        return [(x, y, z) for y in range(y0, y1 + 1) for z in range(z0, z1 + 1) for x in range(x0, x1 + 1)]
+
+    # 57. every room box is reached from the main entrance: through passable cells (flying, so a void's or a vault's air
+    #     counts) that are room air or walked cells, from the cells a player walks in (feet and head). Exempt: a box with
+    #     no air left in it (a one-row slice a block has filled since it was measured: a chain, a pole, a pane) and the
+    #     dungeon cells behind iron bars, which are seen through their bars, never entered (check 46; each front's bars
+    #     must stand against the walked corridor)
+    in_rooms = set()
+    for b in rooms.values():
+        in_rooms.update(box_cells(b))
+    flood = set()
+    for x, y, z in walk:
+        flood.update({(x, y, z), (x, y + 1, z)})
+    queue = list(flood)
+    while queue:
+        x, y, z = queue.pop()
+        for n in ((x + 1, y, z), (x - 1, y, z), (x, y + 1, z), (x, y - 1, z), (x, y, z + 1), (x, y, z - 1)):
+            if n not in flood and n in in_rooms and checks.passable(cells.get(n, 'minecraft:air')):
+                flood.add(n)
+                queue.append(n)
+    barred = {rooms_below._cell_box(c): c for c in rooms_below.barred_cells(cells)}
+    unreached = []
+    for name, b in sorted(rooms.items()):
+        own = box_cells(b)
+        if not any(air_at(cells, p) for p in own):
+            continue
+        if b in barred:
+            front = rooms_below.cell_front(barred[b])
+            dx = 1 if barred[b][0] == 'west' else -1             # the corridor is east of the west cells
+            assert any((x + dx, y, z) in walk for x, y, z in front), ('a barred cell with no corridor before it', name)
+            continue
+        if not any(p in flood for p in own):
+            unreached.append((name, b))
+    assert not unreached, ('room boxes not reached from the main entrance: %d' % len(unreached), unreached[:5])
+
+    # 58. no dark floor in any room
+    dark = checks.dark_floor_cells(grid, list(rooms.values()))
+    assert not dark, 'dark room floor cells: %d, e.g. %s' % (len(dark), dark[:5])
+
+    # 59. every anchor point is usable as MiniHogwartsManager reads it (BlockState.isAir: an invisible light block is
+    #     not air there): chests, the Pensieve, student and house-elf spots and statues stand in air (one, one, two, two
+    #     and three cells tall) on a floor; the Fat Lady's wall and every painting's are solid; a banner hangs in an air
+    #     cell against a solid wall; the stool is a slab; every point is inside the schematic; no two standing anchors
+    #     share a cell
+    _, _, _, mx, my, mz = grid.bounds()
+
+    def in_schem(p):
+        return 0 <= p[0] <= mx and 0 <= p[1] <= my and 0 <= p[2] <= mz
+
+    def stands(p, tall, what):
+        x, y, z = p
+        assert in_schem(p) and in_schem((x, y + tall - 1, z)), ('%s outside the schematic' % what, p)
+        assert all(grid.is_air(x, y + dy, z) for dy in range(tall)), \
+            ('%s not in free air' % what, p, [grid.get(x, y + dy, z) for dy in range(tall)])
+        assert checks.supports(grid.get(x, y - 1, z)), ('%s not on a floor' % what, p, grid.get(x, y - 1, z))
+        return [(x, y + dy, z) for dy in range(tall)]
+
+    standing = []
+    standing += [c for ch in a['chests'] for c in stands(tuple(ch['at']), 1, 'chest')]
+    standing += stands(tuple(a['pensieve']), 2, 'the Pensieve')
+    standing += [c for s in a['student_spots'] for c in stands(tuple(s), 2, 'student spot')]
+    standing += [c for s in a['elf_spots'] for c in stands(tuple(s), 2, 'house-elf spot')]
+    standing += [c for s in a['statues'] for c in stands(tuple(s['at']), 3, 'statue')]
+    shared = sorted(p for p in set(standing) if standing.count(p) > 1) if len(set(standing)) < len(standing) else []
+    assert not shared, ('anchors share a cell', shared[:5])
+    walls = [('the Fat Lady', tuple(a['fat_lady']['wall']))] + [('a painting', tuple(p['at'])) for p in a['paintings']]
+    for what, p in walls:
+        assert in_schem(p) and checks.supports(grid.get(*p)), ('%s has no solid wall' % what, p, grid.get(*p))
+    step = {'north': (0, -1), 'south': (0, 1), 'east': (1, 0), 'west': (-1, 0)}
+    for b in a['banners']:
+        x, y, z = b['at']
+        dx, dz = step[b['facing']]
+        assert in_schem((x, y, z)) and grid.is_air(x, y, z), ('banner cell not air', b, grid.get(x, y, z))
+        assert checks.supports(grid.get(x - dx, y, z - dz)), ('banner has no wall', b)
+    sx, sy, sz = (int(math.floor(v)) for v in a['stool'])
+    assert grid.get(sx, sy, sz).split('[', 1)[0].endswith('_slab'), ('the stool anchor is not a slab', a['stool'])
+    for key in ('main_entrance', 'hall_west_door', 'title_point'):
+        assert in_schem(tuple(a[key])), ('%s outside the schematic' % key, a[key])
+    assert tuple(a['main_entrance']) in walk
+
+    # 60. the census caps: cobwebs, block candles (the set's own plus the allowance, R6), torches and lanterns
+    census = checks.census(grid)
+
+    def count(match):
+        return sum(n for k, n in census.items() if match(checks.block_id(k)))
+    cobwebs = count(lambda i: i == 'cobweb')
+    candles = count(lambda i: i.endswith('candle'))
+    lights = count(lambda i: 'torch' in i or 'lantern' in i)
+    cap = set_candles() + CANDLE_ALLOWANCE
+    assert cobwebs <= COBWEB_CAP, ('cobwebs', cobwebs)
+    assert candles <= cap, ('block candles over the cap', candles, cap)
+    assert lights <= TORCH_LANTERN_CAP, ('torches and lanterns', lights)
+    verify_castle.census = {'cobwebs': cobwebs, 'candles': candles, 'candle_cap': cap, 'torches_lanterns': lights}
+
+    # 61. the counts the furnishing needs (MiniHogwartsAnchorsTest.shippedFileFinalCounts holds the shipped file to
+    #     them too): five themed chests or more, 32 student spots or more, the staircase's ten statues and eight more
+    assert len(a['chests']) >= MIN_CHESTS, ('chests', len(a['chests']))
+    assert len(a['student_spots']) >= MIN_STUDENT_SPOTS, ('student spots', len(a['student_spots']))
+    assert len(a['statues']) >= MIN_STATUES, ('statues', len(a['statues']))
+
+
+def verify_schematic(grid):
+    """62. The castle writes as a schematic MiniHogwartsSchematic loads: written to a scratch file (never the resource,
+    so a broken castle still never reaches it) and read back the way the Java reads it, its size fits the shorts, its
+    palette fits a short, the varint stream holds exactly one id per cell, and every cell reads back as the grid has it
+    (cave_air included, which load_schem drops, so the stream is decoded here directly)."""
+    _, _, _, mx, my, mz = grid.bounds()
+    assert max(mx, my, mz) + 1 <= SCHEM_DIM_MAX, ('schematic size does not fit a short', (mx + 1, my + 1, mz + 1))
+    write_schem(grid, VERIFY_SCHEM)
+    w, h, l, by_id, flat = schem_to_nbt.decode_schem(schem_to_nbt.read_nbt(VERIFY_SCHEM))
+    assert (w, h, l) == (mx + 1, my + 1, mz + 1), ('schematic size read back', (w, h, l))
+    assert len(by_id) < PALETTE_MAX and max(by_id) < PALETTE_MAX, ('palette', len(by_id))
+    assert len(flat) == w * h * l, ('cells in the stream', len(flat), w * h * l)
+    wrong = [(p, s) for p, s in grid.cells.items() if by_id[flat[p[0] + p[2] * w + p[1] * w * l]] != s]
+    assert not wrong, ('cells that read back wrong', len(wrong), wrong[:5])
+    blocks = sum(1 for v in flat if not is_air(by_id[v]))
+    assert blocks == sum(1 for s in grid.cells.values() if not is_air(s)), ('blocks read back', blocks)
+    verify_schematic.stats = {'size': (w, h, l), 'palette': len(by_id), 'blocks': blocks,
+                              'cave_air': sum(1 for v in flat if by_id[v] == 'minecraft:cave_air')}
+    os.remove(VERIFY_SCHEM)
 
 
 def verify_sealed(grid, walk):
@@ -950,6 +1105,8 @@ def main():
     print('classrooms: %s' % getattr(rooms_classrooms.place_classrooms, 'stats', {}))
     print('below: %s' % getattr(rooms_below.place_below, 'stats', {}))
     print('corridors: %s' % getattr(rooms_corridors.place_corridors, 'stats', {}))
+    print('castle: %s' % getattr(verify_castle, 'census', {}))
+    print('schematic read back: %s' % getattr(verify_schematic, 'stats', {}))
     print('sealed: %d cave_air cells (%d room boxes); %d cells of rock pockets filled with stone' % (
         getattr(seal_interiors, 'count', 0), len(ROOMS), getattr(seal_interiors, 'filled', 0)))
     print('census:')

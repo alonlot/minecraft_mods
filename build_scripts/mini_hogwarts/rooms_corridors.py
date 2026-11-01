@@ -52,7 +52,9 @@ Lady's canvas), never in a floating-candle box (check 7 holds the staircase's vo
 R42: untouched), never below MAIN_FLOOR_Y.
 
 Also: "title_point", the castle's visual centre for the title-card distance check (the central tower's axis at half
-its height; see title_point for why it sits inside the tower and stays there, R44), and four student spots (two in the gallery, two in the entrance hall).
+its height; see title_point for why it sits inside the tower and stays there, R44), and nine student spots: two in the
+gallery and two in the entrance hall, and (the whole-castle count needs 32 or more, spread over the rooms) five in the
+rooms the room tasks left without one: the Great Hall, the Astronomy gallery and Potions (FILL_SPOTS).
 
 Nothing here is written below MAIN_FLOOR_Y or into the castle's rock (R42); _put enforces both and records every cell
 it writes, and place_corridors compares everything below MAIN_FLOOR_Y before and after (check 54).
@@ -61,7 +63,7 @@ it writes, and place_corridors compares everything below MAIN_FLOOR_Y before and
 import math
 from collections import deque
 
-from . import checks, hall, rooms_classrooms, rooms_staircase
+from . import checks, hall, rooms_classrooms, rooms_staircase, rooms_towers
 from .frame import MAIN_FLOOR_Y
 from .grid import air_at, enclosed_air
 from .hall import G
@@ -101,6 +103,14 @@ VIADUCT_BOX = (31, FEET, 138, 49, FEET + 2, 183)   # the terrace and the bridge,
 # ---------------------------------------------------------------- the anchors
 GALLERY_SPOTS = ((40, FEET, 126), (43, FEET, 118))
 ENTRANCE_SPOTS = ((50, FEET, 116), (72, FEET, 116))
+# the rooms the room tasks left without a student, so the castle's 32 or more spread over every room (build_castle's
+# check 61): two in the Great Hall's middle and east aisles between the house tables (x 53 and 69, clear of the
+# benches), one on the Astronomy gallery's east side opposite its west landmark, and two at Potions' cauldron rows,
+# each behind a cauldron (an anchor only: no block of Potions changes, R42)
+HALL_SPOTS = ((53, FEET, 64), (69, FEET, 88))
+ASTRONOMY_SPOTS = ((68, rooms_towers.GALLERY_FEET, 149),)
+POTIONS_SPOTS = ((38, C.UPPER_FEET + 1, 196), (40, C.UPPER_FEET + 1, 199))
+FILL_SPOTS = HALL_SPOTS + ASTRONOMY_SPOTS + POTIONS_SPOTS
 WINDOW_LIGHT = 13
 EXCLUDED = (C.POTIONS_BOX,)             # windows left as they are (R42: Potions is not touched)
 
@@ -468,7 +478,7 @@ def place_corridors(grid, interiors):
     statues = ([{'at': list(p), 'yaw': YAW['west']} for p in bays]
                + [{'at': list(p), 'yaw': YAW['south']} for p in portal]
                + [{'at': list(p), 'yaw': YAW['north']} for p in gate])
-    spots = [list(p) for p in GALLERY_SPOTS + ENTRANCE_SPOTS]
+    spots = [list(p) for p in GALLERY_SPOTS + ENTRANCE_SPOTS + FILL_SPOTS]
     # the windows last, with this pass's statues and spots kept free as well
     faces, window_lights, stuck = light_windows(grid, interiors, {'statues': statues, 'student_spots': spots})
     point, top = title_point(grid.cells)

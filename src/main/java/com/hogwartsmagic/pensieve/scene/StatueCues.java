@@ -10,12 +10,12 @@ import java.util.List;
  * the client sets those counters from here each tick ({@link LivingStatueEntity#setMemoryState}) and the model reads
  * them exactly as it does for the real thing. Cue names are {@link SceneNames#STATUE_ANIMS} (case-insensitive):
  * <ul>
- *   <li>{@code WAKE}: from the cue it rises out of the kneel over {@link LivingStatueEntity#WAKE_TICKS}, the real
+ *   <li>{@code WAKE}: from the cue it grinds loose from attention over {@link LivingStatueEntity#WAKE_TICKS}, the real
  *       counter (1 at the cue tick, then one more a tick), and stands once it has;</li>
- *   <li>{@code CRUMBLE}: awake, then folds back to the kneel over {@link LivingStatueEntity#CRUMBLE_TICKS} and holds it;</li>
+ *   <li>{@code CRUMBLE}: awake, then drops to its knees and loses its head over {@link LivingStatueEntity#CRUMBLE_TICKS} and lies so;</li>
  *   <li>{@code IDLE}: awake and standing at once (what {@code WAKE} turns into when it has finished).</li>
  * </ul>
- * Before its first cue the statue is dormant (kneeling, halberd planted). Each {@code swing} action is one blow of the
+ * Before its first cue the statue is dormant (at attention, halberd planted). Each {@code swing} action is one blow of the
  * real combo, the blows cycling 0, 1, 2 (the two diagonals, then the overhead split) with their own lengths
  * ({@link LivingStatueEntity#SWING_TICKS}); a blow only shows on an awake, standing statue.
  */

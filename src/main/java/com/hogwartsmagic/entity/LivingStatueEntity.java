@@ -32,22 +32,23 @@ import javax.annotation.Nullable;
 import java.util.UUID;
 
 /**
- * A suit of animated plate: dormant stone until something comes too close, then a slow, heavy
+ * A stone knight: a statue at attention until something comes too close, then a slow, heavy
  * fighter that cannot be pushed around.
  *
- * <h2>The four states</h2>
+ * <h2>The states</h2>
  * The mob is a small state machine and every state is meant to be readable from across the room:
  * <ul>
- *   <li><b>Dormant</b> -- no AI, no idle motion, kneeling with the halberd planted. It is scenery.
- *       Two things end it: something hostile coming inside {@link #WAKE_RADIUS}, or
- *       {@link #wake()} being called from outside (which is how the ruin camp's pair are set off
- *       by the chest).</li>
- *   <li><b>Waking</b> -- {@link #WAKE_TICKS} of rising out of the kneel, during which it does not
- *       move or strike. That delay is the point: it is the window the player gets to realise what
- *       is happening and back off.</li>
- *   <li><b>Active</b> -- fights. Slow, strong, immovable.</li>
- *   <li><b>Crumbling</b> -- folds back down. A player-animated sentry does not actually die here;
- *       see {@link #hurt}.</li>
+ *   <li><b>Dormant</b> -- no AI, no motion of any kind, standing at attention with the halberd
+ *       planted. It is scenery. Two things end it: something hostile coming inside
+ *       {@link #WAKE_RADIUS}, or {@link #wake()} being called from outside (which is how the ruin
+ *       camp's pair are set off by the chest).</li>
+ *   <li><b>Waking</b> -- {@link #WAKE_TICKS} of grinding loose one joint at a time, during which
+ *       it does not move or strike. That delay is the point: it is the window the player gets to
+ *       realise what is happening and back off.</li>
+ *   <li><b>Active</b> -- fights. Slow, strong, immovable, and planted for the whole of a blow.</li>
+ *   <li><b>Crumbling</b> -- drops to its knees and its head falls off. A ruin guardian is then
+ *       gone; a player-animated sentry reassembles at its post instead (see {@link #hurt}).</li>
+ *   <li><b>Reforming</b> -- the sentry's fall run backwards at its post, ending dormant.</li>
  * </ul>
  *
  * <h2>Why it fights the way it does</h2>
@@ -63,8 +64,19 @@ public class LivingStatueEntity extends Monster {
 
     /** How long the rise takes. Slow on purpose -- this is the tell, not a formality. */
     public static final int WAKE_TICKS = 50;
-    /** How long it takes to fold back down when destroyed. */
+    /** How long the fall takes when destroyed: knees, then the head. */
     public static final int CRUMBLE_TICKS = 30;
+    /** A ruin guardian lies in pieces this long after the fall before it breaks up for good. */
+    private static final int RUBBLE_TICKS = 25;
+    /** How long a bound sentry takes to reassemble at its post. */
+    public static final int REFORM_TICKS = 30;
+    /**
+     * The wake beats, in ticks: head, hand off the sword, halberd up, the step down. Each starts
+     * with a grind of stone; the step lands at the last one. Must match WAKE_BEATS in
+     * LivingStatueModel (the animation) -- these are where the sound and dust go.
+     */
+    private static final int[] WAKE_BEATS = {5, 13, 21, 33};
+    private static final int WAKE_LANDING = 46;
     /** A dormant statue notices anything hostile inside this many blocks. */
     public static final double WAKE_RADIUS = 5.0;
     /**
@@ -96,6 +108,19 @@ public class LivingStatueEntity extends Monster {
     /** Ticks into the current blow. Synched for the same reason. */
     private static final EntityDataAccessor<Integer> DATA_SWING =
             SynchedEntityData.defineId(LivingStatueEntity.class, EntityDataSerializers.INT);
+    /** Ticks into reassembling at its post, or 0. */
+    private static final EntityDataAccessor<Integer> DATA_REFORM =
+            SynchedEntityData.defineId(LivingStatueEntity.class, EntityDataSerializers.INT);
+
+    /**
+     * Client side: the tick each counter last arrived from the server. The counters advance one a
+     * tick on the server, but packets do not land exactly one a client tick, so reading the raw
+     * value plus the partial tick jitters back and forth. Carrying the value forward from when it
+     * arrived (at most two ticks, in case a packet is late) is what makes the motion smooth.
+     */
+    private int wakeSyncTick;
+    private int swingSyncTick;
+    private int reformSyncTick;
 
     @Nullable
     private UUID ownerUUID;
@@ -140,6 +165,23 @@ public class LivingStatueEntity extends Monster {
         builder.define(DATA_BOUND, false);
         builder.define(DATA_COMBO, -1);
         builder.define(DATA_SWING, 0);
+        builder.define(DATA_REFORM, 0);
+    }
+
+    @Override
+    public void onSyncedDataUpdated(EntityDataAccessor<?> key) {
+        super.onSyncedDataUpdated(key);
+        if (DATA_WAKE.equals(key)) {
+            this.wakeSyncTick = this.tickCount;
+        } else if (DATA_SWING.equals(key) || DATA_COMBO.equals(key)) {
+            this.swingSyncTick = this.tickCount;
+        } else if (DATA_REFORM.equals(key)) {
+            this.reformSyncTick = this.tickCount;
+        }
+    }
+
+    private float since(int syncTick, float partialTick) {
+        return Math.min(2, Math.max(0, this.tickCount - syncTick)) + partialTick;
     }
 
     @Override
@@ -185,9 +227,13 @@ public class LivingStatueEntity extends Monster {
         return this.entityData.get(DATA_WAKE);
     }
 
-    /** 0 while fully dormant, 1 once risen. Drives the model. */
-    public float getWakeProgress() {
-        return Math.min(1.0F, this.getWakeTicks() / (float) WAKE_TICKS);
+    /** Ticks into the rise, smoothed: 0 dormant, {@link #WAKE_TICKS} once risen. Drives the model. */
+    public float getWakeTime(float partialTick) {
+        int wake = this.getWakeTicks();
+        if (wake <= 0 || wake >= WAKE_TICKS) {
+            return wake;
+        }
+        return Math.min(WAKE_TICKS, wake + this.since(this.wakeSyncTick, partialTick));
     }
 
     public boolean isAwake() {
@@ -202,8 +248,29 @@ public class LivingStatueEntity extends Monster {
         return this.entityData.get(DATA_CRUMBLE) > 0;
     }
 
-    public float getCrumbleProgress() {
-        return Math.min(1.0F, this.entityData.get(DATA_CRUMBLE) / (float) CRUMBLE_TICKS);
+    /**
+     * 0..1 through the fall, for a sentry being put down AND a guardian being destroyed -- the
+     * latter runs on the vanilla death clock, which both sides already advance in lockstep.
+     */
+    public float getCrumbleProgress(float partialTick) {
+        int ticks = Math.max(this.entityData.get(DATA_CRUMBLE), this.deathTime);
+        if (ticks <= 0) {
+            return 0.0F;
+        }
+        return Math.min(1.0F, (ticks + partialTick) / CRUMBLE_TICKS);
+    }
+
+    public boolean isReforming() {
+        return this.entityData.get(DATA_REFORM) > 0;
+    }
+
+    /** 0..1 through reassembling at its post, or 0 when it is not. */
+    public float getReformProgress(float partialTick) {
+        int ticks = this.entityData.get(DATA_REFORM);
+        if (ticks <= 0) {
+            return 0.0F;
+        }
+        return Math.min(1.0F, (ticks + this.since(this.reformSyncTick, partialTick)) / REFORM_TICKS);
     }
 
     public boolean isBound() {
@@ -232,12 +299,13 @@ public class LivingStatueEntity extends Monster {
             return 0.0F;
         }
         float total = SWING_TICKS[Math.min(index, SWING_TICKS.length - 1)];
-        return Math.min(1.0F, (this.entityData.get(DATA_SWING) + partialTick) / total);
+        return Math.min(1.0F, (this.entityData.get(DATA_SWING)
+                + this.since(this.swingSyncTick, partialTick)) / total);
     }
 
     /** Start the rise. Safe to call repeatedly; only the first call does anything. */
     public void wake() {
-        if (this.getWakeTicks() == 0 && !this.isCrumbling()) {
+        if (this.getWakeTicks() == 0 && !this.isCrumbling() && !this.isReforming()) {
             this.entityData.set(DATA_WAKE, 1);
             this.level().playSound(null, this.blockPosition(), ModSounds.STATUE_WAKE.get(),
                     SoundSource.HOSTILE, 1.3F, 1.0F);
@@ -281,14 +349,25 @@ public class LivingStatueEntity extends Monster {
     @Override
     public void tick() {
         super.tick();
+        int wake = this.getWakeTicks();
+        if (wake < WAKE_TICKS || this.isReforming()) {
+            // Stone does not turn. While it is dormant, rising or reassembling, body and head are
+            // pinned to its facing on BOTH sides, the old values included, so there is nothing for
+            // the renderer to interpolate between and not a degree of drift. Server-only pinning
+            // left the client's own body-rotation smoothing free to nudge it.
+            //
+            // A statue baked into a structure also needs this: StructureTemplate.placeEntities
+            // calls moveTo, which sets yRot only, so after a rotated placement the body would
+            // still face the template-local yaw.
+            float yaw = this.getYRot();
+            this.yBodyRot = this.yBodyRotO = yaw;
+            this.yHeadRot = this.yHeadRotO = yaw;
+            this.setXRot(0.0F);
+            this.xRotO = 0.0F;
+        }
         if (this.level().isClientSide) {
-            if (!this.isDormant() && this.random.nextInt(6) == 0) {
-                // Grit shakes loose while it moves. Only ever while awake -- dust coming off a
-                // dormant statue would give the ambush away before the player is in range.
-                this.level().addParticle(new BlockParticleOption(
-                                ParticleTypes.BLOCK, Blocks.STONE.defaultBlockState()),
-                        this.getRandomX(0.7D), this.getY() + this.random.nextDouble() * 1.8D,
-                        this.getRandomZ(0.7D), 0.0D, -0.02D, 0.0D);
+            if (!this.isDeadOrDying()) {
+                this.clientEffects(wake);
             }
             return;
         }
@@ -297,26 +376,32 @@ public class LivingStatueEntity extends Monster {
             this.comboCooldown--;
         }
         this.advanceCombo();
+        if (this.isDeadOrDying()) {
+            // The fall is all a corpse does: no rising on, no sensing intruders, no wake sounds.
+            return;
+        }
+
+        int reform = this.entityData.get(DATA_REFORM);
+        if (reform > 0) {
+            this.entityData.set(DATA_REFORM, reform + 1 >= REFORM_TICKS ? 0 : reform + 1);
+            if (reform == REFORM_TICKS - 8) {
+                this.level().playSound(null, this.blockPosition(), ModSounds.STATUE_RISE.get(),
+                        SoundSource.HOSTILE, 1.0F, 0.85F);
+            }
+            return;
+        }
 
         int crumble = this.entityData.get(DATA_CRUMBLE);
         if (crumble > 0) {
             this.entityData.set(DATA_CRUMBLE, crumble + 1);
+            this.crumbleEffects(crumble + 1);
             if (crumble + 1 >= CRUMBLE_TICKS) {
                 this.finishCrumble();
             }
             return;
         }
 
-        int wake = this.getWakeTicks();
         if (wake == 0) {
-            // A statue baked into a structure is placed by StructureTemplate.placeEntities, which
-            // calls moveTo -- and moveTo sets yRot only. The saved Rotation tag has already been
-            // read into yHeadRot/yBodyRot by Entity.load, so after a rotated jigsaw placement the
-            // body still faces the template-local yaw while yRot faces the right way, and the
-            // renderer draws yBodyRot. Nothing in vanilla repairs that for a mob that never moves,
-            // so the dormant tick does it: the pose it was placed in is the pose it holds.
-            this.setYBodyRot(this.getYRot());
-            this.setYHeadRot(this.getYRot());
             if (this.tickCount % 10 == 0 && this.senseIntruder()) {
                 this.wake();
             }
@@ -324,10 +409,81 @@ public class LivingStatueEntity extends Monster {
         }
         if (wake < WAKE_TICKS) {
             this.entityData.set(DATA_WAKE, wake + 1);
-            if (wake % 8 == 0) {
-                this.level().playSound(null, this.blockPosition(), ModSounds.STATUE_RISE.get(),
-                        SoundSource.HOSTILE, 1.0F, 1.0F);
+            for (int beat : WAKE_BEATS) {
+                if (wake == beat) {
+                    this.level().playSound(null, this.blockPosition(), ModSounds.STATUE_RISE.get(),
+                            SoundSource.HOSTILE, 1.0F, 0.9F + 0.05F * beat / WAKE_BEATS[3]);
+                }
             }
+            if (wake == WAKE_LANDING) {
+                this.level().playSound(null, this.blockPosition(), ModSounds.STATUE_STEP.get(),
+                        SoundSource.HOSTILE, 1.6F, 0.8F);
+            }
+        }
+    }
+
+    /**
+     * Grit and dust, client side only, and only when something is actually moving. Dust coming
+     * off a dormant statue would give the ambush away -- and dust coming off one standing still
+     * reads as a particle bug, not as stone.
+     */
+    private void clientEffects(int wake) {
+        BlockParticleOption grit = new BlockParticleOption(
+                ParticleTypes.BLOCK, Blocks.STONE.defaultBlockState());
+        if (wake > 0 && wake < WAKE_TICKS) {
+            for (int beat : WAKE_BEATS) {
+                if (wake == beat) {
+                    // A crack of dust off the shoulders as each joint breaks loose.
+                    for (int i = 0; i < 10; i++) {
+                        this.level().addParticle(grit, this.getRandomX(0.6D),
+                                this.getY() + 1.6D + this.random.nextDouble() * 0.9D,
+                                this.getRandomZ(0.6D), 0.0D, 0.0D, 0.0D);
+                    }
+                }
+            }
+            if (wake == WAKE_LANDING) {
+                this.dustRing(grit, 14);
+            }
+            return;
+        }
+        boolean moving = this.isAwake() && this.walkAnimation.speed() > 0.15F;
+        if ((moving || this.isSwinging()) && this.random.nextInt(4) == 0) {
+            this.level().addParticle(grit, this.getRandomX(0.7D),
+                    this.getY() + this.random.nextDouble() * 2.2D,
+                    this.getRandomZ(0.7D), 0.0D, -0.02D, 0.0D);
+        }
+    }
+
+    private void dustRing(BlockParticleOption dust, int points) {
+        for (int i = 0; i < points; i++) {
+            double a = (Math.PI * 2.0D) * i / points;
+            this.level().addParticle(dust, this.getX() + Math.cos(a) * 0.9D, this.getY() + 0.1D,
+                    this.getZ() + Math.sin(a) * 0.9D, Math.cos(a) * 0.08D, 0.02D,
+                    Math.sin(a) * 0.08D);
+        }
+    }
+
+    /**
+     * Server: what the fall throws off, timed to the model -- the knees hitting the floor a third
+     * of the way in, the head landing at the end. Runs for both a sentry being put down and a
+     * guardian being destroyed.
+     */
+    private void crumbleEffects(int tick) {
+        if (!(this.level() instanceof ServerLevel server)) {
+            return;
+        }
+        BlockParticleOption stone = new BlockParticleOption(
+                ParticleTypes.BLOCK, Blocks.STONE.defaultBlockState());
+        if (tick == 10) {
+            server.sendParticles(stone, this.getX(), this.getY() + 0.3D, this.getZ(),
+                    40, 0.6D, 0.2D, 0.6D, 0.08D);
+            server.playSound(null, this.blockPosition(), ModSounds.STATUE_SLAM.get(),
+                    SoundSource.HOSTILE, 0.9F, 1.2F);
+        } else if (tick == CRUMBLE_TICKS - 2) {
+            server.sendParticles(stone, this.getX(), this.getY() + 0.25D, this.getZ(),
+                    25, 0.8D, 0.15D, 0.8D, 0.05D);
+            server.playSound(null, this.blockPosition(), ModSounds.STATUE_IMPACT.get(),
+                    SoundSource.HOSTILE, 0.8F, 1.3F);
         }
     }
 
@@ -367,9 +523,32 @@ public class LivingStatueEntity extends Monster {
         // It pushes through things; nothing pushes it.
     }
 
+    /**
+     * Stone among stone. A statue placed against a wall or under a low lintel has its head in a
+     * block, and suffocation damage there flashed it red and woke it every half second -- the
+     * "glitching" dormant statue. Drowning is the same story for one that wades.
+     */
+    @Override
+    public boolean isInvulnerableTo(DamageSource source) {
+        return source.is(net.minecraft.world.damagesource.DamageTypes.IN_WALL)
+                || source.is(net.minecraft.world.damagesource.DamageTypes.DROWN)
+                || source.is(net.minecraft.world.damagesource.DamageTypes.CRAMMING)
+                || super.isInvulnerableTo(source);
+    }
+
     @Override
     public boolean hurt(DamageSource source, float amount) {
-        if (this.isCrumbling()) {
+        // Checked here, before anything below can wake it: vanilla only tests immunity inside
+        // super.hurt, by which point the wake() further down has already run -- and a statue in
+        // a wall took no damage yet woke every half second all the same.
+        // Server only: Player.attack calls hurt on the client too, and wake() there would write
+        // the client's copy of the state for a hit the server may yet refuse.
+        if (this.level().isClientSide) {
+            return false;
+        }
+        boolean absolute = source.is(net.minecraft.tags.DamageTypeTags.BYPASSES_INVULNERABILITY);
+        if ((this.isCrumbling() || this.isReforming()) && !absolute
+                || this.isInvulnerableTo(source)) {
             return false;
         }
         // Its own caster cannot hurt it, and so cannot start a fight with it. Without this,
@@ -431,8 +610,9 @@ public class LivingStatueEntity extends Monster {
         }
         // Deliberately NO damage here. This only opens the combo; every blow lands from
         // advanceCombo at its own strike frame, so the hit arrives with the blade instead of on
-        // the frame the AI happened to ask. Returning true keeps MeleeAttackGoal's own cooldown
-        // happy -- it never needs to know the swing outlives the call.
+        // the frame the AI happened to ask. MeleeAttackGoal resets its own 20-tick cooldown
+        // whatever this returns, and StatueMeleeGoal holds that timer still while a combo runs,
+        // so the real pause after a combo is COMBO_COOLDOWN plus that 20.
         this.beginSwing(0);
         return true;
     }
@@ -449,10 +629,13 @@ public class LivingStatueEntity extends Monster {
         if (index < 0) {
             return;
         }
-        if (this.isCrumbling() || !this.isAwake()) {
+        if (this.isCrumbling() || !this.isAwake() || this.isDeadOrDying()) {
             this.endCombo();
             return;
         }
+        // Planted for the whole blow. Sliding along the floor while the halberd comes round is
+        // exactly what makes a heavy swing read as weightless.
+        this.getNavigation().stop();
         int tick = this.entityData.get(DATA_SWING) + 1;
         this.entityData.set(DATA_SWING, tick);
         int total = SWING_TICKS[Math.min(index, SWING_TICKS.length - 1)];
@@ -540,17 +723,23 @@ public class LivingStatueEntity extends Monster {
         if (!(this.level() instanceof ServerLevel server)) {
             return;
         }
-        net.minecraft.world.level.block.state.BlockState floor =
-                server.getBlockState(this.blockPosition().below());
+        // The rings spread from where the blade bites, not from the statue's feet: the halberd
+        // lands a good two blocks out in front.
+        net.minecraft.world.phys.Vec3 facing =
+                net.minecraft.world.phys.Vec3.directionFromRotation(0.0F, this.yBodyRot);
+        double cx = this.getX() + facing.x * 2.2D;
+        double cz = this.getZ() + facing.z * 2.2D;
+        net.minecraft.world.level.block.state.BlockState floor = server.getBlockState(
+                BlockPos.containing(cx, this.getY() - 0.5D, cz));
         BlockParticleOption dust = new BlockParticleOption(ParticleTypes.BLOCK,
                 floor.isAir() ? Blocks.STONE.defaultBlockState() : floor);
         for (int ring = 1; ring <= 3; ring++) {
-            double radius = ring * 1.4D;
+            double radius = ring * 1.2D;
             int points = 10 * ring;
             for (int i = 0; i < points; i++) {
                 double a = (Math.PI * 2.0D) * i / points;
-                server.sendParticles(dust, this.getX() + Math.cos(a) * radius,
-                        this.getY() + 0.15D, this.getZ() + Math.sin(a) * radius,
+                server.sendParticles(dust, cx + Math.cos(a) * radius,
+                        this.getY() + 0.15D, cz + Math.sin(a) * radius,
                         2, 0.1D, 0.05D, 0.1D, 0.12D);
             }
         }
@@ -570,27 +759,78 @@ public class LivingStatueEntity extends Monster {
         }
     }
 
+    /**
+     * Forget the fight for good. setTarget(null) alone does not stick: a running target goal
+     * falls back on the target it stored and sets it again next tick, so a sentry put down
+     * mid-fight would reassemble at its post still locked on the old mob.
+     */
+    private void dropTarget() {
+        this.targetSelector.getAvailableGoals().stream()
+                .filter(net.minecraft.world.entity.ai.goal.WrappedGoal::isRunning).toList()
+                .forEach(net.minecraft.world.entity.ai.goal.WrappedGoal::stop);
+        this.goalSelector.getAvailableGoals().stream()
+                .filter(net.minecraft.world.entity.ai.goal.WrappedGoal::isRunning).toList()
+                .forEach(net.minecraft.world.entity.ai.goal.WrappedGoal::stop);
+        this.setTarget(null);
+    }
+
     private void beginCrumble() {
         this.entityData.set(DATA_CRUMBLE, 1);
-        this.setTarget(null);
+        this.dropTarget();
         this.level().playSound(null, this.blockPosition(), ModSounds.STATUE_CRUMBLE.get(),
                 SoundSource.HOSTILE, 1.5F, 1.0F);
     }
 
-    /** End of the crumble animation: go home, go back to sleep, come back to full strength. */
+    /**
+     * End of the fall: the pieces vanish in a burst of grit and reassemble at its post, then it
+     * stands dormant again at full strength.
+     */
     private void finishCrumble() {
+        if (this.level() instanceof ServerLevel server) {
+            server.sendParticles(new BlockParticleOption(
+                            ParticleTypes.BLOCK, Blocks.STONE.defaultBlockState()),
+                    this.getX(), this.getY() + 0.6D, this.getZ(), 50, 0.7D, 0.4D, 0.7D, 0.05D);
+        }
         this.entityData.set(DATA_CRUMBLE, 0);
         this.entityData.set(DATA_WAKE, 0);
+        this.endCombo();
         this.setHealth(this.getMaxHealth());
-        this.setTarget(null);
+        this.dropTarget();
+        this.getNavigation().stop();
         if (this.homePos != null) {
             this.teleportTo(this.homePos.getX() + 0.5D, this.homePos.getY(),
                     this.homePos.getZ() + 0.5D);
         }
+        this.entityData.set(DATA_REFORM, 1);
         if (this.level() instanceof ServerLevel server) {
             server.sendParticles(new BlockParticleOption(
                             ParticleTypes.BLOCK, Blocks.STONE.defaultBlockState()),
-                    this.getX(), this.getY() + 1.0D, this.getZ(), 60, 0.6D, 1.0D, 0.6D, 0.05D);
+                    this.getX(), this.getY() + 0.5D, this.getZ(), 30, 0.6D, 0.3D, 0.6D, 0.04D);
+        }
+    }
+
+    /**
+     * A ruin guardian's death IS the fall: knees, head, then a moment as rubble before it breaks
+     * up. Replaces vanilla's 20-tick red topple-over and puff of smoke, which read as a mob dying,
+     * not as a statue being smashed. The model reads {@code deathTime} (see
+     * {@link #getCrumbleProgress}); the renderer skips the death roll.
+     */
+    @Override
+    protected void tickDeath() {
+        ++this.deathTime;
+        if (this.level().isClientSide()) {
+            return;
+        }
+        this.crumbleEffects(this.deathTime);
+        if (this.deathTime >= CRUMBLE_TICKS + RUBBLE_TICKS && !this.isRemoved()) {
+            if (this.level() instanceof ServerLevel server) {
+                server.sendParticles(new BlockParticleOption(
+                                ParticleTypes.BLOCK, Blocks.STONE.defaultBlockState()),
+                        this.getX(), this.getY() + 0.4D, this.getZ(), 70, 0.8D, 0.3D, 0.8D, 0.1D);
+                server.playSound(null, this.blockPosition(), ModSounds.STATUE_CRUMBLE.get(),
+                        SoundSource.HOSTILE, 1.0F, 1.2F);
+            }
+            this.remove(RemovalReason.KILLED);
         }
     }
 
@@ -636,6 +876,10 @@ public class LivingStatueEntity extends Monster {
     public void addAdditionalSaveData(CompoundTag tag) {
         super.addAdditionalSaveData(tag);
         tag.putInt("Wake", this.getWakeTicks());
+        // Mid-fall and mid-reassembly are saved too, or a sentry unloaded in that window comes
+        // back awake at 1 HP away from its post instead of finishing the trip home.
+        tag.putInt("Crumble", this.entityData.get(DATA_CRUMBLE));
+        tag.putInt("Reform", this.entityData.get(DATA_REFORM));
         tag.putBoolean("Bound", this.isBound());
         if (this.ownerUUID != null) {
             tag.putUUID("Owner", this.ownerUUID);
@@ -650,6 +894,8 @@ public class LivingStatueEntity extends Monster {
     public void readAdditionalSaveData(CompoundTag tag) {
         super.readAdditionalSaveData(tag);
         this.entityData.set(DATA_WAKE, tag.getInt("Wake"));
+        this.entityData.set(DATA_CRUMBLE, tag.getInt("Crumble"));
+        this.entityData.set(DATA_REFORM, tag.getInt("Reform"));
         this.entityData.set(DATA_BOUND, tag.getBoolean("Bound"));
         if (tag.hasUUID("Owner")) {
             this.ownerUUID = tag.getUUID("Owner");
@@ -683,6 +929,23 @@ public class LivingStatueEntity extends Monster {
         @Override
         public boolean canContinueToUse() {
             return this.statue.isAwake() && !this.statue.isCrumbling() && super.canContinueToUse();
+        }
+
+        /**
+         * Mid-blow the goal stops steering. Through the wind-up the statue turns slowly to keep
+         * the target in front of it; from the strike on it is locked where the blow went, so a
+         * player who side-steps a committed swing is not tracked round by the blade.
+         */
+        @Override
+        public void tick() {
+            if (!this.statue.isSwinging()) {
+                super.tick();
+                return;
+            }
+            LivingEntity target = this.statue.getTarget();
+            if (target != null && this.statue.getSwingProgress(0.0F) < STRIKE_AT * 0.7F) {
+                this.statue.getLookControl().setLookAt(target, 6.0F, 30.0F);
+            }
         }
 
     }

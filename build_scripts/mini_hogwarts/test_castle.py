@@ -254,8 +254,8 @@ def test_seal_interiors():
     g.fill(0, 0, 0, 6, 4, 6, STONE)
     g.fill(1, 1, 1, 5, 3, 5, 'minecraft:air')               # hollow
     g.set(3, 2, 3, 'minecraft:lantern[hanging=false,waterlogged=false]')
-    n = grid.seal_interiors(g, [])
-    assert n == 5 * 3 * 5 - 1 and g.cells[(1, 1, 1)] == 'minecraft:cave_air', n
+    n, filled = grid.seal_interiors(g, [])
+    assert filled == 0 and n == 5 * 3 * 5 - 1 and g.cells[(1, 1, 1)] == 'minecraft:cave_air', n
     assert g.cells[(3, 2, 3)].startswith('minecraft:lantern')  # blocks are never touched
     assert (9, 9, 9) not in g.cells and (-1, 0, 0) not in g.cells
     # cut a doorway: the inside now connects to the outside, so only the room box keeps it sealed, and the cells
@@ -266,12 +266,24 @@ def test_seal_interiors():
     h.fill(3, 1, 0, 3, 2, 0, 'minecraft:air')
     room = (1, 1, 1, 5, 3, 5)
     door = (3, 1, 0, 3, 2, 0)
-    n = grid.seal_interiors(h, [room, door])
-    assert n == 5 * 3 * 5 + 2, n
+    n, filled = grid.seal_interiors(h, [room, door])
+    assert n == 5 * 3 * 5 + 2 and filled == 0, n
     assert h.cells[(3, 1, 0)] == 'minecraft:cave_air' and h.cells[(5, 3, 5)] == 'minecraft:cave_air'
     assert (3, 1, -1) not in h.cells and (3, 5, 3) not in h.cells
     # a second pass changes nothing (cave_air is already air)
-    assert grid.seal_interiors(h, [room, door]) == 0
+    assert grid.seal_interiors(h, [room, door]) == (0, 0)
+    # R35: a pocket in solid rock (every face-neighbour is rock) that touches no box is filled, not sealed; a pocket
+    # with a building block on its rim, or one a box reaches, is sealed
+    rock = lambda s: s == STONE
+    k = Grid()
+    k.fill(0, 0, 0, 8, 4, 4, STONE)
+    k.fill(1, 1, 1, 2, 2, 2, 'minecraft:air')              # a rock pocket
+    k.fill(4, 1, 1, 5, 2, 2, 'minecraft:air')              # a pocket with a plank on its rim
+    k.set(6, 1, 1, 'minecraft:oak_planks')
+    k.fill(7, 1, 1, 7, 2, 2, 'minecraft:air')              # a rock pocket a room box reaches
+    n, filled = grid.seal_interiors(k, [(7, 1, 1, 7, 1, 1)], rock=rock)
+    assert filled == 8 and k.cells[(1, 1, 1)] == STONE, (n, filled)
+    assert n == 8 + 4 and k.cells[(4, 1, 1)] == 'minecraft:cave_air' and k.cells[(7, 2, 2)] == 'minecraft:cave_air'
 
 
 def test_census():

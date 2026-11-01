@@ -124,6 +124,9 @@ GALLERY_Z = (cell(85, 0, 0)[2], cell(85, 0, 0)[2] + 26)            # 111..137, o
 GALLERY_PIER_STEP = 4
 DOOR_LOCAL_X = (89, 91)                                            # the west door, in front of the stair masses
 WEST_DOOR = (GALLERY_X[1] - 1, MAIN_FLOOR_Y + 1, cell(90, 0, 0)[2])     # the gallery threshold outside it
+WEST_DOOR_Z = (cell(DOOR_LOCAL_X[0], 0, 0)[2], cell(DOOR_LOCAL_X[1], 0, 0)[2])      # its opening, castle z
+WEST_DOOR_WALL_X = (cell(0, 0, 39)[0], cell(0, 0, 38)[0])            # through the entrance hall's west wall
+WEST_DOOR_TOP = MAIN_FLOOR_Y + 4                                       # 4 tall
 
 # ---------------------------------------------------------------- the re-skin
 PIERS = tuple(G.PIERS) + G.FIRE_BAY    # buttresses outside every pier and the fireplace's two
@@ -715,11 +718,11 @@ def build_gallery(grid):
         grid.set(gx1, y + 3, z, G.state('wall_torch', facing='west'))
     # the door through the entrance hall's west wall (local z 38..39), 3 wide and 4 tall, with a cobblestone
     # surround on its outer face
-    zs = [cell(x, 0, 0)[2] for x in DOOR_LOCAL_X]
-    wall_x = (cell(0, 0, 39)[0], cell(0, 0, 38)[0])
+    zs = WEST_DOOR_Z
+    wall_x = WEST_DOOR_WALL_X
     for wx in range(wall_x[0], wall_x[1] + 1):
         for z in range(zs[0], zs[1] + 1):
-            for yy in range(y + 1, y + 5):
+            for yy in range(y + 1, WEST_DOOR_TOP + 1):
                 grid.clear(wx, yy, z)
     for z in range(zs[0] - 1, zs[1] + 2):
         grid.set(wall_x[0], y + 5, z, 'minecraft:cobblestone')
@@ -761,6 +764,14 @@ GALLERY_BOX = (GALLERY_X[0], MAIN_FLOOR_Y + 1, GALLERY_Z[0], GALLERY_X[1], MAIN_
 # from its end wall on and the apse behind the High Table.
 HALL_PROPER_BOX = _box((9, 1, 4), (83, G.CEIL_Y - 1, 40))
 APSE_BOX = _box((1, 1, APSE_Z[0]), (APSE_X[1], G.CEIL_Y - 1, APSE_Z[1]))
+# The doorways between those interiors (their air is sealed too, or the world's terrain would plug them): the Great
+# Hall's portal, from the hall box's end (local x 83) to the entrance hall's (G.EH_X0), across the two door leaves'
+# span (G.DOOR_HINGES) and a cell either side, up to the ceiling plane (the arch head is below it; the wall round
+# the opening is solid and never touched); and the west door from the gallery, as build_gallery cuts it.
+_LEAF_Z = (math.floor(min(h[2] for h in G.DOOR_HINGES)), math.ceil(max(h[2] for h in G.DOOR_HINGES)) - 1)
+MAIN_DOOR_BOX = _box((84, 1, _LEAF_Z[0] - 1), (G.EH_X0 - 1, G.CEIL_Y - 1, _LEAF_Z[1] + 1))
+WEST_DOOR_BOX = (WEST_DOOR_WALL_X[0], MAIN_FLOOR_Y + 1, WEST_DOOR_Z[0], WEST_DOOR_WALL_X[1], WEST_DOOR_TOP,
+                 WEST_DOOR_Z[1])
 
 _COLUMNS = None
 

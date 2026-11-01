@@ -143,27 +143,63 @@ def enclosed_air(grid):
     return out
 
 
-def seal_interiors(grid, boxes):
-    """Write minecraft:cave_air into every air cell the world must clear when the grid is placed: the enclosed
-    pockets (enclosed_air) and every air cell of `boxes` (inclusive (x0, y0, z0, x1, y1, z1) room interiors, which
-    reach the outside through their doors and windows, so the flood alone would miss them). Plain air keeps
-    meaning "leave the world alone" (the placer skips it); cave_air is placed, so terrain and trees inside the
-    castle are carved out. Writes the dict directly (Grid.set never stores air). Returns the number of cells marked;
-    blocks and cells already marked are left as they are."""
+def _components(points):
+    """The face-connected components of a set of cells, as lists."""
+    left = set(points)
+    out = []
+    while left:
+        seed = left.pop()
+        comp = [seed]
+        stack = [seed]
+        while stack:
+            x, y, z = stack.pop()
+            for n in ((x + 1, y, z), (x - 1, y, z), (x, y + 1, z), (x, y - 1, z), (x, y, z + 1), (x, y, z - 1)):
+                if n in left:
+                    left.remove(n)
+                    comp.append(n)
+                    stack.append(n)
+        out.append(comp)
+    return out
+
+
+def seal_interiors(grid, boxes, rock=None, fill='minecraft:stone'):
+    """Write minecraft:cave_air into every air cell the world must clear when the grid is placed: every air cell of
+    `boxes` (inclusive (x0, y0, z0, x1, y1, z1) room interiors and the doorways between them, which reach the outside
+    through doors and windows, so the flood alone would miss them) and the enclosed pockets (enclosed_air) of the
+    building. Plain air keeps meaning "leave the world alone" (the placer skips it); cave_air is placed, so terrain
+    and trees inside the castle are carved out. Writes the dict directly (Grid.set never stores air).
+
+    A pocket that touches no box and whose every face-neighbour satisfies rock(state) (the castle's solid rock or
+    the hall's plinth) is filled with `fill` instead: sealed, it would become a dark, mob-spawning cavity in the
+    world (ruling R35). Returns (cells sealed, cells filled); blocks and cells already marked are left alone."""
     cells = grid.cells
-    todo = enclosed_air(grid)
+    todo = set()
     for x0, y0, z0, x1, y1, z1 in boxes:
         for y in range(min(y0, y1), max(y0, y1) + 1):
             for z in range(min(z0, z1), max(z0, z1) + 1):
                 for x in range(min(x0, x1), max(x0, x1) + 1):
                     if (x, y, z) not in cells:
                         todo.add((x, y, z))
-    n = 0
+    filled = 0
+    for comp in _components(enclosed_air(grid)):
+        cs = set(comp)
+        if rock is not None and not (cs & todo):
+            walls = [cells.get(n, AIR) for x, y, z in comp
+                     for n in ((x + 1, y, z), (x - 1, y, z), (x, y + 1, z), (x, y - 1, z), (x, y, z + 1), (x, y, z - 1))
+                     if n not in cs]
+            if all(rock(s) for s in walls):
+                for p in comp:
+                    if p not in cells:
+                        cells[p] = fill
+                        filled += 1
+                continue
+        todo |= cs
+    sealed = 0
     for p in todo:
         if p not in cells:
             cells[p] = CAVE_AIR
-            n += 1
-    return n
+            sealed += 1
+    return sealed, filled
 
 
 # --- reading -------------------------------------------------------------------------

@@ -32,9 +32,11 @@ INTERIOR AIR
 ------------
 The castle is placed as a worldgen structure, and the placer skips plain air ("leave the world alone"),
 so terrain and trees standing where a room is would stay in it. After the rooms, seal_interiors() writes
-minecraft:cave_air (which the placer does place) into every air cell of every room interior (ROOMS, a
-name -> box dict collected from the room modules: their boxes reach out through doors and windows) and
-into every air pocket the blocks close in (grid.enclosed_air). Outdoor air stays plain air.
+minecraft:cave_air (which the placer does place) into every air cell of every room interior and of every
+doorway between them (ROOMS, a name -> box dict collected from the room modules: their boxes reach out
+through doors and windows) and into every air pocket the building closes in (grid.enclosed_air). A pocket
+closed in by solid rock alone (the hill, the plinth) is filled with stone instead (ruling R35), so the
+world gets no dark cavities. Outdoor air stays plain air.
 """
 
 import json
@@ -141,7 +143,9 @@ def collect_rooms(grid):
     ROOMS.clear()
     ROOMS['great hall'] = hall.HALL_PROPER_BOX
     ROOMS['great hall apse'] = hall.APSE_BOX
+    ROOMS['great hall doors'] = hall.MAIN_DOOR_BOX
     ROOMS['entrance hall'] = hall.ENTRANCE_BOX
+    ROOMS['entrance hall west door'] = hall.WEST_DOOR_BOX
     ROOMS['hall west gallery'] = hall.GALLERY_BOX
     for i, b in enumerate(rooms_staircase.light_boxes(grid.cells)):
         ROOMS['grand staircase %d' % i] = b
@@ -151,10 +155,17 @@ def collect_rooms(grid):
     return ROOMS
 
 
+def _rock(state):
+    """The castle's solid rock and the hall's plinth and skirt, for R35's pocket fill."""
+    return checks.block_id(state) in hall.TERRAIN_NAMES
+
+
 def seal_interiors(grid):
-    """Mark the castle's interior air as minecraft:cave_air (see INTERIOR AIR above). Returns the count."""
-    n = _seal(grid, list(collect_rooms(grid).values()))
+    """Mark the castle's interior air as minecraft:cave_air and fill the air pockets in its rock with stone (see
+    INTERIOR AIR above). Returns the number of cells sealed."""
+    n, filled = _seal(grid, list(collect_rooms(grid).values()), rock=_rock)
     seal_interiors.count = n
+    seal_interiors.filled = filled
     return n
 
 
@@ -268,7 +279,7 @@ def verify(grid):
     verify_staircase(grid, base, walk)
     verify_library(grid, base, walk)
     verify_towers(grid, base, walk)
-    verify_sealed(grid)
+    verify_sealed(grid, walk)
     return walk
 
 
@@ -485,9 +496,11 @@ def verify_towers(grid, base, walk):
                 and checks.supports(grid.get(x, y - 1, z))), ('student spot not a free, walked floor cell', (x, y, z))
 
 
-def verify_sealed(grid):
+def verify_sealed(grid, walk):
     """30. Interior air is marked: every air cell of every ROOMS box is minecraft:cave_air, never plain (absent) air,
-    so the placer clears the world out of every room (rulings R29, R30)."""
+    so the placer clears the world out of every room (rulings R29, R30); no walked cell is a plain-air gap between
+    sealed air (a doorway or passage no box covers, which the world's terrain would plug); and no cave_air stands
+    under open sky."""
     rooms = ROOMS or collect_rooms(grid)
     cells = grid.cells
     plain = []
@@ -498,6 +511,8 @@ def verify_sealed(grid):
                     if (x, y, z) not in cells:
                         plain.append((name, (x, y, z)))
     assert not plain, 'unsealed room air: %d, e.g. %s' % (len(plain), plain[:5])
+    gaps = sealed_gaps(grid, walk)
+    assert not gaps, 'plain-air gaps between sealed rooms: %d, e.g. %s' % (len(gaps), gaps[:5])
     # and outdoor air stays plain: no cave_air cell stands under open sky (nothing at all above it in its column)
     top = {}
     for (x, y, z), s in cells.items():
@@ -505,6 +520,31 @@ def verify_sealed(grid):
             top[(x, z)] = y
     sky = [p for p, s in cells.items() if s == 'minecraft:cave_air' and top.get((p[0], p[2]), -1) < p[1]]
     assert not sky, 'cave_air under open sky: %d, e.g. %s' % (len(sky), sorted(sky)[:5])
+
+
+def sealed_gaps(grid, walk, reach=4):
+    """Every walked feet or head cell of plain (absent) air that has cave_air on both opposite horizontal sides
+    along x or along z, looking up to `reach` cells through plain air each way: a doorway or passage between two
+    sealed interiors that was left unsealed."""
+    cells = grid.cells
+
+    def side(x, y, z, dx, dz):
+        for k in range(1, reach + 1):
+            s = cells.get((x + dx * k, y, z + dz * k))
+            if s is not None:
+                return s
+        return None
+
+    out = set()
+    for x, y, z in walk:
+        for yy in (y, y + 1):
+            if (x, yy, z) in cells:
+                continue
+            for dx, dz in ((1, 0), (0, 1)):
+                if side(x, yy, z, dx, dz) == 'minecraft:cave_air' and side(x, yy, z, -dx, -dz) == 'minecraft:cave_air':
+                    out.add((x, yy, z))
+                    break
+    return sorted(out)
 
 
 def census_lines(grid, top=40):
@@ -546,7 +586,8 @@ def main():
     print('staircase: %s' % getattr(rooms_staircase.place_staircase, 'stats', {}))
     print('library: %s' % getattr(rooms_library.place_library, 'stats', {}))
     print('towers: %s' % getattr(rooms_towers.place_towers, 'stats', {}))
-    print('sealed: %d cave_air cells (%d room boxes)' % (getattr(seal_interiors, 'count', 0), len(ROOMS)))
+    print('sealed: %d cave_air cells (%d room boxes); %d cells of rock pockets filled with stone' % (
+        getattr(seal_interiors, 'count', 0), len(ROOMS), getattr(seal_interiors, 'filled', 0)))
     print('census:')
     print('\n'.join(census_lines(grid)))
 

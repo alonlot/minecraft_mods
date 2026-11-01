@@ -99,11 +99,14 @@ public class SpellBeamEntity extends ThrowableProjectile {
      * shows its impact particles and discards itself. Plain data: nothing client-only is referenced here.
      */
     private boolean visualOnly;
-    /** A dodged Killing Curse already sent its own burst; the impact that follows must not send another. */
-    private boolean avadaImpactSent;
-    /** Where the beam struck, for the Killing Curse's strike when the hit fizzles. */
+    /** The strike packet went out (a dodge sends its own); the impact that follows must not send another. */
+    private boolean impactSent;
+    /**
+     * Where the beam struck: on an entity, where its line enters the body (an entity hit reports the feet). The
+     * strike is drawn here and the beam's drawn path ends here, so it never bends off to the side.
+     */
     @javax.annotation.Nullable
-    private Vec3 avadaHitAt;
+    private Vec3 hitAt;
     /** Ticks a visual-only beam lives before it ends as if it had hit something. */
     private int visualLife = 60;
 
@@ -127,27 +130,8 @@ public class SpellBeamEntity extends ThrowableProjectile {
         getEntityData().set(DATA_SPELL_ID, spellType.getId());
     }
 
-    /** The impact of a visual-only beam: the particles the server sends for a real hit, drawn locally, then gone. */
+    /** The impact of a visual-only beam: just gone. SpellBeamClientState plays the strike where it vanished. */
     private void endVisualBeam() {
-        SpellType spell = getSpellType();
-        if (spell == SpellType.AVADA_KEDAVRA) {
-            this.discard(); // AvadaBeamRenderer plays the strike where the jet vanished
-            return;
-        }
-        for (int i = 0; i < 12; i++) {
-            this.level().addParticle(spell.getImpactParticle(), this.getX() + (random.nextDouble() - 0.5) * 0.4,
-                    this.getY() + (random.nextDouble() - 0.5) * 0.4, this.getZ() + (random.nextDouble() - 0.5) * 0.4,
-                    (random.nextDouble() - 0.5) * 0.08, (random.nextDouble() - 0.5) * 0.08, (random.nextDouble() - 0.5) * 0.08);
-        }
-        for (int i = 0; i < 18; i++) {
-            this.level().addParticle(spell.getDustParticle(), this.getX() + (random.nextDouble() - 0.5) * 0.5,
-                    this.getY() + (random.nextDouble() - 0.5) * 0.5, this.getZ() + (random.nextDouble() - 0.5) * 0.5,
-                    0.0, 0.0, 0.0);
-        }
-        for (int i = 0; i < 6; i++) {
-            this.level().addParticle(ParticleTypes.END_ROD, this.getX(), this.getY(), this.getZ(),
-                    (random.nextDouble() - 0.5) * 0.04, (random.nextDouble() - 0.5) * 0.04, (random.nextDouble() - 0.5) * 0.04);
-        }
         this.discard();
     }
 
@@ -311,8 +295,9 @@ public class SpellBeamEntity extends ThrowableProjectile {
 
         if (!this.level().isClientSide && this.tickCount > 200) {
             if (getSpellType() == SpellType.MORSMORDRE && tryStartMorsmordreSkyRaid()) {
-                if (this.level() instanceof ServerLevel sl) {
-                    spawnEnhancedImpactEffects(sl, SpellType.MORSMORDRE, this.position());
+                if (this.level() instanceof ServerLevel) {
+                    com.hogwartsmagic.spell.SpellBeamFx.impact(this, SpellType.MORSMORDRE, this.position(), com.hogwartsmagic.spell.SpellBeamFx.HIT);
+                    this.impactSent = true;
                     playLayeredImpactSound(SpellType.MORSMORDRE);
                 }
             } else {
@@ -329,141 +314,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
         if (this.level().isClientSide) {
             // A memory's beam is scenery: it never whooshes past the viewer as if it were a real near miss.
             if (!this.visualOnly) playNearMissFeedback();
-            if (spell == SpellType.AVADA_KEDAVRA) {
-                return; // drawn by hand: AvadaBeamRenderer
-            }
-            Vec3 pos = position();
-            Vec3 vel = getDeltaMovement();
-            double speed = vel.length();
-            if (speed < 1.0E-4) {
-                return;
-            }
-            float chargeScale = getCharge();
-            if (spell == SpellType.AQUA_ERUCTO) {
-                return;
-            }
-
-            // Calculate orthogonal vectors for circular/spiral magic trails.
-            Vec3 dir = vel.scale(1.0 / speed);
-            Vec3 upReference = new Vec3(0, 1, 0);
-            if (Math.abs(dir.dot(upReference)) > 0.99) {
-                upReference = new Vec3(1, 0, 0);
-            }
-            Vec3 right = dir.cross(upReference).normalize();
-            Vec3 up = right.cross(dir).normalize();
-
-            // Core shimmering trail along recent beam path.
-            for (int i = 0; i < 3; i++) {
-                double back = i * 0.28;
-                Vec3 segment = pos.subtract(dir.scale(back));
-                this.level().addParticle(spell.getDustParticle(),
-                        segment.x + (random.nextDouble() - 0.5) * 0.05 * chargeScale,
-                        segment.y + 0.2 + (random.nextDouble() - 0.5) * 0.05 * chargeScale,
-                        segment.z + (random.nextDouble() - 0.5) * 0.05 * chargeScale,
-                        -vel.x * 0.03, -vel.y * 0.03, -vel.z * 0.03);
-            }
-
-            // Orbiting spark ring gives a more "wand magic" look.
-            double phase = this.tickCount * 0.7;
-            double radius = (0.18 + 0.06 * Math.sin(this.tickCount * 0.35)) * (0.85 + (chargeScale * 0.25));
-            for (int i = 0; i < 2; i++) {
-                double angle = phase + (i * Math.PI);
-                Vec3 offset = right.scale(Math.cos(angle) * radius).add(up.scale(Math.sin(angle) * radius));
-                this.level().addParticle(spell.getTrailParticle(),
-                        pos.x + offset.x, pos.y + 0.2 + offset.y, pos.z + offset.z,
-                        0.0, 0.0, 0.0);
-            }
-
-            // Spell families get a little personality.
-            switch (spell) {
-                case CRUCIO, DOLOHOV_CURSE, MORSMORDRE -> {
-                    if (tickCount % 2 == 0) {
-                        this.level().addParticle(ParticleTypes.SMOKE,
-                                pos.x, pos.y + 0.2, pos.z,
-                                (random.nextDouble() - 0.5) * 0.06, 0.02, (random.nextDouble() - 0.5) * 0.06);
-                    }
-                }
-                case TENEBRIS_FLIGHT -> {
-                    for (int i = 0; i < 2; i++) {
-                        this.level().addParticle(ParticleTypes.SQUID_INK,
-                                pos.x + (random.nextDouble() - 0.5) * 0.2,
-                                pos.y + 0.15 + (random.nextDouble() - 0.5) * 0.1,
-                                pos.z + (random.nextDouble() - 0.5) * 0.2,
-                                (random.nextDouble() - 0.5) * 0.02, 0.01, (random.nextDouble() - 0.5) * 0.02);
-                    }
-                    if (tickCount % 3 == 0) {
-                        this.level().addParticle(ParticleTypes.DRAGON_BREATH,
-                                pos.x, pos.y + 0.2, pos.z,
-                                0.0, 0.02, 0.0);
-                    }
-                }
-                case EXPECTO_PATRONUM, LUMOS, HEAL, REVELIO, CAVE_INIMICUM -> {
-                    this.level().addParticle(ParticleTypes.END_ROD,
-                            pos.x, pos.y + 0.2, pos.z,
-                            (random.nextDouble() - 0.5) * 0.04, 0.01, (random.nextDouble() - 0.5) * 0.04);
-                    if (spell == SpellType.HEAL && tickCount % 2 == 0) {
-                        this.level().addParticle(ParticleTypes.HEART,
-                                pos.x, pos.y + 0.25, pos.z,
-                                0.0, 0.01, 0.0);
-                    } else if (spell == SpellType.EXPECTO_PATRONUM && tickCount % 2 == 0) {
-                        this.level().addParticle(ParticleTypes.GLOW,
-                                pos.x, pos.y + 0.2, pos.z,
-                                (random.nextDouble() - 0.5) * 0.03, 0.02, (random.nextDouble() - 0.5) * 0.03);
-                    } else if (spell == SpellType.CAVE_INIMICUM && tickCount % 2 == 0) {
-                        this.level().addParticle(ParticleTypes.ENCHANT,
-                                pos.x, pos.y + 0.2, pos.z,
-                                (random.nextDouble() - 0.5) * 0.03, 0.02, (random.nextDouble() - 0.5) * 0.03);
-                    }
-                }
-                case BOMBARDA, CONFRINGO, FIENDFYRE -> {
-                    this.level().addParticle(ParticleTypes.FLAME,
-                            pos.x, pos.y + 0.2, pos.z,
-                            (random.nextDouble() - 0.5) * 0.08, 0.02, (random.nextDouble() - 0.5) * 0.08);
-                }
-                case AQUA_ERUCTO -> {
-                    // Aqua Eructo now hits as an instant water lash, so it should not draw a visible beam.
-                }
-                case OBLIVIATE, CONFUNDO, IMPERIO -> {
-                    this.level().addParticle(ParticleTypes.ENCHANT,
-                            pos.x + (random.nextDouble() - 0.5) * 0.15,
-                            pos.y + 0.2 + (random.nextDouble() - 0.5) * 0.15,
-                            pos.z + (random.nextDouble() - 0.5) * 0.15,
-                            0.0, 0.0, 0.0);
-                    if (tickCount % 2 == 0) {
-                        this.level().addParticle(ParticleTypes.NAUTILUS,
-                                pos.x, pos.y + 0.2, pos.z,
-                                (random.nextDouble() - 0.5) * 0.02, 0.01, (random.nextDouble() - 0.5) * 0.02);
-                    }
-                }
-                case RIDDIKULUS -> {
-                    if (tickCount % 2 == 0) {
-                        this.level().addParticle(ParticleTypes.NOTE,
-                                pos.x, pos.y + 0.2, pos.z,
-                                (random.nextDouble() - 0.5) * 0.02, 0.01, (random.nextDouble() - 0.5) * 0.02);
-                    }
-                }
-                case DEPULSO -> {
-                    if (tickCount % 2 == 0) {
-                        this.level().addParticle(ParticleTypes.CLOUD,
-                                pos.x, pos.y + 0.2, pos.z,
-                                (random.nextDouble() - 0.5) * 0.05, 0.01, (random.nextDouble() - 0.5) * 0.05);
-                    }
-                }
-                case ALATUS -> {
-                    if (tickCount % 2 == 0) {
-                        this.level().addParticle(ParticleTypes.CLOUD,
-                                pos.x, pos.y + 0.18, pos.z,
-                                (random.nextDouble() - 0.5) * 0.06, 0.02, (random.nextDouble() - 0.5) * 0.06);
-                    }
-                    if (tickCount % 3 == 0) {
-                        this.level().addParticle(ParticleTypes.ENCHANT,
-                                pos.x, pos.y + 0.2, pos.z,
-                                (random.nextDouble() - 0.5) * 0.04, 0.015, (random.nextDouble() - 0.5) * 0.04);
-                    }
-                }
-                default -> {
-                }
-            }
+            // Every beam is drawn by hand on the client (SpellBeamFxRenderer, per-spell BeamStyles): no particle trail.
         }
     }
 
@@ -666,7 +517,9 @@ public class SpellBeamEntity extends ThrowableProjectile {
     }
 
     private void onHitInner(HitResult result) {
-        this.avadaHitAt = result.getLocation();
+        this.hitAt = result instanceof EntityHitResult entityHit
+                ? com.hogwartsmagic.spell.SpellBeamFx.entryPoint(this.position(), this.getDeltaMovement(), entityHit.getEntity())
+                : result.getLocation();
         if (!this.level().isClientSide && this.puppeteer != null && result instanceof EntityHitResult entityHit
                 && entityHit.getEntity() instanceof net.minecraft.world.entity.player.Player hitPlayer
                 && this.level() instanceof ServerLevel puppetLevel
@@ -939,9 +792,8 @@ public class SpellBeamEntity extends ThrowableProjectile {
                                 || spell == SpellType.COLLOPORTUS) {
                             hitSuccessful = false;
                         } else if (spell == SpellType.AVADA_KEDAVRA && living instanceof VoldemortEntity voldemort && voldemort.tryEvadeAvada(getOwner())) {
-                            com.hogwartsmagic.spell.mind.AvadaBeamFx.impact(this, living.position().add(0.0D, 1.0D, 0.0D),
-                                    com.hogwartsmagic.spell.mind.AvadaBeamFx.EVADE);
-                            this.avadaImpactSent = true;
+                            com.hogwartsmagic.spell.SpellBeamFx.impact(this, spell, com.hogwartsmagic.spell.SpellBeamFx.bodyCentre(living), com.hogwartsmagic.spell.SpellBeamFx.EVADE);
+                            this.impactSent = true;
                             hitSuccessful = true;
                         } else {
                             hitSuccessful = true;
@@ -1015,26 +867,14 @@ public class SpellBeamEntity extends ThrowableProjectile {
                         com.hogwartsmagic.spell.mastery.MasteryAwards.onBlockEffect(masteryCaster, spell);
                     }
                 }
-                if (spell == SpellType.AVADA_KEDAVRA) {
-                    if (!this.avadaImpactSent) {
-                        com.hogwartsmagic.spell.mind.AvadaBeamFx.impact(this, result.getLocation(),
-                                com.hogwartsmagic.spell.mind.AvadaBeamFx.HIT);
-                    }
-                } else if (this.level() instanceof net.minecraft.server.level.ServerLevel sl) {
-                    spawnEnhancedImpactEffects(sl, spell, this.position());
+                if (!this.impactSent) {
+                    com.hogwartsmagic.spell.SpellBeamFx.impact(this, spell, this.hitAt != null ? this.hitAt : this.position(), com.hogwartsmagic.spell.SpellBeamFx.HIT);
+                }
+                if (this.level() instanceof net.minecraft.server.level.ServerLevel) {
                     playLayeredImpactSound(spell);
                     if (spell == SpellType.BOMBARDA || spell == SpellType.CONFRINGO || spell == SpellType.FIENDFYRE) {
                         applyHeavyImpactImpulse();
                     }
-                    sl.sendParticles(spell.getImpactParticle(),
-                            this.getX(), this.getY(), this.getZ(), 12,
-                            0.2, 0.2, 0.2, 0.04);
-                    sl.sendParticles(spell.getDustParticle(),
-                            this.getX(), this.getY(), this.getZ(), 18,
-                            0.25, 0.25, 0.25, 0.01);
-                    sl.sendParticles(ParticleTypes.END_ROD,
-                            this.getX(), this.getY(), this.getZ(), 6,
-                            0.2, 0.2, 0.2, 0.02);
                 }
             }
             this.discard();
@@ -1452,67 +1292,6 @@ public class SpellBeamEntity extends ThrowableProjectile {
         }
     }
 
-    private void spawnEnhancedImpactEffects(net.minecraft.server.level.ServerLevel sl, SpellType spell, Vec3 impactPos) {
-        switch (spell) {
-            case AQUA_ERUCTO -> {
-                for (int i = 0; i < 36; i++) {
-                    double angle = (Math.PI * 2.0 * i) / 36.0;
-                    double radius = 0.8 + (i % 5) * 0.15;
-                    double x = impactPos.x + Math.cos(angle) * radius;
-                    double z = impactPos.z + Math.sin(angle) * radius;
-                    sl.sendParticles(ParticleTypes.SPLASH, x, impactPos.y + 0.1, z, 1, 0.0, 0.08, 0.0, 0.0);
-                    if (i % 2 == 0) {
-                        sl.sendParticles(ParticleTypes.BUBBLE, x, impactPos.y + 0.2, z, 1, 0.0, 0.02, 0.0, 0.0);
-                    }
-                }
-            }
-            case EXPECTO_PATRONUM -> {
-                sl.sendParticles(ParticleTypes.END_ROD, impactPos.x, impactPos.y, impactPos.z, 35, 0.6, 0.4, 0.6, 0.02);
-                sl.sendParticles(ParticleTypes.GLOW, impactPos.x, impactPos.y, impactPos.z, 30, 0.8, 0.5, 0.8, 0.01);
-                sl.sendParticles(ParticleTypes.FLASH, impactPos.x, impactPos.y, impactPos.z, 2, 0.2, 0.2, 0.2, 0.0);
-            }
-            case HEAL -> {
-                sl.sendParticles(ParticleTypes.HEART, impactPos.x, impactPos.y + 0.5, impactPos.z, 12, 0.5, 0.3, 0.5, 0.0);
-                sl.sendParticles(ParticleTypes.HAPPY_VILLAGER, impactPos.x, impactPos.y + 0.4, impactPos.z, 16, 0.4, 0.4, 0.4, 0.02);
-            }
-            case OBLIVIATE, CONFUNDO -> {
-                sl.sendParticles(ParticleTypes.NAUTILUS, impactPos.x, impactPos.y + 0.4, impactPos.z, 16, 0.5, 0.4, 0.5, 0.0);
-                sl.sendParticles(ParticleTypes.ENCHANT, impactPos.x, impactPos.y + 0.4, impactPos.z, 20, 0.6, 0.5, 0.6, 0.01);
-            }
-            case RIDDIKULUS -> {
-                sl.sendParticles(ParticleTypes.NOTE, impactPos.x, impactPos.y + 0.5, impactPos.z, 12, 0.5, 0.4, 0.5, 0.0);
-                sl.sendParticles(ParticleTypes.HAPPY_VILLAGER, impactPos.x, impactPos.y + 0.4, impactPos.z, 10, 0.4, 0.4, 0.4, 0.02);
-            }
-            case DEPULSO -> {
-                for (int i = 0; i < 24; i++) {
-                    double angle = (Math.PI * 2.0 * i) / 24.0;
-                    double x = impactPos.x + Math.cos(angle) * 1.2;
-                    double z = impactPos.z + Math.sin(angle) * 1.2;
-                    sl.sendParticles(ParticleTypes.CLOUD, x, impactPos.y + 0.15, z, 1, 0.0, 0.02, 0.0, 0.0);
-                }
-            }
-            case TENEBRIS_FLIGHT -> {
-                sl.sendParticles(ParticleTypes.SQUID_INK, impactPos.x, impactPos.y + 0.3, impactPos.z, 24, 0.5, 0.3, 0.5, 0.02);
-                sl.sendParticles(ParticleTypes.LARGE_SMOKE, impactPos.x, impactPos.y + 0.3, impactPos.z, 20, 0.5, 0.3, 0.5, 0.01);
-            }
-            case PETRIFICUS_TOTALUS -> {
-                // Ground-control rune ring.
-                for (int i = 0; i < 28; i++) {
-                    double angle = (Math.PI * 2.0 * i) / 28.0;
-                    double radius = 1.6;
-                    double x = impactPos.x + Math.cos(angle) * radius;
-                    double z = impactPos.z + Math.sin(angle) * radius;
-                    sl.sendParticles(ParticleTypes.ENCHANT, x, impactPos.y + 0.05, z, 1, 0.0, 0.01, 0.0, 0.0);
-                    if (i % 4 == 0) {
-                        sl.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, x, impactPos.y + 0.05, z, 1, 0.0, 0.01, 0.0, 0.0);
-                    }
-                }
-            }
-            default -> {
-            }
-        }
-    }
-
     private void playLayeredImpactSound(SpellType spell) {
         switch (spell) {
             case BOMBARDA, CONFRINGO, FIENDFYRE -> {
@@ -1778,33 +1557,16 @@ public class SpellBeamEntity extends ThrowableProjectile {
     }
 
     private void spawnFizzleEffects() {
-        if (getSpellType() == SpellType.AVADA_KEDAVRA) {
-            // Out of range in mid-air, or into a wall: the client draws it, with the strike's own sound.
+        SpellType spell = getSpellType();
+        if (!this.level().isClientSide && !this.impactSent) {
+            this.impactSent = true;
             // The hit point, not the beam's position: a projectile is a whole tick's travel short of it in onHit.
-            com.hogwartsmagic.spell.mind.AvadaBeamFx.impact(this, this.avadaHitAt != null ? this.avadaHitAt : this.position(),
-                    this.tickCount > 200 ? com.hogwartsmagic.spell.mind.AvadaBeamFx.FADE
-                            : com.hogwartsmagic.spell.mind.AvadaBeamFx.WALL);
-            return;
+            com.hogwartsmagic.spell.SpellBeamFx.impact(this, spell, this.hitAt != null ? this.hitAt : this.position(),
+                    this.tickCount > 200 ? com.hogwartsmagic.spell.SpellBeamFx.FADE : com.hogwartsmagic.spell.SpellBeamFx.FIZZLE);
         }
-        this.level().playSound(null, this.getX(), this.getY(), this.getZ(),
-                ModSounds.SPELL_FIZZLE.get(), SoundSource.NEUTRAL, 1.0f, 1.5f);
-
-        if (this.level().isClientSide) {
-            for (int i = 0; i < 15; i++) {
-                this.level().addParticle(ParticleTypes.POOF,
-                        this.getX(), this.getY(), this.getZ(),
-                        (random.nextDouble() - 0.5) * 0.1,
-                        (random.nextDouble() - 0.5) * 0.1,
-                        (random.nextDouble() - 0.5) * 0.1);
-            }
-        } else {
-            // On server, we must use server-side particle spawning to ensure everyone sees it
-            ((net.minecraft.server.level.ServerLevel) this.level()).sendParticles(ParticleTypes.POOF,
-                    this.getX(), this.getY(), this.getZ(), 15,
-                    0.2, 0.2, 0.2, 0.05);
-            ((net.minecraft.server.level.ServerLevel) this.level()).sendParticles(ParticleTypes.ENCHANT,
-                    this.getX(), this.getY(), this.getZ(), 8,
-                    0.2, 0.2, 0.2, 0.02);
+        if (spell != SpellType.AVADA_KEDAVRA) { // the Killing Curse's strike has its own sound
+            this.level().playSound(null, this.getX(), this.getY(), this.getZ(),
+                    ModSounds.SPELL_FIZZLE.get(), SoundSource.NEUTRAL, 1.0f, 1.5f);
         }
     }
 

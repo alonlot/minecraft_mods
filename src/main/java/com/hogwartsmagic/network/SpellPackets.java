@@ -387,9 +387,10 @@ public class SpellPackets {
                 .decoder(buf -> new AvadaChargePacket(buf.readInt(), buf.readVarInt(), buf.readByte()))
                 .consumerMainThread(AvadaChargePacket::handle)
                 .add();
-        CHANNEL.messageBuilder(AvadaImpactPacket.class)
+        CHANNEL.messageBuilder(BeamImpactPacket.class)
                 .encoder((p, buf) -> {
                     buf.writeInt(p.beamId);
+                    buf.writeUtf(p.spellId, 64);
                     buf.writeDouble(p.x);
                     buf.writeDouble(p.y);
                     buf.writeDouble(p.z);
@@ -398,9 +399,9 @@ public class SpellPackets {
                     buf.writeFloat(p.dz);
                     buf.writeByte(p.kind);
                 })
-                .decoder(buf -> new AvadaImpactPacket(buf.readInt(), buf.readDouble(), buf.readDouble(), buf.readDouble(),
-                        buf.readFloat(), buf.readFloat(), buf.readFloat(), buf.readByte()))
-                .consumerMainThread(AvadaImpactPacket::handle)
+                .decoder(buf -> new BeamImpactPacket(buf.readInt(), buf.readUtf(64), buf.readDouble(), buf.readDouble(),
+                        buf.readDouble(), buf.readFloat(), buf.readFloat(), buf.readFloat(), buf.readByte()))
+                .consumerMainThread(BeamImpactPacket::handle)
                 .add();
         CHANNEL.messageBuilder(IncarcerousRopesPacket.class)
                 .encoder((p, buf) -> {
@@ -1714,12 +1715,13 @@ public class SpellPackets {
     }
 
     /**
-     * Server → client: Killing Curse beam {@code beamId} ended at (x, y, z) travelling along (dx, dy, dz), as
-     * one of {@code AvadaBeamFx}'s kinds (struck a target, hit a wall, was dodged, died out).
+     * Server → client: spell beam {@code beamId} (casting {@code spellId}) ended at (x, y, z) travelling along
+     * (dx, dy, dz), as one of {@code SpellBeamFx}'s kinds (struck, fizzled, was dodged, died out).
      */
-    public record AvadaImpactPacket(int beamId, double x, double y, double z, float dx, float dy, float dz, byte kind) {
-        public static void handle(AvadaImpactPacket p, CustomPayloadEvent.Context ctx) {
-            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("avadaImpact", p));
+    public record BeamImpactPacket(int beamId, String spellId, double x, double y, double z, float dx, float dy,
+                                   float dz, byte kind) {
+        public static void handle(BeamImpactPacket p, CustomPayloadEvent.Context ctx) {
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("beamImpact", p));
         }
     }
 

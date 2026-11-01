@@ -15,7 +15,7 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.joml.Matrix4f;
 
-import static com.hogwartsmagic.client.AvadaFxGeometry.*;
+import static com.hogwartsmagic.client.SpellFxGeometry.*;
 
 /**
  * The Killing Curse gathering, drawn by hand rather than with particles.

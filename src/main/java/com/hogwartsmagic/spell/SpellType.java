@@ -44,7 +44,7 @@ public enum SpellType {
     SECTUMSEMPRA("sectumsempra", 0x440000, 0.27f, 0.0f, 0.0f, ParticleTypes.SWEEP_ATTACK, ParticleTypes.CRIT, 60, 45, SpellLootRarity.RARE),
     MORSMORDRE("morsmordre", 0x004400, 0.0f, 0.27f, 0.0f, ParticleTypes.SQUID_INK, ParticleTypes.LARGE_SMOKE, 1200, 90, SpellLootRarity.EPIC),
     DOLOHOV_CURSE("dolohov_curse", 0xAA00AA, 0.67f, 0.0f, 0.67f, ParticleTypes.DRAGON_BREATH, ParticleTypes.FLASH, 100, 50, SpellLootRarity.RARE),
-    INCARCEROUS("incarcerous", 0x444444, 0.27f, 0.27f, 0.27f, ParticleTypes.SQUID_INK, ParticleTypes.ITEM_SLIME, 80, 35, SpellLootRarity.UNCOMMON),
+    INCARCEROUS("incarcerous", 0xD9B26A, 0.85f, 0.70f, 0.42f, ParticleTypes.WHITE_ASH, ParticleTypes.WHITE_ASH, 80, 35, SpellLootRarity.UNCOMMON),
     HEAL("heal", 0x55FF55, 0.4f, 1.0f, 0.4f, ParticleTypes.HEART, ParticleTypes.ENCHANT, 100, 40, SpellLootRarity.UNCOMMON),
     TENEBRIS_FLIGHT("tenebris_flight", 0x111111, 0.1f, 0.1f, 0.1f, ParticleTypes.SQUID_INK, ParticleTypes.LARGE_SMOKE, 400, 50, SpellLootRarity.EPIC),
     EXPECTO_PATRONUM("expecto_patronum", 0x44FFFF, 0.27f, 1.0f, 1.0f, ParticleTypes.END_ROD, ParticleTypes.FLASH, 1200, 90, SpellLootRarity.EPIC),

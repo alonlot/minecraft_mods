@@ -1,7 +1,7 @@
 package com.hogwartsmagic.spell.disable;
 
 import com.hogwartsmagic.ExampleMod;
-import com.hogwartsmagic.spell.IncarcerousChainAnimation;
+import com.hogwartsmagic.network.SpellPackets;
 import com.hogwartsmagic.spell.SpellType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -22,6 +22,7 @@ import net.minecraftforge.event.entity.living.LivingKnockBackEvent;
 import net.minecraftforge.event.entity.living.MobEffectEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.network.PacketDistributor;
 
 import javax.annotation.Nullable;
 import java.util.List;
@@ -37,6 +38,9 @@ import java.util.UUID;
  * DisableSupport.applyHiddenCrowdControl). The leash lives in the entity's persistent NBT under
  * {@link #TAG} and is enforced every server tick while the effect lasts; it is dropped as soon as the
  * effect is gone. Players are corrected with velocity packets and, if far out, a teleport.
+ *
+ * <p>The ropes are drawn client-side (IncarcerousRopeRenderer): this sends each bind as it lands, a refresh once a
+ * second while it holds (so clients that come into range see it), and the release when the effect goes.
  */
 @Mod.EventBusSubscriber(modid = ExampleMod.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class IncarcerousTether {
@@ -59,7 +63,7 @@ public final class IncarcerousTether {
                 IncarcerousRules.mainTicks(rank), 0, caster);
         if (mainTicks > 0) {
             tether(level, target, leash, pull, bind ? target.getUUID() : null, null);
-            IncarcerousChainAnimation.schedule(level, target);
+            syncRopes(level, target, caster, true);
         }
 
         double radius = IncarcerousRules.secondaryRadius(rank);
@@ -80,7 +84,7 @@ public final class IncarcerousTether {
             } else {
                 tether(level, other, leash, pull, null, null);
             }
-            IncarcerousChainAnimation.schedule(level, other);
+            syncRopes(level, other, caster, true);
         }
     }
 
@@ -166,10 +170,10 @@ public final class IncarcerousTether {
                 ax = bound.getX();
                 ay = bound.getY();
                 az = bound.getZ();
-                if (target.tickCount % 2 == 0) {
-                    IncarcerousChainAnimation.renderLink(level, target, bound);
-                }
             }
+        }
+        if (target.tickCount % 20 == 0) {
+            syncRopes(level, target, null, false);
         }
 
         if (target.isPassenger()) {
@@ -243,6 +247,35 @@ public final class IncarcerousTether {
     }
 
     /**
+     * Tell everyone watching {@code target} (and the target) about its ropes: the bind's remaining time, the
+     * tether point the ground rope is staked to, and the main target a Master bind is roped to. {@code intro}
+     * plays the ropes flying from {@code caster}'s wand. Only called while the chains effect is on.
+     */
+    private static void syncRopes(ServerLevel level, LivingEntity target, @Nullable Entity caster, boolean intro) {
+        MobEffectInstance chains = target.getEffect(DisableSupport.holder(ExampleMod.INCARCEROUS_CHAINS));
+        if (chains == null) {
+            return;
+        }
+        CompoundTag tag = target.getPersistentData().getCompound(TAG);
+        double ax = tag.contains("X") ? tag.getDouble("X") : target.getX();
+        double ay = tag.contains("Y") ? tag.getDouble("Y") : target.getY();
+        double az = tag.contains("Z") ? tag.getDouble("Z") : target.getZ();
+        int anchorId = -1;
+        if (tag.hasUUID("Anchor") && level.getEntity(tag.getUUID("Anchor")) instanceof LivingEntity main) {
+            anchorId = main.getId();
+        }
+        SpellPackets.CHANNEL.send(new SpellPackets.IncarcerousRopesPacket(target.getId(), caster == null ? -1 : caster.getId(),
+                        anchorId, ax, ay, az, Math.max(1, chains.getDuration()), intro),
+                PacketDistributor.TRACKING_ENTITY_AND_SELF.with(target));
+    }
+
+    /** The bind is over: the ropes slacken and fall away on every client watching. */
+    private static void releaseRopes(LivingEntity target) {
+        SpellPackets.CHANNEL.send(new SpellPackets.IncarcerousRopesPacket(target.getId(), -1, -1, 0.0, 0.0, 0.0, 0, false),
+                PacketDistributor.TRACKING_ENTITY_AND_SELF.with(target));
+    }
+
+    /**
      * Teleport onto the tether only to a collision-free spot: the destination, else 1 or 2 blocks higher.
      * Returns false (and does nothing) when all three are blocked, so the caller falls back to velocity.
      */
@@ -263,6 +296,7 @@ public final class IncarcerousTether {
         if (instance != null && instance.getEffect().value() == ExampleMod.INCARCEROUS_CHAINS.get()
                 && !event.getEntity().level().isClientSide()) {
             event.getEntity().getPersistentData().remove(TAG);
+            releaseRopes(event.getEntity());
         }
     }
 
@@ -271,6 +305,7 @@ public final class IncarcerousTether {
     public static void onChainsRemoved(MobEffectEvent.Remove event) {
         if (event.getEffect() == ExampleMod.INCARCEROUS_CHAINS.get() && !event.getEntity().level().isClientSide()) {
             event.getEntity().getPersistentData().remove(TAG);
+            releaseRopes(event.getEntity());
         }
     }
 

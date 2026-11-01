@@ -48,6 +48,7 @@ public final class ClientRuntimeBridge {
             case "cloakTransition" -> cloakTransition((SpellPackets.CloakTransitionPacket) payload);
             case "patronusShieldState" -> patronusShieldState((SpellPackets.PatronusShieldStatePacket) payload);
             case "protegoShield" -> protegoShield((SpellPackets.ProtegoShieldPacket) payload);
+            case "incarcerousRopes" -> IncarcerousRopesClientState.accept((SpellPackets.IncarcerousRopesPacket) payload);
             case "openApparitionMap" -> openApparitionMap((SpellPackets.OpenApparitionMapPacket) payload);
             case "closeApparitionMap" -> closeApparitionMap();
             case "openTomePicker" -> openTomePicker((SpellPackets.OpenTomePickerPacket) payload);

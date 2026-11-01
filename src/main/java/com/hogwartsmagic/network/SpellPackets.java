@@ -378,6 +378,21 @@ public class SpellPackets {
                 .decoder(buf -> new PatronusShieldStatePacket(buf.readInt(), buf.readBoolean()))
                 .consumerMainThread(PatronusShieldStatePacket::handle)
                 .add();
+        CHANNEL.messageBuilder(IncarcerousRopesPacket.class)
+                .encoder((p, buf) -> {
+                    buf.writeInt(p.entityId);
+                    buf.writeInt(p.casterId);
+                    buf.writeInt(p.anchorEntityId);
+                    buf.writeDouble(p.anchorX);
+                    buf.writeDouble(p.anchorY);
+                    buf.writeDouble(p.anchorZ);
+                    buf.writeInt(p.remaining);
+                    buf.writeBoolean(p.intro);
+                })
+                .decoder(buf -> new IncarcerousRopesPacket(buf.readInt(), buf.readInt(), buf.readInt(),
+                        buf.readDouble(), buf.readDouble(), buf.readDouble(), buf.readInt(), buf.readBoolean()))
+                .consumerMainThread(IncarcerousRopesPacket::handle)
+                .add();
         CHANNEL.messageBuilder(CloakTransitionPacket.class)
                 .encoder((p, buf) -> {
                     buf.writeUUID(p.playerId);
@@ -1661,6 +1676,19 @@ public class SpellPackets {
     public record PatronusShieldStatePacket(int casterId, boolean active) {
         public static void handle(PatronusShieldStatePacket p, CustomPayloadEvent.Context ctx) {
             enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("patronusShieldState", p));
+        }
+    }
+
+    /**
+     * Server → client: {@code entityId} is bound by Incarcerous for {@code remaining} more ticks (0: the ropes
+     * fall away now). {@code intro} plays the ropes flying from {@code casterId}'s wand (-1: conjured in front of
+     * the target); a refresh for a bind this client hasn't seen shows it already tied. The anchor is the tether
+     * point the ground rope is staked to; {@code anchorEntityId} is the main target a Master bind is roped to (-1: none).
+     */
+    public record IncarcerousRopesPacket(int entityId, int casterId, int anchorEntityId,
+                                         double anchorX, double anchorY, double anchorZ, int remaining, boolean intro) {
+        public static void handle(IncarcerousRopesPacket p, CustomPayloadEvent.Context ctx) {
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("incarcerousRopes", p));
         }
     }
 

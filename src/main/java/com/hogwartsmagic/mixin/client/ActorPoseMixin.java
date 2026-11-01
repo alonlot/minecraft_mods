@@ -1,5 +1,6 @@
 package com.hogwartsmagic.mixin.client;
 
+import com.hogwartsmagic.client.IncarcerousBoundPose;
 import com.hogwartsmagic.client.pensieve.ActorPoser;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.LivingEntityRenderer;
@@ -33,6 +34,8 @@ public abstract class ActorPoseMixin {
     private void hogwartsmagic$afterSetup(LivingEntity entity, float yaw, float partial, PoseStack pose,
                                           MultiBufferSource buffer, int light, CallbackInfo ci) {
         ActorPoser.apply(((LivingEntityRenderer<?, ?>) (Object) this).getModel(), entity, partial);
+        // Incarcerous: the bound body (arms pinned, straining). Same hook, so it sits on top of any actor pose.
+        IncarcerousBoundPose.apply(((LivingEntityRenderer<?, ?>) (Object) this).getModel(), entity, partial);
     }
 
     @Inject(method = RENDER, at = @At("RETURN"))

@@ -16,7 +16,6 @@ import com.hogwartsmagic.network.SpellPackets;
 import com.hogwartsmagic.polyjuice.PolyjuiceData;
 import com.hogwartsmagic.entity.SpellBeamEntity;
 import com.hogwartsmagic.entity.OwlEntity;
-import com.hogwartsmagic.spell.IncarcerousChainAnimation;
 import com.hogwartsmagic.spell.SpellCosts;
 import com.hogwartsmagic.spell.SpellType;
 import com.hogwartsmagic.sorting.HousePerks;
@@ -3512,15 +3511,6 @@ public class ModEvents {
         } else {
             // Clean up any leftover light when effect ends
             cleanupLumosLight(entity);
-        }
-
-        if (!entity.level().isClientSide()
-                && entity.isAlive()
-                && entity.hasEffect(ExampleMod.INCARCEROUS_CHAINS.getHolder().get())
-                && entity.level() instanceof ServerLevel serverLevel) {
-            if (entity.tickCount % 2 == 0) {
-                IncarcerousChainAnimation.renderSustained(serverLevel, entity);
-            }
         }
 
         if (entity.hasEffect(ExampleMod.BASILISK_PETRIFICATION.getHolder().get())) {

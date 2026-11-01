@@ -126,11 +126,15 @@ _T_BYTE_ARRAY, _T_INT, _T_SHORT, _T_COMPOUND, _T_INT_ARRAY = 7, 3, 2, 10, 11
 def write_schem(grid, path):
     """Write the grid as a Sponge v3 schematic.
 
-    Size is bounds max + 1 on each axis (the origin stays at 0,0,0, so any blocks below the
-    grid's minimum are simply air). Palette index 0 is air; the rest are sorted so the same
+    Size is bounds max + 1 on each axis: the origin stays at 0,0,0, so the grid may leave
+    empty space below its minimum corner, but it may not have blocks at negative coordinates
+    (ValueError: a negative flat index would silently overwrite the far corner). Palette index 0 is air; the rest are sorted so the same
     grid always produces the same bytes. Index order is x + z*W + y*W*L, matching
     MiniHogwartsSchematic.java. No block entities.
     """
+    mn = grid.bounds()[:3]
+    if min(mn) < 0:
+        raise ValueError('cannot write a schematic with blocks at negative coordinates: min corner %s' % (mn,))
     _, _, _, mx, my, mz = grid.bounds()
     w, h, l = mx + 1, my + 1, mz + 1
     if max(w, h, l) > 0xFFFF:

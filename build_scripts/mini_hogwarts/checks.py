@@ -86,6 +86,11 @@ def is_light(state):
     return name in _LIGHT_NAMES or name.endswith('_froglight')
 
 
+def climbable(state):
+    """True for blocks a player climbs vertically (a column of them is a way up and down)."""
+    return _id(state) in ('ladder', 'scaffolding', 'vine', 'cave_vines', 'cave_vines_plant')
+
+
 def census(grid):
     """Counter of block ids (no properties, no air) over the whole grid."""
     return Counter(s.split('[', 1)[0] for s in grid.cells.values())
@@ -101,9 +106,10 @@ def reachable(grid, start, max_cells=2_000_000):
     """Every walkable feet cell reachable from `start` (a feet cell), as a set of (x, y, z).
 
     A cell is walkable when its feet and head cells are passable and the block below supports
-    the player. Moves are the four horizontal neighbours: level, one step up (needing headroom
-    over the cell being left too, as a jump does), or a drop of up to three blocks. Stops
-    expanding once max_cells cells are found.
+    the player, or the feet cell is climbable (ladder, scaffolding, vine). Moves are the four
+    horizontal neighbours: level, one step up (needing headroom over the cell being left too,
+    as a jump does), or a drop of up to three blocks (landing on a ladder counts); plus up and
+    down through a column of climbable blocks. Stops expanding once max_cells cells are found.
     """
     cells = grid.cells
     air = _grid.AIR
@@ -115,16 +121,25 @@ def reachable(grid, start, max_cells=2_000_000):
     queue = deque([start])
     while queue and len(seen) < max_cells:
         x, y, z = queue.popleft()
+        if climbable(cells.get((x, y, z), air)):                  # climb the column
+            for dy in (1, -1):
+                above = (x, y + dy, z)
+                if above in seen or not free(*above) or not free(x, y + dy + 1, z):
+                    continue
+                if climbable(cells.get(above, air)) or (dy < 0 and supports(cells.get((x, y - 2, z), air))):
+                    seen.add(above)
+                    queue.append(above)
         for nx, nz in ((x + 1, z), (x - 1, z), (x, z + 1), (x, z - 1)):
             dest = None
             if free(nx, y, nz) and free(nx, y + 1, nz):
-                if supports(cells.get((nx, y - 1, nz), air)):
+                if supports(cells.get((nx, y - 1, nz), air)) or climbable(cells.get((nx, y, nz), air)):
                     dest = (nx, y, nz)
                 else:
                     for drop in (1, 2, 3):                        # walk off an edge, land within 3
                         if not free(nx, y - drop, nz):
                             break
-                        if supports(cells.get((nx, y - drop - 1, nz), air)):
+                        if (supports(cells.get((nx, y - drop - 1, nz), air))
+                                or climbable(cells.get((nx, y - drop, nz), air))):
                             dest = (nx, y - drop, nz)
                             break
             elif (free(x, y + 2, z) and free(nx, y + 1, nz) and free(nx, y + 2, nz)

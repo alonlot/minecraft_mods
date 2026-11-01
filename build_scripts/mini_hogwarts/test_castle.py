@@ -158,6 +158,44 @@ def test_reachable_steps_doors_and_drops():
     assert (4, 1, 0) in checks.reachable(g5, (0, 1, 0))
 
 
+def _ladder_tower(ladder):
+    """Ground floor, a wall, a platform at y=6 up on x 1..3, and (optionally) a ladder to it."""
+    g = Grid()
+    g.fill(-1, 0, -1, 3, 0, 1, STONE)                 # ground
+    g.fill(-1, 1, -1, -1, 8, 1, STONE)                # the wall the ladder hangs on
+    g.fill(1, 6, -1, 3, 6, 1, STONE)                  # the platform, feet at y=7
+    if ladder:
+        for y in range(1, 7):                         # a 6-tall column, x=0, z=0
+            g.set(0, y, 0, 'minecraft:ladder[facing=east]')
+    return g
+
+
+def test_reachable_ladder():
+    seen = checks.reachable(_ladder_tower(True), (1, 1, 0))
+    assert (0, 6, 0) in seen and (2, 7, 0) in seen, 'ladder should reach the platform'
+    # and back down again
+    assert (1, 1, 0) in checks.reachable(_ladder_tower(True), (2, 7, 0))
+    assert (2, 7, 0) not in checks.reachable(_ladder_tower(False), (1, 1, 0))
+    # scaffolding and vines climb too
+    g = _ladder_tower(False)
+    for y in range(1, 7):
+        g.set(0, y, 0, 'minecraft:scaffolding[bottom=false,distance=0,waterlogged=false]' if y % 2 else
+              'minecraft:vine[east=true,north=false,south=false,up=false,west=false]')
+    assert (2, 7, 0) in checks.reachable(g, (1, 1, 0))
+
+
+def test_write_negative_coordinates():
+    g = Grid()
+    g.set(0, 0, 0, STONE)
+    g.set(-1, 0, 0, STONE)
+    with tempfile.TemporaryDirectory() as tmp:
+        try:
+            write_schem(g, os.path.join(tmp, 'neg.schem'))
+        except ValueError:
+            return
+    raise AssertionError('write_schem accepted a block at a negative coordinate')
+
+
 def test_dark_floor():
     g = Grid()
     g.fill(0, 0, 0, 19, 0, 0, STONE)

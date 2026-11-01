@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    " B ",
+    " B ",
+    "BBB"
+  ],
+  "key": {
+    "B": {
+      "item": "minecraft:black_wool"
+    }
+  },
+  "result": {
+    "id": "hogwartsmagic:pointed_hat",
+    "count": 1
+  }
+}

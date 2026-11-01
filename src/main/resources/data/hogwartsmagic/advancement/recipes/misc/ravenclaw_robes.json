@@ -1,13 +1,13 @@
 {
   "parent": "minecraft:recipes/root",
   "criteria": {
-    "has_blue_wool": {
+    "has_black_wool": {
       "trigger": "minecraft:inventory_changed",
       "conditions": {
         "items": [
           {
             "items": [
-              "minecraft:blue_wool"
+              "minecraft:black_wool"
             ]
           }
         ]
@@ -22,7 +22,7 @@
   },
   "requirements": [
     [
-      "has_blue_wool",
+      "has_black_wool",
       "has_the_recipe"
     ]
   ],

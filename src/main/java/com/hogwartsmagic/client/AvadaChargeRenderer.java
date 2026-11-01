@@ -15,6 +15,8 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.joml.Matrix4f;
 
+import static com.hogwartsmagic.client.AvadaFxGeometry.*;
+
 /**
  * The Killing Curse gathering, drawn by hand rather than with particles.
  *
@@ -31,24 +33,11 @@ import org.joml.Matrix4f;
  */
 @Mod.EventBusSubscriber(modid = ExampleMod.MODID, value = Dist.CLIENT)
 public final class AvadaChargeRenderer {
-    // Sickly killing-curse green, and the white-hot green its cores burn out to.
-    private static final float GREEN_R = 0.22f;
-    private static final float GREEN_G = 1.00f;
-    private static final float GREEN_B = 0.34f;
-    private static final float HOT_R = 0.80f;
-    private static final float HOT_G = 1.00f;
-    private static final float HOT_B = 0.82f;
-    // The shroud: black with the faintest green in it, so it reads as cursed smoke and not a hole in the world.
-    private static final float SMOKE_R = 0.006f;
-    private static final float SMOKE_G = 0.030f;
-    private static final float SMOKE_B = 0.012f;
 
     private static final int SHROUD_PUFFS = 16;
     private static final int MAX_WISPS = 12;
     private static final int WISP_SEGMENTS = 12;
     private static final int ARC_SEGMENTS = 8;
-    private static final int DISC_RINGS = 5;
-    private static final int DISC_SEGMENTS = 16;
 
     private AvadaChargeRenderer() {
     }
@@ -367,129 +356,5 @@ public final class AvadaChargeRenderer {
         }
         billboard(out, m, s.tip, halo * s.near, haloAlpha, GREEN_R, GREEN_G, GREEN_B, false);
         billboard(out, m, s.tip, core * s.near, coreAlpha, HOT_R, HOT_G, HOT_B, true);
-    }
-
-    // ---- geometry ----------------------------------------------------------------------------------------------
-
-    /**
-     * A camera-facing soft strip through {@code path}: transparent at both edges, {@code alpha} along the spine.
-     * {@code widthScale} and {@code alphaScale} let the same path be laid down once as a wide glow and once as a
-     * thin bright core.
-     */
-    private static void ribbon(VertexConsumer out, Matrix4f m, Vec3[] path, float[] width, float[] alpha,
-                               float widthScale, float alphaScale, float r, float g, float b) {
-        for (int i = 0; i < path.length - 1; i++) {
-            float a0 = alpha[i] * alphaScale;
-            float a1 = alpha[i + 1] * alphaScale;
-            if (a0 <= 0.003f && a1 <= 0.003f) {
-                continue;
-            }
-            Vec3 p0 = path[i];
-            Vec3 p1 = path[i + 1];
-            Vec3 along = p1.subtract(p0);
-            if (along.lengthSqr() < 1.0E-10) {
-                continue;
-            }
-            // The camera is the origin, so the way to it from the segment is minus its midpoint.
-            Vec3 toCamera = p0.add(p1).scale(-0.5);
-            Vec3 perp = along.cross(toCamera);
-            if (perp.lengthSqr() < 1.0E-10) {
-                continue;
-            }
-            perp = perp.normalize();
-            Vec3 e0 = perp.scale(width[i] * widthScale);
-            Vec3 e1 = perp.scale(width[i + 1] * widthScale);
-            vertex(out, m, p0.subtract(e0), r, g, b, 0.0f);
-            vertex(out, m, p1.subtract(e1), r, g, b, 0.0f);
-            vertex(out, m, p1, r, g, b, a1);
-            vertex(out, m, p0, r, g, b, a0);
-            vertex(out, m, p0, r, g, b, a0);
-            vertex(out, m, p1, r, g, b, a1);
-            vertex(out, m, p1.add(e1), r, g, b, 0.0f);
-            vertex(out, m, p0.add(e0), r, g, b, 0.0f);
-        }
-    }
-
-    /** A soft camera-facing disc, {@code alpha} at the centre falling to nothing at {@code radius}. */
-    private static void billboard(VertexConsumer out, Matrix4f m, Vec3 centre, float radius, float alpha,
-                                  float r, float g, float b, boolean hot) {
-        if (alpha <= 0.003f || radius <= 0.001f) {
-            return;
-        }
-        Vec3 normal = centre.scale(-1.0);
-        if (normal.lengthSqr() < 1.0E-6) {
-            return;
-        }
-        normal = normal.normalize();
-        Vec3 right = normal.cross(new Vec3(0.0, 1.0, 0.0));
-        right = right.lengthSqr() < 1.0E-4 ? normal.cross(new Vec3(1.0, 0.0, 0.0)).normalize() : right.normalize();
-        Vec3 up = right.cross(normal).normalize();
-        disc(out, m, centre, right, up, radius, alpha, r, g, b, hot);
-    }
-
-    /** A soft horizontal disc lying on the ground. */
-    private static void groundDisc(VertexConsumer out, Matrix4f m, Vec3 centre, float radius, float alpha) {
-        if (alpha <= 0.003f) {
-            return;
-        }
-        disc(out, m, centre, new Vec3(1.0, 0.0, 0.0), new Vec3(0.0, 0.0, 1.0), radius, alpha,
-                SMOKE_R, SMOKE_G, SMOKE_B, false);
-    }
-
-    private static void disc(VertexConsumer out, Matrix4f m, Vec3 centre, Vec3 right, Vec3 up, float radius,
-                             float alpha, float r, float g, float b, boolean hot) {
-        for (int ring = 0; ring < DISC_RINGS; ring++) {
-            float f0 = ring / (float) DISC_RINGS;
-            float f1 = (ring + 1) / (float) DISC_RINGS;
-            float a0 = alpha * falloff(f0, hot);
-            float a1 = alpha * falloff(f1, hot);
-            for (int seg = 0; seg < DISC_SEGMENTS; seg++) {
-                double t0 = Math.PI * 2.0 * seg / DISC_SEGMENTS;
-                double t1 = Math.PI * 2.0 * (seg + 1) / DISC_SEGMENTS;
-                vertex(out, m, centre.add(onRing(right, up, t0, radius * f0)), r, g, b, a0);
-                vertex(out, m, centre.add(onRing(right, up, t1, radius * f0)), r, g, b, a0);
-                vertex(out, m, centre.add(onRing(right, up, t1, radius * f1)), r, g, b, a1);
-                vertex(out, m, centre.add(onRing(right, up, t0, radius * f1)), r, g, b, a1);
-            }
-        }
-    }
-
-    /** Hot cores fall off sharply (a point of light); smoke and halos softly. */
-    private static float falloff(float f, boolean hot) {
-        float inv = 1.0f - f;
-        return hot ? inv * inv * inv : inv * inv * (0.6f + 0.4f * inv);
-    }
-
-    private static Vec3 onRing(Vec3 right, Vec3 up, double angle, float radius) {
-        return right.scale(Math.cos(angle) * radius).add(up.scale(Math.sin(angle) * radius));
-    }
-
-    /** {@code v} turned {@code angle} radians about the unit {@code axis} (Rodrigues). */
-    private static Vec3 rotate(Vec3 v, Vec3 axis, double angle) {
-        double cos = Math.cos(angle);
-        double sin = Math.sin(angle);
-        return v.scale(cos).add(axis.cross(v).scale(sin)).add(axis.scale(axis.dot(v) * (1.0 - cos)));
-    }
-
-    private static Vec3 randomDirection(int seed) {
-        double z = hash(seed, 11, 0) * 2.0 - 1.0;
-        double angle = hash(seed, 12, 0) * Math.PI * 2.0;
-        double r = Math.sqrt(Math.max(0.0, 1.0 - z * z));
-        return new Vec3(r * Math.cos(angle), z, r * Math.sin(angle));
-    }
-
-    /** A stable pseudo-random 0..1 from three ints, so a thread or an arc looks the same every frame. */
-    private static float hash(int a, int b, int c) {
-        int h = a * 0x27d4eb2d ^ b * 0x165667b1 ^ c * 0x9E3779B1;
-        h ^= h >>> 15;
-        h *= 0x85ebca6b;
-        h ^= h >>> 13;
-        h *= 0xc2b2ae35;
-        h ^= h >>> 16;
-        return (h & 0xFFFFFF) / (float) 0x1000000;
-    }
-
-    private static void vertex(VertexConsumer out, Matrix4f m, Vec3 p, float r, float g, float b, float a) {
-        out.addVertex(m, (float) p.x, (float) p.y, (float) p.z).setColor(r, g, b, Mth.clamp(a, 0.0f, 1.0f));
     }
 }

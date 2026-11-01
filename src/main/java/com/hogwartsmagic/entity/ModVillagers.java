@@ -244,7 +244,18 @@ public class ModVillagers {
             sells(event, 2, 9, 4, one(ExampleMod.SLYTHERIN_ROBES), 4, 5);
             sells(event, 2, 9, 4, one(ExampleMod.RAVENCLAW_ROBES), 4, 5);
             sells(event, 3, 9, 4, one(ExampleMod.HUFFLEPUFF_ROBES), 4, 10);
+            sells(event, 1, 3, 3, one(ExampleMod.POINTED_HAT), 6, 2);
+            sells(event, 1, 3, 3, one(ExampleMod.GRYFFINDOR_SCARF), 6, 2);
+            sells(event, 2, 3, 3, one(ExampleMod.SLYTHERIN_SCARF), 6, 5);
+            sells(event, 2, 3, 3, one(ExampleMod.RAVENCLAW_SCARF), 6, 5);
+            sells(event, 2, 3, 3, one(ExampleMod.HUFFLEPUFF_SCARF), 6, 5);
+            sells(event, 3, 6, 3, one(ExampleMod.QUIDDITCH_SHIN_GUARDS), 4, 10);
+            sells(event, 4, 12, 4, one(ExampleMod.GRYFFINDOR_QUIDDITCH_ROBES), 3, 15);
+            sells(event, 4, 12, 4, one(ExampleMod.SLYTHERIN_QUIDDITCH_ROBES), 3, 15);
+            sells(event, 4, 12, 4, one(ExampleMod.RAVENCLAW_QUIDDITCH_ROBES), 3, 15);
+            sells(event, 4, 12, 4, one(ExampleMod.HUFFLEPUFF_QUIDDITCH_ROBES), 3, 15);
             sells(event, 4, 20, 6, one(ExampleMod.MAGICAL_SILK), 6, 15);
+            sells(event, 5, 30, 8, one(ExampleMod.TRIWIZARD_ROBES), 1, 30);
             // The one thing in the alley worth saving for.
             sells(event, 5, 62, 10, one(ExampleMod.INVISIBILITY_CLOAK), 1, 30);
 

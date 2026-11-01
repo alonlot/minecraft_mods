@@ -1001,6 +1001,12 @@ public class ClientModEvents {
         event.registerLayerDefinition(DementorModel.LAYER_LOCATION, DementorModel::createBodyLayer);
         event.registerLayerDefinition(PatronusModel.LAYER_LOCATION, PatronusModel::createBodyLayer);
         event.registerLayerDefinition(SortingHatArmorModel.LAYER_LOCATION, SortingHatArmorModel::createBodyLayer);
+        event.registerLayerDefinition(com.hogwartsmagic.client.model.HouseRobeModel.LAYER_LOCATION,
+                com.hogwartsmagic.client.model.HouseRobeModel::createBodyLayer);
+        event.registerLayerDefinition(com.hogwartsmagic.client.model.HouseScarfModel.LAYER_LOCATION,
+                com.hogwartsmagic.client.model.HouseScarfModel::createBodyLayer);
+        event.registerLayerDefinition(com.hogwartsmagic.client.model.PointedHatModel.LAYER_LOCATION,
+                com.hogwartsmagic.client.model.PointedHatModel::createBodyLayer);
         event.registerLayerDefinition(MinatorModel.LAYER_LOCATION, MinatorModel::createBodyLayer);
         event.registerLayerDefinition(TrollModel.LAYER_LOCATION, TrollModel::createBodyLayer);
         event.registerLayerDefinition(com.hogwartsmagic.client.model.GiantModel.LAYER_LOCATION,

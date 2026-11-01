@@ -13,6 +13,7 @@ import com.hogwartsmagic.item.PolyjuicePotionItem;
 import com.hogwartsmagic.item.PolyjuiceSampleItem;
 import com.hogwartsmagic.item.SampleCollectorItem;
 import com.hogwartsmagic.item.GillyweedItem;
+import com.hogwartsmagic.item.CosmeticArmorItem;
 import com.hogwartsmagic.item.InvisibilityCloakItem;
 import com.hogwartsmagic.item.SortingHatItem;
 import com.hogwartsmagic.block.GillyweedPlantBlock;
@@ -113,6 +114,8 @@ public class ExampleMod
             LOOT_MODIFIER_SERIALIZERS.register("invisibility_cloak_chest", () -> com.hogwartsmagic.loot.InvisibilityCloakLootModifier.CODEC);
     public static final RegistryObject<com.mojang.serialization.MapCodec<com.hogwartsmagic.loot.MagicalSilkLootModifier>> MAGICAL_SILK_LOOT_MODIFIER =
             LOOT_MODIFIER_SERIALIZERS.register("magical_silk_chest", () -> com.hogwartsmagic.loot.MagicalSilkLootModifier.CODEC);
+    public static final RegistryObject<com.mojang.serialization.MapCodec<com.hogwartsmagic.loot.CosmeticLootModifier>> COSMETIC_LOOT_MODIFIER =
+            LOOT_MODIFIER_SERIALIZERS.register("cosmetic_chest", () -> com.hogwartsmagic.loot.CosmeticLootModifier.CODEC);
     public static final RegistryObject<com.mojang.serialization.MapCodec<com.hogwartsmagic.loot.TomeOfMasteryLootModifier>> TOME_OF_MASTERY_LOOT_MODIFIER =
             LOOT_MODIFIER_SERIALIZERS.register("tomes_of_mastery", () -> com.hogwartsmagic.loot.TomeOfMasteryLootModifier.CODEC);
     public static final RegistryObject<com.mojang.serialization.MapCodec<com.hogwartsmagic.loot.BrewingIngredientLootModifier>> BREWING_INGREDIENT_LOOT_MODIFIER =
@@ -790,14 +793,29 @@ public class ExampleMod
     public static final RegistryObject<ArmorMaterial> SLYTHERIN_ROBES_MATERIAL = ARMOR_MATERIALS.register("slytherin_robes",
             () -> createRobeMaterial("slytherin_robes"));
 
+    /** The film school robes: black, open over the uniform, hood lined in the house colour (see HouseRobeModel). */
     public static final RegistryObject<Item> GRYFFINDOR_ROBES = ITEMS.register("gryffindor_robes",
-            () -> new ArmorItem(GRYFFINDOR_ROBES_MATERIAL.getHolder().orElseThrow(), ArmorItem.Type.CHESTPLATE, new Item.Properties().stacksTo(1)));
+            () -> schoolRobe(GRYFFINDOR_ROBES_MATERIAL, "gryffindor_robes"));
     public static final RegistryObject<Item> RAVENCLAW_ROBES = ITEMS.register("ravenclaw_robes",
-            () -> new ArmorItem(RAVENCLAW_ROBES_MATERIAL.getHolder().orElseThrow(), ArmorItem.Type.CHESTPLATE, new Item.Properties().stacksTo(1)));
+            () -> schoolRobe(RAVENCLAW_ROBES_MATERIAL, "ravenclaw_robes"));
     public static final RegistryObject<Item> HUFFLEPUFF_ROBES = ITEMS.register("hufflepuff_robes",
-            () -> new ArmorItem(HUFFLEPUFF_ROBES_MATERIAL.getHolder().orElseThrow(), ArmorItem.Type.CHESTPLATE, new Item.Properties().stacksTo(1)));
+            () -> schoolRobe(HUFFLEPUFF_ROBES_MATERIAL, "hufflepuff_robes"));
     public static final RegistryObject<Item> SLYTHERIN_ROBES = ITEMS.register("slytherin_robes",
-            () -> new ArmorItem(SLYTHERIN_ROBES_MATERIAL.getHolder().orElseThrow(), ArmorItem.Type.CHESTPLATE, new Item.Properties().stacksTo(1)));
+            () -> schoolRobe(SLYTHERIN_ROBES_MATERIAL, "slytherin_robes"));
+
+    /** Striped house scarves and the first-year pointed hat: head-slot cosmetics on their own models. */
+    public static final RegistryObject<ArmorMaterial> WOOL_COSMETIC_MATERIAL = ARMOR_MATERIALS.register("wool_cosmetic",
+            ExampleMod::createWoolCosmeticMaterial);
+    public static final RegistryObject<Item> GRYFFINDOR_SCARF = ITEMS.register("gryffindor_scarf",
+            () -> woolCosmetic(CosmeticArmorItem.SCARF, "gryffindor_scarf"));
+    public static final RegistryObject<Item> RAVENCLAW_SCARF = ITEMS.register("ravenclaw_scarf",
+            () -> woolCosmetic(CosmeticArmorItem.SCARF, "ravenclaw_scarf"));
+    public static final RegistryObject<Item> HUFFLEPUFF_SCARF = ITEMS.register("hufflepuff_scarf",
+            () -> woolCosmetic(CosmeticArmorItem.SCARF, "hufflepuff_scarf"));
+    public static final RegistryObject<Item> SLYTHERIN_SCARF = ITEMS.register("slytherin_scarf",
+            () -> woolCosmetic(CosmeticArmorItem.SCARF, "slytherin_scarf"));
+    public static final RegistryObject<Item> POINTED_HAT = ITEMS.register("pointed_hat",
+            () -> woolCosmetic(CosmeticArmorItem.POINTED_HAT, "pointed_hat"));
     public static final RegistryObject<Item> GRYFFINDOR_HOUSE_REVEAL = ITEMS.register("gryffindor_house_reveal",
             () -> new Item(new Item.Properties()));
     public static final RegistryObject<Item> RAVENCLAW_HOUSE_REVEAL = ITEMS.register("ravenclaw_house_reveal",
@@ -910,8 +928,9 @@ public class ExampleMod
 
     /**
      * Display-only props for the First Task memory: the golden egg the champion holds at the grab (its in-hand size is
-     * the memory_golden_egg actor's), and the champion's robes, charcoal with bronze trim and house-neutral. No recipe,
-     * in no creative tab: a scene puts them on a puppet or the viewer with an {@code items} / {@code equip} entry.
+     * the memory_golden_egg actor's), and the champion's robes, charcoal with bronze trim and house-neutral. The egg
+     * has no recipe and is in no creative tab: a scene puts it in a hand with an {@code items} / {@code equip} entry.
+     * The robes are also a rare find in chests (CosmeticLootModifier).
      */
     public static final RegistryObject<Item> GOLDEN_EGG_PROP = ITEMS.register("golden_egg_prop",
             () -> new Item(new Item.Properties().stacksTo(1)));
@@ -921,8 +940,8 @@ public class ExampleMod
             () -> new ArmorItem(TRIWIZARD_ROBES_MATERIAL.getHolder().orElseThrow(), ArmorItem.Type.CHESTPLATE, new Item.Properties().stacksTo(1)));
     /**
      * Quidditch kits for the Flying memory: a house-coloured tunic (chest) with leather arm guards and gloves per
-     * house, and one pair of leather shin guards (legs) for all. Display-only like the champion's robes: no recipe,
-     * in no creative tab; a scene's {@code items} / {@code equip} entry puts them on a puppet or the viewer.
+     * house, and one pair of leather shin guards (legs) for all. Worn by the Flying memory's puppets, and craftable:
+     * house wool round a leather tunic, as the school robes once were.
      */
     public static final RegistryObject<ArmorMaterial> GRYFFINDOR_QUIDDITCH_ROBES_MATERIAL = ARMOR_MATERIALS.register("gryffindor_quidditch_robes",
             () -> createRobeMaterial("gryffindor_quidditch_robes"));
@@ -1148,6 +1167,17 @@ public class ExampleMod
                 output.accept(RAVENCLAW_ROBES.get());
                 output.accept(HUFFLEPUFF_ROBES.get());
                 output.accept(SLYTHERIN_ROBES.get());
+                output.accept(GRYFFINDOR_SCARF.get());
+                output.accept(RAVENCLAW_SCARF.get());
+                output.accept(HUFFLEPUFF_SCARF.get());
+                output.accept(SLYTHERIN_SCARF.get());
+                output.accept(POINTED_HAT.get());
+                output.accept(GRYFFINDOR_QUIDDITCH_ROBES.get());
+                output.accept(RAVENCLAW_QUIDDITCH_ROBES.get());
+                output.accept(HUFFLEPUFF_QUIDDITCH_ROBES.get());
+                output.accept(SLYTHERIN_QUIDDITCH_ROBES.get());
+                output.accept(QUIDDITCH_SHIN_GUARDS.get());
+                output.accept(TRIWIZARD_ROBES.get());
                 output.accept(WIZARD_SPAWN_EGG.get()); // Wizard Spawn Egg
                 output.accept(STUDENT_SPAWN_EGG.get()); // Student Spawn Egg
                 output.accept(OWL_SPAWN_EGG.get()); // Owl Spawn Egg
@@ -1304,6 +1334,35 @@ public class ExampleMod
         com.hogwartsmagic.command.LockInfoCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.ColloportusCommand.register(event.getDispatcher());
         com.hogwartsmagic.pensieve.PensieveCommand.register(event.getDispatcher());
+    }
+
+    private static Item schoolRobe(RegistryObject<ArmorMaterial> material, String textureName) {
+        return new CosmeticArmorItem(material.getHolder().orElseThrow(), ArmorItem.Type.CHESTPLATE,
+                CosmeticArmorItem.ROBE, textureName, new Item.Properties().stacksTo(1));
+    }
+
+    private static Item woolCosmetic(int modelKind, String textureName) {
+        return new CosmeticArmorItem(WOOL_COSMETIC_MATERIAL.getHolder().orElseThrow(), ArmorItem.Type.HELMET,
+                modelKind, textureName, new Item.Properties().stacksTo(1));
+    }
+
+    /** Knitted wool: a leather cap's worth of protection, mended with any wool. */
+    private static ArmorMaterial createWoolCosmeticMaterial() {
+        return new ArmorMaterial(
+                Util.make(new java.util.EnumMap<>(ArmorItem.Type.class), map -> {
+                    map.put(ArmorItem.Type.BOOTS, 0);
+                    map.put(ArmorItem.Type.LEGGINGS, 0);
+                    map.put(ArmorItem.Type.CHESTPLATE, 0);
+                    map.put(ArmorItem.Type.HELMET, 1);
+                    map.put(ArmorItem.Type.BODY, 0);
+                }),
+                18,
+                net.minecraft.sounds.SoundEvents.ARMOR_EQUIP_LEATHER,
+                () -> net.minecraft.world.item.crafting.Ingredient.of(net.minecraft.tags.ItemTags.WOOL),
+                java.util.List.of(new ArmorMaterial.Layer(net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(MODID, "wool_cosmetic"))),
+                0.0f,
+                0.0f
+        );
     }
 
     private static ArmorMaterial createRobeMaterial(String textureName) {

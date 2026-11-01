@@ -1,16 +1,17 @@
 {
   "type": "minecraft:crafting_shaped",
+  "category": "equipment",
   "pattern": [
-    "G G",
-    "GCG",
-    " G "
+    "B B",
+    "BDB",
+    "BBB"
   ],
   "key": {
-    "G": {
-      "item": "minecraft:green_wool"
+    "B": {
+      "item": "minecraft:black_wool"
     },
-    "C": {
-      "item": "minecraft:leather_chestplate"
+    "D": {
+      "item": "minecraft:green_dye"
     }
   },
   "result": {

@@ -48,7 +48,7 @@ OUT_SCHEM = os.path.join(SCHEM_DIR, 'mini_hogwarts.schem')
 OUT_ANCHORS = os.path.join(SCHEM_DIR, 'mini_hogwarts.anchors.json')
 VIEWER_NBT = os.path.join(REPO, 'build', 'mh', 'mini_hogwarts.nbt')
 
-from mini_hogwarts import checks, hall  # noqa: E402
+from mini_hogwarts import checks, hall, rooms_staircase  # noqa: E402
 from mini_hogwarts.grid import Grid, load_schem, write_schem  # noqa: E402
 
 
@@ -60,6 +60,10 @@ MAIN_ENTRANCE = (38 + BASE_SHIFT[0], MAIN_FLOOR_Y + 2, 100 + BASE_SHIFT[2])
 # Each entry is (name, inclusive castle box (x0, y0, z0, x1, y1, z1)). Room tasks append to it, with a
 # reason in the name; anything not listed here must stay exactly as the old castle had it.
 CHANGED_ON_PURPOSE = [
+    # the Grand Staircase (rooms_staircase): the well inside the central tower's ring, one box per row of its round
+    # plan, the inner course of the ring where frames replace it, the cone's pole and the entry door through the
+    # ring's north face (against the entrance hall); never the ring's outside
+    *rooms_staircase.changed_boxes(),
 ]
 
 
@@ -79,13 +83,23 @@ def room_great_hall(grid):
     grid.anchors.update(hall.place_hall(grid))
 
 
+def room_grand_staircase(grid):
+    """The central tower's well: flights round the wall, landings at every floor, the Fat Lady's door."""
+    found = rooms_staircase.place_staircase(grid)
+    a = grid.anchors
+    a.setdefault('candles', []).extend(found['candles'])
+    a.setdefault('statues', []).extend(found['statues'])
+    a.setdefault('paintings', []).extend(found['paintings'])
+    a['fat_lady'] = found['fat_lady']
+
+
 def wing_tops():
     """{(x, z): y} every column a room has built in, with the top of what it built there. Room tasks merge theirs
     in here, so the unchanged-castle check knows where they stood."""
     return dict(hall.column_tops())
 
 
-ROOM_STEPS = (room_great_hall,)
+ROOM_STEPS = (room_great_hall, room_grand_staircase)
 
 
 # ---------------------------------------------------------------- checks
@@ -160,13 +174,23 @@ def verify(grid):
     dark = checks.dark_floor_cells(grid, [hall_box])
     assert not dark, 'dark hall floor cells: %d, e.g. %s' % (len(dark), dark[:5])
 
-    # 7. the floating candles hang inside the hall, under the ceiling
+    # 7. the floating candles hang inside the hall under the ceiling, or in the Grand Staircase's void with no block
+    #    in the box but the lantern chain
     x0, y0, z0, x1, y1, z1 = hall_box
     for c in a['candles']:
         (ax, ay, az), (hx, hy, hz) = c['at'], c['spread']
-        assert x0 <= ax - hx and ax + hx <= x1 + 1, ('candle box outside the hall in x', c)
-        assert z0 <= az - hz and az + hz <= z1 + 1, ('candle box outside the hall in z', c)
-        assert y0 <= ay - hy and ay + hy < cy, ('candle box outside the hall in y', c)
+        if x0 <= ax - hx and ax + hx <= x1 + 1 and z0 <= az - hz and az + hz <= z1 + 1:
+            assert y0 <= ay - hy and ay + hy < cy, ('candle box outside the hall in y', c)
+            continue
+        void = rooms_staircase
+        assert (void.VOID_X[0] <= ax - hx and ax + hx <= void.VOID_X[1]
+                and void.VOID_Z[0] <= az - hz and az + hz <= void.VOID_Z[1]
+                and void.VOID_Y[0] <= ay - hy and ay + hy <= void.VOID_Y[1]), \
+            ('candle box in neither the hall nor the staircase void', c)
+        inside = [(p, s) for p, s in cells.items()
+                  if ax - hx <= p[0] + 0.5 <= ax + hx and ay - hy <= p[1] + 0.5 <= ay + hy
+                  and az - hz <= p[2] + 0.5 <= az + hz and checks.block_id(s) not in ('chain', 'lantern')]
+        assert not inside, ('blocks in the staircase candle box', inside[:5])
 
     # 8. the chest stands on a free floor tile
     for chest in a['chests']:
@@ -174,7 +198,67 @@ def verify(grid):
         assert (cx, cy2, cz) not in cells and checks.supports(grid.get(cx, cy2 - 1, cz)), chest
     sx, sy, sz = hall.STOOL_CELL
     assert grid.get(sx, sy, sz).split('[', 1)[0].endswith('_slab'), ('no stool', grid.get(sx, sy, sz))
+
+    verify_staircase(grid, base, walk)
     return walk
+
+
+def verify_staircase(grid, base, walk):
+    """The Grand Staircase's promises: the well's plan is the old tower's, every landing is walked to from the main
+    entrance, the top landing's door leads over the bridge to the Gryffindor tower with the Fat Lady's wall beside
+    it, no dark floor anywhere in the tower, the statues stand clear of the walk and the portraits have a wall."""
+    S = rooms_staircase
+    a = grid.anchors
+    cells = grid.cells
+
+    # 9. the well's plan is the old tower's interior (so the changed boxes are inside cells only)
+    assert S.measured_rows(base.cells) == S.WELL_ROWS, ('the tower interior moved', S.measured_rows(base.cells))
+
+    # 10. every landing, and the far end of the bridge beyond the top landing's door, are walked to
+    for name, c in sorted(S.LANDING_CELLS.items()):
+        assert c in walk, '%s %s not reachable from the main entrance' % (name, c)
+    door = S.GRYFFINDOR_DOOR
+    assert door in walk and S.BRIDGE_FAR_END in walk, ('the Gryffindor door does not lead over the bridge', door)
+
+    # 11. the Fat Lady: her wall stands beside that door and is solid behind her whole canvas, which is free
+    fl = a['fat_lady']
+    wx, wy, wz = fl['wall']
+    assert fl['facing'] == 'north' and wz == door[2] and abs(wx - door[0]) <= 2, ('Fat Lady not at the door', fl)
+    for x, y, z in S.FAT_LADY_CELLS:
+        assert (x, y, z) not in cells, ('something in front of the Fat Lady', (x, y, z), cells[(x, y, z)])
+        assert checks.supports(grid.get(x, y, z + 1)), ('no wall behind the Fat Lady', (x, y, z + 1))
+
+    # 12. no dark floor in the tower
+    dark = checks.dark_floor_cells(grid, S.light_boxes(cells))
+    assert not dark, 'dark staircase floor cells: %d, e.g. %s' % (len(dark), dark[:5])
+
+    # 13. the statues: each on a free floor cell with three of headroom; standing there, they leave every landing,
+    #     the bridge and the main entrance's walk to the first landing as they were
+    statues = [tuple(s['at']) for s in a['statues']]
+    for x, y, z in statues:
+        assert all((x, y + dy, z) not in cells for dy in range(3)), ('statue has no headroom', (x, y, z))
+        assert checks.supports(grid.get(x, y - 1, z)), ('statue not on a floor', (x, y, z))
+    blocked = Grid()
+    blocked.cells = dict(cells)
+    for x, y, z in statues:
+        for dy in range(3):
+            blocked.set(x, y + dy, z, 'minecraft:stone')
+    start = S.LANDING_CELLS['first landing']
+    walk2 = checks.reachable(blocked, start)
+    for name, c in sorted(S.LANDING_CELLS.items()):
+        assert c in walk2, 'the statues cut off the %s' % name
+    assert S.BRIDGE_FAR_END in walk2 and tuple(a['main_entrance']) in walk2, 'the statues block the way'
+
+    # 14. the portraits: a solid wall cell behind each, and nothing with a collision box in front (air, or the
+    #     invisible light block that keeps a deep recess from being a dark spawning pocket; a painting survives it)
+    step = {'north': (0, -1), 'south': (0, 1), 'east': (1, 0), 'west': (-1, 0)}
+    for p in a['paintings']:
+        x, y, z = p['at']
+        dx, dz = step[p['facing']]
+        assert checks.supports(grid.get(x, y, z)), ('painting has no wall', p)
+        for dy in (0, 1):
+            s = grid.get(x + dx, y + dy, z + dz)
+            assert s == 'minecraft:air' or checks.block_id(s) == 'light', ('painting recess full', p, s)
 
 
 def census_lines(grid, top=40):
@@ -212,6 +296,7 @@ def main():
     print('reachable from main_entrance %s: %d cells' % (grid.anchors['main_entrance'], len(walk)))
     print('anchors: ' + ', '.join(sorted(grid.anchors)))
     print('hall: %s' % getattr(hall.place_hall, 'stats', {}))
+    print('staircase: %s' % getattr(rooms_staircase.place_staircase, 'stats', {}))
     print('census:')
     print('\n'.join(census_lines(grid)))
 

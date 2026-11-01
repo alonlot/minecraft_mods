@@ -224,6 +224,80 @@
           ]
         }
       ]
+    },
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "minecraft:empty",
+          "weight": 40
+        },
+        {
+          "type": "minecraft:item",
+          "name": "hogwartsmagic:gryffindor_robes",
+          "weight": 3
+        },
+        {
+          "type": "minecraft:item",
+          "name": "hogwartsmagic:gryffindor_scarf",
+          "weight": 4
+        },
+        {
+          "type": "minecraft:item",
+          "name": "hogwartsmagic:gryffindor_quidditch_robes",
+          "weight": 1
+        },
+        {
+          "type": "minecraft:item",
+          "name": "hogwartsmagic:slytherin_robes",
+          "weight": 3
+        },
+        {
+          "type": "minecraft:item",
+          "name": "hogwartsmagic:slytherin_scarf",
+          "weight": 4
+        },
+        {
+          "type": "minecraft:item",
+          "name": "hogwartsmagic:slytherin_quidditch_robes",
+          "weight": 1
+        },
+        {
+          "type": "minecraft:item",
+          "name": "hogwartsmagic:ravenclaw_robes",
+          "weight": 3
+        },
+        {
+          "type": "minecraft:item",
+          "name": "hogwartsmagic:ravenclaw_scarf",
+          "weight": 4
+        },
+        {
+          "type": "minecraft:item",
+          "name": "hogwartsmagic:ravenclaw_quidditch_robes",
+          "weight": 1
+        },
+        {
+          "type": "minecraft:item",
+          "name": "hogwartsmagic:hufflepuff_robes",
+          "weight": 3
+        },
+        {
+          "type": "minecraft:item",
+          "name": "hogwartsmagic:hufflepuff_scarf",
+          "weight": 4
+        },
+        {
+          "type": "minecraft:item",
+          "name": "hogwartsmagic:hufflepuff_quidditch_robes",
+          "weight": 1
+        },
+        {
+          "type": "minecraft:item",
+          "name": "hogwartsmagic:pointed_hat",
+          "weight": 5
+        }
+      ]
     }
   ]
 }

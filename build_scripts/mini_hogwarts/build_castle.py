@@ -48,7 +48,7 @@ OUT_SCHEM = os.path.join(SCHEM_DIR, 'mini_hogwarts.schem')
 OUT_ANCHORS = os.path.join(SCHEM_DIR, 'mini_hogwarts.anchors.json')
 VIEWER_NBT = os.path.join(REPO, 'build', 'mh', 'mini_hogwarts.nbt')
 
-from mini_hogwarts import checks, hall, rooms_staircase  # noqa: E402
+from mini_hogwarts import checks, hall, rooms_library, rooms_staircase  # noqa: E402
 from mini_hogwarts.grid import Grid, load_schem, write_schem  # noqa: E402
 
 
@@ -64,6 +64,10 @@ CHANGED_ON_PURPOSE = [
     # plan, the inner course of the ring where frames replace it, the cone's pole and the entry door through the
     # ring's north face (against the entrance hall); never the ring's outside
     *rooms_staircase.changed_boxes(),
+    # the Library (rooms_library), carved into the hollow hill under the gatehouse: the hall and the Restricted
+    # Section with their shelving walls, floor and ceiling, and the tunnel from the grounds door through the hill's
+    # north face (the only old blocks it changes: the hill's shell), split round the viaduct's last pier
+    *rooms_library.changed_boxes(),
 ]
 
 
@@ -93,13 +97,22 @@ def room_grand_staircase(grid):
     a['fat_lady'] = found['fat_lady']
 
 
+def room_library(grid):
+    """The Library and its Restricted Section, carved into the hollow hill under the gatehouse."""
+    found = rooms_library.place_library(grid)
+    a = grid.anchors
+    a.setdefault('chests', []).extend(found['chests'])
+    a.setdefault('student_spots', []).extend(found['student_spots'])
+    a['pensieve'] = found['pensieve']
+
+
 def wing_tops():
     """{(x, z): y} every column a room has built in, with the top of what it built there. Room tasks merge theirs
     in here, so the unchanged-castle check knows where they stood."""
     return dict(hall.column_tops())
 
 
-ROOM_STEPS = (room_great_hall, room_grand_staircase)
+ROOM_STEPS = (room_great_hall, room_grand_staircase, room_library)
 
 
 # ---------------------------------------------------------------- checks
@@ -200,6 +213,7 @@ def verify(grid):
     assert grid.get(sx, sy, sz).split('[', 1)[0].endswith('_slab'), ('no stool', grid.get(sx, sy, sz))
 
     verify_staircase(grid, base, walk)
+    verify_library(grid, base, walk)
     return walk
 
 
@@ -261,6 +275,83 @@ def verify_staircase(grid, base, walk):
             assert s == 'minecraft:air' or checks.block_id(s) == 'light', ('painting recess full', p, s)
 
 
+def verify_library(grid, base, walk):
+    """The Library's promises: every part of it is walked to from the main entrance, it holds 300 bookshelf-type
+    blocks or more, the Restricted Section is barred with a single door, no floor is dark, the chest, the Pensieve and
+    the reading spots stand on free floor, and the hollow hill round it is rock (no air pocket left beside it)."""
+    L = rooms_library
+    a = grid.anchors
+    cells = grid.cells
+
+    # 15. the tunnel, the hall, all three arms of the mezzanine (up the ladders), the Restricted strip and its alcove
+    for name, c in sorted(L.LIBRARY_CELLS.items()):
+        assert c in walk, 'library %s %s not reachable from the main entrance' % (name, c)
+
+    # 16. shelving: bookshelves, chiseled bookshelves and the Ollivanders mix (mud and tuff bricks)
+    shelves = L.shelf_count(cells)
+    assert shelves >= 300, ('library shelf blocks', shelves)
+
+    # 17. the Restricted Section is barred with one door: its screen is bars, the door's frame and exactly one door,
+    #     the door is walked through, and with the door walled up nothing behind the screen can be walked to
+    doors = []
+    for x in range(L.HALL_X[0], L.HALL_X[1] + 1):
+        for y in range(L.FEET, L.TOP + 1):
+            s = checks.block_id(grid.get(x, y, L.SCREEN_Z))
+            assert s in ('iron_bars', 'iron_door', 'dark_oak_log', 'dark_oak_planks'), ('gap in the bars', (x, y), s)
+            if s == 'iron_door':
+                doors.append((x, y, L.SCREEN_Z))
+    assert len(doors) == 2 and doors[0][0] == doors[1][0], ('the bars need exactly one door', doors)
+    assert L.RESTRICTED_INSIDE in walk, ('the Restricted Section\'s door does not open the way', L.RESTRICTED_INSIDE)
+    walled = Grid()
+    walled.cells = dict(cells)
+    for p in doors:
+        walled.set(*p, 'minecraft:stone')
+    walk2 = checks.reachable(walled, tuple(a['main_entrance']))
+    behind = [c for b in L.restricted_boxes() for c in L._box_cells(*b) if c in walk2]
+    assert not behind, ('a way into the Restricted Section besides its door', behind[:5])
+
+    # 18. no dark floor anywhere in the library
+    dark = checks.dark_floor_cells(grid, L.room_boxes())
+    assert not dark, 'dark library floor cells: %d, e.g. %s' % (len(dark), dark[:5])
+
+    # 19. the anchors: the library chest in the Restricted Section with its front walked to (check 8 holds its floor);
+    #     the Pensieve on a free cell over a solid block in the hall, with a walked cell beside it; 4 to 6 reading spots,
+    #     each a walked, free floor cell with two of headroom inside the library
+    step = {'north': (0, -1), 'south': (0, 1), 'east': (1, 0), 'west': (-1, 0)}
+    lib = [c for c in a['chests'] if c['theme'] == 'LIBRARY']
+    assert len(lib) == 1, ('one library chest', lib)
+    cx, cy, cz = lib[0]['at']
+    dx, dz = step[lib[0]['facing']]
+    in_restricted = any(b[0] <= cx <= b[3] and b[1] <= cy <= b[4] and b[2] <= cz <= b[5] for b in L.restricted_boxes())
+    assert in_restricted and (cx + dx, cy, cz + dz) in walk, ('library chest not in the Restricted Section', lib)
+    px, py, pz = a['pensieve']
+    hx0, hy0, hz0, hx1, hy1, hz1 = L.hall_box()
+    assert hx0 <= px <= hx1 and hz0 <= pz <= hz1, ('the Pensieve is not in the hall', a['pensieve'])
+    assert (px, py, pz) not in cells and (px, py + 1, pz) not in cells and checks.supports(grid.get(px, py - 1, pz)), \
+        ('the Pensieve\'s cell is not free floor', a['pensieve'])
+    assert any((px + ex, py, pz + ez) in walk for ex, ez in step.values()), ('nobody can reach the Pensieve', (px, py, pz))
+    spots = [tuple(s) for s in a['student_spots']]
+    assert 4 <= len(spots) <= 6, ('library reading spots', spots)
+    for x, y, z in spots:
+        assert (x, y, z) in walk and (x, y + 1, z) not in cells and checks.supports(grid.get(x, y - 1, z)), \
+            ('reading spot not a free, walked floor cell', (x, y, z))
+        assert any(b[0] <= x <= b[3] and b[1] <= y <= b[4] and b[2] <= z <= b[5] for b in L.room_boxes()), \
+            ('reading spot outside the library', (x, y, z))
+
+    # 20. the hollow hill is rock round the rooms: every cell of its layers, but the corner towers' shafts, is solid
+    #     or the rooms' own
+    layers, shafts = L.cave_plan(base.cells)
+    keep = L.interior_cells()
+    holes = [(x, y, z) for y, layer in layers.items() for x, z in layer
+             if (x, z) not in shafts and (x, y, z) not in cells and (x, y, z) not in keep]
+    assert not holes, 'air pockets left in the gatehouse hill: %d, e.g. %s' % (len(holes), holes[:5])
+
+    # 21. the rooms, walls, floor and ceiling included, stand wholly in what was the hill's hollow, so the hill's shell
+    #     is whole round them and nothing of the library shows outside but the tunnel's portal
+    outside = [c for b in L.rooms_with_walls() for c in L._box_cells(*b) if (c[0], c[2]) not in layers[c[1]]]
+    assert not outside, 'library cells outside the hill\'s hollow: %d, e.g. %s' % (len(outside), outside[:5])
+
+
 def census_lines(grid, top=40):
     c = checks.census(grid)
     return ['%7d  %s' % (n, k) for k, n in c.most_common(top)]
@@ -297,6 +388,7 @@ def main():
     print('anchors: ' + ', '.join(sorted(grid.anchors)))
     print('hall: %s' % getattr(hall.place_hall, 'stats', {}))
     print('staircase: %s' % getattr(rooms_staircase.place_staircase, 'stats', {}))
+    print('library: %s' % getattr(rooms_library.place_library, 'stats', {}))
     print('census:')
     print('\n'.join(census_lines(grid)))
 

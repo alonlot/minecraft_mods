@@ -72,6 +72,12 @@ public final class ClientRuntimeBridge {
                     ((com.hogwartsmagic.pensieve.net.PensieveExitPacket) payload).reason());
             case "pensieveThud" -> com.hogwartsmagic.client.pensieve.PensieveClientState.onThud(
                     ((com.hogwartsmagic.pensieve.net.PensieveThudPacket) payload).strength());
+            case "ambienceSync" -> com.hogwartsmagic.client.ambience.WorldAmbience.accept(
+                    (com.hogwartsmagic.ambience.AmbienceNet.AmbienceSyncPacket) payload);
+            case "ambienceDelta" -> com.hogwartsmagic.client.ambience.WorldAmbience.accept(
+                    (com.hogwartsmagic.ambience.AmbienceNet.AmbienceDeltaPacket) payload);
+            case "ceilingReveal" -> com.hogwartsmagic.client.ambience.WorldAmbience.startReveal(
+                    ((com.hogwartsmagic.ambience.AmbienceNet.CeilingRevealPacket) payload).id());
             case "pensieveFade" -> com.hogwartsmagic.client.pensieve.PensieveClientState.onFade(
                     ((com.hogwartsmagic.pensieve.net.PensieveFadePacket) payload).ticks());
             case "pensieveWake" -> com.hogwartsmagic.client.pensieve.PensieveClientState.onWake(

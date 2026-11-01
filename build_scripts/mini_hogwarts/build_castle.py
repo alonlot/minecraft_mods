@@ -58,7 +58,7 @@ OUT_SCHEM = os.path.join(SCHEM_DIR, 'mini_hogwarts.schem')
 OUT_ANCHORS = os.path.join(SCHEM_DIR, 'mini_hogwarts.anchors.json')
 VIEWER_NBT = os.path.join(REPO, 'build', 'mh', 'mini_hogwarts.nbt')
 
-from mini_hogwarts import checks, hall, rooms_library, rooms_staircase, rooms_towers  # noqa: E402
+from mini_hogwarts import checks, hall, rooms_classrooms, rooms_library, rooms_staircase, rooms_towers  # noqa: E402
 from mini_hogwarts.grid import Grid, air_at, load_schem, seal_interiors as _seal, write_schem  # noqa: E402
 
 
@@ -83,6 +83,11 @@ CHANGED_ON_PURPOSE = [
     # floor over the central tower's band (the plain ring's top course, inside the band's wall) and the four arches
     # opened through the band's wall in place of its cardinal windows (holes in the wall; the outline is unchanged)
     *rooms_towers.changed_boxes(),
+    # the classrooms (rooms_classrooms): the gatehouse gate's leaves opened (R18), the vestibule's bench and side windows
+    # and the doorway through its south wall, the library stair's slot in the stair hall's floor (R31), Charms in the
+    # ground floor's east room, Transfiguration in the upper floor's labelled room and the room east of it, and that
+    # room's door from the upper landing; Defence and the stair below the floor are carved into the hill's hollow
+    *rooms_classrooms.changed_boxes(),
 ]
 
 # Every room interior, name -> inclusive box, filled by collect_rooms() once the rooms are built (some boxes are
@@ -136,10 +141,21 @@ def room_towers(grid):
     a.setdefault('paintings', []).extend(found['paintings'])
 
 
+def room_classrooms(grid):
+    """The gatehouse opened (its gate, the vestibule, the stair hall with the stair down into the Library), Charms and
+    Transfiguration in its rooms, Defence Against the Dark Arts carved into the hill under the apse."""
+    layers, _ = rooms_library.cave_plan(load_base().cells)
+    found = rooms_classrooms.place_classrooms(grid, layers)
+    a = grid.anchors
+    a.setdefault('chests', []).extend(found['chests'])
+    a.setdefault('student_spots', []).extend(found['student_spots'])
+
+
 def collect_rooms(grid):
     """Fill ROOMS from the room modules: the Great Hall, entrance hall and west gallery; the Grand Staircase's well,
     its entry door and every closed course of its top (its own light boxes); the Library's rooms and tunnel; the tower
-    tops. Each box is an interior (its air is the castle's, never the open sky)."""
+    tops; the gatehouse's rooms and the classrooms. Each box is an interior (its air is the castle's, never the open
+    sky)."""
     ROOMS.clear()
     ROOMS['great hall'] = hall.HALL_PROPER_BOX
     ROOMS['great hall apse'] = hall.APSE_BOX
@@ -152,6 +168,7 @@ def collect_rooms(grid):
     for i, b in enumerate(rooms_library.room_boxes()):
         ROOMS['library %d' % i] = b
     ROOMS.update(rooms_towers.room_boxes(grid.cells))
+    ROOMS.update(rooms_classrooms.room_boxes())
     return ROOMS
 
 
@@ -175,7 +192,7 @@ def wing_tops():
     return dict(hall.column_tops())
 
 
-ROOM_STEPS = (room_great_hall, room_grand_staircase, room_library, room_towers)
+ROOM_STEPS = (room_great_hall, room_grand_staircase, room_library, room_towers, room_classrooms)
 
 
 # ---------------------------------------------------------------- checks
@@ -279,6 +296,7 @@ def verify(grid):
     verify_staircase(grid, base, walk)
     verify_library(grid, base, walk)
     verify_towers(grid, base, walk)
+    verify_classrooms(grid, base, walk)
     verify_sealed(grid, walk)
     return walk
 
@@ -405,9 +423,10 @@ def verify_library(grid, base, walk):
                 and checks.supports(grid.get(x, y - 1, z))), ('reading spot not a free, walked floor cell', (x, y, z))
 
     # 20. the hollow hill is rock round the rooms: every cell of its layers, but the corner towers' shafts, is solid
-    #     or the rooms' own
+    #     or the rooms' own (the library's, and the classrooms' carved into the same hollow: the stair down from the
+    #     gatehouse, ruling R31, and Defence Against the Dark Arts under the apse)
     layers, shafts = L.cave_plan(base.cells)
-    keep = L.interior_cells()
+    keep = L.interior_cells() | rooms_classrooms.hill_cells()
     holes = [(x, y, z) for y, layer in layers.items() for x, z in layer
              if (x, z) not in shafts and air_at(cells, (x, y, z)) and (x, y, z) not in keep]
     assert not holes, 'air pockets left in the gatehouse hill: %d, e.g. %s' % (len(holes), holes[:5])
@@ -494,6 +513,116 @@ def verify_towers(grid, base, walk):
     for x, y, z in spots:
         assert ((x, y, z) in walk and grid.is_air(x, y, z) and grid.is_air(x, y + 1, z)
                 and checks.supports(grid.get(x, y - 1, z))), ('student spot not a free, walked floor cell', (x, y, z))
+
+
+def verify_classrooms(grid, base, walk):
+    """The classrooms' promises: the gatehouse gate is a real front door (R18); Transfiguration is the room behind the
+    labelled door, and Defence, Transfiguration and Charms are each walked to with at least eight student desks, a
+    teacher's desk and their theme prop; the gatehouse's stair leads down into the Library on its own (R31); Potions
+    is untouched; no floor is dark; Defence stays inside the hill's hollow; the anchors (the SPELL_STUDY chest, the
+    classrooms' student spots) stand where they can be used; every new interior is a sealed room."""
+    C = rooms_classrooms
+    a = grid.anchors
+    cells = grid.cells
+    step = {'north': (0, -1), 'south': (0, 1), 'east': (1, 0), 'west': (-1, 0)}
+
+    def inside(p, box):
+        return box[0] <= p[0] <= box[3] and box[1] <= p[1] <= box[4] and box[2] <= p[2] <= box[5]
+
+    # 31. the gate is open: the main entrance's own cell leads through the gate plane into the vestibule
+    gx, gy, gz = C.GATE_CELL
+    assert checks.passable(grid.get(gx, gy, gz)) and checks.passable(grid.get(gx, gy + 1, gz)), \
+        ('the gatehouse gate is still shut', grid.get(gx, gy, gz))
+    assert C.VESTIBULE_CELL in walk, ('the gate does not lead inside', C.VESTIBULE_CELL)
+
+    # 32. every classroom, the stair hall, the upper landing and the library stair are walked to; Transfiguration is the
+    #     room behind the labelled door (the old castle's spruce door to the apse, still there), and Potions, behind
+    #     that door, is walked to through it
+    for name, c in sorted(C.CLASSROOM_CELLS.items()):
+        assert c in walk, 'classroom %s %s not reachable from the main entrance' % (name, c)
+    dx, dy, dz = C.LABELLED_DOOR
+    for yy, half in ((dy, 'lower'), (dy + 1, 'upper')):
+        s = grid.get(dx, yy, dz)
+        assert checks.block_id(s) == 'spruce_door' and 'half=%s' % half in s, ('the labelled door is gone', s)
+    front = (dx, dy, dz - 1)
+    assert inside(front, C.ROOMS_BY_NAME['transfiguration']) and front in walk, ('Transfiguration is not behind the '
+                                                                                 'labelled door', front)
+    assert C.POTIONS_CELL in walk, ('Potions is not walked to through the labelled door', C.POTIONS_CELL)
+
+    # 33. eight student desks or more in each classroom (a desk with a chair beside it, the sitter facing the desk) and
+    #     the teacher's desk
+    for name, room in sorted(C.CLASSROOMS.items()):
+        desks = C.student_desks(cells, name)
+        assert len(desks) >= 8, ('%s student desks' % name, len(desks))
+        for x, y, z in room['teacher']:
+            assert checks.block_id(grid.get(x, y, z)) == room['teacher_block'], ('%s teacher\'s desk' % name, (x, y, z))
+
+    # 34. the theme props: Defence's dragon skeleton, bone blocks above head height hung from the ceiling by chains;
+    #     Transfiguration's blackboard on a wall and its cages; Charms' raised tiered floor (desks on three levels or
+    #     more) and its floating feathers
+    dragon = C.dragon_report(cells)
+    assert dragon['bones'] >= 25 and dragon['low'] == [] and dragon['loose'] == [] and dragon['chains'] >= 2, \
+        ('the dragon skeleton', dragon)
+    board, cages = C.transfiguration_props(cells)
+    assert board >= 6 and cages >= 4, ('Transfiguration board and cages', board, cages)
+    levels = sorted({d[1] for d, _ in C.student_desks(cells, 'charms')})
+    assert len(levels) >= 3 and levels == list(range(levels[0], levels[0] + len(levels))), ('Charms tiers', levels)
+    feathers = C.floating_feathers(cells)
+    assert feathers >= 5, ('Charms floating feathers', feathers)
+
+    # 35. no dark floor in any classroom, the vestibule, the stair hall, the upper landing or on the library stair
+    dark = checks.dark_floor_cells(grid, C.light_boxes())
+    assert not dark, 'dark classroom floor cells: %d, e.g. %s' % (len(dark), dark[:5])
+
+    # 36. the gatehouse's stair leads into the Library on its own (R31): with the grounds door in the hill walled up,
+    #     the hall, the north gallery and the stair's foot are still walked to from the main entrance, and the stair
+    #     climbs back: the vestibule is walked to from its foot (a drop of three gets down a stair with a missing tread,
+    #     but nobody gets up it)
+    walled = Grid()
+    walled.cells = dict(cells)
+    for y in (rooms_library.FEET, rooms_library.FEET + 1):
+        walled.set(rooms_library.TUNNEL_X[0] + 1, y, rooms_library.DOOR_Z, 'minecraft:stone')
+    walk2 = checks.reachable(walled, tuple(a['main_entrance']))
+    for c in (C.LIBRARY_STAIR_FOOT, rooms_library.LIBRARY_CELLS['north mezzanine'], rooms_library.LIBRARY_CELLS['hall']):
+        assert c in walk2, ('the gatehouse stair does not lead into the Library', c)
+    assert C.VESTIBULE_CELL in checks.reachable(walled, C.LIBRARY_STAIR_FOOT), \
+        ('the library stair cannot be climbed back to the gatehouse', C.LIBRARY_STAIR_FOOT)
+
+    # 37. Potions is untouched: every old block of the apse room is as it was, its 7 cauldrons and 2 chests included
+    changed = [(p, s, cells.get(p)) for p, s in base.cells.items() if inside(p, C.POTIONS_BOX) and cells.get(p) != s]
+    assert not changed, ('Potions changed', changed[:5])
+    pot = [s for p, s in cells.items() if inside(p, C.POTIONS_BOX)]
+    assert sum('wizard_cauldron' in s for s in pot) == 7 and sum(checks.block_id(s) == 'chest' for s in pot) == 2, \
+        'Potions lost a cauldron or a chest'
+
+    # 38. Defence is carved into the hill's hollow only: its interior and its doorway are cells that were the hollow's
+    #     air, and every cell of its walls, floor and ceiling outside the hollow is the old castle's, unchanged
+    layers, _ = rooms_library.cave_plan(base.cells)
+    for b in (C.ROOMS_BY_NAME['defence'], C.ROOMS_BY_NAME['defence doorway (hill)']):
+        out = [c for c in rooms_library._box_cells(*b) if (c[0], c[2]) not in layers.get(c[1], ())]
+        assert not out, ('Defence outside the hill\'s hollow', out[:5])
+    shell = [c for c in rooms_library._box_cells(*C.DEFENCE_SHELL_BOX)
+             if (c[0], c[2]) not in layers.get(c[1], ()) and cells.get(c) != base.cells.get(c)]
+    assert not shell, ('Defence changed the hill\'s shell or the apse', shell[:5])
+
+    # 39. the anchors: one SPELL_STUDY chest in Charms with its front walked to (check 8 holds its floor tile); each
+    #     classroom's own student spots (3 or more), free walked floor cells with two of headroom
+    spell = [c for c in a['chests'] if c['theme'] == 'SPELL_STUDY']
+    assert len(spell) == 1, ('one SPELL_STUDY chest', spell)
+    cx, cy, cz = spell[0]['at']
+    ox, oz = step[spell[0]['facing']]
+    assert inside((cx, cy, cz), C.ROOMS_BY_NAME['charms']) and (cx + ox, cy, cz + oz) in walk, spell
+    for name, room in sorted(C.CLASSROOMS.items()):
+        spots = [tuple(s) for s in a['student_spots'] if any(inside(s, b) for b in room['boxes'])]
+        assert len(spots) >= 3, ('%s student spots' % name, spots)
+        for x, y, z in spots:
+            assert ((x, y, z) in walk and grid.is_air(x, y, z) and grid.is_air(x, y + 1, z)
+                    and checks.supports(grid.get(x, y - 1, z))), ('student spot not a free, walked floor cell', (x, y, z))
+
+    # 40. every new interior is one of the castle's sealed rooms (check 30 then holds its air to cave_air)
+    rooms = ROOMS or collect_rooms(grid)
+    missing = [n for n, b in C.ROOMS_BY_NAME.items() if b not in rooms.values()]
+    assert not missing, ('classroom interiors not in ROOMS', missing)
 
 
 def verify_sealed(grid, walk):
@@ -586,6 +715,7 @@ def main():
     print('staircase: %s' % getattr(rooms_staircase.place_staircase, 'stats', {}))
     print('library: %s' % getattr(rooms_library.place_library, 'stats', {}))
     print('towers: %s' % getattr(rooms_towers.place_towers, 'stats', {}))
+    print('classrooms: %s' % getattr(rooms_classrooms.place_classrooms, 'stats', {}))
     print('sealed: %d cave_air cells (%d room boxes); %d cells of rock pockets filled with stone' % (
         getattr(seal_interiors, 'count', 0), len(ROOMS), getattr(seal_interiors, 'filled', 0)))
     print('census:')

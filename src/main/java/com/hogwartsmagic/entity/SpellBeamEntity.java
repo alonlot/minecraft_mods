@@ -898,9 +898,9 @@ public class SpellBeamEntity extends ThrowableProjectile {
                         masteryEligible = cast == com.hogwartsmagic.spell.support.seal.ColloportusSpell.Cast.SEALED;
                     }
                 } else if (spell == SpellType.CAELUM_FASCINO) {
-                    // Two corners make a ceiling the client draws as the real sky; a sneak-cast removes it. Only a
-                    // made or removed ceiling counts as a success (a first corner, a refusal and a miss fizzle), and
-                    // only a made one pays XP. A beam a Protego reflected never bewitches anyone's ceiling.
+                    // Two corners make a ceiling the client draws as the real sky; a sneak-cast removes it.
+                    // A marked corner, a made ceiling and a removed one count as a success (a refusal and a miss
+                    // fizzle); only a made ceiling pays XP. A beam a Protego reflected never bewitches anyone's ceiling.
                     if (this.level() instanceof ServerLevel ceilingLevel && !this.reflected) {
                         com.hogwartsmagic.spell.support.ceiling.CaelumFascinoSpell.Result ceilingResult =
                                 com.hogwartsmagic.spell.support.ceiling.CaelumFascinoSpell.onBlockHit(

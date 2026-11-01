@@ -1098,7 +1098,7 @@
   "message.hogwartsmagic.caelum_fascino.marked": "One corner is marked. Cast at the opposite corner of the ceiling within a minute.",
   "message.hogwartsmagic.caelum_fascino.created": "The ceiling melts into the sky.",
   "message.hogwartsmagic.caelum_fascino.removed": "The enchanted sky fades from the ceiling.",
-  "message.hogwartsmagic.caelum_fascino.too_big": "That is too wide: a bewitched ceiling can be at most 64 blocks on a side.",
+  "message.hogwartsmagic.caelum_fascino.too_big": "That is too big: a bewitched ceiling can be at most 64 blocks on a side, and its two corners at most 16 blocks apart in height.",
   "message.hogwartsmagic.caelum_fascino.too_many": "You already keep 8 bewitched ceilings. Sneak and cast at one to undo it first.",
   "message.hogwartsmagic.caelum_fascino.overlap": "Part of that is already a bewitched ceiling.",
   "message.hogwartsmagic.caelum_fascino.other_dimension": "The first corner is in another dimension. Start again here.",
@@ -1672,9 +1672,6 @@
   "assignment.hogwartsmagic.teacher.twycross": "W. Twycross, Ministry Apparition Instructor",
   "assignment.hogwartsmagic.teacher.prince": "The Half-Blood Prince",
   "assignment.hogwartsmagic.teacher.death_eater": "A Death Eater",
-  "screen.hogwartsmagic.sorting.title": "The Sorting Hat",
-  "screen.hogwartsmagic.sorting.tie": "Hmm... difficult. Very difficult. You choose, then.",
-  "screen.hogwartsmagic.sorting.step": "Question %s of %s",
   "assignment.hogwartsmagic.lumos.quote": "A wizard who fears the dark has not yet learned to make light.",
   "assignment.hogwartsmagic.lumos.0": "Light %s dark places with torches, where no sky light reaches",
   "assignment.hogwartsmagic.lumos.1": "Spend %s seconds deep underground, below Y 0",
@@ -1815,5 +1812,8 @@
   "assignment.hogwartsmagic.avada_kedavra.quote": "There is no counter-curse. Prove you can face what has no cure.",
   "assignment.hogwartsmagic.avada_kedavra.0": "Know Crucio",
   "assignment.hogwartsmagic.avada_kedavra.1": "Enter the Chamber of Secrets",
-  "assignment.hogwartsmagic.avada_kedavra.2": "Defeat %s Basilisk"
+  "assignment.hogwartsmagic.avada_kedavra.2": "Defeat %s Basilisk",
+  "screen.hogwartsmagic.sorting.title": "The Sorting Hat",
+  "screen.hogwartsmagic.sorting.tie": "Hmm... difficult. Very difficult. You choose, then.",
+  "screen.hogwartsmagic.sorting.step": "Question %s of %s"
 }

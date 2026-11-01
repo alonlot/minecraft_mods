@@ -12,6 +12,7 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.Level;
 import net.minecraftforge.gametest.GameTestHolder;
 
 import java.util.List;
@@ -150,6 +151,89 @@ public final class CeilingSpellGameTests {
             cleanUp(level, maker, other);
         }
         LOGGER.info("CEILING-GAMETEST PASS otherPlayerCannotRemove");
+        helper.succeed();
+    }
+
+    /** Makes an op of this player for the test (the ops list is restored by {@link #deop}). */
+    private static void op(ServerLevel level, ServerPlayer p) {
+        // Level 4 explicitly: PlayerList.op would use the test server's configured level, which is 0 here.
+        level.getServer().getPlayerList().getOps().add(new net.minecraft.server.players.ServerOpListEntry(p.getGameProfile(), 4, false));
+    }
+
+    private static void deop(ServerLevel level, ServerPlayer p) {
+        level.getServer().getPlayerList().deop(p.getGameProfile());
+    }
+
+    @GameTest(template = EMPTY, batch = "ceiling_spell_op", timeoutTicks = 100)
+    public static void opCanRemoveAnyCeiling(GameTestHelper helper) {
+        AmbienceNet.setSendObserverForTests((player, packet) -> { });
+        ServerLevel level = helper.getLevel();
+        ServerPlayer maker = helper.makeMockServerPlayerInLevel();
+        ServerPlayer admin = helper.makeMockServerPlayerInLevel();
+        AmbienceRegistry registry = AmbienceRegistry.get(level);
+        BlockPos c = helper.absolutePos(new BlockPos(20, 4, 20));
+        // An owner-less ceiling, like the castle's own, somewhere else in the test area.
+        final AmbientEffect castle = new AmbientEffect(UUID.randomUUID(), AmbientEffect.KIND_CEILING, c.getX() + 3.0,
+                c.getY(), c.getZ() + 3.0, 3f, 0f, 3f, 0f, 0, null, level.getGameTime());
+        try {
+            BlockPos a = helper.absolutePos(new BlockPos(0, 4, 0));
+            BlockPos b = helper.absolutePos(new BlockPos(4, 4, 4));
+            helper.assertTrue(castTwo(level, maker, a, b) == Result.CREATED, "the maker's ceiling is made");
+            registry.add(level, castle);
+
+            admin.setShiftKeyDown(true);
+            BlockPos inside = helper.absolutePos(new BlockPos(2, 4, 2));
+            BlockPos insideCastle = helper.absolutePos(new BlockPos(21, 4, 21));
+            helper.assertTrue(!admin.hasPermissions(2), "not yet an operator");
+            helper.assertTrue(CaelumFascinoSpell.onBlockHit(level, inside, admin) == Result.REFUSED, "a non-op is refused");
+            helper.assertTrue(CaelumFascinoSpell.onBlockHit(level, insideCastle, admin) == Result.REFUSED,
+                    "a non-op cannot remove an owner-less ceiling either");
+
+            op(level, admin);
+            helper.assertTrue(admin.hasPermissions(2), "now an operator");
+            helper.assertTrue(CaelumFascinoSpell.onBlockHit(level, inside, admin) == Result.REMOVED,
+                    "an op removes another player's ceiling");
+            helper.assertTrue(registry.ceilingsOwnedBy(maker.getUUID()).isEmpty(), "it is gone");
+            helper.assertTrue(CaelumFascinoSpell.onBlockHit(level, insideCastle, admin) == Result.REMOVED,
+                    "an op removes an owner-less ceiling");
+            helper.assertTrue(registry.all().stream().noneMatch(e -> e.id().equals(castle.id())), "the castle's is gone");
+        } finally {
+            deop(level, admin);
+            admin.setShiftKeyDown(false);
+            registry.remove(level, castle.id());
+            cleanUp(level, maker, admin);
+        }
+        LOGGER.info("CEILING-GAMETEST PASS opCanRemoveAnyCeiling");
+        helper.succeed();
+    }
+
+    @GameTest(template = EMPTY, batch = "ceiling_spell_limit", timeoutTicks = 100)
+    public static void ceilingLimitCountsEveryDimension(GameTestHelper helper) {
+        AmbienceNet.setSendObserverForTests((player, packet) -> { });
+        ServerLevel level = helper.getLevel();
+        ServerPlayer p = helper.makeMockServerPlayerInLevel();
+        ServerLevel other = level.getServer().getLevel(level.dimension() == Level.NETHER ? Level.END : Level.NETHER);
+        helper.assertTrue(other != null, "the test server has a second dimension");
+        AmbienceRegistry otherRegistry = AmbienceRegistry.get(other);
+        AmbienceRegistry registry = AmbienceRegistry.get(level);
+        try {
+            // The player already keeps the most allowed, all of them in the other dimension.
+            for (int i = 0; i < CaelumFascinoSpell.MAX_PER_PLAYER; i++) {
+                otherRegistry.add(other, new AmbientEffect(UUID.randomUUID(), AmbientEffect.KIND_CEILING, 1000.5 + i * 10, 70,
+                        1000.5, 2f, 0f, 2f, 0f, 0, p.getUUID(), 0L));
+            }
+            helper.assertTrue(registry.ceilingsOwnedBy(p.getUUID()).isEmpty(), "none of them is in this level");
+            helper.assertTrue(CaelumFascinoSpell.ownedAnywhere(level.getServer(), p.getUUID()) == CaelumFascinoSpell.MAX_PER_PLAYER,
+                    "they all count");
+            BlockPos a = helper.absolutePos(new BlockPos(0, 4, 0));
+            BlockPos b = helper.absolutePos(new BlockPos(4, 4, 4));
+            helper.assertTrue(castTwo(level, p, a, b) == Result.REFUSED, "a ninth ceiling is refused here");
+            helper.assertTrue(registry.ceilingsOwnedBy(p.getUUID()).isEmpty(), "and none was made");
+        } finally {
+            cleanUp(level, p);
+            cleanUp(other, p);
+        }
+        LOGGER.info("CEILING-GAMETEST PASS ceilingLimitCountsEveryDimension");
         helper.succeed();
     }
 

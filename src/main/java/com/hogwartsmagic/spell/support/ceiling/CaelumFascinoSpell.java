@@ -58,7 +58,9 @@ public final class CaelumFascinoSpell {
 
     /** The longest side of a ceiling, in blocks. */
     public static final int MAX_SIDE = 64;
-    /** How many ceilings one player may have bewitched at once. */
+    /** The most two corner blocks may differ in height, in blocks; a ceiling is a flat plane, not a stairwell. */
+    public static final int MAX_RISE = 16;
+    /** How many ceilings one player may have bewitched at once, counted over every dimension. */
     public static final int MAX_PER_PLAYER = 8;
     /** A first corner is forgotten after this many ticks (60 seconds). */
     public static final int MARK_TTL_TICKS = 1200;
@@ -80,7 +82,8 @@ public final class CaelumFascinoSpell {
 
     /**
      * The lang key of the reason a ceiling between these two corner blocks may not be made, or null when it may.
-     * Checked in this order: both corners in one dimension, no side over {@link #MAX_SIDE}, the caster under
+     * Checked in this order: both corners in one dimension, no side over {@link #MAX_SIDE} and no more than
+     * {@link #MAX_RISE} blocks between the corners' heights (both are {@code too_big}), the caster under
      * {@link #MAX_PER_PLAYER} ceilings, and no overlap with an existing ceiling (shared floor area at a plane less
      * than {@link #STOREY_GAP} blocks from its span).
      *
@@ -91,7 +94,8 @@ public final class CaelumFascinoSpell {
         if (!dimA.equals(dimB)) {
             return KEY + "other_dimension";
         }
-        if (side(a.getX(), b.getX()) > MAX_SIDE || side(a.getZ(), b.getZ()) > MAX_SIDE) {
+        if (side(a.getX(), b.getX()) > MAX_SIDE || side(a.getZ(), b.getZ()) > MAX_SIDE
+                || Math.abs(a.getY() - b.getY()) > MAX_RISE) {
             return KEY + "too_big";
         }
         if (ownedByCaster >= MAX_PER_PLAYER) {
@@ -147,7 +151,7 @@ public final class CaelumFascinoSpell {
         }
         MARKS.remove(player.getUUID());
         String refusal = refusal(mark.pos(), mark.dim(), pos, level.dimension(), registry.all(),
-                registry.ceilingsOwnedBy(player.getUUID()).size());
+                ownedAnywhere(level.getServer(), player.getUUID()));
         if (refusal != null) {
             tell(player, refusal.substring(KEY.length()), ChatFormatting.GOLD);
             return Result.REFUSED;
@@ -166,6 +170,15 @@ public final class CaelumFascinoSpell {
         }
         tell(player, "created", ChatFormatting.AQUA);
         return Result.CREATED;
+    }
+
+    /** How many ceilings this player has bewitched in every dimension: the limit is per player, not per level. */
+    public static int ownedAnywhere(MinecraftServer server, UUID player) {
+        int count = 0;
+        for (ServerLevel each : server.getAllLevels()) {
+            count += AmbienceRegistry.get(each).ceilingsOwnedBy(player).size();
+        }
+        return count;
     }
 
     /** A sneak-cast: take away the caster's own ceiling (or any, for an op) whose roof block this is. */

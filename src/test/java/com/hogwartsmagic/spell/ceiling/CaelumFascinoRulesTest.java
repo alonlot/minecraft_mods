@@ -33,6 +33,17 @@ class CaelumFascinoRulesTest {
     }
 
     @Test
+    void tooFarApartVerticallyIsTooBig() {
+        // 16 blocks of rise is the most; 17 gets the same hint as a too-wide ceiling, whichever corner is higher.
+        assertNull(CaelumFascinoSpell.refusal(A, Level.OVERWORLD, new BlockPos(5, 70 + CaelumFascinoSpell.MAX_RISE, 5),
+                Level.OVERWORLD, List.of(), 0));
+        assertEquals(KEY + "too_big", CaelumFascinoSpell.refusal(A, Level.OVERWORLD,
+                new BlockPos(5, 70 + CaelumFascinoSpell.MAX_RISE + 1, 5), Level.OVERWORLD, List.of(), 0));
+        assertEquals(KEY + "too_big", CaelumFascinoSpell.refusal(A, Level.OVERWORLD,
+                new BlockPos(5, 70 - CaelumFascinoSpell.MAX_RISE - 1, 5), Level.OVERWORLD, List.of(), 0));
+    }
+
+    @Test
     void ninthCeilingRefused() {
         BlockPos b = new BlockPos(5, 70, 5);
         assertNull(CaelumFascinoSpell.refusal(A, Level.OVERWORLD, b, Level.OVERWORLD, List.of(),

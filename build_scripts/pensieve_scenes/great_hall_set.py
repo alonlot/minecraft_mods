@@ -1068,8 +1068,12 @@ def scene_world(g):
     return w
 
 
-def build():
-    """The edited template grid {(x, y, z): state} (local coordinates)."""
+def build(open_roof=True):
+    """The edited template grid {(x, y, z): state} (local coordinates).
+
+    open_roof=False keeps the ceiling and roof intact (b.sky_opened = 0) for callers that
+    place the hall in a world with a real sky of their own, such as the Mini Hogwarts wing.
+    """
     _, grid = read_schem(SOURCE)
     b = Builder(grid)
     edit_doorway(b)
@@ -1080,7 +1084,7 @@ def build():
         if p[0] <= 18 and bid(s) == 'minecraft:dark_prismarine_stairs':
             b.g[p] = s.replace('dark_prismarine_stairs', 'mangrove_stairs')
     edit_lighting(b)
-    b.sky_opened = open_sky(b)
+    b.sky_opened = open_sky(b) if open_roof else 0
     b.sand_fixed = fix_physics(b)
     return b
 

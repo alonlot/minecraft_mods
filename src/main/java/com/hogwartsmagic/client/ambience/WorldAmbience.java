@@ -14,9 +14,11 @@ import net.minecraftforge.fml.common.Mod;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -32,6 +34,8 @@ public final class WorldAmbience {
     public static final long NO_REVEAL = Long.MIN_VALUE;
     /** Ceiling id to the (whole tick) game time its reveal started at; a long, a float loses ticks past 16.7 million. */
     private static final Map<UUID, Long> REVEALS = new HashMap<>();
+    /** Sealed ceilings the server said this player has already had revealed: drawn open, never as a plank roof. */
+    private static final Set<UUID> OPENED = new HashSet<>();
     @SuppressWarnings("unchecked")
     private static final List<AmbientEffect>[] BY_KIND = new List[AmbientEffect.KIND_COUNT];
     /** The level the contents belong to; a different current level empties the store. */
@@ -63,6 +67,12 @@ public final class WorldAmbience {
         return start == null ? NO_REVEAL : start;
     }
 
+    /** Whether the server said this player has already had this (sealed) ceiling revealed. */
+    public static boolean isOpened(UUID ceiling) {
+        dropIfLevelChanged();
+        return OPENED.contains(ceiling);
+    }
+
     /** Replaces everything with the server's list for the level the client is in now. */
     public static void accept(AmbienceNet.AmbienceSyncPacket packet) {
         ClientLevel level = Minecraft.getInstance().level;
@@ -75,6 +85,7 @@ public final class WorldAmbience {
         for (AmbientEffect e : packet.all()) {
             EFFECTS.put(e.id(), e);
         }
+        OPENED.addAll(packet.opened());
         rebuild();
     }
 
@@ -90,6 +101,7 @@ public final class WorldAmbience {
         } else {
             EFFECTS.remove(e.id());
             REVEALS.remove(e.id());
+            OPENED.remove(e.id());
         }
         rebuild();
     }
@@ -141,6 +153,7 @@ public final class WorldAmbience {
     private static void clear() {
         EFFECTS.clear();
         REVEALS.clear();
+        OPENED.clear();
         owner = null;
         rebuild();
     }

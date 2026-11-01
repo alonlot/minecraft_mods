@@ -9,11 +9,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class AmbienceClockTest {
     @Test
     void monotonicAcrossTicks() {
-        long base = AmbienceClock.baseFor(5_000L);
         float last = -1f;
         for (long tick = 5_000L; tick < 5_400L; tick++) {
             for (float partial = 0f; partial < 1f; partial += 0.25f) {
-                float now = AmbienceClock.elapsed(base, tick, partial);
+                float now = AmbienceClock.shared(tick, partial);
                 assertTrue(now > last, "the clock went back at tick " + tick + " partial " + partial);
                 last = now;
             }
@@ -21,30 +20,36 @@ class AmbienceClockTest {
     }
 
     @Test
-    void monotonicAcrossAnEpochBoundary() {
-        long base = AmbienceClock.baseFor(AmbienceClock.EPOCH - 3);
-        float before = AmbienceClock.elapsed(base, AmbienceClock.EPOCH - 1, 0.5f);
-        float after = AmbienceClock.elapsed(base, AmbienceClock.EPOCH, 0.5f);
-        assertTrue(after > before, "the session's clock never wraps while it runs");
-        assertEquals(1f, after - before, 1e-3f);
+    void everyClientReadsTheSameTimeOnTheSameTick() {
+        // The value depends on the game time alone: nothing about when a client joined enters into it.
+        long tick = 3L * AmbienceClock.EPOCH + 777L;
+        assertEquals(777.25f, AmbienceClock.shared(tick, 0.25f), 0f);
+        assertEquals(AmbienceClock.shared(tick, 0.25f), AmbienceClock.shared(tick, 0.25f), 0f);
     }
 
     @Test
-    void playersInTheSameEpochShareTheClock() {
-        long tick = 3L * AmbienceClock.EPOCH + 777L;
-        float early = AmbienceClock.elapsed(AmbienceClock.baseFor(3L * AmbienceClock.EPOCH + 10L), tick, 0.25f);
-        float late = AmbienceClock.elapsed(AmbienceClock.baseFor(tick), tick, 0.25f);
-        assertEquals(early, late, 0f, "one who joined early and one who joined late read the same time");
+    void everyClientStepsToTheNewEpochOnTheSameTick() {
+        long boundary = 7L * AmbienceClock.EPOCH;
+        float before = AmbienceClock.shared(boundary - 1, 0.5f);
+        float after = AmbienceClock.shared(boundary, 0.5f);
+        assertEquals(AmbienceClock.EPOCH - 0.5f, before, 1e-2f);
+        assertEquals(0.5f, after, 0f, "the new epoch starts at 0 for everyone on the same tick");
     }
 
     @Test
     void stillExactAfterAVeryLongWorld() {
         long tick = 9_000_000_000L; // 12 years of game time
-        long base = AmbienceClock.baseFor(tick);
-        float a = AmbienceClock.elapsed(base, tick, 0f);
-        float b = AmbienceClock.elapsed(base, tick + 1, 0f);
+        float a = AmbienceClock.shared(tick, 0f);
+        float b = AmbienceClock.shared(tick + 1, 0f);
         assertEquals(1f, b - a, 1e-3f, "a whole tick is still a whole tick");
         assertTrue(a < AmbienceClock.EPOCH, "the number the renderers see stays small");
+    }
+
+    @Test
+    void elapsedSinceAnEarlierTickIsTheRealOneWithinAnEpoch() {
+        long now = 4L * AmbienceClock.EPOCH + 500L;
+        long base = AmbienceClock.baseFor(now);
+        assertEquals(60.5f, AmbienceClock.elapsed(base, now, 0.5f) - AmbienceClock.elapsed(base, now - 60, 0f), 1e-4f);
     }
 
     @Test

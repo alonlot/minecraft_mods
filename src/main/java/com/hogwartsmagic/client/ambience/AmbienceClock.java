@@ -8,25 +8,24 @@ import net.minecraft.client.multiplayer.ClientLevel;
  * a float holds a whole tick exactly only to 16.7 million ticks (233 hours), and the renderers sample it with a
  * fraction of a tick, so the game time is reduced first.
  *
- * <p>The reduction is a per-session base, the game time when this client got its level rounded down to a multiple of
- * {@link #EPOCH}: the clock never jumps or wraps while the session runs, the numbers stay small, and every player who
- * joined within the same epoch (nearly everyone, an epoch is 14.5 hours) reads the same time. A base of the exact join
- * time would be just as smooth but would give every player a different candle phase and a different thunderstorm.
- * Render thread only.
+ * <p>The reduction is the game time modulo {@link #EPOCH} (2^20 ticks, 14.5 hours), taken afresh from the current game
+ * time every time the clock is read. That keeps the numbers small and, because it depends on nothing but the game
+ * time, makes every client read exactly the same value on the same tick, however long it has been in the world: a
+ * player who joined an hour ago and one who joined a week ago see the same candles and the same storm. The cost is
+ * one step back to 0 at each epoch boundary (a candle phase and the lightning schedule jump once every 14.5 hours);
+ * differences between two times read on the same tick (a reveal's elapsed time) are unaffected. There is no state to
+ * reset on a level change or a logout. Render thread only.
  */
 public final class AmbienceClock {
     /** Ticks per epoch (2^20, about 14.5 hours). */
     public static final long EPOCH = 1L << 20;
 
-    private static ClientLevel baseLevel;
-    private static long base;
-
     private AmbienceClock() {
     }
 
-    /** The base for a client that got its level at game time {@code joinGameTime}. */
-    public static long baseFor(long joinGameTime) {
-        return Math.floorDiv(joinGameTime, EPOCH) * EPOCH;
+    /** The base for game time {@code gameTime}: the start of the epoch it falls in. */
+    public static long baseFor(long gameTime) {
+        return Math.floorDiv(gameTime, EPOCH) * EPOCH;
     }
 
     /** Ticks since {@code base} at {@code gameTime} plus a partial tick, computed wide and narrowed once. */
@@ -34,22 +33,22 @@ public final class AmbienceClock {
         return (float) ((gameTime - base) + (double) partial);
     }
 
+    /** The clock at game time {@code gameTime} with a partial tick: the same on every client. */
+    public static float shared(long gameTime, float partial) {
+        return elapsed(baseFor(gameTime), gameTime, partial);
+    }
+
     /** The clock now, on this level's game time with this frame's partial tick. */
     public static float now(ClientLevel level, float partial) {
-        return elapsed(baseOf(level), level.getGameTime(), partial);
+        return shared(level.getGameTime(), partial);
     }
 
-    /** The clock at a past (or future) whole game tick, e.g. when a reveal started. */
+    /**
+     * The clock at another whole game tick on the same footing as {@link #now} (the epoch of the current game time), so
+     * {@code now - at(...)} is the real elapsed time even when the two fall either side of a boundary.
+     */
     public static float at(ClientLevel level, long gameTime) {
-        return elapsed(baseOf(level), gameTime, 0f);
-    }
-
-    private static long baseOf(ClientLevel level) {
-        if (level != baseLevel) {
-            baseLevel = level;
-            base = baseFor(level.getGameTime());
-        }
-        return base;
+        return elapsed(baseFor(level.getGameTime()), gameTime, 0f);
     }
 
     /**

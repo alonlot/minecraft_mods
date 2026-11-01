@@ -38,6 +38,32 @@ class AmbientEffectTest {
     }
 
     @Test
+    void sealedIsACeilingFlagThatSurvivesWireAndSave() {
+        AmbientEffect sealed = new AmbientEffect(UUID.randomUUID(), AmbientEffect.KIND_CEILING, 1, 2, 3, 4f, 5f, 6f, 0f,
+                AmbientEffect.CEILING_SEALED, null, 9L);
+        AmbientEffect open = new AmbientEffect(sealed.id(), AmbientEffect.KIND_CEILING, 1, 2, 3, 4f, 5f, 6f, 0f, 0,
+                null, 9L);
+        AmbientEffect door = new AmbientEffect(UUID.randomUUID(), AmbientEffect.KIND_DOOR, 1, 2, 3, 0f, 0f, 0f, 0f, 1,
+                null, 9L);
+        assertTrue(sealed.sealed());
+        assertFalse(open.sealed());
+        assertFalse(door.sealed(), "a door count of 1 means mirrored, not sealed");
+        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+        sealed.encode(buf);
+        assertTrue(AmbientEffect.decode(buf).sealed());
+        assertTrue(AmbientEffect.load(sealed.save()).sealed());
+    }
+
+    @Test
+    void sameAsIgnoresOnlyTheRegistrationTime() {
+        AmbientEffect a = new AmbientEffect(UUID.randomUUID(), AmbientEffect.KIND_DOOR, 1, 2, 3, 0f, 0f, 0f, 0f, 1, null, 5L);
+        AmbientEffect later = new AmbientEffect(a.id(), a.kind(), a.x(), a.y(), a.z(), 0f, 0f, 0f, 0f, 1, null, 99L);
+        AmbientEffect turned = new AmbientEffect(a.id(), a.kind(), a.x(), a.y(), a.z(), 0f, 0f, 0f, 180f, 1, null, 5L);
+        assertTrue(a.sameAs(later));
+        assertFalse(a.sameAs(turned));
+    }
+
+    @Test
     void roundTripsNbt() {
         AmbientEffect owned = ceiling(-5.5, 8.25, 7f, 9f);
         AmbientEffect unowned = new AmbientEffect(UUID.randomUUID(), AmbientEffect.KIND_RAYS, 0, 80, 0,

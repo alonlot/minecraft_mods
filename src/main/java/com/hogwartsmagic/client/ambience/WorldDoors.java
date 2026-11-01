@@ -191,17 +191,18 @@ public final class WorldDoors {
             MemoryDoorEntity e = d.entity;
             float yaw = Mth.rotLerp(partial, e.yRotO, e.getYRot());
             int light = LevelRenderer.getLightColor(mc.level, BlockPos.containing(e.getX(), e.getY() + 1.0, e.getZ()));
+            pose.pushPose();
             try {
-                pose.pushPose();
                 pose.translate(e.getX() - cam.x, e.getY() - cam.y, e.getZ() - cam.z);
                 pose.scale(SCALE, SCALE, SCALE);
                 dispatcher.render(e, 0, 0, 0, yaw, partial, pose, buffer, light);
-                pose.popPose();
             } catch (RuntimeException ex) {
                 // One broken leaf must not take the frame with it: it is dropped for good (until the level changes).
                 LOGGER.warn("World door {} failed to render and is hidden", d.effect.id(), ex);
                 DOORS.remove(d.effect.id());
                 BROKEN.add(d.effect.id());
+            } finally {
+                pose.popPose();
             }
         }
         buffer.endBatch();

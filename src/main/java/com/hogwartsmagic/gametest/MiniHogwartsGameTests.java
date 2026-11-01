@@ -800,16 +800,22 @@ public final class MiniHogwartsGameTests {
 
     /** A stand-in castle's anchors with one of every ambient effect: a ceiling, two candle boxes, a ray and a door pair. */
     private static com.hogwartsmagic.worldgen.MiniHogwartsAnchors ambienceAnchors() {
-        return com.hogwartsmagic.worldgen.MiniHogwartsAnchors.parse(com.google.gson.JsonParser.parseString("""
-                {"hall_ceiling": {"min": [1, 1], "max": [14, 18], "y": 6, "clearance": 9},
+        return ambienceAnchors(180, 9);
+    }
+
+    /** The same, with the doors closed at {@code doorYaw} and the roof {@code clearance} above the ceiling plane. */
+    private static com.hogwartsmagic.worldgen.MiniHogwartsAnchors ambienceAnchors(int doorYaw, int clearance) {
+        return com.hogwartsmagic.worldgen.MiniHogwartsAnchors.parse(com.google.gson.JsonParser.parseString(("""
+                {"hall_ceiling": {"min": [1, 1], "max": [14, 18], "y": 6, "clearance": CLEARANCE},
                  "hall_box": {"min": [1, 1, 1], "max": [14, 5, 18]},
                  "main_entrance": [1, 1, 1],
                  "candles": [{"at": [7.5, 3, 9.5], "spread": [5, 1.5, 7], "count": 20},
                              {"at": [7.5, 5, 3], "spread": [2, 1, 2], "count": 5}],
                  "rays": [{"at": [15, 2, 5], "spread": [1.5, 3, 6], "yaw": 90}],
-                 "doors": [{"hinge": [8.5, 1, 19], "mirrored": false, "yaw_closed": 180},
-                           {"hinge": [6.5, 1, 19], "mirrored": true, "yaw_closed": 180}]}
-                """).getAsJsonObject());
+                 "doors": [{"hinge": [8.5, 1, 19], "mirrored": false, "yaw_closed": YAW},
+                           {"hinge": [6.5, 1, 19], "mirrored": true, "yaw_closed": YAW}]}
+                """).replace("YAW", Integer.toString(doorYaw)).replace("CLEARANCE", Integer.toString(clearance)))
+                .getAsJsonObject());
     }
 
     private static void decorateAllFour(net.minecraft.server.level.ServerLevel level, BlockPos anchor,
@@ -877,7 +883,7 @@ public final class MiniHogwartsGameTests {
                     helper.assertTrue(ceiling.kind() == AmbientEffect.KIND_CEILING
                                     && ceiling.x() == anchor.getX() + 7.5 && ceiling.z() == anchor.getZ() + 9.5
                                     && ceiling.y() == anchor.getY() + 6 && ceiling.hx() == 6.5f && ceiling.hz() == 8.5f
-                                    && ceiling.hy() == 9f && ceiling.owner() == null,
+                                    && ceiling.hy() == 9f && ceiling.owner() == null && ceiling.sealed(),
                             "the ceiling is the anchors rectangle in world space, got " + ceiling);
                     long candles = expected.stream().filter(e -> e.kind() == AmbientEffect.KIND_CANDLES).count();
                     long rays = expected.stream().filter(e -> e.kind() == AmbientEffect.KIND_RAYS).count();
@@ -946,6 +952,7 @@ public final class MiniHogwartsGameTests {
         List<Object[]> sent = new ArrayList<>();
         AmbienceNet.setSendObserverForTests((player, packet) -> sent.add(new Object[]{player, packet}));
         List<AmbientEffect> effects = com.hogwartsmagic.worldgen.MiniHogwartsAmbience.effectsFor(anchor, anchors, 0L);
+        ServerPlayer relogged = null;
         try {
             com.hogwartsmagic.worldgen.MiniHogwartsAnchors.overrideForTests(anchors);
             com.hogwartsmagic.worldgen.MiniHogwartsAmbience.register(level, anchor, anchors);
@@ -982,7 +989,32 @@ public final class MiniHogwartsGameTests {
                     "a second player gets their own reveal");
             helper.assertTrue(revealsTo(sent, b, ceiling) == 1 && revealsTo(sent, a, ceiling) == 1,
                     "one packet each, to the player who entered");
+
+            // A re-login tells the client which sealed ceilings it already had: the entered hall comes back open.
+            level.getServer().getPlayerList().remove(a);
+            relogged = login(helper, a);
+            sent.clear();
+            AmbienceNet.sendSync(relogged);
+            var sync = lastSyncTo(sent, relogged);
+            helper.assertTrue(sync != null && sync.opened().contains(ceiling),
+                    "the sync after a re-login names the hall the player already entered, got " + sync);
+            helper.assertTrue(sync.all().stream().anyMatch(e -> e.id().equals(ceiling) && e.sealed()),
+                    "the castle ceiling is a sealed one");
+            // A player who never entered gets no such name, so the client draws their roof closed.
+            ServerPlayer stranger = helper.makeMockServerPlayerInLevel();
+            try {
+                sent.clear();
+                AmbienceNet.sendSync(stranger);
+                var strangerSync = lastSyncTo(sent, stranger);
+                helper.assertTrue(strangerSync != null && !strangerSync.opened().contains(ceiling),
+                        "a player who never entered is not told the hall is open");
+            } finally {
+                level.getServer().getPlayerList().remove(stranger);
+            }
         } finally {
+            if (relogged != null) {
+                level.getServer().getPlayerList().remove(relogged);
+            }
             com.hogwartsmagic.worldgen.MiniHogwartsAnchors.overrideForTests(null);
             AmbienceNet.setSendObserverForTests(null);
             var registry = AmbienceRegistry.get(level);
@@ -1006,5 +1038,57 @@ public final class MiniHogwartsGameTests {
             }
         }
         return n;
+    }
+
+    /**
+     * Registering again with changed anchors (a door turned, a roof raised) replaces the saved effects that differ,
+     * telling the players, keeps their first registration time and leaves the unchanged ones alone.
+     */
+    @GameTest(template = EMPTY, batch = "mh_ambience_replace", timeoutTicks = 100)
+    public static void registerReplacesStaleEffects(GameTestHelper helper) {
+        var level = helper.getLevel();
+        BlockPos anchor = new BlockPos(-9500, 64, 9500);
+        var registry = AmbienceRegistry.get(level);
+        ServerPlayer watcher = helper.makeMockServerPlayerInLevel();
+        List<Object[]> sent = new ArrayList<>();
+        List<AmbientEffect> effects = com.hogwartsmagic.worldgen.MiniHogwartsAmbience.effectsFor(anchor, ambienceAnchors(), 0L);
+        try {
+            var first = ambienceAnchors(0, 9);
+            helper.assertTrue(com.hogwartsmagic.worldgen.MiniHogwartsAmbience.register(level, anchor, first) == 6,
+                    "a new castle registers all six effects");
+            UUID ceilingId = com.hogwartsmagic.worldgen.MiniHogwartsAmbience.ceilingId(anchor);
+            long firstTick = registry.get(ceilingId).createdTick();
+
+            AmbienceNet.setSendObserverForTests((player, packet) -> sent.add(new Object[]{player, packet}));
+            helper.assertTrue(com.hogwartsmagic.worldgen.MiniHogwartsAmbience.register(level, anchor, first) == 0
+                            && sent.isEmpty(),
+                    "the same anchors change and tell nothing");
+
+            // The saved world has stale doors (yaw 0), the anchors now say 180, and the roof is 12 up.
+            var fixed = ambienceAnchors(180, 12);
+            int changed = com.hogwartsmagic.worldgen.MiniHogwartsAmbience.register(level, anchor, fixed);
+            helper.assertTrue(changed == 3, "two doors and the ceiling were replaced, got " + changed);
+            for (AmbientEffect e : effects) {
+                if (e.kind() == AmbientEffect.KIND_DOOR) {
+                    helper.assertTrue(registry.get(e.id()).yaw() == 180f, "the door turned to the new yaw");
+                }
+            }
+            AmbientEffect ceiling = registry.get(ceilingId);
+            helper.assertTrue(ceiling.hy() == 12f && ceiling.createdTick() == firstTick,
+                    "the ceiling has the new clearance and its first registration time, got " + ceiling);
+            long adds = sent.stream().filter(s -> s[0] == watcher && s[1] instanceof AmbienceNet.AmbienceDeltaPacket d
+                    && d.add()).count();
+            helper.assertTrue(adds == 3, "the players were told about the three changes, got " + adds);
+            helper.assertTrue(registry.all().stream().filter(e -> effects.stream().anyMatch(x -> x.id().equals(e.id())))
+                    .count() == 6, "still six effects, none duplicated");
+        } finally {
+            AmbienceNet.setSendObserverForTests(null);
+            for (AmbientEffect e : effects) {
+                registry.remove(level, e.id());
+            }
+            level.getServer().getPlayerList().remove(watcher);
+        }
+        LOGGER.info("MINIHOGWARTS-GAMETEST PASS registerReplacesStaleEffects");
+        helper.succeed();
     }
 }

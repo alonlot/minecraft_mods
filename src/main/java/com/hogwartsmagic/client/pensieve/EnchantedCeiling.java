@@ -4,6 +4,7 @@ import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.ambience.AmbientEffect;
 import com.hogwartsmagic.client.ambience.AmbienceClock;
 import com.hogwartsmagic.client.ambience.WorldAmbience;
+import com.hogwartsmagic.client.ambience.WorldCeilingReveal;
 import com.hogwartsmagic.client.ModRenderTypes;
 import com.hogwartsmagic.pensieve.scene.CeilingSky;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -71,8 +72,9 @@ import java.util.UUID;
  *
  * <p>Outside a memory the same drawing serves the world's own ceilings (the registered {@code KIND_CEILING} effects, the
  * castle's hall and the ceiling spell's rooms) within 128 blocks of the camera: always the real style, on the world's
- * clock ({@code AmbienceClock}) rather than the scene's, open unless the server told this client a reveal
- * ({@code WorldAmbience#revealStart}), when the roof dissolves from that moment. The Pensieve path is unchanged.
+ * clock ({@code AmbienceClock}) rather than the scene's, open, except a sealed one (the castle's hall) shows its plank roof until the server tells this client a reveal began
+ * ({@code WorldAmbience#revealStart}, when the roof dissolves from that moment) or that the player already had it
+ * ({@code WorldAmbience#isOpened}); see {@code WorldCeilingReveal}. The Pensieve path is unchanged.
  *
  * <p>Textures come from {@code build_scripts/generate_ceiling_textures.py}.
  */
@@ -299,7 +301,10 @@ public final class EnchantedCeiling {
                 WORLD_SKIES.put(e.id(), cached);
             }
             long reveal = WorldAmbience.revealStart(e.id());
-            cached.sky.revealT = reveal == WorldAmbience.NO_REVEAL ? WORLD_START : AmbienceClock.at(level, reveal);
+            boolean told = reveal != WorldAmbience.NO_REVEAL;
+            // Sealed (the castle's hall) until this player is told its reveal started, or that they already had it.
+            cached.sky.revealT = WorldCeilingReveal.start(e.sealed(), WorldAmbience.isOpened(e.id()), told,
+                    told ? AmbienceClock.at(level, reveal) : 0f);
             out.add(cached.sky);
         }
         return out;

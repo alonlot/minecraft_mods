@@ -13,7 +13,8 @@ import java.util.UUID;
  * <p>The fields mean slightly different things per kind, but the box is always centre ({@code x, y, z}) plus half
  * extents ({@code hx, hy, hz}):
  * <ul>
- *   <li>ceiling: {@code x, z} the centre, {@code hx, hz} the half extents, {@code y} the sky plane; {@code hy} is the
+ *   <li>ceiling: {@code count} is {@link #CEILING_SEALED} for a ceiling that starts as a plank roof (see {@link #sealed});
+ *       {@code x, z} the centre, {@code hx, hz} the half extents, {@code y} the sky plane; {@code hy} is the
  *       roof clearance ABOVE the plane (blocks from the plane up to the roof's underside, 0 = no room above), which
  *       renderers use to clip storm slices below {@code y + hy}. The castle registers {@code hy = 17}, spell ceilings
  *       {@code hy = 0}. See {@link AmbienceRegistry#ceilingAt}</li>
@@ -31,8 +32,25 @@ public record AmbientEffect(UUID id, int kind, double x, double y, double z, flo
     public static final int KIND_CANDLES = 1;
     public static final int KIND_RAYS = 2;
     public static final int KIND_DOOR = 3;
+    /** A ceiling's {@code count} when it starts sealed: a plank roof until its reveal plays (the castle's hall). */
+    public static final int CEILING_SEALED = 1;
     /** How many kinds there are; a kind is valid from 0 up to this (exclusive). */
     public static final int KIND_COUNT = 4;
+
+    /**
+     * Whether this is a ceiling that shows its plank roof until the viewer has had its reveal (or the server said the
+     * viewer already had), as the castle's hall does. Spell ceilings are open from the start. A ceiling carries no other
+     * use for {@code count}, so the flag rides there and the wire and save formats are unchanged.
+     */
+    public boolean sealed() {
+        return kind == KIND_CEILING && count == CEILING_SEALED;
+    }
+
+    /** Whether the two are the same effect but for when they were registered. */
+    public boolean sameAs(AmbientEffect other) {
+        return equals(new AmbientEffect(other.id, other.kind, other.x, other.y, other.z, other.hx, other.hy, other.hz,
+                other.yaw, other.count, other.owner, createdTick));
+    }
 
     /** Writes this effect; the mirror of {@link #decode}. */
     public void encode(FriendlyByteBuf buf) {

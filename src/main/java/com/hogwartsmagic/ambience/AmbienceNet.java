@@ -33,13 +33,25 @@ public final class AmbienceNet {
     private AmbienceNet() {
     }
 
-    /** The whole effect list of one dimension; the client replaces what it holds with it. */
-    public record AmbienceSyncPacket(String dimension, List<AmbientEffect> all) {
+    /**
+     * The whole effect list of one dimension; the client replaces what it holds with it. {@code opened} are the sealed
+     * ceilings in it that this player has already had revealed (it entered that hall before), which the client draws
+     * open instead of as a plank roof.
+     */
+    public record AmbienceSyncPacket(String dimension, List<AmbientEffect> all, List<UUID> opened) {
+        public AmbienceSyncPacket(String dimension, List<AmbientEffect> all) {
+            this(dimension, all, List.of());
+        }
+
         public void encode(FriendlyByteBuf buf) {
             buf.writeUtf(dimension);
             buf.writeVarInt(all.size());
             for (AmbientEffect e : all) {
                 e.encode(buf);
+            }
+            buf.writeVarInt(opened.size());
+            for (UUID id : opened) {
+                buf.writeUUID(id);
             }
         }
 
@@ -50,7 +62,12 @@ public final class AmbienceNet {
             for (int i = 0; i < n; i++) {
                 all.add(AmbientEffect.decode(buf));
             }
-            return new AmbienceSyncPacket(dimension, all);
+            int m = Math.min(buf.readVarInt(), MAX_SYNC);
+            List<UUID> opened = new ArrayList<>(Math.max(0, Math.min(m, 256)));
+            for (int i = 0; i < m; i++) {
+                opened.add(buf.readUUID());
+            }
+            return new AmbienceSyncPacket(dimension, all, opened);
         }
 
         public static void handle(AmbienceSyncPacket p, CustomPayloadEvent.Context ctx) {
@@ -106,7 +123,7 @@ public final class AmbienceNet {
     public static void sendSync(ServerPlayer player) {
         ServerLevel level = player.serverLevel();
         send(player, new AmbienceSyncPacket(level.dimension().location().toString(),
-                AmbienceRegistry.get(level).all()));
+                AmbienceRegistry.get(level).all(), com.hogwartsmagic.worldgen.MiniHogwartsAmbience.openedFor(player)));
     }
 
     /** Tells every player in the level that an effect was added or removed. */

@@ -120,8 +120,8 @@ public final class MiniHogwartsGameTests {
             boolean added = sent.stream().anyMatch(s -> s[0] == p && s[1] instanceof AmbienceNet.AmbienceDeltaPacket d
                     && d.add() && d.effect().equals(effect));
             helper.assertTrue(added, "add broadcasts an add delta to the level's players");
-            helper.assertTrue(registry.ceilingAt(new net.minecraft.world.phys.Vec3(100.5, 65, -40.5)) != null,
-                    "a point under the ceiling finds it");
+            helper.assertTrue(registry.ceilingAt(new net.minecraft.world.phys.Vec3(100.5, 71, -40.5), 2) != null,
+                    "a point just above the plane finds it");
             helper.assertTrue(registry.remove(level, effect.id()), "remove reports success");
             boolean removed = sent.stream().anyMatch(s -> s[0] == p && s[1] instanceof AmbienceNet.AmbienceDeltaPacket d
                     && !d.add() && d.effect().id().equals(effect.id()));

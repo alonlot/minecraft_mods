@@ -75,18 +75,20 @@ public final class AmbienceRegistry extends SavedData {
     }
 
     /**
-     * The ceiling over this point: the point is inside its rectangle and at or below its plane, and no further below
-     * it than {@code hy} (a ceiling with {@code hy <= 0} has no depth limit). The oldest match wins.
+     * The ceiling whose rectangle contains this point in x and z and whose vertical span, from {@code band} below the
+     * sky plane to {@code band} above the roof ({@code y - band <= point.y <= y + hy + band}), contains it. A ceiling's
+     * roof blocks sit at or above its plane, so the spell that targets a block of the roof finds the ceiling with a
+     * small band (2 blocks). The oldest match wins.
      */
-    public @Nullable AmbientEffect ceilingAt(Vec3 point) {
+    public @Nullable AmbientEffect ceilingAt(Vec3 point, double band) {
         for (AmbientEffect e : effects.values()) {
             if (e.kind() != AmbientEffect.KIND_CEILING) {
                 continue;
             }
-            if (Math.abs(point.x - e.x()) > e.hx() || Math.abs(point.z - e.z()) > e.hz() || point.y > e.y()) {
+            if (Math.abs(point.x - e.x()) > e.hx() || Math.abs(point.z - e.z()) > e.hz()) {
                 continue;
             }
-            if (e.hy() > 0f && point.y < e.y() - e.hy()) {
+            if (point.y < e.y() - band || point.y > e.y() + Math.max(0f, e.hy()) + band) {
                 continue;
             }
             return e;

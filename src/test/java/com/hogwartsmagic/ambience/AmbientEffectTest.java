@@ -2,7 +2,9 @@ package com.hogwartsmagic.ambience;
 
 import io.netty.buffer.Unpooled;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.world.phys.Vec3;
 import org.junit.jupiter.api.Test;
 
 import java.util.UUID;
@@ -56,6 +58,38 @@ class AmbientEffectTest {
         nan.putDouble("X", Double.NaN);
         assertNull(AmbientEffect.load(nan), "a non finite position is dropped");
         assertNotNull(AmbientEffect.load(ceiling(0, 0, 1f, 1f).save()));
+    }
+
+    /** A registry holding the effects, built through the save path (add() needs a level to broadcast to). */
+    private static AmbienceRegistry registryOf(AmbientEffect... effects) {
+        CompoundTag tag = new CompoundTag();
+        ListTag list = new ListTag();
+        for (AmbientEffect e : effects) {
+            list.add(e.save());
+        }
+        tag.put("Effects", list);
+        return AmbienceRegistry.load(tag, null);
+    }
+
+    @Test
+    void ceilingAtFindsRoofBlocksWithinBand() {
+        // plane y = 70, rectangle 100..124 x -48..-32, roof clearance 17 above the plane
+        AmbientEffect hall = new AmbientEffect(UUID.randomUUID(), AmbientEffect.KIND_CEILING, 112, 70, -40,
+                12f, 17f, 8f, 0f, 0, null, 0L);
+        AmbientEffect spell = new AmbientEffect(UUID.randomUUID(), AmbientEffect.KIND_CEILING, 0, 50, 0,
+                4f, 0f, 4f, 0f, 0, UUID.randomUUID(), 0L);
+        AmbienceRegistry reg = registryOf(hall, spell);
+        assertEquals(hall, reg.ceilingAt(new Vec3(112, 71, -40), 2), "just above the plane (a roof block)");
+        assertEquals(hall, reg.ceilingAt(new Vec3(112, 70, -40), 2), "on the plane");
+        assertEquals(hall, reg.ceilingAt(new Vec3(112, 68.5, -40), 2), "slightly under the plane, inside the band");
+        assertEquals(hall, reg.ceilingAt(new Vec3(112, 87, -40), 0), "at the roof underside, y + hy");
+        assertEquals(hall, reg.ceilingAt(new Vec3(112, 88.5, -40), 2), "just above the roof, inside the band");
+        assertNull(reg.ceilingAt(new Vec3(112, 60, -40), 2), "far below the plane is the room, not the ceiling");
+        assertNull(reg.ceilingAt(new Vec3(112, 95, -40), 2), "far above the roof");
+        assertNull(reg.ceilingAt(new Vec3(130, 71, -40), 2), "outside the rectangle in x");
+        assertNull(reg.ceilingAt(new Vec3(112, 71, -60), 2), "outside the rectangle in z");
+        assertEquals(spell, reg.ceilingAt(new Vec3(1, 51.5, 1), 2), "a spell ceiling (hy = 0) finds a roof block at its plane");
+        assertNull(reg.ceilingAt(new Vec3(1, 53, 1), 2), "and nothing 3 blocks above a plane with no clearance");
     }
 
     @Test

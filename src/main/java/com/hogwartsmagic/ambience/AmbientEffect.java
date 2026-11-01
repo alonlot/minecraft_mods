@@ -13,8 +13,10 @@ import java.util.UUID;
  * <p>The fields mean slightly different things per kind, but the box is always centre ({@code x, y, z}) plus half
  * extents ({@code hx, hy, hz}):
  * <ul>
- *   <li>ceiling: {@code x, z} the centre, {@code hx, hz} the half extents, {@code y} the plane; {@code hy} is how far
- *       below the plane the room reaches (0 or less: no limit), see {@link AmbienceRegistry#ceilingAt}</li>
+ *   <li>ceiling: {@code x, z} the centre, {@code hx, hz} the half extents, {@code y} the sky plane; {@code hy} is the
+ *       roof clearance ABOVE the plane (blocks from the plane up to the roof's underside, 0 = no room above), which
+ *       renderers use to clip storm slices below {@code y + hy}. The castle registers {@code hy = 17}, spell ceilings
+ *       {@code hy = 0}. See {@link AmbienceRegistry#ceilingAt}</li>
  *   <li>candles: the box the {@code count} candles float in</li>
  *   <li>rays: the window, with {@code yaw} the direction the light falls in</li>
  *   <li>door: the hinge point, with {@code yaw} the closed facing</li>

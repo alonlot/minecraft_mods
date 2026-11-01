@@ -77,7 +77,11 @@ public enum SpellType {
     COLLOPORTUS("colloportus", 0x8A6D3B, 0.54f, 0.43f, 0.23f, ParticleTypes.ENCHANT, ParticleTypes.WAX_ON, 60, 15, SpellLootRarity.UNCOMMON),
     /** The Boggart charm (see spell.support.RiddikulusSpell): a Boggart hit enough times is banished; anything
      *  else only glows for a moment and hears a bell. Never does damage. */
-    RIDDIKULUS("riddikulus", 0xFF8AD1, 1.0f, 0.54f, 0.82f, ParticleTypes.NOTE, ParticleTypes.HAPPY_VILLAGER, 40, 15, SpellLootRarity.UNCOMMON);
+    RIDDIKULUS("riddikulus", 0xFF8AD1, 1.0f, 0.54f, 0.82f, ParticleTypes.NOTE, ParticleTypes.HAPPY_VILLAGER, 40, 15, SpellLootRarity.UNCOMMON),
+    /** "Bewitch the sky" (see spell.support.ceiling.CaelumFascinoSpell): cast at two opposite corners of a ceiling to
+     *  make it the Great Hall's enchanted sky; sneak-cast at it to undo. Everything happens on a block hit, so it
+     *  has no entity hit effect; a living target is a miss. */
+    CAELUM_FASCINO("caelum_fascino", 0x7FA8FF, 0.5f, 0.66f, 1.0f, ParticleTypes.END_ROD, ParticleTypes.ENCHANT, 40, 20, SpellLootRarity.RARE);
 
     private final String id;
     private final int color;
@@ -330,6 +334,9 @@ public enum SpellType {
                 // No hit effect: the charm seals locks, not creatures (SpellBeamEntity fizzles it on a living target).
             }
             case RIDDIKULUS -> com.hogwartsmagic.spell.support.RiddikulusSpell.apply(target, caster);
+            case CAELUM_FASCINO -> {
+                // No hit effect: the charm bewitches ceilings, not creatures (SpellBeamEntity fizzles it on a living target).
+            }
         }
     }
 
@@ -384,6 +391,7 @@ public enum SpellType {
             case PIERTOTUM_LOCOMOTOR -> ModSounds.SPELL_WINGARDIUM_LEVIOSA.get();
             case COLLOPORTUS -> ModSounds.SPELL_ALOHOMORA.get(); // the counter-charm shares the unlocking charm's voice
             case RIDDIKULUS -> ModSounds.SPELL_LUMOS.get(); // a bright, light charm; the laugh is the Boggart's own
+            case CAELUM_FASCINO -> ModSounds.SPELL_LUMOS.get(); // a bright, light charm; the chime is played where the sky forms
         };
     }
 

@@ -63,7 +63,8 @@ public class MagicBookItem extends Item {
             "piertotum_locomotor",
             "colloportus",
             "riddikulus",
-            "levicorpus"
+            "levicorpus",
+            "caelum_fascino"
     );
 
     public MagicBookItem(Properties properties) {

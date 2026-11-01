@@ -110,6 +110,10 @@ A = {
     o("kill", "Defeat %s monsters with an explosion", 5, "monster", cause="explosion"),
     o("kill", "Defeat %s Death Eaters", 3, "hogwartsmagic:wizard"),
     o("break", "Mine %s obsidian", 8, "minecraft:obsidian")]),
+"caelum_fascino": ("flitwick", False, "A ceiling is only a lid until you teach it the sky. First, learn the sky.", [
+    o("know_spell", "Know Lumos", 1, "lumos"),
+    o("stand", "Spend %s seconds outdoors at night, learning the stars", 300, night=True, sky=True),
+    o("place", "Hang %s lanterns in your own rooms", 8, "minecraft:lantern")]),
 "piertotum_locomotor": ("mcgonagall", False, "The castle has defenders of stone. Earn the right to command them.", [
     o("know_spell", "Know Reparo", 1, "reparo"),
     o("kill", "Defeat %s Living Statue", 1, "hogwartsmagic:living_statue"),

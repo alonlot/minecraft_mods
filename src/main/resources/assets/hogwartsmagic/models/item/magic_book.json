@@ -249,6 +249,12 @@
         "custom_model_data": 41.0
       },
       "model": "hogwartsmagic:item/magic_book_levicorpus"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 42.0
+      },
+      "model": "hogwartsmagic:item/magic_book_caelum_fascino"
     }
   ]
 }

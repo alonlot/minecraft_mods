@@ -582,7 +582,7 @@ public final class MiniHogwartsManager {
             case LIBRARY -> {
                 SpellType[] commons = {SpellType.LUMOS, SpellType.ALOHOMORA, SpellType.REVELIO,
                         SpellType.WINGARDIUM_LEVIOSA, SpellType.ARRESTO_MOMENTUM, SpellType.REPARO};
-                SpellType[] advanced = {SpellType.PROTEGO, SpellType.EXPELLIARMUS, SpellType.STUPEFY, SpellType.DIFFINDO};
+                SpellType[] advanced = {SpellType.PROTEGO, SpellType.EXPELLIARMUS, SpellType.STUPEFY, SpellType.DIFFINDO, SpellType.CAELUM_FASCINO};
                 for (int i = 0; i < 3 + rng.nextInt(4); i++) {
                     addBook(out, rng, commons[rng.nextInt(commons.length)]);
                 }

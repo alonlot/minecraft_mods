@@ -1,0 +1,21 @@
+{
+  "teacher": "flitwick",
+  "objectives": [
+    {
+      "type": "know_spell",
+      "target": "lumos",
+      "count": 1
+    },
+    {
+      "type": "stand",
+      "count": 300,
+      "night": true,
+      "sky": true
+    },
+    {
+      "type": "place",
+      "target": "minecraft:lantern",
+      "count": 8
+    }
+  ]
+}

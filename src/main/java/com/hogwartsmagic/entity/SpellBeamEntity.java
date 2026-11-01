@@ -897,6 +897,19 @@ public class SpellBeamEntity extends ThrowableProjectile {
                         hitSuccessful = cast != com.hogwartsmagic.spell.support.seal.ColloportusSpell.Cast.NOTHING;
                         masteryEligible = cast == com.hogwartsmagic.spell.support.seal.ColloportusSpell.Cast.SEALED;
                     }
+                } else if (spell == SpellType.CAELUM_FASCINO) {
+                    // Two corners make a ceiling the client draws as the real sky; a sneak-cast removes it. Only a
+                    // made or removed ceiling counts as a success (a first corner, a refusal and a miss fizzle), and
+                    // only a made one pays XP. A beam a Protego reflected never bewitches anyone's ceiling.
+                    if (this.level() instanceof ServerLevel ceilingLevel && !this.reflected) {
+                        com.hogwartsmagic.spell.support.ceiling.CaelumFascinoSpell.Result ceilingResult =
+                                com.hogwartsmagic.spell.support.ceiling.CaelumFascinoSpell.onBlockHit(
+                                        ceilingLevel, pos, getOwner());
+                        hitSuccessful = ceilingResult == com.hogwartsmagic.spell.support.ceiling.CaelumFascinoSpell.Result.MARKED
+                                || ceilingResult == com.hogwartsmagic.spell.support.ceiling.CaelumFascinoSpell.Result.CREATED
+                                || ceilingResult == com.hogwartsmagic.spell.support.ceiling.CaelumFascinoSpell.Result.REMOVED;
+                        masteryEligible = ceilingResult == com.hogwartsmagic.spell.support.ceiling.CaelumFascinoSpell.Result.CREATED;
+                    }
                 }
             } else if (result instanceof EntityHitResult entityHit && livingBehind(entityHit.getEntity()) instanceof LivingEntity living) {
                 // A player's ranked Protego first: parry window (dissolve or reflect), or the shield breaks.
@@ -923,7 +936,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
                         // to applyHitEffect keeps a living target from eating a "successful" impact
                         // burst for a spell that did nothing to it.
                         if (spell == SpellType.MORSMORDRE || spell == SpellType.PIERTOTUM_LOCOMOTOR
-                                || spell == SpellType.COLLOPORTUS) {
+                                || spell == SpellType.COLLOPORTUS || spell == SpellType.CAELUM_FASCINO) {
                             hitSuccessful = false;
                         } else if (spell == SpellType.AVADA_KEDAVRA && living instanceof VoldemortEntity voldemort && voldemort.tryEvadeAvada(getOwner())) {
                             if (this.level() instanceof ServerLevel sl) {

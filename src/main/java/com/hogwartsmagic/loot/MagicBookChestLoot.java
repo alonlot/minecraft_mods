@@ -58,7 +58,9 @@ public final class MagicBookChestLoot {
             // they have any reason to want one.
             SpellType.PIERTOTUM_LOCOMOTOR,
             // The locking charm sits on the shelf beside the unlocking one.
-            SpellType.COLLOPORTUS
+            SpellType.COLLOPORTUS,
+            // A bookshelf spell for a builder: bewitching a ceiling is for those who have rooms to bewitch.
+            SpellType.CAELUM_FASCINO
     };
     private static final SpellType[] DUNGEON_MIX = {
             SpellType.STUPEFY, SpellType.REVELIO, SpellType.LUMOS, SpellType.GLACIUS,
@@ -90,7 +92,8 @@ public final class MagicBookChestLoot {
             SpellType.AQUA_ERUCTO,
             SpellType.REPARO,
             SpellType.COLLOPORTUS,
-            SpellType.RIDDIKULUS
+            SpellType.RIDDIKULUS,
+            SpellType.CAELUM_FASCINO
     };
 
     static {

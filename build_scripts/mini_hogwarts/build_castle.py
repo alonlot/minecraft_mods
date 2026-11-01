@@ -58,7 +58,8 @@ OUT_SCHEM = os.path.join(SCHEM_DIR, 'mini_hogwarts.schem')
 OUT_ANCHORS = os.path.join(SCHEM_DIR, 'mini_hogwarts.anchors.json')
 VIEWER_NBT = os.path.join(REPO, 'build', 'mh', 'mini_hogwarts.nbt')
 
-from mini_hogwarts import checks, hall, rooms_classrooms, rooms_library, rooms_staircase, rooms_towers  # noqa: E402
+from mini_hogwarts import (checks, hall, rooms_below, rooms_classrooms, rooms_library, rooms_staircase,  # noqa: E402
+                           rooms_towers)
 from mini_hogwarts.grid import Grid, air_at, enclosed_air, load_schem, seal_interiors as _seal, write_schem  # noqa: E402
 
 
@@ -88,6 +89,10 @@ CHANGED_ON_PURPOSE = [
     # ground floor's east room, Transfiguration in the upper floor's labelled room and the room east of it, and that
     # room's door from the upper landing; Defence and the stair below the floor are carved into the hill's hollow
     *rooms_classrooms.changed_boxes(),
+    # below the castle (rooms_below): the stair from the entrance hall, the kitchens, the dungeon corridor and its cells,
+    # the Slytherin common room, each box with its walls, all carved into the Great Hall's plinth (new stone: they change
+    # no old-castle cell today; check 44 holds them inside the plinth)
+    *rooms_below.changed_boxes(),
 ]
 
 # Every room interior, name -> inclusive box, filled by collect_rooms() once the rooms are built (some boxes are
@@ -151,6 +156,17 @@ def room_classrooms(grid):
     a.setdefault('student_spots', []).extend(found['student_spots'])
 
 
+def room_below(grid):
+    """Below the castle, carved into the Great Hall's plinth: the stair down from the entrance hall, the kitchens under
+    the house tables, the dungeon corridor with its cells and statue alcoves, the Slytherin common room."""
+    found = rooms_below.place_below(grid)
+    a = grid.anchors
+    a.setdefault('elf_spots', []).extend(found['elf_spots'])
+    a.setdefault('chests', []).extend(found['chests'])
+    a.setdefault('student_spots', []).extend(found['student_spots'])
+    a.setdefault('statues', []).extend(found['statues'])
+
+
 def collect_rooms(grid):
     """Fill ROOMS from the room modules: the Great Hall, entrance hall and west gallery; the Grand Staircase's well,
     its entry door and every closed course of its top (its own light boxes); the Library's rooms and tunnel; the tower
@@ -169,6 +185,7 @@ def collect_rooms(grid):
         ROOMS['library %d' % i] = b
     ROOMS.update(rooms_towers.room_boxes(grid.cells))
     ROOMS.update(rooms_classrooms.room_boxes())
+    ROOMS.update(rooms_below.room_boxes())
     return ROOMS
 
 
@@ -192,7 +209,7 @@ def wing_tops():
     return dict(hall.column_tops())
 
 
-ROOM_STEPS = (room_great_hall, room_grand_staircase, room_library, room_towers, room_classrooms)
+ROOM_STEPS = (room_great_hall, room_grand_staircase, room_library, room_towers, room_classrooms, room_below)
 
 
 # ---------------------------------------------------------------- checks
@@ -250,7 +267,9 @@ def verify(grid):
     assert not open_cols, 'ceiling columns with no roof: %d, e.g. %s' % (len(open_cols), open_cols[:5])
     assert ceil['clearance'] >= 0, ceil
 
-    # 5. nothing of the hall hangs over air: solid from under the floor down to the base's rock (or y 0)
+    # 5. nothing of the hall hangs over air: solid from under the floor down to the base's rock (or y 0); a room carved
+    #    into the plinth below (the kitchens, the stair) is no hole: verify_below holds its walls, floor and ceiling whole
+    carved = list(rooms_below.room_boxes().values())
     hanging = []
     for (x, z) in sorted(hall.footprint_columns()):
         y = MAIN_FLOOR_Y - 1
@@ -258,7 +277,7 @@ def verify(grid):
             if (x, y, z) in base.cells and checks.block_id(base.cells[(x, y, z)]) in hall.TERRAIN_NAMES:
                 break                                          # reached the old castle's rock
             y -= 1
-        if y >= 0 and air_at(cells, (x, y, z)):
+        if y >= 0 and air_at(cells, (x, y, z)) and not any(rooms_below._in((x, y, z), b) for b in carved):
             hanging.append((x, y, z))
     assert not hanging, 'hall columns over air: %d, e.g. %s' % (len(hanging), hanging[:5])
 
@@ -297,6 +316,7 @@ def verify(grid):
     verify_library(grid, base, walk)
     verify_towers(grid, base, walk)
     verify_classrooms(grid, base, walk)
+    verify_below(grid, base, walk)
     verify_sealed(grid, walk)
     return walk
 
@@ -633,6 +653,96 @@ def verify_classrooms(grid, base, walk):
     assert not plain, ('gatehouse air left unsealed: %d' % len(plain), plain[:5])
 
 
+def verify_below(grid, base, walk):
+    """The promises below the castle: every room is walked to from the main entrance, and only down the entrance hall's
+    stair; every room is carved into the Great Hall's plinth and closed in by it; the kitchens' four long tables lie
+    under the four house tables, cell for cell; three cells or more stand behind iron bars; the Slytherin common room is
+    lit green (sea lanterns behind green glass), low and has its dark fireplace; no floor below is dark; the anchors
+    (the house elves' spots, the DUNGEON chest, the common room's student spots, the alcoves' statues) stand where they
+    can be used; every room is a sealed interior."""
+    B = rooms_below
+    a = grid.anchors
+    cells = grid.cells
+    step = {'north': (0, -1), 'south': (0, 1), 'east': (1, 0), 'west': (-1, 0)}
+
+    def free_floor(p):
+        x, y, z = p
+        return grid.is_air(x, y, z) and grid.is_air(x, y + 1, z) and checks.supports(grid.get(x, y - 1, z))
+
+    # 42. every part below is walked to: both ends of the stair, the passage, the kitchens (south end, hearth, east
+    #     aisle), the dungeon landing and the corridor's far end, the open cell, the Slytherin common room's door, hearth
+    #     and far corners
+    for name, c in sorted(B.BELOW_CELLS.items()):
+        assert c in walk, 'below: %s %s not reachable from the main entrance' % (name, c)
+
+    # 43. the way down is the entrance hall's stair: with the slot floored over, nothing below is walked to
+    floored = Grid()
+    floored.cells = dict(cells)
+    for x, z in B.slot_columns():
+        floored.set(x, MAIN_FLOOR_Y, z, 'minecraft:stone')
+    walk2 = checks.reachable(floored, tuple(a['main_entrance']))
+    other = sorted(c for c in walk2 if B.in_rooms(c))
+    assert not other, ('a way below besides the entrance hall\'s stair', other[:5])
+
+    # 44. carved into the plinth: every room cell is in a column of the hall, below its floor (the slot's own floor cells
+    #     at it), and every cell round the rooms is solid but the slot's mouth into the entrance hall, so no room opens
+    #     onto the world or the hill's hollow under the entrance hall
+    report = B.plinth_report(cells, hall.footprint_columns())
+    assert not report['outside'], ('below: room cells outside the plinth', report['outside'][:5])
+    assert not report['leaks'], ('below: a room opens onto air', report['leaks'][:5])
+
+    # 45. the kitchens' four long tables lie under the four house tables: every top cell of the hall's tables has a
+    #     kitchen table cell under it, on the same x and z
+    tables = B.hall_table_cells(cells)
+    groups = B.table_groups({x for x, _ in tables})
+    assert len(groups) == 4, ('the Great Hall\'s house tables', groups)
+    missing = sorted((x, z) for x, z in tables if grid.get(x, B.KITCHEN_FEET, z) != B.TABLE_SLAB)
+    assert not missing, ('kitchen table cells missing under the house tables', len(missing), missing[:5])
+
+    # 46. three cells or more behind iron bars (their whole front onto the corridor is bars), and the open one with its
+    #     iron door
+    barred = B.barred_cells(cells)
+    assert len(barred) >= 3, ('dungeon cells behind iron bars', barred)
+    door = grid.get(B.OPEN_CELL[1], B.DUNGEON_FEET, B.OPEN_DOOR_Z)
+    assert checks.block_id(door) == 'iron_door', ('the open cell\'s door', door)
+
+    # 47. the Slytherin common room: lit green (sea lanterns right behind green glass facing the room, a dozen or more),
+    #     low (five tall or less), and its dark fireplace (a lit soul fire in the firebox)
+    green = B.green_lights(cells)
+    assert green >= 12, ('Slytherin green lights', green)
+    assert B.SLYTHERIN[4] - B.SLYTHERIN[1] + 1 <= 5, ('the Slytherin vault is not low', B.SLYTHERIN)
+    fires = [p for p, s in cells.items() if B._in(p, B.SL_HEARTH) and checks.block_id(s) == 'soul_campfire'
+             and 'lit=true' in s]
+    assert fires, 'no soul fire in the Slytherin fireplace'
+
+    # 48. no dark floor anywhere below
+    dark = checks.dark_floor_cells(grid, B.light_boxes())
+    assert not dark, 'dark floor cells below the castle: %d, e.g. %s' % (len(dark), dark[:5])
+
+    # 49. the anchors: three house-elf spots or more in the kitchens; one DUNGEON chest in a cell with its front walked to
+    #     (check 8 holds its floor tile); the common room's student spots (3 or 4); the alcoves' statues (check 13 holds
+    #     their headroom) in the corridor's alcoves. Every spot is a free, walked floor cell with two of headroom
+    elves = [tuple(p) for p in a.get('elf_spots', ())]
+    assert len(elves) >= 3 and all(B._in(p, B.KITCHEN) for p in elves), ('house-elf spots', elves)
+    dungeon = [c for c in a['chests'] if c['theme'] == 'DUNGEON']
+    assert len(dungeon) == 1, ('one DUNGEON chest', dungeon)
+    cx, cy, cz = dungeon[0]['at']
+    ox, oz = step[dungeon[0]['facing']]
+    assert any(B._in((cx, cy, cz), B._cell_box(c)) for c in B.CELLS) and (cx + ox, cy, cz + oz) in walk, dungeon
+    spots = [tuple(s) for s in a['student_spots'] if B._in(s, B.SLYTHERIN)]
+    assert 3 <= len(spots) <= 4, ('Slytherin student spots', spots)
+    for p in elves + spots:
+        assert p in walk and free_floor(p), ('spot below not a free, walked floor cell', p)
+    alcoves = [tuple(s['at']) for s in a['statues'] if s['at'][1] == B.DUNGEON_FEET and B.in_rooms(tuple(s['at']))]
+    assert len(alcoves) == 2 * len(B.ALCOVE_Z), ('the dungeon alcoves\' statues', alcoves)
+
+    # 50. every room below is one of the castle's sealed rooms (check 30 then holds its air to cave_air; with 44, no air
+    #     touches them that is not theirs)
+    rooms = ROOMS or collect_rooms(grid)
+    missing = [n for n, b in B.ROOMS_BY_NAME.items() if b not in rooms.values()]
+    assert not missing, ('rooms below not in ROOMS', missing)
+
+
 def verify_sealed(grid, walk):
     """30. Interior air is marked: every air cell of every ROOMS box is minecraft:cave_air, never plain (absent) air,
     so the placer clears the world out of every room (rulings R29, R30); no walked cell is a plain-air gap between
@@ -724,6 +834,7 @@ def main():
     print('library: %s' % getattr(rooms_library.place_library, 'stats', {}))
     print('towers: %s' % getattr(rooms_towers.place_towers, 'stats', {}))
     print('classrooms: %s' % getattr(rooms_classrooms.place_classrooms, 'stats', {}))
+    print('below: %s' % getattr(rooms_below.place_below, 'stats', {}))
     print('sealed: %d cave_air cells (%d room boxes); %d cells of rock pockets filled with stone' % (
         getattr(seal_interiors, 'count', 0), len(ROOMS), getattr(seal_interiors, 'filled', 0)))
     print('census:')

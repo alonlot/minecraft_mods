@@ -397,11 +397,13 @@ Each spell below lists the implemented gameplay behavior currently present in th
 ### Caelum Fascino
 
 - "Bewitch the sky": turns your own ceiling into the Great Hall's enchanted sky. Pale blue beam with end rod and enchant particles; 20 mana, 2 second cooldown.
-- Cast at one corner block of a ceiling (it glows for you), then at the opposite corner within a minute. The sky appears over the rectangle between the two blocks, at the lower face of the lower corner.
-- Your blocks are not changed. The sky is only drawn just under your real ceiling, plays the plank-roof-dissolving reveal when made, then follows the real weather and time of day.
-- Limits: 64 blocks a side, corners at most 16 blocks apart in height, 8 ceilings per player (counted over every dimension), no overlap with another ceiling on the same floor area. Casting too far away, in another dimension or after the mark lapses starts you over with a hint.
-- Sneak and cast at a bewitched ceiling to remove it. Only its maker or an operator (permission level 2) can.
-- The spellbook is rare: Bookseller trade, library chests (including the Mini Hogwarts library) and general chest loot. It is a block utility spell, so a made ceiling earns mastery XP.
+- Cast at one corner block of a ceiling (it glows for you alone), then at the opposite corner within a minute. The sky appears over the rectangle between the two blocks, at the lower face of the lower corner.
+- Your blocks are not changed. The sky is only drawn just under your real ceiling, plays the plank-roof-dissolving reveal when made, then follows the real sky: blue day with drifting clouds, warm dawn and dusk, stars at night, thicker grey cloud in rain and lightning in a thunderstorm. It is the same sky as the Mini Hogwarts Great Hall.
+- Limits: 64 blocks a side, the two corners at most 16 blocks apart in height, 8 ceilings per player (counted over every dimension). A new ceiling may not overlap another over the same floor area unless it is at least 4 blocks above or below it, so each storey of a tower can have its own.
+- It needs a sky: in a dimension with none (the Nether, the End) the cast is refused before any corner is marked.
+- A mark that lapses after a minute, a first corner in another dimension, or a refused second cast (too big, too many, overlap) tells you why and starts you over.
+- Sneak and cast at a bewitched ceiling (at the roof block just above its sky) to remove it. Only its maker or an operator (permission level 2) can.
+- The spellbook is rare: Bookseller trade from level 3 (with the other advanced books), stronghold library chests, general chest loot and the Mini Hogwarts library chest. It is a block utility spell, so a made ceiling earns mastery XP.
 
 ## Hogwarts Assignments
 
@@ -772,7 +774,7 @@ Each spell below lists the implemented gameplay behavior currently present in th
 
 - A stone basin with a silver surface that gives off a soft light. It holds one memory at a time.
 - Crafting: polished deepslate, Arcane Dust and polished deepslate across the top, then stone in a bowl shape below (a stone on each side in the middle row, three along the bottom).
-- A public Pensieve stands in the library of every Mini Hogwarts built after this update. Anyone can pour into it.
+- A public Pensieve stands in the reading hall of every Mini Hogwarts library, on a dais between the reading tables. Anyone can pour into it.
 - **Pour.** Hold a memory item and use the basin. The item goes into the basin.
 - **Take out.** Sneak and use the basin with an empty hand. Only the player who poured it or an op can do this. On the public basin anyone can, while nobody is inside. Taking it out, or breaking the basin, pulls everyone inside back out.
 - **Dive.** Use the basin with an empty hand, not sneaking, while it holds a memory. You are pulled into the silver and watch the memory play once, start to finish.
@@ -863,7 +865,7 @@ These are decorative house-themed blocks.
 ### Memory of the Chamber
 
 - Plays the Chamber of Secrets scene in a Pensieve (about 90 seconds).
-- Found in Mini Hogwarts library chests (about 1 in 7) and Chamber of Secrets chests (about 14%).
+- Found in the Mini Hogwarts library chest (about 1 in 7) and Chamber of Secrets chests (about 14%).
 - Pouring it into a Pensieve does not use it up: take it out again and it is yours.
 
 ### Memory of the Summoning
@@ -1343,10 +1345,82 @@ Each tier keeps the costs of the tiers below it, except where a harder cost repl
 
 ### Mini Hogwarts
 
-- A small castle raised in the Forbidden Forest the first time a player goes there (no two within 6000 blocks). `/spawnminihogwarts` builds one, `/findminihogwarts` finds the nearest.
-- Students wander its floors, a few house elves keep below stairs, and themed chests wait in its library, spell study, dungeon, great hall and tower.
-- **Potions classroom.** Climb the gatehouse stairs to the upper room with the bookshelves: the door in its south wall opens into a tall Potions classroom with seven Wizard Cauldrons over magma (six for students, one for the teacher), shelves, a lectern and two ingredient chests. Each chest holds enough for one brew of every common recipe, with bottles, a water bucket and a stirring rod; now and then one holds an Ashwinder Egg. The cauldrons are full and heated, so you can start brewing straight away.
-- The chests are stocked once, when the castle is built (a chest whose chunk is not loaded at that moment stays empty). Castles that already stand are never rebuilt or changed, so only castles built after this update have the classroom.
+A small, furnished castle that is already standing when you find it, like a woodland mansion. It is never built in front of you.
+
+**Where.**
+
+- Castles generate with the world, in Forbidden Forest biomes only, and they are rare: spaced thousands of blocks apart, and only where a spot falls in Forbidden Forest.
+- The first time you come within sight of one (about 80 blocks) a title card reads "Hogwarts" over "School of Witchcraft and Wizardry". It shows once per player per castle.
+- `/findminihogwarts` (op) gives the nearest castle as a click-to-teleport line, and works before you have visited it. `/findminihogwarts list` lists the castles that have generated.
+- `/spawnminihogwarts` (op) puts a castle at your position, the same as `/place structure hogwartsmagic:mini_hogwarts`. It overwrites a big patch of terrain and needs the chunks around you loaded.
+- Castles in worlds from before this update are left as they were.
+
+**The way in.** The gatehouse gate stands open. A viaduct leads north from it to a covered gallery of guardian statues, then the entrance hall. Every room can be reached on foot without breaking a block.
+
+**Great Hall.**
+
+- The film's hall: four long house tables with the High Table on its dais, braziers, tall windows and a Gothic double portal. It stands on the castle's central axis.
+- The ceiling is the enchanted sky, and it follows the real one: blue day with drifting clouds, dawn and dusk tints, stars at night, grey cloud in rain and lightning in thunderstorms. Hundreds of candles float above the tables, bobbing and flickering.
+- By day, shafts of sunlight come through the tall windows. They fade in rain and at night.
+- The two great doors swing open as you come within a few blocks and close a few seconds after the last person leaves. They are only a picture over an open doorway, so they can never trap you.
+- The first time you walk in, the ceiling plays its reveal: a plank roof dissolving into sky. After that it is simply open.
+- The Sorting stool stands at the High Table end with the Sorting Hat on it.
+- A food chest by the doors holds bread, beef, pies, a cake, a potion and bottles, a Lumos book and sometimes an Accio book.
+
+**Entrance hall and Grand Staircase.**
+
+- The entrance hall has an imperial staircase, and the Great Hall's portal in front of it.
+- Behind it the central tower is one open well, full height, with stone flights that switch back between landings. It has framed portraits, hanging lanterns, a column of floating candles and a compass star on the floor.
+- Ten Living Statues stand along the flights. A helical stair at the top climbs on to the Astronomy gallery.
+- The Fat Lady hangs beside the door on the top landing, where a bridge leads to Gryffindor tower. There is no password.
+
+**Library and Restricted Section.**
+
+- Cut into the hill under the gatehouse. A stair from the gatehouse, and a door from the grounds beside the viaduct, lead down to tall shelving to the ceiling, a mezzanine reached by ladders, reading tables with lanterns and Madam Pince's desk.
+- A public Pensieve stands on a dais in the middle of the reading hall.
+- Behind iron bars and an iron door (a button on each side) is the Restricted Section: dark, near-empty shelves, two closets and an alcove with the library chest.
+
+**Gryffindor common room and dormitory.**
+
+- Over the bridge from the Grand Staircase, in the tower at its end. The common room is red and gold, with a big stone fireplace, a settee and armchairs on a rug, a study table and house banners.
+- A stair climbs to the dormitory under the cone, with five red four-poster beds, nightstands and trunks.
+
+**Headmaster's office and Astronomy gallery.** Both are in the top of the central tower.
+
+- The Astronomy gallery is open to the sky through four wide arches, with a telescope at each, a star-chart table and a lectern. A rail runs round an opening over the Grand Staircase.
+- A stone spiral beside a gargoyle carving leads up into the round office. Its floor is glass over the well. It has a desk and chair, a phoenix perch, instrument tables, bookcases, four portraits and a chandelier. The tower chest is here.
+
+**Classrooms.**
+
+- **Defence Against the Dark Arts.** Down a step from the gate vestibule: a stone-brick hall of desks either side of a deepslate aisle, the teacher's desk on a dais, a wardrobe, skull shelves, soul lanterns and a dragon skeleton hung from the ceiling.
+- **Charms.** In the gatehouse, east of the vestibule: tiers of birch desks, the teacher's desk, floating feathers lighting the front of the class, and the spell study chest.
+- **Transfiguration.** On the gatehouse's upper floor, up the spiral in the west room: a blackboard, a teacher's desk, twelve desks, birdcages, and the Mirror of Erised on a gilded plinth in the east bay between candles.
+- **Potions.** Through the door labelled "Transfiguration" at the back of that room, into the apse tower: a tall classroom with seven Wizard Cauldrons over magma (six for students, one for the teacher), shelves, a lectern and two ingredient chests. Each chest holds enough for one brew of every common recipe, with bottles, a water bucket and a stirring rod; now and then one holds an Ashwinder Egg or an Advanced Potion-Making book. The cauldrons are full and heated, so you can start brewing straight away.
+
+**Kitchens, dungeons and the Slytherin common room.** All below the Great Hall, down a stair in the entrance hall's north-west corner.
+
+- The kitchens lie right under the Great Hall, with four long tables on the lines of the four house tables above. They have a great hearth, ranges and dressers, and the house elves.
+- The dungeon corridor runs north under the kitchens: eight cells behind iron bars (one stands open, with the dungeon chest), torches on the piers and four Living Statue alcoves.
+- At its end, behind a deepslate wall with a green banner over the door, is the Slytherin common room: a low vaulted hall lit green by lanterns behind glass, with a black fireplace of soul fire, sofas and armchairs on a green rug, study and chess tables, and bookshelves.
+
+**Chests.** Each is stocked once, when its chunk generates.
+
+- **Great Hall.** Food, a potion, bottles and a Lumos book (see above).
+- **Library** (Restricted Section alcove). Three to six common spell books, one or two advanced ones (Caelum Fascino can be among them), books, quills and paper, and about 1 in 7 holds the Chamber of Secrets memory.
+- **Spell study** (Charms). Two to four combat and study spell books, lapis, enchanted books, bottles of experience, glass bottles and Arcane Dust.
+- **Dungeon** (open cell). One dark-arts spell book, sometimes two, with bones, rotten flesh, soul sand, iron and cobweb, and rarely a skull.
+- **Tower** (Headmaster's office). One rare spell book, gold, diamonds, emeralds and bottles of experience, and a very small chance of the Elder Wand.
+- **Potions classroom.** Two chests of brewing supplies (above).
+
+**Students.** About thirty wander the castle's rooms, spread out so no room is empty. They are ordinary Hogwarts Students.
+
+**Castle statues.** Twenty-two Living Statues guard the staircase, the gallery, the gate, the portal and the dungeon.
+
+- They stand dormant like suits of armour and wake only for hostile mobs. They never target or harm players, and ignore other statues.
+- A statue falls apart and reforms at its post when a player hits it, when it would be killed, and after a fight is over. A woken statue with nothing left to fight does this by itself a few seconds later.
+- They drop nothing, not even to a command kill, so they cannot be farmed.
+
+The castle is lit inside, and its windows glow at night.
 
 ### Gringotts
 

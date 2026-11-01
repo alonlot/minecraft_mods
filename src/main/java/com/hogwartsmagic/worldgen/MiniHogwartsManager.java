@@ -343,6 +343,10 @@ public final class MiniHogwartsManager {
                 decoNear(hall, Blocks.LANTERN.defaultBlockState());
                 decoNear(hall, Blocks.FLOWER_POT.defaultBlockState());
             }
+            // The Fat Lady keeps watch on the nearest Great Hall wall.
+            if (hall != null && com.hogwartsmagic.portrait.PortraitPlacement.hangFatLadyNear(level, hall, 16) == null) {
+                LOGGER.info("Mini Hogwarts: no free wall near the Great Hall for the Fat Lady");
+            }
             // Tower treasure — a hidden pocket near the very top.
             if (topX >= 0) {
                 BlockPos spot = floorSpotNear(topX, topY - 2, topZ, 6);

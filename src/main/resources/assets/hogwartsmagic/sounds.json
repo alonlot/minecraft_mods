@@ -3627,5 +3627,257 @@
         "stream": false
       }
     ]
+  },
+  "portrait.fat_lady.greet_1": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/fat_lady/greet_1"
+      }
+    ]
+  },
+  "portrait.fat_lady.greet_2": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/fat_lady/greet_2"
+      }
+    ]
+  },
+  "portrait.fat_lady.leave_1": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/fat_lady/leave_1"
+      }
+    ]
+  },
+  "portrait.fat_lady.leave_2": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/fat_lady/leave_2"
+      }
+    ]
+  },
+  "portrait.fat_lady.dark_1": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/fat_lady/dark_1"
+      }
+    ]
+  },
+  "portrait.fat_lady.dark_2": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/fat_lady/dark_2"
+      }
+    ]
+  },
+  "portrait.fat_lady.light_1": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/fat_lady/light_1"
+      }
+    ]
+  },
+  "portrait.fat_lady.light_2": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/fat_lady/light_2"
+      }
+    ]
+  },
+  "portrait.fat_lady.creeper_video": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/fat_lady/creeper_video"
+      }
+    ]
+  },
+  "portrait.fat_lady.creeper_2": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/fat_lady/creeper_2"
+      }
+    ]
+  },
+  "portrait.fat_lady.hostile_1": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/fat_lady/hostile_1"
+      }
+    ]
+  },
+  "portrait.fat_lady.hostile_2": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/fat_lady/hostile_2"
+      }
+    ]
+  },
+  "portrait.fat_lady.punched_video": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/fat_lady/punched_video"
+      }
+    ]
+  },
+  "portrait.fat_lady.punched_2": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/fat_lady/punched_2"
+      }
+    ]
+  },
+  "portrait.fat_lady.explosion_1": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/fat_lady/explosion_1"
+      }
+    ]
+  },
+  "portrait.fat_lady.explosion_2": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/fat_lady/explosion_2"
+      }
+    ]
+  },
+  "portrait.fat_lady.rain_1": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/fat_lady/rain_1"
+      }
+    ]
+  },
+  "portrait.fat_lady.rain_2": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/fat_lady/rain_2"
+      }
+    ]
+  },
+  "portrait.fat_lady.thunder_1": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/fat_lady/thunder_1"
+      }
+    ]
+  },
+  "portrait.fat_lady.thunder_2": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/fat_lady/thunder_2"
+      }
+    ]
+  },
+  "portrait.fat_lady.hurt_1": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/fat_lady/hurt_1"
+      }
+    ]
+  },
+  "portrait.fat_lady.hurt_2": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/fat_lady/hurt_2"
+      }
+    ]
+  },
+  "portrait.fat_lady.wand_1": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/fat_lady/wand_1"
+      }
+    ]
+  },
+  "portrait.fat_lady.wand_2": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/fat_lady/wand_2"
+      }
+    ]
+  },
+  "portrait.fat_lady.sing_video": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/fat_lady/sing_video"
+      }
+    ]
+  },
+  "portrait.fat_lady.sing_2": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/fat_lady/sing_2"
+      }
+    ]
+  },
+  "portrait.fat_lady.morning_1": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/fat_lady/morning_1"
+      }
+    ]
+  },
+  "portrait.fat_lady.morning_2": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/fat_lady/morning_2"
+      }
+    ]
+  },
+  "portrait.fat_lady.night_1": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/fat_lady/night_1"
+      }
+    ]
+  },
+  "portrait.fat_lady.night_2": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/fat_lady/night_2"
+      }
+    ]
+  },
+  "portrait.fat_lady.gryffindor_1": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/fat_lady/gryffindor_1"
+      }
+    ]
+  },
+  "portrait.fat_lady.gryffindor_2": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/fat_lady/gryffindor_2"
+      }
+    ]
+  },
+  "portrait.fat_lady.slytherin_1": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/fat_lady/slytherin_1"
+      }
+    ]
+  },
+  "portrait.fat_lady.slytherin_2": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/fat_lady/slytherin_2"
+      }
+    ]
+  },
+  "portrait.fat_lady.ravenclaw_1": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/fat_lady/ravenclaw_1"
+      }
+    ]
+  },
+  "portrait.fat_lady.hufflepuff_1": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/fat_lady/hufflepuff_1"
+      }
+    ]
   }
 }

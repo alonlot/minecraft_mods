@@ -20,8 +20,8 @@ swap the castle's own Great Hall for the memory's film-styled one.
    The castle grows to fit it.
 3. **Magic you can see in the real world**, reusing the memory renderers: the enchanted ceiling and floating
    candles in the Great Hall, light rays through its windows, house banners.
-4. **Cinematic moments**: the castle builds itself up out of the rock instead of popping in; a title card the first
-   time you reach it; the Great Hall doors swing open as you walk up; the ceiling opens into sky on your first
+4. **Cinematic moments**: a title card the first time you reach it (the castle itself is a normal worldgen
+   structure, never built live: see Arrival); the Great Hall doors swing open as you walk up; the ceiling opens into sky on your first
    step inside.
 5. Exterior silhouette kept: towers, spires, viaduct, gatehouse stay where they are and look as they do, apart from
    the new hall wing and windows that glow at night.
@@ -200,17 +200,34 @@ corners.
   Alley Bookseller; whether it also needs a spell level or practice follows how comparable utility spells work.
 - Gametests: two-corner creation, the side and count limits, removal permissions, persistence across a restart.
 
-## Cinematic arrival
+## Arrival: a normal structure (revised 2026-11-01)
 
-- **The castle builds itself up out of the rock.** Placement stays layer-by-layer bottom-up (the schematic index is
-  already y-major), slowed so a build takes about a minute, with a rumble at the castle, dust and falling-gravel
-  particles along the layer being placed, and a gentle camera shake for players within ~100 blocks. Furnishing,
-  chests, students and elves still land once the build finishes. The server must not hitch, and a server stop
-  mid-build must leave a castle that finishes or can be finished (today the job is dropped on stop; that has to
-  change, e.g. resuming from a saved cursor in `MiniHogwartsTracker`).
-- **Title card**: the first time a player comes within sight of a castle (~80 blocks), "Hogwarts" with
+The user does not want the castle built live in front of the player: it must **act like a normal structure**,
+already standing when you find it, generated with the world.
+
+- **A real worldgen `Structure`**, not a Feature and not the server-tick placement job. A custom structure type with
+  one piece that carries the schematic's anchor corner; in `postProcess` each chunk places only the schematic cells
+  inside that chunk's bounding box (the way vanilla's big structures work), so there is no far-chunk write and no
+  hitch. The stone skirt under overhanging parts is filled per column, inside the chunk, down to the ground. The
+  August far-chunk crash came from a `Feature` writing outside its 3x3 window; a structure piece clipped to its chunk
+  box does not have that problem.
+- **Where**: only in the Forbidden Forest biome (a biome tag), rare (a random-spread structure set with a spacing of
+  thousands of blocks, as the old 6000-block auto-spawn spacing intended). Sited on the highest ground of its
+  footprint like today's `requestSpawn`, the base sunk 2 blocks. The whole bounding box stays within 8 chunks of the
+  start chunk (the castle is 109 x 223, so the start is its centre).
+- **Furnishing in worldgen**: chests (stocked), the Pensieve, paintings, banners, the Fat Lady, students, house elves
+  and castle statues are placed by the chunk that contains each of them, during that chunk's `postProcess`.
+  Anything that must touch level-wide state (the castle tracker, the ambience registry) is handed to the server
+  thread with `server.execute(...)`, never done on a worldgen thread.
+- **The castle tracker** records each castle (centre, anchor) when its centre chunk is processed, so
+  `/findminihogwarts`, the title card and the ambience system know about it. `/findminihogwarts` may also use the
+  vanilla structure locate.
+- **The old live path is removed**: no auto-spawn when entering the forest, no placement job, no build animation.
+  `/spawnminihogwarts` (op) becomes a wrapper over the vanilla structure placement at the player's position (or is
+  replaced by `/place structure hogwartsmagic:mini_hogwarts`).
+- **Title card** (kept): the first time a player comes within sight of a castle (~80 blocks), "Hogwarts" with
   "School of Witchcraft and Wizardry" beneath, as a title/subtitle, once per player per castle.
-- The announcement chat line stays.
+- Castles already standing in existing worlds are left as they are.
 
 ## Constraints
 
@@ -218,8 +235,8 @@ corners.
   event bytes 21/35/63 crash the client; `RenderLevelStageEvent` partial tick is `PensieveClientState.partial()`
   style, not `event.getPartialTick()` (memories `reference_renderlevelstage_matrix`,
   `feedback_no_enum_switch_in_models`, `feedback_entity_event_bytes`).
-- Big builds go through `ServerLevel.setBlock` outside worldgen, chunked over ticks (memory
-  `project_big_structures_outside_worldgen`). The loader `MiniHogwartsSchematic` reads Sponge v3 and ignores
+- The castle is a worldgen `Structure` whose piece writes only inside each chunk's box (revised 2026-11-01; the
+  older rule in memory `project_big_structures_outside_worldgen` forbids a *Feature*, which is what crashed). The loader `MiniHogwartsSchematic` reads Sponge v3 and ignores
   block-entity NBT; banners with patterns, signs with text and filled containers need either loader support or
   post-placement code.
 - Never run gradle while the user's client is running.

@@ -16,7 +16,8 @@ import java.io.InputStream;
 
 /**
  * Loads {@code mini_hogwarts.schem} (WorldEdit / Sponge schematic, version 3) from the mod jar
- * exactly once and caches the decoded block grid for runtime placement.
+ * exactly once and caches the decoded block grid for the castle structure piece. The loaded grid is
+ * never changed, so worldgen threads can read it at the same time.
  *
  * <p>The Sponge schematic format stores blocks as a flat varint stream indexed
  * {@code x + z*Width + y*Width*Length}, with a palette mapping block-state strings to ids.
@@ -30,12 +31,20 @@ public final class MiniHogwartsSchematic {
 
     private static MiniHogwartsSchematic instance;
     private static boolean loadFailed;
+    /** GameTests swap in a small stand-in castle here; null in normal play. */
+    private static volatile MiniHogwartsSchematic testOverride;
 
     private final int width;
     private final int height;
     private final int length;
     private final BlockState[] palette;
     private final short[] cells; // palette id per cell, order x + z*width + y*width*length
+    /**
+     * Lowest non-air y per column ({@code x + z*width}), -1 for an all-air column. Worked out once at load so the
+     * structure piece can lay each chunk's stone skirt without scanning the column again. Cave air (the
+     * schematic's "clear this interior" marker) counts as air here: it is not support for the skirt.
+     */
+    private final int[] lowestSolidY;
 
     private MiniHogwartsSchematic(int width, int height, int length, BlockState[] palette, short[] cells) {
         this.width = width;
@@ -43,6 +52,28 @@ public final class MiniHogwartsSchematic {
         this.length = length;
         this.palette = palette;
         this.cells = cells;
+        this.lowestSolidY = new int[width * length];
+        java.util.Arrays.fill(lowestSolidY, -1);
+        int wl = width * length;
+        for (int idx = 0; idx < cells.length; idx++) {
+            int col = idx % wl;
+            if (lowestSolidY[col] == -1 && !blockAt(idx).isAir()) {
+                lowestSolidY[col] = idx / wl; // y-ascending order: the first hit is the lowest
+            }
+        }
+    }
+
+    /**
+     * A schematic built in code, for GameTests that need a castle small enough to place in a test. Cells are
+     * palette ids in the file's order, {@code x + z*width + y*width*length}.
+     */
+    public static MiniHogwartsSchematic forTests(int width, int height, int length, BlockState[] palette, short[] cells) {
+        return new MiniHogwartsSchematic(width, height, length, palette.clone(), cells.clone());
+    }
+
+    /** Makes {@link #get()} return {@code schematic} until called again with null. GameTests only. */
+    public static void overrideForTests(MiniHogwartsSchematic schematic) {
+        testOverride = schematic;
     }
 
     public int width() {
@@ -68,8 +99,28 @@ public final class MiniHogwartsSchematic {
         return state != null ? state : Blocks.AIR.defaultBlockState();
     }
 
+    /** Block state at local {@code (x, y, z)}; air outside the schematic. */
+    public BlockState blockAt(int x, int y, int z) {
+        if (x < 0 || y < 0 || z < 0 || x >= width || y >= height || z >= length) {
+            return Blocks.AIR.defaultBlockState();
+        }
+        return blockAt(x + z * width + y * width * length);
+    }
+
+    /** The lowest non-air local y in column {@code (x, z)}, or -1 when the column is all air or outside. */
+    public int lowestSolidY(int x, int z) {
+        if (x < 0 || z < 0 || x >= width || z >= length) {
+            return -1;
+        }
+        return lowestSolidY[x + z * width];
+    }
+
     /** Loads (once) and caches the schematic. Returns null if the file is missing or unparseable. */
     public static synchronized MiniHogwartsSchematic get() {
+        MiniHogwartsSchematic override = testOverride;
+        if (override != null) {
+            return override;
+        }
         if (instance != null) {
             return instance;
         }

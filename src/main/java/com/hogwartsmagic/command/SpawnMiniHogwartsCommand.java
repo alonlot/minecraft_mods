@@ -1,44 +1,39 @@
 package com.hogwartsmagic.command;
 
-import com.hogwartsmagic.worldgen.MiniHogwartsManager;
+import com.hogwartsmagic.worldgen.structure.ModStructures;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.context.CommandContext;
-import net.minecraft.ChatFormatting;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.Style;
-import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.commands.PlaceCommand;
+import net.minecraft.world.level.levelgen.structure.Structure;
+
+import java.util.Optional;
 
 public class SpawnMiniHogwartsCommand {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        // /spawnminihogwarts — build the Mini Hogwarts castle near the caller. Op-only (perm 2);
-        // it overwrites a large patch of terrain. Placement is spread over server ticks.
+        // /spawnminihogwarts — place the Mini Hogwarts structure centred on the caller's chunk, exactly as
+        // /place structure hogwartsmagic:mini_hogwarts would. Op-only (perm 2); it overwrites a large patch of
+        // terrain. Like /place, every chunk the castle covers must already be loaded.
         dispatcher.register(Commands.literal("spawnminihogwarts")
                 .requires(s -> s.hasPermission(2))
                 .executes(SpawnMiniHogwartsCommand::run));
     }
 
-    private static int run(CommandContext<CommandSourceStack> ctx) {
+    private static int run(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         CommandSourceStack src = ctx.getSource();
-        ServerLevel level = src.getLevel();
-        if (MiniHogwartsManager.isBusy()) {
-            src.sendFailure(Component.literal("A Mini Hogwarts castle is already being built. Wait for it to finish."));
+        Optional<Holder.Reference<Structure>> structure = src.registryAccess()
+                .registryOrThrow(Registries.STRUCTURE).getHolder(ModStructures.MINI_HOGWARTS);
+        if (structure.isEmpty()) {
+            src.sendFailure(Component.literal("The Mini Hogwarts structure is not registered (datapack missing?)."));
             return 0;
         }
-        // Offset from the caller so the castle doesn't bury them.
-        BlockPos center = BlockPos.containing(src.getPosition()).offset(60, 0, 60);
-        BlockPos recorded = MiniHogwartsManager.requestSpawn(level, center);
-        if (recorded == null) {
-            src.sendFailure(Component.literal("Could not build Mini Hogwarts (schematic missing or unreadable)."));
-            return 0;
-        }
-        src.sendSuccess(() -> Component.literal(
-                        "Building Mini Hogwarts near " + recorded.getX() + ", " + recorded.getY() + ", " + recorded.getZ()
-                                + ". It will rise over a few seconds — use /findminihogwarts to locate it.")
-                .withStyle(Style.EMPTY.withColor(ChatFormatting.GOLD)), true);
-        return 1;
+        return PlaceCommand.placeStructure(src, structure.get(), BlockPos.containing(src.getPosition()));
     }
 }

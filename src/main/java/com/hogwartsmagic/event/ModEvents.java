@@ -857,10 +857,10 @@ public class ModEvents {
             // Dark Magic smoke (Corrupted and Lost): returns at once on 9 ticks out of 10, before any read.
             com.hogwartsmagic.spell.dark.DarkCosts.tickSmoke(player);
 
-            // Once every 5s, check if the player is standing in a Forbidden Forest with no castle
-            // nearby — if so, raise a Mini Hogwarts. Placement runs outside worldgen (no far-chunk crash).
-            if (player.tickCount % 100 == 0) {
-                com.hogwartsmagic.worldgen.MiniHogwartsManager.maybeAutoSpawn(player);
+            // Once a second: the "Hogwarts" title card, the first time this player sees a castle. The castles
+            // themselves are a worldgen structure now, already standing when found.
+            if (player.tickCount % 20 == 0) {
+                com.hogwartsmagic.worldgen.MiniHogwartsManager.maybeShowTitle(player);
             }
 
             // Give some villages a Gringotts branch the first time a player walks
@@ -2765,9 +2765,7 @@ public class ModEvents {
     @SubscribeEvent
     public static void onServerTick(net.minecraftforge.event.TickEvent.ServerTickEvent event) {
         if (event.phase == net.minecraftforge.event.TickEvent.Phase.END) {
-            // Advance any in-progress Mini Hogwarts build (spread across ticks).
-            com.hogwartsmagic.worldgen.MiniHogwartsManager.tick(event.getServer());
-            // Same for Diagon Alley, which is fifteen chunks long and cannot go in one tick.
+            // Diagon Alley is fifteen chunks long and cannot go in one tick: advance its build.
             com.hogwartsmagic.worldgen.DiagonAlleyManager.tick(event.getServer());
             // And carry whoever walks into an open archway across into the alley dimension.
             com.hogwartsmagic.worldgen.DiagonAlleyPortal.tick(event.getServer());

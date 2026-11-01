@@ -1,0 +1,7 @@
+{
+  "type": "hogwartsmagic:mini_hogwarts",
+  "biomes": "#hogwartsmagic:has_structure/mini_hogwarts",
+  "step": "surface_structures",
+  "terrain_adaptation": "beard_thin",
+  "spawn_overrides": {}
+}

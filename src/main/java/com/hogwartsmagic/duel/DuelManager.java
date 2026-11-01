@@ -6,9 +6,6 @@ import com.hogwartsmagic.item.MagicBookItem;
 import com.hogwartsmagic.spell.SpellLootRarity;
 import com.hogwartsmagic.spell.SpellType;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
-import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
-import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -376,10 +373,6 @@ public final class DuelManager {
 
     private static void sendTitle(ServerPlayer player, Component title, Component subtitle,
                                   int fadeIn, int stay, int fadeOut) {
-        player.connection.send(new ClientboundSetTitlesAnimationPacket(fadeIn, stay, fadeOut));
-        if (subtitle != null) {
-            player.connection.send(new ClientboundSetSubtitleTextPacket(subtitle));
-        }
-        player.connection.send(new ClientboundSetTitleTextPacket(title));
+        com.hogwartsmagic.util.Titles.sendTitle(player, title, subtitle, fadeIn, stay, fadeOut);
     }
 }

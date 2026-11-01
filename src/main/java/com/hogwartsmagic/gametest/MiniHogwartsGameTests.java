@@ -576,6 +576,105 @@ public final class MiniHogwartsGameTests {
         });
     }
 
+    /**
+     * Woken by a zombie that then dies, a castle statue stands down: after 200 quiet ticks it crumbles and reforms
+     * dormant at its post, facing the way it was posted, however far the fight had carried it.
+     */
+    @GameTest(template = EMPTY, batch = "mh_castle_statue_castleStatueStandsDownAfterTheFight", timeoutTicks = 400)
+    public static void castleStatueStandsDownAfterTheFight(GameTestHelper helper) {
+        var statue = helper.spawn(com.hogwartsmagic.entity.ModEntities.LIVING_STATUE.get(), new BlockPos(0, 0, 1));
+        BlockPos post = helper.absolutePos(new BlockPos(0, 0, 1));
+        statue.guardCastle(post, 90.0F);
+        var zombie = helper.spawnWithNoFreeWill(net.minecraft.world.entity.EntityType.ZOMBIE, new BlockPos(2, 0, 1));
+        zombie.setPersistenceRequired();
+        // Invulnerable, so the statue wakes by sensing it but never takes it for a target: a blow in flight when
+        // the zombie dies would otherwise run on (up to 114 ticks) and make the stand-down time vary run to run.
+        // kill() bypasses invulnerability.
+        zombie.setInvulnerable(true);
+        helper.runAtTickTime(75, () -> {
+            try {
+                helper.assertTrue(statue.isAwake(), "the zombie woke the castle statue");
+            } catch (RuntimeException e) {
+                zombie.discard();
+                statue.discard();
+                throw e;
+            }
+            // The fight is over, and it has been carried away from its post.
+            zombie.kill();
+            net.minecraft.world.phys.Vec3 away = helper.absoluteVec(new net.minecraft.world.phys.Vec3(6.5, 0, 1.5));
+            statue.teleportTo(away.x, away.y, away.z);
+        });
+        helper.runAtTickTime(250, () -> {
+            try {
+                helper.assertTrue(statue.isAwake() && !statue.isCrumbling(),
+                        "it has not stood down before 200 quiet ticks have passed");
+            } catch (RuntimeException e) {
+                statue.discard();
+                throw e;
+            }
+        });
+        helper.runAtTickTime(345, () -> {
+            try {
+                helper.assertTrue(statue.isAlive() && statue.isDormant() && !statue.isCrumbling(),
+                        "it stood down: dormant again");
+                helper.assertTrue(statue.blockPosition().equals(post),
+                        "it stood down at its post, not at " + statue.blockPosition());
+                helper.assertTrue(statue.getYRot() == 90.0F, "it faces its post yaw, not " + statue.getYRot());
+                LOGGER.info("MINIHOGWARTS-GAMETEST PASS castleStatueStandsDownAfterTheFight");
+                helper.succeed();
+            } finally {
+                zombie.discard();
+                statue.discard();
+            }
+        });
+    }
+
+    /** A castle statue whose target is alive and in range never stands down, however long the fight lasts. */
+    @GameTest(template = EMPTY, batch = "mh_castle_statue_castleStatueStaysAwakeWhileItsTargetLives", timeoutTicks = 360)
+    public static void castleStatueStaysAwakeWhileItsTargetLives(GameTestHelper helper) {
+        var statue = castleStatue(helper, new BlockPos(0, 0, 1));
+        var zombie = helper.spawnWithNoFreeWill(net.minecraft.world.entity.EntityType.ZOMBIE, new BlockPos(2, 0, 1));
+        zombie.setPersistenceRequired();
+        // Far too tough for the statue to finish inside the test (1024 is the attribute's ceiling), so the fight
+        // outlasts the 200 ticks. Built on the template floor, not two blocks up: the empty template has a barrier
+        // roof that would cut the statue's line of sight and so its targeting.
+        zombie.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH).setBaseValue(1024.0D);
+        zombie.setHealth(1024.0F);
+        helper.runAtTickTime(330, () -> {
+            try {
+                helper.assertTrue(zombie.isAlive(), "the zombie is still alive");
+                helper.assertTrue(statue.isAwake() && !statue.isCrumbling(),
+                        "the castle statue stood down while its target still lived");
+                helper.assertTrue(statue.getTarget() == zombie, "the castle statue is still on its target");
+                LOGGER.info("MINIHOGWARTS-GAMETEST PASS castleStatueStaysAwakeWhileItsTargetLives");
+                helper.succeed();
+            } finally {
+                zombie.discard();
+                statue.discard();
+            }
+        });
+    }
+
+    /** A hostile mob it never targets (an invulnerable one) but that stands in its sense range still keeps it awake. */
+    @GameTest(template = EMPTY, batch = "mh_castle_statue_castleStatueStaysAwakeWhileAnEnemyIsNear", timeoutTicks = 360)
+    public static void castleStatueStaysAwakeWhileAnEnemyIsNear(GameTestHelper helper) {
+        var statue = castleStatue(helper, new BlockPos(0, 0, 1));
+        var zombie = helper.spawnWithNoFreeWill(net.minecraft.world.entity.EntityType.ZOMBIE, new BlockPos(2, 0, 1));
+        zombie.setPersistenceRequired();
+        zombie.setInvulnerable(true);
+        helper.runAtTickTime(330, () -> {
+            try {
+                helper.assertTrue(statue.isAwake() && !statue.isCrumbling(),
+                        "the castle statue stood down with a hostile mob in its sense range");
+                LOGGER.info("MINIHOGWARTS-GAMETEST PASS castleStatueStaysAwakeWhileAnEnemyIsNear");
+                helper.succeed();
+            } finally {
+                zombie.discard();
+                statue.discard();
+            }
+        });
+    }
+
     /** A castle statue survives a save: the flag, the post and the facing it returns to. */
     @GameTest(template = EMPTY, batch = "mh_castle_statue_castleStatueSurvivesASave", timeoutTicks = 40)
     public static void castleStatueSurvivesASave(GameTestHelper helper) {

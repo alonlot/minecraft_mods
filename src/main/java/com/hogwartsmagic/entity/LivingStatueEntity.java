@@ -101,6 +101,11 @@ public class LivingStatueEntity extends Monster {
     public static final float STRIKE_AT = 0.45F;
     /** Breather after a full three-hit combo, before it can start another. */
     public static final int COMBO_COOLDOWN = 45;
+    /**
+     * A castle statue that has been awake this many ticks with nothing to fight and nothing hostile in
+     * {@link #WAKE_RADIUS} falls apart and reforms dormant at its post (see {@link #standDownWhenIdle}).
+     */
+    public static final int STAND_DOWN_TICKS = 200;
 
     private static final EntityDataAccessor<Integer> DATA_WAKE =
             SynchedEntityData.defineId(LivingStatueEntity.class, EntityDataSerializers.INT);
@@ -143,6 +148,13 @@ public class LivingStatueEntity extends Monster {
     private int comboCooldown;
     /** Set once the current blow's damage has landed, so one swing cannot hit twice. */
     private boolean struck;
+    /**
+     * Server side, castle statues only: consecutive awake ticks with no live target and no hostile mob near.
+     * Deliberately not saved -- a statue unloaded mid-lull simply gets a fresh {@link #STAND_DOWN_TICKS} on
+     * load, which is harmless (it still stands down, a little later), where saving it would add a tag for a
+     * timer nobody can observe.
+     */
+    private int idleTicks;
 
     public LivingStatueEntity(EntityType<? extends LivingStatueEntity> type, Level level) {
         super(type, level);
@@ -470,6 +482,30 @@ public class LivingStatueEntity extends Monster {
                 this.level().playSound(null, this.blockPosition(), ModSounds.STATUE_STEP.get(),
                         SoundSource.HOSTILE, 1.6F, 0.8F);
             }
+        } else if (this.isCastle()) {
+            this.standDownWhenIdle();
+        }
+    }
+
+    /**
+     * A castle statue is scenery that guards: once the fight that woke it is over it goes back to being
+     * scenery. After {@link #STAND_DOWN_TICKS} awake ticks with no live target, no swing in flight and no
+     * hostile mob inside {@link #WAKE_RADIUS} it takes the same crumble-and-reform path a player's hit does,
+     * so it rebuilds itself dormant at its post facing its home yaw. A live target, or an enemy still near
+     * (which would only wake it again the moment it reformed), resets the count, so it never stands down
+     * mid-fight. Bound sentries and ruin guardians never run this.
+     */
+    private void standDownWhenIdle() {
+        LivingEntity target = this.getTarget();
+        boolean engaged = target != null && target.isAlive()
+                || this.isSwinging()
+                // Sensed every ten ticks like the dormant check; a miss between checks only delays the reset.
+                || this.tickCount % 10 == 0 && this.senseIntruder();
+        if (engaged) {
+            this.idleTicks = 0;
+        } else if (++this.idleTicks >= STAND_DOWN_TICKS) {
+            this.idleTicks = 0;
+            this.beginCrumble();
         }
     }
 
@@ -837,6 +873,7 @@ public class LivingStatueEntity extends Monster {
 
     private void beginCrumble() {
         this.entityData.set(DATA_CRUMBLE, 1);
+        this.idleTicks = 0;
         this.dropTarget();
         this.level().playSound(null, this.blockPosition(), ModSounds.STATUE_CRUMBLE.get(),
                 SoundSource.HOSTILE, 1.5F, 1.0F);

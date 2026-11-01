@@ -279,10 +279,15 @@ public class VoldemortEntity extends WizardEntity {
     }
 
     private void cancelQueuedSpell(boolean interrupted) {
+        boolean avada = this.queuedSpell == SpellType.AVADA_KEDAVRA;
         this.queuedSpell = null;
         this.queuedSpellTicks = 0;
         this.setCasting(false);
-        if (interrupted && this.level() instanceof ServerLevel serverLevel) {
+        if (avada) {
+            // The gathered curse collapses (or just fades) on the clients; see AvadaChargeFx.
+            com.hogwartsmagic.spell.mind.AvadaChargeFx.end(this, interrupted
+                    ? com.hogwartsmagic.spell.mind.AvadaChargeFx.BROKEN : com.hogwartsmagic.spell.mind.AvadaChargeFx.DROPPED);
+        } else if (interrupted && this.level() instanceof ServerLevel serverLevel) {
             serverLevel.sendParticles(ParticleTypes.SMOKE, this.getX(), this.getY() + 1.2D, this.getZ(), 18, 0.35D, 0.45D, 0.35D, 0.02D);
             serverLevel.sendParticles(ParticleTypes.CRIT, this.getX(), this.getY() + 1.3D, this.getZ(), 10, 0.25D, 0.35D, 0.25D, 0.05D);
             this.level().playSound(null, this.getX(), this.getY(), this.getZ(), SoundEvents.GLASS_BREAK, SoundSource.HOSTILE, 0.8f, 0.8f);
@@ -301,21 +306,23 @@ public class VoldemortEntity extends WizardEntity {
         this.queuedSpellTicks = warmupTicks;
         this.setCasting(true);
         this.swing(InteractionHand.MAIN_HAND);
+        if (spell == SpellType.AVADA_KEDAVRA) {
+            com.hogwartsmagic.spell.mind.AvadaChargeFx.begin(this, warmupTicks);
+        }
     }
 
     /**
      * Continuous dark aura — a thin smoky halo of soul-fire and squid-ink particles
      * that orbits Voldemort and trails a wisp upward. Drastically cheaper than the
-     * casting warning particles since it ticks every server tick. Density doubles
-     * while the AK windup is queued so the cast feels visibly more dangerous.
+     * casting warning particles since it ticks every server tick. The AK windup has
+     * its own hand-drawn effect on the clients (AvadaChargeFx), so the aura stays as it is.
      */
     private void emitAura(ServerLevel serverLevel) {
-        boolean charging = this.queuedSpell == SpellType.AVADA_KEDAVRA;
         // Orbiting ring around the chest.
-        int ringCount = charging ? 6 : 3;
+        int ringCount = 3;
         for (int i = 0; i < ringCount; i++) {
             double angle = (this.tickCount * 0.18D) + (Math.PI * 2.0D * i) / ringCount;
-            double r = 0.55D + (charging ? 0.15D * Math.sin(this.tickCount * 0.3D) : 0.0D);
+            double r = 0.55D;
             double x = this.getX() + Math.cos(angle) * r;
             double y = this.getY() + 1.2D;
             double z = this.getZ() + Math.sin(angle) * r;
@@ -328,12 +335,6 @@ public class VoldemortEntity extends WizardEntity {
                     this.getY() + 0.15D,
                     this.getZ() + (this.getRandom().nextDouble() - 0.5D) * 0.6D,
                     1, 0.0D, 0.02D, 0.0D, 0.01D);
-        }
-        // While AK is charging, a vertical column of warning sparks rises from the wand.
-        if (charging && this.tickCount % 4 == 0) {
-            serverLevel.sendParticles(ParticleTypes.SOUL,
-                    this.getX(), this.getY() + 1.5D, this.getZ(),
-                    2, 0.1D, 0.1D, 0.1D, 0.04D);
         }
     }
 
@@ -374,24 +375,8 @@ public class VoldemortEntity extends WizardEntity {
         boolean avada = this.queuedSpell == SpellType.AVADA_KEDAVRA;
 
         if (avada) {
-            double charge = 1.0D - (this.queuedSpellTicks / 60.0D);
-            double radius = 0.28D + charge * 0.9D;
-            double heightStep = 0.16D + charge * 0.1D;
-            for (int i = 0; i < 4; i++) {
-                double angle = this.tickCount * 0.42D + (Math.PI * 0.5D * i);
-                double x = handX + Math.cos(angle) * radius;
-                double y = handY - 0.15D + i * heightStep;
-                double z = handZ + Math.sin(angle) * radius;
-                serverLevel.sendParticles(this.queuedSpell.getDustParticle(), x, y, z, 2, 0.03D, 0.03D, 0.03D, 0.0D);
-                if (i % 2 == 0) {
-                    serverLevel.sendParticles(ParticleTypes.END_ROD, x, y, z, 1, 0.01D, 0.01D, 0.01D, 0.0D);
-                }
-            }
-            serverLevel.sendParticles(ParticleTypes.WITCH, handX, handY, handZ, 2, 0.12D, 0.12D, 0.12D, 0.01D);
-            serverLevel.sendParticles(ParticleTypes.SQUID_INK, handX, handY, handZ, 3, 0.12D, 0.12D, 0.12D, 0.02D);
-            if (this.queuedSpellTicks % 10 == 0) {
-                this.level().playSound(null, this.getX(), this.getY(), this.getZ(), SoundEvents.BEACON_POWER_SELECT, SoundSource.HOSTILE, 0.7f, 0.45f + (60 - this.queuedSpellTicks) * 0.008f);
-            }
+            // Drawn on the clients from AvadaChargeFx: the shroud, the threads, the arcs and the drone.
+            return;
         } else {
             serverLevel.sendParticles(this.queuedSpell.getDustParticle(), handX, handY, handZ, 6, 0.14D, 0.14D, 0.14D, 0.01D);
             Vec3 targetPos = target.getEyePosition();
@@ -413,6 +398,9 @@ public class VoldemortEntity extends WizardEntity {
         this.setCasting(false);
         if (spell == null) {
             return;
+        }
+        if (spell == SpellType.AVADA_KEDAVRA) {
+            com.hogwartsmagic.spell.mind.AvadaChargeFx.end(this, com.hogwartsmagic.spell.mind.AvadaChargeFx.FIRED);
         }
 
         long now = this.level().getGameTime();

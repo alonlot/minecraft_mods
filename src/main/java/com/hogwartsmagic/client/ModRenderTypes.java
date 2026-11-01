@@ -56,6 +56,42 @@ public final class ModRenderTypes extends RenderType {
                     .createCompositeState(false)
     );
 
+    /** The Killing Curse gathering: the same additive light as {@link #PROTEGO_LIGHT}, its own batch. */
+    public static final RenderType AVADA_LIGHT = create(
+            "hogwartsmagic_avada_light",
+            DefaultVertexFormat.POSITION_COLOR,
+            VertexFormat.Mode.QUADS,
+            16384,
+            false,
+            false,
+            RenderType.CompositeState.builder()
+                    .setShaderState(RENDERTYPE_LIGHTNING_SHADER)
+                    .setWriteMaskState(COLOR_WRITE)
+                    .setTransparencyState(LIGHTNING_TRANSPARENCY)
+                    .setCullState(NO_CULL)
+                    .createCompositeState(false)
+    );
+
+    /**
+     * The shroud around a Killing Curse caster: near-black vertex colour, straight-alpha blending so it darkens
+     * what is behind it, no depth write, no culling. Unsorted: every puff is the same colour, and same-colour
+     * alpha layers composite the same in any order.
+     */
+    public static final RenderType AVADA_SHADOW = create(
+            "hogwartsmagic_avada_shadow",
+            DefaultVertexFormat.POSITION_COLOR,
+            VertexFormat.Mode.QUADS,
+            16384,
+            false,
+            false,
+            RenderType.CompositeState.builder()
+                    .setShaderState(RENDERTYPE_LIGHTNING_SHADER)
+                    .setWriteMaskState(COLOR_WRITE)
+                    .setTransparencyState(TRANSLUCENT_TRANSPARENCY)
+                    .setCullState(NO_CULL)
+                    .createCompositeState(false)
+    );
+
     /**
      * Unlit, linearly filtered smoke for the Dark Mark: straight-alpha blending, no depth write so
      * the stacked layers of the volume all show, no culling so it reads from behind too. Sorted on

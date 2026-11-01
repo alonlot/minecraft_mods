@@ -378,6 +378,15 @@ public class SpellPackets {
                 .decoder(buf -> new PatronusShieldStatePacket(buf.readInt(), buf.readBoolean()))
                 .consumerMainThread(PatronusShieldStatePacket::handle)
                 .add();
+        CHANNEL.messageBuilder(AvadaChargePacket.class)
+                .encoder((p, buf) -> {
+                    buf.writeInt(p.casterId);
+                    buf.writeVarInt(p.durationTicks);
+                    buf.writeByte(p.phase);
+                })
+                .decoder(buf -> new AvadaChargePacket(buf.readInt(), buf.readVarInt(), buf.readByte()))
+                .consumerMainThread(AvadaChargePacket::handle)
+                .add();
         CHANNEL.messageBuilder(IncarcerousRopesPacket.class)
                 .encoder((p, buf) -> {
                     buf.writeInt(p.entityId);
@@ -1676,6 +1685,16 @@ public class SpellPackets {
     public record PatronusShieldStatePacket(int casterId, boolean active) {
         public static void handle(PatronusShieldStatePacket p, CustomPayloadEvent.Context ctx) {
             enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("patronusShieldState", p));
+        }
+    }
+
+    /**
+     * Server → client: {@code casterId} began winding up the Killing Curse ({@code phase} BEGIN, lasting
+     * {@code durationTicks}), or the windup ended (FIRED, BROKEN, DROPPED). See {@code AvadaChargeFx}.
+     */
+    public record AvadaChargePacket(int casterId, int durationTicks, byte phase) {
+        public static void handle(AvadaChargePacket p, CustomPayloadEvent.Context ctx) {
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("avadaCharge", p));
         }
     }
 

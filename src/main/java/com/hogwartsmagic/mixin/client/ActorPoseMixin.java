@@ -36,6 +36,9 @@ public abstract class ActorPoseMixin {
         ActorPoser.apply(((LivingEntityRenderer<?, ?>) (Object) this).getModel(), entity, partial);
         // Incarcerous: the bound body (arms pinned, straining). Same hook, so it sits on top of any actor pose.
         IncarcerousBoundPose.apply(((LivingEntityRenderer<?, ?>) (Object) this).getModel(), entity, partial);
+        // Avada Kedavra windup: the wand arm raised over the aim, striking down on the cast.
+        com.hogwartsmagic.client.AvadaChargePose.apply(((LivingEntityRenderer<?, ?>) (Object) this).getModel(),
+                entity, partial);
     }
 
     @Inject(method = RENDER, at = @At("RETURN"))

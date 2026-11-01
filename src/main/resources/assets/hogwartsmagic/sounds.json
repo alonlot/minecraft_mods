@@ -3879,5 +3879,32 @@
         "name": "hogwartsmagic:portrait/fat_lady/hufflepuff_1"
       }
     ]
+  },
+  "spell.avada_kedavra.charge": {
+    "subtitle": "subtitles.hogwartsmagic.spell.avada_kedavra.charge",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:avada/charge",
+        "stream": false
+      }
+    ]
+  },
+  "spell.avada_kedavra.snuff": {
+    "subtitle": "subtitles.hogwartsmagic.spell.avada_kedavra.snuff",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:avada/snuff",
+        "stream": false
+      }
+    ]
+  },
+  "spell.avada_kedavra.charge_short": {
+    "subtitle": "subtitles.hogwartsmagic.spell.avada_kedavra.charge",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:avada/charge_short",
+        "stream": false
+      }
+    ]
   }
 }

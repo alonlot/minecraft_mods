@@ -28,5 +28,6 @@ public abstract class BasiliskGazeGuiMixin {
                                                   CallbackInfo ci) {
         BasiliskGazeOverlay.render(guiGraphics);
         com.hogwartsmagic.client.PetrificationClient.renderHud(guiGraphics);
+        com.hogwartsmagic.client.AvadaChargeOverlay.render(guiGraphics);
     }
 }

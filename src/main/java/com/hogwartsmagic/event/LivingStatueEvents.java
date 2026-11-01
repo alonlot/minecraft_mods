@@ -84,12 +84,13 @@ public final class LivingStatueEvents {
      *
      * <p>Bound statues are skipped. A bound one is a sentry a player raised and it follows them
      * about, so waking it off a chest would mean it stood up every time its own owner opened a
-     * crate at camp -- noise, not an ambush.
+     * crate at camp -- noise, not an ambush. Castle statues are skipped too: the castle's chests
+     * are there to be opened, and its statues wake only for hostile mobs.
      */
     private static void rouseGuardians(ServerLevel level, BlockPos pos) {
         for (LivingStatueEntity statue : level.getEntitiesOfClass(LivingStatueEntity.class,
                 new AABB(pos).inflate(ALARM_RADIUS),
-                s -> s.isAlive() && s.isDormant() && !s.isBound())) {
+                s -> s.isAlive() && s.isDormant() && !s.isBound() && !s.isCastle())) {
             statue.wake();
         }
     }

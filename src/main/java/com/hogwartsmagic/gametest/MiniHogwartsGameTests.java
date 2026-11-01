@@ -395,4 +395,404 @@ public final class MiniHogwartsGameTests {
         LOGGER.info("MINIHOGWARTS-GAMETEST PASS titleShownOncePerPlayer");
         helper.succeed();
     }
+
+    /** The title card looks at the anchors' {@code title_point} when the castle has one, else at the centre. */
+    @GameTest(template = EMPTY, batch = "mh_title_point", timeoutTicks = 100)
+    public static void titlePointUsesTheAnchor(GameTestHelper helper) {
+        BlockPos anchor = new BlockPos(-5000, 70, -5000);
+        BlockPos centre = anchor.offset(10, 3, 10);
+        var castle = new com.hogwartsmagic.worldgen.MiniHogwartsTracker.Castle(centre, anchor,
+                new java.util.HashSet<>(), new java.util.HashSet<>());
+        var without = com.hogwartsmagic.worldgen.MiniHogwartsAnchors.parse(anchorsJson(null));
+        var with = com.hogwartsmagic.worldgen.MiniHogwartsAnchors.parse(anchorsJson("[3, 4, 5]"));
+        try {
+            com.hogwartsmagic.worldgen.MiniHogwartsAnchors.overrideForTests(without);
+            helper.assertTrue(com.hogwartsmagic.worldgen.MiniHogwartsManager.titlePoint(castle).equals(centre),
+                    "no title_point: the centre");
+            com.hogwartsmagic.worldgen.MiniHogwartsAnchors.overrideForTests(with);
+            helper.assertTrue(com.hogwartsmagic.worldgen.MiniHogwartsManager.titlePoint(castle).equals(anchor.offset(3, 4, 5)),
+                    "title_point: the anchor plus the local point, got "
+                            + com.hogwartsmagic.worldgen.MiniHogwartsManager.titlePoint(castle));
+            var oldSave = new com.hogwartsmagic.worldgen.MiniHogwartsTracker.Castle(centre, null,
+                    new java.util.HashSet<>(), new java.util.HashSet<>());
+            helper.assertTrue(com.hogwartsmagic.worldgen.MiniHogwartsManager.titlePoint(oldSave).equals(centre),
+                    "a castle with no recorded anchor keeps its centre");
+        } finally {
+            com.hogwartsmagic.worldgen.MiniHogwartsAnchors.overrideForTests(null);
+        }
+        LOGGER.info("MINIHOGWARTS-GAMETEST PASS titlePointUsesTheAnchor");
+        helper.succeed();
+    }
+
+    private static com.google.gson.JsonObject anchorsJson(String titlePoint) {
+        return com.google.gson.JsonParser.parseString("{\"hall_ceiling\": {\"min\": [0, 0], \"max\": [1, 1], \"y\": 5},"
+                + " \"hall_box\": {\"min\": [0, 0, 0], \"max\": [1, 1, 1]}, \"main_entrance\": [0, 1, 0]"
+                + (titlePoint == null ? "" : ", \"title_point\": " + titlePoint) + "}").getAsJsonObject();
+    }
+
+    // ---------------------------------------------------------------- castle guardian statues
+
+    /** A real survival player (the helper's mock is creative, which every statue ignores). */
+    private static ServerPlayer survivalPlayer(GameTestHelper helper, net.minecraft.world.phys.Vec3 at) {
+        var server = helper.getLevel().getServer();
+        var cookie = net.minecraft.server.network.CommonListenerCookie.createInitial(
+                new com.mojang.authlib.GameProfile(UUID.randomUUID(), "mh-survivor"), false);
+        ServerPlayer player = new ServerPlayer(server, helper.getLevel(), cookie.gameProfile(), cookie.clientInformation());
+        var conn = new net.minecraft.network.Connection(net.minecraft.network.protocol.PacketFlow.SERVERBOUND);
+        new io.netty.channel.embedded.EmbeddedChannel(conn);
+        server.getPlayerList().placeNewPlayer(conn, player, cookie);
+        player.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
+        player.moveTo(at.x, at.y, at.z);
+        return player;
+    }
+
+    private static com.hogwartsmagic.entity.LivingStatueEntity castleStatue(GameTestHelper helper, BlockPos relative) {
+        var statue = helper.spawn(com.hogwartsmagic.entity.ModEntities.LIVING_STATUE.get(), relative);
+        statue.guardCastle(helper.absolutePos(relative));
+        return statue;
+    }
+
+    /** A castle statue next to a survival player stays stone, while a ruin guardian beside it rises for the same player. */
+    @GameTest(template = EMPTY, batch = "mh_castle_statue_castleStatueIgnoresPlayers", timeoutTicks = 120)
+    public static void castleStatueIgnoresPlayers(GameTestHelper helper) {
+        var castle = castleStatue(helper, new BlockPos(0, 2, 1));
+        var ruin = helper.spawn(com.hogwartsmagic.entity.ModEntities.LIVING_STATUE.get(), new BlockPos(2, 2, 1));
+        ServerPlayer player = survivalPlayer(helper, helper.absoluteVec(new net.minecraft.world.phys.Vec3(1.5, 2, 1.5)));
+        helper.runAtTickTime(70, () -> {
+            try {
+                helper.assertTrue(castle.isCastle(), "the statue is a castle statue");
+                helper.assertTrue(!ruin.isDormant(), "the control ruin guardian rose for the survival player");
+                helper.assertTrue(castle.isDormant(), "the castle statue stayed dormant beside a survival player");
+                helper.assertTrue(castle.getTarget() == null, "the castle statue never targets a player");
+                helper.assertTrue(player.getHealth() > 0, "the player lives");
+                LOGGER.info("MINIHOGWARTS-GAMETEST PASS castleStatueIgnoresPlayers");
+                helper.succeed();
+            } finally {
+                helper.getLevel().getServer().getPlayerList().remove(player);
+                ruin.discard();
+                castle.discard();
+            }
+        });
+    }
+
+    /** A zombie inside five blocks wakes it. */
+    @GameTest(template = EMPTY, batch = "mh_castle_statue_castleStatueWakesForZombie", timeoutTicks = 100)
+    public static void castleStatueWakesForZombie(GameTestHelper helper) {
+        var statue = castleStatue(helper, new BlockPos(0, 2, 1));
+        var zombie = helper.spawnWithNoFreeWill(net.minecraft.world.entity.EntityType.ZOMBIE, new BlockPos(2, 2, 1));
+        zombie.setPersistenceRequired();
+        helper.runAtTickTime(40, () -> {
+            try {
+                helper.assertTrue(!statue.isDormant(), "a zombie five blocks away did not wake the castle statue");
+                LOGGER.info("MINIHOGWARTS-GAMETEST PASS castleStatueWakesForZombie");
+                helper.succeed();
+            } finally {
+                zombie.discard();
+                statue.discard();
+            }
+        });
+    }
+
+    /** Opening a chest in earshot wakes a ruin guardian but not a castle statue. */
+    @GameTest(template = EMPTY, batch = "mh_castle_statue_castleStatueIgnoresChestAlarm", timeoutTicks = 100)
+    public static void castleStatueIgnoresChestAlarm(GameTestHelper helper) {
+        var castle = castleStatue(helper, new BlockPos(0, 2, 12));
+        var ruin = helper.spawn(com.hogwartsmagic.entity.ModEntities.LIVING_STATUE.get(), new BlockPos(2, 2, 12));
+        BlockPos chest = new BlockPos(1, 2, 1);
+        helper.setBlock(chest, net.minecraft.world.level.block.Blocks.CHEST);
+        ServerPlayer player = survivalPlayer(helper, helper.absoluteVec(new net.minecraft.world.phys.Vec3(1.5, 2, 2.5)));
+        try {
+            var hit = new net.minecraft.world.phys.BlockHitResult(helper.absoluteVec(new net.minecraft.world.phys.Vec3(1.5, 3, 1.5)),
+                    net.minecraft.core.Direction.UP, helper.absolutePos(chest), false);
+            net.minecraftforge.common.MinecraftForge.EVENT_BUS.post(
+                    new net.minecraftforge.event.entity.player.PlayerInteractEvent.RightClickBlock(
+                            player, net.minecraft.world.InteractionHand.MAIN_HAND, helper.absolutePos(chest), hit));
+            helper.assertTrue(!ruin.isDormant(), "the control ruin guardian heard the chest");
+            helper.assertTrue(castle.isDormant(), "the castle statue did not wake for a castle chest");
+        } finally {
+            helper.getLevel().getServer().getPlayerList().remove(player);
+            ruin.discard();
+            castle.discard();
+        }
+        LOGGER.info("MINIHOGWARTS-GAMETEST PASS castleStatueIgnoresChestAlarm");
+        helper.succeed();
+    }
+
+    /**
+     * A player's hit makes it crumble instead of fighting back, it reforms dormant at its post, and a mob's
+     * killing blow does the same instead of destroying it. Nothing it does drops loot.
+     */
+    @GameTest(template = EMPTY, batch = "mh_castle_statue_castleStatueCrumblesAndReformsAtItsPost", timeoutTicks = 240)
+    public static void castleStatueCrumblesAndReformsAtItsPost(GameTestHelper helper) {
+        var statue = castleStatue(helper, new BlockPos(0, 2, 1));
+        BlockPos post = helper.absolutePos(new BlockPos(0, 2, 1));
+        // Walked off its post, as after a fight.
+        net.minecraft.world.phys.Vec3 away = helper.absoluteVec(new net.minecraft.world.phys.Vec3(2.5, 2, 1.5));
+        statue.teleportTo(away.x, away.y, away.z);
+        ServerPlayer player = survivalPlayer(helper, helper.absoluteVec(new net.minecraft.world.phys.Vec3(1.5, 2, 3.5)));
+        // Far enough that it never wakes the statue once it has reformed; it is only the source of a blow later.
+        var zombie = helper.spawnWithNoFreeWill(net.minecraft.world.entity.EntityType.ZOMBIE, new BlockPos(10, 2, 2));
+        zombie.setPersistenceRequired();
+        try {
+            statue.hurt(statue.damageSources().playerAttack(player), 4.0F);
+            helper.assertTrue(statue.isCrumbling(), "a player's hit makes it crumble");
+            helper.assertTrue(statue.getTarget() == null, "it does not fight back");
+            helper.assertTrue(statue.getHealth() == statue.getMaxHealth(), "the hit cost it nothing");
+        } finally {
+            helper.getLevel().getServer().getPlayerList().remove(player);
+        }
+        helper.runAtTickTime(60, () -> {
+            helper.assertTrue(!statue.isCrumbling() && statue.isDormant(), "it is dormant again after the fall");
+            helper.assertTrue(statue.blockPosition().equals(post), "it reformed at its post, not at " + statue.blockPosition());
+            // A killing blow from a mob is a fall too, never a death.
+            statue.hurt(statue.damageSources().mobAttack(zombie), 1000.0F);
+            helper.assertTrue(statue.isAlive() && statue.isCrumbling() && statue.getHealth() >= 1.0F,
+                    "a killing blow from a mob makes it crumble instead of dying");
+        });
+        helper.runAtTickTime(130, () -> {
+            try {
+                helper.assertTrue(statue.isAlive() && statue.isDormant() && statue.blockPosition().equals(post),
+                        "it stands dormant at its post again");
+                // Even a command kill (which bypasses the sentry rule) leaves nothing to farm.
+                statue.hurt(statue.damageSources().genericKill(), 1000.0F);
+            } catch (RuntimeException e) {
+                zombie.discard();
+                statue.discard();
+                throw e;
+            }
+        });
+        helper.runAtTickTime(220, () -> {
+            try {
+                helper.assertTrue(!statue.isAlive(), "a command kill still removes it");
+                var items = helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
+                        new net.minecraft.world.phys.AABB(post).inflate(8));
+                helper.assertTrue(items.isEmpty(), "a castle statue dropped " + items);
+                LOGGER.info("MINIHOGWARTS-GAMETEST PASS castleStatueCrumblesAndReformsAtItsPost");
+                helper.succeed();
+            } finally {
+                zombie.discard();
+                statue.discard();
+            }
+        });
+    }
+
+    /** A castle statue survives a save: the flag, the post and the facing it returns to. */
+    @GameTest(template = EMPTY, batch = "mh_castle_statue_castleStatueSurvivesASave", timeoutTicks = 40)
+    public static void castleStatueSurvivesASave(GameTestHelper helper) {
+        var statue = helper.spawn(com.hogwartsmagic.entity.ModEntities.LIVING_STATUE.get(), new BlockPos(0, 2, 1));
+        BlockPos post = helper.absolutePos(new BlockPos(0, 2, 1));
+        statue.guardCastle(post, 90.0F);
+        var tag = new net.minecraft.nbt.CompoundTag();
+        statue.addAdditionalSaveData(tag);
+        helper.assertTrue(tag.getBoolean("Castle"), "the save carries Castle");
+        var reborn = helper.spawn(com.hogwartsmagic.entity.ModEntities.LIVING_STATUE.get(), new BlockPos(2, 2, 1));
+        reborn.readAdditionalSaveData(tag);
+        try {
+            helper.assertTrue(reborn.isCastle() && !reborn.isBound(), "it loads as a castle statue, not a sentry");
+            helper.assertTrue(post.equals(reborn.getHomePos()), "it keeps its post");
+        } finally {
+            statue.discard();
+            reborn.discard();
+        }
+        LOGGER.info("MINIHOGWARTS-GAMETEST PASS castleStatueSurvivesASave");
+        helper.succeed();
+    }
+
+    // ---------------------------------------------------------------- the anchors furnish the castle
+
+    /**
+     * A 20 x 8 x 20 stand-in with its inside cleared (cave air, as the generator writes it): a perimeter wall of
+     * cobblestone four high, a stone-brick floor, and a spruce-slab stool at local (5, 1, 15).
+     */
+    private static com.hogwartsmagic.worldgen.MiniHogwartsSchematic furnishedCastle() {
+        net.minecraft.world.level.block.state.BlockState[] palette = {
+                net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(),
+                net.minecraft.world.level.block.Blocks.STONE_BRICKS.defaultBlockState(),
+                net.minecraft.world.level.block.Blocks.COBBLESTONE.defaultBlockState(),
+                net.minecraft.world.level.block.Blocks.CAVE_AIR.defaultBlockState(),
+                net.minecraft.world.level.block.Blocks.SPRUCE_SLAB.defaultBlockState()
+        };
+        short[] cells = new short[TW * TH * TL];
+        for (int y = 0; y < TH; y++) {
+            for (int z = 0; z < TL; z++) {
+                for (int x = 0; x < 16; x++) {
+                    short id = 0;
+                    boolean rim = x == 0 || x == 15 || z == 0 || z == TL - 1;
+                    if (y == 0) {
+                        id = 1;
+                    } else if (rim && y <= 4) {
+                        id = 2;
+                    } else if (!rim && y <= 6) {
+                        id = 3;
+                    }
+                    if (x == 5 && y == 1 && z == 15) {
+                        id = 4;
+                    }
+                    cells[x + z * TW + y * TW * TL] = id;
+                }
+            }
+        }
+        return com.hogwartsmagic.worldgen.MiniHogwartsSchematic.forTests(TW, TH, TL, palette, cells);
+    }
+
+    /** The stand-in castle's anchors: one of each furnishing, spread over all four chunks, and one bogus chest. */
+    private static com.hogwartsmagic.worldgen.MiniHogwartsAnchors furnishedAnchors() {
+        return com.hogwartsmagic.worldgen.MiniHogwartsAnchors.parse(com.google.gson.JsonParser.parseString("""
+                {"chests": [{"at": [3, 1, 3], "facing": "east", "theme": "GREAT_HALL"},
+                            {"at": [4, 1, 3], "facing": "east", "theme": "NO_SUCH_THEME"}],
+                 "student_spots": [[3, 1, 10]],
+                 "elf_spots": [[3, 1, 14]],
+                 "statues": [{"at": [10, 1, 10], "yaw": 90}],
+                 "pensieve": [8, 1, 3],
+                 "fat_lady": {"wall": [0, 2, 12], "facing": "east"},
+                 "paintings": [{"at": [0, 2, 6], "facing": "east"}],
+                 "banners": [{"at": [14, 3, 6], "facing": "west", "house": "gryffindor"}],
+                 "hall_ceiling": {"min": [1, 1], "max": [14, 18], "y": 6},
+                 "hall_box": {"min": [1, 1, 1], "max": [14, 5, 18]},
+                 "main_entrance": [1, 1, 1],
+                 "stool": [5.5, 1.5, 15.5]}
+                """).getAsJsonObject());
+    }
+
+    /**
+     * The anchors place each furnishing in the chunk that holds it: chest, Pensieve, banner, painting, Fat Lady,
+     * statue, student, elf and the Sorting Hat all stand where the anchors say, the painting and the Fat Lady
+     * pass the game's own {@code survives()}, and an unknown chest theme is skipped.
+     */
+    @GameTest(template = EMPTY, batch = "mh_furnish", timeoutTicks = 200)
+    public static void anchorsFurnishTheirChunks(GameTestHelper helper) {
+        var level = helper.getLevel();
+        BlockPos far = helper.absolutePos(BlockPos.ZERO).offset(-3072, 0, -3072);
+        var chunk = new net.minecraft.world.level.ChunkPos(far);
+        List<net.minecraft.world.level.ChunkPos> forced = forceChunks(level, chunk, 2);
+        // A freshly forced chunk only lets entity queries see its entities once the server has ticked it up to
+        // entity-ticking, which takes a few ticks and is not the same tick for every chunk; wait for the four
+        // the castle covers, then furnish.
+        whenEntityTicking(helper, level, chunk, 40, () -> furnishAndCheck(helper, level, chunk, forced));
+    }
+
+    private static void whenEntityTicking(GameTestHelper helper, net.minecraft.server.level.ServerLevel level,
+                                          net.minecraft.world.level.ChunkPos chunk, int triesLeft, Runnable then) {
+        boolean ready = true;
+        for (int cx = 0; cx <= 1; cx++) {
+            for (int cz = 0; cz <= 1; cz++) {
+                ready &= level.isPositionEntityTicking(new net.minecraft.world.level.ChunkPos(chunk.x + cx, chunk.z + cz)
+                        .getMiddleBlockPosition(0));
+            }
+        }
+        if (ready) {
+            then.run();
+        } else {
+            helper.assertTrue(triesLeft > 0, "the chunks never became entity-ticking");
+            helper.runAfterDelay(2, () -> whenEntityTicking(helper, level, chunk, triesLeft - 1, then));
+        }
+    }
+
+    private static void furnishAndCheck(GameTestHelper helper, net.minecraft.server.level.ServerLevel level,
+                                        net.minecraft.world.level.ChunkPos chunk,
+                                        List<net.minecraft.world.level.ChunkPos> forced) {
+        com.hogwartsmagic.worldgen.MiniHogwartsSchematic.overrideForTests(furnishedCastle());
+        com.hogwartsmagic.worldgen.MiniHogwartsAnchors.overrideForTests(furnishedAnchors());
+        net.minecraft.world.phys.AABB area = null;
+        try {
+            int ground = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE,
+                    chunk.getMinBlockX() + 8, chunk.getMinBlockZ() + 8);
+            BlockPos anchor = new BlockPos(chunk.getMinBlockX() + 8, ground - 2, chunk.getMinBlockZ() + 8);
+            var piece = new com.hogwartsmagic.worldgen.structure.MiniHogwartsPiece(anchor);
+            area = net.minecraft.world.phys.AABB.of(piece.getBoundingBox()).inflate(2);
+            for (int cx = 0; cx <= 1; cx++) {
+                for (int cz = 0; cz <= 1; cz++) {
+                    var c = new net.minecraft.world.level.ChunkPos(chunk.x + cx, chunk.z + cz);
+                    var box = new net.minecraft.world.level.levelgen.structure.BoundingBox(
+                            c.getMinBlockX(), level.getMinBuildHeight(), c.getMinBlockZ(),
+                            c.getMaxBlockX(), level.getMaxBuildHeight(), c.getMaxBlockZ());
+                    piece.postProcess(level, level.structureManager(), level.getChunkSource().getGenerator(),
+                            level.getRandom(), box, c, anchor);
+                }
+            }
+
+            var chestState = level.getBlockState(anchor.offset(3, 1, 3));
+            helper.assertTrue(chestState.is(net.minecraft.world.level.block.Blocks.CHEST), "no chest at the anchor");
+            helper.assertTrue(chestState.getValue(net.minecraft.world.level.block.ChestBlock.FACING)
+                    == net.minecraft.core.Direction.EAST, "the chest faces the way the anchor says");
+            var chestBe = (net.minecraft.world.level.block.entity.ChestBlockEntity) level.getBlockEntity(anchor.offset(3, 1, 3));
+            helper.assertTrue(chestBe != null && !chestBe.isEmpty(), "the Great Hall chest is stocked");
+            helper.assertTrue(!level.getBlockState(anchor.offset(4, 1, 3)).is(net.minecraft.world.level.block.Blocks.CHEST),
+                    "a chest with an unknown theme is skipped");
+            helper.assertTrue(level.getBlockState(anchor.offset(8, 1, 3)).is(ExampleMod.PENSIEVE.get()),
+                    "no Pensieve at the anchor");
+            var banner = level.getBlockState(anchor.offset(14, 3, 6));
+            helper.assertTrue(banner.is(net.minecraft.world.level.block.Blocks.RED_WALL_BANNER)
+                            && banner.getValue(net.minecraft.world.level.block.WallBannerBlock.FACING) == net.minecraft.core.Direction.WEST,
+                    "no red wall banner at the anchor, found " + banner);
+
+            var paintings = level.getEntitiesOfClass(net.minecraft.world.entity.decoration.Painting.class, area);
+            helper.assertTrue(paintings.size() == 1, "expected one painting, found " + paintings.size() + "; entities in the area: "
+                    + level.getEntitiesOfClass(net.minecraft.world.entity.Entity.class, area).stream()
+                    .map(e -> e.getType().toShortString() + "@" + e.blockPosition().toShortString()).toList());
+            helper.assertTrue(paintings.get(0).survives(), "the painting does not survive where it hangs");
+            helper.assertTrue(paintings.get(0).getDirection() == net.minecraft.core.Direction.EAST,
+                    "the painting faces the way the anchor says");
+            var ladies = level.getEntitiesOfClass(com.hogwartsmagic.portrait.FatLadyPortraitEntity.class, area);
+            helper.assertTrue(ladies.size() == 1, "expected one Fat Lady, found " + ladies.size());
+            helper.assertTrue(ladies.get(0).survives(), "the Fat Lady does not survive where she hangs");
+            helper.assertTrue(ladies.get(0).getPos().equals(anchor.offset(1, 2, 12)),
+                    "the Fat Lady hangs in front of the wall block, found " + ladies.get(0).getPos());
+
+            var statues = level.getEntitiesOfClass(com.hogwartsmagic.entity.LivingStatueEntity.class, area);
+            helper.assertTrue(statues.size() == 1, "expected one statue, found " + statues.size() + "; entities in the area: "
+                    + level.getEntitiesOfClass(net.minecraft.world.entity.Entity.class, area).stream()
+                    .map(e -> e.getType().toShortString() + "@" + e.blockPosition().toShortString()).toList()
+                    + ", block at post " + level.getBlockState(anchor.offset(10, 1, 10)) + " / "
+                    + level.getBlockState(anchor.offset(10, 2, 10)));
+            helper.assertTrue(statues.get(0).isCastle() && statues.get(0).isDormant()
+                            && anchor.offset(10, 1, 10).equals(statues.get(0).getHomePos())
+                            && statues.get(0).getYRot() == 90.0F,
+                    "the statue is a dormant castle statue posted at its anchor, facing its yaw");
+            helper.assertTrue(level.getEntitiesOfClass(com.hogwartsmagic.entity.StudentEntity.class, area).size() == 1,
+                    "expected one student at the student spot");
+            var elves = level.getEntitiesOfClass(com.hogwartsmagic.entity.HouseElfEntity.class, area);
+            helper.assertTrue(elves.size() == 1 && elves.get(0).blockPosition().equals(anchor.offset(3, 1, 14)),
+                    "expected one house elf at the elf spot");
+            var hats = level.getEntitiesOfClass(net.minecraft.world.entity.Display.ItemDisplay.class, area);
+            helper.assertTrue(hats.size() == 1, "expected one Sorting Hat display, found " + hats.size());
+            helper.assertTrue(hats.get(0).blockPosition().equals(anchor.offset(5, 1, 15)),
+                    "the Sorting Hat sits on the stool, found " + hats.get(0).blockPosition());
+            helper.assertTrue("hogwartsmagic:sorting_hat".equals(
+                            hats.get(0).saveWithoutId(new net.minecraft.nbt.CompoundTag()).getCompound("item").getString("id")),
+                    "the display shows the Sorting Hat");
+        } finally {
+            com.hogwartsmagic.worldgen.MiniHogwartsSchematic.overrideForTests(null);
+            com.hogwartsmagic.worldgen.MiniHogwartsAnchors.overrideForTests(null);
+            if (area != null) {
+                for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Entity.class, area,
+                        e -> !(e instanceof net.minecraft.world.entity.player.Player))) {
+                    e.discard();
+                }
+            }
+            release(level, forced);
+        }
+        LOGGER.info("MINIHOGWARTS-GAMETEST PASS anchorsFurnishTheirChunks");
+        helper.succeed();
+    }
+
+    /**
+     * The shipped anchors against the shipped castle: every chest, Pensieve, statue and student cell is free
+     * floor, the stool is a slab, the Fat Lady and every painting find a spot where the game's own survival rules
+     * hold, and banners have a wall behind them. Reads the schematic only, so nothing is placed.
+     */
+    @GameTest(template = EMPTY, batch = "mh_anchor_fit", timeoutTicks = 600)
+    public static void shippedAnchorsFitTheShippedCastle(GameTestHelper helper) {
+        var schem = com.hogwartsmagic.worldgen.MiniHogwartsSchematic.get();
+        var anchors = com.hogwartsmagic.worldgen.MiniHogwartsAnchors.get();
+        helper.assertTrue(schem != null && anchors != null, "the shipped castle and its anchors load");
+        List<String> problems = com.hogwartsmagic.worldgen.MiniHogwartsManager.anchorProblems(helper.getLevel(), schem, anchors);
+        for (String p : problems) {
+            LOGGER.error("anchor problem: {}", p);
+        }
+        helper.assertTrue(problems.isEmpty(), problems.size() + " anchor problems, first: "
+                + (problems.isEmpty() ? "" : problems.get(0)));
+        LOGGER.info("MINIHOGWARTS-GAMETEST PASS shippedAnchorsFitTheShippedCastle");
+        helper.succeed();
+    }
 }

@@ -6,20 +6,30 @@ import com.hogwartsmagic.spell.SpellType;
 import com.hogwartsmagic.util.Titles;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.Holder;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.MobSpawnType;
+import net.minecraft.world.entity.decoration.HangingEntity;
+import net.minecraft.world.entity.decoration.Painting;
+import net.minecraft.world.entity.decoration.PaintingVariant;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.level.EmptyBlockGetter;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.WorldGenLevel;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.ChestBlock;
+import net.minecraft.world.level.block.DiodeBlock;
+import net.minecraft.world.level.block.SlabBlock;
+import net.minecraft.world.level.block.WallBannerBlock;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
@@ -31,22 +41,29 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.function.Predicate;
 
 /**
  * Furnishes the Mini Hogwarts castle as it generates, and shows the "Hogwarts" title card when a player first
  * sees one. The castle itself is a worldgen structure ({@code worldgen/structure/MiniHogwartsStructure}); its
  * piece calls {@link #furnishChunk} for every chunk it decorates.
  *
- * <p>The furnishing heuristics (themed chests by the library's bookshelves, the enchanting table, the dungeon's
- * iron bars, the Great Hall and the top of the tallest tower; the library's public Pensieve; the Fat Lady on the
- * nearest Great Hall wall; students on each floor and elves below stairs) used to read the finished castle in the
- * world. Worldgen cannot: a chunk is decorated before its neighbours, so their blocks are not there yet. They now
- * read the schematic instead, once per schematic, into a {@link FurnishPlan} of positions; each chunk then places
- * only the plan entries that fall inside its own box. The result no longer depends on which chunk generated
- * first, and nothing is written outside the chunk being decorated.
+ * <p>What goes where comes from {@link MiniHogwartsAnchors}, the list the castle generator writes beside the
+ * schematic: themed chests, the public Pensieve, the Fat Lady, paintings, wall banners, the Sorting Hat on its
+ * stool, the castle's guardian statues, students and house elves. Only if that file cannot be read does the
+ * furnishing fall back to the old schematic-only heuristics (themed chests by the library's bookshelves, the
+ * enchanting table, the dungeon's iron bars, the Great Hall and the top of the tallest tower; the Fat Lady on the
+ * nearest Great Hall wall; students on each floor and elves below stairs). Either way the world is not read to
+ * decide: worldgen decorates a chunk before its neighbours, so their blocks are not there yet. The positions are
+ * worked out once per schematic into a {@link FurnishPlan}; each chunk then places only the plan entries that
+ * fall inside its own box. The result no longer depends on which chunk generated first, and nothing is written
+ * outside the chunk being decorated.
  */
 public final class MiniHogwartsManager {
 
@@ -63,6 +80,7 @@ public final class MiniHogwartsManager {
 
     /** The plan for the schematic last asked about; rebuilt only when the schematic object changes. */
     private static MiniHogwartsSchematic plannedFor;
+    private static MiniHogwartsAnchors plannedAnchors;
     private static FurnishPlan plan;
 
     private MiniHogwartsManager() {
@@ -70,8 +88,16 @@ public final class MiniHogwartsManager {
 
     // ── Title card ──────────────────────────────────────────────────────────────────────
 
-    /** Where the title card is measured from and aimed at. The centre for now; Task 10 swaps in an anchor. */
+    /**
+     * Where the title card is measured from and aimed at: the anchors' {@code title_point} (a room names one
+     * when the castle has a spot worth looking at) placed on the castle, else the castle's recorded centre. A
+     * castle from an old save has no recorded anchor, so it keeps its centre.
+     */
     public static BlockPos titlePoint(MiniHogwartsTracker.Castle castle) {
+        MiniHogwartsAnchors anchors = castle.anchor() == null ? null : MiniHogwartsAnchors.get();
+        if (anchors != null && anchors.titlePoint() != null) {
+            return castle.anchor().offset(anchors.titlePoint());
+        }
         return castle.center();
     }
 
@@ -139,9 +165,12 @@ public final class MiniHogwartsManager {
 
     /**
      * Places every furnishing of the castle anchored at {@code anchor} whose position is inside {@code chunkBox}:
-     * themed chests (stocked from {@code random}), the Potions classroom's chest stock, decorations, the public
-     * Pensieve, the Fat Lady, students and house elves. Called from the structure piece's {@code postProcess},
-     * on a worldgen thread or (for {@code /place}) the server thread; touches only {@code level} inside the box.
+     * themed chests (stocked from {@code random}), the Potions classroom's chest stock, the public Pensieve, the
+     * Fat Lady, paintings, wall banners, the Sorting Hat, the guardian statues, students and house elves. Called
+     * from the structure piece's {@code postProcess}, on a worldgen thread or (for {@code /place}) the server
+     * thread; reads and writes only {@code level} inside the box (a painting or portrait whose canvas crosses the
+     * box edge is judged by the schematic there). An entity is created for the {@code ServerLevel} behind the
+     * region and added through the region, like every other mob the castle spawns.
      */
     public static void furnishChunk(WorldGenLevel level, BlockPos anchor, BoundingBox chunkBox, RandomSource random) {
         MiniHogwartsSchematic schem = MiniHogwartsSchematic.get();
@@ -152,34 +181,80 @@ public final class MiniHogwartsManager {
         for (Furnishing f : planFor(schem).furnishings) {
             pos.set(anchor.getX() + f.x, anchor.getY() + f.y, anchor.getZ() + f.z);
             if (chunkBox.isInside(pos)) {
-                f.place(level, pos.immutable(), chunkBox, random);
+                f.place(level, schem, anchor, pos.immutable(), chunkBox, random);
             }
         }
     }
 
-    /** The plan for {@code schem}, worked out on first use (the schematic never changes once loaded). */
+    /**
+     * The plan for {@code schem}, worked out on first use (the schematic and its anchors never change once
+     * loaded). Built under the lock, so two chunks asking at once share one plan.
+     */
     static synchronized FurnishPlan planFor(MiniHogwartsSchematic schem) {
-        if (plannedFor != schem) {
-            plan = new FurnishPlan(schem);
+        MiniHogwartsAnchors anchors = MiniHogwartsAnchors.forSchematic(schem);
+        if (plannedFor != schem || plannedAnchors != anchors) {
+            plan = new FurnishPlan(schem, anchors);
             plannedFor = schem;
-            LOGGER.info("Mini Hogwarts furnishing plan: {}", plan.summary);
+            plannedAnchors = anchors;
+            LOGGER.info("Mini Hogwarts furnishing plan ({}): {}", anchors != null ? "from the anchors" : "heuristic",
+                    plan.summary);
+            for (String problem : plan.problems) {
+                LOGGER.warn("Mini Hogwarts anchor skipped: {}", problem);
+            }
         }
         return plan;
     }
 
+    /**
+     * Everything wrong with {@code anchors} against {@code schem}, for the GameTest that guards the shipped files:
+     * a chest, Pensieve, statue, student or elf cell that is not free floor, an unknown chest theme, a banner with
+     * no wall behind it, a stool that is not a slab, and every painting and the Fat Lady that finds no spot where
+     * the survival rules of the game itself hold. Reads the schematic only; {@code level} just owns the entities
+     * tried.
+     */
+    public static List<String> anchorProblems(Level level, MiniHogwartsSchematic schem, MiniHogwartsAnchors anchors) {
+        List<String> problems = new ArrayList<>(new FurnishPlan(schem, anchors).problems);
+        Function<BlockPos, BlockState> states = p -> schem.blockAt(p.getX(), p.getY(), p.getZ());
+        for (MiniHogwartsAnchors.Wall wall : anchors.paintings()) {
+            BlockPos cell = wall.at().relative(wall.facing());
+            if (choosePainting(level, level.registryAccess(), cell, wall.facing(), states, p -> true,
+                    RandomSource.create(1L)) == null) {
+                problems.add("no painting fits on the wall " + wall.at().toShortString() + " facing " + wall.facing());
+            }
+        }
+        MiniHogwartsAnchors.Wall lady = anchors.fatLady();
+        if (lady != null) {
+            BlockPos cell = com.hogwartsmagic.portrait.PortraitPlacement.canvasCell(lady.at(), lady.facing());
+            var portrait = com.hogwartsmagic.portrait.PortraitPlacement.portraitInCell(level, cell, lady.facing());
+            if (!hangingFits(states, portrait, lady.facing())) {
+                problems.add("the Fat Lady does not fit on " + lady.at().toShortString() + " facing " + lady.facing());
+            }
+        }
+        return problems;
+    }
+
     /** What one furnishing is; int constants rather than an enum, so the plan stays a flat list of records. */
-    private static final int CHEST = 0, BLOCK = 1, PENSIEVE = 2, STOCK = 3, FAT_LADY = 4, STUDENT = 5, ELF = 6;
+    private static final int CHEST = 0, BLOCK = 1, PENSIEVE = 2, STOCK = 3, FAT_LADY = 4, STUDENT = 5, ELF = 6,
+            PAINTING = 7, BANNER = 8, STATUE = 9, HAT = 10;
 
     /**
      * One thing to place, at local {@code (x, y, z)} from the anchor. {@code theme} is for a CHEST, {@code state}
-     * for a BLOCK, {@code facing} for the FAT_LADY (the way her canvas faces).
+     * for a BLOCK or a BANNER (its wall-banner state), {@code facing} for the CHEST, FAT_LADY, PAINTING (the way
+     * the canvas faces; for these two, and the BANNER, the position is the cell in front of the wall) and
+     * BANNER, and {@code yaw} for a STATUE.
      */
     private record Furnishing(int kind, int x, int y, int z, @Nullable Theme theme, @Nullable BlockState state,
-                              @Nullable Direction facing) {
+                              @Nullable Direction facing, float yaw) {
 
-        void place(WorldGenLevel level, BlockPos pos, BoundingBox chunkBox, RandomSource random) {
+        Furnishing(int kind, int x, int y, int z, @Nullable Theme theme, @Nullable BlockState state,
+                   @Nullable Direction facing) {
+            this(kind, x, y, z, theme, state, facing, 0.0F);
+        }
+
+        void place(WorldGenLevel level, MiniHogwartsSchematic schem, BlockPos anchor, BlockPos pos,
+                   BoundingBox chunkBox, RandomSource random) {
             if (kind == CHEST) {
-                placeChest(level, pos, theme, random);
+                placeChest(level, pos, theme, facing, random);
             } else if (kind == BLOCK) {
                 if (level.getBlockState(pos).isAir()) {
                     level.setBlock(pos, state, SETBLOCK_FLAGS);
@@ -189,9 +264,28 @@ public final class MiniHogwartsManager {
             } else if (kind == STOCK) {
                 stockClassroomChest(level, pos, random);
             } else if (kind == FAT_LADY) {
-                if (fatLadyFits(level, pos, facing, chunkBox)) {
-                    level.addFreshEntity(new com.hogwartsmagic.portrait.FatLadyPortraitEntity(level.getLevel(), pos, facing));
+                var portrait = com.hogwartsmagic.portrait.PortraitPlacement.portraitInCell(level.getLevel(), pos, facing);
+                if (hangingFits(worldAndSchematic(level, schem, anchor, chunkBox), portrait, facing)) {
+                    level.addFreshEntity(portrait);
+                } else {
+                    LOGGER.warn("Mini Hogwarts: the Fat Lady does not fit at {} facing {}; not hung", pos.toShortString(), facing);
                 }
+            } else if (kind == PAINTING) {
+                Painting painting = choosePainting(level.getLevel(), level.registryAccess(), pos, facing,
+                        worldAndSchematic(level, schem, anchor, chunkBox), chunkBox::isInside, random);
+                if (painting != null) {
+                    level.addFreshEntity(painting);
+                } else {
+                    LOGGER.warn("Mini Hogwarts: no painting survives at {} facing {}; none hung", pos.toShortString(), facing);
+                }
+            } else if (kind == BANNER) {
+                if (level.getBlockState(pos).isAir()) {
+                    level.setBlock(pos, state, SETBLOCK_FLAGS);
+                }
+            } else if (kind == STATUE) {
+                spawnStatue(level, pos, yaw);
+            } else if (kind == HAT) {
+                placeSortingHat(level, pos);
             } else if (kind == STUDENT) {
                 spawnResident(level, pos, random, com.hogwartsmagic.entity.ModEntities.STUDENT.get().create(level.getLevel()));
             } else if (kind == ELF) {
@@ -201,33 +295,92 @@ public final class MiniHogwartsManager {
     }
 
     /**
-     * The world-side half of the Fat Lady's fit (the plan already checked the schematic): every canvas cell inside
-     * this chunk is air and every wall cell behind one inside this chunk is solid, so terrain that filled the hall
-     * does not leave her hanging where she would pop off on her first tick. Cells in other chunks are not read;
-     * their castle blocks may not be placed yet.
+     * The blocks a hanging thing is judged against: this chunk's own cells from the world (already written by this
+     * same piece, or the terrain if the castle was placed without clearing it), every other cell from the
+     * schematic, because the chunk next door has not been decorated yet.
      */
-    private static boolean fatLadyFits(WorldGenLevel level, BlockPos pos, Direction facing, BoundingBox chunkBox) {
-        Direction right = facing.getCounterClockWise();
-        for (int w = 0; w < com.hogwartsmagic.portrait.FatLadyPortraitEntity.WIDTH; w++) {
-            for (int h = -1; h < com.hogwartsmagic.portrait.FatLadyPortraitEntity.HEIGHT - 1; h++) {
-                BlockPos cell = pos.relative(right, w).above(h);
-                BlockPos behind = cell.relative(facing.getOpposite());
-                if (chunkBox.isInside(cell) && !level.getBlockState(cell).isAir()) {
-                    return false;
-                }
-                if (chunkBox.isInside(behind) && !level.getBlockState(behind).isSolid()) {
-                    return false;
+    private static Function<BlockPos, BlockState> worldAndSchematic(WorldGenLevel level, MiniHogwartsSchematic schem,
+                                                                    BlockPos anchor, BoundingBox chunkBox) {
+        return p -> chunkBox.isInside(p) ? level.getBlockState(p)
+                : schem.blockAt(p.getX() - anchor.getX(), p.getY() - anchor.getY(), p.getZ() - anchor.getZ());
+    }
+
+    /**
+     * Would {@code hanging} survive where it is? The same two tests {@code HangingEntity.survives} runs, on
+     * {@code states} instead of a level: every cell its box covers has no collision (air, a light block, a
+     * torch), and the cell behind each is solid (or a repeater). Stricter than the game in one way: a block
+     * with any collision shape in the canvas fails, even one that would not touch the thin box. The game's
+     * entity-overlap test is left out; the furnishing never puts two on one wall cell.
+     */
+    static boolean hangingFits(Function<BlockPos, BlockState> states, HangingEntity hanging, Direction facing) {
+        net.minecraft.world.phys.AABB box = hanging.getBoundingBox();
+        double eps = 1.0E-4D;
+        BlockPos.MutableBlockPos cell = new BlockPos.MutableBlockPos();
+        BlockPos.MutableBlockPos behind = new BlockPos.MutableBlockPos();
+        for (int y = (int) Math.floor(box.minY + eps); y <= (int) Math.floor(box.maxY - eps); y++) {
+            for (int z = (int) Math.floor(box.minZ + eps); z <= (int) Math.floor(box.maxZ - eps); z++) {
+                for (int x = (int) Math.floor(box.minX + eps); x <= (int) Math.floor(box.maxX - eps); x++) {
+                    cell.set(x, y, z);
+                    if (!states.apply(cell).getCollisionShape(EmptyBlockGetter.INSTANCE, cell).isEmpty()) {
+                        return false;
+                    }
+                    behind.set(x - facing.getStepX(), y, z - facing.getStepZ());
+                    BlockState wall = states.apply(behind);
+                    if (!wall.isSolid() && !DiodeBlock.isDiode(wall)) {
+                        return false;
+                    }
                 }
             }
         }
         return true;
     }
 
-    private static boolean placeChest(WorldGenLevel level, BlockPos pos, Theme theme, RandomSource rng) {
+    /**
+     * A painting for the wall block in front of which {@code cell} lies: the biggest placeable variant (the
+     * game's own rule) that survives somewhere in the recess, which is the cell and the ones beside it and above
+     * it, chosen at random among the equally big fits. Null when nothing does. {@code entityOk} keeps the
+     * painting's tile position inside the chunk that places it. Built for {@code level} and never added here.
+     */
+    @Nullable
+    static Painting choosePainting(Level level, net.minecraft.core.RegistryAccess access, BlockPos cell,
+                                   Direction facing, Function<BlockPos, BlockState> states,
+                                   Predicate<BlockPos> entityOk, RandomSource random) {
+        List<Holder<PaintingVariant>> variants = new ArrayList<>();
+        access.registryOrThrow(Registries.PAINTING_VARIANT)
+                .getTagOrEmpty(net.minecraft.tags.PaintingVariantTags.PLACEABLE).forEach(variants::add);
+        variants.sort(Comparator.comparingInt((Holder<PaintingVariant> v) -> v.value().width() * v.value().height()).reversed());
+        Direction along = facing.getClockWise();
+        List<Painting> fits = new ArrayList<>();
+        int bestArea = 0;
+        for (Holder<PaintingVariant> variant : variants) {
+            int area = variant.value().width() * variant.value().height();
+            if (area < bestArea) {
+                break; // the sort puts the bigger ones first; a smaller one only matters if nothing bigger fit
+            }
+            for (int side = -1; side <= 1; side++) {
+                for (int up = 0; up <= 1; up++) {
+                    BlockPos pos = cell.relative(along, side).above(up);
+                    if (!entityOk.test(pos)) {
+                        continue;
+                    }
+                    Painting painting = new Painting(level, pos, facing, variant);
+                    if (hangingFits(states, painting, facing)) {
+                        bestArea = area;
+                        fits.add(painting);
+                    }
+                }
+            }
+        }
+        return fits.isEmpty() ? null : fits.get(random.nextInt(fits.size()));
+    }
+
+    private static boolean placeChest(WorldGenLevel level, BlockPos pos, Theme theme, @Nullable Direction facing,
+                                     RandomSource rng) {
         if (!level.getBlockState(pos).isAir()) {
             return false;
         }
-        level.setBlock(pos, Blocks.CHEST.defaultBlockState().setValue(ChestBlock.FACING, Direction.NORTH), SETBLOCK_FLAGS);
+        level.setBlock(pos, Blocks.CHEST.defaultBlockState()
+                .setValue(ChestBlock.FACING, facing != null ? facing : Direction.NORTH), SETBLOCK_FLAGS);
         if (!(level.getBlockEntity(pos) instanceof ChestBlockEntity chest)) {
             return false;
         }
@@ -302,6 +455,60 @@ public final class MiniHogwartsManager {
         level.addFreshEntity(mob);
     }
 
+    /** A dormant castle guardian statue posted on {@code pos}, facing {@code yaw}, when it has room to stand. */
+    private static void spawnStatue(WorldGenLevel level, BlockPos pos, float yaw) {
+        com.hogwartsmagic.entity.LivingStatueEntity statue =
+                com.hogwartsmagic.entity.ModEntities.LIVING_STATUE.get().create(level.getLevel());
+        if (statue == null || !level.getBlockState(pos).isAir() || !level.getBlockState(pos.above()).isAir()) {
+            return;
+        }
+        statue.moveTo(pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D, yaw, 0.0F);
+        statue.yBodyRot = statue.yBodyRotO = yaw;
+        statue.yHeadRot = statue.yHeadRotO = yaw;
+        statue.guardCastle(pos, yaw);
+        level.addFreshEntity(statue);
+    }
+
+    /** How big the Sorting Hat's sprite is drawn, and how far above the seat its middle floats (blocks). */
+    private static final float HAT_SCALE = 0.7F;
+
+    /**
+     * The Sorting Hat on its stool: an item display of the mod's hat, a flat sprite that turns to face whoever
+     * looks. {@code stool} is the slab block; the hat rests on the seat (a bottom slab's top face, half a block up).
+     * Skipped if the stool block is not a slab in the world, so a hat never floats over terrain.
+     */
+    private static void placeSortingHat(WorldGenLevel level, BlockPos stool) {
+        if (!(level.getBlockState(stool).getBlock() instanceof SlabBlock)) {
+            return;
+        }
+        net.minecraft.world.entity.Entity display = net.minecraft.world.entity.EntityType.ITEM_DISPLAY.create(level.getLevel());
+        if (display == null) {
+            return;
+        }
+        double y = stool.getY() + 0.5D + HAT_SCALE / 2.0D;
+        net.minecraft.nbt.CompoundTag tag = new net.minecraft.nbt.CompoundTag();
+        tag.put("item", new ItemStack(ExampleMod.SORTING_HAT.get()).save(level.registryAccess()));
+        tag.putString("item_display", "fixed");
+        tag.putString("billboard", "vertical");
+        net.minecraft.nbt.CompoundTag transform = new net.minecraft.nbt.CompoundTag();
+        transform.put("translation", floats(0.0F, 0.0F, 0.0F));
+        transform.put("left_rotation", floats(0.0F, 0.0F, 0.0F, 1.0F));
+        transform.put("right_rotation", floats(0.0F, 0.0F, 0.0F, 1.0F));
+        transform.put("scale", floats(HAT_SCALE, HAT_SCALE, HAT_SCALE));
+        tag.put("transformation", transform);
+        display.load(tag);
+        display.setPos(stool.getX() + 0.5D, y, stool.getZ() + 0.5D);
+        level.addFreshEntity(display);
+    }
+
+    private static net.minecraft.nbt.ListTag floats(float... values) {
+        net.minecraft.nbt.ListTag list = new net.minecraft.nbt.ListTag();
+        for (float v : values) {
+            list.add(net.minecraft.nbt.FloatTag.valueOf(v));
+        }
+        return list;
+    }
+
     /**
      * The castle's furnishings worked out from the schematic alone. Reads cells, never the world: beside the
      * schematic counts as air, and below its footprint counts as ground (worldgen beards the terrain up to the
@@ -311,9 +518,16 @@ public final class MiniHogwartsManager {
      * terrain did fill (a {@code /place} castle is not bearded) is skipped.
      * Each placement is laid into an overlay as it is planned, so later heuristics see it (a decoration never
      * lands on the chest it decorates), exactly as the old in-world pass saw what it had already placed.
+     *
+     * <p>With {@link MiniHogwartsAnchors} the landmarks are not guessed: the plan takes the generator's own list
+     * and only checks each entry against the schematic, putting what is wrong with an entry in {@link #problems}
+     * and leaving that entry out. Without them (the file is unreadable, or a GameTest's stand-in castle has none)
+     * it falls back to the heuristics.
      */
     static final class FurnishPlan {
         final List<Furnishing> furnishings = new ArrayList<>();
+        /** What the anchors got wrong about this schematic: one line per skipped entry. */
+        final List<String> problems = new ArrayList<>();
         final String summary;
         private final MiniHogwartsSchematic schem;
         private final int width, height, length;
@@ -328,17 +542,149 @@ public final class MiniHogwartsManager {
         private int ironCount;
         private int topX = -1, topY = -1, topZ = -1; // highest solid block (for a tower treasure)
 
-        FurnishPlan(MiniHogwartsSchematic schem) {
+        FurnishPlan(MiniHogwartsSchematic schem, @Nullable MiniHogwartsAnchors anchors) {
             this.schem = schem;
             this.width = schem.width();
             this.height = schem.height();
             this.length = schem.length();
             int stocked = analyze();
-            int chests = planRooms();
-            int students = planStudents();
-            int elves = planHouseElves();
+            if (anchors == null) {
+                int chests = planRooms();
+                int students = planStudents();
+                int elves = planHouseElves();
+                this.summary = chests + " themed chests, " + stocked + " classroom chests, " + students + " students, "
+                        + elves + " house elves";
+                return;
+            }
+            int chests = planAnchoredChests(anchors);
+            int students = planAnchoredSpots(anchors.studentSpots(), STUDENT, "student");
+            int elves = anchors.elfSpots().isEmpty() ? planHouseElves()
+                    : planAnchoredSpots(anchors.elfSpots(), ELF, "house elf");
+            int statues = planAnchoredStatues(anchors);
+            int hung = planAnchoredHangings(anchors);
             this.summary = chests + " themed chests, " + stocked + " classroom chests, " + students + " students, "
-                    + elves + " house elves";
+                    + elves + " house elves, " + statues + " statues, " + hung
+                    + " paintings, banners, portraits, pensieve and hat";
+        }
+
+        // ── From the anchors ──
+
+        private int planAnchoredChests(MiniHogwartsAnchors anchors) {
+            int placed = 0;
+            for (MiniHogwartsAnchors.Chest chest : anchors.chests()) {
+                Theme theme = Theme.byName(chest.theme());
+                BlockPos at = chest.at();
+                if (theme == null) {
+                    problems.add("chest at " + at.toShortString() + " has an unknown theme '" + chest.theme() + "'");
+                } else if (!standable(at, 1)) {
+                    problems.add("chest at " + at.toShortString() + " is not on free floor");
+                } else {
+                    put(at, Blocks.CHEST.defaultBlockState());
+                    furnishings.add(new Furnishing(CHEST, at.getX(), at.getY(), at.getZ(), theme, null, chest.facing()));
+                    placed++;
+                }
+            }
+            return placed;
+        }
+
+        /** Students or elves at their spots: free floor with head room, or the spot is skipped. */
+        private int planAnchoredSpots(List<BlockPos> spots, int kind, String what) {
+            int placed = 0;
+            for (BlockPos at : spots) {
+                if (!standable(at, 2)) {
+                    problems.add(what + " spot " + at.toShortString() + " is not free floor with head room");
+                    continue;
+                }
+                furnishings.add(new Furnishing(kind, at.getX(), at.getY(), at.getZ(), null, null, null));
+                placed++;
+            }
+            return placed;
+        }
+
+        private int planAnchoredStatues(MiniHogwartsAnchors anchors) {
+            int placed = 0;
+            for (MiniHogwartsAnchors.Statue statue : anchors.statues()) {
+                BlockPos at = statue.at();
+                if (!standable(at, 3)) {
+                    problems.add("statue post " + at.toShortString() + " is not free floor with 3 blocks of head room");
+                    continue;
+                }
+                furnishings.add(new Furnishing(STATUE, at.getX(), at.getY(), at.getZ(), null, null, null, statue.yaw()));
+                placed++;
+            }
+            return placed;
+        }
+
+        /** The Pensieve, the Fat Lady, paintings, banners and the hat. Their fit is judged where they land. */
+        private int planAnchoredHangings(MiniHogwartsAnchors anchors) {
+            int planned = 0;
+            BlockPos pensieve = anchors.pensieve();
+            if (pensieve != null) {
+                if (standable(pensieve, 1)) {
+                    put(pensieve, ExampleMod.PENSIEVE.get().defaultBlockState());
+                    furnishings.add(new Furnishing(PENSIEVE, pensieve.getX(), pensieve.getY(), pensieve.getZ(), null, null, null));
+                    planned++;
+                } else {
+                    problems.add("pensieve at " + pensieve.toShortString() + " is not on free floor");
+                }
+            }
+            MiniHogwartsAnchors.Wall lady = anchors.fatLady();
+            if (lady != null) {
+                BlockPos cell = com.hogwartsmagic.portrait.PortraitPlacement.canvasCell(lady.at(), lady.facing());
+                furnishings.add(new Furnishing(FAT_LADY, cell.getX(), cell.getY(), cell.getZ(), null, null, lady.facing()));
+                planned++;
+            }
+            for (MiniHogwartsAnchors.Wall wall : anchors.paintings()) {
+                BlockPos cell = wall.at().relative(wall.facing());
+                furnishings.add(new Furnishing(PAINTING, cell.getX(), cell.getY(), cell.getZ(), null, null, wall.facing()));
+                planned++;
+            }
+            for (MiniHogwartsAnchors.Banner banner : anchors.banners()) {
+                BlockState state = bannerState(banner.house(), banner.facing());
+                BlockPos at = banner.at();
+                if (state == null) {
+                    problems.add("banner at " + at.toShortString() + " has an unknown house '" + banner.house() + "'");
+                } else if (!isAir(at.getX(), at.getY(), at.getZ())
+                        || !at(at.getX() - banner.facing().getStepX(), at.getY(), at.getZ() - banner.facing().getStepZ()).isSolid()) {
+                    problems.add("banner at " + at.toShortString() + " is not an empty cell against a wall");
+                } else {
+                    furnishings.add(new Furnishing(BANNER, at.getX(), at.getY(), at.getZ(), null, state, banner.facing()));
+                    planned++;
+                }
+            }
+            BlockPos stool = anchors.stool();
+            if (stool != null) {
+                if (at(stool.getX(), stool.getY(), stool.getZ()).getBlock() instanceof SlabBlock) {
+                    furnishings.add(new Furnishing(HAT, stool.getX(), stool.getY(), stool.getZ(), null, null, null));
+                    planned++;
+                } else {
+                    problems.add("the stool at " + stool.toShortString() + " is not a slab");
+                }
+            }
+            return planned;
+        }
+
+        /** {@code headroom} air cells at {@code at} standing on something. */
+        private boolean standable(BlockPos at, int headroom) {
+            for (int dy = 0; dy < headroom; dy++) {
+                if (!inside(at.getX(), at.getY() + dy, at.getZ()) || !isAir(at.getX(), at.getY() + dy, at.getZ())) {
+                    return false;
+                }
+            }
+            return !isAir(at.getX(), at.getY() - 1, at.getZ());
+        }
+
+        /** The plain wall banner of a house's colour, facing {@code facing}; null for a house we do not know. */
+        @Nullable
+        private static BlockState bannerState(String house, Direction facing) {
+            net.minecraft.world.level.block.Block block = switch (house.toLowerCase(Locale.ROOT)) {
+                case "gryffindor" -> Blocks.RED_WALL_BANNER;
+                case "slytherin" -> Blocks.GREEN_WALL_BANNER;
+                case "ravenclaw" -> Blocks.BLUE_WALL_BANNER;
+                case "hufflepuff" -> Blocks.YELLOW_WALL_BANNER;
+                default -> null;
+            };
+            return block == null ? null : block.defaultBlockState().setValue(WallBannerBlock.FACING, facing);
         }
 
         /** Single pass: landmark locations (enchanting room, library, dungeon, tower) and the schematic's chests. */
@@ -658,7 +1004,20 @@ public final class MiniHogwartsManager {
 
     // ── Loot tables (mirrors the Diagon Alley themed-chest approach) ──────────────────────
 
-    private enum Theme { LIBRARY, SPELL_STUDY, DUNGEON, GREAT_HALL, TOWER }
+    private enum Theme {
+        LIBRARY, SPELL_STUDY, DUNGEON, GREAT_HALL, TOWER;
+
+        /** The theme an anchors file names (any case), or null for one the loot table does not know. */
+        @Nullable
+        static Theme byName(String name) {
+            for (Theme t : values()) {
+                if (t.name().equalsIgnoreCase(name)) {
+                    return t;
+                }
+            }
+            return null;
+        }
+    }
 
     private static List<ItemStack> rollLoot(Theme theme, RandomSource rng) {
         List<ItemStack> out = new ArrayList<>();

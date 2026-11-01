@@ -76,6 +76,11 @@ public final class MiniHogwartsSchematic {
         testOverride = schematic;
     }
 
+    /** True when {@code schematic} is a GameTest's stand-in, not the castle in the jar. */
+    public static boolean isTestSchematic(MiniHogwartsSchematic schematic) {
+        return schematic != null && schematic == testOverride;
+    }
+
     public int width() {
         return width;
     }

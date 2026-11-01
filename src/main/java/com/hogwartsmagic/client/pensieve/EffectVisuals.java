@@ -221,7 +221,9 @@ public final class EffectVisuals {
             // which thunder is still to come. It never finishes: it stays until clear() ends the scene.
             float hx = Mth.clamp(spread[0], 1f, 100f);
             float hz = Mth.clamp(spread[2], 1f, 100f);
-            startCeiling(new EnchantedCeiling.Sky(style, at.x, at.y, at.z, hx, hz, duration, t, floodSeed(at, t),
+            // spread[1] (the hy) is the roof clearance the real sky fits its storm cloud under; the other styles ignore it.
+            float hy = Mth.clamp(spread[1], 0f, 100f);
+            startCeiling(new EnchantedCeiling.Sky(style, at.x, at.y, at.z, hx, hz, hy, duration, t, floodSeed(at, t),
                     elapsed));
         } else if ("light_rays".equals(effect)) {
             if (Float.isNaN(yaw) || spread == null || spread.length < 3) {

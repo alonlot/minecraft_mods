@@ -43,6 +43,12 @@ public final class CeilingSky {
     public static final int THUNDER_DELAY_MIN = 10, THUNDER_DELAY_SPREAD = 20;
     /** The styles, by the scene key's value. */
     public static final String STORM = "storm", NIGHT = "night";
+    /**
+     * The third style: follow the world's actual sky (day, dawn and dusk, night, rain, thunder) as {@link #realWeights}
+     * describes it. Unlike the other two it needs a clock and weather the scene does not have, so the drawing reads them
+     * from the client level when it draws.
+     */
+    public static final String REAL = "real";
 
     private CeilingSky() {
     }
@@ -175,6 +181,65 @@ public final class CeilingSky {
             b = 0.070f + 0.045f * k + 0.025f * w;
         }
         return new float[]{r / SKY_TEXTURE_MEAN, g / SKY_TEXTURE_MEAN, b / SKY_TEXTURE_MEAN};
+    }
+
+    // ------------------------------------------------------------------ the real sky
+
+    /** Day time (0..24000) of each real-sky control point, and the day / dusk / night weights there; blends are eased. */
+    private static final float[] REAL_AT = {1000f, 11000f, 12500f, 13800f, 22200f, 23250f, 25000f};
+    private static final float[][] REAL_WEIGHTS = {
+            {1f, 0f, 0f}, {1f, 0f, 0f}, {0f, 1f, 0f}, {0f, 0f, 1f}, {0f, 0f, 1f}, {0f, 1f, 0f}, {1f, 0f, 0f}};
+
+    /**
+     * How the world's sky looks, for the {@code real} style: {day, dusk, night, overcast, storm}, each 0 to 1, with
+     * {@code day + dusk + night == 1}. {@code dayTime} is {@code level.getDayTime() % 24000} (any value is accepted and
+     * wrapped): day is full from 1000 to 11000, dusk peaks at 12500 and, as dawn, at 23250, night is full from 13800 to
+     * 22200, and each blend is eased. {@code overcast} is the rain level and {@code storm} the thunder level.
+     */
+    public static float[] realWeights(float dayTime, float rain, float thunder) {
+        float t = dayTime % 24000f;
+        if (t < 0f) t += 24000f;
+        if (t < REAL_AT[0]) t += 24000f;                     // before 1000 is the tail of the dawn-to-day blend
+        int i = 0;
+        while (i < REAL_AT.length - 2 && t >= REAL_AT[i + 1]) i++;
+        float k = smooth(0f, 1f, (t - REAL_AT[i]) / (REAL_AT[i + 1] - REAL_AT[i]));
+        float day = REAL_WEIGHTS[i][0] + (REAL_WEIGHTS[i + 1][0] - REAL_WEIGHTS[i][0]) * k;
+        float night = REAL_WEIGHTS[i][2] + (REAL_WEIGHTS[i + 1][2] - REAL_WEIGHTS[i][2]) * k;
+        float dusk = REAL_WEIGHTS[i][1] + (REAL_WEIGHTS[i + 1][1] - REAL_WEIGHTS[i][1]) * k;
+        return new float[]{day, dusk, night, clamp01(rain), clamp01(thunder)};
+    }
+
+    /** The daytime sky's colour at (u, v) as 0xRRGGBB, before the texture: #3F7FD6 overhead to #A9D2F2 at the walls. */
+    public static int daySkyColour(long seed, float u, float v) {
+        float d = Math.min(1f, (float) Math.sqrt(u * u + v * v));
+        float k = 1f - d * d * (3f - 2f * d);                        // 1 overhead, 0 at the walls
+        // The same seeded band the night sky has, as a faint brightening, so two skies are not twins.
+        float haze = 1f + 0.03f * (bandGlow(seed, u, v) - 0.5f);
+        return rgb(lerp(0xA9, 0x3F, k) * haze, lerp(0xD2, 0x7F, k) * haze, lerp(0xF2, 0xD6, k) * haze);
+    }
+
+    /**
+     * The sunset (or sunrise) glow at (u, v) as 0xRRGGBB, before the texture: indigo #4B4F8C overhead, the horizon
+     * #F2A65A on one side of the hall (u = -1) shading to #D96C6C on the other (u = 1).
+     */
+    public static int duskTint(float u, float v) {
+        float d = Math.min(1f, (float) Math.sqrt(u * u + v * v));
+        float k = 1f - d * d * (3f - 2f * d);
+        float side = clamp01((u + 1f) * 0.5f);
+        float hr = lerp(0xF2, 0xD9, side), hg = lerp(0xA6, 0x6C, side), hb = lerp(0x5A, 0x6C, side);
+        return rgb(lerp(hr, 0x4B, k), lerp(hg, 0x4F, k), lerp(hb, 0x8C, k));
+    }
+
+    private static float lerp(float a, float b, float k) {
+        return a + (b - a) * k;
+    }
+
+    private static int rgb(float r, float g, float b) {
+        return (Math.min(255, Math.round(r)) << 16) | (Math.min(255, Math.round(g)) << 8) | Math.min(255, Math.round(b));
+    }
+
+    private static float clamp01(float f) {
+        return f < 0f ? 0f : f > 1f ? 1f : f;
     }
 
     /**

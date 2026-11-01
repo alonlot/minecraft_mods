@@ -34,8 +34,8 @@ import java.util.UUID;
  * maker or an op. Players only, never through a puppet or a reflected beam (the beam entity checks the latter).
  * Server only.
  *
- * <p>The pure part, {@link #refusal}, takes no level so a unit test can run it: the side, count, overlap and dimension
- * limits.
+ * <p>The pure parts, {@link #refusal} and {@link #skyRefusal}, take no level so a unit test can run them: the side,
+ * count, overlap and dimension limits, and the refusal under a dimension with no sky.
  */
 public final class CaelumFascinoSpell {
     /** What a Caelum Fascino beam did to the block it struck. */
@@ -111,6 +111,15 @@ public final class CaelumFascinoSpell {
         return null;
     }
 
+    /**
+     * The lang key of the refusal in a dimension with no sky of its own (the Nether, the End), or null where there is
+     * one. The bewitched ceiling draws the overworld's real sky, its sun, weather and stars, which would be a lie under
+     * a Nether roof; a sneak-cast may still undo a ceiling there.
+     */
+    public static @Nullable String skyRefusal(boolean hasSkyLight) {
+        return hasSkyLight ? null : KEY + "no_sky";
+    }
+
     /** The ceiling between two corner blocks: x and z from the lower to one past the higher, plane at the lower face. */
     public static AmbientEffect make(UUID id, BlockPos a, BlockPos b, @Nullable UUID owner, long createdTick) {
         int minX = Math.min(a.getX(), b.getX());
@@ -133,6 +142,12 @@ public final class CaelumFascinoSpell {
         AmbienceRegistry registry = AmbienceRegistry.get(level);
         if (player.isShiftKeyDown()) {
             return removeAt(level, registry, player, pos);
+        }
+        String noSky = skyRefusal(level.dimensionType().hasSkyLight());
+        if (noSky != null) {
+            // Before any corner is marked: a mark here could never become a ceiling.
+            tell(player, noSky.substring(KEY.length()), ChatFormatting.GOLD);
+            return Result.REFUSED;
         }
         long now = level.getGameTime();
         Mark mark = MARKS.get(player.getUUID());

@@ -84,11 +84,50 @@ public final class LightRays {
 
     /** A shaft's axis at gap {@code gap}: {sx, sy, sz, ex, ey, ez}, from the doorway (z 0) to the far end (z len). */
     public static float[] shaftEnds(float[] shaft, float gap, float hw, float h, float len) {
+        return shaftEnds(shaft, gap, hw, h, len, 1f);
+    }
+
+    /**
+     * As {@link #shaftEnds(float[], float, float, float, float)}, with the shaft's sink toward the floor scaled by
+     * {@code sink} (1 for a high sun, the effect's own slope; less for a low one, see {@link #sunSink}).
+     */
+    public static float[] shaftEnds(float[] shaft, float gap, float hw, float h, float len, float sink) {
         float sx = shaft[0] * gap * hw * INNER;
         float sy = shaft[1] * h;
         float ex = sx + shaft[2] * len;
-        float ey = Math.max(0.05f * h, Math.min(h, sy + shaft[3] * len));
+        float ey = Math.max(0.05f * h, Math.min(h, sy + shaft[3] * sink * len));
         return new float[]{sx, sy, 0f, ex, ey, len};
+    }
+
+    // ------------------------------------------------------------------ the world's rays and the sun
+
+    /** The least daylight the world's rays show at (below it the sun is too low, see {@code LightRaysRenderer}). */
+    public static final float LOW_SUN_DAYLIGHT = 0.2f;
+    /** How much of its sink toward the floor a shaft keeps when the sun is at its lowest: the light comes in flatter. */
+    public static final float LOW_SUN_SINK = 0.35f;
+
+    /**
+     * How low the sun is for the world's rays, 0 to 1, from {@code AmbienceClock.daylight}: 0 once the day is full
+     * (the sun 30 degrees up or more), rising smoothly to 1 at {@link #LOW_SUN_DAYLIGHT}, where the rays go out. Dawn
+     * and dusk are the high end.
+     */
+    public static float lowSun(float daylight) {
+        return 1f - smoothstep(LOW_SUN_DAYLIGHT, 1f, daylight);
+    }
+
+    /** The shafts' sink for a sun this low ({@link #lowSun}): 1 by day, down to {@link #LOW_SUN_SINK} at its lowest. */
+    public static float sunSink(float low) {
+        return 1f + (LOW_SUN_SINK - 1f) * clamp(low, 0f, 1f);
+    }
+
+    /** {@code day} turned toward {@code dusk} by {@code low} (0 to 1), per channel: the light warms as the sun sinks. */
+    public static float[] sunTint(float[] day, float[] dusk, float low) {
+        float k = clamp(low, 0f, 1f);
+        float[] out = new float[day.length];
+        for (int i = 0; i < day.length; i++) {
+            out[i] = day[i] + (dusk[i] - day[i]) * k;
+        }
+        return out;
     }
 
     /**

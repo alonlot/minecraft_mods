@@ -39,6 +39,8 @@ floor; the slot's floor cells are the only ones at y 24) and that every cell rou
 onto the world or the hill's hollow, and build_castle.verify_below holds the finished castle to the same.
 """
 
+import random
+
 from .frame import MAIN_FLOOR_Y
 from . import checks, hall
 from .grid import air_at
@@ -415,26 +417,69 @@ def build_stairs(grid):
 
 # ---------------------------------------------------------------- the kitchens
 
+# The dressing of the four kitchen tables (V3: a regular checkerboard of gold plates read as a pattern, not a laid
+# table). Seeded, so every build lays the same tables; at most this share of a table's cells carry anything.
+TABLE_DRESSING_SEED = 0x4B17C4E5
+TABLE_DRESSING_SHARE = 0.3
+TABLE_DRESSING_MAX = 0.4                 # the verify bound (build_castle check 45): items per table cell
+TABLE_GOLD_MAX = 12                      # the verify bound: gold plates on one table
+WOODEN_PLATES = ('oak_pressure_plate', 'spruce_pressure_plate', 'dark_oak_pressure_plate')
+
+
+def table_dressing(table_cells, seed=TABLE_DRESSING_SEED):
+    """{(x, z): block state} of what lies on the kitchen tables, for build_kitchen_tables and its tests: per table a
+    seeded scatter over at most TABLE_DRESSING_SHARE of its cells, the rest bare. Mostly wooden plates and platters
+    (oak, spruce and dark-oak pressure plates) at the places along the edges, a few gold pieces (three to six a table),
+    two to four cakes and one to three candle groups down the middle (candles count toward build_castle's census cap),
+    and a jug or two. Positions come from a shuffle, never a rhythm, so nothing lines up in a grid."""
+    out = {}
+    for t, run in enumerate(table_groups({x for x, _ in table_cells})):
+        rng = random.Random(seed + 7919 * t)
+        cells = sorted((x, z) for x, z in table_cells if x in run)
+        mid = run[len(run) // 2]
+        middle = [c for c in cells if c[0] == mid]
+        edges = [c for c in cells if c[0] != mid] or middle
+        rng.shuffle(middle)
+        rng.shuffle(edges)
+        budget = int(len(cells) * TABLE_DRESSING_SHARE)
+        centre = []
+        for _ in range(rng.randint(2, 4)):
+            centre.append(G.state('cake', bites=rng.choice((0, 0, 0, 1, 2))))
+        for _ in range(rng.randint(1, 3)):
+            centre.append(G.state('candle', candles=rng.randint(1, 3), lit=True, waterlogged=False))
+        side = [G.state('light_weighted_pressure_plate', power=0) for _ in range(rng.randint(3, 6))]
+        side += ['minecraft:flower_pot'] * rng.randint(1, 2)
+        while len(centre) + len(side) < budget:
+            side.append(G.state(rng.choice(WOODEN_PLATES), powered=False))
+        for c, state in zip(middle, centre):
+            out[c] = state
+        free = [c for c in edges if c not in out]
+        for c, state in zip(free, side[:max(0, budget - len(centre))]):
+            out[c] = state
+    return out
+
+
 def build_kitchen_tables(grid, table_cells):
     """The four long tables, cell for cell under the four house tables above (a spruce top slab at feet level), laid
-    with gold platters and jugs down both edges and cakes and candles down the middle."""
+    sparingly and irregularly (table_dressing): wooden plates and platters, a few gold pieces, cakes and candles, and
+    many cells left bare."""
     for x, z in table_cells:
         grid.set(x, KITCHEN_FEET, z, TABLE_SLAB)
+    for (x, z), state in table_dressing(table_cells).items():
+        grid.set(x, KITCHEN_FEET + 1, z, state)
+
+
+def table_dressing_report(cells, table_cells):
+    """Per kitchen table (in table_groups order): {'cells', 'items', 'gold'}, read from the finished castle, for the
+    density bound in build_castle check 45."""
+    out = []
     for run in table_groups({x for x, _ in table_cells}):
-        mid = run[len(run) // 2]
-        zs = sorted(z for x, z in table_cells if x == mid)
-        for i, z in enumerate(zs):
-            if i % 4 == 1:
-                grid.set(mid, KITCHEN_FEET + 1, z, G.state('cake', bites=0))
-            elif i % 8 == 3:
-                grid.set(mid, KITCHEN_FEET + 1, z, G.state('candle', candles=3, lit=True, waterlogged=False))
-            for x in run:
-                if x == mid or (x, z) not in table_cells:
-                    continue
-                if i % 2 == 0:
-                    grid.set(x, KITCHEN_FEET + 1, z, G.state('light_weighted_pressure_plate', power=0))
-                elif i % 4 == 3:
-                    grid.set(x, KITCHEN_FEET + 1, z, 'minecraft:flower_pot')
+        tops = [(x, z) for x, z in table_cells if x in run]
+        on = [checks.block_id(cells.get((x, KITCHEN_FEET + 1, z), 'minecraft:air')) for x, z in tops]
+        items = [i for i in on if i not in ('air', 'cave_air')]
+        out.append({'cells': len(tops), 'items': len(items),
+                    'gold': sum(1 for i in items if i == 'light_weighted_pressure_plate')})
+    return out
 
 
 def build_kitchen_vault(grid):

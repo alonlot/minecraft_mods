@@ -313,6 +313,36 @@ def test_census():
     assert c['minecraft:stone'] == 4 and c['minecraft:oak_door'] == 1
 
 
+def test_kitchen_table_dressing():
+    from mini_hogwarts import rooms_below as B
+    # four tables three wide and fifty long, like the kitchens' (the middle column is x 1, 11, 21, 31)
+    tables = {(x0 + dx, z) for x0 in (0, 10, 20, 30) for dx in range(3) for z in range(50)}
+    laid = B.table_dressing(tables)
+    assert laid == B.table_dressing(tables), 'the dressing is seeded: the same every build'
+    assert set(laid) <= tables
+    for run in B.table_groups({x for x, _ in tables}):
+        on = {c: s for c, s in laid.items() if c[0] in run}
+        ids = [checks.block_id(s) for s in on.values()]
+        gold = ids.count('light_weighted_pressure_plate')
+        wood = sum(1 for i in ids if i in B.WOODEN_PLATES)
+        assert 0 < len(on) <= 150 / 3, ('at most one item per three cells', len(on))
+        assert 3 <= gold <= 6 <= B.TABLE_GOLD_MAX, ('a few gold pieces a table', gold)
+        assert wood > len(on) / 2, ('mostly wooden plates', wood, len(on))
+        assert 2 <= ids.count('cake') <= 4 and 1 <= ids.count('candle') <= 3, ids
+        # nothing in a grid: on no column do the items stand at one even spacing
+        for x in run:
+            zs = sorted(z for (cx, z) in on if cx == x)
+            gaps = {b - a for a, b in zip(zs, zs[1:])}
+            assert len(zs) < 3 or len(gaps) > 1, ('a regular row of items', x, zs)
+    # build_kitchen_tables lays exactly that on the table tops, and the verify report reads it back
+    g = Grid()
+    B.build_kitchen_tables(g, tables)
+    report = B.table_dressing_report(g.cells, tables)
+    assert [t['items'] for t in report] == [sum(1 for c in laid if c[0] in run)
+                                            for run in B.table_groups({x for x, _ in tables})]
+    assert all(t['items'] <= B.TABLE_DRESSING_MAX * t['cells'] and t['gold'] <= B.TABLE_GOLD_MAX for t in report)
+
+
 if __name__ == '__main__':
     tests = [(n, f) for n, f in sorted(globals().items()) if n.startswith('test_') and callable(f)]
     for name, fn in tests:

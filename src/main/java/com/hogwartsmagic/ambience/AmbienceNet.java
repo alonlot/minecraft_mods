@@ -39,12 +39,18 @@ public final class AmbienceNet {
      * open instead of as a plank roof.
      */
     public record AmbienceSyncPacket(String dimension, List<AmbientEffect> all, List<UUID> opened) {
+        /**
+         * The longest dimension id either side accepts: the wire's own string limit, the same on encode and decode,
+         * so a modded dimension with a long id never disconnects the client.
+         */
+        public static final int MAX_DIMENSION_LENGTH = 32767;
+
         public AmbienceSyncPacket(String dimension, List<AmbientEffect> all) {
             this(dimension, all, List.of());
         }
 
         public void encode(FriendlyByteBuf buf) {
-            buf.writeUtf(dimension);
+            buf.writeUtf(dimension, MAX_DIMENSION_LENGTH);
             buf.writeVarInt(all.size());
             for (AmbientEffect e : all) {
                 e.encode(buf);
@@ -56,7 +62,7 @@ public final class AmbienceNet {
         }
 
         public static AmbienceSyncPacket decode(FriendlyByteBuf buf) {
-            String dimension = buf.readUtf(256);
+            String dimension = buf.readUtf(MAX_DIMENSION_LENGTH);
             int n = Math.min(buf.readVarInt(), MAX_SYNC);
             List<AmbientEffect> all = new ArrayList<>(Math.max(0, Math.min(n, 256)));
             for (int i = 0; i < n; i++) {

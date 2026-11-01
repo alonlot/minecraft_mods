@@ -714,12 +714,16 @@ def verify_below(grid, base, walk):
     assert not report['leaks'], ('below: a room opens onto air', report['leaks'][:5])
 
     # 45. the kitchens' four long tables lie under the four house tables: every top cell of the hall's tables has a
-    #     kitchen table cell under it, on the same x and z
+    #     kitchen table cell under it, on the same x and z; and they are laid, not blizzarded (V3): on each table at
+    #     most TABLE_DRESSING_MAX items per cell and TABLE_GOLD_MAX gold plates, with something on it
     tables = B.hall_table_cells(cells)
     groups = B.table_groups({x for x, _ in tables})
     assert len(groups) == 4, ('the Great Hall\'s house tables', groups)
     missing = sorted((x, z) for x, z in tables if grid.get(x, B.KITCHEN_FEET, z) != B.TABLE_SLAB)
     assert not missing, ('kitchen table cells missing under the house tables', len(missing), missing[:5])
+    for i, t in enumerate(B.table_dressing_report(cells, tables)):
+        assert 0 < t['items'] <= B.TABLE_DRESSING_MAX * t['cells'], ('kitchen table %d is over-laid' % i, t)
+        assert t['gold'] <= B.TABLE_GOLD_MAX, ('kitchen table %d: too many gold plates' % i, t)
 
     # 46. three cells or more behind iron bars (their whole front onto the corridor is bars), and the open one with its
     #     iron door
@@ -897,6 +901,9 @@ def verify_castle(grid, walk):
     #     no air left in it (a one-row slice a block has filled since it was measured: a chain, a pole, a pane) and the
     #     dungeon cells behind iron bars, which are seen through their bars, never entered (check 46; each front's bars
     #     must stand against the walked corridor)
+    #     This proves AIR connection, not walking reach: the flood flies, so a room it reaches may still need a jump, a
+    #     ladder or a missing step to enter on foot. Reach on foot is what the per-room walk checks prove (each room's
+    #     own walk tests in test_castle.py, and the cells this file requires to be walked to, such as check 51's).
     in_rooms = set()
     for b in rooms.values():
         in_rooms.update(box_cells(b))

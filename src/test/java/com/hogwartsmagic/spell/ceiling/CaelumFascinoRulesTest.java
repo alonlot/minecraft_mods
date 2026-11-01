@@ -104,4 +104,10 @@ class CaelumFascinoRulesTest {
         assertEquals(AmbientEffect.KIND_CEILING, e.kind());
         assertEquals(77L, e.createdTick());
     }
+    @Test
+    void aDimensionWithoutSkyLightIsRefused() {
+        // The ceiling draws the overworld's real sky: under the Nether's roof or in the End there is none to show.
+        assertEquals(KEY + "no_sky", CaelumFascinoSpell.skyRefusal(false));
+        assertNull(CaelumFascinoSpell.skyRefusal(true));
+    }
 }

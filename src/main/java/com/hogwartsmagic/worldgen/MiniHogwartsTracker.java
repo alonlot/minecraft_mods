@@ -34,7 +34,10 @@ public class MiniHogwartsTracker extends SavedData {
      * written (centres only) so a save opened by an older build keeps its castles.
      */
     private static final String KEY_LEGACY = "Castles";
-    /** Two records closer than this are the same castle (the centre chunk can be decorated more than once). */
+    /**
+     * A record without an anchor (an old-format caller) is the same castle as any record closer than this (the centre
+     * chunk can be decorated more than once).
+     */
     private static final double DEDUPE_DISTANCE = 128.0;
 
     private final List<Castle> castles = new ArrayList<>();
@@ -92,12 +95,19 @@ public class MiniHogwartsTracker extends SavedData {
     }
 
     /**
-     * Records a castle, unless one is already recorded within 128 blocks of {@code center}. Returns the castle now
-     * on record there (the existing one when deduplicated).
+     * Records a castle, unless it is already on record. Returns the castle now on record there (the existing one when
+     * deduplicated).
+     *
+     * <p>A castle with an anchor is the one already recorded at the same anchor (its centre chunk decorated again), and
+     * nothing else: two castles a short walk apart are two castles, each with its own hall to reveal and its own title.
+     * Dropping the second one would leave its hall ceiling, which its piece registers sealed, a plank roof forever. An
+     * old live-built castle (recorded without an anchor) is never the same as a castle with one, since the structure
+     * can only generate in fresh chunks. A record without an anchor keeps the old rule: the same castle as anything
+     * within 128 blocks.
      */
     public Castle add(BlockPos center, @Nullable BlockPos anchor) {
         for (Castle existing : castles) {
-            if (existing.center.distSqr(center) < DEDUPE_DISTANCE * DEDUPE_DISTANCE) {
+            if (sameCastle(existing, center, anchor)) {
                 return existing;
             }
         }
@@ -106,6 +116,13 @@ public class MiniHogwartsTracker extends SavedData {
         castles.add(castle);
         setDirty();
         return castle;
+    }
+
+    private static boolean sameCastle(Castle existing, BlockPos center, @Nullable BlockPos anchor) {
+        if (anchor != null) {
+            return anchor.equals(existing.anchor);
+        }
+        return existing.center.distSqr(center) < DEDUPE_DISTANCE * DEDUPE_DISTANCE;
     }
 
     /** The live list of castles, oldest first. */

@@ -159,7 +159,7 @@ class MiniHogwartsAnchorsTest {
 
         assertTrue(a.chests().size() >= 5, "chests " + a.chests().size());
         assertTrue(a.studentSpots().size() >= 32, "student spots " + a.studentSpots().size());
-        assertTrue(a.statues().size() >= 8, "statues " + a.statues().size());
+        assertTrue(a.statues().size() >= 18, "statues " + a.statues().size());
         assertTrue(a.candles().size() >= 4, "candles " + a.candles().size());
     }
 }

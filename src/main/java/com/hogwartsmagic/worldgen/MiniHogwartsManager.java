@@ -236,6 +236,28 @@ public final class MiniHogwartsManager {
     }
 
     /**
+     * Loads the schematic and its anchors and builds the furnishing plan now, on the server thread as the server
+     * starts, so the first castle chunk a worldgen worker decorates does not pay for it (a 2.4M-cell scan) while holding
+     * the class locks the server thread may be waiting on. Safe to call again: everything is cached.
+     */
+    public static void prewarm() {
+        try {
+            MiniHogwartsSchematic schem = MiniHogwartsSchematic.get();
+            if (schem != null) {
+                planFor(schem);
+            }
+        } catch (RuntimeException e) {
+            // Never stop a server from starting over this: the first castle chunk tries again (and logs again).
+            LOGGER.error("Could not prewarm the Mini Hogwarts furnishing plan", e);
+        }
+    }
+
+    /** Whether the furnishing plan for {@code schem} (with its current anchors) is already built. GameTests only. */
+    public static synchronized boolean planReadyFor(MiniHogwartsSchematic schem) {
+        return plan != null && plannedFor == schem && plannedAnchors == MiniHogwartsAnchors.forSchematic(schem);
+    }
+
+    /**
      * The plan for {@code schem}, worked out on first use (the schematic and its anchors never change once
      * loaded). Built under the lock, so two chunks asking at once share one plan.
      */

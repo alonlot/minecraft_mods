@@ -52,7 +52,8 @@ import java.util.UUID;
  *
  * <p>Outside a memory it draws the world's registered {@code KIND_RAYS} windows (the castle's hall) within 128 blocks
  * of the camera instead, fully open, on the world clock ({@code AmbienceClock}), only while the sun is up
- * ({@link AmbienceClock#daylight} above 0.2) and it is not raining, and as bright as the daylight.
+ * ({@link AmbienceClock#daylight} above 0.2) and it is not raining, and as bright as the daylight. As the sun gets low
+ * ({@link LightRays#lowSun}, dawn and dusk) the light turns from gold to amber and its shafts come in flatter.
  *
  * <p>Textures: {@code build_scripts/generate_light_ray_textures.py} ({@code light_ray}, {@code light_glow}); motes use
  * the ceiling's {@code ceiling_dot}.
@@ -69,6 +70,9 @@ public final class LightRaysRenderer {
     /** Warm gold (#FFD9A0), and the whiter heat at the doorway. */
     private static final float[] GOLD = {1f, 0.85f, 0.63f};
     private static final float[] HOT = {1f, 0.93f, 0.80f};
+    /** The same two at dawn and dusk, for the world's rays under a low sun: amber (#FF9C52) and a warm peach. */
+    private static final float[] DUSK_GOLD = {1f, 0.61f, 0.32f};
+    private static final float[] DUSK_HOT = {1f, 0.78f, 0.55f};
 
     /** A shaft's strength at the door, and how much is left at these fractions of its length (1 = the far end). */
     private static final float SHAFT_ALPHA = 0.13f;
@@ -128,13 +132,14 @@ public final class LightRaysRenderer {
         List<Beam> beams;
         float now;
         float daylight = 1f;
+        float low = 0f;
         if (PensieveClientState.inMemory()) {
             beams = EffectVisuals.lightRays();
             if (beams.isEmpty() || mc.level == null) return;
             now = PensieveClientState.sceneTime(PensieveClientState.partial());
         } else {
             // Not in a memory: the world's own rays (the castle's hall windows), on the world clock, only while the sun
-            // is up and it is not raining, as bright as the day.
+            // is up and it is not raining, as bright as the day, warmer and flatter as the sun gets low.
             if (mc.level == null || WorldAmbience.ofKind(AmbientEffect.KIND_RAYS).isEmpty()) {
                 WORLD_BEAMS.clear();
                 return;
@@ -142,6 +147,7 @@ public final class LightRaysRenderer {
             float partial = PensieveClientState.partial();
             daylight = worldDaylight(mc.level, partial);
             if (daylight <= MIN_DAYLIGHT) return;
+            low = LightRays.lowSun(daylight);
             beams = worldBeams(camera.getPosition());
             if (beams.isEmpty()) return;
             now = AmbienceClock.now(mc.level, partial);
@@ -149,13 +155,23 @@ public final class LightRaysRenderer {
         // Identity, deliberately: the camera rotation is already on RenderSystem's modelview stack.
         Matrix4f m = new Matrix4f();
         MultiBufferSource.BufferSource buffer = mc.renderBuffers().bufferSource();
+        Sun sun = low > 0f ? new Sun(LightRays.sunTint(GOLD, DUSK_GOLD, low), LightRays.sunTint(HOT, DUSK_HOT, low),
+                LightRays.sunSink(low)) : HIGH_SUN;
         for (Beam beam : beams) {
-            draw(beam, now, camera.getPosition(), camera.rotation(), m, buffer, beam.intensity * daylight);
+            draw(beam, now, camera.getPosition(), camera.rotation(), m, buffer, beam.intensity * daylight, sun);
         }
     }
 
     /** World light needs more daylight than this, and less rain than {@link #MAX_RAIN}, to show at all. */
-    private static final float MIN_DAYLIGHT = 0.2f, MAX_RAIN = 0.2f;
+    private static final float MIN_DAYLIGHT = LightRays.LOW_SUN_DAYLIGHT, MAX_RAIN = 0.2f;
+
+    /** The light's colours (the far gold, the hot doorway) and the shafts' sink, for how high the sun is. */
+    private record Sun(float[] gold, float[] hot, float sink) {
+    }
+
+    /** A memory's light, and the world's under a high sun: the plain gold and the effect's own slope. */
+    private static final Sun HIGH_SUN = new Sun(GOLD, HOT, 1f);
+
     /** World rays further than this from the camera are not drawn. */
     private static final double WORLD_RANGE = 128.0;
     /** A world beam's start: long enough ago that the doorway is fully open and the light fully up. */
@@ -199,9 +215,13 @@ public final class LightRaysRenderer {
         }
     }
 
-    /** {@code strength} multiplies every brightness: the beam's own intensity, and for the world also the daylight. */
+    /**
+     * {@code strength} multiplies every brightness: the beam's own intensity, and for the world also the daylight;
+     * {@code sun} gives the colours and the shafts' slope.
+     */
     private static void draw(Beam beam, float now, Vec3 cam, Quaternionf camRot, Matrix4f m,
-                             MultiBufferSource.BufferSource buffer, float strength) {
+                             MultiBufferSource.BufferSource buffer, float strength, Sun sun) {
+        float[] gold = sun.gold, hot = sun.hot;
         float elapsed = now - beam.startT;
         float appear = LightRays.appear(elapsed);
         if (appear <= 0f) return;
@@ -223,28 +243,28 @@ public final class LightRaysRenderer {
         VertexConsumer vc = buffer.getBuffer(GLOW);
         if (front > 0f) {
             float g = LightRays.scaled(GAP_ALPHA * front, strength);
-            upright(vc, m, fr, -0.15f, open + 0.08f, 0f, beam.h, HOT, g);
+            upright(vc, m, fr, -0.15f, open + 0.08f, 0f, beam.h, hot, g);
             float b = LightRays.scaled(BLOOM_ALPHA * front * (0.4f + 0.6f * (float) Math.sqrt(gap)), strength);
-            upright(vc, m, fr, 0.3f, open + BLOOM_MARGIN, -0.3f, beam.h + BLOOM_MARGIN, GOLD, b);
+            upright(vc, m, fr, 0.3f, open + BLOOM_MARGIN, -0.3f, beam.h + BLOOM_MARGIN, gold, b);
         }
         float pool = LightRays.scaled(POOL_ALPHA * appear * (0.35f + 0.65f * (float) Math.sqrt(gap)), strength);
         float reach = beam.len * POOL_REACH;
         float farHalf = open + 0.22f * reach + 0.3f;
         float y = 0.03f;
-        put(vc, m, fr.p(-open - 0.1f, y, 0.05f), HOT, pool, 0f, 0.5f);
-        put(vc, m, fr.p(open + 0.1f, y, 0.05f), HOT, pool, 1f, 0.5f);
-        put(vc, m, fr.p(farHalf, y, reach), GOLD, pool, 1f, 1f);
-        put(vc, m, fr.p(-farHalf, y, reach), GOLD, pool, 0f, 1f);
+        put(vc, m, fr.p(-open - 0.1f, y, 0.05f), hot, pool, 0f, 0.5f);
+        put(vc, m, fr.p(open + 0.1f, y, 0.05f), hot, pool, 1f, 0.5f);
+        put(vc, m, fr.p(farHalf, y, reach), gold, pool, 1f, 1f);
+        put(vc, m, fr.p(-farHalf, y, reach), gold, pool, 0f, 1f);
         buffer.endBatch(GLOW);
 
         // 2. The shafts.
         vc = buffer.getBuffer(RAY);
         for (int i = 0; i < beam.shafts.length; i++) {
             float[] s = beam.shafts[i];
-            float[] e = LightRays.shaftEnds(s, gap, beam.hw, beam.h, beam.len);
+            float[] e = LightRays.shaftEnds(s, gap, beam.hw, beam.h, beam.len, sun.sink);
             float[] w = LightRays.shaftHalfWidths(s, gap, beam.hw, beam.len);
             float a = LightRays.scaled(SHAFT_ALPHA * LightRays.shimmer(now, i) * appear, strength);
-            shaft(vc, m, fr, e, w, a);
+            shaft(vc, m, fr, e, w, a, gold, hot);
         }
         buffer.endBatch(RAY);
 
@@ -257,16 +277,17 @@ public final class LightRaysRenderer {
             float b = LightRays.scaled(mo[3] * appear * 0.9f, strength);
             if (b <= 0.01f) continue;
             Vector3f c = fr.p(mo[0], mo[1], mo[2]);
-            put(vc, m, new Vector3f(c).sub(right).sub(up), GOLD, b, 0f, 0f);
-            put(vc, m, new Vector3f(c).add(right).sub(up), GOLD, b, 1f, 0f);
-            put(vc, m, new Vector3f(c).add(right).add(up), GOLD, b, 1f, 1f);
-            put(vc, m, new Vector3f(c).sub(right).add(up), GOLD, b, 0f, 1f);
+            put(vc, m, new Vector3f(c).sub(right).sub(up), gold, b, 0f, 0f);
+            put(vc, m, new Vector3f(c).add(right).sub(up), gold, b, 1f, 0f);
+            put(vc, m, new Vector3f(c).add(right).add(up), gold, b, 1f, 1f);
+            put(vc, m, new Vector3f(c).sub(right).add(up), gold, b, 0f, 1f);
         }
         buffer.endBatch(DOT);
     }
 
     /** One shaft: a camera-facing ribbon round its axis, in segments between the stations, fading to the far end. */
-    private static void shaft(VertexConsumer vc, Matrix4f m, Frame fr, float[] e, float[] w, float alpha) {
+    private static void shaft(VertexConsumer vc, Matrix4f m, Frame fr, float[] e, float[] w, float alpha,
+                              float[] gold, float[] hot) {
         Vector3f start = fr.p(e[0], e[1], e[2]);
         Vector3f end = fr.p(e[3], e[4], e[5]);
         Vector3f axis = new Vector3f(end).sub(start);
@@ -286,11 +307,11 @@ public final class LightRaysRenderer {
         for (int k = 0; k + 1 < STATION.length; k++) {
             float a0 = alpha * STATION_FADE[k];
             float a1 = alpha * STATION_FADE[k + 1];
-            float[] c0 = k == 0 ? HOT : GOLD;
+            float[] c0 = k == 0 ? hot : gold;
             put(vc, m, lo[k], c0, a0, 0f, STATION[k]);
             put(vc, m, hi[k], c0, a0, 1f, STATION[k]);
-            put(vc, m, hi[k + 1], GOLD, a1, 1f, STATION[k + 1]);
-            put(vc, m, lo[k + 1], GOLD, a1, 0f, STATION[k + 1]);
+            put(vc, m, hi[k + 1], gold, a1, 1f, STATION[k + 1]);
+            put(vc, m, lo[k + 1], gold, a1, 0f, STATION[k + 1]);
         }
     }
 

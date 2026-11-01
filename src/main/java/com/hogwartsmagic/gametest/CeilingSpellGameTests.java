@@ -89,6 +89,30 @@ public final class CeilingSpellGameTests {
         helper.succeed();
     }
 
+    /** In the Nether (no sky light) the first cast is refused with a hint, and no corner is marked. */
+    @GameTest(template = EMPTY, batch = "ceiling_spell_no_sky", timeoutTicks = 100)
+    public static void noSkyDimensionRefuses(GameTestHelper helper) {
+        AmbienceNet.setSendObserverForTests((player, packet) -> { });
+        ServerLevel level = helper.getLevel();
+        ServerLevel nether = level.getServer().getLevel(Level.NETHER);
+        ServerPlayer p = helper.makeMockServerPlayerInLevel();
+        try {
+            helper.assertTrue(nether != null && !nether.dimensionType().hasSkyLight(), "the Nether is loaded, skyless");
+            int before = AmbienceRegistry.get(nether).all().size();
+            Result result = CaelumFascinoSpell.onBlockHit(nether, new BlockPos(0, 64, 0), p);
+            helper.assertTrue(result == Result.REFUSED, "a cast in the Nether is refused, got " + result);
+            helper.assertTrue(CaelumFascinoSpell.markOf(p.getUUID()) == null, "no corner is marked there");
+            helper.assertTrue(AmbienceRegistry.get(nether).all().size() == before, "nothing is registered");
+            // The overworld still takes a mark.
+            helper.assertTrue(CaelumFascinoSpell.onBlockHit(level, helper.absolutePos(new BlockPos(0, 4, 0)), p)
+                    == Result.MARKED, "a cast under a sky marks a corner");
+        } finally {
+            cleanUp(level, p);
+        }
+        LOGGER.info("CEILING-GAMETEST PASS noSkyDimensionRefuses");
+        helper.succeed();
+    }
+
     @GameTest(template = EMPTY, batch = "ceiling_spell_sneak", timeoutTicks = 100)
     public static void sneakCastRemovesOwnCeiling(GameTestHelper helper) {
         AmbienceNet.setSendObserverForTests((player, packet) -> { });

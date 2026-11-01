@@ -360,6 +360,24 @@ public final class MiniHogwartsGameTests {
         });
     }
 
+    /**
+     * The server-start prewarm (WorldgenLifecycle, on ServerAboutToStartEvent, which the GameTest server itself does
+     * not fire) loads the shipped castle and leaves its furnishing plan built, so no worldgen worker pays for it.
+     */
+    @GameTest(template = EMPTY, batch = "mh_prewarm", timeoutTicks = 100)
+    public static void prewarmBuildsThePlan(GameTestHelper helper) {
+        com.hogwartsmagic.worldgen.MiniHogwartsManager.prewarm();
+        var schem = com.hogwartsmagic.worldgen.MiniHogwartsSchematic.get();
+        helper.assertTrue(schem != null && !com.hogwartsmagic.worldgen.MiniHogwartsSchematic.isTestSchematic(schem),
+                "the shipped castle schematic is loaded");
+        helper.assertTrue(com.hogwartsmagic.worldgen.MiniHogwartsAnchors.forSchematic(schem) != null,
+                "its anchors are loaded");
+        helper.assertTrue(com.hogwartsmagic.worldgen.MiniHogwartsManager.planReadyFor(schem),
+                "the furnishing plan is built and cached");
+        LOGGER.info("MINIHOGWARTS-GAMETEST PASS prewarmBuildsThePlan");
+        helper.succeed();
+    }
+
     /** The "Hogwarts" title card comes once per player per castle, and a second player still gets their own. */
     @GameTest(template = EMPTY, batch = "mh_title", timeoutTicks = 100)
     public static void titleShownOncePerPlayer(GameTestHelper helper) {

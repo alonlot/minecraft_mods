@@ -281,8 +281,8 @@ public final class EnchantedCeiling {
     }
 
     /**
-     * The world's ceilings in range, as skies ready to draw: the real-sky style, open (or, from the reveal the server
-     * told, with the roof dissolving out of its start), one cached per effect.
+     * The world's ceilings in range, as skies ready to draw: the real-sky style, with the roof dissolving out of its
+     * reveal start (a spell ceiling's creation, or the reveal the server told for a sealed one), one cached per effect.
      */
     private static List<Sky> worldSkies(ClientLevel level, Vec3 cam) {
         List<AmbientEffect> ceilings = WorldAmbience.ofKind(AmbientEffect.KIND_CEILING);
@@ -302,9 +302,10 @@ public final class EnchantedCeiling {
             }
             long reveal = WorldAmbience.revealStart(e.id());
             boolean told = reveal != WorldAmbience.NO_REVEAL;
-            // Sealed (the castle's hall) until this player is told its reveal started, or that they already had it.
+            // Sealed (the castle's hall) until this player is told its reveal started, or that they already had it; a
+            // spell's ceiling dissolves from the tick it was made, the same moment for every client.
             cached.sky.revealT = WorldCeilingReveal.start(e.sealed(), WorldAmbience.isOpened(e.id()), told,
-                    told ? AmbienceClock.at(level, reveal) : 0f);
+                    told ? AmbienceClock.at(level, reveal) : 0f, AmbienceClock.at(level, e.createdTick()));
             out.add(cached.sky);
         }
         return out;

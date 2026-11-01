@@ -2,12 +2,14 @@ package com.hogwartsmagic.worldgen;
 
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.worldgen.undercroft.UndercroftBuilder;
+import net.minecraftforge.event.server.ServerAboutToStartEvent;
 import net.minecraftforge.event.server.ServerStoppedEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
 /**
- * Clears the static over-ticks build state when the server goes away.
+ * Warms the Mini Hogwarts caches as the server starts, and clears the static over-ticks build state when the server
+ * goes away.
  *
  * <p>Every builder in this package keeps its in-progress job in a static field, and each job holds
  * the {@link net.minecraft.server.level.ServerLevel} it is writing into. (Mini Hogwarts is no longer one
@@ -21,6 +23,15 @@ import net.minecraftforge.fml.common.Mod;
 public final class WorldgenLifecycle {
 
     private WorldgenLifecycle() {
+    }
+
+    /**
+     * Before any level loads (so before the spawn chunks generate): the castle schematic, its anchors and the
+     * furnishing plan are read once here instead of on the first worldgen worker that meets a castle chunk.
+     */
+    @SubscribeEvent
+    public static void onServerAboutToStart(ServerAboutToStartEvent event) {
+        MiniHogwartsManager.prewarm();
     }
 
     @SubscribeEvent

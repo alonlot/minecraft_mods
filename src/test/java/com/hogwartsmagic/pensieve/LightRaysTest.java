@@ -135,4 +135,37 @@ class LightRaysTest {
         assertEquals(2f * LightRays.scaled(base, 0.5f), LightRays.scaled(base, 1f), 1e-6f);
         assertEquals(LightRays.scaled(base, 0.4f) + LightRays.scaled(base, 0.6f), LightRays.scaled(base, 1f), 1e-6f);
     }
+    @Test
+    void theSunIsLowOnlyAtDawnAndDusk() {
+        assertEquals(0f, LightRays.lowSun(1f), 1e-6f, "full day: a high sun");
+        assertEquals(1f, LightRays.lowSun(LightRays.LOW_SUN_DAYLIGHT), 1e-6f, "where the rays go out: the lowest sun");
+        float last = 2f;
+        for (float d = LightRays.LOW_SUN_DAYLIGHT; d <= 1f; d += 0.05f) {
+            float low = LightRays.lowSun(d);
+            assertTrue(low >= 0f && low <= 1f && low <= last, "lowSun falls as the daylight grows, at " + d);
+            last = low;
+        }
+    }
+
+    @Test
+    void aLowSunsRaysAreWarmer() {
+        float[] day = {1f, 0.85f, 0.63f};
+        float[] dusk = {1f, 0.6f, 0.3f};
+        assertArrayEquals(day, LightRays.sunTint(day, dusk, 0f), 1e-6f);
+        assertArrayEquals(dusk, LightRays.sunTint(day, dusk, 1f), 1e-6f);
+        float[] mid = LightRays.sunTint(day, dusk, LightRays.lowSun(0.5f));
+        assertTrue(mid[1] < day[1] && mid[2] < day[2] && mid[0] == 1f, "dawn light loses green and blue first");
+    }
+
+    @Test
+    void aLowSunsRaysComeInLower() {
+        float[] shaft = LightRays.shafts(7L, LightRays.SHAFTS)[3];
+        float[] high = LightRays.shaftEnds(shaft, 1f, 3f, 10f, 20f, LightRays.sunSink(0f));
+        float[] low = LightRays.shaftEnds(shaft, 1f, 3f, 10f, 20f, LightRays.sunSink(1f));
+        assertArrayEquals(LightRays.shaftEnds(shaft, 1f, 3f, 10f, 20f), high, 1e-6f,
+                "a high sun keeps the effect's own slope");
+        assertEquals(high[1], low[1], 1e-6f, "both start at the same height in the window");
+        assertTrue(low[4] > high[4], "a low sun's shaft drops less over the hall: it comes in at a lower angle");
+        assertEquals(LightRays.LOW_SUN_SINK, LightRays.sunSink(1f), 1e-6f);
+    }
 }

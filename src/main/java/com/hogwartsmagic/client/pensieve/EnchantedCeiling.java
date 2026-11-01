@@ -295,8 +295,15 @@ public final class EnchantedCeiling {
         if (shot != null && p.reveal >= 1f) drawShootingStar(shot, p.ax, p.ay - SHIMMER_DROP, p.az, m, buffer);
     }
 
-    /** Cloud strength by time of day: the cloud textures top out at alpha 0.35, so day needs far more to read as white. */
-    private static final float CLOUD_NIGHT = 1f, CLOUD_DUSK = 1.7f, CLOUD_DAY = 2.6f;
+    /**
+     * Cloud opacity multipliers by time of day, on top of CLOUD_A_ALPHA / CLOUD_B_ALPHA. A vertex alpha cannot exceed 1 and
+     * the cloud textures top out at alpha 0.35, so a layer wanting more than that is drawn as several passes (see
+     * {@link #cloudLayer}): night 1 is the old single pass, dusk and day need more to read as white cloud.
+     */
+    private static final float CLOUD_OPACITY_NIGHT = 1f, CLOUD_OPACITY_DUSK = 1.7f, CLOUD_OPACITY_DAY = 2.6f;
+    /** Most passes one cloud layer is drawn in (each at vertex alpha up to 1), however thick the sky asks for. */
+    private static final int MAX_CLOUD_PASSES = 4;
+    private static final float[] NO_COLOUR = new float[3];
     /** Rain greys the cloud by up to this much, thickens it by this factor, and dims the stars and the open sky. */
     private static final float OVERCAST_GREY = 0.45f, OVERCAST_THICK = 1.2f, OVERCAST_STAR_DIM = 0.9f,
             OVERCAST_SKY_DIM = 0.55f;
@@ -322,7 +329,7 @@ public final class EnchantedCeiling {
         float texture = 1f / CeilingSky.SKY_TEXTURE_MEAN;
         layer(buffer, SKY, m, full, 0f, (u, v, a, o) -> {
             // The night colour already carries 1 / SKY_TEXTURE_MEAN; the two packed colours get it here.
-            float[] c = night > 0f ? CeilingSky.skyColour(CeilingSky.NIGHT, sky.seed, u, v) : new float[3];
+            float[] c = night > 0f ? CeilingSky.skyColour(CeilingSky.NIGHT, sky.seed, u, v) : NO_COLOUR;
             int d = day > 0f ? CeilingSky.daySkyColour(sky.seed, u, v) : 0;
             int s = dusk > 0f ? CeilingSky.duskTint(u, v) : 0;
             for (int ch = 0; ch < 3; ch++) {
@@ -340,7 +347,8 @@ public final class EnchantedCeiling {
             return;
         }
         // Clouds: white by day, warm at dusk, as at night; rain greys and thickens them.
-        float strength = (day * CLOUD_DAY + dusk * CLOUD_DUSK + night * CLOUD_NIGHT) * (1f + OVERCAST_THICK * overcast);
+        float opacity = (day * CLOUD_OPACITY_DAY + dusk * CLOUD_OPACITY_DUSK + night * CLOUD_OPACITY_NIGHT)
+                * (1f + OVERCAST_THICK * overcast);
         float grey = 1f - OVERCAST_GREY * overcast;
         Shade cloud = (u, v, a, o) -> {
             o[0] = grey;
@@ -348,14 +356,26 @@ public final class EnchantedCeiling {
             o[2] = grey * (1f - 0.35f * dusk);
             o[3] = a;
         };
-        layer(buffer, CLOUDS_A, m, full, CLOUD_A_DROP, alpha(cloud, CLOUD_A_ALPHA * strength), drift, drift * 0.35f,
+        cloudLayer(buffer, CLOUDS_A, m, full, CLOUD_A_DROP, cloud, CLOUD_A_ALPHA * opacity, drift, drift * 0.35f,
                 CLOUD_A_TILE);
-        layer(buffer, CLOUDS_B, m, full, CLOUD_B_DROP, alpha(cloud, CLOUD_B_ALPHA * strength), -drift * 1.4f,
+        cloudLayer(buffer, CLOUDS_B, m, full, CLOUD_B_DROP, cloud, CLOUD_B_ALPHA * opacity, -drift * 1.4f,
                 drift * 0.5f, CLOUD_B_TILE);
         float[] shot = CeilingSky.shootingStar(sky.seed, now, sky.hx, sky.hz);
         if (shot != null && p.reveal >= 1f && night > 0.5f && overcast < 0.5f) {
             drawShootingStar(shot, p.ax, p.ay - SHIMMER_DROP, p.az, m, buffer);
         }
+    }
+
+    /**
+     * A cloud layer wanting total opacity {@code wanted} (which may exceed 1; the vertex alpha cannot): drawn as
+     * {@code ceil(wanted)} stacked passes (at most {@link #MAX_CLOUD_PASSES}), each at vertex alpha {@code wanted / n}
+     * (at most 1), so thicker sky really is thicker. {@code wanted <= 1} is one pass, exactly {@link #layer}.
+     */
+    private static void cloudLayer(MultiBufferSource.BufferSource buffer, RenderType type, Matrix4f m, Plane p,
+                                   float drop, Shade shade, float wanted, float du, float dv, float tile) {
+        int passes = Math.max(1, Math.min(MAX_CLOUD_PASSES, (int) Math.ceil(wanted)));
+        Shade each = alpha(shade, Math.min(1f, wanted / passes));
+        for (int i = 0; i < passes; i++) layer(buffer, type, m, p, drop, each, du, dv, tile);
     }
 
     /**

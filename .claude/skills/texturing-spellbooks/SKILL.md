@@ -7,8 +7,8 @@ description: Use when a spellbook, spell tome or magic book item texture is need
 
 ## Overview
 
-The mod's 41 spellbooks are **painted HD art on one shared base book** (1024 or 2048 px, transparent
-PNG). That base is approved by the user, and every book must look like it. The spellbooks are the
+The mod's 41 spellbooks are **painted HD art on one shared base book** (1024x1024 transparent PNG;
+never 2048, which costs 16 MB of item atlas per book for no visible gain). That base is approved by the user, and every book must look like it. The spellbooks are the
 one item family that is NOT a 16x16 sprite, so texturing-minecraft-items' 16x16 contract does not
 apply to them. A new or off-model book is generated in Flow with approved books as references.
 The user then picks a variant.

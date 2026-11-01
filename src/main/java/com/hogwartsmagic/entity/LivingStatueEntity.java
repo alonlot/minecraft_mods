@@ -51,6 +51,13 @@ import java.util.UUID;
  *   <li><b>Reforming</b> -- the sentry's fall run backwards at its post, ending dormant.</li>
  * </ul>
  *
+ * <h2>The three kinds</h2>
+ * A <i>ruin guardian</i> belongs to no one and hunts players. A <i>bound sentry</i> belongs to the player who
+ * raised it and hunts what hunts them. A <i>castle statue</i> ({@link #guardCastle}) belongs to a post in the
+ * Mini Hogwarts castle: it wakes only for hostile mobs, never targets or harms a player, and when a player hits
+ * it, or a mob would kill it, it crumbles and reforms at its post like a sentry does. It drops nothing, so the
+ * castle's statues cannot be farmed.
+ *
  * <h2>Why it fights the way it does</h2>
  * Everything about the combat profile says "several tons of granite". Knockback resistance is a
  * flat 1.0, so nothing shoves it -- not a sword, not an explosion, not Depulso. Its own attack
@@ -94,6 +101,11 @@ public class LivingStatueEntity extends Monster {
     public static final float STRIKE_AT = 0.45F;
     /** Breather after a full three-hit combo, before it can start another. */
     public static final int COMBO_COOLDOWN = 45;
+    /**
+     * A castle statue that has been awake this many ticks with nothing to fight and nothing hostile in
+     * {@link #WAKE_RADIUS} falls apart and reforms dormant at its post (see {@link #standDownWhenIdle}).
+     */
+    public static final int STAND_DOWN_TICKS = 200;
 
     private static final EntityDataAccessor<Integer> DATA_WAKE =
             SynchedEntityData.defineId(LivingStatueEntity.class, EntityDataSerializers.INT);
@@ -101,6 +113,9 @@ public class LivingStatueEntity extends Monster {
             SynchedEntityData.defineId(LivingStatueEntity.class, EntityDataSerializers.INT);
     /** True for one the player raised with Piertotum Locomotor; false for a ruin guardian. */
     private static final EntityDataAccessor<Boolean> DATA_BOUND =
+            SynchedEntityData.defineId(LivingStatueEntity.class, EntityDataSerializers.BOOLEAN);
+    /** True for a statue posted in the Mini Hogwarts castle; see {@link #guardCastle}. */
+    private static final EntityDataAccessor<Boolean> DATA_CASTLE =
             SynchedEntityData.defineId(LivingStatueEntity.class, EntityDataSerializers.BOOLEAN);
     /** Which blow of the combo is in flight, or -1 for none. Synched: the model draws from it. */
     private static final EntityDataAccessor<Integer> DATA_COMBO =
@@ -127,10 +142,19 @@ public class LivingStatueEntity extends Monster {
     /** Where it was raised. A bound sentry returns here when it is put down. */
     @Nullable
     private BlockPos homePos;
+    /** The way a castle statue faces at its post (degrees), or NaN when it keeps whatever it has. */
+    private float homeYaw = Float.NaN;
     /** Ticks left before another combo may start. */
     private int comboCooldown;
     /** Set once the current blow's damage has landed, so one swing cannot hit twice. */
     private boolean struck;
+    /**
+     * Server side, castle statues only: consecutive awake ticks with no live target and no hostile mob near.
+     * Deliberately not saved -- a statue unloaded mid-lull simply gets a fresh {@link #STAND_DOWN_TICKS} on
+     * load, which is harmless (it still stands down, a little later), where saving it would add a tag for a
+     * timer nobody can observe.
+     */
+    private int idleTicks;
 
     public LivingStatueEntity(EntityType<? extends LivingStatueEntity> type, Level level) {
         super(type, level);
@@ -163,6 +187,7 @@ public class LivingStatueEntity extends Monster {
         builder.define(DATA_WAKE, 0);
         builder.define(DATA_CRUMBLE, 0);
         builder.define(DATA_BOUND, false);
+        builder.define(DATA_CASTLE, false);
         builder.define(DATA_COMBO, -1);
         builder.define(DATA_SWING, 0);
         builder.define(DATA_REFORM, 0);
@@ -197,10 +222,10 @@ public class LivingStatueEntity extends Monster {
         // A ruin guardian hunts players. A bound sentry hunts whatever hunts the player.
         this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(
                 this, Player.class, 10, true, false,
-                p -> this.isAwake() && !this.isBound()));
+                p -> this.isAwake() && !this.isSentry()));
         this.targetSelector.addGoal(3, new NearestAttackableTargetGoal<>(
                 this, Mob.class, 10, true, false,
-                m -> this.isAwake() && this.isBound() && m instanceof Enemy));
+                m -> this.isAwake() && this.isSentry() && this.isHostileMob(m)));
     }
 
     /**
@@ -218,7 +243,9 @@ public class LivingStatueEntity extends Monster {
      */
     @Override
     public boolean canAttack(LivingEntity target) {
-        return !(target instanceof StudentEntity) && super.canAttack(target);
+        // A castle statue guards the castle for everyone in it: it never takes a player for the enemy.
+        return !(target instanceof StudentEntity) && !(this.isCastle() && target instanceof Player)
+                && super.canAttack(target);
     }
 
     // --- state ------------------------------------------------------------------------------
@@ -275,6 +302,42 @@ public class LivingStatueEntity extends Monster {
 
     public boolean isBound() {
         return this.entityData.get(DATA_BOUND);
+    }
+
+    /** Is this one of the Mini Hogwarts castle's own statues? */
+    public boolean isCastle() {
+        return this.entityData.get(DATA_CASTLE);
+    }
+
+    /**
+     * Posts this statue in the castle at {@code home}: it wakes only for hostile mobs, hunts only them, and
+     * crumbles and reforms at {@code home} instead of fighting a player or dying. Keeps its current facing.
+     */
+    public void guardCastle(BlockPos home) {
+        this.guardCastle(home, this.getYRot());
+    }
+
+    /** As {@link #guardCastle(BlockPos)}, and it stands facing {@code yaw} every time it reforms. */
+    public void guardCastle(BlockPos home, float yaw) {
+        this.homePos = home.immutable();
+        this.homeYaw = yaw;
+        this.entityData.set(DATA_CASTLE, true);
+    }
+
+    /**
+     * Does it answer for a post rather than for a master or for nobody? True for a bound sentry and a castle
+     * statue: both come back to {@link #getHomePos} when put down, wake for hostile mobs only, and hunt them.
+     */
+    private boolean isSentry() {
+        return this.isBound() || this.isCastle();
+    }
+
+    /**
+     * A hostile mob a sentry should object to. A castle statue does not count the other statues (they are
+     * monsters too) as enemies; a bound sentry's rule is left as it was.
+     */
+    private boolean isHostileMob(LivingEntity other) {
+        return other instanceof Enemy && !(this.isCastle() && other instanceof LivingStatueEntity);
     }
 
     /** Which blow of the combo is in flight, or -1 if it is not swinging. Drives the model. */
@@ -419,6 +482,30 @@ public class LivingStatueEntity extends Monster {
                 this.level().playSound(null, this.blockPosition(), ModSounds.STATUE_STEP.get(),
                         SoundSource.HOSTILE, 1.6F, 0.8F);
             }
+        } else if (this.isCastle()) {
+            this.standDownWhenIdle();
+        }
+    }
+
+    /**
+     * A castle statue is scenery that guards: once the fight that woke it is over it goes back to being
+     * scenery. After {@link #STAND_DOWN_TICKS} awake ticks with no live target, no swing in flight and no
+     * hostile mob inside {@link #WAKE_RADIUS} it takes the same crumble-and-reform path a player's hit does,
+     * so it rebuilds itself dormant at its post facing its home yaw. A live target, or an enemy still near
+     * (which would only wake it again the moment it reformed), resets the count, so it never stands down
+     * mid-fight. Bound sentries and ruin guardians never run this.
+     */
+    private void standDownWhenIdle() {
+        LivingEntity target = this.getTarget();
+        boolean engaged = target != null && target.isAlive()
+                || this.isSwinging()
+                // Sensed every ten ticks like the dormant check; a miss between checks only delays the reset.
+                || this.tickCount % 10 == 0 && this.senseIntruder();
+        if (engaged) {
+            this.idleTicks = 0;
+        } else if (++this.idleTicks >= STAND_DOWN_TICKS) {
+            this.idleTicks = 0;
+            this.beginCrumble();
         }
     }
 
@@ -490,9 +577,9 @@ public class LivingStatueEntity extends Monster {
     /** Is something it should object to standing inside {@link #WAKE_RADIUS}? */
     private boolean senseIntruder() {
         AABB box = this.getBoundingBox().inflate(WAKE_RADIUS);
-        if (this.isBound()) {
+        if (this.isSentry()) {
             return !this.level().getEntitiesOfClass(Mob.class, box,
-                    m -> m instanceof Enemy && m.isAlive() && m != this).isEmpty();
+                    m -> this.isHostileMob(m) && m.isAlive() && m != this).isEmpty();
         }
         return this.level().getEntitiesOfClass(Player.class, box,
                 p -> !p.isSpectator() && !p.isCreative()).stream().findAny().isPresent();
@@ -559,6 +646,15 @@ public class LivingStatueEntity extends Monster {
         if (this.isBound() && this.isOwnedBy(source.getEntity())) {
             return false;
         }
+        // A castle statue never fights a player. Whatever a player hits it with (a fist, a blade, an arrow) it
+        // falls apart and goes back to its post, and the hit costs it nothing: the castle's statues are
+        // scenery that guards, not a mob to be killed for loot. Checked before the wake below, which a hit
+        // would otherwise start.
+        if (this.isCastle() && source.getEntity() instanceof Player
+                && !source.is(net.minecraft.tags.DamageTypeTags.BYPASSES_INVULNERABILITY)) {
+            this.beginCrumble();
+            return true;
+        }
         // Hitting a sleeping statue is a perfectly good way to find out what it is.
         boolean wasDormant = this.isDormant();
         if (wasDormant && !source.isCreativePlayer()) {
@@ -569,7 +665,7 @@ public class LivingStatueEntity extends Monster {
         if (source.is(net.minecraft.tags.DamageTypeTags.IS_PROJECTILE)) {
             amount *= 0.35F;
         }
-        if (!this.level().isClientSide && this.isBound()
+        if (!this.level().isClientSide && this.isSentry()
                 && !source.is(net.minecraft.tags.DamageTypeTags.BYPASSES_INVULNERABILITY)
                 && this.getHealth() - amount <= 0.0F) {
             // A bound sentry is never destroyed by damage. It is put down, and it comes back at
@@ -707,7 +803,8 @@ public class LivingStatueEntity extends Monster {
                 && other.isAlive()
                 && !(other instanceof LivingStatueEntity)
                 && !(other instanceof StudentEntity)
-                && !(this.isBound() && this.isOwnedBy(other));
+                && !(this.isBound() && this.isOwnedBy(other))
+                && !(this.isCastle() && other instanceof Player); // nor a player standing near the fight
     }
 
     /**
@@ -776,6 +873,7 @@ public class LivingStatueEntity extends Monster {
 
     private void beginCrumble() {
         this.entityData.set(DATA_CRUMBLE, 1);
+        this.idleTicks = 0;
         this.dropTarget();
         this.level().playSound(null, this.blockPosition(), ModSounds.STATUE_CRUMBLE.get(),
                 SoundSource.HOSTILE, 1.5F, 1.0F);
@@ -800,6 +898,14 @@ public class LivingStatueEntity extends Monster {
         if (this.homePos != null) {
             this.teleportTo(this.homePos.getX() + 0.5D, this.homePos.getY(),
                     this.homePos.getZ() + 0.5D);
+        }
+        if (this.isCastle() && !Float.isNaN(this.homeYaw)) {
+            // It stood at attention facing the way the castle's builder posed it; turning up anywhere else
+            // would put its back to the room.
+            this.setYRot(this.homeYaw);
+            this.yRotO = this.homeYaw;
+            this.yBodyRot = this.yBodyRotO = this.homeYaw;
+            this.yHeadRot = this.yHeadRotO = this.homeYaw;
         }
         this.entityData.set(DATA_REFORM, 1);
         if (this.level() instanceof ServerLevel server) {
@@ -832,6 +938,17 @@ public class LivingStatueEntity extends Monster {
             }
             this.remove(RemovalReason.KILLED);
         }
+    }
+
+    /** A castle statue leaves nothing behind, not even when a command kills it. */
+    @Override
+    protected boolean shouldDropLoot() {
+        return !this.isCastle() && super.shouldDropLoot();
+    }
+
+    @Override
+    public boolean shouldDropExperience() {
+        return !this.isCastle() && super.shouldDropExperience();
     }
 
     @Override
@@ -881,6 +998,10 @@ public class LivingStatueEntity extends Monster {
         tag.putInt("Crumble", this.entityData.get(DATA_CRUMBLE));
         tag.putInt("Reform", this.entityData.get(DATA_REFORM));
         tag.putBoolean("Bound", this.isBound());
+        tag.putBoolean("Castle", this.isCastle());
+        if (!Float.isNaN(this.homeYaw)) {
+            tag.putFloat("HomeYaw", this.homeYaw);
+        }
         if (this.ownerUUID != null) {
             tag.putUUID("Owner", this.ownerUUID);
         }
@@ -897,6 +1018,10 @@ public class LivingStatueEntity extends Monster {
         this.entityData.set(DATA_CRUMBLE, tag.getInt("Crumble"));
         this.entityData.set(DATA_REFORM, tag.getInt("Reform"));
         this.entityData.set(DATA_BOUND, tag.getBoolean("Bound"));
+        this.entityData.set(DATA_CASTLE, tag.getBoolean("Castle"));
+        if (tag.contains("HomeYaw")) {
+            this.homeYaw = tag.getFloat("HomeYaw");
+        }
         if (tag.hasUUID("Owner")) {
             this.ownerUUID = tag.getUUID("Owner");
         }

@@ -76,8 +76,6 @@ public class ExampleMod
     public static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITY_TYPES = DeferredRegister.create(ForgeRegistries.BLOCK_ENTITY_TYPES, MODID);
     public static final DeferredRegister<net.minecraft.world.effect.MobEffect> MOB_EFFECTS = DeferredRegister.create(Registries.MOB_EFFECT, MODID);
     public static final DeferredRegister<net.minecraft.world.level.levelgen.feature.Feature<?>> FEATURES = DeferredRegister.create(ForgeRegistries.FEATURES, MODID);
-    public static final DeferredRegister<net.minecraft.world.level.levelgen.structure.StructureType<?>> STRUCTURE_TYPES = DeferredRegister.create(Registries.STRUCTURE_TYPE, MODID);
-    public static final DeferredRegister<net.minecraft.world.level.levelgen.structure.pieces.StructurePieceType> STRUCTURE_PIECE_TYPES = DeferredRegister.create(Registries.STRUCTURE_PIECE, MODID);
     public static final DeferredRegister<com.mojang.serialization.MapCodec<? extends net.minecraftforge.common.loot.IGlobalLootModifier>> LOOT_MODIFIER_SERIALIZERS = DeferredRegister.create(net.minecraftforge.registries.ForgeRegistries.Keys.GLOBAL_LOOT_MODIFIER_SERIALIZERS, MODID);
     public static final DeferredRegister<net.minecraft.core.component.DataComponentType<?>> DATA_COMPONENTS =
             DeferredRegister.create(Registries.DATA_COMPONENT_TYPE, MODID);
@@ -1227,8 +1225,8 @@ public class ExampleMod
         // Register Villager Professions and POIs
         com.hogwartsmagic.entity.ModVillagers.POI_TYPES.register(modEventBus);
         com.hogwartsmagic.entity.ModVillagers.VILLAGER_PROFESSIONS.register(modEventBus);
-        STRUCTURE_TYPES.register(modEventBus);
-        STRUCTURE_PIECE_TYPES.register(modEventBus);
+        // Code-defined structures (Mini Hogwarts): structure and piece types.
+        com.hogwartsmagic.worldgen.structure.ModStructures.register(modEventBus);
         // Register loot modifiers
         LOOT_MODIFIER_SERIALIZERS.register(modEventBus);
         // Register sounds

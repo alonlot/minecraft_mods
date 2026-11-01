@@ -62,7 +62,7 @@ class AssignmentDataTest {
     @Test
     void everySpellHasExactlyOneAssignment() throws IOException {
         Map<String, Integer> spells = spellRarities();
-        assertEquals(41, spells.size(), "SpellType parse");
+        assertEquals(42, spells.size(), "SpellType parse");
         assertEquals(spells.keySet(), load().keySet());
     }
 

@@ -369,6 +369,23 @@ const WIKI_ASSIGNMENTS = [
     "needs": []
   },
   {
+    "id": "caelum_fascino",
+    "name": "Caelum Fascino",
+    "rarity": "rare",
+    "source": "Hogwarts",
+    "role": "Prof. F. Flitwick, Charms",
+    "dark": false,
+    "summary": "A ceiling is only a lid until you teach it the sky. First, learn the sky.",
+    "features": [
+      "Know Lumos",
+      "Spend 300 seconds outdoors at night, learning the stars",
+      "Hang 8 lanterns in your own rooms"
+    ],
+    "needs": [
+      "Lumos"
+    ]
+  },
+  {
     "id": "cave_inimicum",
     "name": "Cave Inimicum",
     "rarity": "rare",

@@ -3,6 +3,7 @@ package com.hogwartsmagic.portrait;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.Level;
 
 /** Hangs a portrait on the nearest free wall, for structures that place her themselves (Mini Hogwarts). */
 public final class PortraitPlacement {
@@ -41,6 +42,28 @@ public final class PortraitPlacement {
             level.addFreshEntity(best);
         }
         return best;
+    }
+
+    /**
+     * The cell a portrait hanging on the {@code facing} face of the block {@code wall} occupies: the cell in front
+     * of that block, which is the entity's tile position. A castle anchor names the wall block (see
+     * {@code MiniHogwartsAnchors}), so this is the one place that turns it into where she hangs.
+     *
+     * <p>Her canvas then covers that cell and the one to its right ({@code facing.getCounterClockWise()}), from one
+     * block below the cell to two above it (see {@code FatLadyPortraitEntity.calculateBoundingBox}). For the
+     * castle's anchor, wall (60, 47, 155) facing north: cell (60, 47, 154), canvas x 59..60, y 46..49, z 154, with
+     * the wall's face at z 155 behind every cell of it.
+     */
+    public static BlockPos canvasCell(BlockPos wall, Direction facing) {
+        return wall.relative(facing);
+    }
+
+    /**
+     * Builds, without adding or testing, the Fat Lady for {@link #canvasCell}'s cell. Reads no blocks, so it is safe
+     * on a worldgen thread; the caller decides whether she fits and adds her.
+     */
+    public static FatLadyPortraitEntity portraitInCell(Level level, BlockPos cell, Direction facing) {
+        return new FatLadyPortraitEntity(level, cell, facing);
     }
 
     /** Tries a few heights and slides along the wall face that {@code wall} shows toward {@code facing}. */

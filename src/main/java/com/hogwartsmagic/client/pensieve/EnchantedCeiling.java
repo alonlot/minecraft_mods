@@ -1,16 +1,22 @@
 package com.hogwartsmagic.client.pensieve;
 
 import com.hogwartsmagic.ExampleMod;
+import com.hogwartsmagic.ambience.AmbientEffect;
+import com.hogwartsmagic.client.ambience.AmbienceClock;
+import com.hogwartsmagic.client.ambience.WorldAmbience;
+import com.hogwartsmagic.client.ambience.WorldCeilingReveal;
 import com.hogwartsmagic.client.ModRenderTypes;
 import com.hogwartsmagic.pensieve.scene.CeilingSky;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RenderLevelStageEvent;
@@ -19,11 +25,15 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.joml.Matrix4f;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 /**
  * The {@code enchanted_ceiling} effect: the Great Hall's bewitched sky, open above the walls (the set has no roof over
- * the hall), in one of two styles, all full-bright:
+ * the hall), in one of three styles, all full-bright:
  * <ul>
  *   <li><b>storm</b> (the default, the film's look), a real volume: {@link CeilingSky#SLICES} translucent cloud slices
  *       stacked from just above the wall tops to {@link CeilingSky#SKY_TOP} blocks up, each reaching further past the
@@ -36,6 +46,12 @@ import java.util.List;
  *   <li><b>night</b>: the calm sky on the plane: a deep gradient (#0B1030 at the walls to #1A2350 overhead) with a
  *       faint Milky Way band, twinkling stars, two thin cloud layers drifting in opposite directions, and now and then
  *       a shooting star.</li>
+ *   <li><b>real</b> ({@link CeilingSky#REAL}): the world's own sky, read from the client level when it draws. One
+ *       opaque gradient on the plane blends the day blue, the dusk glow and the night sky by {@link
+ *       CeilingSky#realWeights}; white clouds drift over it (greyer and thicker as the rain rises, with the stars
+ *       dimmed), and shooting stars cross it on clear nights. When the thunder level passes a half the sky darkens and
+ *       the storm style's cloud slices fill the space under the roof (only the slices below the effect's {@code hy}
+ *       roof clearance, and no wider than the hall: there is a real roof above), with lightning.</li>
  * </ul>
  * Until its {@code t} the effect is a solid dark-plank roof plane at the ceiling height (the ceiling is registered when
  * the scene starts, so the open sky is never seen early); the reveal then dissolves that roof from the middle outward
@@ -53,6 +69,12 @@ import java.util.List;
  * <p>Fabulous graphics: there the translucent layers render into their own targets and are composited by a post pass,
  * and which target is bound when this stage fires has not been checked. Fancy and Fast are the tested path; Fabulous is
  * on the Task 7 in-game check list.
+ *
+ * <p>Outside a memory the same drawing serves the world's own ceilings (the registered {@code KIND_CEILING} effects, the
+ * castle's hall and the ceiling spell's rooms) within 128 blocks of the camera: always the real style, on the world's
+ * clock ({@code AmbienceClock}) rather than the scene's, open, except a sealed one (the castle's hall) shows its plank roof until the server tells this client a reveal began
+ * ({@code WorldAmbience#revealStart}, when the roof dissolves from that moment) or that the player already had it
+ * ({@code WorldAmbience#isOpened}); see {@code WorldCeilingReveal}. The Pensieve path is unchanged.
  *
  * <p>Textures come from {@code build_scripts/generate_ceiling_textures.py}.
  */
@@ -133,10 +155,20 @@ public final class EnchantedCeiling {
     /** One running ceiling: where it is, how big, its style, when it began and its fixed star field. */
     static final class Sky {
         final boolean storm;
+        /** The world's own sky ({@link CeilingSky#REAL}): weights come from the client level at draw time. */
+        final boolean real;
         final double x, y, z;
         final float hx, hz;
+        /** Real only: blocks of clear space above the plane before the roof (0: none, so no cloud slices fit). */
+        final float hy;
         final int duration;
         final float startT;
+        /**
+         * When the roof starts to dissolve, on the same clock as {@code startT}. A memory's ceiling reveals at its own
+         * start, so the two are equal; a world ceiling keeps a fixed {@code startT} (its lightning does not move) and
+         * has this set from the reveal the server told.
+         */
+        float revealT;
         final long seed;
         final float[][] stars;
         final float[][] tints;
@@ -148,7 +180,14 @@ public final class EnchantedCeiling {
 
         Sky(String style, double x, double y, double z, float hx, float hz, int duration, float startT, long seed,
             float elapsed) {
-            this.storm = !CeilingSky.NIGHT.equals(style);
+            this(style, x, y, z, hx, hz, 0f, duration, startT, seed, elapsed);
+        }
+
+        Sky(String style, double x, double y, double z, float hx, float hz, float hy, int duration, float startT,
+            long seed, float elapsed) {
+            this.real = CeilingSky.REAL.equals(style);
+            this.storm = !real && !CeilingSky.NIGHT.equals(style);
+            this.hy = Math.max(0f, hy);
             this.x = x;
             this.y = y;
             this.z = z;
@@ -156,6 +195,7 @@ public final class EnchantedCeiling {
             this.hz = hz;
             this.duration = duration > 0 ? duration : CeilingSky.DEFAULT_REVEAL_TICKS;
             this.startT = startT;
+            this.revealT = startT;
             this.seed = seed;
             this.stars = CeilingSky.stars(seed, hx, hz, CeilingSky.starCount(hx, hz));
             this.tints = tints(seed, stars.length);
@@ -202,12 +242,26 @@ public final class EnchantedCeiling {
     @SubscribeEvent(priority = EventPriority.HIGH)
     public static void onRenderLevelStage(RenderLevelStageEvent event) {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) return;
-        List<Sky> skies = EffectVisuals.ceilings();
-        if (skies.isEmpty()) return;
         Minecraft mc = Minecraft.getInstance();
-        if (mc.level == null || !PensieveClientState.inMemory()) return;
-        float now = PensieveClientState.sceneTime(PensieveClientState.partial());
+        if (PensieveClientState.inMemory()) {
+            List<Sky> skies = EffectVisuals.ceilings();
+            if (skies.isEmpty() || mc.level == null) return;
+            drawAll(skies, PensieveClientState.sceneTime(PensieveClientState.partial()), event.getCamera().getPosition(),
+                    mc);
+            return;
+        }
+        // Not in a memory: the world's own ceilings (the castle's hall, a bewitched room), on the world clock.
+        if (mc.level == null || WorldAmbience.ofKind(AmbientEffect.KIND_CEILING).isEmpty()) {
+            WORLD_SKIES.clear();
+            return;
+        }
         Vec3 cam = event.getCamera().getPosition();
+        List<Sky> skies = worldSkies(mc.level, cam);
+        if (skies.isEmpty()) return;
+        drawAll(skies, AmbienceClock.now(mc.level, PensieveClientState.partial()), cam, mc);
+    }
+
+    private static void drawAll(List<Sky> skies, float now, Vec3 cam, Minecraft mc) {
         // Identity, deliberately: the camera rotation is already on RenderSystem's modelview stack.
         Matrix4f m = new Matrix4f();
         MultiBufferSource.BufferSource buffer = mc.renderBuffers().bufferSource();
@@ -216,19 +270,60 @@ public final class EnchantedCeiling {
         }
     }
 
+    /** Ceilings further than this from the camera (to the nearest point of their box) are not drawn. */
+    private static final double WORLD_RANGE = 128.0;
+    /** A world ceiling's reveal has long finished at its fixed start; lightning is timed from it as well. */
+    private static final float WORLD_START = -2f * CeilingSky.DEFAULT_REVEAL_TICKS;
+    /** The sky built for each world ceiling, kept while it is registered and unchanged (its star field is not free). */
+    private static final Map<UUID, WorldSky> WORLD_SKIES = new HashMap<>();
+
+    private record WorldSky(AmbientEffect effect, Sky sky) {
+    }
+
+    /**
+     * The world's ceilings in range, as skies ready to draw: the real-sky style, open (or, from the reveal the server
+     * told, with the roof dissolving out of its start), one cached per effect.
+     */
+    private static List<Sky> worldSkies(ClientLevel level, Vec3 cam) {
+        List<AmbientEffect> ceilings = WorldAmbience.ofKind(AmbientEffect.KIND_CEILING);
+        WORLD_SKIES.keySet().removeIf(id -> ceilings.stream().noneMatch(e -> e.id().equals(id)));
+        List<Sky> out = new ArrayList<>(ceilings.size());
+        for (AmbientEffect e : ceilings) {
+            if (WorldAmbience.distanceSqr(e, cam) > WORLD_RANGE * WORLD_RANGE) continue;
+            WorldSky cached = WORLD_SKIES.get(e.id());
+            if (cached == null || !cached.effect.equals(e)) {
+                // Real style: the sky follows the client level's clock and weather when drawn. No duration, so the
+                // reveal takes the default; the seed comes from the id, so every viewer's stars are the same.
+                Sky sky = new Sky(CeilingSky.REAL, e.x(), e.y(), e.z(), Mth.clamp(e.hx(), 1f, 100f),
+                        Mth.clamp(e.hz(), 1f, 100f), Mth.clamp(e.hy(), 0f, 100f), 0, WORLD_START,
+                        e.id().getMostSignificantBits() ^ e.id().getLeastSignificantBits(), 0f);
+                cached = new WorldSky(e, sky);
+                WORLD_SKIES.put(e.id(), cached);
+            }
+            long reveal = WorldAmbience.revealStart(e.id());
+            boolean told = reveal != WorldAmbience.NO_REVEAL;
+            // Sealed (the castle's hall) until this player is told its reveal started, or that they already had it.
+            cached.sky.revealT = WorldCeilingReveal.start(e.sealed(), WorldAmbience.isOpened(e.id()), told,
+                    told ? AmbienceClock.at(level, reveal) : 0f);
+            out.add(cached.sky);
+        }
+        return out;
+    }
+
     /** The plane being drawn: anchor (camera-relative), grid size, reveal. */
     private record Plane(Sky sky, float ax, float ay, float az, int nx, int nz, float reveal) {
     }
 
     private static void draw(Sky sky, float now, Vec3 cam, Matrix4f m, MultiBufferSource.BufferSource buffer) {
         float local = now - sky.startT;
-        float reveal = CeilingSky.revealAt(local, sky.duration);
+        float reveal = CeilingSky.revealAt(now - sky.revealT, sky.duration);
         // Camera-relative anchor, once, in double precision; everything else is a small offset from it.
         Plane p = new Plane(sky, (float) (sky.x - cam.x), (float) (CeilingSky.planeY((float) sky.y) - cam.y),
                 (float) (sky.z - cam.z), cells(sky.hx), cells(sky.hz), reveal);
         float drift = CeilingSky.cloudOffset(now);
         if (reveal > 0f) {
-            if (sky.storm) drawStorm(sky, p, now, local, drift, m, buffer);
+            if (sky.real) drawReal(sky, p, now, local, drift, m, buffer);
+            else if (sky.storm) drawStorm(sky, p, now, local, drift, m, buffer);
             else drawNight(sky, p, now, drift, m, buffer);
         }
         // The roof: solid until the reveal, then dissolving from the middle out with a shimmer on its front.
@@ -262,7 +357,7 @@ public final class EnchantedCeiling {
             o[2] = c[2];
             o[3] = 1f;
         }, 0f, 0f, SKY_TILE);
-        drawStars(sky, now, 1f, p.ax, p.ay - STAR_DROP, p.az, m, buffer);
+        drawStars(sky, now, 1f, 1f, p.ax, p.ay - STAR_DROP, p.az, m, buffer);
         Shade white = (u, v, a, o) -> {
             o[0] = 1f;
             o[1] = 1f;
@@ -274,6 +369,123 @@ public final class EnchantedCeiling {
                 CLOUD_B_TILE);
         float[] shot = CeilingSky.shootingStar(sky.seed, now, sky.hx, sky.hz);
         if (shot != null && p.reveal >= 1f) drawShootingStar(shot, p.ax, p.ay - SHIMMER_DROP, p.az, m, buffer);
+    }
+
+    /**
+     * Cloud opacity multipliers by time of day, on top of CLOUD_A_ALPHA / CLOUD_B_ALPHA. A vertex alpha cannot exceed 1 and
+     * the cloud textures top out at alpha 0.35, so a layer wanting more than that is drawn as several passes (see
+     * {@link #cloudLayer}): night 1 is the old single pass, dusk and day need more to read as white cloud.
+     */
+    private static final float CLOUD_OPACITY_NIGHT = 1f, CLOUD_OPACITY_DUSK = 1.7f, CLOUD_OPACITY_DAY = 2.6f;
+    /** Most passes one cloud layer is drawn in (each at vertex alpha up to 1), however thick the sky asks for. */
+    private static final int MAX_CLOUD_PASSES = 4;
+    private static final float[] NO_COLOUR = new float[3];
+    /** Rain greys the cloud by up to this much, thickens it by this factor, and dims the stars and the open sky. */
+    private static final float OVERCAST_GREY = 0.45f, OVERCAST_THICK = 1.2f, OVERCAST_STAR_DIM = 0.9f,
+            OVERCAST_SKY_DIM = 0.55f;
+    /** Past this thunder level the real sky switches to the storm style's cloud; the open sky then darkens by up to STORM_SKY_DIM. */
+    private static final float STORM_FROM = 0.5f, STORM_SKY_DIM = 0.6f;
+
+    /**
+     * The world's own sky: the gradient (day, dusk and night blended by {@link CeilingSky#realWeights}), the stars, the
+     * drifting clouds and, in a thunderstorm, storm slices and lightning, all from the client level's clock and weather.
+     * The time and weather are read here, at draw time, so every viewer in the same world sees the same sky.
+     */
+    private static void drawReal(Sky sky, Plane p, float now, float local, float drift, Matrix4f m,
+                                 MultiBufferSource.BufferSource buffer) {
+        ClientLevel level = Minecraft.getInstance().level;
+        if (level == null) return;
+        float partial = PensieveClientState.partial();
+        float[] w = CeilingSky.realWeights(level.getDayTime() % 24000L, level.getRainLevel(partial),
+                level.getThunderLevel(partial));
+        float day = w[0], dusk = w[1], night = w[2], overcast = w[3], storm = w[4];
+        // Rain and thunder dim the open sky, so a day storm reads as dark cloud rather than blue behind it.
+        float dim = (1f - OVERCAST_SKY_DIM * overcast) * (1f - STORM_SKY_DIM * storm);
+        Plane full = new Plane(sky, p.ax, p.ay, p.az, p.nx, p.nz, 1f);
+        float texture = 1f / CeilingSky.SKY_TEXTURE_MEAN;
+        layer(buffer, SKY, m, full, 0f, (u, v, a, o) -> {
+            // The night colour already carries 1 / SKY_TEXTURE_MEAN; the two packed colours get it here.
+            float[] c = night > 0f ? CeilingSky.skyColour(CeilingSky.NIGHT, sky.seed, u, v) : NO_COLOUR;
+            int d = day > 0f ? CeilingSky.daySkyColour(sky.seed, u, v) : 0;
+            int s = dusk > 0f ? CeilingSky.duskTint(u, v) : 0;
+            for (int ch = 0; ch < 3; ch++) {
+                int shift = 16 - 8 * ch;
+                float dc = ((d >> shift) & 0xFF) / 255f * texture;
+                float sc = ((s >> shift) & 0xFF) / 255f * texture;
+                o[ch] = (day * dc + dusk * sc + night * c[ch]) * dim;
+            }
+            o[3] = 1f;
+        }, 0f, 0f, SKY_TILE);
+        float stars = (night + 0.3f * dusk) * (1f - OVERCAST_STAR_DIM * overcast) * (1f - storm);
+        if (stars > 0.01f) drawStars(sky, now, 1f, stars, p.ax, p.ay - STAR_DROP, p.az, m, buffer);
+        if (storm > STORM_FROM) {
+            drawRealStorm(sky, p, now, local, drift, m, buffer);
+            return;
+        }
+        // Clouds: white by day, warm at dusk, as at night; rain greys and thickens them.
+        float opacity = (day * CLOUD_OPACITY_DAY + dusk * CLOUD_OPACITY_DUSK + night * CLOUD_OPACITY_NIGHT)
+                * (1f + OVERCAST_THICK * overcast);
+        float grey = 1f - OVERCAST_GREY * overcast;
+        Shade cloud = (u, v, a, o) -> {
+            o[0] = grey;
+            o[1] = grey * (1f - 0.18f * dusk);
+            o[2] = grey * (1f - 0.35f * dusk);
+            o[3] = a;
+        };
+        cloudLayer(buffer, CLOUDS_A, m, full, CLOUD_A_DROP, cloud, CLOUD_A_ALPHA * opacity, drift, drift * 0.35f,
+                CLOUD_A_TILE);
+        cloudLayer(buffer, CLOUDS_B, m, full, CLOUD_B_DROP, cloud, CLOUD_B_ALPHA * opacity, -drift * 1.4f,
+                drift * 0.5f, CLOUD_B_TILE);
+        float[] shot = CeilingSky.shootingStar(sky.seed, now, sky.hx, sky.hz);
+        if (shot != null && p.reveal >= 1f && night > 0.5f && overcast < 0.5f) {
+            drawShootingStar(shot, p.ax, p.ay - SHIMMER_DROP, p.az, m, buffer);
+        }
+    }
+
+    /**
+     * A cloud layer wanting total opacity {@code wanted} (which may exceed 1; the vertex alpha cannot): drawn as
+     * {@code ceil(wanted)} stacked passes (at most {@link #MAX_CLOUD_PASSES}), each at vertex alpha {@code wanted / n}
+     * (at most 1), so thicker sky really is thicker. {@code wanted <= 1} is one pass, exactly {@link #layer}.
+     */
+    private static void cloudLayer(MultiBufferSource.BufferSource buffer, RenderType type, Matrix4f m, Plane p,
+                                   float drop, Shade shade, float wanted, float du, float dv, float tile) {
+        int passes = Math.max(1, Math.min(MAX_CLOUD_PASSES, (int) Math.ceil(wanted)));
+        Shade each = alpha(shade, Math.min(1f, wanted / passes));
+        for (int i = 0; i < passes; i++) layer(buffer, type, m, p, drop, each, du, dv, tile);
+    }
+
+    /**
+     * The real sky in a thunderstorm: a dark storm cloud layer on the plane, then the storm slices that fit under the
+     * roof (those below {@code sky.hy}; none when the roof is right overhead), far to near, with the lightning's glow
+     * slipped in at its own height (squeezed under the roof) and its bolt. The slices stay inside the walls.
+     */
+    private static void drawRealStorm(Sky sky, Plane p, float now, float local, float drift, Matrix4f m,
+                                      MultiBufferSource.BufferSource buffer) {
+        float[] flash = CeilingSky.flash(sky.seed, local);
+        Plane full = new Plane(sky, p.ax, p.ay, p.az, p.nx, p.nz, 1f);
+        // The cloud on the plane itself is always there: it is all the storm there is when the roof is right overhead.
+        layer(buffer, STORM_A, m, full, CLOUD_A_DROP, (u, v, a, o) -> {
+            float[] c = CeilingSky.stormCloudColour(u, v, flash, sky.hx, sky.hz);
+            o[0] = c[0];
+            o[1] = c[1];
+            o[2] = c[2];
+            o[3] = 0.9f;
+        }, drift * 0.8f, drift * 0.25f, STORM_A_TILE);
+        // Only slices below the roof, highest first: the camera is under the plane.
+        float room = Math.max(0f, sky.hy - CeilingSky.ROOF_GAP);
+        float flashY = Math.min(flash == null ? 0f : flash[5], room);
+        boolean flashDrawn = flash == null;
+        for (int k = 0; k < CeilingSky.SLICES; k++) {
+            int i = CeilingSky.SLICES - 1 - k;
+            float h = CeilingSky.sliceHeight(i, CeilingSky.SLICES);
+            if (h >= room) continue;
+            if (!flashDrawn && h < flashY) {
+                drawFlash(sky, flash, p, p.ay + flashY, m, buffer);
+                flashDrawn = true;
+            }
+            slice(sky, p, i, h, 0f, flash, now, drift, m, buffer);
+        }
+        if (!flashDrawn) drawFlash(sky, flash, p, p.ay + flashY, m, buffer);
     }
 
     /**
@@ -302,7 +514,7 @@ public final class EnchantedCeiling {
                     drawFlash(sky, flash, p, p.ay + flash[5], m, buffer);
                     flashDrawn = true;
                 }
-                slice(sky, p, i, h, flash, now, drift, m, buffer);
+                slice(sky, p, i, h, 1f, flash, now, drift, m, buffer);
             }
             if (!flashDrawn) drawFlash(sky, flash, p, p.ay + flash[5], m, buffer);
         } finally {
@@ -312,11 +524,14 @@ public final class EnchantedCeiling {
         drawCurtains(sky, p, flash, drift, m, buffer);
     }
 
-    /** One cloud slice {@code h} above the plane, reaching {@link CeilingSky#sliceReach} past the hall on every side. */
-    private static void slice(Sky sky, Plane p, int i, float h, float[] flash, float now, float drift, Matrix4f m,
-                              MultiBufferSource.BufferSource buffer) {
+    /**
+     * One cloud slice {@code h} above the plane, reaching {@link CeilingSky#sliceReach} times {@code reachScale} past
+     * the hall on every side (the real sky passes 0: its slices stay inside the walls, under the roof).
+     */
+    private static void slice(Sky sky, Plane p, int i, float h, float reachScale, float[] flash, float now,
+                              float drift, Matrix4f m, MultiBufferSource.BufferSource buffer) {
         RenderType type = i % 2 == 0 ? STORM_A : STORM_B;
-        float reach = CeilingSky.sliceReach(h);
+        float reach = CeilingSky.sliceReach(h) * reachScale;
         float ex = sky.hx + reach, ez = sky.hz + reach;
         int nx = Math.max(4, Math.min(SLICE_CELLS_MAX, (int) Math.ceil(2f * ex / SLICE_CELL)));
         int nz = Math.max(4, Math.min(SLICE_CELLS_MAX, (int) Math.ceil(2f * ez / SLICE_CELL)));
@@ -529,14 +744,15 @@ public final class EnchantedCeiling {
         vertex(vc, m, x0 - sx, y, z0 - sz, c * 0.80f, c * 0.86f, c, a, 0.5f, 0.5f);
     }
 
-    private static void drawStars(Sky sky, float now, float reveal, float ax, float ay, float az, Matrix4f m,
-                                  MultiBufferSource.BufferSource buffer) {
+    /** The star field on the plane; {@code strength} (0..1) scales every star's brightness (1 at night, less under cloud). */
+    private static void drawStars(Sky sky, float now, float reveal, float strength, float ax, float ay, float az,
+                                  Matrix4f m, MultiBufferSource.BufferSource buffer) {
         VertexConsumer dots = buffer.getBuffer(DOTS);
         for (int i = 0; i < sky.stars.length; i++) {
             float[] s = sky.stars[i];
             float shown = CeilingSky.dissolve(reveal, s[0] / sky.hx, s[1] / sky.hz);
             if (shown <= 0.01f) continue;
-            float bright = CeilingSky.twinkle(sky.seed, now, i) * (0.45f + 0.55f * s[2]) * shown;
+            float bright = CeilingSky.twinkle(sky.seed, now, i) * (0.45f + 0.55f * s[2]) * shown * strength;
             float half = DOT_MIN + DOT_GROW * s[2];
             float[] t = sky.tints[i];
             flat(dots, m, ax + s[0], ay, az + s[1], half, t[0] * bright, t[1] * bright, t[2] * bright, bright);
@@ -549,7 +765,7 @@ public final class EnchantedCeiling {
             float shown = CeilingSky.dissolve(reveal, s[0] / sky.hx, s[1] / sky.hz);
             if (shown <= 0.01f) continue;
             float tw = CeilingSky.twinkle(sky.seed, now, i);
-            float bright = GLOW_ALPHA * tw * tw * shown * s[2];
+            float bright = GLOW_ALPHA * tw * tw * shown * s[2] * strength;
             float half = GLOW_SIZE * (0.6f + 0.4f * s[2]) * (0.85f + 0.15f * tw);
             float[] t = sky.tints[i];
             flat(glows, m, ax + s[0], ay - 0.002f, az + s[1], half, t[0] * bright, t[1] * bright, t[2] * bright,

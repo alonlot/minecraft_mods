@@ -10,7 +10,8 @@ import net.minecraftforge.fml.common.Mod;
  * Clears the static over-ticks build state when the server goes away.
  *
  * <p>Every builder in this package keeps its in-progress job in a static field, and each job holds
- * the {@link net.minecraft.server.level.ServerLevel} it is writing into. Nothing cleared those
+ * the {@link net.minecraft.server.level.ServerLevel} it is writing into. (Mini Hogwarts is no longer one
+ * of them: it is a worldgen structure now, with no job of its own.) Nothing cleared those
  * fields when the server stopped, so in singleplayer a castle, bank, alley or undercroft that was
  * still going up when the player left the world kept its job armed: the next world's first ticks
  * would carry on writing into the previous world's (unloaded) level object, and that level and
@@ -25,7 +26,6 @@ public final class WorldgenLifecycle {
     @SubscribeEvent
     public static void onServerStopped(ServerStoppedEvent event) {
         DiagonAlleyManager.reset();
-        MiniHogwartsManager.reset();
         VillageGringottsBank.reset();
         UndercroftBuilder.reset();
         DiagonAlleyPortal.reset();

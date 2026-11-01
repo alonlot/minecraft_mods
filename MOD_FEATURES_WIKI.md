@@ -394,6 +394,15 @@ Each spell below lists the implemented gameplay behavior currently present in th
 - On any other target it does no damage. The target glows for two seconds and gets a ring of notes.
 - The spellbook is uncommon chest loot and a villager trade.
 
+### Caelum Fascino
+
+- "Bewitch the sky": turns your own ceiling into the Great Hall's enchanted sky. Pale blue beam with end rod and enchant particles; 20 mana, 2 second cooldown.
+- Cast at one corner block of a ceiling (it glows for you), then at the opposite corner within a minute. The sky appears over the rectangle between the two blocks, at the lower face of the lower corner.
+- Your blocks are not changed. The sky is only drawn just under your real ceiling, plays the plank-roof-dissolving reveal when made, then follows the real weather and time of day.
+- Limits: 64 blocks a side, corners at most 16 blocks apart in height, 8 ceilings per player (counted over every dimension), no overlap with another ceiling on the same floor area. Casting too far away, in another dimension or after the mark lapses starts you over with a hint.
+- Sneak and cast at a bewitched ceiling to remove it. Only its maker or an operator (permission level 2) can.
+- The spellbook is rare: Bookseller trade, library chests (including the Mini Hogwarts library) and general chest loot. It is a block utility spell, so a made ceiling earns mastery XP.
+
 ## Hogwarts Assignments
 
 - A Hogwarts Assignment is a scroll that turns into a spell's book when you finish its task.

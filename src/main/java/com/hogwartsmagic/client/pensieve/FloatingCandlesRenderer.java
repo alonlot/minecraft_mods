@@ -1,6 +1,9 @@
 package com.hogwartsmagic.client.pensieve;
 
 import com.hogwartsmagic.ExampleMod;
+import com.hogwartsmagic.ambience.AmbientEffect;
+import com.hogwartsmagic.client.ambience.AmbienceClock;
+import com.hogwartsmagic.client.ambience.WorldAmbience;
 import com.hogwartsmagic.client.ModRenderTypes;
 import com.hogwartsmagic.pensieve.scene.FloatingCandles;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -11,6 +14,7 @@ import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RenderLevelStageEvent;
@@ -21,7 +25,11 @@ import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 /**
  * The {@code floating_candles} effect: the Great Hall's floating candles. Hundreds of tall cream wax candles hang in a
@@ -38,6 +46,10 @@ import java.util.List;
  * {@code AFTER_TRANSLUCENT_BLOCKS} from an identity matrix (the camera rotation is already applied), camera-relative in
  * double precision once; flames and halos fade with the world's fog. State lives in {@link EffectVisuals}, so its
  * {@code clear()} removes the candles with the scene.
+ *
+ * <p>Outside a memory it draws the world's registered {@code KIND_CANDLES} boxes (the castle's Great Hall) within 128
+ * blocks of the camera instead, on the world clock ({@code AmbienceClock}) with a seed from each effect's id, so every
+ * player sees the same candles.
  *
  * <p>Textures: {@code build_scripts/generate_candle_textures.py} ({@code candle_wax}, {@code candle_flame}); halos
  * use the ceiling's {@code ceiling_dot}.
@@ -83,17 +95,57 @@ public final class FloatingCandlesRenderer {
         }
     }
 
+    /** World candle boxes further than this from the camera (to the nearest point of the box) are not drawn. */
+    private static final double WORLD_RANGE = 128.0;
+    /** The flock built for each world candle effect, kept while it is registered and unchanged. */
+    private static final Map<UUID, WorldFlock> WORLD_FLOCKS = new HashMap<>();
+
+    private record WorldFlock(AmbientEffect effect, Flock flock) {
+    }
+
+    /** The world's candle boxes in range as flocks, one cached per effect; the seed comes from the id, so every viewer's candles match. */
+    private static List<Flock> worldFlocks(Vec3 cam) {
+        List<AmbientEffect> boxes = WorldAmbience.ofKind(AmbientEffect.KIND_CANDLES);
+        WORLD_FLOCKS.keySet().removeIf(id -> boxes.stream().noneMatch(e -> e.id().equals(id)));
+        List<Flock> out = new ArrayList<>(boxes.size());
+        for (AmbientEffect e : boxes) {
+            if (WorldAmbience.distanceSqr(e, cam) > WORLD_RANGE * WORLD_RANGE) continue;
+            WorldFlock cached = WORLD_FLOCKS.get(e.id());
+            if (cached == null || !cached.effect.equals(e)) {
+                int n = e.count() > 0 ? Math.min(e.count(), FloatingCandles.MAX_COUNT) : FloatingCandles.DEFAULT_COUNT;
+                cached = new WorldFlock(e, new Flock(e.x(), e.y(), e.z(), Mth.clamp(e.hx(), 0.5f, 100f),
+                        Mth.clamp(e.hy(), 0.5f, 100f), Mth.clamp(e.hz(), 0.5f, 100f), n,
+                        e.id().getMostSignificantBits() ^ e.id().getLeastSignificantBits()));
+                WORLD_FLOCKS.put(e.id(), cached);
+            }
+            out.add(cached.flock);
+        }
+        return out;
+    }
+
     // Draw order within AFTER_TRANSLUCENT_BLOCKS: ceiling (HIGH), candles (NORMAL), light rays (LOW); see EnchantedCeiling.
     @SubscribeEvent(priority = EventPriority.NORMAL)
     public static void onRenderLevelStage(RenderLevelStageEvent event) {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) return;
-        List<Flock> flocks = EffectVisuals.candles();
-        if (flocks.isEmpty()) return;
         Minecraft mc = Minecraft.getInstance();
-        if (mc.level == null || !PensieveClientState.inMemory()) return;
-        float now = PensieveClientState.sceneTime(PensieveClientState.partial());
         Camera camera = event.getCamera();
         Vec3 cam = camera.getPosition();
+        List<Flock> flocks;
+        float now;
+        if (PensieveClientState.inMemory()) {
+            flocks = EffectVisuals.candles();
+            if (flocks.isEmpty() || mc.level == null) return;
+            now = PensieveClientState.sceneTime(PensieveClientState.partial());
+        } else {
+            // Not in a memory: the world's own candles (the castle's Great Hall), on the world clock.
+            if (mc.level == null || WorldAmbience.ofKind(AmbientEffect.KIND_CANDLES).isEmpty()) {
+                WORLD_FLOCKS.clear();
+                return;
+            }
+            flocks = worldFlocks(cam);
+            if (flocks.isEmpty()) return;
+            now = AmbienceClock.now(mc.level, PensieveClientState.partial());
+        }
         // Identity, deliberately: the camera rotation is already on RenderSystem's modelview stack.
         Matrix4f m = new Matrix4f();
         MultiBufferSource.BufferSource buffer = mc.renderBuffers().bufferSource();

@@ -185,7 +185,7 @@
     110.0
    ],
    "mirrored": false,
-   "yaw_closed": 0
+   "yaw_closed": 180
   },
   {
    "hinge": [
@@ -194,7 +194,7 @@
     110.0
    ],
    "mirrored": true,
-   "yaw_closed": 0
+   "yaw_closed": 180
   }
  ],
  "elf_spots": [

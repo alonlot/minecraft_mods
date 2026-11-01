@@ -123,7 +123,7 @@
   ]
  },
  "hall_ceiling": {
-  "clearance": 0,
+  "clearance": 17,
   "max": [
    78.0,
    109.0
@@ -132,13 +132,17 @@
    45.0,
    36.0
   ],
-  "ridge_clearance": 32,
   "y": 45
  },
- "main_entrance": [
+ "hall_west_door": [
   42,
   25,
   116
+ ],
+ "main_entrance": [
+  38,
+  26,
+  184
  ],
  "rays": [
   {

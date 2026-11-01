@@ -10,20 +10,24 @@ WHAT IT DOES
    dirt, gravel); the central tower and the little turret at its south-west end stay.
 2. Builds the memory set with its roof (great_hall_set.build(open_roof=False)) and re-skins its OUTER faces
    in the castle's palette: stone walls, cobblestone quoins, base course, cornice and buttresses, oak-plank
-   roofs, a cobblestone-wall parapet at the eaves. The inside is the memory's, untouched. The entrance hall,
-   a flat-topped box in the memory, gets a cross-gabled oak roof at the castle's pitch (2 up for 1 across,
-   the same as the hall's). Light blocks go just inside every tall window so the windows glow at night.
+   roofs, a cobblestone-wall parapet at the eaves. The inside is the memory's, untouched. The long roof gets
+   the castle's Gothic vocabulary (buttress pinnacles, lucarnes, a ridge cresting, one flèche); the entrance
+   hall, a flat-topped box in the memory, gets a low 1:1 cross-gabled oak roof so the tower dominates; the
+   three big gables get rose windows and string courses. Light blocks go just inside every tall window so
+   the windows glow at night.
 3. Pastes it on the castle's axis: one clockwise quarter turn, so the set's +x (staff end -> doors) runs
    south, the High Table is at the north end and the entrance hall's far wall touches the central tower's
-   north face; the hall's centre line is the tower's centre line; the floor is MAIN_FLOOR_Y.
+   north face; the hall's centre line is the tower's centre line; the floor is MAIN_FLOOR_Y. Only the cells
+   up to the wing's own roofline are cleared first: anything of the old castle above it (the tower's dormer
+   and pinnacle reach out over the entrance hall) stays.
 4. A solid stone plinth under every column of the wing, from the floor down to the old rock (or y 0), and
    north of the old castle a rock skirt sloping down from the plinth so the wing reads as built on the hill.
 5. The entrance hall's west wall gets a door onto a covered gallery that runs down the wing's west side to
    the old viaduct head (the top of the west descent), so the viaduct, the hall and the stool are one walk.
 6. Light blocks wherever the hall, the entrance hall or the gallery would otherwise have dark floor.
 7. Returns the anchors (castle coordinates): the enchanted-ceiling rectangle, the floating-candle boxes,
-   light rays through the tall windows, the two portal door leaves, the hall box, the main entrance, the
-   stool and the Great Hall chest.
+   light rays through the tall windows, the two portal door leaves, the hall box, the west door's threshold,
+   the stool and the Great Hall chest. (main_entrance, the gatehouse gate, is build_castle's.)
 
 Coordinates: the set's own frame is "local" (great_hall_set's: x along the hall, staff end at x 0, floor
 block y 0); the castle frame is the new schematic's. A local cell (x, y, z) lands on castle cell
@@ -37,7 +41,7 @@ import random
 import sys
 from collections import Counter, deque
 
-from .build_castle import BASE_SHIFT, MAIN_FLOOR_Y
+from .frame import BASE_SHIFT, MAIN_FLOOR_Y
 from . import checks
 from .grid import paste
 
@@ -104,7 +108,7 @@ def in_old_wing(x, z):
         return False
     if math.hypot(x + 0.5 - OLD_TOWER[0], z + 0.5 - OLD_TOWER[1]) <= OLD_TOWER_R + 2:
         return False
-    return math.hypot(x + 0.5 - OLD_TURRET[0], z + 0.5 - OLD_TURRET[1]) > OLD_TURRET_R + 0.5
+    return math.hypot(x + 0.5 - OLD_TURRET[0], z + 0.5 - OLD_TURRET[1]) > OLD_TURRET_R
 
 
 # the walk the checks take: the hall floor in front of the stool, and a cell on the viaduct deck
@@ -119,7 +123,7 @@ GALLERY_X = (cell(0, 0, 44)[0], cell(0, 0, 40)[0])                 # 39..43
 GALLERY_Z = (cell(85, 0, 0)[2], cell(85, 0, 0)[2] + 26)            # 111..137, onto the old porch floor
 GALLERY_PIER_STEP = 4
 DOOR_LOCAL_X = (89, 91)                                            # the west door, in front of the stair masses
-MAIN_ENTRANCE = (GALLERY_X[1] - 1, MAIN_FLOOR_Y + 1, cell(90, 0, 0)[2])
+WEST_DOOR = (GALLERY_X[1] - 1, MAIN_FLOOR_Y + 1, cell(90, 0, 0)[2])     # the gallery threshold outside it
 
 # ---------------------------------------------------------------- the re-skin
 PIERS = tuple(G.PIERS) + G.FIRE_BAY    # buttresses outside every pier and the fireplace's two
@@ -306,72 +310,175 @@ def _disc(r):
     return inner, ring
 
 
-def add_gable_oculi(g):
-    """A round window of dark castle glass in a cobblestone ring on each big plain gable: both of the entrance
-    hall's (over its attic) and the hall's south gable above the entrance hall roof (over the roof space,
-    behind the doors), each with a light behind it. Returns the count."""
-    glass = 'minecraft:black_stained_glass'
-    light = G.state('light', level=WINDOW_LIGHT, waterlogged=False)
-    inner, ring = _disc(3.5)
+def add_rose_window(g, axis, u0, yc, plane, behind, r):
+    """A rose window in a gable wall (local frame): a cobblestone ring, a cobblestone hub and eight spokes of
+    cobblestone wall (tracery), dark castle glass between them with a blue heart, and a light behind the hub.
+
+    axis 'x': the wall is the plane z = `plane` and u runs along x; axis 'z': the plane x = `plane`, u along z.
+    `behind` is the step into the building: the wall's inner course is opened behind the glass."""
+    inner, ring = _disc(r)
+    tracery = {(du, dv) for du, dv in inner
+               if math.hypot(du, dv) < 1 or du == 0 or dv == 0 or abs(du) == abs(dv)}
+    solid = tracery | set(ring)
+    sides = ('east', 'west') if axis == 'x' else ('south', 'north')
+
+    def at(du, dv, depth=0):
+        u, y = u0 + du, yc + dv
+        return (u, y, plane + depth) if axis == 'x' else (plane + depth, y, u)
+
+    for du, dv in ring:
+        if at(du, dv) in g:
+            g[at(du, dv)] = 'minecraft:cobblestone'
+    for du, dv in inner:
+        if math.hypot(du, dv) < 1:
+            g[at(du, dv)] = 'minecraft:cobblestone'
+        elif (du, dv) in tracery:
+            conn = {sides[0]: 'low' if (du + 1, dv) in solid else 'none',
+                    sides[1]: 'low' if (du - 1, dv) in solid else 'none'}
+            for k in ('east', 'west', 'north', 'south'):
+                conn.setdefault(k, 'none')
+            g[at(du, dv)] = G.state('cobblestone_wall', up=True, waterlogged=False, **conn)
+        else:
+            heart = math.hypot(du, dv) <= r * 0.55
+            g[at(du, dv)] = 'minecraft:blue_stained_glass' if heart else 'minecraft:black_stained_glass'
+        g.pop(at(du, dv, behind), None)                     # open the wall's inner course behind it
+    if at(0, 0, 2 * behind) not in g:
+        g[at(0, 0, 2 * behind)] = G.state('light', level=WINDOW_LIGHT, waterlogged=False)
+
+
+HALL_ROSE = (G.AXIS_Z, 38, 4.5)        # the hall's south gable (outer face x 84): centre z, centre y, radius
+EH_ROSE = (32, 3.5)                    # the entrance hall's two gables: centre y, radius (centre x is the ridge)
+
+
+def add_gable_dress(g):
+    """Rose windows and smooth-stone string courses on the three big gables between the tower and the hall: the
+    entrance hall's two (over its attic) and the hall's own south gable above the entrance hall's roof (over the
+    roof space, behind the doors)."""
+    slab = G.state('smooth_stone_slab', type='top', waterlogged=False)
     ex = (EH_ROOF_X[0] + EH_ROOF_X[1]) // 2               # 99: the entrance hall's ridge line
-    jobs = [(('x', ex, z), 38, behind) for z, behind in ((EH_ROOF_Z[0], 1), (EH_ROOF_Z[1], -1))]
-    jobs.append((('z', G.AXIS_Z, G.HALL_X1), 38, -1))  # the hall's south gable, outer face x 84
-    for (axis, u0, plane), yc, behind in jobs:
-        for du, dv in inner + ring:
-            u, y = u0 + du, yc + dv
-            p = (u, y, plane) if axis == 'x' else (plane, y, u)
-            if (du, dv) in ring:
-                if p in g:
-                    g[p] = 'minecraft:cobblestone'
-                continue
-            g[p] = glass
-            q = (u, y, plane + behind) if axis == 'x' else (plane + behind, y, u)
-            if q in g and (du, dv) != (0, 0):
-                del g[q]                                      # open the wall's inner course behind the glass
-        c = (u0, yc, plane + 2 * behind) if axis == 'x' else (plane + 2 * behind, yc, u0)
-        if c not in g:
-            g[c] = light
-    return len(jobs)
+    for z, behind, out in ((EH_ROOF_Z[0], 1, -1), (EH_ROOF_Z[1], -1, 1)):
+        add_rose_window(g, 'x', ex, EH_ROSE[0], z, behind, EH_ROSE[1])
+        for x in range(EH_ROOF_X[0], EH_ROOF_X[1] + 1):   # a cornice under the eaves, over the wall top
+            g.setdefault((x, EH_TOP_Y, z + out), slab)
+    zc, yc, r = HALL_ROSE
+    face = G.HALL_X1                                      # 84
+    add_rose_window(g, 'z', zc, yc, face, -1, r)
+    for y in (yc - int(r) - 3, yc + int(r) + 4):          # string courses below and above the rose
+        for z in range(SET_SIZE[2]):
+            if (face, y, z) in g and (face + 1, y, z) not in g:
+                g[(face + 1, y, z)] = slab
 
 
-FLECHES = (26, 66)                     # local x of the two ridge spires, over the second bay from each end
-RIDGE_Y = 56
+RIDGE_Y = 56                           # the hall's ridge course (one cell wide, on the centre row)
+FLECHE_X = 46                          # the spire stands over the fireplace bay, the middle of the ridge
+DORMER_FRONT = 9                       # the dormers' front faces stand on the slope at local z 9 (and 35)
 
 
-def add_ridge_fleches(g):
-    """Two small spires on the hall's ridge, in the castle's own language (a stone lantern with cobblestone
-    corners and a smooth-stone band, a stepped oak spire, a wall finial), so the long roof has the broken,
-    spiky skyline the old wing's ridge turrets gave it."""
+def _wall_post(**sides):
+    conn = {k: sides.get(k, 'none') for k in ('east', 'west', 'north', 'south')}
+    return G.state('cobblestone_wall', up=True, waterlogged=False, **conn)
+
+
+_FENCE_TIP = G.state('oak_fence', east=False, west=False, north=False, south=False, waterlogged=False)
+
+
+def add_roof_gothic(g, windows):
+    """The castle's Gothic vocabulary on the hall's long roof, in its own palette, so it does not read as a barn:
+    pinnacles carried up from every buttress past the parapet, a lucarne (a small gabled dormer with a lit
+    window) over every tall window on both slopes, a cobblestone-wall cresting along the ridge, and one slender
+    flèche over the middle of the ridge."""
+    cob = 'minecraft:cobblestone'
+    last = SET_SIZE[2] - 1
+
+    # pinnacles: the buttress against the wall (z 0 / 44) rises through the string course to the parapet,
+    # then a three-high wall-post spike with an oak-fence tip
+    for proud in (0, last):
+        for p in PIERS:
+            for y in range(17, WALL_TOP_Y + 2):
+                g[(p, y, proud)] = cob
+            for y in range(WALL_TOP_Y + 2, WALL_TOP_Y + 5):
+                g[(p, y, proud)] = _wall_post()
+            g[(p, WALL_TOP_Y + 5, proud)] = _FENCE_TIP
+
+    # lucarnes over the windows: a 3-wide stone box on the slope, cobblestone corners, a window lit from inside,
+    # an oak gable roof and a wall-post finial
+    def roof_top(x, z):
+        ys = [y for y in range(WALL_TOP_Y, RIDGE_Y + 1) if (x, y, z) in g]
+        return max(ys) if ys else WALL_TOP_Y
+
+    for side, a, b, _, _ in windows:
+        c = (a + b) // 2
+        zf, step = (DORMER_FRONT, 1) if side == 'n' else (last - DORMER_FRONT, -1)
+        top = roof_top(c, zf) + 3                           # the box's top course
+        for i in range(0, 5):
+            z = zf + step * i
+            for x in range(c - 1, c + 2):
+                for y in range(roof_top(x, z) + 1, top + 1):
+                    if (x, y, z) in g:
+                        continue
+                    if i == 0 and x == c and y < top:
+                        g[(x, y, z)] = 'minecraft:black_stained_glass'
+                    elif i == 0 and x != c:
+                        g[(x, y, z)] = cob
+                    elif i == 1 and x == c and y == top - 2:
+                        g[(x, y, z)] = G.state('light', level=WINDOW_LIGHT, waterlogged=False)
+                    else:
+                        g[(x, y, z)] = 'minecraft:stone'
+                g.setdefault((x, top + 1, z), 'minecraft:oak_planks')
+            g.setdefault((c, top + 2, z), 'minecraft:oak_planks')
+        g.setdefault((c, top + 3, zf), _wall_post())
+
+    # cresting along the ridge: a cobblestone wall with a taller post every fourth block
     zc = G.AXIS_Z
-    for xc in FLECHES:
-        for x in range(xc - 1, xc + 2):
-            for z in range(zc - 1, zc + 2):
-                corner = x != xc and z != zc
-                for y in range(RIDGE_Y - 2, RIDGE_Y + 4):
-                    g[(x, y, z)] = 'minecraft:cobblestone' if corner else 'minecraft:stone'
-                if not corner:
-                    g[(x, RIDGE_Y + 2, z)] = 'minecraft:black_stained_glass' if (x, z) != (xc, zc) else 'minecraft:stone'
-                g[(x, RIDGE_Y + 4, z)] = G.state('smooth_stone_slab', type='double', waterlogged=False)
-                g[(x, RIDGE_Y + 5, z)] = 'minecraft:oak_planks'
-        for y in range(RIDGE_Y + 6, RIDGE_Y + 10):
-            g[(xc, y, zc)] = 'minecraft:oak_planks'
-        g[(xc, RIDGE_Y + 10, zc)] = G.state('cobblestone_wall', east='none', west='none', north='none',
-                                            south='none', up=True, waterlogged=False)
+    xs = [x for x in range(SET_SIZE[0]) if (x, RIDGE_Y, zc) in g and 9 < x < G.HALL_X1 - 1
+          and abs(x - FLECHE_X) > 1]
+    for x in xs:
+        g[(x, RIDGE_Y + 1, zc)] = _wall_post(east='low' if x + 1 in xs else 'none',
+                                             west='low' if x - 1 in xs else 'none')
+        if x % 4 == 2:
+            g[(x, RIDGE_Y + 2, zc)] = _wall_post()
+
+    # the flèche: a stone lantern with cobblestone corners and lit slits, a smooth-stone cap with four wall-post
+    # pinnacles, then a slender oak spire with a wall-post and fence finial
+    xc = FLECHE_X
+    light = G.state('light', level=WINDOW_LIGHT, waterlogged=False)
+    for x in range(xc - 1, xc + 2):
+        for z in range(zc - 1, zc + 2):
+            corner = x != xc and z != zc
+            for y in range(RIDGE_Y - 2, RIDGE_Y + 4):
+                g[(x, y, z)] = cob if corner else 'minecraft:stone'
+            if not corner:
+                for y in (RIDGE_Y + 1, RIDGE_Y + 2):
+                    g[(x, y, z)] = light if (x, z) == (xc, zc) else 'minecraft:black_stained_glass'
+            g[(x, RIDGE_Y + 4, z)] = G.state('smooth_stone_slab', type='double', waterlogged=False)
+            if corner:
+                g[(x, RIDGE_Y + 5, z)] = _wall_post()
+                g[(x, RIDGE_Y + 6, z)] = _wall_post()
+    for y in range(RIDGE_Y + 5, RIDGE_Y + 11):
+        g[(xc, y, zc)] = 'minecraft:oak_planks'
+    g[(xc, RIDGE_Y + 11, zc)] = _wall_post()
+    g[(xc, RIDGE_Y + 12, zc)] = _FENCE_TIP
 
 
 def add_entrance_hall_roof(g):
-    """A cross-gabled oak roof on the entrance hall's flat top: ridge across the hall's axis (local z), 2 up for
-    every 1 across like the hall's own roof, stone gable walls over the side walls, and light in the closed
-    attic so nothing spawns up there."""
+    """A cross-gabled oak roof on the entrance hall's flat top, ridge across the hall's axis (local z). It is
+    pitched at 1:1 (planks under oak stairs), lower than the hall's 2:1, so the entrance hall stays a low link
+    and the central tower behind it dominates. Stone gable walls over the side walls; light in the closed attic
+    so nothing spawns up there."""
     x0, x1 = EH_ROOF_X
     z0, z1 = EH_ROOF_Z
-    planks = 'minecraft:oak_planks'
+    ridge = (x0 + x1) // 2
     for x in range(x0, x1 + 1):
         k = min(x - x0, x1 - x)
-        base = EH_TOP_Y + 1 + 2 * k
+        base = EH_TOP_Y + 1 + k
+        if x == ridge:
+            cap = G.state('oak_slab', type='bottom', waterlogged=False)
+        else:
+            cap = G.state('oak_stairs', facing='east' if x < ridge else 'west', half='bottom', shape='straight',
+                          waterlogged=False)
         for z in range(z0 - 1, z1 + 2):                      # one block of eave over each gable
-            g[(x, base, z)] = planks
-            g[(x, base + 1, z)] = planks
+            g[(x, base, z)] = 'minecraft:oak_planks'
+            g[(x, base + 1, z)] = cap
         for z in (z0, z1):
             for y in range(EH_TOP_Y + 1, base):
                 g[(x, y, z)] = 'minecraft:cobblestone' if x in (x0, x1) else 'minecraft:stone'
@@ -443,9 +550,9 @@ def build_set():
     add_entrance_hall_dress(g)
     add_apse_battlements(g)
     add_entrance_hall_roof(g)
-    add_gable_oculi(g)
-    add_ridge_fleches(g)
+    add_gable_dress(g)
     windows = add_window_lights(g)
+    add_roof_gothic(g, windows)
     return g, windows, seen
 
 
@@ -457,7 +564,7 @@ def remove_old_wing(grid):
     for (x, y, z), s in grid.cells.items():
         if y < OLD_WING_MIN_Y or not in_old_wing(x, z):
             continue
-        name = checks._id(s)
+        name = checks.block_id(s)
         if name in TERRAIN_NAMES and not (name == 'stone' and y >= OLD_FLOOR_Y):
             continue
         gone.append((x, y, z))
@@ -466,9 +573,11 @@ def remove_old_wing(grid):
     return len(gone)
 
 
-def clear_columns(grid, columns, y0):
-    """Remove everything at y >= y0 in the given columns."""
-    gone = [p for p in grid.cells if p[1] >= y0 and (p[0], p[2]) in columns]
+def clear_columns(grid, tops, y0):
+    """Remove everything from y0 up to each column's top (tops: {(x, z): y}) and nothing above it, so whatever
+    the old castle has over the wing's roofline (the central tower's dormer and pinnacle lean out over the
+    entrance hall) stays where it is."""
+    gone = [p for p in grid.cells if (p[0], p[2]) in tops and y0 <= p[1] <= tops[(p[0], p[2])]]
     for p in gone:
         del grid.cells[p]
 
@@ -518,7 +627,7 @@ def build_skirt(grid, footprint, rect, east_only=False):
     noise = _value_noise(1991, 7.0)
     tops, built = {}, set()
     for (x, y, z), s in grid.cells.items():
-        if checks._id(s) in TERRAIN_NAMES:
+        if checks.block_id(s) in TERRAIN_NAMES:
             if y > tops.get((x, z), -1):
                 tops[(x, z)] = y
         else:
@@ -572,6 +681,11 @@ def build_skirt(grid, footprint, rect, east_only=False):
     return n
 
 
+def gallery_top(x):
+    """The top of the gallery's lean-to roof over castle column x (it rises 1:1 towards the entrance hall)."""
+    return MAIN_FLOOR_Y + 6 + (x - GALLERY_X[0])
+
+
 def build_gallery(grid):
     """The covered gallery from the entrance hall's west door to the viaduct head, in the viaduct's own dress:
     a cobblestone deck with a stone-brick spine, an arcade of cobblestone piers with a wall between them, an
@@ -579,9 +693,9 @@ def build_gallery(grid):
     gx0, gx1 = GALLERY_X
     gz0, gz1 = GALLERY_Z
     y = MAIN_FLOOR_Y
-    for x in range(gx0, gx1 + 1):
+    for i, x in enumerate(range(gx0, gx1 + 1)):
         for z in range(gz0, gz1 + 1):
-            for yy in range(y + 1, y + 13):
+            for yy in range(y + 1, gallery_top(x) + 1):
                 grid.clear(x, yy, z)
             grid.set(x, y, z, 'minecraft:stone_bricks' if x == (gx0 + gx1) // 2 else 'minecraft:cobblestone')
     for z in range(gz0, gz1 + 1):
@@ -647,16 +761,21 @@ _COLUMNS = None
 
 
 def _set_columns(g):
-    """(base, covered): the castle columns the set stands on (everything but the entrance hall roof's eaves,
-    which overhang its walls) plus the gallery, and every column it covers at any height."""
-    lowest = {}
+    """(base, covered, tops): the castle columns the set stands on (everything but the entrance hall roof's
+    eaves, which overhang its walls) plus the gallery; every column it covers at any height; and each covered
+    column's top (castle y of the highest block the wing puts there)."""
+    lowest, highest = {}, {}
     for (x, y, z) in g:
         c = cell(x, 0, z)[0::2]
         lowest[c] = min(y, lowest.get(c, y))
+        highest[c] = max(y, highest.get(c, y))
     covered = set(lowest)
     base = {c for c, y in lowest.items() if y < EH_TOP_Y}      # not the roof eaves that overhang the walls
+    tops = {c: ORIGIN[1] + y for c, y in highest.items()}
     gallery = {(x, z) for x in range(GALLERY_X[0], GALLERY_X[1] + 1) for z in range(GALLERY_Z[0], GALLERY_Z[1] + 1)}
-    return base | gallery, covered | gallery
+    for c in gallery:
+        tops[c] = max(tops.get(c, 0), gallery_top(c[0]))
+    return base | gallery, covered | gallery, tops
 
 
 def _columns():
@@ -674,6 +793,12 @@ def footprint_columns():
 def covered_columns():
     """Every castle column the wing occupies at any height."""
     return _columns()[1]
+
+
+def column_tops():
+    """{(x, z): y} the top of the wing (set or gallery) in every column it covers. Above that the old castle is
+    untouched (build_castle.verify holds the rest of the castle to it)."""
+    return _columns()[2]
 
 
 def _candles():
@@ -728,19 +853,19 @@ CEIL_X = (10.0, G.CEIL_X[1])
 
 
 def _ceiling(grid):
+    """The enchanted-ceiling rectangle at the wall tops, and its clearance: blocks from the plane up to the first
+    block over the hall's centre line (the aisle row), the lowest point of the roof's underside along it (the
+    tie beams of the trusses)."""
     c0 = point(CEIL_X[0], G.CEIL_Y, G.CEIL_Z[1])
     c1 = point(CEIL_X[1], G.CEIL_Y, G.CEIL_Z[0])
     y = c0[1]
-    lowest, highest = None, None
-    for x in range(int(c0[0]), int(c1[0])):
-        for z in range(int(c0[2]), int(c1[2])):
-            above = [yy for yy in range(y, y + SET_SIZE[1]) if (x, yy, z) in grid.cells]
-            if above:
-                lowest = above[0] if lowest is None else min(lowest, above[0])
-                highest = above[0] if highest is None else max(highest, above[0])
-    return {'min': [c0[0], c0[2]], 'max': [c1[0], c1[2]], 'y': y,
-            'clearance': (lowest - y) if lowest is not None else 0,
-            'ridge_clearance': (highest - y) if highest is not None else 0}
+    x = cell(0, 0, G.AXIS_Z)[0]
+    firsts = []
+    for z in range(int(c0[2]), int(c1[2])):
+        above = [yy for yy in range(y, y + SET_SIZE[1]) if (x, yy, z) in grid.cells]
+        assert above, ('no roof over the centre line at', x, z)
+        firsts.append(above[0])
+    return {'min': [c0[0], c0[2]], 'max': [c1[0], c1[2]], 'y': y, 'clearance': min(firsts) - y}
 
 
 def place_hall(grid):
@@ -748,9 +873,9 @@ def place_hall(grid):
     global _COLUMNS
     removed = remove_old_wing(grid)
     g, windows, seen = build_set()
-    _COLUMNS = base, covered = _set_columns(g)
+    _COLUMNS = base, covered, tops = _set_columns(g)
 
-    clear_columns(grid, covered, MAIN_FLOOR_Y)
+    clear_columns(grid, tops, MAIN_FLOOR_Y)
     paste(grid, g, ORIGIN, TURNS, SET_SIZE)
     build_gallery(grid)
     plinth = build_plinth(grid, base)
@@ -774,7 +899,7 @@ def place_hall(grid):
         'rays': _rays(windows),
         'doors': doors,
         'hall_box': {'min': list(HALL_BOX[:3]), 'max': list(HALL_BOX[3:])},
-        'main_entrance': list(MAIN_ENTRANCE),
+        'hall_west_door': list(WEST_DOOR),
         'stool': point(G.STOOL[0] + 0.5, G.STOOL[1] + 0.5, G.STOOL[2] + 0.5),
         'chests': [_chest(grid)],
     }

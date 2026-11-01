@@ -46,7 +46,8 @@ _LIGHT_NAMES = frozenset((
 DARK_RADIUS = 7                   # a floor cell farther than this from a light is "dark"
 
 
-def _id(state):
+def block_id(state):
+    """A block-state string's id without properties or the `minecraft:` namespace ('oak_stairs')."""
     name = state.split('[', 1)[0]
     return name[len('minecraft:'):] if name.startswith('minecraft:') else name
 
@@ -59,7 +60,7 @@ def passable(state):
     """True when a player can occupy the cell: air or collision-free decoration (doors count)."""
     if _is_air(state):
         return True
-    name = _id(state)
+    name = block_id(state)
     if name.endswith('_trapdoor'):
         return 'open=true' in state
     return (name in _PASSABLE_NAMES or name in _PASSABLE_FLOWERS
@@ -70,13 +71,13 @@ def supports(state):
     """True when a player can stand on top of the block (solid, stair or slab; not decoration/liquid)."""
     if _is_air(state) or passable(state):
         return False
-    name = _id(state)
+    name = block_id(state)
     return name not in ('water', 'lava', 'bubble_column', 'powder_snow')
 
 
 def is_light(state):
     """True for blocks that give off light for the purposes of the dark-floor audit."""
-    name = _id(state)
+    name = block_id(state)
     if name == 'light':
         return 'level=0' not in state
     if name.endswith('candle'):                       # candle, white_candle, ... (not the cake)
@@ -88,7 +89,7 @@ def is_light(state):
 
 def climbable(state):
     """True for blocks a player climbs vertically (a column of them is a way up and down)."""
-    return _id(state) in ('ladder', 'scaffolding', 'vine', 'cave_vines', 'cave_vines_plant')
+    return block_id(state) in ('ladder', 'scaffolding', 'vine', 'cave_vines', 'cave_vines_plant')
 
 
 def census(grid):

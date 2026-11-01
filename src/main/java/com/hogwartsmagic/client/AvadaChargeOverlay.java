@@ -16,7 +16,8 @@ import net.minecraftforge.fml.common.Mod;
  * What the Killing Curse does to the view. The caster's world closes in: the edges go black, a faint green
  * heartbeat throbs at the rim, quickening as the curse gathers, and the view tightens a little, as if leaning
  * into the target; on the cast it all snaps back. Anyone standing near a caster feels a fainter version of the
- * dark, so a windup across the room is felt before it is seen.
+ * dark, so a windup across the room is felt before it is seen, and anyone near where the curse strikes sees the
+ * edges of their view flash green.
  *
  * <p>Drawn from the HUD mixin (Forge 51 has no HUD event); everything here comes from {@link AvadaChargeClientState}.
  */
@@ -33,14 +34,16 @@ public final class AvadaChargeOverlay {
 
     public static void render(GuiGraphics graphics) {
         Minecraft minecraft = Minecraft.getInstance();
-        if (AvadaChargeClientState.isEmpty() || minecraft.player == null || minecraft.options.hideGui) {
+        if ((AvadaChargeClientState.isEmpty() && AvadaBeamClientState.isEmpty()) || minecraft.player == null
+                || minecraft.options.hideGui) {
             return;
         }
         float partial = minecraft.getTimer().getGameTimeDeltaPartialTick(false);
         double now = AvadaChargeClientState.now(partial);
         float dark = 0.0f;
         float beat = 0.0f;
-        float flash = 0.0f;
+        // A Killing Curse striking close by flashes the edges of everyone's view.
+        float flash = AvadaBeamClientState.screenFlash(minecraft.gameRenderer.getMainCamera().getPosition(), now);
         for (AvadaChargeClientState.Charge charge : AvadaChargeClientState.all()) {
             float strength = strength(charge, now);
             if (strength <= 0.0f) {
@@ -50,7 +53,7 @@ public final class AvadaChargeOverlay {
                 dark = Math.max(dark, strength);
                 beat = Math.max(beat, heartbeat(charge, now) * strength);
                 if (charge.ended() && charge.endPhase() == AvadaChargeFx.FIRED) {
-                    flash = 1.0f - charge.aftermath(now);
+                    flash = Math.max(flash, 1.0f - charge.aftermath(now));
                 }
                 continue;
             }

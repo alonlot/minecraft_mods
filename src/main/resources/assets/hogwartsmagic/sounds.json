@@ -3906,5 +3906,14 @@
         "stream": false
       }
     ]
+  },
+  "spell.avada_kedavra.impact": {
+    "subtitle": "subtitles.hogwartsmagic.spell.avada_kedavra.impact",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:avada/impact",
+        "stream": false
+      }
+    ]
   }
 }

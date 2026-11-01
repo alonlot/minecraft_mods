@@ -387,6 +387,21 @@ public class SpellPackets {
                 .decoder(buf -> new AvadaChargePacket(buf.readInt(), buf.readVarInt(), buf.readByte()))
                 .consumerMainThread(AvadaChargePacket::handle)
                 .add();
+        CHANNEL.messageBuilder(AvadaImpactPacket.class)
+                .encoder((p, buf) -> {
+                    buf.writeInt(p.beamId);
+                    buf.writeDouble(p.x);
+                    buf.writeDouble(p.y);
+                    buf.writeDouble(p.z);
+                    buf.writeFloat(p.dx);
+                    buf.writeFloat(p.dy);
+                    buf.writeFloat(p.dz);
+                    buf.writeByte(p.kind);
+                })
+                .decoder(buf -> new AvadaImpactPacket(buf.readInt(), buf.readDouble(), buf.readDouble(), buf.readDouble(),
+                        buf.readFloat(), buf.readFloat(), buf.readFloat(), buf.readByte()))
+                .consumerMainThread(AvadaImpactPacket::handle)
+                .add();
         CHANNEL.messageBuilder(IncarcerousRopesPacket.class)
                 .encoder((p, buf) -> {
                     buf.writeInt(p.entityId);
@@ -1695,6 +1710,16 @@ public class SpellPackets {
     public record AvadaChargePacket(int casterId, int durationTicks, byte phase) {
         public static void handle(AvadaChargePacket p, CustomPayloadEvent.Context ctx) {
             enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("avadaCharge", p));
+        }
+    }
+
+    /**
+     * Server → client: Killing Curse beam {@code beamId} ended at (x, y, z) travelling along (dx, dy, dz), as
+     * one of {@code AvadaBeamFx}'s kinds (struck a target, hit a wall, was dodged, died out).
+     */
+    public record AvadaImpactPacket(int beamId, double x, double y, double z, float dx, float dy, float dz, byte kind) {
+        public static void handle(AvadaImpactPacket p, CustomPayloadEvent.Context ctx) {
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("avadaImpact", p));
         }
     }
 

@@ -30,8 +30,8 @@ public class SpellBeamRenderer extends EntityRenderer<SpellBeamEntity> {
     public void render(SpellBeamEntity entity, float entityYaw, float partialTick,
                        PoseStack poseStack, MultiBufferSource buffer, int packedLight) {
         SpellType spell = entity.getSpellType();
-        if (spell == SpellType.AQUA_ERUCTO) {
-            return;
+        if (spell == SpellType.AQUA_ERUCTO || spell == SpellType.AVADA_KEDAVRA) {
+            return; // the Killing Curse is drawn whole, wand to head, by AvadaBeamRenderer
         }
         float r = spell.getR();
         float g = spell.getG();
@@ -69,7 +69,7 @@ public class SpellBeamRenderer extends EntityRenderer<SpellBeamEntity> {
         int light = LightTexture.FULL_BRIGHT;
 
         switch (spell) {
-            case AVADA_KEDAVRA, CRUCIO, DOLOHOV_CURSE, MORSMORDRE -> {
+            case CRUCIO, DOLOHOV_CURSE, MORSMORDRE -> {
                 // Jagged lightning-like curse beam.
                 drawLightningBeam(consumer, matrix, beamLength * 1.05f, glowThickness, age, spell.ordinal(), 1.9f, r, g, b, glowAlpha, light);
                 drawLightningBeam(consumer, matrix, beamLength, coreThickness, age, spell.ordinal() + 17, 1.5f, r, g, b, coreAlpha, light);

@@ -48,6 +48,7 @@ public final class ClientRuntimeBridge {
             case "cloakTransition" -> cloakTransition((SpellPackets.CloakTransitionPacket) payload);
             case "patronusShieldState" -> patronusShieldState((SpellPackets.PatronusShieldStatePacket) payload);
             case "avadaCharge" -> AvadaChargeClientState.accept((SpellPackets.AvadaChargePacket) payload);
+            case "avadaImpact" -> AvadaBeamClientState.acceptImpact((SpellPackets.AvadaImpactPacket) payload);
             case "protegoShield" -> protegoShield((SpellPackets.ProtegoShieldPacket) payload);
             case "incarcerousRopes" -> IncarcerousRopesClientState.accept((SpellPackets.IncarcerousRopesPacket) payload);
             case "openApparitionMap" -> openApparitionMap((SpellPackets.OpenApparitionMapPacket) payload);

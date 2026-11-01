@@ -99,6 +99,11 @@ public class SpellBeamEntity extends ThrowableProjectile {
      * shows its impact particles and discards itself. Plain data: nothing client-only is referenced here.
      */
     private boolean visualOnly;
+    /** A dodged Killing Curse already sent its own burst; the impact that follows must not send another. */
+    private boolean avadaImpactSent;
+    /** Where the beam struck, for the Killing Curse's strike when the hit fizzles. */
+    @javax.annotation.Nullable
+    private Vec3 avadaHitAt;
     /** Ticks a visual-only beam lives before it ends as if it had hit something. */
     private int visualLife = 60;
 
@@ -125,6 +130,10 @@ public class SpellBeamEntity extends ThrowableProjectile {
     /** The impact of a visual-only beam: the particles the server sends for a real hit, drawn locally, then gone. */
     private void endVisualBeam() {
         SpellType spell = getSpellType();
+        if (spell == SpellType.AVADA_KEDAVRA) {
+            this.discard(); // AvadaBeamRenderer plays the strike where the jet vanished
+            return;
+        }
         for (int i = 0; i < 12; i++) {
             this.level().addParticle(spell.getImpactParticle(), this.getX() + (random.nextDouble() - 0.5) * 0.4,
                     this.getY() + (random.nextDouble() - 0.5) * 0.4, this.getZ() + (random.nextDouble() - 0.5) * 0.4,
@@ -320,6 +329,9 @@ public class SpellBeamEntity extends ThrowableProjectile {
         if (this.level().isClientSide) {
             // A memory's beam is scenery: it never whooshes past the viewer as if it were a real near miss.
             if (!this.visualOnly) playNearMissFeedback();
+            if (spell == SpellType.AVADA_KEDAVRA) {
+                return; // drawn by hand: AvadaBeamRenderer
+            }
             Vec3 pos = position();
             Vec3 vel = getDeltaMovement();
             double speed = vel.length();
@@ -364,7 +376,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
 
             // Spell families get a little personality.
             switch (spell) {
-                case AVADA_KEDAVRA, CRUCIO, DOLOHOV_CURSE, MORSMORDRE -> {
+                case CRUCIO, DOLOHOV_CURSE, MORSMORDRE -> {
                     if (tickCount % 2 == 0) {
                         this.level().addParticle(ParticleTypes.SMOKE,
                                 pos.x, pos.y + 0.2, pos.z,
@@ -654,6 +666,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
     }
 
     private void onHitInner(HitResult result) {
+        this.avadaHitAt = result.getLocation();
         if (!this.level().isClientSide && this.puppeteer != null && result instanceof EntityHitResult entityHit
                 && entityHit.getEntity() instanceof net.minecraft.world.entity.player.Player hitPlayer
                 && this.level() instanceof ServerLevel puppetLevel
@@ -926,10 +939,9 @@ public class SpellBeamEntity extends ThrowableProjectile {
                                 || spell == SpellType.COLLOPORTUS) {
                             hitSuccessful = false;
                         } else if (spell == SpellType.AVADA_KEDAVRA && living instanceof VoldemortEntity voldemort && voldemort.tryEvadeAvada(getOwner())) {
-                            if (this.level() instanceof ServerLevel sl) {
-                                sl.sendParticles(ParticleTypes.SQUID_INK, living.getX(), living.getY() + 1.0D, living.getZ(), 28, 0.3D, 0.7D, 0.3D, 0.04D);
-                                sl.sendParticles(ParticleTypes.LARGE_SMOKE, living.getX(), living.getY() + 1.0D, living.getZ(), 24, 0.35D, 0.75D, 0.35D, 0.03D);
-                            }
+                            com.hogwartsmagic.spell.mind.AvadaBeamFx.impact(this, living.position().add(0.0D, 1.0D, 0.0D),
+                                    com.hogwartsmagic.spell.mind.AvadaBeamFx.EVADE);
+                            this.avadaImpactSent = true;
                             hitSuccessful = true;
                         } else {
                             hitSuccessful = true;
@@ -1003,7 +1015,12 @@ public class SpellBeamEntity extends ThrowableProjectile {
                         com.hogwartsmagic.spell.mastery.MasteryAwards.onBlockEffect(masteryCaster, spell);
                     }
                 }
-                if (this.level() instanceof net.minecraft.server.level.ServerLevel sl) {
+                if (spell == SpellType.AVADA_KEDAVRA) {
+                    if (!this.avadaImpactSent) {
+                        com.hogwartsmagic.spell.mind.AvadaBeamFx.impact(this, result.getLocation(),
+                                com.hogwartsmagic.spell.mind.AvadaBeamFx.HIT);
+                    }
+                } else if (this.level() instanceof net.minecraft.server.level.ServerLevel sl) {
                     spawnEnhancedImpactEffects(sl, spell, this.position());
                     playLayeredImpactSound(spell);
                     if (spell == SpellType.BOMBARDA || spell == SpellType.CONFRINGO || spell == SpellType.FIENDFYRE) {
@@ -1761,6 +1778,14 @@ public class SpellBeamEntity extends ThrowableProjectile {
     }
 
     private void spawnFizzleEffects() {
+        if (getSpellType() == SpellType.AVADA_KEDAVRA) {
+            // Out of range in mid-air, or into a wall: the client draws it, with the strike's own sound.
+            // The hit point, not the beam's position: a projectile is a whole tick's travel short of it in onHit.
+            com.hogwartsmagic.spell.mind.AvadaBeamFx.impact(this, this.avadaHitAt != null ? this.avadaHitAt : this.position(),
+                    this.tickCount > 200 ? com.hogwartsmagic.spell.mind.AvadaBeamFx.FADE
+                            : com.hogwartsmagic.spell.mind.AvadaBeamFx.WALL);
+            return;
+        }
         this.level().playSound(null, this.getX(), this.getY(), this.getZ(),
                 ModSounds.SPELL_FIZZLE.get(), SoundSource.NEUTRAL, 1.0f, 1.5f);
 

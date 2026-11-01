@@ -20,6 +20,12 @@ import java.util.UUID;
 public final class MiniHogwartsGameTests {
     private static final org.slf4j.Logger LOGGER = com.mojang.logging.LogUtils.getLogger();
     private static final String EMPTY = "hogwartsmagic:gametest/empty3";
+    /**
+     * A 9 x 9 floor, for a test that moves an entity several blocks: GameTest force-loads only the chunks under the
+     * template's box, so an entity carried outside the 3 x 3 template can land in a chunk that does not tick
+     * entities (when the test sits near a chunk edge) and freeze there, which made such a test fail at random.
+     */
+    private static final String ROOMY = "hogwartsmagic:gametest/empty9";
 
     private MiniHogwartsGameTests() {
     }
@@ -580,7 +586,7 @@ public final class MiniHogwartsGameTests {
      * Woken by a zombie that then dies, a castle statue stands down: after 200 quiet ticks it crumbles and reforms
      * dormant at its post, facing the way it was posted, however far the fight had carried it.
      */
-    @GameTest(template = EMPTY, batch = "mh_castle_statue_castleStatueStandsDownAfterTheFight", timeoutTicks = 400)
+    @GameTest(template = ROOMY, batch = "mh_castle_statue_castleStatueStandsDownAfterTheFight", timeoutTicks = 400)
     public static void castleStatueStandsDownAfterTheFight(GameTestHelper helper) {
         var statue = helper.spawn(com.hogwartsmagic.entity.ModEntities.LIVING_STATUE.get(), new BlockPos(0, 0, 1));
         BlockPos post = helper.absolutePos(new BlockPos(0, 0, 1));
@@ -599,7 +605,8 @@ public final class MiniHogwartsGameTests {
                 statue.discard();
                 throw e;
             }
-            // The fight is over, and it has been carried away from its post.
+            // The fight is over, and it has been carried away from its post (still inside the 9 x 9 template, whose
+            // chunks are force-loaded: outside them the statue could stop ticking and never stand down).
             zombie.kill();
             net.minecraft.world.phys.Vec3 away = helper.absoluteVec(new net.minecraft.world.phys.Vec3(6.5, 0, 1.5));
             statue.teleportTo(away.x, away.y, away.z);

@@ -41,6 +41,13 @@ def is_air(state):
     return state.split('[', 1)[0] in _AIR_IDS
 
 
+def air_at(cells, p):
+    """True when cell p of a {(x, y, z): state} dict is air: absent, or an air state stored on purpose (a later step
+    marks interior air the world must clear with minecraft:cave_air). Use it, not `p not in cells`, for "is air"."""
+    s = cells.get(p)
+    return s is None or is_air(s)
+
+
 class Grid:
     """A sparse block grid. `cells` holds only non-air block-state strings."""
 
@@ -57,6 +64,10 @@ class Grid:
 
     def get(self, x, y, z):
         return self.cells.get((x, y, z), AIR)
+
+    def is_air(self, x, y, z):
+        """True for an absent cell and for a stored air, cave_air or void_air marker (see air_at)."""
+        return air_at(self.cells, (x, y, z))
 
     def clear(self, x, y, z):
         self.cells.pop((x, y, z), None)

@@ -19,15 +19,15 @@
 - Never `broadcastEntityEvent` with bytes 21, 35 or 63.
 - In `RenderLevelStageEvent`, take the partial tick the way `PensieveClientState.partial()` does, never from `event.getPartialTick()` (that is the frame delta).
 - Common/server code never references a `client` class; client work goes through `ClientSideBridge.handlePacket` → `ClientRuntimeBridge`.
-- Big placement only via `ServerLevel.setBlock(..., Block.UPDATE_CLIENTS)` from the server tick, never a worldgen Feature; never call `getChunk(..., status, true)` or `getStructureWithPieceAt` on a tick path.
+- The castle is a worldgen Structure whose piece writes only inside each chunk's box; never a worldgen Feature; never call `getChunk(..., status, true)` or `getStructureWithPieceAt` on a tick path; level-wide state from worldgen threads only via `server.execute`.
 - Leaves always have an opaque block behind them. Judge density in the textured viewer, not by counts.
 - The memory's `great_hall.nbt` must stay byte-identical.
 - Python scripts that read data run with `python -I`.
 
 ## Review Focus
 
-1. **A player standing in the footprint when a castle starts building** must not suffocate: they are moved to the nearest open floor (Task 11 test `playersInFootprintAreMovedOut`).
-2. **The server stopping mid-build** must leave a castle that finishes on the next start, without placing anything twice into a player's changes (Task 11 test `buildResumesAfterRestart`).
+1. **A castle chunk generated while its neighbours are not** must still produce a whole castle once they generate, with no write outside the chunk (Task 11 test `pieceWritesOnlyInsideChunkBox`).
+2. **A player teleporting into fresh Forbidden Forest** must not stall worldgen (Task 11 headless check).
 3. **A player joining, respawning or changing dimension next to an already-built castle** must see its ceiling and candles (Task 12 test `syncSentOnLoginAndDimensionChange`).
 4. **Ceiling spell corners that make no sense** (different dimension, too far apart, overlapping another ceiling, the caster logged out between casts, the mark expired) give a hint and create nothing (Task 15 tests).
 5. **Many players in the hall at once**: the first-step reveal plays only for a player who has never entered that hall; others keep the open sky (Task 13 test `revealOncePerPlayer`).
@@ -188,23 +188,28 @@ Coordinates in Part A are **castle** coordinates: the new schematic's own frame,
 - [ ] **Step 4:** JUnit passes; `./gradlew.bat runGameTestServer` passes (all tests, not just the new ones).
 - [ ] **Step 5:** Commit and push.
 
-### Task 11: Resumable, cinematic build; title card
+### Task 11: The castle as a normal worldgen structure; title card (revised 2026-11-01)
+
+The user does not want the castle built live: it must act like a normal structure (spec "Arrival: a normal
+structure"). This replaces the old resumable/cinematic build task.
 
 **Files:**
-- Modify: `worldgen/MiniHogwartsManager.java`, `worldgen/MiniHogwartsTracker.java`, `event/ModEvents.java` (server start resume, player tick title check), `event/ClientModEvents.java` (`onComputeCameraAngles` shake), `network/SpellPackets.java` (register), `client/ClientRuntimeBridge.java`
-- Create: `worldgen/CastleRumblePacket.java` (`record CastleRumblePacket(int ticks, float strength)`), `client/CastleRumble.java` (client shake state)
-- Test: `MiniHogwartsGameTests`
+- Create: `worldgen/structure/MiniHogwartsStructure.java` (the `Structure` subclass + its `MapCodec`), `worldgen/structure/MiniHogwartsPiece.java` (the single `StructurePiece`), `worldgen/structure/ModStructures.java` (DeferredRegisters for `StructureType` and `StructurePieceType`), `data/hogwartsmagic/worldgen/structure/mini_hogwarts.json`, `data/hogwartsmagic/worldgen/structure_set/mini_hogwarts.json`, `data/hogwartsmagic/tags/worldgen/biome/has_structure/mini_hogwarts.json` (the forbidden_forest biome), `util/Titles.java` (the title/subtitle three-packet helper moved out of `DuelManager`)
+- Modify: `worldgen/MiniHogwartsSchematic.java` (cache per-column lowest solid y), `worldgen/MiniHogwartsManager.java` (remove the live placement job and `maybeAutoSpawn`; keep the furnishing helpers callable from the piece), `worldgen/MiniHogwartsTracker.java`, `command/SpawnMiniHogwartsCommand.java`, `command/FindMiniHogwartsCommand.java`, `event/ModEvents.java` (drop the auto-spawn and tick hooks; add the title check), `ExampleMod.java` (register `ModStructures`)
+- Test: `src/test/java/com/hogwartsmagic/worldgen/MiniHogwartsTrackerTest.java`, GameTests in `gametest/MiniHogwartsGameTests.java`
 
 **Interfaces:**
-- `MiniHogwartsTracker` keeps `public static final class Castle { BlockPos anchor; BlockPos center; int phase; long cursor; Set<UUID> titled; Set<UUID> enteredHall; }` with phases `BUILDING=0, SKIRT=1, FURNISHING=2, COMPLETE=3`; `castles()` list; `add(Castle)`; `nearestUnfinished()`; `Castle at(BlockPos center)`. Old saves (a `"Castles"` long list) load as `COMPLETE` castles with null anchor. `findClosest`/`getAll` keep working on centres.
-- `MiniHogwartsManager`: `BLOCKS_PER_TICK = 1500` (≈ a minute for the new castle; tune to 50–70 s), `static void resumePending(ServerLevel)` called on server start, the job saves `cursor` to its `Castle` every 20 ticks and on stop. While building: every 5 ticks a rumble sound at the castle centre (vanilla `ENTITY_WARDEN_DIG` pitched down or a new `ModSounds.CASTLE_RUMBLE` if one is made through the ElevenLabs pipeline), `ServerLevel.sendParticles` of `BLOCK` (stone) and `FALLING_DUST` along the current layer's outline, and a `CastleRumblePacket(30, s)` every 20 ticks to players within 100 blocks (`s` falling off with distance, max 0.6°).
-- `AUTO_SPAWN_OFFSET` becomes `max(90, halfDiagonal + 24)` of the new footprint.
-- Title: a player within 80 blocks of `titlePoint` with line of sight (`level.clip` from eyes, through non-full blocks) who is not in `titled` gets `Component.literal("Hogwarts")` / `"School of Witchcraft and Wizardry"`, fade 20 / stay 70 / fade 30, using `DuelManager.sendTitle`'s three-packet sequence (move that helper to a shared util if needed). Checked every 20 ticks per player.
+- `MiniHogwartsPiece(BlockPos anchor)` (schematic min corner in world space; no rotation in this version); bounding box = schematic box from `anchor`, extended down by `MAX_SKIRT_DEPTH` (64). `postProcess(WorldGenLevel, StructureManager, ChunkGenerator, RandomSource, BoundingBox chunkBox, ChunkPos, BlockPos)` places every non-air schematic cell inside `chunkBox` (flag `Block.UPDATE_CLIENTS`), then the skirt for the columns inside `chunkBox` (stone, air cells only, down to the first non-air), then calls `MiniHogwartsManager.furnishChunk(WorldGenLevel, BlockPos anchor, BoundingBox chunkBox, RandomSource)` for chests, the Pensieve, the Fat Lady, students and elves whose positions fall inside `chunkBox` (today's heuristics stay until Task 10 swaps in anchors; run each heuristic only in the chunk that holds its result). When `chunkBox` contains the castle's centre column it schedules `server.execute(() -> MiniHogwartsTracker.get(serverLevel).add(...))`.
+- `MiniHogwartsStructure.findGenerationPoint`: centre = the start chunk's middle; ground = max of `chunkGenerator.getFirstOccupiedHeight(x, z, Heightmap.Types.WORLD_SURFACE_WG, heightAccessor, randomState)` over the 3x3 footprint sample; `anchorY = max(minY + 1, ground - FOUNDATION_SINK (2))`; returns `Optional.empty()` if the schematic is missing.
+- Structure JSON: `"type": "hogwartsmagic:mini_hogwarts"`, `"biomes": "#hogwartsmagic:has_structure/mini_hogwarts"`, `"step": "surface_structures"`, `"terrain_adaptation": "beard_thin"`, `"spawn_overrides": {}`. Structure set: `random_spread`, `spacing 200`, `separation 100`, a fixed salt.
+- `MiniHogwartsTracker`: `record Castle(BlockPos center, @Nullable BlockPos anchor, Set<UUID> titled, Set<UUID> enteredHall)`; `add(BlockPos center, BlockPos anchor)` (dedupes within 128 blocks), `castles()`, `findClosest(BlockPos)`, `markTitled(UUID, Castle)`, `markEnteredHall(UUID, Castle)`; old saves (a `"Castles"` long list) load as castles with a null anchor.
+- `/spawnminihogwarts` (op): places the structure at the player's position through the vanilla structure placement path (the same code `/place structure` uses); `/findminihogwarts`: nearest tracked castle, else `ServerLevel.findNearestMapStructure` for the structure.
+- Title card: every 20 ticks per player, a castle within 80 blocks of its centre with line of sight (`level.clip` from the eyes) whose `titled` set lacks the player: `Titles.send(player, "Hogwarts", "School of Witchcraft and Wizardry", 20, 70, 30)` and `markTitled`. The title point is one method (`titlePoint(Castle)`, the centre for now) so Task 10 can swap in the anchor.
 
-- [ ] **Step 1: Failing GameTests:** `buildResumesAfterRestart` (start a job on a small test schematic injected via a package-private hook, simulate stop by saving and dropping the job, call `resumePending`, run to completion, assert every non-air cell placed exactly once (count) and phase COMPLETE); `playersInFootprintAreMovedOut` (a mock player inside the footprint is moved to an air cell with air above when the job starts); `titleShownOncePerPlayer` (two checks → one title); JUnit `MiniHogwartsTrackerTest.loadsOldSaveFormat`.
+- [ ] **Step 1: Failing tests:** `MiniHogwartsTrackerTest.loadsOldSaveFormat`, `.roundTripsCastles`; GameTests `pieceWritesOnlyInsideChunkBox` (run `postProcess` for one chunk box on a test level and assert no block outside it changed), `structurePlacesWholeCastle` (place the structure via the vanilla placement path in a test area; assert a sampled set of schematic cells matches and the tracker gained the castle), `titleShownOncePerPlayer`.
 - [ ] **Step 2:** Fail.
-- [ ] **Step 3:** Implement. Client shake: `CastleRumble.offset(partial)` gives yaw/pitch jitter (smooth noise, decays over `ticks`), added in `onComputeCameraAngles`.
-- [ ] **Step 4:** Pass; `runServer` (or the dedicated server harness) builds a castle with `/spawnminihogwarts` headless: no errors, no "far chunk" lines, tick time stays under 50 ms.
+- [ ] **Step 3:** Implement; delete the live job, the auto-spawn, the rumble and resume code.
+- [ ] **Step 4:** `./gradlew.bat test` and `./gradlew.bat runGameTestServer` pass. Headless check: a dedicated-server run (`runServer`, or the dedicated server harness from memory `reference_dedicated_server_harness`) with `/place structure hogwartsmagic:mini_hogwarts` and a teleport into a Forbidden Forest finds no errors, no "far chunk" lines and no worldgen stall.
 - [ ] **Step 5:** Commit and push.
 
 ## Part C — Magic in the real world

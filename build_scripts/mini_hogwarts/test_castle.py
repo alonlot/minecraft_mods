@@ -211,6 +211,25 @@ def test_dark_floor():
     assert (13, 1, 0) in dark and (6, 1, 0) not in dark
 
 
+def test_cave_air_is_air():
+    # a later task stores minecraft:cave_air in grid.cells to mark interior air to be cleared in the world: every
+    # air test must treat it as air (walkable headroom, never support, no wall for the walk or for light)
+    cave = 'minecraft:cave_air'
+    g = Grid()
+    g.fill(0, 0, 0, 4, 0, 0, STONE)
+    g.cells[(2, 1, 0)] = cave                 # feet and head cells marked, not stored as absent
+    g.cells[(2, 2, 0)] = cave
+    g.cells[(4, 0, 1)] = cave                 # a marked cell beside the floor: not a floor
+    assert g.is_air(2, 1, 0) and g.is_air(9, 9, 9) and not g.is_air(0, 0, 0)
+    assert grid.air_at(g.cells, (2, 2, 0)) and not grid.air_at(g.cells, (1, 0, 0))
+    assert checks.passable(cave) and not checks.supports(cave)
+    seen = checks.reachable(g, (0, 1, 0))
+    assert (4, 1, 0) in seen and (2, 1, 0) in seen and (4, 1, 1) not in seen
+    g.set(0, 2, 0, 'minecraft:lantern[hanging=true]')
+    dark = checks.dark_floor_cells(g, [(0, 1, 0, 4, 2, 0)])
+    assert not dark, dark                     # light crosses the marked cells
+
+
 def test_census():
     g = Grid()
     g.fill(0, 0, 0, 1, 0, 1, STONE)

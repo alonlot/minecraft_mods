@@ -1,6 +1,6 @@
 # Mini Hogwarts: a castle worth walking into
 
-Date: 2026-11-01. Branch: `sorting-memory` (see Licence).
+Date: 2026-11-01. Branch: `sorting-memory` (see Licence). Status: approved by the user 2026-11-01.
 
 ## Why
 
@@ -174,6 +174,32 @@ A small client-side **castle ambience** system:
 - **Banners**: real blocks where block banners suffice; the memory banner entities only where hanging banners
   matter (the hall), and only if they can exist as server entities safely.
 
+## The ceiling spell: bewitch your own ceiling
+
+The user asked for a spell that lets a player put the enchanted ceiling into their own builds by choosing two
+corners.
+
+- **A new spell**, added like the others (`SpellType`, a spellbook with a texture from the `texturing-spellbooks`
+  skill, a wiki entry). Incantation *Caelum Fascino* ("bewitch the sky"; no canon spell exists, so the name is the
+  builder's call, not the user's).
+- **Two corners.** Cast at a block: the first cast marks corner one (a lingering glow on that block, shown to the
+  caster); the second cast at another block marks corner two and **creates the ceiling** over the rectangle
+  between them. The sky plane sits just under the lower face of the targeted blocks, at the lower of the two
+  corners' heights, so a player targets two opposite corners of their room's ceiling. The blocks stay: the ceiling
+  is purely visual and drawn just in front of the real ceiling's underside (the same trick as the hall roof).
+  The mark expires after a short while or when the caster casts somewhere too far away, with a hint.
+- **It looks and behaves like the hall's**: plays the reveal (a plank roof dissolving into sky) when created, then
+  follows that level's real sky — day, dawn, dusk, night, rain, storm — through the same renderer.
+- **Undo.** Sneak-cast at a bewitched ceiling to remove it. Only its creator or an op can.
+- **Limits** so it cannot hurt performance or be abused (exact numbers are the builder's call): a maximum side
+  length (on the order of 64 blocks), a per-player count, and no overlap with another ceiling.
+- **Same system as the castle.** Spell ceilings and the castle's hall ceiling are the same thing: ceiling regions
+  kept server-side in `SavedData` per level and sent to nearby clients with the ambience packets. A castle simply
+  registers its hall's region when it is built.
+- **Where to get it**: the spellbook appears in the castle library's chest / Restricted Section and from the Diagon
+  Alley Bookseller; whether it also needs a spell level or practice follows how comparable utility spells work.
+- Gametests: two-corner creation, the side and count limits, removal permissions, persistence across a restart.
+
 ## Cinematic arrival
 
 - **The castle builds itself up out of the rock.** Placement stays layer-by-layer bottom-up (the schematic index is
@@ -216,5 +242,5 @@ A small client-side **castle ambience** system:
 - How the castle-effect anchors are recorded (in the schematic metadata, a sidecar JSON, or computed).
 - Whether the doors are a synced entity or a client visual.
 - Build speed, particle and shake details, within "about a minute, no hitch".
-- Splitting the work into stages; a sensible order is: hall wing → rooms → lighting/windows → ambience system →
-  arrival.
+- Splitting the work into stages; a sensible order is: hall wing → rooms → lighting/windows → ambience system
+  (day/night ceiling) → ceiling spell → arrival.

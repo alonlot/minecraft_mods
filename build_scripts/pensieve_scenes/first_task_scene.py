@@ -206,8 +206,9 @@ def tent_scene(world):
     sc.ev(0, 'effect', 'eyes_open', at=[0, 0, 0], duration=60)
     sc.ev(0, 'effect', 'sky', at=[0, 0, 0], style='overcast')
     fl = A['flap']
-    sc.ev(0, 'effect', 'light_rays', at=[0.5, 0.0, 9.0], yaw=180, spread=[2.5, 5.0, 13.0], intensity=0.5, duration=20)
-    sc.ev(w0 + 30, 'effect', 'light_rays', at=[0.5, 0.0, 9.0], yaw=180, spread=[2.5, 5.0, 16.0], intensity=1.3,
+    # the veil of daylight hanging in the flap: at 0.5 it vanished against the bright ground outside
+    sc.ev(0, 'effect', 'light_rays', at=[0.5, 0.0, 9.0], yaw=180, spread=[2.5, 5.0, 13.0], intensity=1.4, duration=20)
+    sc.ev(w0 + 30, 'effect', 'light_rays', at=[0.5, 0.0, 9.0], yaw=180, spread=[2.5, 5.0, 16.0], intensity=2.0,
           duration=40)
     sc.sfx(0, 'first_task_tent_crowd', 0.7, loop=True)
     sc.music(0, 'first_task_tent')

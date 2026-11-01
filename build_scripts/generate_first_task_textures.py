@@ -165,12 +165,12 @@ def glint_texture():
 ITEM_PX = 64                            # the item texture is ITEM_PX square; row j is the height band of the egg at v = j
 ITEM_U = 0.25                           # the item sides show this share of the longitudes, starting at 0
 SLICES = 14                             # stacked slices, equal steps in the polar angle (thin ones at the pointed ends)
-POLY = 4                                # boxes per slice, turned 0, 22.5, 45, 67.5 degrees: a 16-gon
+POLY = 4                                # boxes per slice, turned 0, 22.5, 45, -22.5 degrees: a 16-gon
 MODEL_L = 12.0                          # px tall
 DISPLAY_FIRST = LENGTH * 16 / MODEL_L   # first person and the ground: model extent x scale is the actor size
 DISPLAY = DISPLAY_FIRST / 0.9375        # third person: the player model is drawn at 15/16 (HumanMotion.MODEL_SCALE)
 TAPER = 0.14
-CORNER = 1.0      # the 0 and 67.5 degree boxes put a corner on the x and z axes: the extent there is the corner radius
+CORNER = 1.0      # the 0 and -22.5 degree boxes put a corner on the x and z axes: the extent there is the corner radius
 MODEL_W = WIDTH * 16 / DISPLAY_FIRST    # the widest extent in model px (measured at the first-person scale)
 
 
@@ -215,7 +215,10 @@ def egg_model():
             box = {"from": [round(8 - a, 4), round(y0, 4), round(8 - a, 4)],
                    "to": [round(8 + a, 4), round(y1, 4), round(8 + a, 4)], "faces": faces}
             if k:
-                box["rotation"] = {"origin": [8, 8, 8], "axis": "y", "angle": 90.0 / POLY * k}
+                # A model element may only turn -45..45 (67.5 fails the whole model): a square turned 67.5 is the
+                # same square turned -22.5
+                angle = 90.0 / POLY * k
+                box["rotation"] = {"origin": [8, 8, 8], "axis": "y", "angle": angle - 90.0 if angle > 45 else angle}
             elements.append(json.loads(json.dumps(box)))
     d3, d1 = [round(DISPLAY, 4)] * 3, [round(DISPLAY_FIRST, 4)] * 3
     hand = {"rotation": [0, 0, 0], "translation": [0, 3, 1], "scale": d3}

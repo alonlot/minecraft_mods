@@ -1351,6 +1351,7 @@ A small, furnished castle that is already standing when you find it, like a wood
 
 - Castles generate with the world, in Forbidden Forest biomes only, and they are rare: spaced thousands of blocks apart, and only where a spot falls in Forbidden Forest.
 - The first time you come within sight of one (about 80 blocks) a title card reads "Hogwarts" over "School of Witchcraft and Wizardry". It shows once per player per castle.
+- Monsters never spawn on their own inside a castle's walls, from the dungeons to the tower tops. Monsters that walk in from outside are still met by the castle statues.
 - `/findminihogwarts` (op) gives the nearest castle as a click-to-teleport line, and works before you have visited it. `/findminihogwarts list` lists the castles that have generated.
 - `/spawnminihogwarts` (op) puts a castle at your position, the same as `/place structure hogwartsmagic:mini_hogwarts`. It overwrites a big patch of terrain and needs the chunks around you loaded.
 - Castles in worlds from before this update are left as they were.

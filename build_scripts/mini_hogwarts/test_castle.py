@@ -286,6 +286,25 @@ def test_seal_interiors():
     assert n == 8 + 4 and k.cells[(4, 1, 1)] == 'minecraft:cave_air' and k.cells[(7, 2, 2)] == 'minecraft:cave_air'
 
 
+def test_unlit_windows():
+    from mini_hogwarts import rooms_corridors as K
+    g = Grid()
+    g.fill(0, 0, 0, 6, 4, 0, STONE)                          # a wall along x, the outside to the north (z -1)
+    g.cells.update({(x, y, z): 'minecraft:cave_air' for x in range(7) for y in range(5) for z in (1, 2, 3)})
+                                                             # a sealed room to the south (Grid.set never stores air)
+    g.set(2, 2, 0, 'minecraft:black_stained_glass_pane[east=false,north=false,south=false,west=false]')
+    g.set(5, 2, 0, 'minecraft:glass')
+    g.set(5, 2, 1, 'minecraft:bookshelf')                    # glass with a block behind it is not a window
+    interior = K.sealed_interior(g.cells)
+    faces = K.window_faces(g.cells, interior)
+    assert [f[:2] for f in faces] == [((2, 2, 0), (2, 2, 1))], faces
+    assert len(K.unlit_windows(g.cells, interior)) == 1
+    g.cells[(2, 3, 2)] = 'minecraft:light[level=13,waterlogged=false]'      # 2 from the cell behind the pane
+    assert K.unlit_windows(g.cells, interior) == []
+    g.cells[(2, 3, 2)] = 'minecraft:light[level=0,waterlogged=false]'       # a dark light block lights nothing
+    assert len(K.unlit_windows(g.cells, K.sealed_interior(g.cells))) == 1
+
+
 def test_census():
     g = Grid()
     g.fill(0, 0, 0, 1, 0, 1, STONE)

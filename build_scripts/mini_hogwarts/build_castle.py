@@ -60,6 +60,7 @@ VIEWER_NBT = os.path.join(REPO, 'build', 'mh', 'mini_hogwarts.nbt')
 
 from mini_hogwarts import (checks, hall, rooms_below, rooms_classrooms, rooms_library, rooms_staircase,  # noqa: E402
                            rooms_towers)
+from mini_hogwarts import rooms_corridors  # noqa: E402
 from mini_hogwarts.grid import Grid, air_at, enclosed_air, load_schem, seal_interiors as _seal, write_schem  # noqa: E402
 
 
@@ -93,6 +94,8 @@ CHANGED_ON_PURPOSE = [
     # the Slytherin common room, each box with its walls, all carved into the Great Hall's plinth (new stone: they change
     # no old-castle cell today; check 44 holds them inside the plinth)
     *rooms_below.changed_boxes(),
+    # the above-ground finishing pass (rooms_corridors): the vestibule's two wall torches at the gate statues' heads
+    *rooms_corridors.changed_boxes(),
 ]
 
 # Every room interior, name -> inclusive box, filled by collect_rooms() once the rooms are built (some boxes are
@@ -167,6 +170,17 @@ def room_below(grid):
     a.setdefault('statues', []).extend(found['statues'])
 
 
+def room_corridors(grid):
+    """The above-ground finishing pass, after every room: the gallery dressed as the guardians' corridor (statue bays,
+    banners, a runner, lanterns), statues at the Great Hall's portal and the gatehouse gate, the viaduct head lit,
+    light behind every outer window, and the title-card point."""
+    found = rooms_corridors.place_corridors(grid, list(collect_rooms(grid).values()))
+    a = grid.anchors
+    a.setdefault('statues', []).extend(found['statues'])
+    a.setdefault('student_spots', []).extend(found['student_spots'])
+    a['title_point'] = found['title_point']        # inside the central tower on purpose (R44: see title_point)
+
+
 def collect_rooms(grid):
     """Fill ROOMS from the room modules: the Great Hall, entrance hall and west gallery; the Grand Staircase's well,
     its entry door and every closed course of its top (its own light boxes); the Library's rooms and tunnel; the tower
@@ -186,6 +200,7 @@ def collect_rooms(grid):
     ROOMS.update(rooms_towers.room_boxes(grid.cells))
     ROOMS.update(rooms_classrooms.room_boxes())
     ROOMS.update(rooms_below.room_boxes())
+    ROOMS.update(rooms_corridors.room_boxes())
     return ROOMS
 
 
@@ -209,7 +224,8 @@ def wing_tops():
     return dict(hall.column_tops())
 
 
-ROOM_STEPS = (room_great_hall, room_grand_staircase, room_library, room_towers, room_classrooms, room_below)
+ROOM_STEPS = (room_great_hall, room_grand_staircase, room_library, room_towers, room_classrooms, room_below,
+              room_corridors)
 
 
 # ---------------------------------------------------------------- checks
@@ -317,6 +333,7 @@ def verify(grid):
     verify_towers(grid, base, walk)
     verify_classrooms(grid, base, walk)
     verify_below(grid, base, walk)
+    verify_corridors(grid, base, walk)
     verify_sealed(grid, walk)
     return walk
 
@@ -743,6 +760,103 @@ def verify_below(grid, base, walk):
     assert not missing, ('rooms below not in ROOMS', missing)
 
 
+def verify_corridors(grid, base, walk):
+    """The above-ground finishing pass's promises: its bays are sealed rooms walked to from the main entrance, no
+    corridor floor is dark, the castle's guardians stand clear of every way, nothing at or below the main floor
+    changed, every outer window has light behind it, and the title point and the new student spots are usable."""
+    K = rooms_corridors
+    S = rooms_staircase
+    a = grid.anchors
+    cells = grid.cells
+    rooms = ROOMS or collect_rooms(grid)
+
+    def inside(p, box):
+        return box[0] <= p[0] <= box[3] and box[1] <= p[1] <= box[4] and box[2] <= p[2] <= box[5]
+
+    # 51. the bays are sealed rooms (in ROOMS) with their statue's cell walked to; every box the pass lights has a
+    #     walked floor cell in it
+    for name, b in sorted(K.room_boxes().items()):
+        assert rooms.get(name) == b, ('a gallery bay is not in ROOMS', name)
+        assert any(c in walk for c in rooms_library._box_cells(*b)), ('nobody can reach the %s' % name, b)
+    for b in K.light_boxes():
+        assert any(inside(c, b) for c in walk), ('a corridor box nobody walks into', b)
+
+    # 52. no dark floor in the gallery and its bays, the vestibule, the entrance hall or on the viaduct and its head
+    dark = checks.dark_floor_cells(grid, K.light_boxes())
+    assert not dark, 'dark corridor floor cells: %d, e.g. %s' % (len(dark), dark[:5])
+
+    # 53. the guardians: eight or more beyond the staircase's ten (the gallery's bays, the portal's pair, the gate's
+    #     pair), each on a free floor cell with three of headroom; walled up as three-tall columns, the statues leave
+    #     every room's landmark walked to from the main entrance, and nothing walked with only the staircase's statues
+    #     standing is lost to this pass's but their own cells
+    statues = [tuple(s['at']) for s in a['statues']]
+    expected = set(K.portal_statues(grid)) | set(K.GATE_STATUES) | {(K.WALL_X, K.BAY_FEET, z) for z in K.BAY_ZS}
+    mine = [p for p in statues if p in expected]
+    stair = [p for p in statues if p not in expected]
+    assert set(mine) == expected and len(mine) >= 8 and len(stair) >= 10 and len(set(statues)) == len(statues), \
+        ('statues', statues)
+    for x, y, z in mine:
+        assert all(grid.is_air(x, y + dy, z) for dy in range(3)), ('statue has no headroom', (x, y, z))
+        assert checks.supports(grid.get(x, y - 1, z)), ('statue not on a floor', (x, y, z))
+
+    def walled(points):
+        g = Grid()
+        g.cells = dict(cells)
+        for x, y, z in points:
+            for dy in range(3):
+                g.set(x, y + dy, z, 'minecraft:stone')
+        return checks.reachable(g, tuple(a['main_entrance']))
+    walk_stair = walled(stair)
+    walk_all = walled(statues)
+    lost = walk_stair - walk_all - set(mine)
+    assert not lost, ('the guardians block the way to %d cells' % len(lost), sorted(lost)[:5])
+    marks = dict(S.LANDING_CELLS)
+    marks.update(rooms_towers.TOWER_CELLS)
+    marks.update(rooms_library.LIBRARY_CELLS)
+    marks.update(rooms_classrooms.CLASSROOM_CELLS)
+    marks.update({'stool front': hall.STOOL_FRONT_CELL, 'viaduct deck': hall.VIADUCT_DECK_CELL,
+                  'hall west door': tuple(a['hall_west_door']), 'bridge far end': S.BRIDGE_FAR_END,
+                  'potions': rooms_classrooms.POTIONS_CELL})
+    cut = sorted(n for n, c in marks.items() if c not in walk_all)
+    assert not cut, ('the statues cut off', cut)
+    #     the castle's walk is well connected (a blocked gate is walked round through the Library's grounds door), so
+    #     each guarded place is also walked on its own, inside its box: with every statue in it walled up, no cell of
+    #     the box is farther to walk to than without them
+    for name, start, box in K.LOCAL_BOXES:
+        start = start or tuple(a['main_entrance'])
+        guards = [p for p in statues if inside(p, box)]
+        assert guards, ('no statue guards %s' % name, box)
+        longer = K.detours(cells, start, box, guards)
+        assert not longer, ('the statues lengthen the way at %s: %d cells' % (name, len(longer)), longer[:5])
+    #     and every statue's 1.2-wide box clears the Great Hall's scale-4 door leaves whichever way they swing (R45)
+    for d in a['doors']:
+        near = [(p, round(K.door_clearance(p, d['hinge']), 2)) for p in statues
+                if abs(p[1] - d['hinge'][1]) < 5 and K.door_clearance(p, d['hinge']) < K.DOOR_SWEEP]
+        assert not near, ('a statue in a hall door leaf\'s sweep', d['hinge'], near)
+
+    # 54. nothing at or below the main floor changed (R42): every cell the pass wrote is above it, and the castle below
+    #     it is the same after the pass as before (compared inside the pass, before the seal)
+    low = sorted(p for p in K.WRITTEN if p[1] <= MAIN_FLOOR_Y)
+    assert not low, ('corridor writes at or below the main floor', low[:5])
+    assert K.place_corridors.below_changed == [], ('the castle below the main floor changed',
+                                                   K.place_corridors.below_changed[:5])
+
+    # 55. every outer window has light behind it (Potions excepted, R42)
+    unlit = K.unlit_windows(cells, K.sealed_interior(cells))
+    assert not unlit, ('unlit outer windows: %d' % len(unlit), unlit[:5])
+
+    # 56. the title point is on the central tower's axis between the main floor and the tower's top; the pass's
+    #     student spots are free, walked floor cells with two of headroom
+    tx, ty, tz = a['title_point']
+    _, top = K.title_point(cells)
+    assert abs(tx + 0.5 - hall.OLD_TOWER[0]) <= 1 and abs(tz + 0.5 - hall.OLD_TOWER[1] - BASE_SHIFT[2]) <= 1 \
+        and MAIN_FLOOR_Y < ty < top, ('title point', a['title_point'])
+    for x, y, z in K.GALLERY_SPOTS + K.ENTRANCE_SPOTS:
+        assert [x, y, z] in a['student_spots'], (x, y, z)
+        assert ((x, y, z) in walk and grid.is_air(x, y, z) and grid.is_air(x, y + 1, z)
+                and checks.supports(grid.get(x, y - 1, z))), ('student spot not a free, walked floor cell', (x, y, z))
+
+
 def verify_sealed(grid, walk):
     """30. Interior air is marked: every air cell of every ROOMS box is minecraft:cave_air, never plain (absent) air,
     so the placer clears the world out of every room (rulings R29, R30); no walked cell is a plain-air gap between
@@ -835,6 +949,7 @@ def main():
     print('towers: %s' % getattr(rooms_towers.place_towers, 'stats', {}))
     print('classrooms: %s' % getattr(rooms_classrooms.place_classrooms, 'stats', {}))
     print('below: %s' % getattr(rooms_below.place_below, 'stats', {}))
+    print('corridors: %s' % getattr(rooms_corridors.place_corridors, 'stats', {}))
     print('sealed: %d cave_air cells (%d room boxes); %d cells of rock pockets filled with stone' % (
         getattr(seal_interiors, 'count', 0), len(ROOMS), getattr(seal_interiors, 'filled', 0)))
     print('census:')

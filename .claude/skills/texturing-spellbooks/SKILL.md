@@ -9,6 +9,13 @@ description: Use when a spellbook, spell tome or magic book item texture is need
 > went back to the original painted spellbooks. Do not regenerate existing books; the build script
 > refuses to overwrite them. Ask the user before using this master for a new spell, because it will
 > not match the painted set.
+>
+> **Approved route for a new or off-model book (2026-11-01):** generate it in Flow (flow-mcp,
+> Nano Banana image, 0 credits) with 3 approved painted books on white as `reference_images`
+> (protego, crucio, serpensortia), 2 variants, prompt naming cover colour, metal, gem and emblem
+> on "a plain flat pure white background". Cut it out with
+> `python tools/item_textures/flow_book_cutout.py <in.jpeg> <magic_book_x.png>` (1024x1024,
+> outline-matted edge, no white fringe). Show the user old vs v1/v2 and let them pick.
 
 ## Overview
 

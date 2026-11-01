@@ -29,9 +29,11 @@ WHAT IT BECOMES (feet: ground floor y 26, upper floor y 32, Defence y 25)
                      over the front of the class (end rods hung in the air at odd angles; they are the room's light)
     Transfiguration  the room behind the labelled door, run on into the old Mirror of Erised room (the partition
                      between them comes down, its lintel kept as a beam), 12 x 5: a blackboard on the west wall, the
-                     teacher's desk before it, twelve spruce desks facing it, cages at the back (on cabinets along the
-                     east wall and hung from the higher ceiling); its door from the upper landing moves to the north
-                     corner so the board has the wall to itself; the labelled door still opens into Potions
+                     teacher's desk before it, twelve spruce desks facing it, cages at the back (a cabinet in the
+                     corner and birdcages hung from the higher ceiling), and the Mirror of Erised (the old room's white
+                     panes, R41) set up in the east-wall bay on a gilded plinth between dark-oak posts, candles either
+                     side; its door from the upper landing moves to the north corner so the board has the wall to
+                     itself; the labelled door still opens into Potions
     Defence          carved into the hill's hollow under the apse (where the library's rock fill was), the way the
                      Library was: a hall 9 x 10 and 6 tall under the Potions floor, entered from the vestibule down a
                      step, stone-brick walls with dark-oak pilasters, a dark-oak ceiling with beams; twelve desks
@@ -69,6 +71,7 @@ SOUTH_WALL_Z = 190                     # the gatehouse's south wall; Defence is 
 LABELLED_DOOR = (38, UPPER_FEET + 1, SOUTH_WALL_Z)   # the spruce door labelled "Transfiguration" (its lower half)
 POTIONS_CELL = (38, UPPER_FEET + 1, 193)             # a floor cell of Potions, walked to through that door
 POTIONS_BOX = (32, UPPER_FEET, 191, 45, 70, 204)     # the apse room above its floor, walls and roof included
+GATEHOUSE_BOX = (27, 24, 184, 49, 45, 190)           # the gatehouse, walls, attic and sub-floor void included
 
 # the library stair: treads along the north wall row z 185, from the stair hall's floor (x 30) down to the Library's
 # north gallery (x 37, feet 18, on the shelving's stripped-oak band at y 17)
@@ -100,7 +103,7 @@ ROOMS_BY_NAME = {
     'gatehouse sub-floor': (28, GROUND_FEET - 2, 185, 48, GROUND_FEET - 2, 189),
     'library stair': (STAIR_TOP_X, LIBRARY_STAIR_FOOT[1], STAIR_Z, LIBRARY_STAIR_FOOT[0], GROUND_FEET - 1, STAIR_Z),
     'charms': (41, GROUND_FEET, 185, 48, GROUND_FEET + 3, 189),
-    'gatehouse upper landing': (29, UPPER_FEET, 185, 34, UPPER_FEET + 3, 189),
+    'gatehouse upper landing': (29, UPPER_FEET, 185, 34, UPPER_FEET + 4, 189),   # up into its vault's recess (y 36)
     'transfiguration door': (35, UPPER_FEET, 185, 35, UPPER_FEET + 1, 185),
     'transfiguration': (36, UPPER_FEET, 185, 41, UPPER_FEET + 3, 189),
     'transfiguration east': (42, UPPER_FEET, 185, 47, UPPER_FEET + 5, 189),
@@ -209,7 +212,8 @@ def changed_boxes():
         ("classrooms: Charms, the gatehouse ground floor's east room (and the sea lantern's fence in its ceiling)",
          (41, GROUND_FEET, 185, 48, GROUND_FEET + 4, 189)),
         ("classrooms: Transfiguration, the labelled room and the Mirror of Erised room run together (floor, partition, "
-         "furniture)", (36, UPPER_FEET - 1, 185, 47, UPPER_FEET + 3, 189)),
+         "furniture; the Mirror of Erised's panes moved to the east-wall bay, R41)",
+         (36, UPPER_FEET - 1, 185, 47, UPPER_FEET + 3, 189)),
         ("classrooms: Transfiguration's door from the upper landing moved to the north corner (a bar out of the landing's "
          "colonnade, the old opening walled up)", (34, UPPER_FEET, 185, 35, UPPER_FEET + 2, 187)),
     ]
@@ -409,8 +413,14 @@ TR_X = (36, 47)
 TR_DESKS_X = (40, 42, 44)                                     # the chair is east of each (students face west)
 TR_ROWS = (185, 186, 188, 189)
 TR_STEPS = [(x, UPPER_FEET, 189) for x in (37, 38, 39)]       # the old steps up to the labelled door, kept
-TR_FLOOR_CAGES = ((47, 185), (47, 186), (47, 189))
-TR_HANGING_CAGES = ((44, 186), (44, 188), (46, 187), (42, 186))
+TR_FLOOR_CAGES = ((47, 185),)
+TR_HANGING_CAGES = ((44, 186), (44, 188), (42, 188), (42, 186))
+# the Mirror of Erised (ruling R41): the old castle's 2 x 2 of white glass panes (old room, x 45), set back up in the
+# east-wall bay in front of the dark window, on a gilded plinth between stripped dark-oak posts, candles either side
+MIRROR_X = 47
+MIRROR_Z = (187, 188)
+MIRROR_CELLS = [(MIRROR_X, y, z) for y in (UPPER_FEET + 1, UPPER_FEET + 2) for z in MIRROR_Z]
+MIRROR_POSTS_Z = (186, 189)
 
 
 def build_transfiguration(grid):
@@ -419,7 +429,8 @@ def build_transfiguration(grid):
     labelled door, the counter, the posts, the mirror, the torches) and the floor is oak planks throughout. The door
     from the upper landing moves to the north corner (one bar out of the landing's colonnade, the old opening walled
     up) so the blackboard has the west wall to itself; the teacher's desk stands before it, twelve desks face it, and
-    the cages are at the back: on cabinets along the east wall and hung on chains from the higher ceiling."""
+    at the back are the cages (a cabinet in the north-east corner, birdcages hung on chains from the higher ceiling)
+    and the Mirror of Erised (build_mirror)."""
     grid.clear(34, UPPER_FEET, 185)
     for y in (UPPER_FEET, UPPER_FEET + 1):
         grid.clear(35, y, 185)
@@ -460,8 +471,33 @@ def build_transfiguration(grid):
         grid.set(x, UPPER_FEET + 3, z, bars)
         grid.set(x, UPPER_FEET + 2, z, G.state('spruce_trapdoor', facing='north', half='top', open=False,
                                                powered=False, waterlogged=False))
+    build_mirror(grid)
     grid.set(39, UPPER_FEET + 3, 187, _lantern(True))         # from the middle room's ceiling, between its beams
     grid.set(43, UPPER_FEET + 3, 187, _lantern(True))         # from the old cobblestone beam over the back rows' aisle
+
+
+def build_mirror(grid):
+    """The Mirror of Erised at the back of Transfiguration (R41): its four white panes (joined to each other and to the
+    posts, so it reads as one flat glass) on a plinth of gilded blackstone, framed by stripped dark-oak posts to the old
+    window arch above (y 35, kept), with a candle stand (a dark-oak fence post and four candles) either side in front."""
+    for z in MIRROR_Z:
+        grid.set(MIRROR_X, UPPER_FEET, z, 'minecraft:gilded_blackstone')
+    for x, y, z in MIRROR_CELLS:
+        grid.set(x, y, z, G.state('white_stained_glass_pane', east=False, north=True, south=True, west=False,
+                                  waterlogged=False))
+    for z in MIRROR_POSTS_Z:
+        for y in range(UPPER_FEET, UPPER_FEET + 3):
+            grid.set(MIRROR_X, y, z, G.state('stripped_dark_oak_log', axis='y'))
+        grid.set(MIRROR_X - 1, UPPER_FEET, z, G.state('dark_oak_fence', east=False, north=False, south=False,
+                                                      west=False, waterlogged=False))
+        grid.set(MIRROR_X - 1, UPPER_FEET + 1, z, _candles(4))
+
+
+def mirror_ok(cells):
+    """True while the Mirror of Erised stands: its four white panes in place, inside Transfiguration."""
+    boxes = CLASSROOMS['transfiguration']['boxes']
+    return all(checks.block_id(cells.get(p, '')) == 'white_stained_glass_pane' and any(_in(p, b) for b in boxes)
+               for p in MIRROR_CELLS)
 
 
 # ---------------------------------------------------------------- Defence Against the Dark Arts

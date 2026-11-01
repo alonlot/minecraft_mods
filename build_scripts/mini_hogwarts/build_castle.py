@@ -59,7 +59,7 @@ OUT_ANCHORS = os.path.join(SCHEM_DIR, 'mini_hogwarts.anchors.json')
 VIEWER_NBT = os.path.join(REPO, 'build', 'mh', 'mini_hogwarts.nbt')
 
 from mini_hogwarts import checks, hall, rooms_classrooms, rooms_library, rooms_staircase, rooms_towers  # noqa: E402
-from mini_hogwarts.grid import Grid, air_at, load_schem, seal_interiors as _seal, write_schem  # noqa: E402
+from mini_hogwarts.grid import Grid, air_at, enclosed_air, load_schem, seal_interiors as _seal, write_schem  # noqa: E402
 
 
 # The gatehouse gate (old frame x 37..39, z 101, a closed oak-log pair of leaves under a pointed arch at
@@ -558,13 +558,15 @@ def verify_classrooms(grid, base, walk):
             assert checks.block_id(grid.get(x, y, z)) == room['teacher_block'], ('%s teacher\'s desk' % name, (x, y, z))
 
     # 34. the theme props: Defence's dragon skeleton, bone blocks above head height hung from the ceiling by chains;
-    #     Transfiguration's blackboard on a wall and its cages; Charms' raised tiered floor (desks on three levels or
-    #     more) and its floating feathers
+    #     Transfiguration's blackboard on a wall and its cages, and the old castle's Mirror of Erised set up at its back
+    #     (R41); Charms' raised tiered floor (desks on three levels or more) and its floating feathers
     dragon = C.dragon_report(cells)
     assert dragon['bones'] >= 25 and dragon['low'] == [] and dragon['loose'] == [] and dragon['chains'] >= 2, \
         ('the dragon skeleton', dragon)
     board, cages = C.transfiguration_props(cells)
     assert board >= 6 and cages >= 4, ('Transfiguration board and cages', board, cages)
+    assert C.mirror_ok(cells), ('the Mirror of Erised is gone from Transfiguration (R41)',
+                                [(p, grid.get(*p)) for p in C.MIRROR_CELLS])
     levels = sorted({d[1] for d, _ in C.student_desks(cells, 'charms')})
     assert len(levels) >= 3 and levels == list(range(levels[0], levels[0] + len(levels))), ('Charms tiers', levels)
     feathers = C.floating_feathers(cells)
@@ -623,6 +625,12 @@ def verify_classrooms(grid, base, walk):
     rooms = ROOMS or collect_rooms(grid)
     missing = [n for n, b in C.ROOMS_BY_NAME.items() if b not in rooms.values()]
     assert not missing, ('classroom interiors not in ROOMS', missing)
+
+    # 41. nothing is un-sealed: every air pocket the old castle closed in round the gatehouse (which the seal used to
+    #     mark as an enclosed pocket, before the gate opened it to the outside) is cave_air or a block now, never plain
+    #     air the world's terrain would keep
+    plain = sorted(p for p in enclosed_air(base) if inside(p, C.GATEHOUSE_BOX) and p not in cells)
+    assert not plain, ('gatehouse air left unsealed: %d' % len(plain), plain[:5])
 
 
 def verify_sealed(grid, walk):

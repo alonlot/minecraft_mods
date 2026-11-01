@@ -40,6 +40,7 @@ import random
 from collections import deque
 
 from . import hall
+from .grid import air_at
 from .hall import G
 
 # ---------------------------------------------------------------- levels (castle frame)
@@ -207,14 +208,14 @@ def cave_layer(cells, y):
     """The hollow hill at height y: the 2D flood from CAVE_SEED through air. None when it leaks out of CAVE_BOX
     (the layer is not closed) or the seed is not air."""
     x0, x1, z0, z1 = CAVE_BOX
-    if (CAVE_SEED[0], y, CAVE_SEED[1]) in cells:
+    if not air_at(cells, (CAVE_SEED[0], y, CAVE_SEED[1])):
         return None
     seen = {CAVE_SEED}
     queue = deque([CAVE_SEED])
     while queue:
         x, z = queue.popleft()
         for n in ((x + 1, z), (x - 1, z), (x, z + 1), (x, z - 1)):
-            if n in seen or (n[0], y, n[1]) in cells:
+            if n in seen or not air_at(cells, (n[0], y, n[1])):
                 continue
             if not (x0 <= n[0] <= x1 and z0 <= n[1] <= z1):
                 return None
@@ -236,14 +237,15 @@ def cave_plan(cells):
     shafts = set()
     for y in range(FLOOR_Y, CAVE_TOP):
         for x, z in layers[y]:
-            if ((x, y + 1, z) not in cells and (x, z) not in layers[y + 1]
-                    and (x, y + 2, z) not in cells):
+            if (air_at(cells, (x, y + 1, z)) and (x, z) not in layers[y + 1]
+                    and air_at(cells, (x, y + 2, z))):
                 shafts.add((x, z))
     return layers, shafts
 
 
 def fill_rock(grid, layers, shafts, keep):
-    """Stone in every air cell of the hollow hill that the rooms do not keep, except the shafts' columns."""
+    """Stone in every empty cell of the hollow hill that the rooms do not keep, except the shafts' columns. A cell
+    holding anything, an air marker (minecraft:cave_air: interior air the world must clear) included, is left."""
     n = 0
     for y, layer in layers.items():
         for x, z in layer:

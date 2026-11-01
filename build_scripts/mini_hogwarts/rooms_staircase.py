@@ -49,6 +49,7 @@ from collections import deque
 
 from .frame import MAIN_FLOOR_Y
 from . import checks, hall
+from .grid import air_at, is_air
 from .hall import G
 
 # ---------------------------------------------------------------- the tower (castle frame)
@@ -149,7 +150,7 @@ def _flood(cells, y, limit=11.0):
             if math.hypot(n[0] - AXIS[0], n[1] - AXIS[1]) > limit:
                 return None
             s = cells.get((n[0], y, n[1]))
-            if s is None or any(k in s for k in _SOFT):
+            if s is None or is_air(s) or any(k in s for k in _SOFT):
                 seen.add(n)
                 queue.append(n)
     return seen
@@ -170,7 +171,7 @@ def ring_cells(cells, y=29):
     out = set()
     for x, z in plan:
         for n in ((x + 1, z), (x - 1, z), (x, z + 1), (x, z - 1)):
-            if n not in plan and (n[0], y, n[1]) in cells:
+            if n not in plan and not air_at(cells, (n[0], y, n[1])):
                 out.add(n)
     return out
 
@@ -256,7 +257,7 @@ def floor_and_seal(grid):
     ring = ring_cells(grid.cells)
     for x, z in ring:
         for y in range(SEAL_Y[0], SEAL_Y[1] + 1):
-            if (x, y, z) not in grid.cells:
+            if grid.is_air(x, y, z):
                 grid.set(x, y, z, RING)
     for x, z in plan:
         d = math.hypot(x - AXIS[0], z - AXIS[1])

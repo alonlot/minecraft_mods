@@ -49,7 +49,7 @@ OUT_ANCHORS = os.path.join(SCHEM_DIR, 'mini_hogwarts.anchors.json')
 VIEWER_NBT = os.path.join(REPO, 'build', 'mh', 'mini_hogwarts.nbt')
 
 from mini_hogwarts import checks, hall, rooms_library, rooms_staircase  # noqa: E402
-from mini_hogwarts.grid import Grid, load_schem, write_schem  # noqa: E402
+from mini_hogwarts.grid import Grid, air_at, load_schem, write_schem  # noqa: E402
 
 
 # The gatehouse gate (old frame x 37..39, z 101, a closed oak-log pair of leaves under a pointed arch at
@@ -66,7 +66,7 @@ CHANGED_ON_PURPOSE = [
     *rooms_staircase.changed_boxes(),
     # the Library (rooms_library), carved into the hollow hill under the gatehouse: the hall and the Restricted
     # Section with their shelving walls, floor and ceiling, and the tunnel from the grounds door through the hill's
-    # north face (the only old blocks it changes: the hill's shell), split round the viaduct's last pier
+    # north face (the only old blocks it changes: the hill's shell); the viaduct's last pier east of it is in no box
     *rooms_library.changed_boxes(),
 ]
 
@@ -163,8 +163,8 @@ def verify(grid):
     ceil = a['hall_ceiling']
     (cx0, cz0), (cx1, cz1), cy = ceil['min'], ceil['max'], ceil['y']
     tops = {}
-    for (x, y, z) in cells:
-        if y >= cy:
+    for (x, y, z), s in cells.items():
+        if y >= cy and not checks.passable(s):
             tops[(x, z)] = True
     open_cols = [(x, z) for x in range(int(cx0), int(cx1)) for z in range(int(cz0), int(cz1)) if (x, z) not in tops]
     assert not open_cols, 'ceiling columns with no roof: %d, e.g. %s' % (len(open_cols), open_cols[:5])
@@ -174,11 +174,11 @@ def verify(grid):
     hanging = []
     for (x, z) in sorted(hall.footprint_columns()):
         y = MAIN_FLOOR_Y - 1
-        while y >= 0 and (x, y, z) in cells:
+        while y >= 0 and not air_at(cells, (x, y, z)):
             if (x, y, z) in base.cells and checks.block_id(base.cells[(x, y, z)]) in hall.TERRAIN_NAMES:
                 break                                          # reached the old castle's rock
             y -= 1
-        if y >= 0 and (x, y, z) not in cells:
+        if y >= 0 and air_at(cells, (x, y, z)):
             hanging.append((x, y, z))
     assert not hanging, 'hall columns over air: %d, e.g. %s' % (len(hanging), hanging[:5])
 
@@ -202,13 +202,14 @@ def verify(grid):
             ('candle box in neither the hall nor the staircase void', c)
         inside = [(p, s) for p, s in cells.items()
                   if ax - hx <= p[0] + 0.5 <= ax + hx and ay - hy <= p[1] + 0.5 <= ay + hy
-                  and az - hz <= p[2] + 0.5 <= az + hz and checks.block_id(s) not in ('chain', 'lantern')]
+                  and az - hz <= p[2] + 0.5 <= az + hz and checks.block_id(s) not in ('chain', 'lantern')
+                  and not air_at(cells, p)]
         assert not inside, ('blocks in the staircase candle box', inside[:5])
 
     # 8. the chest stands on a free floor tile
     for chest in a['chests']:
         cx, cy2, cz = chest['at']
-        assert (cx, cy2, cz) not in cells and checks.supports(grid.get(cx, cy2 - 1, cz)), chest
+        assert grid.is_air(cx, cy2, cz) and checks.supports(grid.get(cx, cy2 - 1, cz)), chest
     sx, sy, sz = hall.STOOL_CELL
     assert grid.get(sx, sy, sz).split('[', 1)[0].endswith('_slab'), ('no stool', grid.get(sx, sy, sz))
 
@@ -239,7 +240,7 @@ def verify_staircase(grid, base, walk):
     wx, wy, wz = fl['wall']
     assert fl['facing'] == 'north' and wz == door[2] and abs(wx - door[0]) <= 2, ('Fat Lady not at the door', fl)
     for x, y, z in S.FAT_LADY_CELLS:
-        assert (x, y, z) not in cells, ('something in front of the Fat Lady', (x, y, z), cells[(x, y, z)])
+        assert grid.is_air(x, y, z), ('something in front of the Fat Lady', (x, y, z), grid.get(x, y, z))
         assert checks.supports(grid.get(x, y, z + 1)), ('no wall behind the Fat Lady', (x, y, z + 1))
 
     # 12. no dark floor in the tower
@@ -250,7 +251,7 @@ def verify_staircase(grid, base, walk):
     #     the bridge and the main entrance's walk to the first landing as they were
     statues = [tuple(s['at']) for s in a['statues']]
     for x, y, z in statues:
-        assert all((x, y + dy, z) not in cells for dy in range(3)), ('statue has no headroom', (x, y, z))
+        assert all(grid.is_air(x, y + dy, z) for dy in range(3)), ('statue has no headroom', (x, y, z))
         assert checks.supports(grid.get(x, y - 1, z)), ('statue not on a floor', (x, y, z))
     blocked = Grid()
     blocked.cells = dict(cells)
@@ -315,8 +316,9 @@ def verify_library(grid, base, walk):
     assert not dark, 'dark library floor cells: %d, e.g. %s' % (len(dark), dark[:5])
 
     # 19. the anchors: the library chest in the Restricted Section with its front walked to (check 8 holds its floor);
-    #     the Pensieve on a free cell over a solid block in the hall, with a walked cell beside it; 4 to 6 reading spots,
-    #     each a walked, free floor cell with two of headroom inside the library
+    #     the Pensieve on a free cell over a solid block in the hall, with a walked cell beside it; the library's own
+    #     reading spots (the shared list's spots inside its rooms; later rooms add theirs), 4 to 6 of them, each a
+    #     walked, free floor cell with two of headroom
     step = {'north': (0, -1), 'south': (0, 1), 'east': (1, 0), 'west': (-1, 0)}
     lib = [c for c in a['chests'] if c['theme'] == 'LIBRARY']
     assert len(lib) == 1, ('one library chest', lib)
@@ -327,23 +329,22 @@ def verify_library(grid, base, walk):
     px, py, pz = a['pensieve']
     hx0, hy0, hz0, hx1, hy1, hz1 = L.hall_box()
     assert hx0 <= px <= hx1 and hz0 <= pz <= hz1, ('the Pensieve is not in the hall', a['pensieve'])
-    assert (px, py, pz) not in cells and (px, py + 1, pz) not in cells and checks.supports(grid.get(px, py - 1, pz)), \
+    assert grid.is_air(px, py, pz) and grid.is_air(px, py + 1, pz) and checks.supports(grid.get(px, py - 1, pz)), \
         ('the Pensieve\'s cell is not free floor', a['pensieve'])
     assert any((px + ex, py, pz + ez) in walk for ex, ez in step.values()), ('nobody can reach the Pensieve', (px, py, pz))
-    spots = [tuple(s) for s in a['student_spots']]
+    spots = [tuple(s) for s in a['student_spots']
+             if any(b[0] <= s[0] <= b[3] and b[1] <= s[1] <= b[4] and b[2] <= s[2] <= b[5] for b in L.room_boxes())]
     assert 4 <= len(spots) <= 6, ('library reading spots', spots)
     for x, y, z in spots:
-        assert (x, y, z) in walk and (x, y + 1, z) not in cells and checks.supports(grid.get(x, y - 1, z)), \
-            ('reading spot not a free, walked floor cell', (x, y, z))
-        assert any(b[0] <= x <= b[3] and b[1] <= y <= b[4] and b[2] <= z <= b[5] for b in L.room_boxes()), \
-            ('reading spot outside the library', (x, y, z))
+        assert ((x, y, z) in walk and grid.is_air(x, y, z) and grid.is_air(x, y + 1, z)
+                and checks.supports(grid.get(x, y - 1, z))), ('reading spot not a free, walked floor cell', (x, y, z))
 
     # 20. the hollow hill is rock round the rooms: every cell of its layers, but the corner towers' shafts, is solid
     #     or the rooms' own
     layers, shafts = L.cave_plan(base.cells)
     keep = L.interior_cells()
     holes = [(x, y, z) for y, layer in layers.items() for x, z in layer
-             if (x, z) not in shafts and (x, y, z) not in cells and (x, y, z) not in keep]
+             if (x, z) not in shafts and air_at(cells, (x, y, z)) and (x, y, z) not in keep]
     assert not holes, 'air pockets left in the gatehouse hill: %d, e.g. %s' % (len(holes), holes[:5])
 
     # 21. the rooms, walls, floor and ceiling included, stand wholly in what was the hill's hollow, so the hill's shell

@@ -4,6 +4,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.hogwartsmagic.portrait.PortraitKind;
 import com.hogwartsmagic.portrait.PortraitRegistry;
 import com.mojang.logging.LogUtils;
 import net.minecraft.client.Minecraft;
@@ -18,8 +19,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * The data side of the Fat Lady's assets: {@code portraits/fat_lady.json}, read lazily and again after every
- * resource reload.
+ * The data side of a portrait kind's assets: {@code portraits/<id>.json}, read lazily per kind and again after
+ * every resource reload.
  *
  * <pre>{"lines": {key: {"seconds": s, "envelope": [0..1 every 50 ms]}},
  *  "clips": {clip: {"frames": n, "fps": f}}}</pre>
@@ -30,42 +31,41 @@ import java.util.Map;
 final class PortraitAssets {
     private static final Logger LOGGER = LogUtils.getLogger();
 
-    static final ResourceLocation DATA = PortraitRegistry.id("portraits/fat_lady.json");
-    private static final String TEXTURES = "textures/entity/portrait/fat_lady/";
-
     record Clip(int frames, float fps) {
         float seconds() {
             return frames / fps;
         }
     }
 
-    private static boolean loaded;
-    private static final Map<String, float[]> ENVELOPES = new HashMap<>();
-    private static final Map<String, Clip> CLIPS = new HashMap<>();
+    /** What one kind's json holds. */
+    private static final class Data {
+        final Map<String, float[]> envelopes = new HashMap<>();
+        final Map<String, Clip> clips = new HashMap<>();
+    }
+
+    private static final Map<String, Data> DATA = new HashMap<>();
     private static final Map<ResourceLocation, Boolean> EXISTS = new HashMap<>();
 
     private PortraitAssets() {
     }
 
-    static ResourceLocation texture(String name) {
-        return PortraitRegistry.id(TEXTURES + name + ".png");
+    static ResourceLocation texture(PortraitKind kind, String name) {
+        return PortraitRegistry.id(kind.texturePath() + name + ".png");
     }
 
-    static ResourceLocation frame(String clip, int index) {
-        return PortraitRegistry.id(TEXTURES + "clips/" + clip + "/" + String.format("%03d", index) + ".png");
+    static ResourceLocation frame(PortraitKind kind, String clip, int index) {
+        return PortraitRegistry.id(kind.texturePath() + "clips/" + clip + "/" + String.format("%03d", index) + ".png");
     }
 
     /** The 50 ms loudness envelope of a line, or null. */
-    static float[] envelope(String lineKey) {
-        ensureLoaded();
-        return ENVELOPES.get(lineKey);
+    static float[] envelope(PortraitKind kind, String lineKey) {
+        return data(kind).envelopes.get(lineKey);
     }
 
     /** Frame count and rate of a clip, or null when the data is missing or the first frame is not there. */
-    static Clip clip(String name) {
-        ensureLoaded();
-        Clip clip = CLIPS.get(name);
-        if (clip == null || !exists(frame(name, 0))) {
+    static Clip clip(PortraitKind kind, String name) {
+        Clip clip = data(kind).clips.get(name);
+        if (clip == null || !exists(frame(kind, name, 0))) {
             return null;
         }
         return clip;
@@ -82,19 +82,24 @@ final class PortraitAssets {
     }
 
     static void invalidate() {
-        loaded = false;
-        ENVELOPES.clear();
-        CLIPS.clear();
+        DATA.clear();
         EXISTS.clear();
     }
 
-    private static void ensureLoaded() {
-        if (loaded) {
-            return;
+    private static Data data(PortraitKind kind) {
+        Data data = DATA.get(kind.id());
+        if (data == null) {
+            data = new Data();
+            DATA.put(kind.id(), data); // even a failed read is remembered until the next reload
+            load(kind, data);
         }
-        loaded = true;
+        return data;
+    }
+
+    private static void load(PortraitKind kind, Data data) {
+        ResourceLocation location = PortraitRegistry.id(kind.dataPath());
         try {
-            var resource = Minecraft.getInstance().getResourceManager().getResource(DATA);
+            var resource = Minecraft.getInstance().getResourceManager().getResource(location);
             if (resource.isEmpty()) {
                 return;
             }
@@ -110,7 +115,7 @@ final class PortraitAssets {
                         for (int i = 0; i < env.length; i++) {
                             env[i] = array.get(i).getAsFloat();
                         }
-                        ENVELOPES.put(e.getKey(), env);
+                        data.envelopes.put(e.getKey(), env);
                     }
                 }
                 JsonObject clips = root.has("clips") ? root.getAsJsonObject("clips") : new JsonObject();
@@ -119,12 +124,12 @@ final class PortraitAssets {
                     int frames = clip.has("frames") ? clip.get("frames").getAsInt() : 0;
                     float fps = clip.has("fps") ? clip.get("fps").getAsFloat() : 0f;
                     if (frames > 0 && fps > 0f) {
-                        CLIPS.put(e.getKey(), new Clip(frames, fps));
+                        data.clips.put(e.getKey(), new Clip(frames, fps));
                     }
                 }
             }
         } catch (Exception ex) {
-            LOGGER.warn("Could not read {}: {}", DATA, ex.toString());
+            LOGGER.warn("Could not read {}: {}", location, ex.toString());
         }
     }
 }

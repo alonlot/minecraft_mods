@@ -1,6 +1,7 @@
 package com.hogwartsmagic.client.portrait;
 
 import com.hogwartsmagic.ExampleMod;
+import com.hogwartsmagic.portrait.PortraitKind;
 import com.hogwartsmagic.portrait.PortraitRegistry;
 import net.minecraft.server.packs.resources.ResourceManagerReloadListener;
 import net.minecraftforge.api.distmarker.Dist;
@@ -17,7 +18,9 @@ public final class PortraitClientSetup {
 
     @SubscribeEvent
     public static void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {
-        event.registerEntityRenderer(PortraitRegistry.FAT_LADY_TYPE, FatLadyPortraitRenderer::new);
+        for (PortraitKind kind : PortraitKind.ALL) {
+            event.registerEntityRenderer(PortraitRegistry.typeOf(kind), context -> new PortraitRenderer(context, kind));
+        }
     }
 
     @SubscribeEvent

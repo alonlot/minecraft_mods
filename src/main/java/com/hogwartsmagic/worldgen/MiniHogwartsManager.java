@@ -316,6 +316,11 @@ public final class MiniHogwartsManager {
                     decoNear(spot, Blocks.LANTERN.defaultBlockState());
                 }
                 placePublicPensieve(bookSumX / bookCount, bookSumY / bookCount, bookSumZ / bookCount);
+                // Sir Cadogan guards the library from the nearest free 4 x 2 wall.
+                if (spot != null && com.hogwartsmagic.portrait.PortraitPlacement.hangNear(level,
+                        com.hogwartsmagic.portrait.PortraitKind.SIR_CADOGAN, spot, 16) == null) {
+                    LOGGER.info("Mini Hogwarts: no free wall near the library for Sir Cadogan");
+                }
             }
             // Spell study — beside the enchanting table.
             if (enchantX >= 0) {
@@ -344,7 +349,8 @@ public final class MiniHogwartsManager {
                 decoNear(hall, Blocks.FLOWER_POT.defaultBlockState());
             }
             // The Fat Lady keeps watch on the nearest Great Hall wall.
-            if (hall != null && com.hogwartsmagic.portrait.PortraitPlacement.hangFatLadyNear(level, hall, 16) == null) {
+            if (hall != null && com.hogwartsmagic.portrait.PortraitPlacement.hangNear(level,
+                    com.hogwartsmagic.portrait.PortraitKind.FAT_LADY, hall, 16) == null) {
                 LOGGER.info("Mini Hogwarts: no free wall near the Great Hall for the Fat Lady");
             }
             // Tower treasure — a hidden pocket near the very top.

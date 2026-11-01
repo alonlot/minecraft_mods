@@ -3907,6 +3907,272 @@
       }
     ]
   },
+  "portrait.sir_cadogan.greet_1": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/sir_cadogan/greet_1"
+      }
+    ]
+  },
+  "portrait.sir_cadogan.greet_2": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/sir_cadogan/greet_2"
+      }
+    ]
+  },
+  "portrait.sir_cadogan.leave_1": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/sir_cadogan/leave_1"
+      }
+    ]
+  },
+  "portrait.sir_cadogan.leave_2": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/sir_cadogan/leave_2"
+      }
+    ]
+  },
+  "portrait.sir_cadogan.dark_1": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/sir_cadogan/dark_1"
+      }
+    ]
+  },
+  "portrait.sir_cadogan.dark_2": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/sir_cadogan/dark_2"
+      }
+    ]
+  },
+  "portrait.sir_cadogan.light_1": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/sir_cadogan/light_1"
+      }
+    ]
+  },
+  "portrait.sir_cadogan.light_2": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/sir_cadogan/light_2"
+      }
+    ]
+  },
+  "portrait.sir_cadogan.creeper_video": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/sir_cadogan/creeper_video"
+      }
+    ]
+  },
+  "portrait.sir_cadogan.creeper_2": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/sir_cadogan/creeper_2"
+      }
+    ]
+  },
+  "portrait.sir_cadogan.hostile_1": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/sir_cadogan/hostile_1"
+      }
+    ]
+  },
+  "portrait.sir_cadogan.hostile_2": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/sir_cadogan/hostile_2"
+      }
+    ]
+  },
+  "portrait.sir_cadogan.punched_video": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/sir_cadogan/punched_video"
+      }
+    ]
+  },
+  "portrait.sir_cadogan.punched_2": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/sir_cadogan/punched_2"
+      }
+    ]
+  },
+  "portrait.sir_cadogan.explosion_1": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/sir_cadogan/explosion_1"
+      }
+    ]
+  },
+  "portrait.sir_cadogan.explosion_2": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/sir_cadogan/explosion_2"
+      }
+    ]
+  },
+  "portrait.sir_cadogan.rain_1": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/sir_cadogan/rain_1"
+      }
+    ]
+  },
+  "portrait.sir_cadogan.rain_2": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/sir_cadogan/rain_2"
+      }
+    ]
+  },
+  "portrait.sir_cadogan.thunder_1": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/sir_cadogan/thunder_1"
+      }
+    ]
+  },
+  "portrait.sir_cadogan.thunder_2": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/sir_cadogan/thunder_2"
+      }
+    ]
+  },
+  "portrait.sir_cadogan.hurt_1": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/sir_cadogan/hurt_1"
+      }
+    ]
+  },
+  "portrait.sir_cadogan.hurt_2": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/sir_cadogan/hurt_2"
+      }
+    ]
+  },
+  "portrait.sir_cadogan.wand_1": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/sir_cadogan/wand_1"
+      }
+    ]
+  },
+  "portrait.sir_cadogan.wand_2": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/sir_cadogan/wand_2"
+      }
+    ]
+  },
+  "portrait.sir_cadogan.sword_1": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/sir_cadogan/sword_1"
+      }
+    ]
+  },
+  "portrait.sir_cadogan.sword_2": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/sir_cadogan/sword_2"
+      }
+    ]
+  },
+  "portrait.sir_cadogan.sing_video": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/sir_cadogan/sing_video"
+      }
+    ]
+  },
+  "portrait.sir_cadogan.sing_2": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/sir_cadogan/sing_2"
+      }
+    ]
+  },
+  "portrait.sir_cadogan.morning_1": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/sir_cadogan/morning_1"
+      }
+    ]
+  },
+  "portrait.sir_cadogan.morning_2": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/sir_cadogan/morning_2"
+      }
+    ]
+  },
+  "portrait.sir_cadogan.night_1": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/sir_cadogan/night_1"
+      }
+    ]
+  },
+  "portrait.sir_cadogan.night_2": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/sir_cadogan/night_2"
+      }
+    ]
+  },
+  "portrait.sir_cadogan.gryffindor_1": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/sir_cadogan/gryffindor_1"
+      }
+    ]
+  },
+  "portrait.sir_cadogan.gryffindor_2": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/sir_cadogan/gryffindor_2"
+      }
+    ]
+  },
+  "portrait.sir_cadogan.slytherin_1": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/sir_cadogan/slytherin_1"
+      }
+    ]
+  },
+  "portrait.sir_cadogan.slytherin_2": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/sir_cadogan/slytherin_2"
+      }
+    ]
+  },
+  "portrait.sir_cadogan.ravenclaw_1": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/sir_cadogan/ravenclaw_1"
+      }
+    ]
+  },
+  "portrait.sir_cadogan.hufflepuff_1": {
+    "sounds": [
+      {
+        "name": "hogwartsmagic:portrait/sir_cadogan/hufflepuff_1"
+      }
+    ]
+  },
   "spell.avada_kedavra.impact": {
     "subtitle": "subtitles.hogwartsmagic.spell.avada_kedavra.impact",
     "sounds": [

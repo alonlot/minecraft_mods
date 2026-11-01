@@ -87,6 +87,15 @@ def is_light(state):
     return name in _LIGHT_NAMES or name.endswith('_froglight')
 
 
+def too_tall(state):
+    """True for blocks a block and a half tall (fences, walls, closed fence gates): a player cannot jump onto them, so
+    the walk never steps up onto one (a rail in an opening is a rail). Landing on one from above is still allowed."""
+    name = block_id(state)
+    if name.endswith('_fence_gate'):
+        return 'open=true' not in state
+    return name.endswith('_fence') or name.endswith('_wall')
+
+
 def climbable(state):
     """True for blocks a player climbs vertically (a column of them is a way up and down)."""
     return block_id(state) in ('ladder', 'scaffolding', 'vine', 'cave_vines', 'cave_vines_plant')
@@ -109,8 +118,9 @@ def reachable(grid, start, max_cells=2_000_000):
     A cell is walkable when its feet and head cells are passable and the block below supports
     the player, or the feet cell is climbable (ladder, scaffolding, vine). Moves are the four
     horizontal neighbours: level, one step up (needing headroom over the cell being left too,
-    as a jump does), or a drop of up to three blocks (landing on a ladder counts); plus up and
-    down through a column of climbable blocks. Stops expanding once max_cells cells are found.
+    as a jump does; never onto a fence, wall or closed gate, see too_tall), or a drop of up to
+    three blocks (landing on a ladder counts); plus up and down through a column of climbable
+    blocks. Stops expanding once max_cells cells are found.
     """
     cells = grid.cells
     air = _grid.AIR
@@ -144,8 +154,8 @@ def reachable(grid, start, max_cells=2_000_000):
                             dest = (nx, y - drop, nz)
                             break
             elif (free(x, y + 2, z) and free(nx, y + 1, nz) and free(nx, y + 2, nz)
-                  and supports(cells.get((nx, y, nz), air))):
-                dest = (nx, y + 1, nz)                            # one step up
+                  and supports(cells.get((nx, y, nz), air)) and not too_tall(cells.get((nx, y, nz), air))):
+                dest = (nx, y + 1, nz)                            # one step up (never onto a fence or a wall)
             if dest is not None and dest not in seen:
                 seen.add(dest)
                 queue.append(dest)

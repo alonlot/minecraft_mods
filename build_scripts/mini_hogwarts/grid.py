@@ -89,6 +89,83 @@ class Grid:
         return (min(xs), min(ys), min(zs), max(xs), max(ys), max(zs))
 
 
+# --- interior air ----------------------------------------------------------------------
+
+CAVE_AIR = 'minecraft:cave_air'
+
+
+def enclosed_air(grid):
+    """Every air cell inside the grid's bounds that cannot be reached from outside them through air: the pockets the
+    blocks close in on every side. Faces only (light's and water's rule), so a diagonal crack does not leak; any
+    block, a pane or a fence included, closes the way. Returns a set of (x, y, z).
+
+    One flood over a flat bytearray (the box grown by a cell of margin on every side, the flood's start) rather
+    than a set of tuples: a whole castle is a couple of million cells and this stays a few seconds."""
+    if not grid.cells:
+        return set()
+    x0, y0, z0, x1, y1, z1 = grid.bounds()
+    w, h, l = x1 - x0 + 3, y1 - y0 + 3, z1 - z0 + 3
+    wh = w * h
+    seen = bytearray(w * h * l)                      # 1: a block, or air the outside reaches
+    for (x, y, z), s in grid.cells.items():
+        if not is_air(s):
+            seen[(x - x0 + 1) + (y - y0 + 1) * w + (z - z0 + 1) * wh] = 1
+    seen[0] = 1
+    stack = [0]
+    while stack:
+        i = stack.pop()
+        x, rest = i % w, i // w
+        y, z = rest % h, rest // h
+        if x < w - 1 and not seen[i + 1]:
+            seen[i + 1] = 1
+            stack.append(i + 1)
+        if x > 0 and not seen[i - 1]:
+            seen[i - 1] = 1
+            stack.append(i - 1)
+        if y < h - 1 and not seen[i + w]:
+            seen[i + w] = 1
+            stack.append(i + w)
+        if y > 0 and not seen[i - w]:
+            seen[i - w] = 1
+            stack.append(i - w)
+        if z < l - 1 and not seen[i + wh]:
+            seen[i + wh] = 1
+            stack.append(i + wh)
+        if z > 0 and not seen[i - wh]:
+            seen[i - wh] = 1
+            stack.append(i - wh)
+    out = set()
+    start = seen.find(0)
+    while start != -1:
+        x, rest = start % w, start // w
+        out.add((x + x0 - 1, rest % h + y0 - 1, rest // h + z0 - 1))
+        start = seen.find(0, start + 1)
+    return out
+
+
+def seal_interiors(grid, boxes):
+    """Write minecraft:cave_air into every air cell the world must clear when the grid is placed: the enclosed
+    pockets (enclosed_air) and every air cell of `boxes` (inclusive (x0, y0, z0, x1, y1, z1) room interiors, which
+    reach the outside through their doors and windows, so the flood alone would miss them). Plain air keeps
+    meaning "leave the world alone" (the placer skips it); cave_air is placed, so terrain and trees inside the
+    castle are carved out. Writes the dict directly (Grid.set never stores air). Returns the number of cells marked;
+    blocks and cells already marked are left as they are."""
+    cells = grid.cells
+    todo = enclosed_air(grid)
+    for x0, y0, z0, x1, y1, z1 in boxes:
+        for y in range(min(y0, y1), max(y0, y1) + 1):
+            for z in range(min(z0, z1), max(z0, z1) + 1):
+                for x in range(min(x0, x1), max(x0, x1) + 1):
+                    if (x, y, z) not in cells:
+                        todo.add((x, y, z))
+    n = 0
+    for p in todo:
+        if p not in cells:
+            cells[p] = CAVE_AIR
+            n += 1
+    return n
+
+
 # --- reading -------------------------------------------------------------------------
 
 def load_schem(path):

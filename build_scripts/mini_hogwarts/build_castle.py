@@ -27,6 +27,14 @@ CHANGED_ON_PURPOSE says; verify() holds every other old block to its original st
 Each room is one function, called in order by ROOM_STEPS; each stamps its blocks into the grid and
 adds its anchors. verify() asserts what the rooms promise (reachability, light, structure) and runs
 before anything is written, so a broken castle never reaches the resources.
+
+INTERIOR AIR
+------------
+The castle is placed as a worldgen structure, and the placer skips plain air ("leave the world alone"),
+so terrain and trees standing where a room is would stay in it. After the rooms, seal_interiors() writes
+minecraft:cave_air (which the placer does place) into every air cell of every room interior (ROOMS, a
+name -> box dict collected from the room modules: their boxes reach out through doors and windows) and
+into every air pocket the blocks close in (grid.enclosed_air). Outdoor air stays plain air.
 """
 
 import json
@@ -48,8 +56,8 @@ OUT_SCHEM = os.path.join(SCHEM_DIR, 'mini_hogwarts.schem')
 OUT_ANCHORS = os.path.join(SCHEM_DIR, 'mini_hogwarts.anchors.json')
 VIEWER_NBT = os.path.join(REPO, 'build', 'mh', 'mini_hogwarts.nbt')
 
-from mini_hogwarts import checks, hall, rooms_library, rooms_staircase  # noqa: E402
-from mini_hogwarts.grid import Grid, air_at, load_schem, write_schem  # noqa: E402
+from mini_hogwarts import checks, hall, rooms_library, rooms_staircase, rooms_towers  # noqa: E402
+from mini_hogwarts.grid import Grid, air_at, load_schem, seal_interiors as _seal, write_schem  # noqa: E402
 
 
 # The gatehouse gate (old frame x 37..39, z 101, a closed oak-log pair of leaves under a pointed arch at
@@ -68,7 +76,16 @@ CHANGED_ON_PURPOSE = [
     # Section with their shelving walls, floor and ceiling, and the tunnel from the grounds door through the hill's
     # north face (the only old blocks it changes: the hill's shell); the viaduct's last pier east of it is in no box
     *rooms_library.changed_boxes(),
+    # the tower tops (rooms_towers): the Gryffindor tower's jettied storeys and new cone (ruling R26 lets that tower's
+    # top change shape: these two boxes are its old top, the bridge's last two cells included); the Astronomy gallery's
+    # floor over the central tower's band (the plain ring's top course, inside the band's wall) and the four arches
+    # opened through the band's wall in place of its cardinal windows (holes in the wall; the outline is unchanged)
+    *rooms_towers.changed_boxes(),
 ]
+
+# Every room interior, name -> inclusive box, filled by collect_rooms() once the rooms are built (some boxes are
+# measured from the finished grid). seal_interiors() writes cave_air into their air; verify() checks it did.
+ROOMS = {}
 
 
 def load_base():
@@ -106,13 +123,48 @@ def room_library(grid):
     a['pensieve'] = found['pensieve']
 
 
+def room_towers(grid):
+    """The tower tops: the Gryffindor common room and dormitory in the jettied bridge tower, the Astronomy gallery and
+    the Headmaster's office in the central tower's top."""
+    found = rooms_towers.place_towers(grid)
+    a = grid.anchors
+    a.setdefault('chests', []).extend(found['chests'])
+    a.setdefault('banners', []).extend(found['banners'])
+    a.setdefault('student_spots', []).extend(found['student_spots'])
+    a.setdefault('paintings', []).extend(found['paintings'])
+
+
+def collect_rooms(grid):
+    """Fill ROOMS from the room modules: the Great Hall, entrance hall and west gallery; the Grand Staircase's well,
+    its entry door and every closed course of its top (its own light boxes); the Library's rooms and tunnel; the tower
+    tops. Each box is an interior (its air is the castle's, never the open sky)."""
+    ROOMS.clear()
+    ROOMS['great hall'] = hall.HALL_PROPER_BOX
+    ROOMS['great hall apse'] = hall.APSE_BOX
+    ROOMS['entrance hall'] = hall.ENTRANCE_BOX
+    ROOMS['hall west gallery'] = hall.GALLERY_BOX
+    for i, b in enumerate(rooms_staircase.light_boxes(grid.cells)):
+        ROOMS['grand staircase %d' % i] = b
+    for i, b in enumerate(rooms_library.room_boxes()):
+        ROOMS['library %d' % i] = b
+    ROOMS.update(rooms_towers.room_boxes(grid.cells))
+    return ROOMS
+
+
+def seal_interiors(grid):
+    """Mark the castle's interior air as minecraft:cave_air (see INTERIOR AIR above). Returns the count."""
+    n = _seal(grid, list(collect_rooms(grid).values()))
+    seal_interiors.count = n
+    return n
+
+
 def wing_tops():
     """{(x, z): y} every column a room has built in, with the top of what it built there. Room tasks merge theirs
     in here, so the unchanged-castle check knows where they stood."""
     return dict(hall.column_tops())
 
 
-ROOM_STEPS = (room_great_hall, room_grand_staircase, room_library)
+ROOM_STEPS = (room_great_hall, room_grand_staircase, room_library, room_towers)
 
 
 # ---------------------------------------------------------------- checks
@@ -215,6 +267,8 @@ def verify(grid):
 
     verify_staircase(grid, base, walk)
     verify_library(grid, base, walk)
+    verify_towers(grid, base, walk)
+    verify_sealed(grid)
     return walk
 
 
@@ -273,7 +327,7 @@ def verify_staircase(grid, base, walk):
         assert checks.supports(grid.get(x, y, z)), ('painting has no wall', p)
         for dy in (0, 1):
             s = grid.get(x + dx, y + dy, z + dz)
-            assert s == 'minecraft:air' or checks.block_id(s) == 'light', ('painting recess full', p, s)
+            assert grid.is_air(x + dx, y + dy, z + dz) or checks.block_id(s) == 'light', ('painting recess full', p, s)
 
 
 def verify_library(grid, base, walk):
@@ -353,6 +407,106 @@ def verify_library(grid, base, walk):
     assert not outside, 'library cells outside the hill\'s hollow: %d, e.g. %s' % (len(outside), outside[:5])
 
 
+def verify_towers(grid, base, walk):
+    """The tower tops' promises: the band's plan is the old tower's, every room is walked to from the main entrance
+    and the Gryffindor rooms only through the Fat Lady's door, at least four beds in the dormitory, the Astronomy
+    gallery's edge railed, no dark floor, the telescopes point out through the arches, and the anchors (the TOWER
+    chest, the Gryffindor banners and student spots) stand where they can be used."""
+    T = rooms_towers
+    a = grid.anchors
+    cells = grid.cells
+
+    # 22. the band's and the office's plans are the old tower's (so the gallery floor's boxes are inside cells only)
+    assert T.measured_band(base.cells) == T.BAND_ROWS, ('the band\'s interior moved', T.measured_band(base.cells))
+    assert T.measured_office(base.cells) == T.OFFICE_ROWS, ('the cone\'s interior moved', T.measured_office(base.cells))
+
+    # 23. every room is walked to: the bridge, the common room, its hearth and the dormitory up its stair; the helical
+    #     stair's top, the gallery round the oculus, and the office up the spiral
+    for name, c in sorted(T.TOWER_CELLS.items()):
+        assert c in walk, 'tower %s %s not reachable from the main entrance' % (name, c)
+
+    # 24. the common room's door is the Fat Lady's: with the top landing's door walled up, nothing of the bridge or the
+    #     Gryffindor tower is walked to (and her anchor is still Task 4's, beside that door)
+    assert a['fat_lady'] == {'wall': list(rooms_staircase.FAT_LADY_WALL), 'facing': 'north'}, a['fat_lady']
+    walled = Grid()
+    walled.cells = dict(cells)
+    dx, dy, dz = rooms_staircase.GRYFFINDOR_DOOR
+    walled.set(dx, dy, dz, 'minecraft:stone')
+    walled.set(dx, dy + 1, dz, 'minecraft:stone')
+    walk2 = checks.reachable(walled, tuple(a['main_entrance']))
+    behind = sorted(c for c in walk2 if T.in_gryffindor(c))
+    assert not behind, ('a way into the Gryffindor tower besides the Fat Lady\'s door', behind[:5])
+
+    # 25. at least four whole beds in the dormitory, each with a walked cell beside it
+    beds = T.beds(cells)
+    assert len(beds) >= 4, ('dormitory beds', beds)
+    step = {'north': (0, -1), 'south': (0, 1), 'east': (1, 0), 'west': (-1, 0)}
+    for head, foot in beds:
+        near = [(c[0] + ex, c[1], c[2] + ez) for c in (head, foot) for ex, ez in step.values()]
+        assert any(n in walk for n in near), ('nobody can reach the bed', head)
+
+    # 26. the Astronomy gallery's edge is railed: no walked cell beside a drop of more than 3 (the oculus, the arches,
+    #     the helical stair's well)
+    gaps = T.unrailed(grid, walk)
+    assert not gaps, ('open edges on the Astronomy gallery', gaps[:5])
+    assert T.platform_cells(walk), 'the Astronomy gallery is not walked to'
+
+    # 27. no dark floor on the bridge, in the Gryffindor storeys, the gallery or the office
+    dark = checks.dark_floor_cells(grid, T.tower_light_boxes())
+    assert not dark, 'dark tower floor cells: %d, e.g. %s' % (len(dark), dark[:5])
+
+    # 28. a telescope in every arch: a lightning-rod tube on its stand, pointing out through the opening
+    for wall, (tx, tz), facing in T.ARCHES:
+        rod = grid.get(tx, T.GALLERY_FEET + 1, tz)
+        assert checks.block_id(rod) == 'lightning_rod' and 'facing=%s' % facing in rod, ('no telescope', (tx, tz), rod)
+        ox, oz = step[facing]
+        assert grid.is_air(tx + ox, T.GALLERY_FEET + 1, tz + oz), ('the telescope looks at a wall', (tx, tz))
+
+    # 29. the anchors: one TOWER chest in the office with its front walked to (check 8 holds its floor tile); the
+    #     Gryffindor banners in the common room, each in a free cell with a solid wall behind it; the common room's
+    #     student spots (2 to 4, free walked floor cells with two of headroom)
+    tower = [c for c in a['chests'] if c['theme'] == 'TOWER']
+    assert len(tower) == 1, ('one tower chest', tower)
+    cx, cy, cz = tower[0]['at']
+    ox, oz = step[tower[0]['facing']]
+    assert (cx, cz) in T.office_cells() and cy == T.OFFICE_FEET and (cx + ox, cy, cz + oz) in walk, tower
+    assert a['banners'], 'no banners'
+    x0, y0, z0, x1, y1, z1 = T.common_room_box()
+    for b in a['banners']:
+        bx, by, bz = b['at']
+        ox, oz = step[b['facing']]
+        free = grid.is_air(bx, by, bz) or checks.block_id(grid.get(bx, by, bz)) == 'light'
+        assert b['house'] == 'gryffindor' and x0 <= bx <= x1 and y0 <= by <= y1 and z0 <= bz <= z1, b
+        assert free and checks.supports(grid.get(bx - ox, by, bz - oz)), ('banner has no wall or no room', b)
+    spots = [tuple(s) for s in a['student_spots'] if x0 <= s[0] <= x1 and y0 <= s[1] <= y1 and z0 <= s[2] <= z1]
+    assert 2 <= len(spots) <= 4, ('common room student spots', spots)
+    for x, y, z in spots:
+        assert ((x, y, z) in walk and grid.is_air(x, y, z) and grid.is_air(x, y + 1, z)
+                and checks.supports(grid.get(x, y - 1, z))), ('student spot not a free, walked floor cell', (x, y, z))
+
+
+def verify_sealed(grid):
+    """30. Interior air is marked: every air cell of every ROOMS box is minecraft:cave_air, never plain (absent) air,
+    so the placer clears the world out of every room (rulings R29, R30)."""
+    rooms = ROOMS or collect_rooms(grid)
+    cells = grid.cells
+    plain = []
+    for name, (x0, y0, z0, x1, y1, z1) in sorted(rooms.items()):
+        for y in range(y0, y1 + 1):
+            for z in range(z0, z1 + 1):
+                for x in range(x0, x1 + 1):
+                    if (x, y, z) not in cells:
+                        plain.append((name, (x, y, z)))
+    assert not plain, 'unsealed room air: %d, e.g. %s' % (len(plain), plain[:5])
+    # and outdoor air stays plain: no cave_air cell stands under open sky (nothing at all above it in its column)
+    top = {}
+    for (x, y, z), s in cells.items():
+        if not air_at(cells, (x, y, z)) and y > top.get((x, z), -1):
+            top[(x, z)] = y
+    sky = [p for p, s in cells.items() if s == 'minecraft:cave_air' and top.get((p[0], p[2]), -1) < p[1]]
+    assert not sky, 'cave_air under open sky: %d, e.g. %s' % (len(sky), sorted(sky)[:5])
+
+
 def census_lines(grid, top=40):
     c = checks.census(grid)
     return ['%7d  %s' % (n, k) for k, n in c.most_common(top)]
@@ -375,6 +529,7 @@ def build():
     grid.anchors['main_entrance'] = list(MAIN_ENTRANCE)
     for step in ROOM_STEPS:
         step(grid)
+    seal_interiors(grid)
     return grid
 
 
@@ -390,6 +545,8 @@ def main():
     print('hall: %s' % getattr(hall.place_hall, 'stats', {}))
     print('staircase: %s' % getattr(rooms_staircase.place_staircase, 'stats', {}))
     print('library: %s' % getattr(rooms_library.place_library, 'stats', {}))
+    print('towers: %s' % getattr(rooms_towers.place_towers, 'stats', {}))
+    print('sealed: %d cave_air cells (%d room boxes)' % (getattr(seal_interiors, 'count', 0), len(ROOMS)))
     print('census:')
     print('\n'.join(census_lines(grid)))
 

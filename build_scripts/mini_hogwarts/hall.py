@@ -587,7 +587,7 @@ def build_plinth(grid, columns):
     n = 0
     for (x, z) in columns:
         y = MAIN_FLOOR_Y - 1
-        while y >= 0 and (x, y, z) not in grid.cells:
+        while y >= 0 and grid.is_air(x, y, z):
             grid.cells[(x, y, z)] = 'minecraft:stone'
             n += 1
             y -= 1
@@ -668,7 +668,7 @@ def build_skirt(grid, footprint, rect, east_only=False):
         else:
             top = 'minecraft:gravel'
         for y in range(low, h + 1):
-            if (x, y, z) in grid.cells:
+            if not grid.is_air(x, y, z):
                 continue
             if y == h:
                 s = top
@@ -741,7 +741,7 @@ def light_dark_floors(grid, boxes, rounds=8):
                 chosen.append(c)
         for x, y, z in chosen:
             for yy in (y + 2, y + 1, y):
-                if (x, yy, z) not in grid.cells:
+                if grid.is_air(x, yy, z):
                     grid.set(x, yy, z, G.state('light', level=12, waterlogged=False))
                     added += 1
                     break
@@ -756,6 +756,11 @@ def _box(local_a, local_b):
 HALL_BOX = _box((1, 1, 4), (83, G.CEIL_Y - 1, 40))                     # the hall's floor to the ceiling plane
 ENTRANCE_BOX = _box((G.EH_X0, 1, G.EH_Z0), (G.EH_X1, 20, G.EH_Z1))
 GALLERY_BOX = (GALLERY_X[0], MAIN_FLOOR_Y + 1, GALLERY_Z[0], GALLERY_X[1], MAIN_FLOOR_Y + 4, GALLERY_Z[1])
+# The wing's interiors for build_castle.ROOMS (whose air is sealed as cave_air): HALL_BOX starts at local x 1, so it
+# also takes in the two open-sky corners beside the staff-end apse, outside the walls; these two boxes are the hall
+# from its end wall on and the apse behind the High Table.
+HALL_PROPER_BOX = _box((9, 1, 4), (83, G.CEIL_Y - 1, 40))
+APSE_BOX = _box((1, 1, APSE_Z[0]), (APSE_X[1], G.CEIL_Y - 1, APSE_Z[1]))
 
 _COLUMNS = None
 
@@ -837,7 +842,7 @@ def _chest(grid):
     for lx in (79, 71, 63, 55, 31, 23, 15):
         for lz in (5, 39):
             c = cell(lx, 1, lz)
-            if (c in grid.cells or (c[0], c[1] + 1, c[2]) in grid.cells
+            if (not grid.is_air(*c) or not grid.is_air(c[0], c[1] + 1, c[2])
                     or not checks.supports(grid.get(c[0], c[1] - 1, c[2]))):
                 continue
             facing = 'west' if lz < 22 else 'east'          # local south / north, turned: into the hall
@@ -862,7 +867,7 @@ def _ceiling(grid):
     x = cell(0, 0, G.AXIS_Z)[0]
     firsts = []
     for z in range(int(c0[2]), int(c1[2])):
-        above = [yy for yy in range(y, y + SET_SIZE[1]) if (x, yy, z) in grid.cells]
+        above = [yy for yy in range(y, y + SET_SIZE[1]) if not grid.is_air(x, yy, z)]
         assert above, ('no roof over the centre line at', x, z)
         firsts.append(above[0])
     return {'min': [c0[0], c0[2]], 'max': [c1[0], c1[2]], 'y': y, 'clearance': min(firsts) - y}

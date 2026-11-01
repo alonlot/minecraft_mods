@@ -1,4 +1,42 @@
 {
+ "banners": [
+  {
+   "at": [
+    61,
+    49,
+    177
+   ],
+   "facing": "north",
+   "house": "gryffindor"
+  },
+  {
+   "at": [
+    59,
+    48,
+    169
+   ],
+   "facing": "south",
+   "house": "gryffindor"
+  },
+  {
+   "at": [
+    63,
+    48,
+    169
+   ],
+   "facing": "south",
+   "house": "gryffindor"
+  },
+  {
+   "at": [
+    66,
+    48,
+    174
+   ],
+   "facing": "west",
+   "house": "gryffindor"
+  }
+ ],
  "candles": [
   {
    "at": [
@@ -110,6 +148,15 @@
    ],
    "facing": "north",
    "theme": "LIBRARY"
+  },
+  {
+   "at": [
+    67,
+    64,
+    147
+   ],
+   "facing": "west",
+   "theme": "TOWER"
   }
  ],
  "doors": [
@@ -286,6 +333,38 @@
     156
    ],
    "facing": "north"
+  },
+  {
+   "at": [
+    52,
+    64,
+    149
+   ],
+   "facing": "east"
+  },
+  {
+   "at": [
+    70,
+    64,
+    149
+   ],
+   "facing": "west"
+  },
+  {
+   "at": [
+    60,
+    64,
+    157
+   ],
+   "facing": "north"
+  },
+  {
+   "at": [
+    65,
+    64,
+    140
+   ],
+   "facing": "south"
   }
  ],
  "pensieve": [
@@ -633,6 +712,21 @@
    45,
    18,
    194
+  ],
+  [
+   58,
+   45,
+   172
+  ],
+  [
+   64,
+   45,
+   173
+  ],
+  [
+   61,
+   45,
+   177
   ]
  ]
 }

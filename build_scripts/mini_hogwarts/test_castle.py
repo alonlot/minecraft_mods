@@ -230,6 +230,50 @@ def test_cave_air_is_air():
     assert not dark, dark                     # light crosses the marked cells
 
 
+def test_reachable_no_step_onto_fence():
+    # a fence, a wall or a closed fence gate is a block and a half tall: a player cannot jump onto it, so a rail in an
+    # opening is a rail (a full block one high is still a step)
+    for rail in ('minecraft:dark_oak_fence[east=false,north=false,south=false,west=false,waterlogged=false]',
+                 'minecraft:cobblestone_wall[east=none,north=none,south=none,up=true,waterlogged=false,west=none]',
+                 'minecraft:oak_fence_gate[facing=east,in_wall=false,open=false,powered=false]'):
+        g = Grid()
+        g.fill(0, 0, 0, 2, 0, 0, STONE)        # a floor, feet at y=1, ending at x=2
+        g.set(3, 1, 0, rail)                   # the rail on the sill of an opening, on top of the wall below it
+        g.set(3, 0, 0, STONE)
+        seen = checks.reachable(g, (0, 1, 0))
+        assert (3, 2, 0) not in seen and (4, 1, 0) not in seen, (rail, sorted(seen))
+    g = Grid()
+    g.fill(0, 0, 0, 3, 0, 0, STONE)
+    g.set(3, 1, 0, STONE)
+    assert (3, 2, 0) in checks.reachable(g, (0, 1, 0))
+
+
+def test_seal_interiors():
+    # a closed stone box with air inside, a room box reaching out through its open doorway, and open air outside
+    g = Grid()
+    g.fill(0, 0, 0, 6, 4, 6, STONE)
+    g.fill(1, 1, 1, 5, 3, 5, 'minecraft:air')               # hollow
+    g.set(3, 2, 3, 'minecraft:lantern[hanging=false,waterlogged=false]')
+    n = grid.seal_interiors(g, [])
+    assert n == 5 * 3 * 5 - 1 and g.cells[(1, 1, 1)] == 'minecraft:cave_air', n
+    assert g.cells[(3, 2, 3)].startswith('minecraft:lantern')  # blocks are never touched
+    assert (9, 9, 9) not in g.cells and (-1, 0, 0) not in g.cells
+    # cut a doorway: the inside now connects to the outside, so only the room box keeps it sealed, and the cells
+    # outside both stay plain air
+    h = Grid()
+    h.fill(0, 0, 0, 6, 4, 6, STONE)
+    h.fill(1, 1, 1, 5, 3, 5, 'minecraft:air')
+    h.fill(3, 1, 0, 3, 2, 0, 'minecraft:air')
+    room = (1, 1, 1, 5, 3, 5)
+    door = (3, 1, 0, 3, 2, 0)
+    n = grid.seal_interiors(h, [room, door])
+    assert n == 5 * 3 * 5 + 2, n
+    assert h.cells[(3, 1, 0)] == 'minecraft:cave_air' and h.cells[(5, 3, 5)] == 'minecraft:cave_air'
+    assert (3, 1, -1) not in h.cells and (3, 5, 3) not in h.cells
+    # a second pass changes nothing (cave_air is already air)
+    assert grid.seal_interiors(h, [room, door]) == 0
+
+
 def test_census():
     g = Grid()
     g.fill(0, 0, 0, 1, 0, 1, STONE)

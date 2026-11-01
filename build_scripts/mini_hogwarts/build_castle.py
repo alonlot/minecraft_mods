@@ -162,7 +162,7 @@ def room_corridors(grid):
     a = grid.anchors
     a.setdefault('statues', []).extend(found['statues'])
     a.setdefault('student_spots', []).extend(found['student_spots'])
-    a['title_point'] = found['title_point']
+    a['title_point'] = found['title_point']        # inside the central tower on purpose (R44: see title_point)
 
 
 def collect_rooms(grid):
@@ -708,6 +708,20 @@ def verify_corridors(grid, base, walk):
                   'potions': rooms_classrooms.POTIONS_CELL})
     cut = sorted(n for n, c in marks.items() if c not in walk_all)
     assert not cut, ('the statues cut off', cut)
+    #     the castle's walk is well connected (a blocked gate is walked round through the Library's grounds door), so
+    #     each guarded place is also walked on its own, inside its box: with every statue in it walled up, no cell of
+    #     the box is farther to walk to than without them
+    for name, start, box in K.LOCAL_BOXES:
+        start = start or tuple(a['main_entrance'])
+        guards = [p for p in statues if inside(p, box)]
+        assert guards, ('no statue guards %s' % name, box)
+        longer = K.detours(cells, start, box, guards)
+        assert not longer, ('the statues lengthen the way at %s: %d cells' % (name, len(longer)), longer[:5])
+    #     and every statue's 1.2-wide box clears the Great Hall's scale-4 door leaves whichever way they swing (R45)
+    for d in a['doors']:
+        near = [(p, round(K.door_clearance(p, d['hinge']), 2)) for p in statues
+                if abs(p[1] - d['hinge'][1]) < 5 and K.door_clearance(p, d['hinge']) < K.DOOR_SWEEP]
+        assert not near, ('a statue in a hall door leaf\'s sweep', d['hinge'], near)
 
     # 45. nothing at or below the main floor changed (R42): every cell the pass wrote is above it, and the castle below
     #     it is the same after the pass as before (compared inside the pass, before the seal)

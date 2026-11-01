@@ -30,14 +30,17 @@ by its own task; the two stretches between rooms were not:
 THE GUARDIANS (the shared "statues" anchor list; dormant castle statues, Task 10's guardCastle)
 -------------------------------------------------------------------------------------------
     4 in the gallery bays, facing west across the corridor into the arcade's openings
-    2 flanking the Great Hall's portal on the entrance-hall side, between each door jamb and the polished-andesite
-      column beside it, facing south into the entrance hall (the leaves' hinges are the door anchors)
+    2 flanking the way from the Great Hall's portal into the entrance hall, a cell outside each door jamb's line and
+      five cells south of the hinges, facing south into the entrance hall: clear of the scale-4 door leaves whichever
+      way they swing (ruling R45; the leaves' hinges are the door anchors, and check 44 measures the clearance)
     2 at the gatehouse gate, inside the vestibule just behind the folded-back leaves, facing north at whoever arrives
       over the viaduct; the two wall torches that hung at their heads become one lantern hung in the arch slot over
       the runner between them (the old castle's torches: CHANGED_ON_PURPOSE)
 Each stands on a free floor cell with three cells of headroom, and none blocks a way: build_castle's check 44 walls
-every statue up as a three-tall column and re-walks the castle; nothing walked before is lost but the statues' own
-cells.
+every statue up as a three-tall column and re-walks the castle (nothing walked before is lost but the statues' own
+cells), and, because the castle's walk is so well connected that a long detour hides a blocked doorway (out of the
+gate, down the hill and back in through the Library), it also walks each guarded place on its own, inside a box round
+it (LOCAL_BOXES): with the statues standing, no cell in the box may be farther to walk to than without them.
 
 LIGHT IN EVERY WINDOW
 ---------------------
@@ -49,13 +52,14 @@ Lady's canvas), never in a floating-candle box (check 7 holds the staircase's vo
 R42: untouched), never below MAIN_FLOOR_Y.
 
 Also: "title_point", the castle's visual centre for the title-card distance check (the central tower's axis at half
-its height), and four student spots (two in the gallery, two in the entrance hall).
+its height; see title_point for why it sits inside the tower and stays there, R44), and four student spots (two in the gallery, two in the entrance hall).
 
 Nothing here is written below MAIN_FLOOR_Y or into the castle's rock (R42); _put enforces both and records every cell
 it writes, and place_corridors compares everything below MAIN_FLOOR_Y before and after (check 45).
 """
 
 import math
+from collections import deque
 
 from . import checks, hall, rooms_classrooms, rooms_staircase
 from .frame import MAIN_FLOOR_Y
@@ -101,6 +105,18 @@ WINDOW_LIGHT = 13
 EXCLUDED = (C.POTIONS_BOX,)             # windows left as they are (R42: Potions is not touched)
 
 YAW = {'south': 0, 'west': 90, 'north': 180, 'east': -90}
+
+# ---------------------------------------------------------------- the guardians' clearances (check 44)
+STATUE_HALF = 0.6                       # the living statue's box is 1.2 wide (ModEntities), centred on its cell
+DOOR_SWEEP = 4.5                        # a scale-4 hall door leaf (~4 long, ~0.8 thick) sweeps this far round its hinge
+PORTAL_STEP = 5                         # the portal pair stands this many cells south of the hinges (z 115)
+# the guarded places, each walked on its own: (name, start cell or None for main_entrance, inclusive box)
+LOCAL_BOXES = (
+    ('the gatehouse gate', None, (34, C.GROUND_FEET - 2, 180, 42, C.GROUND_FEET + 4, 191)),
+    ('the Great Hall portal', (46, FEET, 116), (44, MAIN_FLOOR_Y, 100, 79, FEET + 5, 123)),
+    ('the gallery', (41, FEET, 137), (GALLERY_X[0], MAIN_FLOOR_Y, GALLERY_Z[0] - 1, WALL_X + 1, FEET + 5,
+                                      GALLERY_Z[1] + 1)),
+)
 
 
 def room_boxes():
@@ -220,10 +236,11 @@ def guard_gate(grid):
 
 
 def portal_statues(grid):
-    """The pair flanking the Great Hall's portal on the entrance-hall side: one cell outside each door leaf's hinge
-    (the door anchors), two cells into the entrance hall (the portal wall is two thick)."""
+    """The pair flanking the way from the Great Hall's portal into the entrance hall: one cell outside each door leaf's
+    hinge line (the door anchors), PORTAL_STEP cells south of the hinges, so a statue's box clears the leaves' sweep
+    (DOOR_SWEEP round each hinge) whichever way they swing (R45)."""
     hinges = sorted(d['hinge'] for d in grid.anchors['doors'])
-    z = int(math.floor(hinges[0][2])) + 2
+    z = int(math.floor(hinges[0][2])) + PORTAL_STEP
     xs = (int(math.floor(hinges[0][0])) - 1, int(math.floor(hinges[-1][0])) + 1)
     return [(x, FEET, z) for x in xs]
 
@@ -355,11 +372,75 @@ def sealed_interior(cells):
     return interior
 
 
+# ---------------------------------------------------------------- proofs for check 44
+
+def door_clearance(statue, hinge):
+    """The horizontal distance from a door leaf's hinge point to a statue's 1.2-wide box (0 when inside it)."""
+    x, _, z = statue
+    hx, _, hz = hinge
+    dx = max(abs(hx - (x + 0.5)) - STATUE_HALF, 0.0)
+    dz = max(abs(hz - (z + 0.5)) - STATUE_HALF, 0.0)
+    return math.hypot(dx, dz)
+
+
+def walk_distances(cells, start, box):
+    """Shortest walking distance (in moves) from start to every feet cell reachable inside box, with the player's moves
+    of checks.reachable: level, a step up of one (never onto a fence or wall), a drop of up to three; no ladders, which
+    no guarded place has. Nothing outside the box is walked, so a detour round the castle cannot hide a blocked way."""
+    air = 'minecraft:air'
+
+    def free(x, y, z):
+        return checks.passable(cells.get((x, y, z), air))
+
+    dist = {start: 0}
+    queue = deque([start])
+    while queue:
+        x, y, z = queue.popleft()
+        for nx, nz in ((x + 1, z), (x - 1, z), (x, z + 1), (x, z - 1)):
+            dest = None
+            if free(nx, y, nz) and free(nx, y + 1, nz):
+                if checks.supports(cells.get((nx, y - 1, nz), air)):
+                    dest = (nx, y, nz)
+                else:
+                    for drop in (1, 2, 3):
+                        if not free(nx, y - drop, nz):
+                            break
+                        if checks.supports(cells.get((nx, y - drop - 1, nz), air)):
+                            dest = (nx, y - drop, nz)
+                            break
+            elif (free(x, y + 2, z) and free(nx, y + 1, nz) and free(nx, y + 2, nz)
+                  and checks.supports(cells.get((nx, y, nz), air)) and not checks.too_tall(cells.get((nx, y, nz), air))):
+                dest = (nx, y + 1, nz)
+            if dest is not None and dest not in dist and _in(dest, box):
+                dist[dest] = dist[(x, y, z)] + 1
+                queue.append(dest)
+    return dist
+
+
+def detours(cells, start, box, statues):
+    """Cells in box the statues (walled up as three-tall columns) make farther to walk to from start, or cut off:
+    [(cell, distance without them, distance with them or None)]. The statues' own cells are left out."""
+    before = walk_distances(cells, start, box)
+    walled = dict(cells)
+    for x, y, z in statues:
+        for dy in range(3):
+            walled[(x, y + dy, z)] = 'minecraft:stone'
+    after = walk_distances(walled, start, box)
+    own = set(statues)
+    return sorted((c, d, after.get(c)) for c, d in before.items()
+                  if c not in own and (c not in after or after[c] > d))
+
+
 # ---------------------------------------------------------------- the title point
 
 def title_point(cells):
     """The castle's visual centre for the title card: the central tower's axis at half its height above the main
-    floor (its top is the highest block on the four columns round its axis)."""
+    floor (its top is the highest block on the four columns round its axis).
+
+    The point is inside the tower (its well, ringed by masonry), not in open air, and it stays there (controller
+    ruling R44): the server's line-of-sight test for the title card already counts a ray that stops anywhere inside
+    the castle's box as seeing the castle, so a point buried in the tower is seen from every side. Do not "fix" it by
+    moving it out into the sky."""
     cx, cz = hall.OLD_TOWER[0], hall.OLD_TOWER[1] + hall.BASE_SHIFT[2]          # (61.5, 148.5)
     cols = {(int(cx - 0.5), int(cz - 0.5)), (int(cx + 0.5), int(cz - 0.5)), (int(cx - 0.5), int(cz + 0.5)),
             (int(cx + 0.5), int(cz + 0.5))}

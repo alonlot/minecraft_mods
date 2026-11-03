@@ -1246,34 +1246,24 @@ public class SpellBeamEntity extends ThrowableProjectile {
             if (this.isElderWandCast() != other.isElderWandCast()) {
                 SpellBeamEntity winner = this.isElderWandCast() ? this : other;
                 SpellBeamEntity loser = winner == this ? other : this;
-                if (this.level() instanceof net.minecraft.server.level.ServerLevel sl) {
-                    Vec3 clashPos = this.position().add(other.position()).scale(0.5);
-                    spawnBeamClashEffects(sl, clashPos, this.getSpellType(), other.getSpellType());
-                    sl.sendParticles(ParticleTypes.ENCHANTED_HIT, clashPos.x, clashPos.y, clashPos.z, 10, 0.2, 0.2, 0.2, 0.01);
-                }
+                Vec3 clashPos = this.position().add(other.position()).scale(0.5);
+                com.hogwartsmagic.spell.SpellBeamFx.clash(this, this.getSpellType(), other, other.getSpellType(), clashPos,
+                        winner == this ? com.hogwartsmagic.spell.SpellBeamFx.CLASH_A_WINS : com.hogwartsmagic.spell.SpellBeamFx.CLASH_B_WINS);
+                loser.impactSent = true;
                 loser.discard();
                 winner.setDeltaMovement(winner.getDeltaMovement().scale(1.04D));
                 return winner != this;
             }
-            if (this.level() instanceof net.minecraft.server.level.ServerLevel sl) {
-                Vec3 clashPos = this.position().add(other.position()).scale(0.5);
-                spawnBeamClashEffects(sl, clashPos, this.getSpellType(), other.getSpellType());
-                applyClashShockwave(clashPos);
-            }
+            Vec3 clashPos = this.position().add(other.position()).scale(0.5);
+            com.hogwartsmagic.spell.SpellBeamFx.clash(this, this.getSpellType(), other, other.getSpellType(), clashPos, com.hogwartsmagic.spell.SpellBeamFx.CLASH_MUTUAL);
+            applyClashShockwave(clashPos);
+            this.impactSent = true;
+            other.impactSent = true;
             this.discard();
             other.discard();
             return true;
         }
         return false;
-    }
-
-    private void spawnBeamClashEffects(net.minecraft.server.level.ServerLevel sl, Vec3 pos, SpellType a, SpellType b) {
-        sl.sendParticles(ParticleTypes.FLASH, pos.x, pos.y, pos.z, 2, 0.2, 0.2, 0.2, 0.0);
-        sl.sendParticles(a.getDustParticle(), pos.x, pos.y, pos.z, 25, 0.35, 0.35, 0.35, 0.01);
-        sl.sendParticles(b.getDustParticle(), pos.x, pos.y, pos.z, 25, 0.35, 0.35, 0.35, 0.01);
-        sl.sendParticles(ParticleTypes.END_ROD, pos.x, pos.y, pos.z, 18, 0.45, 0.45, 0.45, 0.03);
-        this.level().playSound(null, pos.x, pos.y, pos.z, ModSounds.SPELL_FIZZLE.get(), SoundSource.NEUTRAL, 1.2f, 0.8f);
-        this.level().playSound(null, pos.x, pos.y, pos.z, net.minecraft.sounds.SoundEvents.BEACON_POWER_SELECT, SoundSource.NEUTRAL, 0.5f, 1.7f);
     }
 
     private void applyClashShockwave(Vec3 pos) {

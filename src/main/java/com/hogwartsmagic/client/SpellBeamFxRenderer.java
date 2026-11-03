@@ -32,6 +32,12 @@ import static com.hogwartsmagic.client.SpellFxGeometry.*;
  * round the beam's line or flat on the air, arcs, a pillar of light, a burst of mist or of black, and debris flung
  * out under its own gravity.
  *
+ * <p>Two beams meeting lock together: both spells' light knotted in a churning ball, crackling arcs of each colour
+ * and a spray of sparks thrown out across the line they push along, until it is sucked into a point and blows: a
+ * white flash and a sphere of light, a shockwave in each spell's colour and a flat one across the air, shards of
+ * both, a burst of black if either is dark, and a small scar of the two lights spinning where they met. When one
+ * beam wins (the Elder Wand), the loser shatters back along the winner's line and the winner punches through.
+ *
  * <p>Two passes, the dark first (straight alpha, so it really darkens) and the light on top (additive).
  * Camera-relative in double precision, identity matrix (this stage is after the camera push), true partial tick.
  */
@@ -82,6 +88,9 @@ public final class SpellBeamFxRenderer {
         for (SpellBeamClientState.Impact impact : SpellBeamClientState.impacts()) {
             drawImpactDark(dark, m, impact, now, camera);
         }
+        for (SpellBeamClientState.Clash clash : SpellBeamClientState.clashes()) {
+            drawClashDark(dark, m, clash, now, camera);
+        }
         buffer.endBatch(ModRenderTypes.AVADA_SHADOW);
 
         VertexConsumer light = buffer.getBuffer(ModRenderTypes.AVADA_LIGHT);
@@ -100,6 +109,9 @@ public final class SpellBeamFxRenderer {
         }
         for (SpellBeamClientState.Impact impact : SpellBeamClientState.impacts()) {
             drawImpactLight(light, m, impact, now, camera);
+        }
+        for (SpellBeamClientState.Clash clash : SpellBeamClientState.clashes()) {
+            drawClashLight(light, m, clash, now, camera);
         }
         buffer.endBatch(ModRenderTypes.AVADA_LIGHT);
     }
@@ -611,5 +623,242 @@ public final class SpellBeamFxRenderer {
             ribbon(out, m, path, width, alpha, 4.0f, 0.3f, s.glowR, s.glowG, s.glowB);
             ribbon(out, m, path, width, alpha, 1.0f, 1.0f, s.coreR, s.coreG, s.coreB);
         }
+    }
+
+    // ---- two beams meeting -------------------------------------------------------------------------------------
+
+    private static final int CLASH_ARCS = 8;
+    private static final int CLASH_SPARKS = 36;
+    private static final int CLASH_SHARDS = 28;
+    private static final float WHITE_R = 0.95f;
+    private static final float WHITE_G = 0.97f;
+    private static final float WHITE_B = 1.0f;
+
+    private static void drawClashDark(VertexConsumer out, Matrix4f m, SpellBeamClientState.Clash c, double now,
+                                      Vec3 camera) {
+        if (!c.dark()) {
+            return;
+        }
+        float age = (float) (now - c.start);
+        if (age < 0.0f) {
+            return;
+        }
+        Vec3 pos = c.pos.subtract(camera);
+        float lock = c.lock();
+        if (age < lock + 2.0f) {
+            // A hole of dark behind the knot for the light to burn against.
+            float grow = smoothstep(0.0f, lock, age);
+            billboard(out, m, pos, 1.1f * grow + 0.3f, 0.45f, SMOKE_R, SMOKE_G, SMOKE_B, false);
+        }
+        float d = age - lock;
+        if (d < 0.0f) {
+            return;
+        }
+        float f = d / (SpellBeamClientState.CLASH_TICKS - lock);
+        float fade = (float) Math.pow(1.0f - f, 1.5);
+        float size = c.mutual() ? 1.0f : 0.6f;
+        billboard(out, m, pos, (0.5f + 3.2f * smoothstep(0.0f, 12.0f, d)) * size, 0.6f * fade,
+                SMOKE_R, SMOKE_G, SMOKE_B, false);
+        for (int k = 0; k < 10; k++) {
+            Vec3 dir = randomDirection(c.seed + k * 7);
+            float left = 1.0f - Math.min(1.0f, d / 14.0f);
+            float thrown = 1.0f - left * left * left;
+            Vec3 centre = pos.add(dir.scale(3.0 * size * thrown)).add(0.0, 0.03 * d, 0.0);
+            billboard(out, m, centre, (0.4f + 0.06f * d) * size, 0.4f * fade, SMOKE_R, SMOKE_G, SMOKE_B, false, 4, 12);
+        }
+    }
+
+    private static void drawClashLight(VertexConsumer out, Matrix4f m, SpellBeamClientState.Clash c, double now,
+                                       Vec3 camera) {
+        float age = (float) (now - c.start);
+        if (age < 0.0f) {
+            return;
+        }
+        Vec3 pos = c.pos.subtract(camera);
+        BeamStyle a = c.styleA;
+        BeamStyle b = c.styleB;
+        float lock = c.lock();
+        Vec3[] across = frame(c.axis);
+
+        if (age < lock + 2.0f) {
+            drawClashLock(out, m, c, pos, age, lock, across);
+        }
+        float d = age - lock;
+        if (d < 0.0f) {
+            return;
+        }
+        float f = d / (SpellBeamClientState.CLASH_TICKS - lock);
+        if (!c.mutual()) {
+            drawClashShatter(out, m, c, pos, d, f);
+            return;
+        }
+
+        // The blast: a white flash, each spell's glow, and a sphere of light thrown out.
+        float flash = 1.0f - smoothstep(0.0f, 8.0f, d);
+        billboard(out, m, pos, 0.8f + 4.0f * smoothstep(0.0f, 3.0f, d), flash, WHITE_R, WHITE_G, WHITE_B, true);
+        float glow = 0.45f * (1.0f - f) * (1.0f - f);
+        billboard(out, m, pos.add(c.dirA.scale(-0.3)), 2.6f, glow, a.glowR, a.glowG, a.glowB, false);
+        billboard(out, m, pos.add(c.dirB.scale(-0.3)), 2.6f, glow, b.glowR, b.glowG, b.glowB, false);
+        float shell = Math.min(1.0f, d / 8.0f);
+        if (shell < 1.0f) {
+            Vec3 toCamera = pos.lengthSqr() < 1.0E-6 ? c.axis : pos.scale(-1.0).normalize();
+            Vec3[] facing = frame(toCamera);
+            float radius = 5.0f * (1.0f - (1.0f - shell) * (1.0f - shell));
+            ring(out, m, pos, facing[0], facing[1], radius, 0.3f, 0.5f * (float) Math.pow(1.0f - shell, 1.5),
+                    WHITE_R, WHITE_G, WHITE_B, 56);
+        }
+
+        // Shockwaves: one in each spell's colour across the line they pushed along, one flat on the air.
+        shockwave(out, m, pos, across[0], across[1], d, 6.5f, a.glowR, a.glowG, a.glowB, a.coreR, a.coreG, a.coreB);
+        shockwave(out, m, pos, across[0], across[1], d - 2.0f, 5.5f, b.glowR, b.glowG, b.glowB, b.coreR, b.coreG,
+                b.coreB);
+        shockwave(out, m, pos, new Vec3(1.0, 0.0, 0.0), new Vec3(0.0, 0.0, 1.0), d - 1.0f, 7.5f, WHITE_R * 0.8f,
+                WHITE_G * 0.8f, WHITE_B * 0.8f, WHITE_R, WHITE_G, WHITE_B);
+
+        // Shards of both, flung out and falling.
+        for (int k = 0; k < CLASH_SHARDS; k++) {
+            int seed = c.seed + k * 41;
+            BeamStyle st = (k & 1) == 0 ? a : b;
+            Vec3 v = randomDirection(seed).scale(0.3 + 0.25 * hash(seed, 1, 1));
+            shard(out, m, pos, v, 0.02f, d, Mth.clamp(1.0f - d / 22.0f, 0.0f, 1.0f), st.coreR, st.coreG, st.coreB);
+        }
+
+        // Mist of both colours rolling out.
+        for (int k = 0; k < 10; k++) {
+            BeamStyle st = (k & 1) == 0 ? a : b;
+            Vec3 dir = randomDirection(c.seed + k * 13);
+            Vec3 centre = pos.add(dir.scale(2.2 * (1.0f - (1.0f - f) * (1.0f - f))));
+            billboard(out, m, centre, 0.6f + 1.0f * f, 0.2f * (float) Math.pow(1.0f - f, 1.5),
+                    st.glowR, st.glowG, st.glowB, false, 3, 12);
+        }
+
+        // The scar: the two lights spinning where they met, shedding a few falling motes as it dies.
+        float scar = smoothstep(4.0f, 8.0f, d) * (1.0f - f);
+        if (scar > 0.003f) {
+            Vec3 spinA = rotate(across[0], c.axis, d * 0.35);
+            Vec3 spinB = rotate(across[1], spinA, d * 0.28);
+            Vec3 tiltA = spinA.cross(c.axis).normalize();
+            Vec3 tiltB = spinB.cross(spinA).normalize();
+            ring(out, m, pos, spinA, c.axis, 0.38f, 0.05f, 0.75f * scar, a.coreR, a.coreG, a.coreB, 28);
+            ring(out, m, pos, tiltA, spinB, 0.3f, 0.05f, 0.75f * scar, b.coreR, b.coreG, b.coreB, 28);
+            ring(out, m, pos, tiltB, spinA, 0.46f, 0.12f, 0.25f * scar, WHITE_R, WHITE_G, WHITE_B, 28);
+            for (int k = 0; k < 10; k++) {
+                int seed = c.seed + k * 97;
+                float life = d - 4.0f - k * 1.6f;
+                if (life < 0.0f || life > 14.0f) {
+                    continue;
+                }
+                BeamStyle st = (k & 1) == 0 ? a : b;
+                Vec3 mote = pos.add(randomDirection(seed).scale(0.3)).add(0.0, -0.025 * life, 0.0);
+                float twinkle = 0.5f + 0.5f * Mth.sin(life * 1.1f + k);
+                billboard(out, m, mote, 0.05f, 0.9f * (1.0f - life / 14.0f) * twinkle, st.coreR, st.coreG, st.coreB,
+                        true, 2, 8);
+            }
+        }
+    }
+
+    /**
+     * The lock: both lights knotted and straining, each pushing into the other from its own side, swelling, with
+     * crackling arcs of each colour and sparks ground off across the line they push along, then sucked into a
+     * point with one last pop.
+     */
+    private static void drawClashLock(VertexConsumer out, Matrix4f m, SpellBeamClientState.Clash c, Vec3 pos,
+                                      float age, float lock, Vec3[] across) {
+        BeamStyle a = c.styleA;
+        BeamStyle b = c.styleB;
+        float grow = smoothstep(0.0f, lock, age);
+        float collapse = age < lock ? 1.0f : 1.0f - smoothstep(lock, lock + 2.0f, age);
+        float strain = 1.0f + 0.25f * Mth.sin(age * 2.3f);
+        float halo = (0.45f + 0.55f * grow) * collapse;
+        billboard(out, m, pos.add(c.dirA.scale(-0.16 * strain)), halo, 0.6f, a.glowR, a.glowG, a.glowB, false);
+        billboard(out, m, pos.add(c.dirB.scale(-0.16 / strain)), halo, 0.6f, b.glowR, b.glowG, b.glowB, false);
+        billboard(out, m, pos, (0.15f + 0.4f * grow) * collapse * strain, 0.95f, WHITE_R, WHITE_G, WHITE_B, true);
+
+        // Arcs of each colour, re-struck every tick.
+        int strike = (int) Math.floor(age);
+        Vec3[] path = new Vec3[ARC_SEGMENTS + 1];
+        float[] alpha = new float[ARC_SEGMENTS + 1];
+        float[] width = new float[ARC_SEGMENTS + 1];
+        for (int k = 0; k < CLASH_ARCS; k++) {
+            int seed = c.seed + k * 389 + strike * 6151;
+            BeamStyle st = (k & 1) == 0 ? a : b;
+            Vec3 span = randomDirection(seed + 3).scale((0.5 + 1.1 * grow * hash(seed, 2, 2)) * collapse + 0.05);
+            Vec3[] axes = frame(span.normalize());
+            double length = span.length();
+            for (int i = 0; i <= ARC_SEGMENTS; i++) {
+                float t = i / (float) ARC_SEGMENTS;
+                double jag = (i == 0 || i == ARC_SEGMENTS) ? 0.0 : length * 0.25 * Math.sin(Math.PI * t);
+                path[i] = pos.add(span.scale(t))
+                        .add(axes[0].scale(jag * (hash(seed, i, 7) * 2.0 - 1.0)))
+                        .add(axes[1].scale(jag * (hash(seed, i, 8) * 2.0 - 1.0)));
+                alpha[i] = collapse * (1.0f - 0.6f * t);
+                width[i] = 0.016f - 0.008f * t;
+            }
+            ribbon(out, m, path, width, alpha, 4.0f, 0.3f, st.glowR, st.glowG, st.glowB);
+            ribbon(out, m, path, width, alpha, 1.0f, 1.0f, st.coreR, st.coreG, st.coreB);
+        }
+
+        // Sparks ground off the meeting, thrown out across the line the beams push along.
+        for (int k = 0; k < CLASH_SPARKS; k++) {
+            int seed = c.seed + k * 53;
+            float born = k / (float) CLASH_SPARKS * lock;
+            float t = age - born;
+            if (t < 0.0f || t > 10.0f) {
+                continue;
+            }
+            BeamStyle st = (k & 1) == 0 ? a : b;
+            double angle = hash(seed, 1, 0) * Math.PI * 2.0;
+            Vec3 v = across[0].scale(Math.cos(angle)).add(across[1].scale(Math.sin(angle)))
+                    .scale(0.22 + 0.2 * hash(seed, 2, 0)).add(c.axis.scale((hash(seed, 3, 0) - 0.5) * 0.06));
+            shard(out, m, pos, v, 0.015f, t, 1.0f - t / 10.0f, st.coreR, st.coreG, st.coreB);
+        }
+
+        // The pop as it is sucked into a point.
+        float pop = Math.max(0.0f, 1.0f - Math.abs(age - lock - 0.5f) / 1.2f);
+        billboard(out, m, pos, 1.0f, pop, WHITE_R, WHITE_G, WHITE_B, true);
+    }
+
+    /** One beam broke the other: the loser shatters back along the winner's line, the winner punches through. */
+    private static void drawClashShatter(VertexConsumer out, Matrix4f m, SpellBeamClientState.Clash c, Vec3 pos,
+                                         float d, float f) {
+        BeamStyle win = c.winner();
+        BeamStyle lose = c.loser();
+        Vec3 through = c.winnerDir();
+        float flash = 1.0f - smoothstep(0.0f, 6.0f, d);
+        billboard(out, m, pos, 0.6f + 2.2f * smoothstep(0.0f, 3.0f, d), flash, win.coreR, win.coreG, win.coreB, true);
+        billboard(out, m, pos, 1.8f, 0.5f * (1.0f - f) * (1.0f - f), lose.glowR, lose.glowG, lose.glowB, false);
+        Vec3[] across = frame(through);
+        shockwave(out, m, pos, across[0], across[1], d, 3.5f, win.glowR, win.glowG, win.glowB, win.coreR, win.coreG,
+                win.coreB);
+        for (int k = 0; k < CLASH_SHARDS; k++) {
+            int seed = c.seed + k * 41;
+            Vec3 v = through.scale(0.3 + 0.25 * hash(seed, 1, 1)).add(randomDirection(seed).scale(0.15));
+            float r = (k & 1) == 0 ? lose.coreR : lose.glowR;
+            float g = (k & 1) == 0 ? lose.coreG : lose.glowG;
+            float b = (k & 1) == 0 ? lose.coreB : lose.glowB;
+            shard(out, m, pos, v, 0.015f, d, Mth.clamp(1.0f - d / 18.0f, 0.0f, 1.0f), r, g, b);
+        }
+    }
+
+    /** A ring of light thrown out across {@code right}/{@code up}, {@code d} ticks into its run (none before 0). */
+    private static void shockwave(VertexConsumer out, Matrix4f m, Vec3 pos, Vec3 right, Vec3 up, float d, float reach,
+                                  float gr, float gg, float gb, float cr, float cg, float cb) {
+        float run = d / 11.0f;
+        if (run < 0.0f || run >= 1.0f) {
+            return;
+        }
+        float radius = reach * (1.0f - (1.0f - run) * (1.0f - run));
+        float alpha = 0.8f * (float) Math.pow(1.0f - run, 1.5);
+        ring(out, m, pos, right, up, radius, 0.45f, alpha * 0.35f, gr, gg, gb, 56);
+        ring(out, m, pos, right, up, radius, 0.11f, alpha, cr, cg, cb, 56);
+    }
+
+    /** A streak flung from {@code pos} at {@code v} a tick, falling, seen {@code t} ticks in. */
+    private static void shard(VertexConsumer out, Matrix4f m, Vec3 pos, Vec3 v, float gravity, float t, float alpha,
+                              float r, float g, float b) {
+        Vec3 p1 = pos.add(v.scale(t)).add(0.0, -0.5 * gravity * t * t, 0.0);
+        float before = Math.max(0.0f, t - 1.4f);
+        Vec3 p0 = pos.add(v.scale(before)).add(0.0, -0.5 * gravity * before * before, 0.0);
+        streak(out, m, p0, p1, 0.022f, alpha, r, g, b);
     }
 }

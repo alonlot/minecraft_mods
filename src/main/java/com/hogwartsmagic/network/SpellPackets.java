@@ -403,6 +403,28 @@ public class SpellPackets {
                         buf.readDouble(), buf.readFloat(), buf.readFloat(), buf.readFloat(), buf.readByte()))
                 .consumerMainThread(BeamImpactPacket::handle)
                 .add();
+        CHANNEL.messageBuilder(BeamClashPacket.class)
+                .encoder((p, buf) -> {
+                    buf.writeInt(p.beamA);
+                    buf.writeUtf(p.spellA, 64);
+                    buf.writeInt(p.beamB);
+                    buf.writeUtf(p.spellB, 64);
+                    buf.writeDouble(p.x);
+                    buf.writeDouble(p.y);
+                    buf.writeDouble(p.z);
+                    buf.writeFloat(p.ax);
+                    buf.writeFloat(p.ay);
+                    buf.writeFloat(p.az);
+                    buf.writeFloat(p.bx);
+                    buf.writeFloat(p.by);
+                    buf.writeFloat(p.bz);
+                    buf.writeByte(p.outcome);
+                })
+                .decoder(buf -> new BeamClashPacket(buf.readInt(), buf.readUtf(64), buf.readInt(), buf.readUtf(64),
+                        buf.readDouble(), buf.readDouble(), buf.readDouble(), buf.readFloat(), buf.readFloat(),
+                        buf.readFloat(), buf.readFloat(), buf.readFloat(), buf.readFloat(), buf.readByte()))
+                .consumerMainThread(BeamClashPacket::handle)
+                .add();
         CHANNEL.messageBuilder(IncarcerousRopesPacket.class)
                 .encoder((p, buf) -> {
                     buf.writeInt(p.entityId);
@@ -1722,6 +1744,17 @@ public class SpellPackets {
                                    float dz, byte kind) {
         public static void handle(BeamImpactPacket p, CustomPayloadEvent.Context ctx) {
             enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("beamImpact", p));
+        }
+    }
+
+    /**
+     * Server → client: beams {@code beamA} and {@code beamB} met at (x, y, z), travelling along (ax, ay, az) and
+     * (bx, by, bz), with {@code SpellBeamFx}'s clash outcome (both destroyed, or one shattered the other).
+     */
+    public record BeamClashPacket(int beamA, String spellA, int beamB, String spellB, double x, double y, double z,
+                                  float ax, float ay, float az, float bx, float by, float bz, byte outcome) {
+        public static void handle(BeamClashPacket p, CustomPayloadEvent.Context ctx) {
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("beamClash", p));
         }
     }
 

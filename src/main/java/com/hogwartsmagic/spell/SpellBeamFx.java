@@ -26,6 +26,13 @@ public final class SpellBeamFx {
     /** Flew its full range and died out in mid-air. */
     public static final byte FADE = 3;
 
+    /** Two beams met and destroyed each other. */
+    public static final byte CLASH_MUTUAL = 0;
+    /** The first beam (an Elder Wand's) shattered the second and flew on. */
+    public static final byte CLASH_A_WINS = 1;
+    /** The second beam shattered the first and flew on. */
+    public static final byte CLASH_B_WINS = 2;
+
     private SpellBeamFx() {
     }
 
@@ -44,6 +51,28 @@ public final class SpellBeamFx {
             beam.level().playSound(null, at.x, at.y, at.z, ModSounds.AVADA_IMPACT.get(), SoundSource.PLAYERS,
                     volume, pitch);
         }
+    }
+
+    /**
+     * Two beams met at {@code at}. Sent before either is discarded, so it lands on the clients before they vanish
+     * and the drawn beams end in the clash rather than striking on their own.
+     */
+    public static void clash(Entity a, SpellType spellA, Entity b, SpellType spellB, Vec3 at, byte outcome) {
+        if (a.level().isClientSide()) {
+            return;
+        }
+        Vec3 dirA = unit(a.getDeltaMovement());
+        Vec3 dirB = unit(b.getDeltaMovement());
+        SpellPackets.CHANNEL.send(new SpellPackets.BeamClashPacket(a.getId(), spellA.getId(), b.getId(), spellB.getId(),
+                        at.x, at.y, at.z, (float) dirA.x, (float) dirA.y, (float) dirA.z,
+                        (float) dirB.x, (float) dirB.y, (float) dirB.z, outcome),
+                PacketDistributor.TRACKING_ENTITY.with(a));
+        float pitch = (outcome == CLASH_MUTUAL ? 0.95f : 1.15f) + a.level().getRandom().nextFloat() * 0.1f;
+        a.level().playSound(null, at.x, at.y, at.z, ModSounds.SPELL_CLASH.get(), SoundSource.PLAYERS, 1.6f, pitch);
+    }
+
+    private static Vec3 unit(Vec3 v) {
+        return v.lengthSqr() < 1.0E-8 ? new Vec3(0.0, 0.0, 1.0) : v.normalize();
     }
 
     /**

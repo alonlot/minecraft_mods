@@ -41,6 +41,13 @@ public final class SpellBeamClientState {
 
     private static final Map<Integer, Beam> BEAMS = new HashMap<>();
     private static final List<Impact> IMPACTS = new ArrayList<>();
+    private static final List<Clash> CLASHES = new ArrayList<>();
+    /** How long a clash plays: the lock, the collapse, the blast and the scar it leaves. */
+    public static final float CLASH_TICKS = 44.0f;
+    /** When a mutual clash detonates; a one-sided one shatters sooner. */
+    public static final float CLASH_LOCK = 8.0f;
+    public static final float CLASH_LOCK_WIN = 4.0f;
+    private static final double SHAKE_RANGE = 16.0;
 
     private SpellBeamClientState() {
     }
@@ -137,6 +144,64 @@ public final class SpellBeamClientState {
         }
     }
 
+    /**
+     * Two beams meeting. {@code axis} is the line they push along (A's way); the blast's rings lie across it. A
+     * one-sided clash keeps which beam won: the loser shatters back along the winner's line.
+     */
+    public static final class Clash {
+        final Vec3 pos;
+        final Vec3 dirA;
+        final Vec3 dirB;
+        final Vec3 axis;
+        final BeamStyle styleA;
+        final BeamStyle styleB;
+        final byte outcome;
+        final double start;
+        final int seed;
+
+        Clash(Vec3 pos, Vec3 dirA, Vec3 dirB, BeamStyle styleA, BeamStyle styleB, byte outcome, double start) {
+            this.pos = pos;
+            this.dirA = dirA;
+            this.dirB = dirB;
+            Vec3 push = dirA.subtract(dirB);
+            this.axis = push.lengthSqr() < 1.0E-6 ? dirA : push.normalize();
+            this.styleA = styleA;
+            this.styleB = styleB;
+            this.outcome = outcome;
+            this.start = start;
+            this.seed = (int) (Double.doubleToLongBits(pos.y * 17.0 + pos.x) ^ (long) start * 0x7FEB352DL);
+        }
+
+        boolean mutual() {
+            return outcome == SpellBeamFx.CLASH_MUTUAL;
+        }
+
+        /** The tick the lock gives way. */
+        float lock() {
+            return mutual() ? CLASH_LOCK : CLASH_LOCK_WIN;
+        }
+
+        BeamStyle winner() {
+            return outcome == SpellBeamFx.CLASH_B_WINS ? styleB : styleA;
+        }
+
+        BeamStyle loser() {
+            return outcome == SpellBeamFx.CLASH_B_WINS ? styleA : styleB;
+        }
+
+        Vec3 winnerDir() {
+            return outcome == SpellBeamFx.CLASH_B_WINS ? dirB : dirA;
+        }
+
+        boolean dark() {
+            return styleA.sheathDark && styleA.sheathWidth > 0.0f || styleB.sheathDark && styleB.sheathWidth > 0.0f;
+        }
+    }
+
+    public static Iterable<Clash> clashes() {
+        return CLASHES;
+    }
+
     public static Iterable<Beam> beams() {
         return BEAMS.values();
     }
@@ -146,7 +211,7 @@ public final class SpellBeamClientState {
     }
 
     public static boolean isEmpty() {
-        return BEAMS.isEmpty() && IMPACTS.isEmpty();
+        return BEAMS.isEmpty() && IMPACTS.isEmpty() && CLASHES.isEmpty();
     }
 
     public static void acceptImpact(SpellPackets.BeamImpactPacket packet) {
@@ -168,6 +233,51 @@ public final class SpellBeamClientState {
             beam.goneAt = now;
         }
         IMPACTS.add(new Impact(pos, dir, style, packet.kind(), now));
+    }
+
+    public static void acceptClash(SpellPackets.BeamClashPacket packet) {
+        Minecraft minecraft = Minecraft.getInstance();
+        SpellType spellA = SpellType.fromId(packet.spellA());
+        SpellType spellB = SpellType.fromId(packet.spellB());
+        BeamStyle styleA = spellA == null ? null : BeamStyles.of(spellA);
+        BeamStyle styleB = spellB == null ? null : BeamStyles.of(spellB);
+        if (minecraft.level == null) {
+            return;
+        }
+        // A spell with no drawn beam (Aqua Eructo) still clashes; it lends the other's style.
+        if (styleA == null) {
+            styleA = styleB;
+        }
+        if (styleB == null) {
+            styleB = styleA;
+        }
+        if (styleA == null) {
+            return;
+        }
+        double now = minecraft.level.getGameTime();
+        Vec3 pos = new Vec3(packet.x(), packet.y(), packet.z());
+        byte outcome = packet.outcome();
+        // Whichever beams the clash ends stop at it, on their own line; a winner flies on.
+        if (outcome != SpellBeamFx.CLASH_A_WINS) {
+            endAt(packet.beamA(), pos, now);
+        }
+        if (outcome != SpellBeamFx.CLASH_B_WINS) {
+            endAt(packet.beamB(), pos, now);
+        }
+        CLASHES.add(new Clash(pos, new Vec3(packet.ax(), packet.ay(), packet.az()),
+                new Vec3(packet.bx(), packet.by(), packet.bz()), styleA, styleB, outcome, now));
+    }
+
+    private static void endAt(int beamId, Vec3 pos, double now) {
+        Beam beam = BEAMS.get(beamId);
+        if (beam == null || beam.gone()) {
+            return;
+        }
+        Vec3 end = onLine(beam, pos);
+        beam.push(end, now);
+        beam.headPrev = end;
+        beam.struck = true;
+        beam.goneAt = now;
     }
 
     /**
@@ -233,6 +343,7 @@ public final class SpellBeamClientState {
         }
         BEAMS.values().removeIf(beam -> beam.gone() && now - beam.goneAt > beam.linger());
         IMPACTS.removeIf(impact -> now - impact.start > IMPACT_TICKS);
+        CLASHES.removeIf(clash -> now - clash.start > CLASH_TICKS);
     }
 
     /** Where the beam starts: the caster's wand tip if we know the caster, else where the beam was first seen. */
@@ -283,12 +394,64 @@ public final class SpellBeamClientState {
                 flash[3] = impact.style.glowB;
             }
         }
+        for (Clash clash : CLASHES) {
+            float age = (float) (now - clash.start) - clash.lock();
+            double distance = clash.pos.distanceTo(camera);
+            if (age < 0.0f || age > 8.0f || distance > 24.0) {
+                continue;
+            }
+            float fade = 1.0f - age / 8.0f;
+            float strength = fade * fade * (float) (1.0 - distance / 24.0) * (clash.mutual() ? 0.9f : 0.6f);
+            if (strength > flash[0]) {
+                // Both spells' light, washed toward white.
+                flash[0] = strength;
+                flash[1] = 0.5f + 0.25f * (clash.styleA.glowR + clash.styleB.glowR);
+                flash[2] = 0.5f + 0.25f * (clash.styleA.glowG + clash.styleB.glowG);
+                flash[3] = 0.5f + 0.25f * (clash.styleA.glowB + clash.styleB.glowB);
+            }
+        }
         return flash;
+    }
+
+    /**
+     * A clash close by shakes the view: a rumble while the beams strain against each other, a jolt when it blows.
+     * Low priority, so it adds to whatever a cinematic camera (the Pensieve's) has already set.
+     */
+    @SubscribeEvent(priority = net.minecraftforge.eventbus.api.EventPriority.LOW)
+    public static void onCameraAngles(net.minecraftforge.client.event.ViewportEvent.ComputeCameraAngles event) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (CLASHES.isEmpty() || minecraft.level == null) {
+            return;
+        }
+        double now = minecraft.level.getGameTime() + event.getPartialTick();
+        Vec3 camera = event.getCamera().getPosition();
+        float shake = 0.0f;
+        for (Clash clash : CLASHES) {
+            double distance = clash.pos.distanceTo(camera);
+            if (distance > SHAKE_RANGE) {
+                continue;
+            }
+            float age = (float) (now - clash.start);
+            float near = (float) (1.0 - distance / SHAKE_RANGE);
+            float rumble = age < clash.lock() ? 0.35f * Math.min(1.0f, age / 3.0f) : 0.0f;
+            float since = age - clash.lock();
+            float jolt = since >= 0.0f && since < 14.0f ? (clash.mutual() ? 2.2f : 1.2f) * (1.0f - since / 14.0f)
+                    * (1.0f - since / 14.0f) : 0.0f;
+            shake = Math.max(shake, (rumble + jolt) * near);
+        }
+        if (shake <= 0.001f) {
+            return;
+        }
+        float t = (float) now;
+        event.setPitch(event.getPitch() + shake * (Mth.sin(t * 2.9f) + 0.5f * Mth.sin(t * 7.1f)) * 0.6f);
+        event.setYaw(event.getYaw() + shake * (Mth.sin(t * 3.7f + 1.3f) + 0.5f * Mth.sin(t * 6.3f)) * 0.6f);
+        event.setRoll(event.getRoll() + shake * Mth.sin(t * 4.3f + 2.1f) * 0.4f);
     }
 
     @SubscribeEvent
     public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         BEAMS.clear();
         IMPACTS.clear();
+        CLASHES.clear();
     }
 }

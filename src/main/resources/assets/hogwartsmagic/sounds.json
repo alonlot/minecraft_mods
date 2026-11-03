@@ -4181,5 +4181,14 @@
         "stream": false
       }
     ]
+  },
+  "spell.clash": {
+    "subtitle": "subtitles.hogwartsmagic.spell.clash",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:spells/clash",
+        "stream": false
+      }
+    ]
   }
 }

@@ -4199,5 +4199,32 @@
         "stream": false
       }
     ]
+  },
+  "dementor.dread": {
+    "subtitle": "subtitles.hogwartsmagic.dementor.dread",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:spells/dementor_dread",
+        "stream": false
+      }
+    ]
+  },
+  "spell.apparate_squeeze": {
+    "subtitle": "subtitles.hogwartsmagic.spell.apparate_squeeze",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:spells/apparate_squeeze",
+        "stream": false
+      }
+    ]
+  },
+  "spell.apparate_crack": {
+    "subtitle": "subtitles.hogwartsmagic.spell.apparate_crack",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:spells/apparate_crack",
+        "stream": false
+      }
+    ]
   }
 }

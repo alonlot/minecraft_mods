@@ -6,7 +6,7 @@ package com.hogwartsmagic.client;
  *
  * <p>Distances are in blocks, times in ticks, speeds in blocks a tick, alphas 0 to 1.
  */
-public final class BeamStyle {
+public final class BeamStyle implements Cloneable {
     /** Nothing left behind. */
     public static final int WAKE_NONE = 0;
     /** Near-black smoke that rises and spreads (drawn darkening, not glowing). */
@@ -283,6 +283,17 @@ public final class BeamStyle {
     BeamStyle screenFlash(float strength) {
         this.screenFlash = strength;
         return this;
+    }
+
+    /** This style drawn as a full jet: a beam held between two wands shows all of itself. */
+    BeamStyle asJet() {
+        try {
+            BeamStyle copy = (BeamStyle) super.clone();
+            copy.tail = JET;
+            return copy;
+        } catch (CloneNotSupportedException e) {
+            throw new AssertionError(e);
+        }
     }
 
     /** True when the beam runs all the way back to the wand. */

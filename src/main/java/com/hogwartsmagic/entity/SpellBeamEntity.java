@@ -831,6 +831,8 @@ public class SpellBeamEntity extends ThrowableProjectile {
                                 boolean crucioResisted = spell == SpellType.CRUCIO
                                         && com.hogwartsmagic.spell.mind.MindControl.isControlled(living);
                                 spell.applyHitEffect(living, getOwner(), this.getDeltaMovement(), !this.reflected);
+                                com.hogwartsmagic.spell.SpellBeamFx.react(living, spell, this.getDeltaMovement(),
+                                        com.hogwartsmagic.spell.SpellBeamFx.REACT_HIT);
                                 if (crucioResisted) {
                                     masteryTarget = null; // a controlled target resists Crucio: no XP
                                 }
@@ -1253,6 +1255,15 @@ public class SpellBeamEntity extends ThrowableProjectile {
                 loser.discard();
                 winner.setDeltaMovement(winner.getDeltaMovement().scale(1.04D));
                 return winner != this;
+            }
+            // Two duellists casting at each other at the same moment: the beams lock (Priori Incantatem).
+            if (com.hogwartsmagic.spell.PrioriIncantatem.tryLock(this, this.getSpellType(), other, other.getSpellType(),
+                    this.tickCount, other.tickCount, ownerA, ownerB)) {
+                this.impactSent = true;
+                other.impactSent = true;
+                this.discard();
+                other.discard();
+                return true;
             }
             Vec3 clashPos = this.position().add(other.position()).scale(0.5);
             com.hogwartsmagic.spell.SpellBeamFx.clash(this, this.getSpellType(), other, other.getSpellType(), clashPos, com.hogwartsmagic.spell.SpellBeamFx.CLASH_MUTUAL);

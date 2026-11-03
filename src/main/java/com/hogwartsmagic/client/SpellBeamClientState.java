@@ -198,6 +198,29 @@ public final class SpellBeamClientState {
         }
     }
 
+    /**
+     * A beam held between two points (a Priori Incantatem lock's), built fresh each frame for the renderer. Its age
+     * counts from {@code start}, so it writhes and crackles on as the lock goes on.
+     */
+    static Beam held(int id, BeamStyle style, Vec3 from, Vec3 to, double start, double now) {
+        Vec3 span = to.subtract(from);
+        Vec3 dir = span.lengthSqr() < 1.0E-8 ? new Vec3(0.0, 0.0, 1.0) : span.normalize();
+        Beam beam = new Beam(id, style, from, to, dir, now);
+        beam.times.set(0, start);
+        beam.headPrev = to;
+        return beam;
+    }
+
+    /** A beam that ended in a lock: no strike of its own, it just lets go where it was. */
+    static void endSilently(int beamId, double now) {
+        Beam beam = BEAMS.get(beamId);
+        if (beam != null && !beam.gone()) {
+            beam.headPrev = beam.head();
+            beam.struck = true;
+            beam.goneAt = now;
+        }
+    }
+
     public static Iterable<Clash> clashes() {
         return CLASHES;
     }
@@ -356,6 +379,10 @@ public final class SpellBeamClientState {
         boolean firstPerson = AvadaChargePose.isOwnFirstPerson(caster);
         if (charge != null) {
             return AvadaChargePose.wandTip(caster, charge, 1.0f, firstPerson);
+        }
+        CastMotions.Cast cast = CastMotions.get(caster.getId(), AvadaChargeClientState.now(1.0f));
+        if (cast != null) {
+            return CastMotions.wandTip(caster, cast, 1.0f, firstPerson);
         }
         // Near the eyes, off to the wand side, where a raised wand's tip is.
         Vec3 look = caster.getViewVector(1.0f);

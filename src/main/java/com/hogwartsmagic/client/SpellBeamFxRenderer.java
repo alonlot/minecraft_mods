@@ -254,6 +254,28 @@ public final class SpellBeamFxRenderer {
         }
     }
 
+    // ---- a beam held between two points (Priori Incantatem) -----------------------------------------------------
+
+    /** The dark of a held beam: its sheath, if the spell has a dark one. */
+    static void drawHeldDark(VertexConsumer out, Matrix4f m, SpellBeamClientState.Beam beam, double now, Vec3 camera) {
+        Frame f = Frame.of(beam, now, 1.0f, camera);
+        BeamStyle s = beam.style;
+        if (f != null && s.sheathDark && s.sheathWidth > 0.0f) {
+            ribbon(out, m, f.path, f.widths(s.sheathWidth), f.alphas(s.sheathAlpha, true), 1.0f, 1.0f,
+                    SMOKE_R, SMOKE_G, SMOKE_B);
+        }
+    }
+
+    /** The light of a held beam: glow, body, core, strands and beads, as in flight. */
+    static void drawHeldLight(VertexConsumer out, Matrix4f m, SpellBeamClientState.Beam beam, double now, Vec3 camera) {
+        Frame f = Frame.of(beam, now, 1.0f, camera);
+        if (f != null) {
+            drawBeam(out, m, f);
+            drawStrands(out, m, f);
+            drawBeads(out, m, f);
+        }
+    }
+
     // ---- the beam ----------------------------------------------------------------------------------------------
 
     private static void drawBeam(VertexConsumer out, Matrix4f m, Frame f) {

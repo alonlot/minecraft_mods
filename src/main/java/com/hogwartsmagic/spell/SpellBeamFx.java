@@ -33,7 +33,23 @@ public final class SpellBeamFx {
     /** The second beam shattered the first and flew on. */
     public static final byte CLASH_B_WINS = 2;
 
+    /** A body struck by a spell: it reacts (tumbles, flinches, goes rigid, is drained green). */
+    public static final byte REACT_HIT = 0;
+    /** A disarmed wand flying out of the hand: it trails light. */
+    public static final byte REACT_FLIGHT = 1;
+
     private SpellBeamFx() {
+    }
+
+    /** Tell everyone watching {@code entity} how it reacts to {@code spell}, arriving along {@code dir}. */
+    public static void react(Entity entity, SpellType spell, Vec3 dir, byte kind) {
+        if (entity.level().isClientSide()) {
+            return;
+        }
+        Vec3 d = unit(dir);
+        SpellPackets.CHANNEL.send(new SpellPackets.HitReactionPacket(entity.getId(), spell.getId(),
+                        (float) d.x, (float) d.y, (float) d.z, kind),
+                PacketDistributor.TRACKING_ENTITY_AND_SELF.with(entity));
     }
 
     public static void impact(Entity beam, SpellType spell, Vec3 at, byte kind) {
@@ -58,15 +74,21 @@ public final class SpellBeamFx {
      * and the drawn beams end in the clash rather than striking on their own.
      */
     public static void clash(Entity a, SpellType spellA, Entity b, SpellType spellB, Vec3 at, byte outcome) {
+        clash(a, spellA, b, spellB, at, a.getDeltaMovement(), b.getDeltaMovement(), outcome);
+    }
+
+    /** As above, with the directions the two spells were travelling given outright (a lock's casters stand still). */
+    public static void clash(Entity a, SpellType spellA, Entity b, SpellType spellB, Vec3 at, Vec3 travelA,
+                             Vec3 travelB, byte outcome) {
         if (a.level().isClientSide()) {
             return;
         }
-        Vec3 dirA = unit(a.getDeltaMovement());
-        Vec3 dirB = unit(b.getDeltaMovement());
+        Vec3 dirA = unit(travelA);
+        Vec3 dirB = unit(travelB);
         SpellPackets.CHANNEL.send(new SpellPackets.BeamClashPacket(a.getId(), spellA.getId(), b.getId(), spellB.getId(),
                         at.x, at.y, at.z, (float) dirA.x, (float) dirA.y, (float) dirA.z,
                         (float) dirB.x, (float) dirB.y, (float) dirB.z, outcome),
-                PacketDistributor.TRACKING_ENTITY.with(a));
+                PacketDistributor.TRACKING_ENTITY_AND_SELF.with(a));
         float pitch = (outcome == CLASH_MUTUAL ? 0.95f : 1.15f) + a.level().getRandom().nextFloat() * 0.1f;
         a.level().playSound(null, at.x, at.y, at.z, ModSounds.SPELL_CLASH.get(), SoundSource.PLAYERS, 1.6f, pitch);
     }

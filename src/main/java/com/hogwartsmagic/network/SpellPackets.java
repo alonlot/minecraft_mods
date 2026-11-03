@@ -425,6 +425,43 @@ public class SpellPackets {
                         buf.readFloat(), buf.readFloat(), buf.readFloat(), buf.readFloat(), buf.readByte()))
                 .consumerMainThread(BeamClashPacket::handle)
                 .add();
+        CHANNEL.messageBuilder(PrioriLockPacket.class)
+                .encoder((p, buf) -> {
+                    buf.writeInt(p.lockId);
+                    buf.writeInt(p.casterA);
+                    buf.writeInt(p.casterB);
+                    buf.writeInt(p.beamA);
+                    buf.writeInt(p.beamB);
+                    buf.writeUtf(p.spellA, 64);
+                    buf.writeUtf(p.spellB, 64);
+                    buf.writeFloat(p.bead);
+                    buf.writeByte(p.state);
+                })
+                .decoder(buf -> new PrioriLockPacket(buf.readInt(), buf.readInt(), buf.readInt(), buf.readInt(),
+                        buf.readInt(), buf.readUtf(64), buf.readUtf(64), buf.readFloat(), buf.readByte()))
+                .consumerMainThread(PrioriLockPacket::handle)
+                .add();
+        CHANNEL.messageBuilder(HitReactionPacket.class)
+                .encoder((p, buf) -> {
+                    buf.writeInt(p.entityId);
+                    buf.writeUtf(p.spellId, 64);
+                    buf.writeFloat(p.dx);
+                    buf.writeFloat(p.dy);
+                    buf.writeFloat(p.dz);
+                    buf.writeByte(p.kind);
+                })
+                .decoder(buf -> new HitReactionPacket(buf.readInt(), buf.readUtf(64), buf.readFloat(), buf.readFloat(),
+                        buf.readFloat(), buf.readByte()))
+                .consumerMainThread(HitReactionPacket::handle)
+                .add();
+        CHANNEL.messageBuilder(CastMotionPacket.class)
+                .encoder((p, buf) -> {
+                    buf.writeInt(p.casterId);
+                    buf.writeUtf(p.spellId, 64);
+                })
+                .decoder(buf -> new CastMotionPacket(buf.readInt(), buf.readUtf(64)))
+                .consumerMainThread(CastMotionPacket::handle)
+                .add();
         CHANNEL.messageBuilder(IncarcerousRopesPacket.class)
                 .encoder((p, buf) -> {
                     buf.writeInt(p.entityId);
@@ -1018,6 +1055,13 @@ public class SpellPackets {
             if (com.hogwartsmagic.spell.mind.MindControl.isControlled(player)) return;
             // A possessing caster's own body is in a trance; puppet casts go through PossessionCastPacket.
             if (com.hogwartsmagic.spell.mind.PossessionManager.isPossessing(player)) return;
+            // Locked in Priori Incantatem: a cast press pushes the light instead.
+            if (com.hogwartsmagic.spell.PrioriIncantatem.isLocked(player)) {
+                if (!p.channelHeartbeat && !p.releaseChannel) {
+                    com.hogwartsmagic.spell.PrioriIncantatem.push(player);
+                }
+                return;
+            }
             castAs(player, p);
         }
 
@@ -1290,6 +1334,11 @@ public class SpellPackets {
             // Dark Magic: a paid dark cast darkens the payer, hit or miss (a puppet cast charges the puppeteer).
             com.hogwartsmagic.spell.dark.DarkMagicData.onDarkCastPaid(player, spell);
             com.hogwartsmagic.pensieve.capture.CaptureHooks.onCast(player, spell.getId());
+            // Everyone watching sees the cast's gesture (the Killing Curse's is its own windup and strike).
+            if (spell != SpellType.AVADA_KEDAVRA) {
+                CHANNEL.send(new CastMotionPacket(player.getId(), spell.getId()),
+                        net.minecraftforge.network.PacketDistributor.TRACKING_ENTITY_AND_SELF.with(player));
+            }
 
             if (p.selfCastProtego) {
                 spell.applyHitEffect(player, player);
@@ -1751,6 +1800,34 @@ public class SpellPackets {
      * Server → client: beams {@code beamA} and {@code beamB} met at (x, y, z), travelling along (ax, ay, az) and
      * (bx, by, bz), with {@code SpellBeamFx}'s clash outcome (both destroyed, or one shattered the other).
      */
+    /**
+     * Server → client: {@code entityId} was struck by {@code spellId} arriving along (dx, dy, dz) and reacts, or
+     * (kind REACT_FLIGHT) is a disarmed wand flying out of a hand. See {@code SpellBeamFx}.
+     */
+    public record HitReactionPacket(int entityId, String spellId, float dx, float dy, float dz, byte kind) {
+        public static void handle(HitReactionPacket p, CustomPayloadEvent.Context ctx) {
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("hitReaction", p));
+        }
+    }
+
+    /**
+     * Server → client: Priori Incantatem lock {@code lockId} between {@code casterA} and {@code casterB} (whose beams
+     * {@code beamA}/{@code beamB} locked) started, moved its bead (-1 at A's wand, +1 at B's) or ended.
+     */
+    public record PrioriLockPacket(int lockId, int casterA, int casterB, int beamA, int beamB, String spellA,
+                                   String spellB, float bead, byte state) {
+        public static void handle(PrioriLockPacket p, CustomPayloadEvent.Context ctx) {
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("prioriLock", p));
+        }
+    }
+
+    /** Server → client: player {@code casterId} just cast {@code spellId}; play its gesture. */
+    public record CastMotionPacket(int casterId, String spellId) {
+        public static void handle(CastMotionPacket p, CustomPayloadEvent.Context ctx) {
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("castMotion", p));
+        }
+    }
+
     public record BeamClashPacket(int beamA, String spellA, int beamB, String spellB, double x, double y, double z,
                                   float ax, float ay, float az, float bx, float by, float bz, byte outcome) {
         public static void handle(BeamClashPacket p, CustomPayloadEvent.Context ctx) {

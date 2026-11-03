@@ -50,6 +50,9 @@ public final class ClientRuntimeBridge {
             case "avadaCharge" -> AvadaChargeClientState.accept((SpellPackets.AvadaChargePacket) payload);
             case "beamImpact" -> SpellBeamClientState.acceptImpact((SpellPackets.BeamImpactPacket) payload);
             case "beamClash" -> SpellBeamClientState.acceptClash((SpellPackets.BeamClashPacket) payload);
+            case "castMotion" -> CastMotions.accept((SpellPackets.CastMotionPacket) payload);
+            case "hitReaction" -> HitReactions.accept((SpellPackets.HitReactionPacket) payload);
+            case "prioriLock" -> PrioriClient.accept((SpellPackets.PrioriLockPacket) payload);
             case "protegoShield" -> protegoShield((SpellPackets.ProtegoShieldPacket) payload);
             case "incarcerousRopes" -> IncarcerousRopesClientState.accept((SpellPackets.IncarcerousRopesPacket) payload);
             case "openApparitionMap" -> openApparitionMap((SpellPackets.OpenApparitionMapPacket) payload);

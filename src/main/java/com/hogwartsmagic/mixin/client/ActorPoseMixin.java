@@ -39,6 +39,15 @@ public abstract class ActorPoseMixin {
         // Avada Kedavra windup: the wand arm raised over the aim, striking down on the cast.
         com.hogwartsmagic.client.AvadaChargePose.apply(((LivingEntityRenderer<?, ?>) (Object) this).getModel(),
                 entity, partial);
+        // Every other cast: the spell's own gesture (a flick, a slash, a whip...).
+        com.hogwartsmagic.client.CastMotions.apply(((LivingEntityRenderer<?, ?>) (Object) this).getModel(),
+                entity, partial);
+        // Struck: a disarmed arm flung up, a petrified body gone rigid.
+        com.hogwartsmagic.client.HitReactions.applyPose(((LivingEntityRenderer<?, ?>) (Object) this).getModel(),
+                entity, partial);
+        // Locked in Priori Incantatem: the wand held out at the other duellist, straining.
+        com.hogwartsmagic.client.PrioriClient.applyPose(((LivingEntityRenderer<?, ?>) (Object) this).getModel(),
+                entity, partial);
     }
 
     @Inject(method = RENDER, at = @At("RETURN"))

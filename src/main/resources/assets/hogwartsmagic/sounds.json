@@ -4190,5 +4190,14 @@
         "stream": false
       }
     ]
+  },
+  "spell.priori_loop": {
+    "subtitle": "subtitles.hogwartsmagic.spell.priori_loop",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:spells/priori_loop",
+        "stream": false
+      }
+    ]
   }
 }

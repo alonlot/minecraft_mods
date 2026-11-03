@@ -425,6 +425,19 @@ public class SpellPackets {
                         buf.readFloat(), buf.readFloat(), buf.readFloat(), buf.readFloat(), buf.readByte()))
                 .consumerMainThread(BeamClashPacket::handle)
                 .add();
+        CHANNEL.messageBuilder(TravelFxPacket.class)
+                .encoder((p, buf) -> {
+                    buf.writeInt(p.entityId);
+                    buf.writeByte(p.kind);
+                    buf.writeDouble(p.x);
+                    buf.writeDouble(p.y);
+                    buf.writeDouble(p.z);
+                    buf.writeVarInt(p.duration);
+                })
+                .decoder(buf -> new TravelFxPacket(buf.readInt(), buf.readByte(), buf.readDouble(), buf.readDouble(),
+                        buf.readDouble(), buf.readVarInt()))
+                .consumerMainThread(TravelFxPacket::handle)
+                .add();
         CHANNEL.messageBuilder(PrioriLockPacket.class)
                 .encoder((p, buf) -> {
                     buf.writeInt(p.lockId);
@@ -1628,17 +1641,10 @@ public class SpellPackets {
             if (modData.getBoolean("FlooTravelPending")) {
                 return;
             }
-            if (player.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
-                serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.SOUL_FIRE_FLAME,
-                        player.getX(), player.getY() + 0.6, player.getZ(), 45, 0.45, 0.65, 0.45, 0.02);
-                serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.CAMPFIRE_SIGNAL_SMOKE,
-                        player.getX(), player.getY() + 0.4, player.getZ(), 20, 0.25, 0.4, 0.25, 0.01);
-                serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.WAX_ON,
-                        player.getX(), player.getY() + 0.8, player.getZ(), 20, 0.3, 0.55, 0.3, 0.02);
-            }
+            // The green flames taking the traveller, for them and for onlookers (TravelFxClient).
+            com.hogwartsmagic.spell.TravelFx.send(player, com.hogwartsmagic.spell.TravelFx.FLOO_DEPART,
+                    player.getX(), player.getY(), player.getZ(), 18);
             source.ignite(player.serverLevel());
-            player.addEffect(new MobEffectInstance(net.minecraft.world.effect.MobEffects.DARKNESS, 22, 0, false, false, false));
-            player.addEffect(new MobEffectInstance(net.minecraft.world.effect.MobEffects.CONFUSION, 50, 0, false, false, false));
             player.addEffect(new MobEffectInstance(net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE, 20, 3, false, false, false));
             player.addEffect(new MobEffectInstance(net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN, 20, 6, false, false, false));
             player.level().playSound(null, player.getX(), player.getY(), player.getZ(), com.hogwartsmagic.ModSounds.FLOO_DEPART.get(), SoundSource.PLAYERS, 1.0f, 1.0f);
@@ -1807,6 +1813,16 @@ public class SpellPackets {
     public record HitReactionPacket(int entityId, String spellId, float dx, float dy, float dz, byte kind) {
         public static void handle(HitReactionPacket p, CustomPayloadEvent.Context ctx) {
             enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("hitReaction", p));
+        }
+    }
+
+    /**
+     * Server → client: a moment of travel for {@code entityId} at (x, y, z) (Apparition focusing, leaving or
+     * arriving; the Floo flames taking or returning them), lasting {@code duration} ticks. See {@code TravelFx}.
+     */
+    public record TravelFxPacket(int entityId, byte kind, double x, double y, double z, int duration) {
+        public static void handle(TravelFxPacket p, CustomPayloadEvent.Context ctx) {
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("travelFx", p));
         }
     }
 

@@ -53,6 +53,7 @@ public final class ClientRuntimeBridge {
             case "castMotion" -> CastMotions.accept((SpellPackets.CastMotionPacket) payload);
             case "hitReaction" -> HitReactions.accept((SpellPackets.HitReactionPacket) payload);
             case "prioriLock" -> PrioriClient.accept((SpellPackets.PrioriLockPacket) payload);
+            case "travelFx" -> TravelFxClient.accept((SpellPackets.TravelFxPacket) payload);
             case "protegoShield" -> protegoShield((SpellPackets.ProtegoShieldPacket) payload);
             case "incarcerousRopes" -> IncarcerousRopesClientState.accept((SpellPackets.IncarcerousRopesPacket) payload);
             case "openApparitionMap" -> openApparitionMap((SpellPackets.OpenApparitionMapPacket) payload);

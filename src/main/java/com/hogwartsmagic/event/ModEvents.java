@@ -1671,6 +1671,9 @@ public class ModEvents {
         playerData.putBoolean(TAG_APPARITION_CHANNELING, true);
         playerData.putLong(TAG_APPARITION_START, now);
         revealInvisibilityCloak(player);
+        com.hogwartsmagic.spell.TravelFx.send(player, com.hogwartsmagic.spell.TravelFx.APPARATE_FOCUS, player.getX(), player.getY(), player.getZ(),
+                com.hogwartsmagic.spell.support.ApparitionRules.channelTicks(
+                        com.hogwartsmagic.spell.mastery.SpellMasteryData.getRank(player, SpellType.APPARITION)));
         player.level().playSound(null, player.blockPosition(),
                 net.minecraft.sounds.SoundEvents.BEACON_DEACTIVATE, SoundSource.PLAYERS, 0.6f, 1.6f);
         int apparitionRank = com.hogwartsmagic.spell.mastery.SpellMasteryData.getRank(player, SpellType.APPARITION);
@@ -1783,15 +1786,7 @@ public class ModEvents {
         // Implode: shrink the caster over the channel so onlookers see them compress into themselves.
         applyImplodeScale(player, progress);
 
-        if (player.level() instanceof ServerLevel serverLevel) {
-            int count = 2 + Math.round(progress * 6.0f);
-            serverLevel.sendParticles(ParticleTypes.PORTAL,
-                    player.getX(), player.getY() + 1.0, player.getZ(), count, 0.6, 0.8, 0.6, -0.05);
-            if (elapsed % 10 == 0) {
-                serverLevel.playSound(null, player.blockPosition(),
-                        net.minecraft.sounds.SoundEvents.CONDUIT_AMBIENT, SoundSource.PLAYERS, 0.5f, 0.7f + progress);
-            }
-        }
+        // The vortex round the caster is drawn on the clients (TravelFxClient) from the focus packet.
 
         // Timed out with no destination chosen → cancel and pay the full cooldown.
         if (elapsed >= channelTicks) {
@@ -1856,11 +1851,11 @@ public class ModEvents {
             }
         }
 
-        crackEffect(level, from.x, from.y, from.z, true);
+        crackEffect(player, from.x, from.y, from.z, true);
         player.teleportTo(landing.x, landing.y, landing.z);
         com.hogwartsmagic.pensieve.capture.CaptureHooks.markDiscontinuity(player); // a memory never reaches back across a jump
         player.fallDistance = 0.0f;
-        crackEffect(level, landing.x, landing.y, landing.z, false);
+        crackEffect(player, landing.x, landing.y, landing.z, false);
 
         java.util.List<LivingEntity> moved = new java.util.ArrayList<>();
         for (LivingEntity passenger : passengers) {
@@ -1951,11 +1946,11 @@ public class ModEvents {
         java.util.List<LivingEntity> passengers = level.getEntitiesOfClass(LivingEntity.class,
                 player.getBoundingBox().inflate(APPARITION_SIDEALONG_RADIUS), e -> e != player && e.isAlive() && !isHeldInPlace(e));
         Vec3 from = player.position();
-        crackEffect(level, from.x, from.y, from.z, true);
+        crackEffect(player, from.x, from.y, from.z, true);
         player.teleportTo(x, y, z);
         com.hogwartsmagic.pensieve.capture.CaptureHooks.markDiscontinuity(player); // a memory never reaches back across a jump
         player.fallDistance = 0.0f;
-        crackEffect(level, x, y, z, false);
+        crackEffect(player, x, y, z, false);
         for (LivingEntity passenger : passengers) {
             if (level.noCollision(passenger.getDimensions(passenger.getPose()).makeBoundingBox(x, y, z))) {
                 passenger.teleportTo(x, y, z);
@@ -1981,6 +1976,7 @@ public class ModEvents {
         playerData.remove(TAG_APPARITION_START);
         clearImplodeScale(player);
         SpellPackets.CHANNEL.send(new SpellPackets.CloseApparitionMapPacket(), PacketDistributor.PLAYER.with(player));
+        com.hogwartsmagic.spell.TravelFx.send(player, com.hogwartsmagic.spell.TravelFx.APPARATE_CANCEL, player.getX(), player.getY(), player.getZ(), 0);
         player.level().playSound(null, player.blockPosition(),
                 net.minecraft.sounds.SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS, 0.5f, 0.8f);
         applyApparitionCooldown(player, wand, false);
@@ -2034,12 +2030,9 @@ public class ModEvents {
         }
     }
 
-    private static void crackEffect(ServerLevel level, double x, double y, double z, boolean departure) {
-        level.sendParticles(departure ? ParticleTypes.PORTAL : ParticleTypes.REVERSE_PORTAL,
-                x, y + 1.0, z, 60, 0.5, 1.0, 0.5, departure ? -0.2 : 0.8);
-        level.sendParticles(ParticleTypes.CLOUD, x, y + 1.0, z, 12, 0.3, 0.5, 0.3, 0.02);
-        level.playSound(null, BlockPos.containing(x, y, z),
-                net.minecraft.sounds.SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 1.2f, 0.7f);
+    /** The squeeze away and the crack of arrival: drawn and voiced by TravelFx and the clients. */
+    private static void crackEffect(ServerPlayer player, double x, double y, double z, boolean departure) {
+        com.hogwartsmagic.spell.TravelFx.send(player, departure ? com.hogwartsmagic.spell.TravelFx.APPARATE_DEPART : com.hogwartsmagic.spell.TravelFx.APPARATE_ARRIVE, x, y, z, 0);
     }
 
     /** Find a safe feet position (2-high air gap on solid, dry ground) in the target column, or null. */
@@ -2286,28 +2279,10 @@ public class ModEvents {
         BlockPos destinationPos = BlockPos.of(modData.getLong("FlooDestinationPos"));
         int ticks = modData.getInt("FlooTravelTicks");
 
-        serverLevel.sendParticles(ParticleTypes.CAMPFIRE_SIGNAL_SMOKE,
-                player.getX(), player.getY() + 0.8, player.getZ(),
-                12, 0.32, 0.65, 0.32, 0.02);
-        serverLevel.sendParticles(ParticleTypes.SQUID_INK,
-                player.getX(), player.getY() + 0.9, player.getZ(),
-                8, 0.28, 0.45, 0.28, 0.01);
-        serverLevel.sendParticles(ParticleTypes.SOUL_FIRE_FLAME,
-                player.getX(), player.getY() + 0.55, player.getZ(),
-                6, 0.16, 0.25, 0.16, 0.006);
-
+        // The green flames are drawn on the clients (TravelFxClient) from the departure packet.
         if (serverLevel.isLoaded(destinationPos)
                 && serverLevel.getBlockEntity(destinationPos) instanceof com.hogwartsmagic.block.entity.FlooFireplaceBlockEntity destination) {
             destination.ignite(serverLevel);
-            serverLevel.sendParticles(ParticleTypes.CAMPFIRE_SIGNAL_SMOKE,
-                    destinationPos.getX() + 0.5, destinationPos.getY() + 0.9, destinationPos.getZ() + 0.5,
-                    10, 0.28, 0.45, 0.28, 0.01);
-            serverLevel.sendParticles(ParticleTypes.SOUL_FIRE_FLAME,
-                    destinationPos.getX() + 0.5, destinationPos.getY() + 0.75, destinationPos.getZ() + 0.5,
-                    8, 0.18, 0.18, 0.18, 0.005);
-            serverLevel.sendParticles(ParticleTypes.WAX_ON,
-                    destinationPos.getX() + 0.5, destinationPos.getY() + 0.85, destinationPos.getZ() + 0.5,
-                    6, 0.24, 0.18, 0.24, 0.01);
         }
 
         player.setDeltaMovement(Vec3.ZERO);
@@ -2331,6 +2306,7 @@ public class ModEvents {
                 || !source.getLinkedPositions().contains(destinationPos)) {
             serverLevel.playSound(null, player.getX(), player.getY(), player.getZ(),
                     com.hogwartsmagic.ModSounds.FLOO_FIZZLE.get(), SoundSource.PLAYERS, 1.0f, 1.0f);
+            com.hogwartsmagic.spell.TravelFx.send(player, com.hogwartsmagic.spell.TravelFx.FLOO_FIZZLE, player.getX(), player.getY(), player.getZ(), 0);
             modData.remove("FlooTravelPending");
             modData.remove("FlooSourcePos");
             modData.remove("FlooDestinationPos");
@@ -2343,21 +2319,7 @@ public class ModEvents {
         player.teleportTo(exitPos.getX() + 0.5, exitPos.getY(), exitPos.getZ() + 0.5);
         com.hogwartsmagic.pensieve.capture.CaptureHooks.markDiscontinuity(player); // a memory never reaches back across a jump
         com.hogwartsmagic.assignment.AssignmentEvents.onFlooTravel(player);
-        serverLevel.sendParticles(ParticleTypes.SOUL_FIRE_FLAME,
-                player.getX(), player.getY() + 0.6, player.getZ(),
-                60, 0.55, 0.75, 0.55, 0.03);
-        serverLevel.sendParticles(ParticleTypes.HAPPY_VILLAGER,
-                player.getX(), player.getY() + 0.9, player.getZ(),
-                24, 0.35, 0.55, 0.35, 0.01);
-        serverLevel.sendParticles(ParticleTypes.ASH,
-                player.getX(), player.getY() + 0.7, player.getZ(),
-                20, 0.35, 0.5, 0.35, 0.01);
-        serverLevel.sendParticles(ParticleTypes.WAX_ON,
-                player.getX(), player.getY() + 0.85, player.getZ(),
-                26, 0.38, 0.6, 0.38, 0.03);
-        serverLevel.sendParticles(ParticleTypes.END_ROD,
-                player.getX(), player.getY() + 0.9, player.getZ(),
-                12, 0.3, 0.5, 0.3, 0.01);
+        com.hogwartsmagic.spell.TravelFx.send(player, com.hogwartsmagic.spell.TravelFx.FLOO_ARRIVE, player.getX(), player.getY(), player.getZ(), 0);
         serverLevel.playSound(null, player.getX(), player.getY(), player.getZ(),
                 com.hogwartsmagic.ModSounds.FLOO_ARRIVE.get(), SoundSource.PLAYERS, 1.0f, 1.0f);
         destination.ignite(serverLevel);

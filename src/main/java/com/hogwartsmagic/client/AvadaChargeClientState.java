@@ -7,6 +7,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -153,6 +154,27 @@ public final class AvadaChargeClientState {
     /** Drop charges whose aftermath is over. Called once a frame by the renderer. */
     public static void prune(double now) {
         CHARGES.values().removeIf(charge -> charge.expired(now));
+    }
+
+    /** The green the gathering curse throws on what is round the caster, and its flare on the cast (SpellLight). */
+    static void lights(float partial, double now, SpellLight.Sink sink) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.level == null) {
+            return;
+        }
+        for (Charge charge : CHARGES.values()) {
+            if (!(minecraft.level.getEntity(charge.entityId) instanceof LivingEntity caster)) {
+                continue;
+            }
+            float c = charge.charge(now);
+            float strength = 0.65f * c;
+            if (charge.ended()) {
+                float after = charge.aftermath(now);
+                strength = charge.endPhase() == AvadaChargeFx.FIRED ? 1.0f * (1.0f - after) : strength * (1.0f - after);
+            }
+            Vec3 tip = AvadaChargePose.wandTip(caster, charge, partial, AvadaChargePose.isOwnFirstPerson(caster));
+            sink.add(tip, 0.22f, 1.0f, 0.34f, 2.0f + 3.5f * c, strength);
+        }
     }
 
     /** Client game time with the partial tick, the clock every charge is measured on. */

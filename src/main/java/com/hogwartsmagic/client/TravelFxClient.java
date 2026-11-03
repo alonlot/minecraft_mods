@@ -107,6 +107,36 @@ public final class TravelFxClient {
         return e.kind == TravelFx.APPARATE_ARRIVE ? APPARATE_ARRIVE_TICKS : FLOO_ARRIVE_TICKS;
     }
 
+    /** Emerald Floo fire and the violet flash of Apparition, thrown on what is round them (SpellLight). */
+    static void lights(float partial, double now, SpellLight.Sink sink) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (EVENTS.isEmpty() || minecraft.level == null) {
+            return;
+        }
+        for (Event e : EVENTS) {
+            Vec3 at = where(minecraft, e, partial);
+            if (at == null) {
+                continue;
+            }
+            float t = e.age(now);
+            Vec3 centre = at.add(0.0, 1.0, 0.0);
+            if (e.kind == TravelFx.FLOO_DEPART) {
+                float f = Math.min(1.0f, t / Math.max(1, e.duration));
+                sink.add(centre, EMERALD_R, EMERALD_G, EMERALD_B, 5.0f, (0.35f + 0.5f * f)
+                        * (1.0f - smoothstep(e.duration, e.duration + 4.0f, t)));
+            } else if (e.kind == TravelFx.FLOO_ARRIVE) {
+                sink.add(centre, EMERALD_R, EMERALD_G, EMERALD_B, 6.0f, 0.9f * (1.0f - t / FLOO_ARRIVE_TICKS));
+            } else if (e.kind == TravelFx.APPARATE_ARRIVE) {
+                sink.add(centre, PALE_R, PALE_G, PALE_B, 6.0f, (float) Math.pow(Math.max(0.0f, 1.0f - t / 8.0f), 1.5));
+            } else if (e.kind == TravelFx.APPARATE_DEPART) {
+                sink.add(centre, VIOLET_R, VIOLET_G, VIOLET_B, 4.0f, Math.max(0.0f, 1.0f - Math.abs(t - 3.0f) / 3.0f));
+            } else if (e.kind == TravelFx.APPARATE_FOCUS) {
+                sink.add(centre, VIOLET_R, VIOLET_G, VIOLET_B, 3.0f,
+                        0.3f * Math.min(1.0f, t / Math.max(1, e.duration)));
+            }
+        }
+    }
+
     // ---- the world ---------------------------------------------------------------------------------------------
 
     @SubscribeEvent

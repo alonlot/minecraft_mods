@@ -475,6 +475,43 @@ public final class SpellBeamClientState {
         event.setRoll(event.getRoll() + shake * Mth.sin(t * 4.3f + 2.1f) * 0.4f);
     }
 
+    /** The light the beams, strikes and clashes throw on what is round them (SpellLight). */
+    static void lights(float partial, double now, SpellLight.Sink sink) {
+        for (Beam beam : BEAMS.values()) {
+            BeamStyle s = beam.style;
+            float strength = 0.55f;
+            if (beam.gone()) {
+                float since = (float) (now - beam.goneAt);
+                if (since > s.afterglow) {
+                    continue;
+                }
+                strength *= 1.0f - since / s.afterglow;
+            }
+            sink.add(beam.head(partial), s.glowR, s.glowG, s.glowB, 4.5f, strength);
+        }
+        for (Impact impact : IMPACTS) {
+            float age = (float) (now - impact.start);
+            if (age < 0.0f || age > 14.0f) {
+                continue;
+            }
+            BeamStyle s = impact.style;
+            sink.add(impact.pos, s.glowR, s.glowG, s.glowB, 5.5f * impact.scale(),
+                    0.9f * (float) Math.pow(1.0f - age / 14.0f, 1.5));
+        }
+        for (Clash clash : CLASHES) {
+            float age = (float) (now - clash.start);
+            float since = age - clash.lock();
+            float strength = since < 0.0f ? 0.6f : 1.0f * (float) Math.pow(Math.max(0.0f, 1.0f - since / 16.0f), 1.5);
+            if (age < 0.0f || strength <= 0.01f) {
+                continue;
+            }
+            float r = 0.5f + 0.25f * (clash.styleA.glowR + clash.styleB.glowR);
+            float g = 0.5f + 0.25f * (clash.styleA.glowG + clash.styleB.glowG);
+            float b = 0.5f + 0.25f * (clash.styleA.glowB + clash.styleB.glowB);
+            sink.add(clash.pos, r, g, b, 7.0f, strength);
+        }
+    }
+
     @SubscribeEvent
     public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         BEAMS.clear();

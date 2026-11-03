@@ -150,6 +150,26 @@ public final class PrioriClient {
         return new Vec3(x, y + caster.getEyeHeight(), z).add(look.scale(0.7)).add(right.scale(0.3)).add(0.0, -0.25, 0.0);
     }
 
+    /** The light at the bead of a lock, both spells' colours washed toward gold (SpellLight). */
+    static void lights(float partial, double now, SpellLight.Sink sink) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (LOCKS.isEmpty() || minecraft.level == null) {
+            return;
+        }
+        for (Lock lock : LOCKS.values()) {
+            Entity ea = minecraft.level.getEntity(lock.casterA);
+            Entity eb = minecraft.level.getEntity(lock.casterB);
+            if (!(ea instanceof LivingEntity a) || !(eb instanceof LivingEntity b)) {
+                continue;
+            }
+            Vec3 bead = tip(a, partial).lerp(tip(b, partial), (lock.shown + 1.0f) * 0.5f);
+            float r = (lock.styleA.glowR + lock.styleB.glowR + GOLD_R) / 3.0f;
+            float g = (lock.styleA.glowG + lock.styleB.glowG + GOLD_G) / 3.0f;
+            float bl = (lock.styleA.glowB + lock.styleB.glowB + GOLD_B) / 3.0f;
+            sink.add(bead, r, g, bl, 6.5f, 0.8f);
+        }
+    }
+
     // ---- drawing -----------------------------------------------------------------------------------------------
 
     @SubscribeEvent

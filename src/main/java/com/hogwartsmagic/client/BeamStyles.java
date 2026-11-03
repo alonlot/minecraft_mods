@@ -25,8 +25,8 @@ public final class BeamStyles {
     private static final Map<SpellType, BeamStyle> STYLES = new EnumMap<>(SpellType.class);
 
     static {
-        // ---- the Unforgivables and dark curses: full jets, dark sheaths ----
-        STYLES.put(SpellType.AVADA_KEDAVRA, new BeamStyle().colours(0xCCFFD1, 0x38FF57, 0x38FF57).tail(JET)
+        // ---- the Unforgivables and dark curses: dark sheaths; most are full jets, the Killing Curse a long bolt ----
+        STYLES.put(SpellType.AVADA_KEDAVRA, new BeamStyle().colours(0xCCFFD1, 0x38FF57, 0x38FF57).tail(9.0f)
                 .jitter(0.045f).writhe(0.035f, 1.3f, 0.8f).darkSheath(0.34f, 0.5f).crackle(3, 0.14f)
                 .head(0.75f, 0.26f, 0.45f, true).wake(WAKE_SMOKE, 0.7f, 22.0f, 0.22f, 0.32f, 0.035f)
                 .afterglow(10.0f).strike(1.0f, 1.0f, 0.55f).darkBurst().ring(4.0f, false, false).arcs(7, 0.18f)

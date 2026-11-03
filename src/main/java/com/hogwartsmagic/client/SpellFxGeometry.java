@@ -6,26 +6,27 @@ import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 
 /**
- * Shared drawing for the Killing Curse (its windup and its beam): soft camera-facing strips and discs in
- * camera-relative space, the palette, and stable hashing so a thread, an arc or a puff looks the same every frame.
+ * Shared drawing for hand-drawn spell effects (the spell beams and the Killing Curse's windup): soft
+ * camera-facing strips, discs and rings in camera-relative space, the Killing Curse palette, and stable hashing so a
+ * strand, an arc or a puff looks the same every frame.
  * The camera is the origin in this space.
  */
-final class AvadaFxGeometry {
+public final class SpellFxGeometry {
     // Sickly killing-curse green, and the white-hot green its cores burn out to.
-    static final float GREEN_R = 0.22f;
-    static final float GREEN_G = 1.00f;
-    static final float GREEN_B = 0.34f;
-    static final float HOT_R = 0.80f;
-    static final float HOT_G = 1.00f;
-    static final float HOT_B = 0.82f;
+    public static final float GREEN_R = 0.22f;
+    public static final float GREEN_G = 1.00f;
+    public static final float GREEN_B = 0.34f;
+    public static final float HOT_R = 0.80f;
+    public static final float HOT_G = 1.00f;
+    public static final float HOT_B = 0.82f;
     // Smoke and shadow: black with the faintest green in it, so it reads as cursed smoke and not a hole in the world.
-    static final float SMOKE_R = 0.006f;
-    static final float SMOKE_G = 0.030f;
-    static final float SMOKE_B = 0.012f;
-    static final int DISC_RINGS = 5;
-    static final int DISC_SEGMENTS = 16;
+    public static final float SMOKE_R = 0.006f;
+    public static final float SMOKE_G = 0.030f;
+    public static final float SMOKE_B = 0.012f;
+    public static final int DISC_RINGS = 5;
+    public static final int DISC_SEGMENTS = 16;
 
-    private AvadaFxGeometry() {
+    private SpellFxGeometry() {
     }
 
     /**
@@ -33,7 +34,7 @@ final class AvadaFxGeometry {
      * {@code widthScale} and {@code alphaScale} let the same path be laid down once as a wide glow and once as a
      * thin bright core.
      */
-    static void ribbon(VertexConsumer out, Matrix4f m, Vec3[] path, float[] width, float[] alpha,
+    public static void ribbon(VertexConsumer out, Matrix4f m, Vec3[] path, float[] width, float[] alpha,
                        float widthScale, float alphaScale, float r, float g, float b) {
         for (int i = 0; i < path.length - 1; i++) {
             float a0 = alpha[i] * alphaScale;
@@ -73,13 +74,13 @@ final class AvadaFxGeometry {
     }
 
     /** A soft camera-facing disc, {@code alpha} at the centre falling to nothing at {@code radius}. */
-    static void billboard(VertexConsumer out, Matrix4f m, Vec3 centre, float radius, float alpha,
+    public static void billboard(VertexConsumer out, Matrix4f m, Vec3 centre, float radius, float alpha,
                           float r, float g, float b, boolean hot) {
         billboard(out, m, centre, radius, alpha, r, g, b, hot, DISC_RINGS, DISC_SEGMENTS);
     }
 
     /** As above with a chosen tessellation: smoke puffs by the hundred want far fewer quads. */
-    static void billboard(VertexConsumer out, Matrix4f m, Vec3 centre, float radius, float alpha,
+    public static void billboard(VertexConsumer out, Matrix4f m, Vec3 centre, float radius, float alpha,
                           float r, float g, float b, boolean hot, int rings, int segments) {
         if (alpha <= 0.003f || radius <= 0.001f) {
             return;
@@ -96,7 +97,7 @@ final class AvadaFxGeometry {
     }
 
     /** A soft horizontal disc lying on the ground. */
-    static void groundDisc(VertexConsumer out, Matrix4f m, Vec3 centre, float radius, float alpha) {
+    public static void groundDisc(VertexConsumer out, Matrix4f m, Vec3 centre, float radius, float alpha) {
         if (alpha <= 0.003f) {
             return;
         }
@@ -104,7 +105,7 @@ final class AvadaFxGeometry {
                 SMOKE_R, SMOKE_G, SMOKE_B, false, DISC_RINGS, DISC_SEGMENTS);
     }
 
-    static void disc(VertexConsumer out, Matrix4f m, Vec3 centre, Vec3 right, Vec3 up, float radius,
+    public static void disc(VertexConsumer out, Matrix4f m, Vec3 centre, Vec3 right, Vec3 up, float radius,
                      float alpha, float r, float g, float b, boolean hot, int rings, int segments) {
         for (int ring = 0; ring < rings; ring++) {
             float f0 = ring / (float) rings;
@@ -126,7 +127,7 @@ final class AvadaFxGeometry {
      * A flat soft ring of light around {@code centre} in the plane of {@code right} and {@code up}: nothing at
      * {@code radius - thickness}, {@code alpha} at {@code radius}, nothing at {@code radius + thickness}.
      */
-    static void ring(VertexConsumer out, Matrix4f m, Vec3 centre, Vec3 right, Vec3 up, float radius, float thickness,
+    public static void ring(VertexConsumer out, Matrix4f m, Vec3 centre, Vec3 right, Vec3 up, float radius, float thickness,
                      float alpha, float r, float g, float b, int segments) {
         if (alpha <= 0.003f || radius <= 0.001f) {
             return;
@@ -148,35 +149,35 @@ final class AvadaFxGeometry {
     }
 
     /** Two unit vectors at right angles to each other and to {@code axis} (unit), for building rings round it. */
-    static Vec3[] frame(Vec3 axis) {
+    public static Vec3[] frame(Vec3 axis) {
         Vec3 side = axis.cross(new Vec3(0.0, 1.0, 0.0));
         side = side.lengthSqr() < 1.0E-4 ? axis.cross(new Vec3(1.0, 0.0, 0.0)).normalize() : side.normalize();
         return new Vec3[]{side, side.cross(axis).normalize()};
     }
 
-    static float smoothstep(float edge0, float edge1, float x) {
+    public static float smoothstep(float edge0, float edge1, float x) {
         float t = Mth.clamp((x - edge0) / (edge1 - edge0), 0.0f, 1.0f);
         return t * t * (3.0f - 2.0f * t);
     }
 
     /** Hot cores fall off sharply (a point of light); smoke and halos softly. */
-    static float falloff(float f, boolean hot) {
+    public static float falloff(float f, boolean hot) {
         float inv = 1.0f - f;
         return hot ? inv * inv * inv : inv * inv * (0.6f + 0.4f * inv);
     }
 
-    static Vec3 onRing(Vec3 right, Vec3 up, double angle, float radius) {
+    public static Vec3 onRing(Vec3 right, Vec3 up, double angle, float radius) {
         return right.scale(Math.cos(angle) * radius).add(up.scale(Math.sin(angle) * radius));
     }
 
     /** {@code v} turned {@code angle} radians about the unit {@code axis} (Rodrigues). */
-    static Vec3 rotate(Vec3 v, Vec3 axis, double angle) {
+    public static Vec3 rotate(Vec3 v, Vec3 axis, double angle) {
         double cos = Math.cos(angle);
         double sin = Math.sin(angle);
         return v.scale(cos).add(axis.cross(v).scale(sin)).add(axis.scale(axis.dot(v) * (1.0 - cos)));
     }
 
-    static Vec3 randomDirection(int seed) {
+    public static Vec3 randomDirection(int seed) {
         double z = hash(seed, 11, 0) * 2.0 - 1.0;
         double angle = hash(seed, 12, 0) * Math.PI * 2.0;
         double r = Math.sqrt(Math.max(0.0, 1.0 - z * z));
@@ -184,7 +185,7 @@ final class AvadaFxGeometry {
     }
 
     /** A stable pseudo-random 0..1 from three ints, so a thread or an arc looks the same every frame. */
-    static float hash(int a, int b, int c) {
+    public static float hash(int a, int b, int c) {
         int h = a * 0x27d4eb2d ^ b * 0x165667b1 ^ c * 0x9E3779B1;
         h ^= h >>> 15;
         h *= 0x85ebca6b;
@@ -194,7 +195,7 @@ final class AvadaFxGeometry {
         return (h & 0xFFFFFF) / (float) 0x1000000;
     }
 
-    static void vertex(VertexConsumer out, Matrix4f m, Vec3 p, float r, float g, float b, float a) {
+    public static void vertex(VertexConsumer out, Matrix4f m, Vec3 p, float r, float g, float b, float a) {
         out.addVertex(m, (float) p.x, (float) p.y, (float) p.z).setColor(r, g, b, Mth.clamp(a, 0.0f, 1.0f));
     }
 }

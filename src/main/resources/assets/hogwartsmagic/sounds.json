@@ -4226,5 +4226,50 @@
         "stream": false
       }
     ]
+  },
+  "music.sting_duel": {
+    "subtitle": "subtitles.hogwartsmagic.music.sting_duel",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:music/sting_duel",
+        "stream": true
+      }
+    ]
+  },
+  "music.sting_boss_dark": {
+    "subtitle": "subtitles.hogwartsmagic.music.sting_boss_dark",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:music/sting_boss_dark",
+        "stream": true
+      }
+    ]
+  },
+  "music.sting_boss_serpent": {
+    "subtitle": "subtitles.hogwartsmagic.music.sting_boss_serpent",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:music/sting_boss_serpent",
+        "stream": true
+      }
+    ]
+  },
+  "music.sting_boss_dragon": {
+    "subtitle": "subtitles.hogwartsmagic.music.sting_boss_dragon",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:music/sting_boss_dragon",
+        "stream": true
+      }
+    ]
+  },
+  "music.sting_victory": {
+    "subtitle": "subtitles.hogwartsmagic.music.sting_victory",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:music/sting_victory",
+        "stream": true
+      }
+    ]
   }
 }

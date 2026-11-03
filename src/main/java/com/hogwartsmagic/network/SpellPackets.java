@@ -425,6 +425,11 @@ public class SpellPackets {
                         buf.readFloat(), buf.readFloat(), buf.readFloat(), buf.readFloat(), buf.readByte()))
                 .consumerMainThread(BeamClashPacket::handle)
                 .add();
+        CHANNEL.messageBuilder(MusicStingPacket.class)
+                .encoder((p, buf) -> buf.writeByte(p.sting))
+                .decoder(buf -> new MusicStingPacket(buf.readByte()))
+                .consumerMainThread(MusicStingPacket::handle)
+                .add();
         CHANNEL.messageBuilder(TravelFxPacket.class)
                 .encoder((p, buf) -> {
                     buf.writeInt(p.entityId);
@@ -1820,6 +1825,13 @@ public class SpellPackets {
      * Server → client: a moment of travel for {@code entityId} at (x, y, z) (Apparition focusing, leaving or
      * arriving; the Floo flames taking or returning them), lasting {@code duration} ticks. See {@code TravelFx}.
      */
+    /** Server → client: play a fight's music sting ({@code MusicStings}'s duel, boss entrance or victory). */
+    public record MusicStingPacket(byte sting) {
+        public static void handle(MusicStingPacket p, CustomPayloadEvent.Context ctx) {
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("musicSting", p));
+        }
+    }
+
     public record TravelFxPacket(int entityId, byte kind, double x, double y, double z, int duration) {
         public static void handle(TravelFxPacket p, CustomPayloadEvent.Context ctx) {
             enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("travelFx", p));

@@ -38,6 +38,11 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> DEMENTOR_DREAD = register("dementor.dread");
     public static final RegistryObject<SoundEvent> APPARATE_SQUEEZE = register("spell.apparate_squeeze");
     public static final RegistryObject<SoundEvent> APPARATE_CRACK = register("spell.apparate_crack");
+    public static final RegistryObject<SoundEvent> STING_DUEL = register("music.sting_duel");
+    public static final RegistryObject<SoundEvent> STING_BOSS_DARK = register("music.sting_boss_dark");
+    public static final RegistryObject<SoundEvent> STING_BOSS_SERPENT = register("music.sting_boss_serpent");
+    public static final RegistryObject<SoundEvent> STING_BOSS_DRAGON = register("music.sting_boss_dragon");
+    public static final RegistryObject<SoundEvent> STING_VICTORY = register("music.sting_victory");
     public static final RegistryObject<SoundEvent> SPELL_CRUCIO = register("spell.crucio");
     public static final RegistryObject<SoundEvent> SPELL_IMPERIO = register("spell.imperio");
     public static final RegistryObject<SoundEvent> SPELL_FIENDFYRE = register("spell.fiendfyre");

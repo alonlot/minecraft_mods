@@ -48,8 +48,10 @@ public final class MusicStings {
     @SubscribeEvent
     public static void onChangeTarget(LivingChangeTargetEvent event) {
         LivingEntity mob = event.getEntity();
+        // The event fires before Mob.setTarget assigns it (and starts the original equal to the new target),
+        // so "already after this player" is the mob's current target.
         if (!(event.getNewTarget() instanceof ServerPlayer player) || mob.level().isClientSide()
-                || event.getOriginalTarget() == player) {
+                || mob instanceof net.minecraft.world.entity.Mob m && m.getTarget() == player) {
             return;
         }
         byte sting;

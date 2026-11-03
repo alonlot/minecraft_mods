@@ -166,7 +166,8 @@ public final class HitReactions {
 
     // ---- the whole body ----------------------------------------------------------------------------------------
 
-    @SubscribeEvent
+    /** Last, so a handler that cancels the render never leaves our pushed pose on the stack. */
+    @SubscribeEvent(priority = net.minecraftforge.eventbus.api.EventPriority.LOWEST)
     public static void onRenderLivingPre(RenderLivingEvent.Pre<?, ?> event) {
         if (REACTIONS.isEmpty()) {
             return;
@@ -181,6 +182,11 @@ public final class HitReactions {
         if (reaction.kind == DRAINED) {
             // A green-white flash over the body, draining to a sickly green pallor.
             float flash = 1.0f - AvadaChargePose.smoothstep(0.0f, 6.0f, t);
+            // The colour applies when a batch is drawn, not when it is written: flush what came before, and (in
+            // Post) this body's own geometry before the colour is put back.
+            if (event.getMultiBufferSource() instanceof MultiBufferSource.BufferSource pending) {
+                pending.endBatch();
+            }
             RenderSystem.setShaderColor(0.62f + 0.38f * flash, 0.86f + 0.14f * flash, 0.66f + 0.34f * flash, 1.0f);
             TINTED.add(entity.getId());
             return;
@@ -221,6 +227,9 @@ public final class HitReactions {
     public static void onRenderLivingPost(RenderLivingEvent.Post<?, ?> event) {
         int id = event.getEntity().getId();
         if (TINTED.remove(id)) {
+            if (event.getMultiBufferSource() instanceof MultiBufferSource.BufferSource pending) {
+                pending.endBatch();
+            }
             RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
         }
         if (PUSHED.remove(id)) {

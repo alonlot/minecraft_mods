@@ -3830,6 +3830,13 @@ public class ModEvents {
                 openMenu(player);
                 return true;
             } else {
+                // Locked in Priori Incantatem: every press is a push, whatever the mana or the selected spell.
+                if (player.level().isClientSide && com.hogwartsmagic.spell.PrioriIncantatem.clientLocalLocked) {
+                    SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(false, false, false, false),
+                            PacketDistributor.SERVER.noArg());
+                    player.swing(heldItem == player.getMainHandItem() ? InteractionHand.MAIN_HAND : InteractionHand.OFF_HAND);
+                    return true;
+                }
                 if (com.hogwartsmagic.spell.combat.CombatEffects.isCastingBlocked(player)) {
                     com.hogwartsmagic.spell.combat.CombatEffects.notifyCastBlocked(player);
                     return true;

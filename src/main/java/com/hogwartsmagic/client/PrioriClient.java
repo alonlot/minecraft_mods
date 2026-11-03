@@ -63,6 +63,8 @@ public final class PrioriClient {
         double lastFrame;
         boolean ended;
         LockSound sound;
+        /** When the server last spoke about this lock; it sends every other tick while it holds. */
+        double lastPacket;
 
         Lock(int id, int casterA, int casterB, BeamStyle styleA, BeamStyle styleB, float bead, double start) {
             this.id = id;
@@ -74,6 +76,7 @@ public final class PrioriClient {
             this.shown = bead;
             this.start = start;
             this.lastFrame = start;
+            this.lastPacket = start;
             this.seed = id * 0x2545F491;
         }
     }
@@ -112,6 +115,43 @@ public final class PrioriClient {
             minecraft.getSoundManager().play(lock.sound);
         }
         lock.target = packet.bead();
+        lock.lastPacket = now;
+    }
+
+    /** Hours of camera shake from a missed END packet are worse than a lock ending a second late. */
+    private static final double LAPSE_TICKS = 20.0;
+
+    @SubscribeEvent
+    public static void onClientTick(net.minecraftforge.event.TickEvent.ClientTickEvent event) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (event.phase != net.minecraftforge.event.TickEvent.Phase.END) {
+            return;
+        }
+        if (minecraft.level == null) {
+            PrioriIncantatem.clientLocalLocked = false;
+            return;
+        }
+        double now = minecraft.level.getGameTime();
+        LOCKS.values().removeIf(lock -> {
+            boolean stale = now - lock.lastPacket > LAPSE_TICKS || now < lock.lastPacket;
+            if (stale) {
+                lock.ended = true;
+            }
+            return stale;
+        });
+        PrioriIncantatem.clientLocalLocked = minecraft.player != null && involves(minecraft.player.getId());
+    }
+
+    /** A new level (dimension change, respawn) never carries a lock over. */
+    @SubscribeEvent
+    public static void onLevelUnload(net.minecraftforge.event.level.LevelEvent.Unload event) {
+        if (event.getLevel().isClientSide()) {
+            for (Lock lock : LOCKS.values()) {
+                lock.ended = true;
+            }
+            LOCKS.clear();
+            PrioriIncantatem.clientLocalLocked = false;
+        }
     }
 
     private static BeamStyle style(String spellId) {
@@ -430,5 +470,6 @@ public final class PrioriClient {
             lock.ended = true;
         }
         LOCKS.clear();
+        PrioriIncantatem.clientLocalLocked = false;
     }
 }

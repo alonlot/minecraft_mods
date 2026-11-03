@@ -262,7 +262,11 @@ public final class DementorDread {
     @SubscribeEvent
     public static void onPlaySound(PlaySoundEvent event) {
         SoundInstance original = event.getSound();
+        // Music, records, voices and loops are left alone: the sound engine keys a playing sound by its instance,
+        // so a wrapped one could no longer be stopped or found playing by whoever started it.
         if (dread <= 0.15f || original == null || original instanceof TickableSoundInstance
+                || original.isLooping() || original.getSource() == SoundSource.MUSIC
+                || original.getSource() == SoundSource.RECORDS || original.getSource() == SoundSource.VOICE
                 || original.getLocation().getPath().startsWith("dementor")) {
             return;
         }

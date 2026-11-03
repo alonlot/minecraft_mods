@@ -51,6 +51,12 @@ public final class PrioriIncantatem {
     private static final List<Lock> LOCKS = new ArrayList<>();
     private static int nextId = 1;
 
+    /**
+     * Client side only: this client's own player is locked (set by PrioriClient each tick). The wand-use hook reads
+     * it to send a bare push past the mana and hold-spell checks, which would otherwise swallow the press.
+     */
+    public static volatile boolean clientLocalLocked;
+
     private PrioriIncantatem() {
     }
 
@@ -242,6 +248,19 @@ public final class PrioriIncantatem {
         }
         if (b != null) {
             SpellPackets.CHANNEL.send(packet, PacketDistributor.TRACKING_ENTITY_AND_SELF.with(b));
+        }
+    }
+
+    /** A locked NPC duellist casts nothing else: its beams never enter the world while the lock holds. */
+    @SubscribeEvent
+    public static void onEntityJoin(net.minecraftforge.event.entity.EntityJoinLevelEvent event) {
+        if (LOCKS.isEmpty() || event.getLevel().isClientSide()
+                || !(event.getEntity() instanceof com.hogwartsmagic.entity.SpellBeamEntity beam)) {
+            return;
+        }
+        Entity owner = beam.getOwner();
+        if (owner != null && !(owner instanceof Player) && isLocked(owner)) {
+            event.setCanceled(true);
         }
     }
 

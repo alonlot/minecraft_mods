@@ -98,9 +98,6 @@ public final class UndercroftBuilder {
      */
     @Nullable
     public static UndercroftTracker.Undercroft request(ServerLevel level, BlockPos stationTop) {
-        if (activeJob != null) {
-            return null;
-        }
         int depth = depthFor(level, stationTop);
         UndercroftTracker tracker = UndercroftTracker.get(level);
         UndercroftTracker.Undercroft known = tracker.at(stationTop);
@@ -115,6 +112,15 @@ public final class UndercroftBuilder {
                     stationTop, stationTop.getY() - SHAFT_DROP - level.getMinBuildHeight(),
                     CartTrack.DEPTH_MIN);
             tracker.put(stationTop, 0, UndercroftTracker.REFUSED);
+            return null;
+        }
+        if (activeJob != null) {
+            // Another site is being dug. A bank finished while that runs used to have its request
+            // dropped on the floor here, unrecorded, so nothing ever came back for it and the
+            // rotunda stood over solid rock for good. Remember it; maybeResume picks it up.
+            if (known == null) {
+                tracker.put(stationTop, depth, UndercroftTracker.PENDING);
+            }
             return null;
         }
         if (!footprintResident(level, stationTop)) {

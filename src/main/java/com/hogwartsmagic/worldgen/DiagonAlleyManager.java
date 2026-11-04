@@ -190,20 +190,57 @@ public final class DiagonAlleyManager {
     public static void tick(MinecraftServer server) {
         PlacementJob job = activeJob;
         if (job == null) {
+            if (server.getTickCount() % 20 == 0) {
+                resume(server);
+            }
             return;
         }
         try {
             if (job.advance()) {
                 LOGGER.info("Diagon Alley placement complete ({} blocks, {} entities)",
                         job.placed, job.spawned);
+                if (job.entry != null) {
+                    DiagonAlleyRegistry.get(job.level).markComplete(job.entry);
+                }
                 activeJob = null;
             }
         } catch (Exception e) {
             // Without this a single bad block entity or entity tag would rethrow from the tick
             // handler every tick for the rest of the session, with the same job still armed.
             LOGGER.error("Diagon Alley placement failed; abandoning job", e);
+            if (job.entry != null) {
+                // Left as it stands rather than retried: the same bad tag would fail the same way
+                // every time resume() picked it up, clearing and re-pasting the street for ever.
+                DiagonAlleyRegistry.get(job.level).markComplete(job.entry);
+            }
             activeJob = null;
         }
+    }
+
+    /**
+     * Pick up a street whose paste the server stopped under.
+     *
+     * <p>The job lives in a static field and dies with the server; the registry entry does not.
+     * Re-pasting the whole template at the recorded anchor is the resume: every cell it writes is
+     * one the interrupted paste would have written, so the half that is already there is simply
+     * written again.
+     */
+    private static void resume(MinecraftServer server) {
+        ServerLevel alley = DiagonAlleyDimension.level(server);
+        if (alley == null) {
+            return;
+        }
+        DiagonAlleyRegistry.Entry entry = DiagonAlleyRegistry.get(alley).firstIncomplete();
+        if (entry == null) {
+            return;
+        }
+        DiagonAlleyTemplate template = DiagonAlleyTemplate.get();
+        if (template == null) {
+            return;
+        }
+        activeJob = new PlacementJob(alley, template, entry.anchor(), rotationFor(entry.facing()),
+                true, null, entry);
+        LOGGER.info("Resuming the unfinished Diagon Alley behind {} at {}", entry.arch(), entry.anchor());
     }
 
     /** Drops any in-progress job. Called when the server stops, so a job never outlives its level. */
@@ -260,11 +297,13 @@ public final class DiagonAlleyManager {
 
         DiagonAlleyRegistry registry = DiagonAlleyRegistry.get(alley);
         DiagonAlleyRegistry.Entry already = registry.forArch(from, archCentre);
-        if (already != null) {
+        if (already != null && already.complete()) {
             LOGGER.info("Reopening the alley behind {}; it is already built at {}",
                     archCentre, already.anchor());
             return already.anchor();
         }
+        // An entry that is there but not complete is a paste the server stopped under. It falls
+        // through: the overlap check below finds it, and the street is cleared and built again.
 
         Rotation rotation = rotationFor(facing);
         BlockPos anchor = anchorFor(template, archCentre, facing, rotation);
@@ -292,10 +331,11 @@ public final class DiagonAlleyManager {
             clearBox = new int[]{x0, y0, z0, x1, y1, z1};
         }
 
-        activeJob = new PlacementJob(alley, template, anchor, rotation, true, clearBox);
-        registry.record(new DiagonAlleyRegistry.Entry(
+        DiagonAlleyRegistry.Entry entry = new DiagonAlleyRegistry.Entry(
                 from.dimension().location().toString(), archCentre, anchor, facing,
-                footprint[0], template.sizeY(), footprint[1]));
+                footprint[0], template.sizeY(), footprint[1], false);
+        activeJob = new PlacementJob(alley, template, anchor, rotation, true, clearBox, entry);
+        registry.record(entry);
         alley.getDataStorage().save();
         DiagonAlleyTracker.get(from).add(archCentre);
         LOGGER.info("Building Diagon Alley: arch {} facing {}, anchor {}, rotation {}",
@@ -398,6 +438,9 @@ public final class DiagonAlleyManager {
          * memory.
          */
         private final int[] clearBox;
+        /** The registry entry this paste is for, marked complete when it finishes; null for /spawnalley. */
+        @javax.annotation.Nullable
+        private final DiagonAlleyRegistry.Entry entry;
         private int oldCursor;
 
         /** Footprint after rotation. */
@@ -432,12 +475,14 @@ public final class DiagonAlleyManager {
 
         PlacementJob(ServerLevel level, DiagonAlleyTemplate template, BlockPos anchor,
                      Rotation rotation, boolean intoVoid) {
-            this(level, template, anchor, rotation, intoVoid, null);
+            this(level, template, anchor, rotation, intoVoid, null, null);
         }
 
         PlacementJob(ServerLevel level, DiagonAlleyTemplate template, BlockPos anchor,
-                     Rotation rotation, boolean intoVoid, int[] clearBox) {
+                     Rotation rotation, boolean intoVoid, int[] clearBox,
+                     @javax.annotation.Nullable DiagonAlleyRegistry.Entry entry) {
             this.clearBox = clearBox;
+            this.entry = entry;
             this.level = level;
             this.template = template;
             this.anchor = anchor;

@@ -178,7 +178,21 @@ public final class DiagonAlleyPortal {
             // in, which is the very list being walked -- ConcurrentModificationException, and the
             // server tick loop dies on the first step through an arch.
             for (ServerPlayer player : new ArrayList<>(source.players())) {
-                if (player.serverLevel() != source || !near(player, entry.arch())) {
+                if (player.serverLevel() != source) {
+                    continue;
+                }
+                if (!near(player, entry.arch())) {
+                    // Once they are well away, their client has dropped the chunks the view was
+                    // painted into and been sent its own world back by the ordinary chunk
+                    // streaming; forget it here too, or on their return the arch opens onto their
+                    // own field until it is shut and opened again. Hysteresis, so somebody
+                    // loitering at the edge of range is not sent the street over and over.
+                    if (player.blockPosition().distSqr(entry.arch()) > (double) (NEAR * 2) * (NEAR * 2)) {
+                        Set<BlockPos> seen = shown.get(player.getUUID());
+                        if (seen != null) {
+                            seen.remove(entry.arch());
+                        }
+                    }
                     continue;
                 }
                 if (openOutside) {
@@ -352,6 +366,12 @@ public final class DiagonAlleyPortal {
         double x = player.getX();
         double y = player.getY();
         double z = player.getZ();
+
+        // What vanilla's own dimension change does first. A broom flown through the arch would
+        // otherwise stay behind in the world it was in, still carrying a rider who is now in
+        // another one, and keep positioning them from there.
+        player.stopRiding();
+        player.ejectPassengers();
 
         moving.add(player.getUUID());
         try {

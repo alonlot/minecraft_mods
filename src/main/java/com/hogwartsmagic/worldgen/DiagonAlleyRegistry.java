@@ -39,9 +39,16 @@ public class DiagonAlleyRegistry extends SavedData {
 
     private static final String NAME = "hogwartsmagic_diagon_alleys";
 
-    /** One wall, and the street behind it. */
+    /**
+     * One wall, and the street behind it.
+     *
+     * <p>{@code complete} is false from the moment the paste is started until its last phase has
+     * run. An entry is recorded before the first block goes down, because the portal and the arch
+     * mirror need it while the street is still going up; without the flag a server that stopped
+     * mid-build came back with a half-street that read as "already built" for good.
+     */
     public record Entry(String sourceDimension, BlockPos arch, BlockPos anchor, Direction facing,
-                        int sizeX, int sizeY, int sizeZ) {
+                        int sizeX, int sizeY, int sizeZ, boolean complete) {
 
         /** Is this world position inside the street this entry built? */
         public boolean contains(BlockPos pos) {
@@ -144,6 +151,32 @@ public class DiagonAlleyRegistry extends SavedData {
         setDirty();
     }
 
+    /** The paste behind this wall has finished; the street is whole. */
+    public void markComplete(Entry entry) {
+        for (int i = 0; i < entries.size(); i++) {
+            Entry e = entries.get(i);
+            if (e.arch().equals(entry.arch()) && e.sourceDimension().equals(entry.sourceDimension())) {
+                if (!e.complete()) {
+                    entries.set(i, new Entry(e.sourceDimension(), e.arch(), e.anchor(), e.facing(),
+                            e.sizeX(), e.sizeY(), e.sizeZ(), true));
+                    setDirty();
+                }
+                return;
+            }
+        }
+    }
+
+    /** A street whose paste never finished (the server stopped under it), or null. */
+    @Nullable
+    public Entry firstIncomplete() {
+        for (Entry e : entries) {
+            if (!e.complete()) {
+                return e;
+            }
+        }
+        return null;
+    }
+
     /** Forget a wall, so tapping it builds a fresh street. Used when the wall itself is destroyed. */
     public void forget(ServerLevel source, BlockPos arch) {
         String dim = source.dimension().location().toString();
@@ -170,11 +203,13 @@ public class DiagonAlleyRegistry extends SavedData {
                 continue;
             }
             Direction facing = Direction.from3DDataValue(e.getInt("Facing"));
+            // Saves from before the flag existed carry only finished streets.
+            boolean complete = !e.contains("Complete", Tag.TAG_BYTE) || e.getBoolean("Complete");
             data.entries.add(new Entry(
                     e.getString("From"),
                     new BlockPos(arch[0], arch[1], arch[2]),
                     new BlockPos(anchor[0], anchor[1], anchor[2]),
-                    facing, size[0], size[1], size[2]));
+                    facing, size[0], size[1], size[2], complete));
         }
         return data;
     }
@@ -190,6 +225,7 @@ public class DiagonAlleyRegistry extends SavedData {
                     new int[]{e.anchor().getX(), e.anchor().getY(), e.anchor().getZ()});
             c.putIntArray("Size", new int[]{e.sizeX(), e.sizeY(), e.sizeZ()});
             c.putInt("Facing", e.facing().get3DDataValue());
+            c.putBoolean("Complete", e.complete());
             list.add(c);
         }
         tag.put("Alleys", list);

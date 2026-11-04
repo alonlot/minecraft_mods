@@ -312,10 +312,10 @@ public final class FlyingMemory {
         LIVE_TICKETS.merge(ticketKey(level, chunk), 1, Integer::sum);
     }
 
-    /** The only place the ticket is dropped. */
+    /** The only place the ticket is dropped. A chunk with no ticket left is forgotten, so the map cannot grow. */
     private static void removeTicket(ServerLevel level, ChunkPos chunk, UUID key) {
         level.getChunkSource().removeRegionTicket(BROOM_TICKET, chunk, TICKET_DISTANCE, key);
-        LIVE_TICKETS.merge(ticketKey(level, chunk), -1, Integer::sum);
+        LIVE_TICKETS.compute(ticketKey(level, chunk), (k, n) -> n == null || n <= 1 ? null : n - 1);
     }
 
     /** Releases every hold (server stop, tests): tickets removed, brooms freed, no remount. */
@@ -323,5 +323,6 @@ public final class FlyingMemory {
         for (UUID id : new ArrayList<>(HOLDS.keySet())) release(id);
         IN_SNITCH.clear();
         PENDING.clear();
+        LIVE_TICKETS.clear();
     }
 }

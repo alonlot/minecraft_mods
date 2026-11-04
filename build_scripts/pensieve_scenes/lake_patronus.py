@@ -347,10 +347,11 @@ past_harry = {'id': 'past_harry', 'type': 'player', 'name': 'Harry', 'skin': HAR
 # ---------------------------------------------------------------- future Harry and Hermione on the far bank
 cast_yaw = yaw_to(FH_EDGE, CAST_TARGET)
 fh_path = [K(0, FH0), K(T_STAND + 0.2, FH0), K(43.6, (-4.5, 0, -29.6), 'in_out'), K(45.4, FH_EDGE, 'out')]
-fh_look = [Y(0, 0, 4), Y(36.0, 0, 4), Y(38.9, 0, 6), Y(39.6, 40, 6), Y(40.6, 40, 6), Y(41.6, 4, 8),
+# Hermione hides east of him (+X, his left as he faces the lake), so he turns to her with a negative yaw
+fh_look = [Y(0, 0, 4), Y(36.0, 0, 4), Y(38.9, 0, 6), Y(39.6, -40, 6), Y(40.6, -40, 6), Y(41.6, 4, 8),
            Y(T_STAND, 4, 2), Y(45.4, cast_yaw, -4), Y(T_CAST, cast_yaw, -4),
            Y(58.8, cast_yaw, 0), Y(T_STAG_STOP, 6, 12), Y(T_BOW + 0.4, 6, 18), Y(T_STAG_GONE + 0.6, 2, 2),
-           Y(74.8, 30, 4), Y(76.2, 4, 0)]
+           Y(74.8, -30, 4), Y(76.2, 4, 0)]
 future_harry = {'id': 'future_harry', 'type': 'player', 'name': 'Harry', 'skin': HARRY_SKIN,
                 'items': {'mainhand': WAND}, 'path': fh_path, 'look': fh_look,
                 'poses': [P(45.8, 'wand_raised', 6), P(T_CAST - 0.05, 'wand_point', 2), P(T_STAG_STOP - 0.4, 'relax', 16)],
@@ -990,5 +991,5 @@ print('\n'.join(problems) if problems else 'NO PROBLEMS')
 
 txt = write_scene(scene, 'lake_patronus')
 print('chars', len(txt))
-if len(txt) > 252000:
+if len(txt) > 890000:   # a 10k margin under the cap
     print('PROBLEM: scene JSON too big (%d chars, cap 900000)' % len(txt))

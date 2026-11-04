@@ -178,6 +178,14 @@ public final class VillageGringottsBank {
      */
     /** Package-private so GringottsFurnishing can run it for the alley's copy of the bank too. */
     static void lockGate(ServerLevel level, BlockPos anchor) {
+        lockGate(level, anchor, net.minecraft.world.level.block.Rotation.NONE);
+    }
+
+    /**
+     * As {@link #lockGate(ServerLevel, BlockPos)}, for a copy pasted turned by {@code rotation};
+     * {@code anchor} is then the min corner of the rotated footprint.
+     */
+    static void lockGate(ServerLevel level, BlockPos anchor, net.minecraft.world.level.block.Rotation rotation) {
         GringottsSchematic schem = GringottsSchematic.get();
         if (schem == null) {
             return;
@@ -189,22 +197,30 @@ public final class VillageGringottsBank {
         BlockState gate = ExampleMod.GRINGOTTS_GATE.get().defaultBlockState();
         int floorY = anchor.getY() + marks.islandY;
 
+        BlockPos cornerA = GringottsFurnishing.toWorld(schem, anchor, rotation,
+                marks.gateX - 2, marks.islandY - 1, marks.minZ - 3);
+        BlockPos cornerB = GringottsFurnishing.toWorld(schem, anchor, rotation,
+                marks.maxX + 2, marks.islandY + GATE_HEIGHT, marks.maxZ + 3);
         int swapped = 0;
         for (BlockPos pos : BlockPos.betweenClosed(
-                new BlockPos(anchor.getX() + marks.gateX - 2, floorY - 1,
-                        anchor.getZ() + marks.minZ - 3),
-                new BlockPos(anchor.getX() + marks.maxX + 2, floorY + GATE_HEIGHT,
-                        anchor.getZ() + marks.maxZ + 3))) {
+                new BlockPos(Math.min(cornerA.getX(), cornerB.getX()), Math.min(cornerA.getY(), cornerB.getY()),
+                        Math.min(cornerA.getZ(), cornerB.getZ())),
+                new BlockPos(Math.max(cornerA.getX(), cornerB.getX()), Math.max(cornerA.getY(), cornerB.getY()),
+                        Math.max(cornerA.getZ(), cornerB.getZ())))) {
             if (level.getBlockState(pos).is(Blocks.IRON_BARS)) {
                 level.setBlock(pos.immutable(), gate, Block.UPDATE_CLIENTS);
                 swapped++;
             }
         }
 
+        // The screen is a plane of constant schematic x; turned a quarter, that is a plane of
+        // constant world z, and the flood has to step along x instead.
+        boolean quarterTurn = rotation == net.minecraft.world.level.block.Rotation.CLOCKWISE_90
+                || rotation == net.minecraft.world.level.block.Rotation.COUNTERCLOCKWISE_90;
         int filled = fillDoorway(level,
-                new BlockPos(anchor.getX() + marks.gateX, floorY + 1,
-                        anchor.getZ() + marks.islandZ),
-                gate, floorY);
+                GringottsFurnishing.toWorld(schem, anchor, rotation,
+                        marks.gateX, marks.islandY + 1, marks.islandZ),
+                gate, floorY, quarterTurn);
         LOGGER.info("Gringotts gate locked: {} bars replaced, {} cells of doorway filled",
                 swapped, filled);
     }
@@ -212,10 +228,12 @@ public final class VillageGringottsBank {
     /**
      * Floods the doorway void with gate, staying inside the plane of the screen.
      *
-     * <p>Confined to one X column on purpose: the screen is one block thick, and a flood that can
-     * step in X would pour out of the doorway and fill the rotunda behind it.
+     * <p>Confined to one X column on purpose (one Z row when the paste is turned a quarter): the
+     * screen is one block thick, and a flood that can step through it would pour out of the
+     * doorway and fill the rotunda behind it.
      */
-    private static int fillDoorway(ServerLevel level, BlockPos seed, BlockState gate, int floorY) {
+    private static int fillDoorway(ServerLevel level, BlockPos seed, BlockState gate, int floorY,
+                                   boolean stepAlongX) {
         if (!level.getBlockState(seed).isAir()) {
             return 0;
         }
@@ -228,7 +246,10 @@ public final class VillageGringottsBank {
             BlockPos pos = queue.poll();
             level.setBlock(pos, gate, Block.UPDATE_CLIENTS);
             filled++;
-            for (BlockPos next : new BlockPos[]{pos.above(), pos.below(), pos.north(), pos.south()}) {
+            BlockPos[] around = stepAlongX
+                    ? new BlockPos[]{pos.above(), pos.below(), pos.east(), pos.west()}
+                    : new BlockPos[]{pos.above(), pos.below(), pos.north(), pos.south()};
+            for (BlockPos next : around) {
                 if (next.getY() < floorY || next.getY() > floorY + GATE_HEIGHT
                         || !seen.add(next.immutable()) || !level.getBlockState(next).isAir()) {
                     continue;

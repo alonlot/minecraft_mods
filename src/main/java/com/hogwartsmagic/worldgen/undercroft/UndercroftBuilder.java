@@ -103,6 +103,13 @@ public final class UndercroftBuilder {
         }
         int depth = depthFor(level, stationTop);
         UndercroftTracker tracker = UndercroftTracker.get(level);
+        UndercroftTracker.Undercroft known = tracker.at(stationTop);
+        if (known != null && (known.stage == UndercroftTracker.COMPLETE
+                || known.stage == UndercroftTracker.REFUSED)) {
+            // Checked before anything below can overwrite the stage: a finished site demoted to
+            // PENDING would be "resumed" from WORK_DONE and spawn a second cart, dragon and guards.
+            return null;
+        }
         if (depth < 0) {
             LOGGER.info("No undercroft at {}: only {} blocks of rock beneath it, {} needed",
                     stationTop, stationTop.getY() - SHAFT_DROP - level.getMinBuildHeight(),
@@ -218,6 +225,15 @@ public final class UndercroftBuilder {
 
     /** Which undercroft each player was last told they were in. */
     private static final java.util.Map<java.util.UUID, BlockPos> FOGGED = new java.util.HashMap<>();
+
+    /**
+     * Forgets what this player was told. Called on logout: the client drops its fog state when it
+     * disconnects, so a stale entry here would stop the fog being re-sent when they log back in
+     * inside the same undercroft.
+     */
+    public static void forgetPlayer(java.util.UUID player) {
+        FOGGED.remove(player);
+    }
 
     /** Picks up anything left half-dug, when somebody wanders back into range of it. */
     public static void maybeResume(ServerPlayer player) {

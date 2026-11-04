@@ -10,6 +10,7 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.Rotation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,22 +56,51 @@ public final class GringottsFurnishing {
      * a larger template.
      */
     public static void furnish(ServerLevel level, BlockPos anchor, RandomSource rng) {
-        staff(level, anchor, rng);
-        VillageGringottsBank.lockGate(level, anchor);
+        furnish(level, anchor, rng, Rotation.NONE);
+    }
+
+    /**
+     * As {@link #furnish(ServerLevel, BlockPos, RandomSource)}, for a copy of the bank that was
+     * pasted turned by {@code rotation} (the Diagon Alley template is rotated to face its wall).
+     * {@code anchor} is the min corner of the rotated footprint.
+     */
+    public static void furnish(ServerLevel level, BlockPos anchor, RandomSource rng, Rotation rotation) {
+        staff(level, anchor, rng, rotation);
+        VillageGringottsBank.lockGate(level, anchor, rotation);
+    }
+
+    /**
+     * A schematic-local cell to world coordinates, for a paste whose rotated footprint has its min
+     * corner at {@code anchor}. Same transform as vanilla's {@link Rotation} on structure templates.
+     */
+    static BlockPos toWorld(GringottsSchematic schem, BlockPos anchor, Rotation rotation,
+                            int x, int y, int z) {
+        int w = schem.width();
+        int l = schem.length();
+        return switch (rotation) {
+            case CLOCKWISE_90 -> anchor.offset(l - 1 - z, y, x);
+            case CLOCKWISE_180 -> anchor.offset(w - 1 - x, y, l - 1 - z);
+            case COUNTERCLOCKWISE_90 -> anchor.offset(z, y, w - 1 - x);
+            default -> anchor.offset(x, y, z);
+        };
     }
 
     /** A teller behind each counter, and a couple of guards loose in the hall. */
     public static void staff(ServerLevel level, BlockPos anchor, RandomSource rng) {
+        staff(level, anchor, rng, Rotation.NONE);
+    }
+
+    private static void staff(ServerLevel level, BlockPos anchor, RandomSource rng, Rotation rotation) {
         GringottsSchematic schem = GringottsSchematic.get();
         if (schem == null) {
             return;
         }
 
-        List<BlockPos> tellerSpots = findTellerSpots(schem, anchor);
+        List<BlockPos> tellerSpots = findTellerSpots(schem, anchor, rotation);
         if (tellerSpots.isEmpty()) {
             // No recognisable counters; fall back to any standing room.
             LOGGER.warn("No teller counters found in the Gringotts schematic; using open floor");
-            tellerSpots = findStandingRoom(schem, anchor, 3);
+            tellerSpots = findStandingRoom(schem, anchor, rotation, 3);
         }
 
         for (BlockPos pos : tellerSpots) {
@@ -79,12 +109,12 @@ public final class GringottsFurnishing {
                 continue;
             }
             teller.moveTo(pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D,
-                    yawTowardHall(schem, anchor, pos), 0.0F);
+                    yawTowardHall(schem, anchor, rotation, pos), 0.0F);
             teller.makeTeller("Gringotts Teller");
             level.addFreshEntity(teller);
         }
 
-        for (BlockPos pos : findStandingRoom(schem, anchor, 2)) {
+        for (BlockPos pos : findStandingRoom(schem, anchor, rotation, 2)) {
             GoblinGuardEntity guard = ModEntities.GOBLIN_GUARD.get().create(level);
             if (guard == null) {
                 continue;
@@ -100,14 +130,19 @@ public final class GringottsFurnishing {
     }
 
     /** Turns a teller to face the middle of the building, i.e. the customers. */
-    private static float yawTowardHall(GringottsSchematic schem, BlockPos anchor, BlockPos pos) {
-        double dx = (anchor.getX() + schem.width() / 2.0D) - pos.getX();
-        double dz = (anchor.getZ() + schem.length() / 2.0D) - pos.getZ();
+    private static float yawTowardHall(GringottsSchematic schem, BlockPos anchor, Rotation rotation,
+                                       BlockPos pos) {
+        boolean swapped = rotation == Rotation.CLOCKWISE_90 || rotation == Rotation.COUNTERCLOCKWISE_90;
+        double spanX = swapped ? schem.length() : schem.width();
+        double spanZ = swapped ? schem.width() : schem.length();
+        double dx = (anchor.getX() + spanX / 2.0D) - pos.getX();
+        double dz = (anchor.getZ() + spanZ / 2.0D) - pos.getZ();
         return (float) (Math.toDegrees(Math.atan2(-dx, dz)));
     }
 
     /** One standing position behind each gold-plated counter. */
-    private static List<BlockPos> findTellerSpots(GringottsSchematic schem, BlockPos anchor) {
+    private static List<BlockPos> findTellerSpots(GringottsSchematic schem, BlockPos anchor,
+                                                  Rotation rotation) {
         List<BlockPos> spots = new ArrayList<>();
         int width = schem.width();
         int length = schem.length();
@@ -123,8 +158,7 @@ public final class GringottsFurnishing {
             if (behind == null) {
                 continue;
             }
-            BlockPos pos = new BlockPos(anchor.getX() + behind[0],
-                    anchor.getY() + behind[1], anchor.getZ() + behind[2]);
+            BlockPos pos = toWorld(schem, anchor, rotation, behind[0], behind[1], behind[2]);
             if (farEnough(spots, pos, 4.0D)) {
                 spots.add(pos);
             }
@@ -192,7 +226,8 @@ public final class GringottsFurnishing {
     }
 
     /** Finds up to {@code wanted} well-separated spots with head room inside the build. */
-    private static List<BlockPos> findStandingRoom(GringottsSchematic schem, BlockPos anchor, int wanted) {
+    private static List<BlockPos> findStandingRoom(GringottsSchematic schem, BlockPos anchor,
+                                                   Rotation rotation, int wanted) {
         List<BlockPos> found = new ArrayList<>();
         int width = schem.width();
         int length = schem.length();
@@ -216,8 +251,7 @@ public final class GringottsFurnishing {
                         boolean feet = schem.isAir(schem.indexOf(x, y, z));
                         boolean head = schem.isAir(schem.indexOf(x, y + 1, z));
                         if (floor && feet && head) {
-                            BlockPos pos = new BlockPos(anchor.getX() + x,
-                                    anchor.getY() + y, anchor.getZ() + z);
+                            BlockPos pos = toWorld(schem, anchor, rotation, x, y, z);
                             if (farEnough(found, pos, 6.0D)) {
                                 found.add(pos);
                             }

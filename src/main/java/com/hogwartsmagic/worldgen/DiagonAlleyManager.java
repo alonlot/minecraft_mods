@@ -724,7 +724,7 @@ public final class DiagonAlleyManager {
                 BlockPos bankAnchor = new BlockPos(anchor.getX() + rx[i] - off[0],
                         anchor.getY() + ry[i] - off[1],
                         anchor.getZ() + rz[i] - off[2]);
-                GringottsFurnishing.furnish(level, bankAnchor, level.getRandom());
+                GringottsFurnishing.furnish(level, bankAnchor, level.getRandom(), rotation);
                 LOGGER.info("Staffed the alley's Gringotts, anchored at {}", bankAnchor);
                 return;
             }

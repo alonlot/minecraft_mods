@@ -27,8 +27,7 @@ public abstract class CaveInimicumEntityRenderDispatcherMixin {
     @Inject(
             method = "shouldRender(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/client/renderer/culling/Frustum;DDD)Z",
             at = @At("HEAD"),
-            cancellable = true,
-            remap = false)
+            cancellable = true)
     private void hogwartsmagic$hideWardedEntities(Entity entity, Frustum frustum, double camX, double camY, double camZ,
                                                   CallbackInfoReturnable<Boolean> cir) {
         EntityRenderDispatcher self = (EntityRenderDispatcher) (Object) this;

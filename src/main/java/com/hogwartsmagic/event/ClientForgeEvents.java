@@ -18,6 +18,19 @@ import net.minecraft.world.level.biome.Biome;
 @Mod.EventBusSubscriber(modid = ExampleMod.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
 public class ClientForgeEvents {
 
+    /** A server action-bar line pauses the wand cooldown line so the player can read it. */
+    @SubscribeEvent
+    public static void onSystemChat(net.minecraftforge.client.event.ClientChatReceivedEvent.System event) {
+        if (event.isOverlay() && !event.isCanceled()) {
+            com.hogwartsmagic.client.ModEventsClientHooks.onServerActionBar();
+        }
+    }
+
+    @SubscribeEvent
+    public static void onClientLogout(net.minecraftforge.client.event.ClientPlayerNetworkEvent.LoggingOut event) {
+        com.hogwartsmagic.client.ModEventsClientHooks.clearServerActionBar();
+    }
+
     /**
      * Per-biome fog overrides, applied only while the camera is actually inside the biome.
      *

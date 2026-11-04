@@ -3,19 +3,27 @@ package com.hogwartsmagic.spell;
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.TickTask;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.event.server.ServerStoppedEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod;
 import org.joml.Vector3f;
+
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
 
 /**
  * Incarcerous: chains erupt from the ground to the left and right of the target, wrap limbs,
  * and are re-drawn while {@link com.hogwartsmagic.ExampleMod#INCARCEROUS_CHAINS} is active.
  */
+@Mod.EventBusSubscriber(modid = com.hogwartsmagic.ExampleMod.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class IncarcerousChainAnimation {
 
     /** Horizontal distance from entity feet where side anchors sit (blocks). */
@@ -28,6 +36,11 @@ public final class IncarcerousChainAnimation {
     private static final DustParticleOptions CHAIN_EDGE =
             new DustParticleOptions(new Vector3f(0.48f, 0.48f, 0.55f), 0.92f);
 
+    /** A wind-up step due on a server tick. (A vanilla TickTask is not a delay: it runs as soon as the server is idle.) */
+    private record Step(int dueTick, Runnable action) {}
+
+    private static final List<Step> PENDING = new ArrayList<>();
+
     private IncarcerousChainAnimation() {}
 
     public static void schedule(ServerLevel level, LivingEntity target) {
@@ -36,12 +49,36 @@ public final class IncarcerousChainAnimation {
         }
         MinecraftServer server = level.getServer();
         int t0 = server.getTickCount();
-        server.tell(new TickTask(t0, () -> phaseFirstLeg(target)));
-        server.tell(new TickTask(t0 + 7, () -> phaseSecondLeg(target)));
-        server.tell(new TickTask(t0 + 14, () -> phaseLegShackle(target)));
-        server.tell(new TickTask(t0 + 22, () -> phaseHandChain(target, true)));
-        server.tell(new TickTask(t0 + 29, () -> phaseHandChain(target, false)));
-        server.tell(new TickTask(t0 + 36, () -> phaseFinisher(target)));
+        phaseFirstLeg(target);
+        PENDING.add(new Step(t0 + 7, () -> phaseSecondLeg(target)));
+        PENDING.add(new Step(t0 + 14, () -> phaseLegShackle(target)));
+        PENDING.add(new Step(t0 + 22, () -> phaseHandChain(target, true)));
+        PENDING.add(new Step(t0 + 29, () -> phaseHandChain(target, false)));
+        PENDING.add(new Step(t0 + 36, () -> phaseFinisher(target)));
+    }
+
+    @SubscribeEvent
+    public static void onServerTick(TickEvent.ServerTickEvent event) {
+        if (event.phase != TickEvent.Phase.END || PENDING.isEmpty()) {
+            return;
+        }
+        int now = event.getServer().getTickCount();
+        List<Step> due = new ArrayList<>();
+        for (Iterator<Step> it = PENDING.iterator(); it.hasNext(); ) {
+            Step step = it.next();
+            if (step.dueTick() <= now) {
+                due.add(step);
+                it.remove();
+            }
+        }
+        for (Step step : due) {
+            step.action().run(); // each phase re-checks that the target is alive and still in a server level
+        }
+    }
+
+    @SubscribeEvent
+    public static void onServerStopped(ServerStoppedEvent event) {
+        PENDING.clear();
     }
 
     /**

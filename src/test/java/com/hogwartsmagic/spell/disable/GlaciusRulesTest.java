@@ -15,6 +15,13 @@ class GlaciusRulesTest {
     }
 
     @Test
+    void slowLastsTwoSecondsLongerInTheCold() {
+        assertEquals(80, GlaciusRules.slowTicks(1, false));
+        assertEquals(120, GlaciusRules.slowTicks(1, true));
+        assertEquals(180, GlaciusRules.slowTicks(4, true));
+    }
+
+    @Test
     void windowAndFreezeScale() {
         assertEquals(80, GlaciusRules.chillWindowTicks(1));
         assertEquals(120, GlaciusRules.chillWindowTicks(4));

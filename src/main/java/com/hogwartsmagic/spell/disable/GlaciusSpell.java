@@ -58,7 +58,7 @@ public final class GlaciusSpell {
         Holder<MobEffect> frozen = DisableSupport.holder(ExampleMod.GLACIUS_FROZEN);
         boolean primed = target.hasEffect(chill) || target.hasEffect(frozen);
         target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN,
-                GlaciusRules.slowTicks(rank), GlaciusRules.SLOW_AMPLIFIER), responsible);
+                GlaciusRules.slowTicks(rank, isCold(target)), GlaciusRules.SLOW_AMPLIFIER), responsible);
         if (!primed) {
             DisableSupport.addHiddenMarker(target, ExampleMod.GLACIUS_CHILL, GlaciusRules.chillWindowTicks(rank), rank - 1, caster);
             target.setTicksFrozen(Math.max(target.getTicksFrozen(), GlaciusRules.CHILL_FROST_TICKS));
@@ -149,6 +149,11 @@ public final class GlaciusSpell {
                 level.scheduleTick(pos, Blocks.FROSTED_ICE, Mth.nextInt(level.getRandom(), 60, 120));
             }
         }
+    }
+
+    /** Snowy and frozen biomes (base temperature under 0.15) make the slow last longer. */
+    private static boolean isCold(LivingEntity target) {
+        return target.level().getBiome(target.blockPosition()).value().getBaseTemperature() < 0.15f;
     }
 
     /** Fire thaws a frozen target at once; the frozen-by tag is cleared once the freeze is over. */

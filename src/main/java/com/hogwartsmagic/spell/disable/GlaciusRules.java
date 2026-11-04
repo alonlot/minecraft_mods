@@ -8,6 +8,8 @@ public final class GlaciusRules {
     private static final int[] BRITTLE_AMPLIFIER = {0, 0, 1, 1};
     /** Slowness II. */
     public static final int SLOW_AMPLIFIER = 1;
+    /** Extra slow time in a cold biome (base temperature under 0.15: snowy plains, peaks, frozen ocean). */
+    public static final int COLD_BONUS_TICKS = 40;
     /** Vanilla frost overlay for a chilled target; under the 140 that counts as fully frozen. */
     public static final int CHILL_FROST_TICKS = 100;
     public static final int BRITTLE_LINGER_TICKS = 60;
@@ -20,7 +22,11 @@ public final class GlaciusRules {
     }
 
     public static int slowTicks(int rank) {
-        return SLOW_TICKS[RankIndex.of(rank)];
+        return slowTicks(rank, false);
+    }
+
+    public static int slowTicks(int rank, boolean cold) {
+        return SLOW_TICKS[RankIndex.of(rank)] + (cold ? COLD_BONUS_TICKS : 0);
     }
 
     public static int chillWindowTicks(int rank) {

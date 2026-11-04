@@ -81,6 +81,7 @@ public final class ExpelliarmusSpell {
         com.hogwartsmagic.duel.DuelManager.onDisarmed(target);
         if (owner != null) {
             target.knockback(ExpelliarmusRules.knockback(rank), owner.getX() - target.getX(), owner.getZ() - target.getZ());
+            target.hurtMarked = true; // a player only sees the knockback if its motion is sent
         }
         if (target instanceof Player || target instanceof DisarmableWandUser || target instanceof VoldemortEntity) {
             CombatEffects.applySilenced(target, silenceTicks, caster);

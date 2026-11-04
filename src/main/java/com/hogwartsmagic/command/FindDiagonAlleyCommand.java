@@ -33,7 +33,7 @@ public class FindDiagonAlleyCommand {
         BlockPos closest = tracker.findClosest(from);
         if (closest == null) {
             source.sendFailure(Component.literal(
-                    "No Diagon Alleys have been generated in this dimension yet. Explore plains/meadow biomes — when one generates, you'll see it announced."));
+                    "No Diagon Alley has been opened in this dimension yet. Build a wall of Diagon Bricks with a cauldron against it and tap the glowing brick (see the brick's tooltip)."));
             return 0;
         }
         int dx = closest.getX() - from.getX();

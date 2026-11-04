@@ -125,6 +125,12 @@ public final class VillageGringottsBank {
         if (job == null) {
             return;
         }
+        if (job.level.getServer() != server) {
+            // Left over from a world closed mid-build (single player); its level is gone. The
+            // village was never marked visited, so it gets its bank on the next visit.
+            activeJob = null;
+            return;
+        }
         try {
             if (job.advance()) {
                 job.staff();

@@ -5,7 +5,7 @@
   "compatibilityLevel": "JAVA_21",
   "mixins": [
     "OverworldBiomeBuilderMixin",
-    "SurfaceRuleDataMixin",
+    "NoiseGeneratorSettingsMixin",
     "PlayerChunkSenderMixin",
     "LivingEntityStunMixin",
     "ServerGamePacketListenerMixin",

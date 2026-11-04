@@ -72,7 +72,8 @@ public final class MiniHogwartsManager {
 
     /**
      * Begin building a castle horizontally centered on {@code center} (its base sunk just below the
-     * surface there). Returns the recorded locator center, or null if busy or the schematic is missing.
+     * surface there). Returns the recorded locator center, or null if busy, the schematic is missing,
+     * or the chunks under the footprint are not all loaded.
      */
     public static BlockPos requestSpawn(ServerLevel level, BlockPos center) {
         if (activeJob != null) {
@@ -88,6 +89,17 @@ public final class MiniHogwartsManager {
         // downhill side. Sample ground excluding tree leaves so we don't perch it on the canopy.
         int w = schem.width();
         int l = schem.length();
+        // Every chunk under the footprint must already be loaded: the height samples below and the
+        // build itself would otherwise load (or generate) chunks synchronously on the tick thread.
+        int minX = center.getX() - w / 2;
+        int minZ = center.getZ() - l / 2;
+        for (int cx = minX >> 4; cx <= (minX + w) >> 4; cx++) {
+            for (int cz = minZ >> 4; cz <= (minZ + l) >> 4; cz++) {
+                if (!level.hasChunk(cx, cz)) {
+                    return null;
+                }
+            }
+        }
         int maxGround = Integer.MIN_VALUE;
         for (int sx = -w / 2; sx <= w / 2; sx += w / 2) {
             for (int sz = -l / 2; sz <= l / 2; sz += l / 2) {
@@ -117,6 +129,12 @@ public final class MiniHogwartsManager {
         if (activeJob == null) {
             return;
         }
+        if (activeJob.level.getServer() != server) {
+            // Left over from a world that was closed mid-build (single player). Writing to its
+            // level from the new server's thread would block on the old, stopped chunk executor.
+            activeJob = null;
+            return;
+        }
         if (activeJob.advance(BLOCKS_PER_TICK)) {
             activeJob.furnish(); // one-shot: themed chests + decorations in the landmark rooms
             activeJob.spawnStudents(); // populate the finished castle with a crowd of students
@@ -144,7 +162,12 @@ public final class MiniHogwartsManager {
                 return;
             }
         }
-        requestSpawn(level, from.offset(AUTO_SPAWN_OFFSET, 0, AUTO_SPAWN_OFFSET));
+        // The diagonal spot reaches about eleven chunks out, past a dedicated server's default view
+        // distance, so fall back to the two sides along the castle's narrow axis (about nine).
+        if (requestSpawn(level, from.offset(AUTO_SPAWN_OFFSET, 0, AUTO_SPAWN_OFFSET)) == null
+                && requestSpawn(level, from.offset(AUTO_SPAWN_OFFSET, 0, 0)) == null) {
+            requestSpawn(level, from.offset(-AUTO_SPAWN_OFFSET, 0, 0));
+        }
     }
 
     private static void announce(ServerLevel level, BlockPos center) {

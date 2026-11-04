@@ -188,6 +188,11 @@ public final class DiagonAlleyManager {
 
     /** Called every server tick to advance an in-progress build. */
     public static void tick(MinecraftServer server) {
+        if (activeJob != null && activeJob.level.getServer() != server) {
+            // Left over from a world closed mid-build (single player); its level is gone.
+            activeJob = null;
+            return;
+        }
         if (activeJob != null && activeJob.advance()) {
             LOGGER.info("Diagon Alley placement complete ({} blocks, {} entities)",
                     activeJob.placed, activeJob.spawned);

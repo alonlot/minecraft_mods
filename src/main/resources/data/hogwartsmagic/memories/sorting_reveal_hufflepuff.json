@@ -202,7 +202,6 @@
     {"t": 0, "kind": "block", "id": "minecraft:light", "at": [-15, 16, -8]},
     {"t": 0, "kind": "block", "id": "minecraft:light", "at": [-15, 16, 8]},
     {"t": 49, "kind": "sfx", "id": "hogwartsmagic:pensieve.sfx.hall_cheer_big", "volume": 1.0},
-    {"t": 66, "kind": "sfx", "id": "hogwartsmagic:pensieve.sfx.hall_cheer_big", "volume": 0.9},
     {"t": 92, "kind": "effect", "id": "eyes_peek", "at": [0, 0, 0], "duration": 58, "intensity": 0.35}
   ],
   "camera": [{"t": 0, "pos": [0.85, 2.286, 0.5], "look_at": [22.0, 1.4, -10.35], "fov": 76}, {"t": 160, "pos": [0.87, 2.256, 0.5], "look_at": [22.0, 1.9, -9.78], "fov": 74}]

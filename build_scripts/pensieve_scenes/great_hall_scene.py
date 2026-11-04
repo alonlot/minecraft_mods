@@ -1857,9 +1857,11 @@ def reveal_scene(house):
     ev_ = [{'t': 0, 'kind': 'effect', 'id': 'eyes_close', 'at': [0, 0, 0], 'duration': 1},
            {'t': 0, 'kind': 'effect', 'id': 'enchanted_ceiling', 'at': A['ceiling_center'],
             'spread': A['ceiling_spread'], 'duration': 1, 'style': 'storm'},
-           {'t': cheer0, 'kind': 'sfx', 'id': SFX + 'cheer_big', 'volume': 1.0},
-           {'t': 66, 'kind': 'sfx', 'id': SFX + 'cheer_big', 'volume': 0.9},
-           {'t': R_PEEK, 'kind': 'effect', 'id': 'eyes_peek', 'at': [0, 0, 0], 'duration': R_PEEK_DUR,
+           {'t': cheer0, 'kind': 'sfx', 'id': SFX + 'cheer_big', 'volume': 1.0}]
+    # the second roar layers the same 4.7 s clip; under 1 s after the first it only sounds like an echo, so skip it
+    if 66 - cheer0 >= 20:
+        ev_.append({'t': 66, 'kind': 'sfx', 'id': SFX + 'cheer_big', 'volume': 0.9})
+    ev_ += [{'t': R_PEEK, 'kind': 'effect', 'id': 'eyes_peek', 'at': [0, 0, 0], 'duration': R_PEEK_DUR,
             'intensity': 0.35}]
     for c in SKIRT_SIGNS:
         ev_.append({'t': 0, 'kind': 'block', 'id': 'minecraft:air', 'at': c})

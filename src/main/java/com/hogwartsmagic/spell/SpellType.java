@@ -76,6 +76,9 @@ public enum SpellType {
      *  Everything happens on a block hit, so it has no entity hit effect; a living target is a miss. */
     COLLOPORTUS("colloportus", 0x8A6D3B, 0.54f, 0.43f, 0.23f, ParticleTypes.ENCHANT, ParticleTypes.WAX_ON, 60, 15, SpellLootRarity.UNCOMMON);
 
+    /** Persistent-data key on a Serpensortia spider: the UUID of the caster it serves (it never turns on them). */
+    public static final String SERPENSORTIA_SUMMONER = "hogwartsmagic:serpensortia_summoner";
+
     private final String id;
     private final int color;
     private final float r;
@@ -293,6 +296,13 @@ public enum SpellType {
                             snake.setTarget(null);
                             // Set allied to caster by making them target what caster targets or attack who hurts caster (vanilla behavior doesn't support easy allies for spiders, we can add tag and ignore in Wizard logic)
                             snake.addTag(com.hogwartsmagic.spell.combat.CombatTags.ALLIED);
+                            // ModEvents.onTargetChange refuses the summoner as a target; the struck creature is the first foe.
+                            snake.getPersistentData().putUUID(SERPENSORTIA_SUMMONER, livingCaster.getUUID());
+                            if (target != livingCaster && target.isAlive()
+                                    && !(target instanceof net.minecraft.world.entity.player.Player struckPlayer
+                                    && com.hogwartsmagic.spell.mind.MindControl.puppeteerSpares(serverLevel, livingCaster.getUUID(), struckPlayer))) {
+                                snake.setTarget(target);
+                            }
                         }
                         serverLevel.addFreshEntity(snake);
                     }

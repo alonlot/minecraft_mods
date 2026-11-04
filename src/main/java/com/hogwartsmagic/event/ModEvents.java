@@ -186,8 +186,12 @@ public class ModEvents {
     }
 
     public static void addTemporaryAquaWater(ServerLevel level, BlockPos pos, int ttlTicks, net.minecraft.world.level.block.state.BlockState state) {
-        if (ttlTicks <= 0) {
+        if (ttlTicks <= 0 || !level.isLoaded(pos)) {
             return;
+        }
+        java.util.Map<BlockPos, Integer> placed = AQUA_ERUCTO_WATER.get(level.dimension());
+        if ((placed == null || !placed.containsKey(pos)) && !level.getFluidState(pos).isEmpty()) {
+            return; // natural water or lava: replacing it would erase the source when the stream ends
         }
         if (!(level.isEmptyBlock(pos)
                 || level.getBlockState(pos).canBeReplaced()
@@ -213,6 +217,10 @@ public class ModEvents {
         while (it.hasNext()) {
             java.util.Map.Entry<BlockPos, Integer> entry = it.next();
             BlockPos pos = entry.getKey();
+            if (!level.isLoaded(pos)) {
+                it.remove(); // never load a chunk for this; the water stays as it was saved
+                continue;
+            }
             net.minecraft.world.level.block.state.BlockState state = level.getBlockState(pos);
             if (!state.is(net.minecraft.world.level.block.Blocks.WATER)) {
                 it.remove();
@@ -240,6 +248,8 @@ public class ModEvents {
         final net.minecraft.server.level.ServerBossEvent bossBar;
         final java.util.Set<java.util.UUID> members = new java.util.HashSet<>();
         final java.util.Set<java.util.UUID> participants = new java.util.HashSet<>();
+        /** Where each member was last seen, so one in an unloaded chunk is not mistaken for a dead one. */
+        final java.util.Map<java.util.UUID, net.minecraft.core.BlockPos> lastSeen = new java.util.HashMap<>();
         final int initialCount;
         /** A member was wiped by Master Obliviate: nobody beat this raid, so clearing it pays no Hero reward. */
         boolean obliviated;
@@ -280,7 +290,11 @@ public class ModEvents {
         ActiveWizardRaid raid = new ActiveWizardRaid(raidId, level.dimension(), center.immutable(), bossBar, members.size());
         for (com.hogwartsmagic.entity.WizardEntity wizard : members) {
             if (wizard != null && wizard.isAlive()) {
+                // A raider that despawned when the player stepped away would count as beaten and pay
+                // out the Hero reward; vanilla raiders never despawn mid-raid either.
+                wizard.setPersistenceRequired();
                 raid.members.add(wizard.getUUID());
+                raid.lastSeen.put(wizard.getUUID(), wizard.blockPosition());
                 WIZARD_TO_RAID.put(wizard.getUUID(), raidId);
             }
         }
@@ -331,8 +345,14 @@ public class ModEvents {
             net.minecraft.world.entity.Entity entity = level.getEntity(id);
             if (entity instanceof com.hogwartsmagic.entity.WizardEntity wizard && wizard.isAlive()) {
                 alive++;
+                raid.lastSeen.put(id, wizard.blockPosition());
+            } else if (entity == null && raid.lastSeen.containsKey(id)
+                    && !level.isLoaded(raid.lastSeen.get(id))) {
+                // Out of reach in an unloaded chunk, not beaten: walking away must not win the raid.
+                alive++;
             } else {
                 memberIterator.remove();
+                raid.lastSeen.remove(id);
                 WIZARD_TO_RAID.remove(id);
             }
         }
@@ -427,6 +447,8 @@ public class ModEvents {
     @SubscribeEvent
     public static void onRightClickItem(PlayerInteractEvent.RightClickItem event) {
         if (handleWandUse(event.getEntity(), event.getItemStack())) {
+            // SUCCESS, not the default PASS: a PASS makes the client go on to use the off-hand item too.
+            event.setCancellationResult(net.minecraft.world.InteractionResult.SUCCESS);
             event.setCanceled(true);
         }
     }
@@ -497,6 +519,9 @@ public class ModEvents {
             return;
         }
         if (handleWandUse(event.getEntity(), event.getItemStack())) {
+            // SUCCESS ends the client's use: with PASS it went on to RightClickItem for the same wand
+            // (a second cast packet in the same tick) and then to the off-hand item.
+            event.setCancellationResult(net.minecraft.world.InteractionResult.SUCCESS);
             event.setCanceled(true);
         }
     }
@@ -738,9 +763,16 @@ public class ModEvents {
             float maxMana = PlayerMagicData.getMaxMana(player);
             float currentMana = modData.contains("Mana") ? modData.getFloat("Mana") : maxMana;
             if (modData.getFloat("MaxMana") != maxMana) {
+                // Max mana moved (house sorted, or any source without its own resync): clamp and tell the
+                // client now, or the bar keeps the old max and mana can sit above a lowered one.
                 modData.putFloat("MaxMana", maxMana);
+                if (currentMana > maxMana) {
+                    currentMana = maxMana;
+                    modData.putFloat("Mana", currentMana);
+                }
                 persisted.put(ExampleMod.MODID, modData);
                 player.getPersistentData().put("PlayerPersisted", persisted);
+                SpellPackets.CHANNEL.send(new SpellPackets.SyncManaPacket(currentMana, maxMana), PacketDistributor.PLAYER.with(player));
             }
             float regenMult = PlayerMagicData.getManaRegenMultiplier(player);
             if (player.hasEffect(ExampleMod.WIZARD_ELIXIR_EFFECT.getHolder().get())) {
@@ -2343,7 +2375,12 @@ public class ModEvents {
                 || !serverLevel.isLoaded(destinationPos)
                 || !(serverLevel.getBlockEntity(sourcePos) instanceof com.hogwartsmagic.block.entity.FlooFireplaceBlockEntity source)
                 || !(serverLevel.getBlockEntity(destinationPos) instanceof com.hogwartsmagic.block.entity.FlooFireplaceBlockEntity destination)
-                || !source.getLinkedPositions().contains(destinationPos)) {
+                || !source.getLinkedPositions().contains(destinationPos)
+                // Never land inside blocks: something built over the destination hearth fizzles the trip.
+                || !serverLevel.noCollision(player, player.getBoundingBox().move(
+                        destinationPos.getX() + 0.5 - player.getX(),
+                        destinationPos.getY() + 1.0 - player.getY(),
+                        destinationPos.getZ() + 0.5 - player.getZ()))) {
             serverLevel.playSound(null, player.getX(), player.getY(), player.getZ(),
                     com.hogwartsmagic.ModSounds.FLOO_FIZZLE.get(), SoundSource.PLAYERS, 1.0f, 1.0f);
             modData.remove("FlooTravelPending");
@@ -2724,6 +2761,34 @@ public class ModEvents {
         }
     }
 
+    /**
+     * A player bound to a Horcrux dies: keep the inventory for the rebirth and send the soul to the vessel.
+     * LOWEST with a cancel guard, so a death another mod cancels (a revive) never arms the rebirth.
+     */
+    @SubscribeEvent(priority = net.minecraftforge.eventbus.api.EventPriority.LOWEST)
+    public static void onHorcruxOwnerDeath(net.minecraftforge.event.entity.living.LivingDeathEvent event) {
+        if (event.isCanceled() || !(event.getEntity() instanceof ServerPlayer player)) {
+            return;
+        }
+        HorcruxBlockEntity horcrux = HorcruxData.getValidHorcrux(player);
+        if (horcrux != null) {
+            HorcruxData.captureInventory(player);
+            HorcruxData.markPendingRebirth(player);
+            ServerLevel level = player.serverLevel();
+            com.hogwartsmagic.entity.HorcruxSoulEntity soul = com.hogwartsmagic.entity.HorcruxSoulEntity.fromPlayer(level, player, horcrux.getBlockPos());
+            if (soul != null) {
+                level.addFreshEntity(soul);
+                SpellPackets.CHANNEL.send(new SpellPackets.StartHorcruxDeathSequencePacket(soul.getId(), player.position(), horcrux.getBlockPos()),
+                        PacketDistributor.PLAYER.with(player));
+            }
+            level.sendParticles(ParticleTypes.SQUID_INK, player.getX(), player.getY() + 0.9D, player.getZ(), 36, 0.35, 0.55, 0.35, 0.03);
+            level.sendParticles(ParticleTypes.SOUL, player.getX(), player.getY() + 1.05D, player.getZ(), 24, 0.28, 0.4, 0.28, 0.025);
+            level.sendParticles(ParticleTypes.DRAGON_BREATH, player.getX(), player.getY() + 0.75D, player.getZ(), 18, 0.24, 0.28, 0.24, 0.04);
+            level.playSound(null, player.blockPosition(), net.minecraft.sounds.SoundEvents.BEACON_DEACTIVATE, SoundSource.PLAYERS, 0.9f, 0.45f);
+            level.playSound(null, player.blockPosition(), net.minecraft.sounds.SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 1.0f, 0.55f);
+        }
+    }
+
     @SubscribeEvent
     public static void onLivingDeath(net.minecraftforge.event.entity.living.LivingDeathEvent event) {
         if (event.getEntity().level().isClientSide) {
@@ -2742,23 +2807,6 @@ public class ModEvents {
             InvisibilityCloakItem.stopCloak(player, false);
             PolyjuiceData.clearAll(player);
             syncPolyjuice(player);
-            HorcruxBlockEntity horcrux = HorcruxData.getValidHorcrux(player);
-            if (horcrux != null) {
-                HorcruxData.captureInventory(player);
-                HorcruxData.markPendingRebirth(player);
-                ServerLevel level = player.serverLevel();
-                com.hogwartsmagic.entity.HorcruxSoulEntity soul = com.hogwartsmagic.entity.HorcruxSoulEntity.fromPlayer(level, player, horcrux.getBlockPos());
-                if (soul != null) {
-                    level.addFreshEntity(soul);
-                    SpellPackets.CHANNEL.send(new SpellPackets.StartHorcruxDeathSequencePacket(soul.getId(), player.position(), horcrux.getBlockPos()),
-                            PacketDistributor.PLAYER.with(player));
-                }
-                level.sendParticles(ParticleTypes.SQUID_INK, player.getX(), player.getY() + 0.9D, player.getZ(), 36, 0.35, 0.55, 0.35, 0.03);
-                level.sendParticles(ParticleTypes.SOUL, player.getX(), player.getY() + 1.05D, player.getZ(), 24, 0.28, 0.4, 0.28, 0.025);
-                level.sendParticles(ParticleTypes.DRAGON_BREATH, player.getX(), player.getY() + 0.75D, player.getZ(), 18, 0.24, 0.28, 0.24, 0.04);
-                level.playSound(null, player.blockPosition(), net.minecraft.sounds.SoundEvents.BEACON_DEACTIVATE, SoundSource.PLAYERS, 0.9f, 0.45f);
-                level.playSound(null, player.blockPosition(), net.minecraft.sounds.SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 1.0f, 0.55f);
-            }
         }
         if (!(event.getEntity() instanceof com.hogwartsmagic.entity.WizardEntity wizard)
                 || !(event.getEntity().level() instanceof ServerLevel level)) {
@@ -2779,6 +2827,37 @@ public class ModEvents {
         if (raid.members.isEmpty()) {
             finishWizardRaid(level, raid, true);
         }
+    }
+
+    /** Raids live in memory only; a world closed mid-raid must not carry them into the next one. */
+    @SubscribeEvent
+    public static void onServerStoppingClearRaids(net.minecraftforge.event.server.ServerStoppingEvent event) {
+        for (ActiveWizardRaid raid : ACTIVE_WIZARD_RAIDS.values()) {
+            raid.bossBar.removeAllPlayers();
+        }
+        ACTIVE_WIZARD_RAIDS.clear();
+        WIZARD_TO_RAID.clear();
+    }
+
+    /**
+     * Aqua Eructo water lives a few ticks and is tracked in memory only. On a stop inside that window,
+     * take it back out first, so the save does not keep it as real water and the next world loaded in
+     * this session does not start with stale entries.
+     */
+    @SubscribeEvent
+    public static void onServerStoppingClearAquaWater(net.minecraftforge.event.server.ServerStoppingEvent event) {
+        for (ServerLevel level : event.getServer().getAllLevels()) {
+            java.util.Map<BlockPos, Integer> placed = AQUA_ERUCTO_WATER.get(level.dimension());
+            if (placed == null) {
+                continue;
+            }
+            for (BlockPos pos : placed.keySet()) {
+                if (level.isLoaded(pos) && level.getBlockState(pos).is(net.minecraft.world.level.block.Blocks.WATER)) {
+                    level.setBlock(pos, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 3);
+                }
+            }
+        }
+        AQUA_ERUCTO_WATER.clear();
     }
 
     @SubscribeEvent
@@ -2849,15 +2928,26 @@ public class ModEvents {
         }
     }
 
-    @SubscribeEvent
-    public static void onBlockBreak(net.minecraftforge.event.level.BlockEvent.BreakEvent event) {
-        if (event.getPlayer() == null || !(event.getLevel() instanceof ServerLevel level)) {
+    /**
+     * A player breaks a bound Horcrux (the Dementor answers a hostile breaker). LOWEST with a cancel guard: a
+     * claim or spawn-protection veto must leave the vessel bound and summon nothing.
+     */
+    @SubscribeEvent(priority = net.minecraftforge.eventbus.api.EventPriority.LOWEST)
+    public static void onHorcruxBreak(net.minecraftforge.event.level.BlockEvent.BreakEvent event) {
+        if (event.isCanceled() || event.getPlayer() == null || !(event.getLevel() instanceof ServerLevel level)) {
             return;
         }
         if (event.getState().is(ExampleMod.HORCRUX.get())
                 && level.getBlockEntity(event.getPos()) instanceof HorcruxBlockEntity horcrux
                 && (horcrux.isActive() || horcrux.isPrimed())) {
             horcrux.handleForcedDestruction(level, event.getPlayer());
+        }
+    }
+
+    @SubscribeEvent
+    public static void onBlockBreak(net.minecraftforge.event.level.BlockEvent.BreakEvent event) {
+        if (event.getPlayer() == null || !(event.getLevel() instanceof ServerLevel level)) {
+            return;
         }
         ReparoManager.recordBrokenBlock(level, event.getPos(), event.getState());
         // Mirror into the broader-radius / longer-TTL tracker used by the StudentEntity AI
@@ -3790,6 +3880,11 @@ public class ModEvents {
         if (event.getEntity().getTags().contains(com.hogwartsmagic.spell.combat.CombatTags.ALLIED)) {
             if (event.getNewTarget() != null && event.getNewTarget().getTags().contains(com.hogwartsmagic.spell.combat.CombatTags.ALLIED)) {
                 event.setCanceled(true);
+            } else if (event.getNewTarget() != null
+                    && event.getEntity().getPersistentData().hasUUID(SpellType.SERPENSORTIA_SUMMONER)
+                    && event.getEntity().getPersistentData().getUUID(SpellType.SERPENSORTIA_SUMMONER)
+                    .equals(event.getNewTarget().getUUID())) {
+                event.setCanceled(true); // a Serpensortia spider never turns on the wizard who conjured it
             }
         }
     }

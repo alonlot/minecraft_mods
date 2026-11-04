@@ -38,6 +38,9 @@ import java.util.UUID;
 
 public class SpellPackets {
     private static final int MAX_FLOO_DESTINATIONS = 256;
+    /** How far (blocks) a Floo packet's fireplace may be from its sender. Generous: the player may shuffle while choosing. */
+    private static final double FLOO_PACKET_REACH = 8.0;
+    private static final int MAX_FLOO_NAME_LENGTH = 32;
     private static final int MAX_CAVE_INIMICUM_EDGE_LENGTH = 64;
     private static final int MAX_CAVE_INIMICUM_STATE_COUNT = MAX_CAVE_INIMICUM_EDGE_LENGTH
             * MAX_CAVE_INIMICUM_EDGE_LENGTH
@@ -577,6 +580,12 @@ public class SpellPackets {
     }
 
     private static void enqueueClientWork(CustomPayloadEvent.Context ctx, Runnable work) {
+        if (ctx.getSender() != null) {
+            // Server-to-client only. On a LAN host the bridge is live in the same JVM, so a guest that
+            // sent one of these would otherwise run client code (screens, synced state) on the server thread.
+            ctx.setPacketHandled(true);
+            return;
+        }
         ctx.enqueueWork(work);
         ctx.setPacketHandled(true);
     }
@@ -1411,6 +1420,12 @@ public class SpellPackets {
                 com.hogwartsmagic.spell.combat.CombatEffects.notifyCastBlocked(player);
                 return;
             }
+            // The screen only opens for a player standing in the source fireplace: refuse a packet that names
+            // a far one (travel from anywhere) or an unloaded spot (getBlockEntity would load the chunk).
+            if (!player.level().isLoaded(p.sourcePos) || !player.level().isLoaded(p.destinationPos)
+                    || !player.blockPosition().closerThan(p.sourcePos, FLOO_PACKET_REACH)) {
+                return;
+            }
             if (!(player.level().getBlockEntity(p.sourcePos) instanceof FlooFireplaceBlockEntity source)
                     || !(player.level().getBlockEntity(p.destinationPos) instanceof FlooFireplaceBlockEntity destination)) {
                 return;
@@ -1418,7 +1433,8 @@ public class SpellPackets {
             if (!source.getLinkedPositions().contains(p.destinationPos)) {
                 return;
             }
-            if (!player.getInventory().contains(new ItemStack(ExampleMod.FLOO_POWDER.get()))) {
+            // The powder dropped into the flames already paid for this trip (it opened the screen).
+            if (!source.hasPrepaidTravel(player) && !player.getInventory().contains(new ItemStack(ExampleMod.FLOO_POWDER.get()))) {
                 player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.hogwartsmagic.floo.no_powder"), true);
                 return;
             }
@@ -1440,7 +1456,9 @@ public class SpellPackets {
             player.addEffect(new MobEffectInstance(net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE, 20, 3, false, false, false));
             player.addEffect(new MobEffectInstance(net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN, 20, 6, false, false, false));
             player.level().playSound(null, player.getX(), player.getY(), player.getZ(), com.hogwartsmagic.ModSounds.FLOO_DEPART.get(), SoundSource.PLAYERS, 1.0f, 1.0f);
-            player.getInventory().clearOrCountMatchingItems(stack -> stack.is(ExampleMod.FLOO_POWDER.get()), 1, player.inventoryMenu.getCraftSlots());
+            if (!source.consumePrepaidTravel(player)) {
+                player.getInventory().clearOrCountMatchingItems(stack -> stack.is(ExampleMod.FLOO_POWDER.get()), 1, player.inventoryMenu.getCraftSlots());
+            }
             modData.putBoolean("FlooTravelPending", true);
             modData.putLong("FlooSourcePos", p.sourcePos.asLong());
             modData.putLong("FlooDestinationPos", p.destinationPos.asLong());
@@ -1477,8 +1495,17 @@ public class SpellPackets {
             if (player == null || p.name == null || p.name.isBlank()) {
                 return;
             }
+            // Only a fireplace the player is next to (the token is used on it), never an unloaded one.
+            if (!player.level().isLoaded(p.fireplacePos)
+                    || !player.blockPosition().closerThan(p.fireplacePos, FLOO_PACKET_REACH)) {
+                return;
+            }
+            String name = p.name.trim();
+            if (name.length() > MAX_FLOO_NAME_LENGTH) {
+                name = name.substring(0, MAX_FLOO_NAME_LENGTH); // the naming screen's own limit
+            }
             if (player.level().getBlockEntity(p.fireplacePos) instanceof FlooFireplaceBlockEntity fireplace) {
-                fireplace.setFireplaceName(p.name.trim(), player);
+                fireplace.setFireplaceName(name, player);
                 player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.hogwartsmagic.floo.named", fireplace.getFireplaceName()), true);
             }
         }

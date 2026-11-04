@@ -61,6 +61,13 @@ public class GringottsCartEntity extends Entity {
             SynchedEntityData.defineId(GringottsCartEntity.class, EntityDataSerializers.FLOAT);
     private static final EntityDataAccessor<Byte> DATA_STATE =
             SynchedEntityData.defineId(GringottsCartEntity.class, EntityDataSerializers.BYTE);
+    /**
+     * True on the ride back up. W at the bottom sends the cart back along the same line to the
+     * station, which is how a thief gets out (and back through the Downfall). Synced so the client
+     * faces the cart the way it is travelling.
+     */
+    private static final EntityDataAccessor<Boolean> DATA_REVERSE =
+            SynchedEntityData.defineId(GringottsCartEntity.class, EntityDataSerializers.BOOLEAN);
 
     /** States are bytes, not an enum: model and renderer code branches on them. */
     public static final byte STATE_IDLE = 0;
@@ -87,6 +94,11 @@ public class GringottsCartEntity extends Entity {
 
     private double t;
     private double v;
+    /**
+     * W has been let go since the cart last stopped. Without it a rider who holds W to the bottom
+     * is launched straight back up the moment the cart arrives.
+     */
+    private boolean releaseSeen;
 
     /** Recomputed identically on both sides for render interpolation; never sent. */
     public float displayRoll, prevDisplayRoll;
@@ -107,6 +119,11 @@ public class GringottsCartEntity extends Entity {
         builder.define(DATA_T, 0.0F);
         builder.define(DATA_SPEED, 0.0F);
         builder.define(DATA_STATE, STATE_IDLE);
+        builder.define(DATA_REVERSE, false);
+    }
+
+    private boolean isReversing() {
+        return this.entityData.get(DATA_REVERSE);
     }
 
     /** Binds this cart to a line. Server side only. */
@@ -118,6 +135,7 @@ public class GringottsCartEntity extends Entity {
         this.t = 0.0D;
         this.v = 0.0D;
         setStateByte(STATE_IDLE);
+        this.entityData.set(DATA_REVERSE, false);
         Vec3 start = this.track.positionAt(0.0D);
         setPos(start.x, start.y, start.z);
     }
@@ -270,13 +288,23 @@ public class GringottsCartEntity extends Entity {
             }
         } else {
             // W sets it off, S brakes. Both ride in on vanilla's own input sync for passengers,
-            // so neither needs a packet of its own.
-            if (getStateByte() == STATE_IDLE) {
+            // so neither needs a packet of its own. At the bottom, W takes it back up the line.
+            byte state = getStateByte();
+            if (state == STATE_IDLE || state == STATE_ARRIVED) {
+                boolean pushing = false;
                 for (Entity passenger : getPassengers()) {
                     if (passenger instanceof LivingEntity rider && rider.zza > 0.1F) {
-                        launch();
+                        pushing = true;
                         break;
                     }
+                }
+                if (!pushing) {
+                    this.releaseSeen = true;
+                } else if (this.releaseSeen) {
+                    if (state == STATE_ARRIVED) {
+                        this.entityData.set(DATA_REVERSE, true);
+                    }
+                    launch();
                 }
             }
             advance(line);
@@ -289,8 +317,47 @@ public class GringottsCartEntity extends Entity {
         Vec3 pos = line.positionAt(at);
         setPos(pos.x, pos.y, pos.z);
         applyOrientation(line, at);
+        if (!this.level().isClientSide && !getPassengers().isEmpty()) {
+            washRidersInDownfall(new Vec3(this.xo, this.yo, this.zo), pos);
+        }
 
         super.tick();
+    }
+
+    /**
+     * Riders never touch the Thief's Downfall themselves: a passenger does not move on its own, so
+     * the block's entityInside never sees them, and the cart is not a living thing. So the cart
+     * sweeps the cells it passed through this tick (and the two above, where the rider sits) and
+     * hands everyone aboard to the curtain. The block's own cooldown stops a thick curtain firing
+     * twice.
+     */
+    private void washRidersInDownfall(Vec3 from, Vec3 to) {
+        if (!(this.level() instanceof ServerLevel server)) {
+            return;
+        }
+        double dist = from.distanceTo(to);
+        int steps = Math.max(1, (int) Math.ceil(dist / 0.5D));
+        if (steps > 16) {
+            return;     // a bind or a teleport, not travel along the line
+        }
+        BlockPos.MutableBlockPos cell = new BlockPos.MutableBlockPos();
+        for (int i = 0; i <= steps; i++) {
+            Vec3 p = from.lerp(to, i / (double) steps);
+            for (int dy = 0; dy <= 2; dy++) {
+                cell.set(p.x, p.y + dy, p.z);
+                if (!server.isLoaded(cell)
+                        || !server.getBlockState(cell).is(com.hogwartsmagic.ExampleMod.THIEFS_DOWNFALL.get())) {
+                    continue;
+                }
+                BlockPos curtain = cell.immutable();
+                for (Entity passenger : getPassengers()) {
+                    if (passenger instanceof LivingEntity rider) {
+                        com.hogwartsmagic.block.ThiefsDownfallBlock.wash(server, curtain, rider);
+                    }
+                }
+                return;
+            }
+        }
     }
 
     /** Gravity, drag, a magical shove, and a curvature speed limit read ahead of time. */
@@ -299,11 +366,13 @@ public class GringottsCartEntity extends Entity {
             this.v *= 0.6D;
             return;
         }
-        Vec3 tangent = line.tangentAt(this.t);
+        // Direction of travel along the line: +1 down to the vaults, -1 back up to the station.
+        double dir = isReversing() ? -1.0D : 1.0D;
+        Vec3 tangent = line.tangentAt(this.t).scale(dir);
 
         double kMax = 0.0D;
         for (int i = 1; i <= 4; i++) {
-            kMax = Math.max(kMax, line.curvatureAt(this.t + LOOKAHEAD * i / 4.0D));
+            kMax = Math.max(kMax, line.curvatureAt(this.t + dir * LOOKAHEAD * i / 4.0D));
         }
         double target = Math.min(V_MAX, Math.sqrt(A_LAT_MAX / Math.max(kMax, 1.0E-4D)));
 
@@ -324,12 +393,23 @@ public class GringottsCartEntity extends Entity {
         double drag = -this.v * this.v * DRAG;
         double assist = (target - this.v) * ASSIST;
         this.v = Mth.clamp(this.v + gravity + drag + assist - brake, V_FLOOR, V_MAX);
-        this.t += this.v;
+        this.t += this.v * dir;
 
-        if (this.t >= line.length()) {
+        boolean stopped = false;
+        if (dir > 0.0D && this.t >= line.length()) {
             this.t = line.length();
-            this.v = 0.0D;
             setStateByte(STATE_ARRIVED);
+            stopped = true;
+        } else if (dir < 0.0D && this.t <= 0.0D) {
+            // Back at the station, ready for the next ride down.
+            this.t = 0.0D;
+            this.entityData.set(DATA_REVERSE, false);
+            setStateByte(STATE_IDLE);
+            stopped = true;
+        }
+        if (stopped) {
+            this.v = 0.0D;
+            this.releaseSeen = false;
             if (this.level() instanceof ServerLevel server) {
                 server.playSound(null, blockPosition(), ModSounds.CART_SLAM.get(),
                         SoundSource.BLOCKS, 1.4F, 1.0F);
@@ -338,11 +418,13 @@ public class GringottsCartEntity extends Entity {
     }
 
     private void applyOrientation(CartTrack line, double at) {
-        Vec3 tangent = line.tangentAt(at);
+        // Face the way it is travelling; on the way back up the bank reads mirrored.
+        boolean back = isReversing();
+        Vec3 tangent = line.tangentAt(at).scale(back ? -1.0D : 1.0D);
         setYRot((float) (Mth.atan2(tangent.z, tangent.x) * 180.0D / Math.PI) - 90.0F);
         this.displayPitch = (float) -Math.toDegrees(Math.asin(Mth.clamp(tangent.y, -1.0D, 1.0D)));
         setXRot(this.displayPitch);
-        float targetRoll = Mth.clamp(line.bankAt(at), -55.0F, 55.0F);
+        float targetRoll = Mth.clamp(back ? -line.bankAt(at) : line.bankAt(at), -55.0F, 55.0F);
         this.displayRoll += (targetRoll - this.displayRoll) * 0.18F;
     }
 
@@ -398,8 +480,11 @@ public class GringottsCartEntity extends Entity {
         this.t = tag.getDouble("T");
         this.clientT = this.t;
         this.v = 0.0D;
-        // Never resume mid-plunge into a client that is still loading chunks.
-        setStateByte(tag.getByte("State") == STATE_LOOSE ? STATE_LOOSE : STATE_IDLE);
+        // Never resume mid-plunge into a client that is still loading chunks. A cart that was
+        // waiting at the bottom stays there, so W still takes it back up.
+        byte saved = tag.getByte("State");
+        setStateByte(saved == STATE_LOOSE ? STATE_LOOSE : saved == STATE_ARRIVED ? STATE_ARRIVED : STATE_IDLE);
+        this.entityData.set(DATA_REVERSE, tag.getBoolean("Reverse"));
     }
 
     @Override
@@ -408,5 +493,6 @@ public class GringottsCartEntity extends Entity {
         tag.putInt("Depth", this.entityData.get(DATA_DEPTH));
         tag.putDouble("T", this.t);
         tag.putByte("State", getStateByte());
+        tag.putBoolean("Reverse", isReversing());
     }
 }

@@ -170,7 +170,7 @@
   "spell.fizzle": {
     "sounds": [
       {
-        "name": "hogwartsmagic:spells/default",
+        "name": "hogwartsmagic:spells/frizzle",
         "stream": false
       }
     ]

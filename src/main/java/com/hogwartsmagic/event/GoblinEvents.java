@@ -38,6 +38,11 @@ public final class GoblinEvents {
         if (event.getHand() != net.minecraft.world.InteractionHand.MAIN_HAND) {
             return;
         }
+        // Sneaking with something in hand places or uses it against the chest instead of opening
+        // it, which is not a robbery (the same rule the merfolk hoard uses).
+        if (player.isSecondaryUseActive() && !player.getMainHandItem().isEmpty()) {
+            return;
+        }
         BlockState state = player.level().getBlockState(event.getPos());
         if (!isVaultContainer(state)) {
             return;
@@ -51,7 +56,32 @@ public final class GoblinEvents {
         if (!alarm.inside(event.getPos())) {
             return;      // not the bank's ground, not the bank's business
         }
+        if (com.hogwartsmagic.gringotts.GringottsDisguise.isGoblin(thief)) {
+            return;      // a goblin at a vault chest is a withdrawal, the same as at its door
+        }
         alarm.raise(level, thief, event.getPos(), 1, "gringotts.alarm.chest");
+    }
+
+    /**
+     * Killing bank staff on the bank's own ground is one of the things that heats it up. LOWEST with
+     * a cancel guard, so a death another handler prevented counts for nothing.
+     */
+    @SubscribeEvent(priority = net.minecraftforge.eventbus.api.EventPriority.LOWEST)
+    public static void onStaffKilled(net.minecraftforge.event.entity.living.LivingDeathEvent event) {
+        if (event.isCanceled()
+                || !(event.getEntity() instanceof com.hogwartsmagic.entity.GoblinEntity
+                        || event.getEntity() instanceof GoblinGuardEntity)
+                || !(event.getEntity().level() instanceof net.minecraft.server.level.ServerLevel level)
+                || !(event.getSource().getEntity() instanceof net.minecraft.server.level.ServerPlayer killer)) {
+            return;
+        }
+        com.hogwartsmagic.gringotts.GringottsAlarm alarm =
+                com.hogwartsmagic.gringotts.GringottsAlarm.get(level);
+        net.minecraft.core.BlockPos where = event.getEntity().blockPosition();
+        if (!alarm.inside(where)) {
+            return;
+        }
+        alarm.raise(level, killer, where, 1, "gringotts.alarm.staff");
     }
 
     private static boolean isVaultContainer(BlockState state) {

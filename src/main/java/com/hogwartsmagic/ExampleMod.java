@@ -153,11 +153,11 @@ public class ExampleMod
 
     /** Marker for Incarcerous chain visuals (no attributes); duration matches bind. */
     public static final RegistryObject<net.minecraft.world.effect.MobEffect> INCARCEROUS_CHAINS = MOB_EFFECTS.register("incarcerous_chains",
-            () -> new net.minecraft.world.effect.MobEffect(net.minecraft.world.effect.MobEffectCategory.HARMFUL, 0x3A3A44) {});
+            () -> new com.hogwartsmagic.spell.disable.HiddenMarkerEffect(net.minecraft.world.effect.MobEffectCategory.HARMFUL, 0x3A3A44));
 
     /** Marker for Levicorpus upside-down body pose (client render); paired with vanilla levitation for motion. */
     public static final RegistryObject<net.minecraft.world.effect.MobEffect> LEVICORPUS_EFFECT = MOB_EFFECTS.register("levicorpus",
-            () -> new net.minecraft.world.effect.MobEffect(net.minecraft.world.effect.MobEffectCategory.HARMFUL, 0x8844FF) {});
+            () -> new com.hogwartsmagic.spell.disable.HiddenMarkerEffect(net.minecraft.world.effect.MobEffectCategory.HARMFUL, 0x8844FF));
 
     public static final RegistryObject<net.minecraft.world.effect.MobEffect> POLYJUICE_EFFECT = MOB_EFFECTS.register("polyjuice",
             com.hogwartsmagic.spell.PolyjuiceEffect::new);
@@ -204,28 +204,28 @@ public class ExampleMod
     // amplifier stores the caster's mastery rank - 1, so the hooks know the rank without extra state.
     /** Petrificus Totalus: drives the topple render (synced by VisibleEffects) and the break-on-damage rule. */
     public static final RegistryObject<net.minecraft.world.effect.MobEffect> PETRIFIED = MOB_EFFECTS.register("petrified",
-            () -> new net.minecraft.world.effect.MobEffect(net.minecraft.world.effect.MobEffectCategory.HARMFUL, 0xAAAAAA) {});
+            () -> new com.hogwartsmagic.spell.disable.HiddenMarkerEffect(net.minecraft.world.effect.MobEffectCategory.HARMFUL, 0xAAAAAA));
     /** Glacius: the window in which a second hit freezes the target solid. */
     public static final RegistryObject<net.minecraft.world.effect.MobEffect> GLACIUS_CHILL = MOB_EFFECTS.register("glacius_chill",
-            () -> new net.minecraft.world.effect.MobEffect(net.minecraft.world.effect.MobEffectCategory.HARMFUL, 0xBFEFFF) {});
+            () -> new com.hogwartsmagic.spell.disable.HiddenMarkerEffect(net.minecraft.world.effect.MobEffectCategory.HARMFUL, 0xBFEFFF));
     /** Glacius: frozen solid (alongside stunned and brittle). Fire thaws it; at Master a death shatters it. */
     public static final RegistryObject<net.minecraft.world.effect.MobEffect> GLACIUS_FROZEN = MOB_EFFECTS.register("glacius_frozen",
-            () -> new net.minecraft.world.effect.MobEffect(net.minecraft.world.effect.MobEffectCategory.HARMFUL, 0x88FFFF) {});
+            () -> new com.hogwartsmagic.spell.disable.HiddenMarkerEffect(net.minecraft.world.effect.MobEffectCategory.HARMFUL, 0x88FFFF));
 
     // Mind spells and Unforgivables (Spell Mastery Phase 6). All three are applied hidden.
     /** Imperio thrall marker. The thrall player's own client zeroes their input while it lasts; ImperioThralls owns the state. */
     public static final RegistryObject<net.minecraft.world.effect.MobEffect> IMPERIUS = MOB_EFFECTS.register("imperius",
-            () -> new net.minecraft.world.effect.MobEffect(net.minecraft.world.effect.MobEffectCategory.HARMFUL, 0x88FF88) {});
+            () -> new com.hogwartsmagic.spell.disable.HiddenMarkerEffect(net.minecraft.world.effect.MobEffectCategory.HARMFUL, 0x88FF88));
     /** Confundo marker: the mob attacks the nearest other creature. Amplifier 1 marks a contagious (Master) confusion. */
     public static final RegistryObject<net.minecraft.world.effect.MobEffect> CONFUNDED = MOB_EFFECTS.register("confunded",
-            () -> new net.minecraft.world.effect.MobEffect(net.minecraft.world.effect.MobEffectCategory.HARMFUL, 0xFFAAAA) {});
+            () -> new com.hogwartsmagic.spell.disable.HiddenMarkerEffect(net.minecraft.world.effect.MobEffectCategory.HARMFUL, 0xFFAAAA));
     /**
      * Rooted: movement speed and jump strength drop to zero. Attributes sync to the player's own client, so a
      * rooted player can't walk or jump there either. Worn by a channelling Crucio caster (and, in 6b, a
      * possessing caster's body).
      */
     public static final RegistryObject<net.minecraft.world.effect.MobEffect> ROOTED = MOB_EFFECTS.register("rooted",
-            () -> new net.minecraft.world.effect.MobEffect(net.minecraft.world.effect.MobEffectCategory.HARMFUL, 0x5A3D7A) {}
+            () -> new com.hogwartsmagic.spell.disable.HiddenMarkerEffect(net.minecraft.world.effect.MobEffectCategory.HARMFUL, 0x5A3D7A)
                     .addAttributeModifier(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED,
                             net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(MODID, "rooted_speed"), -1.0,
                             net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL)
@@ -235,10 +235,10 @@ public class ExampleMod
 
     /** Imperio Master: the possessed body (hidden). A possessed mob's AI is paused; a possessed player's own keys do nothing. */
     public static final RegistryObject<net.minecraft.world.effect.MobEffect> POSSESSED = MOB_EFFECTS.register("possessed",
-            () -> new net.minecraft.world.effect.MobEffect(net.minecraft.world.effect.MobEffectCategory.HARMFUL, 0x55CC66) {});
+            () -> new com.hogwartsmagic.spell.disable.HiddenMarkerEffect(net.minecraft.world.effect.MobEffectCategory.HARMFUL, 0x55CC66));
     /** Imperio Master: the caster's frozen body (hidden). It makes the body immobile on both sides through LivingEntityStunMixin. */
     public static final RegistryObject<net.minecraft.world.effect.MobEffect> POSSESSING = MOB_EFFECTS.register("possessing",
-            () -> new net.minecraft.world.effect.MobEffect(net.minecraft.world.effect.MobEffectCategory.HARMFUL, 0x55CC66) {});
+            () -> new com.hogwartsmagic.spell.disable.HiddenMarkerEffect(net.minecraft.world.effect.MobEffectCategory.HARMFUL, 0x55CC66));
 
     public static final RegistryObject<Block> WAND_WORKBENCH = BLOCKS.register("wand_workbench",
             () -> new com.hogwartsmagic.block.WandWorkbenchBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.SMITHING_TABLE)));
@@ -488,6 +488,7 @@ public class ExampleMod
     public static final RegistryObject<Block> PATRONUS_LIGHT_BLOCK = BLOCKS.register("patronus_light_block", 
             () -> new com.hogwartsmagic.block.PatronusLightBlock(
                     BlockBehaviour.Properties.of()
+                            .replaceable() // a stray light must never stop a player building there
                             .noCollission()
                             .noLootTable()
                             .instabreak()

@@ -26,7 +26,7 @@ MD5 = {
     'letter_flood.json': 'fec30fafeceed683bed1827e8f9489cc',
     'letter_hut.json': 'ba4d8d89c848f373df3c4a787341f512',
     'wand_alley.json': '027ee25cef5bd084f37de7b14cbb0f5f',
-    'wand_ollivanders.json': '609e55155c2d8c24334fbafd13420337',
+    'wand_ollivanders.json': 'b367cd1e2d0828a066502fe49838fcd9',
     'wand_wall.json': 'd66d81def2af6d3e65ec6df616b03ab1',
 }
 

@@ -4182,8 +4182,11 @@ public class ModEvents {
         // and closing the menu there would pull it out from under vanilla's remaining slot and quick-move work.
         net.minecraft.server.MinecraftServer server = player.server;
         server.tell(new net.minecraft.server.TickTask(server.getTickCount() + 1, () -> {
+            // A shift-click buys several wands in one tick and queues one task each: the first starts the memory,
+            // the rest must not start the old ceremony on a player who is now watching it.
             if (player.hasDisconnected() || OllivandersCeremony.hasHadCeremony(player)
-                    || OllivandersCeremony.isBusy(player)) {
+                    || OllivandersCeremony.isBusy(player)
+                    || com.hogwartsmagic.pensieve.PensieveSessions.isViewer(player)) {
                 return;
             }
             player.closeContainer();

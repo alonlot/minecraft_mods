@@ -710,6 +710,25 @@ public class ModEvents {
     public static void onPlayerChangedDimension(net.minecraftforge.event.entity.player.PlayerEvent.PlayerChangedDimensionEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             cancelApparitionChannel(player, player.getMainHandItem());
+            // A Patronus shield's light blocks and a Fiendfyre serpent live in the level just left; the stop
+            // methods only look in the player's current level, so clean the old one up here first.
+            ServerLevel from = player.server.getLevel(event.getFrom());
+            CompoundTag data = player.getPersistentData();
+            if (data.getBoolean(TAG_PATRONUS_SHIELD_CHANNELING)) {
+                if (from != null && data.contains(TAG_PATRONUS_SHIELD_LIGHT)) {
+                    for (long packed : data.getLongArray(TAG_PATRONUS_SHIELD_LIGHT)) {
+                        clearPatronusShieldLight(from, BlockPos.of(packed));
+                    }
+                }
+                stopPatronusShieldChannel(player, player.getMainHandItem());
+            }
+            if (data.getBoolean(TAG_FIENDFYRE_CHANNELING)) {
+                if (from != null && data.hasUUID(TAG_FIENDFYRE_ENTITY)
+                        && from.getEntity(data.getUUID(TAG_FIENDFYRE_ENTITY)) instanceof com.hogwartsmagic.entity.FiendfyreSerpentEntity serpent) {
+                    serpent.discard();
+                }
+                stopFiendfyreChannel(player, player.getMainHandItem());
+            }
             syncPersistentMagicState(player);
             com.hogwartsmagic.caveinimicum.CaveInimicumManager.get(player.serverLevel()).syncRelevantWardsToPlayer(player);
         }
@@ -757,6 +776,7 @@ public class ModEvents {
         ACTIVE_WIZARD_RAIDS.clear();
         WIZARD_TO_RAID.clear();
         LUMOS_POS.clear();
+        com.hogwartsmagic.util.RecentlyBrokenTracker.clear();
     }
 
     @SubscribeEvent
@@ -2310,6 +2330,13 @@ public class ModEvents {
             return true;
         }
         if (event.getLevel().getBlockEntity(event.getPos()) instanceof com.hogwartsmagic.block.entity.FlooFireplaceBlockEntity fireplace) {
+            // Same owner protection as the naming screen (SetFlooNamePacket): a name tag must not take someone else's fireplace.
+            java.util.UUID owner = fireplace.getOwner();
+            if (owner != null && !owner.equals(player.getUUID()) && !player.hasPermissions(2)) {
+                player.displayClientMessage(Component.translatableWithFallback(
+                        "message.hogwartsmagic.floo.not_owner", "This fireplace belongs to someone else."), true);
+                return true;
+            }
             fireplace.setFireplaceName(held.getHoverName().getString(), player);
             player.displayClientMessage(Component.translatable("message.hogwartsmagic.floo.named", fireplace.getFireplaceName()), true);
             return true;

@@ -147,6 +147,13 @@ public final class MandrakePullEvents {
         if (existing != null && existing.pos.equals(pos) && existing.dimension.equals(player.level().dimension())) {
             return;
         }
+        if (existing != null) {
+            // Switching to another plant mid-pull: the first one must not be left stuck in its PULLING state.
+            ServerLevel previousLevel = player.serverLevel().getServer().getLevel(existing.dimension);
+            if (previousLevel != null) {
+                restoreIdleState(previousLevel, existing.pos);
+            }
+        }
 
         PullState pull = new PullState(player.level().dimension(), pos.immutable());
         ACTIVE_PULLS.put(player.getUUID(), pull);

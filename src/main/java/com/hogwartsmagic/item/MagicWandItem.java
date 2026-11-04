@@ -30,6 +30,23 @@ public class MagicWandItem extends SwordItem {
         super(Tiers.WOOD, properties.stacksTo(1));
     }
 
+    /**
+     * A wand never wears out. SwordItem gives it 59 uses and damages it on every melee hit and on
+     * every block it mines; after that it would break and take its spell slots and cooldowns with it.
+     */
+    @Override
+    public void postHurtEnemy(ItemStack stack, net.minecraft.world.entity.LivingEntity target,
+                              net.minecraft.world.entity.LivingEntity attacker) {
+        // No durability loss.
+    }
+
+    @Override
+    public boolean mineBlock(ItemStack stack, net.minecraft.world.level.Level level,
+                             net.minecraft.world.level.block.state.BlockState state,
+                             net.minecraft.core.BlockPos pos, net.minecraft.world.entity.LivingEntity miner) {
+        return true;
+    }
+
     public static boolean isAnyWand(ItemStack stack) {
         if (stack.isEmpty()) {
             return false;

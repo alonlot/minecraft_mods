@@ -58,8 +58,18 @@ public class RelicScreen extends Screen {
     }
 
     @Override
+    protected void renderBlurredBackground(float partialTick) {
+        // No blur, like the Grimoire.
+    }
+
+    @Override
+    public void renderBackground(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        // No-op: super.render() calls this after the panel is drawn, and the menu backdrop would cover it.
+    }
+
+    @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+        this.renderTransparentBackground(guiGraphics);
         guiGraphics.fill(left, top, left + PANEL_WIDTH, top + PANEL_HEIGHT, 0xEC151126);
         guiGraphics.fill(left + 4, top + 4, left + PANEL_WIDTH - 4, top + PANEL_HEIGHT - 4, 0xF2E2C892);
         guiGraphics.fill(left + 10, top + 28, left + PANEL_WIDTH - 10, top + PANEL_HEIGHT - 38, 0xEE1D1731);

@@ -30,6 +30,15 @@ public class MagicWandItem extends SwordItem {
         super(Tiers.WOOD, properties.stacksTo(1));
     }
 
+    /**
+     * No wear from melee. A SwordItem spends a point of durability per hit, and the wooden tier gives
+     * 59, so punching mobs with a wand would break it (the Elder Wand included). Nothing in the mod
+     * means wands to wear out.
+     */
+    @Override
+    public void postHurtEnemy(ItemStack stack, net.minecraft.world.entity.LivingEntity target, net.minecraft.world.entity.LivingEntity attacker) {
+    }
+
     public static boolean isAnyWand(ItemStack stack) {
         if (stack.isEmpty()) {
             return false;

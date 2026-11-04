@@ -58,7 +58,9 @@ public class SpellHUD {
             if (remaining > 0) {
                 float progress = 1.0f - ((float) remaining / (float) Math.max(1L, com.hogwartsmagic.spell.SpellCosts.cooldownTicks(player, stack, selected)));
                 int barWidth = 100;
-                int filledWidth = (int) (barWidth * progress);
+                // Clamped: a cooldown can run longer than today's figure (started before a rank-up, or a
+                // longer penalty cooldown), and a negative width would draw the bar out to the left.
+                int filledWidth = (int) (barWidth * Math.max(0.0f, Math.min(1.0f, progress)));
 
                 // Cooldown Bar Background
                 guiGraphics.fill(x, y + 15, x + barWidth, y + 20, 0xFF444444);

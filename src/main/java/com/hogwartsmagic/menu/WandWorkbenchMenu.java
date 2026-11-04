@@ -216,7 +216,9 @@ public class WandWorkbenchMenu extends AbstractContainerMenu {
                 return ItemStack.EMPTY;
             }
 
-            slot.onTake(player, stack);
+            // The result slot's onTake reads the taken wand; after a full shift-move the live stack is
+            // empty (no item), so hand it the copy, as vanilla's onQuickCraft does for achievements.
+            slot.onTake(player, index == RESULT_SLOT ? itemstack : stack);
         }
         return itemstack;
     }

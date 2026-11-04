@@ -73,9 +73,10 @@ letter_hut (60 s; letter_island; end_action wake)
                  in his chair, the boy lying awake on the floor.
   H3  10.0-14.4  Close on the boy's face in the firelight. BOOM: the first pound; he startles up onto an elbow and
                  sits up.
-  H4  14.4-19.4  Wide toward the door from the sofa end: the two leaves shudder at each blow. Vernon jumps up with
+  H4  14.4-18.6  Wide toward the door from the sofa end: the two leaves shudder at each blow. Vernon jumps up with
                  his gun, Petunia sits up, Dudley sits up. "Who's there? I'm warning you, I'm armed!"
-  H5  19.4-20.6  Close on the door: one more blow.
+  H5  18.6-20.6  Close on the door, cut on the second blow of the second volley: the blows go on (2 s, the
+                 shortest a shot may be).
   H6  20.6-25.6  Cut on the crash: low on the floor facing the doorway, the leaves break and fall flat into the hut
                  (yaw kick, then pitch -90), dust, lightning behind: Hagrid, huge, stoops through the low doorway
                  (45 degrees, chin tucked, on the door's centre line) and straightens up on the fallen door.
@@ -615,7 +616,20 @@ def check_legs(sc, problems):
     return n
 
 
-def check_lines(sc, problems):
+def check_lines(sc, problems, scene=None):
+    if scene is not None:
+        # a subtitle is hidden under shut lids and under a chain's 20-tick fade to black: every one must be off
+        # the screen before the first of them
+        dark = [scene['length'] - 20] if scene.get('next') else [scene['length']]
+        dark += [e['t'] for e in scene['events'] if e['kind'] == 'effect' and e['id'] in ('eyes_close', 'eyes_peek')]
+        for wd in scene['words']:
+            if wd.get('subtitle') and wd['t'] + wd.get('duration', 80) > min(dark):
+                problems.append('%s: the subtitle "%s" at %d is still up at %d, when the screen goes dark' % (
+                    sc.sid, wd['text'], wd['t'], min(dark)))
+        starts = sorted(wd['t'] for wd in scene['words'])
+        for a, b in zip(starts, starts[1:]):
+            if b - a < 40:                                    # SKILL: space lines 2 s or more apart
+                problems.append('%s: words at %d and %d are under 2 s apart' % (sc.sid, a, b))
     for line, t, secs, slot_end in sc.lines:
         if t + secs > slot_end + 1e-6:
             problems.append('%s: line %s at %.2f lasts %.2f s, past its slot end %.2f' % (sc.sid, line, t, secs,
@@ -636,7 +650,7 @@ def finish(sc, scene, extra=None):
         extra(problems)
     sc.clearance = check_camera_clearance(sc.sid, scene, problems)
     sc.motion = check_camera_smoothness(sc.sid, scene, problems)
-    check_lines(sc, problems)
+    check_lines(sc, problems, scene)
     for e in scene['events']:
         if e['kind'] == 'block' and e['id'] == 'minecraft:light' and not in_air(sc.world, [c + 0.5 for c in e['at']]):
             problems.append('%s light block at %s replaces %s' % (sc.sid, e['at'], sc.world.get(tuple(e['at']))))
@@ -2586,8 +2600,12 @@ def hut_scene():
     sc.key(T_JOLT + 1.4, [-1.75, 1.2, 1.75], [root[0] + 0.1, root[1] + 1.1, root[2]], 56)
     sc.key(14.4, [-1.7, 1.22, 1.8], [root[0] + 0.15, root[1] + 1.05, root[2] + 0.1], 56)
     sc.key(14.4, [-0.6, 1.75, -0.9], [0.0, 1.25, 4.0], 72, cut=True)
-    sc.key(19.4, [-0.55, 1.72, -0.75], [0.0, 1.2, 4.0], 70)
-    sc.key(19.4, [0.6, 1.35, 1.4], [0.0, 1.25, 3.95], 50, cut=True)
+    # H5: cut just before the second blow of the second volley, so the close is 2 s (it was 1.2: under the 2 s a
+    # shot needs, it read as a glitch)
+    T_H5 = T_P2 + POUND_HITS[1] - 0.05
+    assert abs(T_H5 - 18.6) < 1e-9 and tk(T_BREAK - 0.05) - tk(T_H5) >= 40, (T_H5, T_BREAK)
+    sc.key(T_H5, [-0.55, 1.72, -0.75], [0.0, 1.2, 4.0], 70)
+    sc.key(T_H5, [0.6, 1.35, 1.4], [0.0, 1.25, 3.95], 50, cut=True)
     sc.key(T_BREAK - 0.05, [0.55, 1.35, 1.5], [0.0, 1.25, 3.95], 48)
     sc.key(T_BREAK - 0.05, [-0.5, 0.45, -0.6], [0.0, 1.4, 4.6], 82, cut=True)
     sc.key(T_IN + 0.6, [-0.5, 0.45, -0.6], [0.0, 1.9, 4.2], 82)
@@ -2600,7 +2618,7 @@ def hut_scene():
     over = ahead([root[0], 0, root[2]], y_boy - 180, -0.8, side=0.12, y=1.2)
     sc.key(29.6, over, 'actor:hagrid', 58, cut=True)
     sc.key(35.0, ahead([root[0], 0, root[2]], y_boy - 180, -0.72, side=0.12, y=1.15), 'actor:hagrid', 54)
-    # H5 and H8 looked at actor:hagrid live: his walk keys turn it in steps, and his eye drops 0.53 on the frame he
+    # H6 and H8 looked at actor:hagrid live: his walk keys turn it in steps, and his eye drops 0.53 on the frame he
     # crouches (11 deg in one frame). Bake his eye, glided over +-6 / +-8 ticks, into spline keys.
     rekey(sc.camera, sc.actors, tk(T_BREAK - 0.05), tk(25.6), 25, smooth=6, keep_first=False)
     rekey(sc.camera, sc.actors, tk(29.6), tk(35.0), 27, smooth=8, keep_first=False)

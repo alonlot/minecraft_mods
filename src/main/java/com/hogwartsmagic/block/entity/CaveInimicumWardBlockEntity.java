@@ -556,6 +556,11 @@ public class CaveInimicumWardBlockEntity extends BlockEntity {
         if (!state.hasProperty(WardBlock.LIT)) {
             return;
         }
+        // Deactivated from WardBlock.onRemove, the level already holds the replacing block: setting the
+        // ward back here would undo the break.
+        if (isRemoved() || level.getBlockState(worldPosition) != state) {
+            return;
+        }
         boolean shouldBeLit = !isIdle();
         if (state.getValue(WardBlock.LIT) != shouldBeLit) {
             level.setBlock(worldPosition, state.setValue(WardBlock.LIT, shouldBeLit), Block.UPDATE_CLIENTS);

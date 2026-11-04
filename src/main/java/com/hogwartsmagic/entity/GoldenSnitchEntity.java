@@ -46,6 +46,8 @@ public class GoldenSnitchEntity extends Mob {
     private static final double CATCH_RANGE = 1.4;
     private static final double CRUISE_SPEED = 0.5;
     private static final double EVADE_SPEED = 0.95;
+    /** Ticks after release before it can be caught. */
+    private static final long RELEASE_GRACE_TICKS = 60L;
 
     private BlockPos anchor;
     private Vec3 wanderTarget;
@@ -169,6 +171,11 @@ public class GoldenSnitchEntity extends Mob {
     }
 
     private void tryCatch() {
+        // It has to get away before it can be caught. Released from a broom it would otherwise be
+        // caught on the next tick, and release-and-catch would be an endless 50 XP a click.
+        if (this.releaseGameTime > 0 && this.level().getGameTime() - this.releaseGameTime < RELEASE_GRACE_TICKS) {
+            return;
+        }
         List<Player> nearby = this.level().getEntitiesOfClass(Player.class,
                 this.getBoundingBox().inflate(CATCH_RANGE),
                 p -> p.isAlive() && !p.isSpectator() && p.getVehicle() instanceof BroomEntity);

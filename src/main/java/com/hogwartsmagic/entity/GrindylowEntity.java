@@ -117,6 +117,7 @@ public class GrindylowEntity extends PathfinderMob {
 
     @Override
     protected void registerGoals() {
+        this.goalSelector.addGoal(2, new ChaseGoal());
         this.goalSelector.addGoal(4, new RandomSwimmingGoal(this, 1.0D, 20));
         this.targetSelector.addGoal(1, new HurtByTargetGoal(this).setAlertOthers(GrindylowEntity.class));
         this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Player.class, true));
@@ -304,7 +305,11 @@ public class GrindylowEntity extends PathfinderMob {
         // Drag down, hold in place, and take the air.
         victim.setDeltaMovement(victim.getDeltaMovement().multiply(0.55D, 1.0D, 0.55D)
                 .add(0.0D, -DRAG_DOWN, 0.0D));
-        victim.hurtMarked = true;
+        // A player's motion only reaches it by packet, so that is sent on a cadence rather than
+        // every tick (the project's no-per-tick-velocity-packets rule).
+        if (!(victim instanceof Player) || this.tickCount % 4 == 0) {
+            victim.hurtMarked = true;
+        }
         if (victim.isUnderWater()) {
             victim.setAirSupply(Math.max(-20, victim.getAirSupply() - AIR_DRAIN));
         }
@@ -442,6 +447,50 @@ public class GrindylowEntity extends PathfinderMob {
     public void readAdditionalSaveData(CompoundTag tag) {
         super.readAdditionalSaveData(tag);
         setLurking(tag.getBoolean("Lurking"));
+    }
+
+    /**
+     * Swims at whatever it woke up for, until it is close enough to take hold.
+     *
+     * <p>Without this an awake grindylow only drifted: the target goals picked a victim, but
+     * nothing ever moved it there, so it seized only someone who swam into it.
+     */
+    private class ChaseGoal extends net.minecraft.world.entity.ai.goal.Goal {
+        private int repathCooldown;
+
+        ChaseGoal() {
+            this.setFlags(java.util.EnumSet.of(Flag.MOVE, Flag.LOOK));
+        }
+
+        @Override
+        public boolean canUse() {
+            LivingEntity target = GrindylowEntity.this.getTarget();
+            return target != null && target.isAlive() && target.isInWater()
+                    && !GrindylowEntity.this.isLurking() && !GrindylowEntity.this.hasVictim();
+        }
+
+        @Override
+        public void start() {
+            this.repathCooldown = 0;
+        }
+
+        @Override
+        public void stop() {
+            GrindylowEntity.this.getNavigation().stop();
+        }
+
+        @Override
+        public void tick() {
+            LivingEntity target = GrindylowEntity.this.getTarget();
+            if (target == null) {
+                return;
+            }
+            GrindylowEntity.this.getLookControl().setLookAt(target, 30.0F, 30.0F);
+            if (--this.repathCooldown <= 0) {
+                this.repathCooldown = 8;
+                GrindylowEntity.this.getNavigation().moveTo(target, 1.3D);
+            }
+        }
     }
 
     /** Wakes every dormant grindylow in range. Used by the merfolk hoard alarm. */

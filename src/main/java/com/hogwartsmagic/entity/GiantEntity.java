@@ -480,6 +480,11 @@ public class GiantEntity extends Monster {
         int debris = 0;
         for (BlockPos pos : smashable) {
             BlockState state = level.getBlockState(pos);
+            // Last check before the block goes: Cave Inimicum wards, and the mobGriefing rule
+            // (or, for a giant under Imperio, the possessing player's own build rights).
+            if (!com.hogwartsmagic.spell.TerrainRules.canBreak(level, pos, state, this)) {
+                continue;
+            }
             if (debris < MAX_DEBRIS && !state.isAir()) {
                 debris++;
                 FallingBlockEntity chunk = FallingBlockEntity.fall(level, pos, state);
@@ -563,6 +568,11 @@ public class GiantEntity extends Monster {
     private void holdVictimAt(LivingEntity victim, Vec3 at) {
         victim.setDeltaMovement(Vec3.ZERO);
         victim.fallDistance = 0.0F;
+        // Never drag the victim into a ceiling or a canopy: where the fist would bury them, they
+        // stay where the last free frame left them.
+        if (!this.level().noCollision(victim, victim.getBoundingBox().move(at.subtract(victim.position())))) {
+            return;
+        }
         victim.hurtMarked = true;
         if (victim instanceof ServerPlayer sp) {
             // A player's own client owns its position, so it has to be told.

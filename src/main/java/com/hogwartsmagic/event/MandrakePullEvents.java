@@ -49,6 +49,10 @@ public final class MandrakePullEvents {
         if (player.isCreative() || player.isSpectator() || !event.getItemStack().isEmpty()) {
             return;
         }
+        // Pulling one up harvests it, so it needs the same rights as breaking it (adventure mode).
+        if (!player.mayBuild()) {
+            return;
+        }
         if (!event.getLevel().getBlockState(event.getPos()).is(ExampleMod.MANDRAKE_PLANT.get())) {
             return;
         }
@@ -108,6 +112,34 @@ public final class MandrakePullEvents {
         if (pull.ticks >= PULL_TICKS) {
             finishPull(player, level, pull);
         }
+    }
+
+    /**
+     * A pull abandoned by logging out (or changing dimension) would otherwise leave the plant
+     * stuck in its pulling pose for good, and the entry behind in the map.
+     */
+    @SubscribeEvent
+    public static void onLoggedOut(net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent event) {
+        abandon(event.getEntity());
+    }
+
+    @SubscribeEvent
+    public static void onChangedDimension(
+            net.minecraftforge.event.entity.player.PlayerEvent.PlayerChangedDimensionEvent event) {
+        abandon(event.getEntity());
+    }
+
+    private static void abandon(Player player) {
+        PullState pull = ACTIVE_PULLS.remove(player.getUUID());
+        if (pull == null || player.getServer() == null) {
+            return;
+        }
+        ServerLevel level = player.getServer().getLevel(pull.dimension);
+        if (level != null && level.isLoaded(pull.pos)) {
+            level.destroyBlockProgress(player.getId(), pull.pos, -1);
+            restoreIdleState(level, pull.pos);
+        }
+        pull.expired = true;
     }
 
     @SubscribeEvent

@@ -104,7 +104,7 @@ public class MerpersonEntity extends PathfinderMob implements NeutralMob {
     private static final double POD_RADIUS = 20.0D;
 
     /** Out of water they suffocate, but slowly enough to be dragged ashore. */
-    private static final int AIR_GRACE_TICKS = 300;
+    private static final int AIR_GRACE_TICKS = 20 * 60 * 5;   // five minutes, as designed (was 300 = 15 s)
 
     /** Long enough for the death clip to play out. Vanilla's is twenty. */
     private static final int DEATH_TICKS = 46;
@@ -697,7 +697,10 @@ public class MerpersonEntity extends PathfinderMob implements NeutralMob {
         super.readAdditionalSaveData(tag);
         this.readPersistentAngerSaveData(this.level(), tag);
         if (tag.getBoolean("Chieftainess")) {
+            // setChieftainess tops her up to full for a fresh spawn; a reload must keep her wounds.
+            float health = this.getHealth();
             setChieftainess(true);
+            this.setHealth(health);
         }
         this.dryTicks = tag.getInt("DryTicks");
     }

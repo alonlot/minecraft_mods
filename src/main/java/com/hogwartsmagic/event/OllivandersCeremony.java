@@ -64,6 +64,7 @@ import java.util.List;
  * the flag lives in the player's Forge persistent data, which survives death and dimension changes.
  * {@code /ollivanders} replays it on demand.
  */
+@net.minecraftforge.fml.common.Mod.EventBusSubscriber(modid = com.hogwartsmagic.ExampleMod.MODID)
 public final class OllivandersCeremony {
 
     // --- the beats, in ticks ------------------------------------------------------------------
@@ -157,7 +158,7 @@ public final class OllivandersCeremony {
         camera.moveTo(player.getX(), player.getEyeY(), player.getZ(), player.getYRot(), player.getXRot());
         level.addFreshEntity(camera);
 
-        Scene scene = new Scene(player, camera, player.position(), him);
+        Scene scene = new Scene(player, camera, level, player.position(), him);
         ACTIVE.add(scene);
         player.setCamera(camera);
         markDone(player);
@@ -179,6 +180,28 @@ public final class OllivandersCeremony {
         }
     }
 
+    @net.minecraftforge.eventbus.api.SubscribeEvent
+    public static void onServerStopping(net.minecraftforge.event.server.ServerStoppingEvent event) {
+        endAll();
+    }
+
+    /**
+     * While the camera is detached, vanilla drags the customer's body along with it every tick
+     * (ServerPlayer#tick moves the player to its camera), and the orbit passes through the shop
+     * walls and hangs in the air. Nothing about the scene should be able to suffocate or drop them.
+     */
+    @net.minecraftforge.eventbus.api.SubscribeEvent
+    public static void onAttack(net.minecraftforge.event.entity.living.LivingAttackEvent event) {
+        if (event.isCanceled() || ACTIVE.isEmpty() || !(event.getEntity() instanceof ServerPlayer player)) {
+            return;
+        }
+        if ((event.getSource().is(net.minecraft.world.damagesource.DamageTypes.IN_WALL)
+                || event.getSource().is(net.minecraft.world.damagesource.DamageTypes.FALL))
+                && isBusy(player)) {
+            event.setCanceled(true);
+        }
+    }
+
     /** Give every camera back if the server stops mid-scene, so nobody logs in disembodied. */
     public static void endAll() {
         for (Scene scene : ACTIVE) {
@@ -192,6 +215,7 @@ public final class OllivandersCeremony {
     private static final class Scene {
         private final ServerPlayer player;
         private final ArmorStand camera;
+        private final ServerLevel level;      // where the scene started
         private final Vec3 stand;             // where the customer is rooted
         private final Vec3 him;               // where the wandmaker is
         private final Vec3 centre;
@@ -199,9 +223,10 @@ public final class OllivandersCeremony {
         private int ticks;
         private int lastLine = -1;
 
-        Scene(ServerPlayer player, ArmorStand camera, Vec3 stand, Vec3 him) {
+        Scene(ServerPlayer player, ArmorStand camera, ServerLevel level, Vec3 stand, Vec3 him) {
             this.player = player;
             this.camera = camera;
+            this.level = level;
             this.stand = stand;
             this.him = him;
             this.centre = stand.add(him).scale(0.5D).add(0.0D, 1.3D, 0.0D);
@@ -421,6 +446,12 @@ public final class OllivandersCeremony {
 
         void finish() {
             player.setCamera(player);
+            // setCamera(player) leaves the body wherever the camera last was (possibly in a wall or
+            // in the air); put the customer back on the spot they were standing on.
+            if (!player.hasDisconnected() && player.isAlive() && player.serverLevel() == level) {
+                player.teleportTo(level, stand.x, stand.y, stand.z, java.util.Set.of(), startYaw, 0.0F);
+                player.fallDistance = 0.0F;
+            }
             player.removeEffect(MobEffects.MOVEMENT_SLOWDOWN);
             if (camera.isAlive()) {
                 camera.discard();

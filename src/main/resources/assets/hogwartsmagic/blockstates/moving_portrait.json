@@ -1,8 +1,8 @@
 {
   "variants": {
     "facing=north": { "model": "hogwartsmagic:block/moving_portrait" },
-    "facing=south": { "model": "hogwartsmagic:block/moving_portrait" },
-    "facing=west": { "model": "hogwartsmagic:block/moving_portrait" },
-    "facing=east": { "model": "hogwartsmagic:block/moving_portrait" }
+    "facing=east": { "model": "hogwartsmagic:block/moving_portrait", "y": 90 },
+    "facing=south": { "model": "hogwartsmagic:block/moving_portrait", "y": 180 },
+    "facing=west": { "model": "hogwartsmagic:block/moving_portrait", "y": 270 }
   }
 }

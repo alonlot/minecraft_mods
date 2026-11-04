@@ -225,8 +225,10 @@ public class SortingHatManager {
         if (turns == null || turns.isEmpty()) {
             return HogwartsHouse.RAVENCLAW;
         }
-        int idx = Math.floorMod(turns.toString().hashCode(), HogwartsHouse.values().length);
-        return HogwartsHouse.values()[idx];
+        // Without the model (no Ollama server), sort by the answers' keywords rather than a hash, so
+        // "brave and bold" is not sent to Slytherin. inferLikelyHouses falls back to the hash itself
+        // when no keyword matched.
+        return inferLikelyHouses(turns).get(0);
     }
 
     private List<HogwartsHouse> inferLikelyHouses(List<OllamaSortingService.SortingTurn> turns) {

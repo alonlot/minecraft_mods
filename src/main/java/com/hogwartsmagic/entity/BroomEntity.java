@@ -124,12 +124,48 @@ public class BroomEntity extends Entity {
             this.setBroomType(tag.getInt("BroomType"));
         }
         this.setQuality(tag.getInt("Quality"));
+        // Brooms saved before this flag existed were mostly placed by players: let them come back.
+        this.dropsItem = !tag.contains("DropsItem") || tag.getBoolean("DropsItem");
     }
 
     @Override
     protected void addAdditionalSaveData(net.minecraft.nbt.CompoundTag tag) {
         tag.putInt("BroomType", this.getBroomType());
         tag.putInt("Quality", this.getQuality());
+        tag.putBoolean("DropsItem", this.dropsItem);
+    }
+
+    /**
+     * True for a broom a player placed from its item. Only those turn back into an item when
+     * punched; an NPC wizard's broom just breaks, so wizards are not a free broom farm.
+     */
+    private boolean dropsItem;
+
+    public void setDropsItem(boolean dropsItem) {
+        this.dropsItem = dropsItem;
+    }
+
+    /** Punching an empty broom picks it up again (as its item, keeping its Alatus quality). */
+    @Override
+    public boolean hurt(net.minecraft.world.damagesource.DamageSource source, float amount) {
+        if (this.level().isClientSide || this.isRemoved() || this.isVehicle() || this.isInvulnerableTo(source)) {
+            return false;
+        }
+        if (!(source.getEntity() instanceof Player player) || source.getDirectEntity() != player) {
+            return false;
+        }
+        if (this.dropsItem && !player.getAbilities().instabuild
+                && this.level().getGameRules().getBoolean(net.minecraft.world.level.GameRules.RULE_DOENTITYDROPS)) {
+            net.minecraft.world.item.ItemStack stack = new net.minecraft.world.item.ItemStack(switch (this.getBroomType()) {
+                case 1 -> com.hogwartsmagic.ExampleMod.NIMBUS_2000.get();
+                case 2 -> com.hogwartsmagic.ExampleMod.FIREBOLT.get();
+                default -> com.hogwartsmagic.ExampleMod.BROOM.get();
+            });
+            com.hogwartsmagic.item.BroomItem.setQuality(stack, this.getQuality());
+            this.spawnAtLocation(stack);
+        }
+        this.discard();
+        return true;
     }
 
     public int getBroomType() {
@@ -429,7 +465,9 @@ public class BroomEntity extends Entity {
         float strafe = pilot.xxa;  // -1..1
         
         // Use the custom packet's state for exclusively boosting! (Shift is now back to purely dismount)
-        boolean isTurbo = this.isBoosting;
+        // The rider's client drives the broom, but only the server receives BroomBoostPacket, so on
+        // the client the plain field is always false. Read the synced flag there.
+        boolean isTurbo = this.level().isClientSide ? this.isBoostingSynced() : this.isBoosting;
 
         // Base speed and smoothing 
         // 0 = Basic, 1 = Nimbus, 2 = Firebolt

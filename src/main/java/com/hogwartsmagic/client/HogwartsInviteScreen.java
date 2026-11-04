@@ -66,7 +66,7 @@ public class HogwartsInviteScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+        this.renderTransparentBackground(guiGraphics);
         guiGraphics.fill(0, 0, this.width, this.height, 0xB40F0906);
 
         float openProgress = easeOutCubic(Mth.clamp((this.animationTicks + partialTick) / OPEN_ANIMATION_TICKS, 0.0F, 1.0F));
@@ -235,6 +235,12 @@ public class HogwartsInviteScreen extends Screen {
             return true;
         }
         return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    @Override
+    public void renderBackground(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        // No-op: Screen.render() calls this again after the panel is drawn, which put the menu blur
+        // and backdrop on top of it. render() draws the plain dim itself (no blur, per the screen rule).
     }
 
     @Override

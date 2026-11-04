@@ -41,6 +41,13 @@ public class FlooFireplaceBlockEntity extends BlockEntity {
     private UUID owner;
     private String fireplaceName = "";
     private int activeTicks;
+    /**
+     * The player whose dropped powder opened the travel screen here. That powder pays for the trip,
+     * so choosing a destination does not take a second one from the inventory. Not saved.
+     */
+    @Nullable
+    private UUID prepaidPlayer;
+    private long prepaidUntil;
 
     public FlooFireplaceBlockEntity(BlockPos pos, BlockState state) {
         super(ExampleMod.FLOO_FIREPLACE_BLOCK_ENTITY.get(), pos, state);
@@ -130,6 +137,8 @@ public class FlooFireplaceBlockEntity extends BlockEntity {
         if (!SpellPackets.openFlooSelection(player, this)) {
             return;
         }
+        this.prepaidPlayer = player.getUUID();
+        this.prepaidUntil = level.getGameTime() + 1200L;
         ItemEntity itemEntity = powderEntity;
         itemEntity.getItem().shrink(1);
         if (itemEntity.getItem().isEmpty()) {
@@ -173,6 +182,21 @@ public class FlooFireplaceBlockEntity extends BlockEntity {
         if (state.hasProperty(FlooFireplaceBlock.ACTIVE) && state.getValue(FlooFireplaceBlock.ACTIVE) != active) {
             level.setBlock(worldPosition, state.setValue(FlooFireplaceBlock.ACTIVE, active), 3);
         }
+    }
+
+    /** True if this player's dropped powder already paid for a trip from here. */
+    public boolean hasPrepaidTravel(Player player) {
+        return this.prepaidPlayer != null && this.prepaidPlayer.equals(player.getUUID())
+                && this.level != null && this.level.getGameTime() <= this.prepaidUntil;
+    }
+
+    /** Uses up the prepaid trip; returns false if there was none (the caller then takes inventory powder). */
+    public boolean consumePrepaidTravel(Player player) {
+        if (!hasPrepaidTravel(player)) {
+            return false;
+        }
+        this.prepaidPlayer = null;
+        return true;
     }
 
     public void addLink(BlockPos pos, @Nullable Player player) {

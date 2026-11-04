@@ -48,6 +48,14 @@ public class FlooBindingTokenItem extends Item {
             return InteractionResult.SUCCESS;
         }
 
+        // getBlockEntity on a far, unloaded fireplace would load its chunk; keep the stored one instead.
+        if (!context.getLevel().isLoaded(firstPos)) {
+            if (!context.getLevel().isClientSide && context.getPlayer() != null) {
+                context.getPlayer().displayClientMessage(Component.translatable("message.hogwartsmagic.floo.first_unloaded")
+                        .withStyle(ChatFormatting.RED), true);
+            }
+            return InteractionResult.sidedSuccess(context.getLevel().isClientSide);
+        }
         if (context.getLevel().getBlockEntity(firstPos) instanceof FlooFireplaceBlockEntity firstFireplace) {
             firstFireplace.addLink(context.getClickedPos(), context.getPlayer());
             fireplace.addLink(firstPos, context.getPlayer());

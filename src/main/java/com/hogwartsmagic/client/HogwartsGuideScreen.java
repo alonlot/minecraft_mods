@@ -65,7 +65,7 @@ public class HogwartsGuideScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+        this.renderTransparentBackground(guiGraphics);
         guiGraphics.fill(0, 0, this.width, this.height, 0xB0100906);
 
         guiGraphics.fill(this.left - 2, this.top - 2, this.left + PAGE_WIDTH + 2, this.top + PAGE_HEIGHT + 2, 0xFF6A4A25);
@@ -98,6 +98,12 @@ public class HogwartsGuideScreen extends Screen {
         }
 
         guiGraphics.drawCenteredString(this.font, Component.literal((this.currentPage + 1) + " / " + pages.size()), this.left + PAGE_WIDTH / 2, this.top + PAGE_HEIGHT - 22, 0x6D4725);
+    }
+
+    @Override
+    public void renderBackground(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        // No-op: Screen.render() calls this again after the panel is drawn, which put the menu blur
+        // and backdrop on top of it. render() draws the plain dim itself (no blur, per the screen rule).
     }
 
     @Override

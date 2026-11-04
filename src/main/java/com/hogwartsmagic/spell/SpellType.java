@@ -275,6 +275,9 @@ public enum SpellType {
                 if (target.level().isRainingAt(target.blockPosition())) {
                     target.push(push.x * 0.35, 0.1, push.z * 0.35);
                 }
+                // Player motion is client-authoritative: the beam's chip hit only marks the target when it
+                // lands outside its i-frames, so mark it here or a player never feels the wave.
+                target.hurtMarked = true;
             }
             case OBLIVIATE -> com.hogwartsmagic.spell.mind.ObliviateSpell.apply(target, caster);
             case ASCENDIO -> {

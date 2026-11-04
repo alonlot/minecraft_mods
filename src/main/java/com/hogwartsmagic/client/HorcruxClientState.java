@@ -57,7 +57,7 @@ public final class HorcruxClientState {
 
     public static void tick(Minecraft mc) {
         if (activeSoulId == -1) {
-            syncDeathScreenButtons(mc);
+            // No Horcrux sequence: an ordinary death keeps vanilla's 20-tick delay before the buttons go live.
             return;
         }
         if (mc.level == null) {
@@ -107,10 +107,13 @@ public final class HorcruxClientState {
         } else if (!respawnUnlocked) {
             syncCameraToSoul(mc, getFallbackAnchor(mc, false));
         }
-        boolean active = respawnUnlocked;
+        if (respawnUnlocked) {
+            // Only ever lock. Forcing the buttons on here would defeat vanilla's own delay against a mis-click.
+            return;
+        }
         for (var child : event.getScreen().children()) {
             if (child instanceof AbstractWidget widget) {
-                widget.active = active;
+                widget.active = false;
             }
         }
     }

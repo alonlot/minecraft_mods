@@ -90,6 +90,15 @@ public class FiendfyreSerpentRenderer extends EntityRenderer<FiendfyreSerpentEnt
         super(context);
     }
 
+    /**
+     * Logging out: entity ids restart on the next server, and the age prune below never drops an entry whose
+     * game time is ahead of the new world's, so a serpent given a reused id would start with the old trail.
+     */
+    public static void clearTrails() {
+        TRAIL_CACHE.clear();
+        LAST_DRAWN.clear();
+    }
+
     @Override
     public void render(FiendfyreSerpentEntity entity, float entityYaw, float partialTick,
                        PoseStack poseStack, MultiBufferSource buffer, int packedLight) {

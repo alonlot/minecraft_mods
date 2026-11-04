@@ -20,5 +20,6 @@ public final class MasteryConfigClientEvents {
         DarkMagicClientState.clear();
         // The fog region is only ever cleared by the server's exit packet, which never comes after a logout.
         UndercroftFogClientState.clear();
+        FiendfyreSerpentRenderer.clearTrails();
     }
 }

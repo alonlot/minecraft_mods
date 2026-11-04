@@ -80,7 +80,7 @@ public final class HorcruxClientState {
 
         missingSoulTicks++;
         if (!respawnUnlocked) {
-            syncCameraToSoul(mc, getFallbackAnchor(mc));
+            syncCameraToSoul(mc, getFallbackAnchor(mc, true));
         } else if (mc.player != null) {
             mc.setCameraEntity(mc.player);
             activeSoulId = -1;
@@ -105,7 +105,7 @@ public final class HorcruxClientState {
         if (soul != null) {
             syncCameraToSoul(mc, soul);
         } else if (!respawnUnlocked) {
-            syncCameraToSoul(mc, getFallbackAnchor(mc));
+            syncCameraToSoul(mc, getFallbackAnchor(mc, false));
         }
         boolean active = respawnUnlocked;
         for (var child : event.getScreen().children()) {
@@ -125,7 +125,7 @@ public final class HorcruxClientState {
         if (soul != null) {
             syncCameraToSoul(mc, soul);
         } else {
-            syncCameraToSoul(mc, getFallbackAnchor(mc));
+            syncCameraToSoul(mc, getFallbackAnchor(mc, false));
         }
         Component line1 = Component.literal("Your soul is flying to the Horcrux...");
         Component line2 = Component.literal("Respawn will return when the vessel is reached.");
@@ -160,7 +160,8 @@ public final class HorcruxClientState {
         }
     }
 
-    private static Entity getFallbackAnchor(Minecraft mc) {
+    /** {@code advance} only from the client tick: the overlay and screen init run per frame and must not speed the flight up. */
+    private static Entity getFallbackAnchor(Minecraft mc, boolean advance) {
         if (respawnUnlocked || mc.level == null) {
             return null;
         }
@@ -172,10 +173,12 @@ public final class HorcruxClientState {
         Vec3 base = fallbackStartPos.lerp(fallbackTargetPos, progress);
         double arc = Math.sin(progress * Math.PI) * 1.2D;
         fallbackAnchor.setPos(base.x, base.y + arc, base.z);
-        if (fallbackFlightTick < FALLBACK_FLIGHT_TICKS) {
-            fallbackFlightTick++;
-        } else {
-            finish();
+        if (advance) {
+            if (fallbackFlightTick < FALLBACK_FLIGHT_TICKS) {
+                fallbackFlightTick++;
+            } else {
+                finish();
+            }
         }
         return fallbackAnchor;
     }

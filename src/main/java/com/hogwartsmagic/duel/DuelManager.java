@@ -54,7 +54,7 @@ public final class DuelManager {
     private static final float PLAYER_YIELD_HEALTH = 4.0f;
     private static final long NPC_REMATCH_COOLDOWN_TICKS = 600;
 
-    /** Set while an NPC is in a duel; StudentEntity's panic goal checks it so students stand and fight. */
+    /** No longer written (see isDueling); endDuel still strips it from NPCs saved by older versions. */
     public static final String TAG_DUELING = "hogwartsmagic:dueling";
     private static final String TAG_DUEL_COOLDOWN_UNTIL = "hogwartsmagic:duel_cooldown_until";
 
@@ -96,7 +96,6 @@ public final class DuelManager {
         }
 
         DUELS.put(player.getUUID(), new Duel(npc));
-        npc.getPersistentData().putBoolean(TAG_DUELING, true);
         npc.setTarget(null);
         npc.getNavigation().stop();
 
@@ -105,9 +104,22 @@ public final class DuelManager {
                 SoundEvents.VILLAGER_TRADE, SoundSource.NEUTRAL, 1.0f, 0.8f);
     }
 
+    /**
+     * The duel map is the only record. A challenger who logs out mid-duel is no longer ticked, so
+     * their entry is dropped here instead; otherwise the NPC would stay "dueling" (and a student
+     * would never flee again) until that player came back.
+     */
     private static boolean isNpcDueling(Mob npc) {
-        for (Duel duel : DUELS.values()) {
-            if (duel.npc == npc) return true;
+        net.minecraft.server.MinecraftServer server = npc.level().getServer();
+        Iterator<Map.Entry<UUID, Duel>> it = DUELS.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry<UUID, Duel> entry = it.next();
+            if (entry.getValue().npc != npc) continue;
+            if (server != null && server.getPlayerList().getPlayer(entry.getKey()) == null) {
+                it.remove();
+                continue;
+            }
+            return true;
         }
         return false;
     }
@@ -304,9 +316,13 @@ public final class DuelManager {
 
     // ---- helpers ---------------------------------------------------------------------
 
-    /** True while this NPC is mid-duel (any phase). Lets AI goals like panic stand down. */
+    /**
+     * True while this NPC is mid-duel (any phase). Lets AI goals like panic stand down. Read from
+     * the live duel map, not from a saved tag: the tag was written into the NPC's NBT, so a duel cut
+     * short by a logout or a server stop left the NPC "dueling" forever.
+     */
     public static boolean isDueling(Mob npc) {
-        return npc.getPersistentData().getBoolean(TAG_DUELING);
+        return !npc.level().isClientSide && isNpcDueling(npc);
     }
 
     private static void holdNpcStill(ServerPlayer player, Mob npc) {

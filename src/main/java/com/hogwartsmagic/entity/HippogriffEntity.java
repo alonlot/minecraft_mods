@@ -443,6 +443,14 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
         }
 
         if (this.isTame() && this.isOwnedBy(player)) {
+            // Rabbit from the owner breeds her (or grows a foal). Without this the owner could only
+            // ever mount her with it, so the one player who can breed a tame hippogriff never could.
+            if (this.isFood(stack)) {
+                InteractionResult fed = super.mobInteract(player, hand);
+                if (fed.consumesAction()) {
+                    return fed;
+                }
+            }
             if (player.isShiftKeyDown()) {
                 this.setOrderedToSit(!this.isOrderedToSit());
                 return InteractionResult.sidedSuccess(this.level().isClientSide);

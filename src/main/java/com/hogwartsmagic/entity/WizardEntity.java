@@ -45,6 +45,8 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
     // per-wizard cooldown tracking to mimic player wand behavior
     protected final Map<SpellType, Long> spellCooldowns = new EnumMap<>(SpellType.class);
     private long lastHitTime = 0; // Track when wizard was last hit for flight escape
+    /** A raid leader summons its raid once. Saved, so a chunk reload does not raise a second one. */
+    private boolean raidSummoned;
 
     protected boolean isSpellOnCooldown(SpellType spell, long now) {
         return spellCooldowns.getOrDefault(spell, 0L) > now;
@@ -241,6 +243,7 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
         super.addAdditionalSaveData(p_33353_);
         p_33353_.putBoolean("RaidLeader", this.isRaidLeader());
         p_33353_.putBoolean("Disarmed", this.isDisarmed());
+        p_33353_.putBoolean("RaidSummoned", this.raidSummoned);
     }
 
     @Override
@@ -248,6 +251,7 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
         super.readAdditionalSaveData(tag);
         if (tag.contains("RaidLeader")) this.setRaidLeader(tag.getBoolean("RaidLeader"));
         if (tag.contains("Disarmed")) this.setDisarmed(tag.getBoolean("Disarmed"));
+        this.raidSummoned = tag.getBoolean("RaidSummoned");
     }
 
     @Override
@@ -324,7 +328,6 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
         private final WizardEntity wizard;
         private int checkTimer = 0;
         private int ritualTimer = 0;
-        private boolean hasSummoned = false;
 
         public WizardRaidLeaderGoal(WizardEntity wizard) {
             this.wizard = wizard;
@@ -332,7 +335,7 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
 
         @Override
         public boolean canUse() {
-            return this.wizard.isRaidLeader() && !hasSummoned;
+            return this.wizard.isRaidLeader() && !this.wizard.raidSummoned;
         }
 
         @Override
@@ -342,10 +345,12 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
                 this.wizard.getNavigation().stop();
                 this.wizard.setCasting(true);
                 
-                // Ritual Particles
-                if (this.wizard.level().isClientSide) {
-                    for(int i = 0; i < 5; i++) {
-                        this.wizard.level().addParticle(ParticleTypes.SQUID_INK, this.wizard.getX(), this.wizard.getY(), this.wizard.getZ(), 0, 0.2, 0);
+                // Ritual Particles. Goals only tick on the server, so these have to be sent; the old
+                // client-side addParticle here never ran.
+                if (this.wizard.level() instanceof net.minecraft.server.level.ServerLevel sl) {
+                    for (int i = 0; i < 5; i++) {
+                        // Count 0: the offset is the velocity, so they rise like the original.
+                        sl.sendParticles(ParticleTypes.SQUID_INK, this.wizard.getX(), this.wizard.getY(), this.wizard.getZ(), 0, 0.0D, 1.0D, 0.0D, 0.2D);
                     }
                 }
                 
@@ -370,7 +375,7 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
         }
 
         private void startRaid() {
-            this.hasSummoned = true;
+            this.wizard.raidSummoned = true;
             this.wizard.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
             List<WizardEntity> raidMembers = new ArrayList<>();
             raidMembers.add(this.wizard);

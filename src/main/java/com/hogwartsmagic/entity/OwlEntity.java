@@ -118,6 +118,28 @@ public class OwlEntity extends TamableAnimal implements FlyingAnimal {
         }
     }
 
+    /**
+     * The letter in its talons and the route tag it was given are the player's items, held only in
+     * this owl's data. Without this they vanished with the bird.
+     */
+    @Override
+    protected void dropCustomDeathLoot(ServerLevel level, net.minecraft.world.damagesource.DamageSource source, boolean hitByPlayer) {
+        super.dropCustomDeathLoot(level, source, hitByPlayer);
+        CompoundTag data = getPersistentData();
+        ItemStack carried = getCarriedMail();
+        if (carried.isEmpty() && data.contains(MAIL_STACK)) {
+            carried = ItemStack.parseOptional(level.registryAccess(), data.getCompound(MAIL_STACK));
+        }
+        if (!carried.isEmpty()) {
+            this.spawnAtLocation(carried.copy());
+        }
+        clearDeliveryData(data);
+        ItemStack routeTag = removeRouteTag();
+        if (!routeTag.isEmpty()) {
+            this.spawnAtLocation(routeTag);
+        }
+    }
+
     @Nullable
     @Override
     public AgeableMob getBreedOffspring(ServerLevel level, AgeableMob otherParent) {
@@ -179,16 +201,23 @@ public class OwlEntity extends TamableAnimal implements FlyingAnimal {
                 }
                 return InteractionResult.sidedSuccess(this.level().isClientSide);
             }
-            if (stack.isEmpty() && player.isShiftKeyDown()) {
-                if (!this.level().isClientSide) {
-                    ItemStack removed = removeRouteTag();
-                    if (!removed.isEmpty()) {
-                        if (!player.addItem(removed)) {
-                            player.drop(removed, false);
-                        }
-                        player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.hogwartsmagic.owl.route_cleared"), true);
-                        return InteractionResult.SUCCESS;
+            if (stack.isEmpty() && player.isShiftKeyDown() && !this.level().isClientSide) {
+                ItemStack removed = removeRouteTag();
+                if (!removed.isEmpty()) {
+                    if (!player.addItem(removed)) {
+                        player.drop(removed, false);
                     }
+                    player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.hogwartsmagic.owl.route_cleared"), true);
+                    return InteractionResult.SUCCESS;
+                }
+            }
+            // Sit / stand, as a wolf does. Taming orders the owl to sit and nothing else ever
+            // released it, so a tamed owl could never follow its owner or fly to a perch.
+            // Seeds still go to breeding below, and a carrier in flight is left alone.
+            if (!this.isFood(stack) && !this.isPostalBusy()) {
+                if (!this.level().isClientSide) {
+                    this.setOrderedToSit(!this.isOrderedToSit());
+                    this.navigation.stop();
                 }
                 return InteractionResult.sidedSuccess(this.level().isClientSide);
             }

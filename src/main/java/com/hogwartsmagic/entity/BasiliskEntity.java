@@ -852,8 +852,11 @@ public class BasiliskEntity extends Monster {
         }
 
         boolean gazeAvailable = !isBlinded() && !isFullyBurrowed() && !isBurrowing() && this.isAlive();
+        // Creative and spectator players cannot be killed by the stare, so they must not be
+        // petrified or shown the overlay either.
         List<LivingEntity> nearby = serverLevel.getEntitiesOfClass(LivingEntity.class,
-                this.getBoundingBox().inflate(GAZE_RANGE), this::isValidVictim);
+                this.getBoundingBox().inflate(GAZE_RANGE),
+                e -> isValidVictim(e) && !(e instanceof Player p && (p.isCreative() || p.isSpectator())));
 
         for (LivingEntity candidate : nearby) {
             UUID id = candidate.getUUID();
@@ -880,6 +883,13 @@ public class BasiliskEntity extends Monster {
 
             this.gazeCharge.put(id, charge);
             publishGazeTier(candidate, charge);
+            // The heartbeat under the stare (spec: it rises in pitch as the charge climbs). Played
+            // to the victim alone, once per clip length (1.6 s), so beats never overlap.
+            if (candidate instanceof ServerPlayer victimPlayer && this.tickCount % 32 == 0) {
+                int tier = Mth.clamp(charge * 5 / GAZE_FULL_CHARGE, 0, 4);
+                victimPlayer.playNotifySound(ModSounds.BASILISK_GAZE_HEARTBEAT.get(), this.getSoundSource(),
+                        0.6F + tier * 0.1F, 0.8F + tier * 0.1F);
+            }
         }
 
         // Anything that walked out of range stops being tracked, and loses the
@@ -1148,6 +1158,7 @@ public class BasiliskEntity extends Monster {
         super.addAdditionalSaveData(tag);
         tag.putBoolean("Blinded", isBlinded());
         tag.putFloat("HeadDamage", this.headDamage);
+        tag.putBoolean("Burrowed", isFullyBurrowed());
     }
 
     @Override
@@ -1155,6 +1166,16 @@ public class BasiliskEntity extends Monster {
         super.readAdditionalSaveData(tag);
         this.entityData.set(DATA_BLINDED, tag.getBoolean("Blinded"));
         this.headDamage = tag.getFloat("HeadDamage");
+        // The action state is not saved, but NoGravity is. A basilisk saved while BURROWED would
+        // otherwise reload in solid rock with no gravity and no way up, suffocating in place.
+        // Resume it as burrowed with its travel time spent, so the next tick surfaces it through
+        // the normal eruption.
+        if (tag.getBoolean("Burrowed")) {
+            this.entityData.set(DATA_ACTION_STATE, (byte) ActionState.BURROWED.ordinal());
+            this.entityData.set(DATA_STATE_TICK, 0);
+            this.burrowedTicks = BURROWED_MAX_TICKS;
+            this.noPhysics = true;
+        }
     }
 
     /**

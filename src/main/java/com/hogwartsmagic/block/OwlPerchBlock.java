@@ -49,6 +49,13 @@ public class OwlPerchBlock extends BaseEntityBlock {
         return SHAPE;
     }
 
+    /** Breaking a perch drops the letter waiting on it instead of deleting it with the block entity. */
+    @Override
+    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
+        net.minecraft.world.Containers.dropContentsOnDestroy(state, newState, level, pos);
+        super.onRemove(state, level, pos, newState, movedByPiston);
+    }
+
     @Nullable
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {

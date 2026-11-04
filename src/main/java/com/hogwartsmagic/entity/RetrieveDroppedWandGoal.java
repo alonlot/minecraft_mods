@@ -105,7 +105,10 @@ public class RetrieveDroppedWandGoal extends Goal {
 
         // Equip in main hand; preserve any selected-spell NBT from the dropped stack.
         mob.setItemInHand(InteractionHand.MAIN_HAND, stack);
-        mob.setDropChance(EquipmentSlot.MAINHAND, 0.0F);
+        // Any wand on the ground qualifies, including one a player was just disarmed of. A drop
+        // chance of 0 here destroyed that wand for good when the NPC died; a guaranteed drop gives
+        // back exactly the item that was picked up and creates nothing new.
+        mob.setGuaranteedDrop(EquipmentSlot.MAINHAND);
         target.discard();
         user.setDisarmed(false);
         target = null;

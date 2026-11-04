@@ -54,6 +54,10 @@ public class VoldemortEntity extends WizardEntity {
     private static final ResourceLocation DARK_WIZARD_ADVANCEMENT_ID = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "hp/dark_wizard_down");
     private static final ResourceLocation VOLDEMORT_ADVANCEMENT_ID = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "hp/voldemort_falls");
     private final ServerBossEvent bossBar = new ServerBossEvent(DEFAULT_NAME, BossEvent.BossBarColor.RED, BossEvent.BossBarOverlay.NOTCHED_20);
+    /** The queued spell lives on the server only; the renderer's Avada windup pose needs this copy. */
+    private static final net.minecraft.network.syncher.EntityDataAccessor<Boolean> DATA_CHARGING_AVADA =
+            net.minecraft.network.syncher.SynchedEntityData.defineId(VoldemortEntity.class,
+                    net.minecraft.network.syncher.EntityDataSerializers.BOOLEAN);
 
     @Nullable
     private SpellType queuedSpell;
@@ -80,6 +84,21 @@ public class VoldemortEntity extends WizardEntity {
                 .add(Attributes.FOLLOW_RANGE, 48.0D)
                 .add(Attributes.KNOCKBACK_RESISTANCE, 0.85D)
                 .add(Attributes.ARMOR, 8.0D);
+    }
+
+    @Override
+    protected void defineSynchedData(net.minecraft.network.syncher.SynchedEntityData.Builder builder) {
+        super.defineSynchedData(builder);
+        builder.define(DATA_CHARGING_AVADA, false);
+    }
+
+    /**
+     * No formal duel with the Dark Lord. WizardEntity offers one to any wizard, and winning it
+     * heals the loser to full, so a "duel" reset the boss fight and paid out a duel reward.
+     */
+    @Override
+    protected net.minecraft.world.InteractionResult mobInteract(Player player, InteractionHand hand) {
+        return net.minecraft.world.InteractionResult.PASS;
     }
 
     @Override
@@ -221,6 +240,9 @@ public class VoldemortEntity extends WizardEntity {
     /** True while the AK windup is queued. Renderer uses this to trigger a more
      *  theatrical pose (head tilts back, both arms slowly raise) than a normal cast. */
     public boolean isChargingAvadaKedavra() {
+        if (this.level().isClientSide) {
+            return this.entityData.get(DATA_CHARGING_AVADA);
+        }
         return this.queuedSpell == SpellType.AVADA_KEDAVRA && this.queuedSpellTicks > 0;
     }
 
@@ -267,6 +289,7 @@ public class VoldemortEntity extends WizardEntity {
         this.queuedSpell = null;
         this.queuedSpellTicks = 0;
         this.setCasting(false);
+        this.entityData.set(DATA_CHARGING_AVADA, false);
         if (interrupted && this.level() instanceof ServerLevel serverLevel) {
             serverLevel.sendParticles(ParticleTypes.SMOKE, this.getX(), this.getY() + 1.2D, this.getZ(), 18, 0.35D, 0.45D, 0.35D, 0.02D);
             serverLevel.sendParticles(ParticleTypes.CRIT, this.getX(), this.getY() + 1.3D, this.getZ(), 10, 0.25D, 0.35D, 0.25D, 0.05D);
@@ -285,6 +308,7 @@ public class VoldemortEntity extends WizardEntity {
         this.queuedSpell = spell;
         this.queuedSpellTicks = warmupTicks;
         this.setCasting(true);
+        this.entityData.set(DATA_CHARGING_AVADA, spell == SpellType.AVADA_KEDAVRA);
         this.swing(InteractionHand.MAIN_HAND);
     }
 
@@ -396,6 +420,7 @@ public class VoldemortEntity extends WizardEntity {
         this.queuedSpell = null;
         this.queuedSpellTicks = 0;
         this.setCasting(false);
+        this.entityData.set(DATA_CHARGING_AVADA, false);
         if (spell == null) {
             return;
         }

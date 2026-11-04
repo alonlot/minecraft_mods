@@ -856,7 +856,12 @@ public class WhompingWillowEntity extends Monster {
                     // Never dig out its own footing.
                     double d = Math.hypot(pos.getX() + 0.5D - getX(), pos.getZ() + 0.5D - getZ());
                     if (d < 2.0D) continue;
-                    if (isSmashable(level.getBlockState(pos), pos)) doomed.add(pos);
+                    // TerrainRules last: it refuses inside a Cave Inimicum ward, which the
+                    // mobGriefing check above does not cover.
+                    BlockState at = level.getBlockState(pos);
+                    if (isSmashable(at, pos) && com.hogwartsmagic.spell.TerrainRules.canBreak(level, pos, at, this)) {
+                        doomed.add(pos);
+                    }
                 }
             }
         }

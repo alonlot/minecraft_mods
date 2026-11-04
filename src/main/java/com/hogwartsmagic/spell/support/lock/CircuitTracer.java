@@ -326,6 +326,7 @@ public final class CircuitTracer {
                 for (Direction d : Direction.values()) {
                     strongest = Math.max(strongest, s.getSignal(level, pos, d));
                 }
+                strongest = Math.min(15, strongest); // a modded source above 15 must not throw out of the trace
                 int node = b.constant(strongest);
                 put(pos, node, forceWrap(pos, block, node, strongest));
             } else {
@@ -539,7 +540,7 @@ public final class CircuitTracer {
             b.markTruncated();
             return -1;
         }
-        int now = state.getAnalogOutputSignal(level, pos);
+        int now = Math.max(0, Math.min(15, state.getAnalogOutputSignal(level, pos))); // modded blocks may exceed 15
         if (!takeItemKey()) {
             return b.constant(now);
         }

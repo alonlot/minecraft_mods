@@ -86,8 +86,10 @@ public class FiendfyreEntity extends Entity {
             int rz = this.random.nextInt(radius * 2 + 1) - radius;
             
             BlockPos target = center.offset(rx, ry, rz);
-            if (this.level().isEmptyBlock(target)) {
-                this.level().setBlockAndUpdate(target, Blocks.FIRE.defaultBlockState());
+            // No caster is kept, so this follows the NPC rule (mobGriefing) and never burns inside a ward.
+            if (this.level() instanceof ServerLevel level && level.isLoaded(target) && level.isEmptyBlock(target)
+                    && com.hogwartsmagic.spell.TerrainRules.canPlace(level, target, null)) {
+                level.setBlockAndUpdate(target, Blocks.FIRE.defaultBlockState());
             }
         }
     }

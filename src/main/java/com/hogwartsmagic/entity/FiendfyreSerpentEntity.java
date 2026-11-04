@@ -97,7 +97,7 @@ public class FiendfyreSerpentEntity extends Entity {
         scorchNearby(caster);
 
         if (ticks % 2 == 0) {
-            spreadFire();
+            spreadFire(serverLevel, caster);
         }
         spawnTrailParticles(serverLevel, ticks);
         spawnBurstParticles(serverLevel, ticks);
@@ -152,7 +152,10 @@ public class FiendfyreSerpentEntity extends Entity {
 
     private void scorchNearby(ServerPlayer caster) {
         AABB area = this.getBoundingBox().inflate(2.6D, 1.4D, 2.6D);
-        for (LivingEntity target : this.level().getEntitiesOfClass(LivingEntity.class, area, entity -> entity.isAlive() && entity != caster)) {
+        // Fire damage names no attacker, so PvP-off and team rules would never see it: spare those players here.
+        for (LivingEntity target : this.level().getEntitiesOfClass(LivingEntity.class, area, entity -> entity.isAlive() && entity != caster
+                && !(entity instanceof net.minecraft.world.entity.player.Player other
+                && com.hogwartsmagic.spell.mind.MindControl.puppeteerSpares(caster.serverLevel(), caster.getUUID(), other)))) {
             target.igniteForSeconds(5);
             target.hurt(target.damageSources().onFire(), 4.0f);
             Vec3 lift = target.position().subtract(this.position());
@@ -205,7 +208,7 @@ public class FiendfyreSerpentEntity extends Entity {
         }
     }
 
-    private void spreadFire() {
+    private void spreadFire(ServerLevel level, ServerPlayer caster) {
         BlockPos center = this.blockPosition();
         int radius = 2 + Math.min(5, getLifeTicks() / 20);
 
@@ -214,8 +217,10 @@ public class FiendfyreSerpentEntity extends Entity {
             int ry = this.random.nextInt(5) - 2;
             int rz = this.random.nextInt(radius * 2 + 1) - radius;
             BlockPos target = center.offset(rx, ry, rz);
-            if (this.level().isEmptyBlock(target)) {
-                this.level().setBlockAndUpdate(target, Blocks.FIRE.defaultBlockState());
+            // Like Incendio: wards, spawn protection and claims (an EntityPlaceEvent as the caster) can refuse it.
+            if (level.isLoaded(target) && level.isEmptyBlock(target)
+                    && com.hogwartsmagic.spell.TerrainRules.canPlace(level, target, caster)) {
+                level.setBlockAndUpdate(target, Blocks.FIRE.defaultBlockState());
             }
         }
     }

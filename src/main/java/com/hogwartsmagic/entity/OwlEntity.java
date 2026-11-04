@@ -196,6 +196,18 @@ public class OwlEntity extends TamableAnimal implements FlyingAnimal {
         return super.mobInteract(player, hand);
     }
 
+    @Override
+    public void readAdditionalSaveData(CompoundTag tag) {
+        super.readAdditionalSaveData(tag);
+        // The carried letter is synced data and never saved; the delivery itself lives in the persistent data (read
+        // before this runs). Rebuilt here, or a reloaded owl flies its route with nothing in its talons.
+        CompoundTag data = getPersistentData();
+        if (data.contains(MAIL_STACK) && (data.contains(MAIL_TARGET) || data.hasUUID(MAIL_TARGET_PLAYER))) {
+            this.entityData.set(DATA_CARRIED_MAIL,
+                    ItemStack.parseOptional(this.level().registryAccess(), data.getCompound(MAIL_STACK)));
+        }
+    }
+
     public boolean isPostalBusy() {
         return this.getPersistentData().contains(MAIL_TARGET);
     }
@@ -416,8 +428,22 @@ public class OwlEntity extends TamableAnimal implements FlyingAnimal {
             return;
         }
 
-        if (target == null || target.level() != this.level()) {
-            this.spawnAtLocation(carried);
+        if (target == null) {
+            // Logged out mid-flight: hold here and wait, the delivery is saved with the owl (persistence required).
+            // Dropping the letter in the open lost the one-time first-year invite whenever somebody else kept
+            // the chunk loaded long enough for the item to despawn.
+            this.navigation.stop();
+            this.setNoGravity(true);
+            this.setDeltaMovement(Vec3.ZERO);
+            return;
+        }
+        if (target.level() != this.level()) {
+            // The recipient left this dimension: the letter goes straight into their hands wherever they are.
+            giveOrDrop(target, carried.copy());
+            if (carried.is(ExampleMod.HOGWARTS_INVITE.get())) {
+                giveOrDrop(target, new ItemStack(ExampleMod.HOGWARTS_GUIDE.get()));
+            }
+            announceArrival(target, carried);
             clearDeliveryData(data);
             startDepartureFlight(this.position());
             return;
@@ -448,22 +474,8 @@ public class OwlEntity extends TamableAnimal implements FlyingAnimal {
                 guide.setPickUpDelay(0);
                 guide.setDeltaMovement(0.0D, -0.12D, 0.0D);
                 serverLevel.addFreshEntity(guide);
-                target.displayClientMessage(
-                        net.minecraft.network.chat.Component.translatable(
-                                "message.hogwartsmagic.invite_and_guide_arrived",
-                                HogwartsInviteItem.getRecipient(carried)
-                        ),
-                        false
-                );
-            } else {
-                target.displayClientMessage(
-                        net.minecraft.network.chat.Component.translatable(
-                                "message.hogwartsmagic.invite_arrived",
-                                HogwartsInviteItem.getRecipient(carried)
-                        ),
-                        false
-                );
             }
+            announceArrival(target, carried);
             clearDeliveryData(data);
             startDepartureFlight(target.position());
             return;
@@ -494,6 +506,24 @@ public class OwlEntity extends TamableAnimal implements FlyingAnimal {
                     this.getDeltaMovement().z * 0.82D + nudge.z
             );
             this.hasImpulse = true;
+        }
+    }
+
+    private static void announceArrival(ServerPlayer target, ItemStack carried) {
+        target.displayClientMessage(
+                net.minecraft.network.chat.Component.translatable(
+                        carried.is(ExampleMod.HOGWARTS_INVITE.get())
+                                ? "message.hogwartsmagic.invite_and_guide_arrived"
+                                : "message.hogwartsmagic.invite_arrived",
+                        HogwartsInviteItem.getRecipient(carried)
+                ),
+                false
+        );
+    }
+
+    private static void giveOrDrop(ServerPlayer target, ItemStack stack) {
+        if (!target.addItem(stack)) {
+            target.drop(stack, false);
         }
     }
 

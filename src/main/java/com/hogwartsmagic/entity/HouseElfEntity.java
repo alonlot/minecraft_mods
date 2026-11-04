@@ -860,7 +860,10 @@ public class HouseElfEntity extends PathfinderMob {
 
         @Override
         public boolean canContinueToUse() {
+            // The level check matters: a ServerPlayer keeps its instance through a dimension change, and the tick
+            // below would otherwise Apparate the elf to the master's new coordinates inside this level.
             return this.master != null && this.master.isAlive() && !HouseElfEntity.this.isWild()
+                    && this.master.level() == HouseElfEntity.this.level()
                     && HouseElfEntity.this.distanceToSqr(this.master) > STOP_DISTANCE * STOP_DISTANCE
                     && !this.masterFrightens();
         }

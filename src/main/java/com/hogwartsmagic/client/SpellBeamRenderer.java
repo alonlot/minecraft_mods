@@ -68,31 +68,29 @@ public class SpellBeamRenderer extends EntityRenderer<SpellBeamEntity> {
         VertexConsumer consumer = buffer.getBuffer(RenderType.lightning());
         int light = LightTexture.FULL_BRIGHT;
 
-        switch (spell) {
-            case AVADA_KEDAVRA, CRUCIO, DOLOHOV_CURSE, MORSMORDRE -> {
-                // Jagged lightning-like curse beam.
-                drawLightningBeam(consumer, matrix, beamLength * 1.05f, glowThickness, age, spell.ordinal(), 1.9f, r, g, b, glowAlpha, light);
-                drawLightningBeam(consumer, matrix, beamLength, coreThickness, age, spell.ordinal() + 17, 1.5f, r, g, b, coreAlpha, light);
-                drawLightningBeam(consumer, matrix, beamLength * 0.9f, coreThickness * 0.45f, age, spell.ordinal() + 31, 1.15f, 1.0f, 1.0f, 1.0f, 0.3f * pulse, light);
-            }
-            case BOMBARDA, CONFRINGO, FIENDFYRE -> {
-                // Heavier, unstable blast profile.
-                drawLightningBeam(consumer, matrix, beamLength * 0.98f, glowThickness * 1.35f, age, spell.ordinal(), 1.7f, r, g, b, glowAlpha * 1.1f, light);
-                drawLightningBeam(consumer, matrix, beamLength * 0.92f, coreThickness * 1.25f, age, spell.ordinal() + 13, 1.35f, r, g, b, coreAlpha, light);
-                drawLightningBeam(consumer, matrix, beamLength * 0.82f, coreThickness * 0.75f, age, spell.ordinal() + 29, 1.0f, 1.0f, 0.95f, 0.9f, 0.28f * pulse, light);
-            }
-            case EXPECTO_PATRONUM, LUMOS, HEAL, REVELIO -> {
-                // Brighter spells still arc, but with softer bends.
-                drawLightningBeam(consumer, matrix, beamLength * 1.1f, glowThickness * 0.95f, age, spell.ordinal(), 1.15f, r, g, b, glowAlpha * 1.2f, light);
-                drawLightningBeam(consumer, matrix, beamLength * 1.05f, coreThickness * 0.9f, age, spell.ordinal() + 11, 0.9f, r, g, b, coreAlpha, light);
-                drawLightningBeam(consumer, matrix, beamLength, coreThickness * 0.5f, age, spell.ordinal() + 23, 0.65f, 1.0f, 1.0f, 1.0f, 0.42f * pulse, light);
-            }
-            default -> {
-                // Default magical bolt profile.
-                drawLightningBeam(consumer, matrix, beamLength, glowThickness, age, spell.ordinal(), 1.3f, r, g, b, glowAlpha, light);
-                drawLightningBeam(consumer, matrix, beamLength, coreThickness, age, spell.ordinal() + 7, 1.05f, r, g, b, coreAlpha, light);
-                drawLightningBeam(consumer, matrix, beamLength * 0.92f, coreThickness * 0.55f, age, spell.ordinal() + 19, 0.75f, 1.0f, 1.0f, 1.0f, 0.35f * pulse, light);
-            }
+        // if-chain, not an enum switch: the synthetic switch-map class fails to load in client code here.
+        if (spell == SpellType.AVADA_KEDAVRA || spell == SpellType.CRUCIO
+                || spell == SpellType.DOLOHOV_CURSE || spell == SpellType.MORSMORDRE) {
+            // Jagged lightning-like curse beam.
+            drawLightningBeam(consumer, matrix, beamLength * 1.05f, glowThickness, age, spell.ordinal(), 1.9f, r, g, b, glowAlpha, light);
+            drawLightningBeam(consumer, matrix, beamLength, coreThickness, age, spell.ordinal() + 17, 1.5f, r, g, b, coreAlpha, light);
+            drawLightningBeam(consumer, matrix, beamLength * 0.9f, coreThickness * 0.45f, age, spell.ordinal() + 31, 1.15f, 1.0f, 1.0f, 1.0f, 0.3f * pulse, light);
+        } else if (spell == SpellType.BOMBARDA || spell == SpellType.CONFRINGO || spell == SpellType.FIENDFYRE) {
+            // Heavier, unstable blast profile.
+            drawLightningBeam(consumer, matrix, beamLength * 0.98f, glowThickness * 1.35f, age, spell.ordinal(), 1.7f, r, g, b, glowAlpha * 1.1f, light);
+            drawLightningBeam(consumer, matrix, beamLength * 0.92f, coreThickness * 1.25f, age, spell.ordinal() + 13, 1.35f, r, g, b, coreAlpha, light);
+            drawLightningBeam(consumer, matrix, beamLength * 0.82f, coreThickness * 0.75f, age, spell.ordinal() + 29, 1.0f, 1.0f, 0.95f, 0.9f, 0.28f * pulse, light);
+        } else if (spell == SpellType.EXPECTO_PATRONUM || spell == SpellType.LUMOS
+                || spell == SpellType.HEAL || spell == SpellType.REVELIO) {
+            // Brighter spells still arc, but with softer bends.
+            drawLightningBeam(consumer, matrix, beamLength * 1.1f, glowThickness * 0.95f, age, spell.ordinal(), 1.15f, r, g, b, glowAlpha * 1.2f, light);
+            drawLightningBeam(consumer, matrix, beamLength * 1.05f, coreThickness * 0.9f, age, spell.ordinal() + 11, 0.9f, r, g, b, coreAlpha, light);
+            drawLightningBeam(consumer, matrix, beamLength, coreThickness * 0.5f, age, spell.ordinal() + 23, 0.65f, 1.0f, 1.0f, 1.0f, 0.42f * pulse, light);
+        } else {
+            // Default magical bolt profile.
+            drawLightningBeam(consumer, matrix, beamLength, glowThickness, age, spell.ordinal(), 1.3f, r, g, b, glowAlpha, light);
+            drawLightningBeam(consumer, matrix, beamLength, coreThickness, age, spell.ordinal() + 7, 1.05f, r, g, b, coreAlpha, light);
+            drawLightningBeam(consumer, matrix, beamLength * 0.92f, coreThickness * 0.55f, age, spell.ordinal() + 19, 0.75f, 1.0f, 1.0f, 1.0f, 0.35f * pulse, light);
         }
 
         poseStack.popPose();

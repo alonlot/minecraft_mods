@@ -125,6 +125,11 @@ public final class FirstTaskMemory {
         if (event.getEntity() instanceof HungarianHorntailEntity dragon && !(dragon instanceof MemoryHorntailEntity)
                 && !dragon.level().isClientSide()) {
             onDeath(dragon);
+        } else if (event.getEntity() instanceof ServerPlayer p) {
+            // A viewer who dies goes home without the home callback: forget the run, or a later preview of the
+            // scene would be taken for this class's memory and mark it seen.
+            STARTED.remove(p.getUUID());
+            IN_LAST.remove(p.getUUID());
         }
     }
 

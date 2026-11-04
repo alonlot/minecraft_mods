@@ -49,10 +49,12 @@ public final class FlyingMemory {
 
     /**
      * Keeps the parked broom's chunk entity-ticking for the whole memory (distance 2 is ticket level 31), like the
-     * basin ticket does for the body: a solo memory has no basin, so nothing else would hold the mount point.
+     * basin ticket does for the body: a solo memory has no basin, so nothing else would hold the mount point. Keyed
+     * by the player, not the chunk: a region ticket is a set, so two brooms parked in one chunk would share a single
+     * ticket and the first release would drop the other's.
      */
-    static final TicketType<ChunkPos> BROOM_TICKET = TicketType.create("hogwartsmagic_flying_broom",
-            Comparator.comparingLong(ChunkPos::toLong));
+    static final TicketType<UUID> BROOM_TICKET = TicketType.create("hogwartsmagic_flying_broom",
+            Comparator.<UUID>naturalOrder());
     private static final int TICKET_DISTANCE = 2;
     /** Slow falling for a player with no broom to board, so a mid-air point does not hurt them. */
     private static final int SET_DOWN_TICKS = 200;
@@ -164,14 +166,14 @@ public final class FlyingMemory {
         }
         Hold hold = new Hold(player, broom, level, root);
         // Parked before the start: the start dismounts the player, and the broom must already refuse everyone.
-        addTicket(level, hold.chunk);
+        addTicket(level, hold.chunk, id);
         broom.holdFor(id);
         HOLDS.put(id, hold);
         IN_SNITCH.remove(id);
         if (!PensieveSessions.startSolo(player, root)) {
             HOLDS.remove(id);
             broom.releaseHold();
-            removeTicket(level, hold.chunk);
+            removeTicket(level, hold.chunk, id);
             LOGGER.warn("Flying memory: could not start '{}'; the player just mounts", root);
             return false;
         }
@@ -264,7 +266,7 @@ public final class FlyingMemory {
         IN_SNITCH.remove(id);
         Hold hold = HOLDS.remove(id);
         if (hold == null) return null;
-        removeTicket(hold.level, hold.chunk);
+        removeTicket(hold.level, hold.chunk, id);
         Entity e = hold.level.getEntity(hold.broom);
         if (e instanceof BroomEntity broom && !broom.isRemoved()) {
             broom.releaseHold();
@@ -305,14 +307,14 @@ public final class FlyingMemory {
     }
 
     /** The only place the ticket is taken; {@link #LIVE_TICKETS} follows it, so a test sees a missing add. */
-    private static void addTicket(ServerLevel level, ChunkPos chunk) {
-        level.getChunkSource().addRegionTicket(BROOM_TICKET, chunk, TICKET_DISTANCE, chunk);
+    private static void addTicket(ServerLevel level, ChunkPos chunk, UUID key) {
+        level.getChunkSource().addRegionTicket(BROOM_TICKET, chunk, TICKET_DISTANCE, key);
         LIVE_TICKETS.merge(ticketKey(level, chunk), 1, Integer::sum);
     }
 
     /** The only place the ticket is dropped. */
-    private static void removeTicket(ServerLevel level, ChunkPos chunk) {
-        level.getChunkSource().removeRegionTicket(BROOM_TICKET, chunk, TICKET_DISTANCE, chunk);
+    private static void removeTicket(ServerLevel level, ChunkPos chunk, UUID key) {
+        level.getChunkSource().removeRegionTicket(BROOM_TICKET, chunk, TICKET_DISTANCE, key);
         LIVE_TICKETS.merge(ticketKey(level, chunk), -1, Integer::sum);
     }
 

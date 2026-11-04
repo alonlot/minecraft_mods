@@ -41,12 +41,21 @@ public final class MandrakePullEvents {
     private MandrakePullEvents() {
     }
 
+    /**
+     * Whether {@code player} is the server's own player for their id (the same test FlyingMemory.isRealPlayer makes).
+     * Forge 1.21 has no FakePlayer class: another mod's machine player is a ServerPlayer that is never ticked, so a
+     * pull started for it would sit in ACTIVE_PULLS for the life of the server and leave the plant stuck PULLING.
+     */
+    private static boolean isRealPlayer(ServerPlayer player) {
+        return player.server != null && player.server.getPlayerList().getPlayer(player.getUUID()) == player;
+    }
+
     @SubscribeEvent
     public static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
         if (!(event.getEntity() instanceof ServerPlayer player) || event.getHand() != InteractionHand.MAIN_HAND) {
             return;
         }
-        if (player.isCreative() || player.isSpectator() || !event.getItemStack().isEmpty()) {
+        if (player.isCreative() || player.isSpectator() || !event.getItemStack().isEmpty() || !isRealPlayer(player)) {
             return;
         }
         if (!event.getLevel().getBlockState(event.getPos()).is(ExampleMod.MANDRAKE_PLANT.get())) {
@@ -66,8 +75,8 @@ public final class MandrakePullEvents {
         if (!level.getBlockState(event.getPos()).is(ExampleMod.MANDRAKE_PLANT.get())) {
             return;
         }
-        if (player.isCreative() || player.isSpectator()) {
-            return;
+        if (player.isCreative() || player.isSpectator() || !isRealPlayer(player)) {
+            return; // a machine player breaks the plant like any other block: it can never finish a pull
         }
 
         event.setCanceled(true);

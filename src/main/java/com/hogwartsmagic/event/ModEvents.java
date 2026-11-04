@@ -2675,8 +2675,13 @@ public class ModEvents {
             // So we'll let BroomEntity handle resetting fall distance in its tick/dismount logic instead.
         }
 
+        // /kill, the void and anything else that bypasses invulnerability is never shielded, the same rule
+        // WizardEntity.hurt and StudentEntity.hurt apply to their own Protego: cancelling here would leave a
+        // shielded (or smoke-form) player immune to /kill and to falling out of the world.
+        boolean bypassesInvulnerability = event.getSource().is(net.minecraft.tags.DamageTypeTags.BYPASSES_INVULNERABILITY);
+
         // Avada Kedavra bypasses every Protego, ranked or legacy (AvadaSpell flags its own hurt call).
-        if (com.hogwartsmagic.spell.mind.AvadaSpell.isLanding(event.getEntity())) {
+        if (bypassesInvulnerability || com.hogwartsmagic.spell.mind.AvadaSpell.isLanding(event.getEntity())) {
             // no shield of any kind blocks or blunts it
         } else if (com.hogwartsmagic.spell.support.ProtegoSpell.isRankedShield(event.getEntity())) {
             // A player's Protego (Spell Mastery): blunts blows from the front, never cancels them outright.
@@ -2704,7 +2709,7 @@ public class ModEvents {
             }
         }
         
-        if (event.getEntity().hasEffect(ExampleMod.TENEBRIS_FLIGHT_EFFECT.getHolder().get())) {
+        if (!bypassesInvulnerability && event.getEntity().hasEffect(ExampleMod.TENEBRIS_FLIGHT_EFFECT.getHolder().get())) {
             event.setCanceled(true); // Invulnerability
         }
 

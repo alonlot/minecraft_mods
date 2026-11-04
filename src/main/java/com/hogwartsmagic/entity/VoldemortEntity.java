@@ -55,6 +55,11 @@ public class VoldemortEntity extends WizardEntity {
     private static final ResourceLocation VOLDEMORT_ADVANCEMENT_ID = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "hp/voldemort_falls");
     private final ServerBossEvent bossBar = new ServerBossEvent(DEFAULT_NAME, BossEvent.BossBarColor.RED, BossEvent.BossBarOverlay.NOTCHED_20);
 
+    /** The AK windup, synced: queuedSpell is server-only and the model's charging pose reads this on the client. */
+    private static final net.minecraft.network.syncher.EntityDataAccessor<Boolean> DATA_CHARGING_AVADA =
+            net.minecraft.network.syncher.SynchedEntityData.defineId(VoldemortEntity.class,
+                    net.minecraft.network.syncher.EntityDataSerializers.BOOLEAN);
+
     @Nullable
     private SpellType queuedSpell;
     private int queuedSpellTicks;
@@ -71,6 +76,12 @@ public class VoldemortEntity extends WizardEntity {
         this.xpReward = 250;
         this.setCustomName(DEFAULT_NAME);
         this.setCustomNameVisible(true);
+    }
+
+    @Override
+    protected void defineSynchedData(net.minecraft.network.syncher.SynchedEntityData.Builder builder) {
+        super.defineSynchedData(builder);
+        builder.define(DATA_CHARGING_AVADA, false);
     }
 
     public static AttributeSupplier.Builder createAttributes() {
@@ -236,6 +247,9 @@ public class VoldemortEntity extends WizardEntity {
     /** True while the AK windup is queued. Renderer uses this to trigger a more
      *  theatrical pose (head tilts back, both arms slowly raise) than a normal cast. */
     public boolean isChargingAvadaKedavra() {
+        if (this.level().isClientSide) {
+            return this.entityData.get(DATA_CHARGING_AVADA);
+        }
         return this.queuedSpell == SpellType.AVADA_KEDAVRA && this.queuedSpellTicks > 0;
     }
 
@@ -281,6 +295,7 @@ public class VoldemortEntity extends WizardEntity {
     private void cancelQueuedSpell(boolean interrupted) {
         this.queuedSpell = null;
         this.queuedSpellTicks = 0;
+        this.entityData.set(DATA_CHARGING_AVADA, false);
         this.setCasting(false);
         if (interrupted && this.level() instanceof ServerLevel serverLevel) {
             serverLevel.sendParticles(ParticleTypes.SMOKE, this.getX(), this.getY() + 1.2D, this.getZ(), 18, 0.35D, 0.45D, 0.35D, 0.02D);
@@ -299,6 +314,7 @@ public class VoldemortEntity extends WizardEntity {
     private void queueSpell(SpellType spell, int warmupTicks) {
         this.queuedSpell = spell;
         this.queuedSpellTicks = warmupTicks;
+        this.entityData.set(DATA_CHARGING_AVADA, spell == SpellType.AVADA_KEDAVRA);
         this.setCasting(true);
         this.swing(InteractionHand.MAIN_HAND);
     }
@@ -410,6 +426,7 @@ public class VoldemortEntity extends WizardEntity {
         SpellType spell = this.queuedSpell;
         this.queuedSpell = null;
         this.queuedSpellTicks = 0;
+        this.entityData.set(DATA_CHARGING_AVADA, false);
         this.setCasting(false);
         if (spell == null) {
             return;

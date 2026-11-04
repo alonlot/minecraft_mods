@@ -403,7 +403,11 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
         }
         
         // small chance the wizard spawns riding a broom
-        if (p_33284_ != net.minecraft.world.entity.MobSpawnType.EVENT && this.random.nextFloat() < 0.05f) {
+        // Not during chunk generation: the accessor is then a WorldGenRegion, and the broom would be added straight
+        // into the live ServerLevel from the worldgen step while this wizard is written into the proto chunk.
+        if (p_33284_ != net.minecraft.world.entity.MobSpawnType.EVENT
+                && p_33284_ != net.minecraft.world.entity.MobSpawnType.CHUNK_GENERATION
+                && this.random.nextFloat() < 0.05f) {
             Level lvl = (Level)p_33282_.getLevel();
             com.hogwartsmagic.entity.BroomEntity broom = new com.hogwartsmagic.entity.BroomEntity(com.hogwartsmagic.entity.ModEntities.BROOM.get(), lvl);
             broom.setPos(this.getX(), this.getY(), this.getZ());

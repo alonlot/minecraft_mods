@@ -61,12 +61,30 @@ public class PatronusEntity extends PathfinderMob {
     public void addAdditionalSaveData(net.minecraft.nbt.CompoundTag tag) {
         super.addAdditionalSaveData(tag);
         tag.putInt(TAG_FORM, this.getFormId());
+        // The light blocks it placed are only removed by this entity, and an unload never calls remove():
+        // saved with it so a reloaded Patronus still clears them, instead of leaving permanent invisible lights.
+        tag.putInt("Lifespan", this.lifespan);
+        if (this.lastLightPos != null) {
+            tag.putLong("LightPos", this.lastLightPos.asLong());
+        }
+        if (!this.pulseLightBlocks.isEmpty()) {
+            tag.putLongArray("PulseLights", this.pulseLightBlocks.keySet().stream()
+                    .mapToLong(net.minecraft.core.BlockPos::asLong).toArray());
+        }
     }
 
     @Override
     public void readAdditionalSaveData(net.minecraft.nbt.CompoundTag tag) {
         super.readAdditionalSaveData(tag);
         this.setFormId(tag.getInt(TAG_FORM));
+        if (tag.contains("Lifespan")) {
+            this.lifespan = tag.getInt("Lifespan");
+        }
+        this.lastLightPos = tag.contains("LightPos") ? net.minecraft.core.BlockPos.of(tag.getLong("LightPos")) : null;
+        this.pulseLightBlocks.clear();
+        for (long packed : tag.getLongArray("PulseLights")) {
+            this.pulseLightBlocks.put(net.minecraft.core.BlockPos.of(packed), 1);
+        }
     }
 
     @Override

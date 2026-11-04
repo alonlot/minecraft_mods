@@ -306,7 +306,7 @@
   },
   "poses": {
     "flat": {"head": [0, 0, 0], "body": [0, 0, 0], "right_arm": [0, 0, 0], "left_arm": [0, 0, 0], "right_leg": [0, 0, 0], "left_leg": [0, 0, 0]},
-    "relax": {"head": [0, 0, 0]}
+    "relax": {}
   },
   "actors": [
     {

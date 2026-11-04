@@ -300,7 +300,7 @@ LIE_OFF = {'head': (0, 20, 0), 'body': (0, 22, 0), 'right_arm': (0, 20, -2), 'le
 poses = {
     'flat': {'head': [0, 0, 0], 'body': [0, 0, 0], 'right_arm': [0, 0, 0], 'left_arm': [0, 0, 0],
              'right_leg': [0, 0, 0], 'left_leg': [0, 0, 0]},
-    'relax': {'head': [0, 0, 0]},
+    'relax': {},
 }
 
 # Sirius: collapsed at the water's edge from the start, face turned aside

@@ -304,7 +304,7 @@ boat = {
 }
 
 poses = {
-    'relax': {'head': [0, 0, 0]},
+    'relax': {},
     'dive': {'right_arm': [-172, 0, 10], 'left_arm': [-172, 0, -10], 'head': [-10, 0, 0]},
     'swim': {'head': [-18, 0, 0], 'right_arm': [-150, 0, 22], 'left_arm': [-150, 0, -22],
              'right_leg': [12, 0, 0], 'left_leg': [-12, 0, 0]},

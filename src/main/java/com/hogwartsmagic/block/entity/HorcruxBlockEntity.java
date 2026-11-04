@@ -154,6 +154,14 @@ public class HorcruxBlockEntity extends BlockEntity {
         return ownerUuid;
     }
 
+    /**
+     * True once a bound (primed or active) vessel has been destroyed or shattered. The break handler clears
+     * active/primed before vanilla asks for drops, so HorcruxBlock.getDrops reads this instead.
+     */
+    public boolean wasDestroyedWhileBound() {
+        return suppressForcedBreakEffects;
+    }
+
     public Component getStatusMessage() {
         if (active) {
             return Component.literal("A Horcrux hums with imprisoned soul magic and stolen life.");

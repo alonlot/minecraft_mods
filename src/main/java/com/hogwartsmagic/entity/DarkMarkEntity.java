@@ -291,20 +291,25 @@ public class DarkMarkEntity extends Entity {
             if (monsterCount < 15) {
                 double rx = this.getX() + (this.random.nextDouble() - 0.5) * 40.0;
                 double rz = this.getZ() + (this.random.nextDouble() - 0.5) * 40.0;
-                double ry = this.getY() - 50; // Try to spawn near ground level below the mark
-                
-                // Find ground
-                net.minecraft.core.BlockPos spawnPos = new net.minecraft.core.BlockPos((int)rx, (int)ry, (int)rz);
-                while (spawnPos.getY() > 0 && serverLevel.isEmptyBlock(spawnPos)) {
-                    spawnPos = spawnPos.below();
+                // The surface below the mark (the mark can sit near or under the ground, so a downward
+                // scan from below it started inside the rock). Never load a chunk to find it.
+                net.minecraft.core.BlockPos column = net.minecraft.core.BlockPos.containing(rx, 0.0D, rz);
+                if (!serverLevel.hasChunkAt(column)) {
+                    return;
                 }
-                spawnPos = spawnPos.above();
+                net.minecraft.core.BlockPos spawnPos = serverLevel.getHeightmapPos(
+                        net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, column);
 
                 EntityType<?>[] types = {EntityType.ZOMBIE, EntityType.SKELETON, EntityType.SPIDER};
                 EntityType<?> type = types[this.random.nextInt(types.length)];
                 Entity monster = type.create(serverLevel);
                 if (monster != null) {
-                    monster.setPos(spawnPos.getX(), spawnPos.getY(), spawnPos.getZ());
+                    monster.setPos(spawnPos.getX() + 0.5D, spawnPos.getY(), spawnPos.getZ() + 0.5D);
+                    if (monster instanceof Mob mob) {
+                        // Equipment (a skeleton's bow) comes from finalizeSpawn.
+                        mob.finalizeSpawn(serverLevel, serverLevel.getCurrentDifficultyAt(spawnPos),
+                                net.minecraft.world.entity.MobSpawnType.EVENT, null);
+                    }
                     serverLevel.addFreshEntity(monster);
                     serverLevel.sendParticles(ParticleTypes.LARGE_SMOKE, monster.getX(), monster.getY(), monster.getZ(), 20, 0.5, 1.0, 0.5, 0.05);
                 }

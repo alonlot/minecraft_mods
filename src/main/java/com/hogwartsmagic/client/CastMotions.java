@@ -265,6 +265,16 @@ public final class CastMotions {
         double x = Mth.lerp(partial, caster.xo, caster.getX());
         double y = Mth.lerp(partial, caster.yo, caster.getY());
         double z = Mth.lerp(partial, caster.zo, caster.getZ());
+        if (!(caster instanceof Player)) {
+            // An NPC poses its own arm (its model aims the wand at its target); the gesture turns that aim.
+            float pitch = caster.getViewXRot(partial) - p[0] * p[3] * Mth.RAD_TO_DEG * 0.6f;
+            float yaw = Mth.rotLerp(partial, caster.yHeadRotO, caster.yHeadRot) + p[1] * p[3] * Mth.RAD_TO_DEG * 0.6f;
+            Vec3 look = caster.getViewVector(partial);
+            Vec3 right = look.cross(new Vec3(0.0, 1.0, 0.0));
+            right = right.lengthSqr() < 1.0E-4 ? Vec3.ZERO : right.normalize();
+            Vec3 shoulder = new Vec3(x, y + caster.getEyeHeight() - 0.35, z).add(right.scale(0.32));
+            return shoulder.add(Vec3.directionFromRotation(pitch, yaw).scale(0.95));
+        }
         if (firstPerson) {
             Vec3 look = caster.getViewVector(partial);
             Vec3 right = look.cross(new Vec3(0.0, 1.0, 0.0));

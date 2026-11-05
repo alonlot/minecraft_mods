@@ -43,6 +43,67 @@ public final class SpellBeamClientState {
     private static final List<Impact> IMPACTS = new ArrayList<>();
     private static final List<Clash> CLASHES = new ArrayList<>();
     private static final List<Muzzle> MUZZLES = new ArrayList<>();
+    private static final List<Scenery> SCENERY = new ArrayList<>();
+
+    /** Held light from a memory's spell with no beam entity (the Pensieve's Lumos, Protego, Patronus...). */
+    public static final byte SCENERY_ORB = 0;
+    public static final byte SCENERY_DOME = 1;
+    public static final byte SCENERY_HELD = 2;
+    public static final byte SCENERY_WISP = 3;
+
+    public static final class Scenery {
+        final byte kind;
+        final Vec3 from;
+        final Vec3 to;
+        final BeamStyle style;
+        final double start;
+        final int duration;
+        final int seed;
+
+        Scenery(byte kind, Vec3 from, Vec3 to, BeamStyle style, double start, int duration) {
+            this.kind = kind;
+            this.from = from;
+            this.to = to;
+            this.style = style;
+            this.start = start;
+            this.duration = Math.max(1, duration);
+            this.seed = (int) (Double.doubleToLongBits(from.x + from.z * 7.0) ^ (long) start);
+        }
+
+        /** 0 to 1 fade in over 4 ticks and out over the last 8. */
+        float strength(double now) {
+            float t = (float) (now - start);
+            return smooth(t / 4.0f) * smooth((duration - t) / 8.0f);
+        }
+
+        private static float smooth(float x) {
+            float c = Mth.clamp(x, 0.0f, 1.0f);
+            return c * c * (3.0f - 2.0f * c);
+        }
+    }
+
+    public static Iterable<Scenery> scenery() {
+        return SCENERY;
+    }
+
+    /** Draw a memory's spell that has no beam: a held orb, a dome, a held stream or a shield wisp. */
+    public static void addScenery(byte kind, Vec3 from, Vec3 to, SpellType spell, int duration) {
+        Minecraft minecraft = Minecraft.getInstance();
+        BeamStyle style = BeamStyles.of(spell);
+        if (minecraft.level == null || style == null) {
+            return;
+        }
+        SCENERY.add(new Scenery(kind, from, to, style, minecraft.level.getGameTime(), duration));
+    }
+
+    /** A strike with no beam behind it (the Pensieve's Revelio pulse). */
+    public static void addStrike(Vec3 at, Vec3 dir, SpellType spell, byte kind) {
+        Minecraft minecraft = Minecraft.getInstance();
+        BeamStyle style = BeamStyles.of(spell);
+        if (minecraft.level != null && style != null) {
+            IMPACTS.add(new Impact(at, dir, style, kind, minecraft.level.getGameTime()));
+        }
+    }
     public static final float MUZZLE_TICKS = 6.0f;
 
     /** The release at the wand as a beam leaves it. */
@@ -86,6 +147,8 @@ public final class SpellBeamClientState {
         Vec3 dir;
         double goneAt = -1.0;
         boolean struck;
+        /** The caster, so a jet's wand end stays on the wand as they move (-1: none known). */
+        int ownerId = -1;
 
         Beam(int entityId, BeamStyle style, Vec3 origin, Vec3 head, Vec3 dir, double now) {
             this.entityId = entityId;
@@ -155,6 +218,9 @@ public final class SpellBeamClientState {
             }
             if (kind == SpellBeamFx.EVADE) {
                 return style.impactScale * 0.8f;
+            }
+            if (kind == SpellBeamFx.GLOW) {
+                return style.impactScale * 0.6f;
             }
             return style.impactScale * (kind == SpellBeamFx.FIZZLE || kind == SpellBeamFx.SHIELD ? 0.55f : 0.35f);
         }
@@ -257,7 +323,7 @@ public final class SpellBeamClientState {
     }
 
     public static boolean isEmpty() {
-        return BEAMS.isEmpty() && IMPACTS.isEmpty() && CLASHES.isEmpty() && MUZZLES.isEmpty();
+        return BEAMS.isEmpty() && IMPACTS.isEmpty() && CLASHES.isEmpty() && MUZZLES.isEmpty() && SCENERY.isEmpty();
     }
 
     public static void acceptImpact(SpellPackets.BeamImpactPacket packet) {
@@ -368,7 +434,11 @@ public final class SpellBeamClientState {
                 }
                 Vec3 dir = motion.lengthSqr() < 1.0E-8 ? new Vec3(0.0, 0.0, 1.0) : motion.normalize();
                 Vec3 from = origin(spellBeam, head);
-                BEAMS.put(spellBeam.getId(), new Beam(spellBeam.getId(), style, from, head, dir, now));
+                Beam created = new Beam(spellBeam.getId(), style, from, head, dir, now);
+                if (spellBeam.getOwner() != null && spellBeam.getOwner().distanceToSqr(spellBeam) <= 16.0) {
+                    created.ownerId = spellBeam.getOwner().getId();
+                }
+                BEAMS.put(spellBeam.getId(), created);
                 MUZZLES.add(new Muzzle(from, dir, style, now));
                 continue;
             }
@@ -378,6 +448,11 @@ public final class SpellBeamClientState {
             beam.push(head, now);
             if (motion.lengthSqr() > 1.0E-8) {
                 beam.dir = motion.normalize();
+            }
+            // A jet runs from the wand: keep its wand end on the wand as the caster moves.
+            if (beam.style.isJet() && beam.ownerId >= 0
+                    && minecraft.level.getEntity(beam.ownerId) instanceof LivingEntity caster && caster.isAlive()) {
+                beam.trail.set(0, tipOf(caster, beam.trail.get(0)));
             }
         }
 
@@ -409,6 +484,7 @@ public final class SpellBeamClientState {
         }
         CLASHES.removeIf(clash -> now - clash.start > CLASH_TICKS);
         MUZZLES.removeIf(muzzle -> now - muzzle.start > MUZZLE_TICKS || now < muzzle.start);
+        SCENERY.removeIf(item -> now - item.start > item.duration || now < item.start);
     }
 
     /** Where the beam starts: the caster's wand tip if we know the caster, else where the beam was first seen. */
@@ -417,6 +493,11 @@ public final class SpellBeamClientState {
         if (!(owner instanceof LivingEntity caster) || owner.distanceToSqr(beam) > 16.0) {
             return firstSeen;
         }
+        return tipOf(caster, firstSeen);
+    }
+
+    /** Where {@code caster}'s wand tip is now: from its windup or gesture if it is in one, else near its eyes. */
+    private static Vec3 tipOf(LivingEntity caster, Vec3 fallback) {
         AvadaChargeClientState.Charge charge = AvadaChargeClientState.get(caster.getId());
         boolean firstPerson = AvadaChargePose.isOwnFirstPerson(caster);
         if (charge != null) {
@@ -533,6 +614,11 @@ public final class SpellBeamClientState {
 
     /** The light the beams, strikes and clashes throw on what is round them (SpellLight). */
     static void lights(float partial, double now, SpellLight.Sink sink) {
+        for (Scenery item : SCENERY) {
+            float strength = item.strength(now);
+            Vec3 at = item.kind == SCENERY_ORB || item.kind == SCENERY_DOME ? item.from : item.to;
+            sink.add(at, item.style.glowR, item.style.glowG, item.style.glowB, 5.0f, 0.6f * strength);
+        }
         for (Muzzle muzzle : MUZZLES) {
             float f = (float) ((now - muzzle.start) / MUZZLE_TICKS);
             if (f >= 0.0f && f < 1.0f) {
@@ -583,6 +669,7 @@ public final class SpellBeamClientState {
             IMPACTS.clear();
             CLASHES.clear();
             MUZZLES.clear();
+            SCENERY.clear();
         }
     }
 

@@ -60,6 +60,55 @@ public final class SpellBeamFxRenderer {
     private SpellBeamFxRenderer() {
     }
 
+    /** A memory's held stream, grown out of the wand over its first six ticks. */
+    private static SpellBeamClientState.Beam heldOf(SpellBeamClientState.Scenery item, double now) {
+        float grow = smoothstep(0.0f, 6.0f, (float) (now - item.start));
+        Vec3 to = item.from.lerp(item.to, Math.max(0.05f, grow));
+        return SpellBeamClientState.held(item.seed, item.style.asJet(), item.from, to, item.start, now);
+    }
+
+    /** A memory's spell with no beam: a held orb, a dome of light, a held stream, or a stream ending in a shield. */
+    private static void drawSceneryLight(VertexConsumer out, Matrix4f m, SpellBeamClientState.Scenery item,
+                                         double now, Vec3 camera) {
+        BeamStyle s = item.style;
+        float strength = item.strength(now);
+        float t = (float) (now - item.start);
+        if (strength <= 0.003f) {
+            return;
+        }
+        if (item.kind == SpellBeamClientState.SCENERY_ORB) {
+            Vec3 pos = item.from.subtract(camera);
+            float flicker = 0.9f + 0.1f * Mth.sin(t * 1.3f);
+            billboard(out, m, pos, 0.9f * flicker, 0.55f * strength, s.glowR, s.glowG, s.glowB, false);
+            billboard(out, m, pos, 0.22f, strength, s.coreR, s.coreG, s.coreB, true);
+        } else if (item.kind == SpellBeamClientState.SCENERY_DOME) {
+            Vec3 centre = item.from.subtract(camera).add(0.0, -1.3, 0.0);
+            float radius = 1.9f * (0.7f + 0.3f * smoothstep(0.0f, 6.0f, t));
+            Vec3 up = new Vec3(0.0, 1.0, 0.0);
+            for (int k = 0; k < 8; k++) {
+                double phi = k * Math.PI / 8.0 + t * 0.03;
+                Vec3 right = new Vec3(Math.cos(phi), 0.0, Math.sin(phi));
+                arc(out, m, centre, right, up, radius, 0.06f, 0.3f * strength, s.glowR, s.glowG, s.glowB, 16, 0.0, Math.PI);
+            }
+            for (int k = 1; k <= 3; k++) {
+                double theta = k * Math.PI * 0.5 / 4.0;
+                ring(out, m, centre.add(0.0, Math.sin(theta) * radius, 0.0), new Vec3(1.0, 0.0, 0.0),
+                        new Vec3(0.0, 0.0, 1.0), (float) (Math.cos(theta) * radius), 0.05f, 0.25f * strength,
+                        s.coreR, s.coreG, s.coreB, 40);
+            }
+        } else {
+            SpellBeamClientState.Beam beam = heldOf(item, now);
+            drawHeldLight(out, m, beam, now, camera);
+            if (item.kind == SpellBeamClientState.SCENERY_WISP) {
+                // The weak Patronus: a hazy shield hanging at the end of the stream.
+                Vec3 end = item.to.subtract(camera);
+                Vec3[] axes = frame(item.to.subtract(item.from).normalize());
+                billboard(out, m, end, 1.7f, 0.35f * strength, s.glowR, s.glowG, s.glowB, false);
+                ring(out, m, end, axes[0], axes[1], 1.6f, 0.2f, 0.5f * strength, s.coreR, s.coreG, s.coreB, 40);
+            }
+        }
+    }
+
     /** The release at the wand: a quick hot flare and a ring snapping out across the line of the beam. */
     private static void drawMuzzle(VertexConsumer out, Matrix4f m, SpellBeamClientState.Muzzle muzzle, double now,
                                    Vec3 camera) {
@@ -135,6 +184,11 @@ public final class SpellBeamFxRenderer {
         for (SpellBeamClientState.Impact impact : SpellBeamClientState.impacts()) {
             drawImpactDark(dark, m, impact, now, camera);
         }
+        for (SpellBeamClientState.Scenery item : SpellBeamClientState.scenery()) {
+            if (item.kind == SpellBeamClientState.SCENERY_HELD || item.kind == SpellBeamClientState.SCENERY_WISP) {
+                drawHeldDark(dark, m, heldOf(item, now), now, camera);
+            }
+        }
         for (SpellBeamClientState.Clash clash : SpellBeamClientState.clashes()) {
             drawClashDark(dark, m, clash, now, camera);
         }
@@ -143,6 +197,9 @@ public final class SpellBeamFxRenderer {
         VertexConsumer light = buffer.getBuffer(ModRenderTypes.AVADA_LIGHT);
         for (SpellBeamClientState.Muzzle muzzle : SpellBeamClientState.muzzles()) {
             drawMuzzle(light, m, muzzle, now, camera);
+        }
+        for (SpellBeamClientState.Scenery item : SpellBeamClientState.scenery()) {
+            drawSceneryLight(light, m, item, now, camera);
         }
         for (SpellBeamClientState.Beam beam : SpellBeamClientState.beams()) {
             Frame frame = FRAMES.get(beam);
@@ -613,6 +670,21 @@ public final class SpellBeamFxRenderer {
 
         if (impact.kind == SpellBeamFx.SHIELD) {
             drawShieldRipple(out, m, impact, pos, age);
+        }
+        if (impact.kind == SpellBeamFx.GLOW) {
+            // The magic took: a soft swell of the spell's light and motes rising out of it.
+            float swell = smoothstep(0.0f, 3.0f, age) * (1.0f - smoothstep(6.0f, SpellBeamClientState.IMPACT_TICKS, age));
+            billboard(out, m, pos, 1.3f * scale, 0.5f * swell, s.glowR, s.glowG, s.glowB, false);
+            billboard(out, m, pos, 0.3f * scale, 0.8f * swell, s.coreR, s.coreG, s.coreB, true);
+            for (int k = 0; k < 10; k++) {
+                float life = age - k * 1.2f;
+                if (life < 0.0f || life > 16.0f) {
+                    continue;
+                }
+                Vec3 mote = pos.add(randomDirection(impact.seed + k * 17).scale(0.45 * scale)).add(0.0, 0.06 * life, 0.0);
+                billboard(out, m, mote, 0.05f, 0.9f * (1.0f - life / 16.0f), s.coreR, s.coreG, s.coreB, true, 2, 8);
+            }
+            return;
         }
         // The flash: swells in three ticks, gone in eight. Then the glow that takes a second to drain.
         float flash = (1.0f - smoothstep(0.0f, 0.3f, f)) * s.impactFlash * bright;

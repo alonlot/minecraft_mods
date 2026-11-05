@@ -1222,7 +1222,8 @@ public class ModEvents {
         com.hogwartsmagic.spell.support.ProtegoShield.raise(player, 12, 3, true);
 
         if (player.level() instanceof ServerLevel serverLevel) {
-            spawnProtegoMaximaSkyBeam(serverLevel, player);
+            // The pillar, the dome and its rune circle are drawn by the client (ProtegoMaximaRenderer); the
+            // server only lets a little glitter fall from the shell.
             if (player.tickCount % 2 == 0) {
                 spawnProtegoMaximaBarrier(serverLevel, player);
             }
@@ -2132,99 +2133,18 @@ public class ModEvents {
         return null;
     }
 
-    private static void spawnProtegoMaximaSkyBeam(ServerLevel level, ServerPlayer player) {
-        Vec3 start = player.getEyePosition().add(player.getLookAngle().scale(0.45D));
-        Vec3 center = player.position().add(0.0D, player.getBbHeight() * 0.55D, 0.0D);
-        Vec3 direction = player.getLookAngle().normalize();
-        if (direction.lengthSqr() < 1.0E-6D) {
-            direction = new Vec3(0.0D, 1.0D, 0.0D);
-        }
-
-        Vec3 startToCenter = start.subtract(center);
-        double b = startToCenter.dot(direction);
-        double c = startToCenter.lengthSqr() - (PROTEGO_MAXIMA_BARRIER_RADIUS * PROTEGO_MAXIMA_BARRIER_RADIUS);
-        double discriminant = (b * b) - c;
-        if (discriminant <= 0.0D) {
-            return;
-        }
-
-        double exitDistance = -b + Math.sqrt(discriminant);
-        if (exitDistance <= 0.02D) {
-            return;
-        }
-
-        Vec3 end = start.add(direction.scale(exitDistance));
-        int segments = Math.max(10, net.minecraft.util.Mth.ceil(exitDistance * 7.0D));
-        for (int i = 0; i <= segments; i++) {
-            double progress = i / (double) segments;
-            Vec3 point = start.lerp(end, progress);
-            level.sendParticles(ParticleTypes.END_ROD, point.x, point.y, point.z, 1, 0.01D, 0.01D, 0.01D, 0.0D);
-            if (i % 2 == 0) {
-                level.sendParticles(SpellType.PROTEGO_MAXIMA.getDustParticle(), point.x, point.y, point.z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
-            }
-        }
-
-        level.sendParticles(ParticleTypes.FLASH, end.x, end.y, end.z, 1, 0.02D, 0.02D, 0.02D, 0.0D);
-        level.sendParticles(ParticleTypes.GLOW, end.x, end.y, end.z, 4, 0.08D, 0.08D, 0.08D, 0.0D);
-        spawnProtegoMaximaShellRadiance(level, center, end.subtract(center).normalize(), player.tickCount);
-    }
-
-    private static void spawnProtegoMaximaShellRadiance(ServerLevel level, Vec3 center, Vec3 hitNormal, int tickCount) {
-        Vec3 tangentA = hitNormal.cross(new Vec3(0.0D, 1.0D, 0.0D));
-        if (tangentA.lengthSqr() < 1.0E-6D) {
-            tangentA = hitNormal.cross(new Vec3(1.0D, 0.0D, 0.0D));
-        }
-        tangentA = tangentA.normalize();
-        Vec3 tangentB = hitNormal.cross(tangentA).normalize();
-
-        for (int ring = 0; ring < 4; ring++) {
-            double ringAngle = 0.18D + ring * 0.22D + (tickCount % 20) * 0.01D;
-            double ringRadius = Math.sin(ringAngle) * PROTEGO_MAXIMA_BARRIER_RADIUS;
-            double forward = Math.cos(ringAngle) * PROTEGO_MAXIMA_BARRIER_RADIUS;
-            Vec3 ringCenter = center.add(hitNormal.scale(forward));
-            int points = 14 + ring * 4;
-            for (int i = 0; i < points; i++) {
-                double angle = (Math.PI * 2.0D * i) / points + tickCount * 0.04D * (ring % 2 == 0 ? 1.0D : -1.0D);
-                Vec3 offset = tangentA.scale(Math.cos(angle) * ringRadius).add(tangentB.scale(Math.sin(angle) * ringRadius));
-                Vec3 point = ringCenter.add(offset);
-                level.sendParticles(ParticleTypes.GLOW, point.x, point.y, point.z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
-                if (i % 2 == 0) {
-                    level.sendParticles(ParticleTypes.ENCHANT, point.x, point.y, point.z, 1, 0.01D, 0.01D, 0.01D, 0.0D);
-                }
-            }
-        }
-    }
-
+    /** Glitter drifting down off the upper shell. */
     private static void spawnProtegoMaximaBarrier(ServerLevel level, LivingEntity entity) {
         double centerX = entity.getX();
         double centerY = entity.getY() + entity.getBbHeight() * 0.55D;
         double centerZ = entity.getZ();
-
-        for (int i = 0; i < 28; i++) {
+        for (int i = 0; i < 3; i++) {
             double theta = level.random.nextDouble() * Math.PI * 2.0D;
-            double phi = Math.acos((level.random.nextDouble() * 2.0D) - 1.0D);
-            double radius = PROTEGO_MAXIMA_BARRIER_RADIUS + (level.random.nextDouble() - 0.5D) * 0.25D;
-            double x = centerX + radius * Math.sin(phi) * Math.cos(theta);
-            double y = centerY + radius * Math.cos(phi);
-            double z = centerZ + radius * Math.sin(phi) * Math.sin(theta);
-
-            level.sendParticles(ParticleTypes.END_ROD, x, y, z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
-            if (i % 3 == 0) {
-                level.sendParticles(ParticleTypes.ENCHANT, x, y, z, 1, 0.02D, 0.02D, 0.02D, 0.0D);
-            }
-            if (i % 5 == 0) {
-                level.sendParticles(ParticleTypes.GLOW, x, y, z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
-            }
-        }
-
-        for (int ring = 0; ring < 2; ring++) {
-            double y = centerY + (ring == 0 ? -1.2D : 1.2D);
-            for (int i = 0; i < 18; i++) {
-                double angle = ((Math.PI * 2.0D) / 18.0D) * i + (entity.tickCount * 0.08D * (ring == 0 ? 1.0D : -1.0D));
-                double x = centerX + Math.cos(angle) * PROTEGO_MAXIMA_BARRIER_RADIUS;
-                double z = centerZ + Math.sin(angle) * PROTEGO_MAXIMA_BARRIER_RADIUS;
-                level.sendParticles(ParticleTypes.ELECTRIC_SPARK, x, y, z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
-            }
+            double phi = Math.acos(level.random.nextDouble());
+            double x = centerX + PROTEGO_MAXIMA_BARRIER_RADIUS * Math.sin(phi) * Math.cos(theta);
+            double y = centerY + PROTEGO_MAXIMA_BARRIER_RADIUS * Math.cos(phi);
+            double z = centerZ + PROTEGO_MAXIMA_BARRIER_RADIUS * Math.sin(phi) * Math.sin(theta);
+            level.sendParticles(ParticleTypes.END_ROD, x, y, z, 0, 0.0D, -1.0D, 0.0D, 0.025D);
         }
     }
 
@@ -2237,7 +2157,6 @@ public class ModEvents {
             if (applyProtegoMaximaImpact(level, player, impact, impact * 0.38f, beam.position())) {
                 return;
             }
-            level.sendParticles(ParticleTypes.FLASH, beam.getX(), beam.getY(), beam.getZ(), 1, 0.05D, 0.05D, 0.05D, 0.0D);
             level.sendParticles(ParticleTypes.END_ROD, beam.getX(), beam.getY(), beam.getZ(), 10, 0.18D, 0.18D, 0.18D, 0.01D);
             beam.discard();
         }
@@ -2286,13 +2205,17 @@ public class ModEvents {
         data.put("PlayerPersisted", persisted);
         SpellPackets.CHANNEL.send(new SpellPackets.SyncManaPacket(newMana, maxMana), PacketDistributor.PLAYER.with(player));
 
-        level.sendParticles(ParticleTypes.FLASH, impactPos.x, impactPos.y, impactPos.z, 1, 0.04D, 0.04D, 0.04D, 0.0D);
-        level.sendParticles(ParticleTypes.GLOW, impactPos.x, impactPos.y, impactPos.z, 10, 0.16D, 0.16D, 0.16D, 0.01D);
+        level.sendParticles(ParticleTypes.GLOW, impactPos.x, impactPos.y, impactPos.z, 6, 0.16D, 0.16D, 0.16D, 0.01D);
+        // The ripple over the shell where it struck, and how bright the shell still burns.
+        SpellPackets.CHANNEL.send(new SpellPackets.ProtegoMaximaImpactPacket(player.getId(), impactPos.x, impactPos.y,
+                        impactPos.z, bubbleHealth / PROTEGO_MAXIMA_MAX_HEALTH),
+                PacketDistributor.TRACKING_ENTITY_AND_SELF.with(player));
 
         if (bubbleHealth <= 0.0f || newMana <= 0.0f) {
-            level.sendParticles(ParticleTypes.CRIT, player.getX(), player.getY() + player.getBbHeight() * 0.7D, player.getZ(), 35, 1.8D, 1.8D, 1.8D, 0.08D);
-            level.sendParticles(ParticleTypes.POOF, player.getX(), player.getY() + player.getBbHeight() * 0.7D, player.getZ(), 24, 1.2D, 1.2D, 1.2D, 0.03D);
+            level.sendParticles(ParticleTypes.END_ROD, player.getX(), player.getY() + player.getBbHeight() * 0.7D, player.getZ(), 40, 2.2D, 2.0D, 2.2D, 0.12D);
             level.playSound(null, player.getX(), player.getY(), player.getZ(), net.minecraft.sounds.SoundEvents.GLASS_BREAK, SoundSource.PLAYERS, 1.0f, 0.7f);
+            // Shattered, not dropped: the dome bursts into shards (the channel's own stop is then a no-op on it).
+            com.hogwartsmagic.spell.support.ProtegoShield.remove(player, com.hogwartsmagic.spell.support.ProtegoShield.SHATTERED);
             stopProtegoMaximaChannel(player, player.getMainHandItem());
             player.displayClientMessage(Component.literal("Protego Maxima broke").withStyle(net.minecraft.ChatFormatting.RED), true);
             return true;

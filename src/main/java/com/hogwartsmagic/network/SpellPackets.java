@@ -44,7 +44,7 @@ public class SpellPackets {
 
     public static final SimpleChannel CHANNEL = ChannelBuilder
             .named(ExampleMod.MODID + ":spells")
-            .networkProtocolVersion(15)
+            .networkProtocolVersion(16)
             .simpleChannel();
 
     public static void register() {
@@ -369,6 +369,18 @@ public class SpellPackets {
                 .decoder(buf -> new ProtegoShieldPacket(buf.readInt(), buf.readInt(), buf.readInt(),
                         buf.readBoolean(), buf.readBoolean(), buf.readByte()))
                 .consumerMainThread(ProtegoShieldPacket::handle)
+                .add();
+        CHANNEL.messageBuilder(ProtegoMaximaImpactPacket.class)
+                .encoder((p, buf) -> {
+                    buf.writeInt(p.entityId);
+                    buf.writeDouble(p.x);
+                    buf.writeDouble(p.y);
+                    buf.writeDouble(p.z);
+                    buf.writeFloat(p.health);
+                })
+                .decoder(buf -> new ProtegoMaximaImpactPacket(buf.readInt(), buf.readDouble(), buf.readDouble(),
+                        buf.readDouble(), buf.readFloat()))
+                .consumerMainThread(ProtegoMaximaImpactPacket::handle)
                 .add();
         CHANNEL.messageBuilder(PatronusShieldStatePacket.class)
                 .encoder((p, buf) -> {
@@ -742,6 +754,15 @@ public class SpellPackets {
                 })
                 .decoder(buf -> new CastMotionPacket(buf.readInt(), buf.readUtf(64)))
                 .consumerMainThread(CastMotionPacket::handle)
+                .add();
+        CHANNEL.messageBuilder(MandrakePullPacket.class)
+                .encoder((p, buf) -> {
+                    buf.writeInt(p.playerId);
+                    buf.writeBlockPos(p.pos);
+                    buf.writeByte(p.state);
+                })
+                .decoder(buf -> new MandrakePullPacket(buf.readInt(), buf.readBlockPos(), buf.readByte()))
+                .consumerMainThread(MandrakePullPacket::handle)
                 .add();
     }
 
@@ -1812,6 +1833,16 @@ public class SpellPackets {
         }
     }
 
+    /**
+     * Server → client: something struck {@code entityId}'s Protego Maxima dome at (x, y, z), leaving it at
+     * {@code health} (0..1). Drives the ripple and the dome's brightness (ProtegoMaximaRenderer).
+     */
+    public record ProtegoMaximaImpactPacket(int entityId, double x, double y, double z, float health) {
+        public static void handle(ProtegoMaximaImpactPacket p, CustomPayloadEvent.Context ctx) {
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("protegoMaximaImpact", p));
+        }
+    }
+
     /** Server → client: {@code casterId} raised or dropped the Patronus shield. */
     public record PatronusShieldStatePacket(int casterId, boolean active) {
         public static void handle(PatronusShieldStatePacket p, CustomPayloadEvent.Context ctx) {
@@ -1871,6 +1902,21 @@ public class SpellPackets {
     public record CrucioChannelPacket(int casterId, int targetId, byte state) {
         public static void handle(CrucioChannelPacket p, CustomPayloadEvent.Context ctx) {
             enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("crucioChannel", p));
+        }
+    }
+
+    /**
+     * Server → client: {@code playerId} took hold of the mandrake at {@code pos} (START), or the pull ended: the root
+     * came out (PULLED), slipped back into the soil (SLIPPED) or they let go (STOPPED). See {@code MandrakePullEvents}.
+     */
+    public record MandrakePullPacket(int playerId, BlockPos pos, byte state) {
+        public static final byte START = 0;
+        public static final byte PULLED = 1;
+        public static final byte SLIPPED = 2;
+        public static final byte STOPPED = 3;
+
+        public static void handle(MandrakePullPacket p, CustomPayloadEvent.Context ctx) {
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("mandrakePull", p));
         }
     }
 

@@ -17,7 +17,6 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 
@@ -365,8 +364,8 @@ public final class CaveInimicumManager {
                 continue;
             }
             changed = true;
-            level.sendParticles(ParticleTypes.GLOW, living.getX(), living.getY() + 1.0D, living.getZ(), 8, 0.3D, 0.45D, 0.3D, 0.02D);
-            level.sendParticles(ParticleTypes.END_ROD, living.getX(), living.getY() + 1.0D, living.getZ(), 5, 0.24D, 0.4D, 0.24D, 0.01D);
+            com.hogwartsmagic.spell.SpellBeamFx.effectAt(level, com.hogwartsmagic.spell.SpellType.REVELIO,
+                    com.hogwartsmagic.spell.SpellBeamFx.bodyCentre(living), com.hogwartsmagic.spell.SpellBeamFx.GLOW);
         }
         if (changed) {
             level.playSound(null, ward.getBlockPos(), SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.BLOCKS, 0.4f, 1.4f);
@@ -394,7 +393,7 @@ public final class CaveInimicumManager {
                     && com.hogwartsmagic.spell.support.AlohomoraSpell.tryUnlockBarrier(level, ward, beam)) {
                 continue;
             }
-            blockProjectileAtBarrier(projectile, previousInside ? previous : current);
+            blockProjectileAtBarrier(projectile, previousInside ? previous : current, bounds);
         }
     }
 
@@ -410,10 +409,34 @@ public final class CaveInimicumManager {
         return !(owner instanceof ServerPlayer player && player.isSpectator());
     }
 
-    private void blockProjectileAtBarrier(Projectile projectile, Vec3 impactPos) {
-        level.sendParticles(ParticleTypes.FLASH, impactPos.x, impactPos.y, impactPos.z, 1, 0.08, 0.08, 0.08, 0.0);
-        level.sendParticles(ParticleTypes.END_ROD, impactPos.x, impactPos.y, impactPos.z, 16, 0.18, 0.18, 0.18, 0.01);
-        level.sendParticles(ParticleTypes.ENCHANT, impactPos.x, impactPos.y, impactPos.z, 14, 0.22, 0.22, 0.22, 0.02);
+    /**
+     * Stop a projectile at the barrier: a shield ripple laid on the wall it struck (the nearest face of the ward's
+     * cube to where it crossed, the point pressed onto that face), and the projectile gone.
+     */
+    private void blockProjectileAtBarrier(Projectile projectile, Vec3 impactPos, CaveInimicumWardBounds bounds) {
+        BlockPos min = bounds.min();
+        BlockPos max = bounds.max();
+        double[] planes = {min.getX(), max.getX() + 1.0, min.getY(), max.getY() + 1.0, min.getZ(), max.getZ() + 1.0};
+        double[] coords = {impactPos.x, impactPos.x, impactPos.y, impactPos.y, impactPos.z, impactPos.z};
+        int face = 0;
+        for (int i = 1; i < planes.length; i++) {
+            if (Math.abs(coords[i] - planes[i]) < Math.abs(coords[face] - planes[face])) {
+                face = i;
+            }
+        }
+        double sign = (face & 1) == 0 ? -1.0 : 1.0;
+        Vec3 normal = face < 2 ? new Vec3(sign, 0.0, 0.0) : face < 4 ? new Vec3(0.0, sign, 0.0) : new Vec3(0.0, 0.0, sign);
+        Vec3 onWall = face < 2 ? new Vec3(planes[face], impactPos.y, impactPos.z)
+                : face < 4 ? new Vec3(impactPos.x, planes[face], impactPos.z)
+                : new Vec3(impactPos.x, impactPos.y, planes[face]);
+        if (projectile instanceof com.hogwartsmagic.entity.SpellBeamEntity beam) {
+            // On the beam's own id, so the drawn beam ends in the ripple instead of flying on until it fades.
+            com.hogwartsmagic.spell.SpellBeamFx.impact(beam, beam.getSpellType(), onWall, normal,
+                    com.hogwartsmagic.spell.SpellBeamFx.SHIELD);
+        } else {
+            com.hogwartsmagic.spell.SpellBeamFx.effectAt(level, com.hogwartsmagic.spell.SpellType.PROTEGO_MAXIMA, onWall,
+                    normal, com.hogwartsmagic.spell.SpellBeamFx.SHIELD);
+        }
         level.playSound(null, impactPos.x, impactPos.y, impactPos.z, SoundEvents.SHIELD_BLOCK, SoundSource.BLOCKS, 0.9f, 1.3f);
         projectile.discard();
     }

@@ -3,6 +3,7 @@ package com.hogwartsmagic.event;
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.ModSounds;
 import com.hogwartsmagic.block.MandrakePlantBlock;
+import com.hogwartsmagic.network.SpellPackets;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
@@ -33,7 +34,7 @@ import java.util.UUID;
 
 @Mod.EventBusSubscriber(modid = ExampleMod.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class MandrakePullEvents {
-    private static final int PULL_TICKS = 20 * 3;
+    public static final int PULL_TICKS = 20 * 3;
     private static final float FAIL_CHANCE = 0.30F;
     private static final double MAX_PULL_DISTANCE_SQ = 5.0D * 5.0D;
     private static final Map<UUID, PullState> ACTIVE_PULLS = new HashMap<>();
@@ -174,6 +175,7 @@ public final class MandrakePullEvents {
         if (state.is(ExampleMod.MANDRAKE_PLANT.get())) {
             player.serverLevel().setBlock(pos, state.setValue(MandrakePlantBlock.PULLING, true), 3);
         }
+        broadcast(player, pull.pos, SpellPackets.MandrakePullPacket.START);
         player.serverLevel().playSound(null, pos, ModSounds.MANDRAKE_SCREAM.get(), SoundSource.BLOCKS, 1.35F, 1.0F);
         player.displayClientMessage(Component.translatable("message.hogwartsmagic.mandrake.pull_start"), true);
         animatePull(player, player.serverLevel(), pull);
@@ -186,7 +188,6 @@ public final class MandrakePullEvents {
         player.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, Vec3.atCenterOf(pull.pos).add(0.0D, 0.25D, 0.0D));
 
         if (pull.ticks % 4 == 0) {
-            player.swing(InteractionHand.MAIN_HAND);
             player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 10, 1, false, false, false));
             Vec3 tug = Vec3.atCenterOf(pull.pos).subtract(player.position()).normalize().scale(0.035D);
             player.setDeltaMovement(player.getDeltaMovement().add(tug.x, 0.0D, tug.z));
@@ -219,6 +220,15 @@ public final class MandrakePullEvents {
         level.destroyBlockProgress(player.getId(), pull.pos, -1);
 
         boolean failed = player.getRandom().nextFloat() < FAIL_CHANCE;
+        // The last heave throws them back a step, harder when the grip tears loose. A player moves itself, so the
+        // push has to be sent (hurtMarked) or it never reaches them.
+        Vec3 away = player.position().subtract(Vec3.atCenterOf(pull.pos));
+        away = new Vec3(away.x, 0.0D, away.z);
+        if (away.lengthSqr() > 1.0E-4D) {
+            away = away.normalize().scale(failed ? 0.42D : 0.26D);
+            player.setDeltaMovement(player.getDeltaMovement().add(away.x, failed ? 0.18D : 0.10D, away.z));
+            player.hurtMarked = true;
+        }
         if (failed) {
             restoreIdleState(level, pull.pos);
             level.sendParticles(ParticleTypes.POOF,
@@ -230,6 +240,7 @@ public final class MandrakePullEvents {
                     0.35D,
                     0.35D,
                     0.03D);
+            broadcast(player, pull.pos, SpellPackets.MandrakePullPacket.SLIPPED);
             player.displayClientMessage(Component.translatable("message.hogwartsmagic.mandrake.pull_failed"), true);
             pull.expired = true;
             ACTIVE_PULLS.remove(player.getUUID());
@@ -245,8 +256,14 @@ public final class MandrakePullEvents {
                 pull.pos.getZ() + 0.5D,
                 root);
         drop.setDefaultPickUpDelay();
+        // Torn out of the soil by the last heave: it flies up and back toward whoever pulled it.
+        Vec3 toPuller = player.position().subtract(Vec3.atCenterOf(pull.pos));
+        Vec3 flat = new Vec3(toPuller.x, 0.0D, toPuller.z);
+        flat = flat.lengthSqr() < 1.0E-4D ? Vec3.ZERO : flat.normalize().scale(0.16D);
+        drop.setDeltaMovement(flat.x, 0.34D, flat.z);
         level.addFreshEntity(drop);
         level.levelEvent(2001, pull.pos, net.minecraft.world.level.block.Block.getId(ExampleMod.MANDRAKE_PLANT.get().defaultBlockState()));
+        broadcast(player, pull.pos, SpellPackets.MandrakePullPacket.PULLED);
         player.displayClientMessage(Component.translatable("message.hogwartsmagic.mandrake.pull_success"), true);
         pull.expired = true;
         ACTIVE_PULLS.remove(player.getUUID());
@@ -255,9 +272,16 @@ public final class MandrakePullEvents {
     private static void cancelPull(ServerPlayer player, ServerLevel level, PullState pull) {
         level.destroyBlockProgress(player.getId(), pull.pos, -1);
         restoreIdleState(level, pull.pos);
+        broadcast(player, pull.pos, SpellPackets.MandrakePullPacket.STOPPED);
         player.displayClientMessage(Component.translatable("message.hogwartsmagic.mandrake.pull_interrupted"), true);
         pull.expired = true;
         ACTIVE_PULLS.remove(player.getUUID());
+    }
+
+    /** The puller's body animates on every client that can see them (MandrakePullClient). */
+    private static void broadcast(ServerPlayer player, BlockPos pos, byte state) {
+        SpellPackets.CHANNEL.send(new SpellPackets.MandrakePullPacket(player.getId(), pos, state),
+                net.minecraftforge.network.PacketDistributor.TRACKING_ENTITY_AND_SELF.with(player));
     }
 
     private static void restoreIdleState(ServerLevel level, BlockPos pos) {

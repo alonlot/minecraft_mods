@@ -54,8 +54,15 @@ public final class SpellBeamFx {
      * spell's own style for everyone within 64 blocks.
      */
     public static void effectAt(net.minecraft.server.level.ServerLevel level, SpellType spell, Vec3 at, byte kind) {
+        effectAt(level, spell, at, new Vec3(0.0, 1.0, 0.0), kind);
+    }
+
+    /** As above, its rings laid across {@code facing} (a ward wall's normal) instead of flat on the air. */
+    public static void effectAt(net.minecraft.server.level.ServerLevel level, SpellType spell, Vec3 at, Vec3 facing,
+                                byte kind) {
+        Vec3 d = unit(facing);
         SpellPackets.BeamImpactPacket packet = new SpellPackets.BeamImpactPacket(-1, spell.getId(), at.x, at.y, at.z,
-                0.0f, 1.0f, 0.0f, kind);
+                (float) d.x, (float) d.y, (float) d.z, kind);
         for (net.minecraft.server.level.ServerPlayer player : level.players()) {
             if (player.distanceToSqr(at) < 64.0 * 64.0) {
                 SpellPackets.CHANNEL.send(packet, PacketDistributor.PLAYER.with(player));
@@ -93,11 +100,15 @@ public final class SpellBeamFx {
     }
 
     public static void impact(Entity beam, SpellType spell, Vec3 at, byte kind) {
+        impact(beam, spell, at, beam.getDeltaMovement(), kind);
+    }
+
+    /** As above, laid across {@code facing} (a ward wall's normal) rather than across the beam's flight. */
+    public static void impact(Entity beam, SpellType spell, Vec3 at, Vec3 facing, byte kind) {
         if (beam.level().isClientSide()) {
             return;
         }
-        Vec3 dir = beam.getDeltaMovement();
-        dir = dir.lengthSqr() < 1.0E-8 ? new Vec3(0.0, 0.0, 1.0) : dir.normalize();
+        Vec3 dir = unit(facing);
         SpellPackets.CHANNEL.send(new SpellPackets.BeamImpactPacket(beam.getId(), spell.getId(), at.x, at.y, at.z,
                         (float) dir.x, (float) dir.y, (float) dir.z, kind),
                 PacketDistributor.TRACKING_ENTITY.with(beam));

@@ -1264,6 +1264,7 @@ public class ExampleMod
         LOOT_MODIFIER_SERIALIZERS.register(modEventBus);
         // Register sounds
         ModSounds.SOUND_EVENTS.register(modEventBus);
+        ModParticles.register(modEventBus);
 
         // Register ourselves for server and other game events we are interested in
         MinecraftForge.EVENT_BUS.register(this);

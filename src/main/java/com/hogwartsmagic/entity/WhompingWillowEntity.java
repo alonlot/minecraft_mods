@@ -1,9 +1,9 @@
 package com.hogwartsmagic.entity;
 
+import com.hogwartsmagic.ModParticles;
 import com.hogwartsmagic.ModSounds;
 import com.hogwartsmagic.event.ModEvents;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
 import net.minecraft.network.syncher.EntityDataAccessor;
@@ -663,8 +663,8 @@ public class WhompingWillowEntity extends Monster {
         // Trail the outer half of the limb as it actually is this tick, so the arc the player has to
         // learn is drawn by the thing that hits them.
         for (int k = 3; k <= WhompingWillowRig.SEGS; k++) {
-            sl.sendParticles(ParticleTypes.COMPOSTER, pts[k * 3], pts[k * 3 + 1], pts[k * 3 + 2],
-                    2, 0.25D, 0.25D, 0.25D, 0.02D);
+            sl.sendParticles(ModParticles.WILLOW_LEAF.get(), pts[k * 3], pts[k * 3 + 1], pts[k * 3 + 2],
+                    2, 0.3D, 0.25D, 0.3D, 0.03D);
         }
     }
 
@@ -676,7 +676,7 @@ public class WhompingWillowEntity extends Monster {
         for (int k = 2; k <= WhompingWillowRig.SEGS; k++) {
             double x = pts[k * 3], z = pts[k * 3 + 2];
             int y = this.level().getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, Mth.floor(x), Mth.floor(z));
-            sl.sendParticles(ParticleTypes.CRIT, x, y + 0.2D, z, 2, 0.4D, 0.0D, 0.4D, 0.0D);
+            sl.sendParticles(ModParticles.WILLOW_GLINT.get(), x, y + 0.15D, z, 2, 0.4D, 0.0D, 0.4D, 0.0D);
         }
     }
 
@@ -696,9 +696,10 @@ public class WhompingWillowEntity extends Monster {
             for (int k = 2; k <= WhompingWillowRig.SEGS; k++) {
                 double x = pts[k * 3], z = pts[k * 3 + 2];
                 int y = this.level().getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, Mth.floor(x), Mth.floor(z));
-                sl.sendParticles(ParticleTypes.CLOUD, x, y + 0.3D, z, 6, 0.6D, 0.1D, 0.6D, 0.05D);
+                sl.sendParticles(ModParticles.ROOT_DUST.get(), x, y + 0.3D, z, 6, 0.6D, 0.1D, 0.6D, 0.05D);
             }
-            sl.sendParticles(ParticleTypes.COMPOSTER, tip.x, gy + 0.6D, tip.z, 18, 1.0D, 0.4D, 1.0D, 0.12D);
+            sl.sendParticles(ModParticles.BARK_CHIP.get(), tip.x, gy + 0.5D, tip.z, 12, 0.6D, 0.2D, 0.6D, 0.12D);
+            sl.sendParticles(ModParticles.WILLOW_LEAF.get(), tip.x, gy + 1.2D, tip.z, 14, 1.0D, 0.5D, 1.0D, 0.06D);
         }
     }
 
@@ -716,12 +717,14 @@ public class WhompingWillowEntity extends Monster {
         if (this.level() instanceof ServerLevel sl) {
             for (int i = 0; i < 30; i++) {
                 double a = i * Math.PI * 2.0 / 30.0;
-                sl.sendParticles(ParticleTypes.CLOUD,
+                sl.sendParticles(ModParticles.ROOT_DUST.get(),
                         getX() + Math.cos(a) * STOMP_RANGE, getY() + 0.2D, getZ() + Math.sin(a) * STOMP_RANGE,
                         1, 0.1D, 0.05D, 0.1D, 0.05D);
             }
-            sl.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, getX(), getY() + 0.2D, getZ(),
-                    26, 2.4D, 0.1D, 2.4D, 0.02D);
+            sl.sendParticles(ModParticles.ROOT_DUST.get(), getX(), getY() + 0.2D, getZ(),
+                    26, 2.4D, 0.1D, 2.4D, 0.03D);
+            sl.sendParticles(ModParticles.WILLOW_LEAF.get(), getX(), getY() + 8.0D, getZ(),
+                    30, 3.0D, 1.5D, 3.0D, 0.03D);
         }
     }
 
@@ -872,7 +875,8 @@ public class WhompingWillowEntity extends Monster {
             if (victim instanceof ServerPlayer sp) ModEvents.interruptActiveCasting(sp);
             playSound(ModSounds.WILLOW_IMPACT.get(), 2.0F, 1.0F);
             if (this.level() instanceof ServerLevel sl) {
-                sl.sendParticles(ParticleTypes.CLOUD, tip.x, gy + 0.3D, tip.z, 10, 0.7D, 0.1D, 0.7D, 0.05D);
+                sl.sendParticles(ModParticles.ROOT_DUST.get(), tip.x, gy + 0.3D, tip.z, 10, 0.7D, 0.1D, 0.7D, 0.05D);
+                sl.sendParticles(ModParticles.BARK_CHIP.get(), tip.x, gy + 0.6D, tip.z, 6, 0.4D, 0.2D, 0.4D, 0.1D);
                 if (t == SMASH_BLOW_A) smashBlocks(sl, BlockPos.containing(tip.x, gy, tip.z));
             }
         }
@@ -962,7 +966,7 @@ public class WhompingWillowEntity extends Monster {
 
     private void leafBurst(double spread, int count) {
         if (this.level() instanceof ServerLevel sl) {
-            sl.sendParticles(ParticleTypes.COMPOSTER, getX(), getY() + 8.0D, getZ(),
+            sl.sendParticles(ModParticles.WILLOW_LEAF.get(), getX(), getY() + 8.0D, getZ(),
                     count, spread, 2.0D, spread, 0.02D);
         }
     }
@@ -1020,8 +1024,11 @@ public class WhompingWillowEntity extends Monster {
         if (!hurt || this.level().isClientSide) return hurt;
 
         if (this.level() instanceof ServerLevel sl) {
-            sl.sendParticles(ParticleTypes.COMPOSTER, getX(), getY() + 4.0D, getZ(),
-                    (int) Math.min(24.0F, 3.0F + amount), 2.2D, 2.5D, 2.2D, 0.03D);
+            // Splinters fly from the bole where it was struck; leaves shake down from the crown.
+            sl.sendParticles(ModParticles.BARK_CHIP.get(), getX(), getY() + 2.5D, getZ(),
+                    (int) Math.min(14.0F, 2.0F + amount * 0.6F), 1.2D, 1.0D, 1.2D, 0.08D);
+            sl.sendParticles(ModParticles.WILLOW_LEAF.get(), getX(), getY() + 8.0D, getZ(),
+                    (int) Math.min(24.0F, 3.0F + amount), 3.0D, 2.0D, 3.0D, 0.02D);
         }
 
         AttackState state = getAttackState();
@@ -1044,9 +1051,11 @@ public class WhompingWillowEntity extends Monster {
         dropVictim();
         if (this.level() instanceof ServerLevel sl) {
             // The whole canopy comes down with it.
-            sl.sendParticles(ParticleTypes.COMPOSTER, getX(), getY() + 8.0D, getZ(),
-                    140, 3.4D, 3.0D, 3.4D, 0.06D);
-            sl.sendParticles(ParticleTypes.CLOUD, getX(), getY() + 0.4D, getZ(),
+            sl.sendParticles(ModParticles.WILLOW_LEAF.get(), getX(), getY() + 8.0D, getZ(),
+                    140, 3.6D, 3.0D, 3.6D, 0.04D);
+            sl.sendParticles(ModParticles.BARK_CHIP.get(), getX(), getY() + 3.0D, getZ(),
+                    30, 1.4D, 2.0D, 1.4D, 0.1D);
+            sl.sendParticles(ModParticles.ROOT_DUST.get(), getX(), getY() + 0.4D, getZ(),
                     40, 3.0D, 0.3D, 3.0D, 0.05D);
         }
         super.die(source);

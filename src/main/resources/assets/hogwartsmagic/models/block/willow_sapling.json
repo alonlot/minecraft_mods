@@ -1,6 +1,8 @@
 {
   "parent": "minecraft:block/cross",
+  "render_type": "minecraft:cutout",
   "textures": {
-    "cross": "hogwartsmagic:block/willow_sapling"
+    "cross": "hogwartsmagic:block/willow_sapling",
+    "particle": "hogwartsmagic:block/willow_sapling"
   }
 }

@@ -900,6 +900,13 @@ public class BasiliskEntity extends Monster {
 
             this.gazeCharge.put(id, charge);
             publishGazeTier(candidate, charge);
+            // The heartbeat under the stare (spec: it rises in pitch as the charge climbs). Played
+            // to the victim alone, once per clip length (1.6 s), so beats never overlap.
+            if (candidate instanceof ServerPlayer victimPlayer && this.tickCount % 32 == 0) {
+                int tier = Mth.clamp(charge * 5 / GAZE_FULL_CHARGE, 0, 4);
+                victimPlayer.playNotifySound(ModSounds.BASILISK_GAZE_HEARTBEAT.get(), this.getSoundSource(),
+                        0.6F + tier * 0.1F, 0.8F + tier * 0.1F);
+            }
         }
 
         // Anything that walked out of range stops being tracked, and loses the

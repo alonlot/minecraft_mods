@@ -108,6 +108,15 @@ public class VoldemortEntity extends WizardEntity {
         return com.hogwartsmagic.ModSounds.VOLDEMORT_DEATH.get();
     }
 
+    /**
+     * No formal duel with the Dark Lord. WizardEntity offers one to any wizard, and winning it
+     * heals the loser to full, so a "duel" reset the boss fight and paid out a duel reward.
+     */
+    @Override
+    protected net.minecraft.world.InteractionResult mobInteract(Player player, InteractionHand hand) {
+        return net.minecraft.world.InteractionResult.PASS;
+    }
+
     @Override
     protected void registerGoals() {
         this.goalSelector.addGoal(0, new FloatGoal(this));

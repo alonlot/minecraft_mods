@@ -45,6 +45,8 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
     // per-wizard cooldown tracking to mimic player wand behavior
     protected final Map<SpellType, Long> spellCooldowns = new EnumMap<>(SpellType.class);
     private long lastHitTime = 0; // Track when wizard was last hit for flight escape
+    /** A raid leader summons its raid once. Saved, so a chunk reload does not raise a second one. */
+    private boolean raidSummoned;
     /** Dark Magic: the Lost player this Death Eater escorts (a Morsmordre escort), or null. */
     @javax.annotation.Nullable
     private java.util.UUID escortOwner;
@@ -318,6 +320,7 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
         super.addAdditionalSaveData(p_33353_);
         p_33353_.putBoolean("RaidLeader", this.isRaidLeader());
         p_33353_.putBoolean("Disarmed", this.isDisarmed());
+        p_33353_.putBoolean("RaidSummoned", this.raidSummoned);
         if (this.escortOwner != null) {
             p_33353_.putUUID("EscortOwner", this.escortOwner);
             p_33353_.putLong("EscortUntil", this.escortUntil);
@@ -330,6 +333,7 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
         super.readAdditionalSaveData(tag);
         if (tag.contains("RaidLeader")) this.setRaidLeader(tag.getBoolean("RaidLeader"));
         if (tag.contains("Disarmed")) this.setDisarmed(tag.getBoolean("Disarmed"));
+        this.raidSummoned = tag.getBoolean("RaidSummoned");
         if (tag.hasUUID("EscortOwner")) {
             this.setEscort(tag.getUUID("EscortOwner"), tag.getLong("EscortUntil"));
             this.setEscortOwnerDeaths(tag.contains("EscortOwnerDeaths") ? tag.getInt("EscortOwnerDeaths") : -1);
@@ -414,7 +418,6 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
         private final WizardEntity wizard;
         private int checkTimer = 0;
         private int ritualTimer = 0;
-        private boolean hasSummoned = false;
 
         public WizardRaidLeaderGoal(WizardEntity wizard) {
             this.wizard = wizard;
@@ -422,7 +425,7 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
 
         @Override
         public boolean canUse() {
-            return this.wizard.isRaidLeader() && !hasSummoned;
+            return this.wizard.isRaidLeader() && !this.wizard.raidSummoned;
         }
 
         @Override
@@ -461,7 +464,7 @@ public class WizardEntity extends AbstractIllager implements DisarmableWandUser 
         }
 
         private void startRaid() {
-            this.hasSummoned = true;
+            this.wizard.raidSummoned = true;
             this.wizard.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
             List<WizardEntity> raidMembers = new ArrayList<>();
             raidMembers.add(this.wizard);

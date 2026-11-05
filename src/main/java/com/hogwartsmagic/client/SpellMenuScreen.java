@@ -209,8 +209,18 @@ public class SpellMenuScreen extends Screen {
     }
 
     @Override
+    protected void renderBlurredBackground(float partialTick) {
+        // No blur, like the Grimoire.
+    }
+
+    @Override
+    public void renderBackground(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        // No-op: super.render() calls this after the panel is drawn, and the menu backdrop would cover it.
+    }
+
+    @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+        this.renderTransparentBackground(guiGraphics);
 
         int centerX = this.width / 2;
         int centerY = this.height / 2;

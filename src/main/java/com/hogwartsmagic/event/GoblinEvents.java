@@ -38,6 +38,11 @@ public final class GoblinEvents {
         if (event.getHand() != net.minecraft.world.InteractionHand.MAIN_HAND) {
             return;
         }
+        // Sneaking with something in hand places or uses it against the chest instead of opening
+        // it, which is not a robbery (the same rule the merfolk hoard uses).
+        if (player.isSecondaryUseActive() && !player.getMainHandItem().isEmpty()) {
+            return;
+        }
         BlockState state = player.level().getBlockState(event.getPos());
         if (!isVaultContainer(state)) {
             return;
@@ -50,6 +55,9 @@ public final class GoblinEvents {
                 com.hogwartsmagic.gringotts.GringottsAlarm.get(level);
         if (!alarm.inside(event.getPos())) {
             return;      // not the bank's ground, not the bank's business
+        }
+        if (com.hogwartsmagic.gringotts.GringottsDisguise.isGoblin(thief)) {
+            return;      // a goblin at a vault chest is a withdrawal, the same as at its door
         }
         alarm.raise(level, thief, event.getPos(), 1, "gringotts.alarm.chest");
     }

@@ -82,6 +82,10 @@ public class SpellBeamEntity extends ThrowableProjectile {
     private static final EntityDataAccessor<Float> DATA_CHARGE = SynchedEntityData.defineId(SpellBeamEntity.class, EntityDataSerializers.FLOAT);
     private static final EntityDataAccessor<Boolean> DATA_ELDER_WAND = SynchedEntityData.defineId(SpellBeamEntity.class, EntityDataSerializers.BOOLEAN);
     private static final double NEAR_MISS_RADIUS = 1.9D;
+    /** Two beam paths this close clash: the old touch test (0.25 boxes, one inflated by 0.45) reached 0.7 too. */
+    private static final double CLASH_DISTANCE = 0.7D;
+    /** Search margin around this beam's path: the clash distance plus the longest move a beam makes in a tick. */
+    private static final double CLASH_SEARCH_REACH = 8.0D;
     private boolean nearMissWhooshPlayed = false;
     private double highestYReached = Double.NEGATIVE_INFINITY;
     private UUID homingTargetUuid;
@@ -266,6 +270,9 @@ public class SpellBeamEntity extends ThrowableProjectile {
         updateTrackedSpellHoming();
         }
         if (!this.level().isClientSide && getSpellType() == SpellType.DIFFINDO && tryCutNonCollisionBlock()) {
+            return;
+        }
+        if (!this.level().isClientSide && getSpellType() == SpellType.GLACIUS && tryHitWaterSurface()) {
             return;
         }
         super.tick();
@@ -482,6 +489,33 @@ public class SpellBeamEntity extends ThrowableProjectile {
                 this.getBoundingBox().expandTowards(this.getDeltaMovement()).inflate(1.0), this::canHitEntity);
         if (entityHit != null) {
             return false; // an entity is closer than the block: the normal path hits it
+        }
+        this.setPos(clip.getLocation());
+        this.onHit(clip);
+        return true;
+    }
+
+    /**
+     * Beams fly through fluids (vanilla hit detection ignores them), so Glacius would never meet the water
+     * its block hit freezes. Clip this tick's path against water sources and, when it first enters one
+     * from above with no entity closer, resolve it as the Glacius block hit (frosted ice on that source).
+     */
+    private boolean tryHitWaterSurface() {
+        Vec3 from = this.position();
+        Vec3 to = from.add(this.getDeltaMovement());
+        BlockHitResult clip = this.level().clip(new net.minecraft.world.level.ClipContext(from, to,
+                net.minecraft.world.level.ClipContext.Block.COLLIDER,
+                net.minecraft.world.level.ClipContext.Fluid.SOURCE_ONLY, this));
+        if (clip.getType() != HitResult.Type.BLOCK || clip.isInside()
+                || !this.level().getBlockState(clip.getBlockPos()).is(Blocks.WATER)
+                || !this.level().getBlockState(clip.getBlockPos().above()).isAir()) {
+            return false; // missed, not the surface, or the beam started inside water (cast from below)
+        }
+        EntityHitResult entityHit = net.minecraft.world.entity.projectile.ProjectileUtil.getEntityHitResult(
+                this.level(), this, from, clip.getLocation(),
+                this.getBoundingBox().expandTowards(this.getDeltaMovement()).inflate(1.0), this::canHitEntity);
+        if (entityHit != null) {
+            return false; // an entity is closer than the water: the normal path hits it
         }
         this.setPos(clip.getLocation());
         this.onHit(clip);
@@ -788,8 +822,10 @@ public class SpellBeamEntity extends ThrowableProjectile {
                         // Both of these only ever act on a block. Fizzling rather than falling through
                         // to applyHitEffect keeps a living target from eating a "successful" impact
                         // burst for a spell that did nothing to it.
+                        // Reparo and Alatus are block-only too: on a creature they did nothing yet paid hit XP.
                         if (spell == SpellType.MORSMORDRE || spell == SpellType.PIERTOTUM_LOCOMOTOR
-                                || spell == SpellType.COLLOPORTUS) {
+                                || spell == SpellType.COLLOPORTUS || spell == SpellType.REPARO
+                                || spell == SpellType.ALATUS) {
                             hitSuccessful = false;
                         } else if (spell == SpellType.AVADA_KEDAVRA && living instanceof VoldemortEntity voldemort && voldemort.tryEvadeAvada(getOwner())) {
                             com.hogwartsmagic.spell.SpellBeamFx.impact(this, spell, com.hogwartsmagic.spell.SpellBeamFx.bodyCentre(living), com.hogwartsmagic.spell.SpellBeamFx.EVADE);
@@ -1166,6 +1202,9 @@ public class SpellBeamEntity extends ThrowableProjectile {
         for (int i = 0; i < count; i++) {
             double rx = raidCenter.getX() + (this.random.nextDouble() - 0.5D) * 40.0D;
             double rz = raidCenter.getZ() + (this.random.nextDouble() - 0.5D) * 40.0D;
+            if (!serverLevel.hasChunkAt(BlockPos.containing(rx, 0.0D, rz))) {
+                continue; // never load a chunk for a raider
+            }
             BlockPos spawnPos = serverLevel.getHeightmapPos(
                     net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
                     BlockPos.containing(rx, raidCenter.getY(), rz)
@@ -1231,13 +1270,22 @@ public class SpellBeamEntity extends ThrowableProjectile {
     }
 
     private boolean tryResolveBeamClash() {
-        if (this.tickCount < 2 || this.level().isClientSide) {
+        if (this.tickCount < 2 || this.level().isClientSide || this.isRemoved()) {
             return false;
         }
+        // Swept test: two beams closing head-on cover 3+ blocks a tick between them, so a check on where
+        // they stand now let about half of all clashes pass straight through. Compare the paths each beam
+        // took on its last move instead (xo..x). Every beam checks, so whichever of the pair ticks second
+        // compares both moves of the same tick.
+        Vec3 from = new Vec3(this.xo, this.yo, this.zo);
+        Vec3 to = this.position();
         java.util.List<SpellBeamEntity> nearby = this.level().getEntitiesOfClass(
                 SpellBeamEntity.class,
-                this.getBoundingBox().inflate(0.45),
-                e -> e != this && e.isAlive() && e.getId() > this.getId()
+                new net.minecraft.world.phys.AABB(from, to).inflate(CLASH_SEARCH_REACH),
+                // tickCount > 0: a beam spawned this tick has not moved yet, and its xo is not set until it does.
+                e -> e != this && e.isAlive() && e.tickCount > 0
+                        && segmentDistanceSqr(from, to, new Vec3(e.xo, e.yo, e.zo), e.position())
+                        <= CLASH_DISTANCE * CLASH_DISTANCE
         );
         for (SpellBeamEntity other : nearby) {
             Entity ownerA = this.getOwner();
@@ -1275,6 +1323,46 @@ public class SpellBeamEntity extends ThrowableProjectile {
             return true;
         }
         return false;
+    }
+
+    /** Squared distance between the closest points of segments p1-q1 and p2-q2 (either may be a point). */
+    private static double segmentDistanceSqr(Vec3 p1, Vec3 q1, Vec3 p2, Vec3 q2) {
+        Vec3 d1 = q1.subtract(p1);
+        Vec3 d2 = q2.subtract(p2);
+        Vec3 r = p1.subtract(p2);
+        double a = d1.lengthSqr();
+        double e = d2.lengthSqr();
+        double f = d2.dot(r);
+        double s;
+        double t;
+        if (a < 1.0E-9 && e < 1.0E-9) {
+            return r.lengthSqr();
+        }
+        if (a < 1.0E-9) {
+            s = 0.0;
+            t = net.minecraft.util.Mth.clamp(f / e, 0.0, 1.0);
+        } else {
+            double c = d1.dot(r);
+            if (e < 1.0E-9) {
+                t = 0.0;
+                s = net.minecraft.util.Mth.clamp(-c / a, 0.0, 1.0);
+            } else {
+                double b = d1.dot(d2);
+                double denom = a * e - b * b;
+                s = denom > 1.0E-9 ? net.minecraft.util.Mth.clamp((b * f - c * e) / denom, 0.0, 1.0) : 0.0;
+                t = (b * s + f) / e;
+                if (t < 0.0) {
+                    t = 0.0;
+                    s = net.minecraft.util.Mth.clamp(-c / a, 0.0, 1.0);
+                } else if (t > 1.0) {
+                    t = 1.0;
+                    s = net.minecraft.util.Mth.clamp((b - c) / a, 0.0, 1.0);
+                }
+            }
+        }
+        Vec3 c1 = p1.add(d1.scale(s));
+        Vec3 c2 = p2.add(d2.scale(t));
+        return c1.distanceToSqr(c2);
     }
 
     private void applyClashShockwave(Vec3 pos) {
@@ -1388,6 +1476,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
             }
             Vec3 push = away.normalize().scale(0.38);
             player.push(push.x, 0.13, push.z);
+            player.hurtMarked = true; // player motion is client-side: without this the jolt is never sent
         }
     }
 

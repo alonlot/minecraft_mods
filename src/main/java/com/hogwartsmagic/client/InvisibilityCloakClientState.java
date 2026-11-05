@@ -113,27 +113,21 @@ public final class InvisibilityCloakClientState {
     public static void applyToHumanoidArmorSlot(net.minecraft.client.model.HumanoidModel<?> model,
                                                 net.minecraft.world.entity.EquipmentSlot slot,
                                                 VisibilityMask mask) {
-        switch (slot) {
-            case HEAD -> {
-                model.head.visible = model.head.visible && mask.head();
-                model.hat.visible = model.hat.visible && mask.head();
-            }
-            case CHEST -> {
-                model.body.visible = model.body.visible && mask.torso();
-                model.rightArm.visible = model.rightArm.visible && mask.torso();
-                model.leftArm.visible = model.leftArm.visible && mask.torso();
-            }
-            case LEGS -> {
-                model.body.visible = model.body.visible && mask.torso();
-                model.rightLeg.visible = model.rightLeg.visible && mask.legs();
-                model.leftLeg.visible = model.leftLeg.visible && mask.legs();
-            }
-            case FEET -> {
-                model.rightLeg.visible = model.rightLeg.visible && mask.legs();
-                model.leftLeg.visible = model.leftLeg.visible && mask.legs();
-            }
-            default -> {
-            }
+        // if-chain, not an enum switch: the synthetic switch-map class fails to load in client code here.
+        if (slot == net.minecraft.world.entity.EquipmentSlot.HEAD) {
+            model.head.visible = model.head.visible && mask.head();
+            model.hat.visible = model.hat.visible && mask.head();
+        } else if (slot == net.minecraft.world.entity.EquipmentSlot.CHEST) {
+            model.body.visible = model.body.visible && mask.torso();
+            model.rightArm.visible = model.rightArm.visible && mask.torso();
+            model.leftArm.visible = model.leftArm.visible && mask.torso();
+        } else if (slot == net.minecraft.world.entity.EquipmentSlot.LEGS) {
+            model.body.visible = model.body.visible && mask.torso();
+            model.rightLeg.visible = model.rightLeg.visible && mask.legs();
+            model.leftLeg.visible = model.leftLeg.visible && mask.legs();
+        } else if (slot == net.minecraft.world.entity.EquipmentSlot.FEET) {
+            model.rightLeg.visible = model.rightLeg.visible && mask.legs();
+            model.leftLeg.visible = model.leftLeg.visible && mask.legs();
         }
     }
 

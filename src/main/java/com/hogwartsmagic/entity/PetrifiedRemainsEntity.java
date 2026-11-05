@@ -128,6 +128,16 @@ public class PetrifiedRemainsEntity extends Entity {
     }
 
     @Override
+    public void onSyncedDataUpdated(net.minecraft.network.syncher.EntityDataAccessor<?> key) {
+        super.onSyncedDataUpdated(key);
+        // The client gets the size as synced data after the entity exists; without this its box stays 1x1,
+        // so the statue cannot be clicked (or hit) where it is drawn.
+        if (DATA_WIDTH.equals(key) || DATA_HEIGHT.equals(key)) {
+            this.refreshDimensions();
+        }
+    }
+
+    @Override
     public EntityDimensions getDimensions(Pose pose) {
         return EntityDimensions.scalable(this.getStoredWidth(), this.getStoredHeight());
     }

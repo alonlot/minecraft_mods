@@ -15,7 +15,7 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.joml.Matrix4f;
 
-import static com.hogwartsmagic.client.AvadaFxGeometry.*;
+import static com.hogwartsmagic.client.SpellFxGeometry.*;
 
 /**
  * The Killing Curse gathering, drawn by hand rather than with particles.
@@ -93,7 +93,9 @@ public final class AvadaChargeRenderer {
 
     private static LivingEntity caster(Minecraft minecraft, AvadaChargeClientState.Charge charge) {
         Entity entity = minecraft.level.getEntity(charge.entityId);
-        return entity instanceof LivingEntity living && living.isAlive() ? living : null;
+        // An invisible (cloaked) caster gives nothing away.
+        return entity instanceof LivingEntity living && living.isAlive()
+                && (minecraft.player == null || !living.isInvisibleTo(minecraft.player)) ? living : null;
     }
 
     /** Everything one charge's drawing needs this frame, worked out once. */

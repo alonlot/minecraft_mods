@@ -9,7 +9,7 @@ import net.minecraft.resources.ResourceLocation;
 import java.util.function.Function;
 
 /**
- * Render types for portraits. The video frames are 192 x 384 stretched over 2 x 4 blocks, so they need linear
+ * Render types for portraits. The video frames (192 x 384 or 384 x 192) are stretched over the whole canvas, so they need linear
  * filtering; vanilla's entity types rebind every texture with blur off on each draw (TextureStateShard), so
  * calling setFilter on the texture alone never sticks.
  */

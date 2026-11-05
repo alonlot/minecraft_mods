@@ -49,6 +49,12 @@ public class BroomEntity extends Entity {
     private static final EntityDataAccessor<Byte> DATA_TRICK = SynchedEntityData.defineId(BroomEntity.class, EntityDataSerializers.BYTE);
     private static final EntityDataAccessor<Integer> DATA_TRICK_TICKS = SynchedEntityData.defineId(BroomEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Byte> DATA_STAMINA = SynchedEntityData.defineId(BroomEntity.class, EntityDataSerializers.BYTE);
+    /**
+     * The stamina lock, synced: boostLocked is server-only, and the rider's client decides when to send a boost
+     * packet from canBoost(). Without this the client never saw the lock and re-sent boost the moment the stamina
+     * byte read 1%, which the server accepted, so the "locked until 30%" rule never held.
+     */
+    private static final EntityDataAccessor<Boolean> DATA_BOOST_LOCKED = SynchedEntityData.defineId(BroomEntity.class, EntityDataSerializers.BOOLEAN);
     /** Alatus quality (AlatusRules.QUALITY_*). Synced: while ridden, the rider's client runs the flight physics. */
     private static final EntityDataAccessor<Integer> DATA_QUALITY = SynchedEntityData.defineId(BroomEntity.class, EntityDataSerializers.INT);
 
@@ -95,6 +101,7 @@ public class BroomEntity extends Entity {
         builder.define(DATA_TRICK, TRICK_NONE);
         builder.define(DATA_TRICK_TICKS, 0);
         builder.define(DATA_STAMINA, (byte) STAMINA_MAX);
+        builder.define(DATA_BOOST_LOCKED, false);
         builder.define(DATA_QUALITY, 0);
     }
 
@@ -120,7 +127,7 @@ public class BroomEntity extends Entity {
 
     /** Returns true when there is enough stamina available to engage boost. */
     public boolean canBoost() {
-        return !this.boostLocked && this.getStaminaPercent() > 0;
+        return !this.entityData.get(DATA_BOOST_LOCKED) && this.getStaminaPercent() > 0;
     }
 
     public void tryStartTrick(byte trickType) {
@@ -145,12 +152,56 @@ public class BroomEntity extends Entity {
             this.setBroomType(tag.getInt("BroomType"));
         }
         this.setQuality(tag.getInt("Quality"));
+        // Absent (brooms saved before the flag, /summon, NPC brooms): not a pickup, so punching is no broom farm.
+        this.dropsItem = tag.getBoolean("DropsItem");
     }
 
     @Override
     protected void addAdditionalSaveData(net.minecraft.nbt.CompoundTag tag) {
         tag.putInt("BroomType", this.getBroomType());
         tag.putInt("Quality", this.getQuality());
+        tag.putBoolean("DropsItem", this.dropsItem);
+    }
+
+    /**
+     * True for a broom a player placed from its item. Only those turn back into an item when
+     * punched; an NPC wizard broom just breaks, so wizards are not a free broom farm.
+     */
+    private boolean dropsItem;
+
+    public void setDropsItem(boolean dropsItem) {
+        this.dropsItem = dropsItem;
+    }
+
+    /** Punching an empty broom picks it up again (as its item, keeping its Alatus quality). */
+    @Override
+    public boolean hurt(net.minecraft.world.damagesource.DamageSource source, float amount) {
+        if (this.level().isClientSide || this.isRemoved() || this.isVehicle() || this.heldFor != null
+                || this.isInvulnerableTo(source)) {
+            return false;
+        }
+        if (!(source.getEntity() instanceof Player player) || source.getDirectEntity() != player) {
+            return false;
+        }
+        if (!this.dropsItem) {
+            return false; // an NPC or summoned broom is not anyone's to take apart
+        }
+        if (this.dropsItem && !player.getAbilities().instabuild
+                && this.level().getGameRules().getBoolean(net.minecraft.world.level.GameRules.RULE_DOENTITYDROPS)) {
+            net.minecraft.world.item.Item item;
+            if (this.getBroomType() == 1) {
+                item = com.hogwartsmagic.ExampleMod.NIMBUS_2000.get();
+            } else if (this.getBroomType() == 2) {
+                item = com.hogwartsmagic.ExampleMod.FIREBOLT.get();
+            } else {
+                item = com.hogwartsmagic.ExampleMod.BROOM.get();
+            }
+            net.minecraft.world.item.ItemStack stack = new net.minecraft.world.item.ItemStack(item);
+            com.hogwartsmagic.item.BroomItem.setQuality(stack, this.getQuality());
+            this.spawnAtLocation(stack);
+        }
+        this.discard();
+        return true;
     }
 
     public int getBroomType() {
@@ -311,6 +362,10 @@ public class BroomEntity extends Entity {
             // the HUD reads as a percentage, so it has to stay 0..100 and a bigger tank means each
             // tick costs less. 0.347/tick → 100 stamina lasts ~288 ticks (~14.4s) of boost,
             // 60% longer than the 0.555/tick (~9s) it held before.
+            // The boost packet is client input: while the tank is locked it is refused here, not just not sent.
+            if (this.boostLocked) {
+                this.isBoosting = false;
+            }
             boolean activelyBoosting = this.isBoosting && this.isVehicle() && horizSpeed > 0.5F;
             if (activelyBoosting) {
                 // A Masterwork broom's boost lasts 15% longer (Spell Mastery Phase 7b).
@@ -331,6 +386,9 @@ public class BroomEntity extends Entity {
             byte staminaByte = (byte) Mth.clamp((int) this.staminaF, 0, STAMINA_MAX);
             if (this.entityData.get(DATA_STAMINA) != staminaByte) {
                 this.entityData.set(DATA_STAMINA, staminaByte);
+            }
+            if (this.entityData.get(DATA_BOOST_LOCKED) != this.boostLocked) {
+                this.entityData.set(DATA_BOOST_LOCKED, this.boostLocked);
             }
 
             if (this.isBoostingSynced() != this.isBoosting) {
@@ -458,7 +516,9 @@ public class BroomEntity extends Entity {
         float strafe = pilot.xxa;  // -1..1
         
         // Use the custom packet's state for exclusively boosting! (Shift is now back to purely dismount)
-        boolean isTurbo = this.isBoosting;
+        // The rider's client drives the broom, but only the server receives BroomBoostPacket, so on
+        // the client the plain field is always false. Read the synced flag there.
+        boolean isTurbo = this.level().isClientSide ? this.isBoostingSynced() : this.isBoosting;
 
         // Base speed and smoothing 
         // 0 = Basic, 1 = Nimbus, 2 = Firebolt

@@ -37,6 +37,11 @@ public class GoldenSnitchItem extends Item {
             }
             Vec3 pos = player.getEyePosition().add(player.getLookAngle().scale(1.5));
             snitch.setPos(pos.x, pos.y, pos.z);
+            // Released at a wall, it would start inside the block; let it go from the hand instead.
+            if (!level.noCollision(snitch, snitch.getBoundingBox())) {
+                pos = player.getEyePosition();
+                snitch.setPos(pos.x, pos.y, pos.z);
+            }
             snitch.markReleased(BlockPos.containing(pos));
             level.addFreshEntity(snitch);
             level.playSound(null, pos.x, pos.y, pos.z,

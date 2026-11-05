@@ -1,8 +1,9 @@
 package com.hogwartsmagic.client.portrait;
 
 import com.hogwartsmagic.ExampleMod;
-import com.hogwartsmagic.portrait.FatLadyLines;
-import com.hogwartsmagic.portrait.FatLadyPortraitEntity;
+import com.hogwartsmagic.portrait.PortraitEntity;
+import com.hogwartsmagic.portrait.PortraitKind;
+import com.hogwartsmagic.portrait.PortraitLines;
 import com.hogwartsmagic.portrait.PortraitRegistry;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
@@ -41,7 +42,7 @@ public final class PortraitClient {
     private PortraitClient() {
     }
 
-    static PortraitAnim anim(FatLadyPortraitEntity entity) {
+    static PortraitAnim anim(PortraitEntity entity) {
         return ANIMS.computeIfAbsent(entity.getId(), id -> new PortraitAnim());
     }
 
@@ -74,7 +75,7 @@ public final class PortraitClient {
         }
         long now = System.nanoTime();
         for (Entity entity : level.entitiesForRendering()) {
-            if (!(entity instanceof FatLadyPortraitEntity portrait)) {
+            if (!(entity instanceof PortraitEntity portrait)) {
                 continue;
             }
             if (portrait.distanceToSqr(player) <= WATCH_RANGE_SQR) {
@@ -89,7 +90,7 @@ public final class PortraitClient {
         if (++sweep >= 20) {
             sweep = 0;
             ANIMS.entrySet().removeIf(e -> {
-                if (level.getEntity(e.getKey()) instanceof FatLadyPortraitEntity) {
+                if (level.getEntity(e.getKey()) instanceof PortraitEntity) {
                     return false;
                 }
                 silence(e.getValue()); // broken mid-line: the voice stops with her
@@ -105,7 +106,7 @@ public final class PortraitClient {
     }
 
     private static void watch(Minecraft minecraft, ClientLevel level, LocalPlayer player,
-                              FatLadyPortraitEntity portrait, long now) {
+                              PortraitEntity portrait, long now) {
         PortraitAnim anim = anim(portrait);
         anim.ticksSeen++;
         int serial = portrait.getSerial();
@@ -121,17 +122,17 @@ public final class PortraitClient {
             }
         }
         // a long line outlasts the action bar's three seconds: keep it up while she talks
-        FatLadyLines.Line line = anim.line;
+        PortraitLines.Line line = anim.line;
         if (line != null && now >= anim.nextSubtitleNs && anim.lineTime(now) < line.seconds()
                 && portrait.distanceToSqr(player) <= SUBTITLE_RANGE_SQR) {
-            subtitle(player, line);
+            subtitle(player, portrait, line);
             anim.nextSubtitleNs = now + SUBTITLE_REFRESH_NANOS;
         }
     }
 
     private static void startLine(Minecraft minecraft, ClientLevel level, LocalPlayer player,
-                                  FatLadyPortraitEntity portrait, PortraitAnim anim, long now) {
-        FatLadyLines.Line line = FatLadyLines.get(portrait.getLineIndex());
+                                  PortraitEntity portrait, PortraitAnim anim, long now) {
+        PortraitLines.Line line = portrait.getLine();
         if (line == null) {
             return;
         }
@@ -146,19 +147,20 @@ public final class PortraitClient {
             minecraft.getSoundManager().play(instance);
             anim.sound = instance;
         }
-        PortraitAssets.Clip clip = line.isVideo() ? PortraitAssets.clip(line.clip()) : null;
+        PortraitKind kind = portrait.kind();
+        PortraitAssets.Clip clip = line.isVideo() ? PortraitAssets.clip(kind, line.clip()) : null;
         if (clip != null) {
-            PortraitVideo.prime(line.clip(), clip, now);
+            PortraitVideo.prime(kind, line.clip(), clip, now);
         }
-        anim.begin(line, PortraitAssets.envelope(line.key()), clip, now);
+        anim.begin(line, PortraitAssets.envelope(kind, line.key()), clip, now);
         if (portrait.distanceToSqr(player) <= SUBTITLE_RANGE_SQR) {
-            subtitle(player, line);
+            subtitle(player, portrait, line);
             anim.nextSubtitleNs = now + SUBTITLE_REFRESH_NANOS;
         }
     }
 
-    private static void subtitle(LocalPlayer player, FatLadyLines.Line line) {
-        player.displayClientMessage(Component.literal("The Fat Lady: ").withStyle(ChatFormatting.GOLD)
+    private static void subtitle(LocalPlayer player, PortraitEntity portrait, PortraitLines.Line line) {
+        player.displayClientMessage(Component.literal(portrait.kind().displayName() + ": ").withStyle(ChatFormatting.GOLD)
                 .append(Component.literal("\"" + line.text() + "\"").withStyle(ChatFormatting.WHITE)), true);
     }
 }

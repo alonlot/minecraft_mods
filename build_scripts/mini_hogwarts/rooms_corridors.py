@@ -314,7 +314,7 @@ def unlit_windows(cells, interior):
 
 def reserved_cells(anchors):
     """Cells the anchors need free (air): chests, student spots and their head cells, statues' columns, the Pensieve
-    and the cell over it, the Fat Lady's canvas."""
+    and the cell over it, the Fat Lady's and Sir Cadogan's canvases."""
     out = set()
     for c in anchors.get('chests', ()):
         out.add(tuple(c['at']))
@@ -328,6 +328,8 @@ def reserved_cells(anchors):
         out.update({(x, y, z), (x, y + 1, z)})
     if anchors.get('fat_lady'):
         out.update(rooms_staircase.FAT_LADY_CELLS)
+    if anchors.get('sir_cadogan'):
+        out.update(rooms_staircase.SIR_CADOGAN_CELLS)
     return out
 
 

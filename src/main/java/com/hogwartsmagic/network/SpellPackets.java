@@ -44,7 +44,7 @@ public class SpellPackets {
 
     public static final SimpleChannel CHANNEL = ChannelBuilder
             .named(ExampleMod.MODID + ":spells")
-            .networkProtocolVersion(14)
+            .networkProtocolVersion(15)
             .simpleChannel();
 
     public static void register() {
@@ -630,10 +630,13 @@ public class SpellPackets {
         // Pensieve: enter, start, exit (server to client) and leave (client to server).
         com.hogwartsmagic.pensieve.net.PensieveNet.register();
         com.hogwartsmagic.ambience.AmbienceNet.register();
-        // Registered last (it arrived after the castle's packets) so every earlier discriminator stays put.
-        CHANNEL.messageBuilder(AvadaImpactPacket.class)
+        // The hand-drawn spell visuals (beam impacts, clashes, the Aqua stream, Crucio, stings, travel, Priori, hit
+        // reactions, cast gestures) are registered last: they arrived after the castle's packets, so every earlier
+        // discriminator stays put. BeamImpactPacket replaces the old last-registered AvadaImpactPacket.
+        CHANNEL.messageBuilder(BeamImpactPacket.class)
                 .encoder((p, buf) -> {
                     buf.writeInt(p.beamId);
+                    buf.writeUtf(p.spellId, 64);
                     buf.writeDouble(p.x);
                     buf.writeDouble(p.y);
                     buf.writeDouble(p.z);
@@ -642,9 +645,103 @@ public class SpellPackets {
                     buf.writeFloat(p.dz);
                     buf.writeByte(p.kind);
                 })
-                .decoder(buf -> new AvadaImpactPacket(buf.readInt(), buf.readDouble(), buf.readDouble(), buf.readDouble(),
-                        buf.readFloat(), buf.readFloat(), buf.readFloat(), buf.readByte()))
-                .consumerMainThread(AvadaImpactPacket::handle)
+                .decoder(buf -> new BeamImpactPacket(buf.readInt(), buf.readUtf(64), buf.readDouble(), buf.readDouble(),
+                        buf.readDouble(), buf.readFloat(), buf.readFloat(), buf.readFloat(), buf.readByte()))
+                .consumerMainThread(BeamImpactPacket::handle)
+                .add();
+        CHANNEL.messageBuilder(BeamClashPacket.class)
+                .encoder((p, buf) -> {
+                    buf.writeInt(p.beamA);
+                    buf.writeUtf(p.spellA, 64);
+                    buf.writeInt(p.beamB);
+                    buf.writeUtf(p.spellB, 64);
+                    buf.writeDouble(p.x);
+                    buf.writeDouble(p.y);
+                    buf.writeDouble(p.z);
+                    buf.writeFloat(p.ax);
+                    buf.writeFloat(p.ay);
+                    buf.writeFloat(p.az);
+                    buf.writeFloat(p.bx);
+                    buf.writeFloat(p.by);
+                    buf.writeFloat(p.bz);
+                    buf.writeByte(p.outcome);
+                })
+                .decoder(buf -> new BeamClashPacket(buf.readInt(), buf.readUtf(64), buf.readInt(), buf.readUtf(64),
+                        buf.readDouble(), buf.readDouble(), buf.readDouble(), buf.readFloat(), buf.readFloat(),
+                        buf.readFloat(), buf.readFloat(), buf.readFloat(), buf.readFloat(), buf.readByte()))
+                .consumerMainThread(BeamClashPacket::handle)
+                .add();
+        CHANNEL.messageBuilder(AquaStreamPacket.class)
+                .encoder((p, buf) -> {
+                    buf.writeInt(p.casterId);
+                    buf.writeByte(p.state);
+                })
+                .decoder(buf -> new AquaStreamPacket(buf.readInt(), buf.readByte()))
+                .consumerMainThread(AquaStreamPacket::handle)
+                .add();
+        CHANNEL.messageBuilder(CrucioChannelPacket.class)
+                .encoder((p, buf) -> {
+                    buf.writeInt(p.casterId);
+                    buf.writeInt(p.targetId);
+                    buf.writeByte(p.state);
+                })
+                .decoder(buf -> new CrucioChannelPacket(buf.readInt(), buf.readInt(), buf.readByte()))
+                .consumerMainThread(CrucioChannelPacket::handle)
+                .add();
+        CHANNEL.messageBuilder(MusicStingPacket.class)
+                .encoder((p, buf) -> buf.writeByte(p.sting))
+                .decoder(buf -> new MusicStingPacket(buf.readByte()))
+                .consumerMainThread(MusicStingPacket::handle)
+                .add();
+        CHANNEL.messageBuilder(TravelFxPacket.class)
+                .encoder((p, buf) -> {
+                    buf.writeInt(p.entityId);
+                    buf.writeByte(p.kind);
+                    buf.writeDouble(p.x);
+                    buf.writeDouble(p.y);
+                    buf.writeDouble(p.z);
+                    buf.writeVarInt(p.duration);
+                })
+                .decoder(buf -> new TravelFxPacket(buf.readInt(), buf.readByte(), buf.readDouble(), buf.readDouble(),
+                        buf.readDouble(), buf.readVarInt()))
+                .consumerMainThread(TravelFxPacket::handle)
+                .add();
+        CHANNEL.messageBuilder(PrioriLockPacket.class)
+                .encoder((p, buf) -> {
+                    buf.writeInt(p.lockId);
+                    buf.writeInt(p.casterA);
+                    buf.writeInt(p.casterB);
+                    buf.writeInt(p.beamA);
+                    buf.writeInt(p.beamB);
+                    buf.writeUtf(p.spellA, 64);
+                    buf.writeUtf(p.spellB, 64);
+                    buf.writeFloat(p.bead);
+                    buf.writeByte(p.state);
+                })
+                .decoder(buf -> new PrioriLockPacket(buf.readInt(), buf.readInt(), buf.readInt(), buf.readInt(),
+                        buf.readInt(), buf.readUtf(64), buf.readUtf(64), buf.readFloat(), buf.readByte()))
+                .consumerMainThread(PrioriLockPacket::handle)
+                .add();
+        CHANNEL.messageBuilder(HitReactionPacket.class)
+                .encoder((p, buf) -> {
+                    buf.writeInt(p.entityId);
+                    buf.writeUtf(p.spellId, 64);
+                    buf.writeFloat(p.dx);
+                    buf.writeFloat(p.dy);
+                    buf.writeFloat(p.dz);
+                    buf.writeByte(p.kind);
+                })
+                .decoder(buf -> new HitReactionPacket(buf.readInt(), buf.readUtf(64), buf.readFloat(), buf.readFloat(),
+                        buf.readFloat(), buf.readByte()))
+                .consumerMainThread(HitReactionPacket::handle)
+                .add();
+        CHANNEL.messageBuilder(CastMotionPacket.class)
+                .encoder((p, buf) -> {
+                    buf.writeInt(p.casterId);
+                    buf.writeUtf(p.spellId, 64);
+                })
+                .decoder(buf -> new CastMotionPacket(buf.readInt(), buf.readUtf(64)))
+                .consumerMainThread(CastMotionPacket::handle)
                 .add();
     }
 
@@ -997,6 +1094,13 @@ public class SpellPackets {
             if (com.hogwartsmagic.spell.mind.MindControl.isControlled(player)) return;
             // A possessing caster's own body is in a trance; puppet casts go through PossessionCastPacket.
             if (com.hogwartsmagic.spell.mind.PossessionManager.isPossessing(player)) return;
+            // Locked in Priori Incantatem: a cast press pushes the light instead.
+            if (com.hogwartsmagic.spell.PrioriIncantatem.isLocked(player)) {
+                if (!p.channelHeartbeat && !p.releaseChannel) {
+                    com.hogwartsmagic.spell.PrioriIncantatem.push(player);
+                }
+                return;
+            }
             castAs(player, p);
         }
 
@@ -1008,6 +1112,8 @@ public class SpellPackets {
          */
         public static void castAs(ServerPlayer player, CastSpellPacket p) {
             if (com.hogwartsmagic.pensieve.PensieveSessions.isViewer(player)) return; // a Pensieve viewer (or their puppet body) casts nothing
+            // Locked in Priori Incantatem: nothing else is cast, by a press or by a windup finishing mid-lock.
+            if (com.hogwartsmagic.spell.PrioriIncantatem.isLocked(player)) return;
             ItemStack wand = player.getMainHandItem();
             if (!MagicWandItem.isAnyWand(wand)) return;
             boolean creative = player.isCreative();
@@ -1057,6 +1163,7 @@ public class SpellPackets {
             net.minecraft.nbt.CompoundTag playerData = player.getPersistentData();
 
             if (p.releaseChannel) {
+                com.hogwartsmagic.spell.AquaStream.release(player);
                 com.hogwartsmagic.spell.mind.CrucioChannel.release(player);
                 com.hogwartsmagic.spell.support.lock.PistonLockSpell.release(player);
                 if (playerData.getBoolean(TAG_PROTEGO_MAXIMA_CHANNELING)) {
@@ -1070,6 +1177,12 @@ public class SpellPackets {
                     com.hogwartsmagic.event.ModEvents.stopWingardiumChannel(player, wand);
                 }
                 playerData.remove(TAG_PATRONUS_CAST_SPENT);
+                return;
+            }
+
+            // Aqua Eructo is a held stream of water: a press starts it, the heartbeat keeps it pouring.
+            if (spell == SpellType.AQUA_ERUCTO && !p.selfCastProtego) {
+                com.hogwartsmagic.spell.AquaStream.heartbeat(player, wand);
                 return;
             }
 
@@ -1269,6 +1382,11 @@ public class SpellPackets {
             // Dark Magic: a paid dark cast darkens the payer, hit or miss (a puppet cast charges the puppeteer).
             com.hogwartsmagic.spell.dark.DarkMagicData.onDarkCastPaid(player, spell);
             com.hogwartsmagic.pensieve.capture.CaptureHooks.onCast(player, spell.getId());
+            // Everyone watching sees the cast's gesture (the Killing Curse's is its own windup and strike).
+            if (spell != SpellType.AVADA_KEDAVRA) {
+                CHANNEL.send(new CastMotionPacket(player.getId(), spell.getId()),
+                        net.minecraftforge.network.PacketDistributor.TRACKING_ENTITY_AND_SELF.with(player));
+            }
 
             if (p.selfCastProtego) {
                 spell.applyHitEffect(player, player);
@@ -1550,7 +1668,8 @@ public class SpellPackets {
             if (!(player.level().getBlockEntity(p.destinationPos) instanceof FlooFireplaceBlockEntity destination)) {
                 return;
             }
-            if (!player.getInventory().contains(new ItemStack(ExampleMod.FLOO_POWDER.get()))) {
+            // The powder dropped into the flames already paid for this trip (it opened the screen).
+            if (!source.hasPrepaidTravel(player) && !player.getInventory().contains(new ItemStack(ExampleMod.FLOO_POWDER.get()))) {
                 player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.hogwartsmagic.floo.no_powder"), true);
                 return;
             }
@@ -1558,21 +1677,16 @@ public class SpellPackets {
             if (modData.getBoolean("FlooTravelPending")) {
                 return;
             }
-            if (player.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
-                serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.SOUL_FIRE_FLAME,
-                        player.getX(), player.getY() + 0.6, player.getZ(), 45, 0.45, 0.65, 0.45, 0.02);
-                serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.CAMPFIRE_SIGNAL_SMOKE,
-                        player.getX(), player.getY() + 0.4, player.getZ(), 20, 0.25, 0.4, 0.25, 0.01);
-                serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.WAX_ON,
-                        player.getX(), player.getY() + 0.8, player.getZ(), 20, 0.3, 0.55, 0.3, 0.02);
-            }
+            // The green flames taking the traveller, for them and for onlookers (TravelFxClient).
+            com.hogwartsmagic.spell.TravelFx.send(player, com.hogwartsmagic.spell.TravelFx.FLOO_DEPART,
+                    player.getX(), player.getY(), player.getZ(), 18);
             source.ignite(player.serverLevel());
-            player.addEffect(new MobEffectInstance(net.minecraft.world.effect.MobEffects.DARKNESS, 22, 0, false, false, false));
-            player.addEffect(new MobEffectInstance(net.minecraft.world.effect.MobEffects.CONFUSION, 50, 0, false, false, false));
             player.addEffect(new MobEffectInstance(net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE, 20, 3, false, false, false));
             player.addEffect(new MobEffectInstance(net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN, 20, 6, false, false, false));
             player.level().playSound(null, player.getX(), player.getY(), player.getZ(), com.hogwartsmagic.ModSounds.FLOO_DEPART.get(), SoundSource.PLAYERS, 1.0f, 1.0f);
-            player.getInventory().clearOrCountMatchingItems(stack -> stack.is(ExampleMod.FLOO_POWDER.get()), 1, player.inventoryMenu.getCraftSlots());
+            if (!source.consumePrepaidTravel(player)) {
+                player.getInventory().clearOrCountMatchingItems(stack -> stack.is(ExampleMod.FLOO_POWDER.get()), 1, player.inventoryMenu.getCraftSlots());
+            }
             modData.putBoolean("FlooTravelPending", true);
             modData.putLong("FlooSourcePos", p.sourcePos.asLong());
             modData.putLong("FlooDestinationPos", p.destinationPos.asLong());
@@ -1716,12 +1830,85 @@ public class SpellPackets {
     }
 
     /**
-     * Server → client: Killing Curse beam {@code beamId} ended at (x, y, z) travelling along (dx, dy, dz), as
-     * one of {@code AvadaBeamFx}'s kinds (struck a target, hit a wall, was dodged, died out).
+     * Server → client: spell beam {@code beamId} (casting {@code spellId}) ended at (x, y, z) travelling along
+     * (dx, dy, dz), as one of {@code SpellBeamFx}'s kinds (struck, fizzled, was dodged, died out).
      */
-    public record AvadaImpactPacket(int beamId, double x, double y, double z, float dx, float dy, float dz, byte kind) {
-        public static void handle(AvadaImpactPacket p, CustomPayloadEvent.Context ctx) {
-            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("avadaImpact", p));
+    public record BeamImpactPacket(int beamId, String spellId, double x, double y, double z, float dx, float dy,
+                                   float dz, byte kind) {
+        public static void handle(BeamImpactPacket p, CustomPayloadEvent.Context ctx) {
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("beamImpact", p));
+        }
+    }
+
+    /**
+     * Server → client: beams {@code beamA} and {@code beamB} met at (x, y, z), travelling along (ax, ay, az) and
+     * (bx, by, bz), with {@code SpellBeamFx}'s clash outcome (both destroyed, or one shattered the other).
+     */
+    /**
+     * Server → client: {@code entityId} was struck by {@code spellId} arriving along (dx, dy, dz) and reacts, or
+     * (kind REACT_FLIGHT) is a disarmed wand flying out of a hand. See {@code SpellBeamFx}.
+     */
+    public record HitReactionPacket(int entityId, String spellId, float dx, float dy, float dz, byte kind) {
+        public static void handle(HitReactionPacket p, CustomPayloadEvent.Context ctx) {
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("hitReaction", p));
+        }
+    }
+
+    /**
+     * Server → client: a moment of travel for {@code entityId} at (x, y, z) (Apparition focusing, leaving or
+     * arriving; the Floo flames taking or returning them), lasting {@code duration} ticks. See {@code TravelFx}.
+     */
+    /**
+     * Server → client: {@code casterId} is holding the Cruciatus Curse on {@code targetId} (START), still is
+     * (KEEP), surged it (PULSE: a damage tick) or let go (END). See {@code CrucioChannel}.
+     */
+    public record AquaStreamPacket(int casterId, byte state) {
+        public static void handle(AquaStreamPacket p, CustomPayloadEvent.Context ctx) {
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("aquaStream", p));
+        }
+    }
+
+    public record CrucioChannelPacket(int casterId, int targetId, byte state) {
+        public static void handle(CrucioChannelPacket p, CustomPayloadEvent.Context ctx) {
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("crucioChannel", p));
+        }
+    }
+
+    /** Server → client: play a fight's music sting ({@code MusicStings}'s duel, boss entrance or victory). */
+    public record MusicStingPacket(byte sting) {
+        public static void handle(MusicStingPacket p, CustomPayloadEvent.Context ctx) {
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("musicSting", p));
+        }
+    }
+
+    public record TravelFxPacket(int entityId, byte kind, double x, double y, double z, int duration) {
+        public static void handle(TravelFxPacket p, CustomPayloadEvent.Context ctx) {
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("travelFx", p));
+        }
+    }
+
+    /**
+     * Server → client: Priori Incantatem lock {@code lockId} between {@code casterA} and {@code casterB} (whose beams
+     * {@code beamA}/{@code beamB} locked) started, moved its bead (-1 at A's wand, +1 at B's) or ended.
+     */
+    public record PrioriLockPacket(int lockId, int casterA, int casterB, int beamA, int beamB, String spellA,
+                                   String spellB, float bead, byte state) {
+        public static void handle(PrioriLockPacket p, CustomPayloadEvent.Context ctx) {
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("prioriLock", p));
+        }
+    }
+
+    /** Server → client: player {@code casterId} just cast {@code spellId}; play its gesture. */
+    public record CastMotionPacket(int casterId, String spellId) {
+        public static void handle(CastMotionPacket p, CustomPayloadEvent.Context ctx) {
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("castMotion", p));
+        }
+    }
+
+    public record BeamClashPacket(int beamA, String spellA, int beamB, String spellB, double x, double y, double z,
+                                  float ax, float ay, float az, float bx, float by, float bz, byte outcome) {
+        public static void handle(BeamClashPacket p, CustomPayloadEvent.Context ctx) {
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("beamClash", p));
         }
     }
 

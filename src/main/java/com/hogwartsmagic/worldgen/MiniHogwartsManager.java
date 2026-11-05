@@ -4,6 +4,8 @@ import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.ambience.AmbienceNet;
 import com.hogwartsmagic.ambience.AmbienceRegistry;
 import com.hogwartsmagic.brewing.ClassroomSupplies;
+import com.hogwartsmagic.portrait.PortraitKind;
+import com.hogwartsmagic.portrait.PortraitPlacement;
 import com.hogwartsmagic.spell.SpellType;
 import com.hogwartsmagic.util.Titles;
 import net.minecraft.core.BlockPos;
@@ -57,11 +59,12 @@ import java.util.function.Predicate;
  * piece calls {@link #furnishChunk} for every chunk it decorates.
  *
  * <p>What goes where comes from {@link MiniHogwartsAnchors}, the list the castle generator writes beside the
- * schematic: themed chests, the public Pensieve, the Fat Lady, paintings, wall banners, the Sorting Hat on its
- * stool, the castle's guardian statues, students and house elves. Only if that file cannot be read does the
- * furnishing fall back to the old schematic-only heuristics (themed chests by the library's bookshelves, the
- * enchanting table, the dungeon's iron bars, the Great Hall and the top of the tallest tower; the Fat Lady on the
- * nearest Great Hall wall; students on each floor and elves below stairs). Either way the world is not read to
+ * schematic: themed chests, the public Pensieve, the two living portraits (the Fat Lady and Sir Cadogan), paintings,
+ * wall banners, the Sorting Hat on its stool, the castle's guardian statues, students and house elves. Only if that
+ * file cannot be read does the furnishing fall back to the old schematic-only heuristics (themed chests by the
+ * library's bookshelves, the enchanting table, the dungeon's iron bars, the Great Hall and the top of the tallest
+ * tower; the Fat Lady on the nearest Great Hall wall and Sir Cadogan on the nearest wall to the library; students on
+ * each floor and elves below stairs). Either way the world is not read to
  * decide: worldgen decorates a chunk before its neighbours, so their blocks are not there yet. The positions are
  * worked out once per schematic into a {@link FurnishPlan}; each chunk then places only the plan entries that
  * fall inside its own box. The result no longer depends on which chunk generated first, and nothing is written
@@ -215,7 +218,7 @@ public final class MiniHogwartsManager {
     /**
      * Places every furnishing of the castle anchored at {@code anchor} whose position is inside {@code chunkBox}:
      * themed chests (stocked from {@code random}), the Potions classroom's chest stock, the public Pensieve, the
-     * Fat Lady, paintings, wall banners, the Sorting Hat, the guardian statues, students and house elves. Called
+     * living portraits, paintings, wall banners, the Sorting Hat, the guardian statues, students and house elves. Called
      * from the structure piece's {@code postProcess}, on a worldgen thread or (for {@code /place}) the server
      * thread; reads and writes only {@code level} inside the box (a painting or portrait whose canvas crosses the
      * box edge is judged by the schematic there). An entity is created for the {@code ServerLevel} behind the
@@ -279,7 +282,7 @@ public final class MiniHogwartsManager {
     /**
      * Everything wrong with {@code anchors} against {@code schem}, for the GameTest that guards the shipped files:
      * a chest, Pensieve, statue, student or elf cell that is not free floor, an unknown chest theme, a banner with
-     * no wall behind it, a stool that is not a slab, and every painting and the Fat Lady that finds no spot where
+     * no wall behind it, a stool that is not a slab, and every painting and living portrait that finds no spot where
      * the survival rules of the game itself hold. Reads the schematic only; {@code level} just owns the entities
      * tried.
      */
@@ -293,12 +296,17 @@ public final class MiniHogwartsManager {
                 problems.add("no painting fits on the wall " + wall.at().toShortString() + " facing " + wall.facing());
             }
         }
-        MiniHogwartsAnchors.Wall lady = anchors.fatLady();
-        if (lady != null) {
-            BlockPos cell = com.hogwartsmagic.portrait.PortraitPlacement.canvasCell(lady.at(), lady.facing());
-            var portrait = com.hogwartsmagic.portrait.PortraitPlacement.portraitInCell(level, cell, lady.facing());
-            if (!hangingFits(states, portrait, lady.facing())) {
-                problems.add("the Fat Lady does not fit on " + lady.at().toShortString() + " facing " + lady.facing());
+        for (int kind : PORTRAITS) {
+            MiniHogwartsAnchors.Wall wall = portraitWall(anchors, kind);
+            if (wall == null) {
+                continue;
+            }
+            PortraitKind portraitKind = portraitKind(kind);
+            BlockPos cell = PortraitPlacement.canvasCell(wall.at(), wall.facing());
+            var portrait = PortraitPlacement.portraitInCell(level, portraitKind, cell, wall.facing());
+            if (!hangingFits(states, portrait, wall.facing())) {
+                problems.add(portraitKind.displayName() + " does not fit on " + wall.at().toShortString()
+                        + " facing " + wall.facing());
             }
         }
         return problems;
@@ -306,12 +314,26 @@ public final class MiniHogwartsManager {
 
     /** What one furnishing is; int constants rather than an enum, so the plan stays a flat list of records. */
     private static final int CHEST = 0, BLOCK = 1, PENSIEVE = 2, STOCK = 3, FAT_LADY = 4, STUDENT = 5, ELF = 6,
-            PAINTING = 7, BANNER = 8, STATUE = 9, HAT = 10;
+            PAINTING = 7, BANNER = 8, STATUE = 9, HAT = 10, SIR_CADOGAN = 11;
+    /** The furnishing kinds that are living portraits, in the order they are planned. */
+    private static final int[] PORTRAITS = {FAT_LADY, SIR_CADOGAN};
+
+    /** The portrait a FAT_LADY or SIR_CADOGAN furnishing hangs. */
+    private static PortraitKind portraitKind(int kind) {
+        return kind == SIR_CADOGAN ? PortraitKind.SIR_CADOGAN : PortraitKind.FAT_LADY;
+    }
+
+    /** The anchors' wall for a portrait furnishing kind, or null when the castle names none. */
+    @Nullable
+    private static MiniHogwartsAnchors.Wall portraitWall(MiniHogwartsAnchors anchors, int kind) {
+        return kind == SIR_CADOGAN ? anchors.sirCadogan() : anchors.fatLady();
+    }
 
     /**
      * One thing to place, at local {@code (x, y, z)} from the anchor. {@code theme} is for a CHEST, {@code state}
-     * for a BLOCK or a BANNER (its wall-banner state), {@code facing} for the CHEST, FAT_LADY, PAINTING (the way
-     * the canvas faces; for these two, and the BANNER, the position is the cell in front of the wall) and
+     * for a BLOCK or a BANNER (its wall-banner state), {@code facing} for the CHEST, the portraits (FAT_LADY,
+     * SIR_CADOGAN), PAINTING (the way the canvas faces; for these, and the BANNER, the position is the cell in front
+     * of the wall: a portrait's tile cell) and
      * BANNER, and {@code yaw} for a STATUE.
      */
     private record Furnishing(int kind, int x, int y, int z, @Nullable Theme theme, @Nullable BlockState state,
@@ -334,12 +356,14 @@ public final class MiniHogwartsManager {
                 placePublicPensieve(level, pos);
             } else if (kind == STOCK) {
                 stockClassroomChest(level, pos, random);
-            } else if (kind == FAT_LADY) {
-                var portrait = com.hogwartsmagic.portrait.PortraitPlacement.portraitInCell(level.getLevel(), pos, facing);
+            } else if (kind == FAT_LADY || kind == SIR_CADOGAN) {
+                PortraitKind portraitKind = portraitKind(kind);
+                var portrait = PortraitPlacement.portraitInCell(level.getLevel(), portraitKind, pos, facing);
                 if (hangingFits(worldAndSchematic(level, schem, anchor, chunkBox), portrait, facing)) {
                     level.addFreshEntity(portrait);
                 } else {
-                    LOGGER.warn("Mini Hogwarts: the Fat Lady does not fit at {} facing {}; not hung", pos.toShortString(), facing);
+                    LOGGER.warn("Mini Hogwarts: {} does not fit at {} facing {}; not hung", portraitKind.displayName(),
+                            pos.toShortString(), facing);
                 }
             } else if (kind == PAINTING) {
                 Painting painting = choosePainting(level.getLevel(), level.registryAccess(), pos, facing,
@@ -686,7 +710,7 @@ public final class MiniHogwartsManager {
             return placed;
         }
 
-        /** The Pensieve, the Fat Lady, paintings, banners and the hat. Their fit is judged where they land. */
+        /** The Pensieve, the living portraits, paintings, banners and the hat. Their fit is judged where they land. */
         private int planAnchoredHangings(MiniHogwartsAnchors anchors) {
             int planned = 0;
             BlockPos pensieve = anchors.pensieve();
@@ -699,11 +723,13 @@ public final class MiniHogwartsManager {
                     problems.add("pensieve at " + pensieve.toShortString() + " is not on free floor");
                 }
             }
-            MiniHogwartsAnchors.Wall lady = anchors.fatLady();
-            if (lady != null) {
-                BlockPos cell = com.hogwartsmagic.portrait.PortraitPlacement.canvasCell(lady.at(), lady.facing());
-                furnishings.add(new Furnishing(FAT_LADY, cell.getX(), cell.getY(), cell.getZ(), null, null, lady.facing()));
-                planned++;
+            for (int kind : PORTRAITS) {
+                MiniHogwartsAnchors.Wall wall = portraitWall(anchors, kind);
+                if (wall != null) {
+                    BlockPos cell = PortraitPlacement.canvasCell(wall.at(), wall.facing());
+                    furnishings.add(new Furnishing(kind, cell.getX(), cell.getY(), cell.getZ(), null, null, wall.facing()));
+                    planned++;
+                }
             }
             for (MiniHogwartsAnchors.Wall wall : anchors.paintings()) {
                 BlockPos cell = wall.at().relative(wall.facing());
@@ -798,7 +824,7 @@ public final class MiniHogwartsManager {
             return stocked;
         }
 
-        /** Themed chests and decorations in the landmark rooms, the library Pensieve and the Fat Lady. */
+        /** Themed chests and decorations in the landmark rooms, the library Pensieve and the two living portraits. */
         private int planRooms() {
             int placed = 0;
             // Library — wherever the bookshelves cluster.
@@ -813,6 +839,10 @@ public final class MiniHogwartsManager {
                 if (basin != null) {
                     put(basin, ExampleMod.PENSIEVE.get().defaultBlockState());
                     furnishings.add(new Furnishing(PENSIEVE, basin.getX(), basin.getY(), basin.getZ(), null, null, null));
+                }
+                // Sir Cadogan guards the library from the nearest free 4 x 2 wall.
+                if (spot != null && !planPortrait(SIR_CADOGAN, spot, 16)) {
+                    LOGGER.info("Mini Hogwarts: no free wall near the library for Sir Cadogan");
                 }
             }
             // Spell study — beside the enchanting table.
@@ -842,7 +872,7 @@ public final class MiniHogwartsManager {
                 decoNear(hall, Blocks.FLOWER_POT.defaultBlockState());
             }
             // The Fat Lady keeps watch on the nearest Great Hall wall.
-            if (hall != null && !planFatLady(hall, 16)) {
+            if (hall != null && !planPortrait(FAT_LADY, hall, 16)) {
                 LOGGER.info("Mini Hogwarts: no free wall near the Great Hall for the Fat Lady");
             }
             // Tower treasure — a hidden pocket near the very top.
@@ -994,17 +1024,18 @@ public final class MiniHogwartsManager {
             }
         }
 
-        // ── The Fat Lady: PortraitPlacement's wall search, on the schematic ──
+        // ── The living portraits: PortraitPlacement's wall search, on the schematic ──
 
         private static final int[] HEIGHTS = {1, 0, 2};
-        private static final int[] SLIDES = {0, 1, -1, 2, -2};
+        private static final int[] SLIDES = {0, 1, -1, 2, -2, 3, -3};
 
         /**
-         * Walks out from {@code floor} in all four directions and plans the Fat Lady on the closest wall within
-         * {@code reach} where her 2 x 4 canvas has air in front and solid blocks behind, her bottom edge about a
-         * block above the floor (the same search {@code PortraitPlacement.hangFatLadyNear} runs in the world).
+         * Walks out from {@code floor} in all four directions and plans the portrait furnishing {@code kind} on the
+         * closest wall within {@code reach} where its canvas has air in front and solid blocks behind, its bottom
+         * edge about a block above the floor (the same search {@code PortraitPlacement.hangNear} runs in the world).
          */
-        private boolean planFatLady(BlockPos floor, int reach) {
+        private boolean planPortrait(int kind, BlockPos floor, int reach) {
+            PortraitKind portraitKind = portraitKind(kind);
             BlockPos best = null;
             Direction bestFacing = null;
             int bestDist = Integer.MAX_VALUE;
@@ -1018,7 +1049,7 @@ public final class MiniHogwartsManager {
                         continue;
                     }
                     Direction facing = toWall.getOpposite();
-                    BlockPos fit = fitOnWall(probe, facing);
+                    BlockPos fit = fitOnWall(portraitKind, probe, facing);
                     if (fit != null) {
                         best = fit;
                         bestFacing = facing;
@@ -1030,19 +1061,23 @@ public final class MiniHogwartsManager {
             if (best == null) {
                 return false;
             }
-            furnishings.add(new Furnishing(FAT_LADY, best.getX(), best.getY(), best.getZ(), null, null, bestFacing));
-            LOGGER.info("Mini Hogwarts: the Fat Lady hangs at local {} {} {} facing {}", best.getX(), best.getY(),
-                    best.getZ(), bestFacing);
+            furnishings.add(new Furnishing(kind, best.getX(), best.getY(), best.getZ(), null, null, bestFacing));
+            LOGGER.info("Mini Hogwarts: {} hangs at local {} {} {} facing {}", portraitKind.displayName(), best.getX(),
+                    best.getY(), best.getZ(), bestFacing);
             return true;
         }
 
-        private BlockPos fitOnWall(BlockPos wall, Direction facing) {
+        private BlockPos fitOnWall(PortraitKind kind, BlockPos wall, Direction facing) {
             BlockPos front = wall.relative(facing);
             Direction along = facing.getClockWise();
+            int maxSlide = Math.max(2, kind.widthBlocks() - 1); // as PortraitPlacement: 2 for the Fat Lady, 3 for 4-wide
             for (int dy : HEIGHTS) {
                 for (int slide : SLIDES) {
+                    if (Math.abs(slide) > maxSlide) {
+                        continue;
+                    }
                     BlockPos pos = front.relative(along, slide).above(dy);
-                    if (canvasFits(pos, facing)) {
+                    if (canvasFits(kind, pos, facing)) {
                         return pos;
                     }
                 }
@@ -1051,16 +1086,19 @@ public final class MiniHogwartsManager {
         }
 
         /**
-         * The canvas a Fat Lady hung at {@code pos} facing {@code facing} covers {@code pos} and the block to its
-         * right ({@code facing.getCounterClockWise()}), from one block below {@code pos} to two above (see
-         * {@code FatLadyPortraitEntity.calculateBoundingBox}); every one of those cells must be air and the cell
-         * behind each must be solid.
+         * The canvas a portrait of {@code kind} hung at {@code pos} facing {@code facing} covers, as
+         * {@code PortraitEntity.calculateBoundingBox} lays it out (see {@code PortraitPlacement.canvasCell}): along
+         * the wall from {@code (w - 1) / 2} cells left of {@code pos} to {@code w / 2} right
+         * ({@code facing.getCounterClockWise()}), and from {@code (h - 1) / 2} below to {@code h / 2} above. Every
+         * one of those cells must be air and the cell behind each must be solid.
          */
-        private boolean canvasFits(BlockPos pos, Direction facing) {
+        private boolean canvasFits(PortraitKind kind, BlockPos pos, Direction facing) {
             Direction right = facing.getCounterClockWise();
-            for (int w = 0; w < com.hogwartsmagic.portrait.FatLadyPortraitEntity.WIDTH; w++) {
-                for (int h = -1; h < com.hogwartsmagic.portrait.FatLadyPortraitEntity.HEIGHT - 1; h++) {
-                    BlockPos cell = pos.relative(right, w).above(h);
+            int w = kind.widthBlocks();
+            int h = kind.heightBlocks();
+            for (int along = -(w - 1) / 2; along <= w / 2; along++) {
+                for (int up = -(h - 1) / 2; up <= h / 2; up++) {
+                    BlockPos cell = pos.relative(right, along).above(up);
                     BlockPos behind = cell.relative(facing.getOpposite());
                     if (!inside(cell.getX(), cell.getY(), cell.getZ()) || !isAir(cell.getX(), cell.getY(), cell.getZ())
                             || !inside(behind.getX(), behind.getY(), behind.getZ())

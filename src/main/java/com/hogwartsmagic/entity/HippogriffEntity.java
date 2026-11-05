@@ -443,6 +443,14 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
         }
 
         if (this.isTame() && this.isOwnedBy(player)) {
+            // Rabbit from the owner breeds her (or grows a foal). Without this the owner could only
+            // ever mount her with it, so the one player who can breed a tame hippogriff never could.
+            if (this.isFood(stack)) {
+                InteractionResult fed = super.mobInteract(player, hand);
+                if (fed.consumesAction()) {
+                    return fed;
+                }
+            }
             if (player.isShiftKeyDown()) {
                 // Server-authoritative, like vanilla tameables: the client must not flip synched data itself.
                 if (!this.level().isClientSide) {
@@ -514,6 +522,15 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
 
         if (!this.level().isClientSide) {
             tickGroundStuck();
+            if (this.isVehicle() && !this.poweredFlight && this.getControllingPassenger() instanceof Player) {
+                // A ridden mount is client-authoritative: travel() runs on the rider's client, so the NoGravity it
+                // sets there never reaches this side. Vanilla's vehicle-flight check reads the server entity's
+                // NoGravity, and without it the rider is kicked ("Flying is not enabled on this server") after 80
+                // ticks of level flight wherever allow-flight is off. Mirrored from the airborne state, as the broom does.
+                if (this.isNoGravity() != airborne) {
+                    this.setNoGravity(airborne);
+                }
+            }
         }
         tickFlightPosture(airborne);
 

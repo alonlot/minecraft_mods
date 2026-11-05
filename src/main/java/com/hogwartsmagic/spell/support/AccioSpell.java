@@ -109,6 +109,7 @@ public final class AccioSpell {
                     caster != null ? caster.getEyePosition(1) : target.position().add(0, 0, 5))
                     .normalize().scale(0.8);
             target.push(toward.x, 0.3, toward.z);
+            target.hurtMarked = true; // a player target only sees the pull once its motion is sent
             return true;
         }
         int rank = DisableSupport.casterRank(caster, SpellType.ACCIO);

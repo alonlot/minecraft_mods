@@ -94,6 +94,10 @@ public class ThiefsDownfallBlock extends Block {
                 tookSomething = true;
             }
             InvisibilityCloakItem.stopCloak(player, false);
+            // The trap on the way in is the cure on the way out: the water takes cursed gold too.
+            if (washCursedGold(player)) {
+                tookSomething = true;
+            }
             com.hogwartsmagic.util.ModAdvancements.award(player, "thiefs_downfall");
             player.displayClientMessage(Component.translatable(
                     tookSomething
@@ -111,6 +115,19 @@ public class ThiefsDownfallBlock extends Block {
                 victim.getZ(), 12, 0.4D, 0.6D, 0.4D, 0.02D);
         level.playSound(null, pos, SoundEvents.PLAYER_SPLASH_HIGH_SPEED, SoundSource.BLOCKS,
                 1.4F, 0.7F);
+    }
+
+    /** Removes every cursed galleon the player carries. True if there was any. */
+    private static boolean washCursedGold(ServerPlayer player) {
+        boolean any = false;
+        net.minecraft.world.entity.player.Inventory inv = player.getInventory();
+        for (int i = 0; i < inv.getContainerSize(); i++) {
+            if (inv.getItem(i).is(com.hogwartsmagic.ExampleMod.CURSED_GALLEON.get())) {
+                inv.setItem(i, net.minecraft.world.item.ItemStack.EMPTY);
+                any = true;
+            }
+        }
+        return any;
     }
 
     @Override

@@ -169,7 +169,7 @@ public class MiniHogwartsPiece extends StructurePiece implements PieceBeardifier
             }
         }
 
-        // 3. Chests, the Pensieve, the Fat Lady, students and elves that belong to this chunk.
+        // 3. Chests, the Pensieve, the living portraits, students and elves that belong to this chunk.
         MiniHogwartsManager.furnishChunk(level, anchor, box, random);
 
         // 4. The chunk holding the centre column records the castle, on the server thread (SavedData is not safe

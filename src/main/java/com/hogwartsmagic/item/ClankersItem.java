@@ -83,7 +83,7 @@ public class ClankersItem extends Item {
                             .withStyle(ChatFormatting.RED), true);
         }
 
-        stack.hurtAndBreak(1, player, net.minecraft.world.entity.EquipmentSlot.MAINHAND);
+        stack.hurtAndBreak(1, player, net.minecraft.world.entity.LivingEntity.getSlotForHand(hand));
         player.getCooldowns().addCooldown(this, COOLDOWN);
         return InteractionResultHolder.consume(stack);
     }

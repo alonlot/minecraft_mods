@@ -84,7 +84,10 @@ public final class StationCarver {
         // way you are travelling, which is what makes it climbable rather than a pile of slabs.
         int[] cell = RING[step % RING.length];
         int[] next = RING[(step + 1) % RING.length];
-        Direction facing = towards(cell, next);
+        // A stair's FACING is the way you walk to go up it. The tread below this one is at `next`,
+        // so climbing goes next -> cell; facing cell -> next put the full-height back of every tread
+        // against the step below it, a one-block jump at each level.
+        Direction facing = towards(next, cell);
         sink.set(cx + cell[0], y, cz + cell[1],
                 STAIR.setValue(BlockStateProperties.HORIZONTAL_FACING, facing));
 

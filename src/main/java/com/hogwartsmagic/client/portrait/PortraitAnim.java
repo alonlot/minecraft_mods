@@ -1,7 +1,7 @@
 package com.hogwartsmagic.client.portrait;
 
-import com.hogwartsmagic.portrait.FatLadyLines;
-import com.hogwartsmagic.portrait.FatLadyPortraitEntity;
+import com.hogwartsmagic.portrait.PortraitEntity;
+import com.hogwartsmagic.portrait.PortraitLines;
 import net.minecraft.client.resources.sounds.SoundInstance;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
@@ -32,7 +32,7 @@ final class PortraitAnim {
 
     // ---- the line being said
     @Nullable
-    FatLadyLines.Line line;
+    PortraitLines.Line line;
     long lineStartNs;
     @Nullable
     float[] envelope;
@@ -53,15 +53,15 @@ final class PortraitAnim {
     private float blinkT = -1f;
     private float awaySide;
 
-    void begin(FatLadyLines.Line newLine, @Nullable float[] env, @Nullable PortraitAssets.Clip videoClip, long nowNs) {
+    void begin(PortraitLines.Line newLine, @Nullable float[] env, @Nullable PortraitAssets.Clip videoClip, long nowNs) {
         this.line = newLine;
         this.lineStartNs = nowNs;
         this.envelope = env;
         this.clip = newLine.isVideo() ? videoClip : null;
         this.nextBounce = 1.4f;
-        if (newLine.mood() == FatLadyLines.Mood.SCARED) {
+        if (newLine.mood() == PortraitLines.Mood.SCARED) {
             flinchV += 9f;
-        } else if (newLine.mood() == FatLadyLines.Mood.HAPPY) {
+        } else if (newLine.mood() == PortraitLines.Mood.HAPPY) {
             bounceV += 5f;
         }
     }
@@ -85,7 +85,7 @@ final class PortraitAnim {
     }
 
     /** Advances the puppet to {@code nowNs}. Called from the renderer, once per frame per portrait. */
-    void update(FatLadyPortraitEntity entity, float partialTick, long nowNs) {
+    void update(PortraitEntity entity, float partialTick, long nowNs) {
         double now = nowNs / 1.0e9;
         if (!init) {
             init = true;
@@ -100,10 +100,10 @@ final class PortraitAnim {
 
         float t = lineTime(nowNs);
         boolean active = line != null && t <= line.seconds() + 0.6f;
-        FatLadyLines.Mood mood = active ? line.mood() : FatLadyLines.Mood.NEUTRAL;
-        boolean scared = mood == FatLadyLines.Mood.SCARED;
-        boolean happy = mood == FatLadyLines.Mood.HAPPY;
-        boolean cross = mood == FatLadyLines.Mood.CROSS;
+        PortraitLines.Mood mood = active ? line.mood() : PortraitLines.Mood.NEUTRAL;
+        boolean scared = mood == PortraitLines.Mood.SCARED;
+        boolean happy = mood == PortraitLines.Mood.HAPPY;
+        boolean cross = mood == PortraitLines.Mood.CROSS;
         boolean speaking = line != null && t >= 0f && t < line.seconds();
 
         // mouth from the line's 50 ms loudness envelope; no envelope means a closed mouth

@@ -417,8 +417,38 @@ public final class ReparoManager {
         if (state.getDestroySpeed(null, BlockPos.ZERO) < 0) {
             return false;
         }
+        if (isMultiItemOrHalf(state)) {
+            return false;
+        }
         Item item = block.asItem();
         return item != net.minecraft.world.item.Items.AIR;
+    }
+
+    /**
+     * Reparo is paid one item per block, so a block that holds several items (a double slab, stacked
+     * candles, pickles, eggs, petals, snow layers) would hand back more than it cost: a free duplicate on
+     * every break and repair. Half of a two-block thing (doors, tall plants) can't be put back alone.
+     */
+    private static boolean isMultiItemOrHalf(BlockState state) {
+        if (state.hasProperty(net.minecraft.world.level.block.state.properties.BlockStateProperties.SLAB_TYPE)
+                && state.getValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.SLAB_TYPE) == net.minecraft.world.level.block.state.properties.SlabType.DOUBLE) {
+            return true;
+        }
+        if (state.hasProperty(net.minecraft.world.level.block.state.properties.BlockStateProperties.DOUBLE_BLOCK_HALF)) {
+            return true;
+        }
+        net.minecraft.world.level.block.state.properties.IntegerProperty[] counts = {
+                net.minecraft.world.level.block.state.properties.BlockStateProperties.CANDLES,
+                net.minecraft.world.level.block.state.properties.BlockStateProperties.PICKLES,
+                net.minecraft.world.level.block.state.properties.BlockStateProperties.EGGS,
+                net.minecraft.world.level.block.state.properties.BlockStateProperties.FLOWER_AMOUNT,
+                net.minecraft.world.level.block.state.properties.BlockStateProperties.LAYERS};
+        for (net.minecraft.world.level.block.state.properties.IntegerProperty prop : counts) {
+            if (state.hasProperty(prop) && state.getValue(prop) > 1) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static String key(ServerLevel level, BlockPos pos) {

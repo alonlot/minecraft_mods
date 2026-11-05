@@ -86,6 +86,8 @@ public class ClientModEvents {
     private static boolean wasRadialDown = false;
     private static boolean wasProtegoMaximaChannelKeyDown = false;
     private static boolean protegoMaximaChannelActive = false;
+    /** Aqua Eructo's stream is pouring: a heartbeat every tick the key is held, a release when it lets go. */
+    private static boolean aquaHoldPending = false;
     private static boolean fiendfyreHoldPending = false;
     private static boolean fiendfyreChannelActive = false;
     private static int fiendfyreHoldTicks = 0;
@@ -227,10 +229,7 @@ public class ClientModEvents {
                     boostFovPunchTicks--;
                 }
 
-                boolean radialDown = InputConstants.isKeyDown(
-                        mc.getWindow().getWindow(),
-                        WAND_RADIAL_MENU_KEY.getKey().getValue()
-                );
+                boolean radialDown = isRawKeyHeld(mc, WAND_RADIAL_MENU_KEY);
                 if (mc.player != null) {
                     boolean holdingMainWand = MagicWandItem.isAnyWand(mc.player.getMainHandItem());
 
@@ -253,10 +252,7 @@ public class ClientModEvents {
                 }
                 wasRadialDown = radialDown;
 
-                boolean grimoireDown = InputConstants.isKeyDown(
-                        mc.getWindow().getWindow(),
-                        GRIMOIRE_KEY.getKey().getValue()
-                );
+                boolean grimoireDown = isRawKeyHeld(mc, GRIMOIRE_KEY);
                 if (grimoireDown && !wasGrimoireDown && mc.player != null && mc.screen == null) {
                     mc.setScreen(new com.hogwartsmagic.client.SpellCompendiumScreen(mc.player));
                 }
@@ -280,6 +276,18 @@ public class ClientModEvents {
                             && mc.player.getXRot() <= -55.0F;
                     boolean fiendfyreSelected = holdingWand
                             && selected == com.hogwartsmagic.spell.SpellType.FIENDFYRE;
+                    boolean aquaSelected = holdingWand
+                            && selected == com.hogwartsmagic.spell.SpellType.AQUA_ERUCTO;
+                    if (aquaHoldPending) {
+                        if (useDown && aquaSelected) {
+                            SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(false, false, true, false),
+                                    PacketDistributor.SERVER.noArg());
+                        } else {
+                            SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(false, true, false, false),
+                                    PacketDistributor.SERVER.noArg());
+                            aquaHoldPending = false;
+                        }
+                    }
                     boolean wingardiumSelected = holdingWand
                             && selected == com.hogwartsmagic.spell.SpellType.WINGARDIUM_LEVIOSA;
                     boolean imperioSelected = holdingWand
@@ -457,6 +465,7 @@ public class ClientModEvents {
                 } else {
                     wasProtegoMaximaChannelKeyDown = false;
                     protegoMaximaChannelActive = false;
+                    aquaHoldPending = false;
                     fiendfyreHoldPending = false;
                     fiendfyreChannelActive = false;
                     fiendfyreHoldTicks = 0;
@@ -871,6 +880,26 @@ public class ClientModEvents {
         }
     }
 
+    /**
+     * The key's physical state, read straight from GLFW (a held key still counts while a screen is open,
+     * which KeyMapping.isDown does not). An unbound key is never held: asking GLFW about key -1 logs a
+     * GL error every tick. A key rebound to a mouse button is read as a mouse button.
+     */
+    private static boolean isRawKeyHeld(Minecraft mc, KeyMapping mapping) {
+        InputConstants.Key key = mapping.getKey();
+        if (key.getValue() == InputConstants.UNKNOWN.getValue()) {
+            return false;
+        }
+        long window = mc.getWindow().getWindow();
+        if (key.getType() == InputConstants.Type.MOUSE) {
+            return GLFW.glfwGetMouseButton(window, key.getValue()) == GLFW.GLFW_PRESS;
+        }
+        if (key.getType() != InputConstants.Type.KEYSYM) {
+            return false;
+        }
+        return InputConstants.isKeyDown(window, key.getValue());
+    }
+
     public static KeyMapping getSpellSlotKeyMapping(int slotIndex) {
         if (slotIndex < 0 || slotIndex >= SPELL_SLOT_KEYS.length) {
             return null;
@@ -880,6 +909,20 @@ public class ClientModEvents {
 
     public static void setProtegoMaximaChannelActive(boolean active) {
         protegoMaximaChannelActive = active;
+    }
+
+    /** The Aqua Eructo press: start pouring now (the server pays the cast on this first heartbeat). */
+    public static void startAquaHold() {
+        if (aquaHoldPending) {
+            return;
+        }
+        aquaHoldPending = true;
+        SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(false, false, true, false),
+                PacketDistributor.SERVER.noArg());
+        net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+        if (mc.player != null) {
+            mc.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+        }
     }
 
     public static void startFiendfyreHold() {

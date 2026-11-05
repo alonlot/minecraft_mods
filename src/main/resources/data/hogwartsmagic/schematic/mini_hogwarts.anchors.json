@@ -645,6 +645,14 @@
    "yaw": -90
   }
  ],
+ "sir_cadogan": {
+  "facing": "north",
+  "wall": [
+   57,
+   33,
+   138
+  ]
+ },
  "statues": [
   {
    "at": [

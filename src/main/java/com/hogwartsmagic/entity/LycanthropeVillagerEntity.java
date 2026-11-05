@@ -189,7 +189,8 @@ public class LycanthropeVillagerEntity extends PathfinderMob {
         }
         syncGoalsIfNeeded();
         if (wolf) {
-            if (this.tickCount - this.lastWolfTransformHealAtTick >= WOLF_TRANSFORM_HEAL_COOLDOWN_TICKS) {
+            // long: the never-healed sentinel is Integer.MIN_VALUE, and int subtraction from it overflows negative.
+            if ((long) this.tickCount - this.lastWolfTransformHealAtTick >= WOLF_TRANSFORM_HEAL_COOLDOWN_TICKS) {
                 this.setHealth(Math.min(this.getHealth() + WOLF_TRANSFORM_HEAL, (float) WOLF_MAX_HEALTH));
                 this.lastWolfTransformHealAtTick = this.tickCount;
             }
@@ -457,7 +458,9 @@ public class LycanthropeVillagerEntity extends PathfinderMob {
         super.addAdditionalSaveData(tag);
         tag.putBoolean("WerewolfForm", isWerewolfForm());
         tag.putInt("TransformCooldown", this.transformCooldownTicks);
-        tag.putInt("LastWolfHealTick", this.lastWolfTransformHealAtTick);
+        // Saved as ticks since the heal: tickCount restarts at 0 on every load, so an absolute tick would be stale.
+        tag.putInt("WolfHealAgo", (int) Math.min(Integer.MAX_VALUE,
+                (long) this.tickCount - this.lastWolfTransformHealAtTick));
     }
 
     @Override
@@ -474,8 +477,10 @@ public class LycanthropeVillagerEntity extends PathfinderMob {
         if (tag.contains("TransformCooldown")) {
             this.transformCooldownTicks = tag.getInt("TransformCooldown");
         }
-        if (tag.contains("LastWolfHealTick")) {
-            this.lastWolfTransformHealAtTick = tag.getInt("LastWolfHealTick");
+        if (tag.contains("WolfHealAgo")) {
+            int ago = tag.getInt("WolfHealAgo");
+            this.lastWolfTransformHealAtTick = ago >= WOLF_TRANSFORM_HEAL_COOLDOWN_TICKS
+                    ? Integer.MIN_VALUE : this.tickCount - ago;
         }
     }
 

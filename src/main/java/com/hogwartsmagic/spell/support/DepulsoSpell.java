@@ -70,6 +70,7 @@ public final class DepulsoSpell {
                     caster != null ? caster.position() : target.position().add(0, 0, -5))
                     .normalize().scale(-1.5);
             target.push(away.x, 0.5, away.z);
+            target.hurtMarked = true; // a player target only sees the push once its motion is sent
             return;
         }
         int rank = masteryEligible ? SpellMasteryData.getRank(player, SpellType.DEPULSO) : 1;

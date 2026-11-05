@@ -123,13 +123,15 @@ def room_great_hall(grid):
 
 
 def room_grand_staircase(grid):
-    """The central tower's well: flights round the wall, landings at every floor, the Fat Lady's door."""
+    """The central tower's well: flights round the wall, landings at every floor, the Fat Lady's door, and Sir
+    Cadogan beside the door in from the imperial landing."""
     found = rooms_staircase.place_staircase(grid)
     a = grid.anchors
     a.setdefault('candles', []).extend(found['candles'])
     a.setdefault('statues', []).extend(found['statues'])
     a.setdefault('paintings', []).extend(found['paintings'])
     a['fat_lady'] = found['fat_lady']
+    a['sir_cadogan'] = found['sir_cadogan']
 
 
 def room_library(grid):
@@ -367,6 +369,17 @@ def verify_staircase(grid, base, walk):
     for x, y, z in S.FAT_LADY_CELLS:
         assert grid.is_air(x, y, z), ('something in front of the Fat Lady', (x, y, z), grid.get(x, y, z))
         assert checks.supports(grid.get(x, y, z + 1)), ('no wall behind the Fat Lady', (x, y, z + 1))
+
+    # 11b. Sir Cadogan: on the imperial landing beside the entry door, his whole canvas free with a solid wall behind
+    #      every cell of it, and every canvas cell one walked step above the landing
+    sc = a['sir_cadogan']
+    assert sc == {'wall': list(S.SIR_CADOGAN_WALL), 'facing': 'north'}, ('Sir Cadogan moved', sc)
+    (dx0, _), (dz0, _) = S.ENTRY_DOOR
+    assert sc['wall'][2] == dz0 and dx0 - 5 <= sc['wall'][0] < dx0, ('Sir Cadogan not beside the entry door', sc)
+    for x, y, z in S.SIR_CADOGAN_CELLS:
+        assert grid.is_air(x, y, z), ('something in front of Sir Cadogan', (x, y, z), grid.get(x, y, z))
+        assert checks.supports(grid.get(x, y, z + 1)), ('no wall behind Sir Cadogan', (x, y, z + 1))
+        assert (x, S.FIRST_FEET, z) in walk, ('Sir Cadogan is not hung over the landing', (x, y, z))
 
     # 12. no dark floor in the tower
     dark = checks.dark_floor_cells(grid, S.light_boxes(cells))
@@ -962,9 +975,17 @@ def verify_castle(grid, walk):
     standing += [c for s in a['statues'] for c in stands(tuple(s['at']), 3, 'statue')]
     shared = sorted(p for p in set(standing) if standing.count(p) > 1) if len(set(standing)) < len(standing) else []
     assert not shared, ('anchors share a cell', shared[:5])
-    walls = [('the Fat Lady', tuple(a['fat_lady']['wall']))] + [('a painting', tuple(p['at'])) for p in a['paintings']]
+    walls = [('the Fat Lady', tuple(a['fat_lady']['wall'])), ('Sir Cadogan', tuple(a['sir_cadogan']['wall']))]         + [('a painting', tuple(p['at'])) for p in a['paintings']]
     for what, p in walls:
         assert in_schem(p) and checks.supports(grid.get(*p)), ('%s has no solid wall' % what, p, grid.get(*p))
+    # The living portraits are placed only by the chunk that holds their tile cell (MiniHogwartsManager.furnishChunk),
+    # so each whole canvas must lie in that one chunk. The structure centres the schematic on its start chunk's middle
+    # column (MiniHogwartsStructure), which fixes the frame's offset in the chunk grid.
+    frame = grid.bounds()
+    for what, canvas in (('the Fat Lady', rooms_staircase.FAT_LADY_CELLS),
+                         ('Sir Cadogan', rooms_staircase.SIR_CADOGAN_CELLS)):
+        chunks = {chunk_column(c, frame) for c in canvas}
+        assert len(chunks) == 1, ('%s straddles a chunk border' % what, sorted(chunks))
     step = {'north': (0, -1), 'south': (0, 1), 'east': (1, 0), 'west': (-1, 0)}
     for b in a['banners']:
         x, y, z = b['at']
@@ -996,6 +1017,13 @@ def verify_castle(grid, walk):
     assert len(a['chests']) >= MIN_CHESTS, ('chests', len(a['chests']))
     assert len(a['student_spots']) >= MIN_STUDENT_SPOTS, ('student spots', len(a['student_spots']))
     assert len(a['statues']) >= MIN_STATUES, ('statues', len(a['statues']))
+
+
+def chunk_column(p, bounds):
+    """The (chunk x, chunk z) a castle-frame cell lands in, relative to the castle's start chunk. The structure puts
+    the frame's origin at the start chunk's middle block (8, 8) less half the schematic's width and length."""
+    w, l = bounds[3] + 1, bounds[5] + 1
+    return (p[0] + 8 - w // 2) // 16, (p[2] + 8 - l // 2) // 16
 
 
 def verify_schematic(grid):

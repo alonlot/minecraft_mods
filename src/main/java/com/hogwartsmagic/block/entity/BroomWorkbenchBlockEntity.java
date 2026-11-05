@@ -85,9 +85,9 @@ public class BroomWorkbenchBlockEntity extends BlockEntity implements net.minecr
     };
 
     /** One broom recipe, in slot order: Base (A), Boost (B), Magic (C), Catalyst (D). */
-    private record BroomRecipe(Item base, Item boost, Item magic, Item catalyst, Item result) {
+    public record BroomRecipe(Item base, Item boost, Item magic, Item catalyst, Item result) {
         @Nullable
-        Item slot(int slot) {
+        public Item slot(int slot) {
             if (slot == SLOT_A) {
                 return this.base;
             }
@@ -111,7 +111,7 @@ public class BroomWorkbenchBlockEntity extends BlockEntity implements net.minecr
     /** The single source for the slot filter, the recipe check and the result (the recipe book text matches). */
     private static List<BroomRecipe> recipesCache;
 
-    private static List<BroomRecipe> recipes() {
+    public static List<BroomRecipe> recipes() {
         List<BroomRecipe> cached = recipesCache;
         if (cached == null) {
             cached = buildRecipes();

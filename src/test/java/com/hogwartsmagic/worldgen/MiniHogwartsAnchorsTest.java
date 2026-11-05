@@ -29,6 +29,7 @@ class MiniHogwartsAnchorsTest {
               "statues": [{"at": [58, 25, 153], "yaw": -149}],
               "pensieve": [38, 13, 191],
               "fat_lady": {"wall": [60, 47, 155], "facing": "north"},
+              "sir_cadogan": {"wall": [57, 33, 138], "facing": "north"},
               "paintings": [{"at": [53, 33, 148], "facing": "east"}],
               "banners": [{"at": [60, 40, 90], "facing": "south", "house": "gryffindor"}],
               "hall_ceiling": {"min": [45.0, 36.0], "max": [78.0, 109.0], "y": 45, "clearance": 17},
@@ -61,6 +62,8 @@ class MiniHogwartsAnchorsTest {
         assertEquals(new BlockPos(38, 13, 191), a.pensieve());
         assertEquals(new BlockPos(60, 47, 155), a.fatLady().at());
         assertEquals(Direction.NORTH, a.fatLady().facing());
+        assertEquals(new BlockPos(57, 33, 138), a.sirCadogan().at());
+        assertEquals(Direction.NORTH, a.sirCadogan().facing());
         assertEquals(new BlockPos(53, 33, 148), a.paintings().get(0).at());
         assertEquals(Direction.EAST, a.paintings().get(0).facing());
         assertEquals(new BlockPos(60, 40, 90), a.banners().get(0).at());
@@ -101,6 +104,7 @@ class MiniHogwartsAnchorsTest {
                 && a.candles().isEmpty() && a.rays().isEmpty() && a.doors().isEmpty());
         assertNull(a.pensieve());
         assertNull(a.fatLady());
+        assertNull(a.sirCadogan());
         assertNull(a.titlePoint());
         assertNull(a.stool());
     }
@@ -144,6 +148,7 @@ class MiniHogwartsAnchorsTest {
         }
         assertNotNull(a.pensieve());
         assertNotNull(a.fatLady());
+        assertNotNull(a.sirCadogan());
         assertNotNull(a.stool());
         assertNotNull(a.titlePoint());
         assertTrue(a.hallBox().getXsize() > 10, "hall box");

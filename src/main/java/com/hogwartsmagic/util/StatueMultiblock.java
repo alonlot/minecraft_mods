@@ -103,6 +103,16 @@ public final class StatueMultiblock {
         for (Direction arm : Direction.Plane.HORIZONTAL) {
             BlockPos[] body = matchBody(level, headPos, arm);
             if (body != null) {
+                // The rite takes six blocks: spawn protection must allow every one, and wards, adventure
+                // mode and claim mods (a real BreakEvent on the heart, posted last) may refuse it.
+                for (BlockPos pos : body) {
+                    if (!level.mayInteract(caster, pos)) {
+                        return false;
+                    }
+                }
+                if (!com.hogwartsmagic.spell.TerrainRules.canBreak(level, headPos, level.getBlockState(headPos), caster)) {
+                    return false;
+                }
                 raise(level, caster, headPos, body);
                 return true;
             }

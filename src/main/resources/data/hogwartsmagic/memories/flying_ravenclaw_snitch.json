@@ -890,7 +890,7 @@
       "type": "player",
       "scale": 0.85,
       "skin": {"texture": "student_ravenclaw_07"},
-      "items": {"chest": "hogwartsmagic:ravenclaw_quidditch_robes", "legs": "hogwartsmagic:quidditch_shin_guards"},
+      "items": {"chest": "hogwartsmagic:ravenclaw_quidditch_robes", "legs": "hogwartsmagic:quidditch_shin_guards", "mainhand": "minecraft:mace"},
       "ride": "broom_o_b1",
       "path": [{"t": 0, "pos": [0.0, -0.4264, -0.05]}],
       "look": [
@@ -2754,7 +2754,7 @@
       "type": "player",
       "scale": 0.85,
       "skin": {"texture": "student_ravenclaw_23"},
-      "items": {"chest": "hogwartsmagic:ravenclaw_quidditch_robes", "legs": "hogwartsmagic:quidditch_shin_guards"},
+      "items": {"chest": "hogwartsmagic:ravenclaw_quidditch_robes", "legs": "hogwartsmagic:quidditch_shin_guards", "mainhand": "minecraft:mace"},
       "ride": "broom_o_b2",
       "path": [{"t": 0, "pos": [0.0, -0.4264, -0.05]}],
       "look": [
@@ -4146,7 +4146,7 @@
       "type": "player",
       "scale": 0.85,
       "skin": {"texture": "student_slytherin_07"},
-      "items": {"chest": "hogwartsmagic:slytherin_quidditch_robes", "legs": "hogwartsmagic:quidditch_shin_guards"},
+      "items": {"chest": "hogwartsmagic:slytherin_quidditch_robes", "legs": "hogwartsmagic:quidditch_shin_guards", "mainhand": "minecraft:mace"},
       "ride": "broom_r_b1",
       "path": [{"t": 0, "pos": [0.0, -0.4264, -0.05]}],
       "look": [
@@ -6011,7 +6011,7 @@
       "type": "player",
       "scale": 0.85,
       "skin": {"texture": "student_slytherin_23"},
-      "items": {"chest": "hogwartsmagic:slytherin_quidditch_robes", "legs": "hogwartsmagic:quidditch_shin_guards"},
+      "items": {"chest": "hogwartsmagic:slytherin_quidditch_robes", "legs": "hogwartsmagic:quidditch_shin_guards", "mainhand": "minecraft:mace"},
       "ride": "broom_r_b2",
       "path": [{"t": 0, "pos": [0.0, -0.4264, -0.05]}],
       "look": [

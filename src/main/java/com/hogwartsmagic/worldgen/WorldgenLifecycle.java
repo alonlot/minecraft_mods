@@ -2,6 +2,7 @@ package com.hogwartsmagic.worldgen;
 
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.worldgen.undercroft.UndercroftBuilder;
+import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.server.ServerAboutToStartEvent;
 import net.minecraftforge.event.server.ServerStoppedEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -40,5 +41,11 @@ public final class WorldgenLifecycle {
         VillageGringottsBank.reset();
         UndercroftBuilder.reset();
         DiagonAlleyPortal.reset();
+    }
+
+    /** Per-player worldgen bookkeeping that must not outlive the connection. */
+    @SubscribeEvent
+    public static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
+        UndercroftBuilder.forgetPlayer(event.getEntity().getUUID());
     }
 }

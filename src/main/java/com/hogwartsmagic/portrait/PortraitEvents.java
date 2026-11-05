@@ -25,20 +25,20 @@ public final class PortraitEvents {
     @SubscribeEvent
     public static void onExplosion(ExplosionEvent.Detonate event) {
         if (event.getLevel() instanceof ServerLevel level) {
-            notifyPortraits(level, event.getExplosion().center(), EXPLOSION_RANGE, FatLadyLines.Reaction.EXPLOSION);
+            notifyPortraits(level, event.getExplosion().center(), EXPLOSION_RANGE, PortraitLines.Reaction.EXPLOSION);
         }
     }
 
     @SubscribeEvent
     public static void onEntityJoin(EntityJoinLevelEvent event) {
         if (event.getEntity() instanceof LightningBolt bolt && event.getLevel() instanceof ServerLevel level) {
-            notifyPortraits(level, bolt.position(), LIGHTNING_RANGE, FatLadyLines.Reaction.THUNDER);
+            notifyPortraits(level, bolt.position(), LIGHTNING_RANGE, PortraitLines.Reaction.THUNDER);
         }
     }
 
-    private static void notifyPortraits(ServerLevel level, Vec3 at, double range, FatLadyLines.Reaction reaction) {
+    private static void notifyPortraits(ServerLevel level, Vec3 at, double range, PortraitLines.Reaction reaction) {
         AABB area = AABB.ofSize(at, range * 2.0, range * 2.0, range * 2.0);
-        for (FatLadyPortraitEntity portrait : level.getEntitiesOfClass(FatLadyPortraitEntity.class, area,
+        for (PortraitEntity portrait : level.getEntitiesOfClass(PortraitEntity.class, area,
                 p -> p.position().distanceToSqr(at) <= range * range)) {
             portrait.trigger(reaction, null);
         }

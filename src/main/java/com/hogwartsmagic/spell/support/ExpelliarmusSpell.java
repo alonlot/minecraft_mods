@@ -17,6 +17,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.Vec3;
 
 import javax.annotation.Nullable;
 
@@ -64,6 +65,19 @@ public final class ExpelliarmusSpell {
                 if (dropped != null && target instanceof Player) {
                     dropped.setPickUpDelay(silenceTicks);
                 }
+                if (dropped != null) {
+                    // Flung out of the hand, away from the caster, high enough to be seen go.
+                    Vec3 away = owner == null ? target.getLookAngle().scale(-1.0)
+                            : target.position().subtract(owner.position());
+                    away = new Vec3(away.x, 0.0, away.z);
+                    away = away.lengthSqr() < 1.0E-6 ? new Vec3(0.0, 0.0, 1.0) : away.normalize();
+                    dropped.setPos(target.getX(), target.getEyeY() - 0.3, target.getZ());
+                    // Mostly up: a wand thrown far could land in lava or over an edge.
+                    dropped.setDeltaMovement(away.x * 0.1, 0.42, away.z * 0.1);
+                    dropped.hasImpulse = true; // send the launch now, not at the next 20-tick sync
+                    com.hogwartsmagic.spell.SpellBeamFx.react(dropped, SpellType.EXPELLIARMUS, away,
+                            com.hogwartsmagic.spell.SpellBeamFx.REACT_FLIGHT);
+                }
             }
         }
         if (winner != null && target instanceof VoldemortEntity
@@ -81,6 +95,7 @@ public final class ExpelliarmusSpell {
         com.hogwartsmagic.duel.DuelManager.onDisarmed(target);
         if (owner != null) {
             target.knockback(ExpelliarmusRules.knockback(rank), owner.getX() - target.getX(), owner.getZ() - target.getZ());
+            target.hurtMarked = true; // a player target only sees the knockback once its motion is sent
         }
         if (target instanceof Player || target instanceof DisarmableWandUser || target instanceof VoldemortEntity) {
             CombatEffects.applySilenced(target, silenceTicks, caster);

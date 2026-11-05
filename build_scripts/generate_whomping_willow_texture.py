@@ -75,9 +75,16 @@ def jitter(c, amount):
     return tuple(max(0, min(255, c[i] + rng.randint(-amount, amount))) for i in range(3))
 
 
-def kind_of(name):
-    """Material by name prefix. The names are generated, so a regex is honest here in a way the
-    giant's hand-maintained name sets are not."""
+def kind_of(element):
+    """The generator writes each element's material into the .bbmodel as "kind". The name regex is
+    the fallback for a model saved back out of Blockbench, which drops unknown keys."""
+    if element.get("kind"):
+        return element["kind"]
+    name = element["name"]
+    if "_cur" in name:
+        return "curtain"
+    if "leaf" in name:
+        return "leaf"
     if re.match(r"^crown_leaf|^branch\d_leaf", name):
         return "leaf"
     if re.match(r"^maw_gum", name):
@@ -108,24 +115,33 @@ def fill(px, x, y, w, h, colour):
 
 
 def paint_bark(px, x, y, w, h, grey=False):
-    """Vertical fissures with a long correlation length, so cracks run and branch instead of
-    reading as per-pixel noise. This is the difference between bark and static."""
+    """Deep vertical fissures between raised plates, with NO top-to-bottom gradient.
+
+    An earlier version shaded each face light at the top and dark at the bottom. Every trunk ring
+    is its own face, so the bole came out banded like a stack of barrels -- the single biggest thing
+    that made it read as boxes rather than one trunk. Tone now varies across the face only, and the
+    fissure pattern wanders a column at a time so cracks run the full height and fork."""
     base = BARK_GREY if grey else BARK_MID
-    fissure = [rng.random() for _ in range(max(1, w))]
+    crack = [rng.random() for _ in range(max(1, w))]
+    for i in range(1, w):
+        crack[i] = crack[i] * 0.55 + crack[i - 1] * 0.45     # correlated across columns
     for i in range(w):
-        # smooth the per-column value so a crack persists across several columns
-        s = sum(fissure[max(0, i - 1):i + 2]) / len(fissure[max(0, i - 1):i + 2])
+        drift = 0
         for j in range(h):
-            t = j / max(1, h - 1)
-            c = lerp(BARK_LIGHT, base, t * 0.75 + 0.15)
-            if s < 0.22:
-                c = lerp(c, BARK_DARK, 0.85)          # deep fissure
-            elif s < 0.34:
-                c = lerp(c, BARK_DARK, 0.4)
-            if rng.random() < 0.05:
-                c = lerp(c, BARK_DARK, 0.5)            # horizontal checking
-            if t > 0.72 and rng.random() < 0.10:
-                c = lerp(c, MOSS, 0.55)                # moss creeps up from the damp base
+            if rng.random() < 0.06:
+                drift = max(-1, min(1, drift + rng.choice((-1, 1))))
+            ci = max(0, min(w - 1, i + drift))
+            s = crack[ci]
+            plate = 0.5 + 0.5 * math.sin(i * 0.9 + crack[ci] * 3.0)
+            c = lerp(BARK_MID if not grey else BARK_GREY, BARK_LIGHT, plate * 0.45)
+            if s < 0.30:
+                c = lerp(c, BARK_DARK, 0.85)                  # deep fissure
+            elif s < 0.40:
+                c = lerp(c, BARK_DARK, 0.45)
+            elif s > 0.80 and rng.random() < 0.5:
+                c = lerp(c, BARK_GREY, 0.5)                   # weathered plate edge
+            if rng.random() < 0.035:
+                c = lerp(c, MOSS, 0.6)
             px[x + i, y + j] = jitter(c, 5) + (255,)
 
 
@@ -177,6 +193,43 @@ def paint_leaf(px, x, y, w, h):
             px[x + i, y + j] = jitter(c, 7) + (255,)
 
 
+def paint_curtain(px, x, y, w, h):
+    """A hanging willow streamer: separate strands of narrow leaves, each its own length, with clear
+    gaps between them. Cutout makes the gaps real, so the curtain reads as a fringe you can see the
+    sky through rather than a green sheet."""
+    strand_len = []
+    for i in range(w):
+        present = rng.random() < 0.62 or (i > 0 and strand_len[-1] == 0 and rng.random() < 0.5)
+        strand_len.append(int(h * (0.45 + rng.random() * 0.55)) if present else 0)
+    for i in range(w):
+        for j in range(h):
+            px[x + i, y + j] = (0, 0, 0, 0)
+        L = strand_len[i]
+        for j in range(min(h, 2)):                         # where it hangs from the twig
+            if rng.random() < 0.8:
+                px[x + i, y + j] = jitter(LEAF_DARK, 6) + (255,)
+        phase = rng.random()
+        for j in range(L):
+            t = j / max(1, h - 1)
+            # leaves come in beads along the strand; the gaps between beads are open
+            if (j + int(phase * 3)) % 4 == 3 and rng.random() < 0.7:
+                continue
+            r = rng.random()
+            c = LEAF_MID if r < 0.5 else (LEAF_DARK if r < 0.75 else LEAF_LIGHT)
+            if t > 0.6 and rng.random() < 0.25:
+                c = LEAF_SICK
+            c = lerp(c, LEAF_DARK, 0.25 * (1.0 - t))       # shade under the canopy
+            px[x + i, y + j] = jitter(c, 8) + (255,)
+
+
+def paint_tooth(px, x, y, w, h):
+    for i in range(w):
+        for j in range(h):
+            t = j / max(1, h - 1)
+            c = lerp(TOOTH, KNOT_DARK, max(0.0, t - 0.55) * 1.6)
+            px[x + i, y + j] = jitter(c, 6) + (255,)
+
+
 def paint_maw(px, x, y, w, h):
     for i in range(w):
         for j in range(h):
@@ -206,7 +259,8 @@ def paint_knot(px, x, y, w, h):
 
 
 PAINTERS = {"bark": paint_bark, "twig": paint_twig, "root": paint_root,
-            "leaf": paint_leaf, "maw": paint_maw, "knot": paint_knot}
+            "leaf": paint_leaf, "maw": paint_maw, "knot": paint_knot,
+            "curtain": paint_curtain, "tooth": paint_tooth}
 
 
 def main():
@@ -225,7 +279,7 @@ def main():
         if offset in painted:
             continue                                   # shared UV class: paint it once
         painted.add(offset)
-        kind = kind_of(element["name"])
+        kind = kind_of(element)
 
         if debug:
             for side, (x, y, w, h) in rects.items():
@@ -235,12 +289,13 @@ def main():
 
         # Flood the whole footprint with the darkest tone first so no seam can show through.
         floor_colour = {"leaf": LEAF_DARK, "maw": MAW_BLACK, "root": ROOT_DARK,
-                        "knot": KNOT_DARK}.get(kind, BARK_DARK)
-        xs = [r[0] for r in rects.values()]
-        ys = [r[1] for r in rects.values()]
-        xe = [r[0] + r[2] for r in rects.values()]
-        ye = [r[1] + r[3] for r in rects.values()]
-        fill(px, min(xs), min(ys), max(xe) - min(xs), max(ye) - min(ys), floor_colour)
+                        "knot": KNOT_DARK, "tooth": TOOTH}.get(kind, BARK_DARK)
+        if kind != "curtain":
+            xs = [r[0] for r in rects.values()]
+            ys = [r[1] for r in rects.values()]
+            xe = [r[0] + r[2] for r in rects.values()]
+            ye = [r[1] + r[3] for r in rects.values()]
+            fill(px, min(xs), min(ys), max(xe) - min(xs), max(ye) - min(ys), floor_colour)
 
         painter = PAINTERS[kind]
         for side, (x, y, w, h) in rects.items():

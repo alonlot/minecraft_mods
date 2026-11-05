@@ -49,7 +49,13 @@ public class BroomItem extends Item {
             BroomEntity broom = new BroomEntity(ModEntities.BROOM.get(), level);
             broom.setBroomType(this.broomType);
             broom.setQuality(quality(itemstack));
+            broom.setDropsItem(true);
             broom.moveTo(pos.x, pos.y, pos.z, player.getYRot(), 0.0F);
+            // Looking into a wall would put the broom inside it, where it is hard to reach again:
+            // fall back to the player's own spot, which they are standing in.
+            if (!level.noCollision(broom)) {
+                broom.moveTo(player.getX(), player.getY(), player.getZ(), player.getYRot(), 0.0F);
+            }
             level.addFreshEntity(broom);
 
             if (!player.getAbilities().instabuild) {

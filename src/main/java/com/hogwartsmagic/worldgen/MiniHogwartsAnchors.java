@@ -29,8 +29,10 @@ import java.util.List;
  * <p>How each key is read:
  * <ul>
  *   <li>{@code chests}: {@code at} is the empty floor cell the chest stands in; {@code theme} names a loot theme.</li>
- *   <li>{@code paintings} and {@code fat_lady}: {@code at} (or {@code wall}) is the wall block the canvas hangs
- *       on, {@code facing} is the way the canvas faces, so the canvas hangs in {@code at.relative(facing)}.</li>
+ *   <li>{@code paintings}, {@code fat_lady} and {@code sir_cadogan}: {@code at} (or {@code wall}) is the wall block
+ *       the canvas hangs on, {@code facing} is the way the canvas faces, so the canvas hangs in
+ *       {@code at.relative(facing)}. For the two living portraits that cell is the entity's tile cell (see
+ *       {@code PortraitPlacement.canvasCell}).</li>
  *   <li>{@code banners}: {@code at} is the cell the wall banner itself occupies (air, against a wall) and
  *       {@code facing} is the way the banner faces, away from that wall; {@code house} picks the colour.</li>
  *   <li>{@code stool}: the middle of the Sorting stool's slab (a point, so {@code .5} on all three axes);
@@ -95,6 +97,8 @@ public final class MiniHogwartsAnchors {
     private final BlockPos pensieve;
     @Nullable
     private final Wall fatLady;
+    @Nullable
+    private final Wall sirCadogan;
     private final List<Wall> paintings;
     private final List<Banner> banners;
     private final Ceiling hallCeiling;
@@ -115,6 +119,7 @@ public final class MiniHogwartsAnchors {
         this.statues = list(json, "statues", MiniHogwartsAnchors::statue);
         this.pensieve = json.has("pensieve") ? cell(json.get("pensieve")) : null;
         this.fatLady = json.has("fat_lady") ? wall(json.get("fat_lady")) : null;
+        this.sirCadogan = json.has("sir_cadogan") ? wall(json.get("sir_cadogan")) : null;
         this.paintings = list(json, "paintings", MiniHogwartsAnchors::wall);
         this.banners = list(json, "banners", MiniHogwartsAnchors::banner);
         this.hallCeiling = ceiling(require(json, "hall_ceiling"));
@@ -209,6 +214,12 @@ public final class MiniHogwartsAnchors {
     @Nullable
     public Wall fatLady() {
         return fatLady;
+    }
+
+    /** Sir Cadogan's wall: on the imperial landing, beside the door into the Grand Staircase. */
+    @Nullable
+    public Wall sirCadogan() {
+        return sirCadogan;
     }
 
     public List<Wall> paintings() {

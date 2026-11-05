@@ -104,7 +104,8 @@ public final class PolyjuiceClientState {
         }
 
         Entity surrogate = SURROGATES.get(realPlayer.getUUID());
-        if (surrogate == null || !matches(surrogate, disguise)) {
+        // A dimension change replaces the ClientLevel: a surrogate built in the old one is rebuilt here.
+        if (surrogate == null || surrogate.level() != level || !matches(surrogate, disguise)) {
             surrogate = createSurrogate(level, disguise);
             if (surrogate == null) {
                 return null;

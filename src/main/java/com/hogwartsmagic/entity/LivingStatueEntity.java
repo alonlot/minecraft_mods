@@ -804,7 +804,11 @@ public class LivingStatueEntity extends Monster {
                 && !(other instanceof LivingStatueEntity)
                 && !(other instanceof StudentEntity)
                 && !(this.isBound() && this.isOwnedBy(other))
-                && !(this.isCastle() && other instanceof Player); // nor a player standing near the fight
+                && !(this.isCastle() && other instanceof Player) // nor a player standing near the fight
+                // A sentry's blows name the statue, not its caster, so PvP-off and teams are checked here
+                // for it (as a tamed wolf does): it never cuts down a player its caster may not harm.
+                && !(this.isBound() && other instanceof Player player && this.level() instanceof ServerLevel server
+                        && com.hogwartsmagic.spell.mind.MindControl.puppeteerSpares(server, this.ownerUUID, player));
     }
 
     /**

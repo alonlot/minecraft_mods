@@ -112,3 +112,25 @@ wall near the Great Hall spot. (Done by the art/integration side.)
 - No `switch` on an enum in client render code (the synthetic `$1` class failed to load in this dev env).
 - Common code never touches client classes; the entity polls nothing on the client side itself.
 - Never run gradle while a Minecraft client from this repo is running.
+
+## Second portrait: Sir Cadogan (added 2026-11-01)
+
+The portrait code becomes general; the Fat Lady must behave exactly as before.
+
+- **Lines** now come from the generated `PortraitLines` (replaces `FatLadyLines`, which is deleted): shared
+  `Reaction` / `Mood` enums, `Line(portrait, key, reaction, mood, seconds, clip, text)`, `soundPath()`,
+  `PortraitLines.forPortrait(id)`. New reaction `SWORD`: a near player holding a sword (`SwordItem`, or an item
+  id path containing "sword") and looking at the portrait, 40 s per player. A portrait only reacts to reactions
+  it has lines for.
+- **Kinds**: a `PortraitKind` record per portrait holds everything that differs: id, display name, width and
+  height in blocks, painting pixel space (W x H) and the puppet constants (head ellipse, neck pivot, torso
+  ellipse, falloffs), texture folder, and its lines. One generic entity class (`PortraitEntity`), brain, item,
+  renderer and client code serve every kind; each kind gets its own entity type and item
+  `hogwartsmagic:<id>_portrait` (keep `fat_lady_portrait` ids unchanged so existing saves still load).
+- **Sir Cadogan** (`sir_cadogan`, "Sir Cadogan"): 4 wide x 2 tall, painting space 1376 x 688 (texture
+  1024 x 512). Head ellipse center (692, 120) radii (100, 115) falloff 0.8..1.45; neck pivot (692, 230);
+  torso ellipse center (690, 420) radii (230, 320) falloff 0.55..1.1; edge pin 70 px. Video frames are
+  384 x 192. Same overlay names as the Fat Lady.
+- Fat Lady kind: painting space 688 x 1376, the constants above.
+- **Mini Hogwarts**: Sir Cadogan hangs on the nearest free 4x2 wall near the library (the bookshelf cluster
+  spot), the Fat Lady stays at the Great Hall. `PortraitPlacement` takes the kind.

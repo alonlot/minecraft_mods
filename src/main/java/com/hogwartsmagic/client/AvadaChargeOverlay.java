@@ -34,7 +34,7 @@ public final class AvadaChargeOverlay {
 
     public static void render(GuiGraphics graphics) {
         Minecraft minecraft = Minecraft.getInstance();
-        if ((AvadaChargeClientState.isEmpty() && AvadaBeamClientState.isEmpty()) || minecraft.player == null
+        if ((AvadaChargeClientState.isEmpty() && SpellBeamClientState.isEmpty()) || minecraft.player == null
                 || minecraft.options.hideGui) {
             return;
         }
@@ -42,8 +42,9 @@ public final class AvadaChargeOverlay {
         double now = AvadaChargeClientState.now(partial);
         float dark = 0.0f;
         float beat = 0.0f;
-        // A Killing Curse striking close by flashes the edges of everyone's view.
-        float flash = AvadaBeamClientState.screenFlash(minecraft.gameRenderer.getMainCamera().getPosition(), now);
+        float flash = 0.0f;
+        // A heavy spell striking close by flashes the edges of everyone's view in its own colour.
+        float[] strike = SpellBeamClientState.screenFlash(minecraft.gameRenderer.getMainCamera().getPosition(), now);
         for (AvadaChargeClientState.Charge charge : AvadaChargeClientState.all()) {
             float strength = strength(charge, now);
             if (strength <= 0.0f) {
@@ -58,7 +59,7 @@ public final class AvadaChargeOverlay {
                 continue;
             }
             Entity caster = minecraft.level == null ? null : minecraft.level.getEntity(charge.entityId);
-            if (caster == null) {
+            if (caster == null || caster.isInvisibleTo(minecraft.player)) {
                 continue;
             }
             double distance = caster.distanceTo(minecraft.player);
@@ -66,7 +67,7 @@ public final class AvadaChargeOverlay {
                 dark = Math.max(dark, NEARBY_STRENGTH * strength * (float) (1.0 - distance / NEARBY_RANGE));
             }
         }
-        if (dark <= 0.003f && flash <= 0.003f) {
+        if (dark <= 0.003f && flash <= 0.003f && strike[0] <= 0.003f) {
             return;
         }
         int width = graphics.guiWidth();
@@ -80,6 +81,11 @@ public final class AvadaChargeOverlay {
         float rim = Math.max(0.28f * beat, 0.45f * flash * flash);
         if (rim > 0.003f) {
             edges(graphics, width, height, 0.07f + 0.05f * flash, rim, 0x2BFF5A);
+        }
+        if (strike[0] > 0.003f) {
+            int rgb = (Math.round(strike[1] * 255.0f) << 16) | (Math.round(strike[2] * 255.0f) << 8)
+                    | Math.round(strike[3] * 255.0f);
+            edges(graphics, width, height, 0.12f, 0.45f * strike[0] * strike[0], rgb);
         }
     }
 
@@ -146,10 +152,25 @@ public final class AvadaChargeOverlay {
         }
         double now = AvadaChargeClientState.now(0.0f);
         float squeeze = FOV_SQUEEZE * strength(charge, now);
-        if (charge.ended() && charge.endPhase() == AvadaChargeFx.FIRED) {
-            // The cast kicks the view back out past normal for a moment.
-            squeeze -= 0.06f * (1.0f - charge.aftermath(now));
-        }
         event.setNewFovModifier(event.getNewFovModifier() * (1.0f - squeeze));
+    }
+
+    /**
+     * The cast kicks the view out past normal for a moment. Per frame (ComputeFov): through the FOV modifier,
+     * which vanilla eases halfway each tick, the kick smeared into a slow drift.
+     */
+    @SubscribeEvent
+    public static void onViewportFov(net.minecraftforge.client.event.ViewportEvent.ComputeFov event) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (AvadaChargeClientState.isEmpty() || minecraft.player == null || !event.usedConfiguredFov()) {
+            return;
+        }
+        AvadaChargeClientState.Charge charge = AvadaChargeClientState.get(minecraft.player.getId());
+        if (charge == null || !charge.ended() || charge.endPhase() != AvadaChargeFx.FIRED) {
+            return;
+        }
+        float since = (float) charge.sinceEnd(AvadaChargeClientState.now((float) event.getPartialTick()));
+        float kick = since < 1.0f ? since : Math.max(0.0f, 1.0f - (since - 1.0f) / 6.0f);
+        event.setFOV(event.getFOV() * (1.0 + 0.12 * kick));
     }
 }

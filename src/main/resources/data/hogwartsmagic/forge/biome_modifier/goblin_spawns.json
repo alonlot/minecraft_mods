@@ -1,6 +1,12 @@
 {
   "type": "forge:add_spawns",
-  "biomes": "#hogwartsmagic:has_goblin",
+  "biomes": {
+    "type": "forge:and",
+    "values": [
+      "#hogwartsmagic:has_goblin",
+      { "type": "forge:not", "value": "hogwartsmagic:forbidden_forest" }
+    ]
+  },
   "spawners": [
     {
       "type": "hogwartsmagic:goblin",

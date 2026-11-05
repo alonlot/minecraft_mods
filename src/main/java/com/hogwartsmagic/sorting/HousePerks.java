@@ -73,10 +73,15 @@ public final class HousePerks {
             return;
         }
 
-        attribute.removeModifier(HUFFLEPUFF_HEALTH_MODIFIER_ID);
-        if (getHouse(player) == HogwartsHouse.HUFFLEPUFF) {
+        // Runs every player tick: only touch the attribute when the state changes. Removing and
+        // re-adding it each tick marked it dirty and sent a Hufflepuff an attribute packet every tick.
+        boolean hufflepuff = getHouse(player) == HogwartsHouse.HUFFLEPUFF;
+        boolean hasBonus = attribute.hasModifier(HUFFLEPUFF_HEALTH_MODIFIER_ID);
+        if (hufflepuff && !hasBonus) {
             AttributeModifier modifier = new AttributeModifier(HUFFLEPUFF_HEALTH_MODIFIER_ID, 4.0, AttributeModifier.Operation.ADD_VALUE);
             attribute.addTransientModifier(modifier);
+        } else if (!hufflepuff && hasBonus) {
+            attribute.removeModifier(HUFFLEPUFF_HEALTH_MODIFIER_ID);
         }
 
         if (player.getHealth() > player.getMaxHealth()) {

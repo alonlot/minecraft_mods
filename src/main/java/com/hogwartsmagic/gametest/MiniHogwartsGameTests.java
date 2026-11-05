@@ -769,6 +769,7 @@ public final class MiniHogwartsGameTests {
                  "statues": [{"at": [10, 1, 10], "yaw": 90}],
                  "pensieve": [8, 1, 3],
                  "fat_lady": {"wall": [0, 2, 12], "facing": "east"},
+                 "sir_cadogan": {"wall": [15, 2, 11], "facing": "west"},
                  "paintings": [{"at": [0, 2, 6], "facing": "east"}],
                  "banners": [{"at": [14, 3, 6], "facing": "west", "house": "gryffindor"}],
                  "hall_ceiling": {"min": [1, 1], "max": [14, 18], "y": 6},
@@ -779,9 +780,9 @@ public final class MiniHogwartsGameTests {
     }
 
     /**
-     * The anchors place each furnishing in the chunk that holds it: chest, Pensieve, banner, painting, Fat Lady,
-     * statue, student, elf and the Sorting Hat all stand where the anchors say, the painting and the Fat Lady
-     * pass the game's own {@code survives()}, and an unknown chest theme is skipped.
+     * The anchors place each furnishing in the chunk that holds it: chest, Pensieve, banner, painting, the Fat Lady
+     * and Sir Cadogan, statue, student, elf and the Sorting Hat all stand where the anchors say, the painting and the
+     * two living portraits pass the game's own {@code survives()}, and an unknown chest theme is skipped.
      */
     @GameTest(template = EMPTY, batch = "mh_furnish", timeoutTicks = 200)
     public static void anchorsFurnishTheirChunks(GameTestHelper helper) {
@@ -857,11 +858,20 @@ public final class MiniHogwartsGameTests {
             helper.assertTrue(paintings.get(0).survives(), "the painting does not survive where it hangs");
             helper.assertTrue(paintings.get(0).getDirection() == net.minecraft.core.Direction.EAST,
                     "the painting faces the way the anchor says");
-            var ladies = level.getEntitiesOfClass(com.hogwartsmagic.portrait.FatLadyPortraitEntity.class, area);
+            var portraits = level.getEntitiesOfClass(com.hogwartsmagic.portrait.PortraitEntity.class, area);
+            helper.assertTrue(portraits.size() == 2, "expected two living portraits, found " + portraits.size());
+            var ladies = portraits.stream().filter(e -> e.kind() == com.hogwartsmagic.portrait.PortraitKind.FAT_LADY).toList();
             helper.assertTrue(ladies.size() == 1, "expected one Fat Lady, found " + ladies.size());
             helper.assertTrue(ladies.get(0).survives(), "the Fat Lady does not survive where she hangs");
             helper.assertTrue(ladies.get(0).getPos().equals(anchor.offset(1, 2, 12)),
                     "the Fat Lady hangs in front of the wall block, found " + ladies.get(0).getPos());
+            var knights = portraits.stream().filter(e -> e.kind() == com.hogwartsmagic.portrait.PortraitKind.SIR_CADOGAN).toList();
+            helper.assertTrue(knights.size() == 1, "expected one Sir Cadogan, found " + knights.size());
+            helper.assertTrue(knights.get(0).survives(), "Sir Cadogan does not survive where he hangs");
+            helper.assertTrue(knights.get(0).getPos().equals(anchor.offset(14, 2, 11))
+                            && knights.get(0).getDirection() == net.minecraft.core.Direction.WEST,
+                    "Sir Cadogan hangs in front of his wall block facing west, found " + knights.get(0).getPos()
+                            + " facing " + knights.get(0).getDirection());
 
             var statues = level.getEntitiesOfClass(com.hogwartsmagic.entity.LivingStatueEntity.class, area);
             helper.assertTrue(statues.size() == 1, "expected one statue, found " + statues.size() + "; entities in the area: "
@@ -902,7 +912,7 @@ public final class MiniHogwartsGameTests {
 
     /**
      * The shipped anchors against the shipped castle: every chest, Pensieve, statue and student cell is free
-     * floor, the stool is a slab, the Fat Lady and every painting find a spot where the game's own survival rules
+     * floor, the stool is a slab, the Fat Lady, Sir Cadogan and every painting find a spot where the game's own survival rules
      * hold, and banners have a wall behind them. Reads the schematic only, so nothing is placed.
      */
     @GameTest(template = EMPTY, batch = "mh_anchor_fit", timeoutTicks = 600)

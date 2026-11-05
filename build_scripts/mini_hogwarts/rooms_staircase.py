@@ -36,7 +36,9 @@ recess framed in dark oak, its back wall the ring itself. Recesses avoid the gla
 glass); the slits the lining would cover are kept as small embrasures with a light inside, so they still glow.
 
 The Gryffindor common room (Task 6) takes the bridge tower: the top landing's door opens onto the bridge, and the
-whole bridge and tower beyond are Gryffindor's. The Fat Lady hangs beside that door, facing into the well.
+whole bridge and tower beyond are Gryffindor's. The Fat Lady hangs beside that door, facing into the well. Sir Cadogan,
+the second living portrait, hangs at the other end of the climb: on the entrance hall's imperial landing, beside the
+door into the well (an anchor only; no block changes for him).
 
 Only the tower's inside changes: the well (the ring's interior), the inner face of the ring at the frames and the
 Fat Lady's wall, the door cut through the ring's north face (hidden against the entrance hall), and the cone's pole.
@@ -87,6 +89,13 @@ GRYFFINDOR_DOOR = (61, TOP_FEET, 155)  # the sham door's cell on the ring's inne
 BRIDGE_FAR_END = (61, TOP_FEET, 170)   # the bridge's last free cell, in front of the bridge tower's door
 FAT_LADY_WALL = (60, TOP_FEET + 2, 155)
 FAT_LADY_CELLS = [(x, y, 154) for x in (59, 60) for y in range(TOP_FEET + 1, TOP_FEET + 5)]
+# Sir Cadogan (a 4 x 2 canvas, PortraitKind.SIR_CADOGAN) guards the way in: on the imperial landing, on the entrance
+# hall's far wall (z 138) just west of the entry door's andesite jamb, his bottom edge a block above the landing and the
+# house banners hanging clear above him. The wall is the set's own stone brick, left as it is (his canvas carries its
+# own gilded frame). A portrait's anchor names the wall block behind its tile cell; a 4-wide canvas covers the tile cell,
+# the cell to its left and the two to its right (facing north, right is west), up to one block above the tile cell.
+SIR_CADOGAN_WALL = (57, FIRST_FEET + 1, 138)
+SIR_CADOGAN_CELLS = [(x, y, 137) for x in range(55, 59) for y in (FIRST_FEET + 1, FIRST_FEET + 2)]
 
 # One walkable cell on each landing, for the reachability check.
 LANDING_CELLS = {
@@ -477,7 +486,7 @@ STATUE_CELLS = (
 
 
 def place_staircase(grid):
-    """Build the Grand Staircase into the castle grid. Returns {'paintings', 'statues', 'fat_lady'} and the candle
+    """Build the Grand Staircase into the castle grid. Returns {'paintings', 'statues', 'fat_lady', 'sir_cadogan'} and the candle
     box under 'candles' (each a list or record to merge into the castle's anchors)."""
     clear_well(grid)
     sealed = floor_and_seal(grid)
@@ -498,4 +507,5 @@ def place_staircase(grid):
         'statues': [{'at': list(c), 'yaw': _yaw_to_axis(c[0], c[2])} for c in STATUE_CELLS],
         'paintings': paintings,
         'fat_lady': {'wall': list(FAT_LADY_WALL), 'facing': 'north'},
+        'sir_cadogan': {'wall': list(SIR_CADOGAN_WALL), 'facing': 'north'},
     }

@@ -156,6 +156,7 @@ T_HAT_B = 106.4       # the hat comes down
 T_CLOSE = 106.3       # eyes_close to the end
 CHEER_H = T_SHOUT_H + SHOUT_LEN + 0.05
 CHEER_R = T_SHOUT_R + SHOUT_LEN + 0.05
+END_T = tk(LENGTH)    # the length (ticks) of the scene being built: limb and clip keys stop there (set per scene)
 
 # ================================================================ places (scene coordinates)
 HINGE_N, HINGE_S = A['doors_hinge_n'], A['doors_hinge_s']          # [65, 0, -3.5], [65, 0, 4.5]
@@ -224,7 +225,7 @@ class Channel:
         out = [(0, ch[0][1])]
         prev = ch[0][1]
         last = 0
-        end = tk(LENGTH)
+        end = END_T
         for t, v, dur, hold, _ in ch[1:]:
             tt = tk(t)
             if tt >= end - 1:
@@ -285,7 +286,7 @@ class Clips:
         out, last = [], -1
         for t, name, blend in sorted(self.cues, key=lambda c: c[0]):
             tt = max(tk(t), last + 1)
-            if tt > tk(LENGTH):
+            if tt > END_T:
                 break
             k = {'t': tt, 'name': name}
             if blend:
@@ -972,6 +973,7 @@ h_clips.span(S['D3'] + 1.0, S['D3'] + 3.8, 'WAVE', 6, 10)              # a big w
 h_clips.span(CHEER_H + 0.3, CHEER_H + 4.2, 'CHEER', 4, 10)
 h_clips.span(CHEER_R + 0.4, CHEER_R + 3.4, 'CLAP', 4, 8)
 staff_seated('hagrid', 'hagrid', STAFF[7], GIANT, h_life, clips=h_clips)
+TEACHER_SKIN = 'hooch'           # Madam Hooch (not the 'sirius' skin: in 1991 Sirius Black was in Azkaban)
 t_life = Life()
 staff_idle(t_life, random.Random(13), (2.5, 5.5), 35, busy=[(7.5, 11.5), (29.5, 33.5)])
 t_clips = Clips()
@@ -979,7 +981,7 @@ t_clips.span(8.0, 11.2, 'TALK', 8, 8)                    # chatting with the emp
 t_clips.span(30.0, 33.0, 'TALK', 8, 8)
 t_clips.span(CHEER_H + 1.0, CHEER_H + 3.2, 'CLAP', 5, 8)
 t_clips.span(CHEER_R + 0.8, CHEER_R + 2.6, 'CLAP', 5, 8)
-staff_seated('teacher', 'sirius', STAFF[3], ADULT, t_life, clips=t_clips)
+staff_seated('teacher', TEACHER_SKIN, STAFF[3], ADULT, t_life, clips=t_clips)
 
 # ================================================================ the house tables
 SEATS = A['table_seats']
@@ -1249,6 +1251,12 @@ def subtitle(t, line):
     return {'t': tk(t), 'text': text, 'subtitle': True, 'speaker': who, 'duration': max(20, tk(secs))}
 
 
+# The hat's house shouts (sounds/sorting/<house>.ogg), voiced by the server at SORTED just before the hand-over to the
+# reveal: the reveal's clock starts at least HANDOVER_FADE ticks later (PensieveSessions.HANDOVER_FADE_TICKS).
+SHOUT_SECS = {'gryffindor': 2.68, 'hufflepuff': 3.35, 'ravenclaw': 3.74, 'slytherin': 2.82}
+HANDOVER_FADE = 20
+
+
 def _check_clip_lengths():
     import shutil
     import subprocess
@@ -1257,7 +1265,9 @@ def _check_clip_lengths():
         print('note: ffprobe not found, subtitle lengths not re-measured')
         return
     snd = os.path.join(os.path.dirname(MEMORIES), '..', '..', 'assets', 'hogwartsmagic', 'sounds')
-    for line, (_, _, secs, rel) in LINES.items():
+    clips = dict(LINES)
+    clips.update({'shout_' + h: (None, None, secs, 'sorting/' + h) for h, secs in SHOUT_SECS.items()})
+    for line, (_, _, secs, rel) in clips.items():
         f = os.path.normpath(os.path.join(snd, rel + '.ogg'))
         out = subprocess.run([exe, '-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', f],
                              capture_output=True, text=True).stdout.strip()
@@ -1745,8 +1755,8 @@ print('wrote %s.json: %d chars (cap %d), %d actors (%d students), %d events, %d 
 HALL_SUMMARY = (n_chars, tk(LENGTH))
 
 # ================================================================ the reveals (sorting_reveal_<house>)
-# The hall again, from the boy's own eyes on the stool, the hat on his head: black, his new house's table roaring
-# (the hat's shout itself is played by the server at SORTED), the eyes open a slit onto the hall with that table up
+# The hall again, from the boy's own eyes on the stool, the hat on his head: black, the hat's shout (played by the
+# server at SORTED), then his new house's table roaring, the eyes open a slit onto the hall with that table up
 # and cheering and the rest clapping, McGonagall beside him; the eyes close and he wakes in the real world.
 R_LEN = 160                       # ticks
 R_PEEK, R_PEEK_DUR = 92, 58       # shut again by 150, ten ticks before the end
@@ -1755,8 +1765,9 @@ HOUSES = ('gryffindor', 'hufflepuff', 'ravenclaw', 'slytherin')
 
 
 def reveal_scene(house):
-    global actors, LEGS, SIT_WINDOWS
+    global actors, LEGS, SIT_WINDOWS, END_T
     actors, LEGS, SIT_WINDOWS = [], [], {}
+    END_T = R_LEN
     rt = R_LEN / 20.0
     # the doors stand open
     for aid, atype, hinge, yaw in (('door_north', 'hogwartsmagic:memory_door', HINGE_N, -180),
@@ -1797,14 +1808,16 @@ def reveal_scene(house):
             c.cue(random.Random(aid + house).uniform(0.3, 2.0), 'CLAP', 4)
         LEGS.append(('hold', aid, 0.0, seat, None, BENCH_YAW, KID, -90))
         life = Life()
-        life['head'].change(0.0, [4, -60, 0], 0.0)                  # looking along the aisle to the stool
+        # looking along the aisle at the boy on the stool (on their right, at -X: about +80 of yaw from the bench's)
+        Gaze([seat[0], 0.5, seat[2], BENCH_YAW], KID, life).at(0.0, [STOOL[0], STOOL_ROOT_KID[1] + EYE * KID,
+                                                                     STOOL[2]], 0.0)
         actor(aid, {'texture': aid}, KID, path=[{'t': 0, 'pos': seat}], look=[{'t': 0, 'yaw': BENCH_YAW}],
               life=life, pose_cues=[pose(0, 'seated', 1)], clips=c)
     # the staff
     for aid, skin, si, scale, clip in (('snape', 'snape', 4, ADULT, 'CLAP' if house == 'slytherin' else None),
                                        ('quirrell', 'quirrell', 6, ADULT, 'CLAP'),
                                        ('hagrid', 'hagrid', 7, GIANT, 'CHEER' if house == 'gryffindor' else 'CLAP'),
-                                       ('teacher', 'sirius', 3, ADULT, 'CLAP')):
+                                       ('teacher', TEACHER_SKIN, 3, ADULT, 'CLAP')):
         c = Clips()
         if clip:
             c.cue(random.Random(aid + house).uniform(0.4, 2.0), clip, 4)
@@ -1838,12 +1851,17 @@ def reveal_scene(house):
             actor(aid, {'texture': skins[k % len(skins)]}, OLD, path=[{'t': 0, 'pos': root}], look=g.look_json(),
                   life=life, pose_cues=[pose(0, 'seated_table', 1)], clips=c)
             LEGS.append(('hold', aid, 0.0, root, None, yaw, OLD, -65))
+    # the table roars only once the hat's shout has finished (as in the hall), even when the hand-over is quick
+    cheer0 = math.ceil(SHOUT_SECS[house] * 20) - HANDOVER_FADE + 2
+    assert 0 < cheer0 < 66
     ev_ = [{'t': 0, 'kind': 'effect', 'id': 'eyes_close', 'at': [0, 0, 0], 'duration': 1},
            {'t': 0, 'kind': 'effect', 'id': 'enchanted_ceiling', 'at': A['ceiling_center'],
             'spread': A['ceiling_spread'], 'duration': 1, 'style': 'storm'},
-           {'t': 4, 'kind': 'sfx', 'id': SFX + 'cheer_big', 'volume': 1.0},
-           {'t': 66, 'kind': 'sfx', 'id': SFX + 'cheer_big', 'volume': 0.9},
-           {'t': R_PEEK, 'kind': 'effect', 'id': 'eyes_peek', 'at': [0, 0, 0], 'duration': R_PEEK_DUR,
+           {'t': cheer0, 'kind': 'sfx', 'id': SFX + 'cheer_big', 'volume': 1.0}]
+    # the second roar layers the same 4.7 s clip; under 1 s after the first it only sounds like an echo, so skip it
+    if 66 - cheer0 >= 20:
+        ev_.append({'t': 66, 'kind': 'sfx', 'id': SFX + 'cheer_big', 'volume': 0.9})
+    ev_ += [{'t': R_PEEK, 'kind': 'effect', 'id': 'eyes_peek', 'at': [0, 0, 0], 'duration': R_PEEK_DUR,
             'intensity': 0.35}]
     for c in SKIRT_SIGNS:
         ev_.append({'t': 0, 'kind': 'block', 'id': 'minecraft:air', 'at': c})
@@ -1930,6 +1948,7 @@ def void_checks(scene, sid):
 
 # ---- sorting: the mind intro (12 s), Stage 1's stub grown
 I_LEN = 12.0
+END_T = tk(I_LEN)
 i_life = Life()
 i_life['head'].change(2.8, [8, 0, 0], 1.2)
 i_life['head'].change(5.0, [-6, -18, 0], 1.6)       # he glances up and aside, as if at the voice
@@ -1938,9 +1957,9 @@ i_events = [{'t': 0, 'kind': 'effect', 'id': 'eyes_open', 'at': [0, 0, 0], 'dura
             {'t': tk(1.4), 'kind': 'voice', 'id': VOICE + 'hat_open', 'volume': 1.0}] + wisps(0.4, I_LEN - 0.8, 1991)
 i_cam = []
 for i in range(7):                                        # a slow orbit, closing in a little
-    f = i / 6
+    f = i / 6                                            # spline keys: no corner at a key, no stop before the end
     i_cam.append(orbit_key(I_LEN * f, -120 + 95 * f, 3.4 - 0.9 * f, 1.75 - 0.25 * f, 56 - 8 * f,
-                           'linear' if 0 < i < 6 else None))
+                           'spline' if i else None))
 intro = {
     'title': 'The Sorting',
     'length': tk(I_LEN),
@@ -1968,6 +1987,7 @@ INTRO_SUMMARY = (n_chars, tk(I_LEN))
 # lines of its own: only the boy in his chair with the hat on, the light, the wisps and a slow orbit. It starts and
 # ends on the same camera key and pose, so a loop is seamless; no eyes effect (the hand-over fades in from black).
 C_LEN = 600.0
+END_T = tk(C_LEN)                                        # the boy's head and hands keep moving for all 10 min
 c_life = Life()
 c_clips = Clips()
 rc_ = random.Random('choice')
@@ -1988,7 +2008,7 @@ for i in range(N_ORBIT + 1):                             # one full turn round h
     f = i / N_ORBIT
     c_cam.append(orbit_key(C_LEN * f, -150 + 360 * f, 3.1 + 0.4 * math.sin(f * 6 * math.pi),
                            1.7 + 0.25 * math.sin(f * 4 * math.pi), 52 + 4 * math.sin(f * 2 * math.pi),
-                           'linear' if 0 < i < N_ORBIT else None))
+                           'spline' if i else None))
 choice = {
     'title': 'The Sorting',
     'length': tk(C_LEN),

@@ -860,7 +860,10 @@ public class HouseElfEntity extends PathfinderMob {
 
         @Override
         public boolean canContinueToUse() {
+            // The level check matters: a ServerPlayer keeps its instance through a dimension change, and the tick
+            // below would otherwise Apparate the elf to the master's new coordinates inside this level.
             return this.master != null && this.master.isAlive() && !HouseElfEntity.this.isWild()
+                    && this.master.level() == HouseElfEntity.this.level()
                     && HouseElfEntity.this.distanceToSqr(this.master) > STOP_DISTANCE * STOP_DISTANCE
                     && !this.masterFrightens();
         }
@@ -887,10 +890,21 @@ public class HouseElfEntity extends PathfinderMob {
 
             if (HouseElfEntity.this.distanceToSqr(this.master) > APPARATE_DISTANCE * APPARATE_DISTANCE
                     && HouseElfEntity.this.level() instanceof ServerLevel server) {
-                spawnApparitionParticles(server, HouseElfEntity.this.position());
                 Vec3 beside = this.master.position().add(
                         HouseElfEntity.this.random.nextDouble() * 2.0D - 1.0D, 0.0D,
                         HouseElfEntity.this.random.nextDouble() * 2.0D - 1.0D);
+                // Only into open space: in a tunnel the random offset can land inside the wall,
+                // so it falls back to the master's own footing, and failing that keeps walking.
+                if (!server.noCollision(HouseElfEntity.this, HouseElfEntity.this.getType().getSpawnAABB(
+                        beside.x, beside.y, beside.z))) {
+                    beside = this.master.position();
+                    if (!server.noCollision(HouseElfEntity.this, HouseElfEntity.this.getType().getSpawnAABB(
+                            beside.x, beside.y, beside.z))) {
+                        HouseElfEntity.this.getNavigation().moveTo(this.master, 1.15D);
+                        return;
+                    }
+                }
+                spawnApparitionParticles(server, HouseElfEntity.this.position());
                 HouseElfEntity.this.teleportTo(beside.x, beside.y, beside.z);
                 spawnApparitionParticles(server, HouseElfEntity.this.position());
                 HouseElfEntity.this.playSound(ModSounds.HOUSE_ELF_CRACK.get(), 0.6F, 1.2F);

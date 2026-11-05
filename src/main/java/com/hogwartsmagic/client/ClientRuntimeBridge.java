@@ -48,7 +48,15 @@ public final class ClientRuntimeBridge {
             case "cloakTransition" -> cloakTransition((SpellPackets.CloakTransitionPacket) payload);
             case "patronusShieldState" -> patronusShieldState((SpellPackets.PatronusShieldStatePacket) payload);
             case "avadaCharge" -> AvadaChargeClientState.accept((SpellPackets.AvadaChargePacket) payload);
-            case "avadaImpact" -> AvadaBeamClientState.acceptImpact((SpellPackets.AvadaImpactPacket) payload);
+            case "beamImpact" -> SpellBeamClientState.acceptImpact((SpellPackets.BeamImpactPacket) payload);
+            case "beamClash" -> SpellBeamClientState.acceptClash((SpellPackets.BeamClashPacket) payload);
+            case "castMotion" -> CastMotions.accept((SpellPackets.CastMotionPacket) payload);
+            case "hitReaction" -> HitReactions.accept((SpellPackets.HitReactionPacket) payload);
+            case "prioriLock" -> PrioriClient.accept((SpellPackets.PrioriLockPacket) payload);
+            case "travelFx" -> TravelFxClient.accept((SpellPackets.TravelFxPacket) payload);
+            case "musicSting" -> MusicStingClient.accept((SpellPackets.MusicStingPacket) payload);
+            case "crucioChannel" -> CrucioClient.accept((SpellPackets.CrucioChannelPacket) payload);
+            case "aquaStream" -> AquaStreamClient.accept((SpellPackets.AquaStreamPacket) payload);
             case "protegoShield" -> protegoShield((SpellPackets.ProtegoShieldPacket) payload);
             case "incarcerousRopes" -> IncarcerousRopesClientState.accept((SpellPackets.IncarcerousRopesPacket) payload);
             case "openApparitionMap" -> openApparitionMap((SpellPackets.OpenApparitionMapPacket) payload);
@@ -164,12 +172,18 @@ public final class ClientRuntimeBridge {
             return;
         }
 
-        ItemStack revealStack = switch (packet.house()) {
-            case GRYFFINDOR -> new ItemStack(ExampleMod.GRYFFINDOR_HOUSE_REVEAL.get());
-            case RAVENCLAW -> new ItemStack(ExampleMod.RAVENCLAW_HOUSE_REVEAL.get());
-            case HUFFLEPUFF -> new ItemStack(ExampleMod.HUFFLEPUFF_HOUSE_REVEAL.get());
-            case SLYTHERIN -> new ItemStack(ExampleMod.SLYTHERIN_HOUSE_REVEAL.get());
-        };
+        // if-chain, not an enum switch: the synthetic switch-map class fails to load in client code here.
+        com.hogwartsmagic.sorting.HogwartsHouse house = packet.house();
+        ItemStack revealStack;
+        if (house == com.hogwartsmagic.sorting.HogwartsHouse.GRYFFINDOR) {
+            revealStack = new ItemStack(ExampleMod.GRYFFINDOR_HOUSE_REVEAL.get());
+        } else if (house == com.hogwartsmagic.sorting.HogwartsHouse.RAVENCLAW) {
+            revealStack = new ItemStack(ExampleMod.RAVENCLAW_HOUSE_REVEAL.get());
+        } else if (house == com.hogwartsmagic.sorting.HogwartsHouse.HUFFLEPUFF) {
+            revealStack = new ItemStack(ExampleMod.HUFFLEPUFF_HOUSE_REVEAL.get());
+        } else {
+            revealStack = new ItemStack(ExampleMod.SLYTHERIN_HOUSE_REVEAL.get());
+        }
 
         minecraft.gameRenderer.displayItemActivation(revealStack);
         minecraft.player.playSound(SoundEvents.TOTEM_USE, 1.0f, 1.0f);

@@ -267,12 +267,13 @@ public enum SpellType {
                 boolean wasBurning = target.isOnFire();
                 net.minecraft.world.phys.Vec3 push = target.position().vectorTo(
                         caster != null ? caster.position() : target.position().add(0, 0, -5))
-                        .normalize().scale(-1.15);
+                        .normalize().scale(-2.2);
                 if (wasBurning) {
                     triggerSteamCombo(target, caster);
                 }
                 target.clearFire(); // Extinguish target
-                target.push(push.x, 0.28, push.z);
+                target.push(push.x, 0.42, push.z);
+                target.hurtMarked = true; // a player is only knocked back once the motion is sent
                 target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 50, 1));
                 if (target instanceof net.minecraft.world.entity.monster.Blaze || target instanceof net.minecraft.world.entity.monster.MagmaCube) {
                     target.hurt(target.damageSources().drown(), scaledSpellDamage(caster, 15.0f)); // Super effective against fire mobs
@@ -280,16 +281,24 @@ public enum SpellType {
                 if (target.level().isRainingAt(target.blockPosition())) {
                     target.push(push.x * 0.35, 0.1, push.z * 0.35);
                 }
+                // Player motion is client-authoritative: the beam's chip hit only marks the target when it
+                // lands outside its i-frames, so mark it here or a player never feels the wave.
+                target.hurtMarked = true;
             }
             case OBLIVIATE -> com.hogwartsmagic.spell.mind.ObliviateSpell.apply(target, caster);
             case ASCENDIO -> {
                 target.setDeltaMovement(target.getDeltaMovement().add(0, 1.5, 0));
+                // Player motion is client-authoritative: without hurtMarked the launch never reaches a player's client.
+                target.hurtMarked = true;
                 if (target.level() instanceof ServerLevel server) {
                     net.minecraft.world.phys.AABB area = target.getBoundingBox().inflate(2.4);
-                    java.util.List<LivingEntity> launched = server.getEntitiesOfClass(LivingEntity.class, area, e -> e != target);
+                    Entity responsible = com.hogwartsmagic.spell.combat.CombatEffects.responsible(caster);
+                    java.util.List<LivingEntity> launched = server.getEntitiesOfClass(LivingEntity.class, area,
+                            e -> e != target && e != responsible);
                     for (LivingEntity nearby : launched) {
                         nearby.setDeltaMovement(nearby.getDeltaMovement().add(0, 1.1, 0));
                         nearby.fallDistance = 0.0f;
+                        nearby.hurtMarked = true;
                     }
                 }
             }
@@ -376,7 +385,7 @@ public enum SpellType {
             case LEVICORPUS -> ModSounds.SPELL_WINGARDIUM_LEVIOSA.get();
             case DIFFINDO -> ModSounds.SPELL_SECTUMSEMPRA.get(); // Sharp sound
             case PETRIFICUS_TOTALUS -> ModSounds.SPELL_STUPEFY.get(); // Stun sound
-            case AQUA_ERUCTO -> ModSounds.SPELL_GLACIUS.get();
+            case AQUA_ERUCTO -> ModSounds.SPELL_AQUA.get();
             case OBLIVIATE -> ModSounds.SPELL_REVELIO.get();
             case ASCENDIO -> ModSounds.SPELL_ACCIO.get(); // Whoosh sound
             case CONFUNDO -> ModSounds.SPELL_IMPERIO.get();
@@ -417,8 +426,11 @@ public enum SpellType {
         }
         target.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 40, 0));
         if (target.level() instanceof ServerLevel sl) {
-            sl.sendParticles(ParticleTypes.CLOUD, target.getX(), target.getY() + 1.0, target.getZ(), 20, 0.35, 0.25, 0.35, 0.01);
-            sl.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, target.getX(), target.getY() + 0.8, target.getZ(), 12, 0.25, 0.2, 0.25, 0.01);
+            // Water on fire: a burst of steam, drawn by hand on the clients.
+            com.hogwartsmagic.spell.SpellBeamFx.effectAt(sl, AQUA_ERUCTO,
+                    target.position().add(0.0, target.getBbHeight() * 0.6, 0.0), com.hogwartsmagic.spell.SpellBeamFx.STEAM);
+            sl.playSound(null, target.getX(), target.getY(), target.getZ(),
+                    net.minecraft.sounds.SoundEvents.FIRE_EXTINGUISH, net.minecraft.sounds.SoundSource.PLAYERS, 1.0f, 0.7f);
         }
     }
 }

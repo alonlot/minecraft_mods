@@ -7,7 +7,7 @@
 2. Picks the take whose words match the clip's and need the least stretching, then time-stretches it piece by
    piece so every word starts where her lips say it (atempo, so the pitch stays).
 3. Writes that as sounds/portrait/<name>/<key>.ogg, starting at the clip's first frame.
-4. Cuts the video to a 1:2 canvas and saves 192x384 frames at 12 fps to
+4. Cuts the video to the canvas shape (1:2 tall: 192x384 frames, 2:1 wide: 384x192) at 12 fps, saved to
    textures/entity/portrait/<name>/clips/<clip>/NNN.png.
 5. Records frames/fps in portraits/<name>.json and the line's length + mouth envelope.
 """
@@ -17,9 +17,10 @@ import numpy as np
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 HERE = os.path.dirname(os.path.abspath(__file__))
 ASSETS = os.path.join(ROOT, "src", "main", "resources", "assets", "hogwartsmagic")
-SR, FPS, FRAME = 16000, 12, (192, 384)
+SR, FPS = 16000, 12
 sys.path.insert(0, HERE)
 from make_voice import write_meta  # noqa: E402
+from make_textures import PORTRAITS  # noqa: E402
 
 
 def load(path):
@@ -110,9 +111,11 @@ def main(name, clip, key, mp4):
     frames = os.path.join(ASSETS, "textures", "entity", "portrait", name, "clips", clip)
     shutil.rmtree(frames, ignore_errors=True)
     os.makedirs(frames)
+    w, h = PORTRAITS[name]["size"]
+    crop, size = ("ih/2:ih", "192:384") if h > w else ("iw:iw/2", "384:192")
     # one 256-colour palette for the whole clip: ~5x smaller than truecolour and no palette flicker
     subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", mp4, "-filter_complex",
-                    f"fps={FPS},crop=ih/2:ih,scale={FRAME[0]}:{FRAME[1]}:flags=area,split[a][b];"
+                    f"fps={FPS},crop={crop},scale={size}:flags=area,split[a][b];"
                     "[a]palettegen=max_colors=256:stats_mode=full[p];[b][p]paletteuse=dither=bayer:bayer_scale=4",
                     os.path.join(frames, "%03d.png")], check=True)
     # ffmpeg numbers from 001; shift to 000-based

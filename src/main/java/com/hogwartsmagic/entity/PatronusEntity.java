@@ -106,6 +106,15 @@ public class PatronusEntity extends PathfinderMob {
         }
         tag.putBoolean(TAG_AURA, this.masterAura);
         tag.putInt(TAG_LIFESPAN, this.lifespan);
+        // The light blocks it placed are only removed by this entity, and an unload never calls remove():
+        // saved with it so a reloaded Patronus still clears them, instead of leaving permanent invisible lights.
+        if (this.lastLightPos != null) {
+            tag.putLong("LightPos", this.lastLightPos.asLong());
+        }
+        if (!this.pulseLightBlocks.isEmpty()) {
+            tag.putLongArray("PulseLights", this.pulseLightBlocks.keySet().stream()
+                    .mapToLong(net.minecraft.core.BlockPos::asLong).toArray());
+        }
     }
 
     @Override
@@ -116,6 +125,11 @@ public class PatronusEntity extends PathfinderMob {
         this.masterAura = tag.getBoolean(TAG_AURA);
         if (tag.contains(TAG_LIFESPAN)) {
             this.lifespan = tag.getInt(TAG_LIFESPAN);
+        }
+        this.lastLightPos = tag.contains("LightPos") ? net.minecraft.core.BlockPos.of(tag.getLong("LightPos")) : null;
+        this.pulseLightBlocks.clear();
+        for (long packed : tag.getLongArray("PulseLights")) {
+            this.pulseLightBlocks.put(net.minecraft.core.BlockPos.of(packed), 1);
         }
     }
 
@@ -378,7 +392,8 @@ public class PatronusEntity extends PathfinderMob {
                     double distance = Math.sqrt((x * x) + (z * z));
                     if (distance > radius - 0.6D && distance < radius + 0.6D) {
                         net.minecraft.core.BlockPos p = center.offset(x, y, z);
-                        if (this.level().getBlockState(p).isAir()) {
+                        // A 30-block ring can reach past loaded terrain: never load a chunk for a flash of light.
+                        if (this.level().isLoaded(p) && this.level().getBlockState(p).isAir()) {
                             this.level().setBlock(p, com.hogwartsmagic.ExampleMod.PATRONUS_LIGHT_BLOCK.get().defaultBlockState(), 3);
                             pulseLightBlocks.put(p, 6); // brief flash on moving ring only
                         }
@@ -412,7 +427,8 @@ public class PatronusEntity extends PathfinderMob {
             int ttl = entry.getValue() - 1;
             if (ttl <= 0) {
                 net.minecraft.core.BlockPos pos = entry.getKey();
-                if (this.level().getBlockState(pos).is(com.hogwartsmagic.ExampleMod.PATRONUS_LIGHT_BLOCK.get())) {
+                if (this.level().isLoaded(pos)
+                        && this.level().getBlockState(pos).is(com.hogwartsmagic.ExampleMod.PATRONUS_LIGHT_BLOCK.get())) {
                     this.level().removeBlock(pos, false);
                 }
                 it.remove();
@@ -424,7 +440,8 @@ public class PatronusEntity extends PathfinderMob {
 
     private void cleanupPulseLights() {
         for (net.minecraft.core.BlockPos pos : pulseLightBlocks.keySet()) {
-            if (this.level().getBlockState(pos).is(com.hogwartsmagic.ExampleMod.PATRONUS_LIGHT_BLOCK.get())) {
+            if (this.level().isLoaded(pos)
+                    && this.level().getBlockState(pos).is(com.hogwartsmagic.ExampleMod.PATRONUS_LIGHT_BLOCK.get())) {
                 this.level().removeBlock(pos, false);
             }
         }

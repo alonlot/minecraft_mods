@@ -389,7 +389,11 @@ public class CaveInimicumWardBlockEntity extends BlockEntity {
         CaveInimicumWardBounds bounds = snapshot.bounds();
         actualStateCache = new int[bounds.volume()];
         for (int i = 0; i < actualStateCache.length; i++) {
-            actualStateCache[i] = net.minecraft.world.level.block.Block.getId(level.getBlockState(bounds.posAtIndex(i)));
+            BlockPos pos = bounds.posAtIndex(i);
+            // Never load a chunk for this; an unloaded corner is picked up by the next scan once loaded.
+            actualStateCache[i] = level.isLoaded(pos)
+                    ? net.minecraft.world.level.block.Block.getId(level.getBlockState(pos))
+                    : snapshot.stateIdAt(pos);
         }
     }
 
@@ -556,6 +560,11 @@ public class CaveInimicumWardBlockEntity extends BlockEntity {
         if (!state.hasProperty(WardBlock.LIT)) {
             return;
         }
+        // Deactivated from WardBlock.onRemove, the level already holds the replacing block: setting the
+        // ward back here would undo the break.
+        if (isRemoved() || level.getBlockState(worldPosition) != state) {
+            return;
+        }
         boolean shouldBeLit = !isIdle();
         if (state.getValue(WardBlock.LIT) != shouldBeLit) {
             level.setBlock(worldPosition, state.setValue(WardBlock.LIT, shouldBeLit), Block.UPDATE_CLIENTS);
@@ -611,6 +620,11 @@ public class CaveInimicumWardBlockEntity extends BlockEntity {
         outlineTicks = Math.max(0, tag.getInt("OutlineTicks"));
         ownerUuid = tag.hasUUID("Owner") ? tag.getUUID("Owner") : null;
         snapshot = tag.contains("Snapshot") ? CaveInimicumSnapshot.load(tag.getCompound("Snapshot")) : null;
+        // A ward copied elsewhere with its NBT (/clone, a structure template) keeps the old centre: its
+        // bounds() are taken from worldPosition, so indexing the snapshot by them would run off the array.
+        if (snapshot != null && !snapshot.center().equals(worldPosition)) {
+            snapshot = null;
+        }
         actualStateCache = snapshot == null ? null : snapshot.copyStateIds();
     }
 
@@ -632,9 +646,8 @@ public class CaveInimicumWardBlockEntity extends BlockEntity {
         if (ownerUuid != null) {
             tag.putUUID("Owner", ownerUuid);
         }
-        if (snapshot != null) {
-            tag.put("Snapshot", snapshot.save());
-        }
+        // No snapshot here: nothing on the client reads it, and at the 64-block maximum it is a
+        // 1 MB int array that went out with every chunk send and every ward click.
         return tag;
     }
 

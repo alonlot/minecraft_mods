@@ -5,7 +5,7 @@
   "compatibilityLevel": "JAVA_21",
   "mixins": [
     "OverworldBiomeBuilderMixin",
-    "SurfaceRuleDataMixin",
+    "NoiseGeneratorSettingsMixin",
     "PlayerChunkSenderMixin",
     "LivingEntityStunMixin",
     "ServerGamePacketListenerMixin",
@@ -41,7 +41,8 @@
     "client.ActorPoseMixin",
     "client.LevelRendererAccessor",
     "client.PensieveOcclusionGraphMixin",
-    "client.PensieveTimeSyncMixin"
+    "client.PensieveTimeSyncMixin",
+    "client.ItemInHandRendererInvoker"
   ],
   "injectors": {
     "defaultRequire": 1

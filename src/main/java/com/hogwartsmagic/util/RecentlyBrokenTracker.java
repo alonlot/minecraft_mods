@@ -47,6 +47,11 @@ public final class RecentlyBrokenTracker {
 
     private RecentlyBrokenTracker() {}
 
+    /** Drop every record. Called when the server stops, so a singleplayer JVM never carries breaks into the next world. */
+    public static synchronized void clear() {
+        RECORDS.clear();
+    }
+
     /**
      * Record a freshly-broken block. {@code state} should be the state that existed
      * before the break (Forge's BlockEvent.BreakEvent gives the right one).

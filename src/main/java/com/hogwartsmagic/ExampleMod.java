@@ -570,6 +570,7 @@ public class ExampleMod
     public static final RegistryObject<Block> PATRONUS_LIGHT_BLOCK = BLOCKS.register("patronus_light_block", 
             () -> new com.hogwartsmagic.block.PatronusLightBlock(
                     BlockBehaviour.Properties.of()
+                            .replaceable() // a stray light must never stop a player building there
                             .noCollission()
                             .noLootTable()
                             .instabreak()
@@ -1261,6 +1262,7 @@ public class ExampleMod
         LOOT_MODIFIER_SERIALIZERS.register(modEventBus);
         // Register sounds
         ModSounds.SOUND_EVENTS.register(modEventBus);
+        ModParticles.register(modEventBus);
 
         // Register ourselves for server and other game events we are interested in
         MinecraftForge.EVENT_BUS.register(this);

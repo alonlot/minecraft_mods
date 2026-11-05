@@ -16,20 +16,18 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Registers the living portraits (entity type, item, one sound per line) from its own subscriber, so nothing in
- * {@code ExampleMod} has to know about them. Everything is constructed INSIDE the {@link RegisterEvent}: entity
- * types and items take intrusive holders and must be built while their registry is still open.
+ * Registers the living portraits (an entity type and an item per {@link PortraitKind}, one sound per line) from its
+ * own subscriber, so nothing in {@code ExampleMod} has to know about them. Everything is constructed INSIDE the
+ * {@link RegisterEvent}: entity types and items take intrusive holders and must be built while their registry is
+ * still open.
  *
  * <p>Common code: no client classes in here.
  */
 @Mod.EventBusSubscriber(modid = ExampleMod.MODID, bus = Mod.EventBusSubscriber.Bus.MOD)
 public final class PortraitRegistry {
-    public static final String FAT_LADY_ID = "fat_lady_portrait";
-
     /** Filled by the register event; read them only after registration (entity creation, item use, rendering). */
-    public static EntityType<FatLadyPortraitEntity> FAT_LADY_TYPE;
-    public static Item FAT_LADY_ITEM;
-
+    private static final Map<String, EntityType<PortraitEntity>> TYPES = new HashMap<>();
+    private static final Map<String, Item> ITEMS = new HashMap<>();
     private static final Map<String, SoundEvent> LINE_SOUNDS = new HashMap<>();
 
     private PortraitRegistry() {
@@ -38,38 +36,62 @@ public final class PortraitRegistry {
     @SubscribeEvent
     public static void onRegister(RegisterEvent event) {
         event.register(Registries.ENTITY_TYPE, helper -> {
-            FAT_LADY_TYPE = EntityType.Builder.<FatLadyPortraitEntity>of(FatLadyPortraitEntity::new, MobCategory.MISC)
-                    .sized(0.5f, 0.5f)
-                    .eyeHeight(0.0f)
-                    .clientTrackingRange(10)
-                    .updateInterval(Integer.MAX_VALUE) // never moves: only its synced data is sent
-                    .build(FAT_LADY_ID);
-            helper.register(id(FAT_LADY_ID), FAT_LADY_TYPE);
+            for (PortraitKind kind : PortraitKind.ALL) {
+                EntityType<PortraitEntity> type = EntityType.Builder
+                        .<PortraitEntity>of((t, level) -> new PortraitEntity(t, level, kind), MobCategory.MISC)
+                        .sized(0.5f, 0.5f)
+                        .eyeHeight(0.0f)
+                        .clientTrackingRange(10)
+                        .updateInterval(Integer.MAX_VALUE) // never moves: only its synced data is sent
+                        .build(kind.registryPath());
+                TYPES.put(kind.id(), type);
+                helper.register(id(kind.registryPath()), type);
+            }
         });
         event.register(Registries.ITEM, helper -> {
-            FAT_LADY_ITEM = new FatLadyPortraitItem(new Item.Properties().stacksTo(16));
-            helper.register(id(FAT_LADY_ID), FAT_LADY_ITEM);
+            for (PortraitKind kind : PortraitKind.ALL) {
+                Item item = new PortraitItem(new Item.Properties().stacksTo(16), kind);
+                ITEMS.put(kind.id(), item);
+                helper.register(id(kind.registryPath()), item);
+            }
         });
         event.register(Registries.SOUND_EVENT, helper -> {
-            for (FatLadyLines.Line line : FatLadyLines.LINES) {
-                ResourceLocation rl = id("portrait.fat_lady." + line.key());
-                SoundEvent sound = SoundEvent.createVariableRangeEvent(rl);
-                LINE_SOUNDS.put(line.key(), sound);
-                helper.register(rl, sound);
+            for (PortraitKind kind : PortraitKind.ALL) {
+                for (PortraitLines.Line line : kind.lines()) {
+                    ResourceLocation rl = id(line.soundPath());
+                    SoundEvent sound = SoundEvent.createVariableRangeEvent(rl);
+                    LINE_SOUNDS.put(line.soundPath(), sound);
+                    helper.register(rl, sound);
+                }
             }
         });
     }
 
     @SubscribeEvent
     public static void onCreativeTab(BuildCreativeModeTabContentsEvent event) {
-        if (FAT_LADY_ITEM != null && event.getTabKey().equals(ExampleMod.MAIN_TAB.getKey())) {
-            event.accept(FAT_LADY_ITEM);
+        if (event.getTabKey().equals(ExampleMod.MAIN_TAB.getKey())) {
+            for (PortraitKind kind : PortraitKind.ALL) {
+                Item item = ITEMS.get(kind.id());
+                if (item != null) {
+                    event.accept(item);
+                }
+            }
         }
     }
 
+    /** The entity type of a kind (null before registration, which cannot happen at play time). */
+    public static EntityType<PortraitEntity> typeOf(PortraitKind kind) {
+        return TYPES.get(kind.id());
+    }
+
+    /** The item of a kind (null before registration). */
+    public static Item itemOf(PortraitKind kind) {
+        return ITEMS.get(kind.id());
+    }
+
     /** The voice of a line (null before registration, which cannot happen at play time). */
-    public static SoundEvent soundFor(FatLadyLines.Line line) {
-        return LINE_SOUNDS.get(line.key());
+    public static SoundEvent soundFor(PortraitLines.Line line) {
+        return LINE_SOUNDS.get(line.soundPath());
     }
 
     public static ResourceLocation id(String path) {

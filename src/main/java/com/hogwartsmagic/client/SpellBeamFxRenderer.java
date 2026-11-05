@@ -696,55 +696,89 @@ public final class SpellBeamFxRenderer {
     private static final float WATER_GRAVITY = 0.045f;
 
     /**
-     * The body of the water: overlapping translucent blobs from deep to shallow blue down the stream, white foam
-     * churning round them (re-churned every other tick), and the leading gush frothing. All straight alpha, so it
-     * reads as water in front of the world, not light added to it.
+     * The body of the water. Out of the wand it is a coherent rope: a solid core with a bright glassy rim down each
+     * side, where light catches the edge of a tube of water. Further on it breaks up, as a real jet does: the core
+     * thins and goes, the water comes apart into chunks with gaps between them, and more and more of it turns to
+     * white aerated foam. The blobs and foam are carried down the stream at its own speed, so it flows. A bolt
+     * (not held) is broken water all along. All straight alpha: water in front of the world, not light added to it.
      */
     private static void drawLiquid(VertexConsumer out, Matrix4f m, Frame f) {
         int n = f.path.length;
-        int churn = (int) Math.floor(f.age / 2.0);
+        if (n < 2) {
+            return;
+        }
         float g = Math.min(1.0f, f.glow);
         float t = (float) f.age;
         int seed = f.beam.seed;
-        // A continuous core, so the water never shows gaps between its blobs.
+        boolean held = f.style.isJet();
+        double length = Math.max(0.01, f.fromWand[n - 1] - f.fromWand[0]);
+
+        // The coherent rope out of the wand, thinning and going as the stream breaks up.
         float[] coreWidth = new float[n];
         float[] coreAlpha = new float[n];
         for (int i = 0; i < n; i++) {
-            coreWidth[i] = 0.2f * f.thickness;
-            coreAlpha[i] = 0.8f * f.profile[i] * g;
+            float u = (float) ((f.fromWand[i] - f.fromWand[0]) / length);
+            float breakup = held ? smoothstep(0.45f, 0.95f, u) : 0.6f;
+            coreWidth[i] = (0.2f - 0.07f * breakup) * f.thickness;
+            coreAlpha[i] = 0.85f * f.profile[i] * g * (1.0f - 0.85f * breakup);
         }
         ribbon(out, m, f.path, coreWidth, coreAlpha, 1.0f, 1.0f, SHALLOW_R * 0.8f, SHALLOW_G * 0.9f, SHALLOW_B);
-        for (int i = 0; i < n; i++) {
-            float p = f.profile[i] * g;
+        // The glassy rim down each side of the rope.
+        for (int side = -1; side <= 1; side += 2) {
+            Vec3[] rim = new Vec3[n];
+            float[] w = new float[n];
+            float[] a2 = new float[n];
+            for (int i = 0; i < n; i++) {
+                Vec3 along = f.path[Math.min(n - 1, i + 1)].subtract(f.path[Math.max(0, i - 1)]);
+                Vec3 across = along.cross(f.path[i].scale(-1.0));
+                across = across.lengthSqr() < 1.0E-10 ? f.side : across.normalize();
+                rim[i] = f.path[i].add(across.scale(side * coreWidth[i] * 0.75));
+                w[i] = 0.014f * f.thickness;
+                a2[i] = coreAlpha[i] * 0.6f;
+            }
+            ribbon(out, m, rim, w, a2, 1.0f, 1.0f, FOAM_R, FOAM_G, FOAM_B);
+        }
+
+        // The water flowing down the stream: blobs and foam carried along at its speed, breaking into chunks.
+        final double spacing = 0.16;
+        final double flow = 1.2;
+        double shift = (t * flow) % spacing;
+        int base = (int) Math.floor(t * flow / spacing);
+        int churn = (int) Math.floor(f.age / 2.0);
+        for (int k = 0; k < 300; k++) {
+            double d = k * spacing + shift;
+            if (d > length) {
+                break;
+            }
+            int id = k - base; // the same parcel of water as it moves down
+            float u = (float) (d / length);
+            float breakup = held ? smoothstep(0.4f, 0.95f, u) : 0.6f;
+            if (hash(seed, id, 1) < breakup * 0.5f) {
+                continue; // a gap where the stream has come apart
+            }
+            int at = indexAt(f, d);
+            float p = Mth.lerp(fracAt(f, d, at), f.profile[at], f.profile[Math.min(n - 1, at + 1)]) * g;
             if (p < 0.03f) {
                 continue;
             }
-            float swell = 0.85f + 0.15f * Mth.sin(t * 1.4f + i * 0.9f);
-            float mix = hash(seed, i, 5);
-            // A blob at each sample and one between it and the next: a dense, churning body of water.
-            for (int half = 0; half < 2; half++) {
-                if (half == 1 && i == n - 1) {
-                    break;
-                }
-                Vec3 c = half == 0 ? f.path[i] : f.path[i].lerp(f.path[i + 1], 0.5);
-                float r = (0.24f + 0.1f * hash(seed, i * 2 + half, 3)) * f.thickness * swell;
-                billboard(out, m, c, r * 1.35f, 0.5f * p, DEEP_R, DEEP_G, DEEP_B, false, 3, 10);
-                billboard(out, m, c, r, 0.75f * p, Mth.lerp(mix, DEEP_R, SHALLOW_R), Mth.lerp(mix, DEEP_G, SHALLOW_G),
-                        Mth.lerp(mix, DEEP_B, SHALLOW_B), false, 3, 10);
-            }
-            Vec3 c = f.path[i];
-            for (int k = 0; k < 2; k++) {
-                if (hash(seed + churn * 31 + k, i, 7) > 0.6f) {
-                    continue;
-                }
-                double ox = (hash(seed + churn + k * 13, i, 8) - 0.5) * 0.38 * f.thickness;
-                double oy = (hash(seed + churn + k * 17, i, 9) - 0.5) * 0.38 * f.thickness;
-                Vec3 off = f.side.scale(ox).add(f.lift.scale(oy));
-                billboard(out, m, c.add(off), 0.07f + 0.08f * hash(seed + churn, i, 10 + k), 0.9f * p,
+            Vec3 c = pointAt(f, d, at);
+            double wobble = breakup * 0.22 * f.thickness;
+            c = c.add(f.side.scale((hash(seed, id, 2) - 0.5) * 2.0 * wobble))
+                    .add(f.lift.scale((hash(seed, id, 4) - 0.5) * 2.0 * wobble));
+            float r = (0.2f + 0.12f * hash(seed, id, 3) + 0.1f * breakup) * f.thickness;
+            float mix = hash(seed, id, 5);
+            billboard(out, m, c, r * 1.35f, 0.45f * p, DEEP_R, DEEP_G, DEEP_B, false, 3, 10);
+            billboard(out, m, c, r, 0.7f * p, Mth.lerp(mix, DEEP_R, SHALLOW_R), Mth.lerp(mix, DEEP_G, SHALLOW_G),
+                    Mth.lerp(mix, DEEP_B, SHALLOW_B), false, 3, 10);
+            // Aerated: the further it goes the more of it is white foam.
+            if (hash(seed + churn * 31, id, 7) < 0.22f + 0.55f * breakup) {
+                Vec3 off = f.side.scale((hash(seed + churn, id, 8) - 0.5) * 0.4 * f.thickness)
+                        .add(f.lift.scale((hash(seed + churn, id, 9) - 0.5) * 0.4 * f.thickness));
+                billboard(out, m, c.add(off), (0.07f + 0.09f * hash(seed + churn, id, 10)) * (1.0f + breakup), 0.9f * p,
                         FOAM_R, FOAM_G, FOAM_B, false, 2, 8);
             }
         }
-        if (!f.beam.gone()) {
+        if (!f.beam.gone() && !held) {
             Vec3 head = f.head();
             for (int k = 0; k < 6; k++) {
                 Vec3 off = randomDirection(seed + churn * 7 + k).scale(0.22);
@@ -753,6 +787,28 @@ public final class SpellBeamFxRenderer {
                         foam ? FOAM_R : SHALLOW_R, foam ? FOAM_G : SHALLOW_G, foam ? FOAM_B : SHALLOW_B, false, 3, 10);
             }
         }
+    }
+
+    /** The sample at or before {@code d} blocks down the drawn path. */
+    private static int indexAt(Frame f, double d) {
+        double start = f.fromWand[0];
+        int n = f.path.length;
+        for (int i = 0; i < n - 1; i++) {
+            if (f.fromWand[i + 1] - start >= d) {
+                return i;
+            }
+        }
+        return n - 2;
+    }
+
+    private static float fracAt(Frame f, double d, int i) {
+        double a = f.fromWand[i] - f.fromWand[0];
+        double b = f.fromWand[i + 1] - f.fromWand[0];
+        return b - a < 1.0E-9 ? 0.0f : (float) Mth.clamp((d - a) / (b - a), 0.0, 1.0);
+    }
+
+    private static Vec3 pointAt(Frame f, double d, int i) {
+        return f.path[i].lerp(f.path[i + 1], fracAt(f, d, i));
     }
 
     /** A thin bright highlight riding the top of the water, broken where it catches the light. */
@@ -915,19 +971,23 @@ public final class SpellBeamFxRenderer {
     }
 
     /** Droplets peeling off a held stream all along it, falling away. Camera-relative ends. */
-    static void drawLiquidSpray(VertexConsumer out, Matrix4f m, Vec3 from, Vec3 to, double age, int seed) {
-        Vec3 dir = to.subtract(from);
-        if (dir.lengthSqr() < 1.0E-6) {
+    static void drawLiquidSpray(VertexConsumer out, Matrix4f m, java.util.List<Vec3> path, double age, int seed) {
+        int n = path.size();
+        if (n < 2) {
             return;
         }
-        Vec3 unit = dir.normalize();
-        for (int k = 0; k < 30; k++) {
+        for (int k = 0; k < 34; k++) {
             float period = 12.0f;
-            double run = age * 0.9 + k * 0.4;
+            double run = age * 0.9 + k * 0.37;
             float local = (float) (run % period);
             int cycle = (int) (run / period);
             int s2 = seed + k * 613 + cycle * 97;
-            Vec3 start = from.lerp(to, hash(s2, 1, 1));
+            // Mostly where the stream is breaking up: toward its far end.
+            double along = Math.sqrt(hash(s2, 1, 1)) * (n - 1);
+            int i = Math.min(n - 2, (int) along);
+            Vec3 start = path.get(i).lerp(path.get(i + 1), along - i);
+            Vec3 unit = path.get(i + 1).subtract(path.get(i));
+            unit = unit.lengthSqr() < 1.0E-8 ? Vec3.ZERO : unit.normalize();
             Vec3 v = randomDirection(s2).scale(0.06 + 0.06 * hash(s2, 2, 2)).add(unit.scale(0.12));
             droplet(out, m, start, v, local, 0.9f * (1.0f - local / period), 1.4f);
         }

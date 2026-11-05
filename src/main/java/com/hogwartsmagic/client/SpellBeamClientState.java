@@ -300,6 +300,22 @@ public final class SpellBeamClientState {
         return beam;
     }
 
+    /** As {@link #held} but along a whole path of points (Aqua Eructo's stream falling under its own weight). */
+    static Beam heldPath(int id, BeamStyle style, java.util.List<Vec3> points, double start, double now) {
+        Vec3 from = points.get(0);
+        Vec3 to = points.get(points.size() - 1);
+        Beam beam = held(id, style, from, to, start, now);
+        beam.trail.clear();
+        beam.times.clear();
+        int n = points.size();
+        for (int i = 0; i < n; i++) {
+            beam.trail.add(points.get(i));
+            beam.times.add(n == 1 ? start : Mth.lerp(i / (double) (n - 1), start, now));
+        }
+        beam.headPrev = to;
+        return beam;
+    }
+
     /** A beam that ended in a lock: no strike of its own, it just lets go where it was. */
     static void endSilently(int beamId, double now) {
         Beam beam = BEAMS.get(beamId);

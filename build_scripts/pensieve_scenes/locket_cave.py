@@ -304,7 +304,7 @@ boat = {
 }
 
 poses = {
-    'relax': {'head': [0, 0, 0]},
+    'relax': {},
     'dive': {'right_arm': [-172, 0, 10], 'left_arm': [-172, 0, -10], 'head': [-10, 0, 0]},
     'swim': {'head': [-18, 0, 0], 'right_arm': [-150, 0, 22], 'left_arm': [-150, 0, -22],
              'right_leg': [12, 0, 0], 'left_leg': [-12, 0, 0]},
@@ -490,8 +490,9 @@ for i, (ring, a, r, x, z) in enumerate(slots):
     rs = min(far - 0.8, max(r + 4.5, 8.0) + rng.uniform(0.0, 6.0))
     sx, sz = FIG[0] + math.cos(a) * rs, FIG[2] + math.sin(a) * rs
     assert in_lake(sx, sz), (i, sx, sz)
-    # arrival: the inner rings first, so the grab lands before the rest crowd in
-    t_arr = {0: 82.4, 1: 83.0, 2: 83.6, 3: 84.2, 4: 84.8, 5: 85.4}[ring] + rng.uniform(0.0, 0.6)
+    # arrival: the inner rings first, so the grab lands before the rest crowd in. Ring 0 reaches him from 81.4,
+    # with the figure's 'grabbed' pose and first hurt (81.4, 81.5): the hands land as he reacts, not a second after
+    t_arr = {0: 81.4, 1: 83.0, 2: 83.6, 3: 84.2, 4: 84.8, 5: 85.4}[ring] + rng.uniform(0.0, 0.6)
     speed = rng.uniform(1.4, 2.1)
     dist = rs - r
     t_walk = t_arr - dist / speed
@@ -713,12 +714,12 @@ shot(76.6, (1.6, 1.8, 4.6), F, 46, roll=4)
 shot(79.6, (1.9, 1.7, 4.9), F, 44, cut=False, roll=5)
 # S20 low behind the wading horde, tracking in
 shot(79.6, (-8.0, -0.2, -1.0), (0.5, 1.0, 7.0), 64)
-shot(82.4, (-6.2, 0.0, 1.2), (0.5, 1.0, 7.0), 60, cut=False)
+shot(82.0, (-6.2, 0.0, 1.2), (0.5, 1.0, 7.0), 60, cut=False)
 # S21 high and tilted: the figure under the hands
-shot(82.4, (3.8, 6.4, 3.4), F, 58, roll=8)
-shot(85.0, (3.2, 5.8, 4.0), F, 54, cut=False, roll=10)
-# S22 over the shoulder from above the basin: the wand goes up over the horde
-shot(85.0, (0.7, 3.2, 8.7), (0.5, 2.2, 2.5), 55, roll=-3)
+shot(82.0, (3.8, 6.4, 3.4), F, 58, roll=8)
+shot(84.2, (3.2, 5.8, 4.0), F, 54, cut=False, roll=10)
+# S22 over the shoulder from above the basin: the wand goes up over the horde (from 84.2, so no shot is under 2 s)
+shot(84.2, (0.7, 3.2, 8.7), (0.5, 2.2, 2.5), 55, roll=-3)
 shot(86.3, (0.7, 3.4, 8.5), (0.5, 3.0, 2.5), 50, cut=False, roll=-2)
 # S23 the cast, low from the water: the first ring of fire rolls through them and over us
 shot(86.3, (-8.0, 0.2, 1.5), (0.5, 1.4, 7.0), 74)
@@ -853,6 +854,16 @@ if OX < -R or OX + 63 > R or OZ < -R or OZ + 63 > R:
 cuts = [0.0] + [tval(k['t']) for k in cam if k.get('cut')] + [LENGTH]
 lens = [round(b - a, 2) for a, b in zip(cuts, cuts[1:])]
 print('shots', len(lens), lens)
+for l in lens:
+    if l < 2:
+        problems.append('shot length %s (under 2 s reads as a glitch)' % l)
+# the grab: an Inferius has its hands on him (within 1.4 of his feet) at his first hurt of the fight
+t_grab = min(tval(a['t']) for a in fig_actions if a['do'] == 'hurt' and tval(a['t']) > 70)
+fp = sample(fig_path, t_grab)
+reach = min(math.hypot(sample(a['path'], t_grab)[0] - fp[0], sample(a['path'], t_grab)[2] - fp[2]) for a in inferi)
+print('nearest Inferius at the first grab (%.1f s): %.2f' % (t_grab, reach))
+if reach > 1.4:
+    problems.append('figure hurt at %.1f s with no Inferius in reach (nearest %.2f)' % (t_grab, reach))
 words_t = [tval(w['t']) for w in words]
 print('words gaps', [round(b - a, 1) for a, b in zip(words_t, words_t[1:])])
 nblocks = 0

@@ -110,8 +110,8 @@ public final class LetterMemory {
         // Only a memory this class started: a preview or a command of the same scene leaves the player alone.
         String recipient = RECIPIENT.remove(player.getUUID());
         if (recipient == null) return;
-        // Only the last scene ends the chain with END; leaving or a yank mid-chain keeps the flag.
-        // and only the last one counts: a chain that ended early (a missing next scene) never reached the hut.
+        // Only an END in the last scene clears the flag: leaving or a yank mid-chain keeps it, and so does a chain
+        // that ended early (a missing next scene), which never reached the hut.
         if (IN_HUT.remove(player.getUUID()) && reason == ExitReason.END) clearPending(player);
         long now = player.level().getGameTime();
         // A wake (sent just before the move home, same tick) plays out before the letter appears.

@@ -53,8 +53,10 @@ def snd(t, id_, at=None, volume=None, pitch=None):
     if volume is not None: kw['volume'] = volume
     if pitch is not None: kw['pitch'] = pitch
     ev(t, 'sound', id_, **kw)
-def part(t, id_, at, count, spread):
-    ev(t, 'particles', id_, at=[int(round(c)) for c in at], count=count, spread=[r2(s) for s in spread])
+def part(t, id_, at, count, spread, exact=False):
+    """exact: keep the fractional position (event `at` may be fractional); else whole blocks, as first written."""
+    at = [r2(c) for c in at] if exact else [int(round(c)) for c in at]
+    ev(t, 'particles', id_, at=at, count=count, spread=[r2(s) for s in spread])
 def block(t, id_, at):
     ev(t, 'block', id_, at=list(at))
 def say(t, text, dur=None):
@@ -243,7 +245,7 @@ care_path = [
     K(18.5, (-1.8, 0, -18.0), 'in_out'),             # stops under the serpent arches, gawking
     K(23.0, (-1.8, 0, -18.0)),
     K(27.0, (-2.4, 0, -6.0), 'in_out'),
-    K(31.0, C_STONE, 'out'),                         # steps past the hero and looks up
+    K(31.0, C_STONE, 'in_out'),                      # steps past the hero and looks up (from rest: 'out' would start at 9 b/s)
 ]
 care_look = [
     Y(0, 0, 2), Y(12.0, 0, 0), Y(18.5, -10, -10), Y(19.6, -30, -38), Y(21.2, 35, -32), Y(23.0, 0, -8),
@@ -288,7 +290,7 @@ basilisk = {'id': 'basilisk', 'type': 'hogwartsmagic:basilisk', 'path': basi_pat
             'limbs': basi_limbs, 'anims': basi_anims, 'actions': basi_actions}
 
 poses = {
-    'relax': {'head': [0, 0, 0]},
+    'relax': {},    # names no part: hands the head back to `look` (a head of [0,0,0] would cancel every look pitch)
     'offer': {'right_arm': [-72, -14, 0], 'head': [16, 0, 0], 'body': [8, 0, 0]},
     'gape': {'right_arm': [-34, 0, 12], 'left_arm': [-22, 0, -14], 'head': [-8, 0, 0], 'body': [-4, 0, 0]},
 }
@@ -420,13 +422,13 @@ for i in range(N + 1):
     x = src[0] + (dst[0] - src[0]) * f
     z = src[2] + (dst[2] - src[2]) * f
     y = src[1] + (dst[1] - src[1]) * f + 2.4 * 4 * f * (1 - f)
-    part(47.5 + f * 0.85, 'minecraft:item_slime', (x, y, z), 10, (0.15, 0.15, 0.15))
+    part(47.5 + f * 0.85, 'minecraft:item_slime', (x, y, z), 10, (0.15, 0.15, 0.15), exact=True)   # whole blocks flatten the arc
 LAND = 48.35
-part(LAND, 'minecraft:item_slime', (dst[0], 0.1, dst[2]), 40, (0.6, 0.15, 0.6))
-part(LAND, 'minecraft:squid_ink', (dst[0], 0.2, dst[2]), 8, (0.4, 0.1, 0.4))
+part(LAND, 'minecraft:item_slime', (dst[0], 0.1, dst[2]), 40, (0.6, 0.15, 0.6), exact=True)
+part(LAND, 'minecraft:squid_ink', (dst[0], 0.2, dst[2]), 8, (0.4, 0.1, 0.4), exact=True)
 snd(LAND, 'minecraft:entity.slime.squish', at=(dst[0], 0, dst[2]), volume=1.0, pitch=0.6)
 for tt in (48.9, 49.5, 50.1, 50.7, 51.3):
-    part(tt, 'minecraft:item_slime', (dst[0], 0.1, dst[2]), 6, (0.6, 0.05, 0.6))
+    part(tt, 'minecraft:item_slime', (dst[0], 0.1, dst[2]), 6, (0.6, 0.05, 0.6), exact=True)
 
 # burrow: down through the floor, a line of dust racing under the causeway, then the eruption
 snd(51.65, 'hogwartsmagic:basilisk.burrow', at=(0, 0, 11), volume=1.2, pitch=0.9)

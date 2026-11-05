@@ -1563,17 +1563,15 @@ def chase_slate(sc, d, world, solid):
         k.at(t_s, p0, 'linear')
         look = [{'t': 0, 'yaw': 0.0, 'pitch': 0.0, 'roll': 0.0}, {'t': t_s, 'yaw': 0.0, 'pitch': 0.0, 'roll': 0.0}]
         spin = [rnd.uniform(-20, 20), rnd.uniform(-25, 25), rnd.uniform(-18, 18)]
-        land = None
-        for t in range(2, 80, 2):
-            pt = [p0[0] + v0[0] * t, p0[1] + v0[1] * t - 0.5 * g * t * t, p0[2] + v0[2] * t]
-            top = K.ground_top(solid, pt[0], pt[2], pt[1] + 0.5)
-            if t > 4 and pt[1] - 0.5 <= top:
-                land = (t, [pt[0], top + 0.5, pt[2]])
-                break
-            k.at(t_s + t, pt, 'spline')
+        # its fall against the castle (a 2-tick ground_top probe let a fast shingle tunnel through a roof)
+        fall, t_land = chunk_fall(chunk_solid(sc), set(cs), p0, v0, g, 80)
+        assert t_land is not None, ('a shingle never lands', did)
+        t_l = int(math.ceil(t_land / 2.0)) * 2
+        for t in range(2, t_l, 2):
+            k.at(t_s + t, chunk_at(fall, t), 'spline')
             look.append({'t': t_s + t, 'yaw': round(spin[0] * t, 1), 'pitch': round(spin[1] * t, 1),
                          'roll': round(spin[2] * t, 1), 'ease': 'spline'})
-        t_l, pl = land if land else (80, pt)
+        pl = fall[-1][1]
         k.at(t_s + t_l, pl)
         look.append({'t': t_s + t_l, 'yaw': round(spin[0] * t_l, 1), 'pitch': 0.0, 'roll': 0.0})
         sc.actor({'id': did, 'type': 'hogwartsmagic:memory_block', 'block': st, 'path': k.k, 'look': look})
@@ -1583,6 +1581,106 @@ def chase_slate(sc, d, world, solid):
     sc.smashes.append({'tick': t_s, 'label': 'the turret spire\'s shingles', 'cells': [list(c) for c in cs],
                        'box': [lo, hi], 'parts': ('tail',), 'sfx': 'first_task_slate_smash', 'debris': ids})
     return t_s
+
+
+CHUNK_HALF = 0.45                                # a tumbling chunk's half size against the set (a block actor is 1)
+CHUNK_STEP = 0.25                                # its fall's sub-step, ticks
+CHUNK_SINK = 0.06                                # how far its keyed track may cut into a block (check_chunks)
+
+
+def chunk_solid(sc):
+    """What a falling chunk lands on: the set's solid cells and the water's surface (the gorge's stream)."""
+    if 'chunk_solid' not in sc.notes:
+        water = {c for c, s in sc.world.items() if E.bid_of(s) == 'minecraft:water'}
+        sc.notes['chunk_solid'] = frozenset(sc.notes['solid'] | water)
+    return sc.notes['chunk_solid']
+
+
+def chunk_cells(p, h=CHUNK_HALF):
+    return [(x, y, z) for x in range(math.floor(p[0] - h), math.floor(p[0] + h) + 1)
+            for y in range(math.floor(p[1] - h), math.floor(p[1] + h) + 1)
+            for z in range(math.floor(p[2] - h), math.floor(p[2] + h) + 1)]
+
+
+def chunk_fall(solid, gone, p0, v0, g, t_max):
+    """A thrown chunk (a block actor: its centre p0, v0 blocks a tick, gravity g) falling against the set. Each
+    CHUNK_STEP it moves along x, then z, then y, its CHUNK_HALF box kept out of the solid cells (those in `gone` are
+    air, and those its start box overlaps are the masonry it was thrown out of): a wall stops its motion along that
+    axis, and the first top under it as it falls lands it, resting there. Returns ([(t, centre)] every CHUNK_STEP up
+    to the landing, the landing tick or None by t_max)."""
+    skip = set(chunk_cells(p0))
+
+    def blocked(p):
+        return [c for c in chunk_cells(p) if c in solid and c not in gone and c not in skip]
+    p, v, t, h = list(p0), list(v0), 0.0, CHUNK_STEP
+    out = [(0.0, list(p))]
+    while t < t_max - 1e-9:
+        t += h
+        for i in (0, 2):
+            q = list(p)
+            q[i] += v[i] * h
+            if blocked(q):
+                v[i] = 0.0
+            else:
+                p = q
+        dy = v[1] * h - 0.5 * g * h * h
+        v[1] -= g * h
+        q = [p[0], p[1] + dy, p[2]]
+        hit = blocked(q)
+        if hit and dy < 0:
+            out.append((t, [p[0], max(c[1] for c in hit) + 1.5, p[2]]))
+            return out, t
+        if hit:
+            v[1] = 0.0
+        else:
+            p = q
+        out.append((t, list(p)))
+    return out, None
+
+
+def chunk_at(fall, t):
+    """chunk_fall's centre at tick t (a multiple of CHUNK_STEP, at most its landing)."""
+    return fall[min(len(fall) - 1, int(round(t / CHUNK_STEP)))][1]
+
+
+def check_chunks(sc, scene, problems):
+    """The tumbling chunks (the bridge's debris, the spire's shingles): each one's keyed track, every half tick
+    from its launch to its rest, keeps its CHUNK_HALF box out of chunk_solid but for CHUNK_SINK (the cells gone by
+    then and those it was thrown out of aside), and it comes to rest on a top. Returns the deepest cut."""
+    solid = chunk_solid(sc)
+    air_at = {}
+    for e in scene['events']:
+        if e.get('kind') == 'block' and e.get('id') == 'minecraft:air':
+            c = tuple(int(v) for v in e['at'])
+            air_at[c] = min(air_at.get(c, 10 ** 9), e['t'])
+    worst = 0.0
+    for sm in sc.smashes:
+        T = sm['tick']
+        for did in sm.get('debris', []):
+            path = E.actor_by_id(scene, did)['path']
+            skip = set(chunk_cells(E.track_sample(path, T)))
+            t_end = path[-1]['t']
+            for i in range(int(math.ceil(t_end - T)) * 2 + 1):
+                t = min(t_end, T + i * 0.5)
+                p = E.track_sample(path, t)
+                for c in chunk_cells(p):
+                    if c not in solid or c in skip or air_at.get(c, 10 ** 9) <= t:
+                        continue
+                    cut = min(min(p[j] + CHUNK_HALF, c[j] + 1.0) - max(p[j] - CHUNK_HALF, float(c[j])) for j in range(3))
+                    worst = max(worst, cut)
+                    if cut > CHUNK_SINK:
+                        problems.append('%s: %s of %s at t %.1f cuts %.2f into the block at %s' % (
+                            sc.sid, did, sm['label'], t, cut, c))
+                        break
+                else:
+                    continue
+                break
+            p = path[-1]['pos']
+            yb = math.floor(p[1] - CHUNK_HALF - 0.1)
+            under = {(c[0], yb, c[2]) for c in chunk_cells(p)}
+            if not any(c in solid and air_at.get(c, 10 ** 9) > t_end for c in under):
+                problems.append('%s: %s of %s ends at %s on nothing' % (sc.sid, did, sm['label'], r3(p)))
+    return round(worst, 3)
 
 
 def chase_crash(sc, d, world):
@@ -1636,7 +1734,7 @@ def chase_crash(sc, d, world):
         k = max(1, len(sl) // DEBRIS_PER_SLICE)
         pick += [sl[(i * k + rnd.randrange(k)) % len(sl)] for i in range(min(DEBRIS_PER_SLICE, len(sl)))]
     ids = []
-    floor = GA['bridge']['fall_column'][0][1]
+    gorge, gone = chunk_solid(sc), set(cells)
     for i, c in enumerate(pick):
         did = 'debris_%02d' % i
         st = world.get(c) or 'minecraft:stone_bricks'
@@ -1647,18 +1745,20 @@ def chase_crash(sc, d, world):
         v0 = [v_c[0] * 0.5 * f + out[0] * rnd.uniform(0.1, 0.4) * f, rnd.uniform(0.02, 0.3) * f,
               v_c[2] * 0.5 * f + out[2] * rnd.uniform(0.1, 0.4) * f]
         g = 0.05
-        land_t = (v0[1] + math.sqrt(v0[1] ** 2 + 2 * g * (p0[1] - floor - 0.5))) / g
+        # its fall against the gorge (its walls and ledges, the stream's surface): a flat floor at the fall
+        # column's foot buried 37 of the 56 chunks in the sloping gorge walls
+        fall, land_t = chunk_fall(gorge, gone, p0, v0, g, 80)
+        assert land_t is not None, ('a chunk of the bridge never lands', did)
         k = Keys().at(0, PARK).hold(t_c - 0.25)
         k.at(t_c, p0, 'linear')
         look = [{'t': 0, 'yaw': 0.0, 'pitch': 0.0, 'roll': 0.0}, {'t': t_c, 'yaw': 0.0, 'pitch': 0.0, 'roll': 0.0}]
         spin = [rnd.uniform(-18, 18), rnd.uniform(-22, 22), rnd.uniform(-15, 15)]
         n = int(land_t)
         for t in range(3, n + 1, 3):
-            q = [p0[0] + v0[0] * t, p0[1] + v0[1] * t - 0.5 * g * t * t, p0[2] + v0[2] * t]
-            k.at(t_c + t, q, 'spline')
+            k.at(t_c + t, chunk_at(fall, t), 'spline')
             look.append({'t': t_c + t, 'yaw': round(spin[0] * t, 1), 'pitch': round(spin[1] * t, 1),
                          'roll': round(spin[2] * t, 1), 'ease': 'spline'})
-        endp = [p0[0] + v0[0] * land_t, floor + 0.5, p0[2] + v0[2] * land_t]
+        endp = fall[-1][1]
         k.at(t_c + land_t + 0.5, endp)
         look.append({'t': t_c + land_t + 0.5, 'yaw': round(spin[0] * n, 1), 'pitch': round(round(spin[1] * n / 90.0) * 90.0, 1),
                      'roll': round(round(spin[2] * n / 90.0) * 90.0, 1)})
@@ -2275,7 +2375,8 @@ def check_lick(sc, scene, problems):
 
 def chase_checks():
     return [('bite', check_bite), ('scorch kept', check_scorch_kept), ('chase gap', check_chase_gap),
-            ('glide', check_glide), ('debris span', check_debris_span), ('lick', check_lick)]
+            ('glide', check_glide), ('debris span', check_debris_span), ('lick', check_lick),
+            ('chunks', check_chunks)]
 
 
 # ================================================================ the egg: first_task_egg
@@ -2995,6 +3096,11 @@ def bites(built, counts):
             if E5_CUT <= k['t'] <= E6_CUT:
                 k['look_at'] = [k['pos'][0] - 30.0, k['pos'][1] - 10.0, k['pos'][2]]
     bite('I9 a close-crowd cutaway (E5 looks into the bowl)', G_, crowd_away, K.check_crowd_shots)
+
+    def sink_chunk(m, sc):
+        a = E.actor_by_id(m, 'debris_30')
+        a['path'][-1]['pos'] = [a['path'][-1]['pos'][0], a['path'][-1]['pos'][1] - 1.0, a['path'][-1]['pos'][2]]
+    bite('I10 the chunks against the set (a bridge chunk sunk into the stream bed)', C_, sink_chunk, check_chunks)
 
     def crab_her(m, sc):
         a = E.actor_by_id(m, 'horntail')

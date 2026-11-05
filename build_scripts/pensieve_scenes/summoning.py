@@ -13,8 +13,9 @@ What it teaches is the real rite (VoldemortSummoningEntity, SpellBeamEntity, the
 
 Scene frame: the clearing's grass top is block y -1, so actors stand at y 0. The Wards are A (-2,0,0), B (0,0,2),
 C (0,0,-2): the right angle (A) on the -x side, matching VoldemortSummoningEntity.emitRitualEffects. The real
-centre of that trio is (-0.17, 0.5, 0.5) in block terms; the summoning_ritual effect's `at` is an integer corner,
-so it sits at (0,0,0) and its columns rise 0.17 east and 0.5 north of each Ward's middle (see the report).
+centre of that trio is (-0.17, 0.5, 0.5) in block terms. Event `at` may be fractional now, so the summoning_ritual
+effect sits at (-0.17, 0, 0.5) and its columns rise from each Ward's middle (y stays 0 so its strikes land on the
+grass), and particles and bolts sit exactly where the rite puts them.
 """
 import json, math, os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -43,12 +44,15 @@ def snd(t, id_, at=None, volume=None, pitch=None):
     if volume is not None: kw['volume'] = volume
     if pitch is not None: kw['pitch'] = pitch
     ev(t, 'sound', id_, **kw)
+def fp(at):
+    """An exact event position (event `at` may be fractional); whole numbers stay ints."""
+    return [int(r2(c)) if r2(c) == int(r2(c)) else r2(c) for c in at]
 def part(t, id_, at, count, spread):
-    ev(t, 'particles', id_, at=ip(at), count=count, spread=[r2(s) for s in spread])
+    ev(t, 'particles', id_, at=fp(at), count=count, spread=[r2(s) for s in spread])
 def block(t, id_, at):
     ev(t, 'block', id_, at=list(at))
 def effect(t, id_, at, duration=None):
-    kw = {'at': ip(at)}
+    kw = {'at': fp(at)}
     if duration is not None: kw['duration'] = duration
     ev(t, 'effect', id_, **kw)
 def say(t, text, dur=None):
@@ -95,7 +99,7 @@ assert sorted([d2(WARD_A, WARD_B), d2(WARD_A, WARD_C), d2(WARD_B, WARD_C)]) == [
 assert all(abs(w[0] - WARD_A[0]) <= 4 and abs(w[2] - WARD_A[2]) <= 4 and w[1] == WARD_A[1] for w in (WARD_B, WARD_C))
 # getTriangleCenter: mean of the block corners + 0.5 (x, z); where Voldemort stands
 V = (r2((WARD_A[0] + WARD_B[0] + WARD_C[0]) / 3 + 0.5), 0, r2((WARD_A[2] + WARD_B[2] + WARD_C[2]) / 3 + 0.5))
-RITUAL_AT = (0, 0, 0)       # integer corner nearest V: emitRitualEffects puts the columns at -4/3,0 / 2/3,+-2 from it
+RITUAL_AT = (V[0], 0, V[2])  # emitRitualEffects puts the columns at -4/3,0 / 2/3,+-2 from it: each Ward's middle
 A_TOP = (WARD_A[0] + 0.5, 1.0, WARD_A[2] + 0.5)   # where the curse strikes Ward A
 
 T_C, T_B, T_A = 9.4, 12.6, 15.9                    # the Wards go down: C, then B (the base), then A (the apex)
@@ -172,7 +176,7 @@ def ritual_look(aid):
 
 # de3 lays C (the north end of the base)
 D3_AT = (WARD_C[0] + 0.5, 0, WARD_C[2] - 1.4)
-de3_path = [K(0, (0.6, 0, -21.0)), K(1.4, (0.6, 0, -21.0)), K(8.4, D3_AT, 'out'), K(10.6, D3_AT),
+de3_path = [K(0, (0.6, 0, -21.0)), K(1.4, (0.6, 0, -21.0)), K(8.4, D3_AT, 'in_out'), K(10.6, D3_AT),
             K(11.8, RING['de3'], 'in_out')]
 look, acts = placing(T_C, 0)
 de3_look = [Y(0, 0, 4), Y(8.0, 0, 6)] + look + [Y(10.6, 0, 10), Y(11.8, RING_YAW['de3'], 0)] + ritual_look('de3')
@@ -182,7 +186,7 @@ block(T_C, WARD, WARD_C)
 # de2 lays B (the south end), walking round the east side
 D2_AT = (WARD_B[0] + 0.5, 0, WARD_B[2] + 2.4)
 de2_path = [K(0, (2.8, 0, -20.5)), K(1.0, (2.8, 0, -20.5)), K(7.0, (3.0, 0, -4.5), 'in_out'),
-            K(10.4, (2.6, 0, 4.4), 'in_out'), K(11.4, D2_AT, 'out'), K(13.8, D2_AT), K(15.0, RING['de2'], 'in_out')]
+            K(10.4, (2.6, 0, 4.4), 'in_out'), K(11.4, D2_AT, 'in_out'), K(13.8, D2_AT), K(15.0, RING['de2'], 'in_out')]
 look, acts = placing(T_B, 180)
 de2_look = ([Y(0, 0, 4), Y(7.0, 0, 4), Y(10.0, 20, 4), Y(11.4, 180, 10)] + look +
             [Y(13.8, 180, 10), Y(15.0, RING_YAW['de2'], 0)] + ritual_look('de2'))
@@ -198,8 +202,9 @@ de1_look = ([Y(0, 0, 4), Y(8.6, -20, 6), Y(9.6, -45, 12), Y(12.4, -30, 10), Y(14
             [Y(16.6, -90, 10), Y(17.8, -90, 0), Y(T_CAST - 1.0, -90, 12)])
 de1_look += ritual_look('de1')   # after the strike the head lifts with the rest
 de1_poses = [P(T_CAST - 0.8, 'wand_raised', 6), P(T_CAST - 0.05, 'wand_point', 2), P(T_CAST + 1.0, 'relax', 10)]
-de1_actions = acts + [A(16.8, 'hold', item=WANDS['de1']),
-                      A(T_CAST, 'cast', spell='morsmordre', target=[r2(c) for c in A_TOP])]
+# No `cast`: a memory's morsmordre cast draws a Dark Mark at its target (SpellVisuals), but the real beam that
+# starts the rite raises no Mark; the rite's own Mark comes at tick 110 (T_MARK). The beam is drawn below.
+de1_actions = acts + [A(16.8, 'hold', item=WANDS['de1'])]
 block(T_A, WARD, WARD_A)
 
 def kneel(aid):
@@ -249,7 +254,7 @@ for i, g in enumerate(GUARDS):
     part(tg, 'minecraft:squid_ink', (g[0], 1, g[2]), 20, (0.3, 0.8, 0.3))
 
 poses = {
-    'relax': {'head': [0, 0, 0]},
+    'relax': {},    # names no part: hands the head back to `look` (a head of [0,0,0] would cancel every look pitch)
     'rising': {'right_arm': [-12, 0, 38], 'left_arm': [-12, 0, -38], 'head': [-14, 0, 0]},
 }
 
@@ -273,9 +278,10 @@ while t < LENGTH - 0.4:
 # the Wards go down (WardBlock copies amethyst: its place sound)
 for tp, w in ((T_C, WARD_C), (T_B, WARD_B), (T_A, WARD_A)):
     snd(tp, 'minecraft:block.amethyst_block.place', at=(w[0], 0, w[2]), volume=1.0, pitch=0.8)
-    part(tp + 0.05, 'minecraft:enchant', (w[0], 1, w[2]), 12, (0.3, 0.3, 0.3))
+    part(tp + 0.05, 'minecraft:enchant', (w[0] + 0.5, 1, w[2] + 0.5), 12, (0.3, 0.3, 0.3))
 # the curse: a short black streak (the beam's squid-ink trail) and the ritual's opening, as tryStart sends it
 src = (RING['de1'][0] + 0.45, 1.35, RING['de1'][2] + 0.3)
+snd(T_CAST, 'hogwartsmagic:spell.morsmordre', at=src, volume=1.0)   # the cast sound, at the wand
 for k in range(1, 4):
     f = k / 4
     q = [src[c] + (A_TOP[c] - src[c]) * f for c in range(3)]
@@ -346,7 +352,7 @@ shot(22.6, (1.2, 11.2, 0.5), (-0.6, 0, 0.5), 50, cut=False)
 # S7 over de1's shoulder: the curse strikes Ward A
 shot(22.6, (-6.6, 2.0, 2.0), (-1.5, 0.7, 0.3), 55)
 shot(26.0, (-6.3, 1.9, 1.7), (-1.5, 0.9, 0.3), 52, cut=False)
-# S8 low from the north: the columns climb (they rise on the north faces of the Wards, toward us)
+# S8 low from the north: the columns climb from the three Wards
 shot(26.0, (0.4, 1.4, -9.0), (-0.2, 3.5, 0.5), 80)
 shot(29.4, (0.3, 1.2, -7.6), (-0.2, 7.0, 0.5), 84, cut=False)
 # S9 low from the south-west, looking up: the Mark rises over the trees

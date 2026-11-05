@@ -3949,6 +3949,8 @@ def snitch_scene(h, world, match_scene=None):
             follow(F_, aid, carry(aid), 0, sc.L, 10, 'spline')
     for f in F_.values():
         f.build()
+    for aid in ('o_b1', 'o_b2', 'r_b1', 'r_b2'):     # the Beaters keep the bats the match gave them
+        F_[aid].a['items'] = dict(F_[aid].a['items'], mainhand=BAT)
     snitch_viewer(sc, F_)
     snitch_play(sc, F_)
     snitch_ball(sc, F_)

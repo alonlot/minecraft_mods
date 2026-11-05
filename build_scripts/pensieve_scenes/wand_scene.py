@@ -60,8 +60,8 @@ wand_ollivanders (93 s; set wand_ollivanders, dim; end_action wake)
                 "No. Definitely not." Snatched back.
       48.6-51.0 Wide from the door: he fetches a third.
   W3  51.0-55.9 Close two-shot: "Give it a wave." A wretched fizzle and smoke; the boy flinches.
-      55.9-60.4 From the boy's side past Ollivander: "A tricky customer. I wonder..." He goes to the stack, reaches
-                high, comes back with one more box.
+      55.9-60.4 From the boy's side past Ollivander: "A tricky customer. I wonder..." He turns, reaches
+                high on the shelves behind him, comes back with one more box.
   T1  60.4-63.6 Close on the counter: he holds out the right wand ({viewer_wand}); the boy takes it.
   T2  63.6-68.6 Low hero angle, slow arc: the boy raises it; wand_choice (gold glow, motes spiralling up, the
                 screen bloom), a light block for the glow, choice sfx; his free arm lifts in the wind.
@@ -82,7 +82,8 @@ Asserts: each JSON under the 900,000-char cap; unique actor ids; every key time 
 every camera key and straight camera move in an air cell; no moving player within 0.6 blocks (horizontal) of any
 other player at any tick (sampled every 2 ticks) and no walker's feet or head in a solid shape (the crowd is built
 on the lane graph and each walker is accepted only if it keeps clear of everyone already placed and of the camera);
-nobody is seated in this memory (so no leg boxes), asserted; subtitles inside their slots; every brick's path in
+nobody is seated in this memory (so no leg boxes), asserted; subtitles inside their slots; both first-person shots
+CAM_CLEAR from the boy's own head and body; every brick's path in
 air and never through Hagrid or the boy; every flying box and shard in the room, clear of the counter, the stack
 and both actors; eyes_close the last event of the wake scene.
 """
@@ -97,6 +98,7 @@ sys.path.insert(0, HERE)
 from scene_common import write_scene, FREE, MEMORIES  # noqa: E402
 import diagon_set as DS  # noqa: E402
 from scene_engine import clamp, ease_f, engine_cam, sample_path  # noqa: E402,F401
+from scene_engine import CAM_CLEAR, PART_BOX, box_distance, posed_parts  # noqa: E402
 
 A = DS.ANCHORS
 MAX_JSON = 900000
@@ -651,6 +653,22 @@ def check_walkers(w, acts, length_ticks, problems, hidden_y=-2.0, skip_pairs=())
                 if hit:
                     problems.append('t %d: %s walks through %s at %s' % (t, aid, bid_of(hit), [r3(c) for c in q]))
     return n
+
+
+def check_eye_clear(scene, aid, t0, t1, problems):
+    """A first-person shot from t0 to t1 (ticks): the camera, four times a tick, stays CAM_CLEAR or more from every
+    part box of the actor whose eye it is (the head renders without culling, so a camera inside it sees its inside)."""
+    a = next(x for x in scene['actors'] if x['id'] == aid)
+    worst = (9.0, None, None)
+    for i in range(t0 * 4, t1 * 4 + 1):
+        c = engine_cam(scene['camera'], i / 4.0)
+        for part, r, y, s_, pv, rt in posed_parts(scene, a, i / 4.0):
+            d = box_distance(r, y, s_, pv, rt, PART_BOX[part], c)
+            if d < worst[0]:
+                worst = (d, i / 4.0, part)
+    if worst[0] < CAM_CLEAR:
+        problems.append('the first-person camera comes %.3f from the %s of %s at t %.2f' % (
+            worst[0], worst[2], aid, worst[1]))
 
 
 def check_lines(sc, problems):
@@ -2220,6 +2238,7 @@ def wall_scene():
 
     def extra(problems):
         check_blocks(sc, scene, 'brick_', 0.5, ('hagrid', 'boy'), problems)
+        check_eye_clear(scene, 'boy', 0, tk(T_BACK - 0.2) - 1, problems)       # W1
 
     n_chars, n_prox = finish(sc, scene, extra)
     return sc, n_chars, crowd
@@ -2490,7 +2509,7 @@ def olli_scene():
     olm.shift(T_DOWN0, T_DOWN1, [X_STOP, 0.0, LZ], 'linear')
     olm.jump(T_SWAP, [X_STOP, -6.0, LZ])                       # parked under the floor on the cut
     oll = Life()
-    oll['head'].change(T_STOP + 0.3, [32, 0, 0], 0.6)
+    oll['head'].change(T_STOP + 0.3, [32, -45, 0], 0.6)        # the rest of the turn: down at the boy (yaw 71)
     oll['head'].change(12.9, [0, 0, 0], 0.5)
     t = T_DOWN0
     i = 0
@@ -2579,9 +2598,9 @@ def olli_scene():
     bl['head'].change(1.0, [-28, -20, 0], 1.0)                # up at the shelves
     bl['head'].change(3.0, [-34, 25, 0], 1.0)
     bl['head'].change(5.6, [-20, 0, 0], 0.8)
-    bl['head'].change(7.6, [-26, 55, 0], 0.4)                 # the ladder rolling in
-    bl['head'].change(T_STOP + 0.2, [-40, 30, 0], 0.6)
-    bl['head'].change(14.0, [-10, 20, 0], 0.8)
+    bl['head'].change(7.6, [-26, -12, 0], 0.4)                # the ladder rolling in (on his left: the north wall)
+    bl['head'].change(T_STOP + 0.2, [-40, -18, 0], 0.6)       # up at Ollivander on the ladder
+    bl['head'].change(14.0, [-10, -18, 0], 0.8)               # watching him climb down
     bl['head'].change(17.4, [-12, 0, 0], 0.6)
     bl['right_arm'].change(22.6, [-88, 0, 6], 0.5)            # holding out the wand arm for the tape
     bl['right_arm'].change(31.0, [0, 0, 0], 0.6)
@@ -2621,7 +2640,8 @@ def olli_scene():
     bl['right_arm'].change(72.4, [-48, 0, 0], 1.2)            # the wand lowered in front of him
     bl['head'].change(72.4, [8, 0, 0], 1.0)
     bl['head'].change(75.4, [-14, 0, 0], 1.0)                 # up at Ollivander
-    bl['head'].change(T_X - 0.2, [26, 0, 0], 1.2)             # down at the wand
+    # (no head pitch for X: the first-person camera looks down by itself, and a head pitched down 26 swings its face
+    # into the camera)
     sc.actor('boy', skin={'viewer': True}, scale=KID, mover=bm, life=bl, actions=ba)
 
     # ---- the tape: a rising spiral round the boy, along the arm, then dropped over the counter
@@ -2638,7 +2658,7 @@ def olli_scene():
     hand = [B[0] + 0.62, 1.0, B[2] + 0.28]
     tape += [(29.4, [shoulder[0], 1.08, shoulder[2]]), (29.9, [hand[0] + 0.1, 1.08, hand[2]]),
              (30.4, [shoulder[0], 1.1, shoulder[2]]), (30.9, [hand[0] + 0.15, 1.12, hand[2]]),
-             (31.6, [1.25, 1.62, -1.6])]
+             (31.6, [0.9, 1.56, -1.6])]                       # over the counter's edge: it hangs down its face
     tpath = [{'t': 0, 'pos': [1.5, 1.45, -2.5]}]             # coiled inside the counter top, unseen
     tpath.append({'t': tk(T0) - 6, 'pos': tpath[0]['pos']})
     for t, p in tape:
@@ -2777,7 +2797,7 @@ def olli_scene():
     sc.key(75.0, [-0.55, 1.5, 3.0], [1.0, 1.1, -0.5], 53)
     sc.key(75.0, [-0.9, 1.75, 0.55], [O[0], 1.55, O[2]], 38, cut=True)
     sc.key(T_X, [-0.9, 1.75, 0.55], [O[0], 1.55, O[2]], 38)
-    fp = [BE[0] + 0.25, BE[1], BE[2]]
+    fp = [BE[0] + 0.35, BE[1], BE[2]]                         # as W1: 0.35 ahead of the root keeps clear of the head
     sc.key(T_X, fp, [B[0] + 0.7, 0.75, B[2] + 0.2], 70, cut=True)
     sc.key(LEN, [fp[0] - 0.02, fp[1] - 0.03, fp[2]], [B[0] + 0.65, 0.7, B[2] + 0.2], 66)
     sc.ev(T_CLOSE, 'effect', 'eyes_close', at=[0, 0, 0], duration=50)
@@ -2790,6 +2810,7 @@ def olli_scene():
     def extra(problems):
         check_blocks(sc, scene, 'box_', BOX_HALF, ('boy', 'ollivander'), problems, world_check=False)
         check_blocks(sc, scene, 'shard_', SHARD_HALF, ('boy', 'ollivander'), problems, world_check=False)
+        check_eye_clear(scene, 'boy', tk(T_X), scene['length'], problems)          # X
         for y in range(15):                                    # the ladder rolls through air
             for x in range(int(X_STOP), int(X_FAR) + 1):
                 if not is_air(OLLI_W, [x + 0.5, y + 0.5, LAD_Z]):

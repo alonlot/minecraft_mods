@@ -41,7 +41,7 @@ in `0..length`. Positions are blocks relative to the set origin (see Coordinates
 | `title` | string | the file id | |
 | `length` | time | required, > 0 | scene ends and fades here |
 | `radius` | int | 40 | max 200; everything in `set` must fit within +-radius of origin in X and Z |
-| `fog_far` | int blocks | none | opt-in far view: without it the void fog closes in just past `radius` (start radius-8, end radius+2), so nothing beyond ~radius shows. With it the fog is a soft haze from 75% of `fog_far` to `fog_far` (`PensieveTimeline.farFog`), growing and collapsing with the reveal like the default, and never past the viewer's own render-distance fog (12 chunks = 192 blocks). 1 to 512. For a distant backdrop; `lake_patronus` uses 200 for Hogwarts across the lake. The edge fragments still sit at `radius` |
+| `fog_far` | int blocks | none | opt-in far view: without it the void fog closes in just past `radius` (start radius-8, end radius+2), so nothing beyond ~radius shows. With it the fog is a soft haze from 75% of `fog_far` to `fog_far` (`PensieveTimeline.farFog`), growing and collapsing with the reveal like the default, and never past the viewer's own render-distance fog (12 chunks = 192 blocks). 1 to 512. For a distant backdrop; the `first_task_*` scenes use 220 and the first two `flying_*` scenes of each house use 260. The edge fragments still sit at `radius` |
 | `set` | object | empty set | below |
 | `poses` | object | none | custom poses, below |
 | `actors` | array | none | below |
@@ -63,7 +63,7 @@ in `0..length`. Positions are blocks relative to the set origin (see Coordinates
 | `time_of_day` | number | 18000 | day time at the set: 0 dawn, 6000 noon, 12000 dusk, 18000 midnight |
 | `build_ticks` | int ticks | 60 | how long the dive waits while the set builds |
 
-Later entries overwrite earlier ones where they overlap (templates first, then schematics, then fills, then disks), but a template or schematic does not carve holes in a fill beneath it: their air is skipped. A fill can therefore re-block cells of a schematic (`lake_patronus` lights Hogwarts' windows with single-cell glowstone fills over its black glass, picked in the generator).
+Later entries overwrite earlier ones where they overlap (templates first, then schematics, then fills, then disks), but a template or schematic does not carve holes in a fill beneath it: their air is skipped. A fill can therefore re-block cells of a schematic.
 Block ids are namespaced (`minecraft:stone_bricks`).
 
 **Extent trap:** the validator checks only a template's or feature's *anchor* against the radius. `SetBuilder` then silently crops every block more than `radius` from the origin (X or Z), with no error. So make sure anchor + template size fits inside +-radius, and raise `radius` (max 200) for big templates. Template sizes (x,y,z) from each `.nbt`'s `size` tag: black_lake_ruin 15x9x15, chamber_hall 51x32x101, death_eater_camp 27x14x27, diagon_alley 233x45x49 (wider than radius 200 even when centred: crops), fen_gibbet 10x13x10, goblin_vault 17x8x11, hogwarts_ruin_camp 39x17x29, horntail_nest 14x5x14, locket_cave 64x42x64, merfolk_village 25x14x25, willow_clearing 23x3x23. For a new template, read it: `python -c "import gzip,struct;d=gzip.open('f.nbt').read();i=d.find(b'\x09\x00\x04size')+7;print(struct.unpack('>3i',d[i+5:i+17]))"`. Centre a template with `at` = minus half its x/z size.
@@ -302,7 +302,7 @@ A scene can be driven by mod code as well as by its own clock (`pensieve/Pensiev
 ## Coordinates
 - Origin = the block where the set is anchored; viewers float one block above it before the camera takes over. Actors with `pos:[0,0,0]` stand on top of the block layer at y = -1, so lay floors at `y: -1`.
 - Y is up. X east, Z south. Yaw follows Minecraft: 0 = facing +Z (south), 90 = facing -X (west), 180 = -Z (north), -90 = +X (east). Pitch: positive = looking down, negative = up, +-90 max. `look_at` and the camera derive yaw/pitch from positions for you; you only write yaw/pitch for actors' `look`.
-- Event `at` and `set` coordinates are integer block corners (decimals are rounded). Actor `path` and camera `pos` are relative to the origin block's corner and take decimals, so use `.5` to centre on a block (`[0.5, 0, 0.5]`).
+- `set` coordinates are integer block corners (decimals are rounded). Event `at` takes decimals for particles, sounds and effects; a `block` event needs whole numbers (the validator rejects decimals there). Actor `path` and camera `pos` are relative to the origin block's corner and take decimals, so use `.5` to centre on a block (`[0.5, 0, 0.5]`).
 - Everything must stay within `radius` (default 40, max 200) of the origin in X and Z, or validation fails for fills/disks/templates/features.
 
 ## Skins

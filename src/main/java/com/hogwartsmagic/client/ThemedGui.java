@@ -1,6 +1,9 @@
 package com.hogwartsmagic.client;
 
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.Util;
+import net.minecraft.client.renderer.RenderType;
+import org.joml.Matrix4f;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -84,11 +87,61 @@ public final class ThemedGui {
         g.fill(x, y, x + 16, y + 16, th.slotFill());
     }
 
-    public static void drawFilledCircle(GuiGraphics g, int cx, int cy, int radius, int color) {
-        for (int y = -radius; y <= radius; y++) {
-            int span = (int) Math.sqrt((double) radius * radius - (double) y * y);
-            g.fill(cx - span, cy + y, cx + span + 1, cy + y + 1, color);
+    /** Smooth filled disc (one translucent pass, so alpha colours do not stack like scanline circles did). */
+    public static void drawFilledCircle(GuiGraphics g, float cx, float cy, float radius, int color) {
+        fillAnnulus(g, cx, cy, 0f, radius, 0f, (float) (Math.PI * 2.0), color);
+    }
+
+    /**
+     * Ring sector between radii {@code r0..r1} and angles {@code a0..a1} (radians, 0 = +X, clockwise on
+     * screen since Y points down). {@code r0 = 0} gives a pie slice / disc.
+     */
+    public static void fillAnnulus(GuiGraphics g, float cx, float cy, float r0, float r1, float a0, float a1, int color) {
+        int segments = Math.max(6, (int) Math.ceil(Math.abs(a1 - a0) * Math.max(r1, 4f) / 3f));
+        Matrix4f m = g.pose().last().pose();
+        VertexConsumer vc = g.bufferSource().getBuffer(RenderType.gui());
+        for (int i = 0; i < segments; i++) {
+            float ta = a0 + (a1 - a0) * i / segments;
+            float tb = a0 + (a1 - a0) * (i + 1) / segments;
+            float ca = Mth.cos(ta), sa = Mth.sin(ta), cb = Mth.cos(tb), sb = Mth.sin(tb);
+            emitQuad(vc, m,
+                    cx + ca * r0, cy + sa * r0,
+                    cx + ca * r1, cy + sa * r1,
+                    cx + cb * r1, cy + sb * r1,
+                    cx + cb * r0, cy + sb * r0, color);
         }
+        g.flush();
+    }
+
+    /** Arbitrary convex quad (repeat a corner for a triangle). */
+    public static void fillQuad(GuiGraphics g, float x1, float y1, float x2, float y2, float x3, float y3,
+                                float x4, float y4, int color) {
+        emitQuad(g.bufferSource().getBuffer(RenderType.gui()), g.pose().last().pose(), x1, y1, x2, y2, x3, y3, x4, y4, color);
+        g.flush();
+    }
+
+    /**
+     * RenderType.gui() culls back faces, so every quad is emitted with the winding GuiGraphics#fill uses
+     * (negative shoelace area in screen space), whichever order the caller listed the corners in.
+     */
+    private static void emitQuad(VertexConsumer vc, Matrix4f m, float x1, float y1, float x2, float y2,
+                                 float x3, float y3, float x4, float y4, int color) {
+        float area = (x1 * y2 - x2 * y1) + (x2 * y3 - x3 * y2) + (x3 * y4 - x4 * y3) + (x4 * y1 - x1 * y4);
+        if (area > 0) {
+            vc.addVertex(m, x4, y4, 0f).setColor(color);
+            vc.addVertex(m, x3, y3, 0f).setColor(color);
+            vc.addVertex(m, x2, y2, 0f).setColor(color);
+            vc.addVertex(m, x1, y1, 0f).setColor(color);
+        } else {
+            vc.addVertex(m, x1, y1, 0f).setColor(color);
+            vc.addVertex(m, x2, y2, 0f).setColor(color);
+            vc.addVertex(m, x3, y3, 0f).setColor(color);
+            vc.addVertex(m, x4, y4, 0f).setColor(color);
+        }
+    }
+
+    public static int withAlpha(int color, int alpha) {
+        return (Mth.clamp(alpha, 0, 255) << 24) | (color & 0x00FFFFFF);
     }
 
     /** Draws {@code text} centred on {@code cx}, shrunk only if it would overflow {@code maxWidth}. */

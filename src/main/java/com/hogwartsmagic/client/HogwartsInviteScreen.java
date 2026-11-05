@@ -1,32 +1,59 @@
 package com.hogwartsmagic.client;
 
 import com.hogwartsmagic.ExampleMod;
+import com.mojang.blaze3d.systems.RenderSystem;
+import java.util.List;
+import java.util.Random;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
 
-import java.util.List;
+import static com.hogwartsmagic.client.ThemedGui.fillQuad;
+import static com.hogwartsmagic.client.ThemedGui.withAlpha;
 
+/**
+ * The acceptance letter. Opens as a sealed envelope: the wax seal breaks, the flap lifts, the letter
+ * slides out and settles while the envelope drops away. Click or press any key to skip the opening.
+ * The settled letter is a single parchment sheet: crest, emerald school heading, body, signature, and
+ * a wax-seal close button.
+ */
 public class HogwartsInviteScreen extends Screen {
-    private static final ResourceLocation EMBLEM_TEXTURE =
-            ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "textures/gui/hogwarts_invite_emblem.png");
-    private static final int EMBLEM_TEXTURE_WIDTH = 1600;
-    private static final int EMBLEM_TEXTURE_HEIGHT = 1067;
-    private static final int OPEN_ANIMATION_TICKS = 22;
+    private static final ResourceLocation CREST = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "textures/gui/hogwarts_crest.png");
+    private static final ResourceLocation SEAL = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "textures/gui/hogwarts_seal.png");
+    private static final int CREST_TEX_W = 256, CREST_TEX_H = 280;
+    private static final int SEAL_TEX_W = 256, SEAL_TEX_H = 218;
+    private static final int OPEN_TICKS = 36;
+
+    private static final int PAPER = 0xF3E4C4;
+    private static final int PAPER_EDGE = 0xE6D0A6;
+    private static final int PAPER_RIM = 0xB08D5E;
+    private static final int INK = 0x3C2415;
+    private static final int INK_EMERALD = 0x1F5236;
+    private static final int INK_SIGNATURE = 0x6C1F17;
+    private static final int ENVELOPE_FRONT = 0xEBD3A8;
+    private static final int ENVELOPE_BACK = 0xC9A979;
+    private static final int ENVELOPE_FLAP = 0xE0C495;
+    private static final int ENVELOPE_LINE = 0xB8936A;
 
     private final String recipient;
     private int animationTicks;
+    private boolean pageSoundPlayed;
+
+    // Settled-letter layout, screen coords.
+    private int letterW;
+    private int letterH;
     private int letterLeft;
     private int letterTop;
-    private int letterWidth;
-    private int letterHeight;
-    private int closeX;
-    private int closeY;
-    private int closeWidth;
-    private int closeHeight;
+    private int crestW;
+    private int crestH;
+    private int textW;
 
     public HogwartsInviteScreen(String recipient) {
         super(Component.translatable("gui.hogwartsmagic.hogwarts_invite"));
@@ -36,193 +63,295 @@ public class HogwartsInviteScreen extends Screen {
     @Override
     protected void init() {
         super.init();
-        recalculateLayout();
+        this.layout();
     }
 
-    @Override
-    public void resize(net.minecraft.client.Minecraft minecraft, int width, int height) {
-        super.resize(minecraft, width, height);
-        recalculateLayout();
+    private Component[] paragraphs() {
+        return new Component[]{
+                Component.translatable("item.hogwartsmagic.hogwarts_invite.line1", this.recipient),
+                Component.translatable("item.hogwartsmagic.hogwarts_invite.line2"),
+                Component.translatable("item.hogwartsmagic.hogwarts_invite.line3"),
+                Component.translatable("item.hogwartsmagic.hogwarts_invite.line4")
+        };
     }
 
-    private void recalculateLayout() {
-        this.letterWidth = Math.min(360, this.width - 60);
-        this.letterHeight = Math.min(236, this.height - 52);
-        this.letterLeft = (this.width - this.letterWidth) / 2;
-        this.letterTop = (this.height - this.letterHeight) / 2;
-        this.closeWidth = 68;
-        this.closeHeight = 38;
-        this.closeX = this.letterLeft + this.letterWidth - this.closeWidth - 14;
-        this.closeY = this.letterTop + 12;
+    private Component signature() {
+        return Component.translatable("item.hogwartsmagic.hogwarts_invite.signature").withStyle(ChatFormatting.ITALIC);
+    }
+
+    /** Sizes the sheet to its content; the crest shrinks first when the screen is short. */
+    private void layout() {
+        this.letterW = Math.min(300, this.width - 40);
+        this.textW = this.letterW - 52;
+        int body = 0;
+        for (Component p : this.paragraphs()) {
+            body += this.font.split(p, this.textW).size() * 10 + 6;
+        }
+        int sig = this.font.split(this.signature(), this.textW - 60).size() * 10;
+        // Mirrors drawLetter: crest top 14, crest, 6, heading block 37, body, 6, signature; the seal
+        // button (24 tall, 10 above the bottom) must clear the last body line on the left.
+        int withoutCrest = 14 + 6 + 37 + body;
+        this.crestW = 46;
+        this.crestH = Math.round(this.crestW * CREST_TEX_H / (float) CREST_TEX_W);
+        int full = Math.max(withoutCrest + this.crestH + 6 + sig + 14, withoutCrest + this.crestH + 36);
+        if (full > this.height - 16) {
+            this.crestW = 30;
+            this.crestH = Math.round(this.crestW * CREST_TEX_H / (float) CREST_TEX_W);
+        }
+        this.letterH = Math.max(withoutCrest + this.crestH + 6 + sig + 14, withoutCrest + this.crestH + 36);
+        this.letterLeft = (this.width - this.letterW) / 2;
+        this.letterTop = Math.max(4, (this.height - this.letterH) / 2);
     }
 
     @Override
     public void tick() {
         super.tick();
-        if (this.animationTicks < OPEN_ANIMATION_TICKS) {
+        if (this.animationTicks < OPEN_TICKS) {
             this.animationTicks++;
         }
     }
 
+    private boolean opened() {
+        return this.animationTicks >= OPEN_TICKS;
+    }
+
+    private void skipOpening() {
+        this.animationTicks = OPEN_TICKS;
+    }
+
+    // ---------------------------------------------------------------- rendering
+
     @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        this.renderTransparentBackground(guiGraphics);
-        guiGraphics.fill(0, 0, this.width, this.height, 0xB40F0906);
+    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        this.renderTransparentBackground(g);
+        g.fill(0, 0, this.width, this.height, 0x900F0906);
 
-        float openProgress = easeOutCubic(Mth.clamp((this.animationTicks + partialTick) / OPEN_ANIMATION_TICKS, 0.0F, 1.0F));
-        float paperProgress = easeOutCubic(Mth.clamp((openProgress - 0.12F) / 0.88F, 0.0F, 1.0F));
-        float textProgress = easeOutCubic(Mth.clamp((openProgress - 0.35F) / 0.65F, 0.0F, 1.0F));
+        float t = this.opened() ? 1f : Mth.clamp((this.animationTicks + partialTick) / OPEN_TICKS, 0f, 1f);
+        float seal = phase(t, 0.16f, 0.30f);
+        float flap = phase(t, 0.22f, 0.42f);
+        float rise = ease(phase(t, 0.38f, 0.70f));
+        float settle = ease(phase(t, 0.68f, 1.0f));
+        float text = phase(t, 0.84f, 1.0f);
+        if (rise > 0 && !this.pageSoundPlayed) {
+            this.pageSoundPlayed = true;
+            Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.BOOK_PAGE_TURN, 1.0f));
+        }
 
-        renderLetterShadow(guiGraphics, paperProgress);
-        renderParchment(guiGraphics, paperProgress);
-        renderEnvelope(guiGraphics, openProgress);
-        renderCloseSeal(guiGraphics, mouseX, mouseY, openProgress);
-        renderInviteText(guiGraphics, textProgress);
+        // Envelope geometry; it drops and fades while the letter settles.
+        float ew = Math.min(220f, this.letterW * 0.75f);
+        float eh = ew * 0.6f;
+        float ecx = this.width / 2f;
+        float etop = this.height / 2f - eh / 2f + 10f + settle * (eh + 40f);
+        int envAlpha = Math.round(255 * (1f - settle));
+        float el = ecx - ew / 2f;
+        float er = ecx + ew / 2f;
+        float eb = etop + eh;
+
+        // Letter transform: tucked inside the envelope, rising out, then growing to full size.
+        float s0 = Math.min((ew - 14f) / this.letterW, (eh - 8f) / this.letterH);
+        float insideCy = eb - 4f - this.letterH * s0 / 2f;
+        float raisedCy = etop + eh * 0.25f - this.letterH * s0 / 2f;
+        float finalCx = this.letterLeft + this.letterW / 2f;
+        float finalCy = this.letterTop + this.letterH / 2f;
+        float scale = Mth.lerp(settle, s0, 1f);
+        float cx = Mth.lerp(settle, ecx, finalCx);
+        float cy = Mth.lerp(settle, Mth.lerp(rise, insideCy, raisedCy), finalCy);
+
+        if (envAlpha > 0) {
+            g.fill(Math.round(el), Math.round(etop), Math.round(er), Math.round(eb), withAlpha(ENVELOPE_BACK, envAlpha));
+            if (flap >= 0.5f) {
+                this.drawFlap(g, el, er, etop, eh, flap, envAlpha);
+            }
+        }
+
+        if (rise > 0f) {
+            g.pose().pushPose();
+            g.pose().translate(cx - this.letterW * scale / 2f, cy - this.letterH * scale / 2f, 0f);
+            g.pose().scale(scale, scale, 1f);
+            boolean final1 = settle >= 1f;
+            int mx = final1 ? mouseX - this.letterLeft : -1000;
+            int my = final1 ? mouseY - this.letterTop : -1000;
+            this.drawLetter(g, Math.round(text * 255f), mx, my, settle > 0.5f);
+            g.pose().popPose();
+        }
+
+        if (envAlpha > 0) {
+            this.drawEnvelopeFront(g, el, er, etop, eb, ecx, eh, envAlpha);
+            if (flap < 0.5f) {
+                this.drawFlap(g, el, er, etop, eh, flap, envAlpha);
+            }
+            if (seal < 1f) {
+                float sealGrow = 1f + seal * 0.5f;
+                float sw = 30f * sealGrow;
+                float sh = sw * SEAL_TEX_H / SEAL_TEX_W;
+                float apexY = etop + eh * 0.55f;
+                this.blitTinted(g, SEAL, ecx - sw / 2f, apexY - sh / 2f, sw, sh, SEAL_TEX_W, SEAL_TEX_H, 1f - seal);
+            }
+        }
+
+        if (!this.opened()) {
+            g.drawCenteredString(this.font, Component.translatable("gui.hogwartsmagic.hogwarts_invite.skip"),
+                    this.width / 2, this.height - 16, withAlpha(0xBFA98A, 180));
+        }
     }
 
-    private void renderLetterShadow(GuiGraphics guiGraphics, float paperProgress) {
-        if (paperProgress <= 0.01F) {
+    /** Top flap: closed it points down over the front; past halfway it has flipped up behind the letter. */
+    private void drawFlap(GuiGraphics g, float el, float er, float etop, float eh, float p, int alpha) {
+        float cx = (el + er) / 2f;
+        float apexY = p < 0.5f
+                ? etop + eh * 0.55f * (1f - p * 2f)
+                : etop - eh * 0.42f * (p * 2f - 1f);
+        int color = p < 0.5f ? ENVELOPE_FLAP : ENVELOPE_BACK;
+        fillQuad(g, el, etop, er, etop, cx, apexY, cx, apexY, withAlpha(color, alpha));
+        int line = withAlpha(ENVELOPE_LINE, alpha);
+        fillQuad(g, el, etop, el + 1.2f, etop, cx, apexY + 0.6f, cx, apexY - 0.6f, line);
+        fillQuad(g, er, etop, er - 1.2f, etop, cx, apexY + 0.6f, cx, apexY - 0.6f, line);
+    }
+
+    /** Front pocket with the V notch the side flaps make, so the letter shows through the top. */
+    private void drawEnvelopeFront(GuiGraphics g, float el, float er, float etop, float eb, float ecx, float eh, int alpha) {
+        float notch = etop + eh * 0.5f;
+        int front = withAlpha(ENVELOPE_FRONT, alpha);
+        fillQuad(g, el, etop, ecx, notch, ecx, eb, el, eb, front);
+        fillQuad(g, er, etop, ecx, notch, ecx, eb, er, eb, front);
+        int line = withAlpha(ENVELOPE_LINE, alpha);
+        fillQuad(g, el, etop, el + 1.2f, etop, ecx, notch + 0.6f, ecx, notch - 0.6f, line);
+        fillQuad(g, er, etop, er - 1.2f, etop, ecx, notch + 0.6f, ecx, notch - 0.6f, line);
+        // Bottom flap folds.
+        fillQuad(g, el, eb, el + 1.2f, eb, ecx, eb - eh * 0.32f, ecx, eb - eh * 0.32f + 1.2f, line);
+        fillQuad(g, er, eb, er - 1.2f, eb, ecx, eb - eh * 0.32f, ecx, eb - eh * 0.32f + 1.2f, line);
+        int rim = withAlpha(PAPER_RIM, alpha);
+        g.fill(Math.round(el), Math.round(eb) - 1, Math.round(er), Math.round(eb), rim);
+        g.fill(Math.round(el), Math.round(etop), Math.round(el) + 1, Math.round(eb), rim);
+        g.fill(Math.round(er) - 1, Math.round(etop), Math.round(er), Math.round(eb), rim);
+    }
+
+    /** The sheet in its own coords (0,0 = top-left); {@code mouseX/Y} are sheet-local, or far away. */
+    private void drawLetter(GuiGraphics g, int textAlpha, int mouseX, int mouseY, boolean shadow) {
+        int w = this.letterW;
+        int h = this.letterH;
+        if (shadow) {
+            g.fill(4, 5, w + 4, h + 5, 0x50000000);
+        }
+        g.fill(0, 0, w, h, 0xFF000000 | PAPER_RIM);
+        g.fill(1, 1, w - 1, h - 1, 0xFF000000 | PAPER_EDGE);
+        g.fill(3, 3, w - 3, h - 3, 0xFF000000 | PAPER);
+        // Age: warm vignette at the edges and a few fixed speckles.
+        g.fillGradient(3, 3, w - 3, 16, 0x26805A2A, 0x00805A2A);
+        g.fillGradient(3, h - 16, w - 3, h - 3, 0x00805A2A, 0x30805A2A);
+        g.fill(3, 3, 7, h - 3, 0x14805A2A);
+        g.fill(w - 7, 3, w - 3, h - 3, 0x14805A2A);
+        Random speckle = new Random(0x484F47L);
+        for (int i = 0; i < 36; i++) {
+            int sx = 8 + speckle.nextInt(Math.max(1, w - 16));
+            int sy = 8 + speckle.nextInt(Math.max(1, h - 16));
+            int size = 1 + speckle.nextInt(2);
+            g.fill(sx, sy, sx + size, sy + size, 0x18603E1A);
+        }
+        // Emerald double rule just inside the edge, like printed stationery.
+        outline(g, 7, 7, w - 7, h - 7, 0x70000000 | INK_EMERALD);
+        outline(g, 9, 9, w - 9, h - 9, 0x38000000 | INK_EMERALD);
+
+        int y = 14;
+        this.blitTinted(g, CREST, (w - this.crestW) / 2f, y, this.crestW, this.crestH, CREST_TEX_W, CREST_TEX_H, 1f);
+        y += this.crestH + 6;
+        if (textAlpha < 8) {
             return;
         }
-        int visibleHeight = Math.max(20, Math.round(this.letterHeight * paperProgress));
-        int shadowTop = this.letterTop + this.letterHeight - visibleHeight + 6;
-        guiGraphics.fill(this.letterLeft + 10, shadowTop, this.letterLeft + this.letterWidth + 10, shadowTop + visibleHeight + 10, 0x3A000000);
+        int emerald = withAlpha(INK_EMERALD, textAlpha);
+        drawCenteredPlain(g, Component.translatable("gui.hogwartsmagic.hogwarts_invite.school1"), w / 2, y, emerald);
+        y += 10;
+        drawCenteredPlain(g, Component.translatable("gui.hogwartsmagic.hogwarts_invite.school2"), w / 2, y, emerald);
+        y += 13;
+        int ruleW = 60;
+        g.fill(w / 2 - ruleW, y, w / 2 + ruleW, y + 1, withAlpha(INK_EMERALD, textAlpha * 3 / 4));
+        g.fill(w / 2 - 2, y - 1, w / 2 + 2, y + 2, withAlpha(INK_EMERALD, textAlpha));
+        y += 8;
+
+        int ink = withAlpha(INK, textAlpha);
+        int x = 26;
+        Component[] paragraphs = this.paragraphs();
+        for (int i = 0; i < paragraphs.length; i++) {
+            int color = i == 0 ? withAlpha(INK_EMERALD, textAlpha) : ink;
+            for (FormattedCharSequence line : this.font.split(paragraphs[i], this.textW)) {
+                g.drawString(this.font, line, x, y, color, false);
+                y += 10;
+            }
+            y += 6;
+        }
+        y += 6;
+        int sigColor = withAlpha(INK_SIGNATURE, textAlpha);
+        for (FormattedCharSequence line : this.font.split(this.signature(), this.textW - 60)) {
+            g.drawString(this.font, line, w - 26 - this.font.width(line), y, sigColor, false);
+            y += 10;
+        }
+
+        // Wax seal close button, bottom left.
+        boolean hovered = this.overClose(mouseX, mouseY);
+        int bx = 22;
+        int by = h - 34;
+        float grow = hovered ? 1.12f : 1f;
+        float sw = 28f * grow;
+        float sh = sw * SEAL_TEX_H / SEAL_TEX_W;
+        this.blitTinted(g, SEAL, bx + 14 - sw / 2f, by + 12 - sh / 2f, sw, sh, SEAL_TEX_W, SEAL_TEX_H, textAlpha / 255f);
+        int labelColor = withAlpha(hovered ? INK_SIGNATURE : INK, textAlpha);
+        Component close = Component.translatable("gui.hogwartsmagic.close");
+        g.drawString(this.font, hovered ? close.copy().withStyle(ChatFormatting.UNDERLINE) : close, bx + 32, by + 8, labelColor, false);
     }
 
-    private void renderParchment(GuiGraphics guiGraphics, float paperProgress) {
-        if (paperProgress <= 0.01F) {
+    private void drawCenteredPlain(GuiGraphics g, Component text, int cx, int y, int color) {
+        g.drawString(this.font, text, cx - this.font.width(text) / 2, y, color, false);
+    }
+
+    private static void outline(GuiGraphics g, int x0, int y0, int x1, int y1, int color) {
+        g.fill(x0, y0, x1, y0 + 1, color);
+        g.fill(x0, y1 - 1, x1, y1, color);
+        g.fill(x0, y0 + 1, x0 + 1, y1 - 1, color);
+        g.fill(x1 - 1, y0 + 1, x1, y1 - 1, color);
+    }
+
+    /** Whole-texture blit, linearly filtered (these are big painted images drawn small), with alpha. */
+    private void blitTinted(GuiGraphics g, ResourceLocation tex, float x, float y, float w, float h, int texW, int texH, float alpha) {
+        if (alpha <= 0.01f) {
             return;
         }
-
-        int visibleHeight = Math.max(12, Math.round(this.letterHeight * paperProgress));
-        int paperTop = this.letterTop + this.letterHeight - visibleHeight;
-        int paperBottom = this.letterTop + this.letterHeight;
-        guiGraphics.fill(this.letterLeft, paperTop, this.letterLeft + this.letterWidth, paperBottom, 0xFFF4E6C8);
-        guiGraphics.fill(this.letterLeft, paperTop, this.letterLeft + this.letterWidth, paperTop + 3, 0xFFFDF5E3);
-        guiGraphics.fill(this.letterLeft, paperBottom - 3, this.letterLeft + this.letterWidth, paperBottom, 0xFFD3B890);
-        guiGraphics.fill(this.letterLeft, paperTop, this.letterLeft + 3, paperBottom, 0xFFE7D0AA);
-        guiGraphics.fill(this.letterLeft + this.letterWidth - 3, paperTop, this.letterLeft + this.letterWidth, paperBottom, 0xFFD6BA92);
+        Minecraft.getInstance().getTextureManager().getTexture(tex).setFilter(true, false);
+        g.pose().pushPose();
+        g.pose().translate(x, y, 0f);
+        g.pose().scale(w / texW, h / texH, 1f);
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
+        g.blit(tex, 0, 0, texW, texH, 0f, 0f, texW, texH, texW, texH);
+        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+        g.pose().popPose();
     }
 
-    private void renderEnvelope(GuiGraphics guiGraphics, float openProgress) {
-        int envelopeInset = 20;
-        int envelopeLeft = this.letterLeft + envelopeInset;
-        int envelopeRight = this.letterLeft + this.letterWidth - envelopeInset;
-        int envelopeWidth = envelopeRight - envelopeLeft;
-        int envelopeHeight = Math.max(94, this.letterHeight / 2);
-        int baseY = this.letterTop + this.letterHeight - envelopeHeight + 14;
-        int frontTop = baseY + Math.round(openProgress * 10.0F);
-        int frontBottom = baseY + envelopeHeight;
-        int flapLift = Math.round(openProgress * 44.0F);
-        int flapTop = baseY - flapLift;
-        int flapHeight = Math.max(34, envelopeHeight / 2);
-        int flapInset = Math.round(10.0F + openProgress * 16.0F);
-
-        guiGraphics.fill(envelopeLeft, baseY - 6, envelopeRight, frontBottom, 0xFFDDC09A);
-        guiGraphics.fill(envelopeLeft + 3, baseY - 3, envelopeRight - 3, frontBottom - 3, 0xFFE9D0AB);
-
-        int crestWidth = Math.min(126, envelopeWidth - 48);
-        int crestHeight = Math.round(crestWidth * (EMBLEM_TEXTURE_HEIGHT / (float) EMBLEM_TEXTURE_WIDTH));
-        int crestX = envelopeLeft + (envelopeWidth - crestWidth) / 2;
-        int crestY = flapTop + 6;
-        guiGraphics.blit(EMBLEM_TEXTURE, crestX, crestY, 0, 0, crestWidth, crestHeight, EMBLEM_TEXTURE_WIDTH, EMBLEM_TEXTURE_HEIGHT);
-
-        guiGraphics.fill(envelopeLeft + flapInset, flapTop, envelopeRight - flapInset, flapTop + flapHeight, 0xFFF3E3C7);
-        guiGraphics.fill(envelopeLeft + flapInset, flapTop, envelopeRight - flapInset, flapTop + 2, 0xFFFFF8ED);
-        guiGraphics.fill(envelopeLeft + flapInset, flapTop + flapHeight - 2, envelopeRight - flapInset, flapTop + flapHeight, 0xFFD9BC95);
-
-        guiGraphics.fill(envelopeLeft, frontTop, envelopeRight, frontBottom, 0xFFF1D8B3);
-        guiGraphics.fill(envelopeLeft, frontTop, envelopeRight, frontTop + 2, 0xFFFDF0DA);
-        guiGraphics.fill(envelopeLeft, frontBottom - 3, envelopeRight, frontBottom, 0xFFCFA97E);
-        guiGraphics.fill(envelopeLeft, frontTop, envelopeLeft + 3, frontBottom, 0xFFE0C299);
-        guiGraphics.fill(envelopeRight - 3, frontTop, envelopeRight, frontBottom, 0xFFD3AE87);
-
-        int ribbonTop = frontTop + 18;
-        guiGraphics.fill(envelopeLeft + 20, ribbonTop, envelopeRight - 20, ribbonTop + 2, 0x55A77241);
-        guiGraphics.fill(envelopeLeft + 20, ribbonTop + 16, envelopeRight - 20, ribbonTop + 18, 0x338D5E31);
+    private boolean overClose(int localX, int localY) {
+        int bx = 22;
+        int by = this.letterH - 34;
+        return localX >= bx && localX < bx + 70 && localY >= by && localY < by + 24;
     }
 
-    private void renderCloseSeal(GuiGraphics guiGraphics, int mouseX, int mouseY, float openProgress) {
-        if (openProgress < 0.55F) {
-            return;
-        }
-        boolean hovered = isHoveringClose(mouseX, mouseY);
-        int x = hovered ? this.closeX - 1 : this.closeX;
-        int y = hovered ? this.closeY - 1 : this.closeY;
-        int width = hovered ? this.closeWidth + 2 : this.closeWidth;
-        int height = hovered ? this.closeHeight + 2 : this.closeHeight;
-
-        guiGraphics.fill(x, y + 4, x + width, y + height, hovered ? 0xFFD7B286 : 0xFFCDA57B);
-        guiGraphics.fill(x + 2, y + 6, x + width - 2, y + height - 2, hovered ? 0xFFF3DEC0 : 0xFFECD4AF);
-        guiGraphics.fill(x + 6, y + 12, x + width - 6, y + 14, 0xFFB7372D);
-        guiGraphics.fill(x + 6, y + 14, x + width - 6, y + 16, 0xFF7C1E1A);
-
-        int crestWidth = 22;
-        int crestHeight = Math.round(crestWidth * (EMBLEM_TEXTURE_HEIGHT / (float) EMBLEM_TEXTURE_WIDTH));
-        guiGraphics.blit(EMBLEM_TEXTURE, x + 8, y + 5, 0, 0, crestWidth, crestHeight, EMBLEM_TEXTURE_WIDTH, EMBLEM_TEXTURE_HEIGHT);
-        guiGraphics.drawString(this.font, Component.translatable("gui.hogwartsmagic.close"), x + 32, y + 14, hovered ? 0xFF6F1A15 : 0xFF52201A, false);
+    private static float phase(float t, float start, float end) {
+        return Mth.clamp((t - start) / (end - start), 0f, 1f);
     }
 
-    private void renderInviteText(GuiGraphics guiGraphics, float textProgress) {
-        if (textProgress <= 0.01F) {
-            return;
-        }
-        int alpha = Mth.clamp(Math.round(textProgress * 255.0F), 0, 255);
-        int color = withAlpha(0x3C2415, alpha);
-        int accentColor = withAlpha(0x5A3420, alpha);
-        int signatureColor = withAlpha(0x6C1F17, alpha);
-
-        int textX = this.letterLeft + 26;
-        int textY = this.letterTop + 62;
-        int illustrationWidth = Math.min(126, this.letterWidth / 3);
-        int illustrationHeight = Math.round(illustrationWidth * (EMBLEM_TEXTURE_HEIGHT / (float) EMBLEM_TEXTURE_WIDTH));
-        int illustrationX = this.letterLeft + this.letterWidth - illustrationWidth - 24;
-        int illustrationY = this.letterTop + 72;
-        int textRight = illustrationX - 18;
-        int maxWidth = Math.max(120, textRight - textX);
-
-        guiGraphics.drawString(this.font, this.title, textX, this.letterTop + 44, accentColor, false);
-
-        guiGraphics.fill(illustrationX - 8, illustrationY - 8, illustrationX + illustrationWidth + 8, illustrationY + illustrationHeight + 8, withAlpha(0xEBD8B7, alpha));
-        guiGraphics.fill(illustrationX - 8, illustrationY - 8, illustrationX + illustrationWidth + 8, illustrationY - 6, withAlpha(0xFFF7E7, alpha));
-        guiGraphics.fill(illustrationX - 8, illustrationY + illustrationHeight + 6, illustrationX + illustrationWidth + 8, illustrationY + illustrationHeight + 8, withAlpha(0xD3B890, alpha));
-        guiGraphics.blit(EMBLEM_TEXTURE, illustrationX, illustrationY, 0, 0, illustrationWidth, illustrationHeight, EMBLEM_TEXTURE_WIDTH, EMBLEM_TEXTURE_HEIGHT);
-
-        textY = drawWrapped(guiGraphics, Component.translatable("item.hogwartsmagic.hogwarts_invite.line1", this.recipient), textX, textY, maxWidth, accentColor) + 10;
-        textY = drawWrapped(guiGraphics, Component.translatable("item.hogwartsmagic.hogwarts_invite.line2"), textX, textY, maxWidth, color) + 8;
-        textY = drawWrapped(guiGraphics, Component.translatable("item.hogwartsmagic.hogwarts_invite.line3"), textX, textY, maxWidth, color) + 8;
-        textY = drawWrapped(guiGraphics, Component.translatable("item.hogwartsmagic.hogwarts_invite.line4"), textX, textY, maxWidth, color) + 12;
-        drawWrapped(guiGraphics, Component.translatable("item.hogwartsmagic.hogwarts_invite.signature"), textX, textY, maxWidth, signatureColor);
-    }
-
-    private int drawWrapped(GuiGraphics guiGraphics, Component component, int x, int y, int maxWidth, int color) {
-        List<FormattedCharSequence> lines = this.font.split(component, maxWidth);
-        int lineY = y;
-        for (FormattedCharSequence line : lines) {
-            guiGraphics.drawString(this.font, line, x, lineY, color, false);
-            lineY += this.font.lineHeight + 1;
-        }
-        return lineY;
-    }
-
-    private boolean isHoveringClose(double mouseX, double mouseY) {
-        return mouseX >= this.closeX && mouseX < this.closeX + this.closeWidth
-                && mouseY >= this.closeY && mouseY < this.closeY + this.closeHeight;
-    }
-
-    private static float easeOutCubic(float value) {
+    private static float ease(float value) {
         float inverse = 1.0F - value;
         return 1.0F - inverse * inverse * inverse;
     }
 
-    private static int withAlpha(int color, int alpha) {
-        return (alpha << 24) | (color & 0x00FFFFFF);
-    }
+    // ---------------------------------------------------------------- input
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == 0 && isHoveringClose(mouseX, mouseY)) {
-            onClose();
+        if (!this.opened()) {
+            this.skipOpening();
+            return true;
+        }
+        if (button == 0 && this.overClose((int) mouseX - this.letterLeft, (int) mouseY - this.letterTop)) {
+            this.onClose();
             return true;
         }
         return super.mouseClicked(mouseX, mouseY, button);
@@ -231,7 +360,11 @@ public class HogwartsInviteScreen extends Screen {
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (this.minecraft != null && keyCode == this.minecraft.options.keyInventory.getKey().getValue()) {
-            onClose();
+            this.onClose();
+            return true;
+        }
+        if (!this.opened() && keyCode != org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE) {
+            this.skipOpening();
             return true;
         }
         return super.keyPressed(keyCode, scanCode, modifiers);

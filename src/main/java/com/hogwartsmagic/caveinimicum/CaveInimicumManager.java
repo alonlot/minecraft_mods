@@ -35,6 +35,7 @@ import java.util.UUID;
  * Owns active ward lifecycle per level: registration, expiration, player
  * visibility transitions, and delta illusion repair when the real world changes.
  */
+@net.minecraftforge.fml.common.Mod.EventBusSubscriber(modid = com.hogwartsmagic.ExampleMod.MODID)
 public final class CaveInimicumManager {
     private static final Map<String, CaveInimicumManager> BY_LEVEL = new HashMap<>();
 
@@ -42,6 +43,8 @@ public final class CaveInimicumManager {
     private final Set<BlockPos> trackedWardPositions = new HashSet<>();
     private final Map<BlockPos, Boolean> concealmentByWard = new HashMap<>();
     private final CaveInimicumVisibilityTracker visibilityTracker = new CaveInimicumVisibilityTracker();
+    /** Players who were just sent a chunk of an illusion ward, and which wards; flushed on the next tick. */
+    private final Map<UUID, Set<BlockPos>> pendingChunkResync = new HashMap<>();
 
     private CaveInimicumManager(ServerLevel level) {
         this.level = level;
@@ -93,7 +96,54 @@ public final class CaveInimicumManager {
         syncActiveWardListToPlayer(player);
     }
 
+    /**
+     * A freshly sent chunk carries the real blocks. Without this, an outsider who loads a ward chunk
+     * from far away keeps seeing the real build until the visibility tracker happens to resync, so
+     * the illusion is re-sent once the chunk is on the client.
+     */
+    @net.minecraftforge.eventbus.api.SubscribeEvent
+    public static void onChunkSent(net.minecraftforge.event.level.ChunkWatchEvent.Watch event) {
+        CaveInimicumManager manager = BY_LEVEL.get(event.getLevel().dimension().location().toString());
+        if (manager == null || manager.trackedWardPositions.isEmpty()) {
+            return;
+        }
+        net.minecraft.world.level.ChunkPos chunk = event.getPos();
+        for (CaveInimicumWardBlockEntity ward : manager.illusionWards()) {
+            BlockPos min = ward.bounds().min();
+            BlockPos max = ward.bounds().max();
+            if (chunk.x < (min.getX() >> 4) || chunk.x > (max.getX() >> 4)
+                    || chunk.z < (min.getZ() >> 4) || chunk.z > (max.getZ() >> 4)) {
+                continue;
+            }
+            manager.pendingChunkResync.computeIfAbsent(event.getPlayer().getUUID(), ignored -> new HashSet<>())
+                    .add(ward.getBlockPos().immutable());
+        }
+    }
+
+    private void flushChunkResyncs() {
+        if (pendingChunkResync.isEmpty()) {
+            return;
+        }
+        Map<UUID, Set<BlockPos>> pending = new HashMap<>(pendingChunkResync);
+        pendingChunkResync.clear();
+        for (Map.Entry<UUID, Set<BlockPos>> entry : pending.entrySet()) {
+            if (!(level.getPlayerByUUID(entry.getKey()) instanceof ServerPlayer player)) {
+                continue;
+            }
+            for (BlockPos wardPos : entry.getValue()) {
+                if (!level.isLoaded(wardPos)
+                        || !(level.getBlockEntity(wardPos) instanceof CaveInimicumWardBlockEntity ward)
+                        || !ward.isActive()
+                        || playerSeesRealityInWard(player, ward)) {
+                    continue;
+                }
+                syncWardRegionToPlayer(player, ward.bounds());
+            }
+        }
+    }
+
     public void tick() {
+        flushChunkResyncs();
         List<CaveInimicumWardBlockEntity> wards = trackedWards();
         if (wards.isEmpty()) {
             return;
@@ -177,7 +227,10 @@ public final class CaveInimicumManager {
             for (int z = 0; z < bounds.edgeLength(); z++) {
                 for (int x = 0; x < bounds.edgeLength(); x++) {
                     BlockPos pos = min.offset(x, y, z);
-                    stateIds[index++] = Block.getId(resolveVisibleStateForPlayer(player, pos));
+                    // Never load a chunk to read it. A chunk the server has not loaded is not on
+                    // this client either, so the value is ignored there; onChunkSent re-sends the
+                    // region once that chunk does reach the player.
+                    stateIds[index++] = level.isLoaded(pos) ? Block.getId(resolveVisibleStateForPlayer(player, pos)) : 0;
                 }
             }
         }
@@ -259,6 +312,9 @@ public final class CaveInimicumManager {
         boolean changed = false;
         for (int i = 0; i < cache.length; i++) {
             BlockPos pos = bounds.posAtIndex(i);
+            if (!level.isLoaded(pos)) {
+                continue; // runs every few ticks: reading an unloaded corner would load its chunk
+            }
             int currentId = Block.getId(level.getBlockState(pos));
             if (cache[i] == currentId) {
                 continue;
@@ -368,7 +424,8 @@ public final class CaveInimicumManager {
             for (int z = 0; z < bounds.edgeLength(); z++) {
                 for (int x = 0; x < bounds.edgeLength(); x++) {
                     BlockPos pos = min.offset(x, y, z);
-                    if (!resolveVisibleStateForPlayer(player, pos).equals(level.getBlockState(pos))) {
+                    if (!level.isLoaded(pos)
+                            || !resolveVisibleStateForPlayer(player, pos).equals(level.getBlockState(pos))) {
                         continue;
                     }
                     BlockEntity blockEntity = level.getBlockEntity(pos);
@@ -406,12 +463,15 @@ public final class CaveInimicumManager {
         List<CaveInimicumWardBlockEntity> wards = new ArrayList<>();
         List<BlockPos> invalid = new ArrayList<>();
         for (BlockPos wardPos : trackedWardPositions) {
+            // Check loaded first: getBlockEntity on an unloaded position would load its chunk.
+            if (!level.isLoaded(wardPos)) {
+                invalid.add(wardPos);
+                continue;
+            }
             BlockEntity blockEntity = level.getBlockEntity(wardPos);
             if (blockEntity instanceof CaveInimicumWardBlockEntity ward && ward.isOperational()) {
                 wards.add(ward);
             } else if (blockEntity instanceof CaveInimicumWardBlockEntity) {
-                invalid.add(wardPos);
-            } else if (!level.isLoaded(wardPos)) {
                 invalid.add(wardPos);
             }
         }
@@ -458,7 +518,10 @@ public final class CaveInimicumManager {
     }
 
     private boolean isPlayerRelevantToBounds(ServerPlayer player, CaveInimicumWardBounds bounds) {
-        int range = Math.max(48, bounds.edgeLength() * 3);
+        // Anyone who can have the ward chunks loaded must get the illusion, not only players
+        // within 48 blocks: past that, block changes inside reached them as the real blocks.
+        int viewBlocks = level.getServer().getPlayerList().getViewDistance() * 16 + bounds.edgeLength();
+        int range = Math.max(Math.max(48, bounds.edgeLength() * 3), viewBlocks);
         return player.blockPosition().closerThan(bounds.center(), range);
     }
 

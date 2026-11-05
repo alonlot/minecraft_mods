@@ -2324,7 +2324,12 @@ public class ModEvents {
                 || !serverLevel.isLoaded(destinationPos)
                 || !(serverLevel.getBlockEntity(sourcePos) instanceof com.hogwartsmagic.block.entity.FlooFireplaceBlockEntity source)
                 || !(serverLevel.getBlockEntity(destinationPos) instanceof com.hogwartsmagic.block.entity.FlooFireplaceBlockEntity destination)
-                || !source.getLinkedPositions().contains(destinationPos)) {
+                || !source.getLinkedPositions().contains(destinationPos)
+                // Never land inside blocks: something built over the destination hearth fizzles the trip.
+                || !serverLevel.noCollision(player, player.getBoundingBox().move(
+                        destinationPos.getX() + 0.5 - player.getX(),
+                        destinationPos.getY() + 1.0 - player.getY(),
+                        destinationPos.getZ() + 0.5 - player.getZ()))) {
             serverLevel.playSound(null, player.getX(), player.getY(), player.getZ(),
                     com.hogwartsmagic.ModSounds.FLOO_FIZZLE.get(), SoundSource.PLAYERS, 1.0f, 1.0f);
             com.hogwartsmagic.spell.TravelFx.send(player, com.hogwartsmagic.spell.TravelFx.FLOO_FIZZLE, player.getX(), player.getY(), player.getZ(), 0);

@@ -111,10 +111,17 @@ public final class HorcruxData {
         if (attribute == null) {
             return;
         }
-        attribute.removeModifier(HORCRUX_HEALTH_MODIFIER_ID);
+        // Runs every player tick: touch the attribute only when the cost changed, or every tick would mark
+        // max health dirty and send an attribute packet to the player and everyone tracking them.
         double cost = getHealthCost(player);
+        AttributeModifier existing = attribute.getModifier(HORCRUX_HEALTH_MODIFIER_ID);
         if (cost > 0.0D) {
-            attribute.addTransientModifier(new AttributeModifier(HORCRUX_HEALTH_MODIFIER_ID, -cost, AttributeModifier.Operation.ADD_VALUE));
+            if (existing == null || existing.amount() != -cost) {
+                attribute.removeModifier(HORCRUX_HEALTH_MODIFIER_ID);
+                attribute.addTransientModifier(new AttributeModifier(HORCRUX_HEALTH_MODIFIER_ID, -cost, AttributeModifier.Operation.ADD_VALUE));
+            }
+        } else if (existing != null) {
+            attribute.removeModifier(HORCRUX_HEALTH_MODIFIER_ID);
         }
         if (player.getHealth() > player.getMaxHealth()) {
             player.setHealth(player.getMaxHealth());

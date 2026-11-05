@@ -46,7 +46,8 @@ public class WandWorkbenchScreen extends AbstractContainerScreen<WandWorkbenchMe
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         this.positionRecipeBookButton();
-        this.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+        // AbstractContainerScreen.render already draws renderTransparentBackground + renderBg once;
+        // an explicit renderBackground call here drew the dim and the panel a second time.
         super.render(guiGraphics, mouseX, mouseY, partialTick);
         this.renderTooltip(guiGraphics, mouseX, mouseY);
     }

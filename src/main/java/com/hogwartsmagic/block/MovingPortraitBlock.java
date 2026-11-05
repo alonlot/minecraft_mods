@@ -42,6 +42,24 @@ public class MovingPortraitBlock extends HorizontalDirectionalBlock {
         builder.add(FACING);
     }
 
+    /** Hangs on the wall that was clicked, picture facing out; on a floor or ceiling it faces the player. */
+    @Override
+    public BlockState getStateForPlacement(net.minecraft.world.item.context.BlockPlaceContext context) {
+        Direction clicked = context.getClickedFace();
+        Direction facing = clicked.getAxis().isHorizontal() ? clicked : context.getHorizontalDirection().getOpposite();
+        return this.defaultBlockState().setValue(FACING, facing);
+    }
+
+    @Override
+    protected BlockState rotate(BlockState state, net.minecraft.world.level.block.Rotation rotation) {
+        return state.setValue(FACING, rotation.rotate(state.getValue(FACING)));
+    }
+
+    @Override
+    protected BlockState mirror(BlockState state, net.minecraft.world.level.block.Mirror mirror) {
+        return state.rotate(mirror.getRotation(state.getValue(FACING)));
+    }
+
     @Override
     protected RenderShape getRenderShape(BlockState state) {
         return RenderShape.MODEL;

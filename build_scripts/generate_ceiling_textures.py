@@ -324,7 +324,6 @@ if __name__ == "__main__":
     storm_mist()
     rain_sheet()
     real_sky()
-    import sys
     if len(sys.argv) > 1:
         contact_sheet().save(sys.argv[1])
         storm_sheet().save(sys.argv[1].replace(".png", "_storm.png"))

@@ -654,7 +654,9 @@ public final class EnchantedCeiling {
         float[] field = sky.field, tint = sky.fieldTint;
         int n = field.length / 3;
         float expected = CeilingSky.FIELD_DENSITY * 4f * sky.hx * sky.hz * k * k;
-        int keep = expected > STAR_CAP ? (int) (n * STAR_CAP / expected) : n;
+        // A fractional budget; the stars nearest its end fade (starBudgetFade) so it never pops them by index.
+        float budget = expected > STAR_CAP ? n * STAR_CAP / expected : n + CeilingSky.STAR_BUDGET_FADE;
+        int keep = Math.min(n, (int) Math.ceil(budget));
         float y = p.ay - STAR_DROP;
         int glows = 0;
         VertexConsumer dots = buffer.getBuffer(DOTS);

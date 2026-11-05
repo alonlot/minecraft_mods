@@ -3,7 +3,6 @@ package com.hogwartsmagic.pensieve.scene;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** The {@code real} ceiling style: its day / dusk / night / overcast / storm weights and its two new colours. */
@@ -70,29 +69,15 @@ class CeilingSkyRealTest {
     }
 
     @Test
-    void daySkyGoesFromHorizonToZenith() {
-        int zenith = CeilingSky.daySkyColour(7L, 0f, 0f);
-        int horizon = CeilingSky.daySkyColour(7L, 1f, 0f);
-        assertColourNear(0x3F7FD6, zenith, 8);
-        assertColourNear(0xA9D2F2, horizon, 8);
-        assertNotEquals(CeilingSky.daySkyColour(7L, 0.3f, 0.2f), CeilingSky.daySkyColour(8L, 0.3f, 0.2f));
-    }
-
-    @Test
-    void duskIsWarmAtTheHorizonAndIndigoOverhead() {
-        assertColourNear(0x4B4F8C, CeilingSky.duskTint(0f, 0f), 8);
-        int east = CeilingSky.duskTint(1f, 0f);
-        int west = CeilingSky.duskTint(-1f, 0f);
-        assertNotEquals(east, west);
-        assertColourNear(0xF2A65A, west, 12);
-        assertColourNear(0xD96C6C, east, 12);
-    }
-
-    private static void assertColourNear(int expected, int actual, int tolerance) {
-        for (int shift = 16; shift >= 0; shift -= 8) {
-            int e = (expected >> shift) & 0xFF, a = (actual >> shift) & 0xFF;
-            assertTrue(Math.abs(e - a) <= tolerance,
-                    String.format("channel %d: expected %06X, got %06X", shift, expected, actual));
+    void starBudgetFadesOutInsteadOfCuttingHard() {
+        assertEquals(1f, CeilingSky.starBudgetFade(0, 1000f), 0f);
+        assertEquals(1f, CeilingSky.starBudgetFade(900, 1000f), 0f);
+        assertEquals(0f, CeilingSky.starBudgetFade(1000, 1000f), 0f);
+        assertEquals(0f, CeilingSky.starBudgetFade(5000, 1000f), 0f);
+        // A small change in the budget moves each star's brightness only a little (no pop by index).
+        for (int i = 880; i < 1010; i++) {
+            float d = Math.abs(CeilingSky.starBudgetFade(i, 1000.5f) - CeilingSky.starBudgetFade(i, 1000f));
+            assertTrue(d < 0.01f, "star " + i + " jumped by " + d);
         }
     }
 }

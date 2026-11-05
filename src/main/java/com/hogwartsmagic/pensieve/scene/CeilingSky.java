@@ -209,33 +209,8 @@ public final class CeilingSky {
         return new float[]{day, dusk, night, clamp01(rain), clamp01(thunder)};
     }
 
-    /** The daytime sky's colour at (u, v) as 0xRRGGBB, before the texture: #3F7FD6 overhead to #A9D2F2 at the walls. */
-    public static int daySkyColour(long seed, float u, float v) {
-        float d = Math.min(1f, (float) Math.sqrt(u * u + v * v));
-        float k = 1f - d * d * (3f - 2f * d);                        // 1 overhead, 0 at the walls
-        // The same seeded band the night sky has, as a faint brightening, so two skies are not twins.
-        float haze = 1f + 0.03f * (bandGlow(seed, u, v) - 0.5f);
-        return rgb(lerp(0xA9, 0x3F, k) * haze, lerp(0xD2, 0x7F, k) * haze, lerp(0xF2, 0xD6, k) * haze);
-    }
-
-    /**
-     * The sunset (or sunrise) glow at (u, v) as 0xRRGGBB, before the texture: indigo #4B4F8C overhead, the horizon
-     * #F2A65A on one side of the hall (u = -1) shading to #D96C6C on the other (u = 1).
-     */
-    public static int duskTint(float u, float v) {
-        float d = Math.min(1f, (float) Math.sqrt(u * u + v * v));
-        float k = 1f - d * d * (3f - 2f * d);
-        float side = clamp01((u + 1f) * 0.5f);
-        float hr = lerp(0xF2, 0xD9, side), hg = lerp(0xA6, 0x6C, side), hb = lerp(0x5A, 0x6C, side);
-        return rgb(lerp(hr, 0x4B, k), lerp(hg, 0x4F, k), lerp(hb, 0x8C, k));
-    }
-
     private static float lerp(float a, float b, float k) {
         return a + (b - a) * k;
-    }
-
-    private static int rgb(float r, float g, float b) {
-        return (Math.min(255, Math.round(r)) << 16) | (Math.min(255, Math.round(g)) << 8) | Math.min(255, Math.round(b));
     }
 
     private static float clamp01(float f) {
@@ -628,7 +603,19 @@ public final class CeilingSky {
         return true;
     }
 
-    /** 1 deep inside the {@code ±hx, ±hz} rectangle, falling to 0 at its edge over the last {@code soft} blocks. */
+    /** How many stars the end of the star budget fades over, so a shrinking budget dims stars out instead of popping them. */
+    public static final float STAR_BUDGET_FADE = 96f;
+
+    /**
+     * Brightness factor (0..1) of star {@code index} when the budget keeps {@code budget} stars (fractional): 1 well
+     * inside it, falling linearly to 0 over the last {@link #STAR_BUDGET_FADE} stars before the cutoff. As the budget
+     * changes smoothly with the camera's distance below the plane, each star fades rather than flickering in or out.
+     */
+    public static float starBudgetFade(int index, float budget) {
+        return clamp01((budget - index) / STAR_BUDGET_FADE);
+    }
+
+    /** 1 deep inside the {@code±hx, ±hz} rectangle, falling to 0 at its edge over the last {@code soft} blocks. */
     public static float insideFade(float x, float z, float hx, float hz, float soft) {
         float d = Math.min(hx - Math.abs(x), hz - Math.abs(z));
         return smooth(0f, Math.max(1e-3f, soft), d);
@@ -689,7 +676,7 @@ public final class CeilingSky {
     private static float towardSun(float rx, float rz, float sx, float sz) {
         float rl = (float) Math.sqrt(rx * rx + rz * rz), sl = (float) Math.sqrt(sx * sx + sz * sz);
         if (rl < 1e-4f || sl < 1e-4f) return 0.5f;
-        return 0.5f + 0.5f * (rx * sx + rz * sz) / (rl * sl);
+        return clamp01(0.5f + 0.5f * (rx * sx + rz * sz) / (rl * sl));
     }
 
     /**

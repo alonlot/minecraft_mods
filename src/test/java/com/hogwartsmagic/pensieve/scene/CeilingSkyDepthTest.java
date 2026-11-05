@@ -288,4 +288,14 @@ class CeilingSkyDepthTest {
     private static float lum(float[] c) {
         return 0.30f * c[0] + 0.59f * c[1] + 0.11f * c[2];
     }
+
+    @Test
+    void aGrazingUpwardRayNeverHitsThePlane() {
+        float[] hit = {9f, 9f, 9f};
+        // Rising by less than 0.01 per unit of travel would meet the plane absurdly far off: no hit.
+        assertFalse(CeilingSky.planeHit(0f, 0f, 15f, 1f, 0.005f, 0f, 1000f, 1000f, hit));
+        assertFalse(CeilingSky.planeHit(0f, 0f, 15f, 1f, 0.0001f, 0f, 1000f, 1000f, hit));
+        assertFalse(CeilingSky.planeHit(0f, 0f, 15f, 1f, 0f, 0f, 1000f, 1000f, hit));
+        assertArrayEquals(new float[]{9f, 9f, 9f}, hit, 0f);
+    }
 }

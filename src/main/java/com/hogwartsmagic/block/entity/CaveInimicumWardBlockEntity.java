@@ -7,10 +7,10 @@ import com.hogwartsmagic.caveinimicum.CaveInimicumManager;
 import com.hogwartsmagic.caveinimicum.CaveInimicumSnapshot;
 import com.hogwartsmagic.caveinimicum.CaveInimicumSnapshotFactory;
 import com.hogwartsmagic.caveinimicum.CaveInimicumWardBounds;
+import com.hogwartsmagic.spell.SpellBeamFx;
+import com.hogwartsmagic.spell.SpellType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
-import net.minecraft.core.particles.DustParticleOptions;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.Packet;
@@ -28,19 +28,26 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
-import org.joml.Vector3f;
+import net.minecraft.world.phys.Vec3;
 
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Set;
 import java.util.UUID;
+import java.util.WeakHashMap;
 
 /**
  * Persistent ward anchor that owns the saved illusion snapshot and the runtime
  * data needed to keep per-player block views coherent.
  */
 public class CaveInimicumWardBlockEntity extends BlockEntity {
-    private static final DustParticleOptions OUTLINE_PARTICLE =
-            new DustParticleOptions(new Vector3f(0.46f, 0.94f, 0.88f), 1.0f);
-    private static final DustParticleOptions BARRIER_PARTICLE =
-            new DustParticleOptions(new Vector3f(0.72f, 0.86f, 1.0f), 1.0f);
+    /**
+     * The ward anchors loaded on this client, for the client's ward renderer (the outline and the Protego Maxima
+     * barrier are drawn there from the synced flags, not with particles). Filled on the client thread only; weak, so
+     * a world left behind never holds on to its block entities.
+     */
+    private static final Set<CaveInimicumWardBlockEntity> CLIENT_LOADED =
+            Collections.newSetFromMap(new WeakHashMap<>());
 
     private boolean active;
     private UUID ownerUuid;
@@ -56,6 +63,8 @@ public class CaveInimicumWardBlockEntity extends BlockEntity {
     private boolean revelioPrepared;
     private int configuredEdgeLength = CaveInimicumWardBounds.DEFAULT_EDGE_LENGTH;
     private int outlineTicks;
+    /** Client only: the game time the outline preview runs to, sent in the update tag. */
+    private long outlineUntil;
     private CaveInimicumSnapshot snapshot;
     private int[] actualStateCache;
 
@@ -69,12 +78,6 @@ public class CaveInimicumWardBlockEntity extends BlockEntity {
         }
         if (ward.outlineTicks > 0) {
             ward.outlineTicks--;
-            if (serverLevel.getGameTime() % 5L == 0L) {
-                ward.spawnOutline(serverLevel);
-            }
-        }
-        if (ward.shouldRenderProtegoBarrier(serverLevel.getGameTime()) && serverLevel.getGameTime() % 3L == 0L) {
-            ward.spawnProtegoBarrier(serverLevel);
         }
     }
 
@@ -91,11 +94,32 @@ public class CaveInimicumWardBlockEntity extends BlockEntity {
     }
 
     @Override
+    public void setLevel(Level level) {
+        super.setLevel(level);
+        if (level.isClientSide) {
+            CLIENT_LOADED.add(this);
+        }
+    }
+
+    @Override
     public void setRemoved() {
+        if (level != null && level.isClientSide) {
+            CLIENT_LOADED.remove(this);
+        }
         if (level instanceof ServerLevel serverLevel && isOperational()) {
             CaveInimicumManager.get(serverLevel).unregisterWard(this, true);
         }
         super.setRemoved();
+    }
+
+    /** The ward anchors this client has loaded (client thread only; empty on a server). */
+    public static Collection<CaveInimicumWardBlockEntity> clientLoaded() {
+        return CLIENT_LOADED;
+    }
+
+    /** Client side: the game time the outline preview runs to. */
+    public long getOutlineUntil() {
+        return outlineUntil;
     }
 
     public boolean toggleOrActivate(ServerLevel level, @Nullable LivingEntity caster) {
@@ -183,6 +207,8 @@ public class CaveInimicumWardBlockEntity extends BlockEntity {
         syncToClients();
         CaveInimicumManager.get(level).registerWard(this);
         level.playSound(null, worldPosition, SoundEvents.BEACON_ACTIVATE, SoundSource.BLOCKS, 1.0f, 1.0f);
+        SpellBeamFx.effectAt(level, SpellType.CAVE_INIMICUM, Vec3.atCenterOf(worldPosition).add(0.0, 0.4, 0.0),
+                SpellBeamFx.GLOW);
         return true;
     }
 
@@ -200,6 +226,8 @@ public class CaveInimicumWardBlockEntity extends BlockEntity {
         syncToClients();
         CaveInimicumManager.get(level).unregisterWard(this, syncRestore);
         level.playSound(null, worldPosition, SoundEvents.BEACON_DEACTIVATE, SoundSource.BLOCKS, 1.0f, 1.0f);
+        SpellBeamFx.effectAt(level, SpellType.CAVE_INIMICUM, Vec3.atCenterOf(worldPosition).add(0.0, 0.4, 0.0),
+                SpellBeamFx.FIZZLE);
     }
 
     public boolean shouldExpire(long currentGameTime) {
@@ -258,8 +286,17 @@ public class CaveInimicumWardBlockEntity extends BlockEntity {
         return revelioActive;
     }
 
-    public boolean shouldRenderProtegoBarrier(long gameTime) {
-        return isBarrierUp(gameTime) && (!isActive() || isRevealed(gameTime));
+    /**
+     * The barrier is up and Cave Inimicum is not hiding it. Read from the synced flags rather than isActive(),
+     * which needs the snapshot the client never gets.
+     */
+    public boolean isBarrierVisible(long gameTime) {
+        return isBarrierUp(gameTime) && (!active || revealedUntilGameTime > gameTime);
+    }
+
+    /** Game time until which a Master Alohomora holds the barrier down. */
+    public long getBarrierSuppressedUntil() {
+        return barrierSuppressedUntil;
     }
 
     /** The barrier is on and not switched off by an Alohomora. */
@@ -400,6 +437,8 @@ public class CaveInimicumWardBlockEntity extends BlockEntity {
     public int cycleConfiguredSize() {
         if (isOperational()) {
             outlineTicks = 100;
+            setChanged();
+            syncToClients();
             return configuredEdgeLength;
         }
         int min = CaveInimicumWardBounds.DEFAULT_EDGE_LENGTH;
@@ -467,82 +506,6 @@ public class CaveInimicumWardBlockEntity extends BlockEntity {
             return "Revelio";
         }
         return "";
-    }
-
-    private void spawnOutline(ServerLevel level) {
-        CaveInimicumWardBounds bounds = bounds();
-        BlockPos min = bounds.min();
-        BlockPos max = bounds.max();
-        double step = Math.max(1.0, bounds.edgeLength() / 8.0);
-        for (double x = min.getX(); x <= max.getX() + 1; x += step) {
-            for (double y = min.getY(); y <= max.getY() + 1; y += step) {
-                spawnEdgePoint(level, x, y, min.getZ());
-                spawnEdgePoint(level, x, y, max.getZ() + 1);
-            }
-        }
-        for (double x = min.getX(); x <= max.getX() + 1; x += step) {
-            for (double z = min.getZ(); z <= max.getZ() + 1; z += step) {
-                spawnEdgePoint(level, x, min.getY(), z);
-                spawnEdgePoint(level, x, max.getY() + 1, z);
-            }
-        }
-        for (double y = min.getY(); y <= max.getY() + 1; y += step) {
-            for (double z = min.getZ(); z <= max.getZ() + 1; z += step) {
-                spawnEdgePoint(level, min.getX(), y, z);
-                spawnEdgePoint(level, max.getX() + 1, y, z);
-            }
-        }
-    }
-
-    private void spawnEdgePoint(ServerLevel level, double x, double y, double z) {
-        level.sendParticles(OUTLINE_PARTICLE, x + 0.02, y + 0.02, z + 0.02, 1, 0.0, 0.0, 0.0, 0.0);
-        if (level.random.nextInt(4) == 0) {
-            level.sendParticles(ParticleTypes.ENCHANT, x + 0.02, y + 0.02, z + 0.02, 1, 0.02, 0.02, 0.02, 0.0);
-        }
-    }
-
-    private void spawnProtegoBarrier(ServerLevel level) {
-        CaveInimicumWardBounds bounds = bounds();
-        BlockPos min = bounds.min();
-        BlockPos max = bounds.max();
-        double centerX = (min.getX() + max.getX() + 1.0) * 0.5;
-        double centerY = (min.getY() + max.getY() + 1.0) * 0.5;
-        double centerZ = (min.getZ() + max.getZ() + 1.0) * 0.5;
-        double radius = Math.max(4.5D, (bounds.edgeLength() * 0.5D) + 0.5D);
-        long time = level.getGameTime();
-
-        for (int i = 0; i < 28; i++) {
-            double theta = level.random.nextDouble() * Math.PI * 2.0D;
-            double phi = Math.acos((level.random.nextDouble() * 2.0D) - 1.0D);
-            double variedRadius = radius + (level.random.nextDouble() - 0.5D) * 0.25D;
-            double x = centerX + variedRadius * Math.sin(phi) * Math.cos(theta);
-            double y = centerY + variedRadius * Math.cos(phi);
-            double z = centerZ + variedRadius * Math.sin(phi) * Math.sin(theta);
-            spawnBarrierPoint(level, x, y, z);
-        }
-
-        for (int ring = 0; ring < 3; ring++) {
-            double y = centerY + (-1.2D + (ring * 1.2D));
-            for (int step = 0; step < 18; step++) {
-                double angle = ((Math.PI * 2.0D) / 18.0D) * step + (time * 0.08D * (ring % 2 == 0 ? 1.0D : -1.0D));
-                double x = centerX + Math.cos(angle) * radius;
-                double z = centerZ + Math.sin(angle) * radius;
-                level.sendParticles(ParticleTypes.ELECTRIC_SPARK, x, y, z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
-                if (step % 3 == 0) {
-                    level.sendParticles(ParticleTypes.GLOW, x, y, z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
-                }
-            }
-        }
-    }
-
-    private void spawnBarrierPoint(ServerLevel level, double x, double y, double z) {
-        level.sendParticles(BARRIER_PARTICLE, x + 0.02, y + 0.02, z + 0.02, 1, 0.015, 0.015, 0.015, 0.0);
-        if (level.random.nextBoolean()) {
-            level.sendParticles(ParticleTypes.END_ROD, x + 0.02, y + 0.02, z + 0.02, 1, 0.02, 0.02, 0.02, 0.0);
-        }
-        if (level.random.nextInt(5) == 0) {
-            level.sendParticles(ParticleTypes.GLOW, x + 0.02, y + 0.02, z + 0.02, 1, 0.03, 0.03, 0.03, 0.0);
-        }
     }
 
     private void syncToClients() {
@@ -618,6 +581,7 @@ public class CaveInimicumWardBlockEntity extends BlockEntity {
         protegoMaximaPrepared = tag.getBoolean("ProtegoMaximaPrepared");
         revelioPrepared = tag.getBoolean("RevelioPrepared");
         outlineTicks = Math.max(0, tag.getInt("OutlineTicks"));
+        outlineUntil = tag.getLong("OutlineUntil");
         ownerUuid = tag.hasUUID("Owner") ? tag.getUUID("Owner") : null;
         snapshot = tag.contains("Snapshot") ? CaveInimicumSnapshot.load(tag.getCompound("Snapshot")) : null;
         // A ward copied elsewhere with its NBT (/clone, a structure template) keeps the old centre: its
@@ -643,6 +607,9 @@ public class CaveInimicumWardBlockEntity extends BlockEntity {
         tag.putBoolean("ProtegoMaximaPrepared", protegoMaximaPrepared);
         tag.putBoolean("RevelioPrepared", revelioPrepared);
         tag.putInt("OutlineTicks", outlineTicks);
+        if (level != null) {
+            tag.putLong("OutlineUntil", level.getGameTime() + outlineTicks);
+        }
         if (ownerUuid != null) {
             tag.putUUID("Owner", ownerUuid);
         }

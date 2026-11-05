@@ -314,7 +314,11 @@ public class FiendfyreSerpentEntity extends Entity implements FireBreather {
         } else {
             moveToward(this.position().add(0.0D, Math.sin(ticks * 0.3D) * 0.3D, 0.0D), MAX_STEP, TURN_RESPONSE);
         }
-        scorchNearby(caster, null);
+        // Fire damage names no attacker, so PvP-off and team rules would never see it: spare those players here.
+        Predicate<LivingEntity> notSpared = caster == null ? null
+                : victim -> !(victim instanceof Player other
+                        && com.hogwartsmagic.spell.mind.MindControl.puppeteerSpares(serverLevel, caster.getUUID(), other));
+        scorchNearby(caster, notSpared);
         roar(serverLevel, quarry != null ? aimAt(quarry) : caster != null ? caster.getLookAngle() : null, caster, null, caster);
         if (this.destroysHorcrux && ticks % FiendfyreRules.HORCRUX_SCAN_INTERVAL == 0) {
             devourHorcruxes(serverLevel, caster);

@@ -215,8 +215,9 @@ public final class AlohomoraSpell {
             return false;
         }
         if (!AlohomoraRules.opensVaults(rank)) {
+            // Chat, not the action bar: the cooldown line redraws the action bar every tick after a cast.
             player.displayClientMessage(Component.translatable("message.hogwartsmagic.alohomora.vault")
-                    .withStyle(ChatFormatting.GOLD), true);
+                    .withStyle(ChatFormatting.GOLD), false);
             return false;
         }
         // The caster is the opener: a non-goblin raises the alarm and the vault reseals, as by hand.
@@ -233,7 +234,7 @@ public final class AlohomoraSpell {
         level.sendParticles(ParticleTypes.HAPPY_VILLAGER, pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() + 0.5, 16, 0.5, 0.6, 0.5, 0.02);
         level.playSound(null, pos, SoundEvents.BEACON_DEACTIVATE, SoundSource.BLOCKS, 0.9f, 1.6f);
         player.displayClientMessage(Component.translatable("message.hogwartsmagic.alohomora.ward")
-                .withStyle(ChatFormatting.AQUA), true);
+                .withStyle(ChatFormatting.AQUA), false); // chat: the cooldown line owns the action bar
         return true;
     }
 

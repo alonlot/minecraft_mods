@@ -1,604 +1,196 @@
 package com.hogwartsmagic.client;
 
+import com.hogwartsmagic.client.ThemedGui.Theme;
+import com.hogwartsmagic.client.ThemedGui.ThemedButton;
 import com.hogwartsmagic.network.SpellPackets;
+import java.util.ArrayList;
+import java.util.List;
+import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.levelgen.Heightmap;
+import org.lwjgl.glfw.GLFW;
 
-import java.util.ArrayList;
-import java.util.List;
+import static com.hogwartsmagic.client.ThemedGui.drawPanel;
+import static com.hogwartsmagic.client.ThemedGui.drawWell;
+import static com.hogwartsmagic.client.ThemedGui.fillAnnulus;
+import static com.hogwartsmagic.client.ThemedGui.fillQuad;
+import static com.hogwartsmagic.client.ThemedGui.withAlpha;
 
+/**
+ * Floo Network chart: an inked parchment map of the land around the source fireplace with every linked
+ * fire on it, dashed routes (the selected one alight with Floo flame), plus a list and a details card.
+ * Click a fire to select it; double-click, Enter or Travel to go. The server validates the trip.
+ */
 public class FlooTravelScreen extends Screen {
-    private static final int NODE_SIZE = 18;
-    private static final int MAP_WIDTH = 340;
-    private static final int MAP_HEIGHT = 214;
-    private static final int PANEL_WIDTH = 536;
-    private static final int PANEL_HEIGHT = 292;
-    private static final int OUTLINE_POINTS = 32;
-    private static final int[] TERRAIN_COLORS = {0x2F8B6A42, 0x2A6A4D2E, 0x2448A27B};
+    private static final Theme TH = ThemedGui.OAK;
+    private static final int SIDE_W = 136;
+    private static final int ROW_H = 14;
+    private static final int FLOO = 0x3CFF9A;
+    private static final int FLOO_PALE = 0xB8FFE0;
+    private static final int INK = 0x3A2814;
+    private static final float FULL = (float) (Math.PI * 2.0);
 
     private final BlockPos sourcePos;
     private final List<SpellPackets.FlooDestinationData> destinations;
-    private final List<MapNode> nodes = new ArrayList<>();
-    private Button travelButton;
-    private Button closeButton;
-    private int selectedIndex = 0;
-    private int left;
-    private int top;
-    private int maxDx = 1;
-    private int maxDz = 1;
-    private int sampleRadiusX = 192;
-    private int sampleRadiusZ = 144;
-    private TerrainSample[][] terrainSamples = new TerrainSample[0][0];
-    private int terrainColumns;
-    private int terrainRows;
+    private final List<int[]> nodePx = new ArrayList<>();
+    private int selectedIndex;
+    private int scrollRows;
+    private long lastClickMs;
+    private int lastClickIndex = -1;
+
+    private int left, top, w, h;
+    private int mapX, mapY, mapW, mapH;
+    private int sideX;
+    private int listY0, listY1, visibleRows;
+    private int detailY0, detailY1;
+    /** Blocks per GUI pixel on the map. */
+    private float scale = 1f;
+    private ParchmentMap map;
+    private ThemedButton travelButton;
 
     public FlooTravelScreen(BlockPos sourcePos, List<SpellPackets.FlooDestinationData> destinations) {
         super(Component.translatable("gui.hogwartsmagic.floo_network"));
         this.sourcePos = sourcePos;
-        this.destinations = destinations;
+        this.destinations = destinations == null ? List.of() : List.copyOf(destinations);
+        this.selectedIndex = this.destinations.isEmpty() ? -1 : 0;
     }
 
     @Override
     protected void init() {
         super.init();
-        clearWidgets();
-        left = width / 2 - PANEL_WIDTH / 2;
-        top = height / 2 - PANEL_HEIGHT / 2;
-        buildMapNodes();
-        buildTerrainSamples();
+        this.w = Math.min(424, this.width - 16);
+        this.h = Math.min(256, this.height - 16);
+        this.left = (this.width - this.w) / 2;
+        this.top = (this.height - this.h) / 2;
+        this.mapX = this.left + 10;
+        this.mapY = this.top + 30;
+        this.mapW = this.w - SIDE_W - 28;
+        this.mapH = this.h - 42;
+        this.sideX = this.left + this.w - SIDE_W - 10;
+        this.listY0 = this.top + 30;
+        this.visibleRows = Math.max(3, (this.h - 150) / ROW_H);
+        this.listY1 = this.listY0 + 4 + this.visibleRows * ROW_H;
+        this.detailY0 = this.listY1 + 8;
+        this.detailY1 = this.top + this.h - 32;
 
-        travelButton = addRenderableWidget(Button.builder(Component.translatable("gui.hogwartsmagic.floo.travel"),
-                        button -> travelToSelected())
-                .bounds(left + 428, top + 244, 92, 20)
-                .build());
-        closeButton = addRenderableWidget(Button.builder(Component.translatable("gui.hogwartsmagic.close"), button -> onClose())
-                .bounds(left + 428, top + 268, 92, 20)
-                .build());
-        updateButtons();
+        this.travelButton = this.addRenderableWidget(new ThemedButton(this.sideX, this.top + this.h - 26, 74, 18,
+                Component.translatable("gui.hogwartsmagic.floo.travel"), b -> this.travelToSelected(), TH));
+        this.addRenderableWidget(new ThemedButton(this.sideX + 78, this.top + this.h - 26, SIDE_W - 78, 18,
+                Component.translatable("gui.hogwartsmagic.close"), b -> this.onClose(), TH));
+        this.travelButton.active = this.selectedIndex >= 0;
+
+        this.buildProjection();
+        this.bakeMap();
     }
 
-    private void buildMapNodes() {
-        nodes.clear();
-        if (destinations.isEmpty()) {
-            selectedIndex = -1;
+    /** One scale for both axes, wide enough that every fire fits with a margin; at least ~96 blocks out. */
+    private void buildProjection() {
+        int maxDx = 1;
+        int maxDz = 1;
+        for (SpellPackets.FlooDestinationData d : this.destinations) {
+            maxDx = Math.max(maxDx, Math.abs(d.pos().getX() - this.sourcePos.getX()));
+            maxDz = Math.max(maxDz, Math.abs(d.pos().getZ() - this.sourcePos.getZ()));
+        }
+        float halfW = this.mapW / 2f - 16f;
+        float halfH = this.mapH / 2f - 16f;
+        this.scale = Math.max(Math.max((maxDx + 24) / halfW, (maxDz + 24) / halfH), 96f / (this.mapH / 2f));
+        this.nodePx.clear();
+        for (SpellPackets.FlooDestinationData d : this.destinations) {
+            this.nodePx.add(this.project(d.pos()));
+        }
+    }
+
+    private int[] project(BlockPos pos) {
+        float cx = this.mapX + this.mapW / 2f;
+        float cy = this.mapY + this.mapH / 2f;
+        int x = Math.round(cx + (pos.getX() - this.sourcePos.getX()) / this.scale);
+        int y = Math.round(cy + (pos.getZ() - this.sourcePos.getZ()) / this.scale);
+        return new int[]{Mth.clamp(x, this.mapX + 8, this.mapX + this.mapW - 8), Mth.clamp(y, this.mapY + 10, this.mapY + this.mapH - 6)};
+    }
+
+    private void bakeMap() {
+        if (this.map != null) {
+            this.map.close();
+            this.map = null;
+        }
+        Level level = Minecraft.getInstance().level;
+        if (level == null) {
             return;
         }
-
-        int mapLeft = left + 16;
-        int mapTop = top + 40;
-        int mapRight = mapLeft + MAP_WIDTH;
-        int mapBottom = mapTop + MAP_HEIGHT;
-        int centerX = mapLeft + MAP_WIDTH / 2;
-        int centerY = mapTop + MAP_HEIGHT / 2;
-
-        maxDx = 1;
-        maxDz = 1;
-        for (SpellPackets.FlooDestinationData destination : destinations) {
-            maxDx = Math.max(maxDx, Math.abs(destination.pos().getX() - sourcePos.getX()));
-            maxDz = Math.max(maxDz, Math.abs(destination.pos().getZ() - sourcePos.getZ()));
-        }
-        updateProjectionBounds();
-
-        for (int i = 0; i < destinations.size(); i++) {
-            SpellPackets.FlooDestinationData destination = destinations.get(i);
-            Point screenPoint = projectPoint(destination.pos().getX(), destination.pos().getZ(), mapLeft, mapTop, mapRight, mapBottom);
-            int screenX = screenPoint.x();
-            int screenY = screenPoint.y();
-            nodes.add(new MapNode(destination, screenX, screenY, i));
-        }
-
-        selectedIndex = Mth.clamp(selectedIndex, 0, destinations.size() - 1);
+        int texW = Math.max(16, this.mapW / 2);
+        int texH = Math.max(16, this.mapH / 2);
+        float perTexel = this.scale * this.mapW / texW;
+        this.map = ParchmentMap.bake(level, texW, texH, perTexel, (tx, tz) -> new int[]{
+                this.sourcePos.getX() + Math.round((tx + 0.5f - texW / 2f) * perTexel),
+                this.sourcePos.getZ() + Math.round((tz + 0.5f - texH / 2f) * perTexel)});
     }
 
-    private void updateButtons() {
-        if (travelButton != null) {
-            travelButton.active = selectedIndex >= 0 && selectedIndex < destinations.size();
+    @Override
+    public void removed() {
+        super.removed();
+        if (this.map != null) {
+            this.map.close();
+            this.map = null;
         }
     }
 
     private void travelToSelected() {
-        if (selectedIndex < 0 || selectedIndex >= destinations.size()) {
+        if (this.selectedIndex < 0 || this.selectedIndex >= this.destinations.size()) {
             return;
         }
-        SpellPackets.FlooDestinationData destination = destinations.get(selectedIndex);
-        SpellPackets.CHANNEL.send(new SpellPackets.ChooseFlooDestinationPacket(sourcePos, destination.pos()),
+        SpellPackets.FlooDestinationData destination = this.destinations.get(this.selectedIndex);
+        SpellPackets.CHANNEL.send(new SpellPackets.ChooseFlooDestinationPacket(this.sourcePos, destination.pos()),
                 net.minecraftforge.network.PacketDistributor.SERVER.noArg());
     }
 
-    @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        this.renderTransparentBackground(guiGraphics);
-        float animation = ((System.currentTimeMillis() % 6000L) / 6000.0f) + partialTick * 0.0025f;
-        int panelLeft = left;
-        int panelTop = top;
-        int panelRight = left + PANEL_WIDTH;
-        int panelBottom = top + PANEL_HEIGHT;
-        int mapLeft = left + 16;
-        int mapTop = top + 40;
-        int mapRight = mapLeft + MAP_WIDTH;
-        int mapBottom = mapTop + MAP_HEIGHT;
-        int sideLeft = mapRight + 14;
-        int sideRight = panelRight - 16;
-
-        guiGraphics.fill(panelLeft, panelTop, panelRight, panelBottom, 0xFF1C140D);
-        guiGraphics.fill(panelLeft + 3, panelTop + 3, panelRight - 3, panelBottom - 3, 0xFFF0D8C4);
-        guiGraphics.fill(mapLeft, mapTop, mapRight, mapBottom, 0xFFB58E58);
-        guiGraphics.fill(mapLeft + 3, mapTop + 3, mapRight - 3, mapBottom - 3, 0xFFF1C785);
-        guiGraphics.fill(sideLeft, mapTop, sideRight, top + 180, 0xFF342516);
-        guiGraphics.fill(sideLeft, top + 186, sideRight, panelBottom - 14, 0xFF2A1E14);
-
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
-
-        drawMapFrame(guiGraphics, mapLeft, mapTop, mapRight, mapBottom);
-        drawMapDecor(guiGraphics, mapLeft, mapTop, mapRight, mapBottom, animation);
-        drawTerrainOutline(guiGraphics, mapLeft, mapTop, mapRight, mapBottom, animation);
-        drawRoutes(guiGraphics, animation);
-        drawNodes(guiGraphics, mouseX, mouseY, animation);
-        drawSavedFireplaces(guiGraphics, mouseX, mouseY);
-        drawDetails(guiGraphics);
-
-        guiGraphics.drawCenteredString(font, title, width / 2, top + 12, 0xFF315C39);
-        guiGraphics.drawString(font, Component.translatable("gui.hogwartsmagic.floo.map_subtitle"), mapLeft, top + 24, 0xFF5B3A20, false);
-        guiGraphics.drawString(font, Component.translatable("gui.hogwartsmagic.floo.saved_fireplaces"), sideLeft + 10, top + 24, 0xFF5B3A20, false);
-
-        if (travelButton != null) {
-            travelButton.render(guiGraphics, mouseX, mouseY, partialTick);
-        }
-        if (closeButton != null) {
-            closeButton.render(guiGraphics, mouseX, mouseY, partialTick);
+    private void select(int index) {
+        long now = Util.getMillis();
+        boolean doubleClick = index == this.lastClickIndex && now - this.lastClickMs < 350L;
+        this.lastClickIndex = index;
+        this.lastClickMs = now;
+        this.selectedIndex = index;
+        this.travelButton.active = true;
+        Minecraft.getInstance().getSoundManager().play(
+                net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(net.minecraft.sounds.SoundEvents.UI_BUTTON_CLICK, 1.0f));
+        if (doubleClick) {
+            this.travelToSelected();
         }
     }
 
-    private void drawMapFrame(GuiGraphics guiGraphics, int mapLeft, int mapTop, int mapRight, int mapBottom) {
-        guiGraphics.fill(mapLeft + 1, mapTop + 1, mapRight - 1, mapTop + 3, 0x77B58C3F);
-        guiGraphics.fill(mapLeft + 1, mapBottom - 3, mapRight - 1, mapBottom - 1, 0x775A3E19);
-        guiGraphics.fill(mapLeft + 1, mapTop + 1, mapLeft + 3, mapBottom - 1, 0x77B58C3F);
-        guiGraphics.fill(mapRight - 3, mapTop + 1, mapRight - 1, mapBottom - 1, 0x775A3E19);
-        for (int x = mapLeft + 26; x < mapRight; x += 48) {
-            guiGraphics.fill(x, mapTop + 8, x + 2, mapBottom - 8, 0x22815D34);
-        }
-        for (int y = mapTop + 24; y < mapBottom; y += 42) {
-            guiGraphics.fill(mapLeft + 8, y, mapRight - 8, y + 2, 0x22815D34);
-        }
-    }
+    // ---------------------------------------------------------------- input
 
-    private void drawMapDecor(GuiGraphics guiGraphics, int mapLeft, int mapTop, int mapRight, int mapBottom, float animation) {
-        int centerX = mapLeft + MAP_WIDTH / 2;
-        int centerY = mapTop + MAP_HEIGHT / 2;
-        guiGraphics.fill(centerX - 1, mapTop + 10, centerX + 1, mapBottom - 10, 0x556B4B28);
-        guiGraphics.fill(centerX - 3, mapTop + 10, centerX + 3, mapBottom - 10, 0x116B4B28);
-        guiGraphics.fill(mapLeft + 10, centerY - 1, mapRight - 10, centerY + 1, 0x556B4B28);
-        guiGraphics.fill(mapLeft + 10, centerY - 3, mapRight - 10, centerY + 3, 0x116B4B28);
-        int compassColor = pulseColor(0xFF365B31, 0xFF7CF3AE, animation * 1.4f);
-        guiGraphics.fill(centerX - 18, mapTop + 7, centerX + 18, mapTop + 8, 0x332F8D63);
-        guiGraphics.fill(centerX - 18, mapBottom - 10, centerX + 18, mapBottom - 9, 0x332F8D63);
-        guiGraphics.fill(mapLeft + 7, centerY - 18, mapLeft + 8, centerY + 18, 0x332F8D63);
-        guiGraphics.fill(mapRight - 8, centerY - 18, mapRight - 7, centerY + 18, 0x332F8D63);
-        guiGraphics.drawCenteredString(font, Component.literal("N"), centerX, mapTop + 10, compassColor);
-        guiGraphics.drawCenteredString(font, Component.literal("S"), centerX, mapBottom - 18, compassColor);
-        guiGraphics.drawString(font, Component.literal("W"), mapLeft + 12, centerY - 4, compassColor, false);
-        guiGraphics.drawString(font, Component.literal("E"), mapRight - 18, centerY - 4, compassColor, false);
-        guiGraphics.drawString(font, Component.translatable("gui.hogwartsmagic.floo.you_are_here"), mapLeft + 12, mapBottom - 20, 0xFF365B31, false);
-    }
-
-    private void drawTerrainOutline(GuiGraphics guiGraphics, int mapLeft, int mapTop, int mapRight, int mapBottom, float animation) {
-        if (terrainColumns > 0 && terrainRows > 0) {
-            drawSampledTerrain(guiGraphics, mapLeft, mapTop);
-            return;
-        }
-    }
-
-    private void drawRoutes(GuiGraphics guiGraphics, float animation) {
-        int sourceX = left + 16 + MAP_WIDTH / 2;
-        int sourceY = top + 40 + MAP_HEIGHT / 2;
-        for (MapNode node : nodes) {
-            boolean selected = node.index == selectedIndex;
-            int outer = selected ? pulseColor(0x6632C86B, 0xAA79FFF2, animation * 2.1f) : 0x444F6D43;
-            int inner = selected ? pulseColor(0xFF32C86B, 0xFF9AFBFF, animation * 2.8f) : 0x886E9A5C;
-            drawLine(guiGraphics, sourceX, sourceY, node.x, node.y, outer, selected ? 4 : 2);
-            drawLine(guiGraphics, sourceX, sourceY, node.x, node.y, inner, selected ? 2 : 1);
-            drawRouteSparkles(guiGraphics, sourceX, sourceY, node.x, node.y, animation + node.index * 0.12f, selected);
-        }
-        drawFireNode(guiGraphics, sourceX, sourceY, true, true, animation);
-    }
-
-    private void drawNodes(GuiGraphics guiGraphics, int mouseX, int mouseY, float animation) {
-        for (MapNode node : nodes) {
-            boolean hovered = Math.abs(mouseX - node.x) <= NODE_SIZE && Math.abs(mouseY - node.y) <= NODE_SIZE;
-            boolean selected = node.index == selectedIndex;
-            drawFireNode(guiGraphics, node.x, node.y, selected, hovered, animation + node.index * 0.09f);
-            guiGraphics.fill(node.x + 10, node.y - 7, node.x + 10 + font.width(trimLabel(node.destination.name(), 16)) + 4, node.y + 5, 0x77422C18);
-            guiGraphics.drawString(font, trimLabel(node.destination.name(), 16), node.x + 12, node.y - 4, 0xFF1F140B, false);
-        }
-    }
-
-    private void drawSavedFireplaces(GuiGraphics guiGraphics, int mouseX, int mouseY) {
-        int listY = top + 46;
-        for (int i = 0; i < destinations.size() && i < 8; i++) {
-            SpellPackets.FlooDestinationData destination = destinations.get(i);
-            int rowX = left + 418;
-            int rowY = listY - 2;
-            boolean hovered = mouseX >= rowX && mouseX <= rowX + 96 && mouseY >= rowY && mouseY <= rowY + 14;
-            if (i == selectedIndex || hovered) {
-                guiGraphics.fill(rowX - 4, rowY - 2, rowX + 104, rowY + 14, i == selectedIndex ? 0x8841C978 : 0x553A6D46);
-            }
-            int color = i == selectedIndex ? 0xFF7CF3AE : 0xFFE8D7A5;
-            guiGraphics.drawString(font, (i == selectedIndex ? "> " : "  ") + trimLabel(destination.name(), 16), left + 422, listY, color, false);
-            listY += 16;
-        }
-    }
-
-    private void drawDetails(GuiGraphics guiGraphics) {
-        if (selectedIndex < 0 || selectedIndex >= destinations.size()) {
-            return;
-        }
-        SpellPackets.FlooDestinationData destination = destinations.get(selectedIndex);
-        int detailLeft = left + 422;
-        int detailTop = top + 196;
-        guiGraphics.drawString(font, trimLabel(destination.name(), 18), detailLeft, detailTop, 0xFF7CF3AE, false);
-        guiGraphics.drawString(font, Component.translatable("gui.hogwartsmagic.floo.coords", destination.pos().getX(), destination.pos().getY(), destination.pos().getZ()),
-                detailLeft, detailTop + 14, 0xFFE8D7A5, false);
-        int dx = destination.pos().getX() - sourcePos.getX();
-        int dz = destination.pos().getZ() - sourcePos.getZ();
-        guiGraphics.drawString(font, Component.translatable("gui.hogwartsmagic.floo.distance", Math.round(Math.sqrt(dx * dx + dz * dz))),
-                detailLeft, detailTop + 28, 0xFFE8D7A5, false);
-    }
-
-    private void drawRouteSparkles(GuiGraphics guiGraphics, int x1, int y1, int x2, int y2, float animation, boolean selected) {
-        int sparkleCount = selected ? 4 : 2;
-        for (int i = 0; i < sparkleCount; i++) {
-            float progress = (animation * (selected ? 0.7f : 0.35f) + i * (1.0f / sparkleCount)) % 1.0f;
-            int x = Mth.floor(Mth.lerp(progress, x1, x2));
-            int y = Mth.floor(Mth.lerp(progress, y1, y2));
-            int glow = selected ? 0xCCB8FFF5 : 0x88C9E2A7;
-            guiGraphics.fill(x - 2, y - 2, x + 3, y + 3, glow);
-            guiGraphics.fill(x - 1, y - 1, x + 2, y + 2, 0xFFF9FFF1);
-        }
-    }
-
-    private void drawFireNode(GuiGraphics guiGraphics, int centerX, int centerY, boolean selected, boolean hovered, float animation) {
-        int frameColor = selected ? pulseColor(0xFF2D8F45, 0xFF77F5D8, animation * 2.2f) : hovered ? 0xFF8A9F54 : 0xFF6C5436;
-        int stoneColor = selected ? pulseColor(0xFFCCB06E, 0xFFF2E4A9, animation * 1.8f) : 0xFFD4BC83;
-        int flameOuter = selected ? pulseColor(0xFF30E58D, 0xFFB8FFF8, animation * 2.6f) : 0xFF7DEAB0;
-        int flameInner = selected ? pulseColor(0xFFF7F6C8, 0xFFFFFFFF, animation * 2.9f) : 0xFFFDF6D9;
-        guiGraphics.fill(centerX - 8, centerY + 3, centerX + 8, centerY + 8, frameColor);
-        guiGraphics.fill(centerX - 6, centerY, centerX - 3, centerY + 3, stoneColor);
-        guiGraphics.fill(centerX + 3, centerY, centerX + 6, centerY + 3, stoneColor);
-        guiGraphics.fill(centerX - 4, centerY + 1, centerX + 4, centerY + 4, 0xFF453221);
-        guiGraphics.fill(centerX - 4, centerY - 7, centerX + 4, centerY + 1, flameOuter);
-        guiGraphics.fill(centerX - 2, centerY - 10, centerX + 2, centerY - 2, flameInner);
-        guiGraphics.fill(centerX - 1, centerY - 12, centerX + 1, centerY - 7, 0xFFF7FFFF);
-    }
-
-    private void drawLine(GuiGraphics guiGraphics, int x1, int y1, int x2, int y2, int color, int thickness) {
-        int steps = Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1));
-        for (int i = 0; i <= steps; i++) {
-            float progress = steps == 0 ? 0.0f : i / (float) steps;
-            int x = Mth.floor(Mth.lerp(progress, x1, x2));
-            int y = Mth.floor(Mth.lerp(progress, y1, y2));
-            guiGraphics.fill(x - thickness, y - thickness, x + thickness + 1, y + thickness + 1, color);
-        }
-    }
-
-    private int outlineJitter(int seed, float animation) {
-        return Math.round((float) Math.sin(seed * 1.37f + animation * 6.28318f) * 3.0f);
-    }
-
-    private void drawOutlineRings(GuiGraphics guiGraphics, int[][] outline) {
-        int points = outline.length;
-        for (int ring = 0; ring < TERRAIN_COLORS.length; ring++) {
-            int color = TERRAIN_COLORS[ring];
-            for (int i = 0; i < points; i++) {
-                int[] start = outline[i];
-                int[] end = outline[(i + 1) % points];
-                int inset = ring * 3;
-                drawLine(guiGraphics,
-                        start[0] - inset, start[1] - inset / 2,
-                        end[0] - inset, end[1] - inset / 2,
-                        color, Math.max(1, 3 - ring));
+    private int nodeAt(double mouseX, double mouseY) {
+        int best = -1;
+        double bestD = 10 * 10;
+        for (int i = 0; i < this.nodePx.size(); i++) {
+            int[] p = this.nodePx.get(i);
+            double dx = mouseX - p[0];
+            double dy = mouseY - (p[1] - 3);
+            double d = dx * dx + dy * dy;
+            if (d <= bestD) {
+                bestD = d;
+                best = i;
             }
         }
+        return best;
     }
 
-    private void drawParchmentLandFill(GuiGraphics guiGraphics, int[][] outline, int centerX, int centerY) {
-        int points = outline.length;
-        for (int i = 0; i < points; i++) {
-            int[] point = outline[i];
-            drawLine(guiGraphics, centerX, centerY, point[0], point[1], 0x1C8A6A39, 1);
+    private int rowAt(double mouseX, double mouseY) {
+        if (mouseX < this.sideX + 1 || mouseX >= this.sideX + SIDE_W - 6 || mouseY < this.listY0 + 2
+                || mouseY >= this.listY0 + 2 + this.visibleRows * ROW_H) {
+            return -1;
         }
-        guiGraphics.fill(centerX - 2, centerY - 2, centerX + 2, centerY + 2, 0x2A6E8B52);
+        int index = this.scrollRows + (int) ((mouseY - this.listY0 - 2) / ROW_H);
+        return index < this.destinations.size() ? index : -1;
     }
 
-    private void drawGeographicFeatures(GuiGraphics guiGraphics, int[][] outline, int centerX, int centerY, float animation) {
-        drawMountainRanges(guiGraphics, outline, centerX, centerY, animation);
-        drawForestClusters(guiGraphics, centerX, centerY);
-        drawLakeAndRiver(guiGraphics, centerX, centerY);
-    }
-
-    private void drawSampledTerrain(GuiGraphics guiGraphics, int mapLeft, int mapTop) {
-        for (int row = 0; row < terrainRows; row++) {
-            for (int col = 0; col < terrainColumns; col++) {
-                TerrainSample sample = terrainSamples[row][col];
-                if (sample == null) {
-                    continue;
-                }
-                int x1 = mapLeft + col * MAP_WIDTH / terrainColumns;
-                int y1 = mapTop + row * MAP_HEIGHT / terrainRows;
-                int x2 = mapLeft + (col + 1) * MAP_WIDTH / terrainColumns;
-                int y2 = mapTop + (row + 1) * MAP_HEIGHT / terrainRows;
-                guiGraphics.fill(x1, y1, x2, y2, sample.fillColor());
-
-                if (sample.coastNorth()) {
-                    guiGraphics.fill(x1, y1, x2, y1 + 1, 0xAA5C4529);
-                }
-                if (sample.coastSouth()) {
-                    guiGraphics.fill(x1, y2 - 1, x2, y2, 0xAA5C4529);
-                }
-                if (sample.coastWest()) {
-                    guiGraphics.fill(x1, y1, x1 + 1, y2, 0xAA5C4529);
-                }
-                if (sample.coastEast()) {
-                    guiGraphics.fill(x2 - 1, y1, x2, y2, 0xAA5C4529);
-                }
-
-                if (sample.ridge()) {
-                    int midX = (x1 + x2) / 2;
-                    drawMountain(guiGraphics, midX, y2 - 1, Math.max(3, (x2 - x1) / 2), row * 0.11f + col * 0.07f);
-                } else if (sample.forest()) {
-                    int midX = (x1 + x2) / 2;
-                    int midY = (y1 + y2) / 2 + 1;
-                    drawTree(guiGraphics, midX, midY);
-                }
-            }
-        }
-    }
-
-    private void buildTerrainSamples() {
-        Level level = Minecraft.getInstance().level;
-        if (level == null) {
-            terrainSamples = new TerrainSample[0][0];
-            terrainColumns = 0;
-            terrainRows = 0;
-            return;
-        }
-
-        terrainColumns = 68;
-        terrainRows = 43;
-        terrainSamples = new TerrainSample[terrainRows][terrainColumns];
-
-        int seaLevel = level.getSeaLevel();
-
-        int[][] heights = new int[terrainRows][terrainColumns];
-        boolean[][] water = new boolean[terrainRows][terrainColumns];
-
-        int minHeight = Integer.MAX_VALUE;
-        int maxHeight = Integer.MIN_VALUE;
-
-        for (int row = 0; row < terrainRows; row++) {
-            for (int col = 0; col < terrainColumns; col++) {
-                float u = terrainColumns == 1 ? 0.5f : col / (float) (terrainColumns - 1);
-                float v = terrainRows == 1 ? 0.5f : row / (float) (terrainRows - 1);
-                int worldX = sourcePos.getX() + Math.round((u - 0.5f) * sampleRadiusX * 2.0f);
-                int worldZ = sourcePos.getZ() + Math.round((v - 0.5f) * sampleRadiusZ * 2.0f);
-                int surfaceY = level.getHeight(Heightmap.Types.WORLD_SURFACE, worldX, worldZ);
-                BlockPos topPos = new BlockPos(worldX, Math.max(level.getMinBuildHeight(), surfaceY - 1), worldZ);
-                boolean isWater = level.getFluidState(topPos).isSource() || surfaceY <= seaLevel + 1;
-                heights[row][col] = surfaceY;
-                water[row][col] = isWater;
-                if (!isWater) {
-                    minHeight = Math.min(minHeight, surfaceY);
-                    maxHeight = Math.max(maxHeight, surfaceY);
-                }
-            }
-        }
-
-        if (minHeight == Integer.MAX_VALUE) {
-            minHeight = seaLevel;
-            maxHeight = seaLevel + 1;
-        }
-
-        int heightSpan = Math.max(1, maxHeight - minHeight);
-        for (int row = 0; row < terrainRows; row++) {
-            for (int col = 0; col < terrainColumns; col++) {
-                boolean isWater = water[row][col];
-                boolean coastNorth = row > 0 && water[row - 1][col] != isWater;
-                boolean coastSouth = row < terrainRows - 1 && water[row + 1][col] != isWater;
-                boolean coastWest = col > 0 && water[row][col - 1] != isWater;
-                boolean coastEast = col < terrainColumns - 1 && water[row][col + 1] != isWater;
-
-                float normalizedHeight = Mth.clamp((heights[row][col] - minHeight) / (float) heightSpan, 0.0f, 1.0f);
-                boolean ridge = !isWater && normalizedHeight > 0.72f;
-                boolean forest = !isWater && !ridge && normalizedHeight > 0.28f && normalizedHeight < 0.62f && ((row + col + sourcePos.getX()) % 5 == 0);
-
-                int fillColor;
-                if (isWater) {
-                    fillColor = normalizedHeight < 0.15f ? 0x886AA7B8 : 0x887DB9C9;
-                } else if (normalizedHeight > 0.72f) {
-                    fillColor = 0x887D6A4C;
-                } else if (normalizedHeight > 0.45f) {
-                    fillColor = 0x886F8A57;
-                } else {
-                    fillColor = 0x8894A86C;
-                }
-
-                terrainSamples[row][col] = new TerrainSample(fillColor, ridge, forest, coastNorth, coastSouth, coastWest, coastEast);
-            }
-        }
-    }
-
-    private void drawMountainRanges(GuiGraphics guiGraphics, int[][] outline, int centerX, int centerY, float animation) {
-        int seed = sourcePos.hashCode();
-        for (int i = 0; i < outline.length; i += 4) {
-            int[] edge = outline[i];
-            int inwardX = Math.round(Mth.lerp(0.16f, edge[0], centerX));
-            int inwardY = Math.round(Mth.lerp(0.16f, edge[1], centerY));
-            int chainLength = 2 + positiveHash(seed, i + 11) % 3;
-            int stepX = Math.round((centerX - edge[0]) / 14.0f);
-            int stepY = Math.round((centerY - edge[1]) / 14.0f);
-            for (int peak = 0; peak < chainLength; peak++) {
-                int x = inwardX + stepX * peak + ((positiveHash(seed, i * 31 + peak) % 5) - 2);
-                int y = inwardY + stepY * peak + ((positiveHash(seed, i * 17 + peak + 9) % 5) - 2);
-                int size = 6 + positiveHash(seed, i * 13 + peak + 21) % 5;
-                drawMountain(guiGraphics, x, y, size, animation + i * 0.03f + peak * 0.07f);
-            }
-        }
-    }
-
-    private void drawMountain(GuiGraphics guiGraphics, int centerX, int baseY, int size, float animation) {
-        int leftX = centerX - size;
-        int rightX = centerX + size;
-        int peakY = baseY - size - 4;
-        int snowGlow = pulseColor(0xAAFFF8D2, 0xCCFFFFFF, animation * 0.2f);
-        drawLine(guiGraphics, leftX, baseY, centerX, peakY, 0xAA5D4730, 1);
-        drawLine(guiGraphics, centerX, peakY, rightX, baseY, 0xAA7B6545, 1);
-        drawLine(guiGraphics, leftX + 1, baseY, centerX - 1, peakY + 2, 0x66735C3F, 1);
-        drawLine(guiGraphics, centerX + 1, peakY + 2, rightX - 1, baseY, 0x886B563A, 1);
-        guiGraphics.fill(centerX - 1, peakY - 1, centerX + 2, peakY + 2, snowGlow);
-    }
-
-    private void drawForestClusters(GuiGraphics guiGraphics, int centerX, int centerY) {
-        int seed = sourcePos.hashCode() ^ 0x6A5F13;
-        int clusterCount = Math.max(3, Math.min(6, nodes.size() + 1));
-        for (int cluster = 0; cluster < clusterCount; cluster++) {
-            float angle = (float) ((Math.PI * 2.0 * cluster) / clusterCount + (positiveHash(seed, cluster + 3) % 18) * 0.06f);
-            int radius = 34 + positiveHash(seed, cluster + 19) % 42;
-            int x = centerX + Math.round((float) Math.cos(angle) * radius);
-            int y = centerY + Math.round((float) Math.sin(angle) * radius * 0.74f);
-            if (isNearNode(x, y, 18)) {
-                continue;
-            }
-            int trees = 3 + positiveHash(seed, cluster + 41) % 4;
-            for (int tree = 0; tree < trees; tree++) {
-                int tx = x + (positiveHash(seed, cluster * 29 + tree + 7) % 13) - 6;
-                int ty = y + (positiveHash(seed, cluster * 37 + tree + 15) % 9) - 4;
-                drawTree(guiGraphics, tx, ty);
-            }
-        }
-    }
-
-    private void drawTree(GuiGraphics guiGraphics, int x, int y) {
-        guiGraphics.fill(x - 1, y + 1, x + 1, y + 5, 0xAA5B3A22);
-        guiGraphics.fill(x - 3, y - 2, x + 3, y + 2, 0xAA476839);
-        guiGraphics.fill(x - 2, y - 4, x + 2, y - 1, 0xCC5D7F47);
-        guiGraphics.fill(x - 1, y - 6, x + 1, y - 3, 0xDD88A963);
-    }
-
-    private void drawLakeAndRiver(GuiGraphics guiGraphics, int centerX, int centerY) {
-        int lakeX = centerX - 58;
-        int lakeY = centerY + 26;
-        if (isNearNode(lakeX, lakeY, 26)) {
-            lakeX = centerX + 62;
-            lakeY = centerY + 18;
-        }
-        guiGraphics.fill(lakeX - 12, lakeY - 5, lakeX + 12, lakeY + 5, 0x557AB5C6);
-        guiGraphics.fill(lakeX - 8, lakeY - 8, lakeX + 8, lakeY + 8, 0x667FC7D8);
-        guiGraphics.fill(lakeX - 4, lakeY - 10, lakeX + 4, lakeY + 10, 0x5599DCE8);
-        for (int segment = 0; segment < 6; segment++) {
-            int x1 = lakeX + 10 + segment * 10;
-            int y1 = lakeY - 2 - segment;
-            int x2 = x1 + 12;
-            int y2 = y1 - 2 + (segment % 2);
-            drawLine(guiGraphics, x1, y1, x2, y2, 0x446FAFC4, 1);
-        }
-    }
-
-    private boolean isNearNode(int x, int y, int padding) {
-        int sourceX = left + 16 + MAP_WIDTH / 2;
-        int sourceY = top + 40 + MAP_HEIGHT / 2;
-        if (Math.abs(sourceX - x) <= padding && Math.abs(sourceY - y) <= padding) {
-            return true;
-        }
-        for (MapNode node : nodes) {
-            if (Math.abs(node.x - x) <= padding && Math.abs(node.y - y) <= padding) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private void expandOutlineFromPoint(int[] radii, int centerX, int centerY, int pointX, int pointY, int margin) {
-        float dx = pointX - centerX;
-        float dy = (pointY - centerY) / 0.76f;
-        float distance = Mth.sqrt(dx * dx + dy * dy);
-        if (distance <= 0.0f) {
-            return;
-        }
-
-        float angle = (float) Math.atan2(dy, dx);
-        if (angle < 0.0f) {
-            angle += (float) (Math.PI * 2.0);
-        }
-
-        int sector = Math.round((angle / (float) (Math.PI * 2.0)) * OUTLINE_POINTS) % OUTLINE_POINTS;
-        for (int offset = -2; offset <= 2; offset++) {
-            int index = Math.floorMod(sector + offset, OUTLINE_POINTS);
-            int softenedMargin = margin - Math.abs(offset) * 4;
-            radii[index] = Math.max(radii[index], Math.round(distance) + softenedMargin);
-        }
-    }
-
-    private void smoothRadii(int[] radii) {
-        int[] copy = radii.clone();
-        for (int i = 0; i < radii.length; i++) {
-            int previous = copy[Math.floorMod(i - 1, copy.length)];
-            int current = copy[i];
-            int next = copy[(i + 1) % copy.length];
-            radii[i] = Math.round((previous + current * 2.0f + next) / 4.0f);
-        }
-    }
-
-    private Point projectPoint(int blockX, int blockZ, int mapLeft, int mapTop, int mapRight, int mapBottom) {
-        int centerX = mapLeft + MAP_WIDTH / 2;
-        int centerY = mapTop + MAP_HEIGHT / 2;
-        int dx = blockX - sourcePos.getX();
-        int dz = blockZ - sourcePos.getZ();
-        int screenX = centerX + Math.round((dx / (float) sampleRadiusX) * (MAP_WIDTH / 2f));
-        int screenY = centerY + Math.round((dz / (float) sampleRadiusZ) * (MAP_HEIGHT / 2f));
-        screenX = Mth.clamp(screenX, mapLeft + 8, mapRight - 8);
-        screenY = Mth.clamp(screenY, mapTop + 8, mapBottom - 8);
-        return new Point(screenX, screenY);
-    }
-
-    private void updateProjectionBounds() {
-        sampleRadiusX = Math.max(192, maxDx + 64);
-        sampleRadiusZ = Math.max(144, maxDz + 64);
-    }
-
-    private int positiveHash(int seed, int salt) {
-        int mixed = seed ^ (salt * 0x45d9f3b);
-        mixed ^= (mixed >>> 16);
-        return mixed & Integer.MAX_VALUE;
-    }
-
-    private int pulseColor(int colorA, int colorB, float animation) {
-        float blend = 0.5f + 0.5f * (float) Math.sin(animation * 6.28318f);
-        int aA = (colorA >> 24) & 0xFF;
-        int rA = (colorA >> 16) & 0xFF;
-        int gA = (colorA >> 8) & 0xFF;
-        int bA = colorA & 0xFF;
-        int aB = (colorB >> 24) & 0xFF;
-        int rB = (colorB >> 16) & 0xFF;
-        int gB = (colorB >> 8) & 0xFF;
-        int bB = colorB & 0xFF;
-        int a = Mth.floor(Mth.lerp(blend, aA, aB));
-        int r = Mth.floor(Mth.lerp(blend, rA, rB));
-        int g = Mth.floor(Mth.lerp(blend, gA, gB));
-        int b = Mth.floor(Mth.lerp(blend, bA, bB));
-        return (a << 24) | (r << 16) | (g << 8) | b;
-    }
-
-    private String trimLabel(String text, int maxChars) {
-        if (text.length() <= maxChars) {
-            return text;
-        }
-        return text.substring(0, Math.max(0, maxChars - 3)) + "...";
+    private int maxScroll() {
+        return Math.max(0, this.destinations.size() - this.visibleRows);
     }
 
     @Override
@@ -609,26 +201,47 @@ public class FlooTravelScreen extends Screen {
         if (button != 0) {
             return false;
         }
-        for (MapNode node : nodes) {
-            if (Math.abs(mouseX - node.x) <= NODE_SIZE && Math.abs(mouseY - node.y) <= NODE_SIZE) {
-                selectedIndex = node.index;
-                updateButtons();
-                return true;
-            }
+        int node = this.nodeAt(mouseX, mouseY);
+        if (node < 0) {
+            node = this.rowAt(mouseX, mouseY);
         }
-        int listY = top + 46;
-        for (int i = 0; i < destinations.size() && i < 8; i++) {
-            int rowX = left + 418;
-            int rowY = listY - 2;
-            if (mouseX >= rowX && mouseX <= rowX + 96 && mouseY >= rowY && mouseY <= rowY + 14) {
-                selectedIndex = i;
-                updateButtons();
-                return true;
-            }
-            listY += 16;
+        if (node >= 0) {
+            this.select(node);
+            return true;
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return false;
     }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (scrollY != 0 && this.maxScroll() > 0) {
+            this.scrollRows = Mth.clamp(this.scrollRows - (int) Math.signum(scrollY), 0, this.maxScroll());
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+    }
+
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if ((keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) && this.selectedIndex >= 0) {
+            this.travelToSelected();
+            return true;
+        }
+        if (!this.destinations.isEmpty() && (keyCode == GLFW.GLFW_KEY_DOWN || keyCode == GLFW.GLFW_KEY_UP)) {
+            int n = this.destinations.size();
+            this.selectedIndex = Math.floorMod(this.selectedIndex + (keyCode == GLFW.GLFW_KEY_DOWN ? 1 : -1), n);
+            if (this.selectedIndex < this.scrollRows) {
+                this.scrollRows = this.selectedIndex;
+            } else if (this.selectedIndex >= this.scrollRows + this.visibleRows) {
+                this.scrollRows = this.selectedIndex - this.visibleRows + 1;
+            }
+            this.travelButton.active = true;
+            return true;
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    // ---------------------------------------------------------------- rendering
 
     @Override
     public void renderBackground(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
@@ -637,17 +250,263 @@ public class FlooTravelScreen extends Screen {
     }
 
     @Override
+    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        this.renderTransparentBackground(g);
+        float time = Util.getMillis() / 1000f;
+        int hoveredNode = this.nodeAt(mouseX, mouseY);
+
+        drawPanel(g, this.left, this.top, this.w, this.h, TH);
+        g.drawString(this.font, this.title, this.left + 10, this.top + 9, TH.title(), false);
+        int titleW = this.font.width(this.title);
+        ThemedGui.drawFittedCentered(g, this.font, Component.translatable("gui.hogwartsmagic.floo.map_subtitle"),
+                this.left + 10 + titleW + 8 + (this.mapW - titleW - 8) / 2f, this.top + 9, TH.textDim(), this.mapW - titleW - 12);
+
+        this.renderMap(g, mouseX, mouseY, hoveredNode, time);
+        this.renderList(g, mouseX, mouseY, time);
+        this.renderDetails(g);
+
+        super.render(g, mouseX, mouseY, partialTick);
+    }
+
+    private void renderMap(GuiGraphics g, int mouseX, int mouseY, int hoveredNode, float time) {
+        int x0 = this.mapX, y0 = this.mapY, x1 = this.mapX + this.mapW, y1 = this.mapY + this.mapH;
+        drawWell(g, x0 - 1, y0 - 1, x1 + 1, y1 + 1, TH);
+        g.enableScissor(x0, y0, x1, y1);
+        if (this.map != null) {
+            this.map.draw(g, x0, y0, this.mapW, this.mapH);
+        } else {
+            g.fill(x0, y0, x1, y1, 0xFFE9D7AE);
+        }
+        // Light graticule and a burnt-edge vignette.
+        for (int gx = x0 + 32; gx < x1; gx += 48) {
+            g.fill(gx, y0, gx + 1, y1, 0x14603E1A);
+        }
+        for (int gy = y0 + 28; gy < y1; gy += 48) {
+            g.fill(x0, gy, x1, gy + 1, 0x14603E1A);
+        }
+        g.fillGradient(x0, y0, x1, y0 + 10, 0x40603E1A, 0x00603E1A);
+        g.fillGradient(x0, y1 - 10, x1, y1, 0x00603E1A, 0x48603E1A);
+
+        float cx = x0 + this.mapW / 2f;
+        float cy = y0 + this.mapH / 2f;
+        // Routes: dashed ink to every fire; the selected one burns with Floo flame and moving sparks.
+        for (int i = 0; i < this.nodePx.size(); i++) {
+            int[] p = this.nodePx.get(i);
+            boolean sel = i == this.selectedIndex;
+            this.drawDashed(g, cx, cy, p[0], p[1] - 2, sel ? 0xA0236B45 : 0x90503A22, sel ? 1.6f : 1.0f, sel ? time * 18f : 0f);
+            if (sel) {
+                this.drawDashed(g, cx, cy, p[0], p[1] - 2, withAlpha(FLOO, 0x40), 3.2f, time * 18f);
+                for (int s = 0; s < 4; s++) {
+                    float t = (time * 0.45f + s / 4f) % 1f;
+                    float sx = Mth.lerp(t, cx, p[0]);
+                    float sy = Mth.lerp(t, cy, p[1] - 2);
+                    fillAnnulus(g, sx, sy, 0, 2.6f, 0, FULL, withAlpha(FLOO, 0x60));
+                    fillAnnulus(g, sx, sy, 0, 1.2f, 0, FULL, withAlpha(FLOO_PALE, 0xF0));
+                }
+            }
+        }
+
+        this.drawCompass(g, x1 - 20, y0 + 22);
+        this.drawScaleBar(g, x0 + 8, y1 - 12);
+
+        // Source hearth: "you are here" ripple.
+        float ripple = (time * 0.8f) % 1f;
+        fillAnnulus(g, cx, cy, 6 + ripple * 10, 7 + ripple * 10, 0, FULL, withAlpha(0x236B45, Math.round(160 * (1 - ripple))));
+        this.drawHearth(g, cx, cy, true, false, time);
+
+        for (int i = 0; i < this.nodePx.size(); i++) {
+            int[] p = this.nodePx.get(i);
+            this.drawHearth(g, p[0], p[1], i == this.selectedIndex, i == hoveredNode, time + i * 0.37f);
+        }
+        for (int i = 0; i < this.nodePx.size(); i++) {
+            int[] p = this.nodePx.get(i);
+            boolean sel = i == this.selectedIndex;
+            boolean hov = i == hoveredNode;
+            this.drawTag(g, this.destinations.get(i).name(), p[0] + 8, p[1] - 9, sel, hov);
+        }
+        // The source tag sits under its hearth so it never collides with a nearby fire's tag (up-right).
+        String here = Component.translatable("gui.hogwartsmagic.floo.you_are_here").getString();
+        this.drawTag(g, here, Math.round(cx) - (Math.min(84, this.font.width(here)) + 6) / 2, Math.round(cy) + 7, false, false);
+
+        if (this.destinations.isEmpty()) {
+            ThemedGui.drawFittedCentered(g, this.font, Component.translatable("message.hogwartsmagic.floo.no_destinations"),
+                    cx, y1 - 26, withAlpha(INK, 0xFF), this.mapW - 16);
+        }
+        g.disableScissor();
+    }
+
+    /** Fireplace glyph: a stone hearth with a flickering green Floo flame. */
+    private void drawHearth(GuiGraphics g, float x, float y, boolean selected, boolean hovered, float time) {
+        if (selected || hovered) {
+            float pulse = 0.5f + 0.5f * Mth.sin(time * 4f);
+            fillAnnulus(g, x, y - 3, 0, 9 + pulse * 2, 0, FULL, withAlpha(FLOO, selected ? 0x38 : 0x22));
+        }
+        int stone = hovered || selected ? 0xFF8E7B62 : 0xFF6E5C46;
+        g.fill(Math.round(x) - 6, Math.round(y) + 1, Math.round(x) + 6, Math.round(y) + 4, 0xFF2A1E12);
+        g.fill(Math.round(x) - 5, Math.round(y) - 5, Math.round(x) - 3, Math.round(y) + 2, stone);
+        g.fill(Math.round(x) + 3, Math.round(y) - 5, Math.round(x) + 5, Math.round(y) + 2, stone);
+        g.fill(Math.round(x) - 6, Math.round(y) - 7, Math.round(x) + 6, Math.round(y) - 5, stone);
+        float flick = Mth.sin(time * 9f) * 0.8f + Mth.sin(time * 13f + 1f) * 0.5f;
+        float tall = selected ? 8f : 6f;
+        fillQuad(g, x - 3, y + 1, x + 3, y + 1, x + flick, y + 1 - tall, x + flick, y + 1 - tall, withAlpha(FLOO, 0xF0));
+        fillQuad(g, x - 1.5f, y + 1, x + 1.5f, y + 1, x + flick * 0.6f, y + 1 - tall * 0.6f, x + flick * 0.6f, y + 1 - tall * 0.6f,
+                withAlpha(FLOO_PALE, 0xFF));
+    }
+
+    private void drawTag(GuiGraphics g, String name, int x, int y, boolean selected, boolean hovered) {
+        String label = this.font.plainSubstrByWidth(name, 84);
+        int tw = this.font.width(label) + 6;
+        x = Math.min(x, this.mapX + this.mapW - tw - 2);
+        g.fill(x - 1, y - 1, x + tw + 1, y + 10, selected ? 0xFF236B45 : 0xC05A4026);
+        g.fill(x, y, x + tw, y + 9, selected ? 0xFFE6F5E4 : hovered ? 0xFFF7EBCB : 0xE8EFDFB8);
+        g.drawString(this.font, label, x + 3, y + 1, selected ? 0xFF1C4A30 : 0xFF3A2814, false);
+    }
+
+    /** Marauder-style dashed ink line; {@code phase} scrolls the dashes along it. */
+    private void drawDashed(GuiGraphics g, float x0, float y0, float x1, float y1, int color, float width, float phase) {
+        float dx = x1 - x0;
+        float dy = y1 - y0;
+        float len = Mth.sqrt(dx * dx + dy * dy);
+        if (len < 1f) {
+            return;
+        }
+        float ux = dx / len, uy = dy / len;
+        float nx = -uy * width / 2f, ny = ux * width / 2f;
+        float dash = 5f, gap = 3f;
+        float start = -((phase % (dash + gap)) + (dash + gap)) % (dash + gap);
+        for (float s = start; s < len; s += dash + gap) {
+            float a = Math.max(0f, s);
+            float b = Math.min(len, s + dash);
+            if (b <= a) {
+                continue;
+            }
+            float ax = x0 + ux * a, ay = y0 + uy * a, bx = x0 + ux * b, by = y0 + uy * b;
+            fillQuad(g, ax + nx, ay + ny, bx + nx, by + ny, bx - nx, by - ny, ax - nx, ay - ny, color);
+        }
+    }
+
+    private void drawCompass(GuiGraphics g, float x, float y) {
+        int ink = 0xC03A2814;
+        int pale = 0xA0A08060;
+        fillAnnulus(g, x, y, 9.5f, 10.5f, 0, FULL, 0x803A2814);
+        // Four long points (north inked dark), four short diagonals.
+        fillQuad(g, x, y - 14, x + 3, y, x, y, x - 3, y, ink);
+        fillQuad(g, x, y + 14, x + 3, y, x, y, x - 3, y, pale);
+        fillQuad(g, x - 14, y, x, y - 3, x, y, x, y + 3, pale);
+        fillQuad(g, x + 14, y, x, y - 3, x, y, x, y + 3, pale);
+        float d = 7f;
+        fillQuad(g, x + d, y - d, x + 1.5f, y, x, y, x, y - 1.5f, 0x90705030);
+        fillQuad(g, x - d, y - d, x - 1.5f, y, x, y, x, y - 1.5f, 0x90705030);
+        fillQuad(g, x + d, y + d, x + 1.5f, y, x, y, x, y + 1.5f, 0x90705030);
+        fillQuad(g, x - d, y + d, x - 1.5f, y, x, y, x, y + 1.5f, 0x90705030);
+        g.drawString(this.font, "N", Math.round(x) - 2, Math.round(y) - 24, 0xFF3A2814, false);
+    }
+
+    /** Ink scale bar with a round block count between ~28 and ~70 px long. */
+    private void drawScaleBar(GuiGraphics g, int x, int y) {
+        int[] nice = {10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000};
+        int blocks = nice[nice.length - 1];
+        for (int n : nice) {
+            if (n / this.scale >= 28) {
+                blocks = n;
+                break;
+            }
+        }
+        int px = Math.round(blocks / this.scale);
+        g.fill(x, y, x + px, y + 1, 0xFF3A2814);
+        g.fill(x, y - 3, x + 1, y + 2, 0xFF3A2814);
+        g.fill(x + px - 1, y - 3, x + px, y + 2, 0xFF3A2814);
+        g.fill(x + px / 2, y - 2, x + px / 2 + 1, y + 1, 0xFF3A2814);
+        g.drawString(this.font, blocks + "m", x + px + 4, y - 4, 0xFF3A2814, false);
+    }
+
+    private void renderList(GuiGraphics g, int mouseX, int mouseY, float time) {
+        int x0 = this.sideX;
+        int x1 = this.sideX + SIDE_W;
+        g.drawString(this.font, Component.translatable("gui.hogwartsmagic.floo.saved_fireplaces"), x0 + 1, this.top + 19, TH.title(), false);
+        drawWell(g, x0, this.listY0, x1, this.listY1, TH);
+        if (this.destinations.isEmpty()) {
+            ThemedGui.drawFittedCentered(g, this.font, Component.translatable("gui.hogwartsmagic.floo.none"),
+                    (x0 + x1) / 2f, (this.listY0 + this.listY1) / 2f - 4, TH.textDim(), SIDE_W - 10);
+            return;
+        }
+        int hovered = this.rowAt(mouseX, mouseY);
+        int rowX1 = x1 - 6;
+        for (int r = 0; r < this.visibleRows; r++) {
+            int index = this.scrollRows + r;
+            if (index >= this.destinations.size()) {
+                break;
+            }
+            SpellPackets.FlooDestinationData d = this.destinations.get(index);
+            int ry = this.listY0 + 2 + r * ROW_H;
+            boolean sel = index == this.selectedIndex;
+            if (sel) {
+                g.fill(x0 + 1, ry, rowX1, ry + ROW_H - 1, TH.wellLight());
+                g.fill(x0 + 1, ry, x0 + 3, ry + ROW_H - 1, 0xFF000000 | FLOO);
+            } else if (index == hovered) {
+                g.fill(x0 + 1, ry, rowX1, ry + ROW_H - 1, TH.slotFill());
+            }
+            float flick = 0.5f + 0.5f * Mth.sin(time * 6f + index);
+            fillAnnulus(g, x0 + 9, ry + 6.5f, 0, sel ? 3f + flick : 2.5f, 0, FULL, withAlpha(FLOO, sel ? 0xFF : 0xA0));
+            String dist = Math.round(Math.sqrt(this.sourcePos.distSqr(d.pos()))) + "m";
+            int distW = this.font.width(dist);
+            g.drawString(this.font, dist, rowX1 - 3 - distW, ry + 3, TH.textDim(), false);
+            String name = this.font.plainSubstrByWidth(d.name(), rowX1 - 3 - distW - (x0 + 16) - 4);
+            g.drawString(this.font, name, x0 + 16, ry + 3, sel ? 0xFF000000 | FLOO_PALE : TH.text(), false);
+        }
+        if (this.maxScroll() > 0) {
+            int trackX = x1 - 4;
+            int t0 = this.listY0 + 2;
+            int t1 = this.listY1 - 2;
+            g.fill(trackX, t0, trackX + 2, t1, TH.wellShadow());
+            int thumbH = Math.max(8, (t1 - t0) * this.visibleRows / this.destinations.size());
+            int thumbY = t0 + (t1 - t0 - thumbH) * this.scrollRows / this.maxScroll();
+            g.fill(trackX, thumbY, trackX + 2, thumbY + thumbH, TH.trim());
+        }
+    }
+
+    private void renderDetails(GuiGraphics g) {
+        int x0 = this.sideX;
+        int x1 = this.sideX + SIDE_W;
+        drawWell(g, x0, this.detailY0, x1, this.detailY1, TH);
+        if (this.selectedIndex < 0 || this.selectedIndex >= this.destinations.size()) {
+            return;
+        }
+        SpellPackets.FlooDestinationData d = this.destinations.get(this.selectedIndex);
+        int x = x0 + 6;
+        int y = this.detailY0 + 5;
+        g.drawString(this.font, this.font.plainSubstrByWidth(d.name(), SIDE_W - 12), x, y, 0xFF000000 | FLOO_PALE, false);
+        int dx = d.pos().getX() - this.sourcePos.getX();
+        int dz = d.pos().getZ() - this.sourcePos.getZ();
+        int dist = Math.round(Mth.sqrt(dx * dx + dz * dz));
+        y += 12;
+        this.fitted(g, Component.translatable("gui.hogwartsmagic.floo.distance", dist), x, y, TH.text());
+        y += 10;
+        this.fitted(g, Component.translatable("gui.hogwartsmagic.floo.heading", heading(dx, dz)), x, y, TH.text());
+        y += 10;
+        this.fitted(g, Component.translatable("gui.hogwartsmagic.floo.coords", d.pos().getX(), d.pos().getY(), d.pos().getZ()), x, y, TH.textDim());
+    }
+
+    private void fitted(GuiGraphics g, Component text, int x, int y, int color) {
+        int maxW = SIDE_W - 12;
+        int tw = this.font.width(text);
+        float s = tw > maxW ? Math.max(0.6f, maxW / (float) tw) : 1f;
+        GuiRenderUtil.drawScaledString(g, this.font, text, x, y + (1f - s) * 4f, color, s);
+    }
+
+    /** Eight-point compass word for a world offset (north is -Z). */
+    private static String heading(int dx, int dz) {
+        if (dx == 0 && dz == 0) {
+            return "-";
+        }
+        String[] names = {"E", "SE", "S", "SW", "W", "NW", "N", "NE"};
+        double a = Math.atan2(dz, dx);
+        int octant = Math.floorMod((int) Math.round(a / (Math.PI / 4.0)), 8);
+        return names[octant];
+    }
+
+    @Override
     public boolean isPauseScreen() {
         return false;
-    }
-
-    private record MapNode(SpellPackets.FlooDestinationData destination, int x, int y, int index) {
-    }
-
-    private record Point(int x, int y) {
-    }
-
-    private record TerrainSample(int fillColor, boolean ridge, boolean forest,
-                                 boolean coastNorth, boolean coastSouth, boolean coastWest, boolean coastEast) {
     }
 }

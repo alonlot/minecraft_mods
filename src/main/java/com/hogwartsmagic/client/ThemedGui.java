@@ -140,6 +140,27 @@ public final class ThemedGui {
         }
     }
 
+    /**
+     * Glyphs of the enchanting-table alphabet (minecraft:alt font; lowercase letters become runes) set
+     * round a circle, each turned to face outward.
+     */
+    public static void drawRuneRing(GuiGraphics g, Font font, float cx, float cy, float r, float rotation,
+                                    String runes, int color, float scale) {
+        int count = runes.length();
+        float full = (float) (Math.PI * 2.0);
+        for (int i = 0; i < count; i++) {
+            float angle = rotation + full * i / count;
+            Component glyph = Component.literal(String.valueOf(runes.charAt(i)))
+                    .withStyle(s -> s.withFont(Minecraft.ALT_FONT));
+            g.pose().pushPose();
+            g.pose().translate(cx + Mth.cos(angle) * r, cy + Mth.sin(angle) * r, 0f);
+            g.pose().mulPose(com.mojang.math.Axis.ZP.rotation(angle + (float) Math.PI / 2f));
+            g.pose().scale(scale, scale, 1f);
+            g.drawString(font, glyph, -font.width(glyph) / 2, -4, color, false);
+            g.pose().popPose();
+        }
+    }
+
     public static int withAlpha(int color, int alpha) {
         return (Mth.clamp(alpha, 0, 255) << 24) | (color & 0x00FFFFFF);
     }

@@ -1,54 +1,59 @@
 package com.hogwartsmagic.client;
 
 import com.hogwartsmagic.ExampleMod;
+import com.hogwartsmagic.client.ThemedGui.Theme;
 import com.hogwartsmagic.network.SpellPackets;
 import com.hogwartsmagic.spell.support.ApparitionRules;
+import net.minecraft.Util;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.levelgen.Heightmap;
-import net.minecraft.world.level.material.MapColor;
 import net.minecraftforge.network.PacketDistributor;
 
+import static com.hogwartsmagic.client.ThemedGui.drawPanel;
+import static com.hogwartsmagic.client.ThemedGui.drawWell;
+import static com.hogwartsmagic.client.ThemedGui.fillAnnulus;
+import static com.hogwartsmagic.client.ThemedGui.withAlpha;
+
 /**
- * The Apparition destination picker: a top-down minimap of the loaded terrain around the caster.
- * While this screen is open the player is "channeling": the server runs the rank's timer, shrinks the
- * caster (the imploding effect), and will cancel if they are hit. Clicking a known tile sends the chosen
- * column to the server, which re-validates and performs the authoritative teleport. The map always fits
- * the screen: up close one tile is one block, for a Master's reach one tile stands for several.
+ * The Apparition destination picker: a round, inked parchment chart of the loaded land within reach.
+ * While it is open the player is "channeling": the server runs the rank's timer, shrinks the caster
+ * and cancels if they are hit. The countdown is the gold ring draining round the chart; a dark vortex
+ * closes in from the edge and the runes spin faster as focus tightens. Clicking a known tile sends the
+ * chosen column to the server, which re-validates and performs the authoritative teleport. The chart
+ * always fits the screen: up close one tile is one block, for a Master's reach one tile stands for several.
  *
  * <p>Pure client rendering only. No {@code switch} on enums; backdrop drawn with
  * {@code renderTransparentBackground} (never {@code renderBackground}) so the world stays crisp.
  */
 public class ApparitionMapScreen extends Screen {
-
+    private static final Theme TH = ThemedGui.VIOLET;
     private static final int TILE = 2;              // pixels per map tile
-    private static final int COLOR_GOLD = 0xFFD4AF37;
-    private static final int COLOR_BODY = 0xFFE8DBFF;
-    private static final int COLOR_UNKNOWN = 0xFF0E0A16;
-    private static final int COLOR_OUT_OF_RANGE = 0xFF2A2433;
     private static final int MAX_TILES = 150;
-    private static final int COLOR_PANEL = 0xF0140A1E;
+    private static final int RING = 18;             // space round the chart for the countdown + runes
+    private static final int ROW = 12;
+    private static final float FULL = (float) (Math.PI * 2.0);
+    private static final float START = (float) (-Math.PI / 2.0);
+    private static final String RUNES = "apparatedisapparatedestinationdeterminationdeliberation";
+    private static final int FLOO = 0x3CFF9A;
 
     private final BlockPos origin;
     private final int radius;
     private final int durationTicks;
     private final java.util.List<SpellPackets.FlooDestinationData> fireplaces;
-    private static final int ROW = 11;
     private final RandomSource shakeRand = RandomSource.create();
 
     private int ticksLeft;
     private boolean selectionSent;
 
-    // Precomputed minimap (one sample per tile), built in init().
-    private int[] tileColors = new int[0];
-    private boolean[] tileKnown = new boolean[0];
     private int span;       // 2*radius + 1 blocks
     private int step = 1;   // blocks per tile
     private int tiles;      // tiles per side
+    private ParchmentMap map;
 
     private int mapLeft;
     private int mapTop;
@@ -56,6 +61,7 @@ public class ApparitionMapScreen extends Screen {
     private int panelTop;
     private int panelWidth;
     private int panelHeight;
+    private int infoY;
     private int listTop;
 
     public ApparitionMapScreen(BlockPos origin, int radius, int durationTicks,
@@ -70,7 +76,7 @@ public class ApparitionMapScreen extends Screen {
 
     /** Header plus one row per known fireplace; 0 when there are none (below Master). */
     private int fireplaceListHeight() {
-        return fireplaces.isEmpty() ? 0 : 12 + ROW * fireplaces.size();
+        return fireplaces.isEmpty() ? 0 : 16 + ROW * fireplaces.size() + 6;
     }
 
     /** Index of the fireplace row under the mouse, or -1. */
@@ -78,11 +84,10 @@ public class ApparitionMapScreen extends Screen {
         if (fireplaces.isEmpty()) {
             return -1;
         }
-        int mapSize = tiles * TILE;
-        if (mouseX < mapLeft || mouseX >= mapLeft + mapSize) {
+        if (mouseX < panelLeft + 10 || mouseX >= panelLeft + panelWidth - 10) {
             return -1;
         }
-        int row = Math.floorDiv((int) mouseY - (listTop + 12), ROW);
+        int row = Math.floorDiv((int) mouseY - (listTop + 14), ROW);
         return row >= 0 && row < fireplaces.size() ? row : -1;
     }
 
@@ -90,17 +95,18 @@ public class ApparitionMapScreen extends Screen {
     protected void init() {
         super.init();
         span = radius * 2 + 1;
-        int maxMapPx = Math.max(64, Math.min(this.width - 60, this.height - 100 - fireplaceListHeight()));
+        int maxMapPx = Math.max(64, Math.min(this.width - 60 - RING * 2, this.height - 96 - RING * 2 - fireplaceListHeight()));
         step = Math.max(ApparitionRules.mapStep(span, TILE, maxMapPx), ApparitionRules.mapStep(span, 1, MAX_TILES));
         tiles = (span + step - 1) / step;
         int mapSize = tiles * TILE;
-        panelWidth = mapSize + 28;
-        panelHeight = mapSize + 56 + fireplaceListHeight();
+        panelWidth = Math.max(mapSize + RING * 2 + 20, 236);
+        panelHeight = 34 + mapSize + RING * 2 + 16 + fireplaceListHeight() + 8;
         panelLeft = (this.width - panelWidth) / 2;
         panelTop = (this.height - panelHeight) / 2;
-        mapLeft = panelLeft + 14;
-        mapTop = panelTop + 40;
-        listTop = mapTop + mapSize + 16;
+        mapLeft = panelLeft + (panelWidth - mapSize) / 2;
+        mapTop = panelTop + 34 + RING;
+        infoY = mapTop + mapSize + RING + 2;
+        listTop = infoY + 14;
         buildMap();
     }
 
@@ -112,42 +118,36 @@ public class ApparitionMapScreen extends Screen {
         return origin.getZ() - radius + ApparitionRules.tileCenterOffset(tileZ, step, span);
     }
 
-    /** Sample the surface block color of every tile's middle column we can see, once, so render() stays cheap. */
+    private boolean inReach(int tx, int tz) {
+        long ddx = worldX(tx) - origin.getX();
+        long ddz = worldZ(tz) - origin.getZ();
+        return ddx * ddx + ddz * ddz <= (long) radius * radius;
+    }
+
+    /** Bake the chart once (tiles outside the reach circle stay transparent), so render() stays cheap. */
     private void buildMap() {
-        tileColors = new int[tiles * tiles];
-        tileKnown = new boolean[tiles * tiles];
+        if (map != null) {
+            map.close();
+            map = null;
+        }
         Level level = this.minecraft != null ? this.minecraft.level : null;
         if (level == null) {
             return;
         }
-        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
-        for (int tz = 0; tz < tiles; tz++) {
-            for (int tx = 0; tx < tiles; tx++) {
-                int idx = tz * tiles + tx;
-                int wx = worldX(tx);
-                int wz = worldZ(tz);
-                long ddx = wx - origin.getX();
-                long ddz = wz - origin.getZ();
-                if (ddx * ddx + ddz * ddz > (long) radius * radius) {
-                    tileColors[idx] = COLOR_OUT_OF_RANGE;
-                    tileKnown[idx] = false;
-                    continue;
-                }
-                if (!level.hasChunk(wx >> 4, wz >> 4)) {
-                    tileColors[idx] = COLOR_UNKNOWN;
-                    tileKnown[idx] = false;
-                    continue;
-                }
-                int surfaceY = level.getHeight(Heightmap.Types.WORLD_SURFACE, wx, wz);
-                pos.set(wx, surfaceY - 1, wz);
-                MapColor mapColor = level.getBlockState(pos).getMapColor(level, pos);
-                if (mapColor == MapColor.NONE) {
-                    tileColors[idx] = 0xFF182030;
-                } else {
-                    tileColors[idx] = 0xFF000000 | mapColor.calculateRGBColor(MapColor.Brightness.NORMAL);
-                }
-                tileKnown[idx] = true;
-            }
+        map = ParchmentMap.bake(level, tiles, tiles, step, (tx, tz) ->
+                inReach(tx, tz) ? new int[]{worldX(tx), worldZ(tz)} : null);
+    }
+
+    private boolean selectable(int tx, int tz) {
+        return map != null && tx >= 0 && tz >= 0 && tx < tiles && tz < tiles && inReach(tx, tz) && map.isKnown(tx, tz);
+    }
+
+    @Override
+    public void removed() {
+        super.removed();
+        if (map != null) {
+            map.close();
+            map = null;
         }
     }
 
@@ -167,80 +167,142 @@ public class ApparitionMapScreen extends Screen {
         // Dimmed backdrop only — no blur shader (see WandRadialMenuScreen / project convention).
         this.renderTransparentBackground(g);
 
+        float remaining = Mth.clamp((ticksLeft - partialTick) / (float) durationTicks, 0f, 1f);
+        float progress = 1.0f - remaining;
+        float time = Util.getMillis() / 1000f;
+
         // Screen shake: grows as the focus tightens and time runs out.
-        float progress = 1.0f - (ticksLeft / (float) durationTicks);
-        float intensity = progress * progress * 7.0f;
+        float intensity = progress * progress * 6.0f;
         float shakeX = (shakeRand.nextFloat() * 2.0f - 1.0f) * intensity;
         float shakeY = (shakeRand.nextFloat() * 2.0f - 1.0f) * intensity;
-
         g.pose().pushPose();
         g.pose().translate(shakeX, shakeY, 0.0f);
 
         int mapSize = tiles * TILE;
+        float r = mapSize / 2f;
+        float cx = mapLeft + r;
+        float cy = mapTop + r;
 
-        // Panel + border.
-        g.fill(panelLeft, panelTop, panelLeft + panelWidth, panelTop + panelHeight, COLOR_PANEL);
-        drawBorder(g, panelLeft, panelTop, panelLeft + panelWidth, panelTop + panelHeight, COLOR_GOLD);
+        drawPanel(g, panelLeft, panelTop, panelWidth, panelHeight, TH);
+        ThemedGui.drawFittedCentered(g, this.font, this.title, panelLeft + panelWidth / 2f, panelTop + 8, TH.title(), panelWidth - 20);
+        ThemedGui.drawFittedCentered(g, this.font, Component.translatable("gui." + ExampleMod.MODID + ".apparition.hint"),
+                panelLeft + panelWidth / 2f, panelTop + 20, TH.textDim(), panelWidth - 20);
 
-        // Title + hint.
-        g.drawCenteredString(this.font, this.title, panelLeft + panelWidth / 2, panelTop + 8, COLOR_GOLD);
-        g.drawCenteredString(this.font, Component.translatable("gui." + ExampleMod.MODID + ".apparition.hint"),
-                panelLeft + panelWidth / 2, panelTop + 22, COLOR_BODY);
+        // Dark well the chart sits in, with an aura.
+        fillAnnulus(g, cx, cy, r + RING - 3, r + RING + 1, 0, FULL, 0x30A066FF);
+        fillAnnulus(g, cx, cy, 0, r + RING - 3, 0, FULL, 0xFF120C22);
+        if (map != null) {
+            map.draw(g, mapLeft, mapTop, mapSize, mapSize);
+        }
 
-        // Minimap tiles (clipped to the map area).
-        g.enableScissor(mapLeft, mapTop, mapLeft + mapSize, mapTop + mapSize);
-        for (int tz = 0; tz < tiles; tz++) {
-            for (int tx = 0; tx < tiles; tx++) {
-                int idx = tz * tiles + tx;
-                int px = mapLeft + tx * TILE;
-                int py = mapTop + tz * TILE;
-                g.fill(px, py, px + TILE, py + TILE, tileColors[idx]);
+        // The vortex: darkness closing in from the edge, with swirling arcs that speed up.
+        float inner = r * (1f - 0.18f - 0.32f * progress);
+        int bands = 7;
+        for (int b = 0; b < bands; b++) {
+            float r0 = Mth.lerp(b / (float) bands, inner, r);
+            float r1 = Mth.lerp((b + 1) / (float) bands, inner, r) + 0.5f;
+            int alpha = Math.round((0x10 + 0xB0 * progress) * ((b + 1) / (float) bands) * ((b + 1) / (float) bands));
+            fillAnnulus(g, cx, cy, r0, r1, 0, FULL, withAlpha(0x140A2A, alpha));
+        }
+        float swirl = time * (0.6f + 3.2f * progress);
+        for (int a = 0; a < 3; a++) {
+            float base = swirl + a * FULL / 3f;
+            float rr = Mth.lerp(0.5f, inner, r);
+            fillAnnulus(g, cx, cy, rr - 0.6f, rr + 0.6f, base, base + 0.9f, withAlpha(0xA066FF, Math.round(0x30 + 0x50 * progress)));
+        }
+
+        // Edge, countdown ring and runes.
+        fillAnnulus(g, cx, cy, r, r + 1.5f, 0, FULL, TH.trim());
+        float ringR = r + 6f;
+        fillAnnulus(g, cx, cy, ringR - 1.5f, ringR + 1.5f, 0, FULL, TH.wellShadow());
+        int ringColor = remaining <= 1f / 3f ? ThemedGui.pulse(0xFFFF5A4B, 0xFFFFB0A0) : TH.trimBright();
+        float end = START + remaining * FULL;
+        if (remaining > 0.001f) {
+            fillAnnulus(g, cx, cy, ringR - 1.5f, ringR + 1.5f, START, end, ringColor);
+            float hx = cx + Mth.cos(end) * ringR;
+            float hy = cy + Mth.sin(end) * ringR;
+            fillAnnulus(g, hx, hy, 0, 3.5f, 0, FULL, withAlpha(ringColor, 0x60));
+            fillAnnulus(g, hx, hy, 0, 2f, 0, FULL, 0xFFFFF6D8);
+        }
+        ThemedGui.drawRuneRing(g, this.font, cx, cy, r + 13.5f, time * (0.15f + 1.2f * progress), RUNES,
+                withAlpha(0xD9B44A, Math.round(0x60 + 0x60 * progress)), 0.75f);
+
+        // Known fireplaces inside the reach, as little green flames.
+        for (SpellPackets.FlooDestinationData fireplace : fireplaces) {
+            float fx = cx + (fireplace.pos().getX() - origin.getX()) / (float) step * TILE;
+            float fz = cy + (fireplace.pos().getZ() - origin.getZ()) / (float) step * TILE;
+            float dx = fx - cx;
+            float dz = fz - cy;
+            if (dx * dx + dz * dz <= (r - 3) * (r - 3)) {
+                fillAnnulus(g, fx, fz, 0, 3.5f, 0, FULL, withAlpha(FLOO, 0x50));
+                fillAnnulus(g, fx, fz, 0, 1.8f, 0, FULL, withAlpha(FLOO, 0xFF));
             }
         }
 
-        // Caster marker at the center.
-        int centerTile = radius / step;
-        int centerPx = mapLeft + centerTile * TILE;
-        int centerPy = mapTop + centerTile * TILE;
-        g.fill(centerPx - 1, centerPy - 1, centerPx + TILE + 1, centerPy + TILE + 1, 0xFFFFFFFF);
-        g.fill(centerPx, centerPy, centerPx + TILE, centerPy + TILE, 0xFF20C0FF);
+        // Caster at the centre: a pulsing violet spark.
+        float pulse = 0.5f + 0.5f * Mth.sin(time * 5f);
+        fillAnnulus(g, cx, cy, 0, 5f + pulse * 2f, 0, FULL, 0x50A066FF);
+        fillAnnulus(g, cx, cy, 0, 2.5f, 0, FULL, 0xFFFFFFFF);
+        fillAnnulus(g, cx, cy, 0, 1.4f, 0, FULL, 0xFFB98CFF);
 
-        // Hover highlight over a selectable tile.
+        // Hover: reticle on the tile and a dotted path to it.
         int hoverDx = Math.floorDiv(mouseX - mapLeft, TILE);
         int hoverDz = Math.floorDiv(mouseY - mapTop, TILE);
-        boolean hoverValid = hoverDx >= 0 && hoverDx < tiles && hoverDz >= 0 && hoverDz < tiles
-                && tileKnown[hoverDz * tiles + hoverDx];
+        boolean overMap = hoverDx >= 0 && hoverDx < tiles && hoverDz >= 0 && hoverDz < tiles;
+        boolean hoverValid = overMap && selectable(hoverDx, hoverDz);
+        Component info;
+        int infoColor = TH.textDim();
         if (hoverValid) {
-            int hx = mapLeft + hoverDx * TILE;
-            int hy = mapTop + hoverDz * TILE;
-            g.fill(hx - 1, hy - 1, hx + TILE + 1, hy + TILE + 1, 0x80FFE08A);
+            float tx = mapLeft + hoverDx * TILE + TILE / 2f;
+            float tz = mapTop + hoverDz * TILE + TILE / 2f;
+            float dx = tx - cx;
+            float dz = tz - cy;
+            float len = Mth.sqrt(dx * dx + dz * dz);
+            for (float s = 6f; s < len - 6f; s += 5f) {
+                float px = cx + dx * s / len;
+                float pz = cy + dz * s / len;
+                g.fill(Math.round(px), Math.round(pz), Math.round(px) + 1, Math.round(pz) + 1, 0xC0FFF3B0);
+            }
+            float spin = time * 2.5f;
+            for (int q = 0; q < 4; q++) {
+                float a = spin + q * FULL / 4f;
+                fillAnnulus(g, tx, tz, 6f, 7.2f, a, a + 0.9f, 0xE0FFE08A);
+            }
+            fillAnnulus(g, tx, tz, 2.2f, 3.2f, 0, FULL, 0xFFFFF6D8);
+            int wx = worldX(hoverDx);
+            int wz = worldZ(hoverDz);
+            int dist = (int) Math.round(Math.sqrt(Math.pow(wx - origin.getX(), 2) + Math.pow(wz - origin.getZ(), 2)));
+            info = Component.translatable("gui." + ExampleMod.MODID + ".apparition.target", wx, wz, dist);
+            infoColor = TH.trimBright();
+        } else if (overMap && inReach(hoverDx, hoverDz)) {
+            info = Component.translatable("gui." + ExampleMod.MODID + ".apparition.unknown");
+        } else if (overMap) {
+            info = Component.translatable("gui." + ExampleMod.MODID + ".apparition.too_far");
+        } else {
+            info = Component.translatable("gui." + ExampleMod.MODID + ".apparition.reach", radius);
         }
-        g.disableScissor();
-        drawBorder(g, mapLeft - 1, mapTop - 1, mapLeft + mapSize + 1, mapTop + mapSize + 1, 0x66D4AF37);
-
-        // Countdown bar.
-        int barLeft = mapLeft;
-        int barTop = mapTop + mapSize + 6;
-        int barWidth = mapSize;
-        g.fill(barLeft, barTop, barLeft + barWidth, barTop + 4, 0xFF2A2238);
-        int filled = Math.round(barWidth * (ticksLeft / (float) durationTicks));
-        int barColor = ticksLeft <= durationTicks / 3 ? 0xFFFF5A4B : COLOR_GOLD;
-        g.fill(barLeft, barTop, barLeft + filled, barTop + 4, barColor);
+        ThemedGui.drawFittedCentered(g, this.font, info, panelLeft + panelWidth / 2f, infoY, infoColor, panelWidth - 20);
 
         // Known Floo fireplaces (Master): click one to Apparate there at any distance.
         if (!fireplaces.isEmpty()) {
-            g.drawString(this.font, Component.translatable("gui." + ExampleMod.MODID + ".apparition.fireplaces"),
-                    mapLeft, listTop, COLOR_GOLD);
+            int x0 = panelLeft + 10;
+            int x1 = panelLeft + panelWidth - 10;
+            g.drawString(this.font, Component.translatable("gui." + ExampleMod.MODID + ".apparition.fireplaces"), x0, listTop, TH.title(), false);
+            drawWell(g, x0, listTop + 12, x1, listTop + 14 + ROW * fireplaces.size() + 2, TH);
             int hovered = fireplaceRowAt(mouseX, mouseY);
             for (int i = 0; i < fireplaces.size(); i++) {
                 SpellPackets.FlooDestinationData fireplace = fireplaces.get(i);
-                int rowY = listTop + 12 + i * ROW;
+                int rowY = listTop + 14 + i * ROW;
                 if (i == hovered) {
-                    g.fill(mapLeft - 2, rowY - 1, mapLeft + mapSize + 2, rowY + ROW - 1, 0x50FFE08A);
+                    g.fill(x0 + 1, rowY, x1 - 1, rowY + ROW, TH.wellLight());
                 }
+                fillAnnulus(g, x0 + 7, rowY + 6, 0, i == hovered ? 3f : 2.4f, 0, FULL, withAlpha(FLOO, 0xFF));
                 int distance = (int) Math.sqrt(origin.distSqr(fireplace.pos()));
-                String label = this.font.plainSubstrByWidth(fireplace.name() + " (" + distance + "m)", mapSize);
-                g.drawString(this.font, label, mapLeft, rowY, COLOR_BODY);
+                String dist = distance + "m";
+                int distW = this.font.width(dist);
+                g.drawString(this.font, dist, x1 - 4 - distW, rowY + 2, TH.textDim(), false);
+                String label = this.font.plainSubstrByWidth(fireplace.name(), x1 - 4 - distW - (x0 + 14) - 4);
+                g.drawString(this.font, label, x0 + 14, rowY + 2, i == hovered ? TH.trimBright() : TH.text(), false);
             }
         }
 
@@ -263,7 +325,7 @@ public class ApparitionMapScreen extends Screen {
             }
             int dx = Math.floorDiv((int) mouseX - mapLeft, TILE);
             int dz = Math.floorDiv((int) mouseY - mapTop, TILE);
-            if (dx >= 0 && dx < tiles && dz >= 0 && dz < tiles && tileKnown[dz * tiles + dx]) {
+            if (selectable(dx, dz)) {
                 SpellPackets.CHANNEL.send(
                         new SpellPackets.ChooseApparitionDestinationPacket(worldX(dx), worldZ(dz)),
                         PacketDistributor.SERVER.noArg());
@@ -293,13 +355,6 @@ public class ApparitionMapScreen extends Screen {
             selectionSent = true;
         }
         super.onClose();
-    }
-
-    private void drawBorder(GuiGraphics g, int left, int top, int right, int bottom, int color) {
-        g.fill(left, top, right, top + 1, color);
-        g.fill(left, bottom - 1, right, bottom, color);
-        g.fill(left, top, left + 1, bottom, color);
-        g.fill(right - 1, top, right, bottom, color);
     }
 
     @Override

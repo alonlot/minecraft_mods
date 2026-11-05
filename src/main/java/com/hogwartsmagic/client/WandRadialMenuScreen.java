@@ -249,18 +249,7 @@ public class WandRadialMenuScreen extends Screen {
 
     /** Glyphs of the enchanting-table alphabet set around a circle, each turned to face outward. */
     private void drawRuneRing(GuiGraphics g, int cx, int cy, float r, float rotation, String runes, int color, float scale) {
-        int count = runes.length();
-        for (int i = 0; i < count; i++) {
-            float angle = rotation + FULL * i / count;
-            Component glyph = Component.literal(String.valueOf(runes.charAt(i)))
-                    .withStyle(s -> s.withFont(net.minecraft.client.Minecraft.ALT_FONT));
-            g.pose().pushPose();
-            g.pose().translate(cx + Mth.cos(angle) * r, cy + Mth.sin(angle) * r, 0f);
-            g.pose().mulPose(com.mojang.math.Axis.ZP.rotation(angle + (float) Math.PI / 2f));
-            g.pose().scale(scale, scale, 1f);
-            g.drawString(this.font, glyph, -this.font.width(glyph) / 2, -4, color, false);
-            g.pose().popPose();
-        }
+        ThemedGui.drawRuneRing(g, this.font, cx, cy, r, rotation, runes, color, scale);
     }
 
     /** Tapered, flickering beam from the hub edge out to the hovered socket. */

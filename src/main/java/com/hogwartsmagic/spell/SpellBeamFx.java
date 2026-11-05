@@ -16,6 +16,8 @@ import java.util.Optional;
  * drawn on each client from the moving entity; how it ended is sent here, once, so the clients can play that
  * spell's strike where it landed.
  */
+@net.minecraftforge.fml.common.Mod.EventBusSubscriber(modid = com.hogwartsmagic.ExampleMod.MODID,
+        bus = net.minecraftforge.fml.common.Mod.EventBusSubscriber.Bus.FORGE)
 public final class SpellBeamFx {
     /** It did what it does: struck a target, or a block it acts on. */
     public static final byte HIT = 0;
@@ -25,6 +27,10 @@ public final class SpellBeamFx {
     public static final byte EVADE = 2;
     /** Flew its full range and died out in mid-air. */
     public static final byte FADE = 3;
+    /** Stopped by a shield (Protego, a ward, a layer shield): it ripples across it. */
+    public static final byte SHIELD = 4;
+    /** The magic took (a ward primed, a lock opened, a hidden thing revealed): a soft glow and rising motes. */
+    public static final byte GLOW = 5;
 
     /** Two beams met and destroyed each other. */
     public static final byte CLASH_MUTUAL = 0;
@@ -39,6 +45,38 @@ public final class SpellBeamFx {
     public static final byte REACT_FLIGHT = 1;
 
     private SpellBeamFx() {
+    }
+
+    /**
+     * A spell's mark at a spot with no beam to hang it on (a primed ward, a revealed chest, a ritual): drawn in the
+     * spell's own style for everyone within 64 blocks.
+     */
+    public static void effectAt(net.minecraft.server.level.ServerLevel level, SpellType spell, Vec3 at, byte kind) {
+        SpellPackets.BeamImpactPacket packet = new SpellPackets.BeamImpactPacket(-1, spell.getId(), at.x, at.y, at.z,
+                0.0f, 1.0f, 0.0f, kind);
+        for (net.minecraft.server.level.ServerPlayer player : level.players()) {
+            if (player.distanceToSqr(at) < 64.0 * 64.0) {
+                SpellPackets.CHANNEL.send(packet, PacketDistributor.PLAYER.with(player));
+            }
+        }
+    }
+
+    /**
+     * An NPC's beam entering the world: everyone watching the caster sees its gesture's wand trail and the beam
+     * leaving its wand (players send theirs from the cast path). Low, so a cancelled beam (a locked duellist's)
+     * sends nothing.
+     */
+    @net.minecraftforge.eventbus.api.SubscribeEvent(priority = net.minecraftforge.eventbus.api.EventPriority.LOW)
+    public static void onBeamJoin(net.minecraftforge.event.entity.EntityJoinLevelEvent event) {
+        if (event.isCanceled() || event.getLevel().isClientSide()
+                || !(event.getEntity() instanceof com.hogwartsmagic.entity.SpellBeamEntity beam) || beam.isVisualOnly()) {
+            return;
+        }
+        if (beam.getOwner() instanceof LivingEntity caster && !(caster instanceof net.minecraft.world.entity.player.Player)
+                && beam.getSpellType() != SpellType.AVADA_KEDAVRA) {
+            SpellPackets.CHANNEL.send(new SpellPackets.CastMotionPacket(caster.getId(), beam.getSpellType().getId()),
+                    PacketDistributor.TRACKING_ENTITY.with(caster));
+        }
     }
 
     /** Tell everyone watching {@code entity} how it reacts to {@code spell}, arriving along {@code dir}. */
@@ -89,8 +127,14 @@ public final class SpellBeamFx {
                         at.x, at.y, at.z, (float) dirA.x, (float) dirA.y, (float) dirA.z,
                         (float) dirB.x, (float) dirB.y, (float) dirB.z, outcome),
                 PacketDistributor.TRACKING_ENTITY_AND_SELF.with(a));
+        // And everyone tracking the other side; a client that gets both draws it once.
+        SpellPackets.CHANNEL.send(new SpellPackets.BeamClashPacket(a.getId(), spellA.getId(), b.getId(), spellB.getId(),
+                        at.x, at.y, at.z, (float) dirA.x, (float) dirA.y, (float) dirA.z,
+                        (float) dirB.x, (float) dirB.y, (float) dirB.z, outcome),
+                PacketDistributor.TRACKING_ENTITY_AND_SELF.with(b));
         float pitch = (outcome == CLASH_MUTUAL ? 0.95f : 1.15f) + a.level().getRandom().nextFloat() * 0.1f;
-        a.level().playSound(null, at.x, at.y, at.z, ModSounds.SPELL_CLASH.get(), SoundSource.PLAYERS, 1.6f, pitch);
+        // The grinding lock now; each client plays the boom when the blast goes off.
+        a.level().playSound(null, at.x, at.y, at.z, ModSounds.SPELL_CLASH_GRIND.get(), SoundSource.PLAYERS, 1.4f, pitch);
     }
 
     private static Vec3 unit(Vec3 v) {

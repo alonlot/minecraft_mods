@@ -105,6 +105,8 @@ public class SpellBeamEntity extends ThrowableProjectile {
     private boolean visualOnly;
     /** The strike packet went out (a dodge sends its own); the impact that follows must not send another. */
     private boolean impactSent;
+    /** Stopped by a shield: its fizzle ripples across the shield instead. */
+    private boolean shieldBlocked;
     /**
      * Where the beam struck: on an entity, where its line enters the body (an entity hit reports the feet). The
      * strike is drawn here and the beam's drawn path ends here, so it never bends off to the side.
@@ -658,8 +660,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
                         if (state.is(ExampleMod.WARD.get()) && be instanceof CaveInimicumWardBlockEntity ward) {
                             LivingEntity caster = getOwner() instanceof LivingEntity livingCaster ? livingCaster : null;
                             if (ward.prepareRevelio(caster)) {
-                                sl.sendParticles(ParticleTypes.END_ROD, pos.getX() + 0.5, pos.getY() + 0.8, pos.getZ() + 0.5, 20, 0.45, 0.65, 0.45, 0.03);
-                                sl.sendParticles(ParticleTypes.GLOW, pos.getX() + 0.5, pos.getY() + 0.8, pos.getZ() + 0.5, 16, 0.4, 0.55, 0.4, 0.01);
+                                com.hogwartsmagic.spell.SpellBeamFx.effectAt(sl, spell, Vec3.atCenterOf(pos).add(0.0, 0.3, 0.0), com.hogwartsmagic.spell.SpellBeamFx.GLOW);
                                 this.level().playSound(null, pos, SoundEvents.BEACON_POWER_SELECT, SoundSource.BLOCKS, 0.65f, 1.55f);
                                 hitSuccessful = true;
                             }
@@ -668,8 +669,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
                     if (this.level() instanceof ServerLevel serverLevel
                             && com.hogwartsmagic.caveinimicum.CaveInimicumManager.get(serverLevel)
                             .disruptWardsAt(pos, CAVE_INIMICUM_REVELIO_BREAK_TICKS)) {
-                        serverLevel.sendParticles(ParticleTypes.END_ROD, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, 28, 1.0, 1.0, 1.0, 0.02);
-                        serverLevel.sendParticles(ParticleTypes.GLOW, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, 20, 0.8, 0.8, 0.8, 0.01);
+                        com.hogwartsmagic.spell.SpellBeamFx.effectAt(serverLevel, spell, Vec3.atCenterOf(pos), com.hogwartsmagic.spell.SpellBeamFx.HIT);
                         this.level().playSound(null, pos, SoundEvents.BEACON_DEACTIVATE, SoundSource.BLOCKS, 0.85f, 1.4f);
                         hitSuccessful = true;
                     }
@@ -698,7 +698,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
                             && state.is(ExampleMod.WARD.get())
                             && getOwner() instanceof LivingEntity livingCaster
                             && VoldemortSummoningEntity.tryStart(sl, pos, livingCaster)) {
-                        sl.sendParticles(ParticleTypes.WITCH, pos.getX() + 0.5D, pos.getY() + 1.0D, pos.getZ() + 0.5D, 18, 0.35D, 0.5D, 0.35D, 0.02D);
+                        com.hogwartsmagic.spell.SpellBeamFx.effectAt(sl, spell, Vec3.atCenterOf(pos).add(0.0, 0.5, 0.0), com.hogwartsmagic.spell.SpellBeamFx.EVADE);
                         this.level().playSound(null, pos, SoundEvents.END_PORTAL_SPAWN, SoundSource.BLOCKS, 0.6f, 0.55f);
                         hitSuccessful = true;
                     } else {
@@ -727,8 +727,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
                         if (state.is(ExampleMod.WARD.get()) && be instanceof CaveInimicumWardBlockEntity ward) {
                             LivingEntity caster = getOwner() instanceof LivingEntity livingCaster ? livingCaster : null;
                             if (ward.prepareProtegoMaxima(caster)) {
-                                sl.sendParticles(ParticleTypes.END_ROD, pos.getX() + 0.5, pos.getY() + 0.8, pos.getZ() + 0.5, 24, 0.55, 0.75, 0.55, 0.03);
-                                sl.sendParticles(ParticleTypes.ENCHANT, pos.getX() + 0.5, pos.getY() + 0.8, pos.getZ() + 0.5, 20, 0.45, 0.65, 0.45, 0.02);
+                                com.hogwartsmagic.spell.SpellBeamFx.effectAt(sl, spell, Vec3.atCenterOf(pos).add(0.0, 0.3, 0.0), com.hogwartsmagic.spell.SpellBeamFx.GLOW);
                                 this.level().playSound(null, pos, SoundEvents.BEACON_POWER_SELECT, SoundSource.BLOCKS, 0.75f, 1.35f);
                                 hitSuccessful = true;
                             }
@@ -744,8 +743,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
                             if (bbe.beginInfusionFromSpell(sl, getOwner())) {
                                 hitSuccessful = true;
                             } else {
-                                sl.sendParticles(ParticleTypes.SMOKE, hx, hy, hz, 10, 0.28, 0.12, 0.28, 0.02);
-                                sl.sendParticles(ParticleTypes.WITCH, hx, hy, hz, 5, 0.22, 0.08, 0.22, 0.01);
+                                com.hogwartsmagic.spell.SpellBeamFx.effectAt(sl, spell, new Vec3(hx, hy, hz), com.hogwartsmagic.spell.SpellBeamFx.FIZZLE);
                                 this.level().playSound(null, hx, hy, hz, SoundEvents.ENCHANTMENT_TABLE_USE, SoundSource.BLOCKS, 0.22f, 0.55f);
                                 hitSuccessful = true;
                                 masteryEligible = false; // failed infusion earns no mastery
@@ -804,6 +802,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
                         com.hogwartsmagic.spell.support.ProtegoSpell.onBeamHit(living, this);
                 if (parry != com.hogwartsmagic.spell.support.ProtegoSpell.BeamOutcome.NOT_SHIELDED) {
                     hitSuccessful = false; // stopped at the shield; a reflected copy is already in flight
+                    this.shieldBlocked = true;
                 } else if (!com.hogwartsmagic.spell.support.ProtegoSpell.isRankedShield(living)
                         && com.hogwartsmagic.spell.support.ProtegoShield.has(living) && spell != SpellType.AVADA_KEDAVRA && spell != SpellType.HEAL
                         && spell != SpellType.LUMOS) {
@@ -816,6 +815,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
                     }
                     // Treat the hit as blocked/fizzled
                     hitSuccessful = false;
+                    this.shieldBlocked = true;
                 } else {
                     // Normal hit
                     if (spell != SpellType.ALOHOMORA) {
@@ -1009,9 +1009,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
         double y = orePos.getY() + 0.5D;
         double z = orePos.getZ() + 0.5D;
         if (particles) {
-            level.sendParticles(ParticleTypes.GLOW, x, y, z, 10, 0.2D, 0.2D, 0.2D, 0.02D);
-            level.sendParticles(ParticleTypes.END_ROD, x, y, z, 4, 0.22D, 0.22D, 0.22D, 0.01D);
-            level.sendParticles(ParticleTypes.HAPPY_VILLAGER, x, y, z, 3, 0.12D, 0.12D, 0.12D, 0.0D);
+            com.hogwartsmagic.spell.SpellBeamFx.effectAt(level, SpellType.REVELIO, new Vec3(x, y, z), com.hogwartsmagic.spell.SpellBeamFx.GLOW);
         }
 
         BlockPos lightPos = findNearbyAirForReveal(level, orePos, origin);
@@ -1025,19 +1023,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
         double chestY = chestPos.getY() + 0.6D;
         double chestZ = chestPos.getZ() + 0.5D;
         if (particles) {
-            level.sendParticles(ParticleTypes.GLOW, chestX, chestY, chestZ, 18, 0.3D, 0.25D, 0.3D, 0.03D);
-            level.sendParticles(ParticleTypes.END_ROD, chestX, chestY, chestZ, 10, 0.28D, 0.2D, 0.28D, 0.02D);
-            level.sendParticles(ParticleTypes.ENCHANT, chestX, chestY, chestZ, 16, 0.35D, 0.35D, 0.35D, 0.01D);
-
-            Vec3 start = Vec3.atCenterOf(origin);
-            Vec3 end = Vec3.atCenterOf(chestPos);
-            Vec3 delta = end.subtract(start);
-            int steps = Math.max(6, (int) Math.ceil(delta.length() * 2.0D));
-            for (int i = 0; i <= steps; i++) {
-                double progress = i / (double) steps;
-                Vec3 point = start.add(delta.scale(progress));
-                level.sendParticles(ParticleTypes.WITCH, point.x, point.y + 0.15D, point.z, 1, 0.04D, 0.04D, 0.04D, 0.0D);
-            }
+            com.hogwartsmagic.spell.SpellBeamFx.effectAt(level, SpellType.REVELIO, new Vec3(chestX, chestY, chestZ), com.hogwartsmagic.spell.SpellBeamFx.GLOW);
         }
 
         BlockPos lightPos = findNearbyAirForReveal(level, chestPos, origin);
@@ -1148,12 +1134,8 @@ public class SpellBeamEntity extends ThrowableProjectile {
             }
             if (horcrux.beginRitual(serverLevel, player)) {
                 HorcruxData.startRitual(player, serverLevel, candidate);
-                serverLevel.sendParticles(ParticleTypes.SQUID_INK, candidate.getX() + 0.5D, candidate.getY() + 1.05D, candidate.getZ() + 0.5D,
-                        26, 0.28D, 0.35D, 0.28D, 0.03D);
-                serverLevel.sendParticles(ParticleTypes.SOUL, candidate.getX() + 0.5D, candidate.getY() + 1.15D, candidate.getZ() + 0.5D,
-                        18, 0.24D, 0.35D, 0.24D, 0.02D);
-                serverLevel.sendParticles(ParticleTypes.DRAGON_BREATH, candidate.getX() + 0.5D, candidate.getY() + 0.85D, candidate.getZ() + 0.5D,
-                        16, 0.22D, 0.2D, 0.22D, 0.03D);
+                com.hogwartsmagic.spell.SpellBeamFx.effectAt(serverLevel, SpellType.AVADA_KEDAVRA, Vec3.atCenterOf(candidate).add(0.0, 0.6, 0.0),
+                        com.hogwartsmagic.spell.SpellBeamFx.EVADE);
                 serverLevel.playSound(null, candidate, SoundEvents.WARDEN_HEARTBEAT, SoundSource.BLOCKS, 1.0F, 0.55F);
                 serverLevel.playSound(null, candidate, SoundEvents.SOUL_ESCAPE.value(), SoundSource.BLOCKS, 1.0F, 0.5F);
                 player.displayClientMessage(net.minecraft.network.chat.Component.literal("The Horcrux has tasted death. Now it will feed on you.")
@@ -1420,15 +1402,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
         serverLevel.removeBlock(pos, false);
         serverLevel.levelEvent(2001, pos, net.minecraft.world.level.block.Block.getId(ExampleMod.MANDRAKE_PLANT.get().defaultBlockState()));
         serverLevel.playSound(null, pos, ModSounds.MANDRAKE_SCREAM.get(), SoundSource.BLOCKS, 1.2F, 1.15F);
-        serverLevel.sendParticles(ParticleTypes.WITCH,
-                pos.getX() + 0.5D,
-                pos.getY() + 0.75D,
-                pos.getZ() + 0.5D,
-                14,
-                0.28D,
-                0.35D,
-                0.28D,
-                0.02D);
+        com.hogwartsmagic.spell.SpellBeamFx.effectAt(serverLevel, SpellType.ACCIO, Vec3.atCenterOf(pos).add(0.0, 0.25, 0.0), com.hogwartsmagic.spell.SpellBeamFx.GLOW);
 
         ItemEntity root = new ItemEntity(serverLevel,
                 spawn.x,
@@ -1653,7 +1627,9 @@ public class SpellBeamEntity extends ThrowableProjectile {
             this.impactSent = true;
             // The hit point, not the beam's position: a projectile is a whole tick's travel short of it in onHit.
             com.hogwartsmagic.spell.SpellBeamFx.impact(this, spell, this.hitAt != null ? this.hitAt : this.position(),
-                    this.tickCount > 200 ? com.hogwartsmagic.spell.SpellBeamFx.FADE : com.hogwartsmagic.spell.SpellBeamFx.FIZZLE);
+                    this.tickCount > 200 ? com.hogwartsmagic.spell.SpellBeamFx.FADE
+                            : this.shieldBlocked ? com.hogwartsmagic.spell.SpellBeamFx.SHIELD
+                            : com.hogwartsmagic.spell.SpellBeamFx.FIZZLE);
         }
         if (spell != SpellType.AVADA_KEDAVRA) { // the Killing Curse's strike has its own sound
             this.level().playSound(null, this.getX(), this.getY(), this.getZ(),

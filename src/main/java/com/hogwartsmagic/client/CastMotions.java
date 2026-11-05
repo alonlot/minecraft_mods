@@ -44,15 +44,20 @@ public final class CastMotions {
     /** Shoulder to wand tip along the arm, blocks. */
     private static final double ARM_REACH = 1.12;
     private static final float FIRST_PERSON_SCALE = 0.55f;
+    /** How long before its snap a gesture is shown from: the last sliver of the wind-up. */
+    private static final float RELEASE_LEAD = 0.6f;
 
     /** A gesture: keyframes and how long the whole thing lasts before it lets go. */
     static final class Motion {
         final float[][] keys;
         final float length;
+        /** The tick of the release: the snap, the cut, the strike that sends the spell. */
+        final float snap;
 
-        Motion(float length, float[]... keys) {
+        Motion(float length, float snap, float[]... keys) {
             this.keys = keys;
             this.length = length;
+            this.snap = snap;
         }
 
         /** {raise, turn, push} at {@code t} ticks in. */
@@ -73,34 +78,34 @@ public final class CastMotions {
         }
     }
 
-    private static final Motion FLICK = new Motion(14.0f,
+    private static final Motion FLICK = new Motion(14.0f, 1.5f,
             new float[]{0.0f, 0.35f, 0.05f, 0.0f}, new float[]{1.5f, -0.18f, 0.0f, 1.0f},
             new float[]{4.0f, -0.05f, 0.0f, 0.5f}, new float[]{10.0f, 0.0f, 0.0f, 0.0f});
-    private static final Motion SLASH = new Motion(16.0f,
+    private static final Motion SLASH = new Motion(16.0f, 2.5f,
             new float[]{0.0f, 0.75f, -0.7f, 0.0f}, new float[]{2.5f, -0.45f, 0.55f, 1.5f},
             new float[]{6.0f, -0.35f, 0.45f, 1.0f}, new float[]{12.0f, 0.0f, 0.0f, 0.0f});
-    private static final Motion THRUST = new Motion(14.0f,
+    private static final Motion THRUST = new Motion(14.0f, 1.5f,
             new float[]{0.0f, -0.2f, 0.0f, -2.0f}, new float[]{1.5f, 0.04f, 0.0f, 3.0f},
             new float[]{4.0f, -0.02f, 0.0f, 2.5f}, new float[]{11.0f, 0.0f, 0.0f, 0.0f});
-    private static final Motion WHIP = new Motion(16.0f,
+    private static final Motion WHIP = new Motion(16.0f, 2.0f,
             new float[]{0.0f, 1.3f, 0.2f, 0.0f}, new float[]{2.0f, -0.55f, -0.1f, 1.5f},
             new float[]{4.5f, -0.25f, 0.0f, 0.5f}, new float[]{12.0f, 0.0f, 0.0f, 0.0f});
-    private static final Motion RAISE = new Motion(20.0f,
+    private static final Motion RAISE = new Motion(20.0f, 2.5f,
             new float[]{0.0f, 0.4f, 0.0f, 0.0f}, new float[]{2.5f, 1.2f, 0.0f, 1.0f},
             new float[]{10.0f, 1.1f, 0.0f, 1.0f}, new float[]{16.0f, 0.25f, 0.0f, 0.0f});
-    private static final Motion SWISH = new Motion(13.0f,
+    private static final Motion SWISH = new Motion(13.0f, 4.5f,
             new float[]{0.0f, 0.2f, -0.35f, 0.0f}, new float[]{1.5f, 0.55f, 0.0f, 0.5f},
             new float[]{3.0f, 0.25f, 0.35f, 0.5f}, new float[]{4.5f, -0.15f, -0.05f, 1.5f},
             new float[]{9.0f, 0.0f, 0.0f, 0.0f});
-    private static final Motion PULL = new Motion(17.0f,
+    private static final Motion PULL = new Motion(17.0f, 2.0f,
             new float[]{0.0f, 0.0f, 0.0f, 1.5f}, new float[]{2.0f, -0.05f, 0.0f, 2.0f},
             new float[]{6.0f, 0.5f, -0.25f, -2.5f}, new float[]{10.0f, 0.35f, -0.15f, -1.5f},
             new float[]{15.0f, 0.0f, 0.0f, 0.0f});
-    private static final Motion TWIRL = new Motion(13.0f,
+    private static final Motion TWIRL = new Motion(13.0f, 6.0f,
             new float[]{0.0f, 0.3f, -0.3f, 0.0f}, new float[]{1.5f, 0.6f, 0.1f, 0.5f},
             new float[]{3.0f, 0.2f, 0.4f, 0.5f}, new float[]{4.5f, 0.5f, -0.1f, 0.5f},
             new float[]{6.0f, 0.1f, -0.3f, 1.0f}, new float[]{10.0f, 0.0f, 0.0f, 0.0f});
-    private static final Motion SHOVE = new Motion(14.0f,
+    private static final Motion SHOVE = new Motion(14.0f, 2.0f,
             new float[]{0.0f, 0.1f, 0.0f, -1.5f}, new float[]{2.0f, 0.02f, 0.0f, 3.5f},
             new float[]{6.0f, 0.0f, 0.0f, 3.0f}, new float[]{12.0f, 0.0f, 0.0f, 0.0f});
 
@@ -185,7 +190,20 @@ public final class CastMotions {
             return;
         }
         Motion motion = MOTIONS.getOrDefault(spell, FLICK);
-        CASTS.put(packet.casterId(), new Cast(motion, spell, minecraft.level.getGameTime()));
+        // The spell is already on its way: start the gesture just short of its release, so the snap lands with
+        // the beam leaving the wand instead of a beat after it.
+        CASTS.put(packet.casterId(), new Cast(motion, spell, minecraft.level.getGameTime() - (motion.snap - RELEASE_LEAD)));
+    }
+
+    /** Drop gestures that are over for casters never drawn again (walked off, logged out). */
+    @SubscribeEvent
+    public static void onClientTick(net.minecraftforge.event.TickEvent.ClientTickEvent event) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (event.phase != net.minecraftforge.event.TickEvent.Phase.END || minecraft.level == null || CASTS.isEmpty()) {
+            return;
+        }
+        double now = minecraft.level.getGameTime();
+        CASTS.values().removeIf(cast -> cast.over(now) || cast.age(now) < 0.0f);
     }
 
     /** The gesture {@code entityId} is playing now, or null. */
@@ -247,6 +265,16 @@ public final class CastMotions {
         double x = Mth.lerp(partial, caster.xo, caster.getX());
         double y = Mth.lerp(partial, caster.yo, caster.getY());
         double z = Mth.lerp(partial, caster.zo, caster.getZ());
+        if (!(caster instanceof Player)) {
+            // An NPC poses its own arm (its model aims the wand at its target); the gesture turns that aim.
+            float pitch = caster.getViewXRot(partial) - p[0] * p[3] * Mth.RAD_TO_DEG * 0.6f;
+            float yaw = Mth.rotLerp(partial, caster.yHeadRotO, caster.yHeadRot) + p[1] * p[3] * Mth.RAD_TO_DEG * 0.6f;
+            Vec3 look = caster.getViewVector(partial);
+            Vec3 right = look.cross(new Vec3(0.0, 1.0, 0.0));
+            right = right.lengthSqr() < 1.0E-4 ? Vec3.ZERO : right.normalize();
+            Vec3 shoulder = new Vec3(x, y + caster.getEyeHeight() - 0.35, z).add(right.scale(0.32));
+            return shoulder.add(Vec3.directionFromRotation(pitch, yaw).scale(0.95));
+        }
         if (firstPerson) {
             Vec3 look = caster.getViewVector(partial);
             Vec3 right = look.cross(new Vec3(0.0, 1.0, 0.0));

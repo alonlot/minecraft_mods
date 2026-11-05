@@ -50,7 +50,83 @@ public final class SpellBeamFxRenderer {
     private static final int MIST_PUFFS = 8;
     private static final float SPARK_GRAVITY = 0.012f;
 
+    /** A strike's hold: the flash peaks and everything else waits, then bursts out together. */
+    private static final float IMPACT_HOLD = 1.5f;
+
+    private static final java.util.Map<SpellBeamClientState.Beam, Frame> FRAMES = new java.util.IdentityHashMap<>();
+    private static final java.util.Map<SpellBeamClientState.Beam, double[]> TRAIL_DISTANCES =
+            new java.util.IdentityHashMap<>();
+
     private SpellBeamFxRenderer() {
+    }
+
+    /** A memory's held stream, grown out of the wand over its first six ticks. */
+    private static SpellBeamClientState.Beam heldOf(SpellBeamClientState.Scenery item, double now) {
+        float grow = smoothstep(0.0f, 6.0f, (float) (now - item.start));
+        Vec3 to = item.from.lerp(item.to, Math.max(0.05f, grow));
+        return SpellBeamClientState.held(item.seed, item.style.asJet(), item.from, to, item.start, now);
+    }
+
+    /** A memory's spell with no beam: a held orb, a dome of light, a held stream, or a stream ending in a shield. */
+    private static void drawSceneryLight(VertexConsumer out, Matrix4f m, SpellBeamClientState.Scenery item,
+                                         double now, Vec3 camera) {
+        BeamStyle s = item.style;
+        float strength = item.strength(now);
+        float t = (float) (now - item.start);
+        if (strength <= 0.003f) {
+            return;
+        }
+        if (item.kind == SpellBeamClientState.SCENERY_ORB) {
+            Vec3 pos = item.from.subtract(camera);
+            float flicker = 0.9f + 0.1f * Mth.sin(t * 1.3f);
+            billboard(out, m, pos, 0.9f * flicker, 0.55f * strength, s.glowR, s.glowG, s.glowB, false);
+            billboard(out, m, pos, 0.22f, strength, s.coreR, s.coreG, s.coreB, true);
+        } else if (item.kind == SpellBeamClientState.SCENERY_DOME) {
+            Vec3 centre = item.from.subtract(camera).add(0.0, -1.3, 0.0);
+            float radius = 1.9f * (0.7f + 0.3f * smoothstep(0.0f, 6.0f, t));
+            Vec3 up = new Vec3(0.0, 1.0, 0.0);
+            for (int k = 0; k < 8; k++) {
+                double phi = k * Math.PI / 8.0 + t * 0.03;
+                Vec3 right = new Vec3(Math.cos(phi), 0.0, Math.sin(phi));
+                arc(out, m, centre, right, up, radius, 0.06f, 0.3f * strength, s.glowR, s.glowG, s.glowB, 16, 0.0, Math.PI);
+            }
+            for (int k = 1; k <= 3; k++) {
+                double theta = k * Math.PI * 0.5 / 4.0;
+                ring(out, m, centre.add(0.0, Math.sin(theta) * radius, 0.0), new Vec3(1.0, 0.0, 0.0),
+                        new Vec3(0.0, 0.0, 1.0), (float) (Math.cos(theta) * radius), 0.05f, 0.25f * strength,
+                        s.coreR, s.coreG, s.coreB, 40);
+            }
+        } else {
+            SpellBeamClientState.Beam beam = heldOf(item, now);
+            drawHeldLight(out, m, beam, now, camera);
+            if (item.kind == SpellBeamClientState.SCENERY_WISP) {
+                // The weak Patronus: a hazy shield hanging at the end of the stream.
+                Vec3 end = item.to.subtract(camera);
+                Vec3[] axes = frame(item.to.subtract(item.from).normalize());
+                billboard(out, m, end, 1.7f, 0.35f * strength, s.glowR, s.glowG, s.glowB, false);
+                ring(out, m, end, axes[0], axes[1], 1.6f, 0.2f, 0.5f * strength, s.coreR, s.coreG, s.coreB, 40);
+            }
+        }
+    }
+
+    /** The release at the wand: a quick hot flare and a ring snapping out across the line of the beam. */
+    private static void drawMuzzle(VertexConsumer out, Matrix4f m, SpellBeamClientState.Muzzle muzzle, double now,
+                                   Vec3 camera) {
+        float age = (float) (now - muzzle.start);
+        if (age < 0.0f || age > SpellBeamClientState.MUZZLE_TICKS) {
+            return;
+        }
+        BeamStyle s = muzzle.style;
+        float f = age / SpellBeamClientState.MUZZLE_TICKS;
+        Vec3 pos = muzzle.pos.subtract(camera);
+        // Smaller when it is your own wand, half a block from your eye.
+        float near = (float) Mth.clamp(pos.length() / 1.5, 0.45, 1.0);
+        float fade = (1.0f - f) * (1.0f - f);
+        billboard(out, m, pos, 0.35f * near * (1.0f - 0.5f * f), fade, s.coreR, s.coreG, s.coreB, true);
+        billboard(out, m, pos, 0.9f * near, 0.6f * fade, s.glowR, s.glowG, s.glowB, false);
+        Vec3[] axes = frame(muzzle.dir);
+        ring(out, m, pos, axes[0], axes[1], (0.15f + 0.8f * smoothstep(0.0f, 0.6f, f)) * near, 0.06f * near,
+                0.7f * fade, s.coreR, s.coreG, s.coreB, 28);
     }
 
     @SubscribeEvent
@@ -68,10 +144,30 @@ public final class SpellBeamFxRenderer {
         Matrix4f m = new Matrix4f();
         MultiBufferSource.BufferSource buffer = minecraft.renderBuffers().bufferSource();
 
-        VertexConsumer dark = buffer.getBuffer(ModRenderTypes.AVADA_SHADOW);
+        // Each beam's shape is worked out once a frame and shared by both passes, as are its trail distances.
+        FRAMES.clear();
+        TRAIL_DISTANCES.clear();
         for (SpellBeamClientState.Beam beam : SpellBeamClientState.beams()) {
             Frame frame = Frame.of(beam, now, partial, camera);
+            if (frame != null) {
+                FRAMES.put(beam, frame);
+            }
+        }
+
+        VertexConsumer dark = buffer.getBuffer(ModRenderTypes.AVADA_SHADOW);
+        for (SpellBeamClientState.Beam beam : SpellBeamClientState.beams()) {
+            Frame frame = FRAMES.get(beam);
             BeamStyle style = beam.style;
+            if (frame != null && !(style.sheathDark && style.sheathWidth > 0.0f)) {
+                // A light spell against a bright sky washes out: give it a faint dark backing, by daylight only.
+                Vec3 head = frame.head().add(camera);
+                float daylight = minecraft.level.getMaxLocalRawBrightness(net.minecraft.core.BlockPos.containing(head))
+                        / 15.0f;
+                if (daylight > 0.3f) {
+                    ribbon(dark, m, frame.path, frame.widths(style.glowWidth * 0.75f),
+                            frame.alphas(0.14f * (daylight - 0.3f) / 0.7f, true), 1.0f, 1.0f, SMOKE_R, SMOKE_G, SMOKE_B);
+                }
+            }
             if (frame != null) {
                 if (style.sheathDark && style.sheathWidth > 0.0f) {
                     ribbon(dark, m, frame.path, frame.widths(style.sheathWidth), frame.alphas(style.sheathAlpha, true),
@@ -88,14 +184,25 @@ public final class SpellBeamFxRenderer {
         for (SpellBeamClientState.Impact impact : SpellBeamClientState.impacts()) {
             drawImpactDark(dark, m, impact, now, camera);
         }
+        for (SpellBeamClientState.Scenery item : SpellBeamClientState.scenery()) {
+            if (item.kind == SpellBeamClientState.SCENERY_HELD || item.kind == SpellBeamClientState.SCENERY_WISP) {
+                drawHeldDark(dark, m, heldOf(item, now), now, camera);
+            }
+        }
         for (SpellBeamClientState.Clash clash : SpellBeamClientState.clashes()) {
             drawClashDark(dark, m, clash, now, camera);
         }
         buffer.endBatch(ModRenderTypes.AVADA_SHADOW);
 
         VertexConsumer light = buffer.getBuffer(ModRenderTypes.AVADA_LIGHT);
+        for (SpellBeamClientState.Muzzle muzzle : SpellBeamClientState.muzzles()) {
+            drawMuzzle(light, m, muzzle, now, camera);
+        }
+        for (SpellBeamClientState.Scenery item : SpellBeamClientState.scenery()) {
+            drawSceneryLight(light, m, item, now, camera);
+        }
         for (SpellBeamClientState.Beam beam : SpellBeamClientState.beams()) {
-            Frame frame = Frame.of(beam, now, partial, camera);
+            Frame frame = FRAMES.get(beam);
             if (frame != null) {
                 drawBeam(light, m, frame);
                 drawStrands(light, m, frame);
@@ -285,11 +392,35 @@ public final class SpellBeamFxRenderer {
             ribbon(out, m, f.path, f.widths(s.sheathWidth), f.alphas(s.sheathAlpha * 0.35f, false), 1.0f, 1.0f,
                     s.glowR, s.glowG, s.glowB);
         }
-        ribbon(out, m, f.path, f.widths(s.glowWidth), f.alphas(s.glowAlpha * flicker, false), 1.0f, 1.0f,
-                s.glowR, s.glowG, s.glowB);
-        ribbon(out, m, f.path, f.widths(s.bodyWidth), f.alphas(s.bodyAlpha * flicker, false), 1.0f, 1.0f,
-                s.bodyR, s.bodyG, s.bodyB);
+        if (s.bodyRainbow) {
+            rainbowRibbon(out, m, f, f.widths(s.glowWidth), f.alphas(s.glowAlpha * flicker, false));
+            rainbowRibbon(out, m, f, f.widths(s.bodyWidth), f.alphas(s.bodyAlpha * flicker, false));
+        } else {
+            ribbon(out, m, f.path, f.widths(s.glowWidth), f.alphas(s.glowAlpha * flicker, false), 1.0f, 1.0f,
+                    s.glowR, s.glowG, s.glowB);
+            ribbon(out, m, f.path, f.widths(s.bodyWidth), f.alphas(s.bodyAlpha * flicker, false), 1.0f, 1.0f,
+                    s.bodyR, s.bodyG, s.bodyB);
+        }
         ribbon(out, m, f.path, f.widths(s.coreWidth), f.alphas(1.0f, false), 1.0f, 1.0f, s.coreR, s.coreG, s.coreB);
+    }
+
+    /** A strip whose colour runs through the rainbow along its length and over time, a short piece at a time. */
+    private static void rainbowRibbon(VertexConsumer out, Matrix4f m, Frame f, float[] width, float[] alpha) {
+        int n = f.path.length;
+        for (int i = 0; i < n - 1; i += 2) {
+            int end = Math.min(n - 1, i + 2);
+            int count = end - i + 1;
+            Vec3[] piece = new Vec3[count];
+            float[] w = new float[count];
+            float[] a = new float[count];
+            System.arraycopy(f.path, i, piece, 0, count);
+            System.arraycopy(width, i, w, 0, count);
+            System.arraycopy(alpha, i, a, 0, count);
+            float hue = (float) ((f.fromWand[i] * 0.12 - f.age * 0.03) % 1.0);
+            int rgb = Mth.hsvToRgb(hue < 0.0f ? hue + 1.0f : hue, 0.6f, 1.0f);
+            ribbon(out, m, piece, w, a, 1.0f, 1.0f, ((rgb >> 16) & 0xFF) / 255.0f, ((rgb >> 8) & 0xFF) / 255.0f,
+                    (rgb & 0xFF) / 255.0f);
+        }
     }
 
     /** Strands coiling round the beam: jagged and gappy (crackle) or smooth twisting ribbons. */
@@ -367,9 +498,13 @@ public final class SpellBeamFxRenderer {
         List<Vec3> trail = beam.trail;
         List<Double> times = beam.times;
         int n = trail.size();
-        double[] fromWand = new double[n];
-        for (int i = 1; i < n; i++) {
-            fromWand[i] = fromWand[i - 1] + trail.get(i).distanceTo(trail.get(i - 1));
+        double[] fromWand = TRAIL_DISTANCES.get(beam);
+        if (fromWand == null || fromWand.length != n) {
+            fromWand = new double[n];
+            for (int i = 1; i < n; i++) {
+                fromWand[i] = fromWand[i - 1] + trail.get(i).distanceTo(trail.get(i - 1));
+            }
+            TRAIL_DISTANCES.put(beam, fromWand);
         }
         for (int i = n - 1; i >= 1; i--) {
             double t0 = times.get(i - 1);
@@ -432,7 +567,9 @@ public final class SpellBeamFxRenderer {
                 float alpha = s.wake == BeamStyle.WAKE_SMOKE ? s.wakeAlpha : 0.22f;
                 Vec3 drift = randomDirection(seed).scale(0.12 + s.wakeSpread * l);
                 Vec3 c = at.add(drift).add(0.0, 0.035 * age, 0.0);
-                billboard(out, m, c, size + s.wakeGrow * l, alpha * (1.0f - l) * (1.0f - l) * smoothstep(0.0f, 1.5f, age),
+                float far = 1.0f - smoothstep(32.0f, 56.0f, (float) c.length());
+                billboard(out, m, c, size + s.wakeGrow * l,
+                        alpha * far * (1.0f - l) * (1.0f - l) * smoothstep(0.0f, 1.5f, age),
                         SMOKE_R, SMOKE_G, SMOKE_B, false, 3, 10);
                 return;
             }
@@ -498,7 +635,7 @@ public final class SpellBeamFxRenderer {
         if (!(impact.style.impactDark && impact.full()) && !evade) {
             return;
         }
-        float age = (float) (now - impact.start);
+        float age = (float) (now - impact.start) - IMPACT_HOLD;
         if (age < 0.0f) {
             return;
         }
@@ -531,12 +668,37 @@ public final class SpellBeamFxRenderer {
         float bright = impact.kind == SpellBeamFx.EVADE ? 0.35f : 1.0f;
         Vec3 pos = impact.pos.subtract(camera);
 
+        if (impact.kind == SpellBeamFx.SHIELD) {
+            drawShieldRipple(out, m, impact, pos, age);
+        }
+        if (impact.kind == SpellBeamFx.GLOW) {
+            // The magic took: a soft swell of the spell's light and motes rising out of it.
+            float swell = smoothstep(0.0f, 3.0f, age) * (1.0f - smoothstep(6.0f, SpellBeamClientState.IMPACT_TICKS, age));
+            billboard(out, m, pos, 1.3f * scale, 0.5f * swell, s.glowR, s.glowG, s.glowB, false);
+            billboard(out, m, pos, 0.3f * scale, 0.8f * swell, s.coreR, s.coreG, s.coreB, true);
+            for (int k = 0; k < 10; k++) {
+                float life = age - k * 1.2f;
+                if (life < 0.0f || life > 16.0f) {
+                    continue;
+                }
+                Vec3 mote = pos.add(randomDirection(impact.seed + k * 17).scale(0.45 * scale)).add(0.0, 0.06 * life, 0.0);
+                billboard(out, m, mote, 0.05f, 0.9f * (1.0f - life / 16.0f), s.coreR, s.coreG, s.coreB, true, 2, 8);
+            }
+            return;
+        }
         // The flash: swells in three ticks, gone in eight. Then the glow that takes a second to drain.
         float flash = (1.0f - smoothstep(0.0f, 0.3f, f)) * s.impactFlash * bright;
         float flashRadius = (0.6f + 2.8f * smoothstep(0.0f, 0.12f, f)) * scale;
         billboard(out, m, pos, flashRadius, Math.min(1.0f, flash), s.coreR, s.coreG, s.coreB, true);
         billboard(out, m, pos, 1.9f * scale, s.impactGlow * (1.0f - f) * (1.0f - f) * bright, s.glowR, s.glowG, s.glowB,
                 false);
+        if (age < IMPACT_HOLD) {
+            // The moment of contact: a tight white-hot point, everything else held back.
+            billboard(out, m, pos, 0.4f * scale, bright, 1.0f, 1.0f, 1.0f, true);
+            return;
+        }
+        age -= IMPACT_HOLD;
+        f = age / SpellBeamClientState.IMPACT_TICKS;
 
         if (impact.full()) {
             drawImpactRing(out, m, impact, pos, age, scale, bright);
@@ -587,6 +749,24 @@ public final class SpellBeamFxRenderer {
         }
     }
 
+    /** A spell stopped on a shield: three pale ripples running out across it from the point it struck. */
+    private static void drawShieldRipple(VertexConsumer out, Matrix4f m, SpellBeamClientState.Impact impact, Vec3 pos,
+                                         float age) {
+        Vec3[] axes = frame(impact.dir);
+        for (int k = 0; k < 3; k++) {
+            float t = (age - k * 2.5f) / 12.0f;
+            if (t < 0.0f || t >= 1.0f) {
+                continue;
+            }
+            float radius = 0.2f + 1.7f * (1.0f - (1.0f - t) * (1.0f - t));
+            float alpha = 0.7f * (1.0f - t) * (1.0f - t);
+            ring(out, m, pos, axes[0], axes[1], radius, 0.16f, alpha * 0.4f, 0.55f, 0.8f, 1.0f, 40);
+            ring(out, m, pos, axes[0], axes[1], radius, 0.04f, alpha, 0.9f, 0.96f, 1.0f, 40);
+        }
+        float flash = Math.max(0.0f, 1.0f - age / 5.0f);
+        billboard(out, m, pos, 0.9f, 0.5f * flash, 0.7f, 0.88f, 1.0f, false);
+    }
+
     /** A ring thrown out (or drawn in) round the beam's line, or flat on the air. */
     private static void drawImpactRing(VertexConsumer out, Matrix4f m, SpellBeamClientState.Impact impact, Vec3 pos,
                                        float age, float scale, float bright) {
@@ -610,6 +790,17 @@ public final class SpellBeamFxRenderer {
         float alpha = 0.75f * (float) Math.pow(1.0f - ringAge, 1.5) * bright;
         ring(out, m, pos, right, up, radius, 0.38f * scale, alpha * 0.35f, s.glowR, s.glowG, s.glowB, 48);
         ring(out, m, pos, right, up, radius, 0.10f * scale, alpha, s.coreR, s.coreG, s.coreB, 48);
+        if (s.doubleRing) {
+            // A second shockwave three ticks behind the first, a little smaller.
+            float second = Math.min(1.0f, Math.max(0.0f, age - 3.0f) / 9.0f);
+            if (age > 3.0f && second < 1.0f) {
+                float e2 = 1.0f - (1.0f - second) * (1.0f - second);
+                float r2 = s.impactRing * 0.7f * scale * (s.ringInward ? 1.0f - e2 * 0.92f : e2);
+                float a2 = 0.6f * (float) Math.pow(1.0f - second, 1.5) * bright;
+                ring(out, m, pos, right, up, r2, 0.3f * scale, a2 * 0.35f, s.glowR, s.glowG, s.glowB, 48);
+                ring(out, m, pos, right, up, r2, 0.08f * scale, a2, s.coreR, s.coreG, s.coreB, 48);
+            }
+        }
     }
 
     /** Arcs lancing outward for the first half second, re-struck every other tick; jag 0 draws clean slashes. */
@@ -622,6 +813,24 @@ public final class SpellBeamFxRenderer {
         // Slashes are cut once and fade; crackling arcs are re-struck every other tick.
         int strike = s.arcJag <= 0.0f ? 0 : (int) Math.floor(age / 2.0);
         float fade = (1.0f - age / 10.0f) * bright;
+        if (s.parallelSlashes) {
+            // A blade's cuts: straight, side by side, across the line the beam came in on.
+            Vec3[] axes = frame(impact.dir);
+            Vec3 across = axes[0].scale(0.8).add(axes[1].scale(0.6)).normalize();
+            Vec3 stack = impact.dir.cross(across).normalize();
+            float open = smoothstep(0.0f, 1.5f, age);
+            for (int a = 0; a < s.impactArcs; a++) {
+                double offset = (a - (s.impactArcs - 1) * 0.5) * 0.22 * scale;
+                Vec3 centre = pos.add(stack.scale(offset));
+                Vec3 half = across.scale(0.85 * scale * open);
+                Vec3[] cut = {centre.subtract(half), centre, centre.add(half)};
+                float[] w = {0.004f, 0.02f, 0.004f};
+                float[] al = {0.0f, fade, 0.0f};
+                ribbon(out, m, cut, w, al, 3.5f, 0.35f, s.glowR, s.glowG, s.glowB);
+                ribbon(out, m, cut, w, al, 1.0f, 1.0f, s.coreR, s.coreG, s.coreB);
+            }
+            return;
+        }
         Vec3[] path = new Vec3[ARC_SEGMENTS + 1];
         float[] alpha = new float[ARC_SEGMENTS + 1];
         float[] width = new float[ARC_SEGMENTS + 1];
@@ -790,6 +999,8 @@ public final class SpellBeamFxRenderer {
         BeamStyle b = c.styleB;
         float grow = smoothstep(0.0f, lock, age);
         float collapse = age < lock ? 1.0f : 1.0f - smoothstep(lock, lock + 2.0f, age);
+        // The knot slides back and forth along the line the beams push along as each gains and gives ground.
+        pos = pos.add(c.axis.scale(0.28 * grow * Mth.sin(age * 0.7f)));
         float strain = 1.0f + 0.25f * Mth.sin(age * 2.3f);
         float halo = (0.45f + 0.55f * grow) * collapse;
         billboard(out, m, pos.add(c.dirA.scale(-0.16 * strain)), halo, 0.6f, a.glowR, a.glowG, a.glowB, false);

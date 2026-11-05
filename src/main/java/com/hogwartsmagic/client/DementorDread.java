@@ -96,6 +96,9 @@ public final class DementorDread {
                 || !minecraft.level.getEntitiesOfClass(PatronusEntity.class,
                 player.getBoundingBox().inflate(PATRONUS_RANGE), Entity::isAlive).isEmpty();
         target = warded ? 0.0f : closest;
+        if (dread < 0.5f && dread + (target - dread) * 0.035f >= 0.5f) {
+            MusicStingClient.dread(); // the cold has you
+        }
         // Creeps in slowly, lets go a little faster.
         dread += (target - dread) * (target > dread ? 0.035f : 0.06f);
         if (dread < 0.002f) {
@@ -108,7 +111,7 @@ public final class DementorDread {
         }
 
         long now = minecraft.level.getGameTime();
-        if (dread > 0.25f && now - lastBreath >= BREATH_TICKS) {
+        if (dread > 0.25f && (now - lastBreath >= BREATH_TICKS || now < lastBreath)) {
             lastBreath = now;
             breathe(player, now);
             // Anyone else standing close to a Dementor breathes cold too.
@@ -147,6 +150,7 @@ public final class DementorDread {
         RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, Math.min(1.0f, dread * 1.15f));
         graphics.blit(FROST, 0, 0, width, height, 0.0f, 0.0f, FROST_W, FROST_H, FROST_W, FROST_H);
         RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
+        RenderSystem.disableBlend();
     }
 
     /**
@@ -426,6 +430,7 @@ public final class DementorDread {
     public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         dread = 0.0f;
         target = 0.0f;
+        lastBreath = 0L;
         BREATHS.clear();
         if (sound != null) {
             sound = null;

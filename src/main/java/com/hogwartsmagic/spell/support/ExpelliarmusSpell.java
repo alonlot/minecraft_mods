@@ -72,7 +72,8 @@ public final class ExpelliarmusSpell {
                     away = new Vec3(away.x, 0.0, away.z);
                     away = away.lengthSqr() < 1.0E-6 ? new Vec3(0.0, 0.0, 1.0) : away.normalize();
                     dropped.setPos(target.getX(), target.getEyeY() - 0.3, target.getZ());
-                    dropped.setDeltaMovement(away.x * 0.32, 0.45, away.z * 0.32);
+                    // Mostly up: a wand thrown far could land in lava or over an edge.
+                    dropped.setDeltaMovement(away.x * 0.1, 0.42, away.z * 0.1);
                     dropped.hasImpulse = true; // send the launch now, not at the next 20-tick sync
                     com.hogwartsmagic.spell.SpellBeamFx.react(dropped, SpellType.EXPELLIARMUS, away,
                             com.hogwartsmagic.spell.SpellBeamFx.REACT_FLIGHT);

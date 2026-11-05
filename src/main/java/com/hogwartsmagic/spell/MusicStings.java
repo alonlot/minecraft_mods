@@ -34,6 +34,8 @@ public final class MusicStings {
     public static final byte BOSS_SERPENT = 2;
     public static final byte BOSS_DRAGON = 3;
     public static final byte VICTORY = 4;
+    /** Two duellists' beams lock (Priori Incantatem). */
+    public static final byte PRIORI = 5;
 
     private static final long DUEL_COOLDOWN = 20L * 90L;
     private static final long BOSS_COOLDOWN = 20L * 240L;
@@ -45,8 +47,12 @@ public final class MusicStings {
     private MusicStings() {
     }
 
-    @SubscribeEvent
+    /** Last, so a disguise, petrification, a thrall or Confundo that turns the mob away has already had its say. */
+    @SubscribeEvent(priority = net.minecraftforge.eventbus.api.EventPriority.LOWEST)
     public static void onChangeTarget(LivingChangeTargetEvent event) {
+        if (event.isCanceled()) {
+            return;
+        }
         LivingEntity mob = event.getEntity();
         // The event fires before Mob.setTarget assigns it (and starts the original equal to the new target),
         // so "already after this player" is the mob's current target.
@@ -82,9 +88,16 @@ public final class MusicStings {
         }
     }
 
+    /** A Priori Incantatem lock begins: both duellists get its sting (PrioriIncantatem). */
+    public static void priori(LivingEntity duellist) {
+        if (duellist instanceof ServerPlayer player) {
+            play(player, PRIORI, 20L * 30L);
+        }
+    }
+
     private static void play(ServerPlayer player, byte sting, long cooldown) {
         long now = player.level().getGameTime();
-        long[] next = NEXT.computeIfAbsent(player.getUUID(), id -> new long[5]);
+        long[] next = NEXT.computeIfAbsent(player.getUUID(), id -> new long[6]);
         if (now < next[sting]) {
             return;
         }

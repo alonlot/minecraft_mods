@@ -117,7 +117,35 @@ public final class HitReactions {
     private static final Set<Integer> PUSHED = new HashSet<>();
     private static final Set<Integer> TINTED = new HashSet<>();
 
+    /** Your own view being struck: when, from where, how hard. */
+    private static double kickStart = -1.0;
+    private static Vec3 kickDir = Vec3.ZERO;
+    private static float kickStrength;
+    private static final float KICK_TICKS = 8.0f;
+
     private HitReactions() {
+    }
+
+    /** Struck yourself: the view snaps back and rolls away from the side the spell came from, and settles. */
+    @SubscribeEvent(priority = net.minecraftforge.eventbus.api.EventPriority.LOW)
+    public static void onCameraAngles(net.minecraftforge.client.event.ViewportEvent.ComputeCameraAngles event) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (kickStart < 0.0 || minecraft.level == null || minecraft.player == null) {
+            return;
+        }
+        float t = (float) (minecraft.level.getGameTime() + event.getPartialTick() - kickStart);
+        if (t < 0.0f || t > KICK_TICKS) {
+            kickStart = -1.0;
+            return;
+        }
+        float decay = 1.0f - t / KICK_TICKS;
+        decay *= decay;
+        Vec3 look = minecraft.player.getViewVector(1.0f);
+        Vec3 right = look.cross(new Vec3(0.0, 1.0, 0.0));
+        float side = right.lengthSqr() < 1.0E-4 ? 0.0f : (float) right.normalize().dot(kickDir);
+        float snap = AvadaChargePose.smoothstep(0.0f, 1.0f, t);
+        event.setPitch(event.getPitch() - 5.0f * kickStrength * decay * snap);
+        event.setRoll(event.getRoll() + 6.0f * kickStrength * side * decay * snap);
     }
 
     public static void accept(SpellPackets.HitReactionPacket packet) {
@@ -127,6 +155,12 @@ public final class HitReactions {
             return;
         }
         double now = minecraft.level.getGameTime();
+        if (packet.kind() == SpellBeamFx.REACT_HIT && minecraft.player != null
+                && packet.entityId() == minecraft.player.getId()) {
+            kickStart = now;
+            kickDir = new Vec3(packet.dx(), packet.dy(), packet.dz());
+            kickStrength = spell == SpellType.AVADA_KEDAVRA || KINDS.getOrDefault(spell, NONE) == TUMBLE ? 1.0f : 0.55f;
+        }
         if (packet.kind() == SpellBeamFx.REACT_FLIGHT) {
             FLIGHTS.put(packet.entityId(), new Flight(spell, now));
             return;
@@ -143,6 +177,18 @@ public final class HitReactions {
             reaction.fell = entity.position().add(0.0, entity.getBbHeight() * 0.5, 0.0);
         }
         REACTIONS.put(packet.entityId(), reaction);
+    }
+
+    /** Drop reactions and flights for bodies that are never drawn again (walked off, logged out). */
+    @SubscribeEvent
+    public static void onClientTick(net.minecraftforge.event.TickEvent.ClientTickEvent event) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (event.phase != net.minecraftforge.event.TickEvent.Phase.END || minecraft.level == null) {
+            return;
+        }
+        double now = minecraft.level.getGameTime();
+        REACTIONS.values().removeIf(reaction -> reaction.age(now) > reaction.length() || reaction.age(now) < 0.0f);
+        FLIGHTS.values().removeIf(flight -> now - flight.start > FLIGHT_TICKS || now < flight.start);
     }
 
     private static Reaction active(int entityId, double now) {
@@ -189,6 +235,11 @@ public final class HitReactions {
             }
             RenderSystem.setShaderColor(0.62f + 0.38f * flash, 0.86f + 0.14f * flash, 0.66f + 0.34f * flash, 1.0f);
             TINTED.add(entity.getId());
+            return;
+        }
+        // A dragon or a troll doesn't tumble onto its back: only human-sized humanoids, and never a boss.
+        if (!(event.getRenderer().getModel() instanceof net.minecraft.client.model.HumanoidModel<?>)
+                || entity.getBbHeight() > 2.5f || com.hogwartsmagic.spell.combat.CombatTags.isBoss(entity)) {
             return;
         }
         float tilt;
@@ -309,35 +360,46 @@ public final class HitReactions {
         }
         Matrix4f m = new Matrix4f();
         MultiBufferSource.BufferSource buffer = minecraft.renderBuffers().bufferSource();
+        // Green-black smoke curling up out of the body: something left it, and it was not holy.
+        VertexConsumer dark = buffer.getBuffer(ModRenderTypes.AVADA_SHADOW);
+        for (Reaction reaction : drained) {
+            float t = reaction.age(now);
+            Vec3 base = reaction.fell.subtract(camera);
+            for (int k = 0; k < 12; k++) {
+                float life = t - k * 2.2f;
+                if (life < 0.0f || life > 22.0f) {
+                    continue;
+                }
+                float l = life / 22.0f;
+                double angle = k * 2.4 + life * 0.18;
+                double r = 0.15 + 0.35 * l;
+                Vec3 puff = base.add(Math.cos(angle) * r, 0.1 + 0.11 * life, Math.sin(angle) * r);
+                billboard(dark, m, puff, 0.2f + 0.45f * l, 0.38f * (1.0f - l) * AvadaChargePose.smoothstep(0.0f, 2.0f, life),
+                        0.02f, 0.07f, 0.03f, false, 3, 10);
+            }
+        }
+        buffer.endBatch(ModRenderTypes.AVADA_SHADOW);
         VertexConsumer out = buffer.getBuffer(ModRenderTypes.AVADA_LIGHT);
         for (Reaction reaction : drained) {
             float t = reaction.age(now);
             float f = t / DRAINED_TICKS;
             Vec3 base = reaction.fell.subtract(camera);
-            // A pale column rising out of the body and thinning away.
-            float rise = AvadaChargePose.smoothstep(0.0f, 0.7f, f);
-            float alpha = 0.5f * AvadaChargePose.smoothstep(0.0f, 0.1f, f) * (1.0f - f);
-            Vec3[] column = new Vec3[6];
-            float[] width = new float[6];
-            float[] a = new float[6];
-            for (int i = 0; i < 6; i++) {
-                float u = i / 5.0f;
-                column[i] = base.add(0.0, 2.4 * rise * u, 0.0);
-                width[i] = 0.35f * (1.0f - 0.7f * u);
-                a[i] = alpha * (1.0f - u);
-            }
-            ribbon(out, m, column, width, a, 1.0f, 0.7f, GREEN_R, GREEN_G, GREEN_B);
-            ribbon(out, m, column, width, a, 0.25f, 1.0f, HOT_R, HOT_G, HOT_B);
-            billboard(out, m, base, 0.9f, 0.35f * (1.0f - f), GREEN_R, GREEN_G, GREEN_B, false);
-            // Motes drifting up out of it.
-            for (int k = 0; k < 8; k++) {
-                float life = t - k * 3.0f;
-                if (life < 0.0f || life > 20.0f) {
-                    continue;
+            billboard(out, m, base, 0.9f, 0.3f * (1.0f - f), GREEN_R, GREEN_G, GREEN_B, false);
+            // Two thin green wisps coiling up through the smoke.
+            for (int w = 0; w < 2; w++) {
+                Vec3[] wisp = new Vec3[8];
+                float[] width = new float[8];
+                float[] a = new float[8];
+                float rise = AvadaChargePose.smoothstep(0.0f, 0.6f, f);
+                for (int i = 0; i < 8; i++) {
+                    float u = i / 7.0f;
+                    double angle = w * Math.PI + u * 5.0 + t * 0.12;
+                    wisp[i] = base.add(Math.cos(angle) * 0.25 * u, 2.2 * rise * u, Math.sin(angle) * 0.25 * u);
+                    width[i] = 0.025f;
+                    a[i] = 0.5f * (1.0f - u) * (1.0f - f) * AvadaChargePose.smoothstep(0.0f, 0.1f, f);
                 }
-                Vec3 mote = base.add(randomDirection(reaction.hashCode() + k * 31).scale(0.35))
-                        .add(0.0, 0.08 * life, 0.0);
-                billboard(out, m, mote, 0.06f, 0.9f * (1.0f - life / 20.0f), HOT_R, HOT_G, HOT_B, true, 2, 8);
+                ribbon(out, m, wisp, width, a, 2.5f, 0.3f, GREEN_R, GREEN_G, GREEN_B);
+                ribbon(out, m, wisp, width, a, 1.0f, 0.8f, HOT_R, HOT_G, HOT_B);
             }
         }
         buffer.endBatch(ModRenderTypes.AVADA_LIGHT);

@@ -360,6 +360,9 @@ public final class TravelFxClient {
                 graphics.fill(0, 0, width, height, argb(0.55f * flash, 0xEADCFF));
             }
         }
+        if (flooStart >= 0.0 && (now - flooStart > flooDuration + 60.0 || now < flooStart)) {
+            flooStart = -1.0; // the ending never came: let go rather than burn on screen for good
+        }
         if (flooStart >= 0.0) {
             float t = (float) (now - flooStart);
             float climb = smoothstep(0.0f, flooDuration * 0.6f, t);
@@ -463,20 +466,31 @@ public final class TravelFxClient {
     @SubscribeEvent
     public static void onComputeFov(ComputeFovModifierEvent event) {
         Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.level == null || event.getPlayer() != minecraft.player || tunnelStart < 0.0 && flooStart < 0.0) {
+        if (minecraft.level == null || event.getPlayer() != minecraft.player || flooStart < 0.0) {
             return;
         }
         double now = minecraft.level.getGameTime();
         float fov = 1.0f;
-        if (tunnelStart >= 0.0) {
-            float t = (float) (now - tunnelStart);
-            fov *= t < 2.0f ? 0.4f : 1.0f + 0.3f * (1.0f - smoothstep(2.0f, 12.0f, t));
-        }
         if (flooStart >= 0.0) {
             float t = (float) (now - flooStart);
             fov *= 1.0f - 0.25f * smoothstep(0.0f, flooDuration, t);
         }
         event.setNewFovModifier(event.getNewFovModifier() * fov);
+    }
+
+    /**
+     * The Apparition landing, squeezed narrow and flung wide. Per frame (ComputeFov), not through the FOV modifier,
+     * which vanilla eases halfway each tick and would smear the snap into a slow ramp.
+     */
+    @SubscribeEvent
+    public static void onViewportFov(ViewportEvent.ComputeFov event) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (tunnelStart < 0.0 || minecraft.level == null || !event.usedConfiguredFov()) {
+            return;
+        }
+        float t = (float) (minecraft.level.getGameTime() + event.getPartialTick() - tunnelStart);
+        double fov = t < 2.0f ? 0.4 : 1.0 + 0.3 * (1.0 - smoothstep(2.0f, 12.0f, t));
+        event.setFOV(event.getFOV() * fov);
     }
 
     @SubscribeEvent

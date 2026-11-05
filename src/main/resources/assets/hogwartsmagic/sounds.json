@@ -4271,5 +4271,32 @@
         "stream": true
       }
     ]
+  },
+  "spell.clash_grind": {
+    "subtitle": "subtitles.hogwartsmagic.spell.clash_grind",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:spells/clash_grind",
+        "stream": false
+      }
+    ]
+  },
+  "music.sting_priori": {
+    "subtitle": "subtitles.hogwartsmagic.music.sting_priori",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:music/sting_priori",
+        "stream": true
+      }
+    ]
+  },
+  "music.sting_dread": {
+    "subtitle": "subtitles.hogwartsmagic.music.sting_dread",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:music/sting_dread",
+        "stream": true
+      }
+    ]
   }
 }

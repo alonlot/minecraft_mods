@@ -425,6 +425,15 @@ public class SpellPackets {
                         buf.readFloat(), buf.readFloat(), buf.readFloat(), buf.readFloat(), buf.readByte()))
                 .consumerMainThread(BeamClashPacket::handle)
                 .add();
+        CHANNEL.messageBuilder(CrucioChannelPacket.class)
+                .encoder((p, buf) -> {
+                    buf.writeInt(p.casterId);
+                    buf.writeInt(p.targetId);
+                    buf.writeByte(p.state);
+                })
+                .decoder(buf -> new CrucioChannelPacket(buf.readInt(), buf.readInt(), buf.readByte()))
+                .consumerMainThread(CrucioChannelPacket::handle)
+                .add();
         CHANNEL.messageBuilder(MusicStingPacket.class)
                 .encoder((p, buf) -> buf.writeByte(p.sting))
                 .decoder(buf -> new MusicStingPacket(buf.readByte()))
@@ -1091,6 +1100,8 @@ public class SpellPackets {
          */
         public static void castAs(ServerPlayer player, CastSpellPacket p) {
             if (com.hogwartsmagic.pensieve.PensieveSessions.isViewer(player)) return; // a Pensieve viewer (or their puppet body) casts nothing
+            // Locked in Priori Incantatem: nothing else is cast, by a press or by a windup finishing mid-lock.
+            if (com.hogwartsmagic.spell.PrioriIncantatem.isLocked(player)) return;
             ItemStack wand = player.getMainHandItem();
             if (!MagicWandItem.isAnyWand(wand)) return;
             boolean creative = player.isCreative();
@@ -1828,6 +1839,16 @@ public class SpellPackets {
      * Server → client: a moment of travel for {@code entityId} at (x, y, z) (Apparition focusing, leaving or
      * arriving; the Floo flames taking or returning them), lasting {@code duration} ticks. See {@code TravelFx}.
      */
+    /**
+     * Server → client: {@code casterId} is holding the Cruciatus Curse on {@code targetId} (START), still is
+     * (KEEP), surged it (PULSE: a damage tick) or let go (END). See {@code CrucioChannel}.
+     */
+    public record CrucioChannelPacket(int casterId, int targetId, byte state) {
+        public static void handle(CrucioChannelPacket p, CustomPayloadEvent.Context ctx) {
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("crucioChannel", p));
+        }
+    }
+
     /** Server → client: play a fight's music sting ({@code MusicStings}'s duel, boss entrance or victory). */
     public record MusicStingPacket(byte sting) {
         public static void handle(MusicStingPacket p, CustomPayloadEvent.Context ctx) {

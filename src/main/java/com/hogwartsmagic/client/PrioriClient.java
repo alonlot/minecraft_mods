@@ -235,6 +235,7 @@ public final class PrioriClient {
             }
             SpellBeamFxRenderer.drawHeldDark(dark, m, s.beamA, now, camera);
             SpellBeamFxRenderer.drawHeldDark(dark, m, s.beamB, now, camera);
+            drawEchoes(dark, m, lock, s, now, camera);
             if (lock.styleA.sheathDark && lock.styleA.sheathWidth > 0.0f
                     || lock.styleB.sheathDark && lock.styleB.sheathWidth > 0.0f) {
                 billboard(dark, m, s.bead.subtract(camera), 1.2f, 0.4f, SMOKE_R, SMOKE_G, SMOKE_B, false);
@@ -286,11 +287,15 @@ public final class PrioriClient {
             float age = (float) (now - lock.start);
             Vec3 wobble = across[0].scale(0.06 * Math.sin(age * 4.7)).add(across[1].scale(0.06 * Math.cos(age * 3.9)));
             s.bead = s.tipA.lerp(s.tipB, (lock.shown + 1.0f) * 0.5f).add(wobble);
-            s.beamA = SpellBeamClientState.held(lock.seed, lock.styleA, s.tipA, s.bead, lock.start, now);
-            s.beamB = SpellBeamClientState.held(lock.seed + 1, lock.styleB, s.tipB, s.bead, lock.start, now);
+            // The longer the lock holds, the more both spells' light turns to the gold of the bead.
+            float gold = 0.55f * AvadaChargePose.smoothstep(0.0f, 100.0f, age);
+            s.beamA = SpellBeamClientState.held(lock.seed, lock.styleA.tintedToward(GOLD_R, GOLD_G, GOLD_B, gold),
+                    s.tipA, s.bead, lock.start, now);
+            s.beamB = SpellBeamClientState.held(lock.seed + 1, lock.styleB.tintedToward(GOLD_R, GOLD_G, GOLD_B, gold),
+                    s.tipB, s.bead, lock.start, now);
             Vec3 feetA = a.getPosition(partial);
             Vec3 feetB = b.getPosition(partial);
-            s.domeCentre = feetA.lerp(feetB, 0.5).add(0.0, 1.0, 0.0);
+            s.domeCentre = feetA.lerp(feetB, 0.5);
             s.domeRadius = (float) (feetA.distanceTo(feetB) * 0.5 + 1.6);
             return s;
         }
@@ -355,6 +360,28 @@ public final class PrioriClient {
         }
     }
 
+    /**
+     * Echoes: when one duellist is being forced back, pale shades of what their wand has done come out of the bead
+     * and drift back along the beam to them, as the wand gives up its last spells in reverse.
+     */
+    private static void drawEchoes(VertexConsumer out, Matrix4f m, Lock lock, Scene s, double now, Vec3 camera) {
+        float age = (float) (now - lock.start);
+        if (Math.abs(lock.shown) < 0.35f || age < 20.0f) {
+            return;
+        }
+        Vec3 loserTip = lock.shown > 0.0f ? s.tipB : s.tipA;
+        for (int k = 0; k < 3; k++) {
+            float life = (age + k * 10.0f) % 30.0f;
+            float f = life / 30.0f;
+            Vec3 at = s.bead.lerp(loserTip, 0.5 * f).add(0.0, 0.25 + 0.4 * f, 0.0).subtract(camera);
+            float alpha = 0.22f * AvadaChargePose.smoothstep(0.0f, 0.15f, f) * (1.0f - f);
+            // A shade: a soft head over a longer, fainter body.
+            billboard(out, m, at.add(0.0, 0.45, 0.0), 0.22f, alpha, 0.86f, 0.84f, 0.74f, false, 3, 10);
+            billboard(out, m, at, 0.42f, alpha * 0.75f, 0.86f, 0.84f, 0.74f, false, 3, 10);
+            billboard(out, m, at.add(0.0, -0.4, 0.0), 0.36f, alpha * 0.5f, 0.86f, 0.84f, 0.74f, false, 3, 10);
+        }
+    }
+
     /** Golden threads rising into a dome round the two duellists, turning slowly. */
     private static void drawDome(VertexConsumer out, Matrix4f m, Lock lock, Scene s, double now, Vec3 camera) {
         float age = (float) (now - lock.start);
@@ -366,10 +393,13 @@ public final class PrioriClient {
         float radius = s.domeRadius * (0.6f + 0.4f * rise);
         float alpha = 0.22f * rise;
         Vec3 up = new Vec3(0.0, 1.0, 0.0);
+        // Threads climbing up out of the ground on both sides and meeting over the duellists' heads.
+        double climb = Math.PI * 0.5 * AvadaChargePose.smoothstep(0.0f, 30.0f, age);
         for (int k = 0; k < DOME_MERIDIANS; k++) {
             double phi = k * Math.PI / DOME_MERIDIANS + age * 0.02;
             Vec3 right = new Vec3(Math.cos(phi), 0.0, Math.sin(phi));
-            ring(out, m, centre, right, up, radius, 0.05f, alpha, GOLD_R, GOLD_G, GOLD_B, 48);
+            arc(out, m, centre, right, up, radius, 0.05f, alpha, GOLD_R, GOLD_G, GOLD_B, 16, 0.0, climb);
+            arc(out, m, centre, right, up, radius, 0.05f, alpha, GOLD_R, GOLD_G, GOLD_B, 16, Math.PI - climb, Math.PI);
         }
         for (int k = 1; k <= DOME_PARALLELS; k++) {
             double theta = k * (Math.PI * 0.5) / (DOME_PARALLELS + 1);
@@ -387,7 +417,7 @@ public final class PrioriClient {
                 || !involves(entity.getId())) {
             return;
         }
-        float t = (float) AvadaChargeClientState.now(partial);
+        float t = (float) (AvadaChargeClientState.now(partial) % 20000.0); // keep Mth.sin's input small
         float shake = 0.04f * (Mth.sin(t * 3.1f) + 0.6f * Mth.sin(t * 7.3f));
         humanoid.rightArm.xRot = humanoid.head.xRot - Mth.HALF_PI + shake;
         humanoid.rightArm.yRot = humanoid.head.yRot - 0.06f + shake * 0.5f;
@@ -420,7 +450,7 @@ public final class PrioriClient {
             }
         }
         if (shake > 0.001f) {
-            float t = (float) (minecraft.level.getGameTime() + event.getPartialTick());
+            float t = (float) (minecraft.level.getGameTime() % 20000L + event.getPartialTick());
             event.setPitch(event.getPitch() + shake * Mth.sin(t * 3.3f));
             event.setYaw(event.getYaw() + shake * Mth.sin(t * 2.7f + 1.1f));
         }

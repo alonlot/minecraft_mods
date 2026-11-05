@@ -24,6 +24,10 @@ public final class SpellFxGeometry {
     public static final float SMOKE_G = 0.030f;
     public static final float SMOKE_B = 0.012f;
     public static final int DISC_RINGS = 5;
+    /** A strip is never drawn thinner than this per block of distance (about a pixel at normal FOV). */
+    public static final double MIN_WIDTH_PER_BLOCK = 0.0015;
+    /** Past this, discs are drawn with fewer rings and segments. */
+    public static final double LOD_DISTANCE = 24.0;
     public static final int DISC_SEGMENTS = 16;
 
     private SpellFxGeometry() {
@@ -60,8 +64,21 @@ public final class SpellFxGeometry {
             a0 *= facing;
             a1 *= facing;
             perp = perp.normalize();
-            Vec3 e0 = perp.scale(width[i] * widthScale);
-            Vec3 e1 = perp.scale(width[i + 1] * widthScale);
+            // Never thinner than a pixel or so at its distance, dimmed in step so it doesn't flare up far away.
+            float w0 = width[i] * widthScale;
+            float w1 = width[i + 1] * widthScale;
+            float min0 = (float) (p0.length() * MIN_WIDTH_PER_BLOCK);
+            float min1 = (float) (p1.length() * MIN_WIDTH_PER_BLOCK);
+            if (w0 < min0 && w0 > 0.0f) {
+                a0 *= (float) Math.sqrt(w0 / min0);
+                w0 = min0;
+            }
+            if (w1 < min1 && w1 > 0.0f) {
+                a1 *= (float) Math.sqrt(w1 / min1);
+                w1 = min1;
+            }
+            Vec3 e0 = perp.scale(w0);
+            Vec3 e1 = perp.scale(w1);
             vertex(out, m, p0.subtract(e0), r, g, b, 0.0f);
             vertex(out, m, p1.subtract(e1), r, g, b, 0.0f);
             vertex(out, m, p1, r, g, b, a1);
@@ -84,6 +101,18 @@ public final class SpellFxGeometry {
                           float r, float g, float b, boolean hot, int rings, int segments) {
         if (alpha <= 0.003f || radius <= 0.001f) {
             return;
+        }
+        double distance = centre.length();
+        if (!hot) {
+            // Soft glows and smoke right at the eye (your own wand, your own breath) only clutter the view.
+            alpha *= smoothstep(0.25f, 0.9f, (float) distance);
+            if (alpha <= 0.003f) {
+                return;
+            }
+        }
+        if (distance > LOD_DISTANCE) {
+            rings = Math.min(rings, 3);
+            segments = Math.min(segments, 10);
         }
         Vec3 normal = centre.scale(-1.0);
         if (normal.lengthSqr() < 1.0E-6) {
@@ -137,6 +166,28 @@ public final class SpellFxGeometry {
         for (int seg = 0; seg < segments; seg++) {
             double t0 = Math.PI * 2.0 * seg / segments;
             double t1 = Math.PI * 2.0 * (seg + 1) / segments;
+            vertex(out, m, centre.add(onRing(right, up, t0, inner)), r, g, b, 0.0f);
+            vertex(out, m, centre.add(onRing(right, up, t1, inner)), r, g, b, 0.0f);
+            vertex(out, m, centre.add(onRing(right, up, t1, radius)), r, g, b, alpha);
+            vertex(out, m, centre.add(onRing(right, up, t0, radius)), r, g, b, alpha);
+            vertex(out, m, centre.add(onRing(right, up, t0, radius)), r, g, b, alpha);
+            vertex(out, m, centre.add(onRing(right, up, t1, radius)), r, g, b, alpha);
+            vertex(out, m, centre.add(onRing(right, up, t1, outer)), r, g, b, 0.0f);
+            vertex(out, m, centre.add(onRing(right, up, t0, outer)), r, g, b, 0.0f);
+        }
+    }
+
+    /** As {@link #ring} but only from angle {@code from} to {@code to} (radians, measured from {@code right}). */
+    public static void arc(VertexConsumer out, Matrix4f m, Vec3 centre, Vec3 right, Vec3 up, float radius,
+                           float thickness, float alpha, float r, float g, float b, int segments, double from, double to) {
+        if (alpha <= 0.003f || radius <= 0.001f || to <= from) {
+            return;
+        }
+        float inner = Math.max(0.0f, radius - thickness);
+        float outer = radius + thickness;
+        for (int seg = 0; seg < segments; seg++) {
+            double t0 = from + (to - from) * seg / segments;
+            double t1 = from + (to - from) * (seg + 1) / segments;
             vertex(out, m, centre.add(onRing(right, up, t0, inner)), r, g, b, 0.0f);
             vertex(out, m, centre.add(onRing(right, up, t1, inner)), r, g, b, 0.0f);
             vertex(out, m, centre.add(onRing(right, up, t1, radius)), r, g, b, alpha);

@@ -1,6 +1,21 @@
 {
-  "parent": "minecraft:block/cube_all",
+  "parent": "minecraft:block/block",
   "textures": {
+    "particle": "hogwartsmagic:block/moving_portrait",
     "all": "hogwartsmagic:block/moving_portrait"
-  }
+  },
+  "elements": [
+    {
+      "from": [1, 1, 14],
+      "to": [15, 15, 16],
+      "faces": {
+        "north": { "uv": [0, 0, 16, 16], "texture": "#all" },
+        "south": { "uv": [0, 0, 16, 16], "texture": "#all", "cullface": "south" },
+        "east": { "uv": [14, 0, 16, 16], "texture": "#all" },
+        "west": { "uv": [0, 0, 2, 16], "texture": "#all" },
+        "up": { "uv": [0, 0, 16, 2], "texture": "#all" },
+        "down": { "uv": [0, 14, 16, 16], "texture": "#all" }
+      }
+    }
+  ]
 }

@@ -1638,7 +1638,8 @@ public class SpellPackets {
             if (!(player.level().getBlockEntity(p.destinationPos) instanceof FlooFireplaceBlockEntity destination)) {
                 return;
             }
-            if (!player.getInventory().contains(new ItemStack(ExampleMod.FLOO_POWDER.get()))) {
+            // The powder dropped into the flames already paid for this trip (it opened the screen).
+            if (!source.hasPrepaidTravel(player) && !player.getInventory().contains(new ItemStack(ExampleMod.FLOO_POWDER.get()))) {
                 player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.hogwartsmagic.floo.no_powder"), true);
                 return;
             }
@@ -1653,7 +1654,9 @@ public class SpellPackets {
             player.addEffect(new MobEffectInstance(net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE, 20, 3, false, false, false));
             player.addEffect(new MobEffectInstance(net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN, 20, 6, false, false, false));
             player.level().playSound(null, player.getX(), player.getY(), player.getZ(), com.hogwartsmagic.ModSounds.FLOO_DEPART.get(), SoundSource.PLAYERS, 1.0f, 1.0f);
-            player.getInventory().clearOrCountMatchingItems(stack -> stack.is(ExampleMod.FLOO_POWDER.get()), 1, player.inventoryMenu.getCraftSlots());
+            if (!source.consumePrepaidTravel(player)) {
+                player.getInventory().clearOrCountMatchingItems(stack -> stack.is(ExampleMod.FLOO_POWDER.get()), 1, player.inventoryMenu.getCraftSlots());
+            }
             modData.putBoolean("FlooTravelPending", true);
             modData.putLong("FlooSourcePos", p.sourcePos.asLong());
             modData.putLong("FlooDestinationPos", p.destinationPos.asLong());

@@ -15,6 +15,15 @@ public class GillyweedPlantBlock extends SeagrassBlock {
     }
 
     /**
+     * Seagrass bone meal turns the plant into vanilla tall seagrass, which would silently replace
+     * the gillyweed with something that drops nothing useful.
+     */
+    @Override
+    public boolean isValidBonemealTarget(net.minecraft.world.level.LevelReader level, BlockPos pos, BlockState state) {
+        return false;
+    }
+
+    /**
      * Vanilla seagrass only allows a small set of substrates. Swamps (especially mangrove) use mud and
      * roots that can fail the base check even where underwater placement is valid.
      */

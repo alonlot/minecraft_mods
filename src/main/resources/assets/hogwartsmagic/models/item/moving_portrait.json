@@ -1,3 +1,6 @@
 {
-  "parent": "hogwartsmagic:block/moving_portrait"
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "hogwartsmagic:block/moving_portrait"
+  }
 }

@@ -59,7 +59,7 @@ public class FlooNamingScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+        this.renderTransparentBackground(guiGraphics);
         int centerX = width / 2;
         int top = height / 2 - 50;
         guiGraphics.fill(centerX - 120, top, centerX + 120, top + 90, 0xE0121B16);
@@ -67,6 +67,12 @@ public class FlooNamingScreen extends Screen {
         guiGraphics.drawCenteredString(font, title, centerX, top + 10, 0xFFEAF8EF);
         guiGraphics.drawCenteredString(font, Component.translatable("gui.hogwartsmagic.floo_name_hint"), centerX, top + 16 + font.lineHeight, 0xFF9EDDB7);
         super.render(guiGraphics, mouseX, mouseY, partialTick);
+    }
+
+    @Override
+    public void renderBackground(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        // No-op: Screen.render() calls this again after the panel is drawn, which put the menu blur
+        // and backdrop on top of it. render() draws the plain dim itself (no blur, per the screen rule).
     }
 
     @Override

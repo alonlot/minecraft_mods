@@ -94,7 +94,8 @@ public class HorcruxBlock extends BaseEntityBlock {
     @Override
     protected List<ItemStack> getDrops(BlockState state, LootParams.Builder params) {
         BlockEntity be = params.getOptionalParameter(LootContextParams.BLOCK_ENTITY);
-        if (be instanceof HorcruxBlockEntity horcrux && (horcrux.isActive() || horcrux.isPrimed())) {
+        if (be instanceof HorcruxBlockEntity horcrux
+                && (horcrux.isActive() || horcrux.isPrimed() || horcrux.wasDestroyedWhileBound())) {
             return Collections.emptyList();
         }
         return super.getDrops(state, params);

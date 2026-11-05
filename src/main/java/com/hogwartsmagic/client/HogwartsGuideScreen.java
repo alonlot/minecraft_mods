@@ -171,6 +171,12 @@ public class HogwartsGuideScreen extends Screen {
     }
 
     @Override
+    public void renderBackground(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        // No-op: Screen.render() calls this again after the panel is drawn, which put the menu blur
+        // and backdrop on top of it. render() draws the plain dim itself (no blur, per the screen rule).
+    }
+
+    @Override
     public boolean isPauseScreen() {
         return false;
     }

@@ -114,7 +114,7 @@ public class FlooTravelScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+        this.renderTransparentBackground(guiGraphics);
         float animation = ((System.currentTimeMillis() % 6000L) / 6000.0f) + partialTick * 0.0025f;
         int panelLeft = left;
         int panelTop = top;
@@ -628,6 +628,12 @@ public class FlooTravelScreen extends Screen {
             listY += 16;
         }
         return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    public void renderBackground(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        // No-op: Screen.render() calls this again after the panel is drawn, which put the menu blur
+        // and backdrop on top of it. render() draws the plain dim itself (no blur, per the screen rule).
     }
 
     @Override

@@ -610,6 +610,7 @@
   "message.hogwartsmagic.floo.needs_name": "This Floo fireplace needs a proper name first.",
   "message.hogwartsmagic.floo.no_destinations": "No linked Floo destinations are available.",
   "message.hogwartsmagic.floo.no_powder": "You need Floo Powder to travel.",
+  "message.hogwartsmagic.floo.first_unloaded": "The first Floo fireplace is too far away. It stays stored.",
   "message.hogwartsmagic.floo.drop_powder": "Stand on the Floo fireplace and drop Floo Powder onto the flames.",
   "message.hogwartsmagic.floo.named": "Floo fireplace named: %s",
   "message.hogwartsmagic.perch.named": "Owl perch named: %s",

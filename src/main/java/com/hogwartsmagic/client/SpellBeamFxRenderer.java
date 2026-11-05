@@ -706,18 +706,33 @@ public final class SpellBeamFxRenderer {
         float g = Math.min(1.0f, f.glow);
         float t = (float) f.age;
         int seed = f.beam.seed;
+        // A continuous core, so the water never shows gaps between its blobs.
+        float[] coreWidth = new float[n];
+        float[] coreAlpha = new float[n];
+        for (int i = 0; i < n; i++) {
+            coreWidth[i] = 0.2f * f.thickness;
+            coreAlpha[i] = 0.8f * f.profile[i] * g;
+        }
+        ribbon(out, m, f.path, coreWidth, coreAlpha, 1.0f, 1.0f, SHALLOW_R * 0.8f, SHALLOW_G * 0.9f, SHALLOW_B);
         for (int i = 0; i < n; i++) {
             float p = f.profile[i] * g;
             if (p < 0.03f) {
                 continue;
             }
-            Vec3 c = f.path[i];
             float swell = 0.85f + 0.15f * Mth.sin(t * 1.4f + i * 0.9f);
-            float r = (0.17f + 0.08f * hash(seed, i, 3)) * f.thickness * swell;
             float mix = hash(seed, i, 5);
-            billboard(out, m, c, r * 1.4f, 0.16f * p, DEEP_R, DEEP_G, DEEP_B, false, 3, 10);
-            billboard(out, m, c, r, 0.3f * p, Mth.lerp(mix, DEEP_R, SHALLOW_R), Mth.lerp(mix, DEEP_G, SHALLOW_G),
-                    Mth.lerp(mix, DEEP_B, SHALLOW_B), false, 3, 10);
+            // A blob at each sample and one between it and the next: a dense, churning body of water.
+            for (int half = 0; half < 2; half++) {
+                if (half == 1 && i == n - 1) {
+                    break;
+                }
+                Vec3 c = half == 0 ? f.path[i] : f.path[i].lerp(f.path[i + 1], 0.5);
+                float r = (0.24f + 0.1f * hash(seed, i * 2 + half, 3)) * f.thickness * swell;
+                billboard(out, m, c, r * 1.35f, 0.5f * p, DEEP_R, DEEP_G, DEEP_B, false, 3, 10);
+                billboard(out, m, c, r, 0.75f * p, Mth.lerp(mix, DEEP_R, SHALLOW_R), Mth.lerp(mix, DEEP_G, SHALLOW_G),
+                        Mth.lerp(mix, DEEP_B, SHALLOW_B), false, 3, 10);
+            }
+            Vec3 c = f.path[i];
             for (int k = 0; k < 2; k++) {
                 if (hash(seed + churn * 31 + k, i, 7) > 0.6f) {
                     continue;
@@ -725,7 +740,7 @@ public final class SpellBeamFxRenderer {
                 double ox = (hash(seed + churn + k * 13, i, 8) - 0.5) * 0.38 * f.thickness;
                 double oy = (hash(seed + churn + k * 17, i, 9) - 0.5) * 0.38 * f.thickness;
                 Vec3 off = f.side.scale(ox).add(f.lift.scale(oy));
-                billboard(out, m, c.add(off), 0.05f + 0.06f * hash(seed + churn, i, 10 + k), 0.6f * p,
+                billboard(out, m, c.add(off), 0.07f + 0.08f * hash(seed + churn, i, 10 + k), 0.9f * p,
                         FOAM_R, FOAM_G, FOAM_B, false, 2, 8);
             }
         }
@@ -734,7 +749,7 @@ public final class SpellBeamFxRenderer {
             for (int k = 0; k < 6; k++) {
                 Vec3 off = randomDirection(seed + churn * 7 + k).scale(0.22);
                 boolean foam = (k & 1) == 0;
-                billboard(out, m, head.add(off), 0.18f + 0.1f * hash(seed, k, churn), 0.45f,
+                billboard(out, m, head.add(off), 0.24f + 0.12f * hash(seed, k, churn), 0.8f,
                         foam ? FOAM_R : SHALLOW_R, foam ? FOAM_G : SHALLOW_G, foam ? FOAM_B : SHALLOW_B, false, 3, 10);
             }
         }
@@ -750,8 +765,8 @@ public final class SpellBeamFxRenderer {
         Vec3 up = new Vec3(0.0, 1.0, 0.0);
         for (int i = 0; i < n; i++) {
             top[i] = f.path[i].add(up.scale(0.09 * f.thickness));
-            width[i] = 0.016f;
-            alpha[i] = 0.4f * f.profile[i] * g * (0.5f + 0.5f * hash(f.beam.seed, i / 3, f.strike));
+            width[i] = 0.024f;
+            alpha[i] = 0.75f * f.profile[i] * g * (0.5f + 0.5f * hash(f.beam.seed, i / 3, f.strike));
         }
         ribbon(out, m, top, width, alpha, 1.0f, 1.0f, 0.85f, 0.95f, 1.0f);
     }
@@ -764,10 +779,10 @@ public final class SpellBeamFxRenderer {
             float l = age / 16.0f;
             Vec3 at = pos.subtract(camera);
             Vec3 v = randomDirection(seed).scale(0.06 + 0.05 * hash(seed, 1, 1)).add(dir.scale(0.04));
-            droplet(out, m, at, v, age, 0.75f * (1.0f - l), 1.0f);
+            droplet(out, m, at, v, age, 0.9f * (1.0f - l), 1.3f);
             if (index % 3 == 0) {
                 Vec3 c = at.add(randomDirection(seed + 7).scale(0.15 + 0.3 * l)).add(0.0, 0.01 * age, 0.0);
-                billboard(out, m, c, 0.2f + 0.5f * l, 0.1f * (1.0f - l) * (1.0f - l) * smoothstep(0.0f, 2.0f, age),
+                billboard(out, m, c, 0.2f + 0.5f * l, 0.18f * (1.0f - l) * (1.0f - l) * smoothstep(0.0f, 2.0f, age),
                         MIST_R, MIST_G, MIST_B, false, 3, 10);
             }
         });
@@ -781,9 +796,9 @@ public final class SpellBeamFxRenderer {
         Vec3 p1 = at.add(v.scale(age)).add(0.0, -0.5 * WATER_GRAVITY * age * age, 0.0);
         float before = Math.max(0.0f, age - 1.0f);
         Vec3 p0 = at.add(v.scale(before)).add(0.0, -0.5 * WATER_GRAVITY * before * before, 0.0);
-        ribbon(out, m, new Vec3[]{p0, p1}, new float[]{0.008f * size, 0.022f * size}, new float[]{alpha * 0.4f, alpha},
+        ribbon(out, m, new Vec3[]{p0, p1}, new float[]{0.012f * size, 0.032f * size}, new float[]{alpha * 0.5f, alpha},
                 1.0f, 1.0f, SHALLOW_R, SHALLOW_G, SHALLOW_B);
-        billboard(out, m, p1, 0.035f * size, alpha, FOAM_R, FOAM_G, FOAM_B, false, 2, 6);
+        billboard(out, m, p1, 0.05f * size, Math.min(1.0f, alpha * 1.2f), FOAM_R, FOAM_G, FOAM_B, false, 2, 6);
     }
 
     /**
@@ -804,7 +819,7 @@ public final class SpellBeamFxRenderer {
             float left = 1.0f - Math.min(1.0f, f * 2.0f);
             Vec3 c = pos.add(dir.scale(1.2 * scale * (1.0f - left * left))).add(0.0, -0.3 * f * f, 0.0);
             float mix = hash(impact.seed, k, 3);
-            billboard(out, m, c, (0.3f + 0.35f * f) * scale, 0.34f * (float) Math.pow(1.0f - f, 1.5),
+            billboard(out, m, c, (0.4f + 0.4f * f) * scale, 0.7f * (float) Math.pow(1.0f - f, 1.5),
                     Mth.lerp(mix, DEEP_R, SHALLOW_R), Mth.lerp(mix, DEEP_G, SHALLOW_G), Mth.lerp(mix, DEEP_B, SHALLOW_B),
                     false, 3, 10);
         }
@@ -817,10 +832,10 @@ public final class SpellBeamFxRenderer {
                 double angle = k * Math.PI * 2.0 / 18.0;
                 Vec3 base = ground.add(Math.cos(angle) * radius, 0.0, Math.sin(angle) * radius);
                 Vec3 tip = base.add(Math.cos(angle) * 0.3 * crown, height, Math.sin(angle) * 0.3 * crown);
-                ribbon(out, m, new Vec3[]{base, tip}, new float[]{0.14f * scale, 0.06f * scale},
-                        new float[]{0.32f * (1.0f - crown), 0.2f * (1.0f - crown)}, 1.0f, 1.0f,
+                ribbon(out, m, new Vec3[]{base, tip}, new float[]{0.2f * scale, 0.09f * scale},
+                        new float[]{0.7f * (1.0f - crown), 0.45f * (1.0f - crown)}, 1.0f, 1.0f,
                         SHALLOW_R, SHALLOW_G, SHALLOW_B);
-                billboard(out, m, tip, 0.08f * scale, 0.6f * (1.0f - crown), FOAM_R, FOAM_G, FOAM_B, false, 2, 8);
+                billboard(out, m, tip, 0.12f * scale, 0.9f * (1.0f - crown), FOAM_R, FOAM_G, FOAM_B, false, 2, 8);
             }
         }
         int count = impact.full() ? 44 : 18;
@@ -829,11 +844,11 @@ public final class SpellBeamFxRenderer {
             Vec3 v = randomDirection(seed);
             v = new Vec3(v.x, Math.abs(v.y) * 1.3 + 0.2, v.z).normalize()
                     .scale((0.14 + 0.2 * hash(seed, 1, 1)) * scale);
-            droplet(out, m, pos, v, age, Mth.clamp(1.0f - age / 24.0f, 0.0f, 1.0f), 1.3f);
+            droplet(out, m, pos, v, age, Mth.clamp(1.0f - age / 24.0f, 0.0f, 1.0f), 1.7f);
         }
         if (impact.style.waveFront && impact.full()) {
-            waveFront(out, m, impact, pos, age, 0.5f, 0.35f, DEEP_R, DEEP_G, DEEP_B);
-            waveFront(out, m, impact, pos, age, 0.12f, 0.75f, FOAM_R, FOAM_G, FOAM_B);
+            waveFront(out, m, impact, pos, age, 0.55f, 0.7f, DEEP_R, DEEP_G, DEEP_B);
+            waveFront(out, m, impact, pos, age, 0.14f, 0.95f, FOAM_R, FOAM_G, FOAM_B);
         }
         for (int k = 0; k < 6; k++) {
             Vec3 c = pos.add(randomDirection(impact.seed + k * 11).scale(1.0 * f));
@@ -874,13 +889,13 @@ public final class SpellBeamFxRenderer {
             double back = v.dot(dir);
             v = v.subtract(dir.scale(Math.abs(back) * 1.6)).normalize();
             v = v.scale((0.12 + 0.14 * hash(s2, 2, 2)) * scale).add(0.0, 0.12 * scale, 0.0);
-            droplet(out, m, at, v, local, 0.8f * (1.0f - local / period), 1.2f);
+            droplet(out, m, at, v, local, 0.95f * (1.0f - local / period), 1.7f);
         }
         int churn = (int) (age / 2.0);
         for (int k = 0; k < 6; k++) {
             Vec3 c = at.add(randomDirection(seed + churn * 7 + k).scale(0.25 * scale));
             boolean foam = (k & 1) == 0;
-            billboard(out, m, c, (0.22f + 0.12f * hash(seed, k, churn)) * scale, 0.5f,
+            billboard(out, m, c, (0.3f + 0.15f * hash(seed, k, churn)) * scale, 0.85f,
                     foam ? FOAM_R : SHALLOW_R, foam ? FOAM_G : SHALLOW_G, foam ? FOAM_B : SHALLOW_B, false, 3, 10);
         }
         for (int k = 0; k < 4; k++) {
@@ -895,7 +910,7 @@ public final class SpellBeamFxRenderer {
         for (int k = 0; k < 2; k++) {
             float rt = (float) (((age + k * 4.0) % 8.0) / 8.0);
             ring(out, m, at.add(0.0, 0.02, 0.0), new Vec3(1.0, 0.0, 0.0), new Vec3(0.0, 0.0, 1.0),
-                    (0.3f + 1.2f * rt) * scale, 0.06f, 0.4f * (1.0f - rt), FOAM_R, FOAM_G, FOAM_B, 24);
+                    (0.3f + 1.2f * rt) * scale, 0.1f, 0.75f * (1.0f - rt), FOAM_R, FOAM_G, FOAM_B, 24);
         }
     }
 
@@ -914,7 +929,7 @@ public final class SpellBeamFxRenderer {
             int s2 = seed + k * 613 + cycle * 97;
             Vec3 start = from.lerp(to, hash(s2, 1, 1));
             Vec3 v = randomDirection(s2).scale(0.06 + 0.06 * hash(s2, 2, 2)).add(unit.scale(0.12));
-            droplet(out, m, start, v, local, 0.7f * (1.0f - local / period), 1.0f);
+            droplet(out, m, start, v, local, 0.9f * (1.0f - local / period), 1.4f);
         }
     }
 

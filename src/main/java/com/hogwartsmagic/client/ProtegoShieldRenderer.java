@@ -107,7 +107,8 @@ public final class ProtegoShieldRenderer {
         for (Map.Entry<Integer, ProtegoShield.View> entry : views.entrySet()) {
             ProtegoShield.View view = ProtegoShield.view(entry.getKey(), tick);
             Entity entity = level.getEntity(entry.getKey());
-            if (view == null || !(entity instanceof LivingEntity living)
+            // Protego Maxima's dome has its own renderer (ProtegoMaximaRenderer).
+            if (view == null || view.dome() || !(entity instanceof LivingEntity living)
                     || (minecraft.player != null && living.isInvisibleTo(minecraft.player))) {
                 continue;
             }

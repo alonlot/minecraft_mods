@@ -57,7 +57,9 @@ public final class ClientRuntimeBridge {
             case "musicSting" -> MusicStingClient.accept((SpellPackets.MusicStingPacket) payload);
             case "crucioChannel" -> CrucioClient.accept((SpellPackets.CrucioChannelPacket) payload);
             case "aquaStream" -> AquaStreamClient.accept((SpellPackets.AquaStreamPacket) payload);
+            case "mandrakePull" -> MandrakePullClient.accept((SpellPackets.MandrakePullPacket) payload);
             case "protegoShield" -> protegoShield((SpellPackets.ProtegoShieldPacket) payload);
+            case "protegoMaximaImpact" -> protegoMaximaImpact((SpellPackets.ProtegoMaximaImpactPacket) payload);
             case "incarcerousRopes" -> IncarcerousRopesClientState.accept((SpellPackets.IncarcerousRopesPacket) payload);
             case "openApparitionMap" -> openApparitionMap((SpellPackets.OpenApparitionMapPacket) payload);
             case "closeApparitionMap" -> closeApparitionMap();
@@ -359,6 +361,15 @@ public final class ClientRuntimeBridge {
         if (minecraft.level != null) {
             com.hogwartsmagic.spell.support.ProtegoShield.accept(packet.entityId(), packet.layers(), packet.remaining(),
                     packet.dome(), packet.ranked(), packet.kind(), minecraft.level.getGameTime());
+        }
+    }
+
+    private static void protegoMaximaImpact(SpellPackets.ProtegoMaximaImpactPacket packet) {
+        net.minecraft.client.Minecraft minecraft = net.minecraft.client.Minecraft.getInstance();
+        if (minecraft.level != null) {
+            ProtegoMaximaRenderer.acceptImpact(packet.entityId(),
+                    new net.minecraft.world.phys.Vec3(packet.x(), packet.y(), packet.z()), packet.health(),
+                    minecraft.level.getGameTime());
         }
     }
 

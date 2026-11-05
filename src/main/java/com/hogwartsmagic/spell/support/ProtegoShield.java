@@ -210,7 +210,7 @@ public final class ProtegoShield {
     }
 
     /** How long a taken-down shield's entry lingers for its last animation. */
-    public static final int LINGER_TICKS = 12;
+    public static final int LINGER_TICKS = 18;
     /** How long a bubble takes to swell to full size. */
     public static final int GROW_TICKS = 6;
 

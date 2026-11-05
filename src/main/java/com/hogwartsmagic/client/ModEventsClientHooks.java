@@ -119,7 +119,7 @@ public final class ModEventsClientHooks {
             com.hogwartsmagic.spell.combat.CombatEffects.notifyCastBlocked(player);
             return true;
         }
-        if (selected == SpellType.PROTEGO_MAXIMA && player.getXRot() <= -55.0F) {
+        if (selected == SpellType.PROTEGO_MAXIMA && com.hogwartsmagic.event.ClientModEvents.startsProtegoMaximaChannel()) {
             com.hogwartsmagic.event.ClientModEvents.setProtegoMaximaChannelActive(true);
             SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(false, false, true, false), PacketDistributor.SERVER.noArg());
             return true;

@@ -1188,7 +1188,7 @@ public class ModEvents {
                 : PROTEGO_MAXIMA_MAX_HEALTH;
         long lastHit = player.getPersistentData().getLong(TAG_PROTEGO_MAXIMA_LAST_HIT);
 
-        if (gameTime - lastSeen > PROTEGO_MAXIMA_HEARTBEAT_TIMEOUT || player.getXRot() > -50.0F) {
+        if (gameTime - lastSeen > PROTEGO_MAXIMA_HEARTBEAT_TIMEOUT) {
             stopProtegoMaximaChannel(player, wand);
             return;
         }
@@ -3875,7 +3875,7 @@ public class ModEvents {
                     return true;
                 }
                 SpellType selected = MagicWandItem.getSelectedSpell(heldItem);
-                if (selected == SpellType.PROTEGO_MAXIMA && player.getXRot() <= -55.0F) {
+                if (selected == SpellType.PROTEGO_MAXIMA && com.hogwartsmagic.event.ClientModEvents.startsProtegoMaximaChannel()) {
                     com.hogwartsmagic.event.ClientModEvents.setProtegoMaximaChannelActive(true);
                     SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(false, false, true, false), PacketDistributor.SERVER.noArg());
                     return true;

@@ -271,9 +271,9 @@ public class ClientModEvents {
                     com.hogwartsmagic.spell.SpellType selected = holdingWand
                             ? MagicWandItem.getSelectedSpell(mc.player.getMainHandItem())
                             : null;
+                    // Held at any angle; only the press decides channel or beam (startsProtegoMaximaChannel).
                     boolean protegoMaximaSkyCast = holdingWand
-                            && selected == com.hogwartsmagic.spell.SpellType.PROTEGO_MAXIMA
-                            && mc.player.getXRot() <= -55.0F;
+                            && selected == com.hogwartsmagic.spell.SpellType.PROTEGO_MAXIMA;
                     boolean fiendfyreSelected = holdingWand
                             && selected == com.hogwartsmagic.spell.SpellType.FIENDFYRE;
                     boolean aquaSelected = holdingWand
@@ -905,6 +905,19 @@ public class ClientModEvents {
             return null;
         }
         return SPELL_SLOT_KEYS[slotIndex];
+    }
+
+    /**
+     * Whether a Protego Maxima press raises the channelled dome: at any angle, except aimed at a Ward block, where it
+     * stays the beam cast that charges the ward (SpellBeamEntity).
+     */
+    public static boolean startsProtegoMaximaChannel() {
+        net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+        if (mc.level != null && mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult hit
+                && hit.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK) {
+            return !mc.level.getBlockState(hit.getBlockPos()).is(ExampleMod.WARD.get());
+        }
+        return true;
     }
 
     public static void setProtegoMaximaChannelActive(boolean active) {

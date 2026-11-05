@@ -51,7 +51,6 @@ public final class AquaStream {
     public static final byte KEEP = 1;
     public static final byte END = 2;
 
-    public static final double RANGE = 24.0;
     /** How wide the stream is, for what it hits. */
     private static final double RADIUS = 0.55;
     private static final int HEARTBEAT_TIMEOUT = 5;
@@ -175,9 +174,10 @@ public final class AquaStream {
     }
 
     /**
-     * The stream's path: a jet leaving {@code from} along {@code dir} and falling under its own weight, traced a
-     * block at a time until it meets a block, a living thing (the first one stops it: what stands behind is
-     * shielded), or has run {@link #RANGE} blocks. Shared by the server (what it hits) and the clients (what they
+     * The stream's path: a pressure jet leaving {@code from} dead straight along {@code dir} for {@link #FLIGHT}
+     * blocks, then spent: it bends over, slows and falls to the ground, where it splashes. Traced a block at a time
+     * until it meets a block or a living thing (the first one stops it: what stands behind is shielded), or has
+     * fallen {@link #MAX_FALL} blocks into nothing. Shared by the server (what it hits) and the clients (what they
      * draw), so the water you see is the water that pushes.
      */
     public record Pour(java.util.List<Vec3> points, Vec3 end, @javax.annotation.Nullable net.minecraft.core.Direction face,
@@ -187,10 +187,16 @@ public final class AquaStream {
         }
     }
 
-    /** Blocks the jet covers per step, and how much it falls per step per step. */
+    /** How far the jet flies straight before it is spent and falls. */
+    public static final double FLIGHT = 36.0;
+    /** How far it may fall (down a cliff, into the void) before it is given up on. */
+    private static final double MAX_FALL = 64.0;
+    /** Blocks the jet covers per step; once spent, how fast it slows, falls, and how fast it can fall. */
     private static final double STEP = 1.0;
-    private static final double GRAVITY = 0.014;
-    private static final int MAX_STEPS = 40;
+    private static final double GRAVITY = 0.11;
+    private static final double DRAG = 0.9;
+    private static final double TERMINAL = 1.3;
+    private static final int MAX_STEPS = 160;
 
     public static Pour trace(net.minecraft.world.level.Level level, net.minecraft.world.entity.Entity caster, Vec3 from,
                              Vec3 dir) {
@@ -199,7 +205,8 @@ public final class AquaStream {
         Vec3 at = from;
         Vec3 velocity = dir.normalize().scale(STEP);
         double travelled = 0.0;
-        for (int i = 0; i < MAX_STEPS && travelled < RANGE; i++) {
+        double fallen = 0.0;
+        for (int i = 0; i < MAX_STEPS && fallen < MAX_FALL; i++) {
             Vec3 next = at.add(velocity);
             BlockHitResult block = level.clip(new ClipContext(at, next, ClipContext.Block.COLLIDER,
                     ClipContext.Fluid.NONE, caster));
@@ -228,8 +235,15 @@ public final class AquaStream {
             }
             points.add(next);
             travelled += velocity.length();
+            fallen += Math.max(0.0, at.y - next.y) * (travelled > FLIGHT ? 1.0 : 0.0);
             at = next;
-            velocity = velocity.add(0.0, -GRAVITY, 0.0);
+            // Straight while it has pressure; spent, it eases over into a fall (no kink where it gives out).
+            double spent = net.minecraft.util.Mth.clamp((travelled - (FLIGHT - 3.0)) / 6.0, 0.0, 1.0);
+            if (spent > 0.0) {
+                double drag = 1.0 - (1.0 - DRAG) * spent;
+                double down = Math.max(-TERMINAL, velocity.y - GRAVITY * spent);
+                velocity = new Vec3(velocity.x * drag, down, velocity.z * drag);
+            }
         }
         return new Pour(points, at, null, null);
     }
@@ -247,7 +261,7 @@ public final class AquaStream {
             Vec3 dir = to.subtract(points.get(Math.max(0, points.size() - 2)));
             dir = dir.lengthSqr() < 1.0E-6 ? player.getLookAngle() : dir.normalize();
             double distance = player.getEyePosition().distanceTo(to);
-            float falloff = (float) Math.max(0.35, 1.0 - distance / (RANGE * 1.2));
+            float falloff = (float) Math.max(0.35, 1.0 - distance / (FLIGHT * 1.2));
             if (stream.struck.add(target.getUUID())) {
                 // The first hit of the jet: a heavy shove, and everything the bolt did (douse, steam, slow, XP).
                 SpellType.AQUA_ERUCTO.applyHitEffect(target, player, dir, true);

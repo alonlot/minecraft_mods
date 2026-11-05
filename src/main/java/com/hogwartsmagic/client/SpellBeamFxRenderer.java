@@ -717,8 +717,7 @@ public final class SpellBeamFxRenderer {
         float[] coreWidth = new float[n];
         float[] coreAlpha = new float[n];
         for (int i = 0; i < n; i++) {
-            float u = (float) ((f.fromWand[i] - f.fromWand[0]) / length);
-            float breakup = held ? smoothstep(0.45f, 0.95f, u) : 0.6f;
+            float breakup = held ? jetBreakup(f.fromWand[i] - f.fromWand[0]) : 0.6f;
             coreWidth[i] = (0.2f - 0.07f * breakup) * f.thickness;
             coreAlpha[i] = 0.85f * f.profile[i] * g * (1.0f - 0.85f * breakup);
         }
@@ -740,19 +739,18 @@ public final class SpellBeamFxRenderer {
         }
 
         // The water flowing down the stream: blobs and foam carried along at its speed, breaking into chunks.
-        final double spacing = 0.16;
+        final double spacing = 0.18;
         final double flow = 1.2;
         double shift = (t * flow) % spacing;
         int base = (int) Math.floor(t * flow / spacing);
         int churn = (int) Math.floor(f.age / 2.0);
-        for (int k = 0; k < 300; k++) {
+        for (int k = 0; k < 560; k++) {
             double d = k * spacing + shift;
             if (d > length) {
                 break;
             }
             int id = k - base; // the same parcel of water as it moves down
-            float u = (float) (d / length);
-            float breakup = held ? smoothstep(0.4f, 0.95f, u) : 0.6f;
+            float breakup = held ? jetBreakup(d) : 0.6f;
             if (hash(seed, id, 1) < breakup * 0.5f) {
                 continue; // a gap where the stream has come apart
             }
@@ -787,6 +785,15 @@ public final class SpellBeamFxRenderer {
                         foam ? FOAM_R : SHALLOW_R, foam ? FOAM_G : SHALLOW_G, foam ? FOAM_B : SHALLOW_B, false, 3, 10);
             }
         }
+    }
+
+    /**
+     * How far a held jet has come apart {@code d} blocks from the wand: a solid rope through most of its straight
+     * flight, fraying over its last stretch, and all chunks and foam once it is spent and falling.
+     */
+    private static float jetBreakup(double d) {
+        double flight = com.hogwartsmagic.spell.AquaStream.FLIGHT;
+        return smoothstep((float) (flight * 0.55), (float) (flight + 4.0), (float) d);
     }
 
     /** The sample at or before {@code d} blocks down the drawn path. */

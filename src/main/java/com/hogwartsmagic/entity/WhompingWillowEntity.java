@@ -62,11 +62,12 @@ import java.util.UUID;
  * machinery is deliberately absent: no navigation, no stroll goal, no look control, and a trunk yaw
  * frozen at spawn. Which of the four branches swings is chosen by bearing instead of by turning.
  *
- * <p><b>The damage arc and the visible branch are the same numbers.</b> {@link #strikeReach},
- * {@link #branchTrail} and {@link #branchWorldYaw} are pure statics called by both this class and
- * {@code WhompingWillowModel}, following the contract {@code HungarianHorntailEntity.tailTrail}
- * established. {@link #BRANCH_RANGE} is deliberately shorter than the branch's visible reach, so the
- * failure mode is a branch whistling past your face rather than one hitting you from a foot short.
+ * <p><b>The damage is computed from the branch you can see.</b> Every hit test runs against
+ * {@link WhompingWillowRig#limbPoints}: forward kinematics of the exact pose the client model draws,
+ * from the same synched parameters. A sweep hits what the swinging limb passes through, a slam hits
+ * where the limb lands, a grab catches what is under the tip, and a held victim is carried at the
+ * tip. There is no separate damage geometry left to drift from the model, which is how the old one
+ * ended up mirrored: two of its four branches swung on the far side of the trunk from their arcs.
  *
  * <p>Server-authoritative throughout; the client only reads synched state to drive the model.
  */
@@ -95,6 +96,15 @@ public class WhompingWillowEntity extends Monster {
             SynchedEntityData.defineId(WhompingWillowEntity.class, EntityDataSerializers.BYTE);
     private static final EntityDataAccessor<Byte> DATA_SWEEP_SIGN =
             SynchedEntityData.defineId(WhompingWillowEntity.class, EntityDataSerializers.BYTE);
+    /** Where the striking limb is aimed: yaw off its rest bearing (radians), and the target's
+     *  horizontal distance and height above the roots (blocks). Pose inputs, so they must reach the
+     *  client with the state. */
+    private static final EntityDataAccessor<Float> DATA_AIM_YAW =
+            SynchedEntityData.defineId(WhompingWillowEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> DATA_AIM_DIST =
+            SynchedEntityData.defineId(WhompingWillowEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> DATA_AIM_HEIGHT =
+            SynchedEntityData.defineId(WhompingWillowEntity.class, EntityDataSerializers.FLOAT);
     private static final EntityDataAccessor<Boolean> DATA_AWAKE =
             SynchedEntityData.defineId(WhompingWillowEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Boolean> DATA_ENRAGED =
@@ -108,47 +118,43 @@ public class WhompingWillowEntity extends Monster {
     private static final EntityDataAccessor<Integer> DATA_STATE_TICK =
             SynchedEntityData.defineId(WhompingWillowEntity.class, EntityDataSerializers.INT);
 
-    // --- timings (ticks). The model reads these, which is why they are public. -------------------
-    public static final int WAKE_DURATION = 30;
-    public static final int SWEEP_DURATION = 30;
-    public static final float SWEEP_WIND_END = 0.30F;
-    public static final float SWEEP_STRIKE_END = 0.70F;
-    public static final int SLAM_DURATION = 34;
-    public static final int SLAM_STRIKE_TICK = 16;
-    public static final int STOMP_DURATION = 40;
-    public static final int STOMP_STRIKE_TICK = 22;
-    public static final int SWAT_DURATION = 26;
-    public static final int SWAT_STRIKE_TICK = 11;
-    public static final int GRAB_DURATION = 18;
-    public static final int GRAB_CATCH_TICK = 10;
-    public static final int SMASH_DURATION = 48;
-    public static final int SMASH_BLOW_A = 18;
-    public static final int SMASH_BLOW_B = 32;
-    public static final int SMASH_RELEASE_TICK = 38;
-    public static final int STAGGER_DURATION = 20;
+    // --- timings live in WhompingWillowRig, next to the pose curves built from them -------------
+    private static final int WAKE_DURATION = WhompingWillowRig.WAKE_DURATION;
+    private static final int SWEEP_DURATION = WhompingWillowRig.SWEEP_DURATION;
+    private static final int SLAM_DURATION = WhompingWillowRig.SLAM_DURATION;
+    private static final int SLAM_STRIKE_TICK = WhompingWillowRig.SLAM_STRIKE_TICK;
+    private static final int STOMP_DURATION = WhompingWillowRig.STOMP_DURATION;
+    private static final int STOMP_STRIKE_TICK = WhompingWillowRig.STOMP_STRIKE_TICK;
+    private static final int SWAT_DURATION = WhompingWillowRig.SWAT_DURATION;
+    private static final int SWAT_STRIKE_TICK = WhompingWillowRig.SWAT_STRIKE_TICK;
+    private static final int GRAB_DURATION = WhompingWillowRig.GRAB_DURATION;
+    private static final int GRAB_CATCH_TICK = WhompingWillowRig.GRAB_CATCH_TICK;
+    private static final int SMASH_DURATION = WhompingWillowRig.SMASH_DURATION;
+    private static final int SMASH_BLOW_A = WhompingWillowRig.SMASH_BLOW_A;
+    private static final int SMASH_BLOW_B = WhompingWillowRig.SMASH_BLOW_B;
+    private static final int SMASH_RELEASE_TICK = WhompingWillowRig.SMASH_RELEASE_TICK;
+    private static final int STAGGER_DURATION = WhompingWillowRig.STAGGER_DURATION;
 
-    // --- geometry, shared with the model ---------------------------------------------------------
-    /** Horizontal reach of the damage arc. The branches visibly reach ~7.33 blocks; the shortfall is
-     *  deliberate, so a near miss reads as a near miss rather than a phantom hit. */
-    public static final double BRANCH_RANGE = 6.8D;
-    public static final double BRANCH_INNER = 2.4D;
-    public static final double BRANCH_ARC_HALF = 0.50D;
-    private static final double GRAB_INNER = 2.0D;
-    private static final double GRAB_RANGE = 5.6D;
-    private static final double GRAB_ARC_HALF = 0.45D;
-    private static final double STOMP_RANGE = 3.6D;
-    private static final double SLAM_OFFSET = 5.0D;
-    private static final double SLAM_RADIUS = 3.2D;
-    private static final double SWAT_INNER = 2.0D;
-    private static final double SWAT_RANGE = 6.4D;
-    private static final double SWAT_ARC_HALF = 0.55D;
+    // --- reach ------------------------------------------------------------------------------------
+    /** How far out a target can be and still be worth swinging at: the sweep tip plus its capsule.
+     *  Not a damage radius -- damage comes from the limb itself. */
+    public static final double BRANCH_RANGE = WhompingWillowRig.SWEEP_DIST + 0.3D;
+    /** Slack added to a limb segment's own half-thickness when testing contact: the leaves and
+     *  streamers hanging off it are part of what hits you. */
+    private static final double LIMB_SLACK = 0.45D;
+    private static final double SLAM_SPLASH = 1.1D;
+    private static final double GRAB_REACH = 1.3D;
+    private static final double SWAT_SLACK = 0.9D;
+    private static final double STOMP_RANGE = WhompingWillowRig.STOMP_RANGE;
     /** The whole canopy volume, not a slice: a narrow band would leave a safe flight corridor
      *  straight through the crown. The rule a pilot learns is "climb above it or go around". */
+    private static final double SWAT_INNER = 2.0D;
+    private static final double SWAT_RANGE = 7.0D;
     private static final double SWAT_LOW = 2.5D;
     private static final double SWAT_HIGH = 11.5D;
 
     private static final double WAKE_RADIUS = 9.0D;
-    private static final double LEASH_RADIUS = 12.0D;
+    private static final double LEASH_RADIUS = 12.5D;
     private static final int WAKE_PATIENCE = 15;
     private static final int ANGRY_TICKS = 400;
     private static final int FROZEN_TICKS = 2400;
@@ -165,70 +171,23 @@ public class WhompingWillowEntity extends Monster {
     private AttackState lastAttack = AttackState.NONE;
     private int repeatedAttacks;
 
+    /** Server-side pose scratch. Client poses live in the model. */
+    private final WhompingWillowRig.Input rigIn = new WhompingWillowRig.Input();
+    private final float[] rigRot = new float[WhompingWillowRig.BONES * 3];
+    private final double[] limbPts = new double[(WhompingWillowRig.SEGS + 1) * 3];
+    /** Client only: 0 hanging limp .. 1 roused, eased so waking and settling never pop. */
+    private float rouse;
+    private float rouseO;
+
     public WhompingWillowEntity(EntityType<? extends Monster> type, Level level) {
         super(type, level);
         this.xpReward = 45;
     }
 
-    // --- shared pure statics: the model calls every one of these ----------------------------------
-
-    /**
-     * Normalised extension of the striking branch at state progress {@code p}: 0 coiled, 1 fully
-     * out. Deliberately unitless — each attack scales it by its own reach constants and the model
-     * drives its bone from the same number, so the visible extension and the damage radius cannot
-     * drift apart.
-     */
-    public static float strikeReach(float p) {
-        if (p <= SWEEP_WIND_END) {
-            // wind back: ease out, so the cock-back reads as a deliberate tell
-            float w = p / SWEEP_WIND_END;
-            return -0.25F * (1.0F - (1.0F - w) * (1.0F - w));
-        }
-        if (p >= SWEEP_STRIKE_END) {
-            float r = (p - SWEEP_STRIKE_END) / (1.0F - SWEEP_STRIKE_END);
-            return 1.0F - r * r;
-        }
-        float s = (p - SWEEP_WIND_END) / (SWEEP_STRIKE_END - SWEEP_WIND_END);
-        return Mth.sin(s * Mth.PI * 0.5F);
-    }
-
-    /** Yaw offset of the striking branch from its rest bearing, in radians. Multiply by the sweep
-     *  sign. Runs from wound-back to follow-through across the swing. */
-    public static float branchTrail(float p) {
-        return Mth.lerp(Mth.clamp(p, 0.0F, 1.0F), -0.55F, 1.30F);
-    }
-
-    /**
-     * Bearings of the four limbs relative to the planted yaw, in degrees.
-     *
-     * <p>Deliberately not multiples of 90. Four branches on the exact compass points read as a
-     * manufactured cross from every angle, and this array is what lets the model hang them at odd
-     * angles instead. <b>It must stay identical to BRANCH_BEARING in
-     * {@code build_scripts/generate_whomping_willow_model.py}</b> — the model bakes these and the
-     * damage arc is built from them, so a disagreement swings a branch that is not where the hit is.
-     */
-    private static final float[] BRANCH_BEARING = {14.0F, 97.0F, 191.0F, 274.0F};
-
-    /** Bearing of branch {@code b}'s rest direction, in degrees, Minecraft yaw convention.
-     *  The trunk never turns, so this is the only thing that decides where a branch points. */
+    /** Bearing of limb {@code b}'s rest direction, in degrees, Minecraft yaw convention. The
+     *  trunk never turns, so this is the only thing that decides where a limb points. */
     public static float branchWorldYaw(int b, float plantedYaw) {
-        return Mth.wrapDegrees(plantedYaw + BRANCH_BEARING[Math.floorMod(b, 4)]);
-    }
-
-    /** Height above the entity's feet of branch {@code b}'s host joint, in blocks. Mirrors
-     *  BRANCH_HOST/BRANCH_LIFT in build_scripts/generate_whomping_willow_model.py. */
-    public static float branchHostY(int b) {
-        return (b % 2 == 0) ? 3.5F : 5.0F;
-    }
-
-    /** Raise-hammer-raise-hammer curve for a held victim across the SMASH state. */
-    public static float holdLift(float p) {
-        float t = Mth.clamp(p, 0.0F, 1.0F);
-        if (t < 0.30F) return t / 0.30F;
-        if (t < 0.42F) return 1.0F - (t - 0.30F) / 0.12F;
-        if (t < 0.62F) return (t - 0.42F) / 0.20F;
-        if (t < 0.72F) return 1.0F - (t - 0.62F) / 0.10F;
-        return 0.15F;
+        return Mth.wrapDegrees(plantedYaw + WhompingWillowRig.LIMB_BEARING[Math.floorMod(b, 4)]);
     }
 
     public static AttributeSupplier.Builder createAttributes() {
@@ -251,6 +210,9 @@ public class WhompingWillowEntity extends Monster {
         builder.define(DATA_PLANTED_YAW, 0.0F);
         builder.define(DATA_ACTIVE_BRANCH, (byte) 0);
         builder.define(DATA_SWEEP_SIGN, (byte) 1);
+        builder.define(DATA_AIM_YAW, 0.0F);
+        builder.define(DATA_AIM_DIST, (float) WhompingWillowRig.SWEEP_DIST);
+        builder.define(DATA_AIM_HEIGHT, 1.0F);
         builder.define(DATA_AWAKE, false);
         builder.define(DATA_ENRAGED, false);
         builder.define(DATA_HELD_VICTIM, -1);
@@ -338,14 +300,28 @@ public class WhompingWillowEntity extends Monster {
     }
 
     /**
-     * Always branch 0. The knot is a raised gnarl carved into the model, and the model is one baked
-     * mesh shared by every willow in the world, so it cannot move from tree to tree. Randomising it
-     * server-side — which is what this did — meant the visible gnarl and the interactive knot were
-     * on different sides three times out of four, and the guide's instruction to look for it was a
-     * lie. Fixed and findable beats varied and invisible.
+     * Fills a rig input from the synched state. On the client the state tick runs on with the
+     * partial tick and idle motion is switched on; on the server neither, which is what keeps the
+     * pose the hit tests use identical to the one the client draws inside every damage window.
      */
-    public int getKnotBranch() {
-        return 0;
+    public void rigInput(WhompingWillowRig.Input in, float partial, boolean client) {
+        AttackState state = getAttackState();
+        float tick = getStateTick();
+        if (client && state != AttackState.DORMANT && state != AttackState.FROZEN) {
+            tick += partial;
+        }
+        in.state = state;
+        in.tick = tick;
+        in.active = getActiveBranch();
+        in.sign = getSweepSign();
+        in.aimYaw = this.entityData.get(DATA_AIM_YAW);
+        in.aimDist = this.entityData.get(DATA_AIM_DIST);
+        in.aimHeight = this.entityData.get(DATA_AIM_HEIGHT);
+        in.rouse = client ? Mth.lerp(partial, this.rouseO, this.rouse) : 1.0F;
+        // Every willow shares one baked mesh; offsetting the clock per entity stops a grove swaying
+        // in perfect unison.
+        in.age = this.tickCount + partial + (getId() % 97) * 3.7F;
+        in.idle = client;
     }
 
     public boolean isAwake() {
@@ -388,6 +364,10 @@ public class WhompingWillowEntity extends Monster {
         super.tick();
         pinYaw(getPlantedYaw());
         if (this.level().isClientSide) {
+            AttackState s = getAttackState();
+            float want = (isAwake() && s != AttackState.DORMANT && s != AttackState.FROZEN) ? 1.0F : 0.0F;
+            this.rouseO = this.rouse;
+            this.rouse += Mth.clamp(want - this.rouse, -0.05F, 0.06F);
             return;
         }
 
@@ -424,7 +404,9 @@ public class WhompingWillowEntity extends Monster {
             return;
         }
 
-        advanceState(state, getStateTick() - 1);
+        // The tick just synched, not the one before it: the client renders this same value, so the
+        // pose the hit tests use is the frame the player sees.
+        advanceState(state, getStateTick());
         tickAggro();
     }
 
@@ -496,13 +478,14 @@ public class WhompingWillowEntity extends Monster {
         if (state == AttackState.WAKE) {
             if (t == 3) {
                 playSound(ModSounds.WILLOW_ROOTS.get(), 1.6F, 0.9F);
-                leafBurst(2.0D, 30);
+                leafBurst(3.0D, 40);
             }
             if (t >= WAKE_DURATION) setAttackState(AttackState.NONE);
         } else if (state == AttackState.SWEEP) {
             if (t == 2) playSound(ModSounds.WILLOW_WHIP.get(), 1.8F, 0.95F);
-            float p = t / (float) SWEEP_DURATION;
-            if (p >= SWEEP_WIND_END && p <= SWEEP_STRIKE_END) doSweepTick(p);
+            if (t >= WhompingWillowRig.SWEEP_HIT_START && t <= WhompingWillowRig.SWEEP_HIT_END) {
+                doSweepTick(t);
+            }
             if (t >= SWEEP_DURATION) finishAction();
         } else if (state == AttackState.SLAM) {
             if (t == 2) playSound(ModSounds.WILLOW_GROAN.get(), 1.7F, 1.0F);
@@ -521,15 +504,14 @@ public class WhompingWillowEntity extends Monster {
             if (t >= STOMP_DURATION) finishAction();
         } else if (state == AttackState.SWAT) {
             if (t == 2) playSound(ModSounds.WILLOW_WHIP.get(), 2.0F, 1.1F);
-            if (t == SWAT_STRIKE_TICK && !this.struck) {
-                this.struck = true;
-                doSwatImpact();
+            if (t >= SWAT_STRIKE_TICK - 1 && t <= SWAT_STRIKE_TICK + 1) {
+                doSwatTick(t);
             }
             if (t >= SWAT_DURATION) finishAction();
         } else if (state == AttackState.GRAB) {
             if (t == 2) playSound(ModSounds.WILLOW_WHIP.get(), 1.4F, 0.8F);
             if (t == GRAB_CATCH_TICK) {
-                LivingEntity caught = findGrabVictim();
+                LivingEntity caught = findGrabVictim(t);
                 if (caught != null) {
                     setHeldVictim(caught);
                     setAttackState(AttackState.SMASH);
@@ -553,12 +535,87 @@ public class WhompingWillowEntity extends Monster {
         this.actionCooldown = isEnraged() ? 8 : 14;
     }
 
-    // --- attacks -----------------------------------------------------------------------------------
+    // --- the limb, as the client draws it -----------------------------------------------------------
 
-    private Vec3 branchDir(int branch, double trail) {
-        Vec3 rest = Vec3.directionFromRotation(0.0F, branchWorldYaw(branch, getPlantedYaw()));
-        Vec3 side = new Vec3(-rest.z, 0.0D, rest.x);
-        return rest.scale(Math.cos(trail)).add(side.scale(Math.sin(trail))).normalize();
+    /** Poses the rig at state tick {@code t} exactly as the client will (minus its idle motion,
+     *  which is zero inside every damage window) and leaves the active limb's seven joints, in world
+     *  coordinates, in {@link #limbPts}. */
+    private double[] limbAt(float t) {
+        rigInput(this.rigIn, 0.0F, false);
+        this.rigIn.tick = t;
+        WhompingWillowRig.pose(this.rigIn, this.rigRot);
+        WhompingWillowRig.limbPoints(this.rigIn, this.rigRot, getActiveBranch(), getPlantedYaw(), this.limbPts);
+        for (int k = 0; k <= WhompingWillowRig.SEGS; k++) {
+            this.limbPts[k * 3] += getX();
+            this.limbPts[k * 3 + 1] += getY();
+            this.limbPts[k * 3 + 2] += getZ();
+        }
+        return this.limbPts;
+    }
+
+    private static Vec3 joint(double[] pts, int k) {
+        return new Vec3(pts[k * 3], pts[k * 3 + 1], pts[k * 3 + 2]);
+    }
+
+    /**
+     * Closest approach between limb segments {@code fromSeg..5} (segment k runs from joint k to
+     * joint k+1) and {@code victim}, modelled as a vertical line through its box, minus the segment's
+     * own radius, the victim's half-width and {@code slack}. Zero or less means touching.
+     */
+    private double limbGap(double[] pts, int fromSeg, LivingEntity victim, double slack) {
+        AABB box = victim.getBoundingBox();
+        double cx = (box.minX + box.maxX) * 0.5D, cz = (box.minZ + box.maxZ) * 0.5D;
+        double half = (box.maxX - box.minX) * 0.5D;
+        double best = Double.MAX_VALUE;
+        for (int k = fromSeg; k < WhompingWillowRig.SEGS; k++) {
+            double d = segSegDist(pts[k * 3], pts[k * 3 + 1], pts[k * 3 + 2],
+                    pts[k * 3 + 3], pts[k * 3 + 4], pts[k * 3 + 5],
+                    cx, box.minY, cz, cx, box.maxY, cz);
+            double gap = d - WhompingWillowRig.limbRadius(getActiveBranch(), k) - half - slack;
+            if (gap < best) best = gap;
+        }
+        return best;
+    }
+
+    /** Shortest distance between segments P0P1 and Q0Q1 (Ericson, Real-Time Collision Detection). */
+    static double segSegDist(double px, double py, double pz, double p1x, double p1y, double p1z,
+                             double qx, double qy, double qz, double q1x, double q1y, double q1z) {
+        double d1x = p1x - px, d1y = p1y - py, d1z = p1z - pz;
+        double d2x = q1x - qx, d2y = q1y - qy, d2z = q1z - qz;
+        double rx = px - qx, ry = py - qy, rz = pz - qz;
+        double a = d1x * d1x + d1y * d1y + d1z * d1z;
+        double e = d2x * d2x + d2y * d2y + d2z * d2z;
+        double f = d2x * rx + d2y * ry + d2z * rz;
+        double s, t;
+        if (a <= 1.0E-9 && e <= 1.0E-9) {
+            s = 0.0D;
+            t = 0.0D;
+        } else if (a <= 1.0E-9) {
+            s = 0.0D;
+            t = Mth.clamp(f / e, 0.0D, 1.0D);
+        } else {
+            double c = d1x * rx + d1y * ry + d1z * rz;
+            if (e <= 1.0E-9) {
+                t = 0.0D;
+                s = Mth.clamp(-c / a, 0.0D, 1.0D);
+            } else {
+                double b = d1x * d2x + d1y * d2y + d1z * d2z;
+                double denom = a * e - b * b;
+                s = denom > 1.0E-9 ? Mth.clamp((b * f - c * e) / denom, 0.0D, 1.0D) : 0.0D;
+                t = (b * s + f) / e;
+                if (t < 0.0D) {
+                    t = 0.0D;
+                    s = Mth.clamp(-c / a, 0.0D, 1.0D);
+                } else if (t > 1.0D) {
+                    t = 1.0D;
+                    s = Mth.clamp((b - c) / a, 0.0D, 1.0D);
+                }
+            }
+        }
+        double dx = (px + d1x * s) - (qx + d2x * t);
+        double dy = (py + d1y * s) - (qy + d2y * t);
+        double dz = (pz + d1z * s) - (qz + d2z * t);
+        return Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
 
     private double horizontalDistTo(Vec3 at) {
@@ -567,93 +624,93 @@ public class WhompingWillowEntity extends Monster {
         return Math.sqrt(dx * dx + dz * dz);
     }
 
-    /**
-     * A moving arc, re-evaluated every tick of the swing rather than a single cone at the strike
-     * frame, so what the branch sweeps through is what it hits. Copied from the Horntail's tail
-     * whip, including the annulus — a branch tip passing overhead should not hit something pressed
-     * against the trunk — and the per-state hit set so one swing cannot hit the same victim twice.
-     */
-    private void doSweepTick(float p) {
-        if (!(this.level() instanceof ServerLevel sl)) return;
-        int branch = getActiveBranch();
-        Vec3 dir = branchDir(branch, branchTrail(p) * getSweepSign());
-        double tipY = getY() + Mth.lerp(Mth.clamp(strikeReach(p), 0.0F, 1.0F), 3.3D, 0.9D);
+    private Vec3 branchDir(int branch) {
+        return Vec3.directionFromRotation(0.0F, branchWorldYaw(branch, getPlantedYaw()));
+    }
 
-        for (LivingEntity victim : sl.getEntitiesOfClass(LivingEntity.class,
-                getBoundingBox().inflate(BRANCH_RANGE, 4.0D, BRANCH_RANGE), this::isValidVictim)) {
-            if (this.hitThisState.contains(victim.getId())) continue;
-            Vec3 to = victim.position().subtract(position());
-            Vec3 flat = new Vec3(to.x, 0.0D, to.z);
-            double d = flat.length();
-            if (d < BRANCH_INNER || d > BRANCH_RANGE) continue;
-            if (flat.normalize().dot(dir) < Math.cos(BRANCH_ARC_HALF)) continue;
-            if (victim.getBoundingBox().maxY < tipY - 1.9D
-                    || victim.getBoundingBox().minY > tipY + 1.9D) continue;
-            this.hitThisState.add(victim.getId());
-            strike(victim, damage(1.0F), flat.normalize(), 1.9D, 0.42D);
-        }
-        if (p > SWEEP_WIND_END + 0.05F) {
-            // Trail the whole outer half of the branch rather than puffing at the tip: the point of
-            // this is to show the player the ARC, which is the thing they have to learn to dodge.
-            for (int i = 0; i < 4; i++) {
-                double along = BRANCH_INNER + (BRANCH_RANGE - BRANCH_INNER) * (0.45D + i * 0.18D);
-                Vec3 at = position().add(dir.scale(along)).add(0.0D, tipY - getY(), 0.0D);
-                sl.sendParticles(ParticleTypes.COMPOSTER, at.x, at.y, at.z, 2, 0.25D, 0.25D, 0.25D, 0.02D);
+    private List<LivingEntity> victimsNear(double reach) {
+        return this.level().getEntitiesOfClass(LivingEntity.class,
+                getBoundingBox().inflate(reach, 3.0D, reach), this::isValidVictim);
+    }
+
+    // --- attacks -----------------------------------------------------------------------------------
+
+    /**
+     * The sweep. Sub-stepped three times per tick, because at full speed the limb tip moves about a
+     * block per tick and one sample per tick would let it pass clean through a player standing
+     * between two samples.
+     */
+    private void doSweepTick(int t) {
+        if (!(this.level() instanceof ServerLevel sl)) return;
+        List<LivingEntity> near = victimsNear(BRANCH_RANGE + 1.0D);
+        Vec3 before = joint(limbAt(t - 1.0F), WhompingWillowRig.SEGS);
+        double[] pts = null;
+        for (int sub = 2; sub >= 0; sub--) {
+            pts = limbAt(t - sub / 3.0F);
+            for (LivingEntity victim : near) {
+                if (this.hitThisState.contains(victim.getId())) continue;
+                if (limbGap(pts, 1, victim, LIMB_SLACK) > 0.0D) continue;
+                this.hitThisState.add(victim.getId());
+                Vec3 out = victim.position().subtract(position());
+                Vec3 flat = new Vec3(out.x, 0.0D, out.z).normalize();
+                // Batted along the swing as much as away from the trunk.
+                Vec3 swing = joint(pts, WhompingWillowRig.SEGS).subtract(before);
+                Vec3 along = new Vec3(swing.x, 0.0D, swing.z);
+                Vec3 push = along.lengthSqr() > 1.0E-6 ? flat.add(along.normalize()).normalize() : flat;
+                strike(victim, damage(1.0F), push, 1.9D, 0.42D);
             }
         }
-    }
-
-    private void markSlamZone() {
-        if (!(this.level() instanceof ServerLevel sl)) return;
-        Vec3 c = slamCentre();
-        for (int i = 0; i < 10; i++) {
-            double a = i * Math.PI / 5.0;
-            sl.sendParticles(ParticleTypes.CRIT,
-                    c.x + Math.cos(a) * SLAM_RADIUS, c.y + 0.2D, c.z + Math.sin(a) * SLAM_RADIUS,
-                    1, 0.0D, 0.0D, 0.0D, 0.0D);
+        // Trail the outer half of the limb as it actually is this tick, so the arc the player has to
+        // learn is drawn by the thing that hits them.
+        for (int k = 3; k <= WhompingWillowRig.SEGS; k++) {
+            sl.sendParticles(ParticleTypes.COMPOSTER, pts[k * 3], pts[k * 3 + 1], pts[k * 3 + 2],
+                    2, 0.25D, 0.25D, 0.25D, 0.02D);
         }
     }
 
-    private Vec3 slamCentre() {
-        Vec3 dir = branchDir(getActiveBranch(), 0.0D);
-        double x = getX() + dir.x * SLAM_OFFSET;
-        double z = getZ() + dir.z * SLAM_OFFSET;
-        int y = this.level().getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
-                Mth.floor(x), Mth.floor(z));
-        return new Vec3(x, y, z);
+    /** Where the slam will land, drawn from the pose at the strike tick, so the warning and the hit
+     *  are the same line on the ground. */
+    private void markSlamZone() {
+        if (!(this.level() instanceof ServerLevel sl)) return;
+        double[] pts = limbAt(SLAM_STRIKE_TICK);
+        for (int k = 2; k <= WhompingWillowRig.SEGS; k++) {
+            double x = pts[k * 3], z = pts[k * 3 + 2];
+            int y = this.level().getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, Mth.floor(x), Mth.floor(z));
+            sl.sendParticles(ParticleTypes.CRIT, x, y + 0.2D, z, 2, 0.4D, 0.0D, 0.4D, 0.0D);
+        }
     }
 
     private void doSlamImpact() {
-        Vec3 c = slamCentre();
+        double[] pts = limbAt(SLAM_STRIKE_TICK);
+        Vec3 tip = joint(pts, WhompingWillowRig.SEGS);
         playSound(ModSounds.WILLOW_IMPACT.get(), 2.2F, 0.8F);
-        for (LivingEntity victim : this.level().getEntitiesOfClass(LivingEntity.class,
-                new AABB(c.x - SLAM_RADIUS, c.y - 2.5D, c.z - SLAM_RADIUS,
-                        c.x + SLAM_RADIUS, c.y + 2.5D, c.z + SLAM_RADIUS), this::isValidVictim)) {
-            Vec3 push = victim.position().subtract(c);
+        for (LivingEntity victim : victimsNear(BRANCH_RANGE + 2.0D)) {
+            if (limbGap(pts, 2, victim, SLAM_SPLASH) > 0.0D) continue;
+            Vec3 push = victim.position().subtract(tip);
             strike(victim, damage(1.55F), new Vec3(push.x, 0.0D, push.z).normalize(), 0.8D, 0.75D);
         }
         if (this.level() instanceof ServerLevel sl) {
-            smashBlocks(sl, BlockPos.containing(c));
-            // A shockwave ring reads the radius back to the player, so the danger decal drawn during
-            // the wind-up and the actual hit area visibly agree.
-            for (int i = 0; i < 22; i++) {
-                double a = i * Math.PI * 2.0 / 22.0;
-                sl.sendParticles(ParticleTypes.CLOUD,
-                        c.x + Math.cos(a) * SLAM_RADIUS, c.y + 0.3D, c.z + Math.sin(a) * SLAM_RADIUS,
-                        1, 0.1D, 0.05D, 0.1D, 0.04D);
+            int gy = this.level().getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, Mth.floor(tip.x), Mth.floor(tip.z));
+            smashBlocks(sl, BlockPos.containing(tip.x, gy, tip.z));
+            // Dust thrown up along the whole length that hit the ground.
+            for (int k = 2; k <= WhompingWillowRig.SEGS; k++) {
+                double x = pts[k * 3], z = pts[k * 3 + 2];
+                int y = this.level().getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, Mth.floor(x), Mth.floor(z));
+                sl.sendParticles(ParticleTypes.CLOUD, x, y + 0.3D, z, 6, 0.6D, 0.1D, 0.6D, 0.05D);
             }
-            sl.sendParticles(ParticleTypes.COMPOSTER, c.x, c.y + 0.6D, c.z, 18, 1.0D, 0.4D, 1.0D, 0.12D);
+            sl.sendParticles(ParticleTypes.COMPOSTER, tip.x, gy + 0.6D, tip.z, 18, 1.0D, 0.4D, 1.0D, 0.12D);
         }
     }
 
-    /** Exists so that "stand at the trunk and hold left-click" is not a solution. */
+    /** Exists so that "stand at the trunk and hold left-click" is not a solution. The ring is the
+     *  roots' own reach: the generator refuses to build a tree whose roots do not land on it. */
     private void doStompImpact() {
         playSound(ModSounds.WILLOW_IMPACT.get(), 2.4F, 0.7F);
         for (LivingEntity victim : this.level().getEntitiesOfClass(LivingEntity.class,
                 getBoundingBox().inflate(STOMP_RANGE, 2.5D, STOMP_RANGE), this::isValidVictim)) {
             Vec3 to = victim.position().subtract(position());
             Vec3 flat = new Vec3(to.x, 0.0D, to.z);
-            if (flat.length() > STOMP_RANGE) continue;
+            if (flat.length() > STOMP_RANGE + victim.getBbWidth() * 0.5D) continue;
             strike(victim, damage(1.2F), flat.normalize(), 2.6D, 0.55D);
         }
         if (this.level() instanceof ServerLevel sl) {
@@ -699,7 +756,8 @@ public class WhompingWillowEntity extends Monster {
     }
 
     /**
-     * Flicks a rider out of the canopy.
+     * Flicks a rider out of the canopy -- if the limb, aimed where they were when it began its
+     * whip, actually reaches them.
      *
      * <p>The dismount has to happen server-side: {@code BroomEntity.removePassenger} is what
      * broadcasts the teleport and motion correction the broom needs, because while ridden the broom
@@ -710,58 +768,71 @@ public class WhompingWillowEntity extends Monster {
      *
      * <p>Slow falling is not a courtesy. {@code ModEvents} cancels fall damage only while the
      * player is still on the broom, so without this a swat at altitude is an unavoidable kill with
-     * no feedback and no counter-play. The effect also shows on the HUD, which tells the player why
-     * they survived.
+     * no feedback and no counter-play.
      */
-    private void doSwatImpact() {
-        for (Player p : broomRidersInReach()) {
-            if (this.hitThisState.contains(p.getId())) continue;
-            this.hitThisState.add(p.getId());
-            Vec3 dir = branchDir(getActiveBranch(), 0.0D);
-
-            p.hurt(this.damageSources().mobAttack(this), damage(0.9F));
-            p.fallDistance = 0.0F;
-            if (p instanceof ServerPlayer sp) {
-                ModEvents.interruptActiveCasting(sp);
-                sp.addEffect(new MobEffectInstance(MobEffects.SLOW_FALLING, 100, 0, false, true, true));
-            }
-
-            Entity vehicle = p.getVehicle();
-            p.stopRiding();
-            if (vehicle instanceof BroomEntity broom) {
-                broom.setDeltaMovement(dir.x * 0.5D, 0.25D, dir.z * 0.5D);
-                if (this.level() instanceof ServerLevel sl) {
-                    sl.getChunkSource().broadcast(broom, new ClientboundSetEntityMotionPacket(broom));
-                }
-            }
-
-            p.setDeltaMovement(dir.x * 1.5D, 0.55D, dir.z * 1.5D);
-            p.hurtMarked = true;
-            if (p instanceof ServerPlayer sp) {
-                sp.connection.send(new ClientboundSetEntityMotionPacket(p));
+    private void doSwatTick(int t) {
+        boolean any = false;
+        for (int sub = 1; sub >= 0; sub--) {
+            double[] pts = limbAt(t - sub * 0.5F);
+            for (Player p : this.level().getEntitiesOfClass(Player.class,
+                    getBoundingBox().inflate(SWAT_RANGE + 1.0D, 13.0D, SWAT_RANGE + 1.0D), this::isValidVictim)) {
+                if (this.hitThisState.contains(p.getId())) continue;
+                if (limbGap(pts, 1, p, SWAT_SLACK) > 0.0D) continue;
+                this.hitThisState.add(p.getId());
+                any = true;
+                swat(p);
             }
         }
-        playSound(ModSounds.WILLOW_WHIP.get(), 2.2F, 0.9F);
+        if (t == SWAT_STRIKE_TICK || any) playSound(ModSounds.WILLOW_WHIP.get(), 2.2F, 0.9F);
+    }
+
+    private void swat(Player p) {
+        Vec3 dir = branchDir(getActiveBranch());
+        p.hurt(this.damageSources().mobAttack(this), damage(0.9F));
+        p.fallDistance = 0.0F;
+        if (p instanceof ServerPlayer sp) {
+            ModEvents.interruptActiveCasting(sp);
+            sp.addEffect(new MobEffectInstance(MobEffects.SLOW_FALLING, 100, 0, false, true, true));
+        }
+
+        Entity vehicle = p.getVehicle();
+        p.stopRiding();
+        if (vehicle instanceof BroomEntity broom) {
+            broom.setDeltaMovement(dir.x * 0.5D, 0.25D, dir.z * 0.5D);
+            if (this.level() instanceof ServerLevel sl) {
+                sl.getChunkSource().broadcast(broom, new ClientboundSetEntityMotionPacket(broom));
+            }
+        }
+
+        p.setDeltaMovement(dir.x * 1.5D, 0.55D, dir.z * 1.5D);
+        p.hurtMarked = true;
+        if (p instanceof ServerPlayer sp) {
+            sp.connection.send(new ClientboundSetEntityMotionPacket(p));
+        }
     }
 
     // --- grab and smash -----------------------------------------------------------------------------
 
+    /** Whatever is under the tip on the catch tick. The lunge was aimed where the target stood when
+     *  it began, so stepping aside during the reach is a dodge. */
     @Nullable
-    private LivingEntity findGrabVictim() {
-        Vec3 dir = branchDir(getActiveBranch(), 0.0D);
+    private LivingEntity findGrabVictim(int t) {
         LivingEntity best = null;
-        double bestDist = Double.MAX_VALUE;
-        for (LivingEntity c : this.level().getEntitiesOfClass(LivingEntity.class,
-                getBoundingBox().inflate(GRAB_RANGE, 4.0D, GRAB_RANGE), this::isValidVictim)) {
-            if (!canBeGrabbed(c)) continue;
-            Vec3 to = c.position().subtract(position());
-            Vec3 flat = new Vec3(to.x, 0.0D, to.z);
-            double d = flat.length();
-            if (d < GRAB_INNER || d > GRAB_RANGE) continue;
-            if (flat.normalize().dot(dir) < Math.cos(GRAB_ARC_HALF)) continue;
-            if (d < bestDist) {
-                bestDist = d;
-                best = c;
+        double bestGap = Double.MAX_VALUE;
+        for (int sub = 1; sub >= 0; sub--) {
+            Vec3 tip = joint(limbAt(t - sub * 0.5F), WhompingWillowRig.SEGS);
+            for (LivingEntity c : victimsNear(BRANCH_RANGE + 1.0D)) {
+                if (!canBeGrabbed(c)) continue;
+                AABB box = c.getBoundingBox();
+                double cy = Mth.clamp(tip.y, box.minY, box.maxY);
+                double dx = tip.x - (box.minX + box.maxX) * 0.5D;
+                double dz = tip.z - (box.minZ + box.maxZ) * 0.5D;
+                double gap = Math.sqrt(dx * dx + dz * dz + (tip.y - cy) * (tip.y - cy))
+                        - c.getBbWidth() * 0.5D - GRAB_REACH;
+                if (gap <= 0.0D && gap < bestGap) {
+                    bestGap = gap;
+                    best = c;
+                }
             }
         }
         return best;
@@ -773,43 +844,44 @@ public class WhompingWillowEntity extends Monster {
         return c.getBbHeight() < 3.0F && !c.isPassenger();
     }
 
+    /** The victim rides the tip of the limb the client is drawing, every tick. The tip touches the
+     *  ground on exactly SMASH_BLOW_A and SMASH_BLOW_B (see WhompingWillowRig.smashHeight). */
     private void tickSmash(int t) {
         LivingEntity victim = getHeldVictim();
         if (victim == null) return;
-        // The Giant has no equivalent guard because nothing in its fight teleports. This mod has
-        // Apparition, and pushing a position through a stale connection to a player who has changed
-        // dimension is a hard desync.
+        // Apparition exists in this mod, and pushing a position through a stale connection to a
+        // player who has changed dimension is a hard desync.
         if (victim.isRemoved() || victim.level() != this.level()
-                || victim.distanceToSqr(this) > 144.0D) {
+                || victim.distanceToSqr(this) > 196.0D) {
             dropVictim();
             return;
         }
 
-        Vec3 dir = branchDir(getActiveBranch(), 0.0D);
-        float p = t / (float) SMASH_DURATION;
-        double lift = Mth.lerp(holdLift(p), 1.2D, 7.4D);
-        Vec3 at = position().add(dir.scale(3.2D)).add(0.0D, lift, 0.0D);
-        holdVictimAt(victim, at);
+        Vec3 tip = joint(limbAt(t), WhompingWillowRig.SEGS);
+        int gy = this.level().getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                Mth.floor(tip.x), Mth.floor(tip.z));
+        // Held by the middle, never pushed below the ground the tip is beating it against.
+        double feet = Math.max(gy, tip.y - victim.getBbHeight() * 0.5D);
+        Vec3 at = new Vec3(tip.x, feet, tip.z);
+        if (t < SMASH_RELEASE_TICK) holdVictimAt(victim, at);
 
-        if ((t == SMASH_BLOW_A || t == SMASH_BLOW_B)) {
-            int gy = this.level().getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
-                    Mth.floor(at.x), Mth.floor(at.z));
-            Vec3 ground = new Vec3(at.x, gy, at.z);
-            holdVictimAt(victim, ground);
+        if (t == SMASH_BLOW_A || t == SMASH_BLOW_B) {
             victim.hurt(this.damageSources().mobAttack(this), damage(1.1F));
             victim.push(0.0D, 0.25D, 0.0D);
             victim.hurtMarked = true;
             if (victim instanceof ServerPlayer sp) ModEvents.interruptActiveCasting(sp);
             playSound(ModSounds.WILLOW_IMPACT.get(), 2.0F, 1.0F);
-            if (t == SMASH_BLOW_A && this.level() instanceof ServerLevel sl) {
-                smashBlocks(sl, BlockPos.containing(ground));
+            if (this.level() instanceof ServerLevel sl) {
+                sl.sendParticles(ParticleTypes.CLOUD, tip.x, gy + 0.3D, tip.z, 10, 0.7D, 0.1D, 0.7D, 0.05D);
+                if (t == SMASH_BLOW_A) smashBlocks(sl, BlockPos.containing(tip.x, gy, tip.z));
             }
         }
 
         if (t >= SMASH_RELEASE_TICK && !this.victimReleased) {
             this.victimReleased = true;
-            // A soft toss, never a launch. The Giant can hurl you clear because that ends the fight
-            // in its favour; a willow that flung you out of reach would be ending it in yours.
+            // A soft toss, never a launch: a willow that flung you out of reach would be ending the
+            // fight in your favour.
+            Vec3 dir = branchDir(getActiveBranch());
             victim.setDeltaMovement(dir.x * 0.6D, 0.35D, dir.z * 0.6D);
             victim.fallDistance = 0.0F;
             victim.hurtMarked = true;
@@ -890,7 +962,7 @@ public class WhompingWillowEntity extends Monster {
 
     private void leafBurst(double spread, int count) {
         if (this.level() instanceof ServerLevel sl) {
-            sl.sendParticles(ParticleTypes.COMPOSTER, getX(), getY() + 5.0D, getZ(),
+            sl.sendParticles(ParticleTypes.COMPOSTER, getX(), getY() + 8.0D, getZ(),
                     count, spread, 2.0D, spread, 0.02D);
         }
     }
@@ -924,8 +996,9 @@ public class WhompingWillowEntity extends Monster {
         if (player.getY() > getY() + 2.0D) return false;
         Vec3 to = player.position().subtract(position());
         Vec3 flat = new Vec3(to.x, 0.0D, to.z);
-        if (flat.length() > 2.5D) return false;
-        Vec3 knot = Vec3.directionFromRotation(0.0F, branchWorldYaw(getKnotBranch(), getPlantedYaw()));
+        if (flat.length() > 2.9D) return false;   // the bole is ~3.4 wide at the knot
+        Vec3 knot = Vec3.directionFromRotation(0.0F,
+                Mth.wrapDegrees(getPlantedYaw() + WhompingWillowRig.KNOT_BEARING));
         return flat.normalize().dot(knot) >= Math.cos(0.61D); // +/- 35 degrees
     }
 
@@ -971,7 +1044,7 @@ public class WhompingWillowEntity extends Monster {
         dropVictim();
         if (this.level() instanceof ServerLevel sl) {
             // The whole canopy comes down with it.
-            sl.sendParticles(ParticleTypes.COMPOSTER, getX(), getY() + 6.0D, getZ(),
+            sl.sendParticles(ParticleTypes.COMPOSTER, getX(), getY() + 8.0D, getZ(),
                     140, 3.4D, 3.0D, 3.4D, 0.06D);
             sl.sendParticles(ParticleTypes.CLOUD, getX(), getY() + 0.4D, getZ(),
                     40, 3.0D, 0.3D, 3.0D, 0.05D);
@@ -1059,9 +1132,10 @@ public class WhompingWillowEntity extends Monster {
 
     @Override
     public AABB getBoundingBoxForCulling() {
-        // The trunk box is 3 wide; the branches reach seven blocks out. Without this the canopy
-        // pops out of existence the moment the trunk leaves the frustum.
-        return this.getBoundingBox().inflate(8.0D, 2.0D, 8.0D);
+        // The box is the trunk only: 3 wide and 9 tall, under a crown that stands over twelve and
+        // limbs that reach nine out. Without this the canopy pops out of existence the moment the
+        // trunk leaves the frustum.
+        return this.getBoundingBox().inflate(10.0D, 4.5D, 10.0D);
     }
 
     // --- sound / save -----------------------------------------------------------------------------------
@@ -1182,7 +1256,10 @@ public class WhompingWillowEntity extends Monster {
 
         private AttackState choose(double d) {
             float r = this.willow.random.nextFloat();
-            if (d <= 3.2D) return r < 0.60F ? AttackState.ROOT_STOMP : AttackState.GRAB;
+            // Inside the roots' reach only the stomp and the grab can connect: a swung limb passes
+            // over anyone pressed against the trunk (the hit test is the limb itself, so this is
+            // not a rule, it is geometry -- see HitCheck in the parity harness notes).
+            if (d <= STOMP_RANGE) return r < 0.60F ? AttackState.ROOT_STOMP : AttackState.GRAB;
             if (r < 0.50F) return AttackState.SWEEP;
             return r < 0.75F ? AttackState.SLAM : AttackState.GRAB;
         }
@@ -1193,6 +1270,14 @@ public class WhompingWillowEntity extends Monster {
             this.willow.entityData.set(DATA_ACTIVE_BRANCH, (byte) branch);
             float off = Mth.wrapDegrees(bearing(at) - branchWorldYaw(branch, this.willow.getPlantedYaw()));
             this.willow.entityData.set(DATA_SWEEP_SIGN, (byte) (off >= 0.0F ? 1 : -1));
+            // Aim the limb at where the target stands now. The rig turns and bends the limb to this
+            // point, and the hit tests run against that same limb, so moving after the wind-up is
+            // a dodge and standing still is not.
+            this.willow.entityData.set(DATA_AIM_YAW, Mth.clamp(off * Mth.DEG_TO_RAD,
+                    -WhompingWillowRig.MAX_AIM_YAW, WhompingWillowRig.MAX_AIM_YAW));
+            this.willow.entityData.set(DATA_AIM_DIST, (float) this.willow.horizontalDistTo(at));
+            this.willow.entityData.set(DATA_AIM_HEIGHT, (float) (at.y - this.willow.getY())
+                    + (state == AttackState.SWAT ? 0.9F : 0.6F));
             this.willow.setAttackState(state);
         }
 

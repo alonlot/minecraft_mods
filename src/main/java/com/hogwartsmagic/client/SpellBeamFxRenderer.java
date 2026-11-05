@@ -50,7 +50,34 @@ public final class SpellBeamFxRenderer {
     private static final int MIST_PUFFS = 8;
     private static final float SPARK_GRAVITY = 0.012f;
 
+    /** A strike's hold: the flash peaks and everything else waits, then bursts out together. */
+    private static final float IMPACT_HOLD = 1.5f;
+
+    private static final java.util.Map<SpellBeamClientState.Beam, Frame> FRAMES = new java.util.IdentityHashMap<>();
+    private static final java.util.Map<SpellBeamClientState.Beam, double[]> TRAIL_DISTANCES =
+            new java.util.IdentityHashMap<>();
+
     private SpellBeamFxRenderer() {
+    }
+
+    /** The release at the wand: a quick hot flare and a ring snapping out across the line of the beam. */
+    private static void drawMuzzle(VertexConsumer out, Matrix4f m, SpellBeamClientState.Muzzle muzzle, double now,
+                                   Vec3 camera) {
+        float age = (float) (now - muzzle.start);
+        if (age < 0.0f || age > SpellBeamClientState.MUZZLE_TICKS) {
+            return;
+        }
+        BeamStyle s = muzzle.style;
+        float f = age / SpellBeamClientState.MUZZLE_TICKS;
+        Vec3 pos = muzzle.pos.subtract(camera);
+        // Smaller when it is your own wand, half a block from your eye.
+        float near = (float) Mth.clamp(pos.length() / 1.5, 0.45, 1.0);
+        float fade = (1.0f - f) * (1.0f - f);
+        billboard(out, m, pos, 0.35f * near * (1.0f - 0.5f * f), fade, s.coreR, s.coreG, s.coreB, true);
+        billboard(out, m, pos, 0.9f * near, 0.6f * fade, s.glowR, s.glowG, s.glowB, false);
+        Vec3[] axes = frame(muzzle.dir);
+        ring(out, m, pos, axes[0], axes[1], (0.15f + 0.8f * smoothstep(0.0f, 0.6f, f)) * near, 0.06f * near,
+                0.7f * fade, s.coreR, s.coreG, s.coreB, 28);
     }
 
     @SubscribeEvent
@@ -68,10 +95,30 @@ public final class SpellBeamFxRenderer {
         Matrix4f m = new Matrix4f();
         MultiBufferSource.BufferSource buffer = minecraft.renderBuffers().bufferSource();
 
-        VertexConsumer dark = buffer.getBuffer(ModRenderTypes.AVADA_SHADOW);
+        // Each beam's shape is worked out once a frame and shared by both passes, as are its trail distances.
+        FRAMES.clear();
+        TRAIL_DISTANCES.clear();
         for (SpellBeamClientState.Beam beam : SpellBeamClientState.beams()) {
             Frame frame = Frame.of(beam, now, partial, camera);
+            if (frame != null) {
+                FRAMES.put(beam, frame);
+            }
+        }
+
+        VertexConsumer dark = buffer.getBuffer(ModRenderTypes.AVADA_SHADOW);
+        for (SpellBeamClientState.Beam beam : SpellBeamClientState.beams()) {
+            Frame frame = FRAMES.get(beam);
             BeamStyle style = beam.style;
+            if (frame != null && !(style.sheathDark && style.sheathWidth > 0.0f)) {
+                // A light spell against a bright sky washes out: give it a faint dark backing, by daylight only.
+                Vec3 head = frame.head().add(camera);
+                float daylight = minecraft.level.getMaxLocalRawBrightness(net.minecraft.core.BlockPos.containing(head))
+                        / 15.0f;
+                if (daylight > 0.3f) {
+                    ribbon(dark, m, frame.path, frame.widths(style.glowWidth * 0.75f),
+                            frame.alphas(0.14f * (daylight - 0.3f) / 0.7f, true), 1.0f, 1.0f, SMOKE_R, SMOKE_G, SMOKE_B);
+                }
+            }
             if (frame != null) {
                 if (style.sheathDark && style.sheathWidth > 0.0f) {
                     ribbon(dark, m, frame.path, frame.widths(style.sheathWidth), frame.alphas(style.sheathAlpha, true),
@@ -94,8 +141,11 @@ public final class SpellBeamFxRenderer {
         buffer.endBatch(ModRenderTypes.AVADA_SHADOW);
 
         VertexConsumer light = buffer.getBuffer(ModRenderTypes.AVADA_LIGHT);
+        for (SpellBeamClientState.Muzzle muzzle : SpellBeamClientState.muzzles()) {
+            drawMuzzle(light, m, muzzle, now, camera);
+        }
         for (SpellBeamClientState.Beam beam : SpellBeamClientState.beams()) {
-            Frame frame = Frame.of(beam, now, partial, camera);
+            Frame frame = FRAMES.get(beam);
             if (frame != null) {
                 drawBeam(light, m, frame);
                 drawStrands(light, m, frame);
@@ -367,9 +417,13 @@ public final class SpellBeamFxRenderer {
         List<Vec3> trail = beam.trail;
         List<Double> times = beam.times;
         int n = trail.size();
-        double[] fromWand = new double[n];
-        for (int i = 1; i < n; i++) {
-            fromWand[i] = fromWand[i - 1] + trail.get(i).distanceTo(trail.get(i - 1));
+        double[] fromWand = TRAIL_DISTANCES.get(beam);
+        if (fromWand == null || fromWand.length != n) {
+            fromWand = new double[n];
+            for (int i = 1; i < n; i++) {
+                fromWand[i] = fromWand[i - 1] + trail.get(i).distanceTo(trail.get(i - 1));
+            }
+            TRAIL_DISTANCES.put(beam, fromWand);
         }
         for (int i = n - 1; i >= 1; i--) {
             double t0 = times.get(i - 1);
@@ -432,7 +486,9 @@ public final class SpellBeamFxRenderer {
                 float alpha = s.wake == BeamStyle.WAKE_SMOKE ? s.wakeAlpha : 0.22f;
                 Vec3 drift = randomDirection(seed).scale(0.12 + s.wakeSpread * l);
                 Vec3 c = at.add(drift).add(0.0, 0.035 * age, 0.0);
-                billboard(out, m, c, size + s.wakeGrow * l, alpha * (1.0f - l) * (1.0f - l) * smoothstep(0.0f, 1.5f, age),
+                float far = 1.0f - smoothstep(32.0f, 56.0f, (float) c.length());
+                billboard(out, m, c, size + s.wakeGrow * l,
+                        alpha * far * (1.0f - l) * (1.0f - l) * smoothstep(0.0f, 1.5f, age),
                         SMOKE_R, SMOKE_G, SMOKE_B, false, 3, 10);
                 return;
             }
@@ -498,7 +554,7 @@ public final class SpellBeamFxRenderer {
         if (!(impact.style.impactDark && impact.full()) && !evade) {
             return;
         }
-        float age = (float) (now - impact.start);
+        float age = (float) (now - impact.start) - IMPACT_HOLD;
         if (age < 0.0f) {
             return;
         }
@@ -537,6 +593,13 @@ public final class SpellBeamFxRenderer {
         billboard(out, m, pos, flashRadius, Math.min(1.0f, flash), s.coreR, s.coreG, s.coreB, true);
         billboard(out, m, pos, 1.9f * scale, s.impactGlow * (1.0f - f) * (1.0f - f) * bright, s.glowR, s.glowG, s.glowB,
                 false);
+        if (age < IMPACT_HOLD) {
+            // The moment of contact: a tight white-hot point, everything else held back.
+            billboard(out, m, pos, 0.4f * scale, bright, 1.0f, 1.0f, 1.0f, true);
+            return;
+        }
+        age -= IMPACT_HOLD;
+        f = age / SpellBeamClientState.IMPACT_TICKS;
 
         if (impact.full()) {
             drawImpactRing(out, m, impact, pos, age, scale, bright);

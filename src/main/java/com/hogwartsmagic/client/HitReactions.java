@@ -117,7 +117,35 @@ public final class HitReactions {
     private static final Set<Integer> PUSHED = new HashSet<>();
     private static final Set<Integer> TINTED = new HashSet<>();
 
+    /** Your own view being struck: when, from where, how hard. */
+    private static double kickStart = -1.0;
+    private static Vec3 kickDir = Vec3.ZERO;
+    private static float kickStrength;
+    private static final float KICK_TICKS = 8.0f;
+
     private HitReactions() {
+    }
+
+    /** Struck yourself: the view snaps back and rolls away from the side the spell came from, and settles. */
+    @SubscribeEvent(priority = net.minecraftforge.eventbus.api.EventPriority.LOW)
+    public static void onCameraAngles(net.minecraftforge.client.event.ViewportEvent.ComputeCameraAngles event) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (kickStart < 0.0 || minecraft.level == null || minecraft.player == null) {
+            return;
+        }
+        float t = (float) (minecraft.level.getGameTime() + event.getPartialTick() - kickStart);
+        if (t < 0.0f || t > KICK_TICKS) {
+            kickStart = -1.0;
+            return;
+        }
+        float decay = 1.0f - t / KICK_TICKS;
+        decay *= decay;
+        Vec3 look = minecraft.player.getViewVector(1.0f);
+        Vec3 right = look.cross(new Vec3(0.0, 1.0, 0.0));
+        float side = right.lengthSqr() < 1.0E-4 ? 0.0f : (float) right.normalize().dot(kickDir);
+        float snap = AvadaChargePose.smoothstep(0.0f, 1.0f, t);
+        event.setPitch(event.getPitch() - 5.0f * kickStrength * decay * snap);
+        event.setRoll(event.getRoll() + 6.0f * kickStrength * side * decay * snap);
     }
 
     public static void accept(SpellPackets.HitReactionPacket packet) {
@@ -127,6 +155,12 @@ public final class HitReactions {
             return;
         }
         double now = minecraft.level.getGameTime();
+        if (packet.kind() == SpellBeamFx.REACT_HIT && minecraft.player != null
+                && packet.entityId() == minecraft.player.getId()) {
+            kickStart = now;
+            kickDir = new Vec3(packet.dx(), packet.dy(), packet.dz());
+            kickStrength = spell == SpellType.AVADA_KEDAVRA || KINDS.getOrDefault(spell, NONE) == TUMBLE ? 1.0f : 0.55f;
+        }
         if (packet.kind() == SpellBeamFx.REACT_FLIGHT) {
             FLIGHTS.put(packet.entityId(), new Flight(spell, now));
             return;

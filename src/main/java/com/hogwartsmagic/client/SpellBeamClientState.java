@@ -42,6 +42,27 @@ public final class SpellBeamClientState {
     private static final Map<Integer, Beam> BEAMS = new HashMap<>();
     private static final List<Impact> IMPACTS = new ArrayList<>();
     private static final List<Clash> CLASHES = new ArrayList<>();
+    private static final List<Muzzle> MUZZLES = new ArrayList<>();
+    public static final float MUZZLE_TICKS = 6.0f;
+
+    /** The release at the wand as a beam leaves it. */
+    public static final class Muzzle {
+        final Vec3 pos;
+        final Vec3 dir;
+        final BeamStyle style;
+        final double start;
+
+        Muzzle(Vec3 pos, Vec3 dir, BeamStyle style, double start) {
+            this.pos = pos;
+            this.dir = dir;
+            this.style = style;
+            this.start = start;
+        }
+    }
+
+    public static Iterable<Muzzle> muzzles() {
+        return MUZZLES;
+    }
     /** How long a clash plays: the lock, the collapse, the blast and the scar it leaves. */
     public static final float CLASH_TICKS = 44.0f;
     /** When a mutual clash detonates; a one-sided one shatters sooner. */
@@ -234,7 +255,7 @@ public final class SpellBeamClientState {
     }
 
     public static boolean isEmpty() {
-        return BEAMS.isEmpty() && IMPACTS.isEmpty() && CLASHES.isEmpty();
+        return BEAMS.isEmpty() && IMPACTS.isEmpty() && CLASHES.isEmpty() && MUZZLES.isEmpty();
     }
 
     public static void acceptImpact(SpellPackets.BeamImpactPacket packet) {
@@ -344,7 +365,9 @@ public final class SpellBeamClientState {
                     continue;
                 }
                 Vec3 dir = motion.lengthSqr() < 1.0E-8 ? new Vec3(0.0, 0.0, 1.0) : motion.normalize();
-                BEAMS.put(spellBeam.getId(), new Beam(spellBeam.getId(), style, origin(spellBeam, head), head, dir, now));
+                Vec3 from = origin(spellBeam, head);
+                BEAMS.put(spellBeam.getId(), new Beam(spellBeam.getId(), style, from, head, dir, now));
+                MUZZLES.add(new Muzzle(from, dir, style, now));
                 continue;
             }
             if (beam.gone()) {
@@ -373,6 +396,7 @@ public final class SpellBeamClientState {
         BEAMS.values().removeIf(beam -> beam.gone() && now - beam.goneAt > beam.linger());
         IMPACTS.removeIf(impact -> now - impact.start > IMPACT_TICKS);
         CLASHES.removeIf(clash -> now - clash.start > CLASH_TICKS);
+        MUZZLES.removeIf(muzzle -> now - muzzle.start > MUZZLE_TICKS || now < muzzle.start);
     }
 
     /** Where the beam starts: the caster's wand tip if we know the caster, else where the beam was first seen. */
@@ -453,12 +477,26 @@ public final class SpellBeamClientState {
     @SubscribeEvent(priority = net.minecraftforge.eventbus.api.EventPriority.LOW)
     public static void onCameraAngles(net.minecraftforge.client.event.ViewportEvent.ComputeCameraAngles event) {
         Minecraft minecraft = Minecraft.getInstance();
-        if (CLASHES.isEmpty() || minecraft.level == null) {
+        if (CLASHES.isEmpty() && IMPACTS.isEmpty() || minecraft.level == null) {
             return;
         }
         double now = minecraft.level.getGameTime() + event.getPartialTick();
         Vec3 camera = event.getCamera().getPosition();
         float shake = 0.0f;
+        // A heavy strike close by kicks the view as it bursts (after the hold), weaker with distance.
+        for (Impact impact : IMPACTS) {
+            float weight = impact.style.screenFlash > 0.0f ? impact.style.screenFlash
+                    : impact.kind == SpellBeamFx.HIT ? 0.15f * impact.style.impactScale : 0.0f;
+            double distance = impact.pos.distanceTo(camera);
+            if (weight <= 0.0f || !impact.full() || distance > SHAKE_RANGE) {
+                continue;
+            }
+            float since = (float) (now - impact.start) - 1.5f;
+            if (since >= 0.0f && since < 10.0f) {
+                float decay = 1.0f - since / 10.0f;
+                shake = Math.max(shake, 1.8f * weight * decay * decay * (float) (1.0 - distance / SHAKE_RANGE));
+            }
+        }
         for (Clash clash : CLASHES) {
             double distance = clash.pos.distanceTo(camera);
             if (distance > SHAKE_RANGE) {
@@ -483,6 +521,13 @@ public final class SpellBeamClientState {
 
     /** The light the beams, strikes and clashes throw on what is round them (SpellLight). */
     static void lights(float partial, double now, SpellLight.Sink sink) {
+        for (Muzzle muzzle : MUZZLES) {
+            float f = (float) ((now - muzzle.start) / MUZZLE_TICKS);
+            if (f >= 0.0f && f < 1.0f) {
+                sink.add(muzzle.pos, muzzle.style.glowR, muzzle.style.glowG, muzzle.style.glowB, 4.0f,
+                        0.8f * (1.0f - f) * (1.0f - f));
+            }
+        }
         for (Beam beam : BEAMS.values()) {
             BeamStyle s = beam.style;
             float strength = 0.55f;
@@ -525,6 +570,7 @@ public final class SpellBeamClientState {
             BEAMS.clear();
             IMPACTS.clear();
             CLASHES.clear();
+            MUZZLES.clear();
         }
     }
 

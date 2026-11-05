@@ -784,7 +784,7 @@ public final class MiniHogwartsGameTests {
      * and Sir Cadogan, statue, student, elf and the Sorting Hat all stand where the anchors say, the painting and the
      * two living portraits pass the game's own {@code survives()}, and an unknown chest theme is skipped.
      */
-    @GameTest(template = EMPTY, batch = "mh_furnish", timeoutTicks = 200)
+    @GameTest(template = EMPTY, batch = "mh_furnish", timeoutTicks = 700)
     public static void anchorsFurnishTheirChunks(GameTestHelper helper) {
         var level = helper.getLevel();
         BlockPos far = helper.absolutePos(BlockPos.ZERO).offset(-3072, 0, -3072);
@@ -793,7 +793,7 @@ public final class MiniHogwartsGameTests {
         // A freshly forced chunk only lets entity queries see its entities once the server has ticked it up to
         // entity-ticking, which takes a few ticks and is not the same tick for every chunk; wait for the four
         // the castle covers, then furnish.
-        whenEntityTicking(helper, level, chunk, 40, () -> furnishAndCheck(helper, level, chunk, forced));
+        whenEntityTicking(helper, level, chunk, 300, () -> furnishAndCheck(helper, level, chunk, forced));
     }
 
     private static void whenEntityTicking(GameTestHelper helper, net.minecraft.server.level.ServerLevel level,
@@ -808,6 +808,8 @@ public final class MiniHogwartsGameTests {
         if (ready) {
             then.run();
         } else {
+            // Far chunks are generated and ticketed on the server's own schedule (a busy tick can defer the
+            // ticket update for many ticks), so wait out nearly the whole test timeout before calling it a failure.
             helper.assertTrue(triesLeft > 0, "the chunks never became entity-ticking");
             helper.runAfterDelay(2, () -> whenEntityTicking(helper, level, chunk, triesLeft - 1, then));
         }

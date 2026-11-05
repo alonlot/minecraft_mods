@@ -19,8 +19,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.Level;
@@ -232,7 +230,7 @@ public final class AlohomoraSpell {
         // The barrier itself flares and breaks up hex by hex on every client (WardFxRenderer); this is the lock giving.
         com.hogwartsmagic.spell.SpellBeamFx.effectAt(level, SpellType.ALOHOMORA,
                 net.minecraft.world.phys.Vec3.atCenterOf(pos).add(0.0, 0.6, 0.0), com.hogwartsmagic.spell.SpellBeamFx.GLOW);
-        level.playSound(null, pos, SoundEvents.BEACON_DEACTIVATE, SoundSource.BLOCKS, 0.9f, 1.6f);
+        // The dome's shatter is played by each client as it breaks up (WardFxRenderer).
         player.displayClientMessage(Component.translatable("message.hogwartsmagic.alohomora.ward")
                 .withStyle(ChatFormatting.AQUA), true);
         return true;

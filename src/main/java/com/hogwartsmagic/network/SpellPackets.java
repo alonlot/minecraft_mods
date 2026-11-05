@@ -1222,7 +1222,9 @@ public class SpellPackets {
                 com.hogwartsmagic.spell.support.lock.PistonLockSpell.noteHoldStart(player); // the press counts as held
             }
 
-            boolean shouldChannelProtegoMaxima = spell == SpellType.PROTEGO_MAXIMA && player.getXRot() <= -55.0F;
+            // Channelled at any angle: the client sends heartbeats only for a press that raises the dome (one aimed
+            // at a Ward block is a plain cast instead, which charges the ward).
+            boolean shouldChannelProtegoMaxima = spell == SpellType.PROTEGO_MAXIMA;
             if (p.channelHeartbeat && shouldChannelProtegoMaxima) {
                 if (!creative && MagicWandItem.isOnCooldown(wand, spell, now)) return;
                 if (playerData.getBoolean(TAG_PROTEGO_MAXIMA_CHANNELING)) {
@@ -1345,7 +1347,7 @@ public class SpellPackets {
             }
 
             // Every channel above has returned by now: a heartbeat that reaches here belongs to no channel (a stray
-            // or forged one, or Protego Maxima aimed below the channel angle) and must never cast or charge mana.
+            // or forged one) and must never cast or charge mana.
             if (p.channelHeartbeat) return;
 
             if (!creative && MagicWandItem.isOnCooldown(wand, spell, now)

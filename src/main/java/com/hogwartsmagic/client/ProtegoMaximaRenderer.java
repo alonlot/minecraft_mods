@@ -37,7 +37,7 @@ import java.util.Map;
 /**
  * Protego Maxima, drawn as its own spell rather than a big Protego bubble.
  *
- * <p>A channelling caster holds the wand up to the sky. A white pillar of light, two strands winding round it and
+ * <p>A channelling caster holds the wand up to the sky (at whatever angle they look). A white pillar of light, two strands winding round it and
  * pulses running up it, climbs from the wand tip to where it meets the shell, and blooms into a star there. From that
  * point the shell unfurls downwards over the caster like a cloak thrown over them, its hex lattice lit by a bright seam
  * at the falling edge, until it meets the ground and lights a turning rune circle with a ring of light rolling out.
@@ -136,7 +136,20 @@ public final class ProtegoMaximaRenderer {
 
     // ---- the caster's pose -------------------------------------------------------------------------------------
 
-    /** A channelling caster holds the wand straight up along their gaze, the arm trembling with the strain. */
+    /** The lowest the pillar ever leans, in degrees above the horizon: above it, it follows the caster's gaze. */
+    private static final float PILLAR_MIN_ELEVATION = 72.0f;
+
+    /**
+     * Where the pillar points: along the caster's gaze when they look steeply up, otherwise raised to
+     * {@link #PILLAR_MIN_ELEVATION} in the direction they face, so the dome works at any angle and the bloom stays
+     * overhead (and out of your crosshair).
+     */
+    private static Vec3 pillarDirection(LivingEntity caster, float partial) {
+        float pitch = Math.min(caster.getViewXRot(partial), -PILLAR_MIN_ELEVATION);
+        return Vec3.directionFromRotation(pitch, caster.getViewYRot(partial));
+    }
+
+    /** A channelling caster holds the wand up along the pillar, the arm trembling with the strain. */
     public static void applyPose(EntityModel<?> model, Entity entity, float partial) {
         if (!(model instanceof HumanoidModel<?> humanoid) || !(entity instanceof Player player)) {
             return;
@@ -147,12 +160,13 @@ public final class ProtegoMaximaRenderer {
         }
         long tick = level.getGameTime();
         ProtegoShield.View view = ProtegoShield.view(entity.getId(), tick);
-        if (view == null || !view.dome() || !view.up(tick) || player.getViewXRot(partial) > -50.0f) {
+        if (view == null || !view.dome() || !view.up(tick)) {
             return;
         }
+        float pillarPitch = Math.min(player.getViewXRot(partial), -PILLAR_MIN_ELEVATION) * Mth.DEG_TO_RAD;
         float t = tick + partial;
         float tremble = 0.02f * Mth.sin(t * 3.7f) + 0.012f * Mth.sin(t * 9.1f);
-        humanoid.rightArm.xRot = humanoid.head.xRot - Mth.HALF_PI + tremble;
+        humanoid.rightArm.xRot = pillarPitch - Mth.HALF_PI + tremble;
         humanoid.rightArm.yRot = humanoid.head.yRot - 0.06f;
         humanoid.rightArm.zRot = 0.0f;
         humanoid.leftArm.xRot = Mth.lerp(0.6f, humanoid.leftArm.xRot, -0.25f);
@@ -326,10 +340,10 @@ public final class ProtegoMaximaRenderer {
             d.strength *= 1.0f - 0.25f * d.t;
         }
 
-        // The pillar: from the wand tip along the caster's gaze to where it leaves the sphere.
-        if (living instanceof Player && d.phase != SHATTER && living.getViewXRot(partial) <= -50.0f) {
-            Vec3 tip = wandTip(living, partial, d.ownFirstPerson);
-            Vec3 dir = living.getViewVector(partial).normalize();
+        // The pillar: from the wand tip skywards (see pillarDirection) to where it leaves the sphere.
+        if (living instanceof Player && d.phase != SHATTER) {
+            Vec3 dir = pillarDirection(living, partial);
+            Vec3 tip = wandTip(living, partial, d.ownFirstPerson, dir);
             Vec3 oc = tip.subtract(d.centerWorld);
             double b = oc.dot(dir);
             double c = oc.lengthSqr() - RADIUS * RADIUS;
@@ -368,8 +382,8 @@ public final class ProtegoMaximaRenderer {
         return d;
     }
 
-    /** Where the pillar leaves the wand: as AquaStreamClient's tip, the arm raised along the gaze. */
-    private static Vec3 wandTip(LivingEntity caster, float partial, boolean firstPerson) {
+    /** Where the pillar leaves the wand: as AquaStreamClient's tip, the arm raised along the pillar. */
+    private static Vec3 wandTip(LivingEntity caster, float partial, boolean firstPerson, Vec3 pillar) {
         Vec3 look = caster.getViewVector(partial);
         Vec3 right = look.cross(new Vec3(0.0, 1.0, 0.0));
         right = right.lengthSqr() < 1.0E-4 ? new Vec3(1.0, 0.0, 0.0) : right.normalize();
@@ -381,7 +395,7 @@ public final class ProtegoMaximaRenderer {
         Vec3 bodyRight = new Vec3(-Mth.cos(bodyYaw), 0.0, -Mth.sin(bodyYaw));
         double shoulder = (caster.isCrouching() ? 18.8 : 22.0) / 16.0 * 0.9375;
         return caster.getPosition(partial).add(0.0, shoulder, 0.0).add(bodyRight.scale(5.0 / 16.0 * 0.9375))
-                .add(look.scale(1.12));
+                .add(pillar.scale(1.12));
     }
 
     // ---- the shell ---------------------------------------------------------------------------------------------

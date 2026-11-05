@@ -4325,5 +4325,77 @@
         "stream": false
       }
     ]
+  },
+  "ward.activate": {
+    "subtitle": "subtitles.hogwartsmagic.ward.activate",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:ward/ward_activate",
+        "stream": false
+      }
+    ]
+  },
+  "ward.deactivate": {
+    "subtitle": "subtitles.hogwartsmagic.ward.deactivate",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:ward/ward_deactivate",
+        "stream": false
+      }
+    ]
+  },
+  "ward.reveal": {
+    "subtitle": "subtitles.hogwartsmagic.ward.reveal",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:ward/ward_reveal",
+        "stream": false
+      }
+    ]
+  },
+  "ward.barrier.raise": {
+    "subtitle": "subtitles.hogwartsmagic.ward.barrier.raise",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:ward/barrier_raise",
+        "stream": false
+      }
+    ]
+  },
+  "ward.barrier.release": {
+    "subtitle": "subtitles.hogwartsmagic.ward.barrier.release",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:ward/barrier_release",
+        "stream": false
+      }
+    ]
+  },
+  "ward.barrier.hit": {
+    "subtitle": "subtitles.hogwartsmagic.ward.barrier.hit",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:ward/barrier_hit",
+        "stream": false
+      }
+    ]
+  },
+  "ward.barrier.shatter": {
+    "subtitle": "subtitles.hogwartsmagic.ward.barrier.shatter",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:ward/barrier_shatter",
+        "stream": false
+      }
+    ]
+  },
+  "ward.barrier.hum": {
+    "subtitle": "subtitles.hogwartsmagic.ward.barrier.hum",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:ward/barrier_hum",
+        "stream": true
+      }
+    ]
   }
 }

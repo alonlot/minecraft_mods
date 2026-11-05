@@ -572,6 +572,7 @@ public class ExampleMod
     public static final RegistryObject<Block> PATRONUS_LIGHT_BLOCK = BLOCKS.register("patronus_light_block", 
             () -> new com.hogwartsmagic.block.PatronusLightBlock(
                     BlockBehaviour.Properties.of()
+                            .replaceable() // a stray light must never stop a player building there
                             .noCollission()
                             .noLootTable()
                             .instabreak()

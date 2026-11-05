@@ -164,12 +164,18 @@ public final class ClientRuntimeBridge {
             return;
         }
 
-        ItemStack revealStack = switch (packet.house()) {
-            case GRYFFINDOR -> new ItemStack(ExampleMod.GRYFFINDOR_HOUSE_REVEAL.get());
-            case RAVENCLAW -> new ItemStack(ExampleMod.RAVENCLAW_HOUSE_REVEAL.get());
-            case HUFFLEPUFF -> new ItemStack(ExampleMod.HUFFLEPUFF_HOUSE_REVEAL.get());
-            case SLYTHERIN -> new ItemStack(ExampleMod.SLYTHERIN_HOUSE_REVEAL.get());
-        };
+        // if-chain, not an enum switch: the synthetic switch-map class fails to load in client code here.
+        com.hogwartsmagic.sorting.HogwartsHouse house = packet.house();
+        ItemStack revealStack;
+        if (house == com.hogwartsmagic.sorting.HogwartsHouse.GRYFFINDOR) {
+            revealStack = new ItemStack(ExampleMod.GRYFFINDOR_HOUSE_REVEAL.get());
+        } else if (house == com.hogwartsmagic.sorting.HogwartsHouse.RAVENCLAW) {
+            revealStack = new ItemStack(ExampleMod.RAVENCLAW_HOUSE_REVEAL.get());
+        } else if (house == com.hogwartsmagic.sorting.HogwartsHouse.HUFFLEPUFF) {
+            revealStack = new ItemStack(ExampleMod.HUFFLEPUFF_HOUSE_REVEAL.get());
+        } else {
+            revealStack = new ItemStack(ExampleMod.SLYTHERIN_HOUSE_REVEAL.get());
+        }
 
         minecraft.gameRenderer.displayItemActivation(revealStack);
         minecraft.player.playSound(SoundEvents.TOTEM_USE, 1.0f, 1.0f);

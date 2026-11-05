@@ -227,10 +227,7 @@ public class ClientModEvents {
                     boostFovPunchTicks--;
                 }
 
-                boolean radialDown = InputConstants.isKeyDown(
-                        mc.getWindow().getWindow(),
-                        WAND_RADIAL_MENU_KEY.getKey().getValue()
-                );
+                boolean radialDown = isRawKeyHeld(mc, WAND_RADIAL_MENU_KEY);
                 if (mc.player != null) {
                     boolean holdingMainWand = MagicWandItem.isAnyWand(mc.player.getMainHandItem());
 
@@ -253,10 +250,7 @@ public class ClientModEvents {
                 }
                 wasRadialDown = radialDown;
 
-                boolean grimoireDown = InputConstants.isKeyDown(
-                        mc.getWindow().getWindow(),
-                        GRIMOIRE_KEY.getKey().getValue()
-                );
+                boolean grimoireDown = isRawKeyHeld(mc, GRIMOIRE_KEY);
                 if (grimoireDown && !wasGrimoireDown && mc.player != null && mc.screen == null) {
                     mc.setScreen(new com.hogwartsmagic.client.SpellCompendiumScreen(mc.player));
                 }
@@ -869,6 +863,26 @@ public class ClientModEvents {
                 // Drain queued clicks while no wand is held so they do not fire later.
             }
         }
+    }
+
+    /**
+     * The key's physical state, read straight from GLFW (a held key still counts while a screen is open,
+     * which KeyMapping.isDown does not). An unbound key is never held: asking GLFW about key -1 logs a
+     * GL error every tick. A key rebound to a mouse button is read as a mouse button.
+     */
+    private static boolean isRawKeyHeld(Minecraft mc, KeyMapping mapping) {
+        InputConstants.Key key = mapping.getKey();
+        if (key.getValue() == InputConstants.UNKNOWN.getValue()) {
+            return false;
+        }
+        long window = mc.getWindow().getWindow();
+        if (key.getType() == InputConstants.Type.MOUSE) {
+            return GLFW.glfwGetMouseButton(window, key.getValue()) == GLFW.GLFW_PRESS;
+        }
+        if (key.getType() != InputConstants.Type.KEYSYM) {
+            return false;
+        }
+        return InputConstants.isKeyDown(window, key.getValue());
     }
 
     public static KeyMapping getSpellSlotKeyMapping(int slotIndex) {

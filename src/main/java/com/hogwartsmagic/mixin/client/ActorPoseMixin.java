@@ -48,6 +48,9 @@ public abstract class ActorPoseMixin {
         // Locked in Priori Incantatem: the wand held out at the other duellist, straining.
         com.hogwartsmagic.client.PrioriClient.applyPose(((LivingEntityRenderer<?, ?>) (Object) this).getModel(),
                 entity, partial);
+        // Under the Cruciatus Curse: the body writhes; its caster holds the wand out on them.
+        com.hogwartsmagic.client.CrucioClient.applyPose(((LivingEntityRenderer<?, ?>) (Object) this).getModel(),
+                entity, partial);
     }
 
     @Inject(method = RENDER, at = @At("RETURN"))

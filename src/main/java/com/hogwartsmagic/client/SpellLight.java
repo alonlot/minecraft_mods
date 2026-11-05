@@ -83,6 +83,7 @@ public final class SpellLight {
         AvadaChargeClientState.lights(partial, now, sink);
         PrioriClient.lights(partial, now, sink);
         TravelFxClient.lights(partial, now, sink);
+        CrucioClient.lights(partial, now, sink);
         lumos(partial, sink);
         if (lights.size() > MAX_SOURCES) {
             lights.sort((x, y) -> Double.compare(x.pos.distanceToSqr(camera), y.pos.distanceToSqr(camera)));

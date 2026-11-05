@@ -8,8 +8,6 @@ import com.hogwartsmagic.spell.combat.CombatTags;
 import com.hogwartsmagic.spell.combat.CrowdControl;
 import com.hogwartsmagic.spell.damage.DamageSupport;
 import com.hogwartsmagic.spell.disable.DisableSupport;
-import net.minecraft.core.particles.DustParticleOptions;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -32,7 +30,6 @@ import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.event.server.ServerStoppingEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
-import org.joml.Vector3f;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -50,7 +47,6 @@ import java.util.UUID;
  */
 @Mod.EventBusSubscriber(modid = ExampleMod.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class CrucioChannel {
-    private static final DustParticleOptions RED = new DustParticleOptions(new Vector3f(0.9f, 0.05f, 0.05f), 1.0f);
 
     private static final class Channel {
         final UUID casterId;
@@ -130,6 +126,26 @@ public final class CrucioChannel {
                     maxTicks + CrucioRules.HEARTBEAT_TIMEOUT, 0, false, false, false));
         }
         CHANNELS.put(owner.getUUID(), channel);
+        send(livingOwner, target, START);
+    }
+
+    /** What the clients are told of a channel (they draw it: CrucioClient). */
+    public static final byte START = 0;
+    public static final byte KEEP = 1;
+    public static final byte PULSE = 2;
+    public static final byte END = 3;
+
+    private static void send(@Nullable LivingEntity caster, @Nullable LivingEntity target, byte state) {
+        if (caster == null || target == null || caster.level().isClientSide()) {
+            return;
+        }
+        com.hogwartsmagic.network.SpellPackets.CrucioChannelPacket packet =
+                new com.hogwartsmagic.network.SpellPackets.CrucioChannelPacket(caster.getId(), target.getId(), state);
+        // Both sides' watchers; the client takes the same packet twice without harm.
+        com.hogwartsmagic.network.SpellPackets.CHANNEL.send(packet,
+                net.minecraftforge.network.PacketDistributor.TRACKING_ENTITY_AND_SELF.with(caster));
+        com.hogwartsmagic.network.SpellPackets.CHANNEL.send(packet,
+                net.minecraftforge.network.PacketDistributor.TRACKING_ENTITY_AND_SELF.with(target));
     }
 
     public static void heartbeat(ServerPlayer player) {
@@ -182,16 +198,9 @@ public final class CrucioChannel {
         }
         if (CrucioRules.isDamageTick(elapsed)) {
             target.hurt(DamageSupport.magicFrom(target, caster), CrucioRules.DAMAGE);
-            level.sendParticles(ParticleTypes.DAMAGE_INDICATOR, target.getX(), target.getY() + target.getBbHeight() * 0.6,
-                    target.getZ(), 4, 0.25, 0.25, 0.25, 0.1);
-        }
-        if (elapsed % 4 == 0) {
-            Vec3 from = caster.getEyePosition();
-            Vec3 to = target.position().add(0.0, target.getBbHeight() * 0.6, 0.0);
-            for (int i = 1; i <= 6; i++) {
-                Vec3 point = from.lerp(to, i / 7.0);
-                level.sendParticles(RED, point.x, point.y, point.z, 1, 0.03, 0.03, 0.03, 0.0);
-            }
+            send(caster, target, PULSE); // a surge of pain down the beam (drawn by the clients)
+        } else if (elapsed % 10 == 5) {
+            send(caster, target, KEEP); // the clients let a channel go if they stop hearing of it
         }
     }
 
@@ -203,6 +212,10 @@ public final class CrucioChannel {
     private static void end(MinecraftServer server, Channel channel) {
         if (!CHANNELS.remove(channel.casterId, channel)) {
             return;
+        }
+        ServerLevel endLevel = server.getLevel(channel.dimension);
+        if (endLevel != null) {
+            send(living(endLevel.getEntity(channel.casterId)), living(endLevel.getEntity(channel.targetId)), END);
         }
         ServerPlayer casterPlayer = channel.held ? server.getPlayerList().getPlayer(channel.casterId) : null;
         if (casterPlayer != null) {

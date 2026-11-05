@@ -280,6 +280,12 @@ public final class SpellBeamClientState {
         double now = minecraft.level.getGameTime();
         Vec3 pos = new Vec3(packet.x(), packet.y(), packet.z());
         byte outcome = packet.outcome();
+        // The same clash arrives once per side of it: draw it once.
+        for (Clash existing : CLASHES) {
+            if (existing.start == now && existing.pos.distanceToSqr(pos) < 1.0E-4) {
+                return;
+            }
+        }
         // Whichever beams the clash ends stop at it, on their own line; a winner flies on.
         if (outcome != SpellBeamFx.CLASH_A_WINS) {
             endAt(packet.beamA(), pos, now);
@@ -469,7 +475,7 @@ public final class SpellBeamClientState {
         if (shake <= 0.001f) {
             return;
         }
-        float t = (float) now;
+        float t = (float) (now % 20000.0); // absolute world time would saturate Mth.sin's table in an old world
         event.setPitch(event.getPitch() + shake * (Mth.sin(t * 2.9f) + 0.5f * Mth.sin(t * 7.1f)) * 0.6f);
         event.setYaw(event.getYaw() + shake * (Mth.sin(t * 3.7f + 1.3f) + 0.5f * Mth.sin(t * 6.3f)) * 0.6f);
         event.setRoll(event.getRoll() + shake * Mth.sin(t * 4.3f + 2.1f) * 0.4f);
@@ -509,6 +515,16 @@ public final class SpellBeamClientState {
             float g = 0.5f + 0.25f * (clash.styleA.glowG + clash.styleB.glowG);
             float b = 0.5f + 0.25f * (clash.styleA.glowB + clash.styleB.glowB);
             sink.add(clash.pos, r, g, b, 7.0f, strength);
+        }
+    }
+
+    /** Beams, strikes and clashes belong to the level they were in (a dimension change, a respawn). */
+    @SubscribeEvent
+    public static void onLevelUnload(net.minecraftforge.event.level.LevelEvent.Unload event) {
+        if (event.getLevel().isClientSide()) {
+            BEAMS.clear();
+            IMPACTS.clear();
+            CLASHES.clear();
         }
     }
 

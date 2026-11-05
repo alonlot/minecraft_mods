@@ -360,6 +360,9 @@ public final class TravelFxClient {
                 graphics.fill(0, 0, width, height, argb(0.55f * flash, 0xEADCFF));
             }
         }
+        if (flooStart >= 0.0 && (now - flooStart > flooDuration + 60.0 || now < flooStart)) {
+            flooStart = -1.0; // the ending never came: let go rather than burn on screen for good
+        }
         if (flooStart >= 0.0) {
             float t = (float) (now - flooStart);
             float climb = smoothstep(0.0f, flooDuration * 0.6f, t);

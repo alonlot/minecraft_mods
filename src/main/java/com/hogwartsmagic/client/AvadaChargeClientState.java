@@ -163,7 +163,8 @@ public final class AvadaChargeClientState {
             return;
         }
         for (Charge charge : CHARGES.values()) {
-            if (!(minecraft.level.getEntity(charge.entityId) instanceof LivingEntity caster)) {
+            if (!(minecraft.level.getEntity(charge.entityId) instanceof LivingEntity caster)
+                    || minecraft.player != null && caster.isInvisibleTo(minecraft.player)) {
                 continue;
             }
             float c = charge.charge(now);
@@ -186,5 +187,13 @@ public final class AvadaChargeClientState {
     @SubscribeEvent
     public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         CHARGES.clear();
+    }
+
+    /** Entity ids mean nothing in the next level (a dimension change, a respawn). */
+    @SubscribeEvent
+    public static void onLevelUnload(net.minecraftforge.event.level.LevelEvent.Unload event) {
+        if (event.getLevel().isClientSide()) {
+            CHARGES.clear();
+        }
     }
 }

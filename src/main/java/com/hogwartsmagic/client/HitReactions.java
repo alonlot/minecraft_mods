@@ -145,6 +145,18 @@ public final class HitReactions {
         REACTIONS.put(packet.entityId(), reaction);
     }
 
+    /** Drop reactions and flights for bodies that are never drawn again (walked off, logged out). */
+    @SubscribeEvent
+    public static void onClientTick(net.minecraftforge.event.TickEvent.ClientTickEvent event) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (event.phase != net.minecraftforge.event.TickEvent.Phase.END || minecraft.level == null) {
+            return;
+        }
+        double now = minecraft.level.getGameTime();
+        REACTIONS.values().removeIf(reaction -> reaction.age(now) > reaction.length() || reaction.age(now) < 0.0f);
+        FLIGHTS.values().removeIf(flight -> now - flight.start > FLIGHT_TICKS || now < flight.start);
+    }
+
     private static Reaction active(int entityId, double now) {
         Reaction reaction = REACTIONS.get(entityId);
         if (reaction != null && reaction.age(now) > reaction.length()) {
@@ -189,6 +201,11 @@ public final class HitReactions {
             }
             RenderSystem.setShaderColor(0.62f + 0.38f * flash, 0.86f + 0.14f * flash, 0.66f + 0.34f * flash, 1.0f);
             TINTED.add(entity.getId());
+            return;
+        }
+        // A dragon or a troll doesn't tumble onto its back: only human-sized humanoids, and never a boss.
+        if (!(event.getRenderer().getModel() instanceof net.minecraft.client.model.HumanoidModel<?>)
+                || entity.getBbHeight() > 2.5f || com.hogwartsmagic.spell.combat.CombatTags.isBoss(entity)) {
             return;
         }
         float tilt;

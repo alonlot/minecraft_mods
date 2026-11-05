@@ -125,6 +125,11 @@ public final class PrioriIncantatem {
         lock.beamB = beamB.getId();
         LOCKS.add(lock);
         send(lock, START);
+        // Anyone tracking only the beams (midway in a long duel) must not see them strike instead.
+        SpellPackets.PrioriLockPacket start = new SpellPackets.PrioriLockPacket(lock.id, lock.aId, lock.bId,
+                lock.beamA, lock.beamB, lock.spellA.getId(), lock.spellB.getId(), lock.bead, START);
+        SpellPackets.CHANNEL.send(start, PacketDistributor.TRACKING_ENTITY.with(beamA));
+        SpellPackets.CHANNEL.send(start, PacketDistributor.TRACKING_ENTITY.with(beamB));
         Component prompt = Component.translatable("gui." + ExampleMod.MODID + ".priori.prompt")
                 .withStyle(ChatFormatting.GOLD);
         if (a instanceof ServerPlayer pa) {
@@ -167,8 +172,9 @@ public final class PrioriIncantatem {
             lock.age++;
             hold(a);
             hold(b);
-            float pushA = lock.pushesA * PLAYER_PUSH + npcPush(a, lock.level);
-            float pushB = lock.pushesB * PLAYER_PUSH + npcPush(b, lock.level);
+            // At most one press a tick counts, however many packets arrive.
+            float pushA = Math.min(lock.pushesA, 1) * PLAYER_PUSH + npcPush(a, lock.level);
+            float pushB = Math.min(lock.pushesB, 1) * PLAYER_PUSH + npcPush(b, lock.level);
             lock.pushesA = 0;
             lock.pushesB = 0;
             // A's pushes drive the bead toward B (+1), B's toward A (-1), and it never sits quite still.

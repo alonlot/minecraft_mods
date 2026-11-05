@@ -45,8 +45,12 @@ public final class MusicStings {
     private MusicStings() {
     }
 
-    @SubscribeEvent
+    /** Last, so a disguise, petrification, a thrall or Confundo that turns the mob away has already had its say. */
+    @SubscribeEvent(priority = net.minecraftforge.eventbus.api.EventPriority.LOWEST)
     public static void onChangeTarget(LivingChangeTargetEvent event) {
+        if (event.isCanceled()) {
+            return;
+        }
         LivingEntity mob = event.getEntity();
         // The event fires before Mob.setTarget assigns it (and starts the original equal to the new target),
         // so "already after this player" is the mob's current target.

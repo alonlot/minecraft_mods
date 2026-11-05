@@ -387,7 +387,7 @@ public final class PrioriClient {
                 || !involves(entity.getId())) {
             return;
         }
-        float t = (float) AvadaChargeClientState.now(partial);
+        float t = (float) (AvadaChargeClientState.now(partial) % 20000.0); // keep Mth.sin's input small
         float shake = 0.04f * (Mth.sin(t * 3.1f) + 0.6f * Mth.sin(t * 7.3f));
         humanoid.rightArm.xRot = humanoid.head.xRot - Mth.HALF_PI + shake;
         humanoid.rightArm.yRot = humanoid.head.yRot - 0.06f + shake * 0.5f;
@@ -420,7 +420,7 @@ public final class PrioriClient {
             }
         }
         if (shake > 0.001f) {
-            float t = (float) (minecraft.level.getGameTime() + event.getPartialTick());
+            float t = (float) (minecraft.level.getGameTime() % 20000L + event.getPartialTick());
             event.setPitch(event.getPitch() + shake * Mth.sin(t * 3.3f));
             event.setYaw(event.getYaw() + shake * Mth.sin(t * 2.7f + 1.1f));
         }

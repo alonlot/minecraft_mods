@@ -89,6 +89,11 @@ public final class SpellBeamFx {
                         at.x, at.y, at.z, (float) dirA.x, (float) dirA.y, (float) dirA.z,
                         (float) dirB.x, (float) dirB.y, (float) dirB.z, outcome),
                 PacketDistributor.TRACKING_ENTITY_AND_SELF.with(a));
+        // And everyone tracking the other side; a client that gets both draws it once.
+        SpellPackets.CHANNEL.send(new SpellPackets.BeamClashPacket(a.getId(), spellA.getId(), b.getId(), spellB.getId(),
+                        at.x, at.y, at.z, (float) dirA.x, (float) dirA.y, (float) dirA.z,
+                        (float) dirB.x, (float) dirB.y, (float) dirB.z, outcome),
+                PacketDistributor.TRACKING_ENTITY_AND_SELF.with(b));
         float pitch = (outcome == CLASH_MUTUAL ? 0.95f : 1.15f) + a.level().getRandom().nextFloat() * 0.1f;
         a.level().playSound(null, at.x, at.y, at.z, ModSounds.SPELL_CLASH.get(), SoundSource.PLAYERS, 1.6f, pitch);
     }

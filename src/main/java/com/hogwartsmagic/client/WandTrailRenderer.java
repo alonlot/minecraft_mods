@@ -91,14 +91,15 @@ public final class WandTrailRenderer {
             Entity entity = minecraft.level.getEntity(entry.getKey());
             CastMotions.Cast cast = entry.getValue();
             if (!(entity instanceof LivingEntity caster) || AvadaChargePose.isOwnFirstPerson(caster)
-                    || cast.over(now)) {
+                    || cast.over(now) || hidden(minecraft, caster)) {
                 continue;
             }
             push(entity.getId(), BeamStyles.of(cast.spell()), CastMotions.wandTip(caster, cast, partial, false), now);
         }
         for (AvadaChargeClientState.Charge charge : AvadaChargeClientState.all()) {
             Entity entity = minecraft.level.getEntity(charge.entityId);
-            if (!(entity instanceof LivingEntity caster) || AvadaChargePose.isOwnFirstPerson(caster)) {
+            if (!(entity instanceof LivingEntity caster) || AvadaChargePose.isOwnFirstPerson(caster)
+                    || hidden(minecraft, caster)) {
                 continue;
             }
             push(entity.getId() ^ 0x40000000, BeamStyles.of(SpellType.AVADA_KEDAVRA),
@@ -113,6 +114,11 @@ public final class WandTrailRenderer {
             Vec3 at = entity.getPosition(partial).add(0.0, 0.25, 0.0);
             push(entity.getId() ^ 0x20000000, BeamStyles.of(entry.getValue().spell), at, now);
         }
+    }
+
+    /** An invisible (cloaked) caster leaves no trail. */
+    private static boolean hidden(Minecraft minecraft, Entity caster) {
+        return minecraft.player != null && caster.isInvisibleTo(minecraft.player);
     }
 
     private static void push(int key, BeamStyle style, Vec3 tip, double now) {

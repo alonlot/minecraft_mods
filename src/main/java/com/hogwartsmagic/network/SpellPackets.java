@@ -1091,6 +1091,8 @@ public class SpellPackets {
          */
         public static void castAs(ServerPlayer player, CastSpellPacket p) {
             if (com.hogwartsmagic.pensieve.PensieveSessions.isViewer(player)) return; // a Pensieve viewer (or their puppet body) casts nothing
+            // Locked in Priori Incantatem: nothing else is cast, by a press or by a windup finishing mid-lock.
+            if (com.hogwartsmagic.spell.PrioriIncantatem.isLocked(player)) return;
             ItemStack wand = player.getMainHandItem();
             if (!MagicWandItem.isAnyWand(wand)) return;
             boolean creative = player.isCreative();

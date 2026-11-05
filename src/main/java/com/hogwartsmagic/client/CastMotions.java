@@ -188,6 +188,17 @@ public final class CastMotions {
         CASTS.put(packet.casterId(), new Cast(motion, spell, minecraft.level.getGameTime()));
     }
 
+    /** Drop gestures that are over for casters never drawn again (walked off, logged out). */
+    @SubscribeEvent
+    public static void onClientTick(net.minecraftforge.event.TickEvent.ClientTickEvent event) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (event.phase != net.minecraftforge.event.TickEvent.Phase.END || minecraft.level == null || CASTS.isEmpty()) {
+            return;
+        }
+        double now = minecraft.level.getGameTime();
+        CASTS.values().removeIf(cast -> cast.over(now) || cast.age(now) < 0.0f);
+    }
+
     /** The gesture {@code entityId} is playing now, or null. */
     public static Cast get(int entityId, double now) {
         Cast cast = CASTS.get(entityId);

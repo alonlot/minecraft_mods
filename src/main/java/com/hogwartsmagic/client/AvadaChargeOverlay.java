@@ -59,7 +59,7 @@ public final class AvadaChargeOverlay {
                 continue;
             }
             Entity caster = minecraft.level == null ? null : minecraft.level.getEntity(charge.entityId);
-            if (caster == null) {
+            if (caster == null || caster.isInvisibleTo(minecraft.player)) {
                 continue;
             }
             double distance = caster.distanceTo(minecraft.player);

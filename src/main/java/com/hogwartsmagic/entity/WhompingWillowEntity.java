@@ -795,7 +795,15 @@ public class WhompingWillowEntity extends Monster {
         p.fallDistance = 0.0F;
         if (p instanceof ServerPlayer sp) {
             ModEvents.interruptActiveCasting(sp);
-            sp.addEffect(new MobEffectInstance(MobEffects.SLOW_FALLING, 100, 0, false, true, true));
+            // Particles off: vanilla's potion swirl would trail the player all the way down. The
+            // HUD icon stays, which is what tells them why they survived the fall.
+            sp.addEffect(new MobEffectInstance(MobEffects.SLOW_FALLING, 100, 0, false, false, true));
+        }
+        if (this.level() instanceof ServerLevel sl) {
+            sl.sendParticles(ModParticles.WILLOW_LEAF.get(), p.getX(), p.getY() + 1.0D, p.getZ(),
+                    16, 0.6D, 0.6D, 0.6D, 0.08D);
+            sl.sendParticles(ModParticles.BARK_CHIP.get(), p.getX(), p.getY() + 1.0D, p.getZ(),
+                    6, 0.3D, 0.3D, 0.3D, 0.1D);
         }
 
         Entity vehicle = p.getVehicle();
@@ -1059,6 +1067,27 @@ public class WhompingWillowEntity extends Monster {
                     40, 3.0D, 0.3D, 3.0D, 0.05D);
         }
         super.die(source);
+    }
+
+    /**
+     * Not super. LivingEntity broadcasts entity event 60 here, which is vanilla's white "poof": on
+     * a twelve-block tree that has just crashed over, a mob's puff of smoke reads as wrong. The
+     * felled timber settles into the earth in its own dust and leaves instead.
+     */
+    @Override
+    protected void tickDeath() {
+        ++this.deathTime;
+        if (this.deathTime >= 20 && !this.level().isClientSide() && !this.isRemoved()) {
+            if (this.level() instanceof ServerLevel sl) {
+                sl.sendParticles(ModParticles.ROOT_DUST.get(), getX(), getY() + 0.5D, getZ(),
+                        50, 4.5D, 0.4D, 4.5D, 0.04D);
+                sl.sendParticles(ModParticles.WILLOW_LEAF.get(), getX(), getY() + 1.5D, getZ(),
+                        60, 5.0D, 0.8D, 5.0D, 0.03D);
+                sl.sendParticles(ModParticles.BARK_CHIP.get(), getX(), getY() + 0.8D, getZ(),
+                        20, 3.0D, 0.3D, 3.0D, 0.08D);
+            }
+            this.remove(RemovalReason.KILLED);
+        }
     }
 
     // --- rooted ----------------------------------------------------------------------------------------

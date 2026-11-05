@@ -4,6 +4,8 @@ import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.entity.WhompingWillowEntity;
 import com.hogwartsmagic.entity.WhompingWillowEntity.AttackState;
 import com.hogwartsmagic.entity.WhompingWillowRig;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.model.HierarchicalModel;
 import net.minecraft.client.model.geom.ModelLayerLocation;
 import net.minecraft.client.model.geom.ModelPart;
@@ -12,6 +14,7 @@ import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
 
 /**
@@ -946,6 +949,16 @@ public class WhompingWillowModel extends HierarchicalModel<WhompingWillowEntity>
     @Override
     public ModelPart root() {
         return this.root;
+    }
+
+    /**
+     * Never vanilla's red damage flash. It tints the whole twelve-block tree at once, which reads
+     * as a mob being hurt, not timber being struck. The tree answers a hit with its own effects
+     * instead: the crown shudders (see {@link #poseFrom}) and splinters fly from the bole.
+     */
+    @Override
+    public void renderToBuffer(PoseStack poseStack, VertexConsumer buffer, int light, int overlay, int color) {
+        super.renderToBuffer(poseStack, buffer, light, OverlayTexture.NO_OVERLAY, color);
     }
 
     @Override

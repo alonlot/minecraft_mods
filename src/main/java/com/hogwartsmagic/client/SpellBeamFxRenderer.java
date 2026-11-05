@@ -611,6 +611,9 @@ public final class SpellBeamFxRenderer {
         float bright = impact.kind == SpellBeamFx.EVADE ? 0.35f : 1.0f;
         Vec3 pos = impact.pos.subtract(camera);
 
+        if (impact.kind == SpellBeamFx.SHIELD) {
+            drawShieldRipple(out, m, impact, pos, age);
+        }
         // The flash: swells in three ticks, gone in eight. Then the glow that takes a second to drain.
         float flash = (1.0f - smoothstep(0.0f, 0.3f, f)) * s.impactFlash * bright;
         float flashRadius = (0.6f + 2.8f * smoothstep(0.0f, 0.12f, f)) * scale;
@@ -672,6 +675,24 @@ public final class SpellBeamFxRenderer {
             }
             streak(out, m, p0, p1, 0.022f, (1.0f - f) * bright, r, gg, b);
         }
+    }
+
+    /** A spell stopped on a shield: three pale ripples running out across it from the point it struck. */
+    private static void drawShieldRipple(VertexConsumer out, Matrix4f m, SpellBeamClientState.Impact impact, Vec3 pos,
+                                         float age) {
+        Vec3[] axes = frame(impact.dir);
+        for (int k = 0; k < 3; k++) {
+            float t = (age - k * 2.5f) / 12.0f;
+            if (t < 0.0f || t >= 1.0f) {
+                continue;
+            }
+            float radius = 0.2f + 1.7f * (1.0f - (1.0f - t) * (1.0f - t));
+            float alpha = 0.7f * (1.0f - t) * (1.0f - t);
+            ring(out, m, pos, axes[0], axes[1], radius, 0.16f, alpha * 0.4f, 0.55f, 0.8f, 1.0f, 40);
+            ring(out, m, pos, axes[0], axes[1], radius, 0.04f, alpha, 0.9f, 0.96f, 1.0f, 40);
+        }
+        float flash = Math.max(0.0f, 1.0f - age / 5.0f);
+        billboard(out, m, pos, 0.9f, 0.5f * flash, 0.7f, 0.88f, 1.0f, false);
     }
 
     /** A ring thrown out (or drawn in) round the beam's line, or flat on the air. */
@@ -906,6 +927,8 @@ public final class SpellBeamFxRenderer {
         BeamStyle b = c.styleB;
         float grow = smoothstep(0.0f, lock, age);
         float collapse = age < lock ? 1.0f : 1.0f - smoothstep(lock, lock + 2.0f, age);
+        // The knot slides back and forth along the line the beams push along as each gains and gives ground.
+        pos = pos.add(c.axis.scale(0.28 * grow * Mth.sin(age * 0.7f)));
         float strain = 1.0f + 0.25f * Mth.sin(age * 2.3f);
         float halo = (0.45f + 0.55f * grow) * collapse;
         billboard(out, m, pos.add(c.dirA.scale(-0.16 * strain)), halo, 0.6f, a.glowR, a.glowG, a.glowB, false);

@@ -96,6 +96,9 @@ public final class DementorDread {
                 || !minecraft.level.getEntitiesOfClass(PatronusEntity.class,
                 player.getBoundingBox().inflate(PATRONUS_RANGE), Entity::isAlive).isEmpty();
         target = warded ? 0.0f : closest;
+        if (dread < 0.5f && dread + (target - dread) * 0.035f >= 0.5f) {
+            MusicStingClient.dread(); // the cold has you
+        }
         // Creeps in slowly, lets go a little faster.
         dread += (target - dread) * (target > dread ? 0.035f : 0.06f);
         if (dread < 0.002f) {

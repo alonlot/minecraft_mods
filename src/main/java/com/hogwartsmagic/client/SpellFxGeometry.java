@@ -177,6 +177,28 @@ public final class SpellFxGeometry {
         }
     }
 
+    /** As {@link #ring} but only from angle {@code from} to {@code to} (radians, measured from {@code right}). */
+    public static void arc(VertexConsumer out, Matrix4f m, Vec3 centre, Vec3 right, Vec3 up, float radius,
+                           float thickness, float alpha, float r, float g, float b, int segments, double from, double to) {
+        if (alpha <= 0.003f || radius <= 0.001f || to <= from) {
+            return;
+        }
+        float inner = Math.max(0.0f, radius - thickness);
+        float outer = radius + thickness;
+        for (int seg = 0; seg < segments; seg++) {
+            double t0 = from + (to - from) * seg / segments;
+            double t1 = from + (to - from) * (seg + 1) / segments;
+            vertex(out, m, centre.add(onRing(right, up, t0, inner)), r, g, b, 0.0f);
+            vertex(out, m, centre.add(onRing(right, up, t1, inner)), r, g, b, 0.0f);
+            vertex(out, m, centre.add(onRing(right, up, t1, radius)), r, g, b, alpha);
+            vertex(out, m, centre.add(onRing(right, up, t0, radius)), r, g, b, alpha);
+            vertex(out, m, centre.add(onRing(right, up, t0, radius)), r, g, b, alpha);
+            vertex(out, m, centre.add(onRing(right, up, t1, radius)), r, g, b, alpha);
+            vertex(out, m, centre.add(onRing(right, up, t1, outer)), r, g, b, 0.0f);
+            vertex(out, m, centre.add(onRing(right, up, t0, outer)), r, g, b, 0.0f);
+        }
+    }
+
     /** Two unit vectors at right angles to each other and to {@code axis} (unit), for building rings round it. */
     public static Vec3[] frame(Vec3 axis) {
         Vec3 side = axis.cross(new Vec3(0.0, 1.0, 0.0));

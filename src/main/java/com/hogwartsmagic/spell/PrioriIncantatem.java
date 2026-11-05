@@ -130,6 +130,8 @@ public final class PrioriIncantatem {
                 lock.beamA, lock.beamB, lock.spellA.getId(), lock.spellB.getId(), lock.bead, START);
         SpellPackets.CHANNEL.send(start, PacketDistributor.TRACKING_ENTITY.with(beamA));
         SpellPackets.CHANNEL.send(start, PacketDistributor.TRACKING_ENTITY.with(beamB));
+        MusicStings.priori(a);
+        MusicStings.priori(b);
         Component prompt = Component.translatable("gui." + ExampleMod.MODID + ".priori.prompt")
                 .withStyle(ChatFormatting.GOLD);
         if (a instanceof ServerPlayer pa) {

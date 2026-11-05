@@ -317,6 +317,19 @@ public final class BeamStyle implements Cloneable {
         }
     }
 
+    /** A copy whose body and glow are pulled {@code amount} of the way toward (r, g, b); the core stays. */
+    BeamStyle tintedToward(float r, float g, float b, float amount) {
+        BeamStyle copy = asJet();
+        copy.tail = tail;
+        copy.bodyR += (r - bodyR) * amount;
+        copy.bodyG += (g - bodyG) * amount;
+        copy.bodyB += (b - bodyB) * amount;
+        copy.glowR += (r - glowR) * amount;
+        copy.glowG += (g - glowG) * amount;
+        copy.glowB += (b - glowB) * amount;
+        return copy;
+    }
+
     /** True when the beam runs all the way back to the wand. */
     boolean isJet() {
         return tail >= JET;

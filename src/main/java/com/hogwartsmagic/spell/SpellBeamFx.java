@@ -25,6 +25,8 @@ public final class SpellBeamFx {
     public static final byte EVADE = 2;
     /** Flew its full range and died out in mid-air. */
     public static final byte FADE = 3;
+    /** Stopped by a shield (Protego, a ward, a layer shield): it ripples across it. */
+    public static final byte SHIELD = 4;
 
     /** Two beams met and destroyed each other. */
     public static final byte CLASH_MUTUAL = 0;
@@ -95,7 +97,8 @@ public final class SpellBeamFx {
                         (float) dirB.x, (float) dirB.y, (float) dirB.z, outcome),
                 PacketDistributor.TRACKING_ENTITY_AND_SELF.with(b));
         float pitch = (outcome == CLASH_MUTUAL ? 0.95f : 1.15f) + a.level().getRandom().nextFloat() * 0.1f;
-        a.level().playSound(null, at.x, at.y, at.z, ModSounds.SPELL_CLASH.get(), SoundSource.PLAYERS, 1.6f, pitch);
+        // The grinding lock now; each client plays the boom when the blast goes off.
+        a.level().playSound(null, at.x, at.y, at.z, ModSounds.SPELL_CLASH_GRIND.get(), SoundSource.PLAYERS, 1.4f, pitch);
     }
 
     private static Vec3 unit(Vec3 v) {

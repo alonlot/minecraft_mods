@@ -34,6 +34,9 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> AVADA_SNUFF = register("spell.avada_kedavra.snuff");
     public static final RegistryObject<SoundEvent> AVADA_IMPACT = register("spell.avada_kedavra.impact");
     public static final RegistryObject<SoundEvent> SPELL_CLASH = register("spell.clash");
+    public static final RegistryObject<SoundEvent> SPELL_CLASH_GRIND = register("spell.clash_grind");
+    public static final RegistryObject<SoundEvent> STING_PRIORI = register("music.sting_priori");
+    public static final RegistryObject<SoundEvent> STING_DREAD = register("music.sting_dread");
     public static final RegistryObject<SoundEvent> PRIORI_LOOP = register("spell.priori_loop");
     public static final RegistryObject<SoundEvent> DEMENTOR_DREAD = register("dementor.dread");
     public static final RegistryObject<SoundEvent> APPARATE_SQUEEZE = register("spell.apparate_squeeze");

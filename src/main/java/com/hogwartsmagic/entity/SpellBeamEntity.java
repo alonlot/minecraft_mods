@@ -101,6 +101,8 @@ public class SpellBeamEntity extends ThrowableProjectile {
     private boolean visualOnly;
     /** The strike packet went out (a dodge sends its own); the impact that follows must not send another. */
     private boolean impactSent;
+    /** Stopped by a shield: its fizzle ripples across the shield instead. */
+    private boolean shieldBlocked;
     /**
      * Where the beam struck: on an entity, where its line enters the body (an entity hit reports the feet). The
      * strike is drawn here and the beam's drawn path ends here, so it never bends off to the side.
@@ -770,6 +772,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
                         com.hogwartsmagic.spell.support.ProtegoSpell.onBeamHit(living, this);
                 if (parry != com.hogwartsmagic.spell.support.ProtegoSpell.BeamOutcome.NOT_SHIELDED) {
                     hitSuccessful = false; // stopped at the shield; a reflected copy is already in flight
+                    this.shieldBlocked = true;
                 } else if (!com.hogwartsmagic.spell.support.ProtegoSpell.isRankedShield(living)
                         && com.hogwartsmagic.spell.support.ProtegoShield.has(living) && spell != SpellType.AVADA_KEDAVRA && spell != SpellType.HEAL
                         && spell != SpellType.LUMOS) {
@@ -782,6 +785,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
                     }
                     // Treat the hit as blocked/fizzled
                     hitSuccessful = false;
+                    this.shieldBlocked = true;
                 } else {
                     // Normal hit
                     if (spell != SpellType.ALOHOMORA) {
@@ -1564,7 +1568,9 @@ public class SpellBeamEntity extends ThrowableProjectile {
             this.impactSent = true;
             // The hit point, not the beam's position: a projectile is a whole tick's travel short of it in onHit.
             com.hogwartsmagic.spell.SpellBeamFx.impact(this, spell, this.hitAt != null ? this.hitAt : this.position(),
-                    this.tickCount > 200 ? com.hogwartsmagic.spell.SpellBeamFx.FADE : com.hogwartsmagic.spell.SpellBeamFx.FIZZLE);
+                    this.tickCount > 200 ? com.hogwartsmagic.spell.SpellBeamFx.FADE
+                            : this.shieldBlocked ? com.hogwartsmagic.spell.SpellBeamFx.SHIELD
+                            : com.hogwartsmagic.spell.SpellBeamFx.FIZZLE);
         }
         if (spell != SpellType.AVADA_KEDAVRA) { // the Killing Curse's strike has its own sound
             this.level().playSound(null, this.getX(), this.getY(), this.getZ(),

@@ -64,10 +64,10 @@ public final class SpellBeamClientState {
         return MUZZLES;
     }
     /** How long a clash plays: the lock, the collapse, the blast and the scar it leaves. */
-    public static final float CLASH_TICKS = 44.0f;
+    public static final float CLASH_TICKS = 52.0f;
     /** When a mutual clash detonates; a one-sided one shatters sooner. */
-    public static final float CLASH_LOCK = 8.0f;
-    public static final float CLASH_LOCK_WIN = 4.0f;
+    public static final float CLASH_LOCK = 15.0f;
+    public static final float CLASH_LOCK_WIN = 6.0f;
     private static final double SHAKE_RANGE = 16.0;
 
     private SpellBeamClientState() {
@@ -156,7 +156,7 @@ public final class SpellBeamClientState {
             if (kind == SpellBeamFx.EVADE) {
                 return style.impactScale * 0.8f;
             }
-            return style.impactScale * (kind == SpellBeamFx.FIZZLE ? 0.55f : 0.35f);
+            return style.impactScale * (kind == SpellBeamFx.FIZZLE || kind == SpellBeamFx.SHIELD ? 0.55f : 0.35f);
         }
 
         /** Rings, arcs, pillars and bursts belong to a real strike; a fizzle is a flash and a few sparks. */
@@ -179,6 +179,8 @@ public final class SpellBeamClientState {
         final byte outcome;
         final double start;
         final int seed;
+        /** The blast's boom has been played (the server plays the grinding lock; this client the detonation). */
+        boolean boomed;
 
         Clash(Vec3 pos, Vec3 dirA, Vec3 dirB, BeamStyle styleA, BeamStyle styleB, byte outcome, double start) {
             this.pos = pos;
@@ -395,6 +397,16 @@ public final class SpellBeamClientState {
         }
         BEAMS.values().removeIf(beam -> beam.gone() && now - beam.goneAt > beam.linger());
         IMPACTS.removeIf(impact -> now - impact.start > IMPACT_TICKS);
+        for (Clash clash : CLASHES) {
+            if (!clash.boomed && now - clash.start >= clash.lock()) {
+                clash.boomed = true;
+                float pitch = clash.mutual() ? 0.95f : 1.15f;
+                minecraft.getSoundManager().play(new net.minecraft.client.resources.sounds.SimpleSoundInstance(
+                        com.hogwartsmagic.ModSounds.SPELL_CLASH.get(), net.minecraft.sounds.SoundSource.PLAYERS, 1.6f,
+                        pitch, net.minecraft.util.RandomSource.create(clash.seed), clash.pos.x, clash.pos.y,
+                        clash.pos.z));
+            }
+        }
         CLASHES.removeIf(clash -> now - clash.start > CLASH_TICKS);
         MUZZLES.removeIf(muzzle -> now - muzzle.start > MUZZLE_TICKS || now < muzzle.start);
     }

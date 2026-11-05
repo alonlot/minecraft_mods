@@ -38,19 +38,35 @@ public final class ModSurfaceRules {
     /** Built once; the rule sources are immutable. */
     private static volatile java.util.List<SurfaceRules.RuleSource> modRules;
 
-    /** The mod rules followed by {@code vanilla}. */
+    /** The mod rules, guarded off the bedrock floor; built once. */
+    private static volatile SurfaceRules.RuleSource guarded;
+
+    /**
+     * The mod rules followed by {@code vanilla}. They run first, so they are kept off the bottom five
+     * blocks with the very gradient (same random name) vanilla paints its bedrock floor with: where
+     * vanilla would put bedrock, the mod rules step aside and vanilla still does. Without that, the
+     * underground biomes' floor rules (no surface guard, they reach down 6+ blocks) could replace the
+     * floor with tuff or deepslate under low terrain.
+     *
+     * <p>Known limit: noise settings written inline in a datapack (not the registry presets) are saved
+     * through the codec, which reads the wrapped accessor, so such a world stacks the mod rules once
+     * more on each load. Harmless to the terrain (the first copy decides), only a little slower.
+     */
     public static SurfaceRules.RuleSource prependTo(SurfaceRules.RuleSource vanilla) {
-        java.util.List<SurfaceRules.RuleSource> rules = modRules;
-        if (rules == null) {
-            rules = java.util.List.of(dementorFen(), horntailPeaks(), chamberDepths(), goblinUndercity());
-            modRules = rules;
+        SurfaceRules.RuleSource mod = guarded;
+        if (mod == null) {
+            java.util.List<SurfaceRules.RuleSource> rules = modRules;
+            if (rules == null) {
+                rules = java.util.List.of(dementorFen(), horntailPeaks(), chamberDepths(), goblinUndercity());
+                modRules = rules;
+            }
+            mod = SurfaceRules.ifTrue(
+                    SurfaceRules.not(SurfaceRules.verticalGradient("minecraft:bedrock_floor",
+                            VerticalAnchor.bottom(), VerticalAnchor.aboveBottom(5))),
+                    SurfaceRules.sequence(rules.toArray(new SurfaceRules.RuleSource[0])));
+            guarded = mod;
         }
-        SurfaceRules.RuleSource[] all = new SurfaceRules.RuleSource[rules.size() + 1];
-        for (int i = 0; i < rules.size(); i++) {
-            all[i] = rules.get(i);
-        }
-        all[rules.size()] = vanilla;
-        return SurfaceRules.sequence(all);
+        return SurfaceRules.sequence(mod, vanilla);
     }
 
     /**

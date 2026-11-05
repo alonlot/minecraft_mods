@@ -105,6 +105,11 @@ public class ModEvents {
     private static final double WINGARDIUM_HOLD_RANGE = 7.5D;
     private static final java.util.Map<java.util.UUID, ActiveWizardRaid> ACTIVE_WIZARD_RAIDS = new java.util.HashMap<>();
     private static final java.util.Map<java.util.UUID, java.util.UUID> WIZARD_TO_RAID = new java.util.HashMap<>();
+
+    /** True while this Death Eater belongs to a running wizard raid. */
+    public static boolean isRaidMember(java.util.UUID wizard) {
+        return WIZARD_TO_RAID.containsKey(wizard);
+    }
     private static final int WIZARD_RAID_RADIUS = 96;
     private static final int HERO_OF_VILLAGE_DURATION = 20 * 60 * 5;
     private static final int STRUCTURE_SPAWN_CHECK_INTERVAL = 200; // 10s
@@ -282,8 +287,8 @@ public class ModEvents {
         for (com.hogwartsmagic.entity.WizardEntity wizard : members) {
             if (wizard != null && wizard.isAlive()) {
                 // A raider that despawned when the player stepped away would count as beaten and pay
-                // out the Hero reward; vanilla raiders never despawn mid-raid either.
-                wizard.setPersistenceRequired();
+                // out the Hero reward; vanilla raiders never despawn mid-raid either. Only while the
+                // raid holds them (WizardEntity.requiresCustomPersistence), so survivors can despawn.
                 raid.members.add(wizard.getUUID());
                 raid.lastSeen.put(wizard.getUUID(), wizard.blockPosition());
                 WIZARD_TO_RAID.put(wizard.getUUID(), raidId);
@@ -443,12 +448,25 @@ public class ModEvents {
         if (event.isCanceled()) {
             return;
         }
+        boolean capture = isCaptureGesture(event.getEntity(), event.getItemStack());
         if (handleWandUse(event.getEntity(), event.getItemStack())) {
-            // SUCCESS, not the default PASS: a PASS makes the client go on to use the other hand's item too
-            // (this also stops the off-hand phial use from sending a second capture packet).
-            event.setCancellationResult(net.minecraft.world.InteractionResult.SUCCESS);
             event.setCanceled(true);
+            if (capture) {
+                // A success result stops the off-hand phial use from sending a second capture packet.
+                // Only here: on this path any consuming result swings the arm and dips the wand on the
+                // client, which a held spell would repeat every 4 ticks.
+                event.setCancellationResult(net.minecraft.world.InteractionResult.SUCCESS);
+            }
         }
+    }
+
+    /** Client side: sneaking with a wand while the other hand holds an empty memory phial. */
+    private static boolean isCaptureGesture(Player player, ItemStack heldItem) {
+        if (!player.level().isClientSide() || !player.isShiftKeyDown() || !MagicWandItem.isAnyWand(heldItem)) {
+            return false;
+        }
+        ItemStack other = heldItem == player.getMainHandItem() ? player.getOffhandItem() : player.getMainHandItem();
+        return other.getItem() instanceof com.hogwartsmagic.pensieve.EmptyMemoryPhialItem;
     }
 
     /**
@@ -516,9 +534,10 @@ public class ModEvents {
             return;
         }
         if (handleWandUse(event.getEntity(), event.getItemStack())) {
-            // SUCCESS ends the client's use: with PASS it went on to RightClickItem for the same wand
-            // (a second cast packet in the same tick) and then to the off-hand item.
-            event.setCancellationResult(net.minecraft.world.InteractionResult.SUCCESS);
+            // CONSUME ends the client's use: with PASS it went on to RightClickItem for the same wand
+            // (a second cast packet in the same tick) and then to the off-hand item. Not SUCCESS: that
+            // swings the arm, and a held spell would swing it every 4 ticks.
+            event.setCancellationResult(net.minecraft.world.InteractionResult.CONSUME);
             event.setCanceled(true);
         }
     }

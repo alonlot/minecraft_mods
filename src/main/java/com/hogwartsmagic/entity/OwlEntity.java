@@ -213,8 +213,9 @@ public class OwlEntity extends TamableAnimal implements FlyingAnimal {
             }
             // Sit / stand, as a wolf does. Taming orders the owl to sit and nothing else ever
             // released it, so a tamed owl could never follow its owner or fly to a perch.
+            // Empty hand only, as a wolf: a wand or sample collector used on her still does its own thing.
             // Seeds still go to breeding below, and a carrier in flight is left alone.
-            if (!this.isFood(stack) && !this.isPostalBusy()) {
+            if (stack.isEmpty() && !this.isPostalBusy()) {
                 if (!this.level().isClientSide) {
                     this.setOrderedToSit(!this.isOrderedToSit());
                     this.navigation.stop();

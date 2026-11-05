@@ -152,8 +152,8 @@ public class BroomEntity extends Entity {
             this.setBroomType(tag.getInt("BroomType"));
         }
         this.setQuality(tag.getInt("Quality"));
-        // Brooms saved before this flag existed were mostly placed by players: let them come back.
-        this.dropsItem = !tag.contains("DropsItem") || tag.getBoolean("DropsItem");
+        // Absent (brooms saved before the flag, /summon, NPC brooms): not a pickup, so punching is no broom farm.
+        this.dropsItem = tag.getBoolean("DropsItem");
     }
 
     @Override
@@ -182,6 +182,9 @@ public class BroomEntity extends Entity {
         }
         if (!(source.getEntity() instanceof Player player) || source.getDirectEntity() != player) {
             return false;
+        }
+        if (!this.dropsItem) {
+            return false; // an NPC or summoned broom is not anyone's to take apart
         }
         if (this.dropsItem && !player.getAbilities().instabuild
                 && this.level().getGameRules().getBoolean(net.minecraft.world.level.GameRules.RULE_DOENTITYDROPS)) {

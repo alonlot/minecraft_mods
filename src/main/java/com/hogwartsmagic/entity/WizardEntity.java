@@ -37,6 +37,13 @@ import java.util.List;
 
 public class WizardEntity extends AbstractIllager implements DisarmableWandUser {
 
+    /** A wizard raid's members never despawn while it runs; once it is over (or dropped) they may again. */
+    @Override
+    public boolean requiresCustomPersistence() {
+        return super.requiresCustomPersistence()
+                || (!this.level().isClientSide && com.hogwartsmagic.event.ModEvents.isRaidMember(this.getUUID()));
+    }
+
     private static final EntityDataAccessor<Boolean> DATA_IS_CASTING = SynchedEntityData.defineId(WizardEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Boolean> DATA_IS_FLYING = SynchedEntityData.defineId(WizardEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Boolean> DATA_IS_RAID_LEADER = SynchedEntityData.defineId(WizardEntity.class, EntityDataSerializers.BOOLEAN);

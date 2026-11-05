@@ -86,6 +86,8 @@ public class ClientModEvents {
     private static boolean wasRadialDown = false;
     private static boolean wasProtegoMaximaChannelKeyDown = false;
     private static boolean protegoMaximaChannelActive = false;
+    /** Aqua Eructo's stream is pouring: a heartbeat every tick the key is held, a release when it lets go. */
+    private static boolean aquaHoldPending = false;
     private static boolean fiendfyreHoldPending = false;
     private static boolean fiendfyreChannelActive = false;
     private static int fiendfyreHoldTicks = 0;
@@ -274,6 +276,18 @@ public class ClientModEvents {
                             && mc.player.getXRot() <= -55.0F;
                     boolean fiendfyreSelected = holdingWand
                             && selected == com.hogwartsmagic.spell.SpellType.FIENDFYRE;
+                    boolean aquaSelected = holdingWand
+                            && selected == com.hogwartsmagic.spell.SpellType.AQUA_ERUCTO;
+                    if (aquaHoldPending) {
+                        if (useDown && aquaSelected) {
+                            SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(false, false, true, false),
+                                    PacketDistributor.SERVER.noArg());
+                        } else {
+                            SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(false, true, false, false),
+                                    PacketDistributor.SERVER.noArg());
+                            aquaHoldPending = false;
+                        }
+                    }
                     boolean wingardiumSelected = holdingWand
                             && selected == com.hogwartsmagic.spell.SpellType.WINGARDIUM_LEVIOSA;
                     boolean imperioSelected = holdingWand
@@ -451,6 +465,7 @@ public class ClientModEvents {
                 } else {
                     wasProtegoMaximaChannelKeyDown = false;
                     protegoMaximaChannelActive = false;
+                    aquaHoldPending = false;
                     fiendfyreHoldPending = false;
                     fiendfyreChannelActive = false;
                     fiendfyreHoldTicks = 0;
@@ -894,6 +909,20 @@ public class ClientModEvents {
 
     public static void setProtegoMaximaChannelActive(boolean active) {
         protegoMaximaChannelActive = active;
+    }
+
+    /** The Aqua Eructo press: start pouring now (the server pays the cast on this first heartbeat). */
+    public static void startAquaHold() {
+        if (aquaHoldPending) {
+            return;
+        }
+        aquaHoldPending = true;
+        SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(false, false, true, false),
+                PacketDistributor.SERVER.noArg());
+        net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+        if (mc.player != null) {
+            mc.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+        }
     }
 
     public static void startFiendfyreHold() {

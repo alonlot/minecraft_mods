@@ -3957,6 +3957,11 @@ public class ModEvents {
                     SpellPackets.CHANNEL.send(new SpellPackets.CastSpellPacket(false, false, true, false), PacketDistributor.SERVER.noArg());
                     return true;
                 }
+                if (selected == SpellType.AQUA_ERUCTO) {
+                    // A held stream: pours while the key is down (ClientModEvents sends the heartbeats).
+                    com.hogwartsmagic.event.ClientModEvents.startAquaHold();
+                    return true;
+                }
                 if (selected == SpellType.FIENDFYRE) {
                     if (fiendfyreUseLatched) {
                         return true;

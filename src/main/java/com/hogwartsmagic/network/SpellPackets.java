@@ -425,6 +425,14 @@ public class SpellPackets {
                         buf.readFloat(), buf.readFloat(), buf.readFloat(), buf.readFloat(), buf.readByte()))
                 .consumerMainThread(BeamClashPacket::handle)
                 .add();
+        CHANNEL.messageBuilder(AquaStreamPacket.class)
+                .encoder((p, buf) -> {
+                    buf.writeInt(p.casterId);
+                    buf.writeByte(p.state);
+                })
+                .decoder(buf -> new AquaStreamPacket(buf.readInt(), buf.readByte()))
+                .consumerMainThread(AquaStreamPacket::handle)
+                .add();
         CHANNEL.messageBuilder(CrucioChannelPacket.class)
                 .encoder((p, buf) -> {
                     buf.writeInt(p.casterId);
@@ -1151,6 +1159,7 @@ public class SpellPackets {
             net.minecraft.nbt.CompoundTag playerData = player.getPersistentData();
 
             if (p.releaseChannel) {
+                com.hogwartsmagic.spell.AquaStream.release(player);
                 com.hogwartsmagic.spell.mind.CrucioChannel.release(player);
                 com.hogwartsmagic.spell.support.lock.PistonLockSpell.release(player);
                 if (playerData.getBoolean(TAG_PROTEGO_MAXIMA_CHANNELING)) {
@@ -1164,6 +1173,12 @@ public class SpellPackets {
                     com.hogwartsmagic.event.ModEvents.stopWingardiumChannel(player, wand);
                 }
                 playerData.remove(TAG_PATRONUS_CAST_SPENT);
+                return;
+            }
+
+            // Aqua Eructo is a held stream of water: a press starts it, the heartbeat keeps it pouring.
+            if (spell == SpellType.AQUA_ERUCTO && !p.selfCastProtego) {
+                com.hogwartsmagic.spell.AquaStream.heartbeat(player, wand);
                 return;
             }
 
@@ -1843,6 +1858,12 @@ public class SpellPackets {
      * Server → client: {@code casterId} is holding the Cruciatus Curse on {@code targetId} (START), still is
      * (KEEP), surged it (PULSE: a damage tick) or let go (END). See {@code CrucioChannel}.
      */
+    public record AquaStreamPacket(int casterId, byte state) {
+        public static void handle(AquaStreamPacket p, CustomPayloadEvent.Context ctx) {
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("aquaStream", p));
+        }
+    }
+
     public record CrucioChannelPacket(int casterId, int targetId, byte state) {
         public static void handle(CrucioChannelPacket p, CustomPayloadEvent.Context ctx) {
             enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("crucioChannel", p));

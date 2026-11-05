@@ -25,22 +25,22 @@ public final class BeamStyles {
     private static final Map<SpellType, BeamStyle> STYLES = new EnumMap<>(SpellType.class);
 
     static {
-        // ---- the Unforgivables and dark curses: dark sheaths; most are full jets, the Killing Curse a long bolt ----
+        // ---- the Unforgivables and dark curses: dark sheaths, long bolts with fading tails ----
         STYLES.put(SpellType.AVADA_KEDAVRA, new BeamStyle().colours(0xCCFFD1, 0x38FF57, 0x38FF57).tail(9.0f)
                 .jitter(0.045f).writhe(0.035f, 1.3f, 0.8f).darkSheath(0.34f, 0.5f).crackle(3, 0.14f)
                 .head(0.75f, 0.26f, 0.45f, true).wake(WAKE_SMOKE, 0.7f, 22.0f, 0.22f, 0.32f, 0.035f)
                 .afterglow(10.0f).strike(1.0f, 1.0f, 0.55f).darkBurst().ring(4.0f, false, false).arcs(7, 0.18f)
                 .screenFlash(1.0f));
-        STYLES.put(SpellType.CRUCIO, new BeamStyle().colours(0xFFD0C8, 0xFF1A1A, 0xC00010).tail(JET)
+        STYLES.put(SpellType.CRUCIO, new BeamStyle().colours(0xFFD0C8, 0xFF1A1A, 0xC00010).tail(10.0f)
                 .jitter(0.12f).writhe(0.02f, 2.0f, 1.5f).flicker(0.3f).darkSheath(0.30f, 0.45f).crackle(4, 0.18f)
                 .head(0.6f, 0.22f, 0.5f, true).wake(WAKE_SMOKE, 0.9f, 16.0f, 0.18f, 0.22f, 0.02f)
                 .afterglow(8.0f).strike(0.9f, 0.8f, 0.5f).darkBurst().arcs(10, 0.3f).screenFlash(0.5f));
         // Puppet strings: pale gold-chartreuse threads, barely a beam at all.
-        STYLES.put(SpellType.IMPERIO, new BeamStyle().colours(0xFFFBE0, 0xE8F09A, 0xC8D860).tail(JET)
+        STYLES.put(SpellType.IMPERIO, new BeamStyle().colours(0xFFFBE0, 0xE8F09A, 0xC8D860).tail(10.0f)
                 .alphas(0.35f, 0.18f).jitter(0.0f).writhe(0.08f, 0.7f, 0.5f).flicker(0.04f).twist(5, 0.08f, 4.0f, 0.3f)
                 .beads(4, 0.35f, 0.1f).wake(WAKE_MIST, 0.8f, 26.0f, 0.3f, 0.1f, 0.01f).afterglow(9.0f)
                 .strike(0.9f, 0.5f, 0.5f).ring(3.0f, false, false).mistBurst());
-        STYLES.put(SpellType.MORSMORDRE, new BeamStyle().colours(0x9CFFB0, 0x1A8A30, 0x0A5018).tail(JET)
+        STYLES.put(SpellType.MORSMORDRE, new BeamStyle().colours(0x9CFFB0, 0x1A8A30, 0x0A5018).tail(12.0f)
                 .jitter(0.03f).writhe(0.05f, 0.8f, 0.6f).darkSheath(0.6f, 0.6f).head(0.9f, 0.3f, 0.4f, true)
                 .wake(WAKE_SMOKE, 0.6f, 30.0f, 0.35f, 0.45f, 0.03f).wakeShape(0.9f, 0.35f).afterglow(12.0f)
                 .strike(1.2f, 0.5f, 0.4f).darkBurst());
@@ -133,14 +133,14 @@ public final class BeamStyles {
 
         // ---- water: a translucent blue jet from the wand, twisting, spraying and misting, that lands in a
         // crown of droplets with a wave rolling out across the ground ----
-        STYLES.put(SpellType.AQUA_ERUCTO, new BeamStyle().colours(0xF4FBFF, 0x7FD0FF, 0x2E8FE0).tail(JET)
+        STYLES.put(SpellType.AQUA_ERUCTO, new BeamStyle().colours(0xF4FBFF, 0x7FD0FF, 0x2E8FE0).tail(14.0f)
                 .widths(0.05f, 0.16f, 0.42f).alphas(0.5f, 0.16f).jitter(0.02f).writhe(0.06f, 1.6f, 4.0f)
                 .flicker(0.08f).darkSheath(0.3f, 0.55f).shade(0x2E73C8).twist(3, 0.14f, 3.0f, 5.0f)
                 .beads(6, 1.5f, 0.08f).head(0.9f, 0.3f, 0.45f, true)
                 .wake(BeamStyle.WAKE_SPARKS, 0.3f, 14.0f, 0.02f, 0.9f, 0.0f)
                 .wakeToo(WAKE_MIST, 0.6f, 20.0f, 0.35f, 0.12f, 0.01f).afterglow(6.0f)
                 .strike(1.3f, 0.7f, 0.5f).darkBurst().ring(4.0f, false, true).doubleRing().debris(40, 0.045f, 0.33f)
-                .mistBurst().waveFront().screenFlash(0.25f));
+                .mistBurst().waveFront().screenFlash(0.25f).liquid());
 
         // ---- cold ----
         STYLES.put(SpellType.GLACIUS, new BeamStyle().colours(0xFFFFFF, 0x9FF4FF, 0x59D8FF).tail(8.0f)
@@ -153,7 +153,7 @@ public final class BeamStyles {
                 .widths(0.04f, 0.08f, 0.3f).jitter(0.0f).head(1.0f, 0.35f, 0.55f, false)
                 .wake(WAKE_MOTES, 0.3f, 30.0f, 0.06f, 0.9f, 0.01f).strike(1.0f, 1.2f, 0.8f)
                 .debris(8, -0.005f, 0.1f));
-        STYLES.put(SpellType.ACCIO, new BeamStyle().colours(0xE8F2FF, 0x5C9CFF, 0x3070FF).tail(JET)
+        STYLES.put(SpellType.ACCIO, new BeamStyle().colours(0xE8F2FF, 0x5C9CFF, 0x3070FF).tail(10.0f)
                 .jitter(0.01f).twist(1, 0.16f, 2.6f, -1.2f).beads(5, -0.5f, 0.14f).afterglow(6.0f)
                 .strike(0.8f, 0.5f, 0.45f).ring(2.5f, true, false));
         // Pale lilac, drifting slowly as a feather.
@@ -172,7 +172,7 @@ public final class BeamStyles {
                 .jitter(0.0f).writhe(0.03f, 1.0f, 0.8f).twist(2, 0.12f, 2.0f, 0.8f)
                 .wake(WAKE_MOTES, 0.4f, 26.0f, 0.06f, 0.9f, 0.03f).strike(0.9f, 0.6f, 0.6f).pillar()
                 .debris(10, -0.01f, 0.12f));
-        STYLES.put(SpellType.EXPECTO_PATRONUM, new BeamStyle().colours(0xFFFFFF, 0xC8F4FF, 0x8EE6FF).tail(JET)
+        STYLES.put(SpellType.EXPECTO_PATRONUM, new BeamStyle().colours(0xFFFFFF, 0xC8F4FF, 0x8EE6FF).tail(12.0f)
                 .widths(0.05f, 0.14f, 0.5f).alphas(0.8f, 0.3f).jitter(0.0f).writhe(0.02f, 0.8f, 0.6f)
                 .flicker(0.05f).lightSheath(0.6f, 0.5f).twist(2, 0.22f, 1.2f, 0.6f).head(1.1f, 0.4f, 0.55f, false)
                 .wake(WAKE_MOTES, 0.25f, 34.0f, 0.07f, 0.9f, 0.01f).afterglow(12.0f).strike(1.3f, 1.2f, 0.7f)

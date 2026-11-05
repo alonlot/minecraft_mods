@@ -1486,7 +1486,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
                 continue; // cone wave in front only
             }
 
-            double strength = (1.0 - (dist / 6.0)) * 1.4;
+            double strength = (1.0 - (dist / 6.0)) * 2.6;
             Vec3 push = dirToTarget.scale(Math.max(0.15, strength));
             target.push(push.x, 0.22 + strength * 0.08, push.z);
             target.hurtMarked = true; // a player target only feels the wave once its motion is sent

@@ -263,12 +263,13 @@ public enum SpellType {
                 boolean wasBurning = target.isOnFire();
                 net.minecraft.world.phys.Vec3 push = target.position().vectorTo(
                         caster != null ? caster.position() : target.position().add(0, 0, -5))
-                        .normalize().scale(-1.15);
+                        .normalize().scale(-2.2);
                 if (wasBurning) {
                     triggerSteamCombo(target, caster);
                 }
                 target.clearFire(); // Extinguish target
-                target.push(push.x, 0.28, push.z);
+                target.push(push.x, 0.42, push.z);
+                target.hurtMarked = true; // a player is only knocked back once the motion is sent
                 target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 50, 1));
                 if (target instanceof net.minecraft.world.entity.monster.Blaze || target instanceof net.minecraft.world.entity.monster.MagmaCube) {
                     target.hurt(target.damageSources().drown(), scaledSpellDamage(caster, 15.0f)); // Super effective against fire mobs

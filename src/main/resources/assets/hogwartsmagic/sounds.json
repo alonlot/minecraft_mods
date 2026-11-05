@@ -4316,5 +4316,14 @@
         "stream": false
       }
     ]
+  },
+  "spell.aqua_eructo.stream": {
+    "subtitle": "subtitles.hogwartsmagic.spell.aqua_eructo.stream",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:spells/aqua_stream",
+        "stream": false
+      }
+    ]
   }
 }

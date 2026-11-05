@@ -56,6 +56,7 @@ public final class ClientRuntimeBridge {
             case "travelFx" -> TravelFxClient.accept((SpellPackets.TravelFxPacket) payload);
             case "musicSting" -> MusicStingClient.accept((SpellPackets.MusicStingPacket) payload);
             case "crucioChannel" -> CrucioClient.accept((SpellPackets.CrucioChannelPacket) payload);
+            case "aquaStream" -> AquaStreamClient.accept((SpellPackets.AquaStreamPacket) payload);
             case "protegoShield" -> protegoShield((SpellPackets.ProtegoShieldPacket) payload);
             case "incarcerousRopes" -> IncarcerousRopesClientState.accept((SpellPackets.IncarcerousRopesPacket) payload);
             case "openApparitionMap" -> openApparitionMap((SpellPackets.OpenApparitionMapPacket) payload);

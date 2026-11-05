@@ -51,6 +51,9 @@ public abstract class ActorPoseMixin {
         // Under the Cruciatus Curse: the body writhes; its caster holds the wand out on them.
         com.hogwartsmagic.client.CrucioClient.applyPose(((LivingEntityRenderer<?, ?>) (Object) this).getModel(),
                 entity, partial);
+        // Pouring Aqua Eructo: the wand held out into the stream.
+        com.hogwartsmagic.client.AquaStreamClient.applyPose(((LivingEntityRenderer<?, ?>) (Object) this).getModel(),
+                entity, partial);
     }
 
     @Inject(method = RENDER, at = @At("RETURN"))

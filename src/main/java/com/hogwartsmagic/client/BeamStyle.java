@@ -115,6 +115,11 @@ public final class BeamStyle implements Cloneable {
     BeamStyle second;
     /** The strike rolls a wave front out across the ground in the direction the beam was going. */
     boolean waveFront = false;
+    /**
+     * Drawn as water, not light: a churning translucent body with foam and a highlight, real falling droplets and
+     * mist, and a splash of water rather than a flash (SpellBeamFxRenderer's liquid drawing).
+     */
+    boolean liquid = false;
     /** A second shockwave chasing the first (a concussive blast). */
     boolean doubleRing = false;
     /** The body and glow run through the colours of the rainbow (Riddikulus). */
@@ -309,6 +314,11 @@ public final class BeamStyle implements Cloneable {
         copy.second = null;
         copy.wake(kind, spacing, life, size, alpha, rise);
         this.second = copy;
+        return this;
+    }
+
+    BeamStyle liquid() {
+        this.liquid = true;
         return this;
     }
 

@@ -113,7 +113,7 @@ public final class SpellBeamFxRenderer {
     private static void drawMuzzle(VertexConsumer out, Matrix4f m, SpellBeamClientState.Muzzle muzzle, double now,
                                    Vec3 camera) {
         float age = (float) (now - muzzle.start);
-        if (age < 0.0f || age > SpellBeamClientState.MUZZLE_TICKS) {
+        if (age < 0.0f || age > SpellBeamClientState.MUZZLE_TICKS || muzzle.style.liquid) {
             return;
         }
         BeamStyle s = muzzle.style;
@@ -158,6 +158,13 @@ public final class SpellBeamFxRenderer {
         for (SpellBeamClientState.Beam beam : SpellBeamClientState.beams()) {
             Frame frame = FRAMES.get(beam);
             BeamStyle style = beam.style;
+            if (style.liquid) {
+                if (frame != null) {
+                    drawLiquid(dark, m, frame);
+                }
+                drawLiquidWake(dark, m, beam, now, camera);
+                continue;
+            }
             if (frame != null && !(style.sheathDark && style.sheathWidth > 0.0f)) {
                 // A light spell against a bright sky washes out: give it a faint dark backing, by daylight only.
                 Vec3 head = frame.head().add(camera);
@@ -204,6 +211,12 @@ public final class SpellBeamFxRenderer {
         }
         for (SpellBeamClientState.Beam beam : SpellBeamClientState.beams()) {
             Frame frame = FRAMES.get(beam);
+            if (beam.style.liquid) {
+                if (frame != null) {
+                    drawLiquidHighlight(light, m, frame);
+                }
+                continue;
+            }
             if (frame != null) {
                 drawBeam(light, m, frame);
                 drawStrands(light, m, frame);
@@ -639,6 +652,10 @@ public final class SpellBeamFxRenderer {
             drawSteam(out, m, impact, now, camera);
             return;
         }
+        if (impact.style.liquid) {
+            drawLiquidSplash(out, m, impact, now, camera);
+            return;
+        }
         if (!(impact.style.impactDark && impact.full()) && !evade) {
             return;
         }
@@ -667,6 +684,237 @@ public final class SpellBeamFxRenderer {
         if (shade.waveFront && impact.full()) {
             // The body of the wave rolling out: translucent water under the foam crest the light pass draws.
             waveFront(out, m, impact, pos, age, 0.5f, 0.35f, shade.shadeR, shade.shadeG, shade.shadeB);
+        }
+    }
+
+    // ---- water: drawn as water, not light ----------------------------------------------------------------------
+
+    private static final float DEEP_R = 0.10f, DEEP_G = 0.34f, DEEP_B = 0.66f;
+    private static final float SHALLOW_R = 0.42f, SHALLOW_G = 0.74f, SHALLOW_B = 0.92f;
+    private static final float FOAM_R = 0.92f, FOAM_G = 0.96f, FOAM_B = 1.0f;
+    private static final float MIST_R = 0.86f, MIST_G = 0.91f, MIST_B = 0.96f;
+    private static final float WATER_GRAVITY = 0.045f;
+
+    /**
+     * The body of the water: overlapping translucent blobs from deep to shallow blue down the stream, white foam
+     * churning round them (re-churned every other tick), and the leading gush frothing. All straight alpha, so it
+     * reads as water in front of the world, not light added to it.
+     */
+    private static void drawLiquid(VertexConsumer out, Matrix4f m, Frame f) {
+        int n = f.path.length;
+        int churn = (int) Math.floor(f.age / 2.0);
+        float g = Math.min(1.0f, f.glow);
+        float t = (float) f.age;
+        int seed = f.beam.seed;
+        for (int i = 0; i < n; i++) {
+            float p = f.profile[i] * g;
+            if (p < 0.03f) {
+                continue;
+            }
+            Vec3 c = f.path[i];
+            float swell = 0.85f + 0.15f * Mth.sin(t * 1.4f + i * 0.9f);
+            float r = (0.17f + 0.08f * hash(seed, i, 3)) * f.thickness * swell;
+            float mix = hash(seed, i, 5);
+            billboard(out, m, c, r * 1.4f, 0.16f * p, DEEP_R, DEEP_G, DEEP_B, false, 3, 10);
+            billboard(out, m, c, r, 0.3f * p, Mth.lerp(mix, DEEP_R, SHALLOW_R), Mth.lerp(mix, DEEP_G, SHALLOW_G),
+                    Mth.lerp(mix, DEEP_B, SHALLOW_B), false, 3, 10);
+            for (int k = 0; k < 2; k++) {
+                if (hash(seed + churn * 31 + k, i, 7) > 0.6f) {
+                    continue;
+                }
+                double ox = (hash(seed + churn + k * 13, i, 8) - 0.5) * 0.38 * f.thickness;
+                double oy = (hash(seed + churn + k * 17, i, 9) - 0.5) * 0.38 * f.thickness;
+                Vec3 off = f.side.scale(ox).add(f.lift.scale(oy));
+                billboard(out, m, c.add(off), 0.05f + 0.06f * hash(seed + churn, i, 10 + k), 0.6f * p,
+                        FOAM_R, FOAM_G, FOAM_B, false, 2, 8);
+            }
+        }
+        if (!f.beam.gone()) {
+            Vec3 head = f.head();
+            for (int k = 0; k < 6; k++) {
+                Vec3 off = randomDirection(seed + churn * 7 + k).scale(0.22);
+                boolean foam = (k & 1) == 0;
+                billboard(out, m, head.add(off), 0.18f + 0.1f * hash(seed, k, churn), 0.45f,
+                        foam ? FOAM_R : SHALLOW_R, foam ? FOAM_G : SHALLOW_G, foam ? FOAM_B : SHALLOW_B, false, 3, 10);
+            }
+        }
+    }
+
+    /** A thin bright highlight riding the top of the water, broken where it catches the light. */
+    private static void drawLiquidHighlight(VertexConsumer out, Matrix4f m, Frame f) {
+        int n = f.path.length;
+        Vec3[] top = new Vec3[n];
+        float[] width = new float[n];
+        float[] alpha = new float[n];
+        float g = Math.min(1.0f, f.glow);
+        Vec3 up = new Vec3(0.0, 1.0, 0.0);
+        for (int i = 0; i < n; i++) {
+            top[i] = f.path[i].add(up.scale(0.09 * f.thickness));
+            width[i] = 0.016f;
+            alpha[i] = 0.4f * f.profile[i] * g * (0.5f + 0.5f * hash(f.beam.seed, i / 3, f.strike));
+        }
+        ribbon(out, m, top, width, alpha, 1.0f, 1.0f, 0.85f, 0.95f, 1.0f);
+    }
+
+    /** What the water leaves in the air it passed: droplets peeling off and falling, and a pale mist. */
+    private static void drawLiquidWake(VertexConsumer out, Matrix4f m, SpellBeamClientState.Beam beam, double now,
+                                       Vec3 camera) {
+        alongTrail(beam, 0.3, now, 16.0, (pos, dir, age, index) -> {
+            int seed = beam.seed + index * 131;
+            float l = age / 16.0f;
+            Vec3 at = pos.subtract(camera);
+            Vec3 v = randomDirection(seed).scale(0.06 + 0.05 * hash(seed, 1, 1)).add(dir.scale(0.04));
+            droplet(out, m, at, v, age, 0.75f * (1.0f - l), 1.0f);
+            if (index % 3 == 0) {
+                Vec3 c = at.add(randomDirection(seed + 7).scale(0.15 + 0.3 * l)).add(0.0, 0.01 * age, 0.0);
+                billboard(out, m, c, 0.2f + 0.5f * l, 0.1f * (1.0f - l) * (1.0f - l) * smoothstep(0.0f, 2.0f, age),
+                        MIST_R, MIST_G, MIST_B, false, 3, 10);
+            }
+        });
+    }
+
+    /** One falling droplet: a short streak and a bead of white at its head. */
+    private static void droplet(VertexConsumer out, Matrix4f m, Vec3 at, Vec3 v, float age, float alpha, float size) {
+        if (alpha <= 0.01f) {
+            return;
+        }
+        Vec3 p1 = at.add(v.scale(age)).add(0.0, -0.5 * WATER_GRAVITY * age * age, 0.0);
+        float before = Math.max(0.0f, age - 1.0f);
+        Vec3 p0 = at.add(v.scale(before)).add(0.0, -0.5 * WATER_GRAVITY * before * before, 0.0);
+        ribbon(out, m, new Vec3[]{p0, p1}, new float[]{0.008f * size, 0.022f * size}, new float[]{alpha * 0.4f, alpha},
+                1.0f, 1.0f, SHALLOW_R, SHALLOW_G, SHALLOW_B);
+        billboard(out, m, p1, 0.035f * size, alpha, FOAM_R, FOAM_G, FOAM_B, false, 2, 6);
+    }
+
+    /**
+     * Water landing: a body of water bursting outward, a crown of sheets flung up round the strike and falling
+     * back, droplets thrown up and raining down, the wave rolling out with its foam crest, and mist.
+     */
+    private static void drawLiquidSplash(VertexConsumer out, Matrix4f m, SpellBeamClientState.Impact impact,
+                                         double now, Vec3 camera) {
+        float age = (float) (now - impact.start);
+        if (age < 0.0f) {
+            return;
+        }
+        float scale = impact.scale();
+        float f = age / SpellBeamClientState.IMPACT_TICKS;
+        Vec3 pos = impact.pos.subtract(camera);
+        for (int k = 0; k < 10; k++) {
+            Vec3 dir = randomDirection(impact.seed + k * 7);
+            float left = 1.0f - Math.min(1.0f, f * 2.0f);
+            Vec3 c = pos.add(dir.scale(1.2 * scale * (1.0f - left * left))).add(0.0, -0.3 * f * f, 0.0);
+            float mix = hash(impact.seed, k, 3);
+            billboard(out, m, c, (0.3f + 0.35f * f) * scale, 0.34f * (float) Math.pow(1.0f - f, 1.5),
+                    Mth.lerp(mix, DEEP_R, SHALLOW_R), Mth.lerp(mix, DEEP_G, SHALLOW_G), Mth.lerp(mix, DEEP_B, SHALLOW_B),
+                    false, 3, 10);
+        }
+        float crown = Math.min(1.0f, age / 14.0f);
+        if (crown < 1.0f && impact.full()) {
+            Vec3 ground = pos.add(0.0, -0.6, 0.0);
+            double height = 1.5 * scale * Math.sin(Math.PI * crown);
+            double radius = (0.5 + 1.0 * crown) * scale;
+            for (int k = 0; k < 18; k++) {
+                double angle = k * Math.PI * 2.0 / 18.0;
+                Vec3 base = ground.add(Math.cos(angle) * radius, 0.0, Math.sin(angle) * radius);
+                Vec3 tip = base.add(Math.cos(angle) * 0.3 * crown, height, Math.sin(angle) * 0.3 * crown);
+                ribbon(out, m, new Vec3[]{base, tip}, new float[]{0.14f * scale, 0.06f * scale},
+                        new float[]{0.32f * (1.0f - crown), 0.2f * (1.0f - crown)}, 1.0f, 1.0f,
+                        SHALLOW_R, SHALLOW_G, SHALLOW_B);
+                billboard(out, m, tip, 0.08f * scale, 0.6f * (1.0f - crown), FOAM_R, FOAM_G, FOAM_B, false, 2, 8);
+            }
+        }
+        int count = impact.full() ? 44 : 18;
+        for (int k = 0; k < count; k++) {
+            int seed = impact.seed + k * 29;
+            Vec3 v = randomDirection(seed);
+            v = new Vec3(v.x, Math.abs(v.y) * 1.3 + 0.2, v.z).normalize()
+                    .scale((0.14 + 0.2 * hash(seed, 1, 1)) * scale);
+            droplet(out, m, pos, v, age, Mth.clamp(1.0f - age / 24.0f, 0.0f, 1.0f), 1.3f);
+        }
+        if (impact.style.waveFront && impact.full()) {
+            waveFront(out, m, impact, pos, age, 0.5f, 0.35f, DEEP_R, DEEP_G, DEEP_B);
+            waveFront(out, m, impact, pos, age, 0.12f, 0.75f, FOAM_R, FOAM_G, FOAM_B);
+        }
+        for (int k = 0; k < 6; k++) {
+            Vec3 c = pos.add(randomDirection(impact.seed + k * 11).scale(1.0 * f));
+            billboard(out, m, c, (0.5f + 0.9f * f) * scale, 0.14f * (1.0f - f) * (1.0f - f), MIST_R, MIST_G, MIST_B,
+                    false, 3, 10);
+        }
+    }
+
+    /** A held stream's water (Aqua Eructo poured from the wand): its body, from wand to wherever it lands. */
+    static void drawHeldLiquid(VertexConsumer out, Matrix4f m, SpellBeamClientState.Beam beam, double now,
+                               Vec3 camera) {
+        Frame f = Frame.of(beam, now, 1.0f, camera);
+        if (f != null) {
+            drawLiquid(out, m, f);
+        }
+    }
+
+    static void drawHeldLiquidHighlight(VertexConsumer out, Matrix4f m, SpellBeamClientState.Beam beam, double now,
+                                        Vec3 camera) {
+        Frame f = Frame.of(beam, now, 1.0f, camera);
+        if (f != null) {
+            drawLiquidHighlight(out, m, f);
+        }
+    }
+
+    /**
+     * Where a held stream meets something, for as long as it pours: droplets bursting back and out, foam boiling
+     * at the point, mist rising off it and rings of foam spreading over the surface. Camera-relative {@code at}.
+     */
+    static void drawLiquidSpout(VertexConsumer out, Matrix4f m, Vec3 at, Vec3 dir, double age, int seed, float scale) {
+        for (int k = 0; k < 28; k++) {
+            float period = 10.0f;
+            double run = age + hash(seed, k, 1) * period;
+            float local = (float) (run % period);
+            int cycle = (int) (run / period);
+            int s2 = seed + k * 977 + cycle * 131;
+            Vec3 v = randomDirection(s2);
+            double back = v.dot(dir);
+            v = v.subtract(dir.scale(Math.abs(back) * 1.6)).normalize();
+            v = v.scale((0.12 + 0.14 * hash(s2, 2, 2)) * scale).add(0.0, 0.12 * scale, 0.0);
+            droplet(out, m, at, v, local, 0.8f * (1.0f - local / period), 1.2f);
+        }
+        int churn = (int) (age / 2.0);
+        for (int k = 0; k < 6; k++) {
+            Vec3 c = at.add(randomDirection(seed + churn * 7 + k).scale(0.25 * scale));
+            boolean foam = (k & 1) == 0;
+            billboard(out, m, c, (0.22f + 0.12f * hash(seed, k, churn)) * scale, 0.5f,
+                    foam ? FOAM_R : SHALLOW_R, foam ? FOAM_G : SHALLOW_G, foam ? FOAM_B : SHALLOW_B, false, 3, 10);
+        }
+        for (int k = 0; k < 4; k++) {
+            double run = age + k * 4.0;
+            float local = (float) (run % 16.0);
+            int cycle = (int) (run / 16.0);
+            Vec3 c = at.add(randomDirection(seed + k * 3 + cycle * 17).scale(0.3 + local * 0.06))
+                    .add(0.0, local * 0.03, 0.0);
+            billboard(out, m, c, 0.3f + 0.05f * local, 0.12f * (1.0f - local / 16.0f), MIST_R, MIST_G, MIST_B,
+                    false, 3, 10);
+        }
+        for (int k = 0; k < 2; k++) {
+            float rt = (float) (((age + k * 4.0) % 8.0) / 8.0);
+            ring(out, m, at.add(0.0, 0.02, 0.0), new Vec3(1.0, 0.0, 0.0), new Vec3(0.0, 0.0, 1.0),
+                    (0.3f + 1.2f * rt) * scale, 0.06f, 0.4f * (1.0f - rt), FOAM_R, FOAM_G, FOAM_B, 24);
+        }
+    }
+
+    /** Droplets peeling off a held stream all along it, falling away. Camera-relative ends. */
+    static void drawLiquidSpray(VertexConsumer out, Matrix4f m, Vec3 from, Vec3 to, double age, int seed) {
+        Vec3 dir = to.subtract(from);
+        if (dir.lengthSqr() < 1.0E-6) {
+            return;
+        }
+        Vec3 unit = dir.normalize();
+        for (int k = 0; k < 30; k++) {
+            float period = 12.0f;
+            double run = age * 0.9 + k * 0.4;
+            float local = (float) (run % period);
+            int cycle = (int) (run / period);
+            int s2 = seed + k * 613 + cycle * 97;
+            Vec3 start = from.lerp(to, hash(s2, 1, 1));
+            Vec3 v = randomDirection(s2).scale(0.06 + 0.06 * hash(s2, 2, 2)).add(unit.scale(0.12));
+            droplet(out, m, start, v, local, 0.7f * (1.0f - local / period), 1.0f);
         }
     }
 
@@ -721,6 +969,9 @@ public final class SpellBeamFxRenderer {
 
         if (impact.kind == SpellBeamFx.STEAM) {
             return; // steam is all straight alpha, drawn in the dark pass
+        }
+        if (impact.style.liquid && impact.kind != SpellBeamFx.SHIELD) {
+            return; // water is drawn as water in the dark pass, not as light
         }
         if (impact.kind == SpellBeamFx.SHIELD) {
             drawShieldRipple(out, m, impact, pos, age);

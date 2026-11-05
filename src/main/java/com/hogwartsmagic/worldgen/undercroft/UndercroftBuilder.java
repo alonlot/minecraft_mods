@@ -162,6 +162,14 @@ public final class UndercroftBuilder {
         if (job == null) {
             return;
         }
+        if (!footprintResident(job.level, job.site.station)) {
+            // Everybody walked away and the chunks unloaded. Writing on would load them again
+            // from the tick thread; pause instead, and maybeResume picks it up on the next visit.
+            UndercroftTracker.get(job.level)
+                    .progress(job.site, job.item, job.cursor, UndercroftTracker.CARVING);
+            activeJob = null;
+            return;
+        }
         try {
             if (job.advance()) {
                 UndercroftTracker.get(job.level)
@@ -208,20 +216,23 @@ public final class UndercroftBuilder {
             }
         }
 
-        BlockPos was = FOGGED.get(player.getUUID());
+        // A player object seen for the first time (login, respawn) is always told, even "no fog":
+        // a respawn far away must still clear the fog its client was showing.
+        boolean known = FOGGED.containsKey(player);
+        BlockPos was = FOGGED.get(player);
         BlockPos now = near == null ? null : near.station;
-        if (java.util.Objects.equals(was, now)) {
+        if (known && java.util.Objects.equals(was, now)) {
             return;
         }
         if (now == null) {
-            FOGGED.remove(player.getUUID());
+            FOGGED.put(player, null);
             com.hogwartsmagic.network.SpellPackets.CHANNEL.send(
                     new com.hogwartsmagic.network.SpellPackets.UndercroftFogPacket(
                             BlockPos.ZERO, 0, 0, 0),
                     net.minecraftforge.network.PacketDistributor.PLAYER.with(player));
             return;
         }
-        FOGGED.put(player.getUUID(), now);
+        FOGGED.put(player, now);
         int bottom = now.getY() - SHAFT_DROP - near.depth;
         com.hogwartsmagic.network.SpellPackets.CHANNEL.send(
                 new com.hogwartsmagic.network.SpellPackets.UndercroftFogPacket(
@@ -229,8 +240,12 @@ public final class UndercroftBuilder {
                 net.minecraftforge.network.PacketDistributor.PLAYER.with(player));
     }
 
-    /** Which undercroft each player was last told they were in. */
-    private static final java.util.Map<java.util.UUID, BlockPos> FOGGED = new java.util.HashMap<>();
+    /**
+     * Which undercroft each player was last told they were in. Keyed by the player object, weakly:
+     * a relog or a respawn makes a new one (whose client has no fog yet), so the state is sent
+     * again, and players who leave do not stay in the map.
+     */
+    private static final java.util.Map<ServerPlayer, BlockPos> FOGGED = new java.util.WeakHashMap<>();
 
     /**
      * Forgets what this player was told. Called on logout: the client drops its fog state when it

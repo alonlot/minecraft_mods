@@ -19,6 +19,26 @@ public final class ModEventsClientHooks {
     private ModEventsClientHooks() {
     }
 
+    /** How long a server action-bar line keeps the wand cooldown line from overwriting it. */
+    private static final long SERVER_LINE_TICKS = 40L;
+    private static long serverLineUntil;
+
+    /**
+     * The server sent an action-bar line (a refusal, a status, a warning). The cooldown line below is
+     * rewritten every tick while a wand is held, so without this the server's line was gone after one tick.
+     */
+    public static void onServerActionBar() {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.level != null) {
+            serverLineUntil = minecraft.level.getGameTime() + SERVER_LINE_TICKS;
+        }
+    }
+
+    /** Forget the window when the world goes away, so a new world does not start with a stale one. */
+    public static void clearServerActionBar() {
+        serverLineUntil = 0L;
+    }
+
     public static void onClientPlayerTick(Player player, boolean serpensortiaUseLatched, boolean fiendfyreUseLatched, boolean wingardiumUseLatched, boolean imperioUseLatched) {
         Minecraft minecraft = Minecraft.getInstance();
         if (player != minecraft.player) {
@@ -39,8 +59,10 @@ public final class ModEventsClientHooks {
 
         if (MagicWandItem.isAnyWand(stack)) {
             SpellType selected = MagicWandItem.getSelectedSpell(stack);
-            // While a lock is picked the server's progress bar owns the action bar.
-            if (selected != null && !player.isCreative() && !LockPickClient.ownsActionBar()) {
+            // While a lock is picked the server's progress bar owns the action bar, and a fresh server line
+            // keeps it for a moment too.
+            if (selected != null && !player.isCreative() && !LockPickClient.ownsActionBar()
+                    && player.level().getGameTime() >= serverLineUntil) {
                 long now = player.level().getGameTime();
                 long cooldownEnd = MagicWandItem.getSpellCooldown(stack, selected);
                 long remaining = cooldownEnd - now;

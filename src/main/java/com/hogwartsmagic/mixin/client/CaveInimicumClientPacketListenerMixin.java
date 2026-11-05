@@ -29,8 +29,7 @@ public abstract class CaveInimicumClientPacketListenerMixin {
     @Inject(
             method = "handleSoundEvent(Lnet/minecraft/network/protocol/game/ClientboundSoundPacket;)V",
             at = @At(value = "INVOKE", target = ENSURE_MAIN_THREAD, shift = At.Shift.AFTER),
-            cancellable = true,
-            remap = false)
+            cancellable = true)
     private void hogwartsmagic$muteWardedPositionalSounds(ClientboundSoundPacket packet, CallbackInfo ci) {
         BlockPos sourcePos = BlockPos.containing(packet.getX(), packet.getY(), packet.getZ());
         if (CaveInimicumClientState.shouldMuteBlockPos(sourcePos)) {
@@ -41,8 +40,7 @@ public abstract class CaveInimicumClientPacketListenerMixin {
     @Inject(
             method = "handleSoundEntityEvent(Lnet/minecraft/network/protocol/game/ClientboundSoundEntityPacket;)V",
             at = @At(value = "INVOKE", target = ENSURE_MAIN_THREAD, shift = At.Shift.AFTER),
-            cancellable = true,
-            remap = false)
+            cancellable = true)
     private void hogwartsmagic$muteWardedEntitySounds(ClientboundSoundEntityPacket packet, CallbackInfo ci) {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.level == null) {

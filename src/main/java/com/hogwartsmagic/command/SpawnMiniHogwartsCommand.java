@@ -32,7 +32,7 @@ public class SpawnMiniHogwartsCommand {
         BlockPos center = BlockPos.containing(src.getPosition()).offset(60, 0, 60);
         BlockPos recorded = MiniHogwartsManager.requestSpawn(level, center);
         if (recorded == null) {
-            src.sendFailure(Component.literal("Could not build Mini Hogwarts (schematic missing or unreadable)."));
+            src.sendFailure(Component.literal("Could not build Mini Hogwarts: the schematic is missing, or the chunks around that spot are not all loaded. Try again with a larger view distance or after flying over the area."));
             return 0;
         }
         src.sendSuccess(() -> Component.literal(

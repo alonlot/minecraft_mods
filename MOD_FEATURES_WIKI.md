@@ -154,6 +154,15 @@ Each spell below lists the implemented gameplay behavior currently present in th
 - Opens trapdoors.
 - Opens fence gates.
 - Functions as an unlocking spell for common interactable block barriers.
+- Adept: also opens iron doors and iron trapdoors, which swing shut again after 5 seconds.
+- Expert: opens up to 12 doors, trapdoors and gates within 4 blocks at once, and picks a small piston door lock (up to 4 levers or buttons, one press).
+- Master: picks any piston door lock (up to 20 switches and button orders of up to 4 presses). If no switch works, it forces a nearby comparator, observer or other redstone source on for 3 seconds. It also opens a Gringotts vault door from range (the alarm still goes off) and switches off a hostile Ward's barrier for 5 seconds.
+- Piston locks are picked while you keep the cast held (right-click, or the slot key you cast with). The wand twists in first person, lock clicks and faint piston sounds play, sparks fly at the door, and the action bar shows a progress bar and the time left. Letting go stops it: no XP and nothing moves. A held pick may run 30 seconds.
+- When the answer is found, the spell works the real levers and buttons itself. XP is paid when the last one lands. It never powers a dispenser, dropper or TNT on the way.
+- It refuses a lock it cannot read safely: wiring that runs past what it can trace or into unloaded chunks, pistons used to move redstone blocks or observers, a lock that needs an item, or a clock that never stops. If someone flips a lever of the lock while it works, it stops ("Someone touched the lock while you read it.").
+- Piston locks ignore claims and spawn protection. Only player casters pick them.
+- A door sealed by Colloportus refuses it (see Colloportus).
+- `/lockinfo [3|4]` (operators) reads the piston door you look at as an Expert or Master Alohomora would and prints the answer in chat without touching anything.
 
 ### Incendio
 
@@ -176,6 +185,9 @@ Each spell below lists the implemented gameplay behavior currently present in th
 - Highlights nearby chests through walls.
 - Places temporary reveal lights near found secrets.
 - Temporarily exposes Cave Inimicum wards.
+- Expert: shows how a piston door with a small lock (up to 4 switches) opens, while you keep the cast held as Alohomora does. The levers to flip and the buttons, plates and sculk sensors to work glow and get floating labels, with the presses numbered. Anyone nearby can see them for 15 seconds.
+- Master: reads full piston locks and item locks too: which item frame to fill and how many times to turn it, and how many items to put in a chest or other container (up to 3 such keys per lock). Revelio never forces anything.
+- At any rank, a lock under a Colloportus seal shows the seal instead: a sphere of white points and a chat line naming the sealer and rank.
 
 ### Avada Kedavra
 
@@ -385,6 +397,19 @@ Each spell below lists the implemented gameplay behavior currently present in th
 - Sends the consumed block item flying magically back into place before restoring the block.
 - Does not repair block-entity blocks or impossible states.
 
+### Colloportus
+
+- The locking charm. Cast it at a door, trapdoor, fence gate, or any block of a piston door (a piston within 6 blocks) to seal that lock against magic. A cast at anything else does nothing ("There is no lock here to seal.").
+- A seal is a sphere around the struck block: 1, 2, 3 or 4 blocks by rank. A seal made at a piston door also covers its door pistons, so sealing at the button protects the whole door.
+- You keep 1, 2, 4 or 8 seals by rank, across all dimensions. A new one past the cap replaces your oldest.
+- Alohomora at a sealed lock is refused ("This lock is sealed by Colloportus."), before any piston lock is read. An Alohomora of a strictly higher rank breaks one seal instead of opening, and a Master Alohomora also breaks a Master seal. The sealer is told in chat if they are online.
+- Your own Alohomora passes your own seals. Casting Colloportus inside your own seal lifts it (no XP).
+- Only magic is stopped: hands, keys, buttons and redstone still work. Alohomora's Expert area skips sealed doors.
+- Seals last until broken or lifted, are saved with the world, and stay when the door is broken.
+- Revelio shows who sealed a lock, and `/lockinfo` prints `SEALED by <name> (rank N)`.
+- `/colloportus clear [radius]` (operators, default 8, up to 64) removes every seal that reaches within the radius of you.
+- Players only, never through an Imperio puppet or a reflected beam.
+
 ### Riddikulus
 
 - The charm against a Boggart. Pink beam with note and happy villager particles.
@@ -585,6 +610,93 @@ Each spell below lists the implemented gameplay behavior currently present in th
 - Gains aggressive wolf combat behavior in werewolf state.
 - Has client morph animation states for transformation and locomotion.
 
+### Mountain Troll
+
+- Big, slow, club-swinging brute (120 health). Hostile to players, Death Eaters and students.
+- Roars once on first contact, then picks between an overhead ground slam (hits everything in a 4-block circle in front of it and shakes nearby players), a sweeping swing in a cone in front, and a plain club hit.
+- Below 40% health it flies into a rage: faster, harder hits, more slams.
+- A single hit of 8 or more while it is not mid-attack staggers it for a moment.
+- Spawns in the Forbidden Forest, Horntail Peaks, taiga and mountain biomes, and in the Goblin Undercity.
+- Drops cobblestone and sometimes Arcane Dust.
+
+### Giant
+
+- Grawp: a five-and-a-half block giant with 250 health. Neutral until provoked.
+- Provoked by being hit, or by a player who stands within 4 blocks of him for 3 seconds. The anger lasts 30 seconds and is refreshed by every new provocation. He bullies other mobs regardless.
+- Roars on first engagement (knockback and nausea within 8 blocks), then swipes, kicks or grabs.
+- The kick breaks soft blocks in front of him (dirt, sand, logs, planks, leaves, glass, wooden doors and the like, never anything that needs a pickaxe) and throws some of the wreckage. Needs the `mobGriefing` game rule.
+- The grab lifts a victim in his fist and hurls them. Below 35% health he rages and grabs more often.
+- A single hit of 14 or more staggers him and makes him drop whatever he is holding.
+- Rare in the Forbidden Forest, dark forests and old growth taigas. Egg or command giants never despawn.
+- Drops bone, leather, beef and often Arcane Dust.
+
+### Hungarian Horntail
+
+- Boss dragon with 320 health.
+- On the ground it bites, spins its spiked tail through everything around it, gusts with its wings, and breathes a sweeping jet of fire that stops at walls and sets the ground alight (with the `mobGriefing` game rule). The flame is the same fire as the dragon in the First Task memory.
+- It also takes off, circles its prey, strafes it with fire from the air and finishes with a dive.
+- Below 45% health it rages: faster, more fire, more flying. A hit of 14 or more staggers it on the ground.
+- Lives on the open crags of Horntail Peaks (y 96 and up, open sky) and at Horntail nests. Wild ones can despawn; ones made by egg or `/summonhorntail` (op) never do.
+- Ringing Clankers within 32 blocks of one sends it after you.
+- Drops Blaze Powder, bone, Arcane Dust and, when a player kills it, often a Dragon Heartstring Core.
+
+### Ukrainian Ironbelly
+
+- The dragon chained in front of the deepest Gringotts vault (200 health, heavy armour). It never flies.
+- Nearly blind: it finds you by noise (sprinting, breaking blocks) or when you come within 8 blocks. Walking past it, wall-side, works.
+- Held within 11 blocks of its anchor; past the chain it stops following and breathes fire instead.
+- Clankers cow it for 5 seconds. Break every anchor stub in the floor around it and it climbs out of the cavern and is gone.
+- Drops Blaze Powder, bone, Arcane Dust and, when a player kills it, sometimes a Dragon Heartstring Core.
+
+### Gringotts Goblin
+
+- Gringotts teller. Neutral, never despawns, and trades against Galleons: a gold ingot for 2 Galleons, 3 Galleons for an ingot, a diamond for 6, and Galleons for a fine wood stick, a broom and a goblin-forged silver dagger. Each offer has a limited number of uses.
+- Refuses to trade while it is angry. Striking one brings every vault guard within 24 blocks.
+- Also found deep underground (below y 40) anywhere in the Overworld, and in the Goblin Undercity.
+- Drops Galleons and a little gold.
+
+### Goblin Vault Guard
+
+- Armoured goblin with a silver dagger (30 health). Neutral: it only attacks someone it is angry at.
+- Angered by hitting a goblin or guard, by opening containers inside the bank, by Clankers, and by the bank's alarm.
+- Undercroft sentries are hostile on sight, except to a player Polyjuiced into a goblin.
+- Drops Galleons and gold nuggets, and a player kill may give its dagger.
+
+### House Elf
+
+- Never hostile. A few live in the Hogwarts castle; in the wild they are rare and solitary (a natural spawn never lands within 96 blocks of another elf), found only in the Forbidden Forest.
+- A wild elf Disapparates with a crack when a wizard it notices comes within 5 blocks, or when it is hurt. It does not notice a player in an Invisibility Cloak or under invisibility, one Polyjuiced into a creature, or one crouching more than 1.5 blocks away.
+- It cannot Disapparate inside a Cave Inimicum ward, or while stunned, petrified, chained, slowed, frozen, hung by Levicorpus or under Imperio.
+- Offer food to a wild elf that is not fleeing and it is bound to you. It follows you, Apparates to you when left far behind, and punishes itself when you are hurt.
+- Give a bound elf any piece of clothing (armour) to free it. An elf you took gently (unseen, or held only by a ward) stays as a friend and blasts whoever attacks you. One taken by force takes the clothes and leaves forever.
+- A Lost wizard (Dark Magic) frightens bound and freed elves into backing away.
+
+### Merperson
+
+- Black Lake selkies with spears (30 health). Territorial, not hostile.
+- Swim within 11 blocks and one rears up and screeches a warning. Stay within 5.5 blocks for 5 seconds and the pod attacks. Strike one and every merperson within 20 blocks turns on you. Players who are not in the water, and creative or spectating players, are left alone.
+- Mermish is per listener: under water you hear their song and speech, above the surface only screeching.
+- Each natural pod has a merchieftainess: larger, paler, crowned, 52 health. She leads the chorus.
+- Out of water they flounder and, after fifteen seconds, slowly dry out.
+- Opening or breaking any container in the merfolk village turns the whole village on you for two minutes and wakes the grindylow nest around the hoard.
+- Found in the Black Lake, its shallows, the merfolk village and the lakebed ruin.
+- Drops kelp, sometimes prismarine shards, and from a player kill sometimes its spear.
+
+### Grindylow
+
+- Small (8 health) Black Lake water demon. A trap rather than a fighter.
+- Lies dormant in the weed (its green eyes glow) until something swims within 4.5 blocks, then shrieks and comes.
+- It takes hold: your movement slows, you are dragged down, you lose air far faster and take a little damage each second. Several stack.
+- Any hit on it breaks its grip (brittle fingers), and a grip lapses on its own after ten seconds.
+- A nest lies around the merfolk hoard; free-swimming groups live in the Black Lake and its shallows.
+- Drops a little kelp and sometimes prismarine crystals.
+
+### Golden Snitch
+
+- Released from the Golden Snitch item (crafted, or bought from the broom merchant). It flits around the spot where it was let go and darts away from anyone within 9 blocks.
+- It cannot be hurt. It can only be caught by touching it while riding a broom.
+- Catching it gives 50 XP, returns the item and shows how long the chase took.
+
 ### Broom Entity
 
 - Rideable vehicle entity.
@@ -783,6 +895,13 @@ Each spell below lists the implemented gameplay behavior currently present in th
 - **Config.** `pensieveCaptureEnabled` (default true), `pensieveCaptureSeconds` (60, 10-120), `pensieveCaptureRadius` (32, 8-64), `pensieveCaptureMaxEntities` (64), `pensieveCaptureMaxBlockChanges` (200000, per dimension), `pensieveCaptureMaxKb` (4096; bigger memories lose particles, then their farthest creatures).
 - **Storage.** One file per memory under `<world>/data/hogwartsmagic_memories/`. Files of destroyed Memory items are not cleaned up. A memory replays the other players' movements and the public chat the owner saw, so on a shared server it can be given away: switch `pensieveCaptureEnabled` off to stop capturing.
 
+### Mandrake Plant
+
+- Grows wild in swamps, mangrove swamps, dark forests, the Forbidden Forest and the Dementor Fen.
+- Cannot simply be broken. With an empty hand, right-click it (or try to break it) to pull: three seconds of tugging while it screams, giving nausea and weakness to players within 5 blocks.
+- Walk away, switch to an item or let it out of reach and you lose your grip. Even a full pull fails about three times in ten, and it twists back into the soil.
+- A successful pull drops a fine Mandrake Root, used to brew the Polyjuice base.
+
 ### Gillyweed Plant
 
 - Custom underwater plant.
@@ -957,6 +1076,27 @@ Hand-made scenes that teach by showing. They are silent films with a directed ca
 
 - Where to buy
   Apothecaries sell Dittany and Valerian Sprigs from their first level and Asphodel and Wormwood from their second. Each apothecary stocks only some of them, so try another shop. The Potions classroom in Mini Hogwarts has two chests of supplies.
+
+### Merperson's Spear
+
+- Iron-tier spear: a little slow and unremarkable on land, 4 extra damage while you are under water.
+- Dropped now and then by merpeople, and found in the merfolk hoard.
+
+### Merchieftainess's Crown
+
+- Found in the merfolk hoard and, rarely, in Chamber of Secrets chests. Worn, it gives Conduit Power for as long as it stays on: breathe, see and work under water.
+- Every merperson that sees you wearing it attacks on sight, with no warning.
+
+### Clankers
+
+- The goblins' noisemaker (24 uses, 3 second cooldown). Sold by the cauldron smith.
+- Cows every Ironbelly within 20 blocks for 5 seconds, and brings every goblin guard within 32 blocks.
+- Rung near a Hungarian Horntail, it sends the dragon after you.
+
+### Golden Snitch (item)
+
+- Crafted from gold, Arcane Dust and Magical Silk, or bought from the broom merchant.
+- Right-click to release it. See the Golden Snitch mob entry for the catch.
 
 ### Gillyweed
 
@@ -1437,6 +1577,8 @@ than six idle Inferi at once), and a boat does not protect its rider from the gr
 - Hippogriff biome spawns.
 - Acromantula biome spawns.
 - Gillyweed biome/worldgen placement.
+- Mountain Troll, Giant, Gringotts Goblin and House Elf biome spawns.
+- Mandrake patches in swamps, dark forests, the Forbidden Forest and the Dementor Fen.
 
 ## Dynamic Events and Progression Features
 

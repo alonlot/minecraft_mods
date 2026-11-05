@@ -7,6 +7,7 @@ import com.hogwartsmagic.item.MagicBookItem;
 import com.hogwartsmagic.item.MagicWandItem;
 import com.hogwartsmagic.network.SpellPackets;
 import com.hogwartsmagic.spell.SpellType;
+import net.minecraft.Util;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
@@ -35,7 +36,10 @@ public class WandRadialMenuScreen extends Screen {
     private static final float STEP = FULL / SLOT_COUNT;
     private static final int SOCKET_R = 18;
     private static final int HUB_R = 40;
-    private static final int OUTER_PAD = 30;
+    private static final int OUTER_PAD = 34;
+    /** Fixed rune strings (lowercase letters render as glyphs in the minecraft:alt font). */
+    private static final String RUNES_OUTER = "hogwartsdracodormiensnunquamtitillandoslumosnoxaccioexpelliarmusprotego";
+    private static final String RUNES_INNER = "wingardiumleviosaalohomora";
 
     private final Player player;
     private int hoveredSlot = -1;
@@ -70,17 +74,21 @@ public class WandRadialMenuScreen extends Screen {
         ItemStack wand = getHeldWand();
         SpellType selectedSpell = wand.isEmpty() ? null : MagicWandItem.getSelectedSpell(wand);
 
-        // Backdrop disc, gold rim, and the faint orbit the sockets ride on.
-        fillAnnulus(g, cx, cy, 0, radius + OUTER_PAD, 0, FULL, 0xC40E0A1C);
-        fillAnnulus(g, cx, cy, radius + OUTER_PAD, radius + OUTER_PAD + 1.5f, 0, FULL, th.trim());
-        fillAnnulus(g, cx, cy, radius - 0.75f, radius + 0.75f, 0, FULL, ThemedGui.withAlpha(th.trim(), 0x70));
+        float time = Util.getMillis() / 1000f;
+        float rim = radius + OUTER_PAD;
+        SpellType hoveredSpellEarly = hoveredSlot >= 0 ? slots.get(hoveredSlot) : null;
+
+        this.renderMagicBackdrop(g, cx, cy, radius, rim, time, th);
         if (hoveredSlot >= 0) {
             float mid = START_ANGLE + STEP * hoveredSlot;
-            fillAnnulus(g, cx, cy, HUB_R + 2, radius + OUTER_PAD, mid - STEP / 2f, mid + STEP / 2f,
-                    ThemedGui.withAlpha(th.trimBright(), 0x30));
+            int tint = hoveredSpellEarly != null && !castingBlocked ? hoveredSpellEarly.getColor() : th.trimBright();
+            // Wedge glow, brightest near the socket, plus a thin beam from the hub to it.
+            fillAnnulus(g, cx, cy, HUB_R + 2, rim, mid - STEP / 2f, mid + STEP / 2f, ThemedGui.withAlpha(tint, 0x18));
+            fillAnnulus(g, cx, cy, radius - SOCKET_R - 8, radius + SOCKET_R + 8, mid - STEP / 2f, mid + STEP / 2f,
+                    ThemedGui.withAlpha(tint, 0x22));
+            this.drawBeam(g, cx, cy, mid, HUB_R + 2, radius - SOCKET_R - 3, tint, time);
         }
-        fillAnnulus(g, cx, cy, 0, HUB_R + 1.5f, 0, FULL, th.trim());
-        fillAnnulus(g, cx, cy, 0, HUB_R, 0, FULL, 0xF0120C22);
+        this.renderHub(g, cx, cy, time, th);
 
         for (int i = 0; i < SLOT_COUNT; i++) {
             float angle = START_ANGLE + STEP * i;
@@ -92,7 +100,13 @@ public class WandRadialMenuScreen extends Screen {
             boolean hovered = i == hoveredSlot;
             float r = hovered ? SOCKET_R + 2 : SOCKET_R;
 
-            if (hovered) {
+            if (spell != null && !castingBlocked) {
+                // Soft halo in the spell colour; the selected spell breathes.
+                float breathe = spell == selectedSpell ? 0.5f + 0.5f * Mth.sin(time * 3.2f) : 0f;
+                int c = spell.getColor();
+                fillAnnulus(g, sx, sy, r + 2, r + 5 + breathe * 2, 0, FULL, ThemedGui.withAlpha(c, hovered ? 0x70 : 0x40 + Math.round(breathe * 0x30)));
+                fillAnnulus(g, sx, sy, r + 5 + breathe * 2, r + 9 + breathe * 3, 0, FULL, ThemedGui.withAlpha(c, hovered ? 0x30 : 0x16));
+            } else if (hovered) {
                 fillAnnulus(g, sx, sy, r + 2, r + 5, 0, FULL, ThemedGui.withAlpha(th.trimBright(), 0x60));
             }
             fillAnnulus(g, sx, sy, 0, r + 2, 0, FULL, hovered ? th.trimBright() : spell != null ? th.trim() : th.bevelLight());
@@ -116,7 +130,7 @@ public class WandRadialMenuScreen extends Screen {
                     fillAnnulus(g, px, py, 0, 3.5f, 0, FULL, th.border());
                     fillAnnulus(g, px, py, 0, 2.5f, 0, FULL, th.trimBright());
                 }
-                drawOuterLabel(g, spellName(spell), cx, cy, cos, sin, radius + SOCKET_R + 9,
+                drawOuterLabel(g, spellName(spell), cx, cy, cos, sin, Math.round(rim) + 9,
                         hovered ? th.trimBright() : th.text());
             } else {
                 fillAnnulus(g, sx, sy, 0, r - 2, 0, FULL, th.slotFill());
@@ -158,7 +172,110 @@ public class WandRadialMenuScreen extends Screen {
 
         Component hint = Component.translatable("gui." + ExampleMod.MODID
                 + (hoveredSpell != null ? ".wand_radial.hint_click_or_release" : ".wand_radial.hint_hover"));
-        g.drawCenteredString(this.font, hint, cx, cy + radius + OUTER_PAD + 8, th.textDim());
+        g.drawCenteredString(this.font, hint, cx, cy + radius + OUTER_PAD + 24, th.textDim());
+    }
+
+    /**
+     * Night-sky disc: a radial violet-to-ink gradient, an aura outside the rim, a band of slowly turning
+     * runes (the enchanting-table alphabet), twinkling motes, and a glint that travels round the gold rim.
+     */
+    private void renderMagicBackdrop(GuiGraphics g, int cx, int cy, int radius, float rim, float time, Theme th) {
+        // Aura just outside the rim.
+        fillAnnulus(g, cx, cy, rim + 1.5f, rim + 5f, 0, FULL, 0x30A066FF);
+        fillAnnulus(g, cx, cy, rim + 5f, rim + 10f, 0, FULL, 0x14A066FF);
+        // Radial gradient, centre glow to dark edge.
+        int bands = 7;
+        for (int b = 0; b < bands; b++) {
+            float r0 = rim * b / bands;
+            float r1 = rim * (b + 1) / bands;
+            int color = ThemedGui.lerpColor(0x2A1B52, 0x0B0718, b / (float) (bands - 1));
+            fillAnnulus(g, cx, cy, r0, r1, 0, FULL, ThemedGui.withAlpha(color, 0xD8));
+        }
+        // Rune band between the sockets and the rim, with hairlines either side.
+        float runeInner = radius + SOCKET_R + 3;
+        float runeOuter = rim - 2;
+        fillAnnulus(g, cx, cy, runeInner, runeInner + 0.8f, 0, FULL, ThemedGui.withAlpha(th.trim(), 0x50));
+        fillAnnulus(g, cx, cy, runeOuter - 0.8f, runeOuter, 0, FULL, ThemedGui.withAlpha(th.trim(), 0x50));
+        this.drawRuneRing(g, cx, cy, (runeInner + runeOuter) / 2f, time * 0.12f, RUNES_OUTER, 0x70D9B44A, 1f);
+        // Faint orbit the sockets ride on.
+        fillAnnulus(g, cx, cy, radius - 0.6f, radius + 0.6f, 0, FULL, ThemedGui.withAlpha(th.trim(), 0x48));
+        // Motes: fixed seeds, slow drift, sine twinkle.
+        java.util.Random rng = new java.util.Random(0x5EEDL);
+        for (int i = 0; i < 46; i++) {
+            float baseA = rng.nextFloat() * FULL;
+            float rr = HUB_R + 4 + rng.nextFloat() * (rim - HUB_R - 8);
+            float speed = (rng.nextFloat() - 0.5f) * 0.12f;
+            float phase = rng.nextFloat() * FULL;
+            float a = baseA + time * speed;
+            float tw = 0.5f + 0.5f * Mth.sin(time * (1.5f + rng.nextFloat() * 2f) + phase);
+            int alpha = Math.round(40 + 200 * tw * tw);
+            int color = rng.nextBoolean() ? 0xFFF2DC : 0xD8C4FF;
+            float mx = cx + Mth.cos(a) * rr;
+            float my = cy + Mth.sin(a) * rr;
+            int ix = Math.round(mx);
+            int iy = Math.round(my);
+            g.fill(ix, iy, ix + 1, iy + 1, ThemedGui.withAlpha(color, alpha));
+            if (tw > 0.82f && i % 3 == 0) {
+                int arm = ThemedGui.withAlpha(color, alpha / 3);
+                g.fill(ix - 1, iy, ix, iy + 1, arm);
+                g.fill(ix + 1, iy, ix + 2, iy + 1, arm);
+                g.fill(ix, iy - 1, ix + 1, iy, arm);
+                g.fill(ix, iy + 1, ix + 1, iy + 2, arm);
+            }
+        }
+        // Gold rim with a travelling glint.
+        fillAnnulus(g, cx, cy, rim, rim + 1.5f, 0, FULL, th.trim());
+        float glint = time * 0.9f;
+        fillAnnulus(g, cx, cy, rim - 0.5f, rim + 2f, glint - 0.10f, glint + 0.10f, 0xC0FFF3B0);
+        fillAnnulus(g, cx, cy, rim - 0.5f, rim + 2f, glint - 0.32f, glint - 0.10f, 0x50FFF3B0);
+        fillAnnulus(g, cx, cy, rim - 0.5f, rim + 2f, glint + 0.10f, glint + 0.32f, 0x50FFF3B0);
+        float glint2 = glint + (float) Math.PI;
+        fillAnnulus(g, cx, cy, rim - 0.5f, rim + 2f, glint2 - 0.07f, glint2 + 0.07f, 0x80FFF3B0);
+    }
+
+    /** Hub: gold-rimmed well with a turning inner circle of small runes and two counter-rotating arcs. */
+    private void renderHub(GuiGraphics g, int cx, int cy, float time, Theme th) {
+        fillAnnulus(g, cx, cy, HUB_R + 1.5f, HUB_R + 6f, 0, FULL, 0x28A066FF);
+        fillAnnulus(g, cx, cy, 0, HUB_R + 1.5f, 0, FULL, th.trim());
+        fillAnnulus(g, cx, cy, 0, HUB_R, 0, FULL, 0xF0120C22);
+        fillAnnulus(g, cx, cy, 0, HUB_R * 0.7f, 0, FULL, 0x30402A78);
+        this.drawRuneRing(g, cx, cy, HUB_R + 10, -time * 0.2f, RUNES_INNER, 0x48C9B6FF, 0.75f);
+        float a = time * 0.6f;
+        fillAnnulus(g, cx, cy, HUB_R - 3.5f, HUB_R - 2.5f, a, a + 1.4f, ThemedGui.withAlpha(th.trimBright(), 0x70));
+        fillAnnulus(g, cx, cy, HUB_R - 3.5f, HUB_R - 2.5f, a + (float) Math.PI, a + (float) Math.PI + 1.4f, ThemedGui.withAlpha(th.trimBright(), 0x70));
+        float b = -time * 0.45f;
+        fillAnnulus(g, cx, cy, HUB_R - 6.5f, HUB_R - 5.8f, b, b + 2.2f, 0x50C9B6FF);
+    }
+
+    /** Glyphs of the enchanting-table alphabet set around a circle, each turned to face outward. */
+    private void drawRuneRing(GuiGraphics g, int cx, int cy, float r, float rotation, String runes, int color, float scale) {
+        int count = runes.length();
+        for (int i = 0; i < count; i++) {
+            float angle = rotation + FULL * i / count;
+            Component glyph = Component.literal(String.valueOf(runes.charAt(i)))
+                    .withStyle(s -> s.withFont(net.minecraft.client.Minecraft.ALT_FONT));
+            g.pose().pushPose();
+            g.pose().translate(cx + Mth.cos(angle) * r, cy + Mth.sin(angle) * r, 0f);
+            g.pose().mulPose(com.mojang.math.Axis.ZP.rotation(angle + (float) Math.PI / 2f));
+            g.pose().scale(scale, scale, 1f);
+            g.drawString(this.font, glyph, -this.font.width(glyph) / 2, -4, color, false);
+            g.pose().popPose();
+        }
+    }
+
+    /** Tapered, flickering beam from the hub edge out to the hovered socket. */
+    private void drawBeam(GuiGraphics g, int cx, int cy, float angle, float from, float to, int color, float time) {
+        float c = Mth.cos(angle);
+        float s = Mth.sin(angle);
+        float nx = -s;
+        float ny = c;
+        float flicker = 0.8f + 0.2f * Mth.sin(time * 17f);
+        float x0 = cx + c * from, y0 = cy + s * from;
+        float x1 = cx + c * to, y1 = cy + s * to;
+        ThemedGui.fillQuad(g, x0 + nx * 4f, y0 + ny * 4f, x1 + nx * 2f, y1 + ny * 2f, x1 - nx * 2f, y1 - ny * 2f,
+                x0 - nx * 4f, y0 - ny * 4f, ThemedGui.withAlpha(color, Math.round(0x30 * flicker)));
+        ThemedGui.fillQuad(g, x0 + nx * 1.4f, y0 + ny * 1.4f, x1 + nx * 0.7f, y1 + ny * 0.7f, x1 - nx * 0.7f, y1 - ny * 0.7f,
+                x0 - nx * 1.4f, y0 - ny * 1.4f, ThemedGui.withAlpha(ThemedGui.lerpColor(color, 0xFFFFFF, 0.55f), Math.round(0xC0 * flicker)));
     }
 
     /** Spell name just outside its socket, anchored away from the wheel so neighbours never overlap. */

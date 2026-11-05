@@ -2,6 +2,10 @@
   "replace": false,
   "values": [
     {
+      "id": "hogwartsmagic:forbidden_forest",
+      "required": false
+    },
+    {
       "id": "hogwartsmagic:dementor_fen",
       "required": false
     },

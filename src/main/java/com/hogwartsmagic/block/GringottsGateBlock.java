@@ -155,6 +155,19 @@ public class GringottsGateBlock extends IronBarsBlock {
     }
 
     /**
+     * The first swing is what the hall hears, not the twelfth second: guards turn on the thief the
+     * moment a non-goblin starts hitting the screen. Heat is only raised when a bar actually goes.
+     */
+    @Override
+    protected void attack(BlockState state, Level level, BlockPos pos, Player player) {
+        if (level instanceof ServerLevel && player instanceof ServerPlayer thief
+                && !thief.isSpectator() && !GringottsDisguise.isGoblin(player)) {
+            GoblinGuardEntity.alertGuards(thief, thief, 48.0D);
+        }
+        super.attack(state, level, pos, player);
+    }
+
+    /**
      * Breaking one is the loud way in, so it is loud: every guard in the hall, and two steps of
      * heat rather than one.
      */

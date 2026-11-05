@@ -18,8 +18,7 @@ public abstract class PensieveTimeSyncMixin {
 
     @Inject(
             method = "handleSetTime(Lnet/minecraft/network/protocol/game/ClientboundSetTimePacket;)V",
-            at = @At("TAIL"),
-            remap = false)
+            at = @At("TAIL"))
     private void hogwartsmagic$noteTimeSync(ClientboundSetTimePacket packet, CallbackInfo ci) {
         PensieveClientState.onTimeSync();
     }

@@ -32,8 +32,7 @@ public abstract class OverworldBiomeBuilderMixin {
     /** HEAD so these entries register before vanilla slices (helps on equal multi-noise fitness). */
     @Inject(
             method = "addBiomes(Ljava/util/function/Consumer;)V",
-            at = @At("HEAD"),
-            remap = false)
+            at = @At("HEAD"))
     private void hogwartsmagic$prependModBiomeParameterPoints(
             Consumer<Pair<Climate.ParameterPoint, ResourceKey<Biome>>> consumer,
             CallbackInfo ci) {

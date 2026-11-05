@@ -7,15 +7,19 @@ import com.hogwartsmagic.network.SpellPackets;
 import com.hogwartsmagic.util.PlayerMagicData;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseFireBlock;
 import net.minecraft.world.level.block.CampfireBlock;
 import net.minecraft.world.level.block.state.BlockState;
@@ -30,20 +34,26 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.network.PacketDistributor;
 
+import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
 /**
  * Aqua Eructo held: a continuous jet of water from the wand for as long as the cast key is held (and the mana
- * lasts). Each tick the stream arcs from the wand along the caster's aim, falling under its own weight, until it
- * meets a block, a living thing or 24 blocks out (see {@link #trace}); whatever it strikes is driven hard along it (a heavy shove on first contact, a steady push while it stays
- * in the stream), doused, slowed, and if it was burning, wreathed in steam; blazes and magma cubes take damage;
- * fire and lit campfires where it pours go out. No water block is ever placed: the clients draw the water
- * ({@code AquaStreamClient}) from the start and end packets, tracing the stream from the caster's own aim.
+ * lasts). The jet is real water: every tick the wand throws out a fresh {@link Drop} along the caster's aim, and
+ * from then on that water flies on its own, straight while it has pressure, then slowing and falling under its own
+ * weight, until it lands on a block or a living thing. Swing the wand and the stream bends behind it like a hose;
+ * let go and the water already in the air still lands where it was going. Whatever the water strikes is driven
+ * along it (a heavy shove on first contact, a steady push while it stays in the stream), doused, slowed, and if it
+ * was burning, wreathed in steam; blazes and magma cubes take damage; fire and lit campfires it passes or lands on
+ * go out. No water block is ever placed: the clients run the same drops from the caster's wand
+ * ({@code AquaStreamClient}) and draw them, so the water you see is the water that pushes.
  */
 @Mod.EventBusSubscriber(modid = ExampleMod.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class AquaStream {
@@ -58,11 +68,118 @@ public final class AquaStream {
     /** A tap still pours this long. */
     private static final int MIN_TICKS = 10;
 
+    /** How fast the water leaves the wand, blocks a tick. */
+    public static final double SPEED = 3.0;
+    /** How far the water flies straight before its pressure is spent and it falls. */
+    public static final double FLIGHT = 36.0;
+    /** How far it may fall (down a cliff, into the void) before it is given up on. */
+    private static final double MAX_FALL = 64.0;
+    /** Once spent: how hard it falls, how fast it loses its forward speed, and how fast it can fall. */
+    private static final double GRAVITY = 0.16;
+    private static final double DRAG = 0.82;
+    private static final double TERMINAL = 2.6;
+    private static final int MAX_AGE = 80;
+
+    /**
+     * One tick's worth of water, flying on its own once it leaves the wand. Shared by the server (what it hits)
+     * and the clients (what they draw), stepped once a tick on each.
+     */
+    public static final class Drop {
+        public final long id;
+        /** Where it was at the start of this tick and where it is now, for drawing between ticks. */
+        public Vec3 prev;
+        public Vec3 pos;
+        public Vec3 vel;
+        /** Blocks flown from the wand. */
+        public double travelled;
+        private double fallen;
+        private int age;
+        /** It has landed this tick (it sits where it landed for one tick, then is gone). */
+        public boolean landed;
+        public boolean gone;
+
+        public Drop(long id, Vec3 from, Vec3 dir) {
+            this.id = id;
+            this.prev = from;
+            this.pos = from;
+            Vec3 unit = dir.lengthSqr() < 1.0E-8 ? new Vec3(0.0, 0.0, 1.0) : dir.normalize();
+            this.vel = unit.scale(SPEED);
+        }
+
+        /** Where the water landed: on a face of a block, or on a living thing. */
+        public record Hit(Vec3 at, Vec3 dir, @Nullable Direction face, @Nullable LivingEntity target, double travelled) {
+        }
+
+        /** Fly one tick. Returns where it landed, if it landed this tick. */
+        @Nullable
+        public Hit step(Level level, Entity caster) {
+            prev = pos;
+            if (landed) {
+                gone = true;
+                return null;
+            }
+            if (++age > MAX_AGE || fallen > MAX_FALL || pos.y < level.getMinBuildHeight() - 16) {
+                gone = true;
+                return null;
+            }
+            Vec3 next = pos.add(vel);
+            BlockHitResult block = level.clip(new ClipContext(pos, next, ClipContext.Block.COLLIDER,
+                    ClipContext.Fluid.NONE, caster));
+            Vec3 stop = block.getType() == HitResult.Type.MISS ? next : block.getLocation();
+            LivingEntity first = null;
+            Vec3 entry = null;
+            double best = Double.MAX_VALUE;
+            for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, new AABB(pos, stop).inflate(RADIUS + 0.5),
+                    e -> e != caster && e.isAlive() && !e.isSpectator())) {
+                AABB box = e.getBoundingBox().inflate(RADIUS);
+                Vec3 hit = box.clip(pos, stop).orElse(box.contains(pos) ? pos : null);
+                if (hit != null && pos.distanceToSqr(hit) < best) {
+                    best = pos.distanceToSqr(hit);
+                    first = e;
+                    entry = hit;
+                }
+            }
+            Vec3 dir = vel.normalize();
+            if (first != null) {
+                travelled += pos.distanceTo(entry);
+                pos = entry;
+                landed = true;
+                return new Hit(entry, dir, null, first, travelled);
+            }
+            if (block.getType() != HitResult.Type.MISS) {
+                travelled += pos.distanceTo(stop);
+                pos = stop;
+                landed = true;
+                return new Hit(stop, dir, block.getDirection(), null, travelled);
+            }
+            travelled += vel.length();
+            if (travelled > FLIGHT) {
+                fallen += Math.max(0.0, pos.y - next.y);
+            }
+            pos = next;
+            // Straight while it has pressure; spent, it eases over into a fall (no kink where it gives out).
+            double spent = Mth.clamp((travelled - (FLIGHT - 4.0)) / 8.0, 0.0, 1.0);
+            if (spent > 0.0) {
+                double drag = 1.0 - (1.0 - DRAG) * spent;
+                double down = Math.max(-TERMINAL, vel.y - GRAVITY * spent);
+                vel = new Vec3(vel.x * drag, down, vel.z * drag);
+            }
+            return null;
+        }
+    }
+
     private static final class Stream {
         final UUID caster;
         final long started;
         long lastSeen;
         long lastDrain;
+        long lastSplashSound = Long.MIN_VALUE;
+        long lastScald = Long.MIN_VALUE;
+        /** Let go: no more water comes out, but what is in the air still lands. */
+        boolean ended;
+        @Nullable ServerLevel level;
+        long nextDrop;
+        final List<Drop> drops = new ArrayList<>();
         final Set<UUID> struck = new HashSet<>();
 
         Stream(UUID caster, long now) {
@@ -79,15 +196,16 @@ public final class AquaStream {
     }
 
     public static boolean isStreaming(ServerPlayer player) {
-        return STREAMS.containsKey(player.getUUID());
+        Stream stream = STREAMS.get(player.getUUID());
+        return stream != null && !stream.ended;
     }
 
     /** The cast key is down: start the stream (paying the cast) or keep it pouring. */
     public static void heartbeat(ServerPlayer player, ItemStack wand) {
         long now = player.level().getGameTime();
-        Stream stream = STREAMS.get(player.getUUID());
-        if (stream != null) {
-            stream.lastSeen = now;
+        Stream old = STREAMS.get(player.getUUID());
+        if (old != null && !old.ended) {
+            old.lastSeen = now;
             return;
         }
         boolean creative = player.isCreative();
@@ -97,7 +215,14 @@ public final class AquaStream {
         if (!creative && !pay(player, SpellCosts.manaCost(player, wand, SpellType.AQUA_ERUCTO))) {
             return;
         }
-        STREAMS.put(player.getUUID(), new Stream(player.getUUID(), now));
+        Stream stream = new Stream(player.getUUID(), now);
+        if (old != null) {
+            // The last stream's water is still landing.
+            stream.drops.addAll(old.drops);
+            stream.nextDrop = old.nextDrop + 1000;
+            stream.level = old.level;
+        }
+        STREAMS.put(player.getUUID(), stream);
         com.hogwartsmagic.event.ModEvents.revealInvisibilityCloak(player);
         player.level().playSound(null, player.getX(), player.getY(), player.getZ(), ModSounds.SPELL_AQUA.get(),
                 SoundSource.PLAYERS, 1.1f, 0.95f);
@@ -107,7 +232,7 @@ public final class AquaStream {
     /** The cast key was let go. A tap still pours a moment; the tick handler ends it then. */
     public static void release(ServerPlayer player) {
         Stream stream = STREAMS.get(player.getUUID());
-        if (stream != null) {
+        if (stream != null && !stream.ended) {
             stream.lastSeen = Math.min(stream.lastSeen, player.level().getGameTime() - HEARTBEAT_TIMEOUT);
         }
     }
@@ -136,32 +261,46 @@ public final class AquaStream {
         while (it.hasNext()) {
             Stream stream = it.next();
             ServerPlayer player = event.getServer().getPlayerList().getPlayer(stream.caster);
-            if (player == null || !player.isAlive()) {
+            if (player == null) {
                 it.remove();
                 continue;
             }
             long now = player.level().getGameTime();
-            ItemStack wand = player.getMainHandItem();
-            boolean held = now - stream.lastSeen <= HEARTBEAT_TIMEOUT || now - stream.started < MIN_TICKS;
-            if (!held || !MagicWandItem.isAnyWand(wand)
-                    || MagicWandItem.getSelectedSpell(wand) != SpellType.AQUA_ERUCTO
-                    || com.hogwartsmagic.spell.combat.CombatEffects.isCastingBlocked(player)) {
-                stop(player, wand, now);
+            if (!stream.ended) {
+                ItemStack wand = player.getMainHandItem();
+                boolean held = now - stream.lastSeen <= HEARTBEAT_TIMEOUT || now - stream.started < MIN_TICKS;
+                boolean upkept = true;
+                if (held && !player.isCreative() && now - stream.lastDrain >= UPKEEP_INTERVAL) {
+                    stream.lastDrain = now;
+                    upkept = pay(player, Math.max(1.0f,
+                            SpellCosts.manaCost(player, wand, SpellType.AQUA_ERUCTO) * 0.15f));
+                }
+                if (!held || !upkept || !player.isAlive() || !MagicWandItem.isAnyWand(wand)
+                        || MagicWandItem.getSelectedSpell(wand) != SpellType.AQUA_ERUCTO
+                        || com.hogwartsmagic.spell.combat.CombatEffects.isCastingBlocked(player)) {
+                    stop(player, wand, now);
+                    stream.ended = true;
+                } else if ((now - stream.started) % 5 == 0) {
+                    send(player, KEEP); // the clients let a stream go if they stop hearing of it
+                }
+            }
+            if (!(player.level() instanceof ServerLevel level)) {
                 it.remove();
                 continue;
             }
-            if (!player.isCreative() && now - stream.lastDrain >= UPKEEP_INTERVAL) {
-                stream.lastDrain = now;
-                float upkeep = Math.max(1.0f, SpellCosts.manaCost(player, wand, SpellType.AQUA_ERUCTO) * 0.15f);
-                if (!pay(player, upkeep)) {
-                    stop(player, wand, now);
-                    it.remove();
-                    continue;
-                }
+            if (stream.level != level) {
+                stream.drops.clear(); // changed dimension: that water is in another world now
+                stream.level = level;
             }
-            pour(player, stream, now);
-            if ((now - stream.started) % 5 == 0) {
-                send(player, KEEP); // the clients let a stream go if they stop hearing of it
+            if (!stream.ended) {
+                Vec3 look = player.getLookAngle();
+                // Out of the wand, held out at about where the clients draw its tip.
+                Vec3 from = player.getEyePosition().add(look.scale(0.8)).add(0.0, -0.25, 0.0);
+                stream.drops.add(new Drop(stream.nextDrop++, from, look));
+            }
+            flow(level, player, stream, now);
+            if (stream.ended && stream.drops.isEmpty()) {
+                it.remove();
             }
         }
     }
@@ -173,97 +312,28 @@ public final class AquaStream {
         }
     }
 
-    /**
-     * The stream's path: a pressure jet leaving {@code from} dead straight along {@code dir} for {@link #FLIGHT}
-     * blocks, then spent: it bends over, slows and falls to the ground, where it splashes. Traced a block at a time
-     * until it meets a block or a living thing (the first one stops it: what stands behind is shielded), or has
-     * fallen {@link #MAX_FALL} blocks into nothing. Shared by the server (what it hits) and the clients (what they
-     * draw), so the water you see is the water that pushes.
-     */
-    public record Pour(java.util.List<Vec3> points, Vec3 end, @javax.annotation.Nullable net.minecraft.core.Direction face,
-                       @javax.annotation.Nullable LivingEntity target) {
-        public boolean hitSomething() {
-            return face != null || target != null;
+    /** Every drop in the air flies a tick: fire it passes goes out, and what it lands on feels it. */
+    private static void flow(ServerLevel level, ServerPlayer player, Stream stream, long now) {
+        for (Drop drop : stream.drops) {
+            Drop.Hit hit = drop.step(level, player);
+            if (hit != null) {
+                land(level, player, stream, hit, now);
+            } else if (!drop.gone) {
+                douse(level, BlockPos.containing(drop.pos));
+                douse(level, BlockPos.containing(drop.prev.lerp(drop.pos, 0.5)));
+            }
         }
+        stream.drops.removeIf(d -> d.gone);
     }
 
-    /** How far the jet flies straight before it is spent and falls. */
-    public static final double FLIGHT = 36.0;
-    /** How far it may fall (down a cliff, into the void) before it is given up on. */
-    private static final double MAX_FALL = 64.0;
-    /** Blocks the jet covers per step; once spent, how fast it slows, falls, and how fast it can fall. */
-    private static final double STEP = 1.0;
-    private static final double GRAVITY = 0.11;
-    private static final double DRAG = 0.9;
-    private static final double TERMINAL = 1.3;
-    private static final int MAX_STEPS = 160;
-
-    public static Pour trace(net.minecraft.world.level.Level level, net.minecraft.world.entity.Entity caster, Vec3 from,
-                             Vec3 dir) {
-        java.util.List<Vec3> points = new java.util.ArrayList<>();
-        points.add(from);
-        Vec3 at = from;
-        Vec3 velocity = dir.normalize().scale(STEP);
-        double travelled = 0.0;
-        double fallen = 0.0;
-        for (int i = 0; i < MAX_STEPS && fallen < MAX_FALL; i++) {
-            Vec3 next = at.add(velocity);
-            BlockHitResult block = level.clip(new ClipContext(at, next, ClipContext.Block.COLLIDER,
-                    ClipContext.Fluid.NONE, caster));
-            Vec3 stop = block.getType() == HitResult.Type.MISS ? next : block.getLocation();
-            LivingEntity first = null;
-            Vec3 entry = null;
-            double best = Double.MAX_VALUE;
-            for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, new AABB(at, stop).inflate(RADIUS + 0.5),
-                    e -> e != caster && e.isAlive() && !e.isSpectator())) {
-                AABB box = e.getBoundingBox().inflate(RADIUS);
-                java.util.Optional<Vec3> clip = box.clip(at, stop);
-                Vec3 hit = clip.orElse(box.contains(at) ? at : null);
-                if (hit != null && at.distanceToSqr(hit) < best) {
-                    best = at.distanceToSqr(hit);
-                    first = e;
-                    entry = hit;
-                }
-            }
-            if (first != null) {
-                points.add(entry);
-                return new Pour(points, entry, null, first);
-            }
-            if (block.getType() != HitResult.Type.MISS) {
-                points.add(stop);
-                return new Pour(points, stop, block.getDirection(), null);
-            }
-            points.add(next);
-            travelled += velocity.length();
-            fallen += Math.max(0.0, at.y - next.y) * (travelled > FLIGHT ? 1.0 : 0.0);
-            at = next;
-            // Straight while it has pressure; spent, it eases over into a fall (no kink where it gives out).
-            double spent = net.minecraft.util.Mth.clamp((travelled - (FLIGHT - 3.0)) / 6.0, 0.0, 1.0);
-            if (spent > 0.0) {
-                double drag = 1.0 - (1.0 - DRAG) * spent;
-                double down = Math.max(-TERMINAL, velocity.y - GRAVITY * spent);
-                velocity = new Vec3(velocity.x * drag, down, velocity.z * drag);
-            }
-        }
-        return new Pour(points, at, null, null);
-    }
-
-    /** Where the stream runs this tick, and what it does to what it meets. */
-    private static void pour(ServerPlayer player, Stream stream, long now) {
-        if (!(player.level() instanceof ServerLevel level)) {
-            return;
-        }
-        Pour pour = trace(level, player, player.getEyePosition(), player.getLookAngle());
-        Vec3 to = pour.end();
-        LivingEntity target = pour.target();
+    /** One drop's worth of water landing. */
+    private static void land(ServerLevel level, ServerPlayer player, Stream stream, Drop.Hit hit, long now) {
+        LivingEntity target = hit.target();
+        Vec3 dir = hit.dir();
         if (target != null) {
-            java.util.List<Vec3> points = pour.points();
-            Vec3 dir = to.subtract(points.get(Math.max(0, points.size() - 2)));
-            dir = dir.lengthSqr() < 1.0E-6 ? player.getLookAngle() : dir.normalize();
-            double distance = player.getEyePosition().distanceTo(to);
-            float falloff = (float) Math.max(0.35, 1.0 - distance / (FLIGHT * 1.2));
+            float falloff = (float) Math.max(0.35, 1.0 - hit.travelled() / (FLIGHT * 1.2));
             if (stream.struck.add(target.getUUID())) {
-                // The first hit of the jet: a heavy shove, and everything the bolt did (douse, steam, slow, XP).
+                // The first water to reach it: a heavy shove, and everything the bolt did (douse, steam, slow, XP).
                 SpellType.AQUA_ERUCTO.applyHitEffect(target, player, dir, true);
             } else {
                 // Held in the stream: driven steadily along it.
@@ -272,29 +342,29 @@ public final class AquaStream {
                     target.push(dir.x * 0.34 * falloff, 0.06 + dir.y * 0.2 * falloff, dir.z * 0.34 * falloff);
                 }
                 target.clearFire();
-                if ((now - stream.started) % 10 == 0 && (target instanceof net.minecraft.world.entity.monster.Blaze
+                if (now - stream.lastScald >= 10 && (target instanceof net.minecraft.world.entity.monster.Blaze
                         || target instanceof net.minecraft.world.entity.monster.MagmaCube)) {
+                    stream.lastScald = now;
                     target.hurt(target.damageSources().drown(), 3.0f);
                 }
             }
             target.hurtMarked = true; // a player only feels it once the motion is sent
         }
-
-        // Fire where it pours, and along the way every few ticks.
-        douse(level, BlockPos.containing(to));
-        douse(level, BlockPos.containing(to).above());
-        if ((now - stream.started) % 4 == 0) {
-            for (Vec3 point : pour.points()) {
-                douse(level, BlockPos.containing(point));
-            }
-            for (BlockPos pos : BlockPos.betweenClosed(BlockPos.containing(to).offset(-1, -1, -1),
-                    BlockPos.containing(to).offset(1, 1, 1))) {
+        BlockPos at = BlockPos.containing(hit.at());
+        douse(level, at);
+        douse(level, at.above());
+        if (hit.face() != null) {
+            douse(level, at.relative(hit.face()));
+        }
+        if (now % 4 == 0) {
+            for (BlockPos pos : BlockPos.betweenClosed(at.offset(-1, -1, -1), at.offset(1, 1, 1))) {
                 douse(level, pos);
             }
         }
-        if ((now - stream.started) % 12 == 0 && pour.hitSomething()) {
-            level.playSound(null, to.x, to.y, to.z, ModSounds.AQUA_SPLASH.get(), SoundSource.PLAYERS, 0.7f,
-                    0.9f + level.getRandom().nextFloat() * 0.2f);
+        if (now - stream.lastSplashSound >= 12) {
+            stream.lastSplashSound = now;
+            level.playSound(null, hit.at().x, hit.at().y, hit.at().z, ModSounds.AQUA_SPLASH.get(), SoundSource.PLAYERS,
+                    0.7f, 0.9f + level.getRandom().nextFloat() * 0.2f);
         }
     }
 

@@ -717,7 +717,7 @@ public final class SpellBeamFxRenderer {
         float[] coreWidth = new float[n];
         float[] coreAlpha = new float[n];
         for (int i = 0; i < n; i++) {
-            float breakup = held ? jetBreakup(f.fromWand[i] - f.fromWand[0]) : 0.6f;
+            float breakup = held ? jetBreakup(f.beam.pathOffset + f.fromWand[i] - f.fromWand[0]) : 0.6f;
             coreWidth[i] = (0.2f - 0.07f * breakup) * f.thickness;
             coreAlpha[i] = 0.85f * f.profile[i] * g * (1.0f - 0.85f * breakup);
         }
@@ -740,7 +740,7 @@ public final class SpellBeamFxRenderer {
 
         // The water flowing down the stream: blobs and foam carried along at its speed, breaking into chunks.
         final double spacing = 0.18;
-        final double flow = 1.2;
+        final double flow = com.hogwartsmagic.spell.AquaStream.SPEED;
         double shift = (t * flow) % spacing;
         int base = (int) Math.floor(t * flow / spacing);
         int churn = (int) Math.floor(f.age / 2.0);
@@ -750,7 +750,7 @@ public final class SpellBeamFxRenderer {
                 break;
             }
             int id = k - base; // the same parcel of water as it moves down
-            float breakup = held ? jetBreakup(d) : 0.6f;
+            float breakup = held ? jetBreakup(f.beam.pathOffset + d) : 0.6f;
             if (hash(seed, id, 1) < breakup * 0.5f) {
                 continue; // a gap where the stream has come apart
             }

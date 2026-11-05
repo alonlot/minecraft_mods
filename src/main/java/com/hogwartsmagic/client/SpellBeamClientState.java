@@ -149,6 +149,8 @@ public final class SpellBeamClientState {
         boolean struck;
         /** The caster, so a jet's wand end stays on the wand as they move (-1: none known). */
         int ownerId = -1;
+        /** For a run of Aqua Eructo's water: how far its first point has already flown from the wand. */
+        double pathOffset;
 
         Beam(int entityId, BeamStyle style, Vec3 origin, Vec3 head, Vec3 dir, double now) {
             this.entityId = entityId;
@@ -301,7 +303,8 @@ public final class SpellBeamClientState {
     }
 
     /** As {@link #held} but along a whole path of points (Aqua Eructo's stream falling under its own weight). */
-    static Beam heldPath(int id, BeamStyle style, java.util.List<Vec3> points, double start, double now) {
+    static Beam heldPath(int id, BeamStyle style, java.util.List<Vec3> points, double start, double now,
+                         double offset) {
         Vec3 from = points.get(0);
         Vec3 to = points.get(points.size() - 1);
         Beam beam = held(id, style, from, to, start, now);
@@ -313,6 +316,7 @@ public final class SpellBeamClientState {
             beam.times.add(n == 1 ? start : Mth.lerp(i / (double) (n - 1), start, now));
         }
         beam.headPrev = to;
+        beam.pathOffset = offset;
         return beam;
     }
 

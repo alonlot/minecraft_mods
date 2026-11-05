@@ -13,15 +13,12 @@ import net.minecraft.client.model.PlayerModel;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.resources.sounds.AbstractTickableSoundInstance;
 import net.minecraft.client.resources.sounds.SoundInstance;
+import net.minecraft.core.Direction;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.ClipContext;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
@@ -31,27 +28,37 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.joml.Matrix4f;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 /**
- * Aqua Eructo held, as the clients see it: a stream of water pouring from the caster's wand along their aim and
- * falling under its own weight to whatever it meets, every frame, drawn as water (SpellBeamFxRenderer's liquid drawing) with droplets peeling off
- * all along it and a churning spout where it lands: water bursting back, foam boiling, mist and spreading rings.
- * Where it lands on the ground it leaves a spreading wet patch that dries away after. The caster's arm is held out,
- * the roar of the jet follows them, and the spout throws blue light round it. The stream is traced here from the
- * caster's own aim with the server's own trace, so the water you see is the water that pushes.
+ * Aqua Eructo held, as the clients see it. The water is real water: every tick the caster's wand throws out a
+ * fresh {@link AquaStream.Drop} along their aim, run here exactly as the server runs it, and once out of the wand
+ * it flies on its own: straight while it has pressure, then slowing and falling under its own weight. So a swung
+ * wand bends the stream behind it like a hose, and when the caster lets go or turns away, the water already in the
+ * air still flies on and lands where it was going. The drops are joined into smooth runs of water (drawn by
+ * SpellBeamFxRenderer's liquid drawing: a glassy rope out of the wand, breaking into chunks and foam as it goes),
+ * with droplets peeling off along them. Wherever water lands it splashes: droplets bursting back, foam boiling,
+ * mist and spreading rings; on the ground it leaves a wet patch that spreads while fed and dries away after. The
+ * caster's arm is held out, the roar of the jet follows them, and where it lands throws blue light.
  */
 @Mod.EventBusSubscriber(modid = ExampleMod.MODID, value = Dist.CLIENT)
 public final class AquaStreamClient {
     private static final double LAPSE_TICKS = 15.0;
+    /** Neighbouring drops further apart than this (a fast swing) are separate runs of water. */
+    private static final double JOIN = 7.0;
 
     private static final class Stream {
         final int casterId;
-        final double start;
         final int seed;
+        double start;
         double lastPacket;
+        /** Let go: no more water comes out, but what is in the air still lands. */
+        boolean ended;
+        long nextDrop;
+        final List<AquaStream.Drop> drops = new ArrayList<>();
         LoopSound sound;
 
         Stream(int casterId, double start) {
@@ -73,28 +80,64 @@ public final class AquaStreamClient {
             return;
         }
         double now = minecraft.level.getGameTime();
+        Stream stream = STREAMS.get(packet.casterId());
         if (packet.state() == AquaStream.END) {
-            STREAMS.remove(packet.casterId());
+            if (stream != null) {
+                stream.ended = true;
+            }
             return;
         }
-        Stream stream = STREAMS.get(packet.casterId());
         if (stream == null) {
             stream = new Stream(packet.casterId(), now);
             STREAMS.put(packet.casterId(), stream);
-            stream.sound = new LoopSound(stream);
-            minecraft.getSoundManager().play(stream.sound);
+        } else if (stream.ended) {
+            // Cast again while the last stream's water is still landing.
+            stream.ended = false;
+            stream.start = now;
+            stream.nextDrop += 1000;
+        } else {
+            stream.lastPacket = now;
+            return;
         }
         stream.lastPacket = now;
+        stream.sound = new LoopSound(stream);
+        minecraft.getSoundManager().play(stream.sound);
     }
 
     @SubscribeEvent
     public static void onClientTick(TickEvent.ClientTickEvent event) {
         Minecraft minecraft = Minecraft.getInstance();
-        if (event.phase != TickEvent.Phase.END || minecraft.level == null || STREAMS.isEmpty() && PUDDLES.isEmpty()) {
+        if (event.phase != TickEvent.Phase.END || minecraft.level == null || minecraft.isPaused()
+                || STREAMS.isEmpty() && PUDDLES.isEmpty() && SPLASHES.isEmpty()) {
             return;
         }
-        double now = minecraft.level.getGameTime();
-        STREAMS.values().removeIf(s -> now - s.lastPacket > LAPSE_TICKS || now < s.lastPacket);
+        long tick = minecraft.level.getGameTime();
+        double now = tick;
+        java.util.Iterator<Stream> it = STREAMS.values().iterator();
+        while (it.hasNext()) {
+            Stream stream = it.next();
+            if (!stream.ended && (now - stream.lastPacket > LAPSE_TICKS || now < stream.lastPacket)) {
+                stream.ended = true;
+            }
+            if (!(minecraft.level.getEntity(stream.casterId) instanceof LivingEntity caster)) {
+                it.remove(); // out of sight: its water goes with it
+                continue;
+            }
+            if (!stream.ended && caster.isAlive()) {
+                stream.drops.add(new AquaStream.Drop(stream.nextDrop++, tip(caster, 1.0f), caster.getViewVector(1.0f)));
+            }
+            for (AquaStream.Drop drop : stream.drops) {
+                AquaStream.Drop.Hit hit = drop.step(minecraft.level, caster);
+                if (hit != null) {
+                    splash(hit, tick, stream.seed);
+                }
+            }
+            stream.drops.removeIf(d -> d.gone);
+            if (stream.ended && stream.drops.isEmpty()) {
+                it.remove();
+            }
+        }
+        SPLASHES.removeIf(s -> now - s.lastHit > 8.0 || now < s.lastHit);
         PUDDLES.removeIf(p -> now - p.lastFed > PUDDLE_DRY_TICKS + 12.0 || now < p.lastFed);
     }
 
@@ -118,46 +161,72 @@ public final class AquaStreamClient {
         return eye.add(look.scale(0.85)).add(right.scale(0.28)).add(0.0, -0.3, 0.0);
     }
 
-    /** The stream's falling path from the wand, traced exactly as the server traces it (AquaStream.trace). */
-    private static AquaStream.Pour trace(Minecraft minecraft, LivingEntity caster, float partial) {
-        return AquaStream.trace(minecraft.level, caster, tip(caster, partial), caster.getViewVector(partial));
+    // ---- splashes: wherever water lands ----
+
+    /** Water landing on one spot: kept going while drops keep landing there, so a held stream boils at its foot. */
+    private static final class Splash {
+        Vec3 at;
+        Vec3 dir;
+        final double born;
+        double lastHit;
+        final int seed;
+
+        Splash(Vec3 at, Vec3 dir, double now, int seed) {
+            this.at = at;
+            this.dir = dir;
+            this.born = now;
+            this.lastHit = now;
+            this.seed = seed;
+        }
     }
 
-    /** The first {@code fraction} of a path by length: the water growing out of the wand as it starts. */
-    private static java.util.List<Vec3> grown(java.util.List<Vec3> points, float fraction) {
-        if (fraction >= 1.0f || points.size() < 2) {
-            return points;
-        }
-        double total = 0.0;
-        for (int i = 1; i < points.size(); i++) {
-            total += points.get(i).distanceTo(points.get(i - 1));
-        }
-        double want = Math.max(0.05, total * fraction);
-        java.util.List<Vec3> out = new java.util.ArrayList<>();
-        out.add(points.get(0));
-        double run = 0.0;
-        for (int i = 1; i < points.size(); i++) {
-            double seg = points.get(i).distanceTo(points.get(i - 1));
-            if (run + seg >= want) {
-                out.add(points.get(i - 1).lerp(points.get(i), (want - run) / Math.max(1.0E-9, seg)));
-                return out;
+    private static final List<Splash> SPLASHES = new ArrayList<>();
+    private static final int MAX_SPLASHES = 24;
+
+    private static void splash(AquaStream.Drop.Hit hit, long tick, int seed) {
+        Splash near = null;
+        for (Splash s : SPLASHES) {
+            if (tick - s.lastHit <= 3.0 && s.at.distanceToSqr(hit.at()) < 2.25) {
+                near = s;
+                break;
             }
-            run += seg;
-            out.add(points.get(i));
         }
-        return out;
+        if (near != null) {
+            near.at = near.at.lerp(hit.at(), 0.5);
+            near.dir = near.dir.lerp(hit.dir(), 0.5).normalize();
+            near.lastHit = tick;
+        } else {
+            if (SPLASHES.size() >= MAX_SPLASHES) {
+                SPLASHES.remove(0);
+            }
+            SPLASHES.add(new Splash(hit.at(), hit.dir(), tick, seed + (int) (tick * 131)));
+        }
+        if (hit.face() == Direction.UP) {
+            feedPuddle(hit.at(), tick);
+        }
     }
 
-    /** A wet patch where the stream lands on the ground: it spreads while fed and dries away after. */
+    private static void drawSplashes(VertexConsumer out, Matrix4f m, double now, Vec3 camera) {
+        for (Splash s : SPLASHES) {
+            float fade = 1.0f - SpellFxGeometry.smoothstep(1.5f, 7.0f, (float) (now - s.lastHit));
+            if (fade <= 0.02f) {
+                continue;
+            }
+            SpellBeamFxRenderer.drawLiquidSpout(out, m, s.at.subtract(camera), s.dir, now - s.born, s.seed,
+                    0.45f + 0.55f * fade);
+        }
+    }
+
+    // ---- puddles ----
+
+    /** A wet patch where the water lands on the ground: it spreads while fed and dries away after. */
     private static final class Puddle {
         final Vec3 centre;
-        final double born;
         double lastFed;
         int fed;
 
         Puddle(Vec3 centre, double now) {
             this.centre = centre;
-            this.born = now;
             this.lastFed = now;
         }
 
@@ -166,17 +235,17 @@ public final class AquaStreamClient {
         }
     }
 
-    private static final java.util.List<Puddle> PUDDLES = new java.util.ArrayList<>();
+    private static final List<Puddle> PUDDLES = new ArrayList<>();
     private static final double PUDDLE_DRY_TICKS = 100.0;
     private static final int MAX_PUDDLES = 10;
-    private static long lastPuddleTick = Long.MIN_VALUE;
 
-    /** Feed the puddle under a landing on the top of a block, or start one. Once a tick per stream. */
     private static void feedPuddle(Vec3 at, double now) {
         for (Puddle puddle : PUDDLES) {
             if (Math.abs(puddle.centre.y - at.y) < 0.3 && puddle.centre.distanceToSqr(at) < puddle.radius() * puddle.radius()) {
+                if (puddle.lastFed != now) {
+                    puddle.fed++;
+                }
                 puddle.lastFed = now;
-                puddle.fed++;
                 return;
             }
         }
@@ -213,10 +282,97 @@ public final class AquaStreamClient {
         }
     }
 
+    // ---- the water in the air ----
+
+    /** A run of water: points from the wand end outward, and how far its first point has flown from the wand. */
+    private record Run(List<Vec3> points, double offset) {
+    }
+
+    /**
+     * The drops joined into runs, newest (at the wand) to oldest (furthest out). A run breaks where a drop has
+     * already landed, where neighbouring drops were thrown far apart by a fast swing, or where it lands.
+     */
+    private static List<Run> runs(Stream stream, LivingEntity caster, float partial) {
+        List<Run> runs = new ArrayList<>();
+        List<Vec3> current = null;
+        double offset = 0.0;
+        long lastId = Long.MIN_VALUE;
+        Vec3 lastPoint = null;
+        Vec3 lastVel = Vec3.ZERO;
+        for (int i = stream.drops.size() - 1; i >= 0; i--) {
+            AquaStream.Drop drop = stream.drops.get(i);
+            // Landed water is drawn right where it landed, so the stream always reaches what it is pouring on.
+            Vec3 p = drop.landed ? drop.pos : drop.prev.lerp(drop.pos, partial);
+            boolean joins = current != null && drop.id == lastId - 1 && p.distanceTo(lastPoint) < JOIN;
+            if (!joins) {
+                if (current != null) {
+                    runs.add(close(current, offset, lastVel));
+                }
+                current = new ArrayList<>();
+                boolean fromWand = !stream.ended && drop.id == stream.nextDrop - 1;
+                if (fromWand) {
+                    current.add(tip(caster, partial));
+                    offset = 0.0;
+                } else {
+                    offset = drop.travelled;
+                }
+            }
+            current.add(p);
+            lastId = drop.id;
+            lastPoint = p;
+            lastVel = drop.vel;
+            if (drop.landed) {
+                runs.add(close(current, offset, lastVel));
+                current = null;
+            }
+        }
+        if (current != null) {
+            runs.add(close(current, offset, lastVel));
+        }
+        return runs;
+    }
+
+    /** Smooths a run through its drops (Catmull-Rom); a lone drop becomes a short streak along its flight. */
+    private static Run close(List<Vec3> points, double offset, Vec3 vel) {
+        if (points.size() == 1) {
+            Vec3 p = points.get(0);
+            List<Vec3> streak = new ArrayList<>();
+            Vec3 back = vel.lengthSqr() < 1.0E-8 ? new Vec3(0.0, 1.0, 0.0) : vel.normalize();
+            streak.add(p.subtract(back.scale(1.5)));
+            streak.add(p);
+            return new Run(streak, offset);
+        }
+        List<Vec3> out = new ArrayList<>();
+        int n = points.size();
+        final int sub = 3;
+        for (int i = 0; i < n - 1; i++) {
+            Vec3 p0 = points.get(Math.max(0, i - 1));
+            Vec3 p1 = points.get(i);
+            Vec3 p2 = points.get(i + 1);
+            Vec3 p3 = points.get(Math.min(n - 1, i + 2));
+            for (int s = 0; s < sub; s++) {
+                double t = s / (double) sub;
+                out.add(catmullRom(p0, p1, p2, p3, t));
+            }
+        }
+        out.add(points.get(n - 1));
+        return new Run(out, offset);
+    }
+
+    private static Vec3 catmullRom(Vec3 p0, Vec3 p1, Vec3 p2, Vec3 p3, double t) {
+        double t2 = t * t;
+        double t3 = t2 * t;
+        return p1.scale(2.0)
+                .add(p2.subtract(p0).scale(t))
+                .add(p0.scale(2.0).subtract(p1.scale(5.0)).add(p2.scale(4.0)).subtract(p3).scale(t2))
+                .add(p1.scale(3.0).subtract(p0).subtract(p2.scale(3.0)).add(p3).scale(t3))
+                .scale(0.5);
+    }
+
     @SubscribeEvent
     public static void onRenderLevelStage(RenderLevelStageEvent event) {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS
-                || STREAMS.isEmpty() && PUDDLES.isEmpty()) {
+                || STREAMS.isEmpty() && PUDDLES.isEmpty() && SPLASHES.isEmpty()) {
             return;
         }
         Minecraft minecraft = Minecraft.getInstance();
@@ -231,39 +387,29 @@ public final class AquaStreamClient {
         Matrix4f m = new Matrix4f();
         MultiBufferSource.BufferSource buffer = minecraft.renderBuffers().bufferSource();
         VertexConsumer water = buffer.getBuffer(ModRenderTypes.AVADA_SHADOW);
-        java.util.List<SpellBeamClientState.Beam> drawn = new java.util.ArrayList<>();
+        List<SpellBeamClientState.Beam> drawn = new ArrayList<>();
         for (Stream stream : STREAMS.values()) {
-            if (!(minecraft.level.getEntity(stream.casterId) instanceof LivingEntity caster) || !caster.isAlive()
+            if (!(minecraft.level.getEntity(stream.casterId) instanceof LivingEntity caster)
                     || minecraft.player != null && caster.isInvisibleTo(minecraft.player)) {
                 continue;
             }
-            AquaStream.Pour pour = trace(minecraft, caster, partial);
             double age = now - stream.start;
-            // The water grows out of the wand along its arc over its first few ticks, then pours its full length.
-            float grow = (float) Math.min(1.0, age / 4.0);
-            java.util.List<Vec3> path = grown(pour.points(), grow);
-            SpellBeamClientState.Beam beam = SpellBeamClientState.heldPath(stream.seed, jet, path, stream.start, now);
-            drawn.add(beam);
-            SpellBeamFxRenderer.drawHeldLiquid(water, m, beam, now, camera);
-            java.util.List<Vec3> relative = new java.util.ArrayList<>();
-            for (Vec3 point : path) {
-                relative.add(point.subtract(camera));
-            }
-            SpellBeamFxRenderer.drawLiquidSpray(water, m, relative, age, stream.seed);
-            if (pour.hitSomething() && grow >= 1.0f) {
-                java.util.List<Vec3> pts = pour.points();
-                Vec3 dir = pts.get(pts.size() - 1).subtract(pts.get(Math.max(0, pts.size() - 2)));
-                dir = dir.lengthSqr() < 1.0E-8 ? caster.getViewVector(partial) : dir.normalize();
-                SpellBeamFxRenderer.drawLiquidSpout(water, m, pour.end().subtract(camera), dir, age, stream.seed, 1.0f);
-                long tick = minecraft.level.getGameTime();
-                if (pour.face() == net.minecraft.core.Direction.UP && tick != lastPuddleTick) {
-                    feedPuddle(pour.end(), tick);
+            for (Run run : runs(stream, caster, partial)) {
+                if (run.points().size() < 2) {
+                    continue;
                 }
+                SpellBeamClientState.Beam beam = SpellBeamClientState.heldPath(stream.seed, jet, run.points(),
+                        stream.start, now, run.offset());
+                drawn.add(beam);
+                SpellBeamFxRenderer.drawHeldLiquid(water, m, beam, now, camera);
+                List<Vec3> relative = new ArrayList<>(run.points().size());
+                for (Vec3 point : run.points()) {
+                    relative.add(point.subtract(camera));
+                }
+                SpellBeamFxRenderer.drawLiquidSpray(water, m, relative, age, stream.seed);
             }
         }
-        if (minecraft.level.getGameTime() != lastPuddleTick) {
-            lastPuddleTick = minecraft.level.getGameTime();
-        }
+        drawSplashes(water, m, now, camera);
         drawPuddles(water, m, now, camera);
         buffer.endBatch(ModRenderTypes.AVADA_SHADOW);
         if (drawn.isEmpty()) {
@@ -276,26 +422,31 @@ public final class AquaStreamClient {
         buffer.endBatch(ModRenderTypes.AVADA_LIGHT);
     }
 
-    /** A blue gleam where the water lands (SpellLight). */
+    /** A blue gleam where the water is landing (SpellLight). */
     static void lights(float partial, double now, SpellLight.Sink sink) {
-        Minecraft minecraft = Minecraft.getInstance();
-        if (STREAMS.isEmpty() || minecraft.level == null) {
+        if (SPLASHES.isEmpty()) {
             return;
         }
-        for (Stream stream : STREAMS.values()) {
-            if (minecraft.level.getEntity(stream.casterId) instanceof LivingEntity caster) {
-                sink.add(trace(minecraft, caster, partial).end(), 0.35f, 0.6f, 1.0f, 4.0f, 0.35f);
+        int lit = 0;
+        for (int i = SPLASHES.size() - 1; i >= 0 && lit < 3; i--) {
+            Splash s = SPLASHES.get(i);
+            if (now - s.lastHit < 3.0) {
+                sink.add(s.at, 0.35f, 0.6f, 1.0f, 4.0f, 0.35f);
+                lit++;
             }
         }
     }
 
     /** The caster holds the wand out into the stream, braced against it. */
     public static void applyPose(EntityModel<?> model, Entity entity, float partial) {
-        if (STREAMS.isEmpty() || !(model instanceof HumanoidModel<?> humanoid) || !(entity instanceof Player)
-                || !STREAMS.containsKey(entity.getId())) {
+        if (STREAMS.isEmpty() || !(model instanceof HumanoidModel<?> humanoid) || !(entity instanceof Player)) {
             return;
         }
-        float t = (float) ((AvadaChargeClientState.now(partial) - STREAMS.get(entity.getId()).start) % 20000.0);
+        Stream stream = STREAMS.get(entity.getId());
+        if (stream == null || stream.ended) {
+            return;
+        }
+        float t = (float) ((AvadaChargeClientState.now(partial) - stream.start) % 20000.0);
         float shudder = 0.025f * Mth.sin(t * 4.1f);
         humanoid.rightArm.xRot = humanoid.head.xRot - Mth.HALF_PI + shudder;
         humanoid.rightArm.yRot = humanoid.head.yRot - 0.06f;
@@ -328,7 +479,7 @@ public final class AquaStreamClient {
         @Override
         public void tick() {
             Minecraft minecraft = Minecraft.getInstance();
-            if (minecraft.level == null || STREAMS.get(stream.casterId) != stream
+            if (minecraft.level == null || STREAMS.get(stream.casterId) != stream || stream.ended || stream.sound != this
                     || !(minecraft.level.getEntity(stream.casterId) instanceof LivingEntity caster)) {
                 stop();
                 return;
@@ -343,6 +494,7 @@ public final class AquaStreamClient {
     public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         STREAMS.clear();
         PUDDLES.clear();
+        SPLASHES.clear();
     }
 
     @SubscribeEvent
@@ -350,6 +502,7 @@ public final class AquaStreamClient {
         if (event.getLevel().isClientSide()) {
             STREAMS.clear();
             PUDDLES.clear();
+            SPLASHES.clear();
         }
     }
 }

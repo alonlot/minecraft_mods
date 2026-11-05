@@ -104,7 +104,7 @@ public class MerpersonEntity extends PathfinderMob implements NeutralMob {
     private static final double POD_RADIUS = 20.0D;
 
     /** Out of water they suffocate, but slowly enough to be dragged ashore. */
-    private static final int AIR_GRACE_TICKS = 20 * 60 * 5;   // five minutes, as designed (was 300 = 15 s)
+    private static final int AIR_GRACE_TICKS = 300;   // 15 s out of water before drying out (owner's call)
 
     /** Long enough for the death clip to play out. Vanilla's is twenty. */
     private static final int DEATH_TICKS = 46;
@@ -293,9 +293,9 @@ public class MerpersonEntity extends PathfinderMob implements NeutralMob {
     }
 
     /**
-     * Merpeople cannot live in air. This is deliberately gentle - five minutes of
-     * grace - so hauling one out of the lake is a viable, and grim, tactic rather
-     * than an instant kill.
+     * Merpeople cannot live in air. They get 15 seconds of grace before drying out,
+     * so hauling one out of the lake is a viable, and grim, tactic rather than an
+     * instant kill.
      */
     private void tickBeaching() {
         if (this.isInWater()) {

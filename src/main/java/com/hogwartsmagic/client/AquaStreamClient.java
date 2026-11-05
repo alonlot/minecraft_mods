@@ -36,7 +36,7 @@ import java.util.Map;
 /**
  * Aqua Eructo held, as the clients see it. The water is real water: every tick the caster's wand throws out a
  * fresh {@link AquaStream.Drop} along their aim, run here exactly as the server runs it, and once out of the wand
- * it flies on its own: straight while it has pressure, then slowing and falling under its own weight. So a swung
+ * it flies on its own as a real projectile, gravity bending it into an arc from the moment it leaves. So a swung
  * wand bends the stream behind it like a hose, and when the caster lets go or turns away, the water already in the
  * air still flies on and lands where it was going. The drops are joined into smooth runs of water (drawn by
  * SpellBeamFxRenderer's liquid drawing: a glassy rope out of the wand, breaking into chunks and foam as it goes),

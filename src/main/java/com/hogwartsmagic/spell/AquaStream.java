@@ -47,8 +47,8 @@ import java.util.UUID;
 /**
  * Aqua Eructo held: a continuous jet of water from the wand for as long as the cast key is held (and the mana
  * lasts). The jet is real water: every tick the wand throws out a fresh {@link Drop} along the caster's aim, and
- * from then on that water flies on its own, straight while it has pressure, then slowing and falling under its own
- * weight, until it lands on a block or a living thing. Swing the wand and the stream bends behind it like a hose;
+ * from then on that water flies on its own as a real projectile, gravity bending it down into an arc from the moment
+ * it leaves, until it lands on a block or a living thing. Swing the wand and the stream bends behind it like a hose;
  * let go and the water already in the air still lands where it was going. Whatever the water strikes is driven
  * along it (a heavy shove on first contact, a steady push while it stays in the stream), doused, slowed, and if it
  * was burning, wreathed in steam; blazes and magma cubes take damage; fire and lit campfires it passes or lands on
@@ -70,15 +70,19 @@ public final class AquaStream {
 
     /** How fast the water leaves the wand, blocks a tick. */
     public static final double SPEED = 3.0;
-    /** How far the water flies straight before its pressure is spent and it falls. */
-    public static final double FLIGHT = 36.0;
+    /** How far the water flies before it has come apart into chunks and spray (and pushes at its weakest). */
+    public static final double FLIGHT = 30.0;
     /** How far it may fall (down a cliff, into the void) before it is given up on. */
     private static final double MAX_FALL = 64.0;
-    /** Once spent: how hard it falls, how fast it loses its forward speed, and how fast it can fall. */
-    private static final double GRAVITY = 0.16;
-    private static final double DRAG = 0.82;
+    /**
+     * Real projectile motion from the moment it leaves the wand: gravity pulls it down every tick, so it flies in
+     * a true arc (shot level it lands about 20 blocks out; aimed up it carries much further), and the air takes a
+     * little of its speed each tick. It can fall no faster than {@link #TERMINAL}.
+     */
+    private static final double GRAVITY = 0.055;
+    private static final double DRAG = 0.99;
     private static final double TERMINAL = 2.6;
-    private static final int MAX_AGE = 80;
+    private static final int MAX_AGE = 120;
 
     /**
      * One tick's worth of water, flying on its own once it leaves the wand. Shared by the server (what it hits)
@@ -153,17 +157,9 @@ public final class AquaStream {
                 return new Hit(stop, dir, block.getDirection(), null, travelled);
             }
             travelled += vel.length();
-            if (travelled > FLIGHT) {
-                fallen += Math.max(0.0, pos.y - next.y);
-            }
+            fallen += Math.max(0.0, pos.y - next.y);
             pos = next;
-            // Straight while it has pressure; spent, it eases over into a fall (no kink where it gives out).
-            double spent = Mth.clamp((travelled - (FLIGHT - 4.0)) / 8.0, 0.0, 1.0);
-            if (spent > 0.0) {
-                double drag = 1.0 - (1.0 - DRAG) * spent;
-                double down = Math.max(-TERMINAL, vel.y - GRAVITY * spent);
-                vel = new Vec3(vel.x * drag, down, vel.z * drag);
-            }
+            vel = new Vec3(vel.x * DRAG, Math.max(-TERMINAL, vel.y * DRAG - GRAVITY), vel.z * DRAG);
             return null;
         }
     }

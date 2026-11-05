@@ -789,11 +789,11 @@ public final class SpellBeamFxRenderer {
 
     /**
      * How far a held jet has come apart {@code d} blocks from the wand: a solid rope through most of its straight
-     * flight, fraying over its last stretch, and all chunks and foam once it is spent and falling.
+     * flight, fraying as it goes, and all chunks and foam by the time it has flown {@code AquaStream.FLIGHT}.
      */
     private static float jetBreakup(double d) {
         double flight = com.hogwartsmagic.spell.AquaStream.FLIGHT;
-        return smoothstep((float) (flight * 0.55), (float) (flight + 4.0), (float) d);
+        return smoothstep((float) (flight * 0.35), (float) flight, (float) d);
     }
 
     /** The sample at or before {@code d} blocks down the drawn path. */

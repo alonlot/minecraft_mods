@@ -2,6 +2,7 @@ package com.hogwartsmagic.block.entity;
 
 import com.hogwartsmagic.Config;
 import com.hogwartsmagic.ExampleMod;
+import com.hogwartsmagic.ModSounds;
 import com.hogwartsmagic.block.WardBlock;
 import com.hogwartsmagic.caveinimicum.CaveInimicumManager;
 import com.hogwartsmagic.caveinimicum.CaveInimicumSnapshot;
@@ -18,7 +19,6 @@ import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
@@ -206,7 +206,7 @@ public class CaveInimicumWardBlockEntity extends BlockEntity {
         setChanged();
         syncToClients();
         CaveInimicumManager.get(level).registerWard(this);
-        level.playSound(null, worldPosition, SoundEvents.BEACON_ACTIVATE, SoundSource.BLOCKS, 1.0f, 1.0f);
+        level.playSound(null, worldPosition, ModSounds.WARD_ACTIVATE.get(), SoundSource.BLOCKS, 1.2f, 1.0f);
         SpellBeamFx.effectAt(level, SpellType.CAVE_INIMICUM, Vec3.atCenterOf(worldPosition).add(0.0, 0.4, 0.0),
                 SpellBeamFx.GLOW);
         return true;
@@ -225,7 +225,7 @@ public class CaveInimicumWardBlockEntity extends BlockEntity {
         setChanged();
         syncToClients();
         CaveInimicumManager.get(level).unregisterWard(this, syncRestore);
-        level.playSound(null, worldPosition, SoundEvents.BEACON_DEACTIVATE, SoundSource.BLOCKS, 1.0f, 1.0f);
+        level.playSound(null, worldPosition, ModSounds.WARD_DEACTIVATE.get(), SoundSource.BLOCKS, 1.1f, 1.0f);
         SpellBeamFx.effectAt(level, SpellType.CAVE_INIMICUM, Vec3.atCenterOf(worldPosition).add(0.0, 0.4, 0.0),
                 SpellBeamFx.FIZZLE);
     }
@@ -396,6 +396,16 @@ public class CaveInimicumWardBlockEntity extends BlockEntity {
             return Blocks.AIR.defaultBlockState();
         }
         return snapshot.stateAt(pos);
+    }
+
+    /** Where the Protego Maxima dome stands: the middle of the ward block's floor. */
+    public Vec3 barrierCentre() {
+        return new Vec3(worldPosition.getX() + 0.5, worldPosition.getY(), worldPosition.getZ() + 0.5);
+    }
+
+    /** The dome's radius: half the ward's width and a little more, never smaller than the cast dome. */
+    public double barrierRadius() {
+        return Math.max(4.5, bounds().edgeLength() * 0.5 + 0.5);
     }
 
     public CaveInimicumWardBounds bounds() {

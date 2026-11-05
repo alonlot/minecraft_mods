@@ -532,6 +532,16 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> PENSIEVE_MUSIC_CHAMBER_REUNION = register("pensieve.music.chamber_reunion");
     public static final RegistryObject<SoundEvent> PENSIEVE_MUSIC_SUMMONING_VOLDEMORT = register("pensieve.music.summoning_voldemort");
 
+    // The Ward: Cave Inimicum taking hold and fading, Revelio finding someone, the Protego Maxima dome.
+    public static final RegistryObject<SoundEvent> WARD_ACTIVATE = register("ward.activate");
+    public static final RegistryObject<SoundEvent> WARD_DEACTIVATE = register("ward.deactivate");
+    public static final RegistryObject<SoundEvent> WARD_REVEAL = register("ward.reveal");
+    public static final RegistryObject<SoundEvent> WARD_BARRIER_RAISE = register("ward.barrier.raise");
+    public static final RegistryObject<SoundEvent> WARD_BARRIER_RELEASE = register("ward.barrier.release");
+    public static final RegistryObject<SoundEvent> WARD_BARRIER_HIT = register("ward.barrier.hit");
+    public static final RegistryObject<SoundEvent> WARD_BARRIER_SHATTER = register("ward.barrier.shatter");
+    public static final RegistryObject<SoundEvent> WARD_BARRIER_HUM = register("ward.barrier.hum");
+
     private static RegistryObject<SoundEvent> register(String name) {
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, name);
         return SOUND_EVENTS.register(name, () -> SoundEvent.createVariableRangeEvent(id));

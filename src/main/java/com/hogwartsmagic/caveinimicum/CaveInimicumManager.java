@@ -17,7 +17,6 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 
 import java.util.ArrayList;
@@ -368,33 +367,54 @@ public final class CaveInimicumManager {
                     com.hogwartsmagic.spell.SpellBeamFx.bodyCentre(living), com.hogwartsmagic.spell.SpellBeamFx.GLOW);
         }
         if (changed) {
-            level.playSound(null, ward.getBlockPos(), SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.BLOCKS, 0.4f, 1.4f);
+            level.playSound(null, ward.getBlockPos(), com.hogwartsmagic.ModSounds.WARD_REVEAL.get(), SoundSource.BLOCKS, 0.8f, 1.0f);
         }
     }
 
+    /** The barrier is a sphere round the ward's floor (drawn as a dome): anything crossing its skin is stopped. */
     private void handleBarrierProjectiles(CaveInimicumWardBlockEntity ward) {
-        CaveInimicumWardBounds bounds = ward.bounds();
-        BlockPos min = bounds.min();
-        BlockPos max = bounds.max();
-        AABB scanBox = new AABB(
-                min.getX() - 1.5, min.getY() - 1.5, min.getZ() - 1.5,
-                max.getX() + 2.5, max.getY() + 2.5, max.getZ() + 2.5
-        );
+        Vec3 centre = ward.barrierCentre();
+        double radius = ward.barrierRadius();
+        AABB scanBox = new AABB(centre, centre).inflate(radius + 3.0);
 
         for (Projectile projectile : level.getEntitiesOfClass(Projectile.class, scanBox, this::shouldBarrierAffectProjectile)) {
             Vec3 current = projectile.position();
             Vec3 previous = current.subtract(projectile.getDeltaMovement());
-            boolean previousInside = bounds.contains(BlockPos.containing(previous));
-            boolean currentInside = bounds.contains(projectile.blockPosition());
-            if (previousInside == currentInside) {
+            Vec3 crossing = barrierCrossing(previous, current, centre, radius);
+            if (crossing == null) {
                 continue;
             }
             if (projectile instanceof com.hogwartsmagic.entity.SpellBeamEntity beam
                     && com.hogwartsmagic.spell.support.AlohomoraSpell.tryUnlockBarrier(level, ward, beam)) {
                 continue;
             }
-            blockProjectileAtBarrier(projectile, previousInside ? previous : current, bounds);
+            blockProjectileAtBarrier(projectile, crossing, centre);
         }
+    }
+
+    /**
+     * Where the step from {@code from} to {@code to} first crosses the sphere's skin, in or out, or null if it
+     * doesn't. A step that passes clean through (a fast beam clipping the dome) counts too.
+     */
+    @org.jetbrains.annotations.Nullable
+    static Vec3 barrierCrossing(Vec3 from, Vec3 to, Vec3 centre, double radius) {
+        Vec3 d = to.subtract(from);
+        Vec3 f = from.subtract(centre);
+        double a = d.lengthSqr();
+        if (a < 1.0E-10) {
+            return null;
+        }
+        double b = 2.0 * f.dot(d);
+        double c = f.lengthSqr() - radius * radius;
+        double disc = b * b - 4.0 * a * c;
+        if (disc < 0.0) {
+            return null;
+        }
+        double root = Math.sqrt(disc);
+        double t0 = (-b - root) / (2.0 * a);
+        double t1 = (-b + root) / (2.0 * a);
+        double t = t0 >= 0.0 && t0 <= 1.0 ? t0 : t1 >= 0.0 && t1 <= 1.0 ? t1 : -1.0;
+        return t < 0.0 ? null : from.add(d.scale(t));
     }
 
     private boolean shouldBarrierAffectProjectile(Projectile projectile) {
@@ -409,26 +429,11 @@ public final class CaveInimicumManager {
         return !(owner instanceof ServerPlayer player && player.isSpectator());
     }
 
-    /**
-     * Stop a projectile at the barrier: a shield ripple laid on the wall it struck (the nearest face of the ward's
-     * cube to where it crossed, the point pressed onto that face), and the projectile gone.
-     */
-    private void blockProjectileAtBarrier(Projectile projectile, Vec3 impactPos, CaveInimicumWardBounds bounds) {
-        BlockPos min = bounds.min();
-        BlockPos max = bounds.max();
-        double[] planes = {min.getX(), max.getX() + 1.0, min.getY(), max.getY() + 1.0, min.getZ(), max.getZ() + 1.0};
-        double[] coords = {impactPos.x, impactPos.x, impactPos.y, impactPos.y, impactPos.z, impactPos.z};
-        int face = 0;
-        for (int i = 1; i < planes.length; i++) {
-            if (Math.abs(coords[i] - planes[i]) < Math.abs(coords[face] - planes[face])) {
-                face = i;
-            }
-        }
-        double sign = (face & 1) == 0 ? -1.0 : 1.0;
-        Vec3 normal = face < 2 ? new Vec3(sign, 0.0, 0.0) : face < 4 ? new Vec3(0.0, sign, 0.0) : new Vec3(0.0, 0.0, sign);
-        Vec3 onWall = face < 2 ? new Vec3(planes[face], impactPos.y, impactPos.z)
-                : face < 4 ? new Vec3(impactPos.x, planes[face], impactPos.z)
-                : new Vec3(impactPos.x, impactPos.y, planes[face]);
+    /** Stop a projectile at the dome: a shield ripple laid on the skin where it struck, and the projectile gone. */
+    private void blockProjectileAtBarrier(Projectile projectile, Vec3 onWall, Vec3 centre) {
+        Vec3 normal = onWall.subtract(centre);
+        normal = normal.lengthSqr() < 1.0E-8 ? new Vec3(0.0, 1.0, 0.0) : normal.normalize();
+        Vec3 impactPos = onWall;
         if (projectile instanceof com.hogwartsmagic.entity.SpellBeamEntity beam) {
             // On the beam's own id, so the drawn beam ends in the ripple instead of flying on until it fades.
             com.hogwartsmagic.spell.SpellBeamFx.impact(beam, beam.getSpellType(), onWall, normal,
@@ -437,7 +442,8 @@ public final class CaveInimicumManager {
             com.hogwartsmagic.spell.SpellBeamFx.effectAt(level, com.hogwartsmagic.spell.SpellType.PROTEGO_MAXIMA, onWall,
                     normal, com.hogwartsmagic.spell.SpellBeamFx.SHIELD);
         }
-        level.playSound(null, impactPos.x, impactPos.y, impactPos.z, SoundEvents.SHIELD_BLOCK, SoundSource.BLOCKS, 0.9f, 1.3f);
+        level.playSound(null, impactPos.x, impactPos.y, impactPos.z, com.hogwartsmagic.ModSounds.WARD_BARRIER_HIT.get(),
+                SoundSource.BLOCKS, 1.0f, 0.92f + level.random.nextFloat() * 0.16f);
         projectile.discard();
     }
 

@@ -213,6 +213,7 @@ public final class PistonLockSpell {
         if (JOBS.stream().anyMatch(j -> j.caster().equals(id)) || STEPS.stream().anyMatch(s -> s.play().caster.equals(id))) {
             tell(caster, "busy", ChatFormatting.GRAY);
             inspectLine(caster, use, "BUSY");
+            quietLine(caster, use);
             return Begin.REFUSED;
         }
         CircuitTracer.Mode mode = use == Use.REVEAL
@@ -231,6 +232,7 @@ public final class PistonLockSpell {
         if (lock.circuit().pistonLogic()) {
             tell(caster, "piston_logic", ChatFormatting.GOLD); // pistons that move wiring are not modelled
             inspectLine(caster, use, "PISTON_LOGIC");
+            quietLine(caster, use);
             return Begin.REFUSED;
         }
         LockCircuit circuit = lock.circuit();
@@ -751,6 +753,16 @@ public final class PistonLockSpell {
     private static void inspectLine(ServerPlayer player, Use use, String word) {
         if (use == Use.INSPECT) {
             player.sendSystemMessage(Component.literal(word));
+        }
+    }
+
+    /**
+     * A refusal of a held cast: reopen the client quiet window, or the cooldown line (always up right after the
+     * cast) overwrites the refusal on the next tick.
+     */
+    private static void quietLine(ServerPlayer player, Use use) {
+        if (use != Use.INSPECT) {
+            sendState(player, false);
         }
     }
 

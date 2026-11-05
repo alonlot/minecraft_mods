@@ -106,6 +106,15 @@ public final class BeamStyle implements Cloneable {
     boolean mistBurst = false;
     /** How hard a strike close by flashes the edges of the view. */
     float screenFlash = 0.0f;
+    /**
+     * The colour of the straight-alpha layers (sheath, dark head, smoke wake, dark burst): near-black for the
+     * curses, translucent blue for water.
+     */
+    float shadeR = 0.006f, shadeG = 0.030f, shadeB = 0.012f;
+    /** A second wake laid down as well as the first (water sprays and leaves mist), or null. */
+    BeamStyle second;
+    /** The strike rolls a wave front out across the ground in the direction the beam was going. */
+    boolean waveFront = false;
     /** A second shockwave chasing the first (a concussive blast). */
     boolean doubleRing = false;
     /** The body and glow run through the colours of the rainbow (Riddikulus). */
@@ -283,6 +292,28 @@ public final class BeamStyle implements Cloneable {
 
     BeamStyle mistBurst() {
         this.mistBurst = true;
+        return this;
+    }
+
+    BeamStyle shade(int rgb) {
+        this.shadeR = r(rgb);
+        this.shadeG = g(rgb);
+        this.shadeB = b(rgb);
+        return this;
+    }
+
+    /** A second wake of {@code kind} with its own spacing, life, size, alpha and rise. */
+    BeamStyle wakeToo(int kind, float spacing, float life, float size, float alpha, float rise) {
+        BeamStyle copy = asJet();
+        copy.tail = tail;
+        copy.second = null;
+        copy.wake(kind, spacing, life, size, alpha, rise);
+        this.second = copy;
+        return this;
+    }
+
+    BeamStyle waveFront() {
+        this.waveFront = true;
         return this;
     }
 

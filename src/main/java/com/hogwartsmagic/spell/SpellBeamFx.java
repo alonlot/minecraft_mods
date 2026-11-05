@@ -31,6 +31,8 @@ public final class SpellBeamFx {
     public static final byte SHIELD = 4;
     /** The magic took (a ward primed, a lock opened, a hidden thing revealed): a soft glow and rising motes. */
     public static final byte GLOW = 5;
+    /** Water on fire: a billow of steam. */
+    public static final byte STEAM = 6;
 
     /** Two beams met and destroyed each other. */
     public static final byte CLASH_MUTUAL = 0;

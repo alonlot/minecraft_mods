@@ -131,6 +131,17 @@ public final class BeamStyles {
                 .jitter(0.0f).beads(4, 0.2f, 0.13f).shedRings(1.2f, 0.6f, 16.0f)
                 .wake(WAKE_MOTES, 0.5f, 22.0f, 0.06f, 0.8f, 0.0f).strike(0.9f, 0.6f, 0.4f).ring(3.5f, true, true));
 
+        // ---- water: a translucent blue jet from the wand, twisting, spraying and misting, that lands in a
+        // crown of droplets with a wave rolling out across the ground ----
+        STYLES.put(SpellType.AQUA_ERUCTO, new BeamStyle().colours(0xF4FBFF, 0x7FD0FF, 0x2E8FE0).tail(JET)
+                .widths(0.05f, 0.16f, 0.42f).alphas(0.5f, 0.16f).jitter(0.02f).writhe(0.06f, 1.6f, 4.0f)
+                .flicker(0.08f).darkSheath(0.3f, 0.55f).shade(0x2E73C8).twist(3, 0.14f, 3.0f, 5.0f)
+                .beads(6, 1.5f, 0.08f).head(0.9f, 0.3f, 0.45f, true)
+                .wake(BeamStyle.WAKE_SPARKS, 0.3f, 14.0f, 0.02f, 0.9f, 0.0f)
+                .wakeToo(WAKE_MIST, 0.6f, 20.0f, 0.35f, 0.12f, 0.01f).afterglow(6.0f)
+                .strike(1.3f, 0.7f, 0.5f).darkBurst().ring(4.0f, false, true).doubleRing().debris(40, 0.045f, 0.33f)
+                .mistBurst().waveFront().screenFlash(0.25f));
+
         // ---- cold ----
         STYLES.put(SpellType.GLACIUS, new BeamStyle().colours(0xFFFFFF, 0x9FF4FF, 0x59D8FF).tail(8.0f)
                 .jitter(0.0f).writhe(0.01f, 1.0f, 1.0f).flicker(0.05f).lightSheath(0.26f, 0.5f)
@@ -204,11 +215,8 @@ public final class BeamStyles {
     private BeamStyles() {
     }
 
-    /** The spell's beam style, or null for a spell whose beam is never drawn (Aqua Eructo's water lash). */
+    /** The spell's beam style (a spell added later gets a plain bolt in its own colour). */
     public static BeamStyle of(SpellType spell) {
-        if (spell == SpellType.AQUA_ERUCTO) {
-            return null;
-        }
         BeamStyle style = STYLES.get(spell);
         if (style == null) {
             // A spell added later: a clean bolt in its own colour until it gets a style of its own.

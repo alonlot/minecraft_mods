@@ -1371,7 +1371,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
             }
             case AQUA_ERUCTO -> {
                 this.level().playSound(null, this.getX(), this.getY(), this.getZ(),
-                        net.minecraft.sounds.SoundEvents.GENERIC_SPLASH, SoundSource.PLAYERS, 0.8f, 1.0f);
+                        ModSounds.AQUA_SPLASH.get(), SoundSource.PLAYERS, 1.1f, 0.95f + this.random.nextFloat() * 0.1f);
             }
             case OBLIVIATE, CONFUNDO -> {
                 this.level().playSound(null, this.getX(), this.getY(), this.getZ(),
@@ -1497,121 +1497,56 @@ public class SpellBeamEntity extends ThrowableProjectile {
             }
         }
 
-        placeAquaImpactWater(sl, origin, forward);
-
-        // Foam-like wave visuals in a widening front arc.
-        for (int ring = 1; ring <= 4; ring++) {
-            double radius = ring * 1.4;
-            for (int i = -6; i <= 6; i++) {
-                double angle = Math.atan2(forward.z, forward.x) + (i / 12.0) * 1.2;
-                double x = origin.x + Math.cos(angle) * radius;
-                double z = origin.z + Math.sin(angle) * radius;
-                double y = origin.y + 0.1 + (ring * 0.05);
-                sl.sendParticles(ParticleTypes.SPLASH, x, y, z, 1, 0.0, 0.05, 0.0, 0.0);
-                if ((i + ring) % 2 == 0) {
-                    sl.sendParticles(ParticleTypes.BUBBLE, x, y + 0.1, z, 1, 0.0, 0.02, 0.0, 0.0);
-                }
-            }
-        }
+        douseAround(sl, origin, forward); // the wave itself is drawn on the clients
     }
 
-    private void placeAquaImpactWater(ServerLevel serverLevel, Vec3 origin, Vec3 forward) {
-        Vec3 flattened = new Vec3(forward.x, 0.0D, forward.z);
-        if (flattened.lengthSqr() < 1.0E-6D) {
-            flattened = new Vec3(0.0D, 0.0D, 1.0D);
-        } else {
-            flattened = flattened.normalize();
-        }
-        Vec3 side = new Vec3(-flattened.z, 0.0D, flattened.x);
-
-        for (int ring = 0; ring < 4; ring++) {
-            double distance = 0.85D + ring * 0.9D;
-            Vec3 center = origin.add(flattened.scale(distance));
-            placeAquaSegment(serverLevel, center, 1 + Math.min(ring, 2));
-            placeAquaSegment(serverLevel, center.add(side.scale(0.75D + ring * 0.2D)), 2 + Math.min(ring, 1));
-            placeAquaSegment(serverLevel, center.add(side.scale(-(0.75D + ring * 0.2D))), 2 + Math.min(ring, 1));
-        }
-    }
-
+    /**
+     * The water jet passing: it puts out fire in the blocks it runs through (the water itself is drawn on the
+     * clients by SpellBeamFxRenderer; no water block is ever placed).
+     */
     private void sculptAquaStream() {
         if (!(this.level() instanceof ServerLevel serverLevel)) {
             return;
         }
-
         Vec3 velocity = this.getDeltaMovement();
         double speed = velocity.length();
         if (speed < 1.0E-4D) {
             return;
         }
-
         Vec3 direction = velocity.normalize();
-        Vec3 right = direction.cross(new Vec3(0.0D, 1.0D, 0.0D));
-        if (right.lengthSqr() < 1.0E-5D) {
-            right = new Vec3(1.0D, 0.0D, 0.0D);
-        } else {
-            right = right.normalize();
+        int steps = (int) Math.ceil(speed / 0.5D);
+        for (int step = 0; step <= steps; step++) {
+            Vec3 sample = this.position().subtract(direction.scale(step * 0.5D));
+            BlockPos pos = BlockPos.containing(sample);
+            douse(serverLevel, pos);
+            douse(serverLevel, pos.below());
         }
+    }
 
-        Vec3 headOffset = direction.scale(0.9D);
-        for (int step = 0; step < 4; step++) {
-            Vec3 sample = this.position().subtract(headOffset).subtract(direction.scale(step * 0.95D));
-            placeAquaSegment(serverLevel, sample, 1 + Math.min(step, 2));
-
-            if (step < 3) {
-                double sideOffset = 0.32D + (step * 0.06D);
-                placeAquaSegment(serverLevel, sample.add(right.scale(sideOffset)), 2 + Math.min(step, 1));
-                placeAquaSegment(serverLevel, sample.add(right.scale(-sideOffset)), 2 + Math.min(step, 1));
+    /** Where the wave breaks, fire within a few blocks in front of it goes out. */
+    private void douseAround(ServerLevel serverLevel, Vec3 origin, Vec3 forward) {
+        Vec3 flat = new Vec3(forward.x, 0.0D, forward.z);
+        flat = flat.lengthSqr() < 1.0E-6D ? new Vec3(0.0D, 0.0D, 1.0D) : flat.normalize();
+        BlockPos centre = BlockPos.containing(origin);
+        for (BlockPos pos : BlockPos.betweenClosed(centre.offset(-4, -2, -4), centre.offset(4, 2, 4))) {
+            Vec3 to = Vec3.atCenterOf(pos).subtract(origin);
+            double distance = to.length();
+            if (distance <= 1.5D || distance <= 5.0D && to.normalize().dot(flat) >= 0.25D) {
+                douse(serverLevel, pos);
             }
         }
     }
 
-    private void placeAquaSegment(ServerLevel serverLevel, Vec3 sample, int flowLevel) {
-        BlockPos centerPos = BlockPos.containing(sample.x, sample.y + 0.05D, sample.z);
-        if (placeTransientWater(serverLevel, centerPos, flowLevel)) {
-            serverLevel.sendParticles(ParticleTypes.SPLASH, sample.x, sample.y + 0.1D, sample.z, 2, 0.08D, 0.04D, 0.08D, 0.0D);
-            if (this.tickCount % 2 == 0) {
-                serverLevel.sendParticles(ParticleTypes.FALLING_WATER, sample.x, sample.y + 0.2D, sample.z, 1, 0.04D, 0.02D, 0.04D, 0.0D);
-            }
-        }
-    }
-
-    private boolean placeTransientWater(ServerLevel serverLevel, BlockPos pos, int flowLevel) {
+    private void douse(ServerLevel serverLevel, BlockPos pos) {
         BlockState state = serverLevel.getBlockState(pos);
-        if (state.is(Blocks.WATER)) {
-            com.hogwartsmagic.event.ModEvents.addTemporaryAquaWater(
-                    serverLevel,
-                    pos,
-                    3,
-                    Blocks.WATER.defaultBlockState().setValue(LiquidBlock.LEVEL, Math.max(1, Math.min(3, flowLevel)))
-            );
-            return true;
+        if (state.getBlock() instanceof net.minecraft.world.level.block.BaseFireBlock) {
+            serverLevel.removeBlock(pos, false);
+            serverLevel.playSound(null, pos, SoundEvents.FIRE_EXTINGUISH, SoundSource.BLOCKS, 0.6f, 1.4f);
+        } else if (state.getBlock() instanceof net.minecraft.world.level.block.CampfireBlock
+                && state.getValue(net.minecraft.world.level.block.CampfireBlock.LIT)) {
+            net.minecraft.world.level.block.CampfireBlock.dowse(null, serverLevel, pos, state);
+            serverLevel.setBlock(pos, state.setValue(net.minecraft.world.level.block.CampfireBlock.LIT, false), 3);
         }
-        if (!canReplaceWithTransientWater(serverLevel, pos)) {
-            return false;
-        }
-
-        BlockState waterState = Blocks.WATER.defaultBlockState()
-                .setValue(LiquidBlock.LEVEL, Math.max(1, Math.min(3, flowLevel)));
-        com.hogwartsmagic.event.ModEvents.addTemporaryAquaWater(serverLevel, pos, 3, waterState);
-        return true;
-    }
-
-    private boolean canReplaceWithTransientWater(ServerLevel serverLevel, BlockPos pos) {
-        BlockState state = serverLevel.getBlockState(pos);
-        if (state.hasBlockEntity()) {
-            return false;
-        }
-        if (state.isAir() || state.is(Blocks.FIRE) || state.is(Blocks.SOUL_FIRE)) {
-            return true;
-        }
-        if (state.is(Blocks.TALL_GRASS) || state.is(Blocks.SHORT_GRASS) || state.is(Blocks.FERN)
-                || state.is(Blocks.LARGE_FERN) || state.is(Blocks.DEAD_BUSH)
-                || state.is(Blocks.SEAGRASS) || state.is(Blocks.TALL_SEAGRASS)
-                || state.is(Blocks.KELP_PLANT) || state.is(Blocks.KELP)
-                || state.is(Blocks.SNOW)) {
-            return true;
-        }
-        return state.canBeReplaced();
     }
 
     private void breakPolyjuiceDisguise(LivingEntity target) {

@@ -4298,5 +4298,23 @@
         "stream": true
       }
     ]
+  },
+  "spell.aqua_eructo": {
+    "subtitle": "subtitles.hogwartsmagic.spell.aqua_eructo",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:spells/aqua_cast",
+        "stream": false
+      }
+    ]
+  },
+  "spell.aqua_eructo.splash": {
+    "subtitle": "subtitles.hogwartsmagic.spell.aqua_eructo.splash",
+    "sounds": [
+      {
+        "name": "hogwartsmagic:spells/aqua_splash",
+        "stream": false
+      }
+    ]
   }
 }

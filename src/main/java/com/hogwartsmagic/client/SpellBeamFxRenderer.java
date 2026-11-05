@@ -171,14 +171,15 @@ public final class SpellBeamFxRenderer {
             if (frame != null) {
                 if (style.sheathDark && style.sheathWidth > 0.0f) {
                     ribbon(dark, m, frame.path, frame.widths(style.sheathWidth), frame.alphas(style.sheathAlpha, true),
-                            1.0f, 1.0f, SMOKE_R, SMOKE_G, SMOKE_B);
+                            1.0f, 1.0f, style.shadeR, style.shadeG, style.shadeB);
                 }
                 if (style.headDark && !beam.gone()) {
-                    billboard(dark, m, frame.head(), style.headRadius * 1.25f, 0.4f, SMOKE_R, SMOKE_G, SMOKE_B, false);
+                    billboard(dark, m, frame.head(), style.headRadius * 1.25f, 0.4f, style.shadeR, style.shadeG,
+                            style.shadeB, false);
                 }
             }
             if (style.wake == BeamStyle.WAKE_SMOKE || style.smokeToo) {
-                drawWake(dark, m, beam, now, camera, true);
+                drawWake(dark, m, beam, style, now, camera, true);
             }
         }
         for (SpellBeamClientState.Impact impact : SpellBeamClientState.impacts()) {
@@ -211,7 +212,10 @@ public final class SpellBeamFxRenderer {
             }
             drawShedRings(light, m, beam, now, camera);
             if (beam.style.wake != BeamStyle.WAKE_SMOKE && beam.style.wake != BeamStyle.WAKE_NONE) {
-                drawWake(light, m, beam, now, camera, false);
+                drawWake(light, m, beam, beam.style, now, camera, false);
+            }
+            if (beam.style.second != null) {
+                drawWake(light, m, beam, beam.style.second, now, camera, false);
             }
         }
         for (SpellBeamClientState.Impact impact : SpellBeamClientState.impacts()) {
@@ -369,7 +373,7 @@ public final class SpellBeamFxRenderer {
         BeamStyle s = beam.style;
         if (f != null && s.sheathDark && s.sheathWidth > 0.0f) {
             ribbon(out, m, f.path, f.widths(s.sheathWidth), f.alphas(s.sheathAlpha, true), 1.0f, 1.0f,
-                    SMOKE_R, SMOKE_G, SMOKE_B);
+                    s.shadeR, s.shadeG, s.shadeB);
         }
     }
 
@@ -551,9 +555,8 @@ public final class SpellBeamFxRenderer {
         });
     }
 
-    private static void drawWake(VertexConsumer out, Matrix4f m, SpellBeamClientState.Beam beam, double now,
-                                 Vec3 camera, boolean smokePass) {
-        BeamStyle s = beam.style;
+    private static void drawWake(VertexConsumer out, Matrix4f m, SpellBeamClientState.Beam beam, BeamStyle s,
+                                 double now, Vec3 camera, boolean smokePass) {
         boolean smoke = smokePass;
         float spacing = smoke && s.wake != BeamStyle.WAKE_SMOKE ? Math.max(0.6f, s.wakeSpacing * 2.0f) : s.wakeSpacing;
         float life = smoke && s.wake != BeamStyle.WAKE_SMOKE ? 24.0f : s.wakeLife;
@@ -570,7 +573,7 @@ public final class SpellBeamFxRenderer {
                 float far = 1.0f - smoothstep(32.0f, 56.0f, (float) c.length());
                 billboard(out, m, c, size + s.wakeGrow * l,
                         alpha * far * (1.0f - l) * (1.0f - l) * smoothstep(0.0f, 1.5f, age),
-                        SMOKE_R, SMOKE_G, SMOKE_B, false, 3, 10);
+                        s.shadeR, s.shadeG, s.shadeB, false, 3, 10);
                 return;
             }
             float r = s.glowR;
@@ -632,6 +635,10 @@ public final class SpellBeamFxRenderer {
     private static void drawImpactDark(VertexConsumer out, Matrix4f m, SpellBeamClientState.Impact impact,
                                        double now, Vec3 camera) {
         boolean evade = impact.kind == SpellBeamFx.EVADE;
+        if (impact.kind == SpellBeamFx.STEAM) {
+            drawSteam(out, m, impact, now, camera);
+            return;
+        }
         if (!(impact.style.impactDark && impact.full()) && !evade) {
             return;
         }
@@ -646,13 +653,57 @@ public final class SpellBeamFxRenderer {
 
         float burst = smoothstep(0.0f, 0.45f, f);
         float burstRadius = (0.4f + 2.6f * burst) * scale * (evade ? 1.35f : 1.0f);
-        billboard(out, m, pos, burstRadius, (evade ? 0.85f : 0.55f) * fade, SMOKE_R, SMOKE_G, SMOKE_B, false);
+        BeamStyle shade = impact.style;
+        billboard(out, m, pos, burstRadius, (evade ? 0.85f : 0.55f) * fade, shade.shadeR, shade.shadeG, shade.shadeB,
+                false);
         for (int k = 0; k < IMPACT_PUFFS; k++) {
             Vec3 dir = randomDirection(impact.seed + k * 7);
             float left = 1.0f - Math.min(1.0f, f * 1.6f);
             float thrown = 1.0f - left * left * left;
             Vec3 centre = pos.add(dir.scale(2.2 * scale * thrown)).add(0.0, 0.7 * f, 0.0);
-            billboard(out, m, centre, (0.35f + 0.7f * f) * scale, 0.42f * fade, SMOKE_R, SMOKE_G, SMOKE_B, false, 4, 12);
+            billboard(out, m, centre, (0.35f + 0.7f * f) * scale, 0.42f * fade, shade.shadeR, shade.shadeG,
+                    shade.shadeB, false, 4, 12);
+        }
+        if (shade.waveFront && impact.full()) {
+            // The body of the wave rolling out: translucent water under the foam crest the light pass draws.
+            waveFront(out, m, impact, pos, age, 0.5f, 0.35f, shade.shadeR, shade.shadeG, shade.shadeB);
+        }
+    }
+
+    /** Water on fire: pale steam billowing up and out, thinning as it climbs. */
+    private static void drawSteam(VertexConsumer out, Matrix4f m, SpellBeamClientState.Impact impact, double now,
+                                  Vec3 camera) {
+        float age = (float) (now - impact.start);
+        Vec3 pos = impact.pos.subtract(camera);
+        for (int k = 0; k < 16; k++) {
+            float life = age - k * 0.6f;
+            if (life < 0.0f || life > 20.0f) {
+                continue;
+            }
+            float l = life / 20.0f;
+            Vec3 out1 = randomDirection(impact.seed + k * 13).multiply(1.0, 0.3, 1.0).scale(0.9 * (1.0 - (1.0 - l) * (1.0 - l)));
+            Vec3 c = pos.add(out1).add(0.0, 0.09 * life, 0.0);
+            float alpha = 0.42f * (1.0f - l) * (1.0f - l) * smoothstep(0.0f, 1.5f, life);
+            billboard(out, m, c, 0.3f + 0.7f * l, alpha, 0.86f, 0.88f, 0.9f, false, 3, 12);
+        }
+    }
+
+    /** Three crests rolling out across the ground in a cone ahead of the strike. */
+    private static void waveFront(VertexConsumer out, Matrix4f m, SpellBeamClientState.Impact impact, Vec3 pos,
+                                  float age, float thickness, float strength, float r, float g, float b) {
+        Vec3 flat = new Vec3(impact.dir.x, 0.0, impact.dir.z);
+        flat = flat.lengthSqr() < 1.0E-6 ? new Vec3(0.0, 0.0, 1.0) : flat.normalize();
+        Vec3 side = new Vec3(-flat.z, 0.0, flat.x);
+        Vec3 ground = pos.add(0.0, -0.8, 0.0);
+        for (int k = 0; k < 3; k++) {
+            float t = (age - k * 2.0f) / 14.0f;
+            if (t < 0.0f || t >= 1.0f) {
+                continue;
+            }
+            float radius = 0.5f + 6.0f * (1.0f - (1.0f - t) * (1.0f - t));
+            float alpha = strength * (1.0f - t) * (1.0f - t);
+            arc(out, m, ground.add(0.0, 0.15 * (1.0 - t), 0.0), flat, side, radius, thickness, alpha, r, g, b, 18,
+                    -0.75, 0.75);
         }
     }
 
@@ -668,6 +719,9 @@ public final class SpellBeamFxRenderer {
         float bright = impact.kind == SpellBeamFx.EVADE ? 0.35f : 1.0f;
         Vec3 pos = impact.pos.subtract(camera);
 
+        if (impact.kind == SpellBeamFx.STEAM) {
+            return; // steam is all straight alpha, drawn in the dark pass
+        }
         if (impact.kind == SpellBeamFx.SHIELD) {
             drawShieldRipple(out, m, impact, pos, age);
         }
@@ -701,6 +755,11 @@ public final class SpellBeamFxRenderer {
         f = age / SpellBeamClientState.IMPACT_TICKS;
 
         if (impact.full()) {
+            if (s.waveFront) {
+                // The foam crest riding each wave.
+                waveFront(out, m, impact, pos, age, 0.35f, 0.25f, s.glowR, s.glowG, s.glowB);
+                waveFront(out, m, impact, pos, age, 0.1f, 0.7f, s.coreR, s.coreG, s.coreB);
+            }
             drawImpactRing(out, m, impact, pos, age, scale, bright);
             drawImpactArcs(out, m, impact, pos, age, scale, bright);
             if (s.pillar) {

@@ -377,7 +377,7 @@ public enum SpellType {
             case LEVICORPUS -> ModSounds.SPELL_WINGARDIUM_LEVIOSA.get();
             case DIFFINDO -> ModSounds.SPELL_SECTUMSEMPRA.get(); // Sharp sound
             case PETRIFICUS_TOTALUS -> ModSounds.SPELL_STUPEFY.get(); // Stun sound
-            case AQUA_ERUCTO -> ModSounds.SPELL_GLACIUS.get();
+            case AQUA_ERUCTO -> ModSounds.SPELL_AQUA.get();
             case OBLIVIATE -> ModSounds.SPELL_REVELIO.get();
             case ASCENDIO -> ModSounds.SPELL_ACCIO.get(); // Whoosh sound
             case CONFUNDO -> ModSounds.SPELL_IMPERIO.get();
@@ -417,8 +417,11 @@ public enum SpellType {
         }
         target.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 40, 0));
         if (target.level() instanceof ServerLevel sl) {
-            sl.sendParticles(ParticleTypes.CLOUD, target.getX(), target.getY() + 1.0, target.getZ(), 20, 0.35, 0.25, 0.35, 0.01);
-            sl.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, target.getX(), target.getY() + 0.8, target.getZ(), 12, 0.25, 0.2, 0.25, 0.01);
+            // Water on fire: a burst of steam, drawn by hand on the clients.
+            com.hogwartsmagic.spell.SpellBeamFx.effectAt(sl, AQUA_ERUCTO,
+                    target.position().add(0.0, target.getBbHeight() * 0.6, 0.0), com.hogwartsmagic.spell.SpellBeamFx.STEAM);
+            sl.playSound(null, target.getX(), target.getY(), target.getZ(),
+                    net.minecraft.sounds.SoundEvents.FIRE_EXTINGUISH, net.minecraft.sounds.SoundSource.PLAYERS, 1.0f, 0.7f);
         }
     }
 }

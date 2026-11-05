@@ -290,6 +290,10 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
             this.anchor = BlockPos.of(tag.getLong("Anchor"));
         }
         this.entityData.set(DATA_CHAINED, !tag.contains("Chained") || tag.getBoolean("Chained"));
+        // The departure is not saved: a freed dragon reloaded mid-climb resumes leaving instead of staying loose.
+        if (!isChained()) {
+            this.leavingTicks = LEAVING_TICKS;
+        }
         this.cowerTicks = tag.getInt("Cower");
         this.entityData.set(DATA_COWERING, this.cowerTicks > 0);
     }
@@ -430,7 +434,8 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
 
         @Override
         public boolean canUse() {
-            return !this.dragon.isCowering();
+            // Always on: tick() handles the cowering retreat to the anchor as well as the guarding.
+            return true;
         }
 
         @Override
@@ -452,7 +457,8 @@ public class UkrainianIronbellyEntity extends HungarianHorntailEntity {
                 Vec3 where = this.dragon.heardAt();
                 this.dragon.getNavigation().moveTo(where.x, where.y, where.z, 0.85D);
                 List<Player> near = this.dragon.level().getEntitiesOfClass(Player.class,
-                        new AABB(where, where).inflate(6.0D));
+                        new AABB(where, where).inflate(6.0D),
+                        player -> !player.isCreative() && !player.isSpectator());
                 if (!near.isEmpty()) {
                     this.dragon.setTarget(near.get(0));
                 }

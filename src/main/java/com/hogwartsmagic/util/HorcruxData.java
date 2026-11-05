@@ -253,6 +253,12 @@ public final class HorcruxData {
         if (getHealthCost(player) <= 0.0D || isPendingRebirth(player)) {
             return;
         }
+        // Runs every tick: never force-load the Horcrux's chunk (possibly in another dimension) just to look at it.
+        ServerLevel boundLevel = getBoundLevel(player);
+        BlockPos boundPos = getBoundPos(player);
+        if (boundLevel != null && boundPos != null && !boundLevel.isLoaded(boundPos)) {
+            return;
+        }
         HorcruxBlockEntity horcrux = getOwnedHorcrux(player);
         if (horcrux != null) {
             return;

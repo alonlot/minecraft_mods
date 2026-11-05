@@ -556,6 +556,11 @@ public class CaveInimicumWardBlockEntity extends BlockEntity {
         if (!state.hasProperty(WardBlock.LIT)) {
             return;
         }
+        // Deactivated from WardBlock.onRemove, the level already holds the replacing block: setting the
+        // ward back here would undo the break.
+        if (isRemoved() || level.getBlockState(worldPosition) != state) {
+            return;
+        }
         boolean shouldBeLit = !isIdle();
         if (state.getValue(WardBlock.LIT) != shouldBeLit) {
             level.setBlock(worldPosition, state.setValue(WardBlock.LIT, shouldBeLit), Block.UPDATE_CLIENTS);
@@ -611,6 +616,11 @@ public class CaveInimicumWardBlockEntity extends BlockEntity {
         outlineTicks = Math.max(0, tag.getInt("OutlineTicks"));
         ownerUuid = tag.hasUUID("Owner") ? tag.getUUID("Owner") : null;
         snapshot = tag.contains("Snapshot") ? CaveInimicumSnapshot.load(tag.getCompound("Snapshot")) : null;
+        // A ward copied elsewhere with its NBT (/clone, a structure template) keeps the old centre: its
+        // bounds() are taken from worldPosition, so indexing the snapshot by them would run off the array.
+        if (snapshot != null && !snapshot.center().equals(worldPosition)) {
+            snapshot = null;
+        }
         actualStateCache = snapshot == null ? null : snapshot.copyStateIds();
     }
 

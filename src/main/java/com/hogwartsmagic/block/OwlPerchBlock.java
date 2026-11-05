@@ -91,6 +91,15 @@ public class OwlPerchBlock extends BaseEntityBlock {
         return ItemInteractionResult.sidedSuccess(level.isClientSide);
     }
 
+    /** Mail waiting on the perch drops when it is broken instead of vanishing with the block entity. */
+    @Override
+    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
+        if (!state.is(newState.getBlock()) && level.getBlockEntity(pos) instanceof OwlPerchBlockEntity perch) {
+            net.minecraft.world.Containers.dropContents(level, pos, perch);
+        }
+        super.onRemove(state, level, pos, newState, movedByPiston);
+    }
+
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
         if (!level.isClientSide && level.getBlockEntity(pos) instanceof OwlPerchBlockEntity perch) {

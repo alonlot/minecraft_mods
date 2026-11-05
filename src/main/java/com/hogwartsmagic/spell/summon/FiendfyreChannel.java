@@ -150,6 +150,25 @@ public final class FiendfyreChannel {
         }
     }
 
+    /**
+     * The caster changed dimension mid-channel. Their serpents live in the level just left, where
+     * {@link #stop} (which looks in the current level) cannot find them; dismiss the tame ones there,
+     * then end the channel.
+     */
+    public static void leaveLevel(ServerPlayer player, ServerLevel from) {
+        if (!isChanneling(player)) {
+            return;
+        }
+        if (from != null) {
+            for (FiendfyreSerpentEntity serpent : serpents(player, from)) {
+                if (!serpent.isRogue()) {
+                    serpent.discard();
+                }
+            }
+        }
+        stop(player, player.getMainHandItem(), true);
+    }
+
     /** Player tick: wand and heartbeat checks, the rank duration, lost serpents, and the mana upkeep. */
     public static void tick(ServerPlayer player, CompoundTag modData) {
         CompoundTag data = player.getPersistentData();
@@ -210,12 +229,15 @@ public final class FiendfyreChannel {
 
     /** The serpents this channel spawned that are still loaded and alive in the caster's level (rogue ones included). */
     static List<FiendfyreSerpentEntity> serpents(ServerPlayer player) {
+        return serpents(player, player.serverLevel());
+    }
+
+    private static List<FiendfyreSerpentEntity> serpents(ServerPlayer player, ServerLevel level) {
         List<FiendfyreSerpentEntity> out = new ArrayList<>();
         CompoundTag data = player.getPersistentData();
         if (!data.contains(TAG_SERPENTS)) {
             return out;
         }
-        ServerLevel level = player.serverLevel();
         ListTag ids = data.getList(TAG_SERPENTS, Tag.TAG_INT_ARRAY);
         for (Tag id : ids) {
             Entity entity = level.getEntity(NbtUtils.loadUUID(id));

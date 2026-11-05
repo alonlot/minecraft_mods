@@ -98,16 +98,29 @@ public final class UndercroftBuilder {
      */
     @Nullable
     public static UndercroftTracker.Undercroft request(ServerLevel level, BlockPos stationTop) {
-        if (activeJob != null) {
-            return null;
-        }
         int depth = depthFor(level, stationTop);
         UndercroftTracker tracker = UndercroftTracker.get(level);
+        UndercroftTracker.Undercroft known = tracker.at(stationTop);
+        if (known != null && (known.stage == UndercroftTracker.COMPLETE
+                || known.stage == UndercroftTracker.REFUSED)) {
+            // Checked before anything below can overwrite the stage: a finished site demoted to
+            // PENDING would be "resumed" from WORK_DONE and spawn a second cart, dragon and guards.
+            return null;
+        }
         if (depth < 0) {
             LOGGER.info("No undercroft at {}: only {} blocks of rock beneath it, {} needed",
                     stationTop, stationTop.getY() - SHAFT_DROP - level.getMinBuildHeight(),
                     CartTrack.DEPTH_MIN);
             tracker.put(stationTop, 0, UndercroftTracker.REFUSED);
+            return null;
+        }
+        if (activeJob != null) {
+            // Another site is being dug. A bank finished while that runs used to have its request
+            // dropped on the floor here, unrecorded, so nothing ever came back for it and the
+            // rotunda stood over solid rock for good. Remember it; maybeResume picks it up.
+            if (known == null) {
+                tracker.put(stationTop, depth, UndercroftTracker.PENDING);
+            }
             return null;
         }
         if (!footprintResident(level, stationTop)) {
@@ -218,6 +231,15 @@ public final class UndercroftBuilder {
 
     /** Which undercroft each player was last told they were in. */
     private static final java.util.Map<java.util.UUID, BlockPos> FOGGED = new java.util.HashMap<>();
+
+    /**
+     * Forgets what this player was told. Called on logout: the client drops its fog state when it
+     * disconnects, so a stale entry here would stop the fog being re-sent when they log back in
+     * inside the same undercroft.
+     */
+    public static void forgetPlayer(java.util.UUID player) {
+        FOGGED.remove(player);
+    }
 
     /** Picks up anything left half-dug, when somebody wanders back into range of it. */
     public static void maybeResume(ServerPlayer player) {

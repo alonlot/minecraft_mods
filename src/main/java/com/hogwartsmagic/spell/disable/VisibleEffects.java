@@ -30,8 +30,9 @@ public final class VisibleEffects {
 
     public static boolean isVisible(MobEffect effect) {
         // Basilisk stone too: watchers draw the stone tint, and a rescuer's client offers the Mandrake cure.
+        // Gillyweed too: GillyweedGillsLayer draws the gills on other players from the effect.
         return effect == ExampleMod.LEVICORPUS_EFFECT.get() || effect == ExampleMod.PETRIFIED.get()
-                || effect == ExampleMod.BASILISK_PETRIFICATION.get();
+                || effect == ExampleMod.BASILISK_PETRIFICATION.get() || effect == ExampleMod.GILLYWEED_EFFECT.get();
     }
 
     @SubscribeEvent(priority = EventPriority.LOWEST)

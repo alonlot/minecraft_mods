@@ -742,6 +742,19 @@ public class ModEvents {
             // Same reason as on respawn: a real dimension change replaces the client's world, which
             // the seamless arch crossing deliberately never does.
             com.hogwartsmagic.worldgen.DiagonAlleyPortal.forget(player);
+            // A Patronus shield's light blocks and a Fiendfyre serpent live in the level just left; the stop
+            // methods only look in the player's current level, so clean the old one up here first.
+            ServerLevel from = player.server.getLevel(event.getFrom());
+            CompoundTag data = player.getPersistentData();
+            if (data.getBoolean(TAG_PATRONUS_SHIELD_CHANNELING)) {
+                if (from != null && data.contains(TAG_PATRONUS_SHIELD_LIGHT)) {
+                    for (long packed : data.getLongArray(TAG_PATRONUS_SHIELD_LIGHT)) {
+                        clearPatronusShieldLight(from, BlockPos.of(packed));
+                    }
+                }
+                stopPatronusShieldChannel(player, player.getMainHandItem());
+            }
+            com.hogwartsmagic.spell.summon.FiendfyreChannel.leaveLevel(player, from);
             syncPersistentMagicState(player);
             com.hogwartsmagic.caveinimicum.CaveInimicumManager.get(player.serverLevel()).syncRelevantWardsToPlayer(player);
         }
@@ -789,6 +802,7 @@ public class ModEvents {
         ACTIVE_WIZARD_RAIDS.clear();
         WIZARD_TO_RAID.clear();
         LUMOS_POS.clear();
+        com.hogwartsmagic.util.RecentlyBrokenTracker.clear();
     }
 
     @SubscribeEvent
@@ -2240,6 +2254,13 @@ public class ModEvents {
             return true;
         }
         if (event.getLevel().getBlockEntity(event.getPos()) instanceof com.hogwartsmagic.block.entity.FlooFireplaceBlockEntity fireplace) {
+            // Same owner protection as the naming screen (SetFlooNamePacket): a name tag must not take someone else's fireplace.
+            java.util.UUID owner = fireplace.getOwner();
+            if (owner != null && !owner.equals(player.getUUID()) && !player.hasPermissions(2)) {
+                player.displayClientMessage(Component.translatableWithFallback(
+                        "message.hogwartsmagic.floo.not_owner", "This fireplace belongs to someone else."), true);
+                return true;
+            }
             fireplace.setFireplaceName(held.getHoverName().getString(), player);
             player.displayClientMessage(Component.translatable("message.hogwartsmagic.floo.named", fireplace.getFireplaceName()), true);
             return true;
@@ -2548,8 +2569,13 @@ public class ModEvents {
             // So we'll let BroomEntity handle resetting fall distance in its tick/dismount logic instead.
         }
 
+        // /kill, the void and anything else that bypasses invulnerability is never shielded, the same rule
+        // WizardEntity.hurt and StudentEntity.hurt apply to their own Protego: cancelling here would leave a
+        // shielded (or smoke-form) player immune to /kill and to falling out of the world.
+        boolean bypassesInvulnerability = event.getSource().is(net.minecraft.tags.DamageTypeTags.BYPASSES_INVULNERABILITY);
+
         // Avada Kedavra bypasses every Protego, ranked or legacy (AvadaSpell flags its own hurt call).
-        if (com.hogwartsmagic.spell.mind.AvadaSpell.isLanding(event.getEntity())) {
+        if (bypassesInvulnerability || com.hogwartsmagic.spell.mind.AvadaSpell.isLanding(event.getEntity())) {
             // no shield of any kind blocks or blunts it
         } else if (com.hogwartsmagic.spell.support.ProtegoSpell.isRankedShield(event.getEntity())) {
             // A player's Protego (Spell Mastery): blunts blows from the front, never cancels them outright.
@@ -2567,8 +2593,8 @@ public class ModEvents {
                     net.minecraft.sounds.SoundEvents.GLASS_BREAK, net.minecraft.sounds.SoundSource.PLAYERS, 1.0f, 0.5f);
             }
         }
-
-        if (event.getEntity().hasEffect(ExampleMod.TENEBRIS_FLIGHT_EFFECT.getHolder().get())) {
+        
+        if (!bypassesInvulnerability && event.getEntity().hasEffect(ExampleMod.TENEBRIS_FLIGHT_EFFECT.getHolder().get())) {
             event.setCanceled(true); // Invulnerability
         }
 

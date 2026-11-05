@@ -120,7 +120,9 @@ public class RelicScreen extends Screen {
         int startX = left + 18;
         int startY = top + 176;
         int rowWidth = PANEL_WIDTH - 36;
-        relicSlots.removeIf(slot -> !isInventorySlotRelic(slot));
+        // Re-read every frame: an unequipped relic lands back in the inventory while the screen is open.
+        relicSlots.clear();
+        relicSlots.addAll(collectRelicInventorySlots());
         if (relicSlots.isEmpty()) {
             guiGraphics.drawString(font, Component.translatable("gui.hogwartsmagic.relics.none"),
                     startX, startY + 8, 0xFF9B9077, false);

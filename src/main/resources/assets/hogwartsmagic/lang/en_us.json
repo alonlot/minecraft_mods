@@ -1225,6 +1225,8 @@
   "entity.hogwartsmagic.flying_mob": "Flying Creature",
   "entity.hogwartsmagic.carried_block": "Carried Block",
   "entity.hogwartsmagic.petrified_remains": "Petrified Remains",
+  "entity.hogwartsmagic.pensieve_body": "Pensieve Body",
+  "painting.hogwartsmagic.summoning_rite.title": "Summoning Rite",
   "item.minecraft.splash_potion.effect.hogwartsmagic.wizard": "Splash Mana Regeneration Potion",
   "item.minecraft.lingering_potion.effect.hogwartsmagic.wizard": "Lingering Mana Regeneration Potion",
   "item.minecraft.tipped_arrow.effect.hogwartsmagic.wizard": "Arrow of Mana Regeneration",

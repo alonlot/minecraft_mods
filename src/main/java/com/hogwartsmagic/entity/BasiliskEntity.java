@@ -160,6 +160,8 @@ public class BasiliskEntity extends Monster {
     private int burrowCooldown;
     private float headDamage;
     private int burrowedTicks;
+    /** Set on load when the save caught it burrowed: the action state is not persisted, NoGravity is. */
+    private boolean resurfaceAfterLoad;
 
     /**
      * One hit volume per body section.
@@ -541,6 +543,17 @@ public class BasiliskEntity extends Monster {
         if (this.sweepCooldown > 0) this.sweepCooldown--;
         if (this.burrowCooldown > 0) this.burrowCooldown--;
 
+        if (this.resurfaceAfterLoad) {
+            this.resurfaceAfterLoad = false;
+            // Saved mid-burrow: it reloads in NONE with NoGravity still set, stuck in the rock and suffocating.
+            if (getActionState() == ActionState.NONE) {
+                if (this.isInWall()) {
+                    surfaceHere();
+                } else {
+                    this.setNoGravity(false); // a Levicorpus hang re-asserts its own each tick
+                }
+            }
+        }
         advanceActionState();
         tickGaze();
     }
@@ -1173,6 +1186,7 @@ public class BasiliskEntity extends Monster {
         super.readAdditionalSaveData(tag);
         this.entityData.set(DATA_BLINDED, tag.getBoolean("Blinded"));
         this.headDamage = tag.getFloat("HeadDamage");
+        this.resurfaceAfterLoad = this.isNoGravity();
     }
 
     /**

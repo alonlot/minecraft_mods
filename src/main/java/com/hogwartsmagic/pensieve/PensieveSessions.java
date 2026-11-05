@@ -89,10 +89,12 @@ public final class PensieveSessions {
     /**
      * Holds the basin's chunks entity-ticking for a whole session, so the body stays live (mobs can reach it, it
      * can be hurt) even with nobody else nearby. Distance 3 makes the basin chunk and the ring around it
-     * entity-ticking (ticket levels 30 and 31), which covers the 16 blocks the body lures monsters from.
+     * entity-ticking (ticket levels 30 and 31), which covers the 16 blocks the body lures monsters from. Keyed by
+     * the basin's position, not its chunk: a region ticket is a set, so two basins in one chunk sharing a key would
+     * share one ticket, and the first session to end would drop the other's.
      */
-    static final TicketType<ChunkPos> BASIN_TICKET = TicketType.create("hogwartsmagic_pensieve_basin",
-            Comparator.comparingLong(ChunkPos::toLong));
+    static final TicketType<BlockPos> BASIN_TICKET = TicketType.create("hogwartsmagic_pensieve_basin",
+            Comparator.comparingLong(BlockPos::asLong));
     private static final int BASIN_TICKET_DISTANCE = 3;
     /**
      * A {@link #handOver} asked for mid-scene fades the scene to black over this many ticks before the viewers move
@@ -651,7 +653,7 @@ public final class PensieveSessions {
         ServerLevel where = server.getLevel(s.basinDim());
         if (where == null) return;
         ChunkPos c = new ChunkPos(s.basinPos());
-        where.getChunkSource().addRegionTicket(BASIN_TICKET, c, BASIN_TICKET_DISTANCE, c);
+        where.getChunkSource().addRegionTicket(BASIN_TICKET, c, BASIN_TICKET_DISTANCE, s.basinPos());
         s.basinTicket = c;
         s.basinTicketLevel = where;
     }
@@ -662,8 +664,8 @@ public final class PensieveSessions {
         ServerLevel where = s.basinTicketLevel;
         s.basinTicket = null;
         s.basinTicketLevel = null;
-        if (c != null && where != null) {
-            where.getChunkSource().removeRegionTicket(BASIN_TICKET, c, BASIN_TICKET_DISTANCE, c);
+        if (c != null && where != null && s.basinPos() != null) {
+            where.getChunkSource().removeRegionTicket(BASIN_TICKET, c, BASIN_TICKET_DISTANCE, s.basinPos());
         }
     }
 

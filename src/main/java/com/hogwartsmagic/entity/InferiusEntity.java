@@ -219,7 +219,8 @@ public class InferiusEntity extends Monster {
     public void aiStep() {
         super.aiStep();
         if (this.level().isClientSide) return;
-        if (grabbed != null && grabbed.distanceToSqr(this) > 16.0D) {
+        // A ServerPlayer keeps its instance across a dimension change, and distanceToSqr ignores the level.
+        if (grabbed != null && (grabbed.level() != this.level() || grabbed.distanceToSqr(this) > 16.0D)) {
             grabbed = null;
         } else if (grabbed != null && grabTicksLeft-- > 0 && grabbed.isAlive() && (grabbed.isInWater() || this.isInWater())) {
             Vec3 pull = this.position().subtract(grabbed.position()).normalize().scale(InferiusRules.WATER_PULL_PER_TICK);

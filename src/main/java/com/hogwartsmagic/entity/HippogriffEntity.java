@@ -514,6 +514,15 @@ public class HippogriffEntity extends TamableAnimal implements FlyingAnimal, Pla
 
         if (!this.level().isClientSide) {
             tickGroundStuck();
+            if (this.isVehicle() && !this.poweredFlight && this.getControllingPassenger() instanceof Player) {
+                // A ridden mount is client-authoritative: travel() runs on the rider's client, so the NoGravity it
+                // sets there never reaches this side. Vanilla's vehicle-flight check reads the server entity's
+                // NoGravity, and without it the rider is kicked ("Flying is not enabled on this server") after 80
+                // ticks of level flight wherever allow-flight is off. Mirrored from the airborne state, as the broom does.
+                if (this.isNoGravity() != airborne) {
+                    this.setNoGravity(airborne);
+                }
+            }
         }
         tickFlightPosture(airborne);
 

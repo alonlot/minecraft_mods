@@ -1426,6 +1426,7 @@ public class SpellBeamEntity extends ThrowableProjectile {
             double strength = (1.0 - (dist / 6.0)) * 1.4;
             Vec3 push = dirToTarget.scale(Math.max(0.15, strength));
             target.push(push.x, 0.22 + strength * 0.08, push.z);
+            target.hurtMarked = true; // a player target only feels the wave once its motion is sent
             target.clearFire();
             target.setRemainingFireTicks(0);
             if (target instanceof net.minecraft.world.entity.monster.Blaze || target instanceof net.minecraft.world.entity.monster.MagmaCube) {

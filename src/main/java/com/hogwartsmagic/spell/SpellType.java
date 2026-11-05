@@ -276,16 +276,24 @@ public enum SpellType {
                 if (target.level().isRainingAt(target.blockPosition())) {
                     target.push(push.x * 0.35, 0.1, push.z * 0.35);
                 }
+                // Player motion is client-authoritative: the beam's chip hit only marks the target when it
+                // lands outside its i-frames, so mark it here or a player never feels the wave.
+                target.hurtMarked = true;
             }
             case OBLIVIATE -> com.hogwartsmagic.spell.mind.ObliviateSpell.apply(target, caster);
             case ASCENDIO -> {
                 target.setDeltaMovement(target.getDeltaMovement().add(0, 1.5, 0));
+                // Player motion is client-authoritative: without hurtMarked the launch never reaches a player's client.
+                target.hurtMarked = true;
                 if (target.level() instanceof ServerLevel server) {
                     net.minecraft.world.phys.AABB area = target.getBoundingBox().inflate(2.4);
-                    java.util.List<LivingEntity> launched = server.getEntitiesOfClass(LivingEntity.class, area, e -> e != target);
+                    Entity responsible = com.hogwartsmagic.spell.combat.CombatEffects.responsible(caster);
+                    java.util.List<LivingEntity> launched = server.getEntitiesOfClass(LivingEntity.class, area,
+                            e -> e != target && e != responsible);
                     for (LivingEntity nearby : launched) {
                         nearby.setDeltaMovement(nearby.getDeltaMovement().add(0, 1.1, 0));
                         nearby.fallDistance = 0.0f;
+                        nearby.hurtMarked = true;
                     }
                 }
             }

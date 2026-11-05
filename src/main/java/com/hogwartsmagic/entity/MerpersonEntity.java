@@ -697,7 +697,10 @@ public class MerpersonEntity extends PathfinderMob implements NeutralMob {
         super.readAdditionalSaveData(tag);
         this.readPersistentAngerSaveData(this.level(), tag);
         if (tag.getBoolean("Chieftainess")) {
+            // setChieftainess heals to full for a fresh spawn; a reload keeps the saved health.
+            float savedHealth = this.getHealth();
             setChieftainess(true);
+            this.setHealth(savedHealth);
         }
         this.dryTicks = tag.getInt("DryTicks");
     }

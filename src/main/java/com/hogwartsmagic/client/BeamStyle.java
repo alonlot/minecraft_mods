@@ -106,6 +106,12 @@ public final class BeamStyle implements Cloneable {
     boolean mistBurst = false;
     /** How hard a strike close by flashes the edges of the view. */
     float screenFlash = 0.0f;
+    /** A second shockwave chasing the first (a concussive blast). */
+    boolean doubleRing = false;
+    /** The body and glow run through the colours of the rainbow (Riddikulus). */
+    boolean bodyRainbow = false;
+    /** The strike's arcs are parallel straight cuts across the beam's line (a blade). */
+    boolean parallelSlashes = false;
 
     BeamStyle colours(int core, int body, int glow) {
         coreR = r(core);
@@ -277,6 +283,21 @@ public final class BeamStyle implements Cloneable {
 
     BeamStyle mistBurst() {
         this.mistBurst = true;
+        return this;
+    }
+
+    BeamStyle doubleRing() {
+        this.doubleRing = true;
+        return this;
+    }
+
+    BeamStyle bodyRainbow() {
+        this.bodyRainbow = true;
+        return this;
+    }
+
+    BeamStyle parallelSlashes() {
+        this.parallelSlashes = true;
         return this;
     }
 

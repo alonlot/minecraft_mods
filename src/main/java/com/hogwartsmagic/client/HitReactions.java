@@ -360,35 +360,46 @@ public final class HitReactions {
         }
         Matrix4f m = new Matrix4f();
         MultiBufferSource.BufferSource buffer = minecraft.renderBuffers().bufferSource();
+        // Green-black smoke curling up out of the body: something left it, and it was not holy.
+        VertexConsumer dark = buffer.getBuffer(ModRenderTypes.AVADA_SHADOW);
+        for (Reaction reaction : drained) {
+            float t = reaction.age(now);
+            Vec3 base = reaction.fell.subtract(camera);
+            for (int k = 0; k < 12; k++) {
+                float life = t - k * 2.2f;
+                if (life < 0.0f || life > 22.0f) {
+                    continue;
+                }
+                float l = life / 22.0f;
+                double angle = k * 2.4 + life * 0.18;
+                double r = 0.15 + 0.35 * l;
+                Vec3 puff = base.add(Math.cos(angle) * r, 0.1 + 0.11 * life, Math.sin(angle) * r);
+                billboard(dark, m, puff, 0.2f + 0.45f * l, 0.38f * (1.0f - l) * AvadaChargePose.smoothstep(0.0f, 2.0f, life),
+                        0.02f, 0.07f, 0.03f, false, 3, 10);
+            }
+        }
+        buffer.endBatch(ModRenderTypes.AVADA_SHADOW);
         VertexConsumer out = buffer.getBuffer(ModRenderTypes.AVADA_LIGHT);
         for (Reaction reaction : drained) {
             float t = reaction.age(now);
             float f = t / DRAINED_TICKS;
             Vec3 base = reaction.fell.subtract(camera);
-            // A pale column rising out of the body and thinning away.
-            float rise = AvadaChargePose.smoothstep(0.0f, 0.7f, f);
-            float alpha = 0.5f * AvadaChargePose.smoothstep(0.0f, 0.1f, f) * (1.0f - f);
-            Vec3[] column = new Vec3[6];
-            float[] width = new float[6];
-            float[] a = new float[6];
-            for (int i = 0; i < 6; i++) {
-                float u = i / 5.0f;
-                column[i] = base.add(0.0, 2.4 * rise * u, 0.0);
-                width[i] = 0.35f * (1.0f - 0.7f * u);
-                a[i] = alpha * (1.0f - u);
-            }
-            ribbon(out, m, column, width, a, 1.0f, 0.7f, GREEN_R, GREEN_G, GREEN_B);
-            ribbon(out, m, column, width, a, 0.25f, 1.0f, HOT_R, HOT_G, HOT_B);
-            billboard(out, m, base, 0.9f, 0.35f * (1.0f - f), GREEN_R, GREEN_G, GREEN_B, false);
-            // Motes drifting up out of it.
-            for (int k = 0; k < 8; k++) {
-                float life = t - k * 3.0f;
-                if (life < 0.0f || life > 20.0f) {
-                    continue;
+            billboard(out, m, base, 0.9f, 0.3f * (1.0f - f), GREEN_R, GREEN_G, GREEN_B, false);
+            // Two thin green wisps coiling up through the smoke.
+            for (int w = 0; w < 2; w++) {
+                Vec3[] wisp = new Vec3[8];
+                float[] width = new float[8];
+                float[] a = new float[8];
+                float rise = AvadaChargePose.smoothstep(0.0f, 0.6f, f);
+                for (int i = 0; i < 8; i++) {
+                    float u = i / 7.0f;
+                    double angle = w * Math.PI + u * 5.0 + t * 0.12;
+                    wisp[i] = base.add(Math.cos(angle) * 0.25 * u, 2.2 * rise * u, Math.sin(angle) * 0.25 * u);
+                    width[i] = 0.025f;
+                    a[i] = 0.5f * (1.0f - u) * (1.0f - f) * AvadaChargePose.smoothstep(0.0f, 0.1f, f);
                 }
-                Vec3 mote = base.add(randomDirection(reaction.hashCode() + k * 31).scale(0.35))
-                        .add(0.0, 0.08 * life, 0.0);
-                billboard(out, m, mote, 0.06f, 0.9f * (1.0f - life / 20.0f), HOT_R, HOT_G, HOT_B, true, 2, 8);
+                ribbon(out, m, wisp, width, a, 2.5f, 0.3f, GREEN_R, GREEN_G, GREEN_B);
+                ribbon(out, m, wisp, width, a, 1.0f, 0.8f, HOT_R, HOT_G, HOT_B);
             }
         }
         buffer.endBatch(ModRenderTypes.AVADA_LIGHT);

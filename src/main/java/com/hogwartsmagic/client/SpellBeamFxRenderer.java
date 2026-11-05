@@ -335,11 +335,35 @@ public final class SpellBeamFxRenderer {
             ribbon(out, m, f.path, f.widths(s.sheathWidth), f.alphas(s.sheathAlpha * 0.35f, false), 1.0f, 1.0f,
                     s.glowR, s.glowG, s.glowB);
         }
-        ribbon(out, m, f.path, f.widths(s.glowWidth), f.alphas(s.glowAlpha * flicker, false), 1.0f, 1.0f,
-                s.glowR, s.glowG, s.glowB);
-        ribbon(out, m, f.path, f.widths(s.bodyWidth), f.alphas(s.bodyAlpha * flicker, false), 1.0f, 1.0f,
-                s.bodyR, s.bodyG, s.bodyB);
+        if (s.bodyRainbow) {
+            rainbowRibbon(out, m, f, f.widths(s.glowWidth), f.alphas(s.glowAlpha * flicker, false));
+            rainbowRibbon(out, m, f, f.widths(s.bodyWidth), f.alphas(s.bodyAlpha * flicker, false));
+        } else {
+            ribbon(out, m, f.path, f.widths(s.glowWidth), f.alphas(s.glowAlpha * flicker, false), 1.0f, 1.0f,
+                    s.glowR, s.glowG, s.glowB);
+            ribbon(out, m, f.path, f.widths(s.bodyWidth), f.alphas(s.bodyAlpha * flicker, false), 1.0f, 1.0f,
+                    s.bodyR, s.bodyG, s.bodyB);
+        }
         ribbon(out, m, f.path, f.widths(s.coreWidth), f.alphas(1.0f, false), 1.0f, 1.0f, s.coreR, s.coreG, s.coreB);
+    }
+
+    /** A strip whose colour runs through the rainbow along its length and over time, a short piece at a time. */
+    private static void rainbowRibbon(VertexConsumer out, Matrix4f m, Frame f, float[] width, float[] alpha) {
+        int n = f.path.length;
+        for (int i = 0; i < n - 1; i += 2) {
+            int end = Math.min(n - 1, i + 2);
+            int count = end - i + 1;
+            Vec3[] piece = new Vec3[count];
+            float[] w = new float[count];
+            float[] a = new float[count];
+            System.arraycopy(f.path, i, piece, 0, count);
+            System.arraycopy(width, i, w, 0, count);
+            System.arraycopy(alpha, i, a, 0, count);
+            float hue = (float) ((f.fromWand[i] * 0.12 - f.age * 0.03) % 1.0);
+            int rgb = Mth.hsvToRgb(hue < 0.0f ? hue + 1.0f : hue, 0.6f, 1.0f);
+            ribbon(out, m, piece, w, a, 1.0f, 1.0f, ((rgb >> 16) & 0xFF) / 255.0f, ((rgb >> 8) & 0xFF) / 255.0f,
+                    (rgb & 0xFF) / 255.0f);
+        }
     }
 
     /** Strands coiling round the beam: jagged and gappy (crackle) or smooth twisting ribbons. */
@@ -673,6 +697,17 @@ public final class SpellBeamFxRenderer {
         float alpha = 0.75f * (float) Math.pow(1.0f - ringAge, 1.5) * bright;
         ring(out, m, pos, right, up, radius, 0.38f * scale, alpha * 0.35f, s.glowR, s.glowG, s.glowB, 48);
         ring(out, m, pos, right, up, radius, 0.10f * scale, alpha, s.coreR, s.coreG, s.coreB, 48);
+        if (s.doubleRing) {
+            // A second shockwave three ticks behind the first, a little smaller.
+            float second = Math.min(1.0f, Math.max(0.0f, age - 3.0f) / 9.0f);
+            if (age > 3.0f && second < 1.0f) {
+                float e2 = 1.0f - (1.0f - second) * (1.0f - second);
+                float r2 = s.impactRing * 0.7f * scale * (s.ringInward ? 1.0f - e2 * 0.92f : e2);
+                float a2 = 0.6f * (float) Math.pow(1.0f - second, 1.5) * bright;
+                ring(out, m, pos, right, up, r2, 0.3f * scale, a2 * 0.35f, s.glowR, s.glowG, s.glowB, 48);
+                ring(out, m, pos, right, up, r2, 0.08f * scale, a2, s.coreR, s.coreG, s.coreB, 48);
+            }
+        }
     }
 
     /** Arcs lancing outward for the first half second, re-struck every other tick; jag 0 draws clean slashes. */
@@ -685,6 +720,24 @@ public final class SpellBeamFxRenderer {
         // Slashes are cut once and fade; crackling arcs are re-struck every other tick.
         int strike = s.arcJag <= 0.0f ? 0 : (int) Math.floor(age / 2.0);
         float fade = (1.0f - age / 10.0f) * bright;
+        if (s.parallelSlashes) {
+            // A blade's cuts: straight, side by side, across the line the beam came in on.
+            Vec3[] axes = frame(impact.dir);
+            Vec3 across = axes[0].scale(0.8).add(axes[1].scale(0.6)).normalize();
+            Vec3 stack = impact.dir.cross(across).normalize();
+            float open = smoothstep(0.0f, 1.5f, age);
+            for (int a = 0; a < s.impactArcs; a++) {
+                double offset = (a - (s.impactArcs - 1) * 0.5) * 0.22 * scale;
+                Vec3 centre = pos.add(stack.scale(offset));
+                Vec3 half = across.scale(0.85 * scale * open);
+                Vec3[] cut = {centre.subtract(half), centre, centre.add(half)};
+                float[] w = {0.004f, 0.02f, 0.004f};
+                float[] al = {0.0f, fade, 0.0f};
+                ribbon(out, m, cut, w, al, 3.5f, 0.35f, s.glowR, s.glowG, s.glowB);
+                ribbon(out, m, cut, w, al, 1.0f, 1.0f, s.coreR, s.coreG, s.coreB);
+            }
+            return;
+        }
         Vec3[] path = new Vec3[ARC_SEGMENTS + 1];
         float[] alpha = new float[ARC_SEGMENTS + 1];
         float[] width = new float[ARC_SEGMENTS + 1];

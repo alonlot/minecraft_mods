@@ -189,7 +189,9 @@ public class AcromantulaEntity extends Monster {
         if (this.tickCount % 20 == 0 && this.random.nextFloat() < 0.3F) {
             BlockPos pos = this.blockPosition();
             pos = pos.offset(this.random.nextInt(3) - 1, this.random.nextInt(2), this.random.nextInt(3) - 1);
-            if (this.level().isEmptyBlock(pos)) {
+            // A terrain change like any other mob's: mobGriefing and Cave Inimicum wards apply.
+            if (this.level().isEmptyBlock(pos) && this.level() instanceof ServerLevel sl
+                    && com.hogwartsmagic.spell.TerrainRules.canPlace(sl, pos, this)) {
                 this.level().setBlock(pos, Blocks.COBWEB.defaultBlockState(), 3);
             }
         }
@@ -239,7 +241,9 @@ public class AcromantulaEntity extends Monster {
         for (int dy = 0; dy <= 1; dy++) {
             BlockPos candidate = pos.above(dy);
             if (sl.isEmptyBlock(candidate)) {
-                sl.setBlock(candidate, Blocks.COBWEB.defaultBlockState(), 3);
+                if (com.hogwartsmagic.spell.TerrainRules.canPlace(sl, candidate, this)) {
+                    sl.setBlock(candidate, Blocks.COBWEB.defaultBlockState(), 3);
+                }
                 break;
             }
         }

@@ -58,6 +58,10 @@ public final class MandrakePullEvents {
         if (player.isCreative() || player.isSpectator() || !event.getItemStack().isEmpty() || !isRealPlayer(player)) {
             return;
         }
+        // Pulling one up harvests it, so it needs the same rights as breaking it (adventure mode).
+        if (!player.mayBuild()) {
+            return;
+        }
         if (!event.getLevel().getBlockState(event.getPos()).is(ExampleMod.MANDRAKE_PLANT.get())) {
             return;
         }

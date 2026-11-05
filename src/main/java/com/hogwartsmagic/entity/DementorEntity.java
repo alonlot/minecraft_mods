@@ -322,12 +322,16 @@ public class DementorEntity extends Monster {
                     // Move towards the target while sucking them in
                     this.dementor.getNavigation().moveTo(target, 1.25D);
                     
-                    // Pull the target towards the Dementor (Soul Sucking Wind)
-                    Vec3 pull = new Vec3(this.dementor.getX() - target.getX(), 
-                                         this.dementor.getY() + this.dementor.getEyeHeight() - target.getY(), 
-                                         this.dementor.getZ() - target.getZ()).normalize().scale(0.03);
-                    target.setDeltaMovement(target.getDeltaMovement().add(pull));
-                    target.hurtMarked = true;
+                    // Pull the target towards the Dementor (Soul Sucking Wind). hurtMarked sends a
+                    // velocity packet to a player, so the pull goes out every 5th goal tick at five
+                    // times the strength (same total pull) instead of a packet every tick.
+                    if (this.suckTime % 5 == 0) {
+                        Vec3 pull = new Vec3(this.dementor.getX() - target.getX(),
+                                             this.dementor.getY() + this.dementor.getEyeHeight() - target.getY(),
+                                             this.dementor.getZ() - target.getZ()).normalize().scale(0.15);
+                        target.setDeltaMovement(target.getDeltaMovement().add(pull));
+                        target.hurtMarked = true;
+                    }
                 }
                 
                 // The dragging inhale that runs under the whole approach.

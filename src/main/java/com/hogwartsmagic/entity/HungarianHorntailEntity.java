@@ -372,6 +372,19 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
             return;
         }
 
+        // A dead dragon stops fighting: no dive impact or fire from the corpse, and one that
+        // died in the air falls instead of hanging there through its death animation.
+        if (this.isDeadOrDying()) {
+            if (this.isNoGravity() || isFlying()) {
+                this.setNoGravity(false);
+                this.entityData.set(DATA_FLYING, false);
+            }
+            if (getAttackState() != AttackState.NONE) {
+                setAttackState(AttackState.NONE);
+            }
+            return;
+        }
+
         AttackState state = getAttackState();
         int t = getStateTick();
         // Idle costs nothing: no state tick means no synched-data traffic (setAttackState resets it to 0
@@ -783,7 +796,8 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
         BlockPos pos = BlockPos.containing(near.x, near.y, near.z);
         for (BlockPos candidate : new BlockPos[]{pos, pos.above(), pos.below()}) {
             if (sl.isEmptyBlock(candidate) && !sl.isEmptyBlock(candidate.below())
-                    && sl.getBlockState(candidate.below()).isSolidRender(sl, candidate.below())) {
+                    && sl.getBlockState(candidate.below()).isSolidRender(sl, candidate.below())
+                    && com.hogwartsmagic.spell.TerrainRules.canPlace(sl, candidate, this)) {
                 sl.setBlock(candidate, Blocks.FIRE.defaultBlockState(), 11);
                 return;
             }

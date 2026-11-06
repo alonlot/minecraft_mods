@@ -10,9 +10,7 @@ import com.hogwartsmagic.pensieve.scene.CeilingSky;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.CloudStatus;
 import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.client.renderer.DimensionSpecialEffects;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
@@ -48,14 +46,16 @@ import java.util.UUID;
  *   <li><b>night</b>: the calm sky on the plane: a deep gradient (#0B1030 at the walls to #1A2350 overhead) with a
  *       faint Milky Way band, twinkling stars, two thin cloud layers drifting in opposite directions, and now and then
  *       a shooting star.</li>
- *   <li><b>real</b> ({@link CeilingSky#REAL}): a window onto the world's own vanilla sky, read from the client level
- *       when it draws. Each vertex of a grid on the plane is coloured the way vanilla colours the sky along the camera
- *       ray through it (its sky colour fogged toward the horizon as vanilla's sky disc is, the sunrise / sunset fan at
- *       dawn and dusk, rain and thunder darkening it); vanilla's sun and moon and its own star field (seed 10842) sit at
- *       their true places, each projected onto the plane and cut to the rectangle; and vanilla's flat cloud layer
- *       shows where each ray reaches the cloud height, drifting with vanilla's clouds. A light magic on top: a soft
- *       glow round the sun and moon, gently twinkling stars (a few faintly coloured), a shooting star on clear nights,
- *       a few gold motes drifting just under the plane, and in a thunderstorm the ceiling's lightning flickers.</li>
+ *   <li><b>real</b> ({@link CeilingSky#REAL}): the world's own sky, read from the client level when it draws, with
+ *       depth. The open sky on the plane is coloured per vertex by the elevation of the camera's ray (deep overhead,
+ *       hazy toward the walls, warm toward the sun at dusk), day, dusk and night blended by {@link
+ *       CeilingSky#realWeights}. The far layers (the stars and Milky Way, high cirrus, a cloud deck) are drawn on the
+ *       plane but placed by the camera ray as if they lay 300, 120 and 50 blocks up, so they slide past each other as
+ *       you walk; the sun and moon sit where the ray toward them crosses the plane; and under a roof with room, real
+ *       cloud slices hang between the plane and the roof, lit from the sun's side. Rain greys and closes the cloud and
+ *       hides the sun; shooting stars cross clear nights. When the thunder level passes a half the sky darkens and
+ *       the storm style's cloud slices fill the space under the roof (only the slices below the effect's {@code hy}
+ *       roof clearance, and no wider than the hall: there is a real roof above), with lightning.</li>
  * </ul>
  * Until its {@code t} the effect is a solid dark-plank roof plane at the ceiling height (the ceiling is registered when
  * the scene starts, so the open sky is never seen early); the reveal then dissolves that roof from the middle outward
@@ -96,19 +96,14 @@ public final class EnchantedCeiling {
     private static final RenderType DOTS = ModRenderTypes.ceilingGlow(tex("ceiling_dot"));
     private static final RenderType GLOWS = ModRenderTypes.ceilingGlow(tex("ceiling_star"));
     private static final RenderType SHIMMER = ModRenderTypes.ceilingGlow(tex("ceiling_sky"));
-    /**
-     * The real sky, a window onto vanilla's: plain white under the per-vertex sky colour, vanilla's own stars (additive
-     * white), sun and moon (additive, crisp like vanilla's) and clouds (straight alpha, crisp, so they stay blocky).
-     */
-    private static final ResourceLocation WHITE = ResourceLocation.withDefaultNamespace("textures/misc/white.png");
-    private static final RenderType WINDOW = ModRenderTypes.ceilingLayer(WHITE);
-    private static final RenderType STARS = ModRenderTypes.ceilingGlow(WHITE, false);
-    private static final RenderType VANILLA_SUN = ModRenderTypes.ceilingGlow(
-            ResourceLocation.withDefaultNamespace("textures/environment/sun.png"), false);
-    private static final RenderType VANILLA_MOON = ModRenderTypes.ceilingGlow(
-            ResourceLocation.withDefaultNamespace("textures/environment/moon_phases.png"), false);
-    private static final RenderType VANILLA_CLOUDS = ModRenderTypes.ceilingLayer(
-            ResourceLocation.withDefaultNamespace("textures/environment/clouds.png"), false);
+    /** The real sky: plain white under the per-vertex atmosphere, its cirrus and deck, the sun disc and the moon. */
+    private static final RenderType CLEAR = ModRenderTypes.ceilingLayer(
+            ResourceLocation.withDefaultNamespace("textures/misc/white.png"));
+    private static final RenderType CIRRUS = ModRenderTypes.ceilingLayer(tex("sky_cirrus"));
+    private static final RenderType DECK = ModRenderTypes.ceilingLayer(tex("sky_deck"));
+    private static final RenderType SUN_DISC = ModRenderTypes.ceilingGlow(tex("ceiling_sun"));
+    private static final RenderType MOON = ModRenderTypes.ceilingGlow(
+            ResourceLocation.withDefaultNamespace("textures/environment/moon_phases.png"));
 
     private static final int LIGHT = LightTexture.FULL_BRIGHT;
     private static final int OVERLAY = OverlayTexture.NO_OVERLAY;
@@ -172,11 +167,11 @@ public final class EnchantedCeiling {
     /** One running ceiling: where it is, how big, its style, when it began and its fixed star field. */
     static final class Sky {
         final boolean storm;
-        /** The world's own sky ({@link CeilingSky#REAL}): a window onto vanilla's, read from the level at draw time. */
+        /** The world's own sky ({@link CeilingSky#REAL}): weights come from the client level at draw time. */
         final boolean real;
         final double x, y, z;
         final float hx, hz;
-        /** Blocks of clear space above the plane before the real roof, as the effect gives it (0: none). */
+        /** Real only: blocks of clear space above the plane before the roof (0: none, so no cloud slices fit). */
         final float hy;
         final int duration;
         final float startT;
@@ -192,6 +187,15 @@ public final class EnchantedCeiling {
         /** Storm only: the high star field, far wider than the hall (null at night). */
         final float[][] farStars;
         final float[][] farTints;
+        /**
+         * Real only (else null): the repeating star tile of the star layer ({@link CeilingSky#starField}, flat
+         * {a, b, size}), each star's colour (flat rgb), and the Milky Way's direction and offset in the world.
+         */
+        final float[] field;
+        final float[] fieldTint;
+        final float bandCos, bandSin, bandOffset;
+        /** Real only: the heights of the cloud slices that fit under the roof (empty with no room). */
+        final float[] volume;
         /** The next strike whose thunder has not been played yet. */
         private int nextThunder;
 
@@ -214,12 +218,18 @@ public final class EnchantedCeiling {
             this.startT = startT;
             this.revealT = startT;
             this.seed = seed;
-            // The flat star field is the night and storm styles' (the real sky draws vanilla's own stars).
-            this.stars = real ? new float[0][] : CeilingSky.stars(seed, hx, hz, CeilingSky.starCount(hx, hz));
+            this.stars = CeilingSky.stars(seed, hx, hz, CeilingSky.starCount(hx, hz));
             this.tints = tints(seed, stars.length);
             this.farStars = storm ? CeilingSky.stars(seed ^ 0x5F3759DFL, hx + CeilingSky.FAR_REACH,
                     hz + CeilingSky.FAR_REACH, FAR_STARS) : null;
             this.farTints = storm ? tints(seed ^ 0x5F3759DFL, FAR_STARS) : null;
+            this.field = real ? CeilingSky.starField(seed) : null;
+            this.fieldTint = real ? fieldTints(seed, field.length / 3) : null;
+            double band = CeilingSky.bandAngle(seed);
+            this.bandCos = (float) Math.cos(band);
+            this.bandSin = (float) Math.sin(band);
+            this.bandOffset = CeilingSky.fieldBandOffset(seed);
+            this.volume = real ? CeilingSky.volumeHeights(this.hy) : new float[0];
             // A late joiner hears only thunder still to come.
             while (CeilingSky.thunderAt(seed, nextThunder) <= elapsed) nextThunder++;
         }
@@ -231,6 +241,19 @@ public final class EnchantedCeiling {
                 int k = Math.floorMod((int) (seed >>> 7) + i * 0x9E3779B1, 10);
                 out[i] = k < 2 ? new float[]{1f, 0.88f, 0.70f} : k < 4 ? new float[]{0.75f, 0.85f, 1f}
                         : new float[]{1f, 1f, 1f};
+            }
+            return out;
+        }
+
+        /** The real sky's star colours, flat rgb: {@link CeilingSky#starColour} for each star of the tile. */
+        private static float[] fieldTints(long seed, int n) {
+            float[] out = new float[n * 3];
+            float[] c = new float[3];
+            for (int i = 0; i < n; i++) {
+                CeilingSky.starColour(seed, i, c);
+                out[i * 3] = c[0];
+                out[i * 3 + 1] = c[1];
+                out[i * 3 + 2] = c[2];
             }
             return out;
         }
@@ -341,7 +364,7 @@ public final class EnchantedCeiling {
                 (float) (sky.z - cam.z), cells(sky.hx), cells(sky.hz), reveal);
         float drift = CeilingSky.cloudOffset(now);
         if (reveal > 0f) {
-            if (sky.real) drawReal(sky, p, now, local, cam, m, buffer);
+            if (sky.real) drawReal(sky, p, now, local, drift, m, buffer);
             else if (sky.storm) drawStorm(sky, p, now, local, drift, m, buffer);
             else drawNight(sky, p, now, drift, m, buffer);
         }
@@ -390,180 +413,156 @@ public final class EnchantedCeiling {
         if (shot != null && p.reveal >= 1f) drawShootingStar(shot, p.ax, p.ay - SHIMMER_DROP, p.az, m, buffer);
     }
 
-    // ------------------------------------------------------------------ the real sky: a window onto vanilla's
+    /** Most passes one cloud layer is drawn in (each at vertex alpha up to 1), however thick the sky asks for. */
+    private static final int MAX_CLOUD_PASSES = 4;
+    /** Rain thickens the cloud deck by this factor, and dims the stars and the open sky. */
+    private static final float OVERCAST_THICK = 1.2f, OVERCAST_STAR_DIM = 0.9f, OVERCAST_SKY_DIM = 0.55f;
+    /** Past this thunder level the real sky switches to the storm style's cloud; the open sky then darkens by up to STORM_SKY_DIM. */
+    private static final float STORM_FROM = 0.5f, STORM_SKY_DIM = 0.6f;
 
-    /** The window's grid: a vertex every this many blocks, and at least this many cells a side (small rooms). */
-    private static final float REAL_CELL = 2f;
-    private static final int REAL_MIN_CELLS = 8;
-    /** What a window grid works out at each vertex. Int constants, not an enum: no switch in render code. */
-    private static final int GRID_SKY = 0, GRID_CLOUD = 1;
+    // ------------------------------------------------------------------ the real sky, with depth
+
+    /** What a real-sky grid layer works out at each vertex. Int constants, not an enum: no switch in render code. */
+    private static final int GRID_SKY = 0, GRID_BAND = 1, GRID_CLOUD = 2;
     /** Floats per grid vertex in a row buffer: x, z, r, g, b, a, u, v. */
     private static final int GRID_STRIDE = 8;
-    /** Each layer's drop below the plane, far to near: the sun and moon, the stars, the clouds. */
-    private static final float BODY_DROP = 0.008f, STARS_DROP = 0.016f, CLOUDS_DROP = 0.03f;
-    /** Each sun, moon and glow quad is cut into this many cells a side, every corner projected exactly. */
-    private static final int BODY_CELLS = 6;
-    /** Past this thunder level the window's sky flickers with the ceiling's lightning, vanilla's flash colour. */
-    private static final float STORM_FROM = 0.5f, FLASH_MIX = 0.45f;
-    private static final float[] FLASH_COLOUR = {0.8f, 0.8f, 1.0f};
-    /** The magic glows, premultiplied for additive blending: soft gold round the sun, pale violet round the moon. */
-    private static final float[] SUN_GLOW = {0.34f, 0.25f, 0.10f}, MOON_GLOW = {0.13f, 0.11f, 0.22f};
-    /** Sparkle motes: billboard half-size in blocks and their pale gold at full glow (additive). */
-    private static final float MOTE_HALF = 0.045f;
-    private static final float[] MOTE_COLOUR = {0.42f, 0.35f, 0.18f};
-    /** Shooting stars cross only a dark, clear sky: vanilla's star brightness (0.5 at midnight) times the clear. */
-    private static final float SHOOTING_FROM = 0.3f;
+    /** The real sky's grid: a vertex every this many blocks, and at least this many cells a side (small rooms). */
+    private static final float REAL_CELL = 2f;
+    private static final int REAL_MIN_CELLS = 8;
+    /** Blocks of plane (seen from the hall floor) per tile: the band's grain, the cirrus and the cloud deck. */
+    private static final float BAND_TILE = 9f, CIRRUS_TILE = 40f, DECK_TILE = 30f;
+    /** The Milky Way's glow: its colour and strength (additive, over the night navy). */
+    private static final float[] BAND_COLOUR = {0.55f, 0.60f, 0.80f};
+    private static final float BAND_STRENGTH = 0.13f;
+    private static final float BAND_DROP = 0.01f;
+    /** Each layer's opacity by day, dusk and night (several passes past 1, as each pass tops out at vertex alpha 1). */
+    private static final float CIRRUS_DAY = 0.9f, CIRRUS_DUSK = 1.1f, CIRRUS_NIGHT = 0.5f;
+    private static final float DECK_DAY = 1.0f, DECK_DUSK = 0.95f, DECK_NIGHT = 0.75f;
+    /**
+     * Star sizes as angles (half-width over distance), so a star looks the same size from the floor or a ladder:
+     * the flat sky's sizes as seen from 18 blocks. The glow of the brightest likewise.
+     */
+    private static final float STAR_ANGLE_MIN = DOT_MIN / 18f, STAR_ANGLE_GROW = DOT_GROW / 18f,
+            STAR_GLOW_ANGLE = GLOW_SIZE / 18f;
+    /** At most this many stars drawn (near the plane far more of the star layer is in view) and glows among them. */
+    private static final float STAR_CAP = 2400f;
+    private static final int MAX_GLOWS = 400;
+    /** Floats per remembered glow: x, y, z, distance, size, brightness, star index. */
+    private static final int GLOW_STRIDE = 7;
+    /**
+     * The sun: its disc's billboard half-size and its glow's, as angles (the disc fills 0.42 of its billboard, about
+     * 2 degrees across, larger than life so it reads), and the glow's strength. The moon's billboard and glow likewise.
+     */
+    private static final float SUN_SIZE = 0.083f, SUN_GLOW = 0.5f, SUN_GLOW_STRENGTH = 0.45f;
+    private static final float MOON_SIZE = 0.075f, MOON_GLOW = 0.3f, MOON_GLOW_STRENGTH = 0.25f;
+    /** Rain hides the sun and moon by this much per unit of rain (gone before the rain is full); day pales the moon. */
+    private static final float SUN_OVERCAST_HIDE = 1.25f, MOON_DAY_DIM = 0.8f;
+    /**
+     * The sun and moon billboards stand this fraction of the way from the camera to where their ray meets the plane:
+     * the same spot on screen, but in the hall's air, so the roof's slope never clips them.
+     */
+    private static final float BILLBOARD_PULL = 0.85f;
+    /** Real cloud slices: grid cell size and the most cells a side, how far toward the light the shading looks. */
+    private static final float VOLUME_CELL = 4f, LIGHT_STEP = 3.5f, VOLUME_TILE = 16f;
+    private static final int VOLUME_CELLS_MAX = 24;
+    /** Night thins the real cloud slices (they are only moonlit). */
+    private static final float VOLUME_NIGHT = 0.85f;
 
-    /** The sky this frame, read once from the level for every window drawn. Render thread only. */
-    private static final class Frame {
-        boolean normal;
-        float skyR, skyG, skyB;
-        float fogR, fogG, fogB, fogA;
-        float skyFogEnd, fogStart, fogEnd;
-        boolean sunrise;
-        float sunriseR, sunriseG, sunriseB, sunriseA;
-        float flash;
-        float cloudR, cloudG, cloudB;
-        /** The cloud layer's height above the camera (NaN: no clouds). */
-        float cloudAbove;
-    }
-
-    private static final Frame FRAME = new Frame();
-    // Scratch for the window. Render thread only, one sky at a time, so sharing it is safe and nothing is allocated
-    // per vertex, per star or per cell.
-    private static final float[] VEC = new float[3], PT = new float[2], TEX = new float[2], CLOUD_BASE = new float[2];
-    private static final float[] FAN = new float[CeilingSky.FAN_FLOATS], MOTE = new float[4], TINT = new float[3];
-    private static final float[] STAR_PTS = new float[8];
+    // Scratch for the real sky. Render thread only, one sky at a time, so sharing it is safe and nothing is allocated
+    // per vertex or per star.
+    private static final float[] SUN = new float[3];
+    private static final float[] HIT = new float[3];
+    private static final float[] RGB = new float[3];
     private static final float[] ROW_A = new float[(MAX_CELLS + 1) * GRID_STRIDE];
     private static final float[] ROW_B = new float[(MAX_CELLS + 1) * GRID_STRIDE];
-    /** One projected sky quad: per grid corner x, z, u, v and whether its ray reached the plane. */
-    private static final float[] BODY = new float[(BODY_CELLS + 1) * (BODY_CELLS + 1) * 5];
-    /** Polygon clipping buffers: up to 12 vertices of x, z, u, v. */
-    private static final float[] CLIP_A = new float[48], CLIP_B = new float[48];
-    /** Vanilla's star field, built on first use (it never changes). */
-    private static float[] vanillaStars;
-
-    private static float[] vanillaStars() {
-        if (vanillaStars == null) vanillaStars = CeilingSky.vanillaStars();
-        return vanillaStars;
-    }
+    private static final float[] GLOW_LIST = new float[MAX_GLOWS * GLOW_STRIDE];
 
     /**
-     * The world's own sky through the ceiling, as a window onto vanilla's: every vertex of a grid on the plane takes
-     * the colour vanilla gives the sky along the camera's ray through it (the sky colour, fogged toward the horizon the
-     * way vanilla's sky disc is, with the sunrise / sunset fan blended in at dawn and dusk; rain and thunder darken it
-     * as {@code getSkyColor} does); vanilla's sun and moon (its textures, phase and size) at their true places, each
-     * projected onto the plane and cut to the rectangle; vanilla's own star field (seed 10842) turning with the sky;
-     * and vanilla's flat cloud layer where the ray through each point meets the cloud height, drifting as vanilla's
-     * does. The magic is light: a soft glow round the sun and moon, gently twinkling stars (a few faintly coloured), a
-     * shooting star on clear nights and a few gold motes drifting just under the plane. In a thunderstorm the sky
-     * flickers with the ceiling's lightning. Read at draw time, so every viewer sees the same sky.
+     * The world's own sky, with depth. Everything far is drawn on the plane but placed by the camera ray as if it lay
+     * high above ({@link CeilingSky#parallaxScale}), so walking under it the layers slide past one another as a deep
+     * sky's would. Far to near: the open sky, coloured per vertex by the elevation of the camera's ray through it
+     * ({@link CeilingSky#atmosphere}: deep overhead, hazy toward the walls, warm toward the sun at dusk); the Milky Way
+     * and the stars on the star layer {@link CeilingSky#STAR_LAYER_H} up; the sun or moon where the ray toward it
+     * meets the plane; a shooting star; then (unless it thunders, when the storm style's slices take over) the high
+     * cirrus, the cloud deck, and, under a roof with room, real translucent cloud slices between the plane and the
+     * roof, lit from the sun's side. The day / dusk / night blend is {@link CeilingSky#realWeights}; the time and
+     * weather are read here, at draw time, so every viewer in the same world sees the same sky.
      */
-    private static void drawReal(Sky sky, Plane p, float now, float local, Vec3 cam, Matrix4f m,
+    private static void drawReal(Sky sky, Plane p, float now, float local, float drift, Matrix4f m,
                                  MultiBufferSource.BufferSource buffer) {
-        Minecraft mc = Minecraft.getInstance();
-        ClientLevel level = mc.level;
+        ClientLevel level = Minecraft.getInstance().level;
         if (level == null) return;
         float partial = PensieveClientState.partial();
-        Frame f = FRAME;
-        readFrame(f, mc, level, cam, partial, sky, local, p.reveal);
-        windowGrid(buffer, WINDOW, m, p, 0f, GRID_SKY, f);
-        if (!(p.ay > CLOUDS_DROP) || !f.normal) {
-            drawMotes(sky, p, now, m, buffer);
+        float[] w = CeilingSky.realWeights(level.getDayTime() % 24000L, level.getRainLevel(partial),
+                level.getThunderLevel(partial));
+        float day = w[0], dusk = w[1], night = w[2], overcast = w[3], storm = w[4];
+        CeilingSky.sunDirection(level.getTimeOfDay(partial), SUN);
+        // Rain and thunder dim the open sky, so a day storm reads as dark cloud rather than blue behind it.
+        float dim = (1f - OVERCAST_SKY_DIM * overcast) * (1f - STORM_SKY_DIM * storm);
+        realGrid(buffer, CLEAR, m, p, 0f, CeilingSky.STAR_LAYER_H, 1f, 0f, 0f, GRID_SKY, dim, 0f, w);
+        float stars = (night + 0.3f * dusk) * (1f - OVERCAST_STAR_DIM * overcast) * (1f - storm);
+        if (stars > 0.01f) {
+            realGrid(buffer, SHIMMER, m, p, BAND_DROP, CeilingSky.STAR_LAYER_H, BAND_TILE, 0f, 0f, GRID_BAND,
+                    stars * BAND_STRENGTH, 0f, w);
+            drawFieldStars(sky, p, now, stars, m, buffer);
+        }
+        drawSunAndMoon(sky, p, w, level.getMoonPhase(), m, buffer);
+        float[] shot = CeilingSky.shootingStar(sky.seed, now, sky.hx, sky.hz);
+        if (shot != null && p.reveal >= 1f && night > 0.5f && overcast < 0.5f) {
+            drawShootingStar(shot, p.ax, p.ay - SHIMMER_DROP, p.az, m, buffer);
+        }
+        if (storm > STORM_FROM) {
+            drawRealStorm(sky, p, now, local, drift, m, buffer);
             return;
         }
-        float sunAngle = level.getSunAngle(partial);
-        float cosA = (float) Math.cos(sunAngle), sinA = (float) Math.sin(sunAngle);
-        float clear = 1f - Mth.clamp(level.getRainLevel(partial), 0f, 1f);
-        drawBodies(sky, p, level.getMoonPhase(), cosA, sinA, clear, m, buffer);
-        float starLight = Mth.clamp(level.getStarBrightness(partial), 0f, 1f) * clear;
-        if (starLight > 0f) drawVanillaStars(sky, p, now, cosA, sinA, starLight, m, buffer);
-        float[] shot = CeilingSky.shootingStar(sky.seed, now, sky.hx, sky.hz);
-        if (shot != null && p.reveal >= 1f && starLight > SHOOTING_FROM) {
-            drawShootingStar(shot, p.ax, p.ay - STARS_DROP, p.az, m, buffer);
+        // The cirrus, high and slow, drifting across the wind of the deck below it (rain hides it behind the deck).
+        float cirrus = (day * CIRRUS_DAY + dusk * CIRRUS_DUSK + night * CIRRUS_NIGHT) * (1f - 0.6f * overcast);
+        realClouds(buffer, CIRRUS, m, p, CLOUD_A_DROP, CeilingSky.CIRRUS_H, CIRRUS_TILE, drift * 0.25f,
+                -drift * 0.1f, cirrus, 1f, w);
+        // The deck: rain thickens it and, past a little rain, a second copy offset by half a tile fills its gaps.
+        float deck = (day * DECK_DAY + dusk * DECK_DUSK + night * DECK_NIGHT) * (1f + OVERCAST_THICK * overcast);
+        realClouds(buffer, DECK, m, p, CLOUD_B_DROP, CeilingSky.DECK_H, DECK_TILE, drift * 0.6f, drift * 0.2f, deck,
+                0f, w);
+        if (overcast > 0.05f) {
+            realGrid(buffer, DECK, m, p, CLOUD_B_DROP, CeilingSky.DECK_H, DECK_TILE, drift * 0.6f + 0.5f,
+                    drift * 0.2f + 0.37f, GRID_CLOUD, Math.min(1f, overcast * 0.95f), 0f, w);
         }
-        if (Float.isFinite(f.cloudAbove) && f.cloudAbove > p.ay - CLOUDS_DROP) {
-            // Vanilla's clouds drift on the renderer's own tick counter, so these keep pace with the ones outdoors.
-            float ticks = (float) mc.levelRenderer.getTicks() + partial;
-            CeilingSky.cloudBase(cam.x, cam.z, ticks, CLOUD_BASE);
-            windowGrid(buffer, VANILLA_CLOUDS, m, p, CLOUDS_DROP, GRID_CLOUD, f);
-        }
-        drawMotes(sky, p, now, m, buffer);
-    }
-
-    /** Everything the window needs from the level this frame, into {@code f}, made safe (finite, in range). */
-    private static void readFrame(Frame f, Minecraft mc, ClientLevel level, Vec3 cam, float partial, Sky sky,
-                                  float local, float reveal) {
-        f.normal = level.effects().skyType() == DimensionSpecialEffects.SkyType.NORMAL;
-        float[] fog = RenderSystem.getShaderFogColor();
-        f.fogR = safe(fog.length > 0 ? fog[0] : 0f);
-        f.fogG = safe(fog.length > 1 ? fog[1] : 0f);
-        f.fogB = safe(fog.length > 2 ? fog[2] : 0f);
-        f.fogA = fog.length > 3 ? safe(fog[3]) : 1f;
-        f.skyFogEnd = CeilingSky.skyFogEnd(mc.gameRenderer.getRenderDistance());
-        f.fogStart = RenderSystem.getShaderFogStart();
-        f.fogEnd = RenderSystem.getShaderFogEnd();
-        if (f.normal) {
-            Vec3 c = level.getSkyColor(cam, partial);
-            f.skyR = safe((float) c.x);
-            f.skyG = safe((float) c.y);
-            f.skyB = safe((float) c.z);
-        } else {
-            // Vanilla draws no sky disc here: what shows is the clear colour, the fog's.
-            f.skyR = f.fogR;
-            f.skyG = f.fogG;
-            f.skyB = f.fogB;
-        }
-        float[] sr = f.normal ? level.effects().getSunriseColor(level.getTimeOfDay(partial), partial) : null;
-        f.sunrise = sr != null && sr.length >= 4;
-        if (f.sunrise) {
-            f.sunriseR = safe(sr[0]);
-            f.sunriseG = safe(sr[1]);
-            f.sunriseB = safe(sr[2]);
-            f.sunriseA = safe(sr[3]);
-            CeilingSky.sunriseFan(!(Mth.sin(level.getSunAngle(partial)) < 0f), f.sunriseA, FAN);
-        }
-        f.flash = 0f;
-        if (reveal >= 1f && level.getThunderLevel(partial) > STORM_FROM) {
-            float[] flash = CeilingSky.flash(sky.seed, local);
-            if (flash != null) f.flash = FLASH_MIX * safe(flash[2]);
-        }
-        // Seen from below the cloud shows its underside: Fancy shades it as vanilla's buildClouds does, Fast not.
-        CloudStatus clouds = mc.options.getCloudsType();
-        float shade = CeilingSky.cloudUnderside(clouds == CloudStatus.FANCY);
-        Vec3 cloud = level.getCloudColor(partial);
-        f.cloudR = safe((float) cloud.x) * shade;
-        f.cloudG = safe((float) cloud.y) * shade;
-        f.cloudB = safe((float) cloud.z) * shade;
-        float height = level.effects().getCloudHeight();
-        f.cloudAbove = clouds == CloudStatus.OFF || !Float.isFinite(height) ? Float.NaN
-                : (float) (height + CeilingSky.CLOUD_LIFT - cam.y);
-    }
-
-    /** {@code v} clamped to 0..1, NaN to 0. */
-    private static float safe(float v) {
-        return v > 0f ? (v < 1f ? v : 1f) : 0f;
-    }
-
-    private static int windowCells(float half) {
-        return Math.max(REAL_MIN_CELLS, Math.min(MAX_CELLS, (int) Math.ceil(2f * half / REAL_CELL)));
+        drawRealVolume(sky, p, now, drift, w, m, buffer);
     }
 
     /**
-     * One window layer on the plane, {@code drop} below it, as its own batch: a grid whose vertices are each worked out
-     * once (rows streamed through two scratch buffers). {@code mode} picks what: the sky's colour along each vertex's
-     * ray, or vanilla's cloud layer where that ray reaches it (the mapping is a uniform scale about the camera, so the
-     * texture lies straight on the plane; the grid only carries the fog).
+     * A cloud layer of the real sky wanting total opacity {@code wanted} (which may exceed 1; the vertex alpha cannot):
+     * {@code ceil(wanted)} stacked passes (at most {@link #MAX_CLOUD_PASSES}), each at {@code wanted / n}.
      */
-    private static void windowGrid(MultiBufferSource.BufferSource buffer, RenderType type, Matrix4f m, Plane p,
-                                   float drop, int mode, Frame f) {
+    private static void realClouds(MultiBufferSource.BufferSource buffer, RenderType type, Matrix4f m, Plane p,
+                                   float drop, float h, float tile, float du, float dv, float wanted, float high,
+                                   float[] w) {
+        if (wanted <= 0.01f) return;
+        int passes = Math.max(1, Math.min(MAX_CLOUD_PASSES, (int) Math.ceil(wanted)));
+        float each = Math.min(1f, wanted / passes);
+        for (int i = 0; i < passes; i++) realGrid(buffer, type, m, p, drop, h, tile, du, dv, GRID_CLOUD, each, high, w);
+    }
+
+    /**
+     * One real-sky layer on the plane as its own batch, a grid of vertices each worked out once (rows streamed through
+     * two scratch buffers): the texture is sampled where the camera ray through the vertex meets a layer {@code h}
+     * above the plane ({@link CeilingSky#parallaxScale}; for a flat layer that is a uniform scale about the camera, so
+     * the grid is only for the colour, which follows the ray). {@code mode} picks the colour; {@code strength} scales
+     * it (the sky's dim, the band's strength, a cloud pass's opacity); {@code high} is the cloud's height class.
+     */
+    private static void realGrid(MultiBufferSource.BufferSource buffer, RenderType type, Matrix4f m, Plane p,
+                                 float drop, float h, float tile, float du, float dv, int mode, float strength,
+                                 float high, float[] w) {
         Sky sky = p.sky;
-        int nx = windowCells(sky.hx), nz = windowCells(sky.hz);
+        int nx = Math.max(REAL_MIN_CELLS, Math.min(MAX_CELLS, (int) Math.ceil(2f * sky.hx / REAL_CELL)));
+        int nz = Math.max(REAL_MIN_CELLS, Math.min(MAX_CELLS, (int) Math.ceil(2f * sky.hz / REAL_CELL)));
+        float k = CeilingSky.parallaxScale(p.ay, h);
+        float tileV = CeilingSky.layerTile(tile, h);
         VertexConsumer vc = buffer.getBuffer(type);
         float[] row0 = ROW_A, row1 = ROW_B;
-        windowRow(p, nx, nz, 0, drop, mode, f, row0);
+        gridRow(p, nx, nz, 0, drop, k, tileV, du, dv, mode, strength, high, w, row0);
         for (int i = 0; i < nx; i++) {
-            windowRow(p, nx, nz, i + 1, drop, mode, f, row1);
+            gridRow(p, nx, nz, i + 1, drop, k, tileV, du, dv, mode, strength, high, w, row1);
             for (int j = 0; j < nz; j++) {
                 gridVertex(vc, m, p, drop, row0, j);
                 gridVertex(vc, m, p, drop, row1, j);
@@ -577,58 +576,48 @@ public final class EnchantedCeiling {
         buffer.endBatch(type);
     }
 
-    /** Grid row {@code i} of a window layer into {@code out}, {@link #GRID_STRIDE} floats per vertex. */
-    private static void windowRow(Plane p, int nx, int nz, int i, float drop, int mode, Frame f, float[] out) {
+    /** Grid row {@code i} of a real-sky layer into {@code out}, {@link #GRID_STRIDE} floats per vertex. */
+    private static void gridRow(Plane p, int nx, int nz, int i, float drop, float k, float tileV, float du, float dv,
+                                int mode, float strength, float high, float[] w, float[] out) {
         Sky sky = p.sky;
+        float cx = -p.ax, cz = -p.az;                       // the camera, from the ceiling's centre
         float x = (i / (float) nx * 2f - 1f) * sky.hx;
-        float ay = p.ay - drop;
+        float ry0 = p.ay - drop;
         for (int j = 0; j <= nz; j++) {
             float z = (j / (float) nz * 2f - 1f) * sky.hz;
-            float rx = p.ax + x, rz = p.az + z;                   // camera-relative
+            // The layer's point on this vertex's camera ray (CeilingSky.parallaxPoint, inlined: k is per layer).
+            float sx = cx + (x - cx) * k, sz = cz + (z - cz) * k;
+            float rx = p.ax + x, rz = p.az + z;
+            float len = (float) Math.sqrt(rx * rx + ry0 * ry0 + rz * rz);
+            float inv = len > 1e-4f ? 1f / len : 0f;
+            float ry = len > 1e-4f ? ry0 * inv : 1f;
+            rx *= inv;
+            rz *= inv;
             int o = j * GRID_STRIDE;
             out[o] = x;
             out[o + 1] = z;
             if (mode == GRID_SKY) {
-                float len = (float) Math.sqrt(rx * rx + ay * ay + rz * rz);
-                float inv = len > 1e-4f ? 1f / len : 0f;
-                float dx = rx * inv, dy = len > 1e-4f ? Math.abs(ay) * inv : 1f, dz = rz * inv;
-                float fog = CeilingSky.skyFog(dy, (float) Math.sqrt(dx * dx + dz * dz), f.skyFogEnd) * f.fogA;
-                float r = f.skyR + (f.fogR - f.skyR) * fog;
-                float g = f.skyG + (f.fogG - f.skyG) * fog;
-                float b = f.skyB + (f.fogB - f.skyB) * fog;
-                if (f.sunrise) {
-                    float a = CeilingSky.sunriseAlpha(FAN, f.sunriseA, dx, dy, dz);
-                    r += (f.sunriseR - r) * a;
-                    g += (f.sunriseG - g) * a;
-                    b += (f.sunriseB - b) * a;
-                }
-                if (f.flash > 0f) {
-                    r += (FLASH_COLOUR[0] - r) * f.flash;
-                    g += (FLASH_COLOUR[1] - g) * f.flash;
-                    b += (FLASH_COLOUR[2] - b) * f.flash;
-                }
-                out[o + 2] = r;
-                out[o + 3] = g;
-                out[o + 4] = b;
+                CeilingSky.atmosphere(rx, ry, rz, SUN[0], SUN[1], SUN[2], w, RGB);
+                out[o + 2] = RGB[0] * strength;
+                out[o + 3] = RGB[1] * strength;
+                out[o + 4] = RGB[2] * strength;
                 out[o + 5] = 1f;
-                out[o + 6] = 0.5f;
-                out[o + 7] = 0.5f;
+            } else if (mode == GRID_BAND) {
+                float b = -sx * sky.bandSin + sz * sky.bandCos - sky.bandOffset;
+                float g = CeilingSky.fieldBandGlow(b) * strength;
+                out[o + 2] = BAND_COLOUR[0] * g;
+                out[o + 3] = BAND_COLOUR[1] * g;
+                out[o + 4] = BAND_COLOUR[2] * g;
+                out[o + 5] = g;
             } else {
-                // Where this vertex's ray reaches the cloud layer, and vanilla's texel there.
-                float h = f.cloudAbove - ay;
-                float k = CeilingSky.parallaxScale(ay, h);
-                float cx = rx * k, cz = rz * k;
-                CeilingSky.cloudTexel(CLOUD_BASE, rx, rz, ay, h, TEX);
-                float dist = Math.max((float) Math.sqrt(cx * cx + cz * cz), Math.abs(f.cloudAbove));
-                float fog = CeilingSky.terrainFog(dist, f.fogStart, f.fogEnd) * f.fogA;
-                boolean there = Math.abs(cx) <= CeilingSky.CLOUD_REACH && Math.abs(cz) <= CeilingSky.CLOUD_REACH;
-                out[o + 2] = f.cloudR + (f.fogR - f.cloudR) * fog;
-                out[o + 3] = f.cloudG + (f.fogG - f.cloudG) * fog;
-                out[o + 4] = f.cloudB + (f.fogB - f.cloudB) * fog;
-                out[o + 5] = there ? CeilingSky.CLOUD_ALPHA : 0f;
-                out[o + 6] = TEX[0] / CeilingSky.CLOUD_TEXTURE;
-                out[o + 7] = TEX[1] / CeilingSky.CLOUD_TEXTURE;
+                CeilingSky.cloudTint(rx, ry, rz, SUN[0], SUN[1], SUN[2], w, high, RGB);
+                out[o + 2] = RGB[0];
+                out[o + 3] = RGB[1];
+                out[o + 4] = RGB[2];
+                out[o + 5] = strength;
             }
+            out[o + 6] = sx / tileV + du;
+            out[o + 7] = sz / tileV + dv;
         }
     }
 
@@ -639,188 +628,235 @@ public final class EnchantedCeiling {
     }
 
     /**
-     * Vanilla's sun and moon, each with its magic glow: the sun's quad (half-size 30 at 100, sun.png) and the moon's
-     * (20, its phase's cell of moon_phases.png, laid on as vanilla lays it), at the sky's rotation; rain fades them as it
-     * fades vanilla's. Additive, like vanilla's.
+     * The stars and the Milky Way's crowd, on the star layer {@link CeilingSky#STAR_LAYER_H} up: the sky's repeating
+     * star tile ({@link CeilingSky#starField}, in the band's frame) is laid over the part of the layer in view (the
+     * rectangle scaled about the camera), each star drawn where its camera ray crosses the plane, as a camera-facing
+     * dot of a fixed angular size in its own colour, twinkling gently. Dusk shows only the brightest
+     * ({@link CeilingSky#starVisibility}). Very near the plane more of the layer is in view than the sky should
+     * spend; the stars are then thinned evenly to {@link #STAR_CAP}.
      */
-    private static void drawBodies(Sky sky, Plane p, int moonPhase, float cosA, float sinA, float clear, Matrix4f m,
-                                   MultiBufferSource.BufferSource buffer) {
-        if (clear <= 0.001f) return;
-        float ay = p.ay - BODY_DROP;
-        float d = CeilingSky.SKY_DISTANCE;
-        VertexConsumer glow = buffer.getBuffer(DOTS);
-        skyQuad(glow, m, p, ay, cosA, sinA, d, CeilingSky.SUN_GLOW_HALF, 0f, 1f, 0f, 1f,
-                SUN_GLOW[0] * clear, SUN_GLOW[1] * clear, SUN_GLOW[2] * clear, clear);
-        int phase = Math.floorMod(moonPhase, 8);
-        float lit = 1f - Math.min(phase, 8 - phase) / 4f;            // 1 at full (phase 0), 0 at new (phase 4)
-        float mg = clear * (0.3f + 0.7f * lit);
-        skyQuad(glow, m, p, ay, cosA, sinA, -d, CeilingSky.MOON_GLOW_HALF, 0f, 1f, 0f, 1f,
-                MOON_GLOW[0] * mg, MOON_GLOW[1] * mg, MOON_GLOW[2] * mg, mg);
-        buffer.endBatch(DOTS);
-        skyQuad(buffer.getBuffer(VANILLA_SUN), m, p, ay, cosA, sinA, d, CeilingSky.SUN_HALF, 0f, 1f, 0f, 1f,
-                clear, clear, clear, clear);
-        buffer.endBatch(VANILLA_SUN);
-        int col = phase % 4, row = phase / 4 % 2;
-        float u0 = col / 4f, v0 = row / 2f, u1 = (col + 1) / 4f, v1 = (row + 1) / 2f;
-        // Vanilla's moon: x from -20 to 20 runs u from u1 to u0, z from -20 to 20 runs v from v0 to v1.
-        skyQuad(buffer.getBuffer(VANILLA_MOON), m, p, ay, cosA, sinA, -d, CeilingSky.MOON_HALF, u1, u0, v0, v1,
-                clear, clear, clear, clear);
-        buffer.endBatch(VANILLA_MOON);
-    }
-
-    /**
-     * A square of the sky's own frame at {@code y = ly}, half-size {@code half} in x and z, turned with the sky and
-     * projected from the camera onto the plane {@code ay} above it, cut to the ceiling's rectangle: it is split into
-     * {@link #BODY_CELLS} cells a side, each corner projected exactly (so the texture follows the true projection), and
-     * the cells crossing the rectangle's edge clipped to it. u runs {@code us0..us1} along x, v {@code vt0..vt1} along z.
-     */
-    private static void skyQuad(VertexConsumer vc, Matrix4f m, Plane p, float ay, float cosA, float sinA, float ly,
-                                float half, float us0, float us1, float vt0, float vt1, float r, float g, float b,
-                                float a) {
-        int n = BODY_CELLS, w = n + 1;
-        for (int i = 0; i <= n; i++) {
-            float s = i / (float) n;
-            for (int j = 0; j <= n; j++) {
-                float t = j / (float) n;
-                CeilingSky.skyToWorld(cosA, sinA, -half + 2f * half * s, ly, -half + 2f * half * t, VEC, 0);
-                int o = (i * w + j) * 5;
-                boolean ok = CeilingSky.rayToPlane(VEC[0], VEC[1], VEC[2], ay, PT);
-                BODY[o] = ok ? PT[0] : 0f;
-                BODY[o + 1] = ok ? PT[1] : 0f;
-                BODY[o + 2] = us0 + (us1 - us0) * s;
-                BODY[o + 3] = vt0 + (vt1 - vt0) * t;
-                BODY[o + 4] = ok ? 1f : 0f;
-            }
+    private static void drawFieldStars(Sky sky, Plane p, float now, float strength, Matrix4f m,
+                                       MultiBufferSource.BufferSource buffer) {
+        float k = CeilingSky.parallaxScale(p.ay, CeilingSky.STAR_LAYER_H);
+        float cx = -p.ax, cz = -p.az;
+        float ca = sky.bandCos, sa = sky.bandSin, off = sky.bandOffset;
+        // The window of the star layer in view, as a box in the band's frame.
+        float amin = Float.MAX_VALUE, amax = -Float.MAX_VALUE, bmin = Float.MAX_VALUE, bmax = -Float.MAX_VALUE;
+        for (int c = 0; c < 4; c++) {
+            float px = (c & 1) == 0 ? -sky.hx : sky.hx, pz = (c & 2) == 0 ? -sky.hz : sky.hz;
+            float sx = cx + (px - cx) * k, sz = cz + (pz - cz) * k;
+            float a = sx * ca + sz * sa, b = -sx * sa + sz * ca - off;
+            amin = Math.min(amin, a);
+            amax = Math.max(amax, a);
+            bmin = Math.min(bmin, b);
+            bmax = Math.max(bmax, b);
         }
-        float x0 = p.ax - p.sky.hx, x1 = p.ax + p.sky.hx, z0 = p.az - p.sky.hz, z1 = p.az + p.sky.hz;
-        for (int i = 0; i < n; i++) {
-            for (int j = 0; j < n; j++) {
-                int c0 = (i * w + j) * 5, c1 = ((i + 1) * w + j) * 5, c2 = ((i + 1) * w + j + 1) * 5,
-                        c3 = (i * w + j + 1) * 5;
-                if (BODY[c0 + 4] < 0.5f || BODY[c1 + 4] < 0.5f || BODY[c2 + 4] < 0.5f || BODY[c3 + 4] < 0.5f) continue;
-                float minX = Math.min(Math.min(BODY[c0], BODY[c1]), Math.min(BODY[c2], BODY[c3]));
-                float maxX = Math.max(Math.max(BODY[c0], BODY[c1]), Math.max(BODY[c2], BODY[c3]));
-                float minZ = Math.min(Math.min(BODY[c0 + 1], BODY[c1 + 1]), Math.min(BODY[c2 + 1], BODY[c3 + 1]));
-                float maxZ = Math.max(Math.max(BODY[c0 + 1], BODY[c1 + 1]), Math.max(BODY[c2 + 1], BODY[c3 + 1]));
-                if (maxX < x0 || minX > x1 || maxZ < z0 || minZ > z1) continue;     // wholly outside
-                int count = 4;
-                loadCorner(c0, 0);
-                loadCorner(c1, 1);
-                loadCorner(c2, 2);
-                loadCorner(c3, 3);
-                if (minX < x0 || maxX > x1 || minZ < z0 || maxZ > z1) {
-                    count = clipEdge(CLIP_A, CLIP_B, count, 0, x0, 1f);
-                    count = clipEdge(CLIP_B, CLIP_A, count, 0, x1, -1f);
-                    count = clipEdge(CLIP_A, CLIP_B, count, 1, z0, 1f);
-                    count = clipEdge(CLIP_B, CLIP_A, count, 1, z1, -1f);
-                }
-                if (count == 4) {
-                    for (int k = 0; k < 4; k++) clipVertex(vc, m, ay, k, r, g, b, a);
-                    continue;
-                }
-                // Any other convex polygon as a fan of triangles, each a quad with its last corner doubled.
-                for (int k = 1; k + 1 < count; k++) {
-                    clipVertex(vc, m, ay, 0, r, g, b, a);
-                    clipVertex(vc, m, ay, k, r, g, b, a);
-                    clipVertex(vc, m, ay, k + 1, r, g, b, a);
-                    clipVertex(vc, m, ay, k + 1, r, g, b, a);
+        float[] field = sky.field, tint = sky.fieldTint;
+        int n = field.length / 3;
+        float expected = CeilingSky.FIELD_DENSITY * 4f * sky.hx * sky.hz * k * k;
+        // A fractional budget; the stars nearest its end fade (starBudgetFade) so it never pops them by index.
+        float budget = expected > STAR_CAP ? n * STAR_CAP / expected : n + CeilingSky.STAR_BUDGET_FADE;
+        int keep = Math.min(n, (int) Math.ceil(budget));
+        float y = p.ay - STAR_DROP;
+        int glows = 0;
+        VertexConsumer dots = buffer.getBuffer(DOTS);
+        for (int i = 0; i < keep; i++) {
+            float size = field[i * 3 + 2];
+            float vis = CeilingSky.starVisibility(strength, size);
+            if (vis <= 0.01f) continue;
+            float a0 = field[i * 3], b0 = field[i * 3 + 1];
+            int ia0 = (int) Math.ceil((amin - a0) / CeilingSky.FIELD_ALONG);
+            int ia1 = (int) Math.floor((amax - a0) / CeilingSky.FIELD_ALONG);
+            int ib0 = (int) Math.ceil((bmin - b0) / CeilingSky.FIELD_ACROSS);
+            int ib1 = (int) Math.floor((bmax - b0) / CeilingSky.FIELD_ACROSS);
+            for (int ia = ia0; ia <= ia1; ia++) {
+                for (int ib = ib0; ib <= ib1; ib++) {
+                    float a = a0 + ia * CeilingSky.FIELD_ALONG, b = b0 + ib * CeilingSky.FIELD_ACROSS + off;
+                    float sx = a * ca - b * sa, sz = a * sa + b * ca;
+                    // Where its camera ray crosses the plane (CeilingSky.planePoint, inlined).
+                    float px = cx + (sx - cx) / k, pz = cz + (sz - cz) / k;
+                    if (Math.abs(px) > sky.hx || Math.abs(pz) > sky.hz) continue;
+                    float x = p.ax + px, z = p.az + pz;
+                    float dist = (float) Math.sqrt(x * x + y * y + z * z);
+                    if (dist < 1e-3f) continue;
+                    float bright = CeilingSky.realTwinkle(sky.seed, now, i, y / dist) * (0.40f + 0.60f * size) * vis;
+                    float half = (STAR_ANGLE_MIN + STAR_ANGLE_GROW * size) * dist;
+                    int t = i * 3;
+                    billboard(dots, m, x, y, z, dist, half, tint[t] * bright, tint[t + 1] * bright,
+                            tint[t + 2] * bright, bright, 0f, 0f, 1f, 1f);
+                    if (size >= GLOW_FROM && glows < MAX_GLOWS) {
+                        int g = glows++ * GLOW_STRIDE;
+                        GLOW_LIST[g] = x;
+                        GLOW_LIST[g + 1] = y;
+                        GLOW_LIST[g + 2] = z;
+                        GLOW_LIST[g + 3] = dist;
+                        GLOW_LIST[g + 4] = size;
+                        GLOW_LIST[g + 5] = bright;
+                        GLOW_LIST[g + 6] = i;
+                    }
                 }
             }
-        }
-    }
-
-    private static void loadCorner(int c, int at) {
-        int o = at * 4;
-        CLIP_A[o] = BODY[c];
-        CLIP_A[o + 1] = BODY[c + 1];
-        CLIP_A[o + 2] = BODY[c + 2];
-        CLIP_A[o + 3] = BODY[c + 3];
-    }
-
-    private static void clipVertex(VertexConsumer vc, Matrix4f m, float ay, int k, float r, float g, float b,
-                                   float a) {
-        int o = k * 4;
-        vertex(vc, m, CLIP_A[o], ay, CLIP_A[o + 1], r, g, b, a, CLIP_A[o + 2], CLIP_A[o + 3]);
-    }
-
-    /**
-     * One Sutherland-Hodgman step: the polygon {@code src} ({@code count} vertices of x, z, u, v) cut to the side of
-     * {@code coord (0 x, 1 z) = bound} where {@code sign * (coord - bound) >= 0}, into {@code dst}; the new count.
-     */
-    private static int clipEdge(float[] src, float[] dst, int count, int coord, float bound, float sign) {
-        int out = 0;
-        int max = dst.length / 4;
-        for (int i = 0; i < count; i++) {
-            int a = i * 4, b = ((i + 1) % count) * 4;
-            float da = sign * (src[a + coord] - bound), db = sign * (src[b + coord] - bound);
-            if (da >= 0f && out < max) {
-                System.arraycopy(src, a, dst, out * 4, 4);
-                out++;
-            }
-            if ((da >= 0f) != (db >= 0f) && out < max) {
-                float t = da / (da - db);
-                int o = out * 4;
-                for (int c = 0; c < 4; c++) dst[o + c] = src[a + c] + (src[b + c] - src[a + c]) * t;
-                out++;
-            }
-        }
-        return out;
-    }
-
-    /**
-     * Vanilla's stars ({@link CeilingSky#vanillaStars}) turned with the sky, each drawn where its four corners' rays
-     * cross the plane, wholly inside the rectangle or not at all, at vanilla's brightness ({@code starLight}, the star
-     * brightness times the rain's clear, added squared as vanilla's blend does), twinkling gently and, a few, faintly
-     * coloured.
-     */
-    private static void drawVanillaStars(Sky sky, Plane p, float now, float cosA, float sinA, float starLight,
-                                         Matrix4f m, MultiBufferSource.BufferSource buffer) {
-        float[] stars = vanillaStars();
-        float ay = p.ay - STARS_DROP;
-        float x0 = p.ax - sky.hx, x1 = p.ax + sky.hx, z0 = p.az - sky.hz, z1 = p.az + sky.hz;
-        float base = starLight * starLight;
-        VertexConsumer vc = buffer.getBuffer(STARS);
-        int n = stars.length / CeilingSky.STAR_STRIDE;
-        for (int s = 0; s < n; s++) {
-            int o = s * CeilingSky.STAR_STRIDE;
-            boolean in = true;
-            for (int c = 0; c < 4 && in; c++) {
-                CeilingSky.skyToWorld(cosA, sinA, stars[o + c * 3], stars[o + c * 3 + 1], stars[o + c * 3 + 2], VEC, 0);
-                if (!CeilingSky.rayToPlane(VEC[0], VEC[1], VEC[2], ay, PT)
-                        || PT[0] < x0 || PT[0] > x1 || PT[1] < z0 || PT[1] > z1) {
-                    in = false;
-                } else {
-                    STAR_PTS[c * 2] = PT[0];
-                    STAR_PTS[c * 2 + 1] = PT[1];
-                }
-            }
-            if (!in) continue;
-            float bright = base * CeilingSky.starTwinkle(s, now);
-            CeilingSky.starTint(s, TINT);
-            for (int c = 0; c < 4; c++) {
-                vertex(vc, m, STAR_PTS[c * 2], ay, STAR_PTS[c * 2 + 1], TINT[0] * bright, TINT[1] * bright,
-                        TINT[2] * bright, bright, 0.5f, 0.5f);
-            }
-        }
-        buffer.endBatch(STARS);
-    }
-
-    /** A few faint gold motes drifting just under the plane ({@link CeilingSky#mote}), sparkling softly. */
-    private static void drawMotes(Sky sky, Plane p, float now, Matrix4f m, MultiBufferSource.BufferSource buffer) {
-        if (p.reveal <= 0f) return;
-        int n = CeilingSky.moteCount(sky.hx, sky.hz);
-        VertexConsumer vc = buffer.getBuffer(DOTS);
-        for (int i = 0; i < n; i++) {
-            CeilingSky.mote(sky.seed, i, now, sky.hx, sky.hz, MOTE);
-            float glow = MOTE[3] * p.reveal * (0.75f + 0.25f * (float) Math.sin(now * 0.31f + i * 1.7f));
-            if (glow <= 0.01f) continue;
-            float x = p.ax + MOTE[0], y = p.ay - MOTE[2], z = p.az + MOTE[1];
-            float dist = (float) Math.sqrt(x * x + y * y + z * z);
-            if (dist < 0.05f) continue;
-            billboard(vc, m, x, y, z, dist, MOTE_HALF, MOTE_COLOUR[0] * glow, MOTE_COLOUR[1] * glow,
-                    MOTE_COLOUR[2] * glow, glow, 0f, 0f, 1f, 1f);
         }
         buffer.endBatch(DOTS);
+        if (glows == 0) return;
+        VertexConsumer vc = buffer.getBuffer(GLOWS);
+        for (int g = 0; g < glows; g++) {
+            int o = g * GLOW_STRIDE;
+            float size = GLOW_LIST[o + 4], bright = GLOW_LIST[o + 5], dist = GLOW_LIST[o + 3];
+            float c = GLOW_ALPHA * bright * bright * size;
+            int t = (int) GLOW_LIST[o + 6] * 3;
+            billboard(vc, m, GLOW_LIST[o], GLOW_LIST[o + 1] - 0.002f, GLOW_LIST[o + 2], dist,
+                    STAR_GLOW_ANGLE * (0.6f + 0.4f * size) * dist, tint[t] * c, tint[t + 1] * c, tint[t + 2] * c, c,
+                    0f, 0f, 1f, 1f);
+        }
+        buffer.endBatch(GLOWS);
+    }
+
+    /**
+     * The sun and the moon at their true places in the sky ({@link CeilingSky#sunDirection} from the level's time of
+     * day; the moon opposite, in its phase from vanilla's moon texture), each drawn only where the camera's ray toward
+     * it crosses the plane inside the rectangle ({@link CeilingSky#planeHit}), fading out near the edge. The sun is a
+     * bright disc in a wide soft glow, gold low down and white high; the moon a cool disc and glow, pale by day. Rain
+     * hides both and thunder too.
+     */
+    private static void drawSunAndMoon(Sky sky, Plane p, float[] w, int moonPhase, Matrix4f m,
+                                       MultiBufferSource.BufferSource buffer) {
+        float clear = Math.max(0f, 1f - SUN_OVERCAST_HIDE * w[3]) * (1f - w[4]);
+        if (clear <= 0.01f) return;
+        float cx = -p.ax, cz = -p.az;
+        if (CeilingSky.planeHit(cx, cz, p.ay, SUN[0], SUN[1], SUN[2], sky.hx, sky.hz, HIT)) {
+            float fade = clear * CeilingSky.insideFade(HIT[0], HIT[1], sky.hx, sky.hz, 2f + 0.1f * HIT[2]);
+            if (fade > 0.01f) {
+                float d = HIT[2] * BILLBOARD_PULL;
+                float x = SUN[0] * d, y = SUN[1] * d, z = SUN[2] * d;
+                CeilingSky.sunColour(SUN[1], RGB);
+                float g = SUN_GLOW_STRENGTH * fade;
+                billboard(buffer.getBuffer(DOTS), m, x, y, z, d, SUN_GLOW * d, RGB[0] * g, RGB[1] * g, RGB[2] * g, g,
+                        0f, 0f, 1f, 1f);
+                buffer.endBatch(DOTS);
+                billboard(buffer.getBuffer(SUN_DISC), m, x, y, z, d, SUN_SIZE * d, RGB[0] * fade, RGB[1] * fade,
+                        RGB[2] * fade, fade, 0f, 0f, 1f, 1f);
+                buffer.endBatch(SUN_DISC);
+            }
+        }
+        float mx = -SUN[0], my = -SUN[1], mz = -SUN[2];
+        if (CeilingSky.planeHit(cx, cz, p.ay, mx, my, mz, sky.hx, sky.hz, HIT)) {
+            float fade = clear * (1f - MOON_DAY_DIM * w[0])
+                    * CeilingSky.insideFade(HIT[0], HIT[1], sky.hx, sky.hz, 2f + 0.1f * HIT[2]);
+            if (fade > 0.01f) {
+                float d = HIT[2] * BILLBOARD_PULL;
+                float x = mx * d, y = my * d, z = mz * d;
+                int phase = Math.floorMod(moonPhase, 8);
+                float lit = 1f - Math.min(phase, 8 - phase) / 4f;     // 1 at full (phase 0), 0 at new (phase 4)
+                float g = MOON_GLOW_STRENGTH * fade * (0.2f + 0.8f * lit);
+                billboard(buffer.getBuffer(DOTS), m, x, y, z, d, MOON_GLOW * d, 0.62f * g, 0.72f * g, g, g,
+                        0f, 0f, 1f, 1f);
+                buffer.endBatch(DOTS);
+                // Vanilla's sheet: four phases a row, two rows; laid out across the billboard as vanilla lays it.
+                int col = phase % 4, row = phase / 4;
+                billboard(buffer.getBuffer(MOON), m, x, y, z, d, MOON_SIZE * d, 0.92f * fade, 0.95f * fade, fade, fade,
+                        (col + 1) / 4f, row / 2f, col / 4f, (row + 1) / 2f);
+                buffer.endBatch(MOON);
+            }
+        }
+    }
+
+    /**
+     * Real cloud under the roof: when the roof leaves room ({@link CeilingSky#volumeHeights}), a few translucent
+     * slices between the plane and the roof, highest first (the camera is under them), each a grid of the storm's 3D
+     * {@link CeilingSky#density} field drifting slowly, with fair-weather gaps ({@link CeilingSky#volumeAlpha}), lit
+     * from the sun by day and the moon by night ({@link CeilingSky#cloudLight}: brighter higher up and on the side the
+     * light comes from) and coloured by the hour ({@link CeilingSky#volumeCloudColour}). They thin out where the roof
+     * slopes down toward the walls ({@link CeilingSky#volumeFade}), so no slice ever shows the line where it meets it.
+     */
+    private static void drawRealVolume(Sky sky, Plane p, float now, float drift, float[] w, Matrix4f m,
+                                       MultiBufferSource.BufferSource buffer) {
+        float[] heights = sky.volume;
+        if (heights.length == 0) return;
+        // The light comes from the sun, or the moon when the sun is down, and never quite from the side.
+        float lx = SUN[0], ly = SUN[1], lz = SUN[2];
+        if (ly < 0f) {
+            lx = -lx;
+            ly = -ly;
+            lz = -lz;
+        }
+        ly = Math.max(ly, 0.25f);
+        float ll = (float) Math.sqrt(lx * lx + ly * ly + lz * lz);
+        lx /= ll;
+        ly /= ll;
+        lz /= ll;
+        float nightThin = 1f - (1f - VOLUME_NIGHT) * w[2];
+        for (int s = heights.length - 1; s >= 0; s--) {
+            realSlice(sky, p, heights[s], s, now, drift, w, lx, ly, lz, nightThin, m, buffer);
+        }
+    }
+
+    private static void realSlice(Sky sky, Plane p, float h, int index, float now, float drift, float[] w, float lx,
+                                  float ly, float lz, float nightThin, Matrix4f m,
+                                  MultiBufferSource.BufferSource buffer) {
+        // The deck's fair-weather texture rather than the storm's (whose thick cores are charcoal): the density field
+        // places the masses, the texture gives them their lumpy edges; each slice samples its own part of it.
+        RenderType type = DECK;
+        int nx = Math.max(4, Math.min(VOLUME_CELLS_MAX, (int) Math.ceil(2f * sky.hx / VOLUME_CELL)));
+        int nz = Math.max(4, Math.min(VOLUME_CELLS_MAX, (int) Math.ceil(2f * sky.hz / VOLUME_CELL)));
+        float tile = VOLUME_TILE + h * 1.2f;
+        float du = h * 0.031f + index * 0.37f + drift * (0.5f + 0.03f * h);
+        float dv = h * 0.017f + index * 0.21f + drift * 0.2f;
+        VertexConsumer vc = buffer.getBuffer(type);
+        float[] row0 = ROW_A, row1 = ROW_B;
+        volumeRow(sky, h, nx, nz, 0, now, w, lx, ly, lz, nightThin, tile, du, dv, row0);
+        for (int i = 0; i < nx; i++) {
+            volumeRow(sky, h, nx, nz, i + 1, now, w, lx, ly, lz, nightThin, tile, du, dv, row1);
+            for (int j = 0; j < nz; j++) {
+                volumeVertex(vc, m, p, h, row0, j);
+                volumeVertex(vc, m, p, h, row1, j);
+                volumeVertex(vc, m, p, h, row1, j + 1);
+                volumeVertex(vc, m, p, h, row0, j + 1);
+            }
+            float[] t = row0;
+            row0 = row1;
+            row1 = t;
+        }
+        buffer.endBatch(type);
+    }
+
+    /** One grid row of a real cloud slice into {@code out}, {@link #GRID_STRIDE} floats per vertex. */
+    private static void volumeRow(Sky sky, float h, int nx, int nz, int i, float now, float[] w, float lx, float ly,
+                                  float lz, float nightThin, float tile, float du, float dv, float[] out) {
+        float u = i / (float) nx * 2f - 1f;
+        float x = u * sky.hx;
+        float heightFrac = h / sky.hy;
+        for (int j = 0; j <= nz; j++) {
+            float v = j / (float) nz * 2f - 1f;
+            float z = v * sky.hz;
+            float fade = CeilingSky.volumeFade(h, sky.hy, u, v, sky.hx, sky.hz);
+            float a = 0f, light = 0.5f;
+            if (fade > 0f) {
+                float dens = CeilingSky.density(sky.seed, x, h, z, now);
+                a = CeilingSky.volumeAlpha(dens, heightFrac, w[3]) * fade * nightThin;
+                if (a > 0.001f) {
+                    float toward = CeilingSky.density(sky.seed, x + lx * LIGHT_STEP, h + ly * LIGHT_STEP,
+                            z + lz * LIGHT_STEP, now);
+                    light = CeilingSky.cloudLight(dens, toward, heightFrac);
+                }
+            }
+            CeilingSky.volumeCloudColour(light, w, RGB);
+            int o = j * GRID_STRIDE;
+            out[o] = x;
+            out[o + 1] = z;
+            out[o + 2] = RGB[0];
+            out[o + 3] = RGB[1];
+            out[o + 4] = RGB[2];
+            out[o + 5] = a;
+            out[o + 6] = x / tile + du;
+            out[o + 7] = z / tile + dv;
+        }
+    }
+
+    private static void volumeVertex(VertexConsumer vc, Matrix4f m, Plane p, float h, float[] row, int j) {
+        int o = j * GRID_STRIDE;
+        vertex(vc, m, p.ax + row[o], p.ay + h, p.az + row[o + 1], row[o + 2], row[o + 3], row[o + 4], row[o + 5],
+                row[o + 6], row[o + 7]);
     }
 
     /**
@@ -845,6 +881,40 @@ public final class EnchantedCeiling {
         vertex(vc, m, x + ax - bx, y - by, z + az - bz, r, g, b, a, u1, v0);
         vertex(vc, m, x + ax + bx, y + by, z + az + bz, r, g, b, a, u1, v1);
         vertex(vc, m, x - ax + bx, y + by, z - az + bz, r, g, b, a, u0, v1);
+    }
+
+    /**
+     * The real sky in a thunderstorm: a dark storm cloud layer on the plane, then the storm slices that fit under the
+     * roof (those below {@code sky.hy}; none when the roof is right overhead), far to near, with the lightning's glow
+     * slipped in at its own height (squeezed under the roof) and its bolt. The slices stay inside the walls.
+     */
+    private static void drawRealStorm(Sky sky, Plane p, float now, float local, float drift, Matrix4f m,
+                                      MultiBufferSource.BufferSource buffer) {
+        float[] flash = CeilingSky.flash(sky.seed, local);
+        Plane full = new Plane(sky, p.ax, p.ay, p.az, p.nx, p.nz, 1f);
+        // The cloud on the plane itself is always there: it is all the storm there is when the roof is right overhead.
+        layer(buffer, STORM_A, m, full, CLOUD_A_DROP, (u, v, a, o) -> {
+            float[] c = CeilingSky.stormCloudColour(u, v, flash, sky.hx, sky.hz);
+            o[0] = c[0];
+            o[1] = c[1];
+            o[2] = c[2];
+            o[3] = 0.9f;
+        }, drift * 0.8f, drift * 0.25f, STORM_A_TILE);
+        // Only slices below the roof, highest first: the camera is under the plane.
+        float room = Math.max(0f, sky.hy - CeilingSky.ROOF_GAP);
+        float flashY = Math.min(flash == null ? 0f : flash[5], room);
+        boolean flashDrawn = flash == null;
+        for (int k = 0; k < CeilingSky.SLICES; k++) {
+            int i = CeilingSky.SLICES - 1 - k;
+            float h = CeilingSky.sliceHeight(i, CeilingSky.SLICES);
+            if (h >= room) continue;
+            if (!flashDrawn && h < flashY) {
+                drawFlash(sky, flash, p, p.ay + flashY, m, buffer);
+                flashDrawn = true;
+            }
+            slice(sky, p, i, h, 0f, flash, now, drift, m, buffer);
+        }
+        if (!flashDrawn) drawFlash(sky, flash, p, p.ay + flashY, m, buffer);
     }
 
     /**

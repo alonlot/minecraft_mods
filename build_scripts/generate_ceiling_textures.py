@@ -19,10 +19,16 @@ Outputs (assets/hogwartsmagic/textures/entity/):
                         rain curtains (client/pensieve/RainRenderer) scroll it down at the fall speed.
   ceiling_dot.png       16x16, premultiplied for additive blending: a plain soft round dot. The faint stars use it;
                         a 64 px sprite shrunk to 3 px with no mipmaps would sparkle as the camera moves.
+  sky_cirrus.png        256x256, tiling, straight alpha <= 0.55: the real sky's high cirrus, long thin white streaks.
+  sky_deck.png          256x256, tiling, straight alpha <= 0.85: the real sky's fair-weather cloud deck seen from below,
+                        white edges, greyer thick bases, open sky between the masses.
+  ceiling_sun.png       64x64, premultiplied for additive blending: the real sky's sun disc with limb darkening and a
+                        tight corona (its wide glow is ceiling_dot, much bigger).
 
 Every tiling texture is filtered noise made in the frequency domain, so it wraps without a seam by construction.
 
 Run:  python build_scripts/generate_ceiling_textures.py        (every texture)
+      python build_scripts/generate_ceiling_textures.py real   (only the real sky's three, from their own generator)
 """
 import os
 
@@ -184,6 +190,73 @@ def storm_mist():
     save("storm_mist.png", np.stack([lum, lum, lum, a], axis=-1))
 
 
+SKY_RNG = np.random.default_rng(2611)
+
+
+def sky_noise(size, slope, stretch=1.0, low_cut=1.0, soft=None):
+    """periodic_noise from the real sky's own generator, so these textures never change the older ones."""
+    global RNG
+    keep, RNG = RNG, SKY_RNG
+    try:
+        return periodic_noise(size, slope, stretch=stretch, low_cut=low_cut, soft=soft)
+    finally:
+        RNG = keep
+
+
+def sky_cirrus():
+    """High cirrus for the real sky: long thin white streaks drawn out along x, feathered, mostly open sky."""
+    size = 256
+    streak = sky_noise(size, 1.5, stretch=2.6, low_cut=2.0, soft=60)
+    fine = sky_noise(size, 1.1, stretch=2.0, soft=110)
+    patches = sky_noise(size, 2.0, low_cut=1.5, soft=10)  # where the cirrus is at all: drifts of it, not stripes
+    n = 0.8 * streak + 0.2 * fine
+    a = smoothstep(0.50, 0.85, n) * smoothstep(0.35, 0.75, patches) * (0.7 + 0.3 * fine) * 0.55
+    lum = 0.93 + 0.07 * smoothstep(0.5, 0.9, n)
+    save("sky_cirrus.png", np.stack([lum, lum, lum, a], axis=-1))
+
+
+def sky_deck():
+    """The real sky's fair-weather cloud deck seen from below: separate rounded masses with open sky between, white
+    thin edges and greyer thick bases (the renderer tints it by the hour)."""
+    size = 256
+    big = sky_noise(size, 2.0, low_cut=3.0, soft=18)       # several masses a tile, not one
+    mid = sky_noise(size, 1.5, low_cut=2.0, soft=44)
+    fine = sky_noise(size, 1.2, soft=80)
+    d = 0.64 * big + 0.26 * mid + 0.10 * fine
+    d = d + 0.08 * (1 - np.abs(2 * mid - 1))          # billows: rounded lumps rather than smooth hills
+    d = (d - d.min()) / (d.max() - d.min())
+    a = smoothstep(0.52, 0.70, d) * 0.85
+    thick = smoothstep(0.55, 0.95, d)
+    rim = np.clip((d - np.roll(np.roll(d, 3, 0), 2, 1)) * 5.0, -1, 1)
+    lum = np.clip(1.0 - 0.30 * thick + 0.10 * rim, 0.62, 1.0)
+    save("sky_deck.png", np.stack([lum, lum, lum, a], axis=-1))
+
+
+def sun_disc():
+    """The real sky's sun, premultiplied for additive blending: a hard-edged disc (radius 0.42 of the half-size)
+    with gentle limb darkening and a tight corona fading to black at the quad edge. The wide glow is a separate,
+    much bigger soft dot."""
+    size = 64
+    c = (size - 1) / 2.0
+    y, x = np.mgrid[0:size, 0:size]
+    r = np.sqrt((x - c) ** 2 + (y - c) ** 2) / c
+    disc = smoothstep(0.45, 0.39, r)
+    mu = np.sqrt(np.clip(1 - (r / 0.42) ** 2, 0, 1))
+    limb = 0.78 + 0.22 * mu
+    corona = np.exp(-((r - 0.42).clip(0) / 0.16) ** 2) * 0.45 * (r > 0.40)
+    v = disc * limb + (1 - disc) * corona
+    v *= smoothstep(1.0, 0.85, r)
+    v = np.clip(v, 0, 1)
+    save("ceiling_sun.png", np.stack([v, v * 0.97, v * 0.90, v], axis=-1))
+
+
+def real_sky():
+    """The real style's textures only (the older ones stay as they are): python -I build_scripts/... real"""
+    sky_cirrus()
+    sky_deck()
+    sun_disc()
+
+
 def storm_sheet():
     """Preview: the three storm textures composited over the near-black sky, tinted as the renderer does."""
     sky_col = np.array([0.05, 0.06, 0.10])
@@ -238,6 +311,9 @@ def contact_sheet():
 if __name__ == "__main__":
     import sys
     os.makedirs(OUT, exist_ok=True)
+    if sys.argv[1:] == ["real"]:
+        real_sky()
+        sys.exit(0)
     sky()
     clouds("ceiling_clouds_a.png", stretch=2.4, lo=0.42, hi=0.82, slope=1.6, tint_shift=0.0)
     clouds("ceiling_clouds_b.png", stretch=1.4, lo=0.50, hi=0.85, slope=1.5, tint_shift=0.03)
@@ -247,6 +323,7 @@ if __name__ == "__main__":
     storm_clouds("storm_clouds_b.png", lo=0.46, soft_big=12, alpha_max=0.95)
     storm_mist()
     rain_sheet()
+    real_sky()
     if len(sys.argv) > 1:
         contact_sheet().save(sys.argv[1])
         storm_sheet().save(sys.argv[1].replace(".png", "_storm.png"))

@@ -44,9 +44,9 @@ public final class CeilingSky {
     /** The styles, by the scene key's value. */
     public static final String STORM = "storm", NIGHT = "night";
     /**
-     * The third style: a window onto the world's own vanilla sky (its colours, sun, moon, stars and clouds, read from
-     * the client level when it draws, with a light magical touch). Unlike the other two it needs a clock and weather
-     * the scene does not have.
+     * The third style: follow the world's actual sky (day, dawn and dusk, night, rain, thunder) as {@link #realWeights}
+     * describes it. Unlike the other two it needs a clock and weather the scene does not have, so the drawing reads them
+     * from the client level when it draws.
      */
     public static final String REAL = "real";
 
@@ -181,6 +181,40 @@ public final class CeilingSky {
             b = 0.070f + 0.045f * k + 0.025f * w;
         }
         return new float[]{r / SKY_TEXTURE_MEAN, g / SKY_TEXTURE_MEAN, b / SKY_TEXTURE_MEAN};
+    }
+
+    // ------------------------------------------------------------------ the real sky
+
+    /** Day time (0..24000) of each real-sky control point, and the day / dusk / night weights there; blends are eased. */
+    private static final float[] REAL_AT = {1000f, 11000f, 12500f, 13800f, 22200f, 23250f, 25000f};
+    private static final float[][] REAL_WEIGHTS = {
+            {1f, 0f, 0f}, {1f, 0f, 0f}, {0f, 1f, 0f}, {0f, 0f, 1f}, {0f, 0f, 1f}, {0f, 1f, 0f}, {1f, 0f, 0f}};
+
+    /**
+     * How the world's sky looks, for the {@code real} style: {day, dusk, night, overcast, storm}, each 0 to 1, with
+     * {@code day + dusk + night == 1}. {@code dayTime} is {@code level.getDayTime() % 24000} (any value is accepted and
+     * wrapped): day is full from 1000 to 11000, dusk peaks at 12500 and, as dawn, at 23250, night is full from 13800 to
+     * 22200, and each blend is eased. {@code overcast} is the rain level and {@code storm} the thunder level.
+     */
+    public static float[] realWeights(float dayTime, float rain, float thunder) {
+        float t = dayTime % 24000f;
+        if (t < 0f) t += 24000f;
+        if (t < REAL_AT[0]) t += 24000f;                     // before 1000 is the tail of the dawn-to-day blend
+        int i = 0;
+        while (i < REAL_AT.length - 2 && t >= REAL_AT[i + 1]) i++;
+        float k = smooth(0f, 1f, (t - REAL_AT[i]) / (REAL_AT[i + 1] - REAL_AT[i]));
+        float day = REAL_WEIGHTS[i][0] + (REAL_WEIGHTS[i + 1][0] - REAL_WEIGHTS[i][0]) * k;
+        float night = REAL_WEIGHTS[i][2] + (REAL_WEIGHTS[i + 1][2] - REAL_WEIGHTS[i][2]) * k;
+        float dusk = REAL_WEIGHTS[i][1] + (REAL_WEIGHTS[i + 1][1] - REAL_WEIGHTS[i][1]) * k;
+        return new float[]{day, dusk, night, clamp01(rain), clamp01(thunder)};
+    }
+
+    private static float lerp(float a, float b, float k) {
+        return a + (b - a) * k;
+    }
+
+    private static float clamp01(float f) {
+        return f < 0f ? 0f : f > 1f ? 1f : f;
     }
 
     /**
@@ -486,272 +520,37 @@ public final class CeilingSky {
         return Math.max(-h, Math.min(h, v));
     }
 
-    // ------------------------------------------------------------------ the real sky: a window onto vanilla's
+    // ------------------------------------------------------------------ the real sky's depth
 
     /**
-     * Vanilla's sky objects sit this far from the camera ({@code LevelRenderer#renderSky}: the sun's quad at y 100 with
-     * half-size 30, the moon's at y -100 with half-size 20, the stars normalised to 100).
+     * The real sky's far layers are drawn on the plane but sampled as if they lay this many blocks above it, so moving
+     * the camera slides them past one another (parallax): the stars and the Milky Way, the high cirrus, the cloud deck.
+     * Real cloud slices under a roof sit nearer still, between the plane and the roof.
      */
-    public static final float SKY_DISTANCE = 100f, SUN_HALF = 30f, MOON_HALF = 20f;
-    /** The visible body inside those quads: sun.png and each moon_phases cell draw their 8 by 8 middle of 32 by 32. */
-    public static final float SUN_BODY = SUN_HALF / 4f, MOON_BODY = MOON_HALF / 4f;
-    /** The magic glows round the sun and moon: a soft dot this big (sky units at 100), about 1.6 times the body. */
-    public static final float SUN_GLOW_HALF = SUN_BODY * 1.6f, MOON_GLOW_HALF = MOON_BODY * 1.6f;
-    /** Vanilla's star field: the seed of {@code LevelRenderer#drawStars} and how many points it tries. */
-    public static final long VANILLA_STAR_SEED = 10842L;
-    public static final int VANILLA_STAR_TRIES = 1500;
-    /** Floats per vanilla star: its four corners (x, y, z each) in the sky's own frame, in vanilla's vertex order. */
-    public static final int STAR_STRIDE = 12;
-    /** Vanilla's cloud layer: blocks per texel, the texture's size in texels, the drift per tick, the alpha. */
-    public static final float CLOUD_TEXEL = 12f, CLOUD_TEXTURE = 256f, CLOUD_DRIFT_PER_TICK = 0.03f,
-            CLOUD_ALPHA = 0.8f;
-    /** Fast clouds are drawn 0.33 above the dimension's cloud height and reach this far round the camera. */
-    public static final float CLOUD_LIFT = 0.33f, CLOUD_REACH = 32f * CLOUD_TEXEL;
-    /** Vanilla's sky disc lies this far above the camera; its fog distance is taken on it (FOG_SKY, a cylinder). */
-    public static final float SKY_DISC_Y = 16f;
-
+    public static final float STAR_LAYER_H = 300f, CIRRUS_H = 120f, DECK_H = 50f;
     /**
-     * Vanilla's star field, exactly as {@code LevelRenderer#drawStars} builds it: {@link #VANILLA_STAR_TRIES} random
-     * points from {@code RandomSource.create(10842)}, those inside the unit ball (and not at its centre) pushed out to
-     * {@link #SKY_DISTANCE}, each a small quad turned at a random angle about its direction. {@link #STAR_STRIDE}
-     * floats per star: the four corners as vanilla emits them (it accumulates each corner offset into the centre, so a
-     * star is a diamond whose last corner is its direction point; that is reproduced too). Sky frame: the frame the
-     * sun's quad is drawn in before the day's rotation ({@link #skyToWorld}).
+     * A camera nearer the plane than this (or above it) is treated as this far below it: the true scale grows without
+     * bound as the camera reaches the plane, and the layers would race past. The mapping stays a uniform scale about the
+     * camera, so everything still lines up.
      */
-    public static float[] vanillaStars() {
-        LegacyLcg random = new LegacyLcg(VANILLA_STAR_SEED);
-        float[] buf = new float[VANILLA_STAR_TRIES * STAR_STRIDE];
-        int n = 0;
-        org.joml.Vector3f off = new org.joml.Vector3f();
-        for (int j = 0; j < VANILLA_STAR_TRIES; j++) {
-            float f1 = random.nextFloat() * 2.0F - 1.0F;
-            float f2 = random.nextFloat() * 2.0F - 1.0F;
-            float f3 = random.nextFloat() * 2.0F - 1.0F;
-            float f4 = 0.15F + random.nextFloat() * 0.1F;
-            float f5 = f1 * f1 + f2 * f2 + f3 * f3;                      // Mth.lengthSquared
-            if (!(f5 <= 0.010000001F) && !(f5 >= 1.0F)) {
-                org.joml.Vector3f v = new org.joml.Vector3f(f1, f2, f3).normalize(100.0F);
-                float f6 = (float) (random.nextDouble() * (float) Math.PI * 2.0);
-                org.joml.Quaternionf q = new org.joml.Quaternionf()
-                        .rotateTo(new org.joml.Vector3f(0.0F, 0.0F, -1.0F), v).rotateZ(f6);
-                int o = n * STAR_STRIDE;
-                v.add(off.set(f4, -f4, 0.0F).rotate(q));
-                o = putCorner(buf, o, v);
-                v.add(off.set(f4, f4, 0.0F).rotate(q));
-                o = putCorner(buf, o, v);
-                v.add(off.set(-f4, f4, 0.0F).rotate(q));
-                o = putCorner(buf, o, v);
-                v.add(off.set(-f4, -f4, 0.0F).rotate(q));
-                putCorner(buf, o, v);
-                n++;
-            }
-        }
-        return java.util.Arrays.copyOf(buf, n * STAR_STRIDE);
-    }
-
-    private static int putCorner(float[] buf, int o, org.joml.Vector3f v) {
-        buf[o] = v.x;
-        buf[o + 1] = v.y;
-        buf[o + 2] = v.z;
-        return o + 3;
-    }
-
-    /** Vanilla's {@code LegacyRandomSource}, bit for bit (a 48-bit LCG), for the star field only. */
-    static final class LegacyLcg {
-        private static final long MASK = (1L << 48) - 1L;
-        private long seed;
-
-        LegacyLcg(long seed) {
-            this.seed = (seed ^ 25214903917L) & MASK;
-        }
-
-        int next(int bits) {
-            seed = seed * 25214903917L + 11L & MASK;
-            return (int) (seed >> 48 - bits);
-        }
-
-        float nextFloat() {
-            return (float) next(24) * 5.9604645E-8F;
-        }
-
-        double nextDouble() {
-            int i = next(26);
-            int j = next(27);
-            long k = ((long) i << 27) + (long) j;
-            return (double) k * (double) 1.110223E-16F;
-        }
-    }
+    public static final float PARALLAX_MIN_DY = 4f;
+    /** The camera depth under the plane the layers' sizes are tuned for (about the castle hall's floor). */
+    public static final float PARALLAX_REF_DY = 16f;
 
     /**
-     * A point of the sky's own frame turned into the world for vanilla's sun angle {@code a}
-     * ({@code Level#getSunAngle}, radians), into {@code out} ({x, y, z}) at {@code at}: vanilla's
-     * {@code YP(-90) * XP(timeOfDay * 360)}. The sun's quad ({@code y = +100}) is overhead at noon, rising in the east
-     * (+x) and setting in the west; the moon's ({@code y = -100}) opposite; the stars turn with them.
-     */
-    public static void skyToWorld(float cosA, float sinA, float x, float y, float z, float[] out, int at) {
-        out[at] = -(y * sinA + z * cosA);
-        out[at + 1] = y * cosA - z * sinA;
-        out[at + 2] = x;
-    }
-
-    /**
-     * Where a ray from the camera along {@code (dx, dy, dz)} (any length) crosses a horizontal plane {@code ay} above the
-     * camera, into {@code out} ({x, z}, camera-relative): false (out untouched) when the plane is not above the camera
-     * or the ray does not rise steeply enough to reach it within reason ({@code dy} at most a thousandth of its length).
-     */
-    public static boolean rayToPlane(float dx, float dy, float dz, float ay, float[] out) {
-        if (!(ay > 0f)) return false;
-        float len = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
-        if (!(dy > 1e-3f * len)) return false;
-        float t = ay / dy;
-        out[0] = dx * t;
-        out[1] = dz * t;
-        return true;
-    }
-
-    /**
-     * The fog vanilla puts on its sky disc along a unit ray of rise {@code v} and horizontal length {@code h}: the disc
-     * is {@link #SKY_DISC_Y} up, fogged by distance as a cylinder ({@code max(horizontal, vertical)}) from 0 out to the
-     * sky fog's end ({@code fogEnd}, the render distance), with the shader's smoothstep. 0 overhead-ish, 1 at the horizon.
-     */
-    public static float skyFog(float v, float h, float fogEnd) {
-        if (!(fogEnd > 0f)) return 0f;
-        if (!(v > 1e-4f)) return 1f;
-        float dist = Math.max(SKY_DISC_Y * h / v, SKY_DISC_Y);
-        if (dist >= fogEnd) return 1f;
-        return smooth(0f, fogEnd, dist);
-    }
-
-    /** The sky fog's end the window uses when the render distance it is given is not a finite positive number. */
-    public static final float SKY_FOG_END_FALLBACK = 192f;
-
-    /**
-     * The end of vanilla's sky fog ({@code FOG_SKY} ends at the render distance, in blocks) for a render distance of
-     * {@code renderDistance} blocks: that, or {@link #SKY_FOG_END_FALLBACK} when it is NaN, infinite or not positive.
-     * Never clamped to 0..1: it is a distance.
-     */
-    public static float skyFogEnd(float renderDistance) {
-        return Float.isFinite(renderDistance) && renderDistance > 0f ? renderDistance : SKY_FOG_END_FALLBACK;
-    }
-
-    /** Fancy clouds' undersides, which is what the ceiling sees from below: vanilla shades them 0.7 of the colour. */
-    public static final float CLOUD_UNDERSIDE_FANCY = 0.7f;
-
-    /** How vanilla shades a cloud layer seen from below: {@link #CLOUD_UNDERSIDE_FANCY} with Fancy clouds, 1 with Fast. */
-    public static float cloudUnderside(boolean fancy) {
-        return fancy ? CLOUD_UNDERSIDE_FANCY : 1f;
-    }
-
-    /**
-     * Vanilla's fog on a point {@code dist} (cylinder distance) away with the terrain fog from {@code start} to
-     * {@code end}: 0 inside the start, then the shader's smoothstep, 1 past the end.
-     */
-    public static float terrainFog(float dist, float start, float end) {
-        if (!(dist > start)) return 0f;
-        if (!(end > start) || dist >= end) return 1f;
-        return smooth(start, end, dist);
-    }
-
-    /** Floats in a sunrise fan: the centre and the 17 rim points, x, y, z each. */
-    public static final int FAN_FLOATS = 18 * 3;
-
-    /**
-     * Vanilla's sunrise / sunset glow ({@code renderSky}'s triangle fan) in world directions, into {@code fan}
-     * ({@link #FAN_FLOATS}): a centre on the horizon 100 out toward the sun (east at dawn, west at dusk;
-     * {@code evening} is vanilla's {@code sin(sunAngle) >= 0}) and a rim 120 out that rises {@code 40 * alpha} on the
-     * sun's side. The centre carries the colour at {@code alpha}, the rim at 0.
-     */
-    public static void sunriseFan(boolean evening, float alpha, float[] fan) {
-        // XP(90) * ZP(f3) * ZP(90) with f3 = 0 in the evening, 180 in the morning: phi = 90 or 270 degrees.
-        float sinPhi = evening ? 1f : -1f, cosPhi = 0f;
-        fan[0] = -100f * sinPhi;
-        fan[1] = 0f;
-        fan[2] = 100f * cosPhi;
-        for (int j = 0; j <= 16; j++) {
-            float th = (float) j * (float) (Math.PI * 2) / 16.0F;
-            float s = (float) Math.sin(th), c = (float) Math.cos(th);
-            float lx = s * 120f, ly = c * 120f, lz = -c * 40f * alpha;
-            float x1 = lx * cosPhi - ly * sinPhi, y1 = lx * sinPhi + ly * cosPhi;
-            int o = 3 + j * 3;
-            fan[o] = x1;
-            fan[o + 1] = -lz;
-            fan[o + 2] = y1;
-        }
-    }
-
-    /**
-     * How much of the sunrise colour vanilla blends in along the ray {@code (dx, dy, dz)} from the camera: the fan's
-     * alpha where the ray meets it ({@link #sunriseFan}; {@code alpha} at the centre falling linearly to the rim), 0
-     * where it misses.
-     */
-    public static float sunriseAlpha(float[] fan, float alpha, float dx, float dy, float dz) {
-        float cx = fan[0], cy = fan[1], cz = fan[2];
-        float best = 0f;
-        for (int j = 0; j < 16; j++) {
-            int a = 3 + j * 3, b = a + 3;
-            float e1x = fan[a] - cx, e1y = fan[a + 1] - cy, e1z = fan[a + 2] - cz;
-            float e2x = fan[b] - cx, e2y = fan[b + 1] - cy, e2z = fan[b + 2] - cz;
-            float px = dy * e2z - dz * e2y, py = dz * e2x - dx * e2z, pz = dx * e2y - dy * e2x;
-            float det = e1x * px + e1y * py + e1z * pz;
-            if (Math.abs(det) < 1e-6f) continue;
-            float inv = 1f / det;
-            float sx = -cx, sy = -cy, sz = -cz;                   // ray origin (the camera) minus the centre
-            float u = (sx * px + sy * py + sz * pz) * inv;
-            if (u < 0f || u > 1f) continue;
-            float qx = sy * e1z - sz * e1y, qy = sz * e1x - sx * e1z, qz = sx * e1y - sy * e1x;
-            float w = (dx * qx + dy * qy + dz * qz) * inv;
-            if (w < 0f || u + w > 1f) continue;
-            float t = (e2x * qx + e2y * qy + e2z * qz) * inv;
-            if (t <= 0f) continue;
-            best = Math.max(best, alpha * (1f - u - w));
-        }
-        return best;
-    }
-
-    /**
-     * Vanilla's cloud texture offset for a camera at {@code (camX, camZ)} and the cloud clock {@code cloudTicks}
-     * ({@code LevelRenderer.ticks} plus the partial tick), into {@code out}: the texel (0..256, the texture repeats)
-     * under the camera, x and z. {@code renderClouds} works it out as {@code (camX + ticks * 0.03) / 12} and
-     * {@code camZ / 12 + 0.33}; the texel at a point {@code (rx, rz)} from the camera on the cloud layer is then this
-     * plus {@code (rx, rz) / 12}.
-     */
-    public static void cloudBase(double camX, double camZ, float cloudTicks, float[] out) {
-        double drift = (double) (cloudTicks * CLOUD_DRIFT_PER_TICK);
-        double u = (camX + drift) / CLOUD_TEXEL;
-        double v = camZ / CLOUD_TEXEL + (double) CLOUD_LIFT;
-        out[0] = (float) (u - Math.floor(u / CLOUD_TEXTURE) * CLOUD_TEXTURE);
-        out[1] = (float) (v - Math.floor(v / CLOUD_TEXTURE) * CLOUD_TEXTURE);
-    }
-
-    /**
-     * The cloud texel (x, z) seen through plane point {@code (px, pz)} (camera-relative) of a plane {@code dy} above
-     * the camera, the cloud layer {@code h} above the plane: the ray reaches the layer {@link #parallaxScale} times as
-     * far out, and the texel there is {@link #cloudBase} plus that offset over 12. Not wrapped (the texture repeats
-     * every 256), so neighbouring grid vertices never straddle a wrap.
-     */
-    public static void cloudTexel(float[] base, float px, float pz, float dy, float h, float[] out) {
-        float k = parallaxScale(dy, h);
-        out[0] = base[0] + px * k / CLOUD_TEXEL;
-        out[1] = base[1] + pz * k / CLOUD_TEXEL;
-    }
-
-    /**
-     * A plane {@code dy} above the camera, a layer {@code h} above that: the camera ray through a plane point reaches
-     * the layer {@code (dy + h) / dy} times as far out, horizontally (1 for a layer on the plane). {@code dy} is held
-     * to at least {@link #PARALLAX_MIN_DY}, so a camera brushing the plane does not divide by nothing.
+     * How much bigger a layer {@code h} above the plane is than the plane, seen from a camera {@code dy} below the
+     * plane: {@code (dy + h) / dy} (1 for a layer on the plane). The camera ray through a plane point meets the layer
+     * this many times as far from the camera, horizontally.
      */
     public static float parallaxScale(float dy, float h) {
         float d = Math.max(PARALLAX_MIN_DY, dy);
         return (d + Math.max(0f, h)) / d;
     }
 
-    /** The least camera depth under the plane {@link #parallaxScale} uses. */
-    public static final float PARALLAX_MIN_DY = 0.05f;
-
     /**
      * Where the camera ray through plane point {@code (px, pz)} meets a layer {@code h} above the plane, horizontally,
      * into {@code out} ({x, z}): {@code C + (P - C) * (dy + h) / dy} for a camera at {@code (cx, cz)}, {@code dy}
-     * below the plane.
+     * below the plane. Its texture is sampled there, so it slides as the camera moves the way a far layer would.
      */
     public static void parallaxPoint(float cx, float cz, float px, float pz, float dy, float h, float[] out) {
         float k = parallaxScale(dy, h);
@@ -759,10 +558,25 @@ public final class CeilingSky {
         out[1] = cz + (pz - cz) * k;
     }
 
+    /** The inverse of {@link #parallaxPoint}: where on the plane a point {@code (sx, sz)} of layer {@code h} shows. */
+    public static void planePoint(float cx, float cz, float sx, float sz, float dy, float h, float[] out) {
+        float k = parallaxScale(dy, h);
+        out[0] = cx + (sx - cx) / k;
+        out[1] = cz + (sz - cz) / k;
+    }
+
+    /**
+     * A texture tile size for layer {@code h}, in the layer's own blocks, that looks {@code tile} blocks wide on the
+     * plane from {@link #PARALLAX_REF_DY} below: deep layers are drawn with big tiles so they are not finely repeated.
+     */
+    public static float layerTile(float tile, float h) {
+        return tile * parallaxScale(PARALLAX_REF_DY, h);
+    }
+
     /**
      * The sun's direction, a unit vector into {@code out} ({x, y, z}), for vanilla's time of day
      * ({@code Level#getTimeOfDay}: 0 at noon, 0.5 at midnight): straight up at noon, rising in the east (+x) and setting
-     * in the west, as vanilla draws it ({@link #skyToWorld} of the sun's quad centre). The moon is the opposite.
+     * in the west, as vanilla draws it. The moon is the opposite direction.
      */
     public static void sunDirection(float timeOfDay, float[] out) {
         double a = timeOfDay * Math.PI * 2.0;
@@ -789,65 +603,286 @@ public final class CeilingSky {
         return true;
     }
 
+    /** How many stars the end of the star budget fades over, so a shrinking budget dims stars out instead of popping them. */
+    public static final float STAR_BUDGET_FADE = 96f;
+
     /**
-     * The magic on vanilla's stars: star {@code i}'s gentle twinkle at time {@code t} ticks, 0.8 to 1.1 (vanilla's own
-     * brightness times this).
+     * Brightness factor (0..1) of star {@code index} when the budget keeps {@code budget} stars (fractional): 1 well
+     * inside it, falling linearly to 0 over the last {@link #STAR_BUDGET_FADE} stars before the cutoff. As the budget
+     * changes smoothly with the camera's distance below the plane, each star fades rather than flickering in or out.
      */
-    public static float starTwinkle(int i, float t) {
-        float tw = twinkle(VANILLA_STAR_SEED, t, i);                      // 0.35..1
-        return 0.8f + 0.3f * (tw - 0.35f) / 0.65f;
+    public static float starBudgetFade(int index, float budget) {
+        return clamp01((budget - index) / STAR_BUDGET_FADE);
     }
 
-    /** Star {@code i}'s colour into {@code out}: white, but about one in nine faintly gold or faintly blue. */
-    public static void starTint(int i, float[] out) {
-        int k = (int) ((mix(VANILLA_STAR_SEED ^ (i * 0x9E3779B97F4A7C15L)) >>> 33) % 18);
-        if (k == 0) {
-            out[0] = 1f;
-            out[1] = 0.90f;
-            out[2] = 0.74f;
-        } else if (k == 1) {
-            out[0] = 0.80f;
-            out[1] = 0.88f;
+    /** 1 deep inside the {@code±hx, ±hz} rectangle, falling to 0 at its edge over the last {@code soft} blocks. */
+    public static float insideFade(float x, float z, float hx, float hz, float soft) {
+        float d = Math.min(hx - Math.abs(x), hz - Math.abs(z));
+        return smooth(0f, Math.max(1e-3f, soft), d);
+    }
+
+    /** Daytime sky colours: overhead and at the horizon. */
+    private static final float[] DAY_ZENITH = {0.16f, 0.36f, 0.78f}, DAY_HORIZON = {0.68f, 0.82f, 0.95f};
+    /** Dusk: overhead, the horizon toward the sun and the horizon away from it. */
+    private static final float[] DUSK_ZENITH = {0.17f, 0.19f, 0.40f}, DUSK_TOWARD = {0.98f, 0.58f, 0.28f},
+            DUSK_AWAY = {0.55f, 0.40f, 0.55f};
+    /** Night: overhead and the faint glow low down. */
+    private static final float[] NIGHT_ZENITH = {0.035f, 0.05f, 0.14f}, NIGHT_HORIZON = {0.09f, 0.11f, 0.23f};
+
+    /**
+     * The sky's colour along the unit view ray {@code (rx, ry, rz)} for the unit sun direction {@code (sx, sy, sz)} and
+     * {@link #realWeights} {@code w}, into {@code out} (rgb): by the ray's elevation, hazy and pale low down (rays that
+     * graze the plane, near the walls) and deep overhead; by day blue with a bright halo round the sun; at dusk an
+     * indigo zenith over a horizon glowing orange toward the sun's azimuth and dusky violet away from it; at night deep
+     * navy with a faint glow low down and a cool halo round the moon. Rain washes the colour toward grey (the caller
+     * also dims it). Never above 1 in any channel.
+     */
+    public static void atmosphere(float rx, float ry, float rz, float sx, float sy, float sz, float[] w, float[] out) {
+        float e = clamp01(ry);
+        float cosSun = rx * sx + ry * sy + rz * sz;
+        float day = w[0], dusk = w[1], night = w[2], overcast = w[3];
+        float r = 0f, g = 0f, b = 0f;
+        if (day > 0f) {
+            float h = (float) Math.pow(1f - e, 1.6);
+            float halo = (0.30f * (float) Math.exp((cosSun - 1f) * 40f) + 0.16f * (float) Math.exp((cosSun - 1f) * 6f))
+                    * clamp01(sy * 4f + 0.5f);
+            r += day * (lerp(DAY_ZENITH[0], DAY_HORIZON[0], h) + halo);
+            g += day * (lerp(DAY_ZENITH[1], DAY_HORIZON[1], h) + halo * 0.95f);
+            b += day * (lerp(DAY_ZENITH[2], DAY_HORIZON[2], h) + halo * 0.85f);
+        }
+        if (dusk > 0f) {
+            float toward = (float) Math.pow(towardSun(rx, rz, sx, sz), 1.5);
+            float h = (float) Math.pow(1f - e, 1.1);
+            float glow = 0.25f * (float) Math.exp((cosSun - 1f) * 8f);
+            r += dusk * (lerp(DUSK_ZENITH[0], lerp(DUSK_AWAY[0], DUSK_TOWARD[0], toward), h) + glow);
+            g += dusk * (lerp(DUSK_ZENITH[1], lerp(DUSK_AWAY[1], DUSK_TOWARD[1], toward), h) + glow * 0.7f);
+            b += dusk * (lerp(DUSK_ZENITH[2], lerp(DUSK_AWAY[2], DUSK_TOWARD[2], toward), h) + glow * 0.4f);
+        }
+        if (night > 0f) {
+            float h = (float) Math.pow(1f - e, 1.4);
+            float moon = sy < 0f ? 0.07f * (float) Math.exp((-cosSun - 1f) * 30f) : 0f;
+            r += night * (lerp(NIGHT_ZENITH[0], NIGHT_HORIZON[0], h) + moon * 0.7f);
+            g += night * (lerp(NIGHT_ZENITH[1], NIGHT_HORIZON[1], h) + moon * 0.8f);
+            b += night * (lerp(NIGHT_ZENITH[2], NIGHT_HORIZON[2], h) + moon);
+        }
+        float grey = 0.30f * r + 0.59f * g + 0.11f * b;
+        float wash = 0.75f * clamp01(overcast);
+        out[0] = clamp01(lerp(r, grey, wash));
+        out[1] = clamp01(lerp(g, grey, wash));
+        out[2] = clamp01(lerp(b, grey * 1.04f, wash));
+    }
+
+    /** 0 (the ray looks away from the sun's azimuth) to 1 (toward it); 0.5 when either is near vertical. */
+    private static float towardSun(float rx, float rz, float sx, float sz) {
+        float rl = (float) Math.sqrt(rx * rx + rz * rz), sl = (float) Math.sqrt(sx * sx + sz * sz);
+        if (rl < 1e-4f || sl < 1e-4f) return 0.5f;
+        return clamp01(0.5f + 0.5f * (rx * sx + rz * sz) / (rl * sl));
+    }
+
+    /**
+     * A far cloud layer's colour along the unit view ray for the sun direction and weights, into {@code out} (rgb, the
+     * texture is near white): white by day (the high cirrus a touch brighter than the deck), at dusk lit orange on the
+     * sun's side and dusky violet away from it (the cirrus pinker, it still catches the sun), at night a dim moonlit
+     * blue-grey; rain greys and darkens it. {@code high} is 0 for the deck, 1 for the cirrus.
+     */
+    public static void cloudTint(float rx, float ry, float rz, float sx, float sy, float sz, float[] w, float high,
+                                 float[] out) {
+        float day = w[0], dusk = w[1], night = w[2], overcast = clamp01(w[3]);
+        float toward = (float) Math.pow(towardSun(rx, rz, sx, sz), 1.2);
+        float dr = lerp(0.93f, 1f, high), dg = lerp(0.94f, 1f, high), db = lerp(0.97f, 1f, high);
+        float kr = lerp(lerp(0.50f, 1.00f, toward), 1.00f, 0.35f * high);
+        float kg = lerp(lerp(0.42f, 0.70f, toward), 0.62f, 0.35f * high);
+        float kb = lerp(lerp(0.55f, 0.45f, toward), 0.62f, 0.35f * high);
+        float nr = lerp(0.26f, 0.30f, high), ng = lerp(0.29f, 0.33f, high), nb = lerp(0.38f, 0.42f, high);
+        float r = day * dr + dusk * kr + night * nr;
+        float g = day * dg + dusk * kg + night * ng;
+        float b = day * db + dusk * kb + night * nb;
+        float grey = (0.30f * r + 0.59f * g + 0.11f * b) * (1f - 0.42f * overcast);
+        float wash = 0.6f * overcast;
+        out[0] = clamp01(lerp(r * (1f - 0.42f * overcast), grey, wash));
+        out[1] = clamp01(lerp(g * (1f - 0.42f * overcast), grey, wash));
+        out[2] = clamp01(lerp(b * (1f - 0.42f * overcast), grey * 1.04f, wash));
+    }
+
+    /**
+     * How lit a point of a real cloud slice is, 0.15 to 1: brighter higher up in the stack (light comes from above, the
+     * mass shades what is under it) and brighter on the side facing the light, where the density a few blocks toward
+     * the sun (or moon), {@code towardLight}, is lower than {@code here}; darker where more cloud lies between it and
+     * the light. {@code heightFrac} is the slice's height over the room above the plane, 0..1.
+     */
+    public static float cloudLight(float here, float towardLight, float heightFrac) {
+        float side = Math.max(-1f, Math.min(1f, (here - towardLight) * 2.5f));
+        return Math.max(0.15f, Math.min(1f, 0.45f + 0.30f * clamp01(heightFrac) + 0.35f * side));
+    }
+
+    /**
+     * A real cloud slice's colour for its {@link #cloudLight} {@code light} and the weights, into {@code out} (rgb):
+     * by day white tops over blue-grey shadowed bases, at dusk sunlit amber over violet shade, at night moonlit
+     * grey-blue over near-black; rain flattens and darkens it.
+     */
+    public static void volumeCloudColour(float light, float[] w, float[] out) {
+        float day = w[0], dusk = w[1], night = w[2], overcast = clamp01(w[3]);
+        float l = clamp01(light);
+        float r = day * lerp(0.60f, 1.00f, l) + dusk * lerp(0.36f, 1.00f, l) + night * lerp(0.08f, 0.34f, l);
+        float g = day * lerp(0.64f, 1.00f, l) + dusk * lerp(0.30f, 0.74f, l) + night * lerp(0.10f, 0.38f, l);
+        float b = day * lerp(0.72f, 1.00f, l) + dusk * lerp(0.42f, 0.52f, l) + night * lerp(0.16f, 0.48f, l);
+        float grey = 0.30f * r + 0.59f * g + 0.11f * b;
+        float dark = 1f - 0.45f * overcast;
+        out[0] = clamp01(lerp(r, grey, 0.6f * overcast) * dark);
+        out[1] = clamp01(lerp(g, grey, 0.6f * overcast) * dark);
+        out[2] = clamp01(lerp(b, grey * 1.04f, 0.6f * overcast) * dark);
+    }
+
+    /** The sun's colour at elevation {@code sinElev} (the sine), into {@code out}: white-gold high, deep orange low. */
+    public static void sunColour(float sinElev, float[] out) {
+        float k = smooth(0f, 0.4f, sinElev);
+        out[0] = 1f;
+        out[1] = lerp(0.55f, 0.96f, k);
+        out[2] = lerp(0.25f, 0.86f, k);
+    }
+
+    /**
+     * Star {@code i}'s colour, a temperature from bluish white through white and gold to orange, into {@code out}:
+     * most stars near white, a tail of strongly coloured ones either way, from the sky's seed. Peak channel 1.
+     */
+    public static void starColour(long seed, int i, float[] out) {
+        float r = unit(mix(seed ^ (i * 0xD6E8FEB86659FD93L + 0x1234567L)));
+        float s = 2f * r - 1f;
+        float t = 0.5f + 0.5f * Math.signum(s) * (float) Math.pow(Math.abs(s), 2.2);   // 0 blue .. 0.5 white .. 1 orange
+        if (t < 0.5f) {
+            float k = t / 0.5f;
+            out[0] = lerp(0.66f, 1f, k);
+            out[1] = lerp(0.78f, 1f, k);
             out[2] = 1f;
         } else {
+            float k = (t - 0.5f) / 0.5f;
             out[0] = 1f;
-            out[1] = 1f;
-            out[2] = 1f;
+            out[1] = lerp(1f, 0.70f, k);
+            out[2] = lerp(1f, 0.46f, k);
         }
     }
 
-    /** How many sparkle motes drift under a {@code hx} by {@code hz} ceiling: one per 60 square blocks, 4 to 20. */
-    public static int moteCount(float hx, float hz) {
-        return Math.max(4, Math.min(20, Math.round(4f * hx * hz / 60f)));
+    /**
+     * How much of a star of {@code size} (0..1, its magnitude) shows when the sky lets {@code strength} (0..1) of the
+     * stars through: at dusk only the brightest come out, the faint ones join as it darkens; all of them at 1.
+     */
+    public static float starVisibility(float strength, float size) {
+        return smooth(0f, 1f, strength * 1.6f - (1f - size) * 0.6f);
     }
 
     /**
-     * Sparkle mote {@code i} at time {@code t} ticks under a {@code ±hx, ±hz} ceiling, into {@code out}: {x, z} from the
-     * centre (always inside the rectangle), how far below the plane (0.3 to 1.5 blocks) and its glow (0..1). Each mote
-     * lives 13 to 23 s, fading in and out while drifting a block or two, then reappears somewhere else.
+     * A gentle twinkle for the real sky, 0.55 to 1: {@link #twinkle} squeezed, flickering a little more for stars low
+     * over the walls (light through more air scintillates), {@code sinElev} the sine of the star's elevation.
      */
-    public static void mote(long seed, int i, float t, float hx, float hz, float[] out) {
-        long h = mix(seed ^ (i * 0xA0761D6478BD642FL + 0xE7037ED1A0B428DBL));
-        float life = 260f + 200f * unit(h);
-        h = mix(h);
-        float tt = Math.max(0f, t) + life * unit(h);
-        int cycle = (int) Math.floor(tt / life);
-        float p = tt / life - cycle;
-        long c = mix(h ^ (cycle * 0x8EBC6AF09C88C6E3L));
-        float x0 = (unit(c) * 1.7f - 0.85f) * hx;
-        c = mix(c);
-        float z0 = (unit(c) * 1.7f - 0.85f) * hz;
-        c = mix(c);
-        double a = unit(c) * Math.PI * 2.0;
-        c = mix(c);
-        float travel = (0.006f + 0.006f * unit(c)) * life * p;
-        c = mix(c);
-        out[0] = clamp(x0 + (float) Math.cos(a) * travel, hx * 0.95f);
-        out[1] = clamp(z0 + (float) Math.sin(a) * travel, hz * 0.95f);
-        out[2] = 0.3f + 1.2f * unit(c);
-        float s = (float) Math.sin(Math.PI * p);
-        c = mix(c);
-        out[3] = s * s * (0.5f + 0.5f * unit(c));
+    public static float realTwinkle(long seed, float t, int starIndex, float sinElev) {
+        float tw = twinkle(seed, t, starIndex);                       // 0.35..1
+        float depth = 0.25f + 0.20f * (1f - clamp01(sinElev));
+        return 1f - depth * (1f - tw) / 0.65f;
+    }
+
+    /**
+     * The real sky's star layer repeats every {@code FIELD_ALONG} blocks along the Milky Way and every
+     * {@code FIELD_ACROSS} across it (blocks of the star layer, {@link #STAR_LAYER_H} up): one band in view at a time.
+     */
+    public static final float FIELD_ALONG = 1280f, FIELD_ACROSS = 2048f;
+    /** The band's half-width across, in star-layer blocks (about 8 blocks on the plane from the hall floor). */
+    public static final float FIELD_BAND_WIDTH = 150f;
+    /**
+     * Stars per square block of the star layer: {@link #STAR_DENSITY} per square block of plane as seen from
+     * {@link #PARALLAX_REF_DY} below, as the flat sky had. Nearer the plane more of the layer is in view, so more stars
+     * show on it, as they should (the same stars per patch of sky).
+     */
+    public static final float FIELD_DENSITY = STAR_DENSITY
+            / (parallaxScale(PARALLAX_REF_DY, STAR_LAYER_H) * parallaxScale(PARALLAX_REF_DY, STAR_LAYER_H));
+
+    /** How many stars the real sky's repeating star tile holds. */
+    public static int fieldCount() {
+        return Math.round(FIELD_DENSITY * FIELD_ALONG * FIELD_ACROSS);
+    }
+
+    /**
+     * The real sky's star tile, flat {a, b, size} per star ({@link #fieldCount} of them): {@code a} in
+     * [0, FIELD_ALONG) along the Milky Way, {@code b} in [-FIELD_ACROSS / 2, FIELD_ACROSS / 2) across it with the band's
+     * spine on {@code b = 0}, sizes as {@link #stars} makes them. About a third crowd along the band.
+     */
+    public static float[] starField(long seed) {
+        int n = fieldCount();
+        float[] out = new float[n * 3];
+        long s = seed * 0xC2B2AE3D27D4EB4FL + 0x165667B19E3779F9L;
+        for (int i = 0; i < n; i++) {
+            s = mix(s + i);
+            float a = unit(s) * FIELD_ALONG;
+            s = mix(s);
+            float b = (unit(s) - 0.5f) * FIELD_ACROSS;
+            s = mix(s);
+            if (unit(s) < BAND_SHARE) {
+                s = mix(s);
+                b = (unit(s) + unit(mix(s + 1)) + unit(mix(s + 2)) - 1.5f) * FIELD_BAND_WIDTH * 1.2f;
+            }
+            s = mix(s);
+            float r = unit(s);
+            out[i * 3] = a;
+            out[i * 3 + 1] = b;
+            out[i * 3 + 2] = Math.min(1f, 0.12f + 0.88f * r * r * r * r);
+        }
+        return out;
+    }
+
+    /** The Milky Way's glow at {@code b} across it (any value; the tile repeats): 1 on the spine, 0 well off it. */
+    public static float fieldBandGlow(float b) {
+        float d = b - FIELD_ACROSS * (float) Math.floor(b / FIELD_ACROSS + 0.5f);
+        return (float) Math.exp(-(d * d) / (FIELD_BAND_WIDTH * FIELD_BAND_WIDTH));
+    }
+
+    /** How far the band's spine sits off the sky's centre, across it, in star-layer blocks: a seeded few dozen. */
+    public static float fieldBandOffset(long seed) {
+        return (unit(mix(seed ^ 0x2F7A3C91B5D4E86BL)) - 0.5f) * 300f;
+    }
+
+    /**
+     * The real sky's cloud slices: the heights above the plane of the slices that fit under a roof
+     * {@code hy} above it (none under {@link #VOLUME_MIN_HY}), evenly from {@link #VOLUME_LOW} up to 70% of the room or
+     * a block under the roof, whichever is lower; the roof slopes down to the walls, so high slices would hit it.
+     */
+    public static float[] volumeHeights(float hy) {
+        if (hy < VOLUME_MIN_HY) return new float[0];
+        float top = Math.min(0.7f * hy, hy - 1f);
+        int n = Math.max(1, Math.min(VOLUME_SLICES, (int) (hy / 3f)));
+        float[] out = new float[n];
+        for (int i = 0; i < n; i++) out[i] = n == 1 ? VOLUME_LOW : VOLUME_LOW + (top - VOLUME_LOW) * i / (n - 1);
+        return out;
+    }
+
+    /**
+     * A real cloud slice's opacity where the {@link #density} is {@code density}, {@code heightFrac} (0..1) of the way
+     * up the room: fair-weather masses with clear sky between them (a gap wherever the density is below about a half),
+     * a little thinner higher up; rain ({@code overcast}) closes the gaps and thickens them. 0..0.85.
+     */
+    public static float volumeAlpha(float density, float heightFrac, float overcast) {
+        float o = clamp01(overcast);
+        float base = Math.min(0.85f, 0.5f * (1f - 0.35f * clamp01(heightFrac)) * (1f + 0.4f * o));
+        float lo = 0.52f - 0.14f * o;
+        return base * smooth(lo, lo + 0.22f, density);
+    }
+
+    /** Real cloud slices: at most this many, from this height, and only under a roof at least this far up. */
+    public static final int VOLUME_SLICES = 5;
+    public static final float VOLUME_LOW = 1.5f, VOLUME_MIN_HY = 3f;
+
+    /**
+     * How much of a real cloud slice {@code h} above the plane shows at (u, v) (each -1..1) under a roof {@code hy}
+     * above the plane that slopes down to the walls across the shorter side (a hall's ridge runs along its length):
+     * the room at a point across is taken as {@code 1.5 hy (1 - |across|)}, capped at {@code hy}, and the slice thins
+     * out before it gets there; along the length it only softens near the gable ends. 0..1.
+     */
+    public static float volumeFade(float h, float hy, float u, float v, float hx, float hz) {
+        if (hy <= 0f) return 0f;
+        float across = hx <= hz ? Math.abs(u) : Math.abs(v);
+        float along = hx <= hz ? Math.abs(v) : Math.abs(u);
+        float reach = 1f - h / (1.5f * hy);                      // |across| where the roof comes down to h
+        if (reach <= 0.05f) return 0f;
+        float f = 1f - smooth(reach - Math.min(0.3f, reach), reach, across);
+        return f * (1f - smooth(0.8f, 1f, along));
     }
 
     /** SplitMix64 finaliser. */

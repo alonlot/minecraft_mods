@@ -132,16 +132,11 @@ public final class ModRenderTypes extends RenderType {
 
     /** As {@link #ceilingLayer} but additive (ONE, ONE), for stars and glows: texture and colour premultiplied. */
     public static RenderType ceilingGlow(ResourceLocation texture) {
-        return ceilingGlow(texture, true);
-    }
-
-    /** As {@link #ceilingGlow(ResourceLocation)}; {@code blur} false keeps the texels crisp (vanilla's sun and moon). */
-    public static RenderType ceilingGlow(ResourceLocation texture, boolean blur) {
         return create("hogwartsmagic_ceiling_glow", DefaultVertexFormat.NEW_ENTITY, VertexFormat.Mode.QUADS, 4096,
                 false, false,
                 RenderType.CompositeState.builder()
                         .setShaderState(RENDERTYPE_EYES_SHADER)
-                        .setTextureState(new RenderStateShard.TextureStateShard(texture, blur, false))
+                        .setTextureState(new RenderStateShard.TextureStateShard(texture, true, false))
                         .setTransparencyState(ADDITIVE_TRANSPARENCY)
                         .setWriteMaskState(COLOR_WRITE)
                         .setCullState(NO_CULL)

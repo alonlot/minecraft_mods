@@ -35,8 +35,8 @@ public final class BeamStyles {
                 .jitter(0.12f).writhe(0.02f, 2.0f, 1.5f).flicker(0.3f).darkSheath(0.30f, 0.45f).crackle(4, 0.18f)
                 .head(0.6f, 0.22f, 0.5f, true).wake(WAKE_SMOKE, 0.9f, 16.0f, 0.18f, 0.22f, 0.02f)
                 .afterglow(8.0f).strike(0.9f, 0.8f, 0.5f).darkBurst().arcs(10, 0.3f).screenFlash(0.5f));
-        // Puppet strings: pale gold-chartreuse threads, barely a beam at all.
-        STYLES.put(SpellType.IMPERIO, new BeamStyle().colours(0xFFFBE0, 0xE8F09A, 0xC8D860).tail(10.0f)
+        // Puppet strings: soft pale-green threads, barely a beam at all (gentler than Avada's hard green).
+        STYLES.put(SpellType.IMPERIO, new BeamStyle().colours(0xE4FFE4, 0x8CFF8C, 0x4FD06A).tail(10.0f)
                 .alphas(0.35f, 0.18f).jitter(0.0f).writhe(0.08f, 0.7f, 0.5f).flicker(0.04f).twist(5, 0.08f, 4.0f, 0.3f)
                 .beads(4, 0.35f, 0.1f).wake(WAKE_MIST, 0.8f, 26.0f, 0.3f, 0.1f, 0.01f).afterglow(9.0f)
                 .strike(0.9f, 0.5f, 0.5f).ring(3.0f, false, false).mistBurst());

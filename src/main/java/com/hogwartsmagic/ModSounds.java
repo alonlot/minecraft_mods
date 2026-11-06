@@ -142,6 +142,22 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> STUDENT_HURT = register("student.hurt");
     public static final RegistryObject<SoundEvent> STUDENT_DEATH = register("student.death");
     public static final RegistryObject<SoundEvent> VOLDEMORT_AMBIENT = register("voldemort.ambient");
+    public static final RegistryObject<SoundEvent> VOLDEMORT_ENTRANCE = register("voldemort.entrance");
+    public static final RegistryObject<SoundEvent> VOLDEMORT_SHOCKWAVE_CHARGE = register("voldemort.shockwave_charge");
+    public static final RegistryObject<SoundEvent> VOLDEMORT_SHOCKWAVE = register("voldemort.shockwave");
+    public static final RegistryObject<SoundEvent> VOLDEMORT_CURSE_GATHER = register("voldemort.curse_gather");
+    public static final RegistryObject<SoundEvent> VOLDEMORT_SLASH = register("voldemort.slash");
+    public static final RegistryObject<SoundEvent> VOLDEMORT_SMOKE_WHOOSH = register("voldemort.smoke_whoosh");
+    public static final RegistryObject<SoundEvent> VOLDEMORT_STRIKE_WARNING = register("voldemort.strike_warning");
+    public static final RegistryObject<SoundEvent> VOLDEMORT_DISINTEGRATE = register("voldemort.disintegrate");
+    public static final RegistryObject<SoundEvent> VOLDEMORT_PHASE_ROAR = register("voldemort.phase_roar");
+    public static final RegistryObject<SoundEvent> VOLDEMORT_VOICE_ENTRANCE = register("voldemort.voice.entrance");
+    public static final RegistryObject<SoundEvent> VOLDEMORT_VOICE_PHASE = register("voldemort.voice.phase");
+    public static final RegistryObject<SoundEvent> VOLDEMORT_VOICE_TAUNT = register("voldemort.voice.taunt");
+    public static final RegistryObject<SoundEvent> VOLDEMORT_VOICE_AVADA = register("voldemort.voice.avada");
+    public static final RegistryObject<SoundEvent> VOLDEMORT_VOICE_CRUCIO = register("voldemort.voice.crucio");
+    public static final RegistryObject<SoundEvent> VOLDEMORT_VOICE_DEATH = register("voldemort.voice.death");
+    public static final RegistryObject<SoundEvent> VOLDEMORT_VOICE_LAUGH = register("voldemort.voice.laugh");
     public static final RegistryObject<SoundEvent> VOLDEMORT_HURT = register("voldemort.hurt");
     public static final RegistryObject<SoundEvent> VOLDEMORT_DEATH = register("voldemort.death");
 

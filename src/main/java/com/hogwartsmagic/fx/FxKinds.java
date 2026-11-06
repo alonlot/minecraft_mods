@@ -34,4 +34,14 @@ public final class FxKinds {
      * client.fx.intro.BossIntroClient.
      */
     public static final String BOSS_INTRO = "boss_intro";
+
+    // --- Creatures: the big ones hit like the spells do (builder A) ---
+
+    /**
+     * A creature hits the ground at (x, y, z): an expanding ring of dust rolls outwards and settles, chunks of the
+     * ground there are flung up, and a faint shockwave ring crosses the ground. params: radius (blocks the ring
+     * reaches), strength (0.3 a footfall .. 1 a Giant's kick .. 1.5 a dragon landing). Handled by
+     * client.fx.creature.SlamFx.
+     */
+    public static final String SLAM = "slam";
 }

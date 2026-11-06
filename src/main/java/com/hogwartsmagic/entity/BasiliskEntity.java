@@ -2,6 +2,7 @@ package com.hogwartsmagic.entity;
 
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.ModSounds;
+import com.hogwartsmagic.fx.CreatureFx;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
@@ -604,7 +605,9 @@ public class BasiliskEntity extends Monster {
             }
         } else if (state == ActionState.BURROW_DOWN) {
             if (t == 1) {
-                burstGroundParticles(40);
+                if (this.level() instanceof ServerLevel diveLevel) {
+                    CreatureFx.slam(diveLevel, this.position(), 4.0F, 0.8F, 1.0F, 20.0F, 12);
+                }
                 playActionSound(ModSounds.BASILISK_BURROW.get(), 1.2F, 0.9F);
             }
             if (t >= BURROW_DOWN_TICKS) {
@@ -667,9 +670,9 @@ public class BasiliskEntity extends Monster {
             applyVenomousBite(victim, damage);
         }
         playActionSound(ModSounds.BASILISK_STRIKE.get(), 1.6F, 1.0F);
-        serverLevel.sendParticles(ParticleTypes.SWEEP_ATTACK,
-                this.getX() + forward.x * 3.0D, this.getY() + 1.2D, this.getZ() + forward.z * 3.0D,
-                1, 0.0D, 0.0D, 0.0D, 0.0D);
+        // The head lances out and hits the earth in front of it hard enough to be felt.
+        CreatureFx.slam(serverLevel, new Vec3(this.getX() + forward.x * 3.0D, this.getY(), this.getZ() + forward.z * 3.0D),
+                3.0F, 0.5F, 1.0F, 18.0F, 10);
     }
 
     /**
@@ -727,8 +730,8 @@ public class BasiliskEntity extends Monster {
             victim.hurtMarked = true;
         }
         this.playSound(net.minecraft.sounds.SoundEvents.PLAYER_ATTACK_SWEEP, 1.6F, 0.5F);
-        serverLevel.sendParticles(ParticleTypes.SWEEP_ATTACK, this.getX(), this.getY() + 0.6D, this.getZ(),
-                4, 2.5D, 0.3D, 2.5D, 0.0D);
+        // The tail whips the ground in a full circle: dust rolls out round the coils.
+        CreatureFx.slam(serverLevel, this.position(), (float) SWEEP_RANGE, 0.6F, 1.1F, 18.0F, 12);
     }
 
     /** Bursts out of the ground, throwing everything standing over the exit. */
@@ -736,8 +739,9 @@ public class BasiliskEntity extends Monster {
         if (!(this.level() instanceof ServerLevel serverLevel)) {
             return;
         }
-        burstGroundParticles(60);
         playActionSound(ModSounds.BASILISK_ERUPT.get(), 1.7F, 1.0F);
+        // Bursting out of the ground: the earth heaves, dust and chunks fly, the view lurches.
+        CreatureFx.slam(serverLevel, this.position(), 6.0F, 1.2F, 2.0F, 28.0F, 20);
 
         float damage = (float) this.getAttributeValue(Attributes.ATTACK_DAMAGE);
         AABB area = this.getBoundingBox().inflate(4.5D, 3.0D, 4.5D);
@@ -801,18 +805,6 @@ public class BasiliskEntity extends Monster {
         this.setNoGravity(false);
         this.noPhysics = false;
         setActionState(ActionState.BURROW_UP);
-    }
-
-    private void burstGroundParticles(int count) {
-        if (!(this.level() instanceof ServerLevel serverLevel)) {
-            return;
-        }
-        BlockState ground = this.level().getBlockState(this.blockPosition().below());
-        if (ground.isAir()) {
-            return;
-        }
-        serverLevel.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, ground),
-                this.getX(), this.getY() + 0.3D, this.getZ(), count, 1.6D, 0.4D, 1.6D, 0.28D);
     }
 
     private boolean isValidVictim(LivingEntity candidate) {

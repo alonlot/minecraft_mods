@@ -39,6 +39,9 @@ public final class Lycanthropy {
     private static final String CURSED = "Cursed";
     private static final String AWAITING_DUSK = "AwaitingDusk";
     private static final String BEAST = "Beast";
+    private static final String RESTLESS = "Restless";
+    /** The day index (dayTime / 24000) whose restless night was already announced. */
+    private static final String STIRRED_DAY = "StirredDay";
 
     /** What a client is told about a player (the packet's action byte). */
     public static final byte SHOW_HUMAN = 0;
@@ -132,8 +135,8 @@ public final class Lycanthropy {
         MORPHING.remove(player.getUUID());
         if (wasBeast) {
             sync(player, MORPH_TO_HUMAN);
-            clearBeastEffects(player);
         }
+        clearBeastEffects(player); // a beast's or a restless night's Night Vision
         if (player.level() instanceof ServerLevel level) {
             level.sendParticles(ParticleTypes.SOUL, player.getX(), player.getY(0.6), player.getZ(), 18, 0.35, 0.5, 0.35, 0.03);
             level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.ZOMBIE_VILLAGER_CURE,
@@ -175,9 +178,12 @@ public final class Lycanthropy {
             curse.putBoolean(AWAITING_DUSK, false);
             write(player, curse);
         }
+        boolean able = player.isAlive() && !player.isSpectator();
+        boolean awaiting = curse.getBoolean(AWAITING_DUSK);
+        boolean natural = isNatural(level);
+        int phase = level.getMoonPhase();
         boolean beast = curse.getBoolean(BEAST);
-        boolean shouldBe = player.isAlive() && !player.isSpectator() && LycanthropyRules.shouldBeBeast(true,
-                curse.getBoolean(AWAITING_DUSK), night, isNatural(level));
+        boolean shouldBe = able && LycanthropyRules.shouldBeBeast(true, awaiting, night, natural, phase);
         if (shouldBe != beast) {
             curse.putBoolean(BEAST, shouldBe);
             write(player, curse);
@@ -190,17 +196,52 @@ public final class Lycanthropy {
         if (shouldBe) {
             tickBeast(player);
         }
+
+        boolean restless = able && LycanthropyRules.isRestless(true, awaiting, night, natural, phase);
+        if (restless != curse.getBoolean(RESTLESS)) {
+            curse.putBoolean(RESTLESS, restless);
+            if (restless) {
+                long day = level.getDayTime() / 24000L;
+                if (!curse.contains(STIRRED_DAY) || curse.getLong(STIRRED_DAY) != day) {
+                    curse.putLong(STIRRED_DAY, day);
+                    player.displayClientMessage(Component.translatable(LycanthropyRules.warnsOfFullMoon(phase)
+                            ? "message.hogwartsmagic.lycanthropy.eve" : "message.hogwartsmagic.lycanthropy.restless"), false);
+                }
+            } else {
+                clearBeastEffects(player);
+            }
+            write(player, curse);
+        }
+        if (restless) {
+            tickRestless(player);
+        }
+    }
+
+    /** A night that is not the full moon: still yourself, wand and all, but the wolf is close under the skin. */
+    private static void tickRestless(ServerPlayer player) {
+        topUp(player, MobEffects.MOVEMENT_SPEED, 0, LycanthropyRules.BEAST_EFFECT_TICKS);
+        topUp(player, MobEffects.HUNGER, 0, LycanthropyRules.BEAST_EFFECT_TICKS);
+        topUpNightVision(player);
+        if (player.getRandom().nextInt(LycanthropyRules.GROWL_ONE_IN_CHECKS) == 0) {
+            player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.WOLF_GROWL,
+                    SoundSource.PLAYERS, 0.6F, 0.55F + player.getRandom().nextFloat() * 0.1F);
+        }
+    }
+
+    private static void topUpNightVision(ServerPlayer player) {
+        MobEffectInstance sight = player.getEffect(MobEffects.NIGHT_VISION);
+        if (sight == null || (!sight.isInfiniteDuration() && sight.getDuration() < 220)) {
+            player.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, LycanthropyRules.BEAST_NIGHT_VISION_TICKS, 0, true, false, true));
+        }
     }
 
     private static void turnBeast(ServerPlayer player) {
-        boolean fullMoon = isFullMoon(player.level());
         MORPHING.put(player.getUUID(), LycanthropyRules.MORPH_TO_WOLF_TICKS);
         player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, LycanthropyRules.MORPH_TO_WOLF_TICKS, 3, false, false, false));
         sync(player, MORPH_TO_BEAST);
         player.level().playSound(null, player.getX(), player.getY(), player.getZ(), ModSounds.WEREWOLF_HURT.get(),
                 SoundSource.PLAYERS, 1.0F, 0.6F);
-        player.displayClientMessage(Component.translatable(fullMoon
-                ? "message.hogwartsmagic.lycanthropy.turn_full_moon" : "message.hogwartsmagic.lycanthropy.turn"), true);
+        player.displayClientMessage(Component.translatable("message.hogwartsmagic.lycanthropy.turn_full_moon"), true);
         com.hogwartsmagic.event.ModEvents.interruptActiveCasting(player);
     }
 
@@ -234,20 +275,16 @@ public final class Lycanthropy {
 
     /** Every check while a beast: keep its strength up, and now and then a howl. */
     private static void tickBeast(ServerPlayer player) {
-        boolean fullMoon = isFullMoon(player.level());
-        int amp = LycanthropyRules.beastAmplifier(fullMoon);
+        int amp = LycanthropyRules.BEAST_AMPLIFIER;
         topUp(player, MobEffects.DAMAGE_BOOST, amp, LycanthropyRules.BEAST_EFFECT_TICKS);
         topUp(player, MobEffects.MOVEMENT_SPEED, amp, LycanthropyRules.BEAST_EFFECT_TICKS);
         topUp(player, MobEffects.JUMP, 0, LycanthropyRules.BEAST_EFFECT_TICKS);
         topUp(player, MobEffects.HUNGER, 0, LycanthropyRules.BEAST_EFFECT_TICKS);
         // Paws cannot hold a wand: no spells while the beast has you.
         ExampleMod.SILENCED.getHolder().ifPresent(h -> topUp(player, h, 0, LycanthropyRules.BEAST_EFFECT_TICKS));
-        MobEffectInstance sight = player.getEffect(MobEffects.NIGHT_VISION);
-        if (sight == null || (!sight.isInfiniteDuration() && sight.getDuration() < 220)) {
-            player.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, LycanthropyRules.BEAST_NIGHT_VISION_TICKS, 0, true, false, true));
-        }
+        topUpNightVision(player);
         if (!MORPHING.containsKey(player.getUUID())
-                && player.getRandom().nextInt(LycanthropyRules.howlOneIn(fullMoon)) == 0) {
+                && player.getRandom().nextInt(LycanthropyRules.HOWL_ONE_IN_CHECKS) == 0) {
             player.level().playSound(null, player.getX(), player.getY(), player.getZ(), ModSounds.WEREWOLF_HOWL.get(),
                     SoundSource.PLAYERS, 1.4F, 0.75F + player.getRandom().nextFloat() * 0.15F);
             sync(player, HOWL);

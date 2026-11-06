@@ -23,4 +23,6 @@ public final class FxKinds {
      * is a boss dying or a Killing Curse landing). Handled by client.fx.Cinematic's owner.
      */
     public static final String MOMENT = "moment";
+    // Lingering marks (client.fx.Marks): MARK_SCORCH takes an optional third param, a delay in ticks before it appears
+    // (a Bombarda blast waits for the blocks it breaks).
 }

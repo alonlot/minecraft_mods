@@ -1,6 +1,6 @@
 """
 Re-shade the robed humanoids: the Death Eater (texture.png, WizardModel) and the four house
-students (student_*.png, StudentModel).
+students (student_*.png, StudentModel), plus the Gringotts goblins' suits (goblin*.png).
 
 The originals painted every robe, sleeve, hat and trouser face one flat black, so in game they read
 as cut-out silhouettes. This keeps everything the originals drew in colour (faces, hair, house
@@ -11,6 +11,7 @@ it sits on the model (tools/texture_audit/paint.py):
   sleeves      the same folds with a turned-back cuff
   hats         felt with a crease up the crown and a lit brim edge; the brim's underside is filled
   trousers     charcoal, with leather shoes
+  goblins      the banker's tailored suit shaded without the robe flare, leather shoes on both
   Death Eater  a silver mask with engraved scrollwork, black eye holes and a mouth grille in place
                of the grey face, a hood around it, and the gold trim turned to tarnished silver
 
@@ -266,11 +267,31 @@ def student(old, seed, house):
     return img
 
 
+def goblin(old, seed):
+    """Gringotts goblins: the banker's tailored black suit gets cloth shading (no robe flare),
+    and both goblins' flat black shoes become polished leather."""
+    img = old.copy()
+    px = img.load()
+    rng = random.Random(seed)
+    for t in texels('goblin'):
+        c = old.getpixel((t.u, t.v))
+        if not is_flat_black(c) or t.part.endswith('/head'):
+            continue
+        if t.part.endswith('_leg') and (t.n[1] > 0.8 or t.face == 'bottom'):
+            lvl = 0 if t.face == 'bottom' else (2.4 if t.face == 'top' else 1.3 + (0.9 if t.face == 'front' else 0))
+            px[t.u, t.v] = SHOE[clamp(lvl + rng.uniform(-0.3, 0.3), len(SHOE))] + (255,)
+        else:
+            px[t.u, t.v] = cloth(t, WOOL, rng, fold_px=4.5, flare=False, base=2.6) + (255,)
+    return img
+
+
 def main():
     out_dir = sys.argv[sys.argv.index('--preview') + 1] if '--preview' in sys.argv else None
     jobs = [('wizard', 'texture', lambda im: death_eater(im))]
     for i, house in enumerate(['gryffindor', 'hufflepuff', 'ravenclaw', 'slytherin']):
         jobs.append(('student', 'student_' + house, lambda im, s=i, h=house: student(im, 100 + s, h)))
+    jobs.append(('goblin', 'goblin', lambda im: goblin(im, 300)))
+    jobs.append(('goblin', 'goblin_guard', lambda im: goblin(im, 301)))
     for model, name, fn in jobs:
         path = os.path.join(TEXDIR, name + '.png')
         blob = subprocess.run(['git', 'show', '%s:src/main/resources/assets/hogwartsmagic/textures/entity/%s.png'

@@ -3,9 +3,7 @@ package com.hogwartsmagic.event;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.math.Axis;
 import com.hogwartsmagic.ExampleMod;
-import com.hogwartsmagic.worldgen.ModBiomes;
 import net.minecraft.client.Minecraft;
-import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraftforge.api.distmarker.Dist;
@@ -13,7 +11,6 @@ import net.minecraftforge.client.event.RenderLivingEvent;
 import net.minecraftforge.client.event.ViewportEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
-import net.minecraft.world.level.biome.Biome;
 
 @Mod.EventBusSubscriber(modid = ExampleMod.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
 public class ClientForgeEvents {
@@ -29,48 +26,6 @@ public class ClientForgeEvents {
     @SubscribeEvent
     public static void onClientLogout(net.minecraftforge.client.event.ClientPlayerNetworkEvent.LoggingOut event) {
         com.hogwartsmagic.client.ModEventsClientHooks.clearServerActionBar();
-    }
-
-    /**
-     * Per-biome fog overrides, applied only while the camera is actually inside the biome.
-     *
-     * <p>The biome JSON's own {@code fog_color} tints distant fog but cannot close the view down —
-     * that is a render-distance decision, so it has to happen here. Each entry is
-     * {@code (colour, near plane, far plane)}; a far plane below the player's render distance is what
-     * makes a place feel enclosed.
-     */
-    private record BiomeFog(ResourceKey<Biome> biome, float red, float green, float blue,
-                            float near, float far) {}
-
-    private static final BiomeFog[] BIOME_FOG = {
-            // Old and unfriendly, but you can see a little way down the aisles of trunks now --
-            // enough to read the shape of the forest and spot what is moving in it.
-            new BiomeFog(ModBiomes.FORBIDDEN_FOREST, 0.07F, 0.09F, 0.08F, 12.0F, 80.0F),
-            // Cold grey murk sitting on the water. Tighter than the forest -- the fen is meant to feel
-            // like being lost, and it hides the Dementors until they are already close.
-            new BiomeFog(ModBiomes.DEMENTOR_FEN, 0.29F, 0.32F, 0.31F, 1.0F, 30.0F),
-            // Volcanic haze. Kept far back so the crags still read as vast; it is atmosphere, not a wall.
-            new BiomeFog(ModBiomes.HORNTAIL_PEAKS, 0.42F, 0.29F, 0.20F, 12.0F, 128.0F),
-            // Sickly green, and the tightest of the lot: in the Chamber you see the next pillar and
-            // not the thing behind it.
-            new BiomeFog(ModBiomes.CHAMBER_DEPTHS, 0.05F, 0.11F, 0.07F, 0.5F, 24.0F),
-            // Forge-lit soot. Loose enough to still read the shape of a vault.
-            new BiomeFog(ModBiomes.GOBLIN_UNDERCITY, 0.20F, 0.13F, 0.06F, 2.0F, 40.0F),
-    };
-
-    /** The fog entry for the biome the camera is standing in, or null outside all of them. */
-    private static BiomeFog currentBiomeFog() {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.level == null || mc.cameraEntity == null) {
-            return null;
-        }
-        var biome = mc.level.getBiome(mc.cameraEntity.blockPosition());
-        for (BiomeFog fog : BIOME_FOG) {
-            if (biome.is(fog.biome())) {
-                return fog;
-            }
-        }
-        return null;
     }
 
     private static boolean hasLevicorpus(LivingEntity entity) {
@@ -187,14 +142,7 @@ public class ClientForgeEvents {
             event.setBlue(com.hogwartsmagic.client.UndercroftFogClientState.blue(depth));
             return;
         }
-        BiomeFog fog = currentBiomeFog();
-        if (fog == null) {
-            return;
-        }
-
-        event.setRed(fog.red());
-        event.setGreen(fog.green());
-        event.setBlue(fog.blue());
+        com.hogwartsmagic.client.BiomeFogClient.fogColor(event);
     }
 
     @SubscribeEvent
@@ -212,15 +160,8 @@ public class ClientForgeEvents {
             event.setCanceled(true);
             return;
         }
-        BiomeFog fog = currentBiomeFog();
-        if (fog == null) {
-            return;
+        if (com.hogwartsmagic.client.BiomeFogClient.renderFog(event)) {
+            event.setCanceled(true);
         }
-
-        event.setNearPlaneDistance(fog.near());
-        // min() so a player on a low render distance never has the fog pushed *further* out than
-        // vanilla would have drawn it.
-        event.setFarPlaneDistance(Math.min(event.getFarPlaneDistance(), fog.far()));
-        event.setCanceled(true);
     }
 }

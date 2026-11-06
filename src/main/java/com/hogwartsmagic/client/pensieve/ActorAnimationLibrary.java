@@ -54,6 +54,7 @@ public final class ActorAnimationLibrary {
         CLASSES.put("inferius", new Class<?>[]{InferiusAnimations.class});
         CLASSES.put("merperson", new Class<?>[]{MerpersonAnimations.class});
         CLASSES.put("troll", new Class<?>[]{TrollAnimations.class});
+        CLASSES.put("voldemort", new Class<?>[]{com.hogwartsmagic.client.model.VoldemortAnimations.class});
         CLASSES.put("lycanthrope_villager", new Class<?>[]{WhulvkLycanHumanAnimations.class,
                 WhulvkLycanSlowHumanToWolfAnimations.class, WhulvkLycanWolfIdleAnimations.class,
                 WhulvkLycanWolfToIdleAnimations.class, WhulvkLycanWolfWalkAnimations.class});

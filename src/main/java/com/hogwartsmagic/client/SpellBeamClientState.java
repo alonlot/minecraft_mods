@@ -405,6 +405,13 @@ public final class SpellBeamClientState {
         }
         CLASHES.add(new Clash(pos, new Vec3(packet.ax(), packet.ay(), packet.az()),
                 new Vec3(packet.bx(), packet.by(), packet.bz()), styleA, styleB, outcome, now));
+        // A decisive win (one beam shatters the other) near the camera lands as a film moment.
+        if (outcome != SpellBeamFx.CLASH_MUTUAL && minecraft.player != null
+                && minecraft.player.position().distanceToSqr(pos) < 24.0 * 24.0) {
+            com.hogwartsmagic.client.fx.Cinematic.freeze(2);
+            com.hogwartsmagic.client.fx.Cinematic.flash(1.0f, 1.0f, 1.0f, 0.8f, 10);
+            com.hogwartsmagic.client.fx.Cinematic.letterbox(40);
+        }
     }
 
     private static void endAt(int beamId, Vec3 pos, double now) {

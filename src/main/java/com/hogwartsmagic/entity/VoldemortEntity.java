@@ -60,6 +60,30 @@ public class VoldemortEntity extends WizardEntity {
             net.minecraft.network.syncher.SynchedEntityData.defineId(VoldemortEntity.class,
                     net.minecraft.network.syncher.EntityDataSerializers.BOOLEAN);
 
+    /**
+     * The set piece running now (a VoldemortMoves id in the low byte, a counter above it so the same move twice
+     * still reads as a new start). The clients play its clip and draw its effects from the moment it changes.
+     */
+    private static final net.minecraft.network.syncher.EntityDataAccessor<Integer> DATA_ACTION =
+            net.minecraft.network.syncher.SynchedEntityData.defineId(VoldemortEntity.class,
+                    net.minecraft.network.syncher.EntityDataSerializers.INT);
+    /** How long the death lasts: he stands and comes apart into ash (vanilla tips a mob over in 20). */
+    public static final int DEATH_TICKS = 70;
+
+    final VoldemortMoves moves = new VoldemortMoves(this);
+    private int actionSeq;
+    private boolean enraged;
+    private long shockwaveReadyAt;
+    private long strikeReadyAt;
+    private long dashReadyAt;
+    private int tauntCooldown = 400;
+
+    /** Client: the clip of the current move, and the death clip. */
+    public final net.minecraft.world.entity.AnimationState actionAnim = new net.minecraft.world.entity.AnimationState();
+    public final net.minecraft.world.entity.AnimationState deathAnim = new net.minecraft.world.entity.AnimationState();
+    private int clientAction;
+    private int clientActionStart;
+
     @Nullable
     private SpellType queuedSpell;
     private int queuedSpellTicks;
@@ -82,6 +106,7 @@ public class VoldemortEntity extends WizardEntity {
     protected void defineSynchedData(net.minecraft.network.syncher.SynchedEntityData.Builder builder) {
         super.defineSynchedData(builder);
         builder.define(DATA_CHARGING_AVADA, false);
+        builder.define(DATA_ACTION, 0);
     }
 
     public static AttributeSupplier.Builder createAttributes() {
@@ -105,7 +130,97 @@ public class VoldemortEntity extends WizardEntity {
 
     @Override
     protected net.minecraft.sounds.SoundEvent getDeathSound() {
-        return com.hogwartsmagic.ModSounds.VOLDEMORT_DEATH.get();
+        return null;   // tickDeath speaks his last words and plays the ash, at full pitch
+    }
+
+    // ---- the set pieces (VoldemortMoves) ---------------------------------------------------------------------
+
+    /** Server: start a move's clip and effects on every client. */
+    void setAction(int action) {
+        this.actionSeq = (this.actionSeq + 1) & 0xFFFF;
+        this.entityData.set(DATA_ACTION, action == VoldemortMoves.NONE ? 0 : (action | (this.actionSeq << 8)));
+    }
+
+    /** Client: the move whose clip is playing (0 for none). */
+    public int clientAction() {
+        return this.clientAction;
+    }
+
+    public boolean isEnraged() {
+        return this.enraged;
+    }
+
+    void becomeEnraged() {
+        this.enraged = true;
+        VoldemortMoves.enragedBar(this.bossBar);
+    }
+
+    void attackCooldownTicks(int ticks) {
+        this.attackCooldown = ticks;
+    }
+
+    /**
+     * The summoning ritual calls this as he arrives: he re-forms out of its smoke, rises and throws his arms
+     * wide, and speaks; nothing touches him until it is over.
+     */
+    public void beginEntrance() {
+        VoldemortMoves.noRam(this);
+        this.moves.start(VoldemortMoves.ENTRANCE, null, null);
+    }
+
+    @Override
+    public void onSyncedDataUpdated(net.minecraft.network.syncher.EntityDataAccessor<?> key) {
+        super.onSyncedDataUpdated(key);
+        if (DATA_ACTION.equals(key) && this.level().isClientSide) {
+            int a = this.entityData.get(DATA_ACTION) & 0xFF;
+            this.clientAction = a;
+            this.clientActionStart = this.tickCount;
+            if (a == VoldemortMoves.NONE) {
+                this.actionAnim.stop();
+            } else {
+                this.actionAnim.start(this.tickCount);
+            }
+        }
+    }
+
+    @Override
+    public boolean hurt(net.minecraft.world.damagesource.DamageSource source, float damage) {
+        if (!this.level().isClientSide && this.moves.untouchable()
+                && !source.is(net.minecraft.tags.DamageTypeTags.BYPASSES_INVULNERABILITY)) {
+            return false;
+        }
+        return super.hurt(source, damage);
+    }
+
+    /** He does not fall over: he stands, comes apart into ash over 3.5 s and is gone in a last gust. */
+    @Override
+    protected void tickDeath() {
+        ++this.deathTime;
+        if (this.deathTime == 1 && !this.level().isClientSide) {
+            this.level().playSound(null, this.getX(), this.getY() + 1.6D, this.getZ(), ModSounds.VOLDEMORT_VOICE_DEATH.get(), SoundSource.HOSTILE, 2.0F, 1.0F);
+            this.level().playSound(null, this.getX(), this.getY() + 1.0D, this.getZ(), ModSounds.VOLDEMORT_DISINTEGRATE.get(), SoundSource.HOSTILE, 1.6F, 1.0F);
+        }
+        if (this.deathTime == DEATH_TICKS - 26 && !this.level().isClientSide) {
+            this.level().playSound(null, this.getX(), this.getY() + 1.0D, this.getZ(), ModSounds.VOLDEMORT_DISINTEGRATE.get(), SoundSource.HOSTILE, 1.4F, 0.8F);
+        }
+        if (this.deathTime >= DEATH_TICKS && !this.level().isClientSide && !this.isRemoved()) {
+            this.level().broadcastEntityEvent(this, (byte) 60);
+            this.remove(RemovalReason.KILLED);
+        }
+    }
+
+    @Override
+    public void addAdditionalSaveData(net.minecraft.nbt.CompoundTag tag) {
+        super.addAdditionalSaveData(tag);
+        tag.putBoolean("Enraged", this.enraged);
+    }
+
+    @Override
+    public void readAdditionalSaveData(net.minecraft.nbt.CompoundTag tag) {
+        super.readAdditionalSaveData(tag);
+        if (tag.getBoolean("Enraged")) {
+            becomeEnraged();
+        }
     }
 
     /**
@@ -169,12 +284,40 @@ public class VoldemortEntity extends WizardEntity {
         if (isCastingLockedOut() && this.queuedSpell != null) {
             cancelQueuedSpell(true);
         }
+
+        if (this.level() instanceof ServerLevel serverLevel) {
+            this.aiStepped = true;
+            if (this.moves.interruptible() && isCastingLockedOut()) {
+                this.moves.cancel();
+                fizzle(serverLevel);
+                this.attackCooldown = 16;
+            }
+            if (!this.enraged && this.moves.move != VoldemortMoves.PHASE && this.moves.move != VoldemortMoves.ENTRANCE
+                    && this.getHealth() < this.getMaxHealth() * 0.5F) {
+                cancelQueuedSpell(false);
+                this.moves.cancel();
+                this.moves.start(VoldemortMoves.PHASE, this.getTarget(), null);
+            }
+            if (this.getTarget() != null && !this.moves.busy() && --this.tauntCooldown <= 0) {
+                this.tauntCooldown = 300 + this.getRandom().nextInt(300);
+                this.level().playSound(null, this.getX(), this.getY() + 1.6D, this.getZ(), ModSounds.VOLDEMORT_VOICE_TAUNT.get(),
+                        SoundSource.HOSTILE, 1.8F, 1.0F);
+            }
+        }
+    }
+
+    private void fizzle(ServerLevel serverLevel) {
+        serverLevel.sendParticles(ParticleTypes.SMOKE, this.getX(), this.getY() + 1.2D, this.getZ(), 18, 0.35D, 0.45D, 0.35D, 0.02D);
+        serverLevel.sendParticles(ParticleTypes.CRIT, this.getX(), this.getY() + 1.3D, this.getZ(), 10, 0.25D, 0.35D, 0.25D, 0.05D);
+        this.level().playSound(null, this.getX(), this.getY(), this.getZ(), SoundEvents.GLASS_BREAK, SoundSource.HOSTILE, 0.8f, 0.8f);
     }
 
     @Override
     public void startSeenByPlayer(ServerPlayer player) {
         super.startSeenByPlayer(player);
-        this.bossBar.addPlayer(player);
+        if (this.isAlive()) {
+            this.bossBar.addPlayer(player);
+        }
     }
 
     @Override
@@ -185,6 +328,10 @@ public class VoldemortEntity extends WizardEntity {
 
     @Override
     public void die(net.minecraft.world.damagesource.DamageSource damageSource) {
+        this.moves.cancel();
+        this.removeEffect(ExampleMod.TENEBRIS_FLIGHT_EFFECT.getHolder().get());
+        this.setFlying(false);
+        this.setInvisible(false);
         super.die(damageSource);
         if (this.level() instanceof ServerLevel serverLevel) {
             awardKillAdvancement(serverLevel, damageSource);
@@ -264,8 +411,14 @@ public class VoldemortEntity extends WizardEntity {
     }
 
     public boolean tryEvadeAvada(@Nullable Entity attacker) {
+        if (this.moves.untouchable()) {
+            return true;     // nothing touches him in his entrance or his turn; no flight needed
+        }
         if (isCastingLockedOut()) {
             return false;
+        }
+        if (this.moves.interruptible()) {
+            this.moves.cancel();
         }
         if (this.hasEffect(ExampleMod.TENEBRIS_FLIGHT_EFFECT.getHolder().get())) {
             return true;
@@ -285,7 +438,7 @@ public class VoldemortEntity extends WizardEntity {
         return true;
     }
 
-    private boolean isCastingLockedOut() {
+    boolean isCastingLockedOut() {
         // Stunned (Stupefy, Petrificus Totalus, a Glacius freeze) or silenced. Incarcerous only tethers
         // him now: a bound target can still fight back, so it no longer stops his casting.
         if (com.hogwartsmagic.spell.combat.CombatEffects.isCastingBlocked(this)) {
@@ -324,6 +477,10 @@ public class VoldemortEntity extends WizardEntity {
         if (this.queuedSpell != null) {
             cancelQueuedSpell(true);
         }
+        if (this.moves.interruptible() && this.level() instanceof ServerLevel serverLevel) {
+            this.moves.cancel();
+            fizzle(serverLevel);
+        }
     }
 
     private void queueSpell(SpellType spell, int warmupTicks) {
@@ -341,11 +498,22 @@ public class VoldemortEntity extends WizardEntity {
     @Nullable
     private Boolean clientWasFlying;
 
+    /** Server: whether customServerAiStep ran this tick (a stun skips it). */
+    private boolean aiStepped;
+
     @Override
     public void tick() {
         super.tick();
         if (this.level().isClientSide) {
             clientFx();
+        } else if (this.level() instanceof ServerLevel serverLevel && this.isAlive()) {
+            // The moves run here, after his own movement, every tick: a stun skips the AI step (so an attack it
+            // breaks is cancelled there or by interruptCasting) but never freezes the entrance or the turn.
+            if (!this.aiStepped && this.moves.interruptible()) {
+                this.moves.cancel();
+            }
+            this.aiStepped = false;
+            this.moves.tick(serverLevel);
         }
     }
 
@@ -358,6 +526,24 @@ public class VoldemortEntity extends WizardEntity {
     private void clientFx() {
         Level level = this.level();
         var random = this.getRandom();
+        if (this.deathTime > 0) {
+            if (this.deathTime == 1) {
+                this.deathAnim.start(this.tickCount);
+                this.actionAnim.stop();
+                this.clientAction = VoldemortMoves.NONE;
+            }
+            VoldemortFx.death(this, this.deathTime, DEATH_TICKS);
+            return;
+        }
+        if (this.clientAction != VoldemortMoves.NONE) {
+            int e = this.tickCount - this.clientActionStart;
+            if (e > VoldemortMoves.length(this.clientAction)) {
+                this.actionAnim.stop();
+                this.clientAction = VoldemortMoves.NONE;
+            } else {
+                VoldemortFx.action(this, this.clientAction, e);
+            }
+        }
         boolean flying = this.isFlying();
         if (this.clientWasFlying != null && this.clientWasFlying != flying) {
             smokeBurst(level, !flying);
@@ -429,6 +615,11 @@ public class VoldemortEntity extends WizardEntity {
         }
     }
 
+    int bossCooldown(SpellType spell) {
+        int base = getBossCooldown(spell);
+        return this.enraged ? Math.round(base * 0.7F) : base;
+    }
+
     private int getBossCooldown(SpellType spell) {
         return switch (spell) {
             case AVADA_KEDAVRA -> 140;
@@ -476,10 +667,12 @@ public class VoldemortEntity extends WizardEntity {
         }
         if (spell == SpellType.AVADA_KEDAVRA) {
             com.hogwartsmagic.spell.mind.AvadaChargeFx.end(this, com.hogwartsmagic.spell.mind.AvadaChargeFx.FIRED);
+            this.level().playSound(null, this.getX(), this.getY() + 1.6D, this.getZ(), ModSounds.VOLDEMORT_VOICE_AVADA.get(),
+                    SoundSource.HOSTILE, 2.0F, 1.0F);
         }
 
         long now = this.level().getGameTime();
-        this.setSpellCooldown(spell, now + getBossCooldown(spell));
+        this.setSpellCooldown(spell, now + bossCooldown(spell));
 
         if (spell == SpellType.HEAL) {
             this.heal(28.0F);
@@ -509,6 +702,27 @@ public class VoldemortEntity extends WizardEntity {
         beam.shoot(d0, d1, d2, velocity, inaccuracy);
         this.level().addFreshEntity(beam);
         this.attackCooldown = spell == SpellType.AVADA_KEDAVRA ? 42 : 26 + this.getRandom().nextInt(16);
+    }
+
+    /** The shockwave when they crowd him, the storm called down on them, the smoke dash when they keep away. */
+    private boolean trySetPiece(LivingEntity target, long now, double distSq) {
+        var random = this.getRandom();
+        if (distSq < 36.0D && now >= this.shockwaveReadyAt && random.nextFloat() < 0.45F) {
+            this.shockwaveReadyAt = now + (this.enraged ? 140 : 200);
+            this.moves.start(VoldemortMoves.SHOCKWAVE, target, null);
+            return true;
+        }
+        if (now >= this.strikeReadyAt && random.nextFloat() < (this.enraged ? 0.3F : 0.14F)) {
+            this.strikeReadyAt = now + (this.enraged ? 160 : 240);
+            this.moves.start(VoldemortMoves.STRIKE, target, null);
+            return true;
+        }
+        if (distSq > 196.0D && now >= this.dashReadyAt && random.nextFloat() < 0.4F) {
+            this.dashReadyAt = now + 160;
+            this.moves.start(VoldemortMoves.DASH, target, null);
+            return true;
+        }
+        return false;
     }
 
     @Nullable
@@ -579,6 +793,9 @@ public class VoldemortEntity extends WizardEntity {
         @Override
         public void tick() {
             LivingEntity target = this.voldemort.getTarget();
+            if (this.voldemort.moves.busy()) {
+                return;   // the move ticks itself (customServerAiStep) and looks at its own target
+            }
             if (target == null || !target.isAlive()) {
                 this.voldemort.cancelQueuedSpell(false);
                 return;
@@ -625,6 +842,9 @@ public class VoldemortEntity extends WizardEntity {
             }
 
             long now = this.voldemort.level().getGameTime();
+            if (this.voldemort.trySetPiece(target, now, distSq)) {
+                return;
+            }
             SpellType nextSpell = this.voldemort.selectSpell(target, now, distSq);
             if (nextSpell == null) {
                 this.voldemort.attackCooldown = 18;
@@ -640,9 +860,17 @@ public class VoldemortEntity extends WizardEntity {
 
             if (nextSpell == SpellType.AVADA_KEDAVRA) {
                 this.voldemort.queueSpell(nextSpell, 60);
-            } else {
+            } else if (nextSpell == SpellType.HEAL || nextSpell == SpellType.PROTEGO) {
                 this.voldemort.queuedSpell = nextSpell;
                 this.voldemort.executeQueuedSpell(target);
+            } else if (nextSpell == SpellType.CRUCIO) {
+                this.voldemort.moves.start(VoldemortMoves.CRUCIO, target, nextSpell);
+            } else if (nextSpell == SpellType.SECTUMSEMPRA) {
+                this.voldemort.moves.start(VoldemortMoves.SLASH, target, nextSpell);
+            } else if (nextSpell == SpellType.FIENDFYRE) {
+                this.voldemort.moves.start(VoldemortMoves.FIENDFYRE, target, nextSpell);
+            } else {
+                this.voldemort.moves.start(VoldemortMoves.CAST, target, nextSpell);
             }
         }
     }

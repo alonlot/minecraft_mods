@@ -242,6 +242,7 @@ public class VoldemortSummoningEntity extends Entity {
         voldemort.addEffect(new net.minecraft.world.effect.MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 100, 4));
         voldemort.addEffect(new net.minecraft.world.effect.MobEffectInstance(ExampleMod.TENEBRIS_FLIGHT_EFFECT.getHolder().get(), 24, 0));
         serverLevel.addFreshEntity(voldemort);
+        voldemort.beginEntrance();
 
         var lightning = EntityType.LIGHTNING_BOLT.create(serverLevel);
         if (lightning != null) {

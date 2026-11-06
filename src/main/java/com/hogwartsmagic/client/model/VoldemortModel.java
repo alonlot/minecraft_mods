@@ -56,6 +56,8 @@ public class VoldemortModel extends HierarchicalModel<VoldemortEntity> implement
     private final ModelPart leftSkirt;
     private final ModelPart rightLeg;
     private final ModelPart leftLeg;
+    /** Set in setupAnim: while he comes apart, no red death tint (vanilla tints every frame deathTime is set). */
+    private boolean dying;
 
     public VoldemortModel(ModelPart root) {
         this.root = root;
@@ -169,8 +171,20 @@ public class VoldemortModel extends HierarchicalModel<VoldemortEntity> implement
         cape.xRot = 0.05F + stride * 0.55F + Mth.sin(ageInTicks * 0.09F) * 0.025F + Mth.sin(ageInTicks * 0.23F) * 0.01F;
         cape.zRot = Mth.sin(ageInTicks * 0.06F) * 0.02F;
 
-        applyCombat(entity, ageInTicks, headPitch, netHeadYaw);
-        applyFlourish(entity, limbSwingAmount, ageInTicks);
+        int action = entity.clientAction();
+        boolean acting = action != 0 && entity.actionAnim.isStarted();
+        this.dying = entity.deathTime > 0;
+        if (!acting && !this.dying) {
+            applyCombat(entity, ageInTicks, headPitch, netHeadYaw);
+            applyFlourish(entity, limbSwingAmount, ageInTicks);
+        }
+        if (acting) {
+            net.minecraft.client.animation.AnimationDefinition clip = VoldemortAnimations.forAction(action);
+            if (clip != null) this.animate(entity.actionAnim, clip, ageInTicks);
+        }
+        if (this.dying) {
+            this.animate(entity.deathAnim, VoldemortAnimations.DEATH, ageInTicks);
+        }
 
         // The bell sleeves hang from the forearm: they swing back toward vertical as the arm lifts.
         rightSleeve.xRot = -rightArm.xRot * 0.3F;
@@ -271,6 +285,12 @@ public class VoldemortModel extends HierarchicalModel<VoldemortEntity> implement
             rightArm.zRot += Math.max(0.0F, sway) * 0.4F;
             leftArm.zRot += Math.min(0.0F, sway) * 0.4F;
         }
+    }
+
+    @Override
+    public void renderToBuffer(PoseStack pose, com.mojang.blaze3d.vertex.VertexConsumer buffer, int light, int overlay, int color) {
+        super.renderToBuffer(pose, buffer, light,
+                this.dying ? net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY : overlay, color);
     }
 
     @Override

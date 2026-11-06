@@ -715,6 +715,11 @@ public class ExampleMod
             () -> new com.hogwartsmagic.item.BrewedPotionItem(new Item.Properties()
                     .rarity(net.minecraft.world.item.Rarity.RARE),
                     com.hogwartsmagic.item.BrewedPotionItem.Kind.VERITASERUM));
+    /** Lifts the werewolf's curse (crafted from a wolf fang and moon-touched herbs). */
+    public static final RegistryObject<Item> WOLFSBANE_POTION = ITEMS.register("wolfsbane_potion",
+            () -> new com.hogwartsmagic.item.BrewedPotionItem(new Item.Properties()
+                    .rarity(net.minecraft.world.item.Rarity.UNCOMMON),
+                    com.hogwartsmagic.item.BrewedPotionItem.Kind.WOLFSBANE));
     public static final RegistryObject<Item> MANDRAKE_DRAUGHT = ITEMS.register("mandrake_draught",
             () -> new com.hogwartsmagic.item.BrewedPotionItem(new Item.Properties()
                     .rarity(net.minecraft.world.item.Rarity.UNCOMMON),
@@ -1157,6 +1162,7 @@ public class ExampleMod
                 output.accept(FELIX_FELICIS.get());
                 output.accept(POTION_OF_REMORSE.get());
                 output.accept(VERITASERUM.get());
+                output.accept(WOLFSBANE_POTION.get());
                 output.accept(MANDRAKE_DRAUGHT.get());
                 output.accept(SPLASH_MANDRAKE_DRAUGHT.get());
                 output.accept(DRAUGHT_OF_LIVING_DEATH.get());
@@ -1332,6 +1338,7 @@ public class ExampleMod
         com.hogwartsmagic.command.SummonHorntailCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.SpellMasteryCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.DarkMagicCommand.register(event.getDispatcher());
+        com.hogwartsmagic.command.LycanthropyCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.CrowdControlCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.PatronusCommand.register(event.getDispatcher());
         com.hogwartsmagic.command.ImperioCommand.register(event.getDispatcher());

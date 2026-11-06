@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    { "item": "minecraft:glass_bottle" },
+    { "item": "hogwartsmagic:wolf_fang" },
+    { "item": "hogwartsmagic:wormwood" },
+    { "item": "hogwartsmagic:asphodel" },
+    { "item": "minecraft:amethyst_shard" }
+  ],
+  "result": { "id": "hogwartsmagic:wolfsbane_potion", "count": 1 }
+}

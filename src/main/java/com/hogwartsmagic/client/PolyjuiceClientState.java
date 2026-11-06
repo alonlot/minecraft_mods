@@ -130,7 +130,11 @@ public final class PolyjuiceClientState {
         if (!(surrogate instanceof LivingEntity le)) {
             return;
         }
+        advanceLiving(trackedPlayer, le, limbSlowdownFor(surrogate));
+    }
 
+    /** One game tick of a surrogate that stands in for a player (Polyjuice, and the werewolf curse). */
+    static void advanceLiving(Player trackedPlayer, LivingEntity le, float limb) {
         le.setPos(trackedPlayer.getX(), trackedPlayer.getY(), trackedPlayer.getZ());
         le.setYRot(trackedPlayer.getYRot());
         le.setXRot(trackedPlayer.getXRot());
@@ -154,7 +158,6 @@ public final class PolyjuiceClientState {
         le.setSprinting(trackedPlayer.isSprinting());
         le.setSwimming(trackedPlayer.isSwimming());
 
-        float limb = limbSlowdownFor(surrogate);
         le.walkAnimation.setSpeed(trackedPlayer.walkAnimation.speed() * limb);
         le.walkAnimation.position(trackedPlayer.walkAnimation.position());
 
@@ -199,7 +202,8 @@ public final class PolyjuiceClientState {
         return entity;
     }
 
-    private static void copyState(Player realPlayer, Entity surrogate, float partialTick) {
+    /** A render frame of a surrogate: snapped to where the player is drawn this frame. */
+    static void copyState(Player realPlayer, Entity surrogate, float partialTick) {
         surrogate.setOldPosAndRot();
 
         double x = Mth.lerp((double) partialTick, realPlayer.xOld, realPlayer.getX());

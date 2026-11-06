@@ -208,6 +208,28 @@ public class LycanthropeVillagerEntity extends PathfinderMob {
         setWerewolfForm(wolf, true);
     }
 
+    // ---- a cursed player's stand-in (client only, never added to the world) ------------------------------------
+
+    /**
+     * Client: flips the form of a surrogate drawn in a cursed player's place. Going through the synced data plays
+     * the same morph clip a real werewolf plays, unless this is the first form the surrogate has seen.
+     */
+    public void clientSetSurrogateForm(boolean wolf) {
+        if (this.level().isClientSide) {
+            this.entityData.set(WEREWOLF_FORM, wolf);
+        }
+    }
+
+    /** Client: a surrogate's claw swipe (its player swung). */
+    public void clientSwipe() {
+        handleEntityEvent(EVENT_SWIPE);
+    }
+
+    /** Client: a surrogate's howl. */
+    public void clientHowl() {
+        handleEntityEvent(EVENT_HOWL);
+    }
+
     /** @param transform play the transformation (freeze, sounds); false on spawn. */
     private void setWerewolfForm(boolean wolf, boolean transform) {
         if (this.level().isClientSide) {

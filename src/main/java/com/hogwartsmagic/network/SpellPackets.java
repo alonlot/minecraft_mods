@@ -629,6 +629,14 @@ public class SpellPackets {
                 .decoder(buf -> new SyncDarkMagicPacket(buf.readFloat()))
                 .consumerMainThread(SyncDarkMagicPacket::handle)
                 .add();
+        CHANNEL.messageBuilder(SyncWerewolfPlayerPacket.class)
+                .encoder((p, buf) -> {
+                    buf.writeUUID(p.playerId);
+                    buf.writeByte(p.action);
+                })
+                .decoder(buf -> new SyncWerewolfPlayerPacket(buf.readUUID(), buf.readByte()))
+                .consumerMainThread(SyncWerewolfPlayerPacket::handle)
+                .add();
         CHANNEL.messageBuilder(GiveInPacket.class)
                 .encoder((p, buf) -> {})
                 .decoder(buf -> new GiveInPacket())
@@ -1060,6 +1068,17 @@ public class SpellPackets {
     }
 
     /** Server to client: this player's own effective Darkness (0 with Dark Magic off). Never about anyone else. */
+    /** Server to client: draw this player as the werewolf, or as themself (action: Lycanthropy.SHOW_HUMAN etc.). */
+    public record SyncWerewolfPlayerPacket(UUID playerId, byte action) {
+        public static void handle(SyncWerewolfPlayerPacket p, CustomPayloadEvent.Context ctx) {
+            if (ctx.getSender() != null) {
+                ctx.setPacketHandled(true); // server-to-client only
+                return;
+            }
+            enqueueClientWork(ctx, () -> com.hogwartsmagic.util.ClientSideBridge.handlePacket("syncWerewolfPlayer", p));
+        }
+    }
+
     public record SyncDarkMagicPacket(float darkness) {
         public static void handle(SyncDarkMagicPacket p, CustomPayloadEvent.Context ctx) {
             if (ctx.getSender() != null) {

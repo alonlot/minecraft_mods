@@ -17,6 +17,7 @@ public final class MasteryConfigClientEvents {
     public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         MasteryConfig.clearSynced();
         PolyjuiceClientState.clearAll();
+        WerewolfPlayerClientState.clearAll();
         DarkMagicClientState.clear();
         // The fog region is only ever cleared by the server's exit packet, which never comes after a logout.
         UndercroftFogClientState.clear();

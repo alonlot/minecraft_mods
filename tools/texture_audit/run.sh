@@ -38,6 +38,7 @@ C=com.hogwartsmagic.client
   willow=$M.WhompingWillowModel#createBodyLayer lycan=$M.WhulvkWerewolfLycanModel#createBodyLayer \
   cart=$M.GringottsCartModel#createBodyLayer flying=$M.FlyingMobModel#createBodyLayer \
   owl=$C.OwlModel#createBodyLayer wizard=$C.WizardModel#createBodyLayer \
+  voldemort=$M.VoldemortModel#createBodyLayer \
   student=com.hogwartsmagic.entity.StudentModel#createBodyLayer statue=$C.LivingStatueModel#createBodyLayer \
   snitch=$C.GoldenSnitchModel#createBodyLayer broom_training=$C.BroomModelV2#createTrainingLayer \
   broom_nimbus=$C.BroomModelV2#createNimbusLayer broom_firebolt=$C.BroomModelV2#createFireboltLayer \

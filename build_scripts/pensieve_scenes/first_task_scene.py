@@ -258,7 +258,7 @@ GA = FG.ANCHORS
 GROUND_Y = GA['ground_y']
 GROUNDS_SET = {'templates': [{'id': 'hogwartsmagic:first_task_grounds', 'at': list(FG.TEMPLATE_AT)}],
                'schematics': [dict(FG.SCHEMATIC, id='mini_hogwarts')], 'time_of_day': FG.TIME_OF_DAY,
-               'build_ticks': 90}
+               'build_ticks': 136}            # 540k blocks (the rebuilt castle) at 4,000 a tick
 ARENA_AT = [-102.0, -6.0, 82.0]                  # the point the crowd faces: over the middle of the floor
 STAKE = GA['stake']
 PERCH = GA['nest_perch']['pos']
@@ -1025,8 +1025,9 @@ ARCH_Y = 3.0                                     # he flies the arch this high (
 ARCH_AT = [GA['bridge']['arch']['x1'] / 2.0 + GA['bridge']['arch']['x2'] / 2.0, ARCH_Y, -20.0]
 GORGE_Y = {-62.0: 6.0, -46.0: 3.5, -32.0: 3.0, -8.0: 3.0, 4.0: 2.5, 16.0: 2.0, 28.0: 2.0}   # his height down the gorge
 GORGE_IN = [[14.0, 39.0, -97.0], [2.0, 33.0, -93.0], [-2.6, 24.0, -86.0]]     # a wide turn down into the gorge
-GORGE_OUT = [[8.0, 6.0, 52.0], [13.5, 15.5, 60.0], [12.5, 24.5, 68.5], [0.0, 31.0, 71.0], [-14.0, 40.0, 67.0],
-             [-27.0, 49.0, 64.0]]                # up out of its head and round home toward the arena
+GORGE_OUT = [[-1.4, 6.0, 52.0], [-3.5, 15.5, 60.0], [-4.5, 24.5, 68.5], [-6.0, 31.0, 72.5], [-14.5, 40.0, 68.0],
+             [-27.0, 49.0, 64.0]]                # up out of its head (bent west, clear of the Great Hall's skirt) and
+                                                 # round home toward the arena, to where the egg scene picks him up
 # the slalom: off the castle's top he dives down past the round north-east tower and threads the 4-block gap between
 # the hall's east wall (x 91, 79 high) and the turret (its cone at x 96-98, 68 high), out past the north-east tower
 SLALOM = [[92.6, 64.5, -47.0], [92.8, 61.6, -56.0], [94.0, 60.8, -64.0], [96.6, 60.2, -71.5], [101.0, 57.5, -82.0]]
@@ -1450,10 +1451,12 @@ def first_contact(scene, aid, box, t0, t1, parts=None):
     return None
 
 
-SLATE_W = 80                                     # the swoop's length (ticks): down onto the roof and up again
+SLATE_W = 96                                     # the swoop's length (ticks): down onto the roof and up again (the
+                                                 # ridge lies deeper under her line than the old spire did)
 SLATE_DEBRIS = 12
-SPIRE = (66, 2)                                  # the north-west turret's spire, on her line over the castle
-SPIRE_FROM_Y = 82                                # its shingled cap from here up to the flagpole
+SPIRE = (66, 3)                                  # the entrance hall's roof ridge, on her line over the castle (the
+                                                 # rebuild took the old wing's north-west turret that stood here)
+SPIRE_FROM_Y = 74                                # its oak shingles and ridge from here up (the attic open under them)
 SLATE_REAR = 22                                  # ticks either side of the swoop's bottom she rears through
 SLATE_PITCH = 38.0
 
@@ -1824,8 +1827,8 @@ def chase_chain(sc, d, solid, arena):
 
 
 def chase_breaths(sc, d, world):
-    """Two breaths in the air (AIR_BREATH, the jaw open at 12): the great hall's south-west gable (the grounds' slate
-    patch 1), breathed at the tick in her reach whose jet (dragon_engine.fire_jet, with the breathe in place) lands
+    """Two breaths in the air (AIR_BREATH, the jaw open at 12): the entrance hall roof by the Great Hall (the
+    grounds' slate patch 1), breathed at the tick in her reach whose jet (dragon_engine.fire_jet, with the breathe in place) lands
     on it for the most ticks; then the lick (lick_breath), at the round north-east tower's roof just behind him. Her
     head is turned onto each afterwards (heads). Returns the breathe ticks."""
     T = sc.notes['T']
@@ -1865,8 +1868,10 @@ def chase_breaths(sc, d, world):
         d.anims, d.actions = anims, actions
         assert best is not None and best[0] >= 5, ('the breath never lands on %s' % name, best)
         tb = best[1]
+        nxt = min([c['t'] for c in d.anims if c['t'] > tb] or [10 ** 9])
         d.cue(tb - 12, 'AIR_BREATH', 8)
-        d.cue(tb + 44, 'FLY', 8)
+        if tb + 44 < nxt - 8:                       # back to FLY, unless the next cue (the tail whip) takes over first
+            d.cue(tb + 44, 'FLY', 8)
         d.breathe(tb, AIR_BREATH_T, tgt)
         sc.fire_hits.append((tb + 6, tb + AIR_BREATH_T, name, [lo, hi]))
         sc.notes.setdefault('roof_targets', []).append((tb, tgt))
@@ -1913,17 +1918,18 @@ def lick_breath(sc, d, world):
     V0 = K.view(sc)
     t_slot = min(range(T['fly'], T['arch']), key=lambda t: math.dist(E.track_sample(E.actor_by_id(V0, 'firebolt')['path'], t), SLOT_AT))
     anims, actions = list(d.anims), list(d.actions)
-    best = None
+    cands = []
     for tb in range(t_slot - 44, t_slot - 13, 3):
         nxt = min([c['t'] for c in anims if c['t'] > tb - 12] or [10 ** 9])
         if tb + AIR_BREATH_T > nxt - 2:
             continue
-        for tgt in faces[::2]:
+        for tgt in faces:                           # every face (every other one hangs on the tower's exact cells)
             d.anims, d.actions = list(anims), list(actions)
             d.cue(tb - 12, 'AIR_BREATH', 8)
             d.breathe(tb, AIR_BREATH_T, tgt)
             V = K.view(sc)
             hits, body, tail = 0, 9.0, (9.0, None)
+            last = None
             for t in range(tb + 2, tb + AIR_BREATH_T + 1):
                 jet = D.fire_jet(V, 'horntail', t, world)
                 if jet is None:
@@ -1932,19 +1938,64 @@ def lick_breath(sc, d, world):
                 if ln < D.FIRE_MAX_REACH - 1e-6 and math.dist([o[i] + dd[i] * ln for i in range(3)], tgt) < 2.0:
                     hits += 1
                 g = (o, dd, ln, 1.0, [])
-                body = min(body, him_gap(V, g, t))
+                # off him as assert 12 draws it: the splash where the jet meets the roof included
+                last = K.fire_geometry(V, 'horntail', t, world) or last
+                body = min(body, him_gap(V, last or g, t))
                 gt = K.fire_gap(g, broom_tail(V, 'firebolt', t))
                 if gt < tail[0]:
                     tail = (gt, t)
                 if body < LICK_BODY:
                     break
+            if last is not None and body >= LICK_BODY:   # and the gas still in flight after it (K.FIRE_AFTER)
+                for t in range(tb + AIR_BREATH_T + 1, tb + AIR_BREATH_T + K.FIRE_AFTER + 1):
+                    body = min(body, him_gap(V, last, t))
+                    if body < LICK_BODY:
+                        break
             if hits < 5 or body < LICK_BODY:
                 continue
             score = (LICK[0] <= tail[0] <= LICK[1], -abs(tail[0] - sum(LICK) / 2.0), hits)
-            if best is None or score > best[0]:
-                best = (score, tb, tgt, tail, body, hits)
+            cands.append((score, tb, tgt, tail, body, hits))
+    cands.sort(key=lambda c: c[0], reverse=True)
+
+    def drawn_gap(tb, tgt):
+        # the least gap from the drawn flame (splash and the gas after it, every quarter tick as assert 12 samples it)
+        # to him, with her head turned onto the roof as chase_heads will turn it (her snout, the jet's origin, moves)
+        h0 = list(d.head)
+        d.anims, d.actions = list(anims), list(actions)
+        d.cue(tb - 12, 'AIR_BREATH', 8)
+        d.cue(tb + 44, 'FLY', 8)
+        d.breathe(tb, AIR_BREATH_T, tgt)
+        d.hold_head(tb - 14)
+        head_track(sc, d, d.head, lambda t, q=tgt: q, tb - 4, tb + AIR_BREATH_T, 4)
+        d.look_head(tb + 50, 0, 0, None)
+        V = K.view(sc)
+        worst, last, tail = 9.0, None, (9.0, None)
+        for k in range(int((AIR_BREATH_T + K.FIRE_AFTER) / 0.25) + 1):
+            t = tb + k * 0.25
+            if t <= tb + AIR_BREATH_T:
+                g = K.fire_geometry(V, 'horntail', t, world)
+                if g is not None:
+                    last = g
+                    if k % 2 == 0:                  # check_lick's measure, on its half ticks
+                        gt = K.fire_gap(g[:4] + ([],), broom_tail(V, 'firebolt', t))
+                        if gt < tail[0]:
+                            tail = (gt, t)
+            if last is not None:
+                worst = min(worst, him_gap(V, last, t))
+        d.head = h0
+        d.a.pop('limbs', None)
+        d.sync()
+        return worst, tail
+    best, tried = None, []
+    for c in cands[:40]:
+        g, tail = drawn_gap(c[1], c[2])
+        tried.append((c[1], r3(c[2]), round(g, 2), round(tail[0], 2)))
+        if g >= LICK_BODY - 0.1 and tail[0] <= LICK[1] - 0.05:
+            best = c[:3] + (tail, round(g, 2), c[5])
+            break
+    sc.notes['lick_tried'] = tried
     d.anims, d.actions = anims, actions
-    assert best is not None and best[0][0], ('no breath licks his tail', best)
+    assert best is not None, ('no breath licks his tail and keeps off him', tried)
     _, tb, tgt, tail, body, hits = best
     d.cue(tb - 12, 'AIR_BREATH', 8)
     d.cue(tb + 44, 'FLY', 8)
@@ -2219,9 +2270,11 @@ RIM_CAM = [-13.0, 31.0, -86.0]                   # on the gorge's west rim where
 
 def chase_cuts(T, t_s, a1, a2, tc):
     """The chase's cuts from C6 on, from its beats: C7 (the insert) on the great hall breath's jaws opening, C8
-    (over his shoulder) from the breath's middle, C9 (the spire) t_s - 23, C10 (the gap) as the second breath's jaws
-    open, C11-C14 through the stoop, the north side and the gorge, C15 seven ticks before the crash."""
-    return (300, a1 - 8, a1 + 15, t_s - 23, a2 - 8, a2 + 46, a2 + 98, a2 + 154, a2 + 218, tc - 7)
+    (over his shoulder) from the breath's middle, C9 (the spire) t_s - 23, or as late as t_s - 13 so C8 holds 30 ticks
+    (the roof's smash comes soon after the breath), C10 (the gap) as the second breath's jaws open, C11-C14 through the
+    stoop, the north side and the gorge, C15 seven ticks before the crash."""
+    c9 = max(t_s - 23, min(t_s - 13, a1 + 15 + 30))
+    return (300, a1 - 8, a1 + 15, c9, a2 - 8, a2 + 46, a2 + 98, a2 + 154, a2 + 218, tc - 7)
 
 
 def insert_side(scene, t, target):

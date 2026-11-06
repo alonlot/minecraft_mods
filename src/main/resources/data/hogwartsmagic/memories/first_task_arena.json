@@ -6,9 +6,9 @@
   "next": "first_task_chase",
   "set": {
     "templates": [{"id": "hogwartsmagic:first_task_grounds", "at": [-200, -30, -200]}],
-    "schematics": [{"id": "mini_hogwarts", "at": [28, 15, -100], "rotation": 180}],
+    "schematics": [{"id": "mini_hogwarts", "at": [15, 15, -94], "rotation": 180}],
     "time_of_day": 6000,
-    "build_ticks": 90
+    "build_ticks": 136
   },
   "poses": {"standing": {}},
   "actors": [

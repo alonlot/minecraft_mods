@@ -47,10 +47,12 @@ The set
   - The ground: a Highland plateau at stand y 16 (grass, moss, coarse dirt, scattered boulders, heather), rising to
     snow-capped mountains round the set's edge so no chase-height camera sees the set end.
   - The castle: the Mini Hogwarts (SCHEMATIC, rotation 180 so its spire face looks west at the arena) on the
-    plateau, its crag foot closed with rock, its loose gravel propped.
+    plateau, its crag foot closed with rock, its loose gravel propped. It is the rebuilt castle (2026-11-05), placed
+    so the old castle inside it stands where the chase was staged (the rebuild moved it by BASE_SHIFT (0, 0, 84) in
+    a frame 13 wider): the Great Hall wing runs south from the entrance hall, its skirt along the gorge's east rim.
   - The gorge: a canyon about 36 wide and 38 deep with a stream, running north to south past the castle's west
-    side, rising into the mountains in the north. South of the viaduct it runs level to z 40, then bends 17 east
-    and climbs to its head at z 70, so the arch frames a long receding canyon under the mountains.
+    side, rising into the mountains in the north. South of the viaduct it runs level to z 40, then bends 6 west
+    (clear of the Great Hall's skirt) and climbs to its head at z 70, so the arch frames a long receding canyon.
   - The viaduct: a stone bridge across the gorge at z -20 (a deck 3 wide between parapets), from a round watch
     tower on the west rim (a corbelled machicolation under its parapet, arrow slits up every side, an oak cone) to
     a small gate arch at the castle end: a pointed central arch 20 wide over the stream (springing y -2, crown
@@ -111,7 +113,7 @@ OUT = os.path.join(STRUCTURES, 'first_task_grounds.nbt')
 RADIUS = 200
 TIME_OF_DAY = 6000
 FOG_FAR = 220
-MAX_TOTAL = 450000                      # template + schematic + fills
+MAX_TOTAL = 560000                      # template + schematic + fills: 140 build ticks, the 16 s tent covers 2 x 140
 G = 16                                  # the plateau: stand y (its top block at y 15)
 GT = G - 1
 TEMPLATE_AT = (-200, -30, -200)
@@ -131,7 +133,7 @@ def row_y(k):
     crowd stacks up into view from the arena floor)."""
     return GT + STILT + 2 * k
 CASTLE_ROT = 180
-CASTLE_AT = (28, GT, -100)
+CASTLE_AT = (15, GT, -94)               # the rebuilt castle (2026-11-05): its old towers where the v1 castle had them
 SCHEMATIC = {'id': 'hogwartsmagic:mini_hogwarts', 'at': list(CASTLE_AT), 'rotation': CASTLE_ROT}
 FILLS = []                              # the viaduct and the ground are in the template
 BRIDGE_Z = (-21, -19)
@@ -381,7 +383,8 @@ STAND_COLS = stand_footprint()
 
 # ---------------------------------------------------------------- the gorge
 GORGE_LEVEL_Z = 40                      # the floor is level from the mountains to here, south of the viaduct
-GORGE_BEND = (38, 32, 17.0)             # past z 38 the canyon bends east, 17 over the next 32
+GORGE_BEND = (38, 32, -6.0)             # past z 38 the canyon bends west, 6 over the next 32 (east of it now stands
+                                        # the Great Hall's rock skirt)
 
 
 def gorge_cx(z):
@@ -1726,7 +1729,9 @@ def support_castle(w, H):
             w.set((x, y - 1, z), 'minecraft:stone')
     for (x, z), y0 in CASTLE_COLS.items():
         g = H.get((x, z), GT)
-        if y0 - g > 10:
+        # a high bottom is the castle's own arch or bridge, left open; but the Great Hall's skirt, at the castle's foot
+        # along the gorge's east rim, is propped down the canyon wall (no lip of rock hanging over the drop)
+        if y0 - g > 10 and not (gorge_top(x, z) is not None and y0 <= GT + 4):
             continue
         for y in range(g + 1, y0):
             if (x, y, z) not in CASTLE:
@@ -1979,7 +1984,7 @@ ANCHORS = {
 
 
 # ---------------------------------------------------------------- routes and the roofs the tail smashes
-CASTLE_ROUTE = [[14, 46, 8], [32, 58, 8], [46, 82, 10], [60, 99, 2], [78, 90, -10], [86, 72, -34], [102, 62, -40],
+CASTLE_ROUTE = [[14, 46, 8], [30, 68, 10], [46, 90, 10], [60, 92, 3], [78, 90, -10], [86, 72, -34], [102, 62, -40],
                 [118, 58, -50], [116, 54, -68], [110, 52, -86], [94, 56, -104], [62, 50, -110], [30, 44, -100], [10, 36, -92]]
 GORGE_LANE_Z = [-92, -78, -62, -46, -32, -20, -8, 4, 16, 28, 40, 52, 62]
 GORGE_LANE_Y = [30, 14, 2, -4, -5, -5, -5, -5, -4, -3, 0, 6, 18]
@@ -1994,8 +1999,9 @@ def gorge_lane():
 
 ROOF_IDS = ('minecraft:oak_planks', 'minecraft:oak_stairs', 'minecraft:oak_slab', 'minecraft:spruce_planks',
             'minecraft:spruce_stairs')
-SLATE_PATCHES = [(55, 12), (76, -8), (98, -51)]  # the great hall gable at its south-west and north-east ends, and
-                                                # the north range: the roof patches nearest the castle route
+SLATE_PATCHES = [(48, 10), (76, -8), (98, -51)]  # the entrance hall roof's south slope by the Great Hall and its
+                                                # north slope, and the north range: the roof patches nearest the
+                                                # castle route (the rebuild replaced the old diagonal hall's gables)
 
 
 def find_slate_roofs(route):

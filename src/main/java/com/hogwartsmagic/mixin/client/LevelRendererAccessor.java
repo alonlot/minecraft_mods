@@ -14,4 +14,8 @@ public interface LevelRendererAccessor {
 
     @Accessor("sectionRenderDispatcher")
     SectionRenderDispatcher hogwartsmagic$sectionRenderDispatcher();
+
+    /** The renderer's own tick counter, which vanilla's cloud drift runs on (the enchanted ceiling's clouds match it). */
+    @Accessor("ticks")
+    int hogwartsmagic$ticks();
 }

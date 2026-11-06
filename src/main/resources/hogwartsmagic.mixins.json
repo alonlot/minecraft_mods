@@ -42,7 +42,8 @@
     "client.LevelRendererAccessor",
     "client.PensieveOcclusionGraphMixin",
     "client.PensieveTimeSyncMixin",
-    "client.ItemInHandRendererInvoker"
+    "client.ItemInHandRendererInvoker",
+    "client.BloomRenderTypeMixin"
   ],
   "injectors": {
     "defaultRequire": 1

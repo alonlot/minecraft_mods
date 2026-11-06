@@ -222,6 +222,7 @@ public final class SpellBeamFxRenderer {
                 drawStrands(light, m, frame);
                 drawBeads(light, m, frame);
                 drawHead(light, m, frame);
+                com.hogwartsmagic.client.fx.bloom.HeatHaze.beam(beam.style, frame.path, frame.glow);
             }
             drawShedRings(light, m, beam, now, camera);
             if (beam.style.wake != BeamStyle.WAKE_SMOKE && beam.style.wake != BeamStyle.WAKE_NONE) {
@@ -233,6 +234,8 @@ public final class SpellBeamFxRenderer {
         }
         for (SpellBeamClientState.Impact impact : SpellBeamClientState.impacts()) {
             drawImpactLight(light, m, impact, now, camera);
+            com.hogwartsmagic.client.fx.bloom.HeatHaze.strike(impact.style, impact.pos.subtract(camera),
+                    (float) ((now - impact.start) / SpellBeamClientState.IMPACT_TICKS));
         }
         for (SpellBeamClientState.Clash clash : SpellBeamClientState.clashes()) {
             drawClashLight(light, m, clash, now, camera);

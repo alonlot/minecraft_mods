@@ -32,7 +32,7 @@ import java.util.List;
  */
 @Mod.EventBusSubscriber(modid = ExampleMod.MODID, value = Dist.CLIENT)
 public final class ShieldDomeRenderer {
-    private static final RenderType HEX = ModRenderTypes.ceilingGlow(
+    private static final RenderType HEX = ModRenderTypes.magicGlow(
             ResourceLocation.fromNamespaceAndPath(ExampleMod.MODID, "textures/entity/shield_hex.png"));
 
     private static final int LIGHT = LightTexture.FULL_BRIGHT;

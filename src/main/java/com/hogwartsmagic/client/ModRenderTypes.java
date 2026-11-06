@@ -198,6 +198,39 @@ public final class ModRenderTypes extends RenderType {
     );
 
     /**
+     * Fire light (dragon fire's body, puffs and embers): exactly {@link #ceilingGlow}, but under its own name so the
+     * bloom pass ({@code client.fx.bloom}) lets it glow into the air round it and makes the air over it shimmer.
+     */
+    public static RenderType fireGlow(ResourceLocation texture) {
+        return create("hogwartsmagic_fire_glow", DefaultVertexFormat.NEW_ENTITY, VertexFormat.Mode.QUADS, 4096,
+                false, false,
+                RenderType.CompositeState.builder()
+                        .setShaderState(RENDERTYPE_EYES_SHADER)
+                        .setTextureState(new RenderStateShard.TextureStateShard(texture, true, false))
+                        .setTransparencyState(ADDITIVE_TRANSPARENCY)
+                        .setWriteMaskState(COLOR_WRITE)
+                        .setCullState(NO_CULL)
+                        .createCompositeState(false));
+    }
+
+    /**
+     * Textured spell light (the Protego Maxima and memory shield domes' hex lattice): exactly {@link #ceilingGlow},
+     * but under its own name so the bloom pass lets it glow. The enchanted ceiling keeps {@link #ceilingGlow} and does
+     * not bloom: a bright sky should not.
+     */
+    public static RenderType magicGlow(ResourceLocation texture) {
+        return create("hogwartsmagic_magic_glow", DefaultVertexFormat.NEW_ENTITY, VertexFormat.Mode.QUADS, 4096,
+                false, false,
+                RenderType.CompositeState.builder()
+                        .setShaderState(RENDERTYPE_EYES_SHADER)
+                        .setTextureState(new RenderStateShard.TextureStateShard(texture, true, false))
+                        .setTransparencyState(ADDITIVE_TRANSPARENCY)
+                        .setWriteMaskState(COLOR_WRITE)
+                        .setCullState(NO_CULL)
+                        .createCompositeState(false));
+    }
+
+    /**
      * Depth only: no colour, writes depth, no culling. The rowing boat's lid over its open hull, drawn just before the
      * sea so the waves never show inside the boat.
      */

@@ -3,7 +3,6 @@ package com.hogwartsmagic.client;
 import com.hogwartsmagic.ExampleMod;
 import com.hogwartsmagic.ModSounds;
 import com.hogwartsmagic.block.entity.CaveInimicumWardBlockEntity;
-import com.hogwartsmagic.caveinimicum.CaveInimicumWardBounds;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -11,7 +10,6 @@ import net.minecraft.client.resources.sounds.AbstractTickableSoundInstance;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.client.resources.sounds.SoundInstance;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.core.BlockPos;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
@@ -41,10 +39,9 @@ import static com.hogwartsmagic.client.SpellFxGeometry.*;
  * apart in drifting patches and throws its sparkles outward. Hidden while Cave Inimicum conceals the ward. The dome is
  * the real barrier: CaveInimicumManager stops projectiles where they cross this sphere.
  *
- * <p><b>The outline</b> (Cave Inimicum's teal, for a few seconds when the ward is primed, sized or clicked): light
- * traces the cube's edges, the floor first, then up the corners, then closed across the top, a star riding each
- * growing tip; once drawn, beads of light run along the edges, a sigil turns at every corner and the lines shed
- * sparkles into the air.
+ * <p><b>The outline</b> (Cave Inimicum's teal, for a few seconds when the ward is primed, sized or clicked) traces the
+ * same dome in lines of light: a foot ring round the ground, eight ribs climbing to the crown and two rings between
+ * them, beads running along them, sigils at the ribs' feet and the crown, sparkles shed into the air.
  *
  * <p>The dome is heard as well as seen, from the point of its skin nearest the listener: the weave rising, a soft
  * hum while it stands, the sinking away or the shatter. Played here on the change of state, so the sound lands with
@@ -101,8 +98,7 @@ public final class WardFxRenderer {
         float dissolve;
         float flare;
         float burstAge = -1.0f;
-        // The outline's cube.
-        double x0, y0, z0, x1, y1, z1;
+        // The outline (the same dome, traced in teal).
         float outlineStrength;
         float trace;
     }
@@ -175,15 +171,6 @@ public final class WardFxRenderer {
             f.cy = centre.y - camera.y;
             f.cz = centre.z - camera.z;
             f.radius = (float) ward.barrierRadius();
-            CaveInimicumWardBounds bounds = ward.bounds();
-            BlockPos min = bounds.min();
-            BlockPos max = bounds.max();
-            f.x0 = min.getX() - camera.x;
-            f.y0 = min.getY() - camera.y;
-            f.z0 = min.getZ() - camera.z;
-            f.x1 = max.getX() + 1.0 - camera.x;
-            f.y1 = max.getY() + 1.0 - camera.y;
-            f.z1 = max.getZ() + 1.0 - camera.z;
             if (f.cx * f.cx + f.cy * f.cy + f.cz * f.cz > MAX_DISTANCE * MAX_DISTANCE) {
                 continue;
             }
@@ -523,87 +510,133 @@ public final class WardFxRenderer {
 
     // ---- the outline ---------------------------------------------------------------------------------------------
 
+    private static final int RIBS = 8;
+    /** The two rings round the outline's dome, by elevation. */
+    private static final float[] RINGS = {0.52f, 1.05f};
+    /** Lifted off the ground a touch, so the foot ring is not swallowed by the grass it lies on. */
+    private static final float FOOT = 0.015f;
+
+    /**
+     * The ward's reach drawn as a dome of teal light, the same dome the barrier raises: the foot ring runs round the
+     * ground from the front both ways and closes behind, eight ribs climb from it to the crown, then two rings close
+     * between the ribs, a star riding every growing tip. Once drawn, beads of light run up the ribs and round the
+     * rings, a sigil turns at each rib's foot and at the crown, and the lines shed sparkles into the air.
+     */
     private static void drawOutline(VertexConsumer out, Matrix4f m, Frame f) {
-        double[][] c = corners(f);
         float strength = f.outlineStrength;
-        float bottom = smoothstep(0.0f, 0.42f, f.trace);
-        float rise = smoothstep(0.25f, 0.7f, f.trace);
-        float top = smoothstep(0.58f, 1.0f, f.trace);
-        // Floor and roof close from both corners towards the middle; the uprights climb from the floor.
-        for (int[] e : EDGES) {
-            Vec3 a = vec(c[e[0]]);
-            Vec3 b = vec(c[e[1]]);
-            if (e[2] == 1) {
-                traceLine(out, m, f, a, a.lerp(b, rise), strength, rise < 1.0f);
-            } else {
-                float p = e[2] == 0 ? bottom : top;
-                Vec3 mid = a.lerp(b, 0.5);
-                traceLine(out, m, f, a, a.lerp(mid, p), strength, p < 1.0f);
-                traceLine(out, m, f, b, b.lerp(mid, p), strength, p < 1.0f);
+        float radius = f.radius * 1.02f;
+        float foot = smoothstep(0.0f, 0.38f, f.trace);
+        float climb = smoothstep(0.22f, 0.72f, f.trace);
+        float round = smoothstep(0.58f, 1.0f, f.trace);
+        float crown = Mth.HALF_PI - 0.002f;
+        traceArc(out, m, f, sphereArc(f, radius, FOOT, FOOT, 0.0f, Mth.PI * foot), strength, foot < 1.0f);
+        traceArc(out, m, f, sphereArc(f, radius, FOOT, FOOT, 0.0f, -Mth.PI * foot), strength, foot < 1.0f);
+        float step = Mth.TWO_PI / RIBS;
+        for (int k = 0; k < RIBS; k++) {
+            float phi = k * step;
+            traceArc(out, m, f, sphereArc(f, radius, FOOT, FOOT + (crown - FOOT) * climb, phi, phi), strength,
+                    climb < 1.0f);
+            for (float e : RINGS) {
+                traceArc(out, m, f, sphereArc(f, radius, e, e, phi, phi + step * round), 0.8f * strength,
+                        round < 1.0f);
             }
         }
+
         float drawn = smoothstep(0.75f, 1.0f, f.trace) * strength;
         if (drawn <= 0.004f) {
             return;
         }
-        for (int n = 0; n < EDGES.length; n++) {
-            Vec3 a = vec(c[EDGES[n][0]]);
-            Vec3 b = vec(c[EDGES[n][1]]);
-            double length = a.distanceTo(b);
-            // Beads of light running along the edge.
+        // Beads of light: one climbing each rib, two round each ring, four round the foot.
+        for (int k = 0; k < RIBS; k++) {
+            float e = FOOT + frac(f.now * 0.006f + hash(k, 1, f.seed)) * (crown - FOOT);
+            bead(out, m, onSphere(f, e, k * step, radius), drawn);
+        }
+        for (int r = 0; r < RINGS.length; r++) {
             for (int k = 0; k < 2; k++) {
-                float t = frac(hash(n, k, f.seed) + f.now * (float) (0.12 / Math.max(1.0, length)));
-                Vec3 pos = a.lerp(b, t);
-                billboard(out, m, pos, 0.35f, 0.35f * drawn, TEAL[0], TEAL[1], TEAL[2], false, 3, 10);
-                billboard(out, m, pos, 0.1f, 0.9f * drawn, TEAL_HOT[0], TEAL_HOT[1], TEAL_HOT[2], true, 2, 8);
-            }
-            // Sparkles shed off the line, drifting up and away.
-            int shed = Math.max(2, (int) (length / 3.0));
-            for (int k = 0; k < shed; k++) {
-                float life = frac(f.now / 45.0f + hash(n, k + 10, f.seed));
-                Vec3 drift = randomDirection(n * 131 + k + f.seed).scale(0.6 * life).add(0.0, 0.7 * life, 0.0);
-                Vec3 pos = a.lerp(b, hash(n, k + 20, f.seed)).add(drift);
-                star(out, m, pos, 0.11f, drawn * Mth.sin(life * Mth.PI), TEAL_HOT);
+                float phi = frac(f.now * 0.002f * (r % 2 == 0 ? 1.0f : -1.0f) + hash(r, k + 5, f.seed)) * Mth.TWO_PI;
+                bead(out, m, onSphere(f, RINGS[r], phi, radius), drawn);
             }
         }
-        // A sigil turning at every corner.
-        for (int k = 0; k < c.length; k++) {
-            Vec3 pos = vec(c[k]);
-            if (pos.lengthSqr() < 1.0E-6) {
-                continue;
-            }
-            billboard(out, m, pos, 0.75f, 0.3f * drawn, TEAL[0], TEAL[1], TEAL[2], false, 3, 12);
-            billboard(out, m, pos, 0.14f, 0.85f * drawn, TEAL_HOT[0], TEAL_HOT[1], TEAL_HOT[2], true, 2, 8);
-            Vec3[] axes = frame(pos.scale(-1.0).normalize());
-            double spin = f.now * 0.06 * (k % 2 == 0 ? 1.0 : -1.0);
-            for (int arcIndex = 0; arcIndex < 3; arcIndex++) {
-                double from = spin + arcIndex * Math.PI * 2.0 / 3.0;
-                arc(out, m, pos, axes[0], axes[1], 0.48f, 0.035f, 0.75f * drawn, TEAL_HOT[0], TEAL_HOT[1], TEAL_HOT[2],
-                        8, from, from + 1.25);
-            }
-            ring(out, m, pos, axes[0], axes[1], 0.3f, 0.025f, 0.45f * drawn, TEAL[0], TEAL[1], TEAL[2], 20);
+        for (int k = 0; k < 4; k++) {
+            float phi = frac(f.now * 0.0015f + k * 0.25f) * Mth.TWO_PI;
+            bead(out, m, onSphere(f, FOOT, phi, radius), drawn);
+        }
+        // Sparkles shed off the lines, drifting up and away.
+        int shed = Mth.clamp(Math.round(radius * 3.0f), 16, 80);
+        for (int k = 0; k < shed; k++) {
+            float life = frac(f.now / 45.0f + hash(k, 10, f.seed));
+            boolean onRib = hash(k, 11, f.seed) < 0.6f;
+            float e = onRib ? FOOT + hash(k, 12, f.seed) * (crown - FOOT) : RINGS[k % RINGS.length];
+            float phi = onRib ? (k % RIBS) * step : hash(k, 13, f.seed) * Mth.TWO_PI;
+            Vec3 drift = randomDirection(k * 131 + f.seed).scale(0.6 * life).add(0.0, 0.7 * life, 0.0);
+            star(out, m, onSphere(f, e, phi, radius).add(drift), 0.11f, drawn * Mth.sin(life * Mth.PI), TEAL_HOT);
+        }
+        // A sigil turning at the foot of every rib, and at the crown.
+        for (int k = 0; k <= RIBS; k++) {
+            Vec3 pos = k == RIBS ? onSphere(f, Mth.HALF_PI, 0.0f, radius) : onSphere(f, FOOT, k * step, radius);
+            sigil(out, m, f, pos, k, drawn * (k == RIBS ? 1.2f : 1.0f));
         }
     }
 
-    /** One edge of the outline from {@code a} to {@code tip}: a wide teal glow, a hot thread, a star at the tip. */
-    private static void traceLine(VertexConsumer out, Matrix4f m, Frame f, Vec3 a, Vec3 tip, float strength,
-                                  boolean growing) {
-        double length = a.distanceTo(tip);
-        if (length < 0.02) {
+    private static void bead(VertexConsumer out, Matrix4f m, Vec3 pos, float alpha) {
+        billboard(out, m, pos, 0.35f, 0.35f * alpha, TEAL[0], TEAL[1], TEAL[2], false, 3, 10);
+        billboard(out, m, pos, 0.1f, 0.9f * alpha, TEAL_HOT[0], TEAL_HOT[1], TEAL_HOT[2], true, 2, 8);
+    }
+
+    private static void sigil(VertexConsumer out, Matrix4f m, Frame f, Vec3 pos, int k, float alpha) {
+        if (pos.lengthSqr() < 1.0E-6) {
             return;
         }
-        Vec3[] path = subdivide(a, tip, length);
+        billboard(out, m, pos, 0.75f, 0.3f * alpha, TEAL[0], TEAL[1], TEAL[2], false, 3, 12);
+        billboard(out, m, pos, 0.14f, 0.85f * alpha, TEAL_HOT[0], TEAL_HOT[1], TEAL_HOT[2], true, 2, 8);
+        Vec3[] axes = frame(pos.scale(-1.0).normalize());
+        double spin = f.now * 0.06 * (k % 2 == 0 ? 1.0 : -1.0);
+        for (int arcIndex = 0; arcIndex < 3; arcIndex++) {
+            double from = spin + arcIndex * Math.PI * 2.0 / 3.0;
+            arc(out, m, pos, axes[0], axes[1], 0.48f, 0.035f, 0.75f * alpha, TEAL_HOT[0], TEAL_HOT[1], TEAL_HOT[2],
+                    8, from, from + 1.25);
+        }
+        ring(out, m, pos, axes[0], axes[1], 0.3f, 0.025f, 0.45f * alpha, TEAL[0], TEAL[1], TEAL[2], 20);
+    }
+
+    /**
+     * Points on the dome from ({@code e0}, {@code phi0}) to ({@code e1}, {@code phi1}), elevation and angle moving
+     * together, about one every half block; null when there is nothing yet to draw.
+     */
+    private static Vec3[] sphereArc(Frame f, float radius, float e0, float e1, float phi0, float phi1) {
+        float de = e1 - e0;
+        float dp = (phi1 - phi0) * Mth.cos((e0 + e1) * 0.5f);
+        double length = radius * Math.sqrt(de * de + dp * dp);
+        if (length < 0.02) {
+            return null;
+        }
+        int segments = Mth.clamp((int) Math.ceil(length / 0.5), 2, 96);
+        Vec3[] path = new Vec3[segments + 1];
+        for (int i = 0; i <= segments; i++) {
+            float t = i / (float) segments;
+            path[i] = onSphere(f, e0 + de * t, phi0 + (phi1 - phi0) * t, radius);
+        }
+        return path;
+    }
+
+    /** One line of the outline along {@code path}: a wide teal glow, a hot thread, a star at its tip while it grows. */
+    private static void traceArc(VertexConsumer out, Matrix4f m, Frame f, Vec3[] path, float strength,
+                                 boolean growing) {
+        if (path == null) {
+            return;
+        }
         float[] width = new float[path.length];
         float[] alphas = new float[path.length];
         for (int i = 0; i < path.length; i++) {
             // Light breathing along the line, never quite even.
-            float wave = 0.7f + 0.3f * Mth.sin((float) (i * 0.9) - f.now * 0.25f);
+            float wave = 0.7f + 0.3f * Mth.sin(i * 0.45f - f.now * 0.25f);
             alphas[i] = 0.45f * strength * wave;
-            width[i] = 0.16f * (0.85f + 0.15f * Mth.sin(i * 1.7f + f.now * 0.11f));
+            width[i] = 0.16f * (0.85f + 0.15f * Mth.sin(i * 0.85f + f.now * 0.11f));
         }
         ribbon(out, m, path, width, alphas, 1.0f, 1.0f, TEAL[0], TEAL[1], TEAL[2]);
         ribbon(out, m, path, width, alphas, 0.2f, 2.0f, TEAL_HOT[0], TEAL_HOT[1], TEAL_HOT[2]);
         if (growing) {
+            Vec3 tip = path[path.length - 1];
             billboard(out, m, tip, 0.5f, 0.5f * strength, TEAL[0], TEAL[1], TEAL[2], false, 3, 10);
             star(out, m, tip, 0.3f, strength, TEAL_HOT);
         }
@@ -681,30 +714,6 @@ public final class WardFxRenderer {
 
     // ---- shared ----------------------------------------------------------------------------------------------------
 
-    /** Corner indices of each edge, and its kind: 0 floor, 1 upright, 2 roof. */
-    private static final int[][] EDGES = {
-            {0, 1, 0}, {1, 2, 0}, {2, 3, 0}, {3, 0, 0},
-            {0, 4, 1}, {1, 5, 1}, {2, 6, 1}, {3, 7, 1},
-            {4, 5, 2}, {5, 6, 2}, {6, 7, 2}, {7, 4, 2},
-    };
-
-    private static double[][] corners(Frame f) {
-        return new double[][]{
-                {f.x0, f.y0, f.z0}, {f.x1, f.y0, f.z0}, {f.x1, f.y0, f.z1}, {f.x0, f.y0, f.z1},
-                {f.x0, f.y1, f.z0}, {f.x1, f.y1, f.z0}, {f.x1, f.y1, f.z1}, {f.x0, f.y1, f.z1},
-        };
-    }
-
-    /** About a point a block, so strips stay camera-facing along their whole length. */
-    private static Vec3[] subdivide(Vec3 a, Vec3 b, double length) {
-        int segments = Mth.clamp((int) Math.ceil(length), 1, 48);
-        Vec3[] path = new Vec3[segments + 1];
-        for (int i = 0; i <= segments; i++) {
-            path[i] = a.lerp(b, i / (double) segments);
-        }
-        return path;
-    }
-
     /** A little four-rayed star facing the camera, white at its heart and {@code colour} along its rays. */
     private static void star(VertexConsumer out, Matrix4f m, Vec3 pos, float size, float alpha, float[] colour) {
         if (alpha <= 0.004f || pos.lengthSqr() < 1.0E-6) {
@@ -724,10 +733,6 @@ public final class WardFxRenderer {
             vertex(out, m, pos.add(side.scale(-size * 0.22)), r, g, b, 0.0f);
         }
         billboard(out, m, pos, size * 0.6f, alpha * 0.35f, r, g, b, false, 2, 8);
-    }
-
-    private static Vec3 vec(double[] p) {
-        return new Vec3(p[0], p[1], p[2]);
     }
 
     private static float gauss(float x) {

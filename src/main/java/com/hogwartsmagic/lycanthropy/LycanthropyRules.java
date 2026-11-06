@@ -51,6 +51,8 @@ public final class LycanthropyRules {
      * player, and the beast takes them over completely (the server drives the body until dawn).
      */
     public static final int SKIPPED_MOONS_BEFORE_FERAL = 2;
+    /** Even a wolf that was never starved takes over on this share of full moons. */
+    public static final double FERAL_CHANCE = 0.40;
     /** A feral beast hunts whatever lives within this many blocks, nearest first. */
     public static final double FERAL_HUNT_RANGE = 20.0;
     /** Its velocity (blocks per tick) chasing prey, and wandering when there is none. */
@@ -111,6 +113,14 @@ public final class LycanthropyRules {
     /** Whether this full moon the beast takes over: enough full moons in a row were slept away. */
     public static boolean feralDue(int skippedInARow) {
         return skippedInARow >= SKIPPED_MOONS_BEFORE_FERAL;
+    }
+
+    /**
+     * Whether the beast takes over at this change: always when starved, otherwise on a roll of FERAL_CHANCE.
+     * roll: uniform in [0, 1).
+     */
+    public static boolean turnsFeral(int skippedInARow, double roll) {
+        return feralDue(skippedInARow) || roll < FERAL_CHANCE;
     }
 
     /** A cursed player can lie down to sleep unless the starved wolf is due and tonight is the full moon. */

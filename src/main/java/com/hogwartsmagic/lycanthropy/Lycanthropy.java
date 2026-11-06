@@ -283,7 +283,7 @@ public final class Lycanthropy {
     }
 
     private static void turnBeast(ServerPlayer player, CompoundTag curse) {
-        boolean feral = LycanthropyRules.feralDue(curse.getInt(SKIPPED_MOONS));
+        boolean feral = LycanthropyRules.turnsFeral(curse.getInt(SKIPPED_MOONS), player.getRandom().nextDouble());
         if (feral) {
             curse.putBoolean(FERAL, true);
             curse.putInt(SKIPPED_MOONS, 0); // the wolf has been fed

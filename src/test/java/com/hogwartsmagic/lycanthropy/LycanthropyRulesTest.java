@@ -68,6 +68,14 @@ class LycanthropyRulesTest {
     }
 
     @Test
+    void anyFullMoonCanTakeControl() {
+        assertTrue(LycanthropyRules.turnsFeral(0, 0.39), "40% of ordinary full moons");
+        assertFalse(LycanthropyRules.turnsFeral(0, 0.40));
+        assertFalse(LycanthropyRules.turnsFeral(1, 0.99), "one slept-through moon adds nothing");
+        assertTrue(LycanthropyRules.turnsFeral(LycanthropyRules.SKIPPED_MOONS_BEFORE_FERAL, 0.99), "a starved wolf always does");
+    }
+
+    @Test
     void aFeralBeastChasesFasterThanItWanders() {
         assertTrue(LycanthropyRules.FERAL_CHASE_SPEED > LycanthropyRules.FERAL_WANDER_SPEED);
     }

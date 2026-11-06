@@ -8,6 +8,7 @@
     "NoiseGeneratorSettingsMixin",
     "PlayerChunkSenderMixin",
     "LivingEntityStunMixin",
+    "CreeperLingeringCloudMixin",
     "ServerGamePacketListenerMixin",
     "FoodDataBleedingMixin",
     "PlayerBleedingMixin",

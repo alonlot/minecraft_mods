@@ -139,6 +139,12 @@ public final class ImperioThralls {
         return thrall == null ? null : thrall.ownerId;
     }
 
+    /** True when the Strength {@code entity} carries is the one Imperio gave it (in-memory map only). */
+    public static boolean grantedStrength(Entity entity) {
+        Thrall thrall = THRALLS.get(entity.getUUID());
+        return thrall != null && thrall.addedStrength;
+    }
+
     public static int countFor(UUID ownerId) {
         int count = 0;
         for (Thrall thrall : THRALLS.values()) {

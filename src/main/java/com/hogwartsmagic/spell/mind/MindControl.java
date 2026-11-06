@@ -124,6 +124,34 @@ public final class MindControl {
                 || (feral != null && entity.hasEffect(feral));
     }
 
+    /**
+     * The effects a dying creeper's lingering cloud must not hand on: the mind-control markers (Imperius,
+     * possession, rooted, feral) belong to one body and one session, and so does the Strength Imperio lent
+     * a thrall. Splashed, they'd make ownerless "thralls" that no session ever releases. Server side only.
+     */
+    public static java.util.Collection<net.minecraft.world.effect.MobEffectInstance> withoutBodyBoundEffects(
+            LivingEntity body, java.util.Collection<net.minecraft.world.effect.MobEffectInstance> effects) {
+        boolean imperioStrength = ImperioThralls.grantedStrength(body);
+        java.util.List<net.minecraft.world.effect.MobEffectInstance> kept = new java.util.ArrayList<>(effects.size());
+        for (net.minecraft.world.effect.MobEffectInstance effect : effects) {
+            Holder<MobEffect> type = effect.getEffect();
+            boolean bound = isMarker(type, ExampleMod.IMPERIUS) || isMarker(type, ExampleMod.POSSESSED)
+                    || isMarker(type, ExampleMod.POSSESSING) || isMarker(type, ExampleMod.ROOTED)
+                    || isMarker(type, ExampleMod.FERAL)
+                    || (imperioStrength && type.value() == net.minecraft.world.effect.MobEffects.DAMAGE_BOOST.value()
+                        && effect.getAmplifier() == 0);
+            if (!bound) {
+                kept.add(effect);
+            }
+        }
+        return kept;
+    }
+
+    private static boolean isMarker(Holder<MobEffect> type,
+                                    net.minecraftforge.registries.RegistryObject<MobEffect> marker) {
+        return marker.isPresent() && type.value() == marker.get();
+    }
+
     /** A feral werewolf: the curse, not a wizard, holds the body. Safe on both sides. */
     public static boolean isFeral(LivingEntity entity) {
         Holder<MobEffect> feral = feralHolder;

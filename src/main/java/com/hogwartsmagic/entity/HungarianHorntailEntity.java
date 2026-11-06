@@ -5,6 +5,7 @@ import com.hogwartsmagic.fx.CreatureFx;
 import com.hogwartsmagic.fx.Fx;
 import com.hogwartsmagic.fx.FxKinds;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
@@ -36,9 +37,10 @@ import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.ServerLevelAccessor;
-import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.BaseFireBlock;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
@@ -749,8 +751,8 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
         this.yHeadRot = (float) (Math.atan2(-dir.x, dir.z) * Mth.RAD_TO_DEG);
         Vec3 mouth = mouthPos();
 
-        double jet = jetLength(mouth, dir);
-        Vec3 end = mouth.add(dir.scale(jet));
+        HitResult landed = jetHit(mouth, dir);
+        double jet = jetLength(mouth, landed);
 
         // The flame itself is drawn on the clients (client/pensieve/DragonFireRenderer, the same fire as the First
         // Task memory) from the synched aim and the model snout; only the damage and the ignition live here.
@@ -758,17 +760,21 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
         // Damage on a slower cadence — LivingEntity invulnerability makes per-tick chip damage useless.
         if (t % 8 == 4) applyBreathDamage(sl, mouth, dir, jet);
 
-        // Scorch the ground it is pointed at.
-        if (this.random.nextFloat() < (isRaging() ? 0.14F : 0.08F)) {
-            igniteAt(sl, end);
+        // Set alight whatever the jet lands on.
+        if (t % 2 == 0 && landed instanceof BlockHitResult bh && bh.getType() == HitResult.Type.BLOCK) {
+            burnWhereItLands(sl, bh);
         }
     }
 
-    /** Distance the jet travels before something solid stops it. */
-    private double jetLength(Vec3 mouth, Vec3 dir) {
+    /** The first block the jet runs into within its range (a MISS if none). */
+    private HitResult jetHit(Vec3 mouth, Vec3 dir) {
         Vec3 far = mouth.add(dir.scale(BREATH_RANGE));
-        HitResult hit = this.level().clip(new ClipContext(mouth, far,
+        return this.level().clip(new ClipContext(mouth, far,
                 ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, this));
+    }
+
+    /** Distance the jet travels before something solid stops it. */
+    private double jetLength(Vec3 mouth, HitResult hit) {
         if (hit.getType() == HitResult.Type.MISS) return BREATH_RANGE;
         return Math.max(1.5D, hit.getLocation().distanceTo(mouth));
     }
@@ -789,16 +795,26 @@ public class HungarianHorntailEntity extends Monster implements HorntailPoseSour
         }
     }
 
-    private void igniteAt(ServerLevel sl, Vec3 near) {
+    /**
+     * Lights fire around the face the jet hit: the cell in front of it, plus a few random cells of the
+     * patch around it (wider while raging). Vanilla fire placement, so flames cling to the sides of
+     * wood and leaves as well as sit on floors, and the fire then spreads and eats burnable blocks
+     * the usual way. Needs {@code mobGriefing}; refused inside a Cave Inimicum ward.
+     */
+    private void burnWhereItLands(ServerLevel sl, BlockHitResult hit) {
         if (!sl.getGameRules().getBoolean(GameRules.RULE_MOBGRIEFING)) return;
-        BlockPos pos = BlockPos.containing(near.x, near.y, near.z);
-        for (BlockPos candidate : new BlockPos[]{pos, pos.above(), pos.below()}) {
-            if (sl.isEmptyBlock(candidate) && !sl.isEmptyBlock(candidate.below())
-                    && sl.getBlockState(candidate.below()).isSolidRender(sl, candidate.below())
-                    && com.hogwartsmagic.spell.TerrainRules.canPlace(sl, candidate, this)) {
-                sl.setBlock(candidate, Blocks.FIRE.defaultBlockState(), 11);
-                return;
-            }
+        Direction face = hit.getDirection();
+        BlockPos front = hit.getBlockPos().relative(face);
+        int r = isRaging() ? 2 : 1;
+        int tries = isRaging() ? 4 : 3;
+        for (int i = 0; i < tries; i++) {
+            BlockPos p = i == 0 ? front : front.offset(
+                    this.random.nextInt(2 * r + 1) - r,
+                    this.random.nextInt(2 * r + 1) - r,
+                    this.random.nextInt(2 * r + 1) - r);
+            if (!sl.isLoaded(p) || !BaseFireBlock.canBePlacedAt(sl, p, face)) continue;
+            if (!com.hogwartsmagic.spell.TerrainRules.canPlace(sl, p, this)) continue;
+            sl.setBlock(p, BaseFireBlock.getState(sl, p), 11);
         }
     }
 

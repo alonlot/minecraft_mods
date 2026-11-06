@@ -6,6 +6,8 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.entity.layers.EyesLayer;
 import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.MobRenderer;
@@ -17,7 +19,8 @@ import net.minecraft.world.entity.npc.Villager;
 
 /**
  * Daytime: delegates to a vanilla villager renderer via a client-only surrogate entity.
- * Night (werewolf): Whulvk werewolf model and texture.
+ * Night (werewolf): Whulvk werewolf model, painted texture (tools/werewolf_harness/paint_werewolf.py),
+ * glowing eyes, animated by {@link com.hogwartsmagic.client.model.WerewolfAnimator}.
  */
 public class LycanthropeVillagerRenderer extends MobRenderer<LycanthropeVillagerEntity, WhulvkWerewolfLycanModel> {
 
@@ -29,7 +32,17 @@ public class LycanthropeVillagerRenderer extends MobRenderer<LycanthropeVillager
 
     public LycanthropeVillagerRenderer(EntityRendererProvider.Context context) {
         super(context, new WhulvkWerewolfLycanModel(context.bakeLayer(WhulvkWerewolfLycanModel.LAYER_LOCATION)), 0.55F);
+        // amber eyes that glow in the dark (transparent everywhere but the irises)
+        this.addLayer(new EyesLayer<>(this) {
+            @Override
+            public RenderType renderType() {
+                return EYES;
+            }
+        });
     }
+
+    private static final RenderType EYES = RenderType.eyes(
+            ResourceLocation.fromNamespaceAndPath("hogwartsmagic", "textures/entity/lycan_werewolf_eyes.png"));
 
     private Villager getOrCreateSurrogate(ClientLevel level) {
         if (this.villagerSurrogate == null || this.surrogateLevel != level || !this.villagerSurrogate.isAlive()) {

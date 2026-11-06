@@ -10,7 +10,6 @@ import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.DifficultyInstance;
 import net.minecraft.world.damagesource.DamageSource;
-import net.minecraft.world.entity.AnimationState;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobSpawnType;
 import net.minecraft.world.entity.Mob;
@@ -19,7 +18,10 @@ import net.minecraft.world.entity.SpawnGroupData;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import java.util.EnumSet;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.ai.goal.FloatGoal;
+import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
 import net.minecraft.world.entity.ai.goal.MeleeAttackGoal;
 import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
@@ -62,31 +64,39 @@ public class LycanthropeVillagerEntity extends PathfinderMob {
     /** Server: min ticks between day/night form flips (avoids rapid toggles from sleep/commands). */
     private static final int TRANSFORM_COOLDOWN_TICKS = 100;
 
-    /** Client-side villager→werewolf morph (~10s animation + partial-tick buffer). */
-    private static final int MORPH_TO_WOLF_TICKS = 205;
-    private static final int MORPH_TO_HUMAN_TICKS = 29;
+    /** Villager to werewolf (3 s) and back (1.5 s); the server freezes the mob for as long. */
+    public static final int MORPH_TO_WOLF_TICKS = 60;
+    public static final int MORPH_TO_HUMAN_TICKS = 30;
+    /** Server: the transformation's climax, where it rears up and howls (ticks left). */
+    private static final int MORPH_HOWL_AT_TICKS_LEFT = 18;
+    public static final int ATTACK_ANIM_TICKS = 12;
+    public static final int HOWL_ANIM_TICKS = 60;
 
-    /** Hysteresis on {@link #walkAnimation} speed so walk/idle do not restart every tick at the threshold. */
-    private static final float WOLF_WALK_SPEED_ENTER = 0.38F;
-    private static final float WOLF_WALK_SPEED_EXIT = 0.14F;
-
-    public final AnimationState humanIdleAnimationState = new AnimationState();
-    public final AnimationState wolfIdleAnimationState = new AnimationState();
-    public final AnimationState walkWolfAnimationState = new AnimationState();
-    public final AnimationState idleToWolfAnimationState = new AnimationState();
-    public final AnimationState wolfToIdleAnimationState = new AnimationState();
+    /** Entity events (61/62: see the event-byte note in memory, 21/35/63 crash the client). */
+    private static final byte EVENT_SWIPE = 61;
+    private static final byte EVENT_HOWL = 62;
 
     private Boolean clientPrevWerewolfForm;
     private boolean clientMorphingToWolf;
     private boolean clientMorphingToHuman;
     private int clientMorphStartTick;
-    /** Client: smoothed walk vs idle for wolf locomotion (see {@link #tickClientWolfWalkHysteresis}). */
-    private boolean clientWolfLegsMoving;
 
-    /** Client: renderer {@code ageInTicks} captured on the first frame of villager→werewolf morph (see model). */
-    private float clientMorphToWolfAnimBaselineAgeInTicks = Float.NaN;
+    /** Client animation inputs, each with its previous-tick value for partial-tick interpolation. */
+    private float clientStride, clientStrideO;
+    private float clientMove, clientMoveO;
+    private float clientQuad, clientQuadO;
+    private float clientSnarl, clientSnarlO;
+    private int clientAttackStartTick = Integer.MIN_VALUE / 2;
+    private boolean clientAttackLeft;
+    private int clientHowlStartTick = Integer.MIN_VALUE / 2;
 
     private int transformCooldownTicks;
+
+    /** Server: ticks left of a transformation (mob frozen, no attacks). */
+    private int transformingTicks;
+    /** Server: ticks left of a howl (frozen unless it has a target). */
+    private int howlingTicks;
+    private boolean transformingToWolf;
 
     /**
      * Server: whether {@link #registerGoalsForCurrentForm()} last ran for werewolf form ({@code true}) or human ({@code false}).
@@ -150,30 +160,56 @@ public class LycanthropeVillagerEntity extends PathfinderMob {
         return isWerewolfForm() || isClientMorphingToHuman();
     }
 
-    /**
-     * Client: whether to drive the wolf walk cycle vs idle. Uses the same smoothed signal as vanilla
-     * limb swing ({@link #walkAnimation}), with hysteresis to avoid animation restarts.
-     */
-    public boolean isClientWolfLegsMoving() {
-        return this.level().isClientSide && this.clientWolfLegsMoving;
+    // ---- client animation inputs (read by the werewolf model each frame) -----------------------
+
+    public float clientStride(float pt) {
+        return Mth.lerp(pt, this.clientStrideO, this.clientStride);
     }
 
-    /** Client: capture renderer {@code ageInTicks} once when morph-to-wolf begins (model calls each frame). */
-    public void clientEnsureMorphAnimBaseline(float ageInTicks) {
-        if (this.level().isClientSide && Float.isNaN(this.clientMorphToWolfAnimBaselineAgeInTicks)) {
-            this.clientMorphToWolfAnimBaselineAgeInTicks = ageInTicks;
-        }
+    public float clientMove(float pt) {
+        return Mth.lerp(pt, this.clientMoveO, this.clientMove);
     }
 
-    public float getClientMorphAnimBaselineAgeInTicks() {
-        return this.clientMorphToWolfAnimBaselineAgeInTicks;
+    public float clientQuad(float pt) {
+        return Mth.lerp(pt, this.clientQuadO, this.clientQuad);
     }
 
-    private void clientResetMorphToWolfAnimBaseline() {
-        this.clientMorphToWolfAnimBaselineAgeInTicks = Float.NaN;
+    public float clientSnarl(float pt) {
+        return Mth.lerp(pt, this.clientSnarlO, this.clientSnarl);
+    }
+
+    /** 0..1 through the current claw swipe, or -1. */
+    public float clientAttackProgress(float pt) {
+        return progress(this.clientAttackStartTick, ATTACK_ANIM_TICKS, pt);
+    }
+
+    public boolean clientAttackLeft() {
+        return this.clientAttackLeft;
+    }
+
+    public float clientHowlProgress(float pt) {
+        return progress(this.clientHowlStartTick, HOWL_ANIM_TICKS, pt);
+    }
+
+    public float clientMorphToWolfProgress(float pt) {
+        return this.clientMorphingToWolf ? Math.min(1.0F, progress(this.clientMorphStartTick, MORPH_TO_WOLF_TICKS, pt)) : -1.0F;
+    }
+
+    public float clientMorphToHumanProgress(float pt) {
+        return this.clientMorphingToHuman ? Math.min(1.0F, progress(this.clientMorphStartTick, MORPH_TO_HUMAN_TICKS, pt)) : -1.0F;
+    }
+
+    private float progress(int start, int length, float pt) {
+        float p = (this.tickCount - start + pt) / length;
+        return p >= 0.0F && p < 1.0F ? p : -1.0F;
     }
 
     public void setWerewolfForm(boolean wolf) {
+        setWerewolfForm(wolf, true);
+    }
+
+    /** @param transform play the transformation (freeze, sounds); false on spawn. */
+    private void setWerewolfForm(boolean wolf, boolean transform) {
         if (this.level().isClientSide) {
             return;
         }
@@ -181,6 +217,12 @@ public class LycanthropeVillagerEntity extends PathfinderMob {
             return;
         }
         this.entityData.set(WEREWOLF_FORM, wolf);
+        if (transform) {
+            this.transformingTicks = wolf ? MORPH_TO_WOLF_TICKS : MORPH_TO_HUMAN_TICKS;
+            this.transformingToWolf = wolf;
+            this.getNavigation().stop();
+            this.playSound(com.hogwartsmagic.ModSounds.WEREWOLF_HURT.get(), 1.0F, wolf ? 0.6F : 0.9F);
+        }
         applyFormAttributes();
         if (wolf) {
             this.lastFullMoonForAttributes = isNaturalDimensionFullMoon();
@@ -257,6 +299,7 @@ public class LycanthropeVillagerEntity extends PathfinderMob {
 
     private void registerGoalsForCurrentForm() {
         this.goalSelector.addGoal(0, new FloatGoal(this));
+        this.goalSelector.addGoal(1, new HoldStillGoal());
         if (isWerewolfForm()) {
             this.goalSelector.addGoal(2, new MeleeAttackGoal(this, 1.4D, true));
             this.goalSelector.addGoal(5, new WaterAvoidingRandomStrollGoal(this, 0.9D));
@@ -271,6 +314,73 @@ public class LycanthropeVillagerEntity extends PathfinderMob {
             this.goalSelector.addGoal(3, new WaterAvoidingRandomStrollGoal(this, 0.45D));
             this.goalSelector.addGoal(4, new LookAtPlayerGoal(this, Player.class, 8.0F));
             this.goalSelector.addGoal(5, new RandomLookAroundGoal(this));
+        }
+    }
+
+    /** Server: holds the mob in place (and out of melee) through a transformation or a lone howl. */
+    private final class HoldStillGoal extends Goal {
+        HoldStillGoal() {
+            this.setFlags(EnumSet.of(Goal.Flag.MOVE, Goal.Flag.LOOK));
+        }
+
+        private boolean holding() {
+            LycanthropeVillagerEntity self = LycanthropeVillagerEntity.this;
+            return self.transformingTicks > 0 || (self.howlingTicks > 0 && self.getTarget() == null);
+        }
+
+        @Override
+        public boolean canUse() {
+            return holding();
+        }
+
+        @Override
+        public boolean canContinueToUse() {
+            return holding();
+        }
+
+        @Override
+        public void start() {
+            LycanthropeVillagerEntity.this.getNavigation().stop();
+        }
+
+        @Override
+        public boolean requiresUpdateEveryTick() {
+            return true;
+        }
+
+        @Override
+        public void tick() {
+            LycanthropeVillagerEntity self = LycanthropeVillagerEntity.this;
+            self.getNavigation().stop();
+            self.setDeltaMovement(self.getDeltaMovement().multiply(0.0, 1.0, 0.0));
+        }
+    }
+
+    @Override
+    public boolean doHurtTarget(net.minecraft.world.entity.Entity target) {
+        boolean hit = super.doHurtTarget(target);
+        if (isWerewolfForm()) {
+            this.level().broadcastEntityEvent(this, EVENT_SWIPE);
+        }
+        return hit;
+    }
+
+    /** Server: howl, with the animation on every watching client. */
+    private void howl() {
+        this.playSound(com.hogwartsmagic.ModSounds.WEREWOLF_HOWL.get(), 1.4F, 0.75F + this.random.nextFloat() * 0.15F);
+        this.level().broadcastEntityEvent(this, EVENT_HOWL);
+        this.howlingTicks = HOWL_ANIM_TICKS;
+    }
+
+    @Override
+    public void handleEntityEvent(byte id) {
+        if (id == EVENT_SWIPE) {
+            this.clientAttackStartTick = this.tickCount;
+            this.clientAttackLeft = !this.clientAttackLeft;
+        } else if (id == EVENT_HOWL) {
+            this.clientHowlStartTick = this.tickCount;
+        } else {
+            super.handleEntityEvent(id);
         }
     }
 
@@ -311,6 +421,16 @@ public class LycanthropeVillagerEntity extends PathfinderMob {
             if (this.transformCooldownTicks > 0) {
                 this.transformCooldownTicks--;
             }
+            if (this.transformingTicks > 0) {
+                this.transformingTicks--;
+                if (this.transformingToWolf && this.transformingTicks == MORPH_HOWL_AT_TICKS_LEFT) {
+                    // the roar the transformation rears up into (the client poses it in the morph clip)
+                    this.playSound(com.hogwartsmagic.ModSounds.WEREWOLF_HOWL.get(), 1.5F, 0.7F);
+                }
+            }
+            if (this.howlingTicks > 0) {
+                this.howlingTicks--;
+            }
             boolean night = shouldBeWerewolfFromWorld();
             if (this.transformCooldownTicks <= 0 && night != isWerewolfForm()) {
                 setWerewolfForm(night);
@@ -323,6 +443,13 @@ public class LycanthropeVillagerEntity extends PathfinderMob {
     private void tickServerWerewolfAmbience() {
         if (!isWerewolfForm() || !(this.level() instanceof ServerLevel server)) {
             return;
+        }
+        if (this.transformingTicks <= 0 && this.howlingTicks <= 0 && this.getTarget() == null) {
+            // full moon: often; any other night: now and then
+            int oneIn = isNaturalDimensionFullMoon() ? 260 : 1400;
+            if (this.random.nextInt(oneIn) == 0) {
+                howl();
+            }
         }
         if (isNaturalDimensionFullMoon()) {
             if (this.random.nextInt(140) == 0) {
@@ -337,104 +464,70 @@ public class LycanthropeVillagerEntity extends PathfinderMob {
                         0.35,
                         0.02);
             }
-            if (this.random.nextInt(220) == 0) {
-                this.playSound(com.hogwartsmagic.ModSounds.WEREWOLF_HOWL.get(), 1.2F, 0.75F + this.random.nextFloat() * 0.15F);
-            }
         }
     }
 
     private void clientSyncMorphWithSyncedForm() {
         boolean wolf = isWerewolfForm();
         if (this.clientPrevWerewolfForm == null) {
-            this.clientPrevWerewolfForm = wolf;
-            if (wolf) {
-                this.wolfIdleAnimationState.startIfStopped(this.tickCount);
-            } else {
-                this.humanIdleAnimationState.startIfStopped(this.tickCount);
-            }
+            this.clientPrevWerewolfForm = wolf;   // first sight: no transformation replayed
             return;
         }
         if (wolf == this.clientPrevWerewolfForm) {
             return;
         }
         this.clientMorphStartTick = this.tickCount;
+        this.clientMorphingToWolf = wolf;
+        this.clientMorphingToHuman = !wolf;
+        this.clientQuad = this.clientQuadO = 0.0F;
         if (wolf) {
-            this.clientMorphingToWolf = true;
-            this.clientMorphingToHuman = false;
-            this.clientResetMorphToWolfAnimBaseline();
-            this.wolfToIdleAnimationState.stop();
-            // Villager→wolf pose is driven by KeyframeAnimations in WhulvkWerewolfLycanModel; startIfStopped is a fallback if the model fails.
-            this.idleToWolfAnimationState.stop();
-            this.idleToWolfAnimationState.startIfStopped(this.tickCount);
-        } else {
-            this.clientMorphingToHuman = true;
-            this.clientMorphingToWolf = false;
-            this.idleToWolfAnimationState.stop();
-            this.wolfToIdleAnimationState.stop();
-            this.wolfToIdleAnimationState.startIfStopped(this.tickCount);
+            clientTransformBurst();               // the villager vanishes into it; the curled beast is left
         }
-        this.humanIdleAnimationState.stop();
-        this.wolfIdleAnimationState.stop();
-        this.walkWolfAnimationState.stop();
         this.clientPrevWerewolfForm = wolf;
     }
 
     private void tickClientMorphAndAnimations() {
         this.clientSyncMorphWithSyncedForm();
-        boolean wolf = isWerewolfForm();
-
         if (this.clientMorphingToWolf && this.tickCount >= this.clientMorphStartTick + MORPH_TO_WOLF_TICKS) {
             this.clientMorphingToWolf = false;
-            this.idleToWolfAnimationState.stop();
-            this.clientResetMorphToWolfAnimBaseline();
-            this.tickClientWolfWalkHysteresis(true);
         }
         if (this.clientMorphingToHuman && this.tickCount >= this.clientMorphStartTick + MORPH_TO_HUMAN_TICKS) {
             this.clientMorphingToHuman = false;
-            this.wolfToIdleAnimationState.stop();
+            clientTransformBurst();               // and the villager steps out of it
+        }
+        if ((this.clientMorphingToWolf || this.clientMorphingToHuman) && this.random.nextInt(3) == 0) {
+            this.level().addParticle(ParticleTypes.SMOKE, this.getRandomX(0.6), this.getRandomY(), this.getRandomZ(0.6), 0, 0.02, 0);
         }
 
-        if (this.clientMorphingToWolf || this.clientMorphingToHuman) {
-            return;
+        this.clientStrideO = this.clientStride;
+        this.clientMoveO = this.clientMove;
+        this.clientQuadO = this.clientQuad;
+        this.clientSnarlO = this.clientSnarl;
+        double dx = this.getX() - this.xo, dz = this.getZ() - this.zo;
+        float dist = (float) Math.sqrt(dx * dx + dz * dz);
+        this.clientStride += dist;
+        if (this.clientStride > 6400.0F) {                 // keep float precision; both stride lengths divide it
+            this.clientStride -= 6400.0F;
+            this.clientStrideO -= 6400.0F;
         }
-
-        if (wolf) {
-            this.tickClientWolfWalkHysteresis(false);
-            if (this.clientWolfLegsMoving) {
-                this.walkWolfAnimationState.startIfStopped(this.tickCount);
-                this.wolfIdleAnimationState.stop();
-            } else {
-                this.wolfIdleAnimationState.startIfStopped(this.tickCount);
-                this.walkWolfAnimationState.stop();
-            }
-            this.humanIdleAnimationState.stop();
-        } else {
-            this.clientWolfLegsMoving = false;
-            this.humanIdleAnimationState.startIfStopped(this.tickCount);
-            this.wolfIdleAnimationState.stop();
-            this.walkWolfAnimationState.stop();
-        }
+        float moveTarget = Mth.clamp(dist / 0.11F, 0.0F, 1.0F);
+        this.clientMove += (moveTarget - this.clientMove) * 0.3F;
+        boolean hunting = isWerewolfForm() && this.isAggressive();
+        float quadTarget = hunting && this.clientMove > 0.3F ? 1.0F : 0.0F;
+        this.clientQuad = approach(this.clientQuad, quadTarget, 0.12F);
+        this.clientSnarl = approach(this.clientSnarl, hunting ? 1.0F : 0.0F, 0.1F);
     }
 
-    /**
-     * Updates {@link #clientWolfLegsMoving} from vanilla walk animation speed (already smoothed on the client).
-     *
-     * @param forceSample when true, set state from current speed without hysteresis (after morph ends).
-     */
-    private void tickClientWolfWalkHysteresis(boolean forceSample) {
-        float speed = this.walkAnimation.speed();
-        if (forceSample) {
-            this.clientWolfLegsMoving = speed > WOLF_WALK_SPEED_ENTER;
-            return;
-        }
-        if (this.clientWolfLegsMoving) {
-            if (speed < WOLF_WALK_SPEED_EXIT) {
-                this.clientWolfLegsMoving = false;
-            }
-        } else {
-            if (speed > WOLF_WALK_SPEED_ENTER) {
-                this.clientWolfLegsMoving = true;
-            }
+    private static float approach(float v, float target, float step) {
+        return v < target ? Math.min(target, v + step) : Math.max(target, v - step);
+    }
+
+    /** Client: the smoke the swap between villager and beast happens inside. */
+    private void clientTransformBurst() {
+        for (int i = 0; i < 28; i++) {
+            double vx = this.random.nextGaussian() * 0.04, vy = this.random.nextDouble() * 0.06, vz = this.random.nextGaussian() * 0.04;
+            this.level().addParticle(i % 3 == 0 ? ParticleTypes.LARGE_SMOKE : ParticleTypes.POOF,
+                    this.getRandomX(0.9), this.getY() + this.random.nextDouble() * 2.0, this.getRandomZ(0.9), vx, vy, vz);
         }
     }
 
@@ -489,7 +582,7 @@ public class LycanthropeVillagerEntity extends PathfinderMob {
     public SpawnGroupData finalizeSpawn(ServerLevelAccessor level, DifficultyInstance difficulty, MobSpawnType spawnType, @Nullable SpawnGroupData groupData) {
         SpawnGroupData data = super.finalizeSpawn(level, difficulty, spawnType, groupData);
         if (!level.getLevel().isClientSide) {
-            setWerewolfForm(shouldBeWerewolfFromWorld());
+            setWerewolfForm(shouldBeWerewolfFromWorld(), false);
         }
         return data;
     }
